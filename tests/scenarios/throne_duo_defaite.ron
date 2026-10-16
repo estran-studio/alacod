@@ -1,3 +1,4 @@
+// D66 (2026-10-16, dette-d66-vue-directe) : le `rodeur` de la première caverne voit désormais un joueur en ligne de vue dégagée jusqu'à 900 unités (`sight_range`, conventions §22) au lieu d'errer hors de son `Sight(300)` : il fonce sur le bot, la trace entière bouge dès f1 et les repères de temps se décalent ; joueur 1 à terre à f545 (avant f625), joueur 0 mort à f579 et défaite à f579 (avant f732/f731) : le rodeur arrive avec les autres au lieu de rester dans son coin.
 // D43 (m1-d43-d44-fin-de-partie, réécrit dans m1-d43-defaite-scriptee) : défaite en mode `Floors`
 // à deux joueurs, **sans bot** (deux joueurs scriptés immobiles) : le scénario ne dépend d'aucun
 // profil de bot (les correctifs et la réanimation des bots changeaient son issue). Les ennemis
@@ -25,13 +26,13 @@ Scenario(
         (),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 700),
-        RunState(step: Playing, at_frame: 725),
-        PlayerDowned(handle: 1, at_frame: 690),
-        PlayerAlive(handle: 0, at_frame: 725),
-        Defeat(by_frame: 735),
-        RunState(step: Ended(Defeat), at_frame: 740),
+        FloorIndex(index: 0, at_frame: 570),
+        RunState(step: Playing, at_frame: 570),
+        PlayerDowned(handle: 1, at_frame: 560),
+        PlayerAlive(handle: 0, at_frame: 570),
+        Defeat(by_frame: 585),
+        RunState(step: Ended(Defeat), at_frame: 590),
         // Défaite déclarée pendant que le dernier joueur saigne encore
-        PlayerDowned(handle: 1, at_frame: 760),
+        PlayerDowned(handle: 1, at_frame: 610),
     ],
 )

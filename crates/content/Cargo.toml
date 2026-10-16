@@ -11,6 +11,7 @@ effects = { path = "../effects", features = ["schema"] }
 world = { path = "../world", features = ["schema"] }
 items = { path = "../items", features = ["schema"] }
 meta = { path = "../meta", features = ["schema"] }
+run = { path = "../run", features = ["schema"] }
 bevy = { version = "0.19.1", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"

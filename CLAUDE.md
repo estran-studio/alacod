@@ -391,6 +391,10 @@ crate `APP`), jamais dans un crate `SIM`.
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
       `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
+    - M3-T0e curses et pools (§64) : `Curse(floor, id: Some("…") | None, at_frame)` (curse de l'étage,
+      `run::RunCurses`), `PoolSeen(pool, item, seen, at_frame)` (objet sorti d'un pool à épuisement,
+      `items::PoolState`) ; rien ne remplit ces ressources avant M3-T8/T9, le témoin
+      `curse_pool_unset` n'attend que `None` / `seen: false`.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
@@ -929,3 +933,14 @@ devient leur cible (`enemy_target_selection`) : ils la frappent avec le cooldown
 collider : elle bloque toujours les joueurs, plus les zombies ; la réparer la rend bloquante à nouveau.
 Dans le flow field, une fenêtre intacte coûte `breakable_penalty` (le temps de la casser) : les
 zombies prennent un passage ouvert s'il n'est pas beaucoup plus long.
+
+**Perception et vue directe** (D66, `docs/conventions.md` §22) : `move_enemies` suit le champ de flux
+vers le joueur le plus proche **quel que soit l'état** (`Idle` ou `Chasing`) : `aggro_range` ne
+décide que de la **cible** (donc des attaques, des tirs et des règles à cible comme `Chase` d'un
+`Wander`). Un ennemi à `Wander` (`throne/rodeur`) hors de son rayon errait donc dans son coin, même
+avec le joueur en face. `ai.sight_range` (donnée, défaut `aggro_range` : rien ne bouge) cible un
+joueur en **ligne de vue dégagée** (`FlowFieldCache::line_of_sight`, `wall_cells`, `FixedWide`,
+tie-break par `net_id` comme le reste de `enemy_target_selection`) jusqu'à cette portée, et le garde
+tant qu'il est à portée même derrière un coin (mémoire = `EnemyTarget`, déjà rollback). Champ statique,
+hors `Hash` et hors `Debug` quand il est absent : un jeu qui ne le pose pas ne voit aucune trace bouger.
+Diagnostic : test ignoré `sight_probe` (`crates/scenario/tests/scenarios.rs`).

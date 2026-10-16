@@ -1,0 +1,25 @@
+// D66 (docs/conventions.md §22), le cas de la revue de William sur la vraie carte : caverne du
+// premier étage (`cave:niveau_1`, graine 4, la même génération que la run de graine 4), joueur
+// immobile en (376, 248). Le `rodeur` #75, posé en (72, 454) à 367 unités du joueur avec une
+// vue dégagée, restait **dans son coin** (`Idle`, il errait contre le mur ouest entre x 58 et
+// 108, sprite de 32 px enfoncé de 12 px dans la roche pendant 795 frames, `nav_stats`) parce que
+// `Sight(300)` ne portait pas jusqu'à lui ; avec `sight_range` 900 il part dès f1 vers le joueur
+// et le touche vers f450 (rouge avant D66, vert avec). Les rats et le chien tuent le joueur
+// immobile vers f560 : l'attente est à f450.
+//
+// À regarder : le rodeur quitte sa niche du bord ouest et traverse la caverne en ligne droite.
+Scenario(
+    game: "throne",
+    map: "cave:niveau_1",
+    mode: Sandbox,
+    map_seed: 4,
+    frames: 520,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EnemyDistance(entity: NetId(75), target: Player(0), max: Some(45.0), at_frame: 450),
+        PlayerAlive(handle: 0, at_frame: 450),
+    ],
+    powerup_drop_chance_override: "0",
+)

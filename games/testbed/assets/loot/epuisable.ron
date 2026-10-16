@@ -1,0 +1,11 @@
+// M3-T0e (docs/conventions.md §64) : pool à épuisement : un objet sorti n'y revient plus pendant la
+// run (`items::PoolState`, `draw_exhausting`). Contrat seul : le tirage à la génération de l'étage
+// est exécuté par M3-T8.
+(
+    entries: [
+        (pick: Item("bottes"), weight: 1),
+        (pick: Item("boussole"), weight: 1),
+        (pick: Item("lame"), weight: 1),
+    ],
+    exhaust: true,
+)

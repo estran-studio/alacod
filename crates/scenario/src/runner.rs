@@ -2896,6 +2896,34 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M3-T0e (§64) : curse de l'étage (ressource rollback neutre `run::RunCurses`).
+        Expectation::Curse { floor, id, .. } => {
+            let actual = world
+                .get_resource::<run::RunCurses>()
+                .and_then(|curses| curses.get(*floor).map(str::to_string));
+            if actual == *id {
+                Ok(())
+            } else {
+                Err(format!(
+                    "curse de l'étage {floor} : {actual:?} (attendu {id:?})"
+                ))
+            }
+        }
+        // M3-T0e (§64) : objets sortis des pools à épuisement (`items::PoolState`).
+        Expectation::PoolSeen {
+            pool, item, seen, ..
+        } => {
+            let actual = world
+                .get_resource::<items::PoolState>()
+                .is_some_and(|state| state.has_seen(pool, item));
+            if actual == *seen {
+                Ok(())
+            } else {
+                Err(format!(
+                    "pool « {pool} » : « {item} » sorti = {actual} (attendu {seen})"
+                ))
+            }
+        }
         // M2-T13 : décisions du hub dans la simulation (`game::hub::HubState`).
         Expectation::HubExit {
             handle,

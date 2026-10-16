@@ -1,0 +1,31 @@
+// M3-T0e (docs/conventions.md §64) : témoin des contrats de curse et de pool. La séquence `maudit`
+// du testbed (mêmes deux niveaux que `deux_niveaux`) déclare `curses: Some((chance: "0.5", …))` et
+// le pool `epuisable` est `exhaust: true`, mais rien n'exécute encore le tirage (M3-T9) ni
+// l'épuisement (M3-T8) : aucun étage n'est maudit et aucun objet n'est sorti d'un pool. Même partie
+// que `portal_next_floor` sur ses 300 premières frames : leurs dumps complets (§5) sont identiques
+// frame à frame, à la chaîne `Run.mode` (`Floors { config }`, hachée) près (`trace-diff.py --ignore
+// Run`) : le champ `curses` ne change aucun état rollback.
+//
+// À regarder : comme `portal_next_floor` (tir sur le follower, portail, passage au niveau 1 f230) ;
+// aucune différence visible, c'est le but.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("maudit"),
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 0, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 220, to: 226, buttons: [Right, Down], pan: (0, 0)),
+        ]),
+    ],
+    expect: [
+        FloorIndex(index: 0, at_frame: 220),
+        FloorIndex(index: 1, at_frame: 240),
+        // Ni l'étage 0 (quitté) ni l'étage 1 (courant) ne portent de curse.
+        Curse(floor: 0, id: None, at_frame: 220),
+        Curse(floor: 1, id: None, at_frame: 240),
+        Curse(floor: 1, id: None, at_frame: 300),
+        PoolSeen(pool: "epuisable", item: "bottes", seen: false, at_frame: 300),
+    ],
+)

@@ -860,6 +860,9 @@ pub struct FloorsEntry {
     /// M2-T5 : pool de butin de chaque étage (index = étage, le dernier vaut pour les suivants) ;
     /// vide : `commun` pour les coffres, `salle` pour les récompenses de salle.
     pub loot: Vec<String>,
+    /// M3-T0e (§64) : chance par étage et pool de curses (`curses/<id>.ron`, kind `Curse`) ;
+    /// `None` : aucune curse dans cette séquence.
+    pub curses: Option<run::CurseConfig>,
 }
 
 /// Caverne générée (T1.6, `docs/conventions.md` §21), un fichier RON par caverne
@@ -1071,6 +1074,9 @@ struct FloorsFileSchema {
     /// M2-T5 : voir [`FloorsEntry::loot`].
     #[serde(default)]
     loot: Vec<String>,
+    /// M3-T0e : voir [`FloorsEntry::curses`].
+    #[serde(default)]
+    curses: Option<run::CurseConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -1395,6 +1401,25 @@ pub struct UnlockEntry {
     pub def: items::UnlockDef,
 }
 
+/// Curse de run (M3-T0e, `docs/conventions.md` §64), un fichier RON par curse (`curses/<id>.ron`
+/// dans un dossier de kind `Curse`, champs de [`run::CurseDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct CurseEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: run::CurseDef,
+}
+
+/// Accomplissement (M3-T0e, `docs/conventions.md` §64), un fichier RON par accomplissement
+/// (`achievements/<id>.ron` dans un dossier de kind `Achievement`, champs de
+/// [`meta::AchievementDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct AchievementEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: meta::AchievementDef,
+}
+
 /// Service du hub (M2-T13, `docs/conventions.md` §57), un fichier RON par service
 /// (`hub/<id>.ron` dans un dossier de kind `HubService`, champs de [`meta::HubServiceDef`]) ;
 /// id = nom de fichier.
@@ -1595,6 +1620,10 @@ pub struct Registry {
     pub loot_tables: BTreeMap<String, LootTableEntry>,
     /// M2-T12 : déblocages de méta-progression (kind `Unlock`).
     pub unlocks: BTreeMap<String, UnlockEntry>,
+    /// M3-T0e : curses de run (kind `Curse`).
+    pub curses: BTreeMap<String, CurseEntry>,
+    /// M3-T0e : accomplissements (kind `Achievement`).
+    pub achievements: BTreeMap<String, AchievementEntry>,
     /// M2-T13 : services du hub (kind `HubService`).
     pub hub_services: BTreeMap<String, HubServiceEntry>,
     /// M2-T12 : règles d'essence (kind `MetaEconomy`).
@@ -1675,6 +1704,8 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Synergy",
     "LootTable",
     "Unlock",
+    "Curse",
+    "Achievement",
     "MetaEconomy",
     "HubService",
     "Prop",
@@ -1776,6 +1807,8 @@ impl Registry {
                 "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
                 "LootTable" => load_loot_tables(&assets_dir, decl, &mut registry, &mut errors),
                 "Unlock" => load_unlocks(&assets_dir, decl, &mut registry, &mut errors),
+                "Curse" => load_curses(&assets_dir, decl, &mut registry, &mut errors),
+                "Achievement" => load_achievements(&assets_dir, decl, &mut registry, &mut errors),
                 "HubService" => load_hub_services(&assets_dir, decl, &mut registry, &mut errors),
                 "MetaEconomy" => load_meta_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Prop" => load_props(&assets_dir, decl, &mut registry, &mut errors),
@@ -2224,6 +2257,10 @@ struct AiSchema {
     /// M2-T8 : `squad: Some(("id", Some("role")))`, voir `game::...::state::SquadRon`.
     #[serde(default)]
     squad: Option<(String, Option<String>)>,
+    /// D66 : portée de la vue directe (`sight_range`, `game::...::state::EnemyAiConfig`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    sight_range: Option<FixedField>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -3212,6 +3249,7 @@ fn load_floors(
                 victory_at_end: parsed.victory_at_end,
                 consumables_per_floor: parsed.consumables_per_floor,
                 loot: parsed.loot,
+                curses: parsed.curses,
             },
         );
     }
@@ -3449,6 +3487,57 @@ fn load_unlocks(
         registry
             .unlocks
             .insert(id.clone(), UnlockEntry { id, file: rel, def });
+    }
+}
+
+/// M3-T0e : `curses/<id>.ron` (kind `Curse`), une curse par fichier ; id = nom de fichier.
+fn load_curses(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<run::CurseDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.curses.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de curse « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .curses
+            .insert(id.clone(), CurseEntry { id, file: rel, def });
+    }
+}
+
+/// M3-T0e : `achievements/<id>.ron` (kind `Achievement`), un accomplissement par fichier ; id =
+/// nom de fichier.
+fn load_achievements(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<meta::AchievementDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.achievements.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id d'accomplissement « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .achievements
+            .insert(id.clone(), AchievementEntry { id, file: rel, def });
     }
 }
 
@@ -4509,6 +4598,8 @@ pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
         "Wave" => schemars::schema_for!(WaveConfigFileSchema),
         "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
         "Unlock" => schemars::schema_for!(items::UnlockDef),
+        "Curse" => schemars::schema_for!(run::CurseDef),
+        "Achievement" => schemars::schema_for!(meta::AchievementDef),
         "MetaEconomy" => schemars::schema_for!(meta::EssenceRules),
         "HubService" => schemars::schema_for!(meta::HubServiceDef),
         _ => return None,

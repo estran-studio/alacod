@@ -1,0 +1,3 @@
+// M3-T0e (§64) : une curse à modificateur de stat : -15 % de vitesse de déplacement pour
+// chaque joueur, le temps de l'étage (source `curse:maze`).
+(weight: 2, effects: [Modifier(MoveSpeed, Mul, "0.85")])

@@ -1,3 +1,4 @@
+// D66 (2026-10-16, dette-d66-vue-directe) : le `rodeur` de la première caverne voit désormais un joueur en ligne de vue dégagée jusqu'à 900 unités (`sight_range`, conventions §22) au lieu d'errer hors de son `Sight(300)` : il fonce sur le bot, la trace entière bouge dès f1 et les repères de temps se décalent ; étage 3 à f3960 (avant ~f4420) ; les autres repères tiennent (étage 1 à f807, étage 2 à f2030).
 // D50 (2026-10-15) : `drop_chance` de throne 0,25 -> 0,40 : un drop de munitions de plus à la mort d'un ennemi ; mutations à f4430 : [adrenaline, rancune] (avant [adrenaline, coriace]).
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
 // et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
@@ -41,8 +42,8 @@ Scenario(
     expect: [
         FloorIndex(index: 1, at_frame: 885),
         FloorIndex(index: 2, at_frame: 2050),
-        FloorIndex(index: 2, at_frame: 4410),
-        FloorIndex(index: 3, at_frame: 4430),
+        FloorIndex(index: 2, at_frame: 3950),
+        FloorIndex(index: 3, at_frame: 3970),
         Event(kind: "floor", label_contains: Some("niveau 3"), by_frame: 4430),
         Event(kind: "levelup", by_frame: 445),
         Clock(id: "alerte", fired: true, at_frame: 2940),

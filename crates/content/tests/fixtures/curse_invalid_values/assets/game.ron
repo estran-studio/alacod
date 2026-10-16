@@ -1,0 +1,8 @@
+// Fixture M3-T0e : valeurs de curse refusées par `lint::lint_curses`.
+(
+    name: "fixture-curse-invalid-values",
+    content_folders: [
+        (path: "curses", kind: "Curse"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)
