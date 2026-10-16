@@ -4558,8 +4558,9 @@ optionnels, files transitoires (hors checksum, vidées au `FrameStart`).
   (`portee`), `effect_apply_status` (`morsure`), `effect_pickup_filtered` (`filtre`), `effect_per_copy`,
   `effect_scale_per_copy` (`empile`). Unitaires : `effects_v3::tests`, `effects_runtime::tests`,
   `effects::runtime::tests`, `crates/scenario/tests/effects_v3.rs` (`HitLanded` dans le vrai résolveur).
-- **Échelle** : `effects_hundred_items` (100 objets : `Tick`, `OnHit`, `OnKill`, `machine_gun` sur un `dummy`
-  puis une `target`) et son témoin sans objets. `advance_ms_avg`, trois exécutions du même run, machine
+- **Échelle** : `effects_hundred_items` (100 objets : 97 `cent_*` de charge et 3 observateurs à une charge, un par
+  famille `Tick`, `OnHit`, `OnKill`, dont la conséquence visible est comparée au témoin ; `machine_gun` sur un
+  `dummy` puis une `target`, le `follower` de la carte meurt aussi) et son témoin sans objets. `advance_ms_avg`, trois exécutions du même run, machine
   partagée (indicatif) : **0,19 ms** avec les 100 objets, **0,12 ms** sans, 0,145 ms pour `four_players_idle`
   (115 entités). Surcoût ≈ 0,07 ms par frame sur 16,7 : `listed_effects` n'est pas précalculé.
 - Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b), transformations (Q10, non retenues
