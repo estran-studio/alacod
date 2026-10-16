@@ -31,6 +31,9 @@
         // M2-T11 : tables renversables et barils explosifs (entités LDtk `Table` / `Barrel` des
         // gabarits CombatEW et CombatNS de `maps/salles.ldtk`, docs/conventions.md §46).
         (path: "props", kind: "Prop"),
+        // M2-T14d : surfaces des gabarits `coffre` et `secret` (couche IntGrid `Surfaces` de
+        // `maps/salles.ldtk`, docs/conventions.md §26 et §52.d).
+        (path: "surfaces", kind: "Surface"),
         (path: "economy/economy.ron", kind: "Economy"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),

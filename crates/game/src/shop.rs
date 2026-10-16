@@ -500,6 +500,7 @@ mod tests {
             projectile: None,
             familiar: None,
             max_stack: None,
+            stack: Default::default(),
         }
     }
 

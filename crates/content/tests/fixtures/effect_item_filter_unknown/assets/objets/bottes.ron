@@ -1,0 +1,3 @@
+(name: "Objet", kind: Passive, effects: [
+    (on: OnPickup, item: Some("fantome"), do: [Heal("1")]),
+])

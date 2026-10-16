@@ -1,0 +1,26 @@
+// M3-T2 (docs/conventions.md §67) : `OnHit`, `ApplyStatus` sur la cible, `Emit`/`OnEvent`. Le joueur 0
+// porte une `vipere` et tire une balle (f30) plein ouest sur une `target` placée en (560, -194).
+//
+// À regarder : la cible se teinte de vert à l'impact (poison), pas avant ; le bonus de dégâts
+// (« coup » émis puis lu dans la même frame) n'existe qu'après le premier coup.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 150,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "560.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 30, to: 32, buttons: [Fire], pan: (-127, 0))],
+            weapon: "pistol",
+            items: ["vipere"],
+        ),
+    ],
+    expect: [
+        HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 29),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 29),
+        HasStatus(entity: Placed(0), status: "poison", at_frame: 60),
+        StatusStacks(entity: Placed(0), status: "poison", stacks: 1, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 60),
+    ],
+)

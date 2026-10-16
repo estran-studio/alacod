@@ -1,0 +1,9 @@
+// Type de salle `coffre` (M2-T14d, docs/conventions.md §52.d) : pas de verrou, un coffre ouvert au centre
+// (M2-T5, §48), pool de l'étage, rareté minimale Uncommon. À la différence de `recompense` (coffre à clé),
+// il s'ouvre à mains nues : le joueur qui n'a pas trouvé de clé y trouve quand même un objet.
+(
+    // M2-T14d (§52.d, scénario généré `room_coffre`) : un bot `explorateur` traverse l'étage `court_coffre` et reste en vie.
+    test: Some((frames: 300, floors: "etages_court_coffre", seed: 1)),
+    locks: false,
+    chest: Some((locked: false, rarity: Uncommon)),
+)

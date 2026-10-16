@@ -1,10 +1,11 @@
-// Pool de la récompense de salle (M2-T5) : consommables. Une salle `combat` nettoyée laisse une
-// récompense une fois sur trois ; une fois sur quatre c'est un coffre (pool `commun`).
+// Pool de la récompense de salle (M2-T5) : consommables. D64 (M2-T14d, §52.d) : une salle `combat` nettoyée laisse
+// toujours une récompense (`chance: 1.0`) ; une fois sur dix c'est un coffre (pool `commun`), sinon `ration` 6/9,
+// `blank` 2/9, `key` 1/9.
 (
     entries: [
-        (pick: Item("key"), weight: 3),
+        (pick: Item("key"), weight: 1),
         (pick: Item("blank"), weight: 2),
-        (pick: Item("ration"), weight: 2),
+        (pick: Item("ration"), weight: 6),
     ],
-    reward: Some((chance: "0.33", chest_chance: "0.25")),
+    reward: Some((chance: "1.0", chest_chance: "0.1")),
 )

@@ -2852,9 +2852,10 @@ d'id** du dossier `Floors` (`run_state::resolve_run_mode_with_floors`). Ajouter 
 passe avant l'ancien change la partie par défaut : les séquences de grammaire de `gungeon` sont
 nommées `etages_*` pour que `etage_1` (T0d) reste la première. Même piège pour tout nouveau jeu.
 
-**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (9 gabarits de 8×8 tuiles, script
-`docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`, `CombatEW/NS/T/Croix`,
-`Recompense`, `Boutique`, `BossW/N`. Grammaires `etage` (8–12 salles), `grand` (15–20) et `court`
+**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits de 8×8 tuiles depuis M2-T14d, §52.d ;
+les neuf d'origine viennent du script `docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`,
+`CombatEW/NS/T/Croix`, `Recompense`, `Boutique`, `BossW/N`, puis `ArenaEW/Croix` (M2-T7), `EscouadeEW` (M2-T8),
+`Coffre`, `Secret` et `ArenaNS` (T14d). Grammaires `etage` (10–14 salles depuis T14d), `grand` (15–20) et `court`
 (3 salles : départ, combat, boss) ; séquences `etages_grammaire`, `etages_grand`, `etages_court`,
 `etages_court_deux`. T0d (`etage_1`) reste la séquence par défaut : les traces `gungeon_*` d'avant
 ne bougent pas, la grammaire est activée par `floors: Some("etages_...")`.
@@ -3662,6 +3663,65 @@ appuient). `alacod lint gungeon` : aucun nouvel avertissement d'ennemi.
 inchangées. Un renfort `lanceur_kin` en phase 2 a été essayé : le bot meurt et `gungeon_boss_bot` dépasse son
 `EntityCount`, retiré.
 
+### 52.d Gabarits de salles et équilibrage de l'étage, D64 (T14d)
+
+Données seulement (`games/gungeon/assets/`, scénarios, traces gungeon), aucun code de moteur ; le test de
+grammaire `map_ldtk::generation::tests` a ses constantes mises à jour (bornes de `etage`, types exigés,
+gabarits décorés). Scripts : `docs/taches/rapports/m2-t14d-gabarits.make_gabarits.py` (gabarits et couche
+`Surfaces`) et `.make_ennemis.py` (composition des ennemis par gabarit), idempotents. Rapport et mesures :
+`docs/taches/rapports/m2-t14d-gabarits.md`.
+
+**Quinze gabarits** (8×8 cases, ouvertures de deux cases au milieu des côtés) : `Depart`, `CombatEW/NS/T/Croix`,
+`Recompense`, `Boutique`, `BossW/N`, `ArenaEW/Croix`, `EscouadeEW` (douze avant T14d) et trois nouveaux :
+
+| Gabarit | Type (`room_kind`) | Ouvertures | Contenu |
+|---|---|---|---|
+| `Coffre` | `coffre` | N E S W | trois tables, sable (`Surfaces`) autour du coffre central |
+| `Secret` | `secret` | W (cul-de-sac) | trois tables, eau et fosse dans les angles |
+| `ArenaNS` | `arene` | N S | deux barils et une table (les vagues viennent de `rooms/arene.ron`) |
+
+Types de salle nouveaux (`rooms/`) : `coffre` (non verrouillant, coffre ouvert au centre, rareté mini Uncommon, pool
+de l'étage) et `secret` (idem, rareté Rare, cul-de-sac). **« Secret » ne l'est que par sa place** : le mur secret
+(`DoorLock::Secret`, §62, exécuté par M3-T4) exige une bombe et `gungeon` n'en donne aucune (D81) : un mur plein
+que personne ne casserait. Un coffre de salle s'ouvre par Interaction : le
+bot ne le fait qu'avec `alacod-sim --shopping`. Les tables ne sont jamais posées devant une ouverture (une table
+sur les deux cases d'ouverture murerait la salle). Les accessoires sont toujours trois par salle décorée (le test
+de décor compte `CombatEW`, `CombatNS`, `Coffre`, `Secret`, `ArenaNS`).
+
+**Surfaces dans `gungeon`** : dossier `surfaces/` (`eau` 1, `sable` 2, `fosse` 4, copies de celles du testbed ;
+pas de glace, aucun gabarit n'en pose), couche IntGrid `Surfaces` ajoutée au projet de `salles.ldtk` et aux
+seuls niveaux `Coffre` et `Secret` ; la couche suit le gabarit dans l'étage assemblé (sonde `map_probe` : « fosse :
+3 cases » sur la graine 28). `SurfaceGrid` est neutre quand elle est vide : les étages sans gabarit à surface
+gardent leur hash.
+
+**Grammaire `etage`** : de 10 à 14 salles, types exigés `boss`, `recompense`, `boutique`, `arene`, **`escouade`**,
+`coffre`, `secret` (une fois chacun) ; le reste en `combat` (2 à 6 salles). La salle `escouade` de M2-T8 n'existait
+que dans la grammaire `court_escouade`. Validée sur 1 000 graines par `gungeon_etages_de_grammaire`
+(`ALACOD_FLOOR_SEEDS=1000`) et `gungeon_decor_sur_1000_graines`. `court`, `grand` et `court_escouade` ne
+bougent pas (leurs scénarios scriptés gardent leur forme). `court_arene` et `court_coffre` (départ, la salle, boss)
+portent les `test:` de `rooms/arene.ron` et `rooms/coffre.ron` ; `rooms/escouade.ron` joue `etages_court_escouade`.
+Scénarios générés `room_arene`, `room_coffre`, `room_escouade`, `room_secret` (grammaire `court_secret`, 5 salles).
+
+**D64, équilibrage** (leviers, tous en données). Un `bullet_kin` : 30 PV (40), salve de trois balles simples de
+4 dégâts (trois salves de deux, 6 dégâts), recharge de 150 frames (90), `ricochet` : `Bounce(1)`, portée 320 (500) ;
+idem `bullet_kin_squad`. Autres ennemis : `crachat` 4 (6), `chevrotine` 3 (5), explosion de `grenade` 10 (14) et
+éclat 3 (4), `bandana_kin` 10 de dégât (15), `tourelle_kin` 60 PV (90) et `croix` avec la nouvelle boule `boulette`
+(4 dégâts : `boule` reste celle du boss, non touchée). Gabarits (ennemis avant → après) : `CombatEW` 2 `bullet_kin` + `shotgun_kin` + `fuyard_kin` → 2 `bullet_kin` + `fuyard_kin` ;
+`CombatNS` 2 `bullet_kin` + `veteran_kin` + `tourelle_kin` → 2 `bullet_kin` + `veteran_kin` ; `CombatCroix` 3 `bullet_kin` +
+`bandana_kin` + `lanceur_kin` → 2 `bullet_kin` + `shotgun_kin` ; `CombatT` (3 `bullet_kin`) et `EscouadeEW` inchangés ; positions
+aux coins de la salle. Arène :
+horloge 750 (900), vagues à 0/250/500 (0/300/600), un `bullet_kin` au lieu de deux, un au lieu de trois. Soin :
+chaque salle `combat` nettoyée laisse une récompense (`salle.ron` : chance 1, ration 6/9) et la `ration` rend 25 PV (15).
+Joueur, boss, armes du joueur : intouchés (le renfort `bullet_kin` du boss profite de l'allègement).
+
+**Mesures** (`alacod-sim`, `etages_deux`, 200 graines, explorateur, `until-floor 1`) : à 1 bot 200 morts sur 200 → 54
+(27 %) ; à 2 bots 174 → 7 (3,5 %) ; 0 desync. Soft-locks : 0 avant, 4 sur 200 à 1 bot après, 0 à 2 bots ; cause
+et pistes dans le rapport (bot : cycle limite devant une ouverture de deux cases, dette D82).
+
+**Graines** (2 bots, `etages_deux`, `--shopping` ; `docs/taches/rapports/m2-t14d-gabarits/rencontre.py`) : 41 :
+coffre secret f369, coffre f1045, escouade f1096-f1233, arène f1476-f2226, boutique f2334, baril f604 ; 13 : secret
+f1100, coffre f3392, arène f2064-f2814, escouade f2971-f3257, boutique f1663.
+
 ## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
 
 Lint seulement : aucune simulation touchée, aucune trace ne bouge.
@@ -4455,6 +4515,56 @@ statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
 
 Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios
 testbed seulement.
+
+## 67. Effets v3 : `OnHit`, `OnEvent`/`Emit`, `ApplyStatus`, `PerCopy` (M3-T2, chantier C1 v3)
+
+Exécute les contrats de §61. **Aucune trace existante ne bouge** : variantes en fin d'enum, champs
+optionnels, files transitoires (hors checksum, vidées au `FrameStart`).
+
+- **`OnHit`** : le porteur a infligé un dégât **réel** (> 0, après immunité, bouclier, armure) à une autre
+  entité. `character::health::rollback_resolve_damage_events` émet `effects_v3::HitLanded`, lu par
+  `apply_effects_system`. Jamais pour un dégât que la source s'inflige. La condition `TargetInRange` lit
+  la position de la cible (`OnHit`, `OnKill`, `OnDamageTaken`) ; fausse sans cible.
+- **`ApplyStatus { status, stacks }`** dans un effet : statut posé sur la **cible** du déclencheur, donc
+  `OnHit` ou `OnDamageTaken` (la source du coup) seulement. **Pas `OnKill`** : la cible est morte dans la
+  frame, le statut ne serait jamais posé (lint : refusé) ; pour un effet à la mort, `ApplyStatusSelf` pose
+  sur le porteur. Posé par `effects_v3::effect_status_system` avec la règle des `on_hit` de projectile
+  (auteur crédité des dégâts, `Slow` pose son modificateur de vitesse). Statut inconnu et `stacks = 0` : lint.
+- **`OnPickup` filtré** : champ `item: Some("bottes")` de l'**effet** (pas une variante `OnPickup(Some(item))` :
+  l'enum `On` et le hash des effets existants ne bougent pas). Sans filtre, tout ramassage ; avec, le seul
+  objet nommé (le sien compris). Lint : `item` hors `OnPickup` et objet inconnu refusés. Hors hash quand absent.
+- **`Emit(nom)` / `OnEvent(nom)`** : les effets `OnEvent` du même porteur répondent aux `Emit` de ses
+  effets, dans la même frame, par tours (`MAX_EVENT_ROUNDS` = 8, au-delà les émissions sont abandonnées
+  avec un `warn!`). Le lint refuse un nom vide ; il ne vérifie pas qu'un `OnEvent` a un émetteur.
+- **`Scaled { PerCopy }`** : l'action enveloppée n'est exécutée **qu'une fois par objet** (par le premier
+  exemplaire), multipliée par le nombre d'exemplaires (`Inventory::count`). `scale: None` est transparent.
+  **Actions linéaires seulement** (`effects::actions::is_linear`) : `Heal`, `GainShield`,
+  `Modifier`/`TimedModifier` d'op `Add` ou `Pct`, `ApplyStatus`, `ApplyStatusSelf`, `Explode` (dégâts, pas le
+  rayon). Le lint refuse toute autre action sous `PerCopy` (`Modifier` `Mul`/`Set`, `Emit`, `RefillAmmo`…) :
+  l'exécution ne la sauterait pas sans rien dire.
+- **Composition `Emit` × `OnEvent` par exemplaire : linéaire.** Une action non `Scaled` s'exécute **par
+  exemplaire** (n exemplaires = n `Emit`), mais un effet `OnEvent` **écoute une fois par objet** (le récepteur
+  n'est pas dupliqué ; `listed_effects` ne le liste que pour le premier exemplaire). Exemple, la `vipere`
+  (`OnHit : Emit("coup")`, `OnEvent("coup") : +1 de dégâts`) : 1 exemplaire = 1 émission × 1 récepteur = +1 ;
+  2 exemplaires = 2 × 1 = **+2** (et non +4) ; seul `Scaled(PerCopy)` multiplie.
+- **Limites par exemplaire (Q16)** : `ItemDef::stack` (`Shared`, défaut, ou `Independent`). `Shared` :
+  clé `item:<id>:<index>` commune, les `cooldown`/`charges` sont partagés ; `Independent` : clé
+  `item:<id>#k:<index>` par exemplaire.
+- **Ordre d'exécution** : porteurs par `GgrsNetId` ; pour chacun, effets du personnage, puis objets (passifs
+  dans l'ordre de ramassage, puis l'actif), exemplaire après exemplaire, puis synergies. Les `Emit` sont
+  traités après (`apply_event_effects_system`), puis les statuts (`effect_status_system`).
+- **Scénarios** (chacun avec son témoin `_temoin`, sauf `effect_on_hit`/`effect_per_copy` dont le témoin est
+  la frame d'avant le coup) : `effect_on_hit` (`vipere`), `effect_on_event` (`echo`), `effect_target_in_range`
+  (`portee`), `effect_apply_status` (`morsure`), `effect_pickup_filtered` (`filtre`), `effect_per_copy`,
+  `effect_scale_per_copy` (`empile`). Unitaires : `effects_v3::tests`, `effects_runtime::tests`,
+  `effects::runtime::tests`, `crates/scenario/tests/effects_v3.rs` (`HitLanded` dans le vrai résolveur).
+- **Échelle** : `effects_hundred_items` (100 objets : 97 `cent_*` de charge et 3 observateurs à une charge, un par
+  famille `Tick`, `OnHit`, `OnKill`, dont la conséquence visible est comparée au témoin ; `machine_gun` sur un
+  `dummy` puis une `target`, le `follower` de la carte meurt aussi) et son témoin sans objets. `advance_ms_avg`, trois exécutions du même run, machine
+  partagée (indicatif) : **0,19 ms** avec les 100 objets, **0,12 ms** sans, 0,145 ms pour `four_players_idle`
+  (115 entités). Surcoût ≈ 0,07 ms par frame sur 16,7 : `listed_effects` n'est pas précalculé.
+- Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b), transformations (Q10, non retenues
+  ici : `transformation_three` non livré).
 
 ## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
 

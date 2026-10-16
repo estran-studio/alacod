@@ -642,15 +642,17 @@
             },
             projectiles: {
                 // Crachat visé (`cracheur`, `franc_tireur`).
-                "crachat": (damage: "6.0", speed: "150.0", range: "320.0"),
+                "crachat": (damage: "4.0", speed: "150.0", range: "320.0"),
                 // Plombs en éventail (`arroseur`).
                 "plomb": (damage: "4.0", speed: "140.0", range: "260.0"),
                 // Couronne lente de la tourelle.
                 "boule": (damage: "8.0", speed: "90.0", range: "400.0"),
+                // Couronne de la `tourelle_kin` (M2-T14d, D64) : plus légère que `boule`, qui reste celle du boss.
+                "boulette": (damage: "4.0", speed: "90.0", range: "400.0"),
                 // Étincelle de la spirale du boss (`spirale`, M2-T1) : légère, il y en a beaucoup.
                 "etincelle": (damage: "3.0", speed: "80.0", range: "350.0"),
                 // Balle qui rebondit deux fois sur les murs (`salve` de `bullet_kin`, M2-T1).
-                "ricochet": (damage: "6.0", speed: "150.0", range: "500.0", modifiers: [Bounce(2)]),
+                "ricochet": (damage: "4.0", speed: "150.0", range: "320.0", modifiers: [Bounce(1)]),
             },
             test: Some((frames: 200, min_hits: 2)),
         ),
@@ -687,7 +689,7 @@
             },
             projectiles: {
                 // Chevrotine du `shotgun_kin` : courte portée, lente.
-                "chevrotine": (damage: "5.0", speed: "170.0", range: "200.0"),
+                "chevrotine": (damage: "3.0", speed: "170.0", range: "200.0"),
                 // Grenade du `lanceur_kin` : ne touche pas en roulant (`damage` 0, `Pierce`), rebondit une
                 // fois et explose à la fin de sa durée de vie (même chaîne que `grenade` du testbed, T1.1).
                 "grenade": (
@@ -698,13 +700,13 @@
                     on_expire: [Spawn(Aimed(count: 1, spread: "0.0", projectile: "explosion"))],
                 ),
                 "explosion": (
-                    damage: "14.0",
+                    damage: "10.0",
                     speed: "0.0",
                     range: "1.0",
                     modifiers: [Lifetime(0), Size("10.0"), Pierce(16)],
                     on_expire: [Spawn(Ring(count: 8, speed: "150.0", projectile: "eclat", every: 0))],
                 ),
-                "eclat": (damage: "4.0", speed: "150.0", range: "96.0"),
+                "eclat": (damage: "3.0", speed: "150.0", range: "96.0"),
             },
             test: Some((frames: 200, min_hits: 2)),
         ),

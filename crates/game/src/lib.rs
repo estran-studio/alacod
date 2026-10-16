@@ -14,6 +14,7 @@ pub mod content_hot_reload;
 pub mod core;
 pub mod economy;
 pub mod effects_runtime;
+pub mod effects_v3;
 pub mod familiars;
 pub mod feedback;
 pub mod feedback_v3;

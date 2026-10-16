@@ -136,10 +136,10 @@ fn pit_and_prop_fixtures_are_refused() {
 #[test]
 fn effect_fixtures_report_unsupported_and_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_unsupported")).unwrap();
-    assert_has_error(&errors, LintErrorKind::Unsupported, "OnHit");
-    assert_has_error(&errors, LintErrorKind::Unsupported, "TargetInRange");
-    assert_has_error(&errors, LintErrorKind::Unsupported, "OnEvent");
     assert_has_error(&errors, LintErrorKind::Unsupported, "RefillAmmo");
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_name_empty")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Emit : nom vide");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "OnEvent : nom vide");
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Tick(0)");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Heal = 0");
@@ -616,6 +616,17 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("prop_barrel_radius_non_positive", LintErrorKind::OutOfRange),
         ("prop_table_no_bullets", LintErrorKind::OutOfRange),
         ("effect_unsupported", LintErrorKind::Unsupported),
+        ("effect_name_empty", LintErrorKind::OutOfRange),
+        ("effect_status_no_target", LintErrorKind::Unsupported),
+        ("effect_status_unknown", LintErrorKind::BrokenReference),
+        ("effect_status_stacks_zero", LintErrorKind::OutOfRange),
+        ("effect_status_on_kill", LintErrorKind::Unsupported),
+        (
+            "effect_item_filter_wrong_trigger",
+            LintErrorKind::Unsupported,
+        ),
+        ("effect_item_filter_unknown", LintErrorKind::BrokenReference),
+        ("effect_per_copy_not_linear", LintErrorKind::Unsupported),
         ("effect_out_of_range", LintErrorKind::OutOfRange),
         ("effect_limits_invalid", LintErrorKind::OutOfRange),
         ("progression_out_of_range", LintErrorKind::OutOfRange),
@@ -1373,7 +1384,66 @@ fn item_effect_unsupported_fixture_reports_unsupported() {
         LintErrorKind::Unsupported,
         "OnUse n'a de sens que pour un objet actif",
     );
-    assert_has_error(&errors, LintErrorKind::Unsupported, "OnEvent");
+}
+
+/// M3-T2 (§67) : `ApplyStatus` d'un effet (hors cible, statut inconnu, `stacks = 0`) et noms vides.
+#[test]
+fn effect_status_fixtures_report_one_rule_each() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_no_target")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pas de cible hors OnHit",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "statut « fantome » inconnu",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_stacks_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "stacks = 0");
+}
+
+/// M3-T2 (§67) : `ApplyStatus` sur `OnKill` (cible morte), filtre `item` de `OnPickup`, `PerCopy` non linéaire.
+#[test]
+fn effect_v3_contract_fixtures_report_one_rule_each() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_on_kill")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "OnKill : la cible est déjà morte",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_item_filter_wrong_trigger")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "filtre réservé à OnPickup",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_item_filter_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "objet « fantome » inconnu",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_per_copy_not_linear")).unwrap();
+    for needle in ["Modifier", "Emit", "RefillAmmo"] {
+        assert_has_error(&errors, LintErrorKind::Unsupported, needle);
+    }
+    assert_eq!(
+        errors
+            .iter()
+            .filter(|e| e.message.contains("Scaled(PerCopy)"))
+            .count(),
+        3
+    );
+    // témoin : les actions linéaires passent
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_per_copy_linear_ok")).unwrap();
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("entry.start_map") && !e.message.contains("start_map"))
+        .collect();
+    assert!(others.is_empty(), "{others:#?}");
 }
 
 /// M2-T3 : cooldown/charges nuls et recharge sans charges.
