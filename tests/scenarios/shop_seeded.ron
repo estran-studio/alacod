@@ -6,6 +6,8 @@
 // À regarder : rien ne bouge (joueur immobile) ; les trois présentoirs existent depuis f10.
 // T14b : le pool de boutique compte dix objets de plus ; le tirage seedé change (présentoir 1 : trefle → trophee, 30 inchangé ; présentoir 2 : blank → gilet, 15 inchangé). Attentes de même rôle (objet et prix suivent la rareté), aucune retirée.
 // D62 : le pool de boutique compte dix-huit armes et le premier présentoir n'en tire que des armes : présentoirs 0 et 1 deviennent des armes (fusil_precision et rebondisseur, Uncommon = 30), le 2 une clé (15).
+// M2-T14d : la grammaire `etage` compte sept types exigés (escouade, coffre, secret en plus) : même graine, autre étage, donc autre
+// clé `shop:<salle>` ; présentoirs 0 et 1 : armes (arbalete 15, mitraillette 30), 2 : revolver 15 (le premier présentoir ne tire que des armes, §50).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -15,8 +17,8 @@ Scenario(
     players: [(inputs: [])],
     expect: [
         ShelfCount(count: 3, at_frame: 10),
-        Shelf(nth: 0, item: Some("weapon:fusil_precision"), price: Some(30), sold: Some(false), at_frame: 10),
-        Shelf(nth: 1, item: Some("weapon:rebondisseur"), price: Some(30), at_frame: 10),
-        Shelf(nth: 2, item: Some("key"), price: Some(15), at_frame: 10),
+        Shelf(nth: 0, item: Some("weapon:arbalete"), price: Some(15), sold: Some(false), at_frame: 10),
+        Shelf(nth: 1, item: Some("weapon:mitraillette"), price: Some(30), at_frame: 10),
+        Shelf(nth: 2, item: Some("weapon:revolver"), price: Some(15), at_frame: 10),
     ],
 )
