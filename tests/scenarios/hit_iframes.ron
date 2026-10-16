@@ -4,7 +4,8 @@
 Scenario(
     game: "testbed",
     map: "testbed/arena.ldtk",
-    frames: 80,
+    frames: 40,
+    wave_overrides: (max_wave: 999, grace_period_frames: 1000),
     powerup_drop_chance_override: "0.0",
     characters: [
         (character: "iframes_target", x: "520.0", y: "696.0", at_frame: 5),

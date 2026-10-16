@@ -44,17 +44,31 @@ f40 (un seul coup compté).
 
 ## Vérifications effectuées après fusion
 
-- `git fetch && git merge origin/main` : déjà à jour (`origin/main` à `2897e3cb`).
+- `git fetch && git merge origin/main` : OK, `origin/main` est `5d9f854b`.
+- `git diff --exit-code origin/main -- scripts Makefile` : OK ; aucun changement de générateur
+  dans la branche. Les seuls changements sous `crates/content` concernent le lint et le schéma
+  M3-T0b.
 - `cargo check -p content -p game --tests` : OK.
 - `cargo test -p content` : OK, 262 tests passés (1 ignoré).
-- `make lint` : OK pour zombies, testbed, throne, gungeon et isaac ; avertissements de contenu
-  préexistants seulement.
+- `make lint` : OK pour zombies, testbed, throne, gungeon et isaac.
 - `make gen GAME=throne`, `make gen GAME=gungeon`, `make gen GAME=isaac` : OK, sans diff.
-- `make gen GAME=zombies` et `make gen GAME=testbed` : échec préexistant du générateur :
-  cible `target` introuvable dans l'exécution testbed ; aucune génération n'a été bénie.
+- `make gen GAME=zombies` : échec dans `alacod-gen` :
+  `arme « machine_gun » : impossible de trouver l'entité « target » (HitCount) en jouant
+  testbed/arena.ldtk`.
+- `make gen GAME=testbed` : échec dans `alacod-gen` :
+  `arme « fireball_gun » : impossible de trouver l'entité « target » (HitCount) en jouant
+  testbed/arena.ldtk`.
+  Ces erreurs sont reproductibles sur `origin/main` et aucun fichier de générateur n'est modifié
+  par cette branche.
 - `cargo fmt --all -- --check` : OK.
 - `make check_sim_boundary` : OK ; 11 crates simulation ECS seul, 5 dettes D69 signalées.
-- `make test_crates` : échec hors dette, plusieurs tests scénario paniquent sur la ressource
-  `run::Run` absente (`crates/scenario/src/runner.rs:1593`).
-- `make test_scenarios_par SHARDS=3` : échec identique sur les trois tranches, avant comparaison
-  de traces, sur `run::Run` absente. Les traces existantes n'ont pas bougé.
+- `make test_scenarios SCENARIO=four_players_idle` : OK.
+- `make test_scenarios SCENARIO=hit_iframes` : le scénario déclenche bien la sortie de run avant
+  la fin demandée, puis le runner lit `Run` après `cleanup_rollback_world_system` ; la commande
+  panique donc à `crates/scenario/src/runner.rs:1593`. La cible est désormais inoffensive
+  (`attack_damage: Some("0.0")`), les vagues et la victoire sont retardées, et la durée est
+  limitée à 40 frames ; la trace ne peut pas être bénie tant que ce chemin de runner n'est pas
+  corrigé.
+- `make test_scenarios_par SHARDS=3` et `make test_crates` : échecs sur le même chemin de
+  runner (`Run` absent après nettoyage), ainsi que des tests scénario dépendants ; aucune trace
+  existante n'a été bénie ni modifiée.

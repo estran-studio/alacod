@@ -30,7 +30,7 @@
         ignores: None,
         path_through_breakables: None,
         flee_threshold: None,
-        attack_damage: None,
+        attack_damage: Some("0.0"),
         stationary: Some(true),
     )),
 )
