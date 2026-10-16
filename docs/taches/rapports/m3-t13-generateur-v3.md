@@ -86,7 +86,6 @@ changés par la revue) `tears_{division,guide,lentille,perforant,rebond,spectre,
 - Le lint vérifie les seuils déclarés, pas leur adéquation aux mesures : seul `make gen` (qui joue) le prouve.
 - `generate_game` rejoue toute la sonde de tous les sujets même avec `--only` : le temps de
   `--only` n'est pas proportionnel au sujet (≈ 18 s pour le testbed).
-- `EntityCount` d'un champion qui se divise est une borne basse (les ennemis de l'arène comptent).
 
 ## Atteignabilité
 Tout est atteignable par `make gen GAME=testbed` ; `alacod-gen games/testbed --only tears_guide --play`.
