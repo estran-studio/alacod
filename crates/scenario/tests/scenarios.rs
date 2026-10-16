@@ -1509,3 +1509,135 @@ fn room_probe() {
         );
     }
 }
+
+/// Diagnostic D66 : vue directe. `ALACOD_SIGHT=<scénario>:<frame>` : joueurs, ennemis (position,
+/// distance au joueur le plus proche, ligne de vue, état, cible) et, pour poser un scénario,
+/// des cases libres atteignables d'où le joueur de plus petit id est vu à `ALACOD_SIGHT_MIN`..
+/// `ALACOD_SIGHT_MAX` unités (défaut 700..900), une sur `ALACOD_SIGHT_STEP` (défaut 6) ;
+/// `ALACOD_SIGHT_HIDDEN=1` : les cases d'où il n'est **pas** vu (un mur sur le segment).
+#[test]
+#[ignore]
+fn sight_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use game::character::enemy::{
+        ai::{
+            navigation::MOVEMENT_FLOW_KEY, EnemyAiConfig, EnemyTarget, FlowFieldCache, GridPos,
+            MonsterState,
+        },
+        Enemy,
+    };
+    use game::character::player::Player;
+    use utils::net_id::GgrsNetId;
+    let env_f32 = |key: &str, default: f32| {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(default)
+    };
+    let spec = std::env::var("ALACOD_SIGHT").unwrap_or_else(|_| "idle:5".into());
+    let (name, frame) = spec.split_once(':').unwrap();
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
+    let mut app = scenario::runner::run_until(
+        &Scenario::from_ron(&source).unwrap(),
+        frame.parse().unwrap(),
+    );
+    let world = app.world_mut();
+    let cache = world.resource::<FlowFieldCache>().clone();
+    let mut players: Vec<_> = world
+        .query_filtered::<(&GgrsNetId, &FixedTransform3D), With<Player>>()
+        .iter(world)
+        .map(|(id, t)| (id.0, t.translation.truncate()))
+        .collect();
+    players.sort_by_key(|p| p.0);
+    for (id, at) in &players {
+        println!(
+            "joueur #{id} ({:.0}, {:.0})",
+            at.x.to_num::<f32>(),
+            at.y.to_num::<f32>()
+        );
+    }
+    let mut enemies: Vec<_> = world
+        .query_filtered::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            &EnemyAiConfig,
+            &MonsterState,
+            &EnemyTarget,
+            &game::character::config::CharacterConfigHandles,
+        ), With<Enemy>>()
+        .iter(world)
+        .map(|(id, t, ai, state, target, handles)| {
+            (
+                id.0,
+                handles
+                    .config
+                    .path()
+                    .map_or_else(|| "?".to_string(), |path| path.to_string()),
+                t.translation.truncate(),
+                ai.aggro_range,
+                ai.effective_sight_range(),
+                format!("{state:?}"),
+                target.target.as_ref().map(|t| t.0),
+            )
+        })
+        .collect();
+    enemies.sort_by_key(|e| e.0);
+    for (id, name, at, aggro, sight, state, target) in &enemies {
+        let nearest = players
+            .iter()
+            .map(|(pid, pat)| (at.distance(pat), *pid, cache.line_of_sight(*at, *pat)))
+            .min_by_key(|(d, pid, _)| (*d, *pid));
+        let (distance, los) = nearest.map_or((0.0, false), |(d, _, los)| (d.to_num::<f32>(), los));
+        println!(
+            "ennemi #{id} {name} ({:.0}, {:.0}) distance {distance:.0} vue directe {los} aggro {} vue {} état {state} cible {target:?}",
+            at.x.to_num::<f32>(),
+            at.y.to_num::<f32>(),
+            aggro.to_num::<f32>(),
+            sight.to_num::<f32>(),
+        );
+    }
+    let Some((_, from)) = players.first().copied() else {
+        return;
+    };
+    let (min, max, step) = (
+        env_f32("ALACOD_SIGHT_MIN", 700.0),
+        env_f32("ALACOD_SIGHT_MAX", 900.0),
+        env_f32("ALACOD_SIGHT_STEP", 6.0) as usize,
+    );
+    let hidden = std::env::var("ALACOD_SIGHT_HIDDEN").is_ok_and(|v| v == "1");
+    let mut found = Vec::new();
+    if let Some(field) = cache.get_flow_field(MOVEMENT_FLOW_KEY) {
+        for &cell in field.directions.keys() {
+            let at = cell.to_fixed();
+            let distance = from.distance(&at).to_num::<f32>();
+            if distance >= min
+                && distance <= max
+                && !cache.is_blocked_for(&cell, MOVEMENT_FLOW_KEY)
+                && !cache.is_too_narrow_for(&cell, MOVEMENT_FLOW_KEY)
+                // Dégagement de deux cases : un ennemi posé là n'a aucun mur à portée de collider.
+                && (-2..=2).all(|dy| {
+                    (-2..=2).all(|dx| !cache.wall_cells.contains(&GridPos::new(cell.x + dx, cell.y + dy)))
+                })
+                && cache.line_of_sight(from, at) != hidden
+            {
+                found.push((cell, distance));
+            }
+        }
+    }
+    println!(
+        "{} cases libres vues du joueur #{} à {min}..{max} unités",
+        found.len(),
+        players[0].0
+    );
+    for (cell, distance) in found.iter().step_by(step.max(1)) {
+        let at = cell.to_fixed();
+        println!(
+            "  case ({}, {}) = ({:.0}, {:.0}) distance {distance:.0}",
+            cell.x,
+            cell.y,
+            at.x.to_num::<f32>(),
+            at.y.to_num::<f32>()
+        );
+    }
+}

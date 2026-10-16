@@ -1,3 +1,4 @@
+// D66 (2026-10-16, dette-d66-vue-directe) : le `rodeur` de la première caverne voit désormais un joueur en ligne de vue dégagée jusqu'à 900 unités (`sight_range`, conventions §22) au lieu d'errer hors de son `Sight(300)` : il fonce sur le bot, la trace entière bouge dès f1 et les repères de temps se décalent ; portail ouvert à f530 (avant ~f510), étage 1 à f1131 (avant ~f1111) ; `frames` 1120 -> 1150.
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
 // et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // `throne` (T1.0c, docs/conventions.md §29) : un bot `prudent` finit le premier étage de la run
@@ -17,13 +18,13 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 1120,
+    frames: 1150,
     players: [
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 1105),
-        FloorIndex(index: 1, at_frame: 1115),
-        PlayerAlive(handle: 0, at_frame: 1119),
+        FloorIndex(index: 0, at_frame: 1121),
+        FloorIndex(index: 1, at_frame: 1141),
+        PlayerAlive(handle: 0, at_frame: 1149),
     ],
 )
