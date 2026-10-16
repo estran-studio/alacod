@@ -10,6 +10,8 @@
 #   NIGHTLY_P2P=2,4 (comma-separated list of player counts)
 #   NIGHTLY_P2P_SCRIPT=tests/scenarios/p2p_smoke.ron (inputs de chaque client, `ALACOD_INPUT=script:`)
 #   NIGHTLY_SHARDS=2 (tranches parallèles de la suite de scénarios, STEP A)
+#   NIGHTLY_P2P_GUNGEON, NIGHTLY_GUNGEON_SEED/FRAMES/NETEM : run gungeon p2p avec transition
+#   d'étage (STEP C2, détail devant l'étape)
 #   STEP C (p2p headless) passe par le profil `allumette` du docker-compose.ci.yaml
 #   (matchmaking HTTP + WebSocket avec JWT, port hôte 3537) : ALLUMETTE_DIR explicite ou
 #   ../allumette (layout meta-repo), SKIPPED propre s'il est introuvable. Le service
@@ -321,6 +323,67 @@ else
             append_summary "### C. P2P Headless: ⚠ SKIPPED (allumette startup failed)"
         fi
     fi
+fi
+
+# ============================================================================
+# STEP C2: P2P GUNGEON (m2-p2p-run-complete) : une run gungeon complète à deux clients, avec
+# transition d'étage (`etages_deux`, graine NIGHTLY_GUNGEON_SEED), rollbacks réels (client 1
+# suspendu par à-coups, `scripts/p2p-stress.sh`) et traces identiques. Les bots ne sont pas dans
+# le binaire du jeu : leurs inputs sont enregistrés par `alacod-sim`
+# (`scripts/p2p-gungeon-inputs.sh`) puis rejoués par chaque client ; si la simulation change au
+# point que la run n'atteint plus l'étage 2, l'enregistrement ou EXPECT_FLOORS le dit (échec, pas
+# un faux vert). Signaling : le service `signaling` du compose (port NIGHTLY_GUNGEON_PORT).
+#   NIGHTLY_P2P_GUNGEON=1|0 (1 hors --quick), NIGHTLY_GUNGEON_SEED=10, NIGHTLY_GUNGEON_FRAMES=4500,
+#   NIGHTLY_GUNGEON_NETEM="delay 60ms 10ms loss 1%" (en plus : même run sur réseau dégradé,
+#   sans suspension, `tc netem` dans un espace de noms réseau sans root).
+# ============================================================================
+
+if [ "${NIGHTLY_P2P_GUNGEON:-$([ "${QUICK_MODE}" = true ] && echo 0 || echo 1)}" != 1 ]; then
+    append_summary "### C2. P2P gungeon (run, transition d'étage): ⚠ SKIPPED (NIGHTLY_P2P_GUNGEON != 1)"
+elif ! command -v docker &> /dev/null; then
+    log_warn "Docker not found. Skipping p2p gungeon."
+    append_summary "### C2. P2P gungeon (run, transition d'étage): ⚠ SKIPPED (docker not found)"
+else
+    log_step "P2P gungeon (2 clients, transition d'étage)..."
+    START_TIME=$(date +%s)
+    GUNGEON_SEED=${NIGHTLY_GUNGEON_SEED:-10}
+    GUNGEON_FRAMES=${NIGHTLY_GUNGEON_FRAMES:-4500}
+    GUNGEON_DIR="${NIGHTLY_DIR}/p2p-gungeon"
+    mkdir -p "${GUNGEON_DIR}"
+    if ! scripts/p2p-gungeon-inputs.sh 2 "${GUNGEON_SEED}" $((GUNGEON_FRAMES + 500)) "${GUNGEON_DIR}/run.ron" \
+        &> "${GUNGEON_DIR}/inputs.log"; then
+        log_error "Enregistrement des inputs gungeon impossible (voir ${GUNGEON_DIR}/inputs.log)"
+        append_summary "### C2. P2P gungeon: ❌ FAILED (inputs : $(tail -1 "${GUNGEON_DIR}/inputs.log"))"
+        exit 1
+    fi
+    append_summary "- gungeon : $(tail -1 "${GUNGEON_DIR}/inputs.log")"
+    GUNGEON_RUNS=("stress:")
+    if [ -n "${NIGHTLY_GUNGEON_NETEM:-}" ]; then
+        GUNGEON_RUNS+=("netem:${NIGHTLY_GUNGEON_NETEM}")
+    fi
+    for GUNGEON_RUN in "${GUNGEON_RUNS[@]}"; do
+        GUNGEON_KIND=${GUNGEON_RUN%%:*}
+        GUNGEON_NETEM=${GUNGEON_RUN#*:}
+        GUNGEON_STRESS=1
+        [ "${GUNGEON_KIND}" = netem ] && GUNGEON_STRESS=0
+        # `MIN_RESIMULATED` : en stress, des milliers de frames ; sur réseau dégradé seul, quelques-unes.
+        GUNGEON_MIN_RESIM=1000
+        [ "${GUNGEON_KIND}" = netem ] && GUNGEON_MIN_RESIM=1
+        if ! ALACOD_SKIP_HUB=1 GAME_ARGS="--seed ${GUNGEON_SEED}" EXPECT_FLOORS=1 STRESS=${GUNGEON_STRESS} \
+            MIN_RESIMULATED=${GUNGEON_MIN_RESIM} NETEM="${GUNGEON_NETEM}" OUT="${GUNGEON_DIR}/${GUNGEON_KIND}" \
+            scripts/p2p-stress.sh gungeon "${GUNGEON_DIR}/run.ron" "${GUNGEON_FRAMES}" \
+            &> "${GUNGEON_DIR}/${GUNGEON_KIND}.log"; then
+            log_error "P2p gungeon (${GUNGEON_KIND}) failed (see ${GUNGEON_DIR}/${GUNGEON_KIND}.log)"
+            append_summary "### C2. P2P gungeon (${GUNGEON_KIND}): ❌ FAILED"
+            grep -E "ÉCHEC|DIFFÉRENTES" "${GUNGEON_DIR}/${GUNGEON_KIND}.log" | head -5 | while read -r line; do append_summary "- ${line}"; done
+            exit 1
+        fi
+        append_summary "- gungeon ${GUNGEON_KIND} : $(grep -E '^p2p-stress :' "${GUNGEON_DIR}/${GUNGEON_KIND}.log" | head -1)"
+        append_summary "- gungeon ${GUNGEON_KIND} : $(grep -E '^frames resimulées' "${GUNGEON_DIR}/${GUNGEON_KIND}.log"), $(grep -E "^transitions d'étage" "${GUNGEON_DIR}/${GUNGEON_KIND}.log"), traces identiques"
+    done
+    END_TIME=$(date +%s)
+    append_summary "### C2. P2P gungeon (run, transition d'étage): ✅ PASSED ($((END_TIME - START_TIME))s)"
+    log_step "P2P gungeon passed"
 fi
 
 # ============================================================================

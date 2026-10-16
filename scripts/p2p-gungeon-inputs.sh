@@ -10,7 +10,8 @@
 # Usage : scripts/p2p-gungeon-inputs.sh <joueurs> <graine> <frames> <sortie.ron>
 # Le client p2p doit être lancé avec `ALACOD_SKIP_HUB=1` et `--seed <graine>` : la graine de run
 # d'une partie en ligne passée par le hub est dérivée (§33), celle d'`alacod-sim` non.
-# Sortie : 0 si le fichier est écrit ET qu'au moins un étage est franchi dans la partie
+# ALLOW_SHORT=1 : accepte une partie plus courte que <frames> (fin de run : victoire ou défaite,
+# pour un restart après la fin de run). Sortie : 0 si le fichier est écrit ET qu'au moins un étage est franchi dans la partie
 # enregistrée ; affiche la frame du passage d'étage.
 set -euo pipefail
 
@@ -40,7 +41,7 @@ profiles=${profiles%,}
 [ -f "$TMP/seed_$SEED.ron" ] || { echo "p2p-gungeon-inputs : enregistrement absent"; exit 1; }
 cp "$TMP/seed_$SEED.ron" "$OUT_FILE"
 python3 - "$TMP/sim.json" "$SEED" "$FRAMES" "$OUT_FILE" <<'EOF'
-import json, sys
+import json, os, sys
 result = json.load(open(sys.argv[1]))[0]
 frames = result["floor_frames"]
 print(f"p2p-gungeon-inputs : graine {sys.argv[2]}, {result['frames']} frames enregistrées "
@@ -48,6 +49,6 @@ print(f"p2p-gungeon-inputs : graine {sys.argv[2]}, {result['frames']} frames enr
       f"issue {result.get('run_end')} -> {sys.argv[4]}")
 if not frames:
     sys.exit("p2p-gungeon-inputs : aucun étage franchi : choisir une autre graine ou plus de frames")
-if result["frames"] < int(sys.argv[3]):
+if result["frames"] < int(sys.argv[3]) and os.environ.get("ALLOW_SHORT") != "1":
     sys.exit("p2p-gungeon-inputs : la partie s'est arrêtée avant les frames demandées")
 EOF

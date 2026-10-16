@@ -133,24 +133,36 @@ if [ "$max" -lt "$MIN_RESIMULATED" ]; then
     fail=1
 fi
 
-# Étages franchis : `ggrs{f=N floor_transition from=0 to=1 …}` (une ligne par client et par étage).
+# Étages franchis : `ggrs{f=N floor_transition from=0 to=1 …}`. Le journal le répète à chaque
+# resimulation de la frame (rollback) : on compte les passages distincts (de → vers), pas les lignes.
 floors=()
 for ((i = 0; i < CLIENTS; i++)); do
-    n=$(grep -c 'floor_transition' "$OUT/p2p-$i.log")
+    n=$(sed -n 's/.*floor_transition from=\([0-9]*\) to=\([0-9]*\).*/\1>\2/p' "$OUT/p2p-$i.log" | sort -u | wc -l | tr -d ' ')
     floors+=("$n")
     [ "$n" -ge "$EXPECT_FLOORS" ] || { echo "ÉCHEC : client $i : $n transition(s) d'étage < $EXPECT_FLOORS (EXPECT_FLOORS)"; fail=1; }
 done
-echo "transitions d'étage (journal) : ${floors[*]}"
-grep -h 'floor_transition' "$OUT/p2p-0.log" | sed 's/^/  /' | head -4
-
-# Déconnexion GGRS (`Player '…' disconnected`, `NetworkInterrupted`) AVANT l'écriture de la
-# trace : un échec. Après, le pair qui a fini sa trace et quitté est normal.
-disc=0
+echo "transitions d'étage distinctes (journal) : ${floors[*]}"
 for ((i = 0; i < CLIENTS; i++)); do
-    n=$(awk '/trace d.état écrite dans/ {exit} /disconnected|Disconnected|NetworkInterrupted/ {c++} END{print c+0}' "$OUT/p2p-$i.log")
-    disc=$((disc + n))
+    grep -h 'floor_transition' "$OUT/p2p-$i.log" | tail -1 | sed -n 's/.*ggrs{f=\([0-9]*\) floor_transition from=\([0-9]*\) to=\([0-9]*\).*/  client '"$i"' : dernière résimulation f\1, étage \2 -> \3/p'
 done
-echo "déconnexions avant la fin de la trace : $disc"
+
+# Déconnexion GGRS (`GGRS Event: Disconnected`, « Player '…' disconnected ») AVANT l'écriture de
+# la trace : un échec. Après, le pair qui a fini sa trace et quitté est normal. Une interruption
+# réseau (`NetworkInterrupted`, silence de plus de 500 ms) suivie de sa reprise (`NetworkResumed`)
+# est rapportée sans être un échec (réseau dégradé) ; une interruption jamais reprise en est un.
+disc=0
+interrupted=0
+resumed=0
+for ((i = 0; i < CLIENTS; i++)); do
+    n=$(awk '/trace d.état écrite dans/ {exit} /GGRS Event: Disconnected|Player .* disconnected/ {c++} END{print c+0}' "$OUT/p2p-$i.log")
+    disc=$((disc + n))
+    a=$(awk '/trace d.état écrite dans/ {exit} /GGRS Event: NetworkInterrupted/ {c++} END{print c+0}' "$OUT/p2p-$i.log")
+    b=$(awk '/trace d.état écrite dans/ {exit} /GGRS Event: NetworkResumed/ {c++} END{print c+0}' "$OUT/p2p-$i.log")
+    interrupted=$((interrupted + a))
+    resumed=$((resumed + b))
+    [ "$a" -le "$b" ] || { echo "ÉCHEC : client $i : interruption réseau jamais reprise ($a interruptions, $b reprises)"; fail=1; }
+done
+echo "déconnexions avant la fin de la trace : $disc ; interruptions réseau reprises : $resumed/$interrupted"
 [ "$disc" = 0 ] || { echo "ÉCHEC : déconnexion GGRS en cours de partie"; fail=1; }
 
 # Chaque trace fait exactement FRAMES-1 lignes (la frame FRAMES-1 n'est jamais écrite).

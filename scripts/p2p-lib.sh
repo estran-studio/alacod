@@ -11,7 +11,8 @@
 #   NETEM          : arguments de `tc qdisc … netem` (ex. « delay 60ms 10ms loss 1% » : le délai
 #                    s'applique à chaque sens, donc un RTT de 120 ms). Le script se relance alors
 #                    dans un espace de noms réseau et utilisateur (`unshare -Urn`, sans privilège)
-#                    où l'interface `lo` est dégradée ; le signaling y tourne aussi (processus
+#                    où l'interface `lo` est dégradée (plus une interface factice `dummy0`, pour que
+#                    WebRTC ait une adresse à annoncer) ; le signaling y tourne aussi (processus
 #                    `matchbox_server`, extrait de l'image Docker du compose, ou `MATCHBOX_BIN`).
 #   KEEP_SIGNALING=1 : laisse le signaling Docker démarré.
 #   P2P_NO_BUILD=1 : ne compile pas (binaire déjà construit).
@@ -67,9 +68,14 @@ p2p_netns_reexec() {
     exec unshare -Urn env P2P_NETNS=1 P2P_NO_BUILD=1 bash -c '
         PATH="$PATH:/sbin:/usr/sbin"
         ip link set lo up || exit 2
+        # WebRTC (ICE) ignore la boucle locale : une interface factice et son adresse
+        # donnent des candidats ; le trafic vers sa propre adresse passe quand meme par lo,
+        # ou netem agit (pas de backquote ni d apostrophe ici : script entre apostrophes).
+        ip link add dummy0 type dummy && ip addr add 10.77.0.1/24 dev dummy0 && ip link set dummy0 up || exit 2
         # shellcheck disable=SC2086
         tc qdisc add dev lo root netem $NETEM || { echo "p2p : tc netem indisponible (noyau sans sch_netem ?)"; exit 2; }
         echo "réseau dégradé : $(tc qdisc show dev lo | head -1)"
+        ping -c 40 -i 0.1 -q 10.77.0.1 2>/dev/null | tail -2 | sed "s/^/  mesure ping : /"
         exec "$@"' bash "$@"
 }
 

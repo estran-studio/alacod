@@ -67,7 +67,7 @@ desync=$(grep -c "DesyncDetected" "$OUT/p2p-$INDEX.log")
 echo "DesyncDetected : $desync"
 [ "$desync" = 0 ] || fail=1
 echo "frames resimulées : $(p2p_resimulated "$OUT/p2p-$INDEX.log")"
-echo "transitions d'étage : $(grep -c 'floor_transition' "$OUT/p2p-$INDEX.log")"
+echo "transitions d'étage distinctes : $(sed -n 's/.*floor_transition from=\([0-9]*\) to=\([0-9]*\).*/\1>\2/p' "$OUT/p2p-$INDEX.log" | sort -u | wc -l | tr -d ' ') (dernière : $(grep 'floor_transition' "$OUT/p2p-$INDEX.log" | tail -1 | sed -n 's/.*ggrs{\(f=[0-9]* floor_transition[^}]*\)}.*/\1/p'))"
 if [ -f "$OUT/p2p-$INDEX.trace" ]; then
     echo "trace : $(wc -l < "$OUT/p2p-$INDEX.trace" | tr -d ' ') lignes (attendu $((FRAMES - 1))), sha256 $(sha "$OUT/p2p-$INDEX.trace")"
     echo "dernière ligne : $(tail -1 "$OUT/p2p-$INDEX.trace")"

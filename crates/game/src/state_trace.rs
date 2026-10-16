@@ -13,7 +13,10 @@
 //!   écrit sa trace dans `<fichier>-g1`, puis pose `RunRequest::Restart`
 //!   [`RESTART_GRACE_FRAMES`] frames plus tard (le temps que le pair atteigne lui aussi `r`) ;
 //!   la seconde partie écrit `<fichier>-g2` à `ALACOD_EXIT_AT_FRAME` (compté depuis son début)
-//!   et quitte.
+//!   et quitte. `ALACOD_RESTART_KIND=lobby` : la requête est `RunRequest::ToLobby` (bouton
+//!   « Lobby » de l'écran de fin) au lieu de `Restart` ; en ligne, les pairs reviennent dans la
+//!   salle d'origine et rejouent avec la graine d'origine (pas de graine dérivée, §33).
+//!   `ALACOD_RESTART_KIND=hub` : `RunRequest::ToHub` (« Retour au hub », jeux à hub).
 //!
 //! Deux runs avec les mêmes inputs et les mêmes seeds doivent produire le même
 //! fichier. En synctest, une frame resimulée remplace sa ligne précédente.
@@ -250,6 +253,8 @@ struct StateTraceFile {
     written: bool,
     /// D14 : `ALACOD_RESTART_AT_FRAME`.
     restart_at_frame: Option<u32>,
+    /// `ALACOD_RESTART_KIND` : la requête posée à la frame de relance.
+    restart_request: crate::run_state::RunRequest,
     /// Partie courante (1, puis 2 après le restart).
     game: u32,
     /// `<fichier>-g1` écrit, `RunRequest::Restart` posé.
@@ -337,6 +342,16 @@ fn trace_step(
     }
 }
 
+/// `ALACOD_RESTART_KIND` : `lobby` (`ToLobby`), `hub` (`ToHub`), sinon `Restart`.
+fn restart_request_from_env() -> crate::run_state::RunRequest {
+    use crate::run_state::RunRequest;
+    match std::env::var("ALACOD_RESTART_KIND").as_deref() {
+        Ok("lobby") => RunRequest::ToLobby,
+        Ok("hub") => RunRequest::ToHub,
+        _ => RunRequest::Restart,
+    }
+}
+
 /// Trace d'état pilotée par les variables d'environnement (voir le module).
 pub struct StateTracePlugin;
 
@@ -366,6 +381,7 @@ impl Plugin for StateTracePlugin {
                 v.parse()
                     .expect("ALACOD_RESTART_AT_FRAME doit être un entier")
             }),
+            restart_request: restart_request_from_env(),
             game: 1,
             first_written: false,
             restart_requested: false,
@@ -569,10 +585,10 @@ fn write_trace_at_exit_frame(
         TraceStep::Nothing => return,
         TraceStep::Restart => {
             info!(
-                "ALACOD_RESTART_AT_FRAME : RunRequest::Restart à la frame {}",
-                frame.frame
+                "ALACOD_RESTART_AT_FRAME : RunRequest::{:?} à la frame {}",
+                file.restart_request, frame.frame
             );
-            commands.insert_resource(crate::run_state::RunRequest::Restart);
+            commands.insert_resource(file.restart_request);
             file.restart_requested = true;
             return;
         }

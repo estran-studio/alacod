@@ -171,6 +171,20 @@ rien de cette situation. Le stress de zombies seul ne couvre que le jeu de base.
 traces identiques », « p2p partie 2 : traces identiques », « partie 2 différente de la partie 1 »,
 « local : partie 2 identique à la partie 1 » ; code de sortie 0.
 
+**Run gungeon complète, N clients, réseau dégradé, déconnexion, deux machines** (m2-p2p-run-complete,
+`docs/conventions.md` §57 « p2p réel de la run complète » ; commandes et mesures dans
+`docs/taches/rapports/m2-p2p-run-complete.md`) :
+```bash
+scripts/p2p-gungeon-inputs.sh 2 10 5000 /tmp/run.ron      # inputs de 2 bots (graine 10, ~2,5 min)
+ALACOD_SKIP_HUB=1 GAME_ARGS="--seed 10" EXPECT_FLOORS=1 scripts/p2p-stress.sh gungeon /tmp/run.ron 4500
+CLIENTS=4 … scripts/p2p-stress.sh …                        # 4 clients (script à 4 pistes : `… 4 10 5000 …`)
+NETEM="delay 60ms 10ms loss 1%" STRESS=0 … scripts/p2p-stress.sh …   # RTT 120 ms, sans root (`unshare -Urn` + `tc netem`)
+scripts/p2p-disconnect.sh gungeon /tmp/run.ron 4500        # un pair tué en cours d'étage
+RESTART_KIND=restart RESTART_AT=7200 EXIT_AT=1500 INPUTS=/tmp/run_full.ron … scripts/p2p-restart.sh gungeon
+MATCHBOX_URL=wss://… LOBBY=x scripts/p2p-machine.sh gungeon /tmp/run.ron 4500 0   # un client par machine
+```
+Les cibles `make *_matchbox` ouvrent une fenêtre ; sans affichage, ces scripts (headless) les remplacent.
+
 ## 5. Traces et preuve (protocole `docs/conventions.md` §10)
 
 Chaque scénario a une trace de référence (`.trace` : hash de l'état rollback par frame).

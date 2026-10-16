@@ -10,7 +10,11 @@
 #   début), CLIENTS (2), GAME_ARGS (ex. `--seed 10`), INPUTS (scénario RON rejoué par chaque
 #   client, `ALACOD_INPUT=script:` ; sans lui, les inputs de la machine), STRESS (0 : 1 suspend le
 #   client 1 par à-coups comme `p2p-stress.sh`, RUN_MS/SUSPEND_MS), LOCAL (1 : 0 saute la partie
-#   locale), OUT (/tmp/p2p-restart), MATCHBOX_PORT, MATCHBOX_URL, NETEM (voir `p2p-lib.sh`).
+#   locale ; forcé à 0 pour lobby et hub), RESTART_KIND (restart : `ALACOD_RESTART_KIND`, la requête
+#   posée à RESTART_AT : `restart` = « Rejouer », `lobby` = bouton « Lobby » (les pairs reviennent
+#   dans la salle d'origine, graine d'origine : la partie 2 doit être IDENTIQUE à la 1), `hub` =
+#   « Retour au hub » des jeux à hub : hub → run → hub → run, graine dérivée à chaque passage),
+#   OUT (/tmp/p2p-restart), MATCHBOX_PORT, MATCHBOX_URL, NETEM (voir `p2p-lib.sh`).
 #   Tout autre `ALACOD_*` de l'environnement est transmis aux clients (`ALACOD_SKIP_HUB=1`).
 # Bash, pas zsh (les `wait $pid` d'une variable non éclatée échouent en zsh).
 set -euo pipefail
@@ -25,6 +29,12 @@ STRESS=${STRESS:-0}
 SUSPEND_MS=${SUSPEND_MS:-12}
 RUN_MS=${RUN_MS:-30}
 LOCAL=${LOCAL:-1}
+RESTART_KIND=${RESTART_KIND:-restart}
+case "$RESTART_KIND" in
+    restart) ;;
+    lobby | hub) LOCAL=0; export ALACOD_RESTART_KIND=$RESTART_KIND ;;
+    *) echo "p2p-restart : RESTART_KIND inconnu : $RESTART_KIND (restart, lobby, hub)"; exit 2 ;;
+esac
 OUT=${OUT:-/tmp/p2p-restart}
 LOBBY="restart-$$"
 [ -z "$INPUTS" ] || INPUTS=$(cd "$(dirname "$INPUTS")" && pwd)/$(basename "$INPUTS")
@@ -80,8 +90,8 @@ done
 [ "$status" -eq 0 ] || { echo "p2p : un client a échoué (voir $OUT/p2p-*.log)"; exit 1; }
 
 fail=0
-echo "p2p-restart : jeu=$GAME clients=$CLIENTS restart à la frame $RESTART_AT, fin de la partie 2 à $EXIT_AT, stress=$STRESS netem='${NETEM:-}' args='$GAME_ARGS'"
-desync=$(grep -c "DesyncDetected" "$OUT"/p2p-*.log | awk -F: '{s+=$2} END{print s+0}')
+echo "p2p-restart : jeu=$GAME clients=$CLIENTS requête=$RESTART_KIND à la frame $RESTART_AT, fin de la partie 2 à $EXIT_AT, stress=$STRESS netem='${NETEM:-}' args='$GAME_ARGS'"
+desync=$( (grep -c "DesyncDetected" "$OUT"/p2p-*.log || true) | awk -F: '{s+=$2} END{print s+0}')
 echo "DesyncDetected : $desync"
 [ "$desync" = 0 ] || { echo "ÉCHEC : desync signalé par GGRS"; fail=1; }
 for ((i = 0; i < CLIENTS; i++)); do
@@ -99,7 +109,16 @@ for g in 1 2; do
         fi
     done
 done
-if cmp -s "$OUT/p2p-0.trace-g1" "$OUT/p2p-0.trace-g2"; then
+if [ "$RESTART_KIND" = lobby ]; then
+    # Retour au lobby d'origine : graine d'origine, la partie 2 rejoue la 1 (comme le restart local).
+    head -n "$((EXIT_AT - 1))" "$OUT/p2p-0.trace-g1" > "$OUT/p2p-0.g1-head"
+    if cmp -s "$OUT/p2p-0.g1-head" "$OUT/p2p-0.trace-g2"; then
+        echo "p2p : partie 2 identique à la partie 1 ($(wc -l < "$OUT/p2p-0.trace-g2") lignes : lobby d'origine, graine d'origine)"
+    else
+        echo "p2p : partie 2 DIFFÉRENTE de la partie 1 après retour au lobby (graine d'origine attendue)"
+        fail=1
+    fi
+elif cmp -s "$OUT/p2p-0.trace-g1" "$OUT/p2p-0.trace-g2"; then
     echo "p2p : partie 2 identique à la partie 1 (graine non dérivée ?)"
     fail=1
 else
