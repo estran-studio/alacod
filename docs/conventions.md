@@ -5403,12 +5403,20 @@ tirage » — n'est plus vrai). Moment clé `curse` (« étage 2 : curse « dark
 `CurseTable` (hors rollback : champ `curses` de la séquence + `curses/*.ron` du registre) est posée à `compute_floor_plan`
 comme `FloorLootTables`.
 
+**Graine du tirage = graine de carte** (`game::curses::curse_map_seed`, `MapGenerationConfig::seed as u32`), pas
+`RunSeed` : la session remplace `RunSeed` par `restart_seed(graine de carte, n° de partie)` après un « Rejouer » en
+ligne ou une entrée du hub (§33), alors que les cartes sont assemblées avec la graine de carte inchangée. Avec `RunSeed`,
+`FloorRooms` (génération) et `curse_system` (entrée) auraient lu deux graines : un étage doublé sans « Labyrinth »
+annoncée, ou l'inverse. Même expression des deux côtés, test `the_draw_follows_the_map_seed_not_the_derived_run_seed`.
+Conséquence assumée : un « Rejouer » rejoue les mêmes curses (comme il rejoue les mêmes cartes ; le butin, lui, suit
+`RunSeed`).
+
 ### Les cinq effets
 
 | Curse (Q7) | Effet | Où | Quand |
 |---|---|---|---|
 | `Modifier(stat, op, v)` | modificateur de source `curse:<id>` sur chaque joueur | `curse_system` | posé à l'entrée de l'étage ; **tout** `curse:*` est retiré à l'entrée de l'étage suivant avant la pose de la nouvelle ; un joueur qui n'a pas le compte attendu (apparu après l'entrée) le reçoit à la frame suivante ; rien n'est écrit tant que le compte est bon (pas de `Changed`) |
-| `FloorRooms(×m)` | `rooms` de la grammaire multiplié | `with_curse_floor_rooms`, `setup_generated_map` | **à la génération** : toutes les cartes d'une séquence sont assemblées au chargement de la partie, avant la première frame. Le tirage ne dépendant que de (graine, étage), le planificateur retrouve la curse que `curse_system` écrira à l'entrée |
+| `FloorRooms(×m)` | `rooms` de la grammaire multiplié | `with_curse_floor_rooms`, `setup_generated_map` | **à la génération** : toutes les cartes d'une séquence sont assemblées au chargement de la partie, avant la première frame. Le tirage ne dépendant que de (graine de carte, étage), le planificateur retrouve la curse que `curse_system` écrira à l'entrée |
 | `HideMinimap` | `hud_values.minimap` vide | `Update` | tant que `RunCurses` donne la curse à l'étage courant |
 | `HideHealth` | `hud_values.health` absent : ni texte ni barre (D22) | `Update` | idem |
 | `HideItemNames` | nom de l'objet ou de l'arme du prompt → `???` (`Weapon`, `Shelf` ; prix et reste du texte intacts) | `Update` (`ui::hud`) | idem |

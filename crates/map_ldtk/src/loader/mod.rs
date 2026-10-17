@@ -378,7 +378,7 @@ pub fn setup_generated_map(
         commands.insert_resource(caves);
         return;
     };
-    let run_seed = config.seed as u32;
+    let run_seed = game::curses::curse_map_seed(Some(&*config));
     for slot in plan.distinct_slots() {
         let (floor_config, cave) =
             resolve_map_config(&config, &plan.levels[slot], registry.as_deref(), slot);

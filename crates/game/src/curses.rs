@@ -20,17 +20,20 @@
 //!   les reçoit à la frame suivante.
 //! - `FloorRooms` : lu **à la génération de l'étage** (`map_ldtk::loader::setup_generated_map`,
 //!   [`floor_rooms_for_slot`]), car toutes les cartes de la séquence sont assemblées au chargement
-//!   de la partie, avant la première frame. Le tirage ne dépendant que de la graine et de l'étage,
-//!   le planificateur retrouve exactement la curse que `curse_system` écrira à l'entrée.
+//!   de la partie, avant la première frame. Le tirage ne dépendant que de la graine **de carte**
+//!   ([`curse_map_seed`], pas `RunSeed`) et de l'étage, le planificateur retrouve exactement la
+//!   curse que `curse_system` écrira à l'entrée, y compris après un restart en ligne ou une
+//!   entrée du hub (où `RunSeed` est dérivée).
 //! - `HideMinimap`, `HideHealth`, `HideItemNames` : présentation, dérivée de `RunCurses` à chaque
 //!   `Update` ([`CurseHides`], lue par `ui::hud_model` et `ui::hud`) ; jamais d'un événement.
 
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use bevy_fixed::{fixed_math::Fixed, rng::RunSeed};
+use bevy_fixed::fixed_math::Fixed;
 use bevy_ggrs::GgrsSchedule;
 use content::registry::{FloorsConfigId, Registry};
+use map::generation::config::MapGenerationConfig;
 use run::{
     curse::is_curse_source, draw_curse, floor_rooms_multiplier, CurseConfig, CurseDef, CurseEffect,
     FloorState, RunCurses, RunMode,
@@ -75,10 +78,10 @@ impl CurseTable {
         }
     }
 
-    /// La curse de l'étage `floor` d'une partie de graine `run_seed` : le tirage pur de
+    /// La curse de l'étage `floor` d'une partie de graine de carte `seed` : le tirage pur de
     /// `run::draw_curse`, `None` sans champ `curses`. Même résultat qu'à l'entrée dans l'étage.
-    pub fn drawn(&self, run_seed: u32, floor: u32) -> Option<(String, &CurseDef)> {
-        let id = draw_curse(self.config.as_ref()?, &self.defs, run_seed, floor)?;
+    pub fn drawn(&self, seed: u32, floor: u32) -> Option<(String, &CurseDef)> {
+        let id = draw_curse(self.config.as_ref()?, &self.defs, seed, floor)?;
         let def = self.defs.get(&id)?;
         Some((id, def))
     }
@@ -90,10 +93,10 @@ impl CurseTable {
 }
 
 /// Multiplicateur de salles (`FloorRooms`) à appliquer à la grammaire du `floor`-ième étage d'une
-/// partie de graine `run_seed` ; `None` sans curse ou sans effet `FloorRooms`. Appelé par le
-/// chargeur de cartes pour l'étage de chaque emplacement de la séquence.
-pub fn floor_rooms_for_slot(table: &CurseTable, run_seed: u32, floor: u32) -> Option<Fixed> {
-    let (_, def) = table.drawn(run_seed, floor)?;
+/// partie de graine de carte `seed` ([`curse_map_seed`]) ; `None` sans curse ou sans effet
+/// `FloorRooms`. Appelé par le chargeur de cartes pour l'étage de chaque emplacement de la séquence.
+pub fn floor_rooms_for_slot(table: &CurseTable, seed: u32, floor: u32) -> Option<Fixed> {
+    let (_, def) = table.drawn(seed, floor)?;
     floor_rooms_multiplier(&def.effects)
 }
 
@@ -162,13 +165,23 @@ fn curse_modifiers_held(modifiers: &Modifiers) -> usize {
         .count()
 }
 
+/// Graine des tirages de curses : la graine de **carte** (`MapGenerationConfig::seed`, jamais
+/// modifiée en cours de partie), la même expression pour la génération des étages (`FloorRooms`,
+/// `map_ldtk::loader::with_curse_floor_rooms`) et pour `curse_system`. `RunSeed` ne convient pas : la
+/// session la remplace par `restart_seed` après un « Rejouer » en ligne ou une entrée du hub (§33), alors
+/// que les cartes gardent la graine de carte ; deux graines feraient annoncer « Labyrinth » sur un étage
+/// de taille ordinaire. Sans configuration de carte : 0.
+pub fn curse_map_seed(config: Option<&MapGenerationConfig>) -> u32 {
+    config.map_or(0, |config| config.seed as u32)
+}
+
 /// Tire la curse de l'étage à son entrée et pose ses modificateurs sur les joueurs
 /// (`RollbackSystemSet::FrameCounter`, voir le module). Sans `CurseTable::config`, ne fait rien.
 pub fn curse_system(
     frame: Res<FrameCount>,
     table: Res<CurseTable>,
     floor: Option<Res<FloorState>>,
-    run_seed: Option<Res<RunSeed>>,
+    map_config: Option<Res<MapGenerationConfig>>,
     mut curses: ResMut<RunCurses>,
     mut players: Query<(&GgrsNetId, &mut Modifiers), With<Player>>,
 ) {
@@ -179,7 +192,7 @@ pub fn curse_system(
     let entered_now = curses.entered != Some(floor_index);
     if entered_now {
         let drawn = table
-            .drawn(run_seed.map_or(0, |seed| seed.0), floor_index)
+            .drawn(curse_map_seed(map_config.as_deref()), floor_index)
             .map(|(id, _)| id);
         info!(
             "ggrs{{f={} curse floor={} id={}}}",
@@ -349,5 +362,43 @@ mod tests {
             Some("maze")
         );
         assert_eq!(current_curse(&curses, &table, 1), None);
+    }
+
+    /// Revue de M3-T9 : après un « Rejouer » en ligne ou une entrée du hub, `RunSeed` est dérivée
+    /// (`restart_seed`) alors que les cartes gardent la graine de carte. Le tirage de l'entrée d'étage
+    /// doit suivre la graine de carte, celle qu'a lue la génération (`FloorRooms`), jamais `RunSeed`.
+    #[test]
+    fn the_draw_follows_the_map_seed_not_the_derived_run_seed() {
+        let mut defs = BTreeMap::new();
+        defs.insert("a".to_string(), maze());
+        defs.insert("b".to_string(), maze());
+        let table = CurseTable {
+            config: Some(CurseConfig {
+                chance: Fixed::ONE,
+                pool: vec!["a".into(), "b".into()],
+            }),
+            defs,
+        };
+        let by = |seed: u32| table.drawn(seed, 0).map(|(id, _)| id);
+        // Deux graines qui tirent des curses différentes à l'étage 0.
+        let map_seed = 1u32;
+        let run_seed = (2..200u32)
+            .find(|seed| by(*seed) != by(map_seed))
+            .expect("une graine qui tire autrement");
+        let mut app = App::new();
+        app.init_resource::<FrameCount>()
+            .init_resource::<RunCurses>()
+            .insert_resource(table.clone())
+            .insert_resource(MapGenerationConfig {
+                seed: map_seed as i32,
+                ..default()
+            })
+            .insert_resource(bevy_fixed::rng::RunSeed(run_seed))
+            .add_systems(Update, curse_system);
+        app.update();
+        let curses = app.world().resource::<RunCurses>();
+        assert_eq!(curses.get(0).map(str::to_string), by(map_seed));
+        assert_ne!(curses.get(0).map(str::to_string), by(run_seed));
+        assert_eq!(curse_map_seed(None), 0);
     }
 }

@@ -586,10 +586,10 @@ pub enum Expectation {
         apart: Vec<String>,
         at_frame: u32,
     },
-    /// M3-T9 (`docs/conventions.md` §74) : nombre de salles de la carte de l'étage courant
-    /// (`RoomBounds`, grandes salles comptées une fois, salle secrète et post-boss comprises) entre
-    /// `min` et `max` inclus à la frame exacte `at_frame` ; prouve l'agrandissement de la curse
-    /// `Labyrinth`. À employer sur un étage unique (les mondes des étages se superposent).
+    /// M3-T9 (`docs/conventions.md` §74) : nombre de salles du monde (tous les `RoomBounds` présents,
+    /// grandes salles comptées une fois, salle secrète et post-boss comprises) entre `min` et `max`
+    /// inclus à la frame exacte `at_frame` ; prouve l'agrandissement de la curse `Labyrinth`. Ne
+    /// filtre pas par étage : à employer sur un étage unique (les mondes des étages se superposent).
     RoomCount {
         #[serde(default)]
         min: u32,

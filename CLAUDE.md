@@ -394,8 +394,8 @@ crate `APP`), jamais dans un crate `SIM`.
     - M3-T0e curses et pools (§64) : `Curse(floor, id: Some("…") | None, at_frame)` (curse de l'étage,
       `run::RunCurses`), `PoolSeen(pool, item, seen, at_frame)` (objet sorti d'un pool à épuisement,
       `items::PoolState`) ; rien ne remplit `PoolState` avant M3-T8.
-    - M3-T9 curses en jeu (§74) : `RoomCount(min, max: Some(n), at_frame)` (nombre de salles de la carte de
-      l'étage courant, `RoomBounds`) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
+    - M3-T9 curses en jeu (§74) : `RoomCount(min, max: Some(n), at_frame)` (nombre de `RoomBounds` du monde, tous
+      étages confondus : à employer sur un étage unique) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
       source masquée) et la source `curses` ; `Curse` lit maintenant les tirages réels de `game::curses` ;
       moment clé `curse` (curse tirée à l'entrée d'un étage).
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.

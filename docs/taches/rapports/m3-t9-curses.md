@@ -30,12 +30,13 @@ Autres décisions et corrections :
 - `scaled_rooms` ramène la grammaire à une grammaire satisfiable (au moins départ + boss + requises, au plus la capacité de la
   grille) : une curse ne peut pas rendre un étage impossible à planifier dans les limites éprouvées (×2).
 
-## 2. Vérifié (sur la fusion avec `origin/main` `25c0e49b`, HEAD `23589f63` avant le commit LIVRÉ)
+## 2. Vérifié (sur la fusion avec `origin/main` `25c0e49b`, puis après le correctif de la revue : HEAD `f35d0475` + ce correctif)
 
-- `make test_scenarios_par SHARDS=3` sans BLESS : **507 scénarios**, 3 tranches ok, 158 s (sur la branche avant fusion : 507,
-  197 s). Aucune `.trace` existante modifiée (`git status` propre après), 7 traces nouvelles, 1 supprimée.
-- `make test_crates` : **1 063 passés, 0 échec**, 14 ignorés (T0e : 1 044 ; +1 venu de `main`) ; nouveaux : `world` (`scaled_rooms`), `run::curse`
-  (`entered`, produit de `FloorRooms`), `game::curses` (4), `ui::hud` (noms cachés), `map` (1 000 graines doublées sur la grille),
+- `make test_scenarios_par SHARDS=3` sans BLESS, **sur le correctif de la revue** : **507 scénarios**, 3 tranches ok, 155 s (sur la
+  fusion avant correctif : 507, 158 s ; avant fusion : 507, 197 s). Aucune `.trace` existante modifiée (`git status` propre après),
+  7 traces nouvelles, 1 supprimée.
+- `make test_crates` : **1 064 passés, 0 échec**, 14 ignorés (T0e : 1 044 ; +1 venu de `main`, +1 test de la revue) ; nouveaux : `world` (`scaled_rooms`), `run::curse`
+  (`entered`, produit de `FloorRooms`), `game::curses` (5), `ui::hud` (noms cachés), `map` (1 000 graines doublées sur la grille),
   `map_ldtk` (2 × 200 graines ×2 en grille `isaac` et en arbre `gungeon`), `scenario::curses` (3).
 - `make lint` ×5 : zombies, testbed, throne, gungeon, isaac « aucune erreur ».
 - `make gen GAME=…` ×5 : code 0, `git status` propre après (aucun diff), sur la fusion.
@@ -58,8 +59,11 @@ Autres décisions et corrections :
   - **sur la fusion** avec `main` `25c0e49b` (nouveau `p2p-stress.sh`, `EXPECT_FLOORS=1`), montage testbed ci-dessus, 2 400 frames :
     **5 990 frames resimulées** (client 0 ; client 1 : 1), 0 desync, **1 transition d'étage** relevée au journal des deux
     clients (résimulée à f1606), traces contiguës et identiques (2 399 lignes) ; `curse floor=0 id=maze` à f0, `curse floor=1
-    id=none` à f1606. Les trois mesures précédentes ont été faites sur la branche avant la fusion ; isaac n'a pas été refait
-    sur la fusion (le script seul a changé, pas le code d'`isaac`).
+    id=none` à f1606 ;
+  - **refait après le correctif de graine** (revue, point 3) : testbed même montage, 2 400 frames, `EXPECT_FLOORS=1` : OK (le script
+    échoue sous 1 000 frames resimulées ; le compteur exact n'a pas été relevé), 1 transition d'étage (f1606), traces identiques
+    (2 399 lignes), mêmes lignes `curse` ; isaac `sous_sol_maudit` graine 2, 3 000 frames : **4 595 frames resimulées** (client 0 ;
+    client 1 : 10), 0 desync, traces identiques (2 999 lignes), `curse floor=0 id=labyrinth` et `salles (8, 12) → (16, 24)`.
 
 ## 3. Non fait / incertain / non vérifié
 
@@ -72,13 +76,24 @@ Autres décisions et corrections :
   Sans effet sur `isaac` (`victory_at_end`).
 - Un `FloorRooms` que la grille ne tient pas (×100 sur 7 × 7) échoue explicitement au chargement (`Exhausted`), comme toute
   grammaire impossible ; seuls les ×2 sont prouvés (grille `isaac` et arbre `gungeon`). Pas de lint là-dessus (dépend de la grammaire).
-- Le hub (`HubSession`) n'est pas couvert : une séquence à curses jouée depuis le hub n'a pas été essayée.
-- Relecture indépendante : non faite par moi (attendue de l'orchestrateur). Points à regarder :
+- Le hub (`HubSession`) n'est pas couvert par un scénario : une séquence à curses jouée depuis le hub, ou un « Rejouer » en ligne,
+  n'a pas été essayée de bout en bout (le correctif de graine ci-dessous est prouvé par un test unitaire du système, pas par un restart).
+- **Relecture indépendante** (sous-agent `reviewer`, lecture seule, sur HEAD `f35d0475`) : 1 bloquant, 1 remarque.
+  - *Bloquant, corrigé* : `FloorRooms` lisait `MapGenerationConfig::seed` à la génération alors que `curse_system` lisait
+    `RunSeed`, que la session remplace par `restart_seed(...)` après un « Rejouer » en ligne ou une entrée du hub (`jjrs/p2p.rs`,
+    `jjrs/local.rs`) : deux graines, donc un étage doublé sans « Labyrinth » annoncée (ou l'inverse). Aucun scénario ni p2p
+    ne le voyait (première partie : `RunSeed` = graine de carte). **Correctif** : une seule graine, celle de la carte
+    (`game::curses::curse_map_seed`, lue par `curse_system` et par le chargeur) ; test
+    `the_draw_follows_the_map_seed_not_the_derived_run_seed` (échoue si `curse_system` relit `RunSeed`) ; §74 le dit
+    (un « Rejouer » rejoue les mêmes curses, comme les mêmes cartes). La partie du rapport « graine du tirage = `RunSeed` » était fausse.
+  - *Remarque, corrigée* : `RoomCount` compte tous les `RoomBounds` du monde (pas « de l'étage courant ») : doc corrigée
+    (`expectations.rs`, `CLAUDE.md`) ; les trois usages sont mono-étage.
+- Points laissés à une relecture humaine :
   1. tirage par détection d'entrée plutôt que par `FloorEntered` (§74, « Tirage ») ;
   2. `RunCurses` non neutre dès qu'un champ `curses` existe (`entered`), suppression de `curse_pool_unset` ;
   3. `FloorRooms` lu à la génération, étage = emplacement (§74, « Étage et emplacement »), `scaled_rooms` borné ;
   4. portée de `HideItemNames` (`Weapon` et `Shelf` : armes et objets à ramasser ou acheter, pas la machine à perk) ;
-  5. graine du tirage = `RunSeed` = `MapGenerationConfig.seed as u32`, lue à la génération par la même expression ;
+  5. graine de carte et non `RunSeed` pour les curses (conséquence : un « Rejouer » rejoue les mêmes curses) ;
   6. valeur exacte `127,5009155` de `curse_modifier` (150 × 0,85 en `Fixed`, pas 127,5).
 
 ## 4. Traces bougées
@@ -99,7 +114,7 @@ existantes (dont `grid_*`, `isaac_*`, `gungeon_*`, qui n'ont pas de champ `curse
 - M3-T16 (HUD v3) : lire `CurseHides::item_names` aussi pour les objets sans prompt (`InteractionType::Item` n'a pas de prompt
   avant le HUD de M2/V4).
 - Journal `docs/taches.md` §10 : à ajouter sur `main` après le merge (règle du README §6) ; proposition :
-  `| 2026-10-16 | M3-T9 (curses d'étage en jeu : tirage à l'entrée par graine+étage, Modifier curse:<id>, FloorRooms ×2 à la génération grille et arbre, HUD masqué minimap/santé/noms ; attentes RoomCount et HudText empty ; §74) | m3-t9-curses | b3 | mergée ; 507 scénarios sans trace bougée sur la fusion avec main 25c0e49b (7 nouveaux, curse_pool_unset retiré), test_crates 1 063, lint/gen ×5, fuzz (+2 scénarios à curse), 3 mutations tuées, p2p-stress testbed 5 720 puis 6 597 (passage d'étage) puis 5 990 sur la fusion (EXPECT_FLOORS=1) et isaac 4 608 (labyrinth ×2) frames resimulées ; non fait : curses dans la séquence par défaut d'isaac (T11d), item_names hors prompt (T16) |`
+  `| 2026-10-16 | M3-T9 (curses d'étage en jeu : tirage à l'entrée par graine+étage, Modifier curse:<id>, FloorRooms ×2 à la génération grille et arbre, HUD masqué minimap/santé/noms ; attentes RoomCount et HudText empty ; §74) | m3-t9-curses | b3 | mergée ; 507 scénarios sans trace bougée sur la fusion avec main 25c0e49b (7 nouveaux, curse_pool_unset retiré), test_crates 1 064, lint/gen ×5, fuzz (+2 scénarios à curse), 3 mutations tuées, p2p-stress testbed 5 720 puis 6 597 (passage d'étage) puis 5 990 sur la fusion (EXPECT_FLOORS=1) et isaac 4 608 (labyrinth ×2) frames resimulées ; non fait : curses dans la séquence par défaut d'isaac (T11d), item_names hors prompt (T16) |`
 
 ## 6. Atteignabilité
 
