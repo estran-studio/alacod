@@ -43,7 +43,7 @@ Mutations non rejouées. Les témoins par paires prouvent chaque règle : `pool_
 ## 3. Traces bougées
 
 Preuve §5 (dumps détaillés `ALACOD_DUMP_TRACE`, trois états : `main` `ad2be1c2`, branche complète, branche **sans** `boss_drop` ni
-marché du diable) sur les 17 traces qui différaient, comparées par `scripts/trace-diff.py --ignore PoolState,Chest` :
+marché du diable) sur les 18 traces qui différaient, comparées par `scripts/trace-diff.py --ignore PoolState,Chest` :
 
 - **Cause 1, `Chest.table` et `PoolState`** (tresor/secrete de `isaac` ont un pool propre au lieu de `salle`, les pools à
   `exhaust` assignent à la génération) : seule différence des 4 `curse_*`, `generated/isaac/room_combat`, `grid_secret_room`,
@@ -60,7 +60,8 @@ marché du diable) sur les 17 traces qui différaient, comparées par `scripts/t
 
 - Chance du diable réduite par les dégâts subis au boss : non faite (le plan est posé avant le combat) ; non confirmée par William.
 - Choix « âme partielle puis reste en vie max » (Q6 dit seulement « à la place »).
-- Pas de boutique dans `isaac` (le moteur est prouvé au testbed).
+- Pas de boutique dans `isaac` ; le testbed n'a aucune salle `shop` : `cost` n'est exercé que par le diable d'isaac, la branche `Currency(n)` n'est exercée par aucun scénario (dette).
+- Dettes : `max_health_after` ne voit que la frame courante (bonus temporaire) ; butin du boss détruit par `floor_transition` si un joueur est déjà sur le portail ; garde « déjà tombé » par frame seulement.
 - Revue : voir la section 5.
 
 ## 5. Relecture indépendante (sous-agent `reviewer`, lecture seule)
@@ -77,4 +78,4 @@ relecture ; elle est couverte par la suite complète (535 scénarios) mais aucun
 
 ## 6. Journal (à ajouter sur `main` après le merge)
 
-`| 2026-10-17 | M3-T8 (pools par type de salle à épuisement tirés à la génération de l'étage (option A, PoolState{seen,assigned}), marché du diable payé en vie max ou en âme (Price avec soul, modificateur permanent MaxHealth), butin du boss, salle du diable d'isaac remplie, prompt « — 1 cœur » ; Q5 et Q6 ; §73) | m3-t8-pools-marche-diable | b3 | mergée ; 535 scénarios, test_crates 1 115, lint/gen ×5, fuzz, revue (3 P2 corrigés), p2p-stress isaac 9 166 frames resimulées ; 17 traces isaac bénies avec preuve §5 ; non fait : chance du diable réduite par les dégâts au boss, boutique isaac (T11d), décision du diable par le bot (T14) |`
+`| 2026-10-17 | M3-T8 (pools par type de salle à épuisement tirés à la génération de l'étage (option A, PoolState{seen,assigned}), marché du diable payé en vie max ou en âme (Price avec soul, modificateur permanent MaxHealth), butin du boss, salle du diable d'isaac remplie, prompt « — 1 cœur » ; Q5 et Q6 ; §73) | m3-t8-pools-marche-diable | b3 | mergée ; 535 scénarios, test_crates 1 115, lint/gen ×5, fuzz, revue (3 P2 corrigés), p2p-stress isaac 9 166 frames resimulées ; 18 traces isaac bénies avec preuve §5 ; non fait : chance du diable réduite par les dégâts au boss, boutique isaac (T11d), décision du diable par le bot (T14) |`

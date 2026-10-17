@@ -618,6 +618,9 @@ pub fn boss_drop_system(
         return;
     };
     let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    // Garde-fou : une salle ne lâche son butin qu'une fois par frame, même si deux `BossPlan` y meurent
+    // ensemble (deux événements). Entre deux frames, rien ne l'empêche (dette, §73).
+    let mut dropped: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     for event in defeated.iter() {
         let at = FixedVec2::new(event.x, event.y);
         let Some((id, bounds, kind)) = sorted_rooms(&rooms)
@@ -630,6 +633,9 @@ pub fn boss_drop_system(
             continue;
         };
         let key = format!("boss:{}", id.0);
+        if !dropped.insert(key.clone()) {
+            continue;
+        }
         // Cas limite : un boss qui meurt au tout premier tick, avant `room_boss_slot_system` (qui suit
         // `floor_transition_system`) : un pool à épuisement est alors assigné ici, avec la même
         // fonction (idempotente), pour que le drop reste l'objet assigné et sorte du pool.

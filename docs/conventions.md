@@ -5665,7 +5665,7 @@ d'attente** (une stat chacun : `semelles_lestees`, `pile_rapide`, `lunette_longu
 `reservoir_vital`, `oeil_vif`, `pacte_rouge`, `cornes_noires`, `queue_fourchue`, `regard_maudit`) : le contenu des pools est
 M3-T11 (T11d), il faut seulement des candidats distincts pour que l'épuisement soit jouable de bout en bout. Salles : `tresor`
 (pool `tresor`), `secrete` (pool `secrete`), `boss` (`boss_drop`), `diable` (marché). **Pas de boutique `isaac`** : le gabarit
-et le type sont T11d ; le moteur l'exécute (`assign_shelves`, `shop.cost`) et le prouve au testbed. `testbed` : types de
+et le type sont T11d ; le moteur l'exécute (`assign_shelves`, `shop.cost`) mais le testbed n'a aucune salle `shop` : `cost` n'est exercé que par le diable d'`isaac` (et des présentoirs posés par scénario) ; la branche `Currency(n)` de `shop.cost` n'est exercée par aucun scénario (dette). `testbed` : types de
 salle `coffre_a`/`coffre_b`, carte `salles_coffres.ldtk`, étage `coffres_epuisables`, pool `epuisable_temoin` (jumeau sans
 `exhaust`).
 
@@ -5705,6 +5705,12 @@ consommable, douilles ; `assign_shelves` sur deux salles), `ui::hud` (prompt en 
 ### Traces
 
 (voir le rapport `docs/taches/rapports/m3-t8-pools-marche-diable.md`)
+
+### Dettes connues (M3-T8)
+
+- `max_health_after` ne regarde que la frame courante : un bonus `MaxHealth` temporaire qui expire rend a posteriori le paiement mortel.
+- Le butin du boss est détruit par `floor_transition_system` si un joueur est déjà sur le portail à la frame de la mort (le drop est posé avant la transition, mais l'objet vit dans l'étage quitté).
+- Garde « butin déjà tombé » : une fois par salle **et par frame** seulement (deux `BossPlan` morts à des frames différentes dans la même salle lâcheraient deux fois).
 
 ### Atteignabilité
 
