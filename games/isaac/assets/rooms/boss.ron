@@ -1,2 +1,3 @@
-// Type de salle `boss` (docs/conventions.md §35).
-(locks: true)
+// Type de salle `boss` (docs/conventions.md §35). M3-T8 (§73) : à la mort du boss un objet du pool `boss`
+// tombe au centre de la salle (épuisement par run, tiré à la génération de l'étage).
+(locks: true, boss_drop: Some((table: "boss", rarity: Common)))

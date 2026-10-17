@@ -399,11 +399,15 @@ crate `APP`), jamais dans un crate `SIM`.
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
     - M3-T0e curses et pools (§64) : `Curse(floor, id: Some("…") | None, at_frame)` (curse de l'étage,
       `run::RunCurses`), `PoolSeen(pool, item, seen, at_frame)` (objet sorti d'un pool à épuisement,
-      `items::PoolState`) ; rien ne remplit `PoolState` avant M3-T8.
+      `items::PoolState`) ; M3-T8 (§73) les remplit (assignation à la génération de l'étage).
     - M3-T9 curses en jeu (§74) : `RoomCount(min, max: Some(n), at_frame)` (nombre de `RoomBounds` du monde, tous
       étages confondus : à employer sur un étage unique) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
       source masquée) et la source `curses` ; `Curse` lit maintenant les tirages réels de `game::curses` ;
       moment clé `curse` (curse tirée à l'entrée d'un étage).
+    - M3-T8 pools par type de salle et marché du diable (§73) : `PoolCount(pool, count, at_frame)` (objets **distincts**
+      sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
+      `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
+      présentoir à vie maximale ou à consommable ; `Health`, `Stat(MaxHealth)` et `ExtraHealth` lisent le paiement.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments

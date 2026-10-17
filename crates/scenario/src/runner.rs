@@ -967,29 +967,48 @@ fn apply_scenario_item_placements(
 #[derive(Resource)]
 struct ScenarioChestPlacements(Vec<game::replay::ChestPlacement>);
 
+#[allow(clippy::too_many_arguments)]
 fn apply_scenario_chest_placements(
     frame: Res<FrameCount>,
     placements: Res<ScenarioChestPlacements>,
+    tables: Res<items::LootTables>,
+    floors: Res<game::loot::FloorLootTables>,
+    item_table: Res<items::ItemTable>,
+    unlocks: Res<items::UnlockTable>,
+    active: Res<items::RunUnlocks>,
+    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
+    floor: Option<Res<run::FloorState>>,
+    mut pools: ResMut<items::PoolState>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
+    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    let ctx = game::loot::SlotContext {
+        frame: frame.frame,
+        tables: &tables,
+        items: &item_table,
+        unlocks: &unlocks,
+        active: &active,
+        run_seed,
+        floor,
+    };
     for placement in &placements.0 {
         if frame.frame != placement.at_frame {
             continue;
         }
         let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
-        game::loot::spawn_chest(
-            &mut commands,
-            &mut id_factory,
-            items::Chest {
-                key: placement.key.clone(),
-                table: placement.table.clone(),
-                rarity: placement.rarity,
-                locked: placement.locked,
-                opened: false,
-            },
-            position,
-        );
+        let chest = items::Chest {
+            key: placement.key.clone(),
+            table: placement.table.clone(),
+            rarity: placement.rarity,
+            locked: placement.locked,
+            opened: false,
+        };
+        // M3-T8 (§73) : comme un coffre de salle, l'objet d'un pool qui s'épuise est assigné à la
+        // pose (idempotent : une seconde pose de la même clé donne le même objet).
+        let table_id = game::loot::chest_table_id(&chest, &floors, floor).to_string();
+        game::loot::assign_slot(&ctx, &mut pools, &table_id, chest.rarity, false, &chest.key);
+        game::loot::spawn_chest(&mut commands, &mut id_factory, chest, position);
     }
 }
 
@@ -1017,7 +1036,7 @@ fn apply_scenario_shelf_placements(
                 price: placement.price,
                 sold: false,
                 retry_after: 0,
-                cost: None,
+                cost: placement.cost.clone(),
             },
             position,
         );
@@ -2647,6 +2666,7 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             nth,
             item,
             price,
+            cost,
             sold,
             ..
         } => {
@@ -2664,6 +2684,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             };
             if item.as_ref().is_some_and(|item| *item != shelf.item_id)
                 || price.is_some_and(|price| price != shelf.price)
+                || cost
+                    .as_ref()
+                    .is_some_and(|cost| Some(cost) != shelf.cost.as_ref())
                 || sold.is_some_and(|sold| sold != shelf.sold)
             {
                 return Err(format!("présentoir {nth} : {shelf:?}"));
@@ -2951,6 +2974,32 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!(
                     "pool « {pool} » : « {item} » sorti = {actual} (attendu {seen})"
                 ))
+            }
+        }
+        // M3-T8 (§73) : objets distincts sortis d'un pool à épuisement.
+        Expectation::PoolCount { pool, count, .. } => {
+            let actual = world
+                .get_resource::<items::PoolState>()
+                .map_or(0, |state| state.count(pool));
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!(
+                    "pool « {pool} » : {actual} objet(s) sorti(s) (attendu {count})"
+                ))
+            }
+        }
+        // M3-T8 (§73) : objets au sol (butin de boss, objet lâché).
+        Expectation::ItemsOnFloor { id, count, .. } => {
+            let actual = world
+                .query::<&items::ItemPickup>()
+                .iter(world)
+                .filter(|pickup| pickup.item_id == *id)
+                .count() as u32;
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!("{actual} « {id} » au sol (attendu {count})"))
             }
         }
         // M2-T13 : décisions du hub dans la simulation (`game::hub::HubState`).

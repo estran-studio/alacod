@@ -1179,7 +1179,7 @@ fn prompt_for(
                     .as_ref()
                     .and_then(|table| table.0.get(&shelf.item_id))
                     .map_or_else(|| shelf.item_id.clone(), |def| def.name.clone()),
-                price: shelf.price,
+                price: shelf_price_label(shelf, world.item_table.as_deref()),
             }
         }
         // M2-T13 : pas de prompt du hub avant le HUD de M2 (V4).
@@ -1227,6 +1227,23 @@ fn prompt_for(
     prompt.text()
 }
 
+/// Prix d'un présentoir pour son prompt (M3-T8, §73) : les douilles (`price`), ou le coût propre du
+/// présentoir — « 1 cœur » pour la vie maximale (`items::heart_label`), « 3 Bombe » pour un
+/// consommable (nom de l'objet).
+fn shelf_price_label(shelf: &items::Shelf, item_table: Option<&items::ItemTable>) -> String {
+    match &shelf.cost {
+        None => shelf.price.to_string(),
+        Some(items::Price::Currency(amount)) => amount.to_string(),
+        Some(items::Price::MaxHealth(amount)) => items::heart_label(*amount),
+        Some(items::Price::Consumable(id, amount)) => {
+            let name = item_table
+                .and_then(|table| table.0.get(id))
+                .map_or(id.as_str(), |def| def.name.as_str());
+            format!("{amount} {name}")
+        }
+    }
+}
+
 /// Ce que le prompt annonce, indépendamment de l'ECS (testé en bas du fichier).
 #[derive(Debug, Clone, PartialEq)]
 enum Prompt {
@@ -1255,7 +1272,9 @@ enum Prompt {
     /// M2-T6 : présentoir de boutique.
     Shelf {
         name: String,
-        price: u32,
+        /// Prix tel qu'écrit : des douilles (« 30 ») ou, pour un prix de vie, des cœurs
+        /// (« 1 cœur », M3-T8 §73).
+        price: String,
     },
     /// `owned` : déjà acheté, l'interaction ne fait rien.
     Perk {
@@ -1643,10 +1662,33 @@ mod tests {
         assert_eq!(
             Prompt::Shelf {
                 name: "Trèfle".into(),
-                price: 30
+                price: "30".into()
             }
             .text(),
             "Acheter Trèfle — 30"
+        );
+        // M3-T8 : prix de vie du marché du diable, en cœurs (2 PV = 1 cœur).
+        let devil = |points: i32| items::Shelf {
+            key: "k".into(),
+            item_id: "x".into(),
+            price: 0,
+            sold: false,
+            retry_after: 0,
+            cost: Some(items::Price::MaxHealth(
+                bevy_fixed::fixed_math::Fixed::from_num(points),
+            )),
+        };
+        let label = |points| shelf_price_label(&devil(points), None);
+        assert_eq!(label(2), "1 cœur");
+        assert_eq!(label(4), "2 cœurs");
+        assert_eq!(label(1), "½ cœur");
+        assert_eq!(
+            Prompt::Shelf {
+                name: "Lentille".into(),
+                price: label(2),
+            }
+            .text(),
+            "Acheter Lentille — 1 cœur"
         );
         assert_eq!(chest(false, false).text(), "Ouvrir le coffre");
         assert_eq!(chest(true, false).text(), "Fermé — 1 clé");
@@ -1678,7 +1720,7 @@ mod tests {
         assert_eq!(free.hide_name().text(), "Ramasser ???");
         let shelf = Prompt::Shelf {
             name: "Trèfle".into(),
-            price: 30,
+            price: "30".into(),
         };
         assert_eq!(shelf.hide_name().text(), "Acheter ??? — 30");
         // Une porte, un coffre ou une machine à perk n'ont pas de nom d'objet : inchangés.

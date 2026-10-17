@@ -1,0 +1,10 @@
+// Fixture M3-T8 : pool à épuisement avec exclusion des objets tenus (loot_exhaust_exclude_held)
+(
+    name: "fixture-loot_exhaust_exclude_held",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "rooms", kind: "Room"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

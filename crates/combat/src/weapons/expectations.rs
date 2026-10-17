@@ -633,6 +633,9 @@ pub enum Expectation {
         item: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         price: Option<u32>,
+        /// M3-T8 : prix propre du présentoir (`Shelf::cost` : vie maximale, consommable).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cost: Option<items::Price>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         sold: Option<bool>,
         at_frame: u32,
@@ -660,6 +663,21 @@ pub enum Expectation {
         pool: String,
         item: String,
         seen: bool,
+        at_frame: u32,
+    },
+    /// M3-T8 (§73) : nombre d'objets **distincts** sortis du pool `pool` (`items::PoolState`) à la
+    /// frame exacte `at_frame`. Deux coffres d'un pool à épuisement donnent 2 (un même objet
+    /// deux fois donnerait 1).
+    PoolCount {
+        pool: String,
+        count: u32,
+        at_frame: u32,
+    },
+    /// M3-T8 (§73) : nombre d'objets `id` **au sol** (`items::ItemPickup`, passifs, actifs et
+    /// consommables) à la frame exacte `at_frame` : le butin d'un boss mort, un objet lâché.
+    ItemsOnFloor {
+        id: String,
+        count: u32,
         at_frame: u32,
     },
 }
@@ -727,6 +745,8 @@ impl Expectation {
             | Self::ShellPiles { at_frame, .. }
             | Self::Curse { at_frame, .. }
             | Self::PoolSeen { at_frame, .. }
+            | Self::PoolCount { at_frame, .. }
+            | Self::ItemsOnFloor { at_frame, .. }
             | Self::HasItem { at_frame, .. }
             | Self::ItemCharge { at_frame, .. }
             | Self::Consumable { at_frame, .. }

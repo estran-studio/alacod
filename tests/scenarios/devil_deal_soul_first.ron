@@ -1,0 +1,36 @@
+// M3-T8 (docs/conventions.md §73, Q6) : les cœurs d'âme paient **à la place** de la vie maximale. Un
+// `coeur_ame` (4 points de vie d'âme) est ramassé à f5 ; le présentoir `boussole` coûte un cœur
+// (`MaxHealth("2")`). L'achat de f10 retire 2 points d'âme (4 → 2) et ne touche ni la vie (100) ni la
+// vie maximale (100). Le second présentoir (`lame`, coût `MaxHealth("6")`, acheté à f60) dépasse l'âme
+// restante : les 2 points d'âme partent d'abord, les 4 autres sont payés en vie maximale (96).
+//
+// À regarder : f10 ExtraHealth 4 → 2, santé intacte ; f60 ExtraHealth 0, santé et maximum à 96.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    items: [(id: "coeur_ame", x: "424.0", y: "696.0", at_frame: 5)],
+    shop: (shelves: [
+        (key: "a", item: "boussole", price: 0, cost: Some(MaxHealth("2")), x: "424.0", y: "696.0", at_frame: 5),
+        (key: "b", item: "lame", price: 0, cost: Some(MaxHealth("6")), x: "424.0", y: "696.0", at_frame: 5),
+    ]),
+    frames: 140,
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 60, to: 61, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        ExtraHealth(handle: 0, n: 4.0, at_frame: 9),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 9),
+        ExtraHealth(handle: 0, n: 2.0, at_frame: 30),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 30),
+        Stat(handle: 0, stat: MaxHealth, value: 100.0, at_frame: 30),
+        HasItem(handle: 0, id: "boussole", at_frame: 30),
+        ExtraHealth(handle: 0, n: 0.0, at_frame: 100),
+        Health(handle: 0, min: 96.0, max: 96.0, at_frame: 100),
+        Stat(handle: 0, stat: MaxHealth, value: 96.0, at_frame: 130),
+        HasItem(handle: 0, id: "lame", at_frame: 130),
+    ],
+)
