@@ -714,7 +714,7 @@ revue humaine). **B** = bloque la sortie, **P** = polissage (peut suivre la sort
 | 4 | B | M2-T12 profil et déblocages (`docs/taches/m2-t12-profil-deblocages.md`, §51) | 3 j | 3 (tables de butin) | oui |
 | 5 | B | M2-T13 hub (`docs/taches/m2-t13-hub.md`) | 3 j | 4 | oui |
 | 6 | B | `m2-full-run` : `gungeon_full_run`, bench `grand` rempli, variante à 4 (`docs/taches/m2-full-run.md`) | 2 j | 1 à 5 | oui |
-| 7 | B | `m2-p2p-run-complete` : run complète à 2 puis 4 en ligne, D59 en réel, réseau dégradé, nightly (`docs/taches/m2-p2p-run-complete.md`) — **livrée sur une machine (b2, 2026-10-16/17) ; reste : deux machines x86/arm64 (`scripts/p2p-machine.sh`), D86 (retour au lobby en ligne), D87** | 1,5 j | 6 | **non** (Docker, deux machines) |
+| 7 | B | `m2-p2p-run-complete` : run complète à 2 puis 4 en ligne, D59 en réel, réseau dégradé, nightly (`docs/taches/m2-p2p-run-complete.md`) — **livrée sur une machine (b2, 2026-10-16/17) ; D86 (retour au lobby en ligne) fermée le 2026-10-17 (`dette-d86-lobby-en-ligne`), rollbacks mesurés, nightly complet joué (C et D non exécutables sur ce poste : D88) ; reste : deux machines x86/arm64 (`scripts/p2p-machine.sh`), D87** | 1,5 j | 6 | **non** (Docker, deux machines) |
 | 8 | B | Revue humaine (`docs/taches/session-test-manuelle.md`, un bloc) puis `m2-cloture-videos-digest` (`docs/taches/m2-cloture-videos-digest.md`) | 1 j + William | 6 | partiel |
 | 9 | P | D71 (écran de mutation `bevy_hui`), D72 (minicarte) : `docs/taches/dettes-ui-d71-d72.md` | 1,5 j | rien | oui |
 | 10 | P | D66/D67 lisibilité throne : `docs/taches/lisibilite-throne-d66-d67.md` | 2 j | rien | oui |

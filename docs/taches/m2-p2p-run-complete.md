@@ -30,8 +30,8 @@ Ce n'est pas une tâche de session cloud (pas de Docker).
 | 3. Restart en ligne après la fin de run | **fait** à 2 clients (victoire f7138) et à **4 clients** (victoire f6374) |
 | 3. Boucle hub → run → victoire → hub | **faite** à 2 clients (victoire f7461, traces identiques) |
 | 3. Déconnexion d'un pair en cours d'étage | **faite** à 2 et 4 clients |
-| 3. Retour au lobby en ligne après la fin de run | **partiel, bloqué par D86** : reproduit deux fois, cause établie (course sur la salle d'origine), non corrigé |
-| 4. Réseau dégradé | **fait** pour RTT 120 ms / jitter 20 ms / perte 1 % ; 3 % de perte déconnecte (D87, à mesurer) |
-| 5. Nightly | **fait** (étape C2) ; le réseau dégradé n'y est couvert que si `NIGHTLY_GUNGEON_NETEM` est défini (sinon « netem SKIPPED ») |
+| 3. Retour au lobby en ligne après la fin de run | **fait** (dette-d86-lobby-en-ligne, 2026-10-17) : D86 corrigée (pairs de la session finie ignorés + abandon d'une session non synchronisée), **5/5 essais consécutifs** à 133–365 ms d'écart sur zombies et sur gungeon après la victoire, traces identiques, binaire d'avant rouge au 1er essai |
+| 4. Réseau dégradé | **fait** pour RTT 120 ms / jitter 20 ms / perte 1 % ; 3 % de perte déconnecte (D87, à mesurer) ; profondeur et fréquence des rollbacks **mesurées** (rapport §8 : 16 à 24 restaurations par 100 frames sans stress, profondeur max 11) |
+| 5. Nightly | **fait** (étape C2) ; nightly complet du 2026-10-17 : code 0, 18 924 s, mais C (allumette) SKIPPED et D (vidéos) PARTIAL sur ce poste (D88) ; le réseau dégradé n'y est couvert que si `NIGHTLY_GUNGEON_NETEM` est défini (sinon « netem SKIPPED ») |
 
-D59 fermée ; D85 fermée (délai d'input) ; D86 ouverte (cause établie) ; D87 ouverte (reformulée : mesurer).
+D59 fermée ; D85 fermée (délai d'input) ; D86 fermée (2026-10-17) ; D87 ouverte (reformulée : mesurer) ; D88 ouverte (nightly sans affichage ni allumette). Reste pour la sortie M2 : les deux machines (point 2).
