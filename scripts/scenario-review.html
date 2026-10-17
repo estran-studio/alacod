@@ -262,7 +262,7 @@ function selectVideo(name) {
     ${playerHtml(`${commit.id}/${name}.mp4`, v.events)}
     ${infoPanels({ description: v.description, watch: v.watch, expect: v.expect, events: v.events, noteKey: `${commit.id}/${name}` })}`;
   setHash(`${commit.id}/${name}`);
-  bindPlayer(v.events || [], name);
+  bindPlayer(v.events || [], name, v.legend);
 }
 
 function selectCompare(i) {
@@ -308,9 +308,9 @@ function video() { return current?.video; }
 function legendLead() { return Number(current?.legend) || 0; }
 function duration() { const v = video(); return v && v.duration ? v.duration : 0; }
 
-function bindPlayer(events, name) {
+function bindPlayer(events, name, legend) {
   const v = $("video");
-  current = v ? { video: v, events, name } : null;
+  current = v ? { video: v, events, name, legend } : null;
   for (const t of document.querySelectorAll("textarea[data-note]")) {
     const key = `alacod-review:${t.dataset.note}`;
     t.value = store(key);
@@ -347,10 +347,10 @@ function bindPlayer(events, name) {
 }
 
 function placeMarks() {
-  const total = Math.max(0, duration() - legendLead()) * SIM_FPS;
+  const total = duration();
   if (!total) return;
   for (const m of document.querySelectorAll(".timeline .mark")) {
-    m.style.left = `${Math.min(100, (Number(m.dataset.frame) / total) * 100)}%`;
+    m.style.left = `${Math.min(100, ((Number(m.dataset.frame) / SIM_FPS + legendLead()) / total) * 100)}%`;
   }
 }
 

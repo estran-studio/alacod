@@ -379,14 +379,16 @@ fn attach_door_sprites(
             frame,
         );
         commands.entity(entity).insert(DoorSprite { id, child });
+        commands.entity(child).insert(MapHeld(entity));
     }
 }
 
-/// Cache l'image d'une table ou d'un baril dont l'entité rollback a disparu (explosion, table brisée :
-/// `despawn_rollback` la désactive, l'entité LDtk qui porte l'image survit) ; la montre si un rollback la
-/// ressuscite.
+/// Cache l'image d'une table, d'un baril ou d'une porte dont l'entité rollback a disparu (explosion, table
+/// brisée, changement d'étage, création annulée par un rollback : l'entité LDtk qui porte l'image survit) ;
+/// la montre si un rollback la ressuscite. Règle dérivée de l'état, `Inherited` sinon : le monde caché d'un
+/// étage quitté cache aussi ses images.
 fn reap_held_sprites(
-    owners: Query<(), With<WorldSprite>>,
+    owners: Query<(), Or<(With<WorldSprite>, With<DoorSprite>)>>,
     mut held: Query<(&MapHeld, &mut Visibility)>,
 ) {
     for (held, mut visibility) in &mut held {
@@ -419,7 +421,7 @@ fn hide_replaced_map_tiles(
 fn sync_door_sprites(
     table: SpriteTable,
     doors: Query<(&DoorSprite, Has<Collider>, Has<Interactable>)>,
-    mut sprites: Query<(&mut Sprite, &mut Visibility)>,
+    mut sprites: Query<&mut Sprite>,
 ) {
     for (door, closed, interactable) in &doors {
         let name = match (closed, interactable) {
@@ -430,15 +432,12 @@ fn sync_door_sprites(
         let Some(frame) = table.frame(door.id, name) else {
             continue;
         };
-        if let Ok((mut sprite, mut visibility)) = sprites.get_mut(door.child) {
+        if let Ok(mut sprite) = sprites.get_mut(door.child) {
             if let Some(atlas) = sprite.texture_atlas.as_mut() {
                 if atlas.index != frame {
                     atlas.index = frame;
                 }
             }
-            // `interaction::update_door_visuals` cache l'entité LDtk d'une porte ouverte : l'image
-            // « ouverte » doit rester visible malgré son parent caché.
-            visibility.set_if_neq(Visibility::Visible);
         }
     }
 }
@@ -564,6 +563,35 @@ fn style_tears(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::ecs::system::RunSystemOnce;
+
+    #[test]
+    fn l_image_d_une_porte_se_cache_quand_la_porte_disparait() {
+        let mut world = World::new();
+        let holder = world.spawn(Visibility::Inherited).id();
+        let door = world.spawn_empty().id();
+        let child = world
+            .spawn((MapHeld(door), Visibility::Inherited, ChildOf(holder)))
+            .id();
+        // Porte posée (marqueur `DoorSprite`) : l'image reste héritée.
+        world.entity_mut(door).insert(DoorSprite {
+            id: "door_v",
+            child,
+        });
+        world.run_system_once(reap_held_sprites).unwrap();
+        assert_eq!(world.get::<Visibility>(child), Some(&Visibility::Inherited));
+        // Porte retirée (changement d'étage, création annulée) : l'image se cache.
+        world.entity_mut(door).remove::<DoorSprite>();
+        world.run_system_once(reap_held_sprites).unwrap();
+        assert_eq!(world.get::<Visibility>(child), Some(&Visibility::Hidden));
+        // Un rollback la ressuscite : l'image revient.
+        world.entity_mut(door).insert(DoorSprite {
+            id: "door_v",
+            child,
+        });
+        world.run_system_once(reap_held_sprites).unwrap();
+        assert_eq!(world.get::<Visibility>(child), Some(&Visibility::Inherited));
+    }
 
     #[test]
     fn la_taille_d_un_projectile_croit_avec_le_degat_et_reste_bornee() {

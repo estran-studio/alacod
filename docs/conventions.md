@@ -6088,8 +6088,20 @@ nommées dans la légende. Les piques ne sont pas redessinés (surface à `hazar
 - **Composants non rollback posés sur des entités rollback** : `AimPointer`, `PickupHalo`, `DoorSprite`,
   `WorldSprite`, `MarkerTint` (joueurs) : tous hors checksum et hors snapshot, recréés pour une entité
   ressuscitée ; les enfants (pointeur, halo) se cachent quand leur parent est désactivé.
-- Les couleurs de catégorie du halo et du pointeur sont en code (`legibility.rs`) : dette de données
-  (voie V6 : à déplacer dans `hud.ron`).
+- **Dettes assumées (écarts à la fiche)** :
+  - `AimPointer`, `PickupHalo`, `DoorSprite` (et `WorldSprite`, `MarkerTint`) sont posés sur des entités
+    rollback, hors checksum et snapshot (comme `WorldSprite` avant eux) ; un composant de présentation sur
+    une entité rollback n'est pas un état, mais la fiche demandait de n'en poser aucun nouveau.
+  - Couleurs de catégorie du halo, du pointeur et des étiquettes en dur dans `legibility.rs` (voie V6 :
+    les passer dans `hud.ron`).
+  - Piques non dessinés (aucun jeu n'en pose ; le sprite `spikes` est généré mais non branché).
+  - Coût des étiquettes : `gather_labels` et `sync_labels` cherchent linéairement (`wishes.iter().find`),
+    `declutter` est quadratique ; non mesuré, à mesurer au-delà de ~50 étiquettes (salles d'arène, étage
+    entier visible) avant d'indexer par entité.
+  - Les images de porte, de table et de baril sont des enfants de l'entité LDtk persistante (l'entité
+    rollback n'a pas de `Transform`) : leur visibilité est **héritée** du monde de l'étage (`Inherited`,
+    jamais `Visible`) et `reap_held_sprites` les cache quand l'entité rollback propriétaire n'existe plus
+    (changement d'étage, création annulée par un rollback). Test : `world_sprites::tests`.
 
 ### Preuves et vidéos
 
