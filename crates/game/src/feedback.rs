@@ -2080,6 +2080,8 @@ impl FeedbackSounds<'_> {
     }
 
     /// Joue le fichier `path` au volume de la clé `key` (0 dB si `volumes` ne la règle pas).
+    /// `ALACOD_MUTE=1` : rien n'est joué (captures, `play_scenario`, tests sur un poste de
+    /// travail) ; le journal garde la ligne `sound`, les moments clés restent détectés.
     fn play_path(&self, path: &str, key: &str) {
         let volume_db = self
             .config
@@ -2087,10 +2089,18 @@ impl FeedbackSounds<'_> {
             .and_then(|cfg| cfg.0.volumes.get(key).copied())
             .unwrap_or(0.0);
         info!("feedback f{} sound {} {}", self.frame.frame, key, path);
+        if muted() {
+            return;
+        }
         self.audio
             .play(self.asset_server.load(path.to_string()))
             .with_volume(volume_db);
     }
+}
+
+/// `ALACOD_MUTE=1` coupe tous les sons de feedback (présentation seule).
+fn muted() -> bool {
+    std::env::var("ALACOD_MUTE").map(|v| v == "1").unwrap_or(false)
 }
 
 /// `hit` : un coup porté par un joueur local à une autre entité, un son par frame simulée
