@@ -5282,7 +5282,7 @@ floor)`. `rooms/tresor.ron` d'`isaac` : `door_lock: Some(Key(1)), lock_from_floo
 - `InteractionType::KeyDoor` (fin d'enum) : au premier tick, la porte d'une salle `Key(n)` de l'étage courant **et sa
   jumelle** (`DoorConfig::paired_door` renseigné : les ouvertures murées restent des portes de salle ordinaires)
   gardent leur collider et leur `Interactable` devient `KeyDoor` (même portée) : `handle_door_interaction` ne les voit
-  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé ».
+  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé (n) » / « Fermé — clé (0) » (§81).
 - `key_door_system` (`Interaction`, après tous les handlers qui écrivent `Inventory`) : une Interaction sur une porte
   `KeyDoor` consomme `n` clés **de l'interacteur** (Q4 : les clés sont par joueur), retire collider, couche et
   `Interactable` de toutes les portes scellées de la salle, inscrit la salle dans `DoorLocks`
@@ -5547,8 +5547,7 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 ### Atteignabilité
 
-M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
-scénarios testbed seulement (dette nommée, à fermer par T11c).
+M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables seulement par graine choisie (1730), **D88 ouverte**.
 
 ## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
 
@@ -6043,6 +6042,68 @@ de la taille du pool) ; preuve §5 au rapport `m3-t11b-effets.md`. Les autres je
 Dettes : pas de boutique (T11d) ; pas de transformation (Q10 non retenue) ; la synergie n'est jouée qu'en scénario (le bot ne rouvre pas le trésor du
 second étage, deux objets du même pool ne sortent pas dans une même partie du bot) ; pas de sprite d'objet ni de familier propre (placeholders).
 
+### 76.3 T11c : ennemis, champions, boss (`m3-t11c-ennemis`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur. Vocabulaires déjà livrés : behaviors (§22), vue directe
+D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37, §45), générateur v3 (§78).
+
+- **Sept ennemis** (`characters/`, un `test:` chacun, scénarios `enemy_<id>_still`/`_moving`) : `suiveur` et `mouche` (T0f), et cinq nouveaux.
+  `rampant` (`Charge(telegraph: 30)` + `Chase` Ground, 6 PV, 1 PV de dégât), `spectre` (`Chase` profil `Phasing` : ignore fenêtres, barricades, eau et fosses, **pas les murs ni les rochers** (`navigation.rs`, `Phasing` ignore tout sauf `Wall`) ; 8 PV,
+  contact 1 PV, aucun `sight_range` : son `aggro_range` de 500 couvre toute salle de 240 unités), `cracheur` (`Shoot` du pattern `crachat` + `Chase` Ground, 6 PV,
+  `aggro_range` 130, `sight_range` 360), `tourelle_croix` (immobile, `croix` : deux couronnes de quatre boules, `aggro_range` 100, `sight_range` 260,
+  12 PV), `bourdon` (`Chase` profil `Flying` + `Shoot` du pattern `rafale`, 6 PV, `aggro_range` 140, `sight_range` 360). **`sight_range`
+  cohérent** : un tireur sans portée de flair (`aggro_range` bas) mais à vue longue ne cible qu'en ligne de vue dégagée (un coin le met hors de
+  portée) ; un ennemi qui flaire toute la salle (`spectre`, `aggro_range` 500) n'en a pas. Dans `isaac`, aucun obstacle franchissable par `Phasing` n'est posé : le `spectre` se comporte comme un `Chase` Ground (dette moteur/contenu : un vrai fantôme à travers rochers exigerait un obstacle `Wall` traversable).
+- **Patterns** (`patterns/`) : `crachat` (télégraphe 15, un tir visé), `croix` (deux couronnes de quatre, 25 frames d'écart), `rafale` (trois tirs
+  visés, un par 8 frames), `couronne_unique` (une couronne de huit boules, `every: 0` : le motif de mort d'un champion), `spirale` (deux bras,
+  six salves, 60 frames). Projectiles de l'`arsenal` : `crachat` (dégât 1 : un demi-cœur d'isaac, vitesse 110) en plus de `plomb` et `boule`.
+- **Trois ennemis à champions** (`variants:`, `chance` en expression par étage, `tint`, un effet de mort chacun, tous dans le gabarit de combat) :
+  `suiveur` → `explosif` (`0,1 + floor × 0,15`, `Explode` rayon 44, dégât 2, `destroys: false` : la salle secrète reste à la bombe) ;
+  `mouche` → `essaim` (`0,12 + floor × 0,1`, `SpawnCharacters` : deux `mouche` ordinaires) ; `tourelle_croix` → `salve` (`0,15 + floor × 0,12`,
+  `SpawnPattern` `couronne_unique`). Générateur v3 : `champions: [(variant, kill: true, weapon: Some("larmes"))]` → `champion_suiveur_explosif`,
+  `champion_mouche_essaim`, `champion_tourelle_croix_salve` (la sonde relève la mort et attend l'explosion, les deux mouches nées, la couronne).
+- **Placement** (aucun gabarit ajouté, `docs/taches/rapports/m3-t11c-ennemis.make_placement.py`) : le gabarit `Combat` garde `suiveur` et `mouche`
+  et gagne `tourelle_croix` (13, 7) : trois ennemis par salle de combat, 16 ennemis (au lieu de 11) à l'étage de la graine 1. **Le reste vient du boss**.
+- **Boss `gardien`** (3 phases, `boss_drop` du pool `boss` inchangé : `rooms/boss.ron`) : phase 0 (≥ 60 %) éventail ; phase 1 (< 60 %) `rampant` et
+  `cracheur` en renfort (`SpawnEnemies`) + couronne ; phase 2 (< 25 %) `spectre` et `bourdon` en renfort + spirale (télégraphe de 10 frames).
+  Aucune vague d'arène : `isaac` n'a pas de type de salle `arene` (gabarit : T11d).
+
+| Ennemi / variante | Comportement | Gabarit / vague | Graine `alacod-sim` | Scénario généré |
+|---|---|---|---|---|
+| `suiveur` | `Chase` Ground, contact | `Combat` | 2 (salle verrouillée f57) | `enemy_suiveur_still`/`_moving` |
+| `suiveur` / `explosif` | explosion à la mort | `Combat` | 1730 | `champion_suiveur_explosif` |
+| `mouche` | volante, contact | `Combat` | 2 | `enemy_mouche_*` |
+| `mouche` / `essaim` | deux mouches à la mort | `Combat` | 1730 | `champion_mouche_essaim` |
+| `tourelle_croix` | immobile, `croix`, vue directe | `Combat` | 2 | `enemy_tourelle_croix_*` |
+| `tourelle_croix` / `salve` | couronne à la mort | `Combat` | 1730 | `champion_tourelle_croix_salve` |
+| `rampant` | charge | boss, phase 1 | 2 (renfort f2370) | `enemy_rampant_*` |
+| `cracheur` | tireur, vue directe | boss, phase 1 | 2 | `enemy_cracheur_*` |
+| `spectre` | `Phasing` | boss, phase 2 | 2 | `enemy_spectre_*` |
+| `bourdon` | volant, tireur | boss, phase 2 | 2 | `enemy_bourdon_*` |
+| `gardien` | 3 phases, renforts, spirale | `Boss` | 2 | `boss_gardien` |
+
+**Piège du tirage des variantes = dette moteur D88** (`docs/taches/dettes.md`) : le tirage (`variant.rs:139`) est `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
+pas de congruentiel (A = 1 664 525) : quasi linéaire (0,0004 par unité de graine) et corrélé par étage. **Avec la graine par défaut (`default_seed: 123456`, gardée par le
+restart), aucun champion ne sort au premier étage** ; 89 % des graines donnent 0 champion, 9 % les donnent tous. Net ids 100 à 199 : graines 1 à 255 → premier tirage dans
+[0,67 ; 0,77], 1 à 1279 → au moins 0,277 ; les chances d'`isaac` plafonnent à 0,27 aux deux premiers étages : **aucun champion pour les graines 1 à 1279**, donc jamais dans
+`alacod-sim --seeds 1..200` (1..50 et 1000..1150 essayées). La graine **1730** (`alacod-sim … --seeds 1730..1730 --log` : 4 `explosif`, 4 `essaim`, 3 `salve`, 18
+`champion_split`, 18 `explosion`) est la graine d'atteignabilité des trois variantes : les champions ne sont atteignables que par graine choisie. Remède de D88 : dériver la graine par
+`fnv1a("variants:<graine>:<net id>")` replié sur 32 bits (coût : traces à variantes de gungeon, throne, testbed, isaac).
+
+**Équilibrage** (campagne courte, `explorateur`, 50 graines `--floors sous_sol --until-floor 2 --max-frames 12000`, §76.3 du rapport) : l'`explorateur` meurt
+dès qu'une salle de combat compte quatre ennemis (essais : 16 morts sur 16 à quatre ennemis, 5 types ; cracheur, rampant ou tourelle seuls : 9 à 15 morts
+sur 16 avec un boss à renforts doubles), d'où les trois ennemis par salle et les renforts du boss. Mesure finale : 30 morts, 17 victoires, 3 soft-locks
+(9 et 43 existent sur `main` à l'identique, 42 est de la même famille : plafond sans progrès, ennemis hors de vue, aucun dégât). Les 5 scénarios
+`grid_floor_seed_1`/`_123`/`_23`, `grid_post_boss`, `isaac_floor_seed_1` (chronologie du boss) ont leurs attentes recalées (16 ennemis, boss verrouillé vers f2021 au lieu de f1340 pour la graine 1).
+
+Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de la partie ordinaire ne porte `variants` » (§72 : dette fermée).
+
+**Traces** : un ennemi de plus par salle de combat décale les net ids de tout ce qui suit (preuve §5 au rapport `m3-t11c-ennemis.md` : `FloorState.
+enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
+
+Dettes : pas de gabarit de combat par ennemi (un seul `Combat` : T11d) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
+de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) ouverte ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
+
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 
 Lint seulement : `content` (plus la déclaration `mechanics` de `games/isaac/assets/game.ron`, une ligne de
@@ -6238,6 +6299,65 @@ basculer (les traces et le témoin le signalent) ; préférer un compte de coups
 **Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
 `champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
 un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.
+
+## 81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
+
+Présentation seule : `game::ui::{hud, hud_model}`, `content::ui`, `games/isaac/assets/ui/hud.ron`. **Aucune trace ne
+bouge** (aucun état rollback, aucun système de la simulation touché ; les deux scénarios neufs ont leur propre trace).
+Rien de spécifique à `isaac` dans le code : un jeu reprend ces sources en les posant dans son `hud.ron`.
+
+### Sources nouvelles (liste fermée `content::ui::HUD_SOURCES`, lint `UnknownKind`)
+
+| Source | Rendu | Attente `HudText` |
+|---|---|---|
+| `hearts` | widget `Hearts(source)` : rangée de carrés (côté `size.1`), un par cœur, **rouges** (vides compris, jusqu'à la vie maximale) puis **d'âme**, rempli à moitié pour un demi-cœur, passe à la ligne à la largeur `size.0` ; texte `Text(source: "hearts")` : « 2,5 / 3 · âme 1 » | `isaac_hud_items` (f3 « 3 / 3 », f30 « 2,5 / 3 », f100 « 2,5 / 3 · âme 1 »), `isaac_reliquaire` (« 3 / 3 · âme 2 »), `curse_hides_health` (`empty: true`) |
+| `coins` | `Counter(source)` : carré `icons.coins` + nombre (sous du joueur) ; la rangée est masquée sans valeur (D22). Alias de `shells` (même valeur), gardé pour l'icône par source : dette, à fusionner si `shells` disparaît des HUD | `isaac_hud_items` (« 12 ») |
+| `keys`, `bombs` (existantes) | `Counter` : carré `icons.keys` / `icons.bombs` + nombre | `isaac_hud_items` (« 2 », « 3 ») |
+| `item_banner` | `Text` sur fond, centré en haut : nom de l'objet ramassé pendant 3 s | `isaac_hud_items` (vide f3, « Bottines légères » f30, vide f230), `isaac_reliquaire` (« Reliquaire » f20, « Pouls » f60), `isaac_banner_blind` (« ??? ») |
+| `active_item` (existante) | `Icons(source: "active_item")` : le carré de l'objet actif (couleur et lettre de `icons[<id>]`) | `isaac_hud_items` (« Calice d'âme ») |
+| `active_charge` (existante) | texte « 30 / 30 · prêt » + jauge | `isaac_hud_items` (« prêt ») |
+| `minimap` (existante) | lettre et bordure teintée par type de salle (`room_icons`) | `isaac_hud_items` (« tresor · inexplorée », « boss · boss · inexplorée ») |
+| `curses` (existante, §74) | texte « Malédiction : blind » | `isaac_hud_items` (`empty: true` sans curse), `curse_*` |
+| `ammo` (existante) | **vide pour une arme `Infinite`** (ni chargeur ni réserve : l'ancien « 0 \| 0 » des larmes) | `isaac_hud_items` (`empty: true`) |
+
+**Cœurs** (`HudHearts`, `HudHearts::slots`) : `Health` et `ExtraHealth` (§68) en points de vie, un cœur valant
+`items::HEART_POINTS` = 2 points (Q2 : un demi-cœur = 1 PV). C'est une convention du moteur (`heart_label` des prix en
+cœurs la partage), pas un réglage du RON. Couleurs : `icons.heart`, `icons.soul_heart`, `icons.heart_empty` de `hud.ron`
+(défauts dans `heart_colors`). La curse `HideHealth` vide `hearts` comme `health`. **Pas de plafond de 12 cœurs** : la
+fiche de M3-T3 (§68) renvoyait à T16 « le plafond de 12 cœurs d'Isaac » ; borner le gameplay n'est pas de la
+présentation, donc T16 n'en pose aucun (`ExtraHealth` et `Health.max` restent non bornés) et la rangée **passe à la
+ligne** au lieu de tronquer. Un plafond reste à décider si William le veut, côté simulation.
+
+**Bandeau d'objet** (`ItemBannerState`, `track_item_banner`, `Update`, ressource hors rollback) : dérivé de l'**état
+d'inventaire** du joueur affiché, jamais d'un événement de la simulation : un passif dont le nombre d'exemplaires
+augmente, ou un actif qui change, depuis l'`Update` précédent, annonce l'objet pendant `ITEM_BANNER_FRAMES` (180 frames)
+**depuis la frame du ramassage** (`frame - from`). Les objets reçus dans les `ITEM_BANNER_START_GRACE` (5) frames qui
+suivent la première observation d'un joueur (objets de départ, `PlayerScript::items`) ne sont pas annoncés ; un
+consommable (clé, bombe, cœur) n'est jamais annoncé. Le nom vient de `ItemTable`, remplacé par « ??? »
+(`HIDDEN_ITEM_NAME`) sous `CurseHides::item_names` ; la source est vide sinon. Limite : un rollback qui retire puis
+redonne l'objet le réannonce, et un objet annoncé qui n'est plus tenu (prédiction annulée) éteint le bandeau ; un
+joueur sans `Inventory` (créé au premier ramassage) est suivi avec un inventaire vide : son premier objet est annoncé ; la mémoire (`ItemBannerState`) n'est pas rollbackée, comme `MinimapVisits` (D72).
+
+**Prompts** (`ui::hud::Prompt`, hors snapshot : testés unitairement, pas par `HudText`) : dette de T9 (§74) — un objet
+au sol (`InteractionType::Item`, composant `items::ItemPickup`) n'avait aucun prompt, donc aucun nom à cacher ; il
+affiche « Ramasser Reliquaire » (« Ramasser ??? » sous `HideItemNames`, `Prompt::hide_name`). Dette de T5 (§70) : la
+porte à clé affiche les **clés du joueur** : « Ouvrir — clé (2) » avec au moins une clé, « Fermé — clé (0) » sans
+(comme « Fermé — 1 clé » du coffre). Le coût `n` de la porte (`DoorLock::Key(n)`) n'est pas affiché : le HUD ne connaît
+pas la salle de la porte ; `isaac` n'a que `Key(1)`.
+
+**Minicarte** : la géométrie, les salles visitées/actuelle (bordure or épaisse) et la salle secrète n'apparaissant
+qu'ouverte (§70) existaient ; T16 ajoute `room_icons` à la racine de `hud.ron` (type de salle → `(color, label)`) :
+la lettre est écrite dans la salle (`T` trésor, `S` boutique, `B` boss, `?` secrète, `D` diable pour `isaac`) et la
+bordure teintée (la salle courante garde l'or) ; une salle verrouillée ajoute « × ». Sans `room_icons`, comportement
+d'avant (`B` pour le boss, `×` verrouillée) : `gungeon` et les autres jeux ne changent pas. `boutique` n'existe pas
+encore dans `isaac` (T11d) : l'icône est déclarée pour quand la salle existera.
+
+### Scénarios et captures
+
+`isaac_hud_items` (6 PV, 12 sous, `calice_ame`, 2 clés, 3 bombes ; bottines ramassées f6, `suiveur` + `mouche` au contact
+dès f7, cœur d'âme ramassé f60), `isaac_banner_blind` (« ??? » sous `blind`), `isaac_reliquaire` (§76.2, attentes ajoutées).
+Captures `play_scenario --capture … --at` et vidéo : `docs/captures/m3-t16-hud-isaac/`, rapport
+`docs/taches/rapports/m3-t16-hud-isaac.md`.
 
 ## 82. Feedback v3 : larmes lisibles, familiers, champions, bombes et explosions (M3-T17, voie V4)
 

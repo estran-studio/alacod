@@ -408,6 +408,10 @@ crate `APP`), jamais dans un crate `SIM`.
       `lacks_unlocks` et `lacks_achievements` (absents du profil) ; `HudText(source: "achievements", contains | empty)` (liste des
       accomplissements obtenus à la fin de la run) ; scénarios `achievement_unlocks` et `achievement_not_met` (`profile: true`) ;
       deux runs enchaînées : test `crates/scenario/tests/achievements.rs`.
+    - M3-T16 HUD `isaac` (§81) : aucune attente nouvelle ; `HudText` lit les sources `hearts` (« 2,5 / 3 · âme 1 »,
+      cœurs en demi-PV), `coins`, `keys`, `bombs`, `item_banner` (nom de l'objet ramassé depuis moins de 3 s, « ??? » sous
+      `HideItemNames`), `active_item`/`active_charge`, `minimap` et `curses` (scénarios `isaac_hud_items`,
+      `isaac_banner_blind`, `isaac_reliquaire`) ; `ammo` est **vide** pour une arme `Infinite`.
     - M3-T8 pools par type de salle et marché du diable (§73) : `PoolCount(pool, count, at_frame)` (objets **distincts**
       sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
       `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
@@ -672,6 +676,16 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
 - `achievements` (M3-T10, §75) : accomplissements obtenus **à cette fin de run** par le joueur affiché (nom du contenu, une ligne
   chacun) ; vide en cours de partie. L'écran de fin les liste sous le résumé. Évalués hors simulation à `Ended`, une fois la fin
   confirmée (`game::profile`), jamais dans `GgrsSchedule` ; la simulation n'écrit que `RunHistory` (rollback sans checksum).
+- `hearts` (M3-T16, §81) : `Health` + `ExtraHealth` en demi-cœurs (1 PV = ½ cœur, `items::HEART_POINTS`), texte
+  « 2,5 / 3 · âme 1 » ; widget `Hearts(source)` (rangée de carrés, demi-cœur à moitié rempli, passe à la ligne,
+  couleurs `icons.heart` / `soul_heart` / `heart_empty`) ; vide sous `HideHealth`.
+- `coins` (M3-T16) : sous du joueur (comme `shells`, jeux à objets seulement) ; widget `Counter(source)` : carré
+  `icons[source]` (`coins`, `keys`, `bombs`) suivi du nombre.
+- `item_banner` (M3-T16) : nom du dernier objet ramassé pendant 3 s (`ITEM_BANNER_FRAMES`), dérivé de l'inventaire
+  du joueur affiché (`hud_model::ItemBannerState`, présentation seule) ; « ??? » sous `HideItemNames` ; les objets de
+  départ ne l'annoncent pas. Le prompt d'un objet au sol (« Ramasser … ») et celui d'une porte à clé
+  (« Ouvrir — clé (2) » / « Fermé — clé (0) ») complètent la source `prompt`. `Icons(source: "active_item")` dessine
+  l'icône de l'actif ; `room_icons` (racine de `hud.ron`) pose une lettre et une bordure par type de salle sur `minimap`.
 
 #### Écrans : pause et inventaire (M2-T18, test comparatif)
 

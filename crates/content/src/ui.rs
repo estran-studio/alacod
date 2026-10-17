@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 pub const HUD_FILE_NAME: &str = "hud.ron";
 
 /// Sources que le HUD sait lire (liste fermée). T2.12 : `perks`, `downed`, `powerups`,
-/// `prompt` ; T1.18 (§32) : `rads`, `level`, `ammo_by_type`, `statuses`, `floor`.
+/// `prompt` ; T1.18 (§32) : `rads`, `level`, `ammo_by_type`, `statuses`, `floor` ; M3-T16 (§81) :
+/// `hearts`, `coins`, `item_banner`.
 pub const HUD_SOURCES: &[&str] = &[
     "health",
     "wave",
@@ -42,6 +43,9 @@ pub const HUD_SOURCES: &[&str] = &[
     "curses",
     "achievements",
     "legend",
+    "hearts",
+    "coins",
+    "item_banner",
 ];
 
 /// Ce que le lint lit de `ui/hud.ron` : la source de chaque widget.
@@ -90,6 +94,12 @@ pub enum HudWidgetKindSchema {
     Legend {
         source: String,
     },
+    Hearts {
+        source: String,
+    },
+    Counter {
+        source: String,
+    },
 }
 
 impl HudWidgetKindSchema {
@@ -99,7 +109,9 @@ impl HudWidgetKindSchema {
             | Self::Text { source, .. }
             | Self::Icons { source }
             | Self::Map { source }
-            | Self::Legend { source } => source,
+            | Self::Legend { source }
+            | Self::Hearts { source }
+            | Self::Counter { source } => source,
         }
     }
 }
@@ -111,6 +123,7 @@ mod tests {
     #[test]
     fn hud_des_jeux_sources_connues() {
         for text in [
+            include_str!("../../../games/isaac/assets/ui/hud.ron"),
             include_str!("../../../games/testbed/assets/ui/hud.ron"),
             include_str!("../../../games/throne/assets/ui/hud.ron"),
             include_str!("../../../games/zombies/assets/ui/hud.ron"),

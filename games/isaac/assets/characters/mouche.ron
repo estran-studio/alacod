@@ -36,5 +36,17 @@
         attack_cooldown_frames: Some(120),
         behaviors: Some([Melee("contact"), Chase(profile: "Flying")]),
     )),
-    test: Some((frames: 600)),
+    // M3-T11c (§76.3) : champion `essaim` (chance `0,12 + étage × 0,1`) : à sa mort, deux mouches ordinaires (sans
+    // variante : pas de cascade, `SpawnCharacters`).
+    variants: Some((
+        chance: "0.12 + floor * 0.1",
+        table: {
+            "essaim": (tags: ["champion"], on_death: [SpawnCharacters(id: "mouche", count: 2)], tint: Some("#f1c40f")),
+        },
+    )),
+    // §78 : `champion_mouche_essaim` (variante imposée, `kill` : les deux mouches nées).
+    test: Some((
+        frames: 600,
+        champions: [(variant: "essaim", kill: true, weapon: Some("larmes"))],
+    )),
 )

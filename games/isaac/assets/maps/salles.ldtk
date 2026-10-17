@@ -2221,6 +2221,62 @@
        ],
        "__worldX": 176,
        "__worldY": 96
+      },
+      {
+       "__identifier": "CharacterSpawn",
+       "__grid": [
+        13,
+        7
+       ],
+       "__pivot": [
+        0,
+        0
+       ],
+       "__tags": [],
+       "__tile": null,
+       "__smartColor": "#3050C0",
+       "iid": "d78f91a1-9031-56c5-9038-df568e644150",
+       "width": 16,
+       "height": 16,
+       "defUid": 44,
+       "px": [
+        208,
+        112
+       ],
+       "fieldInstances": [
+        {
+         "__identifier": "character",
+         "__type": "String",
+         "__value": "tourelle_croix",
+         "__tile": null,
+         "defUid": 45,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "tourelle_croix"
+           ]
+          }
+         ]
+        },
+        {
+         "__identifier": "team",
+         "__type": "String",
+         "__value": "enemies",
+         "__tile": null,
+         "defUid": 46,
+         "realEditorValues": [
+          {
+           "id": "V_String",
+           "params": [
+            "enemies"
+           ]
+          }
+         ]
+        }
+       ],
+       "__worldX": 208,
+       "__worldY": 112
       }
      ],
      "gridTiles": []
