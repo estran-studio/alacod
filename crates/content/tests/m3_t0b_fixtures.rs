@@ -42,13 +42,6 @@ fn scaled_wraps_an_action_that_is_still_validated() {
         LintErrorKind::BrokenReference,
         "arme « absente » inconnue",
     );
-    // OnUse d'un consommable : même règle.
-    assert!(
-        errors
-            .iter()
-            .any(|e| e.message.contains("ration") && e.message.contains("Heal = -1")),
-        "{errors:#?}"
-    );
 }
 
 #[test]

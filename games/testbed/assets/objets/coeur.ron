@@ -1,0 +1,12 @@
+// M3-T3 (docs/conventions.md §68) : cœur rouge d'essai. Soigne 4 PV au ramassage, mais reste au sol
+// tant que le joueur est à pleine vie (`refuse_when_full`). Témoin : `ration` (même soin, ramassé
+// sans effet à pleine vie).
+(
+    name: "Cœur",
+    kind: Consumable,
+    rarity: Common,
+    refuse_when_full: true,
+    effects: [
+        (on: OnUse, do: [Heal("4")]),
+    ],
+)

@@ -1,0 +1,7 @@
+// M3-T0e (§64) : déblocage d'exemple, accordé par l'accomplissement `deux_etages` : le pool
+// `epuisable` gagne une entrée. N'ajoute aucun objet réservé (`Item`) : les pools existants du
+// testbed ne changent pas.
+(
+    name: "Manche dans le pool épuisable",
+    grants: [Loot(table: "epuisable", pick: Item("manche"), weight: 1)],
+)

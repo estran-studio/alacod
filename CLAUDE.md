@@ -381,13 +381,32 @@ crate `APP`), jamais dans un crate `SIM`.
       Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
       les seize scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `explode_effect`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
       (la `BombDef` du joueur, le stock par `items: ["bomb", ...]`, bouton `Bomb` = bit 18, front montant).
+    - M3-T5 grille (§70) : `RoomLayout(kind, nth, size: Some((l, h)), touches: [types], apart: [types])` (géométrie
+      d'une salle typée relue sur ses bornes : taille en pixels, voisinage par un bord commun ; à employer sur un
+      étage unique, les mondes des étages se superposent) ; `DoorLocked` lit désormais `door_lock_at` (étage courant,
+      `RoomKindDef::lock_from_floor`) ; aucune autre attente nouvelle (`RoomState`, `BossPhase`, `Consumable`, `Event`,
+      `EntityCount` couvrent les scénarios `grid_*` et `key_door_*`).
     - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
       du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
+    - M3-T3 cœurs, sous, bombes et clés au sol (§68) : `ExtraHealth` (points de vie d'âme du joueur : `ExtraHealth(handle: 0,
+      n: 4.0, at_frame: 110)`, égalité exacte, 0 sans le composant) ; `Consumable`, `Currency`, `Health`, `HudText`
+      (source `bombs`) et `ShellPiles` couvrent les autres scénarios (`soul_heart_absorbs`, `heart_full_stays`, `coin_pickup`,
+      `bomb_pickup_cap`, `coop_pickups_per_player`, `hit_iframes_isaac`).
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
       `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
+    - M3-T0e curses et pools (§64) : `Curse(floor, id: Some("…") | None, at_frame)` (curse de l'étage,
+      `run::RunCurses`), `PoolSeen(pool, item, seen, at_frame)` (objet sorti d'un pool à épuisement,
+      `items::PoolState`) ; rien ne remplit `PoolState` avant M3-T8.
+    - M3-T9 curses en jeu (§74) : `RoomCount(min, max: Some(n), at_frame)` (nombre de `RoomBounds` du monde, tous
+      étages confondus : à employer sur un étage unique) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
+      source masquée) et la source `curses` ; `Curse` lit maintenant les tirages réels de `game::curses` ;
+      moment clé `curse` (curse tirée à l'entrée d'un étage).
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
+    - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
+      clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :
+      le runner suit la relance du hub (frames de la run repartent de 0).
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - M2-T18 écrans (§56) : `ScreenText` (texte d'une section de l'écran de pause ou de l'inventaire, présentation, hors trace) ; le script `ui:` du scénario joue les actions d'UI (`Toggle(Pause)`, `Down`, `Confirm`…), jamais dans l'input rollback.
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
@@ -492,6 +511,14 @@ make test_multiplayer TARGET=ldtk_map_explorer N=4 MATCHBOX_URL=http://localhost
 ```
 
 Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
+
+**Sans affichage (VPS, CI)** : les cibles `*_matchbox` ouvrent une fenêtre ; les scripts headless
+(`scripts/p2p-lib.sh` en commun) lancent le binaire `--profile headless` : `p2p-stress.sh` (N clients,
+rollbacks réels par SIGSTOP, `NETEM=…` pour un réseau dégradé sans root, `EXPECT_FLOORS` pour une
+transition d'étage), `p2p-restart.sh` (restart, lobby, hub), `p2p-disconnect.sh` (pair tué en cours
+de partie), `p2p-machine.sh` (un client par machine), `p2p-gungeon-inputs.sh` (inputs de bots
+`explorateur` figés pour les rejouer en p2p : `ALACOD_SKIP_HUB=1`, `--seed`). Détail, commandes et
+résultats : `docs/taches/rapports/m2-p2p-run-complete.md` et `docs/conventions.md` §57.
 
 ### Vidéos (validation visuelle)
 `scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,
@@ -629,6 +656,9 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
   (« balles 120 »).
 - `statuses` (T1.18) : statuts posés, une ligne chacun (« brulure ×2 · 3 s »).
 - `floor` (T1.18) : « Étage 3 » (index + 1), en mode `Floors` seulement.
+- `curses` (M3-T9, §74) : id de la curse de l'étage courant (« darkness »), vide sans curse. Les curses
+  de présentation masquent des sources : `HideMinimap` vide `minimap`, `HideHealth` vide `health` (texte et
+  barre), `HideItemNames` remplace par « ??? » le nom des objets et armes du prompt (`prompt`, hors snapshot).
 
 #### Écrans : pause et inventaire (M2-T18, test comparatif)
 
@@ -913,3 +943,14 @@ devient leur cible (`enemy_target_selection`) : ils la frappent avec le cooldown
 collider : elle bloque toujours les joueurs, plus les zombies ; la réparer la rend bloquante à nouveau.
 Dans le flow field, une fenêtre intacte coûte `breakable_penalty` (le temps de la casser) : les
 zombies prennent un passage ouvert s'il n'est pas beaucoup plus long.
+
+**Perception et vue directe** (D66, `docs/conventions.md` §22) : `move_enemies` suit le champ de flux
+vers le joueur le plus proche **quel que soit l'état** (`Idle` ou `Chasing`) : `aggro_range` ne
+décide que de la **cible** (donc des attaques, des tirs et des règles à cible comme `Chase` d'un
+`Wander`). Un ennemi à `Wander` (`throne/rodeur`) hors de son rayon errait donc dans son coin, même
+avec le joueur en face. `ai.sight_range` (donnée, défaut `aggro_range` : rien ne bouge) cible un
+joueur en **ligne de vue dégagée** (`FlowFieldCache::line_of_sight`, `wall_cells`, `FixedWide`,
+tie-break par `net_id` comme le reste de `enemy_target_selection`) jusqu'à cette portée, et le garde
+tant qu'il est à portée même derrière un coin (mémoire = `EnemyTarget`, déjà rollback). Champ statique,
+hors `Hash` et hors `Debug` quand il est absent : un jeu qui ne le pose pas ne voit aucune trace bouger.
+Diagnostic : test ignoré `sight_probe` (`crates/scenario/tests/scenarios.rs`).

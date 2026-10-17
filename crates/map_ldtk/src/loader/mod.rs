@@ -224,10 +224,16 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
             let context = from_map(&map_json, config);
             let mut generator = GeneratedMap::create(map_json);
 
-            let is_floor = matches!(context.config.mode, MapGenerationMode::Floor(_));
+            let layout = match &context.config.mode {
+                MapGenerationMode::Floor(grammar) => Some(grammar.layout()),
+                _ => None,
+            };
             map_generation(context, &mut generator).unwrap();
-            if is_floor {
-                generator.close_unused_openings();
+            match layout {
+                // M3-T5 : une grille mure exactement les ouvertures sans porte du plan.
+                Some(world::FloorLayout::Grid { .. }) => generator.close_unused_openings_exact(),
+                Some(world::FloorLayout::Graph) => generator.close_unused_openings(),
+                None => {}
             }
 
             generator.get_generated_map()
@@ -303,6 +309,35 @@ pub fn load_map_snapshot(
         .id()
 }
 
+/// M3-T9 (`docs/conventions.md` §74) : applique la curse `FloorRooms` de l'étage `slot` à la
+/// grammaire d'un étage assemblé. Toutes les cartes d'une séquence `Floors` sont assemblées au
+/// chargement ; le tirage (`run::draw_curse`) ne dépendant que de la graine de carte et de
+/// l'étage, il donne ici la curse que `game::curses::curse_system` écrira à l'entrée de cet
+/// étage. L'emplacement `slot` est l'étage d'index `slot` ; un étage au-delà de la séquence
+/// (boucle sur le dernier niveau) réutilise ce monde sans second assemblage. Sans curse
+/// `FloorRooms`, la configuration revient inchangée.
+pub fn with_curse_floor_rooms(
+    mut config: MapGenerationConfig,
+    curses: Option<&game::curses::CurseTable>,
+    map_seed: u32,
+    slot: usize,
+) -> MapGenerationConfig {
+    let Some(mult) =
+        curses.and_then(|table| game::curses::floor_rooms_for_slot(table, map_seed, slot as u32))
+    else {
+        return config;
+    };
+    if let MapGenerationMode::Floor(grammar) = &mut config.mode {
+        let scaled = grammar.scaled_rooms(mult);
+        info!(
+            "curse FloorRooms ×{mult} à l'étage {slot} : salles {:?} → {:?}",
+            grammar.rooms, scaled.rooms
+        );
+        *grammar = scaled;
+    }
+    config
+}
+
 /// Charge la carte de la partie : une seule (`MapGenerationConfig`), ou, en mode `Floors`
 /// (T1.8, [`FloorPlan`] présent), un monde LDtk par carte distincte de la séquence. Chaque
 /// monde porte [`FloorWorld`] (son emplacement dans la séquence), `FloorWorld(0)` pour la
@@ -314,6 +349,7 @@ pub fn setup_generated_map(
     config: Res<MapGenerationConfig>,
     plan: Option<Res<FloorPlan>>,
     registry: Option<Res<Registry>>,
+    curses: Option<Res<game::curses::CurseTable>>,
 ) {
     // T1.7 : table des surfaces du jeu (valeur IntGrid → définition), hors rollback
     commands.insert_resource(surface_table(registry.as_deref()));
@@ -342,9 +378,11 @@ pub fn setup_generated_map(
         commands.insert_resource(caves);
         return;
     };
+    let map_seed = game::curses::curse_map_seed(Some(&*config));
     for slot in plan.distinct_slots() {
         let (floor_config, cave) =
             resolve_map_config(&config, &plan.levels[slot], registry.as_deref(), slot);
+        let floor_config = with_curse_floor_rooms(floor_config, curses.as_deref(), map_seed, slot);
         if let Some(cave) = cave {
             caves.0.insert(slot, (config.seed, cave));
         }

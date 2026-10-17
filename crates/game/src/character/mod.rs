@@ -170,6 +170,8 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace_neutral::<combat::actors::DashExtra>()
             // D61 (§18) : points de bouclier, posés au premier gain (neutre sans porteur).
             .rollback_and_trace_neutral::<combat::actors::Shield>()
+            // M3-T3 (§68) : cœurs d'âme, posés au premier gain (neutre sans porteur).
+            .rollback_and_trace_neutral::<combat::actors::ExtraHealth>()
             .rollback_and_trace::<SprintState>()
             .rollback_and_trace::<Velocity>()
             .rollback_and_trace::<Death>()
@@ -190,10 +192,13 @@ impl Plugin for BaseCharacterGamePlugin {
         app.rollback_and_trace_resource::<FlowFieldCache>();
         // Note: FlowFieldConfig is not rolled back (static configuration)
 
-        let (input_source, scripted) = player::input::InputSource::from_env();
+        let (input_source, scripted, hub_scripted) = player::input::InputSource::from_env();
         app.insert_resource(input_source);
         if let Some(scripted) = scripted {
             app.insert_resource(scripted);
+        }
+        if let Some(hub_scripted) = hub_scripted {
+            app.insert_resource(hub_scripted);
         }
         app.add_systems(ReadInputs, read_local_inputs);
 
@@ -306,6 +311,9 @@ impl Plugin for CharacterPresentationPlugin {
             Update,
             (
                 visuals::attach_character_visuals,
+                visuals::remove_revived_death_ghosts.before(visuals::spawn_death_ghosts),
+                visuals::spawn_death_ghosts.after(visuals::attach_character_visuals),
+                visuals::animate_death_ghosts,
                 set_sprite_flip,
                 visuals::face_stationary_enemies.after(set_sprite_flip),
                 visuals::orient_familiars.after(set_sprite_flip),

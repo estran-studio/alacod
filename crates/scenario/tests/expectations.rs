@@ -1397,7 +1397,7 @@ fn clock_expectation_pass_and_fail() {
 
 /// T1.18 (§32) : `HudText` lit le HUD du joueur affiché (`HudSnapshot`, aussi en headless) sur
 /// `throne_progression` (scénario inchangé, attentes ajoutées ici) : étage, munitions par type,
-/// niveau 1 à f365 puis 2 à f1290 (D51), rads ; échoue sur un texte absent. Depuis D51, le bot
+/// niveau 1 à f515 (D66 : le rodeur chasse de loin, f365 avant) puis 2 à f1890, rads ; échoue sur un texte absent. Depuis D51, le bot
 /// est au deuxième étage à f1912 (« Étage 3 »). Depuis D50 (`drop_chance` 0,40), « Étage 3 » à f3490.
 #[test]
 fn hud_text_sur_throne_progression() {
@@ -1407,6 +1407,7 @@ fn hud_text_sur_throne_progression() {
     let hud = |source: &str, contains: &str, at_frame: u32| Expectation::HudText {
         source: source.into(),
         contains: contains.into(),
+        empty: false,
         at_frame,
     };
     verifie_attentes(
@@ -1416,7 +1417,7 @@ fn hud_text_sur_throne_progression() {
             hud("ammo_by_type", "balles", 60),
             hud("level", "Niv. 0", 60),
             hud("rads", "rads", 60),
-            hud("level", "Niv. 1", 365),
+            hud("level", "Niv. 1", 515),
             hud("level", "Niv. 2", 1890),
             // D50 : l'étage 3 est atteint à f3483 (f2804 avant `drop_chance` 0,40 de throne).
             hud("floor", "Étage 3", 3490),
@@ -1723,7 +1724,9 @@ fn throne_mutations_wait_for_clear_and_every_duo_choice_before_transition() {
 const PILLARD_NET_ID: usize = 221;
 
 /// Regression from William's run: the recorded pillard pressed into the wall while fleeing.
-/// Retain historical mutation timing to isolate navigation from the intermission change.
+/// Retain historical mutation timing to isolate navigation from the intermission change, and the
+/// historical perception (no `sight_range`, D66) : the recorded inputs replay one exact world, and
+/// a `rodeur` that chases from afar instead of wandering changes it from the first frame.
 #[test]
 fn throne_recorded_pillard_leaves_the_wall_corner() {
     use bevy::prelude::*;
@@ -1754,6 +1757,30 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
             .get_mut(&content::registry::ProgressionId::from("run".to_string()))
             .unwrap()
             .choice_timing = content::registry::MutationTiming::Immediate;
+        // D66 : la vue directe du rodeur est retirée des fiches chargées, avant le premier spawn
+        // (les fiches ne sont prêtes qu'à la fin du chargement, qui précède `OnEnter`).
+        app.add_systems(
+            Update,
+            |mut configs: ResMut<Assets<game::character::config::CharacterConfig>>| {
+                let with_sight: Vec<_> = configs
+                    .iter()
+                    .filter(|(_, config)| {
+                        config
+                            .ai
+                            .as_ref()
+                            .is_some_and(|ai| ai.sight_range.is_some())
+                    })
+                    .map(|(id, _)| id)
+                    .collect();
+                for id in with_sight {
+                    if let Some(mut config) = configs.get_mut(id) {
+                        if let Some(ai) = config.ai.as_mut() {
+                            ai.sight_range = None;
+                        }
+                    }
+                }
+            },
+        );
         let observed = observed.clone();
         app.add_systems(
             Update,
@@ -1804,7 +1831,7 @@ fn throne_deferred_choice_trace_starts_at_the_earned_level() {
         return;
     }
     let mut fixture = load_scenario("throne_floor_1");
-    fixture.frames = 400;
+    fixture.frames = 600;
     fixture.expect.clear();
     let proof = std::env::var_os("ALACOD_DUMP_TRACE").map(std::path::PathBuf::from);
     let execute = |timing| {
@@ -1833,7 +1860,7 @@ fn throne_deferred_choice_trace_starts_at_the_earned_level() {
             .iter()
             .zip(&deferred.trace)
             .position(|(a, b)| a != b),
-        Some(303),
+        Some(505),
         "choice deferral must not change combat before the first earned level"
     );
     if let Some(dir) = proof {

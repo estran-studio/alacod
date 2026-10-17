@@ -19,6 +19,7 @@ use combat::inventory::AmmoReserves;
 use combat::status::Statuses;
 use items::{Inventory, ItemKind, ItemTable};
 use run::floors::FloorState;
+use run::CurseDef;
 use sim_core::ammo::AmmoType;
 use utils::frame::FrameCount;
 use world::{RoomState, RoomStates};
@@ -27,6 +28,7 @@ use crate::camera::CameraFollowOverride;
 use crate::character::health::Health;
 use crate::character::player::{LocalPlayer, Player};
 use crate::core::SIM_FPS;
+use crate::curses::CurseHides;
 use crate::effects_runtime::Gauges;
 use crate::progression::{Level, ProgressionDef, ProgressionTable};
 use crate::weapons::{WeaponInventory, WeaponModesState, WeaponState};
@@ -44,11 +46,13 @@ pub const PLAYER_SOURCES: &[&str] = &[
     "floor",
     "blanks",
     "keys",
+    "bombs",
     "shells",
     "passives",
     "active_item",
     "active_charge",
     "minimap",
+    "curses",
 ];
 
 /// Joueur dont le HUD affiche l'état (T2.12) : celui que la caméra suit de force
@@ -236,12 +240,17 @@ pub struct HudPlayerValues {
     pub statuses: Vec<(String, u32, u32)>,
     /// Index du niveau (mode `Floors` seulement).
     pub floor: Option<u32>,
-    /// `(blanks, clés)`, absents hors jeu à objets ou sans joueur ; zéro avant ramassage.
-    pub consumables: Option<[u32; 2]>,
+    /// `(blanks, clés, bombes)`, absents hors jeu à objets ou sans joueur ; zéro avant ramassage.
+    pub consumables: Option<[u32; 3]>,
     /// `(id, nom)` dans l'ordre de ramassage ; le rendu utilise l'id pour les icônes.
     pub passives: Vec<(String, String)>,
     pub active_item: Option<HudActiveItem>,
     pub minimap: Vec<HudMapRoom>,
+    /// M3-T9 : id de la curse de l'étage courant, `None` sans curse (source `curses`).
+    pub curse: Option<String>,
+    /// M3-T9 : ce que cette curse cache (déjà appliqué à `health` et `minimap` ; `item_names` est
+    /// lu par le prompt de `ui::hud`).
+    pub hides: CurseHides,
 }
 
 /// L'état du joueur affiché, déjà lu dans l'ECS.
@@ -264,6 +273,8 @@ pub struct HudPlayerInput<'a> {
     pub visits: Option<&'a BTreeSet<String>>,
     pub position: Option<FixedVec2>,
     pub frame: u32,
+    /// M3-T9 : curse de l'étage courant (id, définition), `None` sans curse.
+    pub curse: Option<(&'a str, &'a CurseDef)>,
 }
 
 /// Les valeurs du HUD (pure).
@@ -316,9 +327,16 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             .and_then(|table| table.0.get(id))
             .map_or_else(|| id.to_string(), |def| def.name.clone())
     };
+    // M3-T9 (§74) : ce que la curse de l'étage cache ; la valeur est alors absente (D22 : ni texte
+    // ni barre, pas même le préfixe), exactement comme pour un joueur sans valeur.
+    let hides = input
+        .curse
+        .map(|(_, def)| CurseHides::of(&def.effects))
+        .unwrap_or_default();
     HudPlayerValues {
         health: input
             .health
+            .filter(|_| !hides.health)
             .map(|(current, max)| (current.to_num::<i32>(), max.to_num::<i32>())),
         currency: input.currency,
         weapon: input.weapon.clone(),
@@ -332,7 +350,10 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             .map(|floor| floor.index),
         consumables: (input.player_present
             && input.item_table.is_some_and(|table| !table.0.is_empty()))
-        .then(|| ["blank", "key"].map(|id| input.items.map_or(0, |items| items.consumable(id)))),
+        .then(|| {
+            ["blank", "key", crate::loot::BOMB_ITEM]
+                .map(|id| input.items.map_or(0, |items| items.consumable(id)))
+        }),
         passives: input
             .items
             .map(|items| {
@@ -360,6 +381,7 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
         minimap: input
             .room_geometry
             .zip(input.room_states)
+            .filter(|_| !hides.minimap)
             .map(|(geometry, states)| {
                 let none = BTreeSet::new();
                 minimap_rooms(
@@ -370,6 +392,8 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
                 )
             })
             .unwrap_or_default(),
+        curse: input.curse.map(|(id, _)| id.to_string()),
+        hides,
     }
 }
 
@@ -412,8 +436,11 @@ pub fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) 
                 .join("\n")
         }),
         "floor" => values.floor.map(|index| format!("Étage {}", index + 1)),
+        "curses" => values.curse.clone(),
         "blanks" => values.consumables.map(|counts| counts[0].to_string()),
         "keys" => values.consumables.map(|counts| counts[1].to_string()),
+        // M3-T3 (§68) : compteur de bombes du joueur affiché (par joueur, comme les clés).
+        "bombs" => values.consumables.map(|counts| counts[2].to_string()),
         // Les douilles de boutique créditent Currency, pas un consommable `shell`.
         "shells" => values
             .consumables
@@ -552,6 +579,8 @@ pub(crate) fn update_hud_snapshot(
     state: HudPlayerState,
     table: Option<Res<ProgressionTable>>,
     floor: Option<Res<FloorState>>,
+    curses: Option<Res<run::RunCurses>>,
+    curse_table: Option<Res<crate::curses::CurseTable>>,
 ) {
     let player = hud_player.entity();
     let weapon =
@@ -599,6 +628,13 @@ pub(crate) fn update_hud_snapshot(
             .and_then(|e| state.positions.get(e).ok())
             .map(|transform| FixedVec2::new(transform.translation.x, transform.translation.y)),
         frame: frame.frame,
+        // M3-T9 : la curse de l'étage courant, dérivée de l'état à chaque `Update`.
+        curse: curses
+            .as_deref()
+            .zip(curse_table.as_deref())
+            .and_then(|(curses, table)| {
+                crate::curses::current_curse(curses, table, floor.as_deref().map_or(0, |f| f.index))
+            }),
     };
     let values = hud_values(&input);
     let next = snapshot_of(frame.frame, values);
@@ -850,7 +886,7 @@ mod tests {
                 charge: 2,
                 uses: None,
             }),
-            consumables: [("blank".into(), 2), ("key".into(), 1)]
+            consumables: [("blank".into(), 2), ("key".into(), 1), ("bomb".into(), 4)]
                 .into_iter()
                 .collect(),
         };
@@ -869,6 +905,7 @@ mod tests {
         let ready = read(Some(&items), true);
         assert_eq!(ready.texts["blanks"], "2");
         assert_eq!(ready.texts["keys"], "1");
+        assert_eq!(ready.texts["bombs"], "4");
         assert_eq!(ready.texts["shells"], "73");
         assert_eq!(ready.texts["passives"], "inconnu\ninconnu");
         assert_eq!(ready.texts["active_item"], "Fiole de rage");
@@ -882,12 +919,14 @@ mod tests {
         assert_eq!(used.texts["blanks"], "1");
         let empty = read(None, true);
         assert_eq!(empty.texts["keys"], "0");
+        assert_eq!(empty.texts["bombs"], "0");
         assert_eq!(empty.texts["active_item"], "");
         assert!(!empty.bars.contains_key("active_charge"));
         let dead = read(None, false);
         for source in [
             "blanks",
             "keys",
+            "bombs",
             "shells",
             "active_item",
             "active_charge",
@@ -955,6 +994,43 @@ mod tests {
         );
         assert!(snapshot.texts["minimap"].contains("combat · verrouillée · actuelle"));
         assert!(snapshot.texts["minimap"].contains("boss · boss · inexplorée"));
+    }
+
+    /// M3-T5 (§70) : la minicarte dessine une grille de salles de tailles différentes (une 2×2 et une
+    /// 1×2 à côté de cases 1×1) à leur échelle commune, sans chevauchement (la salle secrète fermée, que
+    /// l'adaptateur de carte ne fournit pas, laisse simplement un trou).
+    #[test]
+    fn minicarte_dessine_une_grille_de_salles_de_tailles_differentes() {
+        let room = |id: &str, kind: &str, x: i32, y: i32, w: i32, h: i32| HudRoomBounds {
+            id: id.into(),
+            kind: kind.into(),
+            position: FixedVec2::new(Fixed::from_num(x), Fixed::from_num(y)),
+            size: FixedVec2::new(Fixed::from_num(w), Fixed::from_num(h)),
+        };
+        // cases de 240 × 144 ; le monde a son y vers le haut : boss 2×2 au nord-est, trésor 1×2 à l'ouest
+        let geometry = HudRoomGeometry(vec![
+            room("depart", "depart", 0, 0, 240, 144),
+            room("combat", "combat", 240, 0, 240, 144),
+            room("boss", "boss", 480, 0, 480, 288),
+            room("tresor", "tresor", -240, 0, 240, 288),
+        ]);
+        let rooms = minimap_rooms(&geometry, &RoomStates::default(), &BTreeSet::new(), None);
+        assert_eq!(rooms.len(), 4);
+        let rect = |id: &str| rooms.iter().find(|r| r.id == id).unwrap().rect;
+        // même échelle sur les deux axes : une 2×2 fait deux fois le côté d'une 1×1
+        let (small, big) = (rect("depart"), rect("boss"));
+        assert!((big[2] - 2.0 * small[2]).abs() < 1e-6 && (big[3] - 2.0 * small[3]).abs() < 1e-6);
+        assert!((small[2] / small[3] - 240.0 / 144.0).abs() < 1e-5);
+        for (i, a) in rooms.iter().enumerate() {
+            for b in &rooms[i + 1..] {
+                let apart = a.rect[0] + a.rect[2] <= b.rect[0] + 1e-6
+                    || b.rect[0] + b.rect[2] <= a.rect[0] + 1e-6
+                    || a.rect[1] + a.rect[3] <= b.rect[1] + 1e-6
+                    || b.rect[1] + b.rect[3] <= a.rect[1] + 1e-6;
+                assert!(apart, "{} chevauche {}", a.id, b.id);
+            }
+            assert!(a.rect.iter().all(|v| (0.0..=1.0).contains(v)));
+        }
     }
 
     /// D72 : une salle non combattante (jamais activée, donc `Dormant`) visitée puis quittée

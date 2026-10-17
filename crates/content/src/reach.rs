@@ -49,7 +49,7 @@ impl fmt::Display for LintWarning {
 /// par une entrée `Item`, plus tous ceux d'une rareté visée par une entrée `Rarity`. Un pool
 /// compte même si aucune salle ne le pose : le lint dit « un pool donne cet objet », pas
 /// « une partie le rencontre » (l'atteignabilité dynamique est le bot explorateur, §47).
-fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
+pub(crate) fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
     let mut found = BTreeSet::new();
     for pool in registry.loot_tables.values() {
         for entry in &pool.def.entries {
@@ -57,7 +57,7 @@ fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
                 items::LootPick::Item(id) => {
                     found.insert(id.clone());
                 }
-                items::LootPick::Weapon(..) => {}
+                items::LootPick::Weapon(..) | items::LootPick::Currency(_) => {}
                 items::LootPick::Rarity(rarity) => {
                     found.extend(
                         registry
@@ -282,6 +282,18 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
             format!("power-up « {} » : actions", powerup.id),
             &powerup.actions,
         );
+    }
+    // M3-T9 : le modificateur d'une curse doit viser une stat que la simulation lit.
+    for curse in registry.curses.values() {
+        for effect in &curse.def.effects {
+            if let run::CurseEffect::Modifier(stat, ..) = effect {
+                out.push((
+                    curse.file.display().to_string(),
+                    format!("curse « {} » : effects", curse.id),
+                    stat.clone(),
+                ));
+            }
+        }
     }
     for c in registry.characters.values() {
         let file = c.file.display().to_string();

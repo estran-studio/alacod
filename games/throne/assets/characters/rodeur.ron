@@ -1,5 +1,7 @@
-// `throne` (T1.11, docs/conventions.md §29) : mêlée errante — `Wander` tant qu'il ne voit personne (vue moyenne,
-// `Sight(300)`), puis poursuite et griffes.
+// `throne` (T1.11, docs/conventions.md §29) : mêlée errante — `Wander` tant qu'il ne voit personne (rayon
+// de proximité `Sight(300)`), puis poursuite et griffes. D66 : il voit aussi un joueur **en ligne de vue
+// dégagée** jusqu'à 900 unités (`sight_range`, §22) : sans cela il errait dans son coin, sprite dans un mur,
+// à 370 unités d'un joueur qu'il avait en face de lui (cave:niveau_1, graine 4).
 (
     movement: (
         acceleration: "120.0",
@@ -37,6 +39,7 @@
     ai: Some((
         attack_range: Some("30.0"),
         behaviors: Some([Melee("griffes"), Chase(profile: "Ground"), Wander]),
+        sight_range: Some("900.0"),
         perception: Some((senses: [Sight("300.0")])),
     )),
     // `docs/conventions.md` §28 : scénarios générés `enemy_<id>_still`/`_moving`

@@ -860,6 +860,9 @@ pub struct FloorsEntry {
     /// M2-T5 : pool de butin de chaque étage (index = étage, le dernier vaut pour les suivants) ;
     /// vide : `commun` pour les coffres, `salle` pour les récompenses de salle.
     pub loot: Vec<String>,
+    /// M3-T0e (§64) : chance par étage et pool de curses (`curses/<id>.ron`, kind `Curse`) ;
+    /// `None` : aucune curse dans cette séquence.
+    pub curses: Option<run::CurseConfig>,
 }
 
 /// Caverne générée (T1.6, `docs/conventions.md` §21), un fichier RON par caverne
@@ -1071,6 +1074,9 @@ struct FloorsFileSchema {
     /// M2-T5 : voir [`FloorsEntry::loot`].
     #[serde(default)]
     loot: Vec<String>,
+    /// M3-T0e : voir [`FloorsEntry::curses`].
+    #[serde(default)]
+    curses: Option<run::CurseConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -1102,38 +1108,172 @@ pub struct MapLevelInfo {
     /// M3-T0c (§62) : taille du niveau en cases de 16 px `(largeur, hauteur)`, pour le lint
     /// d'une disposition en grille.
     pub size_cells: (u32, u32),
-    /// M3-T0c : le côté (haut, bas, gauche, droite) a une ouverture `LevelConnection` centrée.
-    pub centered_openings: [bool; 4],
+    /// M3-T5 (§70) : cases d'ouverture de la couche `LevelConnection` du niveau (vide si le
+    /// niveau n'a pas cette couche), pour le lint par segment d'une disposition en grille.
+    pub connection: OpeningGrid,
 }
 
-/// Côtés (haut, bas, gauche, droite) dont l'ouverture `LevelConnection` est un groupe de cases
-/// contiguës symétrique par rapport au milieu du côté (M3-T0c). `cells` : rangées de haut en bas
-/// (ordre LDtk) ; vide ou dimensions incohérentes : aucun côté.
-fn centered_openings(cells: &[bool], width: usize, height: usize) -> [bool; 4] {
-    if width == 0 || height == 0 || cells.len() != width * height {
-        return [false; 4];
+/// Couche `LevelConnection` d'un niveau : `open[y * width + x]` est vrai si la case vaut 1
+/// (rangées de haut en bas, ordre LDtk). Vide (`Default`) : le niveau n'a pas de couche.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OpeningGrid {
+    pub width: usize,
+    pub height: usize,
+    pub open: Vec<bool>,
+}
+
+/// Côté d'un gabarit (le haut est la rangée 0).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpeningSide {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl OpeningSide {
+    fn label(self) -> &'static str {
+        match self {
+            OpeningSide::Top => "haut",
+            OpeningSide::Bottom => "bas",
+            OpeningSide::Left => "gauche",
+            OpeningSide::Right => "droite",
+        }
     }
-    let centered = |line: Vec<bool>| -> bool {
-        // symétrique et au moins une case ouverte ; un seul groupe contigu
-        let n = line.len();
-        let open: Vec<usize> = (0..n).filter(|i| line[*i]).collect();
-        let (Some(first), Some(last)) = (open.first(), open.last()) else {
-            return false;
+}
+
+/// Ce qui ne va pas sur un segment de côté.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SegmentFault {
+    /// Aucune case ouverte sur le segment.
+    Missing,
+    /// Plusieurs groupes de cases ouvertes séparés.
+    SeveralGroups,
+    /// Un seul groupe, mais pas symétrique par rapport au milieu du segment.
+    OffCenter,
+}
+
+/// Un segment de côté (une case de salle de long) dont l'ouverture est absente ou mal placée.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OpeningFault {
+    pub side: OpeningSide,
+    /// Rang du segment sur le côté, de 0 (gauche → droite ou haut → bas).
+    pub segment: u32,
+    /// Nombre de segments du côté.
+    pub segments: u32,
+    pub fault: SegmentFault,
+}
+
+impl std::fmt::Display for OpeningFault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let what = match self.fault {
+            SegmentFault::Missing => "aucune ouverture",
+            SegmentFault::SeveralGroups => "plusieurs groupes d'ouvertures",
+            SegmentFault::OffCenter => "ouverture décentrée",
         };
-        open.len() == last - first + 1 && first + last == n - 1
-    };
-    let row = |y: usize| (0..width).map(|x| cells[y * width + x]).collect::<Vec<_>>();
-    let col = |x: usize| {
-        (0..height)
-            .map(|y| cells[y * width + x])
-            .collect::<Vec<_>>()
-    };
-    [
-        centered(row(0)),
-        centered(row(height - 1)),
-        centered(col(0)),
-        centered(col(width - 1)),
-    ]
+        write!(
+            f,
+            "côté {}, segment {}/{} : {what}",
+            self.side.label(),
+            self.segment + 1,
+            self.segments
+        )
+    }
+}
+
+impl SegmentFault {
+    /// `None` si `line` (les cases d'un segment) est un seul groupe de cases ouvertes
+    /// symétrique par rapport au milieu du segment.
+    fn of(line: &[bool]) -> Option<SegmentFault> {
+        let open: Vec<usize> = (0..line.len()).filter(|i| line[*i]).collect();
+        let (Some(first), Some(last)) = (open.first(), open.last()) else {
+            return Some(SegmentFault::Missing);
+        };
+        if open.len() != last - first + 1 {
+            Some(SegmentFault::SeveralGroups)
+        } else if first + last != line.len() - 1 {
+            Some(SegmentFault::OffCenter)
+        } else {
+            None
+        }
+    }
+}
+
+/// Un gabarit de `size` cases de 16 px est un rectangle d'au moins une case de salle de `cell`
+/// cases, aux dimensions multiples de `cell` (M3-T5, §70).
+pub fn size_fits_cell(size: (u32, u32), cell: (u32, u32)) -> bool {
+    cell.0 > 0
+        && cell.1 > 0
+        && size.0 > 0
+        && size.1 > 0
+        && size.0 % cell.0 == 0
+        && size.1 % cell.1 == 0
+}
+
+impl OpeningGrid {
+    /// Segments de côté sans ouverture centrée pour un gabarit de `size` cases de 16 px (M3-T5,
+    /// §70) : chaque côté de chaque case de salle de `cell` cases (un gabarit 2×1 a deux segments
+    /// au nord, deux au sud, un à l'ouest, un à l'est) doit porter **un seul** groupe de cases
+    /// ouvertes, symétrique par rapport au milieu du segment. Les cases ouvertes d'un segment
+    /// voisin ne comptent pas. Une taille qui n'est pas un multiple de `cell` (voir
+    /// [`size_fits_cell`]) : aucun segment n'est défini, liste vide (c'est une autre erreur). Une
+    /// couche absente ou de dimensions différentes de `size` : tous les segments sont sans
+    /// ouverture.
+    pub fn segment_faults(&self, size: (u32, u32), cell: (u32, u32)) -> Vec<OpeningFault> {
+        self.segment_lines(size, cell)
+            .into_iter()
+            .filter_map(|(side, segment, segments, line)| {
+                SegmentFault::of(&line).map(|fault| OpeningFault {
+                    side,
+                    segment,
+                    segments,
+                    fault,
+                })
+            })
+            .collect()
+    }
+
+    /// Largeur (nombre de cases ouvertes) de l'ouverture de chaque segment de côté d'un gabarit
+    /// de `size` cases de 16 px, dans l'ordre haut, bas, gauche, droite ; un segment sans
+    /// ouverture vaut 0. Vide si la taille n'est pas un multiple de `cell`. M3-T5 : le
+    /// planificateur n'accepte une porte que si les deux ouvertures ont la même largeur.
+    pub fn opening_widths(&self, size: (u32, u32), cell: (u32, u32)) -> Vec<usize> {
+        self.segment_lines(size, cell)
+            .into_iter()
+            .map(|(_, _, _, line)| line.iter().filter(|open| **open).count())
+            .collect()
+    }
+
+    /// Cases de chaque segment de côté : `(côté, rang, nombre de segments du côté, cases)`.
+    fn segment_lines(
+        &self,
+        size: (u32, u32),
+        cell: (u32, u32),
+    ) -> Vec<(OpeningSide, u32, u32, Vec<bool>)> {
+        if !size_fits_cell(size, cell) {
+            return Vec::new();
+        }
+        let (width, height) = (size.0 as usize, size.1 as usize);
+        let (cell_w, cell_h) = (cell.0 as usize, cell.1 as usize);
+        let consistent =
+            self.width == width && self.height == height && self.open.len() == width * height;
+        let at = |x: usize, y: usize| consistent && self.open[y * width + x];
+        let mut out = Vec::new();
+        let (across, down) = (width / cell_w, height / cell_h);
+        for (side, y) in [(OpeningSide::Top, 0), (OpeningSide::Bottom, height - 1)] {
+            for s in 0..across {
+                let line = (0..cell_w).map(|i| at(s * cell_w + i, y)).collect();
+                out.push((side, s as u32, across as u32, line));
+            }
+        }
+        for (side, x) in [(OpeningSide::Left, 0), (OpeningSide::Right, width - 1)] {
+            for s in 0..down {
+                let line = (0..cell_h).map(|i| at(x, s * cell_h + i)).collect();
+                out.push((side, s as u32, down as u32, line));
+            }
+        }
+        out
+    }
 }
 
 /// M2-T15 : [`MapLevelInfo`] de chaque niveau d'un `.ldtk`, dans l'ordre du fichier ; vide si la
@@ -1172,7 +1312,11 @@ fn ldtk_level_infos(text: &str) -> Vec<MapLevelInfo> {
                     .flatten()
                     .map(|v| v.as_u64() == Some(1))
                     .collect();
-                info.centered_openings = centered_openings(&cells, width, height);
+                info.connection = OpeningGrid {
+                    width,
+                    height,
+                    open: cells,
+                };
             }
         }
         for layer in level["layerInstances"].as_array().into_iter().flatten() {
@@ -1255,6 +1399,25 @@ pub struct UnlockEntry {
     pub id: String,
     pub file: PathBuf,
     pub def: items::UnlockDef,
+}
+
+/// Curse de run (M3-T0e, `docs/conventions.md` §64), un fichier RON par curse (`curses/<id>.ron`
+/// dans un dossier de kind `Curse`, champs de [`run::CurseDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct CurseEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: run::CurseDef,
+}
+
+/// Accomplissement (M3-T0e, `docs/conventions.md` §64), un fichier RON par accomplissement
+/// (`achievements/<id>.ron` dans un dossier de kind `Achievement`, champs de
+/// [`meta::AchievementDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct AchievementEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: meta::AchievementDef,
 }
 
 /// Service du hub (M2-T13, `docs/conventions.md` §57), un fichier RON par service
@@ -1457,6 +1620,10 @@ pub struct Registry {
     pub loot_tables: BTreeMap<String, LootTableEntry>,
     /// M2-T12 : déblocages de méta-progression (kind `Unlock`).
     pub unlocks: BTreeMap<String, UnlockEntry>,
+    /// M3-T0e : curses de run (kind `Curse`).
+    pub curses: BTreeMap<String, CurseEntry>,
+    /// M3-T0e : accomplissements (kind `Achievement`).
+    pub achievements: BTreeMap<String, AchievementEntry>,
     /// M2-T13 : services du hub (kind `HubService`).
     pub hub_services: BTreeMap<String, HubServiceEntry>,
     /// M2-T12 : règles d'essence (kind `MetaEconomy`).
@@ -1537,6 +1704,8 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Synergy",
     "LootTable",
     "Unlock",
+    "Curse",
+    "Achievement",
     "MetaEconomy",
     "HubService",
     "Prop",
@@ -1638,6 +1807,8 @@ impl Registry {
                 "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
                 "LootTable" => load_loot_tables(&assets_dir, decl, &mut registry, &mut errors),
                 "Unlock" => load_unlocks(&assets_dir, decl, &mut registry, &mut errors),
+                "Curse" => load_curses(&assets_dir, decl, &mut registry, &mut errors),
+                "Achievement" => load_achievements(&assets_dir, decl, &mut registry, &mut errors),
                 "HubService" => load_hub_services(&assets_dir, decl, &mut registry, &mut errors),
                 "MetaEconomy" => load_meta_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Prop" => load_props(&assets_dir, decl, &mut registry, &mut errors),
@@ -2086,6 +2257,10 @@ struct AiSchema {
     /// M2-T8 : `squad: Some(("id", Some("role")))`, voir `game::...::state::SquadRon`.
     #[serde(default)]
     squad: Option<(String, Option<String>)>,
+    /// D66 : portée de la vue directe (`sight_range`, `game::...::state::EnemyAiConfig`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    sight_range: Option<FixedField>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -3074,6 +3249,7 @@ fn load_floors(
                 victory_at_end: parsed.victory_at_end,
                 consumables_per_floor: parsed.consumables_per_floor,
                 loot: parsed.loot,
+                curses: parsed.curses,
             },
         );
     }
@@ -3311,6 +3487,57 @@ fn load_unlocks(
         registry
             .unlocks
             .insert(id.clone(), UnlockEntry { id, file: rel, def });
+    }
+}
+
+/// M3-T0e : `curses/<id>.ron` (kind `Curse`), une curse par fichier ; id = nom de fichier.
+fn load_curses(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<run::CurseDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.curses.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de curse « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .curses
+            .insert(id.clone(), CurseEntry { id, file: rel, def });
+    }
+}
+
+/// M3-T0e : `achievements/<id>.ron` (kind `Achievement`), un accomplissement par fichier ; id =
+/// nom de fichier.
+fn load_achievements(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<meta::AchievementDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.achievements.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id d'accomplissement « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .achievements
+            .insert(id.clone(), AchievementEntry { id, file: rel, def });
     }
 }
 
@@ -4135,6 +4362,179 @@ mod tests {
             "testbed_empty"
         );
     }
+
+    /// Couche `LevelConnection` de `width × height` cases dont seules `open` (x, y) valent 1.
+    fn connection(width: usize, height: usize, open: &[(usize, usize)]) -> OpeningGrid {
+        let mut cells = vec![false; width * height];
+        for (x, y) in open {
+            cells[y * width + x] = true;
+        }
+        OpeningGrid {
+            width,
+            height,
+            open: cells,
+        }
+    }
+
+    /// Case de salle de test : 5 × 3 cases de 16 px (milieu : x = 2, y = 1).
+    const CELL: (u32, u32) = (5, 3);
+
+    fn fault(side: OpeningSide, segment: u32, segments: u32, fault: SegmentFault) -> OpeningFault {
+        OpeningFault {
+            side,
+            segment,
+            segments,
+            fault,
+        }
+    }
+
+    #[test]
+    fn one_cell_template_with_centered_openings_is_valid() {
+        let grid = connection(5, 3, &[(2, 0), (2, 2), (0, 1), (4, 1)]);
+        assert_eq!(grid.segment_faults((5, 3), CELL), []);
+        // une ouverture large symétrique est centrée aussi
+        let wide = connection(
+            5,
+            3,
+            &[
+                (1, 0),
+                (2, 0),
+                (3, 0),
+                (1, 2),
+                (2, 2),
+                (3, 2),
+                (0, 0),
+                (0, 1),
+                (0, 2),
+                (4, 0),
+                (4, 1),
+                (4, 2),
+            ],
+        );
+        assert_eq!(wide.segment_faults((5, 3), CELL), []);
+    }
+
+    #[test]
+    fn segment_without_opening_is_reported_with_its_side() {
+        let grid = connection(5, 3, &[(2, 0), (2, 2), (4, 1)]);
+        assert_eq!(
+            grid.segment_faults((5, 3), CELL),
+            [fault(OpeningSide::Left, 0, 1, SegmentFault::Missing)]
+        );
+    }
+
+    #[test]
+    fn off_center_opening_is_reported() {
+        let grid = connection(5, 3, &[(1, 0), (2, 2), (0, 1), (4, 1)]);
+        assert_eq!(
+            grid.segment_faults((5, 3), CELL),
+            [fault(OpeningSide::Top, 0, 1, SegmentFault::OffCenter)]
+        );
+    }
+
+    #[test]
+    fn two_opening_groups_on_one_segment_are_reported() {
+        // (1, 0) et (3, 0) : symétriques, mais séparés par la case 2
+        let grid = connection(5, 3, &[(1, 0), (3, 0), (2, 2), (0, 1), (4, 1)]);
+        assert_eq!(
+            grid.segment_faults((5, 3), CELL),
+            [fault(OpeningSide::Top, 0, 1, SegmentFault::SeveralGroups)]
+        );
+    }
+
+    #[test]
+    fn wide_template_needs_an_opening_per_segment() {
+        // 2 × 1 : deux segments au haut et au bas, un à gauche, un à droite
+        let all = [(2, 0), (7, 0), (2, 2), (7, 2), (0, 1), (9, 1)];
+        assert_eq!(connection(10, 3, &all).segment_faults((10, 3), CELL), []);
+        let without_south_east = [(2, 0), (7, 0), (2, 2), (0, 1), (9, 1)];
+        assert_eq!(
+            connection(10, 3, &without_south_east).segment_faults((10, 3), CELL),
+            [fault(OpeningSide::Bottom, 1, 2, SegmentFault::Missing)]
+        );
+        // une ouverture à cheval sur les deux segments du haut ne centre ni l'un ni l'autre
+        let straddling = [(4, 0), (5, 0), (2, 2), (7, 2), (0, 1), (9, 1)];
+        assert_eq!(
+            connection(10, 3, &straddling).segment_faults((10, 3), CELL),
+            [
+                fault(OpeningSide::Top, 0, 2, SegmentFault::OffCenter),
+                fault(OpeningSide::Top, 1, 2, SegmentFault::OffCenter),
+            ]
+        );
+    }
+
+    #[test]
+    fn tall_template_needs_an_opening_per_segment() {
+        // 1 × 2 : un segment au haut et au bas, deux à gauche, deux à droite
+        let all = [(2, 0), (2, 5), (0, 1), (0, 4), (4, 1), (4, 4)];
+        assert_eq!(connection(5, 6, &all).segment_faults((5, 6), CELL), []);
+        let without_west_lower = [(2, 0), (2, 5), (0, 1), (4, 1), (4, 4)];
+        assert_eq!(
+            connection(5, 6, &without_west_lower).segment_faults((5, 6), CELL),
+            [fault(OpeningSide::Left, 1, 2, SegmentFault::Missing)]
+        );
+    }
+
+    #[test]
+    fn big_template_is_valid_with_every_segment_open() {
+        // 2 × 2 : deux segments par côté
+        let all = [
+            (2, 0),
+            (7, 0),
+            (2, 5),
+            (7, 5),
+            (0, 1),
+            (0, 4),
+            (9, 1),
+            (9, 4),
+        ];
+        assert_eq!(connection(10, 6, &all).segment_faults((10, 6), CELL), []);
+    }
+
+    #[test]
+    fn size_must_be_a_multiple_of_the_cell() {
+        assert!(size_fits_cell((5, 3), CELL));
+        assert!(size_fits_cell((10, 6), CELL));
+        assert!(!size_fits_cell((6, 3), CELL));
+        assert!(!size_fits_cell((10, 4), CELL));
+        assert!(!size_fits_cell((0, 0), CELL));
+        assert!(!size_fits_cell((5, 3), (0, 3)));
+        // pas de segment défini : la taille est l'erreur
+        assert_eq!(connection(6, 3, &[]).segment_faults((6, 3), CELL), []);
+    }
+
+    #[test]
+    fn opening_widths_count_open_cells_per_segment() {
+        // 2 × 1 : haut 1 et 3 cases, bas 1 et 1, gauche 1, droite 1
+        let open = [
+            (2, 0),
+            (6, 0),
+            (7, 0),
+            (8, 0),
+            (2, 2),
+            (7, 2),
+            (0, 1),
+            (9, 1),
+        ];
+        assert_eq!(
+            connection(10, 3, &open).opening_widths((10, 3), CELL),
+            [1, 3, 1, 1, 1, 1]
+        );
+        assert!(OpeningGrid::default()
+            .opening_widths((6, 3), CELL)
+            .is_empty());
+    }
+
+    #[test]
+    fn missing_connection_layer_reports_every_segment() {
+        let faults = OpeningGrid::default().segment_faults((10, 3), CELL);
+        assert_eq!(faults.len(), 6);
+        assert!(faults.iter().all(|f| f.fault == SegmentFault::Missing));
+        assert_eq!(
+            faults[0].to_string(),
+            "côté haut, segment 1/2 : aucune ouverture"
+        );
+    }
 }
 
 /// D41 : dégagement des points d'apparition selon le corps en jeu.
@@ -4198,6 +4598,8 @@ pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
         "Wave" => schemars::schema_for!(WaveConfigFileSchema),
         "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
         "Unlock" => schemars::schema_for!(items::UnlockDef),
+        "Curse" => schemars::schema_for!(run::CurseDef),
+        "Achievement" => schemars::schema_for!(meta::AchievementDef),
         "MetaEconomy" => schemars::schema_for!(meta::EssenceRules),
         "HubService" => schemars::schema_for!(meta::HubServiceDef),
         _ => return None,

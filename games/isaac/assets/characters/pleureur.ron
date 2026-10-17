@@ -32,6 +32,10 @@
         max: "6.0",
     ),
 
+    // M3-T3 (§68) : invulnérable 60 frames (une seconde) après avoir perdu de la vie, comme Isaac : deux
+    // ennemis au contact ne retirent pas leurs coups à quelques frames d'écart (`hit_iframes_isaac`).
+    hit_iframes: Some(60),
+
     starting_skin: "1",
     // "2" : skin du joueur de handle 1 (`player::create`, le second joueur en ligne).
     skins: {
@@ -42,4 +46,9 @@
     // Un seul emplacement d'arme à distance : les larmes.
     weapon_slots: 1,
     starting_weapons: ["larmes"],
+
+    // Isaac commence sans clé mais avec un inventaire (M3-T5, docs/conventions.md §70) : sans lui,
+    // `consumables_per_floor` (la clé du second étage, qui ouvre le trésor) ne servirait personne avant
+    // le premier ramassage.
+    starting_consumables: {"key": 0},
 )

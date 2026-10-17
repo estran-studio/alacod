@@ -155,14 +155,35 @@ impl ScriptedInputs {
     }
 }
 
+/// Pistes du hub (`HubSetup::inputs` d'un scénario rejoué par `ALACOD_INPUT=script:`), lues à la
+/// place de [`ScriptedInputs`] tant que la session est au hub (`HubSession::in_hub`) : les
+/// frames du hub et celles de la run repartent toutes deux de 0, une seule piste ne peut pas
+/// servir les deux phases. Hors hub, ou sans cette ressource : [`ScriptedInputs`].
+#[derive(Resource, Clone, Debug, Default)]
+pub struct ScriptedHubInputs(pub ScriptedInputs);
+
+/// Pistes à lire : celles du hub (frames du hub) tant que la session est au hub et que le scénario
+/// en a, sinon celles de la run.
+fn scripted_tracks<'a>(
+    run: &'a ScriptedInputs,
+    hub_tracks: Option<&'a ScriptedHubInputs>,
+    in_hub: bool,
+) -> &'a ScriptedInputs {
+    match hub_tracks {
+        Some(hub_tracks) if in_hub => &hub_tracks.0,
+        _ => run,
+    }
+}
+
 impl InputSource {
     /// Source choisie par `ALACOD_INPUT` ; `script:<scénario.ron>` (natif) rejoue les inputs
     /// du `PlayerScript` de chaque joueur local (handle GGRS = index dans `players`) et
-    /// retourne la ressource [`ScriptedInputs`] à installer avec [`Self::Scripted`].
-    pub fn from_env() -> (Self, Option<ScriptedInputs>) {
+    /// retourne la ressource [`ScriptedInputs`] à installer avec [`Self::Scripted`], plus les
+    /// pistes du hub du scénario ([`ScriptedHubInputs`]) s'il en a.
+    pub fn from_env() -> (Self, Option<ScriptedInputs>, Option<ScriptedHubInputs>) {
         match std::env::var("ALACOD_INPUT").as_deref() {
-            Err(_) | Ok("devices") => (Self::Devices, None),
-            Ok("neutral") => (Self::Neutral, None),
+            Err(_) | Ok("devices") => (Self::Devices, None, None),
+            Ok("neutral") => (Self::Neutral, None, None),
             #[cfg(not(target_arch = "wasm32"))]
             Ok(value) if value.starts_with("script:") => {
                 let path = &value["script:".len()..];
@@ -170,7 +191,11 @@ impl InputSource {
                     .unwrap_or_else(|e| panic!("ALACOD_INPUT : lecture de {path} : {e}"));
                 let scenario = crate::replay::Scenario::from_ron(&source)
                     .unwrap_or_else(|e| panic!("ALACOD_INPUT : scénario {path} invalide : {e}"));
-                (Self::Scripted, Some(scenario.scripted_inputs()))
+                let hub = scenario
+                    .hub
+                    .is_some()
+                    .then(|| ScriptedHubInputs(scenario.hub_scripted_inputs()));
+                (Self::Scripted, Some(scenario.scripted_inputs()), hub)
             }
             Ok(other) => panic!(
                 "ALACOD_INPUT inconnu : {other} (attendu : devices, neutral, script:<scénario.ron>)"
@@ -201,6 +226,8 @@ pub fn read_local_inputs(
     local_players: Res<LocalPlayers>,
     frame: Res<FrameCount>,
     scripted: Option<Res<ScriptedInputs>>,
+    hub_scripted: Option<Res<ScriptedHubInputs>>,
+    hub: Option<Res<crate::hub::HubSession>>,
     remote: Option<Res<RemoteInputs>>,
     mutation_screen: Option<Res<crate::ui::mutation_screen::MutationScreenView>>,
 ) {
@@ -218,8 +245,13 @@ pub fn read_local_inputs(
 
     if *input_source == InputSource::Scripted {
         let scripted = scripted.expect("InputSource::Scripted demande la ressource ScriptedInputs");
+        let tracks = scripted_tracks(
+            &scripted,
+            hub_scripted.as_deref(),
+            hub.as_deref().is_some_and(|session| session.in_hub),
+        );
         for handle in &local_players.0 {
-            local_inputs.insert(*handle, scripted.input_at(*handle, frame.frame));
+            local_inputs.insert(*handle, tracks.input_at(*handle, frame.frame));
         }
     }
 
@@ -932,5 +964,37 @@ mod movement_tests {
             after.translation.x > Fixed::from_num(-2),
             "the free axis still slides"
         );
+    }
+}
+
+#[cfg(test)]
+mod scripted_tracks_tests {
+    use super::*;
+
+    fn track(input_from: u32, buttons: u32) -> ScriptedInputs {
+        ScriptedInputs {
+            players: vec![vec![InputSegment {
+                from: input_from,
+                to: input_from + 10,
+                input: BoxInput {
+                    buttons,
+                    ..Default::default()
+                },
+            }]],
+        }
+    }
+
+    /// Au hub, `ALACOD_INPUT=script:` lit les pistes du hub, pas celles de la run : les frames des
+    /// deux phases repartent de 0, la run ne doit pas rejouer ses entrées dans le hub (la porte
+    /// ne serait jamais franchie), ni le hub dans la run.
+    #[test]
+    fn hub_tracks_only_while_in_hub() {
+        let run = track(0, INPUT_UP);
+        let hub = ScriptedHubInputs(track(0, INPUT_DOWN));
+        let at = |tracks: &ScriptedInputs| tracks.input_at(0, 5).buttons;
+        assert_eq!(at(scripted_tracks(&run, Some(&hub), true)), INPUT_DOWN);
+        assert_eq!(at(scripted_tracks(&run, Some(&hub), false)), INPUT_UP);
+        // Scénario sans piste de hub : la run joue aussi au hub (comportement d'avant).
+        assert_eq!(at(scripted_tracks(&run, None, true)), INPUT_UP);
     }
 }

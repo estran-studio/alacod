@@ -219,6 +219,12 @@ pub fn compute_floor_plan(
         }
         _ => commands.remove_resource::<FloorPlan>(),
     }
+    // M3-T9 (§74) : curses de la séquence (vides hors `Floors` ou sans champ `curses`), lues à la
+    // génération des étages (`FloorRooms`) et par `game::curses::curse_system`.
+    commands.insert_resource(game::curses::CurseTable::for_mode(
+        &mode_for_victory,
+        registry.as_deref(),
+    ));
     // Hors du mode `Floors` : rien à remonter au changement d'étage.
     if !matches!(&mode_for_victory, run::RunMode::Floors { .. }) {
         commands.insert_resource(game::items::FloorStartConsumables::default());

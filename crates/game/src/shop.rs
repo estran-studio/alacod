@@ -332,6 +332,35 @@ pub fn shelf_interaction_system(
             continue;
         };
         handled.insert(event.interactable_net_id.0);
+        // M3-T3 (§68) : un consommable que le joueur ne peut pas prendre (compteur au plafond,
+        // soin à pleine vie) n'est pas vendu : rien n'est dépensé, le présentoir reste.
+        if let Some(def) = def.filter(|def| def.kind == ItemKind::Consumable) {
+            let stock = match inventory.as_deref() {
+                Some(inventory) => inventory.consumable(&shelf.item_id),
+                None => fresh
+                    .get(&event.interactor_net_id.0)
+                    .map_or(0, |(_, fresh)| fresh.consumable(&shelf.item_id)),
+            };
+            let full = health
+                .as_deref()
+                .is_some_and(|health| health.current >= health.max);
+            if !def.accepts(stock, full) {
+                shelf.retry_after = frame.frame + SHELF_RETRY_FRAMES;
+                info!(
+                    "ggrs{{f={} shop_full net_id={} by={} item={}}}",
+                    frame.frame,
+                    event.interactable_net_id.0,
+                    event.interactor_net_id.0,
+                    shelf.item_id
+                );
+                currency_events.send(CurrencyEvent {
+                    handle: player.handle,
+                    delta: 0,
+                    reason: "shop_full".to_string(),
+                });
+                continue;
+            }
+        }
         if !wallet.spend(shelf.price) {
             shelf.retry_after = frame.frame + SHELF_RETRY_FRAMES;
             info!(
@@ -500,6 +529,7 @@ mod tests {
             projectile: None,
             familiar: None,
             max_stack: None,
+            refuse_when_full: false,
             stack: Default::default(),
         }
     }
@@ -511,6 +541,7 @@ mod tests {
                 weight: 1,
             }],
             exclude_held: false,
+            exhaust: false,
             reward: None,
         };
         let items = ItemTable(

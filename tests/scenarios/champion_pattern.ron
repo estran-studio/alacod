@@ -4,7 +4,7 @@
 //
 // À regarder : le champion tombe, une couronne de huit boules de feu part de sa position.
 //
-// M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la variante à `tint` du champion (`tear_look` / `variant_tint`). Trace inchangée.
+// M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la variante à `tint` du champion (`variant_tint`). Trace inchangée.
 
 Scenario(
     game: "testbed",

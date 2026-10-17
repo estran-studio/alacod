@@ -4,7 +4,7 @@
 - **Larmes** : `feedback_v3::tear_look` (couleur du statut posé, sinon turquoise si guidée ; translucide si spectrale ; taille ×1,25 `Split`, ×1,15 `Pierce`, ×0,8 par génération), appliqué par `world_sprites::style_tears` après `skin_bullets`.
 - **Familiers/orbitaux** : sprites provisoires (`compagnon`, `orbital`, `rempart`), orientation (`orient_familiars` : suiveur retourné vers où va le porteur, orbital pointe vers l'extérieur).
 - **Champions** : `ChampionTint` d'après `VariantDef::tint`, couleur de base des calques ; teintes ajoutées aux variantes du testbed (sauf `nu`).
-- **Bombe** : mèche qui clignote de plus en plus vite et gonfle ; explosion = deux anneaux + secousse proportionnelle au rayon (`explosion:` dans `ui/feedback.ron`, lint + 2 fixtures) ; rocher cassé = éclats et tuile LDtk masquée (`map_ldtk::hide_broken_rock_tiles`, dépendance `bevy_ecs_tilemap` ajoutée : `Cargo.lock` +1 ligne) ; mur secret = poussière + anneau ; sprites de bombe/rocher cachés dès que l'entité est `RollbackDespawned`.
+- **Bombe** : mèche qui clignote de plus en plus vite et gonfle ; explosion = deux anneaux + secousse proportionnelle au rayon (`explosion:` dans `ui/feedback.ron`, lint + 2 fixtures) ; rocher cassé = éclats et tuile LDtk masquée (`map_ldtk::sync_rock_tiles`, dépendance `bevy_ecs_tilemap` ajoutée : `Cargo.lock` +1 ligne) ; mur secret = poussière + anneau ; sprites de bombe/rocher cachés dès que l'entité est `RollbackDespawned`.
 - **Preuve** : sept genres de `FeedbackKind` + `note` dans `FeedbackCue`, moments clés `feedback` ; 23 scénarios gagnent des `Event` (traces inchangées) ; 8 tests unitaires `feedback_v3`.
 - Assets : 6 PNG originaux CC0 générés par `scripts/generer-sprites-feedback.py` (`assets.yaml`, placeholders).
 

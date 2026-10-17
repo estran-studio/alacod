@@ -1,0 +1,12 @@
+// Fixture M3-T5 : key_room_key_at_floor_zero_only (séquence d'un seul étage : la clé par étage n'arrive qu'à l'étage 1, le verrou est actif dès l'étage 0).
+(
+    name: "fixture-key_room_key_at_floor_zero_only",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+        (path: "floor_grammars", kind: "FloorGrammar"),
+        (path: "floors", kind: "Floors"),
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "floor:etage", default_seed: 1),
+)

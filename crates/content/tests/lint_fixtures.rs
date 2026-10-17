@@ -1689,6 +1689,82 @@ fn world_contract_fixtures_report_their_rule() {
     }
 }
 
+// M3-T5 (docs/conventions.md §70) : disposition en grille et trésor derrière une clé obtenable.
+#[test]
+fn grid_and_key_fixtures_report_their_rule() {
+    for (fixture, kind, expected) in [
+        (
+            "grid_template_size_not_multiple",
+            LintErrorKind::OutOfRange,
+            "gabarit « Boss » (type « boss ») fait 6 × 3 cases : doit être un multiple",
+        ),
+        (
+            "grid_template_missing_opening",
+            LintErrorKind::OutOfRange,
+            "gabarit « Boss » (type « boss », 10 × 3 cases, case de salle 5 × 3) sans ouverture centrée sur chaque segment de chaque côté (côté bas, segment 2/2 : aucune ouverture)",
+        ),
+        (
+            "grid_post_boss_chance_out_of_range",
+            LintErrorKind::OutOfRange,
+            "post_boss.chance = 1.5",
+        ),
+        (
+            "lock_from_floor_on_secret",
+            LintErrorKind::OutOfRange,
+            "lock_from_floor sur door_lock Secret",
+        ),
+        (
+            "lock_from_floor_without_lock",
+            LintErrorKind::OutOfRange,
+            "lock_from_floor sans door_lock",
+        ),
+        (
+            "key_room_without_key_source",
+            LintErrorKind::Unsupported,
+            "trésor fermé à clé sans source de clé",
+        ),
+        (
+            "key_room_key_at_floor_zero_only",
+            LintErrorKind::Unsupported,
+            "trésor fermé à clé sans source de clé",
+        ),
+        (
+            "key_room_floor_zero_locked_two_floors",
+            LintErrorKind::Unsupported,
+            "étage(s) d'indice 0 sans clé",
+        ),
+        (
+            "grid_template_opening_widths_differ",
+            LintErrorKind::OutOfRange,
+            "gabarit « Boss » (type « boss ») a une ouverture de 5 case(s) mais gabarit « Depart » une de 3 case(s)",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert_has_error(&errors, kind, expected);
+        // une seule erreur : la règle visée, rien de collatéral (hors `entry.start_map`, commun à
+        // la fixture sans carte)
+        let others: Vec<_> = errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .collect();
+        assert_eq!(others.len(), 1, "{fixture} : {errors:#?}");
+    }
+}
+
+/// Les grandes salles (1×1, 2×1, 1×2, 2×2) correctes et un trésor à clé dont la clé arrive à
+/// l'étage du verrou ne produisent aucune erreur : la règle n'est pas durcie à tort.
+#[test]
+fn valid_grid_and_key_fixtures_have_no_lint_error() {
+    for fixture in [
+        "grid_large_rooms_ok",
+        "key_room_with_key_source",
+        "key_room_lock_never_applies",
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert!(errors.is_empty(), "{fixture} : {errors:#?}");
+    }
+}
+
 // D61 (docs/conventions.md §18) : bouclier et stats lues.
 #[test]
 fn shield_zero_fixture_reports_out_of_range() {

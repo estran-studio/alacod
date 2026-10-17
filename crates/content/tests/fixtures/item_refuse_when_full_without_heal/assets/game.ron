@@ -1,0 +1,8 @@
+// Fixture M3-T3 : refuse_when_full sans effet Heal
+(
+    name: "fixture-item_refuse_when_full_without_heal",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

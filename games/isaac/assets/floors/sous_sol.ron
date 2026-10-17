@@ -1,6 +1,10 @@
-// `isaac` (M3-T0f, docs/conventions.md §17 et §40) : la séquence `Floors` d'un étage assemblé par la
-// grammaire `floor_grammars/sous_sol.ron` ; le boss vaincu termine la partie par une victoire.
+// `isaac` (M3-T0f, docs/conventions.md §17 et §40, puis M3-T5, §70) : la séquence par défaut, deux
+// étages assemblés par la grammaire `floor_grammars/sous_sol.ron` (graine dérivée par emplacement) ;
+// le boss du dernier étage vaincu termine la partie par une victoire. Le trésor est fermé à clé à
+// partir du second étage (`lock_from_floor: 1` de `rooms/tresor.ron`) : une clé est remise au début de
+// chaque étage (`consumables_per_floor`, effective à partir du second, le premier n'en a pas besoin).
 (
-    levels: ["floor:sous_sol"],
+    levels: ["floor:sous_sol", "floor:sous_sol"],
     victory_at_end: true,
+    consumables_per_floor: {"key": 1},
 )

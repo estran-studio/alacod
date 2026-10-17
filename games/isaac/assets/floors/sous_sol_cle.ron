@@ -1,0 +1,8 @@
+// `isaac` (M3-T5, docs/conventions.md §70) : l'étage de passage puis le `sous_sol` : le second étage
+// est celui où le trésor est fermé à clé (`lock_from_floor: 1`) ; la clé vient de
+// `consumables_per_floor` à l'arrivée. Séquence des scénarios `grid_treasure_key`.
+(
+    levels: ["floor:sous_sol_transit", "floor:sous_sol"],
+    victory_at_end: true,
+    consumables_per_floor: {"key": 1},
+)

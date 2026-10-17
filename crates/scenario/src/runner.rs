@@ -56,6 +56,9 @@ struct SyncTestMismatches {
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
 
+/// Frames maximum de la phase du hub d'un scénario qui suit la relance (`HubSetup { stay: false }`).
+const HUB_PHASE_MAX_FRAMES: u32 = 2_000;
+
 /// Métriques de performance d'un scénario.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metrics {
@@ -428,6 +431,10 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // joueurs de `bot_assignments` sont remplacés ensuite quel que soit ce mode.
         .add_plugins(BotsPlugin)
         .insert_resource(bot_assignments(scenario))
+        .insert_resource(bots::explorer::ExplorerOptions {
+            boss_direct: false,
+            shopping: scenario.shopping,
+        })
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
             let m = mismatch.event();
@@ -457,7 +464,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         app.insert_resource(game::run_state::FloorsOverride(floors.clone()));
     }
     // M2-T13 : le scénario démarre au hub du manifeste (`entry.hub`).
-    if let Some(hub) = scenario.hub {
+    if let Some(hub) = &scenario.hub {
         let hub_map = app
             .world()
             .resource::<content::manifest::GameManifest>()
@@ -473,6 +480,23 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             });
             if hub.stay {
                 app.insert_resource(game::hub::HubStay);
+            } else {
+                // La relance est suivie : `play` et `capture` n'arrêtent la partie qu'une fois la
+                // run commencée (`HubPhaseOver`).
+                app.init_resource::<HubPhaseOver>()
+                    .add_systems(Update, track_hub_phase);
+                if !hub.inputs.is_empty() {
+                    // m2-full-run : le hub a ses propres pistes, sans bot ; les `players` du
+                    // scénario reprennent la main quand la porte relance la session
+                    // (`swap_hub_inputs`).
+                    app.insert_resource(RunPhaseInputs {
+                        scripted: scenario.scripted_inputs(),
+                        bots: bot_assignments(scenario),
+                    })
+                    .insert_resource(scenario.hub_scripted_inputs())
+                    .insert_resource(BotAssignments::default())
+                    .add_systems(Update, swap_hub_inputs);
+                }
             }
         }
     }
@@ -531,6 +555,49 @@ fn bot_assignments(scenario: &Scenario) -> BotAssignments {
         }
     }
     BotAssignments(assignments)
+}
+
+/// Hub suivi (`HubSetup { stay: false }`) : vrai une fois la run commencée (la session relancée
+/// repart de la frame 0). `play` et `capture` ne comptent les frames de `Scenario::frames` qu'à
+/// partir de là.
+#[derive(Resource, Default)]
+struct HubPhaseOver(bool);
+
+fn track_hub_phase(
+    session: Res<game::hub::HubSession>,
+    frame: Res<FrameCount>,
+    mut over: ResMut<HubPhaseOver>,
+) {
+    if !over.0 && !session.in_hub && frame.frame == 0 {
+        over.0 = true;
+    }
+}
+
+/// Inputs de la run d'un scénario qui passe par le hub avec ses propres pistes
+/// (`HubSetup::inputs`) : posés quand la porte relance la session.
+#[derive(Resource)]
+struct RunPhaseInputs {
+    scripted: ScriptedInputs,
+    bots: BotAssignments,
+}
+
+/// Quand `HubSession::in_hub` passe à faux (la sortie du hub est confirmée), les pistes et les
+/// bots du scénario remplacent ceux du hub. Les joueurs sont encore ceux du hub ou en cours de
+/// recréation : aucune frame de run n'est lue avant cet échange.
+fn swap_hub_inputs(
+    mut commands: Commands,
+    session: Option<Res<game::hub::HubSession>>,
+    run_inputs: Option<Res<RunPhaseInputs>>,
+) {
+    let (Some(session), Some(run_inputs)) = (session, run_inputs) else {
+        return;
+    };
+    if session.in_hub {
+        return;
+    }
+    commands.insert_resource(run_inputs.scripted.clone());
+    commands.insert_resource(run_inputs.bots.clone());
+    commands.remove_resource::<RunPhaseInputs>();
 }
 
 /// Fait avancer le scénario (headless) jusqu'à la frame `frame` et rend l'app, pour
@@ -1278,12 +1345,28 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     app.finish();
     app.cleanup();
 
+    // Hub suivi (m2-full-run) : la session démarre au hub, la porte la relance en run.
+    let hub_follow = scenario.hub.as_ref().is_some_and(|hub| !hub.stay)
+        && app.world().contains_resource::<game::hub::HubSession>();
+    let is_hub_expectation = |e: &Expectation| {
+        matches!(
+            e,
+            Expectation::HubExit { .. } | Expectation::HubVisit { .. }
+        )
+    };
+    let mut hub_pending: Vec<&Expectation> = scenario
+        .expect
+        .iter()
+        .filter(|e| hub_follow && is_hub_expectation(e))
+        .collect();
+    hub_pending.sort_by_key(|e| e.at_frame());
+
     // Séparer les attentes ponctuelles des attentes continues (NoDamageBetween, et T1.4 :
     // EnemyContactBefore, EnemyNeverInWall)
     let mut pending: Vec<&Expectation> = scenario
         .expect
         .iter()
-        .filter(|e| !is_continuous(e))
+        .filter(|e| !is_continuous(e) && !(hub_follow && is_hub_expectation(e)))
         .collect();
     pending.sort_by_key(|e| e.at_frame());
 
@@ -1362,7 +1445,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .query::<(&Player, Has<combat::downed::Downed>)>();
     let mut floors_softlocked = false;
 
-    let max_updates = MAX_LOADING_UPDATES + scenario.frames;
+    // Hub suivi (`HubSetup { stay: false }`) : la phase du hub s'ajoute au budget d'updates.
+    let mut hub_phase = hub_follow;
+    let max_updates = MAX_LOADING_UPDATES
+        + scenario.frames
+        + if hub_follow {
+            MAX_LOADING_UPDATES + HUB_PHASE_MAX_FRAMES
+        } else {
+            0
+        };
     let mut frame = 0;
     let mut stopped_early = false;
     let mut previous_snapshot = None;
@@ -1383,6 +1474,13 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             t_update += t0.elapsed().as_secs_f64();
         }
         frame = app.world().resource::<FrameCount>().frame;
+        if hub_phase && frame == 0 && !app.world().resource::<game::hub::HubSession>().in_hub {
+            // La porte du hub a relancé la session : la run commence (frames de 0). Le chrono de
+            // simulation repart avec elle (le hub n'entre pas dans `sim_fps`).
+            hub_phase = false;
+            sim_start = None;
+            sim_elapsed = 0.0;
+        }
         if let Some(start) = sim_start {
             sim_elapsed = start.elapsed().as_secs_f64();
         }
@@ -1465,8 +1563,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             break; // la session synctest n'avance plus après un mismatch
         }
 
-        while pending.first().is_some_and(|e| e.at_frame() <= frame) {
-            let expectation = pending.remove(0);
+        // Attentes du hub (phase hub d'un scénario qui suit la relance) ou de la run : les frames
+        // repartent de 0 à la run, chaque liste n'est lue que pendant sa phase.
+        let due = if hub_phase {
+            &mut hub_pending
+        } else {
+            &mut pending
+        };
+        while due.first().is_some_and(|e| e.at_frame() <= frame) {
+            let expectation = due.remove(0);
             if let Err(reason) = check(app.world_mut(), expectation) {
                 failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
             }
@@ -1533,7 +1638,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             previous_snapshot = Some(crate::softlock::snapshot(app.world_mut()));
         }
 
-        if stopped_early || floors_softlocked || frame >= scenario.frames {
+        if stopped_early || floors_softlocked || (frame >= scenario.frames && !hub_phase) {
             break;
         }
     }
@@ -1550,6 +1655,42 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         0.0
     };
 
+    if hub_follow {
+        if hub_phase {
+            failures.push(format!(
+                "la porte du hub n'a jamais relancé la run (frame {frame} au hub)"
+            ));
+        }
+        failures.extend(hub_pending.iter().map(|expectation| {
+            format!("{expectation:?} : jamais évaluée, la phase du hub s'est terminée avant")
+        }));
+        if scenario.expect.iter().any(is_continuous) {
+            failures.push(
+                "attentes continues (NoDamageBetween, EnemyContactBefore, EnemyNeverInWall) \
+                 non prises en charge avec un hub suivi (`hub: Some((stay: false))`)"
+                    .into(),
+            );
+        }
+        // `apply_player_overrides` ne s'applique qu'à la première session : les joueurs de la run
+        // lancée par la porte n'en recevraient aucun, mieux vaut refuser que mal jouer.
+        if scenario.players.iter().any(|p| {
+            !p.tags.is_empty()
+                || !p.immune_to.is_empty()
+                || !p.modifiers.is_empty()
+                || p.weapon.is_some()
+                || p.currency.is_some()
+                || !p.mutations.is_empty()
+                || p.dash.is_some()
+                || !p.items.is_empty()
+                || p.bomb.is_some()
+        }) {
+            failures.push(
+                "réglages de joueur (tags, weapon, currency, items, modifiers, mutations, dash, \
+                 bomb) non pris en charge avec un hub suivi (`hub: Some((stay: false))`)"
+                    .into(),
+            );
+        }
+    }
     if frame < scenario.frames && !stopped_early && !floors_softlocked {
         failures.push(format!(
             "la simulation n'a atteint que la frame {frame} sur {} (map pas chargée ?)",
@@ -2003,6 +2144,23 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 found.unwrap_or("aucun")
             )),
         },
+        Expectation::SquadSize {
+            squad, min, max, ..
+        } => {
+            use game::character::enemy::ai::state::EnemyBehaviors;
+            let count = world
+                .query::<&EnemyBehaviors>()
+                .iter(world)
+                .filter(|rules| rules.squad.as_deref() == Some(squad.as_str()))
+                .count() as u32;
+            if min.is_some_and(|m| count < m) || max.is_some_and(|m| count > m) {
+                Err(format!(
+                    "{count} ennemi(s) de l'escouade « {squad} » (min {min:?}, max {max:?})"
+                ))
+            } else {
+                Ok(())
+            }
+        }
         Expectation::EnemyVariant {
             entity, variant, ..
         } => {
@@ -2102,6 +2260,33 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .map(|l| format!(", label contient '{}'", l))
                     .unwrap_or_default();
                 Err(format!("événement '{}' non trouvé{}", kind, label_desc))
+            }
+        }
+        Expectation::EventAfter {
+            kind,
+            label_contains,
+            after_frame,
+            by_frame: _,
+        } => {
+            let events = world.resource::<GameEvents>();
+            let found = events.events.iter().any(|event| {
+                event.kind == kind.as_str()
+                    && event.frame > *after_frame
+                    && label_contains
+                        .as_ref()
+                        .map_or(true, |label| event.label.contains(label))
+            });
+            if found {
+                Ok(())
+            } else {
+                let label_desc = label_contains
+                    .as_ref()
+                    .map(|l| format!(", label contient '{}'", l))
+                    .unwrap_or_default();
+                Err(format!(
+                    "événement '{}' non trouvé après la frame {}{}",
+                    kind, after_frame, label_desc
+                ))
             }
         }
         // À terre (T1.3, chantier B6). `PlayerDowned` : vérification ponctuelle (comme
@@ -2356,6 +2541,23 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        // M3-T3 (§68) : points de vie d'âme du joueur (0 sans le composant).
+        Expectation::ExtraHealth { handle, n, .. } => {
+            let Some(actual) = world
+                .query::<(&Player, Option<&combat::actors::ExtraHealth>)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, extra)| extra.map_or(fixed_math::Fixed::ZERO, |extra| extra.soul))
+            else {
+                return Err("joueur absent".into());
+            };
+            let wanted = fixed_math::Fixed::from_num(*n);
+            if actual == wanted {
+                Ok(())
+            } else {
+                Err(format!("{actual} points de vie d'âme (attendu {wanted})"))
+            }
+        }
         Expectation::ItemCount {
             handle, id, count, ..
         } => {
@@ -2548,6 +2750,85 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M3-T5 : géométrie d'une salle typée (taille, voisinage par un bord commun).
+        Expectation::RoomLayout {
+            kind,
+            nth,
+            size,
+            touches,
+            apart,
+            ..
+        } => {
+            let mut rooms: Vec<_> = world
+                .query::<(&map::game::entity::map::room::RoomBounds, &world::RoomKind)>()
+                .iter(world)
+                .map(|(bounds, k)| {
+                    (
+                        bounds.position.x.to_num::<i32>(),
+                        bounds.position.y.to_num::<i32>(),
+                        bounds.size.x.to_num::<i32>(),
+                        bounds.size.y.to_num::<i32>(),
+                        k.0.clone(),
+                    )
+                })
+                .collect();
+            rooms.sort();
+            let of_kind: Vec<_> = rooms.iter().filter(|room| &room.4 == kind).collect();
+            let Some(&&(x, y, w, h, _)) = of_kind.get(*nth) else {
+                return Err(format!(
+                    "{} salle(s) de type « {kind} » (index {nth} demandé)",
+                    of_kind.len()
+                ));
+            };
+            if let Some((width, height)) = size {
+                if (w, h) != (*width as i32, *height as i32) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : {w} × {h} (attendu {width} × {height})"
+                    ));
+                }
+            }
+            // un bord commun de longueur non nulle (salles voisines d'une grille)
+            let touching = |other: &&(i32, i32, i32, i32, String)| {
+                let (ox, oy, ow, oh, _) = **other;
+                let share_x = x < ox + ow && ox < x + w;
+                let share_y = y < oy + oh && oy < y + h;
+                (share_x && (y + h == oy || oy + oh == y))
+                    || (share_y && (x + w == ox || ox + ow == x))
+            };
+            let neighbours: std::collections::BTreeSet<&str> = rooms
+                .iter()
+                .filter(|other| (other.0, other.1) != (x, y))
+                .filter(touching)
+                .map(|other| other.4.as_str())
+                .collect();
+            for wanted in touches {
+                if !neighbours.contains(wanted.as_str()) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : aucune salle « {wanted} » ne la touche (voisines : {neighbours:?})"
+                    ));
+                }
+            }
+            for refused in apart {
+                if neighbours.contains(refused.as_str()) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : touche une salle « {refused} » (voisines : {neighbours:?})"
+                    ));
+                }
+            }
+            Ok(())
+        }
+        // M3-T9 : nombre de salles de la carte (curse `Labyrinth`).
+        Expectation::RoomCount { min, max, .. } => {
+            let count = world
+                .query::<&map::game::entity::map::room::RoomBounds>()
+                .iter(world)
+                .count() as u32;
+            if count >= *min && max.is_none_or(|max| count <= max) {
+                Ok(())
+            } else {
+                Err(format!("{count} salle(s) (attendu entre {min} et {max:?})"))
+            }
+        }
         // M3-T0c : porte verrouillée d'une salle typée (`world::DoorLocks`, `RoomKindDef::door_lock`).
         Expectation::DoorLocked {
             kind, nth, locked, ..
@@ -2569,9 +2850,13 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     rooms.len()
                 ));
             };
+            // Verrou de l'étage courant (`lock_from_floor`, M3-T5) ; 0 hors `Floors`.
+            let floor = world
+                .get_resource::<run::FloorState>()
+                .map_or(0, |state| state.index);
             let has_lock = world
                 .resource::<world::RoomKindTable>()
-                .door_lock(kind)
+                .door_lock_at(kind, floor)
                 .is_some();
             let actual = has_lock && !world.resource::<world::DoorLocks>().is_open(id);
             if actual != *locked {
@@ -2640,6 +2925,34 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M3-T0e (§64) : curse de l'étage (ressource rollback neutre `run::RunCurses`).
+        Expectation::Curse { floor, id, .. } => {
+            let actual = world
+                .get_resource::<run::RunCurses>()
+                .and_then(|curses| curses.get(*floor).map(str::to_string));
+            if actual == *id {
+                Ok(())
+            } else {
+                Err(format!(
+                    "curse de l'étage {floor} : {actual:?} (attendu {id:?})"
+                ))
+            }
+        }
+        // M3-T0e (§64) : objets sortis des pools à épuisement (`items::PoolState`).
+        Expectation::PoolSeen {
+            pool, item, seen, ..
+        } => {
+            let actual = world
+                .get_resource::<items::PoolState>()
+                .is_some_and(|state| state.has_seen(pool, item));
+            if actual == *seen {
+                Ok(())
+            } else {
+                Err(format!(
+                    "pool « {pool} » : « {item} » sorti = {actual} (attendu {seen})"
+                ))
+            }
+        }
         // M2-T13 : décisions du hub dans la simulation (`game::hub::HubState`).
         Expectation::HubExit {
             handle,
@@ -2688,12 +3001,22 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         }
         // T1.18 : texte d'une source du HUD (présentation, hors trace).
         Expectation::HudText {
-            source, contains, ..
+            source,
+            contains,
+            empty,
+            ..
         } => {
             let Some(snapshot) = world.get_resource::<game::ui::hud_model::HudSnapshot>() else {
                 return Err("pas de HudSnapshot".into());
             };
             let text = snapshot.texts.get(source).map_or("", String::as_str);
+            if *empty {
+                return if text.is_empty() {
+                    Ok(())
+                } else {
+                    Err(format!("HUD {source} = « {text} » (attendu vide)"))
+                };
+            }
             if text.contains(contains.as_str()) {
                 Ok(())
             } else {
@@ -2993,8 +3316,10 @@ pub fn play(scenario: &Scenario, config: PlayConfig) -> AppExit {
     let mut app = build_app(scenario, false, &config);
     app.add_systems(
         Update,
-        move |frame: Res<FrameCount>, mut exit: MessageWriter<AppExit>| {
-            if frame.frame >= frames {
+        move |frame: Res<FrameCount>,
+              hub_over: Option<Res<HubPhaseOver>>,
+              mut exit: MessageWriter<AppExit>| {
+            if frame.frame >= frames && hub_over.map_or(true, |over| over.0) {
                 exit.write(AppExit::Success);
             }
         },
@@ -3114,6 +3439,7 @@ fn capture_frames(
     session: Option<Res<bevy_ggrs::Session<game::character::player::jjrs::PeerConfig>>>,
     mut state: ResMut<CaptureState>,
     events: Res<GameEvents>,
+    hub_over: Option<Res<HubPhaseOver>>,
     mut exit: MessageWriter<AppExit>,
 ) {
     use bevy::render::view::screenshot::{save_to_disk, Screenshot};
@@ -3127,6 +3453,11 @@ fn capture_frames(
     };
 
     let frame = frame.frame;
+    let run_started = hub_over.as_ref().map_or(true, |over| over.0);
+    if !run_started {
+        // Hub suivi : aucune image tant que la run n'a pas commencé (la vidéo montre la run seule).
+        return;
+    }
     if frame >= state.frames {
         // Laisser le temps aux dernières captures d'être écrites
         state.updates_after_end += 1;

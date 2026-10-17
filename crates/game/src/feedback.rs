@@ -928,6 +928,7 @@ impl Plugin for FeedbackPlugin {
                 play_reload_sound_for_reload_events,
                 play_hit_sound,
                 play_hurt_sound,
+                play_melee_taken_sound,
                 play_death_sound,
                 play_dash_sound,
                 play_blank_sound,
@@ -1581,6 +1582,23 @@ fn draw_telegraphs(
         ) else {
             continue;
         };
+        // D67 : une couronne (`Ring`) se dit par ses rayons courts (dessinés par
+        // `draw_pattern_shapes`), pas par le cercle de portée — il ressemblait à une
+        // zone de dégâts et couvrait l'écran. Le cercle reste pour les autres formes.
+        if let Some(emitter) = emitter {
+            let aim = Vec2::new(emitter.aim.x.to_num::<f32>(), emitter.aim.y.to_num::<f32>());
+            if let Some(pattern) = pattern_shape(
+                &emitter.steps,
+                emitter.next_step as usize,
+                aim,
+                position,
+                shape.radius,
+            ) {
+                if pattern.kind == PatternKind::Ring {
+                    continue;
+                }
+            }
+        }
         // Durée totale : frames restantes au premier tick vu.
         let total = *started.get(&net_id.0).unwrap_or(&shape.remaining);
         seen.insert(net_id.0, total.max(shape.remaining));
@@ -2076,7 +2094,10 @@ impl FeedbackSounds<'_> {
 }
 
 /// `hit` : un coup porté par un joueur local à une autre entité, un son par frame simulée
-/// (les plombs d'un fusil à pompe ou une explosion n'en jouent qu'un). Gardé par la frame de
+/// (les plombs d'un fusil à pompe ou une explosion n'en jouent qu'un). Un coup de
+/// mêlée (tag `melee` de l'événement) joue `melee` : le `hit` générique, très court
+/// et mou, sonnait comme une balle de ping-pong au corps à corps (retour de William,
+/// 2026-10-16). Gardé par la frame de
 /// l'événement : une image rendue sans nouvelle frame simulée voit encore les mêmes
 /// événements. L'événement précède la résolution : un coup annulé (invulnérabilité) sonne.
 fn play_hit_sound(
@@ -2096,7 +2117,12 @@ fn play_hit_sound(
         return;
     }
     *last_frame = Some(hit.frame);
-    sounds.play("hit");
+    let key = if hit.tags.has(&Tag::new("melee")) {
+        "melee"
+    } else {
+        "hit"
+    };
+    sounds.play(key);
 }
 
 /// Écart minimal, en frames simulées, entre deux sons `hurt` : les PV d'un joueur peuvent
@@ -2109,6 +2135,7 @@ const HURT_SOUND_MIN_FRAMES: u32 = 15;
 /// [`HURT_SOUND_MIN_FRAMES`] frames.
 fn play_hurt_sound(
     sounds: FeedbackSounds,
+    damage: Res<FrameEvents<DamageEvent>>,
     players: Query<(&GgrsNetId, &crate::character::health::Health), With<LocalPlayer>>,
     mut previous: Local<BTreeMap<usize, (Fixed, Fixed)>>,
     mut last_played: Local<Option<u32>>,
@@ -2122,38 +2149,75 @@ fn play_hurt_sound(
             .get(net_id)
             .is_some_and(|(before, max_before)| current < before && max == max_before)
     });
+    // Un coup de mêlée reçu joue `melee` (play_melee_taken_sound), pas `hurt` : les
+    // deux le même tick se masquent et le `hurt` générique sonnait faux au contact.
+    let melee_taken = damage.iter().any(|e| {
+        now.contains_key(&e.target.0)
+            && !now.contains_key(&e.source.0)
+            && e.tags.has(&Tag::new("melee"))
+    });
     *previous = now;
     let frame = sounds.frame.frame;
     // Une frame plus petite que la dernière jouée : nouvelle partie.
     let ready =
         last_played.is_none_or(|last| frame < last || frame - last >= HURT_SOUND_MIN_FRAMES);
-    if hurt && ready {
+    if hurt && !melee_taken && ready {
         *last_played = Some(frame);
         sounds.play("hurt");
     }
 }
 
-/// `death` : un ennemi tué. `Death` est posé puis l'entité est détruite par
-/// `despawn_rollback` : désactivée (`RollbackDespawned`), elle n'est vue que par une requête
-/// qui nomme ce composant, jusqu'à la confirmation de sa frame. Un son par image, quel que
-/// soit le nombre de morts ; chaque ennemi une fois (le rollback local la ressuscite puis la
-/// redétruit dans la même image).
+/// `melee` reçu : un ennemi frappe un joueur local au corps à corps (événement de
+/// dégât tagué `melee` dont la cible est locale). C'est ce son que William entendait
+/// « comme une balle de ping-pong » (2026-10-16) : avant, seul le `hurt` générique
+/// jouait. Un son par frame d'événement, comme `hit`.
+fn play_melee_taken_sound(
+    sounds: FeedbackSounds,
+    damage: Res<FrameEvents<DamageEvent>>,
+    local_players: Query<&GgrsNetId, With<LocalPlayer>>,
+    mut last_frame: Local<Option<u32>>,
+) {
+    let local: BTreeSet<usize> = local_players.iter().map(|n| n.0).collect();
+    let Some(event) = damage.iter().find(|e| {
+        local.contains(&e.target.0)
+            && !local.contains(&e.source.0)
+            && e.tags.has(&Tag::new("melee"))
+    }) else {
+        return;
+    };
+    if *last_frame == Some(event.frame) {
+        return;
+    }
+    *last_frame = Some(event.frame);
+    sounds.play("melee");
+}
+
+/// `death` : un ennemi tué, dérivé de l'état dans `Update` (jamais d'un événement de
+/// simulation) : un `GgrsNetId` d'ennemi présent à l'image précédente et absent à
+/// celle-ci est mort. L'ancienne lecture (`Death` + `RollbackDespawned`) ne voyait
+/// rien en partie locale : la frame y est déjà confirmée, `despawn_rollback` détruit
+/// l'entité dans la simulation avant que la présentation la voie (constaté en partie
+/// réelle le 2026-10-16 : aucun `sound death` au journal malgré les zombies tués).
+/// En ligne, la disparition a lieu à la destruction confirmée : même déclencheur.
+/// Un son par image, quel que soit le nombre de morts. Un retour de frame (nouvelle
+/// partie) réarme l'ensemble sans jouer : les disparitions y sont des déchargements.
 fn play_death_sound(
     sounds: FeedbackSounds,
-    dead: Query<
-        &GgrsNetId,
-        (
-            With<crate::character::enemy::Enemy>,
-            With<crate::character::health::Death>,
-            With<bevy_ggrs::RollbackDespawned>,
-        ),
-    >,
-    mut played: Local<BTreeSet<usize>>,
+    enemies: Query<&GgrsNetId, With<crate::character::enemy::Enemy>>,
+    mut previous: Local<BTreeSet<usize>>,
+    mut last_frame: Local<Option<u32>>,
 ) {
-    let now: BTreeSet<usize> = dead.iter().map(|n| n.0).collect();
-    let new_death = now.difference(&played).next().is_some();
-    *played = now;
-    if new_death {
+    let now: BTreeSet<usize> = enemies.iter().map(|n| n.0).collect();
+    let frame = sounds.frame.frame;
+    if last_frame.is_some_and(|last| frame < last) {
+        *previous = now;
+        *last_frame = Some(frame);
+        return;
+    }
+    *last_frame = Some(frame);
+    let died = previous.difference(&now).next().is_some();
+    *previous = now;
+    if died {
         sounds.play("death");
     }
 }

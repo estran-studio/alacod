@@ -1,0 +1,30 @@
+// D66 (docs/conventions.md §22) : un ennemi qui a une ligne de vue dégagée sur le joueur le
+// poursuit même au-delà de son rayon `aggro_range`/`Sight`. Caverne d'essai `essai_vue`
+// (96 × 44 cases, sans ennemi, graine 123456), joueur immobile au départ en (760, 344) ; un
+// `rodeur` (`Sight(300)`, `sight_range` 900 dans ses données ; il erre tant qu'il ne voit
+// personne) est posé en (1464, 536), à 730 unités, sans mur sur le segment jusqu'au joueur
+// (`ALACOD_SIGHT=… sight_probe`, crates/scenario/tests/scenarios.rs). Sans `sight_range` il ne
+// voit rien à 730 unités, erre au hasard et reste à plusieurs centaines d'unités (rouge avant D66) ; avec, il traverse la
+// caverne et est collé au joueur à f1000 (vert). 730 unités à 60 u/s : plus de 700 frames.
+//
+// À regarder : le rodeur, posé en f1, part droit vers le joueur au lieu d'errer sur place.
+Scenario(
+    game: "throne",
+    map: "cave:essai_vue",
+    mode: Sandbox,
+    map_seed: 123456,
+    frames: 1200,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(700.0), at_frame: 2),
+        EnemyDistance(entity: Placed(0), target: Player(0), max: Some(45.0), at_frame: 1000),
+        EnemyNeverInWall(entity: Placed(0), from: 2, to: 1200),
+        PlayerAlive(handle: 0, at_frame: 1199),
+    ],
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(character: "rodeur", x: "1464", y: "536", at_frame: 1),
+    ],
+)

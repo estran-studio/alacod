@@ -1,3 +1,4 @@
+// D66 (2026-10-16, dette-d66-vue-directe) : le `rodeur` de la première caverne voit désormais un joueur en ligne de vue dégagée jusqu'à 900 unités (`sight_range`, conventions §22) au lieu d'errer hors de son `Sight(300)` : il fonce sur le bot, la trace entière bouge dès f1 et les repères de temps se décalent ; mesuré : niveau 1 à f506, portail 0 à f530, étage 1 à f1131 (`irradie`), niveau 2 à f1352, alerte à f2031, portail 1 à f2198, étage 2 à f3399 (`rancune`), alerte à f4299 ; les attentes ci-dessous suivent ces mesures.
 // D50 (2026-10-15) : `drop_chance` de throne 0,25 -> 0,40 : un drop de munitions de plus à la mort d'un ennemi (première divergence f303) ; le bot descend plus tard : étage 2 à f3483 (f2804 avant), alerte ~905 frames après, mutations [irradie, sang_froid, rancune] (avant [chasseur, vampire]) ; `frames` 3800 -> 4410 pour que l'alerte sonne.
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
 // et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
@@ -35,11 +36,11 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 1115),
-        FloorIndex(index: 1, at_frame: 3475),
-        FloorIndex(index: 2, at_frame: 3490),
-        Event(kind: "levelup", by_frame: 365),
-        Mutations(handle: 0, contains: ["irradie", "sang_froid", "rancune"], count: Some(3), at_frame: 3490),
+        FloorIndex(index: 1, at_frame: 1141),
+        FloorIndex(index: 1, at_frame: 3389),
+        FloorIndex(index: 2, at_frame: 3409),
+        Event(kind: "levelup", by_frame: 515),
+        Mutations(handle: 0, contains: ["irradie", "sang_froid", "rancune"], count: Some(3), at_frame: 3409),
         Clock(id: "alerte", fired: true, at_frame: 4400),
         PlayerAlive(handle: 0, at_frame: 2699),
         PlayerAlive(handle: 0, at_frame: 4409),

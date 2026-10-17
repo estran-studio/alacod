@@ -1,0 +1,24 @@
+// M3-T3 (§68) : un présentoir ne vend pas ce que l'acheteur ne peut pas prendre. Le présentoir vend une `bomb` (5 sous)
+// et le joueur en tient déjà 3, le plafond de `max_stack` du testbed. L'Interaction (f10, puis f50 après l'anti-rebond)
+// est refusée sans dépense (`CurrencyEvent { delta: 0, reason: "shop_full" }`) : solde 500, toujours 3 bombes, présentoir
+// non vendu. Témoin `shop_full_temoin` : avec 2 bombes l'achat passe.
+//
+// À regarder : f10 et f50 le refus ; rien ne bouge (solde 500, 3 bombes).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    shop: (shelves: [(key: "s", item: "bomb", price: 5, x: "424.0", y: "696.0", at_frame: 5)]),
+    frames: 80,
+    players: [
+        (items: ["bomb", "bomb", "bomb"], inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 50, to: 51, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Currency(handle: 0, min: 500, max: 500, at_frame: 70),
+        Consumable(handle: 0, id: "bomb", count: 3, at_frame: 70),
+        Shelf(nth: 0, sold: Some(false), at_frame: 70),
+    ],
+)

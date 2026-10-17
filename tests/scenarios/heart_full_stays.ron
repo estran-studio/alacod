@@ -1,0 +1,20 @@
+// M3-T3 (docs/conventions.md §68) : un cœur (`refuse_when_full`) reste au sol tant que le joueur est à
+// pleine vie. Le `coeur` (soin 4) est posé aux pieds du joueur à f5 ; la `tourelle_spirale` (placée à f5)
+// le touche de 8 PV vers f65.
+//
+// À regarder : à pleine vie (f5 à f64) le cœur reste au sol (rien ne change) ; dès le premier coup il est
+// ramassé et soigne 4 PV. Témoin : `heart_full_stays_temoin` (une `ration`, sans refus : ramassée à f5 à
+// pleine vie, soin perdu).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 140,
+    items: [(id: "coeur", x: "424.0", y: "696.0", at_frame: 5)],
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [(inputs: [])],
+    expect: [
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 60),
+        Health(handle: 0, min: 96.0, max: 96.0, at_frame: 110),
+    ],
+)

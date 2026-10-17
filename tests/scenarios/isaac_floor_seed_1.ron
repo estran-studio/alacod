@@ -1,28 +1,33 @@
-// M3-T0f (docs/conventions.md §65) : un étage complet de `isaac` (grammaire `sous_sol`, graine 1)
-// joué par le bot `explorateur` : il traverse trois salles de combat (un suiveur et une mouche
-// chacune), entre dans la salle du boss, bat le `gardien` à deux phases et gagne. C'est la première
-// partie ordinaire du clone : les fiches suivantes de M4 s'y réfèrent.
+// M3-T0f (docs/conventions.md §65), repris en M3-T5 (§70) : la partie ordinaire de `isaac` (séquence par
+// défaut `sous_sol` : deux étages en grille, graine 1) jouée par le bot `explorateur`. Le premier étage
+// (9 salles : départ, cinq combats, boss, trésor, secrète) est nettoyé, le boss vaincu ; le bot prend le
+// portail et arrive au second étage, où le trésor est fermé à clé et la clé du second étage lui est remise.
 //
-// À regarder : trois verrouillages de salle de combat (f64, f273, f551) rouverts à f156, f378 et f655 ;
-// la salle du boss se verrouille à f769, le boss passe en phase 1 à f881 (couronne), meurt vers f1008 :
-// la salle se rouvre et l'écran de victoire s'affiche (f1009).
+// À regarder : cinq verrouillages de salle de combat (f57 à f1204), le boss verrouille sa salle à f1340,
+// passe en phase 1 à f1465 (couronne) et meurt avant f1587 ; le portail s'ouvre, le bot l'emprunte (f1919,
+// « niveau 1 ») : la porte du trésor est alors fermée à clé (`DoorLocked`), le joueur a une clé
+// (`Consumable`) ; la porte de la salle secrète est fermée depuis le début (aucune bombe). La partie
+// continue sur le second étage jusqu'à la fin du scénario (le bot y meurt vers f2359 : équilibrage de M3-T11).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
-    frames: 1100,
+    frames: 2000,
     players: [
         (bot: explorateur),
     ],
     expect: [
         RoomState(kind: "depart", state: Dormant, at_frame: 5),
-        RoomState(kind: "boss", state: Dormant, at_frame: 5),
-        EntityCount(kind: Enemy, min: 7, max: 7, at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 800),
-        BossPhase(entity: NetId(68), phase: 1, at_frame: 950),
-        RoomState(kind: "boss", state: Cleared, at_frame: 1050),
-        EntityCount(kind: Enemy, max: Some(0), at_frame: 1050),
-        RunState(step: Ended(Victory), at_frame: 1050),
-        PlayerAlive(handle: 0, at_frame: 1099),
+        EntityCount(kind: Enemy, min: Some(11), max: Some(11), at_frame: 5),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 5),
+        DoorLocked(kind: "tresor", locked: false, at_frame: 5),
+        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 1400),
+        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 1500),
+        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 1650),
+        FloorIndex(index: 0, at_frame: 1800),
+        FloorIndex(index: 1, at_frame: 1960),
+        DoorLocked(kind: "tresor", locked: true, at_frame: 1960),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 1960),
+        PlayerAlive(handle: 0, at_frame: 1999),
     ],
 )

@@ -49,6 +49,17 @@ use game::replay::{BotProfile, PlayerScript, Scenario};
 use scenario::runner::{self, StopEarly};
 use serde::Serialize;
 
+/// Pistes du hub de gungeon (même parcours que `gungeon_full_run.ron` et `p2p-stress-inputs.py --hub-door`) :
+/// le marchand (f80), puis la porte (f170) ; le joueur 1 ne fait rien.
+const HUB_DOOR_RON: &str = "(stay: false, inputs: [[
+    (from: 10, to: 42, buttons: [Right]),
+    (from: 42, to: 74, buttons: [Up]),
+    (from: 80, to: 82, buttons: [Interaction]),
+    (from: 100, to: 138, buttons: [Right]),
+    (from: 138, to: 157, buttons: [Down]),
+    (from: 170, to: 172, buttons: [Interaction]),
+], []])";
+
 #[derive(Debug, Serialize)]
 struct SimResult {
     seed: i32,
@@ -309,7 +320,7 @@ fn main() {
                 ..Default::default()
             })
             .collect();
-        let run_scenario = Scenario {
+        let mut run_scenario = Scenario {
             game: game.clone(),
             map: map.clone(),
             map_seed: seed,
@@ -327,6 +338,7 @@ fn main() {
             profile: false,
             profile_setup: None,
             hub: None,
+            shopping: false,
             powerup_drop_chance_override: None,
             floors: floors.clone(),
             // T1.10 : progression du manifeste (pas d'option `--progression` en v1).
@@ -337,6 +349,16 @@ fn main() {
             mode: None,
             ui: Vec::new(),
         };
+        // `ALACOD_SIM_HUB=1` (enregistrement des bots pour le p2p, D85) : la partie passe par le hub
+        // du manifeste (le joueur 0 va à la porte, f170) comme une partie en ligne, au lieu de
+        // démarrer dans la run ; `--save-scenario` n'enregistre que les frames de la run (les frames
+        // du hub, plus courtes, sont écrasées par celles de la run qui repartent de 0).
+        if std::env::var("ALACOD_SIM_HUB").is_ok_and(|v| v == "1") {
+            run_scenario.hub = Some(
+                ron::from_str::<game::replay::HubSetup>(HUB_DOOR_RON)
+                    .expect("ALACOD_SIM_HUB : pistes du hub"),
+            );
+        }
 
         let stop_early = StopEarly {
             until_wave,
@@ -363,7 +385,11 @@ fn main() {
         let outcome = runner::run_with_options(
             &run_scenario,
             |app| {
-                app.insert_resource(InputSource::Bot);
+                // Avec le hub (`ALACOD_SIM_HUB`), le mode `Scripted` du runner reste : le hub se joue
+                // par ses pistes scriptées, les bots prennent la main à la porte (`swap_hub_inputs`).
+                if run_scenario.hub.is_none() {
+                    app.insert_resource(InputSource::Bot);
+                }
                 app.insert_resource(bots::explorer::ExplorerOptions {
                     boss_direct,
                     shopping,

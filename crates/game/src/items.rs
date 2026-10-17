@@ -158,10 +158,26 @@ pub fn item_consumable_pickup_system(
             continue;
         }
         let pickup_pos = pickup_transform.translation.truncate();
-        let Some((player_net_id, _)) = order
-            .iter()
-            .find(|(_, position)| pickup_pos.distance(position) <= def.pickup_range)
-        else {
+        // M3-T3 (§68) : le premier joueur (ordre `GgrsNetId`) à portée **qui peut le prendre** :
+        // compteur au plafond (`max_stack`) ou soin refusé à pleine vie (`refuse_when_full`)
+        // laissent l'objet au sol, et un autre joueur à portée le prend. Sans ces deux champs,
+        // `accepts` est toujours vrai : le premier joueur à portée, comme avant.
+        let Some((player_net_id, _)) = order.iter().find(|(id, position)| {
+            pickup_pos.distance(position) <= def.pickup_range
+                && players
+                    .iter()
+                    .find(|(other, ..)| other.0 == *id)
+                    .is_some_and(|(_, _, _, _, inventory, _, health)| {
+                        let stock = match inventory {
+                            Some(inventory) => inventory.consumable(&pickup.item_id),
+                            None => fresh
+                                .get(id)
+                                .map_or(0, |(_, fresh)| fresh.consumable(&pickup.item_id)),
+                        };
+                        let full = health.is_some_and(|health| health.current >= health.max);
+                        def.accepts(stock, full)
+                    })
+        }) else {
             continue;
         };
         let Some((_, entity, player, _, inventory, mut modifiers, health)) =
@@ -321,6 +337,10 @@ pub(crate) fn apply_instant_effects(
                 // D61 : bouclier (distinct de l'armure), posé au premier gain.
                 Action::GainShield(points) => {
                     combat::actors::queue_gain_shield(commands, entity, *points);
+                }
+                // M3-T3 (§68) : cœurs d'âme (`ExtraHealth`), posés au premier gain.
+                Action::GainSoul(points) => {
+                    combat::actors::queue_gain_soul(commands, entity, *points);
                 }
                 // Refusées par le lint (effets v2).
                 _ => {}

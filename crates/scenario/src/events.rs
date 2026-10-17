@@ -2,6 +2,11 @@
 //! de partie), détectés en comparant l'état du jeu d'une frame à l'autre. Affichés sous les
 //! vidéos de la page de revue pour aller directement aux instants importants.
 //!
+//! M2 : `item_pickup`, `blank`, `room`, `boss_phase`, `purchase` (monnaie, dont l'achat en
+//! boutique de raison `shop`), `chest` (coffre ouvert), `arena` (arène tenue), `portal`, `floor`,
+//! `unlock` (déblocages du profil lus par la partie), `hub` (run entrée depuis le hub) et, M3-T9,
+//! `curse` (curse tirée à l'entrée d'un étage).
+//!
 //! Hors simulation : lit l'état après chaque update, ne modifie rien.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -149,18 +154,48 @@ pub struct GameEventsPlugin;
 
 impl Plugin for GameEventsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameEvents>().add_systems(
-            Last,
-            (
-                detect_events,
-                feedback_events.after(detect_events),
-                room_events.after(detect_events),
-                explosion_events.after(detect_events),
-                item_events.after(detect_events),
-                blank_events.after(detect_events),
-                boss_events.after(detect_events),
-            ),
-        );
+        app.init_resource::<GameEvents>()
+            .init_resource::<HubFlow>()
+            .add_systems(
+                Last,
+                (
+                    hub_events.before(detect_events),
+                    detect_events,
+                    feedback_events.after(detect_events),
+                    room_events.after(detect_events),
+                    explosion_events.after(detect_events),
+                    item_events.after(detect_events),
+                    blank_events.after(detect_events),
+                    boss_events.after(detect_events),
+                    chest_events.after(detect_events),
+                    unlock_events.after(detect_events).after(hub_events),
+                    curse_events.after(detect_events),
+                ),
+            );
+    }
+}
+
+/// Moment clé `curse` (M3-T9, `docs/conventions.md` §74) : la curse d'un étage tirée à son entrée
+/// (`run::RunCurses`). Un étage sans curse n'est pas un moment clé. Une relance (état remis à zéro)
+/// ou un rollback qui défait le tirage le fait oublier : il est annoncé de nouveau s'il est retiré.
+fn curse_events(
+    frame: Res<FrameCount>,
+    curses: Option<Res<run::RunCurses>>,
+    mut announced: Local<BTreeMap<u32, String>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(curses) = curses else {
+        return;
+    };
+    announced.retain(|floor, id| curses.floors.get(floor) == Some(id));
+    for (floor, id) in &curses.floors {
+        if announced.insert(*floor, id.clone()).as_ref() != Some(id) {
+            events.events.push(GameEvent {
+                frame: frame.frame,
+                kind: "curse",
+                label: format!("étage {} : curse « {id} »", floor + 1),
+            });
+        }
     }
 }
 
@@ -262,8 +297,14 @@ fn blank_events(used: Option<Res<FrameEvents<items::BlankUsed>>>, mut events: Re
 /// Moments clés `room` (M2-E1, `docs/conventions.md` §35) : un changement d'état de salle
 /// (`world::RoomChanged`, borné à la frame d'émission comme `CurrencyEvent`) : « salle combat
 /// verrouillée », « salle combat nettoyée ».
+///
+/// M2-full-run : une salle dont le type porte une arène (`RoomKindTable::arena`) qui passe de
+/// verrouillée à nettoyée donne en plus le moment `arena` « arène tenue » : l'horloge est allée
+/// à son terme avec un joueur en vie (si tous meurent, la salle ne se rouvre pas, voir §45).
 fn room_events(
     changes: Option<Res<FrameEvents<world::RoomChanged>>>,
+    kinds: Option<Res<world::RoomKindTable>>,
+    mut locked_at: Local<BTreeMap<String, u32>>,
     mut events: ResMut<GameEvents>,
 ) {
     let Some(changes) = changes else {
@@ -280,7 +321,145 @@ fn room_events(
             kind: "room",
             label: format!("salle {} {what}", change.kind),
         });
+        let is_arena = kinds
+            .as_ref()
+            .is_some_and(|kinds| kinds.arena(&change.kind).is_some());
+        if !is_arena {
+            continue;
+        }
+        match change.to {
+            world::RoomState::Locked => {
+                locked_at.insert(change.room.clone(), change.frame);
+            }
+            world::RoomState::Cleared => {
+                let held = locked_at
+                    .remove(&change.room)
+                    .map_or(0, |since| change.frame.saturating_sub(since));
+                events.events.push(GameEvent {
+                    frame: change.frame,
+                    kind: "arena",
+                    label: format!("arène {} tenue ({held} frames)", change.kind),
+                });
+            }
+            world::RoomState::Dormant => {}
+        }
     }
+}
+
+/// Moments clés `chest` (M2-full-run) : un coffre ouvert (`items::ChestOpened`, borné à sa frame
+/// d'émission). La clé d'un coffre verrouillé est consommée dans la même frame (attente
+/// `ItemCount`/`Consumable` pour le prouver), le libellé donne l'objet tiré.
+fn chest_events(
+    opened: Option<Res<FrameEvents<items::ChestOpened>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(opened) = opened else {
+        return;
+    };
+    for chest in opened.iter() {
+        events.events.push(GameEvent {
+            frame: chest.frame,
+            kind: "chest",
+            label: format!(
+                "joueur {} ouvre le coffre {} : {}",
+                chest.player_handle, chest.chest_key, chest.item_id
+            ),
+        });
+    }
+}
+
+/// Où en est la session par rapport au hub (M2-T13, §57), pour les moments clés : `Idle` sans hub
+/// ou une fois la run commencée, `InHub` pendant le hub, `Leaving` entre la confirmation de la
+/// porte et la première frame de la run.
+#[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
+enum HubFlow {
+    #[default]
+    Idle,
+    InHub,
+    Leaving,
+}
+
+/// Moment clé `hub` (m2-full-run, M2-T13) : la run démarre depuis le hub. Les frames repartent de
+/// 0 à la run : les moments clés du hub (rien d'utile : pas d'ennemi) sont écartés à la relance,
+/// et « entrée en run depuis le hub » est daté de la première frame de la run, avec la frame du hub
+/// où le joueur a franchi la porte (`HubState::exit`) dans le libellé.
+fn hub_events(
+    frame: Res<FrameCount>,
+    session: Option<Res<game::hub::HubSession>>,
+    hub: Option<Res<game::hub::HubState>>,
+    app_state: Option<Res<State<game::core::AppState>>>,
+    mut flow: ResMut<HubFlow>,
+    mut exit: Local<Option<game::hub::HubExit>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(session) = session else {
+        return;
+    };
+    if session.in_hub {
+        *flow = HubFlow::InHub;
+        if let Some(decided) = hub.as_ref().and_then(|hub| hub.exit) {
+            *exit = Some(decided);
+        }
+        return;
+    }
+    match *flow {
+        HubFlow::Idle => {}
+        HubFlow::InHub => {
+            *flow = HubFlow::Leaving;
+            events.events.clear();
+            events.previous = None;
+        }
+        HubFlow::Leaving => {
+            let running = app_state
+                .is_some_and(|state| *state.get() == game::core::AppState::InGame)
+                && frame.frame >= 1;
+            if !running {
+                events.events.clear();
+                events.previous = None;
+                return;
+            }
+            *flow = HubFlow::Idle;
+            let label = match exit.take() {
+                Some(decided) => format!(
+                    "entrée en run depuis le hub (joueur {} franchit la porte, f{} du hub)",
+                    decided.handle, decided.frame
+                ),
+                None => "entrée en run depuis le hub".to_string(),
+            };
+            events.events.push(GameEvent {
+                frame: frame.frame,
+                kind: "hub",
+                label,
+            });
+        }
+    }
+}
+
+/// Moment clé `unlock` (M2-full-run, M2-T12) : les déblocages lus du profil par la partie
+/// (`items::RunUnlocks`, figés au lancement), signalés quand l'ensemble change et n'est pas vide.
+/// Au hub, rien : les déblocages comptent à la run (`HubFlow`).
+fn unlock_events(
+    frame: Res<FrameCount>,
+    flow: Res<HubFlow>,
+    unlocks: Option<Res<items::RunUnlocks>>,
+    mut announced: Local<std::collections::BTreeSet<String>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(unlocks) = unlocks else {
+        return;
+    };
+    if *flow != HubFlow::Idle || unlocks.0.is_empty() || unlocks.0 == *announced {
+        return;
+    }
+    announced.clone_from(&unlocks.0);
+    events.events.push(GameEvent {
+        frame: frame.frame,
+        kind: "unlock",
+        label: format!(
+            "déblocages du profil dans la partie : {}",
+            unlocks.0.iter().cloned().collect::<Vec<_>>().join(", ")
+        ),
+    });
 }
 
 /// Moments clés `explosion` (M3-T0c, `docs/conventions.md` §62) : une explosion (`world::Exploded`).

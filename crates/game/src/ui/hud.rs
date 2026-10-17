@@ -686,8 +686,19 @@ fn update_hud_v1_values(
         .filter(|p| p.3.is_none())
         .and_then(
             |(_, transform, perks_owned, _, _, _, inventory, _, items)| {
-                closest_interactable(&world, transform.translation, &fog, fog_map.as_deref())
-                    .map(|target| prompt_for(&world, config, target, perks_owned, inventory, items))
+                closest_interactable(&world, transform.translation, &fog, fog_map.as_deref()).map(
+                    |target| {
+                        prompt_for(
+                            &world,
+                            config,
+                            target,
+                            perks_owned,
+                            inventory,
+                            items,
+                            snapshot.values.hides.item_names,
+                        )
+                    },
+                )
             },
         )
         .unwrap_or_default();
@@ -882,6 +893,7 @@ fn prompt_for(
     perks_owned: Option<&Perks>,
     inventory: Option<&WeaponInventory>,
     items: Option<&items::Inventory>,
+    hide_names: bool,
 ) -> String {
     let Some((_, _, interactable, _, door, window, pickup, perk_machine, chest, shelf)) = world
         .interactables
@@ -927,6 +939,8 @@ fn prompt_for(
         }
         // M2-T13 : pas de prompt du hub avant le HUD de M2 (V4).
         InteractionType::Hub => return String::new(),
+        // M3-T5 : porte à clé (la clé est consommée à l'ouverture, `key_door_system`).
+        InteractionType::KeyDoor => Prompt::KeyDoor,
         InteractionType::Weapon => {
             let Some(pickup) = pickup else {
                 return String::new();
@@ -959,6 +973,11 @@ fn prompt_for(
                 owned: perks_owned.is_some_and(|p| p.0.contains(&machine.perk_id)),
             }
         }
+    };
+    let prompt = if hide_names {
+        prompt.hide_name()
+    } else {
+        prompt
     };
     prompt.text()
 }
@@ -999,9 +1018,35 @@ enum Prompt {
         price: Option<u32>,
         owned: bool,
     },
+    /// M3-T5 : porte d'une salle à clé.
+    KeyDoor,
 }
 
 impl Prompt {
+    /// M3-T9 (curse `HideItemNames`, §74) : le nom de l'objet ou de l'arme à ramasser ou acheter
+    /// devient `???` ; le prix et le reste du texte restent.
+    fn hide_name(self) -> Self {
+        const HIDDEN: &str = "???";
+        match self {
+            Prompt::Weapon {
+                price,
+                refill_price,
+                owned,
+                ..
+            } => Prompt::Weapon {
+                name: HIDDEN.to_string(),
+                price,
+                refill_price,
+                owned,
+            },
+            Prompt::Shelf { price, .. } => Prompt::Shelf {
+                name: HIDDEN.to_string(),
+                price,
+            },
+            other => other,
+        }
+    }
+
     fn text(&self) -> String {
         match self {
             Prompt::Door { cost } if *cost > 0 => format!("Ouvrir — ${cost}"),
@@ -1034,6 +1079,7 @@ impl Prompt {
                 ..
             } => format!("{name} — ${price}"),
             Prompt::Perk { name, .. } => name.clone(),
+            Prompt::KeyDoor => "Ouvrir — clé".to_string(),
         }
     }
 }
@@ -1324,6 +1370,7 @@ mod tests {
         assert_eq!(Prompt::Window { damaged: true }.text(), "Réparer");
         assert_eq!(Prompt::Window { damaged: false }.text(), "");
         assert_eq!(Prompt::Revive.text(), "Réanimer");
+        assert_eq!(Prompt::KeyDoor.text(), "Ouvrir — clé");
         let weapon = |price, owned| Prompt::Weapon {
             name: "fusil à pompe".into(),
             price,
@@ -1359,6 +1406,51 @@ mod tests {
         assert_eq!(chest(false, false).text(), "Ouvrir le coffre");
         assert_eq!(chest(true, false).text(), "Fermé — 1 clé");
         assert_eq!(chest(true, true).text(), "Ouvrir — 1 clé");
+    }
+
+    #[test]
+    fn blind_curse_hides_the_name_of_pickups_and_keeps_the_rest() {
+        let weapon = Prompt::Weapon {
+            name: "fusil à pompe".into(),
+            price: Some(1000),
+            refill_price: Some(500),
+            owned: false,
+        };
+        assert_eq!(weapon.clone().hide_name().text(), "Acheter ??? — $1000");
+        let owned = Prompt::Weapon {
+            name: "fusil à pompe".into(),
+            price: Some(1000),
+            refill_price: Some(500),
+            owned: true,
+        };
+        assert_eq!(owned.hide_name().text(), "Munitions ??? — $500");
+        let free = Prompt::Weapon {
+            name: "fusil à pompe".into(),
+            price: None,
+            refill_price: None,
+            owned: false,
+        };
+        assert_eq!(free.hide_name().text(), "Ramasser ???");
+        let shelf = Prompt::Shelf {
+            name: "Trèfle".into(),
+            price: 30,
+        };
+        assert_eq!(shelf.hide_name().text(), "Acheter ??? — 30");
+        // Une porte, un coffre ou une machine à perk n'ont pas de nom d'objet : inchangés.
+        for prompt in [
+            Prompt::Door { cost: 750 },
+            Prompt::Chest {
+                locked: true,
+                has_key: true,
+            },
+            Prompt::Perk {
+                name: "Juggernog".into(),
+                price: Some(2500),
+                owned: false,
+            },
+        ] {
+            assert_eq!(prompt.clone().hide_name().text(), prompt.text());
+        }
     }
 
     #[test]

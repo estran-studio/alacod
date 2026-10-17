@@ -95,6 +95,10 @@ impl Plugin for RunPlugin {
         app.rollback_and_trace_resource_neutral::<crate::clock::Clock>();
         app.add_frame_events_neutral::<crate::clock::ClockFired>();
         app.add_frame_events_neutral::<crate::clock::FloorEntered>();
+        // M3-T0e (§64) : curse de chaque étage entré. Checksum neutre : vide (défaut) tant
+        // qu'aucune curse n'est tirée, donc aucune trace existante ne bouge.
+        app.init_resource::<crate::curse::RunCurses>();
+        app.rollback_and_trace_resource_neutral::<crate::curse::RunCurses>();
     }
 }
 

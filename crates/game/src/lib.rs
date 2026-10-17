@@ -12,6 +12,7 @@ pub mod collider;
 pub mod collision_grid;
 pub mod content_hot_reload;
 pub mod core;
+pub mod curses;
 pub mod economy;
 pub mod effects_runtime;
 pub mod effects_v3;

@@ -1,0 +1,22 @@
+// Témoin de `shop_full` (M3-T3, §68) : le joueur n'a que 2 bombes (plafond 3) : l'Interaction de f10 achète la bombe,
+// 5 sous dépensés (solde 495), 3 bombes, présentoir vendu. Sans le refus de `shop_full`, le scénario `shop_full` ferait
+// la même chose et échouerait.
+//
+// À regarder : f10 l'achat ; solde 495, 3 bombes.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    shop: (shelves: [(key: "s", item: "bomb", price: 5, x: "424.0", y: "696.0", at_frame: 5)]),
+    frames: 80,
+    players: [
+        (items: ["bomb", "bomb"], inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Currency(handle: 0, min: 495, max: 495, at_frame: 70),
+        Consumable(handle: 0, id: "bomb", count: 3, at_frame: 70),
+        Shelf(nth: 0, sold: Some(true), at_frame: 70),
+    ],
+)

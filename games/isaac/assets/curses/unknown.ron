@@ -1,0 +1,2 @@
+// M3-T0e (§64) : « Unknown » : la santé n'est plus affichée (présentation seule).
+(weight: 2, effects: [HideHealth])

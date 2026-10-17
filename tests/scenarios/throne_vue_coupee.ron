@@ -1,0 +1,26 @@
+// D66 (docs/conventions.md §22), témoin : la vue directe ne traverse pas les murs. Même caverne
+// d'essai et même départ que `throne_vue_directe`, mais le `rodeur` est posé en (1448, 72), à
+// 740 unités, derrière un massif de roche (`ALACOD_SIGHT_HIDDEN=1 … sight_probe` : un mur sur
+// le segment) : hors de vue, il erre sans jamais approcher le joueur.
+//
+// À regarder : le rodeur reste dans son coin nord-est, à plus de 600 unités du joueur.
+Scenario(
+    game: "throne",
+    map: "cave:essai_vue",
+    mode: Sandbox,
+    map_seed: 123456,
+    frames: 1200,
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(730.0), at_frame: 2),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(600.0), at_frame: 600),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(600.0), at_frame: 1200),
+        PlayerAlive(handle: 0, at_frame: 1199),
+    ],
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(character: "rodeur", x: "1448", y: "72", at_frame: 1),
+    ],
+)

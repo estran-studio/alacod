@@ -1,0 +1,10 @@
+// `isaac` (M3-T3, docs/conventions.md §68, Q2) : cœur d'âme. Au ramassage, 2 points de vie d'âme
+// (`ExtraHealth`), absorbés point par point avant les PV ; n'entre pas dans l'inventaire, jamais refusé.
+(
+    name: "Cœur d'âme",
+    kind: Consumable,
+    rarity: Common,
+    effects: [
+        (on: OnUse, do: [GainSoul("2")]),
+    ],
+)
