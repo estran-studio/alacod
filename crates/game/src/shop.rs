@@ -967,7 +967,10 @@ mod tests {
             modifier(ModifierOp::Set, 2),
             modifier(ModifierOp::Mul, 2),
         ]);
-        assert_eq!(max_health_after(Some(&stats), &fragile, two, 0), Fixed::ZERO);
+        assert_eq!(
+            max_health_after(Some(&stats), &fragile, two, 0),
+            Fixed::ZERO
+        );
         // Sans la stat, `Health.max` n'est pas piloté par les stats : jamais d'obstacle.
         assert_eq!(max_health_after(None, &fragile, two, 0), Fixed::MAX);
     }
