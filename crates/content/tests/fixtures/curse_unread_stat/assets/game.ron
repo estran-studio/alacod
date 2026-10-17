@@ -1,0 +1,8 @@
+// Fixture M3-T9 : le modificateur d'une curse vise une stat que rien ne lit (`UnreadStat`).
+(
+    name: "fixture-curse-unread-stat",
+    content_folders: [
+        (path: "curses", kind: "Curse"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

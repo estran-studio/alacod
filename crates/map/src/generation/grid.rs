@@ -1881,4 +1881,33 @@ mod tests {
         let error = validate_grid_plan(&grammar, (16, 16), &looped.rooms).unwrap_err();
         assert!(error.contains("boucle"), "{error}");
     }
+
+    /// M3-T9 (§74) : la curse `Labyrinth` double les bornes (`FloorGrammar::scaled_rooms`) : sur la
+    /// grille de 7 × 7, 1 000 graines donnent un étage valide de 16 à 24 salles, sous la borne de
+    /// travail de la grammaire doublée, et un multiplicateur énorme (borné à la capacité) reste planifiable.
+    #[test]
+    fn mille_graines_doublees_par_la_curse_respectent_la_grille() {
+        let double = grammar(1, Some(0.33)).scaled_rooms(Fixed::from_num(2));
+        assert_eq!(double.rooms, (16, 24));
+        let bound = step_bound(&double, &grid_templates(&context(1, templates()), CELL));
+        let mut sizes = BTreeMap::<usize, usize>::new();
+        for seed in 0..1000 {
+            let plan = plan(&double, seed).unwrap_or_else(|e| panic!("graine {seed} : {e}"));
+            validate_grid_plan(&double, (16, 16), &plan.rooms)
+                .unwrap_or_else(|e| panic!("graine {seed} : {e}"));
+            assert!(plan.steps <= bound, "graine {seed}");
+            assert!(
+                (16..=24).contains(&plan.rooms.len()),
+                "graine {seed} : {} salles",
+                plan.rooms.len()
+            );
+            *sizes.entry(plan.rooms.len()).or_default() += 1;
+        }
+        assert!(sizes.len() >= 6, "tailles tirées : {sizes:?}");
+        // ×100 : borné à 49 cases, la demande 49 salles est trop dense pour une grille où une salle ne
+        // touche que son parent : le planificateur échoue proprement (jamais de boucle infinie).
+        let huge = grammar(1, Some(0.33)).scaled_rooms(Fixed::from_num(100));
+        assert_eq!(huge.rooms, (49, 49));
+        assert!(plan(&huge, 1).is_err());
+    }
 }

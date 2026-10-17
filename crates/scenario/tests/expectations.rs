@@ -1407,6 +1407,7 @@ fn hud_text_sur_throne_progression() {
     let hud = |source: &str, contains: &str, at_frame: u32| Expectation::HudText {
         source: source.into(),
         contains: contains.into(),
+        empty: false,
         at_frame,
     };
     verifie_attentes(

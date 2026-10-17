@@ -1,6 +1,7 @@
 // M3-T0e (docs/conventions.md §64) : mêmes deux niveaux que `deux_niveaux`, une curse tirée avec
-// une chance sur deux à chaque étage dans le pool des cinq curses du testbed (`curses/`).
-// Contrat seul : le tirage et les effets sont exécutés par M3-T9.
+// une chance sur deux à chaque étage dans le pool des cinq curses du testbed (`curses/`). Le tirage
+// et les effets sont exécutés par M3-T9 (§74) : scénarios `curse_drawn_seeded*` (la curse dépend de la
+// graine et de l'étage seulement).
 (
     levels: [
         "testbed/floor_a.ldtk",

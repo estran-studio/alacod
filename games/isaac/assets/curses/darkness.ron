@@ -1,0 +1,3 @@
+// M3-T0e (docs/conventions.md §64) : « Darkness » d'Isaac : la minicarte disparaît (présentation
+// seule, lue par le HUD ; exécution M3-T9/T16).
+(weight: 3, effects: [HideMinimap])

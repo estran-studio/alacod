@@ -119,3 +119,9 @@ fn testbed_curses_and_achievement_lint_clean() {
     assert!(registry.loot_tables["epuisable"].def.exhaust);
     assert!(!registry.loot_tables["commun"].def.exhaust);
 }
+
+#[test]
+fn curse_modifier_on_an_unread_stat_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("curse_unread_stat")).unwrap();
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "curse « muette »");
+}
