@@ -199,6 +199,7 @@ fn update_lobby_ui(
     config: Res<GggrsSessionConfiguration>,
     q_container: Query<Entity, With<PlayerListContainer>>,
     q_children: Query<&Children>,
+    previous: Res<crate::jjrs::p2p::PreviousSessionPeers>,
 ) {
     let Some(mut socket) = socket else { return };
 
@@ -228,7 +229,8 @@ fn update_lobby_ui(
         }
 
         commands.entity(container_entity).with_children(|parent| {
-            let socket_players = socket.players();
+            // D86 : sans les pairs d'une session déjà jouée.
+            let socket_players = crate::jjrs::p2p::live_players(socket.players(), &previous.0);
             let player_configs = &config.players;
 
             // Display each player config with their connection status

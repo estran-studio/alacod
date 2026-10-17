@@ -291,7 +291,19 @@ impl Plugin for CoreSetupPlugin {
         );
         // D14 (§33) : restart en ligne — compteur de parties en ligne (remis à zéro à chaque
         // entrée normale dans `LobbyOnline`), socket de la partie fermé à sa sortie.
+        // D86 : pairs des sessions déjà jouées (ignorés au lobby suivant) et abandon d'une
+        // session qui ne se synchronise pas.
         app.init_resource::<crate::jjrs::restart::OnlineGames>()
+            .init_resource::<crate::jjrs::p2p::PreviousSessionPeers>()
+            .init_resource::<crate::jjrs::p2p::SessionSyncWatch>()
+            .add_systems(
+                OnEnter(AppState::InGame),
+                crate::jjrs::p2p::reset_sync_watch,
+            )
+            .add_systems(
+                Update,
+                crate::jjrs::p2p::abandon_unsynchronized_session.run_if(in_state(AppState::InGame)),
+            )
             .add_systems(
                 OnEnter(AppState::LobbyOnline),
                 crate::jjrs::restart::reset_online_games,

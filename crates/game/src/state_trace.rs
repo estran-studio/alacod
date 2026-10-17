@@ -17,6 +17,8 @@
 //!   « Lobby » de l'écran de fin) au lieu de `Restart` ; en ligne, les pairs reviennent dans la
 //!   salle d'origine et rejouent avec la graine d'origine (pas de graine dérivée, §33).
 //!   `ALACOD_RESTART_KIND=hub` : `RunRequest::ToHub` (« Retour au hub », jeux à hub).
+//!   `ALACOD_RESTART_DELAY_MS=<ms>` (D86, essais) : retarde la pose de la requête de ce temps réel
+//!   (la partie continue), pour que les pairs ne reviennent pas ensemble (`p2p-lobby.sh`).
 //!
 //! Deux runs avec les mêmes inputs et les mêmes seeds doivent produire le même
 //! fichier. En synctest, une frame resimulée remplace sa ligne précédente.
@@ -71,6 +73,94 @@ pub struct StateTraceRecorder {
     /// chaque frame l'est `check_distance` fois ; en p2p, c'est la mesure des prédictions
     /// ratées (zéro = aucun rollback n'a eu lieu, le run ne prouve rien du rollback réseau).
     pub resimulated: u32,
+    /// Rollbacks (suites de frames resimulées) et leur profondeur, voir [`RollbackStats`].
+    pub rollback: RollbackStats,
+}
+
+/// Rollbacks réseau vus par l'enregistreur (mesure, hors simulation). Un rollback restaure la
+/// frame `L` puis resimule `L+1..=cur` : l'enregistreur y revoit des frames déjà enregistrées,
+/// consécutives ; sa **profondeur** est le nombre de ces frames (`cur - L`). Une frame déjà vue
+/// qui ne suit pas immédiatement la précédente frame resimulée ouvre un nouveau rollback.
+/// Les compteurs repartent de zéro à chaque nouvelle partie (`resimulated` de
+/// [`StateTraceRecorder`], lui, cumule sur le processus).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct RollbackStats {
+    pub rollbacks: u32,
+    pub depth_max: u32,
+    /// Somme des profondeurs : frames resimulées de la partie.
+    pub depth_sum: u32,
+    /// Profondeur → nombre de rollbacks terminés de cette profondeur.
+    depths: BTreeMap<u32, u32>,
+    /// Profondeur du rollback en cours (0 hors rollback).
+    current: u32,
+    /// Dernière frame enregistrée et si c'était une resimulation.
+    last: Option<(u32, bool)>,
+}
+
+impl RollbackStats {
+    /// Une frame vient d'être enregistrée ; `resimulated` : elle l'était déjà.
+    pub fn record(&mut self, frame: u32, resimulated: bool) {
+        if resimulated {
+            let continues = self.last == Some((frame.wrapping_sub(1), true));
+            if !continues {
+                self.flush();
+                self.rollbacks += 1;
+            }
+            self.current += 1;
+            self.depth_sum += 1;
+            self.depth_max = self.depth_max.max(self.current);
+        } else {
+            self.flush();
+        }
+        self.last = Some((frame, resimulated));
+    }
+
+    /// Une nouvelle partie repart de la frame 0 et de compteurs vierges.
+    pub fn new_game(&mut self) {
+        *self = Self::default();
+    }
+
+    fn flush(&mut self) {
+        if self.current > 0 {
+            *self.depths.entry(self.current).or_default() += 1;
+            self.current = 0;
+        }
+    }
+
+    /// Histogramme profondeur → nombre de rollbacks, rollback en cours compris.
+    pub fn histogram(&self) -> BTreeMap<u32, u32> {
+        let mut depths = self.depths.clone();
+        if self.current > 0 {
+            *depths.entry(self.current).or_default() += 1;
+        }
+        depths
+    }
+
+    /// Ligne de journal : `rollbacks : n=… frames=… profondeur_moy=… profondeur_max=…
+    /// par_100_frames=… histogramme=profondeur:nombre,…` (`frames` : frames de la partie).
+    pub fn summary(&self, frames: u32) -> String {
+        let mean = if self.rollbacks == 0 {
+            0.0
+        } else {
+            f64::from(self.depth_sum) / f64::from(self.rollbacks)
+        };
+        let per_100 = if frames == 0 {
+            0.0
+        } else {
+            f64::from(self.rollbacks) * 100.0 / f64::from(frames)
+        };
+        let histogram: Vec<String> = self
+            .histogram()
+            .iter()
+            .map(|(depth, count)| format!("{depth}:{count}"))
+            .collect();
+        format!(
+            "rollbacks : n={} frames={frames} profondeur_moy={mean:.2} profondeur_max={} par_100_frames={per_100:.2} histogramme={}",
+            self.rollbacks,
+            self.depth_max,
+            histogram.join(",")
+        )
+    }
 }
 
 /// Nombre de lignes gardées dans `history` (une frame = jusqu'à trois versions).
@@ -91,6 +181,7 @@ impl StateTraceRecorder {
         self.frames.clear();
         self.divergences.clear();
         self.history.clear();
+        self.rollback.new_game();
         if let Some(dump) = self.dump.as_mut() {
             dump.clear();
         }
@@ -232,6 +323,7 @@ impl Plugin for StateTraceRecorderPlugin {
             dump: self.dump.is_some().then(BTreeMap::new),
             history: std::collections::VecDeque::new(),
             resimulated: 0,
+            rollback: RollbackStats::default(),
         })
         .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot));
     }
@@ -260,6 +352,10 @@ struct StateTraceFile {
     /// `<fichier>-g1` écrit, `RunRequest::Restart` posé.
     first_written: bool,
     restart_requested: bool,
+    /// `ALACOD_RESTART_DELAY_MS` : attente (temps réel) avant de poser la requête, et depuis
+    /// quand elle court.
+    restart_delay: std::time::Duration,
+    restart_ready_since: Option<std::time::Instant>,
     /// Depuis quand l'écriture attend la confirmation des dernières frames (voir
     /// [`confirmation`]).
     waiting_since: Option<std::time::Instant>,
@@ -385,6 +481,16 @@ impl Plugin for StateTracePlugin {
             game: 1,
             first_written: false,
             restart_requested: false,
+            restart_delay: std::time::Duration::from_millis(
+                std::env::var("ALACOD_RESTART_DELAY_MS")
+                    .ok()
+                    .map(|v| {
+                        v.parse()
+                            .expect("ALACOD_RESTART_DELAY_MS doit être un entier")
+                    })
+                    .unwrap_or(0),
+            ),
+            restart_ready_since: None,
             waiting_since: None,
         })
         .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests))
@@ -465,6 +571,7 @@ fn record_state(world: &mut World) {
     }
     if let Some(previous) = recorder.frames.get(&frame).cloned() {
         recorder.resimulated += 1;
+        recorder.rollback.record(frame, true);
         if previous != hash_line && recorder.divergences.len() < 3 {
             let before = previous;
             recorder.divergences.push(Divergence {
@@ -473,6 +580,8 @@ fn record_state(world: &mut World) {
                 after: line,
             });
         }
+    } else {
+        recorder.rollback.record(frame, false);
     }
     recorder.frames.insert(frame, hash_line);
 }
@@ -584,6 +693,12 @@ fn write_trace_at_exit_frame(
     match step {
         TraceStep::Nothing => return,
         TraceStep::Restart => {
+            let since = *file
+                .restart_ready_since
+                .get_or_insert_with(std::time::Instant::now);
+            if since.elapsed() < file.restart_delay {
+                return;
+            }
             info!(
                 "ALACOD_RESTART_AT_FRAME : RunRequest::{:?} à la frame {}",
                 file.restart_request, frame.frame
@@ -629,6 +744,7 @@ fn write_trace_at_exit_frame(
         "trace d'état écrite dans {path:?} ; frames resimulées après rollback : {}",
         trace.resimulated
     );
+    info!("{}", trace.rollback.summary(end));
     if let Some(profile) = snapshot_profile {
         info!("profil rollback : {}", profile.summary());
         for sample in profile.heaviest(5) {
@@ -742,5 +858,46 @@ mod restart_tests {
             trace_path(path, true, 2),
             PathBuf::from("/tmp/p2p-0.trace-g2")
         );
+    }
+}
+
+#[cfg(test)]
+mod rollback_stats_tests {
+    use super::RollbackStats;
+
+    /// Une frame déjà vue ouvre un rollback ; les resimulées consécutives en sont la profondeur ;
+    /// une resimulation qui ne suit pas la précédente en ouvre un autre ; un rollback de profondeur
+    /// 1 (la frame courante seule) compte aussi.
+    #[test]
+    fn rollbacks_depth_and_histogram() {
+        let mut stats = RollbackStats::default();
+        for frame in 0..10 {
+            stats.record(frame, false);
+        }
+        // Rollback A : restaure 6, resimule 7, 8, 9 (profondeur 3).
+        for frame in 7..10 {
+            stats.record(frame, true);
+        }
+        for frame in 10..14 {
+            stats.record(frame, false);
+        }
+        // Rollback B : profondeur 1 (frame 13 seule), puis rollback C : 12 et 13.
+        stats.record(13, true);
+        stats.record(14, false);
+        stats.record(13, true);
+        stats.record(14, true);
+        assert_eq!(stats.rollbacks, 3);
+        assert_eq!(stats.depth_max, 3);
+        assert_eq!(stats.depth_sum, 3 + 1 + 2);
+        assert_eq!(
+            stats.histogram().into_iter().collect::<Vec<_>>(),
+            vec![(1, 1), (2, 1), (3, 1)]
+        );
+        assert_eq!(
+            stats.summary(200),
+            "rollbacks : n=3 frames=200 profondeur_moy=2.00 profondeur_max=3 par_100_frames=1.50 histogramme=1:1,2:1,3:1"
+        );
+        stats.new_game();
+        assert_eq!(stats, RollbackStats::default());
     }
 }
