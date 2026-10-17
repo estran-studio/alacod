@@ -505,6 +505,14 @@ make test_multiplayer TARGET=ldtk_map_explorer N=4 MATCHBOX_URL=http://localhost
 
 Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
 
+**Sans affichage (VPS, CI)** : les cibles `*_matchbox` ouvrent une fenêtre ; les scripts headless
+(`scripts/p2p-lib.sh` en commun) lancent le binaire `--profile headless` : `p2p-stress.sh` (N clients,
+rollbacks réels par SIGSTOP, `NETEM=…` pour un réseau dégradé sans root, `EXPECT_FLOORS` pour une
+transition d'étage), `p2p-restart.sh` (restart, lobby, hub), `p2p-disconnect.sh` (pair tué en cours
+de partie), `p2p-machine.sh` (un client par machine), `p2p-gungeon-inputs.sh` (inputs de bots
+`explorateur` figés pour les rejouer en p2p : `ALACOD_SKIP_HUB=1`, `--seed`). Détail, commandes et
+résultats : `docs/taches/rapports/m2-p2p-run-complete.md` et `docs/conventions.md` §57.
+
 ### Vidéos (validation visuelle)
 `scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,
 960×540 hors écran, indépendant de la fenêtre), puis encode avec ffmpeg :

@@ -35,9 +35,17 @@ def check(paths, expected_frames):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frames", type=int, required=True, help="nombre exact de lignes ; EXIT_AT_FRAME - 1 sur un boot frais")
+    parser.add_argument("--single", action="store_true",
+                        help="une seule trace (client d'une partie à plusieurs machines) : exactement --frames lignes contiguës, sans comparaison")
     parser.add_argument("traces", type=Path, nargs="+")
     args = parser.parse_args()
     try:
+        if args.single:
+            if len(args.traces) != 1:
+                raise ValueError("--single demande exactement une trace")
+            read_trace(args.traces[0], args.frames)
+            print(f"OK: 1 trace, {args.frames} frames contiguës (non comparée)")
+            return 0
         check(args.traces, args.frames)
     except (OSError, ValueError) as error:
         print(f"ERROR: {error}", file=sys.stderr)

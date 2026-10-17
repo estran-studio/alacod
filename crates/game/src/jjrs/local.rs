@@ -142,6 +142,18 @@ pub fn system_after_map_loaded_local(
         Some(config) => RunSeed(config.seed as u32),
         None => RunSeed(12345), // Graine par défaut si la map n'est pas configurée
     };
+    // `ALACOD_RUN_SEED_ONLINE_GAME=<n>` (natif, enregistrement des bots pour le p2p, D85) : la graine de
+    // run est celle qu'une partie **en ligne** de rang `n` aurait (`restart_seed`, §33) alors que la
+    // graine de carte reste celle du hub : la run lancée par la porte du hub (n = 1) se rejoue ainsi
+    // à l'identique en ligne. Absente (toujours, hors `scripts/p2p-gungeon-inputs.sh`) : inchangé.
+    #[cfg(not(target_arch = "wasm32"))]
+    let run_seed = match std::env::var("ALACOD_RUN_SEED_ONLINE_GAME")
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
+    {
+        Some(game) => RunSeed(crate::jjrs::restart::restart_seed(run_seed.0, game)),
+        None => run_seed,
+    };
     let rng_streams = RngStreams::new(run_seed.0);
 
     // État de run (T2.4, chantier F1) : créée au même instant que `RunSeed`/`RngStreams`

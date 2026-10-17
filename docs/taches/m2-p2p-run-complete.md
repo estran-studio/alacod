@@ -18,3 +18,20 @@ William** : demande Docker (allumette locale) et deux machines. **Bloque la sort
 5. Intégrer au `nightly` ; consigner commit, commandes, graines, machines, limites.
 
 Ce n'est pas une tâche de session cloud (pas de Docker).
+
+## Livraison (b2, 2026-10-16 puis revue bloquante du 2026-10-17)
+
+État réel par sous-point (rapport `docs/taches/rapports/m2-p2p-run-complete.md`, §7) :
+
+| Sous-point | État |
+|---|---|
+| 1. 2 puis 4 clients, transition d'étage, rollbacks réels | **fait** (une machine) |
+| 2. Deux machines x86 / arm64 | **non fait** : `scripts/p2p-machine.sh` préparé (exige `FRAMES-1` lignes contiguës), jamais lancé entre deux machines |
+| 3. Restart en ligne après la fin de run | **fait** à 2 clients (victoire f7138) et à **4 clients** (victoire f6374) |
+| 3. Boucle hub → run → victoire → hub | **faite** à 2 clients (victoire f7461, traces identiques) |
+| 3. Déconnexion d'un pair en cours d'étage | **faite** à 2 et 4 clients |
+| 3. Retour au lobby en ligne après la fin de run | **partiel, bloqué par D86** : reproduit deux fois, cause établie (course sur la salle d'origine), non corrigé |
+| 4. Réseau dégradé | **fait** pour RTT 120 ms / jitter 20 ms / perte 1 % ; 3 % de perte déconnecte (D87, à mesurer) |
+| 5. Nightly | **fait** (étape C2) ; le réseau dégradé n'y est couvert que si `NIGHTLY_GUNGEON_NETEM` est défini (sinon « netem SKIPPED ») |
+
+D59 fermée ; D85 fermée (délai d'input) ; D86 ouverte (cause établie) ; D87 ouverte (reformulée : mesurer).

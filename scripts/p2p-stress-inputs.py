@@ -5,11 +5,14 @@ les 1 à 3 frames (graine fixe, donc le même fichier à chaque appel).
 Chaque changement d'entrée d'un pair est une prédiction fausse pour l'autre (avec
 `ALACOD_INPUT_DELAY=0`), donc un rollback.
 
-    scripts/p2p-stress-inputs.py FRAMES [--seed N] [--pool Up,Down,...] [--hold Bouton:de:à ...]
+    scripts/p2p-stress-inputs.py FRAMES [--seed N] [--pool Up,Down,...] [--hold Bouton:de:à ...] [--hub-door]
 
 --pool : boutons tirés au hasard (défaut : déplacement, tir, dash, recharge, sprint, mêlée).
 --hold : bouton maintenu sur `[de, à[` pour les deux joueurs, ajouté à ce que le tirage donne
          (ex. `--hold Interaction:1:3000` pour ramasser des objets au sol à chaque passage).
+--hub-door : ajoute les pistes du HUB de gungeon (`hub: Some((stay: false, inputs: …))`, rejouées par
+         `ALACOD_INPUT=script:` tant que la session est au hub) : le joueur 0 va au marchand puis à la
+         porte (Interaction f170), qui lance la run en ligne. Les `players` jouent la run.
 Écrit un scénario RON minimal sur la sortie standard (champs par défaut pour le reste).
 """
 import argparse
@@ -17,6 +20,22 @@ import random
 import sys
 
 DEFAULT_POOL = ["Up", "Down", "Left", "Right", "Fire", "Dash", "Reload", "Sprint", "Melee"]
+
+
+# Route du hub de gungeon (même parcours que `tests/scenarios/gungeon_full_run.ron`) : le marchand
+# (f80), puis la porte (f170). Le joueur 1 ne fait rien.
+HUB_DOOR = """    hub: Some((stay: false, inputs: [
+        [
+            (from: 10, to: 42, buttons: [Right]),
+            (from: 42, to: 74, buttons: [Up]),
+            (from: 80, to: 82, buttons: [Interaction]),
+            (from: 100, to: 138, buttons: [Right]),
+            (from: 138, to: 157, buttons: [Down]),
+            (from: 170, to: 172, buttons: [Interaction]),
+        ],
+        [],
+    ])),
+"""
 
 
 def player(rng, frames, pool, holds):
@@ -48,6 +67,7 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--pool", default=",".join(DEFAULT_POOL))
     ap.add_argument("--hold", action="append", default=[])
+    ap.add_argument("--hub-door", action="store_true")
     args = ap.parse_args()
     pool = [b for b in args.pool.split(",") if b]
     holds = []
@@ -59,7 +79,10 @@ def main():
     print(f"Scenario(\n    frames: {args.frames},\n    players: [")
     for _ in range(2):
         print(player(rng, args.frames, pool, holds))
-    print("    ],\n)")
+    print("    ],")
+    if args.hub_door:
+        print(HUB_DOOR, end="")
+    print(")")
 
 
 def _test_bounds():
