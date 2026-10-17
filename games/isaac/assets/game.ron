@@ -16,6 +16,9 @@
         // Consommables `key` et `blank`, soin `ration` (copie de `gungeon`).
         (path: "objets", kind: "Item"),
         (path: "loot", kind: "LootTable"),
+        // M3-T10 (§75) : accomplissements de la run et déblocages qu'ils accordent (pas de hub : aucun achat).
+        (path: "unlocks", kind: "Unlock"),
+        (path: "achievements", kind: "Achievement"),
         // M3-T9 (§74) : les cinq curses de Q7 ; aucune séquence par défaut ne les tire avant M3-T11d.
         (path: "curses", kind: "Curse"),
         // Types de salles du champ de niveau `room_kind`.

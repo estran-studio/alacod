@@ -139,6 +139,15 @@ pub trait RollbackTraceApp {
             + Sync
             + 'static;
 
+    /// Enregistre une ressource (non `Copy`) en rollback et en trace, **sans** l'ajouter au checksum
+    /// GGRS. Pour un historique que la simulation n'écrit que pour un lecteur **hors** simulation
+    /// (M3-T10 : `RunHistory`, lu à la fin de la run pour les accomplissements) : il suit les
+    /// rollbacks (une prédiction ratée ne laisse rien), sans bouger aucune trace ni aucun checksum.
+    /// Ne jamais l'utiliser pour un état que la simulation lit : un desync passerait inaperçu.
+    fn rollback_and_trace_resource_no_checksum<R>(&mut self) -> &mut Self
+    where
+        R: Resource<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static;
+
     /// Enregistre une ressource `Copy` en rollback et en trace, **sans** l'ajouter au
     /// checksum GGRS. Réservé aux ressources de présentation qui se sont glissées dans
     /// l'état rollback (ex. `PointerWorldPosition`, position du curseur) : leur valeur
@@ -254,6 +263,14 @@ impl RollbackTraceApp for App {
         register_traced_resource::<R>(self);
         self.rollback_resource_with_copy::<R>()
             .checksum_resource_with_hash::<R>()
+    }
+
+    fn rollback_and_trace_resource_no_checksum<R>(&mut self) -> &mut Self
+    where
+        R: Resource<Mutability = Mutable> + Clone + std::fmt::Debug + Send + Sync + 'static,
+    {
+        register_traced_resource::<R>(self);
+        self.rollback_resource_with_clone::<R>()
     }
 
     fn rollback_and_trace_copy_resource_no_checksum<R>(&mut self) -> &mut Self

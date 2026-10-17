@@ -1750,6 +1750,15 @@ pub fn known_content_kinds() -> Kinds {
 }
 
 impl Registry {
+    /// Déblocages accordés par un accomplissement (M3-T10, §75) : on ne les achète pas (ni le
+    /// marchand du hub ni `alacod-profile unlock` ne les proposent).
+    pub fn achievement_unlocks(&self) -> std::collections::BTreeSet<&str> {
+        self.achievements
+            .values()
+            .flat_map(|a| a.def.unlocks.iter().map(String::as_str))
+            .collect()
+    }
+
     /// Charge tous les dossiers déclarés par `manifest` (chemins relatifs à
     /// `game_dir/assets/`). Retourne un registre "best effort" (les entrées valides sont
     /// gardées même si d'autres échouent) et la liste des erreurs de chargement (RON

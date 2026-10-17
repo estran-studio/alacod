@@ -72,9 +72,12 @@ fn run() -> Result<(), String> {
     match cli.command {
         Command::List { .. } => {
             println!("{id} : essence {}", profile.currency(meta::ESSENCE));
+            let earned = registry.achievement_unlocks();
             for unlock in registry.unlocks.values() {
                 let state = if profile.has_unlock(&unlock.id) {
                     "possédé"
+                } else if earned.contains(unlock.id.as_str()) {
+                    "à gagner (accomplissement)"
                 } else {
                     "à acheter"
                 };
@@ -96,6 +99,11 @@ fn run() -> Result<(), String> {
                 .get(&unlock)
                 .ok_or_else(|| format!("déblocage « {unlock} » inconnu"))?
                 .def;
+            if registry.achievement_unlocks().contains(unlock.as_str()) {
+                return Err(format!(
+                    "achat refusé : « {unlock} » est accordé par un accomplissement, pas à vendre"
+                ));
+            }
             profile
                 .purchase(
                     &unlock,

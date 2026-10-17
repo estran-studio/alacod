@@ -1,0 +1,7 @@
+// `isaac` (M3-T10, docs/conventions.md §75) : le boss `gardien` vaincu (à n'importe quel étage, la run peut ensuite
+// se perdre) ajoute « Œil vif » au pool du boss des runs suivantes.
+(
+    name: "Gardien vaincu",
+    when: [BossDefeated("gardien")],
+    unlocks: ["oeil_vif_libre"],
+)

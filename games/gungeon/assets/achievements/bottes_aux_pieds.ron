@@ -1,0 +1,6 @@
+// M3-T10 (§75) : finir une run en tenant les bottes (objet du pilote, ramassé au premier coffre) ouvre le butin des bottes.
+(
+    name: "Bottes aux pieds",
+    when: [ItemHeld("bottes")],
+    unlocks: ["butin_bottes"],
+)

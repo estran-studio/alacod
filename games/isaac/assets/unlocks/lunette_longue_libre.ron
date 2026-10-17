@@ -1,0 +1,5 @@
+// `isaac` (M3-T10, §75) : accordé par `run_finie`. « Lunette longue » quitte le pool `tresor` tant que ce déblocage manque.
+(
+    name: "Lunette longue",
+    grants: [Item("lunette_longue")],
+)

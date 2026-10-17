@@ -823,11 +823,7 @@ fn achievements(
         .hub_services
         .values()
         .any(|s| s.def.action == meta::HubAction::Merchant);
-    let granted: BTreeSet<&str> = registry
-        .achievements
-        .values()
-        .flat_map(|a| a.def.unlocks.iter().map(String::as_str))
-        .collect();
+    let granted = registry.achievement_unlocks();
     for unlock in registry.unlocks.values() {
         if !merchant && !granted.contains(unlock.id.as_str()) {
             unmet(

@@ -577,6 +577,8 @@ fn cleanup_rollback_world_system(
     // M3-T0e (§64) : curses et objets sortis des pools à épuisement valent pour une run.
     commands.insert_resource(run::RunCurses::default());
     commands.insert_resource(items::PoolState::default());
+    // M3-T10 (§75) : boss vaincus et objets tenus valent pour une run.
+    commands.insert_resource(crate::profile::RunHistory::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
     // D14 : grilles de collision dérivées (hors rollback). La grille des murs n'est

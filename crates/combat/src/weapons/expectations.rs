@@ -451,13 +451,21 @@ pub enum Expectation {
     },
     /// Le profil de méta-progression du joueur local `handle` (`meta::Profiles`, scénario
     /// `profile: true`, M2-T0c, §38) possède le déblocage `unlock` et/ou au moins `min` de la
-    /// monnaie `id` (`currency: Some((id, min))`) ; évaluée après la fin de run.
+    /// monnaie `id` (`currency: Some((id, min))`) ; évaluée après la fin de run. M3-T10 (§75) :
+    /// `achievement` (accomplissement obtenu, `Profile::achievements`), `lacks_unlocks` et
+    /// `lacks_achievements` (déblocages / accomplissements que le profil **n'a pas**).
     ProfileHas {
         handle: usize,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         unlock: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         currency: Option<(String, u64)>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        achievement: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        lacks_unlocks: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        lacks_achievements: Vec<String>,
         at_frame: u32,
     },
     /// Les déblocages de la partie (`items::RunUnlocks`, M2-T12, §51) contiennent tous ceux de
