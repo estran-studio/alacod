@@ -32,3 +32,10 @@ Bénies : 16 hors générées (`curse_*` ×4, `grid_*` ×9, `hit_iframes_isaac`,
 - `bottines`, `trefle_noir`, `plomb_fondu` sans `tears:` (stat sans effet de coups propre) ; `Luck` n'a pas de preuve par témoin dédiée.
 - Pas de sprite d'objet (moteur) ; pool trésor sans `exhaust`.
 - Revue indépendante : à faire avant merge. Bench non lancé (machine partagée).
+
+## 6. Fusion avec `origin/main` `d1b1954a` (M3-T8 + fmt)
+- Conflits : `loot/tresor.ron` (add/add) résolu en **gardant les deux** : les 4 passifs de T8 + les 19 objets, `exhaust: true` (pas d'`exclude_held`, le lint les refuse ensemble) ; `rooms/tresor.ron` : version de main (`tresor` déjà). 18 `.trace` isaac : version de main puis rebénies.
+- Preuve §5 contre `origin/main` (dumps `isaac_boots`, `grid_treasure_key`, `boss_gardien`) : première frame 0, 4 lignes différentes = `player` et `larmes`, cause unique `mag_ammo` 9999 → 0 (`Infinite`) ; `Chest.table` n'y diffère plus (main a déjà `tresor`).
+- Rebénies : 19 traces isaac (`curse_*` ×4, `devil_*` ×3, `grid_*` ×9, `hit_iframes_isaac`, `isaac_boots`, `isaac_floor_seed_1`) + `make gen GAME=isaac` (62). Attente recalée : `devil_room_chance` (`PoolSeen tresor` : `pile_rapide` → `oeil`, le pool compte 23 objets ; sonde des 23 candidats).
+- Graines du §76.1 recalculées (le tirage change avec le pool) : balayage 1..125, les 19 objets sortent.
+- Résultats : suite 3 tranches ok (187 s), test_crates 1 115 passés, lint ×5 ok, gen ×5 sans diff, fmt ok, p2p isaac 3 000 frames : 5 452 frames resimulées, 0 desync, 2 999 lignes identiques.
