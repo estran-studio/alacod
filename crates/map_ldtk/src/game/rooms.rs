@@ -606,7 +606,7 @@ pub fn boss_drop_system(
     item_table: Res<items::ItemTable>,
     unlocks: Res<items::UnlockTable>,
     active: Res<items::RunUnlocks>,
-    pools: Res<items::PoolState>,
+    mut pools: ResMut<items::PoolState>,
     run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
     floor: Option<Res<run::FloorState>>,
     global_assets: Res<GlobalAsset>,
@@ -630,6 +630,21 @@ pub fn boss_drop_system(
             continue;
         };
         let key = format!("boss:{}", id.0);
+        // Cas limite : un boss qui meurt au tout premier tick, avant `room_boss_slot_system` (qui suit
+        // `floor_transition_system`) : un pool à épuisement est alors assigné ici, avec la même
+        // fonction (idempotente), pour que le drop reste l'objet assigné et sorte du pool.
+        let ctx = game::loot::SlotContext {
+            frame: frame.frame,
+            tables: &tables,
+            items: &item_table,
+            unlocks: &unlocks,
+            active: &active,
+            run_seed,
+            floor,
+        };
+        if pools.assignment(floor, &key).is_none() {
+            game::loot::assign_slot(&ctx, &mut pools, &drop.table, drop.rarity, false, &key);
+        }
         let item = match pools.assignment(floor, &key) {
             Some(item) => Some(item.to_string()),
             None => tables.0.get(&drop.table).and_then(|pool| {

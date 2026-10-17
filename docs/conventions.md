@@ -5604,8 +5604,9 @@ Aucun champ `pool` (§64) : le pool est la table nommée par le type de salle. M
 ```
 
 - **`boss_drop`** (`items::BossDropDef { table, rarity }`) : à la mort du boss (`FrameEvents<BossDefeated>`, `Run` suit
-  `DeathManagement` dans la même frame), `boss_drop_system` pose l'objet au centre de la salle qui contient le boss : celui
-  que `room_boss_slot_system` avait assigné à la génération (pool à épuisement), sinon un tirage sur la graine
+  `DeathManagement` dans la même frame), `boss_drop_system` (ordonné **avant** `floor_transition_system` : un joueur au portail change d'étage dans la même frame, l'événement se lit dans l'étage d'origine) pose l'objet au centre de la salle qui contient le boss : celui
+  que `room_boss_slot_system` avait assigné à la génération (pool à épuisement ; un boss mort au tout premier tick, avant ce
+  système, est assigné par `boss_drop_system` lui-même avec la même fonction idempotente), sinon un tirage sur la graine
   `boss:<salle>` (pool sans épuisement, indépendant du moment). Pose commune avec le coffre : `game::loot::spawn_drawn_loot`
   (objet, arme ou tas de sous).
 - **`shop.cost`** (`items::RoomShopDef::cost: Option<Price>`) : prix **de chaque présentoir** de ce type de salle, quelle que
