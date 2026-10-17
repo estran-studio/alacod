@@ -6235,6 +6235,13 @@ de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `g
   un seul présentoir à la fois, les autres suivent. `Nearest` garde l'ordre d'avant (D62 : le plus riche des joueurs paie).
 - **Sous au sol** : `ShellPickup` à moins de `n` de coût de chemin (contact). Sans limite, un étage nettoyé envoyait le bot
   ramasser des tas aux quatre coins (graines 79, 89, 96, 132 de la première campagne : 1 200 frames sans kill).
+- **Anti-blocage de combat** (`anti_jitter: true`, `ExplorerJitter.1`, `BotView::{engage_reach, engage_strafe}`) : un combat où l'empreinte de
+  la vie des ennemis (`ExplorerWorld::enemy_progress` : nombre et somme des vies courantes) ne bouge plus depuis 240 frames est un blocage :
+  les larmes s'arrêtent sur un coin de mur ou un pilier (`ldtk_wall_1x3` devant la tourelle de la graine 63), le bot tire sans fin vers un
+  ennemi qui ne perd rien (graines 86, 178, 182 de la première campagne sur le contenu T11c : le boss `gardien` restait à 14,8 PV). Le bot
+  **s'approche** alors de l'ennemi par le chemin (`navigate` calcule la route même sans ligne cachée) et, après 90 frames, **le contourne**
+  (tangente, sens alterné toutes les 90 frames, à moins de 60 de lui). Levé dès qu'un coup au but change l'empreinte, ou à la fin du combat.
+  Un ennemi qu'aucune ligne de tir atteignable ne touche (tourelle derrière un pilier, graine 63) reste un défaut de contenu T11c/T11d.
 - **Larmes en orbite** (`BotView::orbit_reach`, lu par `ExplorerWorld::orbit_reach` : `Orbit` des objets et synergies tenus, composés comme au
   tir par `combat::projectile::compose`) : `satellite` (T11b) fait tourner les larmes à 40 unités du porteur ; un boss immobile à 94 unités ne
   perdait plus un point de vie, `prudent` ne s'approchant d'un ennemi immobile que jusqu'à 120 (graine 41 d'`isaac` sans bombe, soft-lock
