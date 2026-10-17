@@ -1,18 +1,25 @@
 // M3-T11b (docs/conventions.md §76.2) : l'effet `OnPickup` du `reliquaire` d'`isaac` (4 points de vie d'âme, `GainSoul`). Un objet donné au départ
 // (`PlayerScript::items`) ne déclenche pas `OnPickup` : le scénario généré `item_reliquaire` ne prouve que la tenue ; celui-ci le pose au sol.
 //
-// À regarder : f10 le joueur ramasse le reliquaire (posé sous ses pieds à f1) : ses points de vie d'âme passent de 0 à 4.
+// À regarder : f10 le joueur ramasse le reliquaire (posé sous ses pieds à f1) : ses points de vie d'âme passent de 0 à 4 ; f40 le ramassage d'un autre objet (`pouls`) ne rend rien (filtre `item`, relecture).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
-    frames: 60,
-    items: [(id: "reliquaire", x: "-8.0", y: "-8.0", at_frame: 1)],
-    players: [(inputs: [(from: 10, to: 11, buttons: [Interaction])])],
+    frames: 80,
+    items: [
+        (id: "reliquaire", x: "-8.0", y: "-8.0", at_frame: 1),
+        (id: "pouls", x: "-8.0", y: "-8.0", at_frame: 30),
+    ],
+    players: [(inputs: [
+        (from: 10, to: 11, buttons: [Interaction]),
+        (from: 40, to: 41, buttons: [Interaction]),
+    ])],
     expect: [
         ExtraHealth(handle: 0, n: 0.0, at_frame: 8),
         HasItem(handle: 0, id: "reliquaire", at_frame: 20),
         ExtraHealth(handle: 0, n: 4.0, at_frame: 20),
-        ExtraHealth(handle: 0, n: 4.0, at_frame: 59),
+        HasItem(handle: 0, id: "pouls", at_frame: 60),
+        ExtraHealth(handle: 0, n: 4.0, at_frame: 79),
     ],
 )

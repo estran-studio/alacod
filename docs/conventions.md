@@ -5897,7 +5897,7 @@ effets v3 (§67), familiers (§71), cœurs d'âme (§68), pools à épuisement (
 | `crocs` | `OnHit` : `Scaled(PerCopy) ApplyStatus poison` | tresor (Common, 4) | 3 | `item_crocs`, `tears_crocs` (poison / témoin sans) |
 | `pouls` | `Tick(90)` : `TimedModifier` `MoveSpeed` +30 % 60 frames | tresor (Common, 4) | 20 | `item_pouls` (`MoveSpeed` 120 à f60, 156,00037 à f100) |
 | `rancune_vive` | `OnDamageTaken` : `ApplyStatus peur` sur l'auteur du coup | tresor (Uncommon, 2) | 55 | `item_rancune_vive`, `tears_rancune_vive` (`cible_mordante` : peur / témoin sans) |
-| `reliquaire` | `OnPickup` : `GainSoul(4)` | tresor (Common, 4) | 46 | `item_reliquaire`, `isaac_reliquaire` (ramassé au sol) |
+| `reliquaire` | `OnPickup` filtré `item: Some("reliquaire")` : `GainSoul(4)` (sans filtre, chaque ramassage suivant rendrait 4 points : relecture) | tresor (Common, 4) | 46 | `item_reliquaire`, `isaac_reliquaire` (ramassé au sol, puis un autre objet : rien de plus) |
 | `calice_ame` | actif `Active(Damage(30))`, `OnUse` : `GainSoul(2)` | tresor (Rare, 1) | 10 | `item_calice_ame` (charge, usage, `ExtraHealth` 2) |
 | `sang_chaud` | `OnKill` : `TimedModifier` `FireRate` +50 % 300 frames | boss (Uncommon, 2) | 1 (butin du boss ramassé f1752, effet `OnKill` journalisé f2237) | `item_sang_chaud`, `tears_sang_chaud` (`cible_fragile` tuée : `FireRate` 1,5 / témoin 1) |
 | `calice_ardent` | actif `Active(Rooms(2))`, `OnUse` : `Damage` +100 % 300 frames | boss (Uncommon, 2) | 4 (butin f2249, ramassé f2336) | `item_calice_ardent` (`Damage` 2 après l'usage) |
