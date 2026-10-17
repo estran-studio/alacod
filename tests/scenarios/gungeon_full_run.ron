@@ -103,7 +103,7 @@ Scenario(
         FloorIndex(index: 0, at_frame: 3800),
         Event(kind: "floor", label_contains: "niveau 1", by_frame: 3892),
         FloorIndex(index: 1, at_frame: 4000),
-        // Second étage (événements postérieurs à l'arrivée f3691) : coffre, boutique, seconde arène,
+        // Second étage (événements postérieurs à l'arrivée f3892) : coffre, boutique, seconde arène,
         // second boss, victoire.
         EventAfter(kind: "chest", label_contains: "weapon:lance_roquettes", after_frame: 4000, by_frame: 4940),
         EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 4000, by_frame: 5405),

@@ -91,4 +91,8 @@ Les attentes gardent leur type et leur sens ; les frames sont re-mesurées (`ALA
 
 - D88 fermée (`docs/taches/dettes.md`).
 - `loot_seed` / `curse_seed` : repli FNV sans finaliseur ; non mesurés, hors périmètre.
-- Équilibrage : les champions d'isaac font chuter l'`explorateur` (10 victoires sur 50 contre 17) ; les deux scénarios `grid_floor_seed_1` et `isaac_floor_seed_1` reposent sur `Armor +50` du joueur (T11d : rééquilibrer, puis retirer l'armure).
+- Équilibrage : les champions d'isaac font chuter l'`explorateur` (10 victoires sur 50 contre 17) ; les deux scénarios `grid_floor_seed_1` et `isaac_floor_seed_1` reposent sur `Armor +50` du joueur (dette **D89** ouverte : rééquilibrer en T11d, puis retirer l'armure).
+
+## 7. Relecture indépendante
+
+Verdict « mergeable », aucun P0/P1. P2 corrigé : `conventions.md` §72 disait que les scénarios de chance gardaient la graine 1942 (elle est 110). P2 suivi : `Armor +50` devient la dette numérotée D89 (critère de sortie : retirer l'armure). P3 corrigés : `hud_text_sur_throne_progression` « Étage 3 » à f3096 (et non plus 3490), commentaire périmé de `gungeon_full_run` (f3892). Notes sans correctif : `graines_voisines_tirages_differents` ne détecte pas à lui seul l'ancien défaut (le détecteur est le test statistique) ; la marge de `PlayerAlive` d'`isaac_floor_seed_1` (f3399 contre une mort à f3475) est de même nature que l'originale.

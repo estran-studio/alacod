@@ -1398,7 +1398,7 @@ fn clock_expectation_pass_and_fail() {
 /// T1.18 (§32) : `HudText` lit le HUD du joueur affiché (`HudSnapshot`, aussi en headless) sur
 /// `throne_progression` (scénario inchangé, attentes ajoutées ici) : étage, munitions par type,
 /// niveau 1 à f499 (D66 : le rodeur chasse de loin, f365 avant ; D88 : f515 avant le nouveau tirage des variantes) puis 2 à f1880 (f1890 avant D88), rads ; échoue sur un texte absent. Depuis D51, le bot
-/// est au deuxième étage à f1912 (« Étage 3 »). Depuis D50 (`drop_chance` 0,40), « Étage 3 » à f3490 (f3086 depuis D88).
+/// est au deuxième étage à f1912 (« Étage 3 »). Depuis D50 (`drop_chance` 0,40), « Étage 3 » à f3490 (f3086 depuis D88, vérifié à f3096).
 #[test]
 fn hud_text_sur_throne_progression() {
     if map_ldtk::RENDER_ENABLED {
@@ -1420,7 +1420,7 @@ fn hud_text_sur_throne_progression() {
             hud("level", "Niv. 1", 499),
             hud("level", "Niv. 2", 1880),
             // D50 : l'étage 3 est atteint à f3483 (f2804 avant `drop_chance` 0,40 de throne) ; D88 : f3086.
-            hud("floor", "Étage 3", 3490),
+            hud("floor", "Étage 3", 3096),
         ],
         &[
             (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),
