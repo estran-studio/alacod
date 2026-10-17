@@ -5650,6 +5650,60 @@ flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `Run
 `isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tirera à M3-T11d (graine à
 nommer alors). Le testbed joue `maudit` et `maudit_maze` à deux étages.
 
+## 76. Contenu `isaac` (M3-T11, quatre parties)
+
+### 76.1 T11a : larmes et stats (`m3-t11a-larmes`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur.
+
+- **`larmes` en `mag: Infinite`** (§60) : plus d'`ammo_type`, plus de chargeur de 9 999. Les stats de larmes sont des
+  multiplicateurs de base 1 que posent les objets : `Damage` (3,5), `FireRate` (3 tirs/s), `Range` (300), `ShotSpeed` (260),
+  `ShotSize` (collision et sprite), `Luck` (chance des `Chance`). `MoveSpeed` est celle du personnage.
+- **Statuts** `statuses/` (copies du testbed : `poison`, `brulure`, `gel`, `peur`, `lenteur`), déclarés dans `game.ron`.
+- **19 objets** `objets/*.ron` (tag `larmes`), tous dans le pool `loot/tresor.ron` (entrées `Item(id)` : un `Rarity(…)` piocherait
+  aussi clé, bombe et cœurs, de rareté `Common` ; poids commun 4, peu commun 2, rare 1 ; ni `exclude_held` ni `exhaust` : deux
+  exemplaires possibles). `rooms/tresor.ron` y pointe (`chest.table: "tresor"`) ; la salle secrète garde `salle`.
+  Pas de pool de boutique : `isaac` n'a pas de salle boutique avant M3-T11d (dette).
+- **Lisibilité (§82)** : `bullet_player`/`bullet_enemy` d'`isaac` utilisent le halo blanc de M3-T17
+  (`sprites/feedback/tear.png`, copie du testbed, `assets.yaml`) : teinte par statut/guidage, opacité spectrale, taille par
+  division/perforation, sans code. Les objets n'ont pas de sprite propre (aucun champ d'image dans `ItemDef`).
+- **Lab** : `characters/cible_fragile.ron` (15 PV, `test_only`) et l'arme `larmes_courtes` (portée 100, `test_only`) : l'arène
+  (416 x 304) est plus petite que la portée de `larmes`, `Range` ne se prouve qu'avec une arme courte.
+
+| Objet | Effet | Rareté | Graine `alacod-sim` (premier coffre de trésor) | Scénarios générés |
+|---|---|---|---|---|
+| `encre` | `Damage` +50 % | Common | 34 | `item_encre`, `tears_encre` (+ `_sans_objet`) |
+| `ressort` | `FireRate` +50 % | Common | 42 | `item_ressort`, `tears_ressort` |
+| `longue_vue` | `Range` +100 % | Common | 41 | `item_longue_vue`, `tears_longue_vue` |
+| `vent_arriere` | `ShotSpeed` +50 % | Common | 6 | `item_vent_arriere`, `tears_vent_arriere` |
+| `goutte` | `ShotSize` ×1,5, `Damage` +20 % | Uncommon | 12 | `item_goutte`, `tears_goutte` |
+| `bottines` | `MoveSpeed` +25 % | Common | 8 | `item_bottines` |
+| `trefle_noir` | `Luck` +2 | Uncommon | 3 | `item_trefle_noir` |
+| `plomb_fondu` | `Damage` +100 %, `FireRate` −30 % | Rare | 7 | `item_plomb_fondu` |
+| `oeil` | `Homing` | Common | 5 | `item_oeil`, `tears_oeil` |
+| `epine` | `Pierce(1)` | Uncommon | 117 | `item_epine`, `tears_epine` |
+| `ricochet` | `Bounce(2)` | Common | 15 | `item_ricochet`, `tears_ricochet` |
+| `fantome` | `Spectral` | Rare | 10 | `item_fantome`, `tears_fantome` |
+| `eclat` | `Split(3)` | Rare | 24 | `item_eclat`, `tears_eclat` |
+| `satellite` | `Orbit` + `Lifetime(240)` | Rare | 40 | `item_satellite`, `tears_satellite` |
+| `venin` | `Chance` 50 % (+12,5 %/`Luck`) poison | Uncommon | 19 | `item_venin`, `tears_venin` |
+| `braise` | brûlure à l'impact | Uncommon | 1 | `item_braise`, `tears_braise` |
+| `givre` | `Chance` 30 % gel | Uncommon | 16 | `item_givre`, `tears_givre` |
+| `epouvante` | `Chance` 30 % peur | Uncommon | 68 | `item_epouvante`, `tears_epouvante` |
+| `glu` | lenteur à l'impact | Common | 30 | `item_glu`, `tears_glu` |
+
+Graines : `alacod-sim --game isaac --bots 1 --profiles explorateur --shopping --seeds N..N --floors sous_sol --until-floor 2
+--max-frames 12000 --log`, la ligne `game::loot: … item=<id>` du coffre de la salle de trésor (balayage 1..125, première graine
+qui donne l'objet ; le bot ne rouvre pas le trésor fermé du second étage). Les seuils des `tears:` sont mesurés avec témoin
+(commentaire de chaque `test:`) ; `tears_longue_vue` utilise `larmes_courtes`, `tears_goutte` une cible posée à 22 unités de la
+ligne de tir (touchée seulement par la larme ×1,5).
+
+**Traces** : le passage en `Infinite` change l'état de l'arme dès f0 pour tout scénario `isaac` qui a le personnage ; le pool
+`tresor` change l'objet des coffres de trésor (preuve §5 au rapport `m3-t11a-larmes.md`). Les autres jeux ne bougent pas.
+
+Dettes : pas de boutique ni de pool boutique (T11d) ; `Chance` dépend du net id des larmes (un changement de cadence déplace
+les tirages : les seuils de `venin`, `givre`, `epouvante` sont « au moins un statut à f300 ») ; pas de sprite d'objet.
+
 ## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
 
 Code : `crates/scenario/src/generate.rs` (`build_tears_scenario`, `build_familiar_scenario`,
