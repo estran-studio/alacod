@@ -1,0 +1,14 @@
+// `isaac` (M3-T11b, docs/conventions.md §76.2) : un ennemi tué (`OnKill`) donne +50 % de cadence de tir pendant 300 frames (`TimedModifier`).
+(
+    name: "Sang chaud",
+    kind: Passive,
+    effects: [
+        (on: OnKill, do: [TimedModifier(stat: FireRate, op: Pct, value: "0.5", frames: 300)]),
+    ],
+    tags: ["effet"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        tears: Some((weapon: Some("larmes"), frames: Some(200), targets: [(character: "cible_fragile", dx: -48, dy: -18)], expect: [Stat(handle: 0, stat: FireRate, value: 1.5, at_frame: 190)], control: [Stat(handle: 0, stat: FireRate, value: 1.0, at_frame: 190)])),
+    )),
+)
