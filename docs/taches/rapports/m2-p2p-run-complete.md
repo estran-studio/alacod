@@ -299,3 +299,8 @@ d'une session qui ne se synchronise pas) ; pistes en D86. **Le point 3 reste don
   mourir en silence : corrigé.
 - Les essais précédents (§3) n'avaient pas décalé les inputs ; leurs verdicts (traces identiques entre pairs) ne dépendent pas du décalage, mais la run
   rejouée n'était pas exactement celle des bots (victoires f7138 pour f7142, f6374 pour f6378).
+
+### 7.6 Vérifications de la livraison de la revue
+`origin/main` `d4162f18` fusionné ; `make test_scenarios_par SHARDS=3` sans BLESS sur `8a2cb4fb` (tout le Rust : `jjrs::local`, `alacod-sim`, `input.rs`,
+`state_trace.rs`) : **501 scénarios verts**, 776 s, aucune `.trace` modifiée (`git status` propre) ; `make test_tools` 19 tests OK ; `cargo fmt --check` propre ;
+`bash -n` de tous les scripts. Pas de seconde relecture indépendante du delta de cette revue.
