@@ -266,7 +266,7 @@ impl Holder {
     }
 
     /// Peut-il poser une bombe maintenant (stock au-dessus de la réserve) ?
-    fn can_bomb(&self, policy: &ExplorerPolicy) -> bool {
+    pub fn can_bomb(&self, policy: &ExplorerPolicy) -> bool {
         self.bomb.is_some() && self.bombs > policy.bombs.reserve
     }
 }
@@ -349,9 +349,17 @@ pub struct ExplorerWorld<'w, 's> {
             &'static game::collider::Collider,
             Option<&'static Interactable>,
         ),
-        (With<map::game::entity::map::door::DoorComponent>, With<Rollback>),
+        (
+            With<map::game::entity::map::door::DoorComponent>,
+            With<Rollback>,
+        ),
     >,
-    rocks: Query<'w, 's, (&'static GgrsNetId, &'static FixedTransform3D), (With<world::Rock>, With<Rollback>)>,
+    rocks: Query<
+        'w,
+        's,
+        (&'static GgrsNetId, &'static FixedTransform3D),
+        (With<world::Rock>, With<Rollback>),
+    >,
     bombs: Query<
         'w,
         's,
@@ -571,7 +579,11 @@ impl ExplorerWorld<'_, '_> {
             }) else {
                 continue;
             };
-            if self.door_locks.as_deref().is_some_and(|l| l.is_open(&level)) {
+            if self
+                .door_locks
+                .as_deref()
+                .is_some_and(|l| l.is_open(&level))
+            {
                 continue;
             }
             let mut goal = ItemGoal::new(id.0, p, true, false);
@@ -626,6 +638,9 @@ impl ExplorerWorld<'_, '_> {
                 }
             }
         }
+        // Ordre indépendant de celui de la requête des salles : (position, taille) croissantes.
+        out.sort_by_key(|r| (r.min.x, r.min.y, r.max.x, r.max.y));
+        out.dedup();
         out
     }
 
@@ -683,7 +698,12 @@ pub fn share_an_edge(a: FixedVec2, a_size: FixedVec2, b: FixedVec2, b_size: Fixe
     let tolerance = Fixed::ONE;
     let overlap = |a0: Fixed, a1: Fixed, b0: Fixed, b1: Fixed| a0.max(b0) < a1.min(b1);
     let touch = |a_end: Fixed, b_start: Fixed| (a_end - b_start).abs() <= tolerance;
-    let (ax1, ay1, bx1, by1) = (a.x + a_size.x, a.y + a_size.y, b.x + b_size.x, b.y + b_size.y);
+    let (ax1, ay1, bx1, by1) = (
+        a.x + a_size.x,
+        a.y + a_size.y,
+        b.x + b_size.x,
+        b.y + b_size.y,
+    );
     (touch(ax1, b.x) || touch(bx1, a.x)) && overlap(a.y, ay1, b.y, by1)
         || (touch(ay1, b.y) || touch(by1, a.y)) && overlap(a.x, ax1, b.x, bx1)
 }
@@ -753,7 +773,10 @@ pub enum Target {
     Room(Rect),
     Item(ItemGoal),
     /// Se tenir à moins de `reach` de `zone` (mur secret, rocher) et poser une bombe.
-    Bomb { zone: Rect, reach: Fixed },
+    Bomb {
+        zone: Rect,
+        reach: Fixed,
+    },
 }
 
 /// Clé d'ordre d'un but : coût du chemin, objets et bombes (0) avant salles (1), `GgrsNetId` de
@@ -767,6 +790,11 @@ pub struct GoalContext {
     pub portal_open: bool,
     pub boss_direct: bool,
     pub policy: ExplorerPolicy,
+    /// Positions des autres joueurs **de plus petit handle** qui peuvent poser une bombe (stock au-dessus de la
+    /// réserve, porteur) : un mur ou un rocher dont l'un d'eux est à portée de pose est le sien, on n'y pose
+    /// pas une seconde bombe (deux bots arrivés ensemble au même mur en posaient chacun une). Le plus petit
+    /// handle n'attend jamais personne.
+    pub peers: Vec<FixedVec2>,
 }
 
 impl GoalContext {
@@ -779,6 +807,14 @@ impl GoalContext {
     /// Peut-il viser une pose de bombe : un porteur avec du stock, aucune mèche en cours.
     fn bomb_ready(&self, frame: &ExploreFrame) -> bool {
         self.holder.can_bomb(&self.policy) && frame.bombs.is_empty()
+    }
+
+    /// Un joueur de plus petit handle, porteur de bombe, est déjà à portée de pose de `zone` (plus une marge
+    /// de 40) : c'est lui qui la posera.
+    fn peer_covers(&self, zone: Rect, reach: Fixed) -> bool {
+        self.peers
+            .iter()
+            .any(|peer| zone.distance(*peer) <= reach + Fixed::from_num(40))
     }
 
     /// Le joueur prendrait-il cet objet, le paierait-il ? (Les filtres d'avant M3-T14 sont dans
@@ -812,7 +848,8 @@ pub fn devil_accepts(policy: DevilPolicy, holder: &Holder, loss: Fixed) -> bool 
         return false;
     };
     let rest = (loss - holder.soul).max(Fixed::ZERO);
-    rest == Fixed::ZERO || (holder.health > threshold && holder.health > rest && rest <= holder.health_max)
+    rest == Fixed::ZERO
+        || (holder.health > threshold && holder.health > rest && rest <= holder.health_max)
 }
 
 /// Buts d'exploration triés par [`GoalKey`] (seulement ceux qu'un chemin atteint).
@@ -865,6 +902,9 @@ pub fn ordered_goals(
         }
         if let (true, Some(reach)) = (ctx.bomb_ready(frame), ctx.bomb_reach()) {
             for (rank, door) in frame.secret_doors.iter().enumerate() {
+                if ctx.peer_covers(*door, reach) {
+                    continue;
+                }
                 if let Some(cost) = zone_cost(field, *door, reach) {
                     goals.push((
                         (cost, 0, usize::MAX - rank, String::new()),
@@ -953,6 +993,9 @@ pub fn rock_goal(
             }
         }
         let (_, _, rock) = last?;
+        if ctx.peer_covers(rock, reach) {
+            return None;
+        }
         zone_cost(field, rock, reach).map(|_| Target::Bomb { zone: rock, reach })
     })
 }
@@ -1010,13 +1053,14 @@ pub fn explore_step(
                 bomb: false,
             })
         }
-        Target::Item(item) => nav
-            .approach(position, item.zone, ITEM_REACH)
-            .map(|(direction, _)| Step {
-                direction: crate::input::dead_zone(direction),
-                interact: false,
-                bomb: false,
-            }),
+        Target::Item(item) => {
+            nav.approach(position, item.zone, ITEM_REACH)
+                .map(|(direction, _)| Step {
+                    direction: crate::input::dead_zone(direction),
+                    interact: false,
+                    bomb: false,
+                })
+        }
         Target::Room(zone) => nav
             .approach(position, zone, Fixed::ZERO)
             .map(|(direction, _)| Step {
@@ -1025,15 +1069,14 @@ pub fn explore_step(
                 bomb: false,
             }),
         Target::Bomb { zone, reach } => {
-            nav.approach(position, zone, reach)
-                .map(|(direction, _)| {
-                    let direction = crate::input::dead_zone(direction);
-                    Step {
-                        direction,
-                        interact: false,
-                        bomb: direction == FixedVec2::ZERO && !ctx.holder.bomb_held,
-                    }
-                })
+            nav.approach(position, zone, reach).map(|(direction, _)| {
+                let direction = crate::input::dead_zone(direction);
+                Step {
+                    direction,
+                    interact: false,
+                    bomb: direction == FixedVec2::ZERO && !ctx.holder.bomb_held,
+                }
+            })
         }
     })
 }

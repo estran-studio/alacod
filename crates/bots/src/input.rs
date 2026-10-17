@@ -315,6 +315,22 @@ pub fn read_bot_inputs(
         .collect();
     let explore_frame = (floors_mode && !explorer_positions.is_empty())
         .then(|| explorer.frame(&explorer_positions));
+    // M3-T14 : les explorateurs qui peuvent poser une bombe (handle, position) : à un même mur, le plus petit
+    // handle pose seul (`GoalContext::peers`).
+    let bombers: Vec<(usize, FixedVec2)> = if explore_frame.is_some() {
+        let policy = explorer.options().policy;
+        order_iter!(players)
+            .into_iter()
+            .filter(|(_, player, ..)| {
+                local_players.0.contains(&player.handle)
+                    && assignments.0.get(&player.handle) == Some(&BotProfile::Explorateur)
+                    && explorer.holder(player.handle).can_bomb(&policy)
+            })
+            .map(|(_, player, transform, ..)| (player.handle, transform.translation.truncate()))
+            .collect()
+    } else {
+        Vec::new()
+    };
     let awake_points: Vec<(usize, FixedVec2)> = enemy_points
         .iter()
         .filter(|(id, _)| {
@@ -710,6 +726,11 @@ pub fn read_bot_inputs(
                         portal_open: view.portal.is_some(),
                         boss_direct: explorer_options.boss_direct,
                         policy: explorer_options.policy,
+                        peers: bombers
+                            .iter()
+                            .filter(|(handle, _)| *handle < player.handle)
+                            .map(|(_, at)| *at)
+                            .collect(),
                     };
                     // Navigation sans les rochers : seulement s'il y en a et qu'une bombe peut
                     // les casser (`explore_step` ne s'en sert que sans autre but).

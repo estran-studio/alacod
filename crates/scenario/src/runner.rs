@@ -1475,11 +1475,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut q_player_state = app
         .world_mut()
         .query::<(&Player, Has<combat::downed::Downed>)>();
-    let mut q_player_stock = app.world_mut().query::<(
-        &Player,
-        Option<&items::Inventory>,
-        Option<&run::Currency>,
-    )>();
+    let mut q_player_stock =
+        app.world_mut()
+            .query::<(&Player, Option<&items::Inventory>, Option<&run::Currency>)>();
     let mut floors_softlocked = false;
 
     // Hub suivi (`HubSetup { stay: false }`) : la phase du hub s'ajoute au budget d'updates.
@@ -3810,6 +3808,9 @@ mod floors_progress_tests {
         };
         assert!(base.progressed(&picked));
         assert!(!picked.progressed(&picked.clone()));
-        assert!(!base.progressed(&base.clone()), "sans le drapeau, stock reste 0");
+        assert!(
+            !base.progressed(&base.clone()),
+            "sans le drapeau, stock reste 0"
+        );
     }
 }

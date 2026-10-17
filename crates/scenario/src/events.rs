@@ -546,7 +546,11 @@ fn lock_events(
                     "présentoir {} vendu : {} ({})",
                     shelf.key,
                     shelf.item_id,
-                    if shelf.cost.is_some() { "diable" } else { "douilles" }
+                    if shelf.cost.is_some() {
+                        "diable"
+                    } else {
+                        "douilles"
+                    }
                 ),
             });
         }
