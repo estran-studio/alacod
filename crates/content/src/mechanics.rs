@@ -1142,7 +1142,7 @@ fn declared(
                         );
                     }
                 }
-                if !explosion_source(registry, ordinary, &item_sources(registry)) {
+                if !explosion_source(registry, ordinary, &obtainable) {
                     warn(
                         MANIFEST_FILE,
                         "aucune bombe atteignable dans la partie ordinaire : la salle secrète ne s'ouvre jamais".to_string(),
