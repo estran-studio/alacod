@@ -20,7 +20,7 @@ Scenario(
     expect: [
         RunState(step: Ended(Defeat), at_frame: 799),
         PlayerDead(handle: 0, at_frame: 799),
-        ProfileHas(handle: 0, currency: ("essence", 1), lacks_achievements: ["gardien_vaincu", "run_finie", "second_etage", "semelles_aux_pieds"], lacks_unlocks: ["oeil_vif_libre", "lunette_longue_libre", "trefle_chat_libre", "bombes_en_reserve"], at_frame: 799),
+        ProfileHas(handle: 0, currency: ("essence", 1), lacks_achievements: ["gardien_vaincu", "run_finie", "second_etage", "semelles_aux_pieds"], lacks_unlocks: ["medaille_libre", "couronne_libre", "bague_libre", "bombes_en_reserve"], at_frame: 799),
         HudText(source: "achievements", empty: true, at_frame: 799),
     ],
 )

@@ -1,6 +1,6 @@
-// `isaac` (M3-T10, §75) : finir la run (victoire : le boss du dernier étage) ajoute « Lunette longue » au pool du trésor.
+// `isaac` (M3-T10, §75) : finir la run (victoire : le boss du dernier étage) ajoute « Couronne de fin » au pool du trésor.
 (
     name: "Run finie",
     when: [Victory],
-    unlocks: ["lunette_longue_libre"],
+    unlocks: ["couronne_libre"],
 )

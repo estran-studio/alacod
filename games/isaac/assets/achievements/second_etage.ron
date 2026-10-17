@@ -1,6 +1,6 @@
-// `isaac` (M3-T10, §75) : atteindre le second étage (index 1 de `FloorIndex`) ajoute « Trèfle de chat » au pool du trésor.
+// `isaac` (M3-T10, §75) : atteindre le second étage (index 1 de `FloorIndex`) ajoute « Bague des profondeurs » au pool du trésor.
 (
     name: "Deuxième étage",
     when: [FloorAtLeast(1)],
-    unlocks: ["trefle_chat_libre"],
+    unlocks: ["bague_libre"],
 )

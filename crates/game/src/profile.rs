@@ -458,7 +458,10 @@ mod tests {
         };
         Achievements(
             [
-                ("boss", def(vec![When::BossDefeated("gardien".into())], "u_boss")),
+                (
+                    "boss",
+                    def(vec![When::BossDefeated("gardien".into())], "u_boss"),
+                ),
                 ("fini", def(vec![When::Victory], "u_fini")),
                 ("profond", def(vec![When::FloorAtLeast(1)], "u_profond")),
             ]
@@ -488,7 +491,11 @@ mod tests {
         );
         assert_eq!(again, ["fini", "profond"]);
         assert_eq!(
-            profile.achievements.iter().map(String::as_str).collect::<Vec<_>>(),
+            profile
+                .achievements
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
             ["boss", "fini", "profond"]
         );
         // Un boss non vaincu ne donne rien, et une table vide non plus.

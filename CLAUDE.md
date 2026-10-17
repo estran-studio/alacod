@@ -404,6 +404,10 @@ crate `APP`), jamais dans un crate `SIM`.
       étages confondus : à employer sur un étage unique) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
       source masquée) et la source `curses` ; `Curse` lit maintenant les tirages réels de `game::curses` ;
       moment clé `curse` (curse tirée à l'entrée d'un étage).
+    - M3-T10 accomplissements (§75) : `ProfileHas` gagne `achievement: Some("id")` (accomplissement obtenu, `Profile::achievements`),
+      `lacks_unlocks` et `lacks_achievements` (absents du profil) ; `HudText(source: "achievements", contains | empty)` (liste des
+      accomplissements obtenus à la fin de la run) ; scénarios `achievement_unlocks` et `achievement_not_met` (`profile: true`) ;
+      deux runs enchaînées : test `crates/scenario/tests/achievements.rs`.
     - M3-T8 pools par type de salle et marché du diable (§73) : `PoolCount(pool, count, at_frame)` (objets **distincts**
       sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
       `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
@@ -665,6 +669,9 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
 - `curses` (M3-T9, §74) : id de la curse de l'étage courant (« darkness »), vide sans curse. Les curses
   de présentation masquent des sources : `HideMinimap` vide `minimap`, `HideHealth` vide `health` (texte et
   barre), `HideItemNames` remplace par « ??? » le nom des objets et armes du prompt (`prompt`, hors snapshot).
+- `achievements` (M3-T10, §75) : accomplissements obtenus **à cette fin de run** par le joueur affiché (nom du contenu, une ligne
+  chacun) ; vide en cours de partie. L'écran de fin les liste sous le résumé. Évalués hors simulation à `Ended`, une fois la fin
+  confirmée (`game::profile`), jamais dans `GgrsSchedule` ; la simulation n'écrit que `RunHistory` (rollback sans checksum).
 
 #### Écrans : pause et inventaire (M2-T18, test comparatif)
 

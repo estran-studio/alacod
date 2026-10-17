@@ -1,6 +1,0 @@
-// `isaac` (M3-T10, docs/conventions.md §75) : accordé par l'accomplissement `gardien_vaincu`, jamais acheté (pas de
-// hub dans isaac). `Item` : « Œil vif » quitte tous les pools (boss) tant que ce déblocage manque du profil.
-(
-    name: "Œil vif",
-    grants: [Item("oeil_vif")],
-)

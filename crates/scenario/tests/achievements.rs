@@ -41,7 +41,15 @@ fn draws(app: &App, pool: &str, active: &RunUnlocks) -> BTreeSet<String> {
     (0..400u32)
         .filter_map(|seed| {
             let mut rng = RollbackRng::new(seed);
-            draw_loot_with(&table, items, None, Rarity::Common, false, &hidden, &mut rng)
+            draw_loot_with(
+                &table,
+                items,
+                None,
+                Rarity::Common,
+                false,
+                &hidden,
+                &mut rng,
+            )
         })
         .collect()
 }
@@ -53,7 +61,13 @@ fn les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante() {
         return;
     }
     let scenario = scenario();
-    let mut app = build_app(&scenario, true, &PlayConfig { follow_handle: None });
+    let mut app = build_app(
+        &scenario,
+        true,
+        &PlayConfig {
+            follow_handle: None,
+        },
+    );
     app.finish();
     app.cleanup();
 
@@ -72,10 +86,13 @@ fn les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante() {
     let none = RunUnlocks::default();
     let before_boss = draws(&app, "boss", &none);
     let before_treasure = draws(&app, "tresor", &none);
-    for hidden in ["oeil_vif"] {
-        assert!(!before_boss.contains(hidden), "{hidden} dans le pool de base");
+    for hidden in ["medaille"] {
+        assert!(
+            !before_boss.contains(hidden),
+            "{hidden} dans le pool de base"
+        );
     }
-    for hidden in ["lunette_longue", "trefle_chat"] {
+    for hidden in ["couronne", "bague"] {
         assert!(
             !before_treasure.contains(hidden),
             "{hidden} dans le pool de base"
@@ -91,12 +108,16 @@ fn les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante() {
         .cloned()
         .expect("profil du joueur 0");
     assert_eq!(
-        profile.achievements.iter().map(String::as_str).collect::<Vec<_>>(),
+        profile
+            .achievements
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
         ["gardien_vaincu", "run_finie"],
         "{profile:?}"
     );
-    assert!(profile.has_unlock("oeil_vif_libre") && profile.has_unlock("lunette_longue_libre"));
-    assert!(!profile.has_unlock("trefle_chat_libre"));
+    assert!(profile.has_unlock("medaille_libre") && profile.has_unlock("couronne_libre"));
+    assert!(!profile.has_unlock("bague_libre"));
 
     // Run suivante : seul chemin d'entrée, `RunUnlocks` (les jalons du profil n'y sont pas).
     app.world_mut().insert_resource(RunRequest::Restart);
@@ -116,7 +137,7 @@ fn les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante() {
     let active = app.world().resource::<RunUnlocks>().clone();
     assert_eq!(
         active.0.iter().map(String::as_str).collect::<Vec<_>>(),
-        ["lunette_longue_libre", "oeil_vif_libre"],
+        ["couronne_libre", "medaille_libre"],
         "{active:?}"
     );
     assert!(
@@ -130,10 +151,10 @@ fn les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante() {
     // À graine égale (mêmes 400 graines), le pool montre maintenant les objets débloqués, et pas les autres.
     let after_boss = draws(&app, "boss", &active);
     let after_treasure = draws(&app, "tresor", &active);
-    assert!(after_boss.contains("oeil_vif"), "{after_boss:?}");
-    assert!(after_treasure.contains("lunette_longue"), "{after_treasure:?}");
+    assert!(after_boss.contains("medaille"), "{after_boss:?}");
+    assert!(after_treasure.contains("couronne"), "{after_treasure:?}");
     assert!(
-        !after_treasure.contains("trefle_chat"),
+        !after_treasure.contains("bague"),
         "{after_treasure:?} : `second_etage` n'est pas obtenu"
     );
     assert!(before_boss.is_subset(&after_boss) && before_treasure.is_subset(&after_treasure));

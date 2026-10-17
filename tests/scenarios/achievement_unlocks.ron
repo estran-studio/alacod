@@ -2,8 +2,8 @@
 // `grid_post_boss` (graine 8, séquence `sous_sol_un` : un seul étage, le bot `explorateur` bat le gardien puis finit le
 // dernier combat), avec un profil (`profile: true`). Au départ le profil est vide et `RunUnlocks` aussi ; à la victoire
 // (f1430) la simulation a écrit son historique (boss vaincu, objets tenus) et, une fois la fin confirmée, le système
-// hors simulation accorde `gardien_vaincu` (boss) et `run_finie` (victoire) : leurs déblocages (`oeil_vif_libre`,
-// `lunette_longue_libre`) entrent dans le profil. `second_etage` manque (un seul étage : `FloorAtLeast(1)`) et son
+// hors simulation accorde `gardien_vaincu` (boss) et `run_finie` (victoire) : leurs déblocages (`medaille_libre`,
+// `couronne_libre`) entrent dans le profil. `second_etage` manque (un seul étage : `FloorAtLeast(1)`) et son
 // déblocage aussi ; `RunUnlocks`, figé au lancement, ne change pas pendant la run (il change à la run suivante :
 // `crates/scenario/tests/achievements.rs`).
 //
@@ -21,14 +21,14 @@ Scenario(
         (bot: explorateur),
     ],
     expect: [
-        RunUnlocks(lacks: ["oeil_vif_libre", "lunette_longue_libre", "trefle_chat_libre"], at_frame: 5),
-        ProfileHas(handle: 0, lacks_achievements: ["gardien_vaincu", "run_finie"], lacks_unlocks: ["oeil_vif_libre"], at_frame: 1000),
+        RunUnlocks(lacks: ["medaille_libre", "couronne_libre", "bague_libre"], at_frame: 5),
+        ProfileHas(handle: 0, lacks_achievements: ["gardien_vaincu", "run_finie"], lacks_unlocks: ["medaille_libre"], at_frame: 1000),
         RunState(step: Ended(Victory), at_frame: 1469),
-        ProfileHas(handle: 0, achievement: "gardien_vaincu", unlock: "oeil_vif_libre", at_frame: 1469),
-        ProfileHas(handle: 0, achievement: "run_finie", unlock: "lunette_longue_libre", at_frame: 1469),
-        ProfileHas(handle: 0, lacks_achievements: ["second_etage"], lacks_unlocks: ["trefle_chat_libre"], at_frame: 1469),
+        ProfileHas(handle: 0, achievement: "gardien_vaincu", unlock: "medaille_libre", at_frame: 1469),
+        ProfileHas(handle: 0, achievement: "run_finie", unlock: "couronne_libre", at_frame: 1469),
+        ProfileHas(handle: 0, lacks_achievements: ["second_etage"], lacks_unlocks: ["bague_libre"], at_frame: 1469),
         HudText(source: "achievements", contains: "Gardien vaincu", at_frame: 1469),
         HudText(source: "achievements", contains: "Run finie", at_frame: 1469),
-        RunUnlocks(lacks: ["oeil_vif_libre", "lunette_longue_libre"], at_frame: 1469),
+        RunUnlocks(lacks: ["medaille_libre", "couronne_libre"], at_frame: 1469),
     ],
 )

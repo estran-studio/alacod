@@ -1,0 +1,5 @@
+// `isaac` (M3-T10, §75) : accordé par `run_finie`. « Couronne de fin » (pool `tresor`) quitte les pools tant que ce déblocage manque.
+(
+    name: "Couronne de fin",
+    grants: [Item("couronne")],
+)

@@ -1,5 +1,0 @@
-// `isaac` (M3-T10, §75) : accordé par `second_etage`. « Trèfle de chat » quitte le pool `tresor` tant que ce déblocage manque.
-(
-    name: "Trèfle de chat",
-    grants: [Item("trefle_chat")],
-)
