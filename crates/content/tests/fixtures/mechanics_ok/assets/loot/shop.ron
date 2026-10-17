@@ -1,6 +1,7 @@
 (
     entries: [
         (pick: Item("larme"), weight: 1),
+        (pick: Item("lentille"), weight: 1),
         (pick: Item("effet"), weight: 1),
         (pick: Item("satellite"), weight: 1),
         (pick: Item("key"), weight: 1),

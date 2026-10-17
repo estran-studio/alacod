@@ -350,15 +350,9 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
             &powerup.actions,
         );
     }
-    // M3-T12 (§77) : actions à la mort d'une variante, entrées et frises de phases de boss.
+    // M3-T12 (§77) : actions d'entrée et de frise des phases de boss (un `Modifier` y est accepté par le
+    // lint) et modificateurs de curse : des usages de stat comme ceux d'un objet.
     for c in registry.characters.values() {
-        for (name, variant) in c.variants.iter().flat_map(|v| &v.table) {
-            actions(
-                &c.file,
-                format!("personnage « {} » : variante « {name} », on_death", c.id),
-                &variant.on_death,
-            );
-        }
         for (index, phase) in c.boss.iter().flat_map(|boss| &boss.phases).enumerate() {
             actions(
                 &c.file,

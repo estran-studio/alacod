@@ -5566,7 +5566,7 @@ les lignes marquées **T12** sont les trous trouvés par l'audit.
 |---|---|---|
 | Munitions infinies (§60) | `ammo_type` absent alors qu'un mode consomme (`Parse`), donné alors que tous les modes sont `Infinite` (`OutOfRange`) | `weapon_ammo_type_missing`, `weapon_infinite_with_ammo_type` |
 | Larmes, `ProjectileMods` (§60, §66) | formes et plages d'un objet ou d'une synergie (`Homing`, `Bounce` répété, `Split.count`, `Orbit.radius`…), `child` et `on_expire: Spawn` sans table de projectiles (`Unsupported`), `Chance` hors [0, 1] | `projectile_split_out_of_range`, `item_projectile_out_of_range`, `item_projectile_no_table`, `item_projectile_ok`, `projectile_chance_out_of_range` |
-| Stats de larmes, `Luck` (§60) | liste fermée `stat_reader` : **T12** test exhaustif `every_named_stat_has_a_reader` (le `match` sans `_` force la décision à chaque stat nouvelle) ; **T12** `stat_uses` lit aussi les modificateurs de curses, les `on_death` de variantes et les phases de boss | `stat_unread`, test `reach::tests` |
+| Stats de larmes, `Luck` (§60) | liste fermée `stat_reader` : **T12** test `every_named_stat_has_a_reader` (liste des stats nommées tenue à la main ; son `match` sans `_` fait échouer la compilation à l'ajout d'une variante de `StatId`, ce qui rappelle d'y décider si elle a un lecteur) ; **T12** `stat_uses` lit aussi les modificateurs de curses et les actions d'entrée et de frise des phases de boss (un `Modifier` y est accepté) | `stat_unread`, `unread_stats_are_found_in_curses_and_boss_phases`, test `reach::tests` |
 | Bombes (§62) | `fuse_frames > 0`, `radius > 0`, `damage >= 0` (`OutOfRange`) ; `Explode` : rayon, dégâts (`OutOfRange`), refusée dans un power-up | `bomb_fuse_zero`, `explode_radius_zero`, `explode_effect_ok` |
 | Rochers (§62) | **T12** couche `Rocks` : valeur autre que 1 et 2 (ignorée au chargement : `OutOfRange`) | `rocks_and_surfaces_layers_are_checked` |
 | Piques (§62) | `damage > 0`, `period > 0` (`OutOfRange`) ; **T12** couche `Surfaces` : valeur sans surface déclarée (`BrokenReference`) | `hazard_period_zero`, `rocks_and_surfaces_layers_are_checked` |
@@ -5597,11 +5597,14 @@ première par ordre d'id, comme le jeu), sans `FloorsOverride` ni les autres sé
 Les règles « toujours actives » ci-dessous gardent, comme §53, **toute** séquence déclarée comme racine (un
 scénario ou le lobby peut en imposer une autre) ; seules les règles déclarées sont restreintes à la partie ordinaire.
 
-**Sites de tirage** (`Play::draws`) : un pool est tiré par le coffre (`chest`) et la boutique (`shop`, `floor_tables`)
-d'un type de salle atteint, par la récompense des salles `combat` (pool d'étage à `reward`, sinon `salle`), par les
-rochers à butin des niveaux joués, par le butin (`loot`) des variantes d'ennemis atteints. Un coffre sans `table` tire
-le `loot` de l'étage de chaque séquence, `commun` pour une séquence sans `loot` (`game::loot::chest_table_id`). Chaque
-site porte un nombre de tirages par partie, au moins (salles exigées × étages de la partie, trois pour le remplissage).
+**Sites de tirage** (`Play::draws`) : un pool est tiré par le coffre (`chest`) et la boutique d'un type de salle atteint
+(`floor_tables` quand il y en a, sinon `table` : `RoomShopDef::table_for_floor` ignore `table` dès qu'il y a des
+`floor_tables`), par la récompense des salles `combat` (le pool d'étage s'il a `reward`, **sinon** `salle` : `salle` n'est
+tiré que pour une séquence sans `loot` ou à pool d'étage sans `reward`) et par le coffre de cette récompense quand
+`chest_chance > 0` (pool d'étage ou `commun`), par les rochers à butin des niveaux joués, par le butin (`loot`) des
+variantes à chance non nulle des ennemis atteints. Un coffre sans `table` tire le `loot` de l'étage de chaque séquence,
+`commun` pour une séquence sans `loot` (`game::loot::chest_table_id`). Chaque site porte un nombre de tirages par partie,
+au moins (salles exigées × étages de la partie, trois pour le remplissage).
 
 Kind d'avertissement `LintWarningKind::MechanicUnmet` (JSON : `"kind": "MechanicUnmet"`), message « mécanique
 « <nom> » : … » qui nomme la salle ou le pool qui devrait porter la mécanique ; fichier : le type de salle, le pool ou
@@ -5610,7 +5613,7 @@ la séquence fautif, `game.ron` quand le manque est global.
 | Règle | Quand | Avertit si | Fixture (`m3_t12_fixtures.rs`) |
 |---|---|---|---|
 | pool jamais tiré | toujours | un pool n'a aucun site de tirage | `pool_that_nothing_draws`, `pool_of_a_default_chest_is_drawn` |
-| familier sans objet atteignable | toujours | tous les objets qui citent le personnage sont hors des pools tirés, du départ, des étages et des déblocages | `familiar_whose_items_have_no_source` |
+| familier sans objet atteignable | toujours | tous les objets qui citent le personnage (hors `test_only`, D63) sont hors des pools tirés, du départ des personnages jouables, des étages et des déblocages | `familiar_whose_items_have_no_source`, `test_only_familiar_is_not_warned` |
 | synergie à objet sans source | toujours | un objet requis n'a aucune source | `synergy_with_an_item_that_has_no_source` |
 | salle spéciale vide | toujours, grammaire en grille | une salle exigée, la salle secrète ou la salle post-boss à chance > 0 n'a ni `chest`, `shop`, `arena` ni `locks` | `special_room_that_carries_nothing` |
 | mur secret sans bombe | toujours | un type à `door_lock: Secret` est atteint sans bombe jouable (consommable `bomb` **et** personnage à `bomb`) ni objet à `Explode { destroys: true }` | `secret_wall_without_a_bomb` |
@@ -5618,10 +5621,10 @@ la séquence fautif, `game.ron` quand le manque est global.
 | variante à chance nulle | toujours | `variants.chance` nulle pour 1 et 4 joueurs aux étages 0 et 5 | `variant_with_a_zero_chance` |
 | accomplissement inaccomplissable | toujours | `FloorAtLeast(n)` au-delà d'une séquence finie (`victory_at_end`), `BossDefeated` d'un boss jamais posé, `ItemHeld` d'un objet sans source | `achievement_with_an_impossible_condition` |
 | déblocage jamais accordé | toujours | ni accomplissement ni service `Merchant` ne l'accorde | `unlock_that_nothing_grants` |
-| `Tears` | déclarée | aucun objet de larmes (`projectile`, `ShotSpeed`, `ShotSize`) dans le pool d'une salle exigée à coffre (trésor) ni dans une boutique ; ou tous les pools d'un objet de larmes ont `exclude_held` (deux exemplaires impossibles) | `tears_missing_from_the_*`, `tears_that_cannot_be_held_twice` |
+| `Tears` | déclarée | aucun objet de larmes (`projectile`, `ShotSpeed`, `ShotSize`) dans le pool d'une salle exigée à coffre (trésor) ni dans une boutique ; ou l'objet ne peut pas être tenu en deux exemplaires : chaque pool qui le donne a `exclude_held` ou `exhaust` (un objet sorti ne revient pas avant que le pool soit vu en entier) et il n'y a pas deux pools sans `exclude_held` | `tears_missing_from_the_*`, `tears_that_cannot_be_held_twice`, `tears_in_a_single_exhausting_pool_cannot_stack` |
 | `Effects` | déclarée | aucun objet à effets dans le pool trésor, boutique ou boss ; aucune synergie dont tous les objets sont atteignables | `effects_missing_from_the_boss_pool_and_no_transformation` |
 | `Familiars` | déclarée | moins de deux objets à `familiar` dans le pool trésor, aucun dans une boutique | `familiars_missing_from_the_treasure_and_shop_pools` |
-| `Bombs` | déclarée | pas de bombe de départ (personnage jouable), d'étage ni de récompense de combat ; aucun personnage jouable à `bomb` ; aucun rocher ni pique (surface à `hazard`) dans un gabarit du type de remplissage | `bombs_rocks_and_spikes` |
+| `Bombs` | déclarée | pas de bombe de départ (personnage jouable), d'étage, de pool tiré (récompense, coffre, boutique, rocher, champion) ni de déblocage ; aucun personnage jouable à `bomb` (un personnage `test_only` ne compte pas, D63) ; aucun rocher ni pique (surface à `hazard`) dans un gabarit du type de remplissage | `bombs_rocks_and_spikes`, `test_only_characters_give_no_bomb_and_wrapped_explosions_count` |
 | `SecretRoom` | déclarée | pas de grammaire en grille ; la salle secrète n'est pas dans `required` ou n'est pas murée ; aucune explosion atteignable | `secret_room_not_required_or_not_walled` |
 | `Keys` | déclarée | pas de clé dans la récompense de combat ni dans une boutique ; aucune salle exigée à `door_lock: Key` | `keys_in_rewards_shops_and_locked_treasure` |
 | `Hearts` | déclarée | pas de `Currency` ni de cœur (`Heal`, `GainSoul`) dans la récompense de combat ; aucune boutique exigée (`required`) | `hearts_coins_and_shop` |
@@ -5629,7 +5632,7 @@ la séquence fautif, `game.ron` quand le manque est global.
 | `DevilMarket` | déclarée | aucune salle post-boss à chance > 0 dans une grammaire de la partie ordinaire (le contenu de la salle : règle « salle spéciale vide ») | `devil_market_without_a_post_boss_room` |
 | `Champions` | déclarée | aucun ennemi atteint, hors `test_only`, ne porte une variante à chance non nulle | `champions_on_no_reachable_enemy` |
 | `Curses` | déclarée | la séquence ordinaire n'a pas de `curses` (chance > 0, une curse de poids > 0) | `curses_only_count_in_the_ordinary_sequence` |
-| `Achievements` | déclarée | aucun accomplissement dont un déblocage donne un objet ou une entrée à un pool tiré | `achievements_without_a_visible_unlock` |
+| `Achievements` | déclarée | aucun accomplissement aux conditions remplissables (§ ci-dessus) dont un déblocage donne un objet ou une entrée à un pool tiré | `achievements_without_a_visible_unlock`, `achievement_with_an_impossible_condition_is_not_visible` |
 
 Les avertissements M2 nomment maintenant la mécanique : « type de salle « secrete » : … ; mécanique : salle secrète
 (murée, ouverte à la bombe) » (`room_mechanic`), « objet « x » : aucune source … ; mécanique : familiers, effets »

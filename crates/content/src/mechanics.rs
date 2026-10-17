@@ -23,8 +23,8 @@ use sim_core::stats::StatId;
 use crate::expr::NumOrExpr;
 use crate::manifest::{EntryMode, GameManifest, Mechanic};
 use crate::reach::{
-    item_sources, playable_levels, pool_items, reach_from, reachable_characters, LintWarning,
-    LintWarningKind, Reach,
+    item_sources, playable_levels, pool_items, reach_from, reachable_characters,
+    unlock_grant_sources, LintWarning, LintWarningKind, Reach,
 };
 use crate::registry::{self, Registry};
 
@@ -61,6 +61,15 @@ fn is_tear_item(item: &registry::ItemEntry) -> bool {
             .any(|m| matches!(m.stat, StatId::ShotSpeed | StatId::ShotSize))
 }
 
+/// L'action sous ses enveloppes (`Scaled`, `Chance`).
+fn innermost(action: &effects::Action) -> &effects::Action {
+    match action {
+        effects::Action::Scaled { action, .. } => innermost(action),
+        effects::Action::Chance { then, .. } => innermost(then),
+        other => other,
+    }
+}
+
 fn heals(item: &registry::ItemEntry) -> bool {
     item.def
         .effects
@@ -68,7 +77,7 @@ fn heals(item: &registry::ItemEntry) -> bool {
         .flat_map(|effect| &effect.r#do)
         .any(|action| {
             matches!(
-                action,
+                innermost(action),
                 effects::Action::Heal(_) | effects::Action::GainSoul(_)
             )
         })
@@ -251,6 +260,51 @@ impl<'a> Play<'a> {
         out
     }
 
+    /// Pools de la boutique : `floor_tables` quand il y en a (le jeu prend `floor_tables[min(étage, dernier)]`,
+    /// `RoomShopDef::table_for_floor`), sinon `table`.
+    fn shop_tables(shop: &items::RoomShopDef) -> Vec<String> {
+        if shop.floor_tables.is_empty() {
+            vec![shop.table.clone()]
+        } else {
+            shop.floor_tables.clone()
+        }
+    }
+
+    /// Pools de la récompense des salles `combat` : le pool de l'étage s'il définit `reward`, sinon
+    /// `salle` (`game::loot::room_reward_system`), pour chaque séquence de la partie ; `salle` seul sans
+    /// séquence.
+    fn reward_tables(&self) -> Vec<String> {
+        let default = || items::DEFAULT_REWARD_TABLE.to_string();
+        let rewards = |pool: &str| {
+            self.registry
+                .loot_tables
+                .get(pool)
+                .is_some_and(|t| t.def.reward.is_some())
+        };
+        let mut out: Vec<String> = Vec::new();
+        let mut push = |pool: String| {
+            if !out.contains(&pool) {
+                out.push(pool);
+            }
+        };
+        if self.sequences.is_empty() {
+            push(default());
+        }
+        for sequence in &self.sequences {
+            if sequence.loot.is_empty() {
+                push(default());
+            }
+            for pool in &sequence.loot {
+                push(if rewards(pool) {
+                    pool.clone()
+                } else {
+                    default()
+                });
+            }
+        }
+        out
+    }
+
     /// Pools que tirent les salles de ces types (coffre, boutique) : pool → types.
     fn kinds_pools(&self, kinds: &BTreeSet<String>) -> BTreeMap<String, Vec<String>> {
         let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -263,8 +317,7 @@ impl<'a> Play<'a> {
                 pools.extend(self.chest_tables(chest));
             }
             if let Some(shop) = &room.def.shop {
-                pools.push(shop.table.clone());
-                pools.extend(shop.floor_tables.iter().cloned());
+                pools.extend(Self::shop_tables(shop));
             }
             for pool in pools {
                 if self.registry.loot_tables.contains_key(&pool) {
@@ -276,7 +329,7 @@ impl<'a> Play<'a> {
     }
 
     /// Tout ce qui tire un pool : coffres et boutiques des salles atteintes, récompense des salles
-    /// `combat`, rochers à butin des niveaux joués, butin des champions des ennemis atteints.
+    /// `combat` (et son coffre), rochers à butin des niveaux joués, butin des champions des ennemis atteints.
     fn draws(&self) -> Vec<Draw> {
         let registry = self.registry;
         let known = |pool: &str| registry.loot_tables.contains_key(pool);
@@ -296,10 +349,9 @@ impl<'a> Play<'a> {
                 }
             }
             if let Some(shop) = &room.def.shop {
-                let tables = std::iter::once(&shop.table).chain(&shop.floor_tables);
-                for pool in tables.filter(|p| known(p)) {
+                for pool in Self::shop_tables(shop).into_iter().filter(|p| known(p)) {
                     out.push(Draw {
-                        pool: pool.clone(),
+                        pool,
                         site: format!("boutique de la salle « {} »", room.id),
                         times,
                     });
@@ -308,22 +360,35 @@ impl<'a> Play<'a> {
         }
         let floor_tables = self.floor_tables();
         if self.reach.room_kinds.contains("combat") {
-            let rewarding = floor_tables.iter().filter(|pool| {
-                registry
-                    .loot_tables
-                    .get(*pool)
-                    .is_some_and(|t| t.def.reward.is_some())
-            });
-            for pool in rewarding
-                .map(String::as_str)
-                .chain([items::DEFAULT_REWARD_TABLE])
-                .filter(|p| known(p))
-            {
+            for pool in self.reward_tables().into_iter().filter(|p| known(p)) {
+                // Un coffre de récompense (`chest_chance > 0`) tire le pool de l'étage, sinon `commun`.
+                let chest = registry.loot_tables[&pool]
+                    .def
+                    .reward
+                    .is_some_and(|reward| reward.chest_chance > Fixed::ZERO);
                 out.push(Draw {
-                    pool: pool.to_string(),
+                    pool,
                     site: "récompense des salles « combat »".to_string(),
                     times: 3,
                 });
+                if chest {
+                    let anywhere = items::RoomChestDef {
+                        table: None,
+                        locked: false,
+                        rarity: items::Rarity::Common,
+                    };
+                    for pool in self
+                        .chest_tables(&anywhere)
+                        .into_iter()
+                        .filter(|p| known(p))
+                    {
+                        out.push(Draw {
+                            pool,
+                            site: "coffre de la récompense des salles « combat »".to_string(),
+                            times: 3,
+                        });
+                    }
+                }
             }
         }
         let rocks: u32 = playable_levels(registry, &self.reach)
@@ -352,7 +417,14 @@ impl<'a> Play<'a> {
             else {
                 continue;
             };
-            for (name, variant) in character.variants.iter().flat_map(|v| &v.table) {
+            let Some(variants) = character
+                .variants
+                .as_ref()
+                .filter(|v| variant_chance_possible(&v.chance))
+            else {
+                continue;
+            };
+            for (name, variant) in &variants.table {
                 if let Some(pool) = variant.loot.as_ref().filter(|p| known(p)) {
                     out.push(Draw {
                         pool: pool.clone(),
@@ -405,17 +477,22 @@ fn players(registry: &Registry) -> impl Iterator<Item = &registry::CharacterEntr
         .filter(|c| !c.has_ai && !c.test_only)
 }
 
-/// Une explosion qui casse les murs (bombe tenue ou objet à `Explode { destroys }`) est atteignable.
-fn explosion_source(registry: &Registry, sources: &BTreeSet<String>) -> bool {
-    let bomb_def = registry.characters.values().any(|c| c.bomb.is_some());
-    (bomb_def && sources.contains(BOMB))
+/// Une explosion qui casse les murs est atteignable : bombe jouable (stock **et** personnage jouable à
+/// `bomb`) ou objet source à `Explode { destroys: true }`, même enveloppé (`Scaled`, `Chance`).
+fn explosion_source(registry: &Registry, play: &Play<'_>, sources: &BTreeSet<String>) -> bool {
+    (players(registry).any(|c| c.bomb.is_some()) && bomb_obtainable(registry, play))
         || registry
             .items
             .values()
             .filter(|item| sources.contains(&item.id))
             .flat_map(|item| &item.def.effects)
             .flat_map(|effect| &effect.r#do)
-            .any(|action| matches!(action, effects::Action::Explode { destroys: true, .. }))
+            .any(|action| {
+                matches!(
+                    innermost(action),
+                    effects::Action::Explode { destroys: true, .. }
+                )
+            })
 }
 
 pub(crate) fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning> {
@@ -469,7 +546,7 @@ fn always_on(
 
     // Objets d'un pool tiré, de départ ou d'étage (hors pool jamais tiré) : une source atteignable.
     let mut reachable = items_in(registry, drawn.iter().copied());
-    for c in registry.characters.values() {
+    for c in players(registry) {
         reachable.extend(c.starting_consumables.keys().cloned());
     }
     for sequence in &all.sequences {
@@ -488,6 +565,14 @@ fn always_on(
         }
     }
     for (character, citing) in &by_character {
+        // D63 : un personnage de test ne porte rien à une partie ordinaire.
+        if registry
+            .characters
+            .get(&registry::CharacterId::from(character.to_string()))
+            .is_some_and(|c| c.test_only)
+        {
+            continue;
+        }
         if citing.iter().all(|item| !reachable.contains(&item.id)) {
             let file = registry
                 .characters
@@ -581,7 +666,7 @@ fn always_on(
                 && all.reach.room_kinds.contains(&room.id)
         })
         .collect();
-    if !secret_kinds.is_empty() && !explosion_source(registry, sources) {
+    if !secret_kinds.is_empty() && !explosion_source(registry, all, sources) {
         for room in secret_kinds {
             unmet(
                 out,
@@ -635,6 +720,53 @@ fn always_on(
     achievements(registry, all, sources, out);
 }
 
+/// Ce que les conditions d'un accomplissement lisent, pour une partie.
+struct Facts<'a> {
+    characters: BTreeSet<String>,
+    /// Nombre d'étages de la plus longue séquence quand toutes finissent (`victory_at_end`).
+    finite_floors: Option<usize>,
+    sources: &'a BTreeSet<String>,
+}
+
+impl<'a> Facts<'a> {
+    fn new(registry: &Registry, play: &Play<'_>, sources: &'a BTreeSet<String>) -> Self {
+        let finite_floors = (!play.sequences.is_empty()
+            && play.sequences.iter().all(|s| s.victory_at_end))
+        .then(|| {
+            play.sequences
+                .iter()
+                .map(|s| s.levels.len())
+                .max()
+                .unwrap_or(0)
+        });
+        Self {
+            characters: reachable_characters(registry, &play.reach),
+            finite_floors,
+            sources,
+        }
+    }
+
+    /// Pourquoi la condition ne peut pas être remplie, `None` si elle le peut.
+    fn problem(&self, condition: &meta::AchievementCondition) -> Option<String> {
+        match condition {
+            meta::AchievementCondition::Victory => None,
+            meta::AchievementCondition::FloorAtLeast(n) => self
+                .finite_floors
+                .filter(|len| *n as usize >= *len)
+                .map(|len| {
+                    format!(
+                        "FloorAtLeast({n}) : les séquences se terminent à l'étage {} (victory_at_end)",
+                        len.saturating_sub(1)
+                    )
+                }),
+            meta::AchievementCondition::BossDefeated(id) => (!self.characters.contains(id))
+                .then(|| format!("BossDefeated(« {id} ») : ce boss n'apparaît dans aucune partie")),
+            meta::AchievementCondition::ItemHeld(id) => (!self.sources.contains(id))
+                .then(|| format!("ItemHeld(« {id} ») : cet objet n'a aucune source")),
+        }
+    }
+}
+
 /// Accomplissements inaccomplissables et déblocages jamais accordés.
 fn achievements(
     registry: &Registry,
@@ -642,33 +774,10 @@ fn achievements(
     sources: &BTreeSet<String>,
     out: &mut Vec<LintWarning>,
 ) {
-    let characters = reachable_characters(registry, &all.reach);
-    let finite_floors =
-        (!all.sequences.is_empty() && all.sequences.iter().all(|s| s.victory_at_end)).then(|| {
-            all.sequences
-                .iter()
-                .map(|s| s.levels.len())
-                .max()
-                .unwrap_or(0)
-        });
+    let facts = Facts::new(registry, all, sources);
     for achievement in registry.achievements.values() {
         for condition in &achievement.def.when {
-            let problem = match condition {
-                meta::AchievementCondition::Victory => None,
-                meta::AchievementCondition::FloorAtLeast(n) => finite_floors
-                    .filter(|len| *n as usize >= *len)
-                    .map(|len| {
-                        format!(
-                            "FloorAtLeast({n}) : les séquences se terminent à l'étage {} (victory_at_end)",
-                            len.saturating_sub(1)
-                        )
-                    }),
-                meta::AchievementCondition::BossDefeated(id) => (!characters.contains(id))
-                    .then(|| format!("BossDefeated(« {id} ») : ce boss n'apparaît dans aucune partie")),
-                meta::AchievementCondition::ItemHeld(id) => (!sources.contains(id))
-                    .then(|| format!("ItemHeld(« {id} ») : cet objet n'a aucune source")),
-            };
-            if let Some(problem) = problem {
+            if let Some(problem) = facts.problem(condition) {
                 unmet(
                     out,
                     "accomplissements",
@@ -796,7 +905,7 @@ fn declared(
     let reward_items = items_in(registry, reward_pools.iter().copied());
     let drawn_items = items_in(registry, &drawn);
     let mut obtainable = drawn_items.clone();
-    for c in registry.characters.values() {
+    for c in players(registry) {
         obtainable.extend(c.starting_consumables.keys().cloned());
     }
     for sequence in &ordinary.sequences {
@@ -829,24 +938,28 @@ fn declared(
                         ),
                     );
                 }
-                // Deux exemplaires : un pool sans exclusion des objets tenus doit le donner.
+                // Deux exemplaires : un pool qui ne les exclut pas (`exclude_held`) et ne s'épuise pas
+                // (`exhaust`), ou deux pools tirés qui ne les excluent pas, doivent donner l'objet.
                 for item in tears
                     .iter()
                     .filter(|i| treasure_items.contains(&i.id) || shop_items.contains(&i.id))
                 {
-                    let holding: Vec<&str> = drawn
+                    let giving: Vec<&registry::LootTableEntry> = drawn
                         .iter()
                         .filter_map(|pool| registry.loot_tables.get(pool))
                         .filter(|pool| pool_items(registry, &pool.def).contains(&item.id))
-                        .filter(|pool| !pool.def.exclude_held)
-                        .map(|pool| pool.id.as_str())
                         .collect();
-                    if holding.is_empty() {
+                    let open: Vec<&&registry::LootTableEntry> = giving
+                        .iter()
+                        .filter(|pool| !pool.def.exclude_held)
+                        .collect();
+                    if !(open.iter().any(|pool| !pool.def.exhaust) || open.len() >= 2) {
                         warn(
                             &item.file.display().to_string(),
                             format!(
-                                "objet de larmes « {} » : tous les pools qui le donnent ont `exclude_held` : deux exemplaires impossibles, l'empilement n'est jamais rencontré",
-                                item.id
+                                "objet de larmes « {} » : deux exemplaires impossibles (pool(s) qui le donnent : {} ; chacun a `exclude_held` ou `exhaust`, ou il n'y en a qu'un) : l'empilement n'est jamais rencontré",
+                                item.id,
+                                giving.iter().map(|p| p.id.as_str()).collect::<Vec<_>>().join(", ")
                             ),
                         );
                     }
@@ -1029,7 +1142,7 @@ fn declared(
                         );
                     }
                 }
-                if !explosion_source(registry, &obtainable) {
+                if !explosion_source(registry, ordinary, &item_sources(registry)) {
                     warn(
                         MANIFEST_FILE,
                         "aucune bombe atteignable dans la partie ordinaire : la salle secrète ne s'ouvre jamais".to_string(),
@@ -1173,15 +1286,22 @@ fn declared(
                 }
             }
             Mechanic::Achievements => {
+                let sources = item_sources(registry);
+                let facts = Facts::new(registry, ordinary, &sources);
                 let visible = registry.achievements.values().any(|achievement| {
-                    achievement.def.unlocks.iter().any(|unlock| {
-                        registry.unlocks.get(unlock).is_some_and(|unlock| {
-                            unlock.def.grants.iter().any(|grant| match grant {
-                                items::UnlockGrant::Item(item) => drawn_items.contains(item),
-                                items::UnlockGrant::Loot { table, .. } => drawn.contains(table),
+                    achievement
+                        .def
+                        .when
+                        .iter()
+                        .all(|condition| facts.problem(condition).is_none())
+                        && achievement.def.unlocks.iter().any(|unlock| {
+                            registry.unlocks.get(unlock).is_some_and(|unlock| {
+                                unlock.def.grants.iter().any(|grant| match grant {
+                                    items::UnlockGrant::Item(item) => drawn_items.contains(item),
+                                    items::UnlockGrant::Loot { table, .. } => drawn.contains(table),
+                                })
                             })
                         })
-                    })
                 });
                 if !visible {
                     warn(
@@ -1194,14 +1314,16 @@ fn declared(
     }
 }
 
-/// Bombe de départ d'un personnage jouable, d'étage, ou donnée par un pool tiré de la partie.
-fn bomb_obtainable(registry: &Registry, ordinary: &Play<'_>) -> bool {
+/// Bombe de départ d'un personnage jouable, d'étage, donnée par un pool tiré de la partie ou par un
+/// déblocage.
+fn bomb_obtainable(registry: &Registry, play: &Play<'_>) -> bool {
     players(registry).any(|c| c.starting_consumables.get(BOMB).is_some_and(|n| *n > 0))
-        || ordinary
+        || play
             .sequences
             .iter()
             .any(|s| s.consumables_per_floor.contains_key(BOMB))
-        || items_in(registry, ordinary.draws().iter().map(|d| d.pool.as_str())).contains(BOMB)
+        || items_in(registry, play.draws().iter().map(|d| d.pool.as_str())).contains(BOMB)
+        || unlock_grant_sources(registry).0.contains(BOMB)
 }
 
 #[cfg(test)]

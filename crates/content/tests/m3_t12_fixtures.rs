@@ -348,9 +348,7 @@ fn tears_that_cannot_be_held_twice() {
             ),
         ],
     );
-    run.assert_warns(
-        "objet de larmes « larme » : tous les pools qui le donnent ont `exclude_held`",
-    );
+    run.assert_warns("objet de larmes « larme » : deux exemplaires impossibles");
 }
 
 #[test]
@@ -637,4 +635,154 @@ fn lint_json_reports_mechanic_warnings() {
                 .contains("mécanique « larmes »")),
         "{report}"
     );
+}
+
+// ---- corrections de la relecture ------------------------------------------------------------------
+
+/// Une boutique à `floor_tables` ne tire jamais `table` (`RoomShopDef::table_for_floor`).
+#[test]
+fn shop_table_is_not_drawn_when_floor_tables_exist() {
+    let run = run(
+        "shop_floor_tables",
+        &[Edit::Write(
+            "rooms/boutique.ron",
+            "(shop: Some((table: \"shop\", shelves: 2, floor_tables: [\"devil\"])))",
+        )],
+    );
+    run.assert_warns("pool « shop » : aucune salle");
+    run.assert_silent_about("pool « devil »");
+}
+
+/// `salle` n'est tiré en récompense que si le pool de l'étage n'a pas de `reward`.
+#[test]
+fn reward_pool_of_the_floor_replaces_the_default() {
+    let run = run(
+        "reward_floor",
+        &[
+            Edit::Write(
+                "floors/sequence.ron",
+                "(levels: [\"floor:etage\", \"floor:etage\"], victory_at_end: true, consumables_per_floor: {\"key\": 1}, loot: [\"recompense\"], curses: Some((chance: \"0.5\", pool: [\"darkness\"])))",
+            ),
+            Edit::Write(
+                "loot/recompense.ron",
+                "(entries: [(pick: Item(\"coeur\"), weight: 1)], reward: Some((chance: \"0.5\", chest_chance: \"0.0\")))",
+            ),
+        ],
+    );
+    run.assert_warns("pool « salle » : aucune salle");
+    run.assert_silent_about("pool « recompense »");
+}
+
+/// Un coffre de récompense (`chest_chance > 0`) tire `commun` (aucun `loot` d'étage).
+#[test]
+fn reward_chest_draws_the_default_chest_pool() {
+    let run = run(
+        "reward_chest",
+        &[
+            Edit::Replace(
+                "loot/salle.ron",
+                "chest_chance: \"0.0\"",
+                "chest_chance: \"0.5\"",
+            ),
+            Edit::Write(
+                "loot/commun.ron",
+                "(entries: [(pick: Item(\"coeur\"), weight: 1)])",
+            ),
+        ],
+    );
+    run.assert_silent_about("pool « commun »");
+}
+
+/// Un objet à `exhaust` dans un seul pool ne sort pas deux fois : l'empilement n'est pas rencontré.
+#[test]
+fn tears_in_a_single_exhausting_pool_cannot_stack() {
+    let run = run(
+        "tears_exhaust_only",
+        &[Edit::Write(
+            "loot/shop.ron",
+            "(entries: [(pick: Item(\"effet\"), weight: 1), (pick: Item(\"satellite\"), weight: 1), (pick: Item(\"key\"), weight: 1)])",
+        )],
+    );
+    run.assert_warns("objet de larmes « larme » : deux exemplaires impossibles");
+}
+
+/// La bombe d'un personnage de test ne compte pas (D63) ; une explosion enveloppée compte.
+#[test]
+fn test_only_characters_give_no_bomb_and_wrapped_explosions_count() {
+    let no_player_bomb = "(movement: (max_speed: \"60.0\"), asset_name_ref: \"player\", base_health: (max: \"6.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {}), \"2\": (layers: {})})";
+    let run = run(
+        "bomb_test_only",
+        &[
+            Edit::Write("characters/player.ron", no_player_bomb),
+            Edit::Write(
+                "characters/essai.ron",
+                "(test_only: true, movement: (max_speed: \"60.0\"), asset_name_ref: \"essai\", base_health: (max: \"6.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, bomb: Some((fuse_frames: 30, radius: \"48.0\", damage: \"10.0\")))",
+            ),
+        ],
+    );
+    run.assert_warns("mur secret atteint mais aucune bombe");
+    let run = self::run(
+        "bomb_wrapped_explosion",
+        &[
+            Edit::Write("characters/player.ron", no_player_bomb),
+            Edit::Write(
+                "objets/mine.ron",
+                "(name: \"Mine\", kind: Passive, rarity: Common, effects: [(on: OnPickup, do: [Scaled(action: Explode(radius: \"48.0\", damage: \"1.0\", destroys: true), scale: Some(PerCopy))])])",
+            ),
+            Edit::Replace("loot/treasure.ron", "(pick: Item(\"orbital\"), weight: 1),", "(pick: Item(\"orbital\"), weight: 1), (pick: Item(\"mine\"), weight: 1),"),
+        ],
+    );
+    run.assert_silent_about("mur secret atteint mais aucune bombe");
+}
+
+/// Un familier de test n'est pas signalé (D63).
+#[test]
+fn test_only_familiar_is_not_warned() {
+    let run = run(
+        "familiar_test_only",
+        &[
+            Edit::Write(
+                "loot/treasure.ron",
+                "(entries: [(pick: Item(\"larme\"), weight: 1), (pick: Item(\"lentille\"), weight: 1), (pick: Item(\"effet\"), weight: 1), (pick: Item(\"satellite\"), weight: 1)], exhaust: true)",
+            ),
+            Edit::Write(
+                "characters/orbital.ron",
+                "(test_only: true, movement: (max_speed: \"60.0\"), asset_name_ref: \"orbital\", base_health: (max: \"20.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, team: Some(Players), ai: Some((behaviors: Some([Orbit(radius: \"40.0\", frames_per_turn: 120)]))))",
+            ),
+        ],
+    );
+    run.assert_silent_about("familier « orbital »");
+}
+
+/// Un accomplissement n'est « visible » que si ses conditions peuvent être remplies.
+#[test]
+fn achievement_with_an_impossible_condition_is_not_visible() {
+    let run = run(
+        "achievement_not_visible",
+        &[Edit::Write(
+            "achievements/deux_etages.ron",
+            "(when: [FloorAtLeast(5)], unlocks: [\"debloque\"])",
+        )],
+    );
+    run.assert_warns("aucun accomplissement dont le déblocage donne un objet");
+}
+
+/// `stat_uses` lit les modificateurs de curse et les actions de phase de boss.
+#[test]
+fn unread_stats_are_found_in_curses_and_boss_phases() {
+    let run = run(
+        "unread_stats",
+        &[
+            Edit::Write(
+                "curses/superstition.ron",
+                "(weight: 1, effects: [Modifier(Custom(\"superstition\"), Add, \"1\")])",
+            ),
+            Edit::Write(
+                "characters/chef.ron",
+                "(movement: (max_speed: \"0.0\"), asset_name_ref: \"chef\", collider: (shape: Rectangle(width: \"20.\", height: \"20.\"), offset: (x: \"0.0\", y: \"0.0\", z: \"0.0\")), scale: \"1.0\", base_health: (max: \"100.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, ai: Some((aggro_range: Some(\"100.0\"), attack_range: Some(\"0.0\"), stationary: Some(true))), boss: Some((phases: [(on_enter: [Modifier(stat: Custom(\"rage\"), op: Add, value: \"1\")], timeline: Some((events: [(at: 0, do: [Heal(\"1\")])], repeat: Some(60))))])))",
+            ),
+        ],
+    );
+    run.assert_error(LintErrorKind::UnreadStat, "curse « superstition »");
+    run.assert_error(LintErrorKind::UnreadStat, "phase 0, on_enter");
 }

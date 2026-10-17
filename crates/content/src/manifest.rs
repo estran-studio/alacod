@@ -77,7 +77,8 @@ pub enum Mechanic {
     Hearts,
     /// Pools à épuisement : un pool `exhaust` tiré au moins deux fois par partie.
     ExhaustPools,
-    /// Marché du diable : salle post-boss à chance qui porte un coffre ou une boutique.
+    /// Marché du diable : une salle post-boss à chance non nulle dans une grammaire de la partie ordinaire
+    /// (son contenu, coffre ou boutique, relève de la règle « salle spéciale vide »).
     DevilMarket,
     /// Champions : variante à chance non nulle sur un ennemi des salles atteintes.
     Champions,
