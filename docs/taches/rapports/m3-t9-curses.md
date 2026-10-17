@@ -30,7 +30,16 @@ Autres décisions et corrections :
 - `scaled_rooms` ramène la grammaire à une grammaire satisfiable (au moins départ + boss + requises, au plus la capacité de la
   grille) : une curse ne peut pas rendre un étage impossible à planifier dans les limites éprouvées (×2).
 
-## 2. Vérifié (sur la fusion avec `origin/main` `25c0e49b`, puis après le correctif de la revue : HEAD `f35d0475` + ce correctif)
+## 2. Vérifié (dernière fusion avec `origin/main` `1600b43b` = M3-T3 ; avant elle : `25c0e49b`, puis le correctif de la revue)
+
+**Dernière fusion `1600b43b` (M3-T3 mergée pendant la revue), tout rejoué dessus** : `make test_scenarios_par SHARDS=3` sans BLESS :
+**519 scénarios**, 3 tranches ok, 159 s, aucune trace bougée (dont mes 7 nouvelles, sans re-bless) ; `make test_crates` : **1 086 passés,
+0 échec**, 14 ignorés ; `make lint` ×5 « aucune erreur » ; `make gen` ×5 code 0 et `git status` propre ; fmt, `check-forbidden.sh`,
+`check-rollback-registration.sh`, `check_sim_boundary`, `make test_tools` (19) OK ; fuzz `ALACOD_FUZZ=0:8` 1 passé (27 s) ;
+p2p-stress testbed (montage `maudit_maze`, `EXPECT_FLOORS=1`, 2 400 frames) : **5 943 frames resimulées**, 1 transition d'étage,
+0 desync, 2 399 lignes identiques, `curse floor=0 id=maze` f0 puis `curse floor=1 id=none` f1606 ; p2p-stress isaac (`sous_sol_maudit`,
+graine 2, 3 000 frames) : **4 554 frames resimulées**, 0 desync, 2 999 lignes identiques, `salles (8, 12) → (16, 24)`.
+Le détail ci-dessous date des fusions précédentes (mêmes résultats).
 
 - `make test_scenarios_par SHARDS=3` sans BLESS, **sur le correctif de la revue** : **507 scénarios**, 3 tranches ok, 155 s (sur la
   fusion avant correctif : 507, 158 s ; avant fusion : 507, 197 s). Aucune `.trace` existante modifiée (`git status` propre après),
@@ -98,8 +107,9 @@ Autres décisions et corrections :
 
 ## 4. Traces bougées
 
-**Aucune trace existante.** Les 500 `.trace` d'avant (hors `curse_pool_unset`) sont identiques à `main` : 507 scénarios verts sans
-BLESS. Ajoutées : `curse_drawn_seeded`, `curse_drawn_seeded_other`, `curse_modifier`, `curse_hides_minimap`, `curse_hides_health`,
+**Aucune trace existante.** Les `.trace` d'avant (hors `curse_pool_unset`, 512 sur la dernière fusion) sont identiques à `main` :
+519 scénarios verts sans BLESS sur la fusion avec M3-T3 (`1600b43b`, dont les 11 traces isaac re-bénies par T3 : les miennes, immobiles,
+n'ont pas bougé non plus). Ajoutées : `curse_drawn_seeded`, `curse_drawn_seeded_other`, `curse_modifier`, `curse_hides_minimap`, `curse_hides_health`,
 `curse_blind`, `curse_bigger_floor` (nouveaux scénarios, aucun bless d'une trace existante). Supprimée : `curse_pool_unset` (T0e),
 dont la trace aurait bougé (`RunCurses.entered` s'écrit dès la frame 0 d'une séquence à curses) et dont le propos est caduc.
 **Pas de preuve §5 (dump comparé)** : rien n'a été re-béni ; la preuve de neutralité est la suite verte sans bless sur 500 traces
@@ -114,7 +124,7 @@ existantes (dont `grid_*`, `isaac_*`, `gungeon_*`, qui n'ont pas de champ `curse
 - M3-T16 (HUD v3) : lire `CurseHides::item_names` aussi pour les objets sans prompt (`InteractionType::Item` n'a pas de prompt
   avant le HUD de M2/V4).
 - Journal `docs/taches.md` §10 : à ajouter sur `main` après le merge (règle du README §6) ; proposition :
-  `| 2026-10-16 | M3-T9 (curses d'étage en jeu : tirage à l'entrée par graine+étage, Modifier curse:<id>, FloorRooms ×2 à la génération grille et arbre, HUD masqué minimap/santé/noms ; attentes RoomCount et HudText empty ; §74) | m3-t9-curses | b3 | mergée ; 507 scénarios sans trace bougée sur la fusion avec main 25c0e49b (7 nouveaux, curse_pool_unset retiré), test_crates 1 064, lint/gen ×5, fuzz (+2 scénarios à curse), 3 mutations tuées, p2p-stress testbed 5 720 puis 6 597 (passage d'étage) puis 5 990 sur la fusion (EXPECT_FLOORS=1) et isaac 4 608 (labyrinth ×2) frames resimulées ; non fait : curses dans la séquence par défaut d'isaac (T11d), item_names hors prompt (T16) |`
+  `| 2026-10-16 | M3-T9 (curses d'étage en jeu : tirage à l'entrée par (graine de carte, étage), Modifier curse:<id>, FloorRooms ×2 à la génération grille et arbre, HUD masqué minimap/santé/noms ; attentes RoomCount et HudText empty ; §74) | m3-t9-curses | b3 | mergée ; 519 scénarios sans trace bougée sur la fusion avec main 1600b43b (7 nouveaux, curse_pool_unset retiré), test_crates 1 086, lint/gen ×5, fuzz (+2 scénarios à curse), 3 mutations tuées, revue indépendante (1 bloquant corrigé : graine de carte et non RunSeed), p2p-stress testbed 5 943 frames resimulées avec passage d'étage et isaac 4 554 (labyrinth ×2) sur la fusion ; non fait : curses dans la séquence par défaut d'isaac (T11d), item_names hors prompt (T16), restart en ligne/hub non essayés de bout en bout |`
 
 ## 6. Atteignabilité
 
