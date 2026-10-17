@@ -11,10 +11,12 @@
     // Va chercher les tas de sous au sol dont le chemin coûte au plus 400 (10 par case de 8 px : une quarantaine de
     // cases) : ils ne valent pas un détour d'un bout à l'autre de l'étage (ramassés au contact).
     shells: Some(400),
-    // Marché du diable (vie maximale, `Shelf::cost`) : Never | IfHealthAbove(n), n en points de vie
-    // (un cœur = 2 PV, le cœur d'`isaac` coûte 2). La valeur retenue est celle des campagnes du rapport
-    // m3-t14-bot-isaac ; Q14 (William) reste ouverte.
-    devil: IfHealthAbove("4.0"),
+    // Marché du diable (vie maximale, `Shelf::cost`) : Never | IfHealthAbove(n), n en points de vie (un cœur =
+    // 2 PV, le cœur d'`isaac` coûte 2). `Never` : sur les 55 graines à salle du diable des 200 de la campagne, 55
+    // victoires avec `Never` contre 48 victoires et 7 morts avec `IfHealthAbove("4.0")` (les objets du diable sont
+    // encore des données d'attente, un cœur de moins ne se rachète pas). Défaut à confirmer par William (Q14) quand
+    // le contenu de M3-T11 aura des objets qui valent un cœur.
+    devil: Never,
     // Bombes : mur de la salle secrète (voisine d'au moins deux salles, §70) et rocher qui coupe le chemin
     // d'un but ; `reserve` : bombes gardées en stock.
     bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
