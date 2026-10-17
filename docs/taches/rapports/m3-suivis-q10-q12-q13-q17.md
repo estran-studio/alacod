@@ -73,7 +73,40 @@ d'objet de larmes), tous les scénarios générés d'`isaac` (épinglés `aim: F
 
 ## 3. Vérifié (résultats réels, sur le code final)
 
-RÉSULTATS
+| Commande (sur le HEAD final, fusionné avec `origin/main` `f18f5945`) | Résultat |
+|---|---|
+| `make test_scenarios_par SHARDS=3` (sans `BLESS`) | 3 tranches ok, **638 scénarios** (625 de `main` + 13 neufs), 274 s |
+| Traces modifiées par rapport à `main` | **8**, toutes au § 2 : `champion_explodes`, `champion_explodes_sans_variante`, `familiar_mirror_cadence`, `familiar_mirror_shot`, `familiar_quad`, `generated/testbed/familiar_compagnon` (Q13) ; `generated/isaac/boss_gardien`, `generated/isaac/room_combat` (Q17) |
+| Traces neuves (13) | `familiar_mirror_items`, `..._sans_objet`, `aim_four_way`, `aim_four_way_libre`, `status_charm`, `status_charm_temoin`, `status_charm_contact`, `transformation_three`, `transformation_two`, générés `weapon_status_charm`, `item_amanite`, `item_bolet`, `item_morille` |
+| `make test_crates` | 1 193 passés, 0 échec, 14 ignorés |
+| `make lint` ×5 | zombies, testbed, throne, gungeon, isaac : « aucune erreur » |
+| `make gen GAME=…` ×5 (sans `GEN_BLESS`) | zombies 16, testbed 102, throne 39, gungeon 59, isaac 95 : tous « ok », `git status` propre |
+| `cargo fmt --all -- --check`, `make check_sim_boundary`, `scripts/check-forbidden.sh`, `scripts/check-rollback-registration.sh`, `make test_tools` | OK (11 crates de simulation, 5 en dette D69 ; 38 occurrences auditées ; 25 tests) |
+| Fuzz `ALACOD_FUZZ=0:8` (zombies, 3 600 frames) | 8 graines, aucune divergence |
+| Fuzz `ALACOD_FUZZ=0:8 ALACOD_FUZZ_FRAMES=1200 ALACOD_FUZZ_SCENARIO=…` | `status_charm`, `aim_four_way`, `familiar_mirror_items` : 8 graines chacun, aucune divergence (inputs aléatoires sur les trois mécaniques) |
+
+Unitaires neufs : `sim_core::aim` (quantification, égalité, extrêmes `i16`), `combat::weapons` (`tear_motion`), `combat::status` (charme),
+`game::…::charm` (cible la plus proche, égalité, mouvement), `behavior` (sélection de cible du charmé, attaque en cours, mort), `items`
+(transformation : distincts, doublon, actif, cumul avec `requires`), `bots::decide` (visée `FourWay`, file, route sans ligne),
+fixtures `transformation_ok` et `transformation_bad` (`crates/content/tests/transformations.rs`).
+
+### p2p à deux clients sous prédiction (testbed, Docker OrbStack)
+
+`export PATH=$HOME/.orbstack/bin:$PATH MATCHBOX_PORT=3536 COMPOSE_PROJECT_NAME=b0` puis
+`scripts/p2p-stress.sh testbed /tmp/q-montage.ron 3000` (`scripts/p2p-stress-inputs.py 3000 --hold Interaction:1:3000`,
+`ALACOD_INPUT_DELAY=0`, client 1 suspendu par SIGSTOP/SIGCONT). Montage **temporaire, non commité** (`git apply` puis `git checkout`) :
+`player_config.ron` du testbed avec `aim: FourWay` ; un système `p2p_montage` dans `games/testbed/src/main.rs`
+(`GgrsSchedule`, `EnemySpawning`, tout dépend du numéro de frame) qui pose à f5 aux pieds de chaque joueur `compagnon` (familier
+`MirrorShot`), `amanite`, `bolet`, `morille` (transformation), puis, toutes les 300 frames à partir de f60, un `breacher`
+**charmé** (statut `charme` posé à la création) entre deux `target`, à l'est du joueur 0.
+
+- Code de sortie 0 des deux clients, `DesyncDetected` 0, **traces identiques sur 2 999 frames contiguës**.
+- **Frames resimulées (journal du jeu) : 5 663** sur le client 0 (0 sur le client suspendu, qui n'a pas à resimuler), seuil 1 000.
+- Exercé en réel (lignes du journal du client 0, frames resimulées comprises) : 132 `familiar_shot`, 243 `charm_attack`, 7
+  `familiar_spawn`, 32 ramassages ; les lignes `charm_attack`/`familiar_shot` dédoublonnées ne diffèrent entre clients que par des frames
+  prédites puis annulées (ex. f1560, deux cibles successives pour le même charmé), comme au rapport de T6.
+- La teinte de transformation (présentation) n'a pas de ligne de journal en headless : seule la simulation de la transformation
+  (`MoveSpeed`) est couverte par ce run.
 
 ## 4. Décisions et points à relire
 
