@@ -1,0 +1,14 @@
+// `isaac` (M3-T11b, §76.2) : chaque coup porté (`OnHit`) empoisonne la cible (`ApplyStatus`), une pile par exemplaire (`Scaled(PerCopy)`).
+(
+    name: "Crocs",
+    kind: Passive,
+    effects: [
+        (on: OnHit, do: [Scaled(action: ApplyStatus(status: "poison", stacks: 1), scale: Some(PerCopy))]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "poison", at_frame: 140)], control: [HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 140)])),
+    )),
+)

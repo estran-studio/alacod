@@ -1,0 +1,12 @@
+// `isaac` (M3-T11b, §76.2) : au ramassage (`OnPickup`), 4 points de vie d'âme (`GainSoul`, §68).
+(
+    name: "Reliquaire",
+    kind: Passive,
+    effects: [
+        (on: OnPickup, do: [GainSoul("4")]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    // Un objet de départ ne déclenche pas `OnPickup` : l'effet est prouvé par le scénario `isaac_reliquaire` (objet ramassé au sol).
+    test: Some((frames: 60)),
+)
