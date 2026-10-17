@@ -1,0 +1,13 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : les larmes percent un personnage de plus (`Pierce(1)`) par exemplaire.
+(
+    name: "Épine",
+    kind: Passive,
+    projectile: Some((modifiers: [Pierce(1)])),
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_epine` et son témoin `tears_epine_sans_objet`, seuils mesurés : la larme perce la cible proche et touche celle de l'arène (11 coups contre 6 ; 2 balles en vol à f150 contre 0).
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], hits: [(target: 0, with_item: 5, without_item: 0)], expect: [BulletCount(count: 2, projectile: Some("larmes"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larmes"), at_frame: 150)])),
+    )),
+)

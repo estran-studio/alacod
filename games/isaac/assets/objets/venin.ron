@@ -1,0 +1,13 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : chaque larme empoisonne avec 50 % de chance (+12,5 % par point de `Luck`, `Chance`).
+(
+    name: "Venin",
+    kind: Passive,
+    projectile: Some((on_hit: [Chance(base: "0.5", per_luck: "0.125", then: ApplyStatus(status: "poison", stacks: 1))])),
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_venin` et son témoin `tears_venin_sans_objet`, seuils mesurés : 300 frames : au moins un empoisonnement en cours à f300 (témoin : aucun statut).
+        tears: Some((weapon: Some("larmes"), frames: Some(300), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "poison", at_frame: 300)], control: [HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 300)])),
+    )),
+)

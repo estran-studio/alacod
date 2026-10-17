@@ -1,0 +1,13 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : à l'impact, la larme se divise en trois en éventail (`Split`, copie du tir du porteur).
+(
+    name: "Éclat",
+    kind: Passive,
+    projectile: Some((modifiers: [Split(count: 3, spread: "0.6")])),
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_eclat` et son témoin `tears_eclat_sans_objet`, seuils mesurés : les éclats touchent la cible de l'arène (5 coups contre 0 sur la cible posée) ; 5 balles en vol contre 0.
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], hits: [(target: 0, with_item: 5, without_item: 0)], expect: [BulletCount(count: 5, projectile: Some("larmes"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larmes"), at_frame: 150)])),
+    )),
+)

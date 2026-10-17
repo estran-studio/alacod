@@ -1,0 +1,9 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : dégâts +100 % mais cadence -30 % (`Damage` Pct 1, `FireRate` Pct -0,3).
+(
+    name: "Plomb fondu",
+    kind: Passive,
+    modifiers: [(stat: Damage, op: Pct, value: "1.0"), (stat: FireRate, op: Pct, value: "-0.3")],
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((frames: 60)),
+)
