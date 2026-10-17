@@ -1,6 +1,6 @@
 # M3-T3 : cœurs, i-frames, sous, bombes et clés au sol
 
-Branche `m3-t3-coeurs-pickups` (depuis `origin/main` a9432ed9, fusionnée avec `0a719425`, puis à la revue avec `64ec961c`), worker b1 (réalisation), b6 (revue indépendante et correctifs), 2026-10-16.
+Branche `m3-t3-coeurs-pickups` (depuis `origin/main` a9432ed9, fusionnée avec `0a719425`, puis à la revue avec `64ec961c` et `b2da3508`), worker b1 (réalisation), b6 (revue indépendante et correctifs), 2026-10-16.
 Spécification : `docs/conventions.md` §68. Réponses de William appliquées : **Q2** (demi-cœur = 1 PV, `ExtraHealth { soul }`
 neutre absorbé avant les PV point par point, cœurs d'âme en présentation), **Q4** (sous, bombes, clés **par joueur**), **Q6**
 (`ExtraHealth` lisible par `can_pay`, rien décidé pour T8).
@@ -58,14 +58,16 @@ récompense, **une ligne** : l'objet au sol change (même position).
 `hit_iframes_isaac` : n'existe pas sur `main`, trace neuve (la carte `map_seed: 1` est la grille) ; ses ennemis (20, −8) et (−36, −8) sont toujours à 28 px du joueur (départ (−8, −8), ancre de l'étage inchangée),
 les attentes (6, 5, 4, 4, 3 PV) passent sans changement : **rien à recaler**. Identiques : `grid_secret_*`, `grid_treasure_*`, `isaac_boots`, générées `weapon_*`, et tous les autres jeux.
 
-## 3. Vérifié (revue b6, sur la fusion avec `origin/main` `64ec961c`)
+## 3. Vérifié (revue b6)
 
-- `make test_scenarios_par SHARDS=3` **sans BLESS hors `isaac`** : **509 scénarios, trois tranches ok** (1 287 s sur la machine partagée). Bénis (liste exacte) : les **onze** traces `isaac` du § 2 et `hit_iframes_isaac` (neuve) ;
+Preuve §5, p2p et mutation : sur la fusion avec `64ec961c`. Tout le reste ci-dessous : **rejoué sur la fusion finale avec `origin/main` `b2da3508`** (D66 vue directe, traces throne de main, fusion sans conflit ; aucune trace `isaac` n'a bougé du fait de cette seconde fusion).
+
+- `make test_scenarios_par SHARDS=3` **sans BLESS hors `isaac`** : **512 scénarios, trois tranches ok** (1 056 s sur la machine partagée). Bénis (liste exacte) : les **onze** traces `isaac` du § 2 et `hit_iframes_isaac` (neuve) ;
   nouvelles traces : `shop_full`, `shop_full_temoin`, `room_reward_coins`, `champion_drops_coins`. Aucune autre trace (testbed, zombies, gungeon, throne, `grid_secret_*`, `grid_treasure_*`, `isaac_boots`, générées `weapon_*`) n'a bougé.
-- `make test_crates` : **1 033 tests, 0 échec**, 13 ignorés (somme des lignes `test result`). `make test_tools` : 18 ok.
+- `make test_crates` : **1 038 tests, 0 échec**, 14 ignorés (somme des lignes `test result`). `make test_tools` : 18 ok.
 - `make lint` ×5 (`zombies`, `testbed`, `throne`, `gungeon`, `isaac`) : aucune erreur. `make gen` ×5 : tous les scénarios générés ok, aucun diff hors des six traces `generated/isaac` du § 2.
 - `cargo fmt --all -- --check` : ok. `make check_sim_boundary` : ok (11 crates, 5 en dette D69). `check-forbidden.sh` : ok (38 occurrences auditées). `check-rollback-registration.sh` : ok.
-- Fuzz `ALACOD_FUZZ=0:8` (`-- --ignored`) : 8 graines, 3600 frames, aucune divergence (354 s) ; `ALACOD_FUZZ_BOMBS=1` : 8 graines, 8 explosions par partie, aucune divergence (314 s).
+- Fuzz `ALACOD_FUZZ=0:8` (`-- --ignored`) : 8 graines, 3600 frames, aucune divergence (267 s sur la fusion finale) ; `ALACOD_FUZZ_BOMBS=1` : 8 graines, 8 explosions par partie, aucune divergence (314 s).
 - `extra_health.rs` : 6 tests ok ; **mutation jouée** : avec `SHIELD_IFRAMES` porté de 15 à 30 (le coup absorbé par le bouclier bloquerait le coup de f30, comme s'il posait les 30 frames de `hit_iframes`), le nouveau test échoue avec `(5000.0, 0.0, 0)` au lieu de `(4992.0, 0.0, 0)` ; rétabli à 15.
   `hit_iframes.rs` : 2 tests ok (le test vacuous est supprimé). `-p content --test m3_t3_fixtures` : 8 ok ; `m3_t0b_fixtures` : 6 ok.
 - Docker : `MATCHBOX_PORT=3596`, `COMPOSE_PROJECT_NAME=b6`.
@@ -103,7 +105,7 @@ Entrées : `scripts/p2p-stress-inputs.py 3000`, `ALACOD_INPUT_DELAY=0`, client 1
   Piège rencontré : la cible placée à f5 n'existe qu'à partir de f6 ; poser un composant « à f5 » ne fait rien.
 - **Piège d'outillage** : un `git worktree` de `main` compilé avec le même `CARGO_TARGET_DIR` écrase les artefacts des crates du workspace (le hash ne dépend pas du chemin) ; `find crates games -name '*.rs' -exec touch {} +` après coup (fait).
 - Question pour William : le pool de récompense d'`isaac` (poids : clé 3, blank 2, ration 2, sou 4, cœur 3, cœur d'âme 1, bombe 2) est un premier jet ; équilibrage à M3-T11d.
-- Fusion : `origin/main` avait avancé de `89a394ef` à `64ec961c` pendant la revue (m2-full-run, revue-sons-visuels-m1) ; c'est `64ec961c` qui est fusionné. Conflits : `bomb.ron` (isaac : commentaire de M3-T5 gardé, `max_stack: Some(99)` gardé), `docs/taches.md` (deux lignes), six traces `isaac` (reprises de `main`, puis re-bénies).
+- Fusion : `origin/main` a avancé de `89a394ef` à `64ec961c` puis `b2da3508` pendant la revue (m2-full-run, revue-sons-visuels-m1, dette-d66-vue-directe) ; les deux sont fusionnés (le second sans conflit). Conflits : `bomb.ron` (isaac : commentaire de M3-T5 gardé, `max_stack: Some(99)` gardé), `docs/taches.md` (deux lignes), six traces `isaac` (reprises de `main`, puis re-bénies).
 
 ## 7. Atteignabilité
 
