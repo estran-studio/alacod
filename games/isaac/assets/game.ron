@@ -18,6 +18,8 @@
         (path: "loot", kind: "LootTable"),
         // M3-T11a (§76.1) : statuts posés par l'`on_hit` des objets de larmes (poison, brûlure, gel, peur, lenteur).
         (path: "statuses", kind: "Status"),
+        // M3-T11b (§76.2) : synergie d'objets du pool `tresor`.
+        (path: "synergies", kind: "Synergy"),
         // M3-T9 (§74) : les cinq curses de Q7 ; aucune séquence par défaut ne les tire avant M3-T11d.
         (path: "curses", kind: "Curse"),
         // Types de salles du champ de niveau `room_kind`.

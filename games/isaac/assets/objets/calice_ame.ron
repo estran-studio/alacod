@@ -1,0 +1,11 @@
+// `isaac` (M3-T11b, §76.2) : actif chargé par 30 points de dégâts infligés ; à l'usage, 2 points de vie d'âme (`GainSoul`).
+(
+    name: "Calice d'âme",
+    kind: Active(Damage(30)),
+    effects: [
+        (on: OnUse, do: [GainSoul("2")]),
+    ],
+    tags: ["actif"],
+    rarity: Rare,
+    test: Some((frames: 60, expect: [ExtraHealth(handle: 0, n: 2.0, at_frame: 30)])),
+)

@@ -5460,8 +5460,7 @@ Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) aff
 
 ### Atteignabilité
 
-M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac` ; d'ici là, scénarios testbed seulement
-(dette nommée, à fermer par T11b).
+M3-T11b (§76.2) met trois familiers (`frere`, `orbe`, `nuee`) dans le pool trésor d'`isaac` : dette fermée.
 
 
 ## 72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
@@ -5871,6 +5870,52 @@ ligne de tir (touchée seulement par la larme ×1,5).
 
 Dettes : pas de boutique ni de pool boutique (T11d) ; `Chance` dépend du net id des larmes (un changement de cadence déplace
 les tirages : les seuils de `venin`, `givre`, `epouvante` sont « au moins un statut à f300 ») ; pas de sprite d'objet.
+
+### 76.2 T11b : effets, familiers, actifs (`m3-t11b-effets`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur. Tout passe par des vocabulaires déjà livrés :
+effets v3 (§67), familiers (§71), cœurs d'âme (§68), pools à épuisement (§73), générateur v3 (§78).
+
+- **Dix objets**, tous avec `test:` ; poids par rareté 4 / 2 / 1 dans leur pool (`exhaust: true`, aucun `exclude_held`).
+  Pool `tresor` (`loot/tresor.ron`, 23 → 31 entrées) : `frere`, `orbe`, `nuee`, `crocs`, `pouls`, `rancune_vive`, `reliquaire`,
+  `calice_ame`. Pool `boss` (`loot/boss.ron`, 3 → 5 entrées ; les trois passifs de T8, peu communs, passent de poids 1 à 2) : `sang_chaud`,
+  `calice_ardent`.
+- **Familiers** (`characters/`, fiche de §71 : équipe `Players`, `stationary`, collider 12 x 12, immunisés) : `frere` (`Follow(gap: 28)` +
+  `MirrorShot(weapon: "larmes", every: 12)` : l'arme `larmes` du jeu, sans les objets du porteur, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
+  + `BlockBullets`). Lab : `cible_mordante` (`test_only`, immobile, 5 000 PV, `counts_hits`, mêlée au contact à 40 : le générateur retrouve ses
+  cibles **par position**, une cible mobile n'a pas de compteur dans la sonde).
+- **Synergie** `synergies/garde_rapprochee.ron` (`requires: ["frere", "orbe"]`, deux objets du pool `tresor`, `Damage` +20 %) ; dossier `synergies`
+  déclaré dans `game.ron`. Preuve : scénario `isaac_synergy_garde` (frère ramassé f10 : dégâts 1, un familier ; orbe f40 : deux familiers, dégâts 1,2).
+- **Cœurs d'âme** : `coeur_ame` est déjà dans le pool de récompense `loot/salle.ron` (T3, poids 1) ; `reliquaire` et `calice_ame` en donnent aussi
+  (`GainSoul`). `salle.ron` n'a pas changé (aucune trace de plus ne bouge).
+
+| Objet | Effet | Pool (rareté, poids) | Graine `alacod-sim` | Scénarios |
+|---|---|---|---|---|
+| `frere` | familier `Follow` + `MirrorShot` | tresor (Common, 4) | 12 (coffre) | `item_frere`, `familiar_frere` (+ `_sans_objet` : ≥ 6 coups contre 5), `isaac_synergy_garde` |
+| `orbe` | familier `Orbit` + `BlockBullets` | tresor (Uncommon, 2) | 37 (coffre ; `familiar_block` en jeu) | `item_orbe`, `familiar_orbe` (`FamiliarDistance` 30–40) |
+| `nuee` | trois `orbe` (`per_copy: 3`) | tresor (Rare, 1) | 59 | `item_nuee`, `familiar_nuee` (rangs 0 et 1 à 60–64) |
+| `crocs` | `OnHit` : `Scaled(PerCopy) ApplyStatus poison` | tresor (Common, 4) | 3 | `item_crocs`, `tears_crocs` (poison / témoin sans) |
+| `pouls` | `Tick(90)` : `TimedModifier` `MoveSpeed` +30 % 60 frames | tresor (Common, 4) | 20 | `item_pouls` (`MoveSpeed` 120 à f60, 156,00037 à f100) |
+| `rancune_vive` | `OnDamageTaken` : `ApplyStatus peur` sur l'auteur du coup | tresor (Uncommon, 2) | 55 | `item_rancune_vive`, `tears_rancune_vive` (`cible_mordante` : peur / témoin sans) |
+| `reliquaire` | `OnPickup` filtré `item: Some("reliquaire")` : `GainSoul(4)` (sans filtre, chaque ramassage suivant rendrait 4 points : relecture) | tresor (Common, 4) | 46 | `item_reliquaire`, `isaac_reliquaire` (ramassé au sol, puis un autre objet : rien de plus) |
+| `calice_ame` | actif `Active(Damage(30))`, `OnUse` : `GainSoul(2)` | tresor (Rare, 1) | 10 | `item_calice_ame` (charge, usage, `ExtraHealth` 2) |
+| `sang_chaud` | `OnKill` : `TimedModifier` `FireRate` +50 % 300 frames | boss (Uncommon, 2) | 1 (butin du boss ramassé f1752, effet `OnKill` journalisé f2237) | `item_sang_chaud`, `tears_sang_chaud` (`cible_fragile` tuée : `FireRate` 1,5 / témoin 1) |
+| `calice_ardent` | actif `Active(Rooms(2))`, `OnUse` : `Damage` +100 % 300 frames | boss (Uncommon, 2) | 4 (butin f2249, ramassé f2336) | `item_calice_ardent` (`Damage` 2 après l'usage) |
+
+Graines : `alacod-sim --game isaac --bots 1 --profiles explorateur --shopping --seeds N..N --floors sous_sol --until-floor 2 --max-frames 12000
+--log` (balayage 1..125, premier `chest_open` du trésor, ou `slot_assign pool=boss` puis `boss_drop` pour le boss). Les 10 objets sortent.
+
+**Limites de preuve.** Un objet **donné au départ** (`PlayerScript::items`) ne déclenche pas `OnPickup` : `reliquaire` se prouve par un scénario
+écrit (`isaac_reliquaire`, objet posé sous le joueur) et son `test:` ne génère que la tenue ; l'attente `ExtraHealth` n'y est donc pas. `Stat` d'une
+vitesse est en unités/s (`MoveSpeed` 120), pas en multiplicateur : le seuil de `pouls` est une valeur mesurée.
+Lint : `make lint GAME=isaac` perd les avertissements « aucun objet à effets » (trésor, boss), « aucune synergie atteignable » et « familiers : 0 sur 2 »
+(il reste ceux de la boutique, de T11d).
+
+**Traces** : le pool `tresor` change les coffres de trésor et le pool `boss` le butin du boss (tirage à la génération de l'étage : l'objet tiré dépend
+de la taille du pool) ; preuve §5 au rapport `m3-t11b-effets.md`. Les autres jeux ne bougent pas.
+
+Dettes : pas de boutique (T11d) ; pas de transformation (Q10 non retenue) ; la synergie n'est jouée qu'en scénario (le bot ne rouvre pas le trésor du
+second étage, deux objets du même pool ne sortent pas dans une même partie du bot) ; pas de sprite d'objet ni de familier propre (placeholders).
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 
