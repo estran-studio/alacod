@@ -308,18 +308,18 @@ qui ne se synchronise pas est abandonnée.
 ## 8. Suite : D86 corrigée, rollbacks mesurés, nightly complet (dette-d86-lobby-en-ligne, 2026-10-17)
 Détail et commandes : `docs/taches/rapports/dette-d86-lobby-en-ligne.md`.
 - **Retour au lobby en ligne (point 3, dernier sous-point)** : correctif (a) pairs de la session finie ignorés (`PreviousSessionPeers`, `live_players`), (b) abandon
-  d'une session `Synchronizing` plus de 30 s avec retour au lobby. Binaire d'avant : rouge au 1er essai (requêtes à 157 ms). Après : `scripts/p2p-lobby.sh`
-  **5/5 verts consécutifs** à 133–365 ms d'écart sur zombies, **5/5** sur gungeon après la victoire (f7143, 168–309 ms), traces identiques pour les parties 1 et 2,
+  d'une session `Synchronizing` plus de 30 s (horloge murale) avec retour au lobby. Binaire d'avant : rouge au 1er essai (requêtes à 157 ms). Après : `scripts/p2p-lobby.sh`
+  **5/5 verts consécutifs** à 208–338 ms d'écart sur zombies, **5/5** sur gungeon après la victoire (f7143, 126–300 ms), traces identiques pour les parties 1 et 2,
   partie 2 = partie 1. `scripts/p2p-sync-timeout.sh` : (b) de bout en bout, OK.
 - **Profondeur et fréquence des rollbacks** (2 clients, graine 10, 4 500 frames, délai d'input 0, une exécution par condition ; rollback = restauration `LoadWorld`,
-  profondeur = frames resimulées ensuite) :
+  profondeur = frames resimulées par rollback, ≥ 1) :
 
-| Condition (charge au lancement) | Rollbacks par 100 frames (clients 0 / 1) | Profondeur moyenne (0 / 1) | p90 | max | Profondeur 0 |
-|---|---|---|---|---|---|
-| Naturelle, boucle locale (2,95) | 17,4 / 15,9 | 0,63 / 0,58 | 2 / 2 | 10 / 9 | 64 % / 64 % |
-| netem RTT 120 ms ± 20 ms, perte 1 % (**12,06**) | 23,1 / 23,9 | 1,91 / 1,87 | 4 / 4 | 11 / 11 | 18 % / 17 % |
-| Stress SIGSTOP du client 1 (5,37) | 26,3 / 1,0 | 4,26 / 0,02 | 10 / 0 | 11 / 1 | 8 % / 98 % |
+| Condition (charge au lancement) | Rollbacks par 100 frames (clients 0 / 1) | Profondeur moyenne (0 / 1) | médiane / p90 / max | Profondeur 1 |
+|---|---|---|---|---|
+| Naturelle, boucle locale (2,97) | 18,9 / 18,7 | 1,14 / 1,15 | 1 / 2 / 4 | 87 % |
+| netem RTT 120 ms ± 20 ms, perte 1 % (2,39) | 20,1 / 20,3 | 4,50 / 4,53 | 4 / 9 / 12 | 10 % / 11 % |
+| Stress SIGSTOP du client 1 (2,89) | 28,1 / 1,8 | 4,12 / 1,06 | 3 / 9 / 12 (client 0) | 11 % / 94 % |
 
-  Aucune profondeur au-delà de 11 (fenêtre 12). Détail (médiane, p99, restaurations sans resimulation, `sans_restauration`) au rapport de la dette.
+  Profondeur maximale 12 (fenêtre de prédiction entière). Détail (p99, `sans_restauration`, coûts) et variabilité entre exécutions : rapport de la dette.
 - **Nightly complet** (`NIGHTLY_P2P_GUNGEON=1`, sans `--quick`, `10816160`) : code 0, **18 924 s** ; C2 (p2p gungeon, stress, transition d'étage) ✅ ; C (allumette) SKIPPED et
   D (vidéos) PARTIAL sur ce poste (pas de `../allumette`, pas d'affichage) : dette **D88**.

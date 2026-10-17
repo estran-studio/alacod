@@ -32,6 +32,7 @@ export RESTART_AT=${RESTART_AT:-300}
 export EXIT_AT=${EXIT_AT:-300}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 read -r -a gaps <<< "$GAPS_MS"
+[ "${#gaps[@]}" -gt 0 ] || { echo "p2p-lobby : GAPS_MS vide"; exit 2; }
 mkdir -p "$OUT"
 
 # Secondes depuis minuit d'un horodatage de journal tracing (« 2026-10-17T01:19:54.123456Z »).

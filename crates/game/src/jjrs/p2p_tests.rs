@@ -175,7 +175,8 @@ fn live_players_ignores_previous_session_peers_and_keeps_order() {
 #[test]
 fn sync_timeout_is_reached_only_after_the_delay() {
     use super::sync_timed_out;
-    assert!(!sync_timed_out(None, 1000.0, 30.0));
-    assert!(!sync_timed_out(Some(10.0), 39.9, 30.0));
-    assert!(sync_timed_out(Some(10.0), 40.0, 30.0));
+    use std::time::Duration;
+    assert!(!sync_timed_out(None, 30.0));
+    assert!(!sync_timed_out(Some(Duration::from_millis(29_900)), 30.0));
+    assert!(sync_timed_out(Some(Duration::from_secs(30)), 30.0));
 }

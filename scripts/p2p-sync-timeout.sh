@@ -77,7 +77,7 @@ fail=0
 for i in 0 1; do
     n=$(grep -c "session_sync_timeout" "$OUT/p2p-$i.log" || true)
     echo "client $i : abandons de session non synchronisée : $n"
-    grep -h "session_sync_timeout" "$OUT/p2p-$i.log" | sed 's/^/  /'
+    { grep -h "session_sync_timeout" "$OUT/p2p-$i.log" || true; } | sed 's/^/  /'
     [ "$n" -ge 1 ] || { echo "ÉCHEC : le client $i n'a jamais abandonné de session"; fail=1; }
 done
 echo "pairs obsolètes ignorés : $( (grep -h -c "d'une session précédente ignoré" "$OUT"/p2p-*.log || true) | awk '{s+=$1} END{print s+0}')"

@@ -116,16 +116,16 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
    récupération ; les conditions hors cible peuvent ralentir, mais ne doivent pas masquer un desync.
    Les tests en mémoire couvrent le protocole et la resimulation ; ils ne remplacent pas WebRTC/NAT.
    *Mesuré le 2026-10-17* (m2-p2p-run-complete §8, `dette-d86-lobby-en-ligne` ; 2 clients, gungeon graine 10, 4 500 frames, une exécution par condition,
-   une machine partagée ; rollback = restauration d'état, profondeur = frames resimulées ensuite ; le jeu journalise désormais « rollbacks : n=… » à la sortie) :
+   une machine partagée ; rollback = restauration d'état (`LoadWorld`), profondeur = frames resimulées par rollback (≥ 1) ; le jeu journalise désormais « rollbacks : n=… » à la sortie) :
 
-   | Condition (charge au lancement) | Rollbacks / 100 frames (clients 0, 1) | Profondeur moyenne | p90 | max | Restaurations sans resimulation |
-   |---|---|---|---|---|---|
-   | Boucle locale, sans stress (2,95) | 17,4 ; 15,9 | 0,63 ; 0,58 | 2 | 10 ; 9 | 64 % |
-   | netem RTT 120 ms ± 20 ms, perte 1 % (**12,06**, machine chargée) | 23,1 ; 23,9 | 1,91 ; 1,87 | 4 | 11 | 17–18 % |
-   | Stress SIGSTOP du client 1 (5,37) | 26,3 ; 1,0 | 4,26 ; 0,02 | 10 ; 0 | 11 ; 1 | 8 % ; 98 % |
+   | Condition (charge au lancement) | Rollbacks / 100 frames (clients 0, 1) | Profondeur moyenne | médiane / p90 / max | Profondeur 1 |
+   |---|---|---|---|---|
+   | Boucle locale, sans stress (2,97) | 18,9 ; 18,7 | 1,14 ; 1,15 | 1 / 2 / 4 | 87 % |
+   | netem RTT 120 ms ± 20 ms, perte 1 % (2,39) | 20,1 ; 20,3 | 4,50 ; 4,53 | 4 / 9 / 12 | 10–11 % |
+   | Stress SIGSTOP du client 1 (2,89) | 28,1 ; 1,8 | 4,12 ; 1,06 | 3 / 9 / 12 (client 0) | 11 % ; 94 % |
 
-   Profondeur jamais au-delà de 11 (fenêtre de prédiction 12). Pas encore mesurés : matrice RTT 60/200 ms et pertes 3 % (D87), répétitions (une seule exécution
-   par condition), machine au calme, vrai WAN.
+   Profondeur maximale 12 = la fenêtre de prédiction entière (atteinte 20 à 28 fois par client sous netem et stress : le pire cas `rollback_ms_worst` est réel). Pas encore mesurés : matrice
+   RTT 60/200 ms et pertes 3 % (D87), répétitions (une seule exécution par condition ; deux exécutions d'une même condition ont donné des distributions différentes), vrai WAN.
 5. **Plateformes.** Pour chaque combinaison annoncée (natif, navigateur, architectures différentes),
    comparer une même partie et ses états confirmés. Le fixed-point seul ne prouve pas la compatibilité
    des builds ni la stabilité des fonctions de hash entre plateformes/toolchains.

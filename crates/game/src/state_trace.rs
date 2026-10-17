@@ -82,18 +82,21 @@ pub struct StateTraceRecorder {
 
 /// Rollbacks réseau vus par l'enregistreur (mesure, hors simulation). Un **rollback** est une
 /// restauration d'état de bevy_ggrs (schedule `LoadWorld`, [`count_rollback_load`]) ; sa
-/// **profondeur** est le nombre de frames déjà enregistrées que l'enregistreur revoit ensuite
-/// (resimulations, jusqu'à la première frame nouvelle) : 0 si GGRS restaure sans rien rejouer.
+/// **profondeur** est le nombre de frames qu'il fait resimuler (≥ 1) : celles que la trace revoit
+/// (déjà enregistrées, jusqu'à la première frame nouvelle) **plus une**, car la sauvegarde qui
+/// suit la restauration tombe sur une clé de trace neuve (lecture de `ggrs` 0.13 et `bevy_ggrs`
+/// 0.22 à la relecture D86 ; cohérent avec le plafond observé de 11 = fenêtre de prédiction 12 − 1).
 /// Les compteurs repartent de zéro à chaque nouvelle partie (`resimulated` de
-/// [`StateTraceRecorder`], lui, cumule sur le processus ; `depth_sum` est sa part de la partie).
+/// [`StateTraceRecorder`], lui, cumule sur le processus et ne compte que les frames **revues**).
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct RollbackStats {
     pub rollbacks: u32,
     pub depth_max: u32,
     /// Somme des profondeurs : frames resimulées de la partie qui suivent une restauration.
     pub depth_sum: u32,
-    /// Frames déjà vues réenregistrées **sans** restauration préalable (ne devrait pas arriver :
-    /// le chiffre dit si les profondeurs sont complètes) et plus longue suite d'entre elles.
+    /// Frames déjà vues réenregistrées **sans** restauration préalable et plus longue suite d'entre
+    /// elles : [INFERENCE, lecture du code] re-sauvegardes de la frame courante par bevy_ggrs à
+    /// chaque tick où GGRS saute l'`Advance` au seuil de prédiction (pas des resimulations).
     pub unloaded: u32,
     pub unloaded_max: u32,
     /// Profondeur → nombre de rollbacks terminés de cette profondeur.
@@ -111,6 +114,10 @@ impl RollbackStats {
         self.flush();
         self.rollbacks += 1;
         self.open = true;
+        // La frame restaurée est resimulée sans que la trace la revoie (voir la doc du type).
+        self.current = 1;
+        self.depth_sum += 1;
+        self.depth_max = self.depth_max.max(1);
     }
 
     /// Une frame vient d'être enregistrée ; `resimulated` : elle l'était déjà.
@@ -891,24 +898,25 @@ mod restart_tests {
 mod rollback_stats_tests {
     use super::RollbackStats;
 
-    /// Une restauration ouvre un rollback ; les frames déjà vues qui suivent en sont la profondeur,
-    /// la première frame nouvelle le ferme ; une restauration sans rien rejouer compte (profondeur 0).
+    /// Une restauration compte pour une frame resimulée (celle que la trace ne revoit pas) plus les
+    /// frames déjà vues qui suivent ; la première frame nouvelle clôt le rollback ; des frames déjà
+    /// vues sans restauration sont comptées à part.
     #[test]
     fn rollbacks_depth_and_histogram() {
         let mut stats = RollbackStats::default();
         for _ in 0..10 {
             stats.record(false);
         }
-        // Rollback A : profondeur 3.
+        // Rollback A : trois frames revues, profondeur 4.
         stats.load();
         for _ in 0..3 {
             stats.record(true);
         }
         stats.record(false);
-        // Rollback B : restauration sans resimulation (profondeur 0), suivie d'une frame nouvelle.
+        // Rollback B : aucune frame revue, profondeur 1.
         stats.load();
         stats.record(false);
-        // Rollbacks C et D enchaînés : D rouvre aussitôt (C de profondeur 1), D de profondeur 2.
+        // Rollbacks C et D enchaînés : C de profondeur 2, D rouvert aussitôt, de profondeur 3.
         stats.load();
         stats.record(true);
         stats.load();
@@ -919,16 +927,16 @@ mod rollback_stats_tests {
         stats.record(true);
         stats.record(true);
         assert_eq!(stats.rollbacks, 4);
-        assert_eq!(stats.depth_max, 3);
-        assert_eq!(stats.depth_sum, 6);
+        assert_eq!(stats.depth_max, 4);
+        assert_eq!(stats.depth_sum, 4 + 1 + 2 + 3);
         assert_eq!((stats.unloaded, stats.unloaded_max), (2, 2));
         assert_eq!(
             stats.histogram().into_iter().collect::<Vec<_>>(),
-            vec![(0, 1), (1, 1), (2, 1), (3, 1)]
+            vec![(1, 1), (2, 1), (3, 1), (4, 1)]
         );
         assert_eq!(
             stats.summary(200),
-            "rollbacks : n=4 frames=200 profondeur_moy=1.50 profondeur_max=3 par_100_frames=2.00 sans_restauration=2(suite max 2) histogramme=0:1,1:1,2:1,3:1"
+            "rollbacks : n=4 frames=200 profondeur_moy=2.50 profondeur_max=4 par_100_frames=2.00 sans_restauration=2(suite max 2) histogramme=1:1,2:1,3:1,4:1"
         );
         stats.new_game();
         assert_eq!(stats, RollbackStats::default());

@@ -438,45 +438,53 @@ pub const SYNC_TIMEOUT_SECS: f32 = 30.0;
 pub const SYNC_TIMEOUT_ENV: &str = "ALACOD_SYNC_TIMEOUT_SECS";
 
 /// Surveillance de la synchronisation de la session en cours (hors rollback, présentation du
-/// réseau seulement).
+/// réseau seulement). Horloge **murale** (`Instant`), pas `Time<Real>` : en headless, bevy avance
+/// `Time<Real>` de 1/60 s par update (`TimeUpdateStrategy::ManualDuration`), donc d'un délai bien
+/// plus court que les secondes qu'on lit.
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub struct SessionSyncWatch {
-    /// Temps réel où la session a été vue en `Synchronizing` pour la première fois.
-    pub since: Option<f32>,
-    pub timeout: f32,
+    /// Instant où la session a été vue en `Synchronizing` pour la première fois.
+    pub since: Option<bevy::platform::time::Instant>,
+    pub timeout_secs: f32,
 }
 
 impl Default for SessionSyncWatch {
     fn default() -> Self {
         Self {
             since: None,
-            timeout: SYNC_TIMEOUT_SECS,
+            timeout_secs: SYNC_TIMEOUT_SECS,
         }
     }
 }
 
-/// Le délai de synchronisation est écoulé.
-pub fn sync_timed_out(since: Option<f32>, now: f32, timeout: f32) -> bool {
-    since.is_some_and(|since| now - since >= timeout)
+/// Le délai de synchronisation est écoulé (`waited` : depuis le premier `Synchronizing`).
+pub fn sync_timed_out(waited: Option<std::time::Duration>, timeout_secs: f32) -> bool {
+    waited.is_some_and(|waited| waited.as_secs_f32() >= timeout_secs)
 }
 
 /// `OnEnter(InGame)` : une session neuve repart d'une surveillance vierge.
 pub fn reset_sync_watch(mut watch: ResMut<SessionSyncWatch>) {
     watch.since = None;
-    watch.timeout = std::env::var(SYNC_TIMEOUT_ENV)
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(SYNC_TIMEOUT_SECS);
+    watch.timeout_secs = match std::env::var(SYNC_TIMEOUT_ENV) {
+        Err(_) => SYNC_TIMEOUT_SECS,
+        Ok(value) => value
+            .parse::<f32>()
+            .ok()
+            .filter(|secs| *secs > 0.0)
+            .unwrap_or_else(|| {
+                warn!("{SYNC_TIMEOUT_ENV}={value:?} invalide (secondes > 0 attendues), {SYNC_TIMEOUT_SECS} s gardées");
+                SYNC_TIMEOUT_SECS
+            }),
+    };
 }
 
-/// Session p2p restée en `Synchronizing` plus de [`SessionSyncWatch::timeout`] : abandon et
+/// Session p2p restée en `Synchronizing` plus de [`SessionSyncWatch::timeout_secs`] : abandon et
 /// retour au lobby (`RunRequest::ToLobby`, qui ferme le socket ; ses pairs deviennent des
 /// [`PreviousSessionPeers`] du prochain lobby).
 pub fn abandon_unsynchronized_session(
     mut commands: Commands,
     online_state: Res<OnlineState>,
     session: Option<Res<bevy_ggrs::Session<PeerConfig>>>,
-    time: Res<Time<Real>>,
     frame: Res<utils::frame::FrameCount>,
     request: Option<Res<crate::run_state::RunRequest>>,
     mut watch: ResMut<SessionSyncWatch>,
@@ -494,14 +502,16 @@ pub fn abandon_unsynchronized_session(
         watch.since = None;
         return;
     }
-    let now = time.elapsed_secs();
-    let since = *watch.since.get_or_insert(now);
-    if sync_timed_out(Some(since), now, watch.timeout) {
+    let since = *watch
+        .since
+        .get_or_insert_with(bevy::platform::time::Instant::now);
+    let waited = since.elapsed();
+    if sync_timed_out(Some(waited), watch.timeout_secs) {
         // `ggrs{…}` sans identifiant de pair : comparable (grep) d'un client à l'autre.
         warn!(
-            "ggrs{{f={} session_sync_timeout waited_secs={:.0} players={}}} session non synchronisée, abandon et retour au lobby",
+            "ggrs{{f={} session_sync_timeout waited_secs={:.1} players={}}} session non synchronisée, abandon et retour au lobby",
             frame.frame,
-            now - since,
+            waited.as_secs_f32(),
             session.num_players()
         );
         watch.since = None;

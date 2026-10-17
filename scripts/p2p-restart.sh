@@ -16,7 +16,7 @@
 #   « Retour au hub » des jeux à hub : hub → run → hub → run, graine dérivée à chaque passage),
 #   EXPECT_VICTORY=1 (échec si un client n'a pas journalisé `run summary … outcome=Victory` : la requête
 #   est posée APRÈS la fin de run), TIMEOUT (900 s : au-delà, les clients sont tués et le script échoue),
-#   RESTART_DELAYS_MS (« 0 250 » : `ALACOD_RESTART_DELAY_MS` du client i, la requête arrive plus tard dans sa partie ;
+#   RESTART_DELAYS_MS (vide : aucun délai ; « 0 250 » : `ALACOD_RESTART_DELAY_MS` du client i, la requête arrive plus tard dans sa partie ;
 #   `p2p-lobby.sh` s'en sert pour étaler les retours au lobby, D86), OUT (/tmp/p2p-restart), MATCHBOX_PORT,
 #   MATCHBOX_URL, NETEM (voir `p2p-lib.sh`).
 #   Tout autre `ALACOD_*` de l'environnement est transmis aux clients (`ALACOD_SKIP_HUB=1`).
