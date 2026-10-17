@@ -5623,7 +5623,9 @@ Aucun champ `pool` (§64) : le pool est la table nommée par le type de salle. M
 (`Price::pay` sur les valeurs du payeur, écrites seulement si le paiement réussit). **Règle de Q6, en un seul endroit
 (`Price::{soul_split, can_pay, pay}`, testé)** : les points d'`ExtraHealth` partent **d'abord** (comme au combat, §68) ; ce
 qu'ils ne couvrent pas se paie en vie maximale ; **ce reste est refusé s'il tuerait** (`vie courante <= reste`) ou dépasse la
-vie maximale. Un payeur à 1 PV sans âme est donc toujours refusé, avec une âme qui couvre le prix il est servi sans perdre une
+vie maximale. `shelf_interaction_system` refuse aussi si la **stat `MaxHealth` résolue après** la perte serait ≤ 0
+(`shop::max_health_after` : un `Set`/`Mul` de `MaxHealth` amplifie la perte ; scénario `devil_deal_refused_multiplied`).
+Un payeur à 1 PV sans âme est donc toujours refusé, avec une âme qui couvre le prix il est servi sans perdre une
 goutte. Le choix « âme partielle puis reste en vie maximale » est de T8 (Q6 dit seulement « à la place s'ils sont présents ») ;
 à relire. Refus : rien ne change (ni vie, ni âme, ni monnaie), `CurrencyEvent { delta: 0, reason: "shop_refused" }`, anti-rebond
 `retry_after` de 30 frames, trace `ggrs{… shop_refused … cost=…}`. Succès : trace `shop_buy … soul=<points> max_health_lost=<PV>`.
