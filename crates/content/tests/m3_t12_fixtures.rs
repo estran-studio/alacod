@@ -644,10 +644,14 @@ fn lint_json_reports_mechanic_warnings() {
 fn shop_table_is_not_drawn_when_floor_tables_exist() {
     let run = run(
         "shop_floor_tables",
-        &[Edit::Write(
-            "rooms/boutique.ron",
-            "(shop: Some((table: \"shop\", shelves: 2, floor_tables: [\"devil\"])))",
-        )],
+        &[
+            Edit::Write(
+                "rooms/boutique.ron",
+                "(shop: Some((table: \"shop\", shelves: 2, floor_tables: [\"devil\"])))",
+            ),
+            // le diable ne tire plus `devil` : seule la boutique le fait
+            Edit::Write("rooms/diable.ron", "(locks: false)"),
+        ],
     );
     run.assert_warns("pool « shop » : aucune salle");
     run.assert_silent_about("pool « devil »");
@@ -825,5 +829,6 @@ fn devil_market_is_not_the_shop() {
         ],
     );
     run.assert_warns("aucune boutique exigée par la grammaire");
-    run.assert_warns("aucun objet de larmes dans le pool d'une boutique");
+    // `devil` donne `key` : si le marché comptait comme boutique, cet avertissement disparaîtrait
+    run.assert_warns("aucune clé dans le pool d'une boutique");
 }

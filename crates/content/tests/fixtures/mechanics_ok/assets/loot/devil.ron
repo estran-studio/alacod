@@ -1,1 +1,1 @@
-(entries: [(pick: Item("effet"), weight: 1)])
+(entries: [(pick: Item("effet"), weight: 1), (pick: Item("satellite"), weight: 1), (pick: Item("key"), weight: 1)])

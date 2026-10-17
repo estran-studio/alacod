@@ -5925,7 +5925,7 @@ déjà dans `loot_pool_items` ; ce qui manquait était de savoir si quelqu'un ti
 ### Limites
 
 Statique : une salle posée par la grammaire n'est pas une salle *rencontrée* (probabilités, graines : bot T14 et
-campagnes T18) ; `Price` n'a pas de surface ; l'ordre des étages (`lock_from_floor` contre la longueur d'une séquence)
+campagnes T18) ; l'ordre des étages (`lock_from_floor` contre la longueur d'une séquence)
 n'est vérifié que pour les clés (`lint_key_sources`) ; le nombre de tirages par partie est un minimum prudent ; une entrée
 qu'un déblocage ajoute à un pool (`UnlockGrant::Loot`) compte comme source d'objet sans vérifier que le déblocage est
 accordé (la règle « déblocage jamais accordé » le dit à part).
