@@ -1,0 +1,12 @@
+// `isaac` (M3-T8, §73) : pool du marché du diable (`rooms/diable.ron`), vendu en vie maximale. Épuisement
+// par run (Q5) ; quatre objets pour au plus deux étages de deux présentoirs : le pool ne repart jamais
+// complet dans la séquence par défaut. Contenu : M3-T11.
+(
+    entries: [
+        (pick: Item("pacte_rouge"), weight: 1),
+        (pick: Item("cornes_noires"), weight: 1),
+        (pick: Item("queue_fourchue"), weight: 1),
+        (pick: Item("regard_maudit"), weight: 1),
+    ],
+    exhaust: true,
+)

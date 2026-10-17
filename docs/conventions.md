@@ -4558,7 +4558,8 @@ cœurs d'âme paient à la place : T8).
 - **`LootTableDef.exhaust: bool`** (défaut faux : comportement d'avant, hors de tout hash et de toute
   trace) : un objet sorti du pool n'y revient plus pendant la run. **Par run et par pool** (Q5) : un pool
   partagé par plusieurs salles est le même pour toutes. `weapons_only` garde le drapeau.
-- **État** `items::PoolState(BTreeMap<pool, BTreeSet<objet>>)` : ressource rollback **neutre**
+- **État** `items::PoolState { seen: BTreeMap<pool, BTreeSet<objet>>, assigned }` (M3-T8, §73 : `assigned` conserve
+  l'objet assigné à chaque emplacement ; tuple `PoolState(BTreeMap)` avant T8) : ressource rollback **neutre**
   (`LootPlugin`), vide tant qu'aucun pool n'a `exhaust` ; remise à zéro à chaque relance. Les armes y sont
   nommées `weapon:<id>` (comme le tirage). `count(pool)` est l'**index d'épuisement** du prochain tirage ;
   `record(pool, objet)` renvoie vrai pour une nouveauté.
@@ -4575,7 +4576,7 @@ cœurs d'âme paient à la place : T8).
   tirage d'un pool qui devient `exhaust` donne l'objet qu'il donnait avant), puis `loot_seed(…, "<clé>#<index>")`.
   `PoolState::next_seed(pool, graine, étage, clé)` prend `count(pool)` comme index.
 
-**Deux façons d'exécuter l'épuisement (décision de T8, ce qui suit est la proposition par défaut).**
+**Deux façons d'exécuter l'épuisement (décision de T8 : A, voir §73 ; le tableau est celui de T0e).**
 
 | | A. tirage à la génération de l'étage (proposé) | B. tirage à l'ouverture |
 |---|---|---|
@@ -4586,7 +4587,8 @@ cœurs d'âme paient à la place : T8).
 
 L'option A est la seule qui tienne la règle « un coffre ouvert tôt ou tard donne le même objet » de §48 avec
 un pool qui s'épuise ; la règle pure sert les deux (T8 choisit en passant `seen` de la génération ou de
-l'ouverture).
+l'ouverture). **Décision de T8 : option A**, exécutée et documentée au §73 (assignation à la génération de
+l'étage, conservée dans `PoolState::assigned`).
 
 ### Accomplissements (`meta::achievement`, kind `Achievement`)
 
@@ -5548,6 +5550,173 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
 scénarios testbed seulement (dette nommée, à fermer par T11c).
+
+## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
+
+Exécute les contrats de §64 (`exhaust`, `PoolState`, option A/B) et de §61 (`Price`, `can_pay`/`pay`) avec les
+réponses de William du 2026-10-16 : **Q5** (épuisement par run et par pool : trésor, boutique, boss, diable) et **Q6**
+(le diable refuse si le paiement tuerait, sinon la vie maximale baisse définitivement ; les cœurs d'âme paient à la
+place s'ils sont présents). Code : `items::{PoolState::assign, BossDropDef, RoomShopDef::cost, Price::{can_pay, pay}}`,
+`game::{loot::assign_slot, shop::{assign_shelves, pay_cost}}`, `map_ldtk::game::rooms::{room_chest_system,
+room_shop_system, room_boss_slot_system, boss_drop_system}`. **Un pool sans `exhaust` et une boutique à prix en douilles
+gardent leur comportement et leurs traces** : tout champ nouveau est optionnel et absent du contenu existant.
+
+### Option A retenue : l'objet est tiré à la génération de l'étage
+
+Option A de §64 (option B, tirage à l'ouverture, écartée : elle ne tient pas Q5, le même coffre donnerait un autre objet
+selon l'ordre des visites). **Un emplacement** est une clé de contenu (`room:<salle>` coffre de salle, `shelf:<salle>:<i>`
+présentoir, `boss:<salle>` butin du boss, la clé d'un placement de scénario). Quand le pool de l'emplacement a `exhaust`,
+l'objet est assigné **à la création de l'emplacement** : `PoolState::assign` tire sur la graine
+`exhaust_seed(graine, étage, clé, nombre d'objets déjà sortis du pool)` avec `draw_exhausting` (sans l'objet déjà sorti),
+retire l'objet du pool (`record`) et **conserve l'assignation** dans `PoolState::assigned` (`"<étage>:<clé>"` → objet).
+Ouvrir un coffre, mourir pour un boss ou acheter ne tire plus rien : l'objet vient de `assigned`, donc **ne dépend ni du
+moment, ni de l'ordre des visites, ni du joueur** (scénarios `pool_exhaust_time_independent_ab`/`_ba`).
+
+- **Ordre canonique.** Les salles de l'étage courant se parcourent dans l'ordre `(x, y, identifiant)` (`sorted_rooms`) ; les
+  trois systèmes (coffres, puis présentoirs, puis butin du boss, `Run`) l'appliquent dans cet ordre. L'ordre de tirage est
+  donc une fonction du plan et des types de salle, jamais du jeu. Un pool partagé par deux types de salle
+  (`coffre_a` et `coffre_b` du testbed) s'épuise dans cet ordre. Un placement de scénario est assigné à sa pose, dans
+  l'ordre de la liste (un scénario fixe lui-même le moment de la pose).
+- **Par run, par pool.** `PoolState` est une ressource de la run (remise à zéro à la relance, §64) : le trésor du second
+  étage ne redonne pas celui du premier (`isaac_floor_seed_1` : `tresor` et `boss` comptent 1 objet à f5, 2 à la
+  génération du second étage). La clé d'assignation porte l'étage : deux étages qui rechargent la même carte (mêmes
+  identifiants de salle) ne se confondent pas.
+- **Pool vidé.** Quand tous les objets du pool sont sortis, il repart complet (§64) : un objet déjà sorti peut ressortir, rien
+  de plus n'entre dans `seen`. `pool_unlock_temoin` : quatre coffres, trois objets, le quatrième répète `bottes`.
+- **Déblocages (§51).** `unlocked_table` étend le pool et `hidden_items` retire les objets réservés avant le filtre, comme
+  pour tout autre tirage (`pool_unlock` : le déblocage `manche_epuisable` donne quatre objets distincts, `manche` compris).
+  Le chemin des boutiques sans `exhaust` (`draw_shelves`) ignore toujours les déblocages (comportement d'avant, dette
+  ancienne).
+- **Ce qui n'épuise pas.** La récompense de salle (`reward:<salle>`, `room_reward_system`), les rochers et les champions
+  tirent à l'usage sur leur graine, avec `seen` vide : ils sont créés en cours d'étage, leur rang dépendrait de l'ordre des
+  salles nettoyées, donc du moment (Q5 interdit). Un coffre de récompense ouvert lit `assigned` s'il y trouve sa clé (jamais
+  aujourd'hui) puis tire comme avant. Un pool qui a `exhaust` et `exclude_held` est refusé au lint : l'inventaire de l'ouvreur
+  est inconnu à la génération.
+
+### Pools par type de salle
+
+Aucun champ `pool` (§64) : le pool est la table nommée par le type de salle. M3-T8 ajoute au contenu de type de salle
+(`rooms/<id>.ron`, `world::RoomKindDef`) :
+
+```ron
+(locks: true, boss_drop: Some((table: "boss", rarity: Common)))                              // butin du boss
+(locks: false, shop: Some((table: "diable", shelves: 2, cost: Some(MaxHealth("2")))))         // marché du diable
+```
+
+- **`boss_drop`** (`items::BossDropDef { table, rarity }`) : à la mort du boss (`FrameEvents<BossDefeated>`, `Run` suit
+  `DeathManagement` dans la même frame), `boss_drop_system` (ordonné **avant** `floor_transition_system` : un joueur au portail change d'étage dans la même frame, l'événement se lit dans l'étage d'origine) pose l'objet au centre de la salle qui contient le boss : celui
+  que `room_boss_slot_system` avait assigné à la génération (pool à épuisement ; un boss mort au tout premier tick, avant ce
+  système, est assigné par `boss_drop_system` lui-même avec la même fonction idempotente), sinon un tirage sur la graine
+  `boss:<salle>` (pool sans épuisement, indépendant du moment). Pose commune avec le coffre : `game::loot::spawn_drawn_loot`
+  (objet, arme ou tas de sous).
+- **`shop.cost`** (`items::RoomShopDef::cost: Option<Price>`) : prix **de chaque présentoir** de ce type de salle, quelle que
+  soit la rareté. Absent : les prix en douilles par rareté de `economy.ron`, comme avant. `Currency(n)` fixe un prix en
+  douilles (`Shelf::price`) ; `MaxHealth(n)` et `Consumable(id, n)` vont dans `Shelf::cost` (le prix en douilles vaut alors 0).
+  Le pool d'une boutique peut s'épuiser comme les autres (`assign_shelves` : un emplacement `shelf:<salle>:<i>` par
+  présentoir, sur sa propre graine ; les `weapon_shelves` restent réservés aux armes).
+- **Secrète et trésor** : les coffres de ces types (`chest.table`) nomment déjà leur pool. `isaac` : `tresor`, `boss`, `diable`
+  (`exhaust: true`), `secrete` (consommables, sans épuisement), `salle` (récompense de salle, inchangé).
+
+### Marché du diable : `Price` payé en vie maximale ou en âme
+
+`shelf_interaction_system` (inchangé pour un présentoir sans `cost`) paie un présentoir à `cost` par `game::shop::pay_cost`
+(`Price::pay` sur les valeurs du payeur, écrites seulement si le paiement réussit). **Règle de Q6, en un seul endroit
+(`Price::{soul_split, can_pay, pay}`, testé)** : les points d'`ExtraHealth` partent **d'abord** (comme au combat, §68) ; ce
+qu'ils ne couvrent pas se paie en vie maximale ; **ce reste est refusé s'il tuerait** (`vie courante <= reste`) ou dépasse la
+vie maximale. `shelf_interaction_system` refuse aussi si la **stat `MaxHealth` résolue après** la perte serait ≤ 0
+(`shop::max_health_after` : un `Set`/`Mul` de `MaxHealth` amplifie la perte ; scénario `devil_deal_refused_multiplied`).
+Un payeur à 1 PV sans âme est donc toujours refusé, avec une âme qui couvre le prix il est servi sans perdre une
+goutte. Le choix « âme partielle puis reste en vie maximale » est de T8 (Q6 dit seulement « à la place s'ils sont présents ») ;
+à relire. Refus : rien ne change (ni vie, ni âme, ni monnaie), `CurrencyEvent { delta: 0, reason: "shop_refused" }`, anti-rebond
+`retry_after` de 30 frames, trace `ggrs{… shop_refused … cost=…}`. Succès : trace `shop_buy … soul=<points> max_health_lost=<PV>`.
+
+**La perte de vie maximale est définitive** : `sync_health_from_stats` réécrit `Health.max` depuis la stat `MaxHealth` à
+chaque frame, donc abaisser `Health.max` seul se serait défait au tick suivant. Le paiement pose donc un modificateur
+permanent `MaxHealth Add −perte` de source `price:<clé du présentoir>` (et abaisse aussi la vie courante de la perte). Un
+modificateur multiplicatif sur `MaxHealth` (`Mul`) amplifie la perte réelle de la stat, `sync_health_from_stats` borne alors
+la vie courante ; aucun contenu n'en a. Le prix d'un cœur est écrit `MaxHealth("2")` (Q2 : 2 PV = un cœur, `items::HEART_POINTS`).
+
+`Price::Consumable` est exécuté de même (`pay` retire le stock de l'inventaire du payeur ; sans `Inventory`, refus) :
+`a_consumable_price_needs_the_stock_and_spends_it`, aucun contenu ne l'emploie encore.
+
+**Prompt du HUD** (`game::ui::hud`, source `prompt`, présentation) : « Acheter Pacte rouge — 1 cœur » (`items::heart_label` :
+½ cœur, 1 cœur, 1½ cœur, 2 cœurs…), « — 3 Bombe » pour un consommable, les douilles comme avant. Le prompt est calculé par
+les widgets : il n'est pas lisible par `HudText` en headless, d'où des tests unitaires (`ui::hud`). Les autres affichages en
+cœurs (barre de vie, prix à l'écran) restent T16.
+
+### Salle du diable (post-boss de T5)
+
+`rooms/diable.ron` d'`isaac` : deux présentoirs du pool `diable` à `MaxHealth("2")`, posés au centre de chaque salle de ce
+type que l'étage présente (la salle post-boss de T5, `post_boss.chance` = un tiers, graines 8, 23 et 123). **La chance reste
+celle de la grammaire** (tirée une fois par étage à la génération du plan, T5). La proposition de la fiche (réduire la chance
+si le joueur a subi des dégâts au boss) demanderait de tirer la salle **après** le combat alors que le plan est posé avant : non
+retenue, non confirmée par William (Q6 ne la mentionne pas), à reprendre s'il la veut. Salles d'ange : hors périmètre (Q6).
+
+### Lint et schémas
+
+`exhaust` avec `exclude_held` (`Unsupported`), `shop.cost` (`Price::problems` : montant nul, vie maximale hors `]0, max]` du
+joueur `player`, `OutOfRange` ; consommable inconnu, `BrokenReference`), `boss_drop.table` inconnu (`BrokenReference`).
+Fixtures `loot_exhaust_exclude_held`, `shop_cost_invalid`, `boss_drop_unknown_pool` (`crates/content/tests/m3_t8_fixtures.rs`).
+
+### Contenu
+
+`isaac` : pools `tresor` (4), `boss` (3), `diable` (4) à `exhaust`, `secrete` (consommables), onze objets passifs de **donnée
+d'attente** (une stat chacun : `semelles_lestees`, `pile_rapide`, `lunette_longue`, `trefle_chat`, `griffe_acier`,
+`reservoir_vital`, `oeil_vif`, `pacte_rouge`, `cornes_noires`, `queue_fourchue`, `regard_maudit`) : le contenu des pools est
+M3-T11 (T11d), il faut seulement des candidats distincts pour que l'épuisement soit jouable de bout en bout. Salles : `tresor`
+(pool `tresor`), `secrete` (pool `secrete`), `boss` (`boss_drop`), `diable` (marché). **Pas de boutique `isaac`** : le gabarit
+et le type sont T11d ; le moteur l'exécute (`assign_shelves`, `shop.cost`) mais le testbed n'a aucune salle `shop` : `cost` n'est exercé que par le diable d'`isaac` (et des présentoirs posés par scénario) ; la branche `Currency(n)` de `shop.cost` n'est exercée par aucun scénario (dette). `testbed` : types de
+salle `coffre_a`/`coffre_b`, carte `salles_coffres.ldtk`, étage `coffres_epuisables`, pool `epuisable_temoin` (jumeau sans
+`exhaust`).
+
+### Bot
+
+Le bot `explorateur` ne vise plus un présentoir à `cost` (son `price` vaut 0 : il l'aurait cru gratuit) ; la décision du diable
+est T14. Il **ramasse** le butin du boss : les parties `grid_*` de l'`explorateur` en sont retardées (voir « Traces »).
+
+### Attentes de scénario
+
+`PoolCount { pool, count, at_frame }` (objets **distincts** sortis du pool), `ItemsOnFloor { id, count, at_frame }` (objets
+`id` au sol : le butin d'un boss), `Shelf` gagne `cost: Some(MaxHealth("2"))` ; `Scenario::shop.shelves[].cost` pose un
+présentoir à `cost`.
+
+### Scénarios (testbed sauf mention)
+
+| Scénario | Prouve |
+|---|---|
+| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k5`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide |
+| `pool_exhaust_two_rooms` | deux salles de types différents d'une carte générée partagent le pool : deux objets sortis dès f10, avant tout coffre ouvert |
+| `pool_exhaust_time_independent_ab` / `_ba` | `k1` → `lame`, `k2` → `boussole` que le joueur ouvre `k1` d'abord ou `k2` d'abord |
+| `pool_unlock` / `_temoin` | le déblocage `manche_epuisable` : quatre objets distincts dont `manche` ; sans : trois puis `bottes` répété |
+| `devil_deal_pay_health` | un cœur payé : vie 100 → 98 et vie maximale 98 définitivement (f30 et f110), l'objet est tenu, douilles intactes |
+| `devil_deal_refused_lethal` | à 1 PV (`MaxHealth` `Set 1`) deux tentatives (f10, f60) refusées : rien ne bouge |
+| `devil_deal_soul_saves` | témoin : même joueur à 1 PV avec un `coeur_ame` : l'achat passe, âme 4 → 2, vie 1/1 |
+| `devil_deal_soul_first` | l'âme paie d'abord (4 → 2, vie et maximum à 100), puis un prix de 6 : l'âme (2) part toute, 4 PV de vie maximale (96) |
+| `devil_deal_isaac` (`isaac`) | le cœur d'`isaac` : 6/6 → 4/4 |
+| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `regard_maudit` sortis du pool `diable`, `pile_rapide` du trésor, `griffe_acier` du boss ; graine 5 : aucune salle, rien tiré dans `diable` |
+| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`griffe_acier`, f871) et le bot le ramasse ; la victoire est retardée (f1384 → ~f1430, f1654 → ~f1790) |
+| `isaac_floor_seed_1` (`isaac`) | `tresor` et `boss` : 1 objet sorti à f5, 2 à la génération du second étage (par run) |
+
+Unitaires : `items::loot` (`assign_*` : sans `exhaust` rien n'est écrit, objets distincts, idempotence, premier emplacement =
+tirage d'avant `exhaust`, par run entre étages, pool vidé, objets cachés), `items` (`Price` avec âme : refus mortel, âme
+d'abord, âme partielle, refus sans effet de bord ; `heart_label`), `game::shop` (`pay_cost` : cœur, refus à 1 et 2 PV, âme,
+consommable, douilles ; `assign_shelves` sur deux salles), `ui::hud` (prompt en cœurs).
+
+### Traces
+
+(voir le rapport `docs/taches/rapports/m3-t8-pools-marche-diable.md`)
+
+### Dettes connues (M3-T8)
+
+- `max_health_after` ne regarde que la frame courante : un bonus `MaxHealth` temporaire qui expire rend a posteriori le paiement mortel.
+- Le butin du boss est détruit par `floor_transition_system` si un joueur est déjà sur le portail à la frame de la mort (le drop est posé avant la transition, mais l'objet vit dans l'étage quitté).
+- Garde « butin déjà tombé » : une fois par salle **et par frame** seulement (deux `BossPlan` morts à des frames différentes dans la même salle lâcheraient deux fois).
+
+### Atteignabilité
+
+Trésor, boss et secrète : toute partie ordinaire d'`isaac` (deux étages) ; diable : graines 8, 23 et 123 de `sous_sol_un`, ou
+toute partie par défaut dont un étage tire la salle (`devil_room_chance`) ; le bot qui achète au diable est T14 ; la boutique
+d'`isaac` (gabarit, type, pool `boutique`) est T11d.
 
 ## 74. Curses d'étage en jeu : tirage, modificateur, étage agrandi, HUD masqué (M3-T9, chantier F4)
 

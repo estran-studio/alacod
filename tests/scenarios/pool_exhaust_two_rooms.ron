@@ -1,0 +1,19 @@
+// M3-T8 (docs/conventions.md §73, Q5) : deux **salles** d'une carte générée, de types différents (`coffre_a`,
+// `coffre_b`), partagent le pool `epuisable` (`exhaust: true`) : à la génération de l'étage
+// (`room_chest_system`, salles dans l'ordre x, y, identifiant) chaque coffre reçoit son objet et l'objet sort du
+// pool. Deux objets distincts sortis à f10, dès la première frame de l'étage et sans que personne ait ouvert un
+// coffre : l'épuisement ne dépend pas du moment. Carte `testbed/salles_coffres.ldtk` (départ + deux salles à coffre).
+//
+// À regarder : rien ne bouge ; f10 : trois salles et deux objets sortis du pool.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_coffres.ldtk",
+    map_seed: 1,
+    frames: 40,
+    players: [(inputs: [])],
+    expect: [
+        RoomCount(min: 3, max: Some(3), at_frame: 10),
+        PoolCount(pool: "epuisable", count: 2, at_frame: 10),
+    ],
+)

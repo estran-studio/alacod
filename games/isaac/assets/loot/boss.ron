@@ -1,0 +1,10 @@
+// `isaac` (M3-T8, §73) : pool du butin du boss (`rooms/boss.ron`, `boss_drop`). Épuisement par run
+// (Q5) : le boss du second étage ne redonne pas l'objet du premier. Contenu : M3-T11.
+(
+    entries: [
+        (pick: Item("griffe_acier"), weight: 1),
+        (pick: Item("reservoir_vital"), weight: 1),
+        (pick: Item("oeil_vif"), weight: 1),
+    ],
+    exhaust: true,
+)

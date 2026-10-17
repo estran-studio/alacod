@@ -1,0 +1,32 @@
+// M3-T8 (docs/conventions.md §73) : témoin de `pool_unlock`. Mêmes quatre coffres et mêmes appuis, sans profil :
+// `epuisable` n'a que trois objets. Les trois premiers coffres les épuisent (trois objets sortis), le quatrième
+// trouve le pool vidé : il repart complet et répète `bottes` ; `manche` n'apparaît pas.
+//
+// À regarder : f20 trois objets sortis ; deux bottes, pas de manche.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    map_seed: 1,
+    frames: 150,
+    chests: [
+        (key: "k1", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 5),
+        (key: "k2", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 6),
+        (key: "k3", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 7),
+        (key: "k4", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 8),
+    ],
+    players: [(inputs: [
+        (from: 30, to: 31, buttons: [Interaction]), (from: 40, to: 41, buttons: [Interaction]),
+        (from: 50, to: 51, buttons: [Interaction]), (from: 60, to: 61, buttons: [Interaction]),
+        (from: 70, to: 71, buttons: [Interaction]), (from: 80, to: 81, buttons: [Interaction]),
+        (from: 90, to: 91, buttons: [Interaction]), (from: 100, to: 101, buttons: [Interaction]),
+    ])],
+    expect: [
+        PoolCount(pool: "epuisable", count: 3, at_frame: 20),
+        PoolSeen(pool: "epuisable", item: "manche", seen: false, at_frame: 20),
+        ItemCount(handle: 0, id: "manche", count: 0, at_frame: 149),
+        ItemCount(handle: 0, id: "bottes", count: 2, at_frame: 149),
+        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 149),
+        ItemCount(handle: 0, id: "lame", count: 1, at_frame: 149),
+    ],
+)

@@ -1,0 +1,32 @@
+// M3-T8 (docs/conventions.md §73, Q6) : le marché du diable **refuse** un paiement qui tuerait. Le joueur
+// est ramené à 1 PV (modificateur `MaxHealth` `Set 1`, vie courante bornée par `sync_health_from_stats`),
+// sans cœur d'âme ; le présentoir `boussole` coûte un cœur (`MaxHealth("2")`). Deux Interactions
+// (f10 et f60, au-delà de l'anti-rebond de 30 frames) : refus à chaque fois, rien ne change (1 PV,
+// vie maximale 1, objet non pris, présentoir invendu).
+// Témoin : `devil_deal_soul_saves` (même joueur à 1 PV avec un cœur d'âme : l'achat passe).
+//
+// À regarder : f10 et f60 l'Interaction ne fait rien ; le présentoir reste.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    shop: (shelves: [(key: "s", item: "boussole", price: 0, cost: Some(MaxHealth("2")), x: "424.0", y: "696.0", at_frame: 5)]),
+    frames: 120,
+    players: [
+        (modifiers: [(stat: MaxHealth, op: Set, value: "1")], inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 60, to: 61, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Health(handle: 0, min: 1.0, max: 1.0, at_frame: 9),
+        Shelf(nth: 0, sold: Some(false), at_frame: 30),
+        Health(handle: 0, min: 1.0, max: 1.0, at_frame: 30),
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 30),
+        Shelf(nth: 0, sold: Some(false), at_frame: 110),
+        Stat(handle: 0, stat: MaxHealth, value: 1.0, at_frame: 110),
+        Health(handle: 0, min: 1.0, max: 1.0, at_frame: 110),
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 110),
+        PlayerAlive(handle: 0, at_frame: 119),
+    ],
+)

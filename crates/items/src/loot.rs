@@ -109,6 +109,26 @@ pub struct RoomShopDef {
     /// `table` à tous les étages.
     #[serde(default)]
     pub floor_tables: Vec<String>,
+    /// M3-T8 (§73) : prix **de chaque présentoir**, quelle que soit la rareté. Absent : le prix en
+    /// douilles de `economy.ron` (`shop_prices`), comme avant. `Currency(n)` fixe un prix en
+    /// douilles ; `MaxHealth(n)` / `Consumable(id, n)` sont exécutés par `game::shop` (marché du
+    /// diable : vie maximale, cœurs d'âme d'abord).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost: Option<crate::Price>,
+}
+
+/// Butin du boss posé par un type de salle (`rooms/<id>.ron`, champ `boss_drop`, M3-T8, §73) : à la
+/// mort du boss, un objet du pool `table` tombe au centre de sa salle. Tiré à la **génération de
+/// l'étage** quand le pool a `exhaust` (option A de §64), sinon sur la graine de l'emplacement
+/// (`boss:<salle>`) à la mort : indépendant du moment dans les deux cas.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BossDropDef {
+    /// Pool de butin (`loot/<table>.ron`).
+    pub table: String,
+    /// Rareté minimale de l'objet tiré.
+    #[serde(default)]
+    pub rarity: Rarity,
 }
 
 impl RoomShopDef {
@@ -369,19 +389,25 @@ pub fn draw_exhausting(
     None
 }
 
-/// Ce qui est déjà sorti de chaque pool à épuisement pendant la run (M3-T0e, §64) : pool
-/// (`loot/<id>.ron`) → identifiants tirés. Épuisement **par run et par pool** : un pool partagé
-/// par plusieurs salles (trésor, boutique, boss, diable) est le même pour toutes. Ressource
-/// rollback **neutre** (vide tant qu'aucun pool n'a `exhaust`, donc aucune trace existante ne
-/// bouge), remise à zéro à chaque relance.
+/// Ce qui est déjà sorti de chaque pool à épuisement pendant la run (M3-T0e, §64) et les objets
+/// **assignés** aux emplacements à la génération des étages (M3-T8, §73). Épuisement **par run et
+/// par pool** : un pool partagé par plusieurs salles (trésor, boutique, boss, diable) est le même
+/// pour toutes. Ressource rollback **neutre** (vide tant qu'aucun pool n'a `exhaust`, donc aucune
+/// trace existante ne bouge), remise à zéro à chaque relance.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct PoolState(pub BTreeMap<String, BTreeSet<String>>);
+pub struct PoolState {
+    /// Pool (`loot/<id>.ron`) → identifiants tirés.
+    pub seen: BTreeMap<String, BTreeSet<String>>,
+    /// `"<étage>:<clé de contenu>"` → objet tiré à la génération de l'étage pour cet emplacement
+    /// (coffre de salle, présentoir, butin du boss, placement de scénario). Option A de §64.
+    pub assigned: BTreeMap<String, String>,
+}
 
 impl PoolState {
     /// Les identifiants déjà sortis du pool `pool` (vide si aucun).
     pub fn seen(&self, pool: &str) -> &BTreeSet<String> {
         static NONE: BTreeSet<String> = BTreeSet::new();
-        self.0.get(pool).unwrap_or(&NONE)
+        self.seen.get(pool).unwrap_or(&NONE)
     }
 
     /// `item` est-il déjà sorti de `pool` ?
@@ -403,7 +429,7 @@ impl PoolState {
         if loot_currency(item).is_some() {
             return false;
         }
-        self.0
+        self.seen
             .entry(pool.to_string())
             .or_default()
             .insert(item.to_string())
@@ -413,6 +439,62 @@ impl PoolState {
     /// [`exhaust_seed`] avec [`Self::count`] comme index.
     pub fn next_seed(&self, pool: &str, run_seed: u32, floor: u32, key: &str) -> u32 {
         exhaust_seed(run_seed, floor, key, self.count(pool))
+    }
+
+    fn slot_key(floor: u32, key: &str) -> String {
+        format!("{floor}:{key}")
+    }
+
+    /// L'objet assigné à l'emplacement `key` de l'étage `floor`, s'il l'a été à la génération.
+    pub fn assignment(&self, floor: u32, key: &str) -> Option<&str> {
+        self.assigned
+            .get(&Self::slot_key(floor, key))
+            .map(String::as_str)
+    }
+
+    /// Assigne un objet à l'emplacement `key` de l'étage `floor` dans le pool `pool` (M3-T8, option A
+    /// de §64) : tirage `draw_exhausting` sur la graine d'emplacement [`Self::next_seed`], sans
+    /// l'objet déjà sorti du pool, puis l'objet sort du pool ([`Self::record`]) et l'assignation est
+    /// conservée. **Idempotent** : un emplacement déjà assigné rend son objet sans rien tirer (deux
+    /// coffres de même clé donnent le même objet, comme avant). `None` sans épuisement
+    /// (`table.exhaust` faux : l'appelant tire à l'usage, comme avant) ou si le pool ne donne rien.
+    ///
+    /// Le tirage ignore l'inventaire de l'ouvreur (`held` vaut `None`) : à la génération il n'y a
+    /// pas d'ouvreur, donc l'objet ne dépend pas du moment (le lint refuse `exhaust` avec
+    /// `exclude_held`). `hidden` : objets réservés à un déblocage manquant.
+    #[allow(clippy::too_many_arguments)]
+    pub fn assign(
+        &mut self,
+        pool: &str,
+        table: &LootTableDef,
+        items: &ItemTable,
+        min_rarity: Rarity,
+        hidden: &BTreeSet<&str>,
+        run_seed: u32,
+        floor: u32,
+        key: &str,
+    ) -> Option<String> {
+        if !table.exhaust {
+            return None;
+        }
+        if let Some(item) = self.assignment(floor, key) {
+            return Some(item.to_string());
+        }
+        let mut rng = RollbackRng::new(self.next_seed(pool, run_seed, floor, key));
+        let item = draw_exhausting(
+            table,
+            items,
+            None,
+            min_rarity,
+            false,
+            hidden,
+            self.seen(pool),
+            &mut rng,
+        )?;
+        self.record(pool, &item);
+        self.assigned
+            .insert(Self::slot_key(floor, key), item.clone());
+        Some(item)
     }
 }
 
@@ -1014,6 +1096,124 @@ mod tests {
         assert!(state.record("q", "a"), "un autre pool ne partage rien");
         assert_eq!((state.count("p"), state.count("q")), (1, 1));
         assert!(state.has_seen("p", "a") && !state.has_seen("p", "b"));
+    }
+
+    /// M3-T8 : `assign` n'agit que sur un pool à épuisement ; sinon rien n'est écrit (le tirage se
+    /// fait à l'usage, comme avant).
+    #[test]
+    fn assign_ignores_a_pool_without_exhaust() {
+        let plain = table(vec![entry(LootPick::Item("a".into()), 1)], false);
+        let mut state = PoolState::default();
+        let got = state.assign(
+            "p",
+            &plain,
+            &items(),
+            Rarity::Common,
+            &BTreeSet::new(),
+            1,
+            0,
+            "k",
+        );
+        assert_eq!(got, None);
+        assert_eq!(state, PoolState::default(), "aucun état écrit");
+    }
+
+    fn assign_all(
+        state: &mut PoolState,
+        pool: &LootTableDef,
+        floor: u32,
+        keys: &[&str],
+    ) -> Vec<String> {
+        keys.iter()
+            .map(|key| {
+                state
+                    .assign(
+                        "p",
+                        pool,
+                        &items(),
+                        Rarity::Common,
+                        &BTreeSet::new(),
+                        21,
+                        floor,
+                        key,
+                    )
+                    .unwrap()
+            })
+            .collect()
+    }
+
+    /// Trois emplacements d'un pool de trois objets : trois objets distincts, conservés, et
+    /// idempotents (un emplacement déjà assigné rend son objet sans consommer le pool).
+    #[test]
+    fn assign_gives_distinct_items_and_is_idempotent() {
+        let pool = pool_abc();
+        let mut state = PoolState::default();
+        let first = assign_all(&mut state, &pool, 0, &["tresor", "boutique", "boss"]);
+        let unique: BTreeSet<_> = first.iter().collect();
+        assert_eq!(unique.len(), 3, "{first:?}");
+        assert_eq!(state.count("p"), 3);
+        for (key, item) in ["tresor", "boutique", "boss"].iter().zip(&first) {
+            assert_eq!(state.assignment(0, key), Some(item.as_str()));
+        }
+        let before = state.clone();
+        assert_eq!(
+            assign_all(&mut state, &pool, 0, &["boss", "tresor"]),
+            vec![first[2].clone(), first[0].clone()]
+        );
+        assert_eq!(state, before, "réassigner ne change rien");
+        // Le premier emplacement d'un pool qui s'épuise donne l'objet qu'il donnait avant `exhaust`.
+        let mut fresh = PoolState::default();
+        let plain = LootTableDef {
+            exhaust: false,
+            ..pool_abc()
+        };
+        let mut rng = RollbackRng::new(loot_seed(21, 0, "tresor"));
+        let unexhausted =
+            draw_loot(&plain, &items(), None, Rarity::Common, false, &mut rng).unwrap();
+        assert_eq!(
+            assign_all(&mut fresh, &pool, 0, &["tresor"]),
+            vec![unexhausted]
+        );
+    }
+
+    /// L'épuisement est **par run** : le même emplacement (même clé) à l'étage suivant est un autre
+    /// emplacement, et l'objet déjà sorti ne revient pas.
+    #[test]
+    fn assign_is_per_run_across_floors() {
+        let pool = pool_abc();
+        let mut state = PoolState::default();
+        let floor0 = assign_all(&mut state, &pool, 0, &["tresor"]);
+        let floor1 = assign_all(&mut state, &pool, 1, &["tresor"]);
+        assert_ne!(floor0, floor1);
+        assert_eq!(state.assignment(0, "tresor"), Some(floor0[0].as_str()));
+        assert_eq!(state.assignment(1, "tresor"), Some(floor1[0].as_str()));
+        assert_eq!(state.count("p"), 2);
+    }
+
+    /// Pool entièrement sorti : il repart complet (un quatrième emplacement donne un objet connu,
+    /// jamais `None`), sans rien ajouter à ce qui est sorti.
+    #[test]
+    fn assign_restarts_a_fully_seen_pool() {
+        let pool = pool_abc();
+        let mut state = PoolState::default();
+        let drawn = assign_all(&mut state, &pool, 0, &["a", "b", "c", "d"]);
+        assert_eq!(state.count("p"), 3);
+        assert!(state.seen("p").contains(&drawn[3]));
+        assert_eq!(state.assignment(0, "d"), Some(drawn[3].as_str()));
+    }
+
+    /// Un objet réservé à un déblocage manquant (`hidden`) n'est jamais assigné.
+    #[test]
+    fn assign_skips_hidden_items() {
+        let pool = pool_abc();
+        let hidden: BTreeSet<&str> = BTreeSet::from(["a", "b"]);
+        let mut state = PoolState::default();
+        for key in ["x", "y", "z"] {
+            let got = state
+                .assign("p", &pool, &items(), Rarity::Common, &hidden, 5, 0, key)
+                .unwrap();
+            assert_eq!(got, "c");
+        }
     }
 
     #[test]

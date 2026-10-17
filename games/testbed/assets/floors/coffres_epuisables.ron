@@ -1,0 +1,7 @@
+// M3-T8 (docs/conventions.md §73) : la carte `salles_coffres.ldtk` (départ, deux salles à coffre du pool
+// `epuisable`), scénario `pool_exhaust_two_rooms`.
+(
+    levels: [
+        "testbed/salles_coffres.ldtk",
+    ],
+)
