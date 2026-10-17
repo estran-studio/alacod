@@ -93,7 +93,7 @@
                 // Couronne lente du boss (`couronne`).
                 "boule": (damage: "1.0", speed: "90.0", range: "400.0"),
                 // M3-T11c (§76.3) : crachats visés de `cracheur` et `bourdon` (`crachat`, `rafale`).
-                "crachat": (damage: "1.0", speed: "110.0", range: "320.0"),
+                "crachat": (damage: "0.5", speed: "110.0", range: "320.0"),
             },
             test: Some((frames: 200, min_hits: 2)),
         ),

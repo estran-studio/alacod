@@ -1,6 +1,7 @@
 // `isaac` (M3-T11c, §76.3) : tourelle immobile. Deux couronnes de quatre boules lentes, la seconde 25 frames après
 // la première (`croix`, télégraphe de 30). Voit à 260 unités en ligne dégagée seulement (`aggro_range` 100,
 // `sight_range` 260) : posée dans l'angle d'une salle, elle ne tire pas à travers un mur.
+// Champion `salve` (chance `0,15 + étage × 0,12`) : à sa mort, une couronne de huit boules (`SpawnPattern`).
 (
     movement: (
         acceleration: "0.0",
@@ -36,8 +37,18 @@
         attack_range: Some("0.0"),
         stationary: Some(true),
         behaviors: Some([
-            Shoot(weapon: "arsenal", pattern: "croix", range: "260.0", cooldown_frames: 150),
+            Shoot(weapon: "arsenal", pattern: "croix", range: "260.0", cooldown_frames: 210),
         ]),
     )),
-    test: Some((frames: 600)),
+    variants: Some((
+        chance: "0.15 + floor * 0.12",
+        table: {
+            "salve": (tags: ["champion"], on_death: [SpawnPattern(pattern: "couronne_unique", weapon: "arsenal")], tint: Some("#16a085")),
+        },
+    )),
+    // Scénarios générés `enemy_tourelle_croix_*` et `champion_tourelle_croix_salve` (variante imposée, `kill` : la couronne).
+    test: Some((
+        frames: 600,
+        champions: [(variant: "salve", kill: true, weapon: Some("larmes"))],
+    )),
 )

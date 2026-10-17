@@ -1,5 +1,5 @@
 // `isaac` (M3-T11c, §76.3) : fantôme `Phasing`. Traverse murs, rochers et fosses (`Chase` profil `Phasing`), lent,
-// fragile (8 PV), coup de contact de 1 PV. Aucun `sight_range` : il ignore les murs, la ligne de vue ne le concerne pas.
+// fragile (8 PV), coup de contact de 1 PV. Renfort du boss `gardien` (phase 2). Aucun `sight_range` : il ignore les murs, la ligne de vue ne le concerne pas.
 (
     movement: (
         acceleration: "90.0",

@@ -1,5 +1,5 @@
 // `isaac` (M3-T11c, docs/conventions.md §76.3) : charge au sol. Court vers le joueur (`Chase` Ground) et, à portée,
-// se fige 30 frames (`Charge`, télégraphe) avant de frapper : 2 PV de dégât sur 6. Lent à l'approche, lourd (14 PV).
+// se fige 30 frames (`Charge`, télégraphe) avant de frapper : 1 PV de dégât (cooldown 90). Renfort du boss `gardien` (phase 1). Lent à l'approche, fragile (6 PV).
 (
     movement: (
         acceleration: "160.0",
@@ -22,7 +22,7 @@
 
     scale: "1.0",
 
-    base_health: (max: "14.0"),
+    base_health: (max: "6.0"),
 
     starting_skin: "1",
     skins: {
@@ -32,7 +32,7 @@
     ai: Some((
         aggro_range: Some("500.0"),
         attack_range: Some("40.0"),
-        attack_damage: Some("2.0"),
+        attack_damage: Some("1.0"),
         attack_cooldown_frames: Some(90),
         behaviors: Some([Charge(telegraph: 30), Chase(profile: "Ground")]),
     )),

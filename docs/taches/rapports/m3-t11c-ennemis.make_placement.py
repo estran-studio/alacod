@@ -8,9 +8,9 @@ Idempotent : retire d'abord les ennemis déjà posés par ce script.
 """
 import copy, json, sys, uuid
 
-NEW = {'cracheur', 'rampant', 'tourelle_croix'}
+NEW = {'tourelle_croix'}
 PLACEMENT = {
-    'Combat': [('cracheur', 11, 2), ('rampant', 3, 6), ('tourelle_croix', 13, 7)],
+    'Combat': [('tourelle_croix', 13, 7)],
 }
 
 src, dst = sys.argv[1], sys.argv[2]

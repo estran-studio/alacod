@@ -1,7 +1,8 @@
-// `isaac` (M3-T11c, §76.3) : tireur au sol. Garde 70 à 130 unités (`KeepDistance`) et crache trois larmes visées
+// `isaac` (M3-T11c, §76.3) : tireur au sol. Court vers le joueur (`Chase`) et, à moins de 200 unités, crache une larme visée
 // (`crachat`, 15 frames de télégraphe). Il ne sent le joueur qu'à 130 unités (`aggro_range`) mais le cible de plus
 // loin en ligne de vue dégagée (`sight_range` 360 : D66, §22) : un coin de mur le laisse inoffensif.
-// Champion `salve` (chance `0,15 + étage × 0,12`) : à sa mort, une couronne de huit boules (`SpawnPattern`).
+// Renfort du boss `gardien` (phase 1, `SpawnEnemies`) : pas posé dans le gabarit de combat, où quatre ennemis ou plus
+// tuent l'`explorateur` à coup sûr (§76.3).
 (
     movement: (
         acceleration: "120.0",
@@ -24,7 +25,7 @@
 
     scale: "1.0",
 
-    base_health: (max: "9.0"),
+    base_health: (max: "6.0"),
 
     starting_skin: "1",
     skins: {
@@ -36,20 +37,9 @@
         sight_range: Some("360.0"),
         attack_range: Some("0.0"),
         behaviors: Some([
-            Shoot(weapon: "arsenal", pattern: "crachat", range: "200.0", cooldown_frames: 150),
-            KeepDistance(min: "70.0", max: "130.0"),
+            Shoot(weapon: "arsenal", pattern: "crachat", range: "200.0", cooldown_frames: 300),
             Chase(profile: "Ground"),
         ]),
     )),
-    variants: Some((
-        chance: "0.15 + floor * 0.12",
-        table: {
-            "salve": (tags: ["champion"], on_death: [SpawnPattern(pattern: "couronne_unique", weapon: "arsenal")], tint: Some("#16a085")),
-        },
-    )),
-    // Scénarios générés `champion_cracheur_salve` (variante imposée, `kill` : la couronne de mort) et `enemy_cracheur_*`.
-    test: Some((
-        frames: 600,
-        champions: [(variant: "salve", kill: true, weapon: Some("larmes"))],
-    )),
+    test: Some((frames: 600)),
 )

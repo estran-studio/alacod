@@ -1,6 +1,6 @@
 // `isaac` (M3-T11c, §76.3) : tireur volant (`Flying`, survole fosses et eau). Garde 90 à 150 unités et lâche une
 // rafale de trois crachats (`rafale`, un par 8 frames). Vue directe comme `cracheur` (`aggro_range` 140,
-// `sight_range` 360). Renfort du boss `gardien` en phase 2.
+// `sight_range` 360). Renfort du boss `gardien` (phase 2).
 (
     movement: (
         acceleration: "150.0",
