@@ -61,6 +61,7 @@ pub fn enemy_target_selection(
             Option<&EnemyBehaviors>,
             // Suivi Q12 : `Charm` (§19) : l'ennemi charmé cible l'ennemi hostile le plus proche.
             Option<&combat::status::Statuses>,
+            &Team,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -101,12 +102,14 @@ pub fn enemy_target_selection(
     // d'eux est charmé (aucun calcul ni allocation sinon).
     let any_charmed = enemy_query
         .iter()
-        .any(|(.., statuses)| combat::status::charmed(statuses));
+        .any(|item| combat::status::charmed(item.6));
     let hostile_enemies: Vec<(GgrsNetId, fixed_math::FixedVec2)> = if any_charmed {
         enemy_query
             .iter()
-            .filter(|(_, _, _, _, state, _, statuses)| {
-                **state != MonsterState::Dead && !combat::status::charmed(*statuses)
+            .filter(|(_, _, _, _, state, _, statuses, team)| {
+                **state != MonsterState::Dead
+                    && !combat::status::charmed(*statuses)
+                    && **team == Team::Enemies
             })
             .map(|(net_id, transform, ..)| (net_id.clone(), transform.translation.truncate()))
             .collect()
@@ -122,6 +125,7 @@ pub fn enemy_target_selection(
         mut state,
         enemy_behaviors,
         statuses,
+        _team,
     ) in order_mut_iter!(enemy_query)
     {
         let enemy_pos = enemy_transform.translation.truncate();
@@ -295,6 +299,8 @@ fn charm_attack(
     ranged_state: Option<Mut<RangedAttackState>>,
     has_emitter: bool,
     hostile: &[(GgrsNetId, fixed_math::FixedVec2)],
+    // Peur et charme cumulés : l'ennemi fuit (`Fear` l'emporte, `pathing`), il ne frappe pas non plus.
+    feared: bool,
 ) {
     if has_emitter {
         commands.entity(enemy_entity).remove::<Emitter>();
@@ -303,6 +309,12 @@ fn charm_attack(
         if ranged.target.is_some() {
             ranged.target = None;
         }
+    }
+    if feared {
+        if matches!(*state, MonsterState::Attacking { .. }) {
+            *state = MonsterState::Chasing;
+        }
+        return;
     }
     let hit = (target.target_type == TargetType::Enemy)
         .then(|| target.target.as_ref())
@@ -423,6 +435,8 @@ pub fn enemy_attack_system(
             Option<&combat::status::Statuses>,
             // M2-T0c : phase courante d'un boss.
             Option<&behaviors::BossState>,
+            // Suivi Q12 : équipe (un charmé ne vise que les `Enemies`).
+            &Team,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -452,7 +466,11 @@ pub fn enemy_attack_system(
     let hostile_enemies: Vec<(GgrsNetId, fixed_math::FixedVec2)> = if any_charmed {
         enemy_query
             .iter()
-            .filter(|item| *item.5 != MonsterState::Dead && !combat::status::charmed(item.11))
+            .filter(|item| {
+                *item.5 != MonsterState::Dead
+                    && !combat::status::charmed(item.11)
+                    && *item.13 == Team::Enemies
+            })
             .map(|item| (item.0.clone(), item.2.translation.truncate()))
             .collect()
     } else {
@@ -473,6 +491,7 @@ pub fn enemy_attack_system(
         behavior_runtime,
         statuses,
         boss,
+        _team,
     ) in order_mut_iter!(enemy_query)
     {
         if combat::status::incapacitated(statuses) {
@@ -492,6 +511,7 @@ pub fn enemy_attack_system(
                 ranged_state,
                 has_emitter,
                 &hostile_enemies,
+                combat::status::feared(statuses),
             );
             continue;
         }

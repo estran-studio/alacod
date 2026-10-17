@@ -625,7 +625,9 @@ pub fn move_enemies(
                         enemy_target_opt
                             .filter(|target| target.target_type == super::state::TargetType::Enemy)
                             .and_then(|target| target.last_known_position),
-                        optimal_attack_distance,
+                        // Jamais plus loin que la portée de corps à corps de l'ennemi (`attack_range`
+                        // de `mouche`, `chien` : moins que `OptimalAttackDistance`).
+                        optimal_attack_distance.min(ai_config.attack_range),
                     )
                 })
             })

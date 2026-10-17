@@ -1,0 +1,6 @@
+// `isaac` (M3-T11c, §76.3) : télégraphe de 12 frames puis trois crachats visés, un toutes les 8 frames (`Burst`) ;
+// `bourdon`.
+Sequence([
+    Telegraph(12),
+    Burst(count: 3, per_burst: 1, interval: 8, spread: "0.0", projectile: "crachat"),
+])
