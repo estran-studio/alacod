@@ -321,8 +321,9 @@ pub fn read_bot_inputs(
         let policy = explorer.options().policy;
         order_iter!(players)
             .into_iter()
-            .filter(|(_, player, ..)| {
+            .filter(|(_, player, _, _, _, _, _, _, downed, _)| {
                 local_players.0.contains(&player.handle)
+                    && downed.is_none()
                     && assignments.0.get(&player.handle) == Some(&BotProfile::Explorateur)
                     && explorer.holder(player.handle).can_bomb(&policy)
             })

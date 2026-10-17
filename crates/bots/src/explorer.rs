@@ -357,7 +357,11 @@ pub struct ExplorerWorld<'w, 's> {
     rocks: Query<
         'w,
         's,
-        (&'static GgrsNetId, &'static FixedTransform3D),
+        (
+            &'static GgrsNetId,
+            &'static FixedTransform3D,
+            &'static game::collider::Collider,
+        ),
         (With<world::Rock>, With<Rollback>),
     >,
     bombs: Query<
@@ -473,10 +477,7 @@ impl ExplorerWorld<'_, '_> {
         let secret_doors = self.secret_doors(&policy);
         let rocks: Vec<(usize, Rect)> = order_iter!(self.rocks)
             .into_iter()
-            .map(|(id, t)| {
-                let p = t.translation.truncate();
-                (id.0, Rect { min: p, max: p })
-            })
+            .map(|(id, t, collider)| (id.0, Rect::collider(t.translation.truncate(), collider)))
             .collect();
         let bombs: Vec<BombView> = order_iter!(self.bombs)
             .into_iter()
@@ -570,7 +571,17 @@ impl ExplorerWorld<'_, '_> {
                 continue;
             };
             let p = t.translation.truncate();
-            let Some((level, keys)) = self.rooms.iter().find_map(|(level, bounds, kind)| {
+            // Même ordre que `key_door_system` (`sorted_rooms` : position puis identifiant) : la première salle
+            // à clé dont la porte est proche est celle dont le jeu lit le prix.
+            let mut rooms: Vec<_> = self.rooms.iter().collect();
+            rooms.sort_by(|a, b| {
+                (a.1.position.x, a.1.position.y, &a.0 .0).cmp(&(
+                    b.1.position.x,
+                    b.1.position.y,
+                    &b.0 .0,
+                ))
+            });
+            let Some((level, keys)) = rooms.into_iter().find_map(|(level, bounds, kind)| {
                 let Some(DoorLock::Key(keys)) = table.door_lock_at(&kind.0, floor) else {
                     return None;
                 };
@@ -972,8 +983,11 @@ pub fn rock_goal(
             .filter(|item| ctx.wants(item))
             .map(|item| (item.zone, item.reach)),
     );
+    // Seulement un but que le champ réel n'atteint pas : un but atteignable (détour, sous au-delà de `shells`)
+    // ne vaut pas une bombe.
     let mut candidates: Vec<(u32, GridPos)> = targets
         .iter()
+        .filter(|(zone, reach)| zone_cell(field, *zone, *reach).is_none())
         .filter_map(|(zone, reach)| zone_cell(free, *zone, *reach))
         .collect();
     candidates.sort();
@@ -982,6 +996,7 @@ pub fn rock_goal(
         let mut last: Option<(Fixed, usize, Rect)> = None;
         for _ in 0..free.costs.len().max(1) {
             for (id, rock) in &frame.rocks {
+                // Distance au bord du rocher (16 x 16) : le corps (demi-diagonale ~14) le touche dès là.
                 let distance = rock.distance(point(at));
                 if distance <= ROCK_PATH_MARGIN {
                     last = Some((distance, *id, *rock));
@@ -993,10 +1008,16 @@ pub fn rock_goal(
             }
         }
         let (_, _, rock) = last?;
-        if ctx.peer_covers(rock, reach) {
+        // La bombe vise le centre du rocher (`cells_in_radius` : centre à moins du rayon).
+        let center = (rock.min + rock.max) / Fixed::from_num(2);
+        let zone = Rect {
+            min: center,
+            max: center,
+        };
+        if ctx.peer_covers(zone, reach) {
             return None;
         }
-        zone_cost(field, rock, reach).map(|_| Target::Bomb { zone: rock, reach })
+        zone_cost(field, zone, reach).map(|_| Target::Bomb { zone, reach })
     })
 }
 
@@ -1624,12 +1645,18 @@ mod tests {
         field
     }
 
+    /// Rochers de 16 x 16 centrés sur `(x, 0)`.
     fn rocks(xs: &[f32]) -> Vec<(usize, Rect)> {
         xs.iter()
             .enumerate()
             .map(|(i, x)| {
-                let p = v(*x, 0.0);
-                (i, Rect { min: p, max: p })
+                (
+                    i,
+                    Rect {
+                        min: v(*x - 8.0, -8.0),
+                        max: v(*x + 8.0, 8.0),
+                    },
+                )
             })
             .collect()
     }
@@ -1680,6 +1707,11 @@ mod tests {
             ..Default::default()
         };
         assert!(rock_goal(&blocked_field(), &line_field(), &far, &ctx, None).is_none());
+        // Un but que le champ réel atteint (ici : le même champ que sans rochers) ne vaut pas une bombe.
+        assert!(
+            rock_goal(&line_field(), &line_field(), &frame, &ctx, None).is_none(),
+            "but atteignable : aucun rocher à faire sauter"
+        );
     }
 
     #[test]

@@ -5,7 +5,8 @@
 // À regarder : les deux bots arrivent ensemble au mur secret ; **un seul** pose sa bombe (f19 : le joueur 0, le plus petit
 // handle ; avant la règle des pairs, `GoalContext::peers`, les deux en posaient une), l'explosion (f78) ouvre le mur, le
 // joueur 1 garde sa bombe ; chacun ramasse ce qu'il peut (cœur d'âme du coffre secret au joueur 1, `pile_rapide` du trésor
-// au joueur 0) ; le boss meurt (victoire f1541) ; le diable : les deux présentoirs sont vendus (f1754, f1782).
+// au joueur 0) ; le boss meurt (victoire f1541) ; devant le marché du diable (`devil: Never`, défaut de `bot.ron`) les
+// deux bots passent leur chemin : les deux présentoirs restent invendus.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -16,7 +17,7 @@ Scenario(
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
         shells: Some(400),
-        devil: IfHealthAbove("4.0"),
+        devil: Never,
         bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
     )),
     players: [
@@ -45,8 +46,8 @@ Scenario(
         HasItem(handle: 0, id: "pile_rapide", at_frame: 900),
         Event(kind: "victory", by_frame: 1600),
         ShelfCount(count: 2, at_frame: 10),
-        Shelf(nth: 0, sold: Some(true), at_frame: 1900),
-        Shelf(nth: 1, sold: Some(true), at_frame: 1900),
+        Shelf(nth: 0, sold: Some(false), at_frame: 1900),
+        Shelf(nth: 1, sold: Some(false), at_frame: 1900),
         PlayerAlive(handle: 0, at_frame: 3599),
         PlayerAlive(handle: 1, at_frame: 3599),
     ],

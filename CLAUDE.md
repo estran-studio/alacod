@@ -408,6 +408,10 @@ crate `APP`), jamais dans un crate `SIM`.
       sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
       `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
       présentoir à vie maximale ou à consommable ; `Health`, `Stat(MaxHealth)` et `ExtraHealth` lisent le paiement.
+    - M3-T14 bot `explorateur` v3 pour `isaac` (§79) : aucune attente nouvelle (`DoorLocked`, `Consumable`, `Health`,
+      `ExtraHealth`, `Currency`, `Shelf`, `EntityCount(kind: Rock)`, `FloorIndex`, `Event` couvrent les dix scénarios
+      `bot_isaac_*`) ; moments clés `door_lock` (mur secret ou porte à clé ouverte), `bomb`, `shelf` ; champ de scénario
+      `Scenario::explorer` (politique du bot, `bot.ron` du jeu) ; `PlayerScript::bomb` et `items` donnent la bombe d'essai.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments

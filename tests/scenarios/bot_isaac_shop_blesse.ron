@@ -19,7 +19,7 @@ Scenario(
         shopping: true,
         shop: HeartsThenCheapest(low_health: "1.0"),
         shells: Some(400),
-        devil: IfHealthAbove("4.0"),
+        devil: Never,
         bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
     )),
     players: [(bot: explorateur, currency: Some(12), modifiers: [(stat: MaxHealth, op: Add, value: "2.0")])],

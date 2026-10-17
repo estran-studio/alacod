@@ -16,7 +16,7 @@ Scenario(
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
         shells: Some(400),
-        devil: IfHealthAbove("4.0"),
+        devil: Never,
         bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
     )),
     players: [(bot: explorateur)],
