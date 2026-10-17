@@ -64,7 +64,23 @@ dans un dossier temporaire (une règle = une mutation = un avertissement attendu
 
 ## 3. Vérifié (résultats réels)
 
-RÉSULTATS_A_COMPLETER
+| Commande | Résultat réel |
+|---|---|
+| `cargo test -p content --profile headless` | 108 + 11 (1 ignoré) + 2 + 163 + 6 + 5 + **37 (`m3_t12_fixtures`)** + 8 + 1, 0 échec (sur l'arbre final) |
+| `make lint` ×5 | **aucune erreur** sur `zombies`, `testbed`, `throne`, `gungeon`, `isaac` ; avertissements : 0, 106 (97 + 9), 0, 1, 20 |
+| `make test_crates` | **1 126 passés, 0 échec, 14 ignorés** (sur la fusion avec `main` b18458cf ; avant fusion : 1 111) |
+| `make test_scenarios_par SHARDS=3` (sans BLESS, hors créneau nightly, lancé à 06:27) | **519 scénarios, 3 tranches ok, 1 099 s**, `git status` propre (aucune trace ne bouge) |
+| `make check_sim_boundary` | OK : 11 crates, 5 en dette D69 |
+| `scripts/check-forbidden.sh`, `check-rollback-registration.sh` | OK (38 occurrences auditées) ; OK |
+| `make test_tools` | 19 tests, OK |
+| `cargo fmt --all -- --check` | rien à afficher |
+| `alacod lint --json games/isaac` | 20 avertissements `MechanicUnmet`, 0 erreur |
+
+Suite sur la fusion avec `main` `b18458cf` : la dernière correction de code (`SecretRoom` sur les sources ordinaires, une ligne) est postérieure
+au `test_crates` complet ; elle a été rejouée par `cargo test -p content` et `make lint` ×5 (ci-dessus), pas par un second `test_crates`
+(`content::warnings`, donc `mechanics`, n'est appelé que par `alacod lint` et les tests de `content` : aucune autre crate ne l'appelle). Une première suite de scénarios lancée à
+06:02 est sortie verte (519 scénarios) mais elle avait un second processus concurrent dans le même `target` (échec de fusion des métriques, sans
+rapport avec une trace) : elle a été rejouée seule, résultat ci-dessus.
 
 ## 4. Avertissements d'atteignabilité par jeu
 
@@ -105,7 +121,10 @@ Rejouer ce lint « après T11 » (une passe courte) : `alacod lint games/isaac` 
 Agent `reviewer`, deux passes. Première passe : trois défauts certains (boutique à `floor_tables`, `salle` toujours compté,
 coffre de récompense absent des sites de tirage), cinq faux positifs ou négatifs probables (exemplaires et `exhaust`, bombes de
 personnages `test_only`, `Scaled`/`Chance` non lus, familier `test_only`, butin de champion à chance nulle), des claims du §77
-inexacts : tous corrigés (commit 6adfb003), avec un test chacun. Seconde passe : voir le journal.
+inexacts : tous corrigés (commit 6adfb003), avec un test chacun. Seconde passe : « RAS » sur les huit corrections, un point P3 relevé et
+corrigé (la règle déclarée `SecretRoom` lisait les sources globales : elle lit maintenant celles de la partie ordinaire) et une limite
+documentée au §77 (une entrée ajoutée par un déblocage compte comme source sans vérifier que le déblocage est accordé). Comptes du §77
+(isaac 20, testbed +9) rejoués après les corrections et la fusion de T9 : inchangés.
 
 ## 6. Non fait / dette
 
