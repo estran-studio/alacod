@@ -1111,6 +1111,13 @@ pub struct MapLevelInfo {
     /// M3-T5 (§70) : cases d'ouverture de la couche `LevelConnection` du niveau (vide si le
     /// niveau n'a pas cette couche), pour le lint par segment d'une disposition en grille.
     pub connection: OpeningGrid,
+    /// M3-T12 (§77) : rochers de la couche `Rocks` (valeur 1), puis rochers à butin (valeur 2).
+    pub rocks: u32,
+    pub loot_rocks: u32,
+    /// M3-T12 (§77) : valeurs IntGrid non nulles de la couche `Surfaces` (surfaces, dont les piques).
+    pub surface_values: BTreeSet<u8>,
+    /// M3-T12 : valeurs non nulles de la couche `Rocks` autres que 1 et 2 (ignorées au chargement).
+    pub rock_other_values: BTreeSet<u64>,
 }
 
 /// Couche `LevelConnection` d'un niveau : `open[y * width + x]` est vrai si la case vaut 1
@@ -1317,6 +1324,29 @@ fn ldtk_level_infos(text: &str) -> Vec<MapLevelInfo> {
                     height,
                     open: cells,
                 };
+            }
+            if layer["__identifier"] == world::LAYER_ROCKS {
+                for value in layer["intGridCsv"].as_array().into_iter().flatten() {
+                    match value.as_u64() {
+                        Some(v) if v == world::ROCK_VALUE as u64 => info.rocks += 1,
+                        Some(v) if v == world::ROCK_LOOT_VALUE as u64 => info.loot_rocks += 1,
+                        Some(0) | None => {}
+                        Some(other) => {
+                            info.rock_other_values.insert(other);
+                        }
+                    }
+                }
+            }
+            if layer["__identifier"] == world::surface::LAYER_SURFACES {
+                info.surface_values.extend(
+                    layer["intGridCsv"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|v| v.as_u64())
+                        .filter(|v| *v > 0 && *v <= u64::from(u8::MAX))
+                        .map(|v| v as u8),
+                );
             }
         }
         for layer in level["layerInstances"].as_array().into_iter().flatten() {

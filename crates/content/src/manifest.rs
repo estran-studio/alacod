@@ -51,6 +51,42 @@ pub enum EntryMode {
     Floors,
 }
 
+/// Mécanique qu'une **partie ordinaire** du jeu doit rencontrer (M3-T12, `docs/conventions.md` §77) :
+/// une ligne du tableau « Atteignabilité » de `docs/taches.md` §8.1. Déclarée par `mechanics` du
+/// manifeste ; le lint (`content::warnings`) avertit, statiquement, de chaque mécanique déclarée que
+/// le contenu ne porte pas (kind `MechanicUnmet`), en nommant la salle ou le pool qui devrait la
+/// porter. Hors simulation : aucun effet en jeu.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Mechanic {
+    /// Larmes modifiées et empilement : objets à `projectile` ou à `ShotSpeed`/`ShotSize` dans le pool
+    /// d'une salle exigée par la grammaire (trésor) et dans une boutique, tenables en deux exemplaires.
+    Tears,
+    /// Effets v3 et transformations : objets à effets dans les pools trésor, boutique et boss ;
+    /// synergies dont tous les objets sont atteignables.
+    Effects,
+    /// Familiers et orbitaux : au moins deux dans le pool du trésor, un dans celui de la boutique.
+    Familiars,
+    /// Bombes, rochers et piques : bombe de départ ou de récompense, rochers et piques dans les
+    /// gabarits `combat` d'une grammaire.
+    Bombs,
+    /// Salle secrète : exigée par la grammaire en grille, murée (`door_lock: Secret`), bombe atteignable.
+    SecretRoom,
+    /// Clés et trésor fermé : clés en récompense de salle et en boutique, porte `Key` exigée par la grammaire.
+    Keys,
+    /// Cœurs, sous, boutique : cœur et sous dans la récompense de salle, boutique exigée par la grammaire.
+    Hearts,
+    /// Pools à épuisement : un pool `exhaust` tiré au moins deux fois par partie.
+    ExhaustPools,
+    /// Marché du diable : salle post-boss à chance qui porte un coffre ou une boutique.
+    DevilMarket,
+    /// Champions : variante à chance non nulle sur un ennemi des salles atteintes.
+    Champions,
+    /// Curses : chance par étage non nulle dans la séquence ordinaire.
+    Curses,
+    /// Accomplissements : un accomplissement atteignable dont le déblocage entre dans un pool tiré.
+    Achievements,
+}
+
 /// Point d'entrée d'une partie : carte de départ, graine par défaut, mode de run.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct EntryPoint {
@@ -94,6 +130,10 @@ pub struct GameManifest {
     /// `docs/conventions.md` §28). Absent : les gabarits jouent dans le testbed.
     #[serde(default)]
     pub generate_template: Option<GenerateTemplate>,
+    /// M3-T12 (§77) : mécaniques que la partie ordinaire doit rencontrer ; chacune non portée par le
+    /// contenu est un avertissement. Absent (tous les jeux avant `isaac`) : aucune vérification.
+    #[serde(default)]
+    pub mechanics: Vec<Mechanic>,
 }
 
 /// `hub: Some((map: "maps/hub.ldtk"))` (M2-T13, §57) : la carte LDtk du hub, relative à

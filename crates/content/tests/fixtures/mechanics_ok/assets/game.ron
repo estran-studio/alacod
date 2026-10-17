@@ -1,0 +1,21 @@
+// Fixture M3-T12 (§77) : mechanics_ok. Un jeu qui porte les douze mécaniques déclarées ; `warnings()` ne rend
+// aucun `MechanicUnmet`. Les tests `mechanics_*` partent de cette base et retirent un élément à la fois.
+(
+    name: "fixture-mechanics_ok",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "objets", kind: "Item"),
+        (path: "synergies", kind: "Synergy"),
+        (path: "loot", kind: "LootTable"),
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+        (path: "floor_grammars", kind: "FloorGrammar"),
+        (path: "floors", kind: "Floors"),
+        (path: "curses", kind: "Curse"),
+        (path: "achievements", kind: "Achievement"),
+        (path: "unlocks", kind: "Unlock"),
+        (path: "surfaces", kind: "Surface"),
+    ],
+    entry: (start_map: "floor:etage", default_seed: 1, mode: Floors, floors: "sequence"),
+    mechanics: [Tears, Effects, Familiars, Bombs, SecretRoom, Keys, Hearts, ExhaustPools, DevilMarket, Champions, Curses, Achievements],
+)

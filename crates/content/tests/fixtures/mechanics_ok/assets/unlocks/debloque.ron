@@ -1,0 +1,1 @@
+(name: "Relique au trésor", grants: [Loot(table: "treasure", pick: Item("relique"), weight: 1)])
