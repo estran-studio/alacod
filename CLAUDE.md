@@ -312,6 +312,8 @@ Variables d'environnement (natif) :
   `ALACOD_INPUT=script:<scénario.ron>` (natif) : chaque joueur local rejoue le `PlayerScript` de son
   handle (preuve p2p avec rollback réel : `tests/scenarios/p2p_smoke.ron`, inputs qui changent sans
   arrêt ; avec `neutral`, les prédictions sont toujours justes et rien n'est resimulé).
+- `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
+  de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
 - `ALACOD_STATE_TRACE=<fichier>` + `ALACOD_EXIT_AT_FRAME=<n>` : hash de l'état rollback à chaque frame,
   puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence. Le log
   final donne le nombre de frames resimulées après rollback (zéro en p2p = run sans valeur).
