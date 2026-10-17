@@ -1051,6 +1051,14 @@ fn weapon_sprite_unknown_fixture_reports_unknown_sheet() {
     assert_only_one_besides_start_map(&errors);
 }
 
+// m2-lisibilite-gungeon : la légende du HUD ne cite que des sprites de `sprites.ron`.
+#[test]
+fn hud_legend_fixture_reports_unknown_sprite() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_legend_unknown_sprite")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "sprite « dragon »");
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn sprite_sheet_duplicate_key_fixture_reports_repeated_id() {
     let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_duplicate_key")).unwrap();
@@ -1868,7 +1876,7 @@ fn test_only_content_is_ignored_by_reach() {
 
 #[test]
 fn shipped_games_lint_without_error() {
-    for game in ["zombies", "testbed", "throne", "gungeon"] {
+    for game in ["zombies", "testbed", "throne", "gungeon", "isaac"] {
         let (registry, manifest, errors) = load_and_lint(&game_dir(game)).unwrap();
         assert!(errors.is_empty(), "{game} : {errors:#?}");
         for warning in content::warnings(&registry, &manifest) {

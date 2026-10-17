@@ -192,3 +192,14 @@
   modifications: réduites de 512 x 512 à 64 x 64 (ffmpeg, scale) ; teintées au rendu (jaune pour
     les projectiles des joueurs, rouge pour ceux des ennemis) par `game::world_sprites`
   statut: lot C (projectiles de gungeon) ; pas un placeholder
+
+- id: sprites-feedback-v3-projet
+  fichiers:
+    - sprites/feedback/tear.png
+  source: dessinée pour le projet par scripts/generer-sprites-feedback.py (M3-T17, docs/conventions.md §82),
+    copie octet pour octet de games/testbed/assets/sprites/feedback/tear.png (M3-T11a) ; aucune source
+    tierce, aucun visuel tiré d'un jeu commercial
+  auteur: projet alacod
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
+  modifications: sans objet (original) ; teinté au rendu (statut, guidage, spectral, taille)
+  statut: placeholder (halo de larme) — à remplacer par la voie V6

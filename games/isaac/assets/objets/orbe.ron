@@ -1,0 +1,13 @@
+// `isaac` (M3-T11b, §76.2) : un orbe (`orbe`) tourne autour du porteur et arrête les tirs ennemis (`Orbit` + `BlockBullets`).
+(
+    name: "Orbe",
+    kind: Passive,
+    familiar: Some((character: "orbe", per_copy: 1)),
+    tags: ["familier"],
+    rarity: Uncommon,
+    // M3-T13 (§78) : `familiar_orbe` (`FamiliarCount` 1, l'orbe reste à 36 unités du porteur).
+    test: Some((
+        frames: 60,
+        familiar: Some((frames: Some(120), min_hits: 0, expect: [FamiliarDistance(handle: 0, rank: 0, min: Some(30.0), max: Some(40.0), at_frame: 100)])),
+    )),
+)

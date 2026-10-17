@@ -1,0 +1,13 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : les larmes rebondissent deux fois sur les murs (`Bounce(2)`).
+(
+    name: "Ricochet",
+    kind: Passive,
+    projectile: Some((modifiers: [Bounce(2)])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_ricochet` et son témoin `tears_ricochet_sans_objet`, seuils mesurés : la larme survit à l'impact (1 balle en vol contre 0 à f150).
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], expect: [BulletCount(count: 1, projectile: Some("larmes"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larmes"), at_frame: 150)])),
+    )),
+)

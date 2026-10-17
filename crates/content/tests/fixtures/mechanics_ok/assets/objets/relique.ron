@@ -1,0 +1,1 @@
+(name: "Relique", kind: Passive, rarity: Rare, modifiers: [(stat: MoveSpeed, op: Pct, value: "0.1")])

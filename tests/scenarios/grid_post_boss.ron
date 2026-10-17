@@ -3,7 +3,7 @@
 // du diable, collée à l'est du boss et à aucune autre salle (le boss est le bout d'un couloir vertical de quatre
 // combats). Le bot `explorateur` nettoie les combats, bat le boss puis finit le dernier combat.
 //
-// À regarder : le boss verrouille sa salle (f628), passe en phase 1 (f740), meurt (f862) : son butin (`griffe_acier`, pool
+// À regarder : le boss verrouille sa salle (f628), passe en phase 1 (f740), meurt (f862) : son butin (`calice_ardent`, pool
 // `boss`, M3-T8 §73) tombe au centre de la salle (f871) et le bot le ramasse avant f900 ; la salle se rouvre avec sa porte
 // vers la salle du diable (deux présentoirs à un cœur, `devil_room_chance`) ; victoire vers f1430 (f1384 avant le butin).
 Scenario(
@@ -23,10 +23,10 @@ Scenario(
         RoomState(kind: "boss", state: Locked, at_frame: 650),
         BossPhase(entity: NetId(113), phase: 1, at_frame: 800),
         RoomState(kind: "boss", state: Cleared, at_frame: 900),
-        ItemsOnFloor(id: "griffe_acier", count: 0, at_frame: 860),
-        ItemsOnFloor(id: "griffe_acier", count: 1, at_frame: 880),
-        HasItem(handle: 0, id: "griffe_acier", at_frame: 950),
-        ItemsOnFloor(id: "griffe_acier", count: 0, at_frame: 950),
+        ItemsOnFloor(id: "calice_ardent", count: 0, at_frame: 860),
+        ItemsOnFloor(id: "calice_ardent", count: 1, at_frame: 880),
+        HasItem(handle: 0, id: "calice_ardent", at_frame: 950),
+        ItemsOnFloor(id: "calice_ardent", count: 0, at_frame: 950),
         ShelfCount(count: 2, at_frame: 900),
         RunState(step: Ended(Victory), at_frame: 1449),
         PlayerAlive(handle: 0, at_frame: 1449),

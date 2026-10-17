@@ -3,7 +3,7 @@
 // post-boss, collée au boss ; à la génération de l'étage ses deux présentoirs du pool `diable` (`exhaust`) sont
 // tirés (`cornes_noires`, `regard_maudit`) et payables en un cœur de vie maximale (`MaxHealth("2")`) : deux objets
 // sortis du pool, distincts. Le
-// trésor et le boss ont tiré chacun un objet de leurs pools (`pile_rapide`, `griffe_acier`), dans le même instant.
+// trésor et le boss ont tiré chacun un objet de leurs pools (`longue_vue`, `calice_ardent` ; l'objet dépend de la taille des pools : M3-T11a puis M3-T11b, 31 objets au trésor, 5 au boss), dans le même instant.
 // Témoin : `devil_room_absent` (graine 5 : pas de salle du diable, rien de tiré dans le pool).
 //
 // À regarder : rien ne bouge (le joueur est immobile) ; f10 deux présentoirs à un cœur dans la salle du diable.
@@ -24,7 +24,7 @@ Scenario(
         PoolCount(pool: "boss", count: 1, at_frame: 10),
         PoolSeen(pool: "diable", item: "cornes_noires", seen: true, at_frame: 10),
         PoolSeen(pool: "diable", item: "regard_maudit", seen: true, at_frame: 10),
-        PoolSeen(pool: "tresor", item: "pile_rapide", seen: true, at_frame: 10),
-        PoolSeen(pool: "boss", item: "griffe_acier", seen: true, at_frame: 10),
+        PoolSeen(pool: "tresor", item: "longue_vue", seen: true, at_frame: 10),
+        PoolSeen(pool: "boss", item: "calice_ardent", seen: true, at_frame: 10),
     ],
 )

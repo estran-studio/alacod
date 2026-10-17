@@ -14,7 +14,7 @@
 //! première par ordre d'id) : toute séquence déclarée reste une racine, car un scénario ou le
 //! lobby peut en imposer une autre.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fmt;
 
 use crate::manifest::GameManifest;
@@ -29,6 +29,10 @@ pub enum LintWarningKind {
     /// Modificateur sur une stat qu'aucun système ne lit (aujourd'hui une erreur de lint : variante
     /// gardée pour un futur avertissement).
     UnreadStat,
+    /// M3-T12 (§77) : une mécanique déclarée par `mechanics` du manifeste (`Mechanic`) qu'une partie
+    /// ordinaire ne rencontre pas, ou un contenu de mécanique M3 (familier, pool, salle spéciale,
+    /// curse, accomplissement) qu'aucune partie ordinaire ne porte.
+    MechanicUnmet,
 }
 
 /// Un avertissement de lint : même forme qu'une [`crate::LintError`], mais n'échoue pas.
@@ -45,37 +49,47 @@ impl fmt::Display for LintWarning {
     }
 }
 
-/// Objets donnés par un pool de butin (M2-T5, `docs/conventions.md` §48) : les objets nommés
-/// par une entrée `Item`, plus tous ceux d'une rareté visée par une entrée `Rarity`. Un pool
-/// compte même si aucune salle ne le pose : le lint dit « un pool donne cet objet », pas
-/// « une partie le rencontre » (l'atteignabilité dynamique est le bot explorateur, §47).
-pub(crate) fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
+/// Objets que donne un pool : les entrées `Item`, plus tous les objets d'une rareté visée par une
+/// entrée `Rarity`.
+pub(crate) fn pool_items(registry: &Registry, def: &items::LootTableDef) -> BTreeSet<String> {
     let mut found = BTreeSet::new();
-    for pool in registry.loot_tables.values() {
-        for entry in &pool.def.entries {
-            match &entry.pick {
-                items::LootPick::Item(id) => {
-                    found.insert(id.clone());
-                }
-                items::LootPick::Weapon(..) | items::LootPick::Currency(_) => {}
-                items::LootPick::Rarity(rarity) => {
-                    found.extend(
-                        registry
-                            .items
-                            .values()
-                            .filter(|item| item.def.rarity == *rarity)
-                            .map(|item| item.id.clone()),
-                    );
-                }
+    for entry in &def.entries {
+        match &entry.pick {
+            items::LootPick::Item(id) => {
+                found.insert(id.clone());
+            }
+            items::LootPick::Weapon(..) | items::LootPick::Currency(_) => {}
+            items::LootPick::Rarity(rarity) => {
+                found.extend(
+                    registry
+                        .items
+                        .values()
+                        .filter(|item| item.def.rarity == *rarity)
+                        .map(|item| item.id.clone()),
+                );
             }
         }
     }
     found
 }
 
+/// Objets donnés par un pool de butin (M2-T5, `docs/conventions.md` §48) : les objets nommés
+/// par une entrée `Item`, plus tous ceux d'une rareté visée par une entrée `Rarity`. Un pool
+/// compte même si aucune salle ne le pose : le lint dit « un pool donne cet objet », pas
+/// « une partie le rencontre » (l'atteignabilité dynamique est le bot explorateur, §47 ; les
+/// pools qu'aucune salle ne tire sont signalés à part, `mechanics::warnings`, §77).
+pub(crate) fn loot_pool_items(registry: &Registry) -> BTreeSet<String> {
+    registry
+        .loot_tables
+        .values()
+        .flat_map(|pool| pool_items(registry, &pool.def))
+        .collect()
+}
+
 /// Armes données par un pool de butin (D62) : les entrées `Weapon` (coffres, récompenses,
-/// boutique). Comme pour les objets, un pool compte même si aucune salle ne le pose.
-fn loot_pool_weapons(registry: &Registry) -> BTreeSet<String> {
+/// boutique). Comme pour les objets, un pool compte même si aucune salle ne le pose. (La fiche
+/// M3-T12 disait ce second renvoi vide : constat périmé, D62 l'a branché.)
+pub(crate) fn loot_pool_weapons(registry: &Registry) -> BTreeSet<String> {
     registry
         .loot_tables
         .values()
@@ -87,19 +101,67 @@ fn loot_pool_weapons(registry: &Registry) -> BTreeSet<String> {
         .collect()
 }
 
+/// M3-T12 (§77) : sources M3 d'objets et d'armes en plus des pools : les entrées qu'un déblocage
+/// ajoute à un pool (`UnlockGrant::Loot`, visibles après un accomplissement ou un achat du hub).
+/// `(objets, armes)`.
+pub(crate) fn unlock_grant_sources(registry: &Registry) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut objects = BTreeSet::new();
+    let mut weapons = BTreeSet::new();
+    for unlock in registry.unlocks.values() {
+        for grant in &unlock.def.grants {
+            let items::UnlockGrant::Loot { pick, .. } = grant else {
+                continue;
+            };
+            match pick {
+                items::LootPick::Item(id) => {
+                    objects.insert(id.clone());
+                }
+                items::LootPick::Weapon(id, _) => {
+                    weapons.insert(id.clone());
+                }
+                items::LootPick::Rarity(rarity) => {
+                    objects.extend(
+                        registry
+                            .items
+                            .values()
+                            .filter(|item| item.def.rarity == *rarity)
+                            .map(|item| item.id.clone()),
+                    );
+                }
+                items::LootPick::Currency(_) => {}
+            }
+        }
+    }
+    (objects, weapons)
+}
+
+/// Objets qu'une partie peut donner : consommables de départ et d'étage, pools, entrées ajoutées
+/// par un déblocage.
+pub(crate) fn item_sources(registry: &Registry) -> BTreeSet<String> {
+    let mut out = loot_pool_items(registry);
+    out.extend(unlock_grant_sources(registry).0);
+    for c in registry.characters.values() {
+        out.extend(c.starting_consumables.keys().cloned());
+    }
+    for floors in registry.floors.values() {
+        out.extend(floors.consumables_per_floor.keys().cloned());
+    }
+    out
+}
+
 /// Ce qu'une partie ordinaire peut atteindre, déduit des racines.
 #[derive(Default)]
-struct Reach<'a> {
+pub(crate) struct Reach<'a> {
     /// Grammaires d'étage désignées par une racine.
-    grammars: BTreeSet<&'a registry::FloorGrammarId>,
+    pub(crate) grammars: BTreeSet<&'a registry::FloorGrammarId>,
     /// Cavernes désignées par une racine.
-    caves: BTreeSet<&'a registry::CaveId>,
+    pub(crate) caves: BTreeSet<&'a registry::CaveId>,
     /// Cartes posées directement (tous leurs niveaux sont joués).
-    maps: BTreeSet<registry::MapId>,
+    pub(crate) maps: BTreeSet<registry::MapId>,
     /// Types de salle pouvant être tirés.
-    room_kinds: BTreeSet<String>,
+    pub(crate) room_kinds: BTreeSet<String>,
     /// Gabarits `(carte, niveau)` pouvant être tirés par une grammaire.
-    drawn_templates: BTreeSet<(registry::MapId, String)>,
+    pub(crate) drawn_templates: BTreeSet<(registry::MapId, String)>,
 }
 
 fn designations<'a>(registry: &'a Registry, manifest: &'a GameManifest) -> Vec<&'a str> {
@@ -111,8 +173,13 @@ fn designations<'a>(registry: &'a Registry, manifest: &'a GameManifest) -> Vec<&
 }
 
 fn reach<'a>(registry: &'a Registry, manifest: &'a GameManifest) -> Reach<'a> {
+    reach_from(registry, designations(registry, manifest))
+}
+
+/// Atteint depuis des racines données (carte, `cave:<id>` ou `floor:<id>`).
+pub(crate) fn reach_from<'a>(registry: &'a Registry, designations: Vec<&'a str>) -> Reach<'a> {
     let mut reach = Reach::default();
-    for designation in designations(registry, manifest) {
+    for designation in designations {
         if let Some(cave) = registry::cave_designation(designation) {
             if let Some((id, _)) = registry.caves.get_key_value(&cave) {
                 reach.caves.insert(id);
@@ -153,7 +220,7 @@ fn reach<'a>(registry: &'a Registry, manifest: &'a GameManifest) -> Reach<'a> {
 
 /// Niveaux de carte que la partie peut jouer : tous ceux des cartes posées, et les gabarits
 /// qu'une grammaire peut tirer.
-fn playable_levels<'a>(
+pub(crate) fn playable_levels<'a>(
     registry: &'a Registry,
     reach: &Reach<'_>,
 ) -> Vec<&'a registry::MapLevelInfo> {
@@ -174,7 +241,7 @@ fn playable_levels<'a>(
 
 /// Personnages que la partie peut faire apparaître : cartes, arènes, vagues, cavernes,
 /// renforts de boss (point fixe : un renfort n'est atteint que si son boss l'est).
-fn reachable_characters(registry: &Registry, reach: &Reach<'_>) -> BTreeSet<String> {
+pub(crate) fn reachable_characters(registry: &Registry, reach: &Reach<'_>) -> BTreeSet<String> {
     let mut out: BTreeSet<String> = BTreeSet::new();
     for level in playable_levels(registry, reach) {
         out.extend(level.characters.iter().cloned());
@@ -283,6 +350,24 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
             &powerup.actions,
         );
     }
+    // M3-T12 (§77) : actions d'entrée et de frise des phases de boss (un `Modifier` y est accepté par le
+    // lint) : des usages de stat comme ceux d'un objet.
+    for c in registry.characters.values() {
+        for (index, phase) in c.boss.iter().flat_map(|boss| &boss.phases).enumerate() {
+            actions(
+                &c.file,
+                format!("personnage « {} » : phase {index}, on_enter", c.id),
+                &phase.on_enter,
+            );
+            for event in phase.timeline.iter().flat_map(|timeline| &timeline.events) {
+                actions(
+                    &c.file,
+                    format!("personnage « {} » : phase {index}, frise", c.id),
+                    &event.r#do,
+                );
+            }
+        }
+    }
     // M3-T9 : le modificateur d'une curse doit viser une stat que la simulation lit.
     for curse in registry.curses.values() {
         for effect in &curse.def.effects {
@@ -364,8 +449,10 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
                 LintWarningKind::Unreachable,
                 room.file.display().to_string(),
                 format!(
-                    "type de salle « {} » : aucune grammaire ni carte d'une séquence ne peut le tirer",
-                    room.id
+                    "type de salle « {} » : aucune grammaire ni carte d'une séquence ne peut le tirer{}",
+                    room.id,
+                    crate::mechanics::room_mechanic(&room.def)
+                        .map_or_else(String::new, |m| format!(" ; mécanique : {m}"))
                 ),
             );
         }
@@ -422,32 +509,28 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
         }
     }
 
-    let mut item_sources: BTreeMap<&str, &str> = BTreeMap::new();
-    for c in registry.characters.values() {
-        for id in c.starting_consumables.keys() {
-            item_sources.insert(id, "départ");
-        }
-    }
-    for floors in registry.floors.values() {
-        for id in floors.consumables_per_floor.keys() {
-            item_sources.insert(id, "étage");
-        }
-    }
-    let pool_items = loot_pool_items(registry);
+    let item_sources = item_sources(registry);
     for item in registry.items.values() {
-        if !item_sources.contains_key(item.id.as_str()) && !pool_items.contains(&item.id) {
+        if !item_sources.contains(&item.id) {
+            let mechanics = crate::mechanics::item_mechanics(item);
             warn(
                 LintWarningKind::Unreachable,
                 item.file.display().to_string(),
                 format!(
-                    "objet « {} » : aucune source (départ, étage, salle, coffre ni pool)",
-                    item.id
+                    "objet « {} » : aucune source (départ, étage, salle, coffre ni pool){}",
+                    item.id,
+                    if mechanics.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" ; mécanique : {}", mechanics.join(", "))
+                    }
                 ),
             );
         }
     }
 
     let mut weapon_sources: BTreeSet<String> = loot_pool_weapons(registry);
+    weapon_sources.extend(unlock_grant_sources(registry).1);
     // D63 : un personnage de test ne donne rien à une partie ordinaire.
     for c in registry.characters.values().filter(|c| !c.test_only) {
         weapon_sources.extend(c.starting_weapons.iter().map(|w| w.to_string()));
@@ -504,6 +587,7 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
         }
     }
 
+    out.extend(crate::mechanics::warnings(registry, manifest));
     out
 }
 
@@ -527,5 +611,66 @@ mod tests {
         assert!(sim_core::stats::stat_reader(&StatId::ShotSize).is_some());
         assert!(sim_core::stats::stat_reader(&StatId::Custom("inutile".into())).is_none());
         assert!(sim_core::stats::stat_reader(&StatId::MoveSpeed).is_some());
+    }
+
+    /// Toutes les stats nommées du moteur ; le `match` sans `_` force l'ajout d'une stat nouvelle ici
+    /// (donc la décision « a-t-elle un lecteur ? ») au lieu de la laisser passer.
+    fn named_stats() -> Vec<StatId> {
+        let all = vec![
+            StatId::MaxHealth,
+            StatId::HealthRegen,
+            StatId::MoveSpeed,
+            StatId::Acceleration,
+            StatId::SprintMultiplier,
+            StatId::Damage,
+            StatId::FireRate,
+            StatId::ReloadSpeed,
+            StatId::Range,
+            StatId::Armor,
+            StatId::Luck,
+            StatId::SeparationDistance,
+            StatId::SeparationForce,
+            StatId::SlowDownDistance,
+            StatId::OptimalAttackDistance,
+            StatId::EnemyMoveSpeed,
+            StatId::ShotSpeed,
+            StatId::ShotSize,
+        ];
+        for stat in &all {
+            match stat {
+                StatId::MaxHealth
+                | StatId::HealthRegen
+                | StatId::MoveSpeed
+                | StatId::Acceleration
+                | StatId::SprintMultiplier
+                | StatId::Damage
+                | StatId::FireRate
+                | StatId::ReloadSpeed
+                | StatId::Range
+                | StatId::Armor
+                | StatId::Luck
+                | StatId::SeparationDistance
+                | StatId::SeparationForce
+                | StatId::SlowDownDistance
+                | StatId::OptimalAttackDistance
+                | StatId::EnemyMoveSpeed
+                | StatId::ShotSpeed
+                | StatId::ShotSize
+                | StatId::Custom(_) => {}
+            }
+        }
+        all
+    }
+
+    /// M3-T12 : aucune stat nommée sans lecteur (`Luck`, `ShotSpeed`, `ShotSize` comprises), et toute stat
+    /// dont la base par défaut est donnée hors `Stats` est lue.
+    #[test]
+    fn every_named_stat_has_a_reader() {
+        for stat in named_stats() {
+            assert!(
+                sim_core::stats::stat_reader(&stat).is_some(),
+                "stat {stat:?} sans lecteur dans `sim_core::stats::stat_reader`"
+            );
+        }
     }
 }

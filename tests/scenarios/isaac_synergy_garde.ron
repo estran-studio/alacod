@@ -1,0 +1,29 @@
+// M3-T11b (docs/conventions.md §76.2) : la synergie `garde_rapprochee` d'`isaac` (le `frere` et l'`orbe`, deux objets du pool `tresor`) : +20 % de dégâts
+// dès que la paire est tenue.
+//
+// À regarder : f10 le joueur ramasse le frère (dégâts ×1, un familier), f40 l'orbe : deux familiers et dégâts ×1,2.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 100,
+    items: [
+        (id: "frere", x: "-8.0", y: "-8.0", at_frame: 1),
+        (id: "orbe", x: "-8.0", y: "-8.0", at_frame: 30),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "frere", at_frame: 20),
+        FamiliarCount(handle: 0, count: 1, at_frame: 35),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 35),
+        HasItem(handle: 0, id: "orbe", at_frame: 60),
+        FamiliarCount(handle: 0, count: 2, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 1.2, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 1.2, at_frame: 99),
+    ],
+)

@@ -1,0 +1,11 @@
+// `isaac` (M3-T11b, §76.2) : toutes les 90 frames (`Tick`), +30 % de vitesse de déplacement pendant 60 frames (`MoveSpeed` en unités/s : 120 au repos, 156,00037 à f100, mesuré).
+(
+    name: "Pouls",
+    kind: Passive,
+    effects: [
+        (on: Tick(90), do: [TimedModifier(stat: MoveSpeed, op: Pct, value: "0.3", frames: 60)]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    test: Some((frames: 120, expect: [Stat(handle: 0, stat: MoveSpeed, value: 120.0, at_frame: 60), Stat(handle: 0, stat: MoveSpeed, value: 156.00037, at_frame: 100)])),
+)

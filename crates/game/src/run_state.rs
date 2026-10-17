@@ -705,6 +705,7 @@ mod tests {
                 difficulty: None,
             },
             generate_template: None,
+            mechanics: vec![],
         }
     }
 

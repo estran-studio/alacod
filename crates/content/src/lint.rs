@@ -85,6 +85,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_room_kinds(registry, &mut errors);
     lint_arenas(registry, &mut errors);
     lint_items(registry, &mut errors);
+    lint_map_layers(registry, &mut errors);
     lint_synergies(registry, &mut errors);
     lint_loot(registry, &mut errors);
     lint_unlocks(registry, &mut errors);
@@ -2191,6 +2192,24 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
     }
+    // Légende : chaque sprite cité existe dans la table des feuilles (si le jeu en déclare une).
+    if registry.sprite_sheets.is_empty() {
+        return;
+    }
+    for (rel, sprites) in &registry.hud_legend_sprites {
+        for sprite in sprites {
+            if !registry
+                .sprite_sheets
+                .contains_key(&registry::SpriteSheetId::from(sprite.as_str()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: rel.display().to_string(),
+                    message: format!("hud : légende : sprite « {sprite} » absent de sprites.ron"),
+                });
+            }
+        }
+    }
 }
 
 /// Les écrans pause/inventaire instancient leurs listes depuis ce gabarit chargé par
@@ -3407,6 +3426,24 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
                 file: file.clone(),
                 message: format!("grammaire d'étage « {} » : {problem}", entry.id),
             });
+        }
+        // M3-T12 (§77) : la salle secrète d'une grille n'est murée que par `door_lock: Secret` de son
+        // type de salle ; sans lui, elle serait posée mais ouverte, jamais « secrète ».
+        if let world::FloorLayout::Grid { secret, .. } = entry.grammar.layout() {
+            if entry.grammar.required.contains_key(&secret) {
+                if let Some(room) = registry.rooms.get(&secret) {
+                    if room.def.door_lock != Some(world::DoorLock::Secret) {
+                        errors.push(LintError {
+                            kind: LintErrorKind::OutOfRange,
+                            file: file.clone(),
+                            message: format!(
+                                "grammaire d'étage « {} » : layout Grid : la salle secrète « {secret} » (required) a un type de salle sans `door_lock: Secret` : elle ne serait pas murée",
+                                entry.id
+                            ),
+                        });
+                    }
+                }
+            }
         }
         let map_id = registry::map_id_from_path(&entry.templates);
         let Some(map) = registry.maps.get(&map_id) else {
@@ -4781,6 +4818,21 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                 items::LootPick::Currency(_) => {}
             }
         }
+        // M3-T12 (§77) : l'épuisement ne retient que des objets et des armes (`PoolState::record`
+        // ignore `Currency`) ; un pool qui n'a que des tas de sous ne s'épuiserait jamais.
+        if table.def.exhaust
+            && !table.def.entries.is_empty()
+            && table
+                .def
+                .entries
+                .iter()
+                .all(|entry| matches!(entry.pick, items::LootPick::Currency(_)))
+        {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("pool de butin « {id} » : exhaust: true mais toutes les entrées sont des Currency (jamais « vues » par l'épuisement)"),
+            );
+        }
         if let Some(reward) = &table.def.reward {
             for (name, value) in [
                 ("chance", reward.chance),
@@ -5191,6 +5243,55 @@ fn lint_stat_readers(registry: &Registry, errors: &mut Vec<LintError>) {
                 file,
                 message: format!("{at} : stat {stat:?} : aucun système ne la lit"),
             });
+        }
+    }
+}
+
+/// M3-T12 (`docs/conventions.md` §77) : couches `Rocks` et `Surfaces` des niveaux d'une carte. Une
+/// valeur de rocher autre que 1 (rocher) ou 2 (rocher à butin) et une valeur de surface sans fichier
+/// `surfaces/*.ron` sont ignorées au chargement : le gabarit ne ferait pas ce que son auteur a peint.
+fn lint_map_layers(registry: &Registry, errors: &mut Vec<LintError>) {
+    let declared: BTreeSet<u8> = registry
+        .surfaces
+        .values()
+        .map(|surface| surface.intgrid_value)
+        .collect();
+    for map in registry.maps.values() {
+        let file = map.file.display().to_string();
+        for level in &map.levels {
+            if !level.rock_other_values.is_empty() {
+                let values: Vec<String> = level
+                    .rock_other_values
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect();
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "niveau « {} » : couche Rocks : valeur(s) {} : seules 1 (rocher) et 2 (rocher à butin) existent",
+                        level.id,
+                        values.join(", ")
+                    ),
+                });
+            }
+            let unknown: Vec<String> = level
+                .surface_values
+                .iter()
+                .filter(|value| !declared.contains(value))
+                .map(ToString::to_string)
+                .collect();
+            if !unknown.is_empty() {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "niveau « {} » : couche Surfaces : valeur(s) {} sans surface (intgrid_value d'un fichier surfaces/*.ron)",
+                        level.id,
+                        unknown.join(", ")
+                    ),
+                });
+            }
         }
     }
 }

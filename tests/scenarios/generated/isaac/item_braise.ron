@@ -1,0 +1,27 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit ItemHeld (M2-T17, §54) : le joueur commence avec « braise »
+// (`PlayerScript::items`) ; un actif est utilisé à la frame 10.
+#![enable(implicit_some)]
+Scenario(
+    game: "isaac",
+    map: "maps/gabarit_armes.ldtk",
+    map_seed: 123456,
+    frames: 60,
+    players: [
+        PlayerScript(
+            inputs: [],
+            items: [
+                "braise",
+            ],
+        ),
+    ],
+    expect: [
+        HasItem(
+            handle: 0,
+            id: "braise",
+            at_frame: 1,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    mode: Sandbox,
+)

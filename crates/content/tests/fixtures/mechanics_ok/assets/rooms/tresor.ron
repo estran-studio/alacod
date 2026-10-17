@@ -1,0 +1,1 @@
+(door_lock: Some(Key(1)), lock_from_floor: 1, chest: Some((table: Some("treasure"), locked: false, rarity: Common)))
