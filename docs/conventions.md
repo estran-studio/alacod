@@ -5918,6 +5918,7 @@ de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `g
     shells: Some(400),                                // sous au sol à au plus 400 de coût de chemin (10 par case de 8 px)
     devil: Never,                                     // Never | IfHealthAbove("4.0")
     bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+    anti_jitter: true,                                // s'attache à son but quand il balance sur place (ci-dessous)
 )
 ```
 
@@ -5955,6 +5956,12 @@ de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `g
   un seul présentoir à la fois, les autres suivent. `Nearest` garde l'ordre d'avant (D62 : le plus riche des joueurs paie).
 - **Sous au sol** : `ShellPickup` à moins de `n` de coût de chemin (contact). Sans limite, un étage nettoyé envoyait le bot
   ramasser des tas aux quatre coins (graines 79, 89, 96, 132 de la première campagne : 1 200 frames sans kill).
+- **Anti-jitter** (`anti_jitter: true`, seconde mémoire du bot après `ExplorerVisits`, `ExplorerJitter`, hors rollback) : un bot qui veut
+  avancer mais reste dans un rayon de 12 pendant 40 frames balance entre deux buts (ou deux routes) de coût presque égal dont l'ordre
+  s'inverse à chaque pas, la commande arrivant avec le délai d'input. Il **s'attache** alors à son but du moment (`Step::target`,
+  passé en premier à `explore_step` tant qu'il est atteignable) et **tient** son prochain point de passage 60 frames au plus.
+  Découvert sur la graine 19 d'`isaac` sans bombe (deux salles équidistantes, bot immobile 600 frames, soft-lock) ; inerte tant qu'il
+  n'y a pas de balancement, et faux par défaut (aucun autre jeu ne change).
 - **Diable** (`Price::MaxHealth(perte)`) : `Never`, ou `IfHealthAbove(n)` : achète si l'âme couvre tout le prix, ou si la vie
   courante dépasse **strictement** `n` et dépasse le reste à payer (le jeu refuse un paiement qui tuerait, §73). **Défaut : `Never`**
   (Q14, à confirmer par William) : sur les 55 graines de la campagne qui ont une salle du diable, 55 victoires avec `Never`, 48

@@ -6,7 +6,7 @@ POL=$1; shift
 SIM=${SIM:-$CARGO_TARGET_DIR/headless/alacod-sim}
 export DYLD_LIBRARY_PATH=$(./scripts/dev-features.sh libpath)
 D=docs/taches/rapports/m3-t14-bot-isaac
-T=${TMPDIR:-/tmp}/m3-t14-diable; mkdir -p $T
+T=${TMPDIR:-/tmp}/m3-t14-diable-${POL//:/_}; mkdir -p $T
 OUT=$D/diable_${POL//:/_}.json
 echo "[]" > $T/acc.json
 for s in "$@"; do

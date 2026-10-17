@@ -24,7 +24,8 @@
 //!   présentoir à `cost` : rien ne change pour `gungeon` ou `throne`).
 //!
 //! **Mémoire du bot** (piège « donnée dérivée non rollbackée » de `CLAUDE.md`) : aucune, hors
-//! [`ExplorerVisits`]. « Salle visitée » se lit dans l'état : une salle verrouillante `Cleared`, ou
+//! [`ExplorerVisits`] et, si `ExplorerPolicy::anti_jitter`, [`ExplorerJitter`] (position d'attache et but
+//! suivi, pour sortir d'un balancement). « Salle visitée » se lit dans l'état : une salle verrouillante `Cleared`, ou
 //! `Dormant` sans ennemi dedans (elle ne se verrouillera jamais), n'est plus un but ; une salle non
 //! verrouillante (départ, récompense, boutique) n'est un but que par ses objets au sol. La porte
 //! à clé ouverte, la salle secrète ouverte, le rocher cassé, la bombe posée se lisent dans
