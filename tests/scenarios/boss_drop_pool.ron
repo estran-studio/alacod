@@ -17,8 +17,10 @@ Scenario(
         ]),
     ],
     expect: [
-        ItemsOnFloor(id: "zzz", count: 1, at_frame: 20),
-        ItemsOnFloor(id: "zzz", count: 1, at_frame: 160),
-        ItemsOnFloor(id: "zzz", count: 1, at_frame: 299),
+        ItemsOnFloor(id: "bottes", count: 0, at_frame: 20),
+        ItemsOnFloor(id: "bottes", count: 0, at_frame: 160),
+        ItemsOnFloor(id: "bottes", count: 1, at_frame: 299),
+        ItemsOnFloor(id: "lame", count: 0, at_frame: 299),
+        ItemsOnFloor(id: "boussole", count: 0, at_frame: 299),
     ],
 )
