@@ -724,6 +724,10 @@ pub fn read_bot_inputs(
                     explore.flee =
                         crate::explorer::flee_step(&mut nav.0, &frame_data.bombs, position);
                 }
+                if view.nearest_enemy.is_some() || explore.flee.is_some() {
+                    // Combat ou fuite : l'attente sur place n'est pas un balancement d'exploration.
+                    jitter.0.remove(&player.handle);
+                }
                 if view.nearest_enemy.is_none() && explore.flee.is_none() {
                     nav.0.update_from(rects, &body, points_for, position);
                     let ctx = crate::explorer::GoalContext {
@@ -810,6 +814,9 @@ pub fn read_bot_inputs(
                 }
                 view.explore = Some(explore);
             }
+        }
+        if exploring && downed.is_some() {
+            jitter.0.remove(&player.handle);
         }
 
         if prudent_like(profile) && crate::dodge::dodge(&view).is_some() {

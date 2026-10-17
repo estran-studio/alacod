@@ -1045,6 +1045,9 @@ pub const JITTER_RADIUS: Fixed = Fixed::from_bits(12 << 16);
 pub const JITTER_FRAMES: u32 = 40;
 /// Un point de passage est atteint à moins de cette distance.
 const WAYPOINT_REACHED: Fixed = Fixed::from_bits(3 << 16);
+/// Un point de passage n'est tenu que ce nombre de frames : un bot qui ne peut pas l'atteindre (coin, corps que la
+/// navigation ne voit pas) reprend la route, puis s'attache de nouveau après [`JITTER_FRAMES`].
+pub const JITTER_HOLD_FRAMES: u32 = 60;
 
 /// État anti-jitter d'un joueur.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1054,6 +1057,8 @@ pub struct Jitter {
     /// But auquel le bot s'est attaché (`Step::target`).
     focus: Option<u64>,
     hold: Option<(u64, FixedVec2)>,
+    /// Frame où le point de passage tenu a été pris.
+    held_since: u32,
 }
 
 /// Anti-jitter des `explorateur` (`ExplorerPolicy::anti_jitter`) : **seconde mémoire du bot** après [`ExplorerVisits`],
@@ -1086,6 +1091,7 @@ impl ExplorerJitter {
             since: frame,
             focus: None,
             hold: None,
+            held_since: frame,
         };
         let state = self.0.entry(handle).or_insert(fresh);
         if position.distance(&state.anchor) > JITTER_RADIUS {
@@ -1093,6 +1099,7 @@ impl ExplorerJitter {
         }
         if let Some((target, waypoint)) = state.hold {
             if target == step.target
+                && frame.saturating_sub(state.held_since) < JITTER_HOLD_FRAMES
                 && position.distance(&waypoint) > WAYPOINT_REACHED
                 && clear(position, waypoint)
             {
@@ -1100,10 +1107,12 @@ impl ExplorerJitter {
                 return;
             }
             state.hold = None;
+            state.since = frame;
         }
         if frame.saturating_sub(state.since) >= JITTER_FRAMES {
             state.focus = Some(step.target);
             state.hold = Some((step.target, position + step.direction));
+            state.held_since = frame;
         }
     }
 }
@@ -1111,14 +1120,27 @@ impl ExplorerJitter {
 impl Target {
     /// Identité du but (voir [`Step::target`]).
     fn identity(&self) -> u64 {
-        let rect = |r: &Rect| {
-            let bits = |f: Fixed| u64::from(f.to_bits() as u32);
-            (bits(r.min.x) << 48) ^ (bits(r.min.y) << 32) ^ (bits(r.max.x) << 16) ^ bits(r.max.y)
+        // Hachage de tous les bits (FNV-1a sur 64 bits) : deux buts distincts ne partagent pas une identité.
+        let mix = |values: &[i64]| {
+            values
+                .iter()
+                .fold(0xcbf2_9ce4_8422_2325_u64, |hash, value| {
+                    (hash ^ *value as u64).wrapping_mul(0x0000_0100_0000_01b3)
+                })
+        };
+        let rect = |tag: i64, r: &Rect| {
+            mix(&[
+                tag,
+                r.min.x.to_bits() as i64,
+                r.min.y.to_bits() as i64,
+                r.max.x.to_bits() as i64,
+                r.max.y.to_bits() as i64,
+            ])
         };
         match self {
-            Target::Room(zone) => rect(zone),
-            Target::Bomb { zone, .. } => rect(zone) ^ 1,
-            Target::Item(item) => (1 << 63) | item.net_id as u64,
+            Target::Room(zone) => rect(0, zone),
+            Target::Bomb { zone, .. } => rect(1, zone),
+            Target::Item(item) => mix(&[2, item.net_id as i64]),
         }
     }
 }
@@ -1899,5 +1921,110 @@ mod tests {
             flee_step(&mut nav, &[], v(10.0, 0.0)).is_none(),
             "aucune bombe"
         );
+    }
+
+    fn pas(y: f32, target: u64) -> Step {
+        Step {
+            direction: v(0.0, y),
+            interact: false,
+            bomb: false,
+            what: "room",
+            target,
+        }
+    }
+
+    /// Un bot qui veut avancer mais reste dans un rayon de 12 pendant 40 frames (deux buts dont l'ordre s'inverse) :
+    /// il s'attache à son but du moment et tient son point de passage ; un vrai déplacement, une arrivée ou un autre but
+    /// le libèrent. Avant 40 frames, rien n'est touché.
+    #[test]
+    fn l_anti_jitter_attache_le_bot_qui_balance_sur_place() {
+        let mut jitter = ExplorerJitter::default();
+        let libre = |_: FixedVec2, _: FixedVec2| true;
+        for frame in 0..40 {
+            let mut step = pas(
+                if frame % 2 == 0 { 9.0 } else { -9.0 },
+                u64::from(frame % 2),
+            );
+            let before = step;
+            jitter.steady(0, frame, v(0.0, 0.0), &mut step, libre);
+            assert_eq!(
+                step, before,
+                "frame {frame} : rien avant 40 frames sur place"
+            );
+            assert_eq!(jitter.focus(0), None);
+        }
+        let mut step = pas(9.0, 7);
+        jitter.steady(0, 40, v(0.0, 0.0), &mut step, libre);
+        assert_eq!(jitter.focus(0), Some(7), "s'attache au but du moment");
+        // Le pas inverse que la route proposerait maintenant est remplacé par le point de passage tenu (0, 9).
+        let mut step = pas(-9.0, 7);
+        jitter.steady(0, 41, v(0.0, 2.0), &mut step, libre);
+        assert_eq!(step.direction, v(0.0, 7.0), "vers (0, 9), pas vers le bas");
+        // Segment bouché : le point de passage est lâché, le pas de la route est gardé.
+        let mut step = pas(-9.0, 7);
+        jitter.steady(0, 42, v(0.0, 2.0), &mut step, |_, _| false);
+        assert_eq!(step.direction, v(0.0, -9.0));
+        // Un vrai déplacement (plus de 12) repart de zéro.
+        let mut step = pas(9.0, 7);
+        jitter.steady(0, 43, v(0.0, 30.0), &mut step, libre);
+        assert_eq!(jitter.focus(0), None);
+        // Arrivé : l'état est oublié.
+        let mut step = pas(0.0, 7);
+        jitter.steady(0, 44, v(0.0, 30.0), &mut step, libre);
+        assert!(jitter.0.is_empty());
+    }
+
+    /// Un point de passage que le bot n'atteint pas (corps invisible de la navigation) n'est tenu que
+    /// `JITTER_HOLD_FRAMES` frames : ensuite le pas de la route reprend la main.
+    #[test]
+    fn la_garde_du_point_de_passage_est_bornee() {
+        let mut jitter = ExplorerJitter::default();
+        let libre = |_: FixedVec2, _: FixedVec2| true;
+        let here = v(0.0, 0.0);
+        for frame in 0..=JITTER_FRAMES {
+            let mut step = pas(9.0, 5);
+            jitter.steady(0, frame, here, &mut step, libre);
+        }
+        let mut step = pas(-9.0, 5);
+        jitter.steady(0, JITTER_FRAMES + 1, here, &mut step, libre);
+        assert!(step.direction.y > Fixed::ZERO, "le point de passage tient");
+        let mut step = pas(-9.0, 5);
+        jitter.steady(
+            0,
+            JITTER_FRAMES + JITTER_HOLD_FRAMES,
+            here,
+            &mut step,
+            libre,
+        );
+        assert_eq!(
+            step.direction,
+            v(0.0, -9.0),
+            "garde expirée : la route reprend"
+        );
+    }
+
+    #[test]
+    fn l_identite_d_un_but_distingue_salles_objets_et_bombes() {
+        let zone = Rect {
+            min: v(40.0, 40.0),
+            max: v(88.0, 88.0),
+        };
+        let other = Rect {
+            min: v(40.0, 128.0),
+            max: v(88.0, 176.0),
+        };
+        let ids = [
+            Target::Room(zone).identity(),
+            Target::Room(other).identity(),
+            Target::Bomb {
+                zone,
+                reach: fx(40.0),
+            }
+            .identity(),
+            Target::Item(ItemGoal::new(7, v(0.0, 0.0), false, false)).identity(),
+            Target::Item(ItemGoal::new(8, v(0.0, 0.0), false, false)).identity(),
+        ];
+        let distinct: std::collections::BTreeSet<_> = ids.iter().collect();
+        assert_eq!(distinct.len(), ids.len(), "{ids:?}");
     }
 }

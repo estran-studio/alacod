@@ -23,6 +23,7 @@ Scenario(
         shells: Some(400),
         devil: Never,
         bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+        anti_jitter: true,
     )),
     players: [(bot: explorateur, currency: Some(12))],
     expect: [
