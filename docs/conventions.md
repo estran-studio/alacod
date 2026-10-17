@@ -695,10 +695,11 @@ traces. Détail et mesure : §20.
 
 ### Exclusions assumées du checksum
 
-Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
+Trois données sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
 
 - **`HitCount`** (`crates/game/src/character/health/mod.rs`, T2.9) : compteur de coups reçus, posé à la création uniquement si `CharacterConfig::counts_hits` (`crates/game/src/character/create.rs`, faux par défaut — aucun personnage zombie/joueur ne le pose ; seuls `target` (testbed) et `cible` (throne) le déclarent, `crates/scenario/src/generate.rs`). Enregistré via `rollback_and_trace_no_checksum::<HitCount>()` (`crates/game/src/character/mod.rs`) : rollback et trace, mais hors checksum. Il sert aux attentes `EntityHits` des scénarios (`crates/combat/src/weapons/expectations.rs`) ; aucune décision de jeu ne le lit.
 - **`EnemyAiConfig::stationary`** (`crates/game/src/character/enemy/ai/state.rs`, T2.9) : immobilité totale d'un ennemi de testbed (`dummy`/`target`/`ally`/`civilian`), exclue du `Hash` manuel du composant. Aucun contenu zombie ne la pose ; hacher un champ de plus déplacerait le checksum de toute entité `Enemy` sans aucun changement de gameplay (vérifié empiriquement à l'époque : sans l'impl manuel, `idle.ron` diverge dès f181).
+- **`RunHistory`** (`crates/game/src/profile.rs`, M3-T10, §75) : boss vaincus et objets tenus par joueur, lus **seulement** à `Ended` par `write_achievements_at_run_end` (`Update`). Enregistré via `rollback_and_trace_resource_no_checksum` : il suit les rollbacks mais n'entre pas dans le checksum. Dérivé d'états déjà sous checksum (`Health`/`Death` du boss, `Inventory`), jamais lu par `GgrsSchedule` ; l'inclure déplacerait les traces dès qu'un boss meurt.
 
 ## 11. Munitions et inventaire d'armes (T2.2, chantier B7)
 
@@ -1292,6 +1293,42 @@ source_team, next_tick_frame }`, dans l'ordre de pose.
   charge est interrompue), pas de déplacement (`move_enemies`), pas d'attaque, émetteur suspendu.
 - `Freeze` : `Stun`, plus vitesse **et recul** remis à zéro chaque frame (`status_motion_system`,
   `Movement`, avant `move_characters`).
+
+- `Charm` (suivi Q12, réponse de William du 2026-10-16 ; `StatusDef::Charm`, **en fin d'enum** : le `derive(Hash)` hache
+  l'index de variante, les sept d'avant gardent le leur, et aucun contenu existant ne l'utilise, donc aucune trace ne
+  bouge ; `StatusKindEntry::Charm`, `(kind: Charm, frames: 200)`). Réapplication : durée rafraîchie, jamais de pile.
+  **Sans effet sur un joueur.** Un ennemi charmé sert le camp des joueurs pendant la durée :
+  - **Cible** (`ai::behavior::enemy_target_selection`, `ai::charm::nearest_target`, pure) : l'ennemi **hostile le plus
+    proche**, c'est-à-dire un autre ennemi vivant, **non charmé**, de l'équipe `Enemies` (jamais `Allies` ni `Neutral` :
+    un coup `Players` ne les touche pas), hors salle dormante ; distance au carré en
+    `FixedWide`, **égalité : le plus petit `GgrsNetId`** (indépendant de l'ordre d'itération). Portée illimitée, ni
+    aggro ni vue. Cible stockée dans `EnemyTarget` avec `TargetType::Enemy` (variante ajoutée en fin d'enum) ; sans
+    ennemi hostile : `Idle`. Une attaque en cours contre un ennemi encore présent va à son terme ; toute autre
+    attaque (joueur, fenêtre) est abandonnée à la sélection suivante.
+  - **Mouvement** (`pathing::move_enemies`, `ai::charm::charm_motion`, pure) : droit sur la cible à pleine vitesse, à
+    l'arrêt à moins de `min(OptimalAttackDistance, attack_range)` (un ennemi à portée courte, `mouche` à 26, doit pouvoir
+    frapper) ; glissement sur les murs comme tout ennemi, **sans champ de flux** (il ne
+    mène qu'aux joueurs : un charmé ne contourne pas un mur). Il n'est pas repoussé par sa cible (la séparation entre
+    ennemis le tenait à une quarantaine d'unités, hors de portée de corps à corps).
+  - **Attaque** (`behavior::charm_attack`) : corps à corps seulement, portée `attack_range` et cadence
+    `attack_cooldown_frames` de l'ennemi, `MonsterState::Attacking { target: AttackTarget::Enemy }` (variante ajoutée
+    en fin d'enum) ; le dégât est traduit à la frame suivante (`enemy_attack_damage_translate_system`) avec
+    `source_team: Players` (adversaire de sa cible : `team_allows_hit` le laisse passer). **Aucun tir et aucune
+    attaque sur un joueur** : une salve commencée contre un joueur est interrompue (`Emitter` retiré), les règles de
+    comportement de l'ennemi (`behaviors`) sont ignorées pendant le charme (aucune règle retenue : ni `Charge`, ni
+    ouïe qui lui donnerait un joueur pour cible) ; sa **hitbox de mêlée** (`enemy_melee_attack_system`, qui ne
+    regarde pas l'IA) est retenue tant qu'il est charmé (`held || charmed(statuses)` : état dérivé du statut, aucun
+    composant à lever) : scénario
+    `status_charm_contact` (un `coward` à griffes collé au joueur, aucun dégât pendant le charme). Peur et charme
+    cumulés : `Fear` l'emporte (il fuit, ne frappe pas). Défaut **préexistant** relevé, non corrigé (hors du suivi, il
+    déplacerait `status_fear` et `generated/isaac/tears_rancune_vive`) : `Statuses` est retiré dès qu'il est vide
+    (`combat::projectile`) et `rules::melee_hold_system` ne retrouve plus alors un ennemi sans `BehaviorRuntime` : la
+    `MeleeHold` posée par `Fear` ne se lève jamais. Le charme n'a pas ce défaut (retenue dérivée du statut).
+  - **Fin** : le statut retiré (`Statuses::tick`), la cible `Enemy` est effacée à la frame suivante et l'ennemi
+    redevient hostile (joueur le plus proche, comme avant) sans état à nettoyer.
+  Teinte rose des calques (`feedback::status_tint`, présentation). Scénarios `status_charm` (le `breacher` charmé frappe la
+  `target` la plus proche, jamais la lointaine ni le joueur, puis se retourne contre le joueur à l'expiration) et son
+  témoin `status_charm_temoin` ; arme `status_charm` (scénario généré `weapon_status_charm`), statut `charme`.
 
 **Ordre** : pose (`Projectiles`, après les coups de la frame) → `status_tick_system` (même set,
 juste après : ticks de `Burn` puis expiration, `expires_at_frame <= frame`, porteurs par
@@ -3124,7 +3161,7 @@ au ramassage** et n'entre pas dans l'inventaire : aucun bouton d'usage n'existe 
 sans effet reste un compteur (`key`, `blank`, `obus`). Pas de refus de ramassage à pleine santé (le soin est
 simplement borné).
 
-**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`),
+**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`, sauf transformation, voir plus bas),
 à un consommable (`Unsupported`), deux synergies pour le même ensemble (`DuplicateId`), `OnUse` dans une
 synergie ; `uses_per_floor = 0` (`OutOfRange`), `uses_per_floor`/`cost` sur un non-actif, `cost` vers un
 objet inconnu ou non consommable. Fixtures `synergy_unknown_item`, `synergy_single_item`,
@@ -3141,6 +3178,39 @@ la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`,
 `synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
 effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
 (santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
+
+### Transformations : `requires_tag` (suivi Q10, réponse de William du 2026-10-16)
+
+Une **transformation** est une synergie dont la condition est un **tag** d'objet : `SynergyDef.requires_tag:
+Some((tag: "champignon", count: 3))` (`items::TagRequirement`) ; champ optionnel, **absent** : la synergie d'avant, au bit
+près (aucune trace ne bouge : définition de contenu, hors rollback). `requires` devient facultatif (`#[serde(default)]`) :
+vide, la transformation n'exige que le tag ; non vide, les deux se **cumulent**. Une synergie sans aucune condition n'est
+jamais active.
+
+- **Règle** (`SynergyDef::is_active`, pure, utilisée par `SynergyTable::active` et par
+  `game::items::synergy_modifiers_system`, donc par `projectile_mods`, les effets et les modificateurs) :
+  active quand `Inventory::held_with_tag(items, tag) >= count`, soit le nombre d'objets **distincts** tenus
+  (passifs et actif) dont `ItemDef.tags` contient `tag`. **Un exemplaire en double compte une fois**, un consommable ou
+  un objet inconnu jamais ; l'actif perdu éteint la transformation. (`SynergyTable::active` prend désormais
+  l'`ItemTable` : tous les appelants migrés.)
+- **Effets** : ceux d'une synergie ordinaire (`modifiers` de source `synergy:<id>`, `effects`, `projectile`), posés et
+  retirés à chaque frame depuis l'inventaire.
+- **Teinte de présentation** `tint: Some("#rrggbb")` (champ optionnel de `SynergyDef`, hors simulation) : la première
+  transformation active (par id) à `tint` colore les calques du joueur (`feedback::TransformationTint`, relue de l'état
+  chaque tick, derrière la teinte d'un champion et devant celle du marqueur) et produit un moment clé `feedback`
+  « transformation 8 (champignons) » (`FeedbackKind::Transformation`, une fois à l'acquisition).
+- **Lint des mécaniques** (`content::mechanics`) : une transformation compte comme atteignable (ligne « transformations »)
+  quand au moins `count` objets non consommables du tag sont atteignables par pool, départ ou étage ; sinon
+  avertissement « seulement n objet(s) à source portent le tag ».
+- **Lint** (`lint_synergies`) : `count = 0` (`OutOfRange`), tag que **aucun objet** ne porte (`BrokenReference`), `count`
+  supérieur au nombre d'objets non consommables qui portent le tag (`OutOfRange` : jamais active), `tint` qui n'est pas
+  `#rrggbb` (`OutOfRange`) ; « au moins deux objets distincts » ne vaut plus que sans `requires_tag` ; deux synergies de
+  même ensemble **et** de même condition de tag restent un doublon. Fixtures `transformation_ok`, `transformation_bad`
+  (`crates/content/tests/transformations.rs`).
+- **Testbed** : objets `amanite`, `bolet`, `morille` (tag `champignon`, sans effet seuls), synergie `champignons`
+  (`count: 3`, `MoveSpeed` `Pct` +0,3, teinte `#c07040`). Scénarios `transformation_three` (trois ramassages à f10, f40, f70 : la
+  vitesse monte à la troisième prise) et son témoin `transformation_two` (deux champignons : rien) ; générés `item_amanite`,
+  `item_bolet`, `item_morille`.
 
 ## 49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
 
@@ -4466,9 +4536,8 @@ familiers, M3-T7 les champions.
 **Behaviors de familier** (`behaviors::Behavior`, variantes **en fin d'enum**) : `Follow { gap }` (suit
 le porteur à `gap` unités, en file derrière les autres familiers du même porteur : rang = ordre
 d'apparition), `Orbit { radius, frames_per_turn }` (tourne autour du porteur, phase = rang × 2π /
-nombre d'orbitaux, par `fixed_math`), `MirrorShot { weapon, every }` (tire quand le porteur tire, dans
-sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : l'arme du familier, sans les
-modificateurs du porteur), `BlockBullets` (une balle hostile qui touche le familier est détruite par
+nombre d'orbitaux, par `fixed_math`), `MirrorShot { every }` (tire quand le porteur tire, dans
+sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : les larmes du porteur, voir §71 « Q13 »), `BlockBullets` (une balle hostile qui touche le familier est détruite par
 `despawn_rollback`, comme le blank ; le familier est immunisé). `Behavior::is_familiar`. `select`
 ne retient jamais ces règles (un familier n'a pas d'IA de poursuite) ; kinds `Follow`, `Orbit`,
 `MirrorShot`, `BlockBullets` déclarés (`register_kinds`). Un familier est un **personnage** de
@@ -4483,7 +4552,7 @@ ramassages de la frame.
 **Champ d'objet.** `ItemDef.familiar: Option<FamiliarRef { character, per_copy }>` (`per_copy` : 1 par
 défaut, par exemplaire tenu). Définition hors rollback et hors hash. **Lint** : personnage inconnu
 (`BrokenReference`), personnage sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0,
-`frames_per_turn = 0`, `every = 0`, arme de `MirrorShot` inconnue ; réciproquement un behavior de
+`frames_per_turn = 0`, `every = 0` ; réciproquement un behavior de
 familier sur un personnage qu'aucun objet ne cite est refusé (`Unsupported`, « sans porteur »).
 
 **Champions v2.** Champs optionnels de `VariantDef` (hors hash : le composant `Variant(nom)` ne change
@@ -4507,7 +4576,7 @@ non vide et valides (mêmes règles que `ai.behaviors`), `chance` dans [0, 1] po
 **Preuves.** Fixtures `familiar_ok`, `familiar_unknown_character`, `familiar_orphan_behavior`,
 `familiar_without_behavior`, `familiar_gap_zero`, `champion_ok`, `champion_bad_death`,
 `variant_chance_expression_range`, `variant_chance_expression_unknown` ; contenu `testbed` : personnage
-`compagnon` (`Follow` + `MirrorShot`, arme `pistol`) et objet `compagnon` (`familiar`), accepté par le lint,
+`compagnon` (`Follow` + `MirrorShot`) et objet `compagnon` (`familiar`), accepté par le lint,
 sans scénario de jeu (le ramassage ne crée rien encore). Attente de scénario `FamiliarCount { handle,
 count, at_frame }` (familiers dont le porteur est le joueur ; 0 tant que M3-T6 n'existe pas).
 
@@ -4798,6 +4867,53 @@ d'essai (`tags: ["larmes"]`) : `guide` (`Homing`), `perforant` (`Pierce(1)`), `r
 Diagnostic : `ALACOD_PROJECTILES=<scénario>:<de>:<à> cargo test -p scenario --profile headless
 --no-default-features --test scenarios projectile_probe -- --ignored --nocapture` (projectiles, coups,
 statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
+
+### Visée à quatre directions, `aim: FourWay` (suivi Q17, réponse de William du 2026-10-16)
+
+Option de personnage (**donnée**) : `aim: Free` (défaut, 360°, tout le contenu d'avant) ou `aim: FourWay` (`isaac` :
+`pleureur`). Type `sim_core::aim::AimMode` (`CharacterConfig::aim`, miroir `content::CharacterEntry::aim`, schéma
+généré). **Hors hash et hors trace** : composant **statique, non rollback** (comme `Team`, voir `sim_core::aim`), posé à
+la création du joueur **seulement pour `FourWay`** (`character::player::create`) ; un personnage sans `aim:` ne porte
+rien, aucune trace d'un autre jeu ne bouge (suite complète, 0 `BLESS` hors la liste ci-dessous).
+
+**Quantification dans `weapon_rollback_system`** (`sim_core::aim::aim_direction(mode, pan_x, pan_y)`, un seul code pour
+le tir du joueur et le `MirrorShot` de ses familiers, §71) : `FourWay` ne garde que l'**axe dominant** du `pan`
+(comparaison des entiers `|pan_x|` et `|pan_y|`, avant toute normalisation : ni division ni arrondi, `Fixed` exact), avec
+le signe de sa composante, vecteur unitaire `(±1, 0)` ou `(0, ±1)`. **Égalité exacte des deux axes (diagonale parfaite) :
+l'horizontale l'emporte** ; `pan` nul : pas de visée (aucun tir, comme avant). `Free` : la normalisation d'avant, au bit
+près. La dispersion (`spread`) et les plombs d'un fusil à pompe tournent ensuite autour de cette direction, comme avant.
+Limite connue : la **visée affichée** (rotation du sprite d'arme, `CursorPosition` dérivé du `pan` réel) reste celle de la
+souris ; seule la direction des balles est quantifiée.
+
+**Scénarios** : `PlayerScript::aim: Option<AimMode>` (réglage de joueur, comme `bomb`) : `Some(FourWay)` pose la visée,
+`Some(Free)` **retire** celle du personnage. `aim_four_way` (testbed, trois tirs en biais à 17°, 17° et 45° exact : les
+trois larmes partent plein ouest et touchent la cible alignée aux frames 80, 105 et 129 ; la diagonale parfaite vérifie le
+choix de l'horizontale) et son témoin `aim_four_way_libre` (visée libre : aucun coup).
+
+**Bot** (`crates/bots`) : `BotView::aim` (lu sur le composant du joueur), `decide::apply_four_way` appliqué à la sortie de
+`decide` pour tous les profils : le bot écrit la direction que le moteur retiendra (127 sur l'axe dominant), et, cible à
+moins de 320 sur cet axe **avec ligne dégagée** (`enemy_visible && enemy_shootable` : derrière un mur, il garde sa route) :
+hors de la file de tir (écart perpendiculaire > 14, rayon de larme 5 + demi-corps ~10 − 1) il relâche la gâchette et se
+décale **vers la cible** sur l'axe perpendiculaire (le mouvement du profil y est remplacé, celui sur l'axe de tir est
+gardé) ; dans la file il tire comme avant et ne dérive plus en perpendiculaire. `Free` : l'input du profil, inchangé.
+Le bot reste efficace mais plus lent : sur `grid_post_boss` (graine 8, avant la fusion de T11c) le boss verrouille sa salle à
+f712 au lieu de f628, passe en phase 1 à f825 au lieu de f740 et meurt à f945 au lieu de f862.
+
+**`isaac`** : `pleureur` active `aim: FourWay`. **Générateur** (`alacod-gen`) : les scénarios générés d'un jeu dont le
+joueur vise à quatre directions épinglent `aim: Some(Free)` sur les joueurs scriptés qui tirent : la cible de l'arène
+(+128, −48 : `AIM_AT_TARGET`, carte `gabarit_armes.ldtk`) est en biais et ne peut pas être touchée à quatre directions ; ces
+scénarios prouvent un contenu (arme, larme, familier, statut), pas la visée. Ils sont **bit-identiques** à avant (le
+composant n'existe pas), leurs `.ron` gagnent la ligne `aim: Free`. Épinglés pour la même raison (`explorateur` : la
+grammaire de la grille est leur objet, pas la visée) : `grid_floor_seed_1`, `grid_floor_seed_23`, `grid_floor_seed_123`,
+`grid_post_boss`, `isaac_floor_seed_1` (traces inchangées).
+
+**Traces bougées, avec preuve §5** (dumps `ALACOD_DUMP_TRACE`, `main` `2d30a1c1` contre la branche, `scripts/trace-diff.py`) :
+`generated/isaac/boss_gardien` et `generated/isaac/room_combat` (bots `fonceur` et `explorateur` d'`isaac`, qui tirent à
+quatre directions). Première frame qui diffère : **5**, la première où le bot a un ennemi en vue : le `pan` écrit par le bot
+est quantifié, donc le `CursorPosition` dérivé change et, avec lui, la rotation du sprite d'arme (`FixedTransform3D` de
+`larmes` : `x_axis (-0,986, -0,167)` devient `(-0,999, 0,039)` pour `boss_gardien` ; `FacingDirection` `DownLeft` devient
+`Down` pour `room_combat`). Les attentes tiennent (le boss de `boss_gardien` tombe à f499, `room_combat` nettoyée). Aucun autre
+scénario d'`isaac` ne bouge.
 
 ### Atteignabilité
 
@@ -5409,19 +5525,24 @@ toujours » un personnage invulnérable (§16) : une balle à tête chercheuse p
   `max(5, excédent / 4)` unités par frame sans dépasser l'excédent. Les suiveurs d'un porteur, par rang croissant,
   forment une **file** : le premier vise le porteur, chacun des suivants le précédent (position déjà mise à jour dans
   la frame). Pas de mémoire de trajectoire : la file se déduit des positions courantes.
-- **`MirrorShot { weapon, every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **sa** arme
-  `weapon` (mode par défaut), dans la direction de visée du porteur (`pan` de l'input), au plus une fois par `every`
-  frames (`FamiliarGun`). Le déclencheur est l'événement transitoire `sim_core::triggers::WeaponFired { frame,
-  player_handle }`, émis par `weapon_rollback_system` quand la balle part (cadence respectée, chargeur non vide) et
-  lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence refuse n'émet rien (à la frame 0,
-  `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement transitoire : hors checksum, hors
-  snapshot, aucune trace ne bouge. **Q13 (réponse de la fiche et du plan : proposition par défaut) : l'arme du
-  familier, sans les modificateurs du porteur** ni ses objets de larmes ; un seul tir par déclenchement (pas de plombs
-  multiples), ni dispersion ni recul (aucun RNG consommé), projectile composable de l'arme si elle en déclare un. La
-  balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche
-  jamais), `player_handle` du porteur, les tags du familier. Variante non retenue (larmes du porteur) :
-  `Projectile::composed` de §66 prend ses ajouts en paramètre, il suffirait d'y passer `items::projectile_mods` du
-  porteur.
+- **`MirrorShot { every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **les larmes du
+  porteur** (Q13, réponse de William du 2026-10-16, reprise de T6 : `weapon` a disparu du contrat, un familier n'a plus
+  d'arme propre) : l'arme **active** du porteur dans son **mode actif**, composée avec ses objets et synergies par
+  `combat::weapons::shot_projectile` (`Projectile::composed` de §66 + `items::projectile_mods`, même code que le tir du
+  joueur : `carried_projectile_mods`, `tear_motion`, `aim_direction` sont partagés avec `weapon_rollback_system`) et avec
+  ses stats de larmes (`Damage`, `Range`, `ShotSpeed`, `ShotSize`, `Luck`), dans la direction de visée du porteur
+  (`pan` de l'input), au plus une fois par `every` frames (`FamiliarGun`). Le déclencheur est l'événement transitoire
+  `sim_core::triggers::WeaponFired { frame, player_handle }`, émis par `weapon_rollback_system` quand la balle part
+  (cadence respectée, chargeur non vide) et lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence
+  refuse n'émet rien (à la frame 0, `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement
+  transitoire : hors checksum, hors snapshot. Un seul tir par déclenchement (pas de plombs multiples pour un fusil à
+  pompe), ni dispersion ni recul (aucun RNG consommé), ni chargeur ni cadence du porteur consommés. La balle porte le
+  `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche jamais),
+  `player_handle` du porteur, les tags du familier, `friendly_fire` de l'arme du porteur. Porteur sans arme (inventaire
+  d'armes vide) : pas de tir. **Traces** : un familier dont le porteur tient la même arme que l'ancien `weapon` du
+  familier et aucun objet de larmes tire **exactement** la même balle qu'avant (`isaac` : `frere` tirait `larmes`, ses
+  traces ne bougent pas) ; le testbed (`compagnon` tirait `pistol`, dégâts 15 vitesse 400) tire désormais `larme`
+  (3,5 / 200) : preuve au § « Q13 : traces bougées » ci-dessous.
 - **`BlockBullets`** : entre le mouvement des balles et leurs collisions, une balle (ordinaire ou composable) que
   `team_allows_hit` dit hostile au familier et dont le **disque balayé** de la frame (segment ancienne → nouvelle
   position, rayon de la balle) touche son collider est détruite par `despawn_rollback()` (sans `on_expire`), comme le
@@ -5443,22 +5564,48 @@ familier de rang `to_rank` (avec `FamiliarCount` de §63).
 
 ### Testbed et scénarios
 
-Personnages `compagnon` (`Follow` 28 + `MirrorShot` `pistol` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
+Personnages `compagnon` (`Follow` 28 + `MirrorShot` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
 `BlockBullets`), `rempart` (`Orbit` 24 en 36 000 frames : quasi immobile à l'est du porteur, `BlockBullets`). Objets
 `compagnon`, `compagnon_actif` (actif), `orbital`, `essaim` (`per_copy: 2`), `trio` (`per_copy: 3`), `rempart`.
 
 | Scénario | Prouve |
 |---|---|
 | `familiar_follow` | apparaît sur le porteur, reste dans sa laisse, rattrape et garde 28 unités |
-| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f58, le porteur f83) ; témoin : un seul |
+| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f81, le porteur f83 ; avant Q13, `pistol` : f58) ; témoin : un seul |
+| `familiar_mirror_items`, `..._sans_objet` | Q13 : avec `perforant` (`Pierce(1)`), la larme du porteur **et** celle du familier traversent la première cible et s'arrêtent dans la deuxième (deux coups chacune, f50 et f62, la troisième jamais touchée) ; témoin sans `perforant` : deux coups sur la première, rien sur les autres |
 | `familiar_two_copies` | deux `compagnon` en file (rangs 0, 1) et un `trio` (rangs 2 à 4, à 120°) |
 | `familiar_lost_with_active` | l'actif remplacé détruit son familier, l'orbital passif reste |
 | `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle (f125 : au bord, 19 en vol comme le témoin ; f126 : 18 contre 19), santé 100 à f200 contre 74 sans objet |
-| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 |
+| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 (le familier tire désormais la larme du porteur : trace rebénie, Q13) |
 | `familiar_quad` | quatre joueurs, deux familiers chacun, synctest (resimulation + checksums à chaque frame) |
 
 Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) affiche aussi joueurs et familiers
 (porteur, rang, position) toutes les 10 frames.
+
+### Q13 : `MirrorShot` tire les larmes du porteur (suivi `m3-suivis-q10-q12-q13-q17`)
+
+Contrat : `Behavior::MirrorShot { every }` (le champ `weapon` disparaît : migration de `BehaviorEntry`, du lint — plus
+d'« arme inconnue » — et des deux personnages `compagnon` du testbed et `frere` d'`isaac`). Exécution : voir la puce
+`MirrorShot` ci-dessus. Les trois aides communes (`aim_direction`, `tear_motion`, `carried_projectile_mods` /
+`shot_projectile`) ont été extraites de `weapon_rollback_system` sans changer une valeur (les 600 autres traces sont
+inchangées).
+
+**Traces bougées, avec preuve §5** (dumps complets `ALACOD_DUMP_TRACE`, `main` `2d30a1c1` contre la branche,
+`scripts/trace-diff.py` : première frame qui diffère = première frame où un familier tire, une seule ligne en
+désaccord : la `Bullet` du familier, `damage: 15, speed: 400` (le `pistol` de l'ancien `compagnon`) devenue `damage: 3.5,
+speed: 200` (la `larme` du porteur)) :
+
+| Trace | Première frame qui diffère | Cause |
+|---|---|---|
+| `familiar_mirror_cadence` | 20 | premier tir du porteur à f20, donc premier tir miroir |
+| `familiar_mirror_shot` | 35 | idem (tir demandé f30, balles parties f35) |
+| `familiar_quad` | 105 | premiers tirs miroirs des joueurs 1 et 3 |
+| `champion_explodes`, `champion_explodes_sans_variante` | 25 | idem ; la larme du familier est plus lente : le champion meurt à f35 au lieu de f29, attentes décalées |
+| `generated/testbed/familiar_compagnon` | 21 | idem ; `min_hits` 9 → 8 (`objets/compagnon.ron`) et témoin `_sans_objet` `max` 8 → 7 (dérivé) |
+
+Rien d'autre ne bouge : `familiar_frere` d'`isaac` (le frère tirait déjà `larmes`, le porteur a `larmes`, aucun objet de
+larmes) est **identique au bit près** ; les scénarios de `tears_*` et le tir de joueur n'ont pas changé. Neufs :
+`familiar_mirror_items` et son témoin `familiar_mirror_items_sans_objet`.
 
 ### Atteignabilité
 
@@ -5819,6 +5966,134 @@ flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `Run
 `isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tirera à M3-T11d (graine à
 nommer alors). Le testbed joue `maudit` et `maudit_maze` à deux étages.
 
+## 75. Accomplissements en jeu : faits de run, évaluation à `Ended`, profil v2 (M3-T10, chantier G1 v2)
+
+Code : `game::profile` (`RunHistory`, `record_held_items`, `write_achievements_at_run_end`, `grant_achievements`,
+`summary_is_final`, `AchievementsEarned`), `meta` (`Profile::achievements`, `Profile::grant_achievement`,
+`Achievements`, `PROFILE_VERSION` 2), `game::boss::boss_defeated_system`, HUD (`achievements`), écran de fin,
+contenu `isaac` et `gungeon`. Contrats : §64 (`AchievementDef`, `RunFacts`, `achieved`), §38 (profil), §51 (déblocages).
+
+### Faits de la run : `RunHistory`
+
+`BossDefeated` est un événement **transitoire** (§45) : il ne laisse aucun historique. `game::profile::RunHistory`
+`{ bosses_defeated, items_held }` en est un, écrit par la simulation :
+
+- **boss vaincus** : `boss_defeated_system` (`DeathManagement`) y inscrit le **nom du personnage** (le `String` de
+  `GgrsNetId`, celui de `characters/<id>.ron` : ce que `BossDefeated("gardien")` désigne). Aucun changement de l'événement.
+- **objets tenus** : `record_held_items` (`GgrsSchedule`, `FrameCounter`) recopie, à chaque frame de partie en cours,
+  l'union des passifs et de l'actif, **par joueur** (`held_by_player`, union à l'évaluation : `RunHistory::items_held()`), des joueurs qui ont un `Inventory` (comparée avant de cloner : aucun `String` copié tant
+  que l'ensemble ne change pas). Un joueur mort perd son inventaire : la **dernière valeur connue reste** (« tenu à la fin » =
+  tenu à la dernière frame où quelqu'un tenait quelque chose) ; rien n'est écrit une fois la run terminée (sauf la frame même de la fin : `run_counts_at`). Même garde pour les
+  boss, défaite posée à cette frame comprise : la simulation continue après `Ended`, un boss tué ensuite (poison, explosion) n'est pas un fait de la run.
+- **étages, temps, issue** : déjà dans `RunSummary` (`floor_reached`, `frames`, `outcome` : la défaite est une issue, il
+  n'y a pas de compteur de morts à ajouter).
+
+**Rollback sans checksum** (`RollbackTraceApp::rollback_and_trace_resource_no_checksum`, nouveau : `Clone + Debug`, la
+variante `Copy` existait). Choix entre « hors rollback » et « rollback neutre » de la fiche : l'historique est écrit **dans**
+`GgrsSchedule` ; hors rollback, une prédiction ratée (boss « mort » dans une frame resimulée autrement) resterait dans
+l'ensemble et accorderait à tort un accomplissement écrit sur disque. En rollback, le rollback le défait. Sans checksum :
+rien en simulation ne le lit, donc aucune trace ni aucun checksum ne bouge, quel que soit le contenu (une ressource neutre
+bougerait dès qu'un boss meurt). Contrepartie : un desync de cet historique ne serait pas détecté, ce qui est sans effet
+sur la simulation. Remise à zéro à la relance (`run_state::cleanup_rollback_world_system`).
+
+### Évaluation hors simulation
+
+`write_achievements_at_run_end` (`Update`, chaîné après l'écriture d'essence de §38 et après `apply_run_request_system`, jamais
+`GgrsSchedule`) : quand `Run` est `Ended` avec un `RunSummary`, **une fois par run** et une fois la fin **confirmée**
+(`summary_is_final` : `summary.frames <= ConfirmedFrameCount`, qui vaut -1 hors session ; un **abandon** est définitif tout de
+suite : décision locale, la session est détruite à la frame suivante), il construit `RunFacts { summary, bosses_defeated,
+items_held }` et, pour chaque joueur de la **session** (`bevy_ggrs::LocalPlayers` : tous en partie locale ou synctest, seulement
+les joueurs locaux en p2p, morts compris : un mort n'a plus d'entité), appelle `grant_achievements` :
+chaque accomplissement de la table `meta::Achievements` (chargée du registre avec les autres tables, hors rollback) dont
+`meta::achieved` est vrai et que le profil n'a pas encore obtenu ajoute son id à `Profile::achievements` et ses `unlocks` à
+`Profile::unlocks`, puis le profil est écrit (atomique, §38). Pourquoi attendre la confirmation : sur disque, un
+accomplissement ne se reprend pas, et une fin vue pendant une prédiction peut être défaite. Contrepartie : quitter l'écran de
+fin (Rejouer, Lobby) **avant** la confirmation (quelques frames en local, un aller-retour réseau en p2p) perd l'évaluation.
+**Abandon sans confirmation** : c'est une décision locale du joueur, la session est détruite à la frame suivante et la confirmation n'arriverait jamais ; les faits peuvent donc venir de frames encore prédites (surtout en p2p) et un accomplissement peut être accordé sur un boss « vaincu » par une prédiction ratée. Accepté : l'alternative (ne rien évaluer à l'abandon) perd des accomplissements réels, et le cas demande un abandon pile pendant une prédiction fausse.
+
+Même règle d'`ended_handles` pour l'essence (§38) : un joueur mort la reçoit désormais aussi. `AchievementsEarned`
+(`{handle → ids}`, présentation, vidé à la relance) garde les accomplissements **nouveaux** de cette fin.
+
+**Profil v2** : `PROFILE_VERSION` 2, champ `achievements: BTreeSet<String>` (`#[serde(default)]`). Un fichier v0 ou v1 se
+lit tel quel (champ absent : aucun accomplissement) et se réécrit en v2 ; un fichier plus récent que le jeu reste `TooNew`
+et n'est pas touché : `meta::save` **refuse** de remplacer un fichier existant illisible ou plus récent (`TooNew`), que `Profiles::load_dir`
+a écarté au lancement (la partie joue alors avec un profil vierge qui n'est pas écrit : sans cette garde, un build v1 relancé après un
+build v2 aurait détruit le profil v2 à la première fin de run). Un accomplissement déjà obtenu ne rajoute rien : un déblocage retiré à la main ne revient pas.
+
+**Entrée dans la run suivante** : par `RunUnlocks` (§51), **sans autre chemin**. La relance relit le profil
+(`jjrs::local`), filtré sur les `Unlock` du jeu : les ids d'accomplissements (`Profile::achievements`) n'y entrent jamais, seuls
+leurs déblocages. Le marchand du hub (§57) et `alacod-profile unlock` **ne vendent pas** un déblocage qu'un accomplissement
+accorde (`Registry::achievement_unlocks`) : on l'obtient en jouant.
+
+**En ligne : règle de l'hôte** (décision du 2026-10-15). Les faits sont ceux de la partie commune, identiques chez tous les pairs
+(l'historique suit les rollbacks, n'est plus écrit après `Ended`, et la fin est évaluée une fois confirmée) : chaque pair n'écrit que le profil de **ses** joueurs
+locaux (`LocalPlayers`). Ce qui entre dans la run suivante est inchangé : le profil de **l'hôte** (`ALACOD_RUN_UNLOCKS`, §51), jamais celui du pair
+local. L'accomplissement d'un invité est donc dans son fichier, et ne sert que quand c'est lui qui héberge. `ItemHeld` lit
+l'union des objets des joueurs de la run (contrat de §64), pas ceux d'un joueur.
+
+### Présentation
+
+Source HUD `achievements` (`content::ui::HUD_SOURCES`, source du joueur affiché) : une ligne par accomplissement **obtenu à
+cette fin de run** (`AchievementDef::name`, nouveau champ optionnel : l'id sinon) ; vide en cours de partie, donc rien (et vide aussi quand le joueur affiché est mort : le HUD ne montre plus rien de lui, l'écran de fin
+liste tout). L'écran
+de fin (`ui::game_over`) l'ajoute sous le résumé (« Accomplissements : * … »). Pas d'écran des accomplissements (hors périmètre) :
+le profil les garde (`Profile::achievements`).
+
+### Attentes de scénario
+
+`ProfileHas` gagne `achievement: Some("id")` (obtenu), `lacks_unlocks` et `lacks_achievements` (absents du profil) ;
+`HudText(source: "achievements", contains | empty)`. Un scénario n'écrit toujours rien sans `profile: true`.
+
+### Contenu
+
+`isaac` : quatre accomplissements. Les objets débloqués sont des **objets neufs**, ajoutés aux pools **et** cachés par un `Item`
+(§51) : un pool dont les candidats d'une entrée sont tous cachés ne compte pas cette entrée (`draw_exhausting`), donc, profil
+vide, le tirage est celui d'avant : **aucune trace d'`isaac` ne bouge**. Retirer un objet existant d'un pool décalerait les
+tirages de tous les scénarios.
+
+| Accomplissement | Condition | Déblocage | Ce qui entre |
+|---|---|---|---|
+| `gardien_vaincu` | `BossDefeated("gardien")` | `medaille_libre` | « Médaille du gardien » (`medaille`, +10 % dégâts) dans le pool `boss` |
+| `run_finie` | `Victory` | `couronne_libre` | « Couronne de fin » (`couronne`, +15 % portée) dans le pool `tresor` |
+| `second_etage` | `FloorAtLeast(1)` | `bague_libre` | « Bague des profondeurs » (`bague`, +10 % cadence) dans le pool `tresor` |
+| `semelles_aux_pieds` | `ItemHeld("semelles_lestees")` | `bombes_en_reserve` | la bombe (poids 3) dans le pool `salle` (`Loot` : rien n'est caché) |
+
+`gungeon` : quatre accomplissements dont les déblocages sont des entrées `Loot` (rien ne quitte un pool : aucune trace ne
+bouge) ; le marchand ne les propose pas.
+
+| Accomplissement | Condition | Déblocage | Ce qui entre |
+|---|---|---|---|
+| `gatling_vaincu` | `BossDefeated("gatling")` | `butin_gatling` | `parchemin` dans `coffre_etage1` et `coffre_etage2` |
+| `gungeon_termine` | `Victory` | `butin_victoire` | `sablier` dans `coffre_etage2` |
+| `second_etage` | `FloorAtLeast(1)` | `butin_second_etage` | `trophee` dans `coffre_etage2` |
+| `bottes_aux_pieds` | `ItemHeld("bottes")` | `butin_bottes` | `cartouchiere` dans `coffre_etage1` et `coffre_etage2` |
+
+Le lint d'`isaac` ne signale plus « aucun accomplissement dont le déblocage donne un objet ou une entrée à un pool tiré »
+(T12, §77). Le « Q10 » de la fiche (tenir une transformation) n'a pas de réponse : `semelles_aux_pieds` tient un objet.
+
+### Preuves
+
+Unitaires : `meta` (migration v1 → v2, déblocages accordés une fois), `game::profile` (accomplissements atteints seulement et
+une fois, fin confirmée, noms affichés, objets tenus et dernière valeur après la mort, rien après la fin), écran de fin.
+Scénarios `achievement_unlocks` (isaac, graine 8, `sous_sol_un` : boss vaincu + victoire accordent deux accomplissements, le
+troisième manque, `RunUnlocks` ne bouge pas pendant la run, HUD) et `achievement_not_met` (isaac, défaite à l'étage 0 : aucun
+accomplissement, essence créditée, HUD vide). Test `crates/scenario/tests/achievements.rs` : deux runs enchaînées, la relance
+voit les déblocages dans `RunUnlocks` et, **à graine égale** (400 graines), les objets entrent dans les pools `boss` et `tresor`,
+pas ceux dont l'accomplissement manque ; l'historique de la première run n'a pas survécu à la relance.
+
+### Déterminisme et traces
+
+Rien de non rollbacké n'est lu par la simulation. `RunHistory` est rollback sans checksum, `RunUnlocks` inchangée,
+`AchievementsEarned` et `Achievements` hors rollback (présentation et profil). Aucune trace existante n'a bougé (suite
+complète sans BLESS) ; seules les traces des deux scénarios nouveaux sont ajoutées.
+
+### Limites
+
+- Pas de hub dans `isaac` : un déblocage d'accomplissement n'y a d'autre chemin que le profil (voulu, fiche).
+- L'ensemble en ligne vient de la variable d'environnement de l'hôte (§51) : l'échange réseau des profils n'existe pas.
+- `ItemHeld` est l'union des joueurs, pas par joueur ; un accomplissement par joueur (« tenir X en coop ») viendrait avec un
+  `RunFacts` par joueur.
+
 ## 76. Contenu `isaac` (M3-T11, quatre parties)
 
 ### 76.1 T11a : larmes et stats (`m3-t11a-larmes`)
@@ -5882,7 +6157,7 @@ effets v3 (§67), familiers (§71), cœurs d'âme (§68), pools à épuisement (
   `calice_ame`. Pool `boss` (`loot/boss.ron`, 3 → 5 entrées ; les trois passifs de T8, peu communs, passent de poids 1 à 2) : `sang_chaud`,
   `calice_ardent`.
 - **Familiers** (`characters/`, fiche de §71 : équipe `Players`, `stationary`, collider 12 x 12, immunisés) : `frere` (`Follow(gap: 28)` +
-  `MirrorShot(weapon: "larmes", every: 12)` : l'arme `larmes` du jeu, sans les objets du porteur, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
+  `MirrorShot(every: 12)` : les larmes du porteur, son arme et ses objets, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
   + `BlockBullets`). Lab : `cible_mordante` (`test_only`, immobile, 5 000 PV, `counts_hits`, mêlée au contact à 40 : le générateur retrouve ses
   cibles **par position**, une cible mobile n'a pas de compteur dans la sonde).
 - **Synergie** `synergies/garde_rapprochee.ron` (`requires: ["frere", "orbe"]`, deux objets du pool `tresor`, `Damage` +20 %) ; dossier `synergies`
@@ -6003,7 +6278,7 @@ les lignes marquées **T12** sont les trous trouvés par l'audit.
 | Piques (§62) | `damage > 0`, `period > 0` (`OutOfRange`) ; **T12** couche `Surfaces` : valeur sans surface déclarée (`BrokenReference`) | `hazard_period_zero`, `rocks_and_surfaces_layers_are_checked` |
 | Portes verrouillées (§62, §70) | `Key(0)`, `lock_from_floor` sans `door_lock` ou sur `Secret`, clé introuvable à chaque étage verrouillé | `door_lock_key_zero`, `key_room_*` |
 | Grille (§62, §70) | `cell`, `max`, `post_boss.chance`, gabarits multiples de `cell`, ouvertures centrées et de même largeur, types distincts ; **T12** la salle secrète `required` d'une grille a `door_lock: Secret` (sinon posée ouverte : `OutOfRange`) | `grid_*`, `secret_room_not_required_or_not_walled` |
-| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, arme de `MirrorShot` inconnue, behavior de familier sans porteur | `familiar_*` |
+| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, behavior de familier sans porteur | `familiar_*` |
 | Champions (§63, §72) | actions de mort admises (`Explode`, `SpawnCharacters`, `SpawnPattern`), pattern fini, pool de butin connu, `#rrggbb`, `chance` en expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 | `champion_ok`, `champion_bad_death`, `champion_death_infinite_pattern*`, `variant_chance_expression_*` |
 | Curses (§64) | poids 0, aucun effet, `FloorRooms` ≤ 0, `Modifier Mul` ≤ 0, chance hors [0, 1], pool vide ou inconnu | `curse_invalid_values`, `floors_curses_invalid` |
 | Pools à épuisement (§64) | **T12** `exhaust: true` sur un pool qui n'a que des `Currency` (jamais « vu » : `OutOfRange`) | `exhaust_pool_of_coins_only_is_an_error` |

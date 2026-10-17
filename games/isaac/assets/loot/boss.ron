@@ -7,6 +7,9 @@
         (pick: Item("oeil_vif"), weight: 2),
         (pick: Item("sang_chaud"), weight: 2),
         (pick: Item("calice_ardent"), weight: 2),
+        // M3-T10 (§75) : réservé à l'accomplissement `gardien_vaincu` (déblocage `medaille_libre`) ; retiré du pool tant
+        // que le profil ne l'a pas (un pool dont les candidats sont cachés ne compte pas dans le tirage : base inchangée).
+        (pick: Item("medaille"), weight: 2),
     ],
     exhaust: true,
 )

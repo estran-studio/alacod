@@ -310,6 +310,7 @@ pub fn draw_enemy_state_debug(
                     super::state::TargetType::Player => Color::srgb(1.0, 0.0, 0.0),
                     super::state::TargetType::Obstacle => Color::srgb(1.0, 0.5, 0.0),
                     super::state::TargetType::None => Color::srgb(0.5, 0.5, 0.5),
+                    super::state::TargetType::Enemy => Color::srgb(1.0, 0.6, 0.8),
                 };
 
                 gizmos.line_2d(pos, target_vec, color);

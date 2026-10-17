@@ -36,6 +36,10 @@
         (pick: Item("rancune_vive"), weight: 2),
         (pick: Item("reliquaire"), weight: 4),
         (pick: Item("calice_ame"), weight: 1),
+        // M3-T10 (§75) : réservés aux accomplissements `run_finie` et `second_etage` (déblocages `couronne_libre` et
+        // `bague_libre`) : retirés du pool tant que le profil ne les a pas (base inchangée, voir `boss.ron`).
+        (pick: Item("couronne"), weight: 2),
+        (pick: Item("bague"), weight: 2),
     ],
     exhaust: true,
 )

@@ -1,0 +1,7 @@
+// `isaac` (M3-T10, §75) : finir une run en tenant « Semelles lestées » (objet du pool du trésor) ajoute la bombe aux
+// récompenses des salles de combat.
+(
+    name: "Semelles aux pieds",
+    when: [ItemHeld("semelles_lestees")],
+    unlocks: ["bombes_en_reserve"],
+)

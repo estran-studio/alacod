@@ -104,6 +104,7 @@ mod tests {
             engage_reach: None,
             engage_strafe: 0,
             explore: None,
+            aim: sim_core::aim::AimMode::Free,
         }
     }
 

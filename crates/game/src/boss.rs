@@ -207,6 +207,8 @@ pub fn boss_phase_system(
 pub fn boss_defeated_system(
     frame: Res<FrameCount>,
     mut defeated: ResMut<FrameEvents<BossDefeated>>,
+    mut history: ResMut<crate::profile::RunHistory>,
+    run: Option<Res<run::Run>>,
     bosses: Query<(&GgrsNetId, &FixedTransform3D), (With<BossPlan>, With<Death>)>,
 ) {
     for (net_id, transform) in order_iter!(bosses) {
@@ -215,6 +217,17 @@ pub fn boss_defeated_system(
             "ggrs{{f={} boss_defeated net_id={}}}",
             frame.frame, net_id.0
         );
+        // M3-T10 : historique des boss vaincus (le nom du personnage est celui de `GgrsNetId`),
+        // lu en fin de run seulement (accomplissements, `profile::RunHistory`).
+        // Seulement tant que la run se joue, ou à la frame même de sa fin (la défaite est posée avant ce
+        // système) : la simulation continue après `Ended`, un boss tué ensuite (poison, explosion)
+        // n'est pas un fait de la run, et dépendrait du nombre de frames prédites.
+        if run
+            .as_deref()
+            .is_some_and(|run| crate::profile::run_counts_at(run, frame.frame))
+        {
+            history.bosses_defeated.insert(net_id.1.clone());
+        }
         defeated.send(BossDefeated {
             frame: frame.frame,
             net_id: net_id.0,
@@ -229,7 +242,9 @@ pub struct BossPlugin;
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
         use crate::character::health::{rollback_apply_death, rollback_check_defeat};
-        app.add_frame_events_neutral::<BossPhaseChanged>()
+        // Le système de mort écrit `RunHistory` ; `ProfilePlugin` l'enregistre en rollback.
+        app.init_resource::<crate::profile::RunHistory>()
+            .add_frame_events_neutral::<BossPhaseChanged>()
             // M2-T7 : transitoires (émis et lus dans la même frame) : aucun checksum ne bouge
             // quand un boss d'un scénario existant meurt (`boss_two_phases`).
             .add_frame_events_transient::<BossDefeated>()

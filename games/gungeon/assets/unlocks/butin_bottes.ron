@@ -1,0 +1,8 @@
+// M3-T10 (§75) : accordé par `bottes_aux_pieds`. La cartouchière entre dans les pools de coffres des deux étages (poids 3).
+(
+    name: "Butin des bottes",
+    grants: [
+        Loot(table: "coffre_etage1", pick: Item("cartouchiere"), weight: 3),
+        Loot(table: "coffre_etage2", pick: Item("cartouchiere"), weight: 3),
+    ],
+)

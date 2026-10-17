@@ -85,6 +85,7 @@ Scenario(
             items: [
                 "longue_vue",
             ],
+            aim: Free,
         ),
     ],
     expect: [

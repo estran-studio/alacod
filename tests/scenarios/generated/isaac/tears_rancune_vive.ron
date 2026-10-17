@@ -110,6 +110,7 @@ Scenario(
             items: [
                 "rancune_vive",
             ],
+            aim: Free,
         ),
     ],
     expect: [

@@ -239,14 +239,16 @@ fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: Re
             FeedbackKind::BossEnd => format!("{} {}", cue.kind.label(), cue.net_id),
             // M3-T17 (§82) : « larme 12 (guidée, poison) », « familier 31 (suiveur, porteur 0, rang
             // 0) », « champion 14 (explosif) », « mèche 31 (20 frames) », « anneau d'explosion
-            // (rayon 70) », « rocher cassé (12,3) », « mur secret ouvert (salle) ».
+            // (rayon 70) », « rocher cassé (12,3) », « mur secret ouvert (salle) » ; suivi Q10 : « transformation
+            // 8 (champignons) ».
             FeedbackKind::Tear
             | FeedbackKind::Familiar
             | FeedbackKind::Champion
             | FeedbackKind::BombFuse
             | FeedbackKind::Explosion
             | FeedbackKind::RockBroken
-            | FeedbackKind::SecretWall => match game::feedback_v3::cue_label(cue) {
+            | FeedbackKind::SecretWall
+            | FeedbackKind::Transformation => match game::feedback_v3::cue_label(cue) {
                 Some(label) => label,
                 None => continue,
             },

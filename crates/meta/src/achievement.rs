@@ -37,10 +37,30 @@ pub enum AchievementCondition {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct AchievementDef {
+    /// Nom affiché (écran de fin, HUD) ; vide : l'identifiant (M3-T10).
+    #[serde(default)]
+    pub name: String,
     /// Conditions cumulatives (ET) ; au moins une (sans condition, toute run l'accomplirait).
     pub when: Vec<AchievementCondition>,
     /// Déblocages accordés (ids de `unlocks/<id>.ron`), au moins un.
     pub unlocks: Vec<String>,
+}
+
+/// Les accomplissements du jeu par identifiant (hors rollback), posés au chargement de la carte
+/// depuis le registre de contenu (`map_ldtk::loader::achievement_table`). Lus par
+/// `game::profile` à la fin de la run, jamais par la simulation.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct Achievements(pub std::collections::BTreeMap<String, AchievementDef>);
+
+impl AchievementDef {
+    /// Nom affiché de `id` : `name`, sinon l'identifiant.
+    pub fn display_name<'a>(&'a self, id: &'a str) -> &'a str {
+        if self.name.is_empty() {
+            id
+        } else {
+            &self.name
+        }
+    }
 }
 
 /// Les faits d'une run terminée que les accomplissements lisent (voir la doc du module).
@@ -95,6 +115,7 @@ mod tests {
 
     fn def(when: Vec<AchievementCondition>) -> AchievementDef {
         AchievementDef {
+            name: String::new(),
             when,
             unlocks: vec!["a".into()],
         }

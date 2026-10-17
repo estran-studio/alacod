@@ -1,0 +1,4 @@
+// Suivi Q12 (docs/conventions.md §19) : charme — l'ennemi touché cible l'ennemi hostile le plus proche (égalité : le plus
+// petit net id) pendant 200 frames, le frappe, ne touche aucun joueur, puis redevient hostile ; réappliqué, la durée est
+// rafraîchie. Scénario `status_charm`.
+(kind: Charm, frames: 200)

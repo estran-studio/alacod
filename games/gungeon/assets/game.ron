@@ -23,6 +23,8 @@
         (path: "loot", kind: "LootTable"),
         // M2-T12 : déblocages de méta-progression et essence gagnée (docs/conventions.md §51).
         (path: "unlocks", kind: "Unlock"),
+        // M3-T10 (§75) : accomplissements de la run ; leurs déblocages ne sont pas à acheter au marchand.
+        (path: "achievements", kind: "Achievement"),
         (path: "meta", kind: "MetaEconomy"),
         // M2-T13 : services du hub (docs/conventions.md §57).
         (path: "hub", kind: "HubService"),

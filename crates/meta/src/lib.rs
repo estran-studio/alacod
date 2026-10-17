@@ -23,7 +23,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 /// Version courante du format. `0` : fichier sans champ `version` (avant versionnement).
-pub const PROFILE_VERSION: u32 = 1;
+///
+/// - `1` : monnaies, déblocages, statistiques (M2-T0c).
+/// - `2` : + [`Profile::achievements`] (M3-T10, `docs/conventions.md` §75) ; un fichier v0 ou v1
+///   se lit tel quel (champ absent = aucun accomplissement), seul le numéro change.
+pub const PROFILE_VERSION: u32 = 2;
 
 /// Jalons que [`Profile::apply_run`] ajoute aux déblocages (hors `Unlock` du jeu) : un service du
 /// hub peut en dépendre (M2-T13).
@@ -110,6 +114,11 @@ pub struct Profile {
     pub unlocks: BTreeSet<String>,
     #[serde(default)]
     pub stats: BTreeMap<String, u64>,
+    /// Accomplissements obtenus (ids de `achievements/<id>.ron`, M3-T10) : ce qui a déjà accordé
+    /// ses déblocages, pour ne les annoncer qu'une fois. Les déblocages, eux, sont dans
+    /// [`Profile::unlocks`] (la seule donnée que la run suivante lit, par `RunUnlocks`).
+    #[serde(default)]
+    pub achievements: BTreeSet<String>,
 }
 
 #[derive(Debug)]
@@ -147,7 +156,8 @@ impl Profile {
             .expect("un Profile se sérialise toujours")
     }
 
-    /// Lit un profil et le migre vers [`PROFILE_VERSION`] (v0 → v1 : seul le numéro change).
+    /// Lit un profil et le migre vers [`PROFILE_VERSION`] (v0 → v1 → v2 : seul le numéro change,
+    /// les champs absents prennent leur valeur par défaut).
     pub fn from_ron(text: &str) -> Result<Self, ProfileError> {
         let mut profile: Profile =
             ron::from_str(text).map_err(|e| ProfileError::Parse(e.to_string()))?;
@@ -175,6 +185,17 @@ impl Profile {
     /// +10 par victoire) et déblocages `first_run` / `first_victory`. Règles provisoires (M2-T12).
     pub fn apply_run(&mut self, summary: &RunSummary) {
         self.apply_run_with(summary, &EssenceRules::default());
+    }
+
+    /// Accorde `def` si `id` n'est pas encore obtenu : ajoute `id` à [`Profile::achievements`] et
+    /// ses `unlocks` à [`Profile::unlocks`] (M3-T10). Renvoie vrai pour un accomplissement nouveau ;
+    /// un accomplissement déjà obtenu ne rajoute rien (un déblocage retiré à la main ne revient pas).
+    pub fn grant_achievement(&mut self, id: &str, def: &AchievementDef) -> bool {
+        if !self.achievements.insert(id.to_string()) {
+            return false;
+        }
+        self.unlocks.extend(def.unlocks.iter().cloned());
+        true
     }
 
     /// Achète un déblocage hors simulation : vérifie les conditions puis débite l'essence et
@@ -284,10 +305,20 @@ pub fn profile_path(dir: &Path, id: &str) -> PathBuf {
 }
 
 /// Écriture atomique (fichier temporaire puis renommage) : un crash ne laisse jamais un profil
-/// à moitié écrit.
+/// à moitié écrit. **Ne remplace jamais un fichier existant que ce jeu ne sait pas lire** (illisible,
+/// ou écrit par une version plus récente : [`ProfileError::TooNew`]) : `Profiles::load_dir` l'a écarté
+/// au lancement, la partie joue avec un profil vierge, et l'écrire détruirait le vrai (M3-T10 : le
+/// passage en v2 rend le cas courant, un build v1 relancé après un build v2).
 pub fn save(dir: &Path, profile: &Profile) -> Result<PathBuf, ProfileError> {
     std::fs::create_dir_all(dir).map_err(|e| ProfileError::Io(e.to_string()))?;
     let path = profile_path(dir, &profile.id);
+    match std::fs::read_to_string(&path) {
+        Ok(existing) => {
+            Profile::from_ron(&existing)?;
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(ProfileError::Io(e.to_string())),
+    }
     let tmp = path.with_extension("ron.tmp");
     std::fs::write(&tmp, profile.to_ron()).map_err(|e| ProfileError::Io(e.to_string()))?;
     std::fs::rename(&tmp, &path).map_err(|e| ProfileError::Io(e.to_string()))?;
@@ -356,7 +387,7 @@ mod tests {
         let mut profile = Profile::new("local-0");
         profile.apply_run(&summary(4, RunEnd::Victory));
         let text = profile.to_ron();
-        assert!(text.contains("version: 1"), "{text}");
+        assert!(text.contains("version: 2"), "{text}");
         assert_eq!(Profile::from_ron(&text).unwrap(), profile);
     }
 
@@ -375,6 +406,42 @@ mod tests {
             Profile::from_ron("pas du ron"),
             Err(ProfileError::Parse(_))
         ));
+    }
+
+    #[test]
+    fn migration_v1_vers_v2_ajoute_les_accomplissements_sans_rien_perdre() {
+        // Un profil écrit avant M3-T10 : version 1, pas de champ `achievements`.
+        let v1 = r#"(version: 1, id: "local-0", currencies: {"essence": 11}, unlocks: ["first_run", "tresor_trefle"], stats: {"runs": 3})"#;
+        let migrated = Profile::from_ron(v1).unwrap();
+        assert_eq!(migrated.version, 2);
+        assert!(migrated.achievements.is_empty());
+        assert_eq!(migrated.currency(ESSENCE), 11);
+        assert!(migrated.has_unlock("tresor_trefle") && migrated.has_unlock("first_run"));
+        assert_eq!(migrated.stat("runs"), 3);
+        // Réécrit en v2, relu à l'identique.
+        let rewritten = migrated.to_ron();
+        assert!(rewritten.contains("version: 2"), "{rewritten}");
+        assert_eq!(Profile::from_ron(&rewritten).unwrap(), migrated);
+        // Un fichier v2 garde ses accomplissements.
+        let mut earned = migrated.clone();
+        earned.achievements.insert("gardien_vaincu".into());
+        assert_eq!(Profile::from_ron(&earned.to_ron()).unwrap(), earned);
+    }
+
+    #[test]
+    fn un_accomplissement_accorde_ses_deblocages_une_seule_fois() {
+        let def = AchievementDef {
+            name: String::new(),
+            when: vec![AchievementCondition::Victory],
+            unlocks: vec!["a".into(), "b".into()],
+        };
+        let mut profile = Profile::new("local-0");
+        assert!(profile.grant_achievement("fini", &def));
+        assert!(profile.has_unlock("a") && profile.has_unlock("b"));
+        assert!(profile.achievements.contains("fini"));
+        profile.unlocks.remove("a");
+        assert!(!profile.grant_achievement("fini", &def));
+        assert!(!profile.has_unlock("a"));
     }
 
     #[test]
@@ -451,6 +518,30 @@ mod tests {
         let mut profile = Profile::new("x");
         profile.apply_run_with(&summary(4, RunEnd::Victory), &rules);
         assert_eq!(profile.currency(ESSENCE), 2 + 12 + 20);
+    }
+
+    #[test]
+    fn un_fichier_illisible_ou_trop_recent_n_est_jamais_ecrase() {
+        let dir = std::env::temp_dir().join(format!("alacod-meta-keep-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = profile_path(&dir, "local-0");
+        let profile = Profile::new("local-0");
+        let future = r#"(version: 99, id: "local-0", unlocks: ["rare"])"#;
+        std::fs::write(&path, future).unwrap();
+        assert!(matches!(
+            save(&dir, &profile),
+            Err(ProfileError::TooNew(99))
+        ));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), future);
+        std::fs::write(&path, "???").unwrap();
+        assert!(matches!(save(&dir, &profile), Err(ProfileError::Parse(_))));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "???");
+        // Un profil lisible (v1 ancien compris) se remplace.
+        std::fs::write(&path, r#"(version: 1, id: "local-0")"#).unwrap();
+        save(&dir, &profile).unwrap();
+        assert_eq!(load(&dir, "local-0").unwrap(), Some(profile));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

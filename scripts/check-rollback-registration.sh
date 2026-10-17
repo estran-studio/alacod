@@ -33,7 +33,9 @@ if [[ -n "$matches" ]]; then
     echo ""
     echo "Utilise l'extension RollbackTraceApp (rollback_and_trace, rollback_and_trace_debug,"
     echo "rollback_and_trace_resource, rollback_and_trace_debug_resource,"
-    echo "rollback_and_trace_copy_resource, rollback_and_trace_copy_resource_no_checksum)"
+    echo "rollback_and_trace_copy_resource, rollback_and_trace_copy_resource_no_checksum,"
+    echo "rollback_and_trace_resource_no_checksum : seulement pour une donnée dérivée d'un état déjà"
+    echo "sous checksum et jamais lue par GgrsSchedule)"
     echo "depuis $ALLOWED_FILE à la place, pour que l'état reste couvert par le checksum GGRS."
     exit 1
 fi

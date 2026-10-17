@@ -1,0 +1,36 @@
+// Suivi Q10 (docs/conventions.md §44) : transformation `champignons` (`synergies/champignons.ron`, `requires_tag: (tag:
+// "champignon", count: 3)`). Le joueur ramasse `amanite` (f10), `bolet` (f40) puis `morille` (f70), trois passifs sans effet
+// seuls qui portent le tag `champignon` : à la troisième prise la transformation s'active (+30 % de `MoveSpeed`, modificateur
+// `synergy:champignons`, teinte `#c07040`). Témoin `transformation_two` : deux champignons seulement, rien ne change.
+//
+// À regarder : le joueur reste normal après deux champignons ; à f70 il prend la teinte brune et court 30 % plus vite.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    items: [
+        (id: "amanite", x: "424.0", y: "696.0", at_frame: 1),
+        (id: "bolet", x: "424.0", y: "696.0", at_frame: 30),
+        (id: "morille", x: "424.0", y: "696.0", at_frame: 60),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+            (from: 70, to: 71, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        // Avant la troisième prise (f75), la vitesse de base : 150.
+        Stat(handle: 0, stat: MoveSpeed, value: 150.0, at_frame: 5),
+        HasItem(handle: 0, id: "bolet", at_frame: 60),
+        Stat(handle: 0, stat: MoveSpeed, value: 150.0, at_frame: 60),
+        Stat(handle: 0, stat: MoveSpeed, value: 150.0, at_frame: 74),
+        // Après : +30 % (modificateur `Pct` 0,3 : 195), la transformation annoncée à f76 (moment clé `feedback`).
+        HasItem(handle: 0, id: "morille", at_frame: 80),
+        Stat(handle: 0, stat: MoveSpeed, value: 195.00046, at_frame: 80),
+        Stat(handle: 0, stat: MoveSpeed, value: 195.00046, at_frame: 119),
+        Event(kind: "feedback", label_contains: Some("transformation"), by_frame: 80),
+    ],
+)

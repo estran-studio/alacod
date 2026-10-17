@@ -122,6 +122,12 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub bomb: Option<world::BombDef>,
 
+    /// Visée du personnage (suivi Q17, `docs/conventions.md` §66) : `Free` (défaut, 360°) ou
+    /// `FourWay` (haut, bas, gauche, droite : `isaac`). Quantifiée dans `weapon_rollback_system`.
+    /// Composant posé seulement pour `FourWay` : aucun contenu existant ne change.
+    #[serde(default)]
+    pub aim: sim_core::aim::AimMode,
+
     /// Équipe par défaut d'un personnage spawné via `spawn_enemy` sans `team` explicite sur
     /// l'entité `CharacterSpawn` qui l'a créé (T2.9, testbed). `None` pour tout le contenu
     /// zombies existant (comportement inchangé : `Team::Enemies` en dur, voir

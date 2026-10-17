@@ -1,0 +1,9 @@
+// Fixture suivi Q10 (docs/conventions.md §44) : transformations (`requires_tag`).
+(
+    name: "fixture-transformation_bad",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "synergies", kind: "Synergy"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
