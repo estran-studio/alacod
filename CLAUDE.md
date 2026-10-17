@@ -865,6 +865,10 @@ crates/game/src/character/enemy/
 - **F3** : Toggle Flow Field visualization
 - **F4** : Cycle NavProfile (Ground → GroundBreaker → Flying → Phasing)
 - **F5** : Toggle Enemy State visualization
+- **F6** : étiquettes au-dessus des entités (nom, prix, état ; `ALACOD_LABELS=1` au départ, allumées d'office
+  dans `play_scenario --capture` et les vidéos) — langage visuel de `docs/conventions.md` §83
+  (avec le flow field actif (F3), F6 bascule aussi sa source IntGrid)
+- **F7** : légende des silhouettes et couleurs (widget `Legend` de `hud.ron`)
 
 ## Collision Layers
 

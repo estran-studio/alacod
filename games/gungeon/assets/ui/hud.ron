@@ -28,9 +28,9 @@
         (title: "Tirs", column: 0, entries: [
             (label: "Tir ennemi : orbe rouge", sprite: Some("bullet_enemy")),
             (label: "Tir allié : losange bleu", sprite: Some("bullet_player")),
-            (label: "Pointeur rouge : où il vise", sprite: Some("aim"), tint: Some("#ff5a4d")),
+            (label: "Pointeur : où il vise", sprite: Some("aim"), tint: Some("#ff5a4d")),
         ]),
-        (title: "Ramassables (halo qui pulse)", column: 0, entries: [
+        (title: "Ramassables (halo qui pulse)", column: 2, entries: [
             (label: "Douille (monnaie)", sprite: Some("shell")),
             (label: "Clé", sprite: Some("item/key")),
             (label: "Bombe", sprite: Some("item/bomb")),
@@ -42,8 +42,8 @@
             (label: "Arme au sol", sprite: Some("weapon")),
         ]),
         (title: "Ennemis (pointeur rouge)", column: 1, entries: [
-            (label: "Bullet kin : tire par salves", sprite: Some("bullet_kin")),
-            (label: "Escouade : petits, par trois", sprite: Some("bullet_kin_squad")),
+            (label: "Bullet kin : salves", sprite: Some("bullet_kin")),
+            (label: "Escouade : par trois", sprite: Some("bullet_kin_squad")),
             (label: "Shotgun kin : éventail", sprite: Some("shotgun_kin")),
             (label: "Lanceur : projette", sprite: Some("lanceur_kin")),
             (label: "Tourelle : immobile", sprite: Some("tourelle_kin")),
@@ -53,16 +53,16 @@
             (label: "Cible d'entraînement", sprite: Some("cible")),
             (label: "BOSS", sprite: Some("gatling")),
         ]),
-        (title: "Monde", column: 2, entries: [
+        (title: "Monde", column: 3, entries: [
             (label: "Coffre à clé (cadenas)", sprite: Some("chest")),
             (label: "Présentoir : prix", sprite: Some("shelf")),
             (label: "Baril explosif", sprite: Some("barrel")),
             (label: "Table : couverture", sprite: Some("table")),
-            (label: "Rocher : se brise à la bombe", sprite: Some("rock")),
+            (label: "Rocher : bombe", sprite: Some("rock")),
             (label: "Mur fissuré : bombe", sprite: Some("secret_wall")),
-            (label: "Porte fermée (salle verrouillée)", sprite: Some("door_v")),
+            (label: "Porte fermée (salle)", sprite: Some("door_v")),
             (label: "Porte ouverte", sprite: Some("door_v"), anim: Some("Open")),
-            (label: "Porte à clé (cadenas rouge)", sprite: Some("door_v"), anim: Some("Locked")),
+            (label: "Porte à clé (cadenas)", sprite: Some("door_v"), anim: Some("Locked")),
             (label: "Portail : étage suivant", sprite: Some("portal")),
             (label: "Eau : ralentit", color: Some("#3b7dd8")),
             (label: "Sable : ralentit", color: Some("#d8c27a")),
@@ -79,9 +79,9 @@
     },
     widgets: [
         // Légende (F7) : fermée par défaut ; l'image de tête des vidéos de revue l'ouvre.
-        (kind: Legend(source: "legend"), anchor: Center,
-         offset: (0.0, 0.0), size: Some((900.0, 0.0)),
-         color: None, font_size: Some(12.0), background: Some("#05080de8")),
+        (kind: Legend(source: "legend"), anchor: TopCenter,
+         offset: (0.0, 110.0), size: Some((936.0, 0.0)),
+         color: None, font_size: Some(11.0), background: Some("#05080df4")),
         (kind: Text(source: "floor", prefix: None), anchor: TopLeft,
          offset: (16.0, 12.0), size: Some((180.0, 24.0)),
          color: Some("#ffffff"), font_size: Some(20.0)),

@@ -877,7 +877,12 @@ fn update_hud_legend(
     items: Option<Res<items::ItemTable>>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut widgets: Query<(Entity, &mut HudLegendWidget, &mut Visibility, Option<&Children>)>,
+    mut widgets: Query<(
+        Entity,
+        &mut HudLegendWidget,
+        &mut Visibility,
+        Option<&Children>,
+    )>,
 ) {
     let Some(config) = handle.get(&configs) else {
         return;
@@ -902,7 +907,12 @@ fn update_hud_legend(
         for child in children.into_iter().flat_map(|c| c.iter()) {
             commands.entity(child).despawn();
         }
-        let columns = config.legend.iter().map(|g| g.column + 1).max().unwrap_or(0);
+        let columns = config
+            .legend
+            .iter()
+            .map(|g| g.column + 1)
+            .max()
+            .unwrap_or(0);
         let text_font = hud_text_font(&widget.font, widget.font_size.max(10.0));
         let title_font = hud_text_font(&widget.font, widget.font_size.max(10.0) + 1.0);
         commands.entity(entity).with_children(|panel| {
@@ -959,11 +969,19 @@ fn spawn_legend_row(
         ..default()
     })
     .with_children(|row| {
-        let tint = entry.tint.as_deref().map(parse_color).unwrap_or(Color::WHITE);
-        let image = entry
-            .sprite
+        let tint = entry
+            .tint
             .as_deref()
-            .and_then(|id| crate::legibility::legend_frame(table, id, entry.anim.as_deref().unwrap_or("Idle"), items));
+            .map(parse_color)
+            .unwrap_or(Color::WHITE);
+        let image = entry.sprite.as_deref().and_then(|id| {
+            crate::legibility::legend_frame(
+                table,
+                id,
+                entry.anim.as_deref().unwrap_or("Idle"),
+                items,
+            )
+        });
         if let Some((sheet, frame)) = image {
             let layout = TextureAtlasLayout::from_grid(
                 UVec2::new(sheet.tile_size.0, sheet.tile_size.1),

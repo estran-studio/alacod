@@ -447,8 +447,8 @@ def key():
 def bomb():
     """Bombe : sphère noire, reflet, mèche et étincelle orange."""
     im = Img(32)
-    im.ellipse(15, 19, 9, 9, rgb("#2b2b36"))
-    im.ellipse(12, 16, 2.5, 2.5, rgb("#8a8a9a"))
+    im.ellipse(15, 19, 9, 9, rgb("#4b4b60"))
+    im.ellipse(12, 16, 2.5, 2.5, rgb("#b8b8c8"))
     im.line(19, 12, 23, 7, rgb("#c9b37a"), 2)
     im.poly([(22, 3), (27, 6), (24, 8), (27, 11), (22, 8)], rgb("#ff9f1a"))
     im.rect(23, 5, 25, 7, rgb("#fff3a8"))
@@ -925,15 +925,15 @@ def build():
         persos.add(sid, {"Idle": fn()}, character=True)
     boss = Atlas("atlas_boss", 64, 4, 1.0, 6.0, 1.0, animated=True)
     boss.add("gatling", {"Idle": perso_gatling()}, character=True)
-    monde = Atlas("atlas_monde", 32, 8, 1.0, 0.0, 0.5)
+    monde = Atlas("atlas_monde", 32, 8, 1.0, 0.0, 3.4)  # au-dessus des surfaces de la carte (IntGrid)
     portal_atlas = Atlas("atlas_portail", 64, 1, 1.0, 0.0, 5.0)
     portal_atlas.add("portal", {"Idle": portal()})
     for sid, anims in world_sprites():
         monde.add(sid, anims)
     # Portes : trois états (`Idle` fermée, `Open`, `Locked`) ; vertical 16 x 32, horizontal 32 x 16 (transposée).
-    porte_v = Atlas("atlas_porte_v", (16, 32), 1, 1.0, 0.0, 0.6)
+    porte_v = Atlas("atlas_porte_v", (16, 32), 1, 1.0, 0.0, 3.4)
     porte_v.add("door_v", {"Idle": door_v("closed"), "Open": door_v("open"), "Locked": door_v("locked")})
-    porte_h = Atlas("atlas_porte_h", (32, 16), 1, 1.0, 0.0, 0.6)
+    porte_h = Atlas("atlas_porte_h", (32, 16), 1, 1.0, 0.0, 3.4)
     porte_h.add("door_h", {k: transpose(v) for k, v in (("Idle", door_v("closed")), ("Open", door_v("open")), ("Locked", door_v("locked")))})
     atlases = [persos, boss, monde, portal_atlas, porte_v, porte_h]
     for a in atlases:
@@ -1031,6 +1031,11 @@ def main(argv):
             p = os.path.join(OUT, rel)
             if not os.path.exists(p) or open(p, "rb").read() != data:
                 bad.append(rel)
+        for folder, _, names in os.walk(OUT):
+            for name in names:
+                rel = os.path.relpath(os.path.join(folder, name), OUT)
+                if rel not in files:
+                    bad.append(rel + " (orphelin)")
         if new_text != text:
             bad.append("sprites.ron")
         if bad:
@@ -1042,6 +1047,12 @@ def main(argv):
         p = os.path.join(OUT, rel)
         os.makedirs(os.path.dirname(p), exist_ok=True)
         open(p, "wb").write(data)
+    # Un id retiré du script ne doit pas laisser son fichier derrière lui.
+    for folder, _, names in os.walk(OUT):
+        for name in names:
+            rel = os.path.relpath(os.path.join(folder, name), OUT)
+            if rel not in files:
+                os.remove(os.path.join(folder, name))
     if new_text != text:
         open(SPRITES_RON, "w", encoding="utf-8").write(new_text)
     print("ok : %d fichiers dans %s" % (len(files), os.path.relpath(OUT, ROOT)))

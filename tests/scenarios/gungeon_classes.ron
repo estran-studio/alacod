@@ -1,0 +1,50 @@
+// m2-lisibilite-gungeon (docs/conventions.md §83) : **toutes les classes d'entités de gungeon sur une image**,
+// pour la revue visuelle et les captures avant/après du rapport. Deux joueurs immobiles à gauche de la
+// salle de départ ; à f2, une rangée d'ennemis (une par famille ; le boss de la salle est à droite), une rangée de ramassables
+// (clé, ration, blank, objets passif / actif / consommable) et une rangée de monde (coffre à clé, deux
+// présentoirs). Présentation seule : aucune attente de sprite (le rendu n'existe pas en headless), le
+// scénario garde la simulation sous trace.
+//
+// À regarder (capturer f40, après les premiers télégraphes jaunes et anneaux rouges des tirs) : un joueur bleu et un vert ; neuf
+// silhouettes d'ennemis de couleurs et de formes différentes, chacune avec son pointeur rouge tourné vers
+// les joueurs et son nom en étiquette ; des ramassables sur un halo qui pulse, chacun avec son nom ;
+// un coffre à cadenas et deux présentoirs avec leur prix.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    room_reward_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etage_1"),
+    frames: 90,
+    characters: [
+        (character: "bullet_kin", x: "110.0", y: "-85.0", at_frame: 2),
+        (character: "bullet_kin_squad", x: "140.0", y: "-85.0", at_frame: 2),
+        (character: "shotgun_kin", x: "170.0", y: "-85.0", at_frame: 2),
+        (character: "lanceur_kin", x: "200.0", y: "-85.0", at_frame: 2),
+        (character: "tourelle_kin", x: "230.0", y: "-85.0", at_frame: 2),
+        (character: "veteran_kin", x: "260.0", y: "-85.0", at_frame: 2),
+        (character: "bandana_kin", x: "290.0", y: "-85.0", at_frame: 2),
+        (character: "fuyard_kin", x: "320.0", y: "-85.0", at_frame: 2),
+        (character: "cible", x: "350.0", y: "-85.0", at_frame: 2),
+    ],
+    items: [
+        (id: "key", x: "150.0", y: "-118.0", at_frame: 2),
+        (id: "ration", x: "180.0", y: "-118.0", at_frame: 2),
+        (id: "blank", x: "210.0", y: "-118.0", at_frame: 2),
+        (id: "amulette", x: "240.0", y: "-118.0", at_frame: 2),
+        (id: "fiole", x: "270.0", y: "-118.0", at_frame: 2),
+        (id: "egide", x: "300.0", y: "-118.0", at_frame: 2),
+    ],
+    chests: [(key: "classes", x: "110.0", y: "-152.0", at_frame: 2)],
+    shop: (shelves: [
+        (key: "s0", item: "trefle", price: 30, x: "170.0", y: "-152.0", at_frame: 2),
+        (key: "s1", item: "bottes", price: 15, x: "210.0", y: "-152.0", at_frame: 2),
+    ]),
+    players: [
+        (inputs: []),
+        (inputs: []),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 85),
+        PlayerAlive(handle: 1, at_frame: 85),
+    ],
+)

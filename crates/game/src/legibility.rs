@@ -28,12 +28,13 @@ use crate::character::enemy::ai::state::EnemyTarget;
 use crate::character::visuals::{CharacterAppearance, MarkerTint, VisualsAttached};
 use crate::collider::{Collider, ColliderShape};
 use crate::interaction::Interactable;
-use map::game::entity::map::character_spawn::CharacterSpawnComponent;
-use map::game::entity::map::door::DoorComponent;
 use crate::powerups::PowerUpPickup;
 use crate::room_fog::{FogMap, FogView};
 use crate::ui::hud::{HudConfig, HudConfigHandle};
 use crate::world_sprites::{atlas_sprite, item_candidates, SpriteTable};
+use map::game::entity::map::character_spawn::CharacterSpawnComponent;
+use map::game::entity::map::door::DoorComponent;
+use map::game::entity::MapRollbackItem;
 
 /// Étiquettes au-dessus des entités (F6). Au démarrage : `ALACOD_LABELS=1`.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
@@ -118,7 +119,10 @@ fn attach_aim_pointers(
     table: SpriteTable,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    enemies: Query<(Entity, Option<&Collider>), (With<Enemy>, With<VisualsAttached>, Without<AimPointer>)>,
+    enemies: Query<
+        (Entity, Option<&Collider>),
+        (With<Enemy>, With<VisualsAttached>, Without<AimPointer>),
+    >,
 ) {
     let Some(sheet) = table.sheet("aim") else {
         return;
@@ -161,9 +165,13 @@ fn aim_direction(
 ) -> Option<Vec2> {
     let from = transform.translation.truncate();
     let to_vec = |p: fixed_math::FixedVec2| {
-        Vec2::new((p.x - from.x).to_num::<f32>(), (p.y - from.y).to_num::<f32>())
+        Vec2::new(
+            (p.x - from.x).to_num::<f32>(),
+            (p.y - from.y).to_num::<f32>(),
+        )
     };
-    let direction = if let Some(emitter) = emitter.filter(|e| e.aim != fixed_math::FixedVec2::ZERO) {
+    let direction = if let Some(emitter) = emitter.filter(|e| e.aim != fixed_math::FixedVec2::ZERO)
+    {
         Vec2::new(emitter.aim.x.to_num::<f32>(), emitter.aim.y.to_num::<f32>())
     } else if let Some(position) = target.and_then(|t| t.last_known_position) {
         to_vec(position)
@@ -450,8 +458,13 @@ struct LabelSources<'w, 's> {
     doors: Query<
         'w,
         's,
-        (Entity, &'static GlobalTransform, Has<Collider>, Has<Interactable>),
-        With<DoorComponent>,
+        (
+            Entity,
+            &'static GlobalTransform,
+            Has<Collider>,
+            Has<Interactable>,
+        ),
+        (With<DoorComponent>, With<MapRollbackItem>),
     >,
 }
 
@@ -780,8 +793,7 @@ mod tests {
 
     #[test]
     fn le_pointeur_vise_la_derniere_position_connue_de_la_cible() {
-        let direction =
-            aim_direction(&at_origin(), None, Some(&target_at(0, 30)), None).unwrap();
+        let direction = aim_direction(&at_origin(), None, Some(&target_at(0, 30)), None).unwrap();
         assert!(direction.x.abs() < 1e-3 && direction.y > 29.0);
     }
 
@@ -802,7 +814,10 @@ mod tests {
 
     #[test]
     fn deux_etiquettes_qui_se_recouvrent_sont_empilees() {
-        let mut wishes = vec![wish(1, 0.0, "Gilet pare-balles $30"), wish(2, 20.0, "Roulade offensive $20")];
+        let mut wishes = vec![
+            wish(1, 0.0, "Gilet pare-balles $30"),
+            wish(2, 20.0, "Roulade offensive $20"),
+        ];
         declutter(&mut wishes);
         assert_eq!(wishes[0].position.y, 0.0);
         assert!(wishes[1].position.y >= label_size("x").y);

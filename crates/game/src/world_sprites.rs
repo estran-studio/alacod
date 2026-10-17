@@ -16,7 +16,6 @@
 //! Rien ici ne lit ni n'écrit la simulation : l'enfant est détruit avec son parent, une entité
 //! ressuscitée par un rollback le reçoit de nouveau.
 use animation::{create_child_sprite, AnimationMapConfig, SpriteSheetConfig};
-use map::game::entity::map::door::DoorComponent;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
@@ -24,6 +23,8 @@ use combat::projectile::Projectile;
 use combat::status::StatusLibrary;
 use combat::weapons::{Bullet, WeaponPickup};
 use items::{Chest, ItemKind, ItemPickup, ItemTable, Shelf, ShellPickup};
+use map::game::entity::map::door::DoorComponent;
+use map::game::entity::MapRollbackItem;
 use sim_core::team::Team;
 
 use crate::collider::Collider;
@@ -42,6 +43,7 @@ impl Plugin for WorldSpritePlugin {
                 skin_bullets,
                 attach_door_sprites,
                 sync_door_sprites.after(attach_door_sprites),
+                hide_replaced_map_tiles,
                 // M3-T17 : après `skin_bullets` (qui pose l'image et la taille de l'équipe).
                 style_tears.after(skin_bullets),
                 hide_despawned_world_sprites,
@@ -171,6 +173,7 @@ fn attach_world_sprites(
             Option<&world::Rock>,
             Option<&SpriteRequest>,
             Option<Mut<Sprite>>,
+            Option<&MapRollbackItem>,
         ),
         (
             Without<WorldSprite>,
@@ -189,8 +192,21 @@ fn attach_world_sprites(
         ),
     >,
 ) {
-    for (entity, chest, shelf, shell, item, weapon, barrel, table_prop, bomb, rock, request, own) in
-        &mut entities
+    for (
+        entity,
+        chest,
+        shelf,
+        shell,
+        item,
+        weapon,
+        barrel,
+        table_prop,
+        bomb,
+        rock,
+        request,
+        own,
+        map_item,
+    ) in &mut entities
     {
         let candidates: Vec<String> = if chest.is_some() {
             vec!["chest".into()]
@@ -218,11 +234,14 @@ fn attach_world_sprites(
         let Some((id, sheet, frame)) = table.find(&candidates, "Idle") else {
             continue;
         };
+        // Une entité rollback de carte (table, baril) n'a ni `Transform` ni sprite : l'image se pose
+        // sur l'entité LDtk d'origine (`MapRollbackItem::parent`), dont la tuile devient transparente.
+        let holder = map_item.map_or(entity, |item| item.parent);
         let child = create_child_sprite(
             &mut commands,
             &asset_server,
             &mut layouts,
-            entity,
+            holder,
             sheet,
             frame,
         );
@@ -251,7 +270,13 @@ fn sync_world_sprites(
         Option<&Children>,
     )>,
     mut sprites: Query<(&mut Sprite, &mut Visibility, &mut Transform)>,
-    markers: Query<(), Or<(With<crate::legibility::Halo>, With<crate::legibility::AimPivot>)>>,
+    markers: Query<
+        (),
+        Or<(
+            With<crate::legibility::Halo>,
+            With<crate::legibility::AimPivot>,
+        )>,
+    >,
 ) {
     for (world_sprite, chest, shelf, weapon, bomb, children) in &parents {
         // M3-T17 : mèche d'une bombe : clignote (rouge / teinte normale) de plus en plus vite et
@@ -309,23 +334,25 @@ pub struct DoorSprite {
     child: Entity,
 }
 
-/// Pose sur chaque porte une image d'état (l'orientation vient de la taille de sa tuile de carte) et
-/// rend transparent son sprite de carte. Sans entrée `door_v`/`door_h` (autre jeu), la porte garde le
-/// rendu d'avant.
+/// Pose sur chaque porte (entité rollback d'une porte de carte) une image d'état ; l'orientation vient
+/// de la taille de la tuile de l'entité LDtk d'origine (`MapRollbackItem::parent`). Sans entrée
+/// `door_v`/`door_h` (autre jeu), la porte garde le rendu d'avant.
 fn attach_door_sprites(
     mut commands: Commands,
     table: SpriteTable,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut doors: Query<(Entity, &mut Sprite), (With<DoorComponent>, Without<DoorSprite>)>,
+    doors: Query<(Entity, &MapRollbackItem), (With<DoorComponent>, Without<DoorSprite>)>,
+    tiles: Query<&Sprite>,
 ) {
-    for (entity, mut own) in &mut doors {
-        let size = own
-            .texture_atlas
-            .as_ref()
-            .and_then(|atlas| layouts.get(&atlas.layout)?.textures.get(atlas.index))
-            .map(|rect| rect.size())
-            .or_else(|| own.custom_size.map(|s| s.as_uvec2()));
+    for (entity, item) in &doors {
+        let size = tiles.get(item.parent).ok().and_then(|tile| {
+            tile.texture_atlas
+                .as_ref()
+                .and_then(|atlas| layouts.get(&atlas.layout)?.textures.get(atlas.index))
+                .map(|rect| rect.size())
+                .or_else(|| tile.custom_size.map(|s| s.as_uvec2()))
+        });
         let id = match size {
             Some(size) if size.x > size.y => "door_h",
             _ => "door_v",
@@ -333,16 +360,31 @@ fn attach_door_sprites(
         let (Some(sheet), Some(frame)) = (table.sheet(id), table.frame(id, "Idle")) else {
             continue;
         };
+        // L'entité rollback de la porte n'a pas de `Transform` : l'image se pose sur l'entité LDtk.
         let child = create_child_sprite(
             &mut commands,
             &asset_server,
             &mut layouts,
-            entity,
+            item.parent,
             sheet,
             frame,
         );
-        own.color.set_alpha(0.0);
         commands.entity(entity).insert(DoorSprite { id, child });
+    }
+}
+
+/// L'image du monde remplace la tuile de la carte : la tuile de l'entité LDtk d'origine (porte, table,
+/// baril) devient transparente dès que son entité rollback porte son propre sprite.
+fn hide_replaced_map_tiles(
+    items: Query<&MapRollbackItem, Or<(With<DoorSprite>, With<WorldSprite>)>>,
+    mut tiles: Query<&mut Sprite>,
+) {
+    for item in &items {
+        if let Ok(mut tile) = tiles.get_mut(item.parent) {
+            if tile.color.alpha() != 0.0 {
+                tile.color.set_alpha(0.0);
+            }
+        }
     }
 }
 
@@ -502,7 +544,10 @@ mod tests {
             item_candidates("key", Some(&items)),
             ["item/key", "item/consumable", "item"]
         );
-        assert_eq!(item_candidates("inconnu", Some(&items)), ["item/inconnu", "item"]);
+        assert_eq!(
+            item_candidates("inconnu", Some(&items)),
+            ["item/inconnu", "item"]
+        );
         assert_eq!(weapon_candidates("arc"), ["weapon/arc", "weapon"]);
     }
 }
