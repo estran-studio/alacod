@@ -35,4 +35,21 @@
     // `docs/conventions.md` §28 : scénarios générés de isaac (`make gen GAME=isaac`) joués sur la carte
     // gabarit, en mode `Sandbox` imposé par le générateur (copie de celle de `gungeon`).
     generate_template: (map: "maps/gabarit_armes.ldtk", target: "cible"),
+    // M3-T12 (docs/conventions.md §77) : les mécaniques que la partie ordinaire (séquence `sous_sol`) doit
+    // rencontrer, tableau « Atteignabilité » de docs/taches.md §8.1. `alacod lint` avertit de chacune que le
+    // contenu ne porte pas encore (jusqu'à M3-T8, T9, T10, T11).
+    mechanics: [
+        Tears,
+        Effects,
+        Familiars,
+        Bombs,
+        SecretRoom,
+        Keys,
+        Hearts,
+        ExhaustPools,
+        DevilMarket,
+        Champions,
+        Curses,
+        Achievements,
+    ],
 )

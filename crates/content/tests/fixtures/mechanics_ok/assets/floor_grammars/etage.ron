@@ -1,0 +1,9 @@
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (7, 9),
+        required: {"boss": 1, "tresor": 1, "secrete": 1, "boutique": 1},
+        min_boss_distance: 2,
+        layout: Some(Grid(cell: (5, 3), max: (4, 4), secret: "secrete", post_boss: Some((kind: "diable", chance: "0.5")))),
+    ),
+)

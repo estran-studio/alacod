@@ -294,6 +294,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `game.ron` | `entry.clocks` vers une horloge inconnue ; `entry.difficulty` sans fichier `Difficulty` (T1.9, §23) | `BrokenReference` | `entry_clock_unknown`, `entry_difficulty_missing` |
 | `game.ron` | `entry.progression` vers une progression inconnue (T1.10, §27 ; audit T1.12) | `BrokenReference` | `entry_progression_unknown` |
 | `game.ron` | `generate_template` : carte connue, cible à `counts_hits` (T1.13, §28) | `BrokenReference` | `generate_template_unknown_map`, `generate_template_target_without_hits` |
+| `game.ron` | `mechanics` : mécaniques d'une partie ordinaire que le contenu doit porter (M3-T12, §77) | avertissement `MechanicUnmet` (aucune erreur) | `mechanics_ok` et les tests de `m3_t12_fixtures.rs` |
 | arme | projectiles composables (T1.1, §16) : projectile de pattern absent de la table, cycle de `on_expire`, pattern temporel ou `Scatter` en `on_expire`, `Size > 0`, `0 < Homing <= 1`, modificateur répété, `on_hit` limité aux actions à cible | `BrokenReference`, `OutOfRange` | `projectile_broken_reference`, `projectile_cycle`, `projectile_temporal_pattern`, `pattern_scatter_on_expire` |
 | arme | `on_hit` `ApplyStatus` : statut inconnu, `stacks > 0` (T1.3, §19) | `BrokenReference`, `OutOfRange` | `status_unknown` |
 | pattern | `Named` inconnu ou cyclique ; `count > 0`, `spread >= 0`, `speed >= 0` (T1.2, §20) | `BrokenReference`, `OutOfRange` | `pattern_unknown_name` |
@@ -3769,9 +3770,8 @@ Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements 
 - gabarit d'une carte `templates` dont le type n'est tiré par aucune grammaire atteinte ;
 - ennemi (`ai` présent) absent des niveaux jouables (cartes posées, gabarits tirables), des arènes
   des salles tirables, des vagues, des cavernes et des renforts de boss (point fixe) ;
-- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool**. Le point de branchement
-  de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
-  ids de chaque pool (une dizaine de lignes) ;
+- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool** (`reach::loot_pool_items`,
+  `loot_pool_weapons` : branchés depuis M2-T5 et D62), déblocages (M3-T12, §77) ;
 - arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
   progression, pools, armes citées par les règles des ennemis atteints (`Shoot`, phases de boss,
   `SpawnPattern` des effets, entrées de phase et frises). Un ennemi inatteint ou `test_only`
@@ -5818,6 +5818,126 @@ flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `Run
 
 `isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tirera à M3-T11d (graine à
 nommer alors). Le testbed joue `maudit` et `maudit_maze` à deux étages.
+
+## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
+
+Lint seulement : `content` (plus la déclaration `mechanics` de `games/isaac/assets/game.ron`, une ligne de
+`crates/game/src/run_state.rs` dans un test pour le littéral du manifeste) ; aucune simulation touchée, **aucune
+trace ne bouge**. Code : `crates/content/src/mechanics.rs` (avertissements), `reach.rs` (sources d'objets et d'armes,
+stats), `lint.rs` (trois règles de plus), tests `crates/content/tests/m3_t12_fixtures.rs` sur la fixture
+`mechanics_ok`.
+
+### Audit des règles de lint des kinds M3
+
+Une ligne par mécanique de M3 : ce que le lint refuse, la fixture qui le prouve. Les règles de T0a à T7 existaient ;
+les lignes marquées **T12** sont les trous trouvés par l'audit.
+
+| Mécanique | Règle (niveau) | Fixture / test |
+|---|---|---|
+| Munitions infinies (§60) | `ammo_type` absent alors qu'un mode consomme (`Parse`), donné alors que tous les modes sont `Infinite` (`OutOfRange`) | `weapon_ammo_type_missing`, `weapon_infinite_with_ammo_type` |
+| Larmes, `ProjectileMods` (§60, §66) | formes et plages d'un objet ou d'une synergie (`Homing`, `Bounce` répété, `Split.count`, `Orbit.radius`…), `child` et `on_expire: Spawn` sans table de projectiles (`Unsupported`), `Chance` hors [0, 1] | `projectile_split_out_of_range`, `item_projectile_out_of_range`, `item_projectile_no_table`, `item_projectile_ok`, `projectile_chance_out_of_range` |
+| Stats de larmes, `Luck` (§60) | liste fermée `stat_reader` : **T12** test `every_named_stat_has_a_reader` (liste des stats nommées tenue à la main ; son `match` sans `_` fait échouer la compilation à l'ajout d'une variante de `StatId`, ce qui rappelle d'y décider si elle a un lecteur) ; **T12** `stat_uses` lit aussi les modificateurs de curses et les actions d'entrée et de frise des phases de boss (un `Modifier` y est accepté) | `stat_unread`, `unread_stats_are_found_in_curses_and_boss_phases`, test `reach::tests` |
+| Bombes (§62) | `fuse_frames > 0`, `radius > 0`, `damage >= 0` (`OutOfRange`) ; `Explode` : rayon, dégâts (`OutOfRange`), refusée dans un power-up | `bomb_fuse_zero`, `explode_radius_zero`, `explode_effect_ok` |
+| Rochers (§62) | **T12** couche `Rocks` : valeur autre que 1 et 2 (ignorée au chargement : `OutOfRange`) | `rocks_and_surfaces_layers_are_checked` |
+| Piques (§62) | `damage > 0`, `period > 0` (`OutOfRange`) ; **T12** couche `Surfaces` : valeur sans surface déclarée (`BrokenReference`) | `hazard_period_zero`, `rocks_and_surfaces_layers_are_checked` |
+| Portes verrouillées (§62, §70) | `Key(0)`, `lock_from_floor` sans `door_lock` ou sur `Secret`, clé introuvable à chaque étage verrouillé | `door_lock_key_zero`, `key_room_*` |
+| Grille (§62, §70) | `cell`, `max`, `post_boss.chance`, gabarits multiples de `cell`, ouvertures centrées et de même largeur, types distincts ; **T12** la salle secrète `required` d'une grille a `door_lock: Secret` (sinon posée ouverte : `OutOfRange`) | `grid_*`, `secret_room_not_required_or_not_walled` |
+| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, arme de `MirrorShot` inconnue, behavior de familier sans porteur | `familiar_*` |
+| Champions (§63, §72) | actions de mort admises (`Explode`, `SpawnCharacters`, `SpawnPattern`), pattern fini, pool de butin connu, `#rrggbb`, `chance` en expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 | `champion_ok`, `champion_bad_death`, `champion_death_infinite_pattern*`, `variant_chance_expression_*` |
+| Curses (§64) | poids 0, aucun effet, `FloorRooms` ≤ 0, `Modifier Mul` ≤ 0, chance hors [0, 1], pool vide ou inconnu | `curse_invalid_values`, `floors_curses_invalid` |
+| Pools à épuisement (§64) | **T12** `exhaust: true` sur un pool qui n'a que des `Currency` (jamais « vu » : `OutOfRange`) | `exhaust_pool_of_coins_only_is_an_error` |
+| Accomplissements, déblocages (§64) | `when`/`unlocks` vides, objet, boss ou déblocage inconnu | `achievement_invalid` |
+| `Price` (§61, §73) | la surface de contenu est `shop.cost` d'un type de salle (T8) : `Price::problems` (montant nul, consommable inconnu, vie max hors `]0, max]` : `OutOfRange` / `BrokenReference`), `boss_drop.table` inconnu ; T12 n'ajoute rien (le trou de la première lecture, « aucune surface avant T8 », est fermé par T8) | `shop_cost_invalid`, `boss_drop_unknown_pool` (`m3_t8_fixtures.rs`) ; `items` : `price_problems_report_unknown_consumable_and_out_of_range_health` |
+| `ExtraHealth` (§61, §68) | `GainSoul > 0` dans un objet, une synergie, un personnage ; refusée dans un power-up | `item_gain_soul_zero` |
+| `hit_iframes` (§61) | `Some(0)` (`OutOfRange`) | `character_hit_iframes_zero` |
+| Plafond de compteur (§61, §68) | `max_stack` 0 ou sur un non-consommable, `starting_consumables` au-dessus du plafond, `refuse_when_full` sans soin | `item_max_stack_zero`, `character_starting_over_max_stack`, `item_refuse_when_full_without_heal` |
+| `Scaled(PerCopy)` (§61) | refusée hors d'un effet d'objet, action enveloppée validée, linéaire seulement | `scaled_*`, `effect_per_copy_*` |
+
+### `mechanics` : les mécaniques d'une partie ordinaire
+
+Le manifeste gagne `mechanics: [Mechanic]` (défaut vide : aucune vérification, tous les jeux avant `isaac`).
+`content::Mechanic` a une variante par ligne du tableau « Atteignabilité » de `docs/taches.md` §8.1 : `Tears`,
+`Effects`, `Familiars`, `Bombs`, `SecretRoom`, `Keys`, `Hearts`, `ExhaustPools`, `DevilMarket`, `Champions`,
+`Curses`, `Achievements`. Pourquoi une déclaration : le lint ne peut pas deviner qu'`isaac` *doit* avoir un
+familier ; sans elle, un jeu sans contenu de familier est muet, et « `make lint GAME=isaac` sans avertissement
+d'atteignabilité » (critère de sortie M3, T11) serait vrai par vacuité. `isaac` déclare les douze.
+
+**Partie ordinaire** (`mechanics::Play::ordinary`) : en mode `Floors`, la séquence de `entry.floors` (à défaut la
+première par ordre d'id, comme le jeu), sans `FloorsOverride` ni les autres séquences ; sinon la carte de départ.
+Les règles « toujours actives » ci-dessous gardent, comme §53, **toute** séquence déclarée comme racine (un
+scénario ou le lobby peut en imposer une autre) ; seules les règles déclarées sont restreintes à la partie ordinaire.
+
+**Sites de tirage** (`Play::draws`) : un pool est tiré par le coffre (`chest`) et la boutique d'un type de salle atteint
+(`floor_tables` quand il y en a, sinon `table` : `RoomShopDef::table_for_floor` ignore `table` dès qu'il y a des
+`floor_tables`), par la récompense des salles `combat` (le pool d'étage s'il a `reward`, **sinon** `salle` : `salle` n'est
+tiré que pour une séquence sans `loot` ou à pool d'étage sans `reward`) et par le coffre de cette récompense quand
+`chest_chance > 0` (pool d'étage ou `commun`), par le butin du boss (`boss_drop`, T8) d'un type de salle atteint, par les
+rochers à butin des niveaux joués, par le butin (`loot`) des variantes à chance non nulle des ennemis atteints. Un coffre sans
+`table` tire le `loot` de l'étage de chaque séquence, `commun` pour une séquence sans `loot` (`game::loot::chest_table_id`).
+Chaque site porte un nombre de tirages par partie, au moins (salles exigées × étages de la partie, trois pour le remplissage).
+
+Kind d'avertissement `LintWarningKind::MechanicUnmet` (JSON : `"kind": "MechanicUnmet"`), message « mécanique
+« <nom> » : … » qui nomme la salle ou le pool qui devrait porter la mécanique ; fichier : le type de salle, le pool ou
+la séquence fautif, `game.ron` quand le manque est global.
+
+| Règle | Quand | Avertit si | Fixture (`m3_t12_fixtures.rs`) |
+|---|---|---|---|
+| pool jamais tiré | toujours | un pool n'a aucun site de tirage | `pool_that_nothing_draws`, `pool_of_a_default_chest_is_drawn` |
+| familier sans objet atteignable | toujours | tous les objets qui citent le personnage (hors `test_only`, D63) sont hors des pools tirés, du départ des personnages jouables, des étages et des déblocages | `familiar_whose_items_have_no_source`, `test_only_familiar_is_not_warned` |
+| synergie à objet sans source | toujours | un objet requis n'a aucune source | `synergy_with_an_item_that_has_no_source` |
+| salle spéciale vide | toujours, grammaire en grille | une salle exigée, la salle secrète ou la salle post-boss à chance > 0 n'a ni `chest`, `shop`, `arena`, `boss_drop` ni `locks` | `special_room_that_carries_nothing` |
+| mur secret sans bombe | toujours | un type à `door_lock: Secret` est atteint sans bombe jouable (consommable `bomb` **et** personnage à `bomb`) ni objet à `Explode { destroys: true }` | `secret_wall_without_a_bomb` |
+| curse jamais tirée | toujours | aucune séquence ne la met dans `curses.pool` (chance > 0) | `curse_that_no_sequence_draws` |
+| variante à chance nulle | toujours | `variants.chance` nulle pour 1 et 4 joueurs aux étages 0 et 5 | `variant_with_a_zero_chance` |
+| accomplissement inaccomplissable | toujours | `FloorAtLeast(n)` au-delà d'une séquence finie (`victory_at_end`), `BossDefeated` d'un boss jamais posé, `ItemHeld` d'un objet sans source | `achievement_with_an_impossible_condition` |
+| déblocage jamais accordé | toujours | ni accomplissement ni service `Merchant` ne l'accorde | `unlock_that_nothing_grants` |
+| `Tears` | déclarée | aucun objet de larmes (`projectile`, `ShotSpeed`, `ShotSize`) dans le pool d'une salle exigée à coffre (trésor) ni dans une boutique ; ou l'objet ne peut pas être tenu en deux exemplaires : chaque pool qui le donne a `exclude_held` ou `exhaust` (un objet sorti ne revient pas avant que le pool soit vu en entier) et il n'y a pas deux pools sans `exclude_held` | `tears_missing_from_the_*`, `tears_that_cannot_be_held_twice`, `tears_in_a_single_exhausting_pool_cannot_stack` |
+| `Effects` | déclarée | aucun objet à effets dans le pool trésor, boutique ou boss ; aucune synergie dont tous les objets sont atteignables | `effects_missing_from_the_boss_pool_and_no_transformation` |
+| `Familiars` | déclarée | moins de deux objets à `familiar` dans le pool trésor, aucun dans une boutique | `familiars_missing_from_the_treasure_and_shop_pools` |
+| `Bombs` | déclarée | pas de bombe de départ (personnage jouable), d'étage, de pool tiré (récompense, coffre, boutique, rocher, champion) ni de déblocage ; aucun personnage jouable à `bomb` (un personnage `test_only` ne compte pas, D63) ; aucun rocher ni pique (surface à `hazard`) dans un gabarit du type de remplissage | `bombs_rocks_and_spikes`, `test_only_characters_give_no_bomb_and_wrapped_explosions_count` |
+| `SecretRoom` | déclarée | pas de grammaire en grille ; la salle secrète n'est pas dans `required` ou n'est pas murée ; aucune explosion atteignable | `secret_room_not_required_or_not_walled` |
+| `Keys` | déclarée | pas de clé dans la récompense de combat ni dans une boutique ; aucune salle exigée à `door_lock: Key` | `keys_in_rewards_shops_and_locked_treasure` |
+| `Hearts` | déclarée | pas de `Currency` ni de cœur (`Heal`, `GainSoul`) dans la récompense de combat ; aucune boutique exigée (`required`) : une salle à `shop` payé en vie maximale (le diable) n'est pas la boutique | `hearts_coins_and_shop`, `devil_market_is_not_the_shop` |
+| `ExhaustPools` | déclarée | aucun pool `exhaust` tiré au moins deux fois par partie ordinaire | `exhausting_pool_drawn_once` |
+| `DevilMarket` | déclarée | aucune salle post-boss à chance > 0 dans une grammaire de la partie ordinaire ; ou son type de salle n'a pas de `shop` à `cost` (présentoirs payés, T8 : sans prix ce n'est qu'une boutique) | `devil_market_without_a_post_boss_room`, `devil_market_needs_priced_shelves` |
+| `Champions` | déclarée | aucun ennemi atteint, hors `test_only`, ne porte une variante à chance non nulle | `champions_on_no_reachable_enemy` |
+| `Curses` | déclarée | la séquence ordinaire n'a pas de `curses` (chance > 0, une curse de poids > 0) | `curses_only_count_in_the_ordinary_sequence` |
+| `Achievements` | déclarée | aucun accomplissement aux conditions remplissables (§ ci-dessus) dont un déblocage donne un objet ou une entrée à un pool tiré | `achievements_without_a_visible_unlock`, `achievement_with_an_impossible_condition_is_not_visible` |
+
+Les avertissements M2 nomment maintenant la mécanique : « type de salle « secrete » : … ; mécanique : salle secrète
+(murée, ouverte à la bombe) » (`room_mechanic`), « objet « x » : aucune source … ; mécanique : familiers, effets »
+(`item_mechanics`). Fixture de base `mechanics_ok` : un jeu en grille (départ, combat avec rocher, rocher à butin et
+pique, boss, trésor à clé, secrète, boutique, diable) qui porte les douze mécaniques, sans erreur ni avertissement
+(`base_is_clean`) ; chaque test lui retire un élément dans un dossier temporaire. Sans `mechanics`, aucune règle
+déclarée ne parle (`undeclared_mechanics_are_not_checked`). `alacod lint --json` rend `MechanicUnmet`
+(`lint_json_reports_mechanic_warnings`).
+
+### Sources d'objets et d'armes
+
+`reach::loot_pool_items` (pools, entrées `Item` et `Rarity`) et `loot_pool_weapons` (entrées `Weapon`) sont tous deux
+branchés depuis D62 : le constat de la fiche (« le second renvoie un ensemble vide ») était périmé, rien à y ajouter
+pour les armes. Ajouté : `unlock_grant_sources` (les entrées qu'un déblocage ajoute à un pool, `UnlockGrant::Loot`,
+comptent comme sources d'objets et d'armes : sans elles, un objet que seul un accomplissement donne était signalé
+« sans source ») et `item_sources` (départ, étage, pools, déblocages) partagé par les règles. Les sources M3 de la
+fiche (rochers à butin, champions, salles trésor, diable, secrète) sont **toutes des pools nommés** : leur contenu est
+déjà dans `loot_pool_items` ; ce qui manquait était de savoir si quelqu'un tire le pool (règle « pool jamais tiré »).
+
+### Limites
+
+Statique : une salle posée par la grammaire n'est pas une salle *rencontrée* (probabilités, graines : bot T14 et
+campagnes T18) ; l'ordre des étages (`lock_from_floor` contre la longueur d'une séquence)
+n'est vérifié que pour les clés (`lint_key_sources`) ; le nombre de tirages par partie est un minimum prudent ; une entrée
+qu'un déblocage ajoute à un pool (`UnlockGrant::Loot`) compte comme source d'objet sans vérifier que le déblocage est
+accordé (la règle « déblocage jamais accordé » le dit à part).
+
+### Atteignabilité (jeux livrés)
+
+`zombies`, `throne` : aucun avertissement. `gungeon` : un, **réel** (pool `boss` jamais branché : le butin du boss est
+`boss_drop` de T8, `gungeon` ne le pose pas ; aucune tâche M3 ne le ferme : dette). `testbed` (bac à sable, beaucoup
+d'avertissements voulus) : dix de plus (pools d'essai non tirés dont `epuisable_temoin`, familiers et synergie d'essai, mur
+secret sans bombe). `isaac` : 18 (les 20 de la première mesure moins deux que T8 a fermés : salle du diable vide, aucun pool à
+épuisement), listés au rapport avec la tâche qui ferme chacun (`docs/taches/rapports/m3-t12-lint-atteignabilite.md`). À rejouer
+après T11 (« une passe courte »).
 
 ## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
 

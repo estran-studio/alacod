@@ -1,0 +1,1 @@
+(name: "Satellite", kind: Passive, rarity: Common, familiar: Some((character: "satellite", per_copy: 1)))

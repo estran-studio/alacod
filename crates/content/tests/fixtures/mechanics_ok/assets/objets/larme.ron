@@ -1,0 +1,1 @@
+(name: "Larme rebondissante", kind: Passive, rarity: Common, projectile: Some((modifiers: [Bounce(1)], on_hit: [], on_expire: [])))

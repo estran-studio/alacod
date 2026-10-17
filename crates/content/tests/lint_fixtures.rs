@@ -1868,7 +1868,7 @@ fn test_only_content_is_ignored_by_reach() {
 
 #[test]
 fn shipped_games_lint_without_error() {
-    for game in ["zombies", "testbed", "throne", "gungeon"] {
+    for game in ["zombies", "testbed", "throne", "gungeon", "isaac"] {
         let (registry, manifest, errors) = load_and_lint(&game_dir(game)).unwrap();
         assert!(errors.is_empty(), "{game} : {errors:#?}");
         for warning in content::warnings(&registry, &manifest) {
