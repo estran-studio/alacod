@@ -150,3 +150,13 @@ du statut. Première tentative abandonnée : poser `MeleeHold` dans `rules::mele
 `status_fear` (f301, expiration de la peur) et `generated/isaac/tears_rancune_vive` (f152). **Non corrigé** (hors suivi, à
 décider) : pour `Fear`, un ennemi sans règles de comportement garde sa `MeleeHold` après la peur.
 Non corrigé : la visée affichée du joueur humain (ci-dessus).
+
+## 6. Intégration avec `m3-t14-bot-isaac` (b3) et dettes
+
+- La requête `players` de `crates/bots/src/input.rs` passe de 10 à **11 éléments** (`Option<&AimMode>` en dernier) : le motif à 10
+  éléments de T14 (`input.rs` ~l.328) devra gagner un `_`. `decide`/`BotView` (`aim`) touchent aussi `decide.rs` et `view.rs`.
+- Les traces `bot_isaac_*` de T14 **bougeront** avec `pleureur` en `FourWay` : épingler `aim: Some(Free)` ou rebénir avec preuve §5.
+- Dettes ouvertes à `docs/taches/dettes.md` : D89 (grille isaac épinglée `Free`), D90 (`MeleeHold` de `Fear`), D91 (`held_with_tag`
+  alloue), D92 (mort causée par un charmé non créditée : question pour William). `origin/m3-t10-profil-accomplissements` n'utilise
+  pas D89 (vérifié).
+- Scénario ajouté en dernière relecture : `aim_four_way_familier` (+ témoin `_libre`) : le tir miroir est quantifié (2 coups ; 0 en libre).

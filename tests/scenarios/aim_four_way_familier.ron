@@ -1,0 +1,24 @@
+// Suivi Q17 x Q13 (§66, §71) : le tir miroir d'un familier suit la visée quantifiée du porteur. Joueur 0 `FourWay` avec un
+// `compagnon` : un tir en biais (-127, -40) à f20 ; la larme du porteur et celle du familier partent plein ouest et touchent
+// toutes deux la `target` alignée. Témoin `aim_four_way_familier_libre` : visée libre, les deux larmes passent à côté.
+//
+// À regarder : deux larmes parfaitement horizontales malgré une souris en biais ; la cible reçoit deux coups.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "500.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 20, to: 21, buttons: [Fire], pan: (-127, -40))],
+            weapon: "larme",
+            items: ["compagnon"],
+            aim: Some(FourWay),
+        ),
+    ],
+    expect: [
+        FamiliarCount(handle: 0, count: 1, at_frame: 5),
+        EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 159),
+    ],
+)
