@@ -14,7 +14,7 @@ for s in $(seq $LO 20 $HI); do
   e=$((s+19)); [ $e -gt $HI ] && e=$HI
   f=$(printf "%s%s_%03d-%03d.json" "$P" "$B" $s $e)
   [ -s $D/$f ] && continue
-  $SIM --game isaac --bots $B --profiles $PROF --floors sous_sol --seeds $s..$e --until-floor 5 --max-frames 20000 "$@" --json $D/$f > $T/${f%.json}.log 2>&1
+  $SIM --game isaac --bots $B --profiles $PROF --floors sous_sol --seeds $s..$e --until-floor 5 --max-frames 20000 --pickup-progress "$@" --json $D/$f > $T/${f%.json}.log 2>&1
   echo "lot $f : $(grep -c '^seed' $T/${f%.json}.log) graines ; $(grep -E 'victoire|mort|soft-lock|plafond|desync' $T/${f%.json}.log | grep 'graine(s)' | tr '\n' ' ')"
 done
 echo FINI $P$B

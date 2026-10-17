@@ -492,9 +492,11 @@ pub struct ExplorerPolicy {
     /// Ordre et conditions d'achat en douilles (présentoirs).
     #[serde(default)]
     pub shop: ShopOrder,
-    /// Ramasse les tas de sous au sol (`ShellPickup`). Faux : seulement ceux qu'il croise.
+    /// Ramasse les tas de sous au sol (`ShellPickup`) dont le chemin coûte au plus `n` (10 par case de 8 px en
+    /// ligne droite) : ils ne valent pas un détour d'un bout à l'autre de l'étage. `None` : seulement ceux qu'il
+    /// croise.
     #[serde(default)]
-    pub shells: bool,
+    pub shells: Option<u32>,
     /// Marché du diable : présentoirs payés en vie maximale (`Shelf::cost`).
     #[serde(default)]
     pub devil: DevilPolicy,

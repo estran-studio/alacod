@@ -413,6 +413,7 @@ fn main() {
             stop_when_all_players_dead: true,
             // D43 : une partie terminée (défaite ou victoire) n'est plus jouée jusqu'au plafond
             stop_when_run_ended: true,
+            pickups_are_progress: args.iter().any(|arg| arg == "--pickup-progress"),
         };
         let dodges = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
         let dodges_probe = dodges.clone();

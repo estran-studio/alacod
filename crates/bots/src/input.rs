@@ -733,7 +733,7 @@ pub fn read_bot_inputs(
                             .0
                             .update_from(&free_rects, &body, points_for, position);
                     }
-                    if let Some(step) = crate::explorer::explore_step(
+                    let step = crate::explorer::explore_step(
                         &mut nav.0,
                         with_rocks.then_some(&mut rock_nav.0),
                         frame_data,
@@ -741,7 +741,23 @@ pub fn read_bot_inputs(
                         position,
                         portal,
                         &surfaces,
-                    ) {
+                    );
+                    if *BOT_DEBUG {
+                        eprintln!(
+                            "BOTDBG f={} handle={} pos=({},{}) step={:?} portal={:?} rooms={} items={} secret_doors={} bombs={}",
+                            frame.frame,
+                            player.handle,
+                            position.x,
+                            position.y,
+                            step,
+                            portal,
+                            frame_data.rooms.len(),
+                            frame_data.items.len(),
+                            frame_data.secret_doors.len(),
+                            ctx.holder.bombs
+                        );
+                    }
+                    if let Some(step) = step {
                         explore.direction = Some(step.direction);
                         explore.interact = step.interact;
                         explore.bomb = step.bomb;
@@ -1013,6 +1029,11 @@ fn collider_radius(collider: &Collider) -> Fixed {
         }
     }
 }
+
+/// `ALACOD_BOT_DEBUG=1` : l'`explorateur` écrit son pas d'exploration à chaque frame sur stderr (diagnostic des
+/// soft-locks, hors simulation).
+static BOT_DEBUG: std::sync::LazyLock<bool> =
+    std::sync::LazyLock::new(|| std::env::var_os("ALACOD_BOT_DEBUG").is_some());
 
 /// Nom du flux RNG des bots dans [`RngStreams`] (voir la doc du module).
 const RNG_STREAM: &str = "bots";

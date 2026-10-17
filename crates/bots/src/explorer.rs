@@ -186,6 +186,8 @@ pub struct ItemGoal {
     pub reach: Fixed,
     pub kind: GoalKind,
     pub rule: Option<PickupRule>,
+    /// Coût de chemin au-delà duquel l'objet n'est plus un but (sous au sol : `ExplorerPolicy::shells`).
+    pub max_cost: Option<u32>,
 }
 
 impl ItemGoal {
@@ -202,6 +204,7 @@ impl ItemGoal {
             reach: ITEM_REACH,
             kind: GoalKind::Plain,
             rule: None,
+            max_cost: None,
         }
     }
 }
@@ -449,9 +452,11 @@ impl ExplorerWorld<'_, '_> {
                 self.per_player_shopping_goals(&mut items);
             }
         }
-        if policy.shells {
+        if let Some(limit) = policy.shells {
             for (id, t) in order_iter!(self.shells) {
-                items.push(ItemGoal::new(id.0, t.translation.truncate(), false, false));
+                let mut goal = ItemGoal::new(id.0, t.translation.truncate(), false, false);
+                goal.max_cost = Some(limit);
+                items.push(goal);
             }
         }
         let floor_u32 = floor as u32;
@@ -829,6 +834,9 @@ pub fn ordered_goals(
             let Some(cost) = zone_cost(field, item.zone, item.reach) else {
                 continue;
             };
+            if item.max_cost.is_some_and(|limit| cost > limit) {
+                continue;
+            }
             let key: GoalKey = (cost, 0, item.net_id, String::new());
             match item.kind {
                 GoalKind::Shelf { price, heart } => {
