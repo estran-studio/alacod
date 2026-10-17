@@ -5547,7 +5547,7 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 ### Atteignabilité
 
-M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` (graine 64381) : dette fermée.
+M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` (graine 1730) : dette fermée.
 
 ## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
 
@@ -5922,12 +5922,12 @@ Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun
 D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37, §45), générateur v3 (§78).
 
 - **Sept ennemis** (`characters/`, un `test:` chacun, scénarios `enemy_<id>_still`/`_moving`) : `suiveur` et `mouche` (T0f), et cinq nouveaux.
-  `rampant` (`Charge(telegraph: 30)` + `Chase` Ground, 6 PV, 1 PV de dégât), `spectre` (`Chase` profil `Phasing`, traverse murs et rochers, 8 PV,
-  contact 1 PV, aucun `sight_range` : la ligne de vue ne le concerne pas), `cracheur` (`Shoot` du pattern `crachat` + `Chase` Ground, 6 PV,
+  `rampant` (`Charge(telegraph: 30)` + `Chase` Ground, 6 PV, 1 PV de dégât), `spectre` (`Chase` profil `Phasing` : ignore fenêtres, barricades, eau et fosses, **pas les murs ni les rochers** (`navigation.rs`, `Phasing` ignore tout sauf `Wall`) ; 8 PV,
+  contact 1 PV, aucun `sight_range` : son `aggro_range` de 500 couvre toute salle de 240 unités), `cracheur` (`Shoot` du pattern `crachat` + `Chase` Ground, 6 PV,
   `aggro_range` 130, `sight_range` 360), `tourelle_croix` (immobile, `croix` : deux couronnes de quatre boules, `aggro_range` 100, `sight_range` 260,
   12 PV), `bourdon` (`Chase` profil `Flying` + `Shoot` du pattern `rafale`, 6 PV, `aggro_range` 140, `sight_range` 360). **`sight_range`
   cohérent** : un tireur sans portée de flair (`aggro_range` bas) mais à vue longue ne cible qu'en ligne de vue dégagée (un coin le met hors de
-  portée) ; un ennemi qui traverse les murs n'en a pas.
+  portée) ; un ennemi qui flaire toute la salle (`spectre`, `aggro_range` 500) n'en a pas. Dans `isaac`, aucun obstacle franchissable par `Phasing` n'est posé : le `spectre` se comporte comme un `Chase` Ground (dette moteur/contenu : un vrai fantôme à travers rochers exigerait un obstacle `Wall` traversable).
 - **Patterns** (`patterns/`) : `crachat` (télégraphe 15, un tir visé), `croix` (deux couronnes de quatre, 25 frames d'écart), `rafale` (trois tirs
   visés, un par 8 frames), `couronne_unique` (une couronne de huit boules, `every: 0` : le motif de mort d'un champion), `spirale` (deux bras,
   six salves, 60 frames). Projectiles de l'`arsenal` : `crachat` (dégât 0,5 : une demi-vie, vitesse 110) en plus de `plomb` et `boule`.
@@ -5945,11 +5945,11 @@ D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37
 | Ennemi / variante | Comportement | Gabarit / vague | Graine `alacod-sim` | Scénario généré |
 |---|---|---|---|---|
 | `suiveur` | `Chase` Ground, contact | `Combat` | 2 (salle verrouillée f57) | `enemy_suiveur_still`/`_moving` |
-| `suiveur` / `explosif` | explosion à la mort | `Combat` | 64381 (champion de chaque type) | `champion_suiveur_explosif` |
+| `suiveur` / `explosif` | explosion à la mort | `Combat` | 1730 | `champion_suiveur_explosif` |
 | `mouche` | volante, contact | `Combat` | 2 | `enemy_mouche_*` |
-| `mouche` / `essaim` | deux mouches à la mort | `Combat` | 64381 | `champion_mouche_essaim` |
+| `mouche` / `essaim` | deux mouches à la mort | `Combat` | 1730 | `champion_mouche_essaim` |
 | `tourelle_croix` | immobile, `croix`, vue directe | `Combat` | 2 | `enemy_tourelle_croix_*` |
-| `tourelle_croix` / `salve` | couronne à la mort | `Combat` | 64381 | `champion_tourelle_croix_salve` |
+| `tourelle_croix` / `salve` | couronne à la mort | `Combat` | 1730 | `champion_tourelle_croix_salve` |
 | `rampant` | charge | boss, phase 1 | 2 (renfort f2370) | `enemy_rampant_*` |
 | `cracheur` | tireur, vue directe | boss, phase 1 | 2 | `enemy_cracheur_*` |
 | `spectre` | `Phasing` | boss, phase 2 | 2 | `enemy_spectre_*` |
@@ -5957,12 +5957,13 @@ D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37
 | `gardien` | 3 phases, renforts, spirale | `Boss` | 2 | `boss_gardien` |
 
 **Piège du tirage des variantes** (§72, confirmé) : la graine du tirage est `fnv1a("variants") ^ graine ^ net id`, puis un congruentiel linéaire
-(A = 1 664 525) : le premier tirage varie de `A / 2^32 ≈ 0,0004` par unité de la graine, donc **pour les graines 1 à 2047 et les net ids de l'étage
-il reste dans [0,62 ; 0,77]**. Aucune variante n'apparaît pour une `chance` inférieure à 0,62, **donc jamais dans `alacod-sim --seeds 1..N`** (50 graines
-et 1000..1150 essayées : zéro champion) ; le jeu, lui, tire une graine de 32 bits aléatoire et ne le voit pas. La graine 64381 a été calculée
-(`u < 0,1` pour tout net id de 101 à 199) : tous les ennemis de ses étages sont champions, ce qui en fait la graine d'atteignabilité des trois variantes
-(`alacod-sim … --seeds 64381..64383 --log` : lignes `variant`, `champion_split`, `explosion`). Dette : un bot qui doit rencontrer des champions
-(T14) prend des graines de cette zone ou la correction du tirage (qui déplacerait les traces de tout contenu à variantes).
+(A = 1 664 525) : le premier tirage varie de `A / 2^32 ≈ 0,0004` par unité de la graine, donc **pour une petite graine il reste dans une bande étroite**
+(net ids 100 à 199 : graines 1 à 255 → [0,67 ; 0,77], 1 à 511 → [0,57 ; 0,77], 1 à 1279 → au moins 0,277). Les chances d'`isaac` plafonnent à 0,27 aux
+deux premiers étages : **aucun champion pour les graines 1 à 1279**, donc jamais dans `alacod-sim --seeds 1..200` (50 graines 1..50 et 1000..1150
+essayées : zéro champion) ; le jeu, lui, tire une graine de 32 bits aléatoire et ne le voit pas. Les champions apparaissent à partir de la graine ~1536 ; la bande monte puis redescend (graines 1700 à 1747 : presque
+tous les ennemis le sont, 1748 à 1754 : aucun). La graine **1730** (essayée avec `alacod-sim … --seeds 1730..1730 --log` : 4 `explosif`, 4 `essaim`, 3 `salve`
+journalisés, 18 `champion_split`, 18 `explosion`) est la graine d'atteignabilité des trois variantes. Dette : un bot qui doit rencontrer des champions (T14) prend
+des graines ≥ 1700 ou la correction du tirage (qui déplacerait les traces de tout contenu à variantes).
 
 **Équilibrage** (campagne courte, `explorateur`, 50 graines `--floors sous_sol --until-floor 2 --max-frames 12000`, §76.3 du rapport) : l'`explorateur` meurt
 dès qu'une salle de combat compte quatre ennemis (essais : 16 morts sur 16 à quatre ennemis, 5 types ; cracheur, rampant ou tourelle seuls : 9 à 15 morts
@@ -5973,7 +5974,7 @@ sur 16 avec un boss à renforts doubles), d'où les trois ennemis par salle et l
 Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de la partie ordinaire ne porte `variants` » (§72 : dette fermée).
 
 **Traces** : un ennemi de plus par salle de combat décale les net ids de tout ce qui suit (preuve §5 au rapport `m3-t11c-ennemis.md` : `FloorState.
-enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`). Les autres jeux ne bougent pas.
+enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
 
 Dettes : pas de gabarit de combat par ennemi (un seul `Combat` : T11d) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
 de l'`explorateur` (graines 9, 42, 43) relève de T14 ; `crachat` à 0,5 PV est le premier dégât fractionnaire d'`isaac`.
