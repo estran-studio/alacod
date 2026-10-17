@@ -5547,7 +5547,7 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 ### Atteignabilité
 
-M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` (graine 1730) : dette fermée.
+M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables seulement par graine choisie (1730), **D88 ouverte**.
 
 ## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
 
@@ -5930,7 +5930,7 @@ D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37
   portée) ; un ennemi qui flaire toute la salle (`spectre`, `aggro_range` 500) n'en a pas. Dans `isaac`, aucun obstacle franchissable par `Phasing` n'est posé : le `spectre` se comporte comme un `Chase` Ground (dette moteur/contenu : un vrai fantôme à travers rochers exigerait un obstacle `Wall` traversable).
 - **Patterns** (`patterns/`) : `crachat` (télégraphe 15, un tir visé), `croix` (deux couronnes de quatre, 25 frames d'écart), `rafale` (trois tirs
   visés, un par 8 frames), `couronne_unique` (une couronne de huit boules, `every: 0` : le motif de mort d'un champion), `spirale` (deux bras,
-  six salves, 60 frames). Projectiles de l'`arsenal` : `crachat` (dégât 0,5 : une demi-vie, vitesse 110) en plus de `plomb` et `boule`.
+  six salves, 60 frames). Projectiles de l'`arsenal` : `crachat` (dégât 1 : un demi-cœur d'isaac, vitesse 110) en plus de `plomb` et `boule`.
 - **Trois ennemis à champions** (`variants:`, `chance` en expression par étage, `tint`, un effet de mort chacun, tous dans le gabarit de combat) :
   `suiveur` → `explosif` (`0,1 + floor × 0,15`, `Explode` rayon 44, dégât 2, `destroys: false` : la salle secrète reste à la bombe) ;
   `mouche` → `essaim` (`0,12 + floor × 0,1`, `SpawnCharacters` : deux `mouche` ordinaires) ; `tourelle_croix` → `salve` (`0,15 + floor × 0,12`,
@@ -5956,14 +5956,13 @@ D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37
 | `bourdon` | volant, tireur | boss, phase 2 | 2 | `enemy_bourdon_*` |
 | `gardien` | 3 phases, renforts, spirale | `Boss` | 2 | `boss_gardien` |
 
-**Piège du tirage des variantes** (§72, confirmé) : la graine du tirage est `fnv1a("variants") ^ graine ^ net id`, puis un congruentiel linéaire
-(A = 1 664 525) : le premier tirage varie de `A / 2^32 ≈ 0,0004` par unité de la graine, donc **pour une petite graine il reste dans une bande étroite**
-(net ids 100 à 199 : graines 1 à 255 → [0,67 ; 0,77], 1 à 511 → [0,57 ; 0,77], 1 à 1279 → au moins 0,277). Les chances d'`isaac` plafonnent à 0,27 aux
-deux premiers étages : **aucun champion pour les graines 1 à 1279**, donc jamais dans `alacod-sim --seeds 1..200` (50 graines 1..50 et 1000..1150
-essayées : zéro champion) ; le jeu, lui, tire une graine de 32 bits aléatoire et ne le voit pas. Les champions apparaissent à partir de la graine ~1536 ; la bande monte puis redescend (graines 1700 à 1747 : presque
-tous les ennemis le sont, 1748 à 1754 : aucun). La graine **1730** (essayée avec `alacod-sim … --seeds 1730..1730 --log` : 4 `explosif`, 4 `essaim`, 3 `salve`
-journalisés, 18 `champion_split`, 18 `explosion`) est la graine d'atteignabilité des trois variantes. Dette : un bot qui doit rencontrer des champions (T14) prend
-des graines ≥ 1700 ou la correction du tirage (qui déplacerait les traces de tout contenu à variantes).
+**Piège du tirage des variantes = dette moteur D88** (`docs/taches/dettes.md`) : le tirage (`variant.rs:139`) est `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
+pas de congruentiel (A = 1 664 525) : quasi linéaire (0,0004 par unité de graine) et corrélé par étage. **Avec la graine par défaut (`default_seed: 123456`, gardée par le
+restart), aucun champion ne sort au premier étage** ; 89 % des graines donnent 0 champion, 9 % les donnent tous. Net ids 100 à 199 : graines 1 à 255 → premier tirage dans
+[0,67 ; 0,77], 1 à 1279 → au moins 0,277 ; les chances d'`isaac` plafonnent à 0,27 aux deux premiers étages : **aucun champion pour les graines 1 à 1279**, donc jamais dans
+`alacod-sim --seeds 1..200` (1..50 et 1000..1150 essayées). La graine **1730** (`alacod-sim … --seeds 1730..1730 --log` : 4 `explosif`, 4 `essaim`, 3 `salve`, 18
+`champion_split`, 18 `explosion`) est la graine d'atteignabilité des trois variantes : les champions ne sont atteignables que par graine choisie. Remède de D88 : dériver la graine par
+`fnv1a("variants:<graine>:<net id>")` replié sur 32 bits (coût : traces à variantes de gungeon, throne, testbed, isaac).
 
 **Équilibrage** (campagne courte, `explorateur`, 50 graines `--floors sous_sol --until-floor 2 --max-frames 12000`, §76.3 du rapport) : l'`explorateur` meurt
 dès qu'une salle de combat compte quatre ennemis (essais : 16 morts sur 16 à quatre ennemis, 5 types ; cracheur, rampant ou tourelle seuls : 9 à 15 morts
@@ -5977,7 +5976,7 @@ Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de
 enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
 
 Dettes : pas de gabarit de combat par ennemi (un seul `Combat` : T11d) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
-de l'`explorateur` (graines 9, 42, 43) relève de T14 ; `crachat` à 0,5 PV est le premier dégât fractionnaire d'`isaac`.
+de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) ouverte ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 
