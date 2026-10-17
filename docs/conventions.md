@@ -3382,6 +3382,8 @@ profils existants sont inchangés (aucune trace existante ne bouge).
   sinon le repli de `prudent` ou le portail, quittant la portée de l'équipier. Le jeu continue
   d'autoriser le déplacement à terre pour les joueurs humains (`downed_speed_mult`).
 - Campagne : `docs/taches/rapports/bot-explorateur-v2/campagne.sh` (lots de 10 graines).
+- **M3-T14 (§79)** : porte à clé, bombes (mur secret, rochers) et fuite de la mèche, achats par politique, diable, sous au
+  sol, objets refusés ; politique en données (`ExplorerPolicy`, `bot.ron`), campagnes `isaac`.
 
 **`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
 (`victoire`, `objectif`, `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage : salles typées,
@@ -5356,7 +5358,7 @@ fois sur 1 000 (un tiers), boucle dans 510 étages `sous_sol` sur 1 000 et 929 `
 ### Questions pour William
 
 Ouverture « centrée sur chaque côté » d'une grande salle : lue par segment de case de salle (voir plus haut). Bot et
-trésor à clé : l'`explorateur` n'ouvre pas les portes à clé (T14). Aucune salle secrète n'apparaît sur la minicarte de la
+trésor à clé : l'`explorateur` les ouvre depuis M3-T14 (§79). Aucune salle secrète n'apparaît sur la minicarte de la
 fiche T16 tant que le mur est fermé : T16 reprendra le dessin.
 
 ### Atteignabilité
@@ -5671,8 +5673,8 @@ salle `coffre_a`/`coffre_b`, carte `salles_coffres.ldtk`, étage `coffres_epuisa
 
 ### Bot
 
-Le bot `explorateur` ne vise plus un présentoir à `cost` (son `price` vaut 0 : il l'aurait cru gratuit) ; la décision du diable
-est T14. Il **ramasse** le butin du boss : les parties `grid_*` de l'`explorateur` en sont retardées (voir « Traces »).
+Le bot `explorateur` ne vise pas un présentoir à `cost` sans politique (son `price` vaut 0 : il l'aurait cru gratuit) ; la décision du
+diable est celle de M3-T14 (§79 : `DevilPolicy`, défaut `Never`). Il **ramasse** le butin du boss : les parties `grid_*` de l'`explorateur` en sont retardées (voir « Traces »).
 
 ### Attentes de scénario
 
@@ -5715,7 +5717,7 @@ consommable, douilles ; `assign_shelves` sur deux salles), `ui::hud` (prompt en 
 ### Atteignabilité
 
 Trésor, boss et secrète : toute partie ordinaire d'`isaac` (deux étages) ; diable : graines 8, 23 et 123 de `sous_sol_un`, ou
-toute partie par défaut dont un étage tire la salle (`devil_room_chance`) ; le bot qui achète au diable est T14 ; la boutique
+toute partie par défaut dont un étage tire la salle (`devil_room_chance`) ; le bot qui achète au diable : M3-T14 (§79, `bot_isaac_devil`) ; la boutique
 d'`isaac` (gabarit, type, pool `boutique`) est T11d.
 
 ## 74. Curses d'étage en jeu : tirage, modificateur, étage agrandi, HUD masqué (M3-T9, chantier F4)
@@ -5894,6 +5896,115 @@ basculer (les traces et le témoin le signalent) ; préférer un compte de coups
 **Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
 `champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
 un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.
+
+## 79. Bot `explorateur` v3 pour `isaac` : bombes, clés, achats, diable (M3-T14, chantier K2 v3)
+
+Complète §24 et §47 (`explorateur`, D65). Code : `crates/bots/src/explorer.rs` (réécrit : `ExplorerWorld::frame`,
+`GoalContext`, `ordered_goals`, `rock_goal`, `explore_step`, `flee_step`), `crates/bots/src/input.rs`, `game::replay`
+(`ExplorerPolicy`), `scenario::{runner, events}`, `alacod-sim`. **Le bot ne produit que des inputs** (`ReadInputs`, hors
+`GgrsSchedule`) : aucune simulation touchée, aucun type rollback nouveau. **Aucune trace existante ne bouge** (les 14
+scénarios à `explorateur` d'avant — `bot_explorer_*`, `grid_floor_seed_*`, `grid_post_boss`, `gungeon_*`,
+`isaac_floor_seed_1` — rejoués : traces identiques). Les décisions nouvelles sont **inertes sans leur objet** : aucun porteur
+de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `gungeon`, `throne`, `zombies` ou `testbed`
+(hors cartes d'essai).
+
+### Politique en données : `ExplorerPolicy`
+
+```ron
+// games/isaac/assets/bot.ron (lu par alacod-sim ; Scenario::explorer : Some((…)) pour un scénario)
+(
+    shopping: true,                                   // coffres et présentoirs (D62)
+    shop: HeartsThenCheapest(low_health: "0.5"),      // Nearest (défaut, ordre d'avant) | HeartsThenCheapest
+    shells: Some(400),                                // sous au sol à au plus 400 de coût de chemin (10 par case de 8 px)
+    devil: Never,                                     // Never | IfHealthAbove("4.0")
+    bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+)
+```
+
+`Default` = comportement d'avant M3-T14 (aucun achat, ordre du plus proche) : un jeu sans `bot.ron` ne change pas.
+`alacod-sim` : `--policy <fichier>` (sinon `bot.ron` du jeu), `--shopping`, `--devil never|above:<n>`,
+`--bombs <n>` (voir « Bombes d'essai »), `--pickup-progress` (soft-lock, ci-dessous). Le JSON rapporte `mechanics` (décomptes
+`mur_secret`, `porte_a_cle`, `bombe`, `coffre`, `achat`, `diable`, `objet`…) lus dans les moments clés.
+
+### Décisions
+
+- **Porte à clé** : une porte `InteractionType::KeyDoor` fermée (et pas déjà dans `DoorLocks`) est un but d'objet (approche du
+  collider à portée d'interaction − 8, Interaction tenue) quand le joueur a **au moins `n` clés**, `n` lu dans
+  `RoomKindTable::door_lock_at(kind, étage)` comme `key_door_system` (salles triées par position puis identifiant : la même
+  qui lit le prix). Sans la clé : pas un but (sinon `key_door_refused` en boucle).
+- **Mur secret** : la salle est « probable » quand son type porte `door_lock: Secret`, qu'elle n'est pas dans `DoorLocks` et
+  qu'elle touche **au moins `secret_min_neighbours` autres salles** par un bord commun (règle de la grille, §70). Le but est un
+  point à moins de `rayon − 8 − |décalage du collider|` du bord d'une de ses portes closes (l'explosion touche **strictement** à
+  moins du rayon, `world::rect_within_radius`). Le bot lit **le type de la salle dans le contenu** (la minicarte ne la montre pas
+  tant que le mur est fermé) : une inférence sans cette lecture (case vide voisine de deux salles) est une dette.
+- **Rocher** : seulement quand plus aucun but ordinaire n'est atteignable et qu'il en reste (salle à visiter, objet, portail). Un
+  second champ de navigation **sans les rochers** (`RockNavigation`) dit ce qu'une bombe ouvrirait ; le rocher visé est le
+  **premier du chemin** vers le but le moins cher de ce champ (cases du chemin à moins de 14 du bord de son collider, 16 × 16), la
+  zone de pose est à portée de bombe de son centre (`cells_in_radius` : centre à moins du rayon). Un but que le champ réel atteint
+  (détour) n'est jamais une raison de bombe.
+- **Pose et mèche** : le bot presse `Bomb` à l'arrivée (front montant : `BombCarrier::held` lu), puis **fuit** (`flee_step`, prioritaire
+  sur tout, combat compris) vers la case accessible la moins chère à plus de `rayon + 16 + 8` de **toutes** les bombes, sinon à
+  l'opposé de la bombe. Tir ami `Always` : sans la fuite la bombe lui retire 4 PV sur 6 (`bot_isaac_secret` : vie pleine à f100).
+  **Un seul poseur par mur** : un mur ou un rocher dont un joueur de **plus petit handle**, porteur de bombe et debout, est déjà à
+  portée de pose (+ 40) est le sien (`GoalContext::peers` : deux bots arrivés ensemble en posaient chacun une, `bot_isaac_two`).
+  Pas de nouveau but de bombe tant qu'une mèche brûle.
+- **Objets refusés** : un consommable que le jeu refuserait (`ItemDef::accepts` : stock au `max_stack`, cœur `refuse_when_full` à
+  pleine vie) n'est **pas un but** (`PickupRule`) : le bot attendrait sans fin sur le tas. Vaut pour les présentoirs (`shop_full`).
+- **Achats en douilles** (`shop: HeartsThenCheapest { low_health }`, par joueur : il n'achète que ce qu'il paie) : **un cœur d'abord**
+  quand sa vie est au plus `low_health × max` (et qu'elle n'est pas pleine), **sinon l'objet le moins cher**, puis le plus proche ;
+  un seul présentoir à la fois, les autres suivent. `Nearest` garde l'ordre d'avant (D62 : le plus riche des joueurs paie).
+- **Sous au sol** : `ShellPickup` à moins de `n` de coût de chemin (contact). Sans limite, un étage nettoyé envoyait le bot
+  ramasser des tas aux quatre coins (graines 79, 89, 96, 132 de la première campagne : 1 200 frames sans kill).
+- **Diable** (`Price::MaxHealth(perte)`) : `Never`, ou `IfHealthAbove(n)` : achète si l'âme couvre tout le prix, ou si la vie
+  courante dépasse **strictement** `n` et dépasse le reste à payer (le jeu refuse un paiement qui tuerait, §73). **Défaut : `Never`**
+  (Q14, à confirmer par William) : sur les 55 graines de la campagne qui ont une salle du diable, 55 victoires avec `Never`, 48
+  victoires et 7 morts avec `IfHealthAbove("4.0")` (les objets du diable sont encore des données d'attente : un cœur de moins ne se
+  rachète pas, T11d). Écart connu avec le jeu : `shop::max_health_after` refuse aussi un `Mul`/`Set` de `MaxHealth` qui annulerait la
+  stat ; le bot ne le modélise pas (aucun contenu `isaac` n'en a ; dette).
+
+### Bombes d'essai
+
+Le personnage d'`isaac` n'a **ni `bomb` ni bombe de départ** avant M3-T11d (décision de l'orchestrateur, §69 : le faire change
+toutes ses traces) : une partie ordinaire ne peut donc pas poser de bombe, même ramassée (`bomb_place_system` exige `BombCarrier`).
+Les campagnes jouent donc **deux** configurations : « livrée » (rien) et « essai » (`alacod-sim --bombs 1` : chaque bot reçoit
+`PlayerScript::bomb` = mèche 60, rayon 56, dégâts 4, tir ami `Always`, et une bombe dans `items`, comme un `BombCarrier` + `starting_consumables` le
+feraient) ; les bombes ramassées (récompense de salle, secrète) s'ajoutent à la seconde. Quand T11d donnera la bombe au personnage, le bot
+lit sa `BombDef` dans le `BombCarrier` (rayon, mèche) : rien à changer.
+
+### Soft-lock et diagnostic
+
+`alacod-sim --pickup-progress` (`StopEarly::pickups_are_progress`, **faux par défaut** : les autres campagnes gardent leur détecteur) : un
+changement d'inventaire, de solde ou de compteur de consommables d'un joueur est une **progression** du soft-lock `Floors`
+(`FloorsProgress::stock`, empreinte par joueur triée par handle). Sans lui, les détours légitimes d'un étage nettoyé (ramasser un objet
+loin, revenir au portail) dépassaient les 1 200 frames sans kill. Un vrai blocage (bot immobile, boucle sans ramassage) reste détecté ;
+une boucle qui ramasse et lâche sans fin finit au plafond (`plafond`, classé échec).
+`ALACOD_BOT_DEBUG=1` : l'`explorateur` écrit son pas d'exploration à chaque frame sur stderr (hors simulation).
+Moments clés ajoutés (`scenario::events`) : `door_lock` (« mur secret ouvert » / « porte à clé ouverte », lus dans `DoorLocks`),
+`bomb` (bombe posée), `shelf` (présentoir vendu, douilles ou diable) ; ni rollback ni trace.
+
+### Scénarios
+
+| Scénario | Prouve |
+|---|---|
+| `bot_isaac_floor` | partie ordinaire (graine 3, `sous_sol`, sans bombe, politique de `bot.ron`) jouée jusqu'à la victoire : trésor sans clé à l'étage 1, porte à clé et coffre à l'étage 2 |
+| `bot_isaac_secret` | graine 8 de `sous_sol_un`, une bombe : le bot pose (f19), fuit (vie pleine), le mur s'ouvre (f78), coffre secret ouvert |
+| `bot_isaac_key` | `sous_sol_cle` : le bot ouvre la porte à clé du trésor (f23), le coffre (f87) |
+| `bot_isaac_two` | deux bots, **une seule bombe** posée, le joueur 1 garde la sienne, le diable refusé par les deux |
+| `bot_isaac_devil` / `_devil_never` | présentoir à `MaxHealth("2")` posé au pied du joueur : `IfHealthAbove("4.0")` l'achète (f12, 6/6 → 4/4), `Never` non |
+| `bot_isaac_rock` / `_rock_sans_bombe` | carte `testbed/bot_rocks.ldtk` (`scripts/construire-cartes-t14.py`) : portail derrière deux rochers sans détour ; avec une bombe le bot les casse (f48 → f107) et passe (« niveau 1 », f184) ; sans bombe il reste devant |
+| `bot_isaac_shop` | trois présentoirs en douilles (un cœur à pleine vie, un trèfle proche, une bombe moins chère) : la bombe d'abord (f35), le trèfle (f88), le cœur refusé |
+| `bot_isaac_shop_blesse` | blessé (6 PV sur 8), le cœur à 9 douilles **d'abord** (f80), puis la bombe (f135) |
+
+Tests unitaires (`bots::explorer`) : zone et ordre des buts, cœur refusé à pleine vie / stock au plafond, porte à clé, achats, diable
+(`devil_accepts`), mur secret (stock, réserve, mèche en cours), premier rocher du chemin, but atteignable par détour, voisinage de
+salles (`share_an_edge`), fuite. `runner::floors_progress_tests` : un ramassage compte.
+
+### Campagnes et atteignabilité
+
+Chiffres, tueurs et graines : `docs/taches/rapports/m3-t14-bot-isaac.md` (scripts `campagne.sh`, `analyse.py`, `morts.py`,
+`diable.sh` à côté). Atteignabilité : toute partie ordinaire d'`isaac` rencontre la porte à clé (second étage), les coffres et les sous ;
+bombes sur le mur secret : toute graine avec `--bombs 1` (graine 8 de `sous_sol_un`, `bot_isaac_secret`) ; diable : graines 8, 9, 13, 15, 16, 23…
+(`mechanics.diable` avec `--devil above:4`).
 
 ## 82. Feedback v3 : larmes lisibles, familiers, champions, bombes et explosions (M3-T17, voie V4)
 

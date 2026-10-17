@@ -503,6 +503,11 @@ pub struct ExplorerPolicy {
     /// Bombes : mur secret, rochers.
     #[serde(default)]
     pub bombs: BombPolicy,
+    /// Anti-jitter : quand le bot veut avancer mais tourne sur place (six unités pendant trente frames : deux routes de
+    /// coût égal, l'input arrive avec son délai), il tient son prochain point de passage jusqu'à l'atteindre. Faux par
+    /// défaut : les autres jeux ne changent pas.
+    #[serde(default)]
+    pub anti_jitter: bool,
 }
 
 /// Ordre des achats en douilles de l'`explorateur`.

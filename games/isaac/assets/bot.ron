@@ -20,4 +20,7 @@
     // Bombes : mur de la salle secrète (voisine d'au moins deux salles, §70) et rocher qui coupe le chemin
     // d'un but ; `reserve` : bombes gardées en stock.
     bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+    // Tient son prochain point de passage quand il tourne sur place (deux routes de coût égal, input retardé : graine 19
+    // sans bombe, 600 frames à osciller dans un couloir).
+    anti_jitter: true,
 )

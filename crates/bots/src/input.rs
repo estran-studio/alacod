@@ -119,6 +119,7 @@ impl Plugin for BotsPlugin {
         app.init_resource::<crate::explorer::ExplorerOptions>();
         app.init_resource::<crate::explorer::ExplorerVisits>();
         app.init_resource::<crate::explorer::RockNavigation>();
+        app.init_resource::<crate::explorer::ExplorerJitter>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
             |mut choices: ResMut<WeaponChoices>, mut moves: ResMut<EnemyMoves>| {
@@ -216,6 +217,7 @@ pub fn read_bot_inputs(
         mut enemy_moves,
         mut explorer,
         mut rock_nav,
+        mut jitter,
     ): (
         Query<
             (
@@ -243,6 +245,8 @@ pub fn read_bot_inputs(
         crate::explorer::ExplorerWorld,
         // M3-T14 : navigation sans les rochers (ce qu'une bombe ouvrirait)
         ResMut<crate::explorer::RockNavigation>,
+        // M3-T14 : anti-jitter (seconde mémoire de l'explorateur, hors rollback)
+        ResMut<crate::explorer::ExplorerJitter>,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -755,7 +759,7 @@ pub fn read_bot_inputs(
                             .0
                             .update_from(&free_rects, &body, points_for, position);
                     }
-                    let step = crate::explorer::explore_step(
+                    let mut step = crate::explorer::explore_step(
                         &mut nav.0,
                         with_rocks.then_some(&mut rock_nav.0),
                         frame_data,
@@ -763,7 +767,26 @@ pub fn read_bot_inputs(
                         position,
                         portal,
                         &surfaces,
+                        explorer_options
+                            .policy
+                            .anti_jitter
+                            .then(|| jitter.focus(player.handle))
+                            .flatten(),
                     );
+                    if explorer_options.policy.anti_jitter {
+                        match step.as_mut() {
+                            Some(step) => jitter.steady(
+                                player.handle,
+                                frame.frame,
+                                position,
+                                step,
+                                |from, to| nav.0.clear(from, to),
+                            ),
+                            None => {
+                                jitter.0.remove(&player.handle);
+                            }
+                        }
+                    }
                     if *BOT_DEBUG {
                         eprintln!(
                             "BOTDBG f={} handle={} pos=({},{}) step={:?} portal={:?} rooms={} items={} secret_doors={} bombs={}",

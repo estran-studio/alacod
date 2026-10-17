@@ -19,6 +19,11 @@
 //!   le JSON rapporte `floor`, le niveau atteint (pas d'arrêt anticipé par niveau : T1.14).
 //! - `--shopping` (D62) : les `explorateur` ouvrent les coffres et achètent les présentoirs qu'ils peuvent payer.
 //! - `--boss-direct` (M2-T16) : les `explorateur` vont droit au boss (`bots::explorer::ExplorerOptions`).
+//! - M3-T14 (`docs/conventions.md` §79) : `--policy <fichier.ron>` (politique de l'`explorateur`, sinon `bot.ron` des
+//!   assets du jeu, sinon `Default`), `--devil never|above:<n>` (décision du marché du diable), `--bombs <n>` (chaque bot
+//!   porte la bombe d'essai : mèche 60, rayon 56, dégâts 4, tir ami, `n` bombes de départ ; `isaac` n'en donne pas à son
+//!   personnage avant M3-T11d), `--pickup-progress` (un ramassage compte comme une progression du soft-lock). Le JSON
+//!   rapporte `mechanics` (décomptes de moments clés : `mur_secret`, `porte_a_cle`, `bombe`, `coffre`, `achat`, `diable`…).
 //! - M2-T16 : le JSON rapporte aussi `outcome` (classement de la graine : `victoire`, `objectif`,
 //!   `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage atteint : salles typées,
 //!   salles où un joueur est entré, salles nettoyées) ; un résumé par issue finit la sortie

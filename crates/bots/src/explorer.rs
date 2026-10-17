@@ -1027,11 +1027,124 @@ pub struct Step {
     pub direction: FixedVec2,
     pub interact: bool,
     pub bomb: bool,
+    /// Nature du but suivi (`room`, `boss`…, `door`, `shelf`, `devil`, `chest`, `item`, `shell`, `bomb`) : diagnostic
+    /// (`ALACOD_BOT_DEBUG`), jamais lue par une décision.
+    pub what: &'static str,
+    /// Identité du but suivi (objet : son `GgrsNetId`, salle ou mur : sa zone) : l'état anti-jitter ne s'accroche
+    /// qu'au même but.
+    pub target: u64,
+}
+
+/// Un point d'attache tenu sans quitter [`JITTER_RADIUS`] pendant [`JITTER_FRAMES`] frames en voulant se déplacer est
+/// un balancement : deux buts (ou deux routes) de coût presque égal dont l'ordre s'inverse à chaque pas, la commande
+/// arrivant avec le délai d'input (graine 19 d'`isaac` sans bombe : deux salles, 600 frames d'aller-retour). Le bot
+/// **s'attache** alors à son but du moment (il passe en premier tant qu'il est atteignable) et **tient** son prochain
+/// point de passage jusqu'à l'atteindre.
+pub const JITTER_RADIUS: Fixed = Fixed::from_bits(12 << 16);
+/// Frames sur place avant de s'attacher à un but.
+pub const JITTER_FRAMES: u32 = 40;
+/// Un point de passage est atteint à moins de cette distance.
+const WAYPOINT_REACHED: Fixed = Fixed::from_bits(3 << 16);
+
+/// État anti-jitter d'un joueur.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Jitter {
+    anchor: FixedVec2,
+    since: u32,
+    /// But auquel le bot s'est attaché (`Step::target`).
+    focus: Option<u64>,
+    hold: Option<(u64, FixedVec2)>,
+}
+
+/// Anti-jitter des `explorateur` (`ExplorerPolicy::anti_jitter`) : **seconde mémoire du bot** après [`ExplorerVisits`],
+/// hors simulation et hors rollback pour la même raison (elle ne sert qu'à produire des inputs que GGRS enregistre).
+#[derive(Resource, Debug, Clone, Default, PartialEq)]
+pub struct ExplorerJitter(pub BTreeMap<usize, Jitter>);
+
+impl ExplorerJitter {
+    /// But auquel le joueur `handle` s'est attaché (`explore_step` le passe en premier).
+    pub fn focus(&self, handle: usize) -> Option<u64> {
+        self.0.get(&handle).and_then(|state| state.focus)
+    }
+
+    /// Corrige `step` (le pas vers un but, direction non nulle) si le joueur `handle` balance sur place ; `clear` :
+    /// le segment `de → vers` est libre pour son corps.
+    pub fn steady(
+        &mut self,
+        handle: usize,
+        frame: u32,
+        position: FixedVec2,
+        step: &mut Step,
+        clear: impl Fn(FixedVec2, FixedVec2) -> bool,
+    ) {
+        if step.direction == FixedVec2::ZERO {
+            self.0.remove(&handle);
+            return;
+        }
+        let fresh = Jitter {
+            anchor: position,
+            since: frame,
+            focus: None,
+            hold: None,
+        };
+        let state = self.0.entry(handle).or_insert(fresh);
+        if position.distance(&state.anchor) > JITTER_RADIUS {
+            *state = fresh;
+        }
+        if let Some((target, waypoint)) = state.hold {
+            if target == step.target
+                && position.distance(&waypoint) > WAYPOINT_REACHED
+                && clear(position, waypoint)
+            {
+                step.direction = crate::input::dead_zone(waypoint - position);
+                return;
+            }
+            state.hold = None;
+        }
+        if frame.saturating_sub(state.since) >= JITTER_FRAMES {
+            state.focus = Some(step.target);
+            state.hold = Some((step.target, position + step.direction));
+        }
+    }
+}
+
+impl Target {
+    /// Identité du but (voir [`Step::target`]).
+    fn identity(&self) -> u64 {
+        let rect = |r: &Rect| {
+            let bits = |f: Fixed| u64::from(f.to_bits() as u32);
+            (bits(r.min.x) << 48) ^ (bits(r.min.y) << 32) ^ (bits(r.max.x) << 16) ^ bits(r.max.y)
+        };
+        match self {
+            Target::Room(zone) => rect(zone),
+            Target::Bomb { zone, .. } => rect(zone) ^ 1,
+            Target::Item(item) => (1 << 63) | item.net_id as u64,
+        }
+    }
+}
+
+impl Target {
+    /// Nature du but, pour le diagnostic.
+    fn describe(&self) -> &'static str {
+        match self {
+            Target::Room(_) => "room",
+            Target::Bomb { .. } => "bomb",
+            Target::Item(item) => match item.kind {
+                GoalKind::Door { .. } => "door",
+                GoalKind::Chest { .. } => "chest",
+                GoalKind::Shelf { .. } => "shelf",
+                GoalKind::Devil { .. } => "devil",
+                GoalKind::Plain if item.max_cost.is_some() => "shell",
+                GoalKind::Plain => "item",
+            },
+        }
+    }
 }
 
 /// Pas suivant vers le premier but d'exploration accessible (voir le module) et Interaction à
 /// tenir. La navigation doit avoir été mise à jour (`update_from`) pour cette frame. `free` : la
 /// navigation sans les rochers, mise à jour de même (`None` : pas de rochers à considérer).
+#[allow(clippy::too_many_arguments)]
 pub fn explore_step(
     nav: &mut BotNavigation,
     free: Option<&mut BotNavigation>,
@@ -1040,6 +1153,7 @@ pub fn explore_step(
     position: FixedVec2,
     portal: Option<FixedVec2>,
     surfaces: &[(usize, Rect, Fixed, bool)],
+    prefer: Option<u64>,
 ) -> Option<Step> {
     let goals: Vec<Target> = {
         let field = nav.costs_from(position)?;
@@ -1054,51 +1168,73 @@ pub fn explore_step(
                 }
             }
         }
+        // But d'attache de l'anti-jitter : en premier tant qu'il est un but atteignable.
+        if let Some(index) = prefer.and_then(|who| goals.iter().position(|g| g.identity() == who)) {
+            let goal = goals.remove(index);
+            goals.insert(0, goal);
+        }
         goals
     };
-    goals.into_iter().find_map(|target| match target {
-        Target::Item(item) if item.surface => {
-            let (_, rect, reach, _) = surfaces.iter().find(|(id, ..)| *id == item.net_id)?;
-            crate::input::surface_step_with(
-                nav,
-                position,
-                surfaces,
-                item.net_id,
-                *rect,
-                *reach,
-                true,
-            )
-            .map(|(direction, interact)| Step {
-                direction,
-                interact,
-                bomb: false,
-            })
-        }
-        Target::Item(item) => {
-            nav.approach(position, item.zone, ITEM_REACH)
-                .map(|(direction, _)| Step {
-                    direction: crate::input::dead_zone(direction),
-                    interact: false,
-                    bomb: false,
-                })
-        }
-        Target::Room(zone) => nav
-            .approach(position, zone, Fixed::ZERO)
-            .map(|(direction, _)| Step {
-                direction: crate::input::dead_zone(direction),
-                interact: false,
-                bomb: false,
-            }),
-        Target::Bomb { zone, reach } => {
-            nav.approach(position, zone, reach).map(|(direction, _)| {
-                let direction = crate::input::dead_zone(direction);
-                Step {
+    goals.into_iter().find_map(|target| {
+        let what = target.describe();
+        let who = target.identity();
+        let step = match target {
+            Target::Item(item) if item.surface => {
+                let (_, rect, reach, _) = surfaces.iter().find(|(id, ..)| *id == item.net_id)?;
+                crate::input::surface_step_with(
+                    nav,
+                    position,
+                    surfaces,
+                    item.net_id,
+                    *rect,
+                    *reach,
+                    true,
+                )
+                .map(|(direction, interact)| Step {
                     direction,
-                    interact: false,
-                    bomb: direction == FixedVec2::ZERO && !ctx.holder.bomb_held,
-                }
-            })
-        }
+                    interact,
+                    bomb: false,
+                    what,
+                    target: 0,
+                })
+            }
+            Target::Item(item) => {
+                nav.approach(position, item.zone, ITEM_REACH)
+                    .map(|(direction, _)| Step {
+                        direction: crate::input::dead_zone(direction),
+                        interact: false,
+                        bomb: false,
+                        what,
+                        target: 0,
+                    })
+            }
+            Target::Room(zone) => {
+                nav.approach(position, zone, Fixed::ZERO)
+                    .map(|(direction, _)| Step {
+                        direction: crate::input::dead_zone(direction),
+                        interact: false,
+                        bomb: false,
+                        what,
+                        target: 0,
+                    })
+            }
+            Target::Bomb { zone, reach } => {
+                nav.approach(position, zone, reach).map(|(direction, _)| {
+                    let direction = crate::input::dead_zone(direction);
+                    Step {
+                        direction,
+                        interact: false,
+                        bomb: direction == FixedVec2::ZERO && !ctx.holder.bomb_held,
+                        what,
+                        target: 0,
+                    }
+                })
+            }
+        };
+        step.map(|step| Step {
+            target: who,
+            ..step
+        })
     })
 }
 
