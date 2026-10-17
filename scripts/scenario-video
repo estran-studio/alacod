@@ -218,6 +218,8 @@ cmd_render() {
         legend_image "$player" "$(resolve_scenario "$name")" "$out/frames/$slug/legend.png"
         encode "$out/frames/$slug" "$out/$slug.mp4" "$name  $commit" "$out/frames/$slug/legend.png"
         cp "$out/frames/$slug/events.json" "$out/$slug.events.json" 2>/dev/null || true
+        # Secondes d'image de légende en tête (la page de revue décale frames et moments clés d'autant).
+        if [ -f "$out/frames/$slug/legend.png" ]; then echo "${LEGEND_SECONDS:-1.2}" >"$out/$slug.legend"; else rm -f "$out/$slug.legend"; fi
         rm -rf "$out/frames/$slug"
     done
     rmdir "$out/frames" 2>/dev/null || true

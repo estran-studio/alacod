@@ -5910,8 +5910,17 @@ nommées dans la légende. Les piques ne sont pas redessinés (surface à `hazar
   une entité de carte : le portail), portes (`DoorSprite`, état d'après `Collider` et `Interactable` :
   sans collider = ouverte, avec collider et interaction = à clé, collider seul = fermée par sa salle),
   `hide_replaced_map_tiles` (la tuile de l'entité LDtk d'origine devient transparente quand son entité
-  rollback porte l'image du monde). Projectiles : l'image porte sa couleur (plus de teinte de code), taille
-  `5 + 1,6·√dégât` bornée à 8..22 ; `style_tears` (M3-T17) s'applique ensuite.
+  rollback porte l'image du monde). Projectiles : une feuille déclarée `own_colors: true`
+  (`SpriteSheetConfig`, gungeon) porte sa couleur (pas de teinte d'équipe) et sa taille suit le dégât
+  (`5 + 1,6·√dégât`, bornée à 8..22) ; sans le champ (défaut), teinte d'équipe et halo agrandi comme avant
+  (testbed, isaac, throne, zombies inchangés) ; `style_tears` (M3-T17) s'applique ensuite. Une table ou un
+  baril (entités rollback sans `Transform`) pose son image sur l'entité LDtk d'origine (`MapHeld`) et la cache à sa destruction (`reap_held_sprites`) ; l'image d'une porte ouverte reste
+  `Visible` malgré le parent caché par `interaction::update_door_visuals`.
+- **Composants non rollback posés sur des entités rollback** : `AimPointer`, `PickupHalo`, `DoorSprite`,
+  `WorldSprite`, `MarkerTint` (joueurs) : tous hors checksum et hors snapshot, recréés pour une entité
+  ressuscitée ; les enfants (pointeur, halo) se cachent quand leur parent est désactivé.
+- Les couleurs de catégorie du halo et du pointeur sont en code (`legibility.rs`) : dette de données
+  (voie V6 : à déplacer dans `hud.ron`).
 
 ### Preuves et vidéos
 
@@ -5919,7 +5928,8 @@ nommées dans la légende. Les piques ne sont pas redessinés (surface à `hazar
 `--legend` ouvre la légende sans étiquettes. `scripts/scenario-video` rend, pour chaque scénario dont le jeu
 déclare un widget `Legend`, l'**image de légende** (frame 40, par le moteur) et la place en tête de la
 vidéo pendant `LEGEND_SECONDS` (1,2 s) : `ffmpeg` sans `drawtext` suffit (concat, aucun texte incrusté par
-ffmpeg). Rapport : `docs/taches/rapports/m2-lisibilite-gungeon.md`.
+ffmpeg). La page de revue lit `<nom>.legend` (secondes de tête) et compte frames et moments clés depuis la fin
+de la légende. Seul `render` ajoute la légende (pas `views` ni `compare`). Rapport : `docs/taches/rapports/m2-lisibilite-gungeon.md`.
 
 ### Ajouter une classe
 

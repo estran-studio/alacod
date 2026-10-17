@@ -44,6 +44,7 @@ impl Plugin for WorldSpritePlugin {
                 attach_door_sprites,
                 sync_door_sprites.after(attach_door_sprites),
                 hide_replaced_map_tiles,
+                reap_held_sprites,
                 // M3-T17 : après `skin_bullets` (qui pose l'image et la taille de l'équipe).
                 style_tears.after(skin_bullets),
                 hide_despawned_world_sprites,
@@ -64,6 +65,11 @@ pub struct WorldSprite {
 /// de couleur de repli) est alors rendue transparente.
 #[derive(Component, Clone, Debug)]
 pub struct SpriteRequest(pub String);
+
+/// Sprite posé sur l'entité LDtk d'origine d'une entité rollback de carte (table, baril) : `owner` est
+/// l'entité rollback. Quand elle disparaît (destruction), l'image est cachée (`reap_held_sprites`).
+#[derive(Component)]
+pub struct MapHeld(pub Entity);
 
 /// Marque un projectile dont l'image est posée.
 #[derive(Component)]
@@ -249,6 +255,9 @@ fn attach_world_sprites(
             id: id.to_string(),
             child,
         });
+        if holder != entity {
+            commands.entity(child).insert(MapHeld(entity));
+        }
         if let (Some(_), Some(mut own)) = (request, own) {
             own.color.set_alpha(0.0);
         }
@@ -373,6 +382,23 @@ fn attach_door_sprites(
     }
 }
 
+/// Cache l'image d'une table ou d'un baril dont l'entité rollback a disparu (explosion, table brisée :
+/// `despawn_rollback` la désactive, l'entité LDtk qui porte l'image survit) ; la montre si un rollback la
+/// ressuscite.
+fn reap_held_sprites(
+    owners: Query<(), With<WorldSprite>>,
+    mut held: Query<(&MapHeld, &mut Visibility)>,
+) {
+    for (held, mut visibility) in &mut held {
+        let wanted = if owners.contains(held.0) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        visibility.set_if_neq(wanted);
+    }
+}
+
 /// L'image du monde remplace la tuile de la carte : la tuile de l'entité LDtk d'origine (porte, table,
 /// baril) devient transparente dès que son entité rollback porte son propre sprite.
 fn hide_replaced_map_tiles(
@@ -393,7 +419,7 @@ fn hide_replaced_map_tiles(
 fn sync_door_sprites(
     table: SpriteTable,
     doors: Query<(&DoorSprite, Has<Collider>, Has<Interactable>)>,
-    mut sprites: Query<&mut Sprite>,
+    mut sprites: Query<(&mut Sprite, &mut Visibility)>,
 ) {
     for (door, closed, interactable) in &doors {
         let name = match (closed, interactable) {
@@ -404,12 +430,15 @@ fn sync_door_sprites(
         let Some(frame) = table.frame(door.id, name) else {
             continue;
         };
-        if let Ok(mut sprite) = sprites.get_mut(door.child) {
+        if let Ok((mut sprite, mut visibility)) = sprites.get_mut(door.child) {
             if let Some(atlas) = sprite.texture_atlas.as_mut() {
                 if atlas.index != frame {
                     atlas.index = frame;
                 }
             }
+            // `interaction::update_door_visuals` cache l'entité LDtk d'une porte ouverte : l'image
+            // « ouverte » doit rester visible malgré son parent caché.
+            visibility.set_if_neq(Visibility::Visible);
         }
     }
 }
@@ -420,8 +449,9 @@ pub(crate) fn bullet_display_size(damage: f32) -> f32 {
     (5.0 + 1.6 * damage.max(0.0).sqrt()).clamp(8.0, 22.0)
 }
 
-/// Remplace le carré de couleur d'un projectile par l'image de son équipe : orbe rouge pour un tir
-/// ennemi, losange bleu pour un tir allié (formes et couleurs distinctes, l'image porte sa couleur).
+/// Remplace le carré de couleur d'un projectile par l'image de son équipe. Feuille `own_colors: true`
+/// (gungeon : orbe rouge ennemi, losange bleu allié) : l'image porte sa couleur, taille = dégât ; sinon
+/// teinte d'équipe et halo agrandi, comme avant.
 fn skin_bullets(
     mut commands: Commands,
     table: SpriteTable,
@@ -442,10 +472,21 @@ fn skin_bullets(
             continue;
         };
         sprite.image = asset_server.load(&sheet.path);
-        sprite.color = Color::WHITE;
-        sprite.custom_size = Some(Vec2::splat(bullet_display_size(fixed_math::to_f32(
-            bullet.damage,
-        ))));
+        if sheet.own_colors {
+            sprite.color = Color::WHITE;
+            sprite.custom_size = Some(Vec2::splat(bullet_display_size(fixed_math::to_f32(
+                bullet.damage,
+            ))));
+        } else {
+            sprite.color = match bullet.source_team {
+                Team::Enemies => Color::srgb(1.0, 0.35, 0.3),
+                _ => Color::srgb(1.0, 0.9, 0.4),
+            };
+            if let Some(size) = sprite.custom_size {
+                // Le halo de l'image déborde du disque : on l'agrandit pour garder un cœur de la taille de la balle.
+                sprite.custom_size = Some(size * 2.0);
+            }
+        }
         commands.entity(entity).insert(BulletSkinned);
     }
 }

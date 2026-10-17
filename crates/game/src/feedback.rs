@@ -2102,7 +2102,9 @@ impl FeedbackSounds<'_> {
 
 /// `ALACOD_MUTE=1` coupe tous les sons de feedback (présentation seule).
 fn muted() -> bool {
-    std::env::var("ALACOD_MUTE").map(|v| v == "1").unwrap_or(false)
+    std::env::var("ALACOD_MUTE")
+        .map(|v| v == "1")
+        .unwrap_or(false)
 }
 
 /// `hit` : un coup porté par un joueur local à une autre entité, un son par frame simulée

@@ -669,12 +669,9 @@ def door_v(state):
     im = Img(16, 32)
     wood = rgb("#8a5a2b")
     if state == "open":
-        # Passage libre : deux montants et un linteau, le sol reste visible entre eux.
-        im.rect(2, 1, 5, 31, wood)
-        im.rect(11, 1, 14, 31, wood)
-        im.rect(2, 1, 14, 4, shade(wood, 1.3))
-        for y in range(8, 30, 6):
-            im.rect(7, y, 9, y + 2, rgb("#d9c7a3"))
+        # Passage libre : deux montants fins, le sol reste visible entre eux.
+        im.rect(2, 2, 4, 30, wood)
+        im.rect(12, 2, 14, 30, wood)
         return im.outline()
     im.rect(2, 1, 14, 31, wood)
     im.rect(5, 2, 6, 30, shade(wood, 0.6))
@@ -952,7 +949,7 @@ def build():
             "(\n"
             f'    path: "sprites/lisible/bullet_{who}.png",\n'
             "    tile_size: (32, 32),\n    columns: 1,\n    rows: 1,\n    animated: false,\n"
-            '    name: "body",\n    scale: 1.0,\n    anchor: Center,\n    offset_x: 0.0,\n    offset_y: 0.0,\n    offset_z: 0.0,\n)\n'
+            '    name: "body",\n    scale: 1.0,\n    anchor: Center,\n    offset_x: 0.0,\n    offset_y: 0.0,\n    offset_z: 0.0,\n    own_colors: true,\n)\n'
         ).encode()
     return files, atlases
 

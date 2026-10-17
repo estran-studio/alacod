@@ -34,7 +34,6 @@ use crate::ui::hud::{HudConfig, HudConfigHandle};
 use crate::world_sprites::{atlas_sprite, item_candidates, SpriteTable};
 use map::game::entity::map::character_spawn::CharacterSpawnComponent;
 use map::game::entity::map::door::DoorComponent;
-use map::game::entity::MapRollbackItem;
 
 /// Étiquettes au-dessus des entités (F6). Au démarrage : `ALACOD_LABELS=1`.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
@@ -62,6 +61,7 @@ impl Plugin for LegibilityPlugin {
                     toggle_overlays,
                     attach_aim_pointers,
                     aim_pointers_face_target.after(attach_aim_pointers),
+                    hide_orphan_pointers.after(aim_pointers_face_target),
                     attach_halos,
                     pulse_halos.after(attach_halos),
                     tint_players_by_handle,
@@ -181,6 +181,18 @@ fn aim_direction(
         return None;
     };
     (direction.length_squared() > 1e-4).then_some(direction)
+}
+
+/// Pointeur d'un ennemi mort ou désactivé (`RollbackDespawned`) : caché avec lui.
+fn hide_orphan_pointers(
+    enemies: Query<(), With<Enemy>>,
+    mut pivots: Query<(&ChildOf, &mut Visibility), With<AimPivot>>,
+) {
+    for (child_of, mut visibility) in &mut pivots {
+        if !enemies.contains(child_of.parent()) {
+            visibility.set_if_neq(Visibility::Hidden);
+        }
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -328,8 +340,11 @@ fn pulse_halos(
     mut halos: Query<(&Halo, &ChildOf, &mut Sprite, &mut Visibility)>,
 ) {
     for (halo, child_of, mut sprite, mut visibility) in &mut halos {
-        let (chest, shelf) = parents.get(child_of.parent()).unwrap_or((None, None));
-        let spent = chest.is_some_and(|c| c.opened) || shelf.is_some_and(|s| s.sold);
+        // Parent introuvable : porteur détruit ou désactivé (`RollbackDespawned`), le halo disparaît avec lui.
+        let parent = parents.get(child_of.parent());
+        let (chest, shelf) = parent.unwrap_or((None, None));
+        let spent =
+            parent.is_err() || chest.is_some_and(|c| c.opened) || shelf.is_some_and(|s| s.sold);
         let wanted = if spent {
             Visibility::Hidden
         } else {
@@ -460,11 +475,11 @@ struct LabelSources<'w, 's> {
         's,
         (
             Entity,
-            &'static GlobalTransform,
+            &'static FixedTransform3D,
             Has<Collider>,
             Has<Interactable>,
         ),
-        (With<DoorComponent>, With<MapRollbackItem>),
+        With<DoorComponent>,
     >,
 }
 
@@ -591,7 +606,7 @@ fn gather_labels(
             color: world_color,
         });
     }
-    for (target, global, closed, interactable) in &sources.doors {
+    for (target, t, closed, interactable) in &sources.doors {
         // Une porte ouverte est un passage : pas d'étiquette (il y en a des dizaines par étage).
         let (key, fallback) = match (closed, interactable) {
             (false, _) => continue,
@@ -600,7 +615,7 @@ fn gather_labels(
         };
         out.push(LabelWish {
             target,
-            position: global.translation().truncate() + Vec2::Y * 22.0,
+            position: at(t, 22.0),
             text: name_of(key, fallback),
             color: world_color,
         });
@@ -638,7 +653,11 @@ fn sync_labels(
         }
         return;
     }
-    let config = handle.get(&configs);
+    // Pas d'étiquette avant le chargement de `hud.ron` : la police (accents) et les noms en viennent.
+    let Some(config) = handle.get(&configs) else {
+        return;
+    };
+    let config = Some(config);
     if font.is_none() {
         *font = config
             .and_then(|c| c.font.as_ref())
