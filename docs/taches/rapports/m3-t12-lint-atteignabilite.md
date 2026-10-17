@@ -56,7 +56,7 @@ dans un dossier temporaire (une règle = une mutation = un avertissement attendu
 - **Boutique à `floor_tables`** : `table` n'est pas tiré (`RoomShopDef::table_for_floor`) ; **`salle`** n'est tiré en récompense que
   pour une séquence sans `loot` ou à pool d'étage sans `reward` (`room_reward_system`) : deux écarts à ma première version,
   trouvés par la relecture.
-- **`Price`** : aucune surface de contenu avant T8 ; `Price::problems` est testée en unitaire dans `items`. Rien à linter encore.
+- **`Price`** : la première lecture ne trouvait aucune surface de contenu ; T8 (mergée avant la livraison) l'a ajoutée (`shop.cost`) et lintée (`shop_cost_invalid`, `m3_t8_fixtures.rs`). T12 n'ajoute rien, mais lit `shop.cost` : un marché à `MaxHealth` n'est pas la boutique des règles déclarées.
 - **Nombre de tirages par partie** : un minimum prudent (salles exigées × étages ; trois pour le remplissage). `ExhaustPools`
   avertit seulement quand aucun pool à épuisement n'atteint deux tirages.
 - **`every_named_stat_has_a_reader`** : la liste est tenue à la main ; son `match` sans `_` fait échouer la compilation à l'ajout d'une
@@ -64,23 +64,25 @@ dans un dossier temporaire (une règle = une mutation = un avertissement attendu
 
 ## 3. Vérifié (résultats réels)
 
+Sur la fusion avec `main` `d1b1954a` (M3-T8, M3-T17), commit `e369d523` plus la correction de la relecture :
+
 | Commande | Résultat réel |
 |---|---|
-| `cargo test -p content --profile headless` | 108 + 11 (1 ignoré) + 2 + 163 + 6 + 5 + **37 (`m3_t12_fixtures`)** + 8 + 1, 0 échec (sur l'arbre final) |
-| `make lint` ×5 | **aucune erreur** sur `zombies`, `testbed`, `throne`, `gungeon`, `isaac` ; avertissements : 0, 106 (97 + 9), 0, 1, 20 |
-| `make test_crates` | **1 126 passés, 0 échec, 14 ignorés** (sur la fusion avec `main` b18458cf ; avant fusion : 1 111) |
-| `make test_scenarios_par SHARDS=3` (sans BLESS, hors créneau nightly, lancé à 06:27) | **519 scénarios, 3 tranches ok, 1 099 s**, `git status` propre (aucune trace ne bouge) |
+| `cargo test -p content --profile headless` | 108 + 11 (1 ignoré) + 2 + 163 + 6 + 5 + **40 (`m3_t12_fixtures`)** + les tests de T8 + 8 + 1, 0 échec |
+| `make lint` ×5 | **aucune erreur** sur `zombies`, `testbed`, `throne`, `gungeon`, `isaac` ; avertissements : 0, 107 (97 + 10), 0, 1, 18 |
+| `make test_crates` | **1 157 passés, 0 échec, 14 ignorés** |
+| `make test_scenarios_par SHARDS=3` (sans BLESS, hors créneau nightly) | **535 scénarios, 3 tranches ok, 1 147 s**, aucune trace réécrite |
 | `make check_sim_boundary` | OK : 11 crates, 5 en dette D69 |
 | `scripts/check-forbidden.sh`, `check-rollback-registration.sh` | OK (38 occurrences auditées) ; OK |
-| `make test_tools` | 19 tests, OK |
+| `make test_tools` | OK |
 | `cargo fmt --all -- --check` | rien à afficher |
-| `alacod lint --json games/isaac` | 20 avertissements `MechanicUnmet`, 0 erreur |
+| `alacod lint --json games/isaac` | 18 avertissements `MechanicUnmet`, 0 erreur |
 
-Suite sur la fusion avec `main` `b18458cf` : la dernière correction de code (`SecretRoom` sur les sources ordinaires, une ligne) est postérieure
-au `test_crates` complet ; elle a été rejouée par `cargo test -p content` et `make lint` ×5 (ci-dessus), pas par un second `test_crates`
-(`content::warnings`, donc `mechanics`, n'est appelé que par `alacod lint` et les tests de `content` : aucune autre crate ne l'appelle). Une première suite de scénarios lancée à
-06:02 est sortie verte (519 scénarios) mais elle avait un second processus concurrent dans le même `target` (échec de fusion des métriques, sans
-rapport avec une trace) : elle a été rejouée seule, résultat ci-dessus.
+Historique : une première série (fusion avec M3-T9, `b18458cf`) avait donné test_crates 1 126 et 519 scénarios verts ; `main` a avancé
+(T8, T17) avant la livraison, la série a été refaite sur la nouvelle fusion. Deux incidents d'environnement : (1) une suite de scénarios
+lancée en double à 06:02 (deux processus dans le même `target`) a échoué à la fusion des métriques, sans rapport avec une trace ;
+(2) le disque était plein (`/` à 100 %, `ld` : « Bus error ») : le `target` de b6 pesait 97 Go. Sans `cargo clean`, j'ai supprimé 41 anciens
+binaires de test en double (même nom, hash plus ancien, 43,5 Go) ; tout a été recompilé à la demande.
 
 ## 4. Avertissements d'atteignabilité par jeu
 
@@ -89,30 +91,32 @@ rapport avec une trace) : elle a été rejouée seule, résultat ci-dessus.
 | `zombies` | 0 | 0 | — |
 | `throne` | 0 | 0 | — |
 | `gungeon` | 0 | 1 | **réel** : `loot/boss.ron`, pool « boss » (11 objets) tiré par personne. Le commentaire du pool le dit : « prévu pour M2-T7, qui le branchera sur la mort du boss ; aucun système ne le tire encore ». Aucune tâche M3 ne le ferme : **dette M2** (le brancher sur le coffre de la salle `boss` ou le retirer) |
-| `testbed` | 97 | 106 | 9, tous voulus (bac à sable) : pools d'essai `commun`, `epuisable`, `etage2`, `pieces` non tirés par une partie ; familiers d'essai `compagnon`, `orbital`, `rempart` sans objet atteignable ; synergie `lame_braise` (objet `braise` sans source) ; mur secret sans bombe. Les 97 d'avant gagnent le suffixe « ; mécanique : … » |
-| `isaac` | 0 | 20 | voir ci-dessous |
+| `testbed` | 97 | 107 | 10, tous voulus (bac à sable) : pools d'essai `commun`, `epuisable_temoin`, `etage2`, `pieces` non tirés par une partie ; familiers d'essai `compagnon`, `orbital`, `rempart` sans objet atteignable ; synergie `lame_braise` (objet `braise` sans source) ; mur secret sans bombe. Les 97 d'avant gagnent le suffixe « ; mécanique : … » |
+| `isaac` | 0 | 18 | voir ci-dessous |
 
 `make lint` : **aucune erreur** sur les cinq jeux.
 
-### `isaac` : 20 avertissements, la tâche qui ferme chacun
+### `isaac` : 18 avertissements, la tâche qui ferme chacun
+
+La première mesure donnait 20 ; **T8** (mergée entre-temps) en a fermé deux : la salle du diable vide (`rooms/diable.ron` porte maintenant un
+marché à `cost: MaxHealth("2")`) et l'absence de pool à épuisement (`tresor`, `boss`, `diable`). Le pool `boss` de T8 est tiré par `boss_drop`
+de `rooms/boss.ron`.
 
 | # | Avertissement | Ferme |
 |---|---|---|
-| 1 | `rooms/diable.ron` : salle post-boss sans coffre ni boutique (marché du diable vide) | **T8** (pool du diable, présentoir payé en vie max) |
-| 2 | `rooms/secrete.ron` : mur secret sans bombe jouable (`bomb` : aucun personnage ; l'objet `bomb` est sourcé par `salle`) | **T11a** (le personnage `pleureur` reçoit `bomb` : « La pose exige un `BombCarrier` que le personnage n'a pas encore (M3-T11) », `objets/bomb.ron`) |
-| 3, 4 | larmes : aucun objet de larmes dans le pool trésor (`salle`), ni en boutique | **T11a** (objets de larmes) + **T11d** (pool du trésor) ; la boutique : **T8** + T11d |
-| 5, 6, 7 | effets : aucun objet à effets dans le pool trésor, boutique, boss | **T11b** (objets) + **T11d** (pools) ; boutique : T8 ; pool du boss : **T11c** + T8 (« pool par type de salle ») |
-| 8 | aucune synergie atteignable | **T11b** (transformations, si Q10) |
-| 9, 10 | familiers : 0 sur 2 dans le pool trésor, 0 en boutique | **T11b** (familiers) + T11d (pools), boutique : T8 |
-| 11 | aucun personnage jouable à `bomb` | **T11a** |
-| 12, 13 | aucun rocher, aucune pique dans un gabarit `combat` | **T11d** (gabarits avec rochers, rochers à butin, piques) |
-| 14 | salle secrète : aucune bombe atteignable | **T11a** (idem 2 et 11) |
-| 15 | aucune clé dans une boutique | **T8** + T11d |
-| 16 | aucune boutique exigée par la grammaire | **T11d** (`required: {"boutique": 1}`) + T8 |
-| 17 | aucun pool `exhaust` | **T8** (épuisement sur le pool du trésor) + T11d |
-| 18 | aucun ennemi à `variants` | **T11c** (champions) |
-| 19 | la séquence ordinaire n'a pas de `curses` | **T11d** (curses dans la séquence par défaut : « la séquence par défaut d'`isaac` les tirera à M3-T11d », §74) |
-| 20 | aucun accomplissement dont le déblocage entre dans un pool tiré | **T10** + T11d |
+| 1 | `rooms/secrete.ron` : mur secret sans bombe jouable (`bomb` : aucun personnage ; l'objet `bomb` est sourcé par `salle`) | **T11a** (le personnage `pleureur` reçoit `bomb` : « La pose exige un `BombCarrier` que le personnage n'a pas encore (M3-T11) », `objets/bomb.ron`) |
+| 2, 3 | larmes : aucun objet de larmes dans le pool trésor (`tresor`, 4 objets de stats), ni en boutique | **T11a** (objets de larmes) + **T11d** (pool du trésor) ; la boutique : **T11d** (gabarit et type, T8 ne pose pas de boutique `isaac`) |
+| 4, 5, 6 | effets : aucun objet à effets dans le pool trésor, boutique, boss (`boss` : 3 objets de stats) | **T11b** (objets) + **T11d** (pools) ; boutique : T11d ; pool du boss : **T11c** (boss) + T11b |
+| 7 | aucune synergie atteignable | **T11b** (transformations, si Q10) |
+| 8, 9 | familiers : 0 sur 2 dans le pool trésor, 0 en boutique | **T11b** (familiers) + T11d (pools, boutique) |
+| 10 | aucun personnage jouable à `bomb` | **T11a** |
+| 11, 12 | aucun rocher, aucune pique dans un gabarit `combat` | **T11d** (gabarits avec rochers, rochers à butin, piques) |
+| 13 | salle secrète : aucune bombe atteignable | **T11a** (idem 1 et 10) |
+| 14 | aucune clé dans une boutique | **T11d** (boutique) |
+| 15 | aucune boutique exigée par la grammaire | **T11d** (`required: {"boutique": 1}`) |
+| 16 | aucun ennemi à `variants` | **T11c** (champions) |
+| 17 | la séquence ordinaire n'a pas de `curses` | **T11d** (curses dans la séquence par défaut : « la séquence par défaut d'`isaac` les tirera à M3-T11d », §74) |
+| 18 | aucun accomplissement dont le déblocage entre dans un pool tiré | **T10** + T11d |
 
 Rejouer ce lint « après T11 » (une passe courte) : `alacod lint games/isaac` doit tomber à 0.
 
@@ -124,11 +128,13 @@ personnages `test_only`, `Scaled`/`Chance` non lus, familier `test_only`, butin 
 inexacts : tous corrigés (commit 6adfb003), avec un test chacun. Seconde passe : « RAS » sur les huit corrections, un point P3 relevé et
 corrigé (la règle déclarée `SecretRoom` lisait les sources globales : elle lit maintenant celles de la partie ordinaire) et une limite
 documentée au §77 (une entrée ajoutée par un déblocage compte comme source sans vérifier que le déblocage est accordé). Comptes du §77
-(isaac 20, testbed +9) rejoués après les corrections et la fusion de T9 : inchangés.
+(isaac 20, testbed +9) rejoués après les corrections et la fusion de T9 : inchangés. Après la fusion de T8 et T17 (§ 4) : isaac 18, testbed +10 ;
+le butin du boss (`boss_drop`) et le marché payé (`shop.cost`) de T8 sont entrés dans les sites de tirage et la règle `DevilMarket`
+(3 tests de plus) ; ces trois tests n'ont pas été relus par l'agent (fusion postérieure à ses deux passes).
 
 ## 6. Non fait / dette
 
-- Pas de lint de `Price` (pas de surface avant T8). Pas de lecture des scénarios (comme §53).
+- Pas de lecture des scénarios (comme §53). `Price` : voir § 2.
 - `lock_from_floor` contre la longueur d'une séquence n'est vérifié que pour les clés (`lint_key_sources`).
 - Dette M2 hors tâche : pool `boss` de `gungeon` jamais tiré (§4).
 - Les avertissements sont statiques : une salle posée par la grammaire n'est pas une salle *rencontrée* ; les campagnes (T14, T18) le prouvent.
