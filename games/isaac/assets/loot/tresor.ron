@@ -1,0 +1,27 @@
+// Pool de la salle de trésor de `isaac` (M3-T11a, docs/conventions.md §76.1) : les objets de larmes et de stats.
+// Pas de `Rarity(…)` : un tirage par rareté piocherait aussi les consommables (clé, bombe, cœur), qui ont la
+// rareté `Common`. Poids par rareté : commun 4, peu commun 2, rare 1. Ni `exclude_held` ni `exhaust` : deux
+// exemplaires d'un même objet sont possibles (l'empilement de T1 se joue en partie ordinaire).
+(
+    entries: [
+        (pick: Item("encre"), weight: 4),
+        (pick: Item("ressort"), weight: 4),
+        (pick: Item("longue_vue"), weight: 4),
+        (pick: Item("vent_arriere"), weight: 4),
+        (pick: Item("goutte"), weight: 2),
+        (pick: Item("bottines"), weight: 4),
+        (pick: Item("trefle_noir"), weight: 2),
+        (pick: Item("plomb_fondu"), weight: 1),
+        (pick: Item("oeil"), weight: 4),
+        (pick: Item("epine"), weight: 2),
+        (pick: Item("ricochet"), weight: 4),
+        (pick: Item("fantome"), weight: 1),
+        (pick: Item("eclat"), weight: 1),
+        (pick: Item("satellite"), weight: 1),
+        (pick: Item("venin"), weight: 2),
+        (pick: Item("braise"), weight: 2),
+        (pick: Item("givre"), weight: 2),
+        (pick: Item("epouvante"), weight: 2),
+        (pick: Item("glu"), weight: 4),
+    ],
+)

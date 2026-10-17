@@ -1,0 +1,13 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : une larme sur trois fait fuir sa cible (30 % de chance, statut `peur`).
+(
+    name: "Épouvante",
+    kind: Passive,
+    projectile: Some((on_hit: [Chance(base: "0.3", per_luck: "0.05", then: ApplyStatus(status: "peur", stacks: 1))])),
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_epouvante` et son témoin `tears_epouvante_sans_objet`, seuils mesurés : 300 frames : la cible posée a peur à f300 (chance 30 %, témoin : aucun statut).
+        tears: Some((weapon: Some("larmes"), frames: Some(300), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "peur", at_frame: 300)], control: [HasStatus(entity: Placed(0), status: "peur", present: false, at_frame: 300)])),
+    )),
+)
