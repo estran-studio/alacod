@@ -1,0 +1,12 @@
+// `isaac` (M3-T9, docs/conventions.md §74) : un étage `sous_sol` où **chaque** étage porte une curse (chance
+// 1) tirée dans les cinq de Q7 (`curses/`) : la graine de la partie choisit laquelle (scénarios
+// `curse_hides_minimap`, `curse_hides_health`, `curse_blind`, `curse_bigger_floor`). Séquence de test : la
+// séquence par défaut d'`isaac` n'a pas de curses avant M3-T11d.
+(
+    levels: ["floor:sous_sol"],
+    victory_at_end: true,
+    curses: Some((
+        chance: "1.0",
+        pool: ["darkness", "unknown", "blind", "labyrinth", "maze"],
+    )),
+)

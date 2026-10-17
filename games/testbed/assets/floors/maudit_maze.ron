@@ -1,0 +1,14 @@
+// M3-T9 (docs/conventions.md §74) : mêmes deux niveaux que `deux_niveaux`, une seule curse possible
+// (`maze` : -15 % de vitesse de déplacement, modificateur de source `curse:maze`) tirée avec une
+// chance sur deux à chaque étage. Scénario `curse_modifier` : l'étage 0 est maudit, l'étage 1 non (le
+// modificateur est retiré au passage du portail).
+(
+    levels: [
+        "testbed/floor_a.ldtk",
+        "testbed/floor_b.ldtk",
+    ],
+    curses: Some((
+        chance: "0.5",
+        pool: ["maze"],
+    )),
+)

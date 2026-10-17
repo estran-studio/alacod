@@ -4,7 +4,8 @@
 //!
 //! M2 : `item_pickup`, `blank`, `room`, `boss_phase`, `purchase` (monnaie, dont l'achat en
 //! boutique de raison `shop`), `chest` (coffre ouvert), `arena` (arène tenue), `portal`, `floor`,
-//! `unlock` (déblocages du profil lus par la partie) et `hub` (run entrée depuis le hub).
+//! `unlock` (déblocages du profil lus par la partie), `hub` (run entrée depuis le hub) et, M3-T9,
+//! `curse` (curse tirée à l'entrée d'un étage).
 //!
 //! Hors simulation : lit l'état après chaque update, ne modifie rien.
 
@@ -168,8 +169,33 @@ impl Plugin for GameEventsPlugin {
                     boss_events.after(detect_events),
                     chest_events.after(detect_events),
                     unlock_events.after(detect_events).after(hub_events),
+                    curse_events.after(detect_events),
                 ),
             );
+    }
+}
+
+/// Moment clé `curse` (M3-T9, `docs/conventions.md` §74) : la curse d'un étage tirée à son entrée
+/// (`run::RunCurses`). Un étage sans curse n'est pas un moment clé. Une relance (état remis à zéro)
+/// ou un rollback qui défait le tirage le fait oublier : il est annoncé de nouveau s'il est retiré.
+fn curse_events(
+    frame: Res<FrameCount>,
+    curses: Option<Res<run::RunCurses>>,
+    mut announced: Local<BTreeMap<u32, String>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(curses) = curses else {
+        return;
+    };
+    announced.retain(|floor, id| curses.floors.get(floor) == Some(id));
+    for (floor, id) in &curses.floors {
+        if announced.insert(*floor, id.clone()).as_ref() != Some(id) {
+            events.events.push(GameEvent {
+                frame: frame.frame,
+                kind: "curse",
+                label: format!("étage {} : curse « {id} »", floor + 1),
+            });
+        }
     }
 }
 

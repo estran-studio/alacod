@@ -8,11 +8,13 @@
 //! - [`draw_curse`] : tirage **pur** et indépendant du moment : un RNG local seedé par
 //!   [`curse_seed`] (`fnv1a("curse:<graine>:<étage>")`), aucun flux de `RngStreams`. Les deux
 //!   tirages (chance, choix) sont toujours consommés, comme `items::draw_loot`.
-//! - [`RunCurses`] : la curse de chaque étage déjà entré (ressource rollback **neutre** : vide
-//!   tant qu'aucune curse n'est tirée, donc aucune trace existante ne bouge).
+//! - [`RunCurses`] : la curse de chaque étage déjà entré et le dernier étage traité (ressource
+//!   rollback **neutre** : vide tant qu'aucune curse n'est tirée, donc aucune trace existante ne
+//!   bouge).
 //!
-//! Ce module ne contient que les contrats et les règles pures : le tirage à l'entrée d'un étage,
-//! l'application des effets (modificateurs de stat sur les joueurs, cartes, HUD) est M3-T9.
+//! Ce module ne contient que les contrats et les règles pures. Le tirage à l'entrée d'un étage et
+//! l'application des effets (modificateurs de stat sur les joueurs, grammaire, HUD) sont
+//! `game::curses` (M3-T9, `docs/conventions.md` §74).
 
 use std::collections::BTreeMap;
 
@@ -26,6 +28,12 @@ use sim_core::stats::StatId;
 /// Source des modificateurs posés par la curse `id` (`curse:<id>`, comme `item:<id>`).
 pub fn curse_source(id: &str) -> ModifierSource {
     ModifierSource::Named(format!("curse:{id}"))
+}
+
+/// Vrai pour une source de modificateur posée par une curse (`curse:<id>`) : ce que
+/// `game::curses` retire à la sortie de l'étage.
+pub fn is_curse_source(source: &ModifierSource) -> bool {
+    matches!(source, ModifierSource::Named(name) if name.starts_with("curse:"))
 }
 
 /// Ce qu'une curse fait pendant l'étage où elle est active. Les quatre premières variantes ne
@@ -71,6 +79,18 @@ impl CurseEffect {
     }
 }
 
+/// Multiplicateur de salles de l'étage porté par une liste d'effets : le produit de ses `FloorRooms`
+/// (`Fixed`, saturant), `None` sans aucun.
+pub fn floor_rooms_multiplier(effects: &[CurseEffect]) -> Option<Fixed> {
+    effects
+        .iter()
+        .filter_map(|effect| match effect {
+            CurseEffect::FloorRooms(mult) => Some(*mult),
+            _ => None,
+        })
+        .reduce(Fixed::saturating_mul)
+}
+
 /// Une curse, `curses/<id>.ron` (kind `Curse`, id = nom de fichier).
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -95,21 +115,42 @@ pub struct CurseConfig {
     pub pool: Vec<String>,
 }
 
-/// La curse de chaque étage déjà entré (index d'étage → id de curse). Ressource rollback
-/// **neutre** (`RunPlugin`) : vide, donc de hash `0`, tant qu'aucune curse n'a été tirée.
-/// Remise à zéro à chaque relance (`game::run_state`). Un étage sans entrée n'est pas maudit.
+/// La curse de chaque étage déjà entré (index d'étage → id de curse) et le dernier étage dont
+/// l'entrée a été traitée. Ressource rollback **neutre** (`RunPlugin`) : vide, donc de hash `0`,
+/// tant que le tirage de M3-T9 (`game::curses`) n'a rien écrit, ce que seule une séquence `Floors`
+/// à champ `curses` fait. Remise à zéro à chaque relance (`game::run_state`). Un étage sans entrée
+/// n'est pas maudit.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct RunCurses(pub BTreeMap<u32, String>);
+pub struct RunCurses {
+    /// Curse de chaque étage entré qui en porte une (un étage sans curse n'a pas d'entrée).
+    pub floors: BTreeMap<u32, String>,
+    /// Dernier étage dont le tirage a été fait (curse ou non), `None` avant le premier : sans cette
+    /// mémoire, « pas de curse » ne se distinguerait pas de « pas encore tiré ».
+    pub entered: Option<u32>,
+}
 
 impl RunCurses {
     /// La curse de l'étage `floor`, si elle a été tirée.
     pub fn get(&self, floor: u32) -> Option<&str> {
-        self.0.get(&floor).map(String::as_str)
+        self.floors.get(&floor).map(String::as_str)
     }
 
     /// Pose la curse de l'étage `floor` (écrase la précédente).
     pub fn set(&mut self, floor: u32, id: impl Into<String>) {
-        self.0.insert(floor, id.into());
+        self.floors.insert(floor, id.into());
+    }
+
+    /// Enregistre l'entrée dans l'étage `floor` avec le résultat de [`draw_curse`].
+    pub fn enter(&mut self, floor: u32, curse: Option<String>) {
+        match curse {
+            Some(id) => {
+                self.floors.insert(floor, id);
+            }
+            None => {
+                self.floors.remove(&floor);
+            }
+        }
+        self.entered = Some(floor);
     }
 }
 
@@ -273,6 +314,37 @@ mod tests {
         curses.set(1, "darkness");
         assert_eq!(curses.get(1), Some("darkness"));
         assert_eq!(curses.get(0), None);
+    }
+
+    #[test]
+    fn entering_a_floor_remembers_it_even_without_a_curse() {
+        let mut curses = RunCurses::default();
+        assert_eq!(curses.entered, None);
+        curses.enter(0, None);
+        assert_eq!(curses.entered, Some(0));
+        assert_eq!(curses.get(0), None);
+        assert_ne!(curses, RunCurses::default(), "l'entrée sans curse se voit");
+        curses.enter(1, Some("darkness".into()));
+        assert_eq!((curses.entered, curses.get(1)), (Some(1), Some("darkness")));
+        // Une nouvelle entrée dans le même étage remplace la curse précédente.
+        curses.enter(1, None);
+        assert_eq!(curses.get(1), None);
+    }
+
+    #[test]
+    fn floor_rooms_multiplier_is_the_product_of_floor_rooms_effects() {
+        let two = CurseEffect::FloorRooms(Fixed::from_num(2));
+        let half = CurseEffect::FloorRooms(Fixed::from_num(0.5));
+        assert_eq!(floor_rooms_multiplier(&[CurseEffect::HideMinimap]), None);
+        assert_eq!(floor_rooms_multiplier(&[]), None);
+        assert_eq!(
+            floor_rooms_multiplier(&[CurseEffect::HideHealth, two.clone()]),
+            Some(Fixed::from_num(2))
+        );
+        assert_eq!(
+            floor_rooms_multiplier(&[two.clone(), half, two]),
+            Some(Fixed::from_num(2))
+        );
     }
 
     #[test]

@@ -393,8 +393,11 @@ crate `APP`), jamais dans un crate `SIM`.
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
     - M3-T0e curses et pools (§64) : `Curse(floor, id: Some("…") | None, at_frame)` (curse de l'étage,
       `run::RunCurses`), `PoolSeen(pool, item, seen, at_frame)` (objet sorti d'un pool à épuisement,
-      `items::PoolState`) ; rien ne remplit ces ressources avant M3-T8/T9, le témoin
-      `curse_pool_unset` n'attend que `None` / `seen: false`.
+      `items::PoolState`) ; rien ne remplit `PoolState` avant M3-T8.
+    - M3-T9 curses en jeu (§74) : `RoomCount(min, max: Some(n), at_frame)` (nombre de salles de la carte de
+      l'étage courant, `RoomBounds`) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
+      source masquée) et la source `curses` ; `Curse` lit maintenant les tirages réels de `game::curses` ;
+      moment clé `curse` (curse tirée à l'entrée d'un étage).
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
@@ -641,6 +644,9 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
   (« balles 120 »).
 - `statuses` (T1.18) : statuts posés, une ligne chacun (« brulure ×2 · 3 s »).
 - `floor` (T1.18) : « Étage 3 » (index + 1), en mode `Floors` seulement.
+- `curses` (M3-T9, §74) : id de la curse de l'étage courant (« darkness »), vide sans curse. Les curses
+  de présentation masquent des sources : `HideMinimap` vide `minimap`, `HideHealth` vide `health` (texte et
+  barre), `HideItemNames` remplace par « ??? » le nom des objets et armes du prompt (`prompt`, hors snapshot).
 
 #### Écrans : pause et inventaire (M2-T18, test comparatif)
 

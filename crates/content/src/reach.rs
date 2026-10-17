@@ -283,6 +283,18 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
             &powerup.actions,
         );
     }
+    // M3-T9 : le modificateur d'une curse doit viser une stat que la simulation lit.
+    for curse in registry.curses.values() {
+        for effect in &curse.def.effects {
+            if let run::CurseEffect::Modifier(stat, ..) = effect {
+                out.push((
+                    curse.file.display().to_string(),
+                    format!("curse « {} » : effects", curse.id),
+                    stat.clone(),
+                ));
+            }
+        }
+    }
     for c in registry.characters.values() {
         let file = c.file.display().to_string();
         for stat in c.stats.keys() {

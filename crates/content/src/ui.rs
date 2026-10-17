@@ -38,6 +38,7 @@ pub const HUD_SOURCES: &[&str] = &[
     "active_item",
     "active_charge",
     "minimap",
+    "curses",
 ];
 
 /// Ce que le lint lit de `ui/hud.ron` : la source de chaque widget.
