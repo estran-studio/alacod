@@ -5282,7 +5282,7 @@ floor)`. `rooms/tresor.ron` d'`isaac` : `door_lock: Some(Key(1)), lock_from_floo
 - `InteractionType::KeyDoor` (fin d'enum) : au premier tick, la porte d'une salle `Key(n)` de l'étage courant **et sa
   jumelle** (`DoorConfig::paired_door` renseigné : les ouvertures murées restent des portes de salle ordinaires)
   gardent leur collider et leur `Interactable` devient `KeyDoor` (même portée) : `handle_door_interaction` ne les voit
-  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé ».
+  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé (n) » / « Fermé — clé (0) » (§81).
 - `key_door_system` (`Interaction`, après tous les handlers qui écrivent `Inventory`) : une Interaction sur une porte
   `KeyDoor` consomme `n` clés **de l'interacteur** (Q4 : les clés sont par joueur), retire collider, couche et
   `Interactable` de toutes les portes scellées de la salle, inscrit la salle dans `DoorLocks`
@@ -6124,7 +6124,7 @@ Rien de spécifique à `isaac` dans le code : un jeu reprend ces sources en les 
 | Source | Rendu | Attente `HudText` |
 |---|---|---|
 | `hearts` | widget `Hearts(source)` : rangée de carrés (côté `size.1`), un par cœur, **rouges** (vides compris, jusqu'à la vie maximale) puis **d'âme**, rempli à moitié pour un demi-cœur, passe à la ligne à la largeur `size.0` ; texte `Text(source: "hearts")` : « 2,5 / 3 · âme 1 » | `isaac_hud_items` (f3 « 3 / 3 », f30 « 2,5 / 3 », f100 « 2,5 / 3 · âme 1 »), `isaac_reliquaire` (« 3 / 3 · âme 2 »), `curse_hides_health` (`empty: true`) |
-| `coins` | `Counter(source)` : carré `icons.coins` + nombre (sous du joueur, comme `shells`) | `isaac_hud_items` (« 12 ») |
+| `coins` | `Counter(source)` : carré `icons.coins` + nombre (sous du joueur) ; la rangée est masquée sans valeur (D22). Alias de `shells` (même valeur), gardé pour l'icône par source : dette, à fusionner si `shells` disparaît des HUD | `isaac_hud_items` (« 12 ») |
 | `keys`, `bombs` (existantes) | `Counter` : carré `icons.keys` / `icons.bombs` + nombre | `isaac_hud_items` (« 2 », « 3 ») |
 | `item_banner` | `Text` sur fond, centré en haut : nom de l'objet ramassé pendant 3 s | `isaac_hud_items` (vide f3, « Bottines légères » f30, vide f230), `isaac_reliquaire` (« Reliquaire » f20, « Pouls » f60), `isaac_banner_blind` (« ??? ») |
 | `active_item` (existante) | `Icons(source: "active_item")` : le carré de l'objet actif (couleur et lettre de `icons[<id>]`) | `isaac_hud_items` (« Calice d'âme ») |
@@ -6148,7 +6148,8 @@ augmente, ou un actif qui change, depuis l'`Update` précédent, annonce l'objet
 suivent la première observation d'un joueur (objets de départ, `PlayerScript::items`) ne sont pas annoncés ; un
 consommable (clé, bombe, cœur) n'est jamais annoncé. Le nom vient de `ItemTable`, remplacé par « ??? »
 (`HIDDEN_ITEM_NAME`) sous `CurseHides::item_names` ; la source est vide sinon. Limite : un rollback qui retire puis
-redonne l'objet le réannonce ; la mémoire (`ItemBannerState`) n'est pas rollbackée, comme `MinimapVisits` (D72).
+redonne l'objet le réannonce, et un objet annoncé qui n'est plus tenu (prédiction annulée) éteint le bandeau ; un
+joueur sans `Inventory` (créé au premier ramassage) est suivi avec un inventaire vide : son premier objet est annoncé ; la mémoire (`ItemBannerState`) n'est pas rollbackée, comme `MinimapVisits` (D72).
 
 **Prompts** (`ui::hud::Prompt`, hors snapshot : testés unitairement, pas par `HudText`) : dette de T9 (§74) — un objet
 au sol (`InteractionType::Item`, composant `items::ItemPickup`) n'avait aucun prompt, donc aucun nom à cacher ; il

@@ -719,6 +719,12 @@ impl ItemBannerState {
             let new_active = active
                 .as_ref()
                 .filter(|id| self.active.as_ref() != Some(*id));
+            // Objet annoncé qui n'est plus tenu (prédiction annulée par un rollback) : plus de bandeau.
+            if self.item.as_ref().is_some_and(|(id, _)| {
+                !inventory.passives.contains(id) && active.as_ref() != Some(id)
+            }) {
+                self.item = None;
+            }
             // Dernier ramassé : le dernier de l'ordre de ramassage dont le compte a augmenté.
             let new_passive = inventory.passives.iter().rev().find(|id| {
                 passives.get(*id).copied().unwrap_or(0)
@@ -745,11 +751,11 @@ pub(crate) fn track_item_banner(
     hud_player: HudPlayer,
     items: Query<&Inventory>,
 ) {
-    let observed = hud_player
-        .entity()
-        .and_then(|entity| items.get(entity).ok().map(|inventory| (entity, inventory)));
-    match observed {
-        Some((entity, inventory)) => banner.observe(entity, inventory, frame.frame),
+    // Sans `Inventory` (créé au premier ramassage), le joueur est suivi avec un inventaire vide :
+    // son premier objet est annoncé.
+    let empty = Inventory::default();
+    match hud_player.entity() {
+        Some(entity) => banner.observe(entity, items.get(entity).unwrap_or(&empty), frame.frame),
         None if *banner != ItemBannerState::default() => *banner = ItemBannerState::default(),
         None => {}
     }
@@ -1444,6 +1450,11 @@ mod tests {
         state.observe(player, &inventory, 30);
         assert_eq!(state.current(30), Some("calice"));
         assert_eq!(state.current(20 + ITEM_BANNER_FRAMES), None);
+        // Un objet annoncé puis perdu (rollback) éteint le bandeau.
+        let mut lost = inventory.clone();
+        lost.active = None;
+        state.observe(player, &lost, 50);
+        assert_eq!(state.current(50), None);
         // Un autre joueur affiché repart d'une base neuve.
         let other = Entity::from_raw_u32(2).unwrap();
         state.observe(other, &inventory, 40);

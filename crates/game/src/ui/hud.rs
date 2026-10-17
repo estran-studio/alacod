@@ -71,6 +71,13 @@ pub struct HudIconsWidget {
     pub font: Option<Handle<Font>>,
 }
 
+/// Rangée d'un compteur à icône : masquée tant que sa source n'a pas de valeur (D22, pas même
+/// l'icône).
+#[derive(Component)]
+struct HudCounterRow {
+    source: String,
+}
+
 /// Rangée de cœurs (source `hearts`) : `shown` garde les cœurs dessinés, les enfants ne sont
 /// reconstruits que s'ils changent.
 #[derive(Component)]
@@ -260,6 +267,7 @@ impl Plugin for HudPlugin {
                     update_hud_v1_values,
                     update_hud_map,
                     update_hud_hearts,
+                    update_hud_counters,
                     update_hud_legend,
                 )
                     .after(crate::ui::hud_model::HudModelSet)
@@ -534,39 +542,47 @@ fn spawn_hud_widgets(
                     node.flex_direction = FlexDirection::Row;
                     node.align_items = AlignItems::Center;
                     node.column_gap = Val::Px(6.0);
-                    parent.spawn(node).with_children(|row| {
-                        row.spawn((
-                            Node {
-                                width: Val::Px(size.1),
-                                height: Val::Px(size.1),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
+                    parent
+                        .spawn((
+                            node,
+                            Visibility::Hidden,
+                            HudCounterRow {
+                                source: source.clone(),
                             },
-                            BackgroundColor(icon_color),
-                            BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.8)),
                         ))
-                        .with_children(|icon| {
-                            icon.spawn((
-                                Text::new(label),
-                                hud_text_font(&font, size.1 * 0.6),
-                                TextColor(Color::WHITE),
+                        .with_children(|row| {
+                            row.spawn((
+                                Node {
+                                    width: Val::Px(size.1),
+                                    height: Val::Px(size.1),
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
+                                    border: UiRect::all(Val::Px(1.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(icon_color),
+                                BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.8)),
+                            ))
+                            .with_children(|icon| {
+                                icon.spawn((
+                                    Text::new(label),
+                                    hud_text_font(&font, size.1 * 0.6),
+                                    TextColor(Color::WHITE),
+                                ));
+                            });
+                            row.spawn((
+                                Text::new(""),
+                                hud_text_font(&font, font_size),
+                                TextColor(color),
+                                BackgroundColor(Color::NONE),
+                                HudTextWidget {
+                                    source: source.clone(),
+                                    prefix: String::new(),
+                                    background: None,
+                                    compact: false,
+                                },
                             ));
                         });
-                        row.spawn((
-                            Text::new(""),
-                            hud_text_font(&font, font_size),
-                            TextColor(color),
-                            BackgroundColor(Color::NONE),
-                            HudTextWidget {
-                                source: source.clone(),
-                                prefix: String::new(),
-                                background: None,
-                                compact: false,
-                            },
-                        ));
-                    });
                 }
                 HudWidgetKind::Map { source } => {
                     parent.spawn((
@@ -1134,6 +1150,26 @@ fn spawn_legend_row(
             TextColor(Color::WHITE),
         ));
     });
+}
+
+fn update_hud_counters(
+    snapshot: Res<HudSnapshot>,
+    mut rows: Query<(&HudCounterRow, &mut Visibility)>,
+) {
+    for (row, mut visibility) in &mut rows {
+        let shown = snapshot
+            .texts
+            .get(row.source.as_str())
+            .is_some_and(|text| !text.is_empty());
+        let next = if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != next {
+            *visibility = next;
+        }
+    }
 }
 
 /// Couleurs des cœurs : `icons.heart`, `icons.soul_heart`, `icons.heart_empty` du RON, sinon
