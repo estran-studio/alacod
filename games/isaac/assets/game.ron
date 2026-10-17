@@ -16,6 +16,8 @@
         // Consommables `key` et `blank`, soin `ration` (copie de `gungeon`).
         (path: "objets", kind: "Item"),
         (path: "loot", kind: "LootTable"),
+        // M3-T9 (§74) : les cinq curses de Q7 ; aucune séquence par défaut ne les tire avant M3-T11d.
+        (path: "curses", kind: "Curse"),
         // Types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
         (path: "economy/economy.ron", kind: "Economy"),

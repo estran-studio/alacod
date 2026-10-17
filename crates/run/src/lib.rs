@@ -20,7 +20,8 @@ pub mod run;
 pub use clock::{Clock, ClockFired, FloorEntered};
 pub use currency::{Currency, CurrencyEvent, RunPlugin};
 pub use curse::{
-    curse_seed, curse_source, draw_curse, CurseConfig, CurseDef, CurseEffect, RunCurses,
+    curse_seed, curse_source, draw_curse, floor_rooms_multiplier, CurseConfig, CurseDef,
+    CurseEffect, RunCurses,
 };
 pub use floors::FloorState;
 pub use modes::{RunContext, RunModeRules};

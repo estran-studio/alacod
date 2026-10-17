@@ -109,6 +109,35 @@ impl FloorGrammar {
 }
 
 impl FloorGrammar {
+    /// La grammaire dont le nombre de salles est multiplié par `mult` (curse `FloorRooms`, M3-T9,
+    /// `docs/conventions.md` §74) : les deux bornes de `rooms`, arrondies à l'entier le plus proche
+    /// (arithmétique `Fixed`, jamais de flottant : le résultat est celui de tous les clients).
+    /// Le résultat reste **satisfiable** : au moins le départ, le boss et les salles requises (et
+    /// `min_boss_distance + 1`), au plus la capacité de la grille (`max.0 × max.1`) : une curse ne
+    /// peut pas rendre un étage impossible à planifier. `mult` = 1 rend la grammaire inchangée.
+    pub fn scaled_rooms(&self, mult: Fixed) -> FloorGrammar {
+        let scale = |n: usize| -> usize {
+            let scaled = Fixed::saturating_from_num(n).saturating_mul(mult);
+            // arrondi au plus proche (`+ 1/2` puis troncature), borné à zéro
+            let rounded = (i64::from(scaled.to_bits()) + (1 << 15)) >> 16;
+            rounded.max(0) as usize
+        };
+        let floor = (2 + self.others()).max(self.min_boss_distance + 1);
+        let mut low = scale(self.rooms.0).max(floor);
+        let mut high = scale(self.rooms.1).max(low);
+        if let FloorLayout::Grid { max, .. } = self.layout() {
+            let capacity = (max.0 as usize).saturating_mul(max.1 as usize);
+            high = high.min(capacity.max(floor));
+            low = low.min(high);
+        }
+        FloorGrammar {
+            rooms: (low, high),
+            ..self.clone()
+        }
+    }
+}
+
+impl FloorGrammar {
     /// Types de salle dont il faut au moins un gabarit : départ, boss, remplissage, requis et, en
     /// grille, la salle post-boss quand elle a une chance d'apparaître.
     pub fn kinds_needed(&self) -> Vec<&str> {
@@ -273,6 +302,35 @@ mod tests {
                 }),
             }),
         }
+    }
+
+    #[test]
+    fn scaled_rooms_multiplie_les_bornes_et_reste_satisfiable() {
+        let g = grid("secrete", Some(("diable", 0.33)));
+        let double = g.scaled_rooms(Fixed::from_num(2));
+        assert_eq!(double.rooms, (16, 24));
+        assert_eq!(double.problems(), Vec::<String>::new());
+        // le reste de la grammaire est intact
+        assert_eq!(
+            FloorGrammar {
+                rooms: g.rooms,
+                ..double.clone()
+            },
+            g
+        );
+        // ×1 : inchangée, au bit près
+        assert_eq!(g.scaled_rooms(Fixed::ONE), g);
+        // arrondi au plus proche : 8 × 1,5 = 12, 12 × 1,5 = 18, 8 × 1,06 = 8,48 → 8, 12 × 1,06 → 13
+        assert_eq!(g.scaled_rooms(Fixed::from_num(1.5)).rooms, (12, 18));
+        assert_eq!(g.scaled_rooms(Fixed::from_num(1.06)).rooms, (8, 13));
+        // une réduction ne descend pas sous le départ, le boss et les requises (4 ici) ni sous la
+        // distance minimale du boss (3 + 1)
+        let tiny = g.scaled_rooms(Fixed::from_num(0.1));
+        assert_eq!(tiny.rooms, (4, 4));
+        assert_eq!(tiny.problems(), Vec::<String>::new());
+        // un multiplicateur énorme est borné par la capacité de la grille (7 × 7)
+        let huge = g.scaled_rooms(Fixed::from_num(100));
+        assert_eq!(huge.rooms, (49, 49));
     }
 
     #[test]

@@ -1,0 +1,2 @@
+// M3-T0e (§64) : « Blind » : le nom des objets au sol n'est plus affiché (présentation seule).
+(weight: 2, effects: [HideItemNames])

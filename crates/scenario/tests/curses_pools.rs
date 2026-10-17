@@ -1,5 +1,5 @@
 //! M3-T0e (`docs/conventions.md` §64) : `RunCurses` et `PoolState` sont des ressources rollback
-//! neutres que rien ne remplit encore en jeu (M3-T8, T9). Ce test les remplit depuis un système
+//! neutres ; M3-T9 remplit `RunCurses` en jeu (§74), M3-T8 remplira `PoolState`. Ce test les remplit depuis un système
 //! de `GgrsSchedule` du test et prouve : (1) le synctest (sauvegarde puis restauration à chaque
 //! frame) ne trouve aucune divergence, donc elles sont bien dans les snapshots et le checksum ;
 //! (2) les attentes `Curse` et `PoolSeen` les lisent ; (3) une relance les remet à zéro.

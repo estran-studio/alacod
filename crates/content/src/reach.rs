@@ -351,7 +351,7 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
         );
     }
     // M3-T12 (§77) : actions d'entrée et de frise des phases de boss (un `Modifier` y est accepté par le
-    // lint) et modificateurs de curse : des usages de stat comme ceux d'un objet.
+    // lint) : des usages de stat comme ceux d'un objet.
     for c in registry.characters.values() {
         for (index, phase) in c.boss.iter().flat_map(|boss| &boss.phases).enumerate() {
             actions(
@@ -368,6 +368,7 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
             }
         }
     }
+    // M3-T9 : le modificateur d'une curse doit viser une stat que la simulation lit.
     for curse in registry.curses.values() {
         for effect in &curse.def.effects {
             if let run::CurseEffect::Modifier(stat, ..) = effect {

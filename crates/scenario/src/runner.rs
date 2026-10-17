@@ -2817,6 +2817,18 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M3-T9 : nombre de salles de la carte (curse `Labyrinth`).
+        Expectation::RoomCount { min, max, .. } => {
+            let count = world
+                .query::<&map::game::entity::map::room::RoomBounds>()
+                .iter(world)
+                .count() as u32;
+            if count >= *min && max.is_none_or(|max| count <= max) {
+                Ok(())
+            } else {
+                Err(format!("{count} salle(s) (attendu entre {min} et {max:?})"))
+            }
+        }
         // M3-T0c : porte verrouillée d'une salle typée (`world::DoorLocks`, `RoomKindDef::door_lock`).
         Expectation::DoorLocked {
             kind, nth, locked, ..
@@ -2989,12 +3001,22 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         }
         // T1.18 : texte d'une source du HUD (présentation, hors trace).
         Expectation::HudText {
-            source, contains, ..
+            source,
+            contains,
+            empty,
+            ..
         } => {
             let Some(snapshot) = world.get_resource::<game::ui::hud_model::HudSnapshot>() else {
                 return Err("pas de HudSnapshot".into());
             };
             let text = snapshot.texts.get(source).map_or("", String::as_str);
+            if *empty {
+                return if text.is_empty() {
+                    Ok(())
+                } else {
+                    Err(format!("HUD {source} = « {text} » (attendu vide)"))
+                };
+            }
             if text.contains(contains.as_str()) {
                 Ok(())
             } else {

@@ -30,6 +30,10 @@
         (kind: Icons(source: "passives"), anchor: TopLeft,
          offset: (16.0, 80.0), size: Some((240.0, 24.0)),
          color: None, font_size: None),
+        // M3-T9 (§74) : la curse de l'étage courant (vide sans curse).
+        (kind: Text(source: "curses", prefix: Some("Malédiction : ")), anchor: TopLeft,
+         offset: (16.0, 112.0), size: Some((260.0, 24.0)),
+         color: Some("#bb8fce"), font_size: Some(16.0)),
         (kind: Text(source: "health", prefix: None), anchor: BottomLeft,
          offset: (16.0, 34.0), size: Some((200.0, 20.0)),
          color: Some("#ffffff"), font_size: Some(14.0)),

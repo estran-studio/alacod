@@ -19,6 +19,7 @@ use combat::inventory::AmmoReserves;
 use combat::status::Statuses;
 use items::{Inventory, ItemKind, ItemTable};
 use run::floors::FloorState;
+use run::CurseDef;
 use sim_core::ammo::AmmoType;
 use utils::frame::FrameCount;
 use world::{RoomState, RoomStates};
@@ -27,6 +28,7 @@ use crate::camera::CameraFollowOverride;
 use crate::character::health::Health;
 use crate::character::player::{LocalPlayer, Player};
 use crate::core::SIM_FPS;
+use crate::curses::CurseHides;
 use crate::effects_runtime::Gauges;
 use crate::progression::{Level, ProgressionDef, ProgressionTable};
 use crate::weapons::{WeaponInventory, WeaponModesState, WeaponState};
@@ -50,6 +52,7 @@ pub const PLAYER_SOURCES: &[&str] = &[
     "active_item",
     "active_charge",
     "minimap",
+    "curses",
 ];
 
 /// Joueur dont le HUD affiche l'état (T2.12) : celui que la caméra suit de force
@@ -243,6 +246,11 @@ pub struct HudPlayerValues {
     pub passives: Vec<(String, String)>,
     pub active_item: Option<HudActiveItem>,
     pub minimap: Vec<HudMapRoom>,
+    /// M3-T9 : id de la curse de l'étage courant, `None` sans curse (source `curses`).
+    pub curse: Option<String>,
+    /// M3-T9 : ce que cette curse cache (déjà appliqué à `health` et `minimap` ; `item_names` est
+    /// lu par le prompt de `ui::hud`).
+    pub hides: CurseHides,
 }
 
 /// L'état du joueur affiché, déjà lu dans l'ECS.
@@ -265,6 +273,8 @@ pub struct HudPlayerInput<'a> {
     pub visits: Option<&'a BTreeSet<String>>,
     pub position: Option<FixedVec2>,
     pub frame: u32,
+    /// M3-T9 : curse de l'étage courant (id, définition), `None` sans curse.
+    pub curse: Option<(&'a str, &'a CurseDef)>,
 }
 
 /// Les valeurs du HUD (pure).
@@ -317,9 +327,16 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             .and_then(|table| table.0.get(id))
             .map_or_else(|| id.to_string(), |def| def.name.clone())
     };
+    // M3-T9 (§74) : ce que la curse de l'étage cache ; la valeur est alors absente (D22 : ni texte
+    // ni barre, pas même le préfixe), exactement comme pour un joueur sans valeur.
+    let hides = input
+        .curse
+        .map(|(_, def)| CurseHides::of(&def.effects))
+        .unwrap_or_default();
     HudPlayerValues {
         health: input
             .health
+            .filter(|_| !hides.health)
             .map(|(current, max)| (current.to_num::<i32>(), max.to_num::<i32>())),
         currency: input.currency,
         weapon: input.weapon.clone(),
@@ -364,6 +381,7 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
         minimap: input
             .room_geometry
             .zip(input.room_states)
+            .filter(|_| !hides.minimap)
             .map(|(geometry, states)| {
                 let none = BTreeSet::new();
                 minimap_rooms(
@@ -374,6 +392,8 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
                 )
             })
             .unwrap_or_default(),
+        curse: input.curse.map(|(id, _)| id.to_string()),
+        hides,
     }
 }
 
@@ -416,6 +436,7 @@ pub fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) 
                 .join("\n")
         }),
         "floor" => values.floor.map(|index| format!("Étage {}", index + 1)),
+        "curses" => values.curse.clone(),
         "blanks" => values.consumables.map(|counts| counts[0].to_string()),
         "keys" => values.consumables.map(|counts| counts[1].to_string()),
         // M3-T3 (§68) : compteur de bombes du joueur affiché (par joueur, comme les clés).
@@ -558,6 +579,8 @@ pub(crate) fn update_hud_snapshot(
     state: HudPlayerState,
     table: Option<Res<ProgressionTable>>,
     floor: Option<Res<FloorState>>,
+    curses: Option<Res<run::RunCurses>>,
+    curse_table: Option<Res<crate::curses::CurseTable>>,
 ) {
     let player = hud_player.entity();
     let weapon =
@@ -605,6 +628,13 @@ pub(crate) fn update_hud_snapshot(
             .and_then(|e| state.positions.get(e).ok())
             .map(|transform| FixedVec2::new(transform.translation.x, transform.translation.y)),
         frame: frame.frame,
+        // M3-T9 : la curse de l'étage courant, dérivée de l'état à chaque `Update`.
+        curse: curses
+            .as_deref()
+            .zip(curse_table.as_deref())
+            .and_then(|(curses, table)| {
+                crate::curses::current_curse(curses, table, floor.as_deref().map_or(0, |f| f.index))
+            }),
     };
     let values = hud_values(&input);
     let next = snapshot_of(frame.frame, values);

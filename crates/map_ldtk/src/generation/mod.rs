@@ -244,6 +244,112 @@ mod tests {
         generator
     }
 
+    /// M3-T9 (`docs/conventions.md` §74) : la curse `Labyrinth` double les bornes de la grammaire
+    /// (`FloorGrammar::scaled_rooms`) ; l'étage reste planifiable sur 2 × N graines, en grille (`isaac`,
+    /// `sous_sol` : 16 à 24 salles) comme en arbre (`gungeon`, `etage` : 20 à 28), avec un seul boss et
+    /// aucun chevauchement.
+    #[test]
+    fn la_curse_labyrinth_double_les_salles_sans_rendre_l_etage_impossible() {
+        use map::generation::config::MapGenerationMode;
+        let count: i32 = std::env::var("ALACOD_FLOOR_SEEDS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(200);
+        let derived = |s: i32| s.wrapping_add(0x3C6E_F372);
+        let double = bevy_fixed::fixed_math::Fixed::from_num(2);
+        let no_overlap = |label: &str, rooms: &[crate::generation::GeneratedRoom]| {
+            for (i, a) in rooms.iter().enumerate() {
+                for b in &rooms[i + 1..] {
+                    let (ax, ay, aw, ah) = a.world_rect();
+                    let (bx, by, bw, bh) = b.world_rect();
+                    assert!(
+                        ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay,
+                        "{label} : {} chevauche {}",
+                        a.template,
+                        b.template
+                    );
+                }
+            }
+        };
+
+        // grille
+        let data: LdtkJson = load_ldtk_json_file(get_crate_root_path!(
+            "../../games/isaac/assets/maps/salles.ldtk"
+        ))
+        .unwrap();
+        let grid = isaac_grammar("sous_sol").scaled_rooms(double);
+        assert_eq!(grid.rooms, (16, 24));
+        let mut sizes = std::collections::BTreeSet::new();
+        for seed in (1..=count).chain((1..=count).map(derived)) {
+            let generator = isaac_floor(&data, &grid, seed);
+            let rooms = &generator.generated_rooms;
+            let label = format!("grille ×2 graine {seed}");
+            assert!(
+                (16..=24).contains(&rooms.len()),
+                "{label} : {} salles",
+                rooms.len()
+            );
+            let named = |prefix: &str| {
+                rooms
+                    .iter()
+                    .filter(|r| r.template.starts_with(prefix))
+                    .count()
+            };
+            assert_eq!(
+                (named("Boss"), named("Tresor"), named("Secrete")),
+                (1, 1, 1),
+                "{label}"
+            );
+            no_overlap(&label, rooms);
+            sizes.insert(rooms.len());
+        }
+        assert!(sizes.len() >= 5, "tailles tirées : {sizes:?}");
+
+        // arbre
+        let path = get_crate_root_path!("../../games/gungeon/assets/maps/salles.ldtk");
+        let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
+        let ron_path = get_crate_root_path!("../../games/gungeon/assets/floor_grammars/etage.ron");
+        #[derive(serde::Deserialize)]
+        struct File {
+            grammar: world::FloorGrammar,
+        }
+        let tree = ron::from_str::<File>(&std::fs::read_to_string(ron_path).unwrap())
+            .unwrap()
+            .grammar
+            .scaled_rooms(double);
+        assert_eq!(tree.rooms, (20, 28));
+        for seed in (1..=count).chain((1..=count).map(derived)) {
+            let config = MapGenerationConfig {
+                seed,
+                max_width: 1000,
+                max_heigth: 1000,
+                mode: MapGenerationMode::Floor(tree.clone()),
+                ..Default::default()
+            };
+            let context = from_map(&data, config);
+            let mut generator = GeneratedMap::create(data.clone());
+            map_generation(context, &mut generator)
+                .unwrap_or_else(|_| panic!("arbre ×2 graine {seed} : génération échouée"));
+            generator.close_unused_openings();
+            let rooms = &generator.generated_rooms;
+            let label = format!("arbre ×2 graine {seed}");
+            assert!(
+                (20..=28).contains(&rooms.len()),
+                "{label} : {} salles",
+                rooms.len()
+            );
+            assert_eq!(
+                rooms
+                    .iter()
+                    .filter(|r| r.template.starts_with("Boss"))
+                    .count(),
+                1,
+                "{label}"
+            );
+            no_overlap(&label, rooms);
+        }
+    }
+
     /// M3-T5 (`docs/conventions.md` §70) : sur les neuf gabarits de `isaac` (`maps/salles.ldtk`,
     /// 1x1, 2x1, 1x2 et 2x2 cases de salle de 15 x 9 cases), 1 000 graines de chacune des deux
     /// grammaires en grille donnent un étage dans les bornes, avec un seul boss (1x1 ou 2x2), un

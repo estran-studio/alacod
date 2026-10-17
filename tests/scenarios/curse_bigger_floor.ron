@@ -1,0 +1,23 @@
+// M3-T9 (docs/conventions.md §74) : la curse « Labyrinth » double le nombre de salles. `isaac`, séquence
+// `sous_sol_maudit`, graine 2 : « labyrinth », lue **à la génération** de l'étage (toutes les cartes sont
+// assemblées au chargement ; le tirage ne dépend que de la graine et de l'étage). La grammaire de `sous_sol`
+// compte 8 à 12 salles (départ, boss, trésor, secrète comprises), l'étage maudit 16 à 24 : un étage ordinaire
+// (`curse_blind`) ne dépasse jamais 12. Le boss, le trésor et la secrète sont toujours là, une fois chacun.
+//
+// À regarder : l'étage est environ deux fois plus grand (minicarte en haut à droite).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    floors: Some("sous_sol_maudit"),
+    map_seed: 2,
+    frames: 60,
+    players: [(inputs: [])],
+    expect: [
+        Curse(floor: 0, id: Some("labyrinth"), at_frame: 30),
+        HudText(source: "curses", contains: "labyrinth", at_frame: 30),
+        RoomCount(min: 16, max: Some(24), at_frame: 30),
+        RoomLayout(kind: "boss", at_frame: 30),
+        RoomLayout(kind: "tresor", at_frame: 30),
+        RoomLayout(kind: "secrete", at_frame: 30),
+    ],
+)

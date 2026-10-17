@@ -200,7 +200,8 @@ pub enum Expectation {
     /// (T1.17 : "télégraphe", "hit stop", "secousse" dans le libellé), et pour M2 : "item_pickup",
     /// "blank", "room", "boss_phase", "purchase" (achat en boutique : raison `shop` dans le
     /// libellé), "chest" (coffre ouvert), "arena" (arène tenue), "unlock" (déblocages du profil
-    /// lus par la partie), "hub" (run entrée depuis le hub).
+    /// lus par la partie), "hub" (run entrée depuis le hub), "curse" (M3-T9 : curse tirée à l'entrée
+    /// d'un étage).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -511,10 +512,15 @@ pub enum Expectation {
     },
     /// Le texte de la source `source` du HUD (`game::ui::hud_model::HudSnapshot`, joueur
     /// affiché, sans préfixe) contient `contains` à la frame exacte `at_frame` (T1.18,
-    /// `docs/conventions.md` §32). Présentation : lu hors simulation, hors trace.
+    /// `docs/conventions.md` §32). `empty: true` (M3-T9, §74) exige au contraire que le texte soit
+    /// **vide** (source masquée : `contains` est alors ignoré), ce que `contains: ""` ne prouve
+    /// pas. Présentation : lu hors simulation, hors trace.
     HudText {
         source: String,
+        #[serde(default)]
         contains: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        empty: bool,
         at_frame: u32,
     },
     /// Le texte de la section `section` de l'écran `screen` (`pause` ou `inventory`,
@@ -578,6 +584,17 @@ pub enum Expectation {
         touches: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         apart: Vec<String>,
+        at_frame: u32,
+    },
+    /// M3-T9 (`docs/conventions.md` §74) : nombre de salles du monde (tous les `RoomBounds` présents,
+    /// grandes salles comptées une fois, salle secrète et post-boss comprises) entre `min` et `max`
+    /// inclus à la frame exacte `at_frame` ; prouve l'agrandissement de la curse `Labyrinth`. Ne
+    /// filtre pas par étage : à employer sur un étage unique (les mondes des étages se superposent).
+    RoomCount {
+        #[serde(default)]
+        min: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<u32>,
         at_frame: u32,
     },
     /// M3-T0c (`docs/conventions.md` §62) : la porte de la `nth` salle de type `kind` (même tri que
@@ -702,6 +719,7 @@ impl Expectation {
             | Self::RoomState { at_frame, .. }
             | Self::DoorLocked { at_frame, .. }
             | Self::RoomLayout { at_frame, .. }
+            | Self::RoomCount { at_frame, .. }
             | Self::ItemCount { at_frame, .. }
             | Self::ExtraHealth { at_frame, .. }
             | Self::Shelf { at_frame, .. }

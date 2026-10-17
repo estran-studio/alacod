@@ -78,9 +78,14 @@ capture() {
 # encode <dossier images> <sortie.mp4> <étiquette>
 encode() {
     local label="${3//:/\\:}"
+    # Un ffmpeg sans `drawtext` (Homebrew 9.x sans freetype) encode sans l'étiquette plutôt que d'échouer.
+    local vf="drawtext=fontfile=$FONT:fontsize=20:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=6:x=10:y=10:text='$label  frame %{eif\:n*$EVERY\:d}'"
+    if ! ffmpeg -hide_banner -filters 2>/dev/null | grep -q ' drawtext '; then
+        echo "avertissement : ffmpeg sans drawtext, vidéo sans étiquette" >&2
+        vf="null"
+    fi
     ffmpeg -hide_banner -loglevel error -y -framerate "$FPS" -pattern_type glob -i "$1/frame_*.png" \
-        -vf "drawtext=fontfile=$FONT:fontsize=20:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=6:x=10:y=10:text='$label  frame %{eif\:n*$EVERY\:d}'" \
-        -pix_fmt yuv420p "${ENCODER[@]}" "$2"
+        -vf "$vf" -pix_fmt yuv420p "${ENCODER[@]}" "$2"
 }
 
 # resolve_scenario <nom> : chemin du .ron d'un scénario (D60). Ordre : tests/scenarios/<nom>.ron,
