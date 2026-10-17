@@ -2907,6 +2907,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             handle,
             unlock,
             currency,
+            achievement,
+            lacks_unlocks,
+            lacks_achievements,
             ..
         } => {
             let id = meta::local_id(*handle);
@@ -2929,8 +2932,32 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     return Err(format!("profil « {id} » : {currency} = {actual} < {min}"));
                 }
             }
-            if unlock.is_none() && currency.is_none() {
-                return Err("ProfileHas sans unlock ni currency".into());
+            if let Some(achievement) = achievement {
+                if !profile.achievements.contains(achievement) {
+                    return Err(format!(
+                        "profil « {id} » sans accomplissement « {achievement} » ({:?})",
+                        profile.achievements
+                    ));
+                }
+            }
+            if let Some(extra) = lacks_unlocks.iter().find(|u| profile.has_unlock(u)) {
+                return Err(format!("profil « {id} » possède le déblocage « {extra} »"));
+            }
+            if let Some(extra) = lacks_achievements
+                .iter()
+                .find(|a| profile.achievements.contains(*a))
+            {
+                return Err(format!(
+                    "profil « {id} » possède l'accomplissement « {extra} »"
+                ));
+            }
+            if unlock.is_none()
+                && currency.is_none()
+                && achievement.is_none()
+                && lacks_unlocks.is_empty()
+                && lacks_achievements.is_empty()
+            {
+                return Err("ProfileHas sans condition".into());
             }
             Ok(())
         }

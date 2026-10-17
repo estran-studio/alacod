@@ -1,0 +1,6 @@
+// `isaac` (M3-T10, §75) : accordé par l'accomplissement `gardien_vaincu`, jamais acheté (pas de hub dans isaac).
+// `Item` : « Médaille du gardien » (pool `boss`) quitte tous les pools tant que ce déblocage manque du profil.
+(
+    name: "Médaille du gardien",
+    grants: [Item("medaille")],
+)

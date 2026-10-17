@@ -41,6 +41,7 @@ pub const HUD_SOURCES: &[&str] = &[
     "active_charge",
     "minimap",
     "curses",
+    "achievements",
     "legend",
     "hearts",
     "coins",

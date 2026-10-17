@@ -1,0 +1,5 @@
+// M3-T10 (§75) : accordé par `second_etage`. Le trophée de chasse entre dans le pool du second étage (poids 3).
+(
+    name: "Butin du second étage",
+    grants: [Loot(table: "coffre_etage2", pick: Item("trophee"), weight: 3)],
+)

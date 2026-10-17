@@ -1,0 +1,9 @@
+// `isaac` (M3-T10, docs/conventions.md §75) : passif du pool `boss`, **réservé** à l'accomplissement `gardien_vaincu`
+// (déblocage `medaille_libre`, `Item` : il quitte tous les pools tant que le profil ne l'a pas). Absent du pool de
+// base, donc aucun tirage existant ne change tant que le déblocage manque.
+(
+    name: "Médaille du gardien",
+    kind: Passive,
+    rarity: Uncommon,
+    modifiers: [(stat: Damage, op: Pct, value: "0.1")],
+)

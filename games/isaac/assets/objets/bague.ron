@@ -1,0 +1,7 @@
+// `isaac` (M3-T10, §75) : passif du pool `tresor`, réservé à l'accomplissement `second_etage` (déblocage `bague_libre`).
+(
+    name: "Bague des profondeurs",
+    kind: Passive,
+    rarity: Uncommon,
+    modifiers: [(stat: FireRate, op: Pct, value: "0.1")],
+)

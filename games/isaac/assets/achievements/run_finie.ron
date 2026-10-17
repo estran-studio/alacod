@@ -1,0 +1,6 @@
+// `isaac` (M3-T10, §75) : finir la run (victoire : le boss du dernier étage) ajoute « Couronne de fin » au pool du trésor.
+(
+    name: "Run finie",
+    when: [Victory],
+    unlocks: ["couronne_libre"],
+)

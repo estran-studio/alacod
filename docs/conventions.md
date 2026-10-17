@@ -695,10 +695,11 @@ traces. Détail et mesure : §20.
 
 ### Exclusions assumées du checksum
 
-Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
+Trois données sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
 
 - **`HitCount`** (`crates/game/src/character/health/mod.rs`, T2.9) : compteur de coups reçus, posé à la création uniquement si `CharacterConfig::counts_hits` (`crates/game/src/character/create.rs`, faux par défaut — aucun personnage zombie/joueur ne le pose ; seuls `target` (testbed) et `cible` (throne) le déclarent, `crates/scenario/src/generate.rs`). Enregistré via `rollback_and_trace_no_checksum::<HitCount>()` (`crates/game/src/character/mod.rs`) : rollback et trace, mais hors checksum. Il sert aux attentes `EntityHits` des scénarios (`crates/combat/src/weapons/expectations.rs`) ; aucune décision de jeu ne le lit.
 - **`EnemyAiConfig::stationary`** (`crates/game/src/character/enemy/ai/state.rs`, T2.9) : immobilité totale d'un ennemi de testbed (`dummy`/`target`/`ally`/`civilian`), exclue du `Hash` manuel du composant. Aucun contenu zombie ne la pose ; hacher un champ de plus déplacerait le checksum de toute entité `Enemy` sans aucun changement de gameplay (vérifié empiriquement à l'époque : sans l'impl manuel, `idle.ron` diverge dès f181).
+- **`RunHistory`** (`crates/game/src/profile.rs`, M3-T10, §75) : boss vaincus et objets tenus par joueur, lus **seulement** à `Ended` par `write_achievements_at_run_end` (`Update`). Enregistré via `rollback_and_trace_resource_no_checksum` : il suit les rollbacks mais n'entre pas dans le checksum. Dérivé d'états déjà sous checksum (`Health`/`Death` du boss, `Inventory`), jamais lu par `GgrsSchedule` ; l'inclure déplacerait les traces dès qu'un boss meurt.
 
 ## 11. Munitions et inventaire d'armes (T2.2, chantier B7)
 
@@ -5816,6 +5817,134 @@ flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `Run
 
 `isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tirera à M3-T11d (graine à
 nommer alors). Le testbed joue `maudit` et `maudit_maze` à deux étages.
+
+## 75. Accomplissements en jeu : faits de run, évaluation à `Ended`, profil v2 (M3-T10, chantier G1 v2)
+
+Code : `game::profile` (`RunHistory`, `record_held_items`, `write_achievements_at_run_end`, `grant_achievements`,
+`summary_is_final`, `AchievementsEarned`), `meta` (`Profile::achievements`, `Profile::grant_achievement`,
+`Achievements`, `PROFILE_VERSION` 2), `game::boss::boss_defeated_system`, HUD (`achievements`), écran de fin,
+contenu `isaac` et `gungeon`. Contrats : §64 (`AchievementDef`, `RunFacts`, `achieved`), §38 (profil), §51 (déblocages).
+
+### Faits de la run : `RunHistory`
+
+`BossDefeated` est un événement **transitoire** (§45) : il ne laisse aucun historique. `game::profile::RunHistory`
+`{ bosses_defeated, items_held }` en est un, écrit par la simulation :
+
+- **boss vaincus** : `boss_defeated_system` (`DeathManagement`) y inscrit le **nom du personnage** (le `String` de
+  `GgrsNetId`, celui de `characters/<id>.ron` : ce que `BossDefeated("gardien")` désigne). Aucun changement de l'événement.
+- **objets tenus** : `record_held_items` (`GgrsSchedule`, `FrameCounter`) recopie, à chaque frame de partie en cours,
+  l'union des passifs et de l'actif, **par joueur** (`held_by_player`, union à l'évaluation : `RunHistory::items_held()`), des joueurs qui ont un `Inventory` (comparée avant de cloner : aucun `String` copié tant
+  que l'ensemble ne change pas). Un joueur mort perd son inventaire : la **dernière valeur connue reste** (« tenu à la fin » =
+  tenu à la dernière frame où quelqu'un tenait quelque chose) ; rien n'est écrit une fois la run terminée (sauf la frame même de la fin : `run_counts_at`). Même garde pour les
+  boss, défaite posée à cette frame comprise : la simulation continue après `Ended`, un boss tué ensuite (poison, explosion) n'est pas un fait de la run.
+- **étages, temps, issue** : déjà dans `RunSummary` (`floor_reached`, `frames`, `outcome` : la défaite est une issue, il
+  n'y a pas de compteur de morts à ajouter).
+
+**Rollback sans checksum** (`RollbackTraceApp::rollback_and_trace_resource_no_checksum`, nouveau : `Clone + Debug`, la
+variante `Copy` existait). Choix entre « hors rollback » et « rollback neutre » de la fiche : l'historique est écrit **dans**
+`GgrsSchedule` ; hors rollback, une prédiction ratée (boss « mort » dans une frame resimulée autrement) resterait dans
+l'ensemble et accorderait à tort un accomplissement écrit sur disque. En rollback, le rollback le défait. Sans checksum :
+rien en simulation ne le lit, donc aucune trace ni aucun checksum ne bouge, quel que soit le contenu (une ressource neutre
+bougerait dès qu'un boss meurt). Contrepartie : un desync de cet historique ne serait pas détecté, ce qui est sans effet
+sur la simulation. Remise à zéro à la relance (`run_state::cleanup_rollback_world_system`).
+
+### Évaluation hors simulation
+
+`write_achievements_at_run_end` (`Update`, chaîné après l'écriture d'essence de §38 et après `apply_run_request_system`, jamais
+`GgrsSchedule`) : quand `Run` est `Ended` avec un `RunSummary`, **une fois par run** et une fois la fin **confirmée**
+(`summary_is_final` : `summary.frames <= ConfirmedFrameCount`, qui vaut -1 hors session ; un **abandon** est définitif tout de
+suite : décision locale, la session est détruite à la frame suivante), il construit `RunFacts { summary, bosses_defeated,
+items_held }` et, pour chaque joueur de la **session** (`bevy_ggrs::LocalPlayers` : tous en partie locale ou synctest, seulement
+les joueurs locaux en p2p, morts compris : un mort n'a plus d'entité), appelle `grant_achievements` :
+chaque accomplissement de la table `meta::Achievements` (chargée du registre avec les autres tables, hors rollback) dont
+`meta::achieved` est vrai et que le profil n'a pas encore obtenu ajoute son id à `Profile::achievements` et ses `unlocks` à
+`Profile::unlocks`, puis le profil est écrit (atomique, §38). Pourquoi attendre la confirmation : sur disque, un
+accomplissement ne se reprend pas, et une fin vue pendant une prédiction peut être défaite. Contrepartie : quitter l'écran de
+fin (Rejouer, Lobby) **avant** la confirmation (quelques frames en local, un aller-retour réseau en p2p) perd l'évaluation.
+**Abandon sans confirmation** : c'est une décision locale du joueur, la session est détruite à la frame suivante et la confirmation n'arriverait jamais ; les faits peuvent donc venir de frames encore prédites (surtout en p2p) et un accomplissement peut être accordé sur un boss « vaincu » par une prédiction ratée. Accepté : l'alternative (ne rien évaluer à l'abandon) perd des accomplissements réels, et le cas demande un abandon pile pendant une prédiction fausse.
+
+Même règle d'`ended_handles` pour l'essence (§38) : un joueur mort la reçoit désormais aussi. `AchievementsEarned`
+(`{handle → ids}`, présentation, vidé à la relance) garde les accomplissements **nouveaux** de cette fin.
+
+**Profil v2** : `PROFILE_VERSION` 2, champ `achievements: BTreeSet<String>` (`#[serde(default)]`). Un fichier v0 ou v1 se
+lit tel quel (champ absent : aucun accomplissement) et se réécrit en v2 ; un fichier plus récent que le jeu reste `TooNew`
+et n'est pas touché : `meta::save` **refuse** de remplacer un fichier existant illisible ou plus récent (`TooNew`), que `Profiles::load_dir`
+a écarté au lancement (la partie joue alors avec un profil vierge qui n'est pas écrit : sans cette garde, un build v1 relancé après un
+build v2 aurait détruit le profil v2 à la première fin de run). Un accomplissement déjà obtenu ne rajoute rien : un déblocage retiré à la main ne revient pas.
+
+**Entrée dans la run suivante** : par `RunUnlocks` (§51), **sans autre chemin**. La relance relit le profil
+(`jjrs::local`), filtré sur les `Unlock` du jeu : les ids d'accomplissements (`Profile::achievements`) n'y entrent jamais, seuls
+leurs déblocages. Le marchand du hub (§57) et `alacod-profile unlock` **ne vendent pas** un déblocage qu'un accomplissement
+accorde (`Registry::achievement_unlocks`) : on l'obtient en jouant.
+
+**En ligne : règle de l'hôte** (décision du 2026-10-15). Les faits sont ceux de la partie commune, identiques chez tous les pairs
+(l'historique suit les rollbacks, n'est plus écrit après `Ended`, et la fin est évaluée une fois confirmée) : chaque pair n'écrit que le profil de **ses** joueurs
+locaux (`LocalPlayers`). Ce qui entre dans la run suivante est inchangé : le profil de **l'hôte** (`ALACOD_RUN_UNLOCKS`, §51), jamais celui du pair
+local. L'accomplissement d'un invité est donc dans son fichier, et ne sert que quand c'est lui qui héberge. `ItemHeld` lit
+l'union des objets des joueurs de la run (contrat de §64), pas ceux d'un joueur.
+
+### Présentation
+
+Source HUD `achievements` (`content::ui::HUD_SOURCES`, source du joueur affiché) : une ligne par accomplissement **obtenu à
+cette fin de run** (`AchievementDef::name`, nouveau champ optionnel : l'id sinon) ; vide en cours de partie, donc rien (et vide aussi quand le joueur affiché est mort : le HUD ne montre plus rien de lui, l'écran de fin
+liste tout). L'écran
+de fin (`ui::game_over`) l'ajoute sous le résumé (« Accomplissements : * … »). Pas d'écran des accomplissements (hors périmètre) :
+le profil les garde (`Profile::achievements`).
+
+### Attentes de scénario
+
+`ProfileHas` gagne `achievement: Some("id")` (obtenu), `lacks_unlocks` et `lacks_achievements` (absents du profil) ;
+`HudText(source: "achievements", contains | empty)`. Un scénario n'écrit toujours rien sans `profile: true`.
+
+### Contenu
+
+`isaac` : quatre accomplissements. Les objets débloqués sont des **objets neufs**, ajoutés aux pools **et** cachés par un `Item`
+(§51) : un pool dont les candidats d'une entrée sont tous cachés ne compte pas cette entrée (`draw_exhausting`), donc, profil
+vide, le tirage est celui d'avant : **aucune trace d'`isaac` ne bouge**. Retirer un objet existant d'un pool décalerait les
+tirages de tous les scénarios.
+
+| Accomplissement | Condition | Déblocage | Ce qui entre |
+|---|---|---|---|
+| `gardien_vaincu` | `BossDefeated("gardien")` | `medaille_libre` | « Médaille du gardien » (`medaille`, +10 % dégâts) dans le pool `boss` |
+| `run_finie` | `Victory` | `couronne_libre` | « Couronne de fin » (`couronne`, +15 % portée) dans le pool `tresor` |
+| `second_etage` | `FloorAtLeast(1)` | `bague_libre` | « Bague des profondeurs » (`bague`, +10 % cadence) dans le pool `tresor` |
+| `semelles_aux_pieds` | `ItemHeld("semelles_lestees")` | `bombes_en_reserve` | la bombe (poids 3) dans le pool `salle` (`Loot` : rien n'est caché) |
+
+`gungeon` : quatre accomplissements dont les déblocages sont des entrées `Loot` (rien ne quitte un pool : aucune trace ne
+bouge) ; le marchand ne les propose pas.
+
+| Accomplissement | Condition | Déblocage | Ce qui entre |
+|---|---|---|---|
+| `gatling_vaincu` | `BossDefeated("gatling")` | `butin_gatling` | `parchemin` dans `coffre_etage1` et `coffre_etage2` |
+| `gungeon_termine` | `Victory` | `butin_victoire` | `sablier` dans `coffre_etage2` |
+| `second_etage` | `FloorAtLeast(1)` | `butin_second_etage` | `trophee` dans `coffre_etage2` |
+| `bottes_aux_pieds` | `ItemHeld("bottes")` | `butin_bottes` | `cartouchiere` dans `coffre_etage1` et `coffre_etage2` |
+
+Le lint d'`isaac` ne signale plus « aucun accomplissement dont le déblocage donne un objet ou une entrée à un pool tiré »
+(T12, §77). Le « Q10 » de la fiche (tenir une transformation) n'a pas de réponse : `semelles_aux_pieds` tient un objet.
+
+### Preuves
+
+Unitaires : `meta` (migration v1 → v2, déblocages accordés une fois), `game::profile` (accomplissements atteints seulement et
+une fois, fin confirmée, noms affichés, objets tenus et dernière valeur après la mort, rien après la fin), écran de fin.
+Scénarios `achievement_unlocks` (isaac, graine 8, `sous_sol_un` : boss vaincu + victoire accordent deux accomplissements, le
+troisième manque, `RunUnlocks` ne bouge pas pendant la run, HUD) et `achievement_not_met` (isaac, défaite à l'étage 0 : aucun
+accomplissement, essence créditée, HUD vide). Test `crates/scenario/tests/achievements.rs` : deux runs enchaînées, la relance
+voit les déblocages dans `RunUnlocks` et, **à graine égale** (400 graines), les objets entrent dans les pools `boss` et `tresor`,
+pas ceux dont l'accomplissement manque ; l'historique de la première run n'a pas survécu à la relance.
+
+### Déterminisme et traces
+
+Rien de non rollbacké n'est lu par la simulation. `RunHistory` est rollback sans checksum, `RunUnlocks` inchangée,
+`AchievementsEarned` et `Achievements` hors rollback (présentation et profil). Aucune trace existante n'a bougé (suite
+complète sans BLESS) ; seules les traces des deux scénarios nouveaux sont ajoutées.
+
+### Limites
+
+- Pas de hub dans `isaac` : un déblocage d'accomplissement n'y a d'autre chemin que le profil (voulu, fiche).
+- L'ensemble en ligne vient de la variable d'environnement de l'hôte (§51) : l'échange réseau des profils n'existe pas.
+- `ItemHeld` est l'union des joueurs, pas par joueur ; un accomplissement par joueur (« tenir X en coop ») viendrait avec un
+  `RunFacts` par joueur.
 
 ## 76. Contenu `isaac` (M3-T11, quatre parties)
 

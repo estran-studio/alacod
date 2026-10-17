@@ -96,6 +96,17 @@ pub fn unlock_table(registry: Option<&Registry>) -> items::UnlockTable {
     )
 }
 
+/// Accomplissements (M3-T10, §75) depuis le registre : `achievements/<id>.ron` → définition.
+pub fn achievement_table(registry: Option<&Registry>) -> meta::Achievements {
+    meta::Achievements(
+        registry
+            .iter()
+            .flat_map(|r| r.achievements.values())
+            .map(|achievement| (achievement.id.clone(), achievement.def.clone()))
+            .collect(),
+    )
+}
+
 /// Services du hub (M2-T13) depuis le registre : `hub/<id>.ron` → définition.
 pub fn hub_services(registry: Option<&Registry>) -> game::hub::HubServices {
     game::hub::HubServices(
@@ -366,6 +377,8 @@ pub fn setup_generated_map(
     // M2-T12 : déblocages et règles d'essence (kinds `Unlock`, `MetaEconomy`), hors rollback
     commands.insert_resource(unlock_table(registry.as_deref()));
     commands.insert_resource(meta_rules(registry.as_deref()));
+    // M3-T10 : accomplissements (kind `Achievement`), évalués hors simulation à la fin de la run
+    commands.insert_resource(achievement_table(registry.as_deref()));
     commands.insert_resource(hub_services(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {

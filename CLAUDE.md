@@ -245,6 +245,9 @@ pièges) s'applique à chaque système et fait foi pour l'enregistrement rollbac
 - [ ] Pas de `f32`/`f64` - uniquement `Fixed`/`FixedWide`
 - [ ] RNG via `RollbackRng` consommé dans ordre déterministe
 - [ ] Destruction d'une entité rollback via `despawn_rollback()` (jamais `despawn()`)
+- [ ] `rollback_and_trace_resource_no_checksum` (M3-T10, `RunHistory`) : **seulement** pour une donnée dérivée d'un état déjà sous
+      checksum et **jamais lue par `GgrsSchedule`** (lecteur hors simulation) ; sinon un desync passerait inaperçu. À lister
+      dans `docs/conventions.md` §10 « Exclusions assumées du checksum ».
 - [ ] Resource enregistrée avec l'extension `RollbackTraceApp` (`rollback_and_trace_resource`
       / `_debug_resource` / `_copy_resource`), jamais `rollback_resource_with_*` directement
       (un script CI le bloque, voir `scripts/check-rollback-registration.sh`)
@@ -404,6 +407,10 @@ crate `APP`), jamais dans un crate `SIM`.
       étages confondus : à employer sur un étage unique) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
       source masquée) et la source `curses` ; `Curse` lit maintenant les tirages réels de `game::curses` ;
       moment clé `curse` (curse tirée à l'entrée d'un étage).
+    - M3-T10 accomplissements (§75) : `ProfileHas` gagne `achievement: Some("id")` (accomplissement obtenu, `Profile::achievements`),
+      `lacks_unlocks` et `lacks_achievements` (absents du profil) ; `HudText(source: "achievements", contains | empty)` (liste des
+      accomplissements obtenus à la fin de la run) ; scénarios `achievement_unlocks` et `achievement_not_met` (`profile: true`) ;
+      deux runs enchaînées : test `crates/scenario/tests/achievements.rs`.
     - M3-T16 HUD `isaac` (§81) : aucune attente nouvelle ; `HudText` lit les sources `hearts` (« 2,5 / 3 · âme 1 »,
       cœurs en demi-PV), `coins`, `keys`, `bombs`, `item_banner` (nom de l'objet ramassé depuis moins de 3 s, « ??? » sous
       `HideItemNames`), `active_item`/`active_charge`, `minimap` et `curses` (scénarios `isaac_hud_items`,
@@ -669,6 +676,9 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
 - `curses` (M3-T9, §74) : id de la curse de l'étage courant (« darkness »), vide sans curse. Les curses
   de présentation masquent des sources : `HideMinimap` vide `minimap`, `HideHealth` vide `health` (texte et
   barre), `HideItemNames` remplace par « ??? » le nom des objets et armes du prompt (`prompt`, hors snapshot).
+- `achievements` (M3-T10, §75) : accomplissements obtenus **à cette fin de run** par le joueur affiché (nom du contenu, une ligne
+  chacun) ; vide en cours de partie. L'écran de fin les liste sous le résumé. Évalués hors simulation à `Ended`, une fois la fin
+  confirmée (`game::profile`), jamais dans `GgrsSchedule` ; la simulation n'écrit que `RunHistory` (rollback sans checksum).
 - `hearts` (M3-T16, §81) : `Health` + `ExtraHealth` en demi-cœurs (1 PV = ½ cœur, `items::HEART_POINTS`), texte
   « 2,5 / 3 · âme 1 » ; widget `Hearts(source)` (rangée de carrés, demi-cœur à moitié rempli, passe à la ligne,
   couleurs `icons.heart` / `soul_heart` / `heart_empty`) ; vide sous `HideHealth`.
