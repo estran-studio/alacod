@@ -1,0 +1,38 @@
+// M3-T14 (docs/conventions.md §79) : une partie ordinaire d'`isaac` (séquence par défaut `sous_sol`, deux étages en
+// grille, graine 3) jouée de bout en bout par le bot `explorateur` avec la politique de `games/isaac/assets/bot.ron`,
+// sans input scripté et **sans bombe** (le personnage d'`isaac` n'en porte pas avant M3-T11d : la salle secrète reste
+// close, voir `bot_isaac_secret`).
+//
+// À regarder : le trésor du premier étage s'ouvre sans clé (f541, coffre `trefle_chat`) ; le boss est vaincu (f1487), le
+// bot prend le portail (« niveau 1 », f1939) ; au second étage le trésor est fermé à clé : le bot va à la porte, une
+// Interaction consomme la clé remise à l'arrivée (f2178), il ouvre le coffre (f2319, `pile_rapide`) ; le second boss
+// meurt (f3565) et la partie est gagnée (f3566).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 3,
+    frames: 3700,
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        shells: true,
+        devil: IfHealthAbove("4.0"),
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+    )),
+    players: [(bot: explorateur)],
+    expect: [
+        DoorLocked(kind: "secrete", locked: true, at_frame: 5),
+        DoorLocked(kind: "tresor", locked: false, at_frame: 5),
+        Event(kind: "chest", by_frame: 600),
+        FloorIndex(index: 0, at_frame: 1900),
+        FloorIndex(index: 1, at_frame: 2000),
+        DoorLocked(kind: "tresor", nth: 1, locked: true, at_frame: 2100),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 2100),
+        DoorLocked(kind: "tresor", nth: 1, locked: false, at_frame: 2250),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 2250),
+        HasItem(handle: 0, id: "pile_rapide", at_frame: 2400),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 3600),
+        Event(kind: "victory", by_frame: 3600),
+        PlayerAlive(handle: 0, at_frame: 3699),
+    ],
+)

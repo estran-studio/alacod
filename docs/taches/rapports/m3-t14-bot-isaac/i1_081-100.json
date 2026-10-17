@@ -1,0 +1,1385 @@
+[
+  {
+    "seed": 81,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4346,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 9.790220042,
+    "desync": false,
+    "sim_fps": 454.19929574810646,
+    "floor_frames": [
+      2506
+    ],
+    "damage_taken": 2,
+    "run_end": [
+      "Victory",
+      4345
+    ],
+    "dodges": 91,
+    "doors_opened": 91,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 5,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2219,
+        "downed": false,
+        "x": -447.2058,
+        "y": -223.76625,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 7,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 82,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5545,
+    "deaths": 1,
+    "kills": 0,
+    "wall_seconds": 14.943275833,
+    "desync": false,
+    "sim_fps": 374.8772384791609,
+    "floor_frames": [
+      3207
+    ],
+    "damage_taken": 7,
+    "run_end": [
+      "Defeat",
+      5544
+    ],
+    "dodges": 58,
+    "doors_opened": 129,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "diable": 1,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 8,
+      "porte_a_cle": 1
+    },
+    "players_end": [],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 6,
+        "locking": 6
+      },
+      {
+        "floor": 1,
+        "total": 11,
+        "visited": 10,
+        "cleared": 6,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 83,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5397,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 13.836884209,
+    "desync": false,
+    "sim_fps": 394.3117588075266,
+    "floor_frames": [
+      2848
+    ],
+    "damage_taken": 1,
+    "run_end": [
+      "Victory",
+      5396
+    ],
+    "dodges": 31,
+    "doors_opened": 135,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 4,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2907,
+        "downed": false,
+        "x": 182.56757,
+        "y": 447.11145,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 11,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 84,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4756,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 12.43654,
+    "desync": false,
+    "sim_fps": 387.09309061826053,
+    "floor_frames": [
+      2645
+    ],
+    "damage_taken": 1,
+    "run_end": [
+      "Victory",
+      4755
+    ],
+    "dodges": 77,
+    "doors_opened": 129,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 5,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2735,
+        "downed": false,
+        "x": -447.23303,
+        "y": 72.38748,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 9,
+        "visited": 9,
+        "cleared": 6,
+        "locking": 6
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 85,
+    "wave": 0,
+    "floor": 1,
+    "frames": 7136,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 18.951717791,
+    "desync": false,
+    "sim_fps": 379.5584773470236,
+    "floor_frames": [
+      3886
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      7135
+    ],
+    "dodges": 65,
+    "doors_opened": 158,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 8,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3524,
+        "downed": false,
+        "x": 687.13885,
+        "y": -244.5866,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 11,
+        "visited": 11,
+        "cleared": 8,
+        "locking": 8
+      }
+    ]
+  },
+  {
+    "seed": 86,
+    "wave": 0,
+    "floor": 1,
+    "frames": 6211,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 17.12097375,
+    "desync": false,
+    "sim_fps": 365.7442256441069,
+    "floor_frames": [
+      3510
+    ],
+    "damage_taken": 5,
+    "run_end": [
+      "Victory",
+      6210
+    ],
+    "dodges": 82,
+    "doors_opened": 150,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 9,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3427,
+        "downed": false,
+        "x": -731.51434,
+        "y": 96.45122,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 12,
+        "visited": 11,
+        "cleared": 8,
+        "locking": 8
+      }
+    ]
+  },
+  {
+    "seed": 87,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4688,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 10.837431917,
+    "desync": false,
+    "sim_fps": 438.2970116844391,
+    "floor_frames": [
+      2514
+    ],
+    "damage_taken": 5,
+    "run_end": [
+      "Victory",
+      4687
+    ],
+    "dodges": 71,
+    "doors_opened": 121,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "diable": 1,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 8,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2671,
+        "downed": false,
+        "x": -22.69345,
+        "y": -388.445,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 11,
+        "visited": 11,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 9,
+        "visited": 8,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 88,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4667,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.05170125,
+    "desync": false,
+    "sim_fps": 427.7712087598213,
+    "floor_frames": [
+      2473
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      4666
+    ],
+    "dodges": 53,
+    "doors_opened": 115,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 9,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2732,
+        "downed": false,
+        "x": -627.49854,
+        "y": 187.27263,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 9,
+        "visited": 9,
+        "cleared": 6,
+        "locking": 6
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 89,
+    "wave": 0,
+    "floor": 0,
+    "frames": 3292,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 8.874921875,
+    "desync": false,
+    "sim_fps": 377.54756079990887,
+    "damage_taken": 4,
+    "dodges": 50,
+    "softlock": {
+      "observations": [
+        "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+        "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+        "aucun kill entre les frames 2692 et 3292"
+      ],
+      "previous": {
+        "frame": 2692,
+        "wave": {
+          "phase": "NotStarted",
+          "current_wave": 0,
+          "enemies_to_spawn": 0,
+          "enemies_spawned_this_wave": 0,
+          "wave_enemy_count": 0,
+          "total_enemies_killed": 0,
+          "wave_enemies_killed": 0,
+          "wave_start_frame": 0,
+          "last_spawn_frame": 0,
+          "last_enemy_killed_frame": 0,
+          "phase_start_frame": 0,
+          "current_health_multiplier": "1",
+          "current_damage_multiplier": "1",
+          "spawn_fallback": false
+        },
+        "run_step": "Playing { since_frame: 0 }",
+        "enemies": [],
+        "flow_field": "GroundBreaker",
+        "players": [
+          {
+            "net_id": 130,
+            "handle": 0,
+            "position": {
+              "x": "-458.55193",
+              "y": "69.92581",
+              "cell": [
+                -29,
+                4
+              ]
+            },
+            "health": "6",
+            "downed": null,
+            "currency": 1746,
+            "active_weapon": "larmes",
+            "mag_ammo": 9956,
+            "reserves": [
+              [
+                "Custom(\"larmes\")",
+                9999
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "closed_doors": [],
+        "windows": [],
+        "navigation": "légende : # mur (pathfinding + physique)  p mur physique seul  n mur pathfinding seul\nW fenêtre intacte  w fenêtre cassée  D porte fermée  d porte ouverte  S spawner  Z zombie  P joueur\n. atteignable par le flow field (ou direction 8/2/4/6/7/9/1/3)   (espace) libre mais NON atteignable\nx -38..38, y -15..31 (cellules de 16 px), cible GridPos { x: -29, y: 4 }, 1178 cellules atteignables\n                                                                             \n                #######d##############d#######                               \n                #3333332111111##3211111111111#                               \n                #3333332111111##2211111111111#                               \n                #3333332111111111111111111111#                               \n                d3333332111111dd4444444444444d                               \n                #6666332114444777777777777777#                               \n                #9999632147777##8877777777777#                               \n                #9999632147777##9877777777777#                               \n                ######3d1#############d#######                               \n                ######3d1######                                              \n                #3333332111111#                                              \n                #3333332111111#                                              \n                #3333332111111#                                              \n                d3333332111111d                                              \n                #6666332114444#                                              \n                #9999632147777#                                              \n                #9999632147777#                                              \n                ######3d1######                                              \n #######d#############3d1#############d##############d##############d####### \n #3333332111111##3211111111111##3211111111111##3211111111111111111111111111# \n #3333332111111##2211111111111##2211111111111##2211111111111111111111111111# \n #3333332111111111111111111111111111111111111111111111111111111111111111111# \n d3333332111111dd4444444444444dd4444444444444dd4444444444444444444444444444d \n #6666332114444777777777777777777777777777777777777777777777777777777777777# \n #9999632114777##8877777777777##8877777777777##8877777777777777777777777777# \n #9999933247777##9877777777777##9877777777777##9877777777777777777777777777# \n ######6dP############9d7############9d7#############d##############d####### \n ######9d8############3d1############3d1######                               \n #3333698741111##3211111111111##3211111111111#                               \n #3333698741111##2211111111111##2211111111111#                               \n #6666998774444111111111111111111111111111111#                               \n d9999998777777dd4444444444444dd4444444444444d                               \n #9999998777777777777777777777777777777777777#                               \n #9999998777777##8877777777777##8877777777777#                               \n #9999998777777##9877777777777##9877777777777#                               \n #######d#############9d7#############d#######                               \n                ######9d7######                                              \n                #3333698741111#                                              \n                #3333698741111#                                              \n                #6666998774444#                                              \n                d9999998777777d                                              \n                #9999998777777#                                              \n                #9999998777777#                                              \n                #9999998777777#                                              \n                #######d#######                                              \n                                                                             \n",
+        "floor": {
+          "index": 0,
+          "portal_open": true,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      },
+      "final_state": {
+        "frame": 3292,
+        "wave": {
+          "phase": "NotStarted",
+          "current_wave": 0,
+          "enemies_to_spawn": 0,
+          "enemies_spawned_this_wave": 0,
+          "wave_enemy_count": 0,
+          "total_enemies_killed": 0,
+          "wave_enemies_killed": 0,
+          "wave_start_frame": 0,
+          "last_spawn_frame": 0,
+          "last_enemy_killed_frame": 0,
+          "phase_start_frame": 0,
+          "current_health_multiplier": "1",
+          "current_damage_multiplier": "1",
+          "spawn_fallback": false
+        },
+        "run_step": "Playing { since_frame: 0 }",
+        "enemies": [],
+        "flow_field": "GroundBreaker",
+        "players": [
+          {
+            "net_id": 130,
+            "handle": 0,
+            "position": {
+              "x": "-227.49428",
+              "y": "264.46608",
+              "cell": [
+                -15,
+                16
+              ]
+            },
+            "health": "4",
+            "downed": null,
+            "currency": 1746,
+            "active_weapon": "larmes",
+            "mag_ammo": 9956,
+            "reserves": [
+              [
+                "Custom(\"larmes\")",
+                9999
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "closed_doors": [],
+        "windows": [],
+        "navigation": "légende : # mur (pathfinding + physique)  p mur physique seul  n mur pathfinding seul\nW fenêtre intacte  w fenêtre cassée  D porte fermée  d porte ouverte  S spawner  Z zombie  P joueur\n. atteignable par le flow field (ou direction 8/2/4/6/7/9/1/3)   (espace) libre mais NON atteignable\nx -38..38, y -15..31 (cellules de 16 px), cible GridPos { x: -15, y: 16 }, 1178 cellules atteignables\n                                                                             \n                #######d##############d#######                               \n                #3333332111111##3211111111111#                               \n                #3333332111111##2211111111111#                               \n                #3333332111111111111111111111#                               \n                d3333332111111dd4444444444444d                               \n                #6666332114444777777777777777#                               \n                #9999632147777##8877777777777#                               \n                #9999632147777##9877777777777#                               \n                ######3d1#############d#######                               \n                ######3d1######                                              \n                #3333332111111#                                              \n                #3333332111111#                                              \n                #3333332111111#                                              \n                d3333332111111d                                              \n                #666666P444444#                                              \n                #9999998777777#                                              \n                #9999998777777#                                              \n                ######9d7######                                              \n #######d#############9d7#############d##############d##############d####### \n #3333333333321##3333698741111##3211111111111##3211111111111111111111111111# \n #3333333333322##3333698741111##2211111111111##2211111111111111111111111111# \n #3333333333333336666998774444111111111111111111111111111111111111111111111# \n d6666666666666dd9999998777777dd4444444444444dd4444444444444444444444444444d \n #9999999999999999999998777777777777777777777777777777777777777777777777777# \n #9999999999988##9999998777777##8877777777777##8877777777777777777777777777# \n #9999999999987##9999998777777##9877777777777##9877777777777777777777777777# \n ######9d7############9d7############9d7#############d##############d####### \n ######9d7############9d7############9d7######                               \n #3333698743321##3333698741111##3211698741111#                               \n #3333698743322##3333698741111##2211698741111#                               \n #6666998773333336666998774444111111998774444#                               \n d9999998766666dd9999998777777dd4444498777777d                               \n #9999998999999999999998777777777777778777777#                               \n #9999998999988##9999998777777##8877778777777#                               \n #9999999999987##9999998777777##9877777777777#                               \n #######d#############9d7#############d#######                               \n                ######9d7######                                              \n                #3333698741111#                                              \n                #3333698741111#                                              \n                #6666998774444#                                              \n                d9999998777777d                                              \n                #9999998777777#                                              \n                #9999998777777#                                              \n                #9999998777777#                                              \n                #######d#######                                              \n                                                                             \n",
+        "floor": {
+          "index": 0,
+          "portal_open": true,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      }
+    },
+    "doors_opened": 88,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 1,
+      "coffre": 1,
+      "diable": 1,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 4
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1746,
+        "downed": false,
+        "x": -227.49428,
+        "y": 264.46606,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "soft-lock",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 11,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 90,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5417,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 14.459678959,
+    "desync": false,
+    "sim_fps": 378.6557942986824,
+    "floor_frames": [
+      3373
+    ],
+    "damage_taken": 2,
+    "run_end": [
+      "Victory",
+      5416
+    ],
+    "dodges": 14,
+    "doors_opened": 132,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 5,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2811,
+        "downed": false,
+        "x": -270.41492,
+        "y": -270.62814,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 9,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 91,
+    "wave": 0,
+    "floor": 1,
+    "frames": 6014,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 15.316370708000001,
+    "desync": false,
+    "sim_fps": 396.25025954713203,
+    "floor_frames": [
+      3386
+    ],
+    "damage_taken": 3,
+    "run_end": [
+      "Victory",
+      6013
+    ],
+    "dodges": 125,
+    "doors_opened": 144,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 8,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3076,
+        "downed": false,
+        "x": 706.2139,
+        "y": -47.19545,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 11,
+        "visited": 11,
+        "cleared": 8,
+        "locking": 8
+      }
+    ]
+  },
+  {
+    "seed": 92,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5858,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 15.14714325,
+    "desync": false,
+    "sim_fps": 390.1231383595052,
+    "floor_frames": [
+      3240
+    ],
+    "damage_taken": 3,
+    "run_end": [
+      "Victory",
+      5857
+    ],
+    "dodges": 69,
+    "doors_opened": 136,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 10,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2909,
+        "downed": false,
+        "x": 421.44623,
+        "y": -269.20132,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 93,
+    "wave": 0,
+    "floor": 1,
+    "frames": 3665,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.38726875,
+    "desync": false,
+    "sim_fps": 326.6551966324584,
+    "floor_frames": [
+      2049
+    ],
+    "damage_taken": 0,
+    "run_end": [
+      "Victory",
+      3664
+    ],
+    "dodges": 90,
+    "doors_opened": 98,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 5,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2458,
+        "downed": false,
+        "x": -618.57336,
+        "y": 173.59256,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 8,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 94,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5803,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 20.401965042,
+    "desync": false,
+    "sim_fps": 286.4872768816013,
+    "floor_frames": [
+      4076
+    ],
+    "damage_taken": 6,
+    "run_end": [
+      "Victory",
+      5802
+    ],
+    "dodges": 49,
+    "doors_opened": 138,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 6,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2939,
+        "downed": false,
+        "x": 510.12296,
+        "y": 122.614655,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 95,
+    "wave": 0,
+    "floor": 1,
+    "frames": 7485,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 25.919555083,
+    "desync": false,
+    "sim_fps": 290.64305975849925,
+    "floor_frames": [
+      4012
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      7484
+    ],
+    "dodges": 77,
+    "doors_opened": 141,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 7,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3520,
+        "downed": false,
+        "x": -618.7104,
+        "y": 161.68358,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 11,
+        "visited": 11,
+        "cleared": 8,
+        "locking": 8
+      },
+      {
+        "floor": 1,
+        "total": 12,
+        "visited": 11,
+        "cleared": 9,
+        "locking": 9
+      }
+    ]
+  },
+  {
+    "seed": 96,
+    "wave": 0,
+    "floor": 0,
+    "frames": 3679,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 13.019314917,
+    "desync": false,
+    "sim_fps": 286.22177282179564,
+    "damage_taken": 3,
+    "dodges": 23,
+    "softlock": {
+      "observations": [
+        "plafond atteint : phase NotStarted, 0 ennemis de vague présents, 0 encore à générer",
+        "0 ennemis dont le point visé par le flow field chevauche un mur physique avec leur collider",
+        "aucun kill entre les frames 3079 et 3679"
+      ],
+      "previous": {
+        "frame": 3079,
+        "wave": {
+          "phase": "NotStarted",
+          "current_wave": 0,
+          "enemies_to_spawn": 0,
+          "enemies_spawned_this_wave": 0,
+          "wave_enemy_count": 0,
+          "total_enemies_killed": 0,
+          "wave_enemies_killed": 0,
+          "wave_start_frame": 0,
+          "last_spawn_frame": 0,
+          "last_enemy_killed_frame": 0,
+          "phase_start_frame": 0,
+          "current_health_multiplier": "1",
+          "current_damage_multiplier": "1",
+          "spawn_fallback": false
+        },
+        "run_step": "Playing { since_frame: 0 }",
+        "enemies": [],
+        "flow_field": "GroundBreaker",
+        "players": [
+          {
+            "net_id": 130,
+            "handle": 0,
+            "position": {
+              "x": "454.98787",
+              "y": "-294.31815",
+              "cell": [
+                28,
+                -19
+              ]
+            },
+            "health": "3",
+            "downed": null,
+            "currency": 1743,
+            "active_weapon": "larmes",
+            "mag_ammo": 9953,
+            "reserves": [
+              [
+                "Custom(\"larmes\")",
+                9999
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "closed_doors": [],
+        "windows": [],
+        "navigation": "légende : # mur (pathfinding + physique)  p mur physique seul  n mur pathfinding seul\nW fenêtre intacte  w fenêtre cassée  D porte fermée  d porte ouverte  S spawner  Z zombie  P joueur\n. atteignable par le flow field (ou direction 8/2/4/6/7/9/1/3)   (espace) libre mais NON atteignable\nx -23..53, y -33..22 (cellules de 16 px), cible GridPos { x: 28, y: -19 }, 1190 cellules atteignables\n                                                                             \n                               #######d#######                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               d3333332111111d                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               d3333332111111d                               \n                               #6666332114444#                               \n                               #9999632147777#                               \n                               #9999632147777#                               \n                               ######3d1######                               \n #######d##############d#############3d1######                               \n #3333333333321##3333333333321##3333332111111#                               \n #3333333333322##3333332333322##3333332111111#                               \n #3333333333333333333332333333333333332111111#                               \n d3333666666666dd3333332166666dd3333332111111d                               \n #6666339999999996666332119999996666332114444#                               \n #9999632199988##9999632149988##9999632147777#                               \n #9999632199987##9999632149987##9999632147777#                               \n ######3d1############3d1############3d1######                               \n ######3d1############3d1############3d1######                               \n #3333333333321##3333333333321##3333332111111#                               \n #3333333333322##3333333333322##3333332111111#                               \n #3333333333333333333333333333333333332111111#                               \n d6666666666666dd6666666666666dd3333332111111d                               \n #9999999999999999999999999999996666332114444#                               \n #9999999999988##9999999999988##9999632147777#                               \n #9999999999987##9999999999987##9999632147777#                               \n #######d##############d#############3d1######                               \n                               ######3d1#############d##############d####### \n                               #3333333333321##3333211111111##3211111111111# \n                               #3333333333322##3333211111111##2211111111111# \n                               #3333333333333333333211111111111111111111111# \n                               d6666666666666dd6666P44444444dd4444444444444d \n                               #9999999999999999999877777777777777777777777# \n                               #9999999999988##9999877777777##8877777777777# \n                               #9999999999987##9999877777777##9877777777777# \n                               #######d##############d#############9d7###### \n                                                             ######9d7###### \n                                                             #3333698741111# \n                                                             #3333698741111# \n                                                             #6666998774444# \n                                                             d9999998777777d \n                                                             #9999998777777# \n                                                             #9999998777777# \n                                                             #9999998777777# \n                                                             #######d####### \n                                                                             \n",
+        "floor": {
+          "index": 0,
+          "portal_open": true,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      },
+      "final_state": {
+        "frame": 3679,
+        "wave": {
+          "phase": "NotStarted",
+          "current_wave": 0,
+          "enemies_to_spawn": 0,
+          "enemies_spawned_this_wave": 0,
+          "wave_enemy_count": 0,
+          "total_enemies_killed": 0,
+          "wave_enemies_killed": 0,
+          "wave_start_frame": 0,
+          "last_spawn_frame": 0,
+          "last_enemy_killed_frame": 0,
+          "phase_start_frame": 0,
+          "current_health_multiplier": "1",
+          "current_damage_multiplier": "1",
+          "spawn_fallback": false
+        },
+        "run_step": "Playing { since_frame: 0 }",
+        "enemies": [],
+        "flow_field": "GroundBreaker",
+        "players": [
+          {
+            "net_id": 130,
+            "handle": 0,
+            "position": {
+              "x": "174.31757",
+              "y": "-137.0212",
+              "cell": [
+                10,
+                -9
+              ]
+            },
+            "health": "3",
+            "downed": null,
+            "currency": 1743,
+            "active_weapon": "larmes",
+            "mag_ammo": 9953,
+            "reserves": [
+              [
+                "Custom(\"larmes\")",
+                9999
+              ]
+            ],
+            "last_input": null
+          }
+        ],
+        "closed_doors": [],
+        "windows": [],
+        "navigation": "légende : # mur (pathfinding + physique)  p mur physique seul  n mur pathfinding seul\nW fenêtre intacte  w fenêtre cassée  D porte fermée  d porte ouverte  S spawner  Z zombie  P joueur\n. atteignable par le flow field (ou direction 8/2/4/6/7/9/1/3)   (espace) libre mais NON atteignable\nx -23..53, y -33..22 (cellules de 16 px), cible GridPos { x: 10, y: -9 }, 1190 cellules atteignables\n                                                                             \n                               #######d#######                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               d3333332111111d                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               #3333332111111#                               \n                               d3333332111111d                               \n                               #6666332114444#                               \n                               #9999632147777#                               \n                               #9999632147777#                               \n                               ######3d1######                               \n #######d##############d#############3d1######                               \n #3333333333321##3333332111111##3333332111111#                               \n #3333333333322##3333332111112##3333332111111#                               \n #3333333333333333333332111133333333332111111#                               \n d3333666666666dd3333332111166dd3333332111111d                               \n #6666339999999996666332114499996666332114444#                               \n #9999632199988##9999632147778##9999632147777#                               \n #9999632199987##9999632147777##9999632147777#                               \n ######3d1############3d1############3d1######                               \n ######3d1############3d1############3d1######                               \n #3333333333321##3333333333321##3211111111111#                               \n #3333333333322##3333333333322##3211111111111#                               \n #3333333333333333333333333333336P44444444444#                               \n d6666666666666dd6666666666666dd9877777777777d                               \n #9999999999999999999999999999999987777777777#                               \n #9999999999988##9999999999988##9987777777777#                               \n #9999999999987##9999999999987##9987777777777#                               \n #######d##############d#############9d7######                               \n                               ######9d7#############d##############d####### \n                               #3333698741111##3211111111111##3211111111111# \n                               #3333698741111##2211111111111##2211111111111# \n                               #6666998774444111111111111111111111111111111# \n                               d9999998777777dd4444444444444dd4444444444444d \n                               #9999998777777777777777777777777777777777777# \n                               #9999998777777##8877777777777##8877777777777# \n                               #9999998777777##9877777777777##9877777777777# \n                               #######d##############d#############9d7###### \n                                                             ######9d7###### \n                                                             #3333698741111# \n                                                             #3333698741111# \n                                                             #6666998774444# \n                                                             d9999998777777d \n                                                             #9999998777777# \n                                                             #9999998777777# \n                                                             #9999998777777# \n                                                             #######d####### \n                                                                             \n",
+        "floor": {
+          "index": 0,
+          "portal_open": true,
+          "anchor": [
+            "8",
+            "-8"
+          ],
+          "anchor_cell": [
+            0,
+            -1
+          ]
+        }
+      }
+    },
+    "doors_opened": 89,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 1,
+      "coffre": 2,
+      "diable": 1,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 6
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 1743,
+        "downed": false,
+        "x": 174.31757,
+        "y": -137.0212,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "soft-lock",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 11,
+        "visited": 11,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 97,
+    "wave": 0,
+    "floor": 1,
+    "frames": 3800,
+    "deaths": 1,
+    "kills": 0,
+    "wall_seconds": 12.963767459,
+    "desync": false,
+    "sim_fps": 296.8771511996698,
+    "floor_frames": [
+      2333
+    ],
+    "damage_taken": 5,
+    "run_end": [
+      "Defeat",
+      3799
+    ],
+    "dodges": 99,
+    "doors_opened": 131,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 3,
+      "diable": 2,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 9,
+      "porte_a_cle": 1
+    },
+    "players_end": [],
+    "waves": [],
+    "outcome": "mort",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 11,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 12,
+        "visited": 9,
+        "cleared": 6,
+        "locking": 8
+      }
+    ]
+  },
+  {
+    "seed": 98,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4715,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 16.316675167,
+    "desync": false,
+    "sim_fps": 291.82465304221347,
+    "floor_frames": [
+      3261
+    ],
+    "damage_taken": 3,
+    "run_end": [
+      "Victory",
+      4714
+    ],
+    "dodges": 71,
+    "doors_opened": 126,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 7,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2758,
+        "downed": false,
+        "x": 280.75638,
+        "y": -244.1566,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 11,
+        "visited": 11,
+        "cleared": 8,
+        "locking": 8
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 7,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 99,
+    "wave": 0,
+    "floor": 1,
+    "frames": 6456,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 23.551755167,
+    "desync": false,
+    "sim_fps": 276.0092697815862,
+    "floor_frames": [
+      3913
+    ],
+    "damage_taken": 2,
+    "run_end": [
+      "Victory",
+      6455
+    ],
+    "dodges": 90,
+    "doors_opened": 153,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 8,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3355,
+        "downed": false,
+        "x": 223.39497,
+        "y": 240.29774,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 100,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4103,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 13.185233166,
+    "desync": false,
+    "sim_fps": 314.67827170559246,
+    "floor_frames": [
+      2220
+    ],
+    "damage_taken": 3,
+    "run_end": [
+      "Victory",
+      4102
+    ],
+    "dodges": 49,
+    "doors_opened": 100,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 4,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2289,
+        "downed": false,
+        "x": 433.31775,
+        "y": -217.89883,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  }
+]
