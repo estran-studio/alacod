@@ -1698,6 +1698,8 @@ pub struct Registry {
     pub feedback: Vec<FeedbackEntry>,
     /// T1.18 : sources des widgets de chaque `ui/hud.ron`.
     pub hud_sources: Vec<(PathBuf, Vec<String>)>,
+    /// Sprites cités par la légende (`legend`) de chaque `ui/hud.ron` (fiche m2-lisibilite-gungeon).
+    pub hud_legend_sprites: Vec<(PathBuf, Vec<String>)>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -4327,6 +4329,13 @@ fn load_ui(
                     .map(|w| w.kind.source().to_string())
                     .collect();
                 registry.hud_sources.push((rel.clone(), sources));
+                let sprites = hud
+                    .legend
+                    .iter()
+                    .flat_map(|group| group.entries.iter())
+                    .filter_map(|entry| entry.sprite.clone())
+                    .collect();
+                registry.hud_legend_sprites.push((rel.clone(), sprites));
             })
         } else {
             ron::from_str::<ron::Value>(&text).map(|_| ())

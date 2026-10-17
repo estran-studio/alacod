@@ -6,88 +6,83 @@
 // à `assets/`. Feuilles et images rangées par entité sous `sprites/` (characters/, weapons/,
 // enemies/, effects/) ; voir `docs/conventions.md` §2.
 ({
-    // Lot C (docs/plan-assets.md) : héros, ennemis, boss et objets du monde de `gungeon` viennent du pack
-    // Tiny Dungeon de Kenney (CC0, `sprites/gungeon/`) ; l'image est choisie par l'animation (une case).
-    "player": (
-        animation: "sprites/gungeon/anim_player.ron",
-        layers: {
-            "body": "sprites/gungeon/tiny_sheet.ron",
-            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
-        },
-    ),
-    "bullet_kin": (
-        animation: "sprites/gungeon/anim_bullet_kin.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "bullet_kin_squad": (
-        animation: "sprites/gungeon/anim_bullet_kin_squad.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "shotgun_kin": (
-        animation: "sprites/gungeon/anim_shotgun_kin.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "veteran_kin": (
-        animation: "sprites/gungeon/anim_veteran_kin.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "bandana_kin": (
-        animation: "sprites/gungeon/anim_bandana_kin.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "tourelle_kin": (
-        animation: "sprites/gungeon/anim_tourelle_kin.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "fuyard_kin": (
-        animation: "sprites/gungeon/anim_fuyard_kin.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "lanceur_kin": (
-        animation: "sprites/gungeon/anim_lanceur_kin.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "cible": (
-        animation: "sprites/gungeon/anim_cible.ron",
-        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
-    ),
-    "gatling": (
-        animation: "sprites/gungeon/anim_gatling.ron",
-        layers: { "body": "sprites/gungeon/tiny_boss_sheet.ron" },
-    ),
-    // Lot C : objets du monde et projectiles, dessinés par `game::world_sprites` (présentation seule).
-    "chest": (
-        animation: "sprites/gungeon/anim_chest.ron",
-        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
-    ),
-    "shelf": (
-        animation: "sprites/gungeon/anim_shelf.ron",
-        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
-    ),
-    "shell": (
-        animation: "sprites/gungeon/anim_shell.ron",
-        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
-    ),
-    "item": (
-        animation: "sprites/gungeon/anim_item.ron",
-        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
-    ),
-    "barrel": (
-        animation: "sprites/gungeon/anim_barrel.ron",
-        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
-    ),
-    "table": (
-        animation: "sprites/gungeon/anim_table.ron",
-        layers: { "body": "sprites/gungeon/tiny_world_sheet.ron" },
-    ),
-    "bullet_player": (
-        animation: "sprites/gungeon/anim_bullet_player.ron",
-        layers: { "body": "sprites/gungeon/bullet_player_sheet.ron" },
-    ),
-    "bullet_enemy": (
-        animation: "sprites/gungeon/anim_bullet_enemy.ron",
-        layers: { "body": "sprites/gungeon/bullet_enemy_sheet.ron" },
-    ),
+    // Langage visuel provisoire (fiche m2-lisibilite-gungeon, docs/conventions.md §83) : une silhouette et une
+    // couleur par classe d'entité, générées par script (CC0, placeholders à remplacer par la voie V6). Le bloc
+    // ci-dessous est réécrit par `python3 scripts/generer-sprites-gungeon.py`.
+    // >>> généré par scripts/generer-sprites-gungeon.py (ne pas éditer à la main)
+    "player": (animation: "sprites/lisible/anim/player.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "bullet_kin": (animation: "sprites/lisible/anim/bullet_kin.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "bullet_kin_squad": (animation: "sprites/lisible/anim/bullet_kin_squad.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "shotgun_kin": (animation: "sprites/lisible/anim/shotgun_kin.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "lanceur_kin": (animation: "sprites/lisible/anim/lanceur_kin.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "tourelle_kin": (animation: "sprites/lisible/anim/tourelle_kin.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "veteran_kin": (animation: "sprites/lisible/anim/veteran_kin.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "bandana_kin": (animation: "sprites/lisible/anim/bandana_kin.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "fuyard_kin": (animation: "sprites/lisible/anim/fuyard_kin.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "cible": (animation: "sprites/lisible/anim/cible.ron", layers: { "body": "sprites/lisible/sheet_persos.ron" }),
+    "gatling": (animation: "sprites/lisible/anim/gatling.ron", layers: { "body": "sprites/lisible/sheet_boss.ron" }),
+    "halo": (animation: "sprites/lisible/anim/halo.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "aim": (animation: "sprites/lisible/anim/aim.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "shell": (animation: "sprites/lisible/anim/shell.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "chest": (animation: "sprites/lisible/anim/chest.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "shelf": (animation: "sprites/lisible/anim/shelf.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "barrel": (animation: "sprites/lisible/anim/barrel.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "table": (animation: "sprites/lisible/anim/table.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "rock": (animation: "sprites/lisible/anim/rock.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "spikes": (animation: "sprites/lisible/anim/spikes.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "secret_wall": (animation: "sprites/lisible/anim/secret_wall.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/key": (animation: "sprites/lisible/anim/item__key.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/bomb": (animation: "sprites/lisible/anim/item__bomb.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "bomb": (animation: "sprites/lisible/anim/bomb.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/heart": (animation: "sprites/lisible/anim/item__heart.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/blank": (animation: "sprites/lisible/anim/item__blank.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/passive": (animation: "sprites/lisible/anim/item__passive.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/active": (animation: "sprites/lisible/anim/item__active.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/consumable": (animation: "sprites/lisible/anim/item__consumable.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon": (animation: "sprites/lisible/anim/weapon.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/arbalete": (animation: "sprites/lisible/anim/weapon__arbalete.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/arc": (animation: "sprites/lisible/anim/weapon__arc.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/boule_energie": (animation: "sprites/lisible/anim/weapon__boule_energie.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/carabine_rafale": (animation: "sprites/lisible/anim/weapon__carabine_rafale.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/chercheur": (animation: "sprites/lisible/anim/weapon__chercheur.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/double_canon": (animation: "sprites/lisible/anim/weapon__double_canon.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/fusil_pompe": (animation: "sprites/lisible/anim/weapon__fusil_pompe.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/fusil_precision": (animation: "sprites/lisible/anim/weapon__fusil_precision.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/grenadier": (animation: "sprites/lisible/anim/weapon__grenadier.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/lance_flammes": (animation: "sprites/lisible/anim/weapon__lance_flammes.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/lance_roquettes": (animation: "sprites/lisible/anim/weapon__lance_roquettes.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/laser": (animation: "sprites/lisible/anim/weapon__laser.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/mitraillette": (animation: "sprites/lisible/anim/weapon__mitraillette.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/mitrailleuse_lourde": (animation: "sprites/lisible/anim/weapon__mitrailleuse_lourde.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/pistolet": (animation: "sprites/lisible/anim/weapon__pistolet.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/pistolet_jumele": (animation: "sprites/lisible/anim/weapon__pistolet_jumele.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/pistolet_precis": (animation: "sprites/lisible/anim/weapon__pistolet_precis.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/rebondisseur": (animation: "sprites/lisible/anim/weapon__rebondisseur.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "weapon/revolver": (animation: "sprites/lisible/anim/weapon__revolver.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/amulette": (animation: "sprites/lisible/anim/item__amulette.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/bastion": (animation: "sprites/lisible/anim/item__bastion.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/bottes": (animation: "sprites/lisible/anim/item__bottes.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/cartouchiere": (animation: "sprites/lisible/anim/item__cartouchiere.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/chargeur_rapide": (animation: "sprites/lisible/anim/item__chargeur_rapide.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/egide": (animation: "sprites/lisible/anim/item__egide.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/etendard": (animation: "sprites/lisible/anim/item__etendard.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/fiole": (animation: "sprites/lisible/anim/item__fiole.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/gilet": (animation: "sprites/lisible/anim/item__gilet.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/lunettes": (animation: "sprites/lisible/anim/item__lunettes.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/parchemin": (animation: "sprites/lisible/anim/item__parchemin.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/pierre_de_soin": (animation: "sprites/lisible/anim/item__pierre_de_soin.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/rancune": (animation: "sprites/lisible/anim/item__rancune.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/ration": (animation: "sprites/lisible/anim/item__ration.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/roulade": (animation: "sprites/lisible/anim/item__roulade.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/sablier": (animation: "sprites/lisible/anim/item__sablier.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/trefle": (animation: "sprites/lisible/anim/item__trefle.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "item/trophee": (animation: "sprites/lisible/anim/item__trophee.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "portal": (animation: "sprites/lisible/anim/portal.ron", layers: { "body": "sprites/lisible/sheet_portail.ron" }),
+    "door_v": (animation: "sprites/lisible/anim/door_v.ron", layers: { "body": "sprites/lisible/sheet_porte_v.ron" }),
+    "door_h": (animation: "sprites/lisible/anim/door_h.ron", layers: { "body": "sprites/lisible/sheet_porte_h.ron" }),
+    "bullet_player": (animation: "sprites/lisible/anim/bullet_player.ron", layers: { "body": "sprites/lisible/sheet_bullet_player.ron" }),
+    "bullet_enemy": (animation: "sprites/lisible/anim/bullet_enemy.ron", layers: { "body": "sprites/lisible/sheet_bullet_enemy.ron" }),
+    // <<< fin du bloc généré
     // Armes à distance : portées par le joueur, animées par l'animation du joueur.
     "shotgun": (
         animation: "sprites/characters/player/player_animation.ron",

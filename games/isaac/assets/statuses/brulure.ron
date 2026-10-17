@@ -1,0 +1,2 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : copie du statut `brulure` du testbed (§19, §66), posé par l'`on_hit` des objets de larmes.
+(kind: Burn, frames: 120, damage: "4", period: 30)

@@ -115,6 +115,11 @@ pub enum HudWidgetKind {
     Map {
         source: String,
     },
+    /// Légende des silhouettes et couleurs (touche F7, source `legend`) : lignes lues dans
+    /// [`HudConfig::legend`]. Fermée par défaut ; `size` est celle du panneau.
+    Legend {
+        source: String,
+    },
 }
 
 /// A single HUD widget definition
@@ -144,6 +149,32 @@ pub struct HudIcon {
     pub label: String,
 }
 
+/// Groupe de la légende (`HudConfig::legend`) : un titre et des lignes, rangés dans la colonne
+/// `column` du panneau (0, 1, 2…).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegendGroup {
+    pub title: String,
+    #[serde(default)]
+    pub column: usize,
+    pub entries: Vec<LegendEntry>,
+}
+
+/// Une ligne de la légende : l'image `sprite` (id de `sprites.ron`, case `Idle`) éventuellement
+/// teintée (`tint`), ou une pastille de couleur (`color`), et son texte.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegendEntry {
+    pub label: String,
+    #[serde(default)]
+    pub sprite: Option<String>,
+    /// Animation de l'entrée à montrer (`Open`, `Locked`…) ; `Idle` par défaut.
+    #[serde(default)]
+    pub anim: Option<String>,
+    #[serde(default)]
+    pub tint: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
 /// HUD configuration asset
 #[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
 pub struct HudConfig {
@@ -165,6 +196,17 @@ pub struct HudConfig {
     /// smaller windows; omitted by existing games to preserve their UI scale.
     #[serde(default)]
     pub reference_size: Option<(f32, f32)>,
+    /// Couleur des joueurs par handle (`#rrggbb`), appliquée à leurs calques (modulo le nombre de
+    /// couleurs). Absent : les personnages gardent leur teinte.
+    #[serde(default)]
+    pub player_colors: Vec<String>,
+    /// Légende des silhouettes et couleurs (source `legend`, touche F7).
+    #[serde(default)]
+    pub legend: Vec<LegendGroup>,
+    /// Cache les repères d'apparition de la carte (tuiles d'éditeur) : `true` dans un jeu dont les
+    /// ennemis ont leurs propres sprites.
+    #[serde(default)]
+    pub hide_markers: bool,
 }
 
 pub struct HudPlugin;
@@ -186,7 +228,7 @@ impl Plugin for HudPlugin {
             )
             .add_systems(
                 Update,
-                (update_hud_v1_values, update_hud_map)
+                (update_hud_v1_values, update_hud_map, update_hud_legend)
                     .after(crate::ui::hud_model::HudModelSet)
                     .run_if(in_state(AppState::InGame)),
             )
@@ -208,7 +250,14 @@ impl Plugin for HudPlugin {
 
 /// Resource to hold the HUD config asset handle
 #[derive(Resource, Default)]
-struct HudConfigHandle(Option<Handle<HudConfig>>);
+pub(crate) struct HudConfigHandle(Option<Handle<HudConfig>>);
+
+impl HudConfigHandle {
+    /// La configuration du HUD, une fois chargée.
+    pub(crate) fn get<'a>(&self, configs: &'a Assets<HudConfig>) -> Option<&'a HudConfig> {
+        self.0.as_ref().and_then(|handle| configs.get(handle))
+    }
+}
 
 /// Derived presentation only: reserve the screen for mutation/end modals and fit
 /// the complete UI into the viewport, including screenshot render targets.
@@ -372,7 +421,8 @@ fn spawn_hud_widgets(
                 HudWidgetKind::Bar { source }
                 | HudWidgetKind::Text { source, .. }
                 | HudWidgetKind::Icons { source }
-                | HudWidgetKind::Map { source } => source,
+                | HudWidgetKind::Map { source }
+                | HudWidgetKind::Legend { source } => source,
             };
             if !SOURCES.contains(&source.as_str()) {
                 warn!("hud.ron : source inconnue « {source} » (connues : {SOURCES:?})");
@@ -428,6 +478,26 @@ fn spawn_hud_widgets(
                         HudMapWidget {
                             source: source.clone(),
                             shown: Vec::new(),
+                            font: font.clone(),
+                            font_size,
+                        },
+                    ));
+                }
+                HudWidgetKind::Legend { source } => {
+                    // Panneau de la légende : fermé jusqu'à F7, rempli à l'ouverture (`update_hud_legend`).
+                    let mut node = node;
+                    node.height = Val::Auto;
+                    node.flex_direction = FlexDirection::Row;
+                    node.column_gap = Val::Px(14.0);
+                    node.padding = UiRect::all(Val::Px(8.0));
+                    let background = widget.background.as_deref().map(parse_color);
+                    parent.spawn((
+                        node,
+                        BackgroundColor(background.unwrap_or(Color::srgba(0.02, 0.03, 0.05, 0.9))),
+                        Visibility::Hidden,
+                        HudLegendWidget {
+                            source: source.clone(),
+                            built: false,
                             font: font.clone(),
                             font_size,
                         },
@@ -616,6 +686,9 @@ fn update_hud_v1_values(
         names: BTreeMap::new(),
         font: None,
         reference_size: None,
+        player_colors: Vec::new(),
+        legend: Vec::new(),
+        hide_markers: false,
     };
     let config = config_handle
         .0
@@ -779,6 +852,178 @@ fn update_hud_v1_values(
                 }
             });
     }
+}
+
+/// Panneau de la légende (F7) ; `built` : ses lignes sont posées pour l'ouverture courante.
+#[derive(Component)]
+struct HudLegendWidget {
+    #[allow(dead_code)]
+    source: String,
+    built: bool,
+    font: Option<Handle<Font>>,
+    font_size: f32,
+}
+
+/// Légende (F7) : ouvre ou ferme le panneau ; à l'ouverture, une colonne par `column` des groupes de
+/// `hud.ron`, chaque ligne montrant l'image du sprite (case `Idle`, teintée) ou une pastille de
+/// couleur, puis son texte. Reconstruite à chaque ouverture : le jeu courant fait foi.
+#[allow(clippy::too_many_arguments)]
+fn update_hud_legend(
+    mut commands: Commands,
+    open: Res<crate::legibility::LegendOpen>,
+    handle: Res<HudConfigHandle>,
+    configs: Res<Assets<HudConfig>>,
+    table: crate::world_sprites::SpriteTable,
+    items: Option<Res<items::ItemTable>>,
+    asset_server: Res<AssetServer>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut widgets: Query<(
+        Entity,
+        &mut HudLegendWidget,
+        &mut Visibility,
+        Option<&Children>,
+    )>,
+) {
+    let Some(config) = handle.get(&configs) else {
+        return;
+    };
+    for (entity, mut widget, mut visibility, children) in &mut widgets {
+        let wanted = if open.0 {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != wanted {
+            *visibility = wanted;
+        }
+        if !open.0 {
+            widget.built = false;
+            continue;
+        }
+        if widget.built {
+            continue;
+        }
+        widget.built = true;
+        for child in children.into_iter().flat_map(|c| c.iter()) {
+            commands.entity(child).despawn();
+        }
+        let columns = config
+            .legend
+            .iter()
+            .map(|g| g.column + 1)
+            .max()
+            .unwrap_or(0);
+        let text_font = hud_text_font(&widget.font, widget.font_size.max(10.0));
+        let title_font = hud_text_font(&widget.font, widget.font_size.max(10.0) + 1.0);
+        commands.entity(entity).with_children(|panel| {
+            for column in 0..columns {
+                panel
+                    .spawn(Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(2.0),
+                        ..default()
+                    })
+                    .with_children(|col| {
+                        for group in config.legend.iter().filter(|g| g.column == column) {
+                            col.spawn((
+                                Text::new(group.title.clone()),
+                                title_font.clone(),
+                                TextColor(Color::srgb(1.0, 0.85, 0.3)),
+                                Node {
+                                    margin: UiRect::top(Val::Px(6.0)),
+                                    ..default()
+                                },
+                            ));
+                            for entry in &group.entries {
+                                spawn_legend_row(
+                                    col,
+                                    entry,
+                                    &text_font,
+                                    &table,
+                                    items.as_deref(),
+                                    &asset_server,
+                                    &mut layouts,
+                                );
+                            }
+                        }
+                    });
+            }
+        });
+    }
+}
+
+fn spawn_legend_row(
+    col: &mut ChildSpawnerCommands,
+    entry: &LegendEntry,
+    text_font: &TextFont,
+    table: &crate::world_sprites::SpriteTable,
+    items: Option<&items::ItemTable>,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) {
+    col.spawn(Node {
+        flex_direction: FlexDirection::Row,
+        align_items: AlignItems::Center,
+        column_gap: Val::Px(6.0),
+        height: Val::Px(22.0),
+        ..default()
+    })
+    .with_children(|row| {
+        let tint = entry
+            .tint
+            .as_deref()
+            .map(parse_color)
+            .unwrap_or(Color::WHITE);
+        let image = entry.sprite.as_deref().and_then(|id| {
+            crate::legibility::legend_frame(
+                table,
+                id,
+                entry.anim.as_deref().unwrap_or("Idle"),
+                items,
+            )
+        });
+        if let Some((sheet, frame)) = image {
+            let layout = TextureAtlasLayout::from_grid(
+                UVec2::new(sheet.tile_size.0, sheet.tile_size.1),
+                sheet.columns,
+                sheet.rows,
+                None,
+                None,
+            );
+            let mut node = ImageNode::new(asset_server.load(&sheet.path)).with_color(tint);
+            node.texture_atlas = Some(TextureAtlas {
+                layout: layouts.add(layout),
+                index: frame,
+            });
+            row.spawn((
+                node,
+                Node {
+                    width: Val::Px(22.0),
+                    height: Val::Px(22.0),
+                    ..default()
+                },
+            ));
+        } else if let Some(color) = entry.color.as_deref() {
+            row.spawn((
+                Node {
+                    width: Val::Px(22.0),
+                    height: Val::Px(14.0),
+                    ..default()
+                },
+                BackgroundColor(parse_color(color)),
+            ));
+        } else {
+            row.spawn(Node {
+                width: Val::Px(22.0),
+                ..default()
+            });
+        }
+        row.spawn((
+            Text::new(entry.label.clone()),
+            text_font.clone(),
+            TextColor(Color::WHITE),
+        ));
+    });
 }
 
 fn update_hud_map(
@@ -1560,6 +1805,9 @@ mod tests {
             names: BTreeMap::new(),
             font: None,
             reference_size: None,
+            player_colors: Vec::new(),
+            legend: Vec::new(),
+            hide_markers: false,
         };
         config.icons.insert(
             "juggernog".into(),
@@ -1581,7 +1829,8 @@ mod tests {
                 HudWidgetKind::Bar { source }
                 | HudWidgetKind::Text { source, .. }
                 | HudWidgetKind::Icons { source }
-                | HudWidgetKind::Map { source } => source,
+                | HudWidgetKind::Map { source }
+                | HudWidgetKind::Legend { source } => source,
             };
             assert!(
                 SOURCES.contains(&source.as_str()),

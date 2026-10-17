@@ -4,7 +4,7 @@
 // (il est plus proche que les derniers combats), puis nettoie le reste.
 //
 // À regarder : le boss verrouille sa grande salle (f520), passe en phase 1 (f659), meurt (f779) et la salle se rouvre
-// (ses portes, celle de la salle du diable comprise) ; son butin (`griffe_acier`, pool `boss`, M3-T8 §73) tombe et le bot
+// (ses portes, celle de la salle du diable comprise) ; son butin (`reservoir_vital`, pool `boss`, M3-T8 §73) tombe et le bot
 // le ramasse ; il finit ensuite les deux combats restants et la victoire n'arrive qu'entre f1775 et f1800 (f1654 avant le
 // butin) : un étage se gagne quand il n'a plus d'ennemi, pas à la mort du boss seulement.
 Scenario(
@@ -25,7 +25,7 @@ Scenario(
         RoomState(kind: "boss", state: Locked, at_frame: 600),
         BossPhase(entity: NetId(127), phase: 1, at_frame: 700),
         RoomState(kind: "boss", state: Cleared, at_frame: 850),
-        HasItem(handle: 0, id: "griffe_acier", at_frame: 1000),
+        HasItem(handle: 0, id: "reservoir_vital", at_frame: 1000),
         EntityCount(kind: Enemy, min: Some(4), at_frame: 900),
         DoorLocked(kind: "secrete", locked: true, at_frame: 1850),
         RunState(step: Ended(Victory), at_frame: 1850),

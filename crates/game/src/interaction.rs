@@ -1099,13 +1099,20 @@ impl Plugin for InteractionPlugin {
 /// n'a pas d'`Interactable` mais reste fermée.
 pub fn update_door_visuals(
     doors: Query<
-        (&map::game::entity::MapRollbackItem, Has<Collider>),
+        (
+            &map::game::entity::MapRollbackItem,
+            Has<Collider>,
+            Has<crate::world_sprites::DoorSprite>,
+        ),
         With<map::game::entity::map::door::DoorComponent>,
     >,
     mut visibilities: Query<&mut Visibility>,
 ) {
-    for (rollback_item, closed) in doors.iter() {
-        let target = if closed {
+    for (rollback_item, closed, has_image) in doors.iter() {
+        // Une porte qui porte sa propre image d'état (`world_sprites`, enfant de cette entité) reste
+        // visible : l'image « ouverte » ne doit pas être cachée avec son parent ; la tuile d'origine est
+        // transparente.
+        let target = if closed || has_image {
             Visibility::Inherited
         } else {
             Visibility::Hidden

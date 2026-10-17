@@ -1,7 +1,0 @@
-// Lot C : objet du monde `shelf` : tuile 75 de `tiny_dungeon.png` (présentoir).
-(
-    frame_duration: 120,
-    animations: {
-        "Idle": (start: 75, end: 75),
-    },
-)

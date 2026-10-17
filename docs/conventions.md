@@ -5460,8 +5460,7 @@ Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) aff
 
 ### Atteignabilité
 
-M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac` ; d'ici là, scénarios testbed seulement
-(dette nommée, à fermer par T11b).
+M3-T11b (§76.2) met trois familiers (`frere`, `orbe`, `nuee`) dans le pool trésor d'`isaac` : dette fermée.
 
 
 ## 72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
@@ -5819,6 +5818,105 @@ flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `Run
 `isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tirera à M3-T11d (graine à
 nommer alors). Le testbed joue `maudit` et `maudit_maze` à deux étages.
 
+## 76. Contenu `isaac` (M3-T11, quatre parties)
+
+### 76.1 T11a : larmes et stats (`m3-t11a-larmes`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur.
+
+- **`larmes` en `mag: Infinite`** (§60) : plus d'`ammo_type`, plus de chargeur de 9 999. Les stats de larmes sont des
+  multiplicateurs de base 1 que posent les objets : `Damage` (3,5), `FireRate` (3 tirs/s), `Range` (300), `ShotSpeed` (260),
+  `ShotSize` (collision et sprite), `Luck` (chance des `Chance`). `MoveSpeed` est celle du personnage.
+- **Statuts** `statuses/` (copies du testbed : `poison`, `brulure`, `gel`, `peur`, `lenteur`), déclarés dans `game.ron`.
+- **19 objets** `objets/*.ron` (tag `larmes`), tous dans le pool `loot/tresor.ron` (entrées `Item(id)` : un `Rarity(…)` piocherait
+  aussi clé, bombe et cœurs, de rareté `Common` ; poids commun 4, peu commun 2, rare 1 ; `exhaust: true` (T8 : un objet sorti n'y revient plus par run, donc pas de doublon par ce pool), pas d'`exclude_held`. Il contient aussi les quatre passifs de T8). `rooms/tresor.ron` y pointe (`chest.table: "tresor"`) ; la salle secrète garde `salle`.
+  Pas de pool de boutique : `isaac` n'a pas de salle boutique avant M3-T11d (dette).
+- **Lisibilité (§82)** : `bullet_player`/`bullet_enemy` d'`isaac` utilisent le halo blanc de M3-T17
+  (`sprites/feedback/tear.png`, copie du testbed, `assets.yaml`) : teinte par statut/guidage, opacité spectrale, taille par
+  division/perforation, sans code. Les objets n'ont pas de sprite propre (aucun champ d'image dans `ItemDef`).
+- **Lab** : `characters/cible_fragile.ron` (15 PV, `test_only`) et l'arme `larmes_courtes` (portée 100, `test_only`) : l'arène
+  (416 x 304) est plus petite que la portée de `larmes`, `Range` ne se prouve qu'avec une arme courte.
+
+| Objet | Effet | Rareté | Graine `alacod-sim` (premier coffre de trésor) | Scénarios générés |
+|---|---|---|---|---|
+| `encre` | `Damage` +50 % | Common | 1 | `item_encre`, `tears_encre` (+ `_sans_objet`) |
+| `ressort` | `FireRate` +50 % | Common | 12 | `item_ressort`, `tears_ressort` |
+| `longue_vue` | `Range` +100 % | Common | 5 | `item_longue_vue`, `tears_longue_vue` |
+| `vent_arriere` | `ShotSpeed` +50 % | Common | 9 | `item_vent_arriere`, `tears_vent_arriere` |
+| `goutte` | `ShotSize` ×1,5, `Damage` +20 % | Uncommon | 19 | `item_goutte`, `tears_goutte` |
+| `bottines` | `MoveSpeed` +25 % | Common | 5 | `item_bottines` |
+| `trefle_noir` | `Luck` +2 | Uncommon | 16 | `item_trefle_noir` |
+| `plomb_fondu` | `Damage` +100 %, `FireRate` −30 % | Rare | 33 | `item_plomb_fondu` |
+| `oeil` | `Homing` | Common | 1 | `item_oeil`, `tears_oeil` |
+| `epine` | `Pierce(1)` | Uncommon | 4 | `item_epine`, `tears_epine` |
+| `ricochet` | `Bounce(2)` | Common | 6 | `item_ricochet`, `tears_ricochet` |
+| `fantome` | `Spectral` | Rare | 13 | `item_fantome`, `tears_fantome` |
+| `eclat` | `Split(3)` | Rare | 7 | `item_eclat`, `tears_eclat` |
+| `satellite` | `Orbit` + `Lifetime(240)` | Rare | 20 | `item_satellite`, `tears_satellite` |
+| `venin` | `Chance` 50 % (+12,5 %/`Luck`) poison | Uncommon | 19 | `item_venin`, `tears_venin` |
+| `braise` | brûlure à l'impact | Uncommon | 2 | `item_braise`, `tears_braise` |
+| `givre` | `Chance` 30 % gel | Uncommon | 6 | `item_givre`, `tears_givre` |
+| `epouvante` | `Chance` 30 % peur | Uncommon | 11 | `item_epouvante`, `tears_epouvante` |
+| `glu` | lenteur à l'impact | Common | 3 | `item_glu`, `tears_glu` |
+
+Graines : `alacod-sim --game isaac --bots 1 --profiles explorateur --shopping --seeds N..N --floors sous_sol --until-floor 2
+--max-frames 12000 --log`, la ligne `game::loot: … item=<id>` du coffre de la salle de trésor (balayage 1..125 sur le pool fusionné avec T8, première graine
+qui donne l'objet ; le bot ne rouvre pas le trésor fermé du second étage). Les seuils des `tears:` sont mesurés avec témoin
+(commentaire de chaque `test:`) ; `tears_longue_vue` utilise `larmes_courtes`, `tears_goutte` une cible posée à 22 unités de la
+ligne de tir (touchée seulement par la larme ×1,5).
+
+**Traces** : le passage en `Infinite` change l'état de l'arme dès f0 pour tout scénario `isaac` qui a le personnage ; le pool
+`tresor` change l'objet des coffres de trésor (preuve §5 au rapport `m3-t11a-larmes.md`). Les autres jeux ne bougent pas.
+
+Dettes : pas de boutique ni de pool boutique (T11d) ; `Chance` dépend du net id des larmes (un changement de cadence déplace
+les tirages : les seuils de `venin`, `givre`, `epouvante` sont « au moins un statut à f300 ») ; pas de sprite d'objet.
+
+### 76.2 T11b : effets, familiers, actifs (`m3-t11b-effets`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur. Tout passe par des vocabulaires déjà livrés :
+effets v3 (§67), familiers (§71), cœurs d'âme (§68), pools à épuisement (§73), générateur v3 (§78).
+
+- **Dix objets**, tous avec `test:` ; poids par rareté 4 / 2 / 1 dans leur pool (`exhaust: true`, aucun `exclude_held`).
+  Pool `tresor` (`loot/tresor.ron`, 23 → 31 entrées) : `frere`, `orbe`, `nuee`, `crocs`, `pouls`, `rancune_vive`, `reliquaire`,
+  `calice_ame`. Pool `boss` (`loot/boss.ron`, 3 → 5 entrées ; les trois passifs de T8, peu communs, passent de poids 1 à 2) : `sang_chaud`,
+  `calice_ardent`.
+- **Familiers** (`characters/`, fiche de §71 : équipe `Players`, `stationary`, collider 12 x 12, immunisés) : `frere` (`Follow(gap: 28)` +
+  `MirrorShot(weapon: "larmes", every: 12)` : l'arme `larmes` du jeu, sans les objets du porteur, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
+  + `BlockBullets`). Lab : `cible_mordante` (`test_only`, immobile, 5 000 PV, `counts_hits`, mêlée au contact à 40 : le générateur retrouve ses
+  cibles **par position**, une cible mobile n'a pas de compteur dans la sonde).
+- **Synergie** `synergies/garde_rapprochee.ron` (`requires: ["frere", "orbe"]`, deux objets du pool `tresor`, `Damage` +20 %) ; dossier `synergies`
+  déclaré dans `game.ron`. Preuve : scénario `isaac_synergy_garde` (frère ramassé f10 : dégâts 1, un familier ; orbe f40 : deux familiers, dégâts 1,2).
+- **Cœurs d'âme** : `coeur_ame` est déjà dans le pool de récompense `loot/salle.ron` (T3, poids 1) ; `reliquaire` et `calice_ame` en donnent aussi
+  (`GainSoul`). `salle.ron` n'a pas changé (aucune trace de plus ne bouge).
+
+| Objet | Effet | Pool (rareté, poids) | Graine `alacod-sim` | Scénarios |
+|---|---|---|---|---|
+| `frere` | familier `Follow` + `MirrorShot` | tresor (Common, 4) | 12 (coffre) | `item_frere`, `familiar_frere` (+ `_sans_objet` : ≥ 6 coups contre 5), `isaac_synergy_garde` |
+| `orbe` | familier `Orbit` + `BlockBullets` | tresor (Uncommon, 2) | 37 (coffre ; `familiar_block` en jeu) | `item_orbe`, `familiar_orbe` (`FamiliarDistance` 30–40) |
+| `nuee` | trois `orbe` (`per_copy: 3`) | tresor (Rare, 1) | 59 | `item_nuee`, `familiar_nuee` (rangs 0 et 1 à 60–64) |
+| `crocs` | `OnHit` : `Scaled(PerCopy) ApplyStatus poison` | tresor (Common, 4) | 3 | `item_crocs`, `tears_crocs` (poison / témoin sans) |
+| `pouls` | `Tick(90)` : `TimedModifier` `MoveSpeed` +30 % 60 frames | tresor (Common, 4) | 20 | `item_pouls` (`MoveSpeed` 120 à f60, 156,00037 à f100) |
+| `rancune_vive` | `OnDamageTaken` : `ApplyStatus peur` sur l'auteur du coup | tresor (Uncommon, 2) | 55 | `item_rancune_vive`, `tears_rancune_vive` (`cible_mordante` : peur / témoin sans) |
+| `reliquaire` | `OnPickup` filtré `item: Some("reliquaire")` : `GainSoul(4)` (sans filtre, chaque ramassage suivant rendrait 4 points : relecture) | tresor (Common, 4) | 46 | `item_reliquaire`, `isaac_reliquaire` (ramassé au sol, puis un autre objet : rien de plus) |
+| `calice_ame` | actif `Active(Damage(30))`, `OnUse` : `GainSoul(2)` | tresor (Rare, 1) | 10 | `item_calice_ame` (charge, usage, `ExtraHealth` 2) |
+| `sang_chaud` | `OnKill` : `TimedModifier` `FireRate` +50 % 300 frames | boss (Uncommon, 2) | 1 (butin du boss ramassé f1752, effet `OnKill` journalisé f2237) | `item_sang_chaud`, `tears_sang_chaud` (`cible_fragile` tuée : `FireRate` 1,5 / témoin 1) |
+| `calice_ardent` | actif `Active(Rooms(2))`, `OnUse` : `Damage` +100 % 300 frames | boss (Uncommon, 2) | 4 (butin f2249, ramassé f2336) | `item_calice_ardent` (`Damage` 2 après l'usage) |
+
+Graines : `alacod-sim --game isaac --bots 1 --profiles explorateur --shopping --seeds N..N --floors sous_sol --until-floor 2 --max-frames 12000
+--log` (balayage 1..125, premier `chest_open` du trésor, ou `slot_assign pool=boss` puis `boss_drop` pour le boss). Les 10 objets sortent.
+
+**Limites de preuve.** Un objet **donné au départ** (`PlayerScript::items`) ne déclenche pas `OnPickup` : `reliquaire` se prouve par un scénario
+écrit (`isaac_reliquaire`, objet posé sous le joueur) et son `test:` ne génère que la tenue ; l'attente `ExtraHealth` n'y est donc pas. `Stat` d'une
+vitesse est en unités/s (`MoveSpeed` 120), pas en multiplicateur : le seuil de `pouls` est une valeur mesurée.
+Lint : `make lint GAME=isaac` perd les avertissements « aucun objet à effets » (trésor, boss), « aucune synergie atteignable » et « familiers : 0 sur 2 »
+(il reste ceux de la boutique, de T11d).
+
+**Traces** : le pool `tresor` change les coffres de trésor et le pool `boss` le butin du boss (tirage à la génération de l'étage : l'objet tiré dépend
+de la taille du pool) ; preuve §5 au rapport `m3-t11b-effets.md`. Les autres jeux ne bougent pas.
+
+Dettes : pas de boutique (T11d) ; pas de transformation (Q10 non retenue) ; la synergie n'est jouée qu'en scénario (le bot ne rouvre pas le trésor du
+second étage, deux objets du même pool ne sortent pas dans une même partie du bot) ; pas de sprite d'objet ni de familier propre (placeholders).
+
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 
 Lint seulement : `content` (plus la déclaration `mechanics` de `games/isaac/assets/game.ron`, une ligne de
@@ -6120,3 +6218,126 @@ teinte, orientation) et `map_ldtk::plugins` (tuile d'un rocher : retirée puis r
 - L'orbital et l'élite sont visibles dans le testbed seulement ; `isaac` aura ses propres entrées avec M3-T11.
 - Une bombe de champion (mèche d'une frame) apparaît une frame avec son sprite et un indice « mèche (0 frames) ».
 - Le mur secret n'a pas de sprite de porte propre : seule la poussière annonce l'ouverture.
+
+## 83. Langage visuel provisoire : on doit comprendre ce qu'on voit (m2-lisibilite-gungeon, voie V4)
+
+Constat de William sur les vidéos `gungeon_full_run` (2026-10-17) : « je ne comprends absolument rien ».
+Trois causes, toutes corrigées en **présentation seule** (aucune trace ne bouge, rien dans
+`GgrsSchedule`, aucun état rollback) :
+
+1. **La caméra était figée après le hub.** `camera_control_system` ne choisissait sa cible qu'une fois ;
+   la relance hub → run recrée les joueurs, la cible mémorisée n'existait plus et la caméra restait où
+   le hub l'avait laissée : les vidéos ne montraient plus les joueurs (flèches rouge et bleue de
+   `player_indicator_system` sur le bord). Une cible disparue est maintenant oubliée et re-choisie.
+2. **Tout se ressemblait** : héros, ennemis, objets partageaient les cases de Tiny Dungeon. Un langage
+   visuel **par classe d'entité** les remplace ; il est généré par `scripts/generer-sprites-gungeon.py`
+   (stdlib seule, CC0, `--check`, `--preview`) dans `games/gungeon/assets/sprites/lisible/` et déclaré dans
+   `sprites.ron` (bloc `// >>> généré`). Les sprites de Kenney du lot C sont retirés.
+3. **Rien n'indiquait ce qui est ramassable, achetable, dangereux.** Halo, pointeur, étiquettes, légende.
+
+### Les classes (id de `sprites.ron` = classe)
+
+| Classe | Silhouette / couleur | Id |
+|---|---|---|
+| joueur | pistolero (grand chapeau, poncho), **clair** : teinté par handle (0 bleu, 1 vert, 2 jaune, 3 violet, `player_colors` de `hud.ron`) | `player` |
+| bullet kin | balle de laiton ronde, jaune | `bullet_kin` |
+| escouade | petite balle pointue, orange, trois traits blancs | `bullet_kin_squad` |
+| shotgun kin | cartouche rouge large, culot de laiton | `shotgun_kin` |
+| lanceur | corps rond violet, tube de mortier | `lanceur_kin` |
+| tourelle (stationnaire) | cube d'acier sur trépied, lentille rouge | `tourelle_kin` |
+| vétéran | carrure large, casque à crête, chevrons, vert olive | `veteran_kin` |
+| bandana | élancé turquoise, bandeau rouge aux pans | `bandana_kin` |
+| fuyard | goutte bleu pâle, traits de vitesse | `fuyard_kin` |
+| cible | disque rouge et blanc sur pied | `cible` |
+| boss | forteresse cramoisie 64 px, couronne dorée (`atlas_boss`) | `gatling` |
+| tir ennemi | orbe **rond rouge** (taille = racine du dégât) | `bullet_enemy` |
+| tir allié | **losange** blanc bleuté | `bullet_player` |
+| douille | pièce jaune | `shell` |
+| clé / bombe / cœur / blank | clé d'or / bombe noire à mèche / cœur rouge / disque bleu | `item/key`, `item/bomb`, `item/heart`, `item/blank` |
+| objet passif / actif / consommable | carte à initiale / hexagone / fiole, teinte stable par id (`item/<id>`) | `item/<id>`, `item/passive`, `item/active`, `item/consumable` |
+| arme au sol | silhouette par famille (pistolet, revolver, fusil, fusil à pompe, arc, énergie, lanceur, flammes), orange | `weapon/<id>`, `weapon` |
+| coffre | bois, bandes d'or, cadenas ; ouvert : couvercle relevé (`Open`) | `chest` |
+| présentoir | socle de pierre, plateau doré, étiquette | `shelf` |
+| baril / table / rocher / mur fissuré | baril rouge à flamme / table de bois / bloc gris / brique fissurée | `barrel`, `table`, `rock`, `secret_wall` |
+| porte | fermée (planches) / ouverte (deux montants, sol visible) / à clé (cadenas rouge, chaînes) ; 16×32 et 32×16 | `door_v`, `door_h` (`Idle`, `Open`, `Locked`) |
+| portail | spirale violette et cyan 64 px | `portal` |
+| halo, pointeur | disque doux blanc, chevron blanc (la teinte vient du rendu) | `halo`, `aim` |
+
+Eau, sable et fosse restent les couleurs d'IntGrid de la couche `Surfaces` (`#3b7dd8`, `#d8c27a`, `#202020`),
+nommées dans la légende. Les piques ne sont pas redessinés (surface à `hazard`, aucun jeu n'en pose).
+
+### Données et systèmes génériques
+
+- **`sprites.ron`** : une entrée par classe. Un objet au sol cherche `item/<id>`, puis `item/<genre>`
+  (`passive`, `active`, `consumable`), puis `item` ; une arme `weapon/<id>` puis `weapon`
+  (`world_sprites::item_candidates`, `weapon_candidates`). Une entité sans entrée garde son rendu d'avant
+  (autres jeux inchangés).
+- **`hud.ron`** (champs optionnels de `HudConfig`) : `player_colors`, `names` (id → nom des étiquettes :
+  `player`, `shell`, `chest`, `chest_locked`, `chest_open`, `barrel`, `table`, `rock`, `portal`, ids de
+  personnages et d'armes), `legend` (groupes `(title, column, entries: [(label, sprite, anim, tint,
+  color)])`), `hide_markers` (cache les tuiles d'apparition des ennemis, repères d'auteur). Widget
+  `Legend(source: "legend")`, source ajoutée à `HUD_SOURCES`. Le lint refuse un `sprite` de légende absent de
+  `sprites.ron`.
+- **`game::legibility`** (`LegibilityPlugin`, dans `PresentationPlugin` : absent en headless) :
+  - pointeur de visée (`AimPivot`, enfant de chaque ennemi) : visée figée de l'émetteur, sinon dernière
+    position connue de la cible (`EnemyTarget`), sinon cible de déplacement ; caché sans cible ;
+  - halo pulsant (`Halo`, enfant) sous douilles, objets (couleur par rareté), armes, power-ups, coffres,
+    présentoirs ; il respire sur `FrameCount` (image n = frame n en capture) ; masqué à l'ouverture du coffre
+    ou à la vente ;
+  - couleur par handle : `MarkerTint` posé sur les joueurs (relu par `feedback::apply_layer_colors`, qui
+    n'efface plus la couleur des barres de vie : rouge ennemi, verte joueur) ;
+  - **étiquettes** (`Label`, entités indépendantes comme `PowerUpLabel`) : nom de l'ennemi, du joueur
+    (`J 1`), de l'objet, de l'arme (+ prix d'une arme murale), de la douille (`+n`), du coffre (clé, vide),
+    du présentoir (nom + prix), baril, table, rocher, porte fermée ou à clé (une porte ouverte n'en a pas),
+    portail (`WorldLabel`). Désencombrées (une étiquette qui en recouvre une autre monte) et masquées hors
+    de la vue (`FogView::sees`). **F6** les bascule ; `ALACOD_LABELS=1` les allume au départ ;
+    `play_scenario --capture` et `make videos` les allument d'office (`ALACOD_LABELS=0` les coupe) ;
+  - **légende** : **F7** (`LegendOpen`) ouvre le panneau du HUD, reconstruit à chaque ouverture.
+- **`world_sprites`** : `SpriteTable` (feuille et case d'un id), `SpriteRequest` (sprite demandé par id sur
+  une entité de carte : le portail), portes (`DoorSprite`, état d'après `Collider` et `Interactable` :
+  sans collider = ouverte, avec collider et interaction = à clé, collider seul = fermée par sa salle),
+  `hide_replaced_map_tiles` (la tuile de l'entité LDtk d'origine devient transparente quand son entité
+  rollback porte l'image du monde). Projectiles : une feuille déclarée `own_colors: true`
+  (`SpriteSheetConfig`, gungeon) porte sa couleur (pas de teinte d'équipe) et sa taille suit le dégât
+  (`5 + 1,6·√dégât`, bornée à 8..22) ; sans le champ (défaut), teinte d'équipe et halo agrandi comme avant
+  (testbed, isaac, throne, zombies inchangés) ; `style_tears` (M3-T17) s'applique ensuite. Une table ou un
+  baril (entités rollback sans `Transform`) pose son image sur l'entité LDtk d'origine (`MapHeld`) et la cache à sa destruction (`reap_held_sprites`) ; l'image d'une porte ouverte reste
+  `Visible` malgré le parent caché par `interaction::update_door_visuals`.
+- **Composants non rollback posés sur des entités rollback** : `AimPointer`, `PickupHalo`, `DoorSprite`,
+  `WorldSprite`, `MarkerTint` (joueurs) : tous hors checksum et hors snapshot, recréés pour une entité
+  ressuscitée ; les enfants (pointeur, halo) se cachent quand leur parent est désactivé.
+- **Dettes assumées (écarts à la fiche)** :
+  - `AimPointer`, `PickupHalo`, `DoorSprite` (et `WorldSprite`, `MarkerTint`) sont posés sur des entités
+    rollback, hors checksum et snapshot (comme `WorldSprite` avant eux) ; un composant de présentation sur
+    une entité rollback n'est pas un état, mais la fiche demandait de n'en poser aucun nouveau.
+  - Couleurs de catégorie du halo, du pointeur et des étiquettes en dur dans `legibility.rs` (voie V6 :
+    les passer dans `hud.ron`).
+  - Piques non dessinés (aucun jeu n'en pose ; le sprite `spikes` est généré mais non branché).
+  - Coût des étiquettes : `gather_labels` et `sync_labels` cherchent linéairement (`wishes.iter().find`),
+    `declutter` est quadratique ; non mesuré, à mesurer au-delà de ~50 étiquettes (salles d'arène, étage
+    entier visible) avant d'indexer par entité.
+  - Les images de porte, de table et de baril sont des enfants de l'entité LDtk persistante (l'entité
+    rollback n'a pas de `Transform`) : leur visibilité est **héritée** du monde de l'étage (`Inherited`,
+    jamais `Visible`) et `reap_held_sprites` les cache quand l'entité rollback propriétaire n'existe plus
+    (changement d'étage, création annulée par un rollback). Test : `world_sprites::tests`.
+
+### Preuves et vidéos
+
+`play_scenario --capture <dir> --at 42,157,…` ne capture que ces frames (et s'arrête après la dernière) ;
+`--legend` ouvre la légende sans étiquettes. `scripts/scenario-video` rend, pour chaque scénario dont le jeu
+déclare un widget `Legend`, l'**image de légende** (frame 40, par le moteur) et la place en tête de la
+vidéo pendant `LEGEND_SECONDS` (1,2 s) : `ffmpeg` sans `drawtext` suffit (concat, aucun texte incrusté par
+ffmpeg). La page de revue lit `<nom>.legend` (secondes de tête) et compte frames et moments clés depuis la fin
+de la légende. Seul `render` ajoute la légende (pas `views` ni `compare`). Rapport : `docs/taches/rapports/m2-lisibilite-gungeon.md`.
+
+### Ajouter une classe
+
+1. Dessiner le sprite dans `scripts/generer-sprites-gungeon.py` (primitives `Img`, contour automatique), le
+   déclarer dans `PERSOS` / `world_sprites()`, relancer le script, `--preview /tmp/apercu.png` pour le voir.
+2. Ajouter la ligne de légende dans `ui/hud.ron` et, si besoin, un nom dans `names`.
+3. `python3 -m unittest scripts/tests/test_sprites_gungeon.py` (sprites à jour, CC0 dans `assets.yaml`,
+   légende résolue, silhouettes distinctes). Un autre jeu fait de même avec ses propres entrées : le code
+   ne connaît aucune classe, seulement des ids.
+
+**Remplacement par la voie V6** : un fichier `png` (et sa feuille) remplace la classe ; l'id de
+`sprites.ron` ne change pas.

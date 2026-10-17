@@ -27,6 +27,7 @@ pub mod hub;
 pub mod interaction;
 pub mod items;
 pub mod jjrs;
+pub mod legibility;
 pub mod light;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod logs;
@@ -53,7 +54,7 @@ pub mod system_set;
 pub mod ui;
 pub mod waves;
 pub mod web;
-mod world_sprites;
+pub mod world_sprites;
 pub use combat::weapons;
 
 use lazy_static::lazy_static;

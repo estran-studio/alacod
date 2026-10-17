@@ -1,0 +1,42 @@
+// `isaac` (M3-T11b, docs/conventions.md §76.2) : cible de laboratoire **mordante** : immobile, 5000 PV, compte ses coups (`counts_hits`) et frappe au contact (portée 40, 1 PV) ;
+// posée contre le joueur par `rancune_vive` (`OnDamageTaken`, `tears:`). Immobile : le générateur retrouve ses cibles par position. Jamais dans une salle.
+(
+    test_only: true, // D63 : contenu de laboratoire, ignoré par l'analyse d'atteignabilité (conventions §53)
+    movement: (
+        acceleration: "160.0",
+        max_speed: "55.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "cible_mordante",
+
+    collider: (
+        shape: Rectangle(width: "16.", height: "16."),
+        offset: ( x: "0.0", y: "-4.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (max: "5000.0"),
+    counts_hits: true,
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("40.0"),
+        attack_damage: Some("1.0"),
+        stationary: Some(true),
+        attack_cooldown_frames: Some(120),
+        behaviors: Some([Melee("contact")]),
+    )),
+)
