@@ -107,12 +107,24 @@ pub(crate) fn item_mechanics(item: &registry::ItemEntry) -> Vec<&'static str> {
     out
 }
 
+/// Boutique au sens des règles déclarées : une salle à `shop` dont le prix n'est pas la vie maximale (le
+/// marché du diable, `cost: MaxHealth`, a sa règle `DevilMarket`).
+fn is_shop(def: &world::RoomKindDef) -> bool {
+    def.shop
+        .as_ref()
+        .is_some_and(|shop| !matches!(shop.cost, Some(items::Price::MaxHealth(_))))
+}
+
 /// Mécanique qu'un type de salle porte, pour les messages « aucune grammaire ne peut le tirer ».
 pub(crate) fn room_mechanic(def: &world::RoomKindDef) -> Option<&'static str> {
     match def.door_lock {
         Some(world::DoorLock::Secret) => Some("salle secrète (murée, ouverte à la bombe)"),
         Some(world::DoorLock::Key(_)) => Some("trésor fermé à clé"),
+        None if def.shop.as_ref().is_some_and(|shop| shop.cost.is_some()) => {
+            Some("marché payant (présentoirs à `cost`)")
+        }
         None if def.shop.is_some() => Some("boutique"),
+        None if def.boss_drop.is_some() => Some("butin du boss"),
         None if def.arena.is_some() => Some("arène"),
         None if def.chest.is_some() => Some("coffre"),
         None => None,
@@ -316,6 +328,9 @@ impl<'a> Play<'a> {
             if let Some(chest) = &room.def.chest {
                 pools.extend(self.chest_tables(chest));
             }
+            if let Some(drop) = &room.def.boss_drop {
+                pools.push(drop.table.clone());
+            }
             if let Some(shop) = &room.def.shop {
                 pools.extend(Self::shop_tables(shop));
             }
@@ -344,6 +359,15 @@ impl<'a> Play<'a> {
                     out.push(Draw {
                         pool,
                         site: format!("coffre de la salle « {} »", room.id),
+                        times,
+                    });
+                }
+            }
+            if let Some(drop) = &room.def.boss_drop {
+                if known(&drop.table) {
+                    out.push(Draw {
+                        pool: drop.table.clone(),
+                        site: format!("butin du boss de la salle « {} »", room.id),
                         times,
                     });
                 }
@@ -641,7 +665,12 @@ fn always_on(
                 continue;
             };
             let def = &room.def;
-            if def.chest.is_none() && def.shop.is_none() && def.arena.is_none() && !def.locks {
+            if def.chest.is_none()
+                && def.shop.is_none()
+                && def.arena.is_none()
+                && def.boss_drop.is_none()
+                && !def.locks
+            {
                 if seen.insert(kind.clone()) {
                     unmet(
                         out,
@@ -844,7 +873,7 @@ fn declared(
             let Some(room) = registry.rooms.get(kind) else {
                 continue;
             };
-            if room.def.shop.is_some() {
+            if is_shop(&room.def) {
                 required_shops.insert(kind.clone());
             }
             if matches!(room.def.door_lock, Some(world::DoorLock::Key(_))) {
@@ -862,7 +891,7 @@ fn declared(
     let shops: BTreeSet<String> = registry
         .rooms
         .values()
-        .filter(|room| room.def.shop.is_some() && ordinary.reach.room_kinds.contains(&room.id))
+        .filter(|room| is_shop(&room.def) && ordinary.reach.room_kinds.contains(&room.id))
         .map(|room| room.id.clone())
         .collect();
     let treasure_pools = ordinary.kinds_pools(&treasure);
@@ -1247,6 +1276,29 @@ fn declared(
                         MANIFEST_FILE,
                         "aucune grammaire de la partie ordinaire n'a de salle post-boss à chance non nulle (`layout: Grid(post_boss: Some(…))`)".to_string(),
                     );
+                }
+                // Le marché : la salle post-boss propose des présentoirs payés (`shop` à `cost`, T8).
+                for (entry, _) in &grammars {
+                    let Some(post) = entry.grammar.post_boss().filter(|p| p.chance > Fixed::ZERO)
+                    else {
+                        continue;
+                    };
+                    if let Some(room) = registry.rooms.get(&post.kind) {
+                        if !room
+                            .def
+                            .shop
+                            .as_ref()
+                            .is_some_and(|shop| shop.cost.is_some())
+                        {
+                            warn(
+                                &room.file.display().to_string(),
+                                format!(
+                                    "type de salle « {} » (post-boss de la grammaire « {} ») sans `shop` à `cost` : aucun présentoir payé, ce n'est pas un marché",
+                                    post.kind, entry.id
+                                ),
+                            );
+                        }
+                    }
                 }
             }
             Mechanic::Champions => {

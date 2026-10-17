@@ -1,1 +1,1 @@
-(locks: true, chest: Some((table: Some("boss_pool"), locked: false, rarity: Common)))
+(locks: true, boss_drop: Some((table: "boss_pool", rarity: Common)))

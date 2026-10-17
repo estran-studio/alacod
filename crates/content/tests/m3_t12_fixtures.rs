@@ -786,3 +786,44 @@ fn unread_stats_are_found_in_curses_and_boss_phases() {
     run.assert_error(LintErrorKind::UnreadStat, "curse « superstition »");
     run.assert_error(LintErrorKind::UnreadStat, "phase 0, on_enter");
 }
+
+// ---- M3-T8 (§73) : butin du boss et marché du diable payé en vie maximale -----------------------------
+
+/// Le pool du butin du boss (`boss_drop`) est tiré ; sans `boss_drop` plus personne ne le tire.
+#[test]
+fn boss_drop_is_a_draw_site() {
+    let run = run(
+        "boss_drop",
+        &[Edit::Write("rooms/boss.ron", "(locks: true)")],
+    );
+    run.assert_warns("pool « boss_pool » : aucune salle");
+    // et le pool du boss de la règle `Effects` est vide
+    run.assert_warns("aucun objet à effets dans le pool boss");
+}
+
+/// Le marché du diable propose des présentoirs payés : sans `cost`, ce n'est qu'une boutique.
+#[test]
+fn devil_market_needs_priced_shelves() {
+    let run = run(
+        "devil_free",
+        &[Edit::Write(
+            "rooms/diable.ron",
+            "(shop: Some((table: \"devil\", shelves: 2)))",
+        )],
+    );
+    run.assert_warns("sans `shop` à `cost` : aucun présentoir payé");
+}
+
+/// Un marché payé en vie maximale n'est pas la boutique des règles `Tears`, `Hearts`…
+#[test]
+fn devil_market_is_not_the_shop() {
+    let run = run(
+        "shop_is_not_devil",
+        &[
+            Edit::Replace("floor_grammars/etage.ron", ", \"boutique\": 1", ""),
+            Edit::Remove("rooms/boutique.ron"),
+        ],
+    );
+    run.assert_warns("aucune boutique exigée par la grammaire");
+    run.assert_warns("aucun objet de larmes dans le pool d'une boutique");
+}

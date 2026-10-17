@@ -5847,7 +5847,7 @@ les lignes marquées **T12** sont les trous trouvés par l'audit.
 | Curses (§64) | poids 0, aucun effet, `FloorRooms` ≤ 0, `Modifier Mul` ≤ 0, chance hors [0, 1], pool vide ou inconnu | `curse_invalid_values`, `floors_curses_invalid` |
 | Pools à épuisement (§64) | **T12** `exhaust: true` sur un pool qui n'a que des `Currency` (jamais « vu » : `OutOfRange`) | `exhaust_pool_of_coins_only_is_an_error` |
 | Accomplissements, déblocages (§64) | `when`/`unlocks` vides, objet, boss ou déblocage inconnu | `achievement_invalid` |
-| `Price` (§61) | **aucune surface de contenu avant T8** : `items::Price::problems` (montant nul, consommable inconnu, vie max hors `]0, max]`) est testée en unitaire dans `items` ; le lint la branchera avec le champ de prix de T8 | `items` : `price_problems_report_unknown_consumable_and_out_of_range_health` |
+| `Price` (§61, §73) | la surface de contenu est `shop.cost` d'un type de salle (T8) : `Price::problems` (montant nul, consommable inconnu, vie max hors `]0, max]` : `OutOfRange` / `BrokenReference`), `boss_drop.table` inconnu ; T12 n'ajoute rien (le trou de la première lecture, « aucune surface avant T8 », est fermé par T8) | `shop_cost_invalid`, `boss_drop_unknown_pool` (`m3_t8_fixtures.rs`) ; `items` : `price_problems_report_unknown_consumable_and_out_of_range_health` |
 | `ExtraHealth` (§61, §68) | `GainSoul > 0` dans un objet, une synergie, un personnage ; refusée dans un power-up | `item_gain_soul_zero` |
 | `hit_iframes` (§61) | `Some(0)` (`OutOfRange`) | `character_hit_iframes_zero` |
 | Plafond de compteur (§61, §68) | `max_stack` 0 ou sur un non-consommable, `starting_consumables` au-dessus du plafond, `refuse_when_full` sans soin | `item_max_stack_zero`, `character_starting_over_max_stack`, `item_refuse_when_full_without_heal` |
@@ -5871,10 +5871,10 @@ scénario ou le lobby peut en imposer une autre) ; seules les règles déclarée
 (`floor_tables` quand il y en a, sinon `table` : `RoomShopDef::table_for_floor` ignore `table` dès qu'il y a des
 `floor_tables`), par la récompense des salles `combat` (le pool d'étage s'il a `reward`, **sinon** `salle` : `salle` n'est
 tiré que pour une séquence sans `loot` ou à pool d'étage sans `reward`) et par le coffre de cette récompense quand
-`chest_chance > 0` (pool d'étage ou `commun`), par les rochers à butin des niveaux joués, par le butin (`loot`) des
-variantes à chance non nulle des ennemis atteints. Un coffre sans `table` tire le `loot` de l'étage de chaque séquence,
-`commun` pour une séquence sans `loot` (`game::loot::chest_table_id`). Chaque site porte un nombre de tirages par partie,
-au moins (salles exigées × étages de la partie, trois pour le remplissage).
+`chest_chance > 0` (pool d'étage ou `commun`), par le butin du boss (`boss_drop`, T8) d'un type de salle atteint, par les
+rochers à butin des niveaux joués, par le butin (`loot`) des variantes à chance non nulle des ennemis atteints. Un coffre sans
+`table` tire le `loot` de l'étage de chaque séquence, `commun` pour une séquence sans `loot` (`game::loot::chest_table_id`).
+Chaque site porte un nombre de tirages par partie, au moins (salles exigées × étages de la partie, trois pour le remplissage).
 
 Kind d'avertissement `LintWarningKind::MechanicUnmet` (JSON : `"kind": "MechanicUnmet"`), message « mécanique
 « <nom> » : … » qui nomme la salle ou le pool qui devrait porter la mécanique ; fichier : le type de salle, le pool ou
@@ -5885,7 +5885,7 @@ la séquence fautif, `game.ron` quand le manque est global.
 | pool jamais tiré | toujours | un pool n'a aucun site de tirage | `pool_that_nothing_draws`, `pool_of_a_default_chest_is_drawn` |
 | familier sans objet atteignable | toujours | tous les objets qui citent le personnage (hors `test_only`, D63) sont hors des pools tirés, du départ des personnages jouables, des étages et des déblocages | `familiar_whose_items_have_no_source`, `test_only_familiar_is_not_warned` |
 | synergie à objet sans source | toujours | un objet requis n'a aucune source | `synergy_with_an_item_that_has_no_source` |
-| salle spéciale vide | toujours, grammaire en grille | une salle exigée, la salle secrète ou la salle post-boss à chance > 0 n'a ni `chest`, `shop`, `arena` ni `locks` | `special_room_that_carries_nothing` |
+| salle spéciale vide | toujours, grammaire en grille | une salle exigée, la salle secrète ou la salle post-boss à chance > 0 n'a ni `chest`, `shop`, `arena`, `boss_drop` ni `locks` | `special_room_that_carries_nothing` |
 | mur secret sans bombe | toujours | un type à `door_lock: Secret` est atteint sans bombe jouable (consommable `bomb` **et** personnage à `bomb`) ni objet à `Explode { destroys: true }` | `secret_wall_without_a_bomb` |
 | curse jamais tirée | toujours | aucune séquence ne la met dans `curses.pool` (chance > 0) | `curse_that_no_sequence_draws` |
 | variante à chance nulle | toujours | `variants.chance` nulle pour 1 et 4 joueurs aux étages 0 et 5 | `variant_with_a_zero_chance` |
@@ -5897,9 +5897,9 @@ la séquence fautif, `game.ron` quand le manque est global.
 | `Bombs` | déclarée | pas de bombe de départ (personnage jouable), d'étage, de pool tiré (récompense, coffre, boutique, rocher, champion) ni de déblocage ; aucun personnage jouable à `bomb` (un personnage `test_only` ne compte pas, D63) ; aucun rocher ni pique (surface à `hazard`) dans un gabarit du type de remplissage | `bombs_rocks_and_spikes`, `test_only_characters_give_no_bomb_and_wrapped_explosions_count` |
 | `SecretRoom` | déclarée | pas de grammaire en grille ; la salle secrète n'est pas dans `required` ou n'est pas murée ; aucune explosion atteignable | `secret_room_not_required_or_not_walled` |
 | `Keys` | déclarée | pas de clé dans la récompense de combat ni dans une boutique ; aucune salle exigée à `door_lock: Key` | `keys_in_rewards_shops_and_locked_treasure` |
-| `Hearts` | déclarée | pas de `Currency` ni de cœur (`Heal`, `GainSoul`) dans la récompense de combat ; aucune boutique exigée (`required`) | `hearts_coins_and_shop` |
+| `Hearts` | déclarée | pas de `Currency` ni de cœur (`Heal`, `GainSoul`) dans la récompense de combat ; aucune boutique exigée (`required`) : une salle à `shop` payé en vie maximale (le diable) n'est pas la boutique | `hearts_coins_and_shop`, `devil_market_is_not_the_shop` |
 | `ExhaustPools` | déclarée | aucun pool `exhaust` tiré au moins deux fois par partie ordinaire | `exhausting_pool_drawn_once` |
-| `DevilMarket` | déclarée | aucune salle post-boss à chance > 0 dans une grammaire de la partie ordinaire (le contenu de la salle : règle « salle spéciale vide ») | `devil_market_without_a_post_boss_room` |
+| `DevilMarket` | déclarée | aucune salle post-boss à chance > 0 dans une grammaire de la partie ordinaire ; ou son type de salle n'a pas de `shop` à `cost` (présentoirs payés, T8 : sans prix ce n'est qu'une boutique) | `devil_market_without_a_post_boss_room`, `devil_market_needs_priced_shelves` |
 | `Champions` | déclarée | aucun ennemi atteint, hors `test_only`, ne porte une variante à chance non nulle | `champions_on_no_reachable_enemy` |
 | `Curses` | déclarée | la séquence ordinaire n'a pas de `curses` (chance > 0, une curse de poids > 0) | `curses_only_count_in_the_ordinary_sequence` |
 | `Achievements` | déclarée | aucun accomplissement aux conditions remplissables (§ ci-dessus) dont un déblocage donne un objet ou une entrée à un pool tiré | `achievements_without_a_visible_unlock`, `achievement_with_an_impossible_condition_is_not_visible` |
@@ -5932,10 +5932,12 @@ accordé (la règle « déblocage jamais accordé » le dit à part).
 
 ### Atteignabilité (jeux livrés)
 
-`zombies`, `throne` : aucun avertissement. `gungeon` : un, **réel** (pool `boss` jamais branché, M2-T7 l'avait prévu,
-aucune tâche M3 ne le ferme : dette). `testbed` (bac à sable, beaucoup d'avertissements voulus) : neuf de plus (pools
-d'essai non tirés, familiers et synergie d'essai, mur secret sans bombe). `isaac` : 20, listés au rapport avec la tâche
-qui ferme chacun (`docs/taches/rapports/m3-t12-lint-atteignabilite.md`). À rejouer après T11 (« une passe courte »).
+`zombies`, `throne` : aucun avertissement. `gungeon` : un, **réel** (pool `boss` jamais branché : le butin du boss est
+`boss_drop` de T8, `gungeon` ne le pose pas ; aucune tâche M3 ne le ferme : dette). `testbed` (bac à sable, beaucoup
+d'avertissements voulus) : dix de plus (pools d'essai non tirés dont `epuisable_temoin`, familiers et synergie d'essai, mur
+secret sans bombe). `isaac` : 18 (les 20 de la première mesure moins deux que T8 a fermés : salle du diable vide, aucun pool à
+épuisement), listés au rapport avec la tâche qui ferme chacun (`docs/taches/rapports/m3-t12-lint-atteignabilite.md`). À rejouer
+après T11 (« une passe courte »).
 
 ## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
 

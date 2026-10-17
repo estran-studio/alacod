@@ -1,1 +1,1 @@
-(chest: Some((table: Some("devil"), locked: false, rarity: Common)))
+(shop: Some((table: "devil", shelves: 2, cost: Some(MaxHealth("2")))))
