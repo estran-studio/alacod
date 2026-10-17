@@ -102,3 +102,21 @@ l'ordre des entités : corrigé. Trouvé en plus : étiquettes créées avant le
   rendues avant la dernière fusion de main (m3-t8, sans effet visuel sur gungeon).
 - Tables, barils : images posées sur l'entité LDtk d'origine (pas de `Transform` sur l'entité rollback).
 - Atteignabilité M2 : `gungeon_full_run` et `_four` (frames listées ci-dessus) ; classes : `gungeon_classes`.
+
+## 5. Second tour de revue (BLOQUANT ×2, corrigé)
+
+1. **Portes fantômes** : l'image d'une porte est enfant de l'entité LDtk persistante ; `Visibility::Visible` forcé
+   ignorait le monde caché de l'étage quitté. Corrigé : visibilité **héritée** (`Inherited`) ; `update_door_visuals`
+   laisse l'entité LDtk visible quand elle porte l'image (l'image « ouverte » ne dépend plus d'un `Visible` forcé) ;
+   `reap_held_sprites` cache l'image dès que la porte propriétaire n'existe plus (changement d'étage, création
+   annulée par un rollback) et la montre si un rollback la ressuscite. Test headless
+   `world_sprites::tests::l_image_d_une_porte_se_cache_quand_la_porte_disparait`. Preuve :
+   `correctif_portes/f3760_avant_apres.png` et `f3900_avant_apres.png` (`gungeon_full_run`, étage 2, barre rouge =
+   avant correctif avec portes de l'étage 1 affichées dans le noir, verte = après, sans porte fantôme).
+2. **Page de revue** : `selectVideo` transmet `legend` à `bindPlayer` ; marques placées à
+   `(frame/60 + tête) / durée totale`. Vérifié dans Chromium sur `http://localhost:8766` : clic sur « f3406 salle boss
+   verrouillée » → compteur « frame 3406 · 57,97 s », le boss est à l'écran ; marque f3439 à 45,175 % = (3439/60+1,2)/129,53.
+3. Dettes écrites au §83 (composants de présentation sur entités rollback, couleurs en dur, piques, coût des étiquettes).
+4. Rejoué (HEAD `c832d3f1`-base) : `make test_scenarios_par SHARDS=3` 536 scénarios, 198 s, aucune trace bougée ;
+   `test_crates` 1 125 passés ; fmt, `check_sim_boundary`, forbidden, rollback-registration, `test_tools` 25, lint/gen ×5 OK.
+   Vidéos régénérées : `target/videos/c832d3f1/` (24,1 et 23,2 Mo + montage) ; versions ≤ 10 Mo dans ce dossier.
