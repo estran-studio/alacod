@@ -86,6 +86,7 @@ pub fn status_color(kind: StatusDef) -> (f32, f32, f32) {
         StatusDef::Burn => (1.0, 0.55, 0.35),
         StatusDef::Poison => (0.55, 0.9, 0.4),
         StatusDef::Fear => (0.75, 0.55, 0.9),
+        StatusDef::Charm => (1.0, 0.6, 0.8),
         StatusDef::Slow => (0.6, 0.6, 0.9),
     }
 }
@@ -98,6 +99,7 @@ pub fn status_name(kind: StatusDef) -> &'static str {
         StatusDef::Burn => "brûlure",
         StatusDef::Poison => "poison",
         StatusDef::Fear => "peur",
+        StatusDef::Charm => "charme",
         StatusDef::Slow => "lenteur",
     }
 }

@@ -1301,6 +1301,8 @@ fn status_tint(statuses: &combat::status::Statuses) -> Color {
         Color::srgb(1.0, 0.55, 0.35)
     } else if has(StatusDef::Poison) {
         Color::srgb(0.55, 0.9, 0.4)
+    } else if has(StatusDef::Charm) {
+        Color::srgb(1.0, 0.6, 0.8)
     } else if has(StatusDef::Fear) {
         Color::srgb(0.75, 0.55, 0.9)
     } else if has(StatusDef::Slow) {

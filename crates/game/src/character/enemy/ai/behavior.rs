@@ -59,6 +59,8 @@ pub fn enemy_target_selection(
             &mut MonsterState,
             // T1.4 : `Targeting::Nearest { ignore }` (vide pour tout le contenu existant).
             Option<&EnemyBehaviors>,
+            // Suivi Q12 : `Charm` (§19) : l'ennemi charmé cible l'ennemi hostile le plus proche.
+            Option<&combat::status::Statuses>,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -95,10 +97,61 @@ pub fn enemy_target_selection(
         })
         .collect();
 
-    for (_enemy_net_id, enemy_transform, ai_config, mut target, mut state, enemy_behaviors) in
-        order_mut_iter!(enemy_query)
+    // Suivi Q12 : les ennemis qu'un charmé peut viser (vivants, non charmés), seulement quand l'un
+    // d'eux est charmé (aucun calcul ni allocation sinon).
+    let any_charmed = enemy_query
+        .iter()
+        .any(|(.., statuses)| combat::status::charmed(statuses));
+    let hostile_enemies: Vec<(GgrsNetId, fixed_math::FixedVec2)> = if any_charmed {
+        enemy_query
+            .iter()
+            .filter(|(_, _, _, _, state, _, statuses)| {
+                **state != MonsterState::Dead && !combat::status::charmed(*statuses)
+            })
+            .map(|(net_id, transform, ..)| (net_id.clone(), transform.translation.truncate()))
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    for (
+        enemy_net_id,
+        enemy_transform,
+        ai_config,
+        mut target,
+        mut state,
+        enemy_behaviors,
+        statuses,
+    ) in order_mut_iter!(enemy_query)
     {
         let enemy_pos = enemy_transform.translation.truncate();
+
+        // Suivi Q12 : un ennemi charmé ne vise que les ennemis hostiles ; le statut expiré, il oublie
+        // sa cible `Enemy` et redevient hostile (le chemin d'origine ci-dessous reprend la main).
+        if combat::status::charmed(statuses) {
+            charm_target_selection(
+                enemy_net_id,
+                enemy_pos,
+                &mut target,
+                &mut state,
+                &hostile_enemies,
+            );
+            continue;
+        }
+        if target.target_type == TargetType::Enemy {
+            target.target = None;
+            target.target_type = TargetType::None;
+            target.last_known_position = None;
+            if matches!(
+                *state,
+                MonsterState::Attacking {
+                    target: AttackTarget::Enemy { .. },
+                    ..
+                }
+            ) {
+                *state = MonsterState::Chasing;
+            }
+        }
 
         // T1.4 : joueurs ignorés par tag (`Targeting::Nearest { ignore }`) ; liste vide (tout
         // le contenu d'avant T1.4) : aucun filtre, `players` tel quel.
@@ -227,6 +280,123 @@ pub fn enemy_target_selection(
     }
 }
 
+/// Suivi Q12 : attaque d'un ennemi charmé. Une salve commencée contre un joueur est interrompue ;
+/// seule une cible `TargetType::Enemy` encore présente est frappée, au corps à corps, avec la même
+/// portée et la même cadence que contre un joueur (`MonsterState::Attacking { Enemy }`, dégât traduit
+/// par [`enemy_attack_damage_translate_system`]) ; toute autre attaque est abandonnée.
+#[allow(clippy::too_many_arguments)]
+fn charm_attack(
+    commands: &mut Commands,
+    frame: u32,
+    (enemy_net_id, enemy_entity, enemy_pos): (&GgrsNetId, Entity, fixed_math::FixedVec2),
+    ai_config: &EnemyAiConfig,
+    target: &EnemyTarget,
+    state: &mut MonsterState,
+    ranged_state: Option<Mut<RangedAttackState>>,
+    has_emitter: bool,
+    hostile: &[(GgrsNetId, fixed_math::FixedVec2)],
+) {
+    if has_emitter {
+        commands.entity(enemy_entity).remove::<Emitter>();
+    }
+    if let Some(mut ranged) = ranged_state {
+        if ranged.target.is_some() {
+            ranged.target = None;
+        }
+    }
+    let hit = (target.target_type == TargetType::Enemy)
+        .then(|| target.target.as_ref())
+        .flatten()
+        .and_then(|target_id| {
+            hostile
+                .iter()
+                .find(|(id, _)| id == target_id)
+                .map(|(id, pos)| (id, *pos))
+        });
+    let Some((target_id, target_pos)) = hit else {
+        if matches!(*state, MonsterState::Attacking { .. }) {
+            *state = MonsterState::Chasing;
+        }
+        return;
+    };
+    if enemy_pos.distance(&target_pos) >= ai_config.attack_range {
+        if matches!(*state, MonsterState::Attacking { .. }) {
+            *state = MonsterState::Chasing;
+        }
+        return;
+    }
+    let should_attack = match &*state {
+        MonsterState::Attacking {
+            last_attack_frame, ..
+        } => frame >= *last_attack_frame + ai_config.attack_cooldown_frames,
+        MonsterState::Chasing => true,
+        _ => false,
+    };
+    if should_attack {
+        *state = MonsterState::Attacking {
+            target: AttackTarget::Enemy {
+                net_id: target_id.clone(),
+            },
+            last_attack_frame: frame,
+        };
+        info!(
+            "ggrs{{f={} charm_attack net_id={} target={}}}",
+            frame, enemy_net_id.0, target_id.0
+        );
+    }
+}
+
+/// Suivi Q12 : cible d'un ennemi charmé (`charm::nearest_target`, égalité : plus petit `GgrsNetId`).
+/// Une attaque en cours contre un ennemi encore présent va à son terme ; toute autre attaque est
+/// abandonnée (jamais de coup sur un joueur ou une fenêtre pendant le charme).
+fn charm_target_selection(
+    own_id: &GgrsNetId,
+    position: fixed_math::FixedVec2,
+    target: &mut EnemyTarget,
+    state: &mut MonsterState,
+    hostile: &[(GgrsNetId, fixed_math::FixedVec2)],
+) {
+    if *state == MonsterState::Dead {
+        return;
+    }
+    if let MonsterState::Attacking {
+        target: AttackTarget::Enemy { net_id },
+        ..
+    } = &*state
+    {
+        if hostile.iter().any(|(id, _)| id == net_id) {
+            return;
+        }
+    }
+    if matches!(*state, MonsterState::Attacking { .. }) {
+        *state = MonsterState::Chasing;
+    }
+    let nearest = super::charm::nearest_target(
+        position,
+        hostile
+            .iter()
+            .filter(|(id, _)| id.0 != own_id.0)
+            .map(|(id, pos)| (id.0, *pos)),
+    );
+    match nearest {
+        Some((id, pos)) => {
+            target.target = hostile
+                .iter()
+                .find(|(candidate, _)| candidate.0 == id)
+                .map(|(candidate, _)| candidate.clone());
+            target.target_type = TargetType::Enemy;
+            target.last_known_position = Some(pos);
+            *state = MonsterState::Chasing;
+        }
+        None => {
+            target.target = None;
+            target.target_type = TargetType::None;
+            target.last_known_position = None;
+            *state = MonsterState::Idle;
+        }
+    }
+}
+
 /// System to handle enemy attacks
 ///
 /// Tir à distance (T1.2, `EnemyAiConfig::ranged`) : voir [`ranged_attack`], joué avant le
@@ -274,6 +444,21 @@ pub fn enemy_attack_system(
     >,
     mut obstacle_events: ResMut<FrameEvents<ObstacleAttackEvent>>,
 ) {
+    // Suivi Q12 : cibles possibles des ennemis charmés (vivants, non charmés), seulement si l'un
+    // d'eux est charmé : aucun calcul ni allocation sinon.
+    let any_charmed = enemy_query
+        .iter()
+        .any(|item| combat::status::charmed(item.11));
+    let hostile_enemies: Vec<(GgrsNetId, fixed_math::FixedVec2)> = if any_charmed {
+        enemy_query
+            .iter()
+            .filter(|item| *item.5 != MonsterState::Dead && !combat::status::charmed(item.11))
+            .map(|item| (item.0.clone(), item.2.translation.truncate()))
+            .collect()
+    } else {
+        Vec::new()
+    };
+
     for (
         enemy_net_id,
         enemy_entity,
@@ -294,6 +479,22 @@ pub fn enemy_attack_system(
             continue;
         }
         let enemy_pos = enemy_transform.translation.truncate();
+
+        // Suivi Q12 : un ennemi charmé n'attaque que sa cible ennemie (corps à corps), jamais un joueur.
+        if combat::status::charmed(statuses) {
+            charm_attack(
+                &mut commands,
+                frame.frame,
+                (enemy_net_id, enemy_entity, enemy_pos),
+                ai_config,
+                target,
+                &mut state,
+                ranged_state,
+                has_emitter,
+                &hostile_enemies,
+            );
+            continue;
+        }
 
         // T1.4 : un ennemi à behaviors nouveaux (`BehaviorRuntime`) n'exécute que sa règle
         // retenue (`rules::behavior_select_system`) ; les autres — tout le contenu d'avant
@@ -478,7 +679,9 @@ pub fn enemy_attack_system(
                     }
                 }
             }
-            TargetType::None => {
+            // Suivi Q12 : une cible `Enemy` n'existe que pour un charmé (branche ci-dessus) ; effacée par
+            // `enemy_target_selection` dès la fin du charme, jamais lue ici.
+            TargetType::None | TargetType::Enemy => {
                 // No target, return to idle
                 if *state == MonsterState::Chasing {
                     *state = MonsterState::Idle;
@@ -673,14 +876,18 @@ pub fn enemy_attack_damage_translate_system(
         if ranged_state.is_some_and(|ranged| ranged.target.is_some()) {
             continue;
         }
-        let MonsterState::Attacking {
-            target: AttackTarget::Player {
-                net_id: target_net_id,
-            },
-            last_attack_frame,
-        } = state
-        else {
-            continue;
+        // Suivi Q12 : un coup de charmé sur un ennemi est un coup de l'équipe `Players`
+        // (adversaire de sa cible : `team_allows_hit` le laisse passer, jamais un allié du joueur).
+        let (target_net_id, last_attack_frame, source_team) = match state {
+            MonsterState::Attacking {
+                target: AttackTarget::Player { net_id },
+                last_attack_frame,
+            } => (net_id, last_attack_frame, *team),
+            MonsterState::Attacking {
+                target: AttackTarget::Enemy { net_id },
+                last_attack_frame,
+            } => (net_id, last_attack_frame, Team::Players),
+            _ => continue,
         };
         if *last_attack_frame != previous_frame {
             continue;
@@ -700,8 +907,99 @@ pub fn enemy_attack_damage_translate_system(
             }),
             frame: frame.frame,
             tags,
-            source_team: *team,
+            source_team,
             friendly_fire: ai_config.friendly_fire,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn id(n: usize) -> GgrsNetId {
+        GgrsNetId(n, "test".into())
+    }
+
+    fn at(x: f32, y: f32) -> fixed_math::FixedVec2 {
+        fixed_math::FixedVec2::new(fixed_math::new(x), fixed_math::new(y))
+    }
+
+    /// Suivi Q12 : un charmé vise l'ennemi hostile le plus proche (jamais lui-même) et abandonne une
+    /// attaque en cours contre un joueur.
+    #[test]
+    fn charme_vise_l_ennemi_le_plus_proche_et_lache_le_joueur() {
+        let hostile = [(id(20), at(100.0, 0.0)), (id(16), at(40.0, 0.0))];
+        let mut target = EnemyTarget {
+            target: Some(id(1)),
+            target_type: TargetType::Player,
+            last_known_position: Some(at(-50.0, 0.0)),
+        };
+        let mut state = MonsterState::Attacking {
+            target: AttackTarget::Player { net_id: id(1) },
+            last_attack_frame: 10,
+        };
+        charm_target_selection(&id(14), at(0.0, 0.0), &mut target, &mut state, &hostile);
+        assert_eq!(target.target, Some(id(16)));
+        assert_eq!(target.target_type, TargetType::Enemy);
+        assert_eq!(target.last_known_position, Some(at(40.0, 0.0)));
+        assert_eq!(state, MonsterState::Chasing);
+    }
+
+    /// Une attaque en cours contre un ennemi encore présent n'est pas interrompue ; sa cible disparue,
+    /// le charmé en cherche une autre, et sans ennemi hostile il se met en attente.
+    #[test]
+    fn charme_finit_son_coup_puis_cherche_ou_attend() {
+        let attacking = MonsterState::Attacking {
+            target: AttackTarget::Enemy { net_id: id(16) },
+            last_attack_frame: 10,
+        };
+        let mut target = EnemyTarget::default();
+        let mut state = attacking.clone();
+        charm_target_selection(
+            &id(14),
+            at(0.0, 0.0),
+            &mut target,
+            &mut state,
+            &[(id(16), at(500.0, 0.0)), (id(17), at(10.0, 0.0))],
+        );
+        assert_eq!(
+            state, attacking,
+            "la cible 16 est encore là, même si 17 est plus proche"
+        );
+        assert_eq!(target.target, None);
+        assert_eq!(target.target_type, TargetType::None);
+
+        charm_target_selection(
+            &id(14),
+            at(0.0, 0.0),
+            &mut target,
+            &mut state,
+            &[(id(17), at(10.0, 0.0))],
+        );
+        assert_eq!(target.target, Some(id(17)));
+        assert_eq!(state, MonsterState::Chasing);
+
+        charm_target_selection(&id(14), at(0.0, 0.0), &mut target, &mut state, &[]);
+        assert_eq!(target.target, None);
+        assert_eq!(target.target_type, TargetType::None);
+        assert_eq!(state, MonsterState::Idle);
+    }
+
+    /// Un ennemi mort ne choisit plus de cible.
+    #[test]
+    fn charme_mort_ne_change_rien() {
+        let mut target = EnemyTarget::default();
+        let mut state = MonsterState::Dead;
+        charm_target_selection(
+            &id(14),
+            at(0.0, 0.0),
+            &mut target,
+            &mut state,
+            &[(id(16), at(10.0, 0.0))],
+        );
+        assert_eq!(state, MonsterState::Dead);
+        assert_eq!(target.target, None);
+        assert_eq!(target.target_type, TargetType::None);
     }
 }

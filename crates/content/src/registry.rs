@@ -1001,6 +1001,8 @@ pub enum StatusKindEntry {
     Poison,
     /// M3-T1 (§66) : l'ennemi fuit sa cible pendant `frames`.
     Fear,
+    /// Suivi Q12 (§19) : l'ennemi cible l'ennemi le plus proche pendant `frames`, puis redevient hostile.
+    Charm,
 }
 
 /// Statut (T1.3, `docs/conventions.md` §19), `statuses/<id>.ron` :

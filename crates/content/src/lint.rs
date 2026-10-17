@@ -4184,7 +4184,10 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
                     ));
                 }
             }
-            StatusKindEntry::Stun | StatusKindEntry::Freeze | StatusKindEntry::Fear => {}
+            StatusKindEntry::Stun
+            | StatusKindEntry::Freeze
+            | StatusKindEntry::Fear
+            | StatusKindEntry::Charm => {}
         }
     }
 }

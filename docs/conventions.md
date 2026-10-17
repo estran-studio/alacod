@@ -1293,6 +1293,32 @@ source_team, next_tick_frame }`, dans l'ordre de pose.
 - `Freeze` : `Stun`, plus vitesse **et recul** remis à zéro chaque frame (`status_motion_system`,
   `Movement`, avant `move_characters`).
 
+- `Charm` (suivi Q12, réponse de William du 2026-10-16 ; `StatusDef::Charm`, **en fin d'enum** : le `derive(Hash)` hache
+  l'index de variante, les sept d'avant gardent le leur, et aucun contenu existant ne l'utilise, donc aucune trace ne
+  bouge ; `StatusKindEntry::Charm`, `(kind: Charm, frames: 200)`). Réapplication : durée rafraîchie, jamais de pile.
+  **Sans effet sur un joueur.** Un ennemi charmé sert le camp des joueurs pendant la durée :
+  - **Cible** (`ai::behavior::enemy_target_selection`, `ai::charm::nearest_target`, pure) : l'ennemi **hostile le plus
+    proche**, c'est-à-dire un autre ennemi vivant, **non charmé**, hors salle dormante ; distance au carré en
+    `FixedWide`, **égalité : le plus petit `GgrsNetId`** (indépendant de l'ordre d'itération). Portée illimitée, ni
+    aggro ni vue. Cible stockée dans `EnemyTarget` avec `TargetType::Enemy` (variante ajoutée en fin d'enum) ; sans
+    ennemi hostile : `Idle`. Une attaque en cours contre un ennemi encore présent va à son terme ; toute autre
+    attaque (joueur, fenêtre) est abandonnée à la sélection suivante.
+  - **Mouvement** (`pathing::move_enemies`, `ai::charm::charm_motion`, pure) : droit sur la cible à pleine vitesse, à
+    l'arrêt à moins de `OptimalAttackDistance` ; glissement sur les murs comme tout ennemi, **sans champ de flux** (il ne
+    mène qu'aux joueurs : un charmé ne contourne pas un mur). Il n'est pas repoussé par sa cible (la séparation entre
+    ennemis le tenait à une quarantaine d'unités, hors de portée de corps à corps).
+  - **Attaque** (`behavior::charm_attack`) : corps à corps seulement, portée `attack_range` et cadence
+    `attack_cooldown_frames` de l'ennemi, `MonsterState::Attacking { target: AttackTarget::Enemy }` (variante ajoutée
+    en fin d'enum) ; le dégât est traduit à la frame suivante (`enemy_attack_damage_translate_system`) avec
+    `source_team: Players` (adversaire de sa cible : `team_allows_hit` le laisse passer). **Aucun tir et aucune
+    attaque sur un joueur** : une salve commencée contre un joueur est interrompue (`Emitter` retiré), les règles de
+    comportement de l'ennemi (`behaviors`) sont ignorées pendant le charme.
+  - **Fin** : le statut retiré (`Statuses::tick`), la cible `Enemy` est effacée à la frame suivante et l'ennemi
+    redevient hostile (joueur le plus proche, comme avant) sans état à nettoyer.
+  Teinte rose des calques (`feedback::status_tint`, présentation). Scénarios `status_charm` (le `breacher` charmé frappe la
+  `target` la plus proche, jamais la lointaine ni le joueur, puis se retourne contre le joueur à l'expiration) et son
+  témoin `status_charm_temoin` ; arme `status_charm` (scénario généré `weapon_status_charm`), statut `charme`.
+
 **Ordre** : pose (`Projectiles`, après les coups de la frame) → `status_tick_system` (même set,
 juste après : ticks de `Burn` puis expiration, `expires_at_frame <= frame`, porteurs par
 `GgrsNetId`) → résolution des dégâts (`CollisionDamage`, même frame). Un statut posé à la frame
