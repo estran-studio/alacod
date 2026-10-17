@@ -1,0 +1,42 @@
+// M3-T6 (§71), Q13 : `MirrorShot` tire **les larmes du porteur** (arme + objets, §66). Une seule larme plein
+// ouest (f20) ; trois `target` alignées (x = 600, 560, 520, en y = -194). Le joueur tient un `perforant`
+// (`Pierce(1)`) et un `compagnon` : la larme du porteur ET celle du familier (même arme `larme`, mêmes objets)
+// traversent la première cible et s'arrêtent dans la deuxième : chacune est touchée deux fois, la troisième
+// jamais. Avant Q13 le familier tirait son propre `pistol`, sans les objets du porteur : la deuxième cible
+// n'aurait été touchée qu'une fois. Témoin `familiar_mirror_items_sans_objet` : même scène sans `perforant`
+// (les deux larmes s'arrêtent dans la première cible).
+//
+// À regarder : deux larmes qui partent à la suite, le familier une frame après le porteur ; elles percent la
+// première cible et s'éteignent dans la deuxième.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "target", x: "600.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "560.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "-194.0", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 21, buttons: [Fire], pan: (-127, 0))],
+            weapon: "larme",
+            items: ["perforant", "compagnon"],
+        ),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "perforant", count: 1, at_frame: 1),
+        FamiliarCount(handle: 0, count: 1, at_frame: 5),
+        // Les deux larmes partent à f20 et touchent la première cible (15) à f50, la deuxième (16) à f62, puis
+        // s'éteignent : plus aucune larme en vol à f75.
+        EntityHits(net_id: 15, min: 0, max: Some(0), at_frame: 49),
+        EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 50),
+        EntityHits(net_id: 16, min: 0, max: Some(0), at_frame: 61),
+        EntityHits(net_id: 16, min: 2, max: Some(2), at_frame: 62),
+        EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 119),
+        EntityHits(net_id: 16, min: 2, max: Some(2), at_frame: 119),
+        BulletCount(count: 0, projectile: Some("larme"), at_frame: 75),
+        EntityHits(net_id: 17, min: 0, max: Some(0), at_frame: 119),
+    ],
+)

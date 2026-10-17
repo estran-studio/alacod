@@ -1,7 +1,7 @@
 // M3-T6 (docs/conventions.md §71) : `MirrorShot` ne se déclenche que sur un tir **réellement parti**. Le joueur 0
 // (arme `larme`, 3 tirs par seconde : premier tir à f20) tient la gâchette dès la frame 0 ; la cadence refuse
 // tout tir avant f20 (aucune balle, donc aucun tir du `compagnon`, qui ne se déclenchait à tort qu'à la frame 0).
-// À f20 la larme part, puis le familier (`pistol`) tire dans la même frame.
+// À f20 la larme part, puis le familier tire dans la même frame (les larmes du porteur : Q13, avant son `pistol`).
 //
 // À regarder : rien ne part pendant 20 frames malgré la gâchette tenue, puis deux balles à f20.
 Scenario(

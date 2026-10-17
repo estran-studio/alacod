@@ -21,7 +21,6 @@
 //! collisions) `BlockBullets`.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 use behaviors::{
     familiar::{follow_step, orbit_position},
@@ -34,15 +33,18 @@ use combat::{
     collider::{Collider, CollisionSettings},
     collision_grid::{collider_aabb, union_aabb},
     downed::Downed,
-    projectile::Projectile,
     team::team_allows_hit,
     weapons::{
-        bullet_rollback_collision_system, bullet_rollback_system, spawn_bullet, Bullet,
-        BulletSpawn, BulletType, WeaponsConfig,
+        aim_direction, bullet_rollback_collision_system, bullet_rollback_system,
+        carried_projectile_mods, shot_projectile, spawn_bullet, tear_motion, Bullet, BulletSpawn,
+        ShotStats, WeaponInventory, WeaponState,
     },
 };
-use items::{Inventory, ItemTable};
-use sim_core::{frame_events::FrameEvents, tag::Tags, team::Team, triggers::WeaponFired};
+use items::{Inventory, ItemTable, SynergyTable};
+use sim_core::{
+    frame_events::FrameEvents, stats::StatId, tag::Tags, team::Team, triggers::WeaponFired,
+};
+use stats::StatReader;
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
@@ -85,10 +87,10 @@ impl FamiliarBehaviors {
         })
     }
 
-    /// `MirrorShot { weapon, every }`, s'il y en a un.
-    pub fn mirror_shot(&self) -> Option<(&str, u32)> {
+    /// `MirrorShot { every }`, s'il y en a un.
+    pub fn mirror_shot(&self) -> Option<u32> {
         self.0.iter().find_map(|rule| match rule {
-            Behavior::MirrorShot { weapon, every } => Some((weapon.as_str(), *every)),
+            Behavior::MirrorShot { every } => Some(*every),
             _ => None,
         })
     }
@@ -392,11 +394,14 @@ pub fn owner_fired(events: &[WeaponFired], handle: usize, frame: u32) -> bool {
 
 /// `MirrorShot` : quand le porteur a **réellement tiré** cette frame (`WeaponFired`, émis par
 /// `weapon_rollback_system` quand la balle part, jamais pour une gâchette que la cadence ou le
-/// chargeur refuse), le familier tire **sa** arme (Q13, proposition par défaut : sans les modificateurs du porteur ni
-/// ses objets) dans la direction de visée du porteur, au plus une fois tous les `every` frames.
-/// Un tir par déclenchement (pas de plomb multiple), sans dispersion ni recul (aucun RNG consommé).
-/// La balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills lui reviennent, elle ne le
-/// touche jamais) et les tags du familier.
+/// chargeur refuse), le familier tire **les larmes du porteur** (Q13, réponse de William du
+/// 2026-10-16) : l'arme active du porteur dans son mode actif, composée avec ses objets et synergies
+/// (`combat::weapons::shot_projectile`, §66), ses stats de larmes (`Damage`, `Range`, `ShotSpeed`,
+/// `ShotSize`, `Luck`), dans la direction de visée du porteur, au plus une fois tous les `every`
+/// frames. Un tir par déclenchement (pas de plomb multiple), sans dispersion ni recul (aucun RNG
+/// consommé) ; ni chargeur ni cadence du porteur consommés. La balle porte le `GgrsNetId` et
+/// l'équipe du **porteur** (les kills lui reviennent, elle ne le touche jamais) et les tags du
+/// familier.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn familiar_mirror_shot_system(
     mut commands: Commands,
@@ -404,9 +409,18 @@ pub fn familiar_mirror_shot_system(
     inputs: Res<PlayerInputs<PeerConfig>>,
     fired_events: Res<FrameEvents<WeaponFired>>,
     owners: Query<
-        (&GgrsNetId, &Player, Has<Downed>, Option<&Team>),
+        (
+            Entity,
+            &GgrsNetId,
+            &Player,
+            Has<Downed>,
+            Option<&Team>,
+            &WeaponInventory,
+            Option<&Inventory>,
+        ),
         (With<Rollback>, Without<FamiliarOf>),
     >,
+    weapon_states: Query<&WeaponState>,
     mut familiars: Query<
         (
             &GgrsNetId,
@@ -419,8 +433,9 @@ pub fn familiar_mirror_shot_system(
         ),
         With<Rollback>,
     >,
-    global_assets: Res<GlobalAsset>,
-    weapons: Res<Assets<WeaponsConfig>>,
+    stats: StatReader,
+    item_table: Option<Res<ItemTable>>,
+    synergy_table: Option<Res<SynergyTable>>,
     collision_settings: Res<CollisionSettings>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
@@ -428,17 +443,14 @@ pub fn familiar_mirror_shot_system(
         return;
     }
     let fired_events: Vec<WeaponFired> = fired_events.iter().cloned().collect();
-    let Some(weapons) = weapons.get(&global_assets.weapons) else {
-        return;
-    };
     for (net_id, familiar, behaviors, transform, team, tags, mut gun) in
         utils::order_mut_iter!(familiars)
     {
-        let Some((weapon_id, every)) = behaviors.mirror_shot() else {
+        let Some(every) = behaviors.mirror_shot() else {
             continue;
         };
-        let Some((owner_id, player, downed, owner_team)) =
-            owners.iter().find(|(id, ..)| id.0 == familiar.owner.0)
+        let Some((owner_entity, owner_id, player, downed, owner_team, weapons, held)) =
+            owners.iter().find(|(_, id, ..)| id.0 == familiar.owner.0)
         else {
             continue;
         };
@@ -447,42 +459,32 @@ pub fn familiar_mirror_shot_system(
         if downed || !fired || !gun.ready(frame.frame, every) {
             continue;
         }
-        let aim = FixedVec2::new(
-            Fixed::from_num(input.pan_x) / fixed_math::new(127.0),
-            Fixed::from_num(input.pan_y) / fixed_math::new(127.0),
-        )
-        .normalize_or_zero();
+        let aim = aim_direction(input.pan_x, input.pan_y);
         if aim == FixedVec2::ZERO {
             continue;
         }
-        let Some(asset) = weapons.0.get(weapon_id) else {
-            warn!(
-                "familier {} : arme « {} » inconnue (voir `alacod lint`), pas de tir",
-                net_id, weapon_id
-            );
+        let Some((weapon_entity, weapon)) = weapons.weapons.get(weapons.active_weapon_index) else {
             continue;
         };
-        let Some(mode) = asset
-            .config
-            .firing_modes
-            .get(&asset.config.default_firing_mode)
+        let Some(mode) = weapon_states
+            .get(*weapon_entity)
+            .ok()
+            .and_then(|state| weapon.config.firing_modes.get(&state.active_mode))
         else {
             continue;
         };
-        let (damage, speed) = match mode.bullet_type {
-            BulletType::Standard { damage, speed }
-            | BulletType::Explosive { damage, speed, .. }
-            | BulletType::Piercing { damage, speed, .. } => (damage, speed),
+        let damage_mult = stats.get(owner_entity, &StatId::Damage, fixed_math::FIXED_ONE);
+        let range_mult = stats.get(owner_entity, &StatId::Range, fixed_math::FIXED_ONE);
+        let shot = ShotStats {
+            speed: stats.get(owner_entity, &StatId::ShotSpeed, fixed_math::FIXED_ONE),
+            size: stats.get(owner_entity, &StatId::ShotSize, fixed_math::FIXED_ONE),
         };
-        let projectile = (!mode.projectile.is_empty()).then(|| {
-            Projectile::new(
-                asset.config.name.clone(),
-                &mode.projectile,
-                Arc::new(asset.config.projectiles.clone()),
-                fixed_math::FIXED_ONE,
-                0,
-            )
+        let carried =
+            carried_projectile_mods(held, item_table.as_deref(), synergy_table.as_deref());
+        let projectile = shot_projectile(&weapon.config, mode, &carried, damage_mult, || {
+            stats.get(owner_entity, &StatId::Luck, Fixed::ZERO)
         });
+        let (velocity, damage) = tear_motion(&mode.bullet_type, aim, shot, damage_mult);
         let shooter_tags = tags.cloned().unwrap_or_default();
         let id_label = format!("{}", mode.bullet_type);
         spawn_bullet(
@@ -492,10 +494,10 @@ pub fn familiar_mirror_shot_system(
             BulletSpawn {
                 position: transform.translation,
                 rotation: fixed_math::FixedMat3::IDENTITY,
-                velocity: aim * (speed / Fixed::from_num(60)),
+                velocity,
                 bullet_type: mode.bullet_type,
                 damage,
-                range: mode.range,
+                range: mode.range.saturating_mul(range_mult),
                 player_handle: player.handle,
                 created_at: frame.frame,
                 source: owner_id,
@@ -504,10 +506,10 @@ pub fn familiar_mirror_shot_system(
                     .or(owner_team.copied())
                     .unwrap_or(Team::Players),
                 source_tags: &shooter_tags,
-                friendly_fire: asset.config.friendly_fire,
+                friendly_fire: weapon.config.friendly_fire,
                 projectile,
                 id_label,
-                shot_size: fixed_math::FIXED_ONE,
+                shot_size: shot.size,
             },
         );
         gun.last_shot = Some(frame.frame);
@@ -786,10 +788,7 @@ mod tests {
     #[test]
     fn mouvement_et_tir_d_un_familier_se_lisent_dans_ses_regles() {
         let rules = FamiliarBehaviors(vec![
-            Behavior::MirrorShot {
-                weapon: "pistol".into(),
-                every: 12,
-            },
+            Behavior::MirrorShot { every: 12 },
             Behavior::Orbit {
                 radius: Fixed::from_num(30),
                 frames_per_turn: 90,
@@ -807,7 +806,7 @@ mod tests {
             }),
             "la première règle de mouvement l'emporte"
         );
-        assert_eq!(rules.mirror_shot(), Some(("pistol", 12)));
+        assert_eq!(rules.mirror_shot(), Some(12));
         assert!(rules.blocks_bullets());
         assert_eq!(FamiliarBehaviors::default().motion(), None);
     }

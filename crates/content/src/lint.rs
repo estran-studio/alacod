@@ -3169,16 +3169,7 @@ fn lint_rules(
                     );
                 }
             }
-            BehaviorEntry::MirrorShot { weapon, every } => {
-                if !registry
-                    .weapons
-                    .contains_key(&registry::WeaponId::from(weapon.clone()))
-                {
-                    push(
-                        LintErrorKind::BrokenReference,
-                        format!("behaviors : MirrorShot : arme inconnue « {weapon} »"),
-                    );
-                }
+            BehaviorEntry::MirrorShot { every } => {
                 if *every == 0 {
                     push(
                         LintErrorKind::OutOfRange,

@@ -471,7 +471,6 @@ pub enum BehaviorEntry {
         frames_per_turn: u32,
     },
     MirrorShot {
-        weapon: String,
         #[schemars(extend("x-lint" = "> 0"))]
         every: u32,
     },

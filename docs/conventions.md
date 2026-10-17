@@ -4464,9 +4464,8 @@ familiers, M3-T7 les champions.
 **Behaviors de familier** (`behaviors::Behavior`, variantes **en fin d'enum**) : `Follow { gap }` (suit
 le porteur à `gap` unités, en file derrière les autres familiers du même porteur : rang = ordre
 d'apparition), `Orbit { radius, frames_per_turn }` (tourne autour du porteur, phase = rang × 2π /
-nombre d'orbitaux, par `fixed_math`), `MirrorShot { weapon, every }` (tire quand le porteur tire, dans
-sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : l'arme du familier, sans les
-modificateurs du porteur), `BlockBullets` (une balle hostile qui touche le familier est détruite par
+nombre d'orbitaux, par `fixed_math`), `MirrorShot { every }` (tire quand le porteur tire, dans
+sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : les larmes du porteur, voir §71 « Q13 »), `BlockBullets` (une balle hostile qui touche le familier est détruite par
 `despawn_rollback`, comme le blank ; le familier est immunisé). `Behavior::is_familiar`. `select`
 ne retient jamais ces règles (un familier n'a pas d'IA de poursuite) ; kinds `Follow`, `Orbit`,
 `MirrorShot`, `BlockBullets` déclarés (`register_kinds`). Un familier est un **personnage** de
@@ -4481,7 +4480,7 @@ ramassages de la frame.
 **Champ d'objet.** `ItemDef.familiar: Option<FamiliarRef { character, per_copy }>` (`per_copy` : 1 par
 défaut, par exemplaire tenu). Définition hors rollback et hors hash. **Lint** : personnage inconnu
 (`BrokenReference`), personnage sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0,
-`frames_per_turn = 0`, `every = 0`, arme de `MirrorShot` inconnue ; réciproquement un behavior de
+`frames_per_turn = 0`, `every = 0` ; réciproquement un behavior de
 familier sur un personnage qu'aucun objet ne cite est refusé (`Unsupported`, « sans porteur »).
 
 **Champions v2.** Champs optionnels de `VariantDef` (hors hash : le composant `Variant(nom)` ne change
@@ -4505,7 +4504,7 @@ non vide et valides (mêmes règles que `ai.behaviors`), `chance` dans [0, 1] po
 **Preuves.** Fixtures `familiar_ok`, `familiar_unknown_character`, `familiar_orphan_behavior`,
 `familiar_without_behavior`, `familiar_gap_zero`, `champion_ok`, `champion_bad_death`,
 `variant_chance_expression_range`, `variant_chance_expression_unknown` ; contenu `testbed` : personnage
-`compagnon` (`Follow` + `MirrorShot`, arme `pistol`) et objet `compagnon` (`familiar`), accepté par le lint,
+`compagnon` (`Follow` + `MirrorShot`) et objet `compagnon` (`familiar`), accepté par le lint,
 sans scénario de jeu (le ramassage ne crée rien encore). Attente de scénario `FamiliarCount { handle,
 count, at_frame }` (familiers dont le porteur est le joueur ; 0 tant que M3-T6 n'existe pas).
 
@@ -5407,19 +5406,24 @@ toujours » un personnage invulnérable (§16) : une balle à tête chercheuse p
   `max(5, excédent / 4)` unités par frame sans dépasser l'excédent. Les suiveurs d'un porteur, par rang croissant,
   forment une **file** : le premier vise le porteur, chacun des suivants le précédent (position déjà mise à jour dans
   la frame). Pas de mémoire de trajectoire : la file se déduit des positions courantes.
-- **`MirrorShot { weapon, every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **sa** arme
-  `weapon` (mode par défaut), dans la direction de visée du porteur (`pan` de l'input), au plus une fois par `every`
-  frames (`FamiliarGun`). Le déclencheur est l'événement transitoire `sim_core::triggers::WeaponFired { frame,
-  player_handle }`, émis par `weapon_rollback_system` quand la balle part (cadence respectée, chargeur non vide) et
-  lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence refuse n'émet rien (à la frame 0,
-  `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement transitoire : hors checksum, hors
-  snapshot, aucune trace ne bouge. **Q13 (réponse de la fiche et du plan : proposition par défaut) : l'arme du
-  familier, sans les modificateurs du porteur** ni ses objets de larmes ; un seul tir par déclenchement (pas de plombs
-  multiples), ni dispersion ni recul (aucun RNG consommé), projectile composable de l'arme si elle en déclare un. La
-  balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche
-  jamais), `player_handle` du porteur, les tags du familier. Variante non retenue (larmes du porteur) :
-  `Projectile::composed` de §66 prend ses ajouts en paramètre, il suffirait d'y passer `items::projectile_mods` du
-  porteur.
+- **`MirrorShot { every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **les larmes du
+  porteur** (Q13, réponse de William du 2026-10-16, reprise de T6 : `weapon` a disparu du contrat, un familier n'a plus
+  d'arme propre) : l'arme **active** du porteur dans son **mode actif**, composée avec ses objets et synergies par
+  `combat::weapons::shot_projectile` (`Projectile::composed` de §66 + `items::projectile_mods`, même code que le tir du
+  joueur : `carried_projectile_mods`, `tear_motion`, `aim_direction` sont partagés avec `weapon_rollback_system`) et avec
+  ses stats de larmes (`Damage`, `Range`, `ShotSpeed`, `ShotSize`, `Luck`), dans la direction de visée du porteur
+  (`pan` de l'input), au plus une fois par `every` frames (`FamiliarGun`). Le déclencheur est l'événement transitoire
+  `sim_core::triggers::WeaponFired { frame, player_handle }`, émis par `weapon_rollback_system` quand la balle part
+  (cadence respectée, chargeur non vide) et lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence
+  refuse n'émet rien (à la frame 0, `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement
+  transitoire : hors checksum, hors snapshot. Un seul tir par déclenchement (pas de plombs multiples pour un fusil à
+  pompe), ni dispersion ni recul (aucun RNG consommé), ni chargeur ni cadence du porteur consommés. La balle porte le
+  `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche jamais),
+  `player_handle` du porteur, les tags du familier, `friendly_fire` de l'arme du porteur. Porteur sans arme (inventaire
+  d'armes vide) : pas de tir. **Traces** : un familier dont le porteur tient la même arme que l'ancien `weapon` du
+  familier et aucun objet de larmes tire **exactement** la même balle qu'avant (`isaac` : `frere` tirait `larmes`, ses
+  traces ne bougent pas) ; le testbed (`compagnon` tirait `pistol`, dégâts 15 vitesse 400) tire désormais `larme`
+  (3,5 / 200) : preuve au § « Q13 : traces bougées » ci-dessous.
 - **`BlockBullets`** : entre le mouvement des balles et leurs collisions, une balle (ordinaire ou composable) que
   `team_allows_hit` dit hostile au familier et dont le **disque balayé** de la frame (segment ancienne → nouvelle
   position, rayon de la balle) touche son collider est détruite par `despawn_rollback()` (sans `on_expire`), comme le
@@ -5441,22 +5445,48 @@ familier de rang `to_rank` (avec `FamiliarCount` de §63).
 
 ### Testbed et scénarios
 
-Personnages `compagnon` (`Follow` 28 + `MirrorShot` `pistol` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
+Personnages `compagnon` (`Follow` 28 + `MirrorShot` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
 `BlockBullets`), `rempart` (`Orbit` 24 en 36 000 frames : quasi immobile à l'est du porteur, `BlockBullets`). Objets
 `compagnon`, `compagnon_actif` (actif), `orbital`, `essaim` (`per_copy: 2`), `trio` (`per_copy: 3`), `rempart`.
 
 | Scénario | Prouve |
 |---|---|
 | `familiar_follow` | apparaît sur le porteur, reste dans sa laisse, rattrape et garde 28 unités |
-| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f58, le porteur f83) ; témoin : un seul |
+| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f81, le porteur f83 ; avant Q13, `pistol` : f58) ; témoin : un seul |
+| `familiar_mirror_items`, `..._sans_objet` | Q13 : avec `perforant` (`Pierce(1)`), la larme du porteur **et** celle du familier traversent la première cible et s'arrêtent dans la deuxième (deux coups chacune, f50 et f62, la troisième jamais touchée) ; témoin sans `perforant` : deux coups sur la première, rien sur les autres |
 | `familiar_two_copies` | deux `compagnon` en file (rangs 0, 1) et un `trio` (rangs 2 à 4, à 120°) |
 | `familiar_lost_with_active` | l'actif remplacé détruit son familier, l'orbital passif reste |
 | `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle (f125 : au bord, 19 en vol comme le témoin ; f126 : 18 contre 19), santé 100 à f200 contre 74 sans objet |
-| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 |
+| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 (le familier tire désormais la larme du porteur : trace rebénie, Q13) |
 | `familiar_quad` | quatre joueurs, deux familiers chacun, synctest (resimulation + checksums à chaque frame) |
 
 Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) affiche aussi joueurs et familiers
 (porteur, rang, position) toutes les 10 frames.
+
+### Q13 : `MirrorShot` tire les larmes du porteur (suivi `m3-suivis-q10-q12-q13-q17`)
+
+Contrat : `Behavior::MirrorShot { every }` (le champ `weapon` disparaît : migration de `BehaviorEntry`, du lint — plus
+d'« arme inconnue » — et des deux personnages `compagnon` du testbed et `frere` d'`isaac`). Exécution : voir la puce
+`MirrorShot` ci-dessus. Les trois aides communes (`aim_direction`, `tear_motion`, `carried_projectile_mods` /
+`shot_projectile`) ont été extraites de `weapon_rollback_system` sans changer une valeur (les 600 autres traces sont
+inchangées).
+
+**Traces bougées, avec preuve §5** (dumps complets `ALACOD_DUMP_TRACE`, `main` `2d30a1c1` contre la branche,
+`scripts/trace-diff.py` : première frame qui diffère = première frame où un familier tire, une seule ligne en
+désaccord : la `Bullet` du familier, `damage: 15, speed: 400` (le `pistol` de l'ancien `compagnon`) devenue `damage: 3.5,
+speed: 200` (la `larme` du porteur)) :
+
+| Trace | Première frame qui diffère | Cause |
+|---|---|---|
+| `familiar_mirror_cadence` | 20 | premier tir du porteur à f20, donc premier tir miroir |
+| `familiar_mirror_shot` | 35 | idem (tir demandé f30, balles parties f35) |
+| `familiar_quad` | 105 | premiers tirs miroirs des joueurs 1 et 3 |
+| `champion_explodes`, `champion_explodes_sans_variante` | 25 | idem ; la larme du familier est plus lente : le champion meurt à f35 au lieu de f29, attentes décalées |
+| `generated/testbed/familiar_compagnon` | 21 | idem ; `min_hits` 9 → 8 (`objets/compagnon.ron`) et témoin `_sans_objet` `max` 8 → 7 (dérivé) |
+
+Rien d'autre ne bouge : `familiar_frere` d'`isaac` (le frère tirait déjà `larmes`, le porteur a `larmes`, aucun objet de
+larmes) est **identique au bit près** ; les scénarios de `tears_*` et le tir de joueur n'ont pas changé. Neufs :
+`familiar_mirror_items` et son témoin `familiar_mirror_items_sans_objet`.
 
 ### Atteignabilité
 
@@ -5881,7 +5911,7 @@ effets v3 (§67), familiers (§71), cœurs d'âme (§68), pools à épuisement (
   `calice_ame`. Pool `boss` (`loot/boss.ron`, 3 → 5 entrées ; les trois passifs de T8, peu communs, passent de poids 1 à 2) : `sang_chaud`,
   `calice_ardent`.
 - **Familiers** (`characters/`, fiche de §71 : équipe `Players`, `stationary`, collider 12 x 12, immunisés) : `frere` (`Follow(gap: 28)` +
-  `MirrorShot(weapon: "larmes", every: 12)` : l'arme `larmes` du jeu, sans les objets du porteur, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
+  `MirrorShot(every: 12)` : les larmes du porteur, son arme et ses objets, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
   + `BlockBullets`). Lab : `cible_mordante` (`test_only`, immobile, 5 000 PV, `counts_hits`, mêlée au contact à 40 : le générateur retrouve ses
   cibles **par position**, une cible mobile n'a pas de compteur dans la sonde).
 - **Synergie** `synergies/garde_rapprochee.ron` (`requires: ["frere", "orbe"]`, deux objets du pool `tresor`, `Damage` +20 %) ; dossier `synergies`
@@ -5940,7 +5970,7 @@ les lignes marquées **T12** sont les trous trouvés par l'audit.
 | Piques (§62) | `damage > 0`, `period > 0` (`OutOfRange`) ; **T12** couche `Surfaces` : valeur sans surface déclarée (`BrokenReference`) | `hazard_period_zero`, `rocks_and_surfaces_layers_are_checked` |
 | Portes verrouillées (§62, §70) | `Key(0)`, `lock_from_floor` sans `door_lock` ou sur `Secret`, clé introuvable à chaque étage verrouillé | `door_lock_key_zero`, `key_room_*` |
 | Grille (§62, §70) | `cell`, `max`, `post_boss.chance`, gabarits multiples de `cell`, ouvertures centrées et de même largeur, types distincts ; **T12** la salle secrète `required` d'une grille a `door_lock: Secret` (sinon posée ouverte : `OutOfRange`) | `grid_*`, `secret_room_not_required_or_not_walled` |
-| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, arme de `MirrorShot` inconnue, behavior de familier sans porteur | `familiar_*` |
+| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, behavior de familier sans porteur | `familiar_*` |
 | Champions (§63, §72) | actions de mort admises (`Explode`, `SpawnCharacters`, `SpawnPattern`), pattern fini, pool de butin connu, `#rrggbb`, `chance` en expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 | `champion_ok`, `champion_bad_death`, `champion_death_infinite_pattern*`, `variant_chance_expression_*` |
 | Curses (§64) | poids 0, aucun effet, `FloorRooms` ≤ 0, `Modifier Mul` ≤ 0, chance hors [0, 1], pool vide ou inconnu | `curse_invalid_values`, `floors_curses_invalid` |
 | Pools à épuisement (§64) | **T12** `exhaust: true` sur un pool qui n'a que des `Currency` (jamais « vu » : `OutOfRange`) | `exhaust_pool_of_coins_only_is_an_error` |
