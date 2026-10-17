@@ -7,8 +7,6 @@
 // bombe, reste ; le joueur passe l'ancienne ligne de rochers (x > 320) et s'arrête contre le rocher à butin ;
 // aucun butin n'apparaît (témoin de `rock_loot`, où le rayon couvre aussi le rocher à butin). Témoin de la
 // carte intacte : `rocks_static`, le joueur s'arrête à x 293,8 jusqu'à la fin.
-//
-// M3-T17 (feedback v3, conventions §82) : mèche, anneau (f136), trois rochers éclatés en débris (moments clés `feedback`). Trace inchangée.
 
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -35,8 +33,5 @@ Scenario(
         PlayerPosition(handle: 0, x: 325.5, y: 696, tolerance: 1, at_frame: 259),
         Consumable(handle: 0, id: "key", count: 0, at_frame: 259),
         Event(kind: "explosion", by_frame: 136),
-        Event(kind: "feedback", label_contains: Some("mèche 15 (19 frames)"), by_frame: 116),
-        Event(kind: "feedback", label_contains: Some("anneau d'explosion (rayon 30)"), by_frame: 136),
-        Event(kind: "feedback", label_contains: Some("rocher cassé (19,44)"), by_frame: 136),
     ],
 )

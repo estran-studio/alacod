@@ -7,8 +7,6 @@
 // À regarder : la bombe explose à f80 et abîme le premier baril (30 >= 20 PV : à 0 PV) ; il explose à f81 (le
 // poseur, à 34 unités, encaisse les 30 dégâts du baril : les barils ont toujours le tir ami) et tue le second ;
 // celui-ci explose à f82 et blesse le joueur 1 (100 -> 70). Témoin : `barrel_chain` (mêmes barils, balles).
-//
-// M3-T17 (feedback v3, conventions §82) : mèche (f66), anneau de la bombe (f81) puis des deux barils (f82, f83) (moments clés `feedback`). Trace inchangée.
 
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -36,8 +34,5 @@ Scenario(
         Health(handle: 1, min: 70, max: 70, at_frame: 83),
         EntityCount(kind: Barrel, min: 0, max: 0, at_frame: 83),
         Health(handle: 0, min: 70, max: 70, at_frame: 139),
-        Event(kind: "feedback", label_contains: Some("mèche 20 (14 frames)"), by_frame: 66),
-        Event(kind: "feedback", label_contains: Some("anneau d'explosion (rayon 40)"), by_frame: 81),
-        Event(kind: "feedback", label_contains: Some("anneau d'explosion (rayon 48)"), by_frame: 83),
     ],
 )

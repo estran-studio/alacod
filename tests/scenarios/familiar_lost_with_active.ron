@@ -3,8 +3,6 @@
 // f50 : l'actif remplacé tombe au sol et son familier disparaît (`despawn_rollback`), l'orbital reste.
 //
 // À regarder : deux familiers, puis un seul à partir du ramassage (f50).
-//
-// M3-T17 (feedback v3, conventions §82) : un orbital et un suiveur d'abord (moments clés `feedback`). Trace inchangée.
 
 Scenario(
     game: "testbed",
@@ -30,7 +28,5 @@ Scenario(
         FamiliarCount(handle: 0, count: 1, at_frame: 60),
         FamiliarDistance(handle: 0, rank: 0, min: Some(35.5), max: Some(36.5), at_frame: 100),
         FamiliarCount(handle: 0, count: 1, at_frame: 119),
-        Event(kind: "feedback", label_contains: Some("familier 14 (orbital, porteur 8, rang 0)"), by_frame: 1),
-        Event(kind: "feedback", label_contains: Some("familier 15 (suiveur, porteur 8, rang 1)"), by_frame: 1),
     ],
 )

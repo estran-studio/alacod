@@ -4,8 +4,6 @@
 // qui détruit la boule de feu qui part vers l'ouest. Témoin `orbital_blocks_bullet_sans_objet` : même partie sans objet.
 //
 // À regarder : la boule de feu qui vise le joueur disparaît au contact de l'orbital ; la santé du joueur baisse moins.
-//
-// M3-T17 (feedback v3, conventions §82) : l'orbital tourne autour du porteur (moments clés `feedback`). Trace inchangée.
 
 Scenario(
     game: "testbed",
@@ -29,6 +27,5 @@ Scenario(
         BulletCount(count: 17, projectile: Some("fireball"), at_frame: 202),
         Health(handle: 0, min: Some(100.0), at_frame: 100),
         Health(handle: 0, min: Some(100.0), at_frame: 200),
-        Event(kind: "feedback", label_contains: Some("familier 32 (orbital, porteur 23, rang 0)"), by_frame: 1),
     ],
 )

@@ -5038,13 +5038,17 @@ Les variantes du testbed ont une teinte (sauf `nu`, le témoin).
   (`explosion_shake`). Valable pour la bombe, le baril et l'explosion d'un champion (même `Exploded`).
 - **Rocher cassé.** Sprite de rocher (entrée `rock`), puis six éclats par rocher (`debris_offset` : directions
   réparties, vitesse selon l'indice, freinage ; `debris_alpha` : pleins puis estompés sur 24 frames), dérivés de
-  l'âge en frames de simulation, détruits à l'échéance.
+  l'âge en frames de simulation, détruits à l'échéance. La **tuile** de la carte (couche IntGrid `Rocks`) est dessinée
+  ssi un `world::Rock` vivant est à moins de 4 unités de son centre (`map_ldtk::plugins::sync_rock_tiles`, chaque tick,
+  **dérivée de l'état**, jamais d'un indice : juste quand un tick simule plusieurs frames ou quand un rollback annule
+  la casse ; seules les tuiles non nulles de la couche `Rocks` sont touchées).
 - **Mur secret.** Au tick où la salle entre dans `DoorLocks`, nuage de douze éclats ocre et anneau de poussière de rayon
   48 à l'endroit de l'explosion de la même frame (sans explosion, seul le journal change).
 
 Lint (`FeedbackSettings::problems`, `OutOfRange`) : `explosion.ring_frames` dans `[1, 600]`, `shake_frames` dans `[0, 600]`,
 `shake_amplitude >= 0`, couleur dans `[0, 1]`. Fixtures `feedback_explosion_frames_zero`,
-`feedback_explosion_amplitude_negative`.
+`feedback_explosion_amplitude_negative`, `feedback_explosion_shake_frames_too_long`,
+`feedback_explosion_color_out_of_range`.
 
 ### Assets provisoires
 
@@ -5056,10 +5060,15 @@ rendu se voie ; statut `placeholder`, à remplacer par la voie V6. Les autres je
 
 ### Preuve sans écran
 
-Attentes `Event(kind: "feedback", label_contains: …)` ajoutées à 23 scénarios (`tears_*`, `familiar_*`,
-`orbital_blocks_bullet`, `bomb_*`, `secret_wall_bomb`, `explode_effect`, `rock_loot`, `champion_*`), commentaire
-`// M3-T17` en tête de chacun, **traces inchangées**. Unitaires : `game::feedback_v3` (look d'une larme, mèche,
-secousse, éclats, teinte, orientation).
+Attentes `Event(kind: "feedback", label_contains: …)` sur **11 scénarios** (14 attentes) : les genres qui prouvent une
+**logique de feedback propre** : `Tear` (`tear_look` : `tears_*`) et `Champion` (teinte résolue par `variant_tint` :
+`champion_*`), commentaire `// M3-T17` en tête de chacun, **traces inchangées**. Les genres qui ne font que **redire un
+événement d'état** (`Explosion` = `Exploded`, `SecretWall` = `DoorLocks`, `Familiar` = `FamiliarOf`, `BombFuse` = `Bomb`,
+`RockBroken` = `RockBroken`) sont journalisés (moments clés des vidéos) mais **ne sont plus attendus** : ils seraient
+tautologiques. Le rendu qu'ils pilotent (anneau conditionné à `explosion.enabled` et au brouillard, éclats, secousse,
+clignotement, orientation) n'a pas de preuve headless : preuve = captures et vidéos
+(`docs/taches/rapports/m3-t17-feedback-v3/`). Unitaires : `game::feedback_v3` (look d'une larme, mèche, secousse, éclats,
+teinte, orientation) et `map_ldtk::plugins` (tuile d'un rocher : retirée puis ressuscitée).
 
 ### Limites
 

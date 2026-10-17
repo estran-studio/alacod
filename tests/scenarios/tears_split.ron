@@ -5,7 +5,7 @@
 //
 // À regarder : une larme, un impact, trois larmes en éventail qui touchent chacune sa cible.
 //
-// M3-T17 (feedback v3, conventions §82) : la larme divisible (plus grosse), puis trois enfants plus petits à f45 (moments clés `feedback`). Trace inchangée.
+// M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la larme et ses modificateurs (`tear_look` / `variant_tint`). Trace inchangée.
 
 Scenario(
     game: "testbed",

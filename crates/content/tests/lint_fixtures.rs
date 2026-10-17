@@ -848,6 +848,16 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             LintErrorKind::OutOfRange,
             1,
         ),
+        (
+            "feedback_explosion_shake_frames_too_long",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        (
+            "feedback_explosion_color_out_of_range",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
         // T1.17
         (
             "feedback_by_weapon_unknown",

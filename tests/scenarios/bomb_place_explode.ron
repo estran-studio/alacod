@@ -6,8 +6,6 @@
 // À regarder : l'appui sur Bomb (f10, effectif f15) pose la bombe aux pieds du joueur (le compteur `bomb`
 // tombe à 0) ; l'explosion vient 20 frames plus tard (f35, moment clé `explosion`) : le premier mannequin
 // perd 50 PV, le second reste intact ; le joueur et son poseur restent intacts (tir ami coupé : voir `bomb_hurts_owner` pour le même tir avec tir ami).
-//
-// M3-T17 (feedback v3, conventions §82) : la bombe clignote de plus en plus vite (f16 à f36), anneau et secousse à l'explosion (f36) (moments clés `feedback`). Trace inchangée.
 
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -34,7 +32,5 @@ Scenario(
         Health(handle: 0, min: 100, max: 100, at_frame: 34),
         Health(handle: 0, min: 100, max: 100, at_frame: 99),
         Event(kind: "explosion", by_frame: 36),
-        Event(kind: "feedback", label_contains: Some("mèche 17 (19 frames)"), by_frame: 16),
-        Event(kind: "feedback", label_contains: Some("anneau d'explosion (rayon 48)"), by_frame: 36),
     ],
 )

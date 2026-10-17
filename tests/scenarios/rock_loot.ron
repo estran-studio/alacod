@@ -5,8 +5,6 @@
 // À regarder : à l'explosion (f135) le rocher à butin disparaît et laisse un consommable au sol (la clé du pool
 // `salle`, tirée par `loot_seed` de la clé `rock:<salle>:<x>:<y>`, donc la même à chaque partie) ; le joueur,
 // reparti à droite (f140), le ramasse au passage : compteur `key` à 1 ; plus aucun rocher.
-//
-// M3-T17 (feedback v3, conventions §82) : anneau (rayon 60) et quatre rochers éclatés (f136) (moments clés `feedback`). Trace inchangée.
 
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -32,7 +30,5 @@ Scenario(
         Consumable(handle: 0, id: "key", count: 0, at_frame: 136),
         Consumable(handle: 0, id: "key", count: 1, at_frame: 259),
         Event(kind: "explosion", by_frame: 136),
-        Event(kind: "feedback", label_contains: Some("anneau d'explosion (rayon 60)"), by_frame: 136),
-        Event(kind: "feedback", label_contains: Some("rocher cassé (21,43)"), by_frame: 136),
     ],
 )
