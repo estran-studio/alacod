@@ -3,7 +3,7 @@
 // `health` du HUD est **vide** (ni texte ni barre, pas même un préfixe) alors que le joueur est vivant,
 // la minicarte reste affichée. Témoin inverse : `curse_blind` (santé « 6/6 »).
 //
-// À regarder : la barre et le texte de vie en bas à gauche sont absents, la minicarte est là.
+// À regarder : les cœurs (en haut à gauche) et le texte de vie en bas à gauche sont absents, la minicarte est là.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -16,6 +16,7 @@ Scenario(
         HudText(source: "curses", contains: "unknown", at_frame: 30),
         PlayerAlive(handle: 0, at_frame: 30),
         HudText(source: "health", empty: true, at_frame: 30),
+        HudText(source: "hearts", empty: true, at_frame: 30),
         HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 30),
     ],
 )

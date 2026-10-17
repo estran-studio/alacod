@@ -1,0 +1,48 @@
+// M3-T16 (docs/conventions.md §81) : le HUD d'`isaac`. Le joueur (6 PV, 12 sous, un actif `calice_ame`, trois bombes,
+// deux clés) ramasse des bottines au sol (f6), puis un `suiveur` et une `mouche` placés au contact à f5 le touchent
+// (1 PV par coup, i-frames de 60 frames : 5 PV dès f7), enfin un cœur d'âme tombé à f60 (2 points = un cœur) est ramassé.
+// Tout se lit dans `HudText` (présentation, hors trace).
+//
+// À regarder : f30 cœurs rouge, rouge, demi-cœur (5 PV sur 6) ; en haut à gauche les compteurs à icône (12 sous, 2 clés,
+// 3 bombes) ; en bas à gauche l'icône du calice, son nom et sa jauge pleine ; f30 le bandeau « Bottines légères » au
+// centre haut, qui disparaît après trois secondes (f230 : plus rien) ; f100 un cœur d'âme bleu à droite des rouges ;
+// la minicarte montre la salle de départ (bordure or) et les salles du trésor et du boss à leur lettre.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 240,
+    items: [
+        (id: "bottines", x: "-8.0", y: "-8.0", at_frame: 1),
+        (id: "coeur_ame", x: "-8.0", y: "-8.0", at_frame: 60),
+    ],
+    characters: [
+        (character: "suiveur", x: "20.0", y: "-8.0", at_frame: 5),
+        (character: "mouche", x: "-36.0", y: "-8.0", at_frame: 5),
+    ],
+    players: [(
+        currency: Some(12),
+        items: ["calice_ame", "key", "key", "bomb", "bomb", "bomb"],
+        inputs: [(from: 6, to: 7, buttons: [Interaction])],
+    )],
+    expect: [
+        HudText(source: "hearts", contains: "3 / 3", at_frame: 3),
+        HudText(source: "item_banner", empty: true, at_frame: 3),
+        HudText(source: "hearts", contains: "2,5 / 3", at_frame: 30),
+        HudText(source: "item_banner", contains: "Bottines légères", at_frame: 30),
+        HudText(source: "coins", contains: "12", at_frame: 30),
+        HudText(source: "keys", contains: "2", at_frame: 30),
+        HudText(source: "bombs", contains: "3", at_frame: 30),
+        HudText(source: "active_item", contains: "Calice d'âme", at_frame: 30),
+        HudText(source: "active_charge", contains: "prêt", at_frame: 30),
+        HudText(source: "ammo", empty: true, at_frame: 30),
+        HudText(source: "weapon", contains: "larmes", at_frame: 30),
+        HudText(source: "curses", empty: true, at_frame: 30),
+        HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 30),
+        HudText(source: "minimap", contains: "tresor · inexplorée", at_frame: 30),
+        HudText(source: "minimap", contains: "boss · boss · inexplorée", at_frame: 30),
+        HudText(source: "hearts", contains: "2,5 / 3 · âme 1", at_frame: 100),
+        HudText(source: "item_banner", empty: true, at_frame: 230),
+        PlayerAlive(handle: 0, at_frame: 239),
+    ],
+)
