@@ -395,6 +395,10 @@ crate `APP`), jamais dans un crate `SIM`.
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
       `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
+    - M3-T0e curses et pools (§64) : `Curse(floor, id: Some("…") | None, at_frame)` (curse de l'étage,
+      `run::RunCurses`), `PoolSeen(pool, item, seen, at_frame)` (objet sorti d'un pool à épuisement,
+      `items::PoolState`) ; rien ne remplit ces ressources avant M3-T8/T9, le témoin
+      `curse_pool_unset` n'attend que `None` / `seen: false`.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments

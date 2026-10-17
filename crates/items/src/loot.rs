@@ -130,6 +130,10 @@ pub struct LootTableDef {
     /// défaut : l'objet ne dépend alors que de la graine (même objet quel que soit le moment).
     #[serde(default)]
     pub exclude_held: bool,
+    /// M3-T0e (§64) : un objet sorti de ce pool n'y revient plus pendant la run ([`PoolState`],
+    /// [`draw_exhausting`]). Faux par défaut : comportement d'avant, hors du hash et des traces.
+    #[serde(default)]
+    pub exhaust: bool,
     #[serde(default)]
     pub reward: Option<RoomRewardDef>,
 }
@@ -145,6 +149,7 @@ impl LootTableDef {
                 .cloned()
                 .collect(),
             exclude_held: false,
+            exhaust: self.exhaust,
             reward: None,
         }
     }
@@ -279,24 +284,73 @@ pub fn draw_loot_with(
     hidden: &BTreeSet<&str>,
     rng: &mut RollbackRng,
 ) -> Option<String> {
+    draw_exhausting(
+        table,
+        items,
+        held,
+        min_rarity,
+        consumables_only,
+        hidden,
+        &BTreeSet::new(),
+        rng,
+    )
+}
+
+/// [`draw_loot_with`] pour un pool à épuisement (M3-T0e, `docs/conventions.md` §64) : `seen` est
+/// l'ensemble des identifiants déjà sortis de ce pool pendant la run ([`PoolState::seen`]). Si
+/// `table.exhaust`, ils ne sont plus candidats (une arme s'y désigne par `weapon:<id>`) ; sinon
+/// `seen` est ignoré et le tirage est exactement celui de [`draw_loot_with`].
+///
+/// Le flux avance toujours de deux tirages, quel que soit `seen`. Quand l'épuisement vide les
+/// candidats, le tirage retombe d'abord sur les raretés et exclusions assouplies de
+/// [`draw_loot`], puis, **pool entièrement vu**, sur le pool sans l'exclusion de `seen` (un
+/// objet déjà sorti peut alors ressortir : le pool « repart complet », il n'est jamais vide si le
+/// pool ne l'est pas). L'appelant n'enregistre dans [`PoolState`] que ce qui est nouveau
+/// ([`PoolState::record`]).
+#[allow(clippy::too_many_arguments)]
+pub fn draw_exhausting(
+    table: &LootTableDef,
+    items: &ItemTable,
+    held: Option<&Inventory>,
+    min_rarity: Rarity,
+    consumables_only: bool,
+    hidden: &BTreeSet<&str>,
+    seen: &BTreeSet<String>,
+    rng: &mut RollbackRng,
+) -> Option<String> {
     let held = held.filter(|_| table.exclude_held);
+    let blank = BTreeSet::new();
+    let seen = if table.exhaust { seen } else { &blank };
     let pick = rng.next_u32();
     let pick_candidate = rng.next_u32();
+    // Les passes d'assouplissement, de la plus stricte à la plus large ; une récompense de salle
+    // (`consumables_only`) ne relâche jamais la rareté ni l'exclusion, seulement `seen`.
+    let mut passes = vec![(min_rarity, held, seen)];
+    if !consumables_only {
+        passes.push((Rarity::Common, None, seen));
+    }
+    if !seen.is_empty() {
+        let (min, held) = if consumables_only {
+            (min_rarity, held)
+        } else {
+            (Rarity::Common, None)
+        };
+        passes.push((min, held, &blank));
+    }
     let mut pools: Vec<(i32, Vec<Cow<str>>)> = Vec::new();
-    for (min, held) in [(min_rarity, held), (Rarity::Common, None)] {
+    for (min, held, skip) in passes {
         pools = table
             .entries
             .iter()
             .filter(|entry| entry.weight > 0)
             .map(|entry| {
-                (
-                    entry.weight,
-                    candidates(entry, items, held, min, consumables_only, hidden),
-                )
+                let mut ids = candidates(entry, items, held, min, consumables_only, hidden);
+                ids.retain(|id| !skip.contains(id.as_ref()));
+                (entry.weight, ids)
             })
             .filter(|(_, ids)| !ids.is_empty())
             .collect();
-        if !pools.is_empty() || consumables_only {
+        if !pools.is_empty() {
             break;
         }
     }
@@ -313,6 +367,66 @@ pub fn draw_loot_with(
         roll -= *weight as u64;
     }
     None
+}
+
+/// Ce qui est déjà sorti de chaque pool à épuisement pendant la run (M3-T0e, §64) : pool
+/// (`loot/<id>.ron`) → identifiants tirés. Épuisement **par run et par pool** : un pool partagé
+/// par plusieurs salles (trésor, boutique, boss, diable) est le même pour toutes. Ressource
+/// rollback **neutre** (vide tant qu'aucun pool n'a `exhaust`, donc aucune trace existante ne
+/// bouge), remise à zéro à chaque relance.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PoolState(pub BTreeMap<String, BTreeSet<String>>);
+
+impl PoolState {
+    /// Les identifiants déjà sortis du pool `pool` (vide si aucun).
+    pub fn seen(&self, pool: &str) -> &BTreeSet<String> {
+        static NONE: BTreeSet<String> = BTreeSet::new();
+        self.0.get(pool).unwrap_or(&NONE)
+    }
+
+    /// `item` est-il déjà sorti de `pool` ?
+    pub fn has_seen(&self, pool: &str, item: &str) -> bool {
+        self.seen(pool).contains(item)
+    }
+
+    /// Nombre d'objets sortis de `pool` : l'**index d'épuisement** du prochain tirage.
+    pub fn count(&self, pool: &str) -> u32 {
+        self.seen(pool).len() as u32
+    }
+
+    /// Note que `item` est sorti de `pool`. Renvoie `true` si c'est nouveau (`false` : il était
+    /// déjà sorti, cas d'un pool entièrement vu qui repart complet).
+    ///
+    /// M3-T3 (§68) : un tas de sous (`currency:<n>`) n'est **jamais** noté : il n'épuise pas le
+    /// pool (renvoie `false`, aucun état).
+    pub fn record(&mut self, pool: &str, item: &str) -> bool {
+        if loot_currency(item).is_some() {
+            return false;
+        }
+        self.0
+            .entry(pool.to_string())
+            .or_default()
+            .insert(item.to_string())
+    }
+
+    /// Graine du prochain tirage du pool `pool` pour la clé de contenu `key` à l'étage `floor` :
+    /// [`exhaust_seed`] avec [`Self::count`] comme index.
+    pub fn next_seed(&self, pool: &str, run_seed: u32, floor: u32, key: &str) -> u32 {
+        exhaust_seed(run_seed, floor, key, self.count(pool))
+    }
+}
+
+/// Graine d'un tirage à épuisement : [`loot_seed`] pour l'index d'épuisement `0` (le premier
+/// tirage d'un pool donne donc l'objet qu'il donnait avant `exhaust`), puis la même graine
+/// mêlée à `index` (nombre d'objets déjà sortis du pool). Indépendante du temps et des
+/// `Entity` : tirée dans l'ordre du plan de l'étage (graine de l'emplacement), l'index ne
+/// dépend pas du moment où le joueur ouvre le coffre.
+pub fn exhaust_seed(run_seed: u32, floor: u32, key: &str, index: u32) -> u32 {
+    if index == 0 {
+        loot_seed(run_seed, floor, key)
+    } else {
+        loot_seed(run_seed, floor, &format!("{key}#{index}"))
+    }
 }
 
 /// Un coffre (rollback, checksum et trace en variante **neutre** : absent de toute partie sans
@@ -414,6 +528,7 @@ mod tests {
         LootTableDef {
             entries,
             exclude_held,
+            exhaust: false,
             reward: None,
         }
     }
@@ -635,6 +750,282 @@ mod tests {
         assert_eq!(pool.weapon_rarity("laser"), Some(Rarity::Rare));
         assert_eq!(pool.weapon_rarity("absent"), None);
     }
+
+    fn exhausting(entries: Vec<LootEntry>) -> LootTableDef {
+        LootTableDef {
+            exhaust: true,
+            ..table(entries, false)
+        }
+    }
+
+    fn pool_abc() -> LootTableDef {
+        exhausting(vec![
+            entry(LootPick::Item("a".into()), 1),
+            entry(LootPick::Item("b".into()), 1),
+            entry(LootPick::Item("c".into()), 1),
+        ])
+    }
+
+    /// Tire `slots` emplacements dans l'ordre du plan, comme la génération d'un étage (T8) :
+    /// graine d'emplacement + index d'épuisement, chaque nouveauté sort du pool.
+    fn draw_slots(pool: &LootTableDef, run_seed: u32, slots: &[&str]) -> Vec<String> {
+        let mut state = PoolState::default();
+        slots
+            .iter()
+            .map(|key| {
+                let mut rng = RollbackRng::new(state.next_seed("p", run_seed, 0, key));
+                let drawn = draw_exhausting(
+                    pool,
+                    &items(),
+                    None,
+                    Rarity::Common,
+                    false,
+                    &BTreeSet::new(),
+                    state.seen("p"),
+                    &mut rng,
+                )
+                .unwrap();
+                state.record("p", &drawn);
+                drawn
+            })
+            .collect()
+    }
+
+    #[test]
+    fn exhaust_false_ignores_seen_and_matches_draw_loot() {
+        let plain = table(
+            vec![
+                entry(LootPick::Item("a".into()), 1),
+                entry(LootPick::Item("b".into()), 1),
+            ],
+            false,
+        );
+        let seen: BTreeSet<String> = ["a".to_string()].into();
+        for seed in 0..100 {
+            let expected = draw_loot(
+                &plain,
+                &items(),
+                None,
+                Rarity::Common,
+                false,
+                &mut RollbackRng::new(seed),
+            );
+            let got = draw_exhausting(
+                &plain,
+                &items(),
+                None,
+                Rarity::Common,
+                false,
+                &BTreeSet::new(),
+                &seen,
+                &mut RollbackRng::new(seed),
+            );
+            assert_eq!(got, expected, "graine {seed}");
+        }
+    }
+
+    #[test]
+    fn seen_items_leave_the_pool_until_it_is_exhausted() {
+        let pool = pool_abc();
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        let mut drawn = Vec::new();
+        for seed in 0..3 {
+            let item = draw_exhausting(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                false,
+                &BTreeSet::new(),
+                &seen,
+                &mut RollbackRng::new(seed),
+            )
+            .unwrap();
+            assert!(seen.insert(item.clone()), "{item} est déjà sorti");
+            drawn.push(item);
+        }
+        drawn.sort();
+        assert_eq!(drawn, ["a", "b", "c"]);
+        // Pool entièrement vu : il repart complet, jamais vide.
+        let again = draw_exhausting(
+            &pool,
+            &items(),
+            None,
+            Rarity::Common,
+            false,
+            &BTreeSet::new(),
+            &seen,
+            &mut RollbackRng::new(9),
+        );
+        assert!(matches!(again.as_deref(), Some("a" | "b" | "c")));
+    }
+
+    #[test]
+    fn weapons_exhaust_by_their_prefixed_id() {
+        let pool = exhausting(vec![
+            entry(LootPick::Weapon("revolver".into(), Rarity::Common), 1),
+            entry(LootPick::Weapon("laser".into(), Rarity::Common), 1),
+        ]);
+        let seen: BTreeSet<String> = ["weapon:revolver".to_string()].into();
+        for seed in 0..50 {
+            let drawn = draw_exhausting(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                false,
+                &BTreeSet::new(),
+                &seen,
+                &mut RollbackRng::new(seed),
+            );
+            assert_eq!(drawn.as_deref(), Some("weapon:laser"));
+        }
+    }
+
+    #[test]
+    fn exhaustion_relaxes_rarity_before_repeating_an_item() {
+        // Coffre Rare : b et c sont les seuls candidats. Une fois b vu, c sort ; b et c vus,
+        // l'objet neuf plus commun (a) passe avant de répéter un objet vu.
+        let pool = exhausting(vec![
+            entry(LootPick::Item("b".into()), 1),
+            entry(LootPick::Item("c".into()), 1),
+            entry(LootPick::Item("a".into()), 1),
+        ]);
+        let draw = |seen: &[&str], seed| {
+            draw_exhausting(
+                &pool,
+                &items(),
+                None,
+                Rarity::Rare,
+                false,
+                &BTreeSet::new(),
+                &seen.iter().map(|id| id.to_string()).collect(),
+                &mut RollbackRng::new(seed),
+            )
+        };
+        for seed in 0..50 {
+            assert_eq!(draw(&["b"], seed).as_deref(), Some("c"));
+            assert_eq!(draw(&["b", "c"], seed).as_deref(), Some("a"));
+        }
+    }
+
+    #[test]
+    fn consumables_only_exhausts_without_relaxing_rarity() {
+        let pool = exhausting(vec![
+            entry(LootPick::Item("key".into()), 1),
+            entry(LootPick::Item("a".into()), 1),
+        ]);
+        let seen: BTreeSet<String> = ["key".to_string()].into();
+        // Seul consommable vu : le pool repart complet (jamais une passive).
+        for seed in 0..20 {
+            let drawn = draw_exhausting(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                true,
+                &BTreeSet::new(),
+                &seen,
+                &mut RollbackRng::new(seed),
+            );
+            assert_eq!(drawn.as_deref(), Some("key"));
+        }
+    }
+
+    #[test]
+    fn the_stream_advances_the_same_way_whatever_seen_is() {
+        let pool = pool_abc();
+        let after = |seen: BTreeSet<String>| {
+            let mut rng = RollbackRng::new(11);
+            draw_exhausting(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                false,
+                &BTreeSet::new(),
+                &seen,
+                &mut rng,
+            );
+            rng.next_u32()
+        };
+        let none = after(BTreeSet::new());
+        let some = after(["a".to_string(), "b".to_string()].into());
+        let all = after(["a".to_string(), "b".to_string(), "c".to_string()].into());
+        assert_eq!(none, some);
+        assert_eq!(none, all);
+    }
+
+    #[test]
+    fn first_draw_keeps_the_loot_seed_then_the_index_changes_it() {
+        assert_eq!(exhaust_seed(3, 1, "salle", 0), loot_seed(3, 1, "salle"));
+        let seeds: BTreeSet<u32> = (0..8).map(|i| exhaust_seed(3, 1, "salle", i)).collect();
+        assert_eq!(
+            seeds.len(),
+            8,
+            "un index d'épuisement donne sa propre graine"
+        );
+        let mut state = PoolState::default();
+        assert_eq!(
+            state.next_seed("p", 3, 1, "salle"),
+            loot_seed(3, 1, "salle")
+        );
+        state.record("p", "a");
+        assert_eq!(
+            state.next_seed("p", 3, 1, "salle"),
+            exhaust_seed(3, 1, "salle", 1)
+        );
+        // Un autre pool a son propre index.
+        assert_eq!(
+            state.next_seed("q", 3, 1, "salle"),
+            loot_seed(3, 1, "salle")
+        );
+    }
+
+    #[test]
+    fn plan_order_draws_never_repeat_and_do_not_depend_on_opening_time() {
+        let pool = pool_abc();
+        let plan = ["tresor", "boutique", "boss"];
+        let first = draw_slots(&pool, 21, &plan);
+        let mut sorted = first.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(
+            sorted.len(),
+            3,
+            "trois emplacements, trois objets : {first:?}"
+        );
+        // Le tirage est fait à la génération : l'ordre d'ouverture n'y entre pas, et la
+        // même graine redonne la même liste.
+        assert_eq!(draw_slots(&pool, 21, &plan), first);
+        let other: Vec<_> = (22..40)
+            .map(|seed| draw_slots(&pool, seed, &plan))
+            .collect();
+        assert!(other.iter().any(|draw| draw != &first), "la graine compte");
+    }
+
+    #[test]
+    fn pool_state_records_per_pool_and_flags_repeats() {
+        let mut state = PoolState::default();
+        assert_eq!(state.count("p"), 0);
+        assert!(!state.has_seen("p", "a"));
+        assert!(state.record("p", "a"));
+        assert!(!state.record("p", "a"), "déjà sorti : pas une nouveauté");
+        assert!(state.record("q", "a"), "un autre pool ne partage rien");
+        assert_eq!((state.count("p"), state.count("q")), (1, 1));
+        assert!(state.has_seen("p", "a") && !state.has_seen("p", "b"));
+    }
+
+    #[test]
+    fn exhaust_defaults_to_false_in_a_pool_file() {
+        let plain: LootTableDef =
+            ron::from_str(r#"(entries: [(pick: Item("a"), weight: 1)])"#).unwrap();
+        assert!(!plain.exhaust);
+        let exhausting: LootTableDef =
+            ron::from_str(r#"(entries: [(pick: Item("a"), weight: 1)], exhaust: true)"#).unwrap();
+        assert!(exhausting.exhaust);
+    }
+
     #[test]
     fn currency_pick_is_a_common_consumable_that_reads_back_as_an_amount() {
         assert_eq!(loot_currency("currency:7"), Some(7));
@@ -677,5 +1068,36 @@ mod tests {
             seen,
             BTreeSet::from(["b".to_string(), "currency:5".to_string()])
         );
+    }
+
+    #[test]
+    fn a_currency_pile_never_exhausts_the_pool() {
+        let pool = exhausting(vec![
+            entry(LootPick::Currency(5), 1),
+            entry(LootPick::Item("a".into()), 1),
+        ]);
+        let mut state = PoolState::default();
+        assert!(!state.record("p", "currency:5"));
+        assert_eq!(state.count("p"), 0);
+        // Sans rien de vu, les sous restent tirables à chaque emplacement, même à répétition.
+        let mut got_coins = 0;
+        for seed in 0..60 {
+            let drawn = draw_exhausting(
+                &pool,
+                &items(),
+                None,
+                Rarity::Common,
+                true,
+                &BTreeSet::new(),
+                state.seen("p"),
+                &mut RollbackRng::new(seed),
+            )
+            .unwrap();
+            if drawn == "currency:5" {
+                got_coins += 1;
+            }
+            state.record("p", &drawn);
+        }
+        assert!(got_coins > 1, "{got_coins}");
     }
 }

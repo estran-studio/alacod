@@ -4467,6 +4467,137 @@ non vide et valides (mêmes règles que `ai.behaviors`), `chance` dans [0, 1] po
 sans scénario de jeu (le ramassage ne crée rien encore). Attente de scénario `FamiliarCount { handle,
 count, at_frame }` (familiers dont le porteur est le joueur ; 0 tant que M3-T6 n'existe pas).
 
+## 64. Curses, pools à épuisement, accomplissements : contrats (M3-T0e)
+
+Contrats et règles pures seuls : rien n'est rencontré en partie ordinaire, **aucune trace ne bouge**
+(`curses: None`, `exhaust: false`, ressources neutres vides). Le tirage d'une curse et ses effets sont
+M3-T9 (HUD : T16), l'épuisement en jeu et la salle du diable M3-T8, l'écriture des accomplissements dans
+le profil M3-T10. Réponses de William du 2026-10-16 : **Q5** (épuisement par run et par pool, tirage
+indépendant du moment), **Q7** (les cinq curses), **Q6** (le diable refuse si le paiement tuerait ; les
+cœurs d'âme paient à la place : T8).
+
+### Curses (`run::curse`, kind `Curse`)
+
+- **Contenu** `curses/<id>.ron` (id = nom de fichier ; `game.ron` : `(path: "curses", kind: "Curse")`) :
+  `CurseDef { weight: u32, effects: [CurseEffect] }`. `CurseEffect`, liste fermée, variantes **en fin
+  d'enum** : `HideMinimap`, `HideHealth`, `HideItemNames` (présentation seule : lues par le HUD, T16),
+  `FloorRooms("2.0")` (multiplicateur du nombre de salles : lu par la grammaire en grille, T5/T9),
+  `Modifier(stat, op, "valeur")` (posé sur chaque joueur pour la durée de l'étage ;
+  `CurseEffect::to_modifier(id)` : source `curse:<id>`, comme `item:<id>`, sans expiration, retiré à la
+  sortie de l'étage par T9).
+- **Les cinq de Q7** (exemples du `testbed`) : `darkness` (`HideMinimap`), `unknown` (`HideHealth`),
+  `blind` (`HideItemNames`), `labyrinth` (`FloorRooms("2.0")`), `maze` (`Modifier(MoveSpeed, Mul,
+  "0.85")`). `Modifier` est la variante générique (Maze/Lost d'Isaac : vitesse ou chance en moins) ; ne pas
+  en coder d'autres que ces cinq sans nouvelle réponse.
+- **Tirage par étage** : champ optionnel `curses: Some((chance: "0.5", pool: ["darkness", …]))` d'une
+  séquence `Floors` (`FloorsEntry::curses`, `run::CurseConfig`) ; absent = aucune curse (toutes les
+  séquences existantes). `run::draw_curse(config, defs, run_seed, étage)` : RNG **local**
+  `RollbackRng::new(curse_seed)` avec `curse_seed = fnv1a("curse:<graine>:<étage>")` replié sur 32 bits
+  (même repli que `loot_seed`), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
+  ressource et toutes les traces). Deux tirages toujours consommés, dans l'ordre : la chance
+  (`next_fixed() < chance` : `0` ne tombe jamais, `1` toujours), puis le choix pondéré dans l'ordre du
+  pool (`next_u32() % Σ poids`). Une entrée inconnue ou de poids `0` est ignorée (le lint la refuse) ; sans
+  entrée valide, pas de curse. Le résultat ne dépend que de la graine et de l'étage : pas du moment où
+  l'étage est entré, ni de l'ordre des étages.
+- **État** `run::RunCurses(BTreeMap<u32 étage, String curse>)` : ressource rollback **neutre**
+  (`RunPlugin`, `rollback_and_trace_resource_neutral`), vide donc de hash `0` tant que T9 n'a rien écrit ;
+  remise à zéro par la relance (`game::run_state::cleanup_rollback_world_system`). T9 écrit l'entrée de
+  l'étage à l'entrée dans l'étage (événement `FloorEntered`) avec `draw_curse`.
+- **Lint** (`lint_curses`) : `weight = 0`, `effects` vide, `FloorRooms` ≤ 0, `Modifier` `Mul` ≤ 0
+  (`OutOfRange`) ; `curses.chance` hors [0, 1], `curses.pool` vide (`OutOfRange`) ; curse du pool inconnue
+  (`BrokenReference`).
+
+### Pools : `table` suffit, et l'épuisement
+
+- **Pas de champ `pool`.** Un coffre (`RoomChestDef.table`), une boutique (`RoomShopDef.table`,
+  `floor_tables`) et une séquence (`FloorsEntry.loot`) nomment déjà un pool de butin
+  (`loot/<id>.ron`) ; un type de salle n'a rien de plus à porter. Les pools du boss et du diable (T8) sont
+  de nouvelles tables nommées par la même clé. Le « pool » de l'épuisement est donc **le nom d'une table**.
+- **`LootTableDef.exhaust: bool`** (défaut faux : comportement d'avant, hors de tout hash et de toute
+  trace) : un objet sorti du pool n'y revient plus pendant la run. **Par run et par pool** (Q5) : un pool
+  partagé par plusieurs salles est le même pour toutes. `weapons_only` garde le drapeau.
+- **État** `items::PoolState(BTreeMap<pool, BTreeSet<objet>>)` : ressource rollback **neutre**
+  (`LootPlugin`), vide tant qu'aucun pool n'a `exhaust` ; remise à zéro à chaque relance. Les armes y sont
+  nommées `weapon:<id>` (comme le tirage). `count(pool)` est l'**index d'épuisement** du prochain tirage ;
+  `record(pool, objet)` renvoie vrai pour une nouveauté.
+- **Règle pure** `items::draw_exhausting(table, items, held, rareté, consommables, hidden, seen, rng)` :
+  `draw_loot_with` la rappelle avec un `seen` vide, donc **tous les tirages existants sont inchangés**.
+  Si `table.exhaust`, les objets de `seen` ne sont plus candidats ; sinon `seen` est ignoré. Le flux avance
+  toujours de deux tirages, quel que soit `seen` (comme `draw_loot`). Quand l'épuisement vide les
+  candidats : d'abord les assouplissements de `draw_loot` (rareté du coffre puis `Common`, exclusion des
+  objets tenus), **un objet neuf plus commun passe avant de répéter un objet vu**, puis, pool entièrement vu,
+  le pool **repart complet** (un objet déjà sorti peut ressortir ; jamais vide si le pool ne l'est pas). Une
+  récompense de salle (`consumables_only`) ne descend jamais sous les consommables. Les déblocages
+  (`unlocked_table`) étendent le pool avant le filtre.
+- **Graine** `items::exhaust_seed(graine, étage, clé, index)` : `loot_seed` pour l'index `0` (le premier
+  tirage d'un pool qui devient `exhaust` donne l'objet qu'il donnait avant), puis `loot_seed(…, "<clé>#<index>")`.
+  `PoolState::next_seed(pool, graine, étage, clé)` prend `count(pool)` comme index.
+
+**Deux façons d'exécuter l'épuisement (décision de T8, ce qui suit est la proposition par défaut).**
+
+| | A. tirage à la génération de l'étage (proposé) | B. tirage à l'ouverture |
+|---|---|---|
+| Quand | à la création des emplacements (salles dans l'ordre du plan, graine de l'emplacement) | quand le joueur ouvre le coffre / entre dans la boutique |
+| Index d'épuisement | rang de l'emplacement dans le plan : **indépendant du moment** (Q5) | nombre d'objets déjà sortis à l'ouverture : dépend de l'ordre des ouvertures |
+| Coût | l'objet d'un coffre jamais ouvert est quand même sorti du pool ; il faut **porter l'objet assigné** (un champ optionnel de `Chest`/`Shelf` hors hash quand vide, ou une table d'assignation dans `PoolState`) puisque l'ouverture ne tire plus | rien à porter (le tirage actuel de `chest_interaction_system`) |
+| Rollback | l'état (`PoolState` + assignations) est écrit une seule fois par étage, à la génération | écrit à chaque ouverture : un rollback qui remonte avant une ouverture doit défaire `PoolState` (il le fait, c'est une ressource rollback) |
+
+L'option A est la seule qui tienne la règle « un coffre ouvert tôt ou tard donne le même objet » de §48 avec
+un pool qui s'épuise ; la règle pure sert les deux (T8 choisit en passant `seen` de la génération ou de
+l'ouverture).
+
+### Accomplissements (`meta::achievement`, kind `Achievement`)
+
+- **Contenu** `achievements/<id>.ron` : `AchievementDef { when: [AchievementCondition], unlocks: [id d'Unlock] }`.
+  Conditions, cumulatives (ET) : `Victory` (issue `RunEnd::Victory`), `FloorAtLeast(n)` (même index que
+  `RunSummary::floor_reached` et l'attente `FloorIndex` : `0` = premier étage), `BossDefeated(id)` (un
+  personnage à `boss:`), `ItemHeld(id)` (objet tenu à la fin).
+- **Règle pure** `meta::achieved(&RunFacts, &AchievementDef)` ; une définition sans condition n'est jamais
+  accomplie. **Hors simulation** : évalué à la fin de la run, comme l'écriture du profil (`game::profile`) ;
+  `meta` ne lit ni n'écrit rien, T10 réunit les faits et ajoute les `unlocks` au profil.
+- **`RunFacts` plutôt qu'un `RunSummary` élargi.** La fiche proposait des champs optionnels de `RunSummary`
+  (boss vaincus, objets tenus). `RunSummary` est `Copy`, dans `Run` (rollback, haché) : y ajouter des listes
+  de chaînes l'alourdirait pour un état que la simulation ne lit jamais. `RunFacts { summary, bosses_defeated,
+  items_held }` est hors rollback ; T10 lit les boss vaincus (`BossDefeated`, hors checksum, §45) et
+  l'`Inventory` des joueurs à `Ended`.
+- **Lint** (`lint_achievements`) : `when` vide, `unlocks` vide (`OutOfRange`) ; déblocage, objet ou boss
+  inconnu (`BrokenReference`).
+
+### Attentes de scénario
+
+`Curse { floor, id: Some("darkness") | None, at_frame }` (curse de l'étage `floor`, index de `FloorIndex`,
+ou absente) et `PoolSeen { pool, item, seen, at_frame }` (`item` est ou non sorti du pool). Elles lisent
+`RunCurses` et `PoolState`. Rien ne remplit ces ressources avant T8/T9 : un scénario `.ron` ne peut donc
+encore y poser que `None` / `seen: false` (ce que fait le témoin ci-dessous) ; le test
+`crates/scenario/tests/curses_pools.rs` les remplit depuis un système de `GgrsSchedule`.
+
+### Déterminisme et traces
+
+Aucune trace existante ne bouge : `RunCurses` et `PoolState` sont enregistrées par
+`rollback_and_trace_resource_neutral` (contribution `0` à leur valeur par défaut, aucune parité de type vide
+à compenser), `LootTableDef.exhaust` et `FloorsEntry.curses` sont des définitions hors hash, les RNG de
+curse et de pool sont locaux. `RunSummary` est inchangé. Les kinds `Curse` et `Achievement` ont leur schéma
+(`every_kind_has_a_schema`).
+
+### Preuves
+
+Unitaires : `run::curse` (chance 0 et 1, indépendance de l'ordre des étages, pondération, entrées
+inutilisables, le tirage de chance ne dépend pas du pool, `to_modifier`), `items::loot` (`exhaust` faux
+= `draw_loot`, objets vus exclus puis pool qui repart complet, armes, rareté assouplie avant répétition,
+consommables, flux identique quel que soit `seen`, graine à l'index 0 = `loot_seed`, ordre du plan sans
+doublon), `meta::achievement` (chaque condition, seuil inclusif, ET, sans condition). Fixtures de lint :
+`curse_invalid_values`, `floors_curses_invalid`, `achievement_invalid` (`crates/content/tests/
+m3_t0e_fixtures.rs`). Contenu `testbed` : cinq curses, séquence `maudit` (`curses: Some(…)`), pool
+`epuisable` (`exhaust: true`), accomplissement `deux_etages` et déblocage `manche_epuisable` (un `Loot` sur
+`epuisable` seulement : aucun pool existant ne change). Test `curses_pools` : les ressources écrites en
+cours de partie traversent le synctest sans divergence, les attentes les lisent (et échouent avec la valeur
+observée), la relance les remet à zéro.
+
+### Atteignabilité
+
+Contrats : rien en partie ordinaire. T9 tire une curse dans la séquence `Floors` d'`isaac` (graine nommée),
+T8 active `exhaust` sur le pool du trésor, T10 écrit un accomplissement à la fin d'une partie ordinaire.
+
 ## 65. Le jeu `isaac` : squelette (M3-T0f)
 
 Le clone `isaac` démarre, sur la grammaire d'étage **en arbre existante** (`Graph`) : rien de nouveau
@@ -4762,6 +4893,8 @@ de **boutique** ne peut pas en porter (lint `Unsupported`, y compris les entrée
 un présentoir ne vend pas de sous. La mort d'un ennemi laisse déjà des sous par `economy.ron`
 `shells_drop` (§50, `isaac` : 2 à 5) ; un champion peut en lâcher par son pool. `isaac` : `loot/salle.ron`
 (récompense de salle) gagne `Currency(1)`, `coeur`, `coeur_ame` et `bomb` aux poids 4, 3, 1 et 2.
+
+**Épuisement (M3-T0e, §64)** : `Currency` est un `pick` ordinaire pour `draw_exhausting` et `draw_loot_with` (candidat `currency:<n>`, filtres de rareté et de consommable inchangés) mais n'est **jamais « vu »** : `PoolState::record` ignore un `currency:<n>` (renvoie `false`, aucun état). Un tas de sous n'épuise donc pas un pool `exhaust: true` et reste tirable à chaque emplacement ; la variante reste en fin de `LootPick` (T0e n'a ajouté aucune variante).
 
 ### Partage en coop (Q4 de William) : par joueur
 

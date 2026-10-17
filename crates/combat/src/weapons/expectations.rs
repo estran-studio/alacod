@@ -630,6 +630,21 @@ pub enum Expectation {
         count: u32,
         at_frame: u32,
     },
+    /// M3-T0e (`docs/conventions.md` §64) : la curse de l'étage `floor` (`run::RunCurses`, index
+    /// d'étage de `FloorIndex`) est `id` (`Some`) ou absente (`None`) à la frame exacte `at_frame`.
+    Curse {
+        floor: u32,
+        id: Option<String>,
+        at_frame: u32,
+    },
+    /// M3-T0e (§64) : `item` (`weapon:<id>` pour une arme) est sorti du pool `pool`
+    /// (`items::PoolState`) si `seen`, n'en est pas sorti sinon, à la frame exacte `at_frame`.
+    PoolSeen {
+        pool: String,
+        item: String,
+        seen: bool,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -692,6 +707,8 @@ impl Expectation {
             | Self::Shelf { at_frame, .. }
             | Self::ShelfCount { at_frame, .. }
             | Self::ShellPiles { at_frame, .. }
+            | Self::Curse { at_frame, .. }
+            | Self::PoolSeen { at_frame, .. }
             | Self::HasItem { at_frame, .. }
             | Self::ItemCharge { at_frame, .. }
             | Self::Consumable { at_frame, .. }

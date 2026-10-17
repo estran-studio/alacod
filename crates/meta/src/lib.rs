@@ -11,6 +11,8 @@
 //! [`Profiles`]. La simulation ne le lit jamais : un déblocage entre dans une run par
 //! `items::RunUnlocks`, figé au lancement et identique chez tous les pairs (M2-T12, §51).
 
+pub mod achievement;
+pub use achievement::*;
 pub mod hub;
 pub use hub::*;
 

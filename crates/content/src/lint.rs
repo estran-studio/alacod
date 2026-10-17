@@ -88,6 +88,8 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_synergies(registry, &mut errors);
     lint_loot(registry, &mut errors);
     lint_unlocks(registry, &mut errors);
+    lint_curses(registry, &mut errors);
+    lint_achievements(registry, &mut errors);
     lint_familiars(registry, &mut errors);
     lint_hub_services(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
@@ -4545,6 +4547,158 @@ fn lint_unlocks(registry: &Registry, errors: &mut Vec<LintError>) {
             file,
             message: format!("déblocage « {id} » : cycle de prérequis"),
         });
+    }
+}
+
+/// M3-T0e (`docs/conventions.md` §64) : curses de run. Poids 0, aucun effet, `FloorRooms` ≤ 0 ou
+/// modificateur `Mul` ≤ 0, puis la chance et le pool du champ `curses` de chaque séquence `Floors`.
+fn lint_curses(registry: &Registry, errors: &mut Vec<LintError>) {
+    let zero = bevy_fixed::fixed_math::Fixed::ZERO;
+    let one = bevy_fixed::fixed_math::Fixed::ONE;
+    for curse in registry.curses.values() {
+        let file = curse.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        let id = &curse.id;
+        if curse.def.weight == 0 {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "curse « {id} » : weight = 0 (doit être > 0 : elle ne serait jamais tirée)"
+                ),
+            );
+        }
+        if curse.def.effects.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("curse « {id} » : effects vide (elle ne fait rien)"),
+            );
+        }
+        for (index, effect) in curse.def.effects.iter().enumerate() {
+            match effect {
+                run::CurseEffect::FloorRooms(mult) if *mult <= zero => push(
+                    LintErrorKind::OutOfRange,
+                    format!("curse « {id} » : effects[{index}] (FloorRooms) : mult = {mult} (doit être > 0)"),
+                ),
+                run::CurseEffect::Modifier(stat, sim_core::modifier::ModifierOp::Mul, value)
+                    if *value <= zero =>
+                {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("curse « {id} » : effects[{index}] (Modifier {stat:?}, op Mul) : value = {value} (doit être > 0)"),
+                    )
+                }
+                _ => {}
+            }
+        }
+    }
+    for floors in registry.floors.values() {
+        let Some(curses) = &floors.curses else {
+            continue;
+        };
+        let file = floors.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        if curses.chance < zero || curses.chance > one {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "séquence de niveaux « {} » : curses.chance = {} (doit être dans [0, 1])",
+                    floors.id, curses.chance
+                ),
+            );
+        }
+        if curses.pool.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "séquence de niveaux « {} » : curses.pool vide (aucune curse ne peut tomber ; retirer `curses`)",
+                    floors.id
+                ),
+            );
+        }
+        for id in &curses.pool {
+            if !registry.curses.contains_key(id) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "séquence de niveaux « {} » : curses.pool : curse « {id} » inconnue",
+                        floors.id
+                    ),
+                );
+            }
+        }
+    }
+}
+
+/// M3-T0e (`docs/conventions.md` §64) : accomplissements. Sans condition ni déblocage, déblocage,
+/// objet ou boss inconnus.
+fn lint_achievements(registry: &Registry, errors: &mut Vec<LintError>) {
+    for achievement in registry.achievements.values() {
+        let file = achievement.file.display().to_string();
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            })
+        };
+        let id = &achievement.id;
+        if achievement.def.when.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("accomplissement « {id} » : when vide (il ne serait jamais accompli)"),
+            );
+        }
+        if achievement.def.unlocks.is_empty() {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("accomplissement « {id} » : unlocks vide (il ne débloque rien)"),
+            );
+        }
+        for unlock in &achievement.def.unlocks {
+            if !registry.unlocks.contains_key(unlock) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("accomplissement « {id} » : unlocks : déblocage « {unlock} » inconnu"),
+                );
+            }
+        }
+        for (index, condition) in achievement.def.when.iter().enumerate() {
+            match condition {
+                meta::AchievementCondition::ItemHeld(item)
+                    if !registry.items.contains_key(item) =>
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("accomplissement « {id} » : when[{index}] (ItemHeld) : objet « {item} » inconnu"),
+                    )
+                }
+                meta::AchievementCondition::BossDefeated(boss) => {
+                    let is_boss = registry
+                        .characters
+                        .get(&registry::CharacterId::from(boss.clone()))
+                        .is_some_and(|character| character.boss.is_some());
+                    if !is_boss {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!("accomplissement « {id} » : when[{index}] (BossDefeated) : « {boss} » n'est pas un personnage à `boss:`"),
+                        )
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 }
 

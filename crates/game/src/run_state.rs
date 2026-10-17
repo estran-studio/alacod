@@ -26,7 +26,8 @@
 //! `bevy_ggrs::schedule_systems::run_ggrs_schedules`), `Run` elle-même, et les ressources
 //! rollback globales qui ne sont pas réinitialisées ailleurs par le chargement normal d'une
 //! partie (`FrameCount`, `GgrsNetIdFactory`, `WaveState`, `FlowFieldCache`,
-//! `RepairPointsTracking`, et l'état des salles `RoomStates`, `ArenaClocks`, `DoorLocks`), et la donnée dérivée `CollisionGrids` (D14 : sa grille de murs
+//! `RepairPointsTracking`, l'état des salles `RoomStates`, `ArenaClocks`, `DoorLocks`, et, M3-T0e, `RunCurses`
+//! et `PoolState`), et la donnée dérivée `CollisionGrids` (D14 : sa grille de murs
 //! n'est reconstruite que si la signature des murs change). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
 //! passée par `RollbackTraceApp`) aussi : elle compte *tous* les `Rollback` jamais créés
 //! depuis le lancement du processus (pas juste la partie en cours, voir sa doc), et
@@ -573,6 +574,9 @@ fn cleanup_rollback_world_system(
     commands.insert_resource(world::DoorLocks::default());
     // T1.9 : horloges et difficulté de la partie suivante repartent de zéro.
     commands.insert_resource(run::Clock::default());
+    // M3-T0e (§64) : curses et objets sortis des pools à épuisement valent pour une run.
+    commands.insert_resource(run::RunCurses::default());
+    commands.insert_resource(items::PoolState::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
     // D14 : grilles de collision dérivées (hors rollback). La grille des murs n'est
