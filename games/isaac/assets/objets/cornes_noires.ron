@@ -1,0 +1,7 @@
+// `isaac` (M3-T8, §73) : passif du pool `diable` (donnée d'attente, contenu : M3-T11).
+(
+    name: "Cornes noires",
+    kind: Passive,
+    rarity: Rare,
+    modifiers: [(stat: FireRate, op: Pct, value: "0.3")],
+)

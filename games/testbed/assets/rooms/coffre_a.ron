@@ -1,0 +1,6 @@
+// M3-T8 (docs/conventions.md §73) : type de salle d'essai, un coffre ouvert au centre dans le pool
+// `epuisable` (qui s'épuise par run). Carte `testbed/salles_coffres.ldtk` (scénario `pool_exhaust_two_rooms`).
+(
+    locks: false,
+    chest: Some((table: Some("epuisable"), locked: false, rarity: Common)),
+)

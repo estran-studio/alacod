@@ -4724,6 +4724,14 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                 format!("pool de butin « {id} » : entries vide (au moins une entrée)"),
             );
         }
+        // M3-T8 (§73) : un pool à épuisement est tiré à la génération, sans ouvreur : l'exclusion des
+        // objets tenus (`exclude_held`) dépendrait du moment et de l'inventaire.
+        if table.def.exhaust && table.def.exclude_held {
+            push(
+                LintErrorKind::Unsupported,
+                format!("pool de butin « {id} » : exhaust et exclude_held sont incompatibles (le tirage d'un pool qui s'épuise est fait à la génération de l'étage, sans ouvreur)"),
+            );
+        }
         for (index, entry) in table.def.entries.iter().enumerate() {
             if entry.weight <= 0 {
                 push(
@@ -4912,6 +4920,36 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                 }
             }
         }
+        // M3-T8 (§73) : prix propre des présentoirs (vie maximale, consommable).
+        if let Some(cost) = &shop.cost {
+            let player_max = registry
+                .characters
+                .values()
+                .find(|character| character.id.as_str() == "player")
+                .and_then(|character| character.base_health_max.literal())
+                .unwrap_or(bevy_fixed::fixed_math::Fixed::MAX);
+            if let items::Price::Consumable(id, _) = cost {
+                let is_consumable = registry
+                    .items
+                    .get(id)
+                    .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
+                if !is_consumable {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!(
+                            "type de salle « {} » : boutique : cost : « {id} » n'est pas un consommable du jeu",
+                            room.id
+                        ),
+                    );
+                }
+            }
+            for problem in cost.problems(|_| true, player_max) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("type de salle « {} » : boutique : cost : {problem}", room.id),
+                );
+            }
+        }
         match registry.loot_tables.get(&shop.table) {
             None => push(
                 LintErrorKind::BrokenReference,
@@ -4928,6 +4966,23 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             ),
             Some(_) => {}
+        }
+    }
+    // M3-T8 (§73) : butin du boss d'un type de salle : le pool existe (et n'est pas vide : le lint des
+    // pools le dit déjà).
+    for room in registry.rooms.values() {
+        let Some(drop) = &room.def.boss_drop else {
+            continue;
+        };
+        if !registry.loot_tables.contains_key(&drop.table) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: room.file.display().to_string(),
+                message: format!(
+                    "type de salle « {} » : boss_drop : pool « {} » inconnu",
+                    room.id, drop.table
+                ),
+            });
         }
     }
     for floors in registry.floors.values() {

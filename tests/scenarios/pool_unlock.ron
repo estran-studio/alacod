@@ -1,0 +1,37 @@
+// M3-T8 (docs/conventions.md §73, M2-T12 §51) : un déblocage de la run enrichit un pool **à épuisement**.
+// Le profil du joueur porte `manche_epuisable` (une entrée `Loot` de plus dans `epuisable`, qui a trois objets) :
+// quatre coffres (`k1` à `k4`, posés à f5 à f8) assignent quatre objets **distincts**, `manche` compris, et le
+// pool compte quatre objets sortis. Témoin : `pool_unlock_temoin` (sans déblocage : trois objets distincts, le
+// quatrième coffre repart d'un pool vidé et répète `bottes`).
+//
+// À regarder : f20 quatre objets sortis ; le joueur ouvre et ramasse les quatre coffres (f30–f130).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    map_seed: 1,
+    frames: 150,
+    profile: true,
+    profile_setup: Some((profiles: [(handle: 0, unlocks: ["manche_epuisable"])])),
+    chests: [
+        (key: "k1", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 5),
+        (key: "k2", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 6),
+        (key: "k3", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 7),
+        (key: "k4", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 8),
+    ],
+    players: [(inputs: [
+        (from: 30, to: 31, buttons: [Interaction]), (from: 40, to: 41, buttons: [Interaction]),
+        (from: 50, to: 51, buttons: [Interaction]), (from: 60, to: 61, buttons: [Interaction]),
+        (from: 70, to: 71, buttons: [Interaction]), (from: 80, to: 81, buttons: [Interaction]),
+        (from: 90, to: 91, buttons: [Interaction]), (from: 100, to: 101, buttons: [Interaction]),
+    ])],
+    expect: [
+        RunUnlocks(has: ["manche_epuisable"], at_frame: 20),
+        PoolCount(pool: "epuisable", count: 4, at_frame: 20),
+        PoolSeen(pool: "epuisable", item: "manche", seen: true, at_frame: 20),
+        ItemCount(handle: 0, id: "manche", count: 1, at_frame: 149),
+        ItemCount(handle: 0, id: "bottes", count: 1, at_frame: 149),
+        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 149),
+        ItemCount(handle: 0, id: "lame", count: 1, at_frame: 149),
+    ],
+)

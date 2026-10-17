@@ -1,0 +1,37 @@
+// M3-T8 (docs/conventions.md §73, Q5) : l'objet d'un coffre d'un pool à épuisement ne dépend pas de l'ordre des
+// visites. Deux coffres `k1` (x = -332) et `k2` (x = -152) du pool `epuisable`, posés à f5 dans cet ordre : leurs
+// objets sont assignés à la pose (`k1` → `lame`, `k2` → `boussole`). Ici le joueur ouvre `k1` d'abord (f60) puis
+// `k2` (f170) ; `pool_exhaust_time_independent_ba` fait l'inverse : mêmes objets pour les mêmes coffres.
+//
+// À regarder : f10–50 le joueur va à gauche et ramasse la lame (f70) ; f80–160 il va à droite et ramasse la
+// boussole (f180).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    map_seed: 1,
+    frames: 220,
+    chests: [
+        (key: "k1", table: Some("epuisable"), x: "-332.0", y: "-232.0", at_frame: 5),
+        (key: "k2", table: Some("epuisable"), x: "-152.0", y: "-232.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 50, buttons: [Left]),
+            (from: 60, to: 61, buttons: [Interaction]),
+            (from: 70, to: 71, buttons: [Interaction]),
+            (from: 80, to: 160, buttons: [Right]),
+            (from: 170, to: 171, buttons: [Interaction]),
+            (from: 180, to: 181, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        PoolCount(pool: "epuisable", count: 2, at_frame: 20),
+        ItemCount(handle: 0, id: "lame", count: 0, at_frame: 55),
+        ItemCount(handle: 0, id: "lame", count: 1, at_frame: 100),
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 100),
+        ItemCount(handle: 0, id: "lame", count: 1, at_frame: 219),
+        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 219),
+        ItemCount(handle: 0, id: "bottes", count: 0, at_frame: 219),
+    ],
+)

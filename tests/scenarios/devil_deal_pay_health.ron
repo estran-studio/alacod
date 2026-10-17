@@ -1,0 +1,34 @@
+// M3-T8 (docs/conventions.md §73, Q6) : marché du diable, paiement en **vie maximale**. Un présentoir
+// `boussole` à `cost: MaxHealth("2")` (un cœur) au pied du joueur (100 PV, aucun cœur d'âme). L'Interaction
+// de f10 l'achète : la vie courante et la vie maximale passent à 98, et la perte est **définitive** (la
+// stat `MaxHealth` est réécrite chaque frame : le prix est un modificateur permanent, la vie maximale
+// reste à 98 longtemps après). Les douilles ne bougent pas. Une seconde Interaction (f40) ne coûte rien.
+// Témoins : `devil_deal_refused_lethal` (1 PV : refus), `devil_deal_soul_first` (l'âme paie d'abord).
+//
+// À regarder : f10 l'achat ; 98/98 ; le présentoir ne répond plus.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    shop: (shelves: [(key: "s", item: "boussole", price: 0, cost: Some(MaxHealth("2")), x: "424.0", y: "696.0", at_frame: 5)]),
+    frames: 120,
+    players: [
+        (currency: Some(100), inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Shelf(nth: 0, item: Some("boussole"), price: Some(0), cost: Some(MaxHealth("2")), sold: Some(false), at_frame: 8),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 9),
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 9),
+        Shelf(nth: 0, sold: Some(true), at_frame: 30),
+        HasItem(handle: 0, id: "boussole", at_frame: 30),
+        Health(handle: 0, min: 98.0, max: 98.0, at_frame: 30),
+        Stat(handle: 0, stat: MaxHealth, value: 98.0, at_frame: 30),
+        Currency(handle: 0, min: 100, max: 100, at_frame: 30),
+        Stat(handle: 0, stat: MaxHealth, value: 98.0, at_frame: 110),
+        Health(handle: 0, min: 98.0, max: 98.0, at_frame: 110),
+        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 110),
+    ],
+)

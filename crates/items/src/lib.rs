@@ -239,13 +239,26 @@ impl Price {
         out
     }
 
-    /// Un prix nul n'est jamais payable : `can_pay` et `pay` restent cohérents.
+    /// Part du prix de vie maximale que `soul` (cœurs d'âme) paie, puis le reste à payer en vie
+    /// maximale (M3-T8, Q6 : « les cœurs d'âme paient à la place s'ils sont présents »). Les points
+    /// d'âme partent **d'abord**, comme au combat (§68) ; ce qu'ils ne couvrent pas se paie en vie
+    /// maximale. `(0, amount)` sans âme ; `(amount, 0)` quand l'âme couvre tout.
+    pub fn soul_split(amount: Fixed, soul: Fixed) -> (Fixed, Fixed) {
+        let from_soul = soul.max(Fixed::ZERO).min(amount);
+        (from_soul, amount - from_soul)
+    }
+
+    /// Un prix nul n'est jamais payable : `can_pay` et `pay` restent cohérents. `soul` : points de
+    /// `ExtraHealth` du payeur (0 sans le composant) ; il ne sert qu'à `MaxHealth`. Le reste que l'âme
+    /// ne couvre pas se paie en vie maximale et **refuse** si le paiement tuerait (`health <= reste`,
+    /// Q6) : un payeur à 1 PV sans âme est toujours refusé.
     pub fn can_pay(
         &self,
         currency: u32,
         inventory: &Inventory,
         max_health: Fixed,
         health: Fixed,
+        soul: Fixed,
     ) -> bool {
         if !self.is_positive() {
             return false;
@@ -253,19 +266,24 @@ impl Price {
         match self {
             Self::Currency(amount) => currency >= *amount,
             Self::Consumable(id, amount) => inventory.consumable(id) >= *amount,
-            Self::MaxHealth(amount) => *amount <= max_health && health > *amount,
+            Self::MaxHealth(amount) => {
+                let (_, rest) = Self::soul_split(*amount, soul);
+                rest == Fixed::ZERO || (rest <= max_health && health > rest)
+            }
         }
     }
 
-    /// Paie si `can_pay` ; ne panique jamais (`false` sans rien modifier sinon).
+    /// Paie si `can_pay` ; ne panique jamais (`false` sans rien modifier sinon). Un prix de vie
+    /// retire d'abord l'âme (`soul`), puis réduit la vie courante et maximale ensemble du reste.
     pub fn pay(
         &self,
         currency: &mut u32,
         inventory: &mut Inventory,
         max_health: &mut Fixed,
         health: &mut Fixed,
+        soul: &mut Fixed,
     ) -> bool {
-        if !self.can_pay(*currency, inventory, *max_health, *health) {
+        if !self.can_pay(*currency, inventory, *max_health, *health, *soul) {
             return false;
         }
         match self {
@@ -275,11 +293,33 @@ impl Price {
                 None => return false,
             },
             Self::MaxHealth(amount) => {
-                *max_health -= *amount;
-                *health -= *amount;
+                let (from_soul, rest) = Self::soul_split(*amount, *soul);
+                *soul -= from_soul;
+                *max_health -= rest;
+                *health -= rest;
             }
         }
         true
+    }
+}
+
+/// Points de vie d'un cœur entier (Q2, §68 : un demi-cœur = 1 PV). Sert à écrire un prix de vie
+/// (`Price::MaxHealth`) en cœurs : « 1 cœur » pour 2 PV.
+pub const HEART_POINTS: i64 = 2;
+
+/// Un prix de vie en cœurs pour le prompt : `2` → « 1 cœur », `1` → « ½ cœur », `3` → « 1½ cœur »,
+/// `4` → « 2 cœurs ». Un montant non entier s'écrit en PV (« 1.5 PV »).
+pub fn heart_label(amount: Fixed) -> String {
+    if amount.frac() != Fixed::ZERO {
+        return format!("{amount} PV");
+    }
+    let points = amount.to_num::<i64>();
+    let (whole, half) = (points / HEART_POINTS, points % HEART_POINTS != 0);
+    let plural = if points >= 2 * HEART_POINTS { "s" } else { "" };
+    match (whole, half) {
+        (0, true) => "½ cœur".to_string(),
+        (whole, true) => format!("{whole}½ cœur{plural}"),
+        (whole, false) => format!("{whole} cœur{plural}"),
     }
 }
 
@@ -765,6 +805,17 @@ mod m3_t0b_tests {
         assert_eq!(item_effect_key("amulet", 2, 2), "item:amulet#2:2");
     }
 
+    /// Un payeur : `(monnaie, inventaire, vie max, vie, âme)`.
+    fn payer(health: i32, soul: i32) -> (u32, Inventory, Fixed, Fixed, Fixed) {
+        (
+            0,
+            Inventory::default(),
+            Fixed::from_num(6),
+            Fixed::from_num(health),
+            Fixed::from_num(soul),
+        )
+    }
+
     #[test]
     fn prices_pay_currency_consumables_and_non_lethal_max_health() {
         let mut currency = 10;
@@ -774,30 +825,110 @@ mod m3_t0b_tests {
         };
         let mut max_health = Fixed::from_num(6);
         let mut health = Fixed::from_num(6);
+        let mut soul = Fixed::ZERO;
         assert!(Price::Currency(4).pay(
             &mut currency,
             &mut inventory,
             &mut max_health,
-            &mut health
+            &mut health,
+            &mut soul
         ));
         assert!(Price::Consumable("key".into(), 2).pay(
             &mut currency,
             &mut inventory,
             &mut max_health,
-            &mut health
+            &mut health,
+            &mut soul
         ));
         assert_eq!(inventory.consumable("key"), 1);
         assert!(Price::MaxHealth(Fixed::from_num(2)).pay(
             &mut currency,
             &mut inventory,
             &mut max_health,
-            &mut health
+            &mut health,
+            &mut soul
         ));
         assert_eq!(max_health, Fixed::from_num(4));
         assert_eq!(health, Fixed::from_num(4));
-        assert!(
-            !Price::MaxHealth(Fixed::from_num(4)).can_pay(currency, &inventory, max_health, health)
+        assert!(!Price::MaxHealth(Fixed::from_num(4)).can_pay(
+            currency,
+            &inventory,
+            max_health,
+            health,
+            soul
+        ));
+    }
+
+    /// Q6 : un prix de vie qui tuerait est refusé, même à 1 PV d'être juste au-dessus.
+    #[test]
+    fn a_max_health_price_that_would_kill_is_refused_without_soul() {
+        let price = Price::MaxHealth(Fixed::from_num(2));
+        for (health, expected) in [(1, false), (2, false), (3, true), (6, true)] {
+            let (currency, inventory, max_health, health_fx, soul) = payer(health, 0);
+            assert_eq!(
+                price.can_pay(currency, &inventory, max_health, health_fx, soul),
+                expected,
+                "vie {health}"
+            );
+        }
+        let (mut currency, mut inventory, mut max_health, mut health, mut soul) = payer(1, 0);
+        assert!(!price.pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health,
+            &mut soul
+        ));
+        assert_eq!((max_health, health), (Fixed::from_num(6), Fixed::ONE));
+    }
+
+    /// Q6 : les cœurs d'âme paient à la place, et d'abord ; ce qu'ils ne couvrent pas se paie en vie
+    /// maximale ; l'âme sauve un payeur à 1 PV.
+    #[test]
+    fn soul_pays_first_and_the_rest_in_max_health() {
+        let price = Price::MaxHealth(Fixed::from_num(2));
+        // Âme qui couvre tout : la vie ne bouge pas, même à 1 PV (sinon refusé).
+        let (mut currency, mut inventory, mut max_health, mut health, mut soul) = payer(1, 3);
+        assert!(price.can_pay(currency, &inventory, max_health, health, soul));
+        assert!(price.pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health,
+            &mut soul
+        ));
+        assert_eq!(
+            (max_health, health, soul),
+            (Fixed::from_num(6), Fixed::ONE, Fixed::ONE)
         );
+        // Âme partielle (1 sur 2) : elle part toute, le point restant est payé en vie maximale.
+        let (mut currency, mut inventory, mut max_health, mut health, mut soul) = payer(4, 1);
+        assert!(price.pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health,
+            &mut soul
+        ));
+        assert_eq!(
+            (max_health, health, soul),
+            (Fixed::from_num(5), Fixed::from_num(3), Fixed::ZERO)
+        );
+        // Âme partielle et reste mortel : refusé, rien ne bouge (âme comprise).
+        let (mut currency, mut inventory, mut max_health, mut health, mut soul) = payer(1, 1);
+        assert!(!price.pay(
+            &mut currency,
+            &mut inventory,
+            &mut max_health,
+            &mut health,
+            &mut soul
+        ));
+        assert_eq!(
+            (max_health, health, soul),
+            (Fixed::from_num(6), Fixed::ONE, Fixed::ONE)
+        );
+        // L'âme ne sert à rien pour un prix en sous ou en consommable.
+        assert!(!Price::Currency(1).can_pay(0, &Inventory::default(), max_health, health, soul));
     }
 
     #[test]
@@ -806,18 +937,30 @@ mod m3_t0b_tests {
         let mut inventory = Inventory::default();
         let mut max_health = Fixed::from_num(6);
         let mut health = Fixed::from_num(6);
+        let mut soul = Fixed::from_num(2);
         for price in [
             Price::Consumable("key".into(), 0),
             Price::Currency(0),
             Price::MaxHealth(Fixed::ZERO),
         ] {
-            assert!(!price.can_pay(currency, &inventory, max_health, health));
-            assert!(!price.pay(&mut currency, &mut inventory, &mut max_health, &mut health));
+            assert!(!price.can_pay(currency, &inventory, max_health, health, soul));
+            assert!(!price.pay(
+                &mut currency,
+                &mut inventory,
+                &mut max_health,
+                &mut health,
+                &mut soul
+            ));
             assert_eq!(price.problems(|_| true, Fixed::from_num(6)).len(), 1);
         }
         assert_eq!(
-            (currency, max_health, health),
-            (5, Fixed::from_num(6), Fixed::from_num(6))
+            (currency, max_health, health, soul),
+            (
+                5,
+                Fixed::from_num(6),
+                Fixed::from_num(6),
+                Fixed::from_num(2)
+            )
         );
         assert!(inventory.consumables.is_empty());
     }
@@ -847,5 +990,16 @@ mod m3_t0b_tests {
             1
         );
         assert!(Price::MaxHealth(max).problems(|_| true, max).is_empty());
+    }
+
+    #[test]
+    fn heart_label_writes_points_as_hearts() {
+        let label = |points: f64| heart_label(Fixed::from_num(points));
+        assert_eq!(label(1.0), "½ cœur");
+        assert_eq!(label(2.0), "1 cœur");
+        assert_eq!(label(3.0), "1½ cœur");
+        assert_eq!(label(4.0), "2 cœurs");
+        assert_eq!(label(5.0), "2½ cœurs");
+        assert_eq!(label(1.5), "1.5 PV");
     }
 }

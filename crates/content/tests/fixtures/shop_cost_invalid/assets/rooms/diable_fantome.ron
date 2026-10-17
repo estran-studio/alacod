@@ -1,0 +1,1 @@
+(locks: false, shop: Some((table: "diable", shelves: 1, cost: Some(Consumable("fantome", 1)))))

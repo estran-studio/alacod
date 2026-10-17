@@ -83,7 +83,9 @@ fn expectations_read_the_resources_and_synctest_finds_no_divergence() {
     let outcome = scenario::run_with(&scenario, |app| {
         app.add_systems(
             GgrsSchedule,
-            write_state.before(RollbackSystemSet::FrameCounter),
+            write_state
+                .after(RollbackSystemSet::Run)
+                .before(RollbackSystemSet::FrameCounter),
         );
     });
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
@@ -105,7 +107,9 @@ fn a_wrong_expectation_fails_with_the_observed_value() {
     let outcome = scenario::run_with(&scenario, |app| {
         app.add_systems(
             GgrsSchedule,
-            write_state.before(RollbackSystemSet::FrameCounter),
+            write_state
+                .after(RollbackSystemSet::Run)
+                .before(RollbackSystemSet::FrameCounter),
         );
     });
     let failures = outcome.failures.join("\n");
@@ -139,7 +143,9 @@ fn a_restart_clears_curses_and_pool_state() {
     );
     app.add_systems(
         GgrsSchedule,
-        write_state.before(RollbackSystemSet::FrameCounter),
+        write_state
+                .after(RollbackSystemSet::Run)
+                .before(RollbackSystemSet::FrameCounter),
     );
     app.finish();
     app.cleanup();
