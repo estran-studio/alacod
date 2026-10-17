@@ -1,8 +1,8 @@
 # Rapport m3-t10-profil-accomplissements (b6)
 
-Conventions : `docs/conventions.md` §75. Branche `m3-t10-profil-accomplissements`, fusionnée avec `origin/main` `a2bf564a`
-(M3-T11a, T11b, lisibilité gungeon) ; deux conflits triviaux (`content/src/ui.rs` : sources HUD `achievements` + `legend` ;
-`isaac/game.ron` : dossiers `unlocks`/`achievements` + `statuses`/`synergies`).
+Conventions : `docs/conventions.md` §75. Branche `m3-t10-profil-accomplissements`, fusionnée avec `origin/main` `f18f5945`
+(M3-T11a, T11b, T11c, T16, lisibilité gungeon) ; conflits triviaux (`content/src/ui.rs` et `hud_model.rs` : sources HUD `achievements` + `legend`, `hearts`, `coins`, `item_banner` ; `CLAUDE.md` ;
+`isaac/game.ron` : dossiers `unlocks`/`achievements` + `statuses`/`synergies`). Après la seconde fusion (T11c : gardien à trois phases), `achievement_unlocks` passe à 2 190 frames (victoire vers f2110, comme `grid_post_boss`).
 
 ## 1. Fait
 
@@ -49,18 +49,16 @@ Conventions : `docs/conventions.md` §75. Branche `m3-t10-profil-accomplissement
   après un build v2) et §38 disait « jamais écrasé » sans que ce soit vrai.
 - **Pas de `RunFacts` par joueur** : `ItemHeld` reste l'union des joueurs (contrat de §64).
 
-## 3. Vérifié (HEAD = commit LIVRÉ, fusion avec `origin/main` `a2bf564a`)
+## 3. Vérifié (HEAD = commit LIVRÉ, fusion avec `origin/main` `f18f5945`)
 
-- `make test_scenarios_par SHARDS=3` sans BLESS (après les correctifs de revue) : 3 tranches ok, 1 769 s ; 612 fichiers de scénarios
-  (318 + 294 générés). Sans BLESS hors les deux traces nouvelles (écrites à la création, rebénies une fois après la fusion avec main,
-  dont le contenu d'`isaac` avait changé).
-- `make test_crates` : 1 176 tests passés, 0 échec (1 167 sur main + 9 : `meta` 3, `game::profile` 6).
+- `make test_scenarios_par SHARDS=3` sans BLESS, sur la fusion finale (après les correctifs de revue et la fusion de T11c/T16) : 3 tranches ok,
+  1 374 s. Sans BLESS hors les deux traces nouvelles (écrites à la création, rebénies après chaque fusion avec main : le contenu d'`isaac` avait changé).
+- `make test_crates` : 1 181 tests passés, 0 échec (dont `meta` +3 et `game::profile` +6 de cette tâche).
 - `make lint` ×5 : zombies, throne, testbed (107 avertissements, inchangé : aucun contenu touché), gungeon (1, le pool `boss` jamais
-  tiré : T12), isaac (25, 26 sur main : l'avertissement accomplissement a disparu) ; aucune erreur.
-- `make gen GAME=…` ×5 : code 0, aucun fichier modifié (relancé avant les correctifs de revue ; ceux-ci ne touchent ni contenu ni
-  scénarios générés).
+  tiré : T12), isaac (24 ; sur main avant la tâche, l'avertissement « accomplissement » en faisait partie, il n'y est plus : `lint games/isaac | grep accomplissement` = 0 ligne) ; aucune erreur.
+- `make gen GAME=…` ×5 sur la fusion finale : code 0, `git status` sans diff sur les scénarios générés.
 - `cargo fmt --all -- --check`, `check-forbidden.sh`, `check-rollback-registration.sh`, `make check_sim_boundary`, `make test_tools` (25 tests) : OK.
-- Fuzz `ALACOD_FUZZ=0:8` : 1 test passé (467 s).
+- Fuzz `ALACOD_FUZZ=0:8` (`-- --ignored`, avant la dernière fusion) : 1 test passé (467 s).
 - `crates/scenario/tests/achievements.rs` : 1 passé (deux runs enchaînées).
 - **p2p-stress** `isaac`, 3 000 frames, `/tmp/inputs_b6.ron` (`p2p-stress-inputs.py 3000`), deux clients : codes de sortie 0/0,
   0 `DesyncDetected`, **4 172 frames resimulées** (client 0 ; 6 pour le client 1), traces identiques (2 999 lignes contiguës). Docker,
@@ -106,4 +104,4 @@ est mort (dit au §75).
 
 ## 7. Journal (à ajouter sur `main` après le merge, README §6)
 
-`| 2026-10-17 | M3-T10 (accomplissements : RunHistory rollback sans checksum, évaluation à Ended après confirmation, profil v2, HUD/écran de fin, objets neufs cachés dans isaac, §75) | m3-t10-profil-accomplissements | b6 | mergée ; suite 612 fichiers sans trace bougée, test_crates 1 176, lint/gen ×5, fuzz 0:8, p2p-stress isaac 4 172 frames resimulées ; non fait : évaluation en p2p réel à deux profils |`
+`| 2026-10-17 | M3-T10 (accomplissements : RunHistory rollback sans checksum, évaluation à Ended après confirmation, profil v2, HUD/écran de fin, objets neufs cachés dans isaac, §75) | m3-t10-profil-accomplissements | b6 | mergée ; suite sans trace bougée, test_crates 1 181, lint/gen ×5, fuzz 0:8, p2p-stress isaac 4 172 frames resimulées ; non fait : évaluation en p2p réel à deux profils |`
