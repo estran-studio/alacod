@@ -91,6 +91,9 @@ pub enum FeedbackKind {
     /// Un mur secret vient de s'ouvrir (M3-T17) : `position` de l'explosion qui l'ouvre,
     /// `note` : salle.
     SecretWall,
+    /// Un joueur vient de se transformer (suivi Q10, §44) : `net_id` du joueur, `note` : id de la
+    /// synergie à `requires_tag`, `color` : sa teinte.
+    Transformation,
 }
 
 impl FeedbackKind {
@@ -112,6 +115,7 @@ impl FeedbackKind {
             Self::Explosion => "explosion",
             Self::RockBroken => "rocher cassé",
             Self::SecretWall => "mur secret",
+            Self::Transformation => "transformation",
         }
     }
 }
@@ -892,7 +896,7 @@ impl Plugin for FeedbackPlugin {
 
         app.init_resource::<FeedbackFx>();
         app.add_systems(Startup, spawn_screen_flash);
-        app.add_systems(Update, tint_champions);
+        app.add_systems(Update, (tint_champions, tint_transformations));
         // Retire le zoom du tick précédent avant que le suivi de caméra ne relise la caméra.
         app.add_systems(
             Update,
@@ -1018,7 +1022,8 @@ fn apply_feedback_cues(
             FeedbackKind::Tear
             | FeedbackKind::Familiar
             | FeedbackKind::Champion
-            | FeedbackKind::BombFuse => {}
+            | FeedbackKind::BombFuse
+            | FeedbackKind::Transformation => {}
             FeedbackKind::Explosion => {
                 if !explosion.enabled || !fog.sees(fog_map.as_deref(), cue.position) {
                     continue;
@@ -1325,6 +1330,7 @@ fn apply_layer_colors(
             Option<&combat::status::Statuses>,
             Option<&crate::character::visuals::MarkerTint>,
             Option<&ChampionTint>,
+            Option<&TransformationTint>,
         ),
         With<combat::actors::Health>,
     >,
@@ -1332,11 +1338,13 @@ fn apply_layer_colors(
     // et le flash ne vont qu'aux calques du personnage.
     mut sprites: Query<&mut Sprite, Without<crate::character::health::ui::HealthBar>>,
 ) {
-    for (layers, flash, statuses, marker, champion) in &characters {
+    for (layers, flash, statuses, marker, champion, transformation) in &characters {
         // D66 : la teinte du marqueur remplace le blanc de base (statuts et flash passent devant).
-        // M3-T17 : la teinte de la variante (champion) passe devant celle du marqueur.
+        // M3-T17 : la teinte de la variante (champion) passe devant celle du marqueur ; suivi Q10 : celle
+        // d'une transformation active aussi (elle passe derrière celle d'un champion).
         let base = champion
             .and_then(|champion| champion.0)
+            .or(transformation.map(|transformation| transformation.0))
             .or(marker.map(|marker| marker.0))
             .unwrap_or(Color::WHITE);
         let color = match flash {
@@ -1455,6 +1463,41 @@ fn tint_champions(
         )
         .map(|(r, g, b)| Color::srgb(r, g, b));
         commands.entity(entity).insert(ChampionTint(tint));
+    }
+}
+
+/// Teinte d'une transformation active du joueur (suivi Q10, §44) : celle de la première synergie (par id)
+/// à `tint` dont les conditions sont remplies. Présentation, hors rollback, relue de l'état chaque tick
+/// par [`tint_transformations`] (posée, changée, retirée : aucun événement à rejouer).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct TransformationTint(pub Color);
+
+/// Pose, change ou retire [`TransformationTint`] selon l'inventaire du joueur (`items::SynergyTable`).
+fn tint_transformations(
+    mut commands: Commands,
+    items: Option<Res<items::ItemTable>>,
+    synergies: Option<Res<items::SynergyTable>>,
+    players: Query<
+        (Entity, &items::Inventory, Option<&TransformationTint>),
+        With<crate::character::player::Player>,
+    >,
+) {
+    let (Some(items), Some(synergies)) = (items, synergies) else {
+        return;
+    };
+    for (entity, inventory, current) in &players {
+        let wanted = crate::feedback_v3::transformation_tint(&synergies, &items, inventory)
+            .map(|(_, (r, g, b))| Color::srgb(r, g, b));
+        match (wanted, current) {
+            (Some(color), Some(have)) if have.0 == color => {}
+            (Some(color), _) => {
+                commands.entity(entity).insert(TransformationTint(color));
+            }
+            (None, Some(_)) => {
+                commands.entity(entity).remove::<TransformationTint>();
+            }
+            (None, None) => {}
+        }
     }
 }
 

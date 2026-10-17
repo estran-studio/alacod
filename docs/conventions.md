@@ -3150,7 +3150,7 @@ au ramassage** et n'entre pas dans l'inventaire : aucun bouton d'usage n'existe 
 sans effet reste un compteur (`key`, `blank`, `obus`). Pas de refus de ramassage à pleine santé (le soin est
 simplement borné).
 
-**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`),
+**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`, sauf transformation, voir plus bas),
 à un consommable (`Unsupported`), deux synergies pour le même ensemble (`DuplicateId`), `OnUse` dans une
 synergie ; `uses_per_floor = 0` (`OutOfRange`), `uses_per_floor`/`cost` sur un non-actif, `cost` vers un
 objet inconnu ou non consommable. Fixtures `synergy_unknown_item`, `synergy_single_item`,
@@ -3167,6 +3167,36 @@ la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`,
 `synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
 effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
 (santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
+
+### Transformations : `requires_tag` (suivi Q10, réponse de William du 2026-10-16)
+
+Une **transformation** est une synergie dont la condition est un **tag** d'objet : `SynergyDef.requires_tag:
+Some((tag: "champignon", count: 3))` (`items::TagRequirement`) ; champ optionnel, **absent** : la synergie d'avant, au bit
+près (aucune trace ne bouge : définition de contenu, hors rollback). `requires` devient facultatif (`#[serde(default)]`) :
+vide, la transformation n'exige que le tag ; non vide, les deux se **cumulent**. Une synergie sans aucune condition n'est
+jamais active.
+
+- **Règle** (`SynergyDef::is_active`, pure, utilisée par `SynergyTable::active` et par
+  `game::items::synergy_modifiers_system`, donc par `projectile_mods`, les effets et les modificateurs) :
+  active quand `Inventory::held_with_tag(items, tag) >= count`, soit le nombre d'objets **distincts** tenus
+  (passifs et actif) dont `ItemDef.tags` contient `tag`. **Un exemplaire en double compte une fois**, un consommable ou
+  un objet inconnu jamais ; l'actif perdu éteint la transformation. (`SynergyTable::active` prend désormais
+  l'`ItemTable` : tous les appelants migrés.)
+- **Effets** : ceux d'une synergie ordinaire (`modifiers` de source `synergy:<id>`, `effects`, `projectile`), posés et
+  retirés à chaque frame depuis l'inventaire.
+- **Teinte de présentation** `tint: Some("#rrggbb")` (champ optionnel de `SynergyDef`, hors simulation) : la première
+  transformation active (par id) à `tint` colore les calques du joueur (`feedback::TransformationTint`, relue de l'état
+  chaque tick, derrière la teinte d'un champion et devant celle du marqueur) et produit un moment clé `feedback`
+  « transformation 8 (champignons) » (`FeedbackKind::Transformation`, une fois à l'acquisition).
+- **Lint** (`lint_synergies`) : `count = 0` (`OutOfRange`), tag que **aucun objet** ne porte (`BrokenReference`), `count`
+  supérieur au nombre d'objets non consommables qui portent le tag (`OutOfRange` : jamais active), `tint` qui n'est pas
+  `#rrggbb` (`OutOfRange`) ; « au moins deux objets distincts » ne vaut plus que sans `requires_tag` ; deux synergies de
+  même ensemble **et** de même condition de tag restent un doublon. Fixtures `transformation_ok`, `transformation_bad`
+  (`crates/content/tests/transformations.rs`).
+- **Testbed** : objets `amanite`, `bolet`, `morille` (tag `champignon`, sans effet seuls), synergie `champignons`
+  (`count: 3`, `MoveSpeed` `Pct` +0,3, teinte `#c07040`). Scénarios `transformation_three` (trois ramassages à f10, f40, f70 : la
+  vitesse monte à la troisième prise) et son témoin `transformation_two` (deux champignons : rien) ; générés `item_amanite`,
+  `item_bolet`, `item_morille`.
 
 ## 49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
 

@@ -390,6 +390,11 @@ crate `APP`), jamais dans un crate `SIM`.
       `EntityCount` couvrent les scénarios `grid_*` et `key_door_*`).
     - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
       du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
+    - Suivis Q13, Q17, Q12 et Q10 (`m3-suivis-q10-q12-q13-q17`, §71, §66, §19, §44) : aucune attente nouvelle ; champ de
+      scénario `PlayerScript::aim` (`Some(FourWay)` pose la visée à quatre directions, `Some(Free)` retire celle du
+      personnage : les scénarios générés d'un jeu à visée `FourWay` l'épinglent) ; `EntityHits`, `EntityHealth`,
+      `EnemyDistance`, `HasStatus`, `NoDamageBetween`, `Stat` et `Event(kind: "feedback")` couvrent `familiar_mirror_items*`,
+      `aim_four_way*`, `status_charm*` et `transformation_three`/`transformation_two`.
     - M3-T3 cœurs, sous, bombes et clés au sol (§68) : `ExtraHealth` (points de vie d'âme du joueur : `ExtraHealth(handle: 0,
       n: 4.0, at_frame: 110)`, égalité exacte, 0 sans le composant) ; `Consumable`, `Currency`, `Health`, `HudText`
       (source `bombs`) et `ShellPiles` couvrent les autres scénarios (`soul_heart_absorbs`, `heart_full_stays`, `coin_pickup`,
