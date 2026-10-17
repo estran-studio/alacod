@@ -255,6 +255,15 @@ pub(crate) fn camera_control_system(
             return;
         };
 
+    // La cible suivie a disparu (relance du hub vers la run : les joueurs sont recréés) : sans ce
+    // retour à `None`, la caméra restait figée à l'endroit où le hub l'avait laissée et les vidéos de
+    // `gungeon_full_run` ne montraient plus les joueurs (constaté le 2026-10-17).
+    if camera
+        .target_player_id
+        .is_some_and(|target| player_query.get(target).is_err())
+    {
+        camera.target_player_id = None;
+    }
     // Find the player to follow if not already set
     if camera.target_player_id.is_none() {
         // If there's an override, follow that player by handle (used by play_scenario --follow)

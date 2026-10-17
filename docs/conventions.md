@@ -6173,3 +6173,126 @@ teinte, orientation) et `map_ldtk::plugins` (tuile d'un rocher : retirée puis r
 - L'orbital et l'élite sont visibles dans le testbed seulement ; `isaac` aura ses propres entrées avec M3-T11.
 - Une bombe de champion (mèche d'une frame) apparaît une frame avec son sprite et un indice « mèche (0 frames) ».
 - Le mur secret n'a pas de sprite de porte propre : seule la poussière annonce l'ouverture.
+
+## 83. Langage visuel provisoire : on doit comprendre ce qu'on voit (m2-lisibilite-gungeon, voie V4)
+
+Constat de William sur les vidéos `gungeon_full_run` (2026-10-17) : « je ne comprends absolument rien ».
+Trois causes, toutes corrigées en **présentation seule** (aucune trace ne bouge, rien dans
+`GgrsSchedule`, aucun état rollback) :
+
+1. **La caméra était figée après le hub.** `camera_control_system` ne choisissait sa cible qu'une fois ;
+   la relance hub → run recrée les joueurs, la cible mémorisée n'existait plus et la caméra restait où
+   le hub l'avait laissée : les vidéos ne montraient plus les joueurs (flèches rouge et bleue de
+   `player_indicator_system` sur le bord). Une cible disparue est maintenant oubliée et re-choisie.
+2. **Tout se ressemblait** : héros, ennemis, objets partageaient les cases de Tiny Dungeon. Un langage
+   visuel **par classe d'entité** les remplace ; il est généré par `scripts/generer-sprites-gungeon.py`
+   (stdlib seule, CC0, `--check`, `--preview`) dans `games/gungeon/assets/sprites/lisible/` et déclaré dans
+   `sprites.ron` (bloc `// >>> généré`). Les sprites de Kenney du lot C sont retirés.
+3. **Rien n'indiquait ce qui est ramassable, achetable, dangereux.** Halo, pointeur, étiquettes, légende.
+
+### Les classes (id de `sprites.ron` = classe)
+
+| Classe | Silhouette / couleur | Id |
+|---|---|---|
+| joueur | pistolero (grand chapeau, poncho), **clair** : teinté par handle (0 bleu, 1 vert, 2 jaune, 3 violet, `player_colors` de `hud.ron`) | `player` |
+| bullet kin | balle de laiton ronde, jaune | `bullet_kin` |
+| escouade | petite balle pointue, orange, trois traits blancs | `bullet_kin_squad` |
+| shotgun kin | cartouche rouge large, culot de laiton | `shotgun_kin` |
+| lanceur | corps rond violet, tube de mortier | `lanceur_kin` |
+| tourelle (stationnaire) | cube d'acier sur trépied, lentille rouge | `tourelle_kin` |
+| vétéran | carrure large, casque à crête, chevrons, vert olive | `veteran_kin` |
+| bandana | élancé turquoise, bandeau rouge aux pans | `bandana_kin` |
+| fuyard | goutte bleu pâle, traits de vitesse | `fuyard_kin` |
+| cible | disque rouge et blanc sur pied | `cible` |
+| boss | forteresse cramoisie 64 px, couronne dorée (`atlas_boss`) | `gatling` |
+| tir ennemi | orbe **rond rouge** (taille = racine du dégât) | `bullet_enemy` |
+| tir allié | **losange** blanc bleuté | `bullet_player` |
+| douille | pièce jaune | `shell` |
+| clé / bombe / cœur / blank | clé d'or / bombe noire à mèche / cœur rouge / disque bleu | `item/key`, `item/bomb`, `item/heart`, `item/blank` |
+| objet passif / actif / consommable | carte à initiale / hexagone / fiole, teinte stable par id (`item/<id>`) | `item/<id>`, `item/passive`, `item/active`, `item/consumable` |
+| arme au sol | silhouette par famille (pistolet, revolver, fusil, fusil à pompe, arc, énergie, lanceur, flammes), orange | `weapon/<id>`, `weapon` |
+| coffre | bois, bandes d'or, cadenas ; ouvert : couvercle relevé (`Open`) | `chest` |
+| présentoir | socle de pierre, plateau doré, étiquette | `shelf` |
+| baril / table / rocher / mur fissuré | baril rouge à flamme / table de bois / bloc gris / brique fissurée | `barrel`, `table`, `rock`, `secret_wall` |
+| porte | fermée (planches) / ouverte (deux montants, sol visible) / à clé (cadenas rouge, chaînes) ; 16×32 et 32×16 | `door_v`, `door_h` (`Idle`, `Open`, `Locked`) |
+| portail | spirale violette et cyan 64 px | `portal` |
+| halo, pointeur | disque doux blanc, chevron blanc (la teinte vient du rendu) | `halo`, `aim` |
+
+Eau, sable et fosse restent les couleurs d'IntGrid de la couche `Surfaces` (`#3b7dd8`, `#d8c27a`, `#202020`),
+nommées dans la légende. Les piques ne sont pas redessinés (surface à `hazard`, aucun jeu n'en pose).
+
+### Données et systèmes génériques
+
+- **`sprites.ron`** : une entrée par classe. Un objet au sol cherche `item/<id>`, puis `item/<genre>`
+  (`passive`, `active`, `consumable`), puis `item` ; une arme `weapon/<id>` puis `weapon`
+  (`world_sprites::item_candidates`, `weapon_candidates`). Une entité sans entrée garde son rendu d'avant
+  (autres jeux inchangés).
+- **`hud.ron`** (champs optionnels de `HudConfig`) : `player_colors`, `names` (id → nom des étiquettes :
+  `player`, `shell`, `chest`, `chest_locked`, `chest_open`, `barrel`, `table`, `rock`, `portal`, ids de
+  personnages et d'armes), `legend` (groupes `(title, column, entries: [(label, sprite, anim, tint,
+  color)])`), `hide_markers` (cache les tuiles d'apparition des ennemis, repères d'auteur). Widget
+  `Legend(source: "legend")`, source ajoutée à `HUD_SOURCES`. Le lint refuse un `sprite` de légende absent de
+  `sprites.ron`.
+- **`game::legibility`** (`LegibilityPlugin`, dans `PresentationPlugin` : absent en headless) :
+  - pointeur de visée (`AimPivot`, enfant de chaque ennemi) : visée figée de l'émetteur, sinon dernière
+    position connue de la cible (`EnemyTarget`), sinon cible de déplacement ; caché sans cible ;
+  - halo pulsant (`Halo`, enfant) sous douilles, objets (couleur par rareté), armes, power-ups, coffres,
+    présentoirs ; il respire sur `FrameCount` (image n = frame n en capture) ; masqué à l'ouverture du coffre
+    ou à la vente ;
+  - couleur par handle : `MarkerTint` posé sur les joueurs (relu par `feedback::apply_layer_colors`, qui
+    n'efface plus la couleur des barres de vie : rouge ennemi, verte joueur) ;
+  - **étiquettes** (`Label`, entités indépendantes comme `PowerUpLabel`) : nom de l'ennemi, du joueur
+    (`J 1`), de l'objet, de l'arme (+ prix d'une arme murale), de la douille (`+n`), du coffre (clé, vide),
+    du présentoir (nom + prix), baril, table, rocher, porte fermée ou à clé (une porte ouverte n'en a pas),
+    portail (`WorldLabel`). Désencombrées (une étiquette qui en recouvre une autre monte) et masquées hors
+    de la vue (`FogView::sees`). **F6** les bascule ; `ALACOD_LABELS=1` les allume au départ ;
+    `play_scenario --capture` et `make videos` les allument d'office (`ALACOD_LABELS=0` les coupe) ;
+  - **légende** : **F7** (`LegendOpen`) ouvre le panneau du HUD, reconstruit à chaque ouverture.
+- **`world_sprites`** : `SpriteTable` (feuille et case d'un id), `SpriteRequest` (sprite demandé par id sur
+  une entité de carte : le portail), portes (`DoorSprite`, état d'après `Collider` et `Interactable` :
+  sans collider = ouverte, avec collider et interaction = à clé, collider seul = fermée par sa salle),
+  `hide_replaced_map_tiles` (la tuile de l'entité LDtk d'origine devient transparente quand son entité
+  rollback porte l'image du monde). Projectiles : une feuille déclarée `own_colors: true`
+  (`SpriteSheetConfig`, gungeon) porte sa couleur (pas de teinte d'équipe) et sa taille suit le dégât
+  (`5 + 1,6·√dégât`, bornée à 8..22) ; sans le champ (défaut), teinte d'équipe et halo agrandi comme avant
+  (testbed, isaac, throne, zombies inchangés) ; `style_tears` (M3-T17) s'applique ensuite. Une table ou un
+  baril (entités rollback sans `Transform`) pose son image sur l'entité LDtk d'origine (`MapHeld`) et la cache à sa destruction (`reap_held_sprites`) ; l'image d'une porte ouverte reste
+  `Visible` malgré le parent caché par `interaction::update_door_visuals`.
+- **Composants non rollback posés sur des entités rollback** : `AimPointer`, `PickupHalo`, `DoorSprite`,
+  `WorldSprite`, `MarkerTint` (joueurs) : tous hors checksum et hors snapshot, recréés pour une entité
+  ressuscitée ; les enfants (pointeur, halo) se cachent quand leur parent est désactivé.
+- **Dettes assumées (écarts à la fiche)** :
+  - `AimPointer`, `PickupHalo`, `DoorSprite` (et `WorldSprite`, `MarkerTint`) sont posés sur des entités
+    rollback, hors checksum et snapshot (comme `WorldSprite` avant eux) ; un composant de présentation sur
+    une entité rollback n'est pas un état, mais la fiche demandait de n'en poser aucun nouveau.
+  - Couleurs de catégorie du halo, du pointeur et des étiquettes en dur dans `legibility.rs` (voie V6 :
+    les passer dans `hud.ron`).
+  - Piques non dessinés (aucun jeu n'en pose ; le sprite `spikes` est généré mais non branché).
+  - Coût des étiquettes : `gather_labels` et `sync_labels` cherchent linéairement (`wishes.iter().find`),
+    `declutter` est quadratique ; non mesuré, à mesurer au-delà de ~50 étiquettes (salles d'arène, étage
+    entier visible) avant d'indexer par entité.
+  - Les images de porte, de table et de baril sont des enfants de l'entité LDtk persistante (l'entité
+    rollback n'a pas de `Transform`) : leur visibilité est **héritée** du monde de l'étage (`Inherited`,
+    jamais `Visible`) et `reap_held_sprites` les cache quand l'entité rollback propriétaire n'existe plus
+    (changement d'étage, création annulée par un rollback). Test : `world_sprites::tests`.
+
+### Preuves et vidéos
+
+`play_scenario --capture <dir> --at 42,157,…` ne capture que ces frames (et s'arrête après la dernière) ;
+`--legend` ouvre la légende sans étiquettes. `scripts/scenario-video` rend, pour chaque scénario dont le jeu
+déclare un widget `Legend`, l'**image de légende** (frame 40, par le moteur) et la place en tête de la
+vidéo pendant `LEGEND_SECONDS` (1,2 s) : `ffmpeg` sans `drawtext` suffit (concat, aucun texte incrusté par
+ffmpeg). La page de revue lit `<nom>.legend` (secondes de tête) et compte frames et moments clés depuis la fin
+de la légende. Seul `render` ajoute la légende (pas `views` ni `compare`). Rapport : `docs/taches/rapports/m2-lisibilite-gungeon.md`.
+
+### Ajouter une classe
+
+1. Dessiner le sprite dans `scripts/generer-sprites-gungeon.py` (primitives `Img`, contour automatique), le
+   déclarer dans `PERSOS` / `world_sprites()`, relancer le script, `--preview /tmp/apercu.png` pour le voir.
+2. Ajouter la ligne de légende dans `ui/hud.ron` et, si besoin, un nom dans `names`.
+3. `python3 -m unittest scripts/tests/test_sprites_gungeon.py` (sprites à jour, CC0 dans `assets.yaml`,
+   légende résolue, silhouettes distinctes). Un autre jeu fait de même avec ses propres entrées : le code
+   ne connaît aucune classe, seulement des ids.
+
+**Remplacement par la voie V6** : un fichier `png` (et sa feuille) remplace la classe ; l'id de
+`sprites.ron` ne change pas.

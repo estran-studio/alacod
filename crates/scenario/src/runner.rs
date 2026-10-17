@@ -3386,6 +3386,12 @@ pub struct CaptureConfig {
     pub follow_handle: Option<usize>,
     /// Capture viewport, for checking responsive HUD layouts.
     pub size: (u32, u32),
+    /// Frames à capturer (sinon : une toutes les `every`). Non vide : la partie s'arrête après la
+    /// dernière (`play_scenario --at 42,157`), pour les captures de preuve d'un rapport.
+    pub at: Vec<u32>,
+    /// Légende ouverte (F7) et sans étiquettes : image de légende en tête des vidéos de revue
+    /// (`scripts/scenario-video`, `play_scenario --legend`).
+    pub legend: bool,
 }
 
 #[derive(Resource)]
@@ -3398,6 +3404,7 @@ struct CaptureState {
     /// Image où la caméra rend pendant la capture (taille fixe, indépendante de la fenêtre).
     target: Option<Handle<Image>>,
     size: (u32, u32),
+    at: Vec<u32>,
 }
 
 /// Taille des images capturées.
@@ -3421,6 +3428,12 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     // caméra (présentation seule : la simulation et la trace ne lisent ni l'un ni l'autre).
     app.insert_resource(WaveDebugEnabled(false))
         .insert_resource(game::camera::ui::CameraDebugUiEnabled(false));
+    // Fiche m2-lisibilite-gungeon : les captures expliquent ce qu'elles montrent. Étiquettes allumées
+    // par défaut (`ALACOD_LABELS=0` les coupe) ; la légende seule pour l'image de tête des vidéos.
+    app.insert_resource(game::legibility::LabelsEnabled(
+        !config.legend && std::env::var("ALACOD_LABELS").map_or(true, |v| v != "0"),
+    ))
+    .insert_resource(game::legibility::LegendOpen(config.legend));
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
     ))
@@ -3432,6 +3445,7 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
         updates_after_end: 0,
         target: None,
         size: config.size,
+        at: config.at,
     })
     .add_systems(Startup, configure_capture_window)
     .add_systems(Update, (render_cameras_to_image, capture_frames).chain());
@@ -3507,7 +3521,8 @@ fn capture_frames(
         // Hub suivi : aucune image tant que la run n'a pas commencé (la vidéo montre la run seule).
         return;
     }
-    if frame >= state.frames {
+    let last_at = state.at.iter().copied().max();
+    if frame >= state.frames || last_at.is_some_and(|last| frame > last) {
         // Laisser le temps aux dernières captures d'être écrites
         state.updates_after_end += 1;
         if state.updates_after_end > 10 {
@@ -3523,7 +3538,12 @@ fn capture_frames(
         return;
     }
 
-    if frame % state.every == 0 && state.last_captured != Some(frame) {
+    let wanted = if state.at.is_empty() {
+        frame % state.every == 0
+    } else {
+        state.at.contains(&frame)
+    };
+    if wanted && state.last_captured != Some(frame) {
         let path = state.dir.join(format!("frame_{frame:05}.png"));
         commands
             .spawn(Screenshot::image(target))
