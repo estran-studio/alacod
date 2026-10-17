@@ -1,0 +1,14 @@
+// M3-T17 (docs/conventions.md §82) : rocher (une case de 16). Placeholder CC0 du projet, `scripts/generer-sprites-feedback.py`.
+(
+    path: "sprites/feedback/rock.png",
+    tile_size: (16, 16),
+    columns: 1,
+    rows: 1,
+    animated: false,
+    name: "body",
+    scale: 1.0,
+    anchor: Center,
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 3.0,
+)

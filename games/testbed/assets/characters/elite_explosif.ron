@@ -53,7 +53,7 @@
         chance: "1.0",
         table: {
             "explosif": (tags: ["champion"], on_death: [Explode(radius: "70.0", damage: "10.0", destroys: false)], tint: Some("#c0392b")),
-            "salve": (tags: ["champion"], on_death: [SpawnPattern(pattern: "couronne_unique", weapon: "fireball_gun")]),
+            "salve": (tags: ["champion"], on_death: [SpawnPattern(pattern: "couronne_unique", weapon: "fireball_gun")], tint: Some("#16a085")),
             "nu": (),
         },
     )),

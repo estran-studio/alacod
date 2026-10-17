@@ -6,6 +6,7 @@
 // À regarder : l'appui sur Bomb (f10, effectif f15) pose la bombe aux pieds du joueur (le compteur `bomb`
 // tombe à 0) ; l'explosion vient 20 frames plus tard (f35, moment clé `explosion`) : le premier mannequin
 // perd 50 PV, le second reste intact ; le joueur et son poseur restent intacts (tir ami coupé : voir `bomb_hurts_owner` pour le même tir avec tir ami).
+
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
