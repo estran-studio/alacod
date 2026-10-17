@@ -1,0 +1,18 @@
+// M3-T14 (docs/conventions.md §79) : témoin de `bot_isaac_rock`. Même carte, même bot, **sans bombe** : le portail reste
+// derrière les rochers (aucun détour), le bot n'a rien à faire sauter ; les deux rochers sont intacts à la dernière frame
+// et l'étage 0 n'est pas quitté.
+//
+// À regarder : le bot ne trouve aucun but et attend devant le mur.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map_seed: 1,
+    floors: Some("bot_rocks"),
+    frames: 400,
+    players: [(bot: explorateur)],
+    expect: [
+        EntityCount(kind: Rock, min: Some(2), max: Some(2), at_frame: 399),
+        FloorIndex(index: 0, at_frame: 399),
+        PlayerAlive(handle: 0, at_frame: 399),
+    ],
+)

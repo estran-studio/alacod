@@ -1,0 +1,30 @@
+// M3-T14 (docs/conventions.md §79) : décision du bot devant le marché du diable. Un présentoir `pacte_rouge` à
+// `MaxHealth("2")` (un cœur) est posé à f5 au pied du joueur (comme `devil_deal_isaac` : la vraie salle du diable est
+// `devil_room_chance`, graine 8 de `sous_sol_un`). Politique `devil: IfHealthAbove("4.0")` : le bot, à 6 PV, achète
+// sans qu'aucun input soit scripté : 6/6 deviennent 4/4. Témoin : `bot_isaac_devil_never` (`devil: Never`).
+//
+// À regarder : f5 le présentoir ; l'achat par Interaction juste après ; vie 4/4 définitive, l'objet est tenu.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    floors: Some("sous_sol_un"),
+    frames: 120,
+    shop: (shelves: [(key: "s", item: "pacte_rouge", price: 0, cost: Some(MaxHealth("2")), x: "-8.0", y: "-8.0", at_frame: 5)]),
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        shells: true,
+        devil: IfHealthAbove("4.0"),
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+    )),
+    players: [(bot: explorateur)],
+    expect: [
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 8),
+        ItemCount(handle: 0, id: "pacte_rouge", count: 0, at_frame: 8),
+        HasItem(handle: 0, id: "pacte_rouge", at_frame: 60),
+        Shelf(nth: 0, sold: Some(true), at_frame: 60),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 60),
+        Stat(handle: 0, stat: MaxHealth, value: 4.0, at_frame: 110),
+    ],
+)

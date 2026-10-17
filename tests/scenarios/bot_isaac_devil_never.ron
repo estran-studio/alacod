@@ -1,0 +1,26 @@
+// M3-T14 (docs/conventions.md §79) : témoin de `bot_isaac_devil`. Même présentoir au pied du joueur, politique
+// `devil: Never` : le bot ne l'achète jamais (vie 6/6, objet absent, présentoir invendu).
+//
+// À regarder : rien ne se passe.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    floors: Some("sous_sol_un"),
+    frames: 120,
+    shop: (shelves: [(key: "s", item: "pacte_rouge", price: 0, cost: Some(MaxHealth("2")), x: "-8.0", y: "-8.0", at_frame: 5)]),
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        shells: true,
+        devil: Never,
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+    )),
+    players: [(bot: explorateur)],
+    expect: [
+        Shelf(nth: 0, sold: Some(false), at_frame: 100),
+        ItemCount(handle: 0, id: "pacte_rouge", count: 0, at_frame: 100),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
+        Stat(handle: 0, stat: MaxHealth, value: 6.0, at_frame: 110),
+    ],
+)
