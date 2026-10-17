@@ -1,0 +1,6 @@
+// `isaac` (M3-T11c, docs/conventions.md §76.3) : télégraphe de 15 frames puis un crachat visé
+// (`Aimed`) ; `cracheur`.
+Sequence([
+    Telegraph(15),
+    Aimed(count: 1, spread: "0.0", projectile: "crachat"),
+])

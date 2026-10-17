@@ -1,0 +1,44 @@
+// `isaac` (M3-T11c, §76.3) : tireur volant (`Flying`, survole fosses et eau). Garde 90 à 150 unités et lâche une
+// rafale de trois crachats (`rafale`, un par 8 frames). Vue directe comme `cracheur` (`aggro_range` 140,
+// `sight_range` 360). Renfort du boss `gardien` (phase 2).
+(
+    movement: (
+        acceleration: "150.0",
+        max_speed: "48.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "bourdon",
+
+    collider: (
+        shape: Rectangle(width: "16.", height: "16."),
+        offset: ( x: "0.0", y: "-4.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (max: "6.0"),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("140.0"),
+        sight_range: Some("360.0"),
+        attack_range: Some("0.0"),
+        behaviors: Some([
+            Shoot(weapon: "arsenal", pattern: "rafale", range: "220.0", cooldown_frames: 140),
+            KeepDistance(min: "90.0", max: "150.0"),
+            Chase(profile: "Flying"),
+        ]),
+    )),
+    test: Some((frames: 600)),
+)

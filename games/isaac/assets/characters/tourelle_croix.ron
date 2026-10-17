@@ -1,0 +1,54 @@
+// `isaac` (M3-T11c, §76.3) : tourelle immobile. Deux couronnes de quatre boules lentes, la seconde 25 frames après
+// la première (`croix`, télégraphe de 30). Voit à 260 unités en ligne dégagée seulement (`aggro_range` 100,
+// `sight_range` 260) : posée dans l'angle d'une salle, elle ne tire pas à travers un mur.
+// Champion `salve` (chance `0,15 + étage × 0,12`) : à sa mort, une couronne de huit boules (`SpawnPattern`).
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "tourelle_croix",
+
+    collider: (
+        shape: Rectangle(width: "20.", height: "20."),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (max: "12.0"),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("100.0"),
+        sight_range: Some("260.0"),
+        attack_range: Some("0.0"),
+        stationary: Some(true),
+        behaviors: Some([
+            Shoot(weapon: "arsenal", pattern: "croix", range: "260.0", cooldown_frames: 210),
+        ]),
+    )),
+    variants: Some((
+        chance: "0.15 + floor * 0.12",
+        table: {
+            "salve": (tags: ["champion"], on_death: [SpawnPattern(pattern: "couronne_unique", weapon: "arsenal")], tint: Some("#16a085")),
+        },
+    )),
+    // Scénarios générés `enemy_tourelle_croix_*` et `champion_tourelle_croix_salve` (variante imposée, `kill` : la couronne).
+    test: Some((
+        frames: 600,
+        champions: [(variant: "salve", kill: true, weapon: Some("larmes"))],
+    )),
+)

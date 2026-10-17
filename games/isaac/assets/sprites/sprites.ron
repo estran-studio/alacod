@@ -33,6 +33,28 @@
         animation: "sprites/gungeon/anim_fuyard_kin.ron",
         layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
     ),
+    // M3-T11c (§76.3) : ennemis, mêmes silhouettes Kenney que `gungeon` (une par famille : charge, tireur, tourelle,
+    // volant, fantôme).
+    "rampant": (
+        animation: "sprites/gungeon/anim_bandana_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "spectre": (
+        animation: "sprites/gungeon/anim_bullet_kin_squad.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "cracheur": (
+        animation: "sprites/gungeon/anim_veteran_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "tourelle_croix": (
+        animation: "sprites/gungeon/anim_tourelle_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "bourdon": (
+        animation: "sprites/gungeon/anim_lanceur_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
     "gardien": (
         animation: "sprites/gungeon/anim_gatling.ron",
         layers: { "body": "sprites/gungeon/tiny_boss_sheet.ron" },

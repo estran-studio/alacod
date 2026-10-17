@@ -20,6 +20,11 @@ Scenario(
             by_frame: 1500,
         ),
         Event(
+            kind: "boss_phase",
+            label_contains: "phase 1 → 2",
+            by_frame: 1500,
+        ),
+        Event(
             kind: "room",
             label_contains: "salle boss nettoyée",
             by_frame: 1500,
