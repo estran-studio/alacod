@@ -33,6 +33,7 @@
     "secret_wall": (animation: "sprites/lisible/anim/secret_wall.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
     "item/key": (animation: "sprites/lisible/anim/item__key.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
     "item/bomb": (animation: "sprites/lisible/anim/item__bomb.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "bomb": (animation: "sprites/lisible/anim/bomb.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
     "item/heart": (animation: "sprites/lisible/anim/item__heart.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
     "item/blank": (animation: "sprites/lisible/anim/item__blank.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
     "item/passive": (animation: "sprites/lisible/anim/item__passive.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),

@@ -5,6 +5,7 @@
 // À regarder : à l'explosion (f135) le rocher à butin disparaît et laisse un consommable au sol (la clé du pool
 // `salle`, tirée par `loot_seed` de la clé `rock:<salle>:<x>:<y>`, donc la même à chaque partie) ; le joueur,
 // reparti à droite (f140), le ramasse au passage : compteur `key` à 1 ; plus aucun rocher.
+
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",

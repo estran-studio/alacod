@@ -46,7 +46,7 @@
     variants: Some((
         chance: "1.0",
         table: {
-            "distant": (tags: ["champion"], behaviors: Some([KeepDistance(min: "200.0", max: "260.0")])),
+            "distant": (tags: ["champion"], behaviors: Some([KeepDistance(min: "200.0", max: "260.0")]), tint: Some("#3498db")),
             "nu": (),
         },
     )),

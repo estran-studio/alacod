@@ -3,7 +3,7 @@
     path: "sprites/lisible/atlas_monde.png",
     tile_size: (32, 32),
     columns: 8,
-    rows: 7,
+    rows: 8,
     animated: false,
     name: "body",
     scale: 1.0,

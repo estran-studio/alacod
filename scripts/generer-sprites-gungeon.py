@@ -830,6 +830,7 @@ def world_sprites():
         ("secret_wall", {"Idle": secret_wall()}),
         ("item/key", {"Idle": key()}),
         ("item/bomb", {"Idle": bomb()}),
+        ("bomb", {"Idle": bomb()}),  # bombe posée (entité `Bomb`, mèche qui clignote)
         ("item/heart", {"Idle": heart()}),
         ("item/blank", {"Idle": blank()}),
         ("item/passive", {"Idle": card("?", rgb("#d8dde3"), rgb("#7f8c9a"))}),

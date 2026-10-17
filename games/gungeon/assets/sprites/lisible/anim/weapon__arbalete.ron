@@ -2,6 +2,6 @@
 (
     frame_duration: 120,
     animations: {
-        "Idle": (start: 19, end: 19),
+        "Idle": (start: 20, end: 20),
     },
 )

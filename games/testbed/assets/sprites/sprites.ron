@@ -28,6 +28,55 @@
         animation: "sprites/characters/player/player_animation.ron",
         layers: { "body": "sprites/weapons/machine_gun_sheet.ron" },
     ),
+    // M3-T17 (§82) : placeholders du feedback v3 (larmes, bombe, rocher, familiers, champions).
+    "bullet_player": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/tear_sheet.ron" },
+    ),
+    "bullet_enemy": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/tear_sheet.ron" },
+    ),
+    "bomb": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/bomb_sheet.ron" },
+    ),
+    "rock": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/rock_sheet.ron" },
+    ),
+    "compagnon": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/companion_sheet.ron" },
+    ),
+    "orbital": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/orbital_sheet.ron" },
+    ),
+    "rempart": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/orbital_sheet.ron" },
+    ),
+    "elite_explosif": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/champion_sheet.ron" },
+    ),
+    "elite_divise": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/champion_sheet.ron" },
+    ),
+    "elite_riche": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/champion_sheet.ron" },
+    ),
+    "elite_comportement": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/champion_sheet.ron" },
+    ),
+    "elite_chance": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/champion_sheet.ron" },
+    ),
     "slash": (
         animation: "sprites/effects/slash/slash_animation.ron",
         layers: { "body": "sprites/effects/slash/slash_sheet.ron" },

@@ -1,0 +1,17 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 0,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (larme)"
+  },
+  {
+    "frame": 1,
+    "kind": "feedback",
+    "label": "familier 14 (suiveur, porteur 8, rang 0)"
+  }
+]

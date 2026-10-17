@@ -3,6 +3,9 @@
 // ne s'approche pas à moins de 200 unités du joueur ; sans (témoin `nu`), il le poursuit.
 //
 // À regarder : le champion s'arrête à ~200 unités du joueur ; le témoin le rejoint.
+//
+// M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la variante à `tint` du champion (`variant_tint`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
@@ -22,5 +25,6 @@ Scenario(
         EnemyVariant(entity: Placed(0), variant: Some("distant"), at_frame: 2),
         EnemyState(entity: Placed(0), behavior: "KeepDistance", at_frame: 60),
         EnemyDistance(entity: Placed(0), target: Player(0), min: Some(190.0), at_frame: 299),
+        Event(kind: "feedback", label_contains: Some("champion 14 (distant)"), by_frame: 2),
     ],
 )
