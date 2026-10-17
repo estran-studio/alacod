@@ -3,7 +3,7 @@
 // vide, jamais rechargé, pas d'`ammo_type` : aucune réserve). Les stats de larmes sont des multiplicateurs
 // de base 1 posés par les objets : `Damage` (3,5), `FireRate` (3 tirs/s), `Range` (300), `ShotSpeed`
 // (260), `ShotSize` (collision et sprite), `Luck` (chance d'effet). `arsenal` : table de projectiles du boss
-// (`eventail`, `couronne`).
+// (`eventail`, `couronne`, `spirale`, `crachat`, `croix`, `rafale`, `couronne_unique`).
 ({
     "larmes": (
         config: (
@@ -92,6 +92,8 @@
                 "plomb": (damage: "1.0", speed: "140.0", range: "260.0"),
                 // Couronne lente du boss (`couronne`).
                 "boule": (damage: "1.0", speed: "90.0", range: "400.0"),
+                // M3-T11c (§76.3) : crachats visés de `cracheur` et `bourdon` (`crachat`, `rafale`).
+                "crachat": (damage: "1.0", speed: "110.0", range: "320.0"),
             },
             test: Some((frames: 200, min_hits: 2)),
         ),

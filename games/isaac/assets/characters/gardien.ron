@@ -1,6 +1,4 @@
-// `isaac` (M3-T0f, docs/conventions.md §37 et §45) : boss immobile à deux phases. Phase 0 : un
-// éventail (`eventail`, `Fan`) toutes les 150 frames ; sous 50 % de santé, phase 1 : une couronne
-// (`couronne`, `Ring`) toutes les 150 frames, précédée d'un télégraphe de 20 frames.
+// `isaac` (M3-T0f, docs/conventions.md §37 et §45) : boss immobile (trois phases depuis M3-T11c, voir `boss:`).
 // Les tirs passent par la frise (`SpawnPattern` avec la table de projectiles de l'`arsenal`).
 (
     movement: (
@@ -39,19 +37,37 @@
 
     // Scénario généré `boss_gardien` (un bot joue l'étage du manifeste et bat le boss).
     test: Some((frames: 1500, still: false, moving: false, boss: Some(()))),
-
+    // M3-T11c (§76.3) : trois phases. 0 (au-dessus de 66 %) : l'éventail, toutes les 150 frames. 1 (sous 66 %) : la
+    // couronne, puis 60 frames plus tard la spirale (64 frames de jeu, elle finit avant la couronne suivante). 2, la
+    // rage (sous 33 %) : un `spectre` (`Phasing`) et un `bourdon` (`Flying`) en renfort, puis un éventail
+    // précédé d'un télégraphe de 10 frames et, 40 frames plus tard, une couronne. Le butin (`boss_drop`, pool `boss`)
+    // est posé par `rooms/boss.ron`.
     boss: Some((
         phases: [
             (
-                until: Some(HealthBelow("0.5")),
+                until: Some(HealthBelow("0.66")),
                 timeline: Some((
                     events: [(at: 10, do: [SpawnPattern(pattern: "eventail", weapon: "arsenal")])],
                     repeat: Some(150),
                 )),
             ),
             (
+                until: Some(HealthBelow("0.33")),
                 timeline: Some((
-                    events: [(at: 30, do: [SpawnPattern(pattern: "couronne", weapon: "arsenal")])],
+                    events: [
+                        (at: 0, do: [SpawnPattern(pattern: "couronne", weapon: "arsenal")]),
+                        (at: 60, do: [SpawnPattern(pattern: "spirale", weapon: "arsenal")]),
+                    ],
+                    repeat: Some(150),
+                )),
+            ),
+            (
+                on_enter: [SpawnEnemies(id: "spectre", count: 1), SpawnEnemies(id: "bourdon", count: 1)],
+                timeline: Some((
+                    events: [
+                        (at: 30, do: [Telegraph(10), SpawnPattern(pattern: "eventail", weapon: "arsenal")]),
+                        (at: 70, do: [SpawnPattern(pattern: "couronne", weapon: "arsenal")]),
+                    ],
                     repeat: Some(150),
                 )),
             ),
