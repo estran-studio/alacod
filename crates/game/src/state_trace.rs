@@ -46,8 +46,8 @@ use std::{collections::BTreeMap, fmt::Write as _, path::PathBuf};
 
 use bevy::prelude::*;
 use bevy_ggrs::{
-    Checksum, LoadWorld, LoadWorldSystems, Rollback, RollbackFrameCount, SaveWorld,
-    SaveWorldSystems,
+    AdvanceWorld, AdvanceWorldSystems, Checksum, LoadWorld, LoadWorldSystems, Rollback,
+    RollbackFrameCount, SaveWorld, SaveWorldSystems,
 };
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
@@ -81,58 +81,41 @@ pub struct StateTraceRecorder {
 }
 
 /// Rollbacks réseau vus par l'enregistreur (mesure, hors simulation). Un **rollback** est une
-/// restauration d'état de bevy_ggrs (schedule `LoadWorld`, [`count_rollback_load`]) ; sa
-/// **profondeur** est le nombre de frames qu'il fait resimuler (≥ 1) : celles que la trace revoit
-/// (déjà enregistrées, jusqu'à la première frame nouvelle) **plus une**, car la sauvegarde qui
-/// suit la restauration tombe sur une clé de trace neuve (lecture de `ggrs` 0.13 et `bevy_ggrs`
-/// 0.22 à la relecture D86 ; cohérent avec le plafond observé de 11 = fenêtre de prédiction 12 − 1).
-/// Les compteurs repartent de zéro à chaque nouvelle partie (`resimulated` de
-/// [`StateTraceRecorder`], lui, cumule sur le processus et ne compte que les frames **revues**).
+/// restauration d'état de bevy_ggrs (schedule `LoadWorld`, [`count_rollback_load`]). Sa
+/// **profondeur** est le nombre de frames que GGRS fait resimuler pour revenir où le jeu en
+/// était : `dernière frame avancée avant la restauration − frame restaurée` (la dernière frame
+/// avancée est lue à la fin de chaque `AdvanceWorld`, [`note_advanced_frame`]). Elle ne dépend
+/// **pas** de la trace : une sauvegarde de la frame courante pendant un tick bloqué au seuil de
+/// prédiction (GGRS sauvegarde avant de décider de ne pas avancer) réenregistre une clé déjà vue
+/// sans resimuler rien. Les compteurs repartent de zéro à chaque nouvelle partie (`resimulated` de
+/// [`StateTraceRecorder`], lui, cumule sur le processus et compte les clés de trace revues).
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct RollbackStats {
     pub rollbacks: u32,
     pub depth_max: u32,
-    /// Somme des profondeurs : frames resimulées de la partie qui suivent une restauration.
+    /// Somme des profondeurs : frames resimulées de la partie.
     pub depth_sum: u32,
-    /// Frames déjà vues réenregistrées **sans** restauration préalable et plus longue suite d'entre
-    /// elles : [INFERENCE, lecture du code] re-sauvegardes de la frame courante par bevy_ggrs à
-    /// chaque tick où GGRS saute l'`Advance` au seuil de prédiction (pas des resimulations).
-    pub unloaded: u32,
-    pub unloaded_max: u32,
-    /// Profondeur → nombre de rollbacks terminés de cette profondeur.
+    /// Profondeur → nombre de rollbacks de cette profondeur.
     depths: BTreeMap<u32, u32>,
-    /// Profondeur du rollback en cours.
-    current: u32,
-    unloaded_run: u32,
-    /// Un rollback est ouvert (restauré, pas encore terminé par une frame nouvelle).
-    open: bool,
+    /// `RollbackFrameCount` à la fin du dernier `AdvanceWorld`.
+    advanced: Option<i32>,
 }
 
 impl RollbackStats {
-    /// Une restauration d'état vient d'avoir lieu.
-    pub fn load(&mut self) {
-        self.flush();
-        self.rollbacks += 1;
-        self.open = true;
-        // La frame restaurée est resimulée sans que la trace la revoie (voir la doc du type).
-        self.current = 1;
-        self.depth_sum += 1;
-        self.depth_max = self.depth_max.max(1);
+    /// Fin d'un `AdvanceWorld` : le jeu vient d'atteindre la frame `frame`.
+    pub fn advanced(&mut self, frame: i32) {
+        self.advanced = Some(frame);
     }
 
-    /// Une frame vient d'être enregistrée ; `resimulated` : elle l'était déjà.
-    pub fn record(&mut self, resimulated: bool) {
-        if !resimulated {
-            self.flush();
-        } else if self.open {
-            self.current += 1;
-            self.depth_sum += 1;
-            self.depth_max = self.depth_max.max(self.current);
-        } else {
-            self.unloaded += 1;
-            self.unloaded_run += 1;
-            self.unloaded_max = self.unloaded_max.max(self.unloaded_run);
-        }
+    /// `LoadWorld` : l'état de la frame `restored` vient d'être restauré.
+    pub fn load(&mut self, restored: i32) {
+        let depth = self
+            .advanced
+            .map_or(0, |last| u32::try_from(last - restored).unwrap_or(0));
+        self.rollbacks += 1;
+        self.depth_sum += depth;
+        self.depth_max = self.depth_max.max(depth);
+        *self.depths.entry(depth).or_default() += 1;
     }
 
     /// Une nouvelle partie repart de la frame 0 et de compteurs vierges.
@@ -140,22 +123,9 @@ impl RollbackStats {
         *self = Self::default();
     }
 
-    fn flush(&mut self) {
-        if self.open {
-            *self.depths.entry(self.current).or_default() += 1;
-            self.open = false;
-        }
-        self.current = 0;
-        self.unloaded_run = 0;
-    }
-
-    /// Histogramme profondeur → nombre de rollbacks, rollback en cours compris.
-    pub fn histogram(&self) -> BTreeMap<u32, u32> {
-        let mut depths = self.depths.clone();
-        if self.open {
-            *depths.entry(self.current).or_default() += 1;
-        }
-        depths
+    /// Histogramme profondeur → nombre de rollbacks.
+    pub fn histogram(&self) -> &BTreeMap<u32, u32> {
+        &self.depths
     }
 
     /// Ligne de journal : `rollbacks : n=… frames=… profondeur_moy=… profondeur_max=…
@@ -172,16 +142,14 @@ impl RollbackStats {
             f64::from(self.rollbacks) * 100.0 / f64::from(frames)
         };
         let histogram: Vec<String> = self
-            .histogram()
+            .depths
             .iter()
             .map(|(depth, count)| format!("{depth}:{count}"))
             .collect();
         format!(
-            "rollbacks : n={} frames={frames} profondeur_moy={mean:.2} profondeur_max={} par_100_frames={per_100:.2} sans_restauration={}(suite max {}) histogramme={}",
+            "rollbacks : n={} frames={frames} profondeur_moy={mean:.2} profondeur_max={} par_100_frames={per_100:.2} histogramme={}",
             self.rollbacks,
             self.depth_max,
-            self.unloaded,
-            self.unloaded_max,
             histogram.join(",")
         )
     }
@@ -353,13 +321,23 @@ impl Plugin for StateTraceRecorderPlugin {
         .add_systems(
             LoadWorld,
             count_rollback_load.after(LoadWorldSystems::Mapping),
+        )
+        .add_systems(
+            AdvanceWorld,
+            note_advanced_frame.after(AdvanceWorldSystems::Last),
         );
     }
 }
 
-/// `LoadWorld` : bevy_ggrs restaure un état (rollback), voir [`RollbackStats`].
-fn count_rollback_load(mut recorder: ResMut<StateTraceRecorder>) {
-    recorder.rollback.load();
+/// `LoadWorld` : bevy_ggrs restaure un état (rollback), voir [`RollbackStats`]. bevy_ggrs a posé
+/// `RollbackFrameCount` sur la frame restaurée avant ce schedule.
+fn count_rollback_load(frame: Res<RollbackFrameCount>, mut recorder: ResMut<StateTraceRecorder>) {
+    recorder.rollback.load(frame.0);
+}
+
+/// Fin d'un `AdvanceWorld` : la frame atteinte, pour la profondeur du prochain rollback.
+fn note_advanced_frame(frame: Res<RollbackFrameCount>, mut recorder: ResMut<StateTraceRecorder>) {
+    recorder.rollback.advanced(frame.0);
 }
 
 /// Systèmes de `Last` qui peuvent demander l'arrêt du jeu (`AppExit`). Ce qui doit réagir
@@ -604,7 +582,6 @@ fn record_state(world: &mut World) {
     }
     if let Some(previous) = recorder.frames.get(&frame).cloned() {
         recorder.resimulated += 1;
-        recorder.rollback.record(true);
         if previous != hash_line && recorder.divergences.len() < 3 {
             let before = previous;
             recorder.divergences.push(Divergence {
@@ -613,8 +590,6 @@ fn record_state(world: &mut World) {
                 after: line,
             });
         }
-    } else {
-        recorder.rollback.record(false);
     }
     recorder.frames.insert(frame, hash_line);
 }
@@ -898,45 +873,38 @@ mod restart_tests {
 mod rollback_stats_tests {
     use super::RollbackStats;
 
-    /// Une restauration compte pour une frame resimulée (celle que la trace ne revoit pas) plus les
-    /// frames déjà vues qui suivent ; la première frame nouvelle clôt le rollback ; des frames déjà
-    /// vues sans restauration sont comptées à part.
+    /// La profondeur est `dernière frame avancée − frame restaurée`, quelles que soient les
+    /// sauvegardes (cas du seuil de prédiction : GGRS sauvegarde la frame courante 100 pendant un
+    /// tick qui n'avance pas, puis restaure 98 et rejoue 99 et 100 : profondeur 2, pas 3).
     #[test]
-    fn rollbacks_depth_and_histogram() {
+    fn rollback_depth_is_frames_advanced_not_trace_keys() {
         let mut stats = RollbackStats::default();
-        for _ in 0..10 {
-            stats.record(false);
+        for frame in 1..=100 {
+            stats.advanced(frame);
         }
-        // Rollback A : trois frames revues, profondeur 4.
-        stats.load();
-        for _ in 0..3 {
-            stats.record(true);
-        }
-        stats.record(false);
-        // Rollback B : aucune frame revue, profondeur 1.
-        stats.load();
-        stats.record(false);
-        // Rollbacks C et D enchaînés : C de profondeur 2, D rouvert aussitôt, de profondeur 3.
-        stats.load();
-        stats.record(true);
-        stats.load();
-        stats.record(true);
-        stats.record(true);
-        stats.record(false);
-        // Frames déjà vues sans restauration : comptées à part, hors des profondeurs.
-        stats.record(true);
-        stats.record(true);
-        assert_eq!(stats.rollbacks, 4);
-        assert_eq!(stats.depth_max, 4);
-        assert_eq!(stats.depth_sum, 4 + 1 + 2 + 3);
-        assert_eq!((stats.unloaded, stats.unloaded_max), (2, 2));
+        // (tick bloqué au seuil : sauvegarde de la frame 100, aucun `advanced`)
+        stats.load(98);
+        stats.advanced(99);
+        stats.advanced(100);
+        stats.advanced(101); // la frame nouvelle
+        stats.load(100); // rollback d'une frame depuis 101
+        stats.advanced(101);
+        stats.advanced(102);
+        stats.load(102); // restauration de la dernière frame avancée : rien à resimuler
+        assert_eq!(stats.rollbacks, 3);
+        assert_eq!(stats.depth_max, 2);
+        assert_eq!(stats.depth_sum, 2 + 1);
         assert_eq!(
-            stats.histogram().into_iter().collect::<Vec<_>>(),
-            vec![(1, 1), (2, 1), (3, 1), (4, 1)]
+            stats
+                .histogram()
+                .iter()
+                .map(|(d, n)| (*d, *n))
+                .collect::<Vec<_>>(),
+            vec![(0, 1), (1, 1), (2, 1)]
         );
         assert_eq!(
             stats.summary(200),
-            "rollbacks : n=4 frames=200 profondeur_moy=2.50 profondeur_max=4 par_100_frames=2.00 sans_restauration=2(suite max 2) histogramme=1:1,2:1,3:1,4:1"
+            "rollbacks : n=3 frames=200 profondeur_moy=1.00 profondeur_max=2 par_100_frames=1.50 histogramme=0:1,1:1,2:1"
         );
         stats.new_game();
         assert_eq!(stats, RollbackStats::default());
