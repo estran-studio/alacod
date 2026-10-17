@@ -15,20 +15,26 @@
 //
 // À regarder : hub f80 le marchand (écran ouvert, f120), f175 la porte ; run f1 « entrée en run depuis
 // le hub » et « déblocages du profil » ; f42 la première salle de combat se verrouille, f70 et f82 les
-// deux joueurs lâchent un blank, f139 salle nettoyée ; f157 un joueur ramasse une clé ; f1471-1605
-// l'ESCOUADE (trois `bullet_kin_squad` vivants f1480, plus aucun f1700) ; f1890-2640 l'ARÈNE (750 frames à tenir, « arène tenue » f2640) ; f2825-2887 achats en
-// boutique (gilet, roulade) ; f2928 le coffre à clé de la salle récompense (clé 1 → 0, un fusil `arc`
-// tombe) ; f3022 un objet (rancune) ramassé ; f3406 le boss se verrouille, f3439 phase 1, f3487 phase 2
-// (trois phases), f3488 salle nettoyée, f3489 PORTAIL ouvert, f3691 SECOND ÉTAGE ; f6172-6922 la
-// seconde arène ; f7325 le second boss, phases f7471 et f7532, f7545 VICTOIRE. Fin : le profil du
+// deux joueurs lâchent un blank, f139 salle nettoyée ; f157 un joueur ramasse une clé ; f1735-1917
+// l'ESCOUADE (trois `bullet_kin_squad` vivants f1745, plus aucun f2000) ; f2079-2829 l'ARÈNE (750 frames à tenir, « arène tenue » f2829) ; f3012-3074 achats en
+// boutique (gilet, roulade) ; f3116 le coffre à clé de la salle récompense (clé 1 → 0, un fusil `arc`
+// tombe) ; f3206 un objet (rancune, ramassé par le joueur 1) ; f3572 le boss se verrouille, f3605 phase 1, f3656 phase 2
+// (trois phases), f3704 salle nettoyée, f3705 PORTAIL ouvert, f3891 SECOND ÉTAGE ; f6369-7119 la
+// seconde arène ; f7577 le second boss, phases f7656 et f7717, f7730 VICTOIRE. Fin : le profil du
 // joueur 0 gagne `first_victory` et l'essence de la run.
+//
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes (champions) a changé pour tous les
+// jeux, les bots affrontent d'autres champions et la run est plus lente (victoire f7730 au lieu de f7545) :
+// frames re-chronométrées, `frames` 7700 → 7900, `rancune` ramassée par le joueur 1 (le coffre l'a donnée
+// au joueur 1) donc `HasItem` sur le handle 1 ; le coffre `arc` est lu après f3000 (un autre coffre
+// `arc` s'ouvre dès f1630). Mêmes attentes, aucune retirée.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
     map: "maps/etage_1.ldtk",
     floors: Some("etages_deux"),
     map_seed: 10,
-    frames: 7700,
+    frames: 7900,
     shopping: true,
     profile: true,
     profile_setup: Some((
@@ -58,8 +64,8 @@ Scenario(
     expect: [
         // Escouade : les trois `bullet_kin_squad` de la salle sont là (f1480, pendant le verrou f1471-f1605),
         // aucun ne reste une fois la salle nettoyée.
-        SquadSize(squad: "bullet_kins", min: 3, max: 3, at_frame: 1480),
-        SquadSize(squad: "bullet_kins", max: 0, at_frame: 1700),
+        SquadSize(squad: "bullet_kins", min: 3, max: 3, at_frame: 1745),
+        SquadSize(squad: "bullet_kins", max: 0, at_frame: 2000),
         // Hub (frames du hub) : le marchand puis la porte.
         HubExit(none: true, at_frame: 60),
         HubVisit(handle: 0, service: "marchand", at_frame: 120),
@@ -74,48 +80,48 @@ Scenario(
         Event(kind: "room", label_contains: "salle combat nettoyée", by_frame: 140),
         Event(kind: "item_pickup", label_contains: "key", by_frame: 158),
         Consumable(handle: 0, id: "key", count: 1, at_frame: 200),
-        Event(kind: "room", label_contains: "salle escouade nettoyée", by_frame: 1606),
+        Event(kind: "room", label_contains: "salle escouade nettoyée", by_frame: 1918),
         // Arène tenue.
-        Event(kind: "room", label_contains: "salle arene verrouillée", by_frame: 1891),
-        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 2641),
+        Event(kind: "room", label_contains: "salle arene verrouillée", by_frame: 2080),
+        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 2830),
         // Boutique : achats, objets tenus.
-        Event(kind: "purchase", label_contains: "(shop)", by_frame: 2825),
-        HasItem(handle: 0, id: "gilet", at_frame: 2900),
-        HasItem(handle: 0, id: "roulade", at_frame: 2900),
+        Event(kind: "purchase", label_contains: "(shop)", by_frame: 3013),
+        HasItem(handle: 0, id: "gilet", at_frame: 3090),
+        HasItem(handle: 0, id: "roulade", at_frame: 3090),
         // Coffre à clé ouvert : la clé est consommée.
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 2920),
-        Event(kind: "chest", label_contains: "weapon:arc", by_frame: 2929),
-        Consumable(handle: 0, id: "key", count: 0, at_frame: 2930),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 3108),
+        EventAfter(kind: "chest", label_contains: "weapon:arc", after_frame: 3000, by_frame: 3117),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 3118),
         // Objet ramassé.
-        Event(kind: "item_pickup", label_contains: "rancune", by_frame: 3023),
-        HasItem(handle: 0, id: "rancune", at_frame: 3100),
+        Event(kind: "item_pickup", label_contains: "rancune", by_frame: 3207),
+        HasItem(handle: 1, id: "rancune", at_frame: 3290),
         // Boss du premier étage et ses trois phases, portail, second étage.
-        Event(kind: "room", label_contains: "salle boss verrouillée", by_frame: 3407),
-        Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3440),
-        BossPhase(entity: NetId(205), phase: 2, at_frame: 3488),
-        Event(kind: "portal", by_frame: 3489),
-        FloorIndex(index: 0, at_frame: 3600),
-        Event(kind: "floor", label_contains: "niveau 1", by_frame: 3691),
-        FloorIndex(index: 1, at_frame: 3800),
+        Event(kind: "room", label_contains: "salle boss verrouillée", by_frame: 3573),
+        Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3606),
+        BossPhase(entity: NetId(205), phase: 2, at_frame: 3657),
+        Event(kind: "portal", by_frame: 3706),
+        FloorIndex(index: 0, at_frame: 3800),
+        Event(kind: "floor", label_contains: "niveau 1", by_frame: 3892),
+        FloorIndex(index: 1, at_frame: 4000),
         // Second étage (événements postérieurs à l'arrivée f3691) : coffre, boutique, seconde arène,
         // second boss, victoire.
-        EventAfter(kind: "chest", label_contains: "weapon:lance_roquettes", after_frame: 3800, by_frame: 4712),
-        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 3800, by_frame: 5250),
-        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 3800, by_frame: 6923),
-        EventAfter(kind: "boss_phase", label_contains: "phase 1 → 2", after_frame: 3800, by_frame: 7533),
-        BossPhase(entity: NetId(694), phase: 2, at_frame: 7535),
-        RunState(step: Ended(Victory), at_frame: 7600),
+        EventAfter(kind: "chest", label_contains: "weapon:lance_roquettes", after_frame: 4000, by_frame: 4940),
+        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 4000, by_frame: 5405),
+        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 4000, by_frame: 7120),
+        EventAfter(kind: "boss_phase", label_contains: "phase 1 → 2", after_frame: 4000, by_frame: 7718),
+        BossPhase(entity: NetId(727), phase: 2, at_frame: 7720),
+        RunState(step: Ended(Victory), at_frame: 7785),
         // Le profil du joueur 0 enregistre la fin de run.
-        ProfileHas(handle: 0, unlock: "first_victory", at_frame: 7700),
+        ProfileHas(handle: 0, unlock: "first_victory", at_frame: 7900),
         // Les salles des deux étages se superposent dans la liste : `nth: 1` est celle du premier étage
         // (nettoyée avant le portail), `nth: 0` celle du second (endormie jusqu'à son arrivée).
-        RoomState(kind: "arene", nth: 1, state: Cleared, at_frame: 2650),
-        RoomState(kind: "boss", nth: 1, state: Cleared, at_frame: 3500),
-        RoomState(kind: "arene", nth: 0, state: Dormant, at_frame: 3800),
-        RoomState(kind: "boss", nth: 0, state: Dormant, at_frame: 3800),
-        RoomState(kind: "arene", nth: 0, state: Cleared, at_frame: 6930),
-        RoomState(kind: "boss", nth: 0, state: Cleared, at_frame: 7600),
-        PlayerAlive(handle: 0, at_frame: 7699),
-        PlayerAlive(handle: 1, at_frame: 7699),
+        RoomState(kind: "arene", nth: 1, state: Cleared, at_frame: 2840),
+        RoomState(kind: "boss", nth: 1, state: Cleared, at_frame: 3716),
+        RoomState(kind: "arene", nth: 0, state: Dormant, at_frame: 4000),
+        RoomState(kind: "boss", nth: 0, state: Dormant, at_frame: 4000),
+        RoomState(kind: "arene", nth: 0, state: Cleared, at_frame: 7130),
+        RoomState(kind: "boss", nth: 0, state: Cleared, at_frame: 7785),
+        PlayerAlive(handle: 0, at_frame: 7899),
+        PlayerAlive(handle: 1, at_frame: 7899),
     ],
 )

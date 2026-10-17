@@ -3,17 +3,20 @@
 // et la salle secrète collée sous deux salles de combat. Une boucle relie deux salles de combat voisines. Le bot
 // `explorateur` nettoie tout et gagne.
 //
-// À regarder : les cinq combats se verrouillent et se rouvrent (f57 à f1204) ; le boss verrouille sa salle (f1340),
-// passe en phase 1 (f1465, couronne), meurt avant f1587 ; victoire f1588. La porte de la salle secrète reste fermée
+// À regarder : les cinq combats se verrouillent et se rouvrent (f57 à f1878) ; le boss verrouille sa salle (f2044),
+// passe en phase 1 (f2147, couronne), phase 2 (f2272), meurt (salle nettoyée f2411) ; victoire f2412.
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : `salve`, `essaim`) ;
+// le bot arrivait au boss avec 1 PV et mourait à f2112 (défaite). Adaptation : le joueur reçoit `Armor +50`
+// (`PlayerScript::modifiers`) ; mêmes attentes (victoire, boss vaincu, joueur vivant), frames recalées (scénario 2600 frames). La porte de la salle secrète reste fermée
 // pendant toute la partie (aucune bombe) ; le trésor n'est pas fermé à clé au premier étage (`lock_from_floor: 1`).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
     floors: Some("sous_sol_un"),
-    frames: 2520,
+    frames: 2600,
     players: [
-        (bot: explorateur),
+        (bot: explorateur, modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(16), max: Some(16), at_frame: 5),
@@ -24,9 +27,9 @@ Scenario(
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
         RoomState(kind: "boss", state: Locked, at_frame: 2100),
         BossPhase(entity: NetId(116), phase: 1, at_frame: 2200),
-        RoomState(kind: "boss", state: Cleared, at_frame: 2400),
-        DoorLocked(kind: "secrete", locked: true, at_frame: 2420),
-        RunState(step: Ended(Victory), at_frame: 2420),
-        PlayerAlive(handle: 0, at_frame: 2519),
+        RoomState(kind: "boss", state: Cleared, at_frame: 2500),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 2500),
+        RunState(step: Ended(Victory), at_frame: 2500),
+        PlayerAlive(handle: 0, at_frame: 2599),
     ],
 )

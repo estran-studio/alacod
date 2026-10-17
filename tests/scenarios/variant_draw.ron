@@ -1,6 +1,7 @@
 // T1.5 (testbed, conventions §25) : tirage — le grunt sans champ `variant` (NetId 30) tire sa
 // variante (chance 0.5, puis poids 1/1) d'un RNG local de graine
-// `fnv1a("variants") ^ run_seed ^ net_id`. Graine de carte fixée à 777 : valeur mesurée
+// `fnv1a("variants:<run_seed>:<net_id>")` (D88, 2026-10-17 : avant, `fnv1a("variants") ^ run_seed ^ net_id`
+// avec la graine 777 ; ce tirage-là donne `rapide` pour la graine 777, d'où la graine 799). Graine de carte fixée à 799 : valeur mesurée
 // `blinde` (avec la graine par défaut 123456 de `variant_fast`, il n'en a aucune). Moment clé
 // `variant_spawn` émis à son apparition.
 // Carte `testbed/arena_variantes.ldtk` : grunt `rapide` imposé (NetId 33), grunt `blinde`
@@ -12,7 +13,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena_variantes.ldtk",
-    map_seed: 777,
+    map_seed: 799,
     frames: 160,
     players: [
         (inputs: []),
