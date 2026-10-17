@@ -289,7 +289,9 @@ impl ExplorerWorld<'_, '_> {
             .max()
             .unwrap_or(0);
         for (id, t, shelf, interactable) in order_iter!(self.shelves) {
-            if interactable && !shelf.sold && shelf.price <= wallet {
+            // M3-T8 (§73) : un présentoir à `cost` (marché du diable : vie maximale) n'est pas un achat
+            // en douilles, son `price` vaut 0 ; le bot ne le vise pas (la décision du diable est T14).
+            if interactable && !shelf.sold && shelf.cost.is_none() && shelf.price <= wallet {
                 items.push(ItemGoal {
                     net_id: id.0,
                     position: t.translation.truncate(),

@@ -24,8 +24,8 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 pub use content::feedback::{
-    BlankFlashConfig, BossEndConfig, FeedbackOverride, FeedbackSettings, HitFlashConfig,
-    PatternTelegraphConfig, ResolvedFeedback, ShakeConfig, TelegraphConfig,
+    BlankFlashConfig, BossEndConfig, ExplosionFxConfig, FeedbackOverride, FeedbackSettings,
+    HitFlashConfig, PatternTelegraphConfig, ResolvedFeedback, ShakeConfig, TelegraphConfig,
 };
 
 use crate::character::enemy::ai::state::{BehaviorRuntime, ChargePhase, EnemyAiConfig};
@@ -73,6 +73,24 @@ pub enum FeedbackKind {
     /// Mort d'un boss dont la salle passe `Cleared` (M2-T19) : `net_id` du boss, `position`
     /// du boss, `value` : frames de rendu gelées.
     BossEnd,
+    /// Première apparition d'une larme à modificateurs (M3-T17) : `net_id` du projectile,
+    /// `note` : « guidée, spectrale, poison ».
+    Tear,
+    /// Un familier ou orbital apparaît (M3-T17) : `net_id` du familier, `value` : rang,
+    /// `extra` : `GgrsNetId` du porteur, `note` : « suiveur » ou « orbital ».
+    Familiar,
+    /// Un champion (variante à `tint`) apparaît (M3-T17) : `net_id`, `note` : nom de la variante.
+    Champion,
+    /// Une bombe est posée (M3-T17) : `net_id`, `value` : frames de mèche.
+    BombFuse,
+    /// Une explosion a eu lieu (M3-T17) : `position`, `extra` : rayon, `value` : 1 si elle
+    /// `destroys`, sinon 0.
+    Explosion,
+    /// Un rocher vient d'être cassé (M3-T17) : `position`, `note` : « x,y » de sa case.
+    RockBroken,
+    /// Un mur secret vient de s'ouvrir (M3-T17) : `position` de l'explosion qui l'ouvre,
+    /// `note` : salle.
+    SecretWall,
 }
 
 impl FeedbackKind {
@@ -87,6 +105,13 @@ impl FeedbackKind {
             Self::PatternTelegraph => "télégraphe",
             Self::Blank => "blank",
             Self::BossEnd => "fin de boss",
+            Self::Tear => "larme",
+            Self::Familiar => "familier",
+            Self::Champion => "champion",
+            Self::BombFuse => "mèche",
+            Self::Explosion => "explosion",
+            Self::RockBroken => "rocher cassé",
+            Self::SecretWall => "mur secret",
         }
     }
 }
@@ -107,6 +132,9 @@ pub struct FeedbackCue {
     pub color: (f32, f32, f32),
     /// Forme du pattern ([`FeedbackKind::PatternTelegraph`] seulement).
     pub pattern: Option<PatternShape>,
+    /// Description libre (M3-T17, §82) : modificateurs d'une larme, rang d'un familier, nom d'une
+    /// variante, salle d'un mur secret. `None` pour les genres qui n'en ont pas besoin.
+    pub note: Option<String>,
 }
 
 /// Nombre d'indices gardés dans [`FeedbackLog::history`].
@@ -130,7 +158,7 @@ pub struct FeedbackLog {
 }
 
 impl FeedbackLog {
-    fn push(&mut self, cue: FeedbackCue) {
+    pub(crate) fn push(&mut self, cue: FeedbackCue) {
         if self.history.len() == FEEDBACK_HISTORY_LEN {
             self.history.pop_front();
         }
@@ -413,7 +441,14 @@ impl Plugin for FeedbackLogPlugin {
         // Publie `FeedbackConfigLoaded` une fois l'asset chargé (et à chaque modification) :
         // sans ce système, aucun effet ne s'appliquait jamais (config toujours absente).
         app.add_systems(Update, publish_loaded_feedback_config);
-        app.add_systems(PostUpdate, record_feedback_cues);
+        app.add_systems(
+            PostUpdate,
+            (
+                record_feedback_cues,
+                // M3-T17 (§82) : après le journal v1/v2, qui vide `frame_cues` à chaque tick.
+                crate::feedback_v3::record_v3_cues.after(record_feedback_cues),
+            ),
+        );
     }
 }
 
@@ -489,6 +524,7 @@ fn record_feedback_cues(
                 extra: 0.0,
                 color: resolved.hit_flash.color,
                 pattern: None,
+                note: None,
             });
             if settings.damage_numbers {
                 log.push(FeedbackCue {
@@ -500,6 +536,7 @@ fn record_feedback_cues(
                     extra: 0.0,
                     color: (1.0, 1.0, 1.0),
                     pattern: None,
+                    note: None,
                 });
             }
             let local_hit = is_local(target);
@@ -531,6 +568,7 @@ fn record_feedback_cues(
                 extra: amplitude,
                 color: (1.0, 1.0, 1.0),
                 pattern: None,
+                note: None,
             });
         }
         if let Some((net_id, position, frames)) = hit_stop {
@@ -543,6 +581,7 @@ fn record_feedback_cues(
                 extra: 0.0,
                 color: (1.0, 1.0, 1.0),
                 pattern: None,
+                note: None,
             });
         }
     }
@@ -573,6 +612,7 @@ fn record_feedback_cues(
                 extra: shape.radius,
                 color: (1.0, 1.0, 1.0),
                 pattern: None,
+                note: None,
             });
         }
         // M2-T19 : la forme du pattern annoncé, une fois par télégraphe (clé : émetteur et
@@ -601,6 +641,7 @@ fn record_feedback_cues(
                         extra: shape.radius,
                         color: (1.0, 1.0, 1.0),
                         pattern: Some(pattern),
+                        note: None,
                     });
                 }
             }
@@ -682,6 +723,7 @@ fn record_t19_cues(
                     extra: spec.radius.to_num::<f32>(),
                     color: (1.0, 1.0, 1.0),
                     pattern: None,
+                    note: None,
                 });
             }
         }
@@ -726,6 +768,7 @@ fn record_t19_cues(
                         extra: boss_end.zoom,
                         color: boss_end.flash_color,
                         pattern: None,
+                        note: None,
                     });
                 }
             }
@@ -849,6 +892,7 @@ impl Plugin for FeedbackPlugin {
 
         app.init_resource::<FeedbackFx>();
         app.add_systems(Startup, spawn_screen_flash);
+        app.add_systems(Update, tint_champions);
         // Retire le zoom du tick précédent avant que le suivi de caméra ne relise la caméra.
         app.add_systems(
             Update,
@@ -868,7 +912,7 @@ impl Plugin for FeedbackPlugin {
         app.add_systems(
             PostUpdate,
             (
-                apply_feedback_cues.after(record_feedback_cues),
+                apply_feedback_cues.after(crate::feedback_v3::record_v3_cues),
                 apply_layer_colors.after(apply_feedback_cues),
                 cleanup_expired_hit_flash.after(apply_layer_colors),
                 // Avant la propagation des transforms : sinon le décalage n'est appliqué au
@@ -878,6 +922,7 @@ impl Plugin for FeedbackPlugin {
                     .after(apply_feedback_cues)
                     .before(bevy::transform::TransformSystems::Propagate),
                 animate_damage_numbers,
+                animate_debris,
                 draw_telegraphs,
                 play_shot_sound_for_new_bullets,
                 play_reload_sound_for_reload_events,
@@ -916,6 +961,7 @@ fn apply_feedback_cues(
     let settings = config.as_ref().map(|config| &config.0);
     let blank = settings.map(|s| s.blank).unwrap_or_default();
     let boss_end = settings.map(|s| s.boss_end).unwrap_or_default();
+    let explosion = settings.map(|s| s.explosion).unwrap_or_default();
     let entity_of: BTreeMap<usize, Entity> = targets
         .iter()
         .map(|(entity, net_id)| (net_id.0, entity))
@@ -939,26 +985,13 @@ fn apply_feedback_cues(
                 }
             }
             FeedbackKind::Shake => {
-                // La caméra de jeu (`GameCamera`, suivi des joueurs), pas n'importe quelle
-                // `Camera` : en capture il en existe plusieurs.
-                if let Some((camera, shake)) = cameras.iter_mut().next() {
-                    let until_frame = cue.frame + cue.value as u32;
-                    match shake {
-                        Some(mut shake) => {
-                            shake.until_frame = until_frame;
-                            shake.frames = cue.value as u32;
-                            shake.amplitude = cue.extra;
-                        }
-                        None => {
-                            commands.entity(camera).insert(CameraShake {
-                                until_frame,
-                                frames: cue.value as u32,
-                                amplitude: cue.extra,
-                                applied: Vec3::ZERO,
-                            });
-                        }
-                    }
-                }
+                shake_camera(
+                    &mut commands,
+                    &mut cameras,
+                    cue.frame,
+                    cue.value as u32,
+                    cue.extra,
+                );
             }
             FeedbackKind::HitStop => freeze.freeze_for(cue.value as u32),
             FeedbackKind::Number => {
@@ -980,6 +1013,72 @@ fn apply_feedback_cues(
                 ));
             }
             FeedbackKind::Telegraph | FeedbackKind::PatternTelegraph => {}
+            // M3-T17 : apparitions (larme, familier, champion, bombe) : journal seulement, le
+            // rendu les dérive de l'état (`world_sprites`, `style_*`).
+            FeedbackKind::Tear
+            | FeedbackKind::Familiar
+            | FeedbackKind::Champion
+            | FeedbackKind::BombFuse => {}
+            FeedbackKind::Explosion => {
+                if !explosion.enabled || !fog.sees(fog_map.as_deref(), cue.position) {
+                    continue;
+                }
+                let (r, g, b, a) = explosion.color;
+                let color = Color::srgba(r, g, b, a);
+                // Deux anneaux : le plein rayon et un anneau intérieur plus clair, qui épaissit le
+                // front de l'onde.
+                for (scale, tint) in [(1.0, color), (0.6, color.mix(&Color::WHITE, 0.6))] {
+                    fx.rings.push(BlankRing {
+                        frame: cue.frame,
+                        center: cue.position,
+                        radius: cue.extra * scale,
+                        frames: explosion.ring_frames,
+                        color: tint,
+                    });
+                }
+                if let Some((frames, amplitude)) = crate::feedback_v3::explosion_shake(
+                    cue.extra,
+                    explosion.shake_frames,
+                    explosion.shake_amplitude,
+                ) {
+                    shake_camera(&mut commands, &mut cameras, cue.frame, frames, amplitude);
+                }
+            }
+            FeedbackKind::RockBroken => {
+                if !explosion.enabled || !fog.sees(fog_map.as_deref(), cue.position) {
+                    continue;
+                }
+                spawn_debris(
+                    &mut commands,
+                    cue.frame,
+                    cue.position,
+                    crate::feedback_v3::ROCK_DEBRIS,
+                    Color::srgb(0.55, 0.5, 0.45),
+                    4.0,
+                );
+            }
+            FeedbackKind::SecretWall => {
+                // Nuage de poussière à l'endroit de l'explosion qui a ouvert le mur (sans
+                // explosion dans la même frame, rien à situer : l'état seul change).
+                if !explosion.enabled || cue.value == 0.0 {
+                    continue;
+                }
+                spawn_debris(
+                    &mut commands,
+                    cue.frame,
+                    cue.position,
+                    crate::feedback_v3::WALL_DEBRIS,
+                    Color::srgb(0.85, 0.78, 0.62),
+                    5.0,
+                );
+                fx.rings.push(BlankRing {
+                    frame: cue.frame,
+                    center: cue.position,
+                    radius: SECRET_WALL_DUST_RADIUS,
+                    frames: explosion.ring_frames * 2,
+                    color: Color::srgba(0.85, 0.78, 0.62, 1.0),
+                });
+            }
             FeedbackKind::Blank => {
                 let (r, g, b, a) = blank.color;
                 fx.rings.push(BlankRing {
@@ -1223,14 +1322,19 @@ fn apply_layer_colors(
             Option<&HitFlash>,
             Option<&combat::status::Statuses>,
             Option<&crate::character::visuals::MarkerTint>,
+            Option<&ChampionTint>,
         ),
         With<combat::actors::Health>,
     >,
     mut sprites: Query<&mut Sprite>,
 ) {
-    for (layers, flash, statuses, marker) in &characters {
+    for (layers, flash, statuses, marker, champion) in &characters {
         // D66 : la teinte du marqueur remplace le blanc de base (statuts et flash passent devant).
-        let base = marker.map_or(Color::WHITE, |marker| marker.0);
+        // M3-T17 : la teinte de la variante (champion) passe devant celle du marqueur.
+        let base = champion
+            .and_then(|champion| champion.0)
+            .or(marker.map(|marker| marker.0))
+            .unwrap_or(Color::WHITE);
         let color = match flash {
             Some(flash) if frame.frame < flash.until_frame => flash.color,
             _ => statuses
@@ -1312,6 +1416,129 @@ fn animate_damage_numbers(
             0.0
         };
         color.0 = color.0.with_alpha(alpha);
+    }
+}
+
+/// Teinte `tint` de la variante d'un personnage (M3-T17, §72) : `None` si la variante n'en a pas.
+/// Présentation, hors rollback ; posée une fois par [`tint_champions`].
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ChampionTint(pub Option<Color>);
+
+/// Pose [`ChampionTint`] sur un personnage dont la variante est connue (une fois), lue dans la
+/// table de variantes de sa fiche.
+fn tint_champions(
+    mut commands: Commands,
+    global: Option<Res<crate::global_asset::GlobalAsset>>,
+    configs: Res<Assets<crate::character::config::CharacterConfig>>,
+    champions: Query<
+        (
+            Entity,
+            &crate::character::variant::Variant,
+            &crate::character::visuals::CharacterAppearance,
+        ),
+        Without<ChampionTint>,
+    >,
+) {
+    let Some(global) = global else {
+        return;
+    };
+    for (entity, variant, appearance) in &champions {
+        let tint = crate::feedback_v3::variant_tint(
+            &global,
+            &configs,
+            &appearance.config_name,
+            &variant.0,
+        )
+        .map(|(r, g, b)| Color::srgb(r, g, b));
+        commands.entity(entity).insert(ChampionTint(tint));
+    }
+}
+
+/// Rayon (unités monde) du nuage de poussière d'un mur secret qui s'ouvre.
+const SECRET_WALL_DUST_RADIUS: f32 = 48.0;
+
+/// Secousse de la caméra de jeu (`GameCamera`, suivi des joueurs), pas n'importe quelle `Camera` :
+/// en capture il en existe plusieurs.
+fn shake_camera(
+    commands: &mut Commands,
+    cameras: &mut Query<(Entity, Option<&mut CameraShake>), With<crate::camera::GameCamera>>,
+    frame: u32,
+    frames: u32,
+    amplitude: f32,
+) {
+    let Some((camera, shake)) = cameras.iter_mut().next() else {
+        return;
+    };
+    let until_frame = frame + frames;
+    match shake {
+        Some(mut shake) => {
+            shake.until_frame = until_frame;
+            shake.frames = frames;
+            shake.amplitude = amplitude;
+        }
+        None => {
+            commands.entity(camera).insert(CameraShake {
+                until_frame,
+                frames,
+                amplitude,
+                applied: Vec3::ZERO,
+            });
+        }
+    }
+}
+
+/// Éclat d'un rocher cassé ou d'un mur qui s'ouvre (présentation) : position et opacité dérivées
+/// de l'âge en frames de simulation ([`crate::feedback_v3::debris_offset`]).
+#[derive(Component, Debug)]
+pub struct Debris {
+    born: u32,
+    index: u32,
+    count: u32,
+    origin: Vec2,
+    color: Color,
+}
+
+/// Fait naître `count` éclats autour de `origin`, de côté `size`.
+fn spawn_debris(
+    commands: &mut Commands,
+    frame: u32,
+    origin: Vec2,
+    count: u32,
+    color: Color,
+    size: f32,
+) {
+    for index in 0..count {
+        commands.spawn((
+            Debris {
+                born: frame,
+                index,
+                count,
+                origin,
+                color,
+            },
+            Sprite::from_color(color, Vec2::splat(size)),
+            Transform::from_xyz(origin.x, origin.y, 45.0),
+        ));
+    }
+}
+
+/// Déplace et estompe les éclats ; retire ceux dont la vie est finie (ou nés d'une frame que la
+/// simulation a depuis rejouée plus tôt).
+fn animate_debris(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    mut debris: Query<(Entity, &Debris, &mut Transform, &mut Sprite)>,
+) {
+    for (entity, d, mut transform, mut sprite) in &mut debris {
+        let age = frame.frame.saturating_sub(d.born);
+        if frame.frame < d.born || age >= crate::feedback_v3::DEBRIS_FRAMES {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let at = d.origin + crate::feedback_v3::debris_offset(d.index, d.count, age);
+        transform.translation.x = at.x;
+        transform.translation.y = at.y;
+        sprite.color = d.color.with_alpha(crate::feedback_v3::debris_alpha(age));
     }
 }
 
@@ -1853,6 +2080,8 @@ impl FeedbackSounds<'_> {
     }
 
     /// Joue le fichier `path` au volume de la clé `key` (0 dB si `volumes` ne la règle pas).
+    /// `ALACOD_MUTE=1` : rien n'est joué (captures, `play_scenario`, tests sur un poste de
+    /// travail) ; le journal garde la ligne `sound`, les moments clés restent détectés.
     fn play_path(&self, path: &str, key: &str) {
         let volume_db = self
             .config
@@ -1860,10 +2089,20 @@ impl FeedbackSounds<'_> {
             .and_then(|cfg| cfg.0.volumes.get(key).copied())
             .unwrap_or(0.0);
         info!("feedback f{} sound {} {}", self.frame.frame, key, path);
+        if muted() {
+            return;
+        }
         self.audio
             .play(self.asset_server.load(path.to_string()))
             .with_volume(volume_db);
     }
+}
+
+/// `ALACOD_MUTE=1` coupe tous les sons de feedback (présentation seule).
+fn muted() -> bool {
+    std::env::var("ALACOD_MUTE")
+        .map(|v| v == "1")
+        .unwrap_or(false)
 }
 
 /// `hit` : un coup porté par un joueur local à une autre entité, un son par frame simulée

@@ -1,0 +1,37 @@
+// M3-T8 (docs/conventions.md §73, Q5) : jumeau de `pool_exhaust_time_independent_ab` avec l'ordre des visites
+// inversé : le joueur ouvre `k2` (x = -152) d'abord (f60), puis `k1` (x = -332, f170). Mêmes coffres, mêmes
+// objets : `k2` donne `boussole` et `k1` `lame`, comme dans l'autre ordre (avec un tirage à l'ouverture, le
+// premier coffre ouvert aurait pris l'objet de graine d'index 0 et les objets auraient changé de coffre).
+//
+// À regarder : f10–50 le joueur va à droite et ramasse la boussole (f70) ; f80–160 il va à gauche et ramasse
+// la lame (f180).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    map_seed: 1,
+    frames: 220,
+    chests: [
+        (key: "k1", table: Some("epuisable"), x: "-332.0", y: "-232.0", at_frame: 5),
+        (key: "k2", table: Some("epuisable"), x: "-152.0", y: "-232.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 50, buttons: [Right]),
+            (from: 60, to: 61, buttons: [Interaction]),
+            (from: 70, to: 71, buttons: [Interaction]),
+            (from: 80, to: 160, buttons: [Left]),
+            (from: 170, to: 171, buttons: [Interaction]),
+            (from: 180, to: 181, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        PoolCount(pool: "epuisable", count: 2, at_frame: 20),
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 55),
+        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 100),
+        ItemCount(handle: 0, id: "lame", count: 0, at_frame: 100),
+        ItemCount(handle: 0, id: "lame", count: 1, at_frame: 219),
+        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 219),
+        ItemCount(handle: 0, id: "bottes", count: 0, at_frame: 219),
+    ],
+)

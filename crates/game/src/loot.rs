@@ -14,6 +14,7 @@
 //!   centre de la salle.
 //! - **Pool d'un étage** ([`FloorLootTables`]) : liste de la séquence `Floors` (`loot`).
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed};
 use bevy_fixed::rng::{RollbackRng, RunSeed};
@@ -137,12 +138,121 @@ pub fn spawn_loot_weapon(
 }
 
 /// Le pool du coffre : le sien, sinon celui de l'étage, sinon `commun`.
-fn chest_table_id<'a>(chest: &'a Chest, floors: &'a FloorLootTables, floor: u32) -> &'a str {
+pub fn chest_table_id<'a>(chest: &'a Chest, floors: &'a FloorLootTables, floor: u32) -> &'a str {
     chest
         .table
         .as_deref()
         .or_else(|| floors.for_floor(floor))
         .unwrap_or(DEFAULT_CHEST_TABLE)
+}
+
+/// Ce qu'il faut pour assigner les emplacements d'un étage à sa génération : contenu (pools,
+/// objets, déblocages de la run) et contexte de tirage (frame de trace, graine de la partie, étage).
+#[derive(Clone, Copy)]
+pub struct SlotContext<'a> {
+    pub frame: u32,
+    pub tables: &'a LootTables,
+    pub items: &'a ItemTable,
+    pub unlocks: &'a UnlockTable,
+    pub active: &'a RunUnlocks,
+    pub run_seed: u32,
+    pub floor: u32,
+}
+
+/// Assigne à la **génération** d'un étage l'objet d'un emplacement (coffre de salle, présentoir,
+/// butin de boss, placement de scénario) quand le pool `table_id` a `exhaust` (M3-T8, §73, option A
+/// de §64) : tirage sur la graine d'emplacement avec l'index d'épuisement du pool, objet retiré du
+/// pool pour la run, assignation conservée dans [`items::PoolState`]. Les déblocages de la run
+/// étendent le pool et masquent ses objets réservés comme pour tout autre tirage (§51).
+/// `weapons_only` : le pool réduit à ses armes (présentoirs d'armes d'une boutique, D62) ; sans arme
+/// dans le pool, le pool entier.
+/// `None` : pas d'épuisement (le tirage se fait à l'usage, comme avant), pool inconnu ou vide.
+pub fn assign_slot(
+    ctx: &SlotContext,
+    pools: &mut items::PoolState,
+    table_id: &str,
+    rarity: items::Rarity,
+    weapons_only: bool,
+    key: &str,
+) -> Option<String> {
+    let table = ctx.tables.0.get(table_id)?;
+    if !table.exhaust {
+        return None;
+    }
+    let table = unlocked_table(table_id, table, ctx.unlocks, ctx.active);
+    let weapons = weapons_only.then(|| table.weapons_only());
+    let table = match &weapons {
+        Some(weapons) if !weapons.entries.is_empty() => weapons,
+        _ => table.as_ref(),
+    };
+    let hidden = ctx.unlocks.hidden_items(ctx.active);
+    let item = pools.assign(
+        table_id,
+        table,
+        ctx.items,
+        rarity,
+        &hidden,
+        ctx.run_seed,
+        ctx.floor,
+        key,
+    );
+    match &item {
+        Some(item) => info!(
+            "ggrs{{f={} slot_assign pool={table_id} floor={} key={key} item={item}}}",
+            ctx.frame, ctx.floor
+        ),
+        None => warn!("emplacement « {key} » : le pool « {table_id} » ne donne rien"),
+    }
+    item
+}
+
+/// Pose au sol l'objet tiré `drawn` (sous, arme ou objet) à `position` : le même geste pour un
+/// coffre ouvert et le butin d'un boss. `origin` : clé de contenu du `GgrsNetId` d'un tas de sous ;
+/// `owner` : nom de l'emplacement pour l'avertissement d'une arme inconnue.
+#[allow(clippy::too_many_arguments)]
+pub fn spawn_drawn_loot(
+    commands: &mut Commands,
+    id_factory: &mut ResMut<GgrsNetIdFactory>,
+    items: &ItemTable,
+    global_assets: &GlobalAsset,
+    weapons: &Assets<WeaponsConfig>,
+    drawn: &str,
+    position: fixed_math::FixedVec3,
+    origin: usize,
+    owner: &str,
+) {
+    match (items::loot_currency(drawn), items::loot_weapon(drawn)) {
+        // M3-T3 (§68) : un tas de sous, ramassé au contact (`shell_pickup_system`).
+        (Some(amount), _) => {
+            crate::shop::spawn_shell_pickup(commands, id_factory, amount, position, origin);
+        }
+        (None, Some(weapon_id)) => {
+            if !spawn_loot_weapon(
+                commands,
+                global_assets,
+                weapons,
+                weapon_id,
+                position,
+                id_factory,
+            ) {
+                warn!("{owner} : arme « {weapon_id} » inconnue");
+            }
+        }
+        (None, None) => {
+            spawn_item_pickup(commands, items, drawn.to_string(), position, id_factory);
+        }
+    }
+}
+
+/// Contenu lu à l'ouverture d'un coffre : pools, pool de l'étage, déblocages de la run, objets déjà
+/// assignés (regroupés : un système bevy n'a pas plus de seize paramètres).
+#[derive(SystemParam)]
+pub struct ChestContent<'w> {
+    tables: Res<'w, LootTables>,
+    floors: Res<'w, FloorLootTables>,
+    unlocks: Res<'w, UnlockTable>,
+    active: Res<'w, RunUnlocks>,
+    pools: Res<'w, items::PoolState>,
 }
 
 /// Ouverture d'un coffre par Interaction : le premier joueur (ordre `GgrsNetId`) l'emporte.
@@ -151,10 +261,7 @@ pub fn chest_interaction_system(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
     items: Res<ItemTable>,
-    tables: Res<LootTables>,
-    floors: Res<FloorLootTables>,
-    unlocks: Res<UnlockTable>,
-    active: Res<RunUnlocks>,
+    content: ChestContent,
     run_seed: Option<Res<RunSeed>>,
     floor: Option<Res<run::FloorState>>,
     mut commands: Commands,
@@ -165,6 +272,13 @@ pub fn chest_interaction_system(
     mut chests: Query<(&mut Chest, &fixed_math::FixedTransform3D), With<Rollback>>,
     mut players: Query<(&GgrsNetId, &Player, Option<&mut Inventory>), Without<Chest>>,
 ) {
+    let ChestContent {
+        tables,
+        floors,
+        unlocks,
+        active,
+        pools,
+    } = content;
     let (run_seed, floor) = seed_context(&run_seed, &floor);
     let mut taken: BTreeSet<usize> = BTreeSet::new();
     for event in events.iter() {
@@ -196,26 +310,34 @@ pub fn chest_interaction_system(
             );
             continue;
         }
-        let table_id = chest_table_id(&chest, &floors, floor).to_string();
-        let Some(table) = tables.0.get(&table_id) else {
-            warn!(
-                "coffre « {} » : pool de butin « {table_id} » inconnu",
-                chest.key
-            );
-            continue;
-        };
-        let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &chest.key));
-        let held = inventory.as_deref();
-        let table = unlocked_table(&table_id, table, &unlocks, &active);
-        let hidden = unlocks.hidden_items(&active);
-        let Some(item_id) =
-            draw_loot_with(&table, &items, held, chest.rarity, false, &hidden, &mut rng)
-        else {
-            warn!(
-                "coffre « {} » : le pool « {table_id} » ne donne rien",
-                chest.key
-            );
-            continue;
+        // M3-T8 (§73) : l'objet d'un coffre dont le pool s'épuise a été assigné à la génération de
+        // l'étage (rang de l'emplacement dans le plan, jamais le moment de l'ouverture) ; sinon
+        // tirage sur la graine de la clé, comme avant.
+        let item_id = if let Some(assigned) = pools.assignment(floor, &chest.key) {
+            assigned.to_string()
+        } else {
+            let table_id = chest_table_id(&chest, &floors, floor).to_string();
+            let Some(table) = tables.0.get(&table_id) else {
+                warn!(
+                    "coffre « {} » : pool de butin « {table_id} » inconnu",
+                    chest.key
+                );
+                continue;
+            };
+            let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &chest.key));
+            let held = inventory.as_deref();
+            let table = unlocked_table(&table_id, table, &unlocks, &active);
+            let hidden = unlocks.hidden_items(&active);
+            let Some(item_id) =
+                draw_loot_with(&table, &items, held, chest.rarity, false, &hidden, &mut rng)
+            else {
+                warn!(
+                    "coffre « {} » : le pool « {table_id} » ne donne rien",
+                    chest.key
+                );
+                continue;
+            };
+            item_id
         };
         taken.insert(event.interactable_net_id.0);
         if chest.locked {
@@ -230,39 +352,17 @@ pub fn chest_interaction_system(
         commands.entity(event.interactable).remove::<Interactable>();
         let mut position = transform.translation;
         position.x += Fixed::from_num(DROP_OFFSET);
-        match (items::loot_currency(&item_id), items::loot_weapon(&item_id)) {
-            // M3-T3 (§68) : un tas de sous, ramassé au contact (`shell_pickup_system`).
-            (Some(amount), _) => {
-                crate::shop::spawn_shell_pickup(
-                    &mut commands,
-                    &mut id_factory,
-                    amount,
-                    position,
-                    event.interactable_net_id.0,
-                );
-            }
-            (None, Some(weapon_id)) => {
-                if !spawn_loot_weapon(
-                    &mut commands,
-                    &global_assets,
-                    &weapons,
-                    weapon_id,
-                    position,
-                    &mut id_factory,
-                ) {
-                    warn!("coffre « {} » : arme « {weapon_id} » inconnue", chest.key);
-                }
-            }
-            (None, None) => {
-                spawn_item_pickup(
-                    &mut commands,
-                    &items,
-                    item_id.clone(),
-                    position,
-                    &mut id_factory,
-                );
-            }
-        }
+        spawn_drawn_loot(
+            &mut commands,
+            &mut id_factory,
+            &items,
+            &global_assets,
+            &weapons,
+            &item_id,
+            position,
+            event.interactable_net_id.0,
+            &format!("coffre « {} »", chest.key),
+        );
         info!(
             "ggrs{{f={} chest_open net_id={} key={} item={} by={}}}",
             frame.frame, event.interactable_net_id.0, chest.key, item_id, event.interactor_net_id.0

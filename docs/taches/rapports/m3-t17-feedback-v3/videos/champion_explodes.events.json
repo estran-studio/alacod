@@ -1,0 +1,77 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 0,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (larme)"
+  },
+  {
+    "frame": 1,
+    "kind": "feedback",
+    "label": "familier 14 (suiveur, porteur 8, rang 0)"
+  },
+  {
+    "frame": 2,
+    "kind": "variant_spawn",
+    "label": "variante explosif (15)"
+  },
+  {
+    "frame": 2,
+    "kind": "feedback",
+    "label": "champion 15 (explosif)"
+  },
+  {
+    "frame": 29,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 29,
+    "kind": "points",
+    "label": "joueur 0 gagne 60 points (kill)"
+  },
+  {
+    "frame": 29,
+    "kind": "feedback",
+    "label": "hit stop 15 (2 frames)"
+  },
+  {
+    "frame": 29,
+    "kind": "feedback",
+    "label": "mèche 20 (0 frames)"
+  },
+  {
+    "frame": 30,
+    "kind": "hit",
+    "label": "joueur 0 touché"
+  },
+  {
+    "frame": 30,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 30,
+    "kind": "feedback",
+    "label": "secousse 8 (8 frames)"
+  },
+  {
+    "frame": 30,
+    "kind": "feedback",
+    "label": "hit stop 8 (2 frames)"
+  },
+  {
+    "frame": 30,
+    "kind": "feedback",
+    "label": "anneau d'explosion (rayon 70)"
+  },
+  {
+    "frame": 29,
+    "kind": "explosion",
+    "label": "explosion en (-528, 248) rayon 70"
+  }
+]

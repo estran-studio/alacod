@@ -18,6 +18,7 @@ pub mod effects_runtime;
 pub mod effects_v3;
 pub mod familiars;
 pub mod feedback;
+pub mod feedback_v3;
 pub mod frame;
 pub mod frame_events;
 pub mod gen_test;

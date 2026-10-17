@@ -1,0 +1,10 @@
+// Fixture M3-T8 : prix de présentoir invalide (montant nul, consommable inconnu) (shop_cost_invalid)
+(
+    name: "fixture-shop_cost_invalid",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "rooms", kind: "Room"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

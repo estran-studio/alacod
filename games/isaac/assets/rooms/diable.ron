@@ -1,3 +1,8 @@
 // Type de salle `diable` (M3-T5, docs/conventions.md §70) : la salle post-boss, accrochée au boss une
-// fois sur trois. Vide : le marché du diable est le contenu de M3-T8.
-(locks: false)
+// fois sur trois. M3-T8 (§73) : le marché du diable. Deux présentoirs du pool `diable` (épuisement par
+// run), payés en **vie maximale** (`MaxHealth("2")` = un cœur, Q6) : les cœurs d'âme paient d'abord, un
+// paiement qui tuerait est refusé, sinon la vie maximale baisse définitivement.
+(
+    locks: false,
+    shop: Some((table: "diable", shelves: 2, cost: Some(MaxHealth("2")))),
+)

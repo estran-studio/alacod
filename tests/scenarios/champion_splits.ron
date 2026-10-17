@@ -3,6 +3,9 @@
 // (la chance du personnage est de 1 : sans cette règle ils se diviseraient à leur tour sans fin). Témoin : variante `nu`.
 //
 // À regarder : un champion tombe, trois petits apparaissent autour de sa position et ne se divisent plus.
+//
+// M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la variante à `tint` du champion (`variant_tint`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
@@ -31,5 +34,6 @@ Scenario(
         EnemyDistance(entity: NetId(17), target: Entity(NetId(18)), min: Some(23.5), max: Some(25.0), at_frame: 56),
         EnemyDistance(entity: NetId(18), target: Entity(NetId(19)), min: Some(23.5), max: Some(25.0), at_frame: 56),
         EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 159),
+        Event(kind: "feedback", label_contains: Some("champion 14 (divise)"), by_frame: 2),
     ],
 )

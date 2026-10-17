@@ -1,0 +1,10 @@
+// M3-T8 (docs/conventions.md §73) : jumeau **sans** `exhaust` du pool `epuisable` (mêmes trois objets) : le
+// témoin des scénarios `pool_exhaust_*`. Sans épuisement deux coffres peuvent donner le même objet
+// (tirage à l'ouverture sur la graine de la clé, §48) ; `PoolState` reste vide.
+(
+    entries: [
+        (pick: Item("bottes"), weight: 1),
+        (pick: Item("boussole"), weight: 1),
+        (pick: Item("lame"), weight: 1),
+    ],
+)

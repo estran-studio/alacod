@@ -52,7 +52,7 @@
     variants: Some((
         chance: "1.0",
         table: {
-            "riche": (tags: ["champion"], loot: Some("commun")),
+            "riche": (tags: ["champion"], loot: Some("commun"), tint: Some("#f1c40f")),
             "nu": (),
         },
     )),

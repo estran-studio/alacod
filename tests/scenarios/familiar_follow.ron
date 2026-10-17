@@ -4,6 +4,7 @@
 // derrière lui, jamais plus près. Il ne bloque pas le joueur (couche sans collision).
 //
 // À regarder : un carré qui suit le joueur à distance constante.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",

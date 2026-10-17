@@ -3,6 +3,7 @@
 // direction. `target` est placée en ligne. Témoin `familiar_mirror_shot_sans_objet` : la même larme seule.
 //
 // À regarder : deux balles partent à la suite, la seconde du familier ; la cible reçoit deux coups.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
