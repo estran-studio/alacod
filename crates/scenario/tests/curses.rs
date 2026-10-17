@@ -60,7 +60,7 @@ fn same_seed_same_curse_other_seed_other_curse() {
     );
 
     let mut other = base.clone();
-    other.map_seed = Some(2);
+    other.map_seed = 2;
     other.expect = vec![
         curse(0, Some("labyrinth"), 5),
         curse(1, Some("darkness"), 240),
@@ -71,7 +71,7 @@ fn same_seed_same_curse_other_seed_other_curse() {
 
     // Une graine sans aucune curse (graine 1 : ni à l'étage 0 ni à l'étage 1).
     let mut none = base.clone();
-    none.map_seed = Some(1);
+    none.map_seed = 1;
     none.expect = vec![curse(0, None, 5), curse(1, None, 240)];
     let none = scenario::run(&none);
     assert!(none.failures.is_empty(), "{:?}", none.failures);
@@ -106,11 +106,12 @@ fn a_modifier_curse_really_slows_the_player() {
     if map_ldtk::RENDER_ENABLED {
         return;
     }
-    // Le joueur marche à droite de f10 à f50 sans tirer, sur `maudit_maze` (une chance sur deux de
-    // « maze » à chaque étage). Graine 3 : maze à l'étage 0 ; graine 1 : aucune curse.
-    let walk = |seed: i32| {
+    // Le joueur marche à droite de f10 à f50 sans tirer. Graine 3 : `maudit_maze` tire « maze » à
+    // l'étage 0 ; le témoin joue la même graine (donc la même carte et le même point de départ) sur
+    // `deux_niveaux`, sans champ `curses`.
+    let walk = |floors: &str| {
         let mut scenario = load("curse_modifier");
-        scenario.map_seed = Some(seed);
+        scenario.floors = Some(floors.into());
         scenario.frames = 80;
         scenario.players[0].inputs = vec![Segment {
             from: 10,
@@ -121,8 +122,8 @@ fn a_modifier_curse_really_slows_the_player() {
         scenario.expect.clear();
         scenario
     };
-    let cursed = walk(3);
-    let free = walk(1);
+    let cursed = walk("maudit_maze");
+    let free = walk("deux_niveaux");
     let (start_cursed, end_cursed) = (x_at(&cursed, 8), x_at(&cursed, 60));
     let (start_free, end_free) = (x_at(&free, 8), x_at(&free, 60));
     assert_eq!(start_cursed, start_free, "même point de départ");

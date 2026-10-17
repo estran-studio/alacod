@@ -5336,6 +5336,99 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
 scénarios testbed seulement (dette nommée, à fermer par T11c).
 
+## 74. Curses d'étage en jeu : tirage, modificateur, étage agrandi, HUD masqué (M3-T9, chantier F4)
+
+Exécute les contrats de §64 (les cinq curses de Q7). Code : `game::curses` (tirage et modificateurs),
+`world::FloorGrammar::scaled_rooms` + `map_ldtk::loader::with_curse_floor_rooms` (étage agrandi),
+`game::ui::hud_model` et `game::ui::hud` (présentation). **Une séquence `Floors` sans champ `curses` ne tire
+rien** : `CurseTable` est vide, `curse_system` rend la main avant de toucher une ressource ou un composant, le HUD
+lit des valeurs absentes ; aucune trace existante ne bouge (preuve en fin de §).
+
+### Tirage : quand et par quoi
+
+`curse_system` (`GgrsSchedule`, `RollbackSystemSet::FrameCounter`, avant l'incrément de frame, donc **après** le
+passage d'étage du set `Run`) compare `FloorState::index` au dernier étage traité (`RunCurses::entered`, rollback) :
+à l'entrée dans un étage, **y compris le premier** (frame 0), il tire `run::draw_curse` (RNG local de graine
+`curse_seed(graine, étage)`, jamais `RngStreams`), écrit `RunCurses` et la trace
+`ggrs{f=… curse floor=… id=<id|none>}`. La fiche disait « à `FloorEntered` » : cet événement n'est émis que quand les
+horloges ou la difficulté sont activées (§23) et jamais pour le premier étage ; le tirage détecte donc lui-même
+l'entrée, à la même frame que `FloorEntered` l'aurait été. `RunCurses` devient `{ floors: BTreeMap<étage, id>, entered:
+Option<u32> }` (T0e : tuple `BTreeMap` seul) : sans `entered`, « tiré, pas de curse » ne se distinguerait pas de « pas
+encore tiré » et le tirage serait refait à chaque frame. Toujours neutre (`Default` : hash 0) ; **elle ne l'est plus
+dès qu'une séquence a un champ `curses`** : `entered` s'écrit à la frame 0, donc les traces d'une partie à curses
+changent (`curse_pool_unset` de T0e, seul scénario dans ce cas sur `main`, est retiré : son propos — « rien n'exécute le
+tirage » — n'est plus vrai). Moment clé `curse` (« étage 2 : curse « darkness » ») ; les étages sans curse n'en sont pas.
+`CurseTable` (hors rollback : champ `curses` de la séquence + `curses/*.ron` du registre) est posée à `compute_floor_plan`
+comme `FloorLootTables`.
+
+### Les cinq effets
+
+| Curse (Q7) | Effet | Où | Quand |
+|---|---|---|---|
+| `Modifier(stat, op, v)` | modificateur de source `curse:<id>` sur chaque joueur | `curse_system` | posé à l'entrée de l'étage ; **tout** `curse:*` est retiré à l'entrée de l'étage suivant avant la pose de la nouvelle ; un joueur qui n'a pas le compte attendu (apparu après l'entrée) le reçoit à la frame suivante ; rien n'est écrit tant que le compte est bon (pas de `Changed`) |
+| `FloorRooms(×m)` | `rooms` de la grammaire multiplié | `with_curse_floor_rooms`, `setup_generated_map` | **à la génération** : toutes les cartes d'une séquence sont assemblées au chargement de la partie, avant la première frame. Le tirage ne dépendant que de (graine, étage), le planificateur retrouve la curse que `curse_system` écrira à l'entrée |
+| `HideMinimap` | `hud_values.minimap` vide | `Update` | tant que `RunCurses` donne la curse à l'étage courant |
+| `HideHealth` | `hud_values.health` absent : ni texte ni barre (D22) | `Update` | idem |
+| `HideItemNames` | nom de l'objet ou de l'arme du prompt → `???` (`Weapon`, `Shelf` ; prix et reste du texte intacts) | `Update` (`ui::hud`) | idem |
+
+**Étage et emplacement.** Le monde d'un emplacement `s` de la séquence est assemblé avec la curse de l'**étage `s`**
+(un emplacement par `floor:<id>` de `levels`). Au-delà de la séquence, `level_for_floor` boucle sur le dernier niveau :
+ces étages réutilisent le monde déjà assemblé et ne reçoivent **pas** de `FloorRooms` de leur propre tirage (leurs
+modificateurs et leur HUD, eux, suivent leur tirage). Sans effet sur une carte qui n'est pas une grammaire (`floor:<id>`).
+
+**`FloorGrammar::scaled_rooms(m)`** (pure, arithmétique `Fixed`) : bornes de `rooms` × `m` arrondies au plus proche, puis
+**ramenées à une grammaire satisfiable** : au moins départ + boss + requises (et `min_boss_distance + 1`), au plus la
+capacité de la grille (`max.0 × max.1`) ; `m = 1` rend la grammaire inchangée. `isaac/sous_sol` ×2 : 16 à 24 salles. Preuves :
+1 000 graines en grille 7 × 7 (`mille_graines_doublees_par_la_curse_respectent_la_grille` : validées, sous la borne de
+travail, 16 à 24 salles) ; 2 × 200 graines sur les gabarits réels, en grille (`isaac`) et en arbre (`gungeon/etage`, 20 à
+28) : `la_curse_labyrinth_double_les_salles_sans_rendre_l_etage_impossible`. **Limite** : un multiplicateur que la grille ne
+peut pas tenir (×100 sur 7 × 7, jusqu'à 49 salles) échoue explicitement (`FloorError::Exhausted`, comme toute grammaire
+impossible) ; seules les valeurs jusqu'à ×2 sont prouvées sur `isaac`.
+
+### Présentation
+
+`game::curses::CurseHides { minimap, health, item_names }` (pur, `CurseHides::of(effects)`), lu depuis `RunCurses` à chaque
+`Update` : jamais d'un événement, donc juste après un rollback. `HudPlayerInput::curse` (id et définition de la curse de
+l'étage courant) alimente `hud_values` : `health` et `minimap` sont **absents** (même chemin que « joueur mort » :
+barre à zéro, texte vide sans préfixe). Nouvelle source `curses` (`content::ui::HUD_SOURCES`, `PLAYER_SOURCES`) : l'id de la
+curse de l'étage courant, vide sans curse ; `isaac/ui/hud.ron` la montre (« Malédiction : darkness »). Le prompt d'objet est
+calculé dans `ui::hud` (hors `HudSnapshot`) : `HideItemNames` y est prouvé par test unitaire, pas par `HudText`. La machine à
+perk, les portes et les coffres n'ont pas de nom d'objet : inchangés. Les écrans de pause et d'inventaire (§56) ne lisent
+pas `RunCurses` (hors périmètre : ils n'affichent ni la santé, ni la minicarte, ni le nom des objets du sol).
+
+### Contenu et lint
+
+- `testbed` : `floors/maudit.ron` (chance 0,5, les cinq curses), `floors/maudit_maze.ron` (chance 0,5, `maze` seule).
+- `isaac` : dossier `curses/` (les cinq de Q7, copies de celles du testbed), `floors/sous_sol_maudit.ron` (un étage
+  `floor:sous_sol`, chance **1** : la graine choisit la curse). **La séquence par défaut d'`isaac` n'a pas de `curses`**
+  (M3-T11d la déclarera) : aucune trace d'`isaac` ne bouge ; seules ses séquences de test sont maudites.
+- Lint : `reach::stat_uses` compte désormais le `Modifier` d'une curse : une stat que la simulation ne lit pas
+  (`stat_reader`) est une erreur `UnreadStat`.
+- Attentes : `RoomCount(min, max)` (nombre de `RoomBounds`), `HudText(empty: true)` (texte vide : une source masquée ;
+  `contains: ""` ne prouvait rien).
+
+### Scénarios (graines choisies par `draw_curse`, vérifiées en jeu)
+
+| Scénario | Prouve |
+|---|---|
+| `curse_drawn_seeded`, `_other` | `maudit`, graines 3 (darkness puis rien) et 2 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 3 deux fois (même trace), la graine 2 (autre trace) et la graine 1 (aucune curse, aucun moment clé) |
+| `curse_modifier` | `maudit_maze`, graine 3 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
+| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 1 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
+| `curse_hides_health` | graine 7 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
+| `curse_blind` | graine 5 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
+| `curse_bigger_floor` | graine 2 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+
+### Déterminisme
+
+RNG local par (graine, étage) ; `order_mut_iter!` pour les joueurs ; `BTreeMap`, `Fixed` ; trace `ggrs{f=… curse …}` ; aucun
+flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `RunCurses` n'est pas écrite (test
+`a_sequence_without_curses_draws_nothing_and_leaves_the_state_neutral`, vérifié à chaque frame), `CurseTable` est vide.
+
+### Atteignabilité
+
+`isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tirera à M3-T11d (graine à
+nommer alors). Le testbed joue `maudit` et `maudit_maze` à deux étages.
+
 ## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
 
 Code : `crates/scenario/src/generate.rs` (`build_tears_scenario`, `build_familiar_scenario`,
