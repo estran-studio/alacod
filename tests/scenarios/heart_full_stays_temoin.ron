@@ -1,0 +1,17 @@
+// M3-T3 : témoin de `heart_full_stays` : une `ration` (même soin, sans `refuse_when_full`) posée au même
+// endroit est ramassée à f5 à pleine vie : son soin est perdu, le coup de la spirale n'est pas compensé.
+//
+// À regarder : la santé tombe à 92 (f65) et y reste.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 140,
+    items: [(id: "ration", x: "424.0", y: "696.0", at_frame: 5)],
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [(inputs: [])],
+    expect: [
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 60),
+        Health(handle: 0, min: 92.0, max: 92.0, at_frame: 110),
+    ],
+)

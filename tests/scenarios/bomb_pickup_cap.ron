@@ -1,0 +1,28 @@
+// M3-T3 (docs/conventions.md §68) : le plafond d'un compteur (`max_stack`, 3 pour la `bomb` du testbed) est
+// exécuté. Carte `testbed/rocks_static.ldtk` (couloir nu) : le joueur 0 (x 168) tient déjà 3 bombes ; une bombe
+// est posée à ses pieds à f5.
+//
+// À regarder : la bombe reste au sol (compteur 3, au plafond, f5 à f30) ; l'appui sur Bomb (f30) en pose une
+// (2) et la bombe du sol, toujours là, est ramassée aussitôt (3 à f40) ; l'explosion de la bombe posée
+// (f50) ne blesse personne.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 80,
+    items: [(id: "bomb", x: "168.0", y: "696.0", at_frame: 5)],
+    players: [
+        (
+            bomb: (fuse_frames: 20, radius: "48.0", damage: "50.0", friendly_fire: Never),
+            items: ["bomb", "bomb", "bomb"],
+            inputs: [(from: 30, to: 31, buttons: [Bomb])],
+        ),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "bomb", count: 3, at_frame: 10),
+        Consumable(handle: 0, id: "bomb", count: 3, at_frame: 29),
+        Consumable(handle: 0, id: "bomb", count: 3, at_frame: 40),
+        Event(kind: "explosion", by_frame: 60),
+        Health(handle: 0, min: 100, max: 100, at_frame: 79),
+    ],
+)

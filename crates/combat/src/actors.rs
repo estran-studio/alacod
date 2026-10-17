@@ -330,6 +330,35 @@ pub fn queue_gain_shield(commands: &mut Commands, entity: Entity, points: u32) {
     });
 }
 
+/// Couche de vie en plus des PV (M3-T3, `docs/conventions.md` §68, Q2) : les cœurs d'âme d'Isaac.
+/// `soul` points absorbent les dégâts **point par point, avant les PV** (un demi-cœur = 1 PV =
+/// 1 point) ; ils ne se régénèrent pas, ne comptent pas dans `Health.max` et ne sont pas bornés.
+/// Distinct de [`Shield`], qui absorbe un coup entier. Composant **neutre**
+/// (`rollback_and_trace_neutral`) posé au premier gain (`Action::GainSoul`) : sans porteur il ne
+/// contribue pas au checksum, les traces des personnages sans cœur d'âme ne bougent pas. Le
+/// composant reste posé à `soul == 0` (comme [`Shield`] à 0). Lisible par `Price::can_pay` (T8,
+/// Q6) : le champ `soul` est public.
+#[derive(Component, Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ExtraHealth {
+    pub soul: fixed_math::Fixed,
+}
+
+/// Donne `points` de vie d'âme à `entity` au prochain flush des commandes : ajoute à un
+/// [`ExtraHealth`] existant, en pose un sinon. Une entité disparue est ignorée.
+pub fn queue_gain_soul(commands: &mut Commands, entity: Entity, points: fixed_math::Fixed) {
+    commands.queue(move |world: &mut World| {
+        let Ok(mut target) = world.get_entity_mut(entity) else {
+            return;
+        };
+        match target.get_mut::<ExtraHealth>() {
+            Some(mut extra) => extra.soul = extra.soul.saturating_add(points),
+            None => {
+                target.insert(ExtraHealth { soul: points });
+            }
+        }
+    });
+}
+
 #[cfg(test)]
 mod dash_tests {
     use super::*;

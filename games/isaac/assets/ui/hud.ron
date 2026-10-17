@@ -22,6 +22,10 @@
         (kind: Text(source: "shells", prefix: Some("Douilles ")), anchor: TopLeft,
          offset: (292.0, 44.0), size: Some((180.0, 24.0)),
          color: Some("#f5cba7"), font_size: Some(16.0)),
+        // M3-T3 (§68) : bombes du joueur affiché (par joueur, comme les clés).
+        (kind: Text(source: "bombs", prefix: Some("Bombes ")), anchor: TopLeft,
+         offset: (480.0, 44.0), size: Some((140.0, 24.0)),
+         color: Some("#e59866"), font_size: Some(16.0)),
         // Les icônes conservent l'ordre de ramassage, doublons compris.
         (kind: Icons(source: "passives"), anchor: TopLeft,
          offset: (16.0, 80.0), size: Some((240.0, 24.0)),

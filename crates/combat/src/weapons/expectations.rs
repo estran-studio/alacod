@@ -617,6 +617,13 @@ pub enum Expectation {
         count: u32,
         at_frame: u32,
     },
+    /// M3-T3 (`docs/conventions.md` §68) : points de vie d'âme (`combat::actors::ExtraHealth`) du
+    /// joueur `handle` à la frame exacte `at_frame`, égaux à `n` (0 sans le composant).
+    ExtraHealth {
+        handle: usize,
+        n: f32,
+        at_frame: u32,
+    },
     /// M2-T6 (`docs/conventions.md` §50) : le `nth` présentoir (triés par clé de contenu) à la
     /// frame exacte `at_frame` ; chaque champ donné doit correspondre (objet, prix, vendu).
     Shelf {
@@ -714,6 +721,7 @@ impl Expectation {
             | Self::RoomLayout { at_frame, .. }
             | Self::RoomCount { at_frame, .. }
             | Self::ItemCount { at_frame, .. }
+            | Self::ExtraHealth { at_frame, .. }
             | Self::Shelf { at_frame, .. }
             | Self::ShelfCount { at_frame, .. }
             | Self::ShellPiles { at_frame, .. }

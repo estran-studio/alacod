@@ -1,0 +1,8 @@
+// M3-T3 (§68) : la carte `salles.ldtk` (départ, combat aux deux `dummy`, récompense) avec le pool de butin
+// `pieces_salle` : la récompense de la salle nettoyée est un tas de sous (scénario `room_reward_coins`).
+(
+    levels: [
+        "testbed/salles.ldtk",
+    ],
+    loot: ["pieces_salle"],
+)

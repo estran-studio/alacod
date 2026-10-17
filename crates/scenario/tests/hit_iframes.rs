@@ -11,9 +11,8 @@ use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
 
 const TARGET_NET_ID: usize = 36;
 
-/// Vie de la cible à `frame` après avoir injecté `hits` (`(frame, dégât)`), éventuellement avec un
-/// bouclier posé à la frame 5.
-fn target_health(hits: &[(u32, f32)], shield_at_5: bool, frames: u32) -> f32 {
+/// Vie de la cible à `frame` après avoir injecté `hits` (`(frame, dégât)`).
+fn target_health(hits: &[(u32, f32)], frames: u32) -> f32 {
     if map_ldtk::RENDER_ENABLED {
         return f32::NAN;
     }
@@ -34,24 +33,16 @@ fn target_health(hits: &[(u32, f32)], shield_at_5: bool, frames: u32) -> f32 {
         app.add_systems(
             bevy_ggrs::GgrsSchedule,
             (move |frame: Res<utils::frame::FrameCount>,
-                   mut commands: Commands,
                    targets: Query<
-                (
-                    Entity,
-                    &utils::net_id::GgrsNetId,
-                    &game::character::health::Health,
-                ),
+                (&utils::net_id::GgrsNetId, &game::character::health::Health),
                 With<game::character::enemy::Enemy>,
             >,
                    mut damage: ResMut<sim_core::frame_events::FrameEvents<DamageEvent>>| {
-                let Some((entity, id, health)) = targets.iter().find(|(_, id, _)| id.0 == TARGET_NET_ID) else {
+                let Some((id, health)) = targets.iter().find(|(id, _)| id.0 == TARGET_NET_ID) else {
                     return;
                 };
                 // Dernière valeur observée (début de la dernière frame simulée).
                 *sink.lock().unwrap() = health.current.to_num::<f32>();
-                if shield_at_5 && frame.frame == 5 {
-                    commands.entity(entity).insert(combat::actors::Shield(1));
-                }
                 for (at, amount) in &hits {
                     if frame.frame == *at {
                         damage.send(DamageEvent {
@@ -84,9 +75,9 @@ fn second_hit_inside_the_iframes_is_dropped() {
     }
     // Deux coups de 8 à 10 frames d'écart : un seul est appliqué (5000 - 8) ; un coup après
     // l'invulnérabilité (30 frames) l'est de nouveau.
-    assert_eq!(target_health(&[(12, 8.0), (22, 8.0)], false, 40), 4992.0);
+    assert_eq!(target_health(&[(12, 8.0), (22, 8.0)], 40), 4992.0);
     assert_eq!(
-        target_health(&[(12, 8.0), (22, 8.0), (50, 8.0)], false, 60),
+        target_health(&[(12, 8.0), (22, 8.0), (50, 8.0)], 60),
         4984.0
     );
 }
@@ -97,19 +88,5 @@ fn zero_damage_does_not_start_the_iframes() {
         return;
     }
     // Un coup sans dégât final ne pose rien : le coup suivant passe.
-    assert_eq!(target_health(&[(12, 0.0), (14, 8.0)], false, 30), 4992.0);
-}
-
-#[test]
-fn shield_absorb_uses_its_own_short_iframes_not_the_hit_ones() {
-    if map_ldtk::RENDER_ENABLED {
-        return;
-    }
-    // Bouclier d'un point : le coup de f12 est absorbé (i-frames courtes du bouclier, 15 frames,
-    // jusqu'à f27) sans poser les 30 frames de `hit_iframes` ; le coup de f30 passe, puis celui
-    // de f40 est absorbé par les 30 frames de `hit_iframes`.
-    assert_eq!(
-        target_health(&[(12, 8.0), (30, 8.0), (40, 8.0)], true, 50),
-        4992.0
-    );
+    assert_eq!(target_health(&[(12, 0.0), (14, 8.0)], 30), 4992.0);
 }

@@ -1,0 +1,10 @@
+// Fixture M3-T3 : un déblocage qui ajoute Currency(0) à un pool
+(
+    name: "fixture-unlock_currency_zero",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "unlocks", kind: "Unlock"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
