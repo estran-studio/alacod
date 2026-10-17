@@ -3,15 +3,15 @@
 // sans input scripté et **sans bombe** (le personnage d'`isaac` n'en porte pas avant M3-T11d : la salle secrète reste
 // close, voir `bot_isaac_secret`).
 //
-// À regarder : le trésor du premier étage s'ouvre sans clé (f541, coffre `crocs`) ; le boss est vaincu, le bot prend le
-// portail (« niveau 1 », f1915) ; au second étage le trésor est fermé à clé : le bot va à la porte, une Interaction
-// consomme la clé remise à l'arrivée (f2157), il ouvre le coffre (f2298, `eclat`) ; le second boss meurt et la partie
-// est gagnée (f3507).
+// À regarder : le trésor du premier étage s'ouvre sans clé (f995, coffre `crocs`) ; le boss est vaincu, le bot prend le
+// portail (« niveau 1 », f2620) ; au second étage le trésor est fermé à clé : le bot va à la porte, une Interaction
+// consomme la clé remise à l'arrivée (f3070), il ouvre le coffre (f3224, `eclat`) ; le second boss meurt et la partie
+// est gagnée (f4719).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 3,
-    frames: 3700,
+    frames: 5200,
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
@@ -24,16 +24,16 @@ Scenario(
     expect: [
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        Event(kind: "chest", by_frame: 600),
+        Event(kind: "chest", by_frame: 1100),
         FloorIndex(index: 0, at_frame: 1900),
-        FloorIndex(index: 1, at_frame: 2000),
-        DoorLocked(kind: "tresor", nth: 1, locked: true, at_frame: 2100),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 2100),
-        DoorLocked(kind: "tresor", nth: 1, locked: false, at_frame: 2250),
-        Consumable(handle: 0, id: "key", count: 0, at_frame: 2250),
-        HasItem(handle: 0, id: "eclat", at_frame: 2400),
-        DoorLocked(kind: "secrete", locked: true, at_frame: 3600),
-        Event(kind: "victory", by_frame: 3600),
-        PlayerAlive(handle: 0, at_frame: 3699),
+        FloorIndex(index: 1, at_frame: 2700),
+        DoorLocked(kind: "tresor", nth: 1, locked: true, at_frame: 2800),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 2800),
+        DoorLocked(kind: "tresor", nth: 1, locked: false, at_frame: 3150),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 3150),
+        HasItem(handle: 0, id: "eclat", at_frame: 3300),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 5100),
+        Event(kind: "victory", by_frame: 5100),
+        PlayerAlive(handle: 0, at_frame: 5199),
     ],
 )
