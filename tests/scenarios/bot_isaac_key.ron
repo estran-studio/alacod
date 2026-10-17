@@ -4,7 +4,7 @@
 //
 // À regarder : « niveau 1 » à f1 ; le bot va à la porte du trésor (fermée : `DoorLocked` vrai à f15, une clé en poche),
 // l'Interaction (f23) consomme la clé et ouvre la porte et sa jumelle ; il entre et ouvre le coffre (f87),
-// ramasse `pile_rapide` (f105).
+// ramasse `crocs` (f105).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -27,7 +27,7 @@ Scenario(
         DoorLocked(kind: "tresor", locked: false, at_frame: 40),
         Consumable(handle: 0, id: "key", count: 0, at_frame: 40),
         Event(kind: "chest", by_frame: 100),
-        HasItem(handle: 0, id: "pile_rapide", at_frame: 120),
+        HasItem(handle: 0, id: "crocs", at_frame: 120),
         PlayerAlive(handle: 0, at_frame: 599),
     ],
 )
