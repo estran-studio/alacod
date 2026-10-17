@@ -1,0 +1,8 @@
+// `isaac` (M3-T8, §73) : passif du pool `diable` (donnée d'attente, contenu : M3-T11), vendu un cœur
+// de vie maximale.
+(
+    name: "Pacte rouge",
+    kind: Passive,
+    rarity: Rare,
+    modifiers: [(stat: Damage, op: Mul, value: "1.5")],
+)

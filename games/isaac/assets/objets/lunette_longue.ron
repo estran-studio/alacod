@@ -1,0 +1,7 @@
+// `isaac` (M3-T8, §73) : passif du pool `tresor` (donnée d'attente, contenu : M3-T11).
+(
+    name: "Lunette longue",
+    kind: Passive,
+    rarity: Common,
+    modifiers: [(stat: Range, op: Pct, value: "0.15")],
+)

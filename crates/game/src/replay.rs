@@ -270,12 +270,15 @@ impl ShopSetup {
 }
 
 /// Placement scripté d'un présentoir : `key` est sa clé de contenu, `item` l'objet, `price` en
-/// `shells`.
+/// `shells`. `cost` (M3-T8, §73) : prix de vie maximale ou de consommable (`Price`), exécuté à la
+/// place des douilles (`price` vaut alors 0) ; absent : le prix en douilles, comme avant.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShelfPlacement {
     pub key: String,
     pub item: String,
     pub price: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost: Option<items::Price>,
     pub x: Fixed,
     pub y: Fixed,
     pub at_frame: u32,

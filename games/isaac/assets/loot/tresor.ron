@@ -1,9 +1,14 @@
-// Pool de la salle de trésor de `isaac` (M3-T11a, docs/conventions.md §76.1) : les objets de larmes et de stats.
-// Pas de `Rarity(…)` : un tirage par rareté piocherait aussi les consommables (clé, bombe, cœur), qui ont la
-// rareté `Common`. Poids par rareté : commun 4, peu commun 2, rare 1. Ni `exclude_held` ni `exhaust` : deux
-// exemplaires d'un même objet sont possibles (l'empilement de T1 se joue en partie ordinaire).
+// `isaac` (M3-T8, docs/conventions.md §73) : pool de la salle de trésor (`rooms/tresor.ron`). `exhaust` :
+// un objet sorti n'y revient plus pendant la run (Q5, **par run et par pool** : le trésor du second
+// étage ne redonne pas celui du premier). L'objet est tiré à la génération de l'étage (option A de §64),
+// pas à l'ouverture : le même coffre donne le même objet quel que soit le moment, l'ordre des visites
+// ou le joueur. Contenu : les quatre passifs de T8 (stats) et les 19 objets de larmes et de stats de M3-T11a (§76.1) ; poids commun 4, peu commun 2, rare 1. Pas d'`exclude_held` : l'épuisement par run (`exhaust`) évite déjà les doublons du pool.
 (
     entries: [
+        (pick: Item("semelles_lestees"), weight: 1),
+        (pick: Item("pile_rapide"), weight: 1),
+        (pick: Item("lunette_longue"), weight: 1),
+        (pick: Item("trefle_chat"), weight: 1),
         (pick: Item("encre"), weight: 4),
         (pick: Item("ressort"), weight: 4),
         (pick: Item("longue_vue"), weight: 4),
@@ -24,4 +29,5 @@
         (pick: Item("epouvante"), weight: 2),
         (pick: Item("glu"), weight: 4),
     ],
+    exhaust: true,
 )
