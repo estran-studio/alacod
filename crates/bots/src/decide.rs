@@ -297,7 +297,9 @@ pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
                 // caché, la route suivie au signe faisait dépasser chaque case visée (élan) ;
                 // le bot allait et venait dans un couloir sans prendre la sortie : pilotage en
                 // vitesse, comme vers le portail.
-                Some(route) if !view.enemy_visible => steer(&mut input, route),
+                Some(route) if !view.enemy_visible || view.engage_reach.is_some() => {
+                    steer(&mut input, route)
+                }
                 _ => set_direction_buttons(&mut input, route_unless(false, view, toward)),
             }
         } // sinon : garde sa position (visible, dans la bande [MIN, MAX])
