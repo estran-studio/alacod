@@ -219,9 +219,13 @@ pub fn boss_defeated_system(
         );
         // M3-T10 : historique des boss vaincus (le nom du personnage est celui de `GgrsNetId`),
         // lu en fin de run seulement (accomplissements, `profile::RunHistory`).
-        // Seulement tant que la run se joue : la simulation continue après `Ended`, un boss tué ensuite
-        // (poison, explosion) n'est pas un fait de la run, et dépendrait du nombre de frames prédites.
-        if run.as_deref().is_some_and(|run| run.is_playing()) {
+        // Seulement tant que la run se joue, ou à la frame même de sa fin (la défaite est posée avant ce
+        // système) : la simulation continue après `Ended`, un boss tué ensuite (poison, explosion)
+        // n'est pas un fait de la run, et dépendrait du nombre de frames prédites.
+        if run
+            .as_deref()
+            .is_some_and(|run| crate::profile::run_counts_at(run, frame.frame))
+        {
             history.bosses_defeated.insert(net_id.1.clone());
         }
         defeated.send(BossDefeated {

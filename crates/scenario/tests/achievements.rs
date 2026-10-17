@@ -6,15 +6,14 @@
 //! session : ce test pilote lui-même la boucle, comme `tests/run.rs` et `tests/hub.rs`.
 
 use bevy::prelude::*;
-use bevy_fixed::rng::RollbackRng;
 use game::{core::AppState, run_state::RunRequest};
-use items::{draw_loot_with, ItemTable, LootTables, Rarity, RunUnlocks, UnlockTable};
+use items::{ItemTable, LootTables, PoolState, Rarity, RunUnlocks, UnlockTable};
 use run::Run;
 use scenario::{
     runner::{build_app, PlayConfig},
     Scenario,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use utils::frame::FrameCount;
 
 fn scenario() -> Scenario {
@@ -30,8 +29,15 @@ fn frame(app: &App) -> u32 {
     app.world().resource::<FrameCount>().frame
 }
 
-/// Ce que `pool` donne sur 400 graines, sous les déblocages `active`.
-fn draws(app: &App, pool: &str, active: &RunUnlocks) -> BTreeSet<String> {
+/// L'objet que `PoolState::assign` (le chemin du jeu : tirage à la génération de l'étage, option A de §64)
+/// donne pour chacun de 400 emplacements du pool `pool` à l'étage 0 de la partie de graine `run_seed`,
+/// sous les déblocages `active`. Un `PoolState` neuf par emplacement : c'est le premier tirage du pool.
+fn assigned(
+    app: &App,
+    pool: &str,
+    run_seed: u32,
+    active: &RunUnlocks,
+) -> BTreeMap<u32, Option<String>> {
     let world = app.world();
     let tables = world.resource::<LootTables>();
     let items = world.resource::<ItemTable>();
@@ -39,19 +45,24 @@ fn draws(app: &App, pool: &str, active: &RunUnlocks) -> BTreeSet<String> {
     let table = items::unlocked_table(pool, &tables.0[pool], unlocks, active);
     let hidden = unlocks.hidden_items(active);
     (0..400u32)
-        .filter_map(|seed| {
-            let mut rng = RollbackRng::new(seed);
-            draw_loot_with(
+        .map(|slot| {
+            let item = PoolState::default().assign(
+                pool,
                 &table,
                 items,
-                None,
                 Rarity::Common,
-                false,
                 &hidden,
-                &mut rng,
-            )
+                run_seed,
+                0,
+                &format!("slot{slot}"),
+            );
+            (slot, item)
         })
         .collect()
+}
+
+fn items_of(draws: &BTreeMap<u32, Option<String>>) -> BTreeSet<String> {
+    draws.values().flatten().cloned().collect()
 }
 
 #[test]
@@ -84,8 +95,10 @@ fn les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante() {
         frame(&app)
     );
     let none = RunUnlocks::default();
-    let before_boss = draws(&app, "boss", &none);
-    let before_treasure = draws(&app, "tresor", &none);
+    let run_seed = app.world().resource::<Run>().seed;
+    let boss_base = assigned(&app, "boss", run_seed, &none);
+    let treasure_base = assigned(&app, "tresor", run_seed, &none);
+    let (before_boss, before_treasure) = (items_of(&boss_base), items_of(&treasure_base));
     for hidden in ["medaille"] {
         assert!(
             !before_boss.contains(hidden),
@@ -148,14 +161,36 @@ fn les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante() {
         "l'historique de la run précédente survit à la relance"
     );
 
-    // À graine égale (mêmes 400 graines), le pool montre maintenant les objets débloqués, et pas les autres.
-    let after_boss = draws(&app, "boss", &active);
-    let after_treasure = draws(&app, "tresor", &active);
+    // À graine égale (celle de la seconde run, qui est celle de la première) et mêmes emplacements : seul l'objet
+    // change, et seulement vers un objet que le profil vient de débloquer.
+    assert_eq!(app.world().resource::<Run>().seed, run_seed);
+    let boss_now = assigned(&app, "boss", run_seed, &active);
+    let treasure_now = assigned(&app, "tresor", run_seed, &active);
+    let (after_boss, after_treasure) = (items_of(&boss_now), items_of(&treasure_now));
     assert!(after_boss.contains("medaille"), "{after_boss:?}");
     assert!(after_treasure.contains("couronne"), "{after_treasure:?}");
     assert!(
         !after_treasure.contains("bague"),
         "{after_treasure:?} : `second_etage` n'est pas obtenu"
     );
-    assert!(before_boss.is_subset(&after_boss) && before_treasure.is_subset(&after_treasure));
+    for (base, now, unlocked) in [
+        (&boss_base, &boss_now, ["medaille"].as_slice()),
+        (&treasure_base, &treasure_now, ["couronne"].as_slice()),
+    ] {
+        let changed: Vec<_> = base
+            .iter()
+            .filter(|(slot, item)| now[slot] != **item)
+            .collect();
+        assert!(
+            !changed.is_empty(),
+            "aucun emplacement ne change : déblocage sans effet"
+        );
+        for (slot, _) in changed {
+            let now = now[slot].as_deref().unwrap();
+            assert!(
+                unlocked.contains(&now),
+                "emplacement {slot} : {now} n'est pas un objet débloqué"
+            );
+        }
+    }
 }

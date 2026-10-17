@@ -160,40 +160,57 @@ pub fn purchase_for_handle(
 pub struct RunHistory {
     /// Personnages-boss vaincus pendant la run (nom du personnage, celui de `GgrsNetId`).
     pub bosses_defeated: BTreeSet<String>,
-    /// Objets (passifs et actif) tenus par les joueurs à la dernière frame où l'un d'eux en tenait :
-    /// la mort d'un joueur détruit son inventaire, la dernière valeur reste.
-    pub items_held: BTreeSet<String>,
+    /// Objets (passifs et actif) tenus par **chaque joueur** (handle) à la dernière frame où il avait
+    /// un `Inventory` : la mort d'un joueur détruit son inventaire, sa dernière valeur reste.
+    pub held_by_player: BTreeMap<usize, BTreeSet<String>>,
 }
 
-/// Mémorise les objets tenus par les joueurs (`GgrsSchedule`, dernier set : lit l'état de la frame).
-/// N'écrit que si l'ensemble change, et jamais quand aucun joueur n'a d'inventaire (joueurs morts,
-/// ou rien ramassé : une valeur vide n'efface pas la dernière connue). Un joueur mort n'efface rien.
+impl RunHistory {
+    /// Objets tenus à la fin par au moins un joueur de la run (l'union des dernières valeurs connues).
+    pub fn items_held(&self) -> BTreeSet<String> {
+        self.held_by_player.values().flatten().cloned().collect()
+    }
+}
+
+/// La run « compte » à la frame `frame` : elle se joue, ou sa fin vient d'être posée **cette** frame
+/// (la défaite est posée avant `boss_defeated_system`, un boss tué à la même frame appartient à la run).
+pub fn run_counts_at(run: &Run, frame: u32) -> bool {
+    match run.step {
+        run::RunStep::Ended { at_frame, .. } => at_frame == frame,
+        _ => run.is_playing(),
+    }
+}
+
+/// Mémorise les objets tenus par chaque joueur (`GgrsSchedule`, dernier set : lit l'état de la frame).
+/// N'écrit que si l'ensemble d'un joueur change ; un joueur sans `Inventory` (mort, ou rien ramassé)
+/// n'efface rien : sa dernière valeur reste.
 pub fn record_held_items(
     run: Option<Res<Run>>,
+    frame: Res<utils::frame::FrameCount>,
     mut history: ResMut<RunHistory>,
-    inventories: Query<&Inventory, With<Player>>,
+    inventories: Query<(&Player, &Inventory)>,
 ) {
-    if !run.is_some_and(|run| run.is_playing()) {
+    if !run.is_some_and(|run| run_counts_at(&run, frame.frame)) {
         return;
     }
-    let mut held: Vec<&str> = Vec::new();
-    let mut any = false;
-    for inventory in &inventories {
-        any = true;
-        held.extend(inventory.passives.iter().map(String::as_str));
+    for (player, inventory) in &inventories {
+        let mut held: Vec<&str> = inventory.passives.iter().map(String::as_str).collect();
         held.extend(inventory.active.iter().map(|slot| slot.item.as_str()));
-    }
-    if !any {
-        return;
-    }
-    held.sort_unstable();
-    held.dedup();
-    // Comparer avant de cloner : l'ensemble ne change que sur un ramassage (chaque frame, 12 fois
-    // resimulées au pire).
-    if held.len() != history.items_held.len()
-        || held.iter().any(|item| !history.items_held.contains(*item))
-    {
-        history.items_held = held.into_iter().map(str::to_string).collect();
+        held.sort_unstable();
+        held.dedup();
+        // Comparer avant de cloner : l'ensemble ne change que sur un ramassage.
+        let same = history
+            .held_by_player
+            .get(&player.handle)
+            .is_some_and(|known| {
+                known.len() == held.len() && held.iter().all(|item| known.contains(*item))
+            });
+        if !same {
+            history.held_by_player.insert(
+                player.handle,
+                held.into_iter().map(str::to_string).collect(),
+            );
+        }
     }
 }
 
@@ -322,7 +339,7 @@ pub fn write_achievements_at_run_end(
     let facts = RunFacts {
         summary,
         bosses_defeated: history.bosses_defeated.clone(),
-        items_held: history.items_held.clone(),
+        items_held: history.items_held(),
     };
     for handle in ended_handles(session.as_deref(), &locals, &run) {
         let id = local_id(handle);
@@ -428,7 +445,9 @@ impl Plugin for ProfilePlugin {
             )
             .add_systems(
                 bevy_ggrs::GgrsSchedule,
-                record_held_items.in_set(RollbackSystemSet::FrameCounter),
+                record_held_items
+                    .before(crate::frame::increase_frame_system)
+                    .in_set(RollbackSystemSet::FrameCounter),
             );
     }
 }
@@ -586,6 +605,7 @@ mod tests {
     fn history_app() -> App {
         let mut app = App::new();
         app.init_resource::<RunHistory>()
+            .init_resource::<utils::frame::FrameCount>()
             .insert_resource(Run::new(1, run::RunMode::Sandbox, vec![0], 0))
             .add_systems(Update, record_held_items);
         app
@@ -597,9 +617,8 @@ mod tests {
         let held = |app: &App| {
             app.world()
                 .resource::<RunHistory>()
-                .items_held
-                .iter()
-                .cloned()
+                .items_held()
+                .into_iter()
                 .collect::<Vec<_>>()
         };
         // Un joueur sans inventaire (rien ramassé) n'écrit rien.
@@ -634,6 +653,55 @@ mod tests {
     }
 
     #[test]
+    fn a_dead_player_keeps_his_items_while_the_survivor_changes_his() {
+        let mut app = history_app();
+        let spawn = |app: &mut App, handle: usize, items: &[&str]| {
+            app.world_mut()
+                .spawn((
+                    Player {
+                        handle,
+                        ..Default::default()
+                    },
+                    Inventory {
+                        passives: items.iter().map(|i| i.to_string()).collect(),
+                        ..Default::default()
+                    },
+                ))
+                .id()
+        };
+        let dead = spawn(&mut app, 1, &["lame"]);
+        let alive = spawn(&mut app, 0, &["bottes"]);
+        app.update();
+        app.world_mut().entity_mut(dead).despawn();
+        app.world_mut()
+            .entity_mut(alive)
+            .get_mut::<Inventory>()
+            .unwrap()
+            .passives
+            .push("bague".into());
+        app.update();
+        let held: Vec<String> = app
+            .world()
+            .resource::<RunHistory>()
+            .items_held()
+            .into_iter()
+            .collect();
+        assert_eq!(held, ["bague", "bottes", "lame"]);
+    }
+
+    #[test]
+    fn the_defeat_frame_still_counts_but_later_frames_do_not() {
+        let mut run = Run::new(1, run::RunMode::Sandbox, vec![0], 0);
+        assert!(run_counts_at(&run, 50));
+        run.step = run::RunStep::Ended {
+            at_frame: 50,
+            outcome: run::RunEnd::Defeat,
+        };
+        assert!(run_counts_at(&run, 50));
+        assert!(!run_counts_at(&run, 51));
+    }
+
+    #[test]
     fn held_items_are_not_recorded_once_the_run_is_over() {
         let mut app = history_app();
         app.world_mut().spawn((
@@ -651,7 +719,7 @@ mod tests {
             outcome: run::RunEnd::Victory,
         };
         app.update();
-        assert!(app.world().resource::<RunHistory>().items_held.is_empty());
+        assert!(app.world().resource::<RunHistory>().items_held().is_empty());
     }
 
     #[test]

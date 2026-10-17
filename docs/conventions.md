@@ -695,10 +695,11 @@ traces. Détail et mesure : §20.
 
 ### Exclusions assumées du checksum
 
-Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
+Trois données sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
 
 - **`HitCount`** (`crates/game/src/character/health/mod.rs`, T2.9) : compteur de coups reçus, posé à la création uniquement si `CharacterConfig::counts_hits` (`crates/game/src/character/create.rs`, faux par défaut — aucun personnage zombie/joueur ne le pose ; seuls `target` (testbed) et `cible` (throne) le déclarent, `crates/scenario/src/generate.rs`). Enregistré via `rollback_and_trace_no_checksum::<HitCount>()` (`crates/game/src/character/mod.rs`) : rollback et trace, mais hors checksum. Il sert aux attentes `EntityHits` des scénarios (`crates/combat/src/weapons/expectations.rs`) ; aucune décision de jeu ne le lit.
 - **`EnemyAiConfig::stationary`** (`crates/game/src/character/enemy/ai/state.rs`, T2.9) : immobilité totale d'un ennemi de testbed (`dummy`/`target`/`ally`/`civilian`), exclue du `Hash` manuel du composant. Aucun contenu zombie ne la pose ; hacher un champ de plus déplacerait le checksum de toute entité `Enemy` sans aucun changement de gameplay (vérifié empiriquement à l'époque : sans l'impl manuel, `idle.ron` diverge dès f181).
+- **`RunHistory`** (`crates/game/src/profile.rs`, M3-T10, §75) : boss vaincus et objets tenus par joueur, lus **seulement** à `Ended` par `write_achievements_at_run_end` (`Update`). Enregistré via `rollback_and_trace_resource_no_checksum` : il suit les rollbacks mais n'entre pas dans le checksum. Dérivé d'états déjà sous checksum (`Health`/`Death` du boss, `Inventory`), jamais lu par `GgrsSchedule` ; l'inclure déplacerait les traces dès qu'un boss meurt.
 
 ## 11. Munitions et inventaire d'armes (T2.2, chantier B7)
 
@@ -5832,10 +5833,10 @@ contenu `isaac` et `gungeon`. Contrats : §64 (`AchievementDef`, `RunFacts`, `ac
 - **boss vaincus** : `boss_defeated_system` (`DeathManagement`) y inscrit le **nom du personnage** (le `String` de
   `GgrsNetId`, celui de `characters/<id>.ron` : ce que `BossDefeated("gardien")` désigne). Aucun changement de l'événement.
 - **objets tenus** : `record_held_items` (`GgrsSchedule`, `FrameCounter`) recopie, à chaque frame de partie en cours,
-  l'union des passifs et de l'actif des joueurs qui ont un `Inventory` (comparée avant de cloner : aucun `String` copié tant
+  l'union des passifs et de l'actif, **par joueur** (`held_by_player`, union à l'évaluation : `RunHistory::items_held()`), des joueurs qui ont un `Inventory` (comparée avant de cloner : aucun `String` copié tant
   que l'ensemble ne change pas). Un joueur mort perd son inventaire : la **dernière valeur connue reste** (« tenu à la fin » =
-  tenu à la dernière frame où quelqu'un tenait quelque chose) ; rien n'est écrit une fois la run terminée. Même garde pour les
-  boss : la simulation continue après `Ended`, un boss tué ensuite (poison, explosion) n'est pas un fait de la run.
+  tenu à la dernière frame où quelqu'un tenait quelque chose) ; rien n'est écrit une fois la run terminée (sauf la frame même de la fin : `run_counts_at`). Même garde pour les
+  boss, défaite posée à cette frame comprise : la simulation continue après `Ended`, un boss tué ensuite (poison, explosion) n'est pas un fait de la run.
 - **étages, temps, issue** : déjà dans `RunSummary` (`floor_reached`, `frames`, `outcome` : la défaite est une issue, il
   n'y a pas de compteur de morts à ajouter).
 
@@ -5860,6 +5861,8 @@ chaque accomplissement de la table `meta::Achievements` (chargée du registre av
 `Profile::unlocks`, puis le profil est écrit (atomique, §38). Pourquoi attendre la confirmation : sur disque, un
 accomplissement ne se reprend pas, et une fin vue pendant une prédiction peut être défaite. Contrepartie : quitter l'écran de
 fin (Rejouer, Lobby) **avant** la confirmation (quelques frames en local, un aller-retour réseau en p2p) perd l'évaluation.
+**Abandon sans confirmation** : c'est une décision locale du joueur, la session est détruite à la frame suivante et la confirmation n'arriverait jamais ; les faits peuvent donc venir de frames encore prédites (surtout en p2p) et un accomplissement peut être accordé sur un boss « vaincu » par une prédiction ratée. Accepté : l'alternative (ne rien évaluer à l'abandon) perd des accomplissements réels, et le cas demande un abandon pile pendant une prédiction fausse.
+
 Même règle d'`ended_handles` pour l'essence (§38) : un joueur mort la reçoit désormais aussi. `AchievementsEarned`
 (`{handle → ids}`, présentation, vidé à la relance) garde les accomplissements **nouveaux** de cette fin.
 

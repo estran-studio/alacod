@@ -245,6 +245,9 @@ pièges) s'applique à chaque système et fait foi pour l'enregistrement rollbac
 - [ ] Pas de `f32`/`f64` - uniquement `Fixed`/`FixedWide`
 - [ ] RNG via `RollbackRng` consommé dans ordre déterministe
 - [ ] Destruction d'une entité rollback via `despawn_rollback()` (jamais `despawn()`)
+- [ ] `rollback_and_trace_resource_no_checksum` (M3-T10, `RunHistory`) : **seulement** pour une donnée dérivée d'un état déjà sous
+      checksum et **jamais lue par `GgrsSchedule`** (lecteur hors simulation) ; sinon un desync passerait inaperçu. À lister
+      dans `docs/conventions.md` §10 « Exclusions assumées du checksum ».
 - [ ] Resource enregistrée avec l'extension `RollbackTraceApp` (`rollback_and_trace_resource`
       / `_debug_resource` / `_copy_resource`), jamais `rollback_resource_with_*` directement
       (un script CI le bloque, voir `scripts/check-rollback-registration.sh`)

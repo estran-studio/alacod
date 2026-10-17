@@ -105,3 +105,13 @@ est mort (dit au §75).
 ## 7. Journal (à ajouter sur `main` après le merge, README §6)
 
 `| 2026-10-17 | M3-T10 (accomplissements : RunHistory rollback sans checksum, évaluation à Ended après confirmation, profil v2, HUD/écran de fin, objets neufs cachés dans isaac, §75) | m3-t10-profil-accomplissements | b6 | mergée ; suite sans trace bougée, test_crates 1 181, lint/gen ×5, fuzz 0:8, p2p-stress isaac 4 172 frames resimulées ; non fait : évaluation en p2p réel à deux profils |`
+
+## 8. Revue 2 (indépendante) : À RELIRE fermé
+
+1. P2 `items_held` : `RunHistory::held_by_player` (dernière valeur par joueur, union à l'évaluation) ; tests à deux joueurs dont un mort.
+2. P3 boss tué à la frame de la défaite : `run_counts_at` (`Ended { at_frame == frame }`) pour boss et objets ; test.
+3. P3 §75 : abandon évalué sans confirmation, raison et risque écrits.
+4. Docs : `RunHistory` dans §10 « Exclusions assumées du checksum », règle de `rollback_and_trace_resource_no_checksum` dans la checklist de `CLAUDE.md` et le message de `check-rollback-registration.sh`.
+5. Test `achievements.rs` : `PoolState::assign` sur la graine de la run, 400 emplacements ; seuls les emplacements débloqués changent, vers l'objet débloqué.
+6. Test `ui_hui` : corrigé (`..Default::default()` dans `ui/screens/hui.rs`, pas de dette) ; `game_over` : 2 tests passés.
+7. `cargo test -p game -p meta -p scenario --tests` (hors suite `scenarios`) vert ; `achievement_unlocks` et `achievement_not_met` sans BLESS (traces inchangées) ; fmt, `check-rollback-registration.sh` OK.
