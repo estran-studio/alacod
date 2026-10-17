@@ -3,38 +3,39 @@
 // (9 salles : départ, cinq combats, boss, trésor, secrète) est nettoyé, le boss vaincu ; le bot prend le
 // portail et arrive au second étage, où le trésor est fermé à clé et la clé du second étage lui est remise.
 //
-// À regarder : cinq verrouillages de salle de combat (f57 à f1204), le boss verrouille sa salle à f1340,
-// passe en phase 1 à f1465 (couronne) et meurt avant f1587 ; son butin (pool `boss`, M3-T8 §73) tombe et le bot le
-// ramasse, ce qui retarde le portail (f1919 avant le butin, entre f2000 et f2040 après) ; le bot l'emprunte
-// (« niveau 1 ») : la porte du trésor est alors fermée à clé (`DoorLocked`), le joueur a une clé (`Consumable`) ;
-// la porte de la salle secrète est fermée depuis le début (aucune bombe). M3-T8 : chaque pool à épuisement a un
-// objet sorti par étage (un trésor, un boss) ; le second étage en sort un autre, donc les compteurs passent de 1 à 2
-// à sa génération (l'épuisement est par run, pas par étage). La partie continue sur le second étage jusqu'à la fin
-// du scénario (le bot y meurt vers f2359 : équilibrage de M3-T11).
+// À regarder : cinq verrouillages de salle de combat (trois ennemis chacune depuis M3-T11c : `suiveur`, `mouche`,
+// `tourelle_croix`), le boss verrouille sa salle à f2021, passe en phase 1 à f2126 (renforts `rampant` et `cracheur`,
+// couronne) puis en phase 2 à f2244 (`spectre`, `bourdon`, spirale) et meurt avant f2388 ; son butin (pool `boss`,
+// M3-T8 §73) tombe et le bot le ramasse (f2449), ce qui retarde le portail (ouvert à f2388, « niveau 1 » à f2809) :
+// la porte du trésor est alors fermée à clé (`DoorLocked`), le joueur a une clé (`Consumable`) ; la porte de la salle
+// secrète est fermée depuis le début (aucune bombe). M3-T8 : chaque pool à épuisement a un objet sorti par étage
+// (un trésor, un boss) ; le second étage en sort un autre, donc les compteurs passent de 1 à 2 à sa génération
+// (l'épuisement est par run, pas par étage). La partie continue sur le second étage jusqu'à la fin du scénario (le bot
+// y meurt vers f3039 : équilibrage de M3-T11d). Avant M3-T11c : boss à f1340, mort du bot vers f2359.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
-    frames: 2100,
+    frames: 3000,
     players: [
         (bot: explorateur),
     ],
     expect: [
         RoomState(kind: "depart", state: Dormant, at_frame: 5),
-        EntityCount(kind: Enemy, min: Some(11), max: Some(11), at_frame: 5),
+        EntityCount(kind: Enemy, min: Some(16), max: Some(16), at_frame: 5),
         PoolCount(pool: "tresor", count: 1, at_frame: 5),
         PoolCount(pool: "boss", count: 1, at_frame: 5),
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 1400),
-        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 1500),
-        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 1650),
-        FloorIndex(index: 0, at_frame: 1800),
-        FloorIndex(index: 1, at_frame: 2060),
-        DoorLocked(kind: "tresor", locked: true, at_frame: 2060),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 2060),
-        PoolCount(pool: "tresor", count: 2, at_frame: 2090),
-        PoolCount(pool: "boss", count: 2, at_frame: 2090),
-        PlayerAlive(handle: 0, at_frame: 2099),
+        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 2050),
+        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 2150),
+        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 2400),
+        FloorIndex(index: 0, at_frame: 2600),
+        FloorIndex(index: 1, at_frame: 2850),
+        DoorLocked(kind: "tresor", locked: true, at_frame: 2850),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 2850),
+        PoolCount(pool: "tresor", count: 2, at_frame: 2880),
+        PoolCount(pool: "boss", count: 2, at_frame: 2880),
+        PlayerAlive(handle: 0, at_frame: 2999),
     ],
 )
