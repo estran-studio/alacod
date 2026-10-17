@@ -545,6 +545,7 @@ pub fn read_bot_inputs(
             loot: None,
             loot_interact: false,
             fire_range: None,
+            orbit_reach: None,
             explore: None,
         };
 
@@ -638,6 +639,7 @@ pub fn read_bot_inputs(
                 .collect();
             let active = inventory.active_weapon_index;
             view.fire_range = Some(arms_views.get(active).map_or(Fixed::ZERO, |w| w.range));
+            view.orbit_reach = explorer.orbit_reach(player.handle);
             if let Some(enemy) = view.nearest_enemy {
                 let radius = enemies_sorted
                     .iter()

@@ -301,6 +301,7 @@ pub struct ExplorerWorld<'w, 's> {
         With<Rollback>,
     >,
     item_table: Option<Res<'w, ItemTable>>,
+    synergy_table: Option<Res<'w, items::SynergyTable>>,
     holders: Query<
         'w,
         's,
@@ -692,6 +693,17 @@ impl ExplorerWorld<'_, '_> {
             soul: soul.map_or(Fixed::ZERO, |s| s.soul),
             stock: inventory.map(|i| i.consumables.clone()).unwrap_or_default(),
         }
+    }
+
+    /// Rayon de l'orbite des larmes du joueur `handle` (`Orbit` d'un objet ou d'une synergie tenus, composés comme au
+    /// tir : `combat::projectile::compose`), `None` sans orbite.
+    pub fn orbit_reach(&self, handle: usize) -> Option<Fixed> {
+        let (items, synergies) = (self.item_table.as_deref()?, self.synergy_table.as_deref()?);
+        let (_, inventory, ..) = self.holders.iter().find(|(p, ..)| p.handle == handle)?;
+        let sources = items::projectile_sources(items, synergies, inventory?);
+        combat::projectile::compose(&[], &sources)
+            .orbit
+            .map(|orbit| orbit.radius)
     }
 }
 

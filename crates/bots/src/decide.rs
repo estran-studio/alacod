@@ -193,11 +193,21 @@ pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
     if let Some(enemy) = view.nearest_enemy {
         aim_at(&mut input, view.position, enemy.position);
 
-        let close_in = view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE;
+        // Larmes en orbite (`satellite`) : elles ne touchent qu'à `orbit_reach` du porteur, un boss immobile à
+        // 94 unités ne perdait jamais un point de vie (graine 41 d'`isaac` sans bombe, T11b) : le bot s'approche,
+        // immobile ou non, et ne recule plus devant un ennemi qui l'approche.
+        let close_in = match view.orbit_reach {
+            Some(reach) => enemy.distance > reach,
+            None => view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE,
+        };
         // m1-v3-bots-softlocks : ni recul ni tir vers un ennemi caché (mode `Floors`) : le bot
         // reculait dans la roche en vidant ses chargeurs sur elle (soft-locks des graines 63,
         // 111, 139, 149 ; munitions épuisées devant le boss, graines 23, 43, 76).
-        if enemy.distance < PRUDENT_MIN_DISTANCE && !view.enemy_still && view.enemy_visible {
+        if view.orbit_reach.is_none()
+            && enemy.distance < PRUDENT_MIN_DISTANCE
+            && !view.enemy_still
+            && view.enemy_visible
+        {
             set_direction_buttons(&mut input, view.position - enemy.position); // s'éloigne
         } else if !view.enemy_visible || close_in || enemy.distance > PRUDENT_MAX_DISTANCE {
             // s'approche : par le chemin (ennemi caché, ou loin), ligne droite en repli
@@ -379,6 +389,7 @@ mod tests {
             loot: None,
             loot_interact: false,
             fire_range: None,
+            orbit_reach: None,
             explore: None,
         }
     }
@@ -696,6 +707,50 @@ mod tests {
             );
             v.fire_range = None;
         }
+    }
+
+    /// Larmes en orbite (`orbit_reach`) : le bot s'approche d'un ennemi immobile à 94 unités (sans orbite, il garde sa
+    /// position sous `STILL_TARGET_DISTANCE`) et ne recule plus devant un ennemi mobile à 100 ; arrivé à portée de
+    /// l'orbite, il se tient.
+    #[test]
+    fn larmes_en_orbite_le_bot_s_approche() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(94.0), fx(0.0)),
+            distance: fx(94.0),
+        });
+        v.enemy_still = true;
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons,
+            0,
+            "sans orbite : il tient"
+        );
+        v.orbit_reach = Some(fx(40.0));
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_RIGHT,
+            INPUT_RIGHT,
+            "avec orbite : il s'approche"
+        );
+        v.enemy_still = false;
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(100.0), fx(0.0)),
+            distance: fx(100.0),
+        });
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_LEFT,
+            0,
+            "ennemi mobile : il ne recule pas"
+        );
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(30.0), fx(0.0)),
+            distance: fx(30.0),
+        });
+        v.enemy_still = true;
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons,
+            0,
+            "à portée de l'orbite : il tient"
+        );
     }
 
     /// m1-v3-bots-armes : à portée d'une arme au sol choisie, Interaction tenue.
