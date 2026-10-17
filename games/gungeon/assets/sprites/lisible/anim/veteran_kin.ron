@@ -1,0 +1,9 @@
+// Généré par scripts/generer-sprites-gungeon.py : image(s) de `veteran_kin` dans l'atlas.
+(
+    frame_duration: 120,
+    animations: {
+        "Dying_1": (start: 6, end: 6),
+        "Idle": (start: 6, end: 6),
+        "Run": (start: 6, end: 6),
+    },
+)

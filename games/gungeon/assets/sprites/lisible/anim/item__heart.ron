@@ -1,0 +1,7 @@
+// Généré par scripts/generer-sprites-gungeon.py : image(s) de `item/heart` dans l'atlas.
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 13, end: 13),
+    },
+)

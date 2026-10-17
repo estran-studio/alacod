@@ -2191,6 +2191,24 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
     }
+    // Légende : chaque sprite cité existe dans la table des feuilles (si le jeu en déclare une).
+    if registry.sprite_sheets.is_empty() {
+        return;
+    }
+    for (rel, sprites) in &registry.hud_legend_sprites {
+        for sprite in sprites {
+            if !registry
+                .sprite_sheets
+                .contains_key(&registry::SpriteSheetId::from(sprite.as_str()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: rel.display().to_string(),
+                    message: format!("hud : légende : sprite « {sprite} » absent de sprites.ron"),
+                });
+            }
+        }
+    }
 }
 
 /// Les écrans pause/inventaire instancient leurs listes depuis ce gabarit chargé par

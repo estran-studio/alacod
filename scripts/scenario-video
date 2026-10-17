@@ -75,17 +75,43 @@ capture() {
     rm -f "$log"
 }
 
-# encode <dossier images> <sortie.mp4> <étiquette>
+# legend_image <binaire> <scenario.ron> <sortie.png> : image de légende (F7 ouverte, sans étiquettes) du jeu
+# du scénario, rendue par le moteur lui-même (fiche m2-lisibilite-gungeon). Rien n'est écrit si le jeu ne
+# déclare pas de widget `Legend` dans son `ui/hud.ron`.
+legend_image() {
+    local game hud dir
+    game="$(sed -n 's/^ *game: *"\([^"]*\)".*/\1/p' "$2" | head -n 1)"
+    hud="$ROOT/games/${game:-zombies}/assets/ui/hud.ron"
+    grep -q 'Legend(' "$hud" 2>/dev/null || return 0
+    dir="$(mktemp -d)"
+    if "$1" "$2" --capture "$dir" --at 40 --legend >/dev/null 2>&1 && [ -f "$dir/frame_00040.png" ]; then
+        cp "$dir/frame_00040.png" "$3"
+    else
+        echo "avertissement : image de légende non rendue pour $2" >&2
+    fi
+    rm -rf "$dir"
+}
+
+# encode <dossier images> <sortie.mp4> <étiquette> [légende.png] : avec une image de légende, elle ouvre la
+# vidéo pendant LEGEND_SECONDS (1,2 s par défaut), puis la partie.
 encode() {
-    local label="${3//:/\\:}"
+    local label="${3//:/\\:}" legend="${4:-}"
     # Un ffmpeg sans `drawtext` (Homebrew 9.x sans freetype) encode sans l'étiquette plutôt que d'échouer.
     local vf="drawtext=fontfile=$FONT:fontsize=20:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=6:x=10:y=10:text='$label  frame %{eif\:n*$EVERY\:d}'"
     if ! ffmpeg -hide_banner -filters 2>/dev/null | grep -q ' drawtext '; then
         echo "avertissement : ffmpeg sans drawtext, vidéo sans étiquette" >&2
         vf="null"
     fi
-    ffmpeg -hide_banner -loglevel error -y -framerate "$FPS" -pattern_type glob -i "$1/frame_*.png" \
-        -vf "$vf" -pix_fmt yuv420p "${ENCODER[@]}" "$2"
+    if [ -n "$legend" ] && [ -f "$legend" ]; then
+        ffmpeg -hide_banner -loglevel error -y \
+            -loop 1 -framerate "$FPS" -t "${LEGEND_SECONDS:-1.2}" -i "$legend" \
+            -framerate "$FPS" -pattern_type glob -i "$1/frame_*.png" \
+            -filter_complex "[1:v]${vf}[play];[0:v][play]concat=n=2:v=1:a=0,format=yuv420p[out]" \
+            -map "[out]" "${ENCODER[@]}" "$2"
+    else
+        ffmpeg -hide_banner -loglevel error -y -framerate "$FPS" -pattern_type glob -i "$1/frame_*.png" \
+            -vf "$vf" -pix_fmt yuv420p "${ENCODER[@]}" "$2"
+    fi
 }
 
 # resolve_scenario <nom> : chemin du .ron d'un scénario (D60). Ordre : tests/scenarios/<nom>.ron,
@@ -189,7 +215,8 @@ cmd_render() {
         echo "→ $name"
         slug="$(scenario_slug "$name")"
         capture "$player" "$(resolve_scenario "$name")" "$out/frames/$slug"
-        encode "$out/frames/$slug" "$out/$slug.mp4" "$name  $commit"
+        legend_image "$player" "$(resolve_scenario "$name")" "$out/frames/$slug/legend.png"
+        encode "$out/frames/$slug" "$out/$slug.mp4" "$name  $commit" "$out/frames/$slug/legend.png"
         cp "$out/frames/$slug/events.json" "$out/$slug.events.json" 2>/dev/null || true
         rm -rf "$out/frames/$slug"
     done

@@ -502,6 +502,7 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::items::BlankPresentationPlugin);
         app.add_plugins(crate::powerup_visuals::PowerUpVisualPlugin);
         app.add_plugins(crate::world_sprites::WorldSpritePlugin);
+        app.add_plugins(crate::legibility::LegibilityPlugin);
         app.add_plugins(crate::room_fog::RoomFogPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
         #[cfg(feature = "ui_hui")]

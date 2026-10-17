@@ -40,12 +40,28 @@ pub const HUD_SOURCES: &[&str] = &[
     "active_charge",
     "minimap",
     "curses",
+    "legend",
 ];
 
 /// Ce que le lint lit de `ui/hud.ron` : la source de chaque widget.
 #[derive(Debug, Clone, Deserialize)]
 pub struct HudFileSchema {
     pub widgets: Vec<HudWidgetSchema>,
+    /// Légende (source `legend`, `docs/conventions.md` §83) : le lint vérifie que chaque `sprite`
+    /// cité existe dans la table `SpriteSheet` du jeu.
+    #[serde(default)]
+    pub legend: Vec<LegendGroupSchema>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LegendGroupSchema {
+    pub entries: Vec<LegendEntrySchema>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LegendEntrySchema {
+    #[serde(default)]
+    pub sprite: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -70,6 +86,9 @@ pub enum HudWidgetKindSchema {
     Map {
         source: String,
     },
+    Legend {
+        source: String,
+    },
 }
 
 impl HudWidgetKindSchema {
@@ -78,7 +97,8 @@ impl HudWidgetKindSchema {
             Self::Bar { source }
             | Self::Text { source, .. }
             | Self::Icons { source }
-            | Self::Map { source } => source,
+            | Self::Map { source }
+            | Self::Legend { source } => source,
         }
     }
 }
