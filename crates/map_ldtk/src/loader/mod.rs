@@ -311,7 +311,7 @@ pub fn load_map_snapshot(
 
 /// M3-T9 (`docs/conventions.md` §74) : applique la curse `FloorRooms` de l'étage `slot` à la
 /// grammaire d'un étage assemblé. Toutes les cartes d'une séquence `Floors` sont assemblées au
-/// chargement ; le tirage (`run::draw_curse`) ne dépendant que de la graine de partie et de
+/// chargement ; le tirage (`run::draw_curse`) ne dépendant que de la graine de carte et de
 /// l'étage, il donne ici la curse que `game::curses::curse_system` écrira à l'entrée de cet
 /// étage. L'emplacement `slot` est l'étage d'index `slot` ; un étage au-delà de la séquence
 /// (boucle sur le dernier niveau) réutilise ce monde sans second assemblage. Sans curse
@@ -319,11 +319,11 @@ pub fn load_map_snapshot(
 pub fn with_curse_floor_rooms(
     mut config: MapGenerationConfig,
     curses: Option<&game::curses::CurseTable>,
-    run_seed: u32,
+    map_seed: u32,
     slot: usize,
 ) -> MapGenerationConfig {
     let Some(mult) =
-        curses.and_then(|table| game::curses::floor_rooms_for_slot(table, run_seed, slot as u32))
+        curses.and_then(|table| game::curses::floor_rooms_for_slot(table, map_seed, slot as u32))
     else {
         return config;
     };
@@ -378,11 +378,11 @@ pub fn setup_generated_map(
         commands.insert_resource(caves);
         return;
     };
-    let run_seed = game::curses::curse_map_seed(Some(&*config));
+    let map_seed = game::curses::curse_map_seed(Some(&*config));
     for slot in plan.distinct_slots() {
         let (floor_config, cave) =
             resolve_map_config(&config, &plan.levels[slot], registry.as_deref(), slot);
-        let floor_config = with_curse_floor_rooms(floor_config, curses.as_deref(), run_seed, slot);
+        let floor_config = with_curse_floor_rooms(floor_config, curses.as_deref(), map_seed, slot);
         if let Some(cave) = cave {
             caves.0.insert(slot, (config.seed, cave));
         }

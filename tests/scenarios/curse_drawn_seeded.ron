@@ -30,5 +30,7 @@ Scenario(
         Curse(floor: 0, id: Some("darkness"), at_frame: 240),
         Curse(floor: 1, id: None, at_frame: 240),
         HudText(source: "curses", empty: true, at_frame: 240),
+        // Seul témoin de T0e : aucun objet sorti du pool `epuisable` (T8 ne l'exécute pas encore).
+        PoolSeen(pool: "epuisable", item: "bottes", seen: false, at_frame: 300),
     ],
 )

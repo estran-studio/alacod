@@ -4533,7 +4533,7 @@ cœurs d'âme paient à la place : T8).
   en coder d'autres que ces cinq sans nouvelle réponse.
 - **Tirage par étage** : champ optionnel `curses: Some((chance: "0.5", pool: ["darkness", …]))` d'une
   séquence `Floors` (`FloorsEntry::curses`, `run::CurseConfig`) ; absent = aucune curse (toutes les
-  séquences existantes). `run::draw_curse(config, defs, run_seed, étage)` : RNG **local**
+  séquences existantes). `run::draw_curse(config, defs, graine, étage)` (M3-T9 : graine de carte, §74) : RNG **local**
   `RollbackRng::new(curse_seed)` avec `curse_seed = fnv1a("curse:<graine>:<étage>")` replié sur 32 bits
   (même repli que `loot_seed`), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
   ressource et toutes les traces). Deux tirages toujours consommés, dans l'ordre : la chance
@@ -4541,7 +4541,7 @@ cœurs d'âme paient à la place : T8).
   pool (`next_u32() % Σ poids`). Une entrée inconnue ou de poids `0` est ignorée (le lint la refuse) ; sans
   entrée valide, pas de curse. Le résultat ne dépend que de la graine et de l'étage : pas du moment où
   l'étage est entré, ni de l'ordre des étages.
-- **État** `run::RunCurses(BTreeMap<u32 étage, String curse>)` : ressource rollback **neutre**
+- **État** `run::RunCurses { floors: BTreeMap<u32 étage, String curse>, entered }` (`entered` ajouté par M3-T9, §74) : ressource rollback **neutre**
   (`RunPlugin`, `rollback_and_trace_resource_neutral`), vide donc de hash `0` tant que T9 n'a rien écrit ;
   remise à zéro par la relance (`game::run_state::cleanup_rollback_world_system`). T9 écrit l'entrée de
   l'étage à l'entrée dans l'étage (événement `FloorEntered`) avec `draw_curse`.
@@ -4609,7 +4609,7 @@ l'ouverture).
 
 `Curse { floor, id: Some("darkness") | None, at_frame }` (curse de l'étage `floor`, index de `FloorIndex`,
 ou absente) et `PoolSeen { pool, item, seen, at_frame }` (`item` est ou non sorti du pool). Elles lisent
-`RunCurses` et `PoolState`. Rien ne remplit ces ressources avant T8/T9 : un scénario `.ron` ne peut donc
+`RunCurses` et `PoolState`. `PoolState` n'est rempli qu'à partir de T8 ; `RunCurses` l'est par M3-T9 (§74) : un scénario `.ron` ne peut donc
 encore y poser que `None` / `seen: false` (ce que fait le témoin ci-dessous) ; le test
 `crates/scenario/tests/curses_pools.rs` les remplit depuis un système de `GgrsSchedule`.
 
