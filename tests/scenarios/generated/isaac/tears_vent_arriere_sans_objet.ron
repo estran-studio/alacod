@@ -1,0 +1,46 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Témoin de « vent_arriere » (M3-T13, §78) : le même tir, sans l'objet ; il prouve que
+// les attentes de la partie avec l'objet ne passent pas sans lui.
+#![enable(implicit_some)]
+Scenario(
+    game: "isaac",
+    map: "maps/gabarit_armes.ldtk",
+    map_seed: 123456,
+    frames: 48,
+    players: [
+        PlayerScript(
+            inputs: [
+                Segment(from: 10, to: 11, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 12, to: 13, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 14, to: 15, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 16, to: 17, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 18, to: 19, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 20, to: 21, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 22, to: 23, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 24, to: 25, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 26, to: 27, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 28, to: 29, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 30, to: 31, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 32, to: 33, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 34, to: 35, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 36, to: 37, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 38, to: 39, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 40, to: 41, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 42, to: 43, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 44, to: 45, buttons: [Fire], pan: (128, 48)),
+                Segment(from: 46, to: 47, buttons: [Fire], pan: (128, 48)),
+            ],
+            weapon: "larmes",
+        ),
+    ],
+    expect: [
+        EntityHits(
+            net_id: 25,
+            min: 0,
+            max: 0,
+            at_frame: 48,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    mode: Sandbox,
+)

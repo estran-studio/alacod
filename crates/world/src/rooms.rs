@@ -55,6 +55,10 @@ pub struct RoomKindDef {
     /// Le trésor d'Isaac est ouvert au premier étage et fermé à clé ensuite.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub lock_from_floor: u32,
+    /// M3-T8 (§73) : butin du boss de cette salle (pool, rareté mini) : à sa mort un objet tombe au
+    /// centre de la salle. Absent (tout le contenu existant) : rien ne tombe, hors du hash.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boss_drop: Option<items::BossDropDef>,
 }
 
 fn is_zero(n: &u32) -> bool {

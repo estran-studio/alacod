@@ -85,6 +85,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_room_kinds(registry, &mut errors);
     lint_arenas(registry, &mut errors);
     lint_items(registry, &mut errors);
+    lint_map_layers(registry, &mut errors);
     lint_synergies(registry, &mut errors);
     lint_loot(registry, &mut errors);
     lint_unlocks(registry, &mut errors);
@@ -215,7 +216,7 @@ pub(crate) fn lint_effect(
         if per_copy && !effects::actions::is_linear(action) {
             push(
                 LintErrorKind::Unsupported,
-                format!("{at} : Scaled(PerCopy) : action {action:?} non linéaire (Heal, GainShield, Modifier/TimedModifier Add ou Pct, ApplyStatus, ApplyStatusSelf, Explode seulement)"),
+                format!("{at} : Scaled(PerCopy) : action {action:?} non linéaire (Heal, GainShield, GainSoul, Modifier/TimedModifier Add ou Pct, ApplyStatus, ApplyStatusSelf, Explode seulement)"),
             );
         }
         match action {
@@ -226,6 +227,10 @@ pub(crate) fn lint_effect(
             effects::Action::GainShield(0) => push(
                 LintErrorKind::OutOfRange,
                 format!("{at} : GainShield(0) : doit être > 0"),
+            ),
+            effects::Action::GainSoul(amount) if *amount <= Fixed::ZERO => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : GainSoul = {amount} : doit être > 0"),
             ),
             // M3-T0c (§62) : contrat de l'explosion ; M3-T4 (§69) l'exécute (bombe à mèche d'une frame
             // au point du porteur)
@@ -418,18 +423,31 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         }
 
         // M2-T1 : consommables de départ -> objets consommables du kind `Item`.
-        for id in character.starting_consumables.keys() {
-            let known = registry
+        for (id, count) in &character.starting_consumables {
+            let item = registry
                 .items
                 .get(id)
-                .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
-            if !known {
+                .filter(|item| item.def.kind == items::ItemKind::Consumable);
+            let Some(item) = item else {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
                     message: format!(
                         "personnage « {} » : champ starting_consumables : « {id} » n'est pas un objet consommable (kind Item)",
                         character.id
+                    ),
+                });
+                continue;
+            };
+            // M3-T3 (§68) : le plafond du compteur vaut aussi au départ.
+            if item.def.max_stack.is_some_and(|cap| *count > cap) {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ starting_consumables : {count} « {id} » dépasse max_stack = {}",
+                        character.id,
+                        item.def.max_stack.unwrap_or(0)
                     ),
                 });
             }
@@ -2055,6 +2073,7 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 effects::Action::Modifier { .. }
                 | effects::Action::Heal(_)
                 | effects::Action::GainShield(_)
+                | effects::Action::GainSoul(_)
                 | effects::Action::Explode { .. }
                 | effects::Action::SpawnPattern { .. }
                 | effects::Action::GaugeAdd(..) => push(format!(
@@ -2169,6 +2188,24 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
                         "hud : source inconnue « {source} » (connues : {})",
                         crate::ui::HUD_SOURCES.join(", ")
                     ),
+                });
+            }
+        }
+    }
+    // Légende : chaque sprite cité existe dans la table des feuilles (si le jeu en déclare une).
+    if registry.sprite_sheets.is_empty() {
+        return;
+    }
+    for (rel, sprites) in &registry.hud_legend_sprites {
+        for sprite in sprites {
+            if !registry
+                .sprite_sheets
+                .contains_key(&registry::SpriteSheetId::from(sprite.as_str()))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: rel.display().to_string(),
+                    message: format!("hud : légende : sprite « {sprite} » absent de sprites.ron"),
                 });
             }
         }
@@ -2935,6 +2972,10 @@ fn lint_boss(
                     LintErrorKind::OutOfRange,
                     format!("{at} : GainShield(0) : doit être > 0"),
                 ),
+                effects::Action::GainSoul(amount) if *amount <= Fixed::ZERO => push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : GainSoul = {amount} : doit être > 0"),
+                ),
                 // M2-T7 : renforts et télégraphe (§45)
                 effects::Action::SpawnEnemies { id, count } => {
                     if !registry
@@ -3385,6 +3426,24 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
                 file: file.clone(),
                 message: format!("grammaire d'étage « {} » : {problem}", entry.id),
             });
+        }
+        // M3-T12 (§77) : la salle secrète d'une grille n'est murée que par `door_lock: Secret` de son
+        // type de salle ; sans lui, elle serait posée mais ouverte, jamais « secrète ».
+        if let world::FloorLayout::Grid { secret, .. } = entry.grammar.layout() {
+            if entry.grammar.required.contains_key(&secret) {
+                if let Some(room) = registry.rooms.get(&secret) {
+                    if room.def.door_lock != Some(world::DoorLock::Secret) {
+                        errors.push(LintError {
+                            kind: LintErrorKind::OutOfRange,
+                            file: file.clone(),
+                            message: format!(
+                                "grammaire d'étage « {} » : layout Grid : la salle secrète « {secret} » (required) a un type de salle sans `door_lock: Secret` : elle ne serait pas murée",
+                                entry.id
+                            ),
+                        });
+                    }
+                }
+            }
         }
         let map_id = registry::map_id_from_path(&entry.templates);
         let Some(map) = registry.maps.get(&map_id) else {
@@ -4212,6 +4271,23 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
             }
         }
+        // M3-T3 (§68) : `refuse_when_full` exige un consommable qui soigne (sinon il ne refuse jamais rien).
+        if item.def.refuse_when_full
+            && !(consumable
+                && item.def.effects.iter().any(|effect| {
+                    effect
+                        .r#do
+                        .iter()
+                        .any(|action| matches!(action, effects::Action::Heal(_)))
+                }))
+        {
+            push(
+                LintErrorKind::Unsupported,
+                format!(
+                    "objet « {id} » : refuse_when_full exige un consommable avec un effet Heal"
+                ),
+            );
+        }
         if consumable && !item.def.modifiers.is_empty() {
             push(
                 LintErrorKind::Unsupported,
@@ -4282,11 +4358,16 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
                 continue;
             }
-            for outer in &effect.r#do {
-                // M3-T0b : l'enveloppe `Scaled` est transparente, l'action intérieure est validée.
-                let mut action = outer;
-                while let effects::Action::Scaled { action: inner, .. } = action {
-                    action = inner;
+            for action in &effect.r#do {
+                // M3-T3 (§68) : `Scaled` est refusé à `OnUse` : `items::apply_instant_effects` n'exécute pas
+                // l'enveloppe, l'effet serait accepté puis sans effet (la valeur de `PerCopy` d'un consommable
+                // consommé au ramassage n'est pas décidée).
+                if matches!(action, effects::Action::Scaled { .. }) {
+                    push(
+                        LintErrorKind::Unsupported,
+                        format!("{at} : Scaled : pas exécuté par OnUse d'un objet (consommable ou actif)"),
+                    );
+                    continue;
                 }
                 match action {
                     // M2-T4 : soin instantané d'un actif ou d'un consommable
@@ -4301,6 +4382,12 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                         format!("{at} : GainShield(0) : doit être > 0"),
                     ),
                     effects::Action::GainShield(_) => {}
+                    // M3-T3 (§68) : cœurs d'âme instantanés
+                    effects::Action::GainSoul(amount) if *amount <= Fixed::ZERO => push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : GainSoul = {amount} : doit être > 0"),
+                    ),
+                    effects::Action::GainSoul(_) => {}
                     effects::Action::TimedModifier { frames: 0, .. } => push(
                         LintErrorKind::OutOfRange,
                         format!("{at} : TimedModifier frames = 0 : doit être > 0"),
@@ -4447,6 +4534,24 @@ fn lint_unlocks(registry: &Registry, errors: &mut Vec<LintError>) {
                         push(
                             LintErrorKind::OutOfRange,
                             format!("déblocage « {id} » : grants[{index}] : poids {weight} (doit être > 0)"),
+                        );
+                    }
+                    if matches!(pick, items::LootPick::Currency(0)) {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("déblocage « {id} » : grants[{index}] : Currency(0) : le montant doit être > 0"),
+                        );
+                    }
+                    if matches!(pick, items::LootPick::Currency(_))
+                        && registry.rooms.values().any(|room| {
+                            room.def.shop.as_ref().is_some_and(|shop| {
+                                shop.table == *table || shop.floor_tables.contains(table)
+                            })
+                        })
+                    {
+                        push(
+                            LintErrorKind::Unsupported,
+                            format!("déblocage « {id} » : grants[{index}] : Currency ajoutée à « {table} », pool de boutique"),
                         );
                     }
                     if let items::LootPick::Item(item) = pick {
@@ -4656,6 +4761,14 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                 format!("pool de butin « {id} » : entries vide (au moins une entrée)"),
             );
         }
+        // M3-T8 (§73) : un pool à épuisement est tiré à la génération, sans ouvreur : l'exclusion des
+        // objets tenus (`exclude_held`) dépendrait du moment et de l'inventaire.
+        if table.def.exhaust && table.def.exclude_held {
+            push(
+                LintErrorKind::Unsupported,
+                format!("pool de butin « {id} » : exhaust et exclude_held sont incompatibles (le tirage d'un pool qui s'épuise est fait à la génération de l'étage, sans ouvreur)"),
+            );
+        }
         for (index, entry) in table.def.entries.iter().enumerate() {
             if entry.weight <= 0 {
                 push(
@@ -4698,7 +4811,27 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                         );
                     }
                 }
+                items::LootPick::Currency(0) => push(
+                    LintErrorKind::OutOfRange,
+                    format!("pool de butin « {id} » : entries[{index}] : Currency(0) : le montant doit être > 0"),
+                ),
+                items::LootPick::Currency(_) => {}
             }
+        }
+        // M3-T12 (§77) : l'épuisement ne retient que des objets et des armes (`PoolState::record`
+        // ignore `Currency`) ; un pool qui n'a que des tas de sous ne s'épuiserait jamais.
+        if table.def.exhaust
+            && !table.def.entries.is_empty()
+            && table
+                .def
+                .entries
+                .iter()
+                .all(|entry| matches!(entry.pick, items::LootPick::Currency(_)))
+        {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("pool de butin « {id} » : exhaust: true mais toutes les entrées sont des Currency (jamais « vues » par l'épuisement)"),
+            );
         }
         if let Some(reward) = &table.def.reward {
             for (name, value) in [
@@ -4794,6 +4927,26 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
             }
         }
+        // M3-T3 (§68) : un tas de sous n'est pas une marchandise (une boutique le vendrait contre
+        // des sous) ; la boutique n'y pioche pas.
+        for name in &shop_tables {
+            let has_currency = registry.loot_tables.get(*name).is_some_and(|table| {
+                table
+                    .def
+                    .entries
+                    .iter()
+                    .any(|entry| matches!(entry.pick, items::LootPick::Currency(_)))
+            });
+            if has_currency {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!(
+                        "type de salle « {} » : boutique : le pool « {name} » a une entrée Currency (un présentoir ne vend pas de sous)",
+                        room.id
+                    ),
+                );
+            }
+        }
         if shop.weapon_shelves > 0 {
             let used: Vec<&str> = if shop.floor_tables.is_empty() {
                 vec![shop.table.as_str()]
@@ -4819,6 +4972,39 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                 }
             }
         }
+        // M3-T8 (§73) : prix propre des présentoirs (vie maximale, consommable).
+        if let Some(cost) = &shop.cost {
+            let player_max = registry
+                .characters
+                .values()
+                .find(|character| character.id.as_str() == "player")
+                .and_then(|character| character.base_health_max.literal())
+                .unwrap_or(bevy_fixed::fixed_math::Fixed::MAX);
+            if let items::Price::Consumable(id, _) = cost {
+                let is_consumable = registry
+                    .items
+                    .get(id)
+                    .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
+                if !is_consumable {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!(
+                            "type de salle « {} » : boutique : cost : « {id} » n'est pas un consommable du jeu",
+                            room.id
+                        ),
+                    );
+                }
+            }
+            for problem in cost.problems(|_| true, player_max) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "type de salle « {} » : boutique : cost : {problem}",
+                        room.id
+                    ),
+                );
+            }
+        }
         match registry.loot_tables.get(&shop.table) {
             None => push(
                 LintErrorKind::BrokenReference,
@@ -4835,6 +5021,23 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             ),
             Some(_) => {}
+        }
+    }
+    // M3-T8 (§73) : butin du boss d'un type de salle : le pool existe (et n'est pas vide : le lint des
+    // pools le dit déjà).
+    for room in registry.rooms.values() {
+        let Some(drop) = &room.def.boss_drop else {
+            continue;
+        };
+        if !registry.loot_tables.contains_key(&drop.table) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: room.file.display().to_string(),
+                message: format!(
+                    "type de salle « {} » : boss_drop : pool « {} » inconnu",
+                    room.id, drop.table
+                ),
+            });
         }
     }
     for floors in registry.floors.values() {
@@ -5040,6 +5243,55 @@ fn lint_stat_readers(registry: &Registry, errors: &mut Vec<LintError>) {
                 file,
                 message: format!("{at} : stat {stat:?} : aucun système ne la lit"),
             });
+        }
+    }
+}
+
+/// M3-T12 (`docs/conventions.md` §77) : couches `Rocks` et `Surfaces` des niveaux d'une carte. Une
+/// valeur de rocher autre que 1 (rocher) ou 2 (rocher à butin) et une valeur de surface sans fichier
+/// `surfaces/*.ron` sont ignorées au chargement : le gabarit ne ferait pas ce que son auteur a peint.
+fn lint_map_layers(registry: &Registry, errors: &mut Vec<LintError>) {
+    let declared: BTreeSet<u8> = registry
+        .surfaces
+        .values()
+        .map(|surface| surface.intgrid_value)
+        .collect();
+    for map in registry.maps.values() {
+        let file = map.file.display().to_string();
+        for level in &map.levels {
+            if !level.rock_other_values.is_empty() {
+                let values: Vec<String> = level
+                    .rock_other_values
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect();
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "niveau « {} » : couche Rocks : valeur(s) {} : seules 1 (rocher) et 2 (rocher à butin) existent",
+                        level.id,
+                        values.join(", ")
+                    ),
+                });
+            }
+            let unknown: Vec<String> = level
+                .surface_values
+                .iter()
+                .filter(|value| !declared.contains(value))
+                .map(ToString::to_string)
+                .collect();
+            if !unknown.is_empty() {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "niveau « {} » : couche Surfaces : valeur(s) {} sans surface (intgrid_value d'un fichier surfaces/*.ron)",
+                        level.id,
+                        unknown.join(", ")
+                    ),
+                });
+            }
         }
     }
 }

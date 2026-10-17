@@ -1,0 +1,17 @@
+// M3-T3 : témoin de `soul_heart_absorbs` : même spirale, aucun cœur d'âme. Les deux volées retirent leurs
+// 8 PV en entier.
+//
+// À regarder : ExtraHealth reste à 0, la santé tombe à 92 (f65) puis 84 (f155).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [(inputs: [])],
+    expect: [
+        ExtraHealth(handle: 0, n: 0.0, at_frame: 110),
+        Health(handle: 0, min: 92.0, max: 92.0, at_frame: 110),
+        Health(handle: 0, min: 84.0, max: 84.0, at_frame: 199),
+    ],
+)

@@ -294,6 +294,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `game.ron` | `entry.clocks` vers une horloge inconnue ; `entry.difficulty` sans fichier `Difficulty` (T1.9, §23) | `BrokenReference` | `entry_clock_unknown`, `entry_difficulty_missing` |
 | `game.ron` | `entry.progression` vers une progression inconnue (T1.10, §27 ; audit T1.12) | `BrokenReference` | `entry_progression_unknown` |
 | `game.ron` | `generate_template` : carte connue, cible à `counts_hits` (T1.13, §28) | `BrokenReference` | `generate_template_unknown_map`, `generate_template_target_without_hits` |
+| `game.ron` | `mechanics` : mécaniques d'une partie ordinaire que le contenu doit porter (M3-T12, §77) | avertissement `MechanicUnmet` (aucune erreur) | `mechanics_ok` et les tests de `m3_t12_fixtures.rs` |
 | arme | projectiles composables (T1.1, §16) : projectile de pattern absent de la table, cycle de `on_expire`, pattern temporel ou `Scatter` en `on_expire`, `Size > 0`, `0 < Homing <= 1`, modificateur répété, `on_hit` limité aux actions à cible | `BrokenReference`, `OutOfRange` | `projectile_broken_reference`, `projectile_cycle`, `projectile_temporal_pattern`, `pattern_scatter_on_expire` |
 | arme | `on_hit` `ApplyStatus` : statut inconnu, `stacks > 0` (T1.3, §19) | `BrokenReference`, `OutOfRange` | `status_unknown` |
 | pattern | `Named` inconnu ou cyclique ; `count > 0`, `spread >= 0`, `speed >= 0` (T1.2, §20) | `BrokenReference`, `OutOfRange` | `pattern_unknown_name` |
@@ -3769,9 +3770,8 @@ Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements 
 - gabarit d'une carte `templates` dont le type n'est tiré par aucune grammaire atteinte ;
 - ennemi (`ai` présent) absent des niveaux jouables (cartes posées, gabarits tirables), des arènes
   des salles tirables, des vagues, des cavernes et des renforts de boss (point fixe) ;
-- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool**. Le point de branchement
-  de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
-  ids de chaque pool (une dizaine de lignes) ;
+- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool** (`reach::loot_pool_items`,
+  `loot_pool_weapons` : branchés depuis M2-T5 et D62), déblocages (M3-T12, §77) ;
 - arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
   progression, pools, armes citées par les règles des ennemis atteints (`Shoot`, phases de boss,
   `SpawnPattern` des effets, entrées de phase et frises). Un ennemi inatteint ou `test_only`
@@ -3967,6 +3967,7 @@ en headless et dans la liste fermée `content::ui::HUD_SOURCES` :
 |---|---|
 | `blanks` | compteur `Inventory::consumables["blank"]` |
 | `keys` | compteur `Inventory::consumables["key"]` |
+| `bombs` | compteur `Inventory::consumables["bomb"]` (M3-T3, §68) |
 | `shells` | monnaie `Currency` (les douilles de boutique la créditent) |
 | `passives` | noms des passifs ; `Icons` utilise leurs ids |
 | `active_item` | nom de l'objet actif |
@@ -4546,7 +4547,7 @@ cœurs d'âme paient à la place : T8).
   en coder d'autres que ces cinq sans nouvelle réponse.
 - **Tirage par étage** : champ optionnel `curses: Some((chance: "0.5", pool: ["darkness", …]))` d'une
   séquence `Floors` (`FloorsEntry::curses`, `run::CurseConfig`) ; absent = aucune curse (toutes les
-  séquences existantes). `run::draw_curse(config, defs, run_seed, étage)` : RNG **local**
+  séquences existantes). `run::draw_curse(config, defs, graine, étage)` (M3-T9 : graine de carte, §74) : RNG **local**
   `RollbackRng::new(curse_seed)` avec `curse_seed = fnv1a("curse:<graine>:<étage>")` replié sur 32 bits
   (même repli que `loot_seed`), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
   ressource et toutes les traces). Deux tirages toujours consommés, dans l'ordre : la chance
@@ -4554,7 +4555,7 @@ cœurs d'âme paient à la place : T8).
   pool (`next_u32() % Σ poids`). Une entrée inconnue ou de poids `0` est ignorée (le lint la refuse) ; sans
   entrée valide, pas de curse. Le résultat ne dépend que de la graine et de l'étage : pas du moment où
   l'étage est entré, ni de l'ordre des étages.
-- **État** `run::RunCurses(BTreeMap<u32 étage, String curse>)` : ressource rollback **neutre**
+- **État** `run::RunCurses { floors: BTreeMap<u32 étage, String curse>, entered }` (`entered` ajouté par M3-T9, §74) : ressource rollback **neutre**
   (`RunPlugin`, `rollback_and_trace_resource_neutral`), vide donc de hash `0` tant que T9 n'a rien écrit ;
   remise à zéro par la relance (`game::run_state::cleanup_rollback_world_system`). T9 écrit l'entrée de
   l'étage à l'entrée dans l'étage (événement `FloorEntered`) avec `draw_curse`.
@@ -4571,7 +4572,8 @@ cœurs d'âme paient à la place : T8).
 - **`LootTableDef.exhaust: bool`** (défaut faux : comportement d'avant, hors de tout hash et de toute
   trace) : un objet sorti du pool n'y revient plus pendant la run. **Par run et par pool** (Q5) : un pool
   partagé par plusieurs salles est le même pour toutes. `weapons_only` garde le drapeau.
-- **État** `items::PoolState(BTreeMap<pool, BTreeSet<objet>>)` : ressource rollback **neutre**
+- **État** `items::PoolState { seen: BTreeMap<pool, BTreeSet<objet>>, assigned }` (M3-T8, §73 : `assigned` conserve
+  l'objet assigné à chaque emplacement ; tuple `PoolState(BTreeMap)` avant T8) : ressource rollback **neutre**
   (`LootPlugin`), vide tant qu'aucun pool n'a `exhaust` ; remise à zéro à chaque relance. Les armes y sont
   nommées `weapon:<id>` (comme le tirage). `count(pool)` est l'**index d'épuisement** du prochain tirage ;
   `record(pool, objet)` renvoie vrai pour une nouveauté.
@@ -4588,7 +4590,7 @@ cœurs d'âme paient à la place : T8).
   tirage d'un pool qui devient `exhaust` donne l'objet qu'il donnait avant), puis `loot_seed(…, "<clé>#<index>")`.
   `PoolState::next_seed(pool, graine, étage, clé)` prend `count(pool)` comme index.
 
-**Deux façons d'exécuter l'épuisement (décision de T8, ce qui suit est la proposition par défaut).**
+**Deux façons d'exécuter l'épuisement (décision de T8 : A, voir §73 ; le tableau est celui de T0e).**
 
 | | A. tirage à la génération de l'étage (proposé) | B. tirage à l'ouverture |
 |---|---|---|
@@ -4599,7 +4601,8 @@ cœurs d'âme paient à la place : T8).
 
 L'option A est la seule qui tienne la règle « un coffre ouvert tôt ou tard donne le même objet » de §48 avec
 un pool qui s'épuise ; la règle pure sert les deux (T8 choisit en passant `seen` de la génération ou de
-l'ouverture).
+l'ouverture). **Décision de T8 : option A**, exécutée et documentée au §73 (assignation à la génération de
+l'étage, conservée dans `PoolState::assigned`).
 
 ### Accomplissements (`meta::achievement`, kind `Achievement`)
 
@@ -4622,7 +4625,7 @@ l'ouverture).
 
 `Curse { floor, id: Some("darkness") | None, at_frame }` (curse de l'étage `floor`, index de `FloorIndex`,
 ou absente) et `PoolSeen { pool, item, seen, at_frame }` (`item` est ou non sorti du pool). Elles lisent
-`RunCurses` et `PoolState`. Rien ne remplit ces ressources avant T8/T9 : un scénario `.ron` ne peut donc
+`RunCurses` et `PoolState`. `PoolState` n'est rempli qu'à partir de T8 ; `RunCurses` l'est par M3-T9 (§74) : un scénario `.ron` ne peut donc
 encore y poser que `None` / `seen: false` (ce que fait le témoin ci-dessous) ; le test
 `crates/scenario/tests/curses_pools.rs` les remplit depuis un système de `GgrsSchedule`.
 
@@ -4862,6 +4865,176 @@ optionnels, files transitoires (hors checksum, vidées au `FrameStart`).
   (115 entités). Surcoût ≈ 0,07 ms par frame sur 16,7 : `listed_effects` n'est pas précalculé.
 - Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b), transformations (Q10, non retenues
   ici : `transformation_three` non livré).
+
+## 68. Cœurs, i-frames, sous, bombes et clés au sol (M3-T3, chantiers C4 et C5)
+
+Exécute les contrats de §61 (Q2, Q4, `max_stack`, `hit_iframes`). Code : `combat::{actors::ExtraHealth,
+damage::apply_layers}`, `character::health::rollback_resolve_damage_events`, `effects::Action::GainSoul`,
+`items::{ItemDef::accepts, LootPick::Currency}`, `game::{items, shop, loot, champions}`,
+`map_ldtk::game::rooms::rock_loot_system`. **Aucune trace existante ne bouge** hors `isaac` (voir « Traces ») :
+tout type nouveau est neutre ou absent des jeux existants, les variantes sont ajoutées en fin d'enum.
+
+### Couche de vie `ExtraHealth` (Q2 de William)
+
+Un demi-cœur vaut **1 PV** (`Health` en points, les PV d'`isaac` restent pairs). `combat::actors::ExtraHealth
+{ soul: Fixed }` est un composant rollback **neutre** (`rollback_and_trace_neutral`), posé au premier gain
+(`combat::actors::queue_gain_soul`, comme `Shield`) : sans porteur il ne contribue pas au checksum. Il n'entre
+pas dans `Health.max`, ne se régénère pas, n'est borné par rien (le plafond de 12 cœurs d'Isaac est un
+réglage de T16) et reste posé à `soul == 0`.
+
+**Ordre retenu des couches de défense**, en un seul endroit pur et testé, `combat::damage::apply_layers`
+(appelé par `rollback_resolve_damage_events`, après `resolve_damage`) :
+
+1. **bouclier** (`Shield`) : un point absorbe le coup **entier** (brèves i-frames `SHIELD_IFRAMES`) ; ni
+   l'armure ni l'âme ne sont touchées ;
+2. **armure** (`stat Armor`, `after_armor`) : réduction proportionnelle ;
+3. **`ExtraHealth`** : absorbe ce qui reste **point par point** ;
+4. **PV** : ce qui reste après l'âme, via `DamageAccumulator` (donc mort, à terre et `last_hit_by` comme avant).
+
+`DamageKind::True` ignore le bouclier et l'armure (des atténuations) mais **pas** `ExtraHealth` (c'est de la
+vie : une chute ou des piques entament d'abord les cœurs d'âme, comme dans Isaac). Un coup que l'âme absorbe
+en entier **est un coup** : `hit_iframes` démarrent, `HitLanded` (donc `OnHit`) et `HitCount` le comptent, le
+crédit de points aussi ; en revanche rien n'est accumulé (`DamageAccumulator` intact : ni mort, ni `last_hit_by`,
+ni délai de régénération). **`OnDamageTaken` dépend du porteur** (`effects_runtime`, §25) : avec `HealthRegen`
+il se lit sur la perte de PV réellement appliquée, donc un coup absorbé en entier par l'âme ne le déclenche pas ;
+**sans `HealthRegen` — le cas de `pleureur`, le joueur d'`isaac` — il se déclenche sur tout `DamageEvent` qui vise
+le porteur**, donc aussi sur un coup que l'âme absorbe en entier (et sur un coup ignoré par les i-frames). **La
+règle du §25 n'est pas modifiée** par cette tâche : c'est la documentation qui est corrigée. Un objet d'`isaac`
+qui doit réagir aux seules pertes de PV devra attendre une règle unique (hors fiche).
+
+Sans bouclier, avec une armure ≤ 0 et sans âme, le montant reste exactement celui de `resolve_damage` (identité,
+aucune trace ne bouge). Traces de jeu : `ggrs{f=… soul_absorb target=… took=… left=…}` (et `shield_absorb` comme avant).
+
+**Consommable « cœur d'âme »** : action `effects::Action::GainSoul(Fixed)` (variante **en fin d'enum**, linéaire
+donc acceptée sous `Scaled(PerCopy)` dans un effet, décrite par `describe_action`), exécutée dans un effet de
+personnage ou d'objet (`effects_runtime`) et à `OnUse` d'un consommable (`items::apply_instant_effects`) ;
+refusée dans un power-up et dans les actions où `GainShield` l'est ; lint `GainSoul = 0` (`OutOfRange`).
+**`Scaled` est refusé à `OnUse`** (consommable et actif, lint `Unsupported`, fixture `scaled_in_onuse`) :
+`apply_instant_effects` n'exécute pas l'enveloppe, donc `OnUse: [Scaled(GainSoul(..))]`, `Scaled(Heal(..))` ou
+`Scaled(GainShield(..))` aurait été accepté puis sans effet (T0b avait fait déballer l'enveloppe par le lint ; aucun
+contenu ne l'utilisait). Le sens de `PerCopy` pour un consommable consommé au ramassage reste à décider si un
+besoin apparaît. Un consommable à
+effets s'applique au ramassage et n'entre pas dans l'inventaire (§44). `testbed` : `coeur_ame` (4 points) ;
+`isaac` : `coeur_ame` (2 points = un cœur entier).
+
+**Attente de scénario** `ExtraHealth(handle, n, at_frame)` : points de vie d'âme du joueur (0 sans le composant),
+égalité exacte. **T8 (Q6)** : `ExtraHealth::soul` est un champ public de `combat` ; `Price::MaxHealth` reçoit déjà
+`health` et `max_health` en `Fixed` et T8 y ajoutera `soul` à l'appel de `can_pay`/`pay` (« les cœurs d'âme
+paient à la place s'ils sont présents ») : rien n'est décidé ici sur la règle de paiement.
+
+### Plafonds et refus au ramassage
+
+`ItemDef::accepts(stock, at_full_health)` (pure) : faux pour un consommable dont le compteur a atteint
+`max_stack`, et, quand l'objet déclare **`refuse_when_full: true`**, à pleine vie (`Health.current >= max`).
+`refuse_when_full` (champ de fin d'`ItemDef`, hors hash, faux par défaut) est réservé aux consommables qui
+soignent (lint : exige un effet `Heal`) ; **un cœur reste donc au sol seulement pour les consommables qui le
+déclarent** (`coeur`) : la `ration` garde son comportement (ramassée sans effet à pleine vie).
+`item_consumable_pickup_system` prend le **premier joueur à portée (ordre `GgrsNetId`) qui peut le prendre** :
+un joueur au plafond ou à pleine vie laisse le tas à un autre joueur à portée, sinon l'objet reste au sol et
+sera ramassé plus tard. Sans `max_stack` ni `refuse_when_full`, `accepts` est toujours vrai : le premier joueur
+à portée, comme avant. **Boutique** : un présentoir de consommable que l'acheteur ne peut pas prendre ne vend
+pas : rien n'est dépensé, `CurrencyEvent { delta: 0, reason: "shop_full" }` et anti-rebond `retry_after`
+(`ggrs{shop_full}`). Lint : `max_stack` déjà vérifié (T0b) ; `starting_consumables` qui dépasse `max_stack`
+(`OutOfRange`), `refuse_when_full` sans `Heal` (`Unsupported`). `isaac` : `key` et `bomb` plafonnés à 99 ;
+`testbed` : `bomb` à 3.
+
+### Sous au sol (`LootPick::Currency`)
+
+Entrée de pool `pick: Currency(n)` (variante **en fin** de `LootPick`, `n > 0` au lint). Le tirage la désigne par
+`currency:<n>` (`items::loot_currency`, comme `weapon:<id>`) ; elle compte comme un **consommable `Common`** : elle
+sort d'une récompense de salle ou d'un rocher (`consumables_only`), pas d'un coffre de rareté minimale
+supérieure. Les consommateurs du tirage posent un **`ShellPickup`** (la même entité que les douilles des
+ennemis, M2-T6 §50 : `game::shop::spawn_shell_pickup`, ramassé au contact par `shell_pickup_system`, crédité à
+`Currency` par `CurrencyEvent { reason: "pickup" }`) : coffre (`chest_interaction_system`), récompense de salle
+(`room_reward_system`), butin de champion (`champions::drop_loot`), butin de rocher (`rock_loot_system`). Un pool
+de **boutique** ne peut pas en porter (lint `Unsupported`, y compris les entrées ajoutées par un déblocage) :
+un présentoir ne vend pas de sous. La mort d'un ennemi laisse déjà des sous par `economy.ron`
+`shells_drop` (§50, `isaac` : 2 à 5) ; un champion peut en lâcher par son pool. `isaac` : `loot/salle.ron`
+(récompense de salle) gagne `Currency(1)`, `coeur`, `coeur_ame` et `bomb` aux poids 4, 3, 1 et 2.
+
+**Épuisement (M3-T0e, §64)** : `Currency` est un `pick` ordinaire pour `draw_exhausting` et `draw_loot_with` (candidat `currency:<n>`, filtres de rareté et de consommable inchangés) mais n'est **jamais « vu »** : `PoolState::record` ignore un `currency:<n>` (renvoie `false`, aucun état). Un tas de sous n'épuise donc pas un pool `exhaust: true` et reste tirable à chaque emplacement ; la variante reste en fin de `LootPick` (T0e n'a ajouté aucune variante).
+
+### Partage en coop (Q4 de William) : par joueur
+
+Sous, bombes et clés sont **par joueur** (l'`Inventory` et le `Currency` de chacun, comme avant) : celui qui
+ramasse possède. Rien de nouveau à coder, sinon l'ordre de ramassage déjà déterministe (plus petit `GgrsNetId`
+à portée qui peut prendre l'objet ; coffre : premier événement d'interaction). Prompts et HUD lisent le joueur
+concerné (prompt du coffre : les clés de l'interacteur) ; le HUD gagne la source **`bombs`** (compteur `bomb` du
+joueur affiché, à côté de `keys` et `shells`, liste fermée `content::ui::HUD_SOURCES`) ; `isaac/ui/hud.ron`
+l'affiche. Aucune ressource d'équipe (l'option « équipe » de §61 n'est pas retenue).
+
+### I-frames de `isaac`
+
+`pleureur` (le personnage joueur) pose `hit_iframes: Some(60)` : une seconde d'invulnérabilité après avoir
+perdu de la vie (résolveur de T0b, §61). Deux ennemis au contact qui frappent à quelques frames d'écart ne
+retirent plus qu'un coup (`hit_iframes_isaac` : 4 PV à f130 et 3 PV à f260, contre 3 et 1 sans la donnée —
+témoin joué par `crates/scenario/tests/extra_health.rs`, `isaac_without_hit_iframes_loses_more`).
+
+### Traces
+
+Fusion avec `origin/main` `64ec961c` (M3-T5 : `isaac` en grille) : **onze traces `isaac` bougent** (plus `hit_iframes_isaac`,
+neuve) ; aucune autre. Preuve §5 : dumps détaillés (`ALACOD_DUMP_TRACE`) des onze scénarios sur trois états, comparés par
+`scripts/trace-diff.py` sans `--ignore` : (1) `main` ; (2) la branche **sans** `hit_iframes` de `pleureur` (reste : le pool
+`loot/salle.ron` d'`isaac` et le code) ; (3) la branche complète. Deux causes distinctes, jamais confondues :
+
+- **`hit_iframes`** (2 → 3) : première frame qui diffère = frame du premier coup reçu par le joueur, **une seule ligne** (le
+  joueur), **un seul champ** : `Health.invulnerable_until_frame` `None` → `Some(f+60)` ;
+- **pool `salle`** (1 → 2) : première frame qui diffère = frame où la récompense de salle est tirée, **une seule ligne** :
+  l'objet au sol change (`item_key`/`item_blank`/`item_ration` → `item_bomb`/`item_ration`, même position).
+
+| Trace | 1 → 3 : première frame et cause | autre cause, plus tard |
+|---|---|---|
+| `grid_floor_seed_1` | f250, `hit_iframes` (→ 310) | pool `salle` f529 (clé → bombe, (248, −8)) |
+| `grid_floor_seed_123` | f365, `hit_iframes` (→ 425) | aucune (pool seul : identique à `main`) |
+| `grid_floor_seed_23` | f254, `hit_iframes` (→ 314) | pool `salle` f357 (blank → ration, (248, 136)) |
+| `grid_post_boss` | f352, **pool `salle`** (clé → bombe, (−232, 136)) | `hit_iframes` f845 (→ 905) |
+| `isaac_floor_seed_1` | f250, `hit_iframes` (→ 310) | pool `salle` f529 (clé → bombe) |
+| `generated/isaac/boss_gardien` | f160, `hit_iframes` (→ 220) | pool `salle` f163 (ration → bombe, (−232, −8)) |
+| `generated/isaac/enemy_mouche_moving` | f73, `hit_iframes` (→ 133) | aucune |
+| `generated/isaac/enemy_mouche_still` | f202, `hit_iframes` (→ 262) | aucune |
+| `generated/isaac/enemy_suiveur_moving` | f77, `hit_iframes` (→ 137) | aucune |
+| `generated/isaac/enemy_suiveur_still` | f264, `hit_iframes` (→ 324) | aucune |
+| `generated/isaac/room_combat` | f250, `hit_iframes` (→ 310) | aucune (pool seul : identique) |
+
+Le pool `salle` **fait donc bouger des `grid_*`** (`grid_floor_seed_1`, `grid_floor_seed_23`, `grid_post_boss`) et
+`isaac_floor_seed_1`, `boss_gardien` : ces traces sont bénies pour les deux causes. `hit_iframes_isaac` n'existe pas
+sur `main` : sa trace est neuve (la carte `map_seed: 1` est maintenant la grille). Ses ennemis, posés à (20, −8) et
+(−36, −8), restent à 28 px du joueur (départ (−8, −8), ancre de l'étage inchangée) : les attentes (6, 5, 4, 4, 3 PV)
+passent sans changement, rien à recaler. Toutes les autres traces (`grid_secret_*`, `grid_treasure_*`, `isaac_boots`,
+générées `weapon_*`, testbed, zombies, gungeon, throne, autres jeux) sont identiques.
+
+### Scénarios (testbed sauf mention)
+
+| Scénario | Prouve |
+|---|---|
+| `soul_heart_absorbs` / `_temoin` | la `tourelle_spirale` retire 8 PV par volée ; avec un `coeur_ame` (4) : ExtraHealth 4 puis 0, santé 100 → 96 → 88 ; sans : 92 → 84 |
+| `heart_full_stays` / `_temoin` | à pleine vie le `coeur` (`refuse_when_full`) reste au sol et soigne dès le premier coup (96) ; la `ration` ramassée à f5 est perdue (92) |
+| `coin_pickup` | un coffre du pool `pieces` (`Currency(7)`) laisse un tas de 7 sous, ramassé : 500 → 507 |
+| `room_reward_coins` | l'étage `sous_salle` (pool `pieces_salle`, `Currency(3)`) : la salle `combat` nettoyée laisse un `ShellPickup` de 3 sous (f480), ramassé aussitôt (1120 → 1123), aucune clé ; chemin `room_reward_system` |
+| `champion_drops_coins` | `elite_sous` (variante `sous`, pool `pieces`) : à sa mort (f54) un tas de 7 sous (`champions::drop_loot`), ramassé (580 → 587) ; chemin champion |
+| `shop_full` / `_temoin` | un présentoir de `bomb` (5 sous) : avec 3 bombes (plafond) l'achat est refusé sans dépense (500, 3 bombes, présentoir invendu) ; avec 2 bombes il passe (495, 3 bombes, vendu) |
+| `bomb_pickup_cap` | au plafond (3) la bombe du sol est refusée (3 à f29) ; après la pose d'une bombe (explosion), elle est ramassée (3 à f40) |
+| `coop_pickups_per_player` | deux joueurs : une clé chacun, la bombe du milieu va à P0 (plafond 3), la seconde est refusée par P0 et prise par P1 ; 7 sous pour P1 seul ; HUD sur P0 |
+| `hit_iframes_isaac` (`isaac`) | voir ci-dessus |
+
+Les sous du **rocher à butin** passent par le même `items::loot_currency` + `shop::spawn_shell_pickup` que la
+récompense de salle et le champion, mais **aucun scénario ne les observe** : un étage dont le pool est `pieces_salle`
+sur la carte `rocks_static` ne laisse pas le joueur bouger (non élucidé), le scénario a été retiré.
+
+Unitaires : `combat::damage::layer_tests` (ordre bouclier → armure → âme → PV, `True`, coup absorbé en entier),
+`items::tests::accepts_refuses_a_full_counter_and_a_wasted_heal`, `items::loot::tests`
+(`currency_pick_is_a_common_consumable…`), `crates/scenario/tests/extra_health.rs` (les mêmes règles dans le vrai
+résolveur, dont `a_hit_absorbed_by_the_shield_does_not_start_the_hit_iframes` : bouclier d'un point, coups à f12 et
+f30, attendu `(4992, 0, 0)` ; 5000 si le coup absorbé posait `hit_iframes`), `crates/content/tests/m3_t3_fixtures.rs`
+(8 fixtures : `item_refuse_when_full_without_heal`, `item_gain_soul_zero`, `loot_currency_zero`, `shop_currency_pool`,
+`character_starting_over_max_stack`, `unlock_currency_zero`, `unlock_currency_shop_pool`, `scaled_in_onuse`).
+
+### Atteignabilité et dettes
+
+Récompense de salle `combat` d'`isaac` (cœurs, sous, bombes, clés) ; mort d'ennemi d'`isaac` (`shells_drop`) ;
+tables de champions et d'ennemis de M3-T11d. `OnDamageTaken` et cœurs d'âme : voir « Ordre retenu » ci-dessus
+(sans `HealthRegen`, un coup absorbé par l'âme le déclenche) ; `ExtraHealth` n'a pas de plafond ; la pose de
+bombe d'`isaac` (`BombCarrier`) est M3-T11 ; HUD des cœurs : T16.
 
 ## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
 
@@ -5123,7 +5296,7 @@ floor)`. `rooms/tresor.ron` d'`isaac` : `door_lock: Some(Key(1)), lock_from_floo
 - `InteractionType::KeyDoor` (fin d'enum) : au premier tick, la porte d'une salle `Key(n)` de l'étage courant **et sa
   jumelle** (`DoorConfig::paired_door` renseigné : les ouvertures murées restent des portes de salle ordinaires)
   gardent leur collider et leur `Interactable` devient `KeyDoor` (même portée) : `handle_door_interaction` ne les voit
-  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé ».
+  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé (n) » / « Fermé — clé (0) » (§81).
 - `key_door_system` (`Interaction`, après tous les handlers qui écrivent `Inventory`) : une Interaction sur une porte
   `KeyDoor` consomme `n` clés **de l'interacteur** (Q4 : les clés sont par joueur), retire collider, couche et
   `Interactable` de toutes les portes scellées de la salle, inscrit la salle dans `DoorLocks`
@@ -5301,8 +5474,7 @@ Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) aff
 
 ### Atteignabilité
 
-M3-T11b met au moins deux familiers et un orbital dans le pool trésor d'`isaac` ; d'ici là, scénarios testbed seulement
-(dette nommée, à fermer par T11b).
+M3-T11b (§76.2) met trois familiers (`frere`, `orbe`, `nuee`) dans le pool trésor d'`isaac` : dette fermée.
 
 
 ## 72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
@@ -5389,8 +5561,556 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 ### Atteignabilité
 
-M3-T11c donne des champions à au moins trois ennemis des salles `combat` d'`isaac` (graine à nommer à ce moment) ; d'ici là,
-scénarios testbed seulement (dette nommée, à fermer par T11c).
+M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables seulement par graine choisie (1730), **D88 ouverte**.
+
+## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
+
+Exécute les contrats de §64 (`exhaust`, `PoolState`, option A/B) et de §61 (`Price`, `can_pay`/`pay`) avec les
+réponses de William du 2026-10-16 : **Q5** (épuisement par run et par pool : trésor, boutique, boss, diable) et **Q6**
+(le diable refuse si le paiement tuerait, sinon la vie maximale baisse définitivement ; les cœurs d'âme paient à la
+place s'ils sont présents). Code : `items::{PoolState::assign, BossDropDef, RoomShopDef::cost, Price::{can_pay, pay}}`,
+`game::{loot::assign_slot, shop::{assign_shelves, pay_cost}}`, `map_ldtk::game::rooms::{room_chest_system,
+room_shop_system, room_boss_slot_system, boss_drop_system}`. **Un pool sans `exhaust` et une boutique à prix en douilles
+gardent leur comportement et leurs traces** : tout champ nouveau est optionnel et absent du contenu existant.
+
+### Option A retenue : l'objet est tiré à la génération de l'étage
+
+Option A de §64 (option B, tirage à l'ouverture, écartée : elle ne tient pas Q5, le même coffre donnerait un autre objet
+selon l'ordre des visites). **Un emplacement** est une clé de contenu (`room:<salle>` coffre de salle, `shelf:<salle>:<i>`
+présentoir, `boss:<salle>` butin du boss, la clé d'un placement de scénario). Quand le pool de l'emplacement a `exhaust`,
+l'objet est assigné **à la création de l'emplacement** : `PoolState::assign` tire sur la graine
+`exhaust_seed(graine, étage, clé, nombre d'objets déjà sortis du pool)` avec `draw_exhausting` (sans l'objet déjà sorti),
+retire l'objet du pool (`record`) et **conserve l'assignation** dans `PoolState::assigned` (`"<étage>:<clé>"` → objet).
+Ouvrir un coffre, mourir pour un boss ou acheter ne tire plus rien : l'objet vient de `assigned`, donc **ne dépend ni du
+moment, ni de l'ordre des visites, ni du joueur** (scénarios `pool_exhaust_time_independent_ab`/`_ba`).
+
+- **Ordre canonique.** Les salles de l'étage courant se parcourent dans l'ordre `(x, y, identifiant)` (`sorted_rooms`) ; les
+  trois systèmes (coffres, puis présentoirs, puis butin du boss, `Run`) l'appliquent dans cet ordre. L'ordre de tirage est
+  donc une fonction du plan et des types de salle, jamais du jeu. Un pool partagé par deux types de salle
+  (`coffre_a` et `coffre_b` du testbed) s'épuise dans cet ordre. Un placement de scénario est assigné à sa pose, dans
+  l'ordre de la liste (un scénario fixe lui-même le moment de la pose).
+- **Par run, par pool.** `PoolState` est une ressource de la run (remise à zéro à la relance, §64) : le trésor du second
+  étage ne redonne pas celui du premier (`isaac_floor_seed_1` : `tresor` et `boss` comptent 1 objet à f5, 2 à la
+  génération du second étage). La clé d'assignation porte l'étage : deux étages qui rechargent la même carte (mêmes
+  identifiants de salle) ne se confondent pas.
+- **Pool vidé.** Quand tous les objets du pool sont sortis, il repart complet (§64) : un objet déjà sorti peut ressortir, rien
+  de plus n'entre dans `seen`. `pool_unlock_temoin` : quatre coffres, trois objets, le quatrième répète `bottes`.
+- **Déblocages (§51).** `unlocked_table` étend le pool et `hidden_items` retire les objets réservés avant le filtre, comme
+  pour tout autre tirage (`pool_unlock` : le déblocage `manche_epuisable` donne quatre objets distincts, `manche` compris).
+  Le chemin des boutiques sans `exhaust` (`draw_shelves`) ignore toujours les déblocages (comportement d'avant, dette
+  ancienne).
+- **Ce qui n'épuise pas.** La récompense de salle (`reward:<salle>`, `room_reward_system`), les rochers et les champions
+  tirent à l'usage sur leur graine, avec `seen` vide : ils sont créés en cours d'étage, leur rang dépendrait de l'ordre des
+  salles nettoyées, donc du moment (Q5 interdit). Un coffre de récompense ouvert lit `assigned` s'il y trouve sa clé (jamais
+  aujourd'hui) puis tire comme avant. Un pool qui a `exhaust` et `exclude_held` est refusé au lint : l'inventaire de l'ouvreur
+  est inconnu à la génération.
+
+### Pools par type de salle
+
+Aucun champ `pool` (§64) : le pool est la table nommée par le type de salle. M3-T8 ajoute au contenu de type de salle
+(`rooms/<id>.ron`, `world::RoomKindDef`) :
+
+```ron
+(locks: true, boss_drop: Some((table: "boss", rarity: Common)))                              // butin du boss
+(locks: false, shop: Some((table: "diable", shelves: 2, cost: Some(MaxHealth("2")))))         // marché du diable
+```
+
+- **`boss_drop`** (`items::BossDropDef { table, rarity }`) : à la mort du boss (`FrameEvents<BossDefeated>`, `Run` suit
+  `DeathManagement` dans la même frame), `boss_drop_system` (ordonné **avant** `floor_transition_system` : un joueur au portail change d'étage dans la même frame, l'événement se lit dans l'étage d'origine) pose l'objet au centre de la salle qui contient le boss : celui
+  que `room_boss_slot_system` avait assigné à la génération (pool à épuisement ; un boss mort au tout premier tick, avant ce
+  système, est assigné par `boss_drop_system` lui-même avec la même fonction idempotente), sinon un tirage sur la graine
+  `boss:<salle>` (pool sans épuisement, indépendant du moment). Pose commune avec le coffre : `game::loot::spawn_drawn_loot`
+  (objet, arme ou tas de sous).
+- **`shop.cost`** (`items::RoomShopDef::cost: Option<Price>`) : prix **de chaque présentoir** de ce type de salle, quelle que
+  soit la rareté. Absent : les prix en douilles par rareté de `economy.ron`, comme avant. `Currency(n)` fixe un prix en
+  douilles (`Shelf::price`) ; `MaxHealth(n)` et `Consumable(id, n)` vont dans `Shelf::cost` (le prix en douilles vaut alors 0).
+  Le pool d'une boutique peut s'épuiser comme les autres (`assign_shelves` : un emplacement `shelf:<salle>:<i>` par
+  présentoir, sur sa propre graine ; les `weapon_shelves` restent réservés aux armes).
+- **Secrète et trésor** : les coffres de ces types (`chest.table`) nomment déjà leur pool. `isaac` : `tresor`, `boss`, `diable`
+  (`exhaust: true`), `secrete` (consommables, sans épuisement), `salle` (récompense de salle, inchangé).
+
+### Marché du diable : `Price` payé en vie maximale ou en âme
+
+`shelf_interaction_system` (inchangé pour un présentoir sans `cost`) paie un présentoir à `cost` par `game::shop::pay_cost`
+(`Price::pay` sur les valeurs du payeur, écrites seulement si le paiement réussit). **Règle de Q6, en un seul endroit
+(`Price::{soul_split, can_pay, pay}`, testé)** : les points d'`ExtraHealth` partent **d'abord** (comme au combat, §68) ; ce
+qu'ils ne couvrent pas se paie en vie maximale ; **ce reste est refusé s'il tuerait** (`vie courante <= reste`) ou dépasse la
+vie maximale. `shelf_interaction_system` refuse aussi si la **stat `MaxHealth` résolue après** la perte serait ≤ 0
+(`shop::max_health_after` : un `Set`/`Mul` de `MaxHealth` amplifie la perte ; scénario `devil_deal_refused_multiplied`).
+Un payeur à 1 PV sans âme est donc toujours refusé, avec une âme qui couvre le prix il est servi sans perdre une
+goutte. Le choix « âme partielle puis reste en vie maximale » est de T8 (Q6 dit seulement « à la place s'ils sont présents ») ;
+à relire. Refus : rien ne change (ni vie, ni âme, ni monnaie), `CurrencyEvent { delta: 0, reason: "shop_refused" }`, anti-rebond
+`retry_after` de 30 frames, trace `ggrs{… shop_refused … cost=…}`. Succès : trace `shop_buy … soul=<points> max_health_lost=<PV>`.
+
+**La perte de vie maximale est définitive** : `sync_health_from_stats` réécrit `Health.max` depuis la stat `MaxHealth` à
+chaque frame, donc abaisser `Health.max` seul se serait défait au tick suivant. Le paiement pose donc un modificateur
+permanent `MaxHealth Add −perte` de source `price:<clé du présentoir>` (et abaisse aussi la vie courante de la perte). Un
+modificateur multiplicatif sur `MaxHealth` (`Mul`) amplifie la perte réelle de la stat, `sync_health_from_stats` borne alors
+la vie courante ; aucun contenu n'en a. Le prix d'un cœur est écrit `MaxHealth("2")` (Q2 : 2 PV = un cœur, `items::HEART_POINTS`).
+
+`Price::Consumable` est exécuté de même (`pay` retire le stock de l'inventaire du payeur ; sans `Inventory`, refus) :
+`a_consumable_price_needs_the_stock_and_spends_it`, aucun contenu ne l'emploie encore.
+
+**Prompt du HUD** (`game::ui::hud`, source `prompt`, présentation) : « Acheter Pacte rouge — 1 cœur » (`items::heart_label` :
+½ cœur, 1 cœur, 1½ cœur, 2 cœurs…), « — 3 Bombe » pour un consommable, les douilles comme avant. Le prompt est calculé par
+les widgets : il n'est pas lisible par `HudText` en headless, d'où des tests unitaires (`ui::hud`). Les autres affichages en
+cœurs (barre de vie, prix à l'écran) restent T16.
+
+### Salle du diable (post-boss de T5)
+
+`rooms/diable.ron` d'`isaac` : deux présentoirs du pool `diable` à `MaxHealth("2")`, posés au centre de chaque salle de ce
+type que l'étage présente (la salle post-boss de T5, `post_boss.chance` = un tiers, graines 8, 23 et 123). **La chance reste
+celle de la grammaire** (tirée une fois par étage à la génération du plan, T5). La proposition de la fiche (réduire la chance
+si le joueur a subi des dégâts au boss) demanderait de tirer la salle **après** le combat alors que le plan est posé avant : non
+retenue, non confirmée par William (Q6 ne la mentionne pas), à reprendre s'il la veut. Salles d'ange : hors périmètre (Q6).
+
+### Lint et schémas
+
+`exhaust` avec `exclude_held` (`Unsupported`), `shop.cost` (`Price::problems` : montant nul, vie maximale hors `]0, max]` du
+joueur `player`, `OutOfRange` ; consommable inconnu, `BrokenReference`), `boss_drop.table` inconnu (`BrokenReference`).
+Fixtures `loot_exhaust_exclude_held`, `shop_cost_invalid`, `boss_drop_unknown_pool` (`crates/content/tests/m3_t8_fixtures.rs`).
+
+### Contenu
+
+`isaac` : pools `tresor` (4), `boss` (3), `diable` (4) à `exhaust`, `secrete` (consommables), onze objets passifs de **donnée
+d'attente** (une stat chacun : `semelles_lestees`, `pile_rapide`, `lunette_longue`, `trefle_chat`, `griffe_acier`,
+`reservoir_vital`, `oeil_vif`, `pacte_rouge`, `cornes_noires`, `queue_fourchue`, `regard_maudit`) : le contenu des pools est
+M3-T11 (T11d), il faut seulement des candidats distincts pour que l'épuisement soit jouable de bout en bout. Salles : `tresor`
+(pool `tresor`), `secrete` (pool `secrete`), `boss` (`boss_drop`), `diable` (marché). **Pas de boutique `isaac`** : le gabarit
+et le type sont T11d ; le moteur l'exécute (`assign_shelves`, `shop.cost`) mais le testbed n'a aucune salle `shop` : `cost` n'est exercé que par le diable d'`isaac` (et des présentoirs posés par scénario) ; la branche `Currency(n)` de `shop.cost` n'est exercée par aucun scénario (dette). `testbed` : types de
+salle `coffre_a`/`coffre_b`, carte `salles_coffres.ldtk`, étage `coffres_epuisables`, pool `epuisable_temoin` (jumeau sans
+`exhaust`).
+
+### Bot
+
+Le bot `explorateur` ne vise plus un présentoir à `cost` (son `price` vaut 0 : il l'aurait cru gratuit) ; la décision du diable
+est T14. Il **ramasse** le butin du boss : les parties `grid_*` de l'`explorateur` en sont retardées (voir « Traces »).
+
+### Attentes de scénario
+
+`PoolCount { pool, count, at_frame }` (objets **distincts** sortis du pool), `ItemsOnFloor { id, count, at_frame }` (objets
+`id` au sol : le butin d'un boss), `Shelf` gagne `cost: Some(MaxHealth("2"))` ; `Scenario::shop.shelves[].cost` pose un
+présentoir à `cost`.
+
+### Scénarios (testbed sauf mention)
+
+| Scénario | Prouve |
+|---|---|
+| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k5`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide |
+| `pool_exhaust_two_rooms` | deux salles de types différents d'une carte générée partagent le pool : deux objets sortis dès f10, avant tout coffre ouvert |
+| `pool_exhaust_time_independent_ab` / `_ba` | `k1` → `lame`, `k2` → `boussole` que le joueur ouvre `k1` d'abord ou `k2` d'abord |
+| `pool_unlock` / `_temoin` | le déblocage `manche_epuisable` : quatre objets distincts dont `manche` ; sans : trois puis `bottes` répété |
+| `devil_deal_pay_health` | un cœur payé : vie 100 → 98 et vie maximale 98 définitivement (f30 et f110), l'objet est tenu, douilles intactes |
+| `devil_deal_refused_lethal` | à 1 PV (`MaxHealth` `Set 1`) deux tentatives (f10, f60) refusées : rien ne bouge |
+| `devil_deal_soul_saves` | témoin : même joueur à 1 PV avec un `coeur_ame` : l'achat passe, âme 4 → 2, vie 1/1 |
+| `devil_deal_soul_first` | l'âme paie d'abord (4 → 2, vie et maximum à 100), puis un prix de 6 : l'âme (2) part toute, 4 PV de vie maximale (96) |
+| `devil_deal_isaac` (`isaac`) | le cœur d'`isaac` : 6/6 → 4/4 |
+| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `regard_maudit` sortis du pool `diable`, `pile_rapide` du trésor, `griffe_acier` du boss ; graine 5 : aucune salle, rien tiré dans `diable` |
+| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`griffe_acier`, f871) et le bot le ramasse ; la victoire est retardée (f1384 → ~f1430, f1654 → ~f1790) |
+| `isaac_floor_seed_1` (`isaac`) | `tresor` et `boss` : 1 objet sorti à f5, 2 à la génération du second étage (par run) |
+
+Unitaires : `items::loot` (`assign_*` : sans `exhaust` rien n'est écrit, objets distincts, idempotence, premier emplacement =
+tirage d'avant `exhaust`, par run entre étages, pool vidé, objets cachés), `items` (`Price` avec âme : refus mortel, âme
+d'abord, âme partielle, refus sans effet de bord ; `heart_label`), `game::shop` (`pay_cost` : cœur, refus à 1 et 2 PV, âme,
+consommable, douilles ; `assign_shelves` sur deux salles), `ui::hud` (prompt en cœurs).
+
+### Traces
+
+(voir le rapport `docs/taches/rapports/m3-t8-pools-marche-diable.md`)
+
+### Dettes connues (M3-T8)
+
+- `max_health_after` ne regarde que la frame courante : un bonus `MaxHealth` temporaire qui expire rend a posteriori le paiement mortel.
+- Le butin du boss est détruit par `floor_transition_system` si un joueur est déjà sur le portail à la frame de la mort (le drop est posé avant la transition, mais l'objet vit dans l'étage quitté).
+- Garde « butin déjà tombé » : une fois par salle **et par frame** seulement (deux `BossPlan` morts à des frames différentes dans la même salle lâcheraient deux fois).
+
+### Atteignabilité
+
+Trésor, boss et secrète : toute partie ordinaire d'`isaac` (deux étages) ; diable : graines 8, 23 et 123 de `sous_sol_un`, ou
+toute partie par défaut dont un étage tire la salle (`devil_room_chance`) ; le bot qui achète au diable est T14 ; la boutique
+d'`isaac` (gabarit, type, pool `boutique`) est T11d.
+
+## 74. Curses d'étage en jeu : tirage, modificateur, étage agrandi, HUD masqué (M3-T9, chantier F4)
+
+Exécute les contrats de §64 (les cinq curses de Q7). Code : `game::curses` (tirage et modificateurs),
+`world::FloorGrammar::scaled_rooms` + `map_ldtk::loader::with_curse_floor_rooms` (étage agrandi),
+`game::ui::hud_model` et `game::ui::hud` (présentation). **Une séquence `Floors` sans champ `curses` ne tire
+rien** : `CurseTable` est vide, `curse_system` rend la main avant de toucher une ressource ou un composant, le HUD
+lit des valeurs absentes ; aucune trace existante ne bouge (preuve en fin de §).
+
+### Tirage : quand et par quoi
+
+`curse_system` (`GgrsSchedule`, `RollbackSystemSet::FrameCounter`, avant l'incrément de frame, donc **après** le
+passage d'étage du set `Run`) compare `FloorState::index` au dernier étage traité (`RunCurses::entered`, rollback) :
+à l'entrée dans un étage, **y compris le premier** (frame 0), il tire `run::draw_curse` (RNG local de graine
+`curse_seed(graine, étage)`, jamais `RngStreams`), écrit `RunCurses` et la trace
+`ggrs{f=… curse floor=… id=<id|none>}`. La fiche disait « à `FloorEntered` » : cet événement n'est émis que quand les
+horloges ou la difficulté sont activées (§23) et jamais pour le premier étage ; le tirage détecte donc lui-même
+l'entrée, à la même frame que `FloorEntered` l'aurait été. `RunCurses` devient `{ floors: BTreeMap<étage, id>, entered:
+Option<u32> }` (T0e : tuple `BTreeMap` seul) : sans `entered`, « tiré, pas de curse » ne se distinguerait pas de « pas
+encore tiré » et le tirage serait refait à chaque frame. Toujours neutre (`Default` : hash 0) ; **elle ne l'est plus
+dès qu'une séquence a un champ `curses`** : `entered` s'écrit à la frame 0, donc les traces d'une partie à curses
+changent (`curse_pool_unset` de T0e, seul scénario dans ce cas sur `main`, est retiré : son propos — « rien n'exécute le
+tirage » — n'est plus vrai). Moment clé `curse` (« étage 2 : curse « darkness » ») ; les étages sans curse n'en sont pas.
+`CurseTable` (hors rollback : champ `curses` de la séquence + `curses/*.ron` du registre) est posée à `compute_floor_plan`
+comme `FloorLootTables`.
+
+**Graine du tirage = graine de carte** (`game::curses::curse_map_seed`, `MapGenerationConfig::seed as u32`), pas
+`RunSeed` : la session remplace `RunSeed` par `restart_seed(graine de carte, n° de partie)` après un « Rejouer » en
+ligne ou une entrée du hub (§33), alors que les cartes sont assemblées avec la graine de carte inchangée. Avec `RunSeed`,
+`FloorRooms` (génération) et `curse_system` (entrée) auraient lu deux graines : un étage doublé sans « Labyrinth »
+annoncée, ou l'inverse. Même expression des deux côtés, test `the_draw_follows_the_map_seed_not_the_derived_run_seed`.
+Conséquence assumée : un « Rejouer » rejoue les mêmes curses (comme il rejoue les mêmes cartes ; le butin, lui, suit
+`RunSeed`).
+
+### Les cinq effets
+
+| Curse (Q7) | Effet | Où | Quand |
+|---|---|---|---|
+| `Modifier(stat, op, v)` | modificateur de source `curse:<id>` sur chaque joueur | `curse_system` | posé à l'entrée de l'étage ; **tout** `curse:*` est retiré à l'entrée de l'étage suivant avant la pose de la nouvelle ; un joueur qui n'a pas le compte attendu (apparu après l'entrée) le reçoit à la frame suivante ; rien n'est écrit tant que le compte est bon (pas de `Changed`) |
+| `FloorRooms(×m)` | `rooms` de la grammaire multiplié | `with_curse_floor_rooms`, `setup_generated_map` | **à la génération** : toutes les cartes d'une séquence sont assemblées au chargement de la partie, avant la première frame. Le tirage ne dépendant que de (graine de carte, étage), le planificateur retrouve la curse que `curse_system` écrira à l'entrée |
+| `HideMinimap` | `hud_values.minimap` vide | `Update` | tant que `RunCurses` donne la curse à l'étage courant |
+| `HideHealth` | `hud_values.health` absent : ni texte ni barre (D22) | `Update` | idem |
+| `HideItemNames` | nom de l'objet ou de l'arme du prompt → `???` (`Weapon`, `Shelf` ; prix et reste du texte intacts) | `Update` (`ui::hud`) | idem |
+
+**Étage et emplacement.** Le monde d'un emplacement `s` de la séquence est assemblé avec la curse de l'**étage `s`**
+(un emplacement par `floor:<id>` de `levels`). Au-delà de la séquence, `level_for_floor` boucle sur le dernier niveau :
+ces étages réutilisent le monde déjà assemblé et ne reçoivent **pas** de `FloorRooms` de leur propre tirage (leurs
+modificateurs et leur HUD, eux, suivent leur tirage). Sans effet sur une carte qui n'est pas une grammaire (`floor:<id>`).
+
+**`FloorGrammar::scaled_rooms(m)`** (pure, arithmétique `Fixed`) : bornes de `rooms` × `m` arrondies au plus proche, puis
+**ramenées à une grammaire satisfiable** : au moins départ + boss + requises (et `min_boss_distance + 1`), au plus la
+capacité de la grille (`max.0 × max.1`) ; `m = 1` rend la grammaire inchangée. `isaac/sous_sol` ×2 : 16 à 24 salles. Preuves :
+1 000 graines en grille 7 × 7 (`mille_graines_doublees_par_la_curse_respectent_la_grille` : validées, sous la borne de
+travail, 16 à 24 salles) ; 2 × 200 graines sur les gabarits réels, en grille (`isaac`) et en arbre (`gungeon/etage`, 20 à
+28) : `la_curse_labyrinth_double_les_salles_sans_rendre_l_etage_impossible`. **Limite** : un multiplicateur que la grille ne
+peut pas tenir (×100 sur 7 × 7, jusqu'à 49 salles) échoue explicitement (`FloorError::Exhausted`, comme toute grammaire
+impossible) ; seules les valeurs jusqu'à ×2 sont prouvées sur `isaac`.
+
+### Présentation
+
+`game::curses::CurseHides { minimap, health, item_names }` (pur, `CurseHides::of(effects)`), lu depuis `RunCurses` à chaque
+`Update` : jamais d'un événement, donc juste après un rollback. `HudPlayerInput::curse` (id et définition de la curse de
+l'étage courant) alimente `hud_values` : `health` et `minimap` sont **absents** (même chemin que « joueur mort » :
+barre à zéro, texte vide sans préfixe). Nouvelle source `curses` (`content::ui::HUD_SOURCES`, `PLAYER_SOURCES`) : l'id de la
+curse de l'étage courant, vide sans curse ; `isaac/ui/hud.ron` la montre (« Malédiction : darkness »). Le prompt d'objet est
+calculé dans `ui::hud` (hors `HudSnapshot`) : `HideItemNames` y est prouvé par test unitaire, pas par `HudText`. La machine à
+perk, les portes et les coffres n'ont pas de nom d'objet : inchangés. Les écrans de pause et d'inventaire (§56) ne lisent
+pas `RunCurses` (hors périmètre : ils n'affichent ni la santé, ni la minicarte, ni le nom des objets du sol).
+
+### Contenu et lint
+
+- `testbed` : `floors/maudit.ron` (chance 0,5, les cinq curses), `floors/maudit_maze.ron` (chance 0,5, `maze` seule).
+- `isaac` : dossier `curses/` (les cinq de Q7, copies de celles du testbed), `floors/sous_sol_maudit.ron` (un étage
+  `floor:sous_sol`, chance **1** : la graine choisit la curse). **La séquence par défaut d'`isaac` n'a pas de `curses`**
+  (M3-T11d la déclarera) : aucune trace d'`isaac` ne bouge ; seules ses séquences de test sont maudites.
+- Lint : `reach::stat_uses` compte désormais le `Modifier` d'une curse : une stat que la simulation ne lit pas
+  (`stat_reader`) est une erreur `UnreadStat`.
+- Attentes : `RoomCount(min, max)` (nombre de `RoomBounds`), `HudText(empty: true)` (texte vide : une source masquée ;
+  `contains: ""` ne prouvait rien).
+
+### Scénarios (graines choisies par `draw_curse`, vérifiées en jeu)
+
+| Scénario | Prouve |
+|---|---|
+| `curse_drawn_seeded`, `_other` | `maudit`, graines 3 (darkness puis rien) et 2 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 3 deux fois (même trace), la graine 2 (autre trace) et la graine 1 (aucune curse, aucun moment clé) |
+| `curse_modifier` | `maudit_maze`, graine 3 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
+| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 1 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
+| `curse_hides_health` | graine 7 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
+| `curse_blind` | graine 5 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
+| `curse_bigger_floor` | graine 2 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+
+### Déterminisme
+
+RNG local par (graine, étage) ; `order_mut_iter!` pour les joueurs ; `BTreeMap`, `Fixed` ; trace `ggrs{f=… curse …}` ; aucun
+flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `RunCurses` n'est pas écrite (test
+`a_sequence_without_curses_draws_nothing_and_leaves_the_state_neutral`, vérifié à chaque frame), `CurseTable` est vide.
+
+### Atteignabilité
+
+`isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tirera à M3-T11d (graine à
+nommer alors). Le testbed joue `maudit` et `maudit_maze` à deux étages.
+
+## 76. Contenu `isaac` (M3-T11, quatre parties)
+
+### 76.1 T11a : larmes et stats (`m3-t11a-larmes`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur.
+
+- **`larmes` en `mag: Infinite`** (§60) : plus d'`ammo_type`, plus de chargeur de 9 999. Les stats de larmes sont des
+  multiplicateurs de base 1 que posent les objets : `Damage` (3,5), `FireRate` (3 tirs/s), `Range` (300), `ShotSpeed` (260),
+  `ShotSize` (collision et sprite), `Luck` (chance des `Chance`). `MoveSpeed` est celle du personnage.
+- **Statuts** `statuses/` (copies du testbed : `poison`, `brulure`, `gel`, `peur`, `lenteur`), déclarés dans `game.ron`.
+- **19 objets** `objets/*.ron` (tag `larmes`), tous dans le pool `loot/tresor.ron` (entrées `Item(id)` : un `Rarity(…)` piocherait
+  aussi clé, bombe et cœurs, de rareté `Common` ; poids commun 4, peu commun 2, rare 1 ; `exhaust: true` (T8 : un objet sorti n'y revient plus par run, donc pas de doublon par ce pool), pas d'`exclude_held`. Il contient aussi les quatre passifs de T8). `rooms/tresor.ron` y pointe (`chest.table: "tresor"`) ; la salle secrète garde `salle`.
+  Pas de pool de boutique : `isaac` n'a pas de salle boutique avant M3-T11d (dette).
+- **Lisibilité (§82)** : `bullet_player`/`bullet_enemy` d'`isaac` utilisent le halo blanc de M3-T17
+  (`sprites/feedback/tear.png`, copie du testbed, `assets.yaml`) : teinte par statut/guidage, opacité spectrale, taille par
+  division/perforation, sans code. Les objets n'ont pas de sprite propre (aucun champ d'image dans `ItemDef`).
+- **Lab** : `characters/cible_fragile.ron` (15 PV, `test_only`) et l'arme `larmes_courtes` (portée 100, `test_only`) : l'arène
+  (416 x 304) est plus petite que la portée de `larmes`, `Range` ne se prouve qu'avec une arme courte.
+
+| Objet | Effet | Rareté | Graine `alacod-sim` (premier coffre de trésor) | Scénarios générés |
+|---|---|---|---|---|
+| `encre` | `Damage` +50 % | Common | 1 | `item_encre`, `tears_encre` (+ `_sans_objet`) |
+| `ressort` | `FireRate` +50 % | Common | 12 | `item_ressort`, `tears_ressort` |
+| `longue_vue` | `Range` +100 % | Common | 5 | `item_longue_vue`, `tears_longue_vue` |
+| `vent_arriere` | `ShotSpeed` +50 % | Common | 9 | `item_vent_arriere`, `tears_vent_arriere` |
+| `goutte` | `ShotSize` ×1,5, `Damage` +20 % | Uncommon | 19 | `item_goutte`, `tears_goutte` |
+| `bottines` | `MoveSpeed` +25 % | Common | 5 | `item_bottines` |
+| `trefle_noir` | `Luck` +2 | Uncommon | 16 | `item_trefle_noir` |
+| `plomb_fondu` | `Damage` +100 %, `FireRate` −30 % | Rare | 33 | `item_plomb_fondu` |
+| `oeil` | `Homing` | Common | 1 | `item_oeil`, `tears_oeil` |
+| `epine` | `Pierce(1)` | Uncommon | 4 | `item_epine`, `tears_epine` |
+| `ricochet` | `Bounce(2)` | Common | 6 | `item_ricochet`, `tears_ricochet` |
+| `fantome` | `Spectral` | Rare | 13 | `item_fantome`, `tears_fantome` |
+| `eclat` | `Split(3)` | Rare | 7 | `item_eclat`, `tears_eclat` |
+| `satellite` | `Orbit` + `Lifetime(240)` | Rare | 20 | `item_satellite`, `tears_satellite` |
+| `venin` | `Chance` 50 % (+12,5 %/`Luck`) poison | Uncommon | 19 | `item_venin`, `tears_venin` |
+| `braise` | brûlure à l'impact | Uncommon | 2 | `item_braise`, `tears_braise` |
+| `givre` | `Chance` 30 % gel | Uncommon | 6 | `item_givre`, `tears_givre` |
+| `epouvante` | `Chance` 30 % peur | Uncommon | 11 | `item_epouvante`, `tears_epouvante` |
+| `glu` | lenteur à l'impact | Common | 3 | `item_glu`, `tears_glu` |
+
+Graines : `alacod-sim --game isaac --bots 1 --profiles explorateur --shopping --seeds N..N --floors sous_sol --until-floor 2
+--max-frames 12000 --log`, la ligne `game::loot: … item=<id>` du coffre de la salle de trésor (balayage 1..125 sur le pool fusionné avec T8, première graine
+qui donne l'objet ; le bot ne rouvre pas le trésor fermé du second étage). Les seuils des `tears:` sont mesurés avec témoin
+(commentaire de chaque `test:`) ; `tears_longue_vue` utilise `larmes_courtes`, `tears_goutte` une cible posée à 22 unités de la
+ligne de tir (touchée seulement par la larme ×1,5).
+
+**Traces** : le passage en `Infinite` change l'état de l'arme dès f0 pour tout scénario `isaac` qui a le personnage ; le pool
+`tresor` change l'objet des coffres de trésor (preuve §5 au rapport `m3-t11a-larmes.md`). Les autres jeux ne bougent pas.
+
+Dettes : pas de boutique ni de pool boutique (T11d) ; `Chance` dépend du net id des larmes (un changement de cadence déplace
+les tirages : les seuils de `venin`, `givre`, `epouvante` sont « au moins un statut à f300 ») ; pas de sprite d'objet.
+
+### 76.2 T11b : effets, familiers, actifs (`m3-t11b-effets`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur. Tout passe par des vocabulaires déjà livrés :
+effets v3 (§67), familiers (§71), cœurs d'âme (§68), pools à épuisement (§73), générateur v3 (§78).
+
+- **Dix objets**, tous avec `test:` ; poids par rareté 4 / 2 / 1 dans leur pool (`exhaust: true`, aucun `exclude_held`).
+  Pool `tresor` (`loot/tresor.ron`, 23 → 31 entrées) : `frere`, `orbe`, `nuee`, `crocs`, `pouls`, `rancune_vive`, `reliquaire`,
+  `calice_ame`. Pool `boss` (`loot/boss.ron`, 3 → 5 entrées ; les trois passifs de T8, peu communs, passent de poids 1 à 2) : `sang_chaud`,
+  `calice_ardent`.
+- **Familiers** (`characters/`, fiche de §71 : équipe `Players`, `stationary`, collider 12 x 12, immunisés) : `frere` (`Follow(gap: 28)` +
+  `MirrorShot(weapon: "larmes", every: 12)` : l'arme `larmes` du jeu, sans les objets du porteur, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
+  + `BlockBullets`). Lab : `cible_mordante` (`test_only`, immobile, 5 000 PV, `counts_hits`, mêlée au contact à 40 : le générateur retrouve ses
+  cibles **par position**, une cible mobile n'a pas de compteur dans la sonde).
+- **Synergie** `synergies/garde_rapprochee.ron` (`requires: ["frere", "orbe"]`, deux objets du pool `tresor`, `Damage` +20 %) ; dossier `synergies`
+  déclaré dans `game.ron`. Preuve : scénario `isaac_synergy_garde` (frère ramassé f10 : dégâts 1, un familier ; orbe f40 : deux familiers, dégâts 1,2).
+- **Cœurs d'âme** : `coeur_ame` est déjà dans le pool de récompense `loot/salle.ron` (T3, poids 1) ; `reliquaire` et `calice_ame` en donnent aussi
+  (`GainSoul`). `salle.ron` n'a pas changé (aucune trace de plus ne bouge).
+
+| Objet | Effet | Pool (rareté, poids) | Graine `alacod-sim` | Scénarios |
+|---|---|---|---|---|
+| `frere` | familier `Follow` + `MirrorShot` | tresor (Common, 4) | 12 (coffre) | `item_frere`, `familiar_frere` (+ `_sans_objet` : ≥ 6 coups contre 5), `isaac_synergy_garde` |
+| `orbe` | familier `Orbit` + `BlockBullets` | tresor (Uncommon, 2) | 37 (coffre ; `familiar_block` en jeu) | `item_orbe`, `familiar_orbe` (`FamiliarDistance` 30–40) |
+| `nuee` | trois `orbe` (`per_copy: 3`) | tresor (Rare, 1) | 59 | `item_nuee`, `familiar_nuee` (rangs 0 et 1 à 60–64) |
+| `crocs` | `OnHit` : `Scaled(PerCopy) ApplyStatus poison` | tresor (Common, 4) | 3 | `item_crocs`, `tears_crocs` (poison / témoin sans) |
+| `pouls` | `Tick(90)` : `TimedModifier` `MoveSpeed` +30 % 60 frames | tresor (Common, 4) | 20 | `item_pouls` (`MoveSpeed` 120 à f60, 156,00037 à f100) |
+| `rancune_vive` | `OnDamageTaken` : `ApplyStatus peur` sur l'auteur du coup | tresor (Uncommon, 2) | 55 | `item_rancune_vive`, `tears_rancune_vive` (`cible_mordante` : peur / témoin sans) |
+| `reliquaire` | `OnPickup` filtré `item: Some("reliquaire")` : `GainSoul(4)` (sans filtre, chaque ramassage suivant rendrait 4 points : relecture) | tresor (Common, 4) | 46 | `item_reliquaire`, `isaac_reliquaire` (ramassé au sol, puis un autre objet : rien de plus) |
+| `calice_ame` | actif `Active(Damage(30))`, `OnUse` : `GainSoul(2)` | tresor (Rare, 1) | 10 | `item_calice_ame` (charge, usage, `ExtraHealth` 2) |
+| `sang_chaud` | `OnKill` : `TimedModifier` `FireRate` +50 % 300 frames | boss (Uncommon, 2) | 1 (butin du boss ramassé f1752, effet `OnKill` journalisé f2237) | `item_sang_chaud`, `tears_sang_chaud` (`cible_fragile` tuée : `FireRate` 1,5 / témoin 1) |
+| `calice_ardent` | actif `Active(Rooms(2))`, `OnUse` : `Damage` +100 % 300 frames | boss (Uncommon, 2) | 4 (butin f2249, ramassé f2336) | `item_calice_ardent` (`Damage` 2 après l'usage) |
+
+Graines : `alacod-sim --game isaac --bots 1 --profiles explorateur --shopping --seeds N..N --floors sous_sol --until-floor 2 --max-frames 12000
+--log` (balayage 1..125, premier `chest_open` du trésor, ou `slot_assign pool=boss` puis `boss_drop` pour le boss). Les 10 objets sortent.
+
+**Limites de preuve.** Un objet **donné au départ** (`PlayerScript::items`) ne déclenche pas `OnPickup` : `reliquaire` se prouve par un scénario
+écrit (`isaac_reliquaire`, objet posé sous le joueur) et son `test:` ne génère que la tenue ; l'attente `ExtraHealth` n'y est donc pas. `Stat` d'une
+vitesse est en unités/s (`MoveSpeed` 120), pas en multiplicateur : le seuil de `pouls` est une valeur mesurée.
+Lint : `make lint GAME=isaac` perd les avertissements « aucun objet à effets » (trésor, boss), « aucune synergie atteignable » et « familiers : 0 sur 2 »
+(il reste ceux de la boutique, de T11d).
+
+**Traces** : le pool `tresor` change les coffres de trésor et le pool `boss` le butin du boss (tirage à la génération de l'étage : l'objet tiré dépend
+de la taille du pool) ; preuve §5 au rapport `m3-t11b-effets.md`. Les autres jeux ne bougent pas.
+
+Dettes : pas de boutique (T11d) ; pas de transformation (Q10 non retenue) ; la synergie n'est jouée qu'en scénario (le bot ne rouvre pas le trésor du
+second étage, deux objets du même pool ne sortent pas dans une même partie du bot) ; pas de sprite d'objet ni de familier propre (placeholders).
+
+### 76.3 T11c : ennemis, champions, boss (`m3-t11c-ennemis`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur. Vocabulaires déjà livrés : behaviors (§22), vue directe
+D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37, §45), générateur v3 (§78).
+
+- **Sept ennemis** (`characters/`, un `test:` chacun, scénarios `enemy_<id>_still`/`_moving`) : `suiveur` et `mouche` (T0f), et cinq nouveaux.
+  `rampant` (`Charge(telegraph: 30)` + `Chase` Ground, 6 PV, 1 PV de dégât), `spectre` (`Chase` profil `Phasing` : ignore fenêtres, barricades, eau et fosses, **pas les murs ni les rochers** (`navigation.rs`, `Phasing` ignore tout sauf `Wall`) ; 8 PV,
+  contact 1 PV, aucun `sight_range` : son `aggro_range` de 500 couvre toute salle de 240 unités), `cracheur` (`Shoot` du pattern `crachat` + `Chase` Ground, 6 PV,
+  `aggro_range` 130, `sight_range` 360), `tourelle_croix` (immobile, `croix` : deux couronnes de quatre boules, `aggro_range` 100, `sight_range` 260,
+  12 PV), `bourdon` (`Chase` profil `Flying` + `Shoot` du pattern `rafale`, 6 PV, `aggro_range` 140, `sight_range` 360). **`sight_range`
+  cohérent** : un tireur sans portée de flair (`aggro_range` bas) mais à vue longue ne cible qu'en ligne de vue dégagée (un coin le met hors de
+  portée) ; un ennemi qui flaire toute la salle (`spectre`, `aggro_range` 500) n'en a pas. Dans `isaac`, aucun obstacle franchissable par `Phasing` n'est posé : le `spectre` se comporte comme un `Chase` Ground (dette moteur/contenu : un vrai fantôme à travers rochers exigerait un obstacle `Wall` traversable).
+- **Patterns** (`patterns/`) : `crachat` (télégraphe 15, un tir visé), `croix` (deux couronnes de quatre, 25 frames d'écart), `rafale` (trois tirs
+  visés, un par 8 frames), `couronne_unique` (une couronne de huit boules, `every: 0` : le motif de mort d'un champion), `spirale` (deux bras,
+  six salves, 60 frames). Projectiles de l'`arsenal` : `crachat` (dégât 1 : un demi-cœur d'isaac, vitesse 110) en plus de `plomb` et `boule`.
+- **Trois ennemis à champions** (`variants:`, `chance` en expression par étage, `tint`, un effet de mort chacun, tous dans le gabarit de combat) :
+  `suiveur` → `explosif` (`0,1 + floor × 0,15`, `Explode` rayon 44, dégât 2, `destroys: false` : la salle secrète reste à la bombe) ;
+  `mouche` → `essaim` (`0,12 + floor × 0,1`, `SpawnCharacters` : deux `mouche` ordinaires) ; `tourelle_croix` → `salve` (`0,15 + floor × 0,12`,
+  `SpawnPattern` `couronne_unique`). Générateur v3 : `champions: [(variant, kill: true, weapon: Some("larmes"))]` → `champion_suiveur_explosif`,
+  `champion_mouche_essaim`, `champion_tourelle_croix_salve` (la sonde relève la mort et attend l'explosion, les deux mouches nées, la couronne).
+- **Placement** (aucun gabarit ajouté, `docs/taches/rapports/m3-t11c-ennemis.make_placement.py`) : le gabarit `Combat` garde `suiveur` et `mouche`
+  et gagne `tourelle_croix` (13, 7) : trois ennemis par salle de combat, 16 ennemis (au lieu de 11) à l'étage de la graine 1. **Le reste vient du boss**.
+- **Boss `gardien`** (3 phases, `boss_drop` du pool `boss` inchangé : `rooms/boss.ron`) : phase 0 (≥ 60 %) éventail ; phase 1 (< 60 %) `rampant` et
+  `cracheur` en renfort (`SpawnEnemies`) + couronne ; phase 2 (< 25 %) `spectre` et `bourdon` en renfort + spirale (télégraphe de 10 frames).
+  Aucune vague d'arène : `isaac` n'a pas de type de salle `arene` (gabarit : T11d).
+
+| Ennemi / variante | Comportement | Gabarit / vague | Graine `alacod-sim` | Scénario généré |
+|---|---|---|---|---|
+| `suiveur` | `Chase` Ground, contact | `Combat` | 2 (salle verrouillée f57) | `enemy_suiveur_still`/`_moving` |
+| `suiveur` / `explosif` | explosion à la mort | `Combat` | 1730 | `champion_suiveur_explosif` |
+| `mouche` | volante, contact | `Combat` | 2 | `enemy_mouche_*` |
+| `mouche` / `essaim` | deux mouches à la mort | `Combat` | 1730 | `champion_mouche_essaim` |
+| `tourelle_croix` | immobile, `croix`, vue directe | `Combat` | 2 | `enemy_tourelle_croix_*` |
+| `tourelle_croix` / `salve` | couronne à la mort | `Combat` | 1730 | `champion_tourelle_croix_salve` |
+| `rampant` | charge | boss, phase 1 | 2 (renfort f2370) | `enemy_rampant_*` |
+| `cracheur` | tireur, vue directe | boss, phase 1 | 2 | `enemy_cracheur_*` |
+| `spectre` | `Phasing` | boss, phase 2 | 2 | `enemy_spectre_*` |
+| `bourdon` | volant, tireur | boss, phase 2 | 2 | `enemy_bourdon_*` |
+| `gardien` | 3 phases, renforts, spirale | `Boss` | 2 | `boss_gardien` |
+
+**Piège du tirage des variantes = dette moteur D88** (`docs/taches/dettes.md`) : le tirage (`variant.rs:139`) est `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
+pas de congruentiel (A = 1 664 525) : quasi linéaire (0,0004 par unité de graine) et corrélé par étage. **Avec la graine par défaut (`default_seed: 123456`, gardée par le
+restart), aucun champion ne sort au premier étage** ; 89 % des graines donnent 0 champion, 9 % les donnent tous. Net ids 100 à 199 : graines 1 à 255 → premier tirage dans
+[0,67 ; 0,77], 1 à 1279 → au moins 0,277 ; les chances d'`isaac` plafonnent à 0,27 aux deux premiers étages : **aucun champion pour les graines 1 à 1279**, donc jamais dans
+`alacod-sim --seeds 1..200` (1..50 et 1000..1150 essayées). La graine **1730** (`alacod-sim … --seeds 1730..1730 --log` : 4 `explosif`, 4 `essaim`, 3 `salve`, 18
+`champion_split`, 18 `explosion`) est la graine d'atteignabilité des trois variantes : les champions ne sont atteignables que par graine choisie. Remède de D88 : dériver la graine par
+`fnv1a("variants:<graine>:<net id>")` replié sur 32 bits (coût : traces à variantes de gungeon, throne, testbed, isaac).
+
+**Équilibrage** (campagne courte, `explorateur`, 50 graines `--floors sous_sol --until-floor 2 --max-frames 12000`, §76.3 du rapport) : l'`explorateur` meurt
+dès qu'une salle de combat compte quatre ennemis (essais : 16 morts sur 16 à quatre ennemis, 5 types ; cracheur, rampant ou tourelle seuls : 9 à 15 morts
+sur 16 avec un boss à renforts doubles), d'où les trois ennemis par salle et les renforts du boss. Mesure finale : 30 morts, 17 victoires, 3 soft-locks
+(9 et 43 existent sur `main` à l'identique, 42 est de la même famille : plafond sans progrès, ennemis hors de vue, aucun dégât). Les 5 scénarios
+`grid_floor_seed_1`/`_123`/`_23`, `grid_post_boss`, `isaac_floor_seed_1` (chronologie du boss) ont leurs attentes recalées (16 ennemis, boss verrouillé vers f2021 au lieu de f1340 pour la graine 1).
+
+Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de la partie ordinaire ne porte `variants` » (§72 : dette fermée).
+
+**Traces** : un ennemi de plus par salle de combat décale les net ids de tout ce qui suit (preuve §5 au rapport `m3-t11c-ennemis.md` : `FloorState.
+enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
+
+Dettes : pas de gabarit de combat par ennemi (un seul `Combat` : T11d) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
+de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) ouverte ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
+
+## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
+
+Lint seulement : `content` (plus la déclaration `mechanics` de `games/isaac/assets/game.ron`, une ligne de
+`crates/game/src/run_state.rs` dans un test pour le littéral du manifeste) ; aucune simulation touchée, **aucune
+trace ne bouge**. Code : `crates/content/src/mechanics.rs` (avertissements), `reach.rs` (sources d'objets et d'armes,
+stats), `lint.rs` (trois règles de plus), tests `crates/content/tests/m3_t12_fixtures.rs` sur la fixture
+`mechanics_ok`.
+
+### Audit des règles de lint des kinds M3
+
+Une ligne par mécanique de M3 : ce que le lint refuse, la fixture qui le prouve. Les règles de T0a à T7 existaient ;
+les lignes marquées **T12** sont les trous trouvés par l'audit.
+
+| Mécanique | Règle (niveau) | Fixture / test |
+|---|---|---|
+| Munitions infinies (§60) | `ammo_type` absent alors qu'un mode consomme (`Parse`), donné alors que tous les modes sont `Infinite` (`OutOfRange`) | `weapon_ammo_type_missing`, `weapon_infinite_with_ammo_type` |
+| Larmes, `ProjectileMods` (§60, §66) | formes et plages d'un objet ou d'une synergie (`Homing`, `Bounce` répété, `Split.count`, `Orbit.radius`…), `child` et `on_expire: Spawn` sans table de projectiles (`Unsupported`), `Chance` hors [0, 1] | `projectile_split_out_of_range`, `item_projectile_out_of_range`, `item_projectile_no_table`, `item_projectile_ok`, `projectile_chance_out_of_range` |
+| Stats de larmes, `Luck` (§60) | liste fermée `stat_reader` : **T12** test `every_named_stat_has_a_reader` (liste des stats nommées tenue à la main ; son `match` sans `_` fait échouer la compilation à l'ajout d'une variante de `StatId`, ce qui rappelle d'y décider si elle a un lecteur) ; **T12** `stat_uses` lit aussi les modificateurs de curses et les actions d'entrée et de frise des phases de boss (un `Modifier` y est accepté) | `stat_unread`, `unread_stats_are_found_in_curses_and_boss_phases`, test `reach::tests` |
+| Bombes (§62) | `fuse_frames > 0`, `radius > 0`, `damage >= 0` (`OutOfRange`) ; `Explode` : rayon, dégâts (`OutOfRange`), refusée dans un power-up | `bomb_fuse_zero`, `explode_radius_zero`, `explode_effect_ok` |
+| Rochers (§62) | **T12** couche `Rocks` : valeur autre que 1 et 2 (ignorée au chargement : `OutOfRange`) | `rocks_and_surfaces_layers_are_checked` |
+| Piques (§62) | `damage > 0`, `period > 0` (`OutOfRange`) ; **T12** couche `Surfaces` : valeur sans surface déclarée (`BrokenReference`) | `hazard_period_zero`, `rocks_and_surfaces_layers_are_checked` |
+| Portes verrouillées (§62, §70) | `Key(0)`, `lock_from_floor` sans `door_lock` ou sur `Secret`, clé introuvable à chaque étage verrouillé | `door_lock_key_zero`, `key_room_*` |
+| Grille (§62, §70) | `cell`, `max`, `post_boss.chance`, gabarits multiples de `cell`, ouvertures centrées et de même largeur, types distincts ; **T12** la salle secrète `required` d'une grille a `door_lock: Secret` (sinon posée ouverte : `OutOfRange`) | `grid_*`, `secret_room_not_required_or_not_walled` |
+| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, arme de `MirrorShot` inconnue, behavior de familier sans porteur | `familiar_*` |
+| Champions (§63, §72) | actions de mort admises (`Explode`, `SpawnCharacters`, `SpawnPattern`), pattern fini, pool de butin connu, `#rrggbb`, `chance` en expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 | `champion_ok`, `champion_bad_death`, `champion_death_infinite_pattern*`, `variant_chance_expression_*` |
+| Curses (§64) | poids 0, aucun effet, `FloorRooms` ≤ 0, `Modifier Mul` ≤ 0, chance hors [0, 1], pool vide ou inconnu | `curse_invalid_values`, `floors_curses_invalid` |
+| Pools à épuisement (§64) | **T12** `exhaust: true` sur un pool qui n'a que des `Currency` (jamais « vu » : `OutOfRange`) | `exhaust_pool_of_coins_only_is_an_error` |
+| Accomplissements, déblocages (§64) | `when`/`unlocks` vides, objet, boss ou déblocage inconnu | `achievement_invalid` |
+| `Price` (§61, §73) | la surface de contenu est `shop.cost` d'un type de salle (T8) : `Price::problems` (montant nul, consommable inconnu, vie max hors `]0, max]` : `OutOfRange` / `BrokenReference`), `boss_drop.table` inconnu ; T12 n'ajoute rien (le trou de la première lecture, « aucune surface avant T8 », est fermé par T8) | `shop_cost_invalid`, `boss_drop_unknown_pool` (`m3_t8_fixtures.rs`) ; `items` : `price_problems_report_unknown_consumable_and_out_of_range_health` |
+| `ExtraHealth` (§61, §68) | `GainSoul > 0` dans un objet, une synergie, un personnage ; refusée dans un power-up | `item_gain_soul_zero` |
+| `hit_iframes` (§61) | `Some(0)` (`OutOfRange`) | `character_hit_iframes_zero` |
+| Plafond de compteur (§61, §68) | `max_stack` 0 ou sur un non-consommable, `starting_consumables` au-dessus du plafond, `refuse_when_full` sans soin | `item_max_stack_zero`, `character_starting_over_max_stack`, `item_refuse_when_full_without_heal` |
+| `Scaled(PerCopy)` (§61) | refusée hors d'un effet d'objet, action enveloppée validée, linéaire seulement | `scaled_*`, `effect_per_copy_*` |
+
+### `mechanics` : les mécaniques d'une partie ordinaire
+
+Le manifeste gagne `mechanics: [Mechanic]` (défaut vide : aucune vérification, tous les jeux avant `isaac`).
+`content::Mechanic` a une variante par ligne du tableau « Atteignabilité » de `docs/taches.md` §8.1 : `Tears`,
+`Effects`, `Familiars`, `Bombs`, `SecretRoom`, `Keys`, `Hearts`, `ExhaustPools`, `DevilMarket`, `Champions`,
+`Curses`, `Achievements`. Pourquoi une déclaration : le lint ne peut pas deviner qu'`isaac` *doit* avoir un
+familier ; sans elle, un jeu sans contenu de familier est muet, et « `make lint GAME=isaac` sans avertissement
+d'atteignabilité » (critère de sortie M3, T11) serait vrai par vacuité. `isaac` déclare les douze.
+
+**Partie ordinaire** (`mechanics::Play::ordinary`) : en mode `Floors`, la séquence de `entry.floors` (à défaut la
+première par ordre d'id, comme le jeu), sans `FloorsOverride` ni les autres séquences ; sinon la carte de départ.
+Les règles « toujours actives » ci-dessous gardent, comme §53, **toute** séquence déclarée comme racine (un
+scénario ou le lobby peut en imposer une autre) ; seules les règles déclarées sont restreintes à la partie ordinaire.
+
+**Sites de tirage** (`Play::draws`) : un pool est tiré par le coffre (`chest`) et la boutique d'un type de salle atteint
+(`floor_tables` quand il y en a, sinon `table` : `RoomShopDef::table_for_floor` ignore `table` dès qu'il y a des
+`floor_tables`), par la récompense des salles `combat` (le pool d'étage s'il a `reward`, **sinon** `salle` : `salle` n'est
+tiré que pour une séquence sans `loot` ou à pool d'étage sans `reward`) et par le coffre de cette récompense quand
+`chest_chance > 0` (pool d'étage ou `commun`), par le butin du boss (`boss_drop`, T8) d'un type de salle atteint, par les
+rochers à butin des niveaux joués, par le butin (`loot`) des variantes à chance non nulle des ennemis atteints. Un coffre sans
+`table` tire le `loot` de l'étage de chaque séquence, `commun` pour une séquence sans `loot` (`game::loot::chest_table_id`).
+Chaque site porte un nombre de tirages par partie, au moins (salles exigées × étages de la partie, trois pour le remplissage).
+
+Kind d'avertissement `LintWarningKind::MechanicUnmet` (JSON : `"kind": "MechanicUnmet"`), message « mécanique
+« <nom> » : … » qui nomme la salle ou le pool qui devrait porter la mécanique ; fichier : le type de salle, le pool ou
+la séquence fautif, `game.ron` quand le manque est global.
+
+| Règle | Quand | Avertit si | Fixture (`m3_t12_fixtures.rs`) |
+|---|---|---|---|
+| pool jamais tiré | toujours | un pool n'a aucun site de tirage | `pool_that_nothing_draws`, `pool_of_a_default_chest_is_drawn` |
+| familier sans objet atteignable | toujours | tous les objets qui citent le personnage (hors `test_only`, D63) sont hors des pools tirés, du départ des personnages jouables, des étages et des déblocages | `familiar_whose_items_have_no_source`, `test_only_familiar_is_not_warned` |
+| synergie à objet sans source | toujours | un objet requis n'a aucune source | `synergy_with_an_item_that_has_no_source` |
+| salle spéciale vide | toujours, grammaire en grille | une salle exigée, la salle secrète ou la salle post-boss à chance > 0 n'a ni `chest`, `shop`, `arena`, `boss_drop` ni `locks` | `special_room_that_carries_nothing` |
+| mur secret sans bombe | toujours | un type à `door_lock: Secret` est atteint sans bombe jouable (consommable `bomb` **et** personnage à `bomb`) ni objet à `Explode { destroys: true }` | `secret_wall_without_a_bomb` |
+| curse jamais tirée | toujours | aucune séquence ne la met dans `curses.pool` (chance > 0) | `curse_that_no_sequence_draws` |
+| variante à chance nulle | toujours | `variants.chance` nulle pour 1 et 4 joueurs aux étages 0 et 5 | `variant_with_a_zero_chance` |
+| accomplissement inaccomplissable | toujours | `FloorAtLeast(n)` au-delà d'une séquence finie (`victory_at_end`), `BossDefeated` d'un boss jamais posé, `ItemHeld` d'un objet sans source | `achievement_with_an_impossible_condition` |
+| déblocage jamais accordé | toujours | ni accomplissement ni service `Merchant` ne l'accorde | `unlock_that_nothing_grants` |
+| `Tears` | déclarée | aucun objet de larmes (`projectile`, `ShotSpeed`, `ShotSize`) dans le pool d'une salle exigée à coffre (trésor) ni dans une boutique ; ou l'objet ne peut pas être tenu en deux exemplaires : chaque pool qui le donne a `exclude_held` ou `exhaust` (un objet sorti ne revient pas avant que le pool soit vu en entier) et il n'y a pas deux pools sans `exclude_held` | `tears_missing_from_the_*`, `tears_that_cannot_be_held_twice`, `tears_in_a_single_exhausting_pool_cannot_stack` |
+| `Effects` | déclarée | aucun objet à effets dans le pool trésor, boutique ou boss ; aucune synergie dont tous les objets sont atteignables | `effects_missing_from_the_boss_pool_and_no_transformation` |
+| `Familiars` | déclarée | moins de deux objets à `familiar` dans le pool trésor, aucun dans une boutique | `familiars_missing_from_the_treasure_and_shop_pools` |
+| `Bombs` | déclarée | pas de bombe de départ (personnage jouable), d'étage, de pool tiré (récompense, coffre, boutique, rocher, champion) ni de déblocage ; aucun personnage jouable à `bomb` (un personnage `test_only` ne compte pas, D63) ; aucun rocher ni pique (surface à `hazard`) dans un gabarit du type de remplissage | `bombs_rocks_and_spikes`, `test_only_characters_give_no_bomb_and_wrapped_explosions_count` |
+| `SecretRoom` | déclarée | pas de grammaire en grille ; la salle secrète n'est pas dans `required` ou n'est pas murée ; aucune explosion atteignable | `secret_room_not_required_or_not_walled` |
+| `Keys` | déclarée | pas de clé dans la récompense de combat ni dans une boutique ; aucune salle exigée à `door_lock: Key` | `keys_in_rewards_shops_and_locked_treasure` |
+| `Hearts` | déclarée | pas de `Currency` ni de cœur (`Heal`, `GainSoul`) dans la récompense de combat ; aucune boutique exigée (`required`) : une salle à `shop` payé en vie maximale (le diable) n'est pas la boutique | `hearts_coins_and_shop`, `devil_market_is_not_the_shop` |
+| `ExhaustPools` | déclarée | aucun pool `exhaust` tiré au moins deux fois par partie ordinaire | `exhausting_pool_drawn_once` |
+| `DevilMarket` | déclarée | aucune salle post-boss à chance > 0 dans une grammaire de la partie ordinaire ; ou son type de salle n'a pas de `shop` à `cost` (présentoirs payés, T8 : sans prix ce n'est qu'une boutique) | `devil_market_without_a_post_boss_room`, `devil_market_needs_priced_shelves` |
+| `Champions` | déclarée | aucun ennemi atteint, hors `test_only`, ne porte une variante à chance non nulle | `champions_on_no_reachable_enemy` |
+| `Curses` | déclarée | la séquence ordinaire n'a pas de `curses` (chance > 0, une curse de poids > 0) | `curses_only_count_in_the_ordinary_sequence` |
+| `Achievements` | déclarée | aucun accomplissement aux conditions remplissables (§ ci-dessus) dont un déblocage donne un objet ou une entrée à un pool tiré | `achievements_without_a_visible_unlock`, `achievement_with_an_impossible_condition_is_not_visible` |
+
+Les avertissements M2 nomment maintenant la mécanique : « type de salle « secrete » : … ; mécanique : salle secrète
+(murée, ouverte à la bombe) » (`room_mechanic`), « objet « x » : aucune source … ; mécanique : familiers, effets »
+(`item_mechanics`). Fixture de base `mechanics_ok` : un jeu en grille (départ, combat avec rocher, rocher à butin et
+pique, boss, trésor à clé, secrète, boutique, diable) qui porte les douze mécaniques, sans erreur ni avertissement
+(`base_is_clean`) ; chaque test lui retire un élément dans un dossier temporaire. Sans `mechanics`, aucune règle
+déclarée ne parle (`undeclared_mechanics_are_not_checked`). `alacod lint --json` rend `MechanicUnmet`
+(`lint_json_reports_mechanic_warnings`).
+
+### Sources d'objets et d'armes
+
+`reach::loot_pool_items` (pools, entrées `Item` et `Rarity`) et `loot_pool_weapons` (entrées `Weapon`) sont tous deux
+branchés depuis D62 : le constat de la fiche (« le second renvoie un ensemble vide ») était périmé, rien à y ajouter
+pour les armes. Ajouté : `unlock_grant_sources` (les entrées qu'un déblocage ajoute à un pool, `UnlockGrant::Loot`,
+comptent comme sources d'objets et d'armes : sans elles, un objet que seul un accomplissement donne était signalé
+« sans source ») et `item_sources` (départ, étage, pools, déblocages) partagé par les règles. Les sources M3 de la
+fiche (rochers à butin, champions, salles trésor, diable, secrète) sont **toutes des pools nommés** : leur contenu est
+déjà dans `loot_pool_items` ; ce qui manquait était de savoir si quelqu'un tire le pool (règle « pool jamais tiré »).
+
+### Limites
+
+Statique : une salle posée par la grammaire n'est pas une salle *rencontrée* (probabilités, graines : bot T14 et
+campagnes T18) ; l'ordre des étages (`lock_from_floor` contre la longueur d'une séquence)
+n'est vérifié que pour les clés (`lint_key_sources`) ; le nombre de tirages par partie est un minimum prudent ; une entrée
+qu'un déblocage ajoute à un pool (`UnlockGrant::Loot`) compte comme source d'objet sans vérifier que le déblocage est
+accordé (la règle « déblocage jamais accordé » le dit à part).
+
+### Atteignabilité (jeux livrés)
+
+`zombies`, `throne` : aucun avertissement. `gungeon` : un, **réel** (pool `boss` jamais branché : le butin du boss est
+`boss_drop` de T8, `gungeon` ne le pose pas ; aucune tâche M3 ne le ferme : dette). `testbed` (bac à sable, beaucoup
+d'avertissements voulus) : dix de plus (pools d'essai non tirés dont `epuisable_temoin`, familiers et synergie d'essai, mur
+secret sans bombe). `isaac` : 18 (les 20 de la première mesure moins deux que T8 a fermés : salle du diable vide, aucun pool à
+épuisement), listés au rapport avec la tâche qui ferme chacun (`docs/taches/rapports/m3-t12-lint-atteignabilite.md`). À rejouer
+après T11 (« une passe courte »).
 
 ## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
 
@@ -5467,3 +6187,291 @@ basculer (les traces et le témoin le signalent) ; préférer un compte de coups
 **Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
 `champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
 un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.
+
+## 81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
+
+Présentation seule : `game::ui::{hud, hud_model}`, `content::ui`, `games/isaac/assets/ui/hud.ron`. **Aucune trace ne
+bouge** (aucun état rollback, aucun système de la simulation touché ; les deux scénarios neufs ont leur propre trace).
+Rien de spécifique à `isaac` dans le code : un jeu reprend ces sources en les posant dans son `hud.ron`.
+
+### Sources nouvelles (liste fermée `content::ui::HUD_SOURCES`, lint `UnknownKind`)
+
+| Source | Rendu | Attente `HudText` |
+|---|---|---|
+| `hearts` | widget `Hearts(source)` : rangée de carrés (côté `size.1`), un par cœur, **rouges** (vides compris, jusqu'à la vie maximale) puis **d'âme**, rempli à moitié pour un demi-cœur, passe à la ligne à la largeur `size.0` ; texte `Text(source: "hearts")` : « 2,5 / 3 · âme 1 » | `isaac_hud_items` (f3 « 3 / 3 », f30 « 2,5 / 3 », f100 « 2,5 / 3 · âme 1 »), `isaac_reliquaire` (« 3 / 3 · âme 2 »), `curse_hides_health` (`empty: true`) |
+| `coins` | `Counter(source)` : carré `icons.coins` + nombre (sous du joueur) ; la rangée est masquée sans valeur (D22). Alias de `shells` (même valeur), gardé pour l'icône par source : dette, à fusionner si `shells` disparaît des HUD | `isaac_hud_items` (« 12 ») |
+| `keys`, `bombs` (existantes) | `Counter` : carré `icons.keys` / `icons.bombs` + nombre | `isaac_hud_items` (« 2 », « 3 ») |
+| `item_banner` | `Text` sur fond, centré en haut : nom de l'objet ramassé pendant 3 s | `isaac_hud_items` (vide f3, « Bottines légères » f30, vide f230), `isaac_reliquaire` (« Reliquaire » f20, « Pouls » f60), `isaac_banner_blind` (« ??? ») |
+| `active_item` (existante) | `Icons(source: "active_item")` : le carré de l'objet actif (couleur et lettre de `icons[<id>]`) | `isaac_hud_items` (« Calice d'âme ») |
+| `active_charge` (existante) | texte « 30 / 30 · prêt » + jauge | `isaac_hud_items` (« prêt ») |
+| `minimap` (existante) | lettre et bordure teintée par type de salle (`room_icons`) | `isaac_hud_items` (« tresor · inexplorée », « boss · boss · inexplorée ») |
+| `curses` (existante, §74) | texte « Malédiction : blind » | `isaac_hud_items` (`empty: true` sans curse), `curse_*` |
+| `ammo` (existante) | **vide pour une arme `Infinite`** (ni chargeur ni réserve : l'ancien « 0 \| 0 » des larmes) | `isaac_hud_items` (`empty: true`) |
+
+**Cœurs** (`HudHearts`, `HudHearts::slots`) : `Health` et `ExtraHealth` (§68) en points de vie, un cœur valant
+`items::HEART_POINTS` = 2 points (Q2 : un demi-cœur = 1 PV). C'est une convention du moteur (`heart_label` des prix en
+cœurs la partage), pas un réglage du RON. Couleurs : `icons.heart`, `icons.soul_heart`, `icons.heart_empty` de `hud.ron`
+(défauts dans `heart_colors`). La curse `HideHealth` vide `hearts` comme `health`. **Pas de plafond de 12 cœurs** : la
+fiche de M3-T3 (§68) renvoyait à T16 « le plafond de 12 cœurs d'Isaac » ; borner le gameplay n'est pas de la
+présentation, donc T16 n'en pose aucun (`ExtraHealth` et `Health.max` restent non bornés) et la rangée **passe à la
+ligne** au lieu de tronquer. Un plafond reste à décider si William le veut, côté simulation.
+
+**Bandeau d'objet** (`ItemBannerState`, `track_item_banner`, `Update`, ressource hors rollback) : dérivé de l'**état
+d'inventaire** du joueur affiché, jamais d'un événement de la simulation : un passif dont le nombre d'exemplaires
+augmente, ou un actif qui change, depuis l'`Update` précédent, annonce l'objet pendant `ITEM_BANNER_FRAMES` (180 frames)
+**depuis la frame du ramassage** (`frame - from`). Les objets reçus dans les `ITEM_BANNER_START_GRACE` (5) frames qui
+suivent la première observation d'un joueur (objets de départ, `PlayerScript::items`) ne sont pas annoncés ; un
+consommable (clé, bombe, cœur) n'est jamais annoncé. Le nom vient de `ItemTable`, remplacé par « ??? »
+(`HIDDEN_ITEM_NAME`) sous `CurseHides::item_names` ; la source est vide sinon. Limite : un rollback qui retire puis
+redonne l'objet le réannonce, et un objet annoncé qui n'est plus tenu (prédiction annulée) éteint le bandeau ; un
+joueur sans `Inventory` (créé au premier ramassage) est suivi avec un inventaire vide : son premier objet est annoncé ; la mémoire (`ItemBannerState`) n'est pas rollbackée, comme `MinimapVisits` (D72).
+
+**Prompts** (`ui::hud::Prompt`, hors snapshot : testés unitairement, pas par `HudText`) : dette de T9 (§74) — un objet
+au sol (`InteractionType::Item`, composant `items::ItemPickup`) n'avait aucun prompt, donc aucun nom à cacher ; il
+affiche « Ramasser Reliquaire » (« Ramasser ??? » sous `HideItemNames`, `Prompt::hide_name`). Dette de T5 (§70) : la
+porte à clé affiche les **clés du joueur** : « Ouvrir — clé (2) » avec au moins une clé, « Fermé — clé (0) » sans
+(comme « Fermé — 1 clé » du coffre). Le coût `n` de la porte (`DoorLock::Key(n)`) n'est pas affiché : le HUD ne connaît
+pas la salle de la porte ; `isaac` n'a que `Key(1)`.
+
+**Minicarte** : la géométrie, les salles visitées/actuelle (bordure or épaisse) et la salle secrète n'apparaissant
+qu'ouverte (§70) existaient ; T16 ajoute `room_icons` à la racine de `hud.ron` (type de salle → `(color, label)`) :
+la lettre est écrite dans la salle (`T` trésor, `S` boutique, `B` boss, `?` secrète, `D` diable pour `isaac`) et la
+bordure teintée (la salle courante garde l'or) ; une salle verrouillée ajoute « × ». Sans `room_icons`, comportement
+d'avant (`B` pour le boss, `×` verrouillée) : `gungeon` et les autres jeux ne changent pas. `boutique` n'existe pas
+encore dans `isaac` (T11d) : l'icône est déclarée pour quand la salle existera.
+
+### Scénarios et captures
+
+`isaac_hud_items` (6 PV, 12 sous, `calice_ame`, 2 clés, 3 bombes ; bottines ramassées f6, `suiveur` + `mouche` au contact
+dès f7, cœur d'âme ramassé f60), `isaac_banner_blind` (« ??? » sous `blind`), `isaac_reliquaire` (§76.2, attentes ajoutées).
+Captures `play_scenario --capture … --at` et vidéo : `docs/captures/m3-t16-hud-isaac/`, rapport
+`docs/taches/rapports/m3-t16-hud-isaac.md`.
+
+## 82. Feedback v3 : larmes lisibles, familiers, champions, bombes et explosions (M3-T17, voie V4)
+
+Complète §31 et §55 : mêmes règles. **Tout est présentation** : rien de rollback, rien dans le checksum ni
+dans les traces (aucune trace n'a bougé : suite complète sans `BLESS`), rien dans `GgrsSchedule`, aucun crate
+de simulation n'importe du rendu (`make check_sim_boundary`). Chaque effet est **dérivé de l'état** (composants
+`Projectile`, `Bomb`, `FamiliarOf`, `Variant`, ressource `DoorLocks`) ou des `FrameEvents` **transitoires** que
+la simulation émet déjà (`Exploded`, `RockBroken`) : un rollback qui rejoue la même situation redonne les mêmes
+indices. Code : `game::feedback_v3` (fonctions pures et journal), `game::feedback` (rendu des explosions, teinte
+des champions), `game::world_sprites` (larmes, bombe, rocher), `game::character::visuals::orient_familiars`.
+
+### Journal et moments clés
+
+`feedback_v3::record_v3_cues` (`PostUpdate`, après `record_feedback_cues`, headless compris) remplit
+`FeedbackLog` ; sept genres de plus dans `FeedbackKind` et un champ `note: Option<String>` dans `FeedbackCue`.
+`scenario::events` en fait des moments clés `feedback` (`feedback_v3::cue_label`) :
+
+| Genre | Quand | Libellé |
+|---|---|---|
+| `Tear` | première frame d'une larme à modificateurs (`TearLook::is_plain` faux) | « larme 15 (guidée, division) » : liste des traits, dans l'ordre guidée, spectrale, orbite, division, perforante, statut, génération n |
+| `Familiar` | un familier apparaît (`FamiliarOf`) | « familier 14 (suiveur, porteur 8, rang 0) » ; « orbital » pour `Orbit` |
+| `Champion` | un personnage à `Variant` dont la variante a un `tint` apparaît | « champion 15 (explosif) » |
+| `BombFuse` | une `Bomb` apparaît | « mèche 17 (19 frames) » (frames restantes à la pose) |
+| `Explosion` | un `Exploded` | « anneau d'explosion (rayon 48) » |
+| `RockBroken` | un `RockBroken` | « rocher cassé (19,44) » (case de grille) |
+| `SecretWall` | une salle entre dans `DoorLocks` | « mur secret ouvert (<iid de la salle>) » |
+
+Une larme **plate** (aucun trait) ne produit rien : le contenu d'avant garde ses journaux. La mémoire (ids déjà
+vus, salles déjà ouvertes) est remise à zéro quand le compteur de frames recule (nouvelle partie) ; un
+rollback qui retombe avant l'ouverture d'un mur la retire de `DoorLocks` et la mémoire suit. Limites de §31
+reprises : un tick qui simule plusieurs frames ne journalise que les `FrameEvents` de la dernière ; un indice
+prédit puis annulé par un rollback p2p reste dans le journal.
+
+### Larmes
+
+`feedback_v3::tear_look(projectile, statuts, base)` (pure) : **couleur** = celle du premier statut posé par l'`on_hit`
+(`Chance` déballée, `StatusLibrary` : brûlure orange, poison vert, gel bleu, peur violet, lenteur, étourdissement),
+sinon turquoise si guidée, sinon la couleur d'équipe d'avant (jaune joueur, rouge ennemi) ; **opacité** 0,5 si
+`Spectral` ; **taille** (facteur sur `custom_size`, déjà agrandi par `Size` : `Projectile::size`) : ×1,25 `Split`,
+×1,15 `Pierce`, ×0,8 par génération (plancher 0,5). `world_sprites::style_tears` l'applique **une fois** par larme,
+après `skin_bullets` (qui pose l'image et la couleur d'équipe). Une larme plate n'est pas touchée.
+
+### Familiers et orbitaux
+
+Sprites provisoires par l'entrée `compagnon`/`orbital`/`rempart` de la table `SpriteSheet` du jeu (visuels
+`character::visuals`, comme les ennemis : un jeu sans entrée garde le rendu d'avant, aucun). **Orientation**
+(`orient_familiars`, après `set_sprite_flip`) : un suiveur regarde du côté où va son porteur, à défaut vers lui
+(`follower_faces_left`) ; un orbital tourne sur lui-même, la pointe vers l'extérieur du cercle (`outward_angle`).
+Seuls les calques à image sont touchés (pas la barre de vie).
+
+### Champions
+
+`feedback::tint_champions` pose `ChampionTint(Option<Color>)` (présentation, une fois) d'après `VariantDef::tint` de
+la variante (`#rrggbb`, lu dans `CharacterConfig::variants` par `feedback_v3::variant_tint`) ; `apply_layer_colors`
+l'utilise comme **couleur de base** des calques, devant `MarkerTint` (D66) ; statuts et flash passent encore devant.
+Les variantes du testbed ont une teinte (sauf `nu`, le témoin).
+
+### Bombe, explosion, rocher, mur secret
+
+- **Mèche.** `world_sprites::sync_world_sprites` : l'enfant-sprite de la `Bomb` (entrée `bomb`) clignote selon les
+  frames restantes `fuse_until - frame` : demi-période `clamp(restant / 4, 2, 8)` frames (`blink_half_period`), rouge
+  (1, 0,25, 0,2) en phase allumée, gris sinon, taille jusqu'à +25 % sur les 30 dernières frames (`fuse_blink`).
+- **Explosion** (`ExplosionFxConfig`, `explosion:` de `ui/feedback.ron`, optionnel, actif par défaut) : deux anneaux
+  (plein rayon et 0,6 plus clair) sur `ring_frames` (18), orange ; secousse de `shake_frames` (10) d'amplitude
+  `shake_amplitude` (8) **pour un rayon de 100**, proportionnelle au rayon, bornée à [1, 3 × l'amplitude]
+  (`explosion_shake`). Valable pour la bombe, le baril et l'explosion d'un champion (même `Exploded`).
+- **Rocher cassé.** Sprite de rocher (entrée `rock`), puis six éclats par rocher (`debris_offset` : directions
+  réparties, vitesse selon l'indice, freinage ; `debris_alpha` : pleins puis estompés sur 24 frames), dérivés de
+  l'âge en frames de simulation, détruits à l'échéance. La **tuile** de la carte (couche IntGrid `Rocks`) est dessinée
+  ssi un `world::Rock` vivant est à moins de 4 unités de son centre (`map_ldtk::plugins::sync_rock_tiles`, chaque tick,
+  **dérivée de l'état**, jamais d'un indice : juste quand un tick simule plusieurs frames ou quand un rollback annule
+  la casse ; seules les tuiles non nulles de la couche `Rocks` sont touchées).
+- **Mur secret.** Au tick où la salle entre dans `DoorLocks`, nuage de douze éclats ocre et anneau de poussière de rayon
+  48 à l'endroit de l'explosion de la même frame (sans explosion, seul le journal change).
+
+Lint (`FeedbackSettings::problems`, `OutOfRange`) : `explosion.ring_frames` dans `[1, 600]`, `shake_frames` dans `[0, 600]`,
+`shake_amplitude >= 0`, couleur dans `[0, 1]`. Fixtures `feedback_explosion_frames_zero`,
+`feedback_explosion_amplitude_negative`, `feedback_explosion_shake_frames_too_long`,
+`feedback_explosion_color_out_of_range`.
+
+### Assets provisoires
+
+`games/testbed/assets/sprites/feedback/` : `tear`, `bomb`, `rock`, `companion`, `orbital`, `champion` (PNG), feuilles
+`*_sheet.ron`, `anim_still.ron` ; entrées `bullet_player`, `bullet_enemy`, `bomb`, `rock`, `compagnon`, `orbital`,
+`rempart`, `elite_*` de `sprites/sprites.ron`. **Images originales du projet**, dessinées par
+`scripts/generer-sprites-feedback.py` (déterministe, CC0, `assets.yaml`), en niveaux de blanc pour que la teinte du
+rendu se voie ; statut `placeholder`, à remplacer par la voie V6. Les autres jeux n'ont pas ces entrées : rendu d'avant.
+
+### Preuve sans écran
+
+Attentes `Event(kind: "feedback", label_contains: …)` sur **11 scénarios** (14 attentes) : les genres qui prouvent une
+**logique de feedback propre** : `Tear` (`tear_look` : `tears_*`) et `Champion` (teinte résolue par `variant_tint` :
+`champion_*`), commentaire `// M3-T17` en tête de chacun, **traces inchangées**. Les genres qui ne font que **redire un
+événement d'état** (`Explosion` = `Exploded`, `SecretWall` = `DoorLocks`, `Familiar` = `FamiliarOf`, `BombFuse` = `Bomb`,
+`RockBroken` = `RockBroken`) sont journalisés (moments clés des vidéos) mais **ne sont plus attendus** : ils seraient
+tautologiques. Le rendu qu'ils pilotent (anneau conditionné à `explosion.enabled` et au brouillard, éclats, secousse,
+clignotement, orientation) n'a pas de preuve headless : preuve = captures et vidéos
+(`docs/taches/rapports/m3-t17-feedback-v3/`). Unitaires : `game::feedback_v3` (look d'une larme, mèche, secousse, éclats,
+teinte, orientation) et `map_ldtk::plugins` (tuile d'un rocher : retirée puis ressuscitée).
+
+### Limites
+
+- Aucun son d'explosion ni de mèche (aucun asset licencié retenu : `sounds` n'a pas de clé).
+- L'orbital et l'élite sont visibles dans le testbed seulement ; `isaac` aura ses propres entrées avec M3-T11.
+- Une bombe de champion (mèche d'une frame) apparaît une frame avec son sprite et un indice « mèche (0 frames) ».
+- Le mur secret n'a pas de sprite de porte propre : seule la poussière annonce l'ouverture.
+
+## 83. Langage visuel provisoire : on doit comprendre ce qu'on voit (m2-lisibilite-gungeon, voie V4)
+
+Constat de William sur les vidéos `gungeon_full_run` (2026-10-17) : « je ne comprends absolument rien ».
+Trois causes, toutes corrigées en **présentation seule** (aucune trace ne bouge, rien dans
+`GgrsSchedule`, aucun état rollback) :
+
+1. **La caméra était figée après le hub.** `camera_control_system` ne choisissait sa cible qu'une fois ;
+   la relance hub → run recrée les joueurs, la cible mémorisée n'existait plus et la caméra restait où
+   le hub l'avait laissée : les vidéos ne montraient plus les joueurs (flèches rouge et bleue de
+   `player_indicator_system` sur le bord). Une cible disparue est maintenant oubliée et re-choisie.
+2. **Tout se ressemblait** : héros, ennemis, objets partageaient les cases de Tiny Dungeon. Un langage
+   visuel **par classe d'entité** les remplace ; il est généré par `scripts/generer-sprites-gungeon.py`
+   (stdlib seule, CC0, `--check`, `--preview`) dans `games/gungeon/assets/sprites/lisible/` et déclaré dans
+   `sprites.ron` (bloc `// >>> généré`). Les sprites de Kenney du lot C sont retirés.
+3. **Rien n'indiquait ce qui est ramassable, achetable, dangereux.** Halo, pointeur, étiquettes, légende.
+
+### Les classes (id de `sprites.ron` = classe)
+
+| Classe | Silhouette / couleur | Id |
+|---|---|---|
+| joueur | pistolero (grand chapeau, poncho), **clair** : teinté par handle (0 bleu, 1 vert, 2 jaune, 3 violet, `player_colors` de `hud.ron`) | `player` |
+| bullet kin | balle de laiton ronde, jaune | `bullet_kin` |
+| escouade | petite balle pointue, orange, trois traits blancs | `bullet_kin_squad` |
+| shotgun kin | cartouche rouge large, culot de laiton | `shotgun_kin` |
+| lanceur | corps rond violet, tube de mortier | `lanceur_kin` |
+| tourelle (stationnaire) | cube d'acier sur trépied, lentille rouge | `tourelle_kin` |
+| vétéran | carrure large, casque à crête, chevrons, vert olive | `veteran_kin` |
+| bandana | élancé turquoise, bandeau rouge aux pans | `bandana_kin` |
+| fuyard | goutte bleu pâle, traits de vitesse | `fuyard_kin` |
+| cible | disque rouge et blanc sur pied | `cible` |
+| boss | forteresse cramoisie 64 px, couronne dorée (`atlas_boss`) | `gatling` |
+| tir ennemi | orbe **rond rouge** (taille = racine du dégât) | `bullet_enemy` |
+| tir allié | **losange** blanc bleuté | `bullet_player` |
+| douille | pièce jaune | `shell` |
+| clé / bombe / cœur / blank | clé d'or / bombe noire à mèche / cœur rouge / disque bleu | `item/key`, `item/bomb`, `item/heart`, `item/blank` |
+| objet passif / actif / consommable | carte à initiale / hexagone / fiole, teinte stable par id (`item/<id>`) | `item/<id>`, `item/passive`, `item/active`, `item/consumable` |
+| arme au sol | silhouette par famille (pistolet, revolver, fusil, fusil à pompe, arc, énergie, lanceur, flammes), orange | `weapon/<id>`, `weapon` |
+| coffre | bois, bandes d'or, cadenas ; ouvert : couvercle relevé (`Open`) | `chest` |
+| présentoir | socle de pierre, plateau doré, étiquette | `shelf` |
+| baril / table / rocher / mur fissuré | baril rouge à flamme / table de bois / bloc gris / brique fissurée | `barrel`, `table`, `rock`, `secret_wall` |
+| porte | fermée (planches) / ouverte (deux montants, sol visible) / à clé (cadenas rouge, chaînes) ; 16×32 et 32×16 | `door_v`, `door_h` (`Idle`, `Open`, `Locked`) |
+| portail | spirale violette et cyan 64 px | `portal` |
+| halo, pointeur | disque doux blanc, chevron blanc (la teinte vient du rendu) | `halo`, `aim` |
+
+Eau, sable et fosse restent les couleurs d'IntGrid de la couche `Surfaces` (`#3b7dd8`, `#d8c27a`, `#202020`),
+nommées dans la légende. Les piques ne sont pas redessinés (surface à `hazard`, aucun jeu n'en pose).
+
+### Données et systèmes génériques
+
+- **`sprites.ron`** : une entrée par classe. Un objet au sol cherche `item/<id>`, puis `item/<genre>`
+  (`passive`, `active`, `consumable`), puis `item` ; une arme `weapon/<id>` puis `weapon`
+  (`world_sprites::item_candidates`, `weapon_candidates`). Une entité sans entrée garde son rendu d'avant
+  (autres jeux inchangés).
+- **`hud.ron`** (champs optionnels de `HudConfig`) : `player_colors`, `names` (id → nom des étiquettes :
+  `player`, `shell`, `chest`, `chest_locked`, `chest_open`, `barrel`, `table`, `rock`, `portal`, ids de
+  personnages et d'armes), `legend` (groupes `(title, column, entries: [(label, sprite, anim, tint,
+  color)])`), `hide_markers` (cache les tuiles d'apparition des ennemis, repères d'auteur). Widget
+  `Legend(source: "legend")`, source ajoutée à `HUD_SOURCES`. Le lint refuse un `sprite` de légende absent de
+  `sprites.ron`.
+- **`game::legibility`** (`LegibilityPlugin`, dans `PresentationPlugin` : absent en headless) :
+  - pointeur de visée (`AimPivot`, enfant de chaque ennemi) : visée figée de l'émetteur, sinon dernière
+    position connue de la cible (`EnemyTarget`), sinon cible de déplacement ; caché sans cible ;
+  - halo pulsant (`Halo`, enfant) sous douilles, objets (couleur par rareté), armes, power-ups, coffres,
+    présentoirs ; il respire sur `FrameCount` (image n = frame n en capture) ; masqué à l'ouverture du coffre
+    ou à la vente ;
+  - couleur par handle : `MarkerTint` posé sur les joueurs (relu par `feedback::apply_layer_colors`, qui
+    n'efface plus la couleur des barres de vie : rouge ennemi, verte joueur) ;
+  - **étiquettes** (`Label`, entités indépendantes comme `PowerUpLabel`) : nom de l'ennemi, du joueur
+    (`J 1`), de l'objet, de l'arme (+ prix d'une arme murale), de la douille (`+n`), du coffre (clé, vide),
+    du présentoir (nom + prix), baril, table, rocher, porte fermée ou à clé (une porte ouverte n'en a pas),
+    portail (`WorldLabel`). Désencombrées (une étiquette qui en recouvre une autre monte) et masquées hors
+    de la vue (`FogView::sees`). **F6** les bascule ; `ALACOD_LABELS=1` les allume au départ ;
+    `play_scenario --capture` et `make videos` les allument d'office (`ALACOD_LABELS=0` les coupe) ;
+  - **légende** : **F7** (`LegendOpen`) ouvre le panneau du HUD, reconstruit à chaque ouverture.
+- **`world_sprites`** : `SpriteTable` (feuille et case d'un id), `SpriteRequest` (sprite demandé par id sur
+  une entité de carte : le portail), portes (`DoorSprite`, état d'après `Collider` et `Interactable` :
+  sans collider = ouverte, avec collider et interaction = à clé, collider seul = fermée par sa salle),
+  `hide_replaced_map_tiles` (la tuile de l'entité LDtk d'origine devient transparente quand son entité
+  rollback porte l'image du monde). Projectiles : une feuille déclarée `own_colors: true`
+  (`SpriteSheetConfig`, gungeon) porte sa couleur (pas de teinte d'équipe) et sa taille suit le dégât
+  (`5 + 1,6·√dégât`, bornée à 8..22) ; sans le champ (défaut), teinte d'équipe et halo agrandi comme avant
+  (testbed, isaac, throne, zombies inchangés) ; `style_tears` (M3-T17) s'applique ensuite. Une table ou un
+  baril (entités rollback sans `Transform`) pose son image sur l'entité LDtk d'origine (`MapHeld`) et la cache à sa destruction (`reap_held_sprites`) ; l'image d'une porte ouverte reste
+  `Visible` malgré le parent caché par `interaction::update_door_visuals`.
+- **Composants non rollback posés sur des entités rollback** : `AimPointer`, `PickupHalo`, `DoorSprite`,
+  `WorldSprite`, `MarkerTint` (joueurs) : tous hors checksum et hors snapshot, recréés pour une entité
+  ressuscitée ; les enfants (pointeur, halo) se cachent quand leur parent est désactivé.
+- **Dettes assumées (écarts à la fiche)** :
+  - `AimPointer`, `PickupHalo`, `DoorSprite` (et `WorldSprite`, `MarkerTint`) sont posés sur des entités
+    rollback, hors checksum et snapshot (comme `WorldSprite` avant eux) ; un composant de présentation sur
+    une entité rollback n'est pas un état, mais la fiche demandait de n'en poser aucun nouveau.
+  - Couleurs de catégorie du halo, du pointeur et des étiquettes en dur dans `legibility.rs` (voie V6 :
+    les passer dans `hud.ron`).
+  - Piques non dessinés (aucun jeu n'en pose ; le sprite `spikes` est généré mais non branché).
+  - Coût des étiquettes : `gather_labels` et `sync_labels` cherchent linéairement (`wishes.iter().find`),
+    `declutter` est quadratique ; non mesuré, à mesurer au-delà de ~50 étiquettes (salles d'arène, étage
+    entier visible) avant d'indexer par entité.
+  - Les images de porte, de table et de baril sont des enfants de l'entité LDtk persistante (l'entité
+    rollback n'a pas de `Transform`) : leur visibilité est **héritée** du monde de l'étage (`Inherited`,
+    jamais `Visible`) et `reap_held_sprites` les cache quand l'entité rollback propriétaire n'existe plus
+    (changement d'étage, création annulée par un rollback). Test : `world_sprites::tests`.
+
+### Preuves et vidéos
+
+`play_scenario --capture <dir> --at 42,157,…` ne capture que ces frames (et s'arrête après la dernière) ;
+`--legend` ouvre la légende sans étiquettes. `scripts/scenario-video` rend, pour chaque scénario dont le jeu
+déclare un widget `Legend`, l'**image de légende** (frame 40, par le moteur) et la place en tête de la
+vidéo pendant `LEGEND_SECONDS` (1,2 s) : `ffmpeg` sans `drawtext` suffit (concat, aucun texte incrusté par
+ffmpeg). La page de revue lit `<nom>.legend` (secondes de tête) et compte frames et moments clés depuis la fin
+de la légende. Seul `render` ajoute la légende (pas `views` ni `compare`). Rapport : `docs/taches/rapports/m2-lisibilite-gungeon.md`.
+
+### Ajouter une classe
+
+1. Dessiner le sprite dans `scripts/generer-sprites-gungeon.py` (primitives `Img`, contour automatique), le
+   déclarer dans `PERSOS` / `world_sprites()`, relancer le script, `--preview /tmp/apercu.png` pour le voir.
+2. Ajouter la ligne de légende dans `ui/hud.ron` et, si besoin, un nom dans `names`.
+3. `python3 -m unittest scripts/tests/test_sprites_gungeon.py` (sprites à jour, CC0 dans `assets.yaml`,
+   légende résolue, silhouettes distinctes). Un autre jeu fait de même avec ses propres entrées : le code
+   ne connaît aucune classe, seulement des ids.
+
+**Remplacement par la voie V6** : un fichier `png` (et sa feuille) remplace la classe ; l'id de
+`sprites.ron` ne change pas.

@@ -1,0 +1,30 @@
+// M3-T8 (docs/conventions.md §73, Q6), cas relevé en revue : un `Mul` sur `MaxHealth` amplifie la perte réelle.
+// Le joueur a `MaxHealth` `Set 2` puis `Mul 2` (vie maximale résolue 4, vie 4/4, sans cœur d'âme) ; un cœur
+// (`MaxHealth("2")`) laisserait la stat résolue à (2 − 2) × 2 = 0 : `sync_health_from_stats` recopierait ce 0
+// dans la vie courante, le paiement aurait tué. Le marché le **refuse** (la règle brute `4 > 2` l'aurait accepté) :
+// rien ne bouge, l'objet n'est pas pris, le joueur est vivant à 4/4.
+//
+// À regarder : f10 l'Interaction ne fait rien ; le présentoir reste ; 4/4 jusqu'au bout.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    shop: (shelves: [(key: "s", item: "boussole", price: 0, cost: Some(MaxHealth("2")), x: "424.0", y: "696.0", at_frame: 5)]),
+    frames: 100,
+    players: [
+        (modifiers: [(stat: MaxHealth, op: Set, value: "2"), (stat: MaxHealth, op: Mul, value: "2")], inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 60, to: 61, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: MaxHealth, value: 4.0, at_frame: 9),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 9),
+        Shelf(nth: 0, sold: Some(false), at_frame: 30),
+        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 30),
+        Stat(handle: 0, stat: MaxHealth, value: 4.0, at_frame: 90),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 90),
+        Shelf(nth: 0, sold: Some(false), at_frame: 90),
+        PlayerAlive(handle: 0, at_frame: 99),
+    ],
+)

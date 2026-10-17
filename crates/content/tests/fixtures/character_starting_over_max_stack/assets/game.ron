@@ -1,0 +1,9 @@
+// Fixture M3-T3 : starting_consumables dépasse le max_stack de l'objet
+(
+    name: "fixture-character_starting_over_max_stack",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

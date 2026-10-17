@@ -1,0 +1,1 @@
+(name: "Cœur d'âme", kind: Consumable, effects: [(on: OnUse, do: [GainSoul("0")])])

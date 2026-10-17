@@ -312,6 +312,8 @@ Variables d'environnement (natif) :
   `ALACOD_INPUT=script:<scénario.ron>` (natif) : chaque joueur local rejoue le `PlayerScript` de son
   handle (preuve p2p avec rollback réel : `tests/scenarios/p2p_smoke.ron`, inputs qui changent sans
   arrêt ; avec `neutral`, les prédictions sont toujours justes et rien n'est resimulé).
+- `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
+  de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
 - `ALACOD_STATE_TRACE=<fichier>` + `ALACOD_EXIT_AT_FRAME=<n>` : hash de l'état rollback à chaque frame,
   puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence. Le log
   final donne le nombre de frames resimulées après rollback (zéro en p2p = run sans valeur).
@@ -388,13 +390,28 @@ crate `APP`), jamais dans un crate `SIM`.
       `EntityCount` couvrent les scénarios `grid_*` et `key_door_*`).
     - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
       du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
+    - M3-T3 cœurs, sous, bombes et clés au sol (§68) : `ExtraHealth` (points de vie d'âme du joueur : `ExtraHealth(handle: 0,
+      n: 4.0, at_frame: 110)`, égalité exacte, 0 sans le composant) ; `Consumable`, `Currency`, `Health`, `HudText`
+      (source `bombs`) et `ShellPiles` couvrent les autres scénarios (`soul_heart_absorbs`, `heart_full_stays`, `coin_pickup`,
+      `bomb_pickup_cap`, `coop_pickups_per_player`, `hit_iframes_isaac`).
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
       `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
     - M3-T0e curses et pools (§64) : `Curse(floor, id: Some("…") | None, at_frame)` (curse de l'étage,
       `run::RunCurses`), `PoolSeen(pool, item, seen, at_frame)` (objet sorti d'un pool à épuisement,
-      `items::PoolState`) ; rien ne remplit ces ressources avant M3-T8/T9, le témoin
-      `curse_pool_unset` n'attend que `None` / `seen: false`.
+      `items::PoolState`) ; M3-T8 (§73) les remplit (assignation à la génération de l'étage).
+    - M3-T9 curses en jeu (§74) : `RoomCount(min, max: Some(n), at_frame)` (nombre de `RoomBounds` du monde, tous
+      étages confondus : à employer sur un étage unique) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
+      source masquée) et la source `curses` ; `Curse` lit maintenant les tirages réels de `game::curses` ;
+      moment clé `curse` (curse tirée à l'entrée d'un étage).
+    - M3-T16 HUD `isaac` (§81) : aucune attente nouvelle ; `HudText` lit les sources `hearts` (« 2,5 / 3 · âme 1 »,
+      cœurs en demi-PV), `coins`, `keys`, `bombs`, `item_banner` (nom de l'objet ramassé depuis moins de 3 s, « ??? » sous
+      `HideItemNames`), `active_item`/`active_charge`, `minimap` et `curses` (scénarios `isaac_hud_items`,
+      `isaac_banner_blind`, `isaac_reliquaire`) ; `ammo` est **vide** pour une arme `Infinite`.
+    - M3-T8 pools par type de salle et marché du diable (§73) : `PoolCount(pool, count, at_frame)` (objets **distincts**
+      sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
+      `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
+      présentoir à vie maximale ou à consommable ; `Health`, `Stat(MaxHealth)` et `ExtraHealth` lisent le paiement.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
@@ -649,6 +666,19 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
   (« balles 120 »).
 - `statuses` (T1.18) : statuts posés, une ligne chacun (« brulure ×2 · 3 s »).
 - `floor` (T1.18) : « Étage 3 » (index + 1), en mode `Floors` seulement.
+- `curses` (M3-T9, §74) : id de la curse de l'étage courant (« darkness »), vide sans curse. Les curses
+  de présentation masquent des sources : `HideMinimap` vide `minimap`, `HideHealth` vide `health` (texte et
+  barre), `HideItemNames` remplace par « ??? » le nom des objets et armes du prompt (`prompt`, hors snapshot).
+- `hearts` (M3-T16, §81) : `Health` + `ExtraHealth` en demi-cœurs (1 PV = ½ cœur, `items::HEART_POINTS`), texte
+  « 2,5 / 3 · âme 1 » ; widget `Hearts(source)` (rangée de carrés, demi-cœur à moitié rempli, passe à la ligne,
+  couleurs `icons.heart` / `soul_heart` / `heart_empty`) ; vide sous `HideHealth`.
+- `coins` (M3-T16) : sous du joueur (comme `shells`, jeux à objets seulement) ; widget `Counter(source)` : carré
+  `icons[source]` (`coins`, `keys`, `bombs`) suivi du nombre.
+- `item_banner` (M3-T16) : nom du dernier objet ramassé pendant 3 s (`ITEM_BANNER_FRAMES`), dérivé de l'inventaire
+  du joueur affiché (`hud_model::ItemBannerState`, présentation seule) ; « ??? » sous `HideItemNames` ; les objets de
+  départ ne l'annoncent pas. Le prompt d'un objet au sol (« Ramasser … ») et celui d'une porte à clé
+  (« Ouvrir — clé (2) » / « Fermé — clé (0) ») complètent la source `prompt`. `Icons(source: "active_item")` dessine
+  l'icône de l'actif ; `room_icons` (racine de `hud.ron`) pose une lettre et une bordure par type de salle sur `minimap`.
 
 #### Écrans : pause et inventaire (M2-T18, test comparatif)
 
@@ -855,6 +885,10 @@ crates/game/src/character/enemy/
 - **F3** : Toggle Flow Field visualization
 - **F4** : Cycle NavProfile (Ground → GroundBreaker → Flying → Phasing)
 - **F5** : Toggle Enemy State visualization
+- **F6** : étiquettes au-dessus des entités (nom, prix, état ; `ALACOD_LABELS=1` au départ, allumées d'office
+  dans `play_scenario --capture` et les vidéos) — langage visuel de `docs/conventions.md` §83
+  (avec le flow field actif (F3), F6 bascule aussi sa source IntGrid)
+- **F7** : légende des silhouettes et couleurs (widget `Legend` de `hud.ron`)
 
 ## Collision Layers
 

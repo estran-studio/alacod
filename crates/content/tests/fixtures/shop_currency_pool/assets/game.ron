@@ -1,0 +1,10 @@
+// Fixture M3-T3 : une boutique ne vend pas de sous (pool avec Currency)
+(
+    name: "fixture-shop_currency_pool",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "rooms", kind: "Room"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

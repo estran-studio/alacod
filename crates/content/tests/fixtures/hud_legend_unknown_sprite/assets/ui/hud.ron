@@ -1,0 +1,14 @@
+// m2-lisibilite-gungeon : une ligne de légende cite un sprite (`dragon`) absent de sprites.ron → BrokenReference.
+(
+    widgets: [
+        (kind: Legend(source: "legend"), anchor: Center, offset: (0.0, 0.0), size: Some((400.0, 0.0)),
+         color: None, font_size: None),
+    ],
+    legend: [
+        (title: "Ennemis", column: 0, entries: [
+            (label: "Héros", sprite: Some("hero")),
+            (label: "Dragon", sprite: Some("dragon")),
+            (label: "Eau", color: Some("#3b7dd8")),
+        ]),
+    ],
+)

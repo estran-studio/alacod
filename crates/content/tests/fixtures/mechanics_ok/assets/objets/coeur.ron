@@ -1,0 +1,1 @@
+(name: "Cœur", kind: Consumable, rarity: Common, effects: [(on: OnUse, do: [Heal("2")])])

@@ -36,7 +36,18 @@
         attack_cooldown_frames: Some(120),
         behaviors: Some([Melee("contact"), Chase(profile: "Ground")]),
     )),
-    // `docs/conventions.md` §28 : scénarios générés `enemy_suiveur_still`/`_moving`
-    // (`make gen GAME=isaac`), attentes par défaut.
-    test: Some((frames: 600)),
+    // M3-T11c (§76.3) : champion `explosif` (chance `0,1 + étage × 0,15`) : à sa mort, une explosion de 44 unités
+    // (2 PV, `Explode`, ne détruit pas les murs : `destroys: false`, la salle secrète reste à la bombe).
+    variants: Some((
+        chance: "0.1 + floor * 0.15",
+        table: {
+            "explosif": (tags: ["champion"], on_death: [Explode(radius: "44.0", damage: "2.0", destroys: false)], tint: Some("#c0392b")),
+        },
+    )),
+    // `docs/conventions.md` §28 : scénarios générés `enemy_suiveur_still`/`_moving` (`make gen GAME=isaac`), attentes
+    // par défaut ; §78 : `champion_suiveur_explosif` (variante imposée, `kill` : l'explosion à la mort).
+    test: Some((
+        frames: 600,
+        champions: [(variant: "explosif", kill: true, weapon: Some("larmes"))],
+    )),
 )

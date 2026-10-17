@@ -1,0 +1,15 @@
+// Généré par scripts/generer-sprites-gungeon.py : ne pas éditer à la main.
+(
+    path: "sprites/lisible/bullet_player.png",
+    tile_size: (32, 32),
+    columns: 1,
+    rows: 1,
+    animated: false,
+    name: "body",
+    scale: 1.0,
+    anchor: Center,
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 0.0,
+    own_colors: true,
+)

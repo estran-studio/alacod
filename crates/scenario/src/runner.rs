@@ -967,29 +967,48 @@ fn apply_scenario_item_placements(
 #[derive(Resource)]
 struct ScenarioChestPlacements(Vec<game::replay::ChestPlacement>);
 
+#[allow(clippy::too_many_arguments)]
 fn apply_scenario_chest_placements(
     frame: Res<FrameCount>,
     placements: Res<ScenarioChestPlacements>,
+    tables: Res<items::LootTables>,
+    floors: Res<game::loot::FloorLootTables>,
+    item_table: Res<items::ItemTable>,
+    unlocks: Res<items::UnlockTable>,
+    active: Res<items::RunUnlocks>,
+    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
+    floor: Option<Res<run::FloorState>>,
+    mut pools: ResMut<items::PoolState>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
+    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    let ctx = game::loot::SlotContext {
+        frame: frame.frame,
+        tables: &tables,
+        items: &item_table,
+        unlocks: &unlocks,
+        active: &active,
+        run_seed,
+        floor,
+    };
     for placement in &placements.0 {
         if frame.frame != placement.at_frame {
             continue;
         }
         let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
-        game::loot::spawn_chest(
-            &mut commands,
-            &mut id_factory,
-            items::Chest {
-                key: placement.key.clone(),
-                table: placement.table.clone(),
-                rarity: placement.rarity,
-                locked: placement.locked,
-                opened: false,
-            },
-            position,
-        );
+        let chest = items::Chest {
+            key: placement.key.clone(),
+            table: placement.table.clone(),
+            rarity: placement.rarity,
+            locked: placement.locked,
+            opened: false,
+        };
+        // M3-T8 (§73) : comme un coffre de salle, l'objet d'un pool qui s'épuise est assigné à la
+        // pose (idempotent : une seconde pose de la même clé donne le même objet).
+        let table_id = game::loot::chest_table_id(&chest, &floors, floor).to_string();
+        game::loot::assign_slot(&ctx, &mut pools, &table_id, chest.rarity, false, &chest.key);
+        game::loot::spawn_chest(&mut commands, &mut id_factory, chest, position);
     }
 }
 
@@ -1017,7 +1036,7 @@ fn apply_scenario_shelf_placements(
                 price: placement.price,
                 sold: false,
                 retry_after: 0,
-                cost: None,
+                cost: placement.cost.clone(),
             },
             position,
         );
@@ -2541,6 +2560,23 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        // M3-T3 (§68) : points de vie d'âme du joueur (0 sans le composant).
+        Expectation::ExtraHealth { handle, n, .. } => {
+            let Some(actual) = world
+                .query::<(&Player, Option<&combat::actors::ExtraHealth>)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, extra)| extra.map_or(fixed_math::Fixed::ZERO, |extra| extra.soul))
+            else {
+                return Err("joueur absent".into());
+            };
+            let wanted = fixed_math::Fixed::from_num(*n);
+            if actual == wanted {
+                Ok(())
+            } else {
+                Err(format!("{actual} points de vie d'âme (attendu {wanted})"))
+            }
+        }
         Expectation::ItemCount {
             handle, id, count, ..
         } => {
@@ -2630,6 +2666,7 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             nth,
             item,
             price,
+            cost,
             sold,
             ..
         } => {
@@ -2647,6 +2684,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             };
             if item.as_ref().is_some_and(|item| *item != shelf.item_id)
                 || price.is_some_and(|price| price != shelf.price)
+                || cost
+                    .as_ref()
+                    .is_some_and(|cost| Some(cost) != shelf.cost.as_ref())
                 || sold.is_some_and(|sold| sold != shelf.sold)
             {
                 return Err(format!("présentoir {nth} : {shelf:?}"));
@@ -2800,6 +2840,18 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M3-T9 : nombre de salles de la carte (curse `Labyrinth`).
+        Expectation::RoomCount { min, max, .. } => {
+            let count = world
+                .query::<&map::game::entity::map::room::RoomBounds>()
+                .iter(world)
+                .count() as u32;
+            if count >= *min && max.is_none_or(|max| count <= max) {
+                Ok(())
+            } else {
+                Err(format!("{count} salle(s) (attendu entre {min} et {max:?})"))
+            }
+        }
         // M3-T0c : porte verrouillée d'une salle typée (`world::DoorLocks`, `RoomKindDef::door_lock`).
         Expectation::DoorLocked {
             kind, nth, locked, ..
@@ -2924,6 +2976,32 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        // M3-T8 (§73) : objets distincts sortis d'un pool à épuisement.
+        Expectation::PoolCount { pool, count, .. } => {
+            let actual = world
+                .get_resource::<items::PoolState>()
+                .map_or(0, |state| state.count(pool));
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!(
+                    "pool « {pool} » : {actual} objet(s) sorti(s) (attendu {count})"
+                ))
+            }
+        }
+        // M3-T8 (§73) : objets au sol (butin de boss, objet lâché).
+        Expectation::ItemsOnFloor { id, count, .. } => {
+            let actual = world
+                .query::<&items::ItemPickup>()
+                .iter(world)
+                .filter(|pickup| pickup.item_id == *id)
+                .count() as u32;
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!("{actual} « {id} » au sol (attendu {count})"))
+            }
+        }
         // M2-T13 : décisions du hub dans la simulation (`game::hub::HubState`).
         Expectation::HubExit {
             handle,
@@ -2972,12 +3050,22 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         }
         // T1.18 : texte d'une source du HUD (présentation, hors trace).
         Expectation::HudText {
-            source, contains, ..
+            source,
+            contains,
+            empty,
+            ..
         } => {
             let Some(snapshot) = world.get_resource::<game::ui::hud_model::HudSnapshot>() else {
                 return Err("pas de HudSnapshot".into());
             };
             let text = snapshot.texts.get(source).map_or("", String::as_str);
+            if *empty {
+                return if text.is_empty() {
+                    Ok(())
+                } else {
+                    Err(format!("HUD {source} = « {text} » (attendu vide)"))
+                };
+            }
             if text.contains(contains.as_str()) {
                 Ok(())
             } else {
@@ -3298,6 +3386,12 @@ pub struct CaptureConfig {
     pub follow_handle: Option<usize>,
     /// Capture viewport, for checking responsive HUD layouts.
     pub size: (u32, u32),
+    /// Frames à capturer (sinon : une toutes les `every`). Non vide : la partie s'arrête après la
+    /// dernière (`play_scenario --at 42,157`), pour les captures de preuve d'un rapport.
+    pub at: Vec<u32>,
+    /// Légende ouverte (F7) et sans étiquettes : image de légende en tête des vidéos de revue
+    /// (`scripts/scenario-video`, `play_scenario --legend`).
+    pub legend: bool,
 }
 
 #[derive(Resource)]
@@ -3310,6 +3404,7 @@ struct CaptureState {
     /// Image où la caméra rend pendant la capture (taille fixe, indépendante de la fenêtre).
     target: Option<Handle<Image>>,
     size: (u32, u32),
+    at: Vec<u32>,
 }
 
 /// Taille des images capturées.
@@ -3333,6 +3428,12 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     // caméra (présentation seule : la simulation et la trace ne lisent ni l'un ni l'autre).
     app.insert_resource(WaveDebugEnabled(false))
         .insert_resource(game::camera::ui::CameraDebugUiEnabled(false));
+    // Fiche m2-lisibilite-gungeon : les captures expliquent ce qu'elles montrent. Étiquettes allumées
+    // par défaut (`ALACOD_LABELS=0` les coupe) ; la légende seule pour l'image de tête des vidéos.
+    app.insert_resource(game::legibility::LabelsEnabled(
+        !config.legend && std::env::var("ALACOD_LABELS").map_or(true, |v| v != "0"),
+    ))
+    .insert_resource(game::legibility::LegendOpen(config.legend));
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
     ))
@@ -3344,6 +3445,7 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
         updates_after_end: 0,
         target: None,
         size: config.size,
+        at: config.at,
     })
     .add_systems(Startup, configure_capture_window)
     .add_systems(Update, (render_cameras_to_image, capture_frames).chain());
@@ -3419,7 +3521,8 @@ fn capture_frames(
         // Hub suivi : aucune image tant que la run n'a pas commencé (la vidéo montre la run seule).
         return;
     }
-    if frame >= state.frames {
+    let last_at = state.at.iter().copied().max();
+    if frame >= state.frames || last_at.is_some_and(|last| frame > last) {
         // Laisser le temps aux dernières captures d'être écrites
         state.updates_after_end += 1;
         if state.updates_after_end > 10 {
@@ -3435,7 +3538,12 @@ fn capture_frames(
         return;
     }
 
-    if frame % state.every == 0 && state.last_captured != Some(frame) {
+    let wanted = if state.at.is_empty() {
+        frame % state.every == 0
+    } else {
+        state.at.contains(&frame)
+    };
+    if wanted && state.last_captured != Some(frame) {
         let path = state.dir.join(format!("frame_{frame:05}.png"));
         commands
             .spawn(Screenshot::image(target))

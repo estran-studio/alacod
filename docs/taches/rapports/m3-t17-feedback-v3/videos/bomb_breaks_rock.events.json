@@ -1,0 +1,47 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 116,
+    "kind": "feedback",
+    "label": "mèche 15 (19 frames)"
+  },
+  {
+    "frame": 136,
+    "kind": "feedback",
+    "label": "secousse 10 (8 frames)"
+  },
+  {
+    "frame": 136,
+    "kind": "feedback",
+    "label": "hit stop 10 (2 frames)"
+  },
+  {
+    "frame": 136,
+    "kind": "feedback",
+    "label": "anneau d'explosion (rayon 30)"
+  },
+  {
+    "frame": 136,
+    "kind": "feedback",
+    "label": "rocher cassé (19,42)"
+  },
+  {
+    "frame": 136,
+    "kind": "feedback",
+    "label": "rocher cassé (19,43)"
+  },
+  {
+    "frame": 136,
+    "kind": "feedback",
+    "label": "rocher cassé (19,44)"
+  },
+  {
+    "frame": 135,
+    "kind": "explosion",
+    "label": "explosion en (293.80116, 690) rayon 30"
+  }
+]

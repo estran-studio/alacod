@@ -1,0 +1,25 @@
+// M3-T3 (docs/conventions.md §68, Q2) : un cœur d'âme absorbe les dégâts point par point avant les PV.
+// Même mise en place que `shield_absorbs_hit` (la `tourelle_spirale` placée à f5, 100 px à droite du
+// joueur immobile, le touche de 8 PV par volée, vers f65 et f155) : le `coeur_ame` (4 points de vie
+// d'âme) est ramassé à f5 au contact.
+//
+// À regarder : f5 le cœur est ramassé (ExtraHealth 4, rien dans l'inventaire) ; la première volée (f65)
+// entame les 4 points d'âme puis retire les 4 PV restants (96) ; la seconde (f155) touche directement
+// (88). Témoin : `soul_heart_absorbs_temoin` (sans le cœur : 92 puis 84).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    items: [(id: "coeur_ame", x: "424.0", y: "696.0", at_frame: 5)],
+    characters: [(character: "tourelle_spirale", x: "520.0", y: "696.0", at_frame: 5)],
+    players: [(inputs: [])],
+    expect: [
+        ExtraHealth(handle: 0, n: 0.0, at_frame: 5),
+        ExtraHealth(handle: 0, n: 4.0, at_frame: 60),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 60),
+        ExtraHealth(handle: 0, n: 0.0, at_frame: 110),
+        Health(handle: 0, min: 96.0, max: 96.0, at_frame: 110),
+        Health(handle: 0, min: 88.0, max: 88.0, at_frame: 199),
+    ],
+)

@@ -1,0 +1,9 @@
+(
+    entries: [
+        (pick: Item("key"), weight: 2),
+        (pick: Item("bomb"), weight: 2),
+        (pick: Item("coeur"), weight: 2),
+        (pick: Currency(1), weight: 4),
+    ],
+    reward: Some((chance: "0.33", chest_chance: "0.0")),
+)

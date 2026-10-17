@@ -837,6 +837,27 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             1,
         ),
         ("feedback_boss_freeze_zero", LintErrorKind::OutOfRange, 1),
+        // M3-T17
+        (
+            "feedback_explosion_frames_zero",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        (
+            "feedback_explosion_amplitude_negative",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        (
+            "feedback_explosion_shake_frames_too_long",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        (
+            "feedback_explosion_color_out_of_range",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
         // T1.17
         (
             "feedback_by_weapon_unknown",
@@ -1027,6 +1048,14 @@ fn weapon_sprite_unknown_fixture_reports_unknown_sheet() {
         LintErrorKind::BrokenReference,
         "sprite_config.name",
     );
+    assert_only_one_besides_start_map(&errors);
+}
+
+// m2-lisibilite-gungeon : la légende du HUD ne cite que des sprites de `sprites.ron`.
+#[test]
+fn hud_legend_fixture_reports_unknown_sprite() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_legend_unknown_sprite")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "sprite « dragon »");
     assert_only_one_besides_start_map(&errors);
 }
 
@@ -1847,7 +1876,7 @@ fn test_only_content_is_ignored_by_reach() {
 
 #[test]
 fn shipped_games_lint_without_error() {
-    for game in ["zombies", "testbed", "throne", "gungeon"] {
+    for game in ["zombies", "testbed", "throne", "gungeon", "isaac"] {
         let (registry, manifest, errors) = load_and_lint(&game_dir(game)).unwrap();
         assert!(errors.is_empty(), "{game} : {errors:#?}");
         for warning in content::warnings(&registry, &manifest) {

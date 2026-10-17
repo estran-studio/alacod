@@ -1,0 +1,9 @@
+// Fixture M3-T3 : Currency(0) dans un pool de butin
+(
+    name: "fixture-loot_currency_zero",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

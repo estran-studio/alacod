@@ -1,0 +1,22 @@
+// M3-T3 (docs/conventions.md §68) : des sous au sol. Un coffre du pool `pieces` (entrée `Currency(7)`) est posé
+// aux pieds du joueur à f5 ; l'Interaction de f10 l'ouvre : au lieu d'un objet, il laisse un tas de 7 sous
+// (un `ShellPickup`, comme les douilles des ennemis), ramassé au contact.
+//
+// À regarder : f10 le coffre s'ouvre, un tas apparaît à côté (ShellPiles 1) puis disparaît quand le joueur
+// le ramasse ; le solde passe de 500 (départ du testbed) à 507.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    frames: 60,
+    chests: [(key: "c", table: Some("pieces"), x: "424.0", y: "696.0", at_frame: 5)],
+    players: [
+        (inputs: [(from: 10, to: 11, buttons: [Interaction])]),
+    ],
+    expect: [
+        Currency(handle: 0, min: 500, max: 500, at_frame: 9),
+        ShellPiles(count: 0, at_frame: 9),
+        Currency(handle: 0, min: 507, max: 507, at_frame: 40),
+        ShellPiles(count: 0, at_frame: 40),
+    ],
+)

@@ -7,6 +7,7 @@
 // bombe, reste ; le joueur passe l'ancienne ligne de rochers (x > 320) et s'arrête contre le rocher à butin ;
 // aucun butin n'apparaît (témoin de `rock_loot`, où le rayon couvre aussi le rocher à butin). Témoin de la
 // carte intacte : `rocks_static`, le joueur s'arrête à x 293,8 jusqu'à la fin.
+
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",

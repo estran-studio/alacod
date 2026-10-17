@@ -1,0 +1,9 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : vitesse de déplacement +25 % (`MoveSpeed` Pct 0,25).
+(
+    name: "Bottines légères",
+    kind: Passive,
+    modifiers: [(stat: MoveSpeed, op: Pct, value: "0.25")],
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

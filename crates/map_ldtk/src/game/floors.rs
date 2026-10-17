@@ -219,6 +219,12 @@ pub fn compute_floor_plan(
         }
         _ => commands.remove_resource::<FloorPlan>(),
     }
+    // M3-T9 (§74) : curses de la séquence (vides hors `Floors` ou sans champ `curses`), lues à la
+    // génération des étages (`FloorRooms`) et par `game::curses::curse_system`.
+    commands.insert_resource(game::curses::CurseTable::for_mode(
+        &mode_for_victory,
+        registry.as_deref(),
+    ));
     // Hors du mode `Floors` : rien à remonter au changement d'étage.
     if !matches!(&mode_for_victory, run::RunMode::Floors { .. }) {
         commands.insert_resource(game::items::FloorStartConsumables::default());
@@ -759,6 +765,9 @@ fn floor_portal_visual_system(
         (Some(anchor), Err(_)) => {
             commands.spawn((
                 PortalVisual,
+                // Langage visuel (§83) : image `portal` du jeu si elle existe ; le carré violet reste le repli.
+                game::world_sprites::SpriteRequest("portal".to_string()),
+                game::legibility::WorldLabel("portal".to_string()),
                 Sprite {
                     color: Color::srgba(0.6, 0.2, 0.9, 0.8),
                     custom_size: Some(Vec2::splat(40.0)),

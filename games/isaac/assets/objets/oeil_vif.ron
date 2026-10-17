@@ -1,0 +1,7 @@
+// `isaac` (M3-T8, §73) : passif du pool `boss` (donnée d'attente, contenu : M3-T11).
+(
+    name: "Œil vif",
+    kind: Passive,
+    rarity: Uncommon,
+    modifiers: [(stat: ShotSpeed, op: Pct, value: "0.2")],
+)

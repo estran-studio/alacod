@@ -1,0 +1,30 @@
+// M3-T8 (docs/conventions.md §73, Q5 et Q6) : la salle du diable d'`isaac` est remplie. Graine 8 (séquence
+// `sous_sol_un`, la même que `grid_post_boss`) : la chance de la grammaire (un tiers, M3-T5) donne la salle
+// post-boss, collée au boss ; à la génération de l'étage ses deux présentoirs du pool `diable` (`exhaust`) sont
+// tirés (`cornes_noires`, `regard_maudit`) et payables en un cœur de vie maximale (`MaxHealth("2")`) : deux objets
+// sortis du pool, distincts. Le
+// trésor et le boss ont tiré chacun un objet de leurs pools (`longue_vue`, `calice_ardent` ; l'objet dépend de la taille des pools : M3-T11a puis M3-T11b, 31 objets au trésor, 5 au boss), dans le même instant.
+// Témoin : `devil_room_absent` (graine 5 : pas de salle du diable, rien de tiré dans le pool).
+//
+// À regarder : rien ne bouge (le joueur est immobile) ; f10 deux présentoirs à un cœur dans la salle du diable.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 8,
+    floors: Some("sous_sol_un"),
+    frames: 40,
+    players: [(inputs: [])],
+    expect: [
+        RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["depart", "secrete", "tresor"], at_frame: 10),
+        ShelfCount(count: 2, at_frame: 10),
+        Shelf(nth: 0, price: Some(0), cost: Some(MaxHealth("2")), sold: Some(false), at_frame: 10),
+        Shelf(nth: 1, price: Some(0), cost: Some(MaxHealth("2")), sold: Some(false), at_frame: 10),
+        PoolCount(pool: "diable", count: 2, at_frame: 10),
+        PoolCount(pool: "tresor", count: 1, at_frame: 10),
+        PoolCount(pool: "boss", count: 1, at_frame: 10),
+        PoolSeen(pool: "diable", item: "cornes_noires", seen: true, at_frame: 10),
+        PoolSeen(pool: "diable", item: "regard_maudit", seen: true, at_frame: 10),
+        PoolSeen(pool: "tresor", item: "longue_vue", seen: true, at_frame: 10),
+        PoolSeen(pool: "boss", item: "calice_ardent", seen: true, at_frame: 10),
+    ],
+)

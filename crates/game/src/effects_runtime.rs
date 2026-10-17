@@ -983,6 +983,10 @@ pub(crate) fn apply_action_sourced(
         Action::GainShield(points) => {
             combat::actors::queue_gain_shield(commands, entity, *points);
         }
+        // M3-T3 (§68) : cœurs d'âme (`ExtraHealth`), posés au premier gain.
+        Action::GainSoul(points) => {
+            combat::actors::queue_gain_soul(commands, entity, *points);
+        }
         Action::GaugeAdd(id, amount) => {
             // Franchissements : `OnGauge` à la frame suivante (déclencheur reporté)
             match gauges.and_then(|g| g.add(id, *amount)) {

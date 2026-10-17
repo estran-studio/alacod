@@ -262,7 +262,7 @@ function selectVideo(name) {
     ${playerHtml(`${commit.id}/${name}.mp4`, v.events)}
     ${infoPanels({ description: v.description, watch: v.watch, expect: v.expect, events: v.events, noteKey: `${commit.id}/${name}` })}`;
   setHash(`${commit.id}/${name}`);
-  bindPlayer(v.events || [], name);
+  bindPlayer(v.events || [], name, v.legend);
 }
 
 function selectCompare(i) {
@@ -303,11 +303,14 @@ function selectPerf() {
 
 // ---- lecteur ---------------------------------------------------------------------------
 function video() { return current?.video; }
+// Image de légende en tête de la vidéo (`scenario-video`, fichier `<nom>.legend` = secondes) : la partie
+// commence à `legendLead()` secondes ; frames et moments clés se comptent depuis là.
+function legendLead() { return Number(current?.legend) || 0; }
 function duration() { const v = video(); return v && v.duration ? v.duration : 0; }
 
-function bindPlayer(events, name) {
+function bindPlayer(events, name, legend) {
   const v = $("video");
-  current = v ? { video: v, events, name } : null;
+  current = v ? { video: v, events, name, legend } : null;
   for (const t of document.querySelectorAll("textarea[data-note]")) {
     const key = `alacod-review:${t.dataset.note}`;
     t.value = store(key);
@@ -315,7 +318,7 @@ function bindPlayer(events, name) {
   }
   if (!v) return;
   for (const chip of document.querySelectorAll(".ev[data-frame], .mark[data-frame]")) {
-    chip.addEventListener("click", (e) => { e.stopPropagation(); v.pause(); seekTo(Number(chip.dataset.frame) / SIM_FPS); });
+    chip.addEventListener("click", (e) => { e.stopPropagation(); v.pause(); seekTo(Number(chip.dataset.frame) / SIM_FPS + legendLead()); });
   }
   $("play").onclick = togglePlay;
   $("restart").onclick = () => seekTo(0);
@@ -344,10 +347,10 @@ function bindPlayer(events, name) {
 }
 
 function placeMarks() {
-  const total = duration() * SIM_FPS;
+  const total = duration();
   if (!total) return;
   for (const m of document.querySelectorAll(".timeline .mark")) {
-    m.style.left = `${Math.min(100, (Number(m.dataset.frame) / total) * 100)}%`;
+    m.style.left = `${Math.min(100, ((Number(m.dataset.frame) / SIM_FPS + legendLead()) / total) * 100)}%`;
   }
 }
 
@@ -358,7 +361,7 @@ function seekTo(t) {
   updatePosition();
 }
 
-function currentFrame() { const v = video(); return v ? Math.round(v.currentTime * SIM_FPS) : 0; }
+function currentFrame() { const v = video(); return v ? Math.max(0, Math.round((v.currentTime - legendLead()) * SIM_FPS)) : 0; }
 
 function updatePosition() {
   const v = video();
@@ -406,7 +409,7 @@ function jumpEvent(dir) {
   else { for (const e of events) if (e.frame < frame - 1) target = e; }
   if (!target) return;
   video().pause();
-  seekTo(target.frame / SIM_FPS);
+  seekTo(target.frame / SIM_FPS + legendLead());
 }
 
 function playing() { const v = video(); return v && !v.paused && !v.ended; }

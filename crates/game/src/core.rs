@@ -166,6 +166,8 @@ impl Plugin for CoreSetupPlugin {
         // M3-T7 : `on_death`, butin des champions (§72).
         app.add_plugins(crate::champions::ChampionsPlugin);
         app.add_plugins(crate::loot::LootPlugin);
+        // M3-T9 : tirage des curses à l'entrée de chaque étage et leurs effets (§74).
+        app.add_plugins(crate::curses::CursesPlugin);
         app.add_plugins(crate::shop::ShopPlugin);
         app.add_plugins(crate::hub::HubPlugin);
         // M2-T11 : fosses, tables renversables, barils explosifs (inertes sans eux)
@@ -512,6 +514,7 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::items::BlankPresentationPlugin);
         app.add_plugins(crate::powerup_visuals::PowerUpVisualPlugin);
         app.add_plugins(crate::world_sprites::WorldSpritePlugin);
+        app.add_plugins(crate::legibility::LegibilityPlugin);
         app.add_plugins(crate::room_fog::RoomFogPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
         #[cfg(feature = "ui_hui")]

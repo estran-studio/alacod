@@ -55,6 +55,10 @@ pub struct SpriteSheetConfig {
     pub offset_z: f32,
     pub animated: bool,
     pub anchor: ConfigurableAnchor,
+    /// L'image porte sa couleur (projectiles de `m2-lisibilite-gungeon`) : le rendu ne la teinte pas par
+    /// équipe et sa taille affichée suit le dégât. Faux par défaut : comportement d'avant.
+    #[serde(default)]
+    pub own_colors: bool,
 }
 
 // -- Animation Definition Configuration --

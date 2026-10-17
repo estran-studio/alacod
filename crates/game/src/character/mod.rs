@@ -170,6 +170,8 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace_neutral::<combat::actors::DashExtra>()
             // D61 (§18) : points de bouclier, posés au premier gain (neutre sans porteur).
             .rollback_and_trace_neutral::<combat::actors::Shield>()
+            // M3-T3 (§68) : cœurs d'âme, posés au premier gain (neutre sans porteur).
+            .rollback_and_trace_neutral::<combat::actors::ExtraHealth>()
             .rollback_and_trace::<SprintState>()
             .rollback_and_trace::<Velocity>()
             .rollback_and_trace::<Death>()
@@ -314,6 +316,7 @@ impl Plugin for CharacterPresentationPlugin {
                 visuals::animate_death_ghosts,
                 set_sprite_flip,
                 visuals::face_stationary_enemies.after(set_sprite_flip),
+                visuals::orient_familiars.after(set_sprite_flip),
                 update_health_bars,
                 // Debug toggles
                 toggle_flow_field_debug,

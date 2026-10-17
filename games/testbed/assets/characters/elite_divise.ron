@@ -52,7 +52,7 @@
     variants: Some((
         chance: "1.0",
         table: {
-            "divise": (tags: ["champion"], on_death: [SpawnCharacters(id: "elite_divise", count: 3)]),
+            "divise": (tags: ["champion"], on_death: [SpawnCharacters(id: "elite_divise", count: 3)], tint: Some("#e67e22")),
             "nu": (),
         },
     )),

@@ -16,13 +16,15 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed, FixedVec2};
 use bevy_fixed::rng::{RollbackRng, RunSeed};
 use bevy_ggrs::{GgrsSchedule, Rollback, RollbackDespawnCommandExtension};
+use combat::actors::ExtraHealth;
 use items::{
     draw_loot, loot_seed, Inventory, ItemKind, ItemPicked, ItemTable, LootTables, Rarity, Shelf,
     ShellPickup,
 };
 use sim_core::frame_events::FrameEvents;
 use sim_core::interaction::{Interactable, InteractionType};
-use sim_core::modifier::Modifiers;
+use sim_core::modifier::{resolve, Modifier, ModifierOp, ModifierSource, Modifiers};
+use sim_core::stats::{StatId, Stats};
 use sim_core::team::Team;
 use std::collections::BTreeSet;
 use utils::{
@@ -37,7 +39,7 @@ use crate::economy::EconomyConfig;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::InteractionEvent;
 use crate::items::{apply_instant_effects, spawn_item_pickup, with_inventory, FreshInventories};
-use crate::loot::seed_context;
+use crate::loot::{assign_slot, seed_context, SlotContext};
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
 use crate::weapons::WeaponsConfig;
@@ -128,6 +130,121 @@ pub fn draw_shelves(
         }
     }
     out
+}
+
+/// Les `count` objets d'une boutique dont le pool s'épuise, assignés à la **génération** de
+/// l'étage (M3-T8, §73) : un emplacement par présentoir (`shelf:<salle>:<i>`), tiré sur sa propre
+/// graine avec l'index d'épuisement du pool, donc sans doublon dans la boutique ni avec une autre
+/// salle tant que le pool n'est pas vide. `None` si le pool n'a pas `exhaust` : l'appelant garde
+/// [`draw_shelves`] (comportement d'avant, un seul flux par boutique).
+pub fn assign_shelves(
+    ctx: &SlotContext,
+    pools: &mut items::PoolState,
+    table_id: &str,
+    room: &str,
+    count: u32,
+    weapon_shelves: u32,
+) -> Option<Vec<String>> {
+    if !ctx.tables.0.get(table_id)?.exhaust {
+        return None;
+    }
+    Some(
+        (0..count)
+            .filter_map(|shelf| {
+                assign_slot(
+                    ctx,
+                    pools,
+                    table_id,
+                    Rarity::Common,
+                    shelf < weapon_shelves,
+                    &format!("shelf:{room}:{shelf}"),
+                )
+            })
+            .collect(),
+    )
+}
+
+/// Ce qu'un paiement par [`Shelf::cost`] a retiré au payeur.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Payment {
+    /// Douilles débitées (0 hors prix en douilles).
+    pub coins: i64,
+    /// Points de cœur d'âme retirés.
+    pub soul_spent: Fixed,
+    /// Vie maximale (et courante) perdue, à rendre **permanente** par un modificateur de `MaxHealth`.
+    pub max_health_lost: Fixed,
+}
+
+/// Paie `cost` : `Price::pay` sur les valeurs du payeur, écrites **seulement** si le paiement
+/// réussit (refus : rien ne bouge). Sans `Inventory` un prix en consommable est refusé ; sans
+/// `Health` un prix de vie l'est aussi (sauf l'âme qui le couvre entièrement).
+pub fn pay_cost(
+    cost: &items::Price,
+    wallet: &mut Currency,
+    inventory: Option<&mut Inventory>,
+    health: Option<&mut Health>,
+    soul: Option<&mut ExtraHealth>,
+) -> Option<Payment> {
+    let mut scratch = Inventory::default();
+    let inventory = inventory.unwrap_or(&mut scratch);
+    let (mut max_health, mut current) = health
+        .as_ref()
+        .map_or((Fixed::ZERO, Fixed::ZERO), |h| (h.max, h.current));
+    let mut soul_points = soul.as_ref().map_or(Fixed::ZERO, |s| s.soul);
+    let (max_before, soul_before, coins_before) = (max_health, soul_points, wallet.0);
+    let mut coins = wallet.0;
+    if !cost.pay(
+        &mut coins,
+        inventory,
+        &mut max_health,
+        &mut current,
+        &mut soul_points,
+    ) {
+        return None;
+    }
+    wallet.0 = coins;
+    if let Some(health) = health {
+        health.max = max_health;
+        health.current = current;
+    }
+    if let Some(soul) = soul {
+        soul.soul = soul_points;
+    }
+    Some(Payment {
+        coins: i64::from(coins_before - coins),
+        soul_spent: soul_before - soul_points,
+        max_health_lost: max_before - max_health,
+    })
+}
+
+/// La stat `MaxHealth` telle qu'elle se résoudrait **après** une perte permanente de `loss` points
+/// (modificateur `Add −loss` en plus de ceux du payeur). `Fixed::MAX` si le payeur n'a pas la stat
+/// (`sync_health_from_stats` ne pilote alors pas `Health.max`). Les `Set` et `Mul` de `MaxHealth`
+/// amplifient la perte : `(Set 2, Mul 2)` puis `Add −2` donne `0`.
+pub fn max_health_after(
+    stats: Option<&Stats>,
+    modifiers: &Modifiers,
+    loss: Fixed,
+    frame: u32,
+) -> Fixed {
+    let Some(base) = stats.and_then(|stats| stats.get(&StatId::MaxHealth)) else {
+        return Fixed::MAX;
+    };
+    let probe = Modifier {
+        stat: StatId::MaxHealth,
+        op: ModifierOp::Add,
+        value: -loss,
+        source: ModifierSource::Named(String::new()),
+        until: None,
+    };
+    resolve(
+        base,
+        modifiers
+            .iter()
+            .chain(std::iter::once(&probe))
+            .filter(|m| m.stat == StatId::MaxHealth),
+        frame,
+    )
 }
 
 /// Lâche des `shells` à la mort d'un ennemi (équipe `Enemies`, hors barils).
@@ -293,6 +410,8 @@ pub fn shelf_interaction_system(
             &mut Modifiers,
             Option<&mut Health>,
             &mut Currency,
+            Option<&mut ExtraHealth>,
+            Option<&Stats>,
         ),
         Without<Shelf>,
     >,
@@ -321,10 +440,12 @@ pub fn shelf_interaction_system(
             entity,
             player,
             player_transform,
-            inventory,
+            mut inventory,
             mut modifiers,
-            health,
+            mut health,
             mut wallet,
+            mut soul,
+            stats,
         )) = players
             .iter_mut()
             .find(|(id, ..)| id.0 == event.interactor_net_id.0)
@@ -332,28 +453,127 @@ pub fn shelf_interaction_system(
             continue;
         };
         handled.insert(event.interactable_net_id.0);
-        if !wallet.spend(shelf.price) {
-            shelf.retry_after = frame.frame + SHELF_RETRY_FRAMES;
-            info!(
-                "ggrs{{f={} shop_refused net_id={} by={} price={} balance={}}}",
-                frame.frame,
-                event.interactable_net_id.0,
-                event.interactor_net_id.0,
-                shelf.price,
-                wallet.0
+        // M3-T3 (§68) : un consommable que le joueur ne peut pas prendre (compteur au plafond,
+        // soin à pleine vie) n'est pas vendu : rien n'est dépensé, le présentoir reste.
+        if let Some(def) = def.filter(|def| def.kind == ItemKind::Consumable) {
+            let stock = match inventory.as_deref() {
+                Some(inventory) => inventory.consumable(&shelf.item_id),
+                None => fresh
+                    .get(&event.interactor_net_id.0)
+                    .map_or(0, |(_, fresh)| fresh.consumable(&shelf.item_id)),
+            };
+            let full = health
+                .as_deref()
+                .is_some_and(|health| health.current >= health.max);
+            if !def.accepts(stock, full) {
+                shelf.retry_after = frame.frame + SHELF_RETRY_FRAMES;
+                info!(
+                    "ggrs{{f={} shop_full net_id={} by={} item={}}}",
+                    frame.frame,
+                    event.interactable_net_id.0,
+                    event.interactor_net_id.0,
+                    shelf.item_id
+                );
+                currency_events.send(CurrencyEvent {
+                    handle: player.handle,
+                    delta: 0,
+                    reason: "shop_full".to_string(),
+                });
+                continue;
+            }
+        }
+        // M3-T8 (§73, Q6) : un présentoir à `cost` (vie maximale, consommable) se paie par
+        // `Price::pay`, les cœurs d'âme d'abord ; sans `cost`, le prix en douilles d'avant.
+        let mut max_health_lost = Fixed::ZERO;
+        let mut paid_note = String::new();
+        if let Some(cost) = shelf.cost.clone() {
+            // Un modificateur multiplicatif de `MaxHealth` amplifie la perte réelle : refus aussi si la
+            // stat résolue **après** le paiement tomberait à 0 (`sync_health_from_stats` recopierait ce 0
+            // dans la vie courante : le paiement aurait tué).
+            let would_zero_the_stat = match &cost {
+                items::Price::MaxHealth(amount) => {
+                    let soul_now = soul.as_deref().map_or(Fixed::ZERO, |s| s.soul);
+                    let (_, rest) = items::Price::soul_split(*amount, soul_now);
+                    rest > Fixed::ZERO
+                        && max_health_after(stats, &modifiers, rest, frame.frame) <= Fixed::ZERO
+                }
+                _ => false,
+            };
+            let payment = if would_zero_the_stat {
+                None
+            } else {
+                pay_cost(
+                    &cost,
+                    &mut wallet,
+                    inventory.as_deref_mut(),
+                    health.as_deref_mut(),
+                    soul.as_deref_mut(),
+                )
+            };
+            let Some(payment) = payment else {
+                shelf.retry_after = frame.frame + SHELF_RETRY_FRAMES;
+                info!(
+                    "ggrs{{f={} shop_refused net_id={} by={} cost={:?} balance={}}}",
+                    frame.frame,
+                    event.interactable_net_id.0,
+                    event.interactor_net_id.0,
+                    cost,
+                    wallet.0
+                );
+                currency_events.send(CurrencyEvent {
+                    handle: player.handle,
+                    delta: 0,
+                    reason: "shop_refused".to_string(),
+                });
+                continue;
+            };
+            if payment.coins > 0 {
+                currency_events.send(CurrencyEvent {
+                    handle: player.handle,
+                    delta: -payment.coins,
+                    reason: "shop".to_string(),
+                });
+            }
+            max_health_lost = payment.max_health_lost;
+            paid_note = format!(
+                " soul={} max_health_lost={}",
+                payment.soul_spent, payment.max_health_lost
             );
+        } else {
+            if !wallet.spend(shelf.price) {
+                shelf.retry_after = frame.frame + SHELF_RETRY_FRAMES;
+                info!(
+                    "ggrs{{f={} shop_refused net_id={} by={} price={} balance={}}}",
+                    frame.frame,
+                    event.interactable_net_id.0,
+                    event.interactor_net_id.0,
+                    shelf.price,
+                    wallet.0
+                );
+                currency_events.send(CurrencyEvent {
+                    handle: player.handle,
+                    delta: 0,
+                    reason: "shop_refused".to_string(),
+                });
+                continue;
+            }
             currency_events.send(CurrencyEvent {
                 handle: player.handle,
-                delta: 0,
-                reason: "shop_refused".to_string(),
+                delta: -(shelf.price as i64),
+                reason: "shop".to_string(),
             });
-            continue;
         }
-        currency_events.send(CurrencyEvent {
-            handle: player.handle,
-            delta: -(shelf.price as i64),
-            reason: "shop".to_string(),
-        });
+        // La vie maximale perdue l'est **définitivement** : `sync_health_from_stats` réécrit
+        // `Health.max` depuis la stat chaque frame, donc le prix est un modificateur permanent.
+        if max_health_lost > Fixed::ZERO {
+            modifiers.push(Modifier {
+                stat: StatId::MaxHealth,
+                op: ModifierOp::Add,
+                value: -max_health_lost,
+                source: ModifierSource::Named(format!("price:{}", shelf.key)),
+                until: None,
+            });
+        }
         shelf.sold = true;
         let item_id = shelf.item_id.clone();
         commands.entity(event.interactable).remove::<Interactable>();
@@ -370,12 +590,13 @@ pub fn shelf_interaction_system(
                 &mut id_factory,
             );
             info!(
-                "ggrs{{f={} shop_buy net_id={} item={} price={} by={}}}",
+                "ggrs{{f={} shop_buy net_id={} item={} price={} by={}{}}}",
                 frame.frame,
                 event.interactable_net_id.0,
                 item_id,
                 shelf.price,
-                event.interactor_net_id.0
+                event.interactor_net_id.0,
+                paid_note
             );
             continue;
         }
@@ -430,12 +651,13 @@ pub fn shelf_interaction_system(
             );
         }
         info!(
-            "ggrs{{f={} shop_buy net_id={} item={} price={} by={}}}",
+            "ggrs{{f={} shop_buy net_id={} item={} price={} by={}{}}}",
             frame.frame,
             event.interactable_net_id.0,
             item_id,
             shelf.price,
-            event.interactor_net_id.0
+            event.interactor_net_id.0,
+            paid_note
         );
         picked.send(ItemPicked {
             frame: frame.frame,
@@ -500,6 +722,7 @@ mod tests {
             projectile: None,
             familiar: None,
             max_stack: None,
+            refuse_when_full: false,
             stack: Default::default(),
         }
     }
@@ -555,5 +778,200 @@ mod tests {
             shelf_price(Some(&economy), Rarity::Common),
             DEFAULT_SHELF_PRICE
         );
+    }
+
+    fn health(current: i32, max: i32) -> Health {
+        Health {
+            current: Fixed::from_num(current),
+            max: Fixed::from_num(max),
+            invulnerable_until_frame: None,
+        }
+    }
+
+    fn heart() -> items::Price {
+        items::Price::MaxHealth(Fixed::from_num(2))
+    }
+
+    /// Q6 : un cœur en vie maximale baisse la vie courante **et** maximale, rien d'autre.
+    #[test]
+    fn a_heart_price_lowers_current_and_max_health() {
+        let (mut wallet, mut hp) = (Currency::new(7), health(6, 6));
+        let payment = pay_cost(&heart(), &mut wallet, None, Some(&mut hp), None).unwrap();
+        assert_eq!(
+            payment,
+            Payment {
+                coins: 0,
+                soul_spent: Fixed::ZERO,
+                max_health_lost: Fixed::from_num(2)
+            }
+        );
+        assert_eq!(
+            (hp.current, hp.max),
+            (Fixed::from_num(4), Fixed::from_num(4))
+        );
+        assert_eq!(wallet.0, 7, "les douilles ne bougent pas");
+    }
+
+    /// Q6 : à 1 PV (ou 2 : le paiement tuerait) le marché refuse et rien ne change.
+    #[test]
+    fn a_lethal_heart_price_is_refused_and_nothing_moves() {
+        for current in [1, 2] {
+            let (mut wallet, mut hp) = (Currency::new(7), health(current, 6));
+            assert_eq!(
+                pay_cost(&heart(), &mut wallet, None, Some(&mut hp), None),
+                None
+            );
+            assert_eq!(
+                (hp.current, hp.max),
+                (Fixed::from_num(current), Fixed::from_num(6))
+            );
+        }
+        // Sans santé du tout (joueur sans `Health`) : refus aussi.
+        let mut wallet = Currency::new(7);
+        assert_eq!(pay_cost(&heart(), &mut wallet, None, None, None), None);
+    }
+
+    /// Q6 : les cœurs d'âme paient à la place, et sauvent un payeur à 1 PV.
+    #[test]
+    fn soul_hearts_pay_instead_of_max_health() {
+        let (mut wallet, mut hp, mut soul) = (
+            Currency::new(0),
+            health(1, 6),
+            ExtraHealth {
+                soul: Fixed::from_num(4),
+            },
+        );
+        let payment =
+            pay_cost(&heart(), &mut wallet, None, Some(&mut hp), Some(&mut soul)).unwrap();
+        assert_eq!(payment.soul_spent, Fixed::from_num(2));
+        assert_eq!(payment.max_health_lost, Fixed::ZERO);
+        assert_eq!(soul.soul, Fixed::from_num(2));
+        assert_eq!((hp.current, hp.max), (Fixed::ONE, Fixed::from_num(6)));
+        // Âme insuffisante : elle part toute, le reste en vie maximale.
+        let big = items::Price::MaxHealth(Fixed::from_num(5));
+        let mut hp = health(6, 6);
+        let payment = pay_cost(&big, &mut wallet, None, Some(&mut hp), Some(&mut soul)).unwrap();
+        assert_eq!(payment.soul_spent, Fixed::from_num(2));
+        assert_eq!(payment.max_health_lost, Fixed::from_num(3));
+        assert_eq!(soul.soul, Fixed::ZERO);
+        assert_eq!(
+            (hp.current, hp.max),
+            (Fixed::from_num(3), Fixed::from_num(3))
+        );
+    }
+
+    #[test]
+    fn a_consumable_price_needs_the_stock_and_spends_it() {
+        let cost = items::Price::Consumable("key".into(), 2);
+        let mut wallet = Currency::new(0);
+        assert_eq!(pay_cost(&cost, &mut wallet, None, None, None), None);
+        let mut inventory = Inventory::default();
+        inventory.consumables.insert("key".into(), 1);
+        assert_eq!(
+            pay_cost(&cost, &mut wallet, Some(&mut inventory), None, None),
+            None
+        );
+        assert_eq!(
+            inventory.consumable("key"),
+            1,
+            "refus : le stock est intact"
+        );
+        inventory.consumables.insert("key".into(), 3);
+        assert!(pay_cost(&cost, &mut wallet, Some(&mut inventory), None, None).is_some());
+        assert_eq!(inventory.consumable("key"), 1);
+    }
+
+    /// Un prix en douilles par `cost` passe par le même chemin que `price` et rend les douilles.
+    #[test]
+    fn a_currency_cost_reports_the_coins_spent() {
+        let mut wallet = Currency::new(50);
+        let payment = pay_cost(&items::Price::Currency(20), &mut wallet, None, None, None).unwrap();
+        assert_eq!(payment.coins, 20);
+        assert_eq!(wallet.0, 30);
+    }
+
+    fn slot_context<'a>(
+        tables: &'a LootTables,
+        items: &'a ItemTable,
+        unlocks: &'a items::UnlockTable,
+        active: &'a items::RunUnlocks,
+    ) -> SlotContext<'a> {
+        SlotContext {
+            frame: 0,
+            tables,
+            items,
+            unlocks,
+            active,
+            run_seed: 9,
+            floor: 0,
+        }
+    }
+
+    /// M3-T8 : les présentoirs d'un pool qui s'épuise sont assignés à la génération, sans doublon
+    /// dans la boutique ni avec la salle suivante ; un pool sans `exhaust` garde `draw_shelves`.
+    #[test]
+    fn exhausting_shelves_never_repeat_across_rooms() {
+        let (mut table, item_table) = fixtures();
+        table.exhaust = true;
+        let tables = LootTables([("p".to_string(), table.clone())].into());
+        let (unlocks, active) = Default::default();
+        let ctx = slot_context(&tables, &item_table, &unlocks, &active);
+        let mut pools = items::PoolState::default();
+        let first = assign_shelves(&ctx, &mut pools, "p", "room_a", 2, 0).unwrap();
+        let second = assign_shelves(&ctx, &mut pools, "p", "room_b", 3, 0).unwrap();
+        let all: BTreeSet<_> = first.iter().chain(&second).collect();
+        assert_eq!(
+            all.len(),
+            5,
+            "cinq présentoirs, cinq objets : {first:?} {second:?}"
+        );
+        assert_eq!(pools.count("p"), 5);
+        // Rejouer la génération de la même salle rend les mêmes objets sans rien consommer.
+        assert_eq!(
+            assign_shelves(&ctx, &mut pools, "p", "room_a", 2, 0).unwrap(),
+            first
+        );
+        assert_eq!(pools.count("p"), 5);
+        // Sans `exhaust` : `None`, l'appelant tire comme avant et rien n'est écrit.
+        let plain = LootTables([("p".to_string(), fixtures().0)].into());
+        let ctx = slot_context(&plain, &item_table, &unlocks, &active);
+        let mut pools = items::PoolState::default();
+        assert_eq!(assign_shelves(&ctx, &mut pools, "p", "room_a", 2, 0), None);
+        assert_eq!(pools, items::PoolState::default());
+    }
+
+    /// Revue M3-T8 : un `Mul` sur `MaxHealth` amplifie la perte ; `(Set 2, Mul 2)` puis un cœur donne 0.
+    #[test]
+    fn max_health_after_sees_the_multipliers() {
+        let modifier = |op, value: i32| Modifier {
+            stat: StatId::MaxHealth,
+            op,
+            value: Fixed::from_num(value),
+            source: ModifierSource::Named("t".into()),
+            until: None,
+        };
+        let mut stats = Stats::new();
+        stats.set(StatId::MaxHealth, Fixed::from_num(6));
+        let two = Fixed::from_num(2);
+        let plain = Modifiers::default();
+        assert_eq!(
+            max_health_after(Some(&stats), &plain, two, 0),
+            Fixed::from_num(4)
+        );
+        let doubled = Modifiers(vec![modifier(ModifierOp::Mul, 2)]);
+        assert_eq!(
+            max_health_after(Some(&stats), &doubled, two, 0),
+            Fixed::from_num(8)
+        );
+        let fragile = Modifiers(vec![
+            modifier(ModifierOp::Set, 2),
+            modifier(ModifierOp::Mul, 2),
+        ]);
+        assert_eq!(
+            max_health_after(Some(&stats), &fragile, two, 0),
+            Fixed::ZERO
+        );
+        // Sans la stat, `Health.max` n'est pas piloté par les stats : jamais d'obstacle.
+        assert_eq!(max_health_after(None, &fragile, two, 0), Fixed::MAX);
     }
 }

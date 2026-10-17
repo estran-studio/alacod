@@ -20,6 +20,11 @@
         animation: "sprites/gungeon/anim_cible.ron",
         layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
     ),
+    // M3-T11a (§76.1) : cible fragile du laboratoire (`characters/cible_fragile.ron`), même visuel que `cible`.
+    "cible_fragile": (
+        animation: "sprites/gungeon/anim_cible.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
     "suiveur": (
         animation: "sprites/gungeon/anim_bullet_kin.ron",
         layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
@@ -28,17 +33,42 @@
         animation: "sprites/gungeon/anim_fuyard_kin.ron",
         layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
     ),
+    // M3-T11c (§76.3) : ennemis, mêmes silhouettes Kenney que `gungeon` (une par famille : charge, tireur, tourelle,
+    // volant, fantôme).
+    "rampant": (
+        animation: "sprites/gungeon/anim_bandana_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "spectre": (
+        animation: "sprites/gungeon/anim_bullet_kin_squad.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "cracheur": (
+        animation: "sprites/gungeon/anim_veteran_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "tourelle_croix": (
+        animation: "sprites/gungeon/anim_tourelle_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "bourdon": (
+        animation: "sprites/gungeon/anim_lanceur_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
     "gardien": (
         animation: "sprites/gungeon/anim_gatling.ron",
         layers: { "body": "sprites/gungeon/tiny_boss_sheet.ron" },
     ),
+    // M3-T11a (§76.1, langage visuel de M3-T17, §82) : halo blanc des larmes, teinté au rendu par statut, guidage,
+    // opacité (spectrale) et taille (division, perforation) ; remplace les anneaux Kenney de `gungeon` (bullet_*.png
+    // restent copiés, `assets.yaml`).
     "bullet_player": (
-        animation: "sprites/gungeon/anim_bullet_player.ron",
-        layers: { "body": "sprites/gungeon/bullet_player_sheet.ron" },
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/tear_sheet.ron" },
     ),
     "bullet_enemy": (
-        animation: "sprites/gungeon/anim_bullet_enemy.ron",
-        layers: { "body": "sprites/gungeon/bullet_enemy_sheet.ron" },
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/tear_sheet.ron" },
     ),
     "pistol": (
         animation: "sprites/characters/player/player_animation.ron",

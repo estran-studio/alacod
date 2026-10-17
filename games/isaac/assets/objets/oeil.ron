@@ -1,0 +1,13 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : les larmes se guident vers l'ennemi le plus proche (`Homing`).
+(
+    name: "Œil chercheur",
+    kind: Passive,
+    projectile: Some((modifiers: [Homing("0.1")])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_oeil` et son témoin `tears_oeil_sans_objet`, seuils mesurés : la cible hors de la ligne de tir n'est touchée qu'avec `Homing` (6 coups contre 0).
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -40, dy: 15)], hits: [(target: 1, with_item: 6, without_item: 0)])),
+    )),
+)

@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 pub const HUD_FILE_NAME: &str = "hud.ron";
 
 /// Sources que le HUD sait lire (liste fermée). T2.12 : `perks`, `downed`, `powerups`,
-/// `prompt` ; T1.18 (§32) : `rads`, `level`, `ammo_by_type`, `statuses`, `floor`.
+/// `prompt` ; T1.18 (§32) : `rads`, `level`, `ammo_by_type`, `statuses`, `floor` ; M3-T16 (§81) :
+/// `hearts`, `coins`, `item_banner`.
 pub const HUD_SOURCES: &[&str] = &[
     "health",
     "wave",
@@ -33,17 +34,38 @@ pub const HUD_SOURCES: &[&str] = &[
     "floor",
     "blanks",
     "keys",
+    "bombs",
     "shells",
     "passives",
     "active_item",
     "active_charge",
     "minimap",
+    "curses",
+    "legend",
+    "hearts",
+    "coins",
+    "item_banner",
 ];
 
 /// Ce que le lint lit de `ui/hud.ron` : la source de chaque widget.
 #[derive(Debug, Clone, Deserialize)]
 pub struct HudFileSchema {
     pub widgets: Vec<HudWidgetSchema>,
+    /// Légende (source `legend`, `docs/conventions.md` §83) : le lint vérifie que chaque `sprite`
+    /// cité existe dans la table `SpriteSheet` du jeu.
+    #[serde(default)]
+    pub legend: Vec<LegendGroupSchema>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LegendGroupSchema {
+    pub entries: Vec<LegendEntrySchema>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LegendEntrySchema {
+    #[serde(default)]
+    pub sprite: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -68,6 +90,15 @@ pub enum HudWidgetKindSchema {
     Map {
         source: String,
     },
+    Legend {
+        source: String,
+    },
+    Hearts {
+        source: String,
+    },
+    Counter {
+        source: String,
+    },
 }
 
 impl HudWidgetKindSchema {
@@ -76,7 +107,10 @@ impl HudWidgetKindSchema {
             Self::Bar { source }
             | Self::Text { source, .. }
             | Self::Icons { source }
-            | Self::Map { source } => source,
+            | Self::Map { source }
+            | Self::Legend { source }
+            | Self::Hearts { source }
+            | Self::Counter { source } => source,
         }
     }
 }
@@ -88,6 +122,7 @@ mod tests {
     #[test]
     fn hud_des_jeux_sources_connues() {
         for text in [
+            include_str!("../../../games/isaac/assets/ui/hud.ron"),
             include_str!("../../../games/testbed/assets/ui/hud.ron"),
             include_str!("../../../games/throne/assets/ui/hud.ron"),
             include_str!("../../../games/zombies/assets/ui/hud.ron"),

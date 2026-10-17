@@ -1,0 +1,9 @@
+// Généré par scripts/generer-sprites-gungeon.py : image(s) de `fuyard_kin` dans l'atlas.
+(
+    frame_duration: 120,
+    animations: {
+        "Dying_1": (start: 8, end: 8),
+        "Idle": (start: 8, end: 8),
+        "Run": (start: 8, end: 8),
+    },
+)

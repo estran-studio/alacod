@@ -1,0 +1,41 @@
+// `isaac` (M3-T8, docs/conventions.md §73) : pool de la salle de trésor (`rooms/tresor.ron`). `exhaust` :
+// un objet sorti n'y revient plus pendant la run (Q5, **par run et par pool** : le trésor du second
+// étage ne redonne pas celui du premier). L'objet est tiré à la génération de l'étage (option A de §64),
+// pas à l'ouverture : le même coffre donne le même objet quel que soit le moment, l'ordre des visites
+// ou le joueur. Contenu : les quatre passifs de T8 (stats) et les 19 objets de larmes et de stats de M3-T11a (§76.1) ; poids commun 4, peu commun 2, rare 1. M3-T11b (§76.2) y ajoute trois familiers (`frere`, `orbe`, `nuee`), quatre passifs à effets (`crocs`, `pouls`, `rancune_vive`, `reliquaire`) et l'actif `calice_ame` ; `frere` et `orbe` forment la synergie `garde_rapprochee`. Pas d'`exclude_held` : l'épuisement par run (`exhaust`) évite déjà les doublons du pool.
+(
+    entries: [
+        (pick: Item("semelles_lestees"), weight: 1),
+        (pick: Item("pile_rapide"), weight: 1),
+        (pick: Item("lunette_longue"), weight: 1),
+        (pick: Item("trefle_chat"), weight: 1),
+        (pick: Item("encre"), weight: 4),
+        (pick: Item("ressort"), weight: 4),
+        (pick: Item("longue_vue"), weight: 4),
+        (pick: Item("vent_arriere"), weight: 4),
+        (pick: Item("goutte"), weight: 2),
+        (pick: Item("bottines"), weight: 4),
+        (pick: Item("trefle_noir"), weight: 2),
+        (pick: Item("plomb_fondu"), weight: 1),
+        (pick: Item("oeil"), weight: 4),
+        (pick: Item("epine"), weight: 2),
+        (pick: Item("ricochet"), weight: 4),
+        (pick: Item("fantome"), weight: 1),
+        (pick: Item("eclat"), weight: 1),
+        (pick: Item("satellite"), weight: 1),
+        (pick: Item("venin"), weight: 2),
+        (pick: Item("braise"), weight: 2),
+        (pick: Item("givre"), weight: 2),
+        (pick: Item("epouvante"), weight: 2),
+        (pick: Item("glu"), weight: 4),
+        (pick: Item("frere"), weight: 4),
+        (pick: Item("orbe"), weight: 2),
+        (pick: Item("nuee"), weight: 1),
+        (pick: Item("crocs"), weight: 4),
+        (pick: Item("pouls"), weight: 4),
+        (pick: Item("rancune_vive"), weight: 2),
+        (pick: Item("reliquaire"), weight: 4),
+        (pick: Item("calice_ame"), weight: 1),
+    ],
+    exhaust: true,
+)

@@ -1,0 +1,1 @@
+(name: "Lentille", kind: Passive, rarity: Common, modifiers: [(stat: ShotSize, op: Mul, value: "1.5")])

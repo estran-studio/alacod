@@ -4,6 +4,7 @@
 // qui détruit la boule de feu qui part vers l'ouest. Témoin `orbital_blocks_bullet_sans_objet` : même partie sans objet.
 //
 // À regarder : la boule de feu qui vise le joueur disparaît au contact de l'orbital ; la santé du joueur baisse moins.
+
 Scenario(
     game: "testbed",
     map: "testbed/arena_tir.ldtk",

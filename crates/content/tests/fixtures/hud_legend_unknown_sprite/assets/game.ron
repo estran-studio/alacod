@@ -1,0 +1,8 @@
+(
+    name: "fixture-hud_legend_unknown_sprite",
+    content_folders: [
+        (path: "ui", kind: "Ui"),
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

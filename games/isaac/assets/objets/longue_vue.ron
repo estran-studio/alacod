@@ -1,0 +1,13 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : portée des larmes +100 % (`Range` Pct 1 : 300 -> 600 ; l'arène de test, plus petite que la portée de `larmes`, la mesure avec l'arme de laboratoire `larmes_courtes`, portée 100 -> 200).
+(
+    name: "Longue-vue",
+    kind: Passive,
+    modifiers: [(stat: Range, op: Pct, value: "1.0")],
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_longue_vue` et son témoin `tears_longue_vue_sans_objet`, seuils mesurés : l'arme de laboratoire `larmes_courtes` (portée 100) n'atteint pas la cible à 137 unités (0 coup), avec l'objet (portée 200) 5 coups, au moins 3 exigés.
+        tears: Some((weapon: Some("larmes_courtes"), frames: Some(150), targets: [], hits: [(target: 0, with_item: 3, without_item: 0)])),
+    )),
+)

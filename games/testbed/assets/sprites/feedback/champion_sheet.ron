@@ -1,0 +1,14 @@
+// M3-T17 (docs/conventions.md §82) : élite : silhouette claire, colorée par la `tint` de sa variante. Placeholder CC0 du projet, `scripts/generer-sprites-feedback.py`.
+(
+    path: "sprites/feedback/champion.png",
+    tile_size: (16, 16),
+    columns: 1,
+    rows: 1,
+    animated: false,
+    name: "body",
+    scale: 1.25,
+    anchor: Center,
+    offset_x: 0.0,
+    offset_y: -6.0,
+    offset_z: 0.5,
+)

@@ -4,29 +4,31 @@
 // (il est plus proche que les derniers combats), puis nettoie le reste.
 //
 // À regarder : le boss verrouille sa grande salle (f520), passe en phase 1 (f659), meurt (f779) et la salle se rouvre
-// (ses portes, celle de la salle du diable comprise) ; le bot finit les deux combats restants (f1355 à f1653) et la
-// victoire n'arrive qu'à f1654 : un étage se gagne quand il n'a plus d'ennemi, pas à la mort du boss seulement.
+// (ses portes, celle de la salle du diable comprise) ; son butin (`reservoir_vital`, pool `boss`, M3-T8 §73) tombe et le bot
+// le ramasse ; il finit ensuite les deux combats restants et la victoire n'arrive qu'entre f1775 et f1800 (f1654 avant le
+// butin) : un étage se gagne quand il n'a plus d'ennemi, pas à la mort du boss seulement.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 23,
     floors: Some("sous_sol_un"),
-    frames: 1750,
+    frames: 2530,
     players: [
         (bot: explorateur),
     ],
     expect: [
-        EntityCount(kind: Enemy, min: Some(9), max: Some(9), at_frame: 5),
+        EntityCount(kind: Enemy, min: Some(13), max: Some(13), at_frame: 5),
         RoomLayout(kind: "boss", size: Some((480, 288)), touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
         RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
         RoomLayout(kind: "tresor", size: Some((480, 144)), touches: ["combat"], at_frame: 5),
         RoomLayout(kind: "secrete", touches: ["depart", "combat"], apart: ["boss", "diable"], at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 600),
-        BossPhase(entity: NetId(127), phase: 1, at_frame: 700),
-        RoomState(kind: "boss", state: Cleared, at_frame: 850),
-        EntityCount(kind: Enemy, min: Some(4), at_frame: 900),
-        DoorLocked(kind: "secrete", locked: true, at_frame: 1700),
-        RunState(step: Ended(Victory), at_frame: 1700),
-        PlayerAlive(handle: 0, at_frame: 1749),
+        RoomState(kind: "boss", state: Locked, at_frame: 900),
+        BossPhase(entity: NetId(139), phase: 1, at_frame: 1050),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1300),
+        HasItem(handle: 0, id: "reservoir_vital", at_frame: 1450),
+        EntityCount(kind: Enemy, min: Some(4), at_frame: 1350),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 2480),
+        RunState(step: Ended(Victory), at_frame: 2480),
+        PlayerAlive(handle: 0, at_frame: 2529),
     ],
 )

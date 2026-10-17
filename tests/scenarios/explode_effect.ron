@@ -6,6 +6,7 @@
 // porteur et explose à f47 (moment clé `explosion`, une seule fois : une charge) : le joueur (équipe Players, la
 // source est de l'équipe Enemies) perd 30 PV (100 → 70) ; le porteur, au centre du rayon, perd les mêmes 30 (50 → 20 :
 // l'explosion n'exempte personne, comme une bombe de joueur et son tir ami `Always`) ; le `dummy` hors rayon est intact.
+
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",

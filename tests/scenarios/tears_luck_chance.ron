@@ -5,6 +5,9 @@
 // six touches s'étalent de f68 à f170, vérifiées à f175).
 //
 // À regarder : les larmes touchent les six cibles ; certaines seulement se teintent de vert.
+//
+// M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la larme et ses modificateurs (`tear_look`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/props_room.ldtk",
@@ -44,5 +47,7 @@ Scenario(
         HasStatus(entity: Placed(4), status: "poison", at_frame: 175),
         HasStatus(entity: Placed(3), status: "poison", present: false, at_frame: 175),
         HasStatus(entity: Placed(5), status: "poison", present: false, at_frame: 175),
+        Event(kind: "feedback", label_contains: Some("(poison)"), by_frame: 26),
+        Event(kind: "feedback", label_contains: Some("larme 25 (poison)"), by_frame: 126),
     ],
 )

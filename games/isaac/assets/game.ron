@@ -16,6 +16,12 @@
         // Consommables `key` et `blank`, soin `ration` (copie de `gungeon`).
         (path: "objets", kind: "Item"),
         (path: "loot", kind: "LootTable"),
+        // M3-T11a (§76.1) : statuts posés par l'`on_hit` des objets de larmes (poison, brûlure, gel, peur, lenteur).
+        (path: "statuses", kind: "Status"),
+        // M3-T11b (§76.2) : synergie d'objets du pool `tresor`.
+        (path: "synergies", kind: "Synergy"),
+        // M3-T9 (§74) : les cinq curses de Q7 ; aucune séquence par défaut ne les tire avant M3-T11d.
+        (path: "curses", kind: "Curse"),
         // Types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
         (path: "economy/economy.ron", kind: "Economy"),
@@ -33,4 +39,21 @@
     // `docs/conventions.md` §28 : scénarios générés de isaac (`make gen GAME=isaac`) joués sur la carte
     // gabarit, en mode `Sandbox` imposé par le générateur (copie de celle de `gungeon`).
     generate_template: (map: "maps/gabarit_armes.ldtk", target: "cible"),
+    // M3-T12 (docs/conventions.md §77) : les mécaniques que la partie ordinaire (séquence `sous_sol`) doit
+    // rencontrer, tableau « Atteignabilité » de docs/taches.md §8.1. `alacod lint` avertit de chacune que le
+    // contenu ne porte pas encore (jusqu'à M3-T8, T9, T10, T11).
+    mechanics: [
+        Tears,
+        Effects,
+        Familiars,
+        Bombs,
+        SecretRoom,
+        Keys,
+        Hearts,
+        ExhaustPools,
+        DevilMarket,
+        Champions,
+        Curses,
+        Achievements,
+    ],
 )

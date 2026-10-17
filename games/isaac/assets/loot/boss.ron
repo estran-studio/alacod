@@ -1,0 +1,12 @@
+// `isaac` (M3-T8, §73) : pool du butin du boss (`rooms/boss.ron`, `boss_drop`). Épuisement par run
+// (Q5) : le boss du second étage ne redonne pas l'objet du premier. Contenu : trois passifs de stats (M3-T8) et, depuis M3-T11b (§76.2), `sang_chaud` (`OnKill`) et l'actif `calice_ardent` ; poids 2 par objet peu commun (4/2/1 par rareté).
+(
+    entries: [
+        (pick: Item("griffe_acier"), weight: 2),
+        (pick: Item("reservoir_vital"), weight: 2),
+        (pick: Item("oeil_vif"), weight: 2),
+        (pick: Item("sang_chaud"), weight: 2),
+        (pick: Item("calice_ardent"), weight: 2),
+    ],
+    exhaust: true,
+)

@@ -13,7 +13,7 @@ essais ; la charge au lancement de chaque essai est dans les journaux des script
 | 1. Rejouer `p2p-restart.sh` | **fait** (restart ordinaire, zombies : OK) |
 | 1. Aucune trace de scénario ne bouge | **vérifié** (501 scénarios, `git status` propre) |
 | 2. Mesure des rollbacks (profondeur, fréquence) | **faite** : §4 ; compteur ajouté au journal de fin |
-| 3. Nightly complet `NIGHTLY_P2P_GUNGEON=1` | **lancé et terminé** : code 0, 18 924 s (5 h 15) ; étapes C et D non exécutées utilement (D88), §5 |
+| 3. Nightly complet `NIGHTLY_P2P_GUNGEON=1` | **lancé et terminé** : code 0, 18 924 s (5 h 15) ; étapes C et D non exécutées utilement (D89), §5 |
 | 4. Suites, rapport, dettes, fiche, journal | §6 |
 
 ## 2. Cause et correctif
@@ -132,8 +132,8 @@ netem, fenêtre de 12), d'où la ligne `sans_restauration`.
 | D. Vidéos | ⚠ **PARTIAL** : 0 vidéo, `bevy_winit` : ni `DISPLAY` ni `WAYLAND_DISPLAY` | 743 s |
 | E. Page de revue, F. Notes | générées | — |
 
-Ce n'est pas du nouveau : C et D ne tournent pas sur ce poste (pas d'affichage, pas de dépôt allumette). **D88** (cause, acceptation) ; le nightly sort en succès
-alors que D n'a rien produit, et le gabarit des notes écrit « Videos ✅ » en dur (D88 aussi). La couverture réelle de cette nuit : bench + traces, bots, p2p gungeon
+Ce n'est pas du nouveau : C et D ne tournent pas sur ce poste (pas d'affichage, pas de dépôt allumette). **D89** (cause, acceptation) ; le nightly sort en succès
+alors que D n'a rien produit, et le gabarit des notes écrit « Videos ✅ » en dur (D89 aussi). La couverture réelle de cette nuit : bench + traces, bots, p2p gungeon
 en réel avec rollbacks ; pas : allumette, vidéos, réseau dégradé du nightly. C2 a duré 5 430 s (compilation à froid et attente de calme `uptime < 3` comprises).
 Le nightly a tourné sur `10816160`, **avant** les derniers changements du code (horloge murale de (b), compteur de rollbacks : journal de fin seulement) ; il n'exerce pas le retour au lobby.
 Les p2p de ces changements sont ceux du §3 et du §4 ; la suite de scénarios, elle, est rejouée sur le code final (§6).

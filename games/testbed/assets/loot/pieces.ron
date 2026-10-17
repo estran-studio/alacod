@@ -1,0 +1,5 @@
+// M3-T3 (docs/conventions.md §68) : pool d'essai des tas de sous (`Currency`). Un coffre qui le
+// désigne laisse un tas de 7 sous au sol, ramassé au contact (scénario `coin_pickup`).
+(
+    entries: [(pick: Currency(7), weight: 1)],
+)

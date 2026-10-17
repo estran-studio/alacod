@@ -101,6 +101,11 @@ impl Plugin for RoomsPlugin {
                 room_shop_system
                     .after(room_chest_system)
                     .in_set(RollbackSystemSet::Run),
+                // M3-T8 (§73) : butin du boss assigné à la génération (pool à épuisement), après
+                // les coffres et présentoirs (même ordre canonique : coffres, présentoirs, boss).
+                room_boss_slot_system
+                    .after(room_shop_system)
+                    .in_set(RollbackSystemSet::Run),
                 // M2-T7 : vagues internes d'une arène, après son verrouillage de la frame.
                 // Après le coffre de salle (M2-T5) : tous deux consomment `GgrsNetIdFactory`.
                 arena_waves_system
@@ -112,6 +117,15 @@ impl Plugin for RoomsPlugin {
                 // `EnemySpawning`, où `boss_phase_system` les demande).
                 boss_reinforcements_system
                     .after(arena_waves_system)
+                    .in_set(RollbackSystemSet::Run),
+                // M3-T8 (§73) : butin du boss mort dans la frame (`Run` suit `DeathManagement`), **avant** la
+                // transition d'étage : un joueur au portail quand le dernier boss meurt change d'étage dans
+                // la même frame, et l'événement (position du boss) doit se lire dans l'étage d'origine
+                // (`CurrentRooms` et `FloorState` d'avant). Tous les autres systèmes de `Run` qui
+                // consomment `GgrsNetIdFactory` (coffres, présentoirs, arène, renforts) suivent
+                // `floor_transition_system` : l'ordre reste total.
+                boss_drop_system
+                    .before(super::floors::floor_transition_system)
                     .in_set(RollbackSystemSet::Run),
                 // M2-T7 : la mort d'un boss vide sa salle (despawn dans la même frame).
                 boss_room_clear_system
@@ -350,11 +364,21 @@ pub fn room_dormancy_system(
 /// M2-T5 (`docs/conventions.md` §48) : pose le coffre d'un type de salle (`RoomKindDef::chest`) au
 /// centre de chaque salle de l'étage courant qui n'en a pas encore (clé `room:<salle>`, tirage
 /// indépendant du moment). Un coffre ouvert reste en place (`opened`), donc n'est pas reposé.
+#[allow(clippy::too_many_arguments)]
 pub fn room_chest_system(
+    frame: Res<FrameCount>,
     mut commands: Commands,
     table: Option<Res<RoomKindTable>>,
     rooms: CurrentRooms,
     existing: Query<&items::Chest>,
+    tables: Res<items::LootTables>,
+    floors: Res<game::loot::FloorLootTables>,
+    item_table: Res<items::ItemTable>,
+    unlocks: Res<items::UnlockTable>,
+    active: Res<items::RunUnlocks>,
+    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
+    floor: Option<Res<run::FloorState>>,
+    mut pools: ResMut<items::PoolState>,
     mut id_factory: ResMut<utils::net_id::GgrsNetIdFactory>,
 ) {
     let Some(table) = table else {
@@ -363,6 +387,16 @@ pub fn room_chest_system(
     if !table.0.values().any(|def| def.chest.is_some()) {
         return;
     }
+    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    let ctx = game::loot::SlotContext {
+        frame: frame.frame,
+        tables: &tables,
+        items: &item_table,
+        unlocks: &unlocks,
+        active: &active,
+        run_seed,
+        floor,
+    };
     let present: std::collections::BTreeSet<&str> =
         existing.iter().map(|chest| chest.key.as_str()).collect();
     for (id, bounds, kind) in sorted_rooms(&rooms) {
@@ -379,18 +413,18 @@ pub fn room_chest_system(
             bounds.position.y + bounds.size.y / two,
             bevy_fixed::fixed_math::FIXED_ZERO,
         );
-        game::loot::spawn_chest(
-            &mut commands,
-            &mut id_factory,
-            items::Chest {
-                key,
-                table: def.table.clone(),
-                rarity: def.rarity,
-                locked: def.locked,
-                opened: false,
-            },
-            center,
-        );
+        let chest = items::Chest {
+            key,
+            table: def.table.clone(),
+            rarity: def.rarity,
+            locked: def.locked,
+            opened: false,
+        };
+        // M3-T8 (§73) : un pool qui s'épuise assigne l'objet ici, dans l'ordre des salles (x, y,
+        // identifiant), pas à l'ouverture.
+        let table_id = game::loot::chest_table_id(&chest, &floors, floor).to_string();
+        game::loot::assign_slot(&ctx, &mut pools, &table_id, chest.rarity, false, &chest.key);
+        game::loot::spawn_chest(&mut commands, &mut id_factory, chest, center);
     }
 }
 
@@ -401,16 +435,20 @@ pub fn room_chest_system(
 /// (`economy.ron`). Un présentoir vendu reste en place (`sold`), donc n'est pas reposé.
 #[allow(clippy::too_many_arguments)]
 pub fn room_shop_system(
+    frame: Res<FrameCount>,
     mut commands: Commands,
     table: Option<Res<RoomKindTable>>,
     rooms: CurrentRooms,
     existing: Query<&items::Shelf>,
     tables: Res<items::LootTables>,
     item_table: Res<items::ItemTable>,
+    unlocks: Res<items::UnlockTable>,
+    active: Res<items::RunUnlocks>,
     global_assets: Res<game::global_asset::GlobalAsset>,
     economies: Res<Assets<game::economy::EconomyConfig>>,
     run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
     floor: Option<Res<run::FloorState>>,
+    mut pools: ResMut<items::PoolState>,
     mut id_factory: ResMut<utils::net_id::GgrsNetIdFactory>,
 ) {
     let Some(table) = table else {
@@ -424,6 +462,15 @@ pub fn room_shop_system(
         .as_ref()
         .and_then(|handle| economies.get(handle));
     let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    let ctx = game::loot::SlotContext {
+        frame: frame.frame,
+        tables: &tables,
+        items: &item_table,
+        unlocks: &unlocks,
+        active: &active,
+        run_seed,
+        floor,
+    };
     let present: std::collections::BTreeSet<&str> =
         existing.iter().map(|shelf| shelf.key.as_str()).collect();
     for (id, bounds, kind) in sorted_rooms(&rooms) {
@@ -433,18 +480,31 @@ pub fn room_shop_system(
         if present.contains(format!("shelf:{}:0", id.0).as_str()) {
             continue;
         }
-        let Some(pool) = tables.0.get(def.table_for_floor(floor)) else {
+        let table_id = def.table_for_floor(floor);
+        let Some(pool) = tables.0.get(table_id) else {
             continue;
         };
-        let picks = game::shop::draw_shelves(
-            pool,
-            &item_table,
-            run_seed,
-            floor,
+        // M3-T8 (§73) : un pool qui s'épuise assigne un objet par présentoir à la génération
+        // (salles dans l'ordre x, y, identifiant) ; sinon le tirage d'avant, un flux par boutique.
+        let picks = game::shop::assign_shelves(
+            &ctx,
+            &mut pools,
+            table_id,
             &id.0,
             def.shelves,
             def.weapon_shelves,
-        );
+        )
+        .unwrap_or_else(|| {
+            game::shop::draw_shelves(
+                pool,
+                &item_table,
+                run_seed,
+                floor,
+                &id.0,
+                def.shelves,
+                def.weapon_shelves,
+            )
+        });
         let two = Fixed::from_num(2);
         let center_x = bounds.position.x + bounds.size.x / two;
         let center_y = bounds.position.y + bounds.size.y / two;
@@ -458,6 +518,13 @@ pub fn room_shop_system(
                     .map(|item| item.rarity)
                     .unwrap_or_default(),
             };
+            // `cost` du type de salle : un prix en douilles fixe `price` ; vie maximale et
+            // consommable vont dans `Shelf::cost` (le prix en douilles reste 0).
+            let (price, cost) = match &def.cost {
+                None => (game::shop::shelf_price(economy, rarity), None),
+                Some(items::Price::Currency(amount)) => (*amount, None),
+                Some(other) => (0, Some(other.clone())),
+            };
             let offset = (2 * index as i32 - (count - 1)) * game::shop::SHELF_SPACING / 2;
             game::shop::spawn_shelf(
                 &mut commands,
@@ -465,10 +532,10 @@ pub fn room_shop_system(
                 items::Shelf {
                     key: format!("shelf:{}:{index}", id.0),
                     item_id,
-                    price: game::shop::shelf_price(economy, rarity),
+                    price,
                     sold: false,
                     retry_after: 0,
-                    cost: None,
+                    cost,
                 },
                 bevy_fixed::fixed_math::FixedVec3::new(
                     center_x + Fixed::from_num(offset),
@@ -477,6 +544,158 @@ pub fn room_shop_system(
                 ),
             );
         }
+    }
+}
+
+/// M3-T8 (§73) : assigne à la génération de l'étage le butin du boss (`RoomKindDef::boss_drop`) de
+/// chaque salle de ce type, dans l'ordre des salles (x, y, identifiant), quand le pool a `exhaust` :
+/// l'objet est retiré du pool pour la run **maintenant**, pas à la mort du boss. Clé `boss:<salle>`.
+/// Sans épuisement, rien à faire ici (le tirage se fait à la mort, sur la même clé).
+#[allow(clippy::too_many_arguments)]
+pub fn room_boss_slot_system(
+    frame: Res<FrameCount>,
+    table: Option<Res<RoomKindTable>>,
+    rooms: CurrentRooms,
+    tables: Res<items::LootTables>,
+    item_table: Res<items::ItemTable>,
+    unlocks: Res<items::UnlockTable>,
+    active: Res<items::RunUnlocks>,
+    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
+    floor: Option<Res<run::FloorState>>,
+    mut pools: ResMut<items::PoolState>,
+) {
+    let Some(table) = table else {
+        return;
+    };
+    if !table.0.values().any(|def| def.boss_drop.is_some()) {
+        return;
+    }
+    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    let ctx = game::loot::SlotContext {
+        frame: frame.frame,
+        tables: &tables,
+        items: &item_table,
+        unlocks: &unlocks,
+        active: &active,
+        run_seed,
+        floor,
+    };
+    for (id, _, kind) in sorted_rooms(&rooms) {
+        let Some(drop) = table.0.get(&kind.0).and_then(|def| def.boss_drop.as_ref()) else {
+            continue;
+        };
+        let key = format!("boss:{}", id.0);
+        if pools.assignment(floor, &key).is_some() {
+            continue;
+        }
+        game::loot::assign_slot(&ctx, &mut pools, &drop.table, drop.rarity, false, &key);
+    }
+}
+
+/// M3-T8 (§73) : à la mort d'un boss dont la salle a un `boss_drop`, l'objet tombe au centre de la
+/// salle. L'objet assigné à la génération s'il y en a un (pool à épuisement), sinon un tirage sur
+/// la graine de l'emplacement `boss:<salle>` (indépendant du moment). `FrameEvents<BossDefeated>`
+/// est lu dans la frame de sa mort (`Run` suit `DeathManagement`).
+#[allow(clippy::too_many_arguments)]
+pub fn boss_drop_system(
+    frame: Res<FrameCount>,
+    defeated: Res<FrameEvents<behaviors::BossDefeated>>,
+    table: Option<Res<RoomKindTable>>,
+    rooms: CurrentRooms,
+    tables: Res<items::LootTables>,
+    item_table: Res<items::ItemTable>,
+    unlocks: Res<items::UnlockTable>,
+    active: Res<items::RunUnlocks>,
+    mut pools: ResMut<items::PoolState>,
+    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
+    floor: Option<Res<run::FloorState>>,
+    global_assets: Res<GlobalAsset>,
+    weapons: Res<Assets<WeaponsConfig>>,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    let Some(table) = table else {
+        return;
+    };
+    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    // Garde-fou : une salle ne lâche son butin qu'une fois par frame, même si deux `BossPlan` y meurent
+    // ensemble (deux événements). Entre deux frames, rien ne l'empêche (dette, §73).
+    let mut dropped: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for event in defeated.iter() {
+        let at = FixedVec2::new(event.x, event.y);
+        let Some((id, bounds, kind)) = sorted_rooms(&rooms)
+            .into_iter()
+            .find(|(_, bounds, _)| inside_box(bounds.position, bounds.size, at, Fixed::ZERO))
+        else {
+            continue;
+        };
+        let Some(drop) = table.0.get(&kind.0).and_then(|def| def.boss_drop.as_ref()) else {
+            continue;
+        };
+        let key = format!("boss:{}", id.0);
+        if !dropped.insert(key.clone()) {
+            continue;
+        }
+        // Cas limite : un boss qui meurt au tout premier tick, avant `room_boss_slot_system` (qui suit
+        // `floor_transition_system`) : un pool à épuisement est alors assigné ici, avec la même
+        // fonction (idempotente), pour que le drop reste l'objet assigné et sorte du pool.
+        let ctx = game::loot::SlotContext {
+            frame: frame.frame,
+            tables: &tables,
+            items: &item_table,
+            unlocks: &unlocks,
+            active: &active,
+            run_seed,
+            floor,
+        };
+        if pools.assignment(floor, &key).is_none() {
+            game::loot::assign_slot(&ctx, &mut pools, &drop.table, drop.rarity, false, &key);
+        }
+        let item = match pools.assignment(floor, &key) {
+            Some(item) => Some(item.to_string()),
+            None => tables.0.get(&drop.table).and_then(|pool| {
+                let pool = items::unlocked_table(&drop.table, pool, &unlocks, &active);
+                let mut rng =
+                    bevy_fixed::rng::RollbackRng::new(items::loot_seed(run_seed, floor, &key));
+                items::draw_loot_with(
+                    &pool,
+                    &item_table,
+                    None,
+                    drop.rarity,
+                    false,
+                    &unlocks.hidden_items(&active),
+                    &mut rng,
+                )
+            }),
+        };
+        let Some(item) = item else {
+            warn!(
+                "butin du boss « {key} » : le pool « {} » ne donne rien",
+                drop.table
+            );
+            continue;
+        };
+        let two = Fixed::from_num(2);
+        let center = FixedVec3::new(
+            bounds.position.x + bounds.size.x / two,
+            bounds.position.y + bounds.size.y / two,
+            bevy_fixed::fixed_math::FIXED_ZERO,
+        );
+        info!(
+            "ggrs{{f={} boss_drop room={} item={item}}}",
+            frame.frame, id.0
+        );
+        game::loot::spawn_drawn_loot(
+            &mut commands,
+            &mut id_factory,
+            &item_table,
+            &global_assets,
+            &weapons,
+            &item,
+            center,
+            event.net_id,
+            &format!("butin du boss « {key} »"),
+        );
     }
 }
 
@@ -871,13 +1090,19 @@ pub fn rock_loot_system(
             "ggrs{{f={} rock_loot key={} item={}}}",
             frame.frame, key, item_id
         );
-        game::items::spawn_item_pickup(
-            &mut commands,
-            &items,
-            item_id,
-            FixedVec3::new(rock.x, rock.y, Fixed::ZERO),
-            &mut id_factory,
-        );
+        let position = FixedVec3::new(rock.x, rock.y, Fixed::ZERO);
+        // M3-T3 (§68) : un tas de sous (entrée `Currency` du pool), sinon l'objet.
+        if let Some(amount) = items::loot_currency(&item_id) {
+            game::shop::spawn_shell_pickup(&mut commands, &mut id_factory, amount, position, 0);
+        } else {
+            game::items::spawn_item_pickup(
+                &mut commands,
+                &items,
+                item_id,
+                position,
+                &mut id_factory,
+            );
+        }
     }
 }
 

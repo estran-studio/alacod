@@ -1,0 +1,13 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : dégâts des larmes +50 % (`Damage` Pct 0,5 : 3,5 -> 5,25).
+(
+    name: "Encre noire",
+    kind: Passive,
+    modifiers: [(stat: Damage, op: Pct, value: "0.5")],
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_encre` et son témoin `tears_encre_sans_objet`, seuils mesurés : cible fragile (15 PV) posée : morte à f100 avec l'objet (3 coups de 5,25), vivante sans (5 coups de 3,5 nécessaires).
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible_fragile", dx: -48, dy: -18)], expect: [EntityCount(kind: Enemy, max: 1, at_frame: 100)], control: [EntityCount(kind: Enemy, min: 2, at_frame: 100)])),
+    )),
+)

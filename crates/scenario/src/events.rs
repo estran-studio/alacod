@@ -4,7 +4,8 @@
 //!
 //! M2 : `item_pickup`, `blank`, `room`, `boss_phase`, `purchase` (monnaie, dont l'achat en
 //! boutique de raison `shop`), `chest` (coffre ouvert), `arena` (arène tenue), `portal`, `floor`,
-//! `unlock` (déblocages du profil lus par la partie) et `hub` (run entrée depuis le hub).
+//! `unlock` (déblocages du profil lus par la partie), `hub` (run entrée depuis le hub) et, M3-T9,
+//! `curse` (curse tirée à l'entrée d'un étage).
 //!
 //! Hors simulation : lit l'état après chaque update, ne modifie rien.
 
@@ -168,8 +169,33 @@ impl Plugin for GameEventsPlugin {
                     boss_events.after(detect_events),
                     chest_events.after(detect_events),
                     unlock_events.after(detect_events).after(hub_events),
+                    curse_events.after(detect_events),
                 ),
             );
+    }
+}
+
+/// Moment clé `curse` (M3-T9, `docs/conventions.md` §74) : la curse d'un étage tirée à son entrée
+/// (`run::RunCurses`). Un étage sans curse n'est pas un moment clé. Une relance (état remis à zéro)
+/// ou un rollback qui défait le tirage le fait oublier : il est annoncé de nouveau s'il est retiré.
+fn curse_events(
+    frame: Res<FrameCount>,
+    curses: Option<Res<run::RunCurses>>,
+    mut announced: Local<BTreeMap<u32, String>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(curses) = curses else {
+        return;
+    };
+    announced.retain(|floor, id| curses.floors.get(floor) == Some(id));
+    for (floor, id) in &curses.floors {
+        if announced.insert(*floor, id.clone()).as_ref() != Some(id) {
+            events.events.push(GameEvent {
+                frame: frame.frame,
+                kind: "curse",
+                label: format!("étage {} : curse « {id} »", floor + 1),
+            });
+        }
     }
 }
 
@@ -210,6 +236,19 @@ fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: Re
                 format!("{} {} (rayon {})", cue.kind.label(), cue.value, cue.extra)
             }
             FeedbackKind::BossEnd => format!("{} {}", cue.kind.label(), cue.net_id),
+            // M3-T17 (§82) : « larme 12 (guidée, poison) », « familier 31 (suiveur, porteur 0, rang
+            // 0) », « champion 14 (explosif) », « mèche 31 (20 frames) », « anneau d'explosion
+            // (rayon 70) », « rocher cassé (12,3) », « mur secret ouvert (salle) ».
+            FeedbackKind::Tear
+            | FeedbackKind::Familiar
+            | FeedbackKind::Champion
+            | FeedbackKind::BombFuse
+            | FeedbackKind::Explosion
+            | FeedbackKind::RockBroken
+            | FeedbackKind::SecretWall => match game::feedback_v3::cue_label(cue) {
+                Some(label) => label,
+                None => continue,
+            },
             FeedbackKind::Flash | FeedbackKind::Number => continue,
         };
         events.events.push(GameEvent {
