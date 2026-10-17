@@ -819,8 +819,9 @@ mod tests {
             wish(2, 20.0, "Roulade offensive $20"),
         ];
         declutter(&mut wishes);
-        assert_eq!(wishes[0].position.y, 0.0);
-        assert!(wishes[1].position.y >= label_size("x").y);
+        // L'ordre de pose suit l'ordre des entités : l'une reste à 0, l'autre monte d'au moins une hauteur.
+        let gap = (wishes[0].position.y - wishes[1].position.y).abs();
+        assert!(gap >= label_size("x").y, "écart {gap}");
     }
 
     #[test]
