@@ -951,4 +951,46 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // Suivi Q12 (docs/conventions.md §19) : Charm : chaque balle charme sa cible (elle sert le camp des joueurs et frappe
+    // l'ennemi le plus proche pendant 200 frames). Scénarios `status_charm` et généré `weapon_status_charm`.
+    "status_charm": (
+        config: (
+            name: "status_charm",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (on_hit: [ApplyStatus(status: "charme", stacks: 1)]),
+                )
+            },
+            test: Some((
+                frames: 200,
+                min_hits: 1,
+                expect: [
+                    HasStatus(entity: Target, status: "charme", at_frame: 100),
+                ],
+            )),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
 })

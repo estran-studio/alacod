@@ -1,0 +1,9 @@
+// Suivi Q10 (docs/conventions.md §44) : passif d'essai de la transformation `champignons` (`synergies/champignons.ron`) : sans effet
+// seul ; trois objets portant le tag `champignon` (`amanite`, `bolet`, `morille`) déclenchent la transformation (scénarios
+// `transformation_three`, `transformation_two`).
+(
+    name: "Morille",
+    kind: Passive,
+    tags: ["champignon"],
+    test: Some((frames: 60)),
+)

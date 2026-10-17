@@ -637,6 +637,21 @@ fn always_on(
                 ),
             );
         }
+        // Suivi Q10 : transformation dont le tag n'a pas assez d'objets avec une source.
+        if let Some(requirement) = &synergy.def.requires_tag {
+            let sourced = tagged_items(registry, &requirement.tag, |id| sources.contains(id));
+            if sourced < requirement.count {
+                unmet(
+                    out,
+                    "effets et transformations",
+                    synergy.file.display().to_string(),
+                    format!(
+                        "synergie « {} » : seulement {sourced} objet(s) à source portent le tag « {} » ({} requis) : jamais active",
+                        synergy.id, requirement.tag, requirement.count
+                    ),
+                );
+            }
+        }
     }
 
     // Salles spéciales d'une grammaire en grille qui ne portent rien.
@@ -1029,6 +1044,12 @@ fn declared(
                         .requires
                         .iter()
                         .all(|id| obtainable.contains(id))
+                        // Suivi Q10 : une transformation (`requires_tag`) exige assez d'objets
+                        // atteignables qui portent son tag.
+                        && synergy.def.requires_tag.as_ref().is_none_or(|requirement| {
+                            tagged_items(registry, &requirement.tag, |id| obtainable.contains(id))
+                                >= requirement.count
+                        })
                 });
                 if !transformable {
                     warn(
@@ -1364,6 +1385,19 @@ fn declared(
 
 /// Bombe de départ d'un personnage jouable, d'étage, donnée par un pool tiré de la partie ou par un
 /// déblocage.
+/// Objets non consommables qui portent `tag` et que `reachable` accepte (suivi Q10, `requires_tag`).
+fn tagged_items(registry: &Registry, tag: &str, reachable: impl Fn(&String) -> bool) -> u32 {
+    registry
+        .items
+        .iter()
+        .filter(|(id, item)| {
+            item.def.kind != items::ItemKind::Consumable
+                && item.def.tags.iter().any(|candidate| candidate == tag)
+                && reachable(id)
+        })
+        .count() as u32
+}
+
 fn bomb_obtainable(registry: &Registry, play: &Play<'_>) -> bool {
     players(registry).any(|c| c.starting_consumables.get(BOMB).is_some_and(|n| *n > 0))
         || play

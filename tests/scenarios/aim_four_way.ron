@@ -1,0 +1,36 @@
+// Suivi Q17 (docs/conventions.md §66) : visée à quatre directions (`aim: Some(FourWay)`). Le joueur 0 (carte
+// `props_room`, arme `larme`) tire trois fois plein ouest-ish : (-127, -40) à f20, (-127, 40) à f45 et la diagonale
+// parfaite (-100, -100) à f70. Avec `FourWay` les trois larmes partent plein ouest (l'axe dominant ; égalité
+// parfaite : l'horizontale) et touchent la `target` alignée (x = 500, y = -194). Témoin `aim_four_way_libre` : même
+// partie en visée libre, les trois larmes passent à côté (visée en biais de 17°, 17°, 45° : écart de 61 à 196 unités).
+//
+// À regarder : trois larmes parfaitement horizontales malgré une souris en biais ; la cible reçoit trois coups.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "500.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [
+                (from: 20, to: 21, buttons: [Fire], pan: (-127, -40)),
+                (from: 45, to: 46, buttons: [Fire], pan: (-127, 40)),
+                (from: 70, to: 71, buttons: [Fire], pan: (-100, -100)),
+            ],
+            weapon: "larme",
+            aim: Some(FourWay),
+        ),
+    ],
+    expect: [
+        // Une larme par tir, aux frames 80, 105 et 129 : le tir (f20) à 17° vers le bas, celui de f45 à 17° vers le haut et
+        // la diagonale parfaite de f70 (égalité : horizontale) touchent tous trois la cible alignée.
+        EntityHits(net_id: 14, min: 0, max: Some(0), at_frame: 79),
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 80),
+        EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 104),
+        EntityHits(net_id: 14, min: 2, max: Some(2), at_frame: 105),
+        EntityHits(net_id: 14, min: 2, max: Some(2), at_frame: 128),
+        EntityHits(net_id: 14, min: 3, max: Some(3), at_frame: 129),
+        EntityHits(net_id: 14, min: 3, max: Some(3), at_frame: 159),
+    ],
+)

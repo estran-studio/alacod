@@ -1,6 +1,6 @@
 // M3-T0d (docs/conventions.md §63), exécuté par M3-T6 (§71) : familier d'essai. Personnage de l'équipe
-// `Players`, sans IA de poursuite : il suit son porteur (`Follow`) et tire avec lui (`MirrorShot`,
-// arme `pistol` du familier, sans les modificateurs du porteur : Q13). Cité par les objets `compagnon`
+// `Players`, sans IA de poursuite : il suit son porteur (`Follow`) et tire avec lui (`MirrorShot` : les
+// larmes du porteur, son arme et ses objets, Q13). Cité par les objets `compagnon`
 // et `compagnon_actif` (champ `familiar`) ; créé au ramassage, détruit à la perte de l'objet.
 (
     movement: (
@@ -52,7 +52,7 @@
         stationary: Some(true),
         behaviors: Some([
             Follow(gap: "28.0"),
-            MirrorShot(weapon: "pistol", every: 12),
+            MirrorShot(every: 12),
         ]),
     )),
 )

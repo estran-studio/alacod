@@ -82,6 +82,7 @@ Scenario(
                 Segment(from: 148, to: 149, buttons: [Fire], pan: (128, 48)),
             ],
             weapon: "larmes_courtes",
+            aim: Free,
         ),
     ],
     expect: [

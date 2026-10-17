@@ -545,6 +545,7 @@ mod profile_tests {
             loot_interact: false,
             fire_range: None,
             explore: None,
+            aim: sim_core::aim::AimMode::Free,
             hunter: Some(hunter),
         };
         for profile in [BotProfile::Chasseur, BotProfile::Acheteur] {
@@ -583,6 +584,7 @@ mod profile_tests {
             loot_interact: false,
             fire_range: None,
             explore: None,
+            aim: sim_core::aim::AimMode::Free,
             hunter: Some(HunterView {
                 can_fire: true,
                 interact: true,

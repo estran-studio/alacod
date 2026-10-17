@@ -160,6 +160,7 @@ Scenario(
             items: [
                 "epouvante",
             ],
+            aim: Free,
         ),
     ],
     expect: [

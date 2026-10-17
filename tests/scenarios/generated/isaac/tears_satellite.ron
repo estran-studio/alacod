@@ -85,6 +85,7 @@ Scenario(
             items: [
                 "satellite",
             ],
+            aim: Free,
         ),
     ],
     expect: [

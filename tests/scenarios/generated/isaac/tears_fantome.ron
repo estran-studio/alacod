@@ -85,6 +85,7 @@ Scenario(
             items: [
                 "fantome",
             ],
+            aim: Free,
         ),
     ],
     expect: [

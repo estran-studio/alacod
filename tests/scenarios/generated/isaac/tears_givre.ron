@@ -160,6 +160,7 @@ Scenario(
             items: [
                 "givre",
             ],
+            aim: Free,
         ),
     ],
     expect: [

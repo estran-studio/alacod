@@ -25,7 +25,9 @@
 //! - [`frame_events`] : `FrameEvents<T>`, déménagé de `crates/game`.
 //! - [`system_set`] : `RollbackSystemSet` et son ordre total, déménagé de `crates/game`.
 //! - [`ammo`] : type de munition d'une arme à distance (T2.2, chantier B7).
+//! - [`aim`] : mode de visée d'un personnage, libre ou à quatre directions (suivi Q17).
 
+pub mod aim;
 pub mod ammo;
 pub mod damage;
 pub mod frame_events;

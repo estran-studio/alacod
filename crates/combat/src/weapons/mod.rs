@@ -25,6 +25,7 @@ use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
 use sim_core::{
+    aim::{aim_direction, AimMode},
     ammo::AmmoType,
     damage::{DamageEvent, DamageKind, FriendlyFire},
     frame_events::{FrameEvents, FrameEventsAppExt},
@@ -938,39 +939,12 @@ fn spawn_bullet_rollback(
     // M3-T0a : stats de larmes du porteur (`ShotSpeed`, `ShotSize`, 1 par défaut).
     shot: ShotStats,
 ) -> Entity {
-    let (velocity, damage) = match &bullet_type {
-        BulletType::Standard {
-            speed,
-            damage: damage_bullet,
-        }
-        | BulletType::Explosive {
-            speed,
-            damage: damage_bullet,
-            ..
-        }
-        | BulletType::Piercing {
-            speed,
-            damage: damage_bullet,
-            ..
-        } => {
-            // M3-T0a : `ShotSpeed` multiplie la vitesse de la balle ; à 1, aucun produit (même
-            // valeur au bit près qu'avant la stat).
-            let speed = if shot.speed == fixed_math::FIXED_ONE {
-                *speed
-            } else {
-                speed.saturating_mul(shot.speed)
-            };
-            (
-                direction * (speed / fixed_math::Fixed::from_num(60)),
-                *damage_bullet,
-            )
-        }
-    };
+    let (velocity, damage) = tear_motion(&bullet_type, direction, shot, damage_mult);
 
     // Stats branchées (T1.2, chantier B2) : sans modificateur actif, `damage_mult`/
     // `range_mult` valent exactement 1 (voir `character::create::create_character`), donc
-    // ce produit ne change aucune valeur par rapport à avant ce chantier.
-    let damage = damage.saturating_mul(damage_mult);
+    // ce produit ne change aucune valeur par rapport à avant ce chantier (`damage_mult` est
+    // appliqué par `tear_motion`).
     let range = range.saturating_mul(range_mult);
 
     let local_muzzle_offset_v2 = if !facing_direction.should_flip_x() {
@@ -1038,6 +1012,89 @@ fn spawn_bullet_rollback(
 pub struct ShotStats {
     pub speed: fixed_math::Fixed,
     pub size: fixed_math::Fixed,
+}
+
+/// Vitesse (par frame) et dégât d'une balle du mode de tir `bullet_type` dans `direction` :
+/// `ShotSpeed` multiplie la vitesse et `damage_mult` (stat `Damage`) le dégât ; à 1, aucun produit
+/// (valeurs au bit près identiques à avant ces stats). Partagé par `spawn_bullet_rollback` et les
+/// tirs miroirs des familiers.
+pub fn tear_motion(
+    bullet_type: &BulletType,
+    direction: fixed_math::FixedVec2,
+    shot: ShotStats,
+    damage_mult: fixed_math::Fixed,
+) -> (fixed_math::FixedVec2, fixed_math::Fixed) {
+    let (speed, damage) = match bullet_type {
+        BulletType::Standard { speed, damage }
+        | BulletType::Explosive { speed, damage, .. }
+        | BulletType::Piercing { speed, damage, .. } => (*speed, *damage),
+    };
+    let speed = if shot.speed == fixed_math::FIXED_ONE {
+        speed
+    } else {
+        speed.saturating_mul(shot.speed)
+    };
+    (
+        direction * (speed / fixed_math::Fixed::from_num(60)),
+        damage.saturating_mul(damage_mult),
+    )
+}
+
+/// Objets et synergies du tireur dont les `projectile` se composent avec ceux de l'arme (§66), dans
+/// l'ordre de `items::projectile_mods`, sans les listes vides. Vide hors jeu complet (pas
+/// d'inventaire d'objets ou de tables) : chemin d'origine.
+pub fn carried_projectile_mods<'a>(
+    held: Option<&items::Inventory>,
+    item_table: Option<&'a items::ItemTable>,
+    synergy_table: Option<&'a items::SynergyTable>,
+) -> Vec<&'a effects::projectile::ProjectileMods> {
+    match (held, item_table, synergy_table) {
+        (Some(held), Some(items), Some(synergies)) => {
+            let mut mods = items::projectile_mods(items, synergies, held);
+            mods.retain(|mods| !mods.is_empty());
+            mods
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Projectile composable d'un tir de joueur : celui du mode de tir de l'arme (T1.1), composé avec les
+/// `carried` des objets du tireur (M3-T1, §66). Sans objet qui ajoute quelque chose : chemin
+/// d'origine (`Projectile::new`, `None` pour un mode sans `projectile:`). `luck` n'est appelé (et
+/// gardé) que pour un projectile qui a une `Action::Chance` à tirer. Partagé par le tir du joueur et
+/// les tirs miroirs de ses familiers (Q13).
+pub fn shot_projectile(
+    weapon: &WeaponConfig,
+    mode: &FiringModeConfig,
+    carried: &[&effects::projectile::ProjectileMods],
+    damage_mult: fixed_math::Fixed,
+    luck: impl FnOnce() -> fixed_math::Fixed,
+) -> Option<Projectile> {
+    let mut projectile = if carried.is_empty() {
+        (!mode.projectile.is_empty()).then(|| {
+            Projectile::new(
+                weapon.name.clone(),
+                &mode.projectile,
+                std::sync::Arc::new(weapon.projectiles.clone()),
+                damage_mult,
+                0,
+            )
+        })
+    } else {
+        Some(Projectile::composed(
+            weapon.name.clone(),
+            &mode.projectile,
+            carried,
+            std::sync::Arc::new(weapon.projectiles.clone()),
+            damage_mult,
+        ))
+    };
+    if let Some(projectile) = projectile.as_mut() {
+        if projectile.has_chance() {
+            projectile.luck = luck();
+        }
+    }
+    projectile
 }
 
 // SYSTEMS
@@ -1199,6 +1256,8 @@ pub fn weapon_rollback_system(
         &GgrsNetId,
         &Team,
         Option<&Tags>,
+        // Visée du personnage (suivi Q17) : absent = libre.
+        Option<&AimMode>,
     )>,
 
     collision_settings: Res<CollisionSettings>,
@@ -1463,8 +1522,15 @@ pub fn weapon_rollback_system(
                 weapon_state.is_firing = input.fire;
 
                 if can_fire {
-                    if let Ok((_, facing_direction, _, shooter_net_id, shooter_team, opt_tags)) =
-                        player_query.get(child_of.parent())
+                    if let Ok((
+                        _,
+                        facing_direction,
+                        _,
+                        shooter_net_id,
+                        shooter_team,
+                        opt_tags,
+                        aim_mode,
+                    )) = player_query.get(child_of.parent())
                     {
                         let shooter_tags = opt_tags.cloned().unwrap_or_default();
                         // Stats branchées (T1.2) : dégâts et portée de la balle multipliés
@@ -1477,55 +1543,28 @@ pub fn weapon_rollback_system(
                             speed: stats.get(shooter, &StatId::ShotSpeed, fixed_math::FIXED_ONE),
                             size: stats.get(shooter, &StatId::ShotSize, fixed_math::FIXED_ONE),
                         };
-                        let mut aim_dir = fixed_math::FixedVec2::new(
-                            fixed_math::Fixed::from_num(input.pan_x),
-                            fixed_math::Fixed::from_num(input.pan_y),
+                        let aim_dir = aim_direction(
+                            aim_mode.copied().unwrap_or_default(),
+                            input.pan_x,
+                            input.pan_y,
                         );
-                        aim_dir.x /= fixed_math::new(127.0);
-                        aim_dir.y /= fixed_math::new(127.0);
-                        aim_dir = aim_dir.normalize_or_zero();
                         // Projectile composable du mode de tir (T1.1), cloné par balle. M3-T1
                         // (§66) : les `projectile` des objets et synergies du tireur s'y
                         // composent ; sans objet qui ajoute quelque chose, chemin d'origine.
-                        let carried = match (
+                        // La chance du tireur n'est lue que par un projectile qui a une
+                        // `Action::Chance` à tirer.
+                        let carried = carried_projectile_mods(
                             item_inventories.get(shooter).ok(),
                             item_table.as_deref(),
                             synergy_table.as_deref(),
-                        ) {
-                            (Some(held), Some(items), Some(synergies)) => {
-                                let mut mods = items::projectile_mods(items, synergies, held);
-                                mods.retain(|mods| !mods.is_empty());
-                                mods
-                            }
-                            _ => Vec::new(),
-                        };
-                        let mut projectile = if carried.is_empty() {
-                            (!weapon_config.projectile.is_empty()).then(|| {
-                                Projectile::new(
-                                    weapon.config.name.clone(),
-                                    &weapon_config.projectile,
-                                    std::sync::Arc::new(weapon.config.projectiles.clone()),
-                                    damage_mult,
-                                    0,
-                                )
-                            })
-                        } else {
-                            Some(Projectile::composed(
-                                weapon.config.name.clone(),
-                                &weapon_config.projectile,
-                                &carried,
-                                std::sync::Arc::new(weapon.config.projectiles.clone()),
-                                damage_mult,
-                            ))
-                        };
-                        // M3-T1 : la chance du tireur n'est lue (et gardée) que par un
-                        // projectile qui a une `Action::Chance` à tirer.
-                        if let Some(projectile) = projectile.as_mut() {
-                            if projectile.has_chance() {
-                                projectile.luck =
-                                    stats.get(shooter, &StatId::Luck, fixed_math::Fixed::ZERO);
-                            }
-                        }
+                        );
+                        let projectile = shot_projectile(
+                            &weapon.config,
+                            weapon_config,
+                            &carried,
+                            damage_mult,
+                            || stats.get(shooter, &StatId::Luck, fixed_math::Fixed::ZERO),
+                        );
 
                         match weapon_config.firing_mode {
                             FiringMode::Shotgun {
@@ -2109,5 +2148,39 @@ mod tests {
             (angle + 0.075).abs() < 2e-3,
             "tirage 0 : −spread/2, obtenu {angle}"
         );
+    }
+}
+
+#[cfg(test)]
+mod tear_tests {
+    use super::*;
+    use bevy_fixed::fixed_math::{new as fx, FixedVec2};
+
+    fn standard() -> BulletType {
+        BulletType::Standard {
+            damage: fx(10.0),
+            speed: fx(600.0),
+        }
+    }
+
+    fn shot(speed: f32) -> ShotStats {
+        ShotStats {
+            speed: fx(speed),
+            size: fx(1.0),
+        }
+    }
+
+    /// À `ShotSpeed` 1 et `Damage` 1 : vitesse par frame = vitesse / 60, dégât du mode, au bit près ;
+    /// les stats multiplient l'un et l'autre.
+    #[test]
+    fn tear_motion_applique_les_stats_du_porteur() {
+        let east = FixedVec2::new(fx(1.0), fx(0.0));
+        let (velocity, damage) = tear_motion(&standard(), east, shot(1.0), fx(1.0));
+        assert_eq!(velocity.x, fx(600.0) / fixed_math::Fixed::from_num(60));
+        assert_eq!(velocity.y, fixed_math::Fixed::ZERO);
+        assert_eq!(damage, fx(10.0));
+        let (fast, strong) = tear_motion(&standard(), east, shot(2.0), fx(1.5));
+        assert_eq!(fast.x, velocity.x * fixed_math::Fixed::from_num(2));
+        assert_eq!(strong, fx(15.0));
     }
 }
