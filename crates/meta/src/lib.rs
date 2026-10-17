@@ -305,10 +305,20 @@ pub fn profile_path(dir: &Path, id: &str) -> PathBuf {
 }
 
 /// Écriture atomique (fichier temporaire puis renommage) : un crash ne laisse jamais un profil
-/// à moitié écrit.
+/// à moitié écrit. **Ne remplace jamais un fichier existant que ce jeu ne sait pas lire** (illisible,
+/// ou écrit par une version plus récente : [`ProfileError::TooNew`]) : `Profiles::load_dir` l'a écarté
+/// au lancement, la partie joue avec un profil vierge, et l'écrire détruirait le vrai (M3-T10 : le
+/// passage en v2 rend le cas courant, un build v1 relancé après un build v2).
 pub fn save(dir: &Path, profile: &Profile) -> Result<PathBuf, ProfileError> {
     std::fs::create_dir_all(dir).map_err(|e| ProfileError::Io(e.to_string()))?;
     let path = profile_path(dir, &profile.id);
+    match std::fs::read_to_string(&path) {
+        Ok(existing) => {
+            Profile::from_ron(&existing)?;
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(ProfileError::Io(e.to_string())),
+    }
     let tmp = path.with_extension("ron.tmp");
     std::fs::write(&tmp, profile.to_ron()).map_err(|e| ProfileError::Io(e.to_string()))?;
     std::fs::rename(&tmp, &path).map_err(|e| ProfileError::Io(e.to_string()))?;
@@ -508,6 +518,30 @@ mod tests {
         let mut profile = Profile::new("x");
         profile.apply_run_with(&summary(4, RunEnd::Victory), &rules);
         assert_eq!(profile.currency(ESSENCE), 2 + 12 + 20);
+    }
+
+    #[test]
+    fn un_fichier_illisible_ou_trop_recent_n_est_jamais_ecrase() {
+        let dir = std::env::temp_dir().join(format!("alacod-meta-keep-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = profile_path(&dir, "local-0");
+        let profile = Profile::new("local-0");
+        let future = r#"(version: 99, id: "local-0", unlocks: ["rare"])"#;
+        std::fs::write(&path, future).unwrap();
+        assert!(matches!(
+            save(&dir, &profile),
+            Err(ProfileError::TooNew(99))
+        ));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), future);
+        std::fs::write(&path, "???").unwrap();
+        assert!(matches!(save(&dir, &profile), Err(ProfileError::Parse(_))));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "???");
+        // Un profil lisible (v1 ancien compris) se remplace.
+        std::fs::write(&path, r#"(version: 1, id: "local-0")"#).unwrap();
+        save(&dir, &profile).unwrap();
+        assert_eq!(load(&dir, "local-0").unwrap(), Some(profile));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

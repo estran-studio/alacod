@@ -448,7 +448,7 @@ pub fn finalize_run_summary_system(
 /// (`OnExit(AppState::InGame)`, voir [`cleanup_rollback_world_system`] et la doc du
 /// module), pas ici.
 #[allow(clippy::too_many_arguments)]
-fn apply_run_request_system(
+pub(crate) fn apply_run_request_system(
     mut commands: Commands,
     request: Option<Res<RunRequest>>,
     mut app_state: ResMut<NextState<AppState>>,

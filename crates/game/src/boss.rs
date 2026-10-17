@@ -208,6 +208,7 @@ pub fn boss_defeated_system(
     frame: Res<FrameCount>,
     mut defeated: ResMut<FrameEvents<BossDefeated>>,
     mut history: ResMut<crate::profile::RunHistory>,
+    run: Option<Res<run::Run>>,
     bosses: Query<(&GgrsNetId, &FixedTransform3D), (With<BossPlan>, With<Death>)>,
 ) {
     for (net_id, transform) in order_iter!(bosses) {
@@ -218,7 +219,11 @@ pub fn boss_defeated_system(
         );
         // M3-T10 : historique des boss vaincus (le nom du personnage est celui de `GgrsNetId`),
         // lu en fin de run seulement (accomplissements, `profile::RunHistory`).
-        history.bosses_defeated.insert(net_id.1.clone());
+        // Seulement tant que la run se joue : la simulation continue après `Ended`, un boss tué ensuite
+        // (poison, explosion) n'est pas un fait de la run, et dépendrait du nombre de frames prédites.
+        if run.as_deref().is_some_and(|run| run.is_playing()) {
+            history.bosses_defeated.insert(net_id.1.clone());
+        }
         defeated.send(BossDefeated {
             frame: frame.frame,
             net_id: net_id.0,

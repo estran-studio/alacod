@@ -5833,9 +5833,10 @@ contenu `isaac` et `gungeon`. Contrats : §64 (`AchievementDef`, `RunFacts`, `ac
 - **boss vaincus** : `boss_defeated_system` (`DeathManagement`) y inscrit le **nom du personnage** (le `String` de
   `GgrsNetId`, celui de `characters/<id>.ron` : ce que `BossDefeated("gardien")` désigne). Aucun changement de l'événement.
 - **objets tenus** : `record_held_items` (`GgrsSchedule`, `FrameCounter`) recopie, à chaque frame de partie en cours,
-  l'union des passifs et de l'actif des joueurs qui ont un `Inventory`. Un joueur mort perd son inventaire : la **dernière
-  valeur connue reste** (« tenu à la fin » = tenu à la dernière frame où quelqu'un tenait quelque chose) ; rien n'est écrit une
-  fois la run terminée.
+  l'union des passifs et de l'actif des joueurs qui ont un `Inventory` (comparée avant de cloner : aucun `String` copié tant
+  que l'ensemble ne change pas). Un joueur mort perd son inventaire : la **dernière valeur connue reste** (« tenu à la fin » =
+  tenu à la dernière frame où quelqu'un tenait quelque chose) ; rien n'est écrit une fois la run terminée. Même garde pour les
+  boss : la simulation continue après `Ended`, un boss tué ensuite (poison, explosion) n'est pas un fait de la run.
 - **étages, temps, issue** : déjà dans `RunSummary` (`floor_reached`, `frames`, `outcome` : la défaite est une issue, il
   n'y a pas de compteur de morts à ajouter).
 
@@ -5849,19 +5850,25 @@ sur la simulation. Remise à zéro à la relance (`run_state::cleanup_rollback_w
 
 ### Évaluation hors simulation
 
-`write_achievements_at_run_end` (`Update`, après l'écriture d'essence de §38, jamais `GgrsSchedule`) : quand `Run` est
-`Ended` avec un `RunSummary`, **une fois par run** et une fois la fin **confirmée** (`summary_is_final` : `summary.frames <=
-ConfirmedFrameCount`, toujours vrai sans session), il construit `RunFacts { summary, bosses_defeated, items_held }` et, pour
-chaque joueur local (sans `LocalPlayer`, tous ceux de la run : même règle que l'essence), appelle `grant_achievements` :
+`write_achievements_at_run_end` (`Update`, chaîné après l'écriture d'essence de §38 et après `apply_run_request_system`, jamais
+`GgrsSchedule`) : quand `Run` est `Ended` avec un `RunSummary`, **une fois par run** et une fois la fin **confirmée**
+(`summary_is_final` : `summary.frames <= ConfirmedFrameCount`, qui vaut -1 hors session ; un **abandon** est définitif tout de
+suite : décision locale, la session est détruite à la frame suivante), il construit `RunFacts { summary, bosses_defeated,
+items_held }` et, pour chaque joueur de la **session** (`bevy_ggrs::LocalPlayers` : tous en partie locale ou synctest, seulement
+les joueurs locaux en p2p, morts compris : un mort n'a plus d'entité), appelle `grant_achievements` :
 chaque accomplissement de la table `meta::Achievements` (chargée du registre avec les autres tables, hors rollback) dont
 `meta::achieved` est vrai et que le profil n'a pas encore obtenu ajoute son id à `Profile::achievements` et ses `unlocks` à
 `Profile::unlocks`, puis le profil est écrit (atomique, §38). Pourquoi attendre la confirmation : sur disque, un
-accomplissement ne se reprend pas, et une fin vue pendant une prédiction peut être défaite. `AchievementsEarned`
+accomplissement ne se reprend pas, et une fin vue pendant une prédiction peut être défaite. Contrepartie : quitter l'écran de
+fin (Rejouer, Lobby) **avant** la confirmation (quelques frames en local, un aller-retour réseau en p2p) perd l'évaluation.
+Même règle d'`ended_handles` pour l'essence (§38) : un joueur mort la reçoit désormais aussi. `AchievementsEarned`
 (`{handle → ids}`, présentation, vidé à la relance) garde les accomplissements **nouveaux** de cette fin.
 
 **Profil v2** : `PROFILE_VERSION` 2, champ `achievements: BTreeSet<String>` (`#[serde(default)]`). Un fichier v0 ou v1 se
 lit tel quel (champ absent : aucun accomplissement) et se réécrit en v2 ; un fichier plus récent que le jeu reste `TooNew`
-et n'est pas touché. Un accomplissement déjà obtenu ne rajoute rien : un déblocage retiré à la main ne revient pas.
+et n'est pas touché : `meta::save` **refuse** de remplacer un fichier existant illisible ou plus récent (`TooNew`), que `Profiles::load_dir`
+a écarté au lancement (la partie joue alors avec un profil vierge qui n'est pas écrit : sans cette garde, un build v1 relancé après un
+build v2 aurait détruit le profil v2 à la première fin de run). Un accomplissement déjà obtenu ne rajoute rien : un déblocage retiré à la main ne revient pas.
 
 **Entrée dans la run suivante** : par `RunUnlocks` (§51), **sans autre chemin**. La relance relit le profil
 (`jjrs::local`), filtré sur les `Unlock` du jeu : les ids d'accomplissements (`Profile::achievements`) n'y entrent jamais, seuls
@@ -5869,15 +5876,16 @@ leurs déblocages. Le marchand du hub (§57) et `alacod-profile unlock` **ne ven
 accorde (`Registry::achievement_unlocks`) : on l'obtient en jouant.
 
 **En ligne : règle de l'hôte** (décision du 2026-10-15). Les faits sont ceux de la partie commune, identiques chez tous les pairs
-(l'historique suit les rollbacks, la fin est évaluée une fois confirmée) : chaque pair n'écrit que le profil de **ses** joueurs
-locaux. Ce qui entre dans la run suivante est inchangé : le profil de **l'hôte** (`ALACOD_RUN_UNLOCKS`, §51), jamais celui du pair
+(l'historique suit les rollbacks, n'est plus écrit après `Ended`, et la fin est évaluée une fois confirmée) : chaque pair n'écrit que le profil de **ses** joueurs
+locaux (`LocalPlayers`). Ce qui entre dans la run suivante est inchangé : le profil de **l'hôte** (`ALACOD_RUN_UNLOCKS`, §51), jamais celui du pair
 local. L'accomplissement d'un invité est donc dans son fichier, et ne sert que quand c'est lui qui héberge. `ItemHeld` lit
 l'union des objets des joueurs de la run (contrat de §64), pas ceux d'un joueur.
 
 ### Présentation
 
 Source HUD `achievements` (`content::ui::HUD_SOURCES`, source du joueur affiché) : une ligne par accomplissement **obtenu à
-cette fin de run** (`AchievementDef::name`, nouveau champ optionnel : l'id sinon) ; vide en cours de partie, donc rien. L'écran
+cette fin de run** (`AchievementDef::name`, nouveau champ optionnel : l'id sinon) ; vide en cours de partie, donc rien (et vide aussi quand le joueur affiché est mort : le HUD ne montre plus rien de lui, l'écran de fin
+liste tout). L'écran
 de fin (`ui::game_over`) l'ajoute sous le résumé (« Accomplissements : * … »). Pas d'écran des accomplissements (hors périmètre) :
 le profil les garde (`Profile::achievements`).
 

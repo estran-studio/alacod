@@ -176,15 +176,24 @@ pub fn record_held_items(
     if !run.is_some_and(|run| run.is_playing()) {
         return;
     }
-    let mut held: BTreeSet<String> = BTreeSet::new();
+    let mut held: Vec<&str> = Vec::new();
     let mut any = false;
     for inventory in &inventories {
         any = true;
-        held.extend(inventory.passives.iter().cloned());
-        held.extend(inventory.active.iter().map(|slot| slot.item.clone()));
+        held.extend(inventory.passives.iter().map(String::as_str));
+        held.extend(inventory.active.iter().map(|slot| slot.item.as_str()));
     }
-    if any && held != history.items_held {
-        history.items_held = held;
+    if !any {
+        return;
+    }
+    held.sort_unstable();
+    held.dedup();
+    // Comparer avant de cloner : l'ensemble ne change que sur un ramassage (chaque frame, 12 fois
+    // resimulées au pire).
+    if held.len() != history.items_held.len()
+        || held.iter().any(|item| !history.items_held.contains(*item))
+    {
+        history.items_held = held.into_iter().map(str::to_string).collect();
     }
 }
 
@@ -224,10 +233,19 @@ impl AchievementsEarned {
     }
 }
 
-/// Joueurs dont le profil reçoit la fin de run : les joueurs locaux ; sans `LocalPlayer` (partie
-/// locale ou entités déjà détruites), tous les joueurs de la run.
-fn ended_handles(locals: &Query<&Player, With<LocalPlayer>>, run: &Run) -> Vec<usize> {
-    let mut handles: Vec<usize> = locals.iter().map(|p| p.handle).collect();
+/// Joueurs dont le profil reçoit la fin de run : ceux de la **session** (`bevy_ggrs::LocalPlayers` :
+/// tous en partie locale ou synctest, les seuls joueurs locaux en p2p), qu'ils soient vivants ou
+/// non (un joueur mort n'a plus d'entité). Hors session (`LocalPlayers` vide), les joueurs
+/// locaux vivants, puis tous ceux de la run (tests).
+fn ended_handles(
+    session: Option<&bevy_ggrs::LocalPlayers>,
+    locals: &Query<&Player, With<LocalPlayer>>,
+    run: &Run,
+) -> Vec<usize> {
+    let mut handles: Vec<usize> = session.map(|local| local.0.clone()).unwrap_or_default();
+    if handles.is_empty() {
+        handles = locals.iter().map(|p| p.handle).collect();
+    }
     if handles.is_empty() {
         handles = run.players.clone();
     }
@@ -253,9 +271,15 @@ pub fn grant_achievements(
 
 /// Un résumé est **définitif** quand sa frame de fin est confirmée par tous les pairs : une fin de
 /// run vue pendant une prédiction peut être défaite par un rollback, or un accomplissement écrit
-/// sur disque ne se reprend pas. Sans session GGRS (`confirmed` absent), toujours définitif.
-pub fn summary_is_final(end_frame: u32, confirmed: Option<i32>) -> bool {
-    confirmed.is_none_or(|confirmed| i64::from(end_frame) <= i64::from(confirmed))
+/// sur disque ne se reprend pas. `confirmed` vaut -1 tant qu'aucune frame n'est confirmée (et hors
+/// session) : rien n'est alors définitif ; `None` (ressource absente) ne se rencontre que dans les tests.
+///
+/// Un **abandon** (`RunEnd::Abandon`, retour au lobby demandé par le joueur) est une décision locale,
+/// pas un résultat de la simulation : il est définitif tout de suite (la session est détruite à la frame
+/// suivante, la confirmation n'arriverait jamais).
+pub fn summary_is_final(summary: &run::RunSummary, confirmed: Option<i32>) -> bool {
+    summary.outcome == run::RunEnd::Abandon
+        || confirmed.is_none_or(|confirmed| i64::from(summary.frames) <= i64::from(confirmed))
 }
 
 /// Évalue les accomplissements quand la run se termine (`Update`, une seule fois par run, une fois
@@ -273,6 +297,7 @@ pub fn write_achievements_at_run_end(
     mut profiles: ResMut<Profiles>,
     mut earned: ResMut<AchievementsEarned>,
     locals: Query<&Player, With<LocalPlayer>>,
+    session: Option<Res<bevy_ggrs::LocalPlayers>>,
     confirmed: Option<Res<bevy_ggrs::ConfirmedFrameCount>>,
     mut done: Local<bool>,
 ) {
@@ -287,7 +312,7 @@ pub fn write_achievements_at_run_end(
         }
         return;
     };
-    if *done || !summary_is_final(summary.frames, confirmed.as_deref().map(|c| c.0)) {
+    if *done || !summary_is_final(&summary, confirmed.as_deref().map(|c| c.0)) {
         return;
     }
     *done = true;
@@ -299,7 +324,7 @@ pub fn write_achievements_at_run_end(
         bosses_defeated: history.bosses_defeated.clone(),
         items_held: history.items_held.clone(),
     };
-    for handle in ended_handles(&locals, &run) {
+    for handle in ended_handles(session.as_deref(), &locals, &run) {
         let id = local_id(handle);
         let profile = profiles
             .0
@@ -328,6 +353,7 @@ pub fn write_profiles_at_run_end(
     mut profiles: ResMut<Profiles>,
     rules: Res<MetaRules>,
     locals: Query<&Player, With<LocalPlayer>>,
+    session: Option<Res<bevy_ggrs::LocalPlayers>>,
     mut written: Local<bool>,
 ) {
     let Some(run) = run else {
@@ -343,7 +369,7 @@ pub fn write_profiles_at_run_end(
     }
     *written = true;
     // En ligne, seuls les joueurs locaux ont un profil ici (voir `ended_handles`).
-    for handle in ended_handles(&locals, &run) {
+    for handle in ended_handles(session.as_deref(), &locals, &run) {
         let id = local_id(handle);
         let profile = profiles
             .0
@@ -394,7 +420,11 @@ impl Plugin for ProfilePlugin {
             .rollback_and_trace_resource_no_checksum::<RunHistory>()
             .add_systems(
                 Update,
-                (write_profiles_at_run_end, write_achievements_at_run_end),
+                // Après `apply_run_request_system` : un abandon pose `Ended` puis la session est détruite
+                // à la frame suivante, c'est la seule frame où l'évaluer.
+                (write_profiles_at_run_end, write_achievements_at_run_end)
+                    .chain()
+                    .after(crate::run_state::apply_run_request_system),
             )
             .add_systems(
                 bevy_ggrs::GgrsSchedule,
@@ -515,14 +545,24 @@ mod tests {
         assert!(other.unlocks.is_empty() && other.achievements.is_empty());
     }
 
+    fn ended(frames: u32, outcome: run::RunEnd) -> run::RunSummary {
+        run::RunSummary {
+            frames,
+            ..facts(outcome, 0, &[], &[]).summary
+        }
+    }
+
     #[test]
     fn the_end_is_final_only_once_confirmed() {
-        assert!(summary_is_final(900, None));
-        assert!(summary_is_final(900, Some(900)));
-        assert!(summary_is_final(900, Some(1200)));
-        assert!(!summary_is_final(900, Some(899)));
-        // Avant toute frame confirmée GGRS compte -1.
-        assert!(!summary_is_final(0, Some(-1)));
+        use run::RunEnd::{Abandon, Defeat, Victory};
+        assert!(summary_is_final(&ended(900, Victory), None));
+        assert!(summary_is_final(&ended(900, Victory), Some(900)));
+        assert!(summary_is_final(&ended(900, Defeat), Some(1200)));
+        assert!(!summary_is_final(&ended(900, Victory), Some(899)));
+        // Avant toute frame confirmée (et hors session) GGRS compte -1.
+        assert!(!summary_is_final(&ended(0, Victory), Some(-1)));
+        // Un abandon est une décision locale : définitif sans confirmation.
+        assert!(summary_is_final(&ended(900, Abandon), Some(-1)));
     }
 
     #[test]
