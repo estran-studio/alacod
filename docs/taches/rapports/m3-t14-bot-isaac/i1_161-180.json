@@ -1,0 +1,1166 @@
+[
+  {
+    "seed": 161,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4860,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 9.450750917,
+    "desync": false,
+    "sim_fps": 526.9668485118735,
+    "floor_frames": [
+      2664
+    ],
+    "damage_taken": 2,
+    "run_end": [
+      "Victory",
+      4859
+    ],
+    "dodges": 103,
+    "doors_opened": 96,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 6,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2551,
+        "downed": false,
+        "x": -492.5368,
+        "y": 97.04907,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 9,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 162,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4125,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 8.916332041,
+    "desync": false,
+    "sim_fps": 470.1181841499939,
+    "floor_frames": [
+      2597
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      4124
+    ],
+    "dodges": 89,
+    "doors_opened": 113,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "diable": 2,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 9,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2335,
+        "downed": false,
+        "x": -440.07812,
+        "y": -207.46169,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 6,
+        "locking": 6
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 163,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5594,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 12.8396055,
+    "desync": false,
+    "sim_fps": 440.8470336332282,
+    "floor_frames": [
+      3344
+    ],
+    "damage_taken": 1,
+    "run_end": [
+      "Victory",
+      5593
+    ],
+    "dodges": 91,
+    "doors_opened": 143,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 7,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3269,
+        "downed": false,
+        "x": -378.6385,
+        "y": -149.5461,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 11,
+        "visited": 9,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 164,
+    "wave": 0,
+    "floor": 1,
+    "frames": 6505,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 15.487545375,
+    "desync": false,
+    "sim_fps": 424.22144223586025,
+    "floor_frames": [
+      3771
+    ],
+    "damage_taken": 8,
+    "run_end": [
+      "Victory",
+      6504
+    ],
+    "dodges": 60,
+    "doors_opened": 155,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "diable": 2,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 14,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3304,
+        "downed": false,
+        "x": 328.40668,
+        "y": 97.51424,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 11,
+        "visited": 11,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 165,
+    "wave": 0,
+    "floor": 1,
+    "frames": 7255,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 16.325009333,
+    "desync": false,
+    "sim_fps": 448.6053440320298,
+    "floor_frames": [
+      4148
+    ],
+    "damage_taken": 5,
+    "run_end": [
+      "Victory",
+      7254
+    ],
+    "dodges": 107,
+    "doors_opened": 155,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 7,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3524,
+        "downed": false,
+        "x": -753.20245,
+        "y": 43.230698,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 11,
+        "visited": 11,
+        "cleared": 8,
+        "locking": 8
+      }
+    ]
+  },
+  {
+    "seed": 166,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4280,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 8.6191175,
+    "desync": false,
+    "sim_fps": 505.3203513296934,
+    "floor_frames": [
+      2441
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      4279
+    ],
+    "dodges": 100,
+    "doors_opened": 105,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 8,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2457,
+        "downed": false,
+        "x": -190.28592,
+        "y": -244.76324,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 9,
+        "visited": 9,
+        "cleared": 6,
+        "locking": 6
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 167,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5173,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 10.642859708,
+    "desync": false,
+    "sim_fps": 492.9505807555423,
+    "floor_frames": [
+      3091
+    ],
+    "damage_taken": 7,
+    "run_end": [
+      "Victory",
+      5172
+    ],
+    "dodges": 101,
+    "doors_opened": 105,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 7,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2617,
+        "downed": false,
+        "x": 395.0164,
+        "y": 34.830017,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 9,
+        "visited": 9,
+        "cleared": 6,
+        "locking": 6
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 9,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 168,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4935,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.04870875,
+    "desync": false,
+    "sim_fps": 452.74298086254555,
+    "floor_frames": [
+      3230
+    ],
+    "damage_taken": 3,
+    "run_end": [
+      "Victory",
+      4934
+    ],
+    "dodges": 60,
+    "doors_opened": 130,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 9,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2739,
+        "downed": false,
+        "x": 461.55908,
+        "y": 384.31226,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 9,
+        "visited": 9,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 169,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4520,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 9.515031,
+    "desync": false,
+    "sim_fps": 481.9652538760036,
+    "floor_frames": [
+      3153
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      4519
+    ],
+    "dodges": 35,
+    "doors_opened": 109,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 5,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2410,
+        "downed": false,
+        "x": 258.59088,
+        "y": 258.47998,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 6,
+        "cleared": 4,
+        "locking": 4
+      }
+    ]
+  },
+  {
+    "seed": 170,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5435,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.305290208,
+    "desync": false,
+    "sim_fps": 486.57916988932374,
+    "floor_frames": [
+      3754
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      5434
+    ],
+    "dodges": 101,
+    "doors_opened": 123,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 7,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2990,
+        "downed": false,
+        "x": -430.79282,
+        "y": -244.53815,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 11,
+        "visited": 11,
+        "cleared": 8,
+        "locking": 8
+      },
+      {
+        "floor": 1,
+        "total": 9,
+        "visited": 8,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 171,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5308,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.73383125,
+    "desync": false,
+    "sim_fps": 457.5811807223014,
+    "floor_frames": [
+      3676
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      5307
+    ],
+    "dodges": 90,
+    "doors_opened": 137,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 7,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3165,
+        "downed": false,
+        "x": -739.27814,
+        "y": 240.60445,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 9,
+        "visited": 8,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 172,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5102,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.084505333,
+    "desync": false,
+    "sim_fps": 466.61975447986543,
+    "floor_frames": [
+      2959
+    ],
+    "damage_taken": 5,
+    "run_end": [
+      "Victory",
+      5101
+    ],
+    "dodges": 89,
+    "doors_opened": 129,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "diable": 1,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 9,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2912,
+        "downed": false,
+        "x": -138.24042,
+        "y": -434.87222,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 11,
+        "visited": 11,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 9,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 173,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4631,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 10.70132,
+    "desync": false,
+    "sim_fps": 438.9527311013154,
+    "floor_frames": [
+      2901
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      4630
+    ],
+    "dodges": 97,
+    "doors_opened": 114,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "diable": 1,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 6,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2461,
+        "downed": false,
+        "x": -441.6087,
+        "y": -217.72133,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 9,
+        "visited": 9,
+        "cleared": 5,
+        "locking": 5
+      },
+      {
+        "floor": 1,
+        "total": 9,
+        "visited": 8,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 174,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5657,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 12.0475355,
+    "desync": false,
+    "sim_fps": 474.8647004910168,
+    "floor_frames": [
+      3687
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      5656
+    ],
+    "dodges": 87,
+    "doors_opened": 128,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 5,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2990,
+        "downed": false,
+        "x": 284.55145,
+        "y": -244.01692,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 7,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 175,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5527,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.988161416,
+    "desync": false,
+    "sim_fps": 466.42976976307216,
+    "floor_frames": [
+      3974
+    ],
+    "damage_taken": 3,
+    "run_end": [
+      "Victory",
+      5526
+    ],
+    "dodges": 78,
+    "doors_opened": 136,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 8,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2931,
+        "downed": false,
+        "x": -256.07446,
+        "y": 240.67525,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 176,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4462,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 8.790897375,
+    "desync": false,
+    "sim_fps": 515.6606696036137,
+    "floor_frames": [
+      2183
+    ],
+    "damage_taken": 5,
+    "run_end": [
+      "Victory",
+      4461
+    ],
+    "dodges": 109,
+    "doors_opened": 91,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 5,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2282,
+        "downed": false,
+        "x": -254.99481,
+        "y": 240.40936,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 8,
+        "visited": 7,
+        "cleared": 4,
+        "locking": 4
+      },
+      {
+        "floor": 1,
+        "total": 9,
+        "visited": 8,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 177,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5235,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.157233375,
+    "desync": false,
+    "sim_fps": 475.66775979009833,
+    "floor_frames": [
+      2919
+    ],
+    "damage_taken": 4,
+    "run_end": [
+      "Victory",
+      5234
+    ],
+    "dodges": 75,
+    "doors_opened": 128,
+    "mechanics": {
+      "bombe": 2,
+      "boss_phase": 2,
+      "coffre": 4,
+      "explosion": 2,
+      "mur_secret": 2,
+      "objet": 8,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2990,
+        "downed": false,
+        "x": 425.08496,
+        "y": -264.43097,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      },
+      {
+        "floor": 1,
+        "total": 10,
+        "visited": 10,
+        "cleared": 7,
+        "locking": 7
+      }
+    ]
+  },
+  {
+    "seed": 178,
+    "wave": 0,
+    "floor": 1,
+    "frames": 4025,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 8.511176667,
+    "desync": false,
+    "sim_fps": 480.71524458687503,
+    "floor_frames": [
+      2307
+    ],
+    "damage_taken": 3,
+    "run_end": [
+      "Victory",
+      4024
+    ],
+    "dodges": 31,
+    "doors_opened": 104,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 6,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2390,
+        "downed": false,
+        "x": 662.4638,
+        "y": 159.34286,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 8,
+        "visited": 8,
+        "cleared": 5,
+        "locking": 5
+      },
+      {
+        "floor": 1,
+        "total": 9,
+        "visited": 8,
+        "cleared": 6,
+        "locking": 6
+      }
+    ]
+  },
+  {
+    "seed": 179,
+    "wave": 0,
+    "floor": 1,
+    "frames": 5271,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 11.206322917,
+    "desync": false,
+    "sim_fps": 476.8157482512109,
+    "floor_frames": [
+      3618
+    ],
+    "damage_taken": 6,
+    "run_end": [
+      "Victory",
+      5270
+    ],
+    "dodges": 105,
+    "doors_opened": 130,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 5,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 2989,
+        "downed": false,
+        "x": 224.80794,
+        "y": 240.05919,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 8,
+        "visited": 7,
+        "cleared": 5,
+        "locking": 5
+      }
+    ]
+  },
+  {
+    "seed": 180,
+    "wave": 0,
+    "floor": 1,
+    "frames": 6170,
+    "deaths": 0,
+    "kills": 0,
+    "wall_seconds": 14.094619833,
+    "desync": false,
+    "sim_fps": 442.2691447471433,
+    "floor_frames": [
+      4015
+    ],
+    "damage_taken": 5,
+    "run_end": [
+      "Victory",
+      6169
+    ],
+    "dodges": 93,
+    "doors_opened": 146,
+    "mechanics": {
+      "bombe": 1,
+      "boss_phase": 2,
+      "coffre": 3,
+      "explosion": 1,
+      "mur_secret": 1,
+      "objet": 6,
+      "porte_a_cle": 1
+    },
+    "players_end": [
+      {
+        "handle": 0,
+        "currency": 3520,
+        "downed": false,
+        "x": 448.551,
+        "y": -244.4502,
+        "in_spawn_room": false
+      }
+    ],
+    "waves": [],
+    "outcome": "victoire",
+    "rooms": [
+      {
+        "floor": 0,
+        "total": 12,
+        "visited": 12,
+        "cleared": 9,
+        "locking": 9
+      },
+      {
+        "floor": 1,
+        "total": 11,
+        "visited": 10,
+        "cleared": 8,
+        "locking": 8
+      }
+    ]
+  }
+]
