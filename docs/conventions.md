@@ -6113,6 +6113,64 @@ basculer (les traces et le témoin le signalent) ; préférer un compte de coups
 `champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
 un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.
 
+## 81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
+
+Présentation seule : `game::ui::{hud, hud_model}`, `content::ui`, `games/isaac/assets/ui/hud.ron`. **Aucune trace ne
+bouge** (aucun état rollback, aucun système de la simulation touché ; les deux scénarios neufs ont leur propre trace).
+Rien de spécifique à `isaac` dans le code : un jeu reprend ces sources en les posant dans son `hud.ron`.
+
+### Sources nouvelles (liste fermée `content::ui::HUD_SOURCES`, lint `UnknownKind`)
+
+| Source | Rendu | Attente `HudText` |
+|---|---|---|
+| `hearts` | widget `Hearts(source)` : rangée de carrés (côté `size.1`), un par cœur, **rouges** (vides compris, jusqu'à la vie maximale) puis **d'âme**, rempli à moitié pour un demi-cœur, passe à la ligne à la largeur `size.0` ; texte `Text(source: "hearts")` : « 2,5 / 3 · âme 1 » | `isaac_hud_items` (f3 « 3 / 3 », f30 « 2,5 / 3 », f100 « 2,5 / 3 · âme 1 »), `isaac_reliquaire` (« 3 / 3 · âme 2 »), `curse_hides_health` (`empty: true`) |
+| `coins` | `Counter(source)` : carré `icons.coins` + nombre (sous du joueur, comme `shells`) | `isaac_hud_items` (« 12 ») |
+| `keys`, `bombs` (existantes) | `Counter` : carré `icons.keys` / `icons.bombs` + nombre | `isaac_hud_items` (« 2 », « 3 ») |
+| `item_banner` | `Text` sur fond, centré en haut : nom de l'objet ramassé pendant 3 s | `isaac_hud_items` (vide f3, « Bottines légères » f30, vide f230), `isaac_reliquaire` (« Reliquaire » f20, « Pouls » f60), `isaac_banner_blind` (« ??? ») |
+| `active_item` (existante) | `Icons(source: "active_item")` : le carré de l'objet actif (couleur et lettre de `icons[<id>]`) | `isaac_hud_items` (« Calice d'âme ») |
+| `active_charge` (existante) | texte « 30 / 30 · prêt » + jauge | `isaac_hud_items` (« prêt ») |
+| `minimap` (existante) | lettre et bordure teintée par type de salle (`room_icons`) | `isaac_hud_items` (« tresor · inexplorée », « boss · boss · inexplorée ») |
+| `curses` (existante, §74) | texte « Malédiction : blind » | `isaac_hud_items` (`empty: true` sans curse), `curse_*` |
+| `ammo` (existante) | **vide pour une arme `Infinite`** (ni chargeur ni réserve : l'ancien « 0 \| 0 » des larmes) | `isaac_hud_items` (`empty: true`) |
+
+**Cœurs** (`HudHearts`, `HudHearts::slots`) : `Health` et `ExtraHealth` (§68) en points de vie, un cœur valant
+`items::HEART_POINTS` = 2 points (Q2 : un demi-cœur = 1 PV). C'est une convention du moteur (`heart_label` des prix en
+cœurs la partage), pas un réglage du RON. Couleurs : `icons.heart`, `icons.soul_heart`, `icons.heart_empty` de `hud.ron`
+(défauts dans `heart_colors`). La curse `HideHealth` vide `hearts` comme `health`. **Pas de plafond de 12 cœurs** : la
+fiche de M3-T3 (§68) renvoyait à T16 « le plafond de 12 cœurs d'Isaac » ; borner le gameplay n'est pas de la
+présentation, donc T16 n'en pose aucun (`ExtraHealth` et `Health.max` restent non bornés) et la rangée **passe à la
+ligne** au lieu de tronquer. Un plafond reste à décider si William le veut, côté simulation.
+
+**Bandeau d'objet** (`ItemBannerState`, `track_item_banner`, `Update`, ressource hors rollback) : dérivé de l'**état
+d'inventaire** du joueur affiché, jamais d'un événement de la simulation : un passif dont le nombre d'exemplaires
+augmente, ou un actif qui change, depuis l'`Update` précédent, annonce l'objet pendant `ITEM_BANNER_FRAMES` (180 frames)
+**depuis la frame du ramassage** (`frame - from`). Les objets reçus dans les `ITEM_BANNER_START_GRACE` (5) frames qui
+suivent la première observation d'un joueur (objets de départ, `PlayerScript::items`) ne sont pas annoncés ; un
+consommable (clé, bombe, cœur) n'est jamais annoncé. Le nom vient de `ItemTable`, remplacé par « ??? »
+(`HIDDEN_ITEM_NAME`) sous `CurseHides::item_names` ; la source est vide sinon. Limite : un rollback qui retire puis
+redonne l'objet le réannonce ; la mémoire (`ItemBannerState`) n'est pas rollbackée, comme `MinimapVisits` (D72).
+
+**Prompts** (`ui::hud::Prompt`, hors snapshot : testés unitairement, pas par `HudText`) : dette de T9 (§74) — un objet
+au sol (`InteractionType::Item`, composant `items::ItemPickup`) n'avait aucun prompt, donc aucun nom à cacher ; il
+affiche « Ramasser Reliquaire » (« Ramasser ??? » sous `HideItemNames`, `Prompt::hide_name`). Dette de T5 (§70) : la
+porte à clé affiche les **clés du joueur** : « Ouvrir — clé (2) » avec au moins une clé, « Fermé — clé (0) » sans
+(comme « Fermé — 1 clé » du coffre). Le coût `n` de la porte (`DoorLock::Key(n)`) n'est pas affiché : le HUD ne connaît
+pas la salle de la porte ; `isaac` n'a que `Key(1)`.
+
+**Minicarte** : la géométrie, les salles visitées/actuelle (bordure or épaisse) et la salle secrète n'apparaissant
+qu'ouverte (§70) existaient ; T16 ajoute `room_icons` à la racine de `hud.ron` (type de salle → `(color, label)`) :
+la lettre est écrite dans la salle (`T` trésor, `S` boutique, `B` boss, `?` secrète, `D` diable pour `isaac`) et la
+bordure teintée (la salle courante garde l'or) ; une salle verrouillée ajoute « × ». Sans `room_icons`, comportement
+d'avant (`B` pour le boss, `×` verrouillée) : `gungeon` et les autres jeux ne changent pas. `boutique` n'existe pas
+encore dans `isaac` (T11d) : l'icône est déclarée pour quand la salle existera.
+
+### Scénarios et captures
+
+`isaac_hud_items` (6 PV, 12 sous, `calice_ame`, 2 clés, 3 bombes ; bottines ramassées f6, `suiveur` + `mouche` au contact
+dès f7, cœur d'âme ramassé f60), `isaac_banner_blind` (« ??? » sous `blind`), `isaac_reliquaire` (§76.2, attentes ajoutées).
+Captures `play_scenario --capture … --at` et vidéo : `docs/captures/m3-t16-hud-isaac/`, rapport
+`docs/taches/rapports/m3-t16-hud-isaac.md`.
+
 ## 82. Feedback v3 : larmes lisibles, familiers, champions, bombes et explosions (M3-T17, voie V4)
 
 Complète §31 et §55 : mêmes règles. **Tout est présentation** : rien de rollback, rien dans le checksum ni

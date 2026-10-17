@@ -15,9 +15,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
+use combat::actors::ExtraHealth;
 use combat::inventory::AmmoReserves;
 use combat::status::Statuses;
-use items::{Inventory, ItemKind, ItemTable};
+use items::{Inventory, ItemKind, ItemTable, HEART_POINTS};
 use run::floors::FloorState;
 use run::CurseDef;
 use sim_core::ammo::AmmoType;
@@ -53,7 +54,20 @@ pub const PLAYER_SOURCES: &[&str] = &[
     "active_charge",
     "minimap",
     "curses",
+    "hearts",
+    "coins",
+    "item_banner",
 ];
+
+/// Durée d'affichage du bandeau d'un objet ramassé (source `item_banner`) : trois secondes.
+pub const ITEM_BANNER_FRAMES: u32 = 3 * SIM_FPS as u32;
+
+/// Frames après la première observation d'un joueur pendant lesquelles un objet reçu n'est pas
+/// annoncé : les objets de départ sont donnés juste après son apparition.
+pub const ITEM_BANNER_START_GRACE: u32 = 5;
+
+/// Nom affiché d'un objet que la curse `HideItemNames` cache (prompt et bandeau).
+pub const HIDDEN_ITEM_NAME: &str = "???";
 
 /// Joueur dont le HUD affiche l'état (T2.12) : celui que la caméra suit de force
 /// (`CameraFollowOverride`, `play_scenario --follow <handle>`), sinon le joueur local de plus
@@ -149,8 +163,66 @@ pub struct HudMapRoom {
     pub boss: bool,
 }
 
+/// Cœurs du joueur affiché (M3-T16, §81) : `Health` et `ExtraHealth` en points de vie, un cœur
+/// valant [`HEART_POINTS`] points (Q2, §68 : un demi-cœur = 1 PV).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HudHearts {
+    /// Points de vie courants.
+    pub red: i32,
+    /// Points de vie maximaux.
+    pub max: i32,
+    /// Points de vie d'âme.
+    pub soul: i32,
+}
+
+/// Couleur d'un cœur dessiné.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HeartKind {
+    Red,
+    Soul,
+}
+
+/// Un cœur dessiné : `fill` vaut 0 (vide, rouge seulement), 1 (demi-cœur) ou 2 (plein).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HeartSlot {
+    pub kind: HeartKind,
+    pub fill: u8,
+}
+
+impl HudHearts {
+    /// Les cœurs de gauche à droite : rouges (vides compris, jusqu'à la vie maximale), puis d'âme.
+    pub fn slots(&self) -> Vec<HeartSlot> {
+        let per = HEART_POINTS as i32;
+        let layer = |kind, points: i32, containers: i32| {
+            (0..containers).map(move |i| HeartSlot {
+                kind,
+                fill: (points - i * per).clamp(0, per) as u8,
+            })
+        };
+        let red = layer(
+            HeartKind::Red,
+            self.red,
+            (self.max.max(self.red) + per - 1) / per,
+        );
+        let soul = layer(HeartKind::Soul, self.soul, (self.soul + per - 1) / per);
+        red.chain(soul).collect()
+    }
+}
+
+/// « 3 », « 3,5 » : des cœurs, depuis des points de vie.
+fn hearts_label(points: i32) -> String {
+    let per = HEART_POINTS as i32;
+    if points % per == 0 {
+        (points / per).to_string()
+    } else {
+        format!("{},5", points / per)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HudActiveItem {
+    /// Id de l'objet : le rendu en tire l'icône.
+    pub id: String,
     pub name: String,
     pub charge: u32,
     pub required: Option<u32>,
@@ -245,6 +317,11 @@ pub struct HudPlayerValues {
     /// `(id, nom)` dans l'ordre de ramassage ; le rendu utilise l'id pour les icônes.
     pub passives: Vec<(String, String)>,
     pub active_item: Option<HudActiveItem>,
+    /// M3-T16 : cœurs rouges et d'âme ; `None` sans joueur ou si la curse cache la vie.
+    pub hearts: Option<HudHearts>,
+    /// M3-T16 : nom de l'objet ramassé depuis moins de [`ITEM_BANNER_FRAMES`] (« ??? » sous
+    /// `HideItemNames`).
+    pub item_banner: Option<String>,
     pub minimap: Vec<HudMapRoom>,
     /// M3-T9 : id de la curse de l'étage courant, `None` sans curse (source `curses`).
     pub curse: Option<String>,
@@ -257,6 +334,10 @@ pub struct HudPlayerValues {
 #[derive(Default)]
 pub struct HudPlayerInput<'a> {
     pub health: Option<(Fixed, Fixed)>,
+    /// M3-T16 : points de vie d'âme (`ExtraHealth`), `None` sans le composant.
+    pub soul: Option<Fixed>,
+    /// M3-T16 : objet à annoncer (bandeau en cours), son id.
+    pub banner_item: Option<&'a str>,
     pub currency: Option<u32>,
     pub weapon: Option<(String, Option<u32>, u32)>,
     pub gauges: Option<&'a Gauges>,
@@ -333,11 +414,24 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
         .curse
         .map(|(_, def)| CurseHides::of(&def.effects))
         .unwrap_or_default();
+    let health = input
+        .health
+        .filter(|_| !hides.health)
+        .map(|(current, max)| (current.to_num::<i32>(), max.to_num::<i32>()));
     HudPlayerValues {
-        health: input
-            .health
-            .filter(|_| !hides.health)
-            .map(|(current, max)| (current.to_num::<i32>(), max.to_num::<i32>())),
+        health,
+        hearts: health.map(|(red, max)| HudHearts {
+            red,
+            max,
+            soul: input.soul.map_or(0, |soul| soul.to_num::<i32>()),
+        }),
+        item_banner: input.banner_item.map(|id| {
+            if hides.item_names {
+                HIDDEN_ITEM_NAME.to_string()
+            } else {
+                item_name(id)
+            }
+        }),
         currency: input.currency,
         weapon: input.weapon.clone(),
         rads,
@@ -368,6 +462,7 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             .items
             .and_then(|items| items.active.as_ref())
             .map(|slot| HudActiveItem {
+                id: slot.item.clone(),
                 name: item_name(&slot.item),
                 charge: slot.charge,
                 required: input
@@ -436,13 +531,27 @@ pub fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) 
                 .join("\n")
         }),
         "floor" => values.floor.map(|index| format!("Étage {}", index + 1)),
+        // M3-T16 (§81) : « 3,5 / 6 » cœurs rouges, « · âme 2 » en plus s'il y a des cœurs d'âme.
+        "hearts" => values.hearts.map(|hearts| {
+            let soul = if hearts.soul > 0 {
+                format!(" · âme {}", hearts_label(hearts.soul))
+            } else {
+                String::new()
+            };
+            format!(
+                "{} / {}{soul}",
+                hearts_label(hearts.red),
+                hearts_label(hearts.max)
+            )
+        }),
+        "item_banner" => values.item_banner.clone(),
         "curses" => values.curse.clone(),
         "blanks" => values.consumables.map(|counts| counts[0].to_string()),
         "keys" => values.consumables.map(|counts| counts[1].to_string()),
         // M3-T3 (§68) : compteur de bombes du joueur affiché (par joueur, comme les clés).
         "bombs" => values.consumables.map(|counts| counts[2].to_string()),
         // Les douilles de boutique créditent Currency, pas un consommable `shell`.
-        "shells" => values
+        "shells" | "coins" => values
             .consumables
             .and(values.currency)
             .map(|amount| amount.to_string()),
@@ -515,9 +624,10 @@ impl Plugin for HudModelPlugin {
         app.init_resource::<HudSnapshot>()
             .init_resource::<HudRoomGeometry>()
             .init_resource::<MinimapVisits>()
+            .init_resource::<ItemBannerState>()
             .add_systems(
                 Update,
-                (track_minimap_visits, update_hud_snapshot)
+                (track_minimap_visits, track_item_banner, update_hud_snapshot)
                     .chain()
                     .in_set(HudModelSet),
             );
@@ -528,6 +638,7 @@ impl Plugin for HudModelPlugin {
 #[derive(SystemParam)]
 pub(crate) struct HudPlayerState<'w, 's> {
     healths: Query<'w, 's, &'static Health, With<Player>>,
+    souls: Query<'w, 's, &'static ExtraHealth>,
     currencies: Query<'w, 's, &'static run::currency::Currency>,
     inventories: Query<'w, 's, (&'static WeaponInventory, &'static AmmoReserves)>,
     items: Query<'w, 's, &'static Inventory>,
@@ -572,11 +683,84 @@ pub(crate) fn track_minimap_visits(
     }
 }
 
+/// M3-T16 : mémoire du bandeau d'objet, **présentation seule** (hors rollback, hors trace). Le
+/// bandeau se dérive de l'inventaire du joueur affiché : un passif dont le nombre d'exemplaires
+/// augmente, ou un actif qui change, depuis la frame précédente. Le premier inventaire observé
+/// d'un joueur et les [`ITEM_BANNER_START_GRACE`] frames suivantes (objets de départ) n'annoncent rien ; un rollback qui retire puis redonne l'objet
+/// le réannonce.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct ItemBannerState {
+    player: Option<Entity>,
+    /// Frame de la première observation de `player`.
+    since: u32,
+    passives: BTreeMap<String, u32>,
+    active: Option<String>,
+    /// Dernier objet annoncé et frame du ramassage.
+    item: Option<(String, u32)>,
+}
+
+impl ItemBannerState {
+    /// L'objet à annoncer à la frame `frame`, tant que le bandeau dure.
+    pub fn current(&self, frame: u32) -> Option<&str> {
+        self.item
+            .as_ref()
+            .filter(|(_, from)| frame.saturating_sub(*from) < ITEM_BANNER_FRAMES)
+            .map(|(id, _)| id.as_str())
+    }
+
+    /// Compare l'inventaire à celui de la frame précédente (pur).
+    fn observe(&mut self, player: Entity, inventory: &Inventory, frame: u32) {
+        let mut passives: BTreeMap<String, u32> = BTreeMap::new();
+        for id in &inventory.passives {
+            *passives.entry(id.clone()).or_default() += 1;
+        }
+        let active = inventory.active.as_ref().map(|slot| slot.item.clone());
+        if self.player == Some(player) {
+            let new_active = active
+                .as_ref()
+                .filter(|id| self.active.as_ref() != Some(*id));
+            // Dernier ramassé : le dernier de l'ordre de ramassage dont le compte a augmenté.
+            let new_passive = inventory.passives.iter().rev().find(|id| {
+                passives.get(*id).copied().unwrap_or(0)
+                    > self.passives.get(*id).copied().unwrap_or(0)
+            });
+            if frame.saturating_sub(self.since) >= ITEM_BANNER_START_GRACE {
+                if let Some(id) = new_active.or(new_passive) {
+                    self.item = Some((id.clone(), frame));
+                }
+            }
+        } else {
+            self.player = Some(player);
+            self.since = frame;
+            self.item = None;
+        }
+        self.passives = passives;
+        self.active = active;
+    }
+}
+
+pub(crate) fn track_item_banner(
+    mut banner: ResMut<ItemBannerState>,
+    frame: Res<FrameCount>,
+    hud_player: HudPlayer,
+    items: Query<&Inventory>,
+) {
+    let observed = hud_player
+        .entity()
+        .and_then(|entity| items.get(entity).ok().map(|inventory| (entity, inventory)));
+    match observed {
+        Some((entity, inventory)) => banner.observe(entity, inventory, frame.frame),
+        None if *banner != ItemBannerState::default() => *banner = ItemBannerState::default(),
+        None => {}
+    }
+}
+
 pub(crate) fn update_hud_snapshot(
     mut snapshot: ResMut<HudSnapshot>,
     frame: Res<FrameCount>,
     hud_player: HudPlayer,
     state: HudPlayerState,
+    banner: Res<ItemBannerState>,
     table: Option<Res<ProgressionTable>>,
     floor: Option<Res<FloorState>>,
     curses: Option<Res<run::RunCurses>>,
@@ -588,14 +772,19 @@ pub(crate) fn update_hud_snapshot(
             .and_then(|e| state.inventories.get(e).ok())
             .and_then(|(inventory, reserves)| {
                 let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
-                let mode = state
-                    .weapons
-                    .get(*entity)
-                    .ok()
-                    .and_then(|(s, modes)| modes.modes.get(&s.active_mode).cloned());
+                let state_of = state.weapons.get(*entity).ok();
+                let mode = state_of.and_then(|(s, modes)| modes.modes.get(&s.active_mode).cloned());
+                // M3-T16 : une arme `Infinite` n'a ni chargeur ni réserve à montrer.
+                let infinite = state_of.is_some_and(|(s, _)| {
+                    weapon
+                        .config
+                        .firing_modes
+                        .get(&s.active_mode)
+                        .is_some_and(|mode| mode.mag.is_infinite())
+                });
                 Some((
                     weapon.config.name.clone(),
-                    mode.map(|m| m.mag_ammo),
+                    mode.map(|m| m.mag_ammo).filter(|_| !infinite),
                     reserves.get(&weapon.config.ammo_type),
                 ))
             });
@@ -606,6 +795,10 @@ pub(crate) fn update_hud_snapshot(
         health: player
             .and_then(|e| state.healths.get(e).ok())
             .map(|h| (h.current, h.max)),
+        soul: player
+            .and_then(|e| state.souls.get(e).ok())
+            .map(|extra| extra.soul),
+        banner_item: banner.current(frame.frame),
         currency: player
             .and_then(|e| state.currencies.get(e).ok())
             .map(|c| c.0),
@@ -1102,5 +1295,158 @@ mod tests {
             .resource::<MinimapVisits>()
             .visited
             .contains("shop"));
+    }
+
+    fn fixed_hearts(red: i32, max: i32, soul: i32) -> HudHearts {
+        HudHearts { red, max, soul }
+    }
+
+    #[test]
+    fn coeurs_rouges_vides_et_ame_en_demi_coeurs() {
+        use HeartKind::{Red, Soul};
+        let slot = |kind, fill| HeartSlot { kind, fill };
+        // 5 PV sur 6, 3 points d'âme : 2,5 cœurs rouges sur 3, puis un cœur d'âme et demi.
+        assert_eq!(
+            fixed_hearts(5, 6, 3).slots(),
+            vec![
+                slot(Red, 2),
+                slot(Red, 2),
+                slot(Red, 1),
+                slot(Soul, 2),
+                slot(Soul, 1)
+            ]
+        );
+        // Vie maximale impaire : le dernier conteneur existe ; sans PV, tous vides.
+        assert_eq!(
+            fixed_hearts(0, 3, 0).slots(),
+            vec![slot(Red, 0), slot(Red, 0)]
+        );
+        let values = HudPlayerValues {
+            hearts: Some(fixed_hearts(5, 6, 3)),
+            ..default()
+        };
+        assert_eq!(
+            player_source_text("hearts", "", &values).as_deref(),
+            Some("2,5 / 3 · âme 1,5")
+        );
+        let full = HudPlayerValues {
+            hearts: Some(fixed_hearts(6, 6, 0)),
+            ..default()
+        };
+        assert_eq!(
+            player_source_text("hearts", "Cœurs ", &full).as_deref(),
+            Some("Cœurs 3 / 3")
+        );
+        assert_eq!(
+            player_source_text("hearts", "Cœurs ", &HudPlayerValues::default()).as_deref(),
+            Some("")
+        );
+    }
+
+    #[test]
+    fn coeurs_depuis_la_vie_et_l_ame_et_caches_par_la_curse() {
+        let input = HudPlayerInput {
+            health: Some((fx(3.0), fx(6.0))),
+            soul: Some(fx(4.0)),
+            ..default()
+        };
+        let values = hud_values(&input);
+        assert_eq!(values.hearts, Some(fixed_hearts(3, 6, 4)));
+        // Sans `ExtraHealth` : aucune âme.
+        let no_soul = hud_values(&HudPlayerInput {
+            soul: None,
+            ..input
+        });
+        assert_eq!(no_soul.hearts, Some(fixed_hearts(3, 6, 0)));
+        // `HideHealth` : ni santé ni cœurs.
+        let hide = CurseDef {
+            weight: 1,
+            effects: vec![run::CurseEffect::HideHealth],
+        };
+        let hidden = hud_values(&HudPlayerInput {
+            health: Some((fx(3.0), fx(6.0))),
+            soul: Some(fx(4.0)),
+            curse: Some(("unknown", &hide)),
+            ..default()
+        });
+        assert_eq!(hidden.hearts, None);
+        assert_eq!(
+            player_source_text("hearts", "", &hidden).as_deref(),
+            Some("")
+        );
+    }
+
+    #[test]
+    fn bandeau_d_objet_ramasse_et_noms_caches() {
+        let table = ItemTable(BTreeMap::from([(
+            "reliquaire".to_string(),
+            ron::from_str(include_str!(
+                "../../../../games/isaac/assets/objets/reliquaire.ron"
+            ))
+            .expect("reliquaire"),
+        )]));
+        let banner = |hide: bool, item: Option<&str>| {
+            let def = CurseDef {
+                weight: 1,
+                effects: if hide {
+                    vec![run::CurseEffect::HideItemNames]
+                } else {
+                    Vec::new()
+                },
+            };
+            hud_values(&HudPlayerInput {
+                item_table: Some(&table),
+                banner_item: item,
+                curse: hide.then_some(("blind", &def)),
+                ..default()
+            })
+            .item_banner
+        };
+        assert_eq!(
+            banner(false, Some("reliquaire")).as_deref(),
+            Some("Reliquaire")
+        );
+        assert_eq!(banner(true, Some("reliquaire")).as_deref(), Some("???"));
+        assert_eq!(banner(false, None), None);
+    }
+
+    #[test]
+    fn bandeau_derive_de_l_inventaire_sans_annoncer_le_depart() {
+        let player = Entity::from_raw_u32(1).unwrap();
+        let mut state = ItemBannerState::default();
+        let mut inventory = Inventory::default();
+        inventory.passives.push("bottes".into());
+        // Premier inventaire observé : l'objet de départ n'est pas annoncé, ni ceux qui arrivent
+        // pendant la période de grâce (objets de départ donnés après l'apparition).
+        state.observe(player, &inventory, 1);
+        assert_eq!(state.current(1), None);
+        inventory.passives.push("amulette".into());
+        state.observe(player, &inventory, 3);
+        assert_eq!(state.current(3), None);
+        // Un consommable ne déclenche rien.
+        inventory.consumables.insert("key".into(), 1);
+        state.observe(player, &inventory, 5);
+        assert_eq!(state.current(5), None);
+        // Un passif de plus : annoncé trois secondes (une copie de plus compte aussi).
+        inventory.passives.push("bottes".into());
+        state.observe(player, &inventory, 10);
+        assert_eq!(state.current(10), Some("bottes"));
+        assert_eq!(state.current(10 + ITEM_BANNER_FRAMES - 1), Some("bottes"));
+        assert_eq!(state.current(10 + ITEM_BANNER_FRAMES), None);
+        // Un actif nouveau l'emporte ; le même actif relu n'annonce rien de plus.
+        inventory.active = Some(items::ActiveSlot {
+            item: "calice".into(),
+            charge: 0,
+            uses: None,
+        });
+        state.observe(player, &inventory, 20);
+        assert_eq!(state.current(20), Some("calice"));
+        state.observe(player, &inventory, 30);
+        assert_eq!(state.current(30), Some("calice"));
+        assert_eq!(state.current(20 + ITEM_BANNER_FRAMES), None);
+        // Un autre joueur affiché repart d'une base neuve.
+        let other = Entity::from_raw_u32(2).unwrap();
+        state.observe(other, &inventory, 40);
+        assert_eq!(state.current(40), None);
     }
 }
