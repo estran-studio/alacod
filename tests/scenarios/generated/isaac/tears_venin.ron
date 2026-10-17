@@ -160,6 +160,7 @@ Scenario(
             items: [
                 "venin",
             ],
+            aim: Free,
         ),
     ],
     expect: [

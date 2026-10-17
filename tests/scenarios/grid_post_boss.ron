@@ -6,6 +6,10 @@
 // À regarder : le boss verrouille sa salle (f628), passe en phase 1 (f740), meurt (f862) : son butin (`calice_ardent`, pool
 // `boss`, M3-T8 §73) tombe au centre de la salle (f871) et le bot le ramasse avant f900 ; la salle se rouvre avec sa porte
 // vers la salle du diable (deux présentoirs à un cœur, `devil_room_chance`) ; victoire vers f1430 (f1384 avant le butin).
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot d'une centaine de frames (la
+// grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -13,7 +17,7 @@ Scenario(
     floors: Some("sous_sol_un"),
     frames: 1450,
     players: [
-        (bot: explorateur),
+        (bot: explorateur, aim: Some(Free)),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(9), max: Some(9), at_frame: 5),

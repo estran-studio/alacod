@@ -14,6 +14,7 @@ use game::character::player::input::{
     BoxInput, INPUT_DOWN, INPUT_INTERACTION, INPUT_LEFT, INPUT_RELOAD, INPUT_RIGHT, INPUT_UP,
 };
 use game::replay::BotProfile;
+use sim_core::aim::AimMode;
 
 use crate::view::{BotView, WindowView};
 
@@ -56,8 +57,70 @@ pub(crate) const PORTAL_BRAKE_DISTANCE: Fixed = Fixed::from_bits(48 << 16);
 /// sin 22,5°, direction quantifiée en 8 secteurs égaux.
 const STEER_AXIS_SHARE: Fixed = Fixed::from_bits(25080); // 0,38268 × 65536
 
-/// Décide l'input d'un joueur local piloté par un bot, pour une frame.
+/// Décide l'input d'un joueur local piloté par un bot, pour une frame. Suivi Q17 : un personnage
+/// à visée `FourWay` ([`BotView::aim`]) vise la direction que le moteur retiendra, voir
+/// [`apply_four_way`] ; `Free` (tout le contenu d'avant) : l'input du profil, inchangé.
 pub fn decide(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> BoxInput {
+    let mut input = decide_profile(profile, view, rng);
+    if view.aim == AimMode::FourWay {
+        apply_four_way(&mut input, view.enemy_visible && view.enemy_shootable);
+    }
+    input
+}
+
+/// Demi-largeur (unités monde) de la file de tir d'un personnage à visée `FourWay` : une cible dont
+/// l'écart perpendiculaire à la direction retenue dépasse cette valeur n'est pas touchée (rayon d'une
+/// larme 5 + demi-corps d'un ennemi ~10 : marge de 1).
+pub(crate) const FOUR_WAY_LANE: i16 = 14;
+
+/// Distance (sur l'axe retenu) en deçà de laquelle un bot à visée `FourWay` s'aligne sur sa cible :
+/// la portée de tir de `prudent` ([`PRUDENT_MAX_DISTANCE`]) ; au-delà, il approche comme avant.
+const FOUR_WAY_ENGAGE: i16 = 320;
+
+/// Visée `FourWay` (suivi Q17) : `pan` vaut l'écart du joueur à la cible visée (voir [`aim_at`]) ; le
+/// moteur n'en garde que la direction la plus proche parmi haut, bas, gauche, droite
+/// (`sim_core::aim::four_way`, l'horizontale l'emporte sur une diagonale parfaite). Le bot écrit cette
+/// direction dans son input (pleine inclinaison, 127), puis, cible à moins de [`FOUR_WAY_ENGAGE`] sur
+/// l'axe retenu :
+/// - hors de la file (écart perpendiculaire > [`FOUR_WAY_LANE`]) : gâchette relâchée et décalage
+///   **imposé** vers la cible sur l'axe perpendiculaire (le déplacement du profil y est remplacé), le
+///   mouvement sur l'axe de tir restant celui du profil (approche ou recul) ;
+/// - dans la file : le profil tire comme avant, sans dérive perpendiculaire (boutons de l'axe
+///   perpendiculaire relâchés) pour rester aligné.
+/// Sans visée (`pan` nul), cible lointaine ou sans ligne dégagée jusqu'à elle (`clear_line` faux : un
+/// mur, le bot suit sa route et ne doit pas être détourné) : seule la direction est écrite.
+pub(crate) fn apply_four_way(input: &mut BoxInput, clear_line: bool) {
+    let (x, y) = sim_core::aim::four_way(input.pan_x, input.pan_y);
+    if (x, y) == (0, 0) {
+        return;
+    }
+    let (off_x, off_y) = (input.pan_x, input.pan_y);
+    input.pan_x = i16::from(x) * 127;
+    input.pan_y = i16::from(y) * 127;
+    // Distance sur l'axe de tir, écart perpendiculaire et son signe.
+    let (along, perpendicular) = if x != 0 {
+        (off_x, off_y)
+    } else {
+        (off_y, off_x)
+    };
+    if !clear_line || i32::from(along).abs() > i32::from(FOUR_WAY_ENGAGE) {
+        return;
+    }
+    let (toward, away) = match (x != 0, perpendicular > 0) {
+        (true, true) => (INPUT_UP, INPUT_DOWN),
+        (true, false) => (INPUT_DOWN, INPUT_UP),
+        (false, true) => (INPUT_RIGHT, INPUT_LEFT),
+        (false, false) => (INPUT_LEFT, INPUT_RIGHT),
+    };
+    if i32::from(perpendicular).abs() > i32::from(FOUR_WAY_LANE) {
+        input.fire = false;
+        input.buttons = (input.buttons & !away) | toward;
+    } else {
+        input.buttons &= !(toward | away);
+    }
+}
+
+fn decide_profile(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> BoxInput {
     let _ = rng; // réservé aux profils futurs (voir la doc du module)
     match profile {
         BotProfile::Immobile => BoxInput::default(),
@@ -380,6 +443,7 @@ mod tests {
             loot_interact: false,
             fire_range: None,
             explore: None,
+            aim: sim_core::aim::AimMode::Free,
         }
     }
 
@@ -934,5 +998,101 @@ mod tests {
         let a = decide(BotProfile::Fonceur, &v, &mut rng());
         let b = decide(BotProfile::Fonceur, &v, &mut rng());
         assert_eq!(a, b);
+    }
+
+    /// Suivi Q17 : un bot à visée `FourWay` écrit la direction que le moteur retiendra, ne tire que si
+    /// la cible est dans la file, et se décale sinon.
+    #[test]
+    fn four_way_vise_la_direction_quantifiee() {
+        let target = |x: f32, y: f32| {
+            let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+            v.aim = AimMode::FourWay;
+            v.nearest_enemy = Some(EnemyView {
+                position: FixedVec2::new(fx(x), fx(y)),
+                distance: fx(x.hypot(y)),
+            });
+            v
+        };
+        // Dans la file (écart 10 ≤ 14) : pan = est plein, tir conservé, aucune dérive verticale.
+        let aligned = decide(BotProfile::Prudent, &target(200.0, 10.0), &mut rng());
+        assert_eq!((aligned.pan_x, aligned.pan_y), (127, 0));
+        assert!(aligned.fire);
+        assert_eq!(aligned.buttons & (INPUT_UP | INPUT_DOWN), 0);
+        // Hors de la file (écart 60) : même direction, gâchette relâchée, décalage vers la cible (haut).
+        let off = decide(BotProfile::Prudent, &target(200.0, 60.0), &mut rng());
+        assert_eq!((off.pan_x, off.pan_y), (127, 0));
+        assert!(!off.fire);
+        assert_ne!(off.buttons & INPUT_UP, 0, "se décale vers la cible");
+        assert_eq!(off.buttons & INPUT_DOWN, 0);
+        // Cible au sud, dominante verticale : bas, décalage horizontal vers la droite.
+        let south = decide(BotProfile::Prudent, &target(60.0, -200.0), &mut rng());
+        assert_eq!((south.pan_x, south.pan_y), (0, -127));
+        assert!(!south.fire);
+        assert_ne!(south.buttons & INPUT_RIGHT, 0);
+        // Cible lointaine (> 320 sur l'axe) : seule la direction change, le profil approche comme avant.
+        let far = decide(BotProfile::Prudent, &target(500.0, 60.0), &mut rng());
+        assert_eq!((far.pan_x, far.pan_y), (127, 0));
+        assert!(!far.fire, "hors de portée de tir");
+    }
+
+    /// `Free` : l'input du profil, au bit près (le contenu d'avant ne bouge pas).
+    #[test]
+    fn libre_ne_change_rien() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(200.0), fx(60.0)),
+            distance: fx(208.8),
+        });
+        let free = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_eq!((free.pan_x, free.pan_y), (200, 60));
+        assert!(free.fire);
+    }
+
+    /// Le décalage remplace une dérive de sens contraire, la file garde le profil sans dérive, et sans
+    /// visée rien ne bouge.
+    #[test]
+    fn four_way_pilote_l_axe_perpendiculaire() {
+        let mut idle = BoxInput::default();
+        apply_four_way(&mut idle, true);
+        assert_eq!(idle, BoxInput::default());
+        // Hors file, le profil s'éloignait (bas) alors que la cible est en haut : décalage vers le haut,
+        // le mouvement sur l'axe de tir (gauche) est gardé.
+        let mut retreating = BoxInput {
+            pan_x: 200,
+            pan_y: 60,
+            fire: true,
+            buttons: INPUT_DOWN | INPUT_LEFT,
+            ..BoxInput::default()
+        };
+        apply_four_way(&mut retreating, true);
+        assert!(!retreating.fire);
+        assert_eq!(retreating.buttons, INPUT_UP | INPUT_LEFT);
+        // Dans la file, la dérive perpendiculaire du profil est retirée.
+        let mut drifting = BoxInput {
+            pan_x: 200,
+            pan_y: 5,
+            fire: true,
+            buttons: INPUT_UP | INPUT_RIGHT,
+            ..BoxInput::default()
+        };
+        apply_four_way(&mut drifting, true);
+        assert!(drifting.fire);
+        assert_eq!(drifting.buttons, INPUT_RIGHT);
+    }
+
+    /// Sans ligne dégagée (mur), le bot garde sa route : seule la direction de visée est écrite.
+    #[test]
+    fn four_way_sans_ligne_laisse_la_route() {
+        let mut input = BoxInput {
+            pan_x: 200,
+            pan_y: 60,
+            fire: true,
+            buttons: INPUT_DOWN | INPUT_LEFT,
+            ..BoxInput::default()
+        };
+        apply_four_way(&mut input, false);
+        assert_eq!((input.pan_x, input.pan_y), (127, 0));
+        assert!(input.fire);
+        assert_eq!(input.buttons, INPUT_DOWN | INPUT_LEFT);
     }
 }

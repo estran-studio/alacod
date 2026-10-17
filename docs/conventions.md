@@ -4796,6 +4796,53 @@ Diagnostic : `ALACOD_PROJECTILES=<scénario>:<de>:<à> cargo test -p scenario --
 --no-default-features --test scenarios projectile_probe -- --ignored --nocapture` (projectiles, coups,
 statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
 
+### Visée à quatre directions, `aim: FourWay` (suivi Q17, réponse de William du 2026-10-16)
+
+Option de personnage (**donnée**) : `aim: Free` (défaut, 360°, tout le contenu d'avant) ou `aim: FourWay` (`isaac` :
+`pleureur`). Type `sim_core::aim::AimMode` (`CharacterConfig::aim`, miroir `content::CharacterEntry::aim`, schéma
+généré). **Hors hash et hors trace** : composant **statique, non rollback** (comme `Team`, voir `sim_core::aim`), posé à
+la création du joueur **seulement pour `FourWay`** (`character::player::create`) ; un personnage sans `aim:` ne porte
+rien, aucune trace d'un autre jeu ne bouge (suite complète, 0 `BLESS` hors la liste ci-dessous).
+
+**Quantification dans `weapon_rollback_system`** (`sim_core::aim::aim_direction(mode, pan_x, pan_y)`, un seul code pour
+le tir du joueur et le `MirrorShot` de ses familiers, §71) : `FourWay` ne garde que l'**axe dominant** du `pan`
+(comparaison des entiers `|pan_x|` et `|pan_y|`, avant toute normalisation : ni division ni arrondi, `Fixed` exact), avec
+le signe de sa composante, vecteur unitaire `(±1, 0)` ou `(0, ±1)`. **Égalité exacte des deux axes (diagonale parfaite) :
+l'horizontale l'emporte** ; `pan` nul : pas de visée (aucun tir, comme avant). `Free` : la normalisation d'avant, au bit
+près. La dispersion (`spread`) et les plombs d'un fusil à pompe tournent ensuite autour de cette direction, comme avant.
+Limite connue : la **visée affichée** (rotation du sprite d'arme, `CursorPosition` dérivé du `pan` réel) reste celle de la
+souris ; seule la direction des balles est quantifiée.
+
+**Scénarios** : `PlayerScript::aim: Option<AimMode>` (réglage de joueur, comme `bomb`) : `Some(FourWay)` pose la visée,
+`Some(Free)` **retire** celle du personnage. `aim_four_way` (testbed, trois tirs en biais à 17°, 17° et 45° exact : les
+trois larmes partent plein ouest et touchent la cible alignée aux frames 80, 105 et 129 ; la diagonale parfaite vérifie le
+choix de l'horizontale) et son témoin `aim_four_way_libre` (visée libre : aucun coup).
+
+**Bot** (`crates/bots`) : `BotView::aim` (lu sur le composant du joueur), `decide::apply_four_way` appliqué à la sortie de
+`decide` pour tous les profils : le bot écrit la direction que le moteur retiendra (127 sur l'axe dominant), et, cible à
+moins de 320 sur cet axe **avec ligne dégagée** (`enemy_visible && enemy_shootable` : derrière un mur, il garde sa route) :
+hors de la file de tir (écart perpendiculaire > 14, rayon de larme 5 + demi-corps ~10 − 1) il relâche la gâchette et se
+décale **vers la cible** sur l'axe perpendiculaire (le mouvement du profil y est remplacé, celui sur l'axe de tir est
+gardé) ; dans la file il tire comme avant et ne dérive plus en perpendiculaire. `Free` : l'input du profil, inchangé.
+Le bot reste efficace mais plus lent : sur `grid_post_boss` (graine 8) le boss verrouille sa salle à f712 au lieu de f628,
+phase 1 à f825 au lieu de f740, meurt à f945 au lieu de f862.
+
+**`isaac`** : `pleureur` active `aim: FourWay`. **Générateur** (`alacod-gen`) : les scénarios générés d'un jeu dont le
+joueur vise à quatre directions épinglent `aim: Some(Free)` sur les joueurs scriptés qui tirent : la cible de l'arène
+(+128, −48 : `AIM_AT_TARGET`, carte `gabarit_armes.ldtk`) est en biais et ne peut pas être touchée à quatre directions ; ces
+scénarios prouvent un contenu (arme, larme, familier, statut), pas la visée. Ils sont **bit-identiques** à avant (le
+composant n'existe pas), leurs `.ron` gagnent la ligne `aim: Free`. Épinglés pour la même raison (`explorateur` : la
+grammaire de la grille est leur objet, pas la visée) : `grid_floor_seed_1`, `grid_floor_seed_23`, `grid_floor_seed_123`,
+`grid_post_boss`, `isaac_floor_seed_1` (traces inchangées).
+
+**Traces bougées, avec preuve §5** (dumps `ALACOD_DUMP_TRACE`, `main` `2d30a1c1` contre la branche, `scripts/trace-diff.py`) :
+`generated/isaac/boss_gardien` et `generated/isaac/room_combat` (bots `fonceur` et `explorateur` d'`isaac`, qui tirent à
+quatre directions). Première frame qui diffère : **5**, la première où le bot a un ennemi en vue : le `pan` écrit par le bot
+est quantifié, donc le `CursorPosition` dérivé change et, avec lui, la rotation du sprite d'arme (`FixedTransform3D` de
+`larmes` : `x_axis (-0,986, -0,167)` devient `(-0,999, 0,039)` pour `boss_gardien` ; `FacingDirection` `DownLeft` devient
+`Down` pour `room_combat`). Les attentes tiennent (le boss de `boss_gardien` tombe à f499, `room_combat` nettoyée). Aucun autre
+scénario d'`isaac` ne bouge.
+
 ### Atteignabilité
 
 Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios

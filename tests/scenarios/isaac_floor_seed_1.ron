@@ -11,13 +11,17 @@
 // objet sorti par étage (un trésor, un boss) ; le second étage en sort un autre, donc les compteurs passent de 1 à 2
 // à sa génération (l'épuisement est par run, pas par étage). La partie continue sur le second étage jusqu'à la fin
 // du scénario (le bot y meurt vers f2359 : équilibrage de M3-T11).
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot d'une centaine de frames (la
+// grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
     frames: 2100,
     players: [
-        (bot: explorateur),
+        (bot: explorateur, aim: Some(Free)),
     ],
     expect: [
         RoomState(kind: "depart", state: Dormant, at_frame: 5),

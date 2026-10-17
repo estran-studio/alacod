@@ -35,14 +35,19 @@ use combat::{
     downed::Downed,
     team::team_allows_hit,
     weapons::{
-        aim_direction, bullet_rollback_collision_system, bullet_rollback_system,
-        carried_projectile_mods, shot_projectile, spawn_bullet, tear_motion, Bullet, BulletSpawn,
-        ShotStats, WeaponInventory, WeaponState,
+        bullet_rollback_collision_system, bullet_rollback_system, carried_projectile_mods,
+        shot_projectile, spawn_bullet, tear_motion, Bullet, BulletSpawn, ShotStats,
+        WeaponInventory, WeaponState,
     },
 };
 use items::{Inventory, ItemTable, SynergyTable};
 use sim_core::{
-    frame_events::FrameEvents, stats::StatId, tag::Tags, team::Team, triggers::WeaponFired,
+    aim::{aim_direction, AimMode},
+    frame_events::FrameEvents,
+    stats::StatId,
+    tag::Tags,
+    team::Team,
+    triggers::WeaponFired,
 };
 use stats::StatReader;
 use utils::{
@@ -417,6 +422,7 @@ pub fn familiar_mirror_shot_system(
             Option<&Team>,
             &WeaponInventory,
             Option<&Inventory>,
+            Option<&AimMode>,
         ),
         (With<Rollback>, Without<FamiliarOf>),
     >,
@@ -449,7 +455,7 @@ pub fn familiar_mirror_shot_system(
         let Some(every) = behaviors.mirror_shot() else {
             continue;
         };
-        let Some((owner_entity, owner_id, player, downed, owner_team, weapons, held)) =
+        let Some((owner_entity, owner_id, player, downed, owner_team, weapons, held, aim_mode)) =
             owners.iter().find(|(_, id, ..)| id.0 == familiar.owner.0)
         else {
             continue;
@@ -459,7 +465,11 @@ pub fn familiar_mirror_shot_system(
         if downed || !fired || !gun.ready(frame.frame, every) {
             continue;
         }
-        let aim = aim_direction(input.pan_x, input.pan_y);
+        let aim = aim_direction(
+            aim_mode.copied().unwrap_or_default(),
+            input.pan_x,
+            input.pan_y,
+        );
         if aim == FixedVec2::ZERO {
             continue;
         }

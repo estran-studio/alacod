@@ -25,6 +25,7 @@ use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
 use sim_core::{
+    aim::{aim_direction, AimMode},
     ammo::AmmoType,
     damage::{DamageEvent, DamageKind, FriendlyFire},
     frame_events::{FrameEvents, FrameEventsAppExt},
@@ -1013,19 +1014,6 @@ pub struct ShotStats {
     pub size: fixed_math::Fixed,
 }
 
-/// Direction de visée d'une entrée (`pan` en `[-127, 127]`, normalisée ; `ZERO` sans visée). Un seul
-/// endroit pour le tir du joueur (`weapon_rollback_system`) et celui de ses familiers (`MirrorShot`,
-/// `game::familiars`).
-pub fn aim_direction(pan_x: i16, pan_y: i16) -> fixed_math::FixedVec2 {
-    let mut aim_dir = fixed_math::FixedVec2::new(
-        fixed_math::Fixed::from_num(pan_x),
-        fixed_math::Fixed::from_num(pan_y),
-    );
-    aim_dir.x /= fixed_math::new(127.0);
-    aim_dir.y /= fixed_math::new(127.0);
-    aim_dir.normalize_or_zero()
-}
-
 /// Vitesse (par frame) et dégât d'une balle du mode de tir `bullet_type` dans `direction` :
 /// `ShotSpeed` multiplie la vitesse et `damage_mult` (stat `Damage`) le dégât ; à 1, aucun produit
 /// (valeurs au bit près identiques à avant ces stats). Partagé par `spawn_bullet_rollback` et les
@@ -1268,6 +1256,8 @@ pub fn weapon_rollback_system(
         &GgrsNetId,
         &Team,
         Option<&Tags>,
+        // Visée du personnage (suivi Q17) : absent = libre.
+        Option<&AimMode>,
     )>,
 
     collision_settings: Res<CollisionSettings>,
@@ -1532,8 +1522,15 @@ pub fn weapon_rollback_system(
                 weapon_state.is_firing = input.fire;
 
                 if can_fire {
-                    if let Ok((_, facing_direction, _, shooter_net_id, shooter_team, opt_tags)) =
-                        player_query.get(child_of.parent())
+                    if let Ok((
+                        _,
+                        facing_direction,
+                        _,
+                        shooter_net_id,
+                        shooter_team,
+                        opt_tags,
+                        aim_mode,
+                    )) = player_query.get(child_of.parent())
                     {
                         let shooter_tags = opt_tags.cloned().unwrap_or_default();
                         // Stats branchées (T1.2) : dégâts et portée de la balle multipliés
@@ -1546,7 +1543,11 @@ pub fn weapon_rollback_system(
                             speed: stats.get(shooter, &StatId::ShotSpeed, fixed_math::FIXED_ONE),
                             size: stats.get(shooter, &StatId::ShotSize, fixed_math::FIXED_ONE),
                         };
-                        let aim_dir = aim_direction(input.pan_x, input.pan_y);
+                        let aim_dir = aim_direction(
+                            aim_mode.copied().unwrap_or_default(),
+                            input.pan_x,
+                            input.pan_y,
+                        );
                         // Projectile composable du mode de tir (T1.1), cloné par balle. M3-T1
                         // (§66) : les `projectile` des objets et synergies du tireur s'y
                         // composent ; sans objet qui ajoute quelque chose, chemin d'origine.
@@ -2181,17 +2182,5 @@ mod tear_tests {
         let (fast, strong) = tear_motion(&standard(), east, shot(2.0), fx(1.5));
         assert_eq!(fast.x, velocity.x * fixed_math::Fixed::from_num(2));
         assert_eq!(strong, fx(15.0));
-    }
-
-    /// Sans visée, aucune direction ; sinon un vecteur unitaire (le tir miroir d'un familier ne part
-    /// pas sans visée).
-    #[test]
-    fn aim_direction_est_unitaire_ou_nulle() {
-        assert_eq!(aim_direction(0, 0), FixedVec2::ZERO);
-        assert_eq!(aim_direction(127, 0), FixedVec2::new(fx(1.0), fx(0.0)));
-        let diagonal = aim_direction(100, 100);
-        assert_eq!(diagonal.x, diagonal.y);
-        let norm = diagonal.x.to_num::<f64>().hypot(diagonal.y.to_num::<f64>());
-        assert!((norm - 1.0).abs() < 1e-3, "norme {norm}");
     }
 }

@@ -276,6 +276,8 @@ pub struct CharacterEntry {
     pub boss: Option<BossEntry>,
     /// M3-T0c (§62) : bombe du personnage (`bomb`), absente = pas de bombe.
     pub bomb: Option<world::BombDef>,
+    /// Suivi Q17 : visée du personnage (`aim`, `Free` par défaut).
+    pub aim: sim_core::aim::AimMode,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
     pub ignore_tags: Vec<String>,
     /// Tags du personnage (`tags`), source des tags connus du jeu (règle `ignore`).
@@ -1984,6 +1986,9 @@ struct CharacterFileSchema {
     /// M3-T0c : bombe.
     #[serde(default)]
     bomb: Option<world::BombDef>,
+    /// Suivi Q17 : visée du personnage (`Free` ou `FourWay`).
+    #[serde(default)]
+    aim: sim_core::aim::AimMode,
     #[serde(default)]
     tags: Vec<String>,
     /// T1.5 : variantes et élites.
@@ -2781,6 +2786,7 @@ fn load_characters(
                 effects: parsed.effects,
                 boss: parsed.boss,
                 bomb: parsed.bomb,
+                aim: parsed.aim,
                 ignore_tags: parsed
                     .ai
                     .as_ref()

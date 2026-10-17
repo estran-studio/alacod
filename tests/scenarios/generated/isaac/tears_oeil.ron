@@ -85,6 +85,7 @@ Scenario(
             items: [
                 "oeil",
             ],
+            aim: Free,
         ),
     ],
     expect: [
