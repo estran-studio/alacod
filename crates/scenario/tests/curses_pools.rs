@@ -144,8 +144,8 @@ fn a_restart_clears_curses_and_pool_state() {
     app.add_systems(
         GgrsSchedule,
         write_state
-                .after(RollbackSystemSet::Run)
-                .before(RollbackSystemSet::FrameCounter),
+            .after(RollbackSystemSet::Run)
+            .before(RollbackSystemSet::FrameCounter),
     );
     app.finish();
     app.cleanup();

@@ -118,11 +118,14 @@ impl Plugin for RoomsPlugin {
                 boss_reinforcements_system
                     .after(arena_waves_system)
                     .in_set(RollbackSystemSet::Run),
-                // M3-T8 (§73) : butin du boss mort dans la frame (`Run` suit `DeathManagement`),
-                // après les autres systèmes de `Run` qui consomment `GgrsNetIdFactory`.
+                // M3-T8 (§73) : butin du boss mort dans la frame (`Run` suit `DeathManagement`), **avant** la
+                // transition d'étage : un joueur au portail quand le dernier boss meurt change d'étage dans
+                // la même frame, et l'événement (position du boss) doit se lire dans l'étage d'origine
+                // (`CurrentRooms` et `FloorState` d'avant). Tous les autres systèmes de `Run` qui
+                // consomment `GgrsNetIdFactory` (coffres, présentoirs, arène, renforts) suivent
+                // `floor_transition_system` : l'ordre reste total.
                 boss_drop_system
-                    .after(boss_reinforcements_system)
-                    .after(room_boss_slot_system)
+                    .before(super::floors::floor_transition_system)
                     .in_set(RollbackSystemSet::Run),
                 // M2-T7 : la mort d'un boss vide sa salle (despawn dans la même frame).
                 boss_room_clear_system
@@ -420,14 +423,7 @@ pub fn room_chest_system(
         // M3-T8 (§73) : un pool qui s'épuise assigne l'objet ici, dans l'ordre des salles (x, y,
         // identifiant), pas à l'ouverture.
         let table_id = game::loot::chest_table_id(&chest, &floors, floor).to_string();
-        game::loot::assign_slot(
-            &ctx,
-            &mut pools,
-            &table_id,
-            chest.rarity,
-            false,
-            &chest.key,
-        );
+        game::loot::assign_slot(&ctx, &mut pools, &table_id, chest.rarity, false, &chest.key);
         game::loot::spawn_chest(&mut commands, &mut id_factory, chest, center);
     }
 }
@@ -638,9 +634,8 @@ pub fn boss_drop_system(
             Some(item) => Some(item.to_string()),
             None => tables.0.get(&drop.table).and_then(|pool| {
                 let pool = items::unlocked_table(&drop.table, pool, &unlocks, &active);
-                let mut rng = bevy_fixed::rng::RollbackRng::new(items::loot_seed(
-                    run_seed, floor, &key,
-                ));
+                let mut rng =
+                    bevy_fixed::rng::RollbackRng::new(items::loot_seed(run_seed, floor, &key));
                 items::draw_loot_with(
                     &pool,
                     &item_table,
@@ -653,7 +648,10 @@ pub fn boss_drop_system(
             }),
         };
         let Some(item) = item else {
-            warn!("butin du boss « {key} » : le pool « {} » ne donne rien", drop.table);
+            warn!(
+                "butin du boss « {key} » : le pool « {} » ne donne rien",
+                drop.table
+            );
             continue;
         };
         let two = Fixed::from_num(2);

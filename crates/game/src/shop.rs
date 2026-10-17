@@ -23,8 +23,8 @@ use items::{
 };
 use sim_core::frame_events::FrameEvents;
 use sim_core::interaction::{Interactable, InteractionType};
-use sim_core::modifier::{Modifier, ModifierOp, ModifierSource, Modifiers};
-use sim_core::stats::StatId;
+use sim_core::modifier::{resolve, Modifier, ModifierOp, ModifierSource, Modifiers};
+use sim_core::stats::{StatId, Stats};
 use sim_core::team::Team;
 use std::collections::BTreeSet;
 use utils::{
@@ -217,6 +217,36 @@ pub fn pay_cost(
     })
 }
 
+/// La stat `MaxHealth` telle qu'elle se résoudrait **après** une perte permanente de `loss` points
+/// (modificateur `Add −loss` en plus de ceux du payeur). `Fixed::MAX` si le payeur n'a pas la stat
+/// (`sync_health_from_stats` ne pilote alors pas `Health.max`). Les `Set` et `Mul` de `MaxHealth`
+/// amplifient la perte : `(Set 2, Mul 2)` puis `Add −2` donne `0`.
+pub fn max_health_after(
+    stats: Option<&Stats>,
+    modifiers: &Modifiers,
+    loss: Fixed,
+    frame: u32,
+) -> Fixed {
+    let Some(base) = stats.and_then(|stats| stats.get(&StatId::MaxHealth)) else {
+        return Fixed::MAX;
+    };
+    let probe = Modifier {
+        stat: StatId::MaxHealth,
+        op: ModifierOp::Add,
+        value: -loss,
+        source: ModifierSource::Named(String::new()),
+        until: None,
+    };
+    resolve(
+        base,
+        modifiers
+            .iter()
+            .chain(std::iter::once(&probe))
+            .filter(|m| m.stat == StatId::MaxHealth),
+        frame,
+    )
+}
+
 /// Lâche des `shells` à la mort d'un ennemi (équipe `Enemies`, hors barils).
 ///
 /// `With<Death>`, pas `Added<Death>` : `rollback_apply_death` détruit toute entité morte dans la
@@ -381,6 +411,7 @@ pub fn shelf_interaction_system(
             Option<&mut Health>,
             &mut Currency,
             Option<&mut ExtraHealth>,
+            Option<&Stats>,
         ),
         Without<Shelf>,
     >,
@@ -414,6 +445,7 @@ pub fn shelf_interaction_system(
             mut health,
             mut wallet,
             mut soul,
+            stats,
         )) = players
             .iter_mut()
             .find(|(id, ..)| id.0 == event.interactor_net_id.0)
@@ -455,13 +487,30 @@ pub fn shelf_interaction_system(
         let mut max_health_lost = Fixed::ZERO;
         let mut paid_note = String::new();
         if let Some(cost) = shelf.cost.clone() {
-            let Some(payment) = pay_cost(
-                &cost,
-                &mut wallet,
-                inventory.as_deref_mut(),
-                health.as_deref_mut(),
-                soul.as_deref_mut(),
-            ) else {
+            // Un modificateur multiplicatif de `MaxHealth` amplifie la perte réelle : refus aussi si la
+            // stat résolue **après** le paiement tomberait à 0 (`sync_health_from_stats` recopierait ce 0
+            // dans la vie courante : le paiement aurait tué).
+            let would_zero_the_stat = match &cost {
+                items::Price::MaxHealth(amount) => {
+                    let soul_now = soul.as_deref().map_or(Fixed::ZERO, |s| s.soul);
+                    let (_, rest) = items::Price::soul_split(*amount, soul_now);
+                    rest > Fixed::ZERO
+                        && max_health_after(stats, &modifiers, rest, frame.frame) <= Fixed::ZERO
+                }
+                _ => false,
+            };
+            let payment = if would_zero_the_stat {
+                None
+            } else {
+                pay_cost(
+                    &cost,
+                    &mut wallet,
+                    inventory.as_deref_mut(),
+                    health.as_deref_mut(),
+                    soul.as_deref_mut(),
+                )
+            };
+            let Some(payment) = payment else {
                 shelf.retry_after = frame.frame + SHELF_RETRY_FRAMES;
                 info!(
                     "ggrs{{f={} shop_refused net_id={} by={} cost={:?} balance={}}}",
@@ -756,7 +805,10 @@ mod tests {
                 max_health_lost: Fixed::from_num(2)
             }
         );
-        assert_eq!((hp.current, hp.max), (Fixed::from_num(4), Fixed::from_num(4)));
+        assert_eq!(
+            (hp.current, hp.max),
+            (Fixed::from_num(4), Fixed::from_num(4))
+        );
         assert_eq!(wallet.0, 7, "les douilles ne bougent pas");
     }
 
@@ -802,7 +854,10 @@ mod tests {
         assert_eq!(payment.soul_spent, Fixed::from_num(2));
         assert_eq!(payment.max_health_lost, Fixed::from_num(3));
         assert_eq!(soul.soul, Fixed::ZERO);
-        assert_eq!((hp.current, hp.max), (Fixed::from_num(3), Fixed::from_num(3)));
+        assert_eq!(
+            (hp.current, hp.max),
+            (Fixed::from_num(3), Fixed::from_num(3))
+        );
     }
 
     #[test]
@@ -816,7 +871,11 @@ mod tests {
             pay_cost(&cost, &mut wallet, Some(&mut inventory), None, None),
             None
         );
-        assert_eq!(inventory.consumable("key"), 1, "refus : le stock est intact");
+        assert_eq!(
+            inventory.consumable("key"),
+            1,
+            "refus : le stock est intact"
+        );
         inventory.consumables.insert("key".into(), 3);
         assert!(pay_cost(&cost, &mut wallet, Some(&mut inventory), None, None).is_some());
         assert_eq!(inventory.consumable("key"), 1);
@@ -826,8 +885,7 @@ mod tests {
     #[test]
     fn a_currency_cost_reports_the_coins_spent() {
         let mut wallet = Currency::new(50);
-        let payment =
-            pay_cost(&items::Price::Currency(20), &mut wallet, None, None, None).unwrap();
+        let payment = pay_cost(&items::Price::Currency(20), &mut wallet, None, None, None).unwrap();
         assert_eq!(payment.coins, 20);
         assert_eq!(wallet.0, 30);
     }
@@ -862,7 +920,11 @@ mod tests {
         let first = assign_shelves(&ctx, &mut pools, "p", "room_a", 2, 0).unwrap();
         let second = assign_shelves(&ctx, &mut pools, "p", "room_b", 3, 0).unwrap();
         let all: BTreeSet<_> = first.iter().chain(&second).collect();
-        assert_eq!(all.len(), 5, "cinq présentoirs, cinq objets : {first:?} {second:?}");
+        assert_eq!(
+            all.len(),
+            5,
+            "cinq présentoirs, cinq objets : {first:?} {second:?}"
+        );
         assert_eq!(pools.count("p"), 5);
         // Rejouer la génération de la même salle rend les mêmes objets sans rien consommer.
         assert_eq!(
@@ -876,5 +938,37 @@ mod tests {
         let mut pools = items::PoolState::default();
         assert_eq!(assign_shelves(&ctx, &mut pools, "p", "room_a", 2, 0), None);
         assert_eq!(pools, items::PoolState::default());
+    }
+
+    /// Revue M3-T8 : un `Mul` sur `MaxHealth` amplifie la perte ; `(Set 2, Mul 2)` puis un cœur donne 0.
+    #[test]
+    fn max_health_after_sees_the_multipliers() {
+        let modifier = |op, value: i32| Modifier {
+            stat: StatId::MaxHealth,
+            op,
+            value: Fixed::from_num(value),
+            source: ModifierSource::Named("t".into()),
+            until: None,
+        };
+        let mut stats = Stats::new();
+        stats.set(StatId::MaxHealth, Fixed::from_num(6));
+        let two = Fixed::from_num(2);
+        let plain = Modifiers::default();
+        assert_eq!(
+            max_health_after(Some(&stats), &plain, two, 0),
+            Fixed::from_num(4)
+        );
+        let doubled = Modifiers(vec![modifier(ModifierOp::Mul, 2)]);
+        assert_eq!(
+            max_health_after(Some(&stats), &doubled, two, 0),
+            Fixed::from_num(8)
+        );
+        let fragile = Modifiers(vec![
+            modifier(ModifierOp::Set, 2),
+            modifier(ModifierOp::Mul, 2),
+        ]);
+        assert_eq!(max_health_after(Some(&stats), &fragile, two, 0), Fixed::ZERO);
+        // Sans la stat, `Health.max` n'est pas piloté par les stats : jamais d'obstacle.
+        assert_eq!(max_health_after(None, &fragile, two, 0), Fixed::MAX);
     }
 }

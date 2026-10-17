@@ -850,13 +850,8 @@ mod m3_t0b_tests {
         ));
         assert_eq!(max_health, Fixed::from_num(4));
         assert_eq!(health, Fixed::from_num(4));
-        assert!(!Price::MaxHealth(Fixed::from_num(4)).can_pay(
-            currency,
-            &inventory,
-            max_health,
-            health,
-            soul
-        ));
+        assert!(!Price::MaxHealth(Fixed::from_num(4))
+            .can_pay(currency, &inventory, max_health, health, soul));
     }
 
     /// Q6 : un prix de vie qui tuerait est refusé, même à 1 PV d'être juste au-dessus.

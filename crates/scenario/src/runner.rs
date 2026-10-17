@@ -1007,14 +1007,7 @@ fn apply_scenario_chest_placements(
         // M3-T8 (§73) : comme un coffre de salle, l'objet d'un pool qui s'épuise est assigné à la
         // pose (idempotent : une seconde pose de la même clé donne le même objet).
         let table_id = game::loot::chest_table_id(&chest, &floors, floor).to_string();
-        game::loot::assign_slot(
-            &ctx,
-            &mut pools,
-            &table_id,
-            chest.rarity,
-            false,
-            &chest.key,
-        );
+        game::loot::assign_slot(&ctx, &mut pools, &table_id, chest.rarity, false, &chest.key);
         game::loot::spawn_chest(&mut commands, &mut id_factory, chest, position);
     }
 }
@@ -2691,7 +2684,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             };
             if item.as_ref().is_some_and(|item| *item != shelf.item_id)
                 || price.is_some_and(|price| price != shelf.price)
-                || cost.as_ref().is_some_and(|cost| Some(cost) != shelf.cost.as_ref())
+                || cost
+                    .as_ref()
+                    .is_some_and(|cost| Some(cost) != shelf.cost.as_ref())
                 || sold.is_some_and(|sold| sold != shelf.sold)
             {
                 return Err(format!("présentoir {nth} : {shelf:?}"));

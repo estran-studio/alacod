@@ -4946,7 +4946,10 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
             for problem in cost.problems(|_| true, player_max) {
                 push(
                     LintErrorKind::OutOfRange,
-                    format!("type de salle « {} » : boutique : cost : {problem}", room.id),
+                    format!(
+                        "type de salle « {} » : boutique : cost : {problem}",
+                        room.id
+                    ),
                 );
             }
         }

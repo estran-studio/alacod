@@ -1,0 +1,24 @@
+// M3-T8 (docs/conventions.md §73) : le butin du boss d'un type de salle (`boss_drop`, pool sans épuisement).
+// Même partie que `boss_room_lock` (carte `salles_boss_butin.ldtk` : le type `boss_butin` verrouille comme `boss`) :
+// le `gardien` meurt vers f184 ; un objet du pool `epuisable_temoin` tombe alors au centre de la salle, tiré sur la
+// graine de l'emplacement `boss:<salle>` (donc le même quel que soit le moment de la mort). Rien n'est tombé avant.
+//
+// À regarder : f30-90 le joueur entre ; f90-250 il tire ; à la mort du boss un objet au sol (`bottes`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_boss_butin.ldtk",
+    map_seed: 1,
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 250, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        ItemsOnFloor(id: "zzz", count: 1, at_frame: 20),
+        ItemsOnFloor(id: "zzz", count: 1, at_frame: 160),
+        ItemsOnFloor(id: "zzz", count: 1, at_frame: 299),
+    ],
+)
