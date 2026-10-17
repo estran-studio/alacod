@@ -317,6 +317,9 @@ ldtk_map_explorer:
 ldtk_map_explorer_matchbox:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
+gungeon_matchbox:
+	APP_VERSION=$(VERSION) cargo run -p gungeon $(ARGS) --features native $(DEV_FEATURES) -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
+
 host_website:
 	cd website && APP_VERSION=$(VERSION) npm run dev
 

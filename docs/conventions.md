@@ -4169,6 +4169,48 @@ victoires, 13 soft-locks (bot, D82), 3 défaites, 0 desync ; la 10 est une grain
 achats, deux arènes, deux boss) et où les phases 0 → 1 → 2 du boss tombent aux deux étages ; elle gagne aussi à
 4 joueurs.
 
+### p2p réel de la run complète (m2-p2p-run-complete)
+
+Preuves en ligne (transport WebRTC réel, rollbacks réels, sans affichage) de la run de M2 ; mesures et commandes
+dans `docs/taches/rapports/m2-p2p-run-complete.md`.
+
+- **Inputs des bots figés.** Les bots (`crates/bots`) ne sont pas dans le binaire du jeu : `scripts/p2p-gungeon-inputs.sh
+  <joueurs> <graine> <frames> <sortie.ron>` joue la run par `alacod-sim --save-scenario` (l'enregistrement exact de ce qui
+  part à GGRS) ; chaque client la rejoue (`ALACOD_INPUT=script:<fichier>`, handle GGRS = piste). Valable pour la même
+  graine, les mêmes réglages et le même contenu seulement : après un changement de simulation, l'étage 2 n'est plus
+  atteint, et `EXPECT_FLOORS` de `p2p-stress.sh` (nombre de `floor_transition` distincts du journal) échoue au lieu
+  d'un faux vert.
+- **`ALACOD_SKIP_HUB=1`** (gungeon, natif) : pas de `HubSession`, la partie démarre dans la run ; **`--seed <n>`** : graine de
+  carte imposée (`apply_launch_seed`, en local comme en ligne ; sans lui, `entry.default_seed`). Raison : une partie en
+  ligne passée par le hub joue sa run sur une graine **dérivée** (`restart_seed`, §33) alors que la graine de carte
+  du hub est conservée : un enregistrement de bots fait par `alacod-sim` (même graine partout) ne s'y rejoue pas à
+  l'identique. Sans `ALACOD_SKIP_HUB`, le hub est joué pour de vrai : `ALACOD_INPUT=script:` lit les pistes `hub:
+  Some((stay: false, inputs: …))` du scénario (`ScriptedHubInputs`) tant que `HubSession::in_hub`, puis les
+  `players` ; `scripts/p2p-stress-inputs.py --hub-door` génère un script (hub : le joueur 0 va à la porte, run : entrées
+  aléatoires).
+- **Délai d'input des enregistrements de bots (D85, fermée).** `alacod-sim` joue en synctest avec `ALACOD_INPUT_DELAY` = 5 (défaut) : l'input
+  décidé à la frame f est appliqué à f+5 ; les clients p2p des preuves tournent à 0. `scripts/p2p-gungeon-inputs.sh` décale donc les segments de
+  `INPUT_SHIFT` (5) frames (0 pour des clients à délai 5) : sans cela la run rejouée n'est pas celle des bots (franchissement d'étage f3725 au
+  lieu de f3731, aucune victoire après le hub). `HUB=1` enregistre une run lancée par la porte du hub en ligne (`ALACOD_SIM_HUB=1` : hub puis run
+  dans `alacod-sim` ; `ALACOD_RUN_SEED_ONLINE_GAME=1` : graine de run `restart_seed(graine, 1)`, `jjrs::local`, natif, absente = inchangé) ;
+  le client se lance alors sans `ALACOD_SKIP_HUB`.
+- **Retour au lobby en ligne (D86, ouverte).** `ALACOD_RESTART_KIND=lobby` rouvre la salle d'origine : si les deux pairs ne reviennent pas à quelques
+  ms près, le premier se connecte au socket encore vivant de la partie de l'autre et les deux sessions restent muettes. « Rejouer » (`{lobby}-r{n}`) n'a
+  pas ce défaut. Le script `p2p-restart.sh` avec `RESTART_KIND=lobby` peut donc échouer (`TIMEOUT`) ; `EXPECT_VICTORY=1` exige la victoire avant la relance.
+- **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
+  la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
+  `resimulées` reste cumulé sur toute la durée du processus.
+- **`ALACOD_RESTART_KIND`** (avec `ALACOD_RESTART_AT_FRAME`) : requête posée à la frame de relance, `restart` (défaut),
+  `lobby` (`RunRequest::ToLobby`) ou `hub` (`RunRequest::ToHub`). Retour au lobby en ligne : voir la limite du rapport
+  (pair fantôme dans la salle d'origine).
+- **Scripts** (`scripts/p2p-lib.sh` en commun) : `p2p-stress.sh` (N clients `CLIENTS`, suspension du client 1,
+  `NETEM`, `MATCHBOX_URL`, `GAME_ARGS`, `EXPECT_FLOORS`), `p2p-restart.sh <jeu>` (restart, lobby, hub),
+  `p2p-disconnect.sh` (pair tué), `p2p-machine.sh` (un client par machine), `nightly.sh` étape C2.
+- **Réseau dégradé sans root** : `NETEM="delay 60ms 10ms loss 1%"` relance le script dans `unshare -Urn` (espaces de noms
+  utilisateur et réseau sans privilège), met `lo` en `tc netem` (le délai s'applique à chaque sens : RTT = 2 × délai),
+  ajoute une interface factice `dummy0` (WebRTC ignore la boucle locale) et y fait tourner le signaling (`matchbox_server`
+  extrait de l'image Docker du compose, ou `MATCHBOX_BIN`). Aucun accès réseau extérieur dans cet espace.
+
 ## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
 
 Contrats posés pour M3-T1 (larmes v3), M3-T6 (familiers qui tirent), M3-T11a (contenu de larmes)

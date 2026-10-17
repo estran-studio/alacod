@@ -87,8 +87,10 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
 
 Risques de second rang : la suite de scénarios est le goulot de tout (1 à 2 h par vérification
 sur orca, 4 h sur le runner) et son coût fixe par frame domine (synctest ×2, checksum, trace,
-invariants) ; la boucle gungeon n'est pas jouable de bout en bout (D59, D62 : objets sans source,
-étage par grammaire jamais joué en p2p) ; les dettes de jouabilité zombies tranchées le 10-14
+invariants) ; la boucle gungeon n'était rejouée qu'en synctest (D59, D62 : objets sans source) ; depuis
+m2-p2p-run-complete (2026-10-16) elle l'est en p2p réel sur une machine : 2 clients de l'entrée à la victoire (f7138) puis
+restart, 4 clients jusqu'après la transition d'étage (4 500 frames, sans fin de run), transition d'étage avec rollbacks réels,
+réseau dégradé 120 ms / 20 ms / 1 %, le tout **sans le hub** pour les runs à bots (D85) ; pas encore entre deux machines ; les dettes de jouabilité zombies tranchées le 10-14
 (D28, D29) changeront les traces `test_map` ; le `rust-toolchain` nightly n'est pas épinglé par
 date (stabilité des hash entre machines, §5 du contrat de sortie).
 

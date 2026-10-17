@@ -83,12 +83,28 @@ fn main() -> AppExit {
         .insert_resource(WaveModeEnabled(wave_mode));
     // M2-T13 : la partie démarre au hub quand le manifeste en déclare un (`entry.hub`) ; la porte
     // lance la run (`entry.start_map`, mode `Floors` du manifeste).
-    if let Some(hub) = &manifest.entry.hub {
+    // `ALACOD_SKIP_HUB=1` (natif, preuves p2p) : la partie démarre directement dans la run, comme
+    // `alacod-sim` et les scénarios sans champ `hub` ; les inputs enregistrés d'un scénario de
+    // bots s'y rejouent à l'identique (la graine de run d'une partie en ligne passée par le
+    // hub est dérivée de celle du hub, §33, celle d'un scénario non).
+    let skip_hub = std::env::var("ALACOD_SKIP_HUB").is_ok_and(|v| v == "1");
+    if let Some(hub) = manifest.entry.hub.as_ref().filter(|_| !skip_hub) {
         app.insert_resource(game::hub::HubSession {
             hub_map: hub.map.clone(),
             run_map: manifest.entry.start_map.clone(),
             in_hub: true,
         });
     }
+    // `--seed <n>` : graine de carte explicite (rejouer une graine de campagne de bots, preuves p2p :
+    // les deux pairs reçoivent la même). Sans elle, la graine du manifeste.
+    app.add_systems(Startup, apply_launch_seed);
     app.run()
+}
+
+/// `--seed` (`LaunchSeed`) remplace la graine du manifeste, en local comme en ligne.
+fn apply_launch_seed(launch: Res<game::args::LaunchSeed>, mut map: ResMut<LdtkGameMap>) {
+    if let Some(seed) = launch.0 {
+        map.seed = seed;
+        info!("gungeon : graine de carte imposée --seed {seed}");
+    }
 }
