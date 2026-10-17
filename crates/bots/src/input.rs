@@ -327,7 +327,7 @@ pub fn read_bot_inputs(
         let policy = explorer.options().policy;
         order_iter!(players)
             .into_iter()
-            .filter(|(_, player, _, _, _, _, _, _, downed, _)| {
+            .filter(|(_, player, _, _, _, _, _, _, downed, _, _)| {
                 local_players.0.contains(&player.handle)
                     && downed.is_none()
                     && assignments.0.get(&player.handle) == Some(&BotProfile::Explorateur)
