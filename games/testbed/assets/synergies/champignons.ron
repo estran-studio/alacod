@@ -1,0 +1,10 @@
+// Suivi Q10 (docs/conventions.md §44) : transformation d'essai. Active tant que le joueur tient trois objets **distincts** portant le tag
+// `champignon` (`requires_tag`) ; `requires` est vide. +30 % de vitesse (modificateur `synergy:champignons`) et teinte de
+// présentation `#c07040` sur le personnage (moment clé `transformation`). Scénarios `transformation_three` et `transformation_two`.
+(
+    name: "Champignons",
+    requires: [],
+    requires_tag: Some((tag: "champignon", count: 3)),
+    modifiers: [(stat: MoveSpeed, op: Pct, value: "0.3")],
+    tint: Some("#c07040"),
+)

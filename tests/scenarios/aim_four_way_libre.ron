@@ -1,0 +1,24 @@
+// Suivi Q17 (§66) : témoin de `aim_four_way` : mêmes trois tirs en visée libre (défaut `Free`). Les larmes partent
+// en biais et passent à côté de la `target` : aucun coup.
+//
+// À regarder : trois larmes en biais, la cible n'est jamais touchée.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "500.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [
+                (from: 20, to: 21, buttons: [Fire], pan: (-127, -40)),
+                (from: 45, to: 46, buttons: [Fire], pan: (-127, 40)),
+                (from: 70, to: 71, buttons: [Fire], pan: (-100, -100)),
+            ],
+            weapon: "larme",
+        ),
+    ],
+    expect: [
+        EntityHits(net_id: 14, min: 0, max: Some(0), at_frame: 159),
+    ],
+)

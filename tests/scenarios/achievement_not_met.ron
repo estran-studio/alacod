@@ -1,0 +1,26 @@
+// M3-T10 (docs/conventions.md §75) : une run perdue sans rien accomplir n'accorde aucun accomplissement. Même mise en
+// scène que `hit_iframes_isaac` (le joueur de `isaac`, immobile, avec un `suiveur` et une `mouche` au contact) mais assez
+// longue pour qu'il meure : défaite à l'étage 0, sans boss vaincu, sans victoire. Le profil (`profile: true`) reçoit
+// l'essence de la run (+1) et ses statistiques, aucun accomplissement ni déblocage ; la source HUD `achievements` reste vide.
+//
+// À regarder : le joueur perd un point de vie toutes les ~125 frames (f7, f125, f250…) puis meurt vers f600 ; écran de défaite
+// sans liste d'accomplissements.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 800,
+    profile: true,
+    profile_setup: Some((profiles: [(handle: 0)])),
+    characters: [
+        (character: "suiveur", x: "20.0", y: "-8.0", at_frame: 5),
+        (character: "mouche", x: "-36.0", y: "-8.0", at_frame: 5),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        RunState(step: Ended(Defeat), at_frame: 799),
+        PlayerDead(handle: 0, at_frame: 799),
+        ProfileHas(handle: 0, currency: ("essence", 1), lacks_achievements: ["gardien_vaincu", "run_finie", "second_etage", "semelles_aux_pieds"], lacks_unlocks: ["medaille_libre", "couronne_libre", "bague_libre", "bombes_en_reserve"], at_frame: 799),
+        HudText(source: "achievements", empty: true, at_frame: 799),
+    ],
+)

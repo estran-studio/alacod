@@ -5,6 +5,10 @@
 //
 // À regarder : quatre combats (f64 à f900), puis le boss verrouille sa salle (f1001), phase 1 (f1114), mort ;
 // victoire f1236.
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
+// grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -12,7 +16,7 @@ Scenario(
     floors: Some("sous_sol_un"),
     frames: 1950,
     players: [
-        (bot: explorateur),
+        (bot: explorateur, aim: Some(Free)),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(13), max: Some(13), at_frame: 5),

@@ -16,6 +16,9 @@
         // Consommables `key` et `blank`, soin `ration` (copie de `gungeon`).
         (path: "objets", kind: "Item"),
         (path: "loot", kind: "LootTable"),
+        // M3-T10 (§75) : accomplissements de la run et déblocages qu'ils accordent (pas de hub : aucun achat).
+        (path: "unlocks", kind: "Unlock"),
+        (path: "achievements", kind: "Achievement"),
         // M3-T11a (§76.1) : statuts posés par l'`on_hit` des objets de larmes (poison, brûlure, gel, peur, lenteur).
         (path: "statuses", kind: "Status"),
         // M3-T11b (§76.2) : synergie d'objets du pool `tresor`.

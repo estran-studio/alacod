@@ -3,6 +3,7 @@ pub mod pathing;
 
 // New generic AI system
 pub mod behavior;
+pub mod charm;
 pub mod debug;
 pub mod navigation;
 pub mod obstacle;

@@ -322,4 +322,4 @@ Détail et commandes : `docs/taches/rapports/dette-d86-lobby-en-ligne.md`.
 
   Profondeur maximale 12 (fenêtre de prédiction entière). Détail (p99, `sans_restauration`, coûts) et variabilité entre exécutions : rapport de la dette.
 - **Nightly complet** (`NIGHTLY_P2P_GUNGEON=1`, sans `--quick`, `10816160`) : code 0, **18 924 s** ; C2 (p2p gungeon, stress, transition d'étage) ✅ ; C (allumette) SKIPPED et
-  D (vidéos) PARTIAL sur ce poste (pas de `../allumette`, pas d'affichage) : dette **D89**.
+  D (vidéos) PARTIAL sur ce poste (pas de `../allumette`, pas d'affichage) : dette **D94**.

@@ -670,6 +670,29 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
     }
     out.extend(champions_out);
 
+    // Suivi Q17 : un jeu dont le joueur vise à quatre directions (`isaac`) ne peut pas toucher la cible
+    // de l'arène, posée en biais (+128, -48 : [`AIM_AT_TARGET`]) : les scénarios générés qui tirent
+    // prouvent un contenu (arme, larme, familier, statut), pas la visée, et la gardent libre. La visée
+    // à quatre directions a ses scénarios (`aim_four_way*`, les bots d'`isaac`).
+    let four_way_player = registry
+        .characters
+        .get(&content::CharacterId::from("player".to_string()))
+        .is_some_and(|player| player.aim != sim_core::aim::AimMode::Free);
+    if four_way_player {
+        for generated in &mut out {
+            for player in &mut generated.scenario.players {
+                if player.bot.is_none()
+                    && player
+                        .inputs
+                        .iter()
+                        .any(|segment| segment.buttons.contains(&Button::Fire))
+                {
+                    player.aim = Some(sim_core::aim::AimMode::Free);
+                }
+            }
+        }
+    }
+
     Ok(out)
 }
 
@@ -1291,6 +1314,7 @@ pub fn build_enemy_scenario(
             dash: None,
             items: vec![],
             bomb: None,
+            aim: None,
         }],
         expect,
         weapon_overrides: vec![],
@@ -1850,6 +1874,7 @@ pub fn build_weapon_scenario(
             dash: None,
             items: vec![],
             bomb: None,
+            aim: None,
         }],
         expect,
         weapon_overrides: vec![],

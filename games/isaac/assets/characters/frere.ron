@@ -1,4 +1,4 @@
-// `isaac` (M3-T11b, docs/conventions.md §76.2, familier de §71) : le frère, un familier qui suit le joueur à 28 unités (`Follow`) et tire avec lui (`MirrorShot` : une larme `larmes` tous les 12 frames au plus, sans les objets du joueur : Q13). Cité par l'objet `frere`.
+// `isaac` (M3-T11b, docs/conventions.md §76.2, familier de §71) : le frère, un familier qui suit le joueur à 28 unités (`Follow`) et tire avec lui (`MirrorShot` : les larmes du joueur, son arme composée avec ses objets, une fois tous les 12 frames au plus : Q13, §71). Cité par l'objet `frere`.
 (
     movement: (
         acceleration: "0.0",
@@ -49,7 +49,7 @@
         stationary: Some(true),
         behaviors: Some([
             Follow(gap: "28.0"),
-            MirrorShot(weapon: "larmes", every: 12),
+            MirrorShot(every: 12),
         ]),
     )),
 )

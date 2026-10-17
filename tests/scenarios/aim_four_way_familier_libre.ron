@@ -1,0 +1,21 @@
+// Suivi Q17 x Q13 (§66) : témoin de `aim_four_way_familier` : visée libre, aucun coup.
+//
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 160,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "500.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 20, to: 21, buttons: [Fire], pan: (-127, -40))],
+            weapon: "larme",
+            items: ["compagnon"],
+            
+        ),
+    ],
+    expect: [
+        FamiliarCount(handle: 0, count: 1, at_frame: 5),
+        EntityHits(net_id: 15, min: 0, max: Some(0), at_frame: 159),
+    ],
+)

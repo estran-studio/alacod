@@ -107,6 +107,7 @@ Scenario(
                 Segment(from: 198, to: 199, buttons: [Fire], pan: (128, 48)),
             ],
             weapon: "arsenal",
+            aim: Free,
         ),
     ],
     expect: [

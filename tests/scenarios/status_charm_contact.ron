@@ -1,0 +1,28 @@
+// Suivi Q12 (docs/conventions.md §19), revue : un ennemi charmé **au contact du joueur** ne le blesse pas, même avec une
+// arme de mêlée. Le joueur 0 (carte `surfaces`, en (-568, 248), arme `status_charm`) tire plein est sur un `coward`
+// (`Melee("zombie_claws")`, placé collé à lui, à 25 unités) : sa hitbox de griffe, que `enemy_melee_attack_system` crée dès
+// qu'un joueur est à portée sans regarder l'IA, est retenue (`MeleeHold`) tant qu'il est charmé. Avant le charme (f~27) le
+// `coward` le griffe ; pendant le charme (f30 à f200) aucun dégât, alors que sa `target` (net id 15, posée de l'autre côté du joueur, à 25
+// unités de lui) l'amène à le traverser et à se tenir à quelques unités de lui.
+//
+// À regarder : le `coward` teinté de rose reste collé au joueur sans le griffer, puis le charme expire.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 300,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "coward", x: "-543.0", y: "248.0", at_frame: 1),
+        (character: "target", x: "-593.0", y: "248.0", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 21, buttons: [Fire], pan: (127, 0))],
+            weapon: "status_charm",
+        ),
+    ],
+    expect: [
+        HasStatus(entity: NetId(14), status: "charme", at_frame: 60),
+        NoDamageBetween(handle: 0, from_frame: 30, to_frame: 200),
+    ],
+)

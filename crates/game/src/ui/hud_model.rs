@@ -54,6 +54,7 @@ pub const PLAYER_SOURCES: &[&str] = &[
     "active_charge",
     "minimap",
     "curses",
+    "achievements",
     "hearts",
     "coins",
     "item_banner",
@@ -325,6 +326,9 @@ pub struct HudPlayerValues {
     pub minimap: Vec<HudMapRoom>,
     /// M3-T9 : id de la curse de l'étage courant, `None` sans curse (source `curses`).
     pub curse: Option<String>,
+    /// M3-T10 (§75) : noms des accomplissements que ce joueur vient d'obtenir à la fin de la run
+    /// (source `achievements`, une ligne chacun) ; vide pendant la partie.
+    pub achievements: Vec<String>,
     /// M3-T9 : ce que cette curse cache (déjà appliqué à `health` et `minimap` ; `item_names` est
     /// lu par le prompt de `ui::hud`).
     pub hides: CurseHides,
@@ -356,6 +360,8 @@ pub struct HudPlayerInput<'a> {
     pub frame: u32,
     /// M3-T9 : curse de l'étage courant (id, définition), `None` sans curse.
     pub curse: Option<(&'a str, &'a CurseDef)>,
+    /// M3-T10 : noms des accomplissements obtenus à la fin de la run par le joueur affiché.
+    pub achievements: Vec<String>,
 }
 
 /// Les valeurs du HUD (pure).
@@ -488,6 +494,7 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             })
             .unwrap_or_default(),
         curse: input.curse.map(|(id, _)| id.to_string()),
+        achievements: input.achievements.clone(),
         hides,
     }
 }
@@ -546,6 +553,7 @@ pub fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) 
         }),
         "item_banner" => values.item_banner.clone(),
         "curses" => values.curse.clone(),
+        "achievements" => (!values.achievements.is_empty()).then(|| values.achievements.join("\n")),
         "blanks" => values.consumables.map(|counts| counts[0].to_string()),
         "keys" => values.consumables.map(|counts| counts[1].to_string()),
         // M3-T3 (§68) : compteur de bombes du joueur affiché (par joueur, comme les clés).
@@ -771,6 +779,8 @@ pub(crate) fn update_hud_snapshot(
     floor: Option<Res<FloorState>>,
     curses: Option<Res<run::RunCurses>>,
     curse_table: Option<Res<crate::curses::CurseTable>>,
+    earned: Option<Res<crate::profile::AchievementsEarned>>,
+    achievements: Option<Res<meta::Achievements>>,
 ) {
     let player = hud_player.entity();
     let weapon =
@@ -827,6 +837,11 @@ pub(crate) fn update_hud_snapshot(
             .and_then(|e| state.positions.get(e).ok())
             .map(|transform| FixedVec2::new(transform.translation.x, transform.translation.y)),
         frame: frame.frame,
+        achievements: earned
+            .as_deref()
+            .zip(hud_player.handle())
+            .map(|(earned, handle)| earned.names(handle, achievements.as_deref()))
+            .unwrap_or_default(),
         // M3-T9 : la curse de l'étage courant, dérivée de l'état à chaque `Update`.
         curse: curses
             .as_deref()

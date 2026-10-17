@@ -183,8 +183,11 @@ pub fn behavior_select_system(
         let phase_rules = rules.active(boss.map_or(0, |b| b.phase));
         let position = transform.translation.truncate();
 
+        // Suivi Q12 : un charmé n'entend personne, n'a aucune règle retenue (ni `Charge` sur un joueur) : il
+        // sert le camp des joueurs, `behavior::charm_attack` et `pathing` le pilotent.
+        let charmed = combat::status::charmed(statuses);
         // Ouïe : un tir de joueur né cette frame à portée rend le tireur connu.
-        if let Some(radius) = rules.hearing {
+        if let Some(radius) = rules.hearing.filter(|_| !charmed) {
             for (_, bullet, bullet_transform) in order_iter!(bullet_query) {
                 if bullet.created_at == now
                     && bullet.source_team == Team::Players
@@ -198,7 +201,7 @@ pub fn behavior_select_system(
         if let Some((heard_id, until)) = runtime.heard.clone() {
             if now >= until {
                 runtime.heard = None;
-            } else if target.target.is_none() {
+            } else if target.target.is_none() && !charmed {
                 if let Some((_, player_transform, ..)) =
                     player_query.iter().find(|(id, ..)| **id == heard_id)
                 {
@@ -249,7 +252,7 @@ pub fn behavior_select_system(
             charge_ready: now >= runtime.charge_ready_at,
             previous: runtime.selected.map(|index| index as usize),
         };
-        let selected = if combat::status::incapacitated(statuses) {
+        let selected = if combat::status::incapacitated(statuses) || charmed {
             None
         } else {
             select(phase_rules, &ctx).map(|index| index as u32)

@@ -1,0 +1,6 @@
+// `isaac` (M3-T10, §75) : accordé par `semelles_aux_pieds`. `Loot` : une entrée de plus (la bombe, poids 3) dans le pool de
+// récompense des salles de combat ; rien ne quitte le pool tant que ce déblocage manque.
+(
+    name: "Bombes en réserve",
+    grants: [Loot(table: "salle", pick: Item("bomb"), weight: 3)],
+)

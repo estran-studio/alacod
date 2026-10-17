@@ -287,10 +287,12 @@ mod tests {
             pause: Some(server.load("ui/pause_screen.html")),
             inventory: Some(server.load("ui/inventory_screen.html")),
             row: Some(server.load("ui/hui_row.html")),
+            ..Default::default()
         });
         app.insert_resource(Screens {
             state: ScreensState::default(),
             view: Some(view),
+            ..Default::default()
         });
         app.add_systems(Update, sync_screen.before(bevy_hui::HuiSystems::Build));
         app
@@ -403,10 +405,12 @@ mod tests {
             pause: Some(server.load("ui/pause_screen.html")),
             inventory: None,
             row: Some(server.load("ui/hui_row.html")),
+            ..Default::default()
         });
         app.insert_resource(Screens {
             state: ScreensState::default(),
             view: Some(pause_view(&ScreensState::default())),
+            ..Default::default()
         });
         app.add_systems(Update, sync_screen.before(bevy_hui::HuiSystems::Build));
         wait_for(&mut app, "> Reprendre");

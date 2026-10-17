@@ -351,11 +351,13 @@ pub(crate) fn apply_instant_effects(
 
 /// Synergies (M2-T4, `docs/conventions.md` §44) : les modificateurs `synergy:<id>` d'un joueur
 /// suivent l'`Inventory` à chaque frame (état dérivé, aucun composant) : posés quand tous les
-/// objets requis sont tenus, retirés dès qu'un manque (actif remplacé). Synergies par id,
+/// objets requis sont tenus (et, pour une transformation, `count` objets distincts du tag :
+/// `items::SynergyDef::is_active`, suivi Q10), retirés dès qu'un manque (actif remplacé). Synergies par id,
 /// joueurs par `GgrsNetId`. Les effets des synergies sont lus par
 /// `game::effects_runtime` (clé `synergy:<id>:<index>`).
 pub fn synergy_modifiers_system(
     synergies: Res<SynergyTable>,
+    items: Res<ItemTable>,
     mut players: Query<(&GgrsNetId, &Inventory, &mut Modifiers)>,
 ) {
     if synergies.0.is_empty() {
@@ -367,7 +369,7 @@ pub fn synergy_modifiers_system(
                 continue;
             }
             let source = synergy_source(id);
-            let wanted = !def.requires.is_empty() && def.requires.iter().all(|r| inventory.has(r));
+            let wanted = def.is_active(inventory, &items);
             let present = modifiers.iter().any(|m| m.source == source);
             if wanted && !present {
                 for modifier in &def.modifiers {

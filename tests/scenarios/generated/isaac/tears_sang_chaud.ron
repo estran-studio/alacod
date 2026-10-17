@@ -110,6 +110,7 @@ Scenario(
             items: [
                 "sang_chaud",
             ],
+            aim: Free,
         ),
     ],
     expect: [
