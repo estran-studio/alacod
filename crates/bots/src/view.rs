@@ -126,6 +126,13 @@ pub struct BotView {
     /// Portée utile des larmes en orbite (`Orbit` d'un objet tenu : rayon de l'orbite) : elles ne touchent que ce qui
     /// s'approche à ce rayon du porteur, pas à `fire_range`. `None` : les projectiles partent (comportement d'avant).
     pub orbit_reach: Option<Fixed>,
+    /// Anti-blocage de combat (`ExplorerPolicy::anti_jitter`) : le bot tire depuis le même endroit depuis trop longtemps
+    /// (ses larmes s'arrêtent sur un coin de mur, graines 86, 178 et 182 d'`isaac`) : il s'approche jusqu'à cette
+    /// distance de l'ennemi (voir `ExplorerJitter::engage`). `None` : combat comme avant.
+    pub engage_reach: Option<Fixed>,
+    /// Combat bloqué qui dure malgré l'approche (`engage_reach`) : contourne l'ennemi (`+1` / `-1` : sens de rotation
+    /// autour de lui) pour changer l'angle de tir ; `0` : pas de contournement.
+    pub engage_strafe: i8,
     /// M2-T16 : exploration de l'étage (profil `explorateur` en mode `Floors`), `None` sinon.
     pub explore: Option<crate::explorer::ExploreView>,
 }

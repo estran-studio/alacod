@@ -302,6 +302,7 @@ pub struct ExplorerWorld<'w, 's> {
     >,
     item_table: Option<Res<'w, ItemTable>>,
     synergy_table: Option<Res<'w, items::SynergyTable>>,
+    enemy_health: Query<'w, 's, &'static Health, (With<Enemy>, With<Rollback>)>,
     holders: Query<
         'w,
         's,
@@ -695,6 +696,21 @@ impl ExplorerWorld<'_, '_> {
         }
     }
 
+    /// Empreinte de la vie de tous les ennemis (nombre et somme des vies courantes) : elle change à chaque coup au
+    /// but, mort ou renfort (voir [`ExplorerJitter::engage`]).
+    pub fn enemy_progress(&self) -> u64 {
+        let (count, sum) = self
+            .enemy_health
+            .iter()
+            .fold((0_u64, 0_u64), |(count, sum), health| {
+                (
+                    count + 1,
+                    sum.wrapping_add(health.current.to_bits() as i64 as u64),
+                )
+            });
+        (count << 48) ^ sum
+    }
+
     /// Rayon de l'orbite des larmes du joueur `handle` (`Orbit` d'un objet ou d'une synergie tenus, composés comme au
     /// tir : `combat::projectile::compose`), `None` sans orbite.
     pub fn orbit_reach(&self, handle: usize) -> Option<Fixed> {
@@ -1074,15 +1090,72 @@ pub struct Jitter {
     held_since: u32,
 }
 
+/// Un combat sans **progrès** pendant [`STALL_FRAMES`] frames est un blocage : les larmes s'arrêtent sur un coin de mur ou un
+/// pilier, le bot tire sans fin vers un ennemi qui ne perd rien (graines 63, 86, 178 et 182 d'`isaac`, T11c). Le progrès
+/// est l'empreinte de la vie des ennemis ([`ExplorerWorld::enemy_progress`]) : un coup au but, une mort ou un renfort
+/// la change.
+pub const STALL_FRAMES: u32 = 240;
+/// Distance à laquelle le bot s'approche de l'ennemi d'un combat bloqué, par le chemin (presque au contact : la ligne
+/// de tir change tant que le coin de mur n'est pas dépassé).
+pub const ENGAGE_REACH: Fixed = Fixed::from_bits(8 << 16);
+/// Frames d'approche avant de contourner l'ennemi, puis durée de chaque sens du contournement.
+pub const STRAFE_FRAMES: u32 = 90;
+
+/// État d'un combat suivi : l'empreinte de la vie des ennemis, depuis quand elle ne bouge plus, et depuis quand le bot
+/// s'est engagé (blocage constaté).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Stall {
+    progress: u64,
+    since: u32,
+    engaged_at: Option<u32>,
+}
+
 /// Anti-jitter des `explorateur` (`ExplorerPolicy::anti_jitter`) : **seconde mémoire du bot** après [`ExplorerVisits`],
 /// hors simulation et hors rollback pour la même raison (elle ne sert qu'à produire des inputs que GGRS enregistre).
+/// `.0` : balancements de l'exploration ; `.1` : blocages de combat ([`Self::engage`]).
 #[derive(Resource, Debug, Clone, Default, PartialEq)]
-pub struct ExplorerJitter(pub BTreeMap<usize, Jitter>);
+pub struct ExplorerJitter(pub BTreeMap<usize, Jitter>, pub BTreeMap<usize, Stall>);
 
 impl ExplorerJitter {
     /// But auquel le joueur `handle` s'est attaché (`explore_step` le passe en premier).
     pub fn focus(&self, handle: usize) -> Option<u64> {
         self.0.get(&handle).and_then(|state| state.focus)
+    }
+
+    /// Combat du joueur `handle` (`in_combat` : un ennemi éveillé en vue ; `progress` : empreinte de la vie des
+    /// ennemis) : `Some((ENGAGE_REACH, contournement))` quand l'empreinte ne bouge plus depuis [`STALL_FRAMES`] frames ;
+    /// après [`STRAFE_FRAMES`] d'approche sans résultat il contourne l'ennemi (sens alterné toutes les
+    /// [`STRAFE_FRAMES`]). Levé dès que l'empreinte change (un coup au but) ou à la fin du combat.
+    pub fn engage(
+        &mut self,
+        handle: usize,
+        frame: u32,
+        progress: u64,
+        in_combat: bool,
+    ) -> Option<(Fixed, i8)> {
+        if !in_combat {
+            self.1.remove(&handle);
+            return None;
+        }
+        let fresh = Stall {
+            progress,
+            since: frame,
+            engaged_at: None,
+        };
+        let state = self.1.entry(handle).or_insert(fresh);
+        if state.progress != progress {
+            *state = fresh;
+        }
+        if state.engaged_at.is_none() && frame.saturating_sub(state.since) >= STALL_FRAMES {
+            state.engaged_at = Some(frame);
+        }
+        let engaged_for = frame.saturating_sub(state.engaged_at?);
+        let strafe = match engaged_for / STRAFE_FRAMES {
+            0 => 0,
+            turn if turn % 2 == 1 => 1,
+            _ => -1,
+        };
+        Some((ENGAGE_REACH, strafe))
     }
 
     /// Corrige `step` (le pas vers un but, direction non nulle) si le joueur `handle` balance sur place ; `clear` :
@@ -1985,6 +2058,48 @@ mod tests {
         let mut step = pas(0.0, 7);
         jitter.steady(0, 44, v(0.0, 30.0), &mut step, libre);
         assert!(jitter.0.is_empty());
+    }
+
+    /// Un combat dont l'empreinte de vie ne bouge plus depuis 240 frames s'engage (le bot s'approche, puis contourne
+    /// l'ennemi dans un sens puis dans l'autre) ; un coup au but (l'empreinte change) ou la fin du combat le lèvent.
+    #[test]
+    fn un_combat_bloque_s_engage_puis_se_leve() {
+        let mut jitter = ExplorerJitter::default();
+        for frame in 0..STALL_FRAMES {
+            assert_eq!(jitter.engage(0, frame, 7, true), None, "frame {frame}");
+        }
+        assert_eq!(
+            jitter.engage(0, STALL_FRAMES, 7, true),
+            Some((ENGAGE_REACH, 0)),
+            "d'abord l'approche"
+        );
+        assert_eq!(
+            jitter.engage(0, STALL_FRAMES + STRAFE_FRAMES, 7, true),
+            Some((ENGAGE_REACH, 1)),
+            "puis le contournement"
+        );
+        assert_eq!(
+            jitter.engage(0, STALL_FRAMES + 2 * STRAFE_FRAMES, 7, true),
+            Some((ENGAGE_REACH, -1)),
+            "dans l'autre sens"
+        );
+        assert_eq!(
+            jitter.engage(0, STALL_FRAMES + 2 * STRAFE_FRAMES + 1, 8, true),
+            None,
+            "un coup au but : levé"
+        );
+        // Fin du combat : l'état est oublié, il faut de nouveau attendre.
+        assert_eq!(jitter.engage(0, 1000, 8, false), None);
+        assert_eq!(jitter.engage(0, 1001 + STALL_FRAMES, 8, true), None);
+        // Un combat qui progresse (un coup au but toutes les 20 frames) ne s'engage jamais.
+        let mut progressing = ExplorerJitter::default();
+        for frame in 0..1200 {
+            assert_eq!(
+                progressing.engage(0, frame, u64::from(frame / 20), true),
+                None,
+                "frame {frame}"
+            );
+        }
     }
 
     /// Un point de passage que le bot n'atteint pas (corps invisible de la navigation) n'est tenu que

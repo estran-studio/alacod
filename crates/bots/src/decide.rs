@@ -37,6 +37,9 @@ pub(crate) const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
 /// Distance d'approche d'un ennemi immobile (voir [`BotView::enemy_still`]) : `prudent` ne
 /// recule pas devant lui (il ne peut pas venir au contact).
 pub(crate) const STILL_TARGET_DISTANCE: Fixed = Fixed::from_bits(120 << 16);
+/// Contournement d'un combat bloqué (`BotView::engage_strafe`) : seulement tout près de l'ennemi, là où la tangente
+/// change vraiment l'angle de tir ; plus loin, l'approche par le chemin continue.
+const STRAFE_MAX_DISTANCE: Fixed = Fixed::from_bits(60 << 16);
 
 /// `prudent` (T1.14) : approche du portail. Les boutons ne donnent que le signe de chaque
 /// axe et le corps garde son élan : en visant le portail (ou le pas suivant de la route) à
@@ -195,15 +198,29 @@ pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
 
         // Larmes en orbite (`satellite`) : elles ne touchent qu'à `orbit_reach` du porteur, un boss immobile à
         // 94 unités ne perdait jamais un point de vie (graine 41 d'`isaac` sans bombe, T11b) : le bot s'approche,
-        // immobile ou non, et ne recule plus devant un ennemi qui l'approche.
-        let close_in = match view.orbit_reach {
+        // immobile ou non, et ne recule plus devant un ennemi qui l'approche. Même chose quand le tir stagne
+        // (`engage_reach`, larmes arrêtées par un coin de mur).
+        let reach = match (view.orbit_reach, view.engage_reach) {
+            (Some(orbit), Some(engage)) => Some(orbit.min(engage)),
+            (orbit, engage) => orbit.or(engage),
+        };
+        let close_in = match reach {
             Some(reach) => enemy.distance > reach,
             None => view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE,
         };
         // m1-v3-bots-softlocks : ni recul ni tir vers un ennemi caché (mode `Floors`) : le bot
         // reculait dans la roche en vidant ses chargeurs sur elle (soft-locks des graines 63,
         // 111, 139, 149 ; munitions épuisées devant le boss, graines 23, 43, 76).
-        if view.orbit_reach.is_none()
+        if view.engage_strafe != 0 && enemy.distance <= STRAFE_MAX_DISTANCE {
+            // Combat bloqué malgré l'approche : tourne autour de l'ennemi pour changer l'angle de tir.
+            let away = view.position - enemy.position;
+            let tangent = if view.engage_strafe > 0 {
+                FixedVec2::new(-away.y, away.x)
+            } else {
+                FixedVec2::new(away.y, -away.x)
+            };
+            set_direction_buttons(&mut input, tangent);
+        } else if reach.is_none()
             && enemy.distance < PRUDENT_MIN_DISTANCE
             && !view.enemy_still
             && view.enemy_visible
@@ -386,6 +403,8 @@ mod tests {
             enemy_still: false,
             enemy_shootable: true,
             revive: None,
+            engage_reach: None,
+            engage_strafe: 0,
             loot: None,
             loot_interact: false,
             fire_range: None,

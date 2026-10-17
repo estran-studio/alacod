@@ -546,10 +546,24 @@ pub fn read_bot_inputs(
             loot_interact: false,
             fire_range: None,
             orbit_reach: None,
+            engage_reach: None,
+            engage_strafe: 0,
             explore: None,
         };
 
         let mut view = view;
+        // Anti-blocage de combat (`ExplorerPolicy::anti_jitter`) : avant `navigate`, qui calcule alors le chemin.
+        if exploring && downed.is_none() && explorer_options.policy.anti_jitter {
+            if let Some((reach, strafe)) = jitter.engage(
+                player.handle,
+                frame.frame,
+                explorer.enemy_progress(),
+                view.nearest_enemy.is_some(),
+            ) {
+                view.engage_reach = Some(reach);
+                view.engage_strafe = strafe;
+            }
+        }
         if floors_mode && directed(profile) {
             if let Some(collider) = collider {
                 let rects = geometry_rects.get_or_insert_with(|| {
@@ -819,6 +833,7 @@ pub fn read_bot_inputs(
         }
         if exploring && downed.is_some() {
             jitter.0.remove(&player.handle);
+            jitter.1.remove(&player.handle);
         }
 
         if prudent_like(profile) && crate::dodge::dodge(&view).is_some() {
@@ -854,6 +869,7 @@ fn navigate(
     if let Some(enemy) = view.nearest_enemy {
         let visible = crate::navigation::walls_clear(geometry, position, enemy.position);
         let needed = !visible
+            || view.engage_reach.is_some()
             || (view.enemy_still && enemy.distance > crate::decide::STILL_TARGET_DISTANCE)
             || (prudent_like(profile) && enemy.distance > crate::decide::PRUDENT_MAX_DISTANCE);
         if !needed {

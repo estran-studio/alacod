@@ -545,6 +545,8 @@ mod profile_tests {
             loot_interact: false,
             fire_range: None,
             orbit_reach: None,
+            engage_reach: None,
+            engage_strafe: 0,
             explore: None,
             hunter: Some(hunter),
         };
@@ -584,6 +586,8 @@ mod profile_tests {
             loot_interact: false,
             fire_range: None,
             orbit_reach: None,
+            engage_reach: None,
+            engage_strafe: 0,
             explore: None,
             hunter: Some(HunterView {
                 can_fire: true,
