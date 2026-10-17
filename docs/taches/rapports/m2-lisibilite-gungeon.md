@@ -63,17 +63,31 @@ Doc : `docs/conventions.md` §83, `CLAUDE.md` (F6/F7).
   aux mêmes frames, et par classe sur `gungeon_classes` f40 : `joueurs`, `ennemis`, `ramassables`,
   `coffre_presentoirs`, `classes_scene_entiere`. (« Avant » n'a pas `--at` : captures de la partie entière.)
 - `tete_gungeon_full_run.png` : image de légende en tête de vidéo.
-- Vidéos `gungeon_full_run.mp4` et `gungeon_full_run_four.mp4` (6,7 et 6,4 Mo) : **ré-encodées** (x264 crf 31,
+- Vidéos `gungeon_full_run.mp4` et `gungeon_full_run_four.mp4` (7,3 et 6,8 Mo) : **ré-encodées** (x264 crf 31,
   ≤ 700 kbit/s) pour tenir sous 10 Mo ; les originaux de `make videos SCENARIO=gungeon_full_run,gungeon_full_run_four`
-  (21,3 et 20,8 Mo, + `montage.mp4`) sont dans `target/videos/a7761c2b/` (machine b1, non versionnés).
+  (24,5 et 23,6 Mo, + `montage.mp4`) sont dans `target/videos/ba12e80a/` (machine b1, non versionnés).
 
-## 3. Vérifié (résultats réels, sur la fusion avec main `2ffb95b5`)
+## 3. Vérifié (résultats réels, suite rejouée **sur la fusion avec main `d1b1954a`**, après relecture)
 
-Voir le tableau final dans le Summary de livraison (rempli après la dernière exécution) :
-`make test_scenarios_par SHARDS=3` sans BLESS, `make test_crates`, lint ×5, gen ×5, fmt, `check_sim_boundary`,
-`check-forbidden`, `check-rollback-registration`, `make test_tools`.
-**Traces bougées : aucune** (seule `gungeon_classes.trace`, scénario nouveau, a été écrite). Un test de
-`legibility` (désencombrement) dépendait de l'ordre des entités : corrigé.
+| Commande | Résultat |
+|---|---|
+| `make test_scenarios_par SHARDS=3` (sans BLESS) | 3 tranches ok, **536 scénarios**, 237 s ; **aucune trace existante bougée** (`git status` propre après la suite ; seule `gungeon_classes.trace`, scénario nouveau) |
+| `make test_crates` | **1 124 tests passés, 0 échec** |
+| `make lint` ×5 (zombies, testbed, throne, gungeon, isaac) | « aucune erreur » ×5 |
+| `make gen GAME=<jeu>` ×5 | exit 0 ×5, aucun fichier généré modifié |
+| `cargo fmt --all -- --check` | exit 0 |
+| `make check_sim_boundary` | OK (11 crates, 5 en dette D69) |
+| `check-forbidden.sh`, `check-rollback-registration.sh` | OK, OK |
+| `make test_tools` | 25 tests OK (dont `test_sprites_gungeon.py`, 6) |
+| `make videos SCENARIO=gungeon_full_run,gungeon_full_run_four` | rendues ; originaux 24,5 et 23,6 Mo dans `target/videos/ba12e80a/` |
+
+Pas de p2p ni de bench : présentation seule, rien n'est dans `GgrsSchedule` ni rollback, machine partagée.
+**Relecture indépendante** (agent `reviewer`) : aucun P1 sur la simulation ; trouvé et corrigé : **P1** `skin_bullets`
+changeait les balles des autres jeux (testbed, isaac) → `own_colors` opt-in par feuille ; **P2** étiquettes de
+porte jamais affichées (`GlobalTransform` absent), image de porte ouverte cachée par le parent, image de table/baril
+restée après destruction, page de revue décalée par la légende de tête (fichier `<nom>.legend`) ; **P3** halos et
+pointeurs cachés avec leur porteur, composants non rollback documentés au §83. Un test (`legibility`) dépendait de
+l'ordre des entités : corrigé. Trouvé en plus : étiquettes créées avant le chargement de `hud.ron` (police sans accents).
 
 ## 4. Non fait / limites / dettes
 - Rendu jugé sur captures et vidéos par l'agent ; **William revoit les vidéos** (critère de sortie).
@@ -83,6 +97,8 @@ Voir le tableau final dans le Summary de livraison (rempli après la dernière e
   (l'id de `sprites.ron` ne change pas).
 - Autres jeux (isaac, testbed, throne, zombies) : aucune entrée `halo`/`aim`/portes dans leurs `sprites.ron`,
   donc rendu inchangé ; leur donner le langage visuel = dette (copier le script, `hud.ron`).
-- `make videos` : un premier essai a échoué avec un `ui/hud.ron` « Unexpected variant Legend » (artefact de
-  build incrémental après le redémarrage de la machine ; reconstruction propre, plus reproduit).
+- `make videos` : un premier essai a échoué avec `ui/hud.ron` « Unexpected variant Legend » (artefact de build
+  incrémental après un redémarrage de la machine ; reconstruction propre, non reproduit). Les vidéos ont été
+  rendues avant la dernière fusion de main (m3-t8, sans effet visuel sur gungeon).
+- Tables, barils : images posées sur l'entité LDtk d'origine (pas de `Transform` sur l'entité rollback).
 - Atteignabilité M2 : `gungeon_full_run` et `_four` (frames listées ci-dessus) ; classes : `gungeon_classes`.
