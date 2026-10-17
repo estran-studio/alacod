@@ -118,6 +118,7 @@ impl Plugin for BotsPlugin {
         app.init_resource::<EnemyMoves>();
         app.init_resource::<crate::explorer::ExplorerOptions>();
         app.init_resource::<crate::explorer::ExplorerVisits>();
+        app.init_resource::<crate::explorer::RockNavigation>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
             |mut choices: ResMut<WeaponChoices>, mut moves: ResMut<EnemyMoves>| {
@@ -192,6 +193,7 @@ pub fn read_bot_inputs(
             Option<&Wall>,
             Option<&Window>,
             Option<&DoorComponent>,
+            Option<&world::Rock>,
         ),
         With<Rollback>,
     >,
@@ -213,6 +215,7 @@ pub fn read_bot_inputs(
         mut weapon_choices,
         mut enemy_moves,
         mut explorer,
+        mut rock_nav,
     ): (
         Query<
             (
@@ -238,6 +241,8 @@ pub fn read_bot_inputs(
         ResMut<EnemyMoves>,
         // M2-T16 : salles, objets, inventaire et blank (profil `explorateur`)
         crate::explorer::ExplorerWorld,
+        // M3-T14 : navigation sans les rochers (ce qu'une bombe ouvrirait)
+        ResMut<crate::explorer::RockNavigation>,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -528,13 +533,13 @@ pub fn read_bot_inputs(
                 let rects = geometry_rects.get_or_insert_with(|| {
                     order_iter!(geometry)
                         .into_iter()
-                        .filter(|(_, _, _, wall, window, door)| {
-                            wall.is_some() || window.is_some() || door.is_some()
+                        .filter(|(_, _, _, wall, window, door, rock)| {
+                            wall.is_some() || window.is_some() || door.is_some() || rock.is_some()
                         })
-                        .map(|(_, t, c, wall, _, door)| {
+                        .map(|(_, t, c, wall, _, door, rock)| {
                             (
                                 Rect::collider(t.translation.truncate(), c),
-                                wall.is_some() || door.is_some(),
+                                wall.is_some() || door.is_some() || rock.is_some(),
                             )
                         })
                         .collect()
@@ -570,13 +575,13 @@ pub fn read_bot_inputs(
                 let rects = geometry_rects.get_or_insert_with(|| {
                     order_iter!(geometry)
                         .into_iter()
-                        .filter(|(_, _, _, wall, window, door)| {
-                            wall.is_some() || window.is_some() || door.is_some()
+                        .filter(|(_, _, _, wall, window, door, rock)| {
+                            wall.is_some() || window.is_some() || door.is_some() || rock.is_some()
                         })
-                        .map(|(_, t, c, wall, _, door)| {
+                        .map(|(_, t, c, wall, _, door, rock)| {
                             (
                                 Rect::collider(t.translation.truncate(), c),
-                                wall.is_some() || door.is_some(),
+                                wall.is_some() || door.is_some() || rock.is_some(),
                             )
                         })
                         .collect()
@@ -680,34 +685,66 @@ pub fn read_bot_inputs(
             }
         }
 
-        // M2-T16 : exploration de l'étage et blank (`explorateur`, mode `Floors`).
+        // M2-T16 : exploration de l'étage et blank (`explorateur`, mode `Floors`). M3-T14 : fuite
+        // d'une bombe posée, portes à clé, bombes (mur secret, rochers).
         if exploring && downed.is_none() {
             if let (Some(frame_data), Some(collider), Some(rects)) =
                 (explore_frame.as_ref(), collider, geometry_rects.as_ref())
             {
-                let holder = explorer.holder(player.handle);
+                let mut holder = explorer.holder(player.handle);
+                holder.bomb_inset = collider.offset.truncate().length();
                 let mut explore = crate::explorer::ExploreView {
-                    blank: crate::explorer::should_blank(&view, holder),
+                    blank: crate::explorer::should_blank(&view, &holder),
                     ..Default::default()
                 };
-                if view.nearest_enemy.is_none() {
-                    nav.0.update_from(
-                        rects,
-                        &AgentBody::from_collider(collider),
-                        points_for,
-                        position,
-                    );
-                    if let Some((direction, interact)) = crate::explorer::explore_step(
-                        &mut nav.0,
-                        frame_data,
+                let body = AgentBody::from_collider(collider);
+                if !frame_data.bombs.is_empty() {
+                    nav.0.update_from(rects, &body, points_for, position);
+                    explore.flee =
+                        crate::explorer::flee_step(&mut nav.0, &frame_data.bombs, position);
+                }
+                if view.nearest_enemy.is_none() && explore.flee.is_none() {
+                    nav.0.update_from(rects, &body, points_for, position);
+                    let ctx = crate::explorer::GoalContext {
                         holder,
+                        portal_open: view.portal.is_some(),
+                        boss_direct: explorer_options.boss_direct,
+                        policy: explorer_options.policy,
+                    };
+                    // Navigation sans les rochers : seulement s'il y en a et qu'une bombe peut
+                    // les casser (`explore_step` ne s'en sert que sans autre but).
+                    let with_rocks = !frame_data.rocks.is_empty()
+                        && ctx.policy.bombs.rocks
+                        && ctx.holder.bomb.is_some();
+                    if with_rocks {
+                        let free_rects: Vec<(Rect, bool)> = order_iter!(geometry)
+                            .into_iter()
+                            .filter(|(_, _, _, wall, window, door, _)| {
+                                wall.is_some() || window.is_some() || door.is_some()
+                            })
+                            .map(|(_, t, c, wall, _, door, _)| {
+                                (
+                                    Rect::collider(t.translation.truncate(), c),
+                                    wall.is_some() || door.is_some(),
+                                )
+                            })
+                            .collect();
+                        rock_nav
+                            .0
+                            .update_from(&free_rects, &body, points_for, position);
+                    }
+                    if let Some(step) = crate::explorer::explore_step(
+                        &mut nav.0,
+                        with_rocks.then_some(&mut rock_nav.0),
+                        frame_data,
+                        &ctx,
                         position,
-                        view.portal.is_some(),
-                        explorer_options.boss_direct,
+                        portal,
                         &surfaces,
                     ) {
-                        explore.direction = Some(direction);
-                        explore.interact = interact;
+                        explore.direction = Some(step.direction);
+                        explore.interact = step.interact;
+                        explore.bomb = step.bomb;
                     }
                 }
                 view.explore = Some(explore);

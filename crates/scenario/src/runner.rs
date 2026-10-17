@@ -433,7 +433,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(bot_assignments(scenario))
         .insert_resource(bots::explorer::ExplorerOptions {
             boss_direct: false,
-            shopping: scenario.shopping,
+            policy: {
+                let mut policy = scenario.explorer.clone().unwrap_or_default();
+                policy.shopping |= scenario.shopping;
+                policy
+            },
         })
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {

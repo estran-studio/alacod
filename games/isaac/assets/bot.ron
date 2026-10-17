@@ -1,0 +1,20 @@
+// Politique du bot `explorateur` pour `isaac` (M3-T14, docs/conventions.md §79). Lue par `alacod-sim`
+// (campagnes, graines d'atteignabilité) : `--policy <fichier>` la remplace, `--devil` et `--shopping`
+// la surchargent. Un scénario la donne en ligne (`Scenario::explorer`). Hors `isaac`, aucun `bot.ron` : la
+// politique par défaut (aucun achat, ordre du plus proche) laisse les parties des autres jeux inchangées.
+(
+    // Ouvre les coffres (trésor, secrète) et achète aux présentoirs (D62).
+    shopping: true,
+    // Achats en douilles : chacun n'achète que ce qu'il paie ; un cœur d'abord quand sa vie est au plus à
+    // la moitié de sa vie maximale (et pas pleine : le jeu refuserait), sinon l'objet le moins cher.
+    shop: HeartsThenCheapest(low_health: "0.5"),
+    // Va chercher les tas de sous au sol (ramassés au contact).
+    shells: true,
+    // Marché du diable (vie maximale, `Shelf::cost`) : Never | IfHealthAbove(n), n en points de vie
+    // (un cœur = 2 PV, le cœur d'`isaac` coûte 2). La valeur retenue est celle des campagnes du rapport
+    // m3-t14-bot-isaac ; Q14 (William) reste ouverte.
+    devil: IfHealthAbove("4.0"),
+    // Bombes : mur de la salle secrète (voisine d'au moins deux salles, §70) et rocher qui coupe le chemin
+    // d'un but ; `reserve` : bombes gardées en stock.
+    bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+)

@@ -169,6 +169,7 @@ impl Plugin for GameEventsPlugin {
                     boss_events.after(detect_events),
                     chest_events.after(detect_events),
                     unlock_events.after(detect_events).after(hub_events),
+                    lock_events.after(detect_events),
                     curse_events.after(detect_events),
                 ),
             );
@@ -480,6 +481,75 @@ fn explosion_events(
                 explosion.x, explosion.y, explosion.radius
             ),
         });
+    }
+}
+
+/// Moments clés `door_lock` et `bomb` (M3-T14, `docs/conventions.md` §79) : une salle entre dans
+/// `DoorLocks` (mur secret ouvert par une explosion, ou porte à clé ouverte : le libellé dit laquelle)
+/// et une bombe est posée. Lus dans l'état (`DoorLocks`, `Bomb`) : un rollback qui défait l'ouverture la
+/// fait oublier (`retain`), elle est annoncée de nouveau si elle revient.
+#[allow(clippy::too_many_arguments)]
+fn lock_events(
+    frame: Res<FrameCount>,
+    locks: Option<Res<world::DoorLocks>>,
+    table: Option<Res<world::RoomKindTable>>,
+    floor: Option<Res<run::FloorState>>,
+    rooms: map_ldtk::game::rooms::CurrentRooms,
+    bombs: Query<(&GgrsNetId, &world::Bomb)>,
+    shelves: Query<(&GgrsNetId, &items::Shelf)>,
+    mut opened: Local<BTreeSet<(u32, String)>>,
+    mut placed: Local<BTreeSet<usize>>,
+    mut sold: Local<BTreeSet<usize>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let index = floor.as_ref().map_or(0, |floor| floor.index);
+    if let (Some(locks), Some(table)) = (locks, table) {
+        opened.retain(|(at, room)| *at != index || locks.is_open(room));
+        for (level, _, kind) in rooms.iter() {
+            if locks.is_open(&level.0) && opened.insert((index, level.0.clone())) {
+                let what = match table.door_lock(&kind.0) {
+                    Some(world::DoorLock::Secret) => "mur secret ouvert",
+                    Some(world::DoorLock::Key(_)) => "porte à clé ouverte",
+                    None => "porte ouverte",
+                };
+                events.events.push(GameEvent {
+                    frame: frame.frame,
+                    kind: "door_lock",
+                    label: format!("{what} : salle {} (niveau {index})", kind.0),
+                });
+            }
+        }
+    }
+    let alive: BTreeSet<usize> = bombs.iter().map(|(id, _)| id.0).collect();
+    placed.retain(|id| alive.contains(id));
+    for (id, bomb) in &bombs {
+        if placed.insert(id.0) {
+            events.events.push(GameEvent {
+                frame: frame.frame,
+                kind: "bomb",
+                label: format!("bombe posée par {}", bomb.owner.0),
+            });
+        }
+    }
+    let on_sale: BTreeSet<usize> = shelves
+        .iter()
+        .filter(|(_, shelf)| shelf.sold)
+        .map(|(id, _)| id.0)
+        .collect();
+    sold.retain(|id| on_sale.contains(id));
+    for (id, shelf) in &shelves {
+        if shelf.sold && sold.insert(id.0) {
+            events.events.push(GameEvent {
+                frame: frame.frame,
+                kind: "shelf",
+                label: format!(
+                    "présentoir {} vendu : {} ({})",
+                    shelf.key,
+                    shelf.item_id,
+                    if shelf.cost.is_some() { "diable" } else { "douilles" }
+                ),
+            });
+        }
     }
 }
 

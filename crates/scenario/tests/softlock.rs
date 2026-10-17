@@ -25,6 +25,7 @@ fn scenario(frames: u32) -> Scenario {
         profile_setup: None,
         hub: None,
         shopping: false,
+        explorer: None,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,
