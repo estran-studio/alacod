@@ -33,6 +33,7 @@ pub const HUD_SOURCES: &[&str] = &[
     "floor",
     "blanks",
     "keys",
+    "bombs",
     "shells",
     "passives",
     "active_item",

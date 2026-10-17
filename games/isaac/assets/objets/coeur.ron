@@ -1,0 +1,11 @@
+// `isaac` (M3-T3, docs/conventions.md §68, Q2) : cœur rouge, un cœur entier = 2 PV (un demi-cœur = 1 PV). Soigne
+// 2 PV au ramassage ; à pleine vie il reste au sol (`refuse_when_full`), comme dans Isaac.
+(
+    name: "Cœur",
+    kind: Consumable,
+    rarity: Common,
+    refuse_when_full: true,
+    effects: [
+        (on: OnUse, do: [Heal("2")]),
+    ],
+)

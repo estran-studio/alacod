@@ -215,7 +215,7 @@ pub(crate) fn lint_effect(
         if per_copy && !effects::actions::is_linear(action) {
             push(
                 LintErrorKind::Unsupported,
-                format!("{at} : Scaled(PerCopy) : action {action:?} non linéaire (Heal, GainShield, Modifier/TimedModifier Add ou Pct, ApplyStatus, ApplyStatusSelf, Explode seulement)"),
+                format!("{at} : Scaled(PerCopy) : action {action:?} non linéaire (Heal, GainShield, GainSoul, Modifier/TimedModifier Add ou Pct, ApplyStatus, ApplyStatusSelf, Explode seulement)"),
             );
         }
         match action {
@@ -226,6 +226,10 @@ pub(crate) fn lint_effect(
             effects::Action::GainShield(0) => push(
                 LintErrorKind::OutOfRange,
                 format!("{at} : GainShield(0) : doit être > 0"),
+            ),
+            effects::Action::GainSoul(amount) if *amount <= Fixed::ZERO => push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : GainSoul = {amount} : doit être > 0"),
             ),
             // M3-T0c (§62) : contrat de l'explosion ; M3-T4 (§69) l'exécute (bombe à mèche d'une frame
             // au point du porteur)
@@ -418,18 +422,31 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         }
 
         // M2-T1 : consommables de départ -> objets consommables du kind `Item`.
-        for id in character.starting_consumables.keys() {
-            let known = registry
+        for (id, count) in &character.starting_consumables {
+            let item = registry
                 .items
                 .get(id)
-                .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
-            if !known {
+                .filter(|item| item.def.kind == items::ItemKind::Consumable);
+            let Some(item) = item else {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),
                     message: format!(
                         "personnage « {} » : champ starting_consumables : « {id} » n'est pas un objet consommable (kind Item)",
                         character.id
+                    ),
+                });
+                continue;
+            };
+            // M3-T3 (§68) : le plafond du compteur vaut aussi au départ.
+            if item.def.max_stack.is_some_and(|cap| *count > cap) {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ starting_consumables : {count} « {id} » dépasse max_stack = {}",
+                        character.id,
+                        item.def.max_stack.unwrap_or(0)
                     ),
                 });
             }
@@ -2055,6 +2072,7 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                 effects::Action::Modifier { .. }
                 | effects::Action::Heal(_)
                 | effects::Action::GainShield(_)
+                | effects::Action::GainSoul(_)
                 | effects::Action::Explode { .. }
                 | effects::Action::SpawnPattern { .. }
                 | effects::Action::GaugeAdd(..) => push(format!(
@@ -2934,6 +2952,10 @@ fn lint_boss(
                 effects::Action::GainShield(0) => push(
                     LintErrorKind::OutOfRange,
                     format!("{at} : GainShield(0) : doit être > 0"),
+                ),
+                effects::Action::GainSoul(amount) if *amount <= Fixed::ZERO => push(
+                    LintErrorKind::OutOfRange,
+                    format!("{at} : GainSoul = {amount} : doit être > 0"),
                 ),
                 // M2-T7 : renforts et télégraphe (§45)
                 effects::Action::SpawnEnemies { id, count } => {
@@ -4212,6 +4234,23 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
             }
         }
+        // M3-T3 (§68) : `refuse_when_full` exige un consommable qui soigne (sinon il ne refuse jamais rien).
+        if item.def.refuse_when_full
+            && !(consumable
+                && item.def.effects.iter().any(|effect| {
+                    effect
+                        .r#do
+                        .iter()
+                        .any(|action| matches!(action, effects::Action::Heal(_)))
+                }))
+        {
+            push(
+                LintErrorKind::Unsupported,
+                format!(
+                    "objet « {id} » : refuse_when_full exige un consommable avec un effet Heal"
+                ),
+            );
+        }
         if consumable && !item.def.modifiers.is_empty() {
             push(
                 LintErrorKind::Unsupported,
@@ -4282,11 +4321,16 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                 );
                 continue;
             }
-            for outer in &effect.r#do {
-                // M3-T0b : l'enveloppe `Scaled` est transparente, l'action intérieure est validée.
-                let mut action = outer;
-                while let effects::Action::Scaled { action: inner, .. } = action {
-                    action = inner;
+            for action in &effect.r#do {
+                // M3-T3 (§68) : `Scaled` est refusé à `OnUse` : `items::apply_instant_effects` n'exécute pas
+                // l'enveloppe, l'effet serait accepté puis sans effet (la valeur de `PerCopy` d'un consommable
+                // consommé au ramassage n'est pas décidée).
+                if matches!(action, effects::Action::Scaled { .. }) {
+                    push(
+                        LintErrorKind::Unsupported,
+                        format!("{at} : Scaled : pas exécuté par OnUse d'un objet (consommable ou actif)"),
+                    );
+                    continue;
                 }
                 match action {
                     // M2-T4 : soin instantané d'un actif ou d'un consommable
@@ -4301,6 +4345,12 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                         format!("{at} : GainShield(0) : doit être > 0"),
                     ),
                     effects::Action::GainShield(_) => {}
+                    // M3-T3 (§68) : cœurs d'âme instantanés
+                    effects::Action::GainSoul(amount) if *amount <= Fixed::ZERO => push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at} : GainSoul = {amount} : doit être > 0"),
+                    ),
+                    effects::Action::GainSoul(_) => {}
                     effects::Action::TimedModifier { frames: 0, .. } => push(
                         LintErrorKind::OutOfRange,
                         format!("{at} : TimedModifier frames = 0 : doit être > 0"),
@@ -4447,6 +4497,24 @@ fn lint_unlocks(registry: &Registry, errors: &mut Vec<LintError>) {
                         push(
                             LintErrorKind::OutOfRange,
                             format!("déblocage « {id} » : grants[{index}] : poids {weight} (doit être > 0)"),
+                        );
+                    }
+                    if matches!(pick, items::LootPick::Currency(0)) {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("déblocage « {id} » : grants[{index}] : Currency(0) : le montant doit être > 0"),
+                        );
+                    }
+                    if matches!(pick, items::LootPick::Currency(_))
+                        && registry.rooms.values().any(|room| {
+                            room.def.shop.as_ref().is_some_and(|shop| {
+                                shop.table == *table || shop.floor_tables.contains(table)
+                            })
+                        })
+                    {
+                        push(
+                            LintErrorKind::Unsupported,
+                            format!("déblocage « {id} » : grants[{index}] : Currency ajoutée à « {table} », pool de boutique"),
                         );
                     }
                     if let items::LootPick::Item(item) = pick {
@@ -4698,6 +4766,11 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                         );
                     }
                 }
+                items::LootPick::Currency(0) => push(
+                    LintErrorKind::OutOfRange,
+                    format!("pool de butin « {id} » : entries[{index}] : Currency(0) : le montant doit être > 0"),
+                ),
+                items::LootPick::Currency(_) => {}
             }
         }
         if let Some(reward) = &table.def.reward {
@@ -4789,6 +4862,26 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                     LintErrorKind::BrokenReference,
                     format!(
                         "type de salle « {} » : boutique : floor_tables : pool « {name} » inconnu",
+                        room.id
+                    ),
+                );
+            }
+        }
+        // M3-T3 (§68) : un tas de sous n'est pas une marchandise (une boutique le vendrait contre
+        // des sous) ; la boutique n'y pioche pas.
+        for name in &shop_tables {
+            let has_currency = registry.loot_tables.get(*name).is_some_and(|table| {
+                table
+                    .def
+                    .entries
+                    .iter()
+                    .any(|entry| matches!(entry.pick, items::LootPick::Currency(_)))
+            });
+            if has_currency {
+                push(
+                    LintErrorKind::Unsupported,
+                    format!(
+                        "type de salle « {} » : boutique : le pool « {name} » a une entrée Currency (un présentoir ne vend pas de sous)",
                         room.id
                     ),
                 );

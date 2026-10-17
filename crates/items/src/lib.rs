@@ -142,7 +142,8 @@ pub struct ItemDef {
     pub projectile: Option<ProjectileMods>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub familiar: Option<FamiliarRef>,
-    /// M3-T0b : plafond d'un compteur consommable. Absent = illimité (exécution T3).
+    /// M3-T0b : plafond d'un compteur consommable. Absent = illimité. M3-T3 (§68) : au plafond, le
+    /// ramassage et l'achat sont refusés (l'objet reste au sol, rien n'est dépensé).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0 (ou absent)")))]
     pub max_stack: Option<u32>,
@@ -150,6 +151,30 @@ pub struct ItemDef {
     /// du même objet (défaut, comportement d'avant) ou propres à chaque exemplaire.
     #[serde(default, skip_serializing_if = "StackMode::is_shared")]
     pub stack: StackMode,
+    /// M3-T3 (§68) : consommable à `Heal` qui reste au sol (et ne se vend pas) tant que le porteur
+    /// est à pleine vie, comme le cœur rouge d'Isaac. Faux par défaut : le soin est alors
+    /// simplement borné (`ration`). Lint : exige un consommable avec un effet `Heal`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub refuse_when_full: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+impl ItemDef {
+    /// Un joueur peut-il prendre ce consommable ? `stock` : son compteur de l'objet ;
+    /// `at_full_health` : `current >= max`. Faux au plafond (`max_stack`) et, pour
+    /// `refuse_when_full`, à pleine vie (M3-T3, §68). Toujours vrai pour un passif ou un actif.
+    pub fn accepts(&self, stock: u32, at_full_health: bool) -> bool {
+        if self.kind != ItemKind::Consumable {
+            return true;
+        }
+        if self.max_stack.is_some_and(|cap| stock >= cap) {
+            return false;
+        }
+        !(self.refuse_when_full && at_full_health)
+    }
 }
 
 /// Comment deux exemplaires d'un même passif comptent leurs limites d'effet (M3-T2, Q16). Le
@@ -468,6 +493,44 @@ pub struct BlankUsed {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn consumable(max_stack: Option<u32>, refuse_when_full: bool) -> ItemDef {
+        ItemDef {
+            name: String::new(),
+            kind: ItemKind::Consumable,
+            modifiers: vec![],
+            effects: vec![],
+            tags: vec![],
+            rarity: Rarity::Common,
+            pickup_range: Fixed::from_num(24),
+            blank: None,
+            uses_per_floor: None,
+            cost: None,
+            projectile: None,
+            familiar: None,
+            max_stack,
+            stack: StackMode::Shared,
+            refuse_when_full,
+        }
+    }
+
+    /// M3-T3 : un compteur plein ou un soin à pleine vie refusent ; sans ces deux champs, tout passe.
+    #[test]
+    fn accepts_refuses_a_full_counter_and_a_wasted_heal() {
+        let plain = consumable(None, false);
+        assert!(plain.accepts(0, true) && plain.accepts(10_000, true));
+        let capped = consumable(Some(3), false);
+        assert!(capped.accepts(2, true));
+        assert!(!capped.accepts(3, false));
+        assert!(!capped.accepts(4, false));
+        let heart = consumable(None, true);
+        assert!(heart.accepts(0, false));
+        assert!(!heart.accepts(0, true));
+        // Un passif ou un actif ne sont jamais refusés par ces règles.
+        let mut passive = consumable(Some(1), true);
+        passive.kind = ItemKind::Passive;
+        assert!(passive.accepts(5, true));
+    }
 
     fn hash_of<T: std::hash::Hash>(value: &T) -> u64 {
         use std::hash::Hasher;

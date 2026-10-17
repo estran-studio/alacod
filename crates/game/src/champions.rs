@@ -381,6 +381,15 @@ fn drop_loot(
         warn!("champion {} : le pool « {table_id} » ne donne rien", net_id);
         return;
     };
+    if let Some(amount) = items::loot_currency(&item_id) {
+        // M3-T3 (§68) : un tas de sous au sol.
+        crate::shop::spawn_shell_pickup(commands, id_factory, amount, position, net_id.0);
+        info!(
+            "ggrs{{f={} champion_loot key={} item={}}}",
+            frame, key, item_id
+        );
+        return;
+    }
     match items::loot_weapon(&item_id) {
         Some(weapon_id) => {
             if !crate::loot::spawn_loot_weapon(

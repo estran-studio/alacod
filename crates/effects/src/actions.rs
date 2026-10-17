@@ -192,6 +192,15 @@ pub enum Action {
         #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         stacks: u32,
     },
+    /// M3-T3 (`docs/conventions.md` §68, Q2) : donne `n` points de vie d'âme au porteur (un point = 1 PV,
+    /// un demi-cœur) ; ils absorbent les dégâts point par point avant les PV
+    /// (`combat::actors::ExtraHealth`). Utilisable par un effet, un objet (`OnUse`) ou un
+    /// consommable ; refusée dans un power-up (lint). Ajoutée en fin d'enum.
+    GainSoul(
+        #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+        #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+        Fixed,
+    ),
 }
 
 /// Règle pure de multiplication par exemplaire ([`scaled_action`] l'applique à une action).
@@ -221,6 +230,7 @@ pub fn scaled_action(action: &Action, copies: u32) -> Option<Action> {
     Some(match action {
         Action::Heal(amount) => Action::Heal(amount.saturating_mul(n)),
         Action::GainShield(points) => Action::GainShield(points.saturating_mul(copies)),
+        Action::GainSoul(points) => Action::GainSoul(points.saturating_mul(n)),
         Action::Modifier { stat, op, value } if matches!(op, ModifierOp::Add | ModifierOp::Pct) => {
             Action::Modifier {
                 stat: stat.clone(),
@@ -322,7 +332,8 @@ impl Action {
             | Action::Chance { .. }
             | Action::Scaled { .. }
             | Action::Emit(_)
-            | Action::ApplyStatusSelf { .. } => None,
+            | Action::ApplyStatusSelf { .. }
+            | Action::GainSoul(_) => None,
         }
     }
 }

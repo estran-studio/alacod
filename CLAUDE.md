@@ -388,6 +388,10 @@ crate `APP`), jamais dans un crate `SIM`.
       `EntityCount` couvrent les scénarios `grid_*` et `key_door_*`).
     - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
       du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
+    - M3-T3 cœurs, sous, bombes et clés au sol (§68) : `ExtraHealth` (points de vie d'âme du joueur : `ExtraHealth(handle: 0,
+      n: 4.0, at_frame: 110)`, égalité exacte, 0 sans le composant) ; `Consumable`, `Currency`, `Health`, `HudText`
+      (source `bombs`) et `ShellPiles` couvrent les autres scénarios (`soul_heart_absorbs`, `heart_full_stays`, `coin_pickup`,
+      `bomb_pickup_cap`, `coop_pickups_per_player`, `hit_iframes_isaac`).
     - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
       `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
       résout `Luck` avec la base 0 (`sim_core::stats::default_base`).

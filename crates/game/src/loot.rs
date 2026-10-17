@@ -230,8 +230,18 @@ pub fn chest_interaction_system(
         commands.entity(event.interactable).remove::<Interactable>();
         let mut position = transform.translation;
         position.x += Fixed::from_num(DROP_OFFSET);
-        match items::loot_weapon(&item_id) {
-            Some(weapon_id) => {
+        match (items::loot_currency(&item_id), items::loot_weapon(&item_id)) {
+            // M3-T3 (§68) : un tas de sous, ramassé au contact (`shell_pickup_system`).
+            (Some(amount), _) => {
+                crate::shop::spawn_shell_pickup(
+                    &mut commands,
+                    &mut id_factory,
+                    amount,
+                    position,
+                    event.interactable_net_id.0,
+                );
+            }
+            (None, Some(weapon_id)) => {
                 if !spawn_loot_weapon(
                     &mut commands,
                     &global_assets,
@@ -243,7 +253,7 @@ pub fn chest_interaction_system(
                     warn!("coffre « {} » : arme « {weapon_id} » inconnue", chest.key);
                 }
             }
-            None => {
+            (None, None) => {
                 spawn_item_pickup(
                     &mut commands,
                     &items,
@@ -339,7 +349,21 @@ pub fn room_reward_system(
                     "ggrs{{f={} room_reward room={} item={}}}",
                     frame.frame, event.room, item_id
                 );
-                spawn_item_pickup(&mut commands, &items, item_id, center, &mut id_factory);
+                // M3-T3 (§68) : un tas de sous (entrée `Currency` du pool), sinon l'objet.
+                match items::loot_currency(&item_id) {
+                    Some(amount) => {
+                        crate::shop::spawn_shell_pickup(
+                            &mut commands,
+                            &mut id_factory,
+                            amount,
+                            center,
+                            0,
+                        );
+                    }
+                    None => {
+                        spawn_item_pickup(&mut commands, &items, item_id, center, &mut id_factory);
+                    }
+                }
             }
             None => {
                 info!(

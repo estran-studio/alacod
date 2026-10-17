@@ -1,0 +1,40 @@
+// M3-T3 (docs/conventions.md §68, Q4 de William) : clés, bombes et sous sont **par joueur** (l'`Inventory` et le
+// solde de chacun) ; celui qui ramasse possède. Deux joueurs côte à côte dans l'arène du testbed (P0 à y 696,
+// P1 à y 664, 32 px d'écart). Une clé aux pieds de chacun (f5) : chacun prend la sienne. Une bombe au milieu
+// (f5, à 16 px des deux) : le plus petit `GgrsNetId` (P0) la prend, ce qui porte son compteur à 3, le plafond
+// de la `bomb` du testbed. Une seconde bombe au même endroit (f30) : P0 est au plafond et la refuse, P1 la prend.
+// Un coffre à sous au niveau de P1 (f45), ouvert par P1 (f50) : le tas de 7 sous va dans le solde de P1.
+//
+// À regarder : P0 garde 2 puis 3 bombes, P1 en reçoit une à f31 ; P1 seul gagne 7 sous (507 contre 500) ;
+// aucune ressource d'équipe, et le HUD (joueur affiché : P0) montre les bombes et les sous de P0.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    floors: Some("deux_niveaux"),
+    frames: 90,
+    items: [
+        (id: "key", x: "424.0", y: "710.0", at_frame: 5),
+        (id: "key", x: "424.0", y: "650.0", at_frame: 5),
+        (id: "bomb", x: "424.0", y: "680.0", at_frame: 5),
+        (id: "bomb", x: "424.0", y: "680.0", at_frame: 30),
+    ],
+    chests: [(key: "c", table: Some("pieces"), x: "424.0", y: "664.0", at_frame: 45)],
+    players: [
+        (items: ["bomb", "bomb"], inputs: []),
+        (inputs: [(from: 50, to: 51, buttons: [Interaction])]),
+    ],
+    expect: [
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 20),
+        Consumable(handle: 1, id: "key", count: 1, at_frame: 20),
+        Consumable(handle: 0, id: "bomb", count: 3, at_frame: 20),
+        Consumable(handle: 1, id: "bomb", count: 0, at_frame: 29),
+        Consumable(handle: 0, id: "bomb", count: 3, at_frame: 45),
+        Consumable(handle: 1, id: "bomb", count: 1, at_frame: 45),
+        Currency(handle: 0, min: 500, max: 500, at_frame: 80),
+        Currency(handle: 1, min: 507, max: 507, at_frame: 80),
+        // Le HUD lit le joueur affiché (P0, plus petit handle) : ses bombes et ses sous, pas ceux de P1.
+        HudText(source: "bombs", contains: "3", at_frame: 45),
+        HudText(source: "shells", contains: "500", at_frame: 80),
+    ],
+)

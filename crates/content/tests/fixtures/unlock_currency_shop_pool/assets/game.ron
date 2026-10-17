@@ -1,0 +1,11 @@
+// Fixture M3-T3 : un déblocage qui ajoute Currency au pool d'une boutique
+(
+    name: "fixture-unlock_currency_shop_pool",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "rooms", kind: "Room"),
+        (path: "unlocks", kind: "Unlock"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

@@ -44,6 +44,7 @@ pub const PLAYER_SOURCES: &[&str] = &[
     "floor",
     "blanks",
     "keys",
+    "bombs",
     "shells",
     "passives",
     "active_item",
@@ -236,8 +237,8 @@ pub struct HudPlayerValues {
     pub statuses: Vec<(String, u32, u32)>,
     /// Index du niveau (mode `Floors` seulement).
     pub floor: Option<u32>,
-    /// `(blanks, clés)`, absents hors jeu à objets ou sans joueur ; zéro avant ramassage.
-    pub consumables: Option<[u32; 2]>,
+    /// `(blanks, clés, bombes)`, absents hors jeu à objets ou sans joueur ; zéro avant ramassage.
+    pub consumables: Option<[u32; 3]>,
     /// `(id, nom)` dans l'ordre de ramassage ; le rendu utilise l'id pour les icônes.
     pub passives: Vec<(String, String)>,
     pub active_item: Option<HudActiveItem>,
@@ -332,7 +333,10 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             .map(|floor| floor.index),
         consumables: (input.player_present
             && input.item_table.is_some_and(|table| !table.0.is_empty()))
-        .then(|| ["blank", "key"].map(|id| input.items.map_or(0, |items| items.consumable(id)))),
+        .then(|| {
+            ["blank", "key", crate::loot::BOMB_ITEM]
+                .map(|id| input.items.map_or(0, |items| items.consumable(id)))
+        }),
         passives: input
             .items
             .map(|items| {
@@ -414,6 +418,8 @@ pub fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) 
         "floor" => values.floor.map(|index| format!("Étage {}", index + 1)),
         "blanks" => values.consumables.map(|counts| counts[0].to_string()),
         "keys" => values.consumables.map(|counts| counts[1].to_string()),
+        // M3-T3 (§68) : compteur de bombes du joueur affiché (par joueur, comme les clés).
+        "bombs" => values.consumables.map(|counts| counts[2].to_string()),
         // Les douilles de boutique créditent Currency, pas un consommable `shell`.
         "shells" => values
             .consumables
@@ -850,7 +856,7 @@ mod tests {
                 charge: 2,
                 uses: None,
             }),
-            consumables: [("blank".into(), 2), ("key".into(), 1)]
+            consumables: [("blank".into(), 2), ("key".into(), 1), ("bomb".into(), 4)]
                 .into_iter()
                 .collect(),
         };
@@ -869,6 +875,7 @@ mod tests {
         let ready = read(Some(&items), true);
         assert_eq!(ready.texts["blanks"], "2");
         assert_eq!(ready.texts["keys"], "1");
+        assert_eq!(ready.texts["bombs"], "4");
         assert_eq!(ready.texts["shells"], "73");
         assert_eq!(ready.texts["passives"], "inconnu\ninconnu");
         assert_eq!(ready.texts["active_item"], "Fiole de rage");
@@ -882,12 +889,14 @@ mod tests {
         assert_eq!(used.texts["blanks"], "1");
         let empty = read(None, true);
         assert_eq!(empty.texts["keys"], "0");
+        assert_eq!(empty.texts["bombs"], "0");
         assert_eq!(empty.texts["active_item"], "");
         assert!(!empty.bars.contains_key("active_charge"));
         let dead = read(None, false);
         for source in [
             "blanks",
             "keys",
+            "bombs",
             "shells",
             "active_item",
             "active_charge",

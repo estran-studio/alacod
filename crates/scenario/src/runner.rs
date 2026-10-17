@@ -2541,6 +2541,23 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        // M3-T3 (§68) : points de vie d'âme du joueur (0 sans le composant).
+        Expectation::ExtraHealth { handle, n, .. } => {
+            let Some(actual) = world
+                .query::<(&Player, Option<&combat::actors::ExtraHealth>)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, extra)| extra.map_or(fixed_math::Fixed::ZERO, |extra| extra.soul))
+            else {
+                return Err("joueur absent".into());
+            };
+            let wanted = fixed_math::Fixed::from_num(*n);
+            if actual == wanted {
+                Ok(())
+            } else {
+                Err(format!("{actual} points de vie d'âme (attendu {wanted})"))
+            }
+        }
         Expectation::ItemCount {
             handle, id, count, ..
         } => {

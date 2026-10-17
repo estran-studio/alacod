@@ -6,8 +6,8 @@ use bevy::{
 };
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use combat::actors::{Shield, SHIELD_IFRAMES};
-use combat::damage::{after_armor, resolve_damage, Defenses};
+use combat::actors::{ExtraHealth, Shield, SHIELD_IFRAMES};
+use combat::damage::{apply_layers, resolve_damage, Defenses, Layered};
 use combat::downed::{downed_modifier_source, Downed, Reviving};
 use ggrs::PlayerHandle;
 use run::{Run, RunEnd, RunStep};
@@ -157,6 +157,7 @@ pub fn rollback_resolve_damage_events(
             Has<Downed>,
             Option<&mut HitCount>,
             Option<&mut Shield>,
+            Option<&mut ExtraHealth>,
         ),
         With<Rollback>,
     >,
@@ -200,7 +201,8 @@ pub fn rollback_resolve_damage_events(
             opt_accumulator,
             downed,
             opt_hit_count,
-            opt_shield,
+            mut opt_shield,
+            mut opt_extra,
         )) = target_query.get_mut(entity)
         else {
             continue;
@@ -247,15 +249,26 @@ pub fn rollback_resolve_damage_events(
             continue;
         };
 
-        // D61 : bouclier d'abord (un point absorbe un coup entier, brèves i-frames), puis armure
-        // sur ce qui passe. `DamageKind::True` ignore l'un et l'autre. Armure 0 et pas de
-        // bouclier : le montant reste exactement celui de `resolve_damage`.
-        let amount = if event.kind == DamageKind::True {
-            amount
+        // D61 + M3-T3 (§68) : couches de défense dans l'ordre bouclier (un coup entier, brèves
+        // i-frames) → armure → `ExtraHealth` (point par point) → PV (`combat::damage::apply_layers`).
+        // `DamageKind::True` ignore le bouclier et l'armure, pas `ExtraHealth`. Sans les trois
+        // couches, le montant reste exactement celui de `resolve_damage`.
+        let armor = if event.kind == DamageKind::True {
+            fixed_math::Fixed::ZERO
         } else {
-            if let Some(mut shield) = opt_shield {
-                if shield.0 > 0 {
-                    shield.0 -= 1;
+            stats.get(entity, &StatId::Armor, fixed_math::Fixed::ZERO)
+        };
+        let mut no_shield = 0u32;
+        let mut no_soul = fixed_math::Fixed::ZERO;
+        let shield_points = opt_shield
+            .as_deref_mut()
+            .map_or(&mut no_shield, |s| &mut s.0);
+        let soul_points = opt_extra
+            .as_deref_mut()
+            .map_or(&mut no_soul, |e| &mut e.soul);
+        let (amount, to_health) =
+            match apply_layers(&event.kind, amount, shield_points, armor, soul_points) {
+                Layered::ShieldAbsorbed => {
                     if let Some(health) = opt_health.as_deref_mut() {
                         let until = event.frame.saturating_add(SHIELD_IFRAMES);
                         health.invulnerable_until_frame = Some(
@@ -266,16 +279,28 @@ pub fn rollback_resolve_damage_events(
                     }
                     info!(
                         "ggrs{{f={} shield_absorb target={} left={}}}",
-                        frame.frame, target_net_id.0, shield.0
+                        frame.frame,
+                        target_net_id.0,
+                        opt_shield.as_deref().map_or(0, |s| s.0)
                     );
                     continue;
                 }
-            }
-            after_armor(
-                amount,
-                stats.get(entity, &StatId::Armor, fixed_math::Fixed::ZERO),
-            )
-        };
+                Layered::Through { hit, to_health } => (hit, to_health),
+            };
+        // Des cœurs d'âme ont pris une partie du coup (ou tout) : le coup a eu lieu (i-frames,
+        // `HitLanded`, `HitCount` plus bas), seul le reste va aux PV.
+        let soul_took = amount > to_health;
+        if soul_took {
+            info!(
+                "ggrs{{f={} soul_absorb target={} took={} left={}}}",
+                frame.frame,
+                target_net_id.0,
+                amount - to_health,
+                opt_extra
+                    .as_deref()
+                    .map_or(fixed_math::Fixed::ZERO, |e| e.soul)
+            );
+        }
 
         if let (Some(health), Some(handles)) = (opt_health.as_deref_mut(), opt_config) {
             if let Some(config) = character_configs.get(&handles.config) {
@@ -315,14 +340,18 @@ pub fn rollback_resolve_damage_events(
         }
         last_hit_by.push(HitBy::Entity(event.source.clone()));
 
+        if soul_took && to_health <= fixed_math::Fixed::ZERO {
+            // Absorbé en entier : aucune perte de PV, rien à accumuler (ni mort, ni `last_hit_by`).
+            continue;
+        }
         if let Some(mut accumulator) = opt_accumulator {
-            accumulator.total_damage = accumulator.total_damage.saturating_add(amount);
+            accumulator.total_damage = accumulator.total_damage.saturating_add(to_health);
             accumulator.hit_count += 1;
             accumulator.last_hit_by = Some(last_hit_by);
         } else {
             commands.entity(entity).insert(DamageAccumulator {
                 hit_count: 1,
-                total_damage: amount,
+                total_damage: to_health,
                 last_hit_by: Some(last_hit_by),
             });
         }

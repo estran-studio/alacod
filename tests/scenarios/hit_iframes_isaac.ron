@@ -1,0 +1,26 @@
+// M3-T3 (docs/conventions.md §68) : `hit_iframes` posé en données sur le personnage d'`isaac` (`pleureur` : 60
+// frames d'invulnérabilité après avoir perdu de la vie). Le joueur (6 PV) est immobile dans la salle de départ,
+// avec un `suiveur` et une `mouche` au contact (placés à f5) : leurs coups tombent à quelques frames d'écart.
+//
+// À regarder : f7 le premier coup (5 PV) ; vers f125 deux coups arrivent presque ensemble, un seul passe (4 PV) ;
+// même chose vers f250 (3 PV). Sans `hit_iframes` le joueur est à 3 PV à f130 et à 1 PV à f260 : témoin joué par
+// `crates/scenario/tests/extra_health.rs` (`isaac_without_hit_iframes_loses_more`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 300,
+    characters: [
+        (character: "suiveur", x: "20.0", y: "-8.0", at_frame: 5),
+        (character: "mouche", x: "-36.0", y: "-8.0", at_frame: 5),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 6),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 100),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 130),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 200),
+        Health(handle: 0, min: 3.0, max: 3.0, at_frame: 260),
+        PlayerAlive(handle: 0, at_frame: 299),
+    ],
+)
