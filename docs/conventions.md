@@ -4188,6 +4188,15 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   Some((stay: false, inputs: …))` du scénario (`ScriptedHubInputs`) tant que `HubSession::in_hub`, puis les
   `players` ; `scripts/p2p-stress-inputs.py --hub-door` génère un script (hub : le joueur 0 va à la porte, run : entrées
   aléatoires).
+- **Délai d'input des enregistrements de bots (D85, fermée).** `alacod-sim` joue en synctest avec `ALACOD_INPUT_DELAY` = 5 (défaut) : l'input
+  décidé à la frame f est appliqué à f+5 ; les clients p2p des preuves tournent à 0. `scripts/p2p-gungeon-inputs.sh` décale donc les segments de
+  `INPUT_SHIFT` (5) frames (0 pour des clients à délai 5) : sans cela la run rejouée n'est pas celle des bots (franchissement d'étage f3725 au
+  lieu de f3731, aucune victoire après le hub). `HUB=1` enregistre une run lancée par la porte du hub en ligne (`ALACOD_SIM_HUB=1` : hub puis run
+  dans `alacod-sim` ; `ALACOD_RUN_SEED_ONLINE_GAME=1` : graine de run `restart_seed(graine, 1)`, `jjrs::local`, natif, absente = inchangé) ;
+  le client se lance alors sans `ALACOD_SKIP_HUB`.
+- **Retour au lobby en ligne (D86, ouverte).** `ALACOD_RESTART_KIND=lobby` rouvre la salle d'origine : si les deux pairs ne reviennent pas à quelques
+  ms près, le premier se connecte au socket encore vivant de la partie de l'autre et les deux sessions restent muettes. « Rejouer » (`{lobby}-r{n}`) n'a
+  pas ce défaut. Le script `p2p-restart.sh` avec `RESTART_KIND=lobby` peut donc échouer (`TIMEOUT`) ; `EXPECT_VICTORY=1` exige la victoire avant la relance.
 - **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
   la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
   `resimulées` reste cumulé sur toute la durée du processus.

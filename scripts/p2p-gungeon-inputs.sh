@@ -10,6 +10,10 @@
 # Usage : scripts/p2p-gungeon-inputs.sh <joueurs> <graine> <frames> <sortie.ron>
 # Le client p2p doit être lancé avec `ALACOD_SKIP_HUB=1` et `--seed <graine>` : la graine de run
 # d'une partie en ligne passée par le hub est dérivée (§33), celle d'`alacod-sim` non.
+# HUB=1 : l'enregistrement est celui d'une run lancée par la PORTE DU HUB en ligne (D85) : `alacod-sim` joue
+# le hub puis la run (`ALACOD_SIM_HUB=1`), avec la graine de run `restart_seed(graine, 1)`
+# (`ALACOD_RUN_SEED_ONLINE_GAME=1`) et le fichier reçoit les
+# pistes du hub (le joueur 0 va à la porte, f170) ; le client se lance SANS `ALACOD_SKIP_HUB`.
 # ALLOW_SHORT=1 : accepte une partie plus courte que <frames> (fin de run : victoire ou défaite,
 # pour un restart après la fin de run). Sortie : 0 si le fichier est écrit ET qu'au moins un étage est franchi dans la partie
 # enregistrée ; affiche la frame du passage d'étage.
@@ -34,12 +38,35 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 profiles=$(printf 'explorateur,%.0s' $(seq "$PLAYERS"))
 profiles=${profiles%,}
-"$TARGET/headless/alacod-sim" --game gungeon --bots "$PLAYERS" --profiles "$profiles" \
+${HUB:+env ALACOD_RUN_SEED_ONLINE_GAME=1 ALACOD_SIM_HUB=1} "$TARGET/headless/alacod-sim" --game gungeon --bots "$PLAYERS" --profiles "$profiles" \
     --floors etages_deux --until-floor 2 --seeds "$SEED..$SEED" --shopping \
     --max-frames "$FRAMES" --save-scenario "$TMP" --json "$TMP/sim.json" 2> "$TMP/sim.log" || {
     tail -5 "$TMP/sim.log"; echo "p2p-gungeon-inputs : alacod-sim a échoué"; exit 1; }
 [ -f "$TMP/seed_$SEED.ron" ] || { echo "p2p-gungeon-inputs : enregistrement absent"; exit 1; }
-cp "$TMP/seed_$SEED.ron" "$OUT_FILE"
+# Délai d'input : le synctest d'`alacod-sim` applique l'input décidé à la frame f à la frame f+5
+# (`ALACOD_INPUT_DELAY` : 5 par défaut), alors que les clients p2p des preuves tournent à 0 (une entrée
+# distante tardive y est une prédiction fausse, donc un rollback) : sans décalage, la run rejouée en
+# ligne n'est pas celle qu'ont jouée les bots (constaté : boss mort 110 frames plus tard, jamais de victoire).
+# INPUT_SHIFT (5) : décalage ajouté aux segments d'inputs des joueurs ; 0 pour des clients à délai 5.
+python3 - "$TMP/seed_$SEED.ron" "$OUT_FILE" "${INPUT_SHIFT:-5}" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+shift = int(sys.argv[3])
+text = re.sub(r"Segment\(from: (\d+), to: (\d+),",
+              lambda m: f"Segment(from: {int(m[1]) + shift}, to: {int(m[2]) + shift},", text)
+open(sys.argv[2], "w").write(text)
+PY
+if [ -n "${HUB:-}" ]; then
+    # Pistes du hub (même parcours que `p2p-stress-inputs.py --hub-door`) ajoutées avant la dernière `)`.
+    python3 - "$OUT_FILE" "$(dirname "${BASH_SOURCE[0]}")" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("stress_inputs", sys.argv[2] + "/p2p-stress-inputs.py")
+module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+text = open(sys.argv[1]).read().rstrip()
+assert text.endswith(")")
+open(sys.argv[1], "w").write(text[:-1] + module.HUB_DOOR + ")\n")
+PY
+fi
 python3 - "$TMP/sim.json" "$SEED" "$FRAMES" "$OUT_FILE" <<'EOF'
 import json, os, sys
 result = json.load(open(sys.argv[1]))[0]

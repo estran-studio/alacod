@@ -67,6 +67,7 @@ cleanup() {
 }
 trap cleanup EXIT
 p2p_signaling_up
+p2p_calm
 
 PLAYERS=$(p2p_players "$CLIENTS")
 START=$(date +%s)

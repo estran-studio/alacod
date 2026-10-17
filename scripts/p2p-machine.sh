@@ -10,7 +10,7 @@
 #
 # `run.ron` : `scripts/p2p-gungeon-inputs.sh 2 10 5000 run.ron` (sur UNE machine, le fichier est copié
 # sur l'autre : les bots sont figés en inputs, ce sont ces inputs qui sont rejoués des deux côtés).
-# Chaque machine écrit `$OUT/p2p-<index>.trace` et affiche : architecture, code de sortie,
+# Chaque client exige FRAMES-1 lignes contiguës (`check-p2p-traces.py --single`). Chaque machine écrit `$OUT/p2p-<index>.trace` et affiche : architecture, code de sortie,
 # `DesyncDetected`, frames resimulées, transitions d'étage, nombre de lignes et empreinte de la trace.
 # Comparaison : copier une trace sur l'autre machine puis
 #   python3 scripts/check-p2p-traces.py --frames $((4500-1)) $OUT/p2p-0.trace $OUT/p2p-1.trace
@@ -44,6 +44,7 @@ mkdir -p "$OUT"
 rm -f "$OUT/p2p-$INDEX.trace" "$OUT/p2p-$INDEX.log"
 
 sha() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+p2p_calm
 PLAYERS=$(p2p_players "$CLIENTS")
 echo "p2p-machine : $(uname -sm), commit $(git rev-parse --short HEAD), client_$INDEX, salle $LOBBY, signaling $MATCHBOX_URL"
 # shellcheck disable=SC2086
@@ -71,6 +72,11 @@ echo "transitions d'étage distinctes : $(sed -n 's/.*floor_transition from=\([0
 if [ -f "$OUT/p2p-$INDEX.trace" ]; then
     echo "trace : $(wc -l < "$OUT/p2p-$INDEX.trace" | tr -d ' ') lignes (attendu $((FRAMES - 1))), sha256 $(sha "$OUT/p2p-$INDEX.trace")"
     echo "dernière ligne : $(tail -1 "$OUT/p2p-$INDEX.trace")"
+    # Exactement FRAMES-1 lignes contiguës (de 0 à FRAMES-2) : `confirmed_end` tronque la trace si les
+    # dernières frames n'ont jamais été confirmées (pair parti, 10 s d'attente), et un sha256 égal ne
+    # prouve rien si les deux traces sont tronquées pareil.
+    python3 "$(dirname "${BASH_SOURCE[0]}")/check-p2p-traces.py" --single --frames "$((FRAMES - 1))" "$OUT/p2p-$INDEX.trace" || fail=1
+    grep -q "trace d'état tronquée" "$OUT/p2p-$INDEX.log" && { echo "ÉCHEC : le journal signale une trace tronquée (frames jamais confirmées)"; fail=1; }
 else
     echo "ÉCHEC : trace absente (voir $OUT/p2p-$INDEX.log)"
     fail=1

@@ -6,6 +6,12 @@ mes lancements), branche `m2-p2p-run-complete` depuis `origin/main` `64ec961c`. 
 binaires `--profile headless` du jeu (`ALACOD_HEADLESS=1`), comme `scripts/p2p-stress.sh`. **La seconde machine (Mac
 arm64) était indisponible : le point 2 (deux machines) n'est pas exécuté** (§4).
 
+**État réel par sous-point (après la revue bloquante du 2026-10-17, §7)** : 1 (2 puis 4 clients, transition d'étage) **fait** ; 2 (deux machines)
+**non fait** ; 3 : restart après la fin de run à 2 et à 4 clients **fait**, boucle hub → run → victoire → hub **faite**, déconnexion d'un pair
+**faite**, retour au lobby après la fin de run **partiel, bloqué par D86** (cause établie, reproduit deux fois, non corrigé) ; 4 (réseau dégradé)
+**fait** pour 120 ms / 20 ms / 1 %, déconnexion à 3 % de perte (D87) ; 5 (nightly) **fait**, sans la couverture du réseau dégradé par défaut
+(`NIGHTLY_GUNGEON_NETEM` vide : « netem SKIPPED »).
+
 ## 1. Résultats
 
 Tout est du transport WebRTC réel (matchbox), `ALACOD_INPUT_DELAY=0`, inputs scriptés qui changent à chaque frame utile
@@ -18,9 +24,9 @@ la même pour tous les clients (une seule machine : ce n'est PAS une preuve inte
 | 1. 2 clients, stress SIGSTOP | 4 500 (trace 4 499 lignes) | 7 488 / 10 | f3725, les deux journaux | **OK** : 0 `DesyncDetected`, codes 0 et 0, traces identiques |
 | 1. 2 clients, sans stress (témoin) | 4 500 | 221 / 212 | f3725 | OK (le transport seul rollbacke déjà) |
 | 1. **4 clients**, stress | 4 500 | 6 651 / 7 / 6 614 / 6 704 | f3428, les quatre journaux | **OK** : traces des quatre identiques (3 `cmp` + `check-p2p-traces.py`) |
-| 3. Hub → run en ligne (hub réel, porte f170, salle `…-r1`), 2 clients, stress | 3 000 après le hub | 7 614 / 1 | — (inputs aléatoires, voir D85) | **OK** : traces identiques |
+| 3. Hub → run en ligne (hub réel, porte f170, salle `…-r1`), 2 clients, stress | 3 000 après le hub | 7 614 / 1 | — (inputs aléatoires ; la boucle avec bots et victoire est en §7) | **OK** : traces identiques |
 | 3. Restart (`RunRequest::Restart`, comme la touche R) **après la fin de run** | partie 1 : victoire f7138, trace écrite f7200, requête posée f7260 (`ALACOD_RESTART_AT_FRAME` + 60 frames de grâce), 7 199 lignes ; partie 2 : 1 499 lignes | 15 426 / 8 (deux parties) | f3725 (partie 1) | **OK** : traces identiques entre pairs pour chaque partie ; partie 2 ≠ partie 1 (graine dérivée) ; client local : partie 2 = partie 1 |
-| 3. Retour au lobby (« Lobby », requête à f300, partie en cours : pas après la fin de run) | — | — | — | **BLOQUÉ** : deux clients en même temps, la partie 2 ne démarre jamais (D86) |
+| 3. Retour au lobby (« Lobby », requête à f300, partie en cours : pas après la fin de run) | — | — | — | **BLOQUÉ** : la partie 2 ne démarre jamais quand les deux clients reviennent à plus de ~100 ms d'écart (D86, cause en §7) |
 | 3. Déconnexion, 2 clients (client 1 tué, SIGKILL, à 40 s, ~f1000, étage 0) | 4 500 | survivant : 257 | — (le portail n'est franchi que par le joueur 1, mort) | **OK** : pas de panique, `Disconnected` 1,55 s après `NetworkInterrupted`, le survivant joue seul jusqu'à f4500, exit 0, trace 4 499 lignes |
 | 3. Déconnexion, 4 clients (client 2 tué à 100 s, ~f3300, juste avant le portail) | 4 500 | 887 / 831 / — / 793 | f3429, **franchie par les survivants après le départ** | **OK** : trois survivants, traces identiques entre eux, exit 0, pas de panique |
 | 4. RTT 120 ms, jitter 20 ms, perte 1 % (`delay 60ms 10ms loss 1%`, sans stress) | 4 500 | 2 301 / 2 412 | f3725 | **OK**, 142 s ; traces identiques ; 4 interruptions réseau, toutes reprises |
@@ -63,8 +69,8 @@ ALLOW_SHORT=1 scripts/p2p-gungeon-inputs.sh 2 10 9000 /tmp/b2-rec/seed_10_full.r
 ```
 
 Le passage d'étage est daté f3731 par `alacod-sim` (`floor_frames`) et **f3725** par le journal du jeu en p2p (f3434 contre f3428 à
-4 joueurs) : un écart constant de 5 à 6 frames que je n'ai pas élucidé (les deux pairs, et les quatre à 4 joueurs, affichent la
-même frame dans le journal, une seule ligne, sans resimulation du passage).
+4 joueurs) : l'écart constant de 5 à 6 frames est le **délai d'input** (le synctest d'`alacod-sim` applique l'input décidé à la frame f à
+f+5, les clients p2p tournent à 0) ; élucidé en §7 (D85). Les enregistrements de ce § n'étaient pas décalés ; ceux de §7 le sont.
 
 ### 3.2 Point 1 : 2 puis 4 clients
 
@@ -100,13 +106,8 @@ RESTART_AT=7200 EXIT_AT=1500 STRESS=1 INPUTS=/tmp/b2-rec/seed_10_full.ron ALACOD
 # run summary f7138 outcome=Victory (client 0) ; restart en ligne : partie 2, salle …-r1 ; resimulées 15426 / 8
 # p2p partie 1 : identiques (7199 lignes) ; partie 2 : identiques (1499 lignes) ; partie 2 ≠ partie 1 ; local : partie 2 = partie 1 (1499) ; OK
 ```
-**Retour au lobby** (`RESTART_KIND=lobby RESTART_AT=300 EXIT_AT=300`, même jeu) : le trace de la partie 1 est écrit, `RunRequest::ToLobby`
-est posé, les deux clients rouvrent la salle d'origine et **le client 1 voit l'ancien identifiant du client 0** (« peer 1a7f620c… disconnected »
-puis « peer 1a7f620c… connected », journal) : « All 2 players are connected » trop tôt, la partie 2 passe `GameStarting`
-et ne se synchronise jamais (aucun `Synchronizing`), le processus ne sort pas (tué par la limite de durée de ma commande). C'est le
-pair fantôme que §33 évite pour « Rejouer » (salle `{lobby}-r{n}`) ; l'ouvrir à nouveau avec un identifiant tout neuf ne l'a pas
-empêché. Dette **D86**. Preuve : ces journaux seulement, un seul essai (le premier a été interrompu avant de conclure par une erreur
-de mon script, sans rien relever des clients).
+**Retour au lobby** : essai à f300 (partie en cours) : la partie 2 ne démarre jamais. Interprétation d'alors (un « pair fantôme » du serveur) **corrigée
+en §7** : c'est une course sur la salle d'origine, reproduite deux fois **après la fin de run**, D86.
 
 ```bash
 KILL_AFTER_S=40 ALACOD_SKIP_HUB=1 GAME_ARGS="--seed 10" OUT=/tmp/b2-disc2 scripts/p2p-disconnect.sh gungeon /tmp/b2-rec/seed_10.ron 4500
@@ -223,16 +224,78 @@ n'a pas été lancé (heures), la variante `NIGHTLY_GUNGEON_NETEM` non plus (mê
   `scripted_tracks_tests::hub_tracks_only_while_in_hub` ; rejeu des anciens appels (`p2p-stress.sh zombies`, `p2p-restart.sh`) :
   OK. `make test_scenarios_par SHARDS=3` sans BLESS sur `5163d9a7` (tout le Rust de la branche) : **497 scénarios verts**, 1 332 s, aucune `.trace` modifiée
   (`git status` propre hors mes fichiers) ; les commits suivants ne touchent que des scripts et de la documentation.
-- **Pas une run complète depuis le hub avec les bots** : la graine de run d'une partie en ligne qui passe par le hub est dérivée (§33)
-  alors que celle de la carte ne l'est pas ; un enregistrement de bots ne s'y rejoue pas. Les preuves à bots utilisent donc
-  `ALACOD_SKIP_HUB=1` ; le hub est prouvé à part (inputs aléatoires, 7 614 frames resimulées, traces identiques). D85.
+- **Hub avec les bots** : résolu en §7 (D85 fermée : délai d'input) ; les preuves des §3.2 à 3.4 à bots utilisent `ALACOD_SKIP_HUB=1`, celle de §7 passe par le hub.
 - Les inputs des bots sont **figés** (enregistrement) : un changement de simulation les rend caducs ; `EXPECT_FLOORS` l'attrape.
   Les bots ne décident pas en ligne.
 - Une machine seulement (x86-64) : aucune conclusion sur arm64, D73, la traversée NAT ni un vrai WAN. `netem` agit sur la boucle locale
   d'un espace de noms : pas de bande passante limitée, pas de réordonnancement, pas de perte en rafale.
 - La détection d'étage est lue dans le journal (`floor_transition`), pas dans l'état : `FloorIndex` n'est pas exposé hors scénario.
 - Pair tué = SIGKILL, pas la fermeture propre d'une fenêtre ni une coupure réseau.
-- Le test « Lobby » n'a qu'un essai concluant (D86) ; pas d'essai décalé dans le temps.
+- Retour au lobby : bloqué par D86 (§7) ; la preuve « Lobby après la fin de run » n'est donc pas faite.
 - Pas de campagne : une exécution par cellule de la matrice, une graine, une run.
 - Sans `MIN_RESIMULATED`, un client suspendu par le stress n'accumule presque pas de resimulation (10, 7, 1, 8) : seul le client qui
   devance en a ; le critère reste « le plus resimulé », comme dans la recette d'`outillage-p2p-stress`.
+
+## 7. Revue bloquante du 2026-10-17 : corrections et essais ajoutés
+
+Binaire reconstruit sur `origin/main` `d4162f18` fusionné. Charge : chaque essai p2p a attendu `uptime` < 3 avant de lancer ses clients
+(`P2P_WAIT_CALM=3`, affichée par les scripts : « charge machine au lancement ») ; elle a été tenue **au lancement** (2,05 à 2,98), pas
+**pendant** : l'autre worker (b6) compilait et la charge de fin d'essai est montée à 3,4–7,6 sur trois essais. Aucun n'a été déconnecté. Le disque
+partagé est tombé à 0 octet libre pendant la session (b6 : 106 Go) : `scripts/target-sweep.sh` sur mon target a libéré 19 Go.
+
+### 7.1 Corrections demandées
+1. `scripts/p2p-machine.sh` exige maintenant `FRAMES-1` lignes contiguës (`check-p2p-traces.py --single`, test `SingleTraceCliTests`) et
+   refuse une trace que le journal dit tronquée (`trace d'état tronquée`) ; un sha256 égal ne suffit plus.
+2. `scripts/nightly.sh` C2 : sans `NIGHTLY_GUNGEON_NETEM`, le résumé affiche « gungeon netem : SKIPPED … réseau dégradé NON couvert », avertit
+   dans le journal et la ligne finale de C2 énumère ce qui est couvert (« netem SKIPPED » ou le réglage joué).
+3. D87 reformulée (GGRS déconnecte après plus de 2 s sans paquet reçu ; les reprises à 1,1–1,4 s ne prouvent pas un défaut du délai ;
+   la dette est « mesurer le silence fatal et tester un délai plus long »).
+
+### 7.2 Essais ajoutés (2 clients sauf mention ; SIGSTOP ; délai d'input 0 ; graine 10 ; frames resimulées du journal du jeu)
+
+| Essai | Frames | Resimulées | Verdict |
+|---|---|---|---|
+| **4 clients jusqu'à la victoire puis restart** (`CLIENTS=4 RESTART_AT=6700 EXIT_AT=1500 EXPECT_VICTORY=1`, `four_10_full.ron`) | partie 1 : 6 699 lignes, **victoire f6374 chez les quatre** ; partie 2 : 1 499 | 10 071 / 28 / 9 969 / 10 609 | **OK** : traces des quatre identiques pour chaque partie (3 `cmp` par partie), partie 2 ≠ 1, 0 `DesyncDetected` |
+| **Retour au lobby après la fin de run**, essai 1 (`RESTART_KIND=lobby RESTART_AT=7200`, victoire f7138, requête f7260) | partie 2 jamais démarrée | — | **ÉCHEC** (D86), écart 113 ms entre les deux requêtes |
+| idem, essai 2 | partie 1 : 7 199 ; partie 2 : 1 499 | 461 / 414 | OK (écart 5 ms) : partie 2 = partie 1 (graine d'origine), traces identiques |
+| idem, essai 3 | partie 2 jamais démarrée | — | **ÉCHEC** (D86), écart 329 ms |
+| idem, essai 4 | partie 1 : 7 199 ; partie 2 : 1 499 | — | OK : traces identiques, partie 2 = partie 1 |
+| **Boucle hub → run → victoire → hub** (`HUB=1`, `INPUTS=hub_full_s5.ron`, `RESTART_KIND=hub RESTART_AT=7800 EXIT_AT=120`, **sans** `ALACOD_SKIP_HUB`) | run : 7 799 lignes, **victoire f7461 chez les deux** (enregistré f7460) ; second hub : 119 | 6 640 / 5 | **OK** : porte f170, salle `…-r1`, traces identiques pour la run et pour le second hub, partie 2 ≠ 1 |
+| même boucle, enregistrements **non décalés** (deux essais) | 7 799 | 8 561 / 9 ; 9 771 / 4 | traces identiques, **aucune victoire** (boss mort f3738 / f3868) : cause D85 ci-dessous |
+| Recette du nightly (`p2p-gungeon-inputs.sh` décalé + `p2p-stress.sh`, 2 clients) | 4 500 | 4 088 / 4 | OK : franchissement d'étage **f3730** en ligne pour f3731 enregistré (avant le décalage : f3725), traces identiques |
+
+La première trace de la boucle (le premier hub, 172 frames) n'est pas écrite : l'enregistreur est vidé à la sortie du hub, la run seule est
+tracée ; l'entrée en run depuis le hub a ses preuves (§3.2, 7 614 / 1 resimulées, journal « hub : sortie du joueur 0 confirmée (frame 170) »).
+La victoire est lue dans le journal du jeu (`run summary … outcome=Victory`), exigée par `EXPECT_VICTORY=1` pour chaque client.
+
+### 7.3 D85 : cause trouvée, fermée
+Les inputs des bots, rejoués après le hub, ne gagnaient pas. **Cause : le délai d'input.** Le synctest d'`alacod-sim` applique l'input décidé à
+la frame f à la frame f+5 ; les clients p2p des preuves tournent à `ALACOD_INPUT_DELAY=0` (sinon plus de rollbacks forcés) : la run était décalée de
+5 frames. C'est aussi l'écart f3731 / f3725 du franchissement d'étage (§3.1). Sans hub la run tolérait ce décalage ; avec la graine dérivée du hub
+(`restart_seed`, §33) non. Correction : `scripts/p2p-gungeon-inputs.sh` décale les segments de `INPUT_SHIFT` (5) frames. Éliminés avant d'y
+arriver (mesures) : la graine de run (deux enregistrements, avec et sans la dérivation `ALACOD_RUN_SEED_ONLINE_GAME=1`), le hub dans le runner
+(`ALACOD_SIM_HUB=1` rejoue la même run que sans hub : 7 461 frames, étage f3627, victoire f7460), et l'état initial (dump complet
+`ALACOD_STATE_TRACE_FULL=1` : les 99 premières frames d'une run en ligne après le hub et après un restart sont identiques). Les traces du runner
+et d'une partie en ligne diffèrent dès la frame 0 **même sans hub** (checksums de natures différentes) : elles ne se comparent pas.
+
+### 7.4 D86 : retour au lobby, cause établie, non corrigé
+Reproduit **deux fois après la fin de run** (essais 1 et 3 ci-dessus), avec le signaling Docker (`<OUT>/signaling.log`, désormais sauvé par les scripts) :
+- Essai 1 (`/tmp/b2r/lobby1`) : client 1 pose `ToLobby` à 23:53:20,636 et rouvre la salle d'origine à .683 (nouvel id `8f92…`) ; **à .757 il voit
+  `8941…`, qui est l'ancien id du client 0** (encore dans la partie, requête à .749), et passe à `GameLoading` avec lui. Le serveur retire `8941…` à
+  .793 (le client 0 ferme son socket de partie). Le client 0 (nouvel id `f35e…`) voit alors `8f92…` à .883 et construit sa session sur lui. Chacun a une
+  session GGRS sur un identifiant que l'autre n'écoute pas : aucun événement `Synchronizing` après le retour, les deux journaux s'arrêtent à
+  « Map loading complete, transitioning to GameStarting state ».
+- Essai 3 (`/tmp/b2r/lobby3`) : même séquence, écart 329 ms (client 1 `.357`, client 0 `.686`, ancien id retiré à `.7407`).
+- Passages (essais 2 et 4) : les deux requêtes à ~5 ms, les deux anciens sockets retirés (`00:06:27,133`) avant que les neufs ne se connectent (`.138`).
+
+**Ce n'est pas un état non remis à zéro** (contrairement aux portes du hub) : c'est une course de protocole. Le retour au lobby rouvre la salle
+**d'origine**, celle de la partie qui finit ; le pair qui revient le premier s'y connecte au **socket encore vivant** de l'autre. « Rejouer » l'évite
+(salle `{lobby}-r{n}` neuve). **Conséquence pour un humain** : appuyer à quelques secondes d'écart ne l'évite pas, il l'aggrave (le premier revenu
+rencontre forcément l'ancien socket du second). Correction non faite (choix de conception : salle `{lobby}-l{n}`, poignée de main de lobby, ou abandon
+d'une session qui ne se synchronise pas) ; pistes en D86. **Le point 3 reste donc partiel** pour « retour au lobby en ligne après la fin de run ».
+
+### 7.5 Aussi trouvé
+- `p2p-restart.sh` (`set -e`) : sortait en code 1 à tort (corrigé au rejeu précédent) ; `set -e` + `grep` sans correspondance (`EXPECT_VICTORY`) l'aurait fait
+  mourir en silence : corrigé.
+- Les essais précédents (§3) n'avaient pas décalé les inputs ; leurs verdicts (traces identiques entre pairs) ne dépendent pas du décalage, mais la run
+  rejouée n'était pas exactement celle des bots (victoires f7138 pour f7142, f6374 pour f6378).

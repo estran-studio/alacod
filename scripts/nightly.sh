@@ -361,6 +361,10 @@ else
     GUNGEON_RUNS=("stress:")
     if [ -n "${NIGHTLY_GUNGEON_NETEM:-}" ]; then
         GUNGEON_RUNS+=("netem:${NIGHTLY_GUNGEON_NETEM}")
+    else
+        # Sans NIGHTLY_GUNGEON_NETEM, C2 ne couvre PAS le réseau dégradé (point 4 du contrat de sortie) : le dire.
+        append_summary "- gungeon netem : SKIPPED (NIGHTLY_GUNGEON_NETEM vide) : réseau dégradé NON couvert par cette étape"
+        log_warn "C2 : netem SKIPPED (NIGHTLY_GUNGEON_NETEM vide), réseau dégradé non couvert"
     fi
     for GUNGEON_RUN in "${GUNGEON_RUNS[@]}"; do
         GUNGEON_KIND=${GUNGEON_RUN%%:*}
@@ -383,7 +387,9 @@ else
         append_summary "- gungeon ${GUNGEON_KIND} : $(grep -E '^frames resimulées' "${GUNGEON_DIR}/${GUNGEON_KIND}.log"), $(grep -E "^transitions d'étage" "${GUNGEON_DIR}/${GUNGEON_KIND}.log"), traces identiques"
     done
     END_TIME=$(date +%s)
-    append_summary "### C2. P2P gungeon (run, transition d'étage): ✅ PASSED ($((END_TIME - START_TIME))s)"
+    GUNGEON_COVERS="stress SIGSTOP, transition d'étage, traces identiques"
+    [ -n "${NIGHTLY_GUNGEON_NETEM:-}" ] && GUNGEON_COVERS="${GUNGEON_COVERS}, réseau dégradé (${NIGHTLY_GUNGEON_NETEM})" || GUNGEON_COVERS="${GUNGEON_COVERS} ; netem SKIPPED"
+    append_summary "### C2. P2P gungeon (run, transition d'étage): ✅ PASSED ($((END_TIME - START_TIME))s) — ${GUNGEON_COVERS}"
     log_step "P2P gungeon passed"
 fi
 

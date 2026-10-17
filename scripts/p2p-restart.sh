@@ -14,7 +14,8 @@
 #   posée à RESTART_AT : `restart` = « Rejouer », `lobby` = bouton « Lobby » (les pairs reviennent
 #   dans la salle d'origine, graine d'origine : la partie 2 doit être IDENTIQUE à la 1), `hub` =
 #   « Retour au hub » des jeux à hub : hub → run → hub → run, graine dérivée à chaque passage),
-#   TIMEOUT (900 s : au-delà, les clients sont tués et le script échoue ; `RESTART_KIND=lobby`
+#   EXPECT_VICTORY=1 (échec si un client n'a pas journalisé `run summary … outcome=Victory` : la requête
+#   est posée APRÈS la fin de run), TIMEOUT (900 s : au-delà, les clients sont tués et le script échoue ; `RESTART_KIND=lobby`
 #   bloque aujourd'hui, D86), OUT (/tmp/p2p-restart), MATCHBOX_PORT, MATCHBOX_URL, NETEM (voir `p2p-lib.sh`).
 #   Tout autre `ALACOD_*` de l'environnement est transmis aux clients (`ALACOD_SKIP_HUB=1`).
 # Bash, pas zsh (les `wait $pid` d'une variable non éclatée échouent en zsh).
@@ -60,6 +61,7 @@ cleanup() {
 }
 trap cleanup EXIT
 p2p_signaling_up
+p2p_calm
 
 input_env=()
 [ -z "$INPUTS" ] || input_env=("ALACOD_INPUT=script:$INPUTS" "ALACOD_INPUT_DELAY=0")
@@ -104,6 +106,13 @@ echo "DesyncDetected : $desync"
 for ((i = 0; i < CLIENTS; i++)); do
     echo "client $i : frames resimulées (compteur du jeu, deux parties) : $(p2p_resimulated "$OUT/p2p-$i.log")"
 done
+if [ -n "${EXPECT_VICTORY:-}" ]; then
+    for ((i = 0; i < CLIENTS; i++)); do
+        v=$(grep -o 'f[0-9]* run summary:.*outcome=[A-Za-z]*' "$OUT/p2p-$i.log" | head -1 || true)
+        echo "client $i : ${v:-aucun résumé de run}"
+        case "$v" in *outcome=Victory) ;; *) echo "ÉCHEC : client $i : pas de victoire avant la relance"; fail=1 ;; esac
+    done
+fi
 for g in 1 2; do
     a="$OUT/p2p-0.trace-g$g"
     for ((i = 1; i < CLIENTS; i++)); do

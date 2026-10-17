@@ -16,6 +16,9 @@
 #                    `matchbox_server`, extrait de l'image Docker du compose, ou `MATCHBOX_BIN`).
 #   KEEP_SIGNALING=1 : laisse le signaling Docker démarré.
 #   P2P_NO_BUILD=1 : ne compile pas (binaire déjà construit).
+#   P2P_WAIT_CALM=<n> : attend (30 min au plus) que la charge à 1 min soit < n avant de lancer les clients
+#                    (machine partagée : un pair affamé de CPU se fait déconnecter, D87) ; la charge au
+#                    lancement est toujours affichée.
 
 # Racine du dépôt, binaire du jeu `$BIN`, bibliothèques partagées de développement.
 p2p_init() {
@@ -97,6 +100,10 @@ p2p_signaling_up() {
 }
 
 p2p_signaling_down() {
+    # Journal du signaling (pairs vus, retraits) : indispensable au diagnostic d'un pair fantôme (D86).
+    if [ -n "${OUT:-}" ] && [ -z "${SIGNAL_PID:-}" ] && [ -z "${MATCHBOX_URL:-}" ] && [ "${P2P_NETNS:-}" != 1 ]; then
+        docker compose -f docker-compose.ci.yaml logs --no-color --no-log-prefix signaling > "$OUT/signaling.log" 2>&1 || true
+    fi
     if [ -n "${SIGNAL_PID:-}" ]; then
         kill "$SIGNAL_PID" 2>/dev/null
     elif [ -z "${MATCHBOX_URL:-}" ] && [ "${KEEP_SIGNALING:-0}" != 1 ] && [ "${P2P_NETNS:-}" != 1 ]; then
@@ -117,4 +124,24 @@ p2p_resimulated() {
     local n
     n=$(sed -n 's/.*frames resimulées après rollback : \([0-9][0-9]*\).*/\1/p' "$1" | tail -1)
     echo "${n:--1}"
+}
+
+# Charge de la machine (1 min) ; avec P2P_WAIT_CALM=<n>, attend qu'elle passe sous n. Affiche la charge
+# retenue : une preuve p2p faite sous charge doit le dire.
+p2p_calm() {
+    local load
+    if [ -n "${P2P_WAIT_CALM:-}" ]; then
+        local i
+        for ((i = 0; i < 180; i++)); do
+            load=$(cut -d' ' -f1 /proc/loadavg 2>/dev/null || uptime | sed 's/.*averages*: *//;s/,.*//')
+            awk "BEGIN{exit !($load < $P2P_WAIT_CALM)}" && break
+            sleep 10
+        done
+    fi
+    load=$(cut -d' ' -f1 /proc/loadavg 2>/dev/null || uptime | sed 's/.*averages*: *//;s/,.*//')
+    LOAD_AT_START=$load
+    echo "charge machine au lancement : $load${P2P_WAIT_CALM:+ (seuil $P2P_WAIT_CALM)}"
+    if [ -n "${P2P_WAIT_CALM:-}" ] && ! awk "BEGIN{exit !($load < $P2P_WAIT_CALM)}"; then
+        echo "ATTENTION : charge non tenue (>= $P2P_WAIT_CALM) : la preuve peut échouer pour cause de charge"
+    fi
 }

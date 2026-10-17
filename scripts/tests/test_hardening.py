@@ -148,6 +148,24 @@ class P2PTraceTests(unittest.TestCase):
                     traces.read_trace(path, 1)
 
 
+class SingleTraceCliTests(unittest.TestCase):
+    """`check-p2p-traces.py --single` (p2p-machine.sh) refuse une trace tronquée par `confirmed_end`."""
+
+    def run_cli(self, content, frames):
+        script = Path(__file__).resolve().parents[1] / "check-p2p-traces.py"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "a.trace"
+            path.write_text(content)
+            return subprocess.run([sys.executable, str(script), "--single", "--frames", str(frames), str(path)],
+                                  capture_output=True, text=True).returncode
+
+    def test_truncated_trace_fails_complete_passes(self):
+        full = "".join(f"{i} {'a' * 32} 10\n" for i in range(3))
+        self.assertEqual(self.run_cli(full, 3), 0)
+        self.assertEqual(self.run_cli(full, 4), 1)  # tronquée : 3 lignes, 4 attendues
+        self.assertEqual(self.run_cli("", 1), 1)
+
+
 class ShardPlanTests(unittest.TestCase):
     """`scenario-shard-plan.py` nomme les scénarios par leur id (`generated/<jeu>/<nom>`) :
     deux jeux peuvent générer le même nom court, et le runner refuse un nom ambigu."""
