@@ -4,6 +4,9 @@
 //
 // À regarder : avec l'objet, la larme se courbe vers `target` et la touche ; sans lui, elle passe
 // à côté.
+//
+// M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la larme et ses modificateurs (`tear_look`). Trace inchangée.
+
 Scenario(
     game: "testbed",
     map: "testbed/props_room.ldtk",
@@ -23,5 +26,6 @@ Scenario(
         EntityHits(net_id: 14, min: 0, max: Some(0), at_frame: 57),
         HitsAtLeast(entity: Placed(0), hits: 1, at_frame: 58),
         EntityHits(net_id: 14, min: 1, max: Some(1), at_frame: 119),
+        Event(kind: "feedback", label_contains: Some("larme 15 (guidée)"), by_frame: 21),
     ],
 )

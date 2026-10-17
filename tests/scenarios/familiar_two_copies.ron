@@ -3,6 +3,7 @@
 // répartis à 120° autour du joueur à 36 unités).
 //
 // À regarder : deux suiveurs en file derrière le joueur et trois orbitaux qui tournent autour de lui.
+
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",

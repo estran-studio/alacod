@@ -1,0 +1,37 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 16,
+    "kind": "feedback",
+    "label": "mèche 17 (19 frames)"
+  },
+  {
+    "frame": 36,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 36,
+    "kind": "feedback",
+    "label": "secousse 10 (8 frames)"
+  },
+  {
+    "frame": 36,
+    "kind": "feedback",
+    "label": "hit stop 10 (2 frames)"
+  },
+  {
+    "frame": 36,
+    "kind": "feedback",
+    "label": "anneau d'explosion (rayon 48)"
+  },
+  {
+    "frame": 35,
+    "kind": "explosion",
+    "label": "explosion en (168, 690) rayon 48"
+  }
+]

@@ -7,6 +7,7 @@
 // À regarder : la bombe explose à f80 et abîme le premier baril (30 >= 20 PV : à 0 PV) ; il explose à f81 (le
 // poseur, à 34 unités, encaisse les 30 dégâts du baril : les barils ont toujours le tir ami) et tue le second ;
 // celui-ci explose à f82 et blesse le joueur 1 (100 -> 70). Témoin : `barrel_chain` (mêmes barils, balles).
+
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
