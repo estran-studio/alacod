@@ -1,3 +1,12 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : `loot_seed` / `curse_seed` reçoivent `fmix32` et le butin se tire par
+// Preuve d'achat (D95/D96) : `HasItem(gilet/roulade)` (objets vendus avant) est remplacé par le présentoir lu `Shelf(sold)` (non vendu avant l'achat, vendu après) et
+// `Consumable(blank)` du joueur acheteur (0 puis 1 ; indirect : un blank se ramasse aussi).
+// course pondérée (graine de carte 10 inchangée : carte et salles identiques, objets autres). Victoire f6091 (avant :
+// f6455). Attentes re-mesurées, aucune retirée ; écarts de sens : la clé est ramassée par le **joueur 2** (f2154, plus
+// le joueur 1 à f148) et c'est lui qui ouvre le coffre à clé (`double_canon`, f2716) ; l'arène du premier étage vient
+// avant l'escouade ; chaque boss tombe peu après sa phase 1 (phase 1 → 2 jamais observée ; mesure de PV : `gungeon_full_run`) :
+// `BossPhase` lue en phase 1 et l'événement « phase 1 → 2 » devient « phase 0 → 1 » ; coffre du second étage de
+// `joueur 2` à f3554 (rancune), achat de la boutique du second étage f4734.
 // m2-full-run (docs/conventions.md §57, « Run complète de M2 ») : la même run que `gungeon_full_run`
 // (graine 10, `etages_deux`, hub puis run, profil à trois déblocages, `shopping`) à QUATRE joueurs,
 // quatre bots `explorateur`, en synctest. Le gabarit `Depart` n'a que deux `PlayerSpawn` : les joueurs 2
@@ -7,11 +16,11 @@
 // Comme `gungeon_full_run` : ni salle secrète (D81, pas de bombe) ni porte de hub conditionnée par le profil.
 //
 // À regarder : hub f175 la porte ; run f1 « entrée en run depuis le hub » ; f70-84 les quatre joueurs
-// lâchent un blank devant la première salle ; f148 le joueur 1 ramasse une clé ; f1161-1911 l'ARÈNE
-// tenue ; f2136-2225 l'escouade ; f2463-2524 achats en boutique ; f2568 le joueur 1 ouvre le coffre à clé (sa
-// clé est consommée) ; f3048 le boss se verrouille, phases f3080 et f3104, f3178 PORTAIL, f3372 SECOND
-// ÉTAGE ; f4081 un coffre ; f5160-5910 la seconde arène ; f6302 le second boss, phases f6381 et f6442, f6455 VICTOIRE
-// des quatre joueurs.
+// lâchent un blank devant la première salle ; f1203-1953 l'ARÈNE tenue ; f2154 le joueur 2 ramasse une clé ;
+// f2202-2279 l'escouade ; f2587-2648 achats en boutique (joueur 3) ; f2716 le joueur 2 ouvre le coffre à clé (sa
+// clé est consommée, un `double_canon` tombe) ; f3164 le boss se verrouille, f3208 phase 1 (il tombe à f3209 :
+// plus de phase 2), f3210 PORTAIL, f3403 SECOND ÉTAGE ; f3554 un coffre (rancune) ; f3617-4367 la seconde
+// arène ; f6047 le second boss, phase 1 f6054, f6091 VICTOIRE des quatre joueurs.
 //
 // D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes (champions) a changé pour tous les
 // jeux : mêmes attentes, frames re-chronométrées (la run gagne f6455, avant f6876) ;
@@ -56,7 +65,7 @@ Scenario(
     ],
     expect: [
         // Escouade (salle verrouillée f2136-f2225) : des membres de `bullet_kins` vivent pendant le verrou, plus aucun après.
-        SquadSize(squad: "bullet_kins", min: 2, at_frame: 2150),
+        SquadSize(squad: "bullet_kins", min: 2, at_frame: 2210),
         SquadSize(squad: "bullet_kins", max: 0, at_frame: 2300),
         // Hub, entrée en run, déblocages.
         HubVisit(handle: 0, service: "marchand", at_frame: 120),
@@ -67,27 +76,31 @@ Scenario(
         // Quatre joueurs en vie dès la première frame de la run, quatre blanks.
         PlayerAlive(handle: 3, at_frame: 5),
         Event(kind: "blank", label_contains: "joueur 3", by_frame: 72),
-        Event(kind: "item_pickup", label_contains: "key", by_frame: 149),
-        Consumable(handle: 1, id: "key", count: 1, at_frame: 200),
+        Event(kind: "item_pickup", label_contains: "key", by_frame: 2155),
+        Consumable(handle: 2, id: "key", count: 1, at_frame: 2200),
         // Arène tenue, boutique, coffre à clé (la clé du joueur 1 est consommée).
-        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 1912),
-        Event(kind: "purchase", label_contains: "(shop)", by_frame: 2464),
-        Consumable(handle: 1, id: "key", count: 1, at_frame: 2557),
-        Event(kind: "chest", label_contains: "joueur 1 ouvre", by_frame: 2569),
-        Consumable(handle: 1, id: "key", count: 0, at_frame: 2580),
+        Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 1954),
+        Shelf(nth: 0, sold: Some(false), at_frame: 2585),
+        Shelf(nth: 0, sold: Some(true), at_frame: 2660),
+        Event(kind: "purchase", label_contains: "(shop)", by_frame: 2588),
+        Consumable(handle: 3, id: "blank", count: 0, at_frame: 2585),
+        Consumable(handle: 3, id: "blank", count: 1, at_frame: 2600),
+        Consumable(handle: 2, id: "key", count: 1, at_frame: 2710),
+        Event(kind: "chest", label_contains: "joueur 2 ouvre", by_frame: 2717),
+        Consumable(handle: 2, id: "key", count: 0, at_frame: 2730),
         // Boss du premier étage (trois phases), portail, second étage.
-        Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3081),
-        BossPhase(entity: NetId(211), phase: 2, at_frame: 3150),
-        Event(kind: "portal", by_frame: 3179),
+        Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3209),
+        BossPhase(entity: NetId(211), phase: 1, at_frame: 3209),
+        Event(kind: "portal", by_frame: 3211),
         FloorIndex(index: 0, at_frame: 3300),
         FloorIndex(index: 1, at_frame: 3500),
         // Second étage (événements postérieurs à l'arrivée f3424) : coffre, boutique, arène, boss.
-        EventAfter(kind: "chest", label_contains: "joueur 2 ouvre", after_frame: 3450, by_frame: 4082),
-        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 3450, by_frame: 4419),
-        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 3450, by_frame: 5911),
-        EventAfter(kind: "boss_phase", label_contains: "phase 1 → 2", after_frame: 3450, by_frame: 6443),
-        RoomState(kind: "arene", nth: 0, state: Cleared, at_frame: 5925),
-        BossPhase(entity: NetId(783), phase: 2, at_frame: 6450),
+        EventAfter(kind: "chest", label_contains: "joueur 2 ouvre", after_frame: 3450, by_frame: 3555),
+        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 3450, by_frame: 4735),
+        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 3450, by_frame: 4368),
+        EventAfter(kind: "boss_phase", label_contains: "phase 0 → 1", after_frame: 3450, by_frame: 6055),
+        RoomState(kind: "arene", nth: 0, state: Cleared, at_frame: 4380),
+        BossPhase(entity: NetId(788), phase: 1, at_frame: 6060),
         RunState(step: Ended(Victory), at_frame: 6950),
         PlayerAlive(handle: 0, at_frame: 6999),
         PlayerAlive(handle: 1, at_frame: 6999),

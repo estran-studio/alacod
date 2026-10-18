@@ -6,7 +6,7 @@
 //! - [`CurseConfig`] : champ `curses` d'une séquence `Floors` (absent : aucune curse) : la chance
 //!   par étage et le pool d'identifiants.
 //! - [`draw_curse`] : tirage **pur** et indépendant du moment : un RNG local seedé par
-//!   [`curse_seed`] (`fnv1a("curse:<graine>:<étage>")`), aucun flux de `RngStreams`. Les deux
+//!   [`curse_seed`] (`fnv1a("curse:<graine>:<étage>")` puis `fmix32`), aucun flux de `RngStreams`. Les deux
 //!   tirages (chance, choix) sont toujours consommés, comme `items::draw_loot`.
 //! - [`RunCurses`] : la curse de chaque étage déjà entré et le dernier étage traité (ressource
 //!   rollback **neutre** : vide tant qu'aucune curse n'est tirée, donc aucune trace existante ne
@@ -20,7 +20,9 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::Resource;
 use bevy_fixed::fixed_math::Fixed;
-use bevy_fixed::rng::{fnv1a, RollbackRng};
+use bevy_fixed::rng::{
+    fnv1a_extend, fnv1a_extend_decimal, seed_from_hash, RollbackRng, FNV1A_OFFSET,
+};
 use serde::{Deserialize, Serialize};
 use sim_core::modifier::{Modifier, ModifierOp, ModifierSource};
 use sim_core::stats::StatId;
@@ -155,11 +157,15 @@ impl RunCurses {
 }
 
 /// Graine du tirage de la curse de l'étage `floor` d'une partie de graine `run_seed` :
-/// `fnv1a("curse:<graine>:<étage>")` replié sur 32 bits. Indépendante du temps, des `Entity` et
-/// de tout flux de `RngStreams`.
+/// `fnv1a("curse:<graine>:<étage>")` replié sur 32 bits puis passé au finaliseur `fmix32`
+/// ([`seed_from_hash`], D95 : sans lui deux étages voisins restaient corrélés, r jusqu'à 0,039).
+/// Indépendante du temps, des `Entity` et de tout flux de `RngStreams`.
 pub fn curse_seed(run_seed: u32, floor: u32) -> u32 {
-    let hash = fnv1a(format!("curse:{run_seed}:{floor}").as_bytes());
-    (hash ^ (hash >> 32)) as u32
+    // Les mêmes octets que `fnv1a(format!("curse:{run_seed}:{floor}"))`, sans allocation.
+    let hash = fnv1a_extend(FNV1A_OFFSET, b"curse:");
+    let hash = fnv1a_extend_decimal(hash, u64::from(run_seed));
+    let hash = fnv1a_extend(hash, b":");
+    seed_from_hash(fnv1a_extend_decimal(hash, u64::from(floor)))
 }
 
 /// Tire la curse de l'étage `floor` : `None` (aucune curse) ou l'id d'une entrée de `config.pool`.
@@ -356,5 +362,132 @@ mod tests {
         assert_eq!(def.weight, 2);
         assert_eq!(def.effects.len(), 3);
         assert_eq!(def.effects[1], CurseEffect::FloorRooms(Fixed::from_num(2)));
+    }
+
+    /// Ancienne graine (avant D95) : le repli FNV seul, sans finaliseur.
+    fn legacy_curse_seed(run_seed: u32, floor: u32) -> u32 {
+        let hash = bevy_fixed::rng::fnv1a(format!("curse:{run_seed}:{floor}").as_bytes());
+        (hash ^ (hash >> 32)) as u32
+    }
+
+    /// Les mêmes octets que la clé textuelle `curse:<graine>:<étage>`.
+    #[test]
+    fn allocation_free_seed_equals_the_textual_key() {
+        for (run_seed, floor) in [(0, 0), (1, 5), (123_456, 17), (u32::MAX, u32::MAX)] {
+            let hash = bevy_fixed::rng::fnv1a(format!("curse:{run_seed}:{floor}").as_bytes());
+            assert_eq!(curse_seed(run_seed, floor), seed_from_hash(hash));
+        }
+    }
+
+    /// D95 : mesure en Rust (modèle de `variant::tests` et de `items::loot::tests`) : 20 000 graines × 16
+    /// étages voisins. Deux indicateurs : la chance (p = 0,1) et le choix pondéré (`a` contre `b`, poids 1 et 3,
+    /// p = 0,25). La fréquence de **chaque** étage est vérifiée, le dernier compris.
+    #[test]
+    fn curse_seeds_of_neighbouring_floors_are_independent() {
+        const SEEDS: u32 = 20_000;
+        const FLOORS: usize = 16;
+        let defs = defs();
+        let lucky = config(Fixed::from_num(0.1), &["a"]);
+        let choice = config(Fixed::ONE, &["a", "b"]);
+        // Même tirage que `draw_curse`, graine au choix (pour confronter l'ancienne).
+        let draw = |config: &CurseConfig, seed: u32| -> Option<String> {
+            let mut rng = RollbackRng::new(seed);
+            let roll = rng.next_fixed();
+            let pick = rng.next_u32();
+            if roll >= config.chance {
+                return None;
+            }
+            let total: u64 = config
+                .pool
+                .iter()
+                .map(|id| u64::from(defs[id].weight))
+                .sum();
+            let mut at = u64::from(pick) % total;
+            for id in &config.pool {
+                let weight = u64::from(defs[id].weight);
+                if at < weight {
+                    return Some(id.clone());
+                }
+                at -= weight;
+            }
+            None
+        };
+        // Le miroir ci-dessus doit rendre exactement `draw_curse` avec la graine du jeu.
+        for seed in 1..200 {
+            for floor in 0..FLOORS as u32 {
+                assert_eq!(
+                    draw(&choice, curse_seed(seed, floor)),
+                    draw_curse(&choice, &defs, seed, floor)
+                );
+            }
+        }
+        let stats = |seed_of: &dyn Fn(u32, usize) -> u32, config: &CurseConfig, hit_id: &str| {
+            let mut hits = [0u32; FLOORS];
+            let mut pairs = [0u32; FLOORS - 1];
+            let mut none = 0u32;
+            for seed in 1..=SEEDS {
+                let draws: Vec<bool> = (0..FLOORS)
+                    .map(|i| draw(config, seed_of(seed, i)).is_some_and(|id| id == hit_id))
+                    .collect();
+                none += u32::from(draws.iter().all(|hit| !hit));
+                for i in 0..FLOORS {
+                    hits[i] += u32::from(draws[i]);
+                    if i + 1 < FLOORS {
+                        pairs[i] += u32::from(draws[i] && draws[i + 1]);
+                    }
+                }
+            }
+            let n = f64::from(SEEDS);
+            let freq: Vec<f64> = hits.iter().map(|h| f64::from(*h) / n).collect();
+            let max_r = (0..FLOORS - 1)
+                .map(|i| {
+                    let covariance = f64::from(pairs[i]) / n - freq[i] * freq[i + 1];
+                    let variance = freq[i] * (1.0 - freq[i]) * freq[i + 1] * (1.0 - freq[i + 1]);
+                    (covariance / variance.sqrt()).abs()
+                })
+                .fold(0.0, f64::max);
+            (
+                freq.iter().copied().fold(1.0, f64::min),
+                freq.iter().copied().fold(0.0, f64::max),
+                max_r,
+                f64::from(none) / n,
+            )
+        };
+        let (mut old_worst, mut new_worst) = (0.0f64, 0.0f64);
+        for (name, config, id, p) in [
+            ("chance 0,1", &lucky, "a", 0.1),
+            ("choix a/b", &choice, "a", 0.25),
+        ] {
+            let old = stats(&|s, i| legacy_curse_seed(s, i as u32), config, id);
+            let new = stats(&|s, i| curse_seed(s, i as u32), config, id);
+            eprintln!(
+                "D95 curse {name} : avant f∈[{:.4},{:.4}] r={:.4} | après f∈[{:.4},{:.4}] r={:.4} sans={:.3}",
+                old.0, old.1, old.2, new.0, new.1, new.2, new.3
+            );
+            old_worst = old_worst.max(old.2);
+            new_worst = new_worst.max(new.2);
+            assert!(
+                new.0 > p * 0.8 && new.1 < p * 1.2,
+                "{name} : fréquences [{:.4}, {:.4}] (attendu {p})",
+                new.0,
+                new.1
+            );
+            assert!(
+                new.2 < 0.03,
+                "{name} : étages voisins corrélés, r = {:.4}",
+                new.2
+            );
+            let expected_none = (1.0f64 - p).powi(FLOORS as i32);
+            assert!(
+                (new.3 - expected_none).abs() < 0.03,
+                "{name} : {:.3} des graines sans curse (attendu {expected_none:.3})",
+                new.3
+            );
+        }
+        eprintln!("D95 curse : |r| max avant {old_worst:.4}, après {new_worst:.4}");
+        assert!(
+            old_worst > 0.03,
+            "le détecteur ne voit plus l'ancien défaut (r = {old_worst:.4})"
+        );
     }
 }

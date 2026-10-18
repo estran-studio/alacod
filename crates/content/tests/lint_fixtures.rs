@@ -1605,6 +1605,26 @@ fn loot_weight_zero_fixture_reports_out_of_range() {
 }
 
 #[test]
+fn loot_weight_over_cap_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_weight_over_cap")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "poids 1001 (au plus 1000",
+    );
+}
+
+#[test]
+fn unlock_weight_over_cap_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_weight_over_cap")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "poids 1001 (au plus 1000",
+    );
+}
+
+#[test]
 fn loot_unknown_item_fixture_reports_broken_reference() {
     let (_, _, errors) = load_and_lint(&fixture_dir("loot_unknown_item")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "fantome");

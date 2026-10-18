@@ -9,6 +9,7 @@
 // M2-T14d : la grammaire `etage` compte sept types exigés (escouade, coffre, secret en plus) : même graine, autre étage, donc autre
 // clé `shop:<salle>` ; présentoirs 0 et 1 : armes (arbalete 15, mitraillette 30), 2 : revolver 15 (le premier présentoir ne tire que des armes, §50).
 // m2-salles-murs-gungeon : gabarits agrandis, la boutique est une autre salle (autre clé `shop:<salle>`, autre tirage seedé) ; présentoirs 0 : double_canon (30), 1 : arbalete (15), 2 : pistolet_precis (15). Les trois attentes gardent leur rôle (arme, prix par rareté), seules les valeurs changent.
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : nouveau tirage (graine `shop:<salle>` passée au `fmix32`, course pondérée) : présentoirs pistolet_precis (15), pistolet_jumele (15), rebondisseur (30) ; la clé du présentoir (`shelf:<salle>:<i>`) est la même, seule l'arme change. Attentes de même rôle (arme et prix suivent la rareté), aucune retirée.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",

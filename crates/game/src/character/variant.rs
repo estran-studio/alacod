@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use bevy_fixed::{
     fixed_math::{self, Fixed},
-    rng::{fnv1a_extend, fnv1a_extend_decimal, RollbackRng, FNV1A_OFFSET},
+    rng::{fnv1a_extend, fnv1a_extend_decimal, seed_from_hash, RollbackRng, FNV1A_OFFSET},
 };
 use content::expr::NumOrExpr;
 use serde::Deserialize;
@@ -135,8 +135,8 @@ impl Default for VariantContext {
 }
 
 /// Graine du tirage d'un personnage : `fnv1a("variants:<run_seed>:<net_id>")` replié sur 32 bits
-/// (même idiome que `loot_seed` et `curse_seed`), puis passé au finaliseur de MurmurHash3
-/// (`fmix32`), indépendante de l'ordre d'apparition et du moment du chargement de la carte.
+/// puis passé au finaliseur de MurmurHash3 ([`seed_from_hash`] : même idiome que `loot_seed` et
+/// `curse_seed` depuis D95), indépendante de l'ordre d'apparition et du moment du chargement de la carte.
 ///
 /// D88 : l'ancien `fnv ^ graine ^ net_id` suivi d'un pas de congruentiel donnait des tirages quasi
 /// linéaires, donc corrélés. Le repli FNV seul ne suffit pas : le dernier octet haché n'entre que
@@ -149,16 +149,7 @@ pub fn variant_seed(run_seed: u32, net_id: u64) -> u32 {
     let hash = fnv1a_extend_decimal(hash, u64::from(run_seed));
     let hash = fnv1a_extend(hash, b":");
     let hash = fnv1a_extend_decimal(hash, net_id);
-    fmix32((hash ^ (hash >> 32)) as u32)
-}
-
-/// Finaliseur de MurmurHash3 : chaque bit d'entrée change chaque bit de sortie avec probabilité ½.
-fn fmix32(mut x: u32) -> u32 {
-    x ^= x >> 16;
-    x = x.wrapping_mul(0x85eb_ca6b);
-    x ^= x >> 13;
-    x = x.wrapping_mul(0xc2b2_ae35);
-    x ^ (x >> 16)
+    seed_from_hash(hash)
 }
 
 /// Variante tirée (ou imposée par `forced`) pour un personnage. `None` : pas de variante

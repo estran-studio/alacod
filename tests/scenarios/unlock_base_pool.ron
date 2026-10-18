@@ -1,6 +1,7 @@
 // M2-T12 (§51) : jumeau de `unlock_enriches_pool` sans déblocage : mêmes coffres, mêmes appuis,
-// mais pools de base (trèfle et étendard cachés) : ici « amulette » ×1, « bastion » ×1,
-// « lunettes » ×3. Mêmes remarques de maintenance.
+// mais pools de base (trèfle et étendard cachés) : ici « amulette » ×0, « bastion » ×0,
+// « lunettes » ×1, « roulade » ×2. Mêmes remarques de maintenance.
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : nouveau tirage (graine `fmix32`, course pondérée) : comptes re-mesurés (avant : amulette ×1, bastion ×1, lunettes ×3) ; `roulade` ajoutée (même rôle : une valeur qui diffère de la partie enrichie).
 //
 // À regarder : même séquence que `unlock_enriches_pool`, inventaire différent à la fin.
 Scenario(
@@ -14,8 +15,9 @@ Scenario(
     players: [(inputs: [(from: 30, to: 31, buttons: [Interaction]),(from: 40, to: 41, buttons: [Interaction]),(from: 50, to: 51, buttons: [Interaction]),(from: 60, to: 61, buttons: [Interaction]),(from: 70, to: 71, buttons: [Interaction]),(from: 80, to: 81, buttons: [Interaction]),(from: 90, to: 91, buttons: [Interaction]),(from: 100, to: 101, buttons: [Interaction]),(from: 110, to: 111, buttons: [Interaction]),(from: 120, to: 121, buttons: [Interaction]),(from: 130, to: 131, buttons: [Interaction]),(from: 140, to: 141, buttons: [Interaction]),(from: 150, to: 151, buttons: [Interaction]),(from: 160, to: 161, buttons: [Interaction]),(from: 170, to: 171, buttons: [Interaction]),(from: 180, to: 181, buttons: [Interaction]),(from: 190, to: 191, buttons: [Interaction]),(from: 200, to: 201, buttons: [Interaction]),(from: 210, to: 211, buttons: [Interaction]),(from: 220, to: 221, buttons: [Interaction])])],
     expect: [
         RunUnlocks(lacks: ["tresor_trefle", "etendard_royal", "coffre_riche"], at_frame: 50),
-        ItemCount(handle: 0, id: "amulette", count: 1, at_frame: 259),
-        ItemCount(handle: 0, id: "bastion", count: 1, at_frame: 259),
-        ItemCount(handle: 0, id: "lunettes", count: 3, at_frame: 259),
+        ItemCount(handle: 0, id: "amulette", count: 0, at_frame: 259),
+        ItemCount(handle: 0, id: "bastion", count: 0, at_frame: 259),
+        ItemCount(handle: 0, id: "lunettes", count: 1, at_frame: 259),
+        ItemCount(handle: 0, id: "roulade", count: 2, at_frame: 259),
     ],
 )

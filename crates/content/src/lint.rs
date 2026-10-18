@@ -4601,6 +4601,12 @@ fn lint_unlocks(registry: &Registry, errors: &mut Vec<LintError>) {
                             format!("déblocage « {id} » : grants[{index}] : poids {weight} (doit être > 0)"),
                         );
                     }
+                    if *weight > items::MAX_LOOT_WEIGHT {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("déblocage « {id} » : grants[{index}] : poids {weight} (au plus {}, le tirage joue un billet par unité de poids)", items::MAX_LOOT_WEIGHT),
+                        );
+                    }
                     if matches!(pick, items::LootPick::Currency(0)) {
                         push(
                             LintErrorKind::OutOfRange,
@@ -4841,6 +4847,16 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                     format!(
                         "pool de butin « {id} » : entries[{index}] : poids {} (doit être > 0)",
                         entry.weight
+                    ),
+                );
+            }
+            if entry.weight > items::MAX_LOOT_WEIGHT {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "pool de butin « {id} » : entries[{index}] : poids {} (au plus {}, le tirage joue un billet par unité de poids)",
+                        entry.weight,
+                        items::MAX_LOOT_WEIGHT
                     ),
                 );
             }
