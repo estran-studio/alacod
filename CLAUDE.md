@@ -364,6 +364,13 @@ désérialisés (`WeaponAsset`, `MeleeWeaponAsset` ; leurs enveloppes `Asset` so
 le sprite d'une balle est posé par `game::world_sprites::attach_bullet_visuals` (`Added<Bullet>`, à partir
 de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `sim_core::animation_state`.
 
+Étape 2 de D69 (plan `docs/taches/rapports/dette-d69-plan-etape2.md`, fiche `docs/taches/dette-d69-etape2.md`) :
+`make probe_game_sim` compile `game` en ECS seul dans une copie jetable et range les fuites par fichier (mesure de
+la dette tant que `game` est un crate) ; `make schedule_order_diff BASE=<réf>` prouve que l'ordre des systèmes du
+rollback (`ReadInputs`, `GgrsSchedule`, `AdvanceWorld`, `SaveWorld`, `LoadWorld`) et des types rollback n'a pas bougé
+(`crates/scenario/tests/schedule_order.rs`). À lancer à chaque refactoring qui déplace de la simulation d'un module
+ou d'un crate à l'autre, avec les traces de scénario.
+
 ## Scénarios (tests de comportement et de régression)
 
 `crates/scenario` joue des parties scriptées en headless, dans le processus de test :

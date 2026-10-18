@@ -192,7 +192,7 @@ impl Obstacle {
 }
 
 /// RON configuration for obstacle definitions
-#[derive(Clone, Debug, Serialize, Deserialize, Asset, TypePath)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ObstacleConfig {
     pub obstacle_type: ObstacleType,
     pub blocks_movement: Option<bool>,

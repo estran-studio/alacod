@@ -1,0 +1,21 @@
+# Fichiers de crates/game/src déjà séparables en `game_sim` (D69 étape 2) : sans fuite de présentation
+# (sonde `scripts/probe-game-sim.py`) et ne dépendant que de fichiers de cette liste.
+# Cliquet : chaque étape de `docs/taches/dette-d69-etape2.md` y ajoute les fichiers qu'elle libère ;
+# `make probe_game_sim SIM_LIST=scripts/d69-sim-files.txt` échoue si l'un d'eux régresse.
+# Mesuré le 2026-10-18 sur main 09b68187 (+ retouches de dette-d69-plan-etape2) : 16 fichiers, 2 405 lignes.
+character/enemy/ai/obstacle.rs
+character/enemy/mod.rs
+character/movement.rs
+character/player/jjrs.rs
+character/player/mod.rs
+character/variant.rs
+collision_grid.rs
+frame_events.rs
+gen_test.rs
+patterns.rs
+rollback.rs
+statuses.rs
+system_set.rs
+ui/screens/model.rs
+waves/state.rs
+waves/tracking.rs
