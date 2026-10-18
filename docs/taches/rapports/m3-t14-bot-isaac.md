@@ -42,9 +42,10 @@ Autres ajouts, tous des **mécanismes de bot** nés de soft-locks réels des cam
   **3 939 frames resimulées** (client 0 ; 302 rollbacks, profondeur max 11 ; client 1 : 0), 0 `DesyncDetected`, codes 0/0, traces identiques (2 999 lignes), **passage d'étage 0 → 1 resimulé (f1802)**.
   Écueil trouvé en route : avec `--seed 79` seul, le client jouait la carte de `default_seed` (ids de salles et butin différents de ceux de l'enregistrement,
   inputs caducs : bot mort à f745) ; `EXPECT_FLOORS=1` l'a dit au lieu de l'avaler.
-- Preuve que les autres jeux ne bougent pas : les 14 scénarios à explorateur existants (`bot_explorer_floor/two`, `grid_floor_seed_1/23/123`, `grid_post_boss`,
-  `gungeon_boss_bot`, `gungeon_floor_seed_1/23/123`, `gungeon_full_run`, `gungeon_full_run_four`, `gungeon_two_floors`, `isaac_floor_seed_1`) ont les traces **de
-  `main`** (aucune blessée par cette branche). Piège évité : la première version de la fuite de bombe divergeait de `main` sur `grid_post_boss` (f767) et
+- Preuve que les autres jeux ne bougent pas : **la suite entière sans BLESS** (ci-dessus : 659 scénarios, aucune trace de `main` blessée par cette branche) dont les
+  **25 scénarios à `explorateur` de `main`** (`achievement_unlocks`, `bot_explorer_floor/two`, `grid_floor_seed_1/23/123`, `grid_post_boss`, `gungeon_boss_bot`,
+  `gungeon_floor_seed_1/23/123`, `gungeon_full_run`, `gungeon_full_run_four`, `gungeon_two_floors`, `isaac_floor_seed_1`, et les générés `gungeon/room_*` ×6, `isaac/room_combat`,
+  `testbed/room_*` ×3). Piège évité : la première version de la fuite de bombe divergeait de `main` sur `grid_post_boss` (f767) et
   `grid_floor_seed_23` (f2371) dès que D88 a donné des champions explosifs aux grilles ; la fuite et l'orbite sont donc sous `combat_aware`.
 
 ## 3. Campagnes (séquence par défaut d'`isaac`, `sous_sol`, deux étages ; `--pickup-progress`)
@@ -53,7 +54,7 @@ Autres ajouts, tous des **mécanismes de bot** nés de soft-locks réels des cam
 « Bombe d'essai » (`--bombs 1`) : `isaac` n'a ni `BombCarrier` ni bombe de départ avant M3-T11d (décision §69) ; la campagne « livrée » (sans bombe) montre le jeu tel
 qu'il est, la campagne à bombe d'essai exerce mur secret et rochers.
 
-| Campagne | Graines | Victoires | Morts | Soft-locks | Desyncs | Étage 2 atteint | Victoire, frames (médiane) |
+| Campagne (« 0 soft-lock » s'appuie sur `--pickup-progress` : un ramassage compte comme progrès du détecteur ; sans lui, 4 graines de la première campagne comptaient à tort) | Graines | Victoires | Morts | Soft-locks | Desyncs | Étage 2 atteint | Victoire, frames (médiane) |
 |---|---|---|---|---|---|---|---|
 | 1 bot, **livré** (sans bombe) `s1` | 200 | 12 | 188 | **0** | **0** | 95 | 6 106 |
 | 1 bot, bombe d'essai `i1` | 200 | 18 | 182 | **0** | **0** | 108 | 6 539 |
@@ -78,46 +79,52 @@ spectre 1, rampant 1, bourdon 1, **non attribué 5** (le tueur n'est pas un enne
 `s1` et `i1` n'ont pas été rejouées après la dernière correction (réanimation à portée sans marge, tenue bornée) : elle ne joue qu'avec deux joueurs ou plus
 (une surface de réanimation), et trois graines à un bot (23, 48, 79) sont identiques image pour image avant et après.
 
-### Lecture : le contenu est trop dur, pas le bot (Q14)
+### Lecture : le contenu est devenu plus dur, pas le bot (Q14)
 
-L'étage 1 est franchi dans **48 %** des parties à 1 bot (95/200) ; la victoire arrive dans 6 % (12/200). Les mesures qui isolent la cause :
+L'étage 2 est atteint dans **48 %** des parties à 1 bot (95/200) ; la victoire arrive dans 6 % (12/200). Évolution des victoires à 1 bot sans bombe, **chaque ligne
+sourcée** (JSON compact des graines : `docs/taches/rapports/m3-t14-bot-isaac/historique_campagnes.json`) :
 
-| Contenu | Visée | Victoires à 1 bot |
-|---|---|---|
-| `main` + T11c (avant T10, suivis Q17, D88, D95) | libre | **188 / 200** |
-| + suivis Q17 (`pleureur` à quatre directions) + D88 (champions dans 98 % des graines) + D95/D96 | quatre directions | 12 / 200 |
-| même contenu, `aim: Free` pinné (40 graines, essai jetable) | libre | **10 / 40** |
+| Contenu (`main` fusionné) | Binaire de la branche | Visée | Victoires / 200 (1 bot, sans bombe) |
+|---|---|---|---|
+| T11b (`a2bf564a`) | `b084a10d` (orbite) | libre | **188** (0 soft-lock) ; avec la bombe d'essai : 193 |
+| T11c + T16 (`f18f5945`) | `1282430d` (avant l'anti-blocage) | libre | **68** + 4 soft-locks ; bombe d'essai : 93 + 2 soft-locks |
+| + T10 + suivis Q17 (`803cc9f0`) | `122c4527` | quatre directions | **33** + 3 soft-locks ; bombe d'essai : 61 + 16 soft-locks |
+| + D88 (`f1d5a093`) | `ca65c7df` | quatre directions | **10** ; bombe d'essai : 20 |
+| + D95/D96, D69 (`4630291a`), contenu du rapport | `4835e0cb` à `9ea369bd` | quatre directions | **12** ; bombe d'essai : 18 |
+| même contenu, `aim: Free` pinné sur `pleureur` (essai jetable, 40 graines, `alacod-sim-final19`) | | libre | **10 / 40** contre **2 / 40** en quatre directions sur les mêmes graines |
 
-La visée à quatre directions divise les victoires par cinq (2/40 contre 10/40 sur les mêmes graines) et les champions de D88 le reste. Le bot joue la visée à
-quatre directions comme `main` l'a écrite (`apply_four_way`) ; les mécanismes ci-dessus n'y touchent que pour un combat bloqué. **Fourchette de Q14 (taux de franchissement
+(Une version précédente de ce rapport écrivait « `main` + T11c : 188/200 » : 188 est le chiffre de **T11b**, la ligne T11c est la deuxième ; corrigé.) T11c (ennemis) fait
+tomber 188 à 68, la visée à quatre directions de moitié (68 → 33, et 10/40 → 2/40 à contenu égal), les champions de D88 de 33 à 10. Le bot joue la visée à quatre directions
+comme `main` l'a écrite (`apply_four_way`) ; les mécanismes de T14 n'y touchent que pour un combat bloqué ou une réanimation tenue. **Fourchette de Q14 (taux de franchissement
 de l'étage 1) : à fixer avec William sur ces chiffres** ; la cible du jeu appartient à T11d (équilibrage), pas au bot.
 
-Comparaison du diable (55 graines à salle du diable, binaire de la campagne précédente, même politique) : `Never` 5 victoires / 50 morts, `IfHealthAbove("4.0")` 5 / 50 : **aucun signal**, le bot n'atteint presque jamais le
-présentoir vivant. Mesure antérieure sur le contenu de T11b (200 graines, 55 graines à salle du diable) : `Never` 55 victoires ; `IfHealthAbove("4.0")` 48 victoires et
+Comparaison du diable (55 graines à salle du diable, campagne de la fusion D69 sur le contenu final) : `Never` 5 victoires / 50 morts, `IfHealthAbove("4.0")` 5 / 50 : **aucun signal**,
+le bot n'atteint presque jamais le présentoir vivant. Mesure antérieure, **contenu de T11b** (200 graines, 55 graines à salle du diable) : `Never` 55 victoires ; `IfHealthAbove("4.0")` 48 victoires et
 7 morts (7 des 10 morts de la campagne) : défaut `Never`, à confirmer (**Q14**).
 
 ## 4. Traces bougées
 
 **Aucune trace existante n'a été blessée par cette branche.** Les traces bénies sont celles des **dix scénarios neufs** `bot_isaac_*` (créés ici ; rebénies
 après chaque fusion de `main` qui changeait le contenu : T10/Q17/D88/D95/D96, justifié par la cause, pas par le bot). Preuve §5 que le bot ne bouge rien ailleurs : au §2
-(14 scénarios à explorateur et tous les scénarios des autres jeux identiques à `main`) ; le premier écart constaté (f767, `grid_post_boss`) a une cause identifiée
+(suite entière sans BLESS, dont les 25 scénarios à explorateur de `main`) ; le premier écart constaté (f767, `grid_post_boss`) a une cause identifiée
 (fuite d'une bombe de champion explosif par le bot, `world::Bomb` lu par `ExplorerWorld::frame`) et a été supprimé par `combat_aware`, pas blessé.
 
 ## 5. Non fait / dettes
 
-- **Q14** : défaut du diable (`Never`) et fourchette de franchissement de l'étage 1 à décider avec William (§3).
-- Inférence de la salle secrète : le bot la lit par le type de salle (`door_lock: Secret`, non ouverte, ≥ 2 voisines) ; une inférence sans cette lecture (case vide voisine de ≥ 2
-  salles) reste à faire.
-- `devil_accepts` ne modélise pas `shop::max_health_after` (`Mul`/`Set` de `MaxHealth`) : aucun contenu `isaac` n'en a.
-- Deux bots arrivés ensemble à un mur : la règle des pairs (un seul poseur) ne vaut que par la proximité des handles ; chacun peut rester sans bombe si le plus petit handle meurt.
-- Rochers jouables seulement sur la carte testbed `bot_rocks` (`isaac` n'en a pas avant T11d).
-- Un ennemi éveillé inaccessible derrière des rochers laisse le bot en combat perpétuel.
+Question pour William (pas une dette) : **Q14**, défaut du diable (`Never`) et fourchette de franchissement de l'étage 1 (§3).
+
+Dettes inscrites à `docs/taches/dettes.md` : **D101** (salle secrète lue par son type, pas devinée), **D102** (`devil_accepts` sans `max_health_after`), **D103** (règle des pairs de
+la bombe limitée aux handles locaux, y compris p2p), **D104** (combat perpétuel contre un ennemi éveillé derrière des rochers), **D105** (`--seed` sans consommateur dans `throne` et
+`testbed` ; `isaac` le lit désormais : `apply_launch_seed`), **D106** (campagnes à rejouer après T11d1 : bombe de départ, rochers, boutique, piques).
+
+Restes de ce rapport :
 - Kit de bombes d'essai (`--bombs 1`) : `isaac` n'a pas de `BombCarrier` avant M3-T11d ; la boutique d'`isaac` n'existe pas (T11d) : la politique d'achat en douilles est prouvée par des
-  scénarios à présentoirs posés, pas par les campagnes.
+  scénarios à présentoirs posés, pas par les campagnes (D106).
 - La victoire arrive au dernier ennemi du dernier étage : le trésor derrière une porte à clé de la dernière salle de combat n'est parfois pas ouvert (pas un défaut du bot).
 - `FOUR_WAY_LANE` (14) et la visée à quatre directions restent celles de `main` ; un tireur qui ne touche pas à 9 unités de la cible (marge du coin de mur) n'est corrigé que par
   l'anti-blocage (240 frames).
-- p2p : l'option `--seed` du client `isaac` n'est pas lue (`LaunchSeed` sans consommateur) : il faut `default_seed` dans `game.ron` pour rejouer une graine ; à corriger ou à documenter (script `p2p-gungeon-inputs.sh` : `GAME`, `FLOORS`, `UNTIL_FLOOR`, `SIM_ARGS` ajoutés).
+- **Inertie par défaut tenue parce que personne ne porte de bombe** : `BombPolicy::default()` a `secret` et `rocks` vrais ; dès que `pleureur` porte `bomb` (T11d1), les scénarios isaac à `explorateur`
+  en politique par défaut poseront des bombes. Défaut gardé ; la branche mergée en second rebénit ces traces avec preuve §5 et rejoue `s1`, `i2`, `i4` (D106, §79).
 
 ## 6. Relecture indépendante (sous-agent `reviewer`, lecture seule)
 
@@ -132,4 +139,4 @@ d'un collider circulaire → **marge de 5 essayée puis abandonnée** (elle recr
 
 ## 7. Journal (à ajouter sur `main` après le merge)
 
-`| 2026-10-18 | M3-T14 (bot explorateur v3 pour isaac : politique en données (bot.ron), porte à clé, bombes (mur secret, rochers, un poseur par mur, fuite de mèche), sous bornés, achats cœurs d'abord, diable Never par défaut, anti-jitter, anti-blocage de combat, réanimation à portée, combat_aware ; §79) | m3-t14-bot-isaac | b3 | mergée ; campagnes 200 graines : 1 bot 12 victoires/188 morts, 2 bots 116/84, 4 bots (20) 18/2, 0 soft-lock, 0 desync ; suite 659, test_crates 1 245, lint/gen ×5, fuzz, p2p-stress isaac 3 939 frames resimulées ; aucune trace existante blessée ; morts = contenu (visée à quatre directions ×5, champions D88), Q14 ouverte ; non fait : inférence de salle secrète sans type, boutique isaac (T11d) |`
+`| 2026-10-18 | M3-T14 (bot explorateur v3 pour isaac : politique en données (bot.ron), porte à clé, bombes (mur secret, rochers, un poseur par mur, fuite de mèche), sous bornés, achats cœurs d'abord, diable Never par défaut, anti-jitter, anti-blocage de combat, réanimation à portée, combat_aware ; §79) | m3-t14-bot-isaac | b3 | mergée ; campagnes 200 graines : 1 bot 12 victoires/188 morts, 2 bots 116/84, 4 bots (20) 18/2, 0 soft-lock, 0 desync ; suite 659, test_crates 1 245, lint/gen ×5, fuzz, p2p-stress isaac 3 939 frames resimulées ; aucune trace existante blessée ; morts = contenu (T11c, visée à quatre directions, champions D88 : 188 → 12 victoires à 1 bot, §3), Q14 ouverte ; non fait : inférence de salle secrète sans type, boutique isaac (T11d) |`

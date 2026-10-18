@@ -6603,11 +6603,14 @@ un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-gene
 Complète §24 et §47 (`explorateur`, D65). Code : `crates/bots/src/explorer.rs` (réécrit : `ExplorerWorld::frame`,
 `GoalContext`, `ordered_goals`, `rock_goal`, `explore_step`, `flee_step`), `crates/bots/src/input.rs`, `game::replay`
 (`ExplorerPolicy`), `scenario::{runner, events}`, `alacod-sim`. **Le bot ne produit que des inputs** (`ReadInputs`, hors
-`GgrsSchedule`) : aucune simulation touchée, aucun type rollback nouveau. **Aucune trace existante ne bouge** (les 14
-scénarios à `explorateur` d'avant — `bot_explorer_*`, `grid_floor_seed_*`, `grid_post_boss`, `gungeon_*`,
-`isaac_floor_seed_1` — rejoués : traces identiques). Les décisions nouvelles sont **inertes sans leur objet** : aucun porteur
+`GgrsSchedule`) : aucune simulation touchée, aucun type rollback nouveau. **Aucune trace existante ne bouge** (la suite entière
+rejouée sans BLESS, dont les 25 scénarios à `explorateur` de `main` : `bot_explorer_*`, `grid_floor_seed_*`, `grid_post_boss`,
+`gungeon_*`, `isaac_floor_seed_1`, `achievement_unlocks`, les `room_*` générés : traces identiques). Les décisions nouvelles sont **inertes sans leur objet** : aucun porteur
 de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `gungeon`, `throne`, `zombies` ou `testbed`
-(hors cartes d'essai).
+(hors cartes d'essai). **Cette inertie tient parce que personne ne porte de bombe** : `BombPolicy::default()` a `secret` et `rocks` vrais.
+Quand `pleureur` portera `bomb` (T11d1), les scénarios isaac à `explorateur` en politique par défaut poseront des bombes et leurs traces
+bougeront : le défaut reste tel quel, **la branche mergée en second rebénit ces traces avec preuve §5** (première frame qui diffère = première
+bombe posée) **et rejoue les campagnes `s1`, `i2`, `i4`** (dette D106).
 
 ### Politique en données : `ExplorerPolicy`
 
@@ -6692,9 +6695,10 @@ de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `g
   n'y a pas de balancement, et faux par défaut (aucun autre jeu ne change).
 - **Diable** (`Price::MaxHealth(perte)`) : `Never`, ou `IfHealthAbove(n)` : achète si l'âme couvre tout le prix, ou si la vie
   courante dépasse **strictement** `n` et dépasse le reste à payer (le jeu refuse un paiement qui tuerait, §73). **Défaut : `Never`**
-  (Q14, à confirmer par William) : sur les 55 graines de la campagne qui ont une salle du diable, 55 victoires avec `Never`, 48
-  victoires et 7 morts avec `IfHealthAbove("4.0")` (les objets du diable sont encore des données d'attente : un cœur de moins ne se
-  rachète pas, T11d). Écart connu avec le jeu : `shop::max_health_after` refuse aussi un `Mul`/`Set` de `MaxHealth` qui annulerait la
+  (Q14, à confirmer par William) : sur les 55 graines de la campagne qui ont une salle du diable, **contenu de T11b (2026-10-17)** :
+  55 victoires avec `Never`, 48 victoires et 7 morts avec `IfHealthAbove("4.0")` ; **contenu final (D69, 2026-10-18)** : 5 victoires
+  contre 5, aucun signal (le bot meurt avant le présentoir : 4 achats en 3 graines) ; les objets du diable sont encore des données
+  d'attente (un cœur de moins ne se rachète pas, T11d). Écart connu avec le jeu : `shop::max_health_after` refuse aussi un `Mul`/`Set` de `MaxHealth` qui annulerait la
   stat ; le bot ne le modélise pas (aucun contenu `isaac` n'en a ; dette).
 
 ### Bombes d'essai

@@ -12,10 +12,12 @@
     // cases) : ils ne valent pas un détour d'un bout à l'autre de l'étage (ramassés au contact).
     shells: Some(400),
     // Marché du diable (vie maximale, `Shelf::cost`) : Never | IfHealthAbove(n), n en points de vie (un cœur =
-    // 2 PV, le cœur d'`isaac` coûte 2). `Never` : sur les 55 graines à salle du diable des 200 de la campagne, 55
-    // victoires avec `Never` contre 48 victoires et 7 morts avec `IfHealthAbove("4.0")` (les objets du diable sont
-    // encore des données d'attente, un cœur de moins ne se rachète pas). Défaut à confirmer par William (Q14) quand
-    // le contenu de M3-T11 aura des objets qui valent un cœur.
+    // 2 PV, le cœur d'`isaac` coûte 2). `Never` : mesure du 2026-10-17 sur le contenu de T11b (55 graines à salle du
+    // diable des 200 de la campagne) : 55 victoires avec `Never` contre 48 victoires et 7 morts avec
+    // `IfHealthAbove("4.0")` ; mesure finale du 2026-10-18 sur le contenu de D69 (champions D88, visée à quatre
+    // directions) : 5 victoires contre 5, aucun signal (le bot meurt avant le présentoir : 4 achats en 3 graines).
+    // Les objets du diable sont encore des données d'attente (un cœur de moins ne se rachète pas). Défaut à confirmer
+    // par William (Q14) quand le contenu de M3-T11 aura des objets qui valent un cœur.
     devil: Never,
     // Bombes : mur de la salle secrète (voisine d'au moins deux salles, §70) et rocher qui coupe le chemin
     // d'un but ; `reserve` : bombes gardées en stock.
