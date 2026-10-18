@@ -453,15 +453,22 @@ pub(crate) fn bullet_display_size(damage: f32) -> f32 {
     (5.0 + 1.6 * damage.max(0.0).sqrt()).clamp(8.0, 22.0)
 }
 
-/// Le sprite d'une balle, posé en présentation (D69 : `combat` ne connaît plus `Sprite`). Une balle
-/// qui apparaît (`Added<Bullet>`, y compris une balle recréée par une re-simulation) reçoit le
-/// carré de couleur que `spawn_bullet` posait lui-même : noir (blanc pour une balle explosive), côté
-/// `BASE_SPRITE × Size` d'un projectile composable (3,5 sinon), × `ShotSize` du tireur. Tourne juste
-/// après `GgrsSchedule` (`PreUpdate`) : le sprite existe avant tout système d'`Update`, comme avant.
-/// Sans `BulletLook` (entité recréée sans lui), le côté se dérive du `Projectile` et de `ShotSize` 1.
+/// Le sprite d'une balle, posé en présentation (D69 : `combat` ne connaît plus `Sprite`). Toute balle
+/// vivante sans sprite en reçoit un : le carré de couleur que `spawn_bullet` posait lui-même (noir,
+/// blanc pour une balle explosive ; côté `BASE_SPRITE × Size` d'un projectile composable, 3,5 sinon ;
+/// × `ShotSize` du tireur). Le filtre est `Without<Sprite>` et non `Added<Bullet>` : une balle
+/// créée puis détruite (`despawn_rollback`) dans un même lot de frames p2p n'est jamais vue par ce
+/// système, et un rollback qui la ressuscite ne la rend pas « ajoutée » (`RollbackDespawned` retiré,
+/// `Bullet` inchangé) : elle aurait vécu sans sprite. Tourne juste après `GgrsSchedule`
+/// (`PreUpdate`) : le sprite existe avant tout système d'`Update`, comme avant. Sans `BulletLook`
+/// (entité recréée sans lui), le côté se dérive du `Projectile` et de `ShotSize` 1.
+#[allow(clippy::type_complexity)]
 fn attach_bullet_visuals(
     mut commands: Commands,
-    new: Query<(Entity, &Bullet, Option<&BulletLook>, Option<&Projectile>), Added<Bullet>>,
+    new: Query<
+        (Entity, &Bullet, Option<&BulletLook>, Option<&Projectile>),
+        (With<Bullet>, Without<Sprite>),
+    >,
 ) {
     for (entity, bullet, look, projectile) in &new {
         let look = look.copied().unwrap_or(BulletLook {
@@ -715,6 +722,17 @@ mod tests {
             sprite.custom_size,
             Some(Vec2::splat(2.0 * BASE_SPRITE * 1.5))
         );
+
+        // Un sprite posé n'est jamais remplacé ; une balle qui l'a perdu (ou ne l'a jamais reçu : lot
+        // de frames p2p, balle ressuscitée par un rollback) le retrouve.
+        world.get_mut::<Sprite>(standard).unwrap().color = Color::srgb(1.0, 0.0, 0.0);
+        world.entity_mut(explosive).remove::<Sprite>();
+        world.run_system_once(attach_bullet_visuals).unwrap();
+        assert_eq!(
+            world.get::<Sprite>(standard).unwrap().color,
+            Color::srgb(1.0, 0.0, 0.0)
+        );
+        assert_eq!(world.get::<Sprite>(explosive).unwrap().color, Color::WHITE);
     }
 
     #[test]

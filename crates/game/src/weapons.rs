@@ -40,7 +40,7 @@ impl Plugin for WeaponAssetsPlugin {
         app.add_plugins(RonAssetPlugin::<melee::MeleeWeaponsConfig>::new(&["ron"]));
 
         // Une arme de mêlée apparaît cachée (comme `spawn_melee_weapon_for_character` la posait
-        // avant D69) : après `GgrsSchedule`, avant tout système d'`Update` qui y attache des sprites.
+        // avant D69) : juste après `GgrsSchedule`, avant tout système d'`Update`.
         app.add_systems(PreUpdate, hide_new_melee_weapons.after(RunGgrsSystems));
         app.add_systems(
             Update,
@@ -49,11 +49,12 @@ impl Plugin for WeaponAssetsPlugin {
     }
 }
 
-/// Cache l'arme de mêlée qu'un personnage vient de recevoir (`Added<MeleeWeapon>`) : sans
-/// `Visibility` sur le parent, les calques enfants ne seraient jamais affichés.
+/// Cache l'arme de mêlée qui n'a pas encore de `Visibility` (`spawn_melee_weapon_for_character` ne
+/// pose plus que la simulation). Filtre `Without<Visibility>` plutôt que `Added` : une arme
+/// ressuscitée par un rollback sans avoir été vue garde le même résultat.
 fn hide_new_melee_weapons(
     mut commands: Commands,
-    new: Query<Entity, (Added<MeleeWeapon>, Without<Visibility>)>,
+    new: Query<Entity, (With<MeleeWeapon>, Without<Visibility>)>,
 ) {
     for entity in &new {
         commands.entity(entity).try_insert(Visibility::Hidden);

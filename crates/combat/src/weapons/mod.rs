@@ -815,9 +815,10 @@ pub const NO_PLAYER_HANDLE: PlayerHandle = PlayerHandle::MAX;
 /// **Seule** fonction d'apparition d'une balle (T1.2) : tir d'un joueur
 /// (`spawn_bullet_rollback`), projectile né d'un pattern
 /// (`projectile::spawn_child_projectile`) et tir d'émetteur (`emitter::emitter_system`).
-/// Rayon (base 5, 8 pour `Explosive`, × `Size`), sprite (3.5, × `Size` si composable),
-/// couleur et marqueurs (`ExplosiveTag`, `PiercingTag`) dérivent du type de balle et du
-/// projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+/// Rayon (base 5, 8 pour `Explosive`, × `Size`) et marqueurs (`ExplosiveTag`, `PiercingTag`)
+/// dérivent du type de balle et du projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+/// Aucun sprite : la présentation le tire de `Bullet` et de [`BulletLook`]
+/// (`game::world_sprites::attach_bullet_visuals`).
 pub fn spawn_bullet(
     commands: &mut Commands,
     collision_settings: &CollisionSettings,
