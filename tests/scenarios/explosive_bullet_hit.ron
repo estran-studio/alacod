@@ -1,0 +1,41 @@
+// D76 (docs/conventions.md §69) : la balle `Explosive` explose à l'impact. Carte `testbed/rocks_static.ldtk` (couloir nu) ;
+// le joueur 0 (immobile, x 168) tient la `balle_explosive` (balle de 5, rayon de souffle 40, souffle = 5 × 2 = 10) et tire une fois
+// (f10, effective f15) vers l'est. Trois `dummy` (200 PV) placés à f5 : le premier (net id 16, x 240) sur la trajectoire,
+// le deuxième (17, x 262) derrière lui, hors de la trajectoire de la balle mais dans le rayon du souffle, le troisième (18,
+// x 300) hors rayon.
+//
+// À regarder : la balle s'arrête contre le premier dummy et une bombe à mèche d'une frame (la même que l'action `Explode`)
+// explose à la frame suivante (moment clé `explosion`) : le premier dummy prend la balle puis le souffle (200 → 185), le
+// deuxième seulement le souffle (200 → 190), le troisième et le joueur (tir ami coupé par défaut) sont intacts. Un seul
+// souffle : une balle, une explosion.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 100,
+    characters: [
+        (character: "dummy", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "262.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "300.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "balle_explosive",
+            inputs: [
+                (from: 10, to: 11, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 14),
+        EntityHealth(net_id: 16, min: 185, max: 185, at_frame: 60),
+        EntityHealth(net_id: 17, min: 190, max: 190, at_frame: 60),
+        EntityHealth(net_id: 18, min: 200, max: 200, at_frame: 60),
+        Health(handle: 0, min: 100, max: 100, at_frame: 99),
+        EntityHealth(net_id: 16, min: 185, max: 185, at_frame: 99),
+        EntityHealth(net_id: 17, min: 190, max: 190, at_frame: 99),
+        EntityHealth(net_id: 18, min: 200, max: 200, at_frame: 99),
+        Event(kind: "explosion", by_frame: 60),
+    ],
+)

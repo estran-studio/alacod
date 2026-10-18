@@ -56,7 +56,14 @@ pub fn melee_hold_system(
         ),
         (
             With<Enemy>,
-            Or<(With<BehaviorRuntime>, With<combat::status::Statuses>)>,
+            // D90 : `MeleeHold` aussi. `Statuses` est retiré dès qu'il est vide (`combat::projectile`) :
+            // sans cette branche, un ennemi sans `BehaviorRuntime` dont la peur finit n'était plus vu et
+            // gardait `MeleeHold` pour toujours.
+            Or<(
+                With<BehaviorRuntime>,
+                With<combat::status::Statuses>,
+                With<combat::weapons::melee::MeleeHold>,
+            )>,
         ),
     >,
 ) {
@@ -680,5 +687,26 @@ mod tests {
         assert!(!ignored(&[], Some(&tags)));
         assert!(!ignored(&[Tag::new("other")], Some(&tags)));
         assert!(!ignored(std::slice::from_ref(&ghost), None));
+    }
+
+    /// D90 : un ennemi sans règles de comportement ni statuts (`Statuses` est retiré dès qu'il est
+    /// vide) dont la peur est finie garde-t-il `MeleeHold` ? Non : le système le voit encore par la
+    /// retenue qu'il porte et la lève.
+    #[test]
+    fn la_retenue_d_une_peur_finie_est_levee_sans_regles_de_comportement() {
+        use combat::weapons::melee::MeleeHold;
+        let mut app = App::new();
+        app.add_systems(Update, melee_hold_system);
+        let held = app
+            .world_mut()
+            .spawn((Enemy {}, GgrsNetId(1, "follower".into()), MeleeHold))
+            .id();
+        let free = app
+            .world_mut()
+            .spawn((Enemy {}, GgrsNetId(2, "autre".into())))
+            .id();
+        app.update();
+        assert!(!app.world().entity(held).contains::<MeleeHold>());
+        assert!(!app.world().entity(free).contains::<MeleeHold>());
     }
 }

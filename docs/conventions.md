@@ -6,7 +6,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 **Numérotation du 2026-10-05** (m1-relecture-conventions) : « Feedback (présentation, T2.13) », ancien second §9 placé après le §10, devient le **§7** (il n'y avait pas de §7) et vient après le §6 ; §8 Combat, §9 Stats et §10 Blesser une trace gardent leur numéro, l'ancre `{#section7}` du §8 disparaît. Les fiches et rapports antérieurs qui citent « §9 » pour le feedback visent l'actuel §7 ; ceux qui citent « §7 » pour les stats ou « §8 » pour la preuve visent l'actuel §9 et l'actuel §10 (numérotation de M0).
 
-**Sommaire**
+**Sommaire** (un `## ` par entrée, dans l'ordre du fichier : les §40 et §41, §49 et §45, §51 et §50 y sont dans l'ordre où ils ont été écrits)
 
 - §1. Cartes LDtk
 - §2. Sprites et animations
@@ -47,7 +47,47 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - §37. Boss à phases (M2-T0c, chantier D4)
 - §38. Profil de méta-progression (M2-T0c, chantier G1)
 - §39. Le jeu `gungeon` (M2-T0d, squelette)
+- §41. Projectiles v2 et blank (M2-T1, chantier B5 v2)
+- §40. Grammaire d'étage (M2-T10, chantier E2)
 - Notes essentielles
+- §42. Effets v2 : déclencheurs, conditions, cooldowns et charges (M2-T3, chantier C1 v2)
+- §43. Esquive v2 (M2-T2, chantier B6)
+- §44. Objets v2 et synergies (M2-T4, chantier C2)
+- §49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
+- §45. Boss et arène (M2-T7, chantier D4)
+- §46. Surfaces v2 : fosses, tables renversables, barils explosifs (M2-T11, chantier E4 v2)
+- §47. Bot explorateur d'étages (M2-T16, chantier K2 v1)
+- §48. Butin, coffres et clés (M2-T5, chantier C4)
+- §51. Profil et déblocages qui enrichissent le butin (M2-T12, chantier G1)
+- §50. Boutique et monnaie `shells` (M2-T6, chantier C5)
+- §52. Contenu `gungeon` (M2-T14, quatre parties)
+- §53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
+- §54. Générateur v2 : gabarits par objet, par salle et par boss (M2-T17, voie V3)
+- §55. Feedback v2 : télégraphes de patterns, flash du blank, fin de boss (M2-T19, voie V4)
+- §56. Écrans en bevy_hui et HUD gungeon (M2-T18, voie V4)
+- §57. Hub : stations, marchand de déblocages, entrée en run (M2-T13, chantier G2)
+- §60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
+- §61. Contrats des objets et de la santé (M3-T0b)
+- §62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M3-T0c)
+- §63. Contrats des familiers, orbitaux et champions v2 (M3-T0d)
+- §64. Curses, pools à épuisement, accomplissements : contrats (M3-T0e)
+- §65. Le jeu `isaac` : squelette (M3-T0f)
+- §66. Larmes v3 : tir composé, `Spectral`, `Split`, `Orbit`, `Poison`, `Fear`, chance d'effet (M3-T1, chantier B5 v3)
+- §67. Effets v3 : `OnHit`, `OnEvent`/`Emit`, `ApplyStatus`, `PerCopy` (M3-T2, chantier C1 v3)
+- §68. Cœurs, i-frames, sous, bombes et clés au sol (M3-T3, chantiers C4 et C5)
+- §69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
+- §70. Étage en grille : planificateur, salle secrète, trésor à clé, salle post-boss (M3-T5, chantier E2 v2)
+- §71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
+- §72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
+- §73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
+- §74. Curses d'étage en jeu : tirage, modificateur, étage agrandi, HUD masqué (M3-T9, chantier F4)
+- §75. Accomplissements en jeu : faits de run, évaluation à `Ended`, profil v2 (M3-T10, chantier G1 v2)
+- §76. Contenu `isaac` (M3-T11, quatre parties)
+- §77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
+- §78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
+- §81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
+- §82. Feedback v3 : larmes lisibles, familiers, champions, bombes et explosions (M3-T17, voie V4)
+- §83. Langage visuel provisoire : on doit comprendre ce qu'on voit (m2-lisibilite-gungeon, voie V4)
 
 ## 1. Cartes LDtk
 
@@ -149,6 +189,11 @@ déplacé que les sprites.
 )
 ```
 
+`scale` est **obligatoire** (D79, fermée) : `CharacterConfig.scale` n'a pas de défaut côté jeu, et le schéma
+de contenu (`content::registry::CharacterFileSchema`) l'exige comme lui. Un personnage sans `scale` est
+refusé par `alacod lint` (`Parse`, « `scale` est obligatoire pour un personnage, ex. `scale: "1.0"` »,
+fixture `character_scale_missing`) au lieu d'échouer au chargement du jeu.
+
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
 - `sprite_config` : `name`, `index` (première frame), `weapon_offset`. Pour une arme à distance, `name` est un id de la table `SpriteSheet` (D3).
@@ -205,10 +250,10 @@ Chaque entrée de `content_folders` est un **fichier** ou un **dossier**, relati
 mélangent encore plusieurs kinds dans un même dossier historique
 (`ZombieShooter/Sprites/Character/` contient à la fois `player_config.ron` et des feuilles
 de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
-entier (voir `games/zombies/assets/game.ron`). Les kinds connus (20) : `Character`, `Weapon`,
-`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`, `SpriteSheet` (D3),
-`Floors`, `Cave`, `Room`, `Item`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`
-(`content::registry::KNOWN_KIND_NAMES`, qui fait foi) ; un
+entier (voir `games/zombies/assets/game.ron`). Les kinds connus (31 : `content::registry::KNOWN_KIND_NAMES` fait foi, lu dans cet ordre) : `Character`, `Weapon`,
+`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`, `SpriteSheet` (D3), `Floors`, `Cave`,
+`FloorGrammar`, `Room`, `Item`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`,
+`Synergy`, `LootTable`, `Unlock`, `Curse`, `Achievement`, `MetaEconomy`, `HubService`, `Prop` ; un
 autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
 **Le registre** (`content::registry::Registry`, chargé par `Registry::build`) est la
@@ -737,7 +782,7 @@ Trois données sont délibérément hors du checksum GGRS — les inclure dépla
 
 ## 13. État de run et mode `Waves` (T2.4, chantier F1)
 
-**`Run`** (`run::run::Run`, crate `run`) : ressource rollback (checksum + trace, `RunPlugin`) qui représente la partie en cours — `seed: u32` (graine, dupliquée de `RunSeed` pour que `Run` seule décrive la partie), `mode: RunMode` (`Waves { config }` = le système de vagues actuel, `Sandbox` = aucune condition de fin hors défaite ; `Floors { config }` = séquence de niveaux, T1.8, §17 ; `Campaign` viendra en M2), `step: RunStep` (`Lobby` — valeur par défaut de l'enum, jamais celle d'un `Run` réellement inséré, voir plus bas —, `Playing { since_frame }`, `Ended { at_frame, outcome: RunEnd }`), `players: Vec<usize>` (handles GGRS triés), `flags: BTreeSet<String>` (ouvert pour de futurs modes, vide aujourd'hui) et `summary: Option<RunSummary>`. Remplace `combat::downed::RunOutcome` (T1.3), qui disparaît : la défaite est maintenant une valeur de `RunStep`, pas une ressource à part. **Décision** : `RunSummary` est un champ de `Run`, pas une ressource rollback séparée — un seul enregistrement, pas de valeur sentinelle à inventer pour « pas encore de résumé » (`RunEnd` n'a pas de variante neutre).
+**`Run`** (`run::run::Run`, crate `run`) : ressource rollback (checksum + trace, `RunPlugin`) qui représente la partie en cours — `seed: u32` (graine, dupliquée de `RunSeed` pour que `Run` seule décrive la partie), `mode: RunMode` (`Waves { config }` = le système de vagues actuel, `Sandbox` = aucune condition de fin hors défaite ; `Floors { config }` = séquence de niveaux, T1.8, §17 ; `Campaign` viendra en M2), `step: RunStep` (`Lobby` — valeur par défaut de l'enum, jamais celle d'un `Run` réellement inséré, voir plus bas —, `Playing { since_frame }`, `Ended { at_frame, outcome: RunEnd }`), `players: Vec<usize>` (handles GGRS triés), (`flags: BTreeSet<String>` : **retiré par D76**, rien ne l'écrivait ni ne le lisait ; `impl Hash for Run` écrit toujours le hash d'un ensemble vide à sa place pour que les traces ne bougent pas, test `hash_de_run_inchange_apres_le_retrait_de_flags` ; un futur champ de drapeaux reprend cette place) et `summary: Option<RunSummary>`. Remplace `combat::downed::RunOutcome` (T1.3), qui disparaît : la défaite est maintenant une valeur de `RunStep`, pas une ressource à part. **Décision** : `RunSummary` est un champ de `Run`, pas une ressource rollback séparée — un seul enregistrement, pas de valeur sentinelle à inventer pour « pas encore de résumé » (`RunEnd` n'a pas de variante neutre).
 
 **Création** : `Run::new(seed, mode, players, since_frame)` construit toujours directement `Playing` (jamais `Lobby` dans ce chantier : réservé à un futur état où `Run` existerait déjà pendant un lobby interactif, M1/M2). Appelée par `game::jjrs::{local, p2p}` (`system_after_map_loaded_local`/`system_after_map_loaded`, `OnEnter(AppState::GameStarting)`), au même instant que `RunSeed`/`RngStreams` (T1.6) — avant que `GgrsSchedule` ne tourne pour la première fois (aucune session GGRS encore présente). `players` vient de `GgrsSessionBuilding.players[].handle`. `mode` vient de `game::run_state::resolve_run_mode(manifest, registry)` : `entry.mode` du manifeste (`content::manifest::EntryMode::Waves`/`Sandbox`/`Floors`, enum fermé comme `sim_core::damage::FriendlyFire`) s'il est présent, sinon `Waves` si le jeu déclare un dossier de contenu `Wave`, sinon `Sandbox` — `content::lint` refuse `entry.mode: Waves` sans dossier `Wave` déclaré (`lint_entry_point`), mais pas l'absence d'`entry.mode` avec un dossier `Wave` présent (c'est le chemin par défaut).
 
@@ -1320,10 +1365,15 @@ source_team, next_tick_frame }`, dans l'ordre de pose.
     regarde pas l'IA) est retenue tant qu'il est charmé (`held || charmed(statuses)` : état dérivé du statut, aucun
     composant à lever) : scénario
     `status_charm_contact` (un `coward` à griffes collé au joueur, aucun dégât pendant le charme). Peur et charme
-    cumulés : `Fear` l'emporte (il fuit, ne frappe pas). Défaut **préexistant** relevé, non corrigé (hors du suivi, il
-    déplacerait `status_fear` et `generated/isaac/tears_rancune_vive`) : `Statuses` est retiré dès qu'il est vide
-    (`combat::projectile`) et `rules::melee_hold_system` ne retrouve plus alors un ennemi sans `BehaviorRuntime` : la
-    `MeleeHold` posée par `Fear` ne se lève jamais. Le charme n'a pas ce défaut (retenue dérivée du statut).
+    cumulés : `Fear` l'emporte (il fuit, ne frappe pas). Défaut **préexistant** relevé par le suivi, **corrigé par D90** : `Statuses` est retiré dès qu'il est vide
+    (`combat::projectile`) et `rules::melee_hold_system` ne retrouvait plus alors un ennemi sans `BehaviorRuntime` : la
+    `MeleeHold` posée par `Fear` ne se levait jamais. Le système voit maintenant aussi tout ennemi qui porte `MeleeHold`
+    (`Or<(BehaviorRuntime, Statuses, MeleeHold)>`) et la lève à la fin de la peur. Preuve §10 : `status_fear` (première
+    frame qui diffère : f301, la fin de la peur, `Statuses` et `MeleeHold` retirés ensemble ; hors `MeleeHold` les 399 frames
+    sont identiques) et `generated/isaac/tears_rancune_vive` (f152 : la retenue levée avec la peur ; f153 : la
+    `cible_mordante`, libérée une frame avant que la peur soit reposée, frappe le joueur, ce qui crée sa hitbox, et la
+    retenue revient à f154) ; test `la_retenue_d_une_peur_finie_est_levee_sans_regles_de_comportement`. Le charme n'avait
+    pas ce défaut (retenue dérivée du statut).
   - **Fin** : le statut retiré (`Statuses::tick`), la cible `Enemy` est effacée à la frame suivante et l'ennemi
     redevient hostile (joueur le plus proche, comme avant) sans état à nettoyer.
   Teinte rose des calques (`feedback::status_tint`, présentation). Scénarios `status_charm` (le `breacher` charmé frappe la
@@ -2919,7 +2969,8 @@ d'id** du dossier `Floors` (`run_state::resolve_run_mode_with_floors`). Ajouter 
 passe avant l'ancien change la partie par défaut : les séquences de grammaire de `gungeon` sont
 nommées `etages_*` pour que `etage_1` (T0d) reste la première. Même piège pour tout nouveau jeu.
 
-**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits de 8×8 tuiles depuis M2-T14d, §52.d ;
+**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits de 8×8 tuiles, comptés dans les niveaux du fichier : 1 `depart`, 4 `combat`, 1 `recompense`, 1 `boutique`,
+2 `boss`, 3 `arene`, 1 `escouade`, 1 `coffre`, 1 `secret` ; neuf à l'origine, douze avant M2-T14d, §52.d ;
 les neuf d'origine viennent du script `docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`,
 `CombatEW/NS/T/Croix`, `Recompense`, `Boutique`, `BossW/N`, puis `ArenaEW/Croix` (M2-T7), `EscouadeEW` (M2-T8),
 `Coffre`, `Secret` et `ArenaNS` (T14d). Grammaires `etage` (10–14 salles depuis T14d), `grand` (15–20) et `court`
@@ -3198,7 +3249,11 @@ jamais active.
   active quand `Inventory::held_with_tag(items, tag) >= count`, soit le nombre d'objets **distincts** tenus
   (passifs et actif) dont `ItemDef.tags` contient `tag`. **Un exemplaire en double compte une fois**, un consommable ou
   un objet inconnu jamais ; l'actif perdu éteint la transformation. (`SynergyTable::active` prend désormais
-  l'`ItemTable` : tous les appelants migrés.)
+  l'`ItemTable` : tous les appelants migrés.) **D91 (fermée)** : `held_with_tag` n'alloue plus (le `Vec` + tri +
+  `dedup` par appel est remplacé par un balayage : un passif compte à sa première occurrence, l'actif s'il n'est pas
+  déjà tenu en passif) ; son seul appelant est `SynergyDef::is_active`, donc `synergy_modifiers_system`, `projectile_mods`
+  et les effets en profitent sans changer. Même résultat au bit près (test `held_with_tag_compte_les_objets_distincts`,
+  scénarios de synergies et de transformations inchangés).
 - **Effets** : ceux d'une synergie ordinaire (`modifiers` de source `synergy:<id>`, `effects`, `projectile`), posés et
   retirés à chaque frame depuis l'inventaire.
 - **Teinte de présentation** `tint: Some("#rrggbb")` (champ optionnel de `SynergyDef`, hors simulation) : la première
@@ -5277,8 +5332,41 @@ tenu, de mutation ou une frise de boss (`apply_action_sourced`) : une **bombe à
 posée au point du porteur (commande différée : `GgrsNetIdFactory` et position se lisent à l'application),
 équipe du porteur, tir ami `Always` ; elle explose à la frame suivante par le même chemin. Le porteur n'est
 pas exempté : au centre du rayon, il prend les dégâts comme les autres (`explode_effect`). Le lint ne la
-refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; `OnUse` d'un objet et les power-ups la
-refusent toujours (`OnUse` n'a pas de position). `Explode` en mort de champion : M3-T7.
+refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; les power-ups la refusent toujours.
+**`OnUse` d'un objet (D80, fermée)** : `items::apply_instant_effects` n'a plus sa propre liste d'actions
+(`Heal`, `GainShield`, `TimedModifier`, `Modifier`) : chaque action passe par `apply_action_sourced`, la même
+exécution que les effets de personnage et d'objet tenu (source `item:<id>`, comme avant ; `Heal` sans `Health` :
+sans effet). `Explode` est donc acceptée en `OnUse` d'un actif ou d'un consommable (lint : rayon > 0, dégâts >= 0) :
+bombe à mèche d'une frame au point du porteur **lu à l'application** (commande différée), créditée à lui, de son
+équipe. Un actif « bombe » : `testbed/objets/bombe_active.ron`, scénarios `item_active_bomb_rock` (les trois
+rochers du couloir cassés à la frame suivant l'usage) et `item_active_bomb_enemy` (un `dummy` à 22 px blessé, le
+porteur aussi : tir ami `Always`, un `dummy` hors rayon intact) ; fixtures `explode_onuse_ok`,
+`explode_onuse_radius_zero`. Les actions que le lint refuse à `OnUse` (`GaugeAdd`, `SpawnPattern`, `Scaled`…) ne
+sont toujours pas admises : l'exécution commune les refuserait par un `warn!` (action non exécutée), pas en
+silence. Les traces existantes ne bougent pas (72 scénarios d'objets, boutiques, bombes et boss rejoués). `Explode`
+en mort de champion : M3-T7.
+
+### Balle explosive (`BulletType::Explosive`, D76 fermée)
+
+`blast_radius` (et `explosive_damage_multiplier`) n'étaient lus par rien : une balle `Explosive` ne faisait que
+disparaître. **Branchée sur l'explosion commune, sans second chemin** (choix : la variante existe déjà dans le schéma
+RON des armes, la retirer aurait décalé le discriminant de `Piercing` dans le `derive(Hash)` de `BulletType`, donc
+déplacé toutes les traces à balle perforante). Quand une balle `Explosive` se termine, `combat::weapons::spawn_blast`
+pose **la même bombe à mèche d'une frame** que l'action `Explode` et les champions (`world::Bomb`, `fuse_until =
+frame + 1`, numérotée `blast_<balle>`, créditée au tireur, de son équipe, politique de tir ami de l'arme) à la position
+de la balle : rayon `blast_radius`, dégâts `Bullet.damage × explosive_damage_multiplier` (la cible touchée prend le coup
+**puis** le souffle), tir ami `Cursed` **résolu au tir** (`Always` si le tireur porte `cursed`, `Never` sinon : le souffle n'émet que le tag `explosion`, test `souffle_cursed_suit_les_tags_du_tireur`), `destroys: false` (ni rochers ni terrain : `on_expire: [DestroyTerrain]` le demande
+explicitement). Trois sites, tous dans l'ordre `GgrsNetId` du système : l'arrêt contre un personnage ou un mur d'une
+balle ordinaire (`bullet_rollback_collision_system`), sa fin de portée (`bullet_rollback_system`), la fin d'un projectile
+composable (`projectile_expire_system`, après ses `on_expire`, qui couvre sa touche, son mur et sa durée de vie). Une
+balle `Piercing` ou `Standard` ne pose rien. Une balle explosive **annulée** (blank, effacement hostile, bouclier de familier) disparaît sans exploser : choix
+assumé (relecture de D76), l'explosion est celle d'une balle qui se termine, pas d'une balle détruite. Les `GgrsNetId` ne sont alloués que quand une balle explosive se termine :
+**aucune trace existante ne bouge** (aucun contenu d'un jeu ne déclarait `Explosive`, vérifié par `grep` sur `games/`,
+`templates/`, `tests/` : seules les deux armes de testbed ajoutées ici). Testbed : armes `balle_explosive` (sans
+`projectile:`, portée 100) et `balle_explosive_composee` (`Lifetime(20)`) (scénarios générés `weapon_balle_explosive` et `weapon_balle_explosive_composee`, `make gen GAME=testbed`), scénarios `explosive_bullet_hit` (le premier
+`dummy` 200 → 185 : balle puis souffle ; le deuxième, derrière, 200 → 190 : souffle seul ; le troisième, hors rayon, et
+le joueur intacts), `explosive_bullet_range` et `explosive_bullet_composed` (la balle s'éteint sans toucher : le `dummy`
+voisin prend le souffle seul, 200 → 190). Pas de lint propre à `Explosive` (aucun lint de `bullet_type` n'existe).
 
 ### Déterminisme
 

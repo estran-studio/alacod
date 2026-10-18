@@ -1,0 +1,35 @@
+// D76 (docs/conventions.md §69) : la balle `Explosive` explose en fin de vie (arme `balle_explosive`, portée (100)). Carte
+// `testbed/rocks_static.ldtk` (couloir nu) ; le joueur 0 (immobile, x 168) tire une fois (f10, effective f15) vers l'est
+// sans rien sur sa trajectoire ; un `dummy` (200 PV, net id 16) est placé à f5 à x 295, hors de portée de la balle
+// (elle s'éteint vers x 265) mais à moins de 40 du point d'explosion ; un second (17, x 360) est hors rayon.
+//
+// À regarder : la balle s'éteint sans toucher personne, une bombe à mèche d'une frame explose à sa position (moment clé
+// `explosion`) : le premier dummy prend le souffle seul (200 → 190, jamais le coup de la balle), le second et le joueur sont intacts.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 100,
+    characters: [
+        (character: "dummy", x: "295.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "360.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "balle_explosive",
+            inputs: [
+                (from: 10, to: 11, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 20),
+        EntityHealth(net_id: 16, min: 190, max: 190, at_frame: 60),
+        EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 60),
+        Health(handle: 0, min: 100, max: 100, at_frame: 99),
+        EntityHealth(net_id: 16, min: 190, max: 190, at_frame: 99),
+        EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 99),
+        Event(kind: "explosion", by_frame: 60),
+    ],
+)
