@@ -1,6 +1,6 @@
 # dette-d116-lobby-admission — politique d'admission du lobby en ligne (D116)
 
-Worker b0, 2026-10-18, branche `dette-d116-lobby-admission` (depuis `origin/main` `2b15376a`, fusionnée avec `5823c032` avant les vérifications finales). Mac M1 Pro partagé
+Worker b0, 2026-10-18, branche `dette-d116-lobby-admission` (depuis `origin/main` `2b15376a`, fusionnée deux fois avec `origin/main` (dernière fusion : `8ca55686`) avant les vérifications finales). Mac M1 Pro partagé
 (charge 9 à 46 pendant les essais : b1 et b3). Signaling `matchbox_server` d'OrbStack (`b0-signaling`, port 3570, déjà en ligne : les scripts l'utilisent par `MATCHBOX_URL`).
 
 ## 1. Résultat
@@ -65,8 +65,8 @@ Deux délais complets, le second sur le socket de la nouvelle tentative, puis re
 |---|---|
 | `cargo fmt --all -- --check` | sortie 0 |
 | `make check_sim_boundary` | OK : 13 crates, 2 en dette D69 |
-| `make test_scenarios_par SHARDS=3` (sans BLESS, sur la fusion avec `5823c032`) | 802 scénarios, 3 tranches ok, 569 s ; `git status` propre |
-| `make test_crates` | tous les `test result` ok, 0 échec |
+| `make test_scenarios_par SHARDS=3` (sans BLESS, sur la fusion avec `8ca55686`, après la relecture) | 802 scénarios, 3 tranches ok, 492 s (569 s sur la fusion précédente) ; `git status` propre |
+| `make test_crates` (sur la même fusion) | tous les `test result` ok, 0 échec |
 | `make lint` ×5 | zombies, testbed (115 avertissements), throne, gungeon (1), isaac : 0 erreur |
 | `scripts/check-forbidden.sh`, `check-rollback-registration.sh`, `make test_tools` | verts après correction (ci-dessous) |
 | p2p : `p2p-lobby.sh` (3 essais), `p2p-restart.sh`, `p2p-disconnect.sh`, `p2p-sync-timeout.sh`, `p2p-stress.sh` zombies (1 653 / 0 frames resimulées) et isaac (1 642 / 1) | verts, traces identiques sur 2 999 lignes |
