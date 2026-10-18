@@ -6674,9 +6674,10 @@ de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `g
   pas une salle **et dont le pas est réellement exécuté** (ni réanimation, ni butin, ni esquive, pas un pas nul) écartent ce but pour ce joueur
   (`explore_step(…, avoid)`) ; graine 103 d'`isaac` à deux bots : un tas de sous contre un mur que la navigation croit libre, deux buts alternés. La
   mémoire du bot (`ExplorerJitter` entière) est **remise à zéro à chaque partie** (`OnEnter(InGame)` : les `GgrsNetId` repartent de zéro).
-- **Réanimation à portée** (`revive_step`, `snap`, sous `combat_aware`) : déjà à portée (marge de 5 : `Rect::distance` mesure la boîte d'un collider circulaire)
-  de la surface que le jeu sélectionnerait, Interaction tenue sans bouger (le pas d'approche visait portée − 8 et faisait osciller le bot de ±9 : la
-  réanimation, tenue plusieurs frames, ne finissait jamais) ; `BotView::hold_revive` : sous visée `FourWay`, le bot qui tient la réanimation ne se
+- **Réanimation à portée** (`revive_step`, `snap`, sous `combat_aware`) : déjà à portée de la surface que le jeu sélectionnerait, Interaction tenue
+  sans bouger (le pas d'approche visait portée − 8 et faisait osciller le bot de ±9 : la réanimation, tenue plusieurs frames, ne finissait jamais) ;
+  **sans marge** (une marge de 5 recréait le blocage : 4 soft-locks à 2 bots) mais **tenue bornée** (`ExplorerJitter::snap_hold` : 240 frames puis 60
+  d'approche, car `Rect::distance` mesure la boîte d'un collider circulaire et le jeu le cercle) ; `BotView::hold_revive` : sous visée `FourWay`, le bot qui tient la réanimation ne se
   décale pas pour s'aligner sur un ennemi.
 - **Larmes en orbite** (`BotView::orbit_reach`, lu par `ExplorerWorld::orbit_reach` : `Orbit` des objets et synergies tenus, composés comme au
   tir par `combat::projectile::compose`) : `satellite` (T11b) fait tourner les larmes à 40 unités du porteur ; un boss immobile à 94 unités ne
@@ -6741,7 +6742,7 @@ Chiffres, tueurs et graines : `docs/taches/rapports/m3-t14-bot-isaac.md` (script
 bombes sur le mur secret : toute graine avec `--bombs 1` (195 graines sur 200 ; graine 8 de `sous_sol_un`, `bot_isaac_secret`) ; diable : les 55
 graines à salle du diable (8, 9, 13, 15, 16, 23, 26…), mais le bot n'y achète que 4 fois en 3 graines (23, 28, 181) : il meurt avant dans 90 % des
 parties (Q14, au rapport). **Campagne finale (contenu de `main` au 2026-10-18, D88/D95/D96, visée `FourWay`)** : 1 bot sans bombe 12 victoires / 188 morts /
-0 soft-lock / 0 desync ; 1 bot avec la bombe d'essai 18 / 182 / 0 / 0 ; 2 bots 112 / 88 / 0 / 0 ; 4 bots (20 graines) 17 / 3 / 0 / 0.
+0 soft-lock / 0 desync ; 1 bot avec la bombe d'essai 18 / 182 / 0 / 0 ; 2 bots 116 / 84 / 0 / 0 ; 4 bots (20 graines) 18 / 2 / 0 / 0.
 
 ## 81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
 

@@ -1,7 +1,7 @@
 # Rapport m3-t14-bot-isaac (b3)
 
 Conventions : `docs/conventions.md` §79 (et renvois §47, §70, §73). Branche `m3-t14-bot-isaac`, fusionnée avec `origin/main`
-`4630291a` (D69). Scripts de campagne et JSON de résultats à côté : `docs/taches/rapports/m3-t14-bot-isaac/`
+`7ee084e8` (D86). Scripts de campagne et JSON de résultats à côté : `docs/taches/rapports/m3-t14-bot-isaac/`
 (`campagne.sh`, `analyse.py`, `morts.py`, `diable.sh`, `s1_*`, `i1_*`, `i2_*`, `i4_*`, `diable_never.json`, `diable_above_4.json`).
 
 ## 1. Fait
@@ -29,17 +29,17 @@ Autres ajouts, tous des **mécanismes de bot** nés de soft-locks réels des cam
 - Diagnostic : `ALACOD_BOT_DEBUG=1`, moments clés `door_lock`, `bomb`, `shelf`, JSON `mechanics` d'`alacod-sim`, options `--policy`, `--devil`, `--bombs`,
   `--pickup-progress` (le ramassage compte comme progrès du détecteur de soft-lock, faux par défaut).
 
-## 2. Vérifié (sur la fusion avec `origin/main` `4630291a`)
+## 2. Vérifié (sur la fusion avec `origin/main` `7ee084e8`)
 
-- `make test_scenarios_par SHARDS=3` **sans BLESS** : 652 scénarios, 3 tranches ok (350 s).
-- `make test_crates` : **1 233 tests passés, 0 échec** (80 binaires ; `bots` : 88 tests, dont anti-jitter, engagement, poursuite, orbite, identité des buts).
+- `make test_scenarios_par SHARDS=3` **sans BLESS** : 659 scénarios, 3 tranches ok (199 s).
+- `make test_crates` : **1 245 tests passés, 0 échec** (80 binaires ; `bots` : 90 tests, dont anti-jitter, engagement, poursuite, orbite, tenue de la réanimation, identité des buts).
 - `make lint` ×5 : zombies, testbed, throne, gungeon, isaac « aucune erreur ». `make gen GAME=…` ×5 : code 0, `git status` sans diff.
 - `cargo fmt --all -- --check`, `check_sim_boundary` (13 crates, 2 en dette D69), `check-forbidden.sh`, `check-rollback-registration.sh`, `make test_tools` : OK.
-- Fuzz `ALACOD_FUZZ=0:8` (`--ignored`) : 1 test passé (97 s) ; `ALACOD_FUZZ_SCENARIO` ×3 (`bot_isaac_secret`, `bot_isaac_two`, `bot_isaac_key`, 4 graines) : passés.
+- Fuzz `ALACOD_FUZZ=0:8` (`--ignored`) : 1 test passé (43 s) ; `ALACOD_FUZZ_SCENARIO` ×3 (`bot_isaac_secret`, `bot_isaac_two`, `bot_isaac_key`, 4 graines) : passés.
 - **p2p-stress isaac** (Docker OrbStack, `MATCHBOX_PORT=3576`, `COMPOSE_PROJECT_NAME=b3`), avec les **inputs de deux bots figés** (`scripts/p2p-gungeon-inputs.sh`,
   `GAME=isaac FLOORS=sous_sol UNTIL_FLOOR=5 SIM_ARGS=--pickup-progress`, graine 79, 3 000 frames), montage **temporaire non commité** (`pleureur.ron` :
   `bomb` et `starting_consumables: {"key": 0, "bomb": 1}` ; `game.ron` : `default_seed: 79`, car `--seed` n'est pas lu par `isaac` ; restaurés) :
-  **3 670 frames resimulées**, 0 `DesyncDetected`, codes 0/0, traces identiques (2 999 lignes), **passage d'étage 0 → 1 resimulé (f1802)**.
+  **3 939 frames resimulées** (client 0 ; 302 rollbacks, profondeur max 11 ; client 1 : 0), 0 `DesyncDetected`, codes 0/0, traces identiques (2 999 lignes), **passage d'étage 0 → 1 resimulé (f1802)**.
   Écueil trouvé en route : avec `--seed 79` seul, le client jouait la carte de `default_seed` (ids de salles et butin différents de ceux de l'enregistrement,
   inputs caducs : bot mort à f745) ; `EXPECT_FLOORS=1` l'a dit au lieu de l'avaler.
 - Preuve que les autres jeux ne bougent pas : les 14 scénarios à explorateur existants (`bot_explorer_floor/two`, `grid_floor_seed_1/23/123`, `grid_post_boss`,
@@ -57,24 +57,26 @@ qu'il est, la campagne à bombe d'essai exerce mur secret et rochers.
 |---|---|---|---|---|---|---|---|
 | 1 bot, **livré** (sans bombe) `s1` | 200 | 12 | 188 | **0** | **0** | 95 | 6 106 |
 | 1 bot, bombe d'essai `i1` | 200 | 18 | 182 | **0** | **0** | 108 | 6 539 |
-| 2 bots, bombe d'essai `i2` | 200 | 112 | 88 | **0** | **0** | 188 | 6 436 |
-| 4 bots, bombe d'essai `i4` | 20 | 17 | 3 | **0** | **0** | 20 | 5 753 |
+| 2 bots, bombe d'essai `i2` | 200 | 116 | 84 | **0** | **0** | 186 | 6 484 |
+| 4 bots, bombe d'essai `i4` | 20 | 18 | 2 | **0** | **0** | 20 | 6 232 |
 
 Mécaniques rencontrées (occurrences ; graines qui la rencontrent) :
 
 | Mécanique | `s1` | `i1` | `i2` | `i4` |
 |---|---|---|---|---|
-| mur secret ouvert à la bombe | — | 224 ; 195 (sans : 41, 74, 177, 178, 180) | 374 ; 200 | 40 ; 20 |
+| mur secret ouvert à la bombe | — | 224 ; 195 (sans : 41, 74, 177, 178, 180) | 373 ; 200 | 40 ; 20 |
 | porte à clé ouverte (étage 2) | 50 ; 50 (l'étage 2 est atteint dans 95 graines) | 62 ; 62 | 157 ; 157 | 19 ; 19 |
 | coffres ouverts | 213 ; 164 | 442 ; 192 | 703 ; 200 | 77 ; 20 |
-| objets ramassés | 631 ; 188 | 836 ; 194 | 1 321 ; 200 | 140 ; 20 |
-| bombes (`bomb` = posée : la sienne, ou celle d'un champion explosif en `s1`) | 168 ; 112 | 397 ; 198 | 718 ; 200 | 75 ; 20 |
-| phases de boss | 315 ; 150 | 361 ; 159 | 658 ; 199 | 78 ; 20 |
+| objets ramassés | 631 ; 188 | 836 ; 194 | 1 320 ; 200 | 140 ; 20 |
+| bombes (`bomb` = posée : la sienne, ou celle d'un champion explosif en `s1`) | 168 ; 112 | 397 ; 198 | 713 ; 200 | 74 ; 20 |
+| phases de boss | 315 ; 150 | 361 ; 159 | 657 ; 198 | 80 ; 20 |
 | diable (achats, `IfHealthAbove(4)`, 55 graines à salle du diable) | 4 achats en 3 graines (23, 28, 181) | | | |
 
 Tueurs (rejeu avec `--log`, `morts.py`) : échantillon de 20 graines à 1 bot sans bombe (1 à 20) : tourelle en croix 3, suiveur 3, mouche 3, gardien (boss) 3,
 spectre 1, rampant 1, bourdon 1, **non attribué 5** (le tueur n'est pas un ennemi nommé par le journal ; [INFERENCE] bombe de champion explosif, non vérifiée) ; 9 morts à l'étage 1, 11 au second.
-2 bots (17 morts) : tourelle en croix 4, non attribué 4, suiveur 2, spectre 2, mouche 2, gardien 2, rampant 1 ; 15 morts sur 17 au second étage.
+2 bots (17 morts d'une campagne précédente, même contenu) : tourelle en croix 4, non attribué 4, suiveur 2, spectre 2, mouche 2, gardien 2, rampant 1 ; 15 morts sur 17 au second étage.
+`s1` et `i1` n'ont pas été rejouées après la dernière correction (réanimation à portée sans marge, tenue bornée) : elle ne joue qu'avec deux joueurs ou plus
+(une surface de réanimation), et trois graines à un bot (23, 48, 79) sont identiques image pour image avant et après.
 
 ### Lecture : le contenu est trop dur, pas le bot (Q14)
 
@@ -90,7 +92,7 @@ La visée à quatre directions divise les victoires par cinq (2/40 contre 10/40 
 quatre directions comme `main` l'a écrite (`apply_four_way`) ; les mécanismes ci-dessus n'y touchent que pour un combat bloqué. **Fourchette de Q14 (taux de franchissement
 de l'étage 1) : à fixer avec William sur ces chiffres** ; la cible du jeu appartient à T11d (équilibrage), pas au bot.
 
-Comparaison du diable (55 graines à salle du diable) : `Never` 5 victoires / 50 morts, `IfHealthAbove("4.0")` 5 / 50 : **aucun signal**, le bot n'atteint presque jamais le
+Comparaison du diable (55 graines à salle du diable, binaire de la campagne précédente, même politique) : `Never` 5 victoires / 50 morts, `IfHealthAbove("4.0")` 5 / 50 : **aucun signal**, le bot n'atteint presque jamais le
 présentoir vivant. Mesure antérieure sur le contenu de T11b (200 graines, 55 graines à salle du diable) : `Never` 55 victoires ; `IfHealthAbove("4.0")` 48 victoires et
 7 morts (7 des 10 morts de la campagne) : défaut `Never`, à confirmer (**Q14**).
 
@@ -119,12 +121,15 @@ après chaque fusion de `main` qui changeait le contenu : T10/Q17/D88/D95/D96, j
 
 ## 6. Relecture indépendante (sous-agent `reviewer`, lecture seule)
 
-Deux passes. 1re (code du bot) : aucun P1 ; P2 (point de passage tenu sans délai, identité de but tronquée) et P3 corrigés ; P3 `devil_accepts` laissé en dette. 2e (delta : anti-jitter,
+Trois passes. 1re (code du bot) : aucun P1 ; P2 (point de passage tenu sans délai, identité de but tronquée) et P3 corrigés ; P3 `devil_accepts` laissé en dette. 2e (delta : anti-jitter,
 `pickups_are_progress`, `shells`, `Step::what`) : aucun P1 ; P2 « garde du point de passage sans borne » **corrigé** (60 frames, `JITTER_HOLD_FRAMES`, test), P3 état périmé en combat
-**corrigé** (l'état est oublié hors exploration), P3 identité par hachage FNV complet **corrigé**, P3 doc corrigée. Les mécanismes ajoutés ensuite (anti-blocage de combat, poursuite
-sur place, réanimation à portée, `combat_aware`) ont été relus par l'auteur avec les campagnes comme preuve (0 soft-lock) ; une relecture indépendante de la fusion est
-demandée avant le merge.
+**corrigé** (l'état est oublié hors exploration), P3 identité par hachage FNV complet **corrigé**, P3 doc corrigée. 3e (`ReviewT14Final`, mécanismes ajoutés ensuite : anti-blocage de combat,
+poursuite sur place, réanimation à portée, `combat_aware`) : **aucun P1, quatre P2, tous traités** : (1) `apply_four_way` décalait le bot qui tient une réanimation → `BotView::hold_revive`
+(sous `combat_aware`, test) ; (2) `pursue` comptait des pas non exécutés (réanimation, butin, esquive) et pouvait écarter un but jamais tenté → seuls les pas exécutés et non nuls comptent ;
+(3) `ExplorerJitter` n'était pas remise à zéro d'une partie à l'autre (les `GgrsNetId` repartent de zéro) → remise à zéro à `OnEnter(InGame)` ; (4) `snap` mesurait la portée à la boîte
+d'un collider circulaire → **marge de 5 essayée puis abandonnée** (elle recréait le blocage de réanimation : 4 soft-locks à 2 bots, graines 1, 168, 180, 187), remplacée par une tenue
+**bornée** (`ExplorerJitter::snap_hold` : 240 frames de tenue puis 60 d'approche, test) : si le jeu refuse l'Interaction à la limite, l'approche reprend la main ; les quatre graines gagnent ensuite.
 
 ## 7. Journal (à ajouter sur `main` après le merge)
 
-`| 2026-10-18 | M3-T14 (bot explorateur v3 pour isaac : politique en données (bot.ron), porte à clé, bombes (mur secret, rochers, un poseur par mur, fuite de mèche), sous bornés, achats cœurs d'abord, diable Never par défaut, anti-jitter, anti-blocage de combat, réanimation à portée, combat_aware ; §79) | m3-t14-bot-isaac | b3 | mergée ; campagnes 200 graines : 1 bot 12 victoires/188 morts, 2 bots 112/88, 4 bots (20) 17/3, 0 soft-lock, 0 desync ; suite 652, test_crates 1 233, lint/gen ×5, fuzz, p2p-stress isaac 3 670 frames resimulées ; aucune trace existante blessée ; morts = contenu (visée à quatre directions ×5, champions D88), Q14 ouverte ; non fait : inférence de salle secrète sans type, boutique isaac (T11d) |`
+`| 2026-10-18 | M3-T14 (bot explorateur v3 pour isaac : politique en données (bot.ron), porte à clé, bombes (mur secret, rochers, un poseur par mur, fuite de mèche), sous bornés, achats cœurs d'abord, diable Never par défaut, anti-jitter, anti-blocage de combat, réanimation à portée, combat_aware ; §79) | m3-t14-bot-isaac | b3 | mergée ; campagnes 200 graines : 1 bot 12 victoires/188 morts, 2 bots 116/84, 4 bots (20) 18/2, 0 soft-lock, 0 desync ; suite 659, test_crates 1 245, lint/gen ×5, fuzz, p2p-stress isaac 3 939 frames resimulées ; aucune trace existante blessée ; morts = contenu (visée à quatre directions ×5, champions D88), Q14 ouverte ; non fait : inférence de salle secrète sans type, boutique isaac (T11d) |`
