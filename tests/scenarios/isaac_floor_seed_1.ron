@@ -1,24 +1,16 @@
-// M3-T11d1, intégration de T14 (2026-10-18) : le bot pose **la bombe de départ** contre le mur de la secrète (f1022, explosion f1096, mur ouvert f1097) ; chronologie recalée : boss verrouillé f2869, phases f2962 et f3132, salle nettoyée f3235,
-// butin `reservoir_vital` f3304, « niveau 1 » f3586 (curse `blind`), scénario de 4 000 frames : à f3650 le trésor du second étage est encore fermé, la clé en poche.
-// M3-T0f (docs/conventions.md §65), repris en M3-T5 (§70) : la partie ordinaire de `isaac` (séquence par
-// défaut `sous_sol` : deux étages en grille, graine 1) jouée par le bot `explorateur`. Le premier étage
-// (9 salles : départ, quatre combats, boss, trésor, secrète, boutique) est nettoyé, le boss vaincu ; le bot prend le
-// portail et arrive au second étage, où le trésor est fermé à clé et la clé du second étage lui est remise.
+// M3-T0f (docs/conventions.md §65), repris en M3-T5 (§70) : la partie ordinaire de `isaac` (séquence par défaut `sous_sol` : deux étages en grille, graine 1) jouée par
+// le bot `explorateur`. M3-T11d1 (2026-10-18, vingt gabarits, boutique exigée, curses dans la séquence par défaut, bombe de départ) : le premier étage (neuf salles :
+// départ, quatre combats, boss, trésor, secrète, boutique ; quatorze ennemis) est nettoyé, **la bombe de départ ouvre le mur de la secrète** (intégration de T14, D106),
+// le boss est vaincu ; le bot prend le portail et arrive au second étage, où le trésor est fermé à clé (la clé en poche).
 //
-// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : `salve` et `essaim` dès le premier étage) ;
-// le bot arrivait au boss avec 1 PV et mourait. Adaptation : le joueur gagne avec `Armor +50` (D93) (`PlayerScript::modifiers`). Les frames
-// de ce scénario sont celles de M3-T11d1 (plan refait) ; le bot est vivant à f3499 (scénario de 3500 frames).
-//
-// À regarder : quatre verrouillages de salle de combat (trois ou quatre ennemis chacune), la **curse `maze`** du premier étage (M3-T11d1 : la séquence
-// par défaut tire une curse sur 30 % des étages ; graine 1 : `maze` au premier, `blind` au second), le boss verrouille sa salle à f2500, passe en phase 1 à
-// f2593 (renforts `rampant` et `cracheur`, couronne) puis en phase 2 à f2763 (`spectre`, `bourdon`, spirale) et meurt (salle nettoyée f2866) ; son butin (pool `boss`,
-// M3-T8 §73, `reservoir_vital`) tombe et le bot le ramasse (f2938), ce qui retarde le portail (« niveau 1 » f3220) : la porte du trésor est alors fermée à clé
-// (`DoorLocked`), le joueur a une clé (`Consumable`) ; la porte de la salle secrète est fermée depuis le début (le bot ne pose pas la bombe de départ :
-// M3-T14). M3-T8 : chaque pool à épuisement a un objet sorti par étage (un trésor, un boss, une boutique de trois présentoirs) ; le second étage
-// en sort un autre, donc les compteurs passent de 1 à 2 (trésor, boss) et de 3 à 6 (boutique) à sa génération (l'épuisement est par run, pas par étage).
-// La partie continue sur le second étage jusqu'à la fin du scénario.
-// M3-T11d1 (2026-10-18) : vingt gabarits, boutique exigée, curses dans la séquence par défaut, bombe de départ ; le plan du premier étage change (neuf
-// salles : départ, quatre combats, boss, trésor, secrète, boutique ; quatorze ennemis), le boss est verrouillé à f2500 au lieu de f2044.
+// À regarder : quatre verrouillages de salle de combat (trois ou quatre ennemis chacune), la **curse `maze`** du premier étage (la séquence par défaut tire une curse sur
+// 30 % des étages ; graine 1 : `maze` au premier, `blind` au second) ; la bombe est posée f1022 (explosion f1096, mur ouvert f1097) ; le boss verrouille sa salle (f2869),
+// phase 1 (f2962, renforts, couronne), phase 2 (f3132) et meurt (salle nettoyée f3235) ; son butin (pool `boss`, M3-T8 §73, `reservoir_vital`) tombe (f3304) et retarde le
+// portail (« niveau 1 » f3586) : la porte du trésor est alors fermée à clé (`DoorLocked`), le joueur a une clé (`Consumable`, encore là à f3650) ; la porte de la salle
+// secrète s'est ouverte à f1097. M3-T8 : chaque pool à épuisement sort un objet par étage (un trésor, un boss, une boutique de trois présentoirs) : les compteurs passent
+// de 1 à 2 (trésor, boss) et de 3 à 6 (boutique) à la génération du second étage (l'épuisement est par run, pas par étage). La partie continue sur le second étage jusqu'à
+// la fin du scénario (4 000 frames).
+// D88 (2026-10-17) : le joueur gagne avec `Armor +50` (D93, `PlayerScript::modifiers`).
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la grammaire de la
 // grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par

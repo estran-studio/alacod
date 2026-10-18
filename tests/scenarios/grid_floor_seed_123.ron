@@ -1,14 +1,11 @@
-// M3-T11d1, intégration de T14 (2026-10-18) : le bot pose **la bombe de départ** contre le mur de la secrète (f673, explosion f747, mur ouvert f748) ; chronologie recalée : boss verrouillé f1424, phases f1538 et f1620,
-// salle nettoyée f1725, victoire f1726 (scénario de 2400 frames ; le bot ramasse `calice_ardent` à f1821).
-// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable, graine 123 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18,
-// vingt gabarits, boutique exigée) : le plan change et la graine 123 porte maintenant le **boss 2×2** (480 × 288 px) que portait la graine 23 :
-// neuf salles : le départ, trois combats dont un 2×1 (rochers à butin, piques), le boss 2×2 au sud-est avec la salle du diable collée à lui, un
-// trésor 1×1, la salle secrète au nord d'un combat (et d'un autre), la **boutique** (collée au grand combat). Le bot `explorateur`
-// nettoie les trois combats puis bat le boss ; il ramasse une bombe (f1139) et le butin du boss (`calice_ardent`, f1601).
+// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable, graine 123 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18, vingt gabarits, boutique
+// exigée) : le plan change et la graine 123 porte le **boss 2×2** (480 × 288 px) que portait la graine 23 : neuf salles : le départ, trois combats dont un 2×1 (rochers
+// à butin, piques), le boss 2×2 au sud-est avec la salle du diable collée à lui, un trésor 1×1, la salle secrète au nord d'un combat (et d'un autre), la **boutique**
+// (collée au grand combat). Le bot `explorateur` nettoie les trois combats, **pose la bombe de départ** contre le mur de la secrète (intégration de T14, D106) puis bat
+// le boss.
 //
-// À regarder : trois combats (f61 à f1104), puis le boss verrouille sa grande salle (f1200), phase 1 (f1316), phase 2 (f1396),
-// mort (salle nettoyée f1501) ; victoire f1502.
-// D88 (2026-10-17) : historique (les frames citées dans les versions d'avant sont périmées).
+// À regarder : la bombe est posée f673 (explosion f747, mur ouvert f748) ; le boss verrouille sa grande salle (f1424), phase 1 (f1538), phase 2 (f1620), meurt (salle
+// nettoyée f1725) ; victoire f1726 ; le bot ramasse ensuite le butin du boss (`calice_ardent`, f1821) ; scénario de 2400 frames.
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par

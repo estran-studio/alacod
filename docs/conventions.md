@@ -6526,13 +6526,13 @@ les 30 frames (103 refus en 3 000 frames) ; le joueur 1, qui pourrait l'acheter,
 Les chiffres sont des informations, pas des objectifs (décision de William). La campagne est à refaire avec le bot de T14 (cœurs, bombe, clés, achats) : mêmes commandes.
 
 **Intégration de T14 (D106, `m3-t14-bot-isaac` fusionné, §79).** Le bot de T14 pose des bombes par défaut dès qu'un joueur en porte une : la bombe de départ de `pleureur` les active dans tous les scénarios isaac à `explorateur`.
-**Quatorze traces rebénies** (les dix `bot_isaac_*` de T14, recalés sur les graines des vingt gabarits et la bombe de départ réelle, sans kit d'essai ; `grid_floor_seed_1/23/123`, `grid_post_boss` à `Armor +200`, `isaac_floor_seed_1`, `achievement_unlocks`) ;
-**preuve §5** : bombe portée avec les décisions de bombe du bot coupées (`bombs: (secret: false, rocks: false)`) = identique à l'état sans bombe sur neuf scénarios ; avec elles, la première frame qui diffère est le **trajet vers le mur secret**, 100 à 350 frames
+**Quatorze traces rebénies** (huit `bot_isaac_*` joués sur `isaac`, recalés sur les graines des vingt gabarits et la bombe de départ réelle, sans kit d'essai ; les deux `bot_isaac_rock*` de T14, joués sur la carte `testbed` dont le personnage n'a pas de bombe de départ, gardent leur kit et ne bougent pas ; `grid_floor_seed_1/23/123`, `grid_post_boss` à `Armor +200`, `isaac_floor_seed_1`, `achievement_unlocks`) ;
+**preuve §5** : bombe portée avec les décisions de bombe du bot coupées (`bombs: (secret: false, rocks: false)`) = identique à l'état sans bombe sur neuf scénarios ; avec elles, la première frame qui diffère est le **trajet vers le mur secret**, 13 à 350 frames
 **avant** la pose (le critère de T14 « première frame = première bombe posée » est trop strict). **Campagnes `s1`, `i2`, `i4` rejouées sur le contenu livré** (séquence par défaut, bombe de départ réelle, `--pickup-progress`, sans `--bombs`) : s1 **29 victoires, 171 morts**, i2 **115 victoires, 85 morts**,
 i4 **20 victoires sur 20** ; **0 desync, 0 soft-lock** (420 graines) ; les 45 graines laissées en soft-lock par le bot d'avant T14 finissent toutes en victoire ou en mort. D106 et D100 fermées, D99 réduite à l'esquive qui coupe la réanimation. Atteignabilité du bot : mur secret à la bombe 187 graines sur 200 (s1),
-porte à clé 51, achats en boutique 143 ; **aucune bombe de rocher en partie ordinaire** (rochers dans les angles : 45 poses = 45 murs secrets sur 40 graines ; rochers cassés par le souffle : 29 dans 12 graines) ; achat au diable : `Never` par défaut (Q14). Détail : rapport § 10, résumé `m3-t11d1-gabarits.campagne-t14.tsv`.
+porte à clé 51, achats en boutique 143 ; **aucune bombe de rocher en partie ordinaire** (rochers dans les angles : 45 poses du joueur (`bomb_place`) = 45 murs secrets ouverts sur 40 graines ; le compteur `bombe` du JSON compte aussi les bombes de champions ; rochers cassés par le souffle : 29 dans 12 graines) ; achat au diable : `Never` par défaut (Q14). Détail : rapport § 10, résumé `m3-t11d1-gabarits.campagne-t14.tsv`.
 
-**Dettes** : D99 (la réanimation du bot est interrompue par l'esquive ; ses autres blocages de la première campagne, cœur à pleine vie, visée du `gardien`, rochers, sont fermés par T14), D100 fermée (détecteur : `--pickup-progress`), D107 (le planificateur de grille évalue ×8,6 candidats avec neuf gabarits de combat) ; le bot n'achète pas au diable et ne pose pas de bombe contre un mur secret (T14) ; la boutique n'exerce pas
+**Dettes** : D99 (la réanimation du bot est interrompue par l'esquive ; ses autres blocages de la première campagne, cœur à pleine vie, visée du `gardien`, rochers, sont fermés par T14), D100 fermée (détecteur : `--pickup-progress`), D107 (le planificateur de grille évalue ×8,6 candidats avec neuf gabarits de combat) ; le bot n'achète pas au diable et pose la bombe de départ contre un mur secret (T14, intégré, D106) ; la boutique n'exerce pas
 `shop.cost: Currency(n)` (les prix passent par `economy.ron`) ; D93 reste ouverte (quatre scénarios gagnent par armure).
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
@@ -6853,10 +6853,10 @@ Moments clés ajoutés (`scenario::events`) : `door_lock` (« mur secret ouvert 
 
 | Scénario | Prouve |
 |---|---|
-| `bot_isaac_floor` | partie ordinaire (graine 48, `sous_sol`, sans bombe, politique de `bot.ron`) jouée jusqu'à la victoire (f4941) : coffre à l'étage 1, porte à clé et coffre à l'étage 2 ; les attentes ne nomment aucun objet (le tirage du butin change : D95/D96) |
-| `bot_isaac_secret` | graine 8 de `sous_sol_un`, une bombe : le bot pose (f19), fuit (vie pleine), le mur s'ouvre (f78), coffre secret ouvert |
-| `bot_isaac_key` | `sous_sol_cle` : le bot ouvre la porte à clé du trésor (f23), le coffre (f87) |
-| `bot_isaac_two` | deux bots, **une seule bombe** posée, le joueur 1 garde la sienne, le diable refusé par les deux |
+| `bot_isaac_floor` | partie ordinaire (graine 6, séquence par défaut `sous_sol`, bombe de départ réelle, politique de `bot.ron`) jouée jusqu'à la victoire (f4815) : bombe contre le mur secret aux deux étages, coffre, boutique, porte à clé (f3268) ; les attentes ne nomment aucun objet (le tirage du butin change : D95/D96) |
+| `bot_isaac_secret` | graine 39 de `sous_sol_un`, la bombe de départ : le bot pose (f19), fuit (vie pleine), le mur s'ouvre (f94), coffre secret ouvert (f1412) |
+| `bot_isaac_key` | `sous_sol_cle` (graine -1013903988, plan 254 : aucune secrète près du départ, pas de détour à la bombe) : le bot ouvre la porte à clé du trésor (f20), le coffre (f81) |
+| `bot_isaac_two` | deux bots (graine 39, `sous_sol_un`), **une seule bombe** posée au mur secret (le joueur 1 garde la sienne), trois achats en boutique (f1755 à f1792), victoire f2224 ; le refus du diable est prouvé par `bot_isaac_devil_never` |
 | `bot_isaac_devil` / `_devil_never` | présentoir à `MaxHealth("2")` posé au pied du joueur : `IfHealthAbove("4.0")` l'achète (f12, 6/6 → 4/4), `Never` non |
 | `bot_isaac_rock` / `_rock_sans_bombe` | carte `testbed/bot_rocks.ldtk` (`scripts/construire-cartes-t14.py`) : portail derrière deux rochers sans détour ; avec une bombe le bot les casse (f48 → f107) et passe (« niveau 1 », f184) ; sans bombe il reste devant |
 | `bot_isaac_shop` | trois présentoirs en douilles (un cœur à pleine vie, un trèfle proche, une bombe moins chère) : la bombe d'abord (f35), le trèfle (f88), le cœur refusé |

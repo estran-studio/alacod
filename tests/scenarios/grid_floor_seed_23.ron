@@ -1,13 +1,11 @@
-// M3-T11d1, intégration de T14 (2026-10-18) : le bot pose **la bombe de départ** contre le mur de la secrète (f261, explosion f335, mur ouvert f336) ; chronologie recalée : boss verrouillé f1296, phases f1389 et f1483,
-// salle nettoyée f1678, victoire f1679 (scénario de 1900 frames) ; le butin du boss n'est plus ramassé avant la fin (victoire d'abord) : attente `HasItem` retirée.
-// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable et un trésor **2×1**, graine 23 (séquence `sous_sol_un`).
-// M3-T11d1 (2026-10-18, vingt gabarits, boutique exigée) : le plan de la graine 23 change (le boss 2×2 de T5 est passé à la graine 123) : neuf
-// salles : le départ, trois combats, un boss 1×1 au sud-ouest du départ, la salle du diable accrochée au boss, un trésor **2×1** au nord, la salle secrète
-// collée au trésor et à deux combats (elle ne touche plus le départ), la **boutique** collée au départ (à l'est) ; dix ennemis. Le bot `explorateur`
-// nettoie les trois combats, bat le boss, ramasse son butin (`griffe_acier`) et gagne (victoire à la mort du boss : f1485).
+// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable et un trésor **2×1**, graine 23 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18, vingt
+// gabarits, boutique exigée) : le plan de la graine 23 change (le boss 2×2 de T5 est passé à la graine 123) : neuf salles : le départ, trois combats, un boss 1×1 au
+// sud-ouest du départ, la salle du diable accrochée au boss, un trésor **2×1** au nord, la salle secrète collée au trésor et à deux combats (elle ne touche plus le
+// départ), la **boutique** collée au départ (à l'est) ; dix ennemis. Le bot `explorateur` nettoie les trois combats, **pose la bombe de départ** contre le mur de la
+// secrète (intégration de T14, D106), bat le boss et gagne à sa mort.
 //
-// À regarder : trois combats nettoyés (f192, f689, f1010) ; le boss verrouille sa salle (f1101), phase 1 (f1195), phase 2 (f1315), meurt (f1484) et la salle se
-// rouvre (ses portes, celle de la salle du diable comprise) ; le bot ramasse le butin (f1537) ; la victoire (f1485) précède le ramassage.
+// À regarder : la bombe est posée f261 (explosion f335, mur ouvert f336) ; le boss verrouille sa salle (f1296), phase 1 (f1389), phase 2 (f1483), meurt (salle nettoyée
+// f1678, ses portes et celle de la salle du diable se rouvrent) ; la victoire (f1679) précède le ramassage du butin : aucune attente `HasItem` (scénario de 1900 frames).
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par

@@ -238,7 +238,7 @@ Q14 (fourchette de franchissement) : sans objet tant que l'équilibrage par bot 
 
 ### 10.1 Traces rebénies (14) et preuve §5
 
-La suite sans BLESS sur la fusion : **seuls 14 scénarios isaac échouent**, aucun autre jeu ne bouge. Causes : (1) les 10 `bot_isaac_*` de T14 étaient écrits pour un `isaac` sans bombe, sans boutique et sur l'ancien plan (kit d'essai `PlayerScript::bomb` et `items`) ;
+La suite sans BLESS sur la fusion : **seuls 14 scénarios isaac échouent**, aucun autre jeu ne bouge. Causes : (1) les huit `bot_isaac_*` joués sur `isaac` (T14 en compte dix : `bot_isaac_rock` et `_rock_sans_bombe` jouent la carte `testbed`, dont le personnage n'a pas de bombe de départ : ils gardent leur kit et ne bougent pas) étaient écrits pour un `isaac` sans bombe, sans boutique et sur l'ancien plan (kit d'essai `PlayerScript::bomb` et `items`) ;
 (2) `grid_floor_seed_1/23/123`, `grid_post_boss`, `isaac_floor_seed_1`, `achievement_unlocks` : le bot pose maintenant la bombe de départ contre le mur secret et ses chronologies bougent.
 
 | Scénario | Ce qui change | Recalage |
@@ -257,14 +257,14 @@ La suite sans BLESS sur la fusion : **seuls 14 scénarios isaac échouent**, auc
 **Preuve §5** (dumps `ALACOD_DUMP_TRACE` du même binaire, `ALACOD_GAME_DIR` sur deux états de `games/isaac`, `scripts/trace-diff.py … --ignore Inventory,BombCarrier`, neuf scénarios : `grid_floor_seed_1/23/123`, `grid_post_boss`, `isaac_floor_seed_1`,
 `achievement_unlocks`, `bot_isaac_secret`, `_two`, `_floor`, tronqués à la pose + 300 frames). État « sans bombe » : `pleureur.ron` sans `bomb` ni bombe de départ.
 - **Contrôle** : le joueur porte la bombe mais la politique du bot coupe ses décisions de bombe (`bombs: (secret: false, rocks: false)`) : **identique à l'état sans bombe sur les neuf scénarios** (318 à 1 321 frames). La bombe portée ne déplace donc rien par elle-même.
-- **Avec les décisions de bombe** : la première frame qui diffère est le **trajet vers le mur secret**, avant la pose : f636 (pose f986), f220 (f261), f517 (f673), f611 (f674), f945 (f1022), f624 (f677), f6 (f19, `bot_isaac_secret` et `_two`) ; une seule ligne, celle du joueur (`FacingDirection`, `AnimationState`). Le critère de T14
-  (« première frame qui diffère = première bombe posée ») est donc **trop strict** : le but « mur secret » existe dès que le joueur porte une bombe, le bot s'y met en route avant de la poser (100 à 350 frames avant).
+- **Avec les décisions de bombe** : la première frame qui diffère est le **trajet vers le mur secret**, avant la pose : f636 (pose f986), f220 (f261), f517 (f673), f611 (f674), f945 (f1022), f624 (f677), f333 (f364, `bot_isaac_floor` ; la bombe f138 que le journal y montre est celle d'un champion explosif, rayon 44), f6 (f19, `bot_isaac_secret` et `_two`) ; une seule ligne, celle du joueur (`FacingDirection`, `AnimationState`). Le critère de T14
+  (« première frame qui diffère = première bombe posée ») est donc **trop strict** : le but « mur secret » existe dès que le joueur porte une bombe, le bot s'y met en route avant de la poser (13 à 350 frames avant).
 - Les quatre scénarios `bot_isaac_devil*` et `bot_isaac_shop*` : la cause est le plan (gabarits, boutique, curses) déjà prouvée au § 6 ; la bombe y ajoute une unité à l'inventaire.
 
 ### 10.2 Campagnes de T14 rejouées sur le contenu livré (D106)
 
 `docs/taches/rapports/m3-t11d1-gabarits.campagne-t14.sh` (les options de `m3-t14-bot-isaac/campagne.sh`, `--pickup-progress`, séquence par défaut `sous_sol`, **sans `--bombs`** : « kit de bombes None » au journal d'`alacod-sim` ; binaire de la fusion `3feaeb87`), lots de 20 graines ; résumé graine par graine :
-`m3-t11d1-gabarits.campagne-t14.tsv` (issue, frames, étage, bombes posées, murs secrets ouverts, portes à clé, achats, coffres).
+`m3-t11d1-gabarits.campagne-t14.tsv` (issue, frames, étage, bombes, murs secrets ouverts, portes à clé, achats, coffres ; la colonne `bombes` compte aussi les bombes de champions explosifs) ; journal des poses du joueur, des rochers cassés et des portes à clé sur les 40 premières graines à un bot : `m3-t11d1-gabarits.campagne-t14.bombes-rochers.txt`.
 
 | Campagne | Graines | Victoires | Morts | Soft-locks | Desyncs | Premier étage franchi | Frames moyennes |
 |---|---|---|---|---|---|---|---|
@@ -280,10 +280,23 @@ finissent maintenant en victoire ou en mort (1 bot : 4 victoires, 15 morts ; 2 b
 | Mécanique du bot | Campagne (séquence par défaut, sans kit) | Scénario scripté |
 |---|---|---|
 | Bombe sur le mur secret | s1 : 222 murs ouverts dans 187 graines sur 200 (graines 1 à 5…) ; i2 : 347 dans 194 ; i4 : 40 dans 20 | `bot_isaac_secret` (39), `bot_isaac_two` (39, un seul poseur), `bot_isaac_floor` (6, deux étages) |
-| Bombe sur un rocher | **aucune en partie ordinaire** : sur 40 graines à un bot, 45 poses = 45 murs secrets ; les rochers sont dans les angles (§ 2) et casser un rocher n'est jamais nécessaire. Rochers cassés par le **souffle** du mur secret : 29 dans 12 graines (3, 4, 6, 14, 19, 20…), dont 6 rochers à butin (graine 6 : clé et ration, 19 : cœur, 21 : clé, 26 : un sou, 32 : bombe) | `bot_isaac_rock` (carte de testbed, T14) ; `isaac_bomb_rock` (scripté) |
+| Bombe sur un rocher | **aucune en partie ordinaire** : sur 40 graines à un bot, 45 poses du joueur (`bomb_place`) = 45 murs secrets ouverts (le compteur `bombe` du JSON compte aussi les bombes de champions explosifs) ; les rochers sont dans les angles (§ 2) et casser un rocher n'est jamais nécessaire. Rochers cassés par le **souffle** du mur secret : 29 dans 12 graines (3, 4, 6, 14, 19, 20…), dont 6 rochers à butin (graine 6 : clé et ration, 19 : cœur, 21 : clé, 26 : un sou, 32 : bombe) | `bot_isaac_rock` (carte de testbed, T14) ; `isaac_bomb_rock` (scripté) |
 | Porte à clé (trésor du second étage) | s1 : 51 graines (3, 6, 13, 14, 15…) ; i2 : 143 ; i4 : 20 sur 20 | `bot_isaac_key` (-1013903988), `bot_isaac_floor` (f3268) |
 | Achat en boutique | s1 : 544 achats dans 143 graines (1, 2, 3, 4, 5…) ; i2 : 915 dans 188 ; i4 : 117 dans 20 | `bot_isaac_shop`, `_shop_blesse`, `bot_isaac_two` (trois présentoirs), `bot_isaac_floor`, `isaac_shop_buy` |
 | Achat au diable | **aucun** par défaut (`devil: Never`, Q14 à confirmer) ; politique `IfHealthAbove` non rejouée en campagne ici | `bot_isaac_devil` (présentoir posé), `devil_deal_isaac` |
 | Coffres (trésor, secrète) | s1 : 378 dans 173 graines | `bot_isaac_secret`, `bot_isaac_two`, `bot_isaac_floor` |
 
 D106 est **fermée**. D99 (réduite à l'esquive qui coupe la réanimation) et D107 (planificateur) restent ouvertes ; D100 est fermée.
+
+### 10.4 Vérifié (résultats réels, sur la fusion de T14, avant `main`)
+
+- `make test_scenarios_par SHARDS=3` : **663 scénarios, 0 échec, 0 « trace différente »** (214 s) ; `make test_crates` : **1 245 tests, 0 échec** ; `cargo fmt --all -- --check` propre ; lint ×5 sans erreur ; `make gen` ×5 sans diff ; `make check_sim_boundary` : 13 crates ; `make test_tools` : 25 tests ;
+  `check-rollback-registration.sh` OK ; fuzz `ALACOD_FUZZ=0:8` et `ALACOD_FUZZ_BOMBS=1` : 1 test chacun, verts.
+- `scripts/check-forbidden.sh` signalait 4 `Instant::now()` pour 2 autorisés dans `crates/map_ldtk/src/generation/mod.rs` (les deux du test de comparaison isaac/gungeon par phase, revue de T11d1) : `scripts/determinism-allowlist.json` passe à `count: 4` avec la raison.
+- **p2p réel avec les inputs figés de bots** (`GAME=isaac FLOORS=sous_sol UNTIL_FLOOR=5 SIM_ARGS=--pickup-progress scripts/p2p-gungeon-inputs.sh 2 23 4500`, puis `GAME_ARGS="--seed 23" EXPECT_FLOORS=1 scripts/p2p-stress.sh isaac <inputs> 4400`) : deux pairs, **5 899 frames resimulées**,
+  450 rollbacks (profondeur moyenne 9,9), **0 `DesyncDetected`**, un passage d'étage (f1700), 4 399 frames contiguës et identiques ; les traces portent deux `bomb_place`, trois `secret_wall_open` et une `key_door_open` : la bombe de départ, le mur secret et la porte à clé sont donc rejoués en p2p avec rollbacks réels.
+
+### 10.5 Reste à faire à la fusion avec `main`
+
+`origin/main` (`98e65184`) contient `m2-salles-murs-gungeon` (`ExplorerOptions::steady`, soft-lock `Floors` par cases explorées) mais **pas encore** `m3-t14-bot-isaac` : la fusion de `main` dans cette branche conflit dans `crates/bots/src/{explorer,input}.rs`, `crates/scenario/src/{runner.rs,bin/alacod-sim.rs}`, `crates/scenario/tests/bots.rs`, `crates/map_ldtk/src/generation/mod.rs`
+et les docs : les conflits de bots (`explorer.rs`, `input.rs`, `runner.rs`, `alacod-sim.rs`, `bots.rs`) opposent les deux branches de bots et reviennent à T14 (mergée la première) ; `generation/mod.rs` et les docs sont les miens à résoudre ensuite. Une fois T14 sur `main` : `git merge origin/main`, rebénir ce qui bouge encore (avec cause), relancer suite, `test_crates`, p2p.

@@ -1,16 +1,12 @@
-// M3-T11d1, intégration de T14 (2026-10-18) : le bot `explorateur` de T14 pose maintenant **la bombe de départ** de `pleureur` contre le mur de la salle secrète (f986, explosion f1060, mur ouvert f1061 :
-// `DoorLocked` faux à f1100) ; chronologie recalée : boss verrouillé f2599, phases f2691 et f2864, salle nettoyée f3028, victoire f3029 (scénario de 3500 frames). Les commentaires ci-dessous parlant d'une
-// secrète fermée toute la partie datent d'avant T14.
-// M3-T5 (docs/conventions.md §70) : un étage entier en grille, graine 1 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18, vingt gabarits,
-// boutique exigée) : neuf salles : le départ, quatre combats dont un 2×2 (rochers, un amas à butin), un boss 1×1 au bout (à l'ouest), un trésor
-// **1×2** (grande salle verticale), la salle secrète collée sous deux salles de combat et la **boutique** (trois présentoirs) ; quatorze
-// ennemis. Le bot `explorateur` nettoie les quatre combats et gagne.
+// M3-T5 (docs/conventions.md §70) : un étage entier en grille, graine 1 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18, vingt gabarits, boutique exigée) : neuf
+// salles : le départ, quatre combats dont un 2×2 (rochers, un amas à butin), un boss 1×1 au bout (à l'ouest), un trésor **1×2** (grande salle verticale), la salle
+// secrète collée sous deux salles de combat et la **boutique** (trois présentoirs) ; quatorze ennemis. Le bot `explorateur` nettoie les quatre combats, **pose la
+// bombe de départ** contre le mur de la secrète et gagne.
 //
-// À regarder : les quatre combats se verrouillent et se rouvrent (f60 à f1554) ; le boss verrouille sa salle (f2245), passe en phase 1 (f2337,
-// couronne), phase 2 (f2510), meurt (salle nettoyée f2673) ; victoire f2674.
-// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé ; le bot arrivait au boss avec 1 PV et mourait. Adaptation : le joueur gagne avec `Armor +50` (D93)
-// (`PlayerScript::modifiers`) ; mêmes attentes (victoire, boss vaincu, joueur vivant). La porte de la salle secrète reste fermée
-// pendant toute la partie (le bot ne pose pas la bombe : M3-T14) ; le trésor n'est pas fermé à clé au premier étage (`lock_from_floor: 1`).
+// À regarder : les quatre combats se verrouillent et se rouvrent ; la bombe est posée f986 (explosion f1060, mur ouvert f1061, `DoorLocked` faux à f1100) ; le boss
+// verrouille sa salle (f2599), passe en phase 1 (f2691), phase 2 (f2864), meurt (salle nettoyée f3028) ; victoire f3029 (scénario de 3500 frames).
+// Le joueur gagne avec `Armor +50` (`PlayerScript::modifiers`, D93 : D88, nouveau tirage des variantes) ; le trésor n'est pas fermé à clé au premier étage
+// (`lock_from_floor: 1`). Intégration de T14 (D106, 2026-10-18) : le bot de T14 pose la bombe de départ, chronologie recalée.
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
