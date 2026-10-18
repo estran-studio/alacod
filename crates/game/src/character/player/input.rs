@@ -5,7 +5,6 @@ use bevy_ggrs::prelude::*;
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use combat::downed::Downed;
 use leafwing_input_manager::prelude::*;
-use serde::{Deserialize, Serialize};
 use sim_core::animation_state::AnimationState;
 use sim_core::animation_state::FacingDirection;
 use sim_core::frame_events::FrameEvents;
@@ -20,6 +19,7 @@ use crate::character::movement::{grip, run_velocity, SprintState, Velocity, FIXE
 use crate::character::movement::{DashEffect, IframesKind};
 use crate::character::player::{control::PlayerAction, Player};
 use crate::collider::{is_colliding, Collider, CollisionLayer, CollisionSettings};
+use crate::interaction::InteractionInput;
 
 use super::jjrs::PeerConfig;
 use super::LocalPlayer;
@@ -35,12 +35,6 @@ const PAN_FACING_THRESHOLD: i16 = 5;
 
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct PointerWorldPosition(pub Vec2);
-
-/// Component that tracks interaction input state
-#[derive(Component, Clone, Copy, Default, Debug, Hash, Serialize, Deserialize)]
-pub struct InteractionInput {
-    pub is_holding: bool,
-}
 
 /// Direction de déplacement demandée par les touches (non normalisée, composantes -1/0/1).
 fn movement_direction(input: &BoxInput) -> fixed_math::FixedVec2 {

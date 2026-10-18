@@ -6,7 +6,7 @@
 //! session : ce test pilote lui-même la boucle, comme `tests/run.rs` et `tests/hub.rs`.
 
 use bevy::prelude::*;
-use game::{core::AppState, run_state::RunRequest};
+use game::{run_state::RunRequest, session::AppState};
 use items::{ItemTable, LootTables, PoolState, Rarity, RunUnlocks, UnlockTable};
 use run::Run;
 use scenario::{

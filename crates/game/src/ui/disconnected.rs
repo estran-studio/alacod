@@ -1,5 +1,5 @@
-use crate::core::AppState;
 use crate::jjrs::SessionLostEvent;
+use crate::session::AppState;
 use bevy::prelude::*;
 
 pub struct DisconnectedUiPlugin;

@@ -16,7 +16,7 @@ use bevy::prelude::*;
 use std::path::PathBuf;
 
 use crate::character::config::CharacterConfig;
-use crate::core::AppState;
+use crate::session::AppState;
 use crate::waves::WaveConfig;
 use crate::weapons::{melee::MeleeWeaponsConfig, WeaponsConfig};
 

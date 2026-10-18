@@ -143,9 +143,9 @@ pub struct Scenario {
     pub mode: Option<content::EntryMode>,
     /// Script d'actions d'UI (M2-T18, `docs/conventions.md` §56) : ouvre le menu de pause ou
     /// l'inventaire et navigue, à des frames exactes. Présentation seule : lu hors simulation
-    /// (`game::ui::screens::ScreenScript`), jamais dans l'input rollback, aucune trace ne bouge.
+    /// (`game::ui::screens::model::ScreenScript`), jamais dans l'input rollback, aucune trace ne bouge.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ui: Vec<crate::ui::screens::UiStep>,
+    pub ui: Vec<crate::ui::screens::model::UiStep>,
 }
 
 /// Placement scripté d'un personnage (T1.13, `docs/conventions.md` §28) : fait apparaître

@@ -26,10 +26,10 @@ use sim_core::players::PlayersCount;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::character::config::CharacterConfig;
-use crate::core::OnlineState;
 use crate::economy::{EconomyConfig, PerkModifierDef, PerksConfig};
 use crate::global_asset::GlobalAsset;
 use crate::jjrs::GggrsSessionConfiguration;
+use crate::session::OnlineState;
 use crate::waves::config::WaveConfig;
 
 /// Palier de vague résolu (`WaveTier` aux valeurs concrètes).

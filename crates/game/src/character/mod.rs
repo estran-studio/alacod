@@ -1,3 +1,4 @@
+pub mod appearance;
 pub mod config;
 pub mod create;
 pub mod dash;
@@ -139,7 +140,7 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace::<EnemySpawnerState>()
             .rollback_and_trace::<EnemyPath>()
             .rollback_and_trace::<Obstacle>()
-            .rollback_and_trace::<visuals::CharacterAppearance>()
+            .rollback_and_trace::<appearance::CharacterAppearance>()
             .rollback_and_trace::<enemy::ai::pathing::WallSlideTracker>()
             // New AI components
             .rollback_and_trace::<EnemyAiConfig>()

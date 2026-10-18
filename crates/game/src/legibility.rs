@@ -23,14 +23,17 @@ use combat::weapons::WeaponPickup;
 use items::{Chest, ItemPickup, ItemTable, Rarity, Shelf, ShellPickup};
 use utils::frame::FrameCount;
 
+use crate::character::appearance::CharacterAppearance;
 use crate::character::enemy::ai::pathing::EnemyPath;
 use crate::character::enemy::ai::state::EnemyTarget;
-use crate::character::visuals::{CharacterAppearance, MarkerTint, VisualsAttached};
+use crate::character::visuals::{MarkerTint, VisualsAttached};
 use crate::collider::{Collider, ColliderShape};
+use crate::fog_map::FogMap;
 use crate::interaction::Interactable;
 use crate::powerups::PowerUpPickup;
-use crate::room_fog::{FogMap, FogView};
+use crate::room_fog::FogView;
 use crate::ui::hud::{HudConfig, HudConfigHandle};
+use crate::visual_requests::WorldLabel;
 use crate::world_sprites::{atlas_sprite, item_candidates, SpriteTable};
 use map::game::entity::map::character_spawn::CharacterSpawnComponent;
 use map::game::entity::map::door::DoorComponent;
@@ -421,11 +424,6 @@ pub struct Label {
 /// Fond de l'étiquette.
 #[derive(Component)]
 struct LabelBackground;
-
-/// Texte d'étiquette posé par un système de la simulation ou de la carte sur une entité qui n'a pas
-/// d'autre source de nom (ex. le portail) : `WorldLabel("Portail")`.
-#[derive(Component, Clone, Debug)]
-pub struct WorldLabel(pub String);
 
 const LABEL_FONT: f32 = 8.0;
 /// Chasse de Fira Mono (largeur d'un caractère / corps).

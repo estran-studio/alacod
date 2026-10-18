@@ -446,7 +446,7 @@ impl Plugin for ProfilePlugin {
             .add_systems(
                 bevy_ggrs::GgrsSchedule,
                 record_held_items
-                    .before(crate::frame::increase_frame_system)
+                    .before(crate::frame_counter::increase_frame_system)
                     .in_set(RollbackSystemSet::FrameCounter),
             );
     }
