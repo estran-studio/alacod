@@ -163,8 +163,8 @@ de 2 s : **à 3 % de perte la marge est épuisée**. Le jeu ne règle pas ces d�
 alors que GGRS sait absorber des pertes tout seul. Dette **D87**. Le `DesyncDetected` du dernier cas suit la déconnexion
 (chaque pair continue sans l'autre) : c'est la conséquence d'une session cassée, pas d'un écart de simulation ; je ne l'ai pas
 démontré autrement (le client 0 a déconnecté le pair 7 s avant le client 1 dans ce run).
-Profondeur et fréquence des rollbacks : le jeu ne journalise pas la profondeur d'un rollback ; seul le total de frames resimulées
-est mesuré (la fenêtre de prédiction est de 12 frames, `MAX_PREDICTION_WINDOW`). Les 70 `WaitRecommendation` du client 0 sous stress
+Profondeur et fréquence des rollbacks : **mesurées depuis** (dette-d86-lobby-en-ligne, §8 ci-dessous) ; au moment de cette matrice le jeu ne journalisait que
+le total de frames resimulées (la fenêtre de prédiction est de 12 frames, `MAX_PREDICTION_WINDOW`). Les 70 `WaitRecommendation` du client 0 sous stress
 (0 pour le client 1) disent que le client qui devance se fait freiner par GGRS.
 
 ### 3.5 Rejeu sur le binaire final
@@ -231,7 +231,7 @@ n'a pas été lancé (heures), la variante `NIGHTLY_GUNGEON_NETEM` non plus (mê
   d'un espace de noms : pas de bande passante limitée, pas de réordonnancement, pas de perte en rafale.
 - La détection d'étage est lue dans le journal (`floor_transition`), pas dans l'état : `FloorIndex` n'est pas exposé hors scénario.
 - Pair tué = SIGKILL, pas la fermeture propre d'une fenêtre ni une coupure réseau.
-- Retour au lobby : bloqué par D86 (§7) ; la preuve « Lobby après la fin de run » n'est donc pas faite.
+- Retour au lobby : bloqué par D86 au moment de ce rapport (§7) ; **corrigé et prouvé depuis** (§8, D86 fermée : 5/5 essais consécutifs, 2 jeux).
 - Pas de campagne : une exécution par cellule de la matrice, une graine, une run.
 - Sans `MIN_RESIMULATED`, un client suspendu par le stress n'accumule presque pas de resimulation (10, 7, 1, 8) : seul le client qui
   devance en a ; le critère reste « le plus resimulé », comme dans la recette d'`outillage-p2p-stress`.
@@ -278,7 +278,7 @@ arriver (mesures) : la graine de run (deux enregistrements, avec et sans la dér
 `ALACOD_STATE_TRACE_FULL=1` : les 99 premières frames d'une run en ligne après le hub et après un restart sont identiques). Les traces du runner
 et d'une partie en ligne diffèrent dès la frame 0 **même sans hub** (checksums de natures différentes) : elles ne se comparent pas.
 
-### 7.4 D86 : retour au lobby, cause établie, non corrigé
+### 7.4 D86 : retour au lobby, cause établie (corrigée ensuite, §8)
 Reproduit **deux fois après la fin de run** (essais 1 et 3 ci-dessus), avec le signaling Docker (`<OUT>/signaling.log`, désormais sauvé par les scripts) :
 - Essai 1 (`/tmp/b2r/lobby1`) : client 1 pose `ToLobby` à 23:53:20,636 et rouvre la salle d'origine à .683 (nouvel id `8f92…`) ; **à .757 il voit
   `8941…`, qui est l'ancien id du client 0** (encore dans la partie, requête à .749), et passe à `GameLoading` avec lui. Le serveur retire `8941…` à
@@ -291,8 +291,8 @@ Reproduit **deux fois après la fin de run** (essais 1 et 3 ci-dessus), avec le 
 **Ce n'est pas un état non remis à zéro** (contrairement aux portes du hub) : c'est une course de protocole. Le retour au lobby rouvre la salle
 **d'origine**, celle de la partie qui finit ; le pair qui revient le premier s'y connecte au **socket encore vivant** de l'autre. « Rejouer » l'évite
 (salle `{lobby}-r{n}` neuve). **Conséquence pour un humain** : appuyer à quelques secondes d'écart ne l'évite pas, il l'aggrave (le premier revenu
-rencontre forcément l'ancien socket du second). Correction non faite (choix de conception : salle `{lobby}-l{n}`, poignée de main de lobby, ou abandon
-d'une session qui ne se synchronise pas) ; pistes en D86. **Le point 3 reste donc partiel** pour « retour au lobby en ligne après la fin de run ».
+rencontre forcément l'ancien socket du second). Correction faite après ce rapport (§8) : les pairs des sessions déjà jouées sont ignorés et une session
+qui ne se synchronise pas est abandonnée.
 
 ### 7.5 Aussi trouvé
 - `p2p-restart.sh` (`set -e`) : sortait en code 1 à tort (corrigé au rejeu précédent) ; `set -e` + `grep` sans correspondance (`EXPECT_VICTORY`) l'aurait fait
@@ -304,3 +304,22 @@ d'une session qui ne se synchronise pas) ; pistes en D86. **Le point 3 reste don
 `origin/main` `d4162f18` fusionné ; `make test_scenarios_par SHARDS=3` sans BLESS sur `8a2cb4fb` (tout le Rust : `jjrs::local`, `alacod-sim`, `input.rs`,
 `state_trace.rs`) : **501 scénarios verts**, 776 s, aucune `.trace` modifiée (`git status` propre) ; `make test_tools` 19 tests OK ; `cargo fmt --check` propre ;
 `bash -n` de tous les scripts. Pas de seconde relecture indépendante du delta de cette revue.
+
+## 8. Suite : D86 corrigée, rollbacks mesurés, nightly complet (dette-d86-lobby-en-ligne, 2026-10-17)
+Détail et commandes : `docs/taches/rapports/dette-d86-lobby-en-ligne.md`.
+- **Retour au lobby en ligne (point 3, dernier sous-point)** : correctif (a) pairs de la session finie ignorés (`PreviousSessionPeers`, `live_players`), (b) abandon
+  d'une session `Synchronizing` plus de 30 s (horloge murale) avec retour au lobby. Binaire d'avant : rouge au 1er essai (requêtes à 157 ms). Après : `scripts/p2p-lobby.sh`
+  **5/5 verts consécutifs** à 208–338 ms d'écart sur zombies, **5/5** sur gungeon après la victoire (f7143, 126–300 ms), traces identiques pour les parties 1 et 2,
+  partie 2 = partie 1. `scripts/p2p-sync-timeout.sh` : (b) de bout en bout, OK.
+- **Profondeur et fréquence des rollbacks** (2 clients, graine 10, 4 500 frames, délai d'input 0, une exécution par condition ; rollback = restauration `LoadWorld`,
+  profondeur = frames resimulées par rollback, ≥ 1) :
+
+| Condition (charge au lancement) | Rollbacks par 100 frames (clients 0 / 1) | Profondeur moyenne (0 / 1) | médiane / p90 / max | Profondeur 1 |
+|---|---|---|---|---|
+| Naturelle, boucle locale (2,67) | 16,3 / 15,7 | 1,27 / 1,24 | 1 / 2 / 4 et 7 | 79 % / 82 % |
+| netem RTT 120 ms ± 20 ms, perte 1 % (2,81) | 18,3 / 18,7 | 4,04 / 3,98 | 3 / 8 / 11 | 12 % / 14 % |
+| Stress SIGSTOP du client 1 (2,64) | 24,4 / 1,2 | 5,14 / 1,11 | 4 / 10 / 11 (client 0) | 7 % / 92 % |
+
+  Profondeur maximale 11 (fenêtre de prédiction 12), trois exécutions par condition. Profondeur corrigée à la revue 2 (frames avancées, plus les clés de trace). Détail (p99, coûts, répétitions) : rapport de la dette.
+- **Nightly complet** (`NIGHTLY_P2P_GUNGEON=1`, sans `--quick`, `10816160`) : code 0, **18 924 s** ; C2 (p2p gungeon, stress, transition d'étage) ✅ ; C (allumette) SKIPPED et
+  D (vidéos) PARTIAL sur ce poste (pas de `../allumette`, pas d'affichage) : dette **D94**.

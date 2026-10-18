@@ -147,3 +147,36 @@ fn p2p_detects_a_divergent_checksum() {
         "a divergent checksum must reach DesyncDetected"
     );
 }
+
+fn peer(n: u8) -> bevy_matchbox::prelude::PeerId {
+    serde_json::from_str(&format!("\"00000000-0000-0000-0000-0000000000{n:02}\"")).unwrap()
+}
+
+/// D86 : les pairs d'une session déjà jouée disparaissent de la liste, l'ordre des autres
+/// (donc les handles GGRS) est celui du socket.
+#[test]
+fn live_players_ignores_previous_session_peers_and_keeps_order() {
+    use super::live_players;
+    use bevy_ggrs::ggrs::PlayerType as P;
+    let players = vec![
+        P::Remote(peer(1)),
+        P::Local,
+        P::Remote(peer(2)),
+        P::Remote(peer(3)),
+    ];
+    let stale = [peer(1), peer(3)].into_iter().collect();
+    assert_eq!(
+        live_players(players.clone(), &stale),
+        vec![P::Local, P::Remote(peer(2))]
+    );
+    assert_eq!(live_players(players.clone(), &Default::default()), players);
+}
+
+#[test]
+fn sync_timeout_is_reached_only_after_the_delay() {
+    use super::sync_timed_out;
+    use std::time::Duration;
+    assert!(!sync_timed_out(None, 30.0));
+    assert!(!sync_timed_out(Some(Duration::from_millis(29_900)), 30.0));
+    assert!(sync_timed_out(Some(Duration::from_secs(30)), 30.0));
+}
