@@ -677,12 +677,12 @@ pub fn apply_gravity(velocity: FixedVec2, gravity: Fixed) -> FixedVec2 {
 /// `Homing(force)` sur une frame : la direction tourne vers `to_target`
 /// (`v̂ + force·t̂`, renormalisée), la vitesse scalaire est conservée.
 pub fn steer_towards(velocity: FixedVec2, to_target: FixedVec2, force: Fixed) -> FixedVec2 {
-    let speed = velocity.length();
+    // `length` et `normalize_or_zero` de la vitesse partagent la même racine carrée.
+    let (speed, dir) = velocity.length_and_direction();
     let target_dir = to_target.normalize_or_zero();
     if speed == Fixed::ZERO || target_dir == FixedVec2::ZERO {
         return velocity;
     }
-    let dir = velocity.normalize_or_zero();
     let blended = FixedVec2::new(
         dir.x.saturating_add(target_dir.x.saturating_mul(force)),
         dir.y.saturating_add(target_dir.y.saturating_mul(force)),
