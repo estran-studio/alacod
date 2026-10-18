@@ -54,12 +54,12 @@ pub fn loot_currency(drawn: &str) -> Option<u32> {
     drawn.strip_prefix(CURRENCY_LOOT_PREFIX)?.parse().ok()
 }
 
-/// Une entrée pondérée. Un poids ≤ 0 est refusé par le lint.
+/// Une entrée pondérée. Un poids ≤ 0 ou > [`MAX_LOOT_WEIGHT`] est refusé par le lint.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LootEntry {
     pub pick: LootPick,
-    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0, ≤ 1000")))]
     pub weight: i32,
 }
 
@@ -411,9 +411,12 @@ struct Contender<'a> {
 /// pour les poids 1 et 2). 2) Parmi les candidats de l'entrée gagnante, la plus petite clé
 /// `hash(base, contenu de l'entrée, identifiant)` gagne : tirage uniforme. Conséquence, **à `seen`,
 /// raretés et exclusions égaux** : ajouter une entrée, ajouter un candidat à une entrée, ou augmenter
-/// un poids ne change l'objet tiré que s'il devient un candidat de ce qui a été ajouté (l'objet d'une entrée
-/// `Item`, un candidat d'une entrée `Rarity`) ; retirer ce qui n'a pas gagné ne le change pas. Un déblocage
-/// ne déplace donc que les emplacements qui prennent un objet qu'il apporte.
+/// un poids ne change l'objet tiré que s'il devient un objet de l'entrée ajoutée, du candidat ajouté ou de
+/// l'entrée alourdie : l'objet d'une entrée `Item`, l'arme ou le tas de sous d'une entrée `Weapon` ou
+/// `Currency`, et, pour une entrée `Rarity` (ajoutée, alourdie, ou fusionnée avec une entrée de même
+/// contenu), **n'importe lequel de ses candidats**, y compris un qui existait déjà. Retirer ce qui n'a pas
+/// gagné ne change rien. Un déblocage ne déplace donc que les emplacements qui prennent un objet de ce
+/// qu'il apporte.
 /// Limite : si l'ajout rend non vide une passe plus stricte (rareté du coffre), c'est cette passe qui
 /// tire, et l'objet peut changer. Coût : un `fmix64` par unité de poids du pool.
 #[allow(clippy::too_many_arguments)]
@@ -458,7 +461,9 @@ pub fn draw_exhausting(
             let identity = pick_identity(&entry.pick);
             let weight = entry.weight.min(MAX_LOOT_WEIGHT) as u64;
             match contenders.iter_mut().find(|c| c.identity == identity) {
-                Some(contender) => contender.weight += weight,
+                Some(contender) => {
+                    contender.weight = (contender.weight + weight).min(MAX_LOOT_WEIGHT as u64)
+                }
                 None => contenders.push(Contender {
                     identity,
                     weight,
@@ -1586,6 +1591,83 @@ mod tests {
             before,
             "deux entrées du même objet valent une entrée de poids somme"
         );
+    }
+
+    /// Le contrat pour les entrées à plusieurs candidats ou sans objet : ajouter ou alourdir une entrée `Rarity` ne
+    /// déplace un emplacement que vers un candidat **de cette entrée** (pas vers l'objet d'une autre) ; une arme ou un
+    /// tas de sous ajouté ne déplace que vers eux.
+    #[test]
+    fn rarity_weapon_and_currency_additions_stay_inside_what_they_bring() {
+        const SLOTS: u32 = 5_000;
+        let none = BTreeSet::new();
+        let items = many_items(4, 3);
+        let base = table(
+            vec![
+                entry(LootPick::Item("x0".into()), 2),
+                entry(LootPick::Item("x1".into()), 1),
+                entry(LootPick::Item("r0".into()), 2),
+                entry(LootPick::Rarity(Rarity::Rare), 1),
+            ],
+            false,
+        );
+        let draws = |table: &LootTableDef| {
+            (0..SLOTS)
+                .map(|n| drawn(table, &items, &none, n))
+                .collect::<Vec<_>>()
+        };
+        let before = draws(&base);
+        let moved_to = |after: &[String]| -> BTreeSet<String> {
+            after
+                .iter()
+                .zip(&before)
+                .filter(|(now, was)| now != was)
+                .map(|(now, _)| now.clone())
+                .collect()
+        };
+        let rares: BTreeSet<String> = ["r0", "r1", "r2"].into_iter().map(String::from).collect();
+
+        // Une entrée `Rarity` de même contenu, ajoutée : fusion, poids 1 + 3.
+        let mut heavier = base.clone();
+        heavier
+            .entries
+            .push(entry(LootPick::Rarity(Rarity::Rare), 3));
+        let targets = moved_to(&draws(&heavier));
+        assert!(
+            !targets.is_empty() && targets.is_subset(&rares),
+            "{targets:?}"
+        );
+
+        // Une entrée `Rarity` apportée à un pool qui n'en avait pas.
+        let mut without = base.clone();
+        without.entries.pop();
+        let base_without = draws(&without);
+        let mut with = without.clone();
+        with.entries.push(entry(LootPick::Rarity(Rarity::Rare), 3));
+        let moved: BTreeSet<String> = draws(&with)
+            .into_iter()
+            .zip(&base_without)
+            .filter(|(now, was)| now != *was)
+            .map(|(now, _)| now)
+            .collect();
+        assert!(!moved.is_empty() && moved.is_subset(&rares), "{moved:?}");
+
+        // Une arme et un tas de sous : seulement eux.
+        for (pick, expected) in [
+            (
+                LootPick::Weapon("lame".into(), Rarity::Common),
+                "weapon:lame",
+            ),
+            (LootPick::Currency(5), "currency:5"),
+        ] {
+            let mut more = base.clone();
+            more.entries.push(entry(pick, 2));
+            let targets = moved_to(&draws(&more));
+            assert_eq!(
+                targets,
+                BTreeSet::from([expected.to_string()]),
+                "{expected}"
+            );
+        }
     }
 
     /// Poids plafonné : un poids énorme ne fait pas boucler le tirage (le lint le refuse).

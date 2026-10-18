@@ -4168,7 +4168,7 @@ au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmè
 
 Deux scénarios attestent les mécaniques de M2 du tableau ci-dessous dans **une** partie de bots (graine 10, `etages_deux`,
 `shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 700
-frames, victoire f7545) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6876, synctest). Les
+frames, victoire f7316 depuis D95/D96) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6091, synctest). Les
 moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente.
 
 | Mécanique | Frame (2 bots, frames de la run) | Attente |
@@ -4185,7 +4185,7 @@ moments clés du premier sont dans `events.json` (page de revue), chaque ligne d
 | Boss, trois phases | f3406, phases f3439 et f3487 | `BossPhase(NetId(205), 2)`, `Event(boss_phase)` |
 | Portail | f3489 | `Event(portal)` |
 | Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7325 (phases f7471, f7532) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(694), 2)` |
-| Victoire et profil | f7545 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
+| Victoire et profil | f7316 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
 
 **Non attestées, et pourquoi** : (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
 s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
@@ -4662,8 +4662,9 @@ cœurs d'âme paient à la place : T8).
   passaient à un objet non débloqué).
   **Contrat** (l'ordre de tirage et `PoolState::assign` sont inchangés) : *à graine, `seen`, passe de rareté et exclusions égaux,
   ajouter une entrée, débloquer un objet caché, ajouter un candidat à une entrée `Rarity` ou augmenter un poids ne change
-  l'objet d'un emplacement que si c'est pour un objet qu'apporte l'ajout* (l'objet d'une entrée `Item`, un candidat d'une
-  entrée `Rarity` ; inversement, retirer ce qui n'a pas gagné ne change rien). Un
+  l'objet d'un emplacement que si c'est pour un objet qu'apporte l'ajout* (l'objet d'une entrée `Item`, l'arme ou le tas de sous d'une
+  entrée `Weapon` ou `Currency` ; pour une entrée `Rarity` ajoutée, alourdie ou fusionnée avec une entrée de même contenu, **n'importe lequel
+  de ses candidats**, y compris un qui existait déjà ; inversement, retirer ce qui n'a pas gagné ne change rien). Un
   contenu qui s'enrichit (T11b, T11c… : des objets ajoutés aux pools) ne fait donc plus bouger que les emplacements qui prennent
   le nouvel objet, et un déblocage de profil (§75) ne déplace que vers ce qu'il apporte. **Limites** : (1) dans une suite
   d'emplacements à épuisement, l'objet qu'un déblocage déplace revient dans le pool et peut sortir à un emplacement
@@ -5717,7 +5718,7 @@ séquence `deux_vides` (deux niveaux sans ennemi, le portail s'ouvre aussitôt).
 |---|---|
 | `champion_explodes`, `..._sans_variante` | `Explode` à la frame suivant la mort (f29 → f30) : joueur 90, cible proche 4990, lointaine 5000 ; le familier (10 PV, immunisé) survit ; témoin : personne blessé |
 | `champion_splits`, `..._sans_variante` | trois `elite_divise` en anneau de 14 unités à la mort (f55), sans variante ; témoin : rien |
-| `champion_drops`, `..._sans_variante` | l'objet `bottes` (graine `champion:14`) est lâché, ramassé à f120 ; témoin : rien |
+| `champion_drops`, `..._sans_variante` | l'objet `manche` (graine `champion:14`, D95/D96 : `bottes` avant) est lâché, ramassé à f120 ; témoin : rien |
 | `champion_behaviors`, `..._sans_variante` | `KeepDistance` de la variante au lieu de `Chase` : le champion reste à plus de 190 unités ; témoin : il rejoint le joueur |
 | `champion_pattern` | `SpawnPattern` : huit boules de feu en couronne à f56, une seule couronne, émetteur détruit |
 | `champion_chance_floor_0`, `champion_chance_floor` | `chance` en expression : 2 champions sur 40 à l'étage 0 (10 %), 23 sur 40 à l'étage 1 (28 %) |
@@ -5861,7 +5862,7 @@ présentoir à `cost`.
 
 | Scénario | Prouve |
 |---|---|
-| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k5`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide |
+| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k14`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide (D96 : `k5` → `k14`, le tirage ayant changé) |
 | `pool_exhaust_two_rooms` | deux salles de types différents d'une carte générée partagent le pool : deux objets sortis dès f10, avant tout coffre ouvert |
 | `pool_exhaust_time_independent_ab` / `_ba` | `k1` → `lame`, `k2` → `boussole` que le joueur ouvre `k1` d'abord ou `k2` d'abord |
 | `pool_unlock` / `_temoin` | le déblocage `manche_epuisable` : quatre objets distincts dont `manche` ; sans : trois puis `bottes` répété |
@@ -5870,8 +5871,8 @@ présentoir à `cost`.
 | `devil_deal_soul_saves` | témoin : même joueur à 1 PV avec un `coeur_ame` : l'achat passe, âme 4 → 2, vie 1/1 |
 | `devil_deal_soul_first` | l'âme paie d'abord (4 → 2, vie et maximum à 100), puis un prix de 6 : l'âme (2) part toute, 4 PV de vie maximale (96) |
 | `devil_deal_isaac` (`isaac`) | le cœur d'`isaac` : 6/6 → 4/4 |
-| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `regard_maudit` sortis du pool `diable`, `pile_rapide` du trésor, `griffe_acier` du boss ; graine 5 : aucune salle, rien tiré dans `diable` |
-| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`griffe_acier`, f871) et le bot le ramasse ; la victoire est retardée (f1384 → ~f1430, f1654 → ~f1790) |
+| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `queue_fourchue` sortis du pool `diable`, `bottines` du trésor, `oeil_vif` du boss (D96 : les objets tirés changent avec le tirage, la grille non) ; graine 5 : aucune salle, rien tiré dans `diable` |
+| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`oeil_vif`, f1400 à f1440, ramassé f1461 ; `sang_chaud` pour la graine 23) et le bot le ramasse ; la victoire est retardée (f2117, f2335) |
 | `isaac_floor_seed_1` (`isaac`) | `tresor` et `boss` : 1 objet sorti à f5, 2 à la génération du second étage (par run) |
 
 Unitaires : `items::loot` (`assign_*` : sans `exhaust` rien n'est écrit, objets distincts, idempotence, premier emplacement =
@@ -5978,12 +5979,14 @@ pas `RunCurses` (hors périmètre : ils n'affichent ni la santé, ni la minicart
 
 | Scénario | Prouve |
 |---|---|
-| `curse_drawn_seeded`, `_other` | `maudit`, graines 3 (darkness puis rien) et 2 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 3 deux fois (même trace), la graine 2 (autre trace) et la graine 1 (aucune curse, aucun moment clé) |
-| `curse_modifier` | `maudit_maze`, graine 3 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
-| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 1 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
-| `curse_hides_health` | graine 7 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
-| `curse_blind` | graine 5 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
-| `curse_bigger_floor` | graine 2 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+| `curse_drawn_seeded`, `_other` | `maudit`, graines 2 (darkness puis rien) et 22 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 2 deux fois (même trace), la graine 22 (autre trace) et la graine 5 (aucune curse, aucun moment clé) |
+| `curse_modifier` | `maudit_maze`, graine 2 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
+| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 2 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
+| `curse_hides_health` | graine 5 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
+| `curse_blind` | graine 3 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
+| `curse_bigger_floor` | graine 6 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+
+D95 (2026-10-17) : `curse_seed` passe par `fmix32`, les graines ci-dessus sont les plus petites qui donnent l'issue voulue avec le nouveau tirage (les anciennes : 3, 2, 3, 1, 7, 5, 2).
 
 ### Déterminisme
 
@@ -6112,8 +6115,8 @@ voit les déblocages dans `RunUnlocks` et, **à graine égale** (400 graines), l
 pas ceux dont l'accomplissement manque ; l'historique de la première run n'a pas survécu à la relance.
 
 **Contrat du tirage : un déblocage ne déplace que vers l'objet débloqué (D96, 2026-10-17).** À graine, emplacement et `seen` égaux, ce
-que débloque un accomplissement ne change l'objet d'un emplacement que si c'est pour un objet qu'il apporte (l'objet débloqué, ou un
-candidat de l'entrée `Rarity` qu'il ajoute) : une graine partagée donne
+que débloque un accomplissement ne change l'objet d'un emplacement que si c'est pour un objet qu'il apporte (l'objet débloqué d'une entrée
+`Item` ; pour une entrée `Rarity` ajoutée ou alourdie, **n'importe lequel de ses candidats**, y compris un qui existait déjà) : une graine partagée donne
 le même butin à deux profils, aux objets débloqués près. Ce n'est **pas** un effet du hasard : c'est la course pondérée de
 `draw_exhausting` (§64), et `les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante` l'exige (400 emplacements par
 pool, un `PoolState` neuf par emplacement). Avec l'ancien choix `tirage % somme des poids`, la propriété n'était garantie par rien : elle

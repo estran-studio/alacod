@@ -46,6 +46,9 @@ pub enum ItemKind {
     Consumable,
 }
 
+/// Rareté d'un objet. **L'ordre des variantes est une donnée** : le tirage de butin hache `*rarity as u8` dans
+/// l'identité d'une entrée (`loot::pick_identity`, D96) ; réordonner ou insérer une variante autre part qu'en fin
+/// déplacerait tous les tirages (et toutes les traces à butin).
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]

@@ -1,11 +1,13 @@
 // D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : `loot_seed` / `curse_seed` reçoivent `fmix32` et le butin se
+// Preuve d'achat : `HasItem(gilet/roulade)` achetés (boutique) est remplacé par `Consumable(blank)` du joueur acheteur (0 avant l'achat,
+// 1 après : le blank vendu atteint l'inventaire), la boutique vendant maintenant un blank et une arme.
 // tire par course pondérée : butin, coffres, boutique et clés tombent autrement (graine de carte 10 inchangée :
 // la carte et les salles sont les mêmes, les objets non). Victoire f7316 (avant : f7730). Attentes re-mesurées, aucune
 // retirée ; écarts de sens : (1) le premier butin est une ration, la clé n'est ramassée qu'à f2248 et le coffre à clé donne
 // `double_canon` (f2821, plus `arc`) ; (2) la boutique du premier étage vend un blank et une arme (plus gilet/roulade) : `HasItem`
 // gilet → `rancune` du joueur 0 (f4719), roulade (coffre f4253) lue à f4300 ; (3) l'objet ramassé au premier étage
-// est l'`amulette` (joueur 1, f2915) ; (4) le coffre de l'étage 2 est `lance_flammes` (plus `lance_roquettes`) ; (5) les
-// armes tirées tuent chaque boss d'un coup après la phase 1 (phase 1 → 2 jamais observée : f3354 → clear f3355, f7279 →
+// est l'`amulette` (joueur 1, f2915) ; (4) le coffre de l'étage 2 est `lance_flammes` (plus `lance_roquettes`) ; (5) le premier
+// boss tombe une frame après sa phase 1 (dump : 60 → 30 → 0 PV, f3353-3355 ; phase 1 → 2 jamais observée : f3354 → clear f3355, f7279 →
 // f7315) : `BossPhase` lue en phase 1 (un seul passage de phase à relire) et l'événement « phase 1 → 2 » devient
 // « phase 0 → 1 ». Frames : escouade f2312-2423, arène 1290-2040, boss f3310 / f3354, étage 2 f3549, arène 6052-6802,
 // boss f7126 / f7279, victoire f7316.
@@ -99,6 +101,8 @@ Scenario(
         Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 2041),
         // Boutique : achats, objets tenus.
         Event(kind: "purchase", label_contains: "(shop)", by_frame: 2750),
+        Consumable(handle: 0, id: "blank", count: 0, at_frame: 2685),
+        Consumable(handle: 0, id: "blank", count: 1, at_frame: 2700),
         HasItem(handle: 0, id: "rancune", at_frame: 4800),
         HasItem(handle: 0, id: "roulade", at_frame: 4300),
         // Coffre à clé ouvert : la clé est consommée.

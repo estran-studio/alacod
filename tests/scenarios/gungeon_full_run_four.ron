@@ -1,8 +1,10 @@
 // D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : `loot_seed` / `curse_seed` reçoivent `fmix32` et le butin se tire par
+// Preuve d'achat : `HasItem(gilet/roulade)` achetés (boutique) est remplacé par `Consumable(blank)` du joueur acheteur (0 avant l'achat,
+// 1 après : le blank vendu atteint l'inventaire), la boutique vendant maintenant un blank et une arme.
 // course pondérée (graine de carte 10 inchangée : carte et salles identiques, objets autres). Victoire f6091 (avant :
 // f6455). Attentes re-mesurées, aucune retirée ; écarts de sens : la clé est ramassée par le **joueur 2** (f2154, plus
 // le joueur 1 à f148) et c'est lui qui ouvre le coffre à clé (`double_canon`, f2716) ; l'arène du premier étage vient
-// avant l'escouade ; les armes tirées tuent chaque boss d'un coup après la phase 1 (phase 1 → 2 jamais observée) :
+// avant l'escouade ; chaque boss tombe peu après sa phase 1 (phase 1 → 2 jamais observée ; mesure de PV : `gungeon_full_run`) :
 // `BossPhase` lue en phase 1 et l'événement « phase 1 → 2 » devient « phase 0 → 1 » ; coffre du second étage de
 // `joueur 2` à f3554 (rancune), achat de la boutique du second étage f4734.
 // m2-full-run (docs/conventions.md §57, « Run complète de M2 ») : la même run que `gungeon_full_run`
@@ -79,6 +81,8 @@ Scenario(
         // Arène tenue, boutique, coffre à clé (la clé du joueur 1 est consommée).
         Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 1954),
         Event(kind: "purchase", label_contains: "(shop)", by_frame: 2588),
+        Consumable(handle: 3, id: "blank", count: 0, at_frame: 2585),
+        Consumable(handle: 3, id: "blank", count: 1, at_frame: 2600),
         Consumable(handle: 2, id: "key", count: 1, at_frame: 2710),
         Event(kind: "chest", label_contains: "joueur 2 ouvre", by_frame: 2717),
         Consumable(handle: 2, id: "key", count: 0, at_frame: 2730),
