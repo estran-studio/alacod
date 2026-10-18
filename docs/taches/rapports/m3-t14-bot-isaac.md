@@ -1,7 +1,7 @@
 # Rapport m3-t14-bot-isaac (b3)
 
 Conventions : `docs/conventions.md` §79 (et renvois §47, §70, §73). Branche `m3-t14-bot-isaac`, fusionnée avec `origin/main`
-`7ee084e8` (D86). Scripts de campagne et JSON de résultats à côté : `docs/taches/rapports/m3-t14-bot-isaac/`
+`6e6be0ba` (T15). Scripts de campagne et JSON de résultats à côté : `docs/taches/rapports/m3-t14-bot-isaac/`
 (`campagne.sh`, `analyse.py`, `morts.py`, `diable.sh`, `s1_*`, `i1_*`, `i2_*`, `i4_*`, `diable_never.json`, `diable_above_4.json`).
 
 ## 1. Fait
@@ -29,9 +29,9 @@ Autres ajouts, tous des **mécanismes de bot** nés de soft-locks réels des cam
 - Diagnostic : `ALACOD_BOT_DEBUG=1`, moments clés `door_lock`, `bomb`, `shelf`, JSON `mechanics` d'`alacod-sim`, options `--policy`, `--devil`, `--bombs`,
   `--pickup-progress` (le ramassage compte comme progrès du détecteur de soft-lock, faux par défaut).
 
-## 2. Vérifié (sur la fusion avec `origin/main` `7ee084e8`, après la revue)
+## 2. Vérifié (sur la fusion avec `origin/main` `6e6be0ba`, après la revue)
 
-- `make test_scenarios_par SHARDS=3` **sans BLESS** : 659 scénarios, 3 tranches ok (292 s).
+- `make test_scenarios_par SHARDS=3` **sans BLESS** : 663 scénarios, 3 tranches ok (234 s) sur la fusion finale de T15 (lint ×5, fmt, `check_sim_boundary`, `test_crates` 1 246, `gen isaac` rejoués après elle ; le p2p et le fuzz l'ont été avant, T15 ne touche que `runner.rs` et les benchs).
 - `make test_crates` : **1 246 tests passés, 0 échec** (80 binaires) ; `cargo test -p bots` : **91 tests** (anti-jitter, engagement, poursuite, orbite, tenue de la réanimation, changement d'étage, identité des buts).
 - `make lint` ×5 : zombies, testbed, throne, gungeon, isaac « aucune erreur ». `make gen GAME=…` ×5 : code 0, `git status` sans diff.
 - `cargo fmt --all -- --check`, `check_sim_boundary` (13 crates, 2 en dette D69), `check-forbidden.sh`, `check-rollback-registration.sh`, `make test_tools` : OK.
