@@ -49,6 +49,10 @@ pub fn wall_tile(wall: impl Fn(i32, i32) -> bool) -> u32 {
 
 /// Cases `(colonne, ligne)` non nulles de `csv` (largeur `w`, hauteur `h`) avec leur tuile.
 pub fn wall_cells(csv: &[i32], w: i32, h: i32) -> Vec<((i32, i32), u32)> {
+    // Une couche qui n'est pas une grille de `w × h` cases (couche d'un autre type, CSV vide) : aucun mur.
+    if w <= 0 || h <= 0 || csv.len() != (w as usize) * (h as usize) {
+        return Vec::new();
+    }
     let at = |x: i32, y: i32| {
         if x < 0 || y < 0 || x >= w || y >= h {
             return true;
@@ -110,8 +114,8 @@ pub fn draw_walls(
             sheet.image = server.load(art.atlas.clone());
             sheet.layout = layouts.add(TextureAtlasLayout::from_grid(
                 UVec2::splat(art.tile),
-                art.columns,
-                WALL_TILES.div_ceil(art.columns),
+                art.columns.max(1),
+                WALL_TILES.div_ceil(art.columns.max(1)),
                 None,
                 None,
             ));
@@ -239,6 +243,13 @@ mod tests {
         assert_eq!(tile_at(ROOM, 0, 5), 8);
         // (7, 5), coin bas droit : angle nord-ouest.
         assert_eq!(tile_at(ROOM, 7, 5), 16);
+    }
+
+    #[test]
+    fn une_couche_mal_formee_ne_donne_aucun_mur() {
+        assert!(wall_cells(&[], 8, 8).is_empty());
+        assert!(wall_cells(&[1, 1, 1], 2, 2).is_empty());
+        assert!(wall_cells(&[1], 0, 1).is_empty());
     }
 
     #[test]

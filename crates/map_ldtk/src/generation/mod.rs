@@ -135,7 +135,7 @@ mod tests {
                 .take(if file == "court" { 400 } else { count as usize })
             {
                 let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
-                // Comme le chargeur (`loader::floor_config`) : l'étendue vient de la grammaire.
+                // Comme le chargeur (`loader::resolve_map_config`) : l'étendue vient de la grammaire.
                 let (max_width, max_heigth) = grammar.bounds.unwrap_or((1000, 1000));
                 let config = MapGenerationConfig {
                     seed,
@@ -337,8 +337,8 @@ mod tests {
         for seed in (1..=count).chain((1..=count).map(derived)) {
             let config = MapGenerationConfig {
                 seed,
-                max_width: 1000,
-                max_heigth: 1000,
+                max_width: tree.bounds.map_or(1000, |b| b.0),
+                max_heigth: tree.bounds.map_or(1000, |b| b.1),
                 mode: MapGenerationMode::Floor(tree.clone()),
                 ..Default::default()
             };
@@ -572,8 +572,8 @@ mod tests {
             grand_time += timed(&mut || {
                 let config = MapGenerationConfig {
                     seed,
-                    max_width: 1000,
-                    max_heigth: 1000,
+                    max_width: grand.bounds.map_or(1000, |b| b.0),
+                    max_heigth: grand.bounds.map_or(1000, |b| b.1),
                     mode: MapGenerationMode::Floor(grand.clone()),
                     ..Default::default()
                 };
@@ -626,8 +626,8 @@ mod tests {
             let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
             let config = MapGenerationConfig {
                 seed,
-                max_width: 1000,
-                max_heigth: 1000,
+                max_width: grammar.bounds.map_or(1000, |b| b.0),
+                max_heigth: grammar.bounds.map_or(1000, |b| b.1),
                 mode: MapGenerationMode::Floor(grammar.clone()),
                 ..Default::default()
             };

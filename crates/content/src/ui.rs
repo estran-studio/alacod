@@ -64,6 +64,10 @@ pub struct HudFileSchema {
 #[derive(Debug, Clone, Deserialize)]
 pub struct WallArtSchema {
     pub atlas: String,
+    #[serde(default)]
+    pub tile: Option<u32>,
+    #[serde(default)]
+    pub columns: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

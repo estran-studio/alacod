@@ -126,9 +126,9 @@ impl Room {
 
     /// Position (coin haut gauche, pixels monde, y vers le bas) d'une salle `their_level` posée contre la
     /// connexion `my_connection` de cette salle par sa connexion `their_connection`, ouvertures
-    /// **alignées** : sur l'axe du côté partagé la salle voisine est contre le bord de *cette* salle (sa
-    /// propre taille compte à l'ouest et au nord, celle de la voisine à l'est et au sud, jamais l'inverse),
-    /// sur l'autre axe le décalage des deux distances au coin met les deux ouvertures face à face.
+    /// **alignées** : sur l'axe du côté partagé la salle voisine est contre le bord de *cette* salle (la
+    /// taille de la voisine compte au nord et à l'ouest, celle de cette salle au sud et à l'est), sur
+    /// l'autre axe le décalage des deux distances au coin met les deux ouvertures face à face.
     pub fn get_connecting_room_position(
         &self,
         my_connection: &Connection,

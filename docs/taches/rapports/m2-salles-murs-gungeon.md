@@ -67,7 +67,7 @@ sont donc plus vides : le nombre d'ennemis par salle est l'équilibrage de Willi
 - **Portes alignées, tailles différentes.** L'appariement des ouvertures (`Connection::are_matching`) exigeait la même distance au coin :
   impossible avec des portes au milieu de côtés de longueurs différentes. `populate_level_connections_with(.., offset_free)`, activé pour une
   grammaire `Graph` (`from.rs`) seulement. `Room::get_connecting_room_position`, jamais exercée avec des tailles différentes, avait deux défauts
-  (taille de la voisine au lieu de la courante à l'est et au sud ; signe du décalage à contresens pour un côté nord) : réécrite, test
+  (taille de la voisine au lieu de la courante à l'est et au sud ; signe du décalage à contresens pour le sud et l'est) : réécrite, test
   `la_voisine_se_pose_ouverture_contre_ouverture`. Test de génération : toute ouverture restée libre a, en face, une ouverture libre
   (`etage`, `grand`, `court`, **2 000 graines**).
 - **Étendue du monde** : `FloorGrammar::bounds` (donnée, lint) ; `etage` 3000, `grand` 4000, `court_secret` 2000.

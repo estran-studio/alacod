@@ -1704,7 +1704,7 @@ pub struct Registry {
     /// Sprites cités par la légende (`legend`) de chaque `ui/hud.ron` (fiche m2-lisibilite-gungeon).
     pub hud_legend_sprites: Vec<(PathBuf, Vec<String>)>,
     /// Feuille des murs (`wall_art`) de chaque `ui/hud.ron` qui en déclare une (m2-salles-murs-gungeon).
-    pub hud_wall_art: Vec<(PathBuf, String)>,
+    pub hud_wall_art: Vec<(PathBuf, String, Option<u32>, Option<u32>)>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -4349,7 +4349,12 @@ fn load_ui(
                     .collect();
                 registry.hud_legend_sprites.push((rel.clone(), sprites));
                 if let Some(art) = &hud.wall_art {
-                    registry.hud_wall_art.push((rel.clone(), art.atlas.clone()));
+                    registry.hud_wall_art.push((
+                        rel.clone(),
+                        art.atlas.clone(),
+                        art.tile,
+                        art.columns,
+                    ));
                 }
             })
         } else {

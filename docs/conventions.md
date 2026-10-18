@@ -3024,7 +3024,7 @@ décision d'équilibrage de William (D64), pas de cette tâche.
 `map_ldtk::generation::from` d'après `MapGenerationMode::Floor` + `FloorLayout::Graph` ; Basic, caverne et grille gardent l'appariement strict) et
 **`Room::get_connecting_room_position`** décale la salle posée pour que les deux ouvertures soient face à face. Cette fonction avait deux
 défauts jamais exercés (les ouvertures étaient toujours au même endroit, les salles de même taille) : elle prenait la taille de la voisine au lieu
-de celle de la salle courante pour un côté est ou sud, et le signe du décalage était faux pour un côté nord. Réécrite, sans changement pour des salles
+de celle de la salle courante pour un côté est ou sud, et le signe du décalage le long du côté partagé était faux pour le sud et l'est (juste pour le nord et l'ouest). Réécrite, sans changement pour des salles
 égales (test `la_voisine_se_pose_ouverture_contre_ouverture`) ; test de génération `gungeon_etages_de_grammaire` : toute ouverture restée libre
 a, en face, une ouverture libre d'une autre salle, case contre case (étage, grand et court sur 2 000 graines).
 
@@ -6944,7 +6944,7 @@ fichier de carte à retoucher, aucune trace qui bouge (rien dans `GgrsSchedule`,
   `wall_art: Some((layer: "Walls", atlas: "sprites/lisible/atlas_murs.png", hide_layers: ["LevelConnection"]))`
   (`tile` 16, `columns` 8, `z` 1,5 par défaut). Sans le champ, ou sans rendu (headless : `HudConfigHandle` absent,
   le système ne tourne pas), rien ne change : zombies, throne, isaac, testbed identiques. Le lint (`hud_wall_art_missing`)
-  refuse une feuille absente.
+  refuse une feuille absente, un `tile` ou un `columns` nul ; `wall_cells` ignore une couche qui n'est pas une grille `largeur × hauteur`.
 - **Système** `wall_art::draw_walls` : à l'apparition d'un niveau (entité `LevelIid` avec ses couches), lit la couche
   `layer` dans le projet (`Assets<LdtkProject>`, monde de l'étage par `FloorSlots`), choisit une tuile par case non
   nulle et pose un sprite par case sous une racine `WallArtRoot`, **enfant du niveau** (il hérite de sa visibilité :
