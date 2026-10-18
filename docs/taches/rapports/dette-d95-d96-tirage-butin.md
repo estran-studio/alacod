@@ -147,4 +147,30 @@ Les nombres de graines et d'objets sont des instantanés du tirage ; un tirage q
 
 ## 5. Résultats (réels)
 
-À compléter par les sections suivantes.
+Tout a tourné sur le code final (dernier commit avant `LIVRÉ`), machine chargée (charge 20 à 50) ; `origin/main` n'a pas bougé depuis f1d5a093 (T14 non mergé).
+
+- `make test_scenarios_par SHARDS=3`, **sans BLESS** : **642 scénarios verts**, 3 tranches, 345 s. Première passe (avant recalibrage) : 68 en échec ; deuxième (après les recalibrages et le bless des quinze scénarios de curses/isaac et des treize de gungeon) : 27 « trace différente » et rien d'autre, blessés d'un bloc (§3.1).
+- `make test_crates` : exit 0, **1 217 réussis, 0 échec**, 14 ignorés. La première passe avait un échec, `curses::same_seed_same_curse_other_seed_other_curse` (graines 2 → 22 et « aucune curse » 1 → 5, §4), corrigé. `achievements::les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante` (D96) passe sans modification. Les 51 tests de `items` (statistiques comprises) : 8,2 s.
+- `make lint` ×5 : 0 erreur (avertissements : testbed 112, gungeon 1, isaac 24 ; zombies et throne aucun). `make gen GAME=…` ×5 : zombies 16, testbed 102, throne 39, gungeon 59, isaac 95 scénarios, tous « ok ok » (aucune trace différente, aucune erreur).
+- `cargo fmt --all -- --check` propre ; `make check_sim_boundary` (11 crates respectent la frontière, 5 en dette D69, inchangé) ; `check-forbidden.sh` et `check-rollback-registration.sh` OK ; `make test_tools` 25 tests OK.
+- Fuzz `ALACOD_FUZZ=0:8` (3 600 frames par graine, synctest) : aucune divergence ; `ALACOD_FUZZ=0:4 ALACOD_FUZZ_SCENARIO=isaac_floor_seed_1` (isaac, avec butin et champions) : aucune divergence.
+- `scripts/p2p-stress.sh isaac tests/scenarios/p2p_smoke.ron 3000` (`MATCHBOX_PORT=3571`, `COMPOSE_PROJECT_NAME=b1`) : **1 583 frames resimulées** (client 0 ; une première exécution avant la revue : 1 680), 0 desync, codes de sortie 0 0, 2 999 lignes identiques. L'assignation du butin à la génération de l'étage est dans la trace comparée.
+
+## 6. Relecture indépendante (agent `reviewer`, lecture seule)
+
+Verdict : **mergeable après correction des P2**, aucun P0 ni P1. Tout est traité :
+
+- **P2, contrat plus fort que le code pour `Rarity`** (un poids augmenté ou fusionné sur une entrée `Rarity` déplace vers n'importe lequel de ses candidats, y compris un ancien) : doc de `draw_exhausting`, §64 et §75 précisés ; nouveau test `rarity_weapon_and_currency_additions_stay_inside_what_they_bring` (fusion et ajout d'une entrée `Rarity`, `Weapon`, `Currency`).
+- **P2, lint sans fixture** : `loot_weight_over_cap` et `unlock_weight_over_cap` (`crates/content/tests/fixtures`, tests `loot_weight_over_cap_fixture_reports_out_of_range`, `unlock_weight_over_cap_fixture_reports_out_of_range`).
+- **P2, docs périmées** (`conventions.md` : `champion_drops`, `pool_exhaust_two_chests`, `devil_room_chance`, `grid_post_boss`, tableau des curses du §74, victoires f7316 / f6091 de §57) : corrigées.
+- **P2, « aucune attente retirée ni affaiblie » faux** : reformulé (§4) ; la preuve d'achat de `gungeon_full_run` / `_four` est **restaurée** par `Consumable(blank)` du joueur acheteur (0 → 1) ; la phase 2 du boss est dite perdue, avec la mesure de PV du premier boss et l'inférence marquée comme telle.
+- **P2, rapport inachevé** : ce §5 et le journal de `docs/taches.md` §10.
+- **P3** : somme de poids plafonnée aussi après fusion (`MAX_LOOT_WEIGHT`) ; annotation de schéma `x-lint` de `LootEntry.weight` : « > 0, ≤ 1000 » ; ordre des variantes de `Rarity` documenté comme donnée (le tirage hache `*rarity as u8`) ; durée des tests mesurée (8,2 s) ; les graines de curse « plus petite qui convient » sont des instantanés, dits au §74 (note D95).
+
+## 7. Dettes et remarques
+
+- **D95 et D96 fermées** (`docs/taches/dettes.md`).
+- **À valider** : les deux runs gungeon ne montrent plus la phase 2 du premier boss (§4, point 3). Si l'équilibrage des armes ou des boss change, relire ces attentes.
+- Le **choix** de la curse (`% Σ poids`, deuxième tirage du LCG) reste un modulo sur les bits bas : sans importance ici (la graine est maintenant bien mélangée, r 0,015), mais un LCG ne mélange pas ses bits bas ; une évolution de `RollbackRng` serait un changement de toutes les traces, hors périmètre.
+- **Ne pas merger avant T14** (`m3-t14-bot-isaac`, b3, qui rebénit les `bot_isaac_*`) : si T14 est mergé avant, fusionner `origin/main` et rebénir à nouveau ([INFÉRENCE] : les `bot_isaac_*` parcourent des étages à butin, leurs traces bougeront ; non vérifié, T14 n'est pas dans cette branche).
+- Outillage de preuve : un worktree `base-d95` (main f1d5a093) a servi aux dumps « avant » ; supprimé avant livraison.
