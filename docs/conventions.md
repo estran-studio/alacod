@@ -6596,6 +6596,44 @@ basculer (les traces et le témoin le signalent) ; préférer un compte de coups
 `champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
 un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.
 
+## 80. Bench de larmes, de familiers et d'étage en grille ; budgets par poste (M3-T15, D84)
+
+**Mesure seulement** : quatre scénarios neufs, budgets provisoires dans `tests/budgets.ron`, une ligne de diagnostic dans le runner.
+**Aucune trace existante ne bouge.** Rapport et tableaux : `docs/taches/rapports/m3-t15-bench-larmes.md`.
+
+### Scénarios
+
+| scénario | carte | contenu | pic mesuré (poste VPS, relevé 3) |
+|---|---|---|---|
+| `bench_tears_trio` | `testbed/arena` | un joueur, `division` + `rebond` + `guide` sur la `larme` (20 coups/s), 30 `target` (5 000 PV, immobiles) | 86 entités, 24 balles |
+| `bench_tears` | `testbed/arena` | **quatre** joueurs (synctest), dix objets de larmes chacun (`division` ×2, `guide`, `rebond` ×2, `perforant`, `spectre`, `venin`, `lentille`, `trefle`) + `essaim` (2 familiers), mêmes 30 cibles | 506 entités, **432 balles** |
+| `bench_familiars` | `testbed/arena` | quatre joueurs × `essaim` (deux familiers), `larme` sans objet | 63 entités |
+| `bench_floor_isaac` | `isaac`, `sous_sol_grand` (12 à 15 salles, §70), graine 1 | deux bots `explorateur`, 3 000 frames, 6 `suiveur` champions `explosif` posés à f5 (`characters` avec `variant`) | 225 entités, 31 ennemis |
+
+La cadence de la `larme` est portée à 20 coups/s par `weapon_overrides` (3 par défaut : 24 balles au plus avec trois objets).
+Les 432 balles de `bench_tears` viennent de la chaîne de `Split` (deux `division`, `MAX_GENERATION` = 8), pas du nombre de
+tireurs : `guide` fait toucher les cibles plus tôt (sans lui : 1 080 balles).
+Les champions de `bench_floor_isaac` sont posés (la chance `0,1 + 0,15 × étage` n'en tire aucun sur la graine 1) ; leurs
+explosions pèsent aussi dans la mesure.
+
+### Mesurer
+
+- `make bench` (strict) : une suite complète en un processus, ~40 à 52 minutes sur le poste VPS ; la mesure vaut sa charge :
+  noter `uptime` au départ et à la fin (le processus de bench pèse lui-même ~1,1). Relevés à 2,7 de charge : jusqu'à 2 fois plus lents qu'à 0,1.
+- `ALACOD_SYSTEM_PROFILE=1 ALACOD_SCENARIO=<nom>` : le runner imprime désormais `profil sets : …` (temps par `RollbackSystemSet` et
+  tranche `FlowField`, frames comptées en simulation + resimulation du synctest) juste avant la ligne du scénario ; `snapshot_heaviest`
+  est déjà dans les métriques.
+- Attribution mesurée de `bench_tears` (rollback ×12 = 56 ms) : `Projectiles` 2,29 ms par frame sur 3,9, linéaire en nombre de balles
+  (~5 µs par balle et par frame) ; sans `division` : 39 balles, 18,9 ms ; sans `guide` : 1 080 balles, 78,9 ms ; `Homing` n'est pas
+  quadratique. Dette D97.
+
+### Budgets par poste
+
+`tests/budgets.ron` : les 29 budgets existants restent ceux de `main` (les relevés VPS, chargés jusqu'à 5, sont indicatifs) ; les quatre scénarios neufs ont des budgets **provisoires** (poste, date, charge en commentaire). Recalibrage au calme : D84, protocole de sortie dans `dettes.md` (trois `make bench` consécutifs, `uptime` < 1,5 tenu, poste nommé, sans autre worker). Règle inchangée : plancher = moitié de la pire mesure, plafond = double,
+jamais plus de 2 × la mesure au calme ; on ne relâche pas un seuil pour passer.
+
+
+
 ## 81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
 
 Présentation seule : `game::ui::{hud, hud_model}`, `content::ui`, `games/isaac/assets/ui/hud.ron`. **Aucune trace ne

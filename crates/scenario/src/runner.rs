@@ -1791,6 +1791,16 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         .world()
         .resource::<utils::snapshot_profile::SnapshotProfile>();
 
+    // `ALACOD_SYSTEM_PROFILE=1` (diagnostic, M3-T15) : temps par `RollbackSystemSet` de ce scénario.
+    if let Some(timings) = app
+        .world()
+        .get_resource::<utils::system_profile::SetTimings>()
+    {
+        for row in timings.report() {
+            println!("profil sets : {row}");
+        }
+    }
+
     let metrics = Metrics {
         frames: frame,
         sim_seconds: sim_elapsed,

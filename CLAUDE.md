@@ -341,7 +341,9 @@ types les plus lourds dans le journal à la sortie, repris par le résumé du ni
 réel) ; `ALACOD_SYSTEM_PROFILE=1` ajoute le temps par `RollbackSystemSet` (plus une tranche
 `FlowField`), pour savoir où passe la frame. Mesures du 2026-10-15 et dette D70 (champ de flux
 reconstruit à chaque changement de case d'un joueur : 9 ms par frame avec quatre joueurs qui
-bougent) dans `docs/etat-engine.md`.
+bougent) dans `docs/etat-engine.md`. Dans le runner de scénarios, `ALACOD_SYSTEM_PROFILE=1 ALACOD_SCENARIO=<nom>` imprime
+aussi `profil sets : …` (M3-T15, §80). Mesures du poste VPS (2026-10-17/18, M3-T15 ; `bench_tears` : 432 balles, pire rollback
+56 ms, dette D97) et mesures indicatives de budgets (D84 reste ouverte) : `docs/taches/rapports/m3-t15-bench-larmes.md`.
 
 ### Frontière simulation/présentation (prouvée par la compilation)
 
