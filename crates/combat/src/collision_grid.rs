@@ -5,7 +5,7 @@
 //! au résultat de la simulation, seulement à sa vitesse. D15 remplace les cellules spatiales
 //! de T2.1 par un balayage des mêmes entrées, aux mêmes points du schedule.
 //!
-//! Deux instantanés (les noms de grille de T2.1 sont gardés pour les consommateurs) :
+//! Trois instantanés (les noms de grille de T2.1 sont gardés pour les consommateurs) :
 //! - [`CollisionGrids::walls`] : murs (`Collider` + `Wall` + `Rollback`) seulement. Statique
 //!   au sein d'une frame (les murs ne bougent jamais) et le plus souvent d'une frame à
 //!   l'autre : reconstruite seulement quand le nombre de murs *avec collider* change (une
@@ -35,10 +35,18 @@
 //!     seulement (positions de fenêtres inchangées depuis, filtrées par son propre `Query::get`
 //!     qui rejette tout ce qui n'est pas une fenêtre — les entrées joueurs/ennemis, elles,
 //!     périmées à ce point, ne sont jamais lues pour cet usage).
+//! - [`CollisionGrids::targets`] (D97) : `characters` **sans les balles**, même ordre. Les balles
+//!   et les projectiles composables ne testent que de vraies cibles (leur `Query` : `Without<Bullet>`,
+//!   `Team`, `Health`) : chaque balle balayait aussi toutes les autres (432 au pic de
+//!   `bench_tears`), soit balles × entités AABB par frame. Reconstruite avec `characters`
+//!   (même passage, un seul tri).
 //!
-//! D15 : les deux instantanés sont de simples listes d'AABB, parcourues en balayage.
-//! Les requêtes gardent exactement le filtrage inclusif et le tri par `net_id` de T2.1.
-//! La grille de séparation des ennemis (`pathing`) reste indépendante de ces collisions.
+//! D15 : les instantanés sont de simples listes d'AABB, parcourues en balayage. Les entrées
+//! gardent le `GgrsNetId.0` seul (le nom du `GgrsNetId` n'y sert jamais : le cloner allouait une
+//! `String` par entité et par reconstruction) et sont **toujours triées par `net_id`** : les
+//! requêtes gardent exactement le filtrage inclusif et l'ordre de T2.1 sans retrier ni allouer
+//! (`iter_overlapping`). La grille de séparation des ennemis (`pathing`) reste indépendante de
+//! ces collisions.
 
 use crate::grid::Aabb;
 use crate::weapons::Bullet;

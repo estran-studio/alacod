@@ -6671,9 +6671,32 @@ explosions pèsent aussi dans la mesure.
 - `ALACOD_SYSTEM_PROFILE=1 ALACOD_SCENARIO=<nom>` : le runner imprime désormais `profil sets : …` (temps par `RollbackSystemSet` et
   tranche `FlowField`, frames comptées en simulation + resimulation du synctest) juste avant la ligne du scénario ; `snapshot_heaviest`
   est déjà dans les métriques.
-- Attribution mesurée de `bench_tears` (rollback ×12 = 56 ms) : `Projectiles` 2,29 ms par frame sur 3,9, linéaire en nombre de balles
-  (~5 µs par balle et par frame) ; sans `division` : 39 balles, 18,9 ms ; sans `guide` : 1 080 balles, 78,9 ms ; `Homing` n'est pas
-  quadratique. Dette D97.
+- Attribution mesurée de `bench_tears` (rollback ×12 = 56 ms sur le VPS) : `Projectiles` 2,29 ms par frame sur 3,9 (~5 µs par balle et par
+  frame) ; sans `division` : 39 balles, 18,9 ms ; sans `guide` : 1 080 balles, 78,9 ms. Dette D97, **réduite** (ci-dessous).
+
+### D97 : coût des larmes empilées (dette-d97-cout-larmes)
+
+Rapport : `docs/taches/rapports/dette-d97-cout-larmes.md`. **Aucune trace ne bouge** ; Mac M1 Pro partagé, mesures relatives (binaires A et B
+alternés) : pire rollback de `bench_tears` **24,3 → 11,2 ms (−54 %)**, simulation 1,94 → 0,84 ms par frame, `save`/`load` inchangés
+(1,1 / 1,0 ms), population inchangée (432 balles). Le profil échantillonné (`sample` de macOS) montrait trois coûts :
+
+- **guidage** (`projectile_steering_system`, 40 %) : tri de tous les personnages et quatre racines carrées *par balle* ;
+- **`FixedVec2::length_squared`/`length`** (22 %) : un aller-retour `f32` par composante (arrondi à 24 bits significatifs : D99) et une racine bit à bit ;
+- **collision** (16 %) : chaque balle balayait `CollisionGrids::characters`, qui contient aussi les 432 balles.
+
+Règles qui en restent :
+
+- `CollisionGrids::targets` = `characters` **sans les balles**, reconstruite avec lui (un seul tri) : à employer pour toute requête dont le `.get()` exige
+  `Without<Bullet>`, `Team` ou `Health` (balles, projectiles composables) ; `characters` reste pour ceux qui comptent aussi les balles (`move_characters`,
+  fenêtres des ennemis). Les entrées portent le `GgrsNetId.0` seul, **triées** : `iter_overlapping` n'alloue ni ne retrie.
+- Un système qui itère des projectiles sans que l'ordre change le résultat (chaque balle n'écrit que son propre état et ne lit que des personnages) n'a pas à passer par
+  `order_mut_iter!` : trier 432 balles par frame est un coût ; la règle d'ordre de `CLAUDE.md` vaut pour tout ce qui alloue des `GgrsNetId`, tire au RNG ou émet
+  des événements (`projectile_collision_system`, `projectile_expire_system`, `bullet_rollback_system` restent triés).
+- `nearest_target` est un minimum (distance, `GgrsNetId`) : il ne dépend pas de l'ordre d'itération, donc pas de tri préalable des cibles.
+- `FixedVec2`/`FixedVec3` `length_squared`, `length`, `normalize`, `normalize_or_zero` sont en entiers, **au bit près** de l'ancien code (oracle gardé dans les tests de
+  `bevy_fixed`) : ne pas « corriger » l'arrondi à 24 bits sans `BLESS` global (D99). `FixedVec2::length_and_direction` = `(length, normalize_or_zero)` avec une seule racine.
+- Mesure de coût d'un composant rollback (clone, hash) : une sonde jetable à la population maximale (404 balles : clone `Projectile` 71 µs, `Bullet` 34 µs, hash 121 et 65 µs,
+  soit 291 µs de `save`) ; `save`/`load` sont surtout `bevy_ggrs` (un système par type, ~100 types × 506 porteurs).
 
 ### Budgets par poste
 
