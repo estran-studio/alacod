@@ -1,5 +1,6 @@
 // M2-T5 : même partie que `loot_seeded` avec une autre graine (2) : l'objet tiré est différent
 // (autre graine, autre objet ; toujours le même pour les deux coffres de clé « k »).
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : nouveau tirage (graine `fmix32`, course pondérée) ; la graine 2 donne `bottes` (avant : `manche`), toujours différent de `loot_seeded` (`manche`).
 //
 // À regarder : f30 le coffre s'ouvre, f40 le joueur ramasse l'objet ; f150 et f160 la même chose.
 Scenario(
@@ -21,8 +22,8 @@ Scenario(
         ]),
     ],
     expect: [
-        ItemCount(handle: 0, id: "manche", count: 0, at_frame: 20),
-        ItemCount(handle: 0, id: "manche", count: 1, at_frame: 100),
-        ItemCount(handle: 0, id: "manche", count: 2, at_frame: 190),
+        ItemCount(handle: 0, id: "bottes", count: 0, at_frame: 20),
+        ItemCount(handle: 0, id: "bottes", count: 1, at_frame: 100),
+        ItemCount(handle: 0, id: "bottes", count: 2, at_frame: 190),
     ],
 )

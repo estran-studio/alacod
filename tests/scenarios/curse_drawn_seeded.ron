@@ -1,8 +1,9 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage de curse passe par `fmix32` (D95) ; la graine 3 ne donne plus « darkness » puis rien, la graine 2 oui (la plus petite qui convient).
 // M3-T9 (docs/conventions.md §74) : une curse est tirée à l'entrée de chaque étage, par la graine et
 // l'étage seulement. Séquence `maudit` du testbed (deux niveaux, une chance sur deux par étage, les
-// cinq curses de Q7 au pool), graine 3 : l'étage 0 tire « darkness » (minicarte cachée), l'étage 1
+// cinq curses de Q7 au pool), graine 2 : l'étage 0 tire « darkness » (minicarte cachée), l'étage 1
 // n'en tire pas. Même partie que `portal_next_floor` (tir sur le follower, portail, niveau 1 à f230).
-// `curse_drawn_seeded_other` joue la graine 2 : un autre tirage. Le test `curses` rejoue chaque graine
+// `curse_drawn_seeded_other` joue la graine 22 : un autre tirage. Le test `curses` rejoue chaque graine
 // deux fois (même curse, même trace).
 //
 // À regarder : comme `portal_next_floor` ; l'étage 0 est maudit (moment clé « curse » f0, source
@@ -11,7 +12,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     floors: Some("maudit"),
-    map_seed: 3,
+    map_seed: 2,
     frames: 300,
     players: [
         (inputs: [

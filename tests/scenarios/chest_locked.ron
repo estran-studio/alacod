@@ -2,6 +2,7 @@
 // du joueur (f5) : l'Interaction sans clé (f10, puis f15 pour ramasser) est refusée, le joueur ne
 // tient rien à f40 ; une clé posée à f50 est ramassée au contact (Consumable key 1) ; l'Interaction
 // de f70 ouvre le coffre et consomme la clé (key 0), f90 ramasse l'objet.
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : nouveau tirage (graine `fmix32`, course pondérée) : le coffre `c` donne `lame` (avant : `boussole`).
 //
 // À regarder : f10 rien ne se passe ; f50 la clé ; f70 le coffre s'ouvre, f90 l'objet est ramassé.
 Scenario(
@@ -20,9 +21,9 @@ Scenario(
         ]),
     ],
     expect: [
-        ItemCount(handle: 0, id: "boussole", count: 0, at_frame: 40),
+        ItemCount(handle: 0, id: "lame", count: 0, at_frame: 40),
         Consumable(handle: 0, id: "key", count: 1, at_frame: 65),
         Consumable(handle: 0, id: "key", count: 0, at_frame: 80),
-        ItemCount(handle: 0, id: "boussole", count: 1, at_frame: 120),
+        ItemCount(handle: 0, id: "lame", count: 1, at_frame: 120),
     ],
 )

@@ -1,5 +1,6 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage de curse passe par `fmix32` (D95) ; la graine 2 donne maintenant « darkness », la graine 6 donne « labyrinth » à l'étage 0 (graine la plus petite qui convient).
 // M3-T9 (docs/conventions.md §74) : la curse « Labyrinth » double le nombre de salles. `isaac`, séquence
-// `sous_sol_maudit`, graine 2 : « labyrinth », lue **à la génération** de l'étage (toutes les cartes sont
+// `sous_sol_maudit`, graine 6 : « labyrinth », lue **à la génération** de l'étage (toutes les cartes sont
 // assemblées au chargement ; le tirage ne dépend que de la graine et de l'étage). La grammaire de `sous_sol`
 // compte 8 à 12 salles (départ, boss, trésor, secrète comprises), l'étage maudit 16 à 24 : un étage ordinaire
 // (`curse_blind`) ne dépasse jamais 12. Le boss, le trésor et la secrète sont toujours là, une fois chacun.
@@ -9,7 +10,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     floors: Some("sous_sol_maudit"),
-    map_seed: 2,
+    map_seed: 6,
     frames: 60,
     players: [(inputs: [])],
     expect: [

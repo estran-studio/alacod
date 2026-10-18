@@ -3499,7 +3499,9 @@ tirage pur), `game::loot` (systèmes), `map_ldtk::game::rooms::room_chest_system
 - **Rareté d'un coffre** (`Chest::rarity`) = rareté **minimale** de l'objet tiré (un consommable compte pour `Common`).
 
 **Flux RNG dédié, indépendant du temps.** `items::loot_seed(graine de la partie, étage, clé de contenu)` =
-FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits ; le tirage lit un **`RollbackRng` local** de cette
+FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits puis passé au finaliseur `fmix32` (D95 : sans lui, `champion:41` et
+`champion:42` restaient corrélés, r jusqu'à 0,063 ; `loot_seed_numbered`/`loot_seed_parts` hachent les mêmes octets sans
+construire la clé) ; le tirage lit un **`RollbackRng` local** de cette
 graine. Il ne touche **aucun** flux de `RngStreams` : le flux nommé `"loot"` des power-ups est consommé à chaque
 mort d'ennemi, il ferait dépendre l'objet du moment d'ouverture (et changerait le hash de la ressource, comme
 `variant.rs` le note déjà). La clé de contenu est celle du coffre (`room:<salle>`, `reward:<salle>`, ou la clé
@@ -4610,7 +4612,8 @@ cœurs d'âme paient à la place : T8).
   séquence `Floors` (`FloorsEntry::curses`, `run::CurseConfig`) ; absent = aucune curse (toutes les
   séquences existantes). `run::draw_curse(config, defs, graine, étage)` (M3-T9 : graine de carte, §74) : RNG **local**
   `RollbackRng::new(curse_seed)` avec `curse_seed = fnv1a("curse:<graine>:<étage>")` replié sur 32 bits
-  (même repli que `loot_seed`), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
+  puis passé au finaliseur `fmix32` (`bevy_fixed::rng::seed_from_hash`, D95 ; même graine que `loot_seed` et
+  `variant_seed`, sans allocation), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
   ressource et toutes les traces). Deux tirages toujours consommés, dans l'ordre : la chance
   (`next_fixed() < chance` : `0` ne tombe jamais, `1` toujours), puis le choix pondéré dans l'ordre du
   pool (`next_u32() % Σ poids`). Une entrée inconnue ou de poids `0` est ignorée (le lint la refuse) ; sans
@@ -4639,16 +4642,38 @@ cœurs d'âme paient à la place : T8).
   nommées `weapon:<id>` (comme le tirage). `count(pool)` est l'**index d'épuisement** du prochain tirage ;
   `record(pool, objet)` renvoie vrai pour une nouveauté.
 - **Règle pure** `items::draw_exhausting(table, items, held, rareté, consommables, hidden, seen, rng)` :
-  `draw_loot_with` la rappelle avec un `seen` vide, donc **tous les tirages existants sont inchangés**.
-  Si `table.exhaust`, les objets de `seen` ne sont plus candidats ; sinon `seen` est ignoré. Le flux avance
-  toujours de deux tirages, quel que soit `seen` (comme `draw_loot`). Quand l'épuisement vide les
+  `draw_loot_with` la rappelle avec un `seen` vide. Si `table.exhaust`, les objets de `seen` ne sont plus
+  candidats ; sinon `seen` est ignoré. Le flux avance toujours de deux tirages, quel que soit `seen` (comme
+  `draw_loot`). Quand l'épuisement vide les
   candidats : d'abord les assouplissements de `draw_loot` (rareté du coffre puis `Common`, exclusion des
   objets tenus), **un objet neuf plus commun passe avant de répéter un objet vu**, puis, pool entièrement vu,
   le pool **repart complet** (un objet déjà sorti peut ressortir ; jamais vide si le pool ne l'est pas). Une
   récompense de salle (`consumables_only`) ne descend jamais sous les consommables. Les déblocages
   (`unlocked_table`) étendent le pool avant le filtre.
+- **Le choix est une course pondérée, stable à l'ajout (D96, 2026-10-17).** Les deux tirages du flux forment une
+  clé de base de 64 bits. Niveau 1 : chaque entrée joue **autant de billets que son poids**, de clé
+  `fmix64(fmix64(base ^ contenu de l'entrée) ^ n° du billet × φ)` ; la plus petite clé gagne, donc l'entrée gagne avec la probabilité
+  exacte `poids / somme` (une clé divisée par le poids ne la donnerait pas : poids 1 et 2 → 3/4, non 2/3). Niveau 2 : parmi
+  les candidats de l'entrée gagnante (une entrée `Rarity` en a plusieurs), la plus petite clé `hash(base, entrée, identifiant)`
+  gagne : uniforme. L'identité d'une entrée est le **contenu** de son `pick`, jamais son rang (les entrées d'un déblocage
+  s'ajoutent dans l'ordre des identifiants de déblocage) ; deux entrées de même `pick` valent une entrée de poids somme, et
+  l'ordre des entrées n'a aucun effet. Avant D96, le choix était `tirage % somme des poids` : débloquer un objet changeait la
+  somme (10 → 12 pour le pool `boss` d'`isaac`) et **redistribuait tous les emplacements** (mesuré : 251 emplacements sur 400
+  passaient à un objet non débloqué).
+  **Contrat** (l'ordre de tirage et `PoolState::assign` sont inchangés) : *à graine, `seen`, passe de rareté et exclusions égaux,
+  ajouter une entrée, débloquer un objet caché, ajouter un candidat à une entrée `Rarity` ou augmenter un poids ne change
+  l'objet d'un emplacement que si c'est pour un objet qu'apporte l'ajout* (l'objet d'une entrée `Item`, un candidat d'une
+  entrée `Rarity` ; inversement, retirer ce qui n'a pas gagné ne change rien). Un
+  contenu qui s'enrichit (T11b, T11c… : des objets ajoutés aux pools) ne fait donc plus bouger que les emplacements qui prennent
+  le nouvel objet, et un déblocage de profil (§75) ne déplace que vers ce qu'il apporte. **Limites** : (1) dans une suite
+  d'emplacements à épuisement, l'objet qu'un déblocage déplace revient dans le pool et peut sortir à un emplacement
+  **suivant** (`seen` n'est plus le même) ; la garantie est par tirage, à `seen` égal ; (2) si l'ajout rend non vide une passe
+  plus stricte (rareté d'un coffre), c'est cette passe qui tire ; (3) coût : un `fmix64` par unité de poids du pool, d'où
+  `items::MAX_LOOT_WEIGHT` (1 000), refusé au lint (`OutOfRange`) et plafonné au tirage. Proportions mesurées sur 100 000
+  tirages (`the_race_keeps_the_weighted_proportions`) : voir le rapport `dette-d95-d96-tirage-butin`.
 - **Graine** `items::exhaust_seed(graine, étage, clé, index)` : `loot_seed` pour l'index `0` (le premier
-  tirage d'un pool qui devient `exhaust` donne l'objet qu'il donnait avant), puis `loot_seed(…, "<clé>#<index>")`.
+  tirage d'un pool qui devient `exhaust` donne l'objet qu'il aurait donné sans `exhaust`),
+  puis `loot_seed(…, "<clé>#<index>")` (mêmes octets, sans allocation).
   `PoolState::next_seed(pool, graine, étage, clé)` prend `count(pool)` comme index.
 
 **Deux façons d'exécuter l'épuisement (décision de T8 : A, voir §73 ; le tableau est celui de T0e).**
@@ -6085,6 +6110,16 @@ troisième manque, `RunUnlocks` ne bouge pas pendant la run, HUD) et `achievemen
 accomplissement, essence créditée, HUD vide). Test `crates/scenario/tests/achievements.rs` : deux runs enchaînées, la relance
 voit les déblocages dans `RunUnlocks` et, **à graine égale** (400 graines), les objets entrent dans les pools `boss` et `tresor`,
 pas ceux dont l'accomplissement manque ; l'historique de la première run n'a pas survécu à la relance.
+
+**Contrat du tirage : un déblocage ne déplace que vers l'objet débloqué (D96, 2026-10-17).** À graine, emplacement et `seen` égaux, ce
+que débloque un accomplissement ne change l'objet d'un emplacement que si c'est pour un objet qu'il apporte (l'objet débloqué, ou un
+candidat de l'entrée `Rarity` qu'il ajoute) : une graine partagée donne
+le même butin à deux profils, aux objets débloqués près. Ce n'est **pas** un effet du hasard : c'est la course pondérée de
+`draw_exhausting` (§64), et `les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante` l'exige (400 emplacements par
+pool, un `PoolState` neuf par emplacement). Avec l'ancien choix `tirage % somme des poids`, la propriété n'était garantie par rien : elle
+ne tenait que pour un contenu de pool donné (le test, vert sur la branche de T10, est rouge sur `main` depuis le merge 3f37ba43 :
+débloquer `medaille` faisait passer la somme du pool `boss` de 10 à 12 et 251 emplacements sur 400 changeaient pour un objet non débloqué ; D96). Limite dite au §64 : le long d'une suite
+d'emplacements à épuisement, l'objet déplacé revient dans le pool et peut ressortir plus loin.
 
 ### Déterminisme et traces
 

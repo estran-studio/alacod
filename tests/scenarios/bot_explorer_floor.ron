@@ -1,3 +1,4 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le bot franchit désormais le portail à f663 (f706 avant) : `FloorIndex(0)` attendu à f650 (au lieu de f700), l'étage 1 reste attendu à f759.
 // M2-T16 (docs/conventions.md §47) : un bot `explorateur` joue seul l'étage `court` de `gungeon`
 // (graine 1, séquence `etages_court_deux`) : il entre dans la salle de combat, tue les trois
 // `bullet_kin` (esquive et blanks), file au boss, tue le `gatling`, prend le portail ouvert.
@@ -6,7 +7,7 @@
 // À regarder : la salle de combat se verrouille vers f59 puis se rouvre ; la salle du boss se
 // verrouille ; le boss (trois phases depuis M2-T7) passe en phase 1 f431 et 2 f493, meurt f553, le portail
 // s'ouvre f554 et le bot le franchit f706 (étage 1 ; f499, f563, f621, f622 et f738 avant M2-T14d, D64 : `bullet_kin` à 30 PV, §52.d). Arrêt à f760 : affaibli par le boss, le bot meurt ensuite
-// dans la première salle de combat de l'étage 1 (f821), à suivre par la campagne M2-T16.
+// dans la première salle de combat de l'étage 1 (f821), à suivre par la campagne M2-T16. D95/D96 : portail franchi f663, boss mort f575 (le butin et les tirages changent le run).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -23,7 +24,7 @@ Scenario(
         RoomState(kind: "combat", nth: 1, state: Cleared, at_frame: 400),
         RoomState(kind: "boss", nth: 1, state: Locked, at_frame: 500),
         RoomState(kind: "boss", nth: 1, state: Cleared, at_frame: 700),
-        FloorIndex(index: 0, at_frame: 700),
+        FloorIndex(index: 0, at_frame: 650),
         FloorIndex(index: 1, at_frame: 759),
         PlayerAlive(handle: 0, at_frame: 759),
     ],

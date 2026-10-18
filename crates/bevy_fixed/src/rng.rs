@@ -87,6 +87,34 @@ pub fn fnv1a_extend_decimal(hash: u64, mut value: u64) -> u64 {
     fnv1a_extend(hash, &digits[start..])
 }
 
+/// Finaliseur de MurmurHash3 (32 bits) : chaque bit d'entrée change chaque bit de sortie avec
+/// probabilité ½. Un hash FNV-1a replié sur 32 bits ne l'a pas : le dernier octet haché n'entre que
+/// par un produit avec un nombre premier à faible poids, donc deux clés voisines (`…:41`, `…:42`)
+/// restent corrélées (D88, D95).
+pub fn fmix32(mut x: u32) -> u32 {
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x85eb_ca6b);
+    x ^= x >> 13;
+    x = x.wrapping_mul(0xc2b2_ae35);
+    x ^ (x >> 16)
+}
+
+/// Finaliseur de MurmurHash3 (64 bits) : une bijection de `u64` dont chaque bit de sortie dépend de
+/// chaque bit d'entrée (course pondérée du butin, `items::draw_exhausting`).
+pub fn fmix64(mut x: u64) -> u64 {
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xff51_afd7_ed55_8ccd);
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
+    x ^ (x >> 33)
+}
+
+/// Graine 32 bits d'un RNG local à partir d'un hash FNV-1a : repli des 64 bits puis [`fmix32`].
+/// L'idiome de `variant_seed`, `loot_seed` et `curse_seed`.
+pub fn seed_from_hash(hash: u64) -> u32 {
+    fmix32((hash ^ (hash >> 32)) as u32)
+}
+
 impl RollbackRng {
     // Constants for the LCG algorithm. These are common choices.
     const A: u32 = 1664525; // Multiplier

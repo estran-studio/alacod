@@ -11,7 +11,9 @@
 
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::Fixed;
-use bevy_fixed::rng::{fnv1a, RollbackRng};
+use bevy_fixed::rng::{
+    fmix64, fnv1a, fnv1a_extend, fnv1a_extend_decimal, seed_from_hash, RollbackRng, FNV1A_OFFSET,
+};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -192,11 +194,42 @@ pub const DEFAULT_CHEST_TABLE: &str = "commun";
 /// Pool de la récompense de salle, hors liste de l'étage.
 pub const DEFAULT_REWARD_TABLE: &str = "salle";
 
+/// Hash FNV-1a de `loot:<graine>:<étage>:<clé>`, sans allocation (les mêmes octets que le `format!`).
+fn loot_hash(run_seed: u32, floor: u32, key: &str) -> u64 {
+    fnv1a_extend(loot_prefix_hash(run_seed, floor), key.as_bytes())
+}
+
+/// Début du hash d'une graine de butin : `loot:<graine>:<étage>:`.
+fn loot_prefix_hash(run_seed: u32, floor: u32) -> u64 {
+    let hash = fnv1a_extend(FNV1A_OFFSET, b"loot:");
+    let hash = fnv1a_extend_decimal(hash, u64::from(run_seed));
+    let hash = fnv1a_extend(hash, b":");
+    let hash = fnv1a_extend_decimal(hash, u64::from(floor));
+    fnv1a_extend(hash, b":")
+}
+
 /// Graine du tirage d'une clé de contenu (`key`) à l'étage `floor` d'une partie de graine
-/// `run_seed`. Indépendante du temps, des `Entity` et des `GgrsNetId`.
+/// `run_seed` : `fnv1a("loot:<graine>:<étage>:<clé>")` replié sur 32 bits puis passé au finaliseur
+/// `fmix32` ([`seed_from_hash`], D95 : sans lui, deux clés voisines, `champion:41` et `champion:42`,
+/// restaient corrélées, r jusqu'à 0,063). Indépendante du temps, des `Entity` et des `GgrsNetId`.
 pub fn loot_seed(run_seed: u32, floor: u32, key: &str) -> u32 {
-    let hash = fnv1a(format!("loot:{run_seed}:{floor}:{key}").as_bytes());
-    (hash ^ (hash >> 32)) as u32
+    seed_from_hash(loot_hash(run_seed, floor, key))
+}
+
+/// [`loot_seed`] de la clé `<prefix><nombre>` (`shells:`, `champion:`…), sans construire la chaîne.
+pub fn loot_seed_numbered(run_seed: u32, floor: u32, prefix: &str, number: u64) -> u32 {
+    let hash = fnv1a_extend(loot_prefix_hash(run_seed, floor), prefix.as_bytes());
+    seed_from_hash(fnv1a_extend_decimal(hash, number))
+}
+
+/// [`loot_seed`] de la clé formée en mettant `parts` bout à bout (`&["shop:", salle]`), sans la construire.
+pub fn loot_seed_parts(run_seed: u32, floor: u32, parts: &[&str]) -> u32 {
+    let hash = parts
+        .iter()
+        .fold(loot_prefix_hash(run_seed, floor), |hash, part| {
+            fnv1a_extend(hash, part.as_bytes())
+        });
+    seed_from_hash(hash)
 }
 
 /// Rareté d'un objet pour le filtre d'un coffre (un consommable compte pour `Common`).
@@ -316,10 +349,51 @@ pub fn draw_loot_with(
     )
 }
 
+/// Poids maximal d'une entrée de pool pris en compte par le tirage ([`draw_exhausting`] joue un billet
+/// par unité de poids) ; le lint refuse au-delà (`OutOfRange`) et le tirage plafonne par sécurité.
+pub const MAX_LOOT_WEIGHT: i32 = 1000;
+
+/// Identité d'une entrée pour la course : le **contenu** de son `pick` (jamais son rang dans la table :
+/// les entrées d'un déblocage s'ajoutent après celles du pool, dans l'ordre des identifiants de
+/// déblocage, et un rang changerait quand un autre déblocage s'ajoute). Hash FNV-1a, sans allocation.
+fn pick_identity(pick: &LootPick) -> u64 {
+    let hash = FNV1A_OFFSET;
+    match pick {
+        LootPick::Item(id) => fnv1a_extend(fnv1a_extend(hash, b"item:"), id.as_bytes()),
+        LootPick::Rarity(rarity) => fnv1a_extend(fnv1a_extend(hash, b"rarity:"), &[*rarity as u8]),
+        LootPick::Weapon(id, rarity) => fnv1a_extend(
+            fnv1a_extend(fnv1a_extend(hash, b"weapon:"), id.as_bytes()),
+            &[b':', *rarity as u8],
+        ),
+        LootPick::Currency(amount) => {
+            fnv1a_extend_decimal(fnv1a_extend(hash, b"currency:"), u64::from(*amount))
+        }
+    }
+}
+
+/// Clé d'un billet de la course : `base` (propre au tirage), `identity` (qui concourt), `salt` (quel
+/// billet). `salt` passe par une multiplication impaire puis `fmix64` : deux billets d'une même
+/// identité ont toujours deux clés distinctes ; les autres collisions valent 2⁻⁶⁴ (départagées par
+/// l'identité).
+fn race_key(base: u64, identity: u64, salt: u64) -> u64 {
+    fmix64(fmix64(base ^ identity) ^ salt.wrapping_mul(0x9e37_79b9_7f4a_7c15))
+}
+
+/// Séparation des clés du second niveau (le candidat) de celles du premier (l'entrée).
+const CANDIDATE_LEVEL: u64 = 0xd6e8_feb8_6659_fd93;
+
+/// Une entrée du pool qui concourt : son identité, son poids (les entrées de même `pick` s'additionnent,
+/// ce qui ne change pas la loi du tirage) et ses candidats.
+struct Contender<'a> {
+    identity: u64,
+    weight: u64,
+    ids: Vec<Cow<'a, str>>,
+}
+
 /// [`draw_loot_with`] pour un pool à épuisement (M3-T0e, `docs/conventions.md` §64) : `seen` est
 /// l'ensemble des identifiants déjà sortis de ce pool pendant la run ([`PoolState::seen`]). Si
 /// `table.exhaust`, ils ne sont plus candidats (une arme s'y désigne par `weapon:<id>`) ; sinon
-/// `seen` est ignoré et le tirage est exactement celui de [`draw_loot_with`].
+/// `seen` est ignoré.
 ///
 /// Le flux avance toujours de deux tirages, quel que soit `seen`. Quand l'épuisement vide les
 /// candidats, le tirage retombe d'abord sur les raretés et exclusions assouplies de
@@ -327,6 +401,21 @@ pub fn draw_loot_with(
 /// objet déjà sorti peut alors ressortir : le pool « repart complet », il n'est jamais vide si le
 /// pool ne l'est pas). L'appelant n'enregistre dans [`PoolState`] que ce qui est nouveau
 /// ([`PoolState::record`]).
+///
+/// **Course pondérée (D96, §64).** Les deux tirages du flux forment une clé de base de 64 bits ; le
+/// choix n'est plus `tirage % somme des poids` (la somme changeait quand un déblocage ajoutait une
+/// entrée, et **tous** les emplacements se redistribuaient) mais une course à deux niveaux. 1) Chaque
+/// entrée joue autant de billets que son poids, de clé `hash(base, contenu de l'entrée, n° du billet)` ;
+/// la plus petite clé gagne : l'entrée gagne avec la probabilité `poids / somme` **exacte** (le
+/// minimum de `n` clés uniformes ; une clé mise à l'échelle par `1/poids` donnerait 3/4 et non 2/3
+/// pour les poids 1 et 2). 2) Parmi les candidats de l'entrée gagnante, la plus petite clé
+/// `hash(base, contenu de l'entrée, identifiant)` gagne : tirage uniforme. Conséquence, **à `seen`,
+/// raretés et exclusions égaux** : ajouter une entrée, ajouter un candidat à une entrée, ou augmenter
+/// un poids ne change l'objet tiré que s'il devient un candidat de ce qui a été ajouté (l'objet d'une entrée
+/// `Item`, un candidat d'une entrée `Rarity`) ; retirer ce qui n'a pas gagné ne le change pas. Un déblocage
+/// ne déplace donc que les emplacements qui prennent un objet qu'il apporte.
+/// Limite : si l'ajout rend non vide une passe plus stricte (rareté du coffre), c'est cette passe qui
+/// tire, et l'objet peut changer. Coût : un `fmix64` par unité de poids du pool.
 #[allow(clippy::too_many_arguments)]
 pub fn draw_exhausting(
     table: &LootTableDef,
@@ -357,36 +446,47 @@ pub fn draw_exhausting(
         };
         passes.push((min, held, &blank));
     }
-    let mut pools: Vec<(i32, Vec<Cow<str>>)> = Vec::new();
+    let mut contenders: Vec<Contender> = Vec::new();
     for (min, held, skip) in passes {
-        pools = table
-            .entries
-            .iter()
-            .filter(|entry| entry.weight > 0)
-            .map(|entry| {
-                let mut ids = candidates(entry, items, held, min, consumables_only, hidden);
-                ids.retain(|id| !skip.contains(id.as_ref()));
-                (entry.weight, ids)
-            })
-            .filter(|(_, ids)| !ids.is_empty())
-            .collect();
-        if !pools.is_empty() {
+        contenders.clear();
+        for entry in table.entries.iter().filter(|entry| entry.weight > 0) {
+            let mut ids = candidates(entry, items, held, min, consumables_only, hidden);
+            ids.retain(|id| !skip.contains(id.as_ref()));
+            if ids.is_empty() {
+                continue;
+            }
+            let identity = pick_identity(&entry.pick);
+            let weight = entry.weight.min(MAX_LOOT_WEIGHT) as u64;
+            match contenders.iter_mut().find(|c| c.identity == identity) {
+                Some(contender) => contender.weight += weight,
+                None => contenders.push(Contender {
+                    identity,
+                    weight,
+                    ids,
+                }),
+            }
+        }
+        if !contenders.is_empty() {
             break;
         }
     }
-    let total: u64 = pools.iter().map(|(weight, _)| *weight as u64).sum();
-    if total == 0 {
-        return None;
-    }
-    let mut roll = u64::from(pick) % total;
-    for (weight, ids) in &pools {
-        if roll < *weight as u64 {
-            let index = pick_candidate as usize % ids.len();
-            return Some(ids[index].to_string());
-        }
-        roll -= *weight as u64;
-    }
-    None
+    let base = u64::from(pick) << 32 | u64::from(pick_candidate);
+    let winner = contenders.iter().min_by_key(|contender| {
+        let best = (0..contender.weight)
+            .map(|ticket| race_key(base, contender.identity, ticket))
+            .min();
+        (best, contender.identity)
+    })?;
+    winner
+        .ids
+        .iter()
+        .map(|id| {
+            let id: &str = id;
+            let salt = fnv1a(id.as_bytes());
+            (race_key(base ^ CANDIDATE_LEVEL, winner.identity, salt), id)
+        })
+        .min()
+        .map(|(_, id)| id.to_string())
 }
 
 /// Ce qui est déjà sorti de chaque pool à épuisement pendant la run (M3-T0e, §64) et les objets
@@ -507,7 +607,9 @@ pub fn exhaust_seed(run_seed: u32, floor: u32, key: &str, index: u32) -> u32 {
     if index == 0 {
         loot_seed(run_seed, floor, key)
     } else {
-        loot_seed(run_seed, floor, &format!("{key}#{index}"))
+        // Les mêmes octets que `loot_seed(…, "<clé>#<index>")`, sans allocation.
+        let hash = fnv1a_extend(loot_hash(run_seed, floor, key), b"#");
+        seed_from_hash(fnv1a_extend_decimal(hash, u64::from(index)))
     }
 }
 
@@ -1299,5 +1401,396 @@ mod tests {
             state.record("p", &drawn);
         }
         assert!(got_coins > 1, "{got_coins}");
+    }
+
+    // ---- D96 : la course pondérée ----------------------------------------------------------------
+
+    /// Tirage d'un emplacement `n` (graine de `loot_seed`, comme le jeu), pool sans épuisement.
+    fn drawn(table: &LootTableDef, items: &ItemTable, hidden: &BTreeSet<&str>, n: u32) -> String {
+        let seed = loot_seed(7, 0, &format!("slot{n}"));
+        draw_loot_with(
+            table,
+            items,
+            None,
+            Rarity::Common,
+            false,
+            hidden,
+            &mut RollbackRng::new(seed),
+        )
+        .expect("le pool donne un objet")
+    }
+
+    /// Une table d'objets `x0`…`x{n-1}` de rareté `Common` plus `r0`…`r{m-1}` de rareté `Rare`.
+    fn many_items(common: usize, rare: usize) -> ItemTable {
+        ItemTable(
+            (0..common)
+                .map(|i| (format!("x{i}"), item(ItemKind::Passive, Rarity::Common)))
+                .chain((0..rare).map(|i| (format!("r{i}"), item(ItemKind::Passive, Rarity::Rare))))
+                .collect(),
+        )
+    }
+
+    /// Proportions de la course : une entrée gagne avec `poids / somme` et ses candidats sont
+    /// équiprobables. 100 000 tirages : un écart-type vaut au plus 0,0016.
+    #[test]
+    fn the_race_keeps_the_weighted_proportions() {
+        // a : poids 1 ; key : poids 2 ; Rarity(Rare) = {b, c} : poids 3 -> 1/6, 2/6, 1/4, 1/4.
+        let pool = table(
+            vec![
+                entry(LootPick::Item("a".into()), 1),
+                entry(LootPick::Item("key".into()), 2),
+                entry(LootPick::Rarity(Rarity::Rare), 3),
+            ],
+            false,
+        );
+        let items = items();
+        let mut counts: BTreeMap<String, u32> = BTreeMap::new();
+        const DRAWS: u32 = 100_000;
+        for n in 0..DRAWS {
+            *counts
+                .entry(drawn(&pool, &items, &BTreeSet::new(), n))
+                .or_default() += 1;
+        }
+        let expected = [
+            ("a", 1.0 / 6.0),
+            ("key", 2.0 / 6.0),
+            ("b", 0.25),
+            ("c", 0.25),
+        ];
+        for (id, share) in expected {
+            let measured = f64::from(counts[id]) / f64::from(DRAWS);
+            eprintln!("course : {id} {measured:.4} (attendu {share:.4})");
+            assert!(
+                (measured - share).abs() < 0.008,
+                "{id} : {measured:.4} au lieu de {share:.4} ({counts:?})"
+            );
+        }
+        assert_eq!(counts.len(), 4, "{counts:?}");
+
+        // Quatre poids inégaux (1, 2, 3, 4) sur des objets distincts.
+        let items = many_items(4, 0);
+        let pool = table(
+            (0..4)
+                .map(|i| entry(LootPick::Item(format!("x{i}")), i + 1))
+                .collect(),
+            false,
+        );
+        let mut counts = [0u32; 4];
+        for n in 0..DRAWS {
+            let id = drawn(&pool, &items, &BTreeSet::new(), n);
+            counts[id[1..].parse::<usize>().unwrap()] += 1;
+        }
+        for (i, count) in counts.iter().enumerate() {
+            let (measured, share) = (
+                f64::from(*count) / f64::from(DRAWS),
+                (i as f64 + 1.0) / 10.0,
+            );
+            eprintln!("course : x{i} {measured:.4} (attendu {share:.4})");
+            assert!(
+                (measured - share).abs() < 0.008,
+                "x{i} : {measured:.4} au lieu de {share:.4}"
+            );
+        }
+    }
+
+    /// Le contrat de D96 : à graine égale, ajouter une entrée, débloquer un objet caché, ajouter un
+    /// candidat à une entrée de rareté ou augmenter un poids ne déplace un emplacement que vers l'objet
+    /// ajouté ; l'ordre des entrées (et donc leur rang) n'y change rien.
+    #[test]
+    fn adding_to_a_pool_only_moves_slots_to_the_added_item() {
+        const SLOTS: u32 = 5_000;
+        let none = BTreeSet::new();
+        let base_items = many_items(6, 3);
+        let base = table(
+            vec![
+                entry(LootPick::Item("x0".into()), 2),
+                entry(LootPick::Item("x1".into()), 1),
+                entry(LootPick::Item("x2".into()), 3),
+                entry(LootPick::Rarity(Rarity::Rare), 2),
+                entry(LootPick::Item("x3".into()), 2),
+            ],
+            false,
+        );
+        let before: Vec<String> = (0..SLOTS)
+            .map(|n| drawn(&base, &base_items, &none, n))
+            .collect();
+        let check = |label: &str, after: Vec<String>, added: &str| {
+            let moved: Vec<(usize, &String)> = after
+                .iter()
+                .enumerate()
+                .filter(|(n, item)| **item != before[*n])
+                .collect();
+            assert!(!moved.is_empty(), "{label} : aucun emplacement ne bouge");
+            for (n, item) in &moved {
+                assert_eq!(
+                    item.as_str(),
+                    added,
+                    "{label} : l'emplacement {n} passe de {} à {item}",
+                    before[*n]
+                );
+            }
+            eprintln!(
+                "{label} : {} emplacements sur {SLOTS} bougent, tous vers {added}",
+                moved.len()
+            );
+        };
+        let draws = |table: &LootTableDef, items: &ItemTable, hidden: &BTreeSet<&str>| {
+            (0..SLOTS)
+                .map(|n| drawn(table, items, hidden, n))
+                .collect::<Vec<_>>()
+        };
+
+        // 1. Une entrée ajoutée à la fin, puis au début (le rang des autres change) : même résultat.
+        let mut at_end = base.clone();
+        at_end.entries.push(entry(LootPick::Item("x4".into()), 2));
+        let after_end = draws(&at_end, &base_items, &none);
+        check("entrée ajoutée à la fin", after_end.clone(), "x4");
+        let mut at_start = base.clone();
+        at_start
+            .entries
+            .insert(0, entry(LootPick::Item("x4".into()), 2));
+        assert_eq!(draws(&at_start, &base_items, &none), after_end);
+
+        // 2. Un objet caché qui se débloque (l'entrée existe, `hidden` la masquait).
+        let mut hidden_pool = base.clone();
+        hidden_pool
+            .entries
+            .push(entry(LootPick::Item("x5".into()), 2));
+        let masked: BTreeSet<&str> = ["x5"].into_iter().collect();
+        assert_eq!(draws(&hidden_pool, &base_items, &masked), before);
+        check(
+            "objet débloqué",
+            draws(&hidden_pool, &base_items, &none),
+            "x5",
+        );
+
+        // 3. Un candidat de plus dans l'entrée `Rarity(Rare)` ({r0, r1, r2} -> + r3).
+        let richer = many_items(6, 4);
+        let after = draws(&base, &richer, &none);
+        check("candidat de rareté ajouté", after, "r3");
+
+        // 4. Un poids augmenté : seul l'objet de l'entrée gagne des emplacements.
+        let mut heavier = base.clone();
+        heavier.entries[1].weight = 4;
+        check("poids augmenté", draws(&heavier, &base_items, &none), "x1");
+
+        // 5. L'ordre des entrées et leur doublon n'ont aucun effet sur la loi : mêmes tirages.
+        let mut reversed = base.clone();
+        reversed.entries.reverse();
+        assert_eq!(draws(&reversed, &base_items, &none), before);
+        let mut split = base.clone();
+        split.entries[0].weight = 1;
+        split.entries.push(entry(LootPick::Item("x0".into()), 1));
+        assert_eq!(
+            draws(&split, &base_items, &none),
+            before,
+            "deux entrées du même objet valent une entrée de poids somme"
+        );
+    }
+
+    /// Poids plafonné : un poids énorme ne fait pas boucler le tirage (le lint le refuse).
+    #[test]
+    fn an_absurd_weight_is_capped() {
+        let items = items();
+        let pool = table(
+            vec![
+                entry(LootPick::Item("a".into()), i32::MAX),
+                entry(LootPick::Item("key".into()), 1),
+            ],
+            false,
+        );
+        // Plafonné à MAX_LOOT_WEIGHT : `key` pèse 1/1001 ; le tirage se termine.
+        let none = BTreeSet::new();
+        let a = (0..2_000)
+            .filter(|n| drawn(&pool, &items, &none, *n) == "a")
+            .count();
+        assert!(a > 1_990, "{a} tirages de `a` sur 2 000");
+    }
+
+    // ---- D95 : graines décorrélées entre clés voisines -------------------------------------------
+
+    /// Anciennes graines de butin (`loot_seed` avant D95) : le repli FNV seul, sans finaliseur.
+    fn legacy_seed(run_seed: u32, floor: u32, key: &str) -> u32 {
+        let hash = fnv1a(format!("loot:{run_seed}:{floor}:{key}").as_bytes());
+        (hash ^ (hash >> 32)) as u32
+    }
+
+    /// Fréquences de `hit(graine, i)` pour `keys` clés voisines (`i = 0…keys-1`) sur les graines
+    /// `1…=seeds` : (fréquence min, fréquence max, |corrélation de Pearson| max entre clés voisines,
+    /// part des graines où aucune clé ne touche).
+    fn neighbour_stats(
+        seeds: u32,
+        keys: usize,
+        hit: impl Fn(u32, usize) -> bool,
+    ) -> (f64, f64, f64, f64) {
+        let mut hits = vec![0u32; keys];
+        let mut pairs = vec![0u32; keys - 1];
+        let mut none = 0u32;
+        for seed in 1..=seeds {
+            let draws: Vec<bool> = (0..keys).map(|i| hit(seed, i)).collect();
+            none += u32::from(draws.iter().all(|hit| !hit));
+            for i in 0..keys {
+                hits[i] += u32::from(draws[i]);
+                if i + 1 < keys {
+                    pairs[i] += u32::from(draws[i] && draws[i + 1]);
+                }
+            }
+        }
+        let n = f64::from(seeds);
+        let freq: Vec<f64> = hits.iter().map(|h| f64::from(*h) / n).collect();
+        let max_r = (0..keys - 1)
+            .map(|i| {
+                let covariance = f64::from(pairs[i]) / n - freq[i] * freq[i + 1];
+                let variance = freq[i] * (1.0 - freq[i]) * freq[i + 1] * (1.0 - freq[i + 1]);
+                (covariance / variance.sqrt()).abs()
+            })
+            .fold(0.0, f64::max);
+        (
+            freq.iter().copied().fold(1.0, f64::min),
+            freq.iter().copied().fold(0.0, f64::max),
+            max_r,
+            f64::from(none) / n,
+        )
+    }
+
+    /// Un pool de dix armes de poids 1 (aucun objet nécessaire) : `weapon:w0` sort avec p = 0,1.
+    fn ten_weapons() -> LootTableDef {
+        table(
+            (0..10)
+                .map(|i| entry(LootPick::Weapon(format!("w{i}"), Rarity::Common), 1))
+                .collect(),
+            false,
+        )
+    }
+
+    /// Les familles de clés des sites de butin, avec le nombre qui varie en dernier ou non.
+    fn key_families() -> Vec<(&'static str, Box<dyn Fn(usize) -> String>)> {
+        vec![
+            (
+                "champion:100+i",
+                Box::new(|i| format!("champion:{}", 100 + i)),
+            ),
+            (
+                "champion:1000+i",
+                Box::new(|i| format!("champion:{}", 1000 + i)),
+            ),
+            ("shells:100+i", Box::new(|i| format!("shells:{}", 100 + i))),
+            ("shells:37+i", Box::new(|i| format!("shells:{}", 37 + i))),
+            (
+                "rock:3:10:5+i",
+                Box::new(|i| format!("rock:3:10:{}", 5 + i)),
+            ),
+            ("rock:3:2+i:5", Box::new(|i| format!("rock:3:{}:5", 2 + i))),
+            ("slot:i", Box::new(|i| format!("room:salle_{i}"))),
+        ]
+    }
+
+    /// D95, mesure refaite en Rust sur le modèle de `variant::tests` : 16 clés voisines, deux indicateurs de
+    /// p = 0,1 par clé : la première valeur du flux (`next_fixed < 0,1`, comme la chance d'une curse ou d'un
+    /// champion ; 100 000 graines, bruit d'échantillon de r ≈ 0,003) et le tirage de butin entier (la course ;
+    /// 20 000 graines, bruit ≈ 0,007). La fréquence de **chaque** clé est vérifiée, la dernière comprise. L'ancien repli
+    /// FNV seul doit, lui, échouer.
+    #[test]
+    fn loot_seeds_of_neighbouring_keys_are_independent() {
+        const FIRST_SEEDS: u32 = 100_000;
+        const SEEDS: u32 = 20_000;
+        const KEYS: usize = 16;
+        let chance = Fixed::from_num(0.1);
+        let pool = ten_weapons();
+        let items = ItemTable::default();
+        let mut worst_new = 0.0f64;
+        let mut worst_old = 0.0f64;
+        for (name, key) in key_families() {
+            for (label, seed_of) in [
+                (
+                    "avant",
+                    &(|s: u32, i: usize| legacy_seed(s, 0, &key(i))) as &dyn Fn(u32, usize) -> u32,
+                ),
+                ("après", &|s: u32, i: usize| loot_seed(s, 0, &key(i))),
+            ] {
+                let first = neighbour_stats(FIRST_SEEDS, KEYS, |s, i| {
+                    RollbackRng::new(seed_of(s, i)).next_fixed() < chance
+                });
+                let full = neighbour_stats(SEEDS, KEYS, |s, i| {
+                    draw_loot(
+                        &pool,
+                        &items,
+                        None,
+                        Rarity::Common,
+                        false,
+                        &mut RollbackRng::new(seed_of(s, i)),
+                    )
+                    .as_deref()
+                        == Some("weapon:w0")
+                });
+                eprintln!(
+                    "D95 {label} {name:>16} : 1er tirage f∈[{:.4},{:.4}] r={:.4} sans={:.3} | course f∈[{:.4},{:.4}] r={:.4} sans={:.3}",
+                    first.0, first.1, first.2, first.3, full.0, full.1, full.2, full.3
+                );
+                let r = first.2.max(full.2);
+                if label == "avant" {
+                    worst_old = worst_old.max(r);
+                    continue;
+                }
+                worst_new = worst_new.max(r);
+                for (kind, stats) in [("1er tirage", first), ("course", full)] {
+                    // Chaque clé, la dernière comprise : la fréquence mesurée reste proche de 0,1.
+                    assert!(
+                        stats.0 > 0.08 && stats.1 < 0.12,
+                        "{name} ({kind}) : fréquences [{:.4}, {:.4}]",
+                        stats.0,
+                        stats.1
+                    );
+                    assert!(
+                        stats.2 < 0.03,
+                        "{name} ({kind}) : clés voisines corrélées, r = {:.4}",
+                        stats.2
+                    );
+                    // 0,9^16 = 18,5 % des graines sans aucune occurrence.
+                    assert!(
+                        (0.15..=0.25).contains(&stats.3),
+                        "{name} ({kind}) : {:.3} des graines sans occurrence",
+                        stats.3
+                    );
+                }
+            }
+        }
+        eprintln!("D95 : |r| max avant {worst_old:.4}, après {worst_new:.4}");
+        assert!(
+            worst_old > 0.03,
+            "le détecteur ne voit plus l'ancien défaut (r = {worst_old:.4})"
+        );
+    }
+
+    /// Les graines sans allocation sont celles des clés textuelles (mêmes octets, mêmes graines).
+    #[test]
+    fn allocation_free_seeds_equal_the_textual_keys() {
+        for (run_seed, floor, number) in [
+            (0u32, 0u32, 0u64),
+            (1, 9, 100),
+            (123_456, 3, 1_000),
+            (u32::MAX, u32::MAX, u64::MAX),
+        ] {
+            let expect = |key: String| loot_seed(run_seed, floor, &key);
+            assert_eq!(
+                loot_seed_numbered(run_seed, floor, "shells:", number),
+                expect(format!("shells:{number}"))
+            );
+            assert_eq!(
+                loot_seed_parts(run_seed, floor, &["shop:", "salle_a"]),
+                expect("shop:salle_a".to_string())
+            );
+            for index in [1u32, 2, 17, u32::MAX] {
+                assert_eq!(
+                    exhaust_seed(run_seed, floor, "room:x", index),
+                    expect(format!("room:x#{index}")),
+                    "{run_seed}:{floor} index {index}"
+                );
+            }
+            assert_eq!(
+                exhaust_seed(run_seed, floor, "room:x", 0),
+                expect("room:x".to_string())
+            );
+        }
     }
 }

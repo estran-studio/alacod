@@ -1,5 +1,6 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage de curse passe par `fmix32` (D95) ; la graine 3 ne tire plus « maze » à l'étage 0, la graine 2 tire « maze » à l'étage 0 et rien à l'étage 1 (la plus petite qui convient).
 // M3-T9 (docs/conventions.md §74) : une curse à modificateur. Séquence `maudit_maze` du testbed (pool
-// `maze` seul, une chance sur deux par étage), graine 3 : l'étage 0 tire « maze » (`Modifier(MoveSpeed, Mul,
+// `maze` seul, une chance sur deux par étage), graine 2 : l'étage 0 tire « maze » (`Modifier(MoveSpeed, Mul,
 // "0.85")`, source `curse:maze`), l'étage 1 n'en tire pas. La vitesse du joueur (150) passe à 127,5 à
 // l'entrée de l'étage 0 puis revient à 150 au passage du portail : le modificateur est retiré à la
 // sortie de l'étage. Le joueur tire sur le follower puis marche vers le portail comme dans `portal_next_floor`
@@ -11,7 +12,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     floors: Some("maudit_maze"),
-    map_seed: 3,
+    map_seed: 2,
     frames: 300,
     players: [
         (inputs: [
