@@ -12,11 +12,11 @@ use game::{
         config::CharacterConfig, enemy::create::spawn_enemy, player::create::create_player,
     },
     collider::CollisionSettings,
-    core::AppState,
     economy::PerkMachine,
     global_asset::GlobalAsset,
     interaction::{Interactable, InteractionType},
     jjrs::{GggrsSessionConfigurationState, GgrsSessionBuilding},
+    session::AppState,
     weapons::{self, melee::MeleeWeaponsConfig, WeaponsConfig},
 };
 use map::{
@@ -541,7 +541,7 @@ fn spawn_hub_stations_when_map_loaded(
     services: Res<game::hub::HubServices>,
     profiles: Option<Res<meta::Profiles>>,
     session: Res<GgrsSessionBuilding>,
-    online: Option<Res<game::core::OnlineState>>,
+    online: Option<Res<game::session::OnlineState>>,
     slots: FloorSlots,
 ) {
     let mut spawns: Vec<(&GlobalTransform, &HubStationRef)> = stations
@@ -565,7 +565,7 @@ fn spawn_hub_stations_when_map_loaded(
     // En ligne : le hub est celui du profil de l'hôte, transmis avec la configuration de session
     // (M2-T13, comme `RunUnlocks`) ; jamais le profil du pair local.
     let host_profile =
-        matches!(online.as_deref(), Some(game::core::OnlineState::Online)).then(|| {
+        matches!(online.as_deref(), Some(game::session::OnlineState::Online)).then(|| {
             game::profile::online_host_profile(
                 std::env::var(game::profile::RUN_UNLOCKS_ENV)
                     .ok()

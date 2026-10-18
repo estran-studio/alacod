@@ -165,7 +165,7 @@ pub fn create_player(
             inventory,
             ammo_reserves,
             CursorPosition::default(),
-            super::input::InteractionInput::default(),
+            crate::interaction::InteractionInput::default(),
             crate::interaction::Interactor,
             Player {
                 handle,
@@ -190,7 +190,7 @@ pub fn create_player(
             inventory,
             ammo_reserves,
             CursorPosition::default(),
-            super::input::InteractionInput::default(),
+            crate::interaction::InteractionInput::default(),
             crate::interaction::Interactor,
             currency,
             perks,

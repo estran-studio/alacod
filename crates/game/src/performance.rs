@@ -1,7 +1,7 @@
 //! Opt-in native frame timings, outside rollback. `ALACOD_PERF_CSV=<file>`.
 //! Intervals measure main-app cadence, not GPU timestamps or presented images.
 
-use crate::{core::AppState, system_set::RollbackSystemSet, weapons::Bullet};
+use crate::{session::AppState, system_set::RollbackSystemSet, weapons::Bullet};
 use bevy::prelude::*;
 use bevy_ggrs::GgrsSchedule;
 use std::{

@@ -24,7 +24,7 @@ use run::{
 use sim_core::{frame_events::FrameEvents, players::PlayersCount};
 use utils::frame::FrameCount;
 
-use crate::{core::OnlineState, jjrs::GggrsSessionConfiguration};
+use crate::{jjrs::GggrsSessionConfiguration, session::OnlineState};
 
 /// Horloges demandées par un scénario (`Scenario::clocks`), posé par le runner.
 #[derive(Resource, Clone, Debug)]

@@ -21,12 +21,12 @@ use bevy_fixed::{
 use bevy_ggrs::{GgrsPlugin, GgrsSchedule};
 #[cfg(feature = "debug_ui")]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
-use serde::{Deserialize, Serialize};
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
 };
 
+use crate::session::{single_threaded_rollback_schedules, AppState, CoreSetupConfig, SIM_FPS};
 use crate::web::WebPlugin;
 
 use crate::{
@@ -35,7 +35,8 @@ use crate::{
     character::{player::jjrs::PeerConfig, BaseCharacterGamePlugin},
     collider::{debug::DebugColliderGamePlugin, BaseColliderGamePlugin},
     content_hot_reload::ContentHotReloadPlugin,
-    frame::{increase_frame_system, FrameDebugUIPlugin},
+    frame::FrameDebugUIPlugin,
+    frame_counter::increase_frame_system,
     global_asset::{add_global_asset, loading_asset_system},
     jjrs::{
         local::{setup_ggrs_local, system_after_map_loaded_local},
@@ -49,46 +50,6 @@ use crate::{
     waves::WaveSystemPlugin,
     weapons::BaseWeaponGamePlugin,
 };
-
-// Configuration that is static and bundle with the game
-#[derive(Serialize, Deserialize, Default, Clone)]
-pub struct CoreSetupConfig {
-    pub app_name: String,
-    /// Sans fenêtre ni GPU, une frame de simulation par update (voir [`is_headless`]).
-    pub headless: bool,
-    /// Dossier des assets ; `None` pour le dossier par défaut de bevy.
-    pub asset_root: Option<String>,
-}
-
-impl CoreSetupConfig {
-    /// Config d'un exécutable : le mode headless vient de `ALACOD_HEADLESS`.
-    pub fn from_env(app_name: impl Into<String>) -> Self {
-        Self {
-            app_name: app_name.into(),
-            headless: is_headless(),
-            asset_root: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default, Eq, PartialEq, Hash, States)]
-pub enum AppState {
-    #[default]
-    Loading, // Initial loading step for all the required global asset to be resolved
-    LobbyLocal,   // Create a local lobby for lan UDP or SyncTest Session
-    LobbyOnline,  // Create an online lobby with matchbox
-    GameLoading, // After the lobby as agree on the game parameters all required asset are loaded before the game can start
-    GameStarting, // To launch the session after the game is loaded
-    InGame,      // When the game is played with the active ggrs session from local or online
-}
-
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum OnlineState {
-    #[default]
-    Unset, // No ggrs system enable to start a game
-    Online,  // For ggrs p2p system to be enable
-    Offline, // For ggrs synctest/lan system to be enabe
-}
 
 // Ressource to share information about the identity of this game instance ( game name , version , .... )
 // this is used between client to validate that their binary are compatible
@@ -389,40 +350,6 @@ impl Plugin for CoreSetupPlugin {
     }
 }
 
-/// Exécuteur monothread pour les schedules du rollback (`ReadInputs`, `AdvanceWorld`,
-/// `GgrsSchedule`, `SaveWorld`, `LoadWorld`), dans le jeu comme dans les scénarios.
-///
-/// La simulation compte des centaines de petits systèmes par frame : l'exécuteur multithread
-/// de Bevy y coûte plus (réveils de threads, ≈ 1 500 `futex` par frame) qu'il ne rapporte.
-/// Mesuré le 2026-10-15 sur le smoke p2p de `zombies` à deux clients (97 entités), profil
-/// `utils::snapshot_profile` : une frame de simulation à 6,8 ms en moyenne (23,6 ms au pire)
-/// en multithread, contre 0,15 ms sur la même charge en monothread dans le runner de
-/// scénarios. En ligne, un rollback de 12 frames coûte donc 80 ms au lieu de 2. L'ordre
-/// d'exécution ne change aucun résultat : `GgrsSchedule` refuse toute ambiguïté d'ordre
-/// (`ambiguity_detection: Error`) et les traces de référence le prouvent.
-/// `ALACOD_EXECUTOR=multi` rétablit l'exécuteur par défaut (comparaison).
-pub fn single_threaded_rollback_schedules(app: &mut App) {
-    if std::env::var("ALACOD_EXECUTOR").is_ok_and(|v| v == "multi") {
-        return;
-    }
-    let mut schedules = app
-        .world_mut()
-        .resource_mut::<bevy::ecs::schedule::Schedules>();
-    use bevy::ecs::schedule::ScheduleLabel as _;
-    let labels = [
-        bevy_ggrs::ReadInputs.intern(),
-        bevy_ggrs::AdvanceWorld.intern(),
-        GgrsSchedule.intern(),
-        bevy_ggrs::SaveWorld.intern(),
-        bevy_ggrs::LoadWorld.intern(),
-    ];
-    for label in labels {
-        if let Some(schedule) = schedules.get_mut(label) {
-            schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
-        }
-    }
-}
-
 impl CoreSetupPlugin {
     pub fn get_default_plugin(&self) -> PluginGroupBuilder {
         let window_plugin = WindowPlugin {
@@ -533,13 +460,4 @@ impl Plugin for PresentationPlugin {
             app.add_plugins(WorldInspectorPlugin::new());
         }
     }
-}
-
-/// Fréquence de simulation GGRS (valeur par défaut de `RollbackFrameRate`).
-pub const SIM_FPS: u64 = 60;
-
-/// Mode headless (`ALACOD_HEADLESS=1`) : pas de fenêtre ni de GPU, et le temps
-/// avance d'une frame de simulation par update. Pour les tests et les replays.
-pub fn is_headless() -> bool {
-    std::env::var("ALACOD_HEADLESS").is_ok_and(|v| v == "1")
 }

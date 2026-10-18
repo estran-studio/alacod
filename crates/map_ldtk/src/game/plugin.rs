@@ -7,7 +7,7 @@ use game::{
     character::enemy::ai::Obstacle,
     character::enemy::spawning::EnemySpawnerState,
     collider::{Collider, CollisionLayer, CollisionSettings, Wall, Window},
-    core::AppState,
+    session::AppState,
 };
 use map::game::entity::{
     map::{

@@ -11,7 +11,7 @@ use bevy_hui::prelude::*;
 use content::registry::Registry;
 
 use super::mutation_screen::{compact_description, MutationScreenView};
-use crate::core::AppState;
+use crate::session::AppState;
 
 const TEMPLATE: &str = "ui/mutation_screen.html";
 const TEXT: &str = "#ffffff";

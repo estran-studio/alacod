@@ -2,7 +2,7 @@
 //!
 //! Le modèle pur ([`model`]) et l'état ([`ScreensPlugin`], aussi en headless) transforment les
 //! touches (Échap / Start, I / Select, flèches / D-pad, Entrée / A, Retour / B) et le script de
-//! scénario ([`ScreenScript`]) en [`UiAction`](model::UiAction). Les commandes de sortie sont
+//! scénario ([`ScreenScript`](model::ScreenScript)) en [`UiAction`](model::UiAction). Les commandes de sortie sont
 //! [`ScreenCommand`] (`RunRequest::Restart` / `ToLobby`).
 //!
 //! Le rendu `bevy_hui` (`hui`, feature `ui_hui`) lie les gabarits `ui/*_screen.html` aux sections
@@ -18,14 +18,13 @@ use combat::inventory::AmmoReserves;
 use items::{Inventory, ItemKind, ItemTable};
 use model::{
     actions_from_keys, inventory_focus_len, inventory_view, merchant_lines, merchant_view,
-    pause_view, reduce, ActiveLine, InventoryInput, NavKey, ScreenCommand, ScreenId, ScreenView,
-    ScreensState, UiAction, WeaponLine,
+    pause_view, reduce, ActiveLine, InventoryInput, NavKey, ScreenCommand, ScreenId, ScreenScript,
+    ScreenView, ScreensState, UiAction, WeaponLine,
 };
-use serde::{Deserialize, Serialize};
 use utils::frame::FrameCount;
 
-use crate::core::AppState;
 use crate::run_state::RunRequest;
+use crate::session::AppState;
 use crate::ui::hud_model::HudPlayer;
 use crate::weapons::{WeaponInventory, WeaponModesState, WeaponState};
 
@@ -39,22 +38,6 @@ pub struct Screens {
     pub merchant_message: String,
     /// `None` : aucun écran ouvert.
     pub view: Option<ScreenView>,
-}
-
-/// Un pas du script d'un scénario : l'action est jouée à la frame `at_frame` (format RON :
-/// `(at_frame: 20, action: Toggle(Pause))`).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct UiStep {
-    pub at_frame: u32,
-    pub action: UiAction,
-}
-
-/// Script d'actions d'UI d'un scénario (ressource posée par le runner ; absente en jeu).
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
-pub struct ScreenScript {
-    pub steps: Vec<UiStep>,
-    /// Dernière frame dont les pas ont été joués : un pas ne l'est qu'une fois.
-    pub played_until: Option<u32>,
 }
 
 /// Actions en attente (clavier, manette) : vidées à chaque update.

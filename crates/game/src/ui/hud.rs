@@ -19,11 +19,11 @@ use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::enemy::Enemy;
 use crate::character::player::Player;
 use crate::collider::Collider;
-use crate::core::{AppState, SIM_FPS};
 use crate::economy::PerkMachine;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::{point_to_collider_surface_distance_sq, Interactable, InteractionType};
 use crate::powerups::PowerUpsConfig;
+use crate::session::{AppState, SIM_FPS};
 use crate::ui::hud_model::{
     player_source_text, HeartKind, HeartSlot, HudMapRoom, HudPlayer, HudSnapshot,
 };
@@ -825,7 +825,7 @@ fn update_hud_v1_values(
     state: HudPlayerState,
     world: HudInteractables,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
     config_handle: Res<HudConfigHandle>,
     configs: Res<Assets<HudConfig>>,
     run: Option<Res<run::Run>>,
@@ -1384,7 +1384,7 @@ fn closest_interactable(
     world: &HudInteractables,
     position: fixed_math::FixedVec3,
     fog: &crate::room_fog::FogView,
-    fog_map: Option<&crate::room_fog::FogMap>,
+    fog_map: Option<&crate::fog_map::FogMap>,
 ) -> Option<GgrsNetId> {
     let mut candidates: Vec<_> = world.interactables.iter().collect();
     candidates.sort_by_key(|(net_id, ..)| net_id.0);
