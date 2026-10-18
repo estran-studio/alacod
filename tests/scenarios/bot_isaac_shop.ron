@@ -1,0 +1,41 @@
+// M3-T14 (docs/conventions.md §79) : politique d'achat en douilles de l'`explorateur` (`ShopOrder::HeartsThenCheapest`).
+// `isaac` n'a pas encore de boutique (gabarit et pool : M3-T11d) : trois présentoirs sont posés à f5 dans la salle de
+// départ (placements de scénario), le joueur a 12 douilles. Un cœur (2 douilles, `refuse_when_full`) au sud, un `trefle_chat`
+// (6) à l'ouest, le plus proche, et une bombe (3) à l'est, plus loin.
+//
+// À regarder : à pleine vie (6/6) le jeu refuserait le cœur (`shop_full`), le bot n'y touche pas ; il achète d'abord la
+// bombe, **la moins chère**, pas le trèfle pourtant plus proche (f35, 12 → 9 douilles), puis le trèfle (f88, 9 → 3) ; il
+// lui reste 3 douilles, de quoi payer le cœur (2), qu'il laisse.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    floors: Some("sous_sol_un"),
+    frames: 400,
+    shop: (shelves: [
+        (key: "coeur", item: "coeur", price: 2, x: "-8.0", y: "40.0", at_frame: 5),
+        (key: "trefle", item: "trefle_chat", price: 6, x: "-48.0", y: "-8.0", at_frame: 5),
+        (key: "bombe", item: "bomb", price: 3, x: "32.0", y: "-8.0", at_frame: 5),
+    ]),
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        shells: Some(400),
+        devil: Never,
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+        anti_jitter: true,
+        combat_aware: true,
+    )),
+    players: [(bot: explorateur, currency: Some(12))],
+    expect: [
+        Currency(handle: 0, min: Some(12), max: Some(12), at_frame: 8),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 8),
+        Currency(handle: 0, min: Some(9), max: Some(9), at_frame: 60),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 60),
+        ItemCount(handle: 0, id: "trefle_chat", count: 0, at_frame: 60),
+        Currency(handle: 0, min: Some(3), max: Some(3), at_frame: 140),
+        HasItem(handle: 0, id: "trefle_chat", at_frame: 140),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 140),
+        PlayerAlive(handle: 0, at_frame: 399),
+    ],
+)

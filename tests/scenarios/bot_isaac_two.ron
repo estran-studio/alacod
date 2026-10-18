@@ -1,0 +1,56 @@
+// M3-T14 (docs/conventions.md §79) : deux bots `explorateur` jouent ensemble un étage d'`isaac` (séquence `sous_sol_un`,
+// graine 8 : salle secrète au sud du départ, salle du diable collée au boss), chacun avec la bombe d'essai des
+// campagnes (une bombe, `PlayerScript::bomb` et `items`) et la politique de `bot.ron`.
+//
+// À regarder : les deux bots arrivent ensemble au mur secret ; **un seul** pose sa bombe (f19 : le joueur 0, le plus petit
+// handle ; avant la règle des pairs, `GoalContext::peers`, les deux en posaient une), l'explosion (f78) ouvre le mur, le
+// joueur 1 garde sa bombe ; le coffre secret est ouvert (f2105) et celui du trésor (f2358), leurs objets changent avec le
+// tirage du butin ; le boss meurt (victoire f1885) ; devant le marché du diable (`devil: Never`, défaut de `bot.ron`) les
+// deux bots passent leur chemin : les deux présentoirs restent invendus.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 8,
+    floors: Some("sous_sol_un"),
+    frames: 3600,
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        shells: Some(400),
+        devil: Never,
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+        anti_jitter: true,
+        combat_aware: true,
+    )),
+    players: [
+        (
+            bot: explorateur,
+            bomb: (fuse_frames: 60, radius: "56.0", damage: "4.0", friendly_fire: Always),
+            items: ["bomb"],
+        ),
+        (
+            bot: explorateur,
+            bomb: (fuse_frames: 60, radius: "56.0", damage: "4.0", friendly_fire: Always),
+            items: ["bomb"],
+        ),
+    ],
+    expect: [
+        RoomLayout(kind: "secrete", touches: ["depart", "combat"], at_frame: 5),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 10),
+        Consumable(handle: 1, id: "bomb", count: 1, at_frame: 10),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 30),
+        Consumable(handle: 1, id: "bomb", count: 1, at_frame: 30),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 70),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 90),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
+        Health(handle: 1, min: 6.0, max: 6.0, at_frame: 100),
+        EventAfter(kind: "chest", after_frame: 90, by_frame: 2300),
+        Event(kind: "item_pickup", by_frame: 2500),
+        Event(kind: "victory", by_frame: 2400),
+        ShelfCount(count: 2, at_frame: 10),
+        Shelf(nth: 0, sold: Some(false), at_frame: 2300),
+        Shelf(nth: 1, sold: Some(false), at_frame: 2300),
+        PlayerAlive(handle: 0, at_frame: 3599),
+        PlayerAlive(handle: 1, at_frame: 3599),
+    ],
+)

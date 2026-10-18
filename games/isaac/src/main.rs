@@ -80,6 +80,17 @@ fn main() -> AppExit {
             map_path: manifest.entry.start_map.clone(),
             seed: manifest.entry.default_seed,
         }))
-        .insert_resource(WaveModeEnabled(wave_mode))
-        .run()
+        .insert_resource(WaveModeEnabled(wave_mode));
+    // `--seed <n>` : graine de carte explicite (rejouer une graine de campagne de bots, preuves p2p : les deux pairs
+    // reçoivent la même). Sans elle, la graine du manifeste. Copie de `games/gungeon/src/main.rs`.
+    app.add_systems(Startup, apply_launch_seed);
+    app.run()
+}
+
+/// `--seed` (`LaunchSeed`) remplace la graine du manifeste, en local comme en ligne.
+fn apply_launch_seed(launch: Res<game::args::LaunchSeed>, mut map: ResMut<LdtkGameMap>) {
+    if let Some(seed) = launch.0 {
+        map.seed = seed;
+        info!("isaac : graine de carte imposée --seed {seed}");
+    }
 }

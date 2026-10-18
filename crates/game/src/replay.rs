@@ -103,6 +103,9 @@ pub struct Scenario {
     /// Faux par défaut : aucune trace de bot existante ne bouge.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub shopping: bool,
+    /// M3-T14 : politique de l'`explorateur` (§79). `None` : celle de `Default` (+ `shopping` ci-dessus).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub explorer: Option<ExplorerPolicy>,
     /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5), pour prouver le chemin
     /// « drop à la mort » sans dépendre du tirage réel du jeu (scénario
     /// `powerup_drop_on_kill`) — voir `scenario::runner::apply_powerup_drop_chance_override`.
@@ -479,6 +482,97 @@ pub struct ModifierSpec {
     pub value: Fixed,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub until: Option<u32>,
+}
+
+/// Politique de l'`explorateur` (M3-T14, `docs/conventions.md` §79) : ce qu'il ouvre, achète et fait
+/// sauter, en données. Défaut = comportement d'avant M3-T14 (aucun achat, ordre du plus proche) ; les
+/// décisions de bombe et de porte à clé sont **inertes** sans porteur de bombe, sans salle secrète ni
+/// porte à clé, donc les parties des autres jeux ne changent pas. `games/<jeu>/assets/bot.ron`
+/// (facultatif) la fixe pour les campagnes d'`alacod-sim` ; `Scenario::explorer` pour un scénario.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+pub struct ExplorerPolicy {
+    /// D62 : ouvre les coffres et achète les présentoirs payables (comme `Scenario::shopping`).
+    #[serde(default)]
+    pub shopping: bool,
+    /// Ordre et conditions d'achat en douilles (présentoirs).
+    #[serde(default)]
+    pub shop: ShopOrder,
+    /// Ramasse les tas de sous au sol (`ShellPickup`) dont le chemin coûte au plus `n` (10 par case de 8 px en
+    /// ligne droite) : ils ne valent pas un détour d'un bout à l'autre de l'étage. `None` : seulement ceux qu'il
+    /// croise.
+    #[serde(default)]
+    pub shells: Option<u32>,
+    /// Marché du diable : présentoirs payés en vie maximale (`Shelf::cost`).
+    #[serde(default)]
+    pub devil: DevilPolicy,
+    /// Bombes : mur secret, rochers.
+    #[serde(default)]
+    pub bombs: BombPolicy,
+    /// Anti-jitter : quand le bot veut avancer mais tourne sur place (douze unités pendant quarante frames : deux buts ou
+    /// deux routes de coût presque égal, l'input arrive avec son délai), il s'attache à son but du moment et tient son
+    /// prochain point de passage (soixante frames au plus). Faux par défaut : les autres jeux ne changent pas.
+    #[serde(default)]
+    pub anti_jitter: bool,
+    /// Lecture du combat : fuit toute bombe allumée (la sienne ou celle d'un champion explosif), approche d'un ennemi quand
+    /// ses larmes tournent autour de lui (`Orbit`). Faux par défaut : les autres jeux ne changent pas.
+    #[serde(default)]
+    pub combat_aware: bool,
+}
+
+/// Ordre des achats en douilles de l'`explorateur`.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+pub enum ShopOrder {
+    /// Le présentoir le plus proche par le chemin que le plus riche des joueurs peut payer (D62).
+    #[default]
+    Nearest,
+    /// M3-T14 : chaque joueur n'achète que ce qu'il paie ; un cœur (consommable `refuse_when_full`)
+    /// d'abord quand sa vie est **au plus** `low_health` × sa vie maximale (et qu'il n'est pas plein),
+    /// sinon le moins cher, puis le plus proche.
+    HeartsThenCheapest { low_health: Fixed },
+}
+
+/// Décision de l'`explorateur` devant un présentoir payé en vie maximale (le diable).
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+pub enum DevilPolicy {
+    /// Jamais.
+    #[default]
+    Never,
+    /// Achète tant que sa vie courante est **strictement** au-dessus de `n` (en points de vie) et que
+    /// le prix ne la tuerait pas ; chaque achat baisse la vie : le suivant demande de la vie encore.
+    IfHealthAbove(Fixed),
+}
+
+/// Bombes de l'`explorateur` (sans effet pour un joueur sans `BombCarrier` ni bombe en stock).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct BombPolicy {
+    /// Pose une bombe contre le mur d'une salle secrète probable.
+    #[serde(default = "vrai")]
+    pub secret: bool,
+    /// Une salle secrète n'est « probable » que si elle touche au moins ce nombre de salles
+    /// (règle de la grille, M3-T5 : une secrète voisine de plusieurs salles).
+    #[serde(default = "default_secret_neighbours")]
+    pub secret_min_neighbours: u32,
+    /// Pose une bombe devant un rocher qui coupe le chemin d'un but.
+    #[serde(default = "vrai")]
+    pub rocks: bool,
+    /// Bombes gardées en réserve : il n'en pose pas en dessous (défaut 0).
+    #[serde(default)]
+    pub reserve: u32,
+}
+
+fn default_secret_neighbours() -> u32 {
+    2
+}
+
+impl Default for BombPolicy {
+    fn default() -> Self {
+        Self {
+            secret: true,
+            secret_min_neighbours: default_secret_neighbours(),
+            rocks: true,
+            reserve: 0,
+        }
+    }
 }
 
 /// Profil de bot (T2.11, `crates/bots`). Défini ici plutôt que dans `crates/bots` : le format

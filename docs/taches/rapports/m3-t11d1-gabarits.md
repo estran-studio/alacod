@@ -17,7 +17,7 @@ victoires et morts ci-dessous sont des informations, aucun réglage n'a visé un
 - **Surface `piques`** (`surfaces/piques.ron`, 1 PV tous les 60 frames) et dossier `surfaces` du manifeste.
 - **Scénarios** : quatorze recalés (graines, chronologies ; `achievement_unlocks` ne change que ses commentaires), quatre neufs (`isaac_shop_buy`, `isaac_bomb_rock`, `isaac_spikes` et son témoin) ; `make gen GAME=isaac` : les `.ron` générés ne changent pas, 95 traces bénies.
 - **Tests** : `map_ldtk::generation::isaac_etages_de_grille_sur_1000_graines` (les neuf gabarits `Combat…` sont des salles ordinaires ; une boutique par `sous_sol`, cul-de-sac
-  derrière une salle ordinaire) ; `…_sous_trois_fois_grand_de_gungeon` (ancien `…_sous_deux_fois_…` : trois chronomètres, borne 2 → 3 sur la génération entière, garde sur les évaluations de candidats, voir §8 et D101) ; diagnostic `floor_probe`.
+  derrière une salle ordinaire) ; `…_sous_trois_fois_grand_de_gungeon` (ancien `…_sous_deux_fois_…` : trois chronomètres, borne 2 → 3 sur la génération entière, garde sur les évaluations de candidats, voir §8 et D107) ; diagnostic `floor_probe`.
 - **Docs** : `docs/conventions.md` §76.4 (et retouches §69, §70, §73, §74, §76.1 à §76.3, §77), `dettes.md` (D81 fermée, D93 annotée, D99, D100), `m3-t11-contenu-isaac.md`
   (T11d1/T11d2), `CLAUDE.md`, journal §10.
 
@@ -199,7 +199,7 @@ champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`, `hit_ifr
 - `scripts/p2p-stress.sh isaac /tmp/t11d1/p2p_inputs.ron 3000` (`--pool Up,Down,Left,Right,Fire,Reload,Bomb,Interaction`, `MATCHBOX_PORT=3571`, `COMPOSE_PROJECT_NAME=b1`) : **« p2p-stress : OK »**,
   codes de sortie 0 0, 0 `DesyncDetected`, traces de 2 999 lignes identiques. Avant la fusion : 10 942 frames resimulées (client 0) et 24 (client 1) ; **sur la fusion : 6 900 frames resimulées** (client 0 : 1 224 rollbacks, profondeur moyenne 6,6, maximale 11 ; client 1 : aucun),
   journal : 3 poses de bombe, 7 explosions, une curse, 14 assignations de butin (avant la fusion : 4, 11, 1, 14). Aucun passage d'étage en 3 000 frames d'inputs aléatoires : la transition d'étage en p2p d'`isaac` n'est pas prouvée ici (le script n'est pas un bot qui finit l'étage).
-- Relecture indépendante (agent `reviewer`, lecture seule, deux passes) : passe 1 : un P0 (§76.4 pas encore écrite), quatre P1 (attentes qui ne prouvaient pas : `isaac_bomb_rock`, `grid_secret_bomb`, `isaac_spikes`, table §73 périmée) et quatorze P2 de commentaires ou de docs périmés, tous corrigés (`PlayerPosition` ajoutées, témoin `isaac_spikes_temoin`, tables et commentaires) ; passe 2 sur la branche corrigée : aucun P0 ni P1, six P2 documentaires (poids des curses, comptes, preuve des deux runs, résumé des scénarios, comptes de suite, cause de la borne de temps), corrigés. Aucun risque de déterminisme ni de désync trouvé. Revue de la livraison (BLOQUANT sur deux points, levés sans toucher au code du jeu) : graines 84 et 86 analysées (§5.1), 32 « longs trajets » prolongés sans détecteur (§5.2), borne de génération mesurée en (a)/(p)/(b) (§8), dettes renumérotées D99, D100 (+ D101), résumé de campagne versionné, séparation gabarits/boutique dans la preuve §5, titre de D93.
+- Relecture indépendante (agent `reviewer`, lecture seule, deux passes) : passe 1 : un P0 (§76.4 pas encore écrite), quatre P1 (attentes qui ne prouvaient pas : `isaac_bomb_rock`, `grid_secret_bomb`, `isaac_spikes`, table §73 périmée) et quatorze P2 de commentaires ou de docs périmés, tous corrigés (`PlayerPosition` ajoutées, témoin `isaac_spikes_temoin`, tables et commentaires) ; passe 2 sur la branche corrigée : aucun P0 ni P1, six P2 documentaires (poids des curses, comptes, preuve des deux runs, résumé des scénarios, comptes de suite, cause de la borne de temps), corrigés. Aucun risque de déterminisme ni de désync trouvé. Revue de la livraison (BLOQUANT sur deux points, levés sans toucher au code du jeu) : graines 84 et 86 analysées (§5.1), 32 « longs trajets » prolongés sans détecteur (§5.2), borne de génération mesurée en (a)/(p)/(b) (§8), dettes renumérotées D99, D100 (+ D107), résumé de campagne versionné, séparation gabarits/boutique dans la preuve §5, titre de D93.
 
 ### 7.1 Revue de livraison (résultats réels)
 
@@ -219,7 +219,7 @@ champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`, `hit_ifr
   isaac (vingt gabarits) (a) 1,0 ms, (p) 0,67 à 0,82 ms, (b) 0,85 à 1,05 ms ; gungeon `grand` (a) 0,25 ms, (p) 0,17 à 0,24 ms, (b) 0,36 à 0,49 ms ; **(b) = 2,1 à 2,4 × gungeon, la borne d'origine de 2 n'est pas tenue** ; avec dix gabarits (b) = 0,77 à 0,81 (isaac (a) 0,23 ms, (p) 0,14 ms).
   **La cause est dans le planificateur** : (p) passe de 0,14 à 0,67 ms et le nombre d'évaluations de candidats (`FloorPlan::steps`, moyenne sur 100 graines) de **278 à 2 396** (×8,6), parce que `grid::attempt` tire un gabarit parmi ceux qui ont au moins une pose valide et évalue donc parents × ports × gabarits × ports à
   chaque pose, et que le remplissage est passé de un à neuf gabarits de combat. La part de (a), qui croît avec le `.ldtk` (145 → 314 Ko), est 4 × celle de gungeon et reste hors de la borne. J'ai mis la borne à 3 sur (b) et ajouté une garde déterministe (évaluations sous 3 500) ; la rendre à 2 demande de changer le
-  planificateur (une pose par classe de gabarits de même taille et mêmes ports) : **D101**, non fait (hors périmètre : code moteur).
+  planificateur (une pose par classe de gabarits de même taille et mêmes ports) : **D107**, non fait (hors périmètre : code moteur).
 - **Bombe de départ** : `damage: "4.0"` enlève **deux cœurs** au poseur (sur trois), contre un seul dans Isaac ; valeur de départ (tir ami `Always`, Q4), non réglée : à relire par T11d2 et T14.
 - Les sprites des rochers et des piques sont les couleurs de couche IntGrid de LDtk (aucun sprite propre : T17 et T11d2).
 - Les rochers sont dans les angles : un gabarit où un rocher barre un passage et demande la bombe est T14 (quand le bot saura les bombes).
@@ -227,6 +227,6 @@ champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`, `hit_ifr
 
 ## 9. Dettes laissées
 
-D81 fermée. D93 annotée et retitrée (quatre scénarios gagnent par armure : `grid_floor_seed_1`, `isaac_floor_seed_1`, `achievement_unlocks`, `grid_post_boss` à `Armor +100`). D99 (bot), D100 (détecteur de soft-lock) et D101 (planificateur de grille) ouvertes
+D81 fermée. D93 annotée et retitrée (quatre scénarios gagnent par armure : `grid_floor_seed_1`, `isaac_floor_seed_1`, `achievement_unlocks`, `grid_post_boss` à `Armor +100`). D99 (bot), D100 (détecteur de soft-lock) et D107 (planificateur de grille) ouvertes
 (numérotées D99, D100 après la collision avec `m3-t15-bench-larmes`, qui garde D97 et D98).
 Q14 (fourchette de franchissement) : sans objet tant que l'équilibrage par bot n'est pas rouvert.

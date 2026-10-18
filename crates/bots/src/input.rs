@@ -118,11 +118,18 @@ impl Plugin for BotsPlugin {
         app.init_resource::<EnemyMoves>();
         app.init_resource::<crate::explorer::ExplorerOptions>();
         app.init_resource::<crate::explorer::ExplorerVisits>();
+        app.init_resource::<crate::explorer::RockNavigation>();
+        app.init_resource::<crate::explorer::ExplorerJitter>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
-            |mut choices: ResMut<WeaponChoices>, mut moves: ResMut<EnemyMoves>| {
+            |mut choices: ResMut<WeaponChoices>,
+             mut moves: ResMut<EnemyMoves>,
+             mut jitter: ResMut<crate::explorer::ExplorerJitter>| {
                 choices.0.clear();
                 moves.0.clear();
+                // Les identifiants de buts et les frames repartent de zéro avec la partie : les buts écartés d'une run
+                // ne valent pas pour la suivante.
+                *jitter = Default::default();
             },
         );
         app.add_systems(
@@ -194,6 +201,7 @@ pub fn read_bot_inputs(
             Option<&Wall>,
             Option<&Window>,
             Option<&DoorComponent>,
+            Option<&world::Rock>,
         ),
         With<Rollback>,
     >,
@@ -215,6 +223,8 @@ pub fn read_bot_inputs(
         mut weapon_choices,
         mut enemy_moves,
         mut explorer,
+        mut rock_nav,
+        mut jitter,
     ): (
         Query<
             (
@@ -240,6 +250,10 @@ pub fn read_bot_inputs(
         ResMut<EnemyMoves>,
         // M2-T16 : salles, objets, inventaire et blank (profil `explorateur`)
         crate::explorer::ExplorerWorld,
+        // M3-T14 : navigation sans les rochers (ce qu'une bombe ouvrirait)
+        ResMut<crate::explorer::RockNavigation>,
+        // M3-T14 : anti-jitter (seconde mémoire de l'explorateur, hors rollback)
+        ResMut<crate::explorer::ExplorerJitter>,
     ),
 ) {
     let Some(assignments) = assignments else {
@@ -312,6 +326,23 @@ pub fn read_bot_inputs(
         .collect();
     let explore_frame = (floors_mode && !explorer_positions.is_empty())
         .then(|| explorer.frame(&explorer_positions));
+    // M3-T14 : les explorateurs qui peuvent poser une bombe (handle, position) : à un même mur, le plus petit
+    // handle pose seul (`GoalContext::peers`).
+    let bombers: Vec<(usize, FixedVec2)> = if explore_frame.is_some() {
+        let policy = explorer.options().policy;
+        order_iter!(players)
+            .into_iter()
+            .filter(|(_, player, _, _, _, _, _, _, downed, _, _)| {
+                local_players.0.contains(&player.handle)
+                    && downed.is_none()
+                    && assignments.0.get(&player.handle) == Some(&BotProfile::Explorateur)
+                    && explorer.holder(player.handle).can_bomb(&policy)
+            })
+            .map(|(_, player, transform, ..)| (player.handle, transform.translation.truncate()))
+            .collect()
+    } else {
+        Vec::new()
+    };
     let awake_points: Vec<(usize, FixedVec2)> = enemy_points
         .iter()
         .filter(|(id, _)| {
@@ -522,23 +553,39 @@ pub fn read_bot_inputs(
             loot: None,
             loot_interact: false,
             fire_range: None,
+            orbit_reach: None,
+            engage_reach: None,
+            engage_strafe: 0,
+            hold_revive: explorer_options.policy.combat_aware,
             explore: None,
             aim: aim_mode.copied().unwrap_or_default(),
         };
 
         let mut view = view;
+        // Anti-blocage de combat (`ExplorerPolicy::anti_jitter`) : avant `navigate`, qui calcule alors le chemin.
+        if exploring && downed.is_none() && explorer_options.policy.anti_jitter {
+            if let Some((reach, strafe)) = jitter.engage(
+                player.handle,
+                frame.frame,
+                explorer.enemy_progress(),
+                view.nearest_enemy.is_some(),
+            ) {
+                view.engage_reach = Some(reach);
+                view.engage_strafe = strafe;
+            }
+        }
         if floors_mode && directed(profile) {
             if let Some(collider) = collider {
                 let rects = geometry_rects.get_or_insert_with(|| {
                     order_iter!(geometry)
                         .into_iter()
-                        .filter(|(_, _, _, wall, window, door)| {
-                            wall.is_some() || window.is_some() || door.is_some()
+                        .filter(|(_, _, _, wall, window, door, rock)| {
+                            wall.is_some() || window.is_some() || door.is_some() || rock.is_some()
                         })
-                        .map(|(_, t, c, wall, _, door)| {
+                        .map(|(_, t, c, wall, _, door, rock)| {
                             (
                                 Rect::collider(t.translation.truncate(), c),
-                                wall.is_some() || door.is_some(),
+                                wall.is_some() || door.is_some() || rock.is_some(),
                             )
                         })
                         .collect()
@@ -574,13 +621,13 @@ pub fn read_bot_inputs(
                 let rects = geometry_rects.get_or_insert_with(|| {
                     order_iter!(geometry)
                         .into_iter()
-                        .filter(|(_, _, _, wall, window, door)| {
-                            wall.is_some() || window.is_some() || door.is_some()
+                        .filter(|(_, _, _, wall, window, door, rock)| {
+                            wall.is_some() || window.is_some() || door.is_some() || rock.is_some()
                         })
-                        .map(|(_, t, c, wall, _, door)| {
+                        .map(|(_, t, c, wall, _, door, rock)| {
                             (
                                 Rect::collider(t.translation.truncate(), c),
-                                wall.is_some() || door.is_some(),
+                                wall.is_some() || door.is_some() || rock.is_some(),
                             )
                         })
                         .collect()
@@ -593,6 +640,9 @@ pub fn read_bot_inputs(
                     position,
                     &surfaces,
                     profile == BotProfile::Explorateur,
+                    profile == BotProfile::Explorateur
+                        && explorer_options.policy.combat_aware
+                        && jitter.snap_hold(player.handle, frame.frame),
                 );
             }
         }
@@ -616,6 +666,11 @@ pub fn read_bot_inputs(
                 .collect();
             let active = inventory.active_weapon_index;
             view.fire_range = Some(arms_views.get(active).map_or(Fixed::ZERO, |w| w.range));
+            view.orbit_reach = explorer_options
+                .policy
+                .combat_aware
+                .then(|| explorer.orbit_reach(player.handle))
+                .flatten();
             if let Some(enemy) = view.nearest_enemy {
                 let radius = enemies_sorted
                     .iter()
@@ -684,38 +739,138 @@ pub fn read_bot_inputs(
             }
         }
 
-        // M2-T16 : exploration de l'étage et blank (`explorateur`, mode `Floors`).
+        // M2-T16 : exploration de l'étage et blank (`explorateur`, mode `Floors`). M3-T14 : fuite
+        // d'une bombe posée, portes à clé, bombes (mur secret, rochers).
         if exploring && downed.is_none() {
             if let (Some(frame_data), Some(collider), Some(rects)) =
                 (explore_frame.as_ref(), collider, geometry_rects.as_ref())
             {
-                let holder = explorer.holder(player.handle);
+                let mut holder = explorer.holder(player.handle);
+                holder.bomb_inset = collider.offset.truncate().length();
                 let mut explore = crate::explorer::ExploreView {
-                    blank: crate::explorer::should_blank(&view, holder),
+                    blank: crate::explorer::should_blank(&view, &holder),
                     ..Default::default()
                 };
-                if view.nearest_enemy.is_none() {
-                    nav.0.update_from(
-                        rects,
-                        &AgentBody::from_collider(collider),
-                        points_for,
-                        position,
-                    );
-                    if let Some((direction, interact)) = crate::explorer::explore_step(
-                        &mut nav.0,
-                        frame_data,
+                let body = AgentBody::from_collider(collider);
+                if !frame_data.bombs.is_empty()
+                    && (explorer_options.policy.combat_aware || holder.bomb.is_some())
+                {
+                    nav.0.update_from(rects, &body, points_for, position);
+                    explore.flee =
+                        crate::explorer::flee_step(&mut nav.0, &frame_data.bombs, position);
+                }
+                if view.nearest_enemy.is_some() || explore.flee.is_some() {
+                    // Combat ou fuite : l'attente sur place n'est pas un balancement d'exploration.
+                    jitter.0.remove(&player.handle);
+                }
+                if view.nearest_enemy.is_none() && explore.flee.is_none() {
+                    nav.0.update_from(rects, &body, points_for, position);
+                    let ctx = crate::explorer::GoalContext {
                         holder,
+                        portal_open: view.portal.is_some(),
+                        boss_direct: explorer_options.boss_direct,
+                        policy: explorer_options.policy,
+                        peers: bombers
+                            .iter()
+                            .filter(|(handle, _)| *handle < player.handle)
+                            .map(|(_, at)| *at)
+                            .collect(),
+                    };
+                    // Navigation sans les rochers : seulement s'il y en a et qu'une bombe peut
+                    // les casser (`explore_step` ne s'en sert que sans autre but).
+                    let with_rocks = !frame_data.rocks.is_empty()
+                        && ctx.policy.bombs.rocks
+                        && ctx.holder.bomb.is_some();
+                    if with_rocks {
+                        let free_rects: Vec<(Rect, bool)> = order_iter!(geometry)
+                            .into_iter()
+                            .filter(|(_, _, _, wall, window, door, _)| {
+                                wall.is_some() || window.is_some() || door.is_some()
+                            })
+                            .map(|(_, t, c, wall, _, door, _)| {
+                                (
+                                    Rect::collider(t.translation.truncate(), c),
+                                    wall.is_some() || door.is_some(),
+                                )
+                            })
+                            .collect();
+                        rock_nav
+                            .0
+                            .update_from(&free_rects, &body, points_for, position);
+                    }
+                    let mut step = crate::explorer::explore_step(
+                        &mut nav.0,
+                        with_rocks.then_some(&mut rock_nav.0),
+                        frame_data,
+                        &ctx,
                         position,
-                        view.portal.is_some(),
-                        explorer_options.boss_direct,
+                        portal,
                         &surfaces,
-                    ) {
-                        explore.direction = Some(direction);
-                        explore.interact = interact;
+                        explorer_options
+                            .policy
+                            .anti_jitter
+                            .then(|| jitter.focus(player.handle))
+                            .flatten(),
+                        &if explorer_options.policy.anti_jitter {
+                            jitter.banned(player.handle)
+                        } else {
+                            Default::default()
+                        },
+                    );
+                    if explorer_options.policy.anti_jitter {
+                        // Seul un pas réellement exécuté compte : réanimation, butin ou esquive le remplacent
+                        // (`decide_explorer`), et un pas nul n'est pas une poursuite.
+                        let executed = view.revive.is_none()
+                            && view.loot.is_none()
+                            && crate::dodge::dodge(&view).is_none();
+                        match step.as_ref() {
+                            Some(step) if executed && step.direction != FixedVec2::ZERO => {
+                                jitter.pursue(player.handle, frame.frame, position, step);
+                            }
+                            _ => {
+                                jitter.2.remove(&player.handle);
+                            }
+                        }
+                        match step.as_mut() {
+                            Some(step) => jitter.steady(
+                                player.handle,
+                                frame.frame,
+                                position,
+                                step,
+                                |from, to| nav.0.clear(from, to),
+                            ),
+                            None => {
+                                jitter.0.remove(&player.handle);
+                            }
+                        }
+                    }
+                    if *BOT_DEBUG {
+                        eprintln!(
+                            "BOTDBG f={} handle={} pos=({},{}) step={:?} portal={:?} rooms={} items={} secret_doors={} bombs={}",
+                            frame.frame,
+                            player.handle,
+                            position.x,
+                            position.y,
+                            step,
+                            portal,
+                            frame_data.rooms.len(),
+                            frame_data.items.len(),
+                            frame_data.secret_doors.len(),
+                            ctx.holder.bombs
+                        );
+                    }
+                    if let Some(step) = step {
+                        explore.direction = Some(step.direction);
+                        explore.interact = step.interact;
+                        explore.bomb = step.bomb;
                     }
                 }
                 view.explore = Some(explore);
             }
+        }
+        if exploring && downed.is_some() {
+            jitter.0.remove(&player.handle);
+            jitter.1.remove(&player.handle);
         }
 
         if prudent_like(profile) && crate::dodge::dodge(&view).is_some() {
@@ -751,6 +906,7 @@ fn navigate(
     if let Some(enemy) = view.nearest_enemy {
         let visible = crate::navigation::walls_clear(geometry, position, enemy.position);
         let needed = !visible
+            || view.engage_reach.is_some()
             || (view.enemy_still && enemy.distance > crate::decide::STILL_TARGET_DISTANCE)
             || (prudent_like(profile) && enemy.distance > crate::decide::PRUDENT_MAX_DISTANCE);
         if !needed {
@@ -838,11 +994,32 @@ fn revive_step(
     position: FixedVec2,
     surfaces: &[(usize, Rect, Fixed, bool)],
     settle: bool,
+    snap: bool,
 ) -> Option<ReviveView> {
     nav.update_from(geometry, body, enemies, position);
     let mut targets: Vec<_> = surfaces.iter().filter(|(.., revive)| *revive).collect();
     targets.sort_by_key(|(id, rect, ..)| (rect.distance(position), *id));
     targets.into_iter().find_map(|(id, rect, reach, _)| {
+        // `snap` (`ExplorerPolicy::combat_aware`) : déjà à portée de la surface que le jeu sélectionnerait : Interaction
+        // tenue sans bouger. Sinon le pas d'approche, qui vise un point à portée − 8, fait osciller le bot autour de la
+        // portée et la réanimation (maintenue plusieurs frames) ne s'achève jamais (graine 103 d'`isaac` à deux bots).
+        if snap {
+            let selected = surfaces
+                .iter()
+                .filter_map(|(other, r, range, _)| {
+                    // Pas de marge sur la portée : une marge laisse le bot osciller à la limite (graines 1, 168, 180, 187 à
+                    // deux bots) ; la tenue est bornée par `ExplorerJitter::snap_hold`.
+                    let d = r.distance(position);
+                    (d <= *range).then_some((d, *other))
+                })
+                .min();
+            if selected.is_some_and(|(_, selected)| selected == *id) {
+                return Some(ReviveView {
+                    direction: FixedVec2::ZERO,
+                    interact: true,
+                });
+            }
+        }
         surface_step_with(nav, position, surfaces, *id, *rect, *reach, settle).map(
             |(direction, interact)| ReviveView {
                 direction,
@@ -980,6 +1157,11 @@ fn collider_radius(collider: &Collider) -> Fixed {
         }
     }
 }
+
+/// `ALACOD_BOT_DEBUG=1` : l'`explorateur` écrit son pas d'exploration à chaque frame sur stderr (diagnostic des
+/// soft-locks, hors simulation).
+static BOT_DEBUG: std::sync::LazyLock<bool> =
+    std::sync::LazyLock::new(|| std::env::var_os("ALACOD_BOT_DEBUG").is_some());
 
 /// Nom du flux RNG des bots dans [`RngStreams`] (voir la doc du module).
 const RNG_STREAM: &str = "bots";

@@ -38,6 +38,9 @@ pub(crate) const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
 /// Distance d'approche d'un ennemi immobile (voir [`BotView::enemy_still`]) : `prudent` ne
 /// recule pas devant lui (il ne peut pas venir au contact).
 pub(crate) const STILL_TARGET_DISTANCE: Fixed = Fixed::from_bits(120 << 16);
+/// Contournement d'un combat bloqué (`BotView::engage_strafe`) : seulement tout près de l'ennemi, là où la tangente
+/// change vraiment l'angle de tir ; plus loin, l'approche par le chemin continue.
+const STRAFE_MAX_DISTANCE: Fixed = Fixed::from_bits(60 << 16);
 
 /// `prudent` (T1.14) : approche du portail. Les boutons ne donnent que le signe de chaque
 /// axe et le corps garde son élan : en visant le portail (ou le pas suivant de la route) à
@@ -63,7 +66,14 @@ const STEER_AXIS_SHARE: Fixed = Fixed::from_bits(25080); // 0,38268 × 65536
 pub fn decide(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> BoxInput {
     let mut input = decide_profile(profile, view, rng);
     if view.aim == AimMode::FourWay {
-        apply_four_way(&mut input, view.enemy_visible && view.enemy_shootable);
+        // Combat engagé (blocage constaté, `BotView::engage_reach`) : seule la direction de tir est écrite, le bot se
+        // déplace pour changer sa ligne de tir et la file de tir ne le fige pas (graines 95, 119, 134 d'`isaac`). Réanimation
+        // tenue (`hold_revive`) : idem, le bot ne quitte pas la portée de son coéquipier pour s'aligner.
+        let holding = view.hold_revive && view.revive.is_some_and(|revive| revive.interact);
+        apply_four_way(
+            &mut input,
+            view.enemy_visible && view.enemy_shootable && view.engage_reach.is_none() && !holding,
+        );
     }
     input
 }
@@ -256,11 +266,35 @@ pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
     if let Some(enemy) = view.nearest_enemy {
         aim_at(&mut input, view.position, enemy.position);
 
-        let close_in = view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE;
+        // Larmes en orbite (`satellite`) : elles ne touchent qu'à `orbit_reach` du porteur, un boss immobile à
+        // 94 unités ne perdait jamais un point de vie (graine 41 d'`isaac` sans bombe, T11b) : le bot s'approche,
+        // immobile ou non, et ne recule plus devant un ennemi qui l'approche. Même chose quand le tir stagne
+        // (`engage_reach`, larmes arrêtées par un coin de mur).
+        let reach = match (view.orbit_reach, view.engage_reach) {
+            (Some(orbit), Some(engage)) => Some(orbit.min(engage)),
+            (orbit, engage) => orbit.or(engage),
+        };
+        let close_in = match reach {
+            Some(reach) => enemy.distance > reach,
+            None => view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE,
+        };
         // m1-v3-bots-softlocks : ni recul ni tir vers un ennemi caché (mode `Floors`) : le bot
         // reculait dans la roche en vidant ses chargeurs sur elle (soft-locks des graines 63,
         // 111, 139, 149 ; munitions épuisées devant le boss, graines 23, 43, 76).
-        if enemy.distance < PRUDENT_MIN_DISTANCE && !view.enemy_still && view.enemy_visible {
+        if view.engage_strafe != 0 && enemy.distance <= STRAFE_MAX_DISTANCE {
+            // Combat bloqué malgré l'approche : tourne autour de l'ennemi pour changer l'angle de tir.
+            let away = view.position - enemy.position;
+            let tangent = if view.engage_strafe > 0 {
+                FixedVec2::new(-away.y, away.x)
+            } else {
+                FixedVec2::new(away.y, -away.x)
+            };
+            set_direction_buttons(&mut input, tangent);
+        } else if reach.is_none()
+            && enemy.distance < PRUDENT_MIN_DISTANCE
+            && !view.enemy_still
+            && view.enemy_visible
+        {
             set_direction_buttons(&mut input, view.position - enemy.position); // s'éloigne
         } else if !view.enemy_visible || close_in || enemy.distance > PRUDENT_MAX_DISTANCE {
             // s'approche : par le chemin (ennemi caché, ou loin), ligne droite en repli
@@ -270,7 +304,14 @@ pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
                 // caché, la route suivie au signe faisait dépasser chaque case visée (élan) ;
                 // le bot allait et venait dans un couloir sans prendre la sortie : pilotage en
                 // vitesse, comme vers le portail.
-                Some(route) if !view.enemy_visible => steer(&mut input, route),
+                // Combat engagé et ligne dégagée : tout droit vers l'ennemi (jusqu'au contact, puis contournement) ; la
+                // route contournait un coin de mur que les larmes ne passent pas (graines 63, 95, 119 d'`isaac`).
+                Some(_) if view.enemy_visible && view.engage_reach.is_some() => {
+                    steer(&mut input, toward)
+                }
+                Some(route) if !view.enemy_visible || view.engage_reach.is_some() => {
+                    steer(&mut input, route)
+                }
                 _ => set_direction_buttons(&mut input, route_unless(false, view, toward)),
             }
         } // sinon : garde sa position (visible, dans la bande [MIN, MAX])
@@ -439,9 +480,13 @@ mod tests {
             enemy_still: false,
             enemy_shootable: true,
             revive: None,
+            engage_reach: None,
+            engage_strafe: 0,
+            hold_revive: false,
             loot: None,
             loot_interact: false,
             fire_range: None,
+            orbit_reach: None,
             explore: None,
             aim: sim_core::aim::AimMode::Free,
         }
@@ -762,6 +807,50 @@ mod tests {
         }
     }
 
+    /// Larmes en orbite (`orbit_reach`) : le bot s'approche d'un ennemi immobile à 94 unités (sans orbite, il garde sa
+    /// position sous `STILL_TARGET_DISTANCE`) et ne recule plus devant un ennemi mobile à 100 ; arrivé à portée de
+    /// l'orbite, il se tient.
+    #[test]
+    fn larmes_en_orbite_le_bot_s_approche() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(94.0), fx(0.0)),
+            distance: fx(94.0),
+        });
+        v.enemy_still = true;
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons,
+            0,
+            "sans orbite : il tient"
+        );
+        v.orbit_reach = Some(fx(40.0));
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_RIGHT,
+            INPUT_RIGHT,
+            "avec orbite : il s'approche"
+        );
+        v.enemy_still = false;
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(100.0), fx(0.0)),
+            distance: fx(100.0),
+        });
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_LEFT,
+            0,
+            "ennemi mobile : il ne recule pas"
+        );
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(30.0), fx(0.0)),
+            distance: fx(30.0),
+        });
+        v.enemy_still = true;
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons,
+            0,
+            "à portée de l'orbite : il tient"
+        );
+    }
+
     /// m1-v3-bots-armes : à portée d'une arme au sol choisie, Interaction tenue.
     #[test]
     fn ramasser_une_arme_tient_interaction() {
@@ -1033,6 +1122,40 @@ mod tests {
         let far = decide(BotProfile::Prudent, &target(500.0, 60.0), &mut rng());
         assert_eq!((far.pan_x, far.pan_y), (127, 0));
         assert!(!far.fire, "hors de portée de tir");
+    }
+
+    /// `hold_revive` (`combat_aware`) : le bot qui tient une réanimation (Interaction, direction nulle) n'ajoute pas de
+    /// décalage pour s'aligner sur un ennemi hors de la file (il quitterait la portée de son coéquipier) ; sans
+    /// `hold_revive`, comme avant.
+    #[test]
+    fn four_way_ne_quitte_pas_une_reanimation_tenue() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.aim = AimMode::FourWay;
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(200.0), fx(60.0)),
+            distance: fx(208.8),
+        });
+        v.revive = Some(crate::view::ReviveView {
+            direction: FixedVec2::ZERO,
+            interact: true,
+        });
+        let before = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(
+            before.buttons & INPUT_UP,
+            0,
+            "sans hold_revive : le décalage de main"
+        );
+        v.hold_revive = true;
+        let held = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_eq!(
+            held.buttons & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT),
+            0
+        );
+        assert_eq!(
+            (held.pan_x, held.pan_y),
+            (127, 0),
+            "la direction de tir reste quantifiée"
+        );
     }
 
     /// `Free` : l'input du profil, au bit près (le contenu d'avant ne bouge pas).

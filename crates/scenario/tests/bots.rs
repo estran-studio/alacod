@@ -38,6 +38,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         profile_setup: None,
         hub: None,
         shopping: false,
+        explorer: None,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,
@@ -158,7 +159,10 @@ fn shopped_weapons(seed: i32, frames: u32) -> std::collections::BTreeSet<String>
         move |app| {
             app.insert_resource(bots::explorer::ExplorerOptions {
                 boss_direct: false,
-                shopping: true,
+                policy: game::replay::ExplorerPolicy {
+                    shopping: true,
+                    ..Default::default()
+                },
             });
             app.add_systems(
                 Last,

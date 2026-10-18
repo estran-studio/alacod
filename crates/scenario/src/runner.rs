@@ -434,7 +434,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(bot_assignments(scenario))
         .insert_resource(bots::explorer::ExplorerOptions {
             boss_direct: false,
-            shopping: scenario.shopping,
+            policy: {
+                let mut policy = scenario.explorer.clone().unwrap_or_default();
+                policy.shopping |= scenario.shopping;
+                policy
+            },
         })
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
@@ -1062,6 +1066,11 @@ pub struct StopEarly {
     /// victoire) : un dernier joueur à terre en défaite déjà déclarée n'est plus pris pour un
     /// soft-lock pendant son saignement.
     pub stop_when_run_ended: bool,
+    /// M3-T14 : un ramassage (objet, consommable, sous) ou une dépense compte comme une progression du
+    /// soft-lock `Floors` (`FloorsProgress::stock`). Faux par défaut : les campagnes des autres jeux gardent
+    /// leur détecteur. `alacod-sim --pickup-progress` : sans lui, les détours de l'`explorateur` d'`isaac`
+    /// (objets et sous aux quatre coins d'un étage nettoyé) dépassent 1 200 frames sans kill sans être bloqués.
+    pub pickups_are_progress: bool,
 }
 
 /// D44 : état observé pour le soft-lock `Floors`. Il y a progression quand le niveau change, ou
@@ -1075,6 +1084,9 @@ pub struct FloorsProgress {
     pub enemy_health: fixed_math::Fixed,
     /// Par joueur présent (handle), à terre ou non ; un joueur mort disparaît de la liste.
     pub players: Vec<(usize, bool)>,
+    /// M3-T14 : empreinte de l'inventaire et du solde des joueurs (0 si [`StopEarly::pickups_are_progress`]
+    /// est faux) ; tout changement est une progression.
+    pub stock: u64,
 }
 
 impl FloorsProgress {
@@ -1084,6 +1096,7 @@ impl FloorsProgress {
             || now.enemies < self.enemies
             || now.enemy_health < self.enemy_health
             || now.players != self.players
+            || now.stock != self.stock
     }
 }
 
@@ -1477,6 +1490,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut q_player_state = app
         .world_mut()
         .query::<(&Player, Has<combat::downed::Downed>)>();
+    let mut q_player_stock =
+        app.world_mut()
+            .query::<(&Player, Option<&items::Inventory>, Option<&run::Currency>)>();
     let mut floors_softlocked = false;
 
     // Hub suivi (`HubSetup { stay: false }`) : la phase du hub s'ajoute au budget d'updates.
@@ -1641,6 +1657,38 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                                 sum.saturating_add(h.current)
                             }),
                         players,
+                        stock: if stop.pickups_are_progress {
+                            // Empreinte déterministe (joueurs triés par handle) de l'inventaire et du solde.
+                            let mut held: Vec<(usize, u64)> = q_player_stock
+                                .iter(world)
+                                .map(|(player, inventory, currency)| {
+                                    let mut sum = u64::from(currency.map_or(0, |c| c.0));
+                                    if let Some(inventory) = inventory {
+                                        sum = sum
+                                            .wrapping_mul(1_000_003)
+                                            .wrapping_add(inventory.passives.len() as u64);
+                                        sum = sum
+                                            .wrapping_mul(1_000_003)
+                                            .wrapping_add(u64::from(inventory.active.is_some()));
+                                        for (id, count) in &inventory.consumables {
+                                            sum = sum
+                                                .wrapping_mul(1_000_003)
+                                                .wrapping_add(u64::from(*count))
+                                                .wrapping_add(id.len() as u64);
+                                        }
+                                    }
+                                    (player.handle, sum)
+                                })
+                                .collect();
+                            held.sort_unstable();
+                            held.iter().fold(0u64, |acc, (handle, sum)| {
+                                acc.wrapping_mul(1_000_003)
+                                    .wrapping_add(*handle as u64)
+                                    .wrapping_add(sum.wrapping_mul(7919))
+                            })
+                        } else {
+                            0
+                        },
                     };
                     match &mut floors_progress {
                         Some((last, since)) if !last.progressed(&now) => {
@@ -3787,6 +3835,7 @@ mod floors_progress_tests {
             enemies,
             enemy_health: fixed_math::new(health),
             players: players.to_vec(),
+            stock: 0,
         }
     }
 
@@ -3809,5 +3858,22 @@ mod floors_progress_tests {
         assert!(base.progressed(&next_floor));
         // Santé des ennemis qui remonte (régénération) : pas une progression
         assert!(!base.progressed(&state(2, 610.0, &[(0, false), (1, false)])));
+    }
+
+    /// M3-T14 : l'empreinte de l'inventaire et du solde (`stock`) compte ; à 0 des deux côtés (détecteur
+    /// d'avant), rien ne change.
+    #[test]
+    fn un_ramassage_compte_quand_le_detecteur_le_demande() {
+        let base = state(2, 600.0, &[(0, false)]);
+        let picked = FloorsProgress {
+            stock: 42,
+            ..base.clone()
+        };
+        assert!(base.progressed(&picked));
+        assert!(!picked.progressed(&picked.clone()));
+        assert!(
+            !base.progressed(&base.clone()),
+            "sans le drapeau, stock reste 0"
+        );
     }
 }

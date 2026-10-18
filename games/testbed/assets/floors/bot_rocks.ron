@@ -1,0 +1,9 @@
+// M3-T14 (docs/conventions.md §79) : deux étages identiques de `bot_rocks.ldtk` (scripts/construire-cartes-t14.py) :
+// le portail est derrière deux rochers, sans détour ni ennemi. Scénario `bot_isaac_rock` : l'`explorateur` pose une
+// bombe pour l'atteindre.
+(
+    levels: [
+        "testbed/bot_rocks.ldtk",
+        "testbed/bot_rocks.ldtk",
+    ],
+)

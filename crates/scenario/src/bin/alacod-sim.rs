@@ -19,6 +19,11 @@
 //!   le JSON rapporte `floor`, le niveau atteint (pas d'arrêt anticipé par niveau : T1.14).
 //! - `--shopping` (D62) : les `explorateur` ouvrent les coffres et achètent les présentoirs qu'ils peuvent payer.
 //! - `--boss-direct` (M2-T16) : les `explorateur` vont droit au boss (`bots::explorer::ExplorerOptions`).
+//! - M3-T14 (`docs/conventions.md` §79) : `--policy <fichier.ron>` (politique de l'`explorateur`, sinon `bot.ron` des
+//!   assets du jeu, sinon `Default`), `--devil never|above:<n>` (décision du marché du diable), `--bombs <n>` (chaque bot
+//!   porte la bombe d'essai : mèche 60, rayon 56, dégâts 4, tir ami, `n` bombes de départ ; `isaac` n'en donne pas à son
+//!   personnage avant M3-T11d), `--pickup-progress` (un ramassage compte comme une progression du soft-lock). Le JSON
+//!   rapporte `mechanics` (décomptes de moments clés : `mur_secret`, `porte_a_cle`, `bombe`, `coffre`, `achat`, `diable`…).
 //! - M2-T16 : le JSON rapporte aussi `outcome` (classement de la graine : `victoire`, `objectif`,
 //!   `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage atteint : salles typées,
 //!   salles où un joueur est entré, salles nettoyées) ; un résumé par issue finit la sortie
@@ -91,6 +96,10 @@ struct SimResult {
     softlock: Option<scenario::softlock::SoftlockDump>,
     /// Analyse Depart (m1-d36-et-analyse-depart) : portes ouvertes (moments clés `door`).
     doors_opened: u32,
+    /// M3-T14 : décomptes des moments clés qui disent quelles mécaniques la partie a rencontrées
+    /// (`mur_secret`, `porte_a_cle`, `bombe`, `coffre`, `achat`…), voir [`mechanics`].
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    mechanics: std::collections::BTreeMap<&'static str, u32>,
     /// D88 : personnages à variante (champions, élites) apparus pendant la partie (moments clés
     /// `variant_spawn`) : l'atteignabilité des variantes se lit par graine.
     variants: u32,
@@ -309,6 +318,44 @@ fn main() {
         "alacod-sim : {game}, {bots} bots ({}), graines {seed_from}..={seed_to}, jusqu'à la vague {until_wave:?} / au niveau {until_floor:?} ou {max_frames} frames, carte {map}",
         profiles.iter().map(|p| p.name()).collect::<Vec<_>>().join(",")
     );
+    // M3-T14 : politique de l'`explorateur` (`docs/conventions.md` §79) : `--policy <fichier.ron>`, sinon
+    // `bot.ron` des assets du jeu s'il existe, sinon la politique par défaut ; `--shopping`, `--devil` la
+    // surchargent ensuite. `--bombs <n>` : chaque bot porte la bombe d'essai de ces campagnes (`isaac`
+    // n'en donne pas à son personnage avant M3-T11d) avec `n` bombes de départ.
+    let mut policy: game::replay::ExplorerPolicy = {
+        let path = opt("--policy")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(format!("{}/bot.ron", runner::assets_dir(&game))));
+        match std::fs::read_to_string(&path) {
+            Ok(text) => ron::from_str(&text)
+                .unwrap_or_else(|e| panic!("alacod-sim : politique {path:?} invalide : {e}")),
+            Err(_) if opt("--policy").is_none() => Default::default(),
+            Err(e) => panic!("alacod-sim : --policy {path:?} : {e}"),
+        }
+    };
+    policy.shopping |= args.iter().any(|arg| arg == "--shopping");
+    if let Some(devil) = opt("--devil") {
+        policy.devil = match devil.split_once(':') {
+            None if devil == "never" => game::replay::DevilPolicy::Never,
+            Some(("above", n)) => game::replay::DevilPolicy::IfHealthAbove(
+                n.parse()
+                    .unwrap_or_else(|_| panic!("--devil above:<n> : nombre, pas « {n} »")),
+            ),
+            _ => panic!("--devil : never ou above:<n> (points de vie)"),
+        };
+    }
+    let bomb_kit: Option<(usize, world::BombDef)> = opt("--bombs").map(|n| {
+        (
+            n.parse().expect("--bombs : entier"),
+            world::BombDef {
+                fuse_frames: 60,
+                radius: bevy_fixed::fixed_math::Fixed::from_num(56),
+                damage: bevy_fixed::fixed_math::Fixed::from_num(4),
+                friendly_fire: sim_core::damage::FriendlyFire::Always,
+            },
+        )
+    });
+    eprintln!("alacod-sim : politique de l'explorateur {policy:?}, kit de bombes {bomb_kit:?}");
 
     let mut results = Vec::new();
     let mut any_desync = false;
@@ -320,6 +367,10 @@ fn main() {
             .map(|profile| PlayerScript {
                 inputs: vec![],
                 bot: Some(*profile),
+                items: bomb_kit
+                    .map(|(n, _)| vec!["bomb".to_string(); n])
+                    .unwrap_or_default(),
+                bomb: bomb_kit.map(|(_, def)| def),
                 ..Default::default()
             })
             .collect();
@@ -342,6 +393,7 @@ fn main() {
             profile_setup: None,
             hub: None,
             shopping: false,
+            explorer: Some(policy),
             powerup_drop_chance_override: None,
             floors: floors.clone(),
             // T1.10 : progression du manifeste (pas d'option `--progression` en v1).
@@ -369,6 +421,7 @@ fn main() {
             stop_when_all_players_dead: true,
             // D43 : une partie terminée (défaite ou victoire) n'est plus jouée jusqu'au plafond
             stop_when_run_ended: true,
+            pickups_are_progress: args.iter().any(|arg| arg == "--pickup-progress"),
         };
         let dodges = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
         let dodges_probe = dodges.clone();
@@ -379,7 +432,6 @@ fn main() {
         let room_probe = std::sync::Arc::new(std::sync::Mutex::new(RoomProbe::default()));
         let room_probe_sys = room_probe.clone();
         let boss_direct = args.iter().any(|arg| arg == "--boss-direct");
-        let shopping = args.iter().any(|arg| arg == "--shopping");
 
         let wall_start = Instant::now();
         // `InputSource::Bot` : aucun joueur scripté ici, contrairement aux scénarios RON qui
@@ -395,7 +447,7 @@ fn main() {
                 }
                 app.insert_resource(bots::explorer::ExplorerOptions {
                     boss_direct,
-                    shopping,
+                    policy,
                 });
                 // M2-T16 : salles de l'étage courant, visitées et nettoyées (hors simulation)
                 app.add_systems(
@@ -631,6 +683,7 @@ fn main() {
             failures: outcome.failures,
             softlock: outcome.softlock,
             doors_opened: outcome.events.iter().filter(|e| e.kind == "door").count() as u32,
+            mechanics: mechanics(&outcome.events),
             variants: variants_seen,
             players_end: players_end.lock().unwrap().clone(),
             waves: std::mem::take(&mut wave_probe.lock().unwrap().waves),
@@ -696,6 +749,29 @@ fn main() {
         );
         std::process::exit(1);
     }
+}
+
+/// M3-T14 : décomptes par mécanique, lus dans les moments clés de la graine (`scenario::events`).
+fn mechanics(
+    events: &[scenario::events::GameEvent],
+) -> std::collections::BTreeMap<&'static str, u32> {
+    let mut counts = std::collections::BTreeMap::new();
+    for event in events {
+        let key = match event.kind {
+            "door_lock" if event.label.starts_with("mur secret") => "mur_secret",
+            "door_lock" => "porte_a_cle",
+            "bomb" => "bombe",
+            "explosion" => "explosion",
+            "chest" => "coffre",
+            "shelf" if event.label.contains("diable") => "diable",
+            "shelf" => "achat",
+            "item_pickup" => "objet",
+            "boss_phase" => "boss_phase",
+            _ => continue,
+        };
+        *counts.entry(key).or_insert(0) += 1;
+    }
+    counts
 }
 
 fn print_progress(
