@@ -54,5 +54,12 @@
     // Isaac commence sans clé mais avec un inventaire (M3-T5, docs/conventions.md §70) : sans lui,
     // `consumables_per_floor` (la clé du second étage, qui ouvre le trésor) ne servirait personne avant
     // le premier ramassage.
-    starting_consumables: {"key": 0},
+    // M3-T11d1 (D81, §76.4) : une bombe au départ, comme Isaac, et de quoi la poser (bouton Bomb, touche E).
+    starting_consumables: {"key": 0, "bomb": 1},
+
+    // Bombe : mèche de 75 frames (1,25 s), rayon 56 (3,5 cases : l'explosion touche le bord de la porte de la salle
+    // secrète d'où l'on pose la bombe, et casse les rochers voisins, `destroys`), 4 PV (deux cœurs) aux personnages du
+    // rayon. Tir ami `Always` (défaut, Q4, comme Isaac) : la bombe blesse son poseur et les autres joueurs ; `hit_iframes` (60)
+    // ne laisse passer qu'un coup. Le poseur à 6 PV survit toujours à une bombe (4 PV), jamais à deux dans la même seconde.
+    bomb: Some((fuse_frames: 75, radius: "56.0", damage: "4.0")),
 )

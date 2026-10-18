@@ -1,6 +1,6 @@
 // M3-T0f (docs/conventions.md §65), repris en M3-T5 (§70) : la partie ordinaire de `isaac` (séquence par
 // défaut `sous_sol` : deux étages en grille, graine 1) jouée par le bot `explorateur`. Le premier étage
-// (9 salles : départ, cinq combats, boss, trésor, secrète) est nettoyé, le boss vaincu ; le bot prend le
+// (9 salles : départ, quatre combats, boss, trésor, secrète, boutique) est nettoyé, le boss vaincu ; le bot prend le
 // portail et arrive au second étage, où le trésor est fermé à clé et la clé du second étage lui est remise.
 //
 // D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : trois au départ,
@@ -9,15 +9,16 @@
 // nettoyé f2411, butin `sang_chaud` f2476, « niveau 1 » f2831 ; le bot meurt sur le second étage vers f3475 (scénario
 // 3400 frames, vivant à f3399). Les frames citées ci-dessous sont celles d'avant D88.
 //
-// À regarder : cinq verrouillages de salle de combat (trois ennemis chacune depuis M3-T11c : `suiveur`, `mouche`,
-// `tourelle_croix`), le boss verrouille sa salle à f2021, passe en phase 1 à f2126 (renforts `rampant` et `cracheur`,
-// couronne) puis en phase 2 à f2244 (`spectre`, `bourdon`, spirale) et meurt avant f2388 ; son butin (pool `boss`,
-// M3-T8 §73) tombe et le bot le ramasse (f2449), ce qui retarde le portail (ouvert à f2388, « niveau 1 » à f2809) :
-// la porte du trésor est alors fermée à clé (`DoorLocked`), le joueur a une clé (`Consumable`) ; la porte de la salle
-// secrète est fermée depuis le début (aucune bombe). M3-T8 : chaque pool à épuisement a un objet sorti par étage
-// (un trésor, un boss) ; le second étage en sort un autre, donc les compteurs passent de 1 à 2 à sa génération
-// (l'épuisement est par run, pas par étage). La partie continue sur le second étage jusqu'à la fin du scénario (le bot
-// y meurt vers f3039 : équilibrage de M3-T11d). Avant M3-T11c : boss à f1340, mort du bot vers f2359.
+// À regarder : quatre verrouillages de salle de combat (trois ou quatre ennemis chacune), la **curse `maze`** du premier étage (M3-T11d1 : la séquence
+// par défaut tire une curse sur 30 % des étages ; graine 1 : `maze` au premier, `blind` au second), le boss verrouille sa salle à f2500, passe en phase 1 à
+// f2593 (renforts `rampant` et `cracheur`, couronne) puis en phase 2 à f2763 (`spectre`, `bourdon`, spirale) et meurt (salle nettoyée f2866) ; son butin (pool `boss`,
+// M3-T8 §73, `reservoir_vital`) tombe et le bot le ramasse (f2938), ce qui retarde le portail (« niveau 1 » f3220) : la porte du trésor est alors fermée à clé
+// (`DoorLocked`), le joueur a une clé (`Consumable`) ; la porte de la salle secrète est fermée depuis le début (le bot ne pose pas la bombe de départ :
+// M3-T14). M3-T8 : chaque pool à épuisement a un objet sorti par étage (un trésor, un boss, une boutique de trois présentoirs) ; le second étage
+// en sort un autre, donc les compteurs passent de 1 à 2 (trésor, boss) et de 3 à 6 (boutique) à sa génération (l'épuisement est par run, pas par étage).
+// La partie continue sur le second étage jusqu'à la fin du scénario.
+// M3-T11d1 (2026-10-18) : vingt gabarits, boutique exigée, curses dans la séquence par défaut, bombe de départ ; le plan du premier étage change (neuf
+// salles : départ, quatre combats, boss, trésor, secrète, boutique ; quatorze ennemis), le boss est verrouillé à f2500 au lieu de f2044.
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la grammaire de la
 // grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
@@ -26,26 +27,30 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
-    frames: 3400,
+    frames: 3500,
     players: [
         (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
     expect: [
         RoomState(kind: "depart", state: Dormant, at_frame: 5),
-        EntityCount(kind: Enemy, min: Some(16), max: Some(16), at_frame: 5),
+        EntityCount(kind: Enemy, min: Some(14), max: Some(14), at_frame: 5),
         PoolCount(pool: "tresor", count: 1, at_frame: 5),
         PoolCount(pool: "boss", count: 1, at_frame: 5),
+        PoolCount(pool: "boutique", count: 3, at_frame: 5),
+        Curse(floor: 0, id: Some("maze"), at_frame: 5),
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 2100),
-        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 2200),
-        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 2500),
-        FloorIndex(index: 0, at_frame: 2600),
-        FloorIndex(index: 1, at_frame: 2900),
-        DoorLocked(kind: "tresor", locked: true, at_frame: 2900),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 2900),
-        PoolCount(pool: "tresor", count: 2, at_frame: 2950),
-        PoolCount(pool: "boss", count: 2, at_frame: 2950),
-        PlayerAlive(handle: 0, at_frame: 3399),
+        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 2550),
+        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 2650),
+        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 2900),
+        FloorIndex(index: 0, at_frame: 3000),
+        FloorIndex(index: 1, at_frame: 3300),
+        Curse(floor: 1, id: Some("blind"), at_frame: 3300),
+        DoorLocked(kind: "tresor", locked: true, at_frame: 3300),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 3300),
+        PoolCount(pool: "tresor", count: 2, at_frame: 3300),
+        PoolCount(pool: "boss", count: 2, at_frame: 3300),
+        PoolCount(pool: "boutique", count: 6, at_frame: 3300),
+        PlayerAlive(handle: 0, at_frame: 3499),
     ],
 )

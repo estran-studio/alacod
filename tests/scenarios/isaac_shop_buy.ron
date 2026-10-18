@@ -1,0 +1,37 @@
+// M3-T11d1 (docs/conventions.md §76.4) : la boutique d'`isaac`, achetée en sous. Graine 2 (séquence `sous_sol_un`) : la boutique est la case
+// **au nord du départ** (cul-de-sac exigé par la grammaire), trois présentoirs du pool `boutique` au centre. Le joueur (60 sous) monte
+// (f13 à f82), se place sous le présentoir du milieu (`reliquaire`, 15 sous) et l'achète (Interaction f95).
+//
+// À regarder : trois présentoirs à f10 (`bottines`, `reliquaire`, `oeil`, 15 sous chacun : `economy.ron`, objets communs) ; à l'achat (f96) les sous passent de
+// 60 à 45, le présentoir est vendu et l'objet est tenu (`reliquaire` donne un cœur d'âme au ramassage). Prouve aussi `Shelf::price` en sous (aucun scénario de M3-T8 n'exerçait la boutique d'`isaac`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 2,
+    floors: Some("sous_sol_un"),
+    frames: 140,
+    players: [
+        (
+            currency: Some(60),
+            inputs: [
+                (from: 5, to: 13, buttons: [Right], pan: (0, 0)),
+                (from: 13, to: 82, buttons: [Up], pan: (0, 0)),
+                (from: 95, to: 97, buttons: [Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        RoomLayout(kind: "boutique", size: Some((240, 144)), touches: ["depart"], at_frame: 5),
+        ShelfCount(count: 3, at_frame: 10),
+        PoolCount(pool: "boutique", count: 3, at_frame: 10),
+        Shelf(nth: 0, item: Some("bottines"), price: Some(15), sold: Some(false), at_frame: 10),
+        Shelf(nth: 1, item: Some("reliquaire"), price: Some(15), sold: Some(false), at_frame: 10),
+        Shelf(nth: 2, item: Some("oeil"), price: Some(15), sold: Some(false), at_frame: 10),
+        Currency(handle: 0, min: 60, max: 60, at_frame: 90),
+        Currency(handle: 0, min: 45, max: 45, at_frame: 110),
+        Shelf(nth: 1, item: Some("reliquaire"), sold: Some(true), at_frame: 110),
+        Shelf(nth: 0, sold: Some(false), at_frame: 110),
+        HasItem(handle: 0, id: "reliquaire", at_frame: 110),
+        ExtraHealth(handle: 0, n: 4.0, at_frame: 110),
+    ],
+)

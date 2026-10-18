@@ -1,14 +1,13 @@
-// M3-T5 (docs/conventions.md §70) : un étage entier en grille, graine 1 (séquence `sous_sol_un`). Neuf salles :
-// le départ, cinq combats, un boss 1×1 au bout (à l'ouest), un trésor **1×2** (grande salle verticale) au nord-est
-// et la salle secrète collée sous deux salles de combat. Une boucle relie deux salles de combat voisines. Le bot
-// `explorateur` nettoie tout et gagne.
+// M3-T5 (docs/conventions.md §70) : un étage entier en grille, graine 1 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18, vingt gabarits,
+// boutique exigée) : neuf salles : le départ, quatre combats dont un 2×2 (rochers, piques), un boss 1×1 au bout (à l'ouest), un trésor
+// **1×2** (grande salle verticale), la salle secrète collée sous deux salles de combat et la **boutique** (trois présentoirs) ; quatorze
+// ennemis. Le bot `explorateur` nettoie les quatre combats et gagne.
 //
-// À regarder : les cinq combats se verrouillent et se rouvrent (f57 à f1878) ; le boss verrouille sa salle (f2044),
-// passe en phase 1 (f2147, couronne), phase 2 (f2272), meurt (salle nettoyée f2411) ; victoire f2412.
-// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : `salve`, `essaim`) ;
-// le bot arrivait au boss avec 1 PV et mourait à f2112 (défaite). Adaptation : le joueur gagne avec `Armor +50` (D93)
-// (`PlayerScript::modifiers`) ; mêmes attentes (victoire, boss vaincu, joueur vivant), frames recalées (scénario 2600 frames). La porte de la salle secrète reste fermée
-// pendant toute la partie (aucune bombe) ; le trésor n'est pas fermé à clé au premier étage (`lock_from_floor: 1`).
+// À regarder : les quatre combats se verrouillent et se rouvrent (f60 à f1554) ; le boss verrouille sa salle (f2245), passe en phase 1 (f2337,
+// couronne), phase 2 (f2510), meurt (salle nettoyée f2673) ; victoire f2674.
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé ; le bot arrivait au boss avec 1 PV et mourait. Adaptation : le joueur gagne avec `Armor +50` (D93)
+// (`PlayerScript::modifiers`) ; mêmes attentes (victoire, boss vaincu, joueur vivant). La porte de la salle secrète reste fermée
+// pendant toute la partie (le bot ne pose pas la bombe : M3-T14) ; le trésor n'est pas fermé à clé au premier étage (`lock_from_floor: 1`).
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
@@ -18,22 +17,22 @@ Scenario(
     game: "isaac",
     map_seed: 1,
     floors: Some("sous_sol_un"),
-    frames: 2600,
+    frames: 3100,
     players: [
         (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
     expect: [
-        EntityCount(kind: Enemy, min: Some(16), max: Some(16), at_frame: 5),
+        EntityCount(kind: Enemy, min: Some(14), max: Some(14), at_frame: 5),
         RoomLayout(kind: "boss", size: Some((240, 144)), touches: ["combat"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
         RoomLayout(kind: "tresor", size: Some((240, 288)), touches: ["combat"], apart: ["boss"], at_frame: 5),
         RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "depart", "tresor"], at_frame: 5),
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 2100),
-        BossPhase(entity: NetId(116), phase: 1, at_frame: 2200),
-        RoomState(kind: "boss", state: Cleared, at_frame: 2500),
-        DoorLocked(kind: "secrete", locked: true, at_frame: 2500),
-        RunState(step: Ended(Victory), at_frame: 2500),
-        PlayerAlive(handle: 0, at_frame: 2599),
+        RoomState(kind: "boss", state: Locked, at_frame: 2300),
+        BossPhase(entity: NetId(160), phase: 1, at_frame: 2400),
+        RoomState(kind: "boss", state: Cleared, at_frame: 2900),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 2900),
+        RunState(step: Ended(Victory), at_frame: 2900),
+        PlayerAlive(handle: 0, at_frame: 3099),
     ],
 )

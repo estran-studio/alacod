@@ -1,8 +1,8 @@
 // M3-T5 (docs/conventions.md §70) : le trésor fermé à clé. Séquence `sous_sol_cle` : un étage de passage sans ennemi
 // (portail ouvert dès le départ, le joueur le franchit à f1) puis le `sous_sol` du **second étage**, où le trésor est
 // fermé à clé (`lock_from_floor: 1`) ; la clé est remise à l'arrivée (`consumables_per_floor`, le joueur d'`isaac` a un
-// inventaire dès le départ). Graine -1013904216 : le plan du second étage est celui de la graine 26 (le trésor est
-// la case au sud du départ, la salle secrète à l'ouest). Le joueur descend (f20 à f45), touche la porte par
+// inventaire dès le départ). Graine -1013904097 (M3-T11d1 : vingt gabarits ; -1013904216 avant) : le plan du second étage est celui de la graine
+// 145 (le trésor est la case au sud du départ, la salle secrète à l'est). Le joueur descend (f20 à f45), touche la porte par
 // Interaction (f50), puis entre dans le trésor (f60 à f140).
 //
 // À regarder : « niveau 1 » à f1 ; la porte du trésor est fermée (`DoorLocked` vrai à f30, une clé en poche) ; à f56
@@ -11,7 +11,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
-    map_seed: -1013904216,
+    map_seed: -1013904097,
     floors: Some("sous_sol_cle"),
     frames: 300,
     players: [

@@ -1,17 +1,13 @@
-// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : D96 change le butin du boss pour la même graine 23 (`sang_chaud` au lieu de `reservoir_vital`) et la chronologie du bot (phase 1 f1043, boss nettoyé f1370, butin ramassé f1528, victoire f2335) : `Locked` du boss attendu à f1020 (au lieu de f900) et `HasItem` à f1560 (au lieu de f1450). La graine 23 reste : sa grille (boss 2×2, diable, trésor 2×1) est l'objet du scénario.
-// M3-T5 (docs/conventions.md §70) : un étage en grille avec un **boss 2×2** (480 × 288 px), graine 23 (séquence
-// `sous_sol_un`). Neuf salles : le départ, quatre combats, le boss, la salle du diable (case accrochée au boss, tirée
-// ici), un trésor **2×1** à l'ouest et la salle secrète sous le départ. Le bot `explorateur` bat le boss en premier
-// (il est plus proche que les derniers combats), puis nettoie le reste.
+// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable et un trésor **2×1**, graine 23 (séquence `sous_sol_un`).
+// M3-T11d1 (2026-10-18, vingt gabarits, boutique exigée) : le plan de la graine 23 change (le boss 2×2 de T5 est passé à la graine 123) : neuf
+// salles : le départ, trois combats, un boss 1×1 à l'ouest-nord, la salle du diable accrochée au boss, un trésor **2×1** au sud, la salle secrète
+// collée au trésor et à deux combats (elle ne touche plus le départ), la **boutique** collée au départ ; dix ennemis. Le bot `explorateur`
+// nettoie les trois combats, bat le boss, ramasse son butin (`griffe_acier`) et gagne (victoire à la mort du boss : f1485).
 //
-// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions) : frames recalées
-// sur le nouveau run (boss verrouillé f898, phase 1 f1019, nettoyé f1325, butin f1411, derniers combats f2024 à f2545, victoire
-// f2546 ; scénario 2750 frames). Mêmes attentes. Les frames citées ci-dessous sont celles d'avant D88.
-//
-// À regarder : le boss verrouille sa grande salle (f520), passe en phase 1 (f659), meurt (f779) et la salle se rouvre
-// (ses portes, celle de la salle du diable comprise) ; son butin (`sang_chaud` depuis D96, pool `boss`, M3-T8 §73) tombe et le bot
-// le ramasse ; il finit ensuite les deux combats restants et la victoire n'arrive qu'entre f1775 et f1800 (f1654 avant le
-// butin) : un étage se gagne quand il n'a plus d'ennemi, pas à la mort du boss seulement.
+// D88 et D96 : historique (le tirage des variantes puis du butin ont déplacé la chronologie de ce scénario ; les frames citées ci-dessous sont celles
+// du plan d'avant M3-T11d1 et ne valent plus).
+// À regarder : trois combats nettoyés (f192, f689, f1010) ; le boss verrouille sa salle (f1101), phase 1 (f1195), phase 2 (f1315), meurt (f1484) et la salle se
+// rouvre (ses portes, celle de la salle du diable comprise) ; le bot ramasse le butin (f1537) ; la victoire (f1485) précède le ramassage.
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
@@ -21,23 +17,24 @@ Scenario(
     game: "isaac",
     map_seed: 23,
     floors: Some("sous_sol_un"),
-    frames: 2750,
+    frames: 1700,
     players: [
         (bot: explorateur, aim: Some(Free)),
     ],
     expect: [
-        EntityCount(kind: Enemy, min: Some(13), max: Some(13), at_frame: 5),
-        RoomLayout(kind: "boss", size: Some((480, 288)), touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
+        EntityCount(kind: Enemy, min: Some(10), max: Some(10), at_frame: 5),
+        RoomLayout(kind: "boss", size: Some((240, 144)), touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
         RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
-        RoomLayout(kind: "tresor", size: Some((480, 144)), touches: ["combat"], at_frame: 5),
-        RoomLayout(kind: "secrete", touches: ["depart", "combat"], apart: ["boss", "diable"], at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 1020),
-        BossPhase(entity: NetId(139), phase: 1, at_frame: 1050),
-        RoomState(kind: "boss", state: Cleared, at_frame: 1400),
-        HasItem(handle: 0, id: "sang_chaud", at_frame: 1560),
-        EntityCount(kind: Enemy, min: Some(4), at_frame: 1350),
-        DoorLocked(kind: "secrete", locked: true, at_frame: 2650),
-        RunState(step: Ended(Victory), at_frame: 2650),
-        PlayerAlive(handle: 0, at_frame: 2749),
+        RoomLayout(kind: "tresor", size: Some((480, 144)), touches: ["combat", "secrete"], at_frame: 5),
+        RoomLayout(kind: "secrete", touches: ["combat", "tresor"], apart: ["boss", "diable", "depart"], at_frame: 5),
+        RoomLayout(kind: "boutique", size: Some((240, 144)), touches: ["depart"], at_frame: 5),
+        ShelfCount(count: 5, at_frame: 5),
+        RoomState(kind: "boss", state: Locked, at_frame: 1150),
+        BossPhase(entity: NetId(136), phase: 1, at_frame: 1250),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1500),
+        RunState(step: Ended(Victory), at_frame: 1500),
+        HasItem(handle: 0, id: "griffe_acier", at_frame: 1600),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 1600),
+        PlayerAlive(handle: 0, at_frame: 1699),
     ],
 )

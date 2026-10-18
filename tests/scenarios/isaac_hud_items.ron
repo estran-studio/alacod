@@ -6,7 +6,8 @@
 // À regarder : f30 cœurs rouge, rouge, demi-cœur (5 PV sur 6) ; en haut à gauche les compteurs à icône (12 sous, 2 clés,
 // 3 bombes) ; en bas à gauche l'icône du calice, son nom et sa jauge pleine ; f30 le bandeau « Bottines légères » au
 // centre haut, qui disparaît après trois secondes (f230 : plus rien) ; f100 un cœur d'âme bleu à droite des rouges ;
-// la minicarte montre la salle de départ (bordure or) et les salles du trésor et du boss à leur lettre.
+// la minicarte montre la salle de départ (bordure or) et les salles du trésor et du boss à leur lettre ; M3-T11d1 : la graine 1 de la séquence par
+// défaut tire la curse `maze` au premier étage (source `curses`) et le joueur a sa bombe de départ en plus des trois du script.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -37,7 +38,7 @@ Scenario(
         HudText(source: "active_charge", contains: "prêt", at_frame: 30),
         HudText(source: "ammo", empty: true, at_frame: 30),
         HudText(source: "weapon", contains: "larmes", at_frame: 30),
-        HudText(source: "curses", empty: true, at_frame: 30),
+        HudText(source: "curses", contains: "maze", at_frame: 30),
         HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 30),
         HudText(source: "minimap", contains: "tresor · inexplorée", at_frame: 30),
         HudText(source: "minimap", contains: "boss · boss · inexplorée", at_frame: 30),
