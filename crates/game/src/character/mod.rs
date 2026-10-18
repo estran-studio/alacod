@@ -1,5 +1,6 @@
 pub mod appearance;
 pub mod config;
+pub mod config_asset;
 pub mod create;
 pub mod dash;
 pub mod enemy;
@@ -12,7 +13,6 @@ pub mod visuals;
 
 use animation::set_sprite_flip;
 use bevy::prelude::*;
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::{GgrsSchedule, ReadInputs};
 use combat::downed::{Downed, Reviving};
 use leafwing_input_manager::plugin::InputManagerPlugin;
@@ -24,7 +24,7 @@ use crate::frame_events::FrameEventsAppExt;
 use crate::{
     args::DebugAiConfig,
     character::{
-        config::CharacterConfig,
+        config::CharacterConfigs,
         dash::DashState,
         enemy::{
             ai::{
@@ -83,7 +83,10 @@ pub struct BaseCharacterGamePlugin {}
 
 impl Plugin for BaseCharacterGamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((RonAssetPlugin::<CharacterConfig>::new(&["ron"]),));
+        // Configurations des personnages : donnée de simulation (`CharacterConfigs`), remplie
+        // hors simulation par l'enveloppe `Asset` (`config_asset`, `PreUpdate` avant `RunGgrsSystems`).
+        app.init_resource::<CharacterConfigs>();
+        app.add_plugins(config_asset::CharacterConfigAssetPlugin);
 
         app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
         // Stats et modificateurs (T1.2, chantier B2) : enregistre `Stats`/`Modifiers` en

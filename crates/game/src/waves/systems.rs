@@ -17,7 +17,7 @@ use utils::{
 
 use crate::{
     character::{
-        config::CharacterConfig,
+        config::CharacterConfigs,
         enemy::{create::spawn_enemy, Enemy},
         health::Death,
         player::Player,
@@ -33,7 +33,7 @@ pub struct SpawnAssets<'w> {
     pub collision_settings: Res<'w, CollisionSettings>,
     pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
     pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
-    pub characters_asset: Res<'w, Assets<CharacterConfig>>,
+    pub character_configs: Res<'w, CharacterConfigs>,
     /// T1.9 : difficulté (santé × difficulté ; 1 sans difficulté activée).
     pub difficulty: crate::clock::DifficultyReader<'w>,
     /// M3-T7 : étage courant (contexte de `chance` des variantes).
@@ -333,7 +333,7 @@ pub fn wave_spawning_system(
             &mut commands,
             &spawn_assets.weapons_asset,
             &spawn_assets.melee_weapons_asset,
-            &spawn_assets.characters_asset,
+            &spawn_assets.character_configs,
             &global_assets,
             &spawn_assets.collision_settings,
             &mut id_factory,

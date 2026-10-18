@@ -10,7 +10,7 @@ use bevy_ggrs::Rollback;
 use game::{
     args::BaseArgsPlugin,
     character::{
-        config::CharacterConfig, enemy::spawning::EnemySpawnerState, player::create::create_player,
+        config::CharacterConfigs, enemy::spawning::EnemySpawnerState, player::create::create_player,
     },
     collider::{spawn_test_wall, CollisionSettings},
     core::CoreSetupPlugin,
@@ -79,7 +79,7 @@ fn system_game_loading(
     mut commands: Commands,
     collision_settings: Res<CollisionSettings>,
     global_assets: Res<GlobalAsset>,
-    character_asset: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
     // F5 (chantier m0-v11) : santé max résolue par `CoreSetupPlugin` sur `OnEnter(GameLoading)`.
@@ -114,7 +114,7 @@ fn system_game_loading(
             &global_assets,
             &weapons_asset,
             &melee_weapons_asset,
-            &character_asset,
+            &character_configs,
             &collision_settings,
             position,
             is_local,

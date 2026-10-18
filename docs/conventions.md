@@ -194,6 +194,20 @@ de contenu (`content::registry::CharacterFileSchema`) l'exige comme lui. Un pers
 refusé par `alacod lint` (`Parse`, « `scale` est obligatoire pour un personnage, ex. `scale: "1.0"` »,
 fixture `character_scale_missing`) au lieu d'échouer au chargement du jeu.
 
+**Registre de simulation `CharacterConfigs`** (D69 étape 2, E3a) : la simulation ne lit jamais `Assets<CharacterConfig>`.
+`CharacterConfig` est une donnée pure (`Deserialize`, sans `Asset`) ; l'application la charge par l'enveloppe
+`CharacterConfigAsset` (`character/config_asset.rs`, `#[serde(transparent)]` : les `.ron` ne changent pas) et publie
+`CharacterConfigs(BTreeMap<id, CharacterConfig>)` (clés de `GlobalAsset::character_configs`, c'est-à-dire les
+`asset_name_ref`). Un personnage porte `CharacterConfigKey(String)` (composant non rollback, posé par `create_character`,
+remplace `CharacterConfigHandles`). Le système `sync_character_configs` tourne en `PreUpdate.before(RunGgrsSystems)` : il copie
+toute entrée absente dont l'asset est lisible (chargement initial, sans dépendre d'un événement) et recopie sur
+`AssetEvent::Modified` (rechargement à chaud) ; `Added`/`LoadedWithDependencies` ne font rien, pour qu'une surcharge de
+scénario posée sur la ressource ne soit jamais écrasée. Le chargement finit en `AppState::Loading` (tous les assets chargés)
+avant le lobby, donc la ressource est pleine avant `resolve_balance_system` (`OnEnter(GameLoading)`), avant tout spawn de
+personnage et avant le premier tick ; preuve : `crates/scenario/tests/character_configs.rs` (ressource relue à chaque tick,
+dont le premier, pour zombies, testbed et isaac ; chemin `Modified` ; diagnostic ignoré `fill_timeline`). Les surcharges de
+scénario (`CharacterConfigs` modifié par `run_with`) se posent après la synchro.
+
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
 - `sprite_config` : `name`, `index` (première frame), `weapon_offset`. Pour une arme à distance, `name` est un id de la table `SpriteSheet` (D3).
@@ -419,6 +433,8 @@ registre est relu depuis le disque et le lint relancé
 `crates/game/src/ui/hud.rs`) ; un contenu invalide laisse l'ancien registre en place
 (erreur journalisée). Jamais pendant une partie (`GgrsSchedule`) : les snapshots rollback ne
 se réécrivent pas à chaud.
+Le registre `CharacterConfigs` suit le même événement (`AssetEvent::Modified` d'un personnage) : il est recopié dans
+`PreUpdate` (journal `personnage « … » rechargé`), hors partie comme en partie (dev seulement, comme avant avec `Assets`).
 
 ---
 

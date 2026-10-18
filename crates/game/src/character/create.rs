@@ -8,9 +8,11 @@ use sim_core::stats::{StatId, Stats};
 use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
 
 use crate::{
-    character::{config::CharacterConfigHandles, movement::Velocity},
+    character::{
+        config::{CharacterConfigKey, CharacterConfigs},
+        movement::Velocity,
+    },
     collider::{Collider, CollisionLayer},
-    global_asset::GlobalAsset,
     weapons::melee::MeleeAttackState,
 };
 
@@ -18,7 +20,6 @@ use bevy_ggrs::Rollback;
 
 use super::{
     appearance::CharacterAppearance,
-    config::CharacterConfig,
     dash::DashState,
     health::{new_health, Health, HealthRegen, HitCount},
     movement::SprintState,
@@ -27,8 +28,7 @@ use super::{
 
 pub fn create_character(
     commands: &mut Commands,
-    global_assets: &Res<GlobalAsset>,
-    character_asset: &Res<Assets<CharacterConfig>>,
+    character_configs: &CharacterConfigs,
 
     config_name: String,
 
@@ -56,14 +56,13 @@ pub fn create_character(
     // entre les deux.
     net_id: Option<GgrsNetId>,
 ) -> Entity {
-    let handle = global_assets.character_configs.get(&config_name).unwrap();
-    let config = character_asset.get(handle).unwrap();
-
-    let player_config_handle = global_assets
-        .character_configs
+    let config = character_configs.get(&config_name).unwrap();
+    // Clé du personnage : l'`asset_name_ref` (même entrée de `CharacterConfigs` que `config_name`
+    // pour tout contenu valide ; un contenu où elle manque faisait déjà paniquer ici).
+    character_configs
         .get(&config.asset_name_ref)
-        .unwrap()
-        .clone();
+        .expect("asset_name_ref est une clé de CharacterConfigs");
+    let config_key = CharacterConfigKey(config.asset_name_ref.clone());
 
     // BTreeMap (pas HashMap) : `AnimationStateBundle` place ces layers dans `ActiveLayers`,
     // un composant rollback dont l'ordre d'itération doit être stable entre clients.
@@ -175,9 +174,7 @@ pub fn create_character(
         health,
         collision_layer,
         Character,
-        CharacterConfigHandles {
-            config: player_config_handle.clone(),
-        },
+        config_key,
         // `Tags`/`Defenses` (T1.1, chantier B1) : composants statiques, non enregistrés en
         // rollback (même justification que `Team`, voir sa doc dans `sim_core::team`) —
         // jamais mutés en T1.1, une entité rollback détruite passe toujours par

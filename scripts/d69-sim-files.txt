@@ -5,6 +5,9 @@
 # Mesuré le 2026-10-18 sur main 09b68187 (+ retouches de dette-d69-plan-etape2) : 16 fichiers, 2 405 lignes.
 # E1 (dette-d69-e1-types-donnees) : + visual_requests.rs, fog_map.rs, frame_counter.rs, character/appearance.rs (20 fichiers).
 # E2 (dette-d69-e2-session) : + session.rs (21 fichiers).
+# E3a (dette-d69-e3a-character-configs) : aucun ajout (21 fichiers). Libérés de toute fuite : character/config.rs, character/health/mod.rs,
+# character/enemy/ai/pathing.rs, familiars.rs, feedback_v3.rs ; aucun n'entre au cliquet car sa fermeture interne contient encore un fichier à fuite
+# (collider/mod.rs, waves/mod.rs, interaction.rs, balance.rs, create.rs, feedback.rs, progression.rs…), à lever par E3b-E4 et E6.
 character/appearance.rs
 character/enemy/ai/obstacle.rs
 character/enemy/mod.rs

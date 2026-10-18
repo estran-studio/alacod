@@ -48,7 +48,7 @@ use utils::{
 
 use crate::{
     character::{
-        config::{CharacterConfig, CharacterConfigHandles},
+        config::{CharacterConfigKey, CharacterConfigs},
         enemy::create::spawn_enemy,
         health::{rollback_apply_death, rollback_check_defeat, Death, HitBy},
         player::Player,
@@ -145,7 +145,6 @@ pub struct DivisionAssets<'w> {
     collision_settings: Res<'w, CollisionSettings>,
     weapons_asset: Res<'w, Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
-    characters_asset: Res<'w, Assets<CharacterConfig>>,
     balance: Res<'w, crate::balance::ResolvedBalance>,
     difficulty: crate::clock::DifficultyReader<'w>,
 }
@@ -171,14 +170,14 @@ pub fn champion_death_system(
             &GgrsNetId,
             &Death,
             &Variant,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &fixed_math::FixedTransform3D,
             &Team,
         ),
         With<Rollback>,
     >,
     players: Query<(&GgrsNetId, &Player), With<Rollback>>,
-    configs: Res<Assets<CharacterConfig>>,
+    configs: Res<CharacterConfigs>,
     division: DivisionAssets,
     loot: LootAssets,
     rng_streams: Res<RngStreams>,
@@ -192,9 +191,9 @@ pub fn champion_death_system(
         .into_iter()
         .map(|(net_id, player)| (player.handle, net_id.clone()))
         .collect();
-    for (net_id, death, variant, handles, transform, team) in order_iter!(dying) {
+    for (net_id, death, variant, config_key, transform, team) in order_iter!(dying) {
         let Some(def) = configs
-            .get(&handles.config)
+            .get(&config_key.0)
             .and_then(|config| config.variants.as_ref())
             .and_then(|variants| variants.table.get(&variant.0))
             .filter(|def| has_death_effects(def))
@@ -236,7 +235,7 @@ pub fn champion_death_system(
                     &mut commands,
                     &division.weapons_asset,
                     &division.melee_weapons_asset,
-                    &division.characters_asset,
+                    &configs,
                     &division.global_assets,
                     &division.collision_settings,
                     &mut id_factory,

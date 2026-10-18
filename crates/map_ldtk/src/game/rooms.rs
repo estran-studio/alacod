@@ -44,7 +44,7 @@ use world::{
 use combat::actors::Velocity;
 use combat::downed::Downed;
 use game::boss::ReinforcementRequest;
-use game::character::config::CharacterConfig;
+use game::character::config::CharacterConfigs;
 use game::character::enemy::ai::navigation::{FlowFieldCache, GridPos};
 use game::character::enemy::create::spawn_enemy;
 use game::character::enemy::Enemy;
@@ -1285,7 +1285,7 @@ pub struct SpawnParams<'w> {
     collision_settings: Res<'w, CollisionSettings>,
     weapons_asset: Res<'w, Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
-    characters_asset: Res<'w, Assets<CharacterConfig>>,
+    character_configs: Res<'w, CharacterConfigs>,
     balance: Res<'w, game::balance::ResolvedBalance>,
     difficulty: game::clock::DifficultyReader<'w>,
     id_factory: ResMut<'w, GgrsNetIdFactory>,
@@ -1344,7 +1344,7 @@ impl SpawnParams<'_> {
                 commands,
                 &self.weapons_asset,
                 &self.melee_weapons_asset,
-                &self.characters_asset,
+                &self.character_configs,
                 &self.global_assets,
                 &self.collision_settings,
                 &mut self.id_factory,
