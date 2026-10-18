@@ -1,5 +1,5 @@
 // Budgets de performance : planchers de NON-RÉGRESSION en frames simulées par seconde, par
-// scénario. Ce ne sont pas des objectifs : la moitié de la mesure au calme, arrondie à l'unité. Ils ne
+// scénario. Ce ne sont pas des objectifs : la moitié de la mesure au calme, arrondie à l'unité supérieure. Ils ne
 // bloquent que `make bench` (ALACOD_BENCH_STRICT=1) ; `make test_scenarios` se contente d'avertir.
 // Relevés le 2026-10-14 (perf-suite-scenarios) sur la mesure de la suite complète en un
 // processus, machine cloud de 4 cœurs au calme, profil headless : exécuteur monothread, champs
@@ -30,7 +30,7 @@
         "gungeon_full_run_four": (min_sim_fps: 20.0, max_rollback_ms: 51.0),
         // M2-T16 : un étage `court` joué par des bots (mesure cloud du 2026-10-14 : 38 et 37).
         "bot_explorer_floor": (min_sim_fps: 55.0),
-        "bot_explorer_two": (min_sim_fps: 57.0),
+        "bot_explorer_two": (min_sim_fps: 58.0),
         // M2-T17 : scénarios générés d'objets, de salle et de boss (mesure cloud du 2026-10-14 :
         // 35 à 42 sim fps ; les objets ne jouent que 60 frames, démarrage compris).
         "item_bottes": (min_sim_fps: 20.0),
@@ -40,32 +40,32 @@
         "room_combat": (min_sim_fps: 25.0),
         "boss_gatling": (min_sim_fps: 25.0),
         "ammo_burst": (min_sim_fps: 56.0),
-        "bullets_walls": (min_sim_fps: 52.0),
-        "dash_wall": (min_sim_fps: 67.0),
+        "bullets_walls": (min_sim_fps: 53.0),
+        "dash_wall": (min_sim_fps: 68.0),
         "door_open": (min_sim_fps: 45.0),
-        "idle": (min_sim_fps: 59.0),
-        "movement_melee": (min_sim_fps: 65.0),
+        "idle": (min_sim_fps: 60.0),
+        "movement_melee": (min_sim_fps: 66.0),
         "remote_first_fight": (min_sim_fps: 67.0),
-        "shoot_around": (min_sim_fps: 65.0),
+        "shoot_around": (min_sim_fps: 66.0),
         "two_players_idle": (min_sim_fps: 56.0),
         "two_players_shooting": (min_sim_fps: 66.0),
-        "weapons_workout": (min_sim_fps: 56.0),
+        "weapons_workout": (min_sim_fps: 57.0),
         "window_repair": (min_sim_fps: 65.0),
         // quatre joueurs (mesures du 2026-09-29 : 179 et 209)
-        "four_players_idle": (min_sim_fps: 54.0),
-        "four_players_shooting": (min_sim_fps: 49.0),
+        "four_players_idle": (min_sim_fps: 55.0),
+        "four_players_shooting": (min_sim_fps: 50.0),
         // T2.9, testbed (mesures du 2026-09-29 : ally_safe 214, arena_idle 230,
         // civilian_blocks 218, corridor_idle 282, dummy_shoot 224, follower 234,
         // target_hits 220, two_rooms_door_idle 281, window 269)
-        "testbed_ally_safe": (min_sim_fps: 82.0),
-        "testbed_arena_idle": (min_sim_fps: 87.0),
+        "testbed_ally_safe": (min_sim_fps: 83.0),
+        "testbed_arena_idle": (min_sim_fps: 88.0),
         "testbed_civilian_blocks": (min_sim_fps: 72.0),
         "testbed_corridor_idle": (min_sim_fps: 98.0),
-        "testbed_dummy_shoot": (min_sim_fps: 78.0),
-        "testbed_follower": (min_sim_fps: 86.0),
+        "testbed_dummy_shoot": (min_sim_fps: 79.0),
+        "testbed_follower": (min_sim_fps: 87.0),
         "testbed_target_hits": (min_sim_fps: 78.0),
-        "testbed_two_rooms_door_idle": (min_sim_fps: 78.0),
-        "testbed_window": (min_sim_fps: 88.0),
+        "testbed_two_rooms_door_idle": (min_sim_fps: 79.0),
+        "testbed_window": (min_sim_fps: 89.0),
         // T2.1, chantier B4b (grille spatiale) : bench_bullets (4 joueurs, mitrailleuse
         // chargeur énorme/cadence maximale, ~155 balles vivantes) et bench_horde (4 joueurs,
         // 60+ ennemis dès la vague 1). Planchers = moitié de la mesure sur la branche
@@ -80,7 +80,7 @@
         // M2-T1 : ~535 balles ENNEMIES vivantes (testbed, salle verrouillée, 3 tourelles de brume). Mesure
         // du 2026-10-11 sur la machine chargée (trois suites en parallèle) : 34 fps ; plancher
         // à confirmer au calme (`make bench`).
-        "bench_bullets_room": (min_sim_fps: 28.0, max_rollback_ms: 58.0),
+        "bench_bullets_room": (min_sim_fps: 29.0, max_rollback_ms: 58.0),
         // Les trois scénarios throne les plus lourds (mesures du 2026-10-14 : 28, 40 et 53 fps).
         "throne_quad": (min_sim_fps: 14.0),
         "throne_three_floors": (min_sim_fps: 20.0),

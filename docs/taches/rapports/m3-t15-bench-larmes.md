@@ -31,7 +31,7 @@ Le processus de bench pèse lui-même ~1,1 de charge ; b2 en jouait un autre en 
 | r5 | 02:04 | 0,77 → 2,82 | **référence** |
 | r6 | 03:53 | 1,60 → 5,24 | validation du fichier de budgets final, **sous charge** : `make bench` strict **vert** (exit 0, 0 ligne « budget ») |
 
-Écarts : les mêmes scénarios vont jusqu'à 2 fois plus vite en r4 qu'en r1 (`bench_floor` 45 → 77 fps, `idle` 99 → 155). Le gabarit « load < 1,5 »
+Écarts : les mêmes scénarios vont jusqu'à 2 fois plus vite en r4 qu'en r1 (`bench_floor` 45 → 77 fps, `idle` 99 → 129). Le gabarit « load < 1,5 »
 n'a été tenu qu'au départ de r4 et en fin de r3 ; j'ai gardé les trois relevés les moins chargés (r3, r4, r5) et pris la **pire valeur** par
 scénario, ce qui rend les planchers (moitié) tenables même à la charge de r1 (tous passent en r1, vérifié, r6 le confirme à 5,2).
 
@@ -86,45 +86,47 @@ Lecture (le poste n'est pas le même, donc **aucune conclusion de régression ne
 - `bench_cave` ×4,6, `bench_bullets` ×3,8, `four_players_idle` ×5,6 : plus haut ; la sauvegarde (`save`) y est 7 à 8 fois celle du M4 alors que la
   simulation légère n'en coûte que 5 à 6 : sur ce poste le snapshot pèse autant que la simulation en scénario léger. [INFERENCE] différence de mémoire/cache
   du poste, pas un défaut localisé : aucun système ne ressort au profil par set ; à confirmer en rejouant sur le M4 (D98).
-- Fait établi par les relevés : **aucun plancher d'avant (M1/M2) n'était reproductible ici** ; les mesures documentées dans `budgets.ron` (ex. `testbed_*`
-  2026-09-29 : 214 à 282 fps) sont 0,56 à 0,77 fois les mesures de ce poste, régulièrement : effet de poste, pas d'un scénario.
+- Fait établi par les relevés : les **anciennes mesures** documentées dans `budgets.ron` (ex. `testbed_*` du 2026-09-29 : 214 à 282 fps) valent ici
+  0,56 à 0,77 fois leur ancienne valeur (164,8 / 214 = 0,77 ; 156,1 / 281 = 0,56), régulièrement : effet de poste, pas d'un scénario. Les anciens
+  **planchers** étaient eux inégaux : 29 sur 29 au-dessus de la moitié de la mesure de ce poste, mais certains tenaient quand même au calme
+  (`dash_wall` 134,7 fps contre 100, `bench_floor` 49,6 contre 40) ; ils échouaient sous charge, d'où D84.
 
 ### D84 : recalibrage des 27 scénarios (+ `bench_floor`, `bench_horde`)
 
-Règle : plancher = round(moitié de la pire valeur de r3 à r5), jamais moins de la moitié de la mesure ; plafond de rollback = ⌈double de la pire
+Règle : plancher = ⌈moitié de la pire valeur de r3 à r5⌉ (arrondi **au-dessus**, jamais moins de la moitié de la mesure) ; plafond de rollback = ⌈double de la pire
 valeur⌉. Toutes les valeurs « avant » viennent de `tests/budgets.ron` à `origin/main` (défaut 40 si absent). **29 scénarios recalibrés, 0 plancher relâché au-delà
-de 2 × la mesure, 0 régression réelle établie.** « inchangé » = valeur déjà au-delà de la moitié ou plafond déjà au double.
+de 2 × la mesure (revue : arrondi initial au plus proche, 16 planchers sous la moitié ; corrigé en arrondi supérieur), 0 régression réelle établie.** « inchangé » = valeur déjà au-delà de la moitié ou plafond déjà au double.
 
 | scénario | fps r1 | r2 | r3 | r4 | r5 | référence (pire 3-5) | plancher avant | plancher après | rollback pire r3-5 (ms) | plafond avant → après | décision |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | ammo_burst | 74.8 | 77.2 | 111.6 | 157.4 | 143.5 | 111.6 | 120 | 56 | 9.0 | — | plancher abaissé à la moitié |
 | bench_bullets | 49.8 | 60.4 | 89.8 | 90.2 | 79.2 | 79.2 | 80 | 40 | 14.9 | 8 → 30 | plancher abaissé à la moitié ; plafond relevé au double |
-| bench_bullets_room | 37.5 | 39.0 | 60.4 | 61.1 | 56.3 | 56.3 | 40 | 28 | 28.7 | 26 → 58 | plancher abaissé à la moitié ; plafond relevé au double |
+| bench_bullets_room | 37.5 | 39.0 | 60.4 | 61.1 | 56.3 | 56.3 | 40 | 29 | 28.7 | 26 → 58 | plancher abaissé à la moitié ; plafond relevé au double |
 | bench_cave | 67.2 | 76.4 | 119.1 | 128.5 | 105.7 | 105.7 | 100 | 53 | 9.6 | 5 → 20 | plancher abaissé à la moitié ; plafond relevé au double |
 | bench_floor | 45.3 | 46.5 | 49.6 | 77.4 | 70.1 | 49.6 | 40 | 25 | 24.1 | 18 → 49 | plancher abaissé à la moitié ; plafond relevé au double |
 | bench_horde | 40.0 | 35.4 | 39.4 | 53.3 | 55.0 | 39.4 | 38 | 20 | 46.6 | 70 → 94 | plancher abaissé à la moitié ; plafond relevé au double |
 | bot_explorer_floor | 102.6 | 99.0 | 109.0 | 158.4 | 121.7 | 109.0 | 120 | 55 | 9.9 | — | plancher abaissé à la moitié |
-| bot_explorer_two | 104.2 | 92.7 | 116.3 | 142.8 | 114.4 | 114.4 | 100 | 57 | 9.4 | — | plancher abaissé à la moitié |
-| bullets_walls | 127.0 | 96.1 | 104.5 | 162.0 | 143.7 | 104.5 | 140 | 52 | 9.2 | — | plancher abaissé à la moitié |
-| dash_wall | 146.0 | 112.0 | 137.9 | 178.9 | 134.7 | 134.7 | 100 | 67 | 7.0 | — | plancher abaissé à la moitié |
-| four_players_idle | 120.3 | 108.3 | 108.3 | 139.1 | 121.3 | 108.3 | 100 | 54 | 8.4 | — | plancher abaissé à la moitié |
-| four_players_shooting | 112.2 | 81.8 | 98.9 | 141.1 | 123.7 | 98.9 | 100 | 49 | 9.9 | — | plancher abaissé à la moitié |
-| idle | 99.2 | 126.6 | 154.8 | 128.7 | 118.2 | 118.2 | 110 | 59 | 8.1 | — | plancher abaissé à la moitié |
-| movement_melee | 93.5 | 128.3 | 153.2 | 158.7 | 130.4 | 130.4 | 90 | 65 | 7.4 | — | plancher abaissé à la moitié |
+| bot_explorer_two | 104.2 | 92.7 | 116.3 | 142.8 | 114.4 | 114.4 | 100 | 58 | 9.4 | — | plancher abaissé à la moitié |
+| bullets_walls | 127.0 | 96.1 | 104.5 | 162.0 | 143.7 | 104.5 | 140 | 53 | 9.2 | — | plancher abaissé à la moitié |
+| dash_wall | 146.0 | 112.0 | 137.9 | 178.9 | 134.7 | 134.7 | 100 | 68 | 7.0 | — | plancher abaissé à la moitié |
+| four_players_idle | 120.3 | 108.3 | 108.3 | 139.1 | 121.3 | 108.3 | 100 | 55 | 8.4 | — | plancher abaissé à la moitié |
+| four_players_shooting | 112.2 | 81.8 | 98.9 | 141.1 | 123.7 | 98.9 | 100 | 50 | 9.9 | — | plancher abaissé à la moitié |
+| idle | 99.2 | 126.6 | 154.8 | 128.7 | 118.2 | 118.2 | 110 | 60 | 8.1 | — | plancher abaissé à la moitié |
+| movement_melee | 93.5 | 128.3 | 153.2 | 158.7 | 130.4 | 130.4 | 90 | 66 | 7.4 | — | plancher abaissé à la moitié |
 | remote_first_fight | 97.4 | 137.1 | 147.0 | 139.6 | 133.8 | 133.8 | 120 | 67 | 7.2 | — | plancher abaissé à la moitié |
-| shoot_around | 96.5 | 130.2 | 160.0 | 140.3 | 130.9 | 130.9 | 100 | 65 | 7.4 | — | plancher abaissé à la moitié |
-| testbed_ally_safe | 106.2 | 168.9 | 190.2 | 164.8 | 183.9 | 164.8 | 150 | 82 | 6.0 | — | plancher abaissé à la moitié |
-| testbed_arena_idle | 110.1 | 168.2 | 180.7 | 174.6 | 177.7 | 174.6 | 150 | 87 | 5.4 | — | plancher abaissé à la moitié |
+| shoot_around | 96.5 | 130.2 | 160.0 | 140.3 | 130.9 | 130.9 | 100 | 66 | 7.4 | — | plancher abaissé à la moitié |
+| testbed_ally_safe | 106.2 | 168.9 | 190.2 | 164.8 | 183.9 | 164.8 | 150 | 83 | 6.0 | — | plancher abaissé à la moitié |
+| testbed_arena_idle | 110.1 | 168.2 | 180.7 | 174.6 | 177.7 | 174.6 | 150 | 88 | 5.4 | — | plancher abaissé à la moitié |
 | testbed_civilian_blocks | 121.2 | 156.3 | 143.9 | 187.1 | 191.9 | 143.9 | 160 | 72 | 7.1 | — | plancher abaissé à la moitié |
 | testbed_corridor_idle | 142.0 | 176.4 | 195.0 | 204.1 | 238.5 | 195.0 | 180 | 98 | 4.8 | — | plancher abaissé à la moitié |
-| testbed_dummy_shoot | 97.6 | 142.1 | 156.9 | 186.0 | 224.1 | 156.9 | 160 | 78 | 6.6 | — | plancher abaissé à la moitié |
-| testbed_follower | 89.9 | 150.6 | 172.4 | 183.7 | 197.8 | 172.4 | 170 | 86 | 5.6 | — | plancher abaissé à la moitié |
+| testbed_dummy_shoot | 97.6 | 142.1 | 156.9 | 186.0 | 224.1 | 156.9 | 160 | 79 | 6.6 | — | plancher abaissé à la moitié |
+| testbed_follower | 89.9 | 150.6 | 172.4 | 183.7 | 197.8 | 172.4 | 170 | 87 | 5.6 | — | plancher abaissé à la moitié |
 | testbed_target_hits | 100.7 | 152.4 | 155.2 | 209.5 | 204.3 | 155.2 | 140 | 78 | 6.6 | — | plancher abaissé à la moitié |
-| testbed_two_rooms_door_idle | 132.6 | 134.0 | 156.1 | 298.1 | 224.0 | 156.1 | 180 | 78 | 6.3 | — | plancher abaissé à la moitié |
-| testbed_window | 114.2 | 156.9 | 176.2 | 234.1 | 220.4 | 176.2 | 160 | 88 | 5.3 | — | plancher abaissé à la moitié |
+| testbed_two_rooms_door_idle | 132.6 | 134.0 | 156.1 | 298.1 | 224.0 | 156.1 | 180 | 79 | 6.3 | — | plancher abaissé à la moitié |
+| testbed_window | 114.2 | 156.9 | 176.2 | 234.1 | 220.4 | 176.2 | 160 | 89 | 5.3 | — | plancher abaissé à la moitié |
 | two_players_idle | 92.0 | 128.2 | 122.2 | 130.6 | 111.0 | 111.0 | 80 | 56 | 9.3 | — | plancher abaissé à la moitié |
 | two_players_shooting | 113.9 | 132.5 | 140.8 | 150.0 | 131.1 | 131.1 | 130 | 66 | 7.0 | — | plancher abaissé à la moitié |
-| weapons_workout | 93.5 | 119.7 | 152.7 | 112.4 | 130.9 | 112.4 | 100 | 56 | 8.9 | — | plancher abaissé à la moitié |
+| weapons_workout | 93.5 | 119.7 | 152.7 | 112.4 | 130.9 | 112.4 | 100 | 57 | 8.9 | — | plancher abaissé à la moitié |
 | window_repair | 95.9 | 126.8 | 153.3 | 129.5 | 139.1 | 129.5 | 100 | 65 | 7.7 | — | plancher abaissé à la moitié |
 
 Remarques : tous les planchers « avant » étaient **au-dessus de la moitié** de la mesure de ce poste (ils venaient du Mac M4 ou du cloud 4 cœurs), d'où
@@ -144,7 +146,7 @@ branche** (le tirage des variantes et du butin de `main` change l'étage de la g
 | `cargo fmt --all -- --check` | rustfmt a demandé un reformatage de mes 6 lignes du runner (appliqué) ; ensuite sans sortie, code 0 |
 | `make test_tools` | code 0 |
 | `make test_crates` (sur la fusion) | **1 214 tests, 0 échec**. Lancé en morceaux (hors `scenario`, puis chaque `--test` de `scenario`, binaires effacés entre deux) parce que le **disque partagé** a été plein (0 octet libre, `ld` : Bus error) pendant la commande d'un bloc ; mêmes commandes et mêmes filtres que `make test_crates` (`--exact --skip scenarios`). Sur la branche seule, `achievements` échouait (« reservoir_vital n'est pas un objet débloqué ») : c'est D96 de `main`, corrigée par la fusion ; il passe sur la fusion |
-| `make bench` strict (`ALACOD_BENCH_STRICT=1`) | **r6, branche, budgets finaux : exit 0, aucune ligne `budget`** (charge 1,6 → 5,2). **r7, sur la fusion : 2 dépassements sur 646, à charge 3 → 14** (b2 et d'autres jouaient leurs suites) : `p2p_smoke` 36,5 fps et `item_calice_ardent` 37,3 fps contre le plancher par défaut de 40 (ces deux scénarios mesurent 65 à 100 et 141 à 248 fps au calme). **Rejoués seuls en strict à charge 5 à 7 : `p2p_smoke` 61,1 fps, `item_calice_ardent` 109,3, `bench_tears` 29,2 fps / 67,2 ms, `bench_floor_isaac` 60,0 fps / 17,7 ms, tous dans leurs budgets, exit 0.** Je n'ai donc **pas** de `make bench` vert d'un seul tenant sur la fusion (la machine n'est jamais redescendue sous charge 3 pendant 72 minutes) : preuve = r6 (branche) + les quatre scénarios rejoués |
+| `make bench` strict (`ALACOD_BENCH_STRICT=1`) | **r6, branche : exit 0, aucune ligne `budget`** (charge 1,6 → 5,2) avec les planchers **arrondis à l'unité la plus proche** ; la revue a fait passer les 16 planchers qui tombaient sous la moitié à l'arrondi supérieur (`tests/budgets.ron` final), et r6 rejoué contre ces valeurs finales a **1 dépassement de 0,8 fps** (`testbed_arena_idle` 87,2 fps contre 88, à charge 1,6 → 5,2) : la règle « jamais plus de 2 × la mesure au calme » et la tenue sous charge 5 sont en tension à la moitié exacte ; r1 à r5 : 0 dépassement. **r7, sur la fusion : 2 dépassements sur 646, à charge 3 → 14** (b2 et d'autres jouaient leurs suites) : `p2p_smoke` 36,5 fps et `item_calice_ardent` 37,3 fps contre le plancher par défaut de 40 (ces deux scénarios mesurent 65 à 100 et 141 à 248 fps au calme). **Rejoués seuls en strict à charge 5 à 7 : `p2p_smoke` 61,1 fps, `item_calice_ardent` 109,3, `bench_tears` 29,2 fps / 67,2 ms, `bench_floor_isaac` 60,0 fps / 17,7 ms, tous dans leurs budgets, exit 0.** Je n'ai donc **pas** de `make bench` vert d'un seul tenant sur la fusion (la machine n'est jamais redescendue sous charge 3 pendant 72 minutes) : preuve = r6 (branche) + les quatre scénarios rejoués |
 | tous les budgets finaux contre les relevés | les relevés r1 à r5 (hors r6, r7) respectent les budgets finaux (script sur les `latest*.json` : 0 dépassement) |
 
 
