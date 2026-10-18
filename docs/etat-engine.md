@@ -75,6 +75,9 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
    (D97). Sur ce poste la sauvegarde et la restauration coûtent 3 à 8 fois leur valeur du M4 alors que la simulation légère n'en
    coûte que 2 à 6 : à ce poste le coût des snapshots n'est plus négligeable devant la simulation en scénario léger (D98 : le
    poste explique-t-il tout ?).
+   **Après D97 (dette-d97-cout-larmes, Mac M1 Pro partagé, mesures relatives A/B, médiane de 5)** : bench_tears simulation 1,94 → 0,84 ms par
+   frame, pire rollback 24,3 → 11,2 ms (−54 %), `save` 1,1 et `load` 1,0 ms inchangés, snapshot 217 KiB ; bench_horde 17,0 → 8,1 ms,
+   bench_bullets_room 13,3 → 6,0 ms (`rapports/dette-d97-cout-larmes.md`). Aucune mesure VPS d'après : projection ≈ 26 ms pour bench_tears, à confirmer.
 2. **La frontière simulation/présentation est prouvée par la compilation pour 13 crates,
    en dette pour 2.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
    et CI) : `cargo tree` du crate seul sans crate de présentation, puis `cargo check
