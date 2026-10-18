@@ -301,6 +301,7 @@ impl Plugin for CoreSetupPlugin {
         app.init_resource::<crate::jjrs::restart::OnlineGames>()
             .init_resource::<crate::jjrs::p2p::PreviousSessionPeers>()
             .init_resource::<crate::jjrs::p2p::SessionSyncWatch>()
+            .init_resource::<crate::jjrs::p2p::LobbyConnectWatch>()
             .add_systems(
                 OnEnter(AppState::InGame),
                 crate::jjrs::p2p::reset_sync_watch,

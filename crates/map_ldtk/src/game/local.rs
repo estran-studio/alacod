@@ -68,6 +68,8 @@ pub struct LdtkLocalGamePlugin(pub LdtkGameMap);
 impl Plugin for LdtkLocalGamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.0.clone())
+            // D105 : l'unique consommateur de `--seed` pour tous les jeux.
+            .add_systems(Startup, apply_launch_seed)
             .add_systems(OnEnter(AppState::LobbyLocal), configure_map)
             .add_systems(OnEnter(AppState::LobbyOnline), configure_map)
             .add_systems(
@@ -89,6 +91,21 @@ impl Plugin for LdtkLocalGamePlugin {
                     .run_if(on_message::<LdtkMapLoadingEvent>)
                     .after(MapNetIdAssignment),
             );
+    }
+}
+
+/// `--seed <n>` (`game::args::LaunchSeed`) remplace la graine de carte du manifeste, en local
+/// comme en ligne (les deux pairs d'une preuve p2p reçoivent la même). `Startup`, donc avant
+/// `configure_map` (`OnEnter` des lobbies) et avant tout système d'un jeu qui lirait ou
+/// tirerait la graine (`zombies::choose_local_seed`). Sans la ressource (le runner de scénarios
+/// n'installe pas `BaseArgsPlugin`) ou sans `--seed`, la graine de `LdtkGameMap` ne bouge pas.
+pub fn apply_launch_seed(
+    launch: Option<Res<game::args::LaunchSeed>>,
+    mut map: ResMut<LdtkGameMap>,
+) {
+    if let Some(seed) = launch.and_then(|launch| launch.0) {
+        map.seed = seed;
+        info!("graine de carte imposée --seed {seed}");
     }
 }
 

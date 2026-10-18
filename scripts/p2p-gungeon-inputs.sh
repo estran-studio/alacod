@@ -8,8 +8,8 @@
 # `p2p-stress.sh` (EXPECT_FLOORS) le dit (aucun étage franchi) au lieu de l'avaler.
 #
 # Usage : scripts/p2p-gungeon-inputs.sh <joueurs> <graine> <frames> <sortie.ron>
-# Le client p2p doit être lancé avec `ALACOD_SKIP_HUB=1` (gungeon, qui a un hub) et `--seed <graine>` (gungeon et isaac lisent
-# `--seed` : `apply_launch_seed` ; throne et testbed l'ignorent, D105) : la graine de run
+# Le client p2p doit être lancé avec `ALACOD_SKIP_HUB=1` (gungeon, qui a un hub) et `--seed <graine>` (tous les jeux le lisent :
+# `map_ldtk::game::local::apply_launch_seed`, D105) : la graine de run
 # d'une partie en ligne passée par le hub est dérivée (§33), celle d'`alacod-sim` non. `isaac` n'a pas de hub.
 # HUB=1 : l'enregistrement est celui d'une run lancée par la PORTE DU HUB en ligne (D85) : `alacod-sim` joue
 # le hub puis la run (`ALACOD_SIM_HUB=1`), avec la graine de run `restart_seed(graine, 1)`

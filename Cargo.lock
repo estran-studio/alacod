@@ -5865,6 +5865,7 @@ name = "game"
 version = "0.2.0"
 dependencies = [
  "animation",
+ "async-tungstenite",
  "base64 0.21.7",
  "behaviors",
  "bevy 0.19.1",
@@ -5883,6 +5884,8 @@ dependencies = [
  "content",
  "ed25519-dalek",
  "effects",
+ "futures-timer",
+ "futures-util",
  "getrandom 0.2.17",
  "ggrs",
  "harmonium_bevy",
