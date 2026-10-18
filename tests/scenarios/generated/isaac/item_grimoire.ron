@@ -25,7 +25,7 @@ Scenario(
         ),
         ItemCharge(
             handle: 0,
-            charge: 45,
+            charge: 3,
             at_frame: 5,
         ),
         ItemCharge(
@@ -40,7 +40,19 @@ Scenario(
         ),
         ExtraHealth(
             handle: 0,
-            n: 3.0,
+            n: 1.0,
+            at_frame: 30,
+        ),
+        Stat(
+            handle: 0,
+            stat: Luck,
+            value: 0.0,
+            at_frame: 8,
+        ),
+        Stat(
+            handle: 0,
+            stat: Luck,
+            value: 2.0,
             at_frame: 30,
         ),
     ],

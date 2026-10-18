@@ -26,7 +26,7 @@ Scenario(
         ),
         Event(
             kind: "room",
-            label_contains: "salle boss nettoyée",
+            label_contains: "salle boss_profond nettoyée",
             by_frame: 1200,
         ),
     ],

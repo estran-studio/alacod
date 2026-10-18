@@ -1,4 +1,4 @@
 // M3-T8 (docs/conventions.md §73) : type de salle d'essai, comme `boss` (verrouille, le `gardien` y vit) avec un
 // butin : à la mort du boss un objet du pool `epuisable_temoin` (sans `exhaust`) tombe au centre de la salle,
 // tiré à la mort sur la graine `boss:<salle>`. Carte `testbed/salles_boss_butin.ldtk` (scénario `boss_drop_pool`).
-(locks: true, boss_drop: Some((table: "epuisable_temoin", rarity: Common)))
+(locks: true, boss: true, boss_drop: Some((table: "epuisable_temoin", rarity: Common)))

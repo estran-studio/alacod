@@ -2167,6 +2167,8 @@ struct ChampionTestSchema {
 #[derive(schemars::JsonSchema, Deserialize)]
 struct BossFightSchema {
     #[serde(default)]
+    room: Option<String>,
+    #[serde(default)]
     floors: Option<String>,
     #[serde(default)]
     map: Option<String>,

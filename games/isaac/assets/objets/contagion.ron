@@ -1,6 +1,6 @@
 // `isaac` (M3-T11d2, §76.5) : un coup porté (`OnHit`) enflamme la cible (`ApplyStatus` `brulure`), au plus une fois toutes les 240 frames (`cooldown`). Seuils mesurés : `brulure` présente à f140 avec l'objet (9 coups contre 6 sans), absente sans.
 (
-    name: "Contagion",
+    name: "Miasme",
     kind: Passive,
     effects: [
         (on: OnHit, cooldown: Some(240), do: [ApplyStatus(status: "brulure", stacks: 1)]),

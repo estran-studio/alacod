@@ -6,7 +6,7 @@
 // M3-T11d1 (§76.4) : une curse sur 30 % des étages (graine de carte et étage : `game::curses`), tirée parmi les
 // cinq de Q7 selon leurs poids (`curses/` : darkness 3, unknown 2, blind 2, maze 2, labyrinth 1) ; les séquences de test `sous_sol_un`, `sous_sol_cle`, `sous_sol_court`,
 // `sous_sol_grand` n'en ont pas (leurs scénarios ne bougent pas), `sous_sol_maudit` en met une à chaque étage.
-// M3-T11d2 (§76.5) : le **second étage** est `floor:sous_sol_profond` (gabarits de `salles_profond.ldtk`, boss `colosse`) ; le premier garde le `gardien`.
+// M3-T11d2 (§76.5) : le **second étage** est `floor:sous_sol_profond` (boss `colosse` : type `boss_profond`, `floor_grammars/sous_sol_profond.ron`) ; le premier garde le `gardien`.
 (
     levels: ["floor:sous_sol", "floor:sous_sol_profond"],
     victory_at_end: true,

@@ -1,13 +1,12 @@
-"""M3-T11d2 : les gabarits de salle de `isaac` (`maps/salles.ldtk` et `maps/salles_profond.ldtk`, disposition en grille §70),
+"""M3-T11d2 : les gabarits de salle de `isaac` (`maps/salles.ldtk`, disposition en grille §70),
 à partir de l'étage de M2-T0d (`games/gungeon/assets/maps/etage_1.ldtk`, dont on reprend les définitions, les champs de
 niveau `spawn` / `room_kind` et les instances d'entités). Reprend `m3-t11d1-gabarits.make_salles.py` (vingt gabarits, la
 couche IntGrid `Rocks` : 1 = rocher, 2 = rocher à butin, §62, et la couche `Surfaces` : valeur 5 = piques,
 `surfaces/piques.ron`) et change deux choses : (1) trois nouveaux ennemis (`araignee`, `follet`, `arroseur`) remplacent
-une mouche ou un suiveur dans huit gabarits de combat (même nombre d'ennemis qu'avant ; `Combat` reste inchangé) ; (2) le script se joue **deux
-fois** : `salles.ldtk` (boss `gardien`, étages de `floor_grammars/sous_sol*.ron`) et `salles_profond.ldtk` (`--boss colosse
---salt profond`, second étage de la séquence par défaut : `floor_grammars/sous_sol_profond.ron`). Les deux fichiers
-portent les mêmes gabarits de combat, de trésor, secrète, diable et boutique (le gabarit de transit n'est que dans
-`salles.ldtk`) ; seuls les trois gabarits de boss et les `iid` (salés) diffèrent.
+une mouche ou un suiveur dans huit gabarits de combat (même nombre d'ennemis qu'avant ; `Combat` reste inchangé) ; (2) trois gabarits de
+boss de **type `boss_profond`** (le `colosse`, second étage de la séquence par défaut : `floor_grammars/sous_sol_profond*.ron`
+désignent ce type par `FloorGrammar::boss`, le planificateur de grille choisit les gabarits de boss par ce type) s'ajoutent à la fin :
+23 gabarits, dans le même fichier (les vingt premiers sont identiques à ceux de T11d1, hors les ennemis du point 1).
 
 Une case de salle fait 15 x 9 cases de 16 px (240 x 144 px, Q8). Un gabarit couvre `w x h` cases de salle ;
 **chaque côté de chaque case de salle** a une ouverture de 3 cases centrée sur son segment (colonnes 6-8 de la
@@ -24,9 +23,9 @@ case au nord et au sud, rangées 3-5 à l'ouest et à l'est) : la grille choisit
     CombatLong      2x1    combat   deux angles de rochers à butin, deux de piques, quatre ennemis
     CombatHaut      1x2    combat   trois angles de rochers (deux à butin), un angle de piques, quatre ennemis
     CombatGrand     2x2    combat   quatre angles de rochers (deux à butin), quatre ennemis
-    Boss            1x1    boss     gardien (colosse avec --boss colosse) au centre
-    BossGrand       2x2    boss     idem
-    BossAbris       1x1    boss     idem, un amas de rochers dans chaque angle
+    Boss            1x1    boss     gardien au centre
+    BossGrand       2x2    boss     gardien au centre
+    BossAbris       1x1    boss     gardien au centre, un amas de rochers dans chaque angle
     Tresor          1x1    tresor   (coffre posé par le type de salle) (inchangé)
     TresorLong      2x1    tresor   (inchangé)
     TresorHaut      1x2    tresor   (inchangé)
@@ -34,6 +33,9 @@ case au nord et au sud, rangées 3-5 à l'ouest et à l'est) : la grille choisit
     Diable          1x1    diable   (présentoirs posés par le type de salle) (inchangé)
     Boutique        1x1    boutique (présentoirs posés par le type de salle)
     Transit         1x1    transit  vide, sans ennemi : l'étage de passage `sous_sol_transit` (inchangé)
+    BossProfond     1x1    boss_profond  colosse au centre (M3-T11d2)
+    BossProfondGrand 2x2   boss_profond  colosse au centre
+    BossProfondAbris 1x1   boss_profond  colosse au centre, un amas de rochers dans chaque angle
 
 **Rochers et piques dans les angles.** Le bot `explorateur` ne voit pas les rochers (ils n'ont pas le marqueur `Wall` que
 `bots::input` lit pour son maillage) : il marche en ligne droite et reste collé à un rocher posé sur son chemin (premier
@@ -50,14 +52,10 @@ ouverture et un ennemi, ou une ouverture et le centre.
 
     python3 docs/taches/rapports/m3-t11d2-volume.make_salles.py \\
         games/gungeon/assets/maps/etage_1.ldtk games/isaac/assets/maps/salles.ldtk [--ascii]
-    python3 docs/taches/rapports/m3-t11d2-volume.make_salles.py \\
-        games/gungeon/assets/maps/etage_1.ldtk games/isaac/assets/maps/salles_profond.ldtk --boss colosse --salt profond
 """
 import copy, json, sys, uuid
 
 src, dst = sys.argv[1], sys.argv[2]
-BOSS = sys.argv[sys.argv.index('--boss') + 1] if '--boss' in sys.argv else 'gardien'
-SALT = sys.argv[sys.argv.index('--salt') + 1] if '--salt' in sys.argv else ''
 NS = uuid.UUID('5e1d0b6e-0000-4000-8000-00000000f0f0')
 d = json.load(open(src))
 depart, combat = (next(l for l in d['levels'] if l['identifier'] == n) for n in ('Depart', 'Combat'))
@@ -68,7 +66,7 @@ ROCK, ROCK_LOOT, PIKE = 1, 2, 5
 
 
 def iid(*parts):
-    return str(uuid.uuid5(NS, '/'.join(map(str, ((SALT,) if SALT else ()) + parts))))
+    return str(uuid.uuid5(NS, '/'.join(map(str, parts))))
 
 
 def layer(level, name):
@@ -265,7 +263,7 @@ def make(ident, uid, kind, size=(1, 1), spawn=False, enemies=(), players=0, rock
         e = entity(spawn_base, ident, 'CharacterSpawn', centre if at is None else (at[0] * 16, at[1] * 16),
                    character=character)
         if (ident, character) == ('Combat', 'tourelle_croix'):  # iid posé par M3-T11c (son script de placement)
-            e['iid'] = str(uuid.uuid5(uuid.NAMESPACE_URL, 'alacod/' + (SALT + '/' if SALT else '') + 'Combat/tourelle_croix/13/7'))
+            e['iid'] = str(uuid.uuid5(uuid.NAMESPACE_URL, 'alacod/Combat/tourelle_croix/13/7'))
         out.append(e)
     for i in range(players):
         e = entity(player_base, ident, 'PlayerSpawn', (96 + 32 * i, 64))
@@ -323,8 +321,8 @@ rocks_abris, _ = corners(C, R, plain=('NO', 'NE', 'SO', 'SE'))
 levels = [
     make('Depart', 0, 'depart', spawn=True, players=2),
     make('Combat', 1, 'combat', enemies=[('suiveur', (3, 2)), ('mouche', (11, 6)), ('tourelle_croix', (13, 7))]),
-    make('Boss', 2, 'boss', enemies=[(BOSS, None)]),
-    make('BossGrand', 3, 'boss', size=(2, 2), enemies=[(BOSS, None)]),
+    make('Boss', 2, 'boss', enemies=[('gardien', None)]),
+    make('BossGrand', 3, 'boss', size=(2, 2), enemies=[('gardien', None)]),
     make('Tresor', 4, 'tresor'),
     make('TresorLong', 5, 'tresor', size=(2, 1)),
     make('TresorHaut', 6, 'tresor', size=(1, 2)),
@@ -350,14 +348,15 @@ levels = [
     make('CombatGrand', 17, 'combat', size=(2, 2),
          enemies=[('suiveur', (4, 3)), ('follet', (25, 14)), ('cracheur', (14, 9)), ('bourdon', (26, 3))],
          rocks=rocks_grand, pikes=pikes_grand),
-    make('BossAbris', 18, 'boss', enemies=[(BOSS, None)], rocks=rocks_abris),
+    make('BossAbris', 18, 'boss', enemies=[('gardien', None)], rocks=rocks_abris),
     make('Boutique', 19, 'boutique'),
+    make('BossProfond', 20, 'boss_profond', enemies=[('colosse', None)]),
+    make('BossProfondGrand', 21, 'boss_profond', size=(2, 2), enemies=[('colosse', None)]),
+    make('BossProfondAbris', 22, 'boss_profond', enemies=[('colosse', None)], rocks=rocks_abris),
 ]
 if '--ascii' in sys.argv:
     for item in ALL:
         ascii_room(*item[:1], *item[1:3], item[3], item[4], item[5], item[6], item[7])
-if SALT:  # `salles_profond.ldtk` : aucune grammaire n'y tire le gabarit de transit (avertissement du lint)
-    levels = [level for level in levels if level['identifier'] != 'Transit']
 d['levels'] = levels
 d['iid'] = iid('project')
 json.dump(d, open(dst, 'w'), indent=1)

@@ -59,10 +59,19 @@ pub struct RoomKindDef {
     /// centre de la salle. Absent (tout le contenu existant) : rien ne tombe, hors du hash.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub boss_drop: Option<items::BossDropDef>,
+    /// M3-T11d2 (§76.5) : les salles de ce type sont des **salles de boss** (minicarte : pastille et mention « boss »). Une
+    /// grammaire désigne son type de boss par `FloorGrammar::boss` (`boss`, `boss_profond`…) : la minicarte ne devine pas
+    /// le boss par un nom de type. Faux par défaut (aucun effet de simulation).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub boss: bool,
 }
 
 fn is_zero(n: &u32) -> bool {
     *n == 0
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// Verrou de la porte d'une salle (M3-T0c, `docs/conventions.md` §62).
@@ -139,6 +148,11 @@ pub fn room_rng_stream(level_id: &str) -> String {
 pub struct RoomKindTable(pub BTreeMap<String, RoomKindDef>);
 
 impl RoomKindTable {
+    /// Le type est-il une salle de boss (`RoomKindDef::boss`) ? (Type inconnu : non.)
+    pub fn is_boss(&self, kind: &str) -> bool {
+        self.0.get(kind).is_some_and(|def| def.boss)
+    }
+
     /// Le type verrouille-t-il ses salles ? (Type inconnu : non.)
     pub fn locks(&self, kind: &str) -> bool {
         self.0
@@ -330,5 +344,19 @@ mod tests {
         let table = table_with("combat", None, 1);
         assert_eq!(table.door_lock_at("combat", 5), None);
         assert_eq!(table.door_lock_at("inconnu", 5), None);
+    }
+
+    /// Une salle de boss est celle dont le type porte `boss: true`, quel que soit son nom (`boss`, `boss_profond`) ;
+    /// absent du RON : faux ; type inconnu : faux.
+    #[test]
+    fn un_type_de_boss_se_reconnait_a_sa_propriete_pas_a_son_nom() {
+        let defs: Vec<(&str, RoomKindDef)> = vec![
+            ("boss", ron::from_str("(locks: true)").unwrap()),
+            ("boss_profond", ron::from_str("(locks: true, boss: true)").unwrap()),
+        ];
+        let table = RoomKindTable(defs.into_iter().map(|(k, d)| (k.to_string(), d)).collect());
+        assert!(table.is_boss("boss_profond"));
+        assert!(!table.is_boss("boss"));
+        assert!(!table.is_boss("inconnu"));
     }
 }

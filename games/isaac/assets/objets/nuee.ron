@@ -1,6 +1,6 @@
 // `isaac` (M3-T11b, §76.2) : trois orbes par exemplaire (`per_copy: 3`), à 120° l'un de l'autre.
 (
-    name: "Nuée",
+    name: "Volée d'orbes",
     kind: Passive,
     familiar: Some((character: "orbe", per_copy: 3)),
     tags: ["familier"],

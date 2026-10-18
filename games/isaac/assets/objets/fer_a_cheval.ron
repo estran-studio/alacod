@@ -3,7 +3,6 @@
     name: "Fer à cheval",
     kind: Passive,
     modifiers: [(stat: Luck, op: Add, value: "3")],
-    tags: ["larmes"],
     rarity: Rare,
     test: Some((frames: 60)),
 )

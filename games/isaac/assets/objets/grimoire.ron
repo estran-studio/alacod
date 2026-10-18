@@ -1,11 +1,11 @@
-// `isaac` (M3-T11d2, §76.5) : actif chargé par 45 points de dégâts infligés ; à l'usage, 3 points de vie d'âme (`GainSoul`).
+// `isaac` (M3-T11d2, §76.5, revue) : actif chargé par trois salles nettoyées (`calice_ame` se charge aux dégâts : 30 points) ; à l'usage, un point de vie d'âme (`GainSoul`) et +2 de chance pendant 600 frames (`TimedModifier` `Luck` : +10 % de chance d'effet pour `massue` et `philtre`, +25 % pour `venin`). Premier jet (45 dégâts, 3 points d'âme) : doublon de `calice_ame`.
 (
     name: "Grimoire",
-    kind: Active(Damage(45)),
+    kind: Active(Rooms(3)),
     effects: [
-        (on: OnUse, do: [GainSoul("3")]),
+        (on: OnUse, do: [GainSoul("1"), TimedModifier(stat: Luck, op: Add, value: "2", frames: 600)]),
     ],
     tags: ["actif"],
     rarity: Rare,
-    test: Some((frames: 60, expect: [ExtraHealth(handle: 0, n: 0.0, at_frame: 8), ExtraHealth(handle: 0, n: 3.0, at_frame: 30)])),
+    test: Some((frames: 60, expect: [ExtraHealth(handle: 0, n: 0.0, at_frame: 8), ExtraHealth(handle: 0, n: 1.0, at_frame: 30), Stat(handle: 0, stat: Luck, value: 0.0, at_frame: 8), Stat(handle: 0, stat: Luck, value: 2.0, at_frame: 30)])),
 )

@@ -25,7 +25,7 @@ Scenario(
         ),
         ItemCharge(
             handle: 0,
-            charge: 60,
+            charge: 2,
             at_frame: 5,
         ),
         ItemCharge(

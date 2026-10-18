@@ -1,7 +1,9 @@
-// `isaac` (M3-T11d2, §76.5) : actif chargé par 60 points de dégâts infligés ; à l'usage, une onde de choc autour du porteur (`Explode`, rayon 100, 10 dégâts, `destroys: false`) précédée d'un point de bouclier (`GainShield(1)`) qui absorbe le souffle sur le porteur (l'`Explode` d'un objet blesse aussi le porteur, voir `bombe_fiole`). Charge 60 et non 25 : les dégâts de sa propre onde rechargent l'actif (mesuré : +30 pour deux cibles à portée, la charge de 25 se refaisait aussitôt). Substitution : `SpawnPattern` (couronne de balles) est refusée par le lint à `OnUse` d'un objet ; l'onde est donc une explosion plus large que celle de `bombe_fiole`. Preuve : scénario écrit à la main `isaac_nova`.
+// `isaac` (M3-T11d2, §76.5) : actif chargé par deux salles nettoyées ; à l'usage, une onde de choc autour du porteur (`Explode`, rayon 100, 10 dégâts, `destroys: false`) précédée d'un point de bouclier (`GainShield(1)`) qui absorbe le souffle sur le porteur.
+// **Charge par salles, non par dégâts** (revue) : la charge `Damage` additionne tous les `DamageEvent` dont le porteur est la source, quelle que soit la cible (`items.rs`) : les coups de sa propre onde la rechargeaient (avec plusieurs cibles à portée, entièrement à chaque usage). **Coop** (D113) : l'`Explode` d'un objet est une bombe à tir ami `Always` de l'équipe du porteur : un coéquipier à moins de 100 unités prend 10 dégâts (il a 6 PV) ; le bouclier ne protège que le porteur. À fermer par D113 (`friendly_fire`).
+// Substitution : `SpawnPattern` (couronne de balles) est refusée par le lint à `OnUse` d'un objet (D112) ; l'onde est une explosion plus large que celle de `bombe_fiole`. Preuve : scénario écrit à la main `isaac_nova`.
 (
     name: "Nova",
-    kind: Active(Damage(60)),
+    kind: Active(Rooms(2)),
     effects: [
         (on: OnUse, do: [GainShield(1), Explode(radius: "100.0", damage: "10.0", destroys: false)]),
     ],

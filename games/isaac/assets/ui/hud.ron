@@ -24,6 +24,7 @@
         "tresor": (color: "#f1c40f", label: "T"),
         "boutique": (color: "#2ecc71", label: "S"),
         "boss": (color: "#bb8fce", label: "B"),
+        "boss_profond": (color: "#bb8fce", label: "B"),
         "secrete": (color: "#85c1e9", label: "?"),
         "diable": (color: "#e74c3c", label: "D"),
     },

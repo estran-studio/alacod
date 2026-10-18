@@ -1,7 +1,7 @@
 // `isaac` (M3-T11d2, §76.5) : une ombre (`ombre`) qui tourne serré autour du porteur (rayon 24, un tour en 40 frames) et arrête les tirs ennemis (`Orbit` + `BlockBullets`).
 // Preuve : `familiar_ombre` (`FamiliarCount` 1, l'ombre reste à 24 unités du porteur) ; `tests/scenarios/isaac_ombre_bloque.ron` et son témoin (la boule qui vise le joueur est détruite : 6 PV contre 5 à f100).
 (
-    name: "Ombre",
+    name: "Silhouette",
     kind: Passive,
     familiar: Some((character: "ombre", per_copy: 1)),
     tags: ["familier"],

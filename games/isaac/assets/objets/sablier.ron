@@ -1,6 +1,6 @@
 // `isaac` (M3-T11d2, §76.5) : une salle nettoyée (`OnRoomClear`) soigne 1 PV (`Heal`, un demi-cœur).
 (
-    name: "Sablier",
+    name: "Clepsydre",
     kind: Passive,
     effects: [
         (on: OnRoomClear, do: [Heal("1")]),

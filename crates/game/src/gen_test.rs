@@ -142,6 +142,10 @@ pub struct RoomTest {
 /// (`entry.start_map`, comme `gungeon_boss_bot`).
 #[derive(Debug, Deserialize, Clone, PartialEq, Default)]
 pub struct BossFightTest {
+    /// M3-T11d2 (§76.5) : type de salle où vit ce boss (`boss_profond` pour le `colosse` d'`isaac`) : l'attente par défaut est
+    /// « salle <type> nettoyée ». Absent : `boss`.
+    #[serde(default)]
+    pub room: Option<String>,
     #[serde(default)]
     pub floors: Option<String>,
     #[serde(default)]

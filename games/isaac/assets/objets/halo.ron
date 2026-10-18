@@ -1,6 +1,6 @@
 // `isaac` (M3-T11d2, §76.5) : les larmes tournent autour du porteur (rayon 72, un tour en 90 frames) pendant 360 frames (`Orbit`).
 (
-    name: "Halo",
+    name: "Cerceau",
     kind: Passive,
     projectile: Some((modifiers: [Orbit(radius: "72.0", frames_per_turn: 90), Lifetime(360)])),
     tags: ["larmes"],
