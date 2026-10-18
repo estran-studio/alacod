@@ -184,7 +184,7 @@ RESTART_KIND=restart RESTART_AT=7200 EXIT_AT=1500 INPUTS=/tmp/run_full.ron … s
 MATCHBOX_URL=wss://… LOBBY=x scripts/p2p-machine.sh gungeon /tmp/run.ron 4500 0   # un client par machine
 ```
 Les cibles `make *_matchbox` ouvrent une fenêtre ; sans affichage, ces scripts (headless) les remplacent.
-`P2P_WAIT_CALM=3` attend `uptime` < 3 avant de lancer les clients (machine partagée : sous charge un pair est déconnecté, D87) ; `HUB=1` enregistre une run
+`P2P_WAIT_CALM=3` attend `uptime` < 3 avant de lancer les clients (machine partagée : sous charge extrême un pair était déconnecté, D87 ; délai porté à 5 s le 2026-10-18) ; `HUB=1` enregistre une run
 par la porte du hub (`RESTART_KIND=hub EXPECT_VICTORY=1 … p2p-restart.sh` la rejoue : hub → run → victoire → hub) ; les inputs des bots sont décalés de 5 frames
 (délai d'input du synctest, D85).
 
