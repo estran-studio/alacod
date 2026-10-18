@@ -206,6 +206,39 @@ pub struct LegendEntry {
     pub color: Option<String>,
 }
 
+/// Dessin des murs d'une couche IntGrid (`HudConfig::wall_art`) : présentation seule, dérivée des cases
+/// de la couche à chaque apparition d'un niveau (auto-tuile : `map_ldtk::wall_art`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WallArt {
+    /// Couche IntGrid dont les cases non nulles sont des murs (`Walls`).
+    pub layer: String,
+    /// Feuille de tuiles (relative à `assets/`), tuiles carrées de `tile` pixels sur `columns` colonnes.
+    pub atlas: String,
+    #[serde(default = "WallArt::default_tile")]
+    pub tile: u32,
+    #[serde(default = "WallArt::default_columns")]
+    pub columns: u32,
+    /// Profondeur locale au niveau (le fond du niveau est à 0, la couche `Walls` à 1).
+    #[serde(default = "WallArt::default_z")]
+    pub z: f32,
+    /// Couches de métadonnées que la carte ne doit pas dessiner (`LevelConnection` : ouvertures des gabarits,
+    /// que le rendu IntGrid colorié de LDtk peint en noir).
+    #[serde(default)]
+    pub hide_layers: Vec<String>,
+}
+
+impl WallArt {
+    fn default_tile() -> u32 {
+        16
+    }
+    fn default_columns() -> u32 {
+        8
+    }
+    fn default_z() -> f32 {
+        1.5
+    }
+}
+
 /// HUD configuration asset
 #[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
 pub struct HudConfig {
@@ -242,6 +275,10 @@ pub struct HudConfig {
     /// minicarte : l'étiquette est écrite dans la salle, la couleur en teinte la bordure.
     #[serde(default)]
     pub room_icons: BTreeMap<String, HudIcon>,
+    /// Dessin des murs de la carte (`map_ldtk::wall_art`, `docs/conventions.md` §83) : absent, les murs ne
+    /// sont pas dessinés (autres jeux inchangés).
+    #[serde(default)]
+    pub wall_art: Option<WallArt>,
 }
 
 pub struct HudPlugin;
@@ -291,11 +328,11 @@ impl Plugin for HudPlugin {
 
 /// Resource to hold the HUD config asset handle
 #[derive(Resource, Default)]
-pub(crate) struct HudConfigHandle(Option<Handle<HudConfig>>);
+pub struct HudConfigHandle(Option<Handle<HudConfig>>);
 
 impl HudConfigHandle {
     /// La configuration du HUD, une fois chargée.
-    pub(crate) fn get<'a>(&self, configs: &'a Assets<HudConfig>) -> Option<&'a HudConfig> {
+    pub fn get<'a>(&self, configs: &'a Assets<HudConfig>) -> Option<&'a HudConfig> {
         self.0.as_ref().and_then(|handle| configs.get(handle))
     }
 }
@@ -805,6 +842,7 @@ fn update_hud_v1_values(
         legend: Vec::new(),
         hide_markers: false,
         room_icons: BTreeMap::new(),
+        wall_art: None,
     };
     let config = config_handle
         .0
@@ -1213,6 +1251,7 @@ fn update_hud_hearts(
                 legend: Vec::new(),
                 hide_markers: false,
                 room_icons: BTreeMap::new(),
+                wall_art: None,
             };
             &default_config
         }
@@ -2089,6 +2128,7 @@ mod tests {
             legend: Vec::new(),
             hide_markers: false,
             room_icons: BTreeMap::new(),
+            wall_art: None,
         };
         config.icons.insert(
             "juggernog".into(),

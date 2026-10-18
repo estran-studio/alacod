@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use sim_core::modifier::{resolve, Modifier, ModifierSource, Modifiers};
 use sim_core::stats::{StatId, Stats};
 use sim_core::tag::Tags;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use utils::frame::FrameCount;
 
@@ -183,6 +183,18 @@ pub fn assets_dir(game: &str) -> String {
     match external_game_dir(game) {
         Some(dir) => dir.join("assets").to_string_lossy().into_owned(),
         None => format!("{}/../../games/{}/assets", env!("CARGO_MANIFEST_DIR"), game),
+    }
+}
+
+/// Politique de l'`explorateur` du jeu : `bot.ron` de ses assets (M3-T14, `docs/conventions.md` §79), la politique par défaut
+/// s'il n'existe pas. Les campagnes d'`alacod-sim` et les scénarios **générés** (`alacod-gen`) la jouent ; un scénario écrit à la
+/// main la pose dans `Scenario::explorer`. Aucun nom de jeu dans le code : tout vient des données du jeu.
+pub fn game_bot_policy(game: &str) -> game::replay::ExplorerPolicy {
+    let path = format!("{}/bot.ron", assets_dir(game));
+    match std::fs::read_to_string(&path) {
+        Ok(text) => ron::from_str(&text)
+            .unwrap_or_else(|e| panic!("politique de l'explorateur {path} invalide : {e}")),
+        Err(_) => Default::default(),
     }
 }
 
@@ -1071,15 +1083,26 @@ pub struct StopEarly {
     /// leur détecteur. `alacod-sim --pickup-progress` : sans lui, les détours de l'`explorateur` d'`isaac`
     /// (objets et sous aux quatre coins d'un étage nettoyé) dépassent 1 200 frames sans kill sans être bloqués.
     pub pickups_are_progress: bool,
+    /// m2-salles-murs-gungeon : entrer dans une case de 32 px jamais visitée du niveau compte comme une progression du
+    /// soft-lock `Floors` (`FloorsProgress::explored`) : dans des salles agrandies un étage mesure plus de 2 000 px et la
+    /// marche d'une salle de combat à la suivante dépasse [`FLOORS_SOFTLOCK_FRAMES`] sans un coup. Faux par défaut : les
+    /// campagnes des autres jeux gardent leur détecteur. `alacod-sim --explored-progress`.
+    pub explored_is_progress: bool,
 }
 
 /// D44 : état observé pour le soft-lock `Floors`. Il y a progression quand le niveau change, ou
 /// qu'un ennemi disparaît, ou que la santé totale des ennemis baisse (dégâts infligés, même
 /// sans kill : combat lent contre un boss), ou qu'un joueur change d'état (à terre, relevé,
-/// mort).
+/// mort), ou, si [`StopEarly::explored_is_progress`], qu'un joueur entre dans une **case de 32 px jamais visitée** de ce niveau
+/// (m2-salles-murs-gungeon : sur des salles agrandies, l'étage mesure plus de 2 000 px et la marche d'une
+/// salle de combat à la suivante peut dépasser la fenêtre de [`FLOORS_SOFTLOCK_FRAMES`] sans un seul
+/// coup ; un joueur qui explore encore n'est pas bloqué, un bot qui tourne en rond l'est : les cases
+/// visitées finissent par ne plus grandir).
 #[derive(Debug, Clone, PartialEq)]
 pub struct FloorsProgress {
     pub floor: u32,
+    /// Nombre de cases de 32 px (par niveau) déjà visitées par un joueur (0 si [`StopEarly::explored_is_progress`] est faux).
+    pub explored: usize,
     pub enemies: usize,
     pub enemy_health: fixed_math::Fixed,
     /// Par joueur présent (handle), à terre ou non ; un joueur mort disparaît de la liste.
@@ -1093,6 +1116,7 @@ impl FloorsProgress {
     /// `true` si `now` marque une progression par rapport à `self` (voir le type).
     pub fn progressed(&self, now: &FloorsProgress) -> bool {
         now.floor != self.floor
+            || now.explored > self.explored
             || now.enemies < self.enemies
             || now.enemy_health < self.enemy_health
             || now.players != self.players
@@ -1493,6 +1517,10 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut q_player_stock =
         app.world_mut()
             .query::<(&Player, Option<&items::Inventory>, Option<&run::Currency>)>();
+    let mut q_player_cells = app
+        .world_mut()
+        .query::<(&Player, &bevy_fixed::fixed_math::FixedTransform3D)>();
+    let mut explored: BTreeSet<(u32, i32, i32)> = BTreeSet::new();
     let mut floors_softlocked = false;
 
     // Hub suivi (`HubSetup { stay: false }`) : la phase du hub s'ajoute au budget d'updates.
@@ -1648,8 +1676,19 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                         .map(|(player, downed)| (player.handle, downed))
                         .collect();
                     players.sort_unstable();
+                    if stop.explored_is_progress {
+                        for (_, transform) in q_player_cells.iter(world) {
+                            let at = transform.translation.truncate();
+                            explored.insert((
+                                floor_index,
+                                (at.x.to_num::<i32>()).div_euclid(32),
+                                (at.y.to_num::<i32>()).div_euclid(32),
+                            ));
+                        }
+                    }
                     let now = FloorsProgress {
                         floor: floor_index,
+                        explored: explored.len(),
                         enemies: q_enemies.iter(world).count(),
                         enemy_health: q_enemy_health
                             .iter(world)
@@ -1838,6 +1877,16 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let profile = app
         .world()
         .resource::<utils::snapshot_profile::SnapshotProfile>();
+
+    // `ALACOD_SYSTEM_PROFILE=1` (diagnostic, M3-T15) : temps par `RollbackSystemSet` de ce scénario.
+    if let Some(timings) = app
+        .world()
+        .get_resource::<utils::system_profile::SetTimings>()
+    {
+        for row in timings.report() {
+            println!("profil sets : {row}");
+        }
+    }
 
     let metrics = Metrics {
         frames: frame,
@@ -3832,6 +3881,7 @@ mod floors_progress_tests {
     fn state(enemies: usize, health: f32, players: &[(usize, bool)]) -> FloorsProgress {
         FloorsProgress {
             floor: 2,
+            explored: 10,
             enemies,
             enemy_health: fixed_math::new(health),
             players: players.to_vec(),
@@ -3858,6 +3908,13 @@ mod floors_progress_tests {
         assert!(base.progressed(&next_floor));
         // Santé des ennemis qui remonte (régénération) : pas une progression
         assert!(!base.progressed(&state(2, 610.0, &[(0, false), (1, false)])));
+        // Une case jamais visitée : le joueur explore encore ; la même case revisitée n'est rien
+        let explorer = FloorsProgress {
+            explored: 11,
+            ..base.clone()
+        };
+        assert!(base.progressed(&explorer));
+        assert!(!explorer.progressed(&explorer.clone()));
     }
 
     /// M3-T14 : l'empreinte de l'inventaire et du solde (`stock`) compte ; à 0 des deux côtés (détecteur

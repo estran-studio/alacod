@@ -20,10 +20,10 @@ Scenario(
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
-        shells: Some(400),
+        detour: (shells: Some(400)),
         devil: Never,
         bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
-        anti_jitter: true,
+        oscillation: Hysteresis,
         combat_aware: true,
     )),
     players: [(bot: explorateur, currency: Some(12))],

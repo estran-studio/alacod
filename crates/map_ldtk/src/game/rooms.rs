@@ -240,7 +240,9 @@ fn update_hud_room_geometry(
 
 /// Salles typées triées par position (x, y) puis identifiant : ordre stable, indépendant des
 /// `Entity`.
-fn sorted_rooms<'a>(rooms: &'a CurrentRooms) -> Vec<(&'a LevelId, &'a RoomBounds, &'a RoomKind)> {
+pub fn sorted_rooms<'a>(
+    rooms: &'a CurrentRooms,
+) -> Vec<(&'a LevelId, &'a RoomBounds, &'a RoomKind)> {
     let mut typed: Vec<_> = rooms.iter().collect();
     typed.sort_by(|a, b| {
         (a.1.position.x, a.1.position.y, &a.0 .0).cmp(&(b.1.position.x, b.1.position.y, &b.0 .0))
@@ -255,7 +257,7 @@ fn is_secret(table: &RoomKindTable, kind: &RoomKind) -> bool {
 
 /// Nombre de clés qu'ouvre la porte d'un type de salle **à l'étage `floor`** (`door_lock: Key(n)`
 /// à partir de `lock_from_floor`) ; `None` : porte ordinaire ou mur secret.
-pub(crate) fn key_lock_cost(table: &RoomKindTable, kind: &RoomKind, floor: u32) -> Option<u32> {
+pub fn key_lock_cost(table: &RoomKindTable, kind: &RoomKind, floor: u32) -> Option<u32> {
     match table.door_lock_at(&kind.0, floor) {
         Some(DoorLock::Key(n)) => Some(n),
         _ => None,
@@ -271,7 +273,8 @@ fn door_interaction_range(collider: &Collider) -> Fixed {
     }
 }
 
-fn door_near(bounds: &RoomBounds, p: FixedVec2) -> bool {
+/// La porte en `p` appartient-elle à la salle `bounds` (à moins de `DOOR_MARGIN` de ses bords) ?
+pub fn door_near(bounds: &RoomBounds, p: FixedVec2) -> bool {
     inside_box(
         bounds.position,
         bounds.size,

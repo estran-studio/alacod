@@ -44,6 +44,33 @@ pub enum FacingDirection {
     DownRight, // 315 degrees
 }
 
+/// Vrai si `atan2_fixed(y, x)` déborderait. Rejoue les produits du polynôme choisi par octant
+/// (`|y| < |x|` : `x·y / (x² + 0,28125·y²)`, sinon `x·y / (y² + 0,28125·x²)`) avec les mêmes arrondis.
+fn atan2_would_overflow(
+    y: bevy_fixed::fixed_math::Fixed,
+    x: bevy_fixed::fixed_math::Fixed,
+) -> bool {
+    use bevy_fixed::fixed_math::{Fixed, FIXED_ZERO};
+    // Sur un axe, `atan2` répond sans aucun produit.
+    if x == FIXED_ZERO || y == FIXED_ZERO {
+        return false;
+    }
+    let (major, minor) = if y.saturating_abs() < x.saturating_abs() {
+        (x, y)
+    } else {
+        (y, x)
+    };
+    let coef = Fixed::from_num(0.28125);
+    let fits = || -> Option<()> {
+        x.checked_mul(y)?;
+        let major_sq = major.checked_mul(major)?;
+        let minor_sq = minor.checked_mul(minor)?;
+        major_sq.checked_add(coef.checked_mul(minor_sq)?)?;
+        Some(())
+    };
+    fits().is_none()
+}
+
 impl FacingDirection {
     /// Returns -1 for left-ish directions, 1 for right-ish directions
     pub fn to_int(&self) -> i32 {
@@ -109,6 +136,16 @@ impl FacingDirection {
     pub fn from_fixed_vector(vec: bevy_fixed::fixed_math::FixedVec2) -> Self {
         use bevy_fixed::fixed_math;
 
+        // `atan2_fixed` (polynômes de Lyons, `fixed_trigonometry`) déborde (panique en debug) quand `x·y`, `x²` ou
+        // le dénominateur dépassent la plage de `Fixed` : vitesse de plus de ~181 (un champion rapide, graine 54 de
+        // `etages_deux`, m2-salles-murs-gungeon). Seule la direction compte : on ne réduit (÷4) que si le calcul
+        // déborderait vraiment, en rejouant les mêmes opérations en `checked_*`. Toute entrée qui ne paniquait pas
+        // passe inchangée : aucune trace ne bouge.
+        let mut vec = vec;
+        while atan2_would_overflow(vec.y, vec.x) {
+            let four = fixed_math::new(4.0);
+            vec = bevy_fixed::fixed_math::FixedVec2::new(vec.x / four, vec.y / four);
+        }
         if vec.length_squared() < fixed_math::new(0.001) {
             return FacingDirection::default();
         }
@@ -182,5 +219,93 @@ impl Plugin for AnimationStatePlugin {
         app.rollback_and_trace::<AnimationState>()
             .rollback_and_trace::<FacingDirection>()
             .rollback_and_trace::<ActiveLayers>();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_fixed::fixed_math::{self, Fixed, FixedVec2};
+
+    /// `atan2_would_overflow` est exact : il prédit la panique de `atan2_fixed` (build de test = debug,
+    /// débordements vérifiés) pour chaque entrée, y compris autour de la borne (~181 de long, axes et diagonales).
+    #[test]
+    fn atan2_overflow_predicate_matches_panics() {
+        let previous_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let mut mismatches = Vec::new();
+        let mut overflowing = 0;
+        let mut ok = 0;
+        for xi in -40..=40 {
+            for yi in -40..=40 {
+                for &(scale, jitter) in &[
+                    (1.0f32, 0.0f32),
+                    (4.5, 0.0),
+                    (4.5, 0.03),
+                    (4.52, 0.0),
+                    (4.53, 0.0),
+                    (5.0, 0.0),
+                ] {
+                    let x = Fixed::from_num(xi as f32 * scale + jitter);
+                    let y = Fixed::from_num(yi as f32 * scale);
+                    let panicked =
+                        std::panic::catch_unwind(|| fixed_math::atan2_fixed(y, x)).is_err();
+                    if panicked != atan2_would_overflow(y, x) {
+                        mismatches.push((x, y));
+                    }
+                    if panicked {
+                        overflowing += 1;
+                    } else {
+                        ok += 1;
+                    }
+                }
+            }
+        }
+        std::panic::set_hook(previous_hook);
+        assert!(mismatches.is_empty(), "prédiction fausse : {mismatches:?}");
+        assert!(overflowing > 1000 && ok > 1000, "grille sans les deux cas");
+    }
+
+    /// Aux bornes : juste sous la limite, la direction est celle de `atan2` (inchangée) ; au-delà, elle est
+    /// celle du vecteur réduit ; jamais de panique.
+    #[test]
+    fn from_fixed_vector_bounds() {
+        let v = |x: f32, y: f32| FixedVec2::new(fixed_math::new(x), fixed_math::new(y));
+        // Sur un axe, `atan2` ne multiplie rien : aucune réduction, même à 400.
+        assert_eq!(
+            FacingDirection::from_fixed_vector(v(181.0, 0.0)),
+            FacingDirection::Right
+        );
+        assert_eq!(
+            FacingDirection::from_fixed_vector(v(-182.0, 0.0)),
+            FacingDirection::Left
+        );
+        assert_eq!(
+            FacingDirection::from_fixed_vector(v(0.0, 400.0)),
+            FacingDirection::Up
+        );
+        assert_eq!(
+            FacingDirection::from_fixed_vector(v(0.0, -400.0)),
+            FacingDirection::Down
+        );
+        // Diagonales : x·y déborde dès 181 de côté, la direction reste la bonne.
+        assert_eq!(
+            FacingDirection::from_fixed_vector(v(300.0, 300.0)),
+            FacingDirection::UpRight
+        );
+        assert_eq!(
+            FacingDirection::from_fixed_vector(v(-300.0, -300.0)),
+            FacingDirection::DownLeft
+        );
+        // Cas de la graine 54 (champion rapide).
+        assert_eq!(
+            FacingDirection::from_fixed_vector(v(-181.6, -11.7)),
+            FacingDirection::Left
+        );
+        // Petit vecteur : direction par défaut.
+        assert_eq!(
+            FacingDirection::from_fixed_vector(v(0.0, 0.0)),
+            FacingDirection::default()
+        );
     }
 }

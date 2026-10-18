@@ -1,0 +1,8 @@
+// m2-salles-murs-suivi : `wall_art.layer` n'existe dans aucune carte (seule `LevelConnection` est une couche IntGrid) → BrokenReference.
+(
+    widgets: [
+        (kind: Text(source: "health", prefix: None), anchor: TopLeft, offset: (0.0, 0.0), size: None,
+         color: None, font_size: None),
+    ],
+    wall_art: Some((layer: "Murs", atlas: "sprites/murs.png")),
+)

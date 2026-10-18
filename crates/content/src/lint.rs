@@ -2192,6 +2192,48 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
     }
+    // Murs dessinés (`wall_art`) : la feuille de tuiles existe.
+    let files = match registry.embedded_files {
+        Some(files) => crate::files::ContentFiles::embedded(files),
+        None => crate::files::ContentFiles::native(GameManifest::assets_dir(&registry.game_dir)),
+    };
+    for art in &registry.hud_wall_art {
+        let rel = &art.file;
+        if art.tile == Some(0) || art.columns == Some(0) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: rel.display().to_string(),
+                message: "hud : wall_art : `tile` et `columns` doivent être strictement positifs"
+                    .into(),
+            });
+        }
+        if !files.contains(&art.atlas) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: rel.display().to_string(),
+                message: format!("hud : wall_art : feuille « {} » absente", art.atlas),
+            });
+        }
+        // La couche dessinée existe (IntGrid) dans au moins un niveau d'une carte du jeu ; sans carte lisible,
+        // rien à comparer.
+        let mut levels = registry
+            .maps
+            .values()
+            .flat_map(|map| map.levels.iter())
+            .peekable();
+        if levels.peek().is_some()
+            && !levels.any(|level| level.int_grid_layers.contains(&art.layer))
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: rel.display().to_string(),
+                message: format!(
+                    "hud : wall_art : couche IntGrid « {} » absente de toutes les cartes",
+                    art.layer
+                ),
+            });
+        }
+    }
     // Légende : chaque sprite cité existe dans la table des feuilles (si le jeu en déclare une).
     if registry.sprite_sheets.is_empty() {
         return;

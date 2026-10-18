@@ -4,18 +4,22 @@
 // tire sur le `gatling` à trois phases (éventail, spirale, rage finale avec un `bullet_kin` en renfort), le tue :
 // la salle se rouvre, l'étage est vidé, victoire.
 //
-// À regarder : le bot avance de salle en salle en tirant à distance ; salle de combat nettoyée f182,
-// entrée salle du boss f256 (verrouillage) ; le boss change de phase deux fois (moments clés
-// `boss_phase`, f367 et f451), un renfort apparaît à la dernière ; écran de victoire f471.
+// À regarder : le bot avance de salle en salle en tirant à distance ; salle de combat nettoyée f225,
+// entrée salle du boss f319 (verrouillage) ; le boss change de phase deux fois (moments clés
+// `boss_phase`, f440 et f514), un renfort apparaît à la dernière ; écran de victoire f534.
 // Bot `explorateur` sur le gungeon rééquilibré de M2-T14d (D64) : mêmes attentes que le `fonceur`,
 // recalées sur la partie jouée.
 //
+// Re-chronométrage (gabarits agrandis, §40 : salles de 12x10 à 22x16, zoom, politique `games/gungeon/assets/bot.ron`) : tout est décalé d'environ 60 frames.
+//
 // M2-T19 (feedback v2, conventions §55) : le gatling montre les 5 rayons de son éventail avant de
-// tirer (f269), et sa mort (f471) gèle le rendu, zoome sur lui et flashe (moment clé `feedback`
+// tirer (f332), et sa mort (f534) gèle le rendu, zoome sur lui et flashe (moment clé `feedback`
 // « fin de boss 31 »). Présentation seule : trace inchangée.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    // Politique de l'explorateur de gungeon (`games/gungeon/assets/bot.ron`, §79) : détour borné, élan anticipé, patience, armes selon la réserve.
+    explorer: Some((detour: (optional: Some(600), last_stretch: Some(200)), lead: true, oscillation: Patience, weapon_reserve: true)),
     // D59 : la partie du manifeste de gungeon est maintenant `etages_deux` ; ce scénario joue l'étage squelette.
     floors: Some("etage_1"),
     frames: 600,
@@ -24,17 +28,17 @@ Scenario(
     ],
     expect: [
         RoomState(kind: "combat", state: Cleared, at_frame: 250),
-        RoomState(kind: "boss", state: Locked, at_frame: 270),
-        // Trois phases : sous 50 % de santé (f367), puis sous 10 % (f451, le renfort apparaît).
-        BossPhase(entity: NetId(31), phase: 1, at_frame: 380),
-        BossPhase(entity: NetId(31), phase: 2, at_frame: 460),
-        EntityCount(kind: Enemy, min: 2, max: 2, at_frame: 460),
-        // Le boss meurt (f470) avec son renfort : la salle se rouvre, victoire (`victory_at_end`).
-        RoomState(kind: "boss", state: Cleared, at_frame: 480),
-        EntityCount(kind: Enemy, max: Some(0), at_frame: 480),
-        RunState(step: Ended(Victory), at_frame: 490),
+        RoomState(kind: "boss", state: Locked, at_frame: 330),
+        // Trois phases : sous 50 % de santé (f440), puis sous 10 % (f514, le renfort apparaît).
+        BossPhase(entity: NetId(31), phase: 1, at_frame: 450),
+        BossPhase(entity: NetId(31), phase: 2, at_frame: 520),
+        EntityCount(kind: Enemy, min: 2, max: 2, at_frame: 520),
+        // Le boss meurt (f534) avec son renfort : la salle se rouvre, victoire (`victory_at_end`).
+        RoomState(kind: "boss", state: Cleared, at_frame: 545),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 545),
+        RunState(step: Ended(Victory), at_frame: 555),
         PlayerAlive(handle: 0, at_frame: 599),
-        Event(kind: "feedback", label_contains: Some("télégraphe fan 31 (5 rayons)"), by_frame: 280),
-        Event(kind: "feedback", label_contains: Some("fin de boss 31"), by_frame: 480),
+        Event(kind: "feedback", label_contains: Some("télégraphe fan 31 (5 rayons)"), by_frame: 340),
+        Event(kind: "feedback", label_contains: Some("fin de boss 31"), by_frame: 545),
     ],
 )

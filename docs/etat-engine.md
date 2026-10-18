@@ -67,6 +67,14 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
    2,7× sur la sauvegarde (1,28 → 0,47 ms) ; `game::core::single_threaded_rollback_schedules`
    les passe en monothread dans le jeu comme dans les scénarios (`ALACOD_EXECUTOR=multi` pour
    comparer).
+
+   **Poste VPS Debian 8 cœurs, 2026-10-17/18 (M3-T15, `rapports/m3-t15-bench-larmes.md`, pire de trois relevés peu chargés, ms par
+   frame simulée)** : bench_bullets_room 3,02 / 2,16 / 2,21, rollback 28,7 ; bench_horde 3,63 / 2,68 / 3,66, 46,6 ; four_players_idle
+   1,53 / 1,05 / 0,61, 8,4 ; **p2p_smoke 1,77 / 1,15 / 1,25, 16,2** (contre 7,06 et 85,1 sur le M4 : la dette D70 ne se voit plus) ;
+   **bench_tears (4 joueurs × 10 objets dont `Split` ×2, 432 balles, 506 entités) 4,46 / 3,57 / 4,39, rollback 56,3, snapshot 218 KiB**
+   (D97). Sur ce poste la sauvegarde et la restauration coûtent 3 à 8 fois leur valeur du M4 alors que la simulation légère n'en
+   coûte que 2 à 6 : à ce poste le coût des snapshots n'est plus négligeable devant la simulation en scénario léger (D98 : le
+   poste explique-t-il tout ?).
 2. **La frontière simulation/présentation est prouvée par la compilation pour 13 crates,
    en dette pour 2.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
    et CI) : `cargo tree` du crate seul sans crate de présentation, puis `cargo check
@@ -80,8 +88,8 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
 3. **La partie en ligne n'a pas de politique de session** (dette, pas prioritaire : décision du
    2026-10-15). Une déconnexion termine la partie
    pour tout le monde (overlay et sortie du processus) alors que GGRS continue sans le pair
-   parti ; pas de spectateur (`PlayerType::Spectator` n'est jamais ajouté au builder), pas de
-   réglage de `disconnect_timeout`, flux allumette bloquant sur le thread principal avec
+   parti ; pas de spectateur (`PlayerType::Spectator` n'est jamais ajouté au builder), `disconnect_timeout` réglé à 5 s depuis D87 (2026-10-18, le défaut de GGRS
+   étant 2 s), flux allumette bloquant sur le thread principal avec
    `process::exit`. Pour une coop à 4, décider : continuer à 3, ou fin de partie ; le code fait
    aujourd'hui le choix le plus brutal par défaut.
 
@@ -90,7 +98,7 @@ sur orca, 4 h sur le runner) et son coût fixe par frame domine (synctest ×2, c
 invariants) ; la boucle gungeon n'était rejouée qu'en synctest (D59, D62 : objets sans source) ; depuis
 m2-p2p-run-complete (2026-10-16) elle l'est en p2p réel sur une machine : 2 clients de l'entrée à la victoire (f7138) puis
 restart, 4 clients jusqu'après la transition d'étage (4 500 frames, sans fin de run), transition d'étage avec rollbacks réels,
-réseau dégradé 120 ms / 20 ms / 1 %, le tout **sans le hub** pour les runs à bots (D85) ; pas encore entre deux machines ; les dettes de jouabilité zombies tranchées le 10-14
+réseau dégradé 120 ms / 20 ms / 1 %, le tout **sans le hub** pour les runs à bots (D85) ; et entre deux machines x86-64 / arm64 le 2026-10-18 (`m2-p2p-deux-machines` : traces identiques, D73 confirmée fausse alerte) ; les dettes de jouabilité zombies tranchées le 10-14
 (D28, D29) changeront les traces `test_map` ; le `rust-toolchain` nightly n'est pas épinglé par
 date (stabilité des hash entre machines, §5 du contrat de sortie).
 
@@ -110,6 +118,10 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 3. **P2P intégré.** Au moins une run complète à deux, puis quatre joueurs lorsque le clone les
    supporte, avec combat, choix/objets, boss, transitions et restart. Inclure deux machines distinctes.
    Garder des inputs actifs : le smoke de 600 frames à inputs neutres ne valide pas cette boucle.
+   *Deux machines faites le 2026-10-18* (`docs/taches/rapports/m2-p2p-deux-machines.md`, essais sur `7ee084e8`, reprise sur le commit livré au §3.4) : VPS x86-64 contre Mac arm64 (M1 Pro), signaling
+   `matchbox_server` sur le VPS (l'ancien nom `allumette.bascanada.org` ne résout plus ; le défaut du Makefile est `allumette.estran.studio`, non utilisé pour ces essais), gungeon graine 10 avec étage franchi f3502,
+   isaac avec étage franchi f2922 (inputs figés de bots, 4 500 frames, rollbacks réels des deux côtés) et 4 clients (2 par machine, étage
+   f3369, 4 000 frames) : traces identiques, 0 `DesyncDetected`. Portée : deux machines : jusqu'au franchissement d'étage ; boss, victoire et restart sur une machine seulement. Reste de ce point : la revue humaine (point 7).
 4. **Réseau dégradé.** Mesurer et documenter les conditions, puis tester retard, jitter et pertes.
    Matrice de départ proposée : RTT 60/120/200 ms, jitter 0/20 ms, pertes 0/1/3 %, séparément puis
    quelques combinaisons représentatives. Mesurer stalls, profondeur/fréquence des rollbacks et
@@ -126,17 +138,25 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 
    Profondeur maximale mesurée 11 sur neuf exécutions, jamais 12 (fenêtre de prédiction 12). Profondeur = frames resimulées = dernière frame avancée − frame restaurée (corrigée à la revue 2 : une première
    version la déduisait des clés de trace et la surestimait). Trois exécutions par condition (rapport de la dette, §4) : médiane stable, maximum de la condition « naturelle » et fréquence sous netem variables.
-   Pas encore mesurés : matrice RTT 60/200 ms et pertes 3 % (D87), vrai WAN.
+   *D87 mesurée le 2026-10-18* (rapport `m2-p2p-deux-machines` §5 ; 2 clients, gungeon graine 10, 31 essais, netem sans root, une machine partagée) :
+   la perte de paquets donne des silences du pair de 0,5 à 1 s, de 1,0 à 1,5 s et de 3,0 à 3,4 s (compatibles avec une retransmission rapide, une
+   retransmission SCTP après `RTO_MIN` = 1 s, puis une seconde ; [INFERENCE], rien n'instrumente SCTP) ; GGRS déconnectait à 2 s : à 3 % de perte par sens (RTT 120 et 200 ms) 4 essais sur 8 perdaient la session en cours de partie ; réglage
+   porté à **5 s** (`p2p::DISCONNECT_TIMEOUT`) : 1 essai sur 7 ; à 1 % de perte (RTT 120 ms) 0 perte de session sur 7 essais, tous réglages
+   confondus. Un canal non fiable n'y change rien. Pas mesurés : RTT 60 ms, jitter nul avec perte, pertes en rafale, un WAN autre que VPS ↔ Mac (RTT 27 à 41 ms, Mac derrière un NAT).
 5. **Plateformes.** Pour chaque combinaison annoncée (natif, navigateur, architectures différentes),
    comparer une même partie et ses états confirmés. Le fixed-point seul ne prouve pas la compatibilité
    des builds ni la stabilité des fonctions de hash entre plateformes/toolchains.
+   *x86-64 contre arm64 fait le 2026-10-18* (point 3 ci-dessus) : Linux x86-64 (`rustc` 1.101.0-nightly du 2026-10-17, édition de liens statique)
+   contre macOS arm64 (`rustc` 1.96.0-nightly du 2026-03-26, Bevy en bibliothèque dynamique) : mêmes traces, ligne à ligne, sur 9 parties (20 clients).
+   Natif seulement : le navigateur (wasm) n'est pas couvert.
 6. **Performance.** Sur une machine cible nommée et au calme, publier simulation, sauvegarde et
    restauration des snapshots, mémoire et coût des ticks avec resimulation. À 60 Hz, un tick dispose
    de 16,7 ms ; réserver une marge pour rejouer les frames prédites. Mesurer percentiles et pics sur
    horde, bullet hell, étage complet, explosions en chaîne et transitions. Les valeurs du harness
    headless/synctest sont des indicateurs de régression, pas une mesure directe du budget de production.
 7. **Humain.** Jouer en coop, vérifier esquive/visée, lisibilité des dangers et du HUD, progression et
-   redémarrage. Consigner les problèmes observés avant de déclarer le jalon terminé.
+   redémarrage. Consigner les problèmes observés avant de déclarer le jalon terminé. Commandes et touches
+   pour jouer à gungeon (solo, deux joueurs locaux, en ligne à deux) : [`docs/jouer.md`](jouer.md).
 
 ## Ordre recommandé après cette branche
 

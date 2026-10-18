@@ -497,26 +497,106 @@ pub struct ExplorerPolicy {
     /// Ordre et conditions d'achat en douilles (présentoirs).
     #[serde(default)]
     pub shop: ShopOrder,
-    /// Ramasse les tas de sous au sol (`ShellPickup`) dont le chemin coûte au plus `n` (10 par case de 8 px en
-    /// ligne droite) : ils ne valent pas un détour d'un bout à l'autre de l'étage. `None` : seulement ceux qu'il
-    /// croise.
+    /// Limites de détour (coût de chemin : 10 par case de 8 px en ligne droite) : un but facultatif plus coûteux n'est pas
+    /// un but (voir [`Detour`]). Défaut : aucune limite.
     #[serde(default)]
-    pub shells: Option<u32>,
+    pub detour: Detour,
+    /// Anticipe l'élan transverse (`bots::explorer::lead`, D82) : une touche n'agit qu'après le délai d'input (5 frames)
+    /// et le personnage garde son élan ; sans cette correction le bot déborde de ±8 px devant une ouverture de 32 px et
+    /// tourne en cycle limite (graines 51 et 182 de `etages_deux`).
+    #[serde(default)]
+    pub lead: bool,
+    /// Armes selon leur réserve : ne pas acheter ni ramasser une arme dont le type de munition n'a aucune réserve (elle
+    /// remplacerait l'arme de départ et le bot resterait sans tir), ramasser l'arme de départ lâchée quand plus aucune arme
+    /// portée n'a de réserve (« à sec ») même sous la menace.
+    #[serde(default)]
+    pub weapon_reserve: bool,
     /// Marché du diable : présentoirs payés en vie maximale (`Shelf::cost`).
     #[serde(default)]
     pub devil: DevilPolicy,
     /// Bombes : mur secret, rochers.
     #[serde(default)]
     pub bombs: BombPolicy,
-    /// Anti-jitter : quand le bot veut avancer mais tourne sur place (douze unités pendant quarante frames : deux buts ou
-    /// deux routes de coût presque égal, l'input arrive avec son délai), il s'attache à son but du moment et tient son
-    /// prochain point de passage (soixante frames au plus). Faux par défaut : les autres jeux ne changent pas.
+    /// Anti-oscillation (une seule stratégie par jeu, voir [`Oscillation`]). Défaut : aucune, les autres jeux ne changent pas.
     #[serde(default)]
-    pub anti_jitter: bool,
+    pub oscillation: Oscillation,
     /// Lecture du combat : fuit toute bombe allumée (la sienne ou celle d'un champion explosif), approche d'un ennemi quand
     /// ses larmes tournent autour de lui (`Orbit`). Faux par défaut : les autres jeux ne changent pas.
     #[serde(default)]
     pub combat_aware: bool,
+}
+
+/// Stratégie anti-oscillation de l'`explorateur` : **un seul mécanisme** (`bots::explorer::ExplorerJitter`, mémoire hors
+/// rollback du bot), deux manières de s'en servir selon la cause du balancement, l'une excluant l'autre. Les deux ont été
+/// essayées l'une pour l'autre : chacune bouge des traces de l'autre jeu (gungeon : `gungeon_full_run*`, isaac :
+/// `bot_isaac_floor`, `bot_isaac_two`), voir `docs/conventions.md` §79.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Oscillation {
+    /// Aucune (défaut : les parties d'avant ne changent pas).
+    #[default]
+    Off,
+    /// Hystérésis des buts (M3-T14) : quand le bot veut avancer mais tourne sur place (douze unités pendant quarante frames :
+    /// deux buts ou deux routes de coût presque égal, l'input arrive avec son délai), il s'attache à son but du moment et
+    /// tient son prochain point de passage (soixante frames au plus) ; blocages de combat, poursuites sans fin et réanimation
+    /// à portée suivent le même régime.
+    Hysteresis,
+    /// Patience (m2-salles-murs-gungeon, D82) : le pilotage touche par touche peut tourner en cycle limite devant une ouverture
+    /// de 32 px quel que soit le gain de correction ; un bot resté 100 frames à moins de 40 de son ancre sans ennemi ni butin
+    /// s'arrête (15 frames) puis file droit (45 frames), en boucle.
+    Patience,
+}
+
+impl ExplorerPolicy {
+    /// Stratégie [`Oscillation::Hysteresis`] active.
+    pub fn hysteresis(&self) -> bool {
+        self.oscillation == Oscillation::Hysteresis
+    }
+
+    /// Stratégie [`Oscillation::Patience`] active.
+    pub fn patient(&self) -> bool {
+        self.oscillation == Oscillation::Patience
+    }
+
+    /// La part de la politique que jouent les scénarios **générés** (`alacod-gen`, gabarits de salle et de boss) : le
+    /// déplacement, le détour des objets, le ramassage des armes, la lecture du combat ; ni achat, ni sous, ni diable, ni
+    /// bombe (un gabarit teste une salle, pas l'économie ni les explosifs : les scénarios d'avant ne les jouaient pas).
+    pub fn scene(&self) -> Self {
+        Self {
+            shopping: false,
+            shop: ShopOrder::default(),
+            detour: Detour {
+                shells: None,
+                ..self.detour
+            },
+            devil: DevilPolicy::default(),
+            bombs: BombPolicy {
+                secret: false,
+                rocks: false,
+                ..BombPolicy::default()
+            },
+            ..*self
+        }
+    }
+}
+
+/// Limites de détour de l'`explorateur` (coût de chemin : 10 par case orthogonale de 8 px). Une **seule** règle, trois
+/// bornes selon le but : un but facultatif plus coûteux que sa borne n'est pas un but (il le redevient quand le bot passe
+/// à côté). `None` : pas de borne.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct Detour {
+    /// Tas de sous au sol (`ShellPickup`, M3-T14, `isaac` : 400, une quarantaine de cases) : ils ne valent pas un détour
+    /// d'un bout à l'autre de l'étage. `None` : seulement ceux qu'il croise.
+    #[serde(default)]
+    pub shells: Option<u32>,
+    /// Objets, coffres, présentoirs et salles sans verrou (récompense, boutique) tant qu'il reste une salle de combat
+    /// (m2-salles-murs-gungeon, `gungeon` : 600, soixante cases) : dans des salles agrandies un étage mesure plus de
+    /// 2 000 px et le soft-lock `Floors` tombe à 1 200 frames sans dégât, à courir d'un objet lointain à l'autre.
+    #[serde(default)]
+    pub optional: Option<u32>,
+    /// Même borne quand plus aucune salle de combat ne reste (le boss et d'éventuels détours ; `gungeon` : 200) :
+    /// `None` reprend `optional`.
+    #[serde(default)]
+    pub last_stretch: Option<u32>,
 }
 
 /// Ordre des achats en douilles de l'`explorateur`.

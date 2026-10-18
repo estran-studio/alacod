@@ -49,6 +49,11 @@ pub struct FloorGrammar {
     /// planificateur en arbre d'aujourd'hui.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<FloorLayout>,
+    /// m2-salles-murs-gungeon (§40) : étendue maximale du monde de l'étage en pixels, de part et d'autre
+    /// du départ (largeur, hauteur). Absent : celle de la configuration de la carte (1000 × 1000). Des
+    /// gabarits plus grands remplissent plus vite cette boîte : une grammaire de gabarits agrandis la relève.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<(i32, i32)>,
 }
 
 /// Disposition d'un étage assemblé (M3-T0c, `docs/conventions.md` §62 ; planificateur : M3-T5, §70).
@@ -178,6 +183,11 @@ impl FloorGrammar {
     pub fn problems(&self) -> Vec<String> {
         let (min, max) = self.rooms;
         let mut out = Vec::new();
+        if let Some((w, h)) = self.bounds {
+            if w <= 0 || h <= 0 {
+                out.push(format!("bounds = ({w}, {h}) : étendue positive requise"));
+            }
+        }
         if min > max {
             out.push(format!(
                 "rooms = ({min}, {max}) : minimum supérieur au maximum"
@@ -291,6 +301,7 @@ mod tests {
             filler: "combat".into(),
             min_boss_distance: 3,
             max_attempts: 64,
+            bounds: None,
             layout: Some(FloorLayout::Grid {
                 cell: (15, 9),
                 max: (7, 7),
@@ -369,5 +380,19 @@ mod tests {
         graph.layout = None;
         graph.required.insert("combat".into(), 1);
         assert!(!has(&graph, "type de remplissage"));
+    }
+
+    /// m2-salles-murs-gungeon : l'étendue du monde est positive (absente : celle de la configuration).
+    #[test]
+    fn l_etendue_du_monde_est_positive() {
+        let mut g = grid("secrete", None);
+        assert_eq!(g.bounds, None);
+        assert!(!g.problems().iter().any(|p| p.contains("bounds")));
+        g.bounds = Some((3000, 3000));
+        assert!(!g.problems().iter().any(|p| p.contains("bounds")));
+        for bad in [(0, 3000), (3000, -1)] {
+            g.bounds = Some(bad);
+            assert!(g.problems().iter().any(|p| p.contains("bounds")), "{bad:?}");
+        }
     }
 }

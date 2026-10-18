@@ -171,6 +171,7 @@
     - sprites/lisible/atlas_portail.png
     - sprites/lisible/atlas_porte_v.png
     - sprites/lisible/atlas_porte_h.png
+    - sprites/lisible/atlas_murs.png
     - sprites/lisible/bullet_enemy.png
     - sprites/lisible/bullet_player.png
   source: scripts/generer-sprites-gungeon.py (images dessinées par primitives dans le script, sans

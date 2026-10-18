@@ -56,6 +56,19 @@ pub struct HudFileSchema {
     /// cité existe dans la table `SpriteSheet` du jeu.
     #[serde(default)]
     pub legend: Vec<LegendGroupSchema>,
+    /// Dessin des murs (`game::ui::hud::WallArt`, §83) : le lint vérifie que la feuille existe.
+    #[serde(default)]
+    pub wall_art: Option<WallArtSchema>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WallArtSchema {
+    pub layer: String,
+    pub atlas: String,
+    #[serde(default)]
+    pub tile: Option<u32>,
+    #[serde(default)]
+    pub columns: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -4,6 +4,8 @@
 // `bullet_kin` (esquive et blanks), file au boss, tue le `gatling`, prend le portail ouvert.
 // Aucune entrée scriptée : remplace à terme l'atteinte scriptée du boss de `gungeon_floor_seed_*`.
 //
+// Gabarits agrandis (§40 : salles de 12x10 à 22x16, zoom, politique `games/gungeon/assets/bot.ron`) : la run est plus longue ; combat verrouillée f85, nettoyée f272, boss verrouillée f367, phases f519 et f579, boss mort f598, portail ouvert f599, franchi f847 (étage 1), `frames` 760 -> 900, `FloorIndex(1)` et `PlayerAlive` à f899.
+//
 // À regarder : la salle de combat se verrouille vers f59 puis se rouvre ; la salle du boss se
 // verrouille ; le boss (trois phases depuis M2-T7) passe en phase 1 f431 et 2 f493, meurt f553, le portail
 // s'ouvre f554 et le bot le franchit f706 (étage 1 ; f499, f563, f621, f622 et f738 avant M2-T14d, D64 : `bullet_kin` à 30 PV, §52.d). Arrêt à f760 : affaibli par le boss, le bot meurt ensuite
@@ -11,9 +13,11 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    // Politique de l'explorateur de gungeon (`games/gungeon/assets/bot.ron`, §79) : détour borné, élan anticipé, patience, armes selon la réserve.
+    explorer: Some((detour: (optional: Some(600), last_stretch: Some(200)), lead: true, oscillation: Patience, weapon_reserve: true)),
     floors: Some("etages_court_deux"),
     map_seed: 1,
-    frames: 760,
+    frames: 900,
     players: [
         (bot: explorateur),
     ],
@@ -25,7 +29,7 @@ Scenario(
         RoomState(kind: "boss", nth: 1, state: Locked, at_frame: 500),
         RoomState(kind: "boss", nth: 1, state: Cleared, at_frame: 700),
         FloorIndex(index: 0, at_frame: 650),
-        FloorIndex(index: 1, at_frame: 759),
-        PlayerAlive(handle: 0, at_frame: 759),
+        FloorIndex(index: 1, at_frame: 899),
+        PlayerAlive(handle: 0, at_frame: 899),
     ],
 )

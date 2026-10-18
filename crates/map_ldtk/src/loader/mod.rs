@@ -177,8 +177,13 @@ pub fn resolve_map_config(
         } else {
             base.seed
         },
-        max_width: base.max_width,
-        max_heigth: base.max_heigth,
+        // m2-salles-murs-gungeon : une grammaire de gabarits agrandis relève l'étendue du monde de l'étage.
+        max_width: floor
+            .and_then(|f| f.grammar.bounds)
+            .map_or(base.max_width, |(w, _)| w),
+        max_heigth: floor
+            .and_then(|f| f.grammar.bounds)
+            .map_or(base.max_heigth, |(_, h)| h),
         max_room: base.max_room,
         mode: match (&cave, floor) {
             (Some((_, c)), _) => MapGenerationMode::Cave(c.config.clone()),

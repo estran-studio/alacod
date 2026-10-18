@@ -1,0 +1,31 @@
+// m2-salles-murs-suivi (revue de m2-salles-murs-gungeon, réserve 1) : le critère de sortie M2 « coffre à clé
+// ouvert, clé consommée » en `game: "gungeon"`. La run de bots (`gungeon_full_run*`) n'en atteste plus : depuis la
+// limite de détour du bot `explorateur`, la salle de récompense et son coffre verrouillé sont écartés et la clé
+// ramassée n'est jamais consommée. Ce scénario scripte la même mécanique : un coffre verrouillé au pied du
+// joueur, une clé posée à f5 et ramassée au contact, l'Interaction de f10 ouvre le coffre et consomme la clé,
+// celle de f40 ramasse l'objet sorti (`bastion`, tirage du coffre `c`).
+//
+// À regarder : f5 la clé est ramassée (Consumable key 1 à f8), f10-15 le coffre s'ouvre (clé 0, moment clé
+// « chest »), f45 l'objet du coffre est ramassé.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    room_reward_chance_override: "0.0",
+    game: "gungeon",
+    floors: Some("etage_1"),
+    frames: 120,
+    chests: [(key: "c", locked: true, x: "88.0", y: "-120.0", at_frame: 2)],
+    items: [(id: "key", x: "88.0", y: "-120.0", at_frame: 5)],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "bastion", count: 0, at_frame: 20),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 8),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 20),
+        Event(kind: "chest", label_contains: "joueur 0 ouvre le coffre c", by_frame: 16),
+        ItemCount(handle: 0, id: "bastion", count: 1, at_frame: 100),
+    ],
+)
