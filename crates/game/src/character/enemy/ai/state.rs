@@ -348,7 +348,7 @@ impl EnemyAiConfig {
 }
 
 /// RON configuration for enemy AI (for data-driven setup)
-#[derive(Clone, Debug, Serialize, Deserialize, Asset, TypePath)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EnemyAiConfigRon {
     pub movement_type: Option<MovementType>,
     pub aggro_range: Option<String>, // Fixed as string "300.0"

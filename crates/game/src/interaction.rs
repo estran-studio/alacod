@@ -29,7 +29,6 @@ use crate::{
     core::AppState,
     economy::{perk_modifier_source, PerkMachine, PointsCredit},
     frame_events::{FrameEvents, FrameEventsAppExt},
-    global_asset::GlobalAsset,
     rollback::RollbackTraceApp,
     system_set::RollbackSystemSet,
     weapons::{
@@ -679,7 +678,6 @@ pub fn handle_weapon_pickup_interaction(
     events: Res<FrameEvents<InteractionEvent>>,
     mut commands: Commands,
     character_configs: Res<Assets<CharacterConfig>>,
-    global_assets: Res<GlobalAsset>,
     balance: Res<crate::balance::ResolvedBalance>,
     mut pickup_query: Query<(&Weapon, &mut WeaponPickup), With<Rollback>>,
     mut inventory_query: Query<

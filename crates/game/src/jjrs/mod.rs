@@ -8,34 +8,11 @@ pub mod restart;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod allumette;
 
-use std::{default, net::SocketAddr};
+use bevy::prelude::*;
+use bevy_fixed::fixed_math;
+use bevy_ggrs::prelude::*;
 
-use animation::SpriteSheetConfig;
-use bevy::{
-    color::palettes::{
-        css::TURQUOISE,
-        tailwind::{ORANGE_300, PURPLE_300},
-    },
-    prelude::*,
-};
-use bevy_fixed::{fixed_math, rng::RollbackRng};
-use bevy_ggrs::{ggrs::PlayerType, prelude::*};
-use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
-use ggrs::UdpNonBlockingSocket;
-use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
-use utils::net_id::GgrsNetIdFactory;
-
-use crate::{
-    character::{
-        config::CharacterConfig,
-        enemy::spawning::EnemySpawnerState,
-        player::{create::create_player, jjrs::PeerConfig},
-    },
-    collider::{spawn_test_wall, CollisionSettings},
-    core::AppState,
-    global_asset::GlobalAsset,
-    weapons::WeaponsConfig,
-};
+use crate::{character::player::jjrs::PeerConfig, collider::spawn_test_wall};
 
 // Shared configuration between the client for the ggrs configuration
 // to apply to their game
