@@ -85,7 +85,15 @@ x86 : même défaite) ; il reste utile (inputs actifs, 11 093 frames resimulées
 
 ### 3.4 Sur le commit livré
 
-(à compléter à la livraison : §7.)
+Reprise sur le commit de la branche livrée (`4a1f1220` : code identique à la livraison, délai de déconnexion de 5 s par défaut, aucune variable d'essai), **des deux côtés** (worktree du Mac mis à ce commit, binaires reconstruits `gungeon` et `isaac`) ; signaling `matchbox_server` du VPS ; charge VPS 1,9 à 2,2, Mac 13,7 à 13,8 (2 clients) et 8,7 (4 clients).
+
+| Essai | Frames | Réglage | Resimulées | Empreinte `sha256` (identique chez tous) | Verdict |
+|---|---|---|---|---|---|
+| gungeon graine 10 | 4 500 | `STRESS=1 SUSPEND_MS=80 RUN_MS=40` du Mac, `MIN_RESIMULATED=1` | VPS 80 / Mac 12 396 | `0b094c2dfd2c1905…a9018aa` | **OK**, étage f3502 |
+| isaac graine 123456 | 4 500 | `STRESS=1 SUSPEND_MS=120 RUN_MS=30` du Mac, `MIN_RESIMULATED=1` | VPS 740 / Mac 1 936 | `a0f0e1d2265e4a9f…49b1` | **OK**, étage f2922 |
+| gungeon, 4 clients (VPS 0 et 1, Mac 2 et 3) | 4 000 | sans stress | 143 / 166 / 41 501 / 41 504 | `26f9c45771ee04551294810d1866efbe2ca525d5d7a298e8fb58e2ebce5826b8` | **OK**, étage f3369 |
+
+Les empreintes sont celles du §3.1 à §3.3 : le changement de délai de déconnexion ne touche pas la simulation.
 
 ## 4. Constats
 
@@ -202,7 +210,16 @@ Limites : échantillons de 2 à 6 essais par cellule, une exécution par essai, 
 
 ## 7. Vérification
 
-(à compléter à la livraison.)
+Sur l'arbre livré (`4a1f1220` plus les documents) :
+
+- `make test_scenarios_par SHARDS=3` sans BLESS : **649 scénarios, 3 tranches sur 3 vertes, 1 286 s**, aucun `.trace` modifié (`git status` propre hors documents). Une première passe (même code, commit `beecb129` posé pendant la
+  passe) a vu ses trois tranches vertes mais l'étape de fusion des métriques échouer, le nom du dossier de métriques ayant changé avec le commit : rejouée sans toucher à l'arbre.
+- `make test_crates` : **1 228 tests passés, 0 échec, 14 ignorés** (80 suites).
+- `make test_tools` : 25 tests, OK. `cargo fmt --all -- --check` : propre.
+- Fumée du changement de délai de déconnexion : `p2p-disconnect.sh` (SIGKILL du client 1 après 40 s, `disc2`) : survivant code 0, 4 499 lignes, 0 `DesyncDetected`, `NetworkInterrupted` puis `Disconnected` 4,56 s plus tard ; les trois essais du §3.4 sur le commit livré.
+- Relecture indépendante (deux relecteurs, code et chiffres) : 13 constats chiffres et textes, 8 sur les scripts ; corrigés : classement fin de partie / en cours de partie de `p2p-silences.py` et pairs multiples, variante `timeout2000`
+  de `p2p-d87.sh` (le défaut du jeu vaut maintenant 5 s), inférences SCTP marquées, D98 sur 24 démarrages, sources de stress, étage des essais, horloge de `disc2`, phrases d'état du dépôt.
+- Aucun test permanent ajouté : le seul changement de comportement est une constante de session (5 s) dont l'effet n'est observable que sur le réseau ; il est prouvé par les essais ci-dessus.
 
 ## 8. Limites
 
