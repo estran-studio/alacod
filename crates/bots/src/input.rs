@@ -654,7 +654,7 @@ pub fn read_bot_inputs(
             // l'arme de départ lâchée au sol est le seul moyen de blesser l'ennemi (graines 3, 4, 18).
             // Règles de ramassage propres à l'`explorateur` : les autres profils (throne, isaac, zombies)
             // gardent les leurs, leurs traces de scénario ne bougent pas.
-            let explorer_rules = profile == BotProfile::Explorateur;
+            let explorer_rules = profile == BotProfile::Explorateur && explorer_options.steady;
             if let (None, false, Some(collider), Some(rects)) = (
                 view.revive,
                 threat && !(dry && explorer_rules),
@@ -724,13 +724,17 @@ pub fn read_bot_inputs(
                 // Pas de présentoir d'arme sans réserve de son munition (voir
                 // `ExploreFrame::without_unusable_weapons`).
                 let unfiltered = frame_data;
-                let filtered = frame_data.without_unusable_weapons(|weapon| {
-                    weapons_config
-                        .and_then(|config| config.0.get(weapon))
-                        .is_none_or(|asset| {
-                            reserves.is_some_and(|r| r.get(&asset.config.ammo_type) > 0)
-                        })
-                });
+                let filtered = if explorer_options.steady {
+                    frame_data.without_unusable_weapons(|weapon| {
+                        weapons_config
+                            .and_then(|config| config.0.get(weapon))
+                            .is_none_or(|asset| {
+                                reserves.is_some_and(|r| r.get(&asset.config.ammo_type) > 0)
+                            })
+                    })
+                } else {
+                    None
+                };
                 let frame_data = filtered.as_ref().unwrap_or(unfiltered);
                 let mut explore = crate::explorer::ExploreView {
                     blank: crate::explorer::should_blank(&view, holder),
@@ -750,18 +754,22 @@ pub fn read_bot_inputs(
                         position,
                         view.portal.is_some(),
                         explorer_options.boss_direct,
+                        explorer_options.steady,
                         &surfaces,
                     ) {
                         explore.direction = Some(direction);
                         explore.interact = interact;
                     }
                 }
-                explore.patience = explorer.patience.phase(
-                    player.handle,
-                    frame.frame,
-                    position,
-                    explore.direction.is_some() && !explore.interact,
-                );
+                explore.steady = explorer_options.steady;
+                if explorer_options.steady {
+                    explore.patience = explorer.patience.phase(
+                        player.handle,
+                        frame.frame,
+                        position,
+                        explore.direction.is_some() && !explore.interact,
+                    );
+                }
                 view.explore = Some(explore);
             }
         }

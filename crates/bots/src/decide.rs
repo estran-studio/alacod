@@ -328,7 +328,7 @@ fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
     let direction = view.route.unwrap_or(portal - view.position);
     // `explorateur` seulement (`view.explore` n'existe que pour lui) : l'élan transverse est anticipé
     // (D82, `explorer::lead`) ; les autres profils gardent leur pilotage (leurs traces ne bougent pas).
-    let direction = if view.explore.is_some() {
+    let direction = if view.explore.is_some_and(|explore| explore.steady) {
         crate::explorer::lead(direction, view.velocity)
     } else {
         direction

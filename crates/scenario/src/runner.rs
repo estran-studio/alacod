@@ -435,6 +435,8 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(bots::explorer::ExplorerOptions {
             boss_direct: false,
             shopping: scenario.shopping,
+            // m2-salles-murs-gungeon : les décisions d'explorateur des salles agrandies ne valent que pour gungeon
+            steady: scenario.game == "gungeon",
         })
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {

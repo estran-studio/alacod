@@ -891,15 +891,7 @@ pub fn move_enemies(
             }
 
             // Update facing direction based on main velocity (not knockback)
-            // `length_squared` déborde (panique) au-delà de ~181 unités : un champion rapide (m2-salles-murs-gungeon,
-            // graine 54 de `etages_deux`, vitesse 182) ; la somme saturée donne le même résultat en deçà.
-            let main = velocity_component.main;
-            if main
-                .x
-                .saturating_mul(main.x)
-                .saturating_add(main.y.saturating_mul(main.y))
-                > fixed_math::new(0.01)
-            {
+            if velocity_component.main.length_squared() > fixed_math::new(0.01) {
                 *facing_direction = FacingDirection::from_fixed_vector(velocity_component.main);
             }
         }

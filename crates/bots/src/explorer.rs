@@ -148,6 +148,8 @@ pub struct ExploreView {
     pub blank: bool,
     /// Phase de patience (voir [`Patience`]).
     pub patience: Patience,
+    /// [`ExplorerOptions::steady`] : anticipation d'élan (`lead`) active.
+    pub steady: bool,
 }
 
 /// Réglages des `explorateur` (ressource ordinaire, hors rollback et hors simulation, posée avant
@@ -159,6 +161,10 @@ pub struct ExplorerOptions {
     /// D62 : ouvre les coffres et achète les présentoirs qu'il peut payer (`alacod-sim
     /// --shopping`). Faux par défaut : les traces des scénarios d'explorateur ne bougent pas.
     pub shopping: bool,
+    /// m2-salles-murs-gungeon : décisions d'`explorateur` ajoutées pour les salles agrandies de `gungeon`
+    /// (pas de détour lointain, pas d'arme sans réserve, anticipation d'élan, patience devant une ouverture,
+    /// ramassage à sec). Faux par défaut : les traces des scénarios d'explorateur des autres jeux ne bougent pas.
+    pub steady: bool,
 }
 
 /// Une salle verrouillante encore à visiter.
@@ -516,9 +522,12 @@ pub fn ordered_goals(
     holder: Holder,
     portal_open: bool,
     boss_direct: bool,
+    steady: bool,
 ) -> Vec<(GoalKey, Rect, Option<ItemGoal>)> {
     let mut goals: Vec<(GoalKey, Goal)> = Vec::new();
-    let detour = if frame.rooms.iter().any(|room| room.locking && !room.boss) {
+    let detour = if !steady {
+        u32::MAX
+    } else if frame.rooms.iter().any(|room| room.locking && !room.boss) {
         OPTIONAL_DETOUR
     } else {
         LAST_STRETCH_DETOUR
@@ -596,11 +605,12 @@ pub fn explore_step(
     position: FixedVec2,
     portal_open: bool,
     boss_direct: bool,
+    steady: bool,
     surfaces: &[(usize, Rect, Fixed, bool)],
 ) -> Option<(FixedVec2, bool)> {
     let goals = {
         let field = nav.costs_from(position)?;
-        ordered_goals(field, frame, holder, portal_open, boss_direct)
+        ordered_goals(field, frame, holder, portal_open, boss_direct, steady)
     };
     goals.into_iter().find_map(|(_, zone, item)| match item {
         Some(item) if item.surface => {
@@ -680,7 +690,12 @@ pub fn decide_explorer(view: &BotView) -> BoxInput {
             let mut input = BoxInput::default();
             match explore.patience {
                 Patience::Normal => {
-                    crate::decide::steer(&mut input, lead(direction, view.velocity));
+                    let direction = if explore.steady {
+                        lead(direction, view.velocity)
+                    } else {
+                        direction
+                    };
+                    crate::decide::steer(&mut input, direction);
                 }
                 Patience::Settle => {}
                 Patience::Go => crate::decide::steer(&mut input, straight(direction)),
@@ -764,7 +779,7 @@ mod tests {
             ],
             ..Default::default()
         };
-        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false, false);
         let ids: Vec<_> = goals.iter().map(|(k, ..)| k.3.clone()).collect();
         assert_eq!(
             ids,
@@ -775,7 +790,7 @@ mod tests {
             rooms: vec![room("z", 50.0, true)],
             ..Default::default()
         };
-        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false, false);
         assert_eq!(goals.len(), 1, "plus que le boss : il devient le but");
     }
 
@@ -799,7 +814,7 @@ mod tests {
                 rooms,
                 ..Default::default()
             };
-            let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+            let goals = ordered_goals(&field(), &frame, Holder::default(), false, false, false);
             assert_eq!(goals[0].0 .0, goals[1].0 .0, "même coût");
             assert_eq!(goals[0].0 .3, "a");
         }
@@ -817,10 +832,10 @@ mod tests {
             }],
             ..Default::default()
         };
-        let goals = ordered_goals(&field(), &frame, Holder::default(), false, true);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, true, false);
         assert_eq!(goals.len(), 1);
         assert_eq!(goals[0].0 .3, "z", "boss direct : seulement le boss");
-        let goals = ordered_goals(&field(), &frame, Holder::default(), true, false);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), true, false, false);
         assert_eq!(goals.len(), 1, "portail ouvert : seulement les objets");
         assert_eq!(goals[0].2.map(|i| i.net_id), Some(7));
     }
@@ -840,9 +855,9 @@ mod tests {
             has_active: true,
             ..Default::default()
         };
-        assert!(ordered_goals(&field(), &frame, holding, false, false).is_empty());
+        assert!(ordered_goals(&field(), &frame, holding, false, false, false).is_empty());
         assert_eq!(
-            ordered_goals(&field(), &frame, Holder::default(), false, false).len(),
+            ordered_goals(&field(), &frame, Holder::default(), false, false, false).len(),
             1
         );
     }
@@ -865,7 +880,7 @@ mod tests {
             items: vec![item(1, 800.0), item(2, 80.0)],
             ..Default::default()
         };
-        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false, true);
         let ids: Vec<_> = goals.iter().map(|(k, ..)| (k.1, k.2)).collect();
         assert_eq!(ids, vec![(0, 2), (1, 0)], "objet proche puis boss");
         // Même règle quand il reste des salles de combat, et après la mort du boss (portail).
@@ -874,9 +889,9 @@ mod tests {
             items: vec![item(1, 800.0), item(2, 80.0)],
             ..Default::default()
         };
-        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false, true);
         assert_eq!(goals.len(), 2, "l'objet proche et la salle");
-        let goals = ordered_goals(&field(), &frame, Holder::default(), true, false);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), true, false, true);
         assert_eq!(goals.len(), 1, "portail ouvert : l'objet proche seulement");
     }
 
@@ -888,13 +903,13 @@ mod tests {
             items: vec![item(1, 250.0)],
             ..Default::default()
         };
-        let goals = ordered_goals(&field(), &with_fight, Holder::default(), false, false);
+        let goals = ordered_goals(&field(), &with_fight, Holder::default(), false, false, true);
         assert_eq!(goals.len(), 2, "l'objet et la salle de combat");
         let boss_only = ExploreFrame {
             rooms: vec![room("z", 1000.0, true)],
             ..with_fight
         };
-        let goals = ordered_goals(&field(), &boss_only, Holder::default(), false, false);
+        let goals = ordered_goals(&field(), &boss_only, Holder::default(), false, false, true);
         assert_eq!(goals.len(), 1, "le boss seul");
     }
 
@@ -914,7 +929,7 @@ mod tests {
             ],
             ..Default::default()
         };
-        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false, true);
         let ids: Vec<_> = goals.iter().map(|(k, ..)| k.3.clone()).collect();
         assert_eq!(ids, vec!["pres", "combat"]);
         // Plus qu'une salle sans verrou lointaine et le boss : le boss est le but.
@@ -922,7 +937,7 @@ mod tests {
             rooms: vec![passive("loin", 900.0), room("z", 600.0, true)],
             ..Default::default()
         };
-        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false, true);
         let ids: Vec<_> = goals.iter().map(|(k, ..)| k.3.clone()).collect();
         assert_eq!(ids, vec!["z"]);
     }
