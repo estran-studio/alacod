@@ -4426,7 +4426,7 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   `ALACOD_CONNECT_TIMEOUT_SECS` (15 s, horloge murale), revient au lobby (`ggrs{f=0 lobby_room_full … action=lobby}`, « back to the lobby ») en tenant les admis pour occupés
   (`PreviousSessionPeers`) : sans cela son socket neuf les reverrait et le classerait parmi les admis d'une session que personne n'écoute (constaté : 1 essai sur 2 au premier jet).
   Un pair vu par le signaling et pas encore connecté retarde l'admission d'au plus `ADMISSION_SETTLE_SECS` (3 s) : sans cette attente, deux clients qui ne voient pas le même ensemble
-  choisissent des admis différents ; elle est bornée pour qu'un pair à moitié connecté qui ne finit jamais (D109) ne bloque pas les pairs connectés. **Limite assumée** : pas de protocole d'engagement entre pairs.
+  choisissent des admis différents ; elle est bornée pour qu'un pair à moitié connecté qui ne finit jamais (D109) ne bloque pas les pairs connectés. **Limite assumée** : pas de protocole d'engagement entre pairs (une course sur 24 essais depuis la correction du premier jet : un client a démarré avant que le signaling lui annonce le troisième).
   Un pair qui arrive après le démarrage des autres voit trois pairs et se classe parmi les admis si son identifiant est bas : sa session ne se synchronise jamais et `abandon_unsynchronized_session`
   le ramène au lobby au bout de `SYNC_TIMEOUT_SECS` (30 s) ; même cas par construction avec allumette et le web (non essayés). Session seulement : aucune trace de scénario ne bouge.
   Preuves : `p2p-admission.sh` (trois clients, deux places : les deux admis jouent 1 500 frames aux traces identiques, l'ignoré revient au lobby ; `GHOST=1` : deux clients et un fantôme à moitié

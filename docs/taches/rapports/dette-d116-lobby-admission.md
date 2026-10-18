@@ -8,7 +8,7 @@ Worker b0, 2026-10-18, branche `dette-d116-lobby-admission` (depuis `origin/main
 | Point demandé | État |
 |---|---|
 | Politique d'admission déterministe, identique chez tous les clients | **faite** : `jjrs::p2p::admit_players` garde les `max_player` premiers joueurs du socket (identifiants triés, ordre commun), les autres sont ignorés et prévenus (§2) |
-| Les admis jouent, traces identiques | **prouvé** : `scripts/p2p-admission.sh`, trois clients dans une salle à deux places, 17 essais verts sur 17 (§3) |
+| Les admis jouent, traces identiques | **prouvé** : `scripts/p2p-admission.sh`, trois clients dans une salle à deux places, 23 essais verts, dont 1 course perdue sur 24 depuis la correction du premier jet (§3) |
 | Le troisième retourne au lobby ou attend proprement | **fait** : ligne d'état « Room full », puis retour au lobby au délai de D109, en tenant les admis pour occupés (§2, §3) |
 | Réserve de validation : second délai complet `attempt=2/2` avec un pair resté visible | **fermée** : `scripts/p2p-connect-timeout.sh` avec `GHOST=1` (§4) |
 | Aucune trace ne bouge | **vérifié** : suite 802 scénarios sans BLESS, `git status` propre (§5) |
@@ -37,7 +37,8 @@ Vert si exactement un client est ignoré et revenu au lobby, les deux autres sor
 | Premier jet (sans `PreviousSessionPeers`, sans délai) | 1 essai perdu sur 2 : l'ignoré, revenu au lobby, est admis à une session sans pair (§2 point 3) |
 | Après correction, 6 essais | 6 verts, 0 perdu ; ignorés : clients 0, 2, 0, 0, 0, 1 ; traces des admis identiques (1 499 lignes), 0 `DesyncDetected` |
 | Avec `ADMISSION_SETTLE_SECS`, 5 essais | 5 verts, 0 perdu |
-| Build fusionné avec `5823c032`, 6 essais | 6 verts, 0 perdu (17 verts sur 17 au total hors premier jet) |
+| Build fusionné avec `5823c032`, 6 essais | 6 verts, 0 perdu |
+| Après la relecture (§7), 7 essais | 6 verts, **1 course perdue** (essai 6) : le client 2 a démarré avec le client 1 avant que le signaling lui annonce le troisième ; le client 1, qui voyait trois pairs, a choisi d'autres admis ; les deux sessions abandonnées par `session_peer_left` (limite du §2, pas de protocole d'engagement) ; total 23 verts, 1 course perdue sur 24 (hors premier jet) |
 | `GHOST=1` : deux clients et un fantôme à moitié connecté (`p2p-ghost-peer.mjs`) | les deux jouent 1 499 frames aux traces identiques, aucun `lobby_connect_timeout` (le fantôme ne les bloque pas) |
 
 Journal de l'ignoré (essai 6 du premier lot de six) :
@@ -79,3 +80,12 @@ Deux corrections hors périmètre, trouvées par ces portes (héritées de D109,
 - Arrivée tardive (§2) : pas d'engagement entre pairs ; repli par l'abandon de session. Fermer ce cas demande un message de contrôle (second canal matchbox) : hors périmètre.
 - Allumette et web non essayés.
 - Un ignoré qui revient au lobby retombe en boucle tant que la salle reste pleine (un cycle par délai) ; la ligne d'état le dit, rien d'autre.
+
+## 7. Relecture indépendante
+
+Relecteur (agent `reviewer`, lecture seule, sur `b992df81`) : aucun bloquant ; quatre défauts mineurs, tous corrigés :
+1. `settling` portait sur le pair en attente le plus **ancien** : un fantôme à moitié connecté resté plus de 3 s annulait l'attente d'un pair arrivé après lui. Corrigé : `PeerSightings::youngest_pending` (le plus récent), test ajouté.
+2. `room_full` n'était pas remis à zéro quand un client ignoré se retrouvait seul (les admis partis) : le compte à rebours de la salle suivante aurait repris à l'ancienne date et banni des pairs libres. Corrigé : remis à zéro dans la branche « moins de joueurs que de places ».
+3. `p2p-admission.sh` classait « course perdue » toute session perdue, y compris celle du client ignoré revenu au lobby (la signature du bug du premier jet : faux vert possible). Corrigé : un client ignoré qui démarre une partie ou perd une session après `lobby_room_full` fait **échouer** le script ; la course perdue ne regarde que les admis.
+4. `--players "$(p2p_players 2)"` passé en un seul argument dans `p2p-connect-timeout.sh GHOST=1` : corrigé.
+Remarque du relecteur, non corrigée : sur le web, un intrus absent de `data-participants` classé parmi les admis bloque au `return` de `browser_mapping` sans délai (cas d'avant D116, non régressif) ; un filtre par le mapping avant `admit_players` le fermerait.

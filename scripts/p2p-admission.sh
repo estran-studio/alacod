@@ -134,12 +134,23 @@ while [ "$green" -lt "$TRIALS" ]; do
     fi
     pids=()
 
-    # Course perdue : pas de client ignoré revenu au lobby, ou un client qui a démarré avec un autre ensemble.
+    # Régression (pas une course) : le client ignoré, revenu au lobby, ne doit ni démarrer de partie ni construire de
+    # session (il serait admis à des pairs qui jouent déjà : `session_sync_timeout` ou `session_peer_left` plus tard).
+    if [ "$ignored" -ge 0 ] && sed -n '/lobby_room_full/,$p' "$dir/p2p-$ignored.log" | grep -q "All 2 players are connected\|session_sync_timeout\|session_peer_left"; then
+        echo "ÉCHEC : le client ignoré $ignored a construit une session après son retour au lobby (voir $dir/p2p-$ignored.log)"
+        exit 1
+    fi
+    # Course perdue : pas de client ignoré revenu au lobby, ou une session des admis perdue.
     nignored=$(grep -l "lobby_admission .* local=ignored" "$dir"/p2p-*.log 2>/dev/null | wc -l | tr -d ' ')
     nadmitted_with_excess=$(grep -l "lobby_admission .* local=admitted" "$dir"/p2p-*.log 2>/dev/null | wc -l | tr -d ' ')
-    if [ "$ignored" -lt 0 ] || [ "$nignored" != 1 ] || grep -qs "session_sync_timeout\|session_peer_left" "$dir"/p2p-*.log; then
+    session_lost=0
+    for i in 0 1 2; do
+        [ "$i" -ne "$ignored" ] || continue
+        grep -qs "session_sync_timeout\|session_peer_left" "$dir/p2p-$i.log" && session_lost=1
+    done
+    if [ "$ignored" -lt 0 ] || [ "$nignored" != 1 ] || [ "$session_lost" = 1 ]; then
         lost=$((lost + 1))
-        echo "essai $attempt : course perdue (client ignoré revenu au lobby : $ignored ; clients ignorés : $nignored ; admis ayant vu le pair en trop : $nadmitted_with_excess), nouvel essai"
+        echo "essai $attempt : course perdue (client ignoré revenu au lobby : $ignored ; clients ignorés : $nignored ; session perdue : $session_lost ; admis ayant vu le pair en trop : $nadmitted_with_excess), nouvel essai"
         [ "$lost" -le "$RACE_RETRIES" ] || { echo "ÉCHEC : trop d'essais perdus ($lost) ; journaux dans $OUT"; exit 1; }
         continue
     fi

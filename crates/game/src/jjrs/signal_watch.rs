@@ -65,6 +65,20 @@ impl PeerSightings {
         let longest = waits.iter().max().copied()?;
         Some((waits.len(), longest))
     }
+
+    /// Durée d'attente du pair en attente le plus **récent** (mêmes pairs que [`Self::pending`]).
+    pub fn youngest_pending(
+        &self,
+        now: Instant,
+        connected: &BTreeSet<PeerId>,
+        ignored: &BTreeSet<PeerId>,
+    ) -> Option<Duration> {
+        self.seen
+            .iter()
+            .filter(|(peer, _)| !connected.contains(peer) && !ignored.contains(peer))
+            .map(|(_, since)| now.saturating_duration_since(*since))
+            .min()
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -198,9 +212,19 @@ mod tests {
             sightings.pending(now, &connected, &ignored),
             Some((1, Duration::from_secs(6)))
         );
+        // Le plus récent des pairs en attente (D116 : l'admission attend la dernière apparition).
+        assert_eq!(
+            sightings.youngest_pending(now, &none, &none),
+            Some(Duration::from_secs(6))
+        );
+        assert_eq!(
+            sightings.youngest_pending(now, &BTreeSet::from([peer(2)]), &none),
+            Some(Duration::from_secs(9))
+        );
         // Parti : retiré, et rien en attente sans pair vu.
         sightings.left(&peer(2));
         assert_eq!(sightings.pending(now, &connected, &ignored), None);
+        assert_eq!(sightings.youngest_pending(now, &connected, &ignored), None);
         assert_eq!(PeerSightings::default().pending(now, &none, &none), None);
     }
 }

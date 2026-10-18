@@ -61,9 +61,10 @@ if [ "${GHOST:-0}" = 1 ]; then
     pids+=("$!")
     for ((n = 0; n < 200; n++)); do grep -q "dans la salle" "$OUT/ghost.log" 2>/dev/null && break; sleep 0.05; done
     grep -q "dans la salle" "$OUT/ghost.log" || { echo "ÉCHEC : le pair fantôme n'a pas rejoint la salle (voir $OUT/ghost.log)"; exit 1; }
+    # shellcheck disable=SC2086
     ALACOD_HEADLESS=1 ALACOD_CONNECT_TIMEOUT_SECS="$CONNECT_TIMEOUT_S" ALACOD_CONNECT_ATTEMPTS=2 APP_VERSION=x \
         "$BIN" --matchbox "$SIGNAL_URL" --lobby "$LOBBY" --number-player 2 \
-        --players "$(p2p_players 2)" --cid client_0 --name client_0 > "$OUT/p2p-0.log" 2>&1 &
+        --players $(p2p_players 2) --cid client_0 --name client_0 > "$OUT/p2p-0.log" 2>&1 &
     pids+=("$!")
     expect1="lobby_connect_timeout attempt=1/2 action=retry"
     expect2="lobby_connect_timeout attempt=2/2 action=lobby"

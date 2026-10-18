@@ -560,20 +560,26 @@ pub fn wait_for_players(
 
     // D109 : un pair vu par le signaling qui ne se connecte jamais.
     let connected: BTreeSet<PeerId> = socket.connected_peers().collect();
-    let pending = watch.sightings.lock().ok().and_then(|sightings| {
-        sightings.pending(
-            bevy::platform::time::Instant::now(),
-            &connected,
-            &previous.0,
+    let (pending, youngest) = {
+        let now = bevy::platform::time::Instant::now();
+        let sightings = watch.sightings.lock().ok();
+        (
+            sightings
+                .as_ref()
+                .and_then(|s| s.pending(now, &connected, &previous.0)),
+            sightings
+                .as_ref()
+                .and_then(|s| s.youngest_pending(now, &connected, &previous.0)),
         )
-    });
+    };
     // Log the current state of player connections. D116 : un pair vu mais pas encore connecté peut
     // changer les admis (identifiant plus bas) : on ne s'engage pas avant de l'avoir connecté, sinon deux
     // clients qui ne voient pas le même ensemble ne choisiraient pas les mêmes joueurs. Cette attente
-    // dure au plus `ADMISSION_SETTLE_SECS` : un pair à moitié connecté qui ne finit jamais (D109) ne doit
-    // pas empêcher les pairs connectés de jouer ; le délai de D109 reste la borne des attentes à
-    // moins de `max_player` joueurs.
-    let settling = pending.is_some_and(|(_, waited)| waited.as_secs_f32() < ADMISSION_SETTLE_SECS);
+    // dure au plus `ADMISSION_SETTLE_SECS` **après la dernière apparition** (le pair en attente le plus
+    // récent, pas le plus ancien : un fantôme à moitié connecté, D109, ne doit pas annuler l'attente d'un
+    // pair qui arrive après lui) ; le délai de D109 reste la borne des attentes à moins de `max_player`
+    // joueurs.
+    let settling = youngest.is_some_and(|waited| waited.as_secs_f32() < ADMISSION_SETTLE_SECS);
     if players.len() < num_players || settling {
         info!(
             "Waiting for players: {}/{} connected",
@@ -581,6 +587,11 @@ pub fn wait_for_players(
             num_players
         );
         watch.pending_secs = pending.map(|(_, waited)| waited.as_secs_f32());
+        // Un client ignoré qui se retrouve seul (les admis sont partis) n'est plus en salle pleine : son
+        // compte à rebours repart de zéro à la prochaine exclusion.
+        if players.len() < num_players {
+            watch.room_full = None;
+        }
         if pending.is_some() && !watch.announced {
             watch.announced = true;
             info!("pair(s) vu(s) par le signaling, connexion en cours (D109)");
