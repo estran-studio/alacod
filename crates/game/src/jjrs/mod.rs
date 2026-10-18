@@ -3,6 +3,7 @@ pub mod browser;
 pub mod local;
 pub mod p2p;
 pub mod restart;
+pub mod signal_watch;
 // Client HTTP allumette (D12, m0-v9) : natif uniquement (le flux challenge/login
 // n'existe pas sur le web en v1, et `ureq` n'est pas compilé pour wasm).
 #[cfg(not(target_arch = "wasm32"))]

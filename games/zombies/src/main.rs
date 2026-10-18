@@ -98,18 +98,20 @@ fn main() -> AppExit {
         .run()
 }
 
-/// A fresh local run chooses a seed outside simulation; --seed reproduces a recorded run.
-/// Online games retain the shared manifest seed until seed negotiation is implemented.
+/// A fresh local run chooses a seed outside simulation; --seed (applied at `Startup` by the
+/// shared `map_ldtk::game::local::apply_launch_seed`) reproduces a recorded run. Only the random
+/// draw is zombies' own policy: the other games keep the manifest seed without `--seed`.
+/// Online games retain the shared manifest seed (or `--seed`) until seed negotiation is implemented.
 fn choose_local_seed(
     mut map: ResMut<LdtkGameMap>,
     explicit: Res<game::args::LaunchSeed>,
     mut windows: Query<&mut Window>,
 ) {
-    map.seed = explicit.0.unwrap_or_else(|| {
+    if explicit.0.is_none() {
         let mut bytes = [0u8; 4];
         getrandom::getrandom(&mut bytes).expect("unable to choose a local map seed");
-        i32::from_le_bytes(bytes)
-    });
+        map.seed = i32::from_le_bytes(bytes);
+    }
     info!(
         "Le Relais — graine {} (rejouer avec --seed {})",
         map.seed, map.seed

@@ -4380,8 +4380,12 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   graine, les mêmes réglages et le même contenu seulement : après un changement de simulation, l'étage 2 n'est plus
   atteint, et `EXPECT_FLOORS` de `p2p-stress.sh` (nombre de `floor_transition` distincts du journal) échoue au lieu
   d'un faux vert.
-- **`ALACOD_SKIP_HUB=1`** (gungeon, natif) : pas de `HubSession`, la partie démarre dans la run ; **`--seed <n>`** : graine de
-  carte imposée (`apply_launch_seed`, en local comme en ligne ; sans lui, `entry.default_seed`). Raison : une partie en
+- **`ALACOD_SKIP_HUB=1`** (gungeon, natif) : pas de `HubSession`, la partie démarre dans la run ; **`--seed <n>`** (tous les jeux, D105) : graine de
+  carte imposée par **un seul** consommateur, `map_ldtk::game::local::apply_launch_seed` (`Startup`, installé par `LdtkLocalGamePlugin`,
+  en local comme en ligne ; sans lui, `entry.default_seed`, sauf `zombies` en local, qui tire une graine au hasard : `choose_local_seed`
+  ne garde que ce tirage et le titre de fenêtre, `--seed` passe par le système commun ; le runner de scénarios n'installe pas
+  `BaseArgsPlugin`, donc aucune graine n'est imposée aux scénarios). `scripts/check-launch-seed.sh` : trois parties locales par jeu
+  (graines A, B, A), frame 0 différente entre A et B, identique entre les deux A. Raison : une partie en
   ligne passée par le hub joue sa run sur une graine **dérivée** (`restart_seed`, §33) alors que la graine de carte
   du hub est conservée : un enregistrement de bots fait par `alacod-sim` (même graine partout) ne s'y rejoue pas à
   l'identique. Sans `ALACOD_SKIP_HUB`, le hub est joué pour de vrai : `ALACOD_INPUT=script:` lit les pistes `hub:
@@ -4405,6 +4409,15 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   `RESTART_TIMEOUT_SECS` = 30 s, qui lit encore `Time<Real>` : trop court en headless, défaut antérieur non corrigé) est inchangé. Session seulement : aucune trace de scénario ne bouge. Essais :
   `scripts/p2p-lobby.sh` (requêtes à 100–400 ms d'écart, `ALACOD_RESTART_DELAY_MS`), `scripts/p2p-sync-timeout.sh` ((b) de bout en bout :
   un client suspendu avant sa session). `p2p-restart.sh` avec `RESTART_KIND=lobby` ; `EXPECT_VICTORY=1` exige la victoire avant la relance.
+- **Connexion jamais établie au lobby (D109, fermée).** Sous perte de paquets (3 % : 2 à 5 % des démarrages), un pair annoncé par le signaling ne finit jamais sa négociation WebRTC et le
+  lobby attendait sans fin (« Waiting for players: 1/2 »). Le socket matchbox n'expose pas ce pair : `jjrs::signal_watch::ObservedSignallerBuilder` (natif) enveloppe le signaller et
+  note les `NewPeer`/`Signal` reçus ; `wait_for_players` borne l'attente du plus ancien pair vu, ni connecté ni d'une session passée, à `CONNECT_TIMEOUT_SECS` (15 s, **horloge murale**,
+  hors simulation, `ALACOD_CONNECT_TIMEOUT_SECS`) : nouvelle tentative (socket neuf, même salle ; `ggrs{f=0 lobby_connect_timeout attempt=1/2 action=retry …}`), puis retour au lobby
+  (`LobbyOnline` ré-entré ; `attempt=2/2 action=lobby` ; `ALACOD_CONNECT_ATTEMPTS`) ; en allumette et sur le web pas de réouverture. Écran du lobby : ligne d'état (« Connecting to peer... »,
+  « new attempt (2/2) », « back to the lobby »). **Piège** : la nouvelle tentative d'un seul côté d'une connexion à moitié ouverte (un canal ouvert, l'autre pas) donnait deux cycles de
+  30 s décalés qui ne se rejoignaient jamais ; une session `Synchronizing` est donc aussi abandonnée dès qu'un pair de la session en cours quitte la salle
+  (`CurrentSessionPeers`, `ggrs{f=… session_peer_left …}`) ; `wait_for_players` attend aussi tant qu'il y a plus de pairs que `max_player` (socket d'une partie finissante, sinon panique à la construction de la session). Session seulement : aucune trace de scénario ne bouge. Preuves : `p2p-connect-timeout.sh`, `p2p-connect-starts.sh`
+  (150 démarrages à 3 % joués, 7 retentés, 0 perdu) ; rapport `dettes-d105-d109.md`.
 - **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
   la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
   `resimulées` reste cumulé sur toute la durée du processus ; les rollbacks sont comptés **par partie** (`state_trace::RollbackStats`) et
@@ -4420,14 +4433,16 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
 - **Scripts** (`scripts/p2p-lib.sh` en commun) : `p2p-stress.sh` (N clients `CLIENTS`, suspension du client 1,
   `NETEM`, `MATCHBOX_URL`, `GAME_ARGS`, `EXPECT_FLOORS`), `p2p-restart.sh <jeu>` (restart, lobby, hub ; `RESTART_DELAYS_MS`),
   `p2p-lobby.sh` (D86 : essais consécutifs du retour au lobby), `p2p-sync-timeout.sh` (abandon d'une session non synchronisée),
+  `p2p-connect-timeout.sh` (D109 : pair vu par le signaling jamais connecté, `ATTEMPTS=1|2`), `p2p-connect-starts.sh` (D109 : fréquence des démarrages bloqués,
+  `PLAY_FRAMES`), `p2p-linux-box.sh` (les scripts `NETEM` depuis un Mac : conteneur Linux `NET_ADMIN`), `check-launch-seed.sh` (D105),
   `p2p-disconnect.sh` (pair tué), `p2p-machine.sh` (un client par machine), `nightly.sh` étape C2.
 - **Deux machines (m2-p2p-deux-machines, 2026-10-18).** `scripts/p2p-machine.sh` lance **un** client sur chaque machine (`CLIENTS`, `LOBBY` et
   `MATCHBOX_URL` communs, même commit, mêmes inputs figés) ; `STRESS=1` suspend ce client par à-coups (SIGSTOP/SIGCONT, `SUSPEND_MS`, `RUN_MS`) et
   `MIN_RESIMULATED=n` échoue sous n frames resimulées. Constaté sur 8 parties : le VPS resimulait 0 frame dans 3 (`gung-b`, `gung-d`, `isa-b`), le Mac toujours ; [INFERENCE] le client en retard n'a rien à
   corriger, le plus rapide prédit les inputs de l'autre. Pour que **les deux** resimulent, suspendre longuement la machine qui resimule (Mac :
   `SUSPEND_MS=80 RUN_MS=40`, le VPS resimule alors 23 frames, le Mac 9 580). Signaling : `matchbox_server 0.0.0.0:3536` sur une machine (binaire extrait par `p2p-lib.sh`), `MATCHBOX_URL=ws://<ip publique>:3536`.
-  `isaac` ignorait `--seed` (D108, corrigé par `m3-t14-bot-isaac` au merge de T14 ; throne/testbed : D105) : tant que ce n'est pas mergé, enregistrer les bots à la graine du manifeste (`alacod-sim --game isaac --floors sous_sol --until-floor 2
-  --seeds 123456..123456`, décalage d'input +5 comme `p2p-gungeon-inputs.sh`). Résultats : rapport `m2-p2p-deux-machines.md` §3.
+  `isaac` ignorait `--seed` (D108, corrigé par `m3-t14-bot-isaac`) ; throne et testbed aussi (D105, corrigée par `dettes-d105-d109` : un consommateur commun) : les enregistrements de
+  bots (`alacod-sim --game isaac --floors sous_sol --until-floor 2 --seeds 5..5`, décalage d'input +5 comme `p2p-gungeon-inputs.sh`) se rejouent désormais avec `--seed 5`. Résultats : rapport `m2-p2p-deux-machines.md` §3.
 - **D87 (silences sous perte, fermée).** Sous perte de paquets le pair se tait 0,5 à 1 s, 1,0 à 1,5 s ou 3,0 à 3,4 s ([INFERENCE] : retransmission rapide, retransmission SCTP de
   WebRTC après `RTO_MIN` = 1 s de `webrtc-sctp`, puis une seconde après 2 s de plus ; rien n'instrumente SCTP) ; GGRS déconnecte au bout de `p2p::DISCONNECT_TIMEOUT` (5 s, 2 s avant D87), et la
   notification `NetworkInterrupted` reste à 500 ms. `scripts/p2p-d87.sh` rejoue la matrice (`CELLS`, `VARIANTS` `timeout2000|timeoutNNNN|unreliable`,
