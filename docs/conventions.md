@@ -4178,16 +4178,16 @@ moments clés du premier sont dans `events.json` (page de revue), chaque ligne d
 | Escouade | verrou f1471 → f1605 | `SquadSize(bullet_kins)` = 3 (f1480), 0 (f1700) ; à 4 joueurs ≥ 2 (f2150), 0 (f2300) |
 | Salle verrouillée puis nettoyée | f42 → f139 | `Event(room)` ×2 |
 | Blank utilisé | f70, f82 | `Event(blank)` |
-| Objet ramassé | clé f157, rancune f3022 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
-| Achat en boutique | f2825-f2887 (gilet, roulade) | `Event(purchase, shop)`, `HasItem(gilet)`, `HasItem(roulade)` |
+| Objet ramassé | clé f2248, amulette f2915 (joueur 1) ; coffres de l'étage 2 : roulade f4253, rancune f4719 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
+| Achat en boutique | f2687 (D95/D96 : un blank et une arme ; avant : gilet, roulade) | `Event(purchase, shop)`, `Shelf(nth: 0, sold)` faux f2685 puis vrai f2760, `Consumable(blank)` 0 → 1 |
 | Coffre à clé ouvert, clé consommée | f2928 (`arc`) | `Consumable(key)` 1 (f2920) → 0 (f2930), `Event(chest)` |
 | Arène tenue | f1890 → f2640 (750 frames) | `Event(arena)`, `RoomState(arene, nth: 1, Cleared)` |
-| Boss, trois phases | f3406, phases f3439 et f3487 | `BossPhase(NetId(205), 2)`, `Event(boss_phase)` |
+| Boss, phase 1 | f3310, phase 1 f3354, mort f3355 | `BossPhase(NetId(205), 1)` (f3355), `Event(boss_phase)` |
 | Portail | f3489 | `Event(portal)` |
-| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7325 (phases f7471, f7532) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(694), 2)` |
+| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7126 (phase 1 f7279, mort f7315) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(704), 1)` |
 | Victoire et profil | f7316 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
 
-**Non attestées, et pourquoi** : (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
+**Non attestées, et pourquoi** : (0) la **phase 2 du boss** (D95/D96) : les deux boss de ces runs meurent une frame (premier) ou 36 frames (second) après leur phase 1, et le boss ne fait « qu'une transition par frame » (`game/src/boss.rs:7`) ; la phase 2 est attestée par `gungeon_boss` (f520) et `gungeon_boss_bot` (f460, bot) ; (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
 s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
 déblocage** : elle n'existe pas, `hub/porte.ron` (`EnterRun`) n'a aucune condition ; seul le marchand exige `first_run`
 (sa visite f120 le prouve pour le profil du scénario) ; l'effet des déblocages sur la run se prouve par `RunUnlocks`
@@ -4669,8 +4669,8 @@ cœurs d'âme paient à la place : T8).
   le nouvel objet, et un déblocage de profil (§75) ne déplace que vers ce qu'il apporte. **Limites** : (1) dans une suite
   d'emplacements à épuisement, l'objet qu'un déblocage déplace revient dans le pool et peut sortir à un emplacement
   **suivant** (`seen` n'est plus le même) ; la garantie est par tirage, à `seen` égal ; (2) si l'ajout rend non vide une passe
-  plus stricte (rareté d'un coffre), c'est cette passe qui tire ; (3) coût : un `fmix64` par unité de poids du pool, d'où
-  `items::MAX_LOOT_WEIGHT` (1 000), refusé au lint (`OutOfRange`) et plafonné au tirage. Proportions mesurées sur 100 000
+  plus stricte (rareté d'un coffre), c'est cette passe qui tire ; (3) coût : deux `fmix64` par unité de poids du pool (`race_key`), d'où
+  `items::MAX_LOOT_WEIGHT` (1 000), refusé au lint (`OutOfRange`) et plafonné au tirage ; (4) une boutique **sans épuisement** (`game::shop::draw_shelves`) enchaîne ses présentoirs sur un seul flux, avec relance des doublons (au plus 8 essais) : un ajout qui change le présentoir 0 change le nombre d'essais, donc le tirage, des suivants ; la garantie vaut par tirage, pas pour une boutique entière. Proportions mesurées sur 100 000
   tirages (`the_race_keeps_the_weighted_proportions`) : voir le rapport `dette-d95-d96-tirage-butin`.
 - **Graine** `items::exhaust_seed(graine, étage, clé, index)` : `loot_seed` pour l'index `0` (le premier
   tirage d'un pool qui devient `exhaust` donne l'objet qu'il aurait donné sans `exhaust`),

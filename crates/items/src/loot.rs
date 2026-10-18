@@ -418,7 +418,10 @@ struct Contender<'a> {
 /// gagné ne change rien. Un déblocage ne déplace donc que les emplacements qui prennent un objet de ce
 /// qu'il apporte.
 /// Limite : si l'ajout rend non vide une passe plus stricte (rareté du coffre), c'est cette passe qui
-/// tire, et l'objet peut changer. Coût : un `fmix64` par unité de poids du pool.
+/// tire, et l'objet peut changer. Autre limite : une boutique sans épuisement (`game::shop::draw_shelves`)
+/// enchaîne ses présentoirs sur un seul flux avec relance des doublons (au plus 8 essais) : un ajout qui
+/// change le présentoir 0 change le nombre d'essais, donc le tirage, des suivants ; la garantie vaut par
+/// tirage, pas pour une boutique entière. Coût : deux `fmix64` par unité de poids du pool (`race_key`).
 #[allow(clippy::too_many_arguments)]
 pub fn draw_exhausting(
     table: &LootTableDef,
