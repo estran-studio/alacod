@@ -6071,7 +6071,7 @@ pas `RunCurses` (hors périmètre : ils n'affichent ni la santé, ni la minicart
 
 - `testbed` : `floors/maudit.ron` (chance 0,5, les cinq curses), `floors/maudit_maze.ron` (chance 0,5, `maze` seule).
 - `isaac` : dossier `curses/` (les cinq de Q7, copies de celles du testbed), `floors/sous_sol_maudit.ron` (un étage
-  `floor:sous_sol`, chance **1** : la graine choisit la curse). La séquence par défaut d'`isaac` (`floors/sous_sol.ron`) a des `curses` depuis M3-T11d1 (chance 0,3 par étage, les cinq à poids égaux, §76.4) ;
+  `floor:sous_sol`, chance **1** : la graine choisit la curse). La séquence par défaut d'`isaac` (`floors/sous_sol.ron`) a des `curses` depuis M3-T11d1 (chance 0,3 par étage, les cinq selon leurs poids, §76.4) ;
   les séquences de test `sous_sol_un`, `_cle`, `_court`, `_grand` n'en ont pas.
 - Lint : `reach::stat_uses` compte désormais le `Modifier` d'une curse : une stat que la simulation ne lit pas
   (`stat_reader`) est une erreur `UnreadStat`.
@@ -6445,7 +6445,7 @@ sous viennent de la mort des ennemis (`shells_drop`, 2 à 5) et des récompenses
 (`loot/secrete.ron`, T8) : **inchangés** (cœurs, sous, bombes, clés déjà cohérents avec §68 et §73).
 
 **Curses dans la séquence par défaut** : `floors/sous_sol.ron` gagne `curses: Some((chance: "0.3", pool: ["darkness", "unknown", "blind", "labyrinth", "maze"]))` : une
-curse sur 30 % des étages (graine de carte et étage, §74, cinq à poids égaux). Les séquences de test (`sous_sol_un`, `_cle`, `_court`, `_grand`) n'en ont pas :
+curse sur 30 % des étages (graine de carte et étage, §74, les cinq selon leurs poids : `darkness` 3, `unknown` 2, `blind` 2, `maze` 2, `labyrinth` 1 ; 112 étages maudits sur 400 graines au premier étage). Les séquences de test (`sous_sol_un`, `_cle`, `_court`, `_grand`) n'en ont pas :
 leurs scénarios ne bougent que par les gabarits. Conséquence propre à la séquence par défaut : `RunCurses::entered` s'écrit dès la frame 0, même sans curse tirée
 (§74), donc toutes ses traces changent.
 
@@ -6458,10 +6458,10 @@ gabarits `combat`, aucune bombe jouable, salle secrète sans bombe, curses de la
 d'atteignabilité, hors `test_only`, ne reste. `testbed` (115), `gungeon` (1) : inchangés ; `zombies`, `throne` : aucun.
 
 **Scénarios** : recalés (graines, chronologies, comptes d'ennemis ; les plans de toutes les graines ont changé : `GgrsNetId`, gabarits tirés au hasard, boutique) :
-`devil_room_chance`/`_absent` (cinq présentoirs : trois de la boutique, deux du diable), `grid_floor_seed_1` (14 ennemis, boss f2245, victoire f2674), `_23` (boss 1×1
+`devil_room_chance` (cinq présentoirs : trois de la boutique, deux du diable), `devil_room_absent` (trois : la boutique seule, aucun du diable), `grid_floor_seed_1` (14 ennemis, boss f2245, victoire f2674), `_23` (boss 1×1
 désormais, victoire f1485), `_123` (porte maintenant le **boss 2×2** de l'ancienne 23, victoire f1502), `grid_post_boss` (`Armor +100`, victoire f1727),
-`grid_secret_room` (graine 25), `grid_secret_bomb`/`_no_bomb` (graine 39, **bombe de départ**, sans `bomb:` ni `items:` du scénario : l'explosion f110 ouvre la salle,
-le joueur sorti du rayon n'est pas blessé), `grid_treasure_key`/`_floor0` (graine 145, -1013904097 pour `sous_sol_cle`), `isaac_floor_seed_1` (curses `maze` puis `blind`,
+`grid_secret_room` (graine 25), `grid_secret_bomb` (graine 39, **bombe de départ**, sans `bomb:` ni `items:` du scénario : l'explosion f110 ouvre la salle,
+le joueur sorti du rayon n'est pas blessé, il entre dans la secrète : f339), `grid_secret_no_bomb` (même graine, la bombe n'est pas posée : aucune explosion, la porte reste fermée, le joueur s'arrête contre le mur), `grid_treasure_key`/`_floor0` (graine 145, -1013904097 pour `sous_sol_cle`), `isaac_floor_seed_1` (curses `maze` puis `blind`,
 boss f2500, « niveau 1 » f3220, boutique 3 puis 6 objets sortis), `isaac_hud_items` (source `curses` : `maze`). Neufs : `isaac_shop_buy` (graine 2 : le joueur à 60 sous achète
 `reliquaire` à 15 sous, `ExtraHealth` 4), `isaac_bomb_rock` (graine 4 : la bombe de départ casse l'amas de rochers d'un `CombatButin`, 45 → 42 rochers, le rocher à butin
 laisse une `ration`, le joueur hors du rayon n'est pas blessé), `isaac_spikes` (graine 10 : un demi-cœur dès f108, f168, f228, f288 sur l'amas de piques d'un `CombatPiques`) et son témoin `isaac_spikes_temoin` (même marche arrêtée avant l'amas : 6 PV jusqu'à f170, un ennemi arrive vers f172 : les deux premiers coups sont ceux des piques ; `HazardState.last_hit` du dump : 107, 167, 227, 287).
@@ -6499,7 +6499,7 @@ défaut ; plan et butin de l'étage 0 lus à la génération, `--max-frames 6`, 
 | Marché du diable | 8, 13, 16 | `devil_room_chance`, `devil_deal_isaac` ; l'achat par le bot : T14 |
 | Champions | 1 (`essaim`, `salve`), 4 (`explosif`) | `champion_*` |
 | Curses | 1 (`maze` puis `blind`), 2 (`darkness`), 13 (`blind`), 19 (`labyrinth`), 42 (`unknown`) | `isaac_floor_seed_1`, `isaac_hud_items` |
-| Accomplissements | deux parties d'affilée | `achievement_unlocks` |
+| Accomplissements | deux parties d'affilée | `achievement_unlocks` (une run), test `crates/scenario/tests/achievements.rs` (deux runs enchaînées) |
 
 **Campagne de contrôle** (bot actuel, séquence par défaut, `--shopping`, lots de 20 graines, `docs/taches/rapports/m3-t11d1-gabarits.campagne.sh`) : **1 bot, graines 1 à 200 : 0 desync,
 12 victoires, 169 morts, 19 « soft-locks »** (64 graines franchissent le premier étage) ; **2 bots, graines 1 à 200 : 0 desync, 72 victoires (36 %), 102 morts, 26 « soft-locks »** (141 graines franchissent le premier étage ; vingt sont des longs trajets, quatre des cœurs à pleine vie (63, 144, 149, 152), deux immobiles non analysés : 84 et 86). Les 19 soft-locks à un bot se classent ainsi (instantanés à 400 frames d'écart,

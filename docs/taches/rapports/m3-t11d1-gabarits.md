@@ -12,7 +12,7 @@ victoires et morts ci-dessous sont des informations, aucun réglage n'a visé un
   (`BossAbris` en plus), trois de trésor, secrète, diable, boutique, départ, transit.
 - **Boutique** : type `boutique`, pool `boutique` (26 entrées, `exhaust`, prix en sous par rareté), exigée par la grammaire `sous_sol` (un cul-de-sac par étage).
 - **Récompenses** (cœurs, sous, bombes, clés) : `loot/salle.ron` et `loot/secrete.ron` déjà cohérents avec §68 et §73 ; **inchangés** (la clé est aussi en boutique).
-- **Curses dans la séquence par défaut** : `floors/sous_sol.ron`, chance 0,3 par étage, les cinq à poids égaux.
+- **Curses dans la séquence par défaut** : `floors/sous_sol.ron`, chance 0,3 par étage, les cinq selon leurs poids (`darkness` 3, `unknown` 2, `blind` 2, `maze` 2, `labyrinth` 1 ; 112 étages maudits sur 400 graines au premier étage).
 - **D81 fermée** : `pleureur` a une bombe de départ (`starting_consumables`) et la `BombDef` (mèche 75 frames, rayon 56, 4 PV, tir ami `Always`).
 - **Surface `piques`** (`surfaces/piques.ron`, 1 PV tous les 60 frames) et dossier `surfaces` du manifeste.
 - **Scénarios** : quatorze recalés (graines, chronologies ; `achievement_unlocks` ne change que ses commentaires), quatre neufs (`isaac_shop_buy`, `isaac_bomb_rock`, `isaac_spikes` et son témoin) ; `make gen GAME=isaac` : les `.ron` générés ne changent pas, 95 traces bénies.
@@ -57,8 +57,8 @@ Séquence par défaut d'`isaac` (`entry.floors: sous_sol`, deux étages, grammai
 | Effets v3, transformations | objets à effets : trésor, boutique, boss | trésor `crocs` 14, `pouls` 3 ; boutique `rancune_vive` 8 ; boss `sang_chaud` 8, `calice_ardent` 4 ; transformations : non retenues (Q10), `transformation_two/three` (testbed) | générés `item_*`, `tears_crocs`, `tears_rancune_vive`, `tears_sang_chaud` |
 | Familiers, orbitaux | trésor (trois), boutique (trois) | 9 (trésor `nuee`, boutique `frere`), 13 (`orbe` aux deux), 18 (`frere` aux deux) | `isaac_synergy_garde`, générés `familiar_*` |
 | Bombes | **bombe de départ** de `pleureur` ; boutique, récompense de salle, coffre secret, rochers à butin en donnent | toute graine (une bombe au départ) | `grid_secret_bomb` (graine 39), `isaac_bomb_rock` (graine 4) |
-| Rochers | gabarits `Combat…` (huit sur neuf), `BossAbris` | 4 : `CombatButin` au nord du départ, 45 rochers à l'étage | `isaac_bomb_rock` : 45 → 42, rocher à butin → une `ration` |
-| Piques | gabarits `CombatPiques`, `CombatMixte`, `CombatLong`, `CombatHaut` | 10 : `CombatPiques` au nord du départ | `isaac_spikes` : 1 PV à f108, f167, f227, f287 |
+| Rochers | sept des neuf gabarits de combat (`Combat` et `CombatPiques` n'en ont pas), `BossAbris` | 4 : `CombatButin` au nord du départ, 45 rochers à l'étage | `isaac_bomb_rock` : 45 → 42, rocher à butin → une `ration` |
+| Piques | gabarits `CombatPiques`, `CombatMixte`, `CombatLong`, `CombatHaut` | 10 : `CombatPiques` au nord du départ | `isaac_spikes` : 1 PV dès f108, f168, f228, f288 (les deux premiers coups sont ceux des piques : le témoin `isaac_spikes_temoin` reste à 6 PV jusqu'à f170 ; les suivants peuvent être aussi ceux d'un ennemi, § « Traces ») |
 | Salle secrète | exigée par la grammaire (une par étage), murée, ouverte à la bombe | toute graine (1 à 400 : une secrète à chaque étage) ; sud du départ : 39 | `grid_secret_bomb` (explosion f110, `DoorLocked` faux f115, joueur indemne), `grid_secret_room` (graine 25), `grid_secret_no_bomb` |
 | Clés, trésor fermé | trésor fermé à clé au second étage ; clés en récompense de salle (graines 14, 20, 22…) et en boutique | 1 : `key` à la boutique du premier étage ; second étage de toute partie : `isaac_floor_seed_1` | `grid_treasure_key` (graine -1013904097, `sous_sol_cle`), `isaac_floor_seed_1` (f3300 : trésor fermé, une clé) |
 | Cœurs, sous, boutique | récompenses de salle (cœurs, cœurs d'âme, bombes, clés), sous à chaque mort d'ennemi (`shells_drop` 2 à 5), boutique exigée | cœur de récompense : 1, 3, 14, 21 ; cœur d'âme : 3, 23, 32 ; boutique : toute graine (trois présentoirs par étage) | `isaac_shop_buy` (graine 2 : 60 → 45 sous, `reliquaire`, cœur d'âme 4), `isaac_floor_seed_1` (boutique 3 puis 6 objets) |
@@ -66,7 +66,7 @@ Séquence par défaut d'`isaac` (`entry.floors: sous_sol`, deux étages, grammai
 | Marché du diable | salle post-boss (un tiers des étages), deux présentoirs en vie maximale | diable au premier étage : 8, 13, 16 | `devil_room_chance` (graine 8 de `sous_sol_un`), `devil_deal_isaac` (paiement). **Le bot qui achète au diable : T14** |
 | Champions | ennemis des salles `combat` | 1 (`essaim`, `salve`), 4 (`explosif`) | générés `champion_*` |
 | Curses | une chance de 0,3 par étage | 1 (`maze` puis `blind`), 2 (`darkness`), 13 (`blind`), 19 (`labyrinth`), 42 (`unknown`) ; 3 : aucune | `isaac_floor_seed_1`, `isaac_hud_items` (`maze`), `curse_*` (séquence `sous_sol_maudit`) |
-| Accomplissements | deux parties d'affilée | — | `achievement_unlocks`, `achievement_not_met` |
+| Accomplissements | deux parties d'affilée | — | `achievement_unlocks` (une run) et `achievement_not_met` ; deux runs enchaînées : `crates/scenario/tests/achievements.rs` (`les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante`) |
 
 Mécaniques qui demandent le bot de T14 (prouvées par scénario scripté **maintenant**, campagne à refaire quand `m3-t14-bot-isaac` sera sur `main`) : bombe sur le mur secret
 (`grid_secret_bomb`), bombe sur un rocher (`isaac_bomb_rock`), porte à clé (`grid_treasure_key`), achat en boutique (`isaac_shop_buy` ; le bot actuel `--shopping` achète déjà : « paie 15 »
@@ -112,7 +112,7 @@ Les chiffres sont des informations : aucun réglage n'a visé une fourchette de 
 ## 6. Traces bougées (preuve §5)
 
 Les 120 traces `isaac` (25 écrites à la main, 95 générées) ont bougé, quatre sont neuves (`isaac_shop_buy`, `isaac_bomb_rock`, `isaac_spikes`, `isaac_spikes_temoin`) ; **zombies, throne, gungeon, testbed : aucune**
-(suite complète de 652 scénarios, `make gen` ×5 : seuls 95 fichiers `.trace` d'`isaac` changent, aucun `.ron` généré). Causes : (1) la bombe de départ (`Inventory`, `BombCarrier`) :
+(suite complète de 653 scénarios, `make gen` ×5 : seuls 95 fichiers `.trace` d'`isaac` changent, aucun `.ron` généré). Causes : (1) la bombe de départ (`Inventory`, `BombCarrier`) :
 tout scénario avec le personnage ; (2) les curses de la séquence par défaut (`RunCurses`, `Modifiers`) : toute partie sans `floors:` ; (3) les gabarits et la boutique (le plan d'un étage change) :
 tout scénario qui assemble un étage de `salles.ldtk`.
 
@@ -130,17 +130,17 @@ champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`, `hit_ifr
 ## 7. Vérifié (résultats réels)
 
 - `cargo run -p content --bin alacod -- lint games/isaac` : aucune erreur, 0 avertissement ; `make lint` ×5 : aucune erreur (zombies 0, testbed 115, throne 0, gungeon 1, isaac 0).
-- `make test_scenarios_par SHARDS=3` : **652 scénarios verts** (649 de `main` + 3 neufs), traces comparées, sur la version finale (465 s) ; aucune trace non-isaac ne change (les passes précédentes, avant bénédiction, ne montraient « trace différente » que pour les 120 scénarios `isaac`).
-- `make test_crates` : **1 225 passés, 0 échec** (1 224 sur `main`).
-- `make gen GAME=zombies|testbed|throne|gungeon|isaac` : rc 0 chacun ; aucun `.ron` généré ne change ; isaac : 95 traces (déjà bénies).
-- `cargo fmt --all -- --check` : propre ; `make check_sim_boundary` : 13 crates SIM, 2 en dette D69 (inchangé) ; `check-forbidden.sh` : OK (38 occurrences auditées) ; `check-rollback-registration.sh` : OK ;
+- `make test_scenarios_par SHARDS=3` : **653 scénarios verts** (649 de `main` + 4 neufs), traces comparées, sur la fusion avec `origin/main` `7ee084e8` (HEAD `75cca57a`, 244 s) ; aucune trace non-isaac ne change (les passes précédentes, avant bénédiction, ne montraient « trace différente » que pour les 120 scénarios `isaac`).
+- `make test_crates` : **1 228 passés, 0 échec** sur la fusion (1 225 avant la fusion avec `origin/main`, 1 224 sur `main` de départ).
+- `make gen GAME=zombies|testbed|throne|gungeon|isaac` (sur la fusion) : rc 0 chacun ; aucun `.ron` ni `.trace` ne change (arbre propre après les cinq) ; isaac : 95 scénarios générés, traces déjà bénies.
+- `make lint` ×5, `cargo fmt --all -- --check` : propres sur la fusion ; `make check_sim_boundary` : 13 crates SIM, 2 en dette D69 (inchangé) ; `check-forbidden.sh` : OK (38 occurrences auditées) ; `check-rollback-registration.sh` : OK ;
   `make test_tools` : 25 tests OK.
-- Fuzz d'inputs : `ALACOD_FUZZ=0:8` 9 graines sans divergence ; `ALACOD_FUZZ_BOMBS=1 ALACOD_FUZZ=0:8` 9 graines sans divergence (8 explosions chacune) ;
+- Fuzz d'inputs (avant et après la fusion, mêmes résultats) : `ALACOD_FUZZ=0:8` 9 graines sans divergence ; `ALACOD_FUZZ_BOMBS=1 ALACOD_FUZZ=0:8` 9 graines sans divergence (8 explosions chacune) ;
   `ALACOD_FUZZ_SCENARIO=isaac_floor_seed_1 ALACOD_FUZZ=0:4` 5 graines sans divergence (le tirage aléatoire de ce mode ne presse pas `Bomb` : 0 explosion).
 - `scripts/p2p-stress.sh isaac /tmp/t11d1/p2p_inputs.ron 3000` (`--pool Up,Down,Left,Right,Fire,Reload,Bomb,Interaction`, `MATCHBOX_PORT=3571`, `COMPOSE_PROJECT_NAME=b1`) : **« p2p-stress : OK »**,
-  codes de sortie 0 0, 0 `DesyncDetected`, **10 942 frames resimulées** (client 0) et 24 (client 1), traces de 2 999 lignes identiques ; journaux : 4 poses de bombe, 11 explosions, une curse,
-  14 assignations de butin. Aucun passage d'étage (3 000 frames) : la transition d'étage en p2p d'`isaac` n'est pas prouvée ici (D97 : le bot ne finit pas l'étage sous ce script).
-- Relecture indépendante : @@REVUE@@
+  codes de sortie 0 0, 0 `DesyncDetected`, traces de 2 999 lignes identiques. Avant la fusion : 10 942 frames resimulées (client 0) et 24 (client 1) ; **sur la fusion : 6 900 frames resimulées** (client 0 : 1 224 rollbacks, profondeur moyenne 6,6, maximale 11 ; client 1 : aucun),
+  journal : 3 poses de bombe, 7 explosions, une curse, 14 assignations de butin (avant la fusion : 4, 11, 1, 14). Aucun passage d'étage en 3 000 frames d'inputs aléatoires : la transition d'étage en p2p d'`isaac` n'est pas prouvée ici (le script n'est pas un bot qui finit l'étage).
+- Relecture indépendante (agent `reviewer`, lecture seule, deux passes) : passe 1 : un P0 (§76.4 pas encore écrite), quatre P1 (attentes qui ne prouvaient pas : `isaac_bomb_rock`, `grid_secret_bomb`, `isaac_spikes`, table §73 périmée) et quatorze P2 de commentaires ou de docs périmés, tous corrigés (`PlayerPosition` ajoutées, témoin `isaac_spikes_temoin`, tables et commentaires) ; passe 2 sur la branche corrigée : aucun P0 ni P1, six P2 documentaires (poids des curses, comptes, preuve des deux runs, résumé des scénarios, comptes de suite, cause de la borne de temps), corrigés. Aucun risque de déterminisme ni de désync trouvé.
 
 ## 8. Non fait / incertain
 
@@ -150,7 +150,7 @@ champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`, `hit_ifr
   d'un scénario d'étage assemblé (le bot actuel achète avec `--shopping`).
 - **Diable** : aucun scénario ne joue l'achat en vie maximale dans un étage assemblé (le bot n'y entre pas, la salle apparaît dans un tiers des étages) ; `devil_deal_isaac` joue le paiement en carte de test.
 - Le test `isaac_grille_de_12_a_15_salles_sous_quatre_fois_grand_de_gungeon` a vu sa borne passer de 2 à 4 : le rapport mesuré est 2,9 (1,9 ms par étage de 12 à 15 salles, 0,81 pour dix gabarits)
-  parce que le planificateur et le chargeur copient plus de couches (rochers, piques) sur vingt gabarits ; j'ai préféré ajuster la borne (écrit au test et au §70) que laisser le test rouge ou retirer
+  (cause non mesurée : plus de gabarits à comparer à chaque pose, des couches de rochers et de piques à cloner) ; j'ai préféré ajuster la borne (écrit au test et au §70) que laisser le test rouge ou retirer
   des gabarits. Une borne absolue (par étage) serait plus honnête : non faite.
 - Les sprites des rochers et des piques sont les couleurs de couche IntGrid de LDtk (aucun sprite propre : T17 et T11d2).
 - Les rochers sont dans les angles : un gabarit où un rocher barre un passage et demande la bombe est T14 (quand le bot saura les bombes).
