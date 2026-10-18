@@ -3,6 +3,7 @@
         max_speed: "0.0",
     ),
     asset_name_ref: "gros",
+    scale: "1.0",
     base_health: (
         max: "100.0",
     ),

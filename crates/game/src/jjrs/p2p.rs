@@ -1,9 +1,11 @@
+use std::collections::BTreeSet;
+
 use bevy::prelude::*;
 use bevy_fixed::rng::{RngStreams, RunSeed};
 use bevy_ggrs::ggrs::PlayerType;
 use bevy_matchbox::{
     matchbox_socket::{ChannelConfig, RtcIceServerConfig, WebRtcSocketBuilder},
-    prelude::PeerState,
+    prelude::{PeerId, PeerState},
     MatchboxSocket,
 };
 use content::manifest::GameManifest;
@@ -25,6 +27,29 @@ use crate::{
     },
 };
 
+/// D86 : identifiants matchbox des pairs des sessions déjà jouées par ce processus.
+///
+/// Un pair obtient un identifiant neuf à chaque socket. Au retour au lobby, la salle d'origine
+/// peut encore contenir le **socket de la partie finissante** de l'autre pair (il ne le ferme
+/// qu'à `OnExit(InGame)`) : se connecter à cet identifiant-là construit une session GGRS que
+/// personne n'écoute. Ces pairs sont donc ignorés par [`live_players`] (lobby, interface du
+/// lobby, construction de la session). Rempli à la construction de chaque session
+/// ([`system_after_map_loaded`]) ; les identifiants ne sont jamais réutilisés, l'ensemble n'est
+/// jamais purgé.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct PreviousSessionPeers(pub BTreeSet<PeerId>);
+
+/// Joueurs du socket sans les pairs d'une session déjà jouée. L'ordre (identifiants triés,
+/// identique chez tous les pairs) est conservé : les handles GGRS en dépendent.
+pub fn live_players(
+    players: Vec<PlayerType<PeerId>>,
+    stale: &BTreeSet<PeerId>,
+) -> Vec<PlayerType<PeerId>> {
+    players
+        .into_iter()
+        .filter(|player| !matches!(player, PlayerType::Remote(id) if stale.contains(id)))
+        .collect()
+}
 // For matchbox socket connection
 
 /// STUN Google par défaut : configuration historique du chemin `--matchbox`
@@ -126,6 +151,8 @@ pub fn wait_for_players(
     restart: Option<Res<OnlineRestart>>,
     time: Res<Time<Real>>,
     mut games: ResMut<OnlineGames>,
+    previous: Res<PreviousSessionPeers>,
+    mut ignored_logged: Local<BTreeSet<PeerId>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -137,7 +164,7 @@ pub fn wait_for_players(
     // D14 : personne dans la salle de restart après le délai → salle d'origine, compteur à
     // zéro (comme un « Lobby »).
     if let Some(restart) = restart.as_deref() {
-        if socket.players().len() < ggrs_config.connection.max_player
+        if live_players(socket.players(), &previous.0).len() < ggrs_config.connection.max_player
             && restart_timed_out(restart.since, time.elapsed_secs())
         {
             warn!(
@@ -161,11 +188,18 @@ pub fn wait_for_players(
     for (peer, new_state) in peer_changes {
         // you can also handle the specific dis(connections) as they occur:
         match new_state {
+            PeerState::Connected if previous.0.contains(&peer) => {
+                // D86 : l'ancien socket de l'autre pair, pas lui. Pas de `ggrs{…}` : l'identifiant
+                // diffère d'un client à l'autre, la ligne ne se compare pas.
+                if ignored_logged.insert(peer) {
+                    info!("peer {peer} d'une session précédente ignoré (D86)");
+                }
+            }
             PeerState::Connected => info!("peer {peer} connected"),
             PeerState::Disconnected => info!("peer {peer} disconnected"),
         }
     }
-    let players = socket.players();
+    let players = live_players(socket.players(), &previous.0);
 
     let num_players = ggrs_config.connection.max_player;
 
@@ -306,6 +340,7 @@ pub fn system_after_map_loaded(
     floors_override: Option<Res<crate::run_state::FloorsOverride>>,
     hub: Option<Res<crate::hub::HubSession>>,
     restart: Option<Res<OnlineRestart>>,
+    mut previous: ResMut<PreviousSessionPeers>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -317,7 +352,14 @@ pub fn system_after_map_loaded(
     let mut session_builder = session_builder::<PeerConfig>(&ggrs_config.connection)
         .expect("invalid p2p session configuration");
 
-    let players = socket.players();
+    let players = live_players(socket.players(), &previous.0);
+    // D86 : les pairs de cette session ne seront plus jamais des pairs du prochain lobby.
+    previous
+        .0
+        .extend(players.iter().filter_map(|player| match player {
+            PlayerType::Remote(id) => Some(*id),
+            _ => None,
+        }));
 
     for (i, player) in players.into_iter().enumerate() {
         session_builder = session_builder
@@ -384,6 +426,97 @@ pub fn system_after_map_loaded(
     commands.insert_resource(bevy_ggrs::Session::P2P(ggrs_session));
 
     app_state.set(AppState::InGame);
+}
+
+/// D86 : durée (temps réel) pendant laquelle une session p2p peut rester en `Synchronizing`
+/// avant d'être abandonnée pour un retour au lobby. L'autre pair peut légitimement finir de
+/// charger sa carte pendant ce temps ; au-delà, personne ne répond (session construite sur un
+/// identifiant qui n'écoute pas, pair parti) et la partie resterait figée pour toujours.
+pub const SYNC_TIMEOUT_SECS: f32 = 30.0;
+
+/// Surcharge de [`SYNC_TIMEOUT_SECS`] (secondes, essais seulement : `p2p-lobby.sh`).
+pub const SYNC_TIMEOUT_ENV: &str = "ALACOD_SYNC_TIMEOUT_SECS";
+
+/// Surveillance de la synchronisation de la session en cours (hors rollback, présentation du
+/// réseau seulement). Horloge **murale** (`Instant`), pas `Time<Real>` : en headless, bevy avance
+/// `Time<Real>` de 1/60 s par update (`TimeUpdateStrategy::ManualDuration`), donc d'un délai bien
+/// plus court que les secondes qu'on lit.
+#[derive(Resource, Debug, Clone, Copy, PartialEq)]
+pub struct SessionSyncWatch {
+    /// Instant où la session a été vue en `Synchronizing` pour la première fois.
+    pub since: Option<bevy::platform::time::Instant>,
+    pub timeout_secs: f32,
+}
+
+impl Default for SessionSyncWatch {
+    fn default() -> Self {
+        Self {
+            since: None,
+            timeout_secs: SYNC_TIMEOUT_SECS,
+        }
+    }
+}
+
+/// Le délai de synchronisation est écoulé (`waited` : depuis le premier `Synchronizing`).
+pub fn sync_timed_out(waited: Option<std::time::Duration>, timeout_secs: f32) -> bool {
+    waited.is_some_and(|waited| waited.as_secs_f32() >= timeout_secs)
+}
+
+/// `OnEnter(InGame)` : une session neuve repart d'une surveillance vierge.
+pub fn reset_sync_watch(mut watch: ResMut<SessionSyncWatch>) {
+    watch.since = None;
+    watch.timeout_secs = match std::env::var(SYNC_TIMEOUT_ENV) {
+        Err(_) => SYNC_TIMEOUT_SECS,
+        Ok(value) => value
+            .parse::<f32>()
+            .ok()
+            .filter(|secs| *secs > 0.0)
+            .unwrap_or_else(|| {
+                warn!("{SYNC_TIMEOUT_ENV}={value:?} invalide (secondes > 0 attendues), {SYNC_TIMEOUT_SECS} s gardées");
+                SYNC_TIMEOUT_SECS
+            }),
+    };
+}
+
+/// Session p2p restée en `Synchronizing` plus de [`SessionSyncWatch::timeout_secs`] : abandon et
+/// retour au lobby (`RunRequest::ToLobby`, qui ferme le socket ; ses pairs deviennent des
+/// [`PreviousSessionPeers`] du prochain lobby).
+pub fn abandon_unsynchronized_session(
+    mut commands: Commands,
+    online_state: Res<OnlineState>,
+    session: Option<Res<bevy_ggrs::Session<PeerConfig>>>,
+    frame: Res<utils::frame::FrameCount>,
+    request: Option<Res<crate::run_state::RunRequest>>,
+    mut watch: ResMut<SessionSyncWatch>,
+) {
+    if !matches!(*online_state, OnlineState::Online) || request.is_some() {
+        return;
+    }
+    let Some(session) = session else {
+        return;
+    };
+    let bevy_ggrs::Session::P2P(session) = session.as_ref() else {
+        return;
+    };
+    if session.current_state() != bevy_ggrs::ggrs::SessionState::Synchronizing {
+        watch.since = None;
+        return;
+    }
+    let since = *watch
+        .since
+        .get_or_insert_with(bevy::platform::time::Instant::now);
+    let waited = since.elapsed();
+    if sync_timed_out(Some(waited), watch.timeout_secs) {
+        // `ggrs{…}` sans identifiant de pair : comparable (grep) d'un client à l'autre.
+        warn!(
+            "ggrs{{f={} session_sync_timeout waited_secs={:.1} players={}}} session non synchronisée, abandon et retour au lobby",
+            frame.frame,
+            waited.as_secs_f32(),
+            session.num_players()
+        );
+        watch.since = None;
+        commands.insert_resource(crate::run_state::RunRequest::ToLobby);
+    }
 }
 
 /// Frames que GGRS prédit au plus avant d'attendre les inputs distants : le pire rollback

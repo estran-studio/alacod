@@ -4,6 +4,7 @@
         max_speed: "60.0",
     ),
     asset_name_ref: "player",
+    scale: "1.0",
     base_health: (
         max: "6.0",
     ),

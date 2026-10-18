@@ -520,23 +520,28 @@ impl Inventory {
 
     /// Suivi Q10 : nombre d'objets **distincts** tenus (passifs et actif) qui portent le tag `tag`
     /// (`ItemDef::tags`). Un objet en plusieurs exemplaires compte une fois ; les consommables ne
-    /// comptent pas. Un objet inconnu de `items` ne porte aucun tag.
+    /// comptent pas. Un objet inconnu de `items` ne porte aucun tag. D91 : **sans allocation** (appelé
+    /// chaque frame par joueur et par synergie, et à chaque tir) : un passif compte à sa première
+    /// occurrence seulement, l'actif s'il n'est pas déjà tenu en passif ; l'inventaire est petit, le
+    /// balayage des précédents coûte moins qu'un `Vec`.
     pub fn held_with_tag(&self, items: &ItemTable, tag: &str) -> u32 {
-        let mut distinct: Vec<&str> = self
+        let carries = |id: &str| {
+            items
+                .0
+                .get(id)
+                .is_some_and(|def| def.tags.iter().any(|candidate| candidate == tag))
+        };
+        let passives = self
             .passives
             .iter()
-            .map(String::as_str)
-            .chain(self.active.iter().map(|slot| slot.item.as_str()))
-            .filter(|id| {
-                items
-                    .0
-                    .get(*id)
-                    .is_some_and(|def| def.tags.iter().any(|candidate| candidate == tag))
-            })
-            .collect();
-        distinct.sort_unstable();
-        distinct.dedup();
-        distinct.len() as u32
+            .enumerate()
+            .filter(|(index, id)| carries(id) && !self.passives[..*index].contains(id))
+            .count();
+        let active = self
+            .active
+            .as_ref()
+            .is_some_and(|slot| carries(&slot.item) && !self.passives.contains(&slot.item));
+        passives as u32 + u32::from(active)
     }
 
     /// Nombre d'exemplaires portés, tous types d'inventaire confondus.
@@ -874,6 +879,41 @@ mod tests {
         assert!(
             !def.is_active(&with_active, &items),
             "l'actif perdu : la transformation s'éteint"
+        );
+    }
+
+    /// D91 : `held_with_tag` (sans allocation) compte chaque objet distinct une fois, doublons non
+    /// adjacents compris, et l'actif déjà tenu en passif ne compte pas deux fois.
+    #[test]
+    fn held_with_tag_compte_les_objets_distincts() {
+        let items = mushrooms();
+        let count = |passives: &[&str], active: Option<&str>| {
+            inventory(passives, active).held_with_tag(&items, "champignon")
+        };
+        assert_eq!(count(&[], None), 0);
+        assert_eq!(
+            count(&["amanite", "lame", "amanite"], None),
+            1,
+            "doublon non adjacent"
+        );
+        assert_eq!(
+            count(&["amanite", "bolet", "amanite", "bolet", "amanite"], None),
+            2
+        );
+        assert_eq!(
+            count(&["amanite"], Some("amanite")),
+            1,
+            "actif déjà tenu en passif"
+        );
+        assert_eq!(count(&["amanite"], Some("morille")), 2);
+        assert_eq!(count(&["lame", "inconnu"], Some("lame")), 0);
+        assert_eq!(
+            inventory(&["bolet"], None).held_with_tag(&items, "toxique"),
+            1
+        );
+        assert_eq!(
+            inventory(&["bolet"], None).held_with_tag(&items, "absent"),
+            0
         );
     }
 

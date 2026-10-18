@@ -348,10 +348,14 @@ bougent) dans `docs/etat-engine.md`.
 `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, dans `make check` et la CI) vérifie
 que chaque crate de simulation listé `SIM` n'a aucun crate de présentation dans son graphe
 (`cargo tree` du crate seul) et que ces crates compilent ensemble en `--no-default-features`
-(bevy ECS seul). Les crates `PENDING` (`combat`, `animation`, `map`, `map_ldtk`, `game`) sont
-la dette D69, affichée sans bloquer ; un crate nouveau doit être classé (échec sinon). Un module
-qui a besoin de `Sprite`, `Window`, `KeyCode`, des assets ou du réseau va dans `game` (ou un
-crate `APP`), jamais dans un crate `SIM`.
+(bevy ECS seul). 13 crates sont `SIM` (dont `combat` et `map`, étape 1 de D69 fermée le 2026-10-18) ;
+les crates `PENDING` (`map_ldtk`, `game`) sont la dette D69 (étape 2 : `game_sim`/`game_app`), affichée
+sans bloquer ; un crate nouveau doit être classé (échec sinon). Un module qui a besoin de `Sprite`,
+`Window`, `KeyCode`, `Visibility`, des assets (`Asset`, `Assets<T>`, chargeurs RON) ou du réseau (socket)
+va dans `game` (ou un crate `APP`), jamais dans un crate `SIM` : `combat` ne voit que les types
+désérialisés (`WeaponAsset`, `MeleeWeaponAsset` ; leurs enveloppes `Asset` sont dans `game::weapons`),
+le sprite d'une balle est posé par `game::world_sprites::attach_bullet_visuals` (`Added<Bullet>`, à partir
+de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `sim_core::animation_state`.
 
 ## Scénarios (tests de comportement et de régression)
 

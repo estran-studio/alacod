@@ -665,6 +665,21 @@ fn t2_8_fixtures_have_a_single_problem() {
     }
 }
 
+/// D79 : `scale` est obligatoire comme dans `CharacterConfig` (un personnage sans `scale` passait
+/// le lint puis faisait échouer le chargement du jeu).
+#[test]
+fn character_without_scale_is_refused_with_a_clear_message() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("character_scale_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "`scale`");
+    assert_has_error(&errors, LintErrorKind::Parse, "scale: \"1.0\"");
+    let scale_errors = errors
+        .iter()
+        .filter(|e| e.message.contains("scale"))
+        .collect::<Vec<_>>();
+    assert_eq!(scale_errors.len(), 1, "{errors:#?}");
+    assert_eq!(scale_errors[0].file, "characters/hero.ron");
+}
+
 #[test]
 fn zombies_and_testbed_lint_without_error() {
     for game in ["zombies", "testbed"] {

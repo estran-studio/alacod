@@ -4401,6 +4401,23 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
                         format!("{at} : TimedModifier frames = 0 : doit être > 0"),
                     ),
                     effects::Action::TimedModifier { .. } | effects::Action::Modifier { .. } => {}
+                    // D80 : l'`OnUse` passe par la même exécution que les effets de personnage
+                    // (`effects_runtime::apply_action_sourced`) : bombe à mèche d'une frame au point du
+                    // porteur, comme la bombe d'un joueur.
+                    effects::Action::Explode { radius, damage, .. } => {
+                        if *radius <= Fixed::ZERO {
+                            push(
+                                LintErrorKind::OutOfRange,
+                                format!("{at} : Explode : rayon = {radius} : doit être > 0"),
+                            );
+                        }
+                        if *damage < Fixed::ZERO {
+                            push(
+                                LintErrorKind::OutOfRange,
+                                format!("{at} : Explode : dégâts = {damage} : doivent être >= 0"),
+                            );
+                        }
+                    }
                     other => push(
                         LintErrorKind::Unsupported,
                         format!("{at} : action {other:?} : pas exécutée par OnUse d'un objet"),

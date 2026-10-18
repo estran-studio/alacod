@@ -121,6 +121,8 @@ impl Plugin for CoreSetupPlugin {
         }
 
         app.add_plugins(WebPlugin);
+        // L'état logique d'animation (rollback) est enregistré par `sim_core`, avant la présentation.
+        app.add_plugins(sim_core::animation_state::AnimationStatePlugin);
         app.add_plugins(D2AnimationPlugin);
         app.add_plugins(GgrsPlugin::<PeerConfig>::default());
         // `GgrsPlugin` installe aussi `RollbackDespawnPlugin` : les entités de la simulation se
@@ -131,6 +133,7 @@ impl Plugin for CoreSetupPlugin {
         }
 
         app.add_plugins(BaseWeaponGamePlugin {});
+        app.add_plugins(crate::weapons::WeaponAssetsPlugin);
         // Contrats M1 : enregistrés ensemble, aucun état posé ni système exécuté.
         app.add_plugins((
             combat::CombatPlugin,
@@ -293,7 +296,19 @@ impl Plugin for CoreSetupPlugin {
         );
         // D14 (§33) : restart en ligne — compteur de parties en ligne (remis à zéro à chaque
         // entrée normale dans `LobbyOnline`), socket de la partie fermé à sa sortie.
+        // D86 : pairs des sessions déjà jouées (ignorés au lobby suivant) et abandon d'une
+        // session qui ne se synchronise pas.
         app.init_resource::<crate::jjrs::restart::OnlineGames>()
+            .init_resource::<crate::jjrs::p2p::PreviousSessionPeers>()
+            .init_resource::<crate::jjrs::p2p::SessionSyncWatch>()
+            .add_systems(
+                OnEnter(AppState::InGame),
+                crate::jjrs::p2p::reset_sync_watch,
+            )
+            .add_systems(
+                Update,
+                crate::jjrs::p2p::abandon_unsynchronized_session.run_if(in_state(AppState::InGame)),
+            )
             .add_systems(
                 OnEnter(AppState::LobbyOnline),
                 crate::jjrs::restart::reset_online_games,
