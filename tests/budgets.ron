@@ -95,7 +95,7 @@
         // simulation par frame ; pire rollback ; snapshot max) : bench_tears 33,7 fps, 4,46 / 3,57 / 4,39 ms, 56,3 ms,
         // 218 KiB, 432 balles ; bench_tears_trio 97,4 fps, 1,69 / 1,08 / 1,02, 13,3 ms, 42 KiB ; bench_familiars 89,2 fps,
         // 1,79 / 1,07 / 0,97, 12,7 ms, 20 KiB ; bench_floor_isaac 57,2 fps, 2,63 / 1,80 / 1,43, 18,9 ms, 53 KiB.
-        // bench_tears dépasse 16,7 ms × 3 (D89 : population de larmes de `Split`) ; le plafond n'est pas un objectif.
+        // bench_tears dépasse 16,7 ms × 3 (D97 : population de larmes de `Split`) ; le plafond n'est pas un objectif.
         "bench_tears": (min_sim_fps: 17.0, max_rollback_ms: 113.0),
         "bench_tears_trio": (min_sim_fps: 49.0, max_rollback_ms: 27.0),
         "bench_familiars": (min_sim_fps: 45.0, max_rollback_ms: 26.0),

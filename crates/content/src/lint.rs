@@ -3169,16 +3169,7 @@ fn lint_rules(
                     );
                 }
             }
-            BehaviorEntry::MirrorShot { weapon, every } => {
-                if !registry
-                    .weapons
-                    .contains_key(&registry::WeaponId::from(weapon.clone()))
-                {
-                    push(
-                        LintErrorKind::BrokenReference,
-                        format!("behaviors : MirrorShot : arme inconnue « {weapon} »"),
-                    );
-                }
+            BehaviorEntry::MirrorShot { every } => {
                 if *every == 0 {
                     push(
                         LintErrorKind::OutOfRange,
@@ -4193,7 +4184,10 @@ fn lint_statuses(registry: &Registry, errors: &mut Vec<LintError>) {
                     ));
                 }
             }
-            StatusKindEntry::Stun | StatusKindEntry::Freeze | StatusKindEntry::Fear => {}
+            StatusKindEntry::Stun
+            | StatusKindEntry::Freeze
+            | StatusKindEntry::Fear
+            | StatusKindEntry::Charm => {}
         }
     }
 }
@@ -4404,9 +4398,13 @@ fn lint_items(registry: &Registry, errors: &mut Vec<LintError>) {
 }
 
 /// M2-T4 (`docs/conventions.md` §44) : synergies. Au moins deux objets distincts et connus,
-/// pas deux synergies pour le même ensemble, pas d'effet `OnUse`.
+/// pas deux synergies pour le même ensemble, pas d'effet `OnUse`. Suivi Q10 : une **transformation**
+/// (`requires_tag`) peut n'avoir aucun `requires` ; `count` > 0 et atteignable (assez d'objets non
+/// consommables portent le tag, sinon la transformation ne s'active jamais), tag connu, `tint` en
+/// `#rrggbb`.
 fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
-    let mut seen: BTreeMap<BTreeSet<&str>, &str> = BTreeMap::new();
+    type Key<'a> = (BTreeSet<&'a str>, Option<(&'a str, u32)>);
+    let mut seen: BTreeMap<Key, &str> = BTreeMap::new();
     for synergy in registry.synergies.values() {
         let file = synergy.file.display().to_string();
         let mut push = |kind: LintErrorKind, message: String| {
@@ -4426,7 +4424,52 @@ fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
             );
         }
         let set: BTreeSet<&str> = synergy.def.requires.iter().map(String::as_str).collect();
-        if set.len() < 2 {
+        if let Some(requirement) = &synergy.def.requires_tag {
+            // Objets non consommables qui portent le tag : ce que `Inventory::held_with_tag` peut compter.
+            let carriers = registry
+                .items
+                .values()
+                .filter(|item| {
+                    item.def.kind != items::ItemKind::Consumable
+                        && item.def.tags.iter().any(|tag| *tag == requirement.tag)
+                })
+                .count() as u32;
+            if requirement.count == 0 {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("synergie « {id} » : requires_tag : count = 0 : doit être > 0"),
+                );
+            }
+            if carriers == 0 {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "synergie « {id} » : requires_tag : tag « {} » inconnu (aucun objet ne le porte)",
+                        requirement.tag
+                    ),
+                );
+            } else if requirement.count > carriers {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "synergie « {id} » : requires_tag : count = {} : seuls {carriers} objet(s) portent le tag « {} » (jamais active)",
+                        requirement.count, requirement.tag
+                    ),
+                );
+            }
+        }
+        if let Some(tint) = &synergy.def.tint {
+            let valid = tint.len() == 7
+                && tint.starts_with('#')
+                && tint[1..].chars().all(|c| c.is_ascii_hexdigit());
+            if !valid {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("synergie « {id} » : tint = {tint:?} : attendu #rrggbb"),
+                );
+            }
+        }
+        if set.len() < 2 && synergy.def.requires_tag.is_none() {
             push(
                 LintErrorKind::OutOfRange,
                 format!(
@@ -4448,13 +4491,21 @@ fn lint_synergies(registry: &Registry, errors: &mut Vec<LintError>) {
                 Some(_) => {}
             }
         }
-        if let Some(first) = seen.get(&set) {
+        let key: Key = (
+            set,
+            synergy
+                .def
+                .requires_tag
+                .as_ref()
+                .map(|requirement| (requirement.tag.as_str(), requirement.count)),
+        );
+        if let Some(first) = seen.get(&key) {
             push(
                 LintErrorKind::DuplicateId,
                 format!("synergie « {id} » : même ensemble d'objets que « {first} »"),
             );
         } else {
-            seen.insert(set, id);
+            seen.insert(key, id);
         }
         for (index, effect) in synergy.def.effects.iter().enumerate() {
             let at = format!("synergie « {id} » : effects[{index}]");
@@ -4534,6 +4585,12 @@ fn lint_unlocks(registry: &Registry, errors: &mut Vec<LintError>) {
                         push(
                             LintErrorKind::OutOfRange,
                             format!("déblocage « {id} » : grants[{index}] : poids {weight} (doit être > 0)"),
+                        );
+                    }
+                    if *weight > items::MAX_LOOT_WEIGHT {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!("déblocage « {id} » : grants[{index}] : poids {weight} (au plus {}, le tirage joue un billet par unité de poids)", items::MAX_LOOT_WEIGHT),
                         );
                     }
                     if matches!(pick, items::LootPick::Currency(0)) {
@@ -4776,6 +4833,16 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
                     format!(
                         "pool de butin « {id} » : entries[{index}] : poids {} (doit être > 0)",
                         entry.weight
+                    ),
+                );
+            }
+            if entry.weight > items::MAX_LOOT_WEIGHT {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "pool de butin « {id} » : entries[{index}] : poids {} (au plus {}, le tirage joue un billet par unité de poids)",
+                        entry.weight,
+                        items::MAX_LOOT_WEIGHT
                     ),
                 );
             }

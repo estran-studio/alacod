@@ -72,19 +72,19 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
    frame simulée)** : bench_bullets_room 3,02 / 2,16 / 2,21, rollback 28,7 ; bench_horde 3,63 / 2,68 / 3,66, 46,6 ; four_players_idle
    1,53 / 1,05 / 0,61, 8,4 ; **p2p_smoke 1,77 / 1,15 / 1,25, 16,2** (contre 7,06 et 85,1 sur le M4 : la dette D70 ne se voit plus) ;
    **bench_tears (4 joueurs × 10 objets dont `Split` ×2, 432 balles, 506 entités) 4,46 / 3,57 / 4,39, rollback 56,3, snapshot 218 KiB**
-   (D89). Sur ce poste la sauvegarde et la restauration coûtent 3 à 8 fois leur valeur du M4 alors que la simulation légère n'en
-   coûte que 2 à 6 : à ce poste le coût des snapshots n'est plus négligeable devant la simulation en scénario léger (D90 : le
+   (D97). Sur ce poste la sauvegarde et la restauration coûtent 3 à 8 fois leur valeur du M4 alors que la simulation légère n'en
+   coûte que 2 à 6 : à ce poste le coût des snapshots n'est plus négligeable devant la simulation en scénario léger (D98 : le
    poste explique-t-il tout ?).
-2. **La frontière simulation/présentation est prouvée par la compilation pour 11 crates,
-   en dette pour 5.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
+2. **La frontière simulation/présentation est prouvée par la compilation pour 13 crates,
+   en dette pour 2.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
    et CI) : `cargo tree` du crate seul sans crate de présentation, puis `cargo check
-   --no-default-features` ECS seul (35 s). Propres : `sim_core`, `stats`, `effects`, `behaviors`,
-   `world`, `run`, `items`, `meta`, `content`, `bevy_fixed`, `utils` (journal natif, plugin web
-   et caméra de debug déménagés dans `game`). Dette **D69**, affichée sans bloquer : `combat`
-   (`animation`, loaders RON, `bevy_matchbox`, `Sprite` dans `spawn_bullet`), `animation`,
-   `map`/`map_ldtk` (`bevy_ecs_ldtk`), `game` (≈ 28 k lignes, simulation et UI/caméra/audio/
-   réseau dans le même crate). Un crate nouveau doit être classé. Sort de D69 : `FacingDirection`
-   et `PeerConfig` vers `sim_core`, visuels de balle en présentation, puis `game_sim`/`game_app`.
+   --no-default-features` ECS seul. Propres : `sim_core`, `stats`, `effects`, `behaviors`,
+   `world`, `run`, `items`, `meta`, `content`, `bevy_fixed`, `utils`, **`combat`** et **`map`**
+   (étape 1 de D69, 2026-10-18 : `combat` ne tire plus que 147 crates au lieu de 505 ;
+   `animation`, qui ne porte plus que de la présentation, est classé `APP`). Dette **D69**,
+   affichée sans bloquer : `map_ldtk` (`bevy_ecs_ldtk`, rendu) et `game` (≈ 47 k lignes,
+   simulation et UI/caméra/audio/réseau dans le même crate). Un crate nouveau doit être classé.
+   Sort de D69 : `game_sim`/`game_app` (étape 2, chiffrée dans `docs/taches/dettes.md`).
 3. **La partie en ligne n'a pas de politique de session** (dette, pas prioritaire : décision du
    2026-10-15). Une déconnexion termine la partie
    pour tout le monde (overlay et sortie du processus) alors que GGRS continue sans le pair
@@ -145,9 +145,10 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 4. Calibrer une référence de performance reproductible, profiler le coût dominant et corriger
    selon les mesures. Ne pas relever artificiellement les seuils de `tests/budgets.ron`.
 5. Réduire progressivement les dépendances de présentation dans les modules de simulation :
-   `combat` porte encore `animation`, les loaders RON et le type d’adresse Matchbox ; `map` et
-   `utils` portent également des dépendances/features de présentation. Le headless actuel évite
-   fenêtre/GPU à l’exécution ; il ne prouve pas une compilation ECS seule ni un portage console.
+   `combat` et `map` sont maintenant des crates `SIM` (D69, étape 1) ; reste `game` (simulation et
+   présentation dans le même crate) et `map_ldtk` (D69, étape 2). Le headless actuel évite
+   fenêtre/GPU à l’exécution ; la compilation ECS seule est prouvée pour 13 crates, pas encore pour
+   `game`, donc pas encore un portage console.
 6. Faire assembler un petit jeu par une autre personne : une arme, un ennemi, un objet et une salle.
    Consigner le Rust nécessaire, les erreurs de contenu et les difficultés rencontrées.
 

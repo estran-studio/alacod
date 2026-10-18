@@ -404,12 +404,13 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     dash: p.dash.clone(),
                     items: p.items.clone(),
                     bomb: p.bomb,
+                    aim: p.aim,
                 })
                 .collect(),
         ))
         // `.before(weapon_inventory_system)` : quand `weapon` despawn/recrée les armes du
         // joueur (voir la doc de `apply_player_overrides`), `weapon_inventory_system` (Update,
-        // `BaseWeaponGamePlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
+        // `game::weapons::WeaponAssetsPlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
         // despawnées) dans la même frame — Bevy insère un `ApplyDeferred` entre deux systèmes
         // ordonnés (`auto_insert_apply_deferred`, par défaut), ce qui suffit ici : pas besoin
         // d'ordonner aussi par rapport à `spawn_players_when_map_loaded` (voir la doc de la
@@ -1107,6 +1108,8 @@ struct PlayerOverride {
     items: Vec<String>,
     /// M3-T4 : voir `game::replay::PlayerScript::bomb`.
     bomb: Option<world::BombDef>,
+    /// Suivi Q17 : voir `game::replay::PlayerScript::aim`.
+    aim: Option<sim_core::aim::AimMode>,
 }
 
 #[derive(Resource)]
@@ -1169,6 +1172,7 @@ fn apply_player_overrides(
             && o.dash.is_none()
             && o.items.is_empty()
             && o.bomb.is_none()
+            && o.aim.is_none()
     }) {
         *applied = true;
         return;
@@ -1197,6 +1201,17 @@ fn apply_player_overrides(
         }
         if let Some(def) = over.bomb {
             commands.entity(entity).insert(world::BombCarrier::new(def));
+        }
+        // Suivi Q17 : `Free` retire la visée du personnage (scénarios de contenu, voir
+        // `PlayerScript::aim`), `FourWay` la pose.
+        match over.aim {
+            Some(sim_core::aim::AimMode::Free) => {
+                commands.entity(entity).remove::<sim_core::aim::AimMode>();
+            }
+            Some(aim) => {
+                commands.entity(entity).insert(aim);
+            }
+            None => {}
         }
         if !over.tags.is_empty() {
             commands
@@ -1702,10 +1717,11 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                 || p.dash.is_some()
                 || !p.items.is_empty()
                 || p.bomb.is_some()
+                || p.aim.is_some()
         }) {
             failures.push(
                 "réglages de joueur (tags, weapon, currency, items, modifiers, mutations, dash, \
-                 bomb) non pris en charge avec un hub suivi (`hub: Some((stay: false))`)"
+                 bomb, aim) non pris en charge avec un hub suivi (`hub: Some((stay: false))`)"
                     .into(),
             );
         }

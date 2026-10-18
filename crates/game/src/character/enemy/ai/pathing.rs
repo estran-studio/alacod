@@ -4,12 +4,12 @@ use crate::character::movement::Velocity;
 use crate::character::player::input::FIXED_TIMESTEP;
 use crate::character::player::Player;
 use crate::collider::{is_colliding, Collider, Wall, Window};
-use animation::FacingDirection;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use combat::downed::Downed;
 use serde::{Deserialize, Serialize};
+use sim_core::animation_state::FacingDirection;
 use sim_core::stats::StatId;
 use stats::StatReader;
 use std::collections::VecDeque;
@@ -553,8 +553,16 @@ pub fn move_enemies(
             max: fixed_math::FixedVec2::new(enemy_pos_v2.x + cell_size, enemy_pos_v2.y + cell_size),
         };
 
+        // Suivi Q12 : un ennemi charmé ne se fait pas repousser par sa cible (il doit venir à portée de
+        // corps à corps ; la séparation l'arrêterait à une quarantaine d'unités).
+        let charm_target = enemy_target_opt
+            .filter(|target| {
+                target.target_type == super::state::TargetType::Enemy
+                    && combat::status::charmed(statuses)
+            })
+            .and_then(|target| target.target.as_ref());
         for other_entry in separation_grid.query_aabb(&neighborhood) {
-            if other_entry.entity == entity {
+            if other_entry.entity == entity || charm_target == Some(&other_entry.net_id) {
                 continue;
             }
             let other_pos_v2 = other_entry.aabb.min;
@@ -607,6 +615,21 @@ pub fn move_enemies(
                     &body,
                     enemy_target_opt.and_then(|target| target.last_known_position),
                 )
+            })
+            // Suivi Q12 : un ennemi charmé marche droit sur sa cible ennemie (`charm`), jamais vers un
+            // joueur ; sans cible, il reste là.
+            .or_else(|| {
+                combat::status::charmed(statuses).then(|| {
+                    super::charm::charm_motion(
+                        enemy_pos_v2,
+                        enemy_target_opt
+                            .filter(|target| target.target_type == super::state::TargetType::Enemy)
+                            .and_then(|target| target.last_known_position),
+                        // Jamais plus loin que la portée de corps à corps de l'ennemi (`attack_range`
+                        // de `mouche`, `chien` : moins que `OptimalAttackDistance`).
+                        optimal_attack_distance.min(ai_config.attack_range),
+                    )
+                })
             })
             .or_else(|| {
                 behavior_runtime

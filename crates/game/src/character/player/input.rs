@@ -1,5 +1,3 @@
-use animation::AnimationState;
-use animation::FacingDirection;
 use bevy::window::PrimaryWindow;
 use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
@@ -8,6 +6,8 @@ use bevy_ggrs::{LocalInputs, LocalPlayers};
 use combat::downed::Downed;
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
+use sim_core::animation_state::AnimationState;
+use sim_core::animation_state::FacingDirection;
 use sim_core::frame_events::FrameEvents;
 use sim_core::stats::StatId;
 use stats::StatReader;

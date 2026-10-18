@@ -57,9 +57,62 @@ impl Default for RngStreams {
 /// Hash FNV-1a 64 bits, copié de `crates/utils/src/rollback.rs` pour éviter une dépendance.
 /// Stable entre les runs et les machines.
 pub fn fnv1a(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+    fnv1a_extend(FNV1A_OFFSET, bytes)
+}
+
+/// Départ de [`fnv1a`].
+pub const FNV1A_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+
+/// Poursuit un hash FNV-1a : `fnv1a_extend(fnv1a_extend(FNV1A_OFFSET, a), b) == fnv1a(a ++ b)`.
+/// Permet de hacher une clé en morceaux, sans la concaténer dans une `String`.
+pub fn fnv1a_extend(hash: u64, bytes: &[u8]) -> u64 {
+    bytes.iter().fold(hash, |hash, byte| {
         (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
     })
+}
+
+/// Poursuit un hash FNV-1a avec l'écriture décimale de `value` (les mêmes octets que
+/// `value.to_string()`), sans allocation.
+pub fn fnv1a_extend_decimal(hash: u64, mut value: u64) -> u64 {
+    let mut digits = [0u8; 20];
+    let mut start = digits.len();
+    loop {
+        start -= 1;
+        digits[start] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+    fnv1a_extend(hash, &digits[start..])
+}
+
+/// Finaliseur de MurmurHash3 (32 bits) : chaque bit d'entrée change chaque bit de sortie avec
+/// probabilité ½. Un hash FNV-1a replié sur 32 bits ne l'a pas : le dernier octet haché n'entre que
+/// par un produit avec un nombre premier à faible poids, donc deux clés voisines (`…:41`, `…:42`)
+/// restent corrélées (D88, D95).
+pub fn fmix32(mut x: u32) -> u32 {
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x85eb_ca6b);
+    x ^= x >> 13;
+    x = x.wrapping_mul(0xc2b2_ae35);
+    x ^ (x >> 16)
+}
+
+/// Finaliseur de MurmurHash3 (64 bits) : une bijection de `u64` dont chaque bit de sortie dépend de
+/// chaque bit d'entrée (course pondérée du butin, `items::draw_exhausting`).
+pub fn fmix64(mut x: u64) -> u64 {
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xff51_afd7_ed55_8ccd);
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
+    x ^ (x >> 33)
+}
+
+/// Graine 32 bits d'un RNG local à partir d'un hash FNV-1a : repli des 64 bits puis [`fmix32`].
+/// L'idiome de `variant_seed`, `loot_seed` et `curse_seed`.
+pub fn seed_from_hash(hash: u64) -> u32 {
+    fmix32((hash ^ (hash >> 32)) as u32)
 }
 
 impl RollbackRng {

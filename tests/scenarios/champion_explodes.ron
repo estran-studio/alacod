@@ -1,5 +1,5 @@
 // M3-T7 (docs/conventions.md §72) : `on_death` `Explode` (variante `explosif`). Le joueur 0 (carte `surfaces`, en (-568, 248), un `compagnon`
-// à son pied) tire vers l'est sur un `elite_explosif` placé à 40 unités : deux larmes le tuent ; à la frame suivante,
+// à son pied) tire vers l'est sur un `elite_explosif` placé à 40 unités : deux larmes (celle du porteur f33, celle de son familier f35 : Q13, §71) le tuent ; à la frame suivante,
 // `Explode` (rayon 70, 10 dégâts) touche le joueur (distance 40) et une cible à 46 unités, pas une cible à 106 ; le
 // familier, immunisé, n'est jamais touché. Témoin : même partie avec la variante `nu`, personne n'est blessé.
 //
@@ -27,14 +27,15 @@ Scenario(
     expect: [
         FamiliarCount(handle: 0, count: 1, at_frame: 5),
         EnemyVariant(entity: NetId(15), variant: Some("explosif"), at_frame: 2),
-        // Le champion (net id 15) meurt à f29 (larmes du joueur et balle du familier) : à f29 personne n'est blessé,
-        // à f30 (la frame suivante) l'explosion touche le joueur et la cible proche (net id 16), pas la lointaine (17).
-        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 28),
-        EntityCount(kind: Enemy, min: Some(2), max: Some(2), at_frame: 29),
-        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 29),
-        EntityHealth(net_id: 16, min: Some(5000.0), max: Some(5000.0), at_frame: 29),
-        Health(handle: 0, min: Some(90.0), max: Some(90.0), at_frame: 30),
-        EntityHealth(net_id: 16, min: Some(4990.0), max: Some(4990.0), at_frame: 30),
+        // Le champion (net id 15) meurt à f35 (larme du joueur à f33, larme du familier à f35, Q13 : avant, la balle
+        // `pistol` du familier le tuait à f29) : à f35 personne n'est blessé, à f36 (la frame suivante) l'explosion
+        // touche le joueur et la cible proche (net id 16), pas la lointaine (17).
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 34),
+        EntityCount(kind: Enemy, min: Some(2), max: Some(2), at_frame: 35),
+        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 35),
+        EntityHealth(net_id: 16, min: Some(5000.0), max: Some(5000.0), at_frame: 35),
+        Health(handle: 0, min: Some(90.0), max: Some(90.0), at_frame: 36),
+        EntityHealth(net_id: 16, min: Some(4990.0), max: Some(4990.0), at_frame: 36),
         EntityHealth(net_id: 17, min: Some(5000.0), max: Some(5000.0), at_frame: 159),
         // Le familier (10 points de vie, immunisé) a reçu la même explosion à 40 unités : toujours là.
         FamiliarCount(handle: 0, count: 1, at_frame: 159),

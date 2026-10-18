@@ -13,18 +13,17 @@ use crate::{
     projectile::{Projectile, ProjectileSpec, ProjectileTable},
     team::team_allows_hit,
 };
-use animation::{AnimationStateBundle, FacingDirection};
 use bevy::{
     log::{tracing::span, Level},
-    platform::collections::HashMap,
     prelude::*,
 };
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
+use sim_core::animation_state::{AnimationStateBundle, FacingDirection};
 use sim_core::{
+    aim::{aim_direction, AimMode},
     ammo::AmmoType,
     damage::{DamageEvent, DamageKind, FriendlyFire},
     frame_events::{FrameEvents, FrameEventsAppExt},
@@ -417,6 +416,19 @@ pub struct Bullet {
     pub friendly_fire: FriendlyFire,
 }
 
+/// Ce que la présentation ne peut pas relire du `Bullet` rollback pour dessiner la balle : le
+/// `Size` du projectile composable et la stat `ShotSize` du tireur (absente de `Bullet`, dont le
+/// `Hash` entre dans le checksum). Posé par [`spawn_bullet`], **hors rollback** et jamais haché
+/// (comme le `Sprite` qu'il remplace) ; lu par `game::world_sprites::attach_bullet_visuals` qui
+/// en tire la taille du sprite. Que des `Fixed` : la conversion en `f32` se fait en présentation.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BulletLook {
+    /// `Projectile::size` à l'apparition ; `None` : balle ordinaire (côté de sprite fixe).
+    pub projectile_size: Option<fixed_math::Fixed>,
+    /// Stat `ShotSize` du tireur (1 sans modificateur : aucun calcul de plus).
+    pub shot_size: fixed_math::Fixed,
+}
+
 /// Component to track the player's weapon inventory
 #[derive(Component, Debug, Clone, Default)]
 pub struct WeaponInventory {
@@ -486,11 +498,6 @@ pub struct WeaponState {
 pub struct FireWeaponEvent {
     pub player_entity: Entity,
 }
-
-// ASSETS
-
-#[derive(Asset, TypePath, Serialize, Deserialize)]
-pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);
 
 // UTILITY FUNCTION
 
@@ -671,12 +678,8 @@ pub fn spawn_weapon_for_player(
     inventory.weapons.push((entity, weapon));
 
     if active {
-        commands
-            .entity(entity)
-            .insert((ActiveWeapon {}, Visibility::Inherited));
+        commands.entity(entity).insert(ActiveWeapon {});
         inventory.active_weapon_index = inventory.weapons.len() - 1;
-    } else {
-        commands.entity(entity).insert(Visibility::Hidden);
     }
 
     commands.entity(player_entity).add_child(entity);
@@ -812,9 +815,10 @@ pub const NO_PLAYER_HANDLE: PlayerHandle = PlayerHandle::MAX;
 /// **Seule** fonction d'apparition d'une balle (T1.2) : tir d'un joueur
 /// (`spawn_bullet_rollback`), projectile né d'un pattern
 /// (`projectile::spawn_child_projectile`) et tir d'émetteur (`emitter::emitter_system`).
-/// Rayon (base 5, 8 pour `Explosive`, × `Size`), sprite (3.5, × `Size` si composable),
-/// couleur et marqueurs (`ExplosiveTag`, `PiercingTag`) dérivent du type de balle et du
-/// projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+/// Rayon (base 5, 8 pour `Explosive`, × `Size`) et marqueurs (`ExplosiveTag`, `PiercingTag`)
+/// dérivent du type de balle et du projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+/// Aucun sprite : la présentation le tire de `Bullet` et de [`BulletLook`]
+/// (`game::world_sprites::attach_bullet_visuals`).
 pub fn spawn_bullet(
     commands: &mut Commands,
     collision_settings: &CollisionSettings,
@@ -829,25 +833,18 @@ pub fn spawn_bullet(
         BulletType::Explosive { .. } => fixed_math::new(8.0),
         BulletType::Standard { .. } | BulletType::Piercing { .. } => fixed_math::new(5.0),
     };
-    let (radius, sprite_size) = match &spawn.projectile {
-        Some(projectile) => (
-            projectile.radius(base_radius),
-            fixed_math::to_f32(projectile.size) * crate::projectile::BASE_SPRITE,
-        ),
-        None => (base_radius, 3.5),
+    let radius = match &spawn.projectile {
+        Some(projectile) => projectile.radius(base_radius),
+        None => base_radius,
     };
-    let (radius, sprite_size) = if spawn.shot_size == fixed_math::FIXED_ONE {
-        (radius, sprite_size)
+    let radius = if spawn.shot_size == fixed_math::FIXED_ONE {
+        radius
     } else {
-        (
-            radius.saturating_mul(spawn.shot_size),
-            sprite_size * fixed_math::to_f32(spawn.shot_size),
-        )
+        radius.saturating_mul(spawn.shot_size)
     };
-    let color = match &spawn.bullet_type {
-        BulletType::Standard { .. } => Color::BLACK,
-        BulletType::Explosive { .. } => Color::WHITE,
-        BulletType::Piercing { .. } => Color::BLACK,
+    let look = BulletLook {
+        projectile_size: spawn.projectile.as_ref().map(|projectile| projectile.size),
+        shot_size: spawn.shot_size,
     };
 
     let transform = fixed_math::FixedTransform3D::new(
@@ -868,7 +865,9 @@ pub fn spawn_bullet(
 
     let bullet_type = spawn.bullet_type;
     let mut entity_commands = commands.spawn((
-        Sprite::from_color(color, Vec2::new(sprite_size, sprite_size)),
+        // Seule donnée « visuelle » : `game::world_sprites::attach_bullet_visuals` en tire le
+        // sprite (non rollback, jamais haché).
+        look,
         Bullet {
             velocity: spawn.velocity,
             bullet_type,
@@ -938,39 +937,12 @@ fn spawn_bullet_rollback(
     // M3-T0a : stats de larmes du porteur (`ShotSpeed`, `ShotSize`, 1 par défaut).
     shot: ShotStats,
 ) -> Entity {
-    let (velocity, damage) = match &bullet_type {
-        BulletType::Standard {
-            speed,
-            damage: damage_bullet,
-        }
-        | BulletType::Explosive {
-            speed,
-            damage: damage_bullet,
-            ..
-        }
-        | BulletType::Piercing {
-            speed,
-            damage: damage_bullet,
-            ..
-        } => {
-            // M3-T0a : `ShotSpeed` multiplie la vitesse de la balle ; à 1, aucun produit (même
-            // valeur au bit près qu'avant la stat).
-            let speed = if shot.speed == fixed_math::FIXED_ONE {
-                *speed
-            } else {
-                speed.saturating_mul(shot.speed)
-            };
-            (
-                direction * (speed / fixed_math::Fixed::from_num(60)),
-                *damage_bullet,
-            )
-        }
-    };
+    let (velocity, damage) = tear_motion(&bullet_type, direction, shot, damage_mult);
 
     // Stats branchées (T1.2, chantier B2) : sans modificateur actif, `damage_mult`/
     // `range_mult` valent exactement 1 (voir `character::create::create_character`), donc
-    // ce produit ne change aucune valeur par rapport à avant ce chantier.
-    let damage = damage.saturating_mul(damage_mult);
+    // ce produit ne change aucune valeur par rapport à avant ce chantier (`damage_mult` est
+    // appliqué par `tear_motion`).
     let range = range.saturating_mul(range_mult);
 
     let local_muzzle_offset_v2 = if !facing_direction.should_flip_x() {
@@ -1038,6 +1010,89 @@ fn spawn_bullet_rollback(
 pub struct ShotStats {
     pub speed: fixed_math::Fixed,
     pub size: fixed_math::Fixed,
+}
+
+/// Vitesse (par frame) et dégât d'une balle du mode de tir `bullet_type` dans `direction` :
+/// `ShotSpeed` multiplie la vitesse et `damage_mult` (stat `Damage`) le dégât ; à 1, aucun produit
+/// (valeurs au bit près identiques à avant ces stats). Partagé par `spawn_bullet_rollback` et les
+/// tirs miroirs des familiers.
+pub fn tear_motion(
+    bullet_type: &BulletType,
+    direction: fixed_math::FixedVec2,
+    shot: ShotStats,
+    damage_mult: fixed_math::Fixed,
+) -> (fixed_math::FixedVec2, fixed_math::Fixed) {
+    let (speed, damage) = match bullet_type {
+        BulletType::Standard { speed, damage }
+        | BulletType::Explosive { speed, damage, .. }
+        | BulletType::Piercing { speed, damage, .. } => (*speed, *damage),
+    };
+    let speed = if shot.speed == fixed_math::FIXED_ONE {
+        speed
+    } else {
+        speed.saturating_mul(shot.speed)
+    };
+    (
+        direction * (speed / fixed_math::Fixed::from_num(60)),
+        damage.saturating_mul(damage_mult),
+    )
+}
+
+/// Objets et synergies du tireur dont les `projectile` se composent avec ceux de l'arme (§66), dans
+/// l'ordre de `items::projectile_mods`, sans les listes vides. Vide hors jeu complet (pas
+/// d'inventaire d'objets ou de tables) : chemin d'origine.
+pub fn carried_projectile_mods<'a>(
+    held: Option<&items::Inventory>,
+    item_table: Option<&'a items::ItemTable>,
+    synergy_table: Option<&'a items::SynergyTable>,
+) -> Vec<&'a effects::projectile::ProjectileMods> {
+    match (held, item_table, synergy_table) {
+        (Some(held), Some(items), Some(synergies)) => {
+            let mut mods = items::projectile_mods(items, synergies, held);
+            mods.retain(|mods| !mods.is_empty());
+            mods
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Projectile composable d'un tir de joueur : celui du mode de tir de l'arme (T1.1), composé avec les
+/// `carried` des objets du tireur (M3-T1, §66). Sans objet qui ajoute quelque chose : chemin
+/// d'origine (`Projectile::new`, `None` pour un mode sans `projectile:`). `luck` n'est appelé (et
+/// gardé) que pour un projectile qui a une `Action::Chance` à tirer. Partagé par le tir du joueur et
+/// les tirs miroirs de ses familiers (Q13).
+pub fn shot_projectile(
+    weapon: &WeaponConfig,
+    mode: &FiringModeConfig,
+    carried: &[&effects::projectile::ProjectileMods],
+    damage_mult: fixed_math::Fixed,
+    luck: impl FnOnce() -> fixed_math::Fixed,
+) -> Option<Projectile> {
+    let mut projectile = if carried.is_empty() {
+        (!mode.projectile.is_empty()).then(|| {
+            Projectile::new(
+                weapon.name.clone(),
+                &mode.projectile,
+                std::sync::Arc::new(weapon.projectiles.clone()),
+                damage_mult,
+                0,
+            )
+        })
+    } else {
+        Some(Projectile::composed(
+            weapon.name.clone(),
+            &mode.projectile,
+            carried,
+            std::sync::Arc::new(weapon.projectiles.clone()),
+            damage_mult,
+        ))
+    };
+    if let Some(projectile) = projectile.as_mut() {
+        if projectile.has_chance() {
+            projectile.luck = luck();
+        }
+    }
+    projectile
 }
 
 // SYSTEMS
@@ -1199,6 +1254,8 @@ pub fn weapon_rollback_system(
         &GgrsNetId,
         &Team,
         Option<&Tags>,
+        // Visée du personnage (suivi Q17) : absent = libre.
+        Option<&AimMode>,
     )>,
 
     collision_settings: Res<CollisionSettings>,
@@ -1463,8 +1520,15 @@ pub fn weapon_rollback_system(
                 weapon_state.is_firing = input.fire;
 
                 if can_fire {
-                    if let Ok((_, facing_direction, _, shooter_net_id, shooter_team, opt_tags)) =
-                        player_query.get(child_of.parent())
+                    if let Ok((
+                        _,
+                        facing_direction,
+                        _,
+                        shooter_net_id,
+                        shooter_team,
+                        opt_tags,
+                        aim_mode,
+                    )) = player_query.get(child_of.parent())
                     {
                         let shooter_tags = opt_tags.cloned().unwrap_or_default();
                         // Stats branchées (T1.2) : dégâts et portée de la balle multipliés
@@ -1477,55 +1541,28 @@ pub fn weapon_rollback_system(
                             speed: stats.get(shooter, &StatId::ShotSpeed, fixed_math::FIXED_ONE),
                             size: stats.get(shooter, &StatId::ShotSize, fixed_math::FIXED_ONE),
                         };
-                        let mut aim_dir = fixed_math::FixedVec2::new(
-                            fixed_math::Fixed::from_num(input.pan_x),
-                            fixed_math::Fixed::from_num(input.pan_y),
+                        let aim_dir = aim_direction(
+                            aim_mode.copied().unwrap_or_default(),
+                            input.pan_x,
+                            input.pan_y,
                         );
-                        aim_dir.x /= fixed_math::new(127.0);
-                        aim_dir.y /= fixed_math::new(127.0);
-                        aim_dir = aim_dir.normalize_or_zero();
                         // Projectile composable du mode de tir (T1.1), cloné par balle. M3-T1
                         // (§66) : les `projectile` des objets et synergies du tireur s'y
                         // composent ; sans objet qui ajoute quelque chose, chemin d'origine.
-                        let carried = match (
+                        // La chance du tireur n'est lue que par un projectile qui a une
+                        // `Action::Chance` à tirer.
+                        let carried = carried_projectile_mods(
                             item_inventories.get(shooter).ok(),
                             item_table.as_deref(),
                             synergy_table.as_deref(),
-                        ) {
-                            (Some(held), Some(items), Some(synergies)) => {
-                                let mut mods = items::projectile_mods(items, synergies, held);
-                                mods.retain(|mods| !mods.is_empty());
-                                mods
-                            }
-                            _ => Vec::new(),
-                        };
-                        let mut projectile = if carried.is_empty() {
-                            (!weapon_config.projectile.is_empty()).then(|| {
-                                Projectile::new(
-                                    weapon.config.name.clone(),
-                                    &weapon_config.projectile,
-                                    std::sync::Arc::new(weapon.config.projectiles.clone()),
-                                    damage_mult,
-                                    0,
-                                )
-                            })
-                        } else {
-                            Some(Projectile::composed(
-                                weapon.config.name.clone(),
-                                &weapon_config.projectile,
-                                &carried,
-                                std::sync::Arc::new(weapon.config.projectiles.clone()),
-                                damage_mult,
-                            ))
-                        };
-                        // M3-T1 : la chance du tireur n'est lue (et gardée) que par un
-                        // projectile qui a une `Action::Chance` à tirer.
-                        if let Some(projectile) = projectile.as_mut() {
-                            if projectile.has_chance() {
-                                projectile.luck =
-                                    stats.get(shooter, &StatId::Luck, fixed_math::Fixed::ZERO);
-                            }
-                        }
+                        );
+                        let projectile = shot_projectile(
+                            &weapon.config,
+                            weapon_config,
+                            &carried,
+                            damage_mult,
+                            || stats.get(shooter, &StatId::Luck, fixed_math::Fixed::ZERO),
+                        );
 
                         match weapon_config.firing_mode {
                             FiringMode::Shotgun {
@@ -1907,72 +1944,10 @@ pub fn bullet_rollback_collision_system(
     }
 }
 
-// Non rollback system to display the weapon correct sprite
-pub fn weapon_inventory_system(
-    mut commands: Commands,
-    query: Query<(Entity, &WeaponInventory, &MeleeAttackState)>,
-    mut weapon_entities: Query<(Entity, &mut Visibility), With<Weapon>>,
-) {
-    for (_player_entity, inventory, melee_attack_state) in query.iter() {
-        if inventory.weapons.is_empty() {
-            continue;
-        }
-
-        // Update active/inactive weapon visibility
-        for (i, (weapon_entity, _)) in inventory.weapons.iter().enumerate() {
-            let is_active = i == inventory.active_weapon_index;
-
-            // For simplicity, we're using commands to add/remove components
-            // In a real implementation, you might want to use a Visibility component
-            if let Ok((_, mut visibility)) = weapon_entities.get_mut(*weapon_entity) {
-                if is_active {
-                    commands.entity(*weapon_entity).insert(ActiveWeapon);
-                    // Hide weapon during melee attacks
-                    if melee_attack_state.is_attacking {
-                        *visibility = Visibility::Hidden;
-                    } else {
-                        *visibility = Visibility::Visible;
-                    }
-                } else {
-                    commands.entity(*weapon_entity).remove::<ActiveWeapon>();
-                    *visibility = Visibility::Hidden;
-                }
-            }
-        }
-    }
-}
-
-pub fn weapons_config_update_system(
-    _asset_server: Res<AssetServer>,
-
-    weapons_config: Res<Assets<WeaponsConfig>>,
-
-    mut ev_asset: MessageReader<AssetEvent<WeaponsConfig>>,
-
-    mut query_weapons: Query<(&Children, Entity, &mut Weapon)>,
-) {
-    for event in ev_asset.read() {
-        if let AssetEvent::Modified { id } = event {
-            if let Some(weapons_config) = weapons_config.get(*id) {
-                for (_childs, _entity, mut weapon) in query_weapons.iter_mut() {
-                    if let Some(config) = weapons_config.0.get(&weapon.config.name) {
-                        weapon.config = config.config.clone();
-                        weapon.sprite_config = config.sprite_config.clone();
-                    }
-                }
-            }
-        }
-    }
-}
-
 pub struct BaseWeaponGamePlugin {}
 
 impl Plugin for BaseWeaponGamePlugin {
     fn build(&self, app: &mut App) {
-        // Add RON asset plugins for weapons and melee weapons
-        app.add_plugins(RonAssetPlugin::<WeaponsConfig>::new(&["ron"]));
-        app.add_plugins(RonAssetPlugin::<melee::MeleeWeaponsConfig>::new(&["ron"]));
-
         // Kinds existants (lus par le lint de contenu, `crates/content`, T1.5). Les noms
         // sont ceux des tables `weapons.ron`/`melee_weapons.ron`, déjà en dur ailleurs
         // dans ce fichier et dans `character/enemy/create.rs` ; T1.5 les lira depuis le
@@ -2026,10 +2001,8 @@ impl Plugin for BaseWeaponGamePlugin {
             .rollback_and_trace_neutral::<melee::WaveDamageScale>()
             .rollback_and_trace::<melee::MeleeHitbox>();
 
-        app.add_systems(
-            Update,
-            (weapon_inventory_system, weapons_config_update_system),
-        );
+        // La présentation des armes (visibilité des armes portées, rechargement à chaud de
+        // `weapons.ron`, chargeurs RON) est dans `game::weapons`.
 
         app.add_systems(
             GgrsSchedule,
@@ -2109,5 +2082,39 @@ mod tests {
             (angle + 0.075).abs() < 2e-3,
             "tirage 0 : −spread/2, obtenu {angle}"
         );
+    }
+}
+
+#[cfg(test)]
+mod tear_tests {
+    use super::*;
+    use bevy_fixed::fixed_math::{new as fx, FixedVec2};
+
+    fn standard() -> BulletType {
+        BulletType::Standard {
+            damage: fx(10.0),
+            speed: fx(600.0),
+        }
+    }
+
+    fn shot(speed: f32) -> ShotStats {
+        ShotStats {
+            speed: fx(speed),
+            size: fx(1.0),
+        }
+    }
+
+    /// À `ShotSpeed` 1 et `Damage` 1 : vitesse par frame = vitesse / 60, dégât du mode, au bit près ;
+    /// les stats multiplient l'un et l'autre.
+    #[test]
+    fn tear_motion_applique_les_stats_du_porteur() {
+        let east = FixedVec2::new(fx(1.0), fx(0.0));
+        let (velocity, damage) = tear_motion(&standard(), east, shot(1.0), fx(1.0));
+        assert_eq!(velocity.x, fx(600.0) / fixed_math::Fixed::from_num(60));
+        assert_eq!(velocity.y, fixed_math::Fixed::ZERO);
+        assert_eq!(damage, fx(10.0));
+        let (fast, strong) = tear_motion(&standard(), east, shot(2.0), fx(1.5));
+        assert_eq!(fast.x, velocity.x * fixed_math::Fixed::from_num(2));
+        assert_eq!(strong, fx(15.0));
     }
 }

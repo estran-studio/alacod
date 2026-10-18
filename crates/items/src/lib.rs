@@ -46,6 +46,9 @@ pub enum ItemKind {
     Consumable,
 }
 
+/// Rareté d'un objet. **L'ordre des variantes est une donnée** : le tirage de butin hache `*rarity as u8` dans
+/// l'identité d'une entrée (`loot::pick_identity`, D96) ; réordonner ou insérer une variante autre part qu'en fin
+/// déplacerait tous les tirages (et toutes les traces à butin).
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
@@ -346,7 +349,17 @@ fn one_familiar() -> u32 {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SynergyDef {
     pub name: String,
+    /// Objets qu'il faut tenir tous. Peut être vide si `requires_tag` est posé (transformation).
+    #[serde(default)]
     pub requires: Vec<String>,
+    /// Suivi Q10 (transformation, §44) : en plus de `requires`, le joueur doit tenir `count` objets
+    /// **distincts** portant le tag `tag` (`ItemDef::tags`). Absent : la synergie d'avant, au bit près.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requires_tag: Option<TagRequirement>,
+    /// Suivi Q10 : teinte de présentation `#rrggbb` du porteur tant que la synergie est active (lue par
+    /// `game::feedback`, hors simulation). Absent : aucune teinte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tint: Option<String>,
     #[serde(default)]
     pub modifiers: Vec<ItemModifier>,
     #[serde(default)]
@@ -355,6 +368,28 @@ pub struct SynergyDef {
     /// larmes). `None` : v1 exacte ; hors rollback et hors hash (définition).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projectile: Option<ProjectileMods>,
+}
+
+/// Condition de tag d'une synergie (suivi Q10) : `count` objets distincts tenus qui portent `tag`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TagRequirement {
+    pub tag: String,
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+    pub count: u32,
+}
+
+impl SynergyDef {
+    /// La synergie est active pour `inventory` : tous les objets de `requires` sont tenus **et**, si
+    /// `requires_tag` est posé, `count` objets distincts tenus portent son `tag` (voir
+    /// [`Inventory::held_with_tag`]) ; une synergie sans aucune condition n'est jamais active. Pure.
+    pub fn is_active(&self, inventory: &Inventory, items: &ItemTable) -> bool {
+        (!self.requires.is_empty() || self.requires_tag.is_some())
+            && self.requires.iter().all(|id| inventory.has(id))
+            && self.requires_tag.as_ref().is_none_or(|requirement| {
+                inventory.held_with_tag(items, &requirement.tag) >= requirement.count
+            })
+    }
 }
 
 /// M3-T0a (§60), lu au tir par M3-T1 (§66) : `projectile` des objets tenus par `inventory`, dans
@@ -374,7 +409,7 @@ pub fn projectile_mods<'a>(
     }
     out.extend(
         synergies
-            .active(inventory)
+            .active(inventory, items)
             .into_iter()
             .filter_map(|(_, def)| def.projectile.as_ref()),
     );
@@ -405,13 +440,15 @@ pub struct SynergyTable(pub BTreeMap<String, SynergyDef>);
 
 impl SynergyTable {
     /// Les synergies actives pour `inventory`, par identifiant croissant : tous les objets
-    /// requis sont tenus.
-    pub fn active<'a>(&'a self, inventory: &Inventory) -> Vec<(&'a str, &'a SynergyDef)> {
+    /// requis sont tenus et la condition de tag, s'il y en a une, est remplie ([`SynergyDef::is_active`]).
+    pub fn active<'a>(
+        &'a self,
+        inventory: &Inventory,
+        items: &ItemTable,
+    ) -> Vec<(&'a str, &'a SynergyDef)> {
         self.0
             .iter()
-            .filter(|(_, def)| {
-                !def.requires.is_empty() && def.requires.iter().all(|id| inventory.has(id))
-            })
+            .filter(|(_, def)| def.is_active(inventory, items))
             .map(|(id, def)| (id.as_str(), def))
             .collect()
     }
@@ -479,6 +516,27 @@ impl Inventory {
 
     pub fn consumable(&self, id: &str) -> u32 {
         self.consumables.get(id).copied().unwrap_or(0)
+    }
+
+    /// Suivi Q10 : nombre d'objets **distincts** tenus (passifs et actif) qui portent le tag `tag`
+    /// (`ItemDef::tags`). Un objet en plusieurs exemplaires compte une fois ; les consommables ne
+    /// comptent pas. Un objet inconnu de `items` ne porte aucun tag.
+    pub fn held_with_tag(&self, items: &ItemTable, tag: &str) -> u32 {
+        let mut distinct: Vec<&str> = self
+            .passives
+            .iter()
+            .map(String::as_str)
+            .chain(self.active.iter().map(|slot| slot.item.as_str()))
+            .filter(|id| {
+                items
+                    .0
+                    .get(*id)
+                    .is_some_and(|def| def.tags.iter().any(|candidate| candidate == tag))
+            })
+            .collect();
+        distinct.sort_unstable();
+        distinct.dedup();
+        distinct.len() as u32
     }
 
     /// Nombre d'exemplaires portés, tous types d'inventaire confondus.
@@ -723,7 +781,7 @@ mod tests {
         let table = synergies();
         let ids = |inv: &Inventory| {
             table
-                .active(inv)
+                .active(inv, &ItemTable::default())
                 .into_iter()
                 .map(|(id, _)| id)
                 .collect::<Vec<_>>()
@@ -752,7 +810,95 @@ mod tests {
             )]
             .into(),
         );
-        assert!(table.active(&inventory(&["lame"], None)).is_empty());
+        assert!(table
+            .active(&inventory(&["lame"], None), &ItemTable::default())
+            .is_empty());
+    }
+
+    fn mushrooms() -> ItemTable {
+        let item = |tags: &str| -> ItemDef {
+            ron::from_str(&format!(r#"(name: "I", kind: Passive, tags: {tags})"#)).unwrap()
+        };
+        ItemTable(
+            [
+                ("amanite", item(r#"["champignon"]"#)),
+                ("bolet", item(r#"["champignon", "toxique"]"#)),
+                ("morille", item(r#"["champignon"]"#)),
+                ("lame", item(r#"["acier"]"#)),
+            ]
+            .into_iter()
+            .map(|(id, def)| (id.to_string(), def))
+            .collect(),
+        )
+    }
+
+    fn transformation(extra: &str) -> SynergyDef {
+        ron::from_str(&format!(
+            r#"(name: "T", requires: [], requires_tag: Some((tag: "champignon", count: 3)){extra})"#
+        ))
+        .unwrap()
+    }
+
+    /// Suivi Q10 : une transformation est active à `count` objets distincts du tag, pas à `count - 1`,
+    /// un exemplaire en double ne compte qu'une fois, un objet d'un autre tag ne compte pas, et l'actif
+    /// compte comme un objet tenu.
+    #[test]
+    fn transformation_exige_count_objets_distincts_du_tag() {
+        let items = mushrooms();
+        let def = transformation("");
+        let active = |passives: &[&str], active: Option<&str>| {
+            def.is_active(&inventory(passives, active), &items)
+        };
+        assert!(!active(&[], None));
+        assert!(
+            !active(&["amanite", "bolet"], None),
+            "deux ne suffisent pas"
+        );
+        assert!(active(&["amanite", "bolet", "morille"], None));
+        assert!(active(&["amanite", "bolet", "morille", "lame"], None));
+        assert!(
+            !active(&["amanite", "amanite", "bolet"], None),
+            "un doublon compte une fois"
+        );
+        assert!(
+            !active(&["amanite", "bolet", "lame"], None),
+            "un autre tag ne compte pas"
+        );
+        assert!(
+            !active(&["amanite", "bolet", "inconnu"], None),
+            "un objet inconnu non plus"
+        );
+        let mut with_active = inventory(&["amanite", "bolet"], Some("morille"));
+        assert!(def.is_active(&with_active, &items), "l'actif compte");
+        with_active.active = None;
+        assert!(
+            !def.is_active(&with_active, &items),
+            "l'actif perdu : la transformation s'éteint"
+        );
+    }
+
+    /// `requires` et `requires_tag` se cumulent ; une synergie sans aucune condition n'est jamais active ;
+    /// `requires_tag` absent : la synergie d'avant.
+    #[test]
+    fn transformation_cumule_requires_et_tag() {
+        let items = mushrooms();
+        let both = transformation(r#", modifiers: [(stat: MoveSpeed, op: Pct, value: "0.3")]"#);
+        let mut both = both;
+        both.requires = vec!["lame".into()];
+        let three = ["amanite", "bolet", "morille"];
+        assert!(
+            !both.is_active(&inventory(&three, None), &items),
+            "il manque `lame`"
+        );
+        assert!(both.is_active(
+            &inventory(&["amanite", "bolet", "morille", "lame"], None),
+            &items
+        ));
+        let plain: SynergyDef = ron::from_str(r#"(name: "P", requires: ["lame"])"#).unwrap();
+        assert!(plain.requires_tag.is_none() && plain.tint.is_none());
+        assert!(plain.is_active(&inventory(&["lame"], None), &items));
+        let empty: SynergyDef = ron::from_str(r#"(name: "V")"#).unwrap();
+        assert!(!empty.is_active(&inventory(&three, None), &items));
     }
 
     #[test]

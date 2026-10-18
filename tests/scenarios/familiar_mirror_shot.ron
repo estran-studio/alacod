@@ -1,6 +1,6 @@
 // M3-T6 (docs/conventions.md §71) : `MirrorShot`. Le joueur 0 (arme `larme`, carte `surfaces`) tire une seule larme
-// vers l'est à f30 ; son `compagnon` (arme `pistol`, sans les modificateurs du porteur : Q13) tire dans la même
-// direction. `target` est placée en ligne. Témoin `familiar_mirror_shot_sans_objet` : la même larme seule.
+// vers l'est (tir demandé à f30, balles parties à f35) ; son `compagnon` tire dans la même direction **les larmes du porteur** (même arme `larme`, Q13, §71 : avant, son propre
+// `pistol`). `target` est placée en ligne. Témoin `familiar_mirror_shot_sans_objet` : la même larme seule.
 //
 // À regarder : deux balles partent à la suite, la seconde du familier ; la cible reçoit deux coups.
 
@@ -21,10 +21,11 @@ Scenario(
     ],
     expect: [
         FamiliarCount(handle: 0, count: 1, at_frame: 5),
-        // Le familier tire avec le porteur (f30) : sa balle (`pistol`, plus rapide que la larme) touche la
-        // cible (net id 15) à f58, la larme du porteur à f83 : deux coups, pas un de plus.
-        EntityHits(net_id: 15, min: 0, max: Some(0), at_frame: 57),
-        EntityHits(net_id: 15, min: 1, max: Some(1), at_frame: 58),
+        // Le familier tire avec le porteur (f35) : sa larme (même arme, donc même vitesse ; le familier est à l'est
+        // du porteur, plus près de la cible) touche la cible (net id 15) à f81, la larme du porteur à f83 : deux coups,
+        // pas un de plus. (Avant Q13 la balle `pistol` du familier touchait à f58.)
+        EntityHits(net_id: 15, min: 0, max: Some(0), at_frame: 80),
+        EntityHits(net_id: 15, min: 1, max: Some(1), at_frame: 81),
         EntityHits(net_id: 15, min: 1, max: Some(1), at_frame: 82),
         EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 83),
         EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 159),

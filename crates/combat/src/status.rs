@@ -1,5 +1,5 @@
 //! Statuts (B3, T1.3, `docs/conventions.md` §19) : `Burn`, `Slow`, `Stun`, `Freeze` ; M3-T1
-//! (§66) : `Poison`, `Fear`.
+//! (§66) : `Poison`, `Fear` ; suivi Q12 : `Charm`.
 //!
 //! Un statut du contenu (kind `Status`, `statuses/<id>.ron`) est un [`StatusSpec`] : son genre
 //! ([`StatusDef`]) et ses paramètres. Les définitions du jeu forment la [`StatusLibrary`]
@@ -19,6 +19,9 @@
 //!   genre `DamageKind::Poison` (résistances propres).
 //! - `Fear` (M3-T1) : l'ennemi fuit sa cible (`Flee` imposé, aucune attaque au corps à corps)
 //!   pendant la durée ; réapplication rafraîchit. Sans effet sur un joueur.
+//! - `Charm` (suivi Q12) : l'ennemi cible l'**ennemi hostile le plus proche** (égalité : le plus petit
+//!   `GgrsNetId`) pendant la durée, le frappe, ne touche aucun joueur, puis redevient hostile ;
+//!   réapplication rafraîchit. Sans effet sur un joueur.
 //!
 //! Un statut expire à la frame `expires_at_frame` (retiré par [`Statuses::tick`]).
 use std::collections::BTreeMap;
@@ -38,6 +41,8 @@ pub enum StatusDef {
     // M3-T1 : en fin d'enum (le `derive(Hash)` hache l'index : les quatre d'avant gardent le leur).
     Poison,
     Fear,
+    // Suivi Q12 : encore en fin d'enum (les sept d'avant gardent leur index haché).
+    Charm,
 }
 
 impl StatusDef {
@@ -129,7 +134,11 @@ impl Statuses {
                     entry.expires_at_frame = frame.saturating_add(extended);
                     entry.stacks = entry.stacks.saturating_add(stacks).min(BURN_MAX_STACKS);
                 }
-                StatusDef::Slow | StatusDef::Stun | StatusDef::Freeze | StatusDef::Fear => {
+                StatusDef::Slow
+                | StatusDef::Stun
+                | StatusDef::Freeze
+                | StatusDef::Fear
+                | StatusDef::Charm => {
                     entry.expires_at_frame = frame.saturating_add(spec.frames);
                 }
             }
@@ -206,6 +215,18 @@ impl Statuses {
     }
 }
 
+/// `Charm` (suivi Q12) : l'ennemi sert le camp des joueurs pendant la durée.
+impl Statuses {
+    pub fn charmed(&self) -> bool {
+        self.0.iter().any(|e| e.status == StatusDef::Charm)
+    }
+}
+
+/// `Charm` sur une entité qui porte peut-être des statuts.
+pub fn charmed(statuses: Option<&Statuses>) -> bool {
+    statuses.is_some_and(Statuses::charmed)
+}
+
 /// `Fear` sur une entité qui porte peut-être des statuts.
 pub fn feared(statuses: Option<&Statuses>) -> bool {
     statuses.is_some_and(Statuses::feared)
@@ -255,6 +276,9 @@ mod tests {
             .statuses
             .insert("peur".into(), spec(StatusDef::Fear));
         library
+            .statuses
+            .insert("charme".into(), spec(StatusDef::Charm));
+        library
     }
 
     fn net(id: usize) -> GgrsNetId {
@@ -270,6 +294,7 @@ mod tests {
             StatusDef::Freeze,
             StatusDef::Poison,
             StatusDef::Fear,
+            StatusDef::Charm,
         ];
         assert_eq!(
             ron::from_str::<Vec<StatusDef>>(&ron::to_string(&values).unwrap()).unwrap(),
@@ -415,5 +440,28 @@ mod tests {
         s.tick(270, &lib);
         assert!(!s.feared(), "expiré");
         assert!(!feared(None));
+    }
+
+    /// `Charm` : se pose, se rafraîchit à la réapplication (sans empiler) et expire à `frames`.
+    #[test]
+    fn charme_se_rafraichit_et_expire() {
+        let lib = library();
+        let mut s = Statuses::default();
+        assert!(!s.charmed());
+        s.apply("charme", &lib.statuses["charme"], None, 100, 1);
+        assert!(s.charmed());
+        assert!(charmed(Some(&s)));
+        assert!(!charmed(None));
+        assert_eq!(s.0[0].expires_at_frame, 220);
+        s.apply("charme", &lib.statuses["charme"], None, 150, 3);
+        assert_eq!(
+            s.0[0].expires_at_frame, 270,
+            "durée rafraîchie, pas cumulée"
+        );
+        assert_eq!(s.stacks("charme"), 1, "jamais de pile");
+        assert!(s.tick(269, &lib).is_empty());
+        assert!(s.charmed(), "encore charmé à f269");
+        s.tick(270, &lib);
+        assert!(!s.charmed(), "redevient hostile à f270");
     }
 }

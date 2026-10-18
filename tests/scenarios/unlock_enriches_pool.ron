@@ -1,9 +1,11 @@
 // M2-T12 (docs/conventions.md §51) : même graine, mêmes dix coffres (k1..k10), mêmes appuis que
 // `unlock_base_pool` ; seul le profil change (trois déblocages). Le trèfle et l'étendard réservés
 // à un déblocage entrent dans les pools et le coffre riche ajoute une entrée Rare : les tirages
-// diffèrent (ici « amulette » ×2, « bastion » ×2, « lunettes » ×2). Le RNG est consommé de la
-// même façon dans les deux cas. Les comptes dépendent du contenu des pools de gungeon : ajouter
-// un objet les décale (les rebénir alors, avec le même jumeau).
+// diffèrent (ici « amulette » ×1, « bastion » ×2, « lunettes » ×0, « roulade » ×3). Le RNG est consommé de la
+// même façon dans les deux cas. Les comptes dépendent du contenu des pools de gungeon : depuis D96 un objet
+// ajouté à un pool ne prend que les emplacements où il gagne la course (les autres comptes ne bougent pas) ;
+// les rebénir si le contenu d'un pool change, avec le même jumeau.
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : nouveau tirage (graine `fmix32`, course pondérée) : comptes re-mesurés (avant : amulette ×2, bastion ×2, lunettes ×2) ; `roulade` ajoutée (valeur différente de `unlock_base_pool`).
 //
 // À regarder : le joueur ouvre puis ramasse un coffre toutes les 10 frames (f30–f220).
 Scenario(
@@ -17,8 +19,9 @@ Scenario(
     players: [(inputs: [(from: 30, to: 31, buttons: [Interaction]),(from: 40, to: 41, buttons: [Interaction]),(from: 50, to: 51, buttons: [Interaction]),(from: 60, to: 61, buttons: [Interaction]),(from: 70, to: 71, buttons: [Interaction]),(from: 80, to: 81, buttons: [Interaction]),(from: 90, to: 91, buttons: [Interaction]),(from: 100, to: 101, buttons: [Interaction]),(from: 110, to: 111, buttons: [Interaction]),(from: 120, to: 121, buttons: [Interaction]),(from: 130, to: 131, buttons: [Interaction]),(from: 140, to: 141, buttons: [Interaction]),(from: 150, to: 151, buttons: [Interaction]),(from: 160, to: 161, buttons: [Interaction]),(from: 170, to: 171, buttons: [Interaction]),(from: 180, to: 181, buttons: [Interaction]),(from: 190, to: 191, buttons: [Interaction]),(from: 200, to: 201, buttons: [Interaction]),(from: 210, to: 211, buttons: [Interaction]),(from: 220, to: 221, buttons: [Interaction])])],
     expect: [
         RunUnlocks(has: ["tresor_trefle", "etendard_royal", "coffre_riche"], at_frame: 50),
-        ItemCount(handle: 0, id: "amulette", count: 2, at_frame: 259),
+        ItemCount(handle: 0, id: "amulette", count: 1, at_frame: 259),
         ItemCount(handle: 0, id: "bastion", count: 2, at_frame: 259),
-        ItemCount(handle: 0, id: "lunettes", count: 2, at_frame: 259),
+        ItemCount(handle: 0, id: "lunettes", count: 0, at_frame: 259),
+        ItemCount(handle: 0, id: "roulade", count: 3, at_frame: 259),
     ],
 )

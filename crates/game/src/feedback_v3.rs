@@ -28,6 +28,7 @@ use world::{Bomb, DoorLocks, Exploded};
 
 use crate::bombs::RockBroken;
 use crate::character::config::CharacterConfig;
+use crate::character::player::Player;
 use crate::character::variant::Variant;
 use crate::character::visuals::CharacterAppearance;
 use crate::familiars::{FamiliarBehaviors, FamiliarMotion};
@@ -35,6 +36,7 @@ use crate::feedback::{FeedbackCue, FeedbackKind, FeedbackLog};
 use crate::frame_events::FrameEvents;
 use crate::global_asset::GlobalAsset;
 use behaviors::FamiliarOf;
+use items::{Inventory, ItemTable, SynergyTable};
 
 // ---------------------------------------------------------------------------------------
 // Larmes
@@ -86,6 +88,7 @@ pub fn status_color(kind: StatusDef) -> (f32, f32, f32) {
         StatusDef::Burn => (1.0, 0.55, 0.35),
         StatusDef::Poison => (0.55, 0.9, 0.4),
         StatusDef::Fear => (0.75, 0.55, 0.9),
+        StatusDef::Charm => (1.0, 0.6, 0.8),
         StatusDef::Slow => (0.6, 0.6, 0.9),
     }
 }
@@ -98,6 +101,7 @@ pub fn status_name(kind: StatusDef) -> &'static str {
         StatusDef::Burn => "brûlure",
         StatusDef::Poison => "poison",
         StatusDef::Fear => "peur",
+        StatusDef::Charm => "charme",
         StatusDef::Slow => "lenteur",
     }
 }
@@ -368,6 +372,18 @@ pub struct V3Inputs<'w, 's> {
         ),
     >,
     bombs: Query<'w, 's, (&'static GgrsNetId, &'static Bomb, &'static FixedTransform3D)>,
+    players: Query<
+        'w,
+        's,
+        (
+            &'static GgrsNetId,
+            &'static Inventory,
+            &'static FixedTransform3D,
+        ),
+        With<Player>,
+    >,
+    items: Option<Res<'w, ItemTable>>,
+    synergies: Option<Res<'w, SynergyTable>>,
     library: Option<Res<'w, StatusLibrary>>,
     global: Option<Res<'w, GlobalAsset>>,
     configs: Option<Res<'w, Assets<CharacterConfig>>>,
@@ -385,6 +401,25 @@ pub struct V3Memory {
     champions: BTreeSet<usize>,
     bombs: BTreeSet<usize>,
     open_rooms: BTreeSet<String>,
+    /// Suivi Q10 : `(net id du joueur, synergie)` des transformations déjà annoncées.
+    transformations: BTreeSet<(usize, String)>,
+}
+
+/// Suivi Q10 : la transformation active d'un joueur, `(id, teinte)` : la première synergie (par id) qui
+/// a un `tint` valide **et** une condition `requires_tag` remplie (`items::SynergyDef::is_active`).
+/// Présentation seule ; `None` sans transformation.
+pub fn transformation_tint<'a>(
+    synergies: &'a SynergyTable,
+    items: &ItemTable,
+    inventory: &Inventory,
+) -> Option<(&'a str, (f32, f32, f32))> {
+    synergies
+        .active(inventory, items)
+        .into_iter()
+        .find_map(|(id, def)| {
+            def.requires_tag.as_ref()?;
+            parse_tint(def.tint.as_deref()?).map(|tint| (id, tint))
+        })
 }
 
 fn xy(transform: &FixedTransform3D) -> Vec2 {
@@ -489,6 +524,28 @@ pub fn record_v3_cues(
     }
     memory.champions = current;
 
+    // Transformations : un indice quand le joueur en acquiert une (suivi Q10, ordre `GgrsNetId`).
+    let mut current = BTreeSet::new();
+    if let (Some(items), Some(synergies)) = (&inputs.items, &inputs.synergies) {
+        let mut players: Vec<_> = inputs.players.iter().collect();
+        players.sort_by_key(|(net_id, ..)| net_id.0);
+        for (net_id, inventory, transform) in players {
+            let Some((id, tint)) = transformation_tint(synergies, items, inventory) else {
+                continue;
+            };
+            let key = (net_id.0, id.to_string());
+            current.insert(key.clone());
+            if memory.transformations.contains(&key) {
+                continue;
+            }
+            let mut c = cue(FeedbackKind::Transformation, now, net_id.0, xy(transform));
+            c.color = tint;
+            c.note = Some(id.to_string());
+            log.push(c);
+        }
+    }
+    memory.transformations = current;
+
     // Bombes posées : mèche (frames restantes à la pose).
     let mut current = BTreeSet::new();
     let mut bombs: Vec<_> = inputs.bombs.iter().collect();
@@ -562,7 +619,9 @@ pub fn cue_label(cue: &FeedbackCue) -> Option<String> {
             cue.extra,
             cue.value
         ),
-        FeedbackKind::Champion => format!("{} {} ({})", cue.kind.label(), cue.net_id, note),
+        FeedbackKind::Champion | FeedbackKind::Transformation => {
+            format!("{} {} ({})", cue.kind.label(), cue.net_id, note)
+        }
         FeedbackKind::BombFuse => {
             format!("{} {} ({} frames)", cue.kind.label(), cue.net_id, cue.value)
         }

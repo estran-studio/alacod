@@ -3,16 +3,22 @@
 // `loops: 1`), le boss 1×1 au nord-est avec la salle du diable collée à lui, un trésor 1×1 au nord et la salle secrète
 // sous deux combats. Le bot `explorateur` nettoie les quatre combats avant le boss.
 //
-// À regarder : quatre combats (f64 à f900), puis le boss verrouille sa salle (f1001), phase 1 (f1114), mort ;
-// victoire f1236.
+// À regarder : quatre combats (f64 à f1512), puis le boss verrouille sa salle (f1548), phase 1 (f1640), phase 2 (f1761),
+// mort (salle nettoyée f1934) ; victoire f1935.
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions), le bot est plus
+// lent : mêmes attentes, frames recalées sur le nouveau run (boss f1001 → f1548, victoire f1236 → f1935, scénario 2100 frames).
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
+// grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 123,
     floors: Some("sous_sol_un"),
-    frames: 1950,
+    frames: 2100,
     players: [
-        (bot: explorateur),
+        (bot: explorateur, aim: Some(Free)),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(13), max: Some(13), at_frame: 5),
@@ -20,10 +26,10 @@ Scenario(
         RoomLayout(kind: "diable", touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
         RoomLayout(kind: "tresor", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "diable"], at_frame: 5),
         RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "diable", "tresor"], at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 1500),
+        RoomState(kind: "boss", state: Locked, at_frame: 1600),
         BossPhase(entity: NetId(131), phase: 1, at_frame: 1650),
-        RoomState(kind: "boss", state: Cleared, at_frame: 1900),
-        RunState(step: Ended(Victory), at_frame: 1900),
-        PlayerAlive(handle: 0, at_frame: 1949),
+        RoomState(kind: "boss", state: Cleared, at_frame: 2000),
+        RunState(step: Ended(Victory), at_frame: 2000),
+        PlayerAlive(handle: 0, at_frame: 2099),
     ],
 )

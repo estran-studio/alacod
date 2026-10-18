@@ -127,7 +127,7 @@ déplacé que les sprites.
 - `animations` : table `{ "nom": { start: 0, end: 6 } }` ou `{ "nom": { row: 0, end: 7 } }`. Format direct (indices absolus) ou basé sur les lignes (spécifier la ligne et le nombre de frames).
 - `columns` : optionnel, dérivé de `SpriteSheetConfig` sinon.
 
-**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/animation/src/lib.rs`) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
+**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/sim_core/src/animation_state.rs`, état rollback ; déménagé d'`animation` par D69) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
 
 **Calques (skins)** : un personnage peut avoir plusieurs calques animés (`body`, `shadow`, `effect`). Chaque calque est une `SpriteSheetConfig` et une `AnimationMapConfig` ; ils sont composés dans `CharacterConfig` (`crates/game/src/character/config.rs`).
 
@@ -1294,6 +1294,42 @@ source_team, next_tick_frame }`, dans l'ordre de pose.
 - `Freeze` : `Stun`, plus vitesse **et recul** remis à zéro chaque frame (`status_motion_system`,
   `Movement`, avant `move_characters`).
 
+- `Charm` (suivi Q12, réponse de William du 2026-10-16 ; `StatusDef::Charm`, **en fin d'enum** : le `derive(Hash)` hache
+  l'index de variante, les sept d'avant gardent le leur, et aucun contenu existant ne l'utilise, donc aucune trace ne
+  bouge ; `StatusKindEntry::Charm`, `(kind: Charm, frames: 200)`). Réapplication : durée rafraîchie, jamais de pile.
+  **Sans effet sur un joueur.** Un ennemi charmé sert le camp des joueurs pendant la durée :
+  - **Cible** (`ai::behavior::enemy_target_selection`, `ai::charm::nearest_target`, pure) : l'ennemi **hostile le plus
+    proche**, c'est-à-dire un autre ennemi vivant, **non charmé**, de l'équipe `Enemies` (jamais `Allies` ni `Neutral` :
+    un coup `Players` ne les touche pas), hors salle dormante ; distance au carré en
+    `FixedWide`, **égalité : le plus petit `GgrsNetId`** (indépendant de l'ordre d'itération). Portée illimitée, ni
+    aggro ni vue. Cible stockée dans `EnemyTarget` avec `TargetType::Enemy` (variante ajoutée en fin d'enum) ; sans
+    ennemi hostile : `Idle`. Une attaque en cours contre un ennemi encore présent va à son terme ; toute autre
+    attaque (joueur, fenêtre) est abandonnée à la sélection suivante.
+  - **Mouvement** (`pathing::move_enemies`, `ai::charm::charm_motion`, pure) : droit sur la cible à pleine vitesse, à
+    l'arrêt à moins de `min(OptimalAttackDistance, attack_range)` (un ennemi à portée courte, `mouche` à 26, doit pouvoir
+    frapper) ; glissement sur les murs comme tout ennemi, **sans champ de flux** (il ne
+    mène qu'aux joueurs : un charmé ne contourne pas un mur). Il n'est pas repoussé par sa cible (la séparation entre
+    ennemis le tenait à une quarantaine d'unités, hors de portée de corps à corps).
+  - **Attaque** (`behavior::charm_attack`) : corps à corps seulement, portée `attack_range` et cadence
+    `attack_cooldown_frames` de l'ennemi, `MonsterState::Attacking { target: AttackTarget::Enemy }` (variante ajoutée
+    en fin d'enum) ; le dégât est traduit à la frame suivante (`enemy_attack_damage_translate_system`) avec
+    `source_team: Players` (adversaire de sa cible : `team_allows_hit` le laisse passer). **Aucun tir et aucune
+    attaque sur un joueur** : une salve commencée contre un joueur est interrompue (`Emitter` retiré), les règles de
+    comportement de l'ennemi (`behaviors`) sont ignorées pendant le charme (aucune règle retenue : ni `Charge`, ni
+    ouïe qui lui donnerait un joueur pour cible) ; sa **hitbox de mêlée** (`enemy_melee_attack_system`, qui ne
+    regarde pas l'IA) est retenue tant qu'il est charmé (`held || charmed(statuses)` : état dérivé du statut, aucun
+    composant à lever) : scénario
+    `status_charm_contact` (un `coward` à griffes collé au joueur, aucun dégât pendant le charme). Peur et charme
+    cumulés : `Fear` l'emporte (il fuit, ne frappe pas). Défaut **préexistant** relevé, non corrigé (hors du suivi, il
+    déplacerait `status_fear` et `generated/isaac/tears_rancune_vive`) : `Statuses` est retiré dès qu'il est vide
+    (`combat::projectile`) et `rules::melee_hold_system` ne retrouve plus alors un ennemi sans `BehaviorRuntime` : la
+    `MeleeHold` posée par `Fear` ne se lève jamais. Le charme n'a pas ce défaut (retenue dérivée du statut).
+  - **Fin** : le statut retiré (`Statuses::tick`), la cible `Enemy` est effacée à la frame suivante et l'ennemi
+    redevient hostile (joueur le plus proche, comme avant) sans état à nettoyer.
+  Teinte rose des calques (`feedback::status_tint`, présentation). Scénarios `status_charm` (le `breacher` charmé frappe la
+  `target` la plus proche, jamais la lointaine ni le joueur, puis se retourne contre le joueur à l'expiration) et son
+  témoin `status_charm_temoin` ; arme `status_charm` (scénario généré `weapon_status_charm`), statut `charme`.
+
 **Ordre** : pose (`Projectiles`, après les coups de la frame) → `status_tick_system` (même set,
 juste après : ticks de `Burn` puis expiration, `expires_at_frame <= frame`, porteurs par
 `GgrsNetId`) → résolution des dégâts (`CollisionDamage`, même frame). Un statut posé à la frame
@@ -1913,10 +1949,16 @@ au format §9 ; `tags` en **union** avec ceux du personnage (immunités §8, `ig
 `champion` + modificateurs) : aucun mécanisme à part, pas de points ×2.
 
 **Tirage** : au `spawn_enemy` de tout personnage qui déclare `variants` (vagues, spawners et
-`CharacterSpawn`), un `RollbackRng` **local** de graine `fnv1a("variants") ^ run_seed ^ net_id`
-(tronqués en `u32` ; `run_seed` = `RngStreams::run_seed`, la graine de carte ; `MapGenerationConfig::seed` pour un
-`CharacterSpawn`, même valeur) : un tirage pour la
-`chance`, un pour le poids. Indépendant de l'ordre d'apparition et du moment de chargement de
+`CharacterSpawn`), un `RollbackRng` **local** de graine `variant_seed(run_seed, net_id)` = `fnv1a("variants:<run_seed>:<net_id>")`
+replié sur 32 bits (`hash ^ hash >> 32`, comme `loot_seed` §48 et `curse_seed` §64) puis passé au
+finaliseur `fmix32` de MurmurHash3 (D88, M3 : l'ancien `fnv1a("variants") ^ run_seed ^ net_id` suivi d'un
+seul pas de congruentiel était quasi linéaire, 0,0004 par unité de graine, donc corrélé par étage ; le repli
+FNV seul laissait encore 0,07 de corrélation entre net ids voisins, le finaliseur la ramène à zéro ; `run_seed` =
+`RngStreams::run_seed`, la graine de carte ; `MapGenerationConfig::seed` pour un `CharacterSpawn`, même valeur) :
+un tirage pour la `chance`, un pour le poids. Preuve statistique (`variant::tests::tirage_independant_par_graine_et_net_id`,
+graines 1 à 20 000 × 16 net ids, chance 0,1) : 18,4 % des graines sans aucun champion (indépendance : 0,9^16 = 18,5 % ;
+avant : 89 %), corrélation de Pearson entre net ids voisins de −0,013 à +0,009 ; `graines_voisines_tirages_differents`. `alacod-sim` compte les variantes
+rencontrées par graine (colonne `variantes`, moment clé `variant_spawn`) et en donne la part des graines concernées (D88). Indépendant de l'ordre d'apparition et du moment de chargement de
 la carte ; **`RngStreams` n'est jamais touché** (y créer un flux changerait le hash de la
 ressource, donc toutes les traces). Le `GgrsNetId` du personnage est alloué par `spawn_enemy`
 avant `create_character` (même valeur que s'il l'était dedans : c'est sa seule allocation)
@@ -3125,7 +3167,7 @@ au ramassage** et n'entre pas dans l'inventaire : aucun bouton d'usage n'existe 
 sans effet reste un compteur (`key`, `blank`, `obus`). Pas de refus de ramassage à pleine santé (le soin est
 simplement borné).
 
-**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`),
+**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`, sauf transformation, voir plus bas),
 à un consommable (`Unsupported`), deux synergies pour le même ensemble (`DuplicateId`), `OnUse` dans une
 synergie ; `uses_per_floor = 0` (`OutOfRange`), `uses_per_floor`/`cost` sur un non-actif, `cost` vers un
 objet inconnu ou non consommable. Fixtures `synergy_unknown_item`, `synergy_single_item`,
@@ -3142,6 +3184,39 @@ la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`,
 `synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
 effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
 (santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
+
+### Transformations : `requires_tag` (suivi Q10, réponse de William du 2026-10-16)
+
+Une **transformation** est une synergie dont la condition est un **tag** d'objet : `SynergyDef.requires_tag:
+Some((tag: "champignon", count: 3))` (`items::TagRequirement`) ; champ optionnel, **absent** : la synergie d'avant, au bit
+près (aucune trace ne bouge : définition de contenu, hors rollback). `requires` devient facultatif (`#[serde(default)]`) :
+vide, la transformation n'exige que le tag ; non vide, les deux se **cumulent**. Une synergie sans aucune condition n'est
+jamais active.
+
+- **Règle** (`SynergyDef::is_active`, pure, utilisée par `SynergyTable::active` et par
+  `game::items::synergy_modifiers_system`, donc par `projectile_mods`, les effets et les modificateurs) :
+  active quand `Inventory::held_with_tag(items, tag) >= count`, soit le nombre d'objets **distincts** tenus
+  (passifs et actif) dont `ItemDef.tags` contient `tag`. **Un exemplaire en double compte une fois**, un consommable ou
+  un objet inconnu jamais ; l'actif perdu éteint la transformation. (`SynergyTable::active` prend désormais
+  l'`ItemTable` : tous les appelants migrés.)
+- **Effets** : ceux d'une synergie ordinaire (`modifiers` de source `synergy:<id>`, `effects`, `projectile`), posés et
+  retirés à chaque frame depuis l'inventaire.
+- **Teinte de présentation** `tint: Some("#rrggbb")` (champ optionnel de `SynergyDef`, hors simulation) : la première
+  transformation active (par id) à `tint` colore les calques du joueur (`feedback::TransformationTint`, relue de l'état
+  chaque tick, derrière la teinte d'un champion et devant celle du marqueur) et produit un moment clé `feedback`
+  « transformation 8 (champignons) » (`FeedbackKind::Transformation`, une fois à l'acquisition).
+- **Lint des mécaniques** (`content::mechanics`) : une transformation compte comme atteignable (ligne « transformations »)
+  quand au moins `count` objets non consommables du tag sont atteignables par pool, départ ou étage ; sinon
+  avertissement « seulement n objet(s) à source portent le tag ».
+- **Lint** (`lint_synergies`) : `count = 0` (`OutOfRange`), tag que **aucun objet** ne porte (`BrokenReference`), `count`
+  supérieur au nombre d'objets non consommables qui portent le tag (`OutOfRange` : jamais active), `tint` qui n'est pas
+  `#rrggbb` (`OutOfRange`) ; « au moins deux objets distincts » ne vaut plus que sans `requires_tag` ; deux synergies de
+  même ensemble **et** de même condition de tag restent un doublon. Fixtures `transformation_ok`, `transformation_bad`
+  (`crates/content/tests/transformations.rs`).
+- **Testbed** : objets `amanite`, `bolet`, `morille` (tag `champignon`, sans effet seuls), synergie `champignons`
+  (`count: 3`, `MoveSpeed` `Pct` +0,3, teinte `#c07040`). Scénarios `transformation_three` (trois ramassages à f10, f40, f70 : la
+  vitesse monte à la troisième prise) et son témoin `transformation_two` (deux champignons : rien) ; générés `item_amanite`,
+  `item_bolet`, `item_morille`.
 
 ## 49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
 
@@ -3424,7 +3499,9 @@ tirage pur), `game::loot` (systèmes), `map_ldtk::game::rooms::room_chest_system
 - **Rareté d'un coffre** (`Chest::rarity`) = rareté **minimale** de l'objet tiré (un consommable compte pour `Common`).
 
 **Flux RNG dédié, indépendant du temps.** `items::loot_seed(graine de la partie, étage, clé de contenu)` =
-FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits ; le tirage lit un **`RollbackRng` local** de cette
+FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits puis passé au finaliseur `fmix32` (D95 : sans lui, `champion:41` et
+`champion:42` restaient corrélés, r jusqu'à 0,063 ; `loot_seed_numbered`/`loot_seed_parts` hachent les mêmes octets sans
+construire la clé) ; le tirage lit un **`RollbackRng` local** de cette
 graine. Il ne touche **aucun** flux de `RngStreams` : le flux nommé `"loot"` des power-ups est consommé à chaque
 mort d'ennemi, il ferait dépendre l'objet du moment d'ouverture (et changerait le hash de la ressource, comme
 `variant.rs` le note déjà). La clé de contenu est celle du coffre (`room:<salle>`, `reward:<salle>`, ou la clé
@@ -4091,7 +4168,7 @@ au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmè
 
 Deux scénarios attestent les mécaniques de M2 du tableau ci-dessous dans **une** partie de bots (graine 10, `etages_deux`,
 `shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 700
-frames, victoire f7545) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6876, synctest). Les
+frames, victoire f7316 depuis D95/D96) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6091, synctest). Les
 moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente.
 
 | Mécanique | Frame (2 bots, frames de la run) | Attente |
@@ -4101,16 +4178,16 @@ moments clés du premier sont dans `events.json` (page de revue), chaque ligne d
 | Escouade | verrou f1471 → f1605 | `SquadSize(bullet_kins)` = 3 (f1480), 0 (f1700) ; à 4 joueurs ≥ 2 (f2150), 0 (f2300) |
 | Salle verrouillée puis nettoyée | f42 → f139 | `Event(room)` ×2 |
 | Blank utilisé | f70, f82 | `Event(blank)` |
-| Objet ramassé | clé f157, rancune f3022 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
-| Achat en boutique | f2825-f2887 (gilet, roulade) | `Event(purchase, shop)`, `HasItem(gilet)`, `HasItem(roulade)` |
+| Objet ramassé | clé f2248, amulette f2915 (joueur 1) ; coffres de l'étage 2 : roulade f4253, rancune f4719 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
+| Achat en boutique | f2687 (D95/D96 : un blank et une arme ; avant : gilet, roulade) | `Event(purchase, shop)`, `Shelf(nth: 0, sold)` faux f2685 puis vrai f2760, `Consumable(blank)` 0 → 1 |
 | Coffre à clé ouvert, clé consommée | f2928 (`arc`) | `Consumable(key)` 1 (f2920) → 0 (f2930), `Event(chest)` |
 | Arène tenue | f1890 → f2640 (750 frames) | `Event(arena)`, `RoomState(arene, nth: 1, Cleared)` |
-| Boss, trois phases | f3406, phases f3439 et f3487 | `BossPhase(NetId(205), 2)`, `Event(boss_phase)` |
+| Boss, phase 1 | f3310, phase 1 f3354, mort f3355 | `BossPhase(NetId(205), 1)` (f3355), `Event(boss_phase)` |
 | Portail | f3489 | `Event(portal)` |
-| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7325 (phases f7471, f7532) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(694), 2)` |
-| Victoire et profil | f7545 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
+| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7126 (phase 1 f7279, mort f7315) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(704), 1)` |
+| Victoire et profil | f7316 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
 
-**Non attestées, et pourquoi** : (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
+**Non attestées, et pourquoi** : (0) la **phase 2 du boss** (D95/D96) : les deux boss de ces runs meurent une frame (premier) ou 36 frames (second) après leur phase 1, et le boss ne fait « qu'une transition par frame » (`game/src/boss.rs:7`) ; la phase 2 est attestée par `gungeon_boss` (f520) et `gungeon_boss_bot` (f460, bot) ; (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
 s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
 déblocage** : elle n'existe pas, `hub/porte.ron` (`EnterRun`) n'a aucune condition ; seul le marchand exige `first_run`
 (sa visite f120 le prouve pour le profil du scénario) ; l'effet des déblocages sur la run se prouve par `RunUnlocks`
@@ -4465,9 +4542,8 @@ familiers, M3-T7 les champions.
 **Behaviors de familier** (`behaviors::Behavior`, variantes **en fin d'enum**) : `Follow { gap }` (suit
 le porteur à `gap` unités, en file derrière les autres familiers du même porteur : rang = ordre
 d'apparition), `Orbit { radius, frames_per_turn }` (tourne autour du porteur, phase = rang × 2π /
-nombre d'orbitaux, par `fixed_math`), `MirrorShot { weapon, every }` (tire quand le porteur tire, dans
-sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : l'arme du familier, sans les
-modificateurs du porteur), `BlockBullets` (une balle hostile qui touche le familier est détruite par
+nombre d'orbitaux, par `fixed_math`), `MirrorShot { every }` (tire quand le porteur tire, dans
+sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : les larmes du porteur, voir §71 « Q13 »), `BlockBullets` (une balle hostile qui touche le familier est détruite par
 `despawn_rollback`, comme le blank ; le familier est immunisé). `Behavior::is_familiar`. `select`
 ne retient jamais ces règles (un familier n'a pas d'IA de poursuite) ; kinds `Follow`, `Orbit`,
 `MirrorShot`, `BlockBullets` déclarés (`register_kinds`). Un familier est un **personnage** de
@@ -4482,7 +4558,7 @@ ramassages de la frame.
 **Champ d'objet.** `ItemDef.familiar: Option<FamiliarRef { character, per_copy }>` (`per_copy` : 1 par
 défaut, par exemplaire tenu). Définition hors rollback et hors hash. **Lint** : personnage inconnu
 (`BrokenReference`), personnage sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0,
-`frames_per_turn = 0`, `every = 0`, arme de `MirrorShot` inconnue ; réciproquement un behavior de
+`frames_per_turn = 0`, `every = 0` ; réciproquement un behavior de
 familier sur un personnage qu'aucun objet ne cite est refusé (`Unsupported`, « sans porteur »).
 
 **Champions v2.** Champs optionnels de `VariantDef` (hors hash : le composant `Variant(nom)` ne change
@@ -4506,7 +4582,7 @@ non vide et valides (mêmes règles que `ai.behaviors`), `chance` dans [0, 1] po
 **Preuves.** Fixtures `familiar_ok`, `familiar_unknown_character`, `familiar_orphan_behavior`,
 `familiar_without_behavior`, `familiar_gap_zero`, `champion_ok`, `champion_bad_death`,
 `variant_chance_expression_range`, `variant_chance_expression_unknown` ; contenu `testbed` : personnage
-`compagnon` (`Follow` + `MirrorShot`, arme `pistol`) et objet `compagnon` (`familiar`), accepté par le lint,
+`compagnon` (`Follow` + `MirrorShot`) et objet `compagnon` (`familiar`), accepté par le lint,
 sans scénario de jeu (le ramassage ne crée rien encore). Attente de scénario `FamiliarCount { handle,
 count, at_frame }` (familiers dont le porteur est le joueur ; 0 tant que M3-T6 n'existe pas).
 
@@ -4536,7 +4612,8 @@ cœurs d'âme paient à la place : T8).
   séquence `Floors` (`FloorsEntry::curses`, `run::CurseConfig`) ; absent = aucune curse (toutes les
   séquences existantes). `run::draw_curse(config, defs, graine, étage)` (M3-T9 : graine de carte, §74) : RNG **local**
   `RollbackRng::new(curse_seed)` avec `curse_seed = fnv1a("curse:<graine>:<étage>")` replié sur 32 bits
-  (même repli que `loot_seed`), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
+  puis passé au finaliseur `fmix32` (`bevy_fixed::rng::seed_from_hash`, D95 ; même graine que `loot_seed` et
+  `variant_seed`, sans allocation), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
   ressource et toutes les traces). Deux tirages toujours consommés, dans l'ordre : la chance
   (`next_fixed() < chance` : `0` ne tombe jamais, `1` toujours), puis le choix pondéré dans l'ordre du
   pool (`next_u32() % Σ poids`). Une entrée inconnue ou de poids `0` est ignorée (le lint la refuse) ; sans
@@ -4565,16 +4642,39 @@ cœurs d'âme paient à la place : T8).
   nommées `weapon:<id>` (comme le tirage). `count(pool)` est l'**index d'épuisement** du prochain tirage ;
   `record(pool, objet)` renvoie vrai pour une nouveauté.
 - **Règle pure** `items::draw_exhausting(table, items, held, rareté, consommables, hidden, seen, rng)` :
-  `draw_loot_with` la rappelle avec un `seen` vide, donc **tous les tirages existants sont inchangés**.
-  Si `table.exhaust`, les objets de `seen` ne sont plus candidats ; sinon `seen` est ignoré. Le flux avance
-  toujours de deux tirages, quel que soit `seen` (comme `draw_loot`). Quand l'épuisement vide les
+  `draw_loot_with` la rappelle avec un `seen` vide. Si `table.exhaust`, les objets de `seen` ne sont plus
+  candidats ; sinon `seen` est ignoré. Le flux avance toujours de deux tirages, quel que soit `seen` (comme
+  `draw_loot`). Quand l'épuisement vide les
   candidats : d'abord les assouplissements de `draw_loot` (rareté du coffre puis `Common`, exclusion des
   objets tenus), **un objet neuf plus commun passe avant de répéter un objet vu**, puis, pool entièrement vu,
   le pool **repart complet** (un objet déjà sorti peut ressortir ; jamais vide si le pool ne l'est pas). Une
   récompense de salle (`consumables_only`) ne descend jamais sous les consommables. Les déblocages
   (`unlocked_table`) étendent le pool avant le filtre.
+- **Le choix est une course pondérée, stable à l'ajout (D96, 2026-10-17).** Les deux tirages du flux forment une
+  clé de base de 64 bits. Niveau 1 : chaque entrée joue **autant de billets que son poids**, de clé
+  `fmix64(fmix64(base ^ contenu de l'entrée) ^ n° du billet × φ)` ; la plus petite clé gagne, donc l'entrée gagne avec la probabilité
+  exacte `poids / somme` (une clé divisée par le poids ne la donnerait pas : poids 1 et 2 → 3/4, non 2/3). Niveau 2 : parmi
+  les candidats de l'entrée gagnante (une entrée `Rarity` en a plusieurs), la plus petite clé `hash(base, entrée, identifiant)`
+  gagne : uniforme. L'identité d'une entrée est le **contenu** de son `pick`, jamais son rang (les entrées d'un déblocage
+  s'ajoutent dans l'ordre des identifiants de déblocage) ; deux entrées de même `pick` valent une entrée de poids somme, et
+  l'ordre des entrées n'a aucun effet. Avant D96, le choix était `tirage % somme des poids` : débloquer un objet changeait la
+  somme (10 → 12 pour le pool `boss` d'`isaac`) et **redistribuait tous les emplacements** (mesuré : 251 emplacements sur 400
+  passaient à un objet non débloqué).
+  **Contrat** (l'ordre de tirage et `PoolState::assign` sont inchangés) : *à graine, `seen`, passe de rareté et exclusions égaux,
+  ajouter une entrée, débloquer un objet caché, ajouter un candidat à une entrée `Rarity` ou augmenter un poids ne change
+  l'objet d'un emplacement que si c'est pour un objet qu'apporte l'ajout* (l'objet d'une entrée `Item`, l'arme ou le tas de sous d'une
+  entrée `Weapon` ou `Currency` ; pour une entrée `Rarity` ajoutée, alourdie ou fusionnée avec une entrée de même contenu, **n'importe lequel
+  de ses candidats**, y compris un qui existait déjà ; inversement, retirer ce qui n'a pas gagné ne change rien). Un
+  contenu qui s'enrichit (T11b, T11c… : des objets ajoutés aux pools) ne fait donc plus bouger que les emplacements qui prennent
+  le nouvel objet, et un déblocage de profil (§75) ne déplace que vers ce qu'il apporte. **Limites** : (1) dans une suite
+  d'emplacements à épuisement, l'objet qu'un déblocage déplace revient dans le pool et peut sortir à un emplacement
+  **suivant** (`seen` n'est plus le même) ; la garantie est par tirage, à `seen` égal ; (2) si l'ajout rend non vide une passe
+  plus stricte (rareté d'un coffre), c'est cette passe qui tire ; (3) coût : deux `fmix64` par unité de poids du pool (`race_key`), d'où
+  `items::MAX_LOOT_WEIGHT` (1 000), refusé au lint (`OutOfRange`) et plafonné au tirage ; (4) une boutique **sans épuisement** (`game::shop::draw_shelves`) enchaîne ses présentoirs sur un seul flux, avec relance des doublons (au plus 8 essais) : un ajout qui change le présentoir 0 change le nombre d'essais, donc le tirage, des suivants ; la garantie vaut par tirage, pas pour une boutique entière. Proportions mesurées sur 100 000
+  tirages (`the_race_keeps_the_weighted_proportions`) : voir le rapport `dette-d95-d96-tirage-butin`.
 - **Graine** `items::exhaust_seed(graine, étage, clé, index)` : `loot_seed` pour l'index `0` (le premier
-  tirage d'un pool qui devient `exhaust` donne l'objet qu'il donnait avant), puis `loot_seed(…, "<clé>#<index>")`.
+  tirage d'un pool qui devient `exhaust` donne l'objet qu'il aurait donné sans `exhaust`),
+  puis `loot_seed(…, "<clé>#<index>")` (mêmes octets, sans allocation).
   `PoolState::next_seed(pool, graine, étage, clé)` prend `count(pool)` comme index.
 
 **Deux façons d'exécuter l'épuisement (décision de T8 : A, voir §73 ; le tableau est celui de T0e).**
@@ -4797,6 +4897,53 @@ d'essai (`tags: ["larmes"]`) : `guide` (`Homing`), `perforant` (`Pierce(1)`), `r
 Diagnostic : `ALACOD_PROJECTILES=<scénario>:<de>:<à> cargo test -p scenario --profile headless
 --no-default-features --test scenarios projectile_probe -- --ignored --nocapture` (projectiles, coups,
 statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
+
+### Visée à quatre directions, `aim: FourWay` (suivi Q17, réponse de William du 2026-10-16)
+
+Option de personnage (**donnée**) : `aim: Free` (défaut, 360°, tout le contenu d'avant) ou `aim: FourWay` (`isaac` :
+`pleureur`). Type `sim_core::aim::AimMode` (`CharacterConfig::aim`, miroir `content::CharacterEntry::aim`, schéma
+généré). **Hors hash et hors trace** : composant **statique, non rollback** (comme `Team`, voir `sim_core::aim`), posé à
+la création du joueur **seulement pour `FourWay`** (`character::player::create`) ; un personnage sans `aim:` ne porte
+rien, aucune trace d'un autre jeu ne bouge (suite complète, 0 `BLESS` hors la liste ci-dessous).
+
+**Quantification dans `weapon_rollback_system`** (`sim_core::aim::aim_direction(mode, pan_x, pan_y)`, un seul code pour
+le tir du joueur et le `MirrorShot` de ses familiers, §71) : `FourWay` ne garde que l'**axe dominant** du `pan`
+(comparaison des entiers `|pan_x|` et `|pan_y|`, avant toute normalisation : ni division ni arrondi, `Fixed` exact), avec
+le signe de sa composante, vecteur unitaire `(±1, 0)` ou `(0, ±1)`. **Égalité exacte des deux axes (diagonale parfaite) :
+l'horizontale l'emporte** ; `pan` nul : pas de visée (aucun tir, comme avant). `Free` : la normalisation d'avant, au bit
+près. La dispersion (`spread`) et les plombs d'un fusil à pompe tournent ensuite autour de cette direction, comme avant.
+Limite connue : la **visée affichée** (rotation du sprite d'arme, `CursorPosition` dérivé du `pan` réel) reste celle de la
+souris ; seule la direction des balles est quantifiée.
+
+**Scénarios** : `PlayerScript::aim: Option<AimMode>` (réglage de joueur, comme `bomb`) : `Some(FourWay)` pose la visée,
+`Some(Free)` **retire** celle du personnage. `aim_four_way` (testbed, trois tirs en biais à 17°, 17° et 45° exact : les
+trois larmes partent plein ouest et touchent la cible alignée aux frames 80, 105 et 129 ; la diagonale parfaite vérifie le
+choix de l'horizontale) et son témoin `aim_four_way_libre` (visée libre : aucun coup).
+
+**Bot** (`crates/bots`) : `BotView::aim` (lu sur le composant du joueur), `decide::apply_four_way` appliqué à la sortie de
+`decide` pour tous les profils : le bot écrit la direction que le moteur retiendra (127 sur l'axe dominant), et, cible à
+moins de 320 sur cet axe **avec ligne dégagée** (`enemy_visible && enemy_shootable` : derrière un mur, il garde sa route) :
+hors de la file de tir (écart perpendiculaire > 14, rayon de larme 5 + demi-corps ~10 − 1) il relâche la gâchette et se
+décale **vers la cible** sur l'axe perpendiculaire (le mouvement du profil y est remplacé, celui sur l'axe de tir est
+gardé) ; dans la file il tire comme avant et ne dérive plus en perpendiculaire. `Free` : l'input du profil, inchangé.
+Le bot reste efficace mais plus lent : sur `grid_post_boss` (graine 8, avant la fusion de T11c) le boss verrouille sa salle à
+f712 au lieu de f628, passe en phase 1 à f825 au lieu de f740 et meurt à f945 au lieu de f862.
+
+**`isaac`** : `pleureur` active `aim: FourWay`. **Générateur** (`alacod-gen`) : les scénarios générés d'un jeu dont le
+joueur vise à quatre directions épinglent `aim: Some(Free)` sur les joueurs scriptés qui tirent : la cible de l'arène
+(+128, −48 : `AIM_AT_TARGET`, carte `gabarit_armes.ldtk`) est en biais et ne peut pas être touchée à quatre directions ; ces
+scénarios prouvent un contenu (arme, larme, familier, statut), pas la visée. Ils sont **bit-identiques** à avant (le
+composant n'existe pas), leurs `.ron` gagnent la ligne `aim: Free`. Épinglés pour la même raison (`explorateur` : la
+grammaire de la grille est leur objet, pas la visée) : `grid_floor_seed_1`, `grid_floor_seed_23`, `grid_floor_seed_123`,
+`grid_post_boss`, `isaac_floor_seed_1` (traces inchangées).
+
+**Traces bougées, avec preuve §5** (dumps `ALACOD_DUMP_TRACE`, `main` `2d30a1c1` contre la branche, `scripts/trace-diff.py`) :
+`generated/isaac/boss_gardien` et `generated/isaac/room_combat` (bots `fonceur` et `explorateur` d'`isaac`, qui tirent à
+quatre directions). Première frame qui diffère : **5**, la première où le bot a un ennemi en vue : le `pan` écrit par le bot
+est quantifié, donc le `CursorPosition` dérivé change et, avec lui, la rotation du sprite d'arme (`FixedTransform3D` de
+`larmes` : `x_axis (-0,986, -0,167)` devient `(-0,999, 0,039)` pour `boss_gardien` ; `FacingDirection` `DownLeft` devient
+`Down` pour `room_combat`). Les attentes tiennent (le boss de `boss_gardien` tombe à f499, `room_combat` nettoyée). Aucun autre
+scénario d'`isaac` ne bouge.
 
 ### Atteignabilité
 
@@ -5408,19 +5555,24 @@ toujours » un personnage invulnérable (§16) : une balle à tête chercheuse p
   `max(5, excédent / 4)` unités par frame sans dépasser l'excédent. Les suiveurs d'un porteur, par rang croissant,
   forment une **file** : le premier vise le porteur, chacun des suivants le précédent (position déjà mise à jour dans
   la frame). Pas de mémoire de trajectoire : la file se déduit des positions courantes.
-- **`MirrorShot { weapon, every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **sa** arme
-  `weapon` (mode par défaut), dans la direction de visée du porteur (`pan` de l'input), au plus une fois par `every`
-  frames (`FamiliarGun`). Le déclencheur est l'événement transitoire `sim_core::triggers::WeaponFired { frame,
-  player_handle }`, émis par `weapon_rollback_system` quand la balle part (cadence respectée, chargeur non vide) et
-  lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence refuse n'émet rien (à la frame 0,
-  `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement transitoire : hors checksum, hors
-  snapshot, aucune trace ne bouge. **Q13 (réponse de la fiche et du plan : proposition par défaut) : l'arme du
-  familier, sans les modificateurs du porteur** ni ses objets de larmes ; un seul tir par déclenchement (pas de plombs
-  multiples), ni dispersion ni recul (aucun RNG consommé), projectile composable de l'arme si elle en déclare un. La
-  balle porte le `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche
-  jamais), `player_handle` du porteur, les tags du familier. Variante non retenue (larmes du porteur) :
-  `Projectile::composed` de §66 prend ses ajouts en paramètre, il suffirait d'y passer `items::projectile_mods` du
-  porteur.
+- **`MirrorShot { every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **les larmes du
+  porteur** (Q13, réponse de William du 2026-10-16, reprise de T6 : `weapon` a disparu du contrat, un familier n'a plus
+  d'arme propre) : l'arme **active** du porteur dans son **mode actif**, composée avec ses objets et synergies par
+  `combat::weapons::shot_projectile` (`Projectile::composed` de §66 + `items::projectile_mods`, même code que le tir du
+  joueur : `carried_projectile_mods`, `tear_motion`, `aim_direction` sont partagés avec `weapon_rollback_system`) et avec
+  ses stats de larmes (`Damage`, `Range`, `ShotSpeed`, `ShotSize`, `Luck`), dans la direction de visée du porteur
+  (`pan` de l'input), au plus une fois par `every` frames (`FamiliarGun`). Le déclencheur est l'événement transitoire
+  `sim_core::triggers::WeaponFired { frame, player_handle }`, émis par `weapon_rollback_system` quand la balle part
+  (cadence respectée, chargeur non vide) et lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence
+  refuse n'émet rien (à la frame 0, `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement
+  transitoire : hors checksum, hors snapshot. Un seul tir par déclenchement (pas de plombs multiples pour un fusil à
+  pompe), ni dispersion ni recul (aucun RNG consommé), ni chargeur ni cadence du porteur consommés. La balle porte le
+  `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche jamais),
+  `player_handle` du porteur, les tags du familier, `friendly_fire` de l'arme du porteur. Porteur sans arme (inventaire
+  d'armes vide) : pas de tir. **Traces** : un familier dont le porteur tient la même arme que l'ancien `weapon` du
+  familier et aucun objet de larmes tire **exactement** la même balle qu'avant (`isaac` : `frere` tirait `larmes`, ses
+  traces ne bougent pas) ; le testbed (`compagnon` tirait `pistol`, dégâts 15 vitesse 400) tire désormais `larme`
+  (3,5 / 200) : preuve au § « Q13 : traces bougées » ci-dessous.
 - **`BlockBullets`** : entre le mouvement des balles et leurs collisions, une balle (ordinaire ou composable) que
   `team_allows_hit` dit hostile au familier et dont le **disque balayé** de la frame (segment ancienne → nouvelle
   position, rayon de la balle) touche son collider est détruite par `despawn_rollback()` (sans `on_expire`), comme le
@@ -5442,22 +5594,48 @@ familier de rang `to_rank` (avec `FamiliarCount` de §63).
 
 ### Testbed et scénarios
 
-Personnages `compagnon` (`Follow` 28 + `MirrorShot` `pistol` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
+Personnages `compagnon` (`Follow` 28 + `MirrorShot` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
 `BlockBullets`), `rempart` (`Orbit` 24 en 36 000 frames : quasi immobile à l'est du porteur, `BlockBullets`). Objets
 `compagnon`, `compagnon_actif` (actif), `orbital`, `essaim` (`per_copy: 2`), `trio` (`per_copy: 3`), `rempart`.
 
 | Scénario | Prouve |
 |---|---|
 | `familiar_follow` | apparaît sur le porteur, reste dans sa laisse, rattrape et garde 28 unités |
-| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f58, le porteur f83) ; témoin : un seul |
+| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f81, le porteur f83 ; avant Q13, `pistol` : f58) ; témoin : un seul |
+| `familiar_mirror_items`, `..._sans_objet` | Q13 : avec `perforant` (`Pierce(1)`), la larme du porteur **et** celle du familier traversent la première cible et s'arrêtent dans la deuxième (deux coups chacune, f50 et f62, la troisième jamais touchée) ; témoin sans `perforant` : deux coups sur la première, rien sur les autres |
 | `familiar_two_copies` | deux `compagnon` en file (rangs 0, 1) et un `trio` (rangs 2 à 4, à 120°) |
 | `familiar_lost_with_active` | l'actif remplacé détruit son familier, l'orbital passif reste |
 | `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle (f125 : au bord, 19 en vol comme le témoin ; f126 : 18 contre 19), santé 100 à f200 contre 74 sans objet |
-| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 |
+| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 (le familier tire désormais la larme du porteur : trace rebénie, Q13) |
 | `familiar_quad` | quatre joueurs, deux familiers chacun, synctest (resimulation + checksums à chaque frame) |
 
 Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) affiche aussi joueurs et familiers
 (porteur, rang, position) toutes les 10 frames.
+
+### Q13 : `MirrorShot` tire les larmes du porteur (suivi `m3-suivis-q10-q12-q13-q17`)
+
+Contrat : `Behavior::MirrorShot { every }` (le champ `weapon` disparaît : migration de `BehaviorEntry`, du lint — plus
+d'« arme inconnue » — et des deux personnages `compagnon` du testbed et `frere` d'`isaac`). Exécution : voir la puce
+`MirrorShot` ci-dessus. Les trois aides communes (`aim_direction`, `tear_motion`, `carried_projectile_mods` /
+`shot_projectile`) ont été extraites de `weapon_rollback_system` sans changer une valeur (les 600 autres traces sont
+inchangées).
+
+**Traces bougées, avec preuve §5** (dumps complets `ALACOD_DUMP_TRACE`, `main` `2d30a1c1` contre la branche,
+`scripts/trace-diff.py` : première frame qui diffère = première frame où un familier tire, une seule ligne en
+désaccord : la `Bullet` du familier, `damage: 15, speed: 400` (le `pistol` de l'ancien `compagnon`) devenue `damage: 3.5,
+speed: 200` (la `larme` du porteur)) :
+
+| Trace | Première frame qui diffère | Cause |
+|---|---|---|
+| `familiar_mirror_cadence` | 20 | premier tir du porteur à f20, donc premier tir miroir |
+| `familiar_mirror_shot` | 35 | idem (tir demandé f30, balles parties f35) |
+| `familiar_quad` | 105 | premiers tirs miroirs des joueurs 1 et 3 |
+| `champion_explodes`, `champion_explodes_sans_variante` | 25 | idem ; la larme du familier est plus lente : le champion meurt à f35 au lieu de f29, attentes décalées |
+| `generated/testbed/familiar_compagnon` | 21 | idem ; `min_hits` 9 → 8 (`objets/compagnon.ron`) et témoin `_sans_objet` `max` 8 → 7 (dérivé) |
+
+Rien d'autre ne bouge : `familiar_frere` d'`isaac` (le frère tirait déjà `larmes`, le porteur a `larmes`, aucun objet de
+larmes) est **identique au bit près** ; les scénarios de `tears_*` et le tir de joueur n'ont pas changé. Neufs :
+`familiar_mirror_items` et son témoin `familiar_mirror_items_sans_objet`.
 
 ### Atteignabilité
 
@@ -5470,7 +5648,7 @@ M3-T7 exécute les champs de `VariantDef` de §63 : `on_death`, `behaviors`, `lo
 `tint` est lu par la présentation seule (T17 le dessine : aucune lecture ici, attente nulle). **Aucune trace
 existante ne bouge** : un personnage sans variante, ou dont la variante n'a aucun champ v2, ne passe par rien de
 neuf (`champion_death_system` sort sans rien toucher), `PatternGhost` est neutre. Le
-tirage de §25 (graine `fnv1a("variants") ^ graine ^ net id`, `RollbackRng` local, jamais `RngStreams`) est inchangé.
+tirage de §25 (`RollbackRng` local, jamais `RngStreams` ; graine `fnv1a("variants:<graine>:<net id>")` depuis D88) est inchangé.
 
 ### `chance` en expression : valeur figée à l'apparition
 
@@ -5483,10 +5661,11 @@ scénario) le passent. Un littéral est exact : même tirage qu'avant, quels que
 l'étage 5 est une erreur de contenu (`0,1 + floor × 0,18`). Variante **imposée** (`CharacterSpawn.variant`, placement
 de scénario) : aucun tirage, la chance ne compte pas.
 
-Piège connu (hérité de §25, **non corrigé**, une correction déplacerait les traces de tout contenu à variantes) : la
-graine `fnv ^ graine ^ net id` donne, via un générateur congruentiel, des **valeurs voisines à des net ids
-consécutifs** ; quarante ennemis posés d'un coup tirent donc presque le même nombre. Les scénarios de chance
-choisissent une graine (1942) qui répartit les tirages de part et d'autre des seuils ; dette à numéroter.
+Ancien piège de §25, **corrigé par la dette D88** : la graine `fnv ^ graine ^ net id` donnait, via un générateur congruentiel,
+des valeurs voisines à des net ids consécutifs (quarante ennemis posés d'un coup tiraient presque le même nombre ; les
+scénarios de chance choisissaient donc la graine 1942 pour répartir les tirages de part et d'autre des seuils). Depuis D88
+(graine par hachage de `variants:<graine>:<net id>`, §25) les tirages sont indépendants ; les scénarios de chance prennent la graine 110
+(4 champions sur 40 à l'étage 0, 11 sur 40 à l'étage 1) et leurs attentes sont celles du nouveau tirage.
 
 ### `behaviors`
 
@@ -5539,7 +5718,7 @@ séquence `deux_vides` (deux niveaux sans ennemi, le portail s'ouvre aussitôt).
 |---|---|
 | `champion_explodes`, `..._sans_variante` | `Explode` à la frame suivant la mort (f29 → f30) : joueur 90, cible proche 4990, lointaine 5000 ; le familier (10 PV, immunisé) survit ; témoin : personne blessé |
 | `champion_splits`, `..._sans_variante` | trois `elite_divise` en anneau de 14 unités à la mort (f55), sans variante ; témoin : rien |
-| `champion_drops`, `..._sans_variante` | l'objet `bottes` (graine `champion:14`) est lâché, ramassé à f120 ; témoin : rien |
+| `champion_drops`, `..._sans_variante` | l'objet `manche` (graine `champion:14`, D95/D96 : `bottes` avant) est lâché, ramassé à f120 ; témoin : rien |
 | `champion_behaviors`, `..._sans_variante` | `KeepDistance` de la variante au lieu de `Chase` : le champion reste à plus de 190 unités ; témoin : il rejoint le joueur |
 | `champion_pattern` | `SpawnPattern` : huit boules de feu en couronne à f56, une seule couronne, émetteur détruit |
 | `champion_chance_floor_0`, `champion_chance_floor` | `chance` en expression : 2 champions sur 40 à l'étage 0 (10 %), 23 sur 40 à l'étage 1 (28 %) |
@@ -5548,7 +5727,7 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 ### Atteignabilité
 
-M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables seulement par graine choisie (1730), **D88 ouverte**.
+M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables par graine choisie (1730) **avant D88** ; depuis D88 (tirage des variantes par hachage, §25) ils sortent avec la graine par défaut et sur la majorité des graines (mesure au rapport `dette-d88-tirage-variantes.md`).
 
 ## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
 
@@ -5683,7 +5862,7 @@ présentoir à `cost`.
 
 | Scénario | Prouve |
 |---|---|
-| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k5`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide |
+| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k14`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide (D96 : `k5` → `k14`, le tirage ayant changé) |
 | `pool_exhaust_two_rooms` | deux salles de types différents d'une carte générée partagent le pool : deux objets sortis dès f10, avant tout coffre ouvert |
 | `pool_exhaust_time_independent_ab` / `_ba` | `k1` → `lame`, `k2` → `boussole` que le joueur ouvre `k1` d'abord ou `k2` d'abord |
 | `pool_unlock` / `_temoin` | le déblocage `manche_epuisable` : quatre objets distincts dont `manche` ; sans : trois puis `bottes` répété |
@@ -5692,8 +5871,8 @@ présentoir à `cost`.
 | `devil_deal_soul_saves` | témoin : même joueur à 1 PV avec un `coeur_ame` : l'achat passe, âme 4 → 2, vie 1/1 |
 | `devil_deal_soul_first` | l'âme paie d'abord (4 → 2, vie et maximum à 100), puis un prix de 6 : l'âme (2) part toute, 4 PV de vie maximale (96) |
 | `devil_deal_isaac` (`isaac`) | le cœur d'`isaac` : 6/6 → 4/4 |
-| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `regard_maudit` sortis du pool `diable`, `pile_rapide` du trésor, `griffe_acier` du boss ; graine 5 : aucune salle, rien tiré dans `diable` |
-| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`griffe_acier`, f871) et le bot le ramasse ; la victoire est retardée (f1384 → ~f1430, f1654 → ~f1790) |
+| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `queue_fourchue` sortis du pool `diable`, `bottines` du trésor, `oeil_vif` du boss (D96 : les objets tirés changent avec le tirage, la grille non) ; graine 5 : aucune salle, rien tiré dans `diable` |
+| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`oeil_vif`, f1400 à f1440, ramassé f1461 ; `sang_chaud` pour la graine 23) et le bot le ramasse ; la victoire est retardée (f2117, f2335) |
 | `isaac_floor_seed_1` (`isaac`) | `tresor` et `boss` : 1 objet sorti à f5, 2 à la génération du second étage (par run) |
 
 Unitaires : `items::loot` (`assign_*` : sans `exhaust` rien n'est écrit, objets distincts, idempotence, premier emplacement =
@@ -5800,12 +5979,14 @@ pas `RunCurses` (hors périmètre : ils n'affichent ni la santé, ni la minicart
 
 | Scénario | Prouve |
 |---|---|
-| `curse_drawn_seeded`, `_other` | `maudit`, graines 3 (darkness puis rien) et 2 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 3 deux fois (même trace), la graine 2 (autre trace) et la graine 1 (aucune curse, aucun moment clé) |
-| `curse_modifier` | `maudit_maze`, graine 3 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
-| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 1 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
-| `curse_hides_health` | graine 7 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
-| `curse_blind` | graine 5 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
-| `curse_bigger_floor` | graine 2 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+| `curse_drawn_seeded`, `_other` | `maudit`, graines 2 (darkness puis rien) et 22 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 2 deux fois (même trace), la graine 22 (autre trace) et la graine 5 (aucune curse, aucun moment clé) |
+| `curse_modifier` | `maudit_maze`, graine 2 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
+| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 2 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
+| `curse_hides_health` | graine 5 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
+| `curse_blind` | graine 3 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
+| `curse_bigger_floor` | graine 6 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+
+D95 (2026-10-17) : `curse_seed` passe par `fmix32`, les graines ci-dessus sont les plus petites qui donnent l'issue voulue avec le nouveau tirage (les anciennes : 3, 2, 3, 1, 7, 5, 2).
 
 ### Déterminisme
 
@@ -5933,6 +6114,16 @@ accomplissement, essence créditée, HUD vide). Test `crates/scenario/tests/achi
 voit les déblocages dans `RunUnlocks` et, **à graine égale** (400 graines), les objets entrent dans les pools `boss` et `tresor`,
 pas ceux dont l'accomplissement manque ; l'historique de la première run n'a pas survécu à la relance.
 
+**Contrat du tirage : un déblocage ne déplace que vers l'objet débloqué (D96, 2026-10-17).** À graine, emplacement et `seen` égaux, ce
+que débloque un accomplissement ne change l'objet d'un emplacement que si c'est pour un objet qu'il apporte (l'objet débloqué d'une entrée
+`Item` ; pour une entrée `Rarity` ajoutée ou alourdie, **n'importe lequel de ses candidats**, y compris un qui existait déjà) : une graine partagée donne
+le même butin à deux profils, aux objets débloqués près. Ce n'est **pas** un effet du hasard : c'est la course pondérée de
+`draw_exhausting` (§64), et `les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante` l'exige (400 emplacements par
+pool, un `PoolState` neuf par emplacement). Avec l'ancien choix `tirage % somme des poids`, la propriété n'était garantie par rien : elle
+ne tenait que pour un contenu de pool donné (le test, vert sur la branche de T10, est rouge sur `main` depuis le merge 3f37ba43 :
+débloquer `medaille` faisait passer la somme du pool `boss` de 10 à 12 et 251 emplacements sur 400 changeaient pour un objet non débloqué ; D96). Limite dite au §64 : le long d'une suite
+d'emplacements à épuisement, l'objet déplacé revient dans le pool et peut ressortir plus loin.
+
 ### Déterminisme et traces
 
 Rien de non rollbacké n'est lu par la simulation. `RunHistory` est rollback sans checksum, `RunUnlocks` inchangée,
@@ -6009,7 +6200,7 @@ effets v3 (§67), familiers (§71), cœurs d'âme (§68), pools à épuisement (
   `calice_ame`. Pool `boss` (`loot/boss.ron`, 3 → 5 entrées ; les trois passifs de T8, peu communs, passent de poids 1 à 2) : `sang_chaud`,
   `calice_ardent`.
 - **Familiers** (`characters/`, fiche de §71 : équipe `Players`, `stationary`, collider 12 x 12, immunisés) : `frere` (`Follow(gap: 28)` +
-  `MirrorShot(weapon: "larmes", every: 12)` : l'arme `larmes` du jeu, sans les objets du porteur, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
+  `MirrorShot(every: 12)` : les larmes du porteur, son arme et ses objets, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
   + `BlockBullets`). Lab : `cible_mordante` (`test_only`, immobile, 5 000 PV, `counts_hits`, mêlée au contact à 40 : le générateur retrouve ses
   cibles **par position**, une cible mobile n'a pas de compteur dans la sonde).
 - **Synergie** `synergies/garde_rapprochee.ron` (`requires: ["frere", "orbe"]`, deux objets du pool `tresor`, `Damage` +20 %) ; dossier `synergies`
@@ -6085,13 +6276,12 @@ D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37
 | `bourdon` | volant, tireur | boss, phase 2 | 2 | `enemy_bourdon_*` |
 | `gardien` | 3 phases, renforts, spirale | `Boss` | 2 | `boss_gardien` |
 
-**Piège du tirage des variantes = dette moteur D88** (`docs/taches/dettes.md`) : le tirage (`variant.rs:139`) est `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
-pas de congruentiel (A = 1 664 525) : quasi linéaire (0,0004 par unité de graine) et corrélé par étage. **Avec la graine par défaut (`default_seed: 123456`, gardée par le
-restart), aucun champion ne sort au premier étage** ; 89 % des graines donnent 0 champion, 9 % les donnent tous. Net ids 100 à 199 : graines 1 à 255 → premier tirage dans
-[0,67 ; 0,77], 1 à 1279 → au moins 0,277 ; les chances d'`isaac` plafonnent à 0,27 aux deux premiers étages : **aucun champion pour les graines 1 à 1279**, donc jamais dans
-`alacod-sim --seeds 1..200` (1..50 et 1000..1150 essayées). La graine **1730** (`alacod-sim … --seeds 1730..1730 --log` : 4 `explosif`, 4 `essaim`, 3 `salve`, 18
-`champion_split`, 18 `explosion`) est la graine d'atteignabilité des trois variantes : les champions ne sont atteignables que par graine choisie. Remède de D88 : dériver la graine par
-`fnv1a("variants:<graine>:<net id>")` replié sur 32 bits (coût : traces à variantes de gungeon, throne, testbed, isaac).
+**Tirage des variantes : D88 fermée** (2026-10-17, `docs/taches/rapports/dette-d88-tirage-variantes.md`). Le tirage (`variant.rs`) était `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
+pas de congruentiel : quasi linéaire (0,0004 par unité de graine) et corrélé par étage (89 % des graines sans aucun champion, 9 % avec tous ; la graine par défaut `123456` n'en
+donnait aucun au premier étage ; seule la graine 1730 atteignait les trois variantes). Il hache maintenant `variants:<graine>:<net id>` (§25). Atteignabilité mesurée :
+`alacod-sim --game isaac --bots 1 --profiles explorateur --seeds 1..50 --floors sous_sol --until-floor 2 --max-frames 12000` : variantes rencontrées sur **47 graines sur 50** (94 %,
+259 au total, 11 au plus sur une graine ; absentes des graines 3, 29 et 42), graine par défaut comprise (colonne `variantes` du rapport par graine et ligne de synthèse de `alacod-sim`,
+D88). Le bot `explorateur` en subit les conséquences : 10 victoires, 37 morts, 3 soft-locks (graines 9, 42, 43) contre 17, 30 et 3 avant D88 (équilibrage : T11d).
 
 **Équilibrage** (campagne courte, `explorateur`, 50 graines `--floors sous_sol --until-floor 2 --max-frames 12000`, §76.3 du rapport) : l'`explorateur` meurt
 dès qu'une salle de combat compte quatre ennemis (essais : 16 morts sur 16 à quatre ennemis, 5 types ; cracheur, rampant ou tourelle seuls : 9 à 15 morts
@@ -6105,7 +6295,7 @@ Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de
 enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
 
 Dettes : pas de gabarit de combat par ennemi (un seul `Combat` : T11d) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
-de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) ouverte ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
+de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) fermée le 2026-10-17 ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 
@@ -6130,7 +6320,7 @@ les lignes marquées **T12** sont les trous trouvés par l'audit.
 | Piques (§62) | `damage > 0`, `period > 0` (`OutOfRange`) ; **T12** couche `Surfaces` : valeur sans surface déclarée (`BrokenReference`) | `hazard_period_zero`, `rocks_and_surfaces_layers_are_checked` |
 | Portes verrouillées (§62, §70) | `Key(0)`, `lock_from_floor` sans `door_lock` ou sur `Secret`, clé introuvable à chaque étage verrouillé | `door_lock_key_zero`, `key_room_*` |
 | Grille (§62, §70) | `cell`, `max`, `post_boss.chance`, gabarits multiples de `cell`, ouvertures centrées et de même largeur, types distincts ; **T12** la salle secrète `required` d'une grille a `door_lock: Secret` (sinon posée ouverte : `OutOfRange`) | `grid_*`, `secret_room_not_required_or_not_walled` |
-| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, arme de `MirrorShot` inconnue, behavior de familier sans porteur | `familiar_*` |
+| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, behavior de familier sans porteur | `familiar_*` |
 | Champions (§63, §72) | actions de mort admises (`Explode`, `SpawnCharacters`, `SpawnPattern`), pattern fini, pool de butin connu, `#rrggbb`, `chance` en expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 | `champion_ok`, `champion_bad_death`, `champion_death_infinite_pattern*`, `variant_chance_expression_*` |
 | Curses (§64) | poids 0, aucun effet, `FloorRooms` ≤ 0, `Modifier Mul` ≤ 0, chance hors [0, 1], pool vide ou inconnu | `curse_invalid_values`, `floors_curses_invalid` |
 | Pools à épuisement (§64) | **T12** `exhaust: true` sur un pool qui n'a que des `Currency` (jamais « vu » : `OutOfRange`) | `exhaust_pool_of_coins_only_is_an_error` |
@@ -6332,7 +6522,7 @@ explosions pèsent aussi dans la mesure.
   est déjà dans les métriques.
 - Attribution mesurée de `bench_tears` (rollback ×12 = 56 ms) : `Projectiles` 2,29 ms par frame sur 3,9, linéaire en nombre de balles
   (~5 µs par balle et par frame) ; sans `division` : 39 balles, 18,9 ms ; sans `guide` : 1 080 balles, 78,9 ms ; `Homing` n'est pas
-  quadratique. Dette D89.
+  quadratique. Dette D97.
 
 ### Budgets par poste
 

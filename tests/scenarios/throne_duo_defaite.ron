@@ -1,3 +1,4 @@
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes (champions/élites) change pour tous les jeux (`variant_seed`) : même issue (joueur 1 à terre, joueur 0 mort, défaite, joueur 1 encore à terre) mais plus tard : joueur 1 à terre à f631, joueur 0 mort et défaite à f972 (f545 et f579 avant) ; attentes décalées en conséquence ; `frames` 1000 inchangé (marge de 28 frames).
 // D66 (2026-10-16, dette-d66-vue-directe) : le `rodeur` de la première caverne voit désormais un joueur en ligne de vue dégagée jusqu'à 900 unités (`sight_range`, conventions §22) au lieu d'errer hors de son `Sight(300)` : il fonce sur le bot, la trace entière bouge dès f1 et les repères de temps se décalent ; joueur 1 à terre à f545 (avant f625), joueur 0 mort à f579 et défaite à f579 (avant f732/f731) : le rodeur arrive avec les autres au lieu de rester dans son coin.
 // D43 (m1-d43-d44-fin-de-partie, réécrit dans m1-d43-defaite-scriptee) : défaite en mode `Floors`
 // à deux joueurs, **sans bot** (deux joueurs scriptés immobiles) : le scénario ne dépend d'aucun
@@ -26,13 +27,13 @@ Scenario(
         (),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 570),
-        RunState(step: Playing, at_frame: 570),
-        PlayerDowned(handle: 1, at_frame: 560),
-        PlayerAlive(handle: 0, at_frame: 570),
-        Defeat(by_frame: 585),
-        RunState(step: Ended(Defeat), at_frame: 590),
+        FloorIndex(index: 0, at_frame: 962),
+        RunState(step: Playing, at_frame: 962),
+        PlayerDowned(handle: 1, at_frame: 646),
+        PlayerAlive(handle: 0, at_frame: 962),
+        Defeat(by_frame: 982),
+        RunState(step: Ended(Defeat), at_frame: 986),
         // Défaite déclarée pendant que le dernier joueur saigne encore
-        PlayerDowned(handle: 1, at_frame: 610),
+        PlayerDowned(handle: 1, at_frame: 990),
     ],
 )

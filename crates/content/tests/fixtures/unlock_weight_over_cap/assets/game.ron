@@ -1,0 +1,10 @@
+// Fixture D96 : poids d'un déblocage `Loot` au-dessus de `items::MAX_LOOT_WEIGHT` (OutOfRange)
+(
+    name: "fixture-unlock_weight_over_cap",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "unlocks", kind: "Unlock"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

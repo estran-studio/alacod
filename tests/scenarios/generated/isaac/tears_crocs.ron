@@ -85,6 +85,7 @@ Scenario(
             items: [
                 "crocs",
             ],
+            aim: Free,
         ),
     ],
     expect: [

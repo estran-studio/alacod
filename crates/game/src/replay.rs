@@ -461,6 +461,11 @@ pub struct PlayerScript {
     /// bombe). Absent (défaut) : rien, aucune trace existante ne bouge.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bomb: Option<world::BombDef>,
+    /// Visée imposée (suivi Q17, scénarios `aim_four_way*`) : le joueur vise comme si son personnage
+    /// déclarait `aim:` (`Free` : comme s'il n'en déclarait aucun, même si son personnage a `FourWay`).
+    /// Absent (défaut) : rien, aucune trace existante ne bouge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aim: Option<sim_core::aim::AimMode>,
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création

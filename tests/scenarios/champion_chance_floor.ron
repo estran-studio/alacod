@@ -2,15 +2,16 @@
 // portail s'ouvre aussitôt, le joueur 0 le franchit f20-26). À la frame 120, au deuxième niveau, quarante `elite_chance`
 // (chance `0,1 + 0,18 × floor` = 28 %) sont placés : la chance est tirée avec `floor` = 1, donc plus de champions qu'à l'étage 0
 // (`champion_chance_floor_0`, 10 %). Le nombre de champions est fixé par la trace.
-// Graine 1942 : le tirage de §25 donne des valeurs voisines à des net ids consécutifs (graine `fnv ^ graine ^ net id`) ; cette graine répartit
-// les quarante valeurs de part et d'autre des deux seuils (10 % et 28 %).
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage de §25 hache désormais `variants:<graine>:<net id>` : les tirages de net ids voisins sont
+// indépendants, et la graine 1942 (choisie pour contourner l'ancienne corrélation) ne s'impose plus. Graine 110 : à l'étage 1 : 11 champions sur 40, chance 28 % ; la trace et les
+// attentes sont celles de ce tirage (le contraste 10 % / 28 % de la chance se lit directement entre les deux scénarios, 4 contre 11).
 //
 // À regarder : le joueur passe le portail ; quarante mannequins apparaissent, dont davantage de champions.
 Scenario(
     game: "testbed",
     map: "testbed/floor_vide_a.ldtk",
     floors: Some("deux_vides"),
-    map_seed: 1942,
+    map_seed: 110,
     frames: 140,
     powerup_drop_chance_override: "0",
     characters: [
@@ -58,46 +59,46 @@ Scenario(
     players: [(inputs: [(from: 20, to: 26, buttons: [Right, Down], pan: (0, 0))], weapon: "larme")],
     expect: [
         FloorIndex(index: 1, at_frame: 130),
-        // Chance 0.28 (étage 1) : 23 champions sur 40 (graine 1942, net ids 47 à 86).
+        // Chance 0.28 (étage 1) : 11 champions sur 40 (graine 110, net ids 47 à 86).
         EnemyVariant(entity: Placed(0), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(1), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(2), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(3), variant: None, at_frame: 130),
-        EnemyVariant(entity: Placed(4), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(4), variant: Some("elite"), at_frame: 130),
         EnemyVariant(entity: Placed(5), variant: None, at_frame: 130),
-        EnemyVariant(entity: Placed(6), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(6), variant: Some("elite"), at_frame: 130),
         EnemyVariant(entity: Placed(7), variant: None, at_frame: 130),
-        EnemyVariant(entity: Placed(8), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(8), variant: Some("elite"), at_frame: 130),
         EnemyVariant(entity: Placed(9), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(10), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(11), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(12), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(13), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(14), variant: None, at_frame: 130),
-        EnemyVariant(entity: Placed(15), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(15), variant: Some("elite"), at_frame: 130),
         EnemyVariant(entity: Placed(16), variant: None, at_frame: 130),
-        EnemyVariant(entity: Placed(17), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(18), variant: Some("elite"), at_frame: 130),
+        EnemyVariant(entity: Placed(17), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(18), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(19), variant: Some("elite"), at_frame: 130),
         EnemyVariant(entity: Placed(20), variant: Some("elite"), at_frame: 130),
         EnemyVariant(entity: Placed(21), variant: Some("elite"), at_frame: 130),
         EnemyVariant(entity: Placed(22), variant: Some("elite"), at_frame: 130),
         EnemyVariant(entity: Placed(23), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(24), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(25), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(26), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(27), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(28), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(29), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(30), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(31), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(32), variant: Some("elite"), at_frame: 130),
+        EnemyVariant(entity: Placed(24), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(25), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(26), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(27), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(28), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(29), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(30), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(31), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(32), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(33), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(34), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(35), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(36), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(37), variant: Some("elite"), at_frame: 130),
-        EnemyVariant(entity: Placed(38), variant: Some("elite"), at_frame: 130),
+        EnemyVariant(entity: Placed(34), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(35), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(36), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(37), variant: None, at_frame: 130),
+        EnemyVariant(entity: Placed(38), variant: None, at_frame: 130),
         EnemyVariant(entity: Placed(39), variant: Some("elite"), at_frame: 130),
     ],
 )

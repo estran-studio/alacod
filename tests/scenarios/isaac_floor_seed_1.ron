@@ -3,6 +3,12 @@
 // (9 salles : départ, cinq combats, boss, trésor, secrète) est nettoyé, le boss vaincu ; le bot prend le
 // portail et arrive au second étage, où le trésor est fermé à clé et la clé du second étage lui est remise.
 //
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : trois au départ,
+// `salve` et `essaim`) ; le bot arrivait au boss avec 1 PV et mourait à f2112. Adaptation : le joueur gagne avec `Armor +50` (D93)
+// (`PlayerScript::modifiers`). Frames recalées sur le nouveau run : boss verrouillé f2044, phase 1 f2147, phase 2 f2272,
+// nettoyé f2411, butin `sang_chaud` f2476, « niveau 1 » f2831 ; le bot meurt sur le second étage vers f3475 (scénario
+// 3400 frames, vivant à f3399). Les frames citées ci-dessous sont celles d'avant D88.
+//
 // À regarder : cinq verrouillages de salle de combat (trois ennemis chacune depuis M3-T11c : `suiveur`, `mouche`,
 // `tourelle_croix`), le boss verrouille sa salle à f2021, passe en phase 1 à f2126 (renforts `rampant` et `cracheur`,
 // couronne) puis en phase 2 à f2244 (`spectre`, `bourdon`, spirale) et meurt avant f2388 ; son butin (pool `boss`,
@@ -12,13 +18,17 @@
 // (un trésor, un boss) ; le second étage en sort un autre, donc les compteurs passent de 1 à 2 à sa génération
 // (l'épuisement est par run, pas par étage). La partie continue sur le second étage jusqu'à la fin du scénario (le bot
 // y meurt vers f3039 : équilibrage de M3-T11d). Avant M3-T11c : boss à f1340, mort du bot vers f2359.
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la grammaire de la
+// grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
-    frames: 3000,
+    frames: 3400,
     players: [
-        (bot: explorateur),
+        (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
     expect: [
         RoomState(kind: "depart", state: Dormant, at_frame: 5),
@@ -27,15 +37,15 @@ Scenario(
         PoolCount(pool: "boss", count: 1, at_frame: 5),
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 2050),
-        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 2150),
-        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 2400),
+        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 2100),
+        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 2200),
+        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 2500),
         FloorIndex(index: 0, at_frame: 2600),
-        FloorIndex(index: 1, at_frame: 2850),
-        DoorLocked(kind: "tresor", locked: true, at_frame: 2850),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 2850),
-        PoolCount(pool: "tresor", count: 2, at_frame: 2880),
-        PoolCount(pool: "boss", count: 2, at_frame: 2880),
-        PlayerAlive(handle: 0, at_frame: 2999),
+        FloorIndex(index: 1, at_frame: 2900),
+        DoorLocked(kind: "tresor", locked: true, at_frame: 2900),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 2900),
+        PoolCount(pool: "tresor", count: 2, at_frame: 2950),
+        PoolCount(pool: "boss", count: 2, at_frame: 2950),
+        PlayerAlive(handle: 0, at_frame: 3399),
     ],
 )

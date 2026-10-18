@@ -1,6 +1,6 @@
 # m3-t15-bench-larmes : rapport
 
-Branche `m3-t15-bench-larmes` depuis `origin/main` `3f37ba43`. Worker b6. Conventions §80, dettes D84 (fermée), D89, D90.
+Branche `m3-t15-bench-larmes` depuis `origin/main` `3f37ba43`. Worker b6. Conventions §80, dettes D84 (fermée), D97, D98.
 Poste : **VPS Debian 8 cœurs, partagé** (un autre worker, b2, joue la même suite sur la même machine), build à froid
 (`CARGO_BUILD_JOBS=4`, 45 min), profil `headless`, suite complète en un processus. **Cloud/partage : la mesure de référence n'a pas pu
 être faite à `uptime` < 1,5 en continu** (voir §2) ; le dire est la règle, la pire valeur de trois relevés les moins chargés fait foi.
@@ -15,7 +15,7 @@ Poste : **VPS Debian 8 cœurs, partagé** (un autre worker, b2, joue la même su
 - `crates/scenario/src/runner.rs` : 6 lignes, `ALACOD_SYSTEM_PROFILE=1` imprime `profil sets : …` dans le runner (le profil par set n'existait
   que dans le jeu). Diagnostic seul, absent sans la variable.
 - `tests/budgets.ron` : en-tête (cinq relevés, charges), 4 entrées neuves, 27 + 2 scénarios recalibrés, commentaires de plafonds mis à jour.
-- `docs/conventions.md` §80, `docs/etat-engine.md` (mesures VPS), `CLAUDE.md` (une phrase), `docs/taches/dettes.md` (D84 fermée, D89, D90), `docs/taches.md` §10.
+- `docs/conventions.md` §80, `docs/etat-engine.md` (mesures VPS), `CLAUDE.md` (une phrase), `docs/taches/dettes.md` (D84 fermée, D97, D98), `docs/taches.md` §10.
 
 ## 2. Relevés : machine et charge
 
@@ -62,7 +62,7 @@ Attribution de `bench_tears` (variantes temporaires de `bench_tears`, supprimée
 18,9 ms ; sans `guide` : 1 080 balles, 6,06 ms, 78,9 ms (le guidage fait toucher plus tôt, il ne coûte pas de population) ; sans `rebond` :
 inchangé (432 balles, 53 ms) ; sans aucun objet : 97 balles, 15,9 ms. `Projectiles` est linéaire en balles (~5 µs par balle et par frame),
 pas quadratique : `Homing` n'est pas en cause. La population vient de `Split` (deux exemplaires de `division`, génération maximale 8).
-**Le pire rollback de `bench_tears` (56 ms) dépasse 3 ticks de 16,7 ms** : dette **D89** chiffrée, seuil non relevé pour passer (le plafond 113 est le
+**Le pire rollback de `bench_tears` (56 ms) dépasse 3 ticks de 16,7 ms** : dette **D97** chiffrée, seuil non relevé pour passer (le plafond 113 est le
 double de la mesure, règle du fichier). `bench_floor_isaac` (18,9 ms) et `bench_familiars` (12,7 ms) tiennent dans ~1 tick. Familiers : coût propre
 faible (`bench_familiars` : simulation 0,97 ms contre 0,66 pour `effects_hundred_items` à 1 joueur ; `familiar_quad` 0,6 sur 300 frames).
 Champ de flux : `FlowField` 173 µs par frame sur l'étage isaac, 406 sur `bench_floor` de gungeon (plus de salles verrouillées) : D70 ne mord plus.
@@ -79,13 +79,13 @@ Champ de flux : `FlowField` 173 µs par frame sur l'étage isaac, 406 sur `bench
 | bench_cave | — / — / — / 2.1 / — KiB | 1.54 / 1.02 / 0.72 / 9.6 / 28 | ×4.6 |
 | bench_floor | — / — / — / 8.8 / — KiB | 3.63 / 2.77 / 1.78 / 24.1 / 88 | ×2.7 |
 
-Lecture (le poste n'est pas le même, donc **aucune conclusion de régression ne peut être tirée de ces chiffres seuls**, D90) :
+Lecture (le poste n'est pas le même, donc **aucune conclusion de régression ne peut être tirée de ces chiffres seuls**, D98) :
 - `p2p_smoke` : simulation 7,06 → 1,25 ms et rollback 85,1 → 16,2 ms **sur un poste plus lent** : la dette D70 (champ de flux à chaque case) ne se
   reproduit plus ; je n'ai pas vérifié ici quelle tâche l'a corrigée.
 - `bench_horde` ×1,3, `bench_bullets_room` ×2,2 : le rapport attendu entre le M4 et un cœur de VPS.
 - `bench_cave` ×4,6, `bench_bullets` ×3,8, `four_players_idle` ×5,6 : plus haut ; la sauvegarde (`save`) y est 7 à 8 fois celle du M4 alors que la
   simulation légère n'en coûte que 5 à 6 : sur ce poste le snapshot pèse autant que la simulation en scénario léger. [INFERENCE] différence de mémoire/cache
-  du poste, pas un défaut localisé : aucun système ne ressort au profil par set ; à confirmer en rejouant sur le M4 (D90).
+  du poste, pas un défaut localisé : aucun système ne ressort au profil par set ; à confirmer en rejouant sur le M4 (D98).
 - Fait établi par les relevés : **aucun plancher d'avant (M1/M2) n'était reproductible ici** ; les mesures documentées dans `budgets.ron` (ex. `testbed_*`
   2026-09-29 : 214 à 282 fps) sont 0,56 à 0,77 fois les mesures de ce poste, régulièrement : effet de poste, pas d'un scénario.
 
@@ -129,7 +129,7 @@ de 2 × la mesure, 0 régression réelle établie.** « inchangé » = valeur d�
 
 Remarques : tous les planchers « avant » étaient **au-dessus de la moitié** de la mesure de ce poste (ils venaient du Mac M4 ou du cloud 4 cœurs), d'où
 des abaissements uniformes ; `bench_horde` : plafond 70 → 94 (double de 46,6), c'est la seule remontée de plafond qui n'était pas cassée au calme.
-Régression réelle nommée : **aucune** pour D84 ; D89 (coût de `bench_tears`) et D90 (comparaison M4 à confirmer) sont ouvertes.
+Régression réelle nommée : **aucune** pour D84 ; D97 (coût de `bench_tears`) et D98 (comparaison M4 à confirmer) sont ouvertes.
 
 ## 5. Vérifié (résultats réels)
 
@@ -139,14 +139,14 @@ VERIF_PLACEHOLDER
 
 - La mesure de référence n'a pas été faite à `uptime` < 1,5 **continu** : voir §2 ; relevés r3 à r5 retenus, valeur la pire.
 - Pas de `make perf_review` contre une référence copiée avant : il n'existe aucune référence d'avant sur ce poste et les scénarios sont neufs ; `perf-review`
-  contre r3 (1 dixième près) n'aurait comparé que le bruit du poste. À faire sur un second poste (D90).
+  contre r3 (1 dixième près) n'aurait comparé que le bruit du poste. À faire sur un second poste (D98).
 - Pas de p2p (la tâche ne touche pas la simulation, une ligne de diagnostic dans le runner exceptée).
-- Aucune optimisation du coût des larmes (hors fiche : « mesure seulement ») ; D89 chiffrée.
+- Aucune optimisation du coût des larmes (hors fiche : « mesure seulement ») ; D97 chiffrée.
 - Relecture indépendante avant merge : à lancer par l'orchestrateur (non faite par moi).
 
 ## 7. Dettes
 
-D84 fermée. **D89** (coût de `bench_tears`, 56 ms, population de `Split`). **D90** (M4 contre VPS, à rejouer sur un second poste).
+D84 fermée. **D97** (coût de `bench_tears`, 56 ms, population de `Split`). **D98** (M4 contre VPS, à rejouer sur un second poste).
 
 ## 8. Atteignabilité
 

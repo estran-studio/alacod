@@ -18,8 +18,8 @@ use bevy_fixed::rng::{RollbackRng, RunSeed};
 use bevy_ggrs::{GgrsSchedule, Rollback, RollbackDespawnCommandExtension};
 use combat::actors::ExtraHealth;
 use items::{
-    draw_loot, loot_seed, Inventory, ItemKind, ItemPicked, ItemTable, LootTables, Rarity, Shelf,
-    ShellPickup,
+    draw_loot, loot_seed_numbered, loot_seed_parts, Inventory, ItemKind, ItemPicked, ItemTable,
+    LootTables, Rarity, Shelf, ShellPickup,
 };
 use sim_core::frame_events::FrameEvents;
 use sim_core::interaction::{Interactable, InteractionType};
@@ -109,7 +109,7 @@ pub fn draw_shelves(
     count: u32,
     weapon_shelves: u32,
 ) -> Vec<String> {
-    let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &format!("shop:{room}")));
+    let mut rng = RollbackRng::new(loot_seed_parts(run_seed, floor, &["shop:", room]));
     let mut out: Vec<String> = Vec::new();
     // D62 : les premiers présentoirs ne tirent que des armes (au moins une par boutique).
     let weapons_only = table.weapons_only();
@@ -283,7 +283,12 @@ pub fn shell_drop_on_death_system(
         if *team != Team::Enemies {
             continue;
         }
-        let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &format!("shells:{}", net_id.0)));
+        let mut rng = RollbackRng::new(loot_seed_numbered(
+            run_seed,
+            floor,
+            "shells:",
+            net_id.0 as u64,
+        ));
         let amount = rng.next_u32_range_inclusive(min, max.max(min));
         if amount == 0 {
             continue;

@@ -101,6 +101,7 @@ mod tests {
             loot_interact: false,
             fire_range: None,
             explore: None,
+            aim: sim_core::aim::AimMode::Free,
         }
     }
 
