@@ -1925,7 +1925,7 @@ pub fn bullet_rollback_collision_system(
             }
         }
 
-        for char_entry in grids.characters.query_aabb(&swept_aabb) {
+        for char_entry in grids.targets.iter_overlapping(&swept_aabb) {
             let Ok((
                 target_transform,
                 target_collider,

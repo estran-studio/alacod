@@ -1203,7 +1203,7 @@ pub fn projectile_collision_system(
 
         // Personnages : tous les candidats en contact, par GgrsNetId.
         let mut characters: Vec<GgrsNetId> = Vec::new();
-        for entry in grids.characters.query_aabb(&swept) {
+        for entry in grids.targets.iter_overlapping(&swept) {
             let Ok((
                 target_id,
                 target_transform,
@@ -1298,8 +1298,7 @@ pub fn projectile_collision_system(
         // Murs.
         let walls: Vec<_> = grids
             .walls
-            .query_aabb(&swept)
-            .into_iter()
+            .iter_overlapping(&swept)
             .filter_map(|entry| wall_query.get(entry.entity).ok())
             .filter(|(_, _, wall_layer, _)| settings.layer_matrix[layer.0][wall_layer.0])
             .collect();
@@ -1396,15 +1395,9 @@ pub fn projectile_expire_system(
             continue;
         }
         info!("projectile {} expires", net_id);
-        let forward = bullet.velocity.normalize_or_zero();
-        let aim = nearest_target(
-            &transform.translation,
-            bullet,
-            &projectile,
-            order_iter!(target_query)
-                .into_iter()
-                .map(|(id, t, _, team, _, _)| (id, t, team)),
-        );
+        // Direction de vol et cible la plus proche : seulement pour un `Spawn` (calcul pur, sans
+        // tri : `nearest_target` ne dépend pas de l'ordre d'itération).
+        let mut aiming: Option<(FixedVec2, Option<FixedVec2>)> = None;
         let parent = Parent {
             bullet,
             projectile: &projectile,
@@ -1431,6 +1424,19 @@ pub fn projectile_expire_system(
                             continue;
                         }
                     };
+                    let (forward, aim) = *aiming.get_or_insert_with(|| {
+                        (
+                            bullet.velocity.normalize_or_zero(),
+                            nearest_target(
+                                &transform.translation,
+                                bullet,
+                                &projectile,
+                                target_query
+                                    .iter()
+                                    .map(|(id, t, _, team, _, _)| (id, t, team)),
+                            ),
+                        )
+                    });
                     for shot in pattern_shots(&pattern, forward, aim) {
                         spawn_child_projectile(
                             &mut commands,
@@ -1458,6 +1464,16 @@ pub fn projectile_expire_system(
     }
 }
 
+/// Un personnage vu par `Orbit` et `Homing` : `GgrsNetId`, position, équipe.
+type SteeringTarget<'a> = (&'a GgrsNetId, &'a fixed_math::FixedTransform3D, &'a Team);
+
+fn gather_targets<'a>(query: &'a TargetQuery) -> Vec<SteeringTarget<'a>> {
+    query
+        .iter()
+        .map(|(id, transform, _, team, _, _)| (id, transform, team))
+        .collect()
+}
+
 /// `Gravity` puis `Homing` sur la vitesse, appliquée au déplacement de la frame suivante.
 pub fn projectile_steering_system(
     frame: Res<FrameCount>,
@@ -1480,7 +1496,13 @@ pub fn projectile_steering_system(
     );
     let _enter = system_span.enter();
 
-    for (_net_id, transform, mut bullet, projectile) in order_mut_iter!(projectile_query) {
+    // Cibles (personnages) rassemblées une fois par frame, au premier besoin : `Orbit` et `Homing`
+    // les parcourent pour chaque projectile. Ni tri ni ordre `GgrsNetId` ici : chaque projectile
+    // ne lit que des personnages (jamais d'autres balles) et n'écrit que sa propre vitesse, et
+    // `nearest_target` est un minimum (distance, `GgrsNetId`) qui ne dépend pas de l'ordre.
+    let mut targets: Option<Vec<SteeringTarget>> = None;
+
+    for (_net_id, transform, mut bullet, projectile) in projectile_query.iter_mut() {
         if projectile.ended {
             continue;
         }
@@ -1488,10 +1510,11 @@ pub fn projectile_steering_system(
         // suivante est l'écart jusqu'à la position d'orbite de la frame suivante. Le tireur
         // disparu (mort, détruit) termine le projectile ; ni gravité ni guidage en orbite.
         if let Some(orbit) = &projectile.orbit {
-            let center = target_query
+            let center = targets
+                .get_or_insert_with(|| gather_targets(&target_query))
                 .iter()
                 .find(|(id, ..)| id.0 == bullet.source.0)
-                .map(|(_, shooter, ..)| shooter.translation.truncate());
+                .map(|(_, shooter, _)| shooter.translation.truncate());
             match center {
                 Some(center) => {
                     let age = (frame.frame + 1).saturating_sub(bullet.created_at);
@@ -1509,13 +1532,12 @@ pub fn projectile_steering_system(
             bullet.velocity = apply_gravity(bullet.velocity, gravity);
         }
         if let Some(force) = projectile.homing {
+            let targets = targets.get_or_insert_with(|| gather_targets(&target_query));
             if let Some(to_target) = nearest_target(
                 &transform.translation,
                 &bullet,
                 projectile,
-                order_iter!(target_query)
-                    .into_iter()
-                    .map(|(id, t, _, team, _, _)| (id, t, team)),
+                targets.iter().copied(),
             ) {
                 bullet.velocity = steer_towards(bullet.velocity, to_target, force);
             }
