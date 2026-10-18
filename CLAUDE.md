@@ -168,7 +168,7 @@ Si les logs contiennent des Entity IDs, le diff montrera des différences même 
 
 Une entité rollback détruite par `despawn()` puis ramenée par un rollback (synctest, prédiction
 p2p ratée) est **respawnée avec ses seuls composants rollback** : sans `Sprite`, sans
-`CharacterConfigHandles`, etc. Elle devient invisible aux systèmes qui exigent ces composants
+`CharacterConfigKey`, etc. Elle devient invisible aux systèmes qui exigent ces composants
 (ex. `move_enemies`), ce qui change la séparation de ses voisins et fait diverger la simulation.
 
 ```rust
@@ -305,6 +305,16 @@ ce qui est derrière `PresentationPlugin` — rendu, fenêtre, input, audio, UI 
 simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, `behaviors`,
 `map`…) ne doivent jamais importer `bevy_render`, `bevy_winit`, `bevy_asset`, `bevy_audio`,
 `bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
+
+**Contenu lu par la simulation** (D69 étape 2, en cours) : la cible est zéro `Res<Assets<T>>` et zéro `Handle<T>` dans un système de
+`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a), pas encore pour les armes (`Assets<WeaponsConfig>`,
+E3b) ni `GlobalAsset` (E3d). La simulation lit une **ressource de donnée** (`BTreeMap`) remplie par
+l'application : `CharacterConfigs` (E3a, `character/config.rs`) à partir de l'enveloppe `CharacterConfigAsset`
+(`character/config_asset.rs`), par un système `PreUpdate.before(bevy_ggrs::RunGgrsSystems)` qui copie ce qui manque et
+recopie sur `AssetEvent::Modified` (rechargement à chaud). Un personnage porte `CharacterConfigKey(String)` (non rollback), pas un
+handle. Une surcharge de scénario se pose **sur la ressource**, après la synchro. Les replis des lecteurs (`continue`,
+vitesse de repli, défauts de santé) masquent un registre vide : tester la ressource elle-même
+(`crates/scenario/tests/character_configs.rs`).
 
 ## Headless, trace d'état et déterminisme
 

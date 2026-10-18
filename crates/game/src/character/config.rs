@@ -1,4 +1,4 @@
-use bevy::{platform::collections::hash_map::HashMap, prelude::*, reflect::TypePath};
+use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
 use serde::Deserialize;
 use sim_core::stats::StatId;
@@ -58,7 +58,7 @@ pub struct CharacterMarker {
     pub scale: Option<f32>,
 }
 
-#[derive(Asset, TypePath, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct CharacterConfig {
     pub movement: MovementConfig,
 
@@ -239,7 +239,24 @@ fn default_starting_currency() -> u32 {
     500
 }
 
-#[derive(Component)]
-pub struct CharacterConfigHandles {
-    pub config: Handle<CharacterConfig>,
+/// Clé du `CharacterConfig` d'un personnage dans [`CharacterConfigs`] : l'`asset_name_ref`
+/// (le `CharacterId` du registre de contenu). Composant non rollback, posé à la création
+/// (`create_character`) ; remplace l'ancien `CharacterConfigHandles` (`Handle<CharacterConfig>`).
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct CharacterConfigKey(pub String);
+
+/// Configurations des personnages, **donnée de simulation** (D69 étape 2, E3a) : clés = celles
+/// de `GlobalAsset::character_configs` (les `CharacterId` du registre). Remplie hors simulation
+/// par `config_asset::sync_character_configs` (`PreUpdate`, avant `RunGgrsSystems`) à partir des
+/// assets chargés, et seulement par elle (les surcharges de scénario se posent ensuite, sur cette
+/// ressource). Jamais écrite par `GgrsSchedule`, donc ni rollback ni checksum : c'est une donnée
+/// statique d'une partie, comme l'était l'`Assets<CharacterConfig>` qu'elle remplace.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct CharacterConfigs(pub BTreeMap<String, CharacterConfig>);
+
+impl CharacterConfigs {
+    /// Configuration d'un personnage, `None` si la clé est inconnue (registre pas encore rempli).
+    pub fn get(&self, key: &str) -> Option<&CharacterConfig> {
+        self.0.get(key)
+    }
 }

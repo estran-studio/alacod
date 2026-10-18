@@ -15,7 +15,7 @@ use sim_core::modifier::{ModifierSource, Modifiers};
 use utils::frame::FrameCount;
 use utils::net_id::GgrsNetId;
 
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::enemy::Enemy;
 use crate::character::player::Player;
 use crate::collider::Collider;
@@ -778,14 +778,14 @@ struct HudPlayerState<'w, 's> {
             Option<&'static Reviving>,
             Option<&'static Modifiers>,
             Option<&'static WeaponInventory>,
-            Option<&'static CharacterConfigHandles>,
+            Option<&'static CharacterConfigKey>,
             Option<&'static items::Inventory>,
         ),
         With<Player>,
     >,
     /// Joueurs à terre en cours de réanimation, pour « Réanimation 40 % » côté réanimateur.
-    revivals: Query<'w, 's, (&'static Reviving, &'static CharacterConfigHandles), With<Downed>>,
-    character_configs: Res<'w, Assets<CharacterConfig>>,
+    revivals: Query<'w, 's, (&'static Reviving, &'static CharacterConfigKey), With<Downed>>,
+    character_configs: Res<'w, CharacterConfigs>,
 }
 
 /// Interactables (même filtre que `interaction::interaction_detection_system`) et ce qu'il
@@ -866,17 +866,17 @@ fn update_hud_v1_values(
         .unwrap_or_default();
 
     let downed = player
-        .map(|(net_id, _, _, downed, reviving, _, _, handles, _)| {
-            let revive_frames = |handles: Option<&CharacterConfigHandles>| {
-                handles
-                    .and_then(|h| state.character_configs.get(&h.config))
+        .map(|(net_id, _, _, downed, reviving, _, _, config_key, _)| {
+            let revive_frames = |config_key: Option<&CharacterConfigKey>| {
+                config_key
+                    .and_then(|key| state.character_configs.get(&key.0))
                     .map_or(180, |c| c.revive_frames)
             };
             match downed {
                 Some(downed) => downed_text(
                     frame,
                     Some(downed.bleedout_at_frame),
-                    reviving.map(|r| (r.progress_frames, revive_frames(handles))),
+                    reviving.map(|r| (r.progress_frames, revive_frames(config_key))),
                 ),
                 // Réanimateur : la progression du joueur qu'il relève.
                 None => state

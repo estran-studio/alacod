@@ -1,4 +1,4 @@
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::enemy::Enemy;
 use crate::character::movement::{Velocity, FIXED_TIMESTEP};
 use crate::character::player::Player;
@@ -185,7 +185,7 @@ pub fn move_enemies(
             &mut Velocity,
             &mut EnemyPath,
             &mut FacingDirection,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &Collider,
             &crate::collider::CollisionLayer,
             &mut WallSlideTracker,
@@ -209,7 +209,7 @@ pub fn move_enemies(
         (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<&fixed_math::FixedTransform3D, (With<Player>, Without<Enemy>)>,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     config: Res<PathfindingConfig>,
     collision_settings: Res<crate::collider::CollisionSettings>,
     wall_collider_query: Query<
@@ -287,7 +287,7 @@ pub fn move_enemies(
         mut velocity_component,
         mut path,
         mut facing_direction,
-        config_handles,
+        config_key,
         enemy_collider,
         enemy_collision_layer,
         mut wall_slide_tracker,
@@ -309,12 +309,11 @@ pub fn move_enemies(
         let enemy_pos_v2 = fixed_transform.translation.truncate();
 
         // Get character movement config
-        let base_movement_speed =
-            if let Some(char_config) = character_configs.get(&config_handles.config) {
-                char_config.movement.max_speed // This should be fixed_math::Fixed
-            } else {
-                config.movement_speed // Fallback is also Fixed
-            };
+        let base_movement_speed = if let Some(char_config) = character_configs.get(&config_key.0) {
+            char_config.movement.max_speed // This should be fixed_math::Fixed
+        } else {
+            config.movement_speed // Fallback is also Fixed
+        };
         // Stats branchées (T1.2, chantier B2) : les constantes de `PathfindingConfig` sont
         // maintenant des stats par ennemi (`character::create::create_character` les pose
         // depuis ce même `PathfindingConfig::default()` à la création, voir

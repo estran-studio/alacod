@@ -842,11 +842,7 @@ fn apply_scenario_character_placements(
         .enumerate()
         .filter(|(_, p)| p.at_frame == frame.frame)
     {
-        let config = assets
-            .global_assets
-            .character_configs
-            .get(&placement.character)
-            .and_then(|handle| assets.character_asset.get(handle));
+        let config = assets.character_configs.get(&placement.character);
         let Some(config) = config else {
             errors.0.insert(
                 index,

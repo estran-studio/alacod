@@ -59,9 +59,9 @@ use utils::{
 use crate::{
     balance::ResolvedBalance,
     character::{
-        config::CharacterConfig, create::create_character, player::jjrs::PeerConfig, player::Player,
+        config::CharacterConfigs, create::create_character, player::jjrs::PeerConfig,
+        player::Player,
     },
-    global_asset::GlobalAsset,
     system_set::RollbackSystemSet,
 };
 
@@ -166,8 +166,7 @@ pub fn familiar_sync_system(
     table: Option<Res<ItemTable>>,
     owners: OwnerQuery,
     familiars: Query<(&GgrsNetId, Entity, &FamiliarOf), With<Rollback>>,
-    global_assets: Res<GlobalAsset>,
-    characters: Res<Assets<CharacterConfig>>,
+    characters: Res<CharacterConfigs>,
     balance: Res<ResolvedBalance>,
     collision_settings: Res<CollisionSettings>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
@@ -214,7 +213,6 @@ pub fn familiar_sync_system(
                 rank as u32,
                 transform.translation,
                 team.copied(),
-                &global_assets,
                 &characters,
                 &balance,
                 &collision_settings,
@@ -241,14 +239,12 @@ fn spawn_familiar(
     rank: u32,
     position: fixed_math::FixedVec3,
     owner_team: Option<Team>,
-    global_assets: &Res<GlobalAsset>,
-    characters: &Res<Assets<CharacterConfig>>,
+    characters: &CharacterConfigs,
     balance: &ResolvedBalance,
     collision_settings: &CollisionSettings,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
 ) -> Option<Entity> {
-    let handle = global_assets.character_configs.get(character)?;
-    let config = characters.get(handle)?;
+    let config = characters.get(character)?;
     let behaviors = config
         .ai
         .as_ref()
@@ -261,7 +257,6 @@ fn spawn_familiar(
         .unwrap_or(fixed_math::FIXED_ONE);
     let entity = create_character(
         commands,
-        global_assets,
         characters,
         character.to_string(),
         None,

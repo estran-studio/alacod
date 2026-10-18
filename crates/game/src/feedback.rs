@@ -1440,8 +1440,7 @@ pub struct ChampionTint(pub Option<Color>);
 /// table de variantes de sa fiche.
 fn tint_champions(
     mut commands: Commands,
-    global: Option<Res<crate::global_asset::GlobalAsset>>,
-    configs: Res<Assets<crate::character::config::CharacterConfig>>,
+    configs: Res<crate::character::config::CharacterConfigs>,
     champions: Query<
         (
             Entity,
@@ -1451,17 +1450,9 @@ fn tint_champions(
         Without<ChampionTint>,
     >,
 ) {
-    let Some(global) = global else {
-        return;
-    };
     for (entity, variant, appearance) in &champions {
-        let tint = crate::feedback_v3::variant_tint(
-            &global,
-            &configs,
-            &appearance.config_name,
-            &variant.0,
-        )
-        .map(|(r, g, b)| Color::srgb(r, g, b));
+        let tint = crate::feedback_v3::variant_tint(&configs, &appearance.config_name, &variant.0)
+            .map(|(r, g, b)| Color::srgb(r, g, b));
         commands.entity(entity).insert(ChampionTint(tint));
     }
 }
