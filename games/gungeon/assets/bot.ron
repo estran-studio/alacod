@@ -1,0 +1,16 @@
+// Politique de l'`explorateur` de `gungeon` (docs/conventions.md §79, m2-salles-murs-gungeon) : lue par `alacod-sim` (campagnes),
+// par `alacod-gen` (scénarios générés) et posée à la main dans `Scenario::explorer` des scénarios gungeon écrits à la main.
+// Les gabarits de salle agrandis (×1,9 à ×5,5) donnent des étages de plus de 2 000 px : sans ces réglages le soft-lock `Floors`
+// (1 200 frames sans dégât) tombe pendant que le bot court d'un objet lointain à l'autre ou tourne devant une ouverture de 32 px.
+(
+    // Pas de détour lointain : objets, présentoirs, coffres et salles sans verrou au-delà de 600 de coût (60 cases de 8 px)
+    // tant qu'une salle de combat reste, 200 (20 cases) sur la dernière ligne droite jusqu'au boss (graines 8, 10, 12, 16, 29
+    // de `etages_deux`).
+    detour: (optional: Some(600), last_stretch: Some(200)),
+    // Anticipation de l'élan transverse devant une ouverture de 32 px, corps de 20 px (D82, graines 51 et 182).
+    lead: true,
+    // Arrêt puis cap droit quand le bot tourne en rond sur place (D82, graines 66, 84, 120).
+    oscillation: Patience,
+    // Ni achat ni ramassage d'une arme sans réserve de munition (graines 3, 4, 18).
+    weapon_reserve: true,
+)

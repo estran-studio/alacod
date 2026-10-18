@@ -1338,6 +1338,7 @@ pub fn build_enemy_scenario(
         profile_setup: None,
         hub: None,
         shopping: false,
+        explorer: None,
         powerup_drop_chance_override: Some(fixed_math::FIXED_ZERO),
         floors: None,
         clocks: None,
@@ -1637,7 +1638,11 @@ fn scene_scenario(
     expect: Vec<Expectation>,
 ) -> Scenario {
     let map_path = map.unwrap_or(&scene.start_map);
+    let explorer = (player.bot == Some(game::replay::BotProfile::Explorateur))
+        .then(|| crate::runner::game_bot_policy(&scene.game).scene());
     let mut scenario = base_scenario(&scene.game, map_path, seed, frames, player, expect);
+    // Le bot d'un scénario généré joue la politique du jeu (`bot.ron`) sans achat ni bombe (`ExplorerPolicy::scene`).
+    scenario.explorer = explorer;
     scenario.floors = floors.map(str::to_string);
     if floors.is_none() && map.is_none() {
         scenario.floors = scene.start_floors.clone();
@@ -1688,6 +1693,7 @@ fn base_scenario(
         profile_setup: None,
         hub: None,
         shopping: false,
+        explorer: None,
         powerup_drop_chance_override: Some(fixed_math::FIXED_ZERO),
         floors: None,
         clocks: None,
@@ -1890,6 +1896,7 @@ pub fn build_weapon_scenario(
         profile_setup: None,
         hub: None,
         shopping: false,
+        explorer: None,
         powerup_drop_chance_override: Some(bevy_fixed::fixed_math::FIXED_ZERO),
         floors: None,
         progression: None,

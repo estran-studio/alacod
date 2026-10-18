@@ -1,0 +1,38 @@
+// M3-T14 (docs/conventions.md §79) : le cœur d'abord quand la vie est basse (`HeartsThenCheapest(low_health: "1.0")` : à la
+// moindre blessure). Le joueur a un modificateur `MaxHealth +2` : 6 PV sur 8, donc blessé sans combat. Deux présentoirs
+// apparaissent à f20 dans la salle de départ : un cœur (9 douilles, `refuse_when_full`) au sud et une bombe (3) au nord ; il a
+// 12 douilles. Témoin : `bot_isaac_shop` (pleine vie : le jeu refuserait le cœur, le bot l'ignore et prend la moins chère).
+//
+// À regarder : blessé, le bot achète le cœur **d'abord** (f80, 12 → 3 douilles, vie 8/8), pourtant plus cher que la bombe, puis
+// la bombe (f135, 3 → 0).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    floors: Some("sous_sol_un"),
+    frames: 400,
+    shop: (shelves: [
+        (key: "coeur", item: "coeur", price: 9, x: "-8.0", y: "40.0", at_frame: 20),
+        (key: "bombe", item: "bomb", price: 3, x: "-8.0", y: "-40.0", at_frame: 20),
+    ]),
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "1.0"),
+        detour: (shells: Some(400)),
+        devil: Never,
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+        oscillation: Hysteresis,
+        combat_aware: true,
+    )),
+    players: [(bot: explorateur, currency: Some(12), modifiers: [(stat: MaxHealth, op: Add, value: "2.0")])],
+    expect: [
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 10),
+        Currency(handle: 0, min: Some(12), max: Some(12), at_frame: 60),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 100),
+        Currency(handle: 0, min: Some(3), max: Some(3), at_frame: 100),
+        Health(handle: 0, min: 8.0, max: 8.0, at_frame: 100),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 160),
+        Currency(handle: 0, min: Some(0), max: Some(0), at_frame: 160),
+        PlayerAlive(handle: 0, at_frame: 399),
+    ],
+)

@@ -11,7 +11,7 @@
 // f7315) : `BossPhase` lue en phase 1 (un seul passage de phase à relire) et l'événement « phase 1 → 2 » devient
 // « phase 0 → 1 ». Frames : escouade f2312-2423, arène 1290-2040, boss f3310 / f3354, étage 2 f3549, arène 6052-6802,
 // boss f7126 / f7279, victoire f7316.
-// Re-chronométrage (2026-10-18, gabarits de salles agrandis, `ExplorerOptions::steady`) : les bots jouent d'autres
+// Re-chronométrage (2026-10-18, gabarits de salles agrandis, politique `games/gungeon/assets/bot.ron`) : les bots jouent d'autres
 // frames et d'autres salles. Attentes re-mesurées, aucune retirée ; écarts de sens : (1) aucun coffre à clé n'est
 // ouvert (la clé ramassée f246 n'est jamais consommée : `Consumable(key)` reste à 1) et plus aucun coffre d'arme
 // (`double_canon`, `lance_flammes`) : les coffres donnent `bastion` (f698, joueur 1) puis, au second étage,
@@ -56,6 +56,8 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    // Politique de l'explorateur de gungeon (`games/gungeon/assets/bot.ron`, §79) : détour borné, élan anticipé, patience, armes selon la réserve.
+    explorer: Some((detour: (optional: Some(600), last_stretch: Some(200)), lead: true, oscillation: Patience, weapon_reserve: true)),
     map: "maps/etage_1.ldtk",
     floors: Some("etages_deux"),
     map_seed: 10,

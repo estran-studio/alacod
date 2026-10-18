@@ -1,0 +1,34 @@
+// M3-T14 (docs/conventions.md §79) : l'`explorateur` ouvre le trésor fermé à clé d'`isaac`, sans input scripté.
+// Séquence `sous_sol_cle` (un étage de passage puis le second étage de `sous_sol`, où le trésor est fermé à clé et la
+// clé remise à l'arrivée), graine -1013904216 (comme `grid_treasure_key`) : le trésor est la case au sud du départ.
+//
+// À regarder : « niveau 1 » à f1 ; le bot va à la porte du trésor (fermée : `DoorLocked` vrai à f15, une clé en poche),
+// l'Interaction (f23) consomme la clé et ouvre la porte et sa jumelle ; il entre et ouvre le coffre (f87),
+// ramasse son objet (f105 ; l'objet change avec le tirage du butin, il n'est pas nommé).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: -1013904216,
+    floors: Some("sous_sol_cle"),
+    frames: 600,
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        detour: (shells: Some(400)),
+        devil: Never,
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+        oscillation: Hysteresis,
+        combat_aware: true,
+    )),
+    players: [(bot: explorateur)],
+    expect: [
+        Event(kind: "floor", label_contains: Some("niveau 1"), by_frame: 5),
+        DoorLocked(kind: "tresor", locked: true, at_frame: 15),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 15),
+        DoorLocked(kind: "tresor", locked: false, at_frame: 40),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 40),
+        Event(kind: "chest", by_frame: 100),
+        Event(kind: "item_pickup", by_frame: 120),
+        PlayerAlive(handle: 0, at_frame: 599),
+    ],
+)

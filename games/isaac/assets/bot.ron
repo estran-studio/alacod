@@ -1,0 +1,29 @@
+// Politique du bot `explorateur` pour `isaac` (M3-T14, docs/conventions.md §79). Lue par `alacod-sim`
+// (campagnes, graines d'atteignabilité) : `--policy <fichier>` la remplace, `--devil` et `--shopping`
+// la surchargent. Un scénario la donne en ligne (`Scenario::explorer`). Hors `isaac`, aucun `bot.ron` : la
+// politique par défaut (aucun achat, ordre du plus proche) laisse les parties des autres jeux inchangées.
+(
+    // Ouvre les coffres (trésor, secrète) et achète aux présentoirs (D62).
+    shopping: true,
+    // Achats en douilles : chacun n'achète que ce qu'il paie ; un cœur d'abord quand sa vie est au plus à
+    // la moitié de sa vie maximale (et pas pleine : le jeu refuserait), sinon l'objet le moins cher.
+    shop: HeartsThenCheapest(low_health: "0.5"),
+    // Va chercher les tas de sous au sol dont le chemin coûte au plus 400 (10 par case de 8 px : une quarantaine de
+    // cases) : ils ne valent pas un détour d'un bout à l'autre de l'étage (ramassés au contact).
+    detour: (shells: Some(400)),
+    // Marché du diable (vie maximale, `Shelf::cost`) : Never | IfHealthAbove(n), n en points de vie (un cœur =
+    // 2 PV, le cœur d'`isaac` coûte 2). `Never` : mesure du 2026-10-17 sur le contenu de T11b (55 graines à salle du
+    // diable des 200 de la campagne) : 55 victoires avec `Never` contre 48 victoires et 7 morts avec
+    // `IfHealthAbove("4.0")` ; mesure finale du 2026-10-18 sur le contenu de D69 (champions D88, visée à quatre
+    // directions) : 5 victoires contre 5, aucun signal (le bot meurt avant le présentoir : 4 achats en 3 graines).
+    // Les objets du diable sont encore des données d'attente (un cœur de moins ne se rachète pas). Défaut à confirmer
+    // par William (Q14) quand le contenu de M3-T11 aura des objets qui valent un cœur.
+    devil: Never,
+    // Bombes : mur de la salle secrète (voisine d'au moins deux salles, §70) et rocher qui coupe le chemin
+    // d'un but ; `reserve` : bombes gardées en stock.
+    bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+    // Tient son prochain point de passage quand il tourne sur place (deux routes de coût égal, input retardé : graine 19
+    // sans bombe, 600 frames à osciller dans un couloir).
+    oscillation: Hysteresis,
+    combat_aware: true,
+)

@@ -8,12 +8,16 @@
 # `p2p-stress.sh` (EXPECT_FLOORS) le dit (aucun étage franchi) au lieu de l'avaler.
 #
 # Usage : scripts/p2p-gungeon-inputs.sh <joueurs> <graine> <frames> <sortie.ron>
-# Le client p2p doit être lancé avec `ALACOD_SKIP_HUB=1` et `--seed <graine>` : la graine de run
-# d'une partie en ligne passée par le hub est dérivée (§33), celle d'`alacod-sim` non.
+# Le client p2p doit être lancé avec `ALACOD_SKIP_HUB=1` (gungeon, qui a un hub) et `--seed <graine>` (gungeon et isaac lisent
+# `--seed` : `apply_launch_seed` ; throne et testbed l'ignorent, D105) : la graine de run
+# d'une partie en ligne passée par le hub est dérivée (§33), celle d'`alacod-sim` non. `isaac` n'a pas de hub.
 # HUB=1 : l'enregistrement est celui d'une run lancée par la PORTE DU HUB en ligne (D85) : `alacod-sim` joue
 # le hub puis la run (`ALACOD_SIM_HUB=1`), avec la graine de run `restart_seed(graine, 1)`
 # (`ALACOD_RUN_SEED_ONLINE_GAME=1`) et le fichier reçoit les
 # pistes du hub (le joueur 0 va à la porte, f170) ; le client se lance SANS `ALACOD_SKIP_HUB`.
+# M3-T14 : GAME (gungeon), FLOORS (etages_deux), UNTIL_FLOOR (2) et SIM_ARGS (`--shopping`) pilotent `alacod-sim` ;
+# `GAME=isaac FLOORS=sous_sol UNTIL_FLOOR=5 SIM_ARGS=--pickup-progress` enregistre une partie d'`isaac` (politique de `bot.ron`), sans
+# bombe (le personnage n'en porte pas) : les clients p2p du dépôt la rejouent tels quels (rapport m3-t14-bot-isaac §2).
 # ALLOW_SHORT=1 : accepte une partie plus courte que <frames> (fin de run : victoire ou défaite,
 # pour un restart après la fin de run). Sortie : 0 si le fichier est écrit ET qu'au moins un étage est franchi dans la partie
 # enregistrée ; affiche la frame du passage d'étage.
@@ -38,8 +42,8 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 profiles=$(printf 'explorateur,%.0s' $(seq "$PLAYERS"))
 profiles=${profiles%,}
-${HUB:+env ALACOD_RUN_SEED_ONLINE_GAME=1 ALACOD_SIM_HUB=1} "$TARGET/headless/alacod-sim" --game gungeon --bots "$PLAYERS" --profiles "$profiles" \
-    --floors etages_deux --until-floor 2 --seeds "$SEED..$SEED" --shopping \
+${HUB:+env ALACOD_RUN_SEED_ONLINE_GAME=1 ALACOD_SIM_HUB=1} "$TARGET/headless/alacod-sim" --game "${GAME:-gungeon}" --bots "$PLAYERS" --profiles "$profiles" \
+    --floors "${FLOORS:-etages_deux}" --until-floor "${UNTIL_FLOOR:-2}" --seeds "$SEED..$SEED" ${SIM_ARGS-$([ "${GAME:-gungeon}" = gungeon ] && echo '--shopping --explored-progress' || echo --shopping)} \
     --max-frames "$FRAMES" --save-scenario "$TMP" --json "$TMP/sim.json" 2> "$TMP/sim.log" || {
     tail -5 "$TMP/sim.log"; echo "p2p-gungeon-inputs : alacod-sim a échoué"; exit 1; }
 [ -f "$TMP/seed_$SEED.ron" ] || { echo "p2p-gungeon-inputs : enregistrement absent"; exit 1; }

@@ -117,7 +117,7 @@ Les salles plus vides (même nombre d'ennemis dans plus d'espace) ont supprimé 
    Correctifs : `explorer::lead` (corrige l'écart transverse de `vitesse × 5 frames`, pas l'axe du trajet), appliqué aussi à l'approche du portail, puis **`Patience`** : un bot resté 100 frames dans 40 px de son ancre change de manière (15 frames sans touche pour éteindre l'élan, puis cap droit sans corriger un écart transverse de moins de 6 px, séquence répétée). Essais notés : gain d'anticipation 8 frames au lieu de 5 : pire (5 graines bloquées de plus), d'où la patience.
 4. **Panique `fixed … overflow` dans `move_enemies` (graine 54)** : `FacingDirection::from_fixed_vector` (`sim_core`) fait déborder `atan2` pour une vitesse de plus de ~181 (un champion rapide : (−181,6 ; −11,7)). **C'est un défaut du moteur** (un joueur aurait vu le jeu s'arrêter). Correctif : au-delà de 173 de long (norme² 30 000) le vecteur est réduit d'un facteur 4 avant `atan2` ; **rien ne change en deçà** (traces identiques, suite verte).
 
-**Les décisions de bot nouvelles sont derrière `ExplorerOptions::steady`** (vrai pour `game: "gungeon"` dans le runner et `alacod-sim`, faux ailleurs) : avant ce garde-fou, les traces de dix scénarios d'explorateur d'isaac, testbed et throne bougeaient ; avec lui, aucune.
+**Les décisions de bot nouvelles sont derrière `ExplorerOptions::steady`** (vrai pour `game: "gungeon"` dans le runner et `alacod-sim`, faux ailleurs ; **remplacé à la fusion avec m3-t14 par des champs de `ExplorerPolicy` posés en données par `games/gungeon/assets/bot.ron`**, `docs/conventions.md` §79) : avant ce garde-fou, les traces de dix scénarios d'explorateur d'isaac, testbed et throne bougeaient ; avec lui, aucune.
 
 ## 4. Vidéos et serveur de revue
 
