@@ -3,7 +3,9 @@
 // (trois `bullet_kin_squad`) : elle se verrouille, les trois membres prennent leur place sur un arc
 // de 40 unités autour de lui et tirent à tour de rôle.
 //
-// À regarder : les trois `bullet_kin` ne se superposent pas, s'étalent en éventail et ne
+// Salle agrandie (m2-salles-murs-gungeon, §40) : le joueur marche jusqu'à f85 (verrouillage f78) au lieu de f70.
+//
+// À regarder : f78 la salle se verrouille ; f240 les trois `bullet_kin` ne se superposent pas, s'étalent en éventail et ne
 // tirent jamais ensemble.
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -13,7 +15,7 @@ Scenario(
     frames: 300,
     players: [
         (inputs: [
-            (from: 10, to: 70, buttons: [Right]),
+            (from: 10, to: 85, buttons: [Right]),
         ]),
     ],
     expect: [
@@ -21,9 +23,10 @@ Scenario(
         EntityCount(kind: Enemy, min: 4, max: 4, at_frame: 29),
         RoomState(kind: "escouade", state: Locked, at_frame: 100),
         // En place sur l'arc (rayon 40 ± tolérance et strafe léger), avant que la salve ne les
-        // dérange
-        EnemyDistance(entity: NetId(33), target: Player(0), min: 25.0, max: 55.0, at_frame: 200),
-        EnemyDistance(entity: NetId(35), target: Player(0), min: 25.0, max: 55.0, at_frame: 200),
-        EnemyDistance(entity: NetId(37), target: Player(0), min: 25.0, max: 55.0, at_frame: 200),
+        // dérange. Gabarits agrandis : la salle est plus grande, les membres arrivent plus tard (f200 :
+        // un membre à 62 > 55) ; mesure re-datée f200 → f240, tolérance inchangée
+        EnemyDistance(entity: NetId(33), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
+        EnemyDistance(entity: NetId(35), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
+        EnemyDistance(entity: NetId(37), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
     ],
 )
