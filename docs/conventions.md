@@ -5344,10 +5344,11 @@ de la balle : rayon `blast_radius`, dégâts `Bullet.damage × explosive_damage_
 explicitement). Trois sites, tous dans l'ordre `GgrsNetId` du système : l'arrêt contre un personnage ou un mur d'une
 balle ordinaire (`bullet_rollback_collision_system`), sa fin de portée (`bullet_rollback_system`), la fin d'un projectile
 composable (`projectile_expire_system`, après ses `on_expire`, qui couvre sa touche, son mur et sa durée de vie). Une
-balle `Piercing` ou `Standard` ne pose rien. Les `GgrsNetId` ne sont alloués que quand une balle explosive se termine :
+balle `Piercing` ou `Standard` ne pose rien. Une balle explosive **annulée** (blank, effacement hostile, bouclier de familier) disparaît sans exploser : choix
+assumé (relecture de D76), l'explosion est celle d'une balle qui se termine, pas d'une balle détruite. Les `GgrsNetId` ne sont alloués que quand une balle explosive se termine :
 **aucune trace existante ne bouge** (aucun contenu d'un jeu ne déclarait `Explosive`, vérifié par `grep` sur `games/`,
 `templates/`, `tests/` : seules les deux armes de testbed ajoutées ici). Testbed : armes `balle_explosive` (sans
-`projectile:`, portée 100) et `balle_explosive_composee` (`Lifetime(20)`), scénarios `explosive_bullet_hit` (le premier
+`projectile:`, portée 100) et `balle_explosive_composee` (`Lifetime(20)`) (scénarios générés `weapon_balle_explosive` et `weapon_balle_explosive_composee`, `make gen GAME=testbed`), scénarios `explosive_bullet_hit` (le premier
 `dummy` 200 → 185 : balle puis souffle ; le deuxième, derrière, 200 → 190 : souffle seul ; le troisième, hors rayon, et
 le joueur intacts), `explosive_bullet_range` et `explosive_bullet_composed` (la balle s'éteint sans toucher : le `dummy`
 voisin prend le souffle seul, 200 → 190). Pas de lint propre à `Explosive` (aucun lint de `bullet_type` n'existe).
