@@ -6676,7 +6676,7 @@ bombe posée) **et rejoue les campagnes `s1`, `i2`, `i4`** (dette D106).
 - **Poursuite sur place** (`ExplorerJitter.2/.3`, `pursue`, sous `anti_jitter`) : 300 frames sans quitter un rayon de 24 en marchant vers un but qui n'est
   pas une salle **et dont le pas est réellement exécuté** (ni réanimation, ni butin, ni esquive, pas un pas nul) écartent ce but pour ce joueur
   (`explore_step(…, avoid)`) ; graine 103 d'`isaac` à deux bots : un tas de sous contre un mur que la navigation croit libre, deux buts alternés. La
-  mémoire du bot (`ExplorerJitter` entière) est **remise à zéro à chaque partie** (`OnEnter(InGame)` : les `GgrsNetId` repartent de zéro).
+  mémoire du bot (`ExplorerJitter` : champs `sway`, `stalls`, `pursuits`, `banned_goals`, `snaps`, `floor`) est **remise à zéro à chaque partie** (`OnEnter(InGame)` : les `GgrsNetId` repartent de zéro) ; buts écartés, poursuites, blocages et tenues sont **oubliés à chaque changement d'étage** (`enter_floor` : l'identité d'un mur est sa zone, qui peut revenir à l'identique).
 - **Réanimation à portée** (`revive_step`, `snap`, sous `combat_aware`) : déjà à portée de la surface que le jeu sélectionnerait, Interaction tenue
   sans bouger (le pas d'approche visait portée − 8 et faisait osciller le bot de ±9 : la réanimation, tenue plusieurs frames, ne finissait jamais) ;
   **sans marge** (une marge de 5 recréait le blocage : 4 soft-locks à 2 bots) mais **tenue bornée** (`ExplorerJitter::snap_hold` : 240 frames puis 60

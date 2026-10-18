@@ -277,6 +277,8 @@ pub fn read_bot_inputs(
     let bullets_sorted = order_iter!(bullets);
     let mut dodged = false;
     let mut geometry_rects: Option<Vec<(Rect, bool)>> = None;
+    // Géométrie sans les rochers (navigation « si on les cassait »), à la demande.
+    let mut free_geometry: Option<Vec<(Rect, bool)>> = None;
     // Navigation seulement en mode `Floors` : il faut y trouver chaque ennemi puis le portail.
     // En vagues, les ennemis viennent aux joueurs (un zombie dehors est « caché » derrière les
     // murs jusqu'à sa fenêtre) : `prudent`/`fonceur` y gardent leur comportement de T1.14.
@@ -353,6 +355,9 @@ pub fn read_bot_inputs(
         .copied()
         .collect();
     let explorer_options = explorer.options();
+    if explorer_options.policy.anti_jitter {
+        jitter.enter_floor(explorer.floor_index());
+    }
     // Ennemis immobiles (tourelle : `MoveSpeed` de base nulle ; ennemi coincé : vitesse
     // nulle, ou sur place depuis `STUCK_FRAMES` malgré une vitesse voulue, m1-bots-apres-
     // movement-feel), voir `BotView::enemy_still`.
@@ -666,11 +671,11 @@ pub fn read_bot_inputs(
                 .collect();
             let active = inventory.active_weapon_index;
             view.fire_range = Some(arms_views.get(active).map_or(Fixed::ZERO, |w| w.range));
-            view.orbit_reach = explorer_options
-                .policy
-                .combat_aware
-                .then(|| explorer.orbit_reach(player.handle))
-                .flatten();
+            // Seulement face à un ennemi : `decide_prudent` ne lit l'orbite que là (la composition alloue).
+            view.orbit_reach = (explorer_options.policy.combat_aware
+                && view.nearest_enemy.is_some())
+            .then(|| explorer.orbit_reach(player.handle))
+            .flatten();
             if let Some(enemy) = view.nearest_enemy {
                 let radius = enemies_sorted
                     .iter()
@@ -761,7 +766,7 @@ pub fn read_bot_inputs(
                 }
                 if view.nearest_enemy.is_some() || explore.flee.is_some() {
                     // Combat ou fuite : l'attente sur place n'est pas un balancement d'exploration.
-                    jitter.0.remove(&player.handle);
+                    jitter.sway.remove(&player.handle);
                 }
                 if view.nearest_enemy.is_none() && explore.flee.is_none() {
                     nav.0.update_from(rects, &body, points_for, position);
@@ -782,21 +787,24 @@ pub fn read_bot_inputs(
                         && ctx.policy.bombs.rocks
                         && ctx.holder.bomb.is_some();
                     if with_rocks {
-                        let free_rects: Vec<(Rect, bool)> = order_iter!(geometry)
-                            .into_iter()
-                            .filter(|(_, _, _, wall, window, door, _)| {
-                                wall.is_some() || window.is_some() || door.is_some()
-                            })
-                            .map(|(_, t, c, wall, _, door, _)| {
-                                (
-                                    Rect::collider(t.translation.truncate(), c),
-                                    wall.is_some() || door.is_some(),
-                                )
-                            })
-                            .collect();
+                        // Géométrie sans les rochers : construite une fois par frame (comme `geometry_rects`).
+                        let free_rects = free_geometry.get_or_insert_with(|| {
+                            order_iter!(geometry)
+                                .into_iter()
+                                .filter(|(_, _, _, wall, window, door, _)| {
+                                    wall.is_some() || window.is_some() || door.is_some()
+                                })
+                                .map(|(_, t, c, wall, _, door, _)| {
+                                    (
+                                        Rect::collider(t.translation.truncate(), c),
+                                        wall.is_some() || door.is_some(),
+                                    )
+                                })
+                                .collect()
+                        });
                         rock_nav
                             .0
-                            .update_from(&free_rects, &body, points_for, position);
+                            .update_from(free_rects, &body, points_for, position);
                     }
                     let mut step = crate::explorer::explore_step(
                         &mut nav.0,
@@ -828,7 +836,7 @@ pub fn read_bot_inputs(
                                 jitter.pursue(player.handle, frame.frame, position, step);
                             }
                             _ => {
-                                jitter.2.remove(&player.handle);
+                                jitter.pursuits.remove(&player.handle);
                             }
                         }
                         match step.as_mut() {
@@ -840,7 +848,7 @@ pub fn read_bot_inputs(
                                 |from, to| nav.0.clear(from, to),
                             ),
                             None => {
-                                jitter.0.remove(&player.handle);
+                                jitter.sway.remove(&player.handle);
                             }
                         }
                     }
@@ -869,8 +877,8 @@ pub fn read_bot_inputs(
             }
         }
         if exploring && downed.is_some() {
-            jitter.0.remove(&player.handle);
-            jitter.1.remove(&player.handle);
+            jitter.sway.remove(&player.handle);
+            jitter.stalls.remove(&player.handle);
         }
 
         if prudent_like(profile) && crate::dodge::dodge(&view).is_some() {

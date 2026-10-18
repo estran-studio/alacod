@@ -29,19 +29,20 @@ Autres ajouts, tous des **mécanismes de bot** nés de soft-locks réels des cam
 - Diagnostic : `ALACOD_BOT_DEBUG=1`, moments clés `door_lock`, `bomb`, `shelf`, JSON `mechanics` d'`alacod-sim`, options `--policy`, `--devil`, `--bombs`,
   `--pickup-progress` (le ramassage compte comme progrès du détecteur de soft-lock, faux par défaut).
 
-## 2. Vérifié (sur la fusion avec `origin/main` `7ee084e8`)
+## 2. Vérifié (sur la fusion avec `origin/main` `7ee084e8`, après la revue)
 
-- `make test_scenarios_par SHARDS=3` **sans BLESS** : 659 scénarios, 3 tranches ok (199 s).
-- `make test_crates` : **1 245 tests passés, 0 échec** (80 binaires ; `bots` : 90 tests, dont anti-jitter, engagement, poursuite, orbite, tenue de la réanimation, identité des buts).
+- `make test_scenarios_par SHARDS=3` **sans BLESS** : 659 scénarios, 3 tranches ok (292 s).
+- `make test_crates` : **1 246 tests passés, 0 échec** (80 binaires) ; `cargo test -p bots` : **91 tests** (anti-jitter, engagement, poursuite, orbite, tenue de la réanimation, changement d'étage, identité des buts).
 - `make lint` ×5 : zombies, testbed, throne, gungeon, isaac « aucune erreur ». `make gen GAME=…` ×5 : code 0, `git status` sans diff.
 - `cargo fmt --all -- --check`, `check_sim_boundary` (13 crates, 2 en dette D69), `check-forbidden.sh`, `check-rollback-registration.sh`, `make test_tools` : OK.
-- Fuzz `ALACOD_FUZZ=0:8` (`--ignored`) : 1 test passé (43 s) ; `ALACOD_FUZZ_SCENARIO` ×3 (`bot_isaac_secret`, `bot_isaac_two`, `bot_isaac_key`, 4 graines) : passés.
-- **p2p-stress isaac** (Docker OrbStack, `MATCHBOX_PORT=3576`, `COMPOSE_PROJECT_NAME=b3`), avec les **inputs de deux bots figés** (`scripts/p2p-gungeon-inputs.sh`,
-  `GAME=isaac FLOORS=sous_sol UNTIL_FLOOR=5 SIM_ARGS=--pickup-progress`, graine 79, 3 000 frames), montage **temporaire non commité** (`pleureur.ron` :
-  `bomb` et `starting_consumables: {"key": 0, "bomb": 1}` ; `game.ron` : `default_seed: 79`, car `--seed` n'est pas lu par `isaac` ; restaurés) :
-  **3 939 frames resimulées** (client 0 ; 302 rollbacks, profondeur max 11 ; client 1 : 0), 0 `DesyncDetected`, codes 0/0, traces identiques (2 999 lignes), **passage d'étage 0 → 1 resimulé (f1802)**.
-  Écueil trouvé en route : avec `--seed 79` seul, le client jouait la carte de `default_seed` (ids de salles et butin différents de ceux de l'enregistrement,
-  inputs caducs : bot mort à f745) ; `EXPECT_FLOORS=1` l'a dit au lieu de l'avaler.
+- Fuzz `ALACOD_FUZZ=0:8` (`--ignored`) : 1 test passé (42 s).
+- Refactor de la revue neutre : s1 graines 21–40 et i2 graines 1–20 rejouées, issue et frames **identiques** à la campagne finale.
+- **p2p-stress isaac, rejouable depuis le dépôt (aucun montage)** : inputs de **deux bots figés** sans bombe (isaac tel que livré), enregistrés puis rejoués par
+  `GAME=isaac FLOORS=sous_sol UNTIL_FLOOR=5 SIM_ARGS=--pickup-progress scripts/p2p-gungeon-inputs.sh 2 79 3000 /tmp/isaac-bots-79.ron`, puis
+  `GAME_ARGS="--seed 79" EXPECT_FLOORS=1 scripts/p2p-stress.sh isaac /tmp/isaac-bots-79.ron 3000` (Docker OrbStack, `MATCHBOX_PORT=3576`, `COMPOSE_PROJECT_NAME=b3`) :
+  **3 453 frames resimulées** (client 0 : 280 rollbacks, profondeur max 11 ; client 1 : 0), 0 `DesyncDetected`, codes 0/0, traces identiques (2 999 lignes),
+  **passage d'étage 0 → 1 resimulé (f1765)**. Le client `isaac` lit désormais `--seed` (`apply_launch_seed`, copié de `gungeon`) ; avant, `--seed 79` était ignoré, le client
+  jouait la carte de `default_seed` et les inputs enregistrés étaient caducs (bot mort à f745) : `EXPECT_FLOORS=1` l'avait dit au lieu de l'avaler.
 - Preuve que les autres jeux ne bougent pas : **la suite entière sans BLESS** (ci-dessus : 659 scénarios, aucune trace de `main` blessée par cette branche) dont les
   **25 scénarios à `explorateur` de `main`** (`achievement_unlocks`, `bot_explorer_floor/two`, `grid_floor_seed_1/23/123`, `grid_post_boss`, `gungeon_boss_bot`,
   `gungeon_floor_seed_1/23/123`, `gungeon_full_run`, `gungeon_full_run_four`, `gungeon_two_floors`, `isaac_floor_seed_1`, et les générés `gungeon/room_*` ×6, `isaac/room_combat`,
@@ -137,6 +138,13 @@ poursuite sur place, réanimation à portée, `combat_aware`) : **aucun P1, quat
 d'un collider circulaire → **marge de 5 essayée puis abandonnée** (elle recréait le blocage de réanimation : 4 soft-locks à 2 bots, graines 1, 168, 180, 187), remplacée par une tenue
 **bornée** (`ExplorerJitter::snap_hold` : 240 frames de tenue puis 60 d'approche, test) : si le jeu refuse l'Interaction à la limite, l'approche reprend la main ; les quatre graines gagnent ensuite.
 
+4e passe (revue indépendante de l'orchestrateur, « OK avec réserves », aucun bug bloquant) : dettes D101–D106 inscrites ; ligne « 188/200 » du §3 resourcée (188 est le chiffre de **T11b**, la ligne T11c
+est 68 ; historique archivé dans `historique_campagnes.json`) ; essai `Free` archivé ; 25 scénarios à `explorateur` de `main` cités ; `apply_launch_seed` pour isaac et p2p rejoué du dépôt ;
+note d'inertie (bombe de départ de T11d1) au §79 ; mesure du diable datée ; P3 faits : `devil_accepts` appelle `Price::can_pay`, `PickupRule::accepts` s'appuie sur `items::consumable_accepts`
+(règle partagée avec `ItemDef::accepts`), `sorted_rooms`/`door_near`/`key_lock_cost` de `map_ldtk::game::rooms` réutilisés (tri hors de la boucle des portes), `ExplorerJitter` à champs nommés,
+constantes nommées (`DOOR_REACH_INSET`, `BOMB_MIN_REACH`, `PEER_COVER_MARGIN`, `FLEE_CLEARANCE`, `SNAP_GAP_FRAMES`, `PURSUIT_GAP_FRAMES`), mémoire oubliée à chaque changement d'étage
+(`enter_floor`), géométrie sans rochers construite une fois par frame et orbite lue seulement face à un ennemi. Le découpage d'`explorer.rs` (facultatif) n'est pas fait.
+
 ## 7. Journal (à ajouter sur `main` après le merge)
 
-`| 2026-10-18 | M3-T14 (bot explorateur v3 pour isaac : politique en données (bot.ron), porte à clé, bombes (mur secret, rochers, un poseur par mur, fuite de mèche), sous bornés, achats cœurs d'abord, diable Never par défaut, anti-jitter, anti-blocage de combat, réanimation à portée, combat_aware ; §79) | m3-t14-bot-isaac | b3 | mergée ; campagnes 200 graines : 1 bot 12 victoires/188 morts, 2 bots 116/84, 4 bots (20) 18/2, 0 soft-lock, 0 desync ; suite 659, test_crates 1 245, lint/gen ×5, fuzz, p2p-stress isaac 3 939 frames resimulées ; aucune trace existante blessée ; morts = contenu (T11c, visée à quatre directions, champions D88 : 188 → 12 victoires à 1 bot, §3), Q14 ouverte ; non fait : inférence de salle secrète sans type, boutique isaac (T11d) |`
+`| 2026-10-18 | M3-T14 (bot explorateur v3 pour isaac : politique en données (bot.ron), porte à clé, bombes (mur secret, rochers, un poseur par mur, fuite de mèche), sous bornés, achats cœurs d'abord, diable Never par défaut, anti-jitter, anti-blocage de combat, réanimation à portée, combat_aware ; §79) | m3-t14-bot-isaac | b3 | mergée ; campagnes 200 graines : 1 bot 12 victoires/188 morts, 2 bots 116/84, 4 bots (20) 18/2, 0 soft-lock, 0 desync ; suite 659, test_crates 1 246, lint/gen ×5, fuzz, p2p-stress isaac (rejouable du dépôt, `--seed` lu par isaac) 3 453 frames resimulées ; aucune trace existante blessée ; morts = contenu (T11c, visée à quatre directions, champions D88 : 188 → 12 victoires à 1 bot, §3), Q14 ouverte ; non fait : inférence de salle secrète sans type, boutique isaac (T11d) |`

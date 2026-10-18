@@ -47,6 +47,7 @@ use game::character::player::Player;
 use game::items::BlankState;
 use game::replay::{DevilPolicy, ExplorerPolicy, ShopOrder};
 use items::{Inventory, ItemKind, ItemPickup, ItemTable, Price};
+use map_ldtk::game::rooms::{door_near, key_lock_cost, sorted_rooms};
 use sim_core::interaction::{Interactable, InteractionType};
 use utils::{net_id::GgrsNetId, order_iter};
 use world::{
@@ -71,16 +72,30 @@ const ITEM_REACH: Fixed = Fixed::from_bits(16 << 16);
 /// (`PLAYER_INSET` de `map_ldtk::game::rooms`) : entrer suffit pour la visiter.
 const VISIT_INSET: Fixed = Fixed::from_bits(24 << 16);
 
-/// Une porte appartient à une salle si elle est à moins de cette distance de ses bords
-/// (`DOOR_MARGIN` de `map_ldtk::game::rooms`).
-const DOOR_MARGIN: Fixed = Fixed::from_bits(24 << 16);
-
 /// Marge de la bombe sous son rayon : l'explosion doit toucher **strictement** (`world::explosion`),
 /// et le bot mesure depuis son centre, pas depuis le point de pose.
 const BOMB_STAND_MARGIN: Fixed = Fixed::from_bits(8 << 16);
 
 /// Marge de fuite au-delà du rayon d'une bombe posée.
 pub const FLEE_MARGIN: Fixed = Fixed::from_bits(16 << 16);
+
+/// Une porte à clé s'approche à la portée d'interaction moins cette marge (le jeu mesure du bord du collider).
+const DOOR_REACH_INSET: Fixed = Fixed::from_bits(8 << 16);
+
+/// Portée de pose minimale d'une bombe : sous cette distance au mur, le bot se tient déjà sur la bombe.
+const BOMB_MIN_REACH: Fixed = Fixed::from_bits(4 << 16);
+
+/// Un poseur de bombe plus proche d'un mur que la portée de pose plus cette marge est censé s'en charger (règle des pairs).
+const PEER_COVER_MARGIN: Fixed = Fixed::from_bits(40 << 16);
+
+/// Une case de fuite est sûre à cette distance au-delà du danger (`danger(bombe)`) de toute bombe posée.
+const FLEE_CLEARANCE: Fixed = Fixed::from_bits(8 << 16);
+
+/// Frames sans appel au-delà desquelles la tenue d'une réanimation recommence son cycle.
+const SNAP_GAP_FRAMES: u32 = 2;
+
+/// Frames sans pas au-delà desquelles une poursuite recommence.
+const PURSUIT_GAP_FRAMES: u32 = 5;
 
 /// Distance (au centre d'un rocher) en deçà de laquelle une case du chemin sans rocher « passe par »
 /// ce rocher : le corps du joueur (demi-diagonale ~14) y toucherait.
@@ -163,12 +178,9 @@ pub struct PickupRule {
 }
 
 impl PickupRule {
-    /// Même règle que `ItemDef::accepts` pour un consommable.
+    /// La règle de `items::ItemDef::accepts` pour un consommable (`items::consumable_accepts`).
     pub fn accepts(&self, stock: u32, at_full_health: bool) -> bool {
-        if self.max_stack.is_some_and(|cap| stock >= cap) {
-            return false;
-        }
-        !(self.refuse_when_full && at_full_health)
+        items::consumable_accepts(self.max_stack, self.refuse_when_full, stock, at_full_health)
     }
 }
 
@@ -567,6 +579,9 @@ impl ExplorerWorld<'_, '_> {
         let Some(table) = self.table.as_deref() else {
             return;
         };
+        // Même ordre que `key_door_system` (`sorted_rooms` : position puis identifiant), trié une fois : la première
+        // salle à clé dont la porte est proche est celle dont le jeu lit le prix.
+        let rooms = sorted_rooms(&self.rooms);
         for (id, t, collider, interactable) in order_iter!(self.doors) {
             let Some(interactable) =
                 interactable.filter(|i| i.interaction_type == InteractionType::KeyDoor)
@@ -574,22 +589,9 @@ impl ExplorerWorld<'_, '_> {
                 continue;
             };
             let p = t.translation.truncate();
-            // Même ordre que `key_door_system` (`sorted_rooms` : position puis identifiant) : la première salle
-            // à clé dont la porte est proche est celle dont le jeu lit le prix.
-            let mut rooms: Vec<_> = self.rooms.iter().collect();
-            rooms.sort_by(|a, b| {
-                (a.1.position.x, a.1.position.y, &a.0 .0).cmp(&(
-                    b.1.position.x,
-                    b.1.position.y,
-                    &b.0 .0,
-                ))
-            });
-            let Some((level, keys)) = rooms.into_iter().find_map(|(level, bounds, kind)| {
-                let Some(DoorLock::Key(keys)) = table.door_lock_at(&kind.0, floor) else {
-                    return None;
-                };
-                world::rooms::inside_box(bounds.position, bounds.size, p, -DOOR_MARGIN)
-                    .then(|| (level.0.clone(), keys))
+            let Some((level, keys)) = rooms.iter().find_map(|(level, bounds, kind)| {
+                let keys = key_lock_cost(table, kind, floor)?;
+                door_near(bounds, p).then(|| (level.0.clone(), keys))
             }) else {
                 continue;
             };
@@ -602,7 +604,7 @@ impl ExplorerWorld<'_, '_> {
             }
             let mut goal = ItemGoal::new(id.0, p, true, false);
             goal.zone = Rect::collider(p, collider);
-            goal.reach = (interactable.interaction_range - Fixed::from_num(8)).max(Fixed::ZERO);
+            goal.reach = (interactable.interaction_range - DOOR_REACH_INSET).max(Fixed::ZERO);
             goal.kind = GoalKind::Door { keys };
             items.push(goal);
         }
@@ -647,7 +649,7 @@ impl ExplorerWorld<'_, '_> {
             }
             for (_, t, collider, _) in order_iter!(self.doors) {
                 let p = t.translation.truncate();
-                if world::rooms::inside_box(bounds.position, bounds.size, p, -DOOR_MARGIN) {
+                if door_near(bounds, p) {
                     out.push(Rect::collider(p, collider));
                 }
             }
@@ -656,6 +658,11 @@ impl ExplorerWorld<'_, '_> {
         out.sort_by_key(|r| (r.min.x, r.min.y, r.max.x, r.max.y));
         out.dedup();
         out
+    }
+
+    /// Index de l'étage courant (`0` sans `FloorState`).
+    pub fn floor_index(&self) -> u32 {
+        self.floor.as_deref().map_or(0, |floor| floor.index)
     }
 
     /// Ce que porte le joueur `handle`.
@@ -841,7 +848,7 @@ impl GoalContext {
     /// Portée de pose d'une bombe : l'explosion touche strictement à moins de son rayon.
     fn bomb_reach(&self) -> Option<Fixed> {
         let def = self.holder.bomb?;
-        Some((def.radius - BOMB_STAND_MARGIN - self.holder.bomb_inset).max(Fixed::from_num(4)))
+        Some((def.radius - BOMB_STAND_MARGIN - self.holder.bomb_inset).max(BOMB_MIN_REACH))
     }
 
     /// Peut-il viser une pose de bombe : un porteur avec du stock, aucune mèche en cours.
@@ -854,7 +861,7 @@ impl GoalContext {
     fn peer_covers(&self, zone: Rect, reach: Fixed) -> bool {
         self.peers
             .iter()
-            .any(|peer| zone.distance(*peer) <= reach + Fixed::from_num(40))
+            .any(|peer| zone.distance(*peer) <= reach + PEER_COVER_MARGIN)
     }
 
     /// Le joueur prendrait-il cet objet, le paierait-il ? (Les filtres d'avant M3-T14 sont dans
@@ -887,9 +894,16 @@ pub fn devil_accepts(policy: DevilPolicy, holder: &Holder, loss: Fixed) -> bool 
     let DevilPolicy::IfHealthAbove(threshold) = policy else {
         return false;
     };
+    // Le jeu paie l'âme d'abord, refuse un reste qui tuerait ou dépasse la vie maximale : `Price::can_pay` (le même appel
+    // que `game::shop`). Le seuil de la politique ne s'ajoute que si de la vie maximale part.
     let rest = (loss - holder.soul).max(Fixed::ZERO);
-    rest == Fixed::ZERO
-        || (holder.health > threshold && holder.health > rest && rest <= holder.health_max)
+    Price::MaxHealth(loss).can_pay(
+        0,
+        &Inventory::default(),
+        holder.health_max,
+        holder.health,
+        holder.soul,
+    ) && (rest == Fixed::ZERO || holder.health > threshold)
 }
 
 /// Buts d'exploration triés par [`GoalKey`] (seulement ceux qu'un chemin atteint).
@@ -1134,27 +1148,43 @@ pub const SNAP_RELEASE_FRAMES: u32 = 60;
 
 /// Anti-jitter des `explorateur` (`ExplorerPolicy::anti_jitter`) : **seconde mémoire du bot** après [`ExplorerVisits`],
 /// hors simulation et hors rollback pour la même raison (elle ne sert qu'à produire des inputs que GGRS enregistre).
-/// `.0` : balancements de l'exploration ; `.1` : blocages de combat ([`Self::engage`]) ; `.2` : poursuites ;
-/// `.3` : buts écartés `(joueur, but)` ([`Self::pursue`]) ; `.4` : tenue d'une réanimation à portée `(depuis, dernière
-/// frame)` ([`Self::snap_hold`]).
 #[derive(Resource, Debug, Clone, Default, PartialEq)]
-pub struct ExplorerJitter(
-    pub BTreeMap<usize, Jitter>,
-    pub BTreeMap<usize, Stall>,
-    pub BTreeMap<usize, Pursuit>,
-    pub BTreeSet<(usize, u64)>,
-    pub BTreeMap<usize, (u32, u32)>,
-);
+pub struct ExplorerJitter {
+    /// Balancements de l'exploration, par joueur.
+    pub sway: BTreeMap<usize, Jitter>,
+    /// Blocages de combat ([`Self::engage`]), par joueur.
+    pub stalls: BTreeMap<usize, Stall>,
+    /// Poursuites en cours ([`Self::pursue`]), par joueur.
+    pub pursuits: BTreeMap<usize, Pursuit>,
+    /// Buts écartés `(joueur, identité du but)`.
+    pub banned_goals: BTreeSet<(usize, u64)>,
+    /// Tenue d'une réanimation à portée `(depuis, dernière frame)` ([`Self::snap_hold`]), par joueur.
+    pub snaps: BTreeMap<usize, (u32, u32)>,
+    /// Index de l'étage où cette mémoire a été constituée ([`Self::enter_floor`]).
+    pub floor: Option<u32>,
+}
 
 impl ExplorerJitter {
     /// But auquel le joueur `handle` s'est attaché (`explore_step` le passe en premier).
     pub fn focus(&self, handle: usize) -> Option<u64> {
-        self.0.get(&handle).and_then(|state| state.focus)
+        self.sway.get(&handle).and_then(|state| state.focus)
+    }
+
+    /// Entre dans l'étage `floor` : à un changement d'étage, les buts écartés et les poursuites sont oubliés (l'identité
+    /// d'un mur ou d'une porte est sa zone : elle peut revenir à l'identique à l'étage suivant).
+    pub fn enter_floor(&mut self, floor: u32) {
+        if self.floor != Some(floor) {
+            self.banned_goals.clear();
+            self.pursuits.clear();
+            self.stalls.clear();
+            self.snaps.clear();
+            self.floor = Some(floor);
+        }
     }
 
     /// Buts écartés du joueur `handle`.
     pub fn banned(&self, handle: usize) -> BTreeSet<u64> {
-        self.3
+        self.banned_goals
             .range((handle, 0)..=(handle, u64::MAX))
             .map(|(_, who)| *who)
             .collect()
@@ -1165,8 +1195,8 @@ impl ExplorerJitter {
     /// navigation à sa boîte : si le jeu refuse l'Interaction à la limite, l'approche reprend la main au lieu de laisser le bot
     /// figé. Appelé à chaque frame où une surface de réanimation existe ; un trou de plus de 2 frames recommence le cycle.
     pub fn snap_hold(&mut self, handle: usize, frame: u32) -> bool {
-        let state = self.4.entry(handle).or_insert((frame, frame));
-        if frame.saturating_sub(state.1) > 2 {
+        let state = self.snaps.entry(handle).or_insert((frame, frame));
+        if frame.saturating_sub(state.1) > SNAP_GAP_FRAMES {
             *state = (frame, frame);
         }
         state.1 = frame;
@@ -1181,15 +1211,16 @@ impl ExplorerJitter {
             since: frame,
             last: frame,
         };
-        let state = self.2.entry(handle).or_insert(fresh);
-        if frame.saturating_sub(state.last) > 5 || position.distance(&state.anchor) > GIVE_UP_RADIUS
+        let state = self.pursuits.entry(handle).or_insert(fresh);
+        if frame.saturating_sub(state.last) > PURSUIT_GAP_FRAMES
+            || position.distance(&state.anchor) > GIVE_UP_RADIUS
         {
             *state = fresh;
         }
         state.last = frame;
         if frame.saturating_sub(state.since) >= GIVE_UP_FRAMES {
             if step.what != "room" {
-                self.3.insert((handle, step.target));
+                self.banned_goals.insert((handle, step.target));
             }
             state.since = frame;
         }
@@ -1207,7 +1238,7 @@ impl ExplorerJitter {
         in_combat: bool,
     ) -> Option<(Fixed, i8)> {
         if !in_combat {
-            self.1.remove(&handle);
+            self.stalls.remove(&handle);
             return None;
         }
         let fresh = Stall {
@@ -1215,7 +1246,7 @@ impl ExplorerJitter {
             since: frame,
             engaged_at: None,
         };
-        let state = self.1.entry(handle).or_insert(fresh);
+        let state = self.stalls.entry(handle).or_insert(fresh);
         if state.progress != progress {
             *state = fresh;
         }
@@ -1242,7 +1273,7 @@ impl ExplorerJitter {
         clear: impl Fn(FixedVec2, FixedVec2) -> bool,
     ) {
         if step.direction == FixedVec2::ZERO {
-            self.0.remove(&handle);
+            self.sway.remove(&handle);
             return;
         }
         let fresh = Jitter {
@@ -1252,7 +1283,7 @@ impl ExplorerJitter {
             hold: None,
             held_since: frame,
         };
-        let state = self.0.entry(handle).or_insert(fresh);
+        let state = self.sway.entry(handle).or_insert(fresh);
         if position.distance(&state.anchor) > JITTER_RADIUS {
             *state = fresh;
         }
@@ -1442,7 +1473,7 @@ pub fn flee_step(
             .filter(|(p, _)| {
                 bombs
                     .iter()
-                    .all(|b| point(**p).distance(&b.position) >= danger(b) + Fixed::from_num(8))
+                    .all(|b| point(**p).distance(&b.position) >= danger(b) + FLEE_CLEARANCE)
             })
             .min_by_key(|(p, cost)| (**cost, **p))
             .map(|(p, _)| point(*p))
@@ -2132,7 +2163,20 @@ mod tests {
         // Arrivé : l'état est oublié.
         let mut step = pas(0.0, 7);
         jitter.steady(0, 44, v(0.0, 30.0), &mut step, libre);
-        assert!(jitter.0.is_empty());
+        assert!(jitter.sway.is_empty());
+    }
+
+    /// Un changement d'étage oublie les buts écartés (l'identité d'un mur est sa zone, qui peut revenir à l'identique) ;
+    /// rester sur l'étage ne touche à rien.
+    #[test]
+    fn un_changement_d_etage_oublie_les_buts_ecartes() {
+        let mut jitter = ExplorerJitter::default();
+        jitter.enter_floor(0);
+        jitter.banned_goals.insert((0, 42));
+        jitter.enter_floor(0);
+        assert_eq!(jitter.banned(0), BTreeSet::from([42]));
+        jitter.enter_floor(1);
+        assert!(jitter.banned(0).is_empty());
     }
 
     /// La tenue d'une réanimation à portée dure `SNAP_HOLD_FRAMES`, puis `SNAP_RELEASE_FRAMES` d'approche, puis recommence ;
