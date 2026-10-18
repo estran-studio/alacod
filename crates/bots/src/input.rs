@@ -657,7 +657,11 @@ pub fn read_bot_inputs(
                 .collect();
             let active = inventory.active_weapon_index;
             view.fire_range = Some(arms_views.get(active).map_or(Fixed::ZERO, |w| w.range));
-            view.orbit_reach = explorer.orbit_reach(player.handle);
+            view.orbit_reach = explorer_options
+                .policy
+                .combat_aware
+                .then(|| explorer.orbit_reach(player.handle))
+                .flatten();
             if let Some(enemy) = view.nearest_enemy {
                 let radius = enemies_sorted
                     .iter()
@@ -739,7 +743,9 @@ pub fn read_bot_inputs(
                     ..Default::default()
                 };
                 let body = AgentBody::from_collider(collider);
-                if !frame_data.bombs.is_empty() {
+                if !frame_data.bombs.is_empty()
+                    && (explorer_options.policy.combat_aware || holder.bomb.is_some())
+                {
                     nav.0.update_from(rects, &body, points_for, position);
                     explore.flee =
                         crate::explorer::flee_step(&mut nav.0, &frame_data.bombs, position);

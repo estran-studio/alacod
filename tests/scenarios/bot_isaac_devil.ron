@@ -18,6 +18,7 @@ Scenario(
         devil: IfHealthAbove("4.0"),
         bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
         anti_jitter: true,
+        combat_aware: true,
     )),
     players: [(bot: explorateur)],
     expect: [

@@ -1,17 +1,17 @@
 // M3-T14 (docs/conventions.md §79) : une partie ordinaire d'`isaac` (séquence par défaut `sous_sol`, deux étages en
-// grille, graine 3) jouée de bout en bout par le bot `explorateur` avec la politique de `games/isaac/assets/bot.ron`,
+// grille, graine 6) jouée de bout en bout par le bot `explorateur` avec la politique de `games/isaac/assets/bot.ron`,
 // sans input scripté et **sans bombe** (le personnage d'`isaac` n'en porte pas avant M3-T11d : la salle secrète reste
 // close, voir `bot_isaac_secret`).
 //
-// À regarder : le trésor du premier étage s'ouvre sans clé (f995, coffre `crocs`) ; le boss est vaincu, le bot prend le
-// portail (« niveau 1 », f2620) ; au second étage le trésor est fermé à clé : le bot va à la porte, une Interaction
-// consomme la clé remise à l'arrivée (f3070), il ouvre le coffre (f3224, `eclat`) ; le second boss meurt et la partie
-// est gagnée (f4719).
+// À regarder : le trésor du premier étage s'ouvre sans clé (f1749, coffre `longue_vue`) ; le boss est vaincu, le bot prend le
+// portail (« niveau 1 », f2916) ; au second étage le trésor est fermé à clé : le bot va à la porte, une Interaction
+// consomme la clé remise à l'arrivée (f2939), il ouvre le coffre (f3002, `goutte`) ; le second boss meurt et la partie
+// est gagnée (f4864). Les graines 1 à 5 meurent avec ce contenu (champions de D88, visée à quatre directions : §79).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
-    map_seed: 3,
-    frames: 5200,
+    map_seed: 6,
+    frames: 5400,
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
@@ -19,21 +19,22 @@ Scenario(
         devil: Never,
         bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
         anti_jitter: true,
+        combat_aware: true,
     )),
     players: [(bot: explorateur)],
     expect: [
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        Event(kind: "chest", by_frame: 1100),
+        Event(kind: "chest", by_frame: 1800),
         FloorIndex(index: 0, at_frame: 1900),
-        FloorIndex(index: 1, at_frame: 2700),
-        DoorLocked(kind: "tresor", nth: 1, locked: true, at_frame: 2800),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 2800),
-        DoorLocked(kind: "tresor", nth: 1, locked: false, at_frame: 3150),
-        Consumable(handle: 0, id: "key", count: 0, at_frame: 3150),
-        HasItem(handle: 0, id: "eclat", at_frame: 3300),
+        FloorIndex(index: 1, at_frame: 3000),
+        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 2930),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 2930),
+        DoorLocked(kind: "tresor", nth: 0, locked: false, at_frame: 3100),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 3100),
+        HasItem(handle: 0, id: "goutte", at_frame: 3100),
         DoorLocked(kind: "secrete", locked: true, at_frame: 5100),
         Event(kind: "victory", by_frame: 5100),
-        PlayerAlive(handle: 0, at_frame: 5199),
+        PlayerAlive(handle: 0, at_frame: 5399),
     ],
 )

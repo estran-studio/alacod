@@ -513,6 +513,10 @@ pub struct ExplorerPolicy {
     /// prochain point de passage (soixante frames au plus). Faux par défaut : les autres jeux ne changent pas.
     #[serde(default)]
     pub anti_jitter: bool,
+    /// Lecture du combat : fuit toute bombe allumée (la sienne ou celle d'un champion explosif), approche d'un ennemi quand
+    /// ses larmes tournent autour de lui (`Orbit`). Faux par défaut : les autres jeux ne changent pas.
+    #[serde(default)]
+    pub combat_aware: bool,
 }
 
 /// Ordre des achats en douilles de l'`explorateur`.

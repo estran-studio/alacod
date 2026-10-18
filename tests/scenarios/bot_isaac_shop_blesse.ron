@@ -22,6 +22,7 @@ Scenario(
         devil: Never,
         bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
         anti_jitter: true,
+        combat_aware: true,
     )),
     players: [(bot: explorateur, currency: Some(12), modifiers: [(stat: MaxHealth, op: Add, value: "2.0")])],
     expect: [

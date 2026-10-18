@@ -23,4 +23,5 @@
     // Tient son prochain point de passage quand il tourne sur place (deux routes de coût égal, input retardé : graine 19
     // sans bombe, 600 frames à osciller dans un couloir).
     anti_jitter: true,
+    combat_aware: true,
 )
