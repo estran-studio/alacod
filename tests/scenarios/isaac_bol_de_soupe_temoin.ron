@@ -1,0 +1,17 @@
+// M3-T11d2 (docs/conventions.md §76.5) : témoin de `isaac_bol_de_soupe` : sans objet, la santé reste à 6 sur 8.
+// Séquence `sous_sol_cle` (graine de `grid_treasure_key`) : l'étage de passage est franchi à f1, le second étage commence à f1 (`FloorIndex` 1). Un joueur à pleine vie ne
+// montrerait aucun soin : `modifiers: [MaxHealth +2]` pose la vie maximale à 8 sans toucher aux PV courants (6) : il est « blessé de 2 PV » dès le départ.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: -1013904097,
+    floors: Some("sous_sol_cle"),
+    frames: 100,
+    players: [(inputs: [], modifiers: [(stat: MaxHealth, op: Add, value: "2")], items: [])],
+    expect: [
+        FloorIndex(index: 1, at_frame: 1),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 1),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 60),
+        PlayerAlive(handle: 0, at_frame: 99),
+    ],
+)

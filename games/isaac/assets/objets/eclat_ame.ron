@@ -1,0 +1,10 @@
+// `isaac` (M3-T11d2, §76.5) : consommable, 1 point de vie d'âme (`ExtraHealth`, un demi-cœur d'âme) au ramassage, jamais refusé.
+// Preuve : `tests/scenarios/isaac_consommables_lot.ron` (pas de gabarit généré pour un consommable, comme `coeur` et `ration`).
+(
+    name: "Éclat d'âme",
+    kind: Consumable,
+    rarity: Common,
+    effects: [
+        (on: OnUse, do: [GainSoul("1")]),
+    ],
+)

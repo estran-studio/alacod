@@ -174,7 +174,7 @@
     les personnages et objets du monde sont des cases de cette planche choisies par les animations
     `sprites/gungeon/anim_<id>.ron` (héros 85, bullet_kin 98, bullet_kin_squad 100, shotgun_kin 87,
     veteran_kin 96, bandana_kin 112, tourelle_kin 124, fuyard_kin 120, lanceur_kin 84, cible 97,
-    boss gatling 110 ; coffre 89/91, présentoir 75, douille 101, objet au sol 114, tonneau 82, table 72)
+    boss gatling 110 ; M3-T11d2 : araignee 122, follet 121, arroseur 123, boss colosse 109 ; coffre 89/91, présentoir 75, douille 101, objet au sol 114, tonneau 82, table 72)
   statut: lot C (sprites de gungeon) ; pas un placeholder
 
 - id: sprites-particle-pack-kenney

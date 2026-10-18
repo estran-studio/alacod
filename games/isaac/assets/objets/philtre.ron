@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : une larme sur sept charme sa cible (15 % de chance, +5 % par point de `Luck`, statut `charme` : elle attaque l'ennemi le plus proche pendant 200 frames).
+(
+    name: "Philtre",
+    kind: Passive,
+    projectile: Some((on_hit: [Chance(base: "0.15", per_luck: "0.05", then: ApplyStatus(status: "charme", stacks: 1))])),
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_philtre` et son témoin `tears_philtre_sans_objet`, seuils mesurés : 300 frames : la cible posée est charmée à f300 (15 % de chance, témoin : aucun statut).
+        tears: Some((weapon: Some("larmes"), frames: Some(300), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "charme", at_frame: 300)], control: [HasStatus(entity: Placed(0), status: "charme", present: false, at_frame: 300)])),
+    )),
+)

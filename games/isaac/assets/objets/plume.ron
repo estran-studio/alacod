@@ -1,0 +1,9 @@
+// `isaac` (M3-T11d2, §76.5) : larmes plus rapides (`ShotSpeed` Pct 0,4 : 260 -> 364) mais de portée réduite (`Range` Pct -0,3 : 300 -> 210).
+(
+    name: "Plume",
+    kind: Passive,
+    modifiers: [(stat: ShotSpeed, op: Pct, value: "0.4"), (stat: Range, op: Pct, value: "-0.3")],
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((frames: 60)),
+)

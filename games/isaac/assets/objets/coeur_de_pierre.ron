@@ -1,0 +1,12 @@
+// `isaac` (M3-T11d2, §76.5) : passif de stats, un cœur de plus (`MaxHealth` +2 PV) payé par un pas plus lent (`MoveSpeed` −10 %). Le joueur
+// n'est pas soigné (`sync_health_from_stats` ne relève jamais la vie courante). Preuve : `item_coeur_de_pierre` (`Stat` résolue à f1 par `ItemHeld`).
+(
+    name: "Cœur de pierre",
+    kind: Passive,
+    rarity: Rare,
+    modifiers: [
+        (stat: MaxHealth, op: Add, value: "2"),
+        (stat: MoveSpeed, op: Pct, value: "-0.1"),
+    ],
+    test: Some((frames: 60)),
+)

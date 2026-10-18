@@ -1,0 +1,12 @@
+// `isaac` (M3-T11d2, §76.5) : au début de chaque étage (`OnFloorStart`), soigne 2 PV (`Heal`, un cœur).
+(
+    name: "Bol de soupe",
+    kind: Passive,
+    effects: [
+        (on: OnFloorStart, do: [Heal("2")]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    // `OnFloorStart` ne se joue pas dans le gabarit `ItemHeld` : l'effet est prouvé par le scénario `isaac_bol_de_soupe`.
+    test: Some((frames: 60)),
+)

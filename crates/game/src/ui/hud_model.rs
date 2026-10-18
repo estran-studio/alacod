@@ -153,6 +153,8 @@ pub struct MinimapVisits {
 pub struct HudRoomBounds {
     pub id: String,
     pub kind: String,
+    /// Salle de boss (`RoomKindDef::boss`, lu au chargement par `map_ldtk`) : pastille et mention « boss » de la minicarte.
+    pub boss: bool,
     pub position: FixedVec2,
     pub size: FixedVec2,
 }
@@ -295,7 +297,7 @@ pub fn minimap_rooms(
                     || state != RoomState::Dormant
                     || visits.contains(&room.id),
                 state,
-                boss: room.kind == "boss",
+                boss: room.boss,
             }
         })
         .collect()
@@ -1164,6 +1166,7 @@ mod tests {
         let room = |id: &str, kind: &str, x: i32, y: i32| HudRoomBounds {
             id: id.into(),
             kind: kind.into(),
+            boss: kind == "boss",
             position: FixedVec2::new(Fixed::from_num(x), Fixed::from_num(y)),
             size: FixedVec2::new(Fixed::from_num(100), Fixed::from_num(100)),
         };
@@ -1223,6 +1226,7 @@ mod tests {
         let room = |id: &str, kind: &str, x: i32, y: i32, w: i32, h: i32| HudRoomBounds {
             id: id.into(),
             kind: kind.into(),
+            boss: kind == "boss",
             position: FixedVec2::new(Fixed::from_num(x), Fixed::from_num(y)),
             size: FixedVec2::new(Fixed::from_num(w), Fixed::from_num(h)),
         };
@@ -1259,6 +1263,7 @@ mod tests {
         let room = |id: &str, kind: &str, x: i32| HudRoomBounds {
             id: id.into(),
             kind: kind.into(),
+            boss: kind == "boss",
             position: FixedVec2::new(Fixed::from_num(x), Fixed::ZERO),
             size: FixedVec2::new(Fixed::from_num(100), Fixed::from_num(100)),
         };
@@ -1430,7 +1435,7 @@ mod tests {
         };
         assert_eq!(
             banner(false, Some("reliquaire")).as_deref(),
-            Some("Reliquaire")
+            Some("Châsse d'âme")
         );
         assert_eq!(banner(true, Some("reliquaire")).as_deref(), Some("???"));
         assert_eq!(banner(false, None), None);

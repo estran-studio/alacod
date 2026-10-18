@@ -4,4 +4,6 @@
     kind: Passive,
     rarity: Uncommon,
     modifiers: [(stat: Range, op: Pct, value: "0.15")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_couronne`).
+    test: Some((frames: 60)),
 )

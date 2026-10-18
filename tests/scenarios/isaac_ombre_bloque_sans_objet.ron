@@ -1,0 +1,16 @@
+// M3-T11d2 (§76.5) : témoin de `isaac_ombre_bloque` : la même `tourelle_croix`, sans l'`ombre`. La boule qui vise le joueur le touche : 5 PV dès f100.
+//
+// À regarder : un demi-cœur de perdu dès la première couronne.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 500,
+    characters: [(character: "tourelle_croix", x: "80.0", y: "-8.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 100),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 230),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 300),
+    ],
+)

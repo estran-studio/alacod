@@ -4,4 +4,6 @@
     kind: Passive,
     rarity: Common,
     modifiers: [(stat: Luck, op: Add, value: "1")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_trefle_chat`).
+    test: Some((frames: 60)),
 )

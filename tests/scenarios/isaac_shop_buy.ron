@@ -2,7 +2,7 @@
 // **au nord du départ** (cul-de-sac exigé par la grammaire), trois présentoirs du pool `boutique` au centre. Le joueur (60 sous) monte
 // (f13 à f82), se place sous le présentoir du milieu (`reliquaire`, 15 sous) et l'achète (Interaction f95, effective f100 : délai d'input du synctest).
 //
-// À regarder : trois présentoirs à f10 (`bottines`, `reliquaire`, `oeil`, 15 sous chacun : `economy.ron`, objets communs) ; à l'achat (f100) les sous passent de
+// À regarder : trois présentoirs à f10 (`elixir_vitesse` 30 sous, `reliquaire` 15 sous, `lest` 30 sous : `economy.ron`, prix par rareté ; M3-T11d2 : 100 objets, le pool tire d'autres objets aux présentoirs 0 et 2 pour la graine 2, `reliquaire` reste au milieu) ; à l'achat (f100) les sous passent de
 // 60 à 45, le présentoir est vendu et l'objet est tenu (`reliquaire` donne un cœur d'âme au ramassage). Prouve aussi `Shelf::price` en sous (aucun scénario de M3-T8 n'exerçait la boutique d'`isaac`).
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -24,9 +24,9 @@ Scenario(
         RoomLayout(kind: "boutique", size: Some((240, 144)), touches: ["depart"], at_frame: 5),
         ShelfCount(count: 3, at_frame: 10),
         PoolCount(pool: "boutique", count: 3, at_frame: 10),
-        Shelf(nth: 0, item: Some("bottines"), price: Some(15), sold: Some(false), at_frame: 10),
+        Shelf(nth: 0, item: Some("elixir_vitesse"), price: Some(30), sold: Some(false), at_frame: 10),
         Shelf(nth: 1, item: Some("reliquaire"), price: Some(15), sold: Some(false), at_frame: 10),
-        Shelf(nth: 2, item: Some("oeil"), price: Some(15), sold: Some(false), at_frame: 10),
+        Shelf(nth: 2, item: Some("lest"), price: Some(30), sold: Some(false), at_frame: 10),
         Currency(handle: 0, min: 60, max: 60, at_frame: 90),
         Currency(handle: 0, min: 45, max: 45, at_frame: 110),
         Shelf(nth: 1, item: Some("reliquaire"), sold: Some(true), at_frame: 110),

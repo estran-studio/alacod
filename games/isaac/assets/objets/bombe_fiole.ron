@@ -1,0 +1,11 @@
+// `isaac` (M3-T11d2, §76.5) : actif rechargé par le temps (900 frames, `Frames`) ; à l'usage, une explosion centrée sur le porteur (`Explode`, rayon 60, 8 dégâts, `destroys: false` : ne casse ni rocher ni mur secret). Mesuré : l'`Explode` d'un objet est une bombe à tir ami `Always` qui blesse aussi le porteur (8 dégâts tuent les 6 PV d'`isaac`) ; la fiole pose donc d'abord un point de bouclier (`GainShield(1)`, appliqué avant l'explosion de la frame suivante) qui absorbe son propre souffle : le porteur sort intact mais perd le bouclier (ou un de ceux qu'il avait). Preuve : scénario écrit à la main `isaac_bombe_fiole` (cible à 38 unités : -8 PV ; cible à 98 : intacte ; porteur à 6 PV).
+(
+    name: "Bombe fiole",
+    kind: Active(Frames(900)),
+    effects: [
+        (on: OnUse, do: [GainShield(1), Explode(radius: "60.0", damage: "8.0", destroys: false)]),
+    ],
+    tags: ["actif"],
+    rarity: Uncommon,
+    test: Some((frames: 60)),
+)

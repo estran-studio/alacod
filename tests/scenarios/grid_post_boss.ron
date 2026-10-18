@@ -4,9 +4,10 @@
 // onze ennemis, cinq présentoirs (trois de la boutique, deux du diable). Le bot `explorateur` nettoie les combats, **pose la bombe de départ** contre le mur de la
 // secrète (intégration de T14, D106) et bat le boss.
 //
-// À regarder : la bombe est posée f674 (explosion f748, mur ouvert f749) ; le boss verrouille sa salle (f1324), passe en phase 1 (f1416), phase 2 (f1579) ; son butin
-// (`sang_chaud`, pool `boss`, M3-T8 §73) tombe au centre de la salle et le bot le ramasse (f1747) ; la salle se rouvre avec sa porte vers la salle du diable (deux
-// présentoirs à un cœur, `devil_room_chance`) ; victoire f1704.
+// À regarder : la bombe est posée f638 (explosion f712, mur ouvert f713) ; le boss verrouille sa salle (f1265), passe en phase 1 (f1357), phase 2 (f1498) ; son butin
+// (`bombe_fiole`, un actif du pool `boss`, M3-T8 §73) tombe au centre de la salle à sa mort (f1667) et le bot le ramasse (f1710) ; la salle se rouvre avec sa porte vers
+// la salle du diable (deux présentoirs à un cœur, `devil_room_chance`) ; victoire f1667. M3-T11d2 (2026-10-18, cent objets, pool `boss` à onze entrées, trois ennemis
+// dans les gabarits) : le butin n'est plus `sang_chaud` et la chronologie est décalée.
 // Le joueur gagne avec `Armor +200` (`PlayerScript::modifiers`, D93) : avec +100 (valeur d'avant T14) le bot, qui s'est déplacé vers le mur secret, meurt à f1657 au
 // boss (phase 2). L'armure grandit, le bot n'est pas rééquilibré (décision de William : l'équilibrage n'est pas l'objectif).
 //
@@ -28,13 +29,13 @@ Scenario(
         RoomLayout(kind: "boss", touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
         RoomState(kind: "diable", state: Dormant, at_frame: 5),
         RoomState(kind: "boss", state: Locked, at_frame: 1400),
-        BossPhase(entity: NetId(137), phase: 1, at_frame: 1500),
-        BossPhase(entity: NetId(137), phase: 2, at_frame: 1660),
+        BossPhase(entity: NetId(137), phase: 1, at_frame: 1400),
+        BossPhase(entity: NetId(137), phase: 2, at_frame: 1500),
         RoomState(kind: "boss", state: Cleared, at_frame: 1740),
-        ItemsOnFloor(id: "sang_chaud", count: 0, at_frame: 1700),
-        ItemsOnFloor(id: "sang_chaud", count: 1, at_frame: 1740),
-        HasItem(handle: 0, id: "sang_chaud", at_frame: 1800),
-        ItemsOnFloor(id: "sang_chaud", count: 0, at_frame: 1800),
+        ItemsOnFloor(id: "bombe_fiole", count: 0, at_frame: 1650),
+        ItemsOnFloor(id: "bombe_fiole", count: 1, at_frame: 1690),
+        HasItem(handle: 0, id: "bombe_fiole", at_frame: 1800),
+        ItemsOnFloor(id: "bombe_fiole", count: 0, at_frame: 1800),
         ShelfCount(count: 5, at_frame: 1400),
         RunState(step: Ended(Victory), at_frame: 1740),
         PlayerAlive(handle: 0, at_frame: 2199),

@@ -1,0 +1,26 @@
+// M3-T11d2 (docs/conventions.md §76.5) : l'effet `OnPickup` du `bouclier_de_fortune` d'`isaac` (deux points de bouclier, `GainShield`). Un objet donné au départ ne
+// déclenche pas `OnPickup` : le scénario généré `item_bouclier_de_fortune` ne prouve que la tenue ; celui-ci le pose au sol.
+//
+// À regarder : une `cible_mordante` (posée à f5 contre le joueur, un coup de 1 PV toutes les 120 frames) l'ampute de 1 PV à f~8 (5) puis f~125 (4) ; f150 l'objet est posé sous
+// les pieds du joueur, f200 il le ramasse (bouclier 2) : les coups de f~245 et f~365 sont **absorbés** (la santé reste à 4 jusqu'à f470) ; le troisième passe à f~485 (3).
+// Sans le bouclier la santé serait à 3 dès f250 et à 2 à f370.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 600,
+    characters: [(character: "cible_mordante", x: "20.0", y: "-8.0", at_frame: 5)],
+    items: [(id: "bouclier_de_fortune", x: "-8.0", y: "-8.0", at_frame: 150)],
+    players: [(inputs: [(from: 200, to: 201, buttons: [Interaction])])],
+    expect: [
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 4),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 100),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 190),
+        HasItem(handle: 0, id: "bouclier_de_fortune", at_frame: 210),
+        // Les coups de f~245 et f~365 sont absorbés par les deux points de bouclier.
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 250),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 470),
+        Health(handle: 0, min: 3.0, max: 3.0, at_frame: 500),
+        PlayerAlive(handle: 0, at_frame: 599),
+    ],
+)
