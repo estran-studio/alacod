@@ -5595,7 +5595,7 @@ taille en pixels (2×2 = 480 × 288) et voisinage par un bord commun.
 Tests : `map::generation::grid` (unitaires : ports par forme, `port_cell`/`origin_for` réciproques, pose d'un 2×2 sur un
 rectangle libre qui ne touche que le parent, 1 000 graines, boucles bornées, chance 0 et 1, déterminisme, grammaires
 impossibles, plan altéré refusé), `map_ldtk::generation` (`isaac_etages_de_grille_sur_1000_graines` : 2 × 1 000 graines
-sur les gabarits réels, `isaac_grille_de_12_a_15_salles_sous_quatre_fois_grand_de_gungeon`, M3-T11d1 : rapport 2,9 mesuré, bornes de 2 à 4), `map_ldtk::game::rooms`
+sur les gabarits réels, `isaac_grille_de_12_a_15_salles_sous_trois_fois_grand_de_gungeon`, M3-T11d1 : génération entière 2,1 à 2,4 × `grand` de gungeon, planificateur 0,14 → 0,67 ms et 278 → 2 396 évaluations de candidats par étage ; borne de 2 à 3, voir D101), `map_ldtk::game::rooms`
 (minicarte), `world::rooms` (`door_lock_at`), `content` (lint et fixtures).
 
 ### Mesures
@@ -6451,7 +6451,7 @@ leurs scénarios ne bougent que par les gabarits. Conséquence propre à la séq
 
 **Bombe de départ (D81, fermée)** : `pleureur.ron` gagne `bomb: Some((fuse_frames: 75, radius: "56.0", damage: "4.0"))` (tir ami `Always`, défaut de Q4 : la bombe
 blesse son poseur, 4 PV sur 6 ; mèche de 1,25 s ; rayon 3,5 cases : l'explosion touche le bord de la porte secrète d'où l'on pose la bombe et casse les rochers voisins)
-et `starting_consumables: {"key": 0, "bomb": 1}` (objet `bomb`, plafond 99). Comme Isaac, une bombe au départ.
+et `starting_consumables: {"key": 0, "bomb": 1}` (objet `bomb`, plafond 99). Comme Isaac, une bombe au départ. **Réserve pour T11d2 et T14** : `damage: "4.0"` enlève **deux cœurs** au poseur (sur trois), contre un seul dans Isaac ; valeur de départ, non réglée (équilibrage hors objectif).
 
 **Lint** : `alacod lint games/isaac` passe de **24 avertissements à 0** (24 mesurés sur `main` avant la tâche : boutique absente et ses quatre règles, rochers et piques absents des
 gabarits `combat`, aucune bombe jouable, salle secrète sans bombe, curses de la séquence par défaut, treize objets de larmes sans second pool). Aucun avertissement
@@ -6467,19 +6467,17 @@ boss f2500, « niveau 1 » f3220, boutique 3 puis 6 objets sortis), `isaac_hud_i
 laisse une `ration`, le joueur hors du rayon n'est pas blessé), `isaac_spikes` (graine 10 : un demi-cœur dès f108, f168, f228, f288 sur l'amas de piques d'un `CombatPiques`) et son témoin `isaac_spikes_temoin` (même marche arrêtée avant l'amas : 6 PV jusqu'à f170, un ennemi arrive vers f172 : les deux premiers coups sont ceux des piques ; `HazardState.last_hit` du dump : 107, 167, 227, 287).
 Diagnostic `floor_probe` (`ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>`, `crates/scenario/tests/scenarios.rs`) : le plan d'un étage par graine (type, taille, voisines, rochers,
 piques, ennemis, présentoirs) sans jouer la partie, pour choisir une graine. Test `map_ldtk::generation::isaac_etages_de_grille_sur_1000_graines` : `Combat…` (neuf
-gabarits) compte comme salle ordinaire, une boutique par `sous_sol` (cul-de-sac derrière une salle ordinaire) ; `…_sous_quatre_fois_grand_de_gungeon` : borne 2 → 4
-(rapport mesuré 2,9, 1,9 ms par étage de 12 à 15 salles ; 0,81 pour dix gabarits).
+gabarits) compte comme salle ordinaire, une boutique par `sous_sol` (cul-de-sac derrière une salle ordinaire) ; `…_sous_trois_fois_grand_de_gungeon` : trois chronomètres ((a) clone + `from_map`, (p) planificateur, (b) génération entière), borne 3 sur (b), garde sur le nombre d'évaluations de candidats (moyenne sous 3 500, mesuré 2 396, 278 avec dix gabarits) :
+cause de l'écart avec la borne d'origine de 2 (2,1 à 2,4 mesuré contre 0,8 avec dix gabarits) **dans le planificateur** : un gabarit tiré parmi les poses valides, neuf gabarits de combat au lieu d'un (D101).
 
 **Traces** : toutes les traces `isaac` bougent (124 : 120 rebénies, 4 neuves) ; zombies, throne, gungeon, testbed **identiques** (suite complète de 653 scénarios).
 Preuve §5, douze scénarios (`generated/isaac/{weapon_larmes, enemy_suiveur_still, tears_encre, champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`,
 `hit_iframes_isaac`, `isaac_hud_items`, `isaac_boots`, `grid_secret_no_bomb`, `devil_room_absent`), dumps `ALACOD_DUMP_TRACE` du même binaire avec `ALACOD_GAME_DIR` pointé
-sur quatre états de `games/isaac` : (1) `main` ; (2) **bombe seule** (`pleureur.ron`, `bomb.ron`) ; (3) bombe + curses de la séquence par défaut ; (4) la branche.
+sur cinq états de `games/isaac` : (1) `main` ; (2) **bombe seule** (`pleureur.ron`, `bomb.ron`) ; (3) bombe + curses de la séquence par défaut ; (4) la branche ; (5) vingt gabarits **sans** boutique exigée (état intermédiaire entre 3 et 4).
 `scripts/trace-diff.py … --ignore Inventory,BombCarrier` : 1 → 2 **identiques sur les douze** (`Inventory` gagne `bomb: 1`, `BombCarrier` est neutre : seules ces lignes
-bougent) ; 1 → 4 identiques sur les cinq scénarios en carte de test (`gabarit_armes` : aucune boutique, curse ni gabarit n'y entre). 2 → 3 : sur `hit_iframes_isaac`,
+bougent) ; 1 → 4 identiques sur cinq scénarios en carte de test (`gabarit_armes` : aucune boutique, curse ni gabarit n'y entre). 2 → 3 : sur `hit_iframes_isaac`,
 `isaac_hud_items`, `isaac_boots`, `room_combat` (séquence par défaut, graine 1) f0 : `RunCurses { floors: {0: "maze"}, entered: Some(0) }` (au lieu de `{}`, `None`) et
-`Modifiers` du joueur gagne `MoveSpeed ×0,85` de source `curse:maze` ; identiques sur `boss_gardien`, `devil_room_absent`, `grid_secret_no_bomb` (séquences sans curse). 3 → 4
-(séquence par défaut) dès f0 : le plan (`FloorState.enemies_placed` 16 → 14, `PoolState` gagne `boutique`, entités de salle) : gabarits et boutique ne se séparent pas (la boutique
-exigée décale les tirages du planificateur autant que les gabarits).
+`Modifiers` du joueur gagne `MoveSpeed ×0,85` de source `curse:maze` ; identiques sur `boss_gardien`, `devil_room_absent`, `grid_secret_no_bomb` (séquences sans curse). 3 → 5 (séquence par défaut) dès f0 : le plan change. **Gabarits et boutique sont séparés par un cinquième état** (« vingt gabarits, boutique non exigée » : la grammaire sans `boutique` dans `required`, sur `hit_iframes_isaac`, `isaac_hud_items`, `isaac_boots`) : 3 → gabarits seuls : `FloorState.enemies_placed` 16 → 17, `GgrsNetIdFactory.counter` 148 → 193 (le plan change, `PoolState` aussi) ; gabarits → boutique exigée (la branche) : `enemies_placed` 17 → 14, `PoolState` gagne `boutique`. Chacun déplace le plan à lui seul (le planificateur tire un gabarit parmi neuf, puis la boutique prend une place de cul-de-sac).
 
 **Atteignabilité** (tableau du §8.1 de `docs/taches.md`, une ligne par mécanique, avec les graines `alacod-sim --game isaac --floors sous_sol --until-floor 2 --shopping` (séquence par
 défaut ; plan et butin de l'étage 0 lus à la génération, `--max-frames 6`, balayage 1..400) et le scénario qui la prouve à la main tant que le bot de T14 n'est pas sur `main`) :
@@ -6501,15 +6499,32 @@ défaut ; plan et butin de l'étage 0 lus à la génération, `--max-frames 6`, 
 | Curses | 1 (`maze` puis `blind`), 2 (`darkness`), 13 (`blind`), 19 (`labyrinth`), 42 (`unknown`) | `isaac_floor_seed_1`, `isaac_hud_items` |
 | Accomplissements | deux parties d'affilée | `achievement_unlocks` (une run), test `crates/scenario/tests/achievements.rs` (deux runs enchaînées) |
 
-**Campagne de contrôle** (bot actuel, séquence par défaut, `--shopping`, lots de 20 graines, `docs/taches/rapports/m3-t11d1-gabarits.campagne.sh`) : **1 bot, graines 1 à 200 : 0 desync,
-12 victoires, 169 morts, 19 « soft-locks »** (64 graines franchissent le premier étage) ; **2 bots, graines 1 à 200 : 0 desync, 72 victoires (36 %), 102 morts, 26 « soft-locks »** (141 graines franchissent le premier étage ; vingt sont des longs trajets, quatre des cœurs à pleine vie (63, 144, 149, 152), deux immobiles non analysés : 84 et 86). Les 19 soft-locks à un bot se classent ainsi (instantanés à 400 frames d'écart,
-`ALACOD_MAP_PROBE`, dump) : **six bloqués sur un cœur à pleine vie** (D97 : au sol, graines 39, 63, 112, 122, 171 ; en boutique, `coeur` refusé « shop_full » tous les 30 frames, graine 149), **un** contre le
-`gardien` (D97 : visée à quatre directions, graine 4), **douze longs trajets** que le détecteur d'`alacod-sim` (1 200 frames sans ennemi en moins) prend pour des soft-locks (D98 : le bot achète, ouvre le coffre puis
-traverse l'étage ; graines 2, 30, 35, 49, 73, 77, 83, 139, 144, 183, 190, 196). Aucun des sept bots immobiles n'est contre un rocher ni sur une pique (positions relevées). Victoires, morts et franchissements sont des informations, pas des objectifs (décision de William).
-La campagne est à refaire avec le bot de T14 (cœurs, bombe, clés, achats) : mêmes commandes.
+**Campagne de contrôle** (bot actuel, séquence par défaut, `--shopping`, lots de 20 graines, `docs/taches/rapports/m3-t11d1-gabarits.campagne.sh`, résumé graine par graine :
+`m3-t11d1-gabarits.campagne.tsv`) : **1 bot, graines 1 à 200 : 0 desync, 12 victoires, 169 morts, 19 « soft-locks »** (64 graines franchissent le premier étage) ; **2 bots, graines 1 à 200 :
+0 desync, 72 victoires (36 %), 102 morts, 26 « soft-locks »** (141 franchissent le premier étage). Chaque « soft-lock » a été rejoué en scénario, **prolongé de 2 000 frames sans détecteur**
+(`until_floor` absent), et classé :
 
-**Dettes** : D97 (le bot bloque sur un cœur à pleine vie, au sol ou en boutique ; `FOUR_WAY_LANE` du bot, 14, dépasse la demi-largeur du collider du `gardien`, 10 ; il ignore les rochers), D98 (le détecteur
-de soft-lock d'`alacod-sim`, 1 200 frames sans ennemi en moins, prend un long trajet pour un soft-lock) ; le bot n'achète pas au diable et ne pose pas de bombe contre un mur secret (T14) ; la boutique n'exerce pas
+| Famille | 1 bot | 2 bots | Preuve |
+|---|---|---|---|
+| Cœur à pleine vie, au sol | 5 (39, 63, 112, 122, 171) | 3 (63, 144, 152) | ne reprend pas, vivant ; `coeur` à 4 à 11 unités (D99) |
+| Cœur à pleine vie, en boutique | 1 (149) | 2 (86, 149) | ne reprend pas ; `purchase_refused … shop_full` toutes les 30 frames (D99) |
+| `gardien` intact | 1 (4) | 0 | ne reprend pas ; 48 unités du boss, visée à quatre directions (D99) |
+| Réanimation interrompue par l'esquive | 0 | 1 (84) | ne reprend pas ; le coéquipier à terre meurt au saignement (f7076) puis l'autre (f7380) (D99) |
+| Long trajet pris pour un soft-lock | 12 | 20 | **28 reprennent** (76 à 759 frames après l'arrêt : un ennemi meurt, une salle est nettoyée, ou l'étage change), **4 se résolvent par la défaite** du bot (1 bot 30, 35, 196 ; 2 bots 159, 95 à 337 frames après) : **aucune ne gèle** (D100) |
+
+**Cause de 84 (2 bots, second étage, boss en phase 2).** Le joueur 0 tombe à f5276 (saignement jusqu'à f7075). Le joueur 1 est collé à lui (11 unités) et **tient `Interaction` pendant 119 frames, la lâche 31, tient 119, la lâche 31…**
+(cycle de 150 frames = la répétition de l'éventail du boss) : la progression de la réanimation (`handle_revive_interaction`, 180 frames **consécutives**) atteint au plus 119 puis retombe à 0, 9 fois. Interactable visé :
+le seul à portée, le joueur à terre (net id 147, `Revive`, prompt « Réanimer », `view.revive = (direction nulle, interact = vrai)` à chaque frame du relevé) ; aucun présentoir, cœur ou porte ne capte l'interaction (les entités
+à moins de 85 unités sont le joueur à terre, un familier `orbe`, des balles et un mur). Ennemi le plus proche : le `gardien`, 177,7 unités, en vue, **au-delà de `REVIVE_SAFE_DISTANCE` (150)** : pas de « menace »
+au sens de la réanimation. `Downed { since_frame: 5275, bleedout_at_frame: 7075 }`. Les 31 frames sans `Interaction` sont celles où `decide_prudent` exécute `crate::dodge::dodge` (un projectile du boss approche dans les
+30 prochaines frames, direction d'esquive `(0, 1)`, le bot ne bouge pas : position constante) : la branche d'esquive précède la réanimation et remplace tout l'input. **Cause : le bot (D99), pas le contenu.**
+**Cause de 86 (2 bots, premier étage).** Les deux joueurs (6 PV et 4 PV sur 6) sont collés au présentoir 0 de la boutique (un `coeur`, 2,2 et 2,8 unités) ; le joueur 0, à pleine vie, le vise et reçoit `shop_full` toutes
+les 30 frames (103 refus en 3 000 frames) ; le joueur 1, qui pourrait l'acheter, ne l'obtient jamais. **Bot (D99) : cœur en boutique, deux joueurs.**
+
+Les chiffres sont des informations, pas des objectifs (décision de William). La campagne est à refaire avec le bot de T14 (cœurs, bombe, clés, achats) : mêmes commandes.
+
+**Dettes** : D99 (le bot bloque sur un cœur à pleine vie, au sol ou en boutique ; sa réanimation est interrompue par l'esquive ; `FOUR_WAY_LANE`, 14, dépasse la demi-largeur du collider du `gardien`, 10 ; il ignore les rochers), D100 (le détecteur
+de soft-lock d'`alacod-sim`, 1 200 frames sans ennemi en moins, prend un long trajet pour un soft-lock : 32 graines prolongées, aucune ne gèle), D101 (le planificateur de grille évalue ×8,6 candidats avec neuf gabarits de combat) ; le bot n'achète pas au diable et ne pose pas de bombe contre un mur secret (T14) ; la boutique n'exerce pas
 `shop.cost: Currency(n)` (les prix passent par `economy.ron`) ; D93 reste ouverte (quatre scénarios gagnent par armure).
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
