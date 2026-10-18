@@ -23,7 +23,7 @@ Les commandes `cargo run` ci-dessous recompilent au besoin ; `make gungeon` est 
 
 | Je veux… | Commande | Notes |
 |---|---|---|
-| **Jouer seul** | `make gungeon` | Même chose que `APP_VERSION=dev cargo run -p gungeon --features native -- --local-port 7000 --players localhost`. Démarre dans le **hub** : le marchand (profil, déblocages) et la porte, qui lance la run. |
+| **Jouer seul** | `make gungeon` | Équivaut à `APP_VERSION=dev cargo run -p gungeon --features native -- --local-port 7000 --players localhost` (le Makefile ajoute aussi les features de développement de `scripts/dev-features.sh`, d'où une compilation à part). Démarre dans le **hub** : le marchand (profil, déblocages) et la porte, qui lance la run. |
 | **Jouer seul, directement dans une run, toujours la même carte** | `ALACOD_SKIP_HUB=1 make gungeon GARGS="--seed 10"` | Saute le hub. `--seed <n>` fixe la graine de la carte (deux parties avec la même graine ont les mêmes salles). |
 | **Deux joueurs sur le même Mac** | `APP_VERSION=dev cargo run -p gungeon --features native -- --local-port 7000 --players localhost localhost` | Deux héros dans la partie. **Limite : les deux reçoivent les mêmes touches et la même manette** (même table de touches pour chaque joueur local, voir plus bas) : utile pour voir deux héros, pas pour jouer à deux sur un clavier. Pour jouer à deux : en ligne, ci-dessous. |
 | **Jouer à deux en ligne (un Mac chacun, ou deux fenêtres)** | voir « En ligne à deux » | Une machine héberge le serveur de rencontre (signaling), les deux lancent le jeu. |
