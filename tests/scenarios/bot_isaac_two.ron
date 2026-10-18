@@ -4,8 +4,8 @@
 //
 // À regarder : les deux bots arrivent ensemble au mur secret ; **un seul** pose sa bombe (f19 : le joueur 0, le plus petit
 // handle ; avant la règle des pairs, `GoalContext::peers`, les deux en posaient une), l'explosion (f78) ouvre le mur, le
-// joueur 1 garde sa bombe ; ce qui reste à ramasser l'est par un seul bot (cœur d'âme du coffre secret f2157, `longue_vue`
-// du trésor f2401, au joueur 0) ; le boss meurt (victoire f1974) ; devant le marché du diable (`devil: Never`, défaut de `bot.ron`) les
+// joueur 1 garde sa bombe ; le coffre secret est ouvert (f2105) et celui du trésor (f2358), leurs objets changent avec le
+// tirage du butin ; le boss meurt (victoire f1885) ; devant le marché du diable (`devil: Never`, défaut de `bot.ron`) les
 // deux bots passent leur chemin : les deux présentoirs restent invendus.
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -44,8 +44,8 @@ Scenario(
         DoorLocked(kind: "secrete", locked: false, at_frame: 90),
         Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
         Health(handle: 1, min: 6.0, max: 6.0, at_frame: 100),
-        ExtraHealth(handle: 0, n: 2.0, at_frame: 2200),
-        HasItem(handle: 0, id: "longue_vue", at_frame: 2500),
+        EventAfter(kind: "chest", after_frame: 90, by_frame: 2300),
+        Event(kind: "item_pickup", by_frame: 2500),
         Event(kind: "victory", by_frame: 2400),
         ShelfCount(count: 2, at_frame: 10),
         Shelf(nth: 0, sold: Some(false), at_frame: 2300),
