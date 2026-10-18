@@ -4446,6 +4446,18 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   le ramène au lobby au bout de `SYNC_TIMEOUT_SECS` (30 s) ; même cas par construction avec allumette et le web (non essayés). Session seulement : aucune trace de scénario ne bouge.
   Preuves : `p2p-admission.sh` (trois clients, deux places : les deux admis jouent 1 500 frames aux traces identiques, l'ignoré revient au lobby ; `GHOST=1` : deux clients et un fantôme à moitié
   connecté jouent après 3 s), `p2p-connect-timeout.sh GHOST=1` (les deux délais complets `attempt=1/2 action=retry` puis `attempt=2/2 action=lobby`) ; rapport `dette-d116-lobby-admission.md`.
+- **Session p2p en deux moitiés (D69 étape 2, E6).** `jjrs/p2p.rs` est la moitié **simulation**, sans socket : `PreviousSessionPeers`, `CurrentSessionPeers`, `SessionPeerLeft`, `live_players`, `admit_players`
+  (D116), `AdmittedPlayers`, `pair_session_players` (appariement joueurs du socket ↔ `GggrsSessionConfiguration`, l'application passe la liste des pairs ; un `identity` optionnel pour le web),
+  `start_online_run` (graine, `Run`, déblocages, `AppState::InGame`), `SYNC_TIMEOUT_*`, `SessionSyncWatch`, `reset_sync_watch`, `abandon_unsynchronized_session`, `session_builder`,
+  `DISCONNECT_TIMEOUT`, `MAX_PREDICTION_WINDOW`, `secs_from_env` ; `PeerId` vient de `matchbox_protocol` (crate de données). `jjrs/p2p_socket.rs` est la moitié **application** (tout ce qui lit
+  `MatchboxSocket`) : `start_matchbox_socket`, `wait_for_players`, `LobbyConnectWatch`, `build_p2p_session` (canal du socket, session GGRS, `Session::P2P`), `observe_session_peers` (écrit
+  `SessionPeerLeft`), `drop_matchbox_socket` (ex-`restart.rs`, `OnExit(InGame)`), avec `signal_watch.rs`, `allumette.rs`, `browser.rs`. L'ancien `system_after_map_loaded` est `build_p2p_session`
+  (app) puis `start_online_run` (sim), dans le même tuple `OnEnter(GameStarting)` ; `abandon_unsynchronized_session` lit `SessionPeerLeft` après `observe_session_peers` (même update, même frame).
+  Télémétrie : `log_ggrs_events` écrit le message `DesyncObserved` (même idiome que `SessionLostEvent`), `jjrs/telemetry.rs` (app) le transmet à `telemetry` ; `GameArgsPlugin` (lu par `scenario`) ne
+  pose plus `TelemetryConfig`, `args::telemetry_config::TelemetryConfigPlugin` (app, ajouté par `BaseArgsPlugin` après lui). `recording.rs` ne nomme plus `bevy::window::ExitSystems` (l'application pose
+  `ExitSystems.before(ExitRequests)`). Web : `run_state::apply_run_request_system` écrit `ReturnToHostLobby` pour une session `HostedSession` (marqueur posé par `BaseArgsPlugin`),
+  `jjrs::browser::return_to_host_lobby` appelle le crochet JS. Aucun type rollback touché, aucune trace ne bouge, ordre des schedules identique (`make schedule_order_diff`). Au passage en
+  `game_app` (E9), `p2p_socket.rs`, `telemetry.rs`, `signal_watch.rs` et `telemetry_config.rs` suivent sans changement de contenu ; rapport `dette-d69-e6-session-reseau.md`.
 - **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
   la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
   `resimulées` reste cumulé sur toute la durée du processus ; les rollbacks sont comptés **par partie** (`state_trace::RollbackStats`) et
