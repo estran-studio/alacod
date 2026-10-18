@@ -14,8 +14,9 @@
 //!   chargement initial ; il ne dépend d'aucun événement, donc d'aucun décalage de frame entre
 //!   l'insertion de l'asset et son `AssetEvent` ;
 //! - **`AssetEvent::Modified`** (rechargement à chaud, `file_watcher` natif) : l'entrée de l'asset
-//!   modifié est recopiée. Les événements `Added`/`LoadedWithDependencies` ne déclenchent **rien** : une
-//!   surcharge de scénario posée sur la ressource après le remplissage n'est jamais écrasée.
+//!   modifié est recopiée (une surcharge de scénario posée sur cette entrée est alors remplacée). Les
+//!   événements `Added`/`LoadedWithDependencies` ne déclenchent **rien** : une surcharge de scénario posée
+//!   sur la ressource après le remplissage n'est jamais écrasée par eux.
 //!
 //! `loading_asset_system` ne quitte `AppState::Loading` qu'une fois tous les assets chargés, et le
 //! remplissage a lieu au `PreUpdate` suivant au plus tard, avant le `StateTransition` qui peut entrer

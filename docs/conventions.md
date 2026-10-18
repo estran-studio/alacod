@@ -201,8 +201,8 @@ fixture `character_scale_missing`) au lieu d'échouer au chargement du jeu.
 `asset_name_ref`). Un personnage porte `CharacterConfigKey(String)` (composant non rollback, posé par `create_character`,
 remplace `CharacterConfigHandles`). Le système `sync_character_configs` tourne en `PreUpdate.before(RunGgrsSystems)` : il copie
 toute entrée absente dont l'asset est lisible (chargement initial, sans dépendre d'un événement) et recopie sur
-`AssetEvent::Modified` (rechargement à chaud) ; `Added`/`LoadedWithDependencies` ne font rien, pour qu'une surcharge de
-scénario posée sur la ressource ne soit jamais écrasée. Le chargement finit en `AppState::Loading` (tous les assets chargés)
+`AssetEvent::Modified` (rechargement à chaud : l'entrée recopiée remplace alors une surcharge) ; `Added`/`LoadedWithDependencies`
+ne font rien, pour qu'une surcharge de scénario posée sur la ressource ne soit jamais écrasée par eux. Le chargement finit en `AppState::Loading` (tous les assets chargés)
 avant le lobby, donc la ressource est pleine avant `resolve_balance_system` (`OnEnter(GameLoading)`), avant tout spawn de
 personnage et avant le premier tick ; preuve : `crates/scenario/tests/character_configs.rs` (ressource relue à chaque tick,
 dont le premier, pour zombies, testbed et isaac ; chemin `Modified` ; diagnostic ignoré `fill_timeline`). Les surcharges de

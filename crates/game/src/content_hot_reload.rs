@@ -10,7 +10,7 @@
 //!
 //! Idiome repris de `crates/game/src/ui/hud.rs` (`handle_hud_config_changes`) :
 //! `MessageReader<AssetEvent<T>>` pour chacun des types de contenu déjà suivis comme
-//! assets Bevy (`CharacterConfig`, `WeaponsConfig`, `MeleeWeaponsConfig`, `WaveConfig`).
+//! assets Bevy (`CharacterConfigAsset`, `WeaponsConfig`, `MeleeWeaponsConfig`, `WaveConfig`).
 
 use bevy::prelude::*;
 use std::path::PathBuf;
