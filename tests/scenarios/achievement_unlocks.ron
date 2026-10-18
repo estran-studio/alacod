@@ -7,6 +7,10 @@
 // déblocage aussi ; `RunUnlocks`, figé au lancement, ne change pas pendant la run (il change à la run suivante :
 // `crates/scenario/tests/achievements.rs`).
 //
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le nouveau tirage des variantes fait sortir des champions ; le bot (graine 8)
+// mourait à f1376 (défaite) : il gagne avec `Armor +50` (`PlayerScript::modifiers`, D93), mêmes attentes (victoire, accomplissements, HUD).
+// Frames mesurées : gardien en phase 1 f1110, phase 2 f1270, victoire f1960.
+//
 // À regarder : le gardien meurt vers f1350 (trois phases depuis M3-T11c), la victoire tombe vers f2110, l'écran de fin (source HUD `achievements`)
 // liste « Gardien vaincu » et « Run finie ».
 Scenario(
@@ -18,7 +22,7 @@ Scenario(
     profile: true,
     profile_setup: Some((profiles: [(handle: 0)])),
     players: [
-        (bot: explorateur),
+        (bot: explorateur, modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
     expect: [
         RunUnlocks(lacks: ["medaille_libre", "couronne_libre", "bague_libre"], at_frame: 5),

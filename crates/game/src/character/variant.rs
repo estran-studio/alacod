@@ -4,8 +4,8 @@
 //! modificateurs), sans mécanisme à part.
 //!
 //! Tirage **déterministe et local** ([`draw_variant`]) : un `RollbackRng` de graine
-//! `fnv1a("variants") ^ run_seed ^ net_id` (deux tirages : la chance, puis le poids), sans
-//! jamais toucher `RngStreams` (y créer un flux changerait le hash de la ressource, donc toutes
+//! `fnv1a("variants:<run_seed>:<net_id>")` replié sur 32 bits puis mélangé (deux tirages : la
+//! chance, puis le poids), sans jamais toucher `RngStreams` (y créer un flux changerait le hash de la ressource, donc toutes
 //! les traces). Un personnage sans table ne tire rien ; un `CharacterSpawn` LDtk peut imposer
 //! la variante (champ `variant`, aucun tirage).
 
@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use bevy_fixed::{
     fixed_math::{self, Fixed},
-    rng::{fnv1a, RollbackRng},
+    rng::{fnv1a_extend, fnv1a_extend_decimal, RollbackRng, FNV1A_OFFSET},
 };
 use content::expr::NumOrExpr;
 use serde::Deserialize;
@@ -134,10 +134,31 @@ impl Default for VariantContext {
     }
 }
 
-/// Graine du tirage d'un personnage : `fnv1a("variants") ^ run_seed ^ net_id` (tronqués en
-/// `u32`), indépendante de l'ordre d'apparition et du moment du chargement de la carte.
+/// Graine du tirage d'un personnage : `fnv1a("variants:<run_seed>:<net_id>")` replié sur 32 bits
+/// (même idiome que `loot_seed` et `curse_seed`), puis passé au finaliseur de MurmurHash3
+/// (`fmix32`), indépendante de l'ordre d'apparition et du moment du chargement de la carte.
+///
+/// D88 : l'ancien `fnv ^ graine ^ net_id` suivi d'un pas de congruentiel donnait des tirages quasi
+/// linéaires, donc corrélés. Le repli FNV seul ne suffit pas : le dernier octet haché n'entre que
+/// par un produit avec un nombre premier à faible poids, et deux net ids voisins gardent une
+/// corrélation de 0,07 (mesurée sur 20 000 graines) ; le finaliseur la ramène à zéro.
 pub fn variant_seed(run_seed: u32, net_id: u64) -> u32 {
-    (fnv1a(b"variants") as u32) ^ run_seed ^ (net_id as u32)
+    // Les mêmes octets que `fnv1a(format!("variants:{run_seed}:{net_id}"))`, sans allocation
+    // (appelé à chaque apparition d'un ennemi à variantes).
+    let hash = fnv1a_extend(FNV1A_OFFSET, b"variants:");
+    let hash = fnv1a_extend_decimal(hash, u64::from(run_seed));
+    let hash = fnv1a_extend(hash, b":");
+    let hash = fnv1a_extend_decimal(hash, net_id);
+    fmix32((hash ^ (hash >> 32)) as u32)
+}
+
+/// Finaliseur de MurmurHash3 : chaque bit d'entrée change chaque bit de sortie avec probabilité ½.
+fn fmix32(mut x: u32) -> u32 {
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x85eb_ca6b);
+    x ^= x >> 13;
+    x = x.wrapping_mul(0xc2b2_ae35);
+    x ^ (x >> 16)
 }
 
 /// Variante tirée (ou imposée par `forced`) pour un personnage. `None` : pas de variante
@@ -232,6 +253,105 @@ mod tests {
             .map(|id| draw_variant(&config, None, 123456, id, VariantContext::default()))
             .collect();
         assert!(draws.iter().any(|d| d != &draws[0]));
+    }
+
+    /// D88 : tirage indépendant entre graines et entre net ids voisins. Graine fixe (aucun
+    /// hasard) : le résultat est le même à chaque exécution.
+    #[test]
+    fn tirage_independant_par_graine_et_net_id() {
+        const SEEDS: u32 = 20_000;
+        const NET_IDS: u64 = 16;
+        const FIRST_NET_ID: u64 = 100;
+        let config = table(0.1, &[("champion", 1)]);
+        let context = VariantContext::default();
+        let mut without_champion = 0u32;
+        let mut hits = [0u32; NET_IDS as usize];
+        // `pairs[i]` : graines où les net ids `i` et `i + 1` tirent tous deux un champion.
+        let mut pairs = [0u32; NET_IDS as usize - 1];
+        for seed in 1..=SEEDS {
+            let draws: Vec<bool> = (0..NET_IDS)
+                .map(|i| draw_variant(&config, None, seed, FIRST_NET_ID + i, context).is_some())
+                .collect();
+            if draws.iter().all(|hit| !hit) {
+                without_champion += 1;
+            }
+            for i in 0..draws.len() {
+                hits[i] += u32::from(draws[i]);
+                if i + 1 < draws.len() {
+                    pairs[i] += u32::from(draws[i] && draws[i + 1]);
+                }
+            }
+        }
+        // Indépendance : (0,9)^16 ≈ 18,5 % des graines sans aucun champion (l'ancien tirage : 89 %).
+        let share = f64::from(without_champion) / f64::from(SEEDS);
+        assert!(
+            (0.15..=0.25).contains(&share),
+            "{:.1} % des graines sans champion (attendu ≈ 18,5 %)",
+            share * 100.0
+        );
+        // Corrélation de Pearson entre net ids voisins (indicateurs de Bernoulli de même p).
+        let n = f64::from(SEEDS);
+        for i in 0..pairs.len() {
+            let (pi, pj) = (f64::from(hits[i]) / n, f64::from(hits[i + 1]) / n);
+            assert!(
+                (0.08..=0.12).contains(&pi),
+                "net id {i} : chance mesurée {pi}"
+            );
+            let covariance = f64::from(pairs[i]) / n - pi * pj;
+            let correlation = covariance / (pi * (1.0 - pi) * pj * (1.0 - pj)).sqrt();
+            assert!(
+                correlation.abs() < 0.03,
+                "net ids {} et {} corrélés : {correlation:.4}",
+                FIRST_NET_ID + i as u64,
+                FIRST_NET_ID + i as u64 + 1
+            );
+        }
+    }
+
+    #[test]
+    fn graines_voisines_tirages_differents() {
+        let config = table(0.5, &[("a", 1), ("b", 1)]);
+        let context = VariantContext::default();
+        let vector = |seed: u32| -> Vec<Option<String>> {
+            (0..32)
+                .map(|net_id| draw_variant(&config, None, seed, net_id, context))
+                .collect()
+        };
+        for seed in 123_456..123_456 + 200 {
+            assert_ne!(
+                vector(seed),
+                vector(seed + 1),
+                "graines {seed} et {}",
+                seed + 1
+            );
+        }
+    }
+
+    /// Le hachage sans allocation produit la graine de la clé textuelle `variants:<graine>:<net id>`.
+    #[test]
+    fn graine_sans_allocation_egale_a_la_cle_textuelle() {
+        for (run_seed, net_id) in [
+            (0, 0),
+            (1, 9),
+            (123_456, 100),
+            (u32::MAX, 10_000),
+            (777, u64::MAX),
+        ] {
+            let hash = bevy_fixed::rng::fnv1a(format!("variants:{run_seed}:{net_id}").as_bytes());
+            let expected = {
+                let mut x = (hash ^ (hash >> 32)) as u32;
+                x ^= x >> 16;
+                x = x.wrapping_mul(0x85eb_ca6b);
+                x ^= x >> 13;
+                x = x.wrapping_mul(0xc2b2_ae35);
+                x ^ (x >> 16)
+            };
+            assert_eq!(
+                variant_seed(run_seed, net_id),
+                expected,
+                "{run_seed}:{net_id}"
+            );
+        }
     }
 
     #[test]

@@ -1,3 +1,4 @@
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes (champions/élites) change pour tous les jeux (`variant_seed`) : même scénario (les bots contournent la roche, aucun soft-lock) mais plus lent : portails ouverts à f273 et f1553, étages à f874 et f2154 (f473 et f1413 avant) ; attentes 640/1910 -> 890/2164 et `frames` 2000 -> 2200 pour garder une marge (D88 : plus lent, pas de changement de graine).
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
 // et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
 // `throne` (m1-v3-bots-softlocks, famille « recul dans la roche ») : graine 139, deux bots
@@ -19,13 +20,13 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 139,
-    frames: 2000,
+    frames: 2200,
     players: [
         (bot: prudent),
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 1, at_frame: 640),
-        FloorIndex(index: 2, at_frame: 1910),
+        FloorIndex(index: 1, at_frame: 890),
+        FloorIndex(index: 2, at_frame: 2164),
     ],
 )
