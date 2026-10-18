@@ -66,7 +66,12 @@ const STEER_AXIS_SHARE: Fixed = Fixed::from_bits(25080); // 0,38268 × 65536
 pub fn decide(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> BoxInput {
     let mut input = decide_profile(profile, view, rng);
     if view.aim == AimMode::FourWay {
-        apply_four_way(&mut input, view.enemy_visible && view.enemy_shootable);
+        // Combat engagé (blocage constaté, `BotView::engage_reach`) : seule la direction de tir est écrite, le bot se
+        // déplace pour changer sa ligne de tir et la file de tir ne le fige pas (graines 95, 119, 134 d'`isaac`).
+        apply_four_way(
+            &mut input,
+            view.enemy_visible && view.enemy_shootable && view.engage_reach.is_none(),
+        );
     }
     input
 }
@@ -297,6 +302,11 @@ pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
                 // caché, la route suivie au signe faisait dépasser chaque case visée (élan) ;
                 // le bot allait et venait dans un couloir sans prendre la sortie : pilotage en
                 // vitesse, comme vers le portail.
+                // Combat engagé et ligne dégagée : tout droit vers l'ennemi (jusqu'au contact, puis contournement) ; la
+                // route contournait un coin de mur que les larmes ne passent pas (graines 63, 95, 119 d'`isaac`).
+                Some(_) if view.enemy_visible && view.engage_reach.is_some() => {
+                    steer(&mut input, toward)
+                }
                 Some(route) if !view.enemy_visible || view.engage_reach.is_some() => {
                     steer(&mut input, route)
                 }
