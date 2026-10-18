@@ -417,13 +417,6 @@ pub struct Bullet {
 }
 
 impl Bullet {
-    /// D76 : le souffle d'une balle `Explosive` qui se termine (touche, mur, fin de portée) : une
-    /// bombe à mèche d'une frame, **la même** que celle de `Action::Explode` et des champions
-    /// (explosion commune de M3-T4, `docs/conventions.md` §69). `blast_radius` est son rayon,
-    /// `damage × explosive_damage_multiplier` ses dégâts, créditée au tireur, de son équipe, avec
-    /// la politique de tir ami de l'arme ; elle ne casse ni rochers ni terrain (`destroys: false` :
-    /// `on_expire: [DestroyTerrain]` le dit explicitement). La cible touchée prend le coup de la
-    /// balle **puis** le souffle. `None` pour les autres types de balle.
     /// Politique de tir ami du souffle. L'explosion (`explosion_system`) n'émet que le tag `explosion` :
     /// `Cursed`, qui lit les tags de la source (`team::CURSED_TAG`), ne pourrait jamais blesser un allié.
     /// Elle est donc résolue ici depuis les tags capturés de la balle : `Always` si le tireur est
@@ -439,6 +432,13 @@ impl Bullet {
         }
     }
 
+    /// D76 : le souffle d'une balle `Explosive` qui se termine (touche, mur, fin de portée) : une
+    /// bombe à mèche d'une frame, **la même** que celle de `Action::Explode` et des champions
+    /// (explosion commune de M3-T4, `docs/conventions.md` §69). `blast_radius` est son rayon,
+    /// `damage × explosive_damage_multiplier` ses dégâts, créditée au tireur, de son équipe, avec
+    /// la politique de tir ami de l'arme ; elle ne casse ni rochers ni terrain (`destroys: false` :
+    /// `on_expire: [DestroyTerrain]` le dit explicitement). La cible touchée prend le coup de la
+    /// balle **puis** le souffle. `None` pour les autres types de balle.
     pub fn blast(&self, frame: u32) -> Option<world::Bomb> {
         let BulletType::Explosive {
             blast_radius,
