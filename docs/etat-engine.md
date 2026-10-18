@@ -115,6 +115,18 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
    quelques combinaisons représentatives. Mesurer stalls, profondeur/fréquence des rollbacks et
    récupération ; les conditions hors cible peuvent ralentir, mais ne doivent pas masquer un desync.
    Les tests en mémoire couvrent le protocole et la resimulation ; ils ne remplacent pas WebRTC/NAT.
+   *Mesuré le 2026-10-17* (m2-p2p-run-complete §8, `dette-d86-lobby-en-ligne` ; 2 clients, gungeon graine 10, 4 500 frames, une exécution par condition,
+   une machine partagée ; rollback = restauration d'état (`LoadWorld`), profondeur = frames resimulées par rollback (≥ 1) ; le jeu journalise désormais « rollbacks : n=… » à la sortie) :
+
+   | Condition (charge au lancement) | Rollbacks / 100 frames (clients 0, 1) | Profondeur moyenne | médiane / p90 / max | Profondeur 1 |
+   |---|---|---|---|---|
+   | Boucle locale, sans stress (2,67) | 16,3 ; 15,7 | 1,27 ; 1,24 | 1 / 2 / 4 ; 7 | 79–82 % |
+   | netem RTT 120 ms ± 20 ms, perte 1 % (2,81) | 18,3 ; 18,7 | 4,04 ; 3,98 | 3 / 8 / 11 | 12–14 % |
+   | Stress SIGSTOP du client 1 (2,64) | 24,4 ; 1,2 | 5,14 ; 1,11 | 4 / 10 / 11 (client 0) | 7 % ; 92 % |
+
+   Profondeur maximale mesurée 11 sur neuf exécutions, jamais 12 (fenêtre de prédiction 12). Profondeur = frames resimulées = dernière frame avancée − frame restaurée (corrigée à la revue 2 : une première
+   version la déduisait des clés de trace et la surestimait). Trois exécutions par condition (rapport de la dette, §4) : médiane stable, maximum de la condition « naturelle » et fréquence sous netem variables.
+   Pas encore mesurés : matrice RTT 60/200 ms et pertes 3 % (D87), vrai WAN.
 5. **Plateformes.** Pour chaque combinaison annoncée (natif, navigateur, architectures différentes),
    comparer une même partie et ses états confirmés. Le fixed-point seul ne prouve pas la compatibilité
    des builds ni la stabilité des fonctions de hash entre plateformes/toolchains.
