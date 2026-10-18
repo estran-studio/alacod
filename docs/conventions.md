@@ -6611,8 +6611,8 @@ Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun
 | boss à phases | 1 | **2** (`colosse`) | 2 |
 | gabarits | 20 | 20 | 20 |
 
-**Objets** (51, `objets/*.ron`, un `test:` chacun sauf les neuf consommables, que `ItemHeld` refuse : preuve par scénario écrit, comme `coeur` et `ration` ; les quatorze passifs de stats de T8 et T10 qui n'en avaient pas en ont maintenant un, `item_*`).
-Poids de pool 4 / 2 / 1 par rareté, consommables 3 / 2 / 1. Le **tableau objet → pools → scénario** est au rapport (§ 2). Répartition :
+**Objets** (51, `objets/*.ron`, un `test:` chacun sauf les trois consommables, que `ItemHeld` refuse : preuve par `isaac_consommables_lot`, comme `coeur` et `ration` ; les quatorze passifs de stats de T8 et T10 qui n'en avaient pas en ont maintenant un, `item_*`).
+Poids de pool 4 / 2 / 1 par rareté (consommables : 3 en boutique pour `pain`, 2 pour `eclat_ame` et `festin`, 3 / 2 / 1 en salle secrète). Le **tableau objet → pools → scénario** est au rapport (§ 2). Répartition :
 
 | Pool | Entrées avant | Après | Nouveaux objets |
 |---|---|---|---|
@@ -6636,7 +6636,7 @@ Script : `docs/taches/rapports/m3-t11d2-volume.make_salles.py` (reprend celui de
 
 **Boss `colosse`** (`characters/colosse.ron`, 44 PV contre 40, immobile, trois phases, butin du pool `boss` de `rooms/boss.ron`) : phase 0 (≥ 65 %) une gerbe toutes les 150 frames ; phase 1 (< 65 %) deux `araignee` en renfort, croix à f0 et gerbe à f75 ; phase 2 (< 30 %) un `follet` et un `arroseur` en renfort, `tourbillon` (spirale de deux bras, 48 frames) précédé d'un télégraphe de 10 frames.
 Premier jet (50 PV, trois araignées, deux follets, spirale à trois bras) : le bot `fonceur` du scénario généré mourait en phase 2 ; allégé jusqu'à ce que `boss_colosse` le batte (victoire f449) ; aucune fourchette visée.
-**Rotation (justifiée)** : le `colosse` est le boss du **second étage** de la séquence par défaut (`floors/sous_sol.ron` : `floor:sous_sol` puis `floor:sous_sol_profond`), le `gardien` celui du premier : un boss par étage (comme Isaac), plutôt que le hasard, parce que (1) le butin et la difficulté montent avec l'étage, (2) toutes les séquences de test (`sous_sol_un`, `_court`, `_cle`, `_grand`, `_maudit`) et leurs traces
+**Rotation (justifiée)** : le `colosse` est le boss du **second étage** de la séquence par défaut (`floors/sous_sol.ron` : `floor:sous_sol` puis `floor:sous_sol_profond`), le `gardien` celui du premier : un boss par étage (comme Isaac), plutôt que le hasard, parce que (1) la difficulté monte avec l'étage (44 PV contre 40, renforts plus nombreux ; le butin vient du même pool `boss`, épuisé par run), (2) toutes les séquences de test (`sous_sol_un`, `_court`, `_cle`, `_grand`, `_maudit`) et leurs traces
 gardent le `gardien` : seuls les scénarios qui traversent le premier boss de la séquence par défaut voient le second, (3) un tirage au hasard parmi des gabarits de boss de même type ferait du boss d'un scénario de grille une loterie de graine. La grammaire n'a pas de filtre par étage : `floor_grammars/sous_sol_profond.ron` pointe un second fichier de gabarits,
 `maps/salles_profond.ldtk`, identique à `salles.ldtk` hors boss (trois gabarits de boss avec `colosse`, pas de transit, `iid` salés) ; `sous_sol_profond_court` (départ, combat, boss) sert le scénario `boss_colosse` (D115 : une grammaire qui filtre les gabarits de boss par étage ôterait la copie).
 
@@ -6645,7 +6645,7 @@ gardent le `gardien` : seuls les scénarios qui traversent le premier boss de la
 
 **Traces** : 52 traces `isaac` écrites à la main ou déjà générées bougent, 122 sont neuves (objets, ennemis, boss, scénarios écrits) ; zombies, throne, gungeon, testbed identiques. Preuve §5 (dumps `ALACOD_DUMP_TRACE` du même binaire, `ALACOD_GAME_DIR` sur quatre états de `games/isaac`, `scripts/trace-diff.py … --ignore Inventory,BombCarrier`,
 six scénarios `hit_iframes_isaac`, `isaac_boots`, `grid_secret_no_bomb`, `devil_room_absent`, `generated/isaac/{boss_gardien, weapon_larmes}`) : (1) `main` → **pools et objets** : première frame qui diffère = 0, `PoolState` et le contenu des présentoirs seulement (`weapon_larmes` identique) ; (2) → **ennemis et gabarits** : f0, les ennemis de salle (`suiveur`/`mouche` → `araignee`/`follet`/`arroseur`) ;
-(3) → **boss, grammaire profonde, séquence** : **identiques** sur les six (aucun n'atteint le second étage), le changement ne se voit que dans les scénarios qui franchissent le premier boss de la séquence par défaut (`isaac_floor_seed_1`, `bot_isaac_floor`, `grid_floor_seed_*`).
+(3) → **boss, grammaire profonde, séquence** : **identiques** sur les six (aucun n'atteint le second étage), le changement ne se voit que dans les scénarios qui franchissent le premier boss de la séquence par défaut (`isaac_floor_seed_1`, `bot_isaac_floor`) ; les `grid_floor_seed_*` jouent `sous_sol_un` (un étage, `gardien`) et ne bougent que par les pools et les ennemis.
 
 **Atteignabilité** : `alacod lint games/isaac` : 0 erreur, 0 avertissement ; chaque objet est dans un pool tiré par la séquence par défaut (tableau du rapport). **Campagnes de T14** (`m3-t11d2-volume.campagne-t14.sh`, 200 graines à 1 et 2 bots, séquence par défaut, `--pickup-progress`) : @@CAMP@@
 

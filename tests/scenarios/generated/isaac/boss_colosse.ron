@@ -6,7 +6,7 @@ Scenario(
     game: "isaac",
     map: "floor:sous_sol_court",
     map_seed: 123456,
-    frames: 3000,
+    frames: 1200,
     players: [
         PlayerScript(
             inputs: [],
@@ -17,17 +17,17 @@ Scenario(
         Event(
             kind: "boss_phase",
             label_contains: "phase 0 → 1",
-            by_frame: 3000,
+            by_frame: 1200,
         ),
         Event(
             kind: "boss_phase",
             label_contains: "phase 1 → 2",
-            by_frame: 3000,
+            by_frame: 1200,
         ),
         Event(
             kind: "room",
             label_contains: "salle boss nettoyée",
-            by_frame: 3000,
+            by_frame: 1200,
         ),
     ],
     powerup_drop_chance_override: "0",

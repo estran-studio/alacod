@@ -3,7 +3,7 @@
 niveau `spawn` / `room_kind` et les instances d'entités). Reprend `m3-t11d1-gabarits.make_salles.py` (vingt gabarits, la
 couche IntGrid `Rocks` : 1 = rocher, 2 = rocher à butin, §62, et la couche `Surfaces` : valeur 5 = piques,
 `surfaces/piques.ron`) et change deux choses : (1) trois nouveaux ennemis (`araignee`, `follet`, `arroseur`) remplacent
-une mouche ou un suiveur dans sept gabarits de combat (même nombre d'ennemis qu'avant) ; (2) le script se joue **deux
+une mouche ou un suiveur dans huit gabarits de combat (même nombre d'ennemis qu'avant ; `Combat` reste inchangé) ; (2) le script se joue **deux
 fois** : `salles.ldtk` (boss `gardien`, étages de `floor_grammars/sous_sol*.ron`) et `salles_profond.ldtk` (`--boss colosse
 --salt profond`, second étage de la séquence par défaut : `floor_grammars/sous_sol_profond.ron`). Les deux fichiers
 portent les mêmes gabarits de combat, de trésor, secrète, diable et boutique (le gabarit de transit n'est que dans

@@ -1,5 +1,5 @@
 // `isaac` (M3-T11d2, §76.5) : un ennemi tué (`OnKill`) soigne 1 PV par exemplaire (`Scaled(PerCopy)`), au plus une fois toutes les 600 frames (`cooldown`).
-// Le soin ne se voit que sur un joueur blessé : preuve par le scénario `isaac_vengeance` (bot `explorateur`, salle de combat de `sous_sol_court` ; le premier kill, f136, rend 1 PV, 6 à f150 ; le suivant tombe en recharge) ; témoin `isaac_sablier_temoin`.
+// Le soin ne se voit que sur un joueur blessé : preuve par le scénario `isaac_vengeance` (bot `explorateur`, salle de combat de `sous_sol_court` ; le premier kill, f136, rend 1 PV, 6 à f150) ; témoin `isaac_sablier_temoin`. **Le `cooldown` de 600 frames n'est pas prouvé** : `pleureur` n'a que 6 PV, il est de nouveau à 6/6 quand les kills suivants tombent, leur non-effet ne se distingue pas de la recharge (dette D114).
 (
     name: "Vengeance",
     kind: Passive,

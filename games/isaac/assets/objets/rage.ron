@@ -1,4 +1,4 @@
-// `isaac` (M3-T11d2, §76.5) : un coup reçu (`OnDamageTaken`) donne +50 % de dégâts pendant 180 frames (`TimedModifier`). Seuils mesurés (`cible_mordante`, premier coup à f~8, un coup toutes les 120 frames) : `Damage` 1,5 à f60 avec l'objet, 1,0 sans ; deux coups dans la fenêtre de 180 frames s'empilent (2,5 à f130).
+// `isaac` (M3-T11d2, §76.5) : un coup reçu (`OnDamageTaken`) donne +50 % de dégâts pendant 180 frames (`TimedModifier`). Seuils mesurés (`cible_mordante`, premier coup à f~8, un coup toutes les 120 frames) : `Damage` 1,5 à f60 avec l'objet, 1,0 sans. Deux coups dans la fenêtre de 180 frames ajoutent leurs `Pct` (1 × (1 + 0,5 + 0,5) = 2,0, règle de `sim_core::modifier::resolve`), non mesuré ici.
 (
     name: "Rage",
     kind: Passive,

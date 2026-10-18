@@ -4,7 +4,7 @@
 // boutique (M3-T11d1, §76.4), une salle secrète voisine d'au moins deux salles ordinaires (murée, ouverte à
 // la bombe), une salle du diable accrochée au boss une fois sur trois, une boucle au plus, le reste en salles
 // de combat (neuf gabarits : rochers, rochers à butin, piques, grandes salles).
-// Gabarits : maps/salles.ldtk, généré par docs/taches/rapports/m3-t11d1-gabarits.make_salles.py.
+// Gabarits : maps/salles.ldtk, généré par docs/taches/rapports/m3-t11d2-volume.make_salles.py (qui reprend et remplace celui de T11d1).
 (
     templates: "maps/salles.ldtk",
     grammar: (

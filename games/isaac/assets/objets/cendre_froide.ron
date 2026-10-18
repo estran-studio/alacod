@@ -7,7 +7,7 @@
     rarity: Rare,
     test: Some((
         frames: 60,
-        // M3-T11d2 : TODO
+        // M3-T13 (§78) : `tears_cendre_froide` et son témoin `tears_cendre_froide_sans_objet`, seuils mesurés : `brulure` et `lenteur` sur la cible posée à f150 (les deux ensemble), aucun des deux sans l'objet.
         tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "brulure", at_frame: 150), HasStatus(entity: Placed(0), status: "lenteur", at_frame: 150)], control: [HasStatus(entity: Placed(0), status: "brulure", present: false, at_frame: 150), HasStatus(entity: Placed(0), status: "lenteur", present: false, at_frame: 150)])),
     )),
 )

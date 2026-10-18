@@ -1,5 +1,5 @@
 // `isaac` (M3-T11d2, docs/conventions.md §76.5, boss de §37 et §45) : le colosse, second boss d'`isaac`, posé par les gabarits de boss de
-// `maps/salles_profond.ldtk` (second étage de la séquence par défaut : `floor_grammars/sous_sol_profond.ron`). Immobile, 50 PV (le `gardien`
+// `maps/salles_profond.ldtk` (second étage de la séquence par défaut : `floor_grammars/sous_sol_profond.ron`). Immobile, 44 PV (le `gardien`
 // en a 40), trois phases ; les tirs passent par la frise (`SpawnPattern` avec la table de projectiles de l'`arsenal`) ; son butin est celui de
 // `rooms/boss.ron` (pool `boss`).
 (
