@@ -4330,17 +4330,32 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   lieu de f3731, aucune victoire après le hub). `HUB=1` enregistre une run lancée par la porte du hub en ligne (`ALACOD_SIM_HUB=1` : hub puis run
   dans `alacod-sim` ; `ALACOD_RUN_SEED_ONLINE_GAME=1` : graine de run `restart_seed(graine, 1)`, `jjrs::local`, natif, absente = inchangé) ;
   le client se lance alors sans `ALACOD_SKIP_HUB`.
-- **Retour au lobby en ligne (D86, ouverte).** `ALACOD_RESTART_KIND=lobby` rouvre la salle d'origine : si les deux pairs ne reviennent pas à quelques
-  ms près, le premier se connecte au socket encore vivant de la partie de l'autre et les deux sessions restent muettes. « Rejouer » (`{lobby}-r{n}`) n'a
-  pas ce défaut. Le script `p2p-restart.sh` avec `RESTART_KIND=lobby` peut donc échouer (`TIMEOUT`) ; `EXPECT_VICTORY=1` exige la victoire avant la relance.
+- **Retour au lobby en ligne (D86, fermée).** Cause : « Lobby » rouvre la salle d'**origine**, où l'autre pair garde son socket de la partie finissante
+  jusqu'à `OnExit(InGame)` ; le premier revenu s'y connectait et construisait sa session sur cet ancien identifiant. Correctif sans protocole
+  nouveau (`jjrs::p2p`) : (a) `PreviousSessionPeers` mémorise les identifiants des pairs de chaque session construite
+  (`system_after_map_loaded`) et `live_players` les retire de la liste du socket (`wait_for_players`, interface du lobby, construction de la
+  session ; l'ordre trié des identifiants, donc les handles GGRS, est conservé) ; (b) une session p2p restée `Synchronizing` plus de
+  `SYNC_TIMEOUT_SECS` (30 s d'**horloge murale**, `Instant` : `Time<Real>` avance de 1/60 s par update en headless ; `ALACOD_SYNC_TIMEOUT_SECS`
+  pour les essais ; l'autre pair peut légitimement finir de charger) est abandonnée :
+  `ggrs{f=… session_sync_timeout waited_secs=… players=…}` au journal, puis `RunRequest::ToLobby` ; le repli du restart (`{lobby}` après
+  `RESTART_TIMEOUT_SECS` = 30 s, qui lit encore `Time<Real>` : trop court en headless, défaut antérieur non corrigé) est inchangé. Session seulement : aucune trace de scénario ne bouge. Essais :
+  `scripts/p2p-lobby.sh` (requêtes à 100–400 ms d'écart, `ALACOD_RESTART_DELAY_MS`), `scripts/p2p-sync-timeout.sh` ((b) de bout en bout :
+  un client suspendu avant sa session). `p2p-restart.sh` avec `RESTART_KIND=lobby` ; `EXPECT_VICTORY=1` exige la victoire avant la relance.
 - **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
   la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
-  `resimulées` reste cumulé sur toute la durée du processus.
+  `resimulées` reste cumulé sur toute la durée du processus ; les rollbacks sont comptés **par partie** (`state_trace::RollbackStats`) et
+  journalisés à la sortie : un rollback = une restauration d'état de bevy_ggrs (schedule `LoadWorld`, même nombre que `load ×N` du
+  profil rollback) ; sa profondeur = frames resimulées = `dernière frame avancée avant la restauration − frame restaurée` (lue à la fin de
+  chaque `AdvanceWorld`, indépendante de la trace : GGRS sauvegarde la frame courante même pendant un tick bloqué au seuil de prédiction,
+  ce qui réenregistre une clé de trace sans rien resimuler) ; ligne
+  `rollbacks : n=… frames=… profondeur_moy=… profondeur_max=… par_100_frames=… histogramme=profondeur:nombre,…`
+  (`p2p-stress.sh` l'affiche par client).
 - **`ALACOD_RESTART_KIND`** (avec `ALACOD_RESTART_AT_FRAME`) : requête posée à la frame de relance, `restart` (défaut),
-  `lobby` (`RunRequest::ToLobby`) ou `hub` (`RunRequest::ToHub`). Retour au lobby en ligne : voir la limite du rapport
-  (pair fantôme dans la salle d'origine).
+  `lobby` (`RunRequest::ToLobby`) ou `hub` (`RunRequest::ToHub`) ; `ALACOD_RESTART_DELAY_MS` retarde la pose de la requête
+  (temps réel, essais D86).
 - **Scripts** (`scripts/p2p-lib.sh` en commun) : `p2p-stress.sh` (N clients `CLIENTS`, suspension du client 1,
-  `NETEM`, `MATCHBOX_URL`, `GAME_ARGS`, `EXPECT_FLOORS`), `p2p-restart.sh <jeu>` (restart, lobby, hub),
+  `NETEM`, `MATCHBOX_URL`, `GAME_ARGS`, `EXPECT_FLOORS`), `p2p-restart.sh <jeu>` (restart, lobby, hub ; `RESTART_DELAYS_MS`),
+  `p2p-lobby.sh` (D86 : essais consécutifs du retour au lobby), `p2p-sync-timeout.sh` (abandon d'une session non synchronisée),
   `p2p-disconnect.sh` (pair tué), `p2p-machine.sh` (un client par machine), `nightly.sh` étape C2.
 - **Réseau dégradé sans root** : `NETEM="delay 60ms 10ms loss 1%"` relance le script dans `unshare -Urn` (espaces de noms
   utilisateur et réseau sans privilège), met `lo` en `tc netem` (le délai s'applique à chaque sens : RTT = 2 × délai),

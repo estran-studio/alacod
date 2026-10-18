@@ -15,8 +15,10 @@
 #   dans la salle d'origine, graine d'origine : la partie 2 doit être IDENTIQUE à la 1), `hub` =
 #   « Retour au hub » des jeux à hub : hub → run → hub → run, graine dérivée à chaque passage),
 #   EXPECT_VICTORY=1 (échec si un client n'a pas journalisé `run summary … outcome=Victory` : la requête
-#   est posée APRÈS la fin de run), TIMEOUT (900 s : au-delà, les clients sont tués et le script échoue ; `RESTART_KIND=lobby`
-#   bloque aujourd'hui, D86), OUT (/tmp/p2p-restart), MATCHBOX_PORT, MATCHBOX_URL, NETEM (voir `p2p-lib.sh`).
+#   est posée APRÈS la fin de run), TIMEOUT (900 s : au-delà, les clients sont tués et le script échoue),
+#   RESTART_DELAYS_MS (vide : aucun délai ; « 0 250 » : `ALACOD_RESTART_DELAY_MS` du client i, la requête arrive plus tard dans sa partie ;
+#   `p2p-lobby.sh` s'en sert pour étaler les retours au lobby, D86), OUT (/tmp/p2p-restart), MATCHBOX_PORT,
+#   MATCHBOX_URL, NETEM (voir `p2p-lib.sh`).
 #   Tout autre `ALACOD_*` de l'environnement est transmis aux clients (`ALACOD_SKIP_HUB=1`).
 # Bash, pas zsh (les `wait $pid` d'une variable non éclatée échouent en zsh).
 set -euo pipefail
@@ -31,6 +33,8 @@ STRESS=${STRESS:-0}
 SUSPEND_MS=${SUSPEND_MS:-12}
 RUN_MS=${RUN_MS:-30}
 LOCAL=${LOCAL:-1}
+RESTART_DELAYS_MS=${RESTART_DELAYS_MS:-}
+read -r -a delays <<< "$RESTART_DELAYS_MS"
 TIMEOUT=${TIMEOUT:-900}
 RESTART_KIND=${RESTART_KIND:-restart}
 case "$RESTART_KIND" in
@@ -69,7 +73,8 @@ PLAYERS=$(p2p_players "$CLIENTS")
 for ((i = 0; i < CLIENTS; i++)); do
     # shellcheck disable=SC2086
     env ALACOD_HEADLESS=1 ALACOD_STATE_TRACE="$OUT/p2p-$i.trace" ALACOD_EXIT_AT_FRAME="$EXIT_AT" \
-        ALACOD_RESTART_AT_FRAME="$RESTART_AT" APP_VERSION=x ${input_env[@]+"${input_env[@]}"} \
+        ALACOD_RESTART_AT_FRAME="$RESTART_AT" ALACOD_RESTART_DELAY_MS="${delays[i]:-0}" \
+        APP_VERSION=x ${input_env[@]+"${input_env[@]}"} \
         "$BIN" --matchbox "$SIGNAL_URL" --lobby "$LOBBY" --number-player "$CLIENTS" \
         --players $PLAYERS --cid "client_$i" --name "client_$i" $GAME_ARGS \
         > "$OUT/p2p-$i.log" 2>&1 &
