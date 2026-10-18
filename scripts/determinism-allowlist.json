@@ -1,29 +1,5 @@
 [
   {
-    "path": "crates/combat/src/weapons/melee.rs",
-    "code": "platform::collections::HashMap,",
-    "count": 1,
-    "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
-  },
-  {
-    "path": "crates/combat/src/weapons/melee.rs",
-    "code": "pub struct MeleeWeaponsConfig(pub HashMap<String, MeleeWeaponAsset>);",
-    "count": 1,
-    "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
-  },
-  {
-    "path": "crates/combat/src/weapons/mod.rs",
-    "code": "platform::collections::HashMap,",
-    "count": 1,
-    "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
-  },
-  {
-    "path": "crates/combat/src/weapons/mod.rs",
-    "code": "pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);",
-    "count": 1,
-    "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
-  },
-  {
     "path": "crates/game/src/balance.rs",
     "code": "pub enemy_probabilities: HashMap<String, u32>,",
     "count": 1,
@@ -154,6 +130,24 @@
     "code": "use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath};",
     "count": 1,
     "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
+  },
+  {
+    "path": "crates/game/src/weapons.rs",
+    "code": "use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath};",
+    "count": 2,
+    "reason": "Enveloppes d'asset des tables d'armes (déménagées de combat, D69) : consultées par id, aucun ordre de simulation dérivé de ces collections."
+  },
+  {
+    "path": "crates/game/src/weapons.rs",
+    "code": "pub struct MeleeWeaponsConfig(pub HashMap<String, MeleeWeaponAsset>);",
+    "count": 1,
+    "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
+  },
+  {
+    "path": "crates/game/src/weapons.rs",
+    "code": "pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);",
+    "count": 1,
+    "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
   },
   {
     "path": "crates/map/src/generation/floor.rs",

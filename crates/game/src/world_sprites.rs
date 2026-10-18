@@ -19,9 +19,9 @@ use animation::{create_child_sprite, AnimationMapConfig, SpriteSheetConfig};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use combat::projectile::Projectile;
+use combat::projectile::{Projectile, BASE_SPRITE};
 use combat::status::StatusLibrary;
-use combat::weapons::{Bullet, WeaponPickup};
+use combat::weapons::{Bullet, BulletLook, BulletType, WeaponPickup};
 use items::{Chest, ItemKind, ItemPickup, ItemTable, Shelf, ShellPickup};
 use map::game::entity::map::door::DoorComponent;
 use map::game::entity::MapRollbackItem;
@@ -35,6 +35,11 @@ pub struct WorldSpritePlugin;
 
 impl Plugin for WorldSpritePlugin {
     fn build(&self, app: &mut App) {
+        // Le sprite d'une balle naît juste après la simulation (voir `attach_bullet_visuals`).
+        app.add_systems(
+            PreUpdate,
+            attach_bullet_visuals.after(bevy_ggrs::RunGgrsSystems),
+        );
         app.add_systems(
             Update,
             (
@@ -448,6 +453,40 @@ pub(crate) fn bullet_display_size(damage: f32) -> f32 {
     (5.0 + 1.6 * damage.max(0.0).sqrt()).clamp(8.0, 22.0)
 }
 
+/// Le sprite d'une balle, posé en présentation (D69 : `combat` ne connaît plus `Sprite`). Une balle
+/// qui apparaît (`Added<Bullet>`, y compris une balle recréée par une re-simulation) reçoit le
+/// carré de couleur que `spawn_bullet` posait lui-même : noir (blanc pour une balle explosive), côté
+/// `BASE_SPRITE × Size` d'un projectile composable (3,5 sinon), × `ShotSize` du tireur. Tourne juste
+/// après `GgrsSchedule` (`PreUpdate`) : le sprite existe avant tout système d'`Update`, comme avant.
+/// Sans `BulletLook` (entité recréée sans lui), le côté se dérive du `Projectile` et de `ShotSize` 1.
+fn attach_bullet_visuals(
+    mut commands: Commands,
+    new: Query<(Entity, &Bullet, Option<&BulletLook>, Option<&Projectile>), Added<Bullet>>,
+) {
+    for (entity, bullet, look, projectile) in &new {
+        let look = look.copied().unwrap_or(BulletLook {
+            projectile_size: projectile.map(|projectile| projectile.size),
+            shot_size: fixed_math::FIXED_ONE,
+        });
+        let color = match bullet.bullet_type {
+            BulletType::Standard { .. } | BulletType::Piercing { .. } => Color::BLACK,
+            BulletType::Explosive { .. } => Color::WHITE,
+        };
+        let side = match look.projectile_size {
+            Some(size) => fixed_math::to_f32(size) * BASE_SPRITE,
+            None => 3.5,
+        };
+        let side = if look.shot_size == fixed_math::FIXED_ONE {
+            side
+        } else {
+            side * fixed_math::to_f32(look.shot_size)
+        };
+        commands
+            .entity(entity)
+            .try_insert(Sprite::from_color(color, Vec2::new(side, side)));
+    }
+}
+
 /// Remplace le carré de couleur d'un projectile par l'image de son équipe. Feuille `own_colors: true`
 /// (gungeon : orbe rouge ennemi, losange bleu allié) : l'image porte sa couleur, taille = dégât ; sinon
 /// teinte d'équipe et halo agrandi, comme avant.
@@ -591,6 +630,91 @@ mod tests {
         });
         world.run_system_once(reap_held_sprites).unwrap();
         assert_eq!(world.get::<Visibility>(child), Some(&Visibility::Inherited));
+    }
+
+    fn bullet_of(bullet_type: combat::weapons::BulletType) -> Bullet {
+        Bullet {
+            velocity: bevy_fixed::fixed_math::FixedVec2::ZERO,
+            bullet_type,
+            damage: fixed_math::Fixed::ZERO,
+            range: fixed_math::Fixed::ZERO,
+            distance_traveled: fixed_math::Fixed::ZERO,
+            player_handle: 0,
+            created_at: 0,
+            source: utils::net_id::GgrsNetId(0, "player".into()),
+            source_team: Team::Players,
+            tags: Default::default(),
+            friendly_fire: Default::default(),
+        }
+    }
+
+    fn sprite_after_attach(world: &mut World, entity: Entity) -> Sprite {
+        world.run_system_once(attach_bullet_visuals).unwrap();
+        world.get::<Sprite>(entity).expect("sprite posé").clone()
+    }
+
+    /// D69 : `spawn_bullet` ne pose plus de `Sprite`. Couleur par type de balle, côté 3,5 pour une
+    /// balle ordinaire, `Size × BASE_SPRITE` pour un projectile composable, × `ShotSize` du tireur :
+    /// les valeurs exactes que le sprite avait à l'apparition (les scénarios ne tirent aucune balle
+    /// explosive, ce test est leur seule preuve).
+    #[test]
+    fn le_sprite_d_une_balle_reprend_couleur_et_taille_de_l_apparition() {
+        use combat::weapons::BulletType::{Explosive, Piercing, Standard};
+        let fx = fixed_math::new;
+        let mut world = World::new();
+        let standard = world
+            .spawn((
+                bullet_of(Standard {
+                    damage: fx(1.0),
+                    speed: fx(1.0),
+                }),
+                BulletLook {
+                    projectile_size: None,
+                    shot_size: fixed_math::FIXED_ONE,
+                },
+            ))
+            .id();
+        let sprite = sprite_after_attach(&mut world, standard);
+        assert_eq!(sprite.color, Color::BLACK);
+        assert_eq!(sprite.custom_size, Some(Vec2::new(3.5, 3.5)));
+
+        let explosive = world
+            .spawn((
+                bullet_of(Explosive {
+                    damage: fx(1.0),
+                    speed: fx(1.0),
+                    blast_radius: fx(1.0),
+                    explosive_damage_multiplier: fx(1.0),
+                }),
+                BulletLook {
+                    projectile_size: None,
+                    shot_size: fx(1.5),
+                },
+            ))
+            .id();
+        let sprite = sprite_after_attach(&mut world, explosive);
+        assert_eq!(sprite.color, Color::WHITE);
+        assert_eq!(sprite.custom_size, Some(Vec2::new(3.5 * 1.5, 3.5 * 1.5)));
+
+        let composable = world
+            .spawn((
+                bullet_of(Piercing {
+                    damage: fx(1.0),
+                    speed: fx(1.0),
+                    penetration: 1,
+                }),
+                BulletLook {
+                    projectile_size: Some(fx(2.0)),
+                    shot_size: fx(1.5),
+                },
+            ))
+            .id();
+        let sprite = sprite_after_attach(&mut world, composable);
+        assert_eq!(sprite.color, Color::BLACK);
+        assert_eq!(
+            sprite.custom_size,
+            Some(Vec2::splat(2.0 * BASE_SPRITE * 1.5))
+        );
     }
 
     #[test]

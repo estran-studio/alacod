@@ -1,10 +1,11 @@
 //! Présentation des armes et de la mêlée, dérivée de l'état de combat.
 use crate::{character::visuals::VisualsAttached, global_asset::GlobalAsset};
-use animation::{create_child_sprite, AnimationVisualsBundle, FacingDirection, SpriteSheetConfig};
+use animation::{create_child_sprite, AnimationVisualsBundle, SpriteSheetConfig};
 use bevy::{platform::collections::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
 use combat::weapons::melee::*;
 use combat::weapons::*;
+use sim_core::animation_state::FacingDirection;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 /// Présentation : ajoute le sprite animé des armes qui n'en ont pas encore
