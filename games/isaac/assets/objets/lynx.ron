@@ -7,7 +7,7 @@
     rarity: Rare,
     test: Some((
         frames: 60,
-        // M3-T11d2 : TODO
+        // M3-T13 (§78) : `tears_lynx` et son témoin, seuils mesurés : la cible posée à (-40, 35) de la cible de l'arène, plus loin de la ligne de tir que celle de `tears_oeil`, n'est touchée qu'avec `Homing(0,3)` (6 coups contre 5 au témoin sur la cible de l'arène ; seuil sur la cible posée : 5 contre 0).
         tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -40, dy: 35)], hits: [(target: 1, with_item: 5, without_item: 0)])),
     )),
 )

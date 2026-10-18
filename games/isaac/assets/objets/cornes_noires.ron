@@ -4,4 +4,6 @@
     kind: Passive,
     rarity: Rare,
     modifiers: [(stat: FireRate, op: Pct, value: "0.3")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_cornes_noires`).
+    test: Some((frames: 60)),
 )

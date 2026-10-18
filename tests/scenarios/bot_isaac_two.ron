@@ -4,8 +4,9 @@
 //
 // À regarder : les deux bots arrivent ensemble au mur secret ; **un seul** pose sa bombe (f19 : le joueur 0, le plus petit handle ; avant la règle des
 // pairs, `GoalContext::peers`, les deux en posaient une), l'explosion (f93) ouvre le mur, le joueur 1 garde sa bombe ; ils nettoient les trois
-// combats, le joueur 1 ouvre le coffre secret (f1073) et le joueur 0 celui du trésor (f1452) ; le joueur 0 achète les **trois** présentoirs de la
-// boutique (f1755, f1773, f1792 : 15 sous chacun) ; le boss meurt (victoire f2224).
+// combats (f337, f822, f1054), le joueur 0 ouvre le coffre secret (f1119) et le joueur 1 celui du trésor (f1501) ; le joueur 0 achète les **trois** présentoirs de la
+// boutique (f1849, f1871, f1893 : 15 sous chacun, `vent_arriere`, `cousin`, `pouls`) ; le `gardien` (boss du seul étage de `sous_sol_un`) meurt (victoire f2418).
+// M3-T11d2 : 100 objets et trois ennemis de plus dans les gabarits de combat : chronologie recalée (avant : coffres f1073 et f1452, achats f1755 à f1792, victoire f2224).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -35,10 +36,10 @@ Scenario(
         EventAfter(kind: "chest", after_frame: 94, by_frame: 1200),
         ShelfCount(count: 3, at_frame: 10),
         Shelf(nth: 0, sold: Some(false), at_frame: 1700),
-        Shelf(nth: 0, sold: Some(true), at_frame: 1800),
-        Shelf(nth: 1, sold: Some(true), at_frame: 1800),
-        Shelf(nth: 2, sold: Some(true), at_frame: 1800),
-        Event(kind: "victory", by_frame: 2300),
+        Shelf(nth: 0, sold: Some(true), at_frame: 1900),
+        Shelf(nth: 1, sold: Some(true), at_frame: 1900),
+        Shelf(nth: 2, sold: Some(true), at_frame: 1900),
+        Event(kind: "victory", by_frame: 2500),
         PlayerAlive(handle: 0, at_frame: 2499),
         PlayerAlive(handle: 1, at_frame: 2499),
     ],

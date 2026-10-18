@@ -7,7 +7,7 @@
     rarity: Rare,
     test: Some((
         frames: 60,
-        // M3-T11d2 : TODO
+        // M3-T13 (§78) : `tears_halo` et son témoin, seuils mesurés : cible posée sur l'orbite de rayon 72, visée (-100, 18) : au moins 5 coups avec l'objet, 0 sans.
         tears: Some((weapon: Some("larmes"), frames: Some(150), aim: Some((-100, 18)), targets: [(character: "cible", dx: -128, dy: -120)], hits: [(target: 1, with_item: 5)])),
     )),
 )

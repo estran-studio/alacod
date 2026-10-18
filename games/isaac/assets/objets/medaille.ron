@@ -6,4 +6,6 @@
     kind: Passive,
     rarity: Uncommon,
     modifiers: [(stat: Damage, op: Pct, value: "0.1")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_medaille`).
+    test: Some((frames: 60)),
 )

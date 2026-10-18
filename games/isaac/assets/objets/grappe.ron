@@ -8,7 +8,7 @@
     rarity: Rare,
     test: Some((
         frames: 60,
-        // M3-T11d2 : TODO
-        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], hits: [(target: 0, with_item: 99, without_item: 0)], expect: [BulletCount(count: 5, projectile: Some("larmes"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larmes"), at_frame: 150)])),
+        // M3-T13 (§78) : `tears_grappe` et son témoin, seuils mesurés : à f150 8 balles en vol (l'impact en éclate cinq) contre 0 ; les coups sur la cible ne prouvent rien (5 contre 6 : −25 % de dégâts, pas de `hits`).
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], expect: [BulletCount(count: 8, projectile: Some("larmes"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larmes"), at_frame: 150)])),
     )),
 )

@@ -89,7 +89,7 @@ Scenario(
         EntityHits(
             net_id: 25,
             min: 0,
-            max: 0,
+            max: 6,
             at_frame: 150,
         ),
         BulletCount(

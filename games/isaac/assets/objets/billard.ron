@@ -7,7 +7,7 @@
     rarity: Uncommon,
     test: Some((
         frames: 60,
-        // M3-T11d2 : TODO
-        tears: Some((weapon: Some("larmes"), frames: Some(200), aim: Some((-35, 100)), targets: [(character: "cible", dx: -218, dy: -73)], hits: [(target: 1, with_item: 99, without_item: 0)])),
+        // M3-T13 (§78) : `tears_billard` et son témoin, seuils mesurés : visée oblique (-35, 100) : la larme rebondit sur le mur du sud puis touche la cible posée (6 coups en 200 frames, au moins 5 exigés), le témoin ne touche rien (0).
+        tears: Some((weapon: Some("larmes"), frames: Some(200), aim: Some((-35, 100)), targets: [(character: "cible", dx: -218, dy: -73)], hits: [(target: 1, with_item: 5, without_item: 0)])),
     )),
 )

@@ -38,7 +38,7 @@
     )),
 
     // Scénario généré `boss_colosse` (un bot joue l'étage court `sous_sol_profond_court` et bat le boss).
-    test: Some((frames: 3000, still: false, moving: false, boss: Some((floors: Some("sous_sol_profond_court"))))),
+    test: Some((frames: 1200, still: false, moving: false, boss: Some((floors: Some("sous_sol_profond_court"))))),
     // Phase 0 (au-dessus de 65 %) : une gerbe de cinq crachats (`gerbe`) à f10, toutes les 150 frames.
     // Phase 1 (sous 65 %) : deux `araignee` en renfort (`SpawnEnemies`), la croix (deux couronnes de quatre boules, 55 frames de jeu) à f0 et la gerbe à f75, toutes les 150 frames.
     // Phase 2, la rage (sous 30 %) : un `follet` et un `arroseur` en renfort, puis un tourbillon de deux bras (`tourbillon`, 48 frames de jeu,

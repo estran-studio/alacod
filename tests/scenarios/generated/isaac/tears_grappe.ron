@@ -100,13 +100,8 @@ Scenario(
             value: 0.75,
             at_frame: 1,
         ),
-        EntityHits(
-            net_id: 25,
-            min: 99,
-            at_frame: 150,
-        ),
         BulletCount(
-            count: 5,
+            count: 8,
             projectile: "larmes",
             at_frame: 150,
         ),
