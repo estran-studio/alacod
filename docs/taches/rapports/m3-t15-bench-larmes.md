@@ -133,7 +133,20 @@ Régression réelle nommée : **aucune** pour D84 ; D97 (coût de `bench_tears`)
 
 ## 5. Vérifié (résultats réels)
 
-VERIF_PLACEHOLDER
+Fusion avec `origin/main` (`4630291a`, D88 tirage des variantes, D95/D96 butin, D69 combat en SIM) faite avant le commit `LIVRÉ` ; dettes
+renumérotées **D97/D98** (D89 à D96 existaient sur `main`). Seule trace qui bouge sur la fusion : **`bench_floor_isaac.trace`, scénario neuf de cette
+branche** (le tirage des variantes et du butin de `main` change l'étage de la graine 1) ; rebénie, aucune trace de `main` touchée.
+
+| commande | résultat réel |
+|---|---|
+| `make test_scenarios_par SHARDS=3` (sans `BLESS`), sur la branche seule | 3 tranches `ok`, 631 scénarios fusionnés, 1 061 s |
+| idem sur la fusion avec `main` (après le bless de `bench_floor_isaac`) | 3 tranches `ok`, **646 scénarios**, 1 146 s, **aucune trace différente** |
+| `cargo fmt --all -- --check` | rustfmt a demandé un reformatage de mes 6 lignes du runner (appliqué) ; ensuite sans sortie, code 0 |
+| `make test_tools` | code 0 |
+| `make test_crates` (sur la fusion) | **1 214 tests, 0 échec**. Lancé en morceaux (hors `scenario`, puis chaque `--test` de `scenario`, binaires effacés entre deux) parce que le **disque partagé** a été plein (0 octet libre, `ld` : Bus error) pendant la commande d'un bloc ; mêmes commandes et mêmes filtres que `make test_crates` (`--exact --skip scenarios`). Sur la branche seule, `achievements` échouait (« reservoir_vital n'est pas un objet débloqué ») : c'est D96 de `main`, corrigée par la fusion ; il passe sur la fusion |
+| `make bench` strict (`ALACOD_BENCH_STRICT=1`) | **r6, branche, budgets finaux : exit 0, aucune ligne `budget`** (charge 1,6 → 5,2). **r7, sur la fusion : 2 dépassements sur 646, à charge 3 → 14** (b2 et d'autres jouaient leurs suites) : `p2p_smoke` 36,5 fps et `item_calice_ardent` 37,3 fps contre le plancher par défaut de 40 (ces deux scénarios mesurent 65 à 100 et 141 à 248 fps au calme). **Rejoués seuls en strict à charge 5 à 7 : `p2p_smoke` 61,1 fps, `item_calice_ardent` 109,3, `bench_tears` 29,2 fps / 67,2 ms, `bench_floor_isaac` 60,0 fps / 17,7 ms, tous dans leurs budgets, exit 0.** Je n'ai donc **pas** de `make bench` vert d'un seul tenant sur la fusion (la machine n'est jamais redescendue sous charge 3 pendant 72 minutes) : preuve = r6 (branche) + les quatre scénarios rejoués |
+| tous les budgets finaux contre les relevés | les relevés r1 à r5 (hors r6, r7) respectent les budgets finaux (script sur les `latest*.json` : 0 dépassement) |
+
 
 ## 6. Non fait / incertain
 
