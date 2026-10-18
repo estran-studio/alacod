@@ -1,9 +1,9 @@
 # m2-p2p-deux-machines — p2p entre deux machines (x86-64 contre arm64) et mesure de D87
 
 Worker b2, 2026-10-18, branche `m2-p2p-deux-machines` (depuis `origin/main` `7ee084e8`). Deux machines : le VPS Debian (x86-64, Haswell 8 cœurs, noyau
-6.12, `rustc` 1.101.0-nightly du 2026-10-17, binaire **statique**, partagé avec b6 : charge 4 à 12 selon les essais) et le Mac de William
+6.12, `rustc` 1.101.0-nightly du 2026-10-17, binaire **statique**, partagé avec b6 : charge 3,7 à 12 selon les essais) et le Mac de William
 (Apple M1 Pro, 8 cœurs, macOS 27.0.1, `rustc` 1.96.0-nightly du 2026-03-26, Bevy en **bibliothèque dynamique** `game/dev-dylib`, partagé avec
-d'autres workers : charge 9 à 85 selon les essais, 3 à 4 processus de simulation en parallèle). Deux compilateurs et deux éditions de liens différents
+d'autres workers : charge 8,6 à 85 selon les essais, 3 à 4 processus de simulation en parallèle). Deux compilateurs et deux éditions de liens différents
 sur le même commit : c'est voulu par l'état des postes, et plus sévère pour la preuve.
 
 ## 1. Résultat
@@ -39,7 +39,7 @@ et l'asymétrie de resimulation (§4.2).
 ## 3. Deux machines : un tableau par essai
 
 Colonnes : VPS = Linux x86-64, Mac = Darwin arm64 (lignes `p2p-machine : Linux x86_64` / `Darwin arm64` du script). « Resimulées » = `frames resimulées après rollback` du journal
-du jeu, VPS / Mac. Charge = `loadavg` 1 min au lancement, VPS / Mac. Tous : code de sortie 0 des deux côtés, `DesyncDetected` 0, 4 499 lignes contiguës (3 999 à 4 000 frames pour l'essai à 4),
+du jeu, VPS / Mac. Charge = `loadavg` 1 min au lancement, VPS / Mac. Tous : code de sortie 0 des deux côtés, `DesyncDetected` 0, 4 499 lignes contiguës (599 pour `smoke1`, 3 999 pour l'essai à 4),
 aucun « trace tronquée ».
 
 ### 3.1 gungeon (graine 10, étage franchi à la frame 3 502)
@@ -53,7 +53,7 @@ aucun « trace tronquée ».
 | `gung-e` | 4 500 | `STRESS=1` du Mac seul, **80 / 40 ms** | **23** / 9 580 | 9,4 / 8,6 | `0b094c2dfd2c1905…a9018aa` | **OK** : critères tenus des deux côtés |
 
 La même empreinte `0b094c2d…` sort de **chaque** essai, quels que soient les rôles, le stress ou la machine, et aussi des essais à un seul VPS sous netem (§5 : perte de 1 et 3 %,
-RTT 120 et 200 ms, canal fiable ou non, délai de déconnexion de 2 à 8 s) : 44 traces complètes sur 53 ; les 9 autres sont exactement celles des clients qui ont déconnecté leur pair (7 sessions perdues en cours de partie,
+RTT 120 et 200 ms, canal fiable ou non, délai de déconnexion de 2 à 8 s) : 44 traces sur 53 sont identiques (les 53 sont complètes, 4 499 lignes) ; les 9 autres sont exactement celles des clients qui ont déconnecté leur pair (7 sessions perdues en cours de partie,
 2 fins de partie), où chaque pair a continué seul. Un essai (`gung-c`) a échoué au lancement pour une erreur de
 mon script d'enchaînement (variable d'environnement vide devenue commande) : sans effet sur la preuve, non compté.
 
@@ -91,7 +91,7 @@ x86 : même défaite) ; il reste utile (inputs actifs, 11 093 frames resimulées
 
 ### 4.1 D73 : aucun écart x86 / arm64
 
-Aucune première frame divergente à chercher : 9 parties (20 clients) identiques, y compris les 29 800 frames resimulées des clients du Mac sous stress. La simulation est
+Aucune première frame divergente à chercher : 9 parties (20 clients) identiques, y compris les 29 800 frames resimulées des clients du Mac de l'essai à 4 (25 099 au plus dans un essai à 2 sous stress). La simulation est
 bit à bit la même sur x86-64 (statique, `rustc` 2026-10) et arm64 (dynamique, `rustc` 2026-03), avec un hash de checksum qui ne dépend pas de l'architecture. Limites : natif seulement (pas de wasm),
 une seule paire de machines, une graine par jeu.
 
@@ -103,7 +103,7 @@ sur le Mac (`gung-e`) ou `120 / 30` (`isa-c`). Ce n'est pas un défaut : `MIN_RE
 
 ### 4.3 `isaac --seed` (D97) et connexion jamais établie (D98)
 
-D97 : voir §3.2. D98 : sur 31 démarrages à 3 % de perte, un (`d87b-1`, RTT 200 ms) n'a jamais établi la connexion WebRTC : les deux clients restent à « Waiting for players: 1/2 connected » jusqu'au
+D97 : voir §3.2. D98 : sur 24 démarrages à 3 % de perte (31 essais, dont 7 à 1 %), un (`d87b-1`, RTT 200 ms) n'a jamais établi la connexion WebRTC : les deux clients restent à « Waiting for players: 1/2 connected » jusqu'au
 garde-fou de 900 s ; `wait_for_players` n'a aucun délai.
 
 ## 5. D87 : silences fatals sous perte de paquets
@@ -114,20 +114,20 @@ garde-fou de 900 s ; `wait_for_players` n'a aucun délai.
 graine 10, `run.ron` de §2), plus un échantillon du **taux d'occupation du CPU** toutes les 2 s (`/proc/stat`) ; `scripts/p2p-silences.py` lit les journaux horodatés (microsecondes) des deux clients :
 un silence repris vaut 500 ms (délai de notification GGRS) + l'écart `NetworkInterrupted` → `NetworkResumed` ; une déconnexion est classée **en cours de partie** ou **fin de partie** (un autre client avait déjà
 quitté : l'attente de 2 à 8 s avant la fin est alors normale). Cellules (delay = par sens, RTT = 2 ×) : A RTT 120 ± 20 ms perte 1 %, B RTT 120 ± 20 ms perte 3 %, C RTT 200 ± 20 ms perte 3 %.
-Réglages : `default` (canal fiable, 2 s), `timeout5000` / `timeout8000` (`ALACOD_DISCONNECT_TIMEOUT_MS`), `unreliable` (`ALACOD_P2P_CHANNEL=unreliable`, 2 s). 31 essais ; charge CPU de la machine 28 à 77 % en moyenne par essai
+Réglages : `timeout2000` (défaut de GGRS avant D87, canal fiable : étiqueté `default` dans les fichiers bruts de la mesure, le code n'avait alors pas d'autre défaut), `timeout5000` / `timeout8000` (`ALACOD_DISCONNECT_TIMEOUT_MS`, canal fiable), `unreliable` (`ALACOD_P2P_CHANNEL=unreliable`, 2 s). 31 essais ; charge CPU de la machine 28 à 77 % en moyenne par essai
 (b6 en parallèle : conditions réelles d'un poste partagé, et donc dites).
 
 ### 5.2 Résultats
 
 | Cellule | Réglage | Essais (valides) | Interruptions | Silences < 1 s / 1–1,5 s / 1,5–2,5 s / 2,5–4 s | Silence max repris | Session perdue en cours de partie | Fin de partie (pair parti) | CPU moyen |
 |---|---|---|---|---|---|---|---|---|
-| A  120 ms ±20, 1 % | default | 3 (3) | 8 | 1 / 6 / 0 / 0 | 1174 ms | **0 / 3** | 1 | 76 % |
+| A  120 ms ±20, 1 % | timeout2000 | 3 (3) | 8 | 1 / 6 / 0 / 0 | 1174 ms | **0 / 3** | 1 | 76 % |
 | A  120 ms ±20, 1 % | timeout5000 | 2 (2) | 2 | 0 / 2 / 0 / 0 | 1153 ms | **0 / 2** | 0 | 56 % |
 | A  120 ms ±20, 1 % | unreliable | 2 (2) | 3 | 0 / 3 / 0 / 0 | 1150 ms | **0 / 2** | 0 | 34 % |
-| B  120 ms ±20, 3 % | default | 3 (3) | 46 | 8 / 36 / 0 / 0 | 1252 ms | **2 / 3** | 0 | 48 % |
+| B  120 ms ±20, 3 % | timeout2000 | 3 (3) | 46 | 8 / 36 / 0 / 0 | 1252 ms | **2 / 3** | 0 | 48 % |
 | B  120 ms ±20, 3 % | timeout5000 | 2 (2) | 56 | 6 / 48 / 0 / 2 | 3161 ms | **0 / 2** | 0 | 74 % |
 | B  120 ms ±20, 3 % | unreliable | 2 (2) | 24 | 4 / 18 / 0 / 0 | 1273 ms | **1 / 2** | 0 | 48 % |
-| C  200 ms ±20, 3 % | default | 5 (5) | 100 | 26 / 71 / 1 / 0 | 1670 ms | **2 / 5** | 0 | 44 % |
+| C  200 ms ±20, 3 % | timeout2000 | 5 (5) | 100 | 26 / 71 / 1 / 0 | 1670 ms | **2 / 5** | 0 | 44 % |
 | C  200 ms ±20, 3 % | timeout5000 | 6 (5) | 124 | 43 / 77 / 0 / 3 | 3283 ms | **1 / 5** | 0 | 62 % |
 | C  200 ms ±20, 3 % | unreliable | 2 (2) | 48 | 13 / 34 / 0 / 0 | 1382 ms | **1 / 2** | 0 | 67 % |
 | C  200 ms ±20, 3 % | timeout8000 | 4 (4) | 119 | 35 / 80 / 0 / 3 | 3432 ms | **0 / 4** | 1 | 40 % |
@@ -136,23 +136,23 @@ Un essai de la cellule C n'a jamais établi la connexion (§4.3) ; il n'est pas 
 
 | Essai | Cellule | Réglage | Interruptions (c0 / c1) | Silence max reprise (ms) | Déconnexion | CPU moyen | Resimulées |
 |---|---|---|---|---|---|---|---|
-| d87-1 | A (120 ms ±20, 1 %) | default | 1/2 | 1174 | aucune | 76 % | 2648/2906 |
-| d87-2 | A (120 ms ±20, 1 %) | default | 0/2 | 1123 | fin de partie (pair parti) | 76 % | 2528/2774 |
-| d87-3 | A (120 ms ±20, 1 %) | default | 2/1 | 1163 | aucune | 77 % | 2745/2650 |
+| d87-1 | A (120 ms ±20, 1 %) | timeout2000 | 1/2 | 1174 | aucune | 76 % | 2648/2906 |
+| d87-2 | A (120 ms ±20, 1 %) | timeout2000 | 0/2 | 1123 | fin de partie (pair parti) | 76 % | 2528/2774 |
+| d87-3 | A (120 ms ±20, 1 %) | timeout2000 | 2/1 | 1163 | aucune | 77 % | 2745/2650 |
 | d87-4 | A (120 ms ±20, 1 %) | timeout5000 | 1/0 | 1115 | aucune | 67 % | 2908/2972 |
 | d87-5 | A (120 ms ±20, 1 %) | timeout5000 | 0/1 | 1153 | aucune | 46 % | 3097/3012 |
 | d87-6 | A (120 ms ±20, 1 %) | unreliable | 1/0 | 1125 | aucune | 34 % | 3130/3119 |
 | d87-7 | A (120 ms ±20, 1 %) | unreliable | 1/1 | 1150 | aucune | 33 % | 3222/3316 |
-| d87-8 | B (120 ms ±20, 3 %) | default | 5/5 | 1192 | **session perdue en cours de partie** | 28 % | 2382 |
-| d87-9 | B (120 ms ±20, 3 %) | default | 13/13 | 1214 | aucune | 44 % | 4736/4695 |
-| d87-10 | B (120 ms ±20, 3 %) | default | 6/4 | 1252 | **session perdue en cours de partie** | 71 % | 1736 |
+| d87-8 | B (120 ms ±20, 3 %) | timeout2000 | 5/5 | 1192 | **session perdue en cours de partie** | 28 % | 2382 |
+| d87-9 | B (120 ms ±20, 3 %) | timeout2000 | 13/13 | 1214 | aucune | 44 % | 4736/4695 |
+| d87-10 | B (120 ms ±20, 3 %) | timeout2000 | 6/4 | 1252 | **session perdue en cours de partie** | 71 % | 1736 |
 | d87-11 | B (120 ms ±20, 3 %) | timeout5000 | 14/17 | 3161 | aucune | 77 % | 3319/3386 |
 | d87-12 | B (120 ms ±20, 3 %) | timeout5000 | 13/12 | 1491 | aucune | 71 % | 3262/3248 |
 | d87-13 | B (120 ms ±20, 3 %) | unreliable | 6/9 | 1273 | aucune | 51 % | 2163/2535 |
 | d87-14 | B (120 ms ±20, 3 %) | unreliable | 5/4 | 1190 | **session perdue en cours de partie** | 46 % | 812 |
-| d87-15 | C (200 ms ±20, 3 %) | default | 8/13 | 1290 | aucune | 52 % | 3896/3783 |
-| d87-16 | C (200 ms ±20, 3 %) | default | 8/7 | 1375 | **session perdue en cours de partie** | 50 % | 2721 |
-| d87-17 | C (200 ms ±20, 3 %) | default | 14/14 | 1333 | aucune | 51 % | 3600/3992 |
+| d87-15 | C (200 ms ±20, 3 %) | timeout2000 | 8/13 | 1290 | aucune | 52 % | 3896/3783 |
+| d87-16 | C (200 ms ±20, 3 %) | timeout2000 | 8/7 | 1375 | **session perdue en cours de partie** | 50 % | 2721 |
+| d87-17 | C (200 ms ±20, 3 %) | timeout2000 | 14/14 | 1333 | aucune | 51 % | 3600/3992 |
 | d87-18 | C (200 ms ±20, 3 %) | timeout5000 | 2/1 | 1280 | **session perdue en cours de partie** | 61 % | 409 |
 | d87-19 | C (200 ms ±20, 3 %) | timeout5000 | 9/15 | 3283 | aucune | 67 % | 2983/3232 |
 | d87-20 | C (200 ms ±20, 3 %) | unreliable | 11/16 | 1319 | aucune | 67 % | 2910/3305 |
@@ -165,25 +165,26 @@ Un essai de la cellule C n'a jamais établi la connexion (§4.3) ; il n'est pas 
 | d87b-6 | C (200 ms ±20, 3 %) | timeout8000 | 19/16 | 1320 | aucune | 39 % | 3291/3170 |
 | d87b-7 | C (200 ms ±20, 3 %) | timeout8000 | 12/10 | 1324 | aucune | 38 % | 3747/3830 |
 | d87b-8 | C (200 ms ±20, 3 %) | timeout8000 | 12/18 | 3432 | fin de partie (pair parti) | 36 % | 4454/5128 |
-| d87b-9 | C (200 ms ±20, 3 %) | default | 3/2 | 1298 | **session perdue en cours de partie** | 28 % | 1689 |
-| d87b-10 | C (200 ms ±20, 3 %) | default | 16/15 | 1670 | aucune | 37 % | 4373/4549 |
+| d87b-9 | C (200 ms ±20, 3 %) | timeout2000 | 3/2 | 1298 | **session perdue en cours de partie** | 28 % | 1689 |
+| d87b-10 | C (200 ms ±20, 3 %) | timeout2000 | 16/15 | 1670 | aucune | 37 % | 4373/4549 |
 
 ### 5.3 Lecture
 
-1. **Les silences sont bimodaux.** Sur 520 silences repris : 136 de 0,5 à 1 s, 375 de 1,0 à 1,5 s (1,1 à 1,4 s pour l'essentiel), **8 de 3,0 à 3,4 s** (uniquement quand le délai de déconnexion le permettait), un seul entre les deux (1 670 ms). `webrtc-sctp` 0.17.2 fixe
-   `RTO_MIN` = 1 000 ms (`rtx_timer.rs:10`) et `RTO_INITIAL` = 3 000 ms : [INFERENCE, mécanisme non instrumenté] une retransmission SCTP après 1 s, puis après 2 s de plus quand la retransmission est elle aussi perdue
-   (1 + 2 = 3 s). Une session GGRS de 2 s ne tient donc pas la deuxième perte de suite.
-2. **Pas la charge.** Des sessions sont perdues à 28 % de CPU (`d87-8`, `d87b-9`) et tenues à 77 % (`d87-11`) ; les silences d'un client ne coïncident qu'en partie avec ceux de l'autre (5 sur 13 dans `d87-9`) : ce sont des silences
-   de **sens** de transmission, pas des pauses de la machine.
+1. **Les silences ont trois modes.** Sur 520 silences repris : 136 de 0,5 à 1 s (dont 110 de 0,5 à 0,7 s), 375 de 1,0 à 1,5 s (1,1 à 1,4 s pour l'essentiel), **8 de 3,0 à 3,4 s** (uniquement quand le délai de déconnexion
+   le permettait), un seul entre les deux (1 670 ms). `webrtc-sctp` 0.17.2 fixe `RTO_MIN` = 1 000 ms (`rtx_timer.rs:10`) et `RTO_INITIAL` = 3 000 ms : [INFERENCE, rien n'instrumente SCTP] les silences de 0,5 à 0,7 s seraient une
+   retransmission rapide, ceux de 1,0 à 1,5 s une retransmission après `RTO_MIN`, ceux de 3 s une deuxième retransmission après 2 s de plus (1 + 2 = 3 s). Une session GGRS de 2 s ne tient pas ce troisième mode.
+2. **La charge CPU de ce poste ne l'explique pas.** Des sessions sont perdues à 28 % de CPU (`d87-8`, `d87b-9`) et tenues à 77 % (`d87-11`) ; les silences d'un client ne coïncident qu'en partie avec ceux de l'autre (5 interruptions sur 13
+   de `d87-9` démarrent à moins de 0,5 s d'une interruption de l'autre client) : plutôt des silences d'un **sens** de transmission que des pauses de la machine. Une charge externe extrême (8 à 11 sur 8 cœurs, m2-p2p-run-complete §3.5)
+   déconnectait déjà des pairs sans netem : non rejouée ici, elle reste une cause possible.
 3. **Le canal non fiable ne les supprime pas.** Mêmes silences de 1,1 à 1,4 s à 1 % comme à 3 %, et 2 sessions perdues sur 4 à 3 % : [INFERENCE] l'arrêt est dans l'association SCTP elle-même (cwnd, minuteries), pas dans l'ordre de livraison du canal.
-4. **Le délai de déconnexion règle le problème, en grande partie.** À 3 % de perte par sens (B et C ensemble) : session perdue en cours de partie **4 fois sur 8 à 2 s, 2 sur 4 non fiable, 1 sur 7 à 5 s, 0 sur 4 à 8 s** ; à 1 % : 0 sur 7 tous réglages
-   (le seul « échec » du script y est la fin de partie du client 1 attendant 2 s un pair parti). Le seul échec à 5 s (`d87-18`, 5 096 ms de silence, frame ~300) est une chaîne de trois retransmissions.
-5. **Coût d'un délai plus long.** Un pair réellement parti est constaté après 5 s au lieu de 2 s (`p2p-disconnect.sh`, SIGKILL du client 1 à 40 s, délai 5 s : `NetworkInterrupted` à 40,2 s, `Disconnected` à 44,8 s,
-   survivant sans panique ni `DesyncDetected`, 4 499 lignes de trace) ; pendant ce temps la partie attend la fin de la fenêtre de prédiction, rien d'autre. 8 s serait la limite d'un tel système mais retarde d'autant
+4. **Le délai de déconnexion règle le problème, en grande partie.** À 3 % de perte par sens (B et C ensemble) : session perdue en cours de partie **4 fois sur 8 à 2 s, 2 sur 4 non fiable, 1 sur 7 à 5 s, 0 sur 4 à 8 s** ; à 1 % : 0 sur 7 tous réglages.
+   Deux essais sur 31 (`d87-2` à 2 s, `d87b-8` à 8 s) finissent autrement : le client 1 attend la fin du délai un pair qui a fini et quitté, puis valide ses dernières frames avec les inputs par défaut du pair parti ;
+   les dernières lignes de sa trace (lignes 4 496 et 4 498) diffèrent et `p2p-stress.sh` les compte en échec. Une course de fin de partie, pas une perte de session ; indépendante du délai (aucun cas sur les 7 essais à 5 s). Le seul échec à 5 s (`d87-18`, 5 096 ms de silence, frame ~300) est un silence de plus de 5 s ([INFERENCE] : trois retransmissions de suite, non instrumenté).
+5. **Coût d'un délai plus long.** Un pair réellement parti est constaté après 5 s au lieu de 2 s (`p2p-disconnect.sh`, SIGKILL du client 1 après 40 s, délai 5 s : 4,56 s entre `NetworkInterrupted` et `Disconnected` (silence total 5,06 s), survivant sans panique ni `DesyncDetected`, 4 499 lignes de trace) ; pendant ce temps la partie attend la fin de la fenêtre de prédiction, rien d'autre. 8 s serait la limite d'un tel système mais retarde d'autant
    chaque départ réel (la fin de partie d'`d87b-8` attend 8 s) : non retenu avec 4 essais.
 6. **Le `DesyncDetected` suit la déconnexion** : dans 6 des 7 sessions perdues en cours de partie, le pair qui n'a pas déconnecté reçoit `DesyncDetected` 0,08 à 0,18 s après le `Disconnected` de l'autre
    (`d87-8` : frame 1970 ; `d87-10` : 2070 ; `d87-16` : 3070 ; `d87-18` : 320 ; `d87-21` : 3900 ; `d87b-9` : 1570) ; dans la septième (`d87-14`), les deux pairs se sont déconnectés à 7 s d'écart et le desync (frame 1550) tombe
-   0,02 s après le second. Aucun `DesyncDetected` sans déconnexion préalable sur les 31 essais, et la première ligne différente de `d87-2` (fin de partie) est la 4 495 : [INFERENCE] une conséquence de la session coupée, pas un écart de simulation.
+   0,02 s après le second. Aucun `DesyncDetected` sans déconnexion préalable sur les 31 essais, et la première ligne différente de `d87-2` (fin de partie) est la 4 496 : [INFERENCE] une conséquence de la session coupée, pas un écart de simulation.
 
 ### 5.4 Décision
 

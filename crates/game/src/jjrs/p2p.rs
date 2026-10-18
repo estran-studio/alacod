@@ -61,9 +61,8 @@ pub const CHANNEL_ENV: &str = "ALACOD_P2P_CHANNEL";
 pub const DISCONNECT_TIMEOUT_ENV: &str = "ALACOD_DISCONNECT_TIMEOUT_MS";
 
 /// Silence d'un pair au bout duquel GGRS le déclare déconnecté (la notification `NetworkInterrupted`, elle,
-/// reste à 500 ms). D87 : le défaut de GGRS (2 s) est dépassé sous perte de paquets : WebRTC/SCTP retransmet
-/// après un délai de 1 s au moins, doublé à chaque retransmission perdue, d'où des silences de 1,1 à 1,4 s
-/// (une perte) puis de 3,1 à 3,4 s (deux pertes de suite) ; à 3 % de perte par sens, 4 essais sur 8 perdaient
+/// reste à 500 ms). D87 : le défaut de GGRS (2 s) est dépassé sous perte de paquets : le pair se tait 1,0 à 1,5 s
+/// (une retransmission SCTP après `RTO_MIN` = 1 s, [INFERENCE]) puis 3,0 à 3,4 s (deux de suite) ; à 3 % de perte par sens, 4 essais sur 8 perdaient
 /// la session en cours de partie avec 2 s, 1 sur 7 avec 5 s (rapport `m2-p2p-deux-machines` §5). Le coût :
 /// un pair réellement parti est constaté au bout de 5 s au lieu de 2 s (la partie attend, c'est tout).
 pub const DISCONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);

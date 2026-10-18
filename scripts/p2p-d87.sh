@@ -5,12 +5,13 @@
 # mesure à chaque essai (`scripts/p2p-silences.py`) la durée de chaque silence du pair (journaux GGRS
 # horodatés), les déconnexions et la charge de la machine (taux d'occupation du CPU, un échantillon toutes les
 # 2 s). Les réglages d'essai sont `ALACOD_DISCONNECT_TIMEOUT_MS` et `ALACOD_P2P_CHANNEL=unreliable`
-# (`game::jjrs::p2p`) ; le défaut du jeu est le canal fiable et 2 000 ms.
+# (`game::jjrs::p2p`) ; le défaut du jeu est le canal fiable et `p2p::DISCONNECT_TIMEOUT` (5 s depuis D87, 2 s avant).
 #
 # Usage : scripts/p2p-d87.sh <script-inputs.ron> <frames> <sortie-dossier>
 # Variables : CELLS (« delay 60ms 10ms loss 1%|delay 60ms 10ms loss 3%|delay 100ms 10ms loss 3% », séparées par `|`),
-#   VARIANTS (« default|timeout5000|unreliable »), REPS (« 3 » : répétitions par cellule et variante, ou
-#   « default=3,timeout5000=2,unreliable=2 »), GAME (gungeon), GAME_ARGS (« --seed 10 »), P2P_WAIT_CALM.
+#   VARIANTS (« timeout2000|timeout5000|unreliable » ; `timeoutNNNN` fixe le délai de déconnexion en ms avec le canal fiable,
+#   `unreliable` : canal non fiable et 2 000 ms, comme à la mesure ; `default` : les défauts du jeu tels quels), REPS (« 3 » : répétitions par cellule et variante, ou
+#   « timeout2000=3,timeout5000=2,unreliable=2 »), GAME (gungeon), GAME_ARGS (« --seed 10 »), P2P_WAIT_CALM.
 # Écrit `<sortie>/summary.tsv` (une ligne par essai) et garde `<sortie>/<essai>/` (journaux, silences, charge).
 set -uo pipefail
 
@@ -22,7 +23,7 @@ OUTDIR=$(cd "$3" && pwd)
 GAME=${GAME:-gungeon}
 GAME_ARGS=${GAME_ARGS:---seed 10}
 CELLS=${CELLS:-delay 60ms 10ms loss 1%|delay 60ms 10ms loss 3%|delay 100ms 10ms loss 3%}
-VARIANTS=${VARIANTS:-default|timeout5000|unreliable}
+VARIANTS=${VARIANTS:-timeout2000|timeout5000|unreliable}
 REPS=${REPS:-3}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
@@ -69,7 +70,7 @@ for cell in "${cells[@]}"; do
             case "$variant" in
                 default) ;;
                 timeout*) envs+=("ALACOD_DISCONNECT_TIMEOUT_MS=${variant#timeout}") ;;
-                unreliable) envs+=("ALACOD_P2P_CHANNEL=unreliable") ;;
+                unreliable) envs+=("ALACOD_P2P_CHANNEL=unreliable" "ALACOD_DISCONNECT_TIMEOUT_MS=2000") ;;
                 *) echo "variante inconnue : $variant"; exit 2 ;;
             esac
             loadpid=$(sample_load "$dir/load.log")

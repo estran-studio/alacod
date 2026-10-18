@@ -80,8 +80,8 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
 3. **La partie en ligne n'a pas de politique de session** (dette, pas prioritaire : décision du
    2026-10-15). Une déconnexion termine la partie
    pour tout le monde (overlay et sortie du processus) alors que GGRS continue sans le pair
-   parti ; pas de spectateur (`PlayerType::Spectator` n'est jamais ajouté au builder), pas de
-   réglage de `disconnect_timeout`, flux allumette bloquant sur le thread principal avec
+   parti ; pas de spectateur (`PlayerType::Spectator` n'est jamais ajouté au builder), `disconnect_timeout` réglé à 5 s depuis D87 (2026-10-18, le défaut de GGRS
+   étant 2 s), flux allumette bloquant sur le thread principal avec
    `process::exit`. Pour une coop à 4, décider : continuer à 3, ou fin de partie ; le code fait
    aujourd'hui le choix le plus brutal par défaut.
 
@@ -110,7 +110,7 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 3. **P2P intégré.** Au moins une run complète à deux, puis quatre joueurs lorsque le clone les
    supporte, avec combat, choix/objets, boss, transitions et restart. Inclure deux machines distinctes.
    Garder des inputs actifs : le smoke de 600 frames à inputs neutres ne valide pas cette boucle.
-   *Deux machines faites le 2026-10-18* (`docs/taches/rapports/m2-p2p-deux-machines.md`) : VPS x86-64 contre Mac arm64 (M1 Pro), signaling
+   *Deux machines faites le 2026-10-18* (`docs/taches/rapports/m2-p2p-deux-machines.md`, essais sur `7ee084e8`, reprise sur le commit livré au §3.4) : VPS x86-64 contre Mac arm64 (M1 Pro), signaling
    `matchbox_server` sur le VPS (le serveur public `allumette.bascanada.org` ne résout plus), gungeon graine 10 avec étage franchi f3502,
    isaac avec étage franchi f2922 (inputs figés de bots, 4 500 frames, rollbacks réels des deux côtés) et 4 clients (2 par machine, étage
    f3369, 4 000 frames) : traces identiques, 0 `DesyncDetected`. Reste de ce point : la revue humaine (point 7).
@@ -131,10 +131,10 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
    Profondeur maximale mesurée 11 sur neuf exécutions, jamais 12 (fenêtre de prédiction 12). Profondeur = frames resimulées = dernière frame avancée − frame restaurée (corrigée à la revue 2 : une première
    version la déduisait des clés de trace et la surestimait). Trois exécutions par condition (rapport de la dette, §4) : médiane stable, maximum de la condition « naturelle » et fréquence sous netem variables.
    *D87 mesurée le 2026-10-18* (rapport `m2-p2p-deux-machines` §5 ; 2 clients, gungeon graine 10, 31 essais, netem sans root, une machine partagée) :
-   la perte de paquets donne des silences du pair de 1,1 à 1,4 s (une retransmission SCTP, `RTO_MIN` 1 s) et de 3,0 à 3,4 s (deux de suite) ;
-   GGRS déconnectait à 2 s : à 3 % de perte par sens (RTT 120 et 200 ms) 4 essais sur 8 perdaient la session en cours de partie ; réglage
+   la perte de paquets donne des silences du pair de 0,5 à 1 s, de 1,0 à 1,5 s et de 3,0 à 3,4 s (compatibles avec une retransmission rapide, une
+   retransmission SCTP après `RTO_MIN` = 1 s, puis une seconde ; [INFERENCE], rien n'instrumente SCTP) ; GGRS déconnectait à 2 s : à 3 % de perte par sens (RTT 120 et 200 ms) 4 essais sur 8 perdaient la session en cours de partie ; réglage
    porté à **5 s** (`p2p::DISCONNECT_TIMEOUT`) : 1 essai sur 7 ; à 1 % de perte (RTT 120 ms) 0 perte de session sur 7 essais, tous réglages
-   confondus. Un canal non fiable n'y change rien. Pas encore mesuré : un WAN autre que VPS ↔ Mac (RTT 27 à 41 ms, Mac derrière un NAT).
+   confondus. Un canal non fiable n'y change rien. Pas mesurés : RTT 60 ms, jitter nul avec perte, pertes en rafale, un WAN autre que VPS ↔ Mac (RTT 27 à 41 ms, Mac derrière un NAT).
 5. **Plateformes.** Pour chaque combinaison annoncée (natif, navigateur, architectures différentes),
    comparer une même partie et ses états confirmés. Le fixed-point seul ne prouve pas la compatibilité
    des builds ni la stabilité des fonctions de hash entre plateformes/toolchains.
