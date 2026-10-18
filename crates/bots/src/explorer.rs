@@ -23,7 +23,7 @@
 //! chaque frame depuis les composants et ressources rollback ; les champs de navigation sont des
 //! caches dont les clés contiennent toute la géométrie (vider le cache donne le même input).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -80,6 +80,62 @@ const VISIT_INSET: Fixed = Fixed::from_bits(24 << 16);
 #[derive(Resource, Debug, Clone, Default, PartialEq, Eq)]
 pub struct ExplorerVisits(pub BTreeSet<(usize, String)>);
 
+/// Phase de patience d'un `explorateur` (m2-salles-murs-gungeon, D82) : le pilotage touche par touche,
+/// décalé de 5 frames et avec de l'élan, peut tourner en cycle limite devant une ouverture de 32 px
+/// (corps de 20 px) quel que soit le gain de correction (essais : avance de 5 frames, de 8 frames : chacun
+/// débloque certaines graines et en bloque d'autres). Un bot resté à moins de [`STALL_RADIUS`] de son
+/// ancre pendant [`STALL_FRAMES`] frames sans ennemi ni butin change de manière : **Settle** (aucune
+/// touche : l'élan s'éteint) puis **Go** (cap droit sur l'axe du trajet, l'écart transverse de moins de
+/// [`GO_TRANSVERSE`] n'est pas corrigé) ; la séquence recommence tant que le bot ne bouge pas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Patience {
+    #[default]
+    Normal,
+    Settle,
+    Go,
+}
+
+/// Rayon de l'ancre (le cycle limite observé fait ±8 px en x et ±12 px en y, soit 24 px d'amplitude).
+const STALL_RADIUS: Fixed = Fixed::from_bits(40 << 16);
+/// Frames sans quitter l'ancre avant la première phase de repli.
+const STALL_FRAMES: u32 = 100;
+/// Durée de l'arrêt (frames), puis du cap droit ; la séquence dure [`PATIENCE_CYCLE`].
+const SETTLE_FRAMES: u32 = 15;
+const PATIENCE_CYCLE: u32 = 60;
+/// Écart transverse toléré pendant le cap droit (la marge d'une ouverture de 32 px pour un corps de 20 px).
+const GO_TRANSVERSE: Fixed = Fixed::from_bits(6 << 16);
+
+/// Ancre (position, frame d'arrivée) par handle : mémoire hors rollback, comme [`ExplorerVisits`].
+#[derive(Resource, Debug, Clone, Default, PartialEq)]
+pub struct ExplorerPatience(pub BTreeMap<usize, (FixedVec2, u32)>);
+
+impl ExplorerPatience {
+    /// Phase du joueur `handle` à la frame `frame` ; `has_goal` : un cap d'exploration existe (sinon l'ancre
+    /// est oubliée : attendre sans but n'est pas bloqué).
+    pub fn phase(
+        &mut self,
+        handle: usize,
+        frame: u32,
+        position: FixedVec2,
+        has_goal: bool,
+    ) -> Patience {
+        let entry = self.0.entry(handle).or_insert((position, frame));
+        if !has_goal || entry.0.distance(&position) > STALL_RADIUS {
+            *entry = (position, frame);
+            return Patience::Normal;
+        }
+        let stalled = frame.saturating_sub(entry.1);
+        if stalled < STALL_FRAMES {
+            return Patience::Normal;
+        }
+        if (stalled - STALL_FRAMES) % PATIENCE_CYCLE < SETTLE_FRAMES {
+            Patience::Settle
+        } else {
+            Patience::Go
+        }
+    }
+}
+
 /// Ce que l'exploration ajoute à la [`BotView`] d'un `explorateur`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct ExploreView {
@@ -90,6 +146,8 @@ pub struct ExploreView {
     pub interact: bool,
     /// Presser Blank cette frame (front montant).
     pub blank: bool,
+    /// Phase de patience (voir [`Patience`]).
+    pub patience: Patience,
 }
 
 /// Réglages des `explorateur` (ressource ordinaire, hors rollback et hors simulation, posée avant
@@ -237,6 +295,7 @@ pub struct ExplorerWorld<'w, 's> {
     wallets: Query<'w, 's, (&'static Player, &'static run::Currency)>,
     options: Option<Res<'w, ExplorerOptions>>,
     visits: ResMut<'w, ExplorerVisits>,
+    pub patience: ResMut<'w, ExplorerPatience>,
     floor: Option<Res<'w, run::FloorState>>,
 }
 
@@ -592,6 +651,18 @@ pub(crate) fn lead(direction: FixedVec2, velocity: FixedVec2) -> FixedVec2 {
     }
 }
 
+/// Cap droit de la phase [`Patience::Go`] : l'écart transverse sous [`GO_TRANSVERSE`] n'est pas corrigé.
+pub(crate) fn straight(direction: FixedVec2) -> FixedVec2 {
+    if direction.x.abs() >= direction.y.abs() {
+        if direction.y.abs() < GO_TRANSVERSE {
+            return FixedVec2::new(direction.x, Fixed::ZERO);
+        }
+    } else if direction.x.abs() < GO_TRANSVERSE {
+        return FixedVec2::new(Fixed::ZERO, direction.y);
+    }
+    direction
+}
+
 /// Délai entre la décision du bot et l'effet de la touche (5 frames à 60 Hz, `ALACOD_INPUT_DELAY`).
 const INPUT_LAG_SECONDS: Fixed = Fixed::from_bits(5461); // 5/60 × 65536
 
@@ -607,7 +678,13 @@ pub fn decide_explorer(view: &BotView) -> BoxInput {
     let mut input = match explore.direction {
         Some(direction) if !busy => {
             let mut input = BoxInput::default();
-            crate::decide::steer(&mut input, lead(direction, view.velocity));
+            match explore.patience {
+                Patience::Normal => {
+                    crate::decide::steer(&mut input, lead(direction, view.velocity));
+                }
+                Patience::Settle => {}
+                Patience::Go => crate::decide::steer(&mut input, straight(direction)),
+            }
             if explore.interact {
                 input.buttons |= INPUT_INTERACTION;
             }
@@ -925,5 +1002,49 @@ mod tests {
         // Cap à l'est : c'est y qui est transverse.
         let d = lead(v(10.0, 2.0), v(0.0, -150.0));
         assert!(d.y > fx(10.0) && d.x == fx(10.0), "{d:?}");
+    }
+
+    #[test]
+    fn patience_arret_puis_cap_droit_quand_le_bot_tourne_en_rond() {
+        let mut patience = ExplorerPatience::default();
+        let at = |x: f32, y: f32| v(x, y);
+        // En mouvement (ou sans but) : jamais de repli, l'ancre suit.
+        for frame in 0..300 {
+            let p = patience.phase(0, frame, at(frame as f32 * 3.0, 0.0), true);
+            assert_eq!(p, Patience::Normal);
+        }
+        // Oscille sur place (±12 px) avec un but : Normal jusqu'à STALL_FRAMES, puis arrêt, puis cap droit.
+        let mut phases = Vec::new();
+        for frame in 1000..1000 + STALL_FRAMES + PATIENCE_CYCLE + 5 {
+            let wobble = if frame % 20 < 10 { 12.0 } else { -12.0 };
+            phases.push(patience.phase(0, frame, at(0.0, wobble), true));
+        }
+        let first = |phase| phases.iter().position(|p| *p == phase).unwrap() as u32;
+        assert_eq!(first(Patience::Settle), STALL_FRAMES);
+        assert_eq!(first(Patience::Go), STALL_FRAMES + SETTLE_FRAMES);
+        // La séquence recommence (arrêt puis cap droit) tant que le bot ne bouge pas.
+        assert_eq!(
+            phases[(STALL_FRAMES + PATIENCE_CYCLE) as usize],
+            Patience::Settle
+        );
+        // Sans but, l'ancre est oubliée ; un autre joueur a sa propre ancre.
+        assert_eq!(
+            patience.phase(0, 2000, at(0.0, 0.0), false),
+            Patience::Normal
+        );
+        assert_eq!(
+            patience.phase(1, 2000, at(0.0, 0.0), true),
+            Patience::Normal
+        );
+    }
+
+    #[test]
+    fn le_cap_droit_ne_corrige_pas_un_petit_ecart_transverse() {
+        // Cap au nord, 4 px d'écart latéral (< 6) : tout droit.
+        assert_eq!(straight(v(4.0, 10.0)), v(0.0, 10.0));
+        // Écart de 8 px : corrigé comme avant.
+        assert_eq!(straight(v(8.0, 10.0)), v(8.0, 10.0));
+        // Cap à l'est : c'est y qui est transverse.
+        assert_eq!(straight(v(10.0, -5.0)), v(10.0, 0.0));
     }
 }

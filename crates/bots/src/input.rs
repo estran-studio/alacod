@@ -118,6 +118,7 @@ impl Plugin for BotsPlugin {
         app.init_resource::<EnemyMoves>();
         app.init_resource::<crate::explorer::ExplorerOptions>();
         app.init_resource::<crate::explorer::ExplorerVisits>();
+        app.init_resource::<crate::explorer::ExplorerPatience>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
             |mut choices: ResMut<WeaponChoices>, mut moves: ResMut<EnemyMoves>| {
@@ -746,6 +747,12 @@ pub fn read_bot_inputs(
                         explore.interact = interact;
                     }
                 }
+                explore.patience = explorer.patience.phase(
+                    player.handle,
+                    frame.frame,
+                    position,
+                    explore.direction.is_some() && !explore.interact,
+                );
                 view.explore = Some(explore);
             }
         }
