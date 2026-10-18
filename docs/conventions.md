@@ -6525,8 +6525,14 @@ les 30 frames (103 refus en 3 000 frames) ; le joueur 1, qui pourrait l'acheter,
 
 Les chiffres sont des informations, pas des objectifs (décision de William). La campagne est à refaire avec le bot de T14 (cœurs, bombe, clés, achats) : mêmes commandes.
 
-**Dettes** : D99 (le bot bloque sur un cœur à pleine vie, au sol ou en boutique ; sa réanimation est interrompue par l'esquive ; `FOUR_WAY_LANE`, 14, dépasse la demi-largeur du collider du `gardien`, 10 ; il ignore les rochers), D100 (le détecteur
-de soft-lock d'`alacod-sim`, 1 200 frames sans ennemi en moins, prend un long trajet pour un soft-lock : 32 graines prolongées, aucune ne gèle), D107 (le planificateur de grille évalue ×8,6 candidats avec neuf gabarits de combat) ; le bot n'achète pas au diable et ne pose pas de bombe contre un mur secret (T14) ; la boutique n'exerce pas
+**Intégration de T14 (D106, `m3-t14-bot-isaac` fusionné, §79).** Le bot de T14 pose des bombes par défaut dès qu'un joueur en porte une : la bombe de départ de `pleureur` les active dans tous les scénarios isaac à `explorateur`.
+**Quatorze traces rebénies** (les dix `bot_isaac_*` de T14, recalés sur les graines des vingt gabarits et la bombe de départ réelle, sans kit d'essai ; `grid_floor_seed_1/23/123`, `grid_post_boss` à `Armor +200`, `isaac_floor_seed_1`, `achievement_unlocks`) ;
+**preuve §5** : bombe portée avec les décisions de bombe du bot coupées (`bombs: (secret: false, rocks: false)`) = identique à l'état sans bombe sur neuf scénarios ; avec elles, la première frame qui diffère est le **trajet vers le mur secret**, 100 à 350 frames
+**avant** la pose (le critère de T14 « première frame = première bombe posée » est trop strict). **Campagnes `s1`, `i2`, `i4` rejouées sur le contenu livré** (séquence par défaut, bombe de départ réelle, `--pickup-progress`, sans `--bombs`) : s1 **29 victoires, 171 morts**, i2 **115 victoires, 85 morts**,
+i4 **20 victoires sur 20** ; **0 desync, 0 soft-lock** (420 graines) ; les 45 graines laissées en soft-lock par le bot d'avant T14 finissent toutes en victoire ou en mort. D106 et D100 fermées, D99 réduite à l'esquive qui coupe la réanimation. Atteignabilité du bot : mur secret à la bombe 187 graines sur 200 (s1),
+porte à clé 51, achats en boutique 143 ; **aucune bombe de rocher en partie ordinaire** (rochers dans les angles : 45 poses = 45 murs secrets sur 40 graines ; rochers cassés par le souffle : 29 dans 12 graines) ; achat au diable : `Never` par défaut (Q14). Détail : rapport § 10, résumé `m3-t11d1-gabarits.campagne-t14.tsv`.
+
+**Dettes** : D99 (la réanimation du bot est interrompue par l'esquive ; ses autres blocages de la première campagne, cœur à pleine vie, visée du `gardien`, rochers, sont fermés par T14), D100 fermée (détecteur : `--pickup-progress`), D107 (le planificateur de grille évalue ×8,6 candidats avec neuf gabarits de combat) ; le bot n'achète pas au diable et ne pose pas de bombe contre un mur secret (T14) ; la boutique n'exerce pas
 `shop.cost: Currency(n)` (les prix passent par `economy.ron`) ; D93 reste ouverte (quatre scénarios gagnent par armure).
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
@@ -6735,8 +6741,7 @@ rejouée sans BLESS, dont les 25 scénarios à `explorateur` de `main` : `bot_ex
 de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `gungeon`, `throne`, `zombies` ou `testbed`
 (hors cartes d'essai). **Cette inertie tient parce que personne ne porte de bombe** : `BombPolicy::default()` a `secret` et `rocks` vrais.
 Quand `pleureur` portera `bomb` (T11d1), les scénarios isaac à `explorateur` en politique par défaut poseront des bombes et leurs traces
-bougeront : le défaut reste tel quel, **la branche mergée en second rebénit ces traces avec preuve §5** (première frame qui diffère = première
-bombe posée) **et rejoue les campagnes `s1`, `i2`, `i4`** (dette D106).
+bougeront : le défaut reste tel quel, **la branche mergée en second rebénit ces traces avec preuve §5** et rejoue les campagnes `s1`, `i2`, `i4` : **fait par M3-T11d1 (§76.4, D106 fermée)**.
 
 ### Politique en données : `ExplorerPolicy`
 
@@ -6829,12 +6834,9 @@ bombe posée) **et rejoue les campagnes `s1`, `i2`, `i4`** (dette D106).
 
 ### Bombes d'essai
 
-Le personnage d'`isaac` n'a **ni `bomb` ni bombe de départ** avant M3-T11d (décision de l'orchestrateur, §69 : le faire change
-toutes ses traces) : une partie ordinaire ne peut donc pas poser de bombe, même ramassée (`bomb_place_system` exige `BombCarrier`).
-Les campagnes jouent donc **deux** configurations : « livrée » (rien) et « essai » (`alacod-sim --bombs 1` : chaque bot reçoit
-`PlayerScript::bomb` = mèche 60, rayon 56, dégâts 4, tir ami `Always`, et une bombe dans `items`, comme un `BombCarrier` + `starting_consumables` le
-feraient) ; les bombes ramassées (récompense de salle, secrète) s'ajoutent à la seconde. Quand T11d donnera la bombe au personnage, le bot
-lit sa `BombDef` dans le `BombCarrier` (rayon, mèche) : rien à changer.
+**Depuis M3-T11d1 (§76.4, D81 fermée), `pleureur` porte une bombe de départ réelle** (`bomb` : mèche 75, rayon 56, 4 PV, tir ami `Always` ; `starting_consumables: {"bomb": 1}`) : les campagnes d'`isaac` jouent la configuration « livrée »
+**sans kit** (`kit de bombes None` au journal d'`alacod-sim`) et les scénarios n'ont plus besoin de `PlayerScript::bomb` ni de `items: ["bomb"]`. Le kit `--bombs <n>` reste disponible pour un jeu dont le personnage n'a pas de bombe (mèche 60, rayon 56, dégâts 4, tir ami `Always`,
+une bombe dans `items`). Le bot lit la `BombDef` du `BombCarrier` (rayon, mèche) : rien à changer.
 
 ### Soft-lock et diagnostic
 

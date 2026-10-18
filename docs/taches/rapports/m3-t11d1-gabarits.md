@@ -68,7 +68,7 @@ Séquence par défaut d'`isaac` (`entry.floors: sous_sol`, deux étages, grammai
 | Curses | une chance de 0,3 par étage | 1 (`maze` puis `blind`), 2 (`darkness`), 13 (`blind`), 19 (`labyrinth`), 42 (`unknown`) ; 3 : aucune | `isaac_floor_seed_1`, `isaac_hud_items` (`maze`), `curse_*` (séquence `sous_sol_maudit`) |
 | Accomplissements | deux parties d'affilée | — | `achievement_unlocks` (une run) et `achievement_not_met` ; deux runs enchaînées : `crates/scenario/tests/achievements.rs` (`les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante`) |
 
-Mécaniques qui demandent le bot de T14 (prouvées par scénario scripté **maintenant**, campagne à refaire quand `m3-t14-bot-isaac` sera sur `main`) : bombe sur le mur secret
+Mécaniques qui demandent le bot de T14 (prouvées par scénario scripté, puis **par campagne : voir le § 10.3, fait à l'intégration de T14**) : bombe sur le mur secret
 (`grid_secret_bomb`), bombe sur un rocher (`isaac_bomb_rock`), porte à clé (`grid_treasure_key`), achat en boutique (`isaac_shop_buy` ; le bot actuel `--shopping` achète déjà : « paie 15 »
 dans les journaux de la campagne), achat au diable (`devil_deal_isaac` seul : aucun scénario ne le joue dans un étage assemblé), cœur ramassé à vie basse (bloque le bot à pleine vie : D99).
 
@@ -79,7 +79,7 @@ boutique absente (larmes, effets, familiers, clés : 4 ; cœurs, sous et boutiqu
 `oeil`, `ricochet`, `satellite`, `venin`, `vent_arriere`), aucun personnage à `bomb` (1), aucun rocher (1), aucune pique (1), curses de la séquence par défaut (1). Hors isaac : `zombies` 0, `throne` 0, `gungeon` 1, `testbed` 115, inchangés
 (`make lint` ×5 : « aucune erreur » pour les cinq).
 
-## 5. Campagne de contrôle (bot actuel, séquence par défaut)
+## 5. Campagne de contrôle (bot d'avant T14, séquence par défaut ; **remplacée par le § 10.2**, bot de T14)
 
 `alacod-sim --game isaac --bots N --profiles explorateur[,explorateur] --shopping --floors sous_sol --until-floor 2 --seeds A..B --max-frames 20000`, lots de 20 graines, sur la branche (aucun
 réglage pour viser une fourchette). Script versionné : `docs/taches/rapports/m3-t11d1-gabarits.campagne.sh` (`tout`, un lot, `resume`), JSON et journal par lot dans `/tmp/t11d1/camp`. Durée : 6 à 11 minutes par lot de 20 graines sur la machine partagée.
@@ -230,3 +230,60 @@ champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`, `hit_ifr
 D81 fermée. D93 annotée et retitrée (quatre scénarios gagnent par armure : `grid_floor_seed_1`, `isaac_floor_seed_1`, `achievement_unlocks`, `grid_post_boss` à `Armor +100`). D99 (bot), D100 (détecteur de soft-lock) et D107 (planificateur de grille) ouvertes
 (numérotées D99, D100 après la collision avec `m3-t15-bench-larmes`, qui garde D97 et D98).
 Q14 (fourchette de franchissement) : sans objet tant que l'équilibrage par bot n'est pas rouvert.
+
+## 10. Intégration de T14 (`m3-t14-bot-isaac`, dette D106)
+
+`origin/m3-t14-bot-isaac` `3feaeb87` fusionné dans la branche (conflits : `CLAUDE.md`, §79 des conventions, `dettes.md` ; ma dette « planificateur » devient **D107**, T14 réserve D101 à D106). Le bot de T14 pose des bombes par défaut
+(`BombPolicy::default()`) dès qu'un joueur en porte une : la bombe de départ de `pleureur` les active dans tous les scénarios isaac à `explorateur`, comme T14 l'avait annoncé.
+
+### 10.1 Traces rebénies (14) et preuve §5
+
+La suite sans BLESS sur la fusion : **seuls 14 scénarios isaac échouent**, aucun autre jeu ne bouge. Causes : (1) les 10 `bot_isaac_*` de T14 étaient écrits pour un `isaac` sans bombe, sans boutique et sur l'ancien plan (kit d'essai `PlayerScript::bomb` et `items`) ;
+(2) `grid_floor_seed_1/23/123`, `grid_post_boss`, `isaac_floor_seed_1`, `achievement_unlocks` : le bot pose maintenant la bombe de départ contre le mur secret et ses chronologies bougent.
+
+| Scénario | Ce qui change | Recalage |
+|---|---|---|
+| `bot_isaac_secret` | graine 39 (la 8 de T14 n'a plus la secrète au sud du départ) ; **bombe de départ réelle** (mèche 75), plus de kit | bombe f19, explosion f93, mur ouvert f94, coffre secret f1412 |
+| `bot_isaac_two` | idem, deux bots (un seul poseur, `GoalContext::peers`) | bombe f19 (joueur 0), trois achats f1755 à f1792, victoire f2224 |
+| `bot_isaac_floor` | graine 6 (la 48 « sans bombe » n'a plus de sens) : **les deux étages, bombe, boutique, clé, curses** | mur secret f439 et f4262, porte à clé f3268, achats, victoire f4815 |
+| `bot_isaac_key` | graine -1013903988 (plan 254 : trésor au sud sans secrète voisine, aucun détour à la bombe) | porte f20, coffre f81 |
+| `bot_isaac_shop`, `_shop_blesse` | une bombe de plus (la bombe de départ) | comptes de bombes 1 → 2 |
+| `bot_isaac_devil`, `_devil_never` | plan de la graine 1 | attentes inchangées |
+| `grid_floor_seed_1/23/123`, `isaac_floor_seed_1`, `achievement_unlocks` | le bot pose la bombe de départ (f986, f261, f673, f1022, f677) | chronologies recalées, attentes de bombe et de mur ouvert ajoutées |
+| `grid_post_boss` | idem, et le bot meurt au boss avec `Armor +100` (f1657) | `Armor +200` (D93 : l'armure grandit, aucun rééquilibrage) |
+
+`bot_isaac_rock`, `_rock_sans_bombe` (carte de testbed) ne bougent pas ; les générés `isaac` non plus.
+
+**Preuve §5** (dumps `ALACOD_DUMP_TRACE` du même binaire, `ALACOD_GAME_DIR` sur deux états de `games/isaac`, `scripts/trace-diff.py … --ignore Inventory,BombCarrier`, neuf scénarios : `grid_floor_seed_1/23/123`, `grid_post_boss`, `isaac_floor_seed_1`,
+`achievement_unlocks`, `bot_isaac_secret`, `_two`, `_floor`, tronqués à la pose + 300 frames). État « sans bombe » : `pleureur.ron` sans `bomb` ni bombe de départ.
+- **Contrôle** : le joueur porte la bombe mais la politique du bot coupe ses décisions de bombe (`bombs: (secret: false, rocks: false)`) : **identique à l'état sans bombe sur les neuf scénarios** (318 à 1 321 frames). La bombe portée ne déplace donc rien par elle-même.
+- **Avec les décisions de bombe** : la première frame qui diffère est le **trajet vers le mur secret**, avant la pose : f636 (pose f986), f220 (f261), f517 (f673), f611 (f674), f945 (f1022), f624 (f677), f6 (f19, `bot_isaac_secret` et `_two`) ; une seule ligne, celle du joueur (`FacingDirection`, `AnimationState`). Le critère de T14
+  (« première frame qui diffère = première bombe posée ») est donc **trop strict** : le but « mur secret » existe dès que le joueur porte une bombe, le bot s'y met en route avant de la poser (100 à 350 frames avant).
+- Les quatre scénarios `bot_isaac_devil*` et `bot_isaac_shop*` : la cause est le plan (gabarits, boutique, curses) déjà prouvée au § 6 ; la bombe y ajoute une unité à l'inventaire.
+
+### 10.2 Campagnes de T14 rejouées sur le contenu livré (D106)
+
+`docs/taches/rapports/m3-t11d1-gabarits.campagne-t14.sh` (les options de `m3-t14-bot-isaac/campagne.sh`, `--pickup-progress`, séquence par défaut `sous_sol`, **sans `--bombs`** : « kit de bombes None » au journal d'`alacod-sim` ; binaire de la fusion `3feaeb87`), lots de 20 graines ; résumé graine par graine :
+`m3-t11d1-gabarits.campagne-t14.tsv` (issue, frames, étage, bombes posées, murs secrets ouverts, portes à clé, achats, coffres).
+
+| Campagne | Graines | Victoires | Morts | Soft-locks | Desyncs | Premier étage franchi | Frames moyennes |
+|---|---|---|---|---|---|---|---|
+| **s1** : 1 bot | 200 | 29 (14,5 %) | 171 | **0** | **0** | 89 | 3 717 |
+| **i2** : 2 bots | 200 | 115 (57,5 %) | 85 | **0** | **0** | 173 | 5 657 |
+| **i4** : 4 bots | 20 | 20 | 0 | **0** | **0** | 20 | 6 613 |
+
+Les victoires sont des informations (équilibrage hors objectif, décision de William). **Aucun soft-lock** : la méthode de prolongation (+2 000 frames sans détecteur) n'a rien à prolonger. Les **45 graines** que le bot d'avant T14 laissait en soft-lock (19 à un bot, 26 à deux : cœurs à pleine vie, visée du gardien, longs trajets, graines 84 et 86)
+finissent maintenant en victoire ou en mort (1 bot : 4 victoires, 15 morts ; 2 bots : 16 victoires, 10 morts). **D99** : trois de ses quatre situations sont fermées par T14 ; la réanimation interrompue par l'esquive (cause de code inchangée, `decide_prudent`) ne se reproduit pas (graine 84 : victoire), la dette reste ouverte, réduite à ce point. **D100 fermée** (`--pickup-progress`).
+
+### 10.3 Atteignabilité complétée (renvoyée à T14 au § 3)
+
+| Mécanique du bot | Campagne (séquence par défaut, sans kit) | Scénario scripté |
+|---|---|---|
+| Bombe sur le mur secret | s1 : 222 murs ouverts dans 187 graines sur 200 (graines 1 à 5…) ; i2 : 347 dans 194 ; i4 : 40 dans 20 | `bot_isaac_secret` (39), `bot_isaac_two` (39, un seul poseur), `bot_isaac_floor` (6, deux étages) |
+| Bombe sur un rocher | **aucune en partie ordinaire** : sur 40 graines à un bot, 45 poses = 45 murs secrets ; les rochers sont dans les angles (§ 2) et casser un rocher n'est jamais nécessaire. Rochers cassés par le **souffle** du mur secret : 29 dans 12 graines (3, 4, 6, 14, 19, 20…), dont 6 rochers à butin (graine 6 : clé et ration, 19 : cœur, 21 : clé, 26 : un sou, 32 : bombe) | `bot_isaac_rock` (carte de testbed, T14) ; `isaac_bomb_rock` (scripté) |
+| Porte à clé (trésor du second étage) | s1 : 51 graines (3, 6, 13, 14, 15…) ; i2 : 143 ; i4 : 20 sur 20 | `bot_isaac_key` (-1013903988), `bot_isaac_floor` (f3268) |
+| Achat en boutique | s1 : 544 achats dans 143 graines (1, 2, 3, 4, 5…) ; i2 : 915 dans 188 ; i4 : 117 dans 20 | `bot_isaac_shop`, `_shop_blesse`, `bot_isaac_two` (trois présentoirs), `bot_isaac_floor`, `isaac_shop_buy` |
+| Achat au diable | **aucun** par défaut (`devil: Never`, Q14 à confirmer) ; politique `IfHealthAbove` non rejouée en campagne ici | `bot_isaac_devil` (présentoir posé), `devil_deal_isaac` |
+| Coffres (trésor, secrète) | s1 : 378 dans 173 graines | `bot_isaac_secret`, `bot_isaac_two`, `bot_isaac_floor` |
+
+D106 est **fermée**. D99 (réduite à l'esquive qui coupe la réanimation) et D107 (planificateur) restent ouvertes ; D100 est fermée.
