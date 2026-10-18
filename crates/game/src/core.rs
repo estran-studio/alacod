@@ -35,7 +35,8 @@ use crate::{
     character::{player::jjrs::PeerConfig, BaseCharacterGamePlugin},
     collider::{debug::DebugColliderGamePlugin, BaseColliderGamePlugin},
     content_hot_reload::ContentHotReloadPlugin,
-    frame::{increase_frame_system, FrameDebugUIPlugin},
+    frame::FrameDebugUIPlugin,
+    frame_counter::increase_frame_system,
     global_asset::{add_global_asset, loading_asset_system},
     jjrs::{
         local::{setup_ggrs_local, system_after_map_loaded_local},

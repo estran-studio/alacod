@@ -825,7 +825,7 @@ fn update_hud_v1_values(
     state: HudPlayerState,
     world: HudInteractables,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
     config_handle: Res<HudConfigHandle>,
     configs: Res<Assets<HudConfig>>,
     run: Option<Res<run::Run>>,
@@ -1384,7 +1384,7 @@ fn closest_interactable(
     world: &HudInteractables,
     position: fixed_math::FixedVec3,
     fog: &crate::room_fog::FogView,
-    fog_map: Option<&crate::room_fog::FogMap>,
+    fog_map: Option<&crate::fog_map::FogMap>,
 ) -> Option<GgrsNetId> {
     let mut candidates: Vec<_> = world.interactables.iter().collect();
     candidates.sort_by_key(|(net_id, ..)| net_id.0);

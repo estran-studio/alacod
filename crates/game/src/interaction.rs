@@ -59,6 +59,12 @@ impl Default for WindowRepairConfig {
 #[derive(Component, Clone, Copy, Debug, Hash, Serialize, Deserialize, Default)]
 pub struct Interactor;
 
+/// Component that tracks interaction input state
+#[derive(Component, Clone, Copy, Default, Debug, Hash, Serialize, Deserialize)]
+pub struct InteractionInput {
+    pub is_holding: bool,
+}
+
 /// Interaction déclenchée par un joueur, consommée dans la même frame GGRS
 /// (voir [`FrameEvents`]).
 #[derive(Clone, Debug)]
@@ -94,7 +100,7 @@ pub fn interaction_detection_system(
             &GgrsNetId,
             Entity,
             &fixed_math::FixedTransform3D,
-            &crate::character::player::input::InteractionInput,
+            &InteractionInput,
         ),
         // À terre (T1.3) : pas d'interaction (ni réanimer, ni ouvrir une porte, ni réparer
         // une fenêtre) — voir la doc de `combat::downed::Downed`.
@@ -1051,7 +1057,7 @@ impl Plugin for InteractionPlugin {
             .rollback_and_trace::<Interactor>()
             .rollback_and_trace::<map::game::entity::map::window::WindowHealth>()
             .rollback_and_trace_resource::<WindowRepairConfig>()
-            .rollback_and_trace::<crate::character::player::input::InteractionInput>();
+            .rollback_and_trace::<InteractionInput>();
 
         // Add interaction detection to GGRS schedule
         // This runs after input processing but before movement

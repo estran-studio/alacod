@@ -70,7 +70,7 @@ pub(crate) fn spawn_level_walls(
             .find(|f| f.identifier == "fog_layout")
         {
             if let bevy_ecs_ldtk::ldtk::FieldValue::String(Some(text)) = &field.value {
-                match serde_json::from_str::<game::room_fog::FogMap>(text) {
+                match serde_json::from_str::<game::fog_map::FogMap>(text) {
                     Ok(mut fog) => {
                         fog.origin = [
                             level_transform.translation.x as i32,

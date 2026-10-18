@@ -434,7 +434,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         // M2-T18 : actions d'UI du scénario (présentation, hors trace) ; absente sans `ui`.
-        .insert_resource(game::ui::screens::ScreenScript {
+        .insert_resource(game::ui::screens::model::ScreenScript {
             steps: scenario.ui.clone(),
             played_until: None,
         })
@@ -524,7 +524,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
 
     // Caméra forcée sur un joueur (play_scenario --follow)
     if let Some(handle) = config.follow_handle {
-        app.insert_resource(game::camera::CameraFollowOverride(handle));
+        app.insert_resource(game::ui::hud_model::CameraFollowOverride(handle));
     }
 
     if headless {

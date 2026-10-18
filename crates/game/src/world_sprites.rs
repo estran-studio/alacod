@@ -30,6 +30,7 @@ use sim_core::team::Team;
 use crate::collider::Collider;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::Interactable;
+use crate::visual_requests::SpriteRequest;
 
 pub struct WorldSpritePlugin;
 
@@ -64,12 +65,6 @@ pub struct WorldSprite {
     id: String,
     child: Entity,
 }
-
-/// Demande explicite d'un sprite du monde par id (`sprites.ron`) : posé sur une entité de la carte
-/// qui n'a pas de composant de jeu reconnaissable (le portail). L'image propre de l'entité (carré
-/// de couleur de repli) est alors rendue transparente.
-#[derive(Component, Clone, Debug)]
-pub struct SpriteRequest(pub String);
 
 /// Sprite posé sur l'entité LDtk d'origine d'une entité rollback de carte (table, baril) : `owner` est
 /// l'entité rollback. Quand elle disparaît (destruction), l'image est cachée (`reap_held_sprites`).

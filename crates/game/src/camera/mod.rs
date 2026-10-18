@@ -20,12 +20,6 @@ pub struct CameraSettingsAsset(pub CameraSettings);
 // Plugin to add all camera systems
 pub struct CameraControlPlugin;
 
-/// Ressource optionnelle pour forcer le suivi d'un joueur spécifique (utilisée par play_scenario --follow).
-/// Si présente, remplace le choix de joueur local lors de la sélection initiale.
-/// Stocke le handle GGRS du joueur à suivre.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct CameraFollowOverride(pub usize);
-
 impl Plugin for CameraControlPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraSettings>()
@@ -220,7 +214,7 @@ pub(crate) fn camera_control_system(
     mut camera_query: Query<(&mut GameCamera, &mut Transform, &mut Projection), Without<Player>>,
     player_query: Query<(Entity, &Transform, &Player, Option<&LocalPlayer>), Without<GameCamera>>,
     online_state: Res<OnlineState>,
-    follow_override: Option<Res<CameraFollowOverride>>,
+    follow_override: Option<Res<crate::ui::hud_model::CameraFollowOverride>>,
     // T1.17 : hit stop, la caméra ne suit plus pendant le gel (présentation seule).
     freeze: Option<Res<animation::AnimationFreeze>>,
 ) {

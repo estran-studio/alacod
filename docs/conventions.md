@@ -3046,7 +3046,7 @@ plus vite). Lint : `bounds` négatif ou nul est refusé (`problems`).
 
 ### Brouillard d'exploration opt-in (revue M0, Le Relais)
 
-`game::room_fog::FogMap` est une ressource de présentation immuable décrivant une grille
+`game::fog_map::FogMap` (donnée pure, lue par `game::room_fog`) est une ressource immuable décrivant une grille
 LDtk de visibilité : dimensions, origine monde, murs, fenêtres, identifiants de pièces
 et portes avec leurs deux extrémités. Elle n'est ni un état de salle M2 ni un état de
 combat. La présence de `settings.enabled = true` active le rendu ; sans métadonnées,

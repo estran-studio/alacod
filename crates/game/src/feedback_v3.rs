@@ -27,10 +27,10 @@ use utils::{frame::FrameCount, net_id::GgrsNetId};
 use world::{Bomb, DoorLocks, Exploded};
 
 use crate::bombs::RockBroken;
+use crate::character::appearance::CharacterAppearance;
 use crate::character::config::CharacterConfig;
 use crate::character::player::Player;
 use crate::character::variant::Variant;
-use crate::character::visuals::CharacterAppearance;
 use crate::familiars::{FamiliarBehaviors, FamiliarMotion};
 use crate::feedback::{FeedbackCue, FeedbackKind, FeedbackLog};
 use crate::frame_events::FrameEvents;

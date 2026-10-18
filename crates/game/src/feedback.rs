@@ -955,7 +955,7 @@ fn apply_feedback_cues(
     mut cameras: Query<(Entity, Option<&mut CameraShake>), With<crate::camera::GameCamera>>,
     mut freeze: ResMut<animation::AnimationFreeze>,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
     config: Option<Res<FeedbackConfigLoaded>>,
     mut fx: ResMut<FeedbackFx>,
 ) {
@@ -1240,7 +1240,7 @@ fn draw_pattern_shapes(
     config: Option<Res<FeedbackConfigLoaded>>,
     subjects: Query<(&FixedTransform3D, &Emitter, Option<&EnemyAiConfig>)>,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
 ) {
     let settings = config.as_ref().map(|config| &config.0);
     let pattern = settings.map(|s| s.pattern_telegraph).unwrap_or_default();
@@ -1412,7 +1412,7 @@ fn animate_damage_numbers(
     time: Res<Time<Real>>,
     mut numbers: Query<(Entity, &DamageNumber, &mut Transform, &mut TextColor)>,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
 ) {
     let now = time.elapsed_secs_f64();
     for (entity, number, mut transform, mut color) in numbers.iter_mut() {
@@ -1446,7 +1446,7 @@ fn tint_champions(
         (
             Entity,
             &crate::character::variant::Variant,
-            &crate::character::visuals::CharacterAppearance,
+            &crate::character::appearance::CharacterAppearance,
         ),
         Without<ChampionTint>,
     >,
@@ -1604,7 +1604,7 @@ fn draw_telegraphs(
     )>,
     mut started: Local<BTreeMap<usize, u32>>,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
 ) {
     let (r, g, b, a) = config
         .map(|config| config.0.telegraph.color)

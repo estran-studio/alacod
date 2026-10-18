@@ -45,8 +45,8 @@ use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
 
 pub use config::WaveConfig;
-pub use debug::{WaveDebugEnabled, WaveDebugPlugin};
-pub use state::{WavePhase, WaveState};
+pub use debug::WaveDebugPlugin;
+pub use state::{WaveDebugEnabled, WavePhase, WaveState};
 pub use tracking::WaveEnemy;
 
 /// Resource to enable/disable wave spawning mode.
@@ -70,6 +70,7 @@ impl Plugin for WaveSystemPlugin {
         // Resources
         app.init_resource::<WaveState>();
         app.init_resource::<WaveModeEnabled>();
+        app.init_resource::<WaveDebugEnabled>();
 
         // Register types for reflection (useful for debugging)
         app.register_type::<WavePhase>();
