@@ -55,10 +55,9 @@ use crate::{
         variant::Variant,
     },
     collider::CollisionSettings,
-    global_asset::GlobalAsset,
     rollback::RollbackTraceApp,
     system_set::RollbackSystemSet,
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::WeaponRegistry,
 };
 
 /// Rayon de l'anneau où apparaissent les personnages d'une division (unités).
@@ -141,10 +140,8 @@ fn has_death_effects(def: &crate::character::variant::VariantDef) -> bool {
 /// Paramètres d'apparition d'un personnage en cours de partie (division).
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct DivisionAssets<'w> {
-    global_assets: Res<'w, GlobalAsset>,
     collision_settings: Res<'w, CollisionSettings>,
-    weapons_asset: Res<'w, Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
+    weapon_registry: Res<'w, WeaponRegistry>,
     balance: Res<'w, crate::balance::ResolvedBalance>,
     difficulty: crate::clock::DifficultyReader<'w>,
 }
@@ -233,10 +230,8 @@ pub fn champion_death_system(
                     character.clone(),
                     position,
                     &mut commands,
-                    &division.weapons_asset,
-                    &division.melee_weapons_asset,
+                    &division.weapon_registry,
                     &configs,
-                    &division.global_assets,
                     &division.collision_settings,
                     &mut id_factory,
                     *team,
@@ -330,8 +325,7 @@ pub fn champion_death_system(
                 &mut commands,
                 &mut id_factory,
                 &loot,
-                &division.global_assets,
-                &division.weapons_asset,
+                &division.weapon_registry,
                 table_id,
                 net_id,
                 fixed_math::FixedVec3::new(
@@ -350,8 +344,7 @@ fn drop_loot(
     commands: &mut Commands,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
     loot: &LootAssets,
-    global_assets: &GlobalAsset,
-    weapons: &Assets<WeaponsConfig>,
+    weapons: &WeaponRegistry,
     table_id: &str,
     net_id: &GgrsNetId,
     position: fixed_math::FixedVec3,
@@ -396,14 +389,7 @@ fn drop_loot(
     }
     match items::loot_weapon(&item_id) {
         Some(weapon_id) => {
-            if !crate::loot::spawn_loot_weapon(
-                commands,
-                global_assets,
-                weapons,
-                weapon_id,
-                position,
-                id_factory,
-            ) {
+            if !crate::loot::spawn_loot_weapon(commands, weapons, weapon_id, position, id_factory) {
                 warn!("champion {} : arme « {weapon_id} » inconnue", net_id);
             }
         }

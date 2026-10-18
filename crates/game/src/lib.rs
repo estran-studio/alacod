@@ -57,6 +57,7 @@ pub mod system_set;
 pub mod ui;
 pub mod visual_requests;
 pub mod waves;
+pub mod weapon_assets;
 pub mod weapons;
 pub mod web;
 pub mod world_sprites;

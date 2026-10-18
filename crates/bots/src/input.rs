@@ -48,11 +48,10 @@ use game::character::health::Health;
 use game::character::player::input::{read_local_inputs, BoxInput};
 use game::character::player::jjrs::PeerConfig;
 use game::character::player::Player;
-use game::global_asset::GlobalAsset;
 use game::recording::record_local_inputs;
 use game::replay::BotProfile;
 use game::waves::WaveState;
-use game::weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponState, WeaponsConfig};
+use game::weapons::{WeaponInventory, WeaponModesState, WeaponPickup, WeaponRegistry, WeaponState};
 use map::game::entity::map::window::WindowHealth;
 use sim_core::kinds::{KindDecl, KindRegistry};
 use utils::net_id::GgrsNetId;
@@ -217,8 +216,7 @@ pub fn read_bot_inputs(
         frame,
         pickups,
         ground_weapons,
-        global_asset,
-        weapon_assets,
+        weapon_registry,
         character_configs,
         mut weapon_choices,
         mut enemy_moves,
@@ -242,8 +240,7 @@ pub fn read_bot_inputs(
             (With<game::powerups::PowerUpPickup>, With<Rollback>),
         >,
         Query<(&GgrsNetId, &FixedTransform3D, &WeaponPickup), With<Rollback>>,
-        Option<Res<GlobalAsset>>,
-        Res<Assets<WeaponsConfig>>,
+        Res<WeaponRegistry>,
         Res<CharacterConfigs>,
         ResMut<WeaponChoices>,
         // m1-bots-apres-movement-feel : déplacement réel des ennemis (coincés)
@@ -289,9 +286,6 @@ pub fn read_bot_inputs(
         .collect();
     // m1-v3-bots-armes : armes au sol (sans prix : lâchées, pas murales), mode par défaut de leur
     // config, dans l'ordre `GgrsNetId`.
-    let weapons_config = global_asset
-        .as_deref()
-        .and_then(|global| weapon_assets.get(&global.weapons));
     let ground: Vec<(
         usize,
         FixedVec2,
@@ -302,7 +296,7 @@ pub fn read_bot_inputs(
         .into_iter()
         .filter(|(_, _, pickup)| pickup.price.is_none())
         .filter_map(|(id, t, pickup)| {
-            let asset = weapons_config?.0.get(&pickup.weapon_id)?;
+            let asset = weapon_registry.weapons.get(&pickup.weapon_id)?;
             let mode = asset
                 .config
                 .firing_modes
@@ -788,11 +782,9 @@ pub fn read_bot_inputs(
                 let unfiltered = frame_data;
                 let filtered = if explorer_options.policy.weapon_reserve {
                     frame_data.without_unusable_weapons(|weapon| {
-                        weapons_config
-                            .and_then(|config| config.0.get(weapon))
-                            .is_none_or(|asset| {
-                                reserves.is_some_and(|r| r.get(&asset.config.ammo_type) > 0)
-                            })
+                        weapon_registry.weapons.get(weapon).is_none_or(|asset| {
+                            reserves.is_some_and(|r| r.get(&asset.config.ammo_type) > 0)
+                        })
                     })
                 } else {
                     None

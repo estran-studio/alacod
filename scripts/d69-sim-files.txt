@@ -8,6 +8,9 @@
 # E3a (dette-d69-e3a-character-configs) : aucun ajout (21 fichiers). Libérés de toute fuite : character/config.rs, character/health/mod.rs,
 # character/enemy/ai/pathing.rs, familiars.rs, feedback_v3.rs ; aucun n'entre au cliquet car sa fermeture interne contient encore un fichier à fuite
 # (collider/mod.rs, waves/mod.rs, interaction.rs, balance.rs, create.rs, feedback.rs, progression.rs…), à lever par E3b-E4 et E6.
+# E3b (dette-d69-e3b-weapon-registry) : + weapons.rs (22 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : champions.rs,
+# character/enemy/create.rs, character/enemy/spawning.rs, effects_runtime.rs, loot.rs, progression.rs, waves/systems.rs (dépendent de balance.rs, collider/mod.rs,
+# items.rs, shop.rs, interaction.rs, character/create.rs, boss.rs, clock.rs, health/mod.rs…) ; nouveau fichier à fuite : weapon_assets.rs (app).
 character/appearance.rs
 character/enemy/ai/obstacle.rs
 character/enemy/mod.rs
@@ -29,3 +32,4 @@ ui/screens/model.rs
 visual_requests.rs
 waves/state.rs
 waves/tracking.rs
+weapons.rs

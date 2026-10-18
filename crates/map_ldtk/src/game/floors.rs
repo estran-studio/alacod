@@ -644,8 +644,7 @@ pub fn floor_transition_system(
         .collect();
     spawn_level_weapon_locations(
         &mut commands,
-        &assets.global_assets,
-        &assets.weapons_asset,
+        &assets.weapon_registry,
         &mut id_factory,
         weapons,
     );

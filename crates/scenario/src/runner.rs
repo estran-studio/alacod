@@ -42,8 +42,8 @@ use game::replay::{
     CharacterPlacement, Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario,
     WaveOverride,
 };
-use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
-use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
+use game::weapons::melee::{self, MeleeWeapon};
+use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponRegistry};
 use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
 
 /// Mismatches de synctest : le premier seulement (GGRS répète ensuite le même à chaque
@@ -423,14 +423,14 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         ))
         // `.before(weapon_inventory_system)` : quand `weapon` despawn/recrée les armes du
         // joueur (voir la doc de `apply_player_overrides`), `weapon_inventory_system` (Update,
-        // `game::weapons::WeaponAssetsPlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
+        // `game::weapon_assets::WeaponAssetsPlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
         // despawnées) dans la même frame — Bevy insère un `ApplyDeferred` entre deux systèmes
         // ordonnés (`auto_insert_apply_deferred`, par défaut), ce qui suffit ici : pas besoin
         // d'ordonner aussi par rapport à `spawn_players_when_map_loaded` (voir la doc de la
         // fonction, inchangé : elle attend déjà que `Player` existe).
         .add_systems(
             Update,
-            apply_player_overrides.before(game::weapons::weapon_inventory_system),
+            apply_player_overrides.before(game::weapon_assets::weapon_inventory_system),
         )
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
@@ -667,23 +667,24 @@ pub fn probe_player_inventory(world: &mut World, handle: usize) -> Option<items:
 #[derive(Resource)]
 struct WeaponOverrides(Vec<game::replay::WeaponOverride>);
 
-/// Applique les modifications d'armes du scénario dès que la config est chargée, avant la
-/// création des joueurs (qui copient la config de leurs armes).
+/// Applique les modifications d'armes du scénario sur `WeaponRegistry` dès qu'il est rempli
+/// (`game::weapon_assets::sync_weapon_registry`, `PreUpdate` avant `RunGgrsSystems`), avant la
+/// création des joueurs (qui copient la config de leurs armes). Une surcharge posée sur le registre
+/// n'est jamais réécrasée par la synchro (elle ne recopie une table que vide ou sur `Modified`).
 fn apply_weapon_overrides(
     overrides: Res<WeaponOverrides>,
-    global_assets: Option<Res<game::global_asset::GlobalAsset>>,
-    mut weapons: ResMut<Assets<game::weapons::WeaponsConfig>>,
+    mut registry: ResMut<WeaponRegistry>,
     mut applied: Local<bool>,
 ) {
     if *applied || overrides.0.is_empty() {
         return;
     }
-    let Some(mut config) = global_assets.and_then(|g| weapons.get_mut(&g.weapons)) else {
-        return;
-    };
+    if registry.weapons.is_empty() {
+        return; // pas encore rempli par la synchro
+    }
     for o in &overrides.0 {
-        let weapon = config
-            .0
+        let weapon = registry
+            .weapons
             .get_mut(&o.weapon)
             .unwrap_or_else(|| panic!("weapon_overrides : arme inconnue {}", o.weapon));
         if let Some(friendly_fire) = o.friendly_fire {
@@ -1187,9 +1188,7 @@ fn apply_player_overrides(
     item_table: Option<Res<items::ItemTable>>,
     ranged_children: Query<(), With<Weapon>>,
     melee_children: Query<(), With<MeleeWeapon>>,
-    global_assets: Option<Res<GlobalAsset>>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    weapon_registry: Res<WeaponRegistry>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut applied: Local<bool>,
 ) {
@@ -1214,9 +1213,6 @@ fn apply_player_overrides(
     if players.iter().count() < overrides.0.len() {
         return; // les joueurs ne sont pas encore tous créés
     }
-    let Some(global_assets) = global_assets else {
-        return; // arme choisie : attend GlobalAsset (comme apply_weapon_overrides)
-    };
     if progression.is_none() && overrides.0.iter().any(|o| !o.mutations.is_empty()) {
         return; // table des mutations pas encore résolue (`OnEnter(GameLoading)`)
     }
@@ -1326,10 +1322,7 @@ fn apply_player_overrides(
             // l'inventaire une fois l'exclusivité appliquée ci-dessus. Vide si `weapon_id`
             // est une arme de mêlée (pas de munitions).
             let mut ammo_reserves = AmmoReserves::new();
-            if let Some(weapon_asset) = weapons_asset
-                .get(&global_assets.weapons)
-                .and_then(|config| config.0.get(weapon_id))
-            {
+            if let Some(weapon_asset) = weapon_registry.weapons.get(weapon_id) {
                 let (ammo_type, amount) =
                     game::weapons::default_mode_ammo_contribution(weapon_asset);
                 ammo_reserves.add(ammo_type, amount);
@@ -1342,10 +1335,7 @@ fn apply_player_overrides(
                     &mut id_factory,
                     None,
                 );
-            } else if let Some(melee_asset) = melee_weapons_asset
-                .get(&global_assets.melee_weapons)
-                .and_then(|config| config.0.get(weapon_id))
-            {
+            } else if let Some(melee_asset) = weapon_registry.melee.get(weapon_id) {
                 melee::spawn_melee_weapon_for_character(
                     &mut commands,
                     entity,

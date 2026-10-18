@@ -52,8 +52,7 @@ use world::{RoomChanged, RoomState};
 use crate::character::health::{Death, Health, HealthRegen, HitBy};
 use crate::character::player::Player;
 use crate::effects_v3::{classify, positions_of, EffectOut, HitLanded, Step};
-use crate::global_asset::GlobalAsset;
-use crate::weapons::WeaponsConfig;
+use crate::weapons::WeaponRegistry;
 
 /// Effets du porteur, dans l'ordre de pose (index stable : source des modificateurs).
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -129,8 +128,7 @@ pub fn effect_source(carrier: &GgrsNetId, effect: usize) -> ModifierSource {
 
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct EffectAssets<'w> {
-    global: Option<Res<'w, GlobalAsset>>,
-    weapons: Res<'w, Assets<WeaponsConfig>>,
+    weapons: Res<'w, WeaponRegistry>,
     library: Option<Res<'w, PatternLibrary>>,
 }
 
@@ -880,12 +878,7 @@ pub(crate) fn spawn_pattern(
         );
         return false;
     }
-    let Some(weapon_asset) = assets
-        .global
-        .as_ref()
-        .and_then(|g| assets.weapons.get(&g.weapons))
-        .and_then(|config| config.0.get(weapon))
-    else {
+    let Some(weapon_asset) = assets.weapons.weapons.get(weapon) else {
         warn!(
             "effet de {} : arme « {} » inconnue (voir `alacod lint`)",
             net_id, weapon
@@ -1167,7 +1160,7 @@ mod tests {
     fn la_mort_de_la_frame_prime_sur_le_soin() {
         let mut app = App::new();
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
-            .init_resource::<Assets<WeaponsConfig>>()
+            .init_resource::<WeaponRegistry>()
             .insert_resource(FrameCount { frame: 50 })
             .init_resource::<FrameEvents<EffectOut>>()
             .add_systems(Update, apply_effects_system);
@@ -1214,7 +1207,7 @@ mod tests {
         }
         let mut app = App::new();
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
-            .init_resource::<Assets<WeaponsConfig>>()
+            .init_resource::<WeaponRegistry>()
             .insert_resource(utils::net_id::GgrsNetIdFactory::default())
             .add_systems(Update, run);
         let transform = fixed_math::FixedTransform3D::new(
@@ -1292,7 +1285,7 @@ mod tests {
     fn floor_app(frame: u32, floor_index: u32) -> App {
         let mut app = App::new();
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
-            .init_resource::<Assets<WeaponsConfig>>()
+            .init_resource::<WeaponRegistry>()
             .insert_resource(FrameCount { frame })
             .init_resource::<FrameEvents<EffectOut>>()
             .insert_resource(run::FloorState {
