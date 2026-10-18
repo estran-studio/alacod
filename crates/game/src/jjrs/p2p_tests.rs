@@ -195,24 +195,29 @@ fn connect_timeout_retries_once_then_returns_to_lobby() {
     assert!(connect_timed_out(Duration::from_secs(15), 15.0));
 }
 
-/// D109 : la ligne d'état du lobby dit l'abandon d'abord, puis l'attente lente, sinon rien.
+/// D109/D116 : la ligne d'état du lobby dit l'abandon d'abord, puis la salle pleine, puis l'attente
+/// lente, sinon rien.
 #[test]
 fn lobby_status_line_reports_slow_peers_and_abandoned_attempts() {
     use super::{connect_status_text as text, ConnectNotice, CONNECT_NOTICE_SECS};
-    assert_eq!(text(None, None), None);
-    assert_eq!(text(Some(2.9), None), None, "attente normale : rien à dire");
+    assert_eq!(text(None, None, None), None);
     assert_eq!(
-        text(Some(7.4), None).as_deref(),
+        text(Some(2.9), None, None),
+        None,
+        "attente normale : rien à dire"
+    );
+    assert_eq!(
+        text(Some(7.4), None, None).as_deref(),
         Some("Connecting to peer... 7 s")
     );
     let retry = Some((ConnectNotice::Retrying { attempt: 2, of: 2 }, 1.0));
     assert_eq!(
-        text(Some(7.4), retry).as_deref(),
+        text(Some(7.4), None, retry).as_deref(),
         Some("Peer connection failed: new attempt (2/2)")
     );
     let back = Some((ConnectNotice::BackToLobby { attempts: 2 }, 1.0));
     assert_eq!(
-        text(None, back).as_deref(),
+        text(None, None, back).as_deref(),
         Some("Peer connection failed after 2 attempt(s): back to the lobby")
     );
     // L'avis expire : retour à l'attente.
@@ -220,7 +225,86 @@ fn lobby_status_line_reports_slow_peers_and_abandoned_attempts() {
         ConnectNotice::BackToLobby { attempts: 2 },
         CONNECT_NOTICE_SECS,
     ));
-    assert_eq!(text(None, stale), None);
+    assert_eq!(text(None, None, stale), None);
+    assert_eq!(
+        text(Some(7.4), Some((3, 2)), None).as_deref(),
+        Some("Room full (3 peers for 2 places): waiting for a free place")
+    );
+    let full = Some((ConnectNotice::RoomFull { peers: 3, max: 2 }, 1.0));
+    assert_eq!(
+        text(None, Some((3, 2)), full).as_deref(),
+        Some("Room full (3 peers for 2 places): back to the lobby")
+    );
+}
+
+/// D116 : les `max_player` premiers joueurs du socket (triés par identifiant) sont admis ; le joueur
+/// local est ignoré s'il n'en fait pas partie ; sans pair en trop, tout le monde est admis.
+#[test]
+fn admission_keeps_the_first_players_by_peer_id() {
+    use super::admit_players;
+    use bevy_ggrs::ggrs::PlayerType as P;
+    // Ordre du socket (`players()` trie les identifiants, le joueur local y compris).
+    let local_last = vec![P::Remote(peer(1)), P::Remote(peer(2)), P::Local];
+    let admission = admit_players(local_last, 2);
+    assert_eq!(
+        admission.admitted,
+        vec![P::Remote(peer(1)), P::Remote(peer(2))]
+    );
+    assert!(!admission.local_admitted);
+    assert_eq!(admission.excess, 1);
+
+    let local_first = vec![P::Local, P::Remote(peer(2)), P::Remote(peer(3))];
+    let admission = admit_players(local_first, 2);
+    assert_eq!(admission.admitted, vec![P::Local, P::Remote(peer(2))]);
+    assert!(admission.local_admitted);
+    assert_eq!(admission.excess, 1);
+
+    let exact = vec![P::Remote(peer(1)), P::Local];
+    let admission = admit_players(exact.clone(), 2);
+    assert_eq!(admission.admitted, exact);
+    assert!(admission.local_admitted);
+    assert_eq!(admission.excess, 0);
+}
+
+/// D116 : chaque client, avec le même ensemble de pairs, désigne les mêmes admis (même ensemble,
+/// mêmes handles) : la politique ne dépend que des identifiants.
+#[test]
+fn admission_is_identical_for_every_client_seeing_the_same_peers() {
+    use super::admit_players;
+    use bevy_ggrs::ggrs::PlayerType as P;
+    let ids = [peer(7), peer(3), peer(9)];
+    let view = |me: usize| {
+        let mut sorted = ids.to_vec();
+        sorted.sort();
+        sorted
+            .into_iter()
+            .map(|id| {
+                if id == ids[me] {
+                    P::Local
+                } else {
+                    P::Remote(id)
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    let admitted_ids = |me: usize| -> Vec<_> {
+        let admission = admit_players(view(me), 2);
+        admission
+            .admitted
+            .iter()
+            .map(|p| match p {
+                P::Local => ids[me],
+                P::Remote(id) => *id,
+                _ => unreachable!(),
+            })
+            .collect()
+    };
+    assert_eq!(admitted_ids(0), vec![peer(3), peer(7)]);
+    assert_eq!(admitted_ids(1), vec![peer(3), peer(7)]);
+    assert_eq!(admitted_ids(2), vec![peer(3), peer(7)]);
+    assert!(admit_players(view(0), 2).local_admitted);
+    assert!(admit_players(view(1), 2).local_admitted);
+    assert!(!admit_players(view(2), 2).local_admitted);
 }
 
 /// D109 : seul le départ d'un pair de la session **en cours** rend la synchronisation sans issue ;

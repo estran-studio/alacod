@@ -4416,8 +4416,21 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   (`LobbyOnline` ré-entré ; `attempt=2/2 action=lobby` ; `ALACOD_CONNECT_ATTEMPTS`) ; en allumette et sur le web pas de réouverture. Écran du lobby : ligne d'état (« Connecting to peer... »,
   « new attempt (2/2) », « back to the lobby »). **Piège** : la nouvelle tentative d'un seul côté d'une connexion à moitié ouverte (un canal ouvert, l'autre pas) donnait deux cycles de
   30 s décalés qui ne se rejoignaient jamais ; une session `Synchronizing` est donc aussi abandonnée dès qu'un pair de la session en cours quitte la salle
-  (`CurrentSessionPeers`, `ggrs{f=… session_peer_left …}`) ; `wait_for_players` attend aussi tant qu'il y a plus de pairs que `max_player` (socket d'une partie finissante, sinon panique à la construction de la session). Session seulement : aucune trace de scénario ne bouge. Preuves : `p2p-connect-timeout.sh`, `p2p-connect-starts.sh`
+  (`CurrentSessionPeers`, `ggrs{f=… session_peer_left …}`). Session seulement : aucune trace de scénario ne bouge. Preuves : `p2p-connect-timeout.sh`, `p2p-connect-starts.sh`
   (150 démarrages à 3 % joués, 7 retentés, 0 perdu) ; rapport `dettes-d105-d109.md`.
+- **Admission au lobby (D116, fermée).** `wait_for_players` attendait sans fin quand des pairs en trop restaient dans la salle (D109 : « attend tant qu'il y a plus de pairs que
+  `max_player` »). Politique : `jjrs::p2p::admit_players` garde les `max_player` **premiers** joueurs du socket (identifiants triés, le même ordre chez tous les pairs qui voient le même
+  ensemble ; les handles GGRS en dépendent), les suivants sont **ignorés**. Les admis démarrent sans attendre les pairs en trop (`ggrs{f=0 lobby_admission peers=3 max=2 excess=1 local=admitted|ignored}`,
+  journalisé une fois par changement) et `AdmittedPlayers` (ressource, fixée par `wait_for_players`) est reprise telle quelle par `system_after_map_loaded` : un pair arrivé pendant le chargement de la carte ne
+  change ni les handles ni la taille de la session. L'ignoré attend une place (écran du lobby : « Room full (3 peers for 2 places): waiting for a free place »), puis, au bout de
+  `ALACOD_CONNECT_TIMEOUT_SECS` (15 s, horloge murale), revient au lobby (`ggrs{f=0 lobby_room_full … action=lobby}`, « back to the lobby ») en tenant les admis pour occupés
+  (`PreviousSessionPeers`) : sans cela son socket neuf les reverrait et le classerait parmi les admis d'une session que personne n'écoute (constaté : 1 essai sur 2 au premier jet).
+  Un pair vu par le signaling et pas encore connecté retarde l'admission d'au plus `ADMISSION_SETTLE_SECS` (3 s) : sans cette attente, deux clients qui ne voient pas le même ensemble
+  choisissent des admis différents ; elle est bornée pour qu'un pair à moitié connecté qui ne finit jamais (D109) ne bloque pas les pairs connectés. **Limite assumée** : pas de protocole d'engagement entre pairs.
+  Un pair qui arrive après le démarrage des autres voit trois pairs et se classe parmi les admis si son identifiant est bas : sa session ne se synchronise jamais et `abandon_unsynchronized_session`
+  le ramène au lobby au bout de `SYNC_TIMEOUT_SECS` (30 s) ; même cas par construction avec allumette et le web (non essayés). Session seulement : aucune trace de scénario ne bouge.
+  Preuves : `p2p-admission.sh` (trois clients, deux places : les deux admis jouent 1 500 frames aux traces identiques, l'ignoré revient au lobby ; `GHOST=1` : deux clients et un fantôme à moitié
+  connecté jouent après 3 s), `p2p-connect-timeout.sh GHOST=1` (les deux délais complets `attempt=1/2 action=retry` puis `attempt=2/2 action=lobby`) ; rapport `dette-d116-lobby-admission.md`.
 - **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
   la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
   `resimulées` reste cumulé sur toute la durée du processus ; les rollbacks sont comptés **par partie** (`state_trace::RollbackStats`) et
@@ -4432,8 +4445,8 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   (temps réel, essais D86).
 - **Scripts** (`scripts/p2p-lib.sh` en commun) : `p2p-stress.sh` (N clients `CLIENTS`, suspension du client 1,
   `NETEM`, `MATCHBOX_URL`, `GAME_ARGS`, `EXPECT_FLOORS`), `p2p-restart.sh <jeu>` (restart, lobby, hub ; `RESTART_DELAYS_MS`),
-  `p2p-lobby.sh` (D86 : essais consécutifs du retour au lobby), `p2p-sync-timeout.sh` (abandon d'une session non synchronisée),
-  `p2p-connect-timeout.sh` (D109 : pair vu par le signaling jamais connecté, `ATTEMPTS=1|2`), `p2p-connect-starts.sh` (D109 : fréquence des démarrages bloqués,
+  `p2p-lobby.sh` (D86 : essais consécutifs du retour au lobby), `p2p-sync-timeout.sh` (abandon d'une session non synchronisée ; le client repris abandonne par `session_peer_left` ou `session_sync_timeout`),
+  `p2p-connect-timeout.sh` (D109 : pair vu par le signaling jamais connecté, `ATTEMPTS=1|2` ; `GHOST=1` : second délai `attempt=2/2` avec un pair fantôme visible à chaque socket, `p2p-ghost-peer.mjs`), `p2p-admission.sh` (D116 : trois clients, salle à deux places ; `GHOST=1` : deux clients et un fantôme), `p2p-connect-starts.sh` (D109 : fréquence des démarrages bloqués,
   `PLAY_FRAMES`), `p2p-linux-box.sh` (les scripts `NETEM` depuis un Mac : conteneur Linux `NET_ADMIN`), `check-launch-seed.sh` (D105),
   `p2p-disconnect.sh` (pair tué), `p2p-machine.sh` (un client par machine), `nightly.sh` étape C2.
 - **Deux machines (m2-p2p-deux-machines, 2026-10-18).** `scripts/p2p-machine.sh` lance **un** client sur chaque machine (`CLIENTS`, `LOBBY` et

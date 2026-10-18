@@ -65,6 +65,48 @@ pub fn live_players(
         .filter(|player| !matches!(player, PlayerType::Remote(id) if stale.contains(id)))
         .collect()
 }
+
+/// D116 : politique d'admission du lobby. Le socket classe les joueurs par identifiant de pair (ordre
+/// identique chez tous les pairs qui voient le même ensemble) : les `max_player` premiers sont admis,
+/// les suivants sont **ignorés** (ils ne jouent pas, la session ne les compte pas). Un pair en trop
+/// n'empêche donc plus les admis de démarrer ; l'ignoré attend une place ([`RoomFull`], ligne d'état du
+/// lobby), puis, au bout de `LobbyConnectWatch::timeout_secs`, revient au lobby en tenant les admis pour
+/// occupés (ils rejoignent `PreviousSessionPeers`, comme les pairs d'une session passée).
+///
+/// Limites assumées : la décision porte sur les pairs **connectés au moment où elle est prise**, après
+/// au plus [`ADMISSION_SETTLE_SECS`] d'attente d'un pair vu par le signaling mais pas encore connecté
+/// (sans quoi deux clients qui ne voient pas le même ensemble choisiraient des admis différents). Un pair qui
+/// arrive après le démarrage des deux autres voit trois pairs et peut se classer parmi les admis
+/// (identifiant bas) : sa session ne se synchronise alors jamais (les autres ont déjà la leur) et
+/// `abandon_unsynchronized_session` le ramène au lobby au bout de [`SYNC_TIMEOUT_SECS`]. Pas de protocole
+/// d'engagement entre pairs : l'arrivée tardive reste un cas de repli, pas un cas exact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Admission {
+    /// Les `max_player` premiers joueurs, dans l'ordre du socket (les handles GGRS en dépendent).
+    pub admitted: Vec<PlayerType<PeerId>>,
+    /// Le joueur local (`PlayerType::Local`) fait partie des admis.
+    pub local_admitted: bool,
+    /// Pairs en trop, ignorés (admis ou non, le même nombre chez tous).
+    pub excess: usize,
+}
+
+/// Applique l'admission à `players` (déjà débarrassés des pairs d'une session passée, [`live_players`]).
+pub fn admit_players(mut players: Vec<PlayerType<PeerId>>, max_player: usize) -> Admission {
+    let excess = players.len().saturating_sub(max_player);
+    let rest = players.split_off(players.len().min(max_player));
+    let local_admitted = !rest.iter().any(|p| matches!(p, PlayerType::Local));
+    Admission {
+        admitted: players,
+        local_admitted,
+        excess,
+    }
+}
+
+/// D116 : joueurs admis de la session en construction, fixés par `wait_for_players` et repris tels
+/// quels par [`system_after_map_loaded`] (le chargement de la carte dure : un pair arrivé entre-temps
+/// ne doit changer ni les handles ni la taille de la session). Vide hors ligne.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct AdmittedPlayers(pub Vec<PlayerType<PeerId>>);
 // For matchbox socket connection
 
 /// D87 (mesure, natif) : `ALACOD_P2P_CHANNEL=unreliable` ouvre le canal GGRS non fiable et non ordonné
@@ -162,6 +204,11 @@ pub const CONNECT_ATTEMPTS_ENV: &str = "ALACOD_CONNECT_ATTEMPTS";
 /// Attente d'un pair vu mais pas connecté à partir de laquelle l'écran du lobby le dit.
 pub const CONNECT_SLOW_SECS: f32 = 3.0;
 
+/// D116 : durée (horloge murale) pendant laquelle un pair vu par le signaling, pas encore connecté, retarde
+/// l'admission quand le nombre de pairs connectés suffit déjà (voir [`admit_players`]) : le temps d'une
+/// négociation WebRTC normale (< 1 s sur la boucle locale), pas celui d'une connexion qui ne finit pas.
+pub const ADMISSION_SETTLE_SECS: f32 = 3.0;
+
 /// Durée (secondes, murale) pendant laquelle l'écran du lobby garde l'avis d'une tentative
 /// abandonnée.
 pub const CONNECT_NOTICE_SECS: f32 = 20.0;
@@ -173,6 +220,17 @@ pub enum ConnectNotice {
     Retrying { attempt: u32, of: u32 },
     /// Les `attempts` tentatives ont échoué : le lobby est ré-entré.
     BackToLobby { attempts: u32 },
+    /// D116 : salle pleine (`peers` pairs pour `max` places, joueur local ignoré) : le lobby est ré-entré.
+    RoomFull { peers: usize, max: usize },
+}
+
+/// D116 : le joueur local est ignoré par l'admission ([`admit_players`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RoomFull {
+    pub peers: usize,
+    pub max: usize,
+    /// Début de l'exclusion (horloge **murale**).
+    pub since: bevy::platform::time::Instant,
 }
 
 /// Ce que fait le lobby quand l'attente d'un pair vu par le signaling dépasse le délai.
@@ -200,6 +258,8 @@ pub struct LobbyConnectWatch {
     pub notice: Option<(ConnectNotice, bevy::platform::time::Instant)>,
     /// L'apparition d'un pair vu par le signaling est déjà journalisée pour ce socket.
     announced: bool,
+    /// D116 : le joueur local est **ignoré** (salle pleine, [`admit_players`]) depuis `since`.
+    pub room_full: Option<RoomFull>,
 }
 
 impl Default for LobbyConnectWatch {
@@ -213,6 +273,7 @@ impl Default for LobbyConnectWatch {
             pending_secs: None,
             notice: None,
             announced: false,
+            room_full: None,
         }
     }
 }
@@ -233,6 +294,7 @@ impl LobbyConnectWatch {
         self.retry_url = retry_url;
         self.pending_secs = None;
         self.announced = false;
+        self.room_full = None;
     }
 }
 
@@ -272,9 +334,11 @@ pub fn connect_timeout_action(
 }
 
 /// Ligne d'état de l'écran du lobby : avis d'une tentative abandonnée (`notice`, âge en secondes),
-/// sinon attente lente d'un pair vu par le signaling (`pending_secs`), sinon rien.
+/// sinon salle pleine (`room_full` : pairs, places ; joueur local ignoré, D116), sinon attente lente
+/// d'un pair vu par le signaling (`pending_secs`), sinon rien.
 pub fn connect_status_text(
     pending_secs: Option<f32>,
+    room_full: Option<(usize, usize)>,
     notice: Option<(ConnectNotice, f32)>,
 ) -> Option<String> {
     match notice {
@@ -288,7 +352,17 @@ pub fn connect_status_text(
                 "Peer connection failed after {attempts} attempt(s): back to the lobby"
             ))
         }
+        Some((ConnectNotice::RoomFull { peers, max }, age)) if age < CONNECT_NOTICE_SECS => {
+            return Some(format!(
+                "Room full ({peers} peers for {max} places): back to the lobby"
+            ))
+        }
         _ => {}
+    }
+    if let Some((peers, max)) = room_full {
+        return Some(format!(
+            "Room full ({peers} peers for {max} places): waiting for a free place"
+        ));
     }
     pending_secs
         .filter(|secs| *secs >= CONNECT_SLOW_SECS)
@@ -412,8 +486,9 @@ pub fn wait_for_players(
     restart: Option<Res<OnlineRestart>>,
     time: Res<Time<Real>>,
     mut games: ResMut<OnlineGames>,
-    previous: Res<PreviousSessionPeers>,
+    mut previous: ResMut<PreviousSessionPeers>,
     mut ignored_logged: Local<BTreeSet<PeerId>>,
+    mut admission_logged: Local<Option<(usize, bool)>>,
     mut watch: ResMut<LobbyConnectWatch>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
@@ -483,22 +558,28 @@ pub fn wait_for_players(
 
     let num_players = ggrs_config.connection.max_player;
 
-    // Log the current state of player connections
-    if players.len() < num_players {
+    // D109 : un pair vu par le signaling qui ne se connecte jamais.
+    let connected: BTreeSet<PeerId> = socket.connected_peers().collect();
+    let pending = watch.sightings.lock().ok().and_then(|sightings| {
+        sightings.pending(
+            bevy::platform::time::Instant::now(),
+            &connected,
+            &previous.0,
+        )
+    });
+    // Log the current state of player connections. D116 : un pair vu mais pas encore connecté peut
+    // changer les admis (identifiant plus bas) : on ne s'engage pas avant de l'avoir connecté, sinon deux
+    // clients qui ne voient pas le même ensemble ne choisiraient pas les mêmes joueurs. Cette attente
+    // dure au plus `ADMISSION_SETTLE_SECS` : un pair à moitié connecté qui ne finit jamais (D109) ne doit
+    // pas empêcher les pairs connectés de jouer ; le délai de D109 reste la borne des attentes à
+    // moins de `max_player` joueurs.
+    let settling = pending.is_some_and(|(_, waited)| waited.as_secs_f32() < ADMISSION_SETTLE_SECS);
+    if players.len() < num_players || settling {
         info!(
             "Waiting for players: {}/{} connected",
             players.len(),
             num_players
         );
-        // D109 : un pair vu par le signaling qui ne se connecte jamais.
-        let connected: BTreeSet<PeerId> = socket.connected_peers().collect();
-        let pending = watch.sightings.lock().ok().and_then(|sightings| {
-            sightings.pending(
-                bevy::platform::time::Instant::now(),
-                &connected,
-                &previous.0,
-            )
-        });
         watch.pending_secs = pending.map(|(_, waited)| waited.as_secs_f32());
         if pending.is_some() && !watch.announced {
             watch.announced = true;
@@ -558,17 +639,72 @@ pub fn wait_for_players(
         }
         return; // wait for more players
     }
-    if players.len() > num_players {
-        // Un pair de trop : le socket d'une partie finissante de l'autre pair (D86), pas encore parti de
-        // la salle. Construire la session avec lui dépasserait `max_player` (panique) : on attend son départ.
-        info!(
-            "Too many peers: {}/{} connected, waiting for a stale socket to leave",
-            players.len(),
-            num_players
-        );
-        return;
+    // D116 : plus de pairs que de places (client fantôme, salon partagé, socket d'une partie finissante
+    // d'un pair d'une session passée sans être déjà filtré) : les `max_player` premiers par identifiant
+    // sont admis, les autres ignorés. Les admis démarrent sans attendre les pairs en trop.
+    let total = players.len();
+    let admission = admit_players(players, num_players);
+    if admission.excess > 0 {
+        if *admission_logged != Some((total, admission.local_admitted)) {
+            *admission_logged = Some((total, admission.local_admitted));
+            warn!(
+                "ggrs{{f=0 lobby_admission peers={total} max={num_players} excess={} local={}}} {}",
+                admission.excess,
+                if admission.local_admitted {
+                    "admitted"
+                } else {
+                    "ignored"
+                },
+                if admission.local_admitted {
+                    "pairs en trop ignorés, la partie démarre avec les premiers par identifiant"
+                } else {
+                    "salle pleine : ce client est ignoré"
+                }
+            );
+        }
+    } else {
+        *admission_logged = None;
     }
     watch.pending_secs = None;
+    if !admission.local_admitted {
+        let now = bevy::platform::time::Instant::now();
+        let since = watch.room_full.map_or(now, |full| full.since);
+        watch.room_full = Some(RoomFull {
+            peers: total,
+            max: num_players,
+            since,
+        });
+        let waited = now.saturating_duration_since(since);
+        if connect_timed_out(waited, watch.timeout_secs) {
+            warn!(
+                "ggrs{{f=0 lobby_room_full peers={total} max={num_players} action=lobby waited_secs={:.1}}} salle pleine, ce client est resté ignoré : retour au lobby",
+                waited.as_secs_f32()
+            );
+            watch.notice = Some((
+                ConnectNotice::RoomFull {
+                    peers: total,
+                    max: num_players,
+                },
+                now,
+            ));
+            watch.room_full = None;
+            // Les admis jouent à présent : le prochain socket de ce client ne doit pas les revoir comme des
+            // pairs libres (il serait admis, à son tour, à une session que personne n'écoute). Comme pour
+            // une session passée (D86), leurs identifiants sont ignorés ; un pair neuf, lui, compte.
+            previous
+                .0
+                .extend(admission.admitted.iter().filter_map(|p| match p {
+                    PlayerType::Remote(id) => Some(*id),
+                    _ => None,
+                }));
+            commands.remove_resource::<OnlineRestart>();
+            games.0 = 0;
+            app_state.set(AppState::LobbyOnline);
+        }
+        return;
+    }
+    watch.room_full = None;
+    let players = admission.admitted;
 
     if !session_state.ready {
         info!(
@@ -678,6 +814,7 @@ pub fn wait_for_players(
     commands.insert_resource(GgrsSessionBuilding {
         players: ggrs_players,
     });
+    commands.insert_resource(AdmittedPlayers(players));
 
     app_state.set(AppState::GameLoading);
 }
@@ -699,6 +836,7 @@ pub fn system_after_map_loaded(
     restart: Option<Res<OnlineRestart>>,
     mut previous: ResMut<PreviousSessionPeers>,
     mut current: ResMut<CurrentSessionPeers>,
+    admitted: Res<AdmittedPlayers>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -710,7 +848,7 @@ pub fn system_after_map_loaded(
     let mut session_builder = session_builder::<PeerConfig>(&ggrs_config.connection)
         .expect("invalid p2p session configuration");
 
-    let players = live_players(socket.players(), &previous.0);
+    let players = admitted.0.clone();
     // D86 : les pairs de cette session ne seront plus jamais des pairs du prochain lobby.
     let remote_peers: BTreeSet<PeerId> = players
         .iter()

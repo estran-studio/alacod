@@ -9,7 +9,7 @@
 # doivent être identiques. (Après une nouvelle tentative, le client 0 ne revoit pas un pair suspendu : le signaling
 # n'annonce un pair déjà là qu'à travers l'offre que celui-ci envoie ; le second délai n'est donc exercé que par ATTEMPTS=1.)
 #
-# Usage : [ATTEMPTS=1] scripts/p2p-connect-timeout.sh [jeu]       (zombies par défaut ; signaling démarré et arrêté ici)
+# Usage : [ATTEMPTS=1] [GHOST=1] scripts/p2p-connect-timeout.sh [jeu]       (zombies par défaut ; signaling démarré et arrêté ici)
 # Variables : ATTEMPTS (2), EXIT_AT (300), CONNECT_TIMEOUT_S (4), TIMEOUT (300 s), OUT (/tmp/p2p-connect-timeout),
 #   MATCHBOX_PORT, MATCHBOX_URL (voir `p2p-lib.sh`). Natif, sans `tc` : tourne sur Mac comme sur Linux. Bash, pas zsh.
 set -euo pipefail
@@ -50,6 +50,37 @@ lost_race() {
 trap cleanup EXIT
 p2p_signaling_up
 p2p_calm
+
+# GHOST=1 (D116, réserve de la validation D109) : le second délai complet. Un pair fantôme (`p2p-ghost-peer.mjs`) reste
+# visible à CHAQUE socket du client 0 (il lui envoie un candidat ICE sans suite à chacun et ne répond jamais) : le client 0
+# doit journaliser `attempt=1/2 action=retry` PUIS `attempt=2/2 action=lobby` (deux délais complets, le second sur le
+# socket de la nouvelle tentative), puis revenir au lobby. Aucune partie n'est jouée (pas de second pair).
+if [ "${GHOST:-0}" = 1 ]; then
+    command -v node >/dev/null || { echo "GHOST=1 : node requis (scripts/p2p-ghost-peer.mjs)"; exit 2; }
+    node "$(dirname "${BASH_SOURCE[0]}")/p2p-ghost-peer.mjs" "$SIGNAL_URL/$LOBBY" > "$OUT/ghost.log" 2>&1 &
+    pids+=("$!")
+    for ((n = 0; n < 200; n++)); do grep -q "dans la salle" "$OUT/ghost.log" 2>/dev/null && break; sleep 0.05; done
+    grep -q "dans la salle" "$OUT/ghost.log" || { echo "ÉCHEC : le pair fantôme n'a pas rejoint la salle (voir $OUT/ghost.log)"; exit 1; }
+    ALACOD_HEADLESS=1 ALACOD_CONNECT_TIMEOUT_SECS="$CONNECT_TIMEOUT_S" ALACOD_CONNECT_ATTEMPTS=2 APP_VERSION=x \
+        "$BIN" --matchbox "$SIGNAL_URL" --lobby "$LOBBY" --number-player 2 \
+        --players "$(p2p_players 2)" --cid client_0 --name client_0 > "$OUT/p2p-0.log" 2>&1 &
+    pids+=("$!")
+    expect1="lobby_connect_timeout attempt=1/2 action=retry"
+    expect2="lobby_connect_timeout attempt=2/2 action=lobby"
+    for ((n = 0; n < 6000; n++)); do
+        grep -q "$expect2" "$OUT/p2p-0.log" 2>/dev/null && break
+        sleep 0.05
+    done
+    { grep -h "lobby_connect_timeout" "$OUT/p2p-0.log" || true; } | sed 's/^/  /'
+    fail=0
+    grep -q "$expect1" "$OUT/p2p-0.log" || { echo "ÉCHEC : « $expect1 » absent"; fail=1; }
+    grep -q "$expect2" "$OUT/p2p-0.log" || { echo "ÉCHEC : « $expect2 » absent (le second délai n'a pas été exercé)"; fail=1; }
+    l1=$(grep -n "$expect1" "$OUT/p2p-0.log" | head -1 | cut -d: -f1)
+    l2=$(grep -n "$expect2" "$OUT/p2p-0.log" | head -1 | cut -d: -f1)
+    [ "$fail" = 1 ] || [ "${l1:-0}" -lt "${l2:-0}" ] || { echo "ÉCHEC : second délai avant le premier"; fail=1; }
+    [ "$fail" = 0 ] && echo "p2p-connect-timeout GHOST=1 : OK (deux délais complets, retour au lobby)" || echo "p2p-connect-timeout GHOST=1 : ÉCHEC"
+    exit "$fail"
+fi
 
 PLAYERS=$(p2p_players 2)
 for i in 0 1; do

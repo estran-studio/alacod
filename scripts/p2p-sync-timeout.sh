@@ -74,12 +74,16 @@ pids=()
 
 fail=0
 [ "$status" -eq 0 ] || { echo "ÉCHEC : un client est sorti en erreur ou a été tué au délai (voir $OUT/p2p-*.log)"; fail=1; }
+# Le client 0 attend un pair suspendu : il abandonne au délai (`session_sync_timeout`). Le client 1, repris après, trouve
+# le client 0 déjà parti de la salle : depuis D109 il abandonne aussitôt (`session_peer_left`), sans attendre son propre délai ;
+# l'un ou l'autre journal est un abandon de session non synchronisée.
 for i in 0 1; do
-    n=$(grep -c "session_sync_timeout" "$OUT/p2p-$i.log" || true)
+    n=$(grep -c "session_sync_timeout\|session_peer_left" "$OUT/p2p-$i.log" || true)
     echo "client $i : abandons de session non synchronisée : $n"
-    { grep -h "session_sync_timeout" "$OUT/p2p-$i.log" || true; } | sed 's/^/  /'
+    { grep -h "session_sync_timeout\|session_peer_left" "$OUT/p2p-$i.log" || true; } | sed 's/^/  /'
     [ "$n" -ge 1 ] || { echo "ÉCHEC : le client $i n'a jamais abandonné de session"; fail=1; }
 done
+grep -q "session_sync_timeout" "$OUT/p2p-0.log" || { echo "ÉCHEC : le client 0 n'a pas abandonné au délai de synchronisation"; fail=1; }
 echo "pairs obsolètes ignorés : $( (grep -h -c "d'une session précédente ignoré" "$OUT"/p2p-*.log || true) | awk '{s+=$1} END{print s+0}')"
 echo "DesyncDetected : $( (grep -h -c "DesyncDetected" "$OUT"/p2p-*.log || true) | awk '{s+=$1} END{print s+0}')"
 if cmp -s "$OUT/p2p-0.trace" "$OUT/p2p-1.trace"; then
