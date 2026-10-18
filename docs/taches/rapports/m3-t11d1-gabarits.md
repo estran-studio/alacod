@@ -288,7 +288,7 @@ finissent maintenant en victoire ou en mort (1 bot : 4 victoires, 15 morts ; 2 b
 
 D106 est **fermée**. D99 (réduite à l'esquive qui coupe la réanimation) et D107 (planificateur) restent ouvertes ; D100 est fermée.
 
-### 10.4 Vérifié (résultats réels, sur la fusion de T14, avant `main`)
+### 10.4 Vérifié (résultats réels ; première série sur la fusion de T14 seule, seconde série après la fusion de `main` en 10.6)
 
 - `make test_scenarios_par SHARDS=3` : **663 scénarios, 0 échec, 0 « trace différente »** (214 s) ; `make test_crates` : **1 245 tests, 0 échec** ; `cargo fmt --all -- --check` propre ; lint ×5 sans erreur ; `make gen` ×5 sans diff ; `make check_sim_boundary` : 13 crates ; `make test_tools` : 25 tests ;
   `check-rollback-registration.sh` OK ; fuzz `ALACOD_FUZZ=0:8` et `ALACOD_FUZZ_BOMBS=1` : 1 test chacun, verts.
@@ -296,7 +296,15 @@ D106 est **fermée**. D99 (réduite à l'esquive qui coupe la réanimation) et D
 - **p2p réel avec les inputs figés de bots** (`GAME=isaac FLOORS=sous_sol UNTIL_FLOOR=5 SIM_ARGS=--pickup-progress scripts/p2p-gungeon-inputs.sh 2 23 4500`, puis `GAME_ARGS="--seed 23" EXPECT_FLOORS=1 scripts/p2p-stress.sh isaac <inputs> 4400`) : deux pairs, **5 899 frames resimulées**,
   450 rollbacks (profondeur moyenne 9,9), **0 `DesyncDetected`**, un passage d'étage (f1700), 4 399 frames contiguës et identiques ; les traces portent deux `bomb_place`, trois `secret_wall_open` et une `key_door_open` : la bombe de départ, le mur secret et la porte à clé sont donc rejoués en p2p avec rollbacks réels.
 
-### 10.5 Reste à faire à la fusion avec `main`
+### 10.5 Fusion de `main` (T14 dessus, `8633a560`)
 
-`origin/main` (`98e65184`) contient `m2-salles-murs-gungeon` (`ExplorerOptions::steady`, soft-lock `Floors` par cases explorées) mais **pas encore** `m3-t14-bot-isaac` : la fusion de `main` dans cette branche conflit dans `crates/bots/src/{explorer,input}.rs`, `crates/scenario/src/{runner.rs,bin/alacod-sim.rs}`, `crates/scenario/tests/bots.rs`, `crates/map_ldtk/src/generation/mod.rs`
-et les docs : les conflits de bots (`explorer.rs`, `input.rs`, `runner.rs`, `alacod-sim.rs`, `bots.rs`) opposent les deux branches de bots et reviennent à T14 (mergée la première) ; `generation/mod.rs` et les docs sont les miens à résoudre ensuite. Une fois T14 sur `main` : `git merge origin/main`, rebénir ce qui bouge encore (avec cause), relancer suite, `test_crates`, p2p.
+`m3-t14-bot-isaac` est arrivé sur `main` (`09b68187`, avec la réconciliation de T14 pour `m2-salles-murs-gungeon` : `ExplorerPolicy` à `detour`/`oscillation`, D110) ; `git merge origin/main` : conflits de `crates/map_ldtk/src/generation/mod.rs` (la fermeture de configuration de mon test de comparaison reprend l'étendue de la grammaire, `bounds`, comme le chargeur),
+`docs/taches.md` et `dettes.md` seulement ; les conflits de bots étaient déjà résolus par T14. Les `bot_isaac_*` fusionnés sans conflit (`bot_isaac_secret.ron` : `detour: (shells: Some(400))`, `oscillation: Hysteresis`).
+**Suite sans BLESS sur la fusion : un seul scénario bouge, `bench_floor_isaac`** (T15, §80, `sous_sol_grand`, deux bots, graine 1) : cause = les vingt gabarits (plan de l'étage) et la bombe de départ (le bot ouvre un mur secret, `rayon 56`) ; attentes et budget (`min_sim_fps: 29`, mesuré 207) inchangés. **Quinzième trace rebénie.**
+Aucune trace d'un autre jeu ne bouge (gungeon, zombies, throne, testbed identiques à `main`).
+
+### 10.6 Vérifié après la fusion de `main` (`8633a560`, T14 dessus)
+
+- `make test_scenarios_par SHARDS=3` : **668 scénarios, 0 échec** (655 s sur poste partagé) après le rebless de `bench_floor_isaac` ; `make test_crates` : **1 265 tests, 0 échec** ; lint ×5 sans erreur ; `make gen` ×5 sans diff ; `cargo fmt --all -- --check` propre ; `check-forbidden.sh`, `check-rollback-registration.sh`, `check_sim_boundary` (13 crates), `make test_tools` (25) OK ;
+  fuzz `ALACOD_FUZZ=0:8` et `ALACOD_FUZZ_BOMBS=1` verts.
+- **p2p réel, inputs de bots réenregistrés** sur le code fusionné (`p2p-gungeon-inputs.sh` graine 23, 2 bots, 4 500 frames, passage d'étage f1701) puis `p2p-stress.sh isaac … 4400` : **5 488 frames resimulées**, 476 rollbacks (profondeur moyenne 9, maximale 11), **0 `DesyncDetected`**, passage d'étage f1700 vu par les deux pairs, 4 399 frames contiguës et identiques ; six lignes de bombe, mur secret et porte à clé rejouées.
