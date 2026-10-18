@@ -21,16 +21,12 @@ use bevy_fixed::{
 use bevy_ggrs::{GgrsPlugin, GgrsSchedule};
 #[cfg(feature = "debug_ui")]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
-use serde::{Deserialize, Serialize};
 use utils::{
     frame::FrameCount,
     net_id::{GgrsNetId, GgrsNetIdFactory},
 };
 
-use crate::session::{
-    is_headless, single_threaded_rollback_schedules, AppState, CoreSetupConfig, OnlineState,
-    SIM_FPS,
-};
+use crate::session::{single_threaded_rollback_schedules, AppState, CoreSetupConfig, SIM_FPS};
 use crate::web::WebPlugin;
 
 use crate::{

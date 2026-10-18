@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 use game::{
-    args::BaseArgsPlugin,
-    content_hot_reload::GameRoot,
-    core::CoreSetupPlugin, session::CoreSetupConfig,
-    waves::WaveModeEnabled,
+    args::BaseArgsPlugin, content_hot_reload::GameRoot, core::CoreSetupPlugin,
+    session::CoreSetupConfig, waves::WaveModeEnabled,
 };
 use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
