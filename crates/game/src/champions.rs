@@ -36,8 +36,8 @@ use bevy_ggrs::{GgrsSchedule, Rollback, RollbackDespawnCommandExtension};
 use combat::emitter::Emitter;
 use effects::Action;
 use items::{
-    draw_loot_with, loot_seed, loot_seed_numbered, unlocked_table, ItemTable, LootTables,
-    RunUnlocks, UnlockTable,
+    draw_loot_with, loot_seed_numbered, unlocked_table, ItemTable, LootTables, RunUnlocks,
+    UnlockTable,
 };
 use sim_core::{damage::FriendlyFire, frame_events::FrameEvents, tag::Tags, team::Team};
 use utils::{
@@ -458,6 +458,7 @@ impl Plugin for ChampionsPlugin {
 mod tests {
     use super::*;
     use bevy_fixed::fixed_math::new as fx;
+    use items::loot_seed;
 
     #[test]
     fn plan_classe_les_actions_dans_l_ordre() {
