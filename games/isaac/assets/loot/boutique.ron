@@ -1,0 +1,39 @@
+// `isaac` (M3-T11d1, docs/conventions.md §73 et §76.4) : pool de la boutique (`rooms/boutique.ron`, trois présentoirs par
+// étage). Épuisement par run et par pool (Q5) : un objet vendu à l'étage 1 ne revient pas à l'étage 2 ; un consommable
+// compte comme un objet « vu » (le pool se remplit de nouveau quand tout est sorti). Pas d'`exclude_held` (incompatible
+// avec `exhaust`).
+// Contenu : les treize objets de larmes (l'empilement : chacun est aussi dans le pool `tresor`, donc deux exemplaires sont
+// possibles sans pool qui les exclue, règle `Tears` du lint §77), quatre passifs à effets, les trois familiers, deux
+// objets de stats, et quatre consommables (clé, bombe, cœur, cœur d'âme). Poids 4 / 2 / 1 par rareté commune / peu
+// commune / rare, comme `tresor` ; consommables 3, 3, 3 et 2. Prix par rareté (`economy.ron`) ; aucune `Currency`.
+(
+    entries: [
+        (pick: Item("oeil"), weight: 4),
+        (pick: Item("ricochet"), weight: 4),
+        (pick: Item("glu"), weight: 4),
+        (pick: Item("vent_arriere"), weight: 4),
+        (pick: Item("epine"), weight: 2),
+        (pick: Item("goutte"), weight: 2),
+        (pick: Item("venin"), weight: 2),
+        (pick: Item("braise"), weight: 2),
+        (pick: Item("givre"), weight: 2),
+        (pick: Item("epouvante"), weight: 2),
+        (pick: Item("fantome"), weight: 1),
+        (pick: Item("eclat"), weight: 1),
+        (pick: Item("satellite"), weight: 1),
+        (pick: Item("crocs"), weight: 4),
+        (pick: Item("pouls"), weight: 4),
+        (pick: Item("rancune_vive"), weight: 2),
+        (pick: Item("reliquaire"), weight: 4),
+        (pick: Item("frere"), weight: 4),
+        (pick: Item("orbe"), weight: 2),
+        (pick: Item("nuee"), weight: 1),
+        (pick: Item("encre"), weight: 4),
+        (pick: Item("bottines"), weight: 4),
+        (pick: Item("key"), weight: 3),
+        (pick: Item("bomb"), weight: 3),
+        (pick: Item("coeur"), weight: 3),
+        (pick: Item("coeur_ame"), weight: 2),
+    ],
+    exhaust: true,
+)

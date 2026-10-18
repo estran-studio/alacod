@@ -1,0 +1,31 @@
+// M3-T11d1 (docs/conventions.md §69 et §76.4) : les piques d'un gabarit de combat. Graine 10 (séquence `sous_sol_un`) : la salle au nord du
+// départ est un `CombatPiques` (deux amas de piques dans les angles nord-ouest et sud-est). Le joueur monte (f5 à f58), longe le mur
+// sud vers l'amas du sud-est (f58 à f105) et s'y tient.
+//
+// À regarder : tant qu'il n'est pas sur les piques, aucun coup n'est reçu (6 PV à f100) ; sur l'amas (f107), un demi-cœur (1 PV, `surfaces/piques.ron`)
+// toutes les 60 frames : 5 PV dès f108, 4 dès f168, 3 dès f228, 2 dès f288 (les `hit_iframes` de `pleureur` recouvrent la période). Témoin `isaac_spikes_temoin` : même salle, même marche s'arrêtant une case avant l'amas : 6 PV jusqu'à f170,
+// donc les deux premiers coups (f108, f168) sont ceux des piques ; les suivants peuvent aussi être ceux d'un ennemi arrivé vers f172 (voir le témoin).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 10,
+    floors: Some("sous_sol_un"),
+    frames: 300,
+    players: [
+        (
+            inputs: [
+                (from: 5, to: 58, buttons: [Up], pan: (0, 0)),
+                (from: 58, to: 105, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 120),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 165),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 175),
+        Health(handle: 0, min: 3.0, max: 3.0, at_frame: 235),
+        Health(handle: 0, min: 2.0, max: 2.0, at_frame: 295),
+        PlayerAlive(handle: 0, at_frame: 299),
+    ],
+)

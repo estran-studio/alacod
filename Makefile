@@ -160,6 +160,18 @@ check_rollback_registration:
 check_sim_boundary:
 	./scripts/check-sim-boundary.sh
 
+# Outils de l'étape 2 de D69 (`docs/taches/dette-d69-etape2.md`), sans effet sur le dépôt :
+# `probe_game_sim` compile `game` en ECS seul dans une copie jetable et range les fuites par fichier ;
+# `schedule_order_diff` prouve que l'ordre des systèmes et des types rollback n'a pas bougé par
+# rapport à BASE (défaut origin/main).
+probe_game_sim:
+	./scripts/probe-game-sim.py $(ARGS) $(if $(SIM_LIST),--sim-list $(SIM_LIST))
+
+schedule_order_diff:
+	./scripts/schedule-order-diff.sh $(BASE)
+
+.PHONY: check_sim_boundary probe_game_sim schedule_order_diff
+
 # Lint du contenu (crates/content, T1.5) : références cassées, ids dupliqués, valeurs hors
 # plage, kinds inconnus, littéraux nus dans des champs Fixed. Sans lancer le moteur.
 # Code de sortie 1 (messages sur stderr) si un des jeux a une erreur.

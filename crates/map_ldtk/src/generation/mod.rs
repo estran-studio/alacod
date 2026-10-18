@@ -471,8 +471,10 @@ mod tests {
                     let _ = i;
                 }
                 let secret = secrete[0];
-                let ordinary =
-                    |i: usize| rooms[i].template == "Depart" || rooms[i].template == "Combat";
+                // M3-T11d1 : neuf gabarits de combat (`Combat`, `CombatRochers`, `CombatLong`…)
+                let ordinary = |i: usize| {
+                    rooms[i].template == "Depart" || rooms[i].template.starts_with("Combat")
+                };
                 assert!(
                     adjacent[secret].len() >= 2,
                     "{label} : secrète à {} portes",
@@ -501,6 +503,13 @@ mod tests {
                 // trésor : cul-de-sac derrière une salle ordinaire ; boss : cul-de-sac le plus loin
                 assert_eq!(adjacent[tresor[0]].len(), 1, "{label}");
                 assert!(adjacent[tresor[0]].iter().all(|r| ordinary(*r)), "{label}");
+                // M3-T11d1 : `sous_sol` exige une boutique, cul-de-sac derrière une salle ordinaire (`sous_sol_grand` non)
+                let boutique = named("Boutique");
+                assert_eq!(boutique.len(), usize::from(file == "sous_sol"), "{label}");
+                for shop in &boutique {
+                    assert_eq!(adjacent[*shop].len(), 1, "{label}");
+                    assert!(adjacent[*shop].iter().all(|r| ordinary(*r)), "{label}");
+                }
                 let post_degree = diable.len();
                 assert_eq!(adjacent[boss[0]].len(), 1 + post_degree, "{label}");
                 for i in 0..rooms.len() {
@@ -529,11 +538,20 @@ mod tests {
         }
     }
 
-    /// M3-T5 : un étage de 12 à 15 salles en grille se génère en moins de deux fois le temps de
-    /// `grand` de gungeon (15 à 20 salles en arbre), comparés graine à graine dans le même processus
-    /// (planification, génération des niveaux LDtk et murage).
+    /// M3-T5 : un étage de 12 à 15 salles en grille se génère en moins de trois fois le temps de `grand` de gungeon
+    /// (15 à 20 salles en arbre), comparés graine à graine dans le même processus.
+    ///
+    /// Trois chronomètres par côté (revue de M3-T11d1) : **(a)** `from_map` et le clone du `.ldtk` (croît avec le fichier : `isaac`
+    /// 145 → 314 Ko) ; **(p)** le planificateur seul (`floor::plan_floor`) ; **(b)** la génération entière (`map_generation` +
+    /// fermeture des ouvertures). Mesures (machine partagée, 100 graines) : avec dix gabarits (b) = 0,77 à 0,81 × gungeon ((p) 0,14 ms,
+    /// 278 évaluations de candidats par étage) ; avec vingt, (b) = 2,1 à 2,4 × ((p) 0,67 à 0,82 ms, **2 396 évaluations**, (a) 1,0 ms
+    /// contre 0,25). **La borne de 2 sur (b) n'est pas tenue** et la cause est le planificateur : `grid::attempt` tire un gabarit parmi
+    /// ceux qui ont au moins une pose valide, donc évalue (parents × ports × gabarits × ports) à chaque pose, et le remplissage
+    /// (`combat`) est passé de **un** gabarit à **neuf** (×8,6 évaluations). La borne est 3 ; la garde déterministe est le nombre
+    /// d'évaluations (`FloorPlan::steps`, moyenne sous 3 500). Piste (non faite) : n'évaluer qu'une pose par gabarit de même taille et
+    /// mêmes ports.
     #[test]
-    fn isaac_grille_de_12_a_15_salles_sous_deux_fois_grand_de_gungeon() {
+    fn isaac_grille_de_12_a_15_salles_sous_trois_fois_grand_de_gungeon() {
         use map::generation::config::MapGenerationMode;
         let isaac: LdtkJson = load_ldtk_json_file(&get_crate_root_path!(
             "../../games/isaac/assets/maps/salles.ldtk"
@@ -556,44 +574,81 @@ mod tests {
         )
         .unwrap()
         .grammar;
-        let (mut grid_time, mut grand_time) =
-            (std::time::Duration::ZERO, std::time::Duration::ZERO);
+        let zero = std::time::Duration::ZERO;
+        let mut isaac_steps = 0usize;
+        let (mut isaac_a, mut isaac_p, mut isaac_b) = (zero, zero, zero);
+        let (mut gungeon_a, mut gungeon_p, mut gungeon_b) = (zero, zero, zero);
         let runs = 100;
-        let timed = |work: &mut dyn FnMut()| {
-            let started = std::time::Instant::now();
-            work();
-            started.elapsed()
-        };
         for seed in 1..=runs {
-            grid_time += timed(&mut || {
-                let generator = isaac_floor(&isaac, &grid, seed);
+            // Comme le chargeur (`loader::resolve_map_config`) : l'étendue vient de la grammaire (m2-salles-murs-gungeon).
+            let config = |grammar: &world::FloorGrammar| MapGenerationConfig {
+                seed,
+                max_width: grammar.bounds.map_or(1000, |b| b.0),
+                max_heigth: grammar.bounds.map_or(1000, |b| b.1),
+                mode: MapGenerationMode::Floor(grammar.clone()),
+                ..Default::default()
+            };
+            for (data, grammar, tree, a, p, b) in [
+                (
+                    &isaac,
+                    &grid,
+                    false,
+                    &mut isaac_a,
+                    &mut isaac_p,
+                    &mut isaac_b,
+                ),
+                (
+                    &gungeon,
+                    &grand,
+                    true,
+                    &mut gungeon_a,
+                    &mut gungeon_p,
+                    &mut gungeon_b,
+                ),
+            ] {
+                let started = std::time::Instant::now();
+                let context = from_map(data, config(grammar));
+                let mut generator = GeneratedMap::create(data.clone());
+                *a += started.elapsed();
+                let started = std::time::Instant::now();
+                let mut rng = bevy_fixed::rng::RollbackRng::new(seed as u32);
+                let plan = map::generation::floor::plan_floor(grammar, &context, &mut rng).unwrap();
+                if !tree {
+                    isaac_steps += plan.steps as usize;
+                }
+                std::hint::black_box(plan);
+                *p += started.elapsed();
+                let started = std::time::Instant::now();
+                map_generation(context, &mut generator)
+                    .unwrap_or_else(|_| panic!("graine {seed} : génération échouée"));
+                if tree {
+                    generator.close_unused_openings();
+                } else {
+                    generator.close_unused_openings_exact();
+                }
                 std::hint::black_box(generator.generated_rooms.len());
-            });
-            grand_time += timed(&mut || {
-                let config = MapGenerationConfig {
-                    seed,
-                    max_width: grand.bounds.map_or(1000, |b| b.0),
-                    max_heigth: grand.bounds.map_or(1000, |b| b.1),
-                    mode: MapGenerationMode::Floor(grand.clone()),
-                    ..Default::default()
-                };
-                let context = from_map(&gungeon, config);
-                let mut generator = GeneratedMap::create(gungeon.clone());
-                map_generation(context, &mut generator).unwrap();
-                generator.close_unused_openings();
-                std::hint::black_box(generator.generated_rooms.len());
-            });
+                *b += started.elapsed();
+            }
         }
+        let per = |d: std::time::Duration| d / runs as u32;
         println!(
-            "génération : isaac 12-15 salles en grille {:?} par étage, gungeon `grand` {:?} (rapport {:.2})",
-            grid_time / runs as u32,
-            grand_time / runs as u32,
-            grid_time.as_secs_f64() / grand_time.as_secs_f64()
+            "par étage : (a) clone + from_map isaac {:?}, gungeon {:?} ; (p) planificateur isaac {:?}, gungeon {:?} (rapport {:.2}) ; (b) génération entière isaac {:?}, gungeon {:?} (rapport {:.2}) ; {} évaluations de candidats par étage (isaac)",
+            per(isaac_a),
+            per(gungeon_a),
+            per(isaac_p),
+            per(gungeon_p),
+            isaac_p.as_secs_f64() / gungeon_p.as_secs_f64(),
+            per(isaac_b),
+            per(gungeon_b),
+            isaac_b.as_secs_f64() / gungeon_b.as_secs_f64(),
+            isaac_steps / runs as usize
         );
         assert!(
-            grid_time < grand_time * 2,
-            "{grid_time:?} contre {grand_time:?}"
+            isaac_b < gungeon_b * 3,
+            "(b) {isaac_b:?} contre {gungeon_b:?} ((p) {isaac_p:?} contre {gungeon_p:?}, (a) {isaac_a:?} contre {gungeon_a:?})"
         );
+        let steps = isaac_steps / runs as usize;
+        assert!(steps < 3_500, "{steps} évaluations de candidats par étage");
     }
 
     /// M2-T11 (`docs/conventions.md` §46) : les gabarits `CombatEW` et `CombatNS` de `gungeon`

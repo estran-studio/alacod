@@ -364,6 +364,13 @@ désérialisés (`WeaponAsset`, `MeleeWeaponAsset` ; leurs enveloppes `Asset` so
 le sprite d'une balle est posé par `game::world_sprites::attach_bullet_visuals` (`Added<Bullet>`, à partir
 de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `sim_core::animation_state`.
 
+Étape 2 de D69 (plan `docs/taches/rapports/dette-d69-plan-etape2.md`, fiche `docs/taches/dette-d69-etape2.md`) :
+`make probe_game_sim` compile `game` en ECS seul dans une copie jetable et range les fuites par fichier (mesure de
+la dette tant que `game` est un crate) ; `make schedule_order_diff BASE=<réf>` prouve que l'ordre des systèmes du
+rollback (`ReadInputs`, `GgrsSchedule`, `AdvanceWorld`, `SaveWorld`, `LoadWorld`) et des types rollback n'a pas bougé
+(`crates/scenario/tests/schedule_order.rs`). À lancer à chaque refactoring qui déplace de la simulation d'un module
+ou d'un crate à l'autre, avec les traces de scénario.
+
 ## Scénarios (tests de comportement et de régression)
 
 `crates/scenario` joue des parties scriptées en headless, dans le processus de test :
@@ -435,6 +442,9 @@ de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `s
       sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
       `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
       présentoir à vie maximale ou à consommable ; `Health`, `Stat(MaxHealth)` et `ExtraHealth` lisent le paiement.
+    - M3-T11d1 gabarits, boutique, curses, bombe de départ (§76.4) : aucune attente nouvelle (`EntityCount(kind: Rock)`, `Shelf`, `ShelfCount`,
+      `PoolCount`, `Curse`, `Consumable`, `ItemsOnFloor`, `Health`, `Event(kind: "explosion")` couvrent `isaac_shop_buy`, `isaac_bomb_rock`,
+      `isaac_spikes`) ; diagnostic ignoré `floor_probe` (`ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>`, plan d'un étage par graine).
     - M3-T14 bot `explorateur` v3 pour `isaac` (§79) : aucune attente nouvelle (`DoorLocked`, `Consumable`, `Health`,
       `ExtraHealth`, `Currency`, `Shelf`, `EntityCount(kind: Rock)`, `FloorIndex`, `Event` couvrent les dix scénarios
       `bot_isaac_*`) ; moments clés `door_lock` (mur secret ou porte à clé ouverte), `bomb`, `shelf` ; champ de scénario

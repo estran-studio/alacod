@@ -1,0 +1,177 @@
+ggrs{f=601 bomb_place owner=145 at=(-303.54837,-158.67429) fuse_until=676}
+ggrs{f=676 secret_wall_open room=6d26f368-bfa7-38da-b271-57d4091c119091cb by=233}
+seed      1 : vague  0  niveau  0  frames   3531  morts 1/1  kills   0  variantes   2   365.0 fps  10.34s  fin Defeat f3530
+ggrs{f=315 bomb_place owner=135 at=(31.30318,-182.26074) fuse_until=390}
+ggrs{f=390 secret_wall_open room=a9f4a23b-b25e-7625-b140-6dcf739fc2902c72 by=186}
+seed      2 : vague  0  niveau  1  frames   3979  morts 1/1  kills   0  variantes   8   318.8 fps  12.65s  fin Defeat f3978
+ggrs{f=1335 bomb_place owner=208 at=(154.16428,-453.20107) fuse_until=1410}
+ggrs{f=1410 rock_broken net_id=182 cell=(9,-26) loot=false}
+ggrs{f=1410 secret_wall_open room=06846eec-9d5b-32fe-be45-959f1ae0da1890bf by=347}
+ggrs{f=4309 bomb_place owner=208 at=(-71.1175,1.79736) fuse_until=4384}
+ggrs{f=4384 secret_wall_open room=a4785217-488a-9e61-a44c-111933babbfef5e by=603}
+ggrs{f=4774 key_door_open room=b4b34432-55e9-2634-9c03-c4ae11864a573b2d by=208}
+seed      3 : vague  0  niveau  1  frames   5473  morts 1/1  kills   0  variantes   2   303.5 fps  18.22s  fin Defeat f5472
+ggrs{f=472 bomb_place owner=165 at=(79.06505,-159.69043) fuse_until=547}
+ggrs{f=547 rock_broken net_id=74 cell=(6,-8) loot=false}
+ggrs{f=547 secret_wall_open room=1e857c49-5914-7163-2766-b73b978d159cd388 by=245}
+seed      4 : vague  0  niveau  0  frames   2265  morts 1/1  kills   0  variantes   2   298.3 fps   7.76s  fin Defeat f2264
+ggrs{f=440 bomb_place owner=126 at=(58.48805,-193.65178) fuse_until=515}
+ggrs{f=515 secret_wall_open room=5ac8590c-40fb-421e-42e5-6179970060c59e5f by=171}
+seed      5 : vague  0  niveau  0  frames   2345  morts 1/1  kills   0  variantes   1   202.6 fps  11.82s  fin Defeat f2344
+ggrs{f=363 bomb_place owner=122 at=(49.78493,-189.33876) fuse_until=438}
+ggrs{f=438 rock_broken net_id=112 cell=(5,-13) loot=false}
+ggrs{f=438 rock_broken net_id=113 cell=(6,-13) loot=true}
+ggrs{f=438 rock_broken net_id=111 cell=(6,-12) loot=false}
+ggrs{f=438 secret_wall_open room=db640880-61df-c5b2-e969-b6cda3b470adfb83 by=170}
+ggrs{f=438 rock_loot key=rock:f406502d-f3a8-42e7-631a-f2a57b170ceed5c:6:-13 item=key}
+ggrs{f=3267 key_door_open room=9a97ad77-2c6a-70c1-932c-44a7f49b878f213e by=122}
+ggrs{f=4186 bomb_place owner=122 at=(-325.29826,4.62598) fuse_until=4261}
+ggrs{f=4261 rock_broken net_id=330 cell=(-21,1) loot=false}
+ggrs{f=4261 rock_broken net_id=328 cell=(-21,2) loot=true}
+ggrs{f=4261 rock_broken net_id=329 cell=(-20,2) loot=false}
+ggrs{f=4261 secret_wall_open room=d08c2012-c049-cd14-5563-5c9bb66354e1b8d by=480}
+ggrs{f=4261 rock_loot key=rock:32109ad6-143d-4878-7177-b73e206a75dad4c1:-21:2 item=ration}
+seed      6 : vague  0  niveau  1  frames   4815  morts 0/1  kills   0  variantes   2   228.8 fps  21.25s  fin Victory f4814
+ggrs{f=566 bomb_place owner=132 at=(-151.40886,371.73369) fuse_until=641}
+ggrs{f=641 secret_wall_open room=36a92a5e-8e25-e940-4b9f-9a73247283ef3929 by=194}
+seed      7 : vague  0  niveau  0  frames   3048  morts 1/1  kills   0  variantes   2   320.8 fps   9.67s  fin Defeat f3047
+ggrs{f=689 bomb_place owner=130 at=(-179.69344,-187.96112) fuse_until=764}
+ggrs{f=764 secret_wall_open room=5972eeed-8368-0fa7-48da-4daf8271d95a991c by=178}
+seed      8 : vague  0  niveau  0  frames   2273  morts 1/1  kills   0  variantes   0   330.8 fps   7.05s  fin Defeat f2272
+ggrs{f=804 bomb_place owner=164 at=(459.99527,-181.70084) fuse_until=879}
+ggrs{f=879 secret_wall_open room=7670faef-eb82-b4f9-5a04-b55c1d93094005d6 by=228}
+seed      9 : vague  0  niveau  0  frames   3241  morts 1/1  kills   0  variantes   0   325.9 fps  10.11s  fin Defeat f3240
+ggrs{f=663 bomb_place owner=195 at=(176.8204,252.2515) fuse_until=738}
+ggrs{f=738 secret_wall_open room=60ca4448-1b07-1cba-84d1-cf2ef7fcb03bf32b by=289}
+seed     10 : vague  0  niveau  0  frames   1794  morts 1/1  kills   0  variantes   0   328.4 fps   5.63s  fin Defeat f1793
+ggrs{f=841 bomb_place owner=153 at=(-67.88866,-406.49709) fuse_until=916}
+ggrs{f=916 secret_wall_open room=8832fa23-9926-de4d-eb48-4519960797315bba by=232}
+seed     11 : vague  0  niveau  0  frames   1036  morts 1/1  kills   0  variantes   3   315.6 fps   3.43s  fin Defeat f1035
+ggrs{f=1075 bomb_place owner=215 at=(-656.29958,-113.2376) fuse_until=1150}
+ggrs{f=1150 secret_wall_open room=915964ca-8da1-4a8c-847b-6607af9ea139d265 by=333}
+seed     12 : vague  0  niveau  0  frames   2630  morts 1/1  kills   0  variantes   2   281.7 fps   9.50s  fin Defeat f2629
+ggrs{f=691 bomb_place owner=190 at=(-160.69545,-276.46977) fuse_until=766}
+ggrs{f=766 secret_wall_open room=6c18efce-34d5-8030-95cf-fbda08e2c41d72d9 by=287}
+ggrs{f=5619 key_door_open room=f0aa4bb1-515c-bd0b-eeee-a563e9753df36c50 by=190}
+seed     13 : vague  0  niveau  1  frames   6824  morts 1/1  kills   0  variantes   1   317.5 fps  21.65s  fin Defeat f6823
+ggrs{f=383 bomb_place owner=170 at=(-63.16347,149.71283) fuse_until=458}
+ggrs{f=458 rock_broken net_id=80 cell=(-6,6) loot=false}
+ggrs{f=458 secret_wall_open room=52ca64c2-5d39-6544-2fd3-a23973169a5a8f7d by=236}
+ggrs{f=5775 key_door_open room=d20e9725-5e40-3c9f-6172-8d1c5229b59c7574 by=170}
+seed     14 : vague  0  niveau  1  frames   6655  morts 0/1  kills   0  variantes   2   320.3 fps  20.98s  fin Victory f6654
+ggrs{f=53 bomb_place owner=154 at=(82.81093,-14.83293) fuse_until=128}
+ggrs{f=128 secret_wall_open room=cf59e797-e00a-4fe1-a7cc-23dc0bbc69f3ede by=195}
+ggrs{f=4089 key_door_open room=ddfda3e8-b627-bd5a-6cf1-e731819c5bd2b04b by=154}
+seed     15 : vague  0  niveau  1  frames   5319  morts 0/1  kills   0  variantes   3   370.0 fps  14.55s  fin Victory f5318
+ggrs{f=21 bomb_place owner=206 at=(-8.83293,-40.82661) fuse_until=96}
+ggrs{f=96 secret_wall_open room=95573c8b-686e-14f5-a1d0-79b70aef6a6cbb82 by=250}
+seed     16 : vague  0  niveau  0  frames   2401  morts 1/1  kills   0  variantes   1   403.3 fps   6.15s  fin Defeat f2400
+ggrs{f=21 bomb_place owner=138 at=(-8.83293,12.82655) fuse_until=96}
+ggrs{f=96 secret_wall_open room=e01323f8-96f7-07ea-9641-937d7aacb37ab61b by=171}
+ggrs{f=3059 key_door_open room=83fd02d0-f7ef-c482-b9f9-5f219b04984b6a93 by=138}
+seed     17 : vague  0  niveau  1  frames   3567  morts 1/1  kills   0  variantes   3   418.4 fps   8.72s  fin Defeat f3566
+ggrs{f=21 bomb_place owner=163 at=(-7.16708,-40.82661) fuse_until=96}
+ggrs{f=96 secret_wall_open room=d18251e4-f3f3-28b6-889d-a67271585affc4d7 by=206}
+ggrs{f=5166 bomb_place owner=163 at=(-8.83293,-40.32733) fuse_until=5241}
+ggrs{f=5241 secret_wall_open room=9d0f5374-6843-f0c6-116d-fac943e8cb5dd627 by=627}
+seed     18 : vague  0  niveau  1  frames   5305  morts 1/1  kills   0  variantes   3   417.9 fps  12.89s  fin Defeat f5304
+ggrs{f=272 bomb_place owner=306 at=(-66.65874,-141.40416) fuse_until=347}
+ggrs{f=347 rock_broken net_id=136 cell=(-6,-8) loot=false}
+ggrs{f=347 rock_broken net_id=134 cell=(-6,-7) loot=true}
+ggrs{f=347 rock_broken net_id=135 cell=(-5,-7) loot=false}
+ggrs{f=347 secret_wall_open room=c901c5f2-6ca9-cdf4-a0c3-2ff9cf46728a5ded by=397}
+ggrs{f=347 rock_loot key=rock:12d83e33-6df6-8cdd-2898-a8af93171f33958a:-6:-7 item=coeur}
+seed     19 : vague  0  niveau  1  frames   7770  morts 1/1  kills   0  variantes   4   334.9 fps  23.40s  fin Defeat f7769
+ggrs{f=883 bomb_place owner=126 at=(-65.77687,131.28546) fuse_until=958}
+ggrs{f=958 rock_broken net_id=115 cell=(-6,5) loot=false}
+ggrs{f=958 rock_broken net_id=116 cell=(-5,5) loot=false}
+ggrs{f=958 rock_broken net_id=113 cell=(-6,6) loot=false}
+ggrs{f=958 rock_broken net_id=111 cell=(-6,10) loot=false}
+ggrs{f=958 rock_broken net_id=108 cell=(-5,11) loot=false}
+ggrs{f=958 secret_wall_open room=672acb0e-d715-3d70-b20f-2f0df8226c541919 by=204}
+ggrs{f=4044 key_door_open room=128e5500-445f-4632-6fe9-c94a7834de2fc603 by=126}
+seed     20 : vague  0  niveau  1  frames   6006  morts 0/1  kills   0  variantes   1   480.9 fps  12.68s  fin Victory f6005
+ggrs{f=241 bomb_place owner=154 at=(-85.68408,-153.66037) fuse_until=316}
+ggrs{f=316 rock_broken net_id=125 cell=(-6,-8) loot=false}
+ggrs{f=316 rock_broken net_id=123 cell=(-6,-7) loot=true}
+ggrs{f=316 rock_broken net_id=124 cell=(-5,-7) loot=false}
+ggrs{f=316 secret_wall_open room=d6c2169c-414b-262e-37b5-9d0ae590f883fbaf by=201}
+ggrs{f=316 rock_loot key=rock:97b1ec79-2b84-c113-5356-295272bd63cb14f8:-6:-7 item=key}
+ggrs{f=4348 key_door_open room=e01749a9-06f4-85c3-7046-5d828aed908f6f68 by=154}
+seed     21 : vague  0  niveau  1  frames   6097  morts 1/1  kills   0  variantes   2   400.2 fps  15.42s  fin Defeat f6096
+ggrs{f=21 bomb_place owner=306 at=(-7.16708,12.82655) fuse_until=96}
+ggrs{f=96 secret_wall_open room=0d187703-3086-ce2d-59a8-84a370e71e46b91a by=390}
+seed     22 : vague  0  niveau  0  frames   1081  morts 1/1  kills   0  variantes   5   314.0 fps   3.64s  fin Defeat f1080
+ggrs{f=215 bomb_place owner=129 at=(-85.41034,121.59383) fuse_until=290}
+ggrs{f=290 rock_broken net_id=90 cell=(-6,10) loot=false}
+ggrs{f=290 secret_wall_open room=2a74daee-e575-3850-af6f-1341602330add79 by=171}
+ggrs{f=3626 key_door_open room=d874454b-5a2e-dbb5-3990-92ce3faf165ee942 by=129}
+seed     23 : vague  0  niveau  1  frames   5031  morts 0/1  kills   0  variantes   5   483.0 fps  10.60s  fin Victory f5030
+ggrs{f=226 bomb_place owner=172 at=(-85.91666,-162.84215) fuse_until=301}
+ggrs{f=301 secret_wall_open room=5f227673-c936-af1d-65d8-adbb2f57434c04ca by=234}
+ggrs{f=3998 key_door_open room=2e9cd1f4-d4c3-7346-b1ed-63936a686b78caa7 by=172}
+ggrs{f=4797 bomb_place owner=172 at=(46.46631,-188.45721) fuse_until=4872}
+ggrs{f=4872 rock_broken net_id=508 cell=(5,-13) loot=false}
+ggrs{f=4872 secret_wall_open room=53dfc0bf-d712-0b49-9c14-e4e8d863c4246266 by=605}
+seed     24 : vague  0  niveau  1  frames   5261  morts 1/1  kills   0  variantes   4   422.8 fps  12.64s  fin Defeat f5260
+ggrs{f=53 bomb_place owner=134 at=(82.81093,-14.83293) fuse_until=128}
+ggrs{f=128 secret_wall_open room=58dbfbdb-ff7e-20c5-1b60-3d58973f6b58bb92 by=162}
+seed     25 : vague  0  niveau  1  frames   4208  morts 1/1  kills   0  variantes   6   477.7 fps   9.01s  fin Defeat f4207
+ggrs{f=356 bomb_place owner=173 at=(-37.29428,163.02077) fuse_until=431}
+ggrs{f=431 rock_broken net_id=138 cell=(-6,10) loot=false}
+ggrs{f=431 rock_broken net_id=136 cell=(-6,11) loot=true}
+ggrs{f=431 rock_broken net_id=137 cell=(-5,11) loot=false}
+ggrs{f=431 secret_wall_open room=43333e42-68b9-fac4-c753-b75f2496077d92fd by=237}
+ggrs{f=431 rock_loot key=rock:7cc7566a-92c1-4d2c-669b-c8f4eb3effa79985:-6:11 item=currency:1}
+seed     26 : vague  0  niveau  0  frames   1539  morts 1/1  kills   0  variantes   3   403.5 fps   4.01s  fin Defeat f1538
+ggrs{f=620 bomb_place owner=148 at=(85.5383,-259.60396) fuse_until=695}
+ggrs{f=695 secret_wall_open room=61e44d92-0fc9-d694-d0e3-eb4a00e6c202a30d by=208}
+seed     27 : vague  0  niveau  0  frames   2820  morts 1/1  kills   0  variantes   1   477.0 fps   6.11s  fin Defeat f2819
+ggrs{f=2946 bomb_place owner=206 at=(197.36932,-189.90257) fuse_until=3021}
+ggrs{f=3021 secret_wall_open room=85cfb279-3984-7713-9156-7bd998bd23cc02f8 by=411}
+seed     28 : vague  0  niveau  0  frames   3126  morts 1/1  kills   0  variantes   0   377.1 fps   8.49s  fin Defeat f3125
+ggrs{f=262 bomb_place owner=171 at=(101.61119,-135.7455) fuse_until=337}
+ggrs{f=337 secret_wall_open room=57d2bbe8-ee27-955a-64f1-898c199c8afc684b by=231}
+ggrs{f=4990 key_door_open room=2c606197-120a-d9e1-a9cc-34fedabbd4c990de by=171}
+seed     29 : vague  0  niveau  1  frames   6548  morts 0/1  kills   0  variantes   5   436.4 fps  15.20s  fin Victory f6547
+ggrs{f=53 bomb_place owner=204 at=(82.81093,-14.83293) fuse_until=128}
+ggrs{f=128 secret_wall_open room=c796b914-5163-8766-778d-e6cd3388bfaac147 by=259}
+seed     30 : vague  0  niveau  0  frames   3834  morts 1/1  kills   0  variantes   2   358.2 fps  10.89s  fin Defeat f3833
+ggrs{f=968 bomb_place owner=128 at=(-440.32874,-135.37144) fuse_until=1043}
+ggrs{f=1043 secret_wall_open room=282b4036-ba1d-f4d8-7257-b1ef6bca3143e8a1 by=211}
+seed     31 : vague  0  niveau  1  frames   4267  morts 1/1  kills   0  variantes   4   475.3 fps   9.17s  fin Defeat f4266
+ggrs{f=1541 bomb_place owner=197 at=(322.74828,-173.256) fuse_until=1616}
+ggrs{f=1616 rock_broken net_id=139 cell=(20,-13) loot=false}
+ggrs{f=1616 rock_broken net_id=140 cell=(21,-13) loot=true}
+ggrs{f=1616 rock_broken net_id=138 cell=(21,-12) loot=false}
+ggrs{f=1616 secret_wall_open room=eddff1fb-3f1e-1be5-9c00-accddf5fda2a2532 by=316}
+ggrs{f=1616 rock_loot key=rock:cb117b23-2626-074d-0048-e487a707338e38ba:21:-13 item=bomb}
+seed     32 : vague  0  niveau  0  frames   5256  morts 1/1  kills   0  variantes   2   416.8 fps  12.81s  fin Defeat f5255
+ggrs{f=2282 bomb_place owner=201 at=(-545.27043,105.16241) fuse_until=2357}
+ggrs{f=2357 secret_wall_open room=6f79c3c7-2e7a-eb91-afbc-36a8c7ebc89bbc4e by=332}
+seed     33 : vague  0  niveau  1  frames   7400  morts 1/1  kills   0  variantes   1   346.1 fps  21.56s  fin Defeat f7399
+ggrs{f=1429 bomb_place owner=219 at=(321.17122,156.31187) fuse_until=1504}
+ggrs{f=1504 secret_wall_open room=8fefcb90-a9af-4b42-11b9-d98a8fc487e45853 by=322}
+seed     34 : vague  0  niveau  0  frames   2757  morts 1/1  kills   0  variantes   1   345.4 fps   8.16s  fin Defeat f2756
+ggrs{f=21 bomb_place owner=179 at=(-7.16708,-40.82661) fuse_until=96}
+ggrs{f=96 secret_wall_open room=9a6b1530-26cf-65e2-2bd9-756ea3643ceb1773 by=225}
+seed     35 : vague  0  niveau  0  frames   3847  morts 1/1  kills   0  variantes   2   432.4 fps   9.09s  fin Defeat f3846
+ggrs{f=374 bomb_place owner=157 at=(-305.2943,-20.49677) fuse_until=449}
+ggrs{f=449 secret_wall_open room=b0f2881f-36f2-29a9-66f4-2ad365c393c1d046 by=221}
+seed     36 : vague  0  niveau  0  frames   1360  morts 1/1  kills   0  variantes   2   437.9 fps   3.30s  fin Defeat f1359
+ggrs{f=215 bomb_place owner=181 at=(-85.41034,121.59383) fuse_until=290}
+ggrs{f=290 rock_broken net_id=91 cell=(-6,10) loot=false}
+ggrs{f=290 secret_wall_open room=30444bdb-0f7e-f0c5-ab60-2f9de73f26bdcb92 by=237}
+ggrs{f=5047 key_door_open room=b896c404-7f93-ffd6-353d-d21f57867ae3a77 by=181}
+seed     37 : vague  0  niveau  1  frames   6071  morts 1/1  kills   0  variantes   6   387.3 fps  15.87s  fin Defeat f6070
+ggrs{f=21 bomb_place owner=159 at=(-7.16708,-40.82661) fuse_until=96}
+ggrs{f=96 secret_wall_open room=41de5b6a-d3c1-9a2c-4f9b-8d81c03ee4ac6a85 by=202}
+seed     38 : vague  0  niveau  1  frames   4722  morts 1/1  kills   0  variantes   4   380.3 fps  12.60s  fin Defeat f4721
+ggrs{f=18 bomb_place owner=112 at=(-8.83293,-39.66002) fuse_until=93}
+ggrs{f=93 secret_wall_open room=015e30c9-8394-99e3-35e6-8f59540d50ba6608 by=141}
+ggrs{f=3967 bomb_place owner=112 at=(-560.42105,-250.81883) fuse_until=4042}
+ggrs{f=4042 secret_wall_open room=5586a272-9f29-5e74-f743-62b233c64e72786d by=620}
+seed     39 : vague  0  niveau  1  frames   4112  morts 1/1  kills   0  variantes   4   446.1 fps   9.40s  fin Defeat f4111
+ggrs{f=1109 bomb_place owner=140 at=(-192.01076,-197.82956) fuse_until=1184}
+ggrs{f=1184 secret_wall_open room=4e65dd0d-5b08-c2c7-217a-ed4742912dbc1abc by=213}
+seed     40 : vague  0  niveau  1  frames   3813  morts 1/1  kills   0  variantes   3   454.5 fps   8.59s  fin Defeat f3812

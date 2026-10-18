@@ -1,7 +1,6 @@
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::enemy::Enemy;
-use crate::character::movement::Velocity;
-use crate::character::player::input::FIXED_TIMESTEP;
+use crate::character::movement::{Velocity, FIXED_TIMESTEP};
 use crate::character::player::Player;
 use crate::collider::{is_colliding, Collider, Wall, Window};
 use bevy::prelude::*;

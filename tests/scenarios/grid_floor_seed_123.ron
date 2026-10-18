@@ -1,12 +1,11 @@
-// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable et une boucle, graine 123 (séquence
-// `sous_sol_un`). Neuf salles : le départ, quatre combats dont deux voisins reliés par une porte de plus (la boucle,
-// `loops: 1`), le boss 1×1 au nord-est avec la salle du diable collée à lui, un trésor 1×1 au nord et la salle secrète
-// sous deux combats. Le bot `explorateur` nettoie les quatre combats avant le boss.
+// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable, graine 123 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18, vingt gabarits, boutique
+// exigée) : le plan change et la graine 123 porte le **boss 2×2** (480 × 288 px) que portait la graine 23 : neuf salles : le départ, trois combats dont un 2×1 (rochers
+// à butin, piques), le boss 2×2 au sud-est avec la salle du diable collée à lui, un trésor 1×1, la salle secrète au nord d'un combat (et d'un autre), la **boutique**
+// (collée au grand combat). Le bot `explorateur` nettoie les trois combats, **pose la bombe de départ** contre le mur de la secrète (intégration de T14, D106) puis bat
+// le boss.
 //
-// À regarder : quatre combats (f64 à f1512), puis le boss verrouille sa salle (f1548), phase 1 (f1640), phase 2 (f1761),
-// mort (salle nettoyée f1934) ; victoire f1935.
-// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions), le bot est plus
-// lent : mêmes attentes, frames recalées sur le nouveau run (boss f1001 → f1548, victoire f1236 → f1935, scénario 2100 frames).
+// À regarder : la bombe est posée f673 (explosion f747, mur ouvert f748) ; le boss verrouille sa grande salle (f1424), phase 1 (f1538), phase 2 (f1620), meurt (salle
+// nettoyée f1725) ; victoire f1726 ; le bot ramasse ensuite le butin du boss (`calice_ardent`, f1821) ; scénario de 2400 frames.
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
@@ -16,20 +15,24 @@ Scenario(
     game: "isaac",
     map_seed: 123,
     floors: Some("sous_sol_un"),
-    frames: 2100,
+    frames: 2400,
     players: [
         (bot: explorateur, aim: Some(Free)),
     ],
     expect: [
-        EntityCount(kind: Enemy, min: Some(13), max: Some(13), at_frame: 5),
-        RoomLayout(kind: "boss", size: Some((240, 144)), touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
+        EntityCount(kind: Enemy, min: Some(11), max: Some(11), at_frame: 5),
+        RoomLayout(kind: "boss", size: Some((480, 288)), touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
         RoomLayout(kind: "diable", touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
         RoomLayout(kind: "tresor", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "diable"], at_frame: 5),
         RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "diable", "tresor"], at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 1600),
-        BossPhase(entity: NetId(131), phase: 1, at_frame: 1650),
-        RoomState(kind: "boss", state: Cleared, at_frame: 2000),
-        RunState(step: Ended(Victory), at_frame: 2000),
-        PlayerAlive(handle: 0, at_frame: 2099),
+        RoomLayout(kind: "boutique", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "depart"], at_frame: 5),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 600),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 700),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 800),
+        RoomState(kind: "boss", state: Locked, at_frame: 1450),
+        BossPhase(entity: NetId(159), phase: 1, at_frame: 1550),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1750),
+        RunState(step: Ended(Victory), at_frame: 1750),
+        PlayerAlive(handle: 0, at_frame: 2399),
     ],
 )
