@@ -1,3 +1,4 @@
+// M3-T11d1, intégration de T14 (2026-10-18) : le bot pose **la bombe de départ** contre le mur de la secrète (f677, explosion f751) ; chronologie : boss verrouillé f1330, phases f1422 et f1590, salle nettoyée f1752, victoire f1753, butin f1777.
 // M3-T10 (docs/conventions.md §75) : les accomplissements d'une run entrent dans le profil à sa fin. Même graine et même
 // séquence que `grid_post_boss` (graine 8, `sous_sol_un` : un seul étage, le bot `explorateur` — `Armor +50` et visée du personnage, `grid_post_boss` joue
 // `Armor +100` et visée libre — bat le gardien, dernière salle de l'étage), avec un profil (`profile: true`). Au départ le profil est vide et `RunUnlocks` aussi ; à la victoire

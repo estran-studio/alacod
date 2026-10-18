@@ -1,3 +1,5 @@
+// M3-T11d1, intégration de T14 (2026-10-18) : le bot pose **la bombe de départ** contre le mur de la secrète (f673, explosion f747, mur ouvert f748) ; chronologie recalée : boss verrouillé f1424, phases f1538 et f1620,
+// salle nettoyée f1725, victoire f1726 (scénario de 2400 frames ; le bot ramasse `calice_ardent` à f1821).
 // M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable, graine 123 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18,
 // vingt gabarits, boutique exigée) : le plan change et la graine 123 porte maintenant le **boss 2×2** (480 × 288 px) que portait la graine 23 :
 // neuf salles : le départ, trois combats dont un 2×1 (rochers à butin, piques), le boss 2×2 au sud-est avec la salle du diable collée à lui, un
@@ -16,7 +18,7 @@ Scenario(
     game: "isaac",
     map_seed: 123,
     floors: Some("sous_sol_un"),
-    frames: 1700,
+    frames: 2400,
     players: [
         (bot: explorateur, aim: Some(Free)),
     ],
@@ -27,10 +29,13 @@ Scenario(
         RoomLayout(kind: "tresor", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "diable"], at_frame: 5),
         RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "diable", "tresor"], at_frame: 5),
         RoomLayout(kind: "boutique", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "depart"], at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 1250),
-        BossPhase(entity: NetId(159), phase: 1, at_frame: 1350),
-        RoomState(kind: "boss", state: Cleared, at_frame: 1550),
-        RunState(step: Ended(Victory), at_frame: 1550),
-        PlayerAlive(handle: 0, at_frame: 1699),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 600),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 700),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 800),
+        RoomState(kind: "boss", state: Locked, at_frame: 1450),
+        BossPhase(entity: NetId(159), phase: 1, at_frame: 1550),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1750),
+        RunState(step: Ended(Victory), at_frame: 1750),
+        PlayerAlive(handle: 0, at_frame: 2399),
     ],
 )

@@ -1,3 +1,5 @@
+// M3-T11d1, intégration de T14 (2026-10-18) : le bot pose **la bombe de départ** contre le mur de la secrète (f261, explosion f335, mur ouvert f336) ; chronologie recalée : boss verrouillé f1296, phases f1389 et f1483,
+// salle nettoyée f1678, victoire f1679 (scénario de 1900 frames) ; le butin du boss n'est plus ramassé avant la fin (victoire d'abord) : attente `HasItem` retirée.
 // M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable et un trésor **2×1**, graine 23 (séquence `sous_sol_un`).
 // M3-T11d1 (2026-10-18, vingt gabarits, boutique exigée) : le plan de la graine 23 change (le boss 2×2 de T5 est passé à la graine 123) : neuf
 // salles : le départ, trois combats, un boss 1×1 au sud-ouest du départ, la salle du diable accrochée au boss, un trésor **2×1** au nord, la salle secrète
@@ -15,7 +17,7 @@ Scenario(
     game: "isaac",
     map_seed: 23,
     floors: Some("sous_sol_un"),
-    frames: 1700,
+    frames: 1900,
     players: [
         (bot: explorateur, aim: Some(Free)),
     ],
@@ -27,12 +29,13 @@ Scenario(
         RoomLayout(kind: "secrete", touches: ["combat", "tresor"], apart: ["boss", "diable", "depart"], at_frame: 5),
         RoomLayout(kind: "boutique", size: Some((240, 144)), touches: ["depart"], at_frame: 5),
         ShelfCount(count: 5, at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 1150),
-        BossPhase(entity: NetId(136), phase: 1, at_frame: 1250),
-        RoomState(kind: "boss", state: Cleared, at_frame: 1500),
-        RunState(step: Ended(Victory), at_frame: 1500),
-        HasItem(handle: 0, id: "griffe_acier", at_frame: 1600),
-        DoorLocked(kind: "secrete", locked: true, at_frame: 1600),
-        PlayerAlive(handle: 0, at_frame: 1699),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 200),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 280),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 400),
+        RoomState(kind: "boss", state: Locked, at_frame: 1350),
+        BossPhase(entity: NetId(136), phase: 1, at_frame: 1450),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1700),
+        RunState(step: Ended(Victory), at_frame: 1700),
+        PlayerAlive(handle: 0, at_frame: 1899),
     ],
 )

@@ -1,3 +1,5 @@
+// M3-T11d1, intégration de T14 (2026-10-18) : le bot pose **la bombe de départ** contre le mur de la secrète (f1022, explosion f1096, mur ouvert f1097) ; chronologie recalée : boss verrouillé f2869, phases f2962 et f3132, salle nettoyée f3235,
+// butin `reservoir_vital` f3304, « niveau 1 » f3586 (curse `blind`), scénario de 4 000 frames : à f3650 le trésor du second étage est encore fermé, la clé en poche.
 // M3-T0f (docs/conventions.md §65), repris en M3-T5 (§70) : la partie ordinaire de `isaac` (séquence par
 // défaut `sous_sol` : deux étages en grille, graine 1) jouée par le bot `explorateur`. Le premier étage
 // (9 salles : départ, quatre combats, boss, trésor, secrète, boutique) est nettoyé, le boss vaincu ; le bot prend le
@@ -25,7 +27,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
-    frames: 3500,
+    frames: 4000,
     players: [
         (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
@@ -38,17 +40,20 @@ Scenario(
         Curse(floor: 0, id: Some("maze"), at_frame: 5),
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 2550),
-        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 2650),
-        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 2900),
-        FloorIndex(index: 0, at_frame: 3000),
-        FloorIndex(index: 1, at_frame: 3300),
-        Curse(floor: 1, id: Some("blind"), at_frame: 3300),
-        DoorLocked(kind: "tresor", locked: true, at_frame: 3300),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 3300),
-        PoolCount(pool: "tresor", count: 2, at_frame: 3300),
-        PoolCount(pool: "boss", count: 2, at_frame: 3300),
-        PoolCount(pool: "boutique", count: 6, at_frame: 3300),
-        PlayerAlive(handle: 0, at_frame: 3499),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 900),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 1050),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 1150),
+        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 2900),
+        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 3000),
+        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 3300),
+        FloorIndex(index: 0, at_frame: 3500),
+        FloorIndex(index: 1, at_frame: 3650),
+        Curse(floor: 1, id: Some("blind"), at_frame: 3650),
+        DoorLocked(kind: "tresor", locked: true, at_frame: 3650),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 3650),
+        PoolCount(pool: "tresor", count: 2, at_frame: 3650),
+        PoolCount(pool: "boss", count: 2, at_frame: 3650),
+        PoolCount(pool: "boutique", count: 6, at_frame: 3650),
+        PlayerAlive(handle: 0, at_frame: 3999),
     ],
 )

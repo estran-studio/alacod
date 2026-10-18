@@ -1,3 +1,5 @@
+// M3-T11d1, intégration de T14 (2026-10-18) : le bot pose **la bombe de départ** contre le mur de la secrète (f674, explosion f748, mur ouvert f749) et meurt à f1657 au boss (phase 2) avec `Armor +100` ; le joueur gagne avec `Armor +200`
+// (D93 : l'armure grandit, le bot n'est pas rééquilibré), chronologie inchangée par ailleurs : boss verrouillé f1324, phases f1416 et f1579, victoire f1704, butin `sang_chaud` ramassé f1747.
 // M3-T11d1 (2026-10-18) : vingt gabarits, boutique exigée, bombe de départ. Même graine 8 (la salle du diable qu'elle donne est l'objet du
 // scénario), nouvelle chronologie : le plan change (boss 1×1 au bout d'un couloir de combats, diable au sud du boss, boutique collée à un
 // combat), onze ennemis, le bot **meurt** à f1278 sans armure (salle de combat 2×1 à quatre ennemis) : `Armor +100`
@@ -22,7 +24,7 @@ Scenario(
     floors: Some("sous_sol_un"),
     frames: 2200,
     players: [
-        (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "100")]),
+        (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "200")]),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(11), max: Some(11), at_frame: 5),

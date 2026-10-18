@@ -1,14 +1,15 @@
-// M3-T14 (docs/conventions.md §79) : l'`explorateur` ouvre le trésor fermé à clé d'`isaac`, sans input scripté.
+// M3-T14 (docs/conventions.md §79), recalé par M3-T11d1 (§76.4) : l'`explorateur` ouvre le trésor fermé à clé d'`isaac`, sans input scripté.
 // Séquence `sous_sol_cle` (un étage de passage puis le second étage de `sous_sol`, où le trésor est fermé à clé et la
-// clé remise à l'arrivée), graine -1013904216 (comme `grid_treasure_key`) : le trésor est la case au sud du départ.
+// clé remise à l'arrivée), graine -1013903988 (plan du second étage = graine 254 : le trésor est la case au sud du départ ; sans salle secrète voisine du départ, donc aucun détour à la bombe, contrairement à `grid_treasure_key` : graine -1013904097) ;
+// M3-T11d1 : -1013904216 avant les vingt gabarits.
 //
 // À regarder : « niveau 1 » à f1 ; le bot va à la porte du trésor (fermée : `DoorLocked` vrai à f15, une clé en poche),
-// l'Interaction (f23) consomme la clé et ouvre la porte et sa jumelle ; il entre et ouvre le coffre (f87),
-// ramasse son objet (f105 ; l'objet change avec le tirage du butin, il n'est pas nommé).
+// l'Interaction (f20) consomme la clé et ouvre la porte et sa jumelle ; il entre et ouvre le coffre (f81),
+// ramasse son objet (f82 ; l'objet change avec le tirage du butin, il n'est pas nommé).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
-    map_seed: -1013904216,
+    map_seed: -1013903988,
     floors: Some("sous_sol_cle"),
     frames: 600,
     explorer: Some((
