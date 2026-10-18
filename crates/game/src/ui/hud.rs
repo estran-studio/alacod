@@ -19,11 +19,11 @@ use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::enemy::Enemy;
 use crate::character::player::Player;
 use crate::collider::Collider;
-use crate::core::{AppState, SIM_FPS};
 use crate::economy::PerkMachine;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::{point_to_collider_surface_distance_sq, Interactable, InteractionType};
 use crate::powerups::PowerUpsConfig;
+use crate::session::{AppState, SIM_FPS};
 use crate::ui::hud_model::{
     player_source_text, HeartKind, HeartSlot, HudMapRoom, HudPlayer, HudSnapshot,
 };

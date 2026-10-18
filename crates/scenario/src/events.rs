@@ -390,7 +390,7 @@ fn hub_events(
     frame: Res<FrameCount>,
     session: Option<Res<game::hub::HubSession>>,
     hub: Option<Res<game::hub::HubState>>,
-    app_state: Option<Res<State<game::core::AppState>>>,
+    app_state: Option<Res<State<game::session::AppState>>>,
     mut flow: ResMut<HubFlow>,
     mut exit: Local<Option<game::hub::HubExit>>,
     mut events: ResMut<GameEvents>,
@@ -414,7 +414,7 @@ fn hub_events(
         }
         HubFlow::Leaving => {
             let running = app_state
-                .is_some_and(|state| *state.get() == game::core::AppState::InGame)
+                .is_some_and(|state| *state.get() == game::session::AppState::InGame)
                 && frame.frame >= 1;
             if !running {
                 events.events.clear();

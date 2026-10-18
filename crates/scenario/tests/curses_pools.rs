@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use bevy_ggrs::GgrsSchedule;
 use game::{
-    core::AppState, replay::Expectation, run_state::RunRequest, system_set::RollbackSystemSet,
+    replay::Expectation, run_state::RunRequest, session::AppState, system_set::RollbackSystemSet,
 };
 use items::PoolState;
 use run::RunCurses;

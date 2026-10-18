@@ -64,7 +64,7 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
    `FlowFieldCache::update_interval` vaut 0 par `Default` (dette **D70**, deux sorties
    chiffrées). En ligne, un rollback de 12 frames coûte cinq ticks avant toute horde. Autre
    constat du p2p réel : l'exécuteur multithread de Bevy sur les schedules du rollback coûtait
-   2,7× sur la sauvegarde (1,28 → 0,47 ms) ; `game::core::single_threaded_rollback_schedules`
+   2,7× sur la sauvegarde (1,28 → 0,47 ms) ; `game::session::single_threaded_rollback_schedules`
    les passe en monothread dans le jeu comme dans les scénarios (`ALACOD_EXECUTOR=multi` pour
    comparer).
 

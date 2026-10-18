@@ -15,8 +15,9 @@ use game::{
         input::{InputSource, ScriptedInputs},
         Player,
     },
-    core::{CoreSetupConfig, CoreSetupPlugin},
+    core::CoreSetupPlugin,
     jjrs::PlayerConfig,
+    session::CoreSetupConfig,
     state_trace::{StateTraceRecorder, StateTraceRecorderPlugin},
     waves::{WaveDebugEnabled, WaveModeEnabled, WaveState},
 };
@@ -3575,7 +3576,7 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     ))
     .insert_resource(game::legibility::LegendOpen(config.legend));
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
+        std::time::Duration::from_nanos(1_000_000_000 / game::session::SIM_FPS),
     ))
     .insert_resource(CaptureState {
         dir: config.dir,

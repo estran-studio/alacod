@@ -13,9 +13,10 @@ use game::{
         config::CharacterConfig, enemy::spawning::EnemySpawnerState, player::create::create_player,
     },
     collider::{spawn_test_wall, CollisionSettings},
-    core::{AppState, CoreSetupConfig, CoreSetupPlugin},
+    core::CoreSetupPlugin,
     global_asset::GlobalAsset,
     jjrs::{GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsSessionBuilding},
+    session::{AppState, CoreSetupConfig},
     waves::{WaveDebugEnabled, WaveModeEnabled},
     weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
 };

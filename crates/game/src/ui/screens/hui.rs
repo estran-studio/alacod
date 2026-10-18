@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 
 use super::model::{ListItem, ScreenId, ScreenView, Section};
 use super::Screens;
-use crate::core::AppState;
+use crate::session::AppState;
 
 const ROW_TEMPLATE: &str = "ui/hui_row.html";
 const TEXT: &str = "#ffffff";

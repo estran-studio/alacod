@@ -23,8 +23,8 @@ use model::{
 };
 use utils::frame::FrameCount;
 
-use crate::core::AppState;
 use crate::run_state::RunRequest;
+use crate::session::AppState;
 use crate::ui::hud_model::HudPlayer;
 use crate::weapons::{WeaponInventory, WeaponModesState, WeaponState};
 

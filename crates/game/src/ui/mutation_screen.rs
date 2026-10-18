@@ -28,8 +28,8 @@ use utils::frame::FrameCount;
 use crate::character::player::control::PlayerAction;
 use crate::character::player::input::ScriptedInputs;
 use crate::character::player::{LocalPlayer, Player};
-use crate::core::AppState;
 use crate::progression::{MutationChoice, ProgressionTable};
+use crate::session::AppState;
 use crate::ui::hud_model::CameraFollowOverride;
 
 /// Nombre de cartes : une par bit `ChoiceA/B/C`.

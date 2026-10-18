@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::fog_map::FogMap;
 use crate::{
-    character::player::Player, collider::Collider, core::AppState, system_set::RollbackSystemSet,
+    character::player::Player, collider::Collider, session::AppState, system_set::RollbackSystemSet,
 };
 use bevy::{
     asset::RenderAssetUsages,

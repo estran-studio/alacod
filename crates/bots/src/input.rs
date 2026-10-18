@@ -121,7 +121,7 @@ impl Plugin for BotsPlugin {
         app.init_resource::<crate::explorer::RockNavigation>();
         app.init_resource::<crate::explorer::ExplorerJitter>();
         app.add_systems(
-            OnEnter(game::core::AppState::InGame),
+            OnEnter(game::session::AppState::InGame),
             |mut choices: ResMut<WeaponChoices>,
              mut moves: ResMut<EnemyMoves>,
              mut jitter: ResMut<crate::explorer::ExplorerJitter>| {

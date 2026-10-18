@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use ui::CameraDebugUIPlugin;
 
 use crate::character::player::{control::PlayerAction, LocalPlayer, Player};
-use crate::core::OnlineState;
+use crate::session::OnlineState;
 
 #[derive(Asset, TypePath, Debug, Clone, Deserialize, Serialize)]
 pub struct CameraSettingsAsset(pub CameraSettings);

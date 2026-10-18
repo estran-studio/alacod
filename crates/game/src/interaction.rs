@@ -26,10 +26,10 @@ use crate::{
         player::Player,
     },
     collider::{Collider, CollisionLayer},
-    core::AppState,
     economy::{perk_modifier_source, PerkMachine, PointsCredit},
     frame_events::{FrameEvents, FrameEventsAppExt},
     rollback::RollbackTraceApp,
+    session::AppState,
     system_set::RollbackSystemSet,
     weapons::{
         default_mode_ammo_contribution, spawn_weapon_for_player, spawn_weapon_pickup, Weapon,

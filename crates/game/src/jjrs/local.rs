@@ -12,10 +12,10 @@ use run::Run;
 use crate::{
     character::player::jjrs::PeerConfig,
     collider::spawn_test_wall,
-    core::{AppState, OnlineState},
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
+    session::{AppState, OnlineState},
 };
 
 pub fn setup_ggrs_local(

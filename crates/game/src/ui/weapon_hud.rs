@@ -3,7 +3,7 @@ use bevy_fixed::math::calculate_time_remaining_seconds;
 use combat::inventory::AmmoReserves;
 use utils::frame::FrameCount;
 
-use crate::{character::player::LocalPlayer, core::AppState};
+use crate::{character::player::LocalPlayer, session::AppState};
 
 use combat::weapons::{WeaponInventory, WeaponModesState, WeaponState};
 

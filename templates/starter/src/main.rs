@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use game::{
     args::BaseArgsPlugin,
     content_hot_reload::GameRoot,
-    core::{CoreSetupConfig, CoreSetupPlugin},
+    core::CoreSetupPlugin, session::CoreSetupConfig,
     waves::WaveModeEnabled,
 };
 use map_ldtk::{

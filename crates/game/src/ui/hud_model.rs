@@ -27,10 +27,10 @@ use world::{RoomState, RoomStates};
 
 use crate::character::health::Health;
 use crate::character::player::{LocalPlayer, Player};
-use crate::core::SIM_FPS;
 use crate::curses::CurseHides;
 use crate::effects_runtime::Gauges;
 use crate::progression::{Level, ProgressionDef, ProgressionTable};
+use crate::session::SIM_FPS;
 use crate::weapons::{WeaponInventory, WeaponModesState, WeaponState};
 
 /// Sources lues par [`player_source_text`] (celles du joueur).

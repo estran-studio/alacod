@@ -1,8 +1,8 @@
 //! Écran de fin en `bevy_hui` : résumé dérivé de `Run`, commandes locales uniquement.
 #![cfg(feature = "ui_hui")]
 
-use crate::core::AppState;
 use crate::run_state::RunRequest;
+use crate::session::AppState;
 use bevy::prelude::*;
 use bevy_hui::prelude::*;
 use run::{Run, RunEnd, RunStep};
@@ -106,8 +106,8 @@ fn run_summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
             "{title}\n\nÉtage {}  ·  {} éliminés\n{}:{:02}",
             summary.floor_reached + 1,
             summary.kills,
-            summary.frames / (crate::core::SIM_FPS as u32 * 60),
-            summary.frames / crate::core::SIM_FPS as u32 % 60
+            summary.frames / (crate::session::SIM_FPS as u32 * 60),
+            summary.frames / crate::session::SIM_FPS as u32 % 60
         ),
         Some(summary) => format!(
             "{title}\n\nvague {} - {} kills - {} points\n{} frames",

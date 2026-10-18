@@ -192,7 +192,7 @@ impl Plugin for HubPlugin {
             .rollback_and_trace_neutral::<HubStation>();
         app.add_systems(
             Update,
-            hub_exit_trigger.run_if(in_state(crate::core::AppState::InGame)),
+            hub_exit_trigger.run_if(in_state(crate::session::AppState::InGame)),
         );
         app.add_systems(
             GgrsSchedule,

@@ -31,8 +31,8 @@ pub use content::feedback::{
 use crate::character::enemy::ai::state::{BehaviorRuntime, ChargePhase, EnemyAiConfig};
 use crate::character::health::Death;
 use crate::character::player::{LocalPlayer, Player};
-use crate::core::is_headless;
 use crate::frame_events::FrameEvents;
+use crate::session::is_headless;
 use items::{Inventory, ItemTable};
 use sim_core::damage::DamageEvent;
 use world::{RoomState, RoomStates};

@@ -4,6 +4,7 @@
 # `make probe_game_sim SIM_LIST=scripts/d69-sim-files.txt` échoue si l'un d'eux régresse.
 # Mesuré le 2026-10-18 sur main 09b68187 (+ retouches de dette-d69-plan-etape2) : 16 fichiers, 2 405 lignes.
 # E1 (dette-d69-e1-types-donnees) : + visual_requests.rs, fog_map.rs, frame_counter.rs, character/appearance.rs (20 fichiers).
+# E2 (dette-d69-e2-session) : + session.rs (21 fichiers).
 character/appearance.rs
 character/enemy/ai/obstacle.rs
 character/enemy/mod.rs
@@ -18,6 +19,7 @@ frame_events.rs
 gen_test.rs
 patterns.rs
 rollback.rs
+session.rs
 statuses.rs
 system_set.rs
 ui/screens/model.rs

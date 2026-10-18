@@ -49,6 +49,7 @@ pub mod replay;
 pub mod rollback;
 pub mod room_fog;
 pub mod run_state;
+pub mod session;
 pub mod shop;
 pub mod state_trace;
 pub mod statuses;
