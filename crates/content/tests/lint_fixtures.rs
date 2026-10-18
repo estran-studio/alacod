@@ -1059,6 +1059,14 @@ fn hud_legend_fixture_reports_unknown_sprite() {
     assert_only_one_besides_start_map(&errors);
 }
 
+// m2-salles-murs-gungeon : la feuille de tuiles de `wall_art` existe.
+#[test]
+fn hud_wall_art_fixture_reports_missing_atlas() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_wall_art_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "murs_absents.png");
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn sprite_sheet_duplicate_key_fixture_reports_repeated_id() {
     let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_duplicate_key")).unwrap();

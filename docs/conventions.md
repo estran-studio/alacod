@@ -6742,3 +6742,33 @@ de la légende. Seul `render` ajoute la légende (pas `views` ni `compare`). Rap
 
 **Remplacement par la voie V6** : un fichier `png` (et sa feuille) remplace la classe ; l'id de
 `sprites.ron` ne change pas.
+
+### Murs dessinés (m2-salles-murs-gungeon, présentation seule)
+
+Constat de William (revue M2, 2026-10-18) : « les murs n'ont pas de sprite » (sol gris, extérieur sombre, aucun
+mur). Cause : les gabarits LDtk ne portent **aucune tuile** de mur (`autoLayerTiles` vide : la couche IntGrid
+`Walls` est écrite par script, puis l'assembleur de salles la modifie : ouvertures murées, cases de sol), donc
+des règles d'auto-couche LDtk n'auraient rien à habiller. **Choix : auto-tuile en présentation**, dérivée des cases
+de la carte *assemblée* (`map_ldtk::wall_art`, `LdtkRoguePlugin`) : correcte pour toute carte générée, aucun
+fichier de carte à retoucher, aucune trace qui bouge (rien dans `GgrsSchedule`, aucun état rollback).
+
+- **Activation par donnée** (`ui/hud.ron`, champ optionnel `wall_art`, `game::ui::hud::WallArt`) :
+  `wall_art: Some((layer: "Walls", atlas: "sprites/lisible/atlas_murs.png", hide_layers: ["LevelConnection"]))`
+  (`tile` 16, `columns` 8, `z` 1,5 par défaut). Sans le champ, ou sans rendu (headless : `HudConfigHandle` absent,
+  le système ne tourne pas), rien ne change : zombies, throne, isaac, testbed identiques. Le lint (`hud_wall_art_missing`)
+  refuse une feuille absente.
+- **Système** `wall_art::draw_walls` : à l'apparition d'un niveau (entité `LevelIid` avec ses couches), lit la couche
+  `layer` dans le projet (`Assets<LdtkProject>`, monde de l'étage par `FloorSlots`), choisit une tuile par case non
+  nulle et pose un sprite par case sous une racine `WallArtRoot`, **enfant du niveau** (il hérite de sa visibilité :
+  étage quitté caché, comme les portes). Marqueur `WallArtDone`. Hors du niveau, une case compte comme un mur.
+- **Choix de la tuile** (`wall_tile`, pure, testée) : vue de dessus avec **face de mur** côté sud. Case dont la voisine
+  du sud est un sol : **face** (briques ; chapeau latéral côté ouest/est si la voisine est un sol : 4 tuiles, indices
+  32 à 35) ; sinon **dessus** (liseré clair + contour sombre sur chaque bord qui touche le sol, nord/est/ouest ; angle
+  rentrant nord-est/nord-ouest quand les deux voisines sont des murs mais pas la diagonale : 8 × 4 tuiles, indices 0 à 31).
+- **`hide_layers`** : cache les couches de métadonnées que LDtk peint par défaut. `LevelConnection` (ouvertures des
+  gabarits, valeur de couleur noire) se voyait en noir par-dessus le sol dès que la porte ouverte laissait voir la case.
+- **Sprites** : `scripts/generer-sprites-gungeon.py` (CC0, même style et même script que le reste de §83) écrit
+  `atlas_murs.png` (36 tuiles de 16 px). Les **portes** (`door_v`/`door_h`) gagnent deux jambages de pierre aux bouts
+  (les couleurs de la face de mur ; ouverte = les jambages seuls), le **mur fissuré** (`secret_wall`) reprend les briques
+  du mur et sa fissure claire : tous trois se raccordent aux murs.
+- **Limite** : le sol reste la couleur de fond du niveau (`#696A79`), sans motif ni ombre portée du mur.
