@@ -72,6 +72,55 @@ impl GeneratedRoom {
             .count()
     }
 
+    /// Cases d'ouverture encore libres (`LevelConnection` à 1 et `Walls` à 0) en coordonnées monde (coin haut
+    /// gauche de la case, pixels). Pour les contrôles de raccord des gabarits de tailles différentes.
+    pub fn open_cell_positions(&self) -> Vec<(i32, i32)> {
+        let Some(layers) = self.level.layer_instances.as_ref() else {
+            return Vec::new();
+        };
+        let find = |name: &str| layers.iter().find(|l| l.identifier == name);
+        let (Some(openings), Some(walls)) = (find(map_const::LAYER_CONNECTION), find("Walls"))
+        else {
+            return Vec::new();
+        };
+        let (w, size) = (openings.c_wid, openings.grid_size);
+        openings
+            .int_grid_csv
+            .iter()
+            .zip(&walls.int_grid_csv)
+            .enumerate()
+            .filter(|(_, (opening, wall))| **opening == 1 && **wall == 0)
+            .map(|(i, _)| {
+                let i = i as i32;
+                (
+                    self.level.world_x + (i % w) * size,
+                    self.level.world_y + (i / w) * size,
+                )
+            })
+            .collect()
+    }
+
+    /// Direction (`dx`, `dy` unitaires) vers l'extérieur de la salle de la case monde `(x, y)` d'un bord.
+    pub fn side_of_cell(&self, x: i32, y: i32) -> (i32, i32) {
+        let (rx, ry, rw, rh) = self.world_rect();
+        if x == rx {
+            (-1, 0)
+        } else if x + 16 == rx + rw {
+            (1, 0)
+        } else if y == ry {
+            (0, -1)
+        } else {
+            debug_assert_eq!(y + 16, ry + rh);
+            (0, 1)
+        }
+    }
+
+    /// Vrai si la case monde dont le coin haut gauche est `(x, y)` est dans la salle.
+    pub fn contains_world_cell(&self, x: i32, y: i32) -> bool {
+        let (rx, ry, rw, rh) = self.world_rect();
+        x >= rx && y >= ry && x + 16 <= rx + rw && y + 16 <= ry + rh
+    }
+
     /// Rectangle monde de la salle (`world_x`, `world_y`, largeur, hauteur) en pixels.
     pub fn world_rect(&self) -> (i32, i32, i32, i32) {
         (

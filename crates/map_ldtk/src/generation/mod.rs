@@ -135,10 +135,12 @@ mod tests {
                 .take(if file == "court" { 400 } else { count as usize })
             {
                 let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
+                // Comme le chargeur (`loader::resolve_map_config`) : l'étendue vient de la grammaire.
+                let (max_width, max_heigth) = grammar.bounds.unwrap_or((1000, 1000));
                 let config = MapGenerationConfig {
                     seed,
-                    max_width: 1000,
-                    max_heigth: 1000,
+                    max_width,
+                    max_heigth,
                     mode: MapGenerationMode::Floor(grammar.clone()),
                     ..Default::default()
                 };
@@ -148,6 +150,20 @@ mod tests {
                     .unwrap_or_else(|_| panic!("{file} graine {seed} : génération échouée"));
                 generator.close_unused_openings();
                 let rooms = &generator.generated_rooms;
+                // m2-salles-murs-gungeon : toute ouverture restée libre donne sur une ouverture libre d'une
+                // autre salle, case contre case (gabarits de tailles différentes).
+                for room in rooms {
+                    for (x, y) in room.open_cell_positions() {
+                        let side = room.side_of_cell(x, y);
+                        let (nx, ny) = (x + side.0 * 16, y + side.1 * 16);
+                        let neighbor = rooms.iter().find(|r| r.contains_world_cell(nx, ny));
+                        assert!(
+                            neighbor.is_some_and(|r| r.open_cell_positions().contains(&(nx, ny))),
+                            "{file} graine {seed} : ouverture de {} en ({x}, {y}) sans vis-à-vis",
+                            room.template
+                        );
+                    }
+                }
                 if std::env::var("ALACOD_FLOOR_DUMP").is_ok_and(|v| v == file) {
                     let (ox, oy, _, _) = rooms[0].world_rect();
                     let list: Vec<String> = rooms
@@ -321,8 +337,8 @@ mod tests {
         for seed in (1..=count).chain((1..=count).map(derived)) {
             let config = MapGenerationConfig {
                 seed,
-                max_width: 1000,
-                max_heigth: 1000,
+                max_width: tree.bounds.map_or(1000, |b| b.0),
+                max_heigth: tree.bounds.map_or(1000, |b| b.1),
                 mode: MapGenerationMode::Floor(tree.clone()),
                 ..Default::default()
             };
@@ -556,8 +572,8 @@ mod tests {
             grand_time += timed(&mut || {
                 let config = MapGenerationConfig {
                     seed,
-                    max_width: 1000,
-                    max_heigth: 1000,
+                    max_width: grand.bounds.map_or(1000, |b| b.0),
+                    max_heigth: grand.bounds.map_or(1000, |b| b.1),
                     mode: MapGenerationMode::Floor(grand.clone()),
                     ..Default::default()
                 };
@@ -610,8 +626,8 @@ mod tests {
             let data: LdtkJson = load_ldtk_json_file(&path).unwrap();
             let config = MapGenerationConfig {
                 seed,
-                max_width: 1000,
-                max_heigth: 1000,
+                max_width: grammar.bounds.map_or(1000, |b| b.0),
+                max_heigth: grammar.bounds.map_or(1000, |b| b.1),
                 mode: MapGenerationMode::Floor(grammar.clone()),
                 ..Default::default()
             };

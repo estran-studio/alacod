@@ -2192,6 +2192,28 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
     }
+    // Murs dessinés (`wall_art`) : la feuille de tuiles existe.
+    let files = match registry.embedded_files {
+        Some(files) => crate::files::ContentFiles::embedded(files),
+        None => crate::files::ContentFiles::native(GameManifest::assets_dir(&registry.game_dir)),
+    };
+    for (rel, atlas, tile, columns) in &registry.hud_wall_art {
+        if *tile == Some(0) || *columns == Some(0) {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: rel.display().to_string(),
+                message: "hud : wall_art : `tile` et `columns` doivent être strictement positifs"
+                    .into(),
+            });
+        }
+        if !files.contains(atlas) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: rel.display().to_string(),
+                message: format!("hud : wall_art : feuille « {atlas} » absente"),
+            });
+        }
+    }
     // Légende : chaque sprite cité existe dans la table des feuilles (si le jeu en déclare une).
     if registry.sprite_sheets.is_empty() {
         return;

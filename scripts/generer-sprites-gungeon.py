@@ -652,11 +652,16 @@ def spikes():
 
 
 def secret_wall():
-    """Mur fissuré : brique sombre, fissure claire (une bombe l'ouvre)."""
+    """Mur fissuré : mêmes briques que les murs (`wall_face`), fissure claire (une bombe l'ouvre)."""
     im = Img(32)
-    im.rect(2, 2, 30, 30, rgb("#6b5b73"))
-    for y in range(2, 30, 7):
-        im.rect(2, y, 30, y + 1, rgb("#3a2f40"))
+    im.rect(0, 0, 32, 32, STONE)
+    im.rect(0, 0, 32, 2, CAP)
+    im.rect(0, 2, 32, 3, STONE_HI)
+    for i, y in enumerate(range(8, 32, 6)):
+        im.rect(0, y, 32, y + 1, MORTAR)
+        for x in range(4 if i % 2 else 0, 32, 8):
+            im.rect(x, y - 5, x + 1, y, MORTAR)
+    im.rect(0, 30, 32, 32, STONE_DARK)
     im.line(14, 3, 19, 12, rgb("#ffe9a8"), 1.2)
     im.line(19, 12, 13, 19, rgb("#ffe9a8"), 1.2)
     im.line(13, 19, 18, 29, rgb("#ffe9a8"), 1.2)
@@ -664,31 +669,126 @@ def secret_wall():
 
 
 def door_v(state):
-    """Porte (16 x 32, vue du dessus dans un mur vertical) : fermée = planches pleines ; ouverte = baie
-    sombre entre deux montants ; verrouillée = planches, chaînes croisées et cadenas rouge."""
+    """Porte (16 x 32, vue du dessus dans un mur vertical) : jambages de pierre aux deux bouts (les couleurs
+    des murs, `wall_face`, pour qu'elle s'y raccorde) ; fermée = planches pleines ; ouverte = seuls les
+    jambages, le sol reste visible ; verrouillée = planches, chaînes croisées et cadenas rouge."""
     im = Img(16, 32)
     wood = rgb("#8a5a2b")
+
+    def jambs():
+        for y0, y1 in ((0, 4), (28, 32)):
+            im.rect(0, y0, 16, y1, STONE)
+            im.rect(0, y0, 16, y0 + 1, STONE_HI)
+            im.rect(0, y1 - 1, 16, y1, STONE_DARK)
+            im.rect(7, y0 + 1, 8, y1 - 1, MORTAR)
+        im.outline()
+
     if state == "open":
-        # Passage libre : deux montants fins, le sol reste visible entre eux.
-        im.rect(2, 2, 4, 30, wood)
-        im.rect(12, 2, 14, 30, wood)
-        return im.outline()
-    im.rect(2, 1, 14, 31, wood)
-    im.rect(5, 2, 6, 30, shade(wood, 0.6))
-    im.rect(9, 2, 10, 30, shade(wood, 0.6))
-    im.rect(2, 1, 14, 3, shade(wood, 1.3))
-    im.rect(2, 8, 14, 10, shade(wood, 0.55))
-    im.rect(2, 22, 14, 24, shade(wood, 0.55))
+        jambs()
+        return im
+    im.rect(2, 4, 14, 28, wood)
+    im.rect(5, 4, 6, 28, shade(wood, 0.6))
+    im.rect(9, 4, 10, 28, shade(wood, 0.6))
+    im.rect(2, 4, 14, 6, shade(wood, 1.3))
+    im.rect(2, 9, 14, 11, shade(wood, 0.55))
+    im.rect(2, 21, 14, 23, shade(wood, 0.55))
     if state == "locked":
-        im.line(2, 2, 14, 30, rgb("#aab3bd"), 1.4)
-        im.line(14, 2, 2, 30, rgb("#aab3bd"), 1.4)
+        im.line(2, 5, 14, 27, rgb("#aab3bd"), 1.4)
+        im.line(14, 5, 2, 27, rgb("#aab3bd"), 1.4)
         im.rect(4, 11, 12, 21, rgb("#d62f3a"))
         im.rect(6, 7, 10, 12, rgb("#aab3bd"))
         im.rect(7, 8, 9, 12, CLEAR)
         im.rect(7, 14, 9, 18, BLACK)
     else:
         im.rect(11, 14, 13, 17, GOLD)
-    return im.outline()
+    jambs()
+    return im
+
+
+# ---------------------------------------------------------------------------------------------
+# Murs (m2-salles-murs-gungeon, conventions §83) : auto-tuile en présentation, `map_ldtk::wall_art`
+# ---------------------------------------------------------------------------------------------
+STONE = rgb("#5a4d6e")        # face du mur : briques
+STONE_HI = rgb("#8574a0")     # arête haute de la face
+MORTAR = rgb("#3a3150")       # joints
+STONE_DARK = rgb("#2a2238")   # pied de mur, au contact du sol
+CAP = rgb("#363250")          # dessus du mur
+CAP_HI = rgb("#6a6288")       # liseré clair des bords qui touchent le sol
+CAP_EDGE = rgb("#14111d")     # contour sombre des bords qui touchent le sol
+WALL_TILE = 16
+WALL_COLUMNS = 8
+WALL_TILES = 36
+
+
+def wall_cap(rim, corners):
+    """Dessus du mur. rim : bit 0 nord, 1 est, 2 ouest (voisine non mur) ; corners : bit 0 nord-est, 1 nord-ouest
+    (angle rentrant)."""
+    t = WALL_TILE
+    im = Img(t)
+    im.rect(0, 0, t, t, CAP)
+    for x, y in ((3, 5), (10, 3), (6, 11), (13, 12), (2, 13)):  # grain de la pierre
+        im.set(x, y, shade(CAP, 1.25))
+    if rim & 1:
+        im.rect(0, 0, t, 1, CAP_EDGE)
+        im.rect(0, 1, t, 2, CAP_HI)
+    if rim & 2:
+        im.rect(t - 1, 0, t, t, CAP_EDGE)
+        im.rect(t - 2, 0, t - 1, t, CAP_HI)
+    if rim & 4:
+        im.rect(0, 0, 1, t, CAP_EDGE)
+        im.rect(1, 0, 2, t, CAP_HI)
+    if rim & 3 == 3:  # l'arête haute passe devant l'arête est : angle plein
+        im.rect(t - 2, 0, t, 2, CAP_EDGE)
+    if rim & 5 == 5:
+        im.rect(0, 0, 2, 2, CAP_EDGE)
+    if corners & 1:  # angle rentrant nord-est : le sol entame le coin
+        im.rect(t - 2, 0, t, 2, CAP_EDGE)
+        im.set(t - 3, 0, CAP_HI)
+        im.set(t - 1, 2, CAP_HI)
+    if corners & 2:
+        im.rect(0, 0, 2, 2, CAP_EDGE)
+        im.set(2, 0, CAP_HI)
+        im.set(0, 2, CAP_HI)
+    return im
+
+
+def wall_face(open_w, open_e):
+    """Face du mur (briques) ; open_w / open_e : la voisine est un sol, la tuile a un chapeau latéral."""
+    t = WALL_TILE
+    im = Img(t)
+    im.rect(0, 0, t, t, STONE)
+    im.rect(0, 0, t, 2, CAP)           # dessus du mur, qui déborde
+    im.rect(0, 2, t, 3, STONE_HI)      # arête haute
+    for course, (y0, offset) in enumerate(((3, 0), (9, 4))):
+        im.rect(0, y0 + 5, t, y0 + 6, MORTAR)       # joint horizontal
+        for x in range(offset, t, 8):
+            im.rect(x, y0, x + 1, y0 + 5, MORTAR)  # joints verticaux
+        for x, y in ((offset + 3, y0 + 1), (offset + 6, y0 + 3)):
+            im.set(x % t, y, shade(STONE, 1.15))
+    im.rect(0, t - 2, t, t, STONE_DARK)  # pied : contact avec le sol
+    if open_w:
+        im.rect(0, 0, 1, t, CAP_EDGE)
+        im.rect(1, 0, 3, t - 2, CAP)
+        im.rect(3, 2, 4, t - 2, CAP_HI)
+        im.rect(0, t - 2, 3, t, CAP_EDGE)
+    if open_e:
+        im.rect(t - 1, 0, t, t, CAP_EDGE)
+        im.rect(t - 3, 0, t - 1, t - 2, CAP)
+        im.rect(t - 4, 2, t - 3, t - 2, CAP_HI)
+        im.rect(t - 3, t - 2, t, t, CAP_EDGE)
+    return im
+
+
+def wall_atlas():
+    """Feuille des murs : dessus 0..31 (rebords + 8 x coins), faces 32..35 (32 + ouest ouvert + 2 x est ouvert)."""
+    tiles = [wall_cap(i % 8, i // 8) for i in range(32)]
+    tiles += [wall_face(bool(i & 1), bool(i & 2)) for i in range(4)]
+    assert len(tiles) == WALL_TILES
+    rows = (WALL_TILES + WALL_COLUMNS - 1) // WALL_COLUMNS
+    im = Img(WALL_COLUMNS * WALL_TILE, rows * WALL_TILE)
+    for i, tile in enumerate(tiles):
+        im.blit(tile, (i % WALL_COLUMNS) * WALL_TILE, (i // WALL_COLUMNS) * WALL_TILE)
+    return im
 
 
 def transpose(im):
@@ -939,6 +1039,7 @@ def build():
         files["sheet_" + a.name.split("_", 1)[1] + ".ron"] = a.sheet_ron(rows).encode()
         for sid, idx in a.entries:
             files[f"anim/{file_name(sid)}.ron"] = anim_ron(sid, idx).encode()
+    files["atlas_murs.png"] = png_bytes(wall_atlas())
     files["bullet_enemy.png"] = png_bytes(bullet_enemy())
     files["bullet_player.png"] = png_bytes(bullet_player())
     files["anim/bullet_enemy.ron"] = anim_ron("bullet_enemy", {"Idle": 0}).encode()

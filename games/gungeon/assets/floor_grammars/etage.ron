@@ -7,6 +7,8 @@
     grammar: (
         rooms: (10, 14),
         required: {"boss": 1, "recompense": 1, "boutique": 1, "arene": 1, "escouade": 1, "coffre": 1, "secret": 1},
+        // m2-salles-murs-gungeon (§40) : gabarits agrandis (jusqu'à 352 px), 10 à 14 salles de 224 à 352 px : l'étage tient dans ±3000 px ; défaut 1000.
+        bounds: Some((3000, 3000)),
         min_boss_distance: 3,
     ),
 )

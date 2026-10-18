@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use sim_core::modifier::{resolve, Modifier, ModifierSource, Modifiers};
 use sim_core::stats::{StatId, Stats};
 use sim_core::tag::Tags;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use utils::frame::FrameCount;
 
@@ -435,6 +435,8 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(bots::explorer::ExplorerOptions {
             boss_direct: false,
             shopping: scenario.shopping,
+            // m2-salles-murs-gungeon : les décisions d'explorateur des salles agrandies ne valent que pour gungeon
+            steady: scenario.game == "gungeon",
         })
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
@@ -1067,10 +1069,16 @@ pub struct StopEarly {
 /// D44 : état observé pour le soft-lock `Floors`. Il y a progression quand le niveau change, ou
 /// qu'un ennemi disparaît, ou que la santé totale des ennemis baisse (dégâts infligés, même
 /// sans kill : combat lent contre un boss), ou qu'un joueur change d'état (à terre, relevé,
-/// mort).
+/// mort), ou qu'un joueur entre dans une **case de 32 px jamais visitée** de ce niveau
+/// (m2-salles-murs-gungeon : sur des salles agrandies, l'étage mesure plus de 2 000 px et la marche d'une
+/// salle de combat à la suivante peut dépasser la fenêtre de [`FLOORS_SOFTLOCK_FRAMES`] sans un seul
+/// coup ; un joueur qui explore encore n'est pas bloqué, un bot qui tourne en rond l'est : les cases
+/// visitées finissent par ne plus grandir).
 #[derive(Debug, Clone, PartialEq)]
 pub struct FloorsProgress {
     pub floor: u32,
+    /// Nombre de cases de 32 px (par niveau) déjà visitées par un joueur.
+    pub explored: usize,
     pub enemies: usize,
     pub enemy_health: fixed_math::Fixed,
     /// Par joueur présent (handle), à terre ou non ; un joueur mort disparaît de la liste.
@@ -1081,6 +1089,7 @@ impl FloorsProgress {
     /// `true` si `now` marque une progression par rapport à `self` (voir le type).
     pub fn progressed(&self, now: &FloorsProgress) -> bool {
         now.floor != self.floor
+            || now.explored > self.explored
             || now.enemies < self.enemies
             || now.enemy_health < self.enemy_health
             || now.players != self.players
@@ -1477,6 +1486,10 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut q_player_state = app
         .world_mut()
         .query::<(&Player, Has<combat::downed::Downed>)>();
+    let mut q_player_cells = app
+        .world_mut()
+        .query::<(&Player, &bevy_fixed::fixed_math::FixedTransform3D)>();
+    let mut explored: BTreeSet<(u32, i32, i32)> = BTreeSet::new();
     let mut floors_softlocked = false;
 
     // Hub suivi (`HubSetup { stay: false }`) : la phase du hub s'ajoute au budget d'updates.
@@ -1632,8 +1645,17 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                         .map(|(player, downed)| (player.handle, downed))
                         .collect();
                     players.sort_unstable();
+                    for (_, transform) in q_player_cells.iter(world) {
+                        let at = transform.translation.truncate();
+                        explored.insert((
+                            floor_index,
+                            (at.x.to_num::<i32>()).div_euclid(32),
+                            (at.y.to_num::<i32>()).div_euclid(32),
+                        ));
+                    }
                     let now = FloorsProgress {
                         floor: floor_index,
+                        explored: explored.len(),
                         enemies: q_enemies.iter(world).count(),
                         enemy_health: q_enemy_health
                             .iter(world)
@@ -3794,6 +3816,7 @@ mod floors_progress_tests {
     fn state(enemies: usize, health: f32, players: &[(usize, bool)]) -> FloorsProgress {
         FloorsProgress {
             floor: 2,
+            explored: 10,
             enemies,
             enemy_health: fixed_math::new(health),
             players: players.to_vec(),
@@ -3819,5 +3842,12 @@ mod floors_progress_tests {
         assert!(base.progressed(&next_floor));
         // Santé des ennemis qui remonte (régénération) : pas une progression
         assert!(!base.progressed(&state(2, 610.0, &[(0, false), (1, false)])));
+        // Une case jamais visitée : le joueur explore encore ; la même case revisitée n'est rien
+        let explorer = FloorsProgress {
+            explored: 11,
+            ..base.clone()
+        };
+        assert!(base.progressed(&explorer));
+        assert!(!explorer.progressed(&explorer.clone()));
     }
 }

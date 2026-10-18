@@ -1309,6 +1309,7 @@ mod tests {
             filler: "combat".into(),
             min_boss_distance: 3,
             max_attempts: 64,
+            bounds: None,
             layout: Some(FloorLayout::Grid {
                 cell: CELL,
                 max: (7, 7),
@@ -1756,6 +1757,7 @@ mod tests {
             filler: "combat".into(),
             min_boss_distance: 2,
             max_attempts: 8,
+            bounds: None,
             layout: Some(FloorLayout::Grid {
                 cell: CELL,
                 max: (5, 5),
