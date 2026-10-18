@@ -19,6 +19,8 @@ Use `make test_tools` for fast validation-tool checks without building the engin
 headless tests across the workspace, the scenario suite, and content lint. The full suite can
 be lengthy; `make test_scenarios SCENARIO=idle` runs one scenario.
 
+To play gungeon (solo, two local heroes, two players online, keys): [docs/jouer.md](docs/jouer.md).
+
 [Current engine status and milestone exit criteria](docs/etat-engine.md) ·
 [Engine plan](docs/plan-engine.md) · [Task journal](docs/taches.md)
 

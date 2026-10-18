@@ -4271,27 +4271,28 @@ au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmè
 ### Run complète de M2 : `gungeon_full_run` (m2-full-run)
 
 Deux scénarios attestent les mécaniques de M2 du tableau ci-dessous dans **une** partie de bots (graine 10, `etages_deux`,
-`shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 700
-frames, victoire f7316 depuis D95/D96) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6091, synctest). Les
-moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente.
+`shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 900
+frames, victoire f7200 depuis les gabarits agrandis, §40) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6844,
+synctest). Les moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente
+**sauf le coffre à clé**, attesté par `gungeon_key_chest` (voir sa ligne).
 
 | Mécanique | Frame (2 bots, frames de la run) | Attente |
 |---|---|---|
 | Entrée depuis le hub | marchand f80 et porte f175 du hub ; `hub` f1 | `HubVisit`, `HubExit(exit_frame: 175)`, `Event(hub)` |
 | Déblocages lus du profil (M2-T12) | f1 | `RunUnlocks(has: 3)`, `Event(unlock)` |
-| Escouade | verrou f1471 → f1605 | `SquadSize(bullet_kins)` = 3 (f1480), 0 (f1700) ; à 4 joueurs ≥ 2 (f2150), 0 (f2300) |
-| Salle verrouillée puis nettoyée | f42 → f139 | `Event(room)` ×2 |
-| Blank utilisé | f70, f82 | `Event(blank)` |
-| Objet ramassé | clé f2248, amulette f2915 (joueur 1) ; coffres de l'étage 2 : roulade f4253, rancune f4719 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
-| Achat en boutique | f2687 (D95/D96 : un blank et une arme ; avant : gilet, roulade) | `Event(purchase, shop)`, `Shelf(nth: 0, sold)` faux f2685 puis vrai f2760, `Consumable(blank)` 0 → 1 |
-| Coffre à clé ouvert, clé consommée | f2928 (`arc`) | `Consumable(key)` 1 (f2920) → 0 (f2930), `Event(chest)` |
-| Arène tenue | f1890 → f2640 (750 frames) | `Event(arena)`, `RoomState(arene, nth: 1, Cleared)` |
-| Boss, phase 1 | f3310, phase 1 f3354, mort f3355 | `BossPhase(NetId(205), 1)` (f3355), `Event(boss_phase)` |
-| Portail | f3489 | `Event(portal)` |
-| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7126 (phase 1 f7279, mort f7315) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(704), 1)` |
-| Victoire et profil | f7316 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
+| Escouade | verrou f356 → f506 | `SquadSize(bullet_kins)` = 3 (f380), 0 (f520) ; à 4 joueurs ≥ 2 (f380), 0 (f460) |
+| Salle verrouillée puis nettoyée | f66 → f186 | `Event(room)` ×2 |
+| Blank utilisé | f95, f107 | `Event(blank)` |
+| Objet ramassé | clé f246, blank f1783, ration f3538 ; coffres libres : `bastion` f698 (joueur 1), `rancune` f6256 (joueur 0, étage 2) | `Event(item_pickup)`, `HasItem(bastion)`, `HasItem(rancune)`, `Consumable(key, 1)` |
+| Achat en boutique | f1896-1922 (trèfle, présentoir 1 ; second étage f6117-6143) | `Event(purchase, shop)`, `Shelf(nth: 1, sold)` faux f1850 puis vrai f1950, `Consumable(blank)` 0 (f1700) → 1 (f1800) |
+| Coffre à clé ouvert, clé consommée | **hors des runs de bots** : la limite de détour du bot écarte la salle de récompense (`recompense`, coffre `locked: true`) et la clé ramassée f246 reste au joueur (`Consumable(key)` = 1 jusqu'à la fin). **Attesté par `gungeon_key_chest`** (`game: "gungeon"`, coffre verrouillé, clé f5, interaction f10, objet `bastion` ramassé f45) | `Consumable(key)` 1 (f8) → 0 (f20), `Event(chest)`, `ItemCount(bastion)` 0 → 1 |
+| Arène tenue | f2077 → f2827 (750 frames) | `Event(arena)`, `RoomState(arene, nth: 0, Cleared)` |
+| Boss, phase 1 | boss f3650, phase 0 → 1 f3740, 1 → 2 f3761, nettoyée f3780 | `BossPhase(NetId(175), 1)` (f3750), `Event(boss_phase)` |
+| Portail | f3781 | `Event(portal)` |
+| Second étage | f4219, puis arène f5025-5775, boutique f6117-6143, coffre f6256, boss f7111 (phase 1 f7151) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(607), 1)` |
+| Victoire et profil | f7200 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
 
-**Non attestées, et pourquoi** : (0) la **phase 2 du boss** (D95/D96) : les deux boss de ces runs meurent une frame (premier) ou 36 frames (second) après leur phase 1, et le boss ne fait « qu'une transition par frame » (`game/src/boss.rs:7`) ; la phase 2 est attestée par `gungeon_boss` (f520) et `gungeon_boss_bot` (f460, bot) ; (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
+**Non attestées, et pourquoi** : (0) la **phase 2 du boss** n'est lue par aucune attente de ces runs : `BossPhase` y est lue en phase 1 (le boss ne fait « qu'une transition par frame », `game/src/boss.rs:7`, et disparaît à sa mort) ; le premier boss passe en phase 2 f3761 (moment clé) ; la phase 2 est attestée par `gungeon_boss` (f520) et `gungeon_boss_bot` (bot) ; (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
 s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
 déblocage** : elle n'existe pas, `hub/porte.ron` (`EnterRun`) n'a aucune condition ; seul le marchand exige `first_run`
 (sa visite f120 le prouve pour le profil du scénario) ; l'effet des déblocages sur la run se prouve par `RunUnlocks`
@@ -7166,7 +7167,7 @@ fichier de carte à retoucher, aucune trace qui bouge (rien dans `GgrsSchedule`,
 - **Système** `wall_art::draw_walls` : à l'apparition d'un niveau (entité `LevelIid` avec ses couches), lit la couche
   `layer` dans le projet (`Assets<LdtkProject>`, monde de l'étage par `FloorSlots`), choisit une tuile par case non
   nulle et pose un sprite par case sous une racine `WallArtRoot`, **enfant du niveau** (il hérite de sa visibilité :
-  étage quitté caché, comme les portes). Marqueur `WallArtDone`. Hors du niveau, une case compte comme un mur.
+  étage quitté caché, comme les portes). Un niveau déjà dessiné se reconnaît à son enfant `WallArtRoot` (pas de marqueur à tenir à jour). Hors du niveau, une case compte comme un mur. Le lint vérifie que `layer` est une couche IntGrid d'au moins une carte du jeu.
 - **Choix de la tuile** (`wall_tile`, pure, testée) : vue de dessus avec **face de mur** côté sud. Case dont la voisine
   du sud est un sol : **face** (briques ; chapeau latéral côté ouest/est si la voisine est un sol : 4 tuiles, indices
   32 à 35) ; sinon **dessus** (liseré clair + contour sombre sur chaque bord qui touche le sol, nord/est/ouest ; angle

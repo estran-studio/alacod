@@ -120,7 +120,8 @@ Scenario(
         // Objets de coffre tenus : bastion (coffre f698, joueur 1) ; rancune (coffre de l'étage 2 f6256, joueur 0).
         HasItem(handle: 1, id: "bastion", at_frame: 4300),
         HasItem(handle: 0, id: "rancune", at_frame: 6300),
-        // Clé : plus aucun coffre à clé ouvert (coffres sans clé), la clé reste au joueur 0.
+        // Clé : les bots n'ouvrent plus de coffre à clé (la limite de détour écarte la salle de récompense), la clé reste au joueur 0 ;
+        // la consommation d'une clé par un coffre est attestée par `gungeon_key_chest`.
         Consumable(handle: 0, id: "key", count: 1, at_frame: 2810),
         EventAfter(kind: "chest", label_contains: "bastion", after_frame: 600, by_frame: 699),
         Consumable(handle: 0, id: "key", count: 1, at_frame: 2830),
