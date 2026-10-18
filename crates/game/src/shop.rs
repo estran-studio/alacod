@@ -36,6 +36,7 @@ use utils::{
 use crate::character::health::{Death, Health};
 use crate::character::player::Player;
 use crate::economy::EconomyConfig;
+use crate::effects_runtime::EffectAssets;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::InteractionEvent;
 use crate::items::{apply_instant_effects, spawn_item_pickup, with_inventory, FreshInventories};
@@ -400,6 +401,7 @@ pub fn shelf_interaction_system(
     table: Res<ItemTable>,
     global_assets: Res<GlobalAsset>,
     weapons: Res<Assets<WeaponsConfig>>,
+    effect_assets: EffectAssets,
     mut commands: Commands,
     mut picked: ResMut<FrameEvents<ItemPicked>>,
     mut currency_events: ResMut<FrameEvents<CurrencyEvent>>,
@@ -441,7 +443,7 @@ pub fn shelf_interaction_system(
             continue;
         }
         let Some((
-            _,
+            owner_id,
             entity,
             player,
             player_transform,
@@ -640,10 +642,12 @@ pub fn shelf_interaction_system(
                 def,
                 &item_id,
                 frame.frame,
+                owner_id,
                 health,
                 &mut modifiers,
                 &mut commands,
                 entity,
+                &effect_assets,
             );
         }
         if let Some(old) = dropped {

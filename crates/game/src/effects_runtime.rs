@@ -463,7 +463,7 @@ pub(crate) fn run_listed(
                         net_id,
                         entry.source.clone(),
                         frame,
-                        body.health,
+                        Some(&mut *body.health),
                         body.modifiers,
                         state,
                         body.gauges.as_deref_mut(),
@@ -938,7 +938,7 @@ pub(crate) fn apply_action(
         net_id,
         effect_source(net_id, index),
         frame,
-        health,
+        Some(health),
         modifiers,
         state,
         gauges,
@@ -950,13 +950,18 @@ pub(crate) fn apply_action(
 
 /// Comme [`apply_action`], avec la source de modificateur choisie par l'appelant
 /// (`effect:<porteur>:<index>`, ou `item:<id>:<index>` pour un objet tenu).
+///
+/// Seule liste d'actions exécutées sur un porteur (D80) : les effets de personnage et d'objet tenu
+/// (`apply_triggered_effects_system`), la frise de boss (`apply_action`) et les effets `OnUse` d'un
+/// objet (`items::apply_instant_effects`) passent tous ici. `health` est absent pour un porteur sans
+/// `Health` (joueur qui n'en a pas encore) : `Heal` est alors sans effet.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_action_sourced(
     action: &Action,
     net_id: &GgrsNetId,
     source: ModifierSource,
     frame: u32,
-    health: &mut Health,
+    health: Option<&mut Health>,
     modifiers: &mut Modifiers,
     state: &mut EffectState,
     gauges: Option<&mut Gauges>,
@@ -978,7 +983,9 @@ pub(crate) fn apply_action_sourced(
             }
         }
         Action::Heal(amount) => {
-            health.current = healed(health.current, health.max, *amount);
+            if let Some(health) = health {
+                health.current = healed(health.current, health.max, *amount);
+            }
         }
         Action::GainShield(points) => {
             combat::actors::queue_gain_shield(commands, entity, *points);
@@ -1195,7 +1202,7 @@ mod tests {
                     net_id,
                     effect_source(net_id, 0),
                     50,
-                    &mut health,
+                    Some(&mut *health),
                     &mut modifiers,
                     &mut EffectState::default(),
                     None,

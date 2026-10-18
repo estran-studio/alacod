@@ -44,6 +44,7 @@ use world::{RoomChanged, RoomState};
 use crate::character::health::Health;
 use crate::character::player::jjrs::PeerConfig;
 use crate::character::player::Player;
+use crate::effects_runtime::{apply_action_sourced, EffectAssets, EffectState};
 use crate::interaction::InteractionEvent;
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
@@ -128,6 +129,7 @@ pub fn item_consumable_pickup_system(
     frame: Res<FrameCount>,
     table: Res<ItemTable>,
     mut commands: Commands,
+    assets: EffectAssets,
     mut picked: ResMut<FrameEvents<ItemPicked>>,
     pickups: Query<
         (
@@ -180,7 +182,7 @@ pub fn item_consumable_pickup_system(
         }) else {
             continue;
         };
-        let Some((_, entity, player, _, inventory, mut modifiers, health)) =
+        let Some((owner_id, entity, player, _, inventory, mut modifiers, health)) =
             players.iter_mut().find(|(id, ..)| id.0 == *player_net_id)
         else {
             continue;
@@ -199,10 +201,12 @@ pub fn item_consumable_pickup_system(
                 def,
                 &pickup.item_id,
                 frame.frame,
+                owner_id,
                 health,
                 &mut modifiers,
                 &mut commands,
                 entity,
+                &assets,
             );
         }
         info!(
@@ -304,47 +308,43 @@ pub fn handle_item_interaction(
     insert_fresh_inventories(&mut commands, fresh);
 }
 
-/// Applique les effets `OnUse` d'un objet (actif utilisé, consommable ramassé) : `Heal`,
-/// `Modifier` (permanent) et `TimedModifier`, source `item:<id>`. Les autres actions sont
-/// refusées par le lint.
+/// Applique les effets `OnUse` d'un objet (actif utilisé, consommable ramassé), source `item:<id>` :
+/// chaque action passe par `effects_runtime::apply_action_sourced`, la même exécution que les effets
+/// de personnage et d'objet tenu (D80 : une seule liste d'actions). `Explode` pose donc une bombe à
+/// mèche d'une frame au point du porteur lu à l'application, créditée à `net_id`. Le lint
+/// (`content::lint`) ne laisse passer à `OnUse` que les actions qui ont un sens pour un objet
+/// (`Heal`, `GainShield`, `GainSoul`, `Modifier`, `TimedModifier`, `Explode`).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_instant_effects(
     def: &items::ItemDef,
     item_id: &str,
     frame: u32,
+    net_id: &GgrsNetId,
     mut health: Option<Mut<Health>>,
     modifiers: &mut Modifiers,
     commands: &mut Commands,
     entity: Entity,
+    assets: &EffectAssets,
 ) {
     let source: ModifierSource = item_source(item_id);
+    // Aucune action `OnUse` n'écrit l'état d'effet (`GaugeAdd` est refusée par le lint, sans jauge
+    // ici) : il n'existe que pour la signature commune.
+    let mut state = EffectState::default();
     for effect in def.effects.iter().filter(|e| e.on == effects::On::OnUse) {
         for action in &effect.r#do {
-            match action {
-                Action::TimedModifier { .. } => {
-                    if let Some(modifier) = action.as_modifier(frame, source.clone()) {
-                        modifiers.push(modifier);
-                    }
-                }
-                Action::Modifier { stat, op, value } => {
-                    modifiers.push_from(source.clone(), stat.clone(), *op, *value, None)
-                }
-                Action::Heal(amount) => {
-                    if let Some(health) = health.as_deref_mut() {
-                        health.current =
-                            effects::runtime::healed(health.current, health.max, *amount);
-                    }
-                }
-                // D61 : bouclier (distinct de l'armure), posé au premier gain.
-                Action::GainShield(points) => {
-                    combat::actors::queue_gain_shield(commands, entity, *points);
-                }
-                // M3-T3 (§68) : cœurs d'âme (`ExtraHealth`), posés au premier gain.
-                Action::GainSoul(points) => {
-                    combat::actors::queue_gain_soul(commands, entity, *points);
-                }
-                // Refusées par le lint (effets v2).
-                _ => {}
-            }
+            apply_action_sourced(
+                action,
+                net_id,
+                source.clone(),
+                frame,
+                health.as_deref_mut(),
+                modifiers,
+                &mut state,
+                None,
+                (entity, false),
+                commands,
+                assets,
+            );
         }
     }
 }
@@ -435,6 +435,7 @@ pub fn item_use_active_system(
     floor: Option<Res<run::FloorState>>,
     inputs: Res<PlayerInputs<PeerConfig>>,
     mut commands: Commands,
+    assets: EffectAssets,
     mut players: Query<(
         &GgrsNetId,
         Entity,
@@ -484,10 +485,12 @@ pub fn item_use_active_system(
             def,
             &item_id,
             frame.frame,
+            net_id,
             health,
             &mut modifiers,
             &mut commands,
             entity,
+            &assets,
         );
         let counts_uses = def.uses_per_floor.is_some();
         if let Some(slot) = inventory.active.as_mut() {

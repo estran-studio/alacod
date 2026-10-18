@@ -5267,8 +5267,19 @@ tenu, de mutation ou une frise de boss (`apply_action_sourced`) : une **bombe à
 posée au point du porteur (commande différée : `GgrsNetIdFactory` et position se lisent à l'application),
 équipe du porteur, tir ami `Always` ; elle explose à la frame suivante par le même chemin. Le porteur n'est
 pas exempté : au centre du rayon, il prend les dégâts comme les autres (`explode_effect`). Le lint ne la
-refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; `OnUse` d'un objet et les power-ups la
-refusent toujours (`OnUse` n'a pas de position). `Explode` en mort de champion : M3-T7.
+refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; les power-ups la refusent toujours.
+**`OnUse` d'un objet (D80, fermée)** : `items::apply_instant_effects` n'a plus sa propre liste d'actions
+(`Heal`, `GainShield`, `TimedModifier`, `Modifier`) : chaque action passe par `apply_action_sourced`, la même
+exécution que les effets de personnage et d'objet tenu (source `item:<id>`, comme avant ; `Heal` sans `Health` :
+sans effet). `Explode` est donc acceptée en `OnUse` d'un actif ou d'un consommable (lint : rayon > 0, dégâts >= 0) :
+bombe à mèche d'une frame au point du porteur **lu à l'application** (commande différée), créditée à lui, de son
+équipe. Un actif « bombe » : `testbed/objets/bombe_active.ron`, scénarios `item_active_bomb_rock` (les trois
+rochers du couloir cassés à la frame suivant l'usage) et `item_active_bomb_enemy` (un `dummy` à 22 px blessé, le
+porteur aussi : tir ami `Always`, un `dummy` hors rayon intact) ; fixtures `explode_onuse_ok`,
+`explode_onuse_radius_zero`. Les actions que le lint refuse à `OnUse` (`GaugeAdd`, `SpawnPattern`, `Scaled`…) ne
+sont toujours pas admises : l'exécution commune les refuserait par un `warn!` (action non exécutée), pas en
+silence. Les traces existantes ne bougent pas (72 scénarios d'objets, boutiques, bombes et boss rejoués). `Explode`
+en mort de champion : M3-T7.
 
 ### Déterminisme
 
