@@ -416,6 +416,63 @@ pub struct Bullet {
     pub friendly_fire: FriendlyFire,
 }
 
+impl Bullet {
+    /// D76 : le souffle d'une balle `Explosive` qui se termine (touche, mur, fin de portée) : une
+    /// bombe à mèche d'une frame, **la même** que celle de `Action::Explode` et des champions
+    /// (explosion commune de M3-T4, `docs/conventions.md` §69). `blast_radius` est son rayon,
+    /// `damage × explosive_damage_multiplier` ses dégâts, créditée au tireur, de son équipe, avec
+    /// la politique de tir ami de l'arme ; elle ne casse ni rochers ni terrain (`destroys: false` :
+    /// `on_expire: [DestroyTerrain]` le dit explicitement). La cible touchée prend le coup de la
+    /// balle **puis** le souffle. `None` pour les autres types de balle.
+    pub fn blast(&self, frame: u32) -> Option<world::Bomb> {
+        let BulletType::Explosive {
+            blast_radius,
+            explosive_damage_multiplier,
+            ..
+        } = self.bullet_type
+        else {
+            return None;
+        };
+        Some(world::Bomb {
+            owner: self.source.clone(),
+            fuse_until: frame.saturating_add(1),
+            radius: blast_radius,
+            damage: self.damage.saturating_mul(explosive_damage_multiplier),
+            friendly_fire: self.friendly_fire,
+            team: self.source_team,
+            destroys: false,
+        })
+    }
+}
+
+/// Pose le souffle d'une balle `Explosive` ([`Bullet::blast`]) à `position`, numéroté
+/// `blast_<balle>` ; sans effet pour une autre balle. À appeler **avant** la destruction de la
+/// balle, dans l'ordre `GgrsNetId` du système appelant (l'id vient de `GgrsNetIdFactory`).
+pub fn spawn_blast(
+    commands: &mut Commands,
+    id_factory: &mut GgrsNetIdFactory,
+    bullet: &Bullet,
+    bullet_id: &GgrsNetId,
+    position: fixed_math::FixedVec3,
+    frame: u32,
+) {
+    let Some(bomb) = bullet.blast(frame) else {
+        return;
+    };
+    let transform = fixed_math::FixedTransform3D::new(
+        position,
+        fixed_math::FixedMat3::IDENTITY,
+        fixed_math::FixedVec3::ONE,
+    );
+    commands.spawn((
+        bomb,
+        transform.to_bevy_transform(),
+        transform,
+        id_factory.next(format!("blast_{}", bullet_id.0)),
+        Rollback,
+    ));
+}
+
 /// Ce que la présentation ne peut pas relire du `Bullet` rollback pour dessiner la balle : le
 /// `Size` du projectile composable et la stat `ShotSize` du tireur (absente de `Bullet`, dont le
 /// `Hash` entre dans le checksum). Posé par [`spawn_bullet`], **hors rollback** et jamais haché
@@ -1681,6 +1738,7 @@ pub fn weapon_rollback_system(
 pub fn bullet_rollback_system(
     mut commands: Commands,
     frame: Res<FrameCount>,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
     mut bullet_query: Query<(
         &GgrsNetId,
         Entity,
@@ -1713,6 +1771,15 @@ pub fn bullet_rollback_system(
                 projectile.ended = true;
             } else {
                 use bevy_ggrs::RollbackDespawnCommandExtension;
+                // D76 : une balle `Explosive` explose aussi en fin de portée.
+                spawn_blast(
+                    &mut commands,
+                    &mut id_factory,
+                    &bullet,
+                    g_id,
+                    transform.translation,
+                    frame.frame,
+                );
                 commands.entity(entity).despawn_rollback();
             }
         }
@@ -1747,6 +1814,7 @@ enum BulletTarget {
 pub fn bullet_rollback_collision_system(
     frame: Res<FrameCount>,
     mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
     settings: Res<CollisionSettings>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
     mut wall_hits: ResMut<FrameEvents<crate::projectile::BulletWallHit>>,
@@ -1932,6 +2000,15 @@ pub fn bullet_rollback_collision_system(
         }
 
         if should_bullet_despawn_now {
+            // D76 : une balle `Explosive` explose là où elle s'arrête (personnage ou mur).
+            spawn_blast(
+                &mut commands,
+                &mut id_factory,
+                bullet,
+                ggrs_net_id,
+                bullet_transform.translation,
+                frame.frame,
+            );
             bullets_to_despawn.insert(ggrs_net_id.0, bullet_entity);
             // Since the original code had a `break` here, we effectively stop processing
             // more targets for this bullet after this first deterministic interaction.

@@ -951,6 +951,77 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // D76 (docs/conventions.md §69) : balle `Explosive` ordinaire (sans `projectile:`) : à l'impact ou en fin de portée (100) elle explose (rayon 40, dégâts de la balle × 2, tir ami de l'arme). Scénarios `explosive_bullet_hit` et `explosive_bullet_range`.
+    "balle_explosive": (
+        config: (
+            name: "balle_explosive",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Explosive(
+                        damage: "5.0",
+                        speed: "300.0",
+                        blast_radius: "40.0",
+                        explosive_damage_multiplier: "2.0",
+                    ),
+                    range: "100.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                )
+            },
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    // D76 : la même balle `Explosive`, composable (`Lifetime(20)` : le projectile se termine à 20 frames, ~100 unités) : elle explose quand son projectile se termine. Scénario `explosive_bullet_composed`.
+    "balle_explosive_composee": (
+        config: (
+            name: "balle_explosive_composee",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Explosive(
+                        damage: "5.0",
+                        speed: "300.0",
+                        blast_radius: "40.0",
+                        explosive_damage_multiplier: "2.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 30,
+                        mag_limit: 4,
+                    ),
+                    projectile: (modifiers: [Lifetime(20)]),
+                )
+            },
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
     // Suivi Q12 (docs/conventions.md §19) : Charm : chaque balle charme sa cible (elle sert le camp des joueurs et frappe
     // l'ennemi le plus proche pendant 200 frames). Scénarios `status_charm` et généré `weapon_status_charm`.
     "status_charm": (
