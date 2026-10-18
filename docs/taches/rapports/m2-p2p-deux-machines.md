@@ -229,3 +229,18 @@ Sur l'arbre livré (`4a1f1220` plus les documents) :
 Une seule paire de machines (VPS et un Mac M1) et un RTT de 27 à 41 ms ; natif seulement ; un jeu de graines (10 pour gungeon, 123456 pour isaac) ; le Mac était chargé par d'autres workers
 pendant tous les essais (charge 9 à 85) et n'a pas déconnecté une seule fois à RTT réel, ce qui montre aussi que la session tient une machine chargée ; la revue humaine (contrat de sortie, point 7)
 reste à faire ; D109 et D108 ouvertes.
+
+## 9. Revue indépendante (2026-10-18, « OK avec réserves ») : suites
+
+- **Dettes renumérotées** (collision avec D97/D98 de main) : `isaac` ignore `--seed` = **D108** (corrigé par `m3-t14-bot-isaac` via `apply_launch_seed` au merge de T14 ; throne/testbed : D105) ; connexion jamais établie sous perte = **D109**.
+- **Serveur public** : le défaut du Makefile est `wss://allumette.estran.studio` (il résout, HTTP 200 sur `/health`) ; `allumette.bascanada.org` est l'ancien nom. **Non vérifié** : un essai à deux clients via `estran.studio`
+  (`p2p-stress.sh`, 600 frames) échoue par « socket dropped » dans les 200 s sans jamais synchroniser : le serveur répond 400 à une requête HTTP simple et attend visiblement le flux allumette (JWT dans le chemin, `--allumette`), pas
+  le chemin `--matchbox …/<salle>` des scripts. Les essais de ce rapport restent sur un `matchbox_server` local.
+- **Délai de 5 s** : justification refondée sur le contrefactuel (§5.4, Fisher p ≈ 0,28 non significatif).
+- **Code** (`p2p.rs`) : `ALACOD_DISCONNECT_TIMEOUT_MS` / `ALACOD_P2P_CHANNEL` invalides : `warn!` et défaut (plus de `panic!`) ; délai nul ou ≥ 10 s refusé ; `with_disconnect_timeout` dans `session_builder` ;
+  `const _: () = assert!(DISCONNECT_TIMEOUT < CONFIRMATION_TIMEOUT)` (`state_trace::CONFIRMATION_TIMEOUT` passé `pub(crate)`).
+- **Vérification sur l'arbre fusionné avec `f96fa463`** : `cargo test -p game p2p` 5 passés ; `make test_crates` 1 244 passés, 0 échec ; `cargo fmt --check` propre ; `p2p-disconnect.sh` (SIGKILL à 40 s, délai réel 5 s) : survivant code 0, 4 499 lignes,
+  0 `DesyncDetected`, 4,58 s entre `NetworkInterrupted` et `Disconnected`.
+- **Réserve à dire** : ces compilations et tests ont tourné pendant la fenêtre de calme de b6 (D84) ; je n'ai pas pu établir si b6 mesurait à ce moment (il n'avait aucun `bench` visible à mes contrôles, mais une compilation de b6 a été vue une fois). Ses relevés sont à contrôler
+  contre ma plage (≈ 12 h 40 à 14 h 10 sur l'horloge du VPS).
+- Non rejoués : `make test_scenarios_par` (aucun changement de simulation, et b6 doit mesurer au calme ; le dernier passage vert est celui du §7 sur `4a1f1220`).

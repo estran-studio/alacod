@@ -96,7 +96,9 @@ fn disconnect_timeout() -> std::time::Duration {
         return DISCONNECT_TIMEOUT;
     };
     match value.parse::<u64>() {
-        Ok(ms) if ms > 0 && u128::from(ms) < crate::state_trace::CONFIRMATION_TIMEOUT.as_millis() => {
+        Ok(ms)
+            if ms > 0 && u128::from(ms) < crate::state_trace::CONFIRMATION_TIMEOUT.as_millis() =>
+        {
             std::time::Duration::from_millis(ms)
         }
         _ => {
