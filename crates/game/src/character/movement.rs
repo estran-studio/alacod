@@ -4,6 +4,8 @@ use bevy_ggrs::Rollback;
 use serde::{Deserialize, Serialize};
 use utils::{net_id::GgrsNetId, order_mut_iter};
 
+pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 60 FPS fixed timestep
+
 /// Déplacement d'un personnage. Les ennemis n'en lisent que `max_speed` (leur IA décide du
 /// reste, voir `enemy::ai::pathing`) ; pour un joueur, la course suit [`run_velocity`] et le
 /// dash [`combat::actors::DashState`].

@@ -1,0 +1,128 @@
+# sonde `scripts/probe-game-sim.py` après les retouches (8633a560 + dette-d69-plan-etape2), 2026-10-18
+# 1. sans les tests inline
+sonde game en ECS seul : 59 fichiers avec fuite sur 114, 781 erreurs de résolution
+par catégorie : ui 303, asset 176, sprite/caméra 138, entrée 93, crate d'E/S 17, autre 16, fenêtre 10, audio 9, gizmos 9, rendu/remote 6, réseau 4
+  ui/hud.rs                                         208  ui 154, asset 24, sprite/caméra 23, autre 7
+  ui/lobby.rs                                        62  ui 53, entrée 3, autre 3, asset 2
+  character/player/control.rs                        47  entrée 47
+  ui/disconnected.rs                                 40  ui 38, autre 2
+  feedback.rs                                        39  asset 13, ui 11, sprite/caméra 7, audio 3
+  legibility.rs                                      39  sprite/caméra 19, asset 9, ui 7, entrée 3
+  world_sprites.rs                                   37  sprite/caméra 27, asset 9, crate d'E/S 1
+  camera/mod.rs                                      25  asset 9, sprite/caméra 7, entrée 5, fenêtre 2
+  character/visuals.rs                               19  asset 9, sprite/caméra 9, crate d'E/S 1
+  ui/weapon_visuals.rs                               19  sprite/caméra 9, asset 8, crate d'E/S 2
+  global_asset.rs                                    17  asset 16, crate d'E/S 1
+  camera/ui.rs                                       16  ui 10, sprite/caméra 5, asset 1
+  room_fog.rs                                        16  sprite/caméra 11, asset 3, rendu/remote 1, autre 1
+  waves/debug.rs                                     16  ui 10, sprite/caméra 3, entrée 2, asset 1
+  ui/screens/mod.rs                                  15  entrée 15
+  weapons.rs                                         13  asset 7, sprite/caméra 6
+  core.rs                                            11  fenêtre 5, asset 3, rendu/remote 1, crate d'E/S 1
+  frame.rs                                           11  ui 10, asset 1
+  powerup_visuals.rs                                 10  ui 4, sprite/caméra 3, asset 2, gizmos 1
+  character/enemy/ai/debug.rs                         8  entrée 6, gizmos 2
+  content_hot_reload.rs                               7  asset 6, autre 1
+  interaction.rs                                      7  sprite/caméra 4, asset 2, gizmos 1
+  ui/floor_transition.rs                              7  ui 6, autre 1
+  character/player/input.rs                           6  fenêtre 2, entrée 2, sprite/caméra 1, asset 1
+  champions.rs                                        5  asset 5
+  collider/debug.rs                                   5  entrée 4, gizmos 1
+  powerups.rs                                         5  asset 5
+  balance.rs                                          4  asset 4
+  character/create.rs                                 4  audio 2, asset 1, sprite/caméra 1
+  character/mod.rs                                    4  entrée 2, asset 1, crate d'E/S 1
+  character/player/create.rs                          4  asset 3, entrée 1
+  jjrs/mod.rs                                         4  crate d'E/S 4
+  remote.rs                                           4  rendu/remote 4
+  audio/mod.rs                                        3  audio 3
+  character/enemy/create.rs                           3  asset 3
+  character/enemy/spawning.rs                         3  asset 3
+  economy.rs                                          3  asset 3
+  loot.rs                                             3  asset 3
+  waves/systems.rs                                    3  asset 3
+  web/logs.rs                                         3  entrée 2, crate d'E/S 1
+  args/mod.rs                                         2  crate d'E/S 2
+  character/config.rs                                 2  asset 2
+  character/health/mod.rs                             2  asset 2
+  familiars.rs                                        2  asset 2
+  feedback_v3.rs                                      2  asset 2
+  jjrs/p2p.rs                                         2  réseau 2
+  shop.rs                                             2  asset 2
+  cave_assets.rs                                      1  asset 1
+  character/enemy/ai/pathing.rs                       1  asset 1
+  character/health/ui.rs                              1  sprite/caméra 1
+  collider/mod.rs                                     1  sprite/caméra 1
+  effects_runtime.rs                                  1  asset 1
+  items.rs                                            1  gizmos 1
+  jjrs/restart.rs                                     1  réseau 1
+  progression.rs                                      1  asset 1
+  recording.rs                                        1  fenêtre 1
+  ui/mutation_screen.rs                               1  entrée 1
+  waves/config.rs                                     1  asset 1
+  waves/mod.rs                                        1  asset 1
+
+# 2. avec `--tests`
+sonde game en ECS seul : 61 fichiers avec fuite sur 114, 813 erreurs de résolution
+par catégorie : ui 303, asset 184, sprite/caméra 158, entrée 96, crate d'E/S 17, autre 16, fenêtre 10, audio 9, gizmos 9, rendu/remote 6, réseau 5
+  ui/hud.rs                                         208  ui 154, asset 24, sprite/caméra 23, autre 7
+  ui/lobby.rs                                        62  ui 53, entrée 3, autre 3, asset 2
+  world_sprites.rs                                   51  sprite/caméra 41, asset 9, crate d'E/S 1
+  character/player/control.rs                        47  entrée 47
+  ui/disconnected.rs                                 40  ui 38, autre 2
+  feedback.rs                                        39  asset 13, ui 11, sprite/caméra 7, audio 3
+  legibility.rs                                      39  sprite/caméra 19, asset 9, ui 7, entrée 3
+  camera/mod.rs                                      25  asset 9, sprite/caméra 7, entrée 5, fenêtre 2
+  room_fog.rs                                        25  sprite/caméra 17, asset 6, rendu/remote 1, autre 1
+  character/visuals.rs                               19  asset 9, sprite/caméra 9, crate d'E/S 1
+  ui/weapon_visuals.rs                               19  sprite/caméra 9, asset 8, crate d'E/S 2
+  global_asset.rs                                    17  asset 16, crate d'E/S 1
+  camera/ui.rs                                       16  ui 10, sprite/caméra 5, asset 1
+  waves/debug.rs                                     16  ui 10, sprite/caméra 3, entrée 2, asset 1
+  ui/screens/mod.rs                                  15  entrée 15
+  weapons.rs                                         13  asset 7, sprite/caméra 6
+  core.rs                                            11  fenêtre 5, asset 3, rendu/remote 1, crate d'E/S 1
+  frame.rs                                           11  ui 10, asset 1
+  powerup_visuals.rs                                 10  ui 4, sprite/caméra 3, asset 2, gizmos 1
+  character/player/input.rs                           9  entrée 5, fenêtre 2, sprite/caméra 1, asset 1
+  character/enemy/ai/debug.rs                         8  entrée 6, gizmos 2
+  content_hot_reload.rs                               7  asset 6, autre 1
+  interaction.rs                                      7  sprite/caméra 4, asset 2, gizmos 1
+  ui/floor_transition.rs                              7  ui 6, autre 1
+  powerups.rs                                         6  asset 6
+  champions.rs                                        5  asset 5
+  collider/debug.rs                                   5  entrée 4, gizmos 1
+  balance.rs                                          4  asset 4
+  character/create.rs                                 4  audio 2, asset 1, sprite/caméra 1
+  character/mod.rs                                    4  entrée 2, asset 1, crate d'E/S 1
+  character/player/create.rs                          4  asset 3, entrée 1
+  effects_runtime.rs                                  4  asset 4
+  jjrs/mod.rs                                         4  crate d'E/S 4
+  remote.rs                                           4  rendu/remote 4
+  audio/mod.rs                                        3  audio 3
+  character/enemy/create.rs                           3  asset 3
+  character/enemy/spawning.rs                         3  asset 3
+  economy.rs                                          3  asset 3
+  loot.rs                                             3  asset 3
+  waves/systems.rs                                    3  asset 3
+  web/logs.rs                                         3  entrée 2, crate d'E/S 1
+  args/mod.rs                                         2  crate d'E/S 2
+  character/config.rs                                 2  asset 2
+  character/health/mod.rs                             2  asset 2
+  familiars.rs                                        2  asset 2
+  feedback_v3.rs                                      2  asset 2
+  jjrs/p2p.rs                                         2  réseau 2
+  shop.rs                                             2  asset 2
+  cave_assets.rs                                      1  asset 1
+  character/enemy/ai/pathing.rs                       1  asset 1
+  character/health/ui.rs                              1  sprite/caméra 1
+  collider/mod.rs                                     1  sprite/caméra 1
+  effects_v3.rs                                       1  asset 1
+  items.rs                                            1  gizmos 1
+  jjrs/p2p_tests.rs                                   1  réseau 1
+  jjrs/restart.rs                                     1  réseau 1
+  progression.rs                                      1  asset 1
+  recording.rs                                        1  fenêtre 1
+  ui/mutation_screen.rs                               1  entrée 1
+  waves/config.rs                                     1  asset 1
+  waves/mod.rs                                        1  asset 1

@@ -16,15 +16,13 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
 use crate::character::config::{CharacterConfig, CharacterConfigHandles};
 use crate::character::dash::DashState;
 use crate::character::health::Health;
-use crate::character::movement::{grip, run_velocity, SprintState, Velocity};
+use crate::character::movement::{grip, run_velocity, SprintState, Velocity, FIXED_TIMESTEP};
 use crate::character::movement::{DashEffect, IframesKind};
 use crate::character::player::{control::PlayerAction, Player};
 use crate::collider::{is_colliding, Collider, CollisionLayer, CollisionSettings};
 
 use super::jjrs::PeerConfig;
 use super::LocalPlayer;
-
-pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 60 FPS fixed timestep
 
 pub use combat::actors::{
     BoxInput, CursorPosition, INPUT_BLANK, INPUT_BOMB, INPUT_CHOICE_A, INPUT_CHOICE_B,

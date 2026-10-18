@@ -346,7 +346,9 @@ réel) ; `ALACOD_SYSTEM_PROFILE=1` ajoute le temps par `RollbackSystemSet` (plus
 reconstruit à chaque changement de case d'un joueur : 9 ms par frame avec quatre joueurs qui
 bougent) dans `docs/etat-engine.md`. Dans le runner de scénarios, `ALACOD_SYSTEM_PROFILE=1 ALACOD_SCENARIO=<nom>` imprime
 aussi `profil sets : …` (M3-T15, §80). Mesures du poste VPS (2026-10-17/18, M3-T15 ; `bench_tears` : 432 balles, pire rollback
-56 ms, dette D97) et mesures indicatives de budgets (D84 reste ouverte) : `docs/taches/rapports/m3-t15-bench-larmes.md`.
+56 ms) et mesures indicatives de budgets (D84 reste ouverte) : `docs/taches/rapports/m3-t15-bench-larmes.md`. Dette D97 : −54 % sur le
+pire rollback de `bench_tears` (Mac, relatif ; grille `CollisionGrids::targets`, guidage sans tri, `length*` en entiers au bit près),
+à confirmer sur le VPS : `docs/conventions.md` §80, `docs/taches/rapports/dette-d97-cout-larmes.md`.
 
 ### Frontière simulation/présentation (prouvée par la compilation)
 
@@ -361,6 +363,13 @@ va dans `game` (ou un crate `APP`), jamais dans un crate `SIM` : `combat` ne voi
 désérialisés (`WeaponAsset`, `MeleeWeaponAsset` ; leurs enveloppes `Asset` sont dans `game::weapons`),
 le sprite d'une balle est posé par `game::world_sprites::attach_bullet_visuals` (`Added<Bullet>`, à partir
 de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `sim_core::animation_state`.
+
+Étape 2 de D69 (plan `docs/taches/rapports/dette-d69-plan-etape2.md`, fiche `docs/taches/dette-d69-etape2.md`) :
+`make probe_game_sim` compile `game` en ECS seul dans une copie jetable et range les fuites par fichier (mesure de
+la dette tant que `game` est un crate) ; `make schedule_order_diff BASE=<réf>` prouve que l'ordre des systèmes du
+rollback (`ReadInputs`, `GgrsSchedule`, `AdvanceWorld`, `SaveWorld`, `LoadWorld`) et des types rollback n'a pas bougé
+(`crates/scenario/tests/schedule_order.rs`). À lancer à chaque refactoring qui déplace de la simulation d'un module
+ou d'un crate à l'autre, avec les traces de scénario.
 
 ## Scénarios (tests de comportement et de régression)
 
