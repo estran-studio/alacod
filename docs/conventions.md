@@ -5340,7 +5340,7 @@ déplacé toutes les traces à balle perforante). Quand une balle `Explosive` se
 pose **la même bombe à mèche d'une frame** que l'action `Explode` et les champions (`world::Bomb`, `fuse_until =
 frame + 1`, numérotée `blast_<balle>`, créditée au tireur, de son équipe, politique de tir ami de l'arme) à la position
 de la balle : rayon `blast_radius`, dégâts `Bullet.damage × explosive_damage_multiplier` (la cible touchée prend le coup
-**puis** le souffle), `destroys: false` (ni rochers ni terrain : `on_expire: [DestroyTerrain]` le demande
+**puis** le souffle), tir ami `Cursed` **résolu au tir** (`Always` si le tireur porte `cursed`, `Never` sinon : le souffle n'émet que le tag `explosion`, test `souffle_cursed_suit_les_tags_du_tireur`), `destroys: false` (ni rochers ni terrain : `on_expire: [DestroyTerrain]` le demande
 explicitement). Trois sites, tous dans l'ordre `GgrsNetId` du système : l'arrêt contre un personnage ou un mur d'une
 balle ordinaire (`bullet_rollback_collision_system`), sa fin de portée (`bullet_rollback_system`), la fin d'un projectile
 composable (`projectile_expire_system`, après ses `on_expire`, qui couvre sa touche, son mur et sa durée de vie). Une

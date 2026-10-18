@@ -424,6 +424,21 @@ impl Bullet {
     /// la politique de tir ami de l'arme ; elle ne casse ni rochers ni terrain (`destroys: false` :
     /// `on_expire: [DestroyTerrain]` le dit explicitement). La cible touchée prend le coup de la
     /// balle **puis** le souffle. `None` pour les autres types de balle.
+    /// Politique de tir ami du souffle. L'explosion (`explosion_system`) n'émet que le tag `explosion` :
+    /// `Cursed`, qui lit les tags de la source (`team::CURSED_TAG`), ne pourrait jamais blesser un allié.
+    /// Elle est donc résolue ici depuis les tags capturés de la balle : `Always` si le tireur est
+    /// `cursed`, `Never` sinon (même verdict que la balle en direct). Choisi plutôt que de transmettre
+    /// les tags : `Bomb` (rollback, hash) ne change pas, et les autres sources d'explosion non plus.
+    fn blast_friendly_fire(&self) -> FriendlyFire {
+        match self.friendly_fire {
+            FriendlyFire::Cursed if self.tags.has(&Tag::new(crate::team::CURSED_TAG)) => {
+                FriendlyFire::Always
+            }
+            FriendlyFire::Cursed => FriendlyFire::Never,
+            other => other,
+        }
+    }
+
     pub fn blast(&self, frame: u32) -> Option<world::Bomb> {
         let BulletType::Explosive {
             blast_radius,
@@ -438,7 +453,7 @@ impl Bullet {
             fuse_until: frame.saturating_add(1),
             radius: blast_radius,
             damage: self.damage.saturating_mul(explosive_damage_multiplier),
-            friendly_fire: self.friendly_fire,
+            friendly_fire: self.blast_friendly_fire(),
             team: self.source_team,
             destroys: false,
         })
@@ -2129,6 +2144,50 @@ impl Plugin for BaseWeaponGamePlugin {
 mod tests {
     use super::*;
     use bevy_fixed::fixed_math::{new as fx, Fixed, FixedVec2};
+
+    /// Revue D76 : le souffle d'une balle `Cursed` blesse un allié si et seulement si le tireur est
+    /// `cursed` (le souffle n'émet que le tag `explosion`, il ne peut pas lire `cursed` lui-même).
+    #[test]
+    fn souffle_cursed_suit_les_tags_du_tireur() {
+        let bullet = |tags: &[&str], policy| Bullet {
+            velocity: FixedVec2::ZERO,
+            bullet_type: BulletType::Explosive {
+                damage: fx(5.0),
+                speed: fx(300.0),
+                blast_radius: fx(40.0),
+                explosive_damage_multiplier: fx(2.0),
+            },
+            damage: fx(5.0),
+            range: fx(100.0),
+            distance_traveled: Fixed::ZERO,
+            player_handle: 0,
+            created_at: 0,
+            source: GgrsNetId(1, "p".into()),
+            source_team: Team::Players,
+            tags: Tags::parse(tags.iter().copied()),
+            friendly_fire: policy,
+        };
+        let hits_ally = |b: &Bullet| {
+            let bomb = b.blast(10).unwrap();
+            // le souffle n'a que le tag `explosion`, comme `explosion_system`
+            crate::team::team_allows_hit(
+                bomb.team,
+                Team::Players,
+                bomb.friendly_fire,
+                &Tags::parse(["explosion"]),
+            )
+        };
+        assert!(hits_ally(&bullet(
+            &["bullet", "cursed"],
+            FriendlyFire::Cursed
+        )));
+        assert!(!hits_ally(&bullet(&["bullet"], FriendlyFire::Cursed)));
+        assert!(hits_ally(&bullet(&["bullet"], FriendlyFire::Always)));
+        assert!(!hits_ally(&bullet(
+            &["bullet", "cursed"],
+            FriendlyFire::Never
+        )));
+    }
 
     /// D51 : `spread` 0 → la direction visée exactement, quel que soit le tirage.
     #[test]
