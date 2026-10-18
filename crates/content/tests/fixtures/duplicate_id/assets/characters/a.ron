@@ -4,6 +4,7 @@
     ),
     // Erreur volontaire : même asset_name_ref que characters/b.ron.
     asset_name_ref: "hero",
+    scale: "1.0",
     base_health: (
         max: "100.0",
     ),

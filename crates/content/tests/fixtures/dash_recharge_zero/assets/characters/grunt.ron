@@ -7,6 +7,8 @@
     ),
 
     asset_name_ref: "grunt",
+
+    scale: "1.0",
     base_health: (
         max: "60.0",
     ),

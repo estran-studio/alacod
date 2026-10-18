@@ -149,6 +149,11 @@ déplacé que les sprites.
 )
 ```
 
+`scale` est **obligatoire** (D79, fermée) : `CharacterConfig.scale` n'a pas de défaut côté jeu, et le schéma
+de contenu (`content::registry::CharacterFileSchema`) l'exige comme lui. Un personnage sans `scale` est
+refusé par `alacod lint` (`Parse`, « `scale` est obligatoire pour un personnage, ex. `scale: "1.0"` »,
+fixture `character_scale_missing`) au lieu d'échouer au chargement du jeu.
+
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
 - `sprite_config` : `name`, `index` (première frame), `weapon_offset`. Pour une arme à distance, `name` est un id de la table `SpriteSheet` (D3).

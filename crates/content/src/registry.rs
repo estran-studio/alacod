@@ -2022,7 +2022,8 @@ struct CharacterFileSchema {
     /// dans les RON de personnages (`collider: (...)`, comme `CharacterConfig`).
     #[serde(default, deserialize_with = "present")]
     collider: Option<ColliderSchema>,
-    #[serde(default = "default_scale")]
+    /// D79 : obligatoire, comme `CharacterConfig.scale` (sans défaut côté jeu : un personnage
+    /// sans `scale` ne doit pas passer le lint pour échouer ensuite au chargement).
     scale: FixedField,
 }
 
@@ -2033,10 +2034,6 @@ where
     T: Deserialize<'de>,
 {
     T::deserialize(deserializer).map(Some)
-}
-
-fn default_scale() -> FixedField {
-    FixedField(Fixed::ONE)
 }
 
 /// Mirroir RON de `game::collider::Collider` (seules les dimensions servent).
@@ -2750,10 +2747,16 @@ fn load_characters(
         let parsed: CharacterFileSchema = match ron::from_str(&text) {
             Ok(p) => p,
             Err(e) => {
+                let message = e.to_string();
+                let hint = if message.contains("missing field named `scale`") {
+                    " (D79 : `scale` est obligatoire pour un personnage, ex. `scale: \"1.0\"`)"
+                } else {
+                    ""
+                };
                 errors.push(LintError {
                     kind: LintErrorKind::Parse,
                     file: rel.display().to_string(),
-                    message: format!("erreur RON : {e}"),
+                    message: format!("erreur RON : {message}{hint}"),
                 });
                 continue;
             }

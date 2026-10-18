@@ -3,6 +3,7 @@
         max_speed: "100.0",
     ),
     asset_name_ref: "hero",
+    scale: "1.0",
     // Erreur volontaire : santé <= 0.
     base_health: (
         max: "0.0",
