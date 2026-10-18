@@ -1082,6 +1082,18 @@ fn hud_wall_art_fixture_reports_missing_atlas() {
     assert_only_one_besides_start_map(&errors);
 }
 
+// m2-salles-murs-suivi : la couche IntGrid de `wall_art` existe dans une carte du jeu.
+#[test]
+fn hud_wall_art_fixture_reports_unknown_layer() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_wall_art_layer_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "couche IntGrid « Murs »",
+    );
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn sprite_sheet_duplicate_key_fixture_reports_repeated_id() {
     let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_duplicate_key")).unwrap();

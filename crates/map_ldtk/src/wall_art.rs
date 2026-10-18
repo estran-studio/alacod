@@ -27,10 +27,6 @@ use crate::game::floors::FloorSlots;
 /// Nombre de tuiles de la feuille.
 pub const WALL_TILES: u32 = 36;
 
-/// Posé sur un niveau dont les murs sont dessinés.
-#[derive(Component)]
-pub struct WallArtDone;
-
 /// Racine des sprites de murs d'un niveau (enfant du niveau : il hérite de sa visibilité).
 #[derive(Component)]
 pub struct WallArtRoot;
@@ -85,7 +81,8 @@ pub fn draw_walls(
     configs: Res<Assets<HudConfig>>,
     server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    levels: Query<(Entity, &LevelIid, Option<&Children>), Without<WallArtDone>>,
+    levels: Query<(Entity, &LevelIid, Option<&Children>)>,
+    roots: Query<(), With<WallArtRoot>>,
     projects: Query<&LdtkProjectHandle>,
     project_assets: Res<Assets<LdtkProject>>,
     slots: FloorSlots,
@@ -97,6 +94,10 @@ pub fn draw_walls(
     for (entity, iid, children) in &levels {
         // Les couches d'un niveau apparaissent avec ses enfants : sans eux, il n'est pas encore là.
         if children.is_none() {
+            continue;
+        }
+        // Déjà dessiné : le niveau porte un enfant `WallArtRoot` (pas de marqueur à tenir à jour).
+        if children.is_some_and(|children| children.iter().any(|child| roots.contains(child))) {
             continue;
         }
         let Some(project) = slots
@@ -137,30 +138,27 @@ pub fn draw_walls(
         }
         let image = sheet.image.clone();
         let layout = sheet.layout.clone();
-        commands
-            .entity(entity)
-            .insert(WallArtDone)
-            .with_children(|parent| {
-                parent
-                    .spawn((WallArtRoot, Transform::default(), Visibility::default()))
-                    .with_children(|root| {
-                        for (tile, position, size) in cells {
-                            root.spawn((
-                                Sprite {
-                                    custom_size: Some(Vec2::splat(size)),
-                                    ..Sprite::from_atlas_image(
-                                        image.clone(),
-                                        TextureAtlas {
-                                            layout: layout.clone(),
-                                            index: tile as usize,
-                                        },
-                                    )
-                                },
-                                Transform::from_translation(position),
-                            ));
-                        }
-                    });
-            });
+        commands.entity(entity).with_children(|parent| {
+            parent
+                .spawn((WallArtRoot, Transform::default(), Visibility::default()))
+                .with_children(|root| {
+                    for (tile, position, size) in cells {
+                        root.spawn((
+                            Sprite {
+                                custom_size: Some(Vec2::splat(size)),
+                                ..Sprite::from_atlas_image(
+                                    image.clone(),
+                                    TextureAtlas {
+                                        layout: layout.clone(),
+                                        index: tile as usize,
+                                    },
+                                )
+                            },
+                            Transform::from_translation(position),
+                        ));
+                    }
+                });
+        });
     }
 }
 

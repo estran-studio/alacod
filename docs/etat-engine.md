@@ -144,7 +144,8 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
    horde, bullet hell, étage complet, explosions en chaîne et transitions. Les valeurs du harness
    headless/synctest sont des indicateurs de régression, pas une mesure directe du budget de production.
 7. **Humain.** Jouer en coop, vérifier esquive/visée, lisibilité des dangers et du HUD, progression et
-   redémarrage. Consigner les problèmes observés avant de déclarer le jalon terminé.
+   redémarrage. Consigner les problèmes observés avant de déclarer le jalon terminé. Commandes et touches
+   pour jouer à gungeon (solo, deux joueurs locaux, en ligne à deux) : [`docs/jouer.md`](jouer.md).
 
 ## Ordre recommandé après cette branche
 
