@@ -1,8 +1,8 @@
-use animation::AnimationStateBundle;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_kira_audio::prelude::*;
 use combat::damage::Defenses;
+use sim_core::animation_state::AnimationStateBundle;
 use sim_core::modifier::Modifiers;
 use sim_core::stats::{StatId, Stats};
 use utils::net_id::{GgrsNetId, GgrsNetIdFactory};

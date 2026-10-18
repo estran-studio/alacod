@@ -12,6 +12,8 @@
 //! (`tests/scenarios/*.trace`), et T0.2 ne doit rien y changer. Les chantiers suivants
 //! (T1.1 « Équipes et dégâts », T1.2 « Stats branchées », T1.3 « statuts »...) attachent
 //! ces contrats à des entités et les enregistrent, avec le `BLESS=1` que ça implique.
+//! Seule exception : [`animation_state::AnimationStatePlugin`], l'enregistrement rollback de
+//! l'orientation et de l'animation, déménagé tel quel d'`animation` (D69, aucune trace ne bouge).
 //!
 //! - [`team`] : équipe d'une entité (composant statique, non rollback — voir sa doc).
 //! - [`tag`] : vocabulaire libre ordonné (`Tag`, `Tags`).
@@ -26,9 +28,12 @@
 //! - [`system_set`] : `RollbackSystemSet` et son ordre total, déménagé de `crates/game`.
 //! - [`ammo`] : type de munition d'une arme à distance (T2.2, chantier B7).
 //! - [`aim`] : mode de visée d'un personnage, libre ou à quatre directions (suivi Q17).
+//! - [`animation_state`] : orientation, animation et calques d'un personnage (rollback ; déménagé de
+//!   `animation`, dette D69) et `AnimationStatePlugin` qui les enregistre.
 
 pub mod aim;
 pub mod ammo;
+pub mod animation_state;
 pub mod damage;
 pub mod frame_events;
 pub mod gauge;

@@ -19,15 +19,16 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
 # ECS seul, bloquant.
-SIM=(sim_core stats effects behaviors world run items meta content bevy_fixed utils)
-# Simulation avec une fuite de présentation connue (D69) : combat (animation, loaders RON,
-# bevy_matchbox), animation (sprites), map/map_ldtk (bevy_ecs_ldtk, rendu), game (sim + UI,
-# caméra, audio, réseau).
-PENDING=(combat animation map map_ldtk game)
-# Présentation, outillage, tests : hors frontière.
-APP=(bots scenario telemetry)
+SIM=(sim_core stats effects behaviors world run items meta content bevy_fixed utils combat map)
+# Simulation avec une fuite de présentation connue (D69, étape 2 : `game_sim`/`game_app`) :
+# map_ldtk (bevy_ecs_ldtk, rendu), game (sim + UI, caméra, audio, réseau).
+PENDING=(map_ldtk game)
+# Présentation, outillage, tests : hors frontière. `animation` : feuilles de sprites et animation des
+# calques, sans aucun état de simulation depuis le déménagement de `AnimationState`/`FacingDirection`
+# dans `sim_core::animation_state` (aucun crate SIM n'en dépend : son graphe tirerait `bevy_render`).
+APP=(animation bots scenario telemetry)
 
-FORBIDDEN='bevy_render|bevy_winit|bevy_asset|bevy_audio|bevy_ui|bevy_sprite|bevy_text|bevy_pbr|bevy_window|bevy_camera|bevy_gizmos|bevy_picking|bevy_ecs_ldtk|bevy_matchbox|bevy_kira_audio|winit|wgpu'
+FORBIDDEN='bevy_render|bevy_winit|bevy_asset|bevy_audio|bevy_ui|bevy_sprite|bevy_text|bevy_pbr|bevy_window|bevy_camera|bevy_gizmos|bevy_picking|bevy_ecs_ldtk|bevy_matchbox|bevy_kira_audio|bevy_common_assets|matchbox_socket|winit|wgpu'
 
 status=0
 for dir in crates/*/; do
