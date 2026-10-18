@@ -1,0 +1,8 @@
+// m2-salles-murs-gungeon : `wall_art` cite une feuille de tuiles absente du dossier → BrokenReference.
+(
+    widgets: [
+        (kind: Text(source: "health", prefix: None), anchor: TopLeft, offset: (0.0, 0.0), size: None,
+         color: None, font_size: None),
+    ],
+    wall_art: Some((layer: "Walls", atlas: "sprites/murs_absents.png")),
+)

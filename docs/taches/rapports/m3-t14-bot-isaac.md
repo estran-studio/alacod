@@ -8,7 +8,7 @@ Conventions : `docs/conventions.md` §79 (et renvois §47, §70, §73). Branche 
 
 | Point de la fiche | Livré |
 |---|---|
-| Politique en données | `ExplorerPolicy` (`crates/game/src/replay.rs`) : `shopping`, `shop` (`Nearest` / `HeartsThenCheapest(low_health)`), `shells`, `devil` (`Never` / `IfHealthAbove(n)`), `bombs` (secret, voisinage, rochers, réserve), `anti_jitter`, `combat_aware`. Défaut = comportement d'avant (aucun autre jeu ne change). `games/isaac/assets/bot.ron` (lu par `alacod-sim`), `Scenario::explorer` pour un scénario. |
+| Politique en données | `ExplorerPolicy` (`crates/game/src/replay.rs`) : `shopping`, `shop` (`Nearest` / `HeartsThenCheapest(low_health)`), `detour` (`shells`/`optional`/`last_stretch`), `devil` (`Never` / `IfHealthAbove(n)`), `bombs` (secret, voisinage, rochers, réserve), `anti_jitter`, `combat_aware`. Défaut = comportement d'avant (aucun autre jeu ne change). `games/isaac/assets/bot.ron` (lu par `alacod-sim`), `Scenario::explorer` pour un scénario. |
 | 1. Grille | l'explorateur parcourt les étages `Grid` : portes sur les quatre côtés, boucles (salles et portes triées, buts par coût de chemin). |
 | 2. Bombes | pose contre le mur d'une salle secrète probable (type de salle `door_lock: Secret`, non ouverte, au moins 2 salles voisines) et devant le **premier rocher** du chemin d'un but non atteignable autrement ; **un seul poseur par mur** (plus petit handle debout, `GoalContext::peers`) ; fuite de la mèche prioritaire (`flee_step`). |
 | 3. Clés et sous | porte à clé ouverte s'il a une clé (Interaction à la porte, sa jumelle s'ouvre) ; coffres ; ramassage des sous bornés à un détour de 400 de coût ; achats en douilles : un **cœur d'abord** quand la vie est au plus la moitié du maximum (et qu'il n'est pas plein), sinon **le moins cher**, puis le plus proche, chaque joueur n'achetant que ce qu'il paie ; objets refusés (`refuse_when_full`, stock au plafond) jamais but. |
@@ -18,7 +18,7 @@ Conventions : `docs/conventions.md` §79 (et renvois §47, §70, §73). Branche 
 
 Autres ajouts, tous des **mécanismes de bot** nés de soft-locks réels des campagnes (chacun gaté par la politique, inerte par défaut) :
 
-- **Anti-jitter** (`anti_jitter`, `ExplorerJitter`, seconde mémoire du bot hors rollback) : le bot qui tourne sur place s'attache à son but et tient son
+- **Anti-jitter** (`oscillation: Hysteresis`, `ExplorerJitter`, seconde mémoire du bot hors rollback) : le bot qui tourne sur place s'attache à son but et tient son
   point de passage 60 frames au plus (graine 19 sans bombe : deux salles de coût égal, 600 frames d'oscillation avec l'input retardé).
 - **Anti-blocage de combat** : empreinte de la vie des ennemis immobile 240 frames → le bot s'approche en ligne droite puis contourne l'ennemi
   (larmes arrêtées par un coin de mur : graines 63, 86, 95, 119, 178, 182 sur le contenu T11c).
@@ -148,3 +148,20 @@ constantes nommées (`DOOR_REACH_INSET`, `BOMB_MIN_REACH`, `PEER_COVER_MARGIN`, 
 ## 7. Journal (à ajouter sur `main` après le merge)
 
 `| 2026-10-18 | M3-T14 (bot explorateur v3 pour isaac : politique en données (bot.ron), porte à clé, bombes (mur secret, rochers, un poseur par mur, fuite de mèche), sous bornés, achats cœurs d'abord, diable Never par défaut, anti-jitter, anti-blocage de combat, réanimation à portée, combat_aware ; §79) | m3-t14-bot-isaac | b3 | mergée ; campagnes 200 graines : 1 bot 12 victoires/188 morts, 2 bots 116/84, 4 bots (20) 18/2, 0 soft-lock, 0 desync ; suite 659, test_crates 1 246, lint/gen ×5, fuzz, p2p-stress isaac (rejouable du dépôt, `--seed` lu par isaac) 3 453 frames resimulées ; aucune trace existante blessée ; morts = contenu (T11c, visée à quatre directions, champions D88 : 188 → 12 victoires à 1 bot, §3), Q14 ouverte ; non fait : inférence de salle secrète sans type, boutique isaac (T11d) |`
+
+## Réconciliation avec `origin/main` `f96fa463` (m2-salles-murs-gungeon, 2026-10-18)
+
+Conflits : `explorer.rs` (17 blocs), `input.rs`, `alacod-sim.rs`, `runner.rs`, `tests/bots.rs`. Choix (détail et tableau : `docs/conventions.md` §79, « Réconciliation… ») :
+
+- **`steady` supprimé** : `ExplorerOptions { boss_direct, policy }` ; plus aucun nom de jeu dans le code. Champs de `ExplorerPolicy` : `detour`, `lead`, `oscillation`,
+  `weapon_reserve`, posés par `games/gungeon/assets/bot.ron` et par `explorer:` des 10 scénarios gungeon à `explorateur` écrits à la main ; les scénarios générés lisent le
+  `bot.ron` du jeu (`runner::game_bot_policy(..).scene()`).
+- **Une limite de détour** : `Detour { shells, optional, last_stretch }` (`ExplorerPolicy::shells`, `OPTIONAL_DETOUR` et `LAST_STRETCH_DETOUR` n'existent plus).
+- **Une anti-oscillation** : `Oscillation { Off, Hysteresis, Patience }` et une mémoire, `ExplorerJitter` (`ExplorerPatience` y est fusionnée : `anchors`, `patience()`).
+  Elles ne sont **pas interchangeables sans bouger des traces** (essais dans le §79) ; supprimer l'une exige de rebénir deux scénarios de l'autre jeu : non fait, dette D107.
+- **Cases explorées** : `StopEarly::explored_is_progress` (`--explored-progress`), faux par défaut : isaac et throne gardent leur détecteur.
+- Signatures : `ordered_goals(field, frame, ctx)` (ma forme, `ctx.policy.detour`), `explore_step(..)` de T14, `ExploreView { patience, lead }`, `ExploreFrame { weapon_shelves, .. }`,
+  `FloorsProgress { explored, stock, .. }`.
+
+Preuves : suite de 663 scénarios **sans BLESS** verte ; chaque `.trace` de l'arbre est identique à celle de l'un des deux parents (aucune trace nouvelle) ; `make gen` ×5 sans
+trace qui bouge ; campagnes rejouées (20 graines) identiques graine par graine aux références.

@@ -292,7 +292,13 @@ pub fn read_bot_inputs(
     let weapons_config = global_asset
         .as_deref()
         .and_then(|global| weapon_assets.get(&global.weapons));
-    let ground: Vec<(usize, FixedVec2, String, WeaponView)> = order_iter!(ground_weapons)
+    let ground: Vec<(
+        usize,
+        FixedVec2,
+        String,
+        WeaponView,
+        sim_core::ammo::AmmoType,
+    )> = order_iter!(ground_weapons)
         .into_iter()
         .filter(|(_, _, pickup)| pickup.price.is_none())
         .filter_map(|(id, t, pickup)| {
@@ -306,6 +312,7 @@ pub fn read_bot_inputs(
                 t.translation.truncate(),
                 pickup.weapon_id.clone(),
                 WeaponView::from_config(mode, true),
+                asset.config.ammo_type.clone(),
             ))
         })
         .collect();
@@ -355,7 +362,7 @@ pub fn read_bot_inputs(
         .copied()
         .collect();
     let explorer_options = explorer.options();
-    if explorer_options.policy.anti_jitter {
+    if explorer_options.policy.hysteresis() {
         jitter.enter_floor(explorer.floor_index());
     }
     // Ennemis immobiles (tourelle : `MoveSpeed` de base nulle ; ennemi coincé : vitesse
@@ -567,8 +574,8 @@ pub fn read_bot_inputs(
         };
 
         let mut view = view;
-        // Anti-blocage de combat (`ExplorerPolicy::anti_jitter`) : avant `navigate`, qui calcule alors le chemin.
-        if exploring && downed.is_none() && explorer_options.policy.anti_jitter {
+        // Anti-blocage de combat (`Oscillation::Hysteresis`) : avant `navigate`, qui calcule alors le chemin.
+        if exploring && downed.is_none() && explorer_options.policy.hysteresis() {
             if let Some((reach, strafe)) = jitter.engage(
                 player.handle,
                 frame.frame,
@@ -701,9 +708,19 @@ pub fn read_bot_inputs(
             let threat = view
                 .nearest_enemy
                 .is_some_and(|enemy| enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible);
-            if let (None, false, Some(collider), Some(rects)) =
-                (view.revive, threat, collider, geometry_rects.as_ref())
-            {
+            // À sec (aucune réserve pour aucune arme), la menace ne retient plus : l'arme sans réserve
+            // (un `fusil_precision` sorti d'un coffre, chargeur vidé) ne tirera plus jamais et
+            // l'arme de départ lâchée au sol est le seul moyen de blesser l'ennemi (graines 3, 4, 18).
+            // Règles de ramassage propres à l'`explorateur` : les autres profils (throne, isaac, zombies)
+            // gardent les leurs, leurs traces de scénario ne bougent pas.
+            let explorer_rules =
+                profile == BotProfile::Explorateur && explorer_options.policy.weapon_reserve;
+            if let (None, false, Some(collider), Some(rects)) = (
+                view.revive,
+                threat && !(dry && explorer_rules),
+                collider,
+                geometry_rects.as_ref(),
+            ) {
                 let near = |p: &FixedVec2| position.distance(p) <= LOOT_RADIUS;
                 let powerups: Vec<(usize, FixedVec2)> = loot_points
                     .iter()
@@ -716,13 +733,27 @@ pub fn read_bot_inputs(
                 let free_slot = inventory.weapons.len() < slots;
                 let wanted: Vec<usize> = ground
                     .iter()
-                    .filter(|(_, p, name, w)| {
-                        near(p)
-                            && !inventory
-                                .weapons
-                                .iter()
-                                .any(|(_, owned)| &owned.config.name == name)
-                            && arms::worth_picking(w, arms_views.get(active), free_slot)
+                    .filter(|(_, p, name, w, ammo_type)| {
+                        // m2-salles-murs-gungeon : une arme dont le type de munition n'a aucune réserve n'a
+                        // que son chargeur (ramasser une arme au sol n'ajoute pas de réserve) : à sec, le
+                        // bot aurait lâché son arme de départ pour rien (un seul emplacement) et resterait
+                        // sans tir, 600 frames, jusqu'au soft-lock.
+                        let owned = inventory
+                            .weapons
+                            .iter()
+                            .any(|(_, owned)| &owned.config.name == name);
+                        let worth = arms::worth_picking(w, arms_views.get(active), free_slot);
+                        if explorer_rules {
+                            arms::wants_ground_weapon(
+                                near(p),
+                                dry,
+                                reserves.map_or(0, |r| r.get(ammo_type)),
+                                owned,
+                                worth,
+                            )
+                        } else {
+                            near(p) && !owned && worth
+                        }
                     })
                     .map(|(id, ..)| *id)
                     .collect();
@@ -752,6 +783,21 @@ pub fn read_bot_inputs(
             {
                 let mut holder = explorer.holder(player.handle);
                 holder.bomb_inset = collider.offset.truncate().length();
+                // Pas de présentoir d'arme sans réserve de son munition (voir
+                // `ExploreFrame::without_unusable_weapons`).
+                let unfiltered = frame_data;
+                let filtered = if explorer_options.policy.weapon_reserve {
+                    frame_data.without_unusable_weapons(|weapon| {
+                        weapons_config
+                            .and_then(|config| config.0.get(weapon))
+                            .is_none_or(|asset| {
+                                reserves.is_some_and(|r| r.get(&asset.config.ammo_type) > 0)
+                            })
+                    })
+                } else {
+                    None
+                };
+                let frame_data = filtered.as_ref().unwrap_or(unfiltered);
                 let mut explore = crate::explorer::ExploreView {
                     blank: crate::explorer::should_blank(&view, &holder),
                     ..Default::default()
@@ -816,16 +862,16 @@ pub fn read_bot_inputs(
                         &surfaces,
                         explorer_options
                             .policy
-                            .anti_jitter
+                            .hysteresis()
                             .then(|| jitter.focus(player.handle))
                             .flatten(),
-                        &if explorer_options.policy.anti_jitter {
+                        &if explorer_options.policy.hysteresis() {
                             jitter.banned(player.handle)
                         } else {
                             Default::default()
                         },
                     );
-                    if explorer_options.policy.anti_jitter {
+                    if explorer_options.policy.hysteresis() {
                         // Seul un pas réellement exécuté compte : réanimation, butin ou esquive le remplacent
                         // (`decide_explorer`), et un pas nul n'est pas une poursuite.
                         let executed = view.revive.is_none()
@@ -872,6 +918,15 @@ pub fn read_bot_inputs(
                         explore.interact = step.interact;
                         explore.bomb = step.bomb;
                     }
+                }
+                explore.lead = explorer_options.policy.lead;
+                if explorer_options.policy.patient() {
+                    explore.patience = jitter.patience(
+                        player.handle,
+                        frame.frame,
+                        position,
+                        explore.direction.is_some() && !explore.interact,
+                    );
                 }
                 view.explore = Some(explore);
             }

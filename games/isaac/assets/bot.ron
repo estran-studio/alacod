@@ -10,7 +10,7 @@
     shop: HeartsThenCheapest(low_health: "0.5"),
     // Va chercher les tas de sous au sol dont le chemin coûte au plus 400 (10 par case de 8 px : une quarantaine de
     // cases) : ils ne valent pas un détour d'un bout à l'autre de l'étage (ramassés au contact).
-    shells: Some(400),
+    detour: (shells: Some(400)),
     // Marché du diable (vie maximale, `Shelf::cost`) : Never | IfHealthAbove(n), n en points de vie (un cœur =
     // 2 PV, le cœur d'`isaac` coûte 2). `Never` : mesure du 2026-10-17 sur le contenu de T11b (55 graines à salle du
     // diable des 200 de la campagne) : 55 victoires avec `Never` contre 48 victoires et 7 morts avec
@@ -24,6 +24,6 @@
     bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
     // Tient son prochain point de passage quand il tourne sur place (deux routes de coût égal, input retardé : graine 19
     // sans bombe, 600 frames à osciller dans un couloir).
-    anti_jitter: true,
+    oscillation: Hysteresis,
     combat_aware: true,
 )

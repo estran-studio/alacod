@@ -109,6 +109,14 @@ impl FacingDirection {
     pub fn from_fixed_vector(vec: bevy_fixed::fixed_math::FixedVec2) -> Self {
         use bevy_fixed::fixed_math;
 
+        // Au-delà de ~181 unités de long, `atan2` déborde (panique : la vitesse d'un champion rapide, graine 54 de
+        // `etages_deux`, m2-salles-murs-gungeon) : la direction seule compte, on réduit le vecteur d'un facteur 4
+        // tant que sa norme² dépasse 30 000 (173 unités ; aucune vitesse en deçà ne change : traces identiques).
+        let mut vec = vec;
+        while vec.length_squared() > fixed_math::FixedWide::from_num(30000) {
+            let four = fixed_math::new(4.0);
+            vec = bevy_fixed::fixed_math::FixedVec2::new(vec.x / four, vec.y / four);
+        }
         if vec.length_squared() < fixed_math::new(0.001) {
             return FacingDirection::default();
         }

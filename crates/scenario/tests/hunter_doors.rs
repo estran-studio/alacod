@@ -49,6 +49,7 @@ fn buyers_finish_the_first_wave_when_awake_zombies_are_inaccessible() {
                 stop_when_all_players_dead: true,
                 stop_when_run_ended: false,
                 pickups_are_progress: false,
+                explored_is_progress: false,
             }),
         );
         assert!(

@@ -161,7 +161,7 @@ fn shopped_weapons(seed: i32, frames: u32) -> std::collections::BTreeSet<String>
                 boss_direct: false,
                 policy: game::replay::ExplorerPolicy {
                     shopping: true,
-                    ..Default::default()
+                    ..scenario::runner::game_bot_policy("gungeon")
                 },
             });
             app.add_systems(

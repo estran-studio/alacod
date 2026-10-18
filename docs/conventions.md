@@ -2969,7 +2969,7 @@ d'id** du dossier `Floors` (`run_state::resolve_run_mode_with_floors`). Ajouter 
 passe avant l'ancien change la partie par défaut : les séquences de grammaire de `gungeon` sont
 nommées `etages_*` pour que `etage_1` (T0d) reste la première. Même piège pour tout nouveau jeu.
 
-**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits de 8×8 tuiles, comptés dans les niveaux du fichier : 1 `depart`, 4 `combat`, 1 `recompense`, 1 `boutique`,
+**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits (8×8 tuiles à l'origine, **agrandis par m2-salles-murs-gungeon : voir « Échelle des gabarits » ci-dessous**), comptés dans les niveaux du fichier : 1 `depart`, 4 `combat`, 1 `recompense`, 1 `boutique`,
 2 `boss`, 3 `arene`, 1 `escouade`, 1 `coffre`, 1 `secret` ; neuf à l'origine, douze avant M2-T14d, §52.d ;
 les neuf d'origine viennent du script `docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`,
 `CombatEW/NS/T/Croix`, `Recompense`, `Boutique`, `BossW/N`, puis `ArenaEW/Croix` (M2-T7), `EscouadeEW` (M2-T8),
@@ -2984,6 +2984,53 @@ boss à l'est, pour ces trois graines : relevé par `ALACOD_FLOOR_DUMP=court` du
 graine 123, deux étages `court` de même forme, `FloorIndex`. `bench_floor` : étage `grand`, deux
 bots `fonceur` (plancher dans `tests/budgets.ron`). L'atteinte du boss est scriptée : les bots
 nettoient les salles de combat mais ne vont pas vers une salle dormante (bot explorateur : T16).
+
+### Échelle des gabarits (m2-salles-murs-gungeon, 2026-10-18)
+
+Revue M2 de William : « chaque salle est minuscule ». Mesure d'avant (`docs/taches/rapports/m2-salles-murs-gungeon.md` §2) :
+les quinze gabarits de `salles.ldtk` faisaient **8×8 cases** (128×128 px, **six cases de sol de large**, 36 cases de sol), soit
+**3 sprites de héros** (32 px) ou **4,8 colliders** (20 px) de large, 0,64 s de traversée à 150 px/s ; à l'écran (960×540,
+`camera.ron` `min_zoom: 0.6` : 576×324 unités) une salle en occupait **22 % × 40 %**. `etage_1.ldtk` (squelette T0d, trois
+salles 8×8) et `hub.ldtk` (256×192 px, déjà 16×12 cases) ne changent pas : ni l'un ni l'autre n'est joué dans une partie ordinaire
+(`entry.floors: "etages_deux"`).
+
+**Échelle retenue** (cases de 16 px, murs compris ; le script `docs/taches/rapports/m2-salles-murs-gungeon.make_gabarits_grands.py`
+réécrit les quinze gabarits depuis la version 8×8, de façon déterministe) :
+
+| type | gabarits | cases | surface ×ancienne | intérieur | écran (zoom 0,5) |
+|---|---|---|---|---|---|
+| départ | `Depart` | 14×12 | 2,6 | 12×10 | 47 % × 71 % |
+| combat, escouade | `CombatEW/NS/T/Croix`, `EscouadeEW` | 16×12 | 3,0 | 14×10 (11 colliders de large) | 53 % × 71 % |
+| récompense, secret | `Recompense`, `Secret` | 12×10 | 1,9 | 10×8 | 40 % × 59 % |
+| boutique | `Boutique` | 14×10 | 2,2 | 12×8 | 47 % × 59 % |
+| coffre | `Coffre` | 14×12 | 2,6 | 12×10 | 47 % × 71 % |
+| arène | `ArenaEW/Croix/NS` | 20×14 | 4,4 | 18×12 (14 colliders) | 67 % × 83 % |
+| boss | `BossW/N` | 22×16 | 5,5 | 20×14 (16 colliders) | 73 % × 95 % |
+
+*Pourquoi ces chiffres.* Combat à ×3 (la fiche attendait 2 à 3) : à `min_zoom: 0.5` (480×270 unités à l'écran, 30×17 cases) une salle de
+combat occupe un peu plus de la moitié de la largeur et 71 % de la hauteur : on la lit d'un coup d'œil, avec ses portes, sans voir
+trois salles voisines (avant : quatre salles et demie dans la largeur). Les salles où l'on ne se bat pas (récompense, secret,
+boutique) restent à ×2 : trois présentoirs espacés de 32 px (`SHELF_SPACING`) et un coffre n'ont pas besoin de plus. L'arène (750 frames à
+tenir, sept ennemis en trois vagues dont une tourelle) et le boss (patterns, trois phases) demandent de la place pour esquiver : ×4,4 et ×5,5.
+Le zoom `camera.ron` passe de 0,6 à 0,5 : le héros reste lisible (64 px de haut à l'écran) et la salle de combat tient dans l'image.
+**Le contenu ne change pas** : mêmes ennemis, mêmes props, mêmes nombres ; les entités sont placées **proportionnellement** dans la salle
+agrandie (centre de chaque entité conservé en fraction de l'intérieur) et vérifiées par le script (aucun recouvrement, aucun prop ni
+apparition sur le passage de deux cases devant une ouverture). Les salles sont donc plus vides : le nombre d'ennemis par salle est une
+décision d'équilibrage de William (D64), pas de cette tâche.
+
+*Portes alignées.* Chaque côté ouvert a deux cases d'ouverture **au milieu** du côté. Des gabarits de tailles différentes ont donc leurs ouvertures
+à des distances différentes du coin, que l'appariement imposait égales (`Connection::are_matching`, `starting_at`). Pour les grammaires
+`Graph` (gungeon) l'appariement ne compare plus `starting_at` (`populate_level_connections_with(.., offset_free: true)`, activé par
+`map_ldtk::generation::from` d'après `MapGenerationMode::Floor` + `FloorLayout::Graph` ; Basic, caverne et grille gardent l'appariement strict) et
+**`Room::get_connecting_room_position`** décale la salle posée pour que les deux ouvertures soient face à face. Cette fonction avait deux
+défauts jamais exercés (les ouvertures étaient toujours au même endroit, les salles de même taille) : elle prenait la taille de la voisine au lieu
+de celle de la salle courante pour un côté est ou sud, et le signe du décalage le long du côté partagé était faux pour le sud et l'est (juste pour le nord et l'ouest). Réécrite, sans changement pour des salles
+égales (test `la_voisine_se_pose_ouverture_contre_ouverture`) ; test de génération `gungeon_etages_de_grammaire` : toute ouverture restée libre
+a, en face, une ouverture libre d'une autre salle, case contre case (étage, grand et court sur 2 000 graines).
+
+*Étendue du monde.* `FloorGrammar::bounds: Option<(i32, i32)>` (pixels, de part et d'autre du départ ; absent : 1000×1000 comme avant) relève la boîte
+dans laquelle le planificateur pose les salles : `etage` et `court_secret` à 3000/2000, `grand` à 4000 (les salles de 224 à 352 px la remplissent
+plus vite). Lint : `bounds` négatif ou nul est refusé (`problems`).
 
 ## Notes essentielles
 
@@ -6619,10 +6666,10 @@ bombe posée) **et rejoue les campagnes `s1`, `i2`, `i4`** (dette D106).
 (
     shopping: true,                                   // coffres et présentoirs (D62)
     shop: HeartsThenCheapest(low_health: "0.5"),      // Nearest (défaut, ordre d'avant) | HeartsThenCheapest
-    shells: Some(400),                                // sous au sol à au plus 400 de coût de chemin (10 par case de 8 px)
+    detour: (shells: Some(400)),                      // limite de détour (unique) : sous à au plus 400 de coût de chemin (10 par case de 8 px)
     devil: Never,                                     // Never | IfHealthAbove("4.0")
     bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
-    anti_jitter: true,                                // s'attache à son but quand il balance sur place (ci-dessous)
+    oscillation: Hysteresis,                          // anti-oscillation (une stratégie : Off | Hysteresis | Patience, ci-dessous)
     combat_aware: true,                               // fuit toute bombe allumée, s'approche pour des larmes en orbite
 )
 ```
@@ -6661,7 +6708,7 @@ bombe posée) **et rejoue les campagnes `s1`, `i2`, `i4`** (dette D106).
   un seul présentoir à la fois, les autres suivent. `Nearest` garde l'ordre d'avant (D62 : le plus riche des joueurs paie).
 - **Sous au sol** : `ShellPickup` à moins de `n` de coût de chemin (contact). Sans limite, un étage nettoyé envoyait le bot
   ramasser des tas aux quatre coins (graines 79, 89, 96, 132 de la première campagne : 1 200 frames sans kill).
-- **Anti-blocage de combat** (`anti_jitter: true`, `ExplorerJitter.1`, `BotView::{engage_reach, engage_strafe}`) : un combat où l'empreinte de
+- **Anti-blocage de combat** (`oscillation: Hysteresis`, `ExplorerJitter.1`, `BotView::{engage_reach, engage_strafe}`) : un combat où l'empreinte de
   la vie des ennemis (`ExplorerWorld::enemy_progress` : nombre et somme des vies courantes) ne bouge plus depuis 240 frames est un blocage :
   les larmes s'arrêtent sur un coin de mur ou un pilier (`ldtk_wall_1x3` devant la tourelle de la graine 63), le bot tire sans fin vers un
   ennemi qui ne perd rien (graines 86, 178, 182 de la première campagne sur le contenu T11c : le boss `gardien` restait à 14,8 PV). Le bot
@@ -6673,7 +6720,7 @@ bombe posée) **et rejoue les campagnes `s1`, `i2`, `i4`** (dette D106).
   de tous les scénarios des autres jeux et de la grille sont celles de `main`) ; de même `orbit_reach` n'est lu que sous `combat_aware`. Visée
   `FourWay` (`pleureur`, suivi Q17) : un combat **engagé** (`engage_reach`) n'écrit que la direction de tir, sans la file de tir qui figeait le bot, et
   s'approche **en ligne droite** quand la ligne est dégagée (la route contournait un coin que les larmes ne passent pas ; graines 63, 95, 119).
-- **Poursuite sur place** (`ExplorerJitter.2/.3`, `pursue`, sous `anti_jitter`) : 300 frames sans quitter un rayon de 24 en marchant vers un but qui n'est
+- **Poursuite sur place** (`ExplorerJitter.2/.3`, `pursue`, sous `Hysteresis`) : 300 frames sans quitter un rayon de 24 en marchant vers un but qui n'est
   pas une salle **et dont le pas est réellement exécuté** (ni réanimation, ni butin, ni esquive, pas un pas nul) écartent ce but pour ce joueur
   (`explore_step(…, avoid)`) ; graine 103 d'`isaac` à deux bots : un tas de sous contre un mur que la navigation croit libre, deux buts alternés. La
   mémoire du bot (`ExplorerJitter` : champs `sway`, `stalls`, `pursuits`, `banned_goals`, `snaps`, `floor`) est **remise à zéro à chaque partie** (`OnEnter(InGame)` : les `GgrsNetId` repartent de zéro) ; buts écartés, poursuites, blocages et tenues sont **oubliés à chaque changement d'étage** (`enter_floor` : l'identité d'un mur est sa zone, qui peut revenir à l'identique).
@@ -6687,7 +6734,7 @@ bombe posée) **et rejoue les campagnes `s1`, `i2`, `i4`** (dette D106).
   perdait plus un point de vie, `prudent` ne s'approchant d'un ennemi immobile que jusqu'à 120 (graine 41 d'`isaac` sans bombe, soft-lock
   de 600 frames). Avec une orbite, `decide_prudent` s'approche jusqu'à `orbit_reach` (immobile ou non) et ne recule plus devant un ennemi
   mobile ; sans orbite (`None`), rien ne change pour aucun profil ni aucun jeu.
-- **Anti-jitter** (`anti_jitter: true`, seconde mémoire du bot après `ExplorerVisits`, `ExplorerJitter`, hors rollback) : un bot qui veut
+- **Anti-jitter** (`oscillation: Hysteresis`, seconde mémoire du bot après `ExplorerVisits`, `ExplorerJitter`, hors rollback) : un bot qui veut
   avancer mais reste dans un rayon de 12 pendant 40 frames balance entre deux buts (ou deux routes) de coût presque égal dont l'ordre
   s'inverse à chaque pas, la commande arrivant avec le délai d'input. Il **s'attache** alors à son but du moment (`Step::target`,
   passé en premier à `explore_step` tant qu'il est atteignable) et **tient** son prochain point de passage 60 frames au plus.
@@ -6736,8 +6783,36 @@ Moments clés ajoutés (`scenario::events`) : `door_lock` (« mur secret ouvert 
 
 Tests unitaires (`bots::explorer`) : zone et ordre des buts, cœur refusé à pleine vie / stock au plafond, porte à clé, achats, diable
 (`devil_accepts`), mur secret (stock, réserve, mèche en cours), premier rocher du chemin, but atteignable par détour, voisinage de
-salles (`share_an_edge`), fuite, anti-jitter (`steady`, garde bornée), anti-blocage de combat (`engage`), poursuite sur place (`pursue`), identité
+salles (`share_an_edge`), fuite, anti-jitter (`Hysteresis`, garde bornée), patience (`ExplorerJitter::patience`), détour borné (`Detour`), anti-blocage de combat (`engage`), poursuite sur place (`pursue`), identité
 des buts. `runner::floors_progress_tests` : un ramassage compte. `decide::larmes_en_orbite_le_bot_s_approche`.
+
+### Réconciliation avec m2-salles-murs-gungeon (`ExplorerOptions::steady` éclaté en politique)
+
+La branche `m2-salles-murs-gungeon` avait ajouté des décisions d'`explorateur` pour les salles agrandies derrière un seul booléen `ExplorerOptions::steady`,
+posé par le runner et `alacod-sim` quand `scenario.game == "gungeon"` : **un nom de jeu dans le code**. Il n'existe plus. Chaque décision est un champ de
+`ExplorerPolicy`, posé **en données** par gungeon (`games/gungeon/assets/bot.ron` ; `Scenario::explorer` des scénarios gungeon écrits à la main ; les scénarios
+**générés** lisent le `bot.ron` du jeu, `runner::game_bot_policy`, par `ExplorerPolicy::scene()` : ni achat, ni sous, ni diable, ni bombe, un gabarit teste une salle) :
+
+| Champ | Rôle | gungeon | isaac |
+|---|---|---|---|
+| `detour: (shells, optional, last_stretch)` | **une seule limite de détour** : un but facultatif de coût de chemin supérieur à la borne n'est pas un but. `shells` : les sous au sol ; `optional` : objets, présentoirs, coffres et salles sans verrou tant qu'une salle de combat reste ; `last_stretch` : idem quand plus aucune salle de combat ne reste (ligne droite jusqu'au boss) | `optional: 600`, `last_stretch: 200` | `shells: 400` |
+| `lead` | anticipe l'élan transverse (`explorer::lead`) devant une ouverture de 32 px (D82) | vrai | faux |
+| `oscillation` | **une seule stratégie anti-oscillation** (`Off` \| `Hysteresis` \| `Patience`), une seule mémoire (`ExplorerJitter`) | `Patience` | `Hysteresis` |
+| `weapon_reserve` | ni achat ni ramassage d'une arme sans réserve de munition ; ramassage « à sec » | vrai | faux |
+
+`Detour` remplace `ExplorerPolicy::shells` et les constantes `OPTIONAL_DETOUR`/`LAST_STRETCH_DETOUR` : `GoalContext::detour(frame)` donne la borne, `ordered_goals`
+l'applique aux objets, présentoirs et salles. **Anti-oscillation : un seul emplacement, pas deux mécanismes parallèles**, mais deux stratégies parce qu'aucune ne
+remplace l'autre sans bouger des traces (essais du 2026-10-18, 15 scénarios gungeon et 9 isaac) : `Hysteresis` à la place de `Patience` dans gungeon déplace
+`gungeon_full_run` (ligne 1969 de la trace, événements `portal`, `purchase`, `chest`, boss absents) et `gungeon_full_run_four` ; `Patience` à la place de `Hysteresis`
+dans isaac déplace `bot_isaac_floor` (ligne 3904) et `bot_isaac_two` (ligne 637). La campagne gungeon reste verte avec `Hysteresis` seul (20 graines à 1 et 2 bots, 40 victoires,
+0 desync, mais des durées différentes sur chaque graine) : supprimer `Patience` est possible au prix de **rebénir deux scénarios `gungeon_full_run*` avec leurs attentes**,
+décision laissée à la revue (dette D107).
+
+**Soft-lock `Floors` : « cases explorées »** : entrer dans une case de 32 px jamais visitée n'est une progression que sous `StopEarly::explored_is_progress`
+(`alacod-sim --explored-progress`, faux par défaut). Les campagnes gungeon la passent ; isaac et throne gardent leur détecteur d'origine (santé, mort, ramassage).
+Commande de la campagne de contrôle : `alacod-sim --game gungeon --bots N --profiles explorateur[,explorateur] --floors etages_deux --until-floor 5 --seeds 1..20
+--max-frames 20000 --shopping --explored-progress`. Mesure de la réconciliation : durées (frames) et issues **identiques graine par graine** aux campagnes de
+`m2-salles-murs-gungeon` (gungeon, 20 graines × 1 et 2 bots) et de T14 (`isaac` `s1`, 20 graines).
 
 ### Campagnes et atteignabilité
 
@@ -7073,3 +7148,33 @@ de la légende. Seul `render` ajoute la légende (pas `views` ni `compare`). Rap
 
 **Remplacement par la voie V6** : un fichier `png` (et sa feuille) remplace la classe ; l'id de
 `sprites.ron` ne change pas.
+
+### Murs dessinés (m2-salles-murs-gungeon, présentation seule)
+
+Constat de William (revue M2, 2026-10-18) : « les murs n'ont pas de sprite » (sol gris, extérieur sombre, aucun
+mur). Cause : les gabarits LDtk ne portent **aucune tuile** de mur (`autoLayerTiles` vide : la couche IntGrid
+`Walls` est écrite par script, puis l'assembleur de salles la modifie : ouvertures murées, cases de sol), donc
+des règles d'auto-couche LDtk n'auraient rien à habiller. **Choix : auto-tuile en présentation**, dérivée des cases
+de la carte *assemblée* (`map_ldtk::wall_art`, `LdtkRoguePlugin`) : correcte pour toute carte générée, aucun
+fichier de carte à retoucher, aucune trace qui bouge (rien dans `GgrsSchedule`, aucun état rollback).
+
+- **Activation par donnée** (`ui/hud.ron`, champ optionnel `wall_art`, `game::ui::hud::WallArt`) :
+  `wall_art: Some((layer: "Walls", atlas: "sprites/lisible/atlas_murs.png", hide_layers: ["LevelConnection"]))`
+  (`tile` 16, `columns` 8, `z` 1,5 par défaut). Sans le champ, ou sans rendu (headless : `HudConfigHandle` absent,
+  le système ne tourne pas), rien ne change : zombies, throne, isaac, testbed identiques. Le lint (`hud_wall_art_missing`)
+  refuse une feuille absente, un `tile` ou un `columns` nul ; `wall_cells` ignore une couche qui n'est pas une grille `largeur × hauteur`.
+- **Système** `wall_art::draw_walls` : à l'apparition d'un niveau (entité `LevelIid` avec ses couches), lit la couche
+  `layer` dans le projet (`Assets<LdtkProject>`, monde de l'étage par `FloorSlots`), choisit une tuile par case non
+  nulle et pose un sprite par case sous une racine `WallArtRoot`, **enfant du niveau** (il hérite de sa visibilité :
+  étage quitté caché, comme les portes). Marqueur `WallArtDone`. Hors du niveau, une case compte comme un mur.
+- **Choix de la tuile** (`wall_tile`, pure, testée) : vue de dessus avec **face de mur** côté sud. Case dont la voisine
+  du sud est un sol : **face** (briques ; chapeau latéral côté ouest/est si la voisine est un sol : 4 tuiles, indices
+  32 à 35) ; sinon **dessus** (liseré clair + contour sombre sur chaque bord qui touche le sol, nord/est/ouest ; angle
+  rentrant nord-est/nord-ouest quand les deux voisines sont des murs mais pas la diagonale : 8 × 4 tuiles, indices 0 à 31).
+- **`hide_layers`** : cache les couches de métadonnées que LDtk peint par défaut. `LevelConnection` (ouvertures des
+  gabarits, valeur de couleur noire) se voyait en noir par-dessus le sol dès que la porte ouverte laissait voir la case.
+- **Sprites** : `scripts/generer-sprites-gungeon.py` (CC0, même style et même script que le reste de §83) écrit
+  `atlas_murs.png` (36 tuiles de 16 px). Les **portes** (`door_v`/`door_h`) gagnent deux jambages de pierre aux bouts
+  (les couleurs de la face de mur ; ouverte = les jambages seuls), le **mur fissuré** (`secret_wall`) reprend les briques
+  du mur et sa fissure claire : tous trois se raccordent aux murs.
+- **Limite** : le sol reste la couleur de fond du niveau (`#696A79`), sans motif ni ombre portée du mur.

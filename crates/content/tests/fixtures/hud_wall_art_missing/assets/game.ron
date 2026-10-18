@@ -1,0 +1,7 @@
+(
+    name: "fixture-hud_wall_art_missing",
+    content_folders: [
+        (path: "ui", kind: "Ui"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

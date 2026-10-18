@@ -24,7 +24,7 @@
 //!   présentoir à `cost` : rien ne change pour `gungeon` ou `throne`).
 //!
 //! **Mémoire du bot** (piège « donnée dérivée non rollbackée » de `CLAUDE.md`) : aucune, hors
-//! [`ExplorerVisits`] et, si `ExplorerPolicy::anti_jitter`, [`ExplorerJitter`] (position d'attache et but
+//! [`ExplorerVisits`] et, si `Oscillation::Hysteresis`, [`ExplorerJitter`] (position d'attache et but
 //! suivi, pour sortir d'un balancement). « Salle visitée » se lit dans l'état : une salle verrouillante `Cleared`, ou
 //! `Dormant` sans ennemi dedans (elle ne se verrouillera jamais), n'est plus un but ; une salle non
 //! verrouillante (départ, récompense, boutique) n'est un but que par ses objets au sol. La porte
@@ -114,6 +114,31 @@ pub struct ExplorerVisits(pub BTreeSet<(usize, String)>);
 #[derive(Resource, Default)]
 pub struct RockNavigation(pub BotNavigation);
 
+/// Phase de patience d'un `explorateur` (m2-salles-murs-gungeon, D82) : le pilotage touche par touche,
+/// décalé de 5 frames et avec de l'élan, peut tourner en cycle limite devant une ouverture de 32 px
+/// (corps de 20 px) quel que soit le gain de correction (essais : avance de 5 frames, de 8 frames : chacun
+/// débloque certaines graines et en bloque d'autres). Un bot resté à moins de [`PATIENCE_RADIUS`] de son
+/// ancre pendant [`PATIENCE_FRAMES`] frames sans ennemi ni butin change de manière : **Settle** (aucune
+/// touche : l'élan s'éteint) puis **Go** (cap droit sur l'axe du trajet, l'écart transverse de moins de
+/// [`GO_TRANSVERSE`] n'est pas corrigé) ; la séquence recommence tant que le bot ne bouge pas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Patience {
+    #[default]
+    Normal,
+    Settle,
+    Go,
+}
+
+/// Rayon de l'ancre (le cycle limite observé fait ±8 px en x et ±12 px en y, soit 24 px d'amplitude).
+const PATIENCE_RADIUS: Fixed = Fixed::from_bits(40 << 16);
+/// Frames sans quitter l'ancre avant la première phase de repli.
+const PATIENCE_FRAMES: u32 = 100;
+/// Durée de l'arrêt (frames), puis du cap droit ; la séquence dure [`PATIENCE_CYCLE`].
+const SETTLE_FRAMES: u32 = 15;
+const PATIENCE_CYCLE: u32 = 60;
+/// Écart transverse toléré pendant le cap droit (la marge d'une ouverture de 32 px pour un corps de 20 px).
+const GO_TRANSVERSE: Fixed = Fixed::from_bits(6 << 16);
+
 /// Ce que l'exploration ajoute à la [`BotView`] d'un `explorateur`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct ExploreView {
@@ -129,6 +154,10 @@ pub struct ExploreView {
     pub bomb: bool,
     /// M3-T14 : pas de fuite hors du rayon d'une bombe posée (prioritaire sur tout le reste).
     pub flee: Option<FixedVec2>,
+    /// Phase de patience (voir [`Patience`]).
+    pub patience: Patience,
+    /// [`ExplorerPolicy::lead`] : anticipation d'élan (`lead`) active.
+    pub lead: bool,
 }
 
 /// Réglages des `explorateur` (ressource ordinaire, hors rollback et hors simulation, posée avant
@@ -152,6 +181,9 @@ pub struct RoomGoal {
     pub zone: Rect,
     /// Un boss (`BossState`) y vit.
     pub boss: bool,
+    /// La salle se verrouille (combat, arène, boss) : seule une salle verrouillante fait tuer,
+    /// donc avancer l'étage. Une autre (départ, récompense, boutique) ne vaut que le détour.
+    pub locking: bool,
 }
 
 /// Ce qu'un objet exige de celui qui le vise (lu dans son état, jamais deviné).
@@ -199,7 +231,7 @@ pub struct ItemGoal {
     pub reach: Fixed,
     pub kind: GoalKind,
     pub rule: Option<PickupRule>,
-    /// Coût de chemin au-delà duquel l'objet n'est plus un but (sous au sol : `ExplorerPolicy::shells`).
+    /// Coût de chemin au-delà duquel l'objet n'est plus un but (sous au sol : `Detour::shells`).
     pub max_cost: Option<u32>,
 }
 
@@ -244,6 +276,32 @@ pub struct ExploreFrame {
     pub rocks: Vec<(usize, Rect)>,
     /// M3-T14 : bombes posées.
     pub bombs: Vec<BombView>,
+    /// Présentoirs payables qui vendent une arme : `(GgrsNetId du présentoir, identifiant de l'arme)`.
+    /// Une arme achetée tombe au pied du joueur que l'Interaction tenue ramasse aussitôt (un seul
+    /// emplacement : l'arme en main tombe) ; voir [`ExploreFrame::without_unusable_weapons`].
+    pub weapon_shelves: Vec<(usize, String)>,
+}
+
+impl ExploreFrame {
+    /// La même frame sans les présentoirs dont l'arme est **inutilisable** pour ce joueur
+    /// (`usable(arme)` faux : aucune réserve du type de munition de l'arme, une arme ramassée
+    /// n'en ajoute pas). Le bot achetait un `fusil_precision` (munitions `calibre`, réserve nulle)
+    /// qui remplaçait son arme de départ : chargeur vide sans recharge possible, il restait sans
+    /// tir jusqu'au soft-lock (graines 3, 4, 18 de `etages_deux`). `None` si rien n'est écarté.
+    pub fn without_unusable_weapons(&self, usable: impl Fn(&str) -> bool) -> Option<ExploreFrame> {
+        let unusable: BTreeSet<usize> = self
+            .weapon_shelves
+            .iter()
+            .filter(|(_, weapon)| !usable(weapon))
+            .map(|(id, _)| *id)
+            .collect();
+        if unusable.is_empty() {
+            return None;
+        }
+        let mut frame = self.clone();
+        frame.items.retain(|item| !unusable.contains(&item.net_id));
+        Some(frame)
+    }
 }
 
 /// Ce que le joueur porte et ce qu'il a (lu dans son `Inventory`, son `BlankState`, sa santé).
@@ -449,6 +507,7 @@ impl ExplorerWorld<'_, '_> {
                         id: level.0.clone(),
                         zone: room_zone(bounds.position, bounds.size),
                         boss: enemies.iter().any(|(_, p, _, boss)| *boss && inside(*p)),
+                        locking,
                     });
                 }
             }
@@ -472,14 +531,15 @@ impl ExplorerWorld<'_, '_> {
                 goal
             })
             .collect();
+        let mut weapon_shelves = Vec::new();
         if policy.shopping {
             if matches!(policy.shop, ShopOrder::Nearest) {
-                self.shopping_goals(&mut items);
+                self.shopping_goals(&mut items, &mut weapon_shelves);
             } else {
                 self.per_player_shopping_goals(&mut items);
             }
         }
-        if let Some(limit) = policy.shells {
+        if let Some(limit) = policy.detour.shells {
             for (id, t) in order_iter!(self.shells) {
                 let mut goal = ItemGoal::new(id.0, t.translation.truncate(), false, false);
                 goal.max_cost = Some(limit);
@@ -508,13 +568,14 @@ impl ExplorerWorld<'_, '_> {
             secret_doors,
             rocks,
             bombs,
+            weapon_shelves,
         }
     }
 
     /// D62 : présentoirs payables et coffres ouvrables (but d'exploration par Interaction, comme
     /// un objet passif au sol). L'arme qui en sort est ramassée par le combat de `prudent`
     /// (butin au sol), jamais par un but d'ici. Solde et clés se lisent dans l'état.
-    fn shopping_goals(&self, items: &mut Vec<ItemGoal>) {
+    fn shopping_goals(&self, items: &mut Vec<ItemGoal>, weapon_shelves: &mut Vec<(usize, String)>) {
         let wallet = self.wallets.iter().map(|(_, c)| c.0).max().unwrap_or(0);
         let keys = self
             .holders
@@ -528,6 +589,9 @@ impl ExplorerWorld<'_, '_> {
             // en douilles, son `price` vaut 0 ; sans politique d'isaac le bot ne le vise pas (T14 : `DevilPolicy`).
             if interactable && !shelf.sold && shelf.cost.is_none() && shelf.price <= wallet {
                 items.push(ItemGoal::new(id.0, t.translation.truncate(), true, false));
+                if let Some(weapon) = items::loot_weapon(&shelf.item_id) {
+                    weapon_shelves.push((id.0, weapon.to_string()));
+                }
             }
         }
         for (id, t, chest, interactable) in order_iter!(self.chests) {
@@ -845,6 +909,17 @@ pub struct GoalContext {
 }
 
 impl GoalContext {
+    /// Borne de détour des buts facultatifs de cette frame (`Detour::optional`, ou `Detour::last_stretch` quand plus
+    /// aucune salle de combat ne reste ; objets, présentoirs, coffres et salles sans verrou). `None` : aucune.
+    fn detour(&self, frame: &ExploreFrame) -> Option<u32> {
+        let detour = self.policy.detour;
+        if frame.rooms.iter().any(|room| room.locking && !room.boss) {
+            detour.optional
+        } else {
+            detour.last_stretch.or(detour.optional)
+        }
+    }
+
     /// Portée de pose d'une bombe : l'explosion touche strictement à moins de son rayon.
     fn bomb_reach(&self) -> Option<Fixed> {
         let def = self.holder.bomb?;
@@ -913,6 +988,7 @@ pub fn ordered_goals(
     ctx: &GoalContext,
 ) -> Vec<(GoalKey, Target)> {
     let mut goals: Vec<(GoalKey, Target)> = Vec::new();
+    let detour = ctx.detour(frame);
     if !ctx.boss_direct {
         // Présentoirs : un seul retenu par groupe (cœur à vie basse, puis le moins cher ; diable :
         // la perte la plus faible), les autres suivront une fois celui-ci pris.
@@ -925,7 +1001,9 @@ pub fn ordered_goals(
             let Some(cost) = zone_cost(field, item.zone, item.reach) else {
                 continue;
             };
-            if item.max_cost.is_some_and(|limit| cost > limit) {
+            if item.max_cost.is_some_and(|limit| cost > limit)
+                || detour.is_some_and(|limit| cost > limit)
+            {
                 continue;
             }
             let key: GoalKey = (cost, 0, item.net_id, String::new());
@@ -976,6 +1054,11 @@ pub fn ordered_goals(
             let Some(cost) = zone_cost(field, room.zone, Fixed::ZERO) else {
                 continue;
             };
+            // Une salle sans verrou n'est qu'un détour (voir `Detour::optional`) : lointaine, elle ne retarde ni les
+            // combats ni le boss.
+            if !room.locking && !room.boss && detour.is_some_and(|limit| cost > limit) {
+                continue;
+            }
             let entry = ((cost, 1, 0, room.id.clone()), Target::Room(room.zone));
             if room.boss {
                 boss_rooms.push(entry);
@@ -1026,7 +1109,7 @@ pub fn rock_goal(
             .filter(|item| ctx.wants(item))
             .map(|item| (item.zone, item.reach)),
     );
-    // Seulement un but que le champ réel n'atteint pas : un but atteignable (détour, sous au-delà de `shells`)
+    // Seulement un but que le champ réel n'atteint pas : un but atteignable (détour, sous au-delà de `Detour::shells`)
     // ne vaut pas une bombe.
     let mut candidates: Vec<(u32, GridPos)> = targets
         .iter()
@@ -1146,7 +1229,7 @@ pub const SNAP_HOLD_FRAMES: u32 = 240;
 /// Voir [`SNAP_HOLD_FRAMES`].
 pub const SNAP_RELEASE_FRAMES: u32 = 60;
 
-/// Anti-jitter des `explorateur` (`ExplorerPolicy::anti_jitter`) : **seconde mémoire du bot** après [`ExplorerVisits`],
+/// Anti-jitter des `explorateur` (`Oscillation::Hysteresis`) : **seconde mémoire du bot** après [`ExplorerVisits`],
 /// hors simulation et hors rollback pour la même raison (elle ne sert qu'à produire des inputs que GGRS enregistre).
 #[derive(Resource, Debug, Clone, Default, PartialEq)]
 pub struct ExplorerJitter {
@@ -1160,11 +1243,38 @@ pub struct ExplorerJitter {
     pub banned_goals: BTreeSet<(usize, u64)>,
     /// Tenue d'une réanimation à portée `(depuis, dernière frame)` ([`Self::snap_hold`]), par joueur.
     pub snaps: BTreeMap<usize, (u32, u32)>,
+    /// Ancre `(position, frame d'arrivée)` par joueur ([`Self::patience`]).
+    pub anchors: BTreeMap<usize, (FixedVec2, u32)>,
     /// Index de l'étage où cette mémoire a été constituée ([`Self::enter_floor`]).
     pub floor: Option<u32>,
 }
 
 impl ExplorerJitter {
+    /// Phase de patience ([`Oscillation::Patience`]) du joueur `handle` à la frame `frame` ; `has_goal` : un cap d'exploration existe (sinon l'ancre
+    /// est oubliée : attendre sans but n'est pas bloqué).
+    pub fn patience(
+        &mut self,
+        handle: usize,
+        frame: u32,
+        position: FixedVec2,
+        has_goal: bool,
+    ) -> Patience {
+        let entry = self.anchors.entry(handle).or_insert((position, frame));
+        if !has_goal || entry.0.distance(&position) > PATIENCE_RADIUS {
+            *entry = (position, frame);
+            return Patience::Normal;
+        }
+        let stalled = frame.saturating_sub(entry.1);
+        if stalled < PATIENCE_FRAMES {
+            return Patience::Normal;
+        }
+        if (stalled - PATIENCE_FRAMES) % PATIENCE_CYCLE < SETTLE_FRAMES {
+            Patience::Settle
+        } else {
+            Patience::Go
+        }
+    }
+
     /// But auquel le joueur `handle` s'est attaché (`explore_step` le passe en premier).
     pub fn focus(&self, handle: usize) -> Option<u64> {
         self.sway.get(&handle).and_then(|state| state.focus)
@@ -1499,6 +1609,37 @@ pub fn should_blank(view: &BotView, holder: &Holder) -> bool {
         })
 }
 
+/// Anticipation de l'élan sur l'axe **transverse** au trajet (m2-salles-murs-gungeon, D82) : une touche
+/// n'agit qu'après [`INPUT_LAG_SECONDS`] (délai d'input du synctest et du p2p, 5 frames) et le héros
+/// garde son élan ; devant une ouverture de 32 px (corps de 20 px) le bot déborde donc de ±8 px, rebrousse,
+/// déborde de l'autre côté : un cycle limite sans fin (graines 51 et 182 de `etages_deux`). On corrige
+/// l'écart transverse de la distance que l'élan fait encore parcourir (`direction − vitesse × délai`) : le
+/// bot freine avant de dépasser l'axe. L'axe du trajet (le plus grand des deux) n'est pas touché : la case
+/// suivante n'est qu'à 8 px, un freinage là l'arrêterait.
+pub(crate) fn lead(direction: FixedVec2, velocity: FixedVec2) -> FixedVec2 {
+    let ahead = INPUT_LAG_SECONDS;
+    if direction.x.abs() >= direction.y.abs() {
+        FixedVec2::new(direction.x, direction.y - velocity.y * ahead)
+    } else {
+        FixedVec2::new(direction.x - velocity.x * ahead, direction.y)
+    }
+}
+
+/// Cap droit de la phase [`Patience::Go`] : l'écart transverse sous [`GO_TRANSVERSE`] n'est pas corrigé.
+pub(crate) fn straight(direction: FixedVec2) -> FixedVec2 {
+    if direction.x.abs() >= direction.y.abs() {
+        if direction.y.abs() < GO_TRANSVERSE {
+            return FixedVec2::new(direction.x, Fixed::ZERO);
+        }
+    } else if direction.x.abs() < GO_TRANSVERSE {
+        return FixedVec2::new(Fixed::ZERO, direction.y);
+    }
+    direction
+}
+
+/// Délai entre la décision du bot et l'effet de la touche (5 frames à 60 Hz, `ALACOD_INPUT_DELAY`).
+const INPUT_LAG_SECONDS: Fixed = Fixed::from_bits(5461); // 5/60 × 65536
+
 /// Décision de l'`explorateur` : fuir une bombe posée (prioritaire) ; sinon `prudent` dès qu'il y a
 /// à se battre, esquiver, relever ou ramasser au passage ; sinon le but d'exploration (pilotage en
 /// 8 directions, Interaction ou Bomb à l'arrivée), ou `prudent` (portail, attente) sans but. Blank
@@ -1520,7 +1661,18 @@ pub fn decide_explorer(view: &BotView) -> BoxInput {
     let mut input = match explore.direction {
         Some(direction) if !busy => {
             let mut input = BoxInput::default();
-            crate::decide::steer(&mut input, direction);
+            match explore.patience {
+                Patience::Normal => {
+                    let direction = if explore.lead {
+                        lead(direction, view.velocity)
+                    } else {
+                        direction
+                    };
+                    crate::decide::steer(&mut input, direction);
+                }
+                Patience::Settle => {}
+                Patience::Go => crate::decide::steer(&mut input, straight(direction)),
+            }
             if explore.interact {
                 input.buttons |= INPUT_INTERACTION;
             }
@@ -1549,11 +1701,11 @@ mod tests {
         FixedVec2::new(fx(x), fx(y))
     }
 
-    /// Champ de coûts : distance de Manhattan × 10 depuis la case (0, 0), sur [-80, 80]².
+    /// Champ de coûts : distance de Manhattan × 10 depuis la case (0, 0) (cases de 8 px), sur [-160, 160]².
     fn field() -> FlowField {
         let mut field = FlowField::default();
-        for x in -80..=80 {
-            for y in -80..=80 {
+        for x in -160..=160 {
+            for y in -160..=160 {
                 field
                     .costs
                     .insert(GridPos::new(x, y), ((x.abs() + y.abs()) * 10) as u32);
@@ -1567,6 +1719,7 @@ mod tests {
             id: id.into(),
             zone: room_zone(v(x, -64.0), v(128.0, 128.0)),
             boss,
+            locking: true,
         }
     }
 
@@ -1640,11 +1793,13 @@ mod tests {
             id: "a".into(),
             zone: room_zone(v(-192.0, -64.0), v(128.0, 128.0)),
             boss: false,
+            locking: true,
         };
         let b = RoomGoal {
             id: "b".into(),
             zone: room_zone(v(64.0, -64.0), v(128.0, 128.0)),
             boss: false,
+            locking: true,
         };
         for rooms in [vec![a.clone(), b.clone()], vec![b, a]] {
             let frame = ExploreFrame {
@@ -1695,6 +1850,118 @@ mod tests {
         };
         assert!(ordered_goals(&field(), &frame, &holding).is_empty());
         assert_eq!(ordered_goals(&field(), &frame, &ctx()).len(), 1);
+    }
+
+    fn item(net_id: usize, x: f32) -> ItemGoal {
+        ItemGoal::new(net_id, v(x, 0.0), true, false)
+    }
+
+    /// Politique de gungeon (`games/gungeon/assets/bot.ron`) : détour borné.
+    fn bounded(portal_open: bool) -> GoalContext {
+        GoalContext {
+            portal_open,
+            policy: ExplorerPolicy {
+                detour: game::replay::Detour {
+                    optional: Some(600),
+                    last_stretch: Some(200),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..ctx()
+        }
+    }
+
+    #[test]
+    fn pas_de_detour_lointain() {
+        // Un objet à 800 px (coût ~1000) ne vaut pas le détour, celui à 80 px oui : seul le boss
+        // reste, il passe devant l'objet lointain.
+        let frame = ExploreFrame {
+            rooms: vec![room("z", 1000.0, true)],
+            items: vec![item(1, 800.0), item(2, 80.0)],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &frame, &bounded(false));
+        let ids: Vec<_> = goals.iter().map(|g| (key_of(g).1, key_of(g).2)).collect();
+        assert_eq!(ids, vec![(0, 2), (1, 0)], "objet proche puis boss");
+        // Même règle quand il reste des salles de combat, et après la mort du boss (portail).
+        let frame = ExploreFrame {
+            rooms: vec![room("a", 200.0, false), room("z", 1000.0, true)],
+            items: vec![item(1, 800.0), item(2, 80.0)],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &frame, &bounded(false));
+        assert_eq!(goals.len(), 2, "l'objet proche et la salle");
+        let goals = ordered_goals(&field(), &frame, &bounded(true));
+        assert_eq!(goals.len(), 1, "portail ouvert : l'objet proche seulement");
+    }
+
+    #[test]
+    fn detour_plus_court_sur_la_derniere_ligne_droite() {
+        // Objet à 250 px (coût ~290) : un détour tant qu'une salle de combat reste, plus ensuite.
+        let with_fight = ExploreFrame {
+            rooms: vec![room("a", 200.0, false), room("z", 1000.0, true)],
+            items: vec![item(1, 250.0)],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &with_fight, &bounded(false));
+        assert_eq!(goals.len(), 2, "l'objet et la salle de combat");
+        let boss_only = ExploreFrame {
+            rooms: vec![room("z", 1000.0, true)],
+            ..with_fight
+        };
+        let goals = ordered_goals(&field(), &boss_only, &bounded(false));
+        assert_eq!(goals.len(), 1, "le boss seul");
+    }
+
+    #[test]
+    fn salle_sans_verrou_lointaine_n_est_pas_un_but() {
+        let passive = |id: &str, x: f32| RoomGoal {
+            locking: false,
+            ..room(id, x, false)
+        };
+        // Récompense lointaine (coût > 600) : le combat proche puis le boss ne l'attendent pas ;
+        // proche, elle reste un détour.
+        let frame = ExploreFrame {
+            rooms: vec![
+                passive("loin", 900.0),
+                passive("pres", 100.0),
+                room("combat", 300.0, false),
+            ],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &frame, &bounded(false));
+        let ids: Vec<_> = goals.iter().map(|g| key_of(g).3.clone()).collect();
+        assert_eq!(ids, vec!["pres", "combat"]);
+        // Plus qu'une salle sans verrou lointaine et le boss : le boss est le but.
+        let frame = ExploreFrame {
+            rooms: vec![passive("loin", 900.0), room("z", 600.0, true)],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &frame, &bounded(false));
+        let ids: Vec<_> = goals.iter().map(|g| key_of(g).3.clone()).collect();
+        assert_eq!(ids, vec!["z"]);
+    }
+
+    #[test]
+    fn pas_de_presentoir_d_arme_sans_reserve() {
+        let frame = ExploreFrame {
+            items: vec![item(10, 80.0), item(11, 96.0), item(12, 112.0)],
+            weapon_shelves: vec![(10, "fusil_precision".into()), (11, "pistolet".into())],
+            ..Default::default()
+        };
+        // Réserve de `balles` seulement : le fusil (calibre) n'est pas utilisable.
+        let filtered = frame
+            .without_unusable_weapons(|weapon| weapon != "fusil_precision")
+            .expect("un présentoir écarté");
+        let ids: Vec<_> = filtered.items.iter().map(|i| i.net_id).collect();
+        assert_eq!(
+            ids,
+            vec![11, 12],
+            "le présentoir d'arme utilisable et le coffre restent"
+        );
+        // Tout est utilisable : aucune copie.
+        assert!(frame.without_unusable_weapons(|_| true).is_none());
     }
 
     #[test]
@@ -2023,6 +2290,7 @@ mod tests {
                     max: v(200.0, 0.0),
                 },
                 boss: false,
+                locking: true,
             }],
             // x = 84 et x = 116 : sur le chemin, au-delà de la case 9 (x = 72) que le joueur atteint.
             rocks: rocks(&[116.0, 84.0]),
@@ -2052,6 +2320,7 @@ mod tests {
                     max: v(900.0, 0.0),
                 },
                 boss: false,
+                locking: true,
             }],
             rocks: rocks(&[84.0]),
             ..Default::default()
@@ -2332,5 +2601,66 @@ mod tests {
         ];
         let distinct: std::collections::BTreeSet<_> = ids.iter().collect();
         assert_eq!(distinct.len(), ids.len(), "{ids:?}");
+    }
+
+    #[test]
+    fn l_elan_transverse_est_anticipe() {
+        // Cap au nord (écart transverse de 3 px à droite) mais élan de 150 px/s vers la gauche : ~12 px
+        // d'élan à rattraper, donc freiner à droite (la composante x garde son signe et grandit).
+        let d = lead(v(3.0, 10.0), v(-150.0, 0.0));
+        assert!(d.x > fx(10.0) && d.y == fx(10.0), "{d:?}");
+        // Même écart sans élan : inchangé.
+        assert_eq!(lead(v(3.0, 10.0), v(0.0, 0.0)), v(3.0, 10.0));
+        // Élan vers l'axe : on lâche (le signe s'inverse : freinage avant de dépasser).
+        assert!(lead(v(3.0, 10.0), v(150.0, 0.0)).x < fx(0.0));
+        // L'axe du trajet n'est pas touché : à toute vitesse vers le nord, y reste.
+        assert_eq!(lead(v(1.0, 10.0), v(0.0, 150.0)), v(1.0, 10.0));
+        // Cap à l'est : c'est y qui est transverse.
+        let d = lead(v(10.0, 2.0), v(0.0, -150.0));
+        assert!(d.y > fx(10.0) && d.x == fx(10.0), "{d:?}");
+    }
+
+    #[test]
+    fn patience_arret_puis_cap_droit_quand_le_bot_tourne_en_rond() {
+        let mut patience = ExplorerJitter::default();
+        let at = |x: f32, y: f32| v(x, y);
+        // En mouvement (ou sans but) : jamais de repli, l'ancre suit.
+        for frame in 0..300 {
+            let p = patience.patience(0, frame, at(frame as f32 * 3.0, 0.0), true);
+            assert_eq!(p, Patience::Normal);
+        }
+        // Oscille sur place (±12 px) avec un but : Normal jusqu'à PATIENCE_FRAMES, puis arrêt, puis cap droit.
+        let mut phases = Vec::new();
+        for frame in 1000..1000 + PATIENCE_FRAMES + PATIENCE_CYCLE + 5 {
+            let wobble = if frame % 20 < 10 { 12.0 } else { -12.0 };
+            phases.push(patience.patience(0, frame, at(0.0, wobble), true));
+        }
+        let first = |phase| phases.iter().position(|p| *p == phase).unwrap() as u32;
+        assert_eq!(first(Patience::Settle), PATIENCE_FRAMES);
+        assert_eq!(first(Patience::Go), PATIENCE_FRAMES + SETTLE_FRAMES);
+        // La séquence recommence (arrêt puis cap droit) tant que le bot ne bouge pas.
+        assert_eq!(
+            phases[(PATIENCE_FRAMES + PATIENCE_CYCLE) as usize],
+            Patience::Settle
+        );
+        // Sans but, l'ancre est oubliée ; un autre joueur a sa propre ancre.
+        assert_eq!(
+            patience.patience(0, 2000, at(0.0, 0.0), false),
+            Patience::Normal
+        );
+        assert_eq!(
+            patience.patience(1, 2000, at(0.0, 0.0), true),
+            Patience::Normal
+        );
+    }
+
+    #[test]
+    fn le_cap_droit_ne_corrige_pas_un_petit_ecart_transverse() {
+        // Cap au nord, 4 px d'écart latéral (< 6) : tout droit.
+        assert_eq!(straight(v(4.0, 10.0)), v(0.0, 10.0));
+        // Écart de 8 px : corrigé comme avant.
+        assert_eq!(straight(v(8.0, 10.0)), v(8.0, 10.0));
+        // Cap à l'est : c'est y qui est transverse.
+        assert_eq!(straight(v(10.0, -5.0)), v(10.0, 0.0));
     }
 }

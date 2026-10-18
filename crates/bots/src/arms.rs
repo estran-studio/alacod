@@ -178,6 +178,15 @@ pub fn worth_picking(ground: &WeaponView, held: Option<&WeaponView>, free_slot: 
     free_slot || score(ground) > held.map_or(Fixed::ZERO, score)
 }
 
+/// Une arme au sol vaut le détour pour le bot. `dry` : aucune arme portée n'a de réserve (elles ne
+/// tireront que leur chargeur) ; il faut alors n'importe quelle arme au sol, même lointaine ou pas
+/// meilleure, pourvu que **son** type de munition ait une réserve (`reserve > 0` : ramasser une arme
+/// n'en crédite aucune, une arme sans réserve laisserait le bot sans tir). Sinon : à portée de
+/// ramassage (`near`), pas déjà portée, et meilleure que l'arme en main (`worth`).
+pub fn wants_ground_weapon(near: bool, dry: bool, reserve: u32, owned: bool, worth: bool) -> bool {
+    (near || dry) && reserve > 0 && !owned && (dry || worth)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,5 +317,29 @@ mod tests {
         assert_eq!(a, b);
         a.0.clear();
         assert_eq!(joue(&mut a), suite, "mémoire vidée : repart de zéro");
+    }
+
+    #[test]
+    fn arme_au_sol_voulue_selon_reserve_et_sec() {
+        // Sans réserve de son type : jamais (le bot garde son arme de départ)
+        assert!(!wants_ground_weapon(true, false, 0, false, true));
+        assert!(!wants_ground_weapon(true, true, 0, false, true));
+        // Équipé et approvisionné : proche, nouvelle et meilleure seulement
+        assert!(wants_ground_weapon(true, false, 50, false, true));
+        assert!(!wants_ground_weapon(false, false, 50, false, true), "loin");
+        assert!(
+            !wants_ground_weapon(true, false, 50, false, false),
+            "pas mieux"
+        );
+        assert!(
+            !wants_ground_weapon(true, false, 50, true, true),
+            "déjà portée"
+        );
+        // À sec : l'arme de départ lâchée vaut le détour, loin et même sans être « meilleure »
+        assert!(wants_ground_weapon(false, true, 50, false, false));
+        assert!(
+            !wants_ground_weapon(false, true, 50, true, false),
+            "déjà portée"
+        );
     }
 }
