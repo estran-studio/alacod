@@ -3,11 +3,9 @@
 // (9 salles : départ, quatre combats, boss, trésor, secrète, boutique) est nettoyé, le boss vaincu ; le bot prend le
 // portail et arrive au second étage, où le trésor est fermé à clé et la clé du second étage lui est remise.
 //
-// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : trois au départ,
-// `salve` et `essaim`) ; le bot arrivait au boss avec 1 PV et mourait à f2112. Adaptation : le joueur gagne avec `Armor +50` (D93)
-// (`PlayerScript::modifiers`). Frames recalées sur le nouveau run : boss verrouillé f2044, phase 1 f2147, phase 2 f2272,
-// nettoyé f2411, butin `sang_chaud` f2476, « niveau 1 » f2831 ; le bot meurt sur le second étage vers f3475 (scénario
-// 3400 frames, vivant à f3399). Les frames citées ci-dessous sont celles d'avant D88.
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : `salve` et `essaim` dès le premier étage) ;
+// le bot arrivait au boss avec 1 PV et mourait. Adaptation : le joueur gagne avec `Armor +50` (D93) (`PlayerScript::modifiers`). Les frames
+// de ce scénario sont celles de M3-T11d1 (plan refait) ; le bot est vivant à f3499 (scénario de 3500 frames).
 //
 // À regarder : quatre verrouillages de salle de combat (trois ou quatre ennemis chacune), la **curse `maze`** du premier étage (M3-T11d1 : la séquence
 // par défaut tire une curse sur 30 % des étages ; graine 1 : `maze` au premier, `blind` au second), le boss verrouille sa salle à f2500, passe en phase 1 à

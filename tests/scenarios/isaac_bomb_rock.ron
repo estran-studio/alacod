@@ -4,7 +4,8 @@
 // recule (f96 à f140) hors du rayon : l'explosion (f170, mèche de 75 frames, rayon 56) casse les trois rochers de l'amas et le rocher à butin laisse un objet.
 //
 // À regarder : `EntityCount(kind: Rock)` passe de 45 (tous les rochers de l'étage) à 42 à f170 ; le butin du rocher (pool `salle`, une `ration`) tombe
-// au sol ; le joueur, sorti du rayon, n'est pas blessé par sa bombe (un coup d'un ennemi seulement : 5 PV).
+// au sol ; le joueur, sorti du rayon (84 unités de l'explosion, rayon 56), n'est pas blessé par sa bombe. Il a perdu 1 PV à f113 (un ennemi) : ses `hit_iframes`
+// courent jusqu'à f173, donc la santé ne prouve rien à f175, c'est sa position à f170 qui prouve qu'il est hors du rayon.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -31,7 +32,7 @@ Scenario(
         EntityCount(kind: Rock, min: Some(42), max: Some(42), at_frame: 175),
         ItemsOnFloor(id: "ration", count: 0, at_frame: 165),
         ItemsOnFloor(id: "ration", count: 1, at_frame: 175),
-        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 175),
+        PlayerPosition(handle: 0, x: -31.6, y: 98.0, tolerance: 2.0, at_frame: 170),
         PlayerAlive(handle: 0, at_frame: 299),
     ],
 )

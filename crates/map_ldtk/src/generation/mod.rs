@@ -526,7 +526,7 @@ mod tests {
     /// `grand` de gungeon (15 à 20 salles en arbre), comparés graine à graine dans le même processus
     /// (planification, génération des niveaux LDtk et murage). La borne était de deux fois pour dix gabarits
     /// (rapport 0,81) ; M3-T11d1 en pose vingt, dont neuf de combat (jusqu'à 2 x 2 avec leurs couches de rochers et
-    /// de piques) : rapport mesuré 2,9, soit 1,9 ms par étage.
+    /// de piques) : rapport mesuré 2,9, soit 1,9 ms par étage (cause non mesurée : plus de gabarits à comparer à chaque pose, couches à cloner).
     #[test]
     fn isaac_grille_de_12_a_15_salles_sous_quatre_fois_grand_de_gungeon() {
         use map::generation::config::MapGenerationMode;

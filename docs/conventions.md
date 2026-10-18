@@ -5570,7 +5570,7 @@ taille en pixels (2×2 = 480 × 288) et voisinage par un bord commun.
 
 | Scénario | Prouve |
 |---|---|
-| `grid_floor_seed_1`, `_23`, `_123` | un étage entier joué par le bot `explorateur` jusqu'à la victoire (M3-T11d1 : vingt gabarits, plans refaits ; `Armor +50` de D88) : boss 1×1 (graine 1, trésor 1×2, quatre combats, boutique), boss 1×1 avec salle du diable et trésor 2×1 (graine 23), **boss 2×2** avec salle du diable (graine 123) ; tailles, voisinages, secrète fermée, trésor ouvert au premier étage |
+| `grid_floor_seed_1`, `_23`, `_123` | un étage entier joué par le bot `explorateur` jusqu'à la victoire (M3-T11d1 : vingt gabarits, plans refaits ; `Armor +50` de D88 pour la graine 1, aucune armure pour les graines 23 et 123) : boss 1×1 (graine 1, trésor 1×2, quatre combats, boutique), boss 1×1 avec salle du diable et trésor 2×1 (graine 23), **boss 2×2** avec salle du diable (graine 123) ; tailles, voisinages, secrète fermée, trésor ouvert au premier étage |
 | `grid_secret_room` | graine 25 (graine 5 avant M3-T11d1) : secrète placée (voisine du départ et d'un combat, loin du boss), fermée, rien n'y entre |
 | `grid_secret_bomb`, `grid_secret_no_bomb` | graine 39 (graine 8 avant) : **la bombe de départ de `pleureur`** (D81 : mèche 75 frames, rayon 56) posée f35, le joueur s'écarte, l'explosion (f110) ouvre toutes les portes de la secrète sans le blesser, il y entre ; témoin sans pose : il s'arrête contre le mur |
 | `grid_treasure_key`, `grid_treasure_floor0` | séquence `sous_sol_cle`, graine -1013904097 (plan du second étage = graine 145 ; -1013904216 et 26 avant M3-T11d1) : le trésor est fermé à clé, la clé du second étage l'ouvre (f56), le joueur entre ; témoin du premier étage : porte ordinaire |
@@ -5959,8 +5959,8 @@ présentoir à `cost`.
 | `devil_deal_soul_saves` | témoin : même joueur à 1 PV avec un `coeur_ame` : l'achat passe, âme 4 → 2, vie 1/1 |
 | `devil_deal_soul_first` | l'âme paie d'abord (4 → 2, vie et maximum à 100), puis un prix de 6 : l'âme (2) part toute, 4 PV de vie maximale (96) |
 | `devil_deal_isaac` (`isaac`) | le cœur d'`isaac` : 6/6 → 4/4 |
-| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `queue_fourchue` sortis du pool `diable`, `bottines` du trésor, `oeil_vif` du boss (D96 : les objets tirés changent avec le tirage, la grille non) ; graine 5 : aucune salle, rien tiré dans `diable` |
-| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`oeil_vif`, f1400 à f1440, ramassé f1461 ; `sang_chaud` pour la graine 23) et le bot le ramasse ; la victoire est retardée (f2117, f2335) |
+| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `pacte_rouge` et `queue_fourchue` sortis du pool `diable`, `bottines` du trésor, `sang_chaud` du boss, trois présentoirs de boutique (M3-T11d1 : les objets tirés suivent le plan et les pools, D96) ; graine 5 : aucune salle, rien tiré dans `diable` |
+| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (graine 8 : `sang_chaud`, ramassé f1785, victoire f1727 ; graine 23 : `griffe_acier`, ramassé f1537, victoire f1485 ; chronologies de M3-T11d1, vingt gabarits) et le bot le ramasse |
 | `isaac_floor_seed_1` (`isaac`) | `tresor` et `boss` : 1 objet sorti à f5, 2 à la génération du second étage (par run) |
 
 Unitaires : `items::loot` (`assign_*` : sans `exhaust` rien n'est écrit, objets distincts, idempotence, premier emplacement =
@@ -6084,8 +6084,7 @@ flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `Run
 
 ### Atteignabilité
 
-`isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tire depuis M3-T11d1 (graines 1, 2, 13, 19, 42 : §76.4 ; graine à
-nommer alors). Le testbed joue `maudit` et `maudit_maze` à deux étages.
+`isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tire depuis M3-T11d1 (graines 1, 2, 13, 19, 42 : §76.4). Le testbed joue `maudit` et `maudit_maze` à deux étages.
 
 ## 75. Accomplissements en jeu : faits de run, évaluation à `Ended`, profil v2 (M3-T10, chantier G1 v2)
 
@@ -6382,8 +6381,121 @@ Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de
 **Traces** : un ennemi de plus par salle de combat décale les net ids de tout ce qui suit (preuve §5 au rapport `m3-t11c-ennemis.md` : `FloorState.
 enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
 
-Dettes : pas de gabarit de combat par ennemi (neuf `Combat…` de M3-T11d1, §76.4, mêlent les sept ennemis) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
+Dettes : pas de gabarit de combat par ennemi (neuf `Combat…` de M3-T11d1, §76.4, mêlent six des sept ennemis : `spectre` n'est dans aucun gabarit) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
 de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) fermée le 2026-10-17 ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste en T11d2 (volume Q1), les gabarits variés sont faits par T11d1 ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14 : l'équilibrage n'est plus un objectif (décision de William du 2026-10-18, chiffres au rapport de T11d1).
+
+### 76.4 T11d1 : structure de la partie ordinaire (`m3-t11d1-gabarits`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur : un test de `map_ldtk` ajusté (gabarits, borne de temps) et un
+diagnostic ignoré du harnais (`floor_probe`). Décision de William du 2026-10-18 : T11d est **coupé en deux** ; T11d1 (ici) fait la structure de la partie ordinaire,
+**T11d2** (autre branche) le volume de Q1 (objets 49 → 100, ennemis 7 → 10, boss 1 → 2). L'équilibrage n'est pas un objectif : victoires et morts sont
+rapportés, aucun réglage n'a visé une fourchette.
+
+**Vingt gabarits** (`maps/salles.ldtk`, `docs/taches/rapports/m3-t11d1-gabarits.make_salles.py`, qui reprend les dix de T5 octet pour octet et vérifie les dix
+autres : ouvertures reliées, aucun obstacle sur une ouverture ou devant elle). Neuf gabarits de combat (au lieu d'un), trois de boss (dont le grand), trois de
+trésor, une secrète, un diable, une **boutique**, un départ, un transit :
+
+| Gabarit | Cases | Contenu |
+|---|---|---|
+| `Combat` | 1×1 | inchangé (T0f, T11c) : `suiveur`, `mouche`, `tourelle_croix` |
+| `CombatRochers` | 1×1 | un amas de rochers (trois cases en L) dans chaque angle ; `suiveur`, `mouche`, `tourelle_croix` au centre |
+| `CombatButin` | 1×1 | deux angles de rochers dont le coin est un **rocher à butin** ; `suiveur`, `mouche`, `cracheur` |
+| `CombatPiques` | 1×1 | deux angles de **piques** (nord-ouest, sud-est) ; `suiveur`, `suiveur`, `bourdon` |
+| `CombatMixte` | 1×1 | rochers (un amas plein, un à butin), piques dans les deux autres angles ; `suiveur`, `rampant`, `mouche` |
+| `CombatCroix` | 1×1 | deux angles de rochers ; `tourelle_croix`, `cracheur`, `mouche` |
+| `CombatLong` | 2×1 | deux angles de rochers à butin, deux de piques ; `suiveur` ×2, `mouche`, `cracheur` |
+| `CombatHaut` | 1×2 | trois angles de rochers (deux à butin), un de piques ; `suiveur`, `mouche`, `rampant`, `tourelle_croix` |
+| `CombatGrand` | 2×2 | quatre angles de rochers (deux à butin) ; `suiveur`, `mouche`, `cracheur`, `bourdon` |
+| `Boss`, `BossGrand` | 1×1, 2×2 | inchangés : `gardien` au centre |
+| `BossAbris` | 1×1 | `gardien` au centre, un amas de rochers dans chaque angle |
+| `Tresor`, `TresorLong`, `TresorHaut` | 1×1, 2×1, 1×2 | inchangés |
+| `Secrete`, `Diable`, `Transit`, `Depart` | 1×1 | inchangés |
+| `Boutique` | 1×1 | vide (les présentoirs sont posés par le type de salle) |
+
+Les neuf gabarits de combat sont tirés au hasard (un gabarit par pose, uniforme) : sur 300 graines de `sous_sol_un`, 139 à 183 salles chacun. **Rochers et piques
+sont dans les angles** : le bot `explorateur` ne voit pas les rochers (ils n'ont pas le marqueur `Wall` que `bots::input` lit pour son maillage), marche en ligne
+droite et reste collé à un rocher posé sur son chemin (premier essai, rochers au centre : étage sans progrès après 700 frames) ; le script refuse tout rocher à
+moins d'une case (piques : trois quarts) d'une ligne droite entre deux ouvertures, une ouverture et un ennemi ou le centre. Casser un rocher n'est donc jamais
+nécessaire pour traverser une salle : la bombe ouvre le butin et la salle secrète. Nouvelles couches du projet LDtk : `Rocks` (1 rocher, 2 rocher à butin, §62) et
+`Surfaces` (5 piques) ; `surfaces/piques.ron` (valeur 5, 1 PV tous les 60 frames, dégâts `True` : l'âme les absorbe d'abord ; les `hit_iframes` de `pleureur`
+recouvrent la période) ; dossier `surfaces` déclaré dans `game.ron`.
+
+**Boutique** : type `boutique` (`rooms/boutique.ron` : jamais verrouillée, `shop` de trois présentoirs du pool `boutique`, prix en sous par rareté de
+`economy.ron` : 15, 30, 50), exigé par la grammaire `sous_sol` (`required: {boss, tresor, secrete, boutique}` : cul-de-sac derrière une salle ordinaire, une par
+étage ; `sous_sol_grand`, `_court`, `_transit` n'en ont pas). Pool `loot/boutique.ron`, 26 entrées, `exhaust: true` (Q5 : par run et par pool, un consommable compte
+comme un objet vu) : les **treize objets de larmes** (chacun est aussi au trésor : deux exemplaires possibles sans pool qui les exclue, règle `Tears` du lint),
+quatre passifs à effets (`crocs`, `pouls`, `rancune_vive`, `reliquaire`), les trois familiers, deux objets de stats (`encre`, `bottines`) et quatre consommables (`key`,
+`bomb`, `coeur`, `coeur_ame`), poids 4, 2, 1 par rareté, 3, 3, 3, 2 pour les consommables ; jamais de `Currency` (lint). La boutique **vend en sous** les objets : les
+sous viennent de la mort des ennemis (`shells_drop`, 2 à 5) et des récompenses de salle (`Currency(1)`). Récompenses de salle (`loot/salle.ron`, T3) et coffre secret
+(`loot/secrete.ron`, T8) : **inchangés** (cœurs, sous, bombes, clés déjà cohérents avec §68 et §73).
+
+**Curses dans la séquence par défaut** : `floors/sous_sol.ron` gagne `curses: Some((chance: "0.3", pool: ["darkness", "unknown", "blind", "labyrinth", "maze"]))` : une
+curse sur 30 % des étages (graine de carte et étage, §74, cinq à poids égaux). Les séquences de test (`sous_sol_un`, `_cle`, `_court`, `_grand`) n'en ont pas :
+leurs scénarios ne bougent que par les gabarits. Conséquence propre à la séquence par défaut : `RunCurses::entered` s'écrit dès la frame 0, même sans curse tirée
+(§74), donc toutes ses traces changent.
+
+**Bombe de départ (D81, fermée)** : `pleureur.ron` gagne `bomb: Some((fuse_frames: 75, radius: "56.0", damage: "4.0"))` (tir ami `Always`, défaut de Q4 : la bombe
+blesse son poseur, 4 PV sur 6 ; mèche de 1,25 s ; rayon 3,5 cases : l'explosion touche le bord de la porte secrète d'où l'on pose la bombe et casse les rochers voisins)
+et `starting_consumables: {"key": 0, "bomb": 1}` (objet `bomb`, plafond 99). Comme Isaac, une bombe au départ.
+
+**Lint** : `alacod lint games/isaac` passe de **24 avertissements à 0** (24 mesurés sur `main` avant la tâche : boutique absente et ses quatre règles, rochers et piques absents des
+gabarits `combat`, aucune bombe jouable, salle secrète sans bombe, curses de la séquence par défaut, treize objets de larmes sans second pool). Aucun avertissement
+d'atteignabilité, hors `test_only`, ne reste. `testbed` (115), `gungeon` (1) : inchangés ; `zombies`, `throne` : aucun.
+
+**Scénarios** : recalés (graines, chronologies, comptes d'ennemis ; les plans de toutes les graines ont changé : `GgrsNetId`, gabarits tirés au hasard, boutique) :
+`devil_room_chance`/`_absent` (cinq présentoirs : trois de la boutique, deux du diable), `grid_floor_seed_1` (14 ennemis, boss f2245, victoire f2674), `_23` (boss 1×1
+désormais, victoire f1485), `_123` (porte maintenant le **boss 2×2** de l'ancienne 23, victoire f1502), `grid_post_boss` (`Armor +100`, victoire f1727),
+`grid_secret_room` (graine 25), `grid_secret_bomb`/`_no_bomb` (graine 39, **bombe de départ**, sans `bomb:` ni `items:` du scénario : l'explosion f110 ouvre la salle,
+le joueur sorti du rayon n'est pas blessé), `grid_treasure_key`/`_floor0` (graine 145, -1013904097 pour `sous_sol_cle`), `isaac_floor_seed_1` (curses `maze` puis `blind`,
+boss f2500, « niveau 1 » f3220, boutique 3 puis 6 objets sortis), `isaac_hud_items` (source `curses` : `maze`). Neufs : `isaac_shop_buy` (graine 2 : le joueur à 60 sous achète
+`reliquaire` à 15 sous, `ExtraHealth` 4), `isaac_bomb_rock` (graine 4 : la bombe de départ casse l'amas de rochers d'un `CombatButin`, 45 → 42 rochers, le rocher à butin
+laisse une `ration`, le joueur hors du rayon n'est pas blessé), `isaac_spikes` (graine 10 : un demi-cœur dès f108, f168, f228, f288 sur l'amas de piques d'un `CombatPiques`) et son témoin `isaac_spikes_temoin` (même marche arrêtée avant l'amas : 6 PV jusqu'à f170, un ennemi arrive vers f172 : les deux premiers coups sont ceux des piques ; `HazardState.last_hit` du dump : 107, 167, 227, 287).
+Diagnostic `floor_probe` (`ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>`, `crates/scenario/tests/scenarios.rs`) : le plan d'un étage par graine (type, taille, voisines, rochers,
+piques, ennemis, présentoirs) sans jouer la partie, pour choisir une graine. Test `map_ldtk::generation::isaac_etages_de_grille_sur_1000_graines` : `Combat…` (neuf
+gabarits) compte comme salle ordinaire, une boutique par `sous_sol` (cul-de-sac derrière une salle ordinaire) ; `…_sous_quatre_fois_grand_de_gungeon` : borne 2 → 4
+(rapport mesuré 2,9, 1,9 ms par étage de 12 à 15 salles ; 0,81 pour dix gabarits).
+
+**Traces** : toutes les traces `isaac` bougent (124 : 120 rebénies, 4 neuves) ; zombies, throne, gungeon, testbed **identiques** (suite complète de 653 scénarios).
+Preuve §5, douze scénarios (`generated/isaac/{weapon_larmes, enemy_suiveur_still, tears_encre, champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`,
+`hit_iframes_isaac`, `isaac_hud_items`, `isaac_boots`, `grid_secret_no_bomb`, `devil_room_absent`), dumps `ALACOD_DUMP_TRACE` du même binaire avec `ALACOD_GAME_DIR` pointé
+sur quatre états de `games/isaac` : (1) `main` ; (2) **bombe seule** (`pleureur.ron`, `bomb.ron`) ; (3) bombe + curses de la séquence par défaut ; (4) la branche.
+`scripts/trace-diff.py … --ignore Inventory,BombCarrier` : 1 → 2 **identiques sur les douze** (`Inventory` gagne `bomb: 1`, `BombCarrier` est neutre : seules ces lignes
+bougent) ; 1 → 4 identiques sur les cinq scénarios en carte de test (`gabarit_armes` : aucune boutique, curse ni gabarit n'y entre). 2 → 3 : sur `hit_iframes_isaac`,
+`isaac_hud_items`, `isaac_boots`, `room_combat` (séquence par défaut, graine 1) f0 : `RunCurses { floors: {0: "maze"}, entered: Some(0) }` (au lieu de `{}`, `None`) et
+`Modifiers` du joueur gagne `MoveSpeed ×0,85` de source `curse:maze` ; identiques sur `boss_gardien`, `devil_room_absent`, `grid_secret_no_bomb` (séquences sans curse). 3 → 4
+(séquence par défaut) dès f0 : le plan (`FloorState.enemies_placed` 16 → 14, `PoolState` gagne `boutique`, entités de salle) : gabarits et boutique ne se séparent pas (la boutique
+exigée décale les tirages du planificateur autant que les gabarits).
+
+**Atteignabilité** (tableau du §8.1 de `docs/taches.md`, une ligne par mécanique, avec les graines `alacod-sim --game isaac --floors sous_sol --until-floor 2 --shopping` (séquence par
+défaut ; plan et butin de l'étage 0 lus à la génération, `--max-frames 6`, balayage 1..400) et le scénario qui la prouve à la main tant que le bot de T14 n'est pas sur `main`) :
+
+| Mécanique | Graine (étage 1) | Scénario |
+|---|---|---|
+| Larmes modifiées, empilement | 1 : trésor `vent_arriere`, boutique `givre` ; deux exemplaires par deux pools : 71 (`epouvante`), 76 (`vent_arriere`), 95 (`oeil`) | `isaac_shop_buy`, `tears_*`, `tears_stack_two_copies` (testbed) |
+| Effets v3 | trésor `crocs` 14, `pouls` 3 ; boutique `rancune_vive` 8 ; boss `sang_chaud` 8, `calice_ardent` 4 | `item_*`, `tears_crocs`, `tears_rancune_vive`, `tears_sang_chaud` |
+| Familiers, orbitaux | 9 (trésor `nuee`, boutique `frere`), 13 (`orbe` aux deux), 18 (`frere` aux deux) | `isaac_synergy_garde`, `familiar_*` |
+| Bombes | toute graine (bombe de départ) | `grid_secret_bomb`, `isaac_bomb_rock` |
+| Rochers, rochers à butin | 4 : `CombatButin` au nord du départ | `isaac_bomb_rock` (45 → 42, une `ration`) |
+| Piques | 10 : `CombatPiques` au nord du départ | `isaac_spikes`, `isaac_spikes_temoin` |
+| Salle secrète | toute graine ; sud du départ : 39 ; est : 25 | `grid_secret_bomb`, `grid_secret_room`, `grid_secret_no_bomb` |
+| Clés, trésor fermé | `key` en boutique : 1 ; clé de récompense : 14, 20, 22 ; second étage de toute partie | `grid_treasure_key`, `isaac_floor_seed_1` |
+| Cœurs, sous, boutique | cœur de récompense 1, 3, 14 ; cœur d'âme 3, 23, 32 ; sous à chaque mort ; boutique : toute graine | `isaac_shop_buy`, `isaac_floor_seed_1` |
+| Pools à épuisement | toute partie (trésor, boss 1 → 2, boutique 3 → 6 au second étage) | `isaac_floor_seed_1`, `devil_room_chance` |
+| Marché du diable | 8, 13, 16 | `devil_room_chance`, `devil_deal_isaac` ; l'achat par le bot : T14 |
+| Champions | 1 (`essaim`, `salve`), 4 (`explosif`) | `champion_*` |
+| Curses | 1 (`maze` puis `blind`), 2 (`darkness`), 13 (`blind`), 19 (`labyrinth`), 42 (`unknown`) | `isaac_floor_seed_1`, `isaac_hud_items` |
+| Accomplissements | deux parties d'affilée | `achievement_unlocks` |
+
+**Campagne de contrôle** (bot actuel, séquence par défaut, `--shopping`, lots de 20 graines, `docs/taches/rapports/m3-t11d1-gabarits.campagne.sh`) : **1 bot, graines 1 à 200 : 0 desync,
+12 victoires, 169 morts, 19 « soft-locks »** (64 graines franchissent le premier étage) ; **2 bots, graines 1 à 200 : 0 desync, 72 victoires (36 %), 102 morts, 26 « soft-locks »** (141 graines franchissent le premier étage ; vingt sont des longs trajets, quatre des cœurs à pleine vie (63, 144, 149, 152), deux immobiles non analysés : 84 et 86). Les 19 soft-locks à un bot se classent ainsi (instantanés à 400 frames d'écart,
+`ALACOD_MAP_PROBE`, dump) : **six bloqués sur un cœur à pleine vie** (D97 : au sol, graines 39, 63, 112, 122, 171 ; en boutique, `coeur` refusé « shop_full » tous les 30 frames, graine 149), **un** contre le
+`gardien` (D97 : visée à quatre directions, graine 4), **douze longs trajets** que le détecteur d'`alacod-sim` (1 200 frames sans ennemi en moins) prend pour des soft-locks (D98 : le bot achète, ouvre le coffre puis
+traverse l'étage ; graines 2, 30, 35, 49, 73, 77, 83, 139, 144, 183, 190, 196). Aucun des sept bots immobiles n'est contre un rocher ni sur une pique (positions relevées). Victoires, morts et franchissements sont des informations, pas des objectifs (décision de William).
+La campagne est à refaire avec le bot de T14 (cœurs, bombe, clés, achats) : mêmes commandes.
+
+**Dettes** : D97 (le bot bloque sur un cœur à pleine vie, au sol ou en boutique ; `FOUR_WAY_LANE` du bot, 14, dépasse la demi-largeur du collider du `gardien`, 10 ; il ignore les rochers), D98 (le détecteur
+de soft-lock d'`alacod-sim`, 1 200 frames sans ennemi en moins, prend un long trajet pour un soft-lock) ; le bot n'achète pas au diable et ne pose pas de bombe contre un mur secret (T14) ; la boutique n'exerce pas
+`shop.cost: Currency(n)` (les prix passent par `economy.ron`) ; D93 reste ouverte (quatre scénarios gagnent par armure).
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 

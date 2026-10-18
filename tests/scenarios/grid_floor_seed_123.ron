@@ -1,7 +1,7 @@
 // M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable, graine 123 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18,
 // vingt gabarits, boutique exigée) : le plan change et la graine 123 porte maintenant le **boss 2×2** (480 × 288 px) que portait la graine 23 :
-// neuf salles : le départ, trois combats dont un 2×1 (rochers, piques), le boss 2×2 au nord-est avec la salle du diable collée à lui, un
-// trésor 1×1, la salle secrète collée au sud du dernier combat et d'un combat, la **boutique** (collée au grand combat). Le bot `explorateur`
+// neuf salles : le départ, trois combats dont un 2×1 (rochers à butin, piques), le boss 2×2 au sud-est avec la salle du diable collée à lui, un
+// trésor 1×1, la salle secrète au nord d'un combat (et d'un autre), la **boutique** (collée au grand combat). Le bot `explorateur`
 // nettoie les trois combats puis bat le boss ; il ramasse une bombe (f1139) et le butin du boss (`calice_ardent`, f1601).
 //
 // À regarder : trois combats (f61 à f1104), puis le boss verrouille sa grande salle (f1200), phase 1 (f1316), phase 2 (f1396),

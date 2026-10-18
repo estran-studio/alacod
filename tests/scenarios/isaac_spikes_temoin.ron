@@ -1,0 +1,27 @@
+// M3-T11d1 (§76.4) : témoin de `isaac_spikes` : même graine (10, `sous_sol_un`), même salle `CombatPiques`, même montée (f5 à f58), mais la marche vers l'amas du
+// sud-est s'arrête une case et demi avant (f58 à f85) : le joueur n'est jamais sur les piques. Il reste à 6 PV jusqu'à f170 (un ennemi l'atteint vers f172 : 5 PV à f175) :
+// les deux premiers coups de `isaac_spikes` (f108 et f168) sont donc ceux des piques, aucun ennemi n'est encore là. Les suivants (f228, f288) tombent à la fin des `hit_iframes` de la
+// seconde précédente : piques et ennemi peuvent les porter l'un comme l'autre (la période des piques, 60 frames, est aussi celle des i-frames) ; la ressource `HazardState`
+// (dump `ALACOD_DUMP_TRACE`, `last_hit` 107, 167, 227, 287) montre que les piques frappent bien à chacune de ces frames.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 10,
+    floors: Some("sous_sol_un"),
+    frames: 300,
+    players: [
+        (
+            inputs: [
+                (from: 5, to: 58, buttons: [Up], pan: (0, 0)),
+                (from: 58, to: 85, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 110),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 170),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 175),
+        PlayerAlive(handle: 0, at_frame: 299),
+    ],
+)

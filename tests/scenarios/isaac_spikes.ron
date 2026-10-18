@@ -3,8 +3,8 @@
 // sud vers l'amas du sud-est (f58 à f105) et s'y tient.
 //
 // À regarder : tant qu'il n'est pas sur les piques, aucun coup n'est reçu (6 PV à f100) ; sur l'amas (f107), un demi-cœur (1 PV, `surfaces/piques.ron`)
-// toutes les 60 frames : 5 PV à f108, 4 à f167, 3 à f227, 2 à f287 (les ennemis, longtemps loin, ne frappent pas ; les `hit_iframes` de `pleureur`
-// recouvrent la période).
+// toutes les 60 frames : 5 PV dès f108, 4 dès f168, 3 dès f228, 2 dès f288 (les `hit_iframes` de `pleureur` recouvrent la période). Témoin `isaac_spikes_temoin` : même salle, même marche s'arrêtant une case avant l'amas : 6 PV jusqu'à f170,
+// donc les deux premiers coups (f108, f168) sont ceux des piques ; les suivants peuvent aussi être ceux d'un ennemi arrivé vers f172 (voir le témoin).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",

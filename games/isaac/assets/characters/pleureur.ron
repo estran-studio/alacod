@@ -60,6 +60,6 @@
     // Bombe : mèche de 75 frames (1,25 s), rayon 56 (3,5 cases : l'explosion touche le bord de la porte de la salle
     // secrète d'où l'on pose la bombe, et casse les rochers voisins, `destroys`), 4 PV (deux cœurs) aux personnages du
     // rayon. Tir ami `Always` (défaut, Q4, comme Isaac) : la bombe blesse son poseur et les autres joueurs ; `hit_iframes` (60)
-    // ne laisse passer qu'un coup. Le poseur à 6 PV survit toujours à une bombe (4 PV), jamais à deux dans la même seconde.
+    // ne laisse passer qu'un coup. Le poseur à 6 PV survit à une bombe (4 PV) ; deux bombes à plus de 60 frames d'écart (8 PV) le tuent.
     bomb: Some((fuse_frames: 75, radius: "56.0", damage: "4.0")),
 )

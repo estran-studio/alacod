@@ -17,7 +17,7 @@ case au nord et au sud, rangées 3-5 à l'ouest et à l'est) : la grille choisit
     CombatMixte     1x1    combat   rochers à butin, rochers et piques dans les quatre angles, suiveur, rampant, mouche
     CombatCroix     1x1    combat   deux angles de rochers, tourelle_croix, cracheur, mouche
     CombatLong      2x1    combat   deux angles de rochers à butin, deux de piques, quatre ennemis
-    CombatHaut      1x2    combat   quatre angles de rochers, deux rochers à butin et piques le long des murs, quatre ennemis
+    CombatHaut      1x2    combat   trois angles de rochers (deux à butin), un angle de piques, quatre ennemis
     CombatGrand     2x2    combat   quatre angles de rochers (deux à butin), quatre ennemis
     Boss            1x1    boss     gardien au centre (inchangé)
     BossGrand       2x2    boss     gardien au centre (inchangé)
@@ -253,8 +253,11 @@ def make(ident, uid, kind, size=(1, 1), spawn=False, enemies=(), players=0, rock
         out.append(entity(door_base, ident, 'DoorVertical', (cols * 16 - 16, k * 144 + 48), (16, 48)))
     centre = (cols * 8 - 8, rows * 8 - 8)
     for character, at in enemies:
-        out.append(entity(spawn_base, ident, 'CharacterSpawn', centre if at is None else (at[0] * 16, at[1] * 16),
-                          character=character))
+        e = entity(spawn_base, ident, 'CharacterSpawn', centre if at is None else (at[0] * 16, at[1] * 16),
+                   character=character)
+        if (ident, character) == ('Combat', 'tourelle_croix'):  # iid posé par M3-T11c (son script de placement)
+            e['iid'] = str(uuid.uuid5(uuid.NAMESPACE_URL, 'alacod/Combat/tourelle_croix/13/7'))
+        out.append(e)
     for i in range(players):
         e = entity(player_base, ident, 'PlayerSpawn', (96 + 32 * i, 64))
         for f in e['fieldInstances']:

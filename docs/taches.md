@@ -874,8 +874,9 @@ ressources en variante neutre, champs optionnels hors hash quand absents).
 **V2 données**
 - M3-T11 Contenu `isaac` (10 j en quatre parties, fiche `docs/taches/m3-t11-contenu-isaac.md`, §76) :
   a larmes et objets de stats (après T1), b objets à effets, familiers, transformations (après T2, T6),
-  c ennemis, champions, boss (après T7, T4), d gabarits, pools, curses et équilibrage (après T5, T8, T9).
-  Volume : Q1.
+  c ennemis, champions, boss (après T7, T4), d gabarits, pools, curses et équilibrage (après T5, T8, T9) — **coupée en deux le 2026-10-18** :
+  d1 structure de la partie ordinaire (gabarits, boutique, curses, bombe de départ, tableau d'atteignabilité ; livrée, `m3-t11d1-gabarits`), d2 volume Q1
+  (objets 49 → 100, ennemis 7 → 10, boss 1 → 2 ; à venir). Volume : Q1.
 - M3-T12 Lint des kinds M3 et atteignabilité (2 j ; fiche `docs/taches/m3-t12-lint-atteignabilite.md`,
   §77 ; après la vague 0, à rejouer après T11).
 

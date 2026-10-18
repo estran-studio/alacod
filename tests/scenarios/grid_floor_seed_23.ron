@@ -1,11 +1,9 @@
 // M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable et un trésor **2×1**, graine 23 (séquence `sous_sol_un`).
 // M3-T11d1 (2026-10-18, vingt gabarits, boutique exigée) : le plan de la graine 23 change (le boss 2×2 de T5 est passé à la graine 123) : neuf
-// salles : le départ, trois combats, un boss 1×1 à l'ouest-nord, la salle du diable accrochée au boss, un trésor **2×1** au sud, la salle secrète
-// collée au trésor et à deux combats (elle ne touche plus le départ), la **boutique** collée au départ ; dix ennemis. Le bot `explorateur`
+// salles : le départ, trois combats, un boss 1×1 au sud-ouest du départ, la salle du diable accrochée au boss, un trésor **2×1** au nord, la salle secrète
+// collée au trésor et à deux combats (elle ne touche plus le départ), la **boutique** collée au départ (à l'est) ; dix ennemis. Le bot `explorateur`
 // nettoie les trois combats, bat le boss, ramasse son butin (`griffe_acier`) et gagne (victoire à la mort du boss : f1485).
 //
-// D88 et D96 : historique (le tirage des variantes puis du butin ont déplacé la chronologie de ce scénario ; les frames citées ci-dessous sont celles
-// du plan d'avant M3-T11d1 et ne valent plus).
 // À regarder : trois combats nettoyés (f192, f689, f1010) ; le boss verrouille sa salle (f1101), phase 1 (f1195), phase 2 (f1315), meurt (f1484) et la salle se
 // rouvre (ses portes, celle de la salle du diable comprise) ; le bot ramasse le butin (f1537) ; la victoire (f1485) précède le ramassage.
 //

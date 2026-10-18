@@ -1,5 +1,5 @@
 // M3-T5 (docs/conventions.md §70) : un étage entier en grille, graine 1 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18, vingt gabarits,
-// boutique exigée) : neuf salles : le départ, quatre combats dont un 2×2 (rochers, piques), un boss 1×1 au bout (à l'ouest), un trésor
+// boutique exigée) : neuf salles : le départ, quatre combats dont un 2×2 (rochers, un amas à butin), un boss 1×1 au bout (à l'ouest), un trésor
 // **1×2** (grande salle verticale), la salle secrète collée sous deux salles de combat et la **boutique** (trois présentoirs) ; quatorze
 // ennemis. Le bot `explorateur` nettoie les quatre combats et gagne.
 //

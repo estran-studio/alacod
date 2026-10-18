@@ -7,7 +7,7 @@
 // 3 bombes) ; en bas à gauche l'icône du calice, son nom et sa jauge pleine ; f30 le bandeau « Bottines légères » au
 // centre haut, qui disparaît après trois secondes (f230 : plus rien) ; f100 un cœur d'âme bleu à droite des rouges ;
 // la minicarte montre la salle de départ (bordure or) et les salles du trésor et du boss à leur lettre ; M3-T11d1 : la graine 1 de la séquence par
-// défaut tire la curse `maze` au premier étage (source `curses`) et le joueur a sa bombe de départ en plus des trois du script.
+// défaut tire la curse `maze` au premier étage (source `curses`). Les objets du script remplacent l'inventaire de départ : le joueur a trois bombes, pas quatre.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",

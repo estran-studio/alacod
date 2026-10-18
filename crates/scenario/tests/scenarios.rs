@@ -1511,9 +1511,10 @@ fn room_probe() {
 }
 
 /// Diagnostic (M3-T11d1) : le plan d'un étage par graine. `ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>[:<jeu>]` (défaut
-/// `isaac`) : pour chaque graine, une ligne par salle de l'étage 0 (type, taille en cases de salle, voisines par un bord
-/// commun, rochers dont à butin, cases de piques, ennemis, présentoirs, coffres), pour choisir une graine qui pose une
-/// salle voulue sans jouer la partie.
+/// `isaac`) : pour chaque graine, une ligne par salle (type, taille en cases de salle, voisines par un bord commun,
+/// rochers dont à butin, cases de piques, ennemis, présentoirs), pour choisir une graine qui pose une salle voulue sans
+/// jouer la partie. Les mondes des étages se superposent : **une séquence d'un seul étage** (`sous_sol_un`) ; sur
+/// `sous_sol` les salles des deux étages se mêlent.
 #[test]
 #[ignore]
 fn floor_probe() {

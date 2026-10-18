@@ -1,7 +1,7 @@
-// M3-T10 (docs/conventions.md §75) : les accomplissements d'une run entrent dans le profil à sa fin. Même partie que
-// `grid_post_boss` (graine 8, séquence `sous_sol_un` : un seul étage, le bot `explorateur` bat le gardien puis finit le
-// dernier combat), avec un profil (`profile: true`). Au départ le profil est vide et `RunUnlocks` aussi ; à la victoire
-// (vers f2100) la simulation a écrit son historique (boss vaincu, objets tenus) et, une fois la fin confirmée, le système
+// M3-T10 (docs/conventions.md §75) : les accomplissements d'une run entrent dans le profil à sa fin. Même graine et même
+// séquence que `grid_post_boss` (graine 8, `sous_sol_un` : un seul étage, le bot `explorateur` — `Armor +50` et visée du personnage, `grid_post_boss` joue
+// `Armor +100` et visée libre — bat le gardien, dernière salle de l'étage), avec un profil (`profile: true`). Au départ le profil est vide et `RunUnlocks` aussi ; à la victoire
+// (f1840) la simulation a écrit son historique (boss vaincu, objets tenus) et, une fois la fin confirmée, le système
 // hors simulation accorde `gardien_vaincu` (boss) et `run_finie` (victoire) : leurs déblocages (`medaille_libre`,
 // `couronne_libre`) entrent dans le profil. `second_etage` manque (un seul étage : `FloorAtLeast(1)`) et son
 // déblocage aussi ; `RunUnlocks`, figé au lancement, ne change pas pendant la run (il change à la run suivante :
@@ -9,9 +9,10 @@
 //
 // D88 (2026-10-17, dette-d88-tirage-variantes) : le nouveau tirage des variantes fait sortir des champions ; le bot (graine 8)
 // mourait à f1376 (défaite) : il gagne avec `Armor +50` (`PlayerScript::modifiers`, D93), mêmes attentes (victoire, accomplissements, HUD).
-// Frames mesurées : gardien en phase 1 f1110, phase 2 f1270, victoire f1960.
+// M3-T11d1 (2026-10-18, vingt gabarits) : le plan de la graine 8 change, frames mesurées : boss verrouillé f1401, phase 1 f1493, phase 2 f1610, salle nettoyée f1839, victoire f1840
+// (scénario de 2190 frames). Avant M3-T11d1 : phase 1 f1110, phase 2 f1270, victoire f1960.
 //
-// À regarder : le gardien meurt vers f1350 (trois phases depuis M3-T11c), la victoire tombe vers f2110, l'écran de fin (source HUD `achievements`)
+// À regarder : le gardien meurt vers f1839 (trois phases depuis M3-T11c), la victoire tombe à f1840, l'écran de fin (source HUD `achievements`)
 // liste « Gardien vaincu » et « Run finie ».
 Scenario(
     powerup_drop_chance_override: "0.0",

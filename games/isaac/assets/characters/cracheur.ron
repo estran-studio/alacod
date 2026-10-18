@@ -1,8 +1,7 @@
 // `isaac` (M3-T11c, §76.3) : tireur au sol. Court vers le joueur (`Chase`) et, à moins de 200 unités, crache une larme visée
 // (`crachat`, 15 frames de télégraphe). Il ne sent le joueur qu'à 130 unités (`aggro_range`) mais le cible de plus
 // loin en ligne de vue dégagée (`sight_range` 360 : D66, §22) : un coin de mur le laisse inoffensif.
-// Renfort du boss `gardien` (phase 1, `SpawnEnemies`) : pas posé dans le gabarit de combat, où quatre ennemis ou plus
-// tuent l'`explorateur` à coup sûr (§76.3).
+// Renfort du boss `gardien` (phase 1, `SpawnEnemies`) ; M3-T11d1 (§76.4) le pose aussi dans les gabarits `CombatButin`, `CombatCroix`, `CombatLong` et `CombatGrand`.
 (
     movement: (
         acceleration: "120.0",
