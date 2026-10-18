@@ -1,6 +1,6 @@
 # m3-t15-bench-larmes : rapport
 
-Branche `m3-t15-bench-larmes` depuis `origin/main` `3f37ba43`. Worker b6. Conventions §80, dettes D84 (fermée), D97, D98.
+Branche `m3-t15-bench-larmes` depuis `origin/main` `3f37ba43`. Worker b6. Conventions §80, dette D84 (reste ouverte), D97, D98.
 Poste : **VPS Debian 8 cœurs, partagé** (un autre worker, b2, joue la même suite sur la même machine), build à froid
 (`CARGO_BUILD_JOBS=4`, 45 min), profil `headless`, suite complète en un processus. **Cloud/partage : la mesure de référence n'a pas pu
 être faite à `uptime` < 1,5 en continu** (voir §2) ; le dire est la règle, la pire valeur de trois relevés les moins chargés fait foi.
@@ -14,8 +14,8 @@ Poste : **VPS Debian 8 cœurs, partagé** (un autre worker, b2, joue la même su
   12-15 salles, 2 bots `explorateur`, 6 champions `explosif` posés). Aucune trace existante ne change (suite sans `BLESS`, §5).
 - `crates/scenario/src/runner.rs` : 6 lignes, `ALACOD_SYSTEM_PROFILE=1` imprime `profil sets : …` dans le runner (le profil par set n'existait
   que dans le jeu). Diagnostic seul, absent sans la variable.
-- `tests/budgets.ron` : en-tête (cinq relevés, charges), 4 entrées neuves, 27 + 2 scénarios recalibrés, commentaires de plafonds mis à jour.
-- `docs/conventions.md` §80, `docs/etat-engine.md` (mesures VPS), `CLAUDE.md` (une phrase), `docs/taches/dettes.md` (D84 fermée, D97, D98), `docs/taches.md` §10.
+- `tests/budgets.ron` : **budgets des 29 scénarios existants remis à leur valeur de `main`** (revue) ; en-tête et 4 entrées **provisoires** pour les scénarios neufs (poste, date, charge, « à recalibrer au calme, D84 »).
+- `docs/conventions.md` §80, `docs/etat-engine.md` (mesures VPS), `CLAUDE.md` (une phrase), `docs/taches/dettes.md` (D84 ouverte avec son protocole de sortie, D97, D98), `docs/taches.md` §10.
 
 ## 2. Relevés : machine et charge
 
@@ -26,14 +26,14 @@ Le processus de bench pèse lui-même ~1,1 de charge ; b2 en jouait un autre en 
 |---|---|---|---|
 | r1 | 2026-10-17 23:06 | 2,73 → 2,59 | chargé (mes builds juste avant) : vérifie la tenue sous charge |
 | r2 | 23:59 | 2,25 → 1,78 | chargé |
-| r3 | 2026-10-18 00:44 | 1,78 → 1,28 | **référence** (load 1,3 à 1,8, mon processus compris) |
-| r4 | 01:25 | **0,14** → 5,16 (build d'un autre worker en fin de suite) | **référence**, le plus calme au départ |
-| r5 | 02:04 | 0,77 → 2,82 | **référence** |
-| r6 | 03:53 | 1,60 → 5,24 | validation du fichier de budgets final, **sous charge** : `make bench` strict **vert** (exit 0, 0 ligne « budget ») |
+| r3 | 2026-10-18 00:44 | 1,78 → 1,28 | indicatif (load 1,3 à 1,8, mon processus compris) |
+| r4 | 01:25 | **0,14** → 5,16 (build d'un autre worker en fin de suite) | indicatif, le plus calme au départ |
+| r5 | 02:04 | 0,77 → 2,82 | indicatif |
+| r6 | 03:53 | 1,60 → 5,24 | indicatif, **sous charge** : exit 0 avec les planchers d'alors (arrondis au plus proche) ; **ne valide pas** un fichier de budgets final (rejoué contre les valeurs arrondies au-dessus : `testbed_arena_idle` 87,2 < 88) |
 
 Écarts : les mêmes scénarios vont jusqu'à 2 fois plus vite en r4 qu'en r1 (`bench_floor` 45 → 77 fps, `idle` 99 → 129). Le gabarit « load < 1,5 »
 n'a été tenu qu'au départ de r4 et en fin de r3 ; j'ai gardé les trois relevés les moins chargés (r3, r4, r5) et pris la **pire valeur** par
-scénario, ce qui rend les planchers (moitié) tenables même à la charge de r1 (tous passent en r1, vérifié, r6 le confirme à 5,2).
+scénario ; **ces relevés sont chargés (jusqu'à 5,2) : ils sont indicatifs, pas une référence au calme** (`bench_floor` varie de 49,6 à 77,4 fps entre relevés, `testbed_two_rooms_door_idle` de 156 à 298).
 
 ## 3. Benchs de larmes, de familiers et d'étage
 
@@ -91,11 +91,11 @@ Lecture (le poste n'est pas le même, donc **aucune conclusion de régression ne
   **planchers** étaient eux inégaux : 29 sur 29 au-dessus de la moitié de la mesure de ce poste, mais certains tenaient quand même au calme
   (`dash_wall` 134,7 fps contre 100, `bench_floor` 49,6 contre 40) ; ils échouaient sous charge, d'où D84.
 
-### D84 : recalibrage des 27 scénarios (+ `bench_floor`, `bench_horde`)
+### D84 : mesures indicatives pour les 27 scénarios (+ `bench_floor`, `bench_horde`) — **budgets non modifiés**
 
-Règle : plancher = ⌈moitié de la pire valeur de r3 à r5⌉ (arrondi **au-dessus**, jamais moins de la moitié de la mesure) ; plafond de rollback = ⌈double de la pire
-valeur⌉. Toutes les valeurs « avant » viennent de `tests/budgets.ron` à `origin/main` (défaut 40 si absent). **29 scénarios recalibrés, 0 plancher relâché au-delà
-de 2 × la mesure (revue : arrondi initial au plus proche, 16 planchers sous la moitié ; corrigé en arrondi supérieur), 0 régression réelle établie.** « inchangé » = valeur déjà au-delà de la moitié ou plafond déjà au double.
+Revue : les relevés chargés ne servent pas de référence ; **les 29 budgets existants sont remis à leur valeur de `main`**. Le tableau ci-dessous est conservé comme **mesure indicative** ; les colonnes « plancher après » / « plafond après » étaient une **proposition de calcul** (⌈moitié de la pire valeur de r3 à r5⌉, double), **non appliquée**. D84 reste ouverte (protocole de sortie dans `dettes.md`).
+
+
 
 | scénario | fps r1 | r2 | r3 | r4 | r5 | référence (pire 3-5) | plancher avant | plancher après | rollback pire r3-5 (ms) | plafond avant → après | décision |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -131,7 +131,7 @@ de 2 × la mesure (revue : arrondi initial au plus proche, 16 planchers sous la 
 
 Remarques : tous les planchers « avant » étaient **au-dessus de la moitié** de la mesure de ce poste (ils venaient du Mac M4 ou du cloud 4 cœurs), d'où
 des abaissements uniformes ; `bench_horde` : plafond 70 → 94 (double de 46,6), c'est la seule remontée de plafond qui n'était pas cassée au calme.
-Régression réelle nommée : **aucune** pour D84 ; D97 (coût de `bench_tears`) et D98 (comparaison M4 à confirmer) sont ouvertes.
+Régression réelle nommée : **aucune** pour D84 (aucune mesure de régression établie, mais aucun budget confirmé au calme) ; D97 (coût de `bench_tears`) et D98 (comparaison M4 à confirmer) sont ouvertes.
 
 ## 5. Vérifié (résultats réels)
 
@@ -146,8 +146,8 @@ branche** (le tirage des variantes et du butin de `main` change l'étage de la g
 | `cargo fmt --all -- --check` | rustfmt a demandé un reformatage de mes 6 lignes du runner (appliqué) ; ensuite sans sortie, code 0 |
 | `make test_tools` | code 0 |
 | `make test_crates` (sur la fusion) | **1 214 tests, 0 échec**. Lancé en morceaux (hors `scenario`, puis chaque `--test` de `scenario`, binaires effacés entre deux) parce que le **disque partagé** a été plein (0 octet libre, `ld` : Bus error) pendant la commande d'un bloc ; mêmes commandes et mêmes filtres que `make test_crates` (`--exact --skip scenarios`). Sur la branche seule, `achievements` échouait (« reservoir_vital n'est pas un objet débloqué ») : c'est D96 de `main`, corrigée par la fusion ; il passe sur la fusion |
-| `make bench` strict (`ALACOD_BENCH_STRICT=1`) | **r6, branche : exit 0, aucune ligne `budget`** (charge 1,6 → 5,2) avec les planchers **arrondis à l'unité la plus proche** ; la revue a fait passer les 16 planchers qui tombaient sous la moitié à l'arrondi supérieur (`tests/budgets.ron` final), et r6 rejoué contre ces valeurs finales a **1 dépassement de 0,8 fps** (`testbed_arena_idle` 87,2 fps contre 88, à charge 1,6 → 5,2) : la règle « jamais plus de 2 × la mesure au calme » et la tenue sous charge 5 sont en tension à la moitié exacte ; r1 à r5 : 0 dépassement. **r7, sur la fusion : 2 dépassements sur 646, à charge 3 → 14** (b2 et d'autres jouaient leurs suites) : `p2p_smoke` 36,5 fps et `item_calice_ardent` 37,3 fps contre le plancher par défaut de 40 (ces deux scénarios mesurent 65 à 100 et 141 à 248 fps au calme). **Rejoués seuls en strict à charge 5 à 7 : `p2p_smoke` 61,1 fps, `item_calice_ardent` 109,3, `bench_tears` 29,2 fps / 67,2 ms, `bench_floor_isaac` 60,0 fps / 17,7 ms, tous dans leurs budgets, exit 0.** Je n'ai donc **pas** de `make bench` vert d'un seul tenant sur la fusion (la machine n'est jamais redescendue sous charge 3 pendant 72 minutes) : preuve = r6 (branche) + les quatre scénarios rejoués |
-| tous les budgets finaux contre les relevés | les relevés r1 à r5 (hors r6, r7) respectent les budgets finaux (script sur les `latest*.json` : 0 dépassement) |
+| `make bench` strict (`ALACOD_BENCH_STRICT=1`) | **aucun passage d'un seul tenant au calme.** r6 (branche, charge 1,6 → 5,2) : exit 0 avec les anciens planchers calculés (`testbed_arena_idle` 87,2 < 88 avec les finaux). r7 (fusion, charge 3 → 14) : `p2p_smoke` 36,5 et `item_calice_ardent` 37,3 fps contre le plancher par défaut 40 ; rejoués seuls à charge 5 à 7, dans leurs budgets. Les budgets actuels sont ceux de `main` + 4 provisoires. |
+| budgets proposés contre les relevés | indicatif seulement : les relevés r1 à r5 respectaient les valeurs proposées (non appliquées) |
 
 
 ## 6. Non fait / incertain
@@ -161,7 +161,7 @@ branche** (le tirage des variantes et du butin de `main` change l'étage de la g
 
 ## 7. Dettes
 
-D84 fermée. **D97** (coût de `bench_tears`, 56 ms, population de `Split`). **D98** (M4 contre VPS, à rejouer sur un second poste).
+D84 **reste ouverte** (protocole : trois `make bench` au calme sur un poste nommé, `uptime` < 1,5 tenu). **D97** (coût de `bench_tears`, 56 ms, population de `Split`). **D98** (M4 contre VPS, à rejouer sur un second poste).
 
 ## 8. Atteignabilité
 

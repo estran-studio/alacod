@@ -129,6 +129,10 @@ for ((i = 0; i < CLIENTS; i++)); do
     [ "$n" -gt "$max" ] && max=$n
 done
 echo "frames resimulées (journal du jeu) : ${resim[*]}"
+# Profondeur et fréquence des rollbacks (`StateTraceRecorder::rollback`, ligne « rollbacks : n=… » du journal).
+for ((i = 0; i < CLIENTS; i++)); do
+    echo "client $i : $(grep -h '^.* rollbacks : n=' "$OUT/p2p-$i.log" | tail -1 | sed 's/^.*INFO [^ ]* //' || true)"
+done
 if [ "$max" -lt "$MIN_RESIMULATED" ]; then
     echo "ÉCHEC : $max frames resimulées < $MIN_RESIMULATED (MIN_RESIMULATED) : run sans rollback réel, preuve sans valeur"
     fail=1

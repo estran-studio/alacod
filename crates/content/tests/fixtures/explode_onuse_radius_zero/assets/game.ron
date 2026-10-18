@@ -1,0 +1,8 @@
+// Fixture D80 : explode_onuse_radius_zero (Explode dans l'OnUse d'un actif)
+(
+    name: "fixture-explode_onuse_radius_zero",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

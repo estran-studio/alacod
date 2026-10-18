@@ -48,5 +48,7 @@ Scenario(
     expect: [
         PlayerAlive(handle: 0, at_frame: 599),
         EntityCount(kind: Enemy, min: Some(30), at_frame: 599),
+        // Le joueur tire bien : des larmes sont en vol.
+        EntityCount(kind: Bullet, min: Some(1), at_frame: 300),
     ],
 )

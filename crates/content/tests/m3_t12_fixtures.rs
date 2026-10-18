@@ -236,7 +236,7 @@ fn secret_wall_without_a_bomb() {
         "secret_no_bomb",
         &[Edit::Write(
             "characters/player.ron",
-            "(movement: (max_speed: \"60.0\"), asset_name_ref: \"player\", base_health: (max: \"6.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {}), \"2\": (layers: {})})",
+            "(movement: (max_speed: \"60.0\"), asset_name_ref: \"player\", scale: \"1.0\", base_health: (max: \"6.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {}), \"2\": (layers: {})})",
         )],
     );
     run.assert_warns("type de salle « secrete » : mur secret atteint mais aucune bombe");
@@ -530,7 +530,7 @@ fn champions_on_no_reachable_enemy() {
         "champions",
         &[Edit::Write(
             "characters/grunt.ron",
-            "(movement: (max_speed: \"60.0\"), asset_name_ref: \"grunt\", base_health: (max: \"10.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, ai: Some((behaviors: Some([Chase(profile: \"Ground\")]))))",
+            "(movement: (max_speed: \"60.0\"), asset_name_ref: \"grunt\", scale: \"1.0\", base_health: (max: \"10.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, ai: Some((behaviors: Some([Chase(profile: \"Ground\")]))))",
         )],
     );
     run.assert_warns("aucun ennemi des salles de la partie ordinaire ne porte `variants`");
@@ -713,14 +713,14 @@ fn tears_in_a_single_exhausting_pool_cannot_stack() {
 /// La bombe d'un personnage de test ne compte pas (D63) ; une explosion enveloppée compte.
 #[test]
 fn test_only_characters_give_no_bomb_and_wrapped_explosions_count() {
-    let no_player_bomb = "(movement: (max_speed: \"60.0\"), asset_name_ref: \"player\", base_health: (max: \"6.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {}), \"2\": (layers: {})})";
+    let no_player_bomb = "(movement: (max_speed: \"60.0\"), asset_name_ref: \"player\", scale: \"1.0\", base_health: (max: \"6.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {}), \"2\": (layers: {})})";
     let run = run(
         "bomb_test_only",
         &[
             Edit::Write("characters/player.ron", no_player_bomb),
             Edit::Write(
                 "characters/essai.ron",
-                "(test_only: true, movement: (max_speed: \"60.0\"), asset_name_ref: \"essai\", base_health: (max: \"6.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, bomb: Some((fuse_frames: 30, radius: \"48.0\", damage: \"10.0\")))",
+                "(test_only: true, movement: (max_speed: \"60.0\"), asset_name_ref: \"essai\", scale: \"1.0\", base_health: (max: \"6.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, bomb: Some((fuse_frames: 30, radius: \"48.0\", damage: \"10.0\")))",
             ),
         ],
     );
@@ -751,7 +751,7 @@ fn test_only_familiar_is_not_warned() {
             ),
             Edit::Write(
                 "characters/orbital.ron",
-                "(test_only: true, movement: (max_speed: \"60.0\"), asset_name_ref: \"orbital\", base_health: (max: \"20.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, team: Some(Players), ai: Some((behaviors: Some([Orbit(radius: \"40.0\", frames_per_turn: 120)]))))",
+                "(test_only: true, movement: (max_speed: \"60.0\"), asset_name_ref: \"orbital\", scale: \"1.0\", base_health: (max: \"20.0\"), starting_skin: \"1\", skins: {\"1\": (layers: {})}, team: Some(Players), ai: Some((behaviors: Some([Orbit(radius: \"40.0\", frames_per_turn: 120)]))))",
             ),
         ],
     );

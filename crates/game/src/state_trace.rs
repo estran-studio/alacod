@@ -17,6 +17,8 @@
 //!   « Lobby » de l'écran de fin) au lieu de `Restart` ; en ligne, les pairs reviennent dans la
 //!   salle d'origine et rejouent avec la graine d'origine (pas de graine dérivée, §33).
 //!   `ALACOD_RESTART_KIND=hub` : `RunRequest::ToHub` (« Retour au hub », jeux à hub).
+//!   `ALACOD_RESTART_DELAY_MS=<ms>` (D86, essais) : retarde la pose de la requête de ce temps réel
+//!   (la partie continue), pour que les pairs ne reviennent pas ensemble (`p2p-lobby.sh`).
 //!
 //! Deux runs avec les mêmes inputs et les mêmes seeds doivent produire le même
 //! fichier. En synctest, une frame resimulée remplace sa ligne précédente.
@@ -43,7 +45,10 @@
 use std::{collections::BTreeMap, fmt::Write as _, path::PathBuf};
 
 use bevy::prelude::*;
-use bevy_ggrs::{Checksum, Rollback, RollbackFrameCount, SaveWorld, SaveWorldSystems};
+use bevy_ggrs::{
+    AdvanceWorld, AdvanceWorldSystems, Checksum, LoadWorld, LoadWorldSystems, Rollback,
+    RollbackFrameCount, SaveWorld, SaveWorldSystems,
+};
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::rollback::StateTracers;
@@ -71,6 +76,83 @@ pub struct StateTraceRecorder {
     /// chaque frame l'est `check_distance` fois ; en p2p, c'est la mesure des prédictions
     /// ratées (zéro = aucun rollback n'a eu lieu, le run ne prouve rien du rollback réseau).
     pub resimulated: u32,
+    /// Rollbacks (suites de frames resimulées) et leur profondeur, voir [`RollbackStats`].
+    pub rollback: RollbackStats,
+}
+
+/// Rollbacks réseau vus par l'enregistreur (mesure, hors simulation). Un **rollback** est une
+/// restauration d'état de bevy_ggrs (schedule `LoadWorld`, [`count_rollback_load`]). Sa
+/// **profondeur** est le nombre de frames que GGRS fait resimuler pour revenir où le jeu en
+/// était : `dernière frame avancée avant la restauration − frame restaurée` (la dernière frame
+/// avancée est lue à la fin de chaque `AdvanceWorld`, [`note_advanced_frame`]). Elle ne dépend
+/// **pas** de la trace : une sauvegarde de la frame courante pendant un tick bloqué au seuil de
+/// prédiction (GGRS sauvegarde avant de décider de ne pas avancer) réenregistre une clé déjà vue
+/// sans resimuler rien. Les compteurs repartent de zéro à chaque nouvelle partie (`resimulated` de
+/// [`StateTraceRecorder`], lui, cumule sur le processus et compte les clés de trace revues).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct RollbackStats {
+    pub rollbacks: u32,
+    pub depth_max: u32,
+    /// Somme des profondeurs : frames resimulées de la partie.
+    pub depth_sum: u32,
+    /// Profondeur → nombre de rollbacks de cette profondeur.
+    depths: BTreeMap<u32, u32>,
+    /// `RollbackFrameCount` à la fin du dernier `AdvanceWorld`.
+    advanced: Option<i32>,
+}
+
+impl RollbackStats {
+    /// Fin d'un `AdvanceWorld` : le jeu vient d'atteindre la frame `frame`.
+    pub fn advanced(&mut self, frame: i32) {
+        self.advanced = Some(frame);
+    }
+
+    /// `LoadWorld` : l'état de la frame `restored` vient d'être restauré.
+    pub fn load(&mut self, restored: i32) {
+        let depth = self
+            .advanced
+            .map_or(0, |last| u32::try_from(last - restored).unwrap_or(0));
+        self.rollbacks += 1;
+        self.depth_sum += depth;
+        self.depth_max = self.depth_max.max(depth);
+        *self.depths.entry(depth).or_default() += 1;
+    }
+
+    /// Une nouvelle partie repart de la frame 0 et de compteurs vierges.
+    pub fn new_game(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Histogramme profondeur → nombre de rollbacks.
+    pub fn histogram(&self) -> &BTreeMap<u32, u32> {
+        &self.depths
+    }
+
+    /// Ligne de journal : `rollbacks : n=… frames=… profondeur_moy=… profondeur_max=…
+    /// par_100_frames=… histogramme=profondeur:nombre,…` (`frames` : frames de la partie).
+    pub fn summary(&self, frames: u32) -> String {
+        let mean = if self.rollbacks == 0 {
+            0.0
+        } else {
+            f64::from(self.depth_sum) / f64::from(self.rollbacks)
+        };
+        let per_100 = if frames == 0 {
+            0.0
+        } else {
+            f64::from(self.rollbacks) * 100.0 / f64::from(frames)
+        };
+        let histogram: Vec<String> = self
+            .depths
+            .iter()
+            .map(|(depth, count)| format!("{depth}:{count}"))
+            .collect();
+        format!(
+            "rollbacks : n={} frames={frames} profondeur_moy={mean:.2} profondeur_max={} par_100_frames={per_100:.2} histogramme={}",
+            self.rollbacks,
+            self.depth_max,
+            histogram.join(",")
+        )
+    }
 }
 
 /// Nombre de lignes gardées dans `history` (une frame = jusqu'à trois versions).
@@ -91,6 +173,7 @@ impl StateTraceRecorder {
         self.frames.clear();
         self.divergences.clear();
         self.history.clear();
+        self.rollback.new_game();
         if let Some(dump) = self.dump.as_mut() {
             dump.clear();
         }
@@ -232,9 +315,29 @@ impl Plugin for StateTraceRecorderPlugin {
             dump: self.dump.is_some().then(BTreeMap::new),
             history: std::collections::VecDeque::new(),
             resimulated: 0,
+            rollback: RollbackStats::default(),
         })
-        .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot));
+        .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot))
+        .add_systems(
+            LoadWorld,
+            count_rollback_load.after(LoadWorldSystems::Mapping),
+        )
+        .add_systems(
+            AdvanceWorld,
+            note_advanced_frame.after(AdvanceWorldSystems::Last),
+        );
     }
+}
+
+/// `LoadWorld` : bevy_ggrs restaure un état (rollback), voir [`RollbackStats`]. bevy_ggrs a posé
+/// `RollbackFrameCount` sur la frame restaurée avant ce schedule.
+fn count_rollback_load(frame: Res<RollbackFrameCount>, mut recorder: ResMut<StateTraceRecorder>) {
+    recorder.rollback.load(frame.0);
+}
+
+/// Fin d'un `AdvanceWorld` : la frame atteinte, pour la profondeur du prochain rollback.
+fn note_advanced_frame(frame: Res<RollbackFrameCount>, mut recorder: ResMut<StateTraceRecorder>) {
+    recorder.rollback.advanced(frame.0);
 }
 
 /// Systèmes de `Last` qui peuvent demander l'arrêt du jeu (`AppExit`). Ce qui doit réagir
@@ -260,6 +363,10 @@ struct StateTraceFile {
     /// `<fichier>-g1` écrit, `RunRequest::Restart` posé.
     first_written: bool,
     restart_requested: bool,
+    /// `ALACOD_RESTART_DELAY_MS` : attente (temps réel) avant de poser la requête, et depuis
+    /// quand elle court.
+    restart_delay: std::time::Duration,
+    restart_ready_since: Option<std::time::Instant>,
     /// Depuis quand l'écriture attend la confirmation des dernières frames (voir
     /// [`confirmation`]).
     waiting_since: Option<std::time::Instant>,
@@ -385,6 +492,16 @@ impl Plugin for StateTracePlugin {
             game: 1,
             first_written: false,
             restart_requested: false,
+            restart_delay: std::time::Duration::from_millis(
+                std::env::var("ALACOD_RESTART_DELAY_MS")
+                    .ok()
+                    .map(|v| {
+                        v.parse()
+                            .expect("ALACOD_RESTART_DELAY_MS doit être un entier")
+                    })
+                    .unwrap_or(0),
+            ),
+            restart_ready_since: None,
             waiting_since: None,
         })
         .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests))
@@ -584,6 +701,12 @@ fn write_trace_at_exit_frame(
     match step {
         TraceStep::Nothing => return,
         TraceStep::Restart => {
+            let since = *file
+                .restart_ready_since
+                .get_or_insert_with(std::time::Instant::now);
+            if since.elapsed() < file.restart_delay {
+                return;
+            }
             info!(
                 "ALACOD_RESTART_AT_FRAME : RunRequest::{:?} à la frame {}",
                 file.restart_request, frame.frame
@@ -629,6 +752,7 @@ fn write_trace_at_exit_frame(
         "trace d'état écrite dans {path:?} ; frames resimulées après rollback : {}",
         trace.resimulated
     );
+    info!("{}", trace.rollback.summary(end));
     if let Some(profile) = snapshot_profile {
         info!("profil rollback : {}", profile.summary());
         for sample in profile.heaviest(5) {
@@ -742,5 +866,47 @@ mod restart_tests {
             trace_path(path, true, 2),
             PathBuf::from("/tmp/p2p-0.trace-g2")
         );
+    }
+}
+
+#[cfg(test)]
+mod rollback_stats_tests {
+    use super::RollbackStats;
+
+    /// La profondeur est `dernière frame avancée − frame restaurée`, quelles que soient les
+    /// sauvegardes (cas du seuil de prédiction : GGRS sauvegarde la frame courante 100 pendant un
+    /// tick qui n'avance pas, puis restaure 98 et rejoue 99 et 100 : profondeur 2, pas 3).
+    #[test]
+    fn rollback_depth_is_frames_advanced_not_trace_keys() {
+        let mut stats = RollbackStats::default();
+        for frame in 1..=100 {
+            stats.advanced(frame);
+        }
+        // (tick bloqué au seuil : sauvegarde de la frame 100, aucun `advanced`)
+        stats.load(98);
+        stats.advanced(99);
+        stats.advanced(100);
+        stats.advanced(101); // la frame nouvelle
+        stats.load(100); // rollback d'une frame depuis 101
+        stats.advanced(101);
+        stats.advanced(102);
+        stats.load(102); // restauration de la dernière frame avancée : rien à resimuler
+        assert_eq!(stats.rollbacks, 3);
+        assert_eq!(stats.depth_max, 2);
+        assert_eq!(stats.depth_sum, 2 + 1);
+        assert_eq!(
+            stats
+                .histogram()
+                .iter()
+                .map(|(d, n)| (*d, *n))
+                .collect::<Vec<_>>(),
+            vec![(0, 1), (1, 1), (2, 1)]
+        );
+        assert_eq!(
+            stats.summary(200),
+            "rollbacks : n=3 frames=200 profondeur_moy=1.00 profondeur_max=2 par_100_frames=1.50 histogramme=0:1,1:1,2:1"
+        );
+        stats.new_game();
+        assert_eq!(stats, RollbackStats::default());
     }
 }

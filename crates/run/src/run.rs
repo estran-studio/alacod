@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// Mode de la partie : quelles conditions de fin, quel résumé (voir
 /// [`crate::modes::RunModeRules`]). `Waves` est le système de vagues actuel
 /// (`game::waves`) ; `Floors` (T1.8, `docs/conventions.md` §17) est livré, `Campaign` viendra en
-/// M2 (`docs/plan-engine.md` §5 F1) — c'est lui qui donnera un sens aux `flags` de [`Run`].
+/// M2 (`docs/plan-engine.md` §5 F1).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum RunMode {
     /// `config` : id de la config de vagues utilisée (nom de fichier sans extension,
@@ -119,7 +119,7 @@ impl std::hash::Hash for RunSummary {
 /// enregistrement (`rollback_and_trace_resource::<Run>()`), pas de valeur sentinelle à
 /// inventer pour « pas encore de résumé » (`RunSummary::outcome: RunEnd` n'a pas de valeur
 /// neutre, contrairement à l'ancien `RunOutcome::defeat_at_frame: Option<u32>`).
-#[derive(Resource, Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Run {
     /// Graine de la partie (`bevy_fixed::rng::RunSeed::0` au moment de la création),
     /// dupliquée ici pour que `Run` seule décrive entièrement la partie (résumé, relance
@@ -129,12 +129,24 @@ pub struct Run {
     pub step: RunStep,
     /// Handles GGRS des joueurs de cette partie, triés.
     pub players: Vec<usize>,
-    /// Drapeaux ouverts pour de futurs modes/contenus (M1/M2) ; vide aujourd'hui, aucun
-    /// système n'y écrit ni n'y lit.
-    pub flags: BTreeSet<String>,
     /// Résumé, rempli une seule fois à `Ended` (voir la doc du champ ci-dessus et
     /// `RunModeRules::summarize`). `None` tant que `step` n'est pas `Ended`.
     pub summary: Option<RunSummary>,
+}
+
+/// Hash de `Run` (checksum GGRS) : D76 a retiré l'ancien champ `flags: BTreeSet<String>`, que rien
+/// n'écrivait ni ne lisait. Son hash d'ensemble vide (préfixe de longueur 0), à sa place d'origine,
+/// reste écrit : le retirer aurait déplacé la trace de tous les scénarios. Un futur champ de drapeaux
+/// reprendra cette place (vide : même hash ; rempli : hash de ses éléments).
+impl std::hash::Hash for Run {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.seed.hash(state);
+        self.mode.hash(state);
+        self.step.hash(state);
+        self.players.hash(state);
+        BTreeSet::<String>::new().hash(state);
+        self.summary.hash(state);
+    }
 }
 
 impl Run {
@@ -147,7 +159,6 @@ impl Run {
             mode,
             step: RunStep::Playing { since_frame },
             players,
-            flags: BTreeSet::new(),
             summary: None,
         }
     }
@@ -175,9 +186,33 @@ mod tests {
         assert_eq!(run.step, RunStep::Playing { since_frame: 7 });
         assert_eq!(run.players, vec![0, 1, 2]);
         assert!(run.summary.is_none());
-        assert!(run.flags.is_empty());
         assert!(run.is_playing());
         assert!(!run.is_ended());
+    }
+
+    /// D76 : le hash de `Run` est celui d'avant le retrait de `flags` (champ `BTreeSet<String>` vide
+    /// entre `players` et `summary`) : les traces de référence ne bougent pas.
+    #[test]
+    fn hash_de_run_inchange_apres_le_retrait_de_flags() {
+        use std::hash::{Hash, Hasher};
+        let hash_of = |value: &dyn Fn(&mut std::collections::hash_map::DefaultHasher)| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            value(&mut hasher);
+            hasher.finish()
+        };
+        let run = Run::new(42, RunMode::Sandbox, vec![2, 0, 1], 7);
+        let before = hash_of(&|h| {
+            (
+                run.seed,
+                &run.mode,
+                &run.step,
+                &run.players,
+                BTreeSet::<String>::new(),
+                &run.summary,
+            )
+                .hash(h)
+        });
+        assert_eq!(hash_of(&|h| run.hash(h)), before);
     }
 
     #[test]

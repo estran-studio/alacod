@@ -60,5 +60,7 @@ Scenario(
         FamiliarCount(handle: 2, count: 2, at_frame: 599),
         FamiliarCount(handle: 3, count: 2, at_frame: 599),
         EntityCount(kind: Enemy, min: Some(30), at_frame: 599),
+        // Population de larmes visée par la fiche : au moins 400 balles vivantes (pic mesuré : 432).
+        EntityCount(kind: Bullet, min: Some(400), at_frame: 130),
     ],
 )
