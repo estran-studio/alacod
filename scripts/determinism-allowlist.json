@@ -208,5 +208,41 @@
     "code": "capture.simulation_start = Instant::now();",
     "count": 1,
     "reason": "Capture de cadence native (ALACOD_PERF_CSV, revue M1) : mesure de temps réel écrite dans un CSV, jamais lue par la simulation."
+  },
+  {
+    "path": "crates/game/src/jjrs/p2p.rs",
+    "code": ".and_then(|s| s.waited(&peer, bevy::platform::time::Instant::now()));",
+    "count": 1,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/jjrs/p2p.rs",
+    "code": "bevy::platform::time::Instant::now(),",
+    "count": 1,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/jjrs/p2p.rs",
+    "code": "let now = bevy::platform::time::Instant::now();",
+    "count": 2,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/jjrs/signal_watch.rs",
+    "code": "let t0 = Instant::now();",
+    "count": 1,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/jjrs/signal_watch.rs",
+    "code": "sightings.saw(*peer, Instant::now());",
+    "count": 1,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/ui/lobby.rs",
+    "code": "let now = bevy::platform::time::Instant::now();",
+    "count": 1,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
   }
 ]
