@@ -75,9 +75,13 @@ impl Display for Connection {
 }
 
 impl Connection {
-    fn are_matching(&self, other: &Connection) -> bool {
+    /// Deux ouvertures se raccordent si elles sont sur des côtés opposés, de même taille et, sauf
+    /// `offset_free`, à la même distance du coin (des gabarits de tailles différentes ont leur porte au
+    /// milieu de leur côté, donc à des distances différentes : la pose décale alors la salle,
+    /// `Room::get_connecting_room_position`).
+    fn are_matching(&self, other: &Connection, offset_free: bool) -> bool {
         self.side.is_opposite(other.side)
-            && self.starting_at == other.starting_at
+            && (offset_free || self.starting_at == other.starting_at)
             && self.size == other.size
     }
 }
@@ -187,6 +191,16 @@ pub fn scan_height_side(
 }
 
 pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>) {
+    populate_level_connections_with(available_levels, false);
+}
+
+/// Comme [`populate_level_connections`] ; `offset_free` : les ouvertures n'ont pas besoin d'être à la même
+/// distance du coin de leur côté (m2-salles-murs-gungeon, §40 : étages de grammaire à gabarits de tailles
+/// différentes). `false` (défaut de tous les autres modes) : appariement inchangé.
+pub fn populate_level_connections_with(
+    available_levels: &mut Vec<AvailableLevel>,
+    offset_free: bool,
+) {
     let mut to_add_elements: Vec<(usize, usize, (AvailableLevel, usize))> = vec![];
 
     let mut i = 0;
@@ -212,7 +226,7 @@ pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>) {
 
                     let other_connection = other_level.connections.get(yy).unwrap();
 
-                    if connection.are_matching(other_connection) {
+                    if connection.are_matching(other_connection, offset_free) {
                         //if other_level.level_type != LevelType::Spawn {
                         to_add_elements.push((i, y, (available_levels[ii + i].clone(), yy)));
                         //}

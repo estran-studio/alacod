@@ -529,6 +529,7 @@ mod tests {
             filler: "combat".into(),
             min_boss_distance: 3,
             max_attempts: 64,
+            bounds: None,
             layout: None,
         }
     }

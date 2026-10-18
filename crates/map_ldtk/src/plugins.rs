@@ -182,6 +182,15 @@ impl Plugin for LdtkRoguePlugin {
                 ..default()
             })
             .add_plugins(EntityPlugin)
-            .add_systems(PostUpdate, sync_rock_tiles);
+            .add_systems(PostUpdate, sync_rock_tiles)
+            // m2-salles-murs-gungeon (§83) : murs dessinés d'après la couche IntGrid, si `hud.ron` le demande.
+            .add_systems(
+                Update,
+                (
+                    crate::wall_art::draw_walls,
+                    crate::wall_art::hide_metadata_layers,
+                )
+                    .run_if(crate::wall_art::wall_art_ready),
+            );
     }
 }

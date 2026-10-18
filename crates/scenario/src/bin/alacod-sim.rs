@@ -396,6 +396,7 @@ fn main() {
                 app.insert_resource(bots::explorer::ExplorerOptions {
                     boss_direct,
                     shopping,
+                    steady: run_scenario.game == "gungeon",
                 });
                 // M2-T16 : salles de l'étage courant, visitées et nettoyées (hors simulation)
                 app.add_systems(

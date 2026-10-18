@@ -325,7 +325,15 @@ fn route_unless(direct: bool, view: &BotView, straight: FixedVec2) -> FixedVec2 
 fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
     // La route n'existe sous `PORTAL_BRAKE_DISTANCE` que si un mur coupe la ligne droite
     // (m1-v3-bots-softlocks, `input::navigate`).
-    steer(input, view.route.unwrap_or(portal - view.position));
+    let direction = view.route.unwrap_or(portal - view.position);
+    // `explorateur` seulement (`view.explore` n'existe que pour lui) : l'élan transverse est anticipé
+    // (D82, `explorer::lead`) ; les autres profils gardent leur pilotage (leurs traces ne bougent pas).
+    let direction = if view.explore.is_some_and(|explore| explore.steady) {
+        crate::explorer::lead(direction, view.velocity)
+    } else {
+        direction
+    };
+    steer(input, direction);
 }
 
 /// Pilotage (m1-bots-apres-movement-feel, voir [`PORTAL_BRAKE_DISTANCE`]) : presse la

@@ -124,6 +124,11 @@ impl Room {
             || (position.1 > config.max_heigth || position.1 < -config.max_heigth)
     }
 
+    /// Position (coin haut gauche, pixels monde, y vers le bas) d'une salle `their_level` posée contre la
+    /// connexion `my_connection` de cette salle par sa connexion `their_connection`, ouvertures
+    /// **alignées** : sur l'axe du côté partagé la salle voisine est contre le bord de *cette* salle (la
+    /// taille de la voisine compte au nord et à l'ouest, celle de cette salle au sud et à l'est), sur
+    /// l'autre axe le décalage des deux distances au coin met les deux ouvertures face à face.
     pub fn get_connecting_room_position(
         &self,
         my_connection: &Connection,
@@ -132,31 +137,24 @@ impl Room {
         tile_size: &(i32, i32),
     ) -> Position {
         let my_position = &self.position;
+        let (my_w, my_h) = self.level_def.level_size_p;
 
         let their_connection = their_level.connections.get(their_connection).unwrap();
 
-        let offset = my_connection.starting_at - their_connection.starting_at;
+        // en tuiles, de mon coin à celui de la voisine, le long du côté partagé
+        let offset = my_connection.starting_at as i32 - their_connection.starting_at as i32;
 
-        // calculate the pixel offset
         match my_connection.side {
-            Side::N | Side::S => {
-                let offset_pixel = (offset as i32) * tile_size.0;
-
-                Position(
-                    my_position.0 + (their_connection.side.get_factor() * (offset_pixel)),
-                    my_position.1
-                        + (-their_connection.side.get_factor() * their_level.level_size_p.1),
-                )
-            }
-            Side::W | Side::E => {
-                let offset_pixel = (offset as i32) * tile_size.1;
-
-                Position(
-                    my_position.0
-                        + (-their_connection.side.get_factor() * their_level.level_size_p.0),
-                    my_position.1 + (their_connection.side.get_factor() * (offset_pixel)),
-                )
-            }
+            Side::N => Position(
+                my_position.0 + offset * tile_size.0,
+                my_position.1 - their_level.level_size_p.1,
+            ),
+            Side::S => Position(my_position.0 + offset * tile_size.0, my_position.1 + my_h),
+            Side::W => Position(
+                my_position.0 - their_level.level_size_p.0,
+                my_position.1 + offset * tile_size.1,
+            ),
+            Side::E => Position(my_position.0 + my_w, my_position.1 + offset * tile_size.1),
         }
     }
 }
@@ -221,5 +219,47 @@ mod tests {
         assert!(a.is_overlapping(&room(32, 32, 32, 32)), "incluse");
         assert!(room(32, 32, 32, 32).is_overlapping(&a), "symétrie");
         assert!(a.is_overlapping(&a.clone()), "même place");
+    }
+
+    /// m2-salles-murs-gungeon : deux gabarits de tailles différentes se posent ouvertures face à face, bord
+    /// contre bord, dans les quatre directions (et la réciproque retombe sur la position de départ).
+    #[test]
+    fn la_voisine_se_pose_ouverture_contre_ouverture() {
+        use crate::generation::context::Connection;
+        let tile = (16, 16);
+        let conn = |side, starting_at| Connection {
+            index: 0,
+            size: 2,
+            side,
+            starting_at,
+            level_id: "L".into(),
+            compatiable_levels: vec![],
+        };
+        // A : 16 x 12 cases en (0, 0), ouverture au milieu de chaque côté ; B : 22 x 16 cases.
+        let a = room(0, 0, 256, 192);
+        let b = room(0, 0, 352, 256);
+        for (side, a_start, b_start) in [
+            (Side::E, 5, 7),
+            (Side::W, 5, 7),
+            (Side::N, 7, 10),
+            (Side::S, 7, 10),
+        ] {
+            let mut level_b = (*b.level_def).clone();
+            level_b.connections = vec![conn(side.get_opposite(), b_start)];
+            let a_connection = conn(side, a_start);
+            let p = a.get_connecting_room_position(&a_connection, &level_b, 0, &tile);
+            // Côté partagé : bord contre bord.
+            match side {
+                Side::E => assert_eq!(p.0, 256),
+                Side::W => assert_eq!(p.0, -352),
+                Side::S => assert_eq!(p.1, 192),
+                Side::N => assert_eq!(p.1, -256),
+            }
+            // Autre axe : la première case de chaque ouverture est au même endroit du monde.
+            match side {
+                Side::E | Side::W => assert_eq!(p.1 + b_start as i32 * 16, a_start as i32 * 16),
+                Side::N | Side::S => assert_eq!(p.0 + b_start as i32 * 16, a_start as i32 * 16),
+            }
+        }
     }
 }

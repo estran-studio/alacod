@@ -159,6 +159,7 @@ fn shopped_weapons(seed: i32, frames: u32) -> std::collections::BTreeSet<String>
             app.insert_resource(bots::explorer::ExplorerOptions {
                 boss_direct: false,
                 shopping: true,
+                steady: true,
             });
             app.add_systems(
                 Last,

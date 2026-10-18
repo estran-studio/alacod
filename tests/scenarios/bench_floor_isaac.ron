@@ -1,0 +1,31 @@
+// M3-T15 (docs/conventions.md §80) : mesure de perf d'un étage en grille agrandi de `isaac` (`floor_grammars/sous_sol_grand.ron`,
+// 12 à 15 salles, §70), deux bots `explorateur` qui nettoient les salles une à une. Chaque verrouillage ou ouverture de porte
+// reconstruit le champ de flux (D70) ; six champions `explosif` (suiveurs, §72) sont ajoutés à f5 dans le premier couloir pour que le
+// butin, les variantes et leurs explosions pèsent aussi dans la mesure.
+//
+// À regarder : les deux bots traversent les salles du départ vers l'extérieur ; chaque salle de combat se verrouille puis se rouvre.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    floors: Some("sous_sol_grand"),
+    map_seed: 1,
+    frames: 3000,
+    characters: [
+        (character: "suiveur", x: "-90.0", y: "50.0", at_frame: 5, variant: Some("explosif")),
+        (character: "suiveur", x: "-60.0", y: "50.0", at_frame: 5, variant: Some("explosif")),
+        (character: "suiveur", x: "-30.0", y: "50.0", at_frame: 5, variant: Some("explosif")),
+        (character: "suiveur", x: "30.0", y: "50.0", at_frame: 5, variant: Some("explosif")),
+        (character: "suiveur", x: "60.0", y: "50.0", at_frame: 5, variant: Some("explosif")),
+        (character: "suiveur", x: "90.0", y: "50.0", at_frame: 5, variant: Some("explosif")),
+    ],
+    players: [
+        (bot: explorateur),
+        (bot: explorateur),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 60),
+        PlayerAlive(handle: 1, at_frame: 60),
+        RoomCount(min: 12, max: Some(15), at_frame: 5),
+        EnemyVariant(entity: Placed(0), variant: Some("explosif"), at_frame: 6),
+    ],
+)

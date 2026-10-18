@@ -11,18 +11,18 @@ sur le même commit : c'est voulu par l'état des postes, et plus sévère pour 
 | Point demandé | État |
 |---|---|
 | 1. gungeon graine 10, étage franchi, 4 500 frames, x86-64 contre arm64 | **fait** : traces identiques (`check-p2p-traces.py --frames 4499`, `sha256`), 0 `DesyncDetected`, frames resimulées > 0 des deux côtés (essai `gung-e`), architecture affichée (§3) |
-| 1. isaac (inputs actifs, étage franchi) | **fait** (graine du manifeste : D97) : étage franchi f2922, mêmes critères |
+| 1. isaac (inputs actifs, étage franchi) | **fait** (graine du manifeste : D108) : étage franchi f2922, mêmes critères |
 | 1. essai court à 4 clients (2 par machine) | **fait** : 4 000 frames, étage f3369, quatre traces identiques |
 | 1. écart x86 / arm64 | **aucun** : D73 confirmée fausse alerte en réel (9 parties, 20 clients) ; pas de première frame divergente à chercher |
 | 2. D87 : mesure (silences, journal horodaté, charge), matrice netem, `disconnect_timeout` 5 s, canal non fiable | **faite** (§5) : 31 essais ; **décision : `disconnect_timeout` 2 s → 5 s**, canal inchangé ; D87 fermée |
 | 3. `docs/taches.md` ligne 7, `docs/etat-engine.md` | **faits** |
 
-Trois constats hors demande, en dettes : **D97** (`isaac` ignore `--seed`), **D98** (connexion WebRTC jamais établie sous 3 % de perte, le lobby attend sans fin),
+Trois constats hors demande, en dettes : **D108** (`isaac` ignore `--seed`), **D109** (connexion WebRTC jamais établie sous 3 % de perte, le lobby attend sans fin),
 et l'asymétrie de resimulation (§4.2).
 
 ## 2. Montage
 
-- **Signaling.** Le serveur public `wss://allumette.bascanada.org` **ne résout plus** (NXDOMAIN depuis le VPS et depuis le Mac ; `getent` et `nslookup`) :
+- **Signaling.** Le serveur public `wss://allumette.bascanada.org` (ancien nom, déjà noté mort dans `docs/plan-site-public-beta.md:74`) **ne résout plus** (NXDOMAIN depuis le VPS et depuis le Mac) ; le défaut réel du Makefile, `wss://allumette.estran.studio`, résout (158.69.192.54, HTTP 200 sur `/health`) mais **je ne l'ai pas utilisé pour les essais** (voir §7) :
   `matchbox_server 0.0.0.0:3536` (binaire extrait de l'image Docker du compose, `target/matchbox_server`) lancé sur le VPS, `MATCHBOX_URL=ws://148.113.207.199:3536`
   des deux côtés (adresse publique du VPS ; le Mac est sur `192.168.8.0/24`, derrière un NAT, ping VPS ↔ Mac 26,7 / 33,0 / 40,5 ms, 0 % de perte sur 20 paquets).
   ICE : STUN Google par défaut du jeu (`stun.l.google.com`, résolu des deux côtés) ; la connexion WebRTC s'établit à chaque essai.
@@ -59,7 +59,7 @@ mon script d'enchaînement (variable d'environnement vide devenue commande) : sa
 
 ### 3.2 isaac
 
-Les bots `explorateur` d'`alacod-sim` enregistrent des inputs (`--game isaac --bots 2 --floors sous_sol --until-floor 2`, +5 de décalage). **`isaac` ignore `--seed`** (D97) : la graine de la partie
+Les bots `explorateur` d'`alacod-sim` enregistrent des inputs (`--game isaac --bots 2 --floors sous_sol --until-floor 2`, +5 de décalage). **`isaac` ignore `--seed`** (D108) : la graine de la partie
 est toujours celle du manifeste (123456). Un premier enregistrement à la graine 5 n'a donc pas reproduit la partie (défaite f3130, aucun étage franchi, vérifié en local
 x86 : même défaite) ; il reste utile (inputs actifs, 11 093 frames resimulées, traces identiques entre architectures) mais ne prouve pas l'étage. Les essais utiles sont enregistrés à 123456
 (étage franchi f2923 à l'enregistrement, f2922 en ligne).
@@ -109,9 +109,9 @@ Sur les 8 parties à deux clients, le Mac a toujours resimulé (39 à 25 099 fra
 prédit les inputs de l'autre et resimule ; le plus en retard les a déjà reçus. Pour exiger « resimulées > 0 des deux côtés », suspendre la machine qui resimule déjà longuement : `STRESS=1 SUSPEND_MS=80 RUN_MS=40`
 sur le Mac (`gung-e`) ou `120 / 30` (`isa-c`). Ce n'est pas un défaut : `MIN_RESIMULATED` le dit au lieu de laisser passer une preuve sans rollback.
 
-### 4.3 `isaac --seed` (D97) et connexion jamais établie (D98)
+### 4.3 `isaac --seed` (D108) et connexion jamais établie (D109)
 
-D97 : voir §3.2. D98 : sur 24 démarrages à 3 % de perte (31 essais, dont 7 à 1 %), un (`d87b-1`, RTT 200 ms) n'a jamais établi la connexion WebRTC : les deux clients restent à « Waiting for players: 1/2 connected » jusqu'au
+D108 : voir §3.2. D109 : sur 24 démarrages à 3 % de perte (31 essais, dont 7 à 1 %), un (`d87b-1`, RTT 200 ms) n'a jamais établi la connexion WebRTC : les deux clients restent à « Waiting for players: 1/2 connected » jusqu'au
 garde-fou de 900 s ; `wait_for_players` n'a aucun délai.
 
 ## 5. D87 : silences fatals sous perte de paquets
@@ -165,7 +165,7 @@ Un essai de la cellule C n'a jamais établi la connexion (§4.3) ; il n'est pas 
 | d87-19 | C (200 ms ±20, 3 %) | timeout5000 | 9/15 | 3283 | aucune | 67 % | 2983/3232 |
 | d87-20 | C (200 ms ±20, 3 %) | unreliable | 11/16 | 1319 | aucune | 67 % | 2910/3305 |
 | d87-21 | C (200 ms ±20, 3 %) | unreliable | 10/11 | 1382 | **session perdue en cours de partie** | 67 % | 2884 |
-| d87b-1 | C (200 ms ±20, 3 %) | timeout5000 | — | — | **connexion jamais établie** (900 s, D98) | 65 % | — |
+| d87b-1 | C (200 ms ±20, 3 %) | timeout5000 | — | — | **connexion jamais établie** (900 s, D109) | 65 % | — |
 | d87b-2 | C (200 ms ±20, 3 %) | timeout5000 | 19/15 | 1374 | aucune | 57 % | 3648/3766 |
 | d87b-3 | C (200 ms ±20, 3 %) | timeout5000 | 20/19 | 3072 | aucune | 75 % | 3184/3727 |
 | d87b-4 | C (200 ms ±20, 3 %) | timeout5000 | 13/11 | 1292 | aucune | 52 % | 3440/3816 |
@@ -198,7 +198,10 @@ Un essai de la cellule C n'a jamais établi la connexion (§4.3) ; il n'est pas 
 
 `p2p::DISCONNECT_TIMEOUT` = **5 s** (`SessionBuilder::with_disconnect_timeout`, défaut de GGRS : 2 s). Le canal reste fiable. Les deux variables d'essai (`ALACOD_DISCONNECT_TIMEOUT_MS`, `ALACOD_P2P_CHANNEL`) restent
 pour rejouer la matrice. Justification : 4/8 → 1/7 sessions perdues à 3 % de perte par sens, sans effet mesuré à 1 %, pour 3 s de plus avant de constater un vrai départ.
-Limites : échantillons de 2 à 6 essais par cellule, une exécution par essai, perte uniforme de netem (pas de pertes en rafale réelles), une seule machine partagée ; D98 reste.
+**Limite de la comparaison** : 4/8 contre 1/7 n'est **pas significatif** (test exact de Fisher bilatéral, p ≈ 0,28) ; ce n'est pas lui qui fonde la décision. Le fondement est le **contrefactuel** : avec 5 s, trois essais ont repris après plus de 2 s de silence
+(`d87-11` 3 161 ms, `d87-19` 3 283 ms, `d87b-3` 3 072 ms) et le même silence aurait déconnecté la session à 2 s ; avec `d87-18` (le seul à avoir quand même perdu la session à 5 s, 5 096 ms, que 2 s aurait aussi perdue), cela fait **4 essais sur 7
+à 5 s** qui auraient été perdus à 2 s. Un silence de 3,0 à 3,4 s dépasse 2 s par construction : le délai de 2 s ne peut pas tenir ce mode, 5 s le tient (8 occurrences sur 8 reprises, hors `d87-18`).
+Limites : échantillons de 2 à 6 essais par cellule, une exécution par essai, perte uniforme de netem (pas de pertes en rafale réelles), une seule machine partagée ; D109 reste.
 
 ## 6. Changements de code et de scripts
 
@@ -206,7 +209,7 @@ Limites : échantillons de 2 à 6 essais par cellule, une exécution par essai, 
 - `scripts/p2p-machine.sh` : `STRESS` / `SUSPEND_MS` / `RUN_MS`, `MIN_RESIMULATED`.
 - `scripts/p2p-d87.sh`, `scripts/p2p-silences.py` (nouveaux).
 - Docs : `CLAUDE.md`, `docs/conventions.md` §57, `docs/etat-engine.md` (contrat de sortie points 3, 4, 5), `docs/taches.md` (ligne 7), `docs/taches/m2-p2p-run-complete.md`, `docs/taches/dettes.md`
-  (D73 confirmée, D87 fermée, D97 et D98 ouvertes).
+  (D73 confirmée, D87 fermée, D108 et D109 ouvertes).
 
 ## 7. Vérification
 
@@ -218,11 +221,11 @@ Sur l'arbre livré (`4a1f1220` plus les documents) :
 - `make test_tools` : 25 tests, OK. `cargo fmt --all -- --check` : propre.
 - Fumée du changement de délai de déconnexion : `p2p-disconnect.sh` (SIGKILL du client 1 après 40 s, `disc2`) : survivant code 0, 4 499 lignes, 0 `DesyncDetected`, `NetworkInterrupted` puis `Disconnected` 4,56 s plus tard ; les trois essais du §3.4 sur le commit livré.
 - Relecture indépendante (deux relecteurs, code et chiffres) : 13 constats chiffres et textes, 8 sur les scripts ; corrigés : classement fin de partie / en cours de partie de `p2p-silences.py` et pairs multiples, variante `timeout2000`
-  de `p2p-d87.sh` (le défaut du jeu vaut maintenant 5 s), inférences SCTP marquées, D98 sur 24 démarrages, sources de stress, étage des essais, horloge de `disc2`, phrases d'état du dépôt.
+  de `p2p-d87.sh` (le défaut du jeu vaut maintenant 5 s), inférences SCTP marquées, D109 sur 24 démarrages, sources de stress, étage des essais, horloge de `disc2`, phrases d'état du dépôt.
 - Aucun test permanent ajouté : le seul changement de comportement est une constante de session (5 s) dont l'effet n'est observable que sur le réseau ; il est prouvé par les essais ci-dessus.
 
 ## 8. Limites
 
 Une seule paire de machines (VPS et un Mac M1) et un RTT de 27 à 41 ms ; natif seulement ; un jeu de graines (10 pour gungeon, 123456 pour isaac) ; le Mac était chargé par d'autres workers
 pendant tous les essais (charge 9 à 85) et n'a pas déconnecté une seule fois à RTT réel, ce qui montre aussi que la session tient une machine chargée ; la revue humaine (contrat de sortie, point 7)
-reste à faire ; D98 et D97 ouvertes.
+reste à faire ; D109 et D108 ouvertes.

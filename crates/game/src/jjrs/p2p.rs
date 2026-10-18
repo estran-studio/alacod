@@ -63,25 +63,51 @@ pub const DISCONNECT_TIMEOUT_ENV: &str = "ALACOD_DISCONNECT_TIMEOUT_MS";
 /// Silence d'un pair au bout duquel GGRS le déclare déconnecté (la notification `NetworkInterrupted`, elle,
 /// reste à 500 ms). D87 : le défaut de GGRS (2 s) est dépassé sous perte de paquets : le pair se tait 1,0 à 1,5 s
 /// (une retransmission SCTP après `RTO_MIN` = 1 s, [INFERENCE]) puis 3,0 à 3,4 s (deux de suite) ; à 3 % de perte par sens, 4 essais sur 8 perdaient
-/// la session en cours de partie avec 2 s, 1 sur 7 avec 5 s (rapport `m2-p2p-deux-machines` §5). Le coût :
-/// un pair réellement parti est constaté au bout de 5 s au lieu de 2 s (la partie attend, c'est tout).
+/// la session en cours de partie avec 2 s, 1 sur 7 avec 5 s (rapport `m2-p2p-deux-machines` §5). Cette
+/// comparaison n'est **pas significative** (Fisher bilatéral, p ≈ 0,28) ; la décision repose sur le
+/// contrefactuel : trois essais à 5 s ont repris après 3,07 à 3,28 s de silence, que 2 s aurait déconnectés
+/// (4 essais sur 7 avec le seul échec à 5 s). Le coût : un pair réellement parti est constaté au bout de 5 s au
+/// lieu de 2 s (la partie attend, c'est tout).
+///
+/// Doit rester **inférieur** à `state_trace::CONFIRMATION_TIMEOUT` (10 s) : la trace attend au plus ce temps
+/// les dernières frames d'un pair parti, qui ne sont confirmées qu'une fois sa déconnexion constatée.
 pub const DISCONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+const _: () = assert!(
+    DISCONNECT_TIMEOUT.as_millis() < crate::state_trace::CONFIRMATION_TIMEOUT.as_millis(),
+    "le délai de déconnexion doit rester sous l'attente de confirmation de la trace"
+);
 
 fn channel_config() -> ChannelConfig {
     match std::env::var(CHANNEL_ENV).as_deref() {
         Ok("unreliable") => ChannelConfig::unreliable(),
         Ok("reliable") | Err(_) => ChannelConfig::reliable(),
-        Ok(other) => panic!("{CHANNEL_ENV} inconnu : {other} (attendu : reliable, unreliable)"),
+        Ok(other) => {
+            warn!("{CHANNEL_ENV}={other:?} inconnu (reliable ou unreliable attendu), canal fiable gardé");
+            ChannelConfig::reliable()
+        }
     }
 }
 
+/// [`DISCONNECT_TIMEOUT`] ou `ALACOD_DISCONNECT_TIMEOUT_MS` : une valeur invalide, nulle ou qui atteint
+/// l'attente de confirmation de la trace (10 s) est ignorée avec un `warn!`.
 fn disconnect_timeout() -> std::time::Duration {
-    std::env::var(DISCONNECT_TIMEOUT_ENV).map_or(DISCONNECT_TIMEOUT, |ms| {
-        std::time::Duration::from_millis(
-            ms.parse()
-                .unwrap_or_else(|_| panic!("{DISCONNECT_TIMEOUT_ENV} doit être un entier (ms)")),
-        )
-    })
+    let Ok(value) = std::env::var(DISCONNECT_TIMEOUT_ENV) else {
+        return DISCONNECT_TIMEOUT;
+    };
+    match value.parse::<u64>() {
+        Ok(ms) if ms > 0 && u128::from(ms) < crate::state_trace::CONFIRMATION_TIMEOUT.as_millis() => {
+            std::time::Duration::from_millis(ms)
+        }
+        _ => {
+            warn!(
+                "{DISCONNECT_TIMEOUT_ENV}={value:?} invalide (entier de ms, 0 < n < {} attendu), {} ms gardées",
+                crate::state_trace::CONFIRMATION_TIMEOUT.as_millis(),
+                DISCONNECT_TIMEOUT.as_millis()
+            );
+            DISCONNECT_TIMEOUT
+        }
+    }
 }
 
 /// STUN Google par défaut : configuration historique du chemin `--matchbox`
@@ -383,7 +409,6 @@ pub fn system_after_map_loaded(
     let channel = socket.take_channel(0).unwrap();
     let mut session_builder = session_builder::<PeerConfig>(&ggrs_config.connection)
         .expect("invalid p2p session configuration");
-    session_builder = session_builder.with_disconnect_timeout(disconnect_timeout());
 
     let players = live_players(socket.players(), &previous.0);
     // D86 : les pairs de cette session ne seront plus jamais des pairs du prochain lobby.
@@ -573,6 +598,7 @@ fn session_builder<C: ggrs::Config>(
         .with_num_players(config.max_player)?
         .with_fps(crate::core::SIM_FPS as usize)?
         .with_max_prediction_window(MAX_PREDICTION_WINDOW)
+        .with_disconnect_timeout(disconnect_timeout())
         .with_desync_detection_mode(ggrs::DesyncDetection::On {
             interval: config.desync_interval,
         })

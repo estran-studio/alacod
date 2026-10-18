@@ -7,8 +7,8 @@ les deux clients, puis les clients se parlent directement (STUN Google en dur, p
 État au 2026-10-04 : recette **vérifiée** avec deux clients headless sur la même machine qui
 passent par l'IP Tailscale (`ws://100.64.0.6:3536`, 600 frames, traces identiques, sha
 `39654b07…`). **Non vérifié** : deux machines distinctes, clients avec fenêtre, traversée d'un
-NAT résidentiel sans Tailscale. `wss://allumette.bascanada.org` (défaut `MATCHBOX_URL` du
-Makefile) **ne résout pas en DNS** : ne pas compter dessus.
+NAT résidentiel sans Tailscale. `wss://allumette.estran.studio` est le défaut `MATCHBOX_URL` du
+Makefile (il résout, 2026-10-18) ; l'ancien nom `allumette.bascanada.org` ne résout plus.
 
 ## 1. Les deux machines
 

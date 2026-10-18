@@ -344,7 +344,9 @@ types les plus lourds dans le journal à la sortie, repris par le résumé du ni
 réel) ; `ALACOD_SYSTEM_PROFILE=1` ajoute le temps par `RollbackSystemSet` (plus une tranche
 `FlowField`), pour savoir où passe la frame. Mesures du 2026-10-15 et dette D70 (champ de flux
 reconstruit à chaque changement de case d'un joueur : 9 ms par frame avec quatre joueurs qui
-bougent) dans `docs/etat-engine.md`.
+bougent) dans `docs/etat-engine.md`. Dans le runner de scénarios, `ALACOD_SYSTEM_PROFILE=1 ALACOD_SCENARIO=<nom>` imprime
+aussi `profil sets : …` (M3-T15, §80). Mesures du poste VPS (2026-10-17/18, M3-T15 ; `bench_tears` : 432 balles, pire rollback
+56 ms, dette D97) et mesures indicatives de budgets (D84 reste ouverte) : `docs/taches/rapports/m3-t15-bench-larmes.md`.
 
 ### Frontière simulation/présentation (prouvée par la compilation)
 
@@ -539,7 +541,7 @@ docker compose up -d  # lance le serveur de signaling
 make test_multiplayer TARGET=ldtk_map_explorer N=4 MATCHBOX_URL=http://localhost:3536  # URL personnalisée
 ```
 
-Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
+Défaut : `MATCHBOX_URL=wss://allumette.estran.studio` (serveur cloud, `Makefile:22`).
 
 **Sans affichage (VPS, CI)** : les cibles `*_matchbox` ouvrent une fenêtre ; les scripts headless
 (`scripts/p2p-lib.sh` en commun) lancent le binaire `--profile headless` : `p2p-stress.sh` (N clients,
@@ -549,8 +551,8 @@ de partie), `p2p-machine.sh` (un client par machine ; `STRESS=1` suspend le clie
 `p2p-gungeon-inputs.sh` (inputs de bots
 `explorateur` figés pour les rejouer en p2p : `ALACOD_SKIP_HUB=1`, `--seed`). Détail, commandes et
 résultats : `docs/taches/rapports/m2-p2p-run-complete.md`, `docs/taches/rapports/m2-p2p-deux-machines.md` (x86-64 contre arm64 :
-traces identiques ; D87) et `docs/conventions.md` §57. Le serveur public `allumette.bascanada.org` ne résout plus (2026-10-18) :
-pour deux machines, `matchbox_server 0.0.0.0:<port>` sur l'une des deux et `MATCHBOX_URL=ws://<ip>:<port>`.
+traces identiques ; D87) et `docs/conventions.md` §57. L'ancien nom `allumette.bascanada.org` ne résout plus (2026-10-18) ;
+un `matchbox_server 0.0.0.0:<port>` sur l'une des deux machines (`MATCHBOX_URL=ws://<ip>:<port>`) reste une option sans dépendre du serveur public.
 
 ### Vidéos (validation visuelle)
 `scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,

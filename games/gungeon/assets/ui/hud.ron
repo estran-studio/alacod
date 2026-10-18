@@ -4,6 +4,8 @@
     // Langage visuel (docs/conventions.md §83) : couleur des joueurs par handle (0 bleu, 1 vert, 2 jaune,
     // 3 violet), noms des étiquettes (F6, ALACOD_LABELS=1) et légende (F7, source `legend`).
     hide_markers: true, // tuiles d'apparition des ennemis (crâne et os) : repères d'auteur, pas des objets
+    // m2-salles-murs-gungeon (§83) : murs dessinés d'après la couche IntGrid `Walls` (auto-tuile en présentation).
+    wall_art: Some((layer: "Walls", atlas: "sprites/lisible/atlas_murs.png", hide_layers: ["LevelConnection"])),
     player_colors: ["#4aa3ff", "#4cd964", "#ffd60a", "#b266ff"],
     names: {
         "player": "J",

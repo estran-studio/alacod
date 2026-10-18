@@ -67,6 +67,14 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
    2,7× sur la sauvegarde (1,28 → 0,47 ms) ; `game::core::single_threaded_rollback_schedules`
    les passe en monothread dans le jeu comme dans les scénarios (`ALACOD_EXECUTOR=multi` pour
    comparer).
+
+   **Poste VPS Debian 8 cœurs, 2026-10-17/18 (M3-T15, `rapports/m3-t15-bench-larmes.md`, pire de trois relevés peu chargés, ms par
+   frame simulée)** : bench_bullets_room 3,02 / 2,16 / 2,21, rollback 28,7 ; bench_horde 3,63 / 2,68 / 3,66, 46,6 ; four_players_idle
+   1,53 / 1,05 / 0,61, 8,4 ; **p2p_smoke 1,77 / 1,15 / 1,25, 16,2** (contre 7,06 et 85,1 sur le M4 : la dette D70 ne se voit plus) ;
+   **bench_tears (4 joueurs × 10 objets dont `Split` ×2, 432 balles, 506 entités) 4,46 / 3,57 / 4,39, rollback 56,3, snapshot 218 KiB**
+   (D97). Sur ce poste la sauvegarde et la restauration coûtent 3 à 8 fois leur valeur du M4 alors que la simulation légère n'en
+   coûte que 2 à 6 : à ce poste le coût des snapshots n'est plus négligeable devant la simulation en scénario léger (D98 : le
+   poste explique-t-il tout ?).
 2. **La frontière simulation/présentation est prouvée par la compilation pour 13 crates,
    en dette pour 2.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
    et CI) : `cargo tree` du crate seul sans crate de présentation, puis `cargo check
@@ -111,9 +119,9 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
    supporte, avec combat, choix/objets, boss, transitions et restart. Inclure deux machines distinctes.
    Garder des inputs actifs : le smoke de 600 frames à inputs neutres ne valide pas cette boucle.
    *Deux machines faites le 2026-10-18* (`docs/taches/rapports/m2-p2p-deux-machines.md`, essais sur `7ee084e8`, reprise sur le commit livré au §3.4) : VPS x86-64 contre Mac arm64 (M1 Pro), signaling
-   `matchbox_server` sur le VPS (le serveur public `allumette.bascanada.org` ne résout plus), gungeon graine 10 avec étage franchi f3502,
+   `matchbox_server` sur le VPS (l'ancien nom `allumette.bascanada.org` ne résout plus ; le défaut du Makefile est `allumette.estran.studio`, non utilisé pour ces essais), gungeon graine 10 avec étage franchi f3502,
    isaac avec étage franchi f2922 (inputs figés de bots, 4 500 frames, rollbacks réels des deux côtés) et 4 clients (2 par machine, étage
-   f3369, 4 000 frames) : traces identiques, 0 `DesyncDetected`. Reste de ce point : la revue humaine (point 7).
+   f3369, 4 000 frames) : traces identiques, 0 `DesyncDetected`. Portée : deux machines : jusqu'au franchissement d'étage ; boss, victoire et restart sur une machine seulement. Reste de ce point : la revue humaine (point 7).
 4. **Réseau dégradé.** Mesurer et documenter les conditions, puis tester retard, jitter et pertes.
    Matrice de départ proposée : RTT 60/120/200 ms, jitter 0/20 ms, pertes 0/1/3 %, séparément puis
    quelques combinaisons représentatives. Mesurer stalls, profondeur/fréquence des rollbacks et
