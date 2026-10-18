@@ -85,38 +85,47 @@ identique : OK.
 ## 4. Rollbacks : profondeur et fréquence (point 4 de `docs/etat-engine.md`)
 
 **Définition** (compteur ajouté au journal de fin, `state_trace::RollbackStats`, ligne « rollbacks : n=… ») : un rollback = une restauration d'état de
-bevy_ggrs (schedule `LoadWorld` ; `n` = le `load ×N` du profil de rollback, vérifié égal sur les 6 clients) ; **profondeur** = frames resimulées par ce rollback (≥ 1) =
-frames déjà enregistrées que la trace revoit après la restauration **plus une** (la sauvegarde qui suit la restauration porte une clé de trace neuve ; lecture de `ggrs` 0.13 et
-`bevy_ggrs` 0.22 par la relecture, cohérente avec le maximum observé de 12 = fenêtre de prédiction) ; fréquence = `n` pour 100 frames de la partie. `sans_restauration` = frames
-réenregistrées sans restauration : [INFERENCE, lecture du code, non vérifiée par une exécution instrumentée] re-sauvegardes de la frame courante par bevy_ggrs à chaque tick où GGRS saute
-l'`Advance` au seuil de prédiction (pas des resimulations) ; mesuré à part (le compteur historique « frames resimulées » = frames revues + ces re-sauvegardes).
+bevy_ggrs (schedule `LoadWorld` ; `n` = le `load ×N` du profil de rollback, égal sur les 6 clients) ; **profondeur** = frames que GGRS fait resimuler =
+`dernière frame avancée avant la restauration − frame restaurée` (`RollbackFrameCount` lu à la fin de chaque `AdvanceWorld`, puis à `LoadWorld`) ; fréquence = `n` pour
+100 frames de la partie. **Cette définition ne dépend pas de la trace.** Les deux versions précédentes du compteur la déduisaient des clés de trace revues (frame déjà enregistrée = resimulée) :
+or GGRS sauvegarde la frame courante à chaque tick, y compris un tick bloqué au seuil de prédiction qui n'avance pas (`handle_rollback_and_save` avant `advance_rollback_frame`,
+`ggrs` 0.13 `p2p_session.rs:855-968`) ; ces re-sauvegardes étaient comptées comme resimulées (profondeur 101 et 91 sous netem à la 1re version ; surestimation à la 2e : exemple frame 100 déjà
+sauvegardée, restauration à 98, deux `Advance` jusqu'à 100 = 2 frames resimulées, comptées 3). **Toutes les profondeurs publiées avant la revue 2 étaient fausses** (rapport et tableaux de `etat-engine.md`,
+`m2-p2p-run-complete` §8). Test unitaire `rollback_depth_is_frames_advanced_not_trace_keys` (cas du seuil : profondeur exacte 2, puis 1, puis 0). Le compteur historique « frames resimulées » du journal de fin
+(clés de trace revues) n'a pas changé de définition ; il n'est plus utilisé pour la profondeur.
 
 Conditions : 2 clients, gungeon graine 10 `etages_deux`, inputs de bots figés (`p2p-gungeon-inputs.sh`, décalés de 5 frames), `ALACOD_INPUT_DELAY=0`,
 4 500 frames, transition d'étage franchie par les deux, traces identiques, 0 `DesyncDetected`, fenêtre de prédiction 12 (`MAX_PREDICTION_WINDOW`).
-Binaire final, un essai par ligne (**une** exécution par condition, pas une campagne).
+Binaire final (`state_trace.rs` à la profondeur par frames avancées, sur `origin/main` `803cc9f0` fusionné), un essai par ligne (**une** exécution par condition, pas une campagne) ; la machine
+était partagée avec b6 (qui mesurait des benchs : ces essais n'ont été lancés qu'hors de ses mesures, charge au lancement 2,1 à 2,8).
 
-| Condition (charge machine au lancement) | Client | Rollbacks n (par 100 frames) | Profondeur moy. / médiane / p90 / p99 / max | Profondeur 1 | `sans_restauration` | Frames revues (compteur historique) |
-|---|---|---|---|---|---|---|
-| **Naturelle**, boucle locale, sans stress ni netem (2,97) | 0 | 848 (18,9) | 1,14 / 1 / 2 / 3 / 4 | 741 (87 %) | 0 | 122 |
-| | 1 | 839 (18,7) | 1,15 / 1 / 2 / 3 / 4 | 726 (87 %) | 0 | 126 |
-| **netem** RTT 120 ms ± 20 ms, perte 1 % (2,39) | 0 | 904 (20,1) | 4,50 / 4 / 9 / 12 / 12 | 93 (10 %) | 813 (suite max 96) | 3 975 |
-| | 1 | 915 (20,3) | 4,53 / 4 / 9 / 12 / 12 | 104 (11 %) | 827 (suite max 95) | 4 055 |
-| **Stress** SIGSTOP du client 1 (12 ms / 30 ms) (2,89) | 0 | 1 262 (28,1) | 4,12 / 3 / 9 / 12 / 12 | 134 (11 %) | 457 (suite max 3) | 4 399 |
-| | 1 | 82 (1,8) | 1,06 / 1 / 1 / 2 / 2 | 77 (94 %) | 0 | 5 |
+| Condition (charge au lancement) | Client | Rollbacks n (par 100 frames) | Profondeur moy. / médiane / p90 / p99 / max | Profondeur 1 | Frames revues (compteur historique) |
+|---|---|---|---|---|---|
+| **Naturelle**, boucle locale, sans stress ni netem (2,08) | 0 | 807 (17,9) | 1,35 / 1 / 2 / 5 / 11 | 649 (80 %) | 286 |
+| | 1 | 822 (18,3) | 1,32 / 1 / 2 / 5 / 8 | 664 (81 %) | 266 |
+| **netem** RTT 120 ms ± 20 ms, perte 1 % (2,79) | 0 | 840 (18,7) | 4,67 / 4 / 9 / 11 / 11 | 112 (13 %) | 4 037 |
+| | 1 | 917 (20,4) | 4,99 / 4 / 10 / 11 / 11 | 85 (9 %) | 4 825 |
+| **Stress** SIGSTOP du client 1 (12 ms / 30 ms) (2,10) | 0 | 1 245 (27,7) | 3,81 / 3 / 8 / 11 / 11 | 185 (15 %) | 3 933 |
+| | 1 | 109 (2,4) | 1,11 / 1 / 2 / 2 / 3 | 98 (90 %) | 12 |
 
-Lecture : (i) même **sans** réseau dégradé, sur la boucle locale, GGRS restaure l'état environ 19 fois par 100 frames (une fois sur 5 frames) ; 87 % de ces rollbacks ne
-resimulent qu'**une** frame (délai d'input 0 : l'input distant arrive une frame après la prédiction), le p99 est 3, le pire 4 ; (ii) un RTT de 120 ms avec 1 % de perte ne change presque
-pas la fréquence (~20/100 frames) mais **déplace la profondeur** : médiane 4, p90 9, p99 et maximum 12 (la fenêtre de prédiction entière, 21 et 28 fois sous netem : le pire cas
-`rollback_ms_worst` du budget est atteint), et il fait apparaître de longues suites de re-sauvegardes sans restauration (jusqu'à 96 ticks consécutifs, [INFERENCE] ticks bloqués au seuil de prédiction pendant
-les 5 interruptions de 500 ms et plus) ; (iii) le stress à suspensions (artificiel : le client 1 est arrêté 12 ms sur 42, soit 29 % du temps) concentre les rollbacks sur le client qui devance
-(1 262 contre 82) avec la même profondeur maximale 12 ; 63 `WaitRecommendation` pour ce client, 0 pour l'autre. **Aucune profondeur ne dépasse 12.**
-Coût relevé au profil (moyenne ; pire cas) : restauration 2,0 à 2,6 ms ; 6,6 à 20,6 ms ; simulation d'une frame 1,6 à 2,7 ms ; sauvegarde 2,8 à 4,8 ms (machine partagée, charge 2,4 à 2,97 au lancement,
+**Avant / après la correction** (mêmes conditions, autre exécution à chaque fois ; l'« avant » est le compteur par clés de trace de la revue 1, profondeur maximale 12) :
+
+| Condition | Avant : rollbacks/100 frames ; profondeur moy. ; max | Après : rollbacks/100 frames ; profondeur moy. ; max |
+|---|---|---|
+| Naturelle | 18,9 / 18,7 ; 1,14 / 1,15 ; 4 / 4 | 17,9 / 18,3 ; 1,35 / 1,32 ; 11 / 8 |
+| netem | 20,1 / 20,3 ; 4,50 / 4,53 ; 12 / 12 | 18,7 / 20,4 ; 4,67 / 4,99 ; 11 / 11 |
+| Stress (client 0 / 1) | 28,1 / 1,8 ; 4,12 / 1,06 ; 12 / 2 | 27,7 / 2,4 ; 3,81 / 1,11 ; 11 / 3 |
+
+Lecture : (i) même **sans** réseau dégradé, sur la boucle locale, GGRS restaure l'état environ 18 fois par 100 frames (une fois sur 5 à 6 frames) ; 80 % de ces rollbacks ne
+resimulent qu'**une** frame (délai d'input 0 : l'input distant arrive une frame après la prédiction), le p99 est 5, le pire 11 ; (ii) un RTT de 120 ms avec 1 % de perte ne change presque
+pas la fréquence (~19 à 20/100 frames) mais **déplace la profondeur** : médiane 4, p90 9 à 10, p99 11, moyenne ~4,8, et seuls 9 à 13 % des rollbacks ne resimulent qu'une frame ; (iii) le stress à
+suspensions (artificiel : le client 1 est arrêté 12 ms sur 42, soit 29 % du temps) concentre les rollbacks sur le client qui devance (1 245 contre 109) ; 58 `WaitRecommendation` pour ce client, 0 pour l'autre.
+**La profondeur maximale mesurée est 11, jamais 12** (fenêtre de prédiction 12) : le pire cas du budget `rollback_ms_worst` (restauration + 12 frames) n'a pas été atteint dans ces essais. La relecture avait
+supposé le contraire en lisant le code ; la mesure ne le confirme pas.
+Coût relevé au profil (moyenne ; pire cas) : restauration 1,7 à 2,4 ms ; 6,3 à 18,8 ms ; simulation d'une frame 1,4 à 2,2 ms ; sauvegarde 2,3 à 4,0 ms (machine partagée, charge 2,1 à 2,8 au lancement,
 valeurs indicatives, pas une mesure de performance).
-**Variabilité** : c'est une exécution par condition et deux exécutions d'une même condition ne sont pas équivalentes. La même condition « naturelle », mesurée plus tôt avec un binaire dont le
-compteur différait d'une unité de profondeur (profondeur = frames revues, donc +1 pour comparer), avait donné 781 / 713 rollbacks (17,4 / 15,9) mais seulement 64 % de profondeur 1 et un maximum de 11 / 10 : la
-distribution de profondeur dépend de la charge et du minutage, pas seulement de la condition. Pas de conclusion de tendance sans répétitions (non faites).
-Deux mesures intermédiaires du même jour (compteur par « suites de frames ») ont été **écartées** : elles comptaient les re-sauvegardes au seuil dans le rollback ouvert (profondeur maximale 101 et 91 sous
-netem, fenêtre de 12), d'où la ligne `sans_restauration`.
+**Variabilité** : une exécution par condition, et deux exécutions d'une même condition ne sont pas équivalentes (la condition « naturelle » a donné un maximum de 4 puis de 11, le p99 de 3 puis de 5) : la
+distribution de profondeur dépend de la charge et du minutage, pas seulement de la condition. Pas de conclusion de tendance entre conditions sans répétitions (non faites).
 
 ## 5. Nightly complet
 
@@ -164,7 +173,7 @@ Incident d'outillage : vers 12:55 le binaire `~/.cargo/bin/rustup` a disparu (le
 - Une machine, un VPS partagé : charge variable, mesures de §4 à une exécution par condition ; aucune conclusion sur un vrai WAN, NAT, arm64.
 - (b) abandonne après 30 s une session qui n'est pas **légitimement** lente à démarrer : non mesuré sur des cartes lentes de jeu réel (fenêtre, assets).
 - Le retour au lobby en **allumette** n'est pas couvert (le flux est un autre chemin, non touché).
-- `sans_restauration` : cause déduite du code (re-sauvegardes au seuil de prédiction), non vérifiée par une exécution instrumentée.
+- Profondeur des rollbacks : exacte par construction (frames avancées) mais mesurée une fois par condition ; la fréquence et la distribution varient d'une exécution à l'autre (§4).
 - Le repli du restart (`RESTART_TIMEOUT_SECS`) lit encore `Time<Real>` : en headless, 30 « secondes » durent ~10 s réelles (défaut antérieur à ce chantier, constaté à la relecture, non corrigé : hors périmètre).
 - Les enregistrements de bots (inputs figés) sont caducs au moindre changement de simulation.
 
@@ -176,10 +185,16 @@ rien dans `GgrsSchedule`, l'état rollback, le checksum ni les traces ; chiffres
 
 1. **Délai de (b) compté en updates en headless** (`Time<Real>` avance de 1/60 s par update) : « 4 s » = 1,3 s réelles. Corrigé : `Instant` (horloge murale), `waited_secs` réel ; test unitaire
    et `p2p-sync-timeout.sh` rejoués (`waited_secs=4.0`).
-2. **Profondeur des rollbacks décalée de 1** : la restauration de la frame `f` est suivie d'une sauvegarde sur une clé neuve, donc la trace ne revoit que `profondeur − 1` frames ; la « profondeur 0 »
-   n'existait pas (une frame resimulée) et le maximum n'était pas 11 mais 12 = la fenêtre entière. Corrigé : profondeur ≥ 1, test, **toutes les mesures du §4 refaites** (et les tableaux de
-   `etat-engine.md`, du rapport `m2-p2p-run-complete` §8, de `conventions.md`), `sans_restauration` re-expliqué (inférence).
+2. **Profondeur des rollbacks décalée de 1** (corrigée une première fois : profondeur ≥ 1 en ajoutant une unité à la profondeur déduite de la trace) : voir la revue 2.
 
 Mineurs corrigés : `p2p-sync-timeout.sh` (`grep` sans correspondance sous `pipefail`), en-tête de `p2p-restart.sh` (`RESTART_DELAYS_MS` vide par défaut), garde `GAPS_MS` vide de `p2p-lobby.sh`,
 valeur invalide de `ALACOD_SYNC_TIMEOUT_SECS` (avertissement et 30 s), coûts du §4 (valeurs des essais finaux), raison de l'écart des mesures intermédiaires, renvoi à un `## Summary` inexistant.
 Non corrigés : minuit dans le calcul de l'écart de `p2p-lobby.sh` (un essai à cheval sur minuit est rejoué, jamais un faux vert) ; `summary(end)` divise par les frames écrites (négligeable).
+
+### Revue 2 (bloquant, corrigé)
+La relecture suivante a montré que **déduire la profondeur des clés de trace revues est faux par construction** : GGRS sauvegarde la frame courante à chaque tick, même bloqué au seuil de prédiction
+(`handle_rollback_and_save` avant la décision de ne pas avancer, `ggrs` 0.13 `p2p_session.rs:855-968`) ; frame 100 déjà sauvegardée, restauration à 98, deux `Advance` : 2 frames resimulées, comptées 3, et le
+rollback restait « ouvert » jusqu'à une clé nouvelle. Correction : `RollbackStats` ne lit plus la trace ; profondeur = `dernière frame avancée − frame restaurée` (`RollbackFrameCount` à la fin de
+chaque `AdvanceWorld`, puis à `LoadWorld`), `sans_restauration` supprimé ; test `rollback_depth_is_frames_advanced_not_trace_keys` (cas du seuil : profondeurs exactes 2, 1, 0). **Mesures refaites**
+(§4, tableau avant/après) et tableaux de `etat-engine.md` et de `m2-p2p-run-complete` §8 mis à jour ; correction notable : la profondeur maximale est **11, pas 12**.
+Aussi : ma dette de nightly est renumérotée **D94** (D88 à D92 : suivis de main, D93 : `dette-d88`).

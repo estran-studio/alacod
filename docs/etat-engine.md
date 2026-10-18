@@ -120,12 +120,13 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 
    | Condition (charge au lancement) | Rollbacks / 100 frames (clients 0, 1) | Profondeur moyenne | médiane / p90 / max | Profondeur 1 |
    |---|---|---|---|---|
-   | Boucle locale, sans stress (2,97) | 18,9 ; 18,7 | 1,14 ; 1,15 | 1 / 2 / 4 | 87 % |
-   | netem RTT 120 ms ± 20 ms, perte 1 % (2,39) | 20,1 ; 20,3 | 4,50 ; 4,53 | 4 / 9 / 12 | 10–11 % |
-   | Stress SIGSTOP du client 1 (2,89) | 28,1 ; 1,8 | 4,12 ; 1,06 | 3 / 9 / 12 (client 0) | 11 % ; 94 % |
+   | Boucle locale, sans stress (2,08) | 17,9 ; 18,3 | 1,35 ; 1,32 | 1 / 2 / 11 ; 8 | 80 % |
+   | netem RTT 120 ms ± 20 ms, perte 1 % (2,79) | 18,7 ; 20,4 | 4,67 ; 4,99 | 4 / 9–10 / 11 | 9–13 % |
+   | Stress SIGSTOP du client 1 (2,10) | 27,7 ; 2,4 | 3,81 ; 1,11 | 3 / 8 / 11 (client 0) | 15 % ; 90 % |
 
-   Profondeur maximale 12 = la fenêtre de prédiction entière (atteinte 20 à 28 fois par client sous netem et stress : le pire cas `rollback_ms_worst` est réel). Pas encore mesurés : matrice
-   RTT 60/200 ms et pertes 3 % (D87), répétitions (une seule exécution par condition ; deux exécutions d'une même condition ont donné des distributions différentes), vrai WAN.
+   Profondeur maximale mesurée 11, jamais 12 (fenêtre de prédiction 12). Profondeur = frames resimulées = dernière frame avancée − frame restaurée (corrigée à la revue 2 : une première version la déduisait
+   des clés de trace et la surestimait). Pas encore mesurés : matrice RTT 60/200 ms et pertes 3 % (D87), répétitions (une seule exécution par condition ; deux exécutions d'une même condition ont donné des
+   distributions différentes), vrai WAN.
 5. **Plateformes.** Pour chaque combinaison annoncée (natif, navigateur, architectures différentes),
    comparer une même partie et ses états confirmés. Le fixed-point seul ne prouve pas la compatibilité
    des builds ni la stabilité des fonctions de hash entre plateformes/toolchains.

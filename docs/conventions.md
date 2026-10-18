@@ -4280,9 +4280,10 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
   `resimulées` reste cumulé sur toute la durée du processus ; les rollbacks sont comptés **par partie** (`state_trace::RollbackStats`) et
   journalisés à la sortie : un rollback = une restauration d'état de bevy_ggrs (schedule `LoadWorld`, même nombre que `load ×N` du
-  profil rollback) ; sa profondeur = frames resimulées (≥ 1 : les frames que la trace revoit ensuite plus la frame restaurée) ;
-  `sans_restauration` = frames réenregistrées sans restauration préalable ([INFERENCE] re-sauvegardes au seuil de prédiction, mesuré à part, 0 au calme) ; ligne
-  `rollbacks : n=… frames=… profondeur_moy=… profondeur_max=… par_100_frames=… sans_restauration=…(suite max …) histogramme=profondeur:nombre,…`
+  profil rollback) ; sa profondeur = frames resimulées = `dernière frame avancée avant la restauration − frame restaurée` (lue à la fin de
+  chaque `AdvanceWorld`, indépendante de la trace : GGRS sauvegarde la frame courante même pendant un tick bloqué au seuil de prédiction,
+  ce qui réenregistre une clé de trace sans rien resimuler) ; ligne
+  `rollbacks : n=… frames=… profondeur_moy=… profondeur_max=… par_100_frames=… histogramme=profondeur:nombre,…`
   (`p2p-stress.sh` l'affiche par client).
 - **`ALACOD_RESTART_KIND`** (avec `ALACOD_RESTART_AT_FRAME`) : requête posée à la frame de relance, `restart` (défaut),
   `lobby` (`RunRequest::ToLobby`) ou `hub` (`RunRequest::ToHub`) ; `ALACOD_RESTART_DELAY_MS` retarde la pose de la requête
