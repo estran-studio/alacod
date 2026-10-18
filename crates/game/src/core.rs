@@ -41,8 +41,9 @@ use crate::{
     jjrs::{
         local::{setup_ggrs_local, system_after_map_loaded_local},
         log_ggrs_events,
-        p2p::{start_matchbox_socket, system_after_map_loaded, wait_for_players},
-        GggrsSessionConfigurationState, SessionLostEvent,
+        p2p::start_online_run,
+        p2p_socket::{build_p2p_session, start_matchbox_socket, wait_for_players},
+        DesyncObserved, GggrsSessionConfigurationState, SessionLostEvent,
     },
     light::ZLightPlugin,
     system_set::RollbackSystemSet,
@@ -158,6 +159,7 @@ impl Plugin for CoreSetupPlugin {
         app.insert_resource(RngStreams::new(12345));
 
         app.add_message::<SessionLostEvent>();
+        app.add_message::<DesyncObserved>();
 
         app.init_state::<AppState>();
         // app.set_rollback_schedule_fps(60);
@@ -255,6 +257,15 @@ impl Plugin for CoreSetupPlugin {
                     .run_if(not(resource_exists::<crate::run_state::LocalLobbyHold>)),
             ),
         );
+        // Web : le retour au lobby d'une session hébergée est un crochet JS (application), demandé par la
+        // simulation (`run_state::ReturnToHostLobby`) ; voir `run_state::apply_run_request_system`.
+        #[cfg(target_arch = "wasm32")]
+        app.add_systems(
+            Update,
+            crate::jjrs::browser::return_to_host_lobby
+                .after(crate::run_state::apply_run_request_system)
+                .run_if(in_state(AppState::InGame)),
+        );
         // D14 (§33) : restart en ligne — compteur de parties en ligne (remis à zéro à chaque
         // entrée normale dans `LobbyOnline`), socket de la partie fermé à sa sortie.
         // D86 : pairs des sessions déjà jouées (ignorés au lobby suivant) et abandon d'une
@@ -264,14 +275,22 @@ impl Plugin for CoreSetupPlugin {
             .init_resource::<crate::jjrs::p2p::CurrentSessionPeers>()
             .init_resource::<crate::jjrs::p2p::AdmittedPlayers>()
             .init_resource::<crate::jjrs::p2p::SessionSyncWatch>()
-            .init_resource::<crate::jjrs::p2p::LobbyConnectWatch>()
+            .init_resource::<crate::jjrs::p2p::SessionPeerLeft>()
+            .init_resource::<crate::jjrs::p2p_socket::LobbyConnectWatch>()
             .add_systems(
                 OnEnter(AppState::InGame),
                 crate::jjrs::p2p::reset_sync_watch,
             )
+            // D109 : l'application lit le socket (`observe_session_peers`), la simulation décide de
+            // l'abandon (`abandon_unsynchronized_session`, sans socket) : même update, dans cet ordre.
             .add_systems(
                 Update,
-                crate::jjrs::p2p::abandon_unsynchronized_session.run_if(in_state(AppState::InGame)),
+                (
+                    crate::jjrs::p2p_socket::observe_session_peers,
+                    crate::jjrs::p2p::abandon_unsynchronized_session,
+                )
+                    .chain()
+                    .run_if(in_state(AppState::InGame)),
             )
             .add_systems(
                 OnEnter(AppState::LobbyOnline),
@@ -283,12 +302,16 @@ impl Plugin for CoreSetupPlugin {
             )
             .add_systems(
                 OnExit(AppState::InGame),
-                crate::jjrs::restart::drop_matchbox_socket,
+                crate::jjrs::p2p_socket::drop_matchbox_socket,
             );
         // System for ggrs that register the session when the map is correctly loaded
         app.add_systems(
             OnEnter(AppState::GameStarting),
-            (system_after_map_loaded, system_after_map_loaded_local),
+            (
+                build_p2p_session,
+                start_online_run,
+                system_after_map_loaded_local,
+            ),
         );
         // F5 (chantier m0-v11) : résout une fois, au lancement de la partie, les champs
         // numériques du contenu (vagues, prix, santé) en valeurs concrètes pour le nombre
@@ -311,10 +334,25 @@ impl Plugin for CoreSetupPlugin {
             ),
         );
 
-        app.add_systems(Update, log_ggrs_events.run_if(in_state(AppState::InGame)));
+        app.add_systems(
+            Update,
+            (
+                log_ggrs_events,
+                // Télémétrie des desyncs (application) : lit le message écrit par `log_ggrs_events`.
+                crate::jjrs::telemetry::forward_desync_telemetry,
+            )
+                .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
 
         app.add_plugins(crate::state_trace::StateTracePlugin);
         app.add_plugins(crate::recording::RecordingPlugin);
+        // `write_recording_on_exit` passait après `bevy::window::ExitSystems` ; la simulation ne nomme plus ce
+        // set (D69 E6) : l'application le place avant `ExitRequests`, que l'enregistrement suit.
+        app.configure_sets(
+            Last,
+            bevy::window::ExitSystems.before(crate::state_trace::ExitRequests),
+        );
         // `ALACOD_SNAPSHOT_PROFILE=1` : coût du rollback (sauvegarde, restauration, simulation,
         // inventaire des snapshots) écrit dans le journal à la sortie par `state_trace`. Le
         // runner de scénarios installe le plugin lui-même (métriques) : jamais deux fois.

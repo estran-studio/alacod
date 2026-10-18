@@ -148,7 +148,7 @@ fn p2p_detects_a_divergent_checksum() {
     );
 }
 
-fn peer(n: u8) -> bevy_matchbox::prelude::PeerId {
+fn peer(n: u8) -> matchbox_protocol::PeerId {
     serde_json::from_str(&format!("\"00000000-0000-0000-0000-0000000000{n:02}\"")).unwrap()
 }
 
@@ -179,62 +179,6 @@ fn sync_timeout_is_reached_only_after_the_delay() {
     assert!(!sync_timed_out(None, 30.0));
     assert!(!sync_timed_out(Some(Duration::from_millis(29_900)), 30.0));
     assert!(sync_timed_out(Some(Duration::from_secs(30)), 30.0));
-}
-
-/// D109 : une nouvelle tentative, puis le retour au lobby ; sans URL rouvrable (allumette),
-/// directement le retour au lobby.
-#[test]
-fn connect_timeout_retries_once_then_returns_to_lobby() {
-    use super::{connect_timed_out, connect_timeout_action, ConnectTimeoutAction::*};
-    use std::time::Duration;
-    assert_eq!(connect_timeout_action(1, 2, true), Retry);
-    assert_eq!(connect_timeout_action(2, 2, true), ToLobby);
-    assert_eq!(connect_timeout_action(1, 1, true), ToLobby);
-    assert_eq!(connect_timeout_action(1, 2, false), ToLobby);
-    assert!(!connect_timed_out(Duration::from_millis(14_900), 15.0));
-    assert!(connect_timed_out(Duration::from_secs(15), 15.0));
-}
-
-/// D109/D116 : la ligne d'état du lobby dit l'abandon d'abord, puis la salle pleine, puis l'attente
-/// lente, sinon rien.
-#[test]
-fn lobby_status_line_reports_slow_peers_and_abandoned_attempts() {
-    use super::{connect_status_text as text, ConnectNotice, CONNECT_NOTICE_SECS};
-    assert_eq!(text(None, None, None), None);
-    assert_eq!(
-        text(Some(2.9), None, None),
-        None,
-        "attente normale : rien à dire"
-    );
-    assert_eq!(
-        text(Some(7.4), None, None).as_deref(),
-        Some("Connecting to peer... 7 s")
-    );
-    let retry = Some((ConnectNotice::Retrying { attempt: 2, of: 2 }, 1.0));
-    assert_eq!(
-        text(Some(7.4), None, retry).as_deref(),
-        Some("Peer connection failed: new attempt (2/2)")
-    );
-    let back = Some((ConnectNotice::BackToLobby { attempts: 2 }, 1.0));
-    assert_eq!(
-        text(None, None, back).as_deref(),
-        Some("Peer connection failed after 2 attempt(s): back to the lobby")
-    );
-    // L'avis expire : retour à l'attente.
-    let stale = Some((
-        ConnectNotice::BackToLobby { attempts: 2 },
-        CONNECT_NOTICE_SECS,
-    ));
-    assert_eq!(text(None, None, stale), None);
-    assert_eq!(
-        text(Some(7.4), Some((3, 2)), None).as_deref(),
-        Some("Room full (3 peers for 2 places): waiting for a free place")
-    );
-    let full = Some((ConnectNotice::RoomFull { peers: 3, max: 2 }, 1.0));
-    assert_eq!(
-        text(None, Some((3, 2)), full).as_deref(),
-        Some("Room full (3 peers for 2 places): back to the lobby")
-    );
 }
 
 /// D116 : les `max_player` premiers joueurs du socket (triés par identifiant) sont admis ; le joueur
@@ -305,22 +249,4 @@ fn admission_is_identical_for_every_client_seeing_the_same_peers() {
     assert!(admit_players(view(0), 2).local_admitted);
     assert!(admit_players(view(1), 2).local_admitted);
     assert!(!admit_players(view(2), 2).local_admitted);
-}
-
-/// D109 : seul le départ d'un pair de la session **en cours** rend la synchronisation sans issue ;
-/// l'arrivée d'un pair ou le départ d'un pair d'une session passée n'y change rien.
-#[test]
-fn only_a_departing_current_session_peer_abandons_the_session() {
-    use super::session_peer_left;
-    use bevy_matchbox::prelude::PeerState::{Connected, Disconnected};
-    use std::collections::BTreeSet;
-    let current = BTreeSet::from([peer(2)]);
-    assert!(session_peer_left(&[(peer(2), Disconnected)], &current));
-    assert!(session_peer_left(
-        &[(peer(1), Connected), (peer(2), Disconnected)],
-        &current
-    ));
-    assert!(!session_peer_left(&[(peer(2), Connected)], &current));
-    assert!(!session_peer_left(&[(peer(1), Disconnected)], &current));
-    assert!(!session_peer_left(&[], &current));
 }

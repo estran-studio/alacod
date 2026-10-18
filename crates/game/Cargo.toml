@@ -12,6 +12,9 @@ bevy_kira_audio = { version = "0.26" }
 # TODO: revenir sur une release crates.io quand bevy_matchbox supportera bevy 0.19
 # (port upstream: https://github.com/johanhelsing/matchbox/pull/557)
 bevy_matchbox = { git = "https://github.com/AdamWhitehurst/matchbox", rev = "593f900c4f27e94632a71232389d9e4ffaeb9bdf", features = ["ggrs"] }
+# Crate de données (`PeerId`) : la moitié simulation de `jjrs::p2p` ne voit pas `bevy_matchbox` (D69 étape 2, E6) ;
+# même révision que `combat`.
+matchbox_protocol = { git = "https://github.com/AdamWhitehurst/matchbox", rev = "593f900c4f27e94632a71232389d9e4ffaeb9bdf" }
 bevy_light_2d = { version = "0.10", optional = true }
 # Écrans en gabarits pseudo-HTML (M2-T18, docs/conventions.md §56).
 # Présentation seule, jamais dans les crates de simulation.

@@ -98,7 +98,7 @@ mod native {
         async_trait::async_trait, PeerEvent, PeerRequest, SignalingError, Signaller,
         SignallerBuilder,
     };
-    use futures_util::{SinkExt, StreamExt};
+    use futures_util::StreamExt;
 
     use super::SharedSightings;
 

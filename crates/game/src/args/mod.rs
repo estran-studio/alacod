@@ -18,6 +18,7 @@ pub struct DebugAiConfig {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod cli;
+pub mod telemetry_config;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 
@@ -213,6 +214,8 @@ impl Plugin for BaseArgsPlugin {
         #[cfg(target_arch = "wasm32")]
         if let Some(session) = crate::jjrs::browser::session() {
             app.insert_resource(session);
+            // Marqueur lu par la simulation (`run_state::apply_run_request_system`).
+            app.insert_resource(crate::run_state::HostedSession);
         }
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -220,7 +223,9 @@ impl Plugin for BaseArgsPlugin {
 
         app.add_plugins(telemetry::TelemetryPlugin);
 
-        app.add_plugins(GameArgsPlugin(args));
+        app.add_plugins(GameArgsPlugin(args.clone()));
+        // Après `GameArgsPlugin` : la télémétrie est une ressource d'application, que la simulation ne lit pas.
+        app.add_plugins(telemetry_config::TelemetryConfigPlugin(args));
     }
 }
 
@@ -244,12 +249,6 @@ impl Plugin for GameArgsPlugin {
         // Ressource ordinaire, hors rollback (voir `sim_core::players`) : ne pas
         // l'enregistrer avec `RollbackTraceApp`, ça changerait les traces de référence.
         app.insert_resource(PlayersCount(nbr_player));
-
-        app.insert_resource(telemetry::TelemetryConfig {
-            enabled: args.telemetry,
-            url: args.telemetry_url,
-            auth_token: args.telemetry_auth,
-        });
 
         app.insert_resource(if !args.matchbox.is_empty() || !args.allumette.is_empty() {
             OnlineState::Online

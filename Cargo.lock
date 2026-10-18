@@ -5893,6 +5893,7 @@ dependencies = [
  "lazy_static",
  "leafwing-input-manager",
  "map",
+ "matchbox_protocol",
  "meta",
  "once_cell",
  "pathfinding",

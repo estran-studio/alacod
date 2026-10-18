@@ -214,7 +214,7 @@ fn spawn_lobby_ui(mut commands: Commands) {
 
 /// D109 : texte de [`LobbyStatusText`] d'après `LobbyConnectWatch` (horloge murale).
 fn update_lobby_status(
-    watch: Res<crate::jjrs::p2p::LobbyConnectWatch>,
+    watch: Res<crate::jjrs::p2p_socket::LobbyConnectWatch>,
     mut texts: Query<&mut Text, With<LobbyStatusText>>,
 ) {
     let now = bevy::platform::time::Instant::now();
@@ -222,8 +222,9 @@ fn update_lobby_status(
         .notice
         .map(|(notice, since)| (notice, now.saturating_duration_since(since).as_secs_f32()));
     let room_full = watch.room_full.map(|full| (full.peers, full.max));
-    let status = crate::jjrs::p2p::connect_status_text(watch.pending_secs, room_full, notice)
-        .unwrap_or_default();
+    let status =
+        crate::jjrs::p2p_socket::connect_status_text(watch.pending_secs, room_full, notice)
+            .unwrap_or_default();
     for mut text in &mut texts {
         if text.0 != status {
             text.0.clone_from(&status);

@@ -2,8 +2,10 @@
 pub mod browser;
 pub mod local;
 pub mod p2p;
+pub mod p2p_socket;
 pub mod restart;
 pub mod signal_watch;
+pub mod telemetry;
 // Client HTTP allumette (D12, m0-v9) : natif uniquement (le flux challenge/login
 // n'existe pas sur le web en v1, et `ureq` n'est pas compilé pour wasm).
 #[cfg(not(target_arch = "wasm32"))]
@@ -13,7 +15,7 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::prelude::*;
 
-use crate::{character::player::jjrs::PeerConfig, collider::spawn_test_wall};
+use crate::character::player::jjrs::PeerConfig;
 
 // Shared configuration between the client for the ggrs configuration
 // to apply to their game
@@ -139,10 +141,21 @@ fn players_at<'a>(
     }
 }
 
+/// Un desync vient d'être détecté par GGRS (même instant que l'erreur journalisée par [`log_ggrs_events`]).
+/// La simulation ne connaît pas la télémétrie : l'application transmet ce message
+/// (`jjrs::telemetry::forward_desync_telemetry`), même idiome que [`SessionLostEvent`].
+#[derive(Event, Message, Debug, Clone, PartialEq, Eq)]
+pub struct DesyncObserved {
+    pub frame: bevy_ggrs::ggrs::Frame,
+    pub local_checksum: u128,
+    pub remote_checksum: u128,
+    /// `{:?}` de l'adresse du pair (identifiant matchbox : affichage seulement).
+    pub addr_debug: String,
+}
+
 pub fn log_ggrs_events(
     mut session: ResMut<bevy_ggrs::Session<PeerConfig>>,
-    telemetry_config: Res<telemetry::TelemetryConfig>,
-    #[cfg(not(target_arch = "wasm32"))] telemetry_sender: Option<Res<telemetry::TelemetrySender>>,
+    mut desync_writer: MessageWriter<DesyncObserved>,
     mut lost_writer: MessageWriter<SessionLostEvent>,
     mut exit: MessageWriter<AppExit>,
     session_building: Option<Res<GgrsSessionBuilding>>,
@@ -186,23 +199,13 @@ pub fn log_ggrs_events(
                     frame, local_checksum, remote_checksum, who
                 );
 
-                let event = telemetry::TelemetryEvent {
-                    level: "DESYNC".to_string(),
-                    message: "Desync detected between local and remote".to_string(),
-                    frame: Some(frame.try_into().unwrap_or(0)),
-                    checksum_local: Some(local_checksum),
-                    checksum_remote: Some(remote_checksum),
-                    extra: Some(format!("{:?}", addr)),
-                    timestamp: chrono::Utc::now().timestamp_micros(),
-                };
-
-                #[cfg(not(target_arch = "wasm32"))]
-                if let Some(sender) = telemetry_sender.as_ref() {
-                    telemetry::send_event(sender, event);
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                telemetry::send_event(&telemetry_config, event);
+                // Télémétrie : `jjrs::telemetry::forward_desync_telemetry` (application) lit ce message.
+                desync_writer.write(DesyncObserved {
+                    frame,
+                    local_checksum,
+                    remote_checksum,
+                    addr_debug: format!("{:?}", addr),
+                });
 
                 // Une simulation qui a divergé n'est plus une partie commune : on l'arrête
                 // (les deux pairs continueraient sinon chacun leur jeu, en silence).
