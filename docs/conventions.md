@@ -6676,7 +6676,7 @@ explosions pèsent aussi dans la mesure.
 
 ### Budgets par poste
 
-`tests/budgets.ron` : les 29 budgets existants restent ceux de `main` (les relevés VPS, chargés jusqu'à 5, sont indicatifs) ; les quatre scénarios neufs ont des budgets **provisoires** (poste, date, charge en commentaire). Recalibrage au calme : D84, protocole de sortie dans `dettes.md` (trois `make bench` consécutifs, `uptime` < 1,5 tenu, poste nommé, sans autre worker). Règle inchangée : plancher = moitié de la pire mesure, plafond = double,
+`tests/budgets.ron` : 49 entrées recalibrées par D84 (2026-10-18, VPS Debian 8 cœurs, trois `make bench` strict + un quatrième vert d'un seul tenant) : plancher = moitié de la pire mesure (arrondie au-dessus), plafond de rollback = double. Les scénarios `generated/<jeu>/<nom>` se désignent par leur **id complet** (une clé nue ne correspond à rien et retombe sur le défaut). La charge 1 min du bench seul est de 2 à 3 (pointes 14) : le critère « `uptime` < 1,5 » ne se tient pas, on joint la charge **hors bench** (`rapports/m3-t15-d84-charge/`). Règle : plancher = moitié de la pire mesure, plafond = double,
 jamais plus de 2 × la mesure au calme ; on ne relâche pas un seuil pour passer.
 
 

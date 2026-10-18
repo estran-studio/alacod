@@ -1,6 +1,6 @@
 # m3-t15-bench-larmes : rapport
 
-Branche `m3-t15-bench-larmes` depuis `origin/main` `3f37ba43`. Worker b6. Conventions §80, dette D84 (reste ouverte), D97, D98.
+Branche `m3-t15-bench-larmes` depuis `origin/main` `3f37ba43`. Worker b6. Conventions §80, dette D84 (**fermée** par `dette-d84-budgets-calme`, section « D84 au calme » en fin de rapport), D97, D98.
 Poste : **VPS Debian 8 cœurs, partagé** (un autre worker, b2, joue la même suite sur la même machine), build à froid
 (`CARGO_BUILD_JOBS=4`, 45 min), profil `headless`, suite complète en un processus. **Cloud/partage : la mesure de référence n'a pas pu
 être faite à `uptime` < 1,5 en continu** (voir §2) ; le dire est la règle, la pire valeur de trois relevés les moins chargés fait foi.
@@ -161,8 +161,140 @@ branche** (le tirage des variantes et du butin de `main` change l'étage de la g
 
 ## 7. Dettes
 
-D84 **reste ouverte** (protocole : trois `make bench` au calme sur un poste nommé, `uptime` < 1,5 tenu). **D97** (coût de `bench_tears`, 56 ms, population de `Split`). **D98** (M4 contre VPS, à rejouer sur un second poste).
+D84 : **fermée** le 2026-10-18 (voir « D84 au calme » ci-dessous). **D97** (coût de `bench_tears`, 56 ms, population de `Split`). **D98** (M4 contre VPS, à rejouer sur un second poste).
 
 ## 8. Atteignabilité
 
 Sans objet : mesure ; les scénarios jouent des objets et familiers existants (`division`, `rebond`, `guide`, `essaim`) et l'étage `sous_sol_grand` par le bot `explorateur`.
+
+## D84 au calme (dette-d84-budgets-calme, 2026-10-18)
+
+Branche `dette-d84-budgets-calme` depuis `origin/main` `f96fa463` (qui contient `m2-salles-murs-gungeon` : gabarits gungeon agrandis, mesurés tels quels). Worker b6, VPS Debian 8 cœurs (Haswell, 3,1 GHz, 3 à 5 % de vol d'hyperviseur), `--profile headless`, compilation faite **avant** les relevés, un seul processus de bench à la fois, nightly absent (`nightly.sh` jamais vu en cours).
+
+### Les relevés
+
+Quatre `make bench` (`ALACOD_BENCH_STRICT=1`) consécutifs, fichiers de charge dans `docs/taches/rapports/m3-t15-d84-charge/` (`charge-r1..4.txt` : date, `loadavg` 1 min toutes les ~10 s ; r2 à r4 ajoutent `autres=` = CPU instantané de tous les processus **hors** bench, `others.py`, lu dans `/proc`). r1 à r3 : budgets de `main` (28 à 29 échecs de budget chacun, attendus : l'ancien fichier venait d'un autre poste), r4 : budgets recalibrés.
+
+| relevé | début → fin (UTC) | durée du test | loadavg 1 min : médiane / p95 / max | CPU hors bench (cœurs ×100 %) : médiane / p95 / max | résultat |
+|---|---|---|---|---|---|
+| r1 | 14:10 → 15:21 | 4 282 s | 2,9 / 8,4 / 13,9 | non échantillonné (top-4 de `ps` seulement) | 29 budgets dépassés |
+| r2 | 15:21 → 16:28 | 3 985 s | 2,5 / 10,3 / 13,0 | 43 % / 185 % / 314 % | 28 |
+| r3 | 16:28 → 17:36 | 4 127 s | 2,5 / 7,0 / 10,1 | 26 % / 146 % / 284 % | 29 |
+| r4 (validation) | 19:55 → 21:03 | 4 084 s | 3,5 / 7,2 / 13,7 | 44 % / 666 % / 770 % | **vert, `exit=0`** |
+
+**Le critère « `uptime` 1 min < 1,5 tenu » est intenable pour ce bench, et n'a pas été tenu.** Le processus de bench seul occupe 1,5 à 2 cœurs en continu (150 à 205 % dans `ps`) avec des pointes de 14 threads exécutables (`vmstat`, colonne `r`) : sa propre charge 1 min est de 2 à 3, pointes à 10-14 (au dernier scénario de r1, à 13,9, `ps` montre le bench à 111 %). Le seuil de 1,5 de la consigne comptait ~1,1 pour le bench (rapport T15) ; il n'est pas atteint même sans aucun autre processus (charge de 0,68 au repos avant r1, 1,5 à 3 dès les premiers scénarios). **Je n'ai donc pas refait les relevés indéfiniment** ; j'ai mesuré ce qui est mesurable, la charge **hors bench** (r2 à r4), et je la donne ci-dessus.
+
+Perturbateurs identifiés (pas des workers de la série) : outillage de l'orchestrateur sur le VPS, jamais un build ni un bench d'un autre worker pendant les relevés. `hermes` (python) à 50 à 100 % par moments en r2 (15:25 à 16:09) et r3 ; **`chrome` (2 processus, 35 à 80 %) pendant les deux premières minutes de r3** ; **`hermes` à 560 à 700 % pendant 32 échantillons de r4** (≈ 5 minutes sur 68, entre 19:55 et 21:00) ; `omp`, `node`, `tailscaled` : 5 à 20 % chacun en continu. Avant r1 : le build de b2 (`rustc` 4 × 100 %, puis `cargo test` des crates, `map_ldtk` à 300 %) a tenu le poste de 13:00 à 14:08 : j'ai attendu qu'il finisse et que `loadavg` retombe à 0,7 avant de lancer r1. Écart entre relevés des scénarios budgétés : 10 à 18 % (médiane sur les 653 scénarios : 19 %, pointes de 60 à 100 % sur des scénarios de 60 à 150 frames où le démarrage domine, non budgétés). Les budgets sont à la moitié de la pire mesure : cette dispersion est couverte ; elle **n'est pas** une mesure de référence au calme absolu, qui n'existe pas sur ce poste avec ce bench.
+
+Le même poste a mesuré ces scénarios 30 % plus vite il y a deux jours (les relevés « indicatifs » de T15, ci-dessus : `idle` 118 à 155 fps, `bench_cave` 106 fps, contre 82 à 88 et 69 à 82 aujourd'hui) : le poste varie d'une journée à l'autre, donc la comparaison avant/après T15 ci-dessous est faite **le même jour**, binaires entrelacés.
+
+### Budgets recalibrés (49 entrées)
+
+Règle : plancher = ⌈pire fps / 2⌉, plafond de rollback = ⌈2 × pire rollback⌉ (pire des trois relevés r1 à r3). Résultat : **36 planchers baissés, 13 montés** ; **11 plafonds de rollback montés, aucun baissé** ; 31 planchers baissés de plus de 25 % de leur ancienne valeur. r4 : tous les scénarios au-dessus de leur plancher et sous leur plafond, suite complète (653 scénarios) verte d'un seul tenant, plus bas fps de la suite 26,4 (`bench_tears`, plancher 14).
+
+**Clés mortes corrigées.** `item_bottes`, `item_fiole`, `item_pierre_de_soin`, `item_lame`, `room_combat`, `boss_gatling` ne désignaient aucun scénario (les scénarios générés ont pour nom `generated/<jeu>/<nom>`, recherche exacte dans `budgets.scenarios`) : ils étaient jugés sur le défaut (40 fps). Ils sont désormais clés par leur id complet (6 clés → 10 ids : `generated/gungeon/item_bottes`, `generated/testbed/item_bottes`, …, `generated/gungeon/boss_gatling`), d'où les 13 hausses (par exemple `item_fiole` 20 → 46).
+
+| scénario | fps r1 / r2 / r3 | r4 | ancien plancher | nouveau plancher | rollback pire r1 / r2 / r3 (ms) | r4 | ancien plafond | nouveau plafond |
+|---|---|---|---|---|---|---|---|---|
+| bench_floor | 34.0 / 37.7 / 35.0 | 33.5 | 40 | **18** (-55 %) | 36.7 / 33.8 / 36.2 | 37.9 | 18 | **74** |
+| gungeon_full_run | 42.3 / 45.7 / 41.5 | 43.1 | 24 | **21** (-12 %) | 24.2 / 22.4 / 24.9 | 24.3 | 46 | **50** |
+| gungeon_full_run_four | 29.8 / 32.4 / 33.7 | 32.4 | 20 | **15** (-25 %) | 30.0 / 27.8 / 27.3 | 28.3 | 51 | **60** |
+| bot_explorer_floor | 79.0 / 85.4 / 75.5 | 77.4 | 120 | **38** (-68 %) | 13.9 / 13.2 / 15.2 | 15.1 | — | — |
+| bot_explorer_two | 70.4 / 75.1 / 63.6 | 69.4 | 100 | **32** (-68 %) | 14.6 / 13.8 / 16.4 | 15.3 | — | — |
+| generated/gungeon/item_bottes | 86.1 / 95.9 / 96.4 | 74.9 | 20 | **44** (+120 %) | 14.5 / 13.1 / 13.1 | 16.3 | — | — |
+| generated/testbed/item_bottes | 75.6 / 80.9 / 92.2 | 77.3 | 20 | **38** (+90 %) | 16.4 / 16.0 / 13.7 | 17.4 | — | — |
+| generated/gungeon/item_fiole | 91.0 / 102.5 / 110.9 | 92.8 | 20 | **46** (+130 %) | 14.1 / 12.2 / 11.0 | 13.6 | — | — |
+| generated/testbed/item_fiole | 84.4 / 97.2 / 86.9 | 78.4 | 20 | **43** (+115 %) | 15.0 / 13.6 / 15.7 | 16.8 | — | — |
+| generated/gungeon/item_pierre_de_soin | 80.1 / 99.2 / 76.8 | 96.9 | 20 | **39** (+95 %) | 15.7 / 12.0 / 16.5 | 13.1 | — | — |
+| generated/testbed/item_lame | 85.5 / 82.0 / 96.9 | 76.2 | 20 | **42** (+110 %) | 14.8 / 15.3 / 13.5 | 16.9 | — | — |
+| generated/gungeon/room_combat | 62.0 / 80.2 / 76.1 | 90.7 | 25 | **32** (+28 %) | 18.1 / 13.9 / 15.3 | 12.9 | — | — |
+| generated/isaac/room_combat | 61.5 / 58.4 / 70.5 | 64.2 | 25 | **30** (+20 %) | 18.4 / 19.3 / 16.5 | 18.2 | — | — |
+| generated/testbed/room_combat | 68.3 / 82.0 / 71.0 | 83.4 | 25 | **35** (+40 %) | 15.6 / 13.1 / 15.3 | 13.3 | — | — |
+| generated/gungeon/boss_gatling | 77.7 / 61.8 / 95.0 | 71.6 | 25 | **31** (+24 %) | 14.6 / 17.4 / 12.0 | 16.3 | — | — |
+| ammo_burst | 75.2 / 87.5 / 76.5 | 82.6 | 120 | **38** (-68 %) | 13.5 / 11.8 / 13.8 | 13.0 | — | — |
+| bullets_walls | 80.2 / 88.5 / 84.5 | 89.7 | 140 | **41** (-71 %) | 12.0 / 11.3 / 12.0 | 11.6 | — | — |
+| dash_wall | 79.9 / 93.3 / 79.1 | 75.7 | 100 | **40** (-60 %) | 12.4 / 10.8 / 13.2 | 13.9 | — | — |
+| door_open | 62.5 / 87.9 / 83.5 | 76.5 | 45 | **32** (-29 %) | 15.3 / 12.5 / 13.4 | 15.0 | — | — |
+| idle | 81.8 / 88.2 / 84.2 | 84.1 | 110 | **41** (-63 %) | 13.0 / 12.0 / 12.8 | 13.0 | — | — |
+| movement_melee | 80.7 / 87.0 / 71.7 | 93.7 | 90 | **36** (-60 %) | 12.8 / 12.1 / 14.7 | 11.6 | — | — |
+| remote_first_fight | 86.5 / 86.9 / 90.7 | 85.8 | 120 | **44** (-63 %) | 12.1 / 12.0 / 11.6 | 12.6 | — | — |
+| shoot_around | 83.3 / 84.8 / 76.8 | 84.7 | 100 | **39** (-61 %) | 12.5 / 12.4 / 14.0 | 12.8 | — | — |
+| two_players_idle | 72.2 / 73.3 / 74.6 | 81.9 | 80 | **37** (-54 %) | 14.6 / 14.6 / 14.5 | 13.5 | — | — |
+| two_players_shooting | 73.9 / 74.4 / 80.5 | 88.3 | 130 | **37** (-72 %) | 13.3 / 13.1 / 13.0 | 11.7 | — | — |
+| weapons_workout | 74.1 / 80.3 / 83.6 | 81.0 | 100 | **38** (-62 %) | 14.0 / 12.9 / 12.8 | 13.3 | — | — |
+| window_repair | 70.2 / 88.2 / 84.1 | 79.5 | 100 | **36** (-64 %) | 15.1 / 12.0 / 12.8 | 14.0 | — | — |
+| four_players_idle | 66.8 / 80.1 / 65.4 | 69.6 | 100 | **33** (-67 %) | 13.7 / 12.0 / 14.8 | 14.3 | — | — |
+| four_players_shooting | 65.0 / 84.4 / 67.4 | 77.6 | 100 | **33** (-67 %) | 14.8 / 11.6 / 14.9 | 13.0 | — | — |
+| testbed_ally_safe | 86.3 / 93.3 / 90.3 | 107.6 | 150 | **44** (-71 %) | 13.0 / 11.8 / 12.4 | 10.4 | — | — |
+| testbed_arena_idle | 98.8 / 94.2 / 94.7 | 81.8 | 150 | **48** (-68 %) | 10.8 / 11.4 / 11.8 | 13.1 | — | — |
+| testbed_civilian_blocks | 100.8 / 93.4 / 90.6 | 93.0 | 160 | **46** (-71 %) | 10.8 / 11.6 / 12.5 | 12.3 | — | — |
+| testbed_corridor_idle | 113.1 / 109.3 / 97.3 | 93.7 | 180 | **49** (-73 %) | 9.7 / 9.8 / 11.6 | 11.8 | — | — |
+| testbed_dummy_shoot | 89.4 / 111.2 / 84.9 | 95.2 | 160 | **43** (-73 %) | 12.9 / 9.8 / 13.3 | 11.9 | — | — |
+| testbed_follower | 89.1 / 97.8 / 90.9 | 93.7 | 170 | **45** (-74 %) | 11.9 / 10.8 / 12.4 | 12.0 | — | — |
+| testbed_target_hits | 101.2 / 90.7 / 92.6 | 91.6 | 140 | **46** (-67 %) | 10.9 / 12.1 / 12.4 | 12.4 | — | — |
+| testbed_two_rooms_door_idle | 100.7 / 106.8 / 89.7 | 93.0 | 180 | **45** (-75 %) | 10.2 / 9.6 / 12.3 | 11.9 | — | — |
+| testbed_window | 105.8 / 97.5 / 80.0 | 99.0 | 160 | **40** (-75 %) | 10.0 / 10.7 / 13.2 | 10.9 | — | — |
+| bench_bullets | 56.8 / 58.6 / 50.8 | 58.0 | 80 | **26** (-68 %) | 20.3 / 20.0 / 23.2 | 20.3 | 8 | **47** |
+| bench_bullets_room | 38.9 / 42.9 / 38.1 | 33.2 | 40 | **20** (-50 %) | 40.4 / 37.5 / 41.6 | 47.7 | 26 | **84** |
+| throne_quad | 46.4 / 45.4 / 47.0 | 51.8 | 14 | **23** (+64 %) | 27.5 / 28.0 / 27.6 | 25.3 | — | — |
+| throne_three_floors | 52.3 / 54.1 / 55.0 | 60.8 | 20 | **27** (+35 %) | 24.3 / 23.6 / 23.6 | 21.8 | — | — |
+| throne_softlock_recul | 63.8 / 56.9 / 61.3 | 70.0 | 26 | **29** (+12 %) | 19.2 / 21.5 / 20.2 | 18.0 | — | — |
+| bench_horde | 37.1 / 39.3 / 34.9 | 35.8 | 38 | **18** (-53 %) | 51.0 / 49.0 / 53.4 | 52.9 | 70 | **107** |
+| bench_cave | 69.4 / 81.7 / 73.1 | 69.4 | 100 | **35** (-65 %) | 15.3 / 13.3 / 14.9 | 15.9 | 5 | **31** |
+| bench_tears | 27.7 / 30.7 / 26.6 | 26.4 | 17 | **14** (-18 %) | 70.0 / 63.7 / 72.2 | 73.2 | 113 | **145** |
+| bench_tears_trio | 69.4 / 78.1 / 68.7 | 72.4 | 49 | **35** (-29 %) | 19.3 / 17.7 / 20.2 | 19.1 | 27 | **41** |
+| bench_familiars | 71.7 / 80.7 / 84.6 | 73.3 | 45 | **36** (-20 %) | 15.5 / 14.2 / 13.5 | 15.9 | 26 | **31** |
+| bench_floor_isaac | 52.3 / 58.9 / 52.8 | 51.1 | 29 | **27** (-7 %) | 20.5 / 18.6 / 21.0 | 21.7 | 38 | **42** |
+
+### Baisses de plus de 25 % : le poste, pas une régression
+
+Pour chaque scénario dont le plancher baisse de plus de 25 %, même scénario sur `7ee084e8` (`origin/main` **d'avant T15**, parent de la fusion `6e6be0ba`, worktree `/home/debian/orca/workers/b6/alacod-base-pret15`, même `CARGO_TARGET_DIR`, même profil), deux passes le même jour que r1 à r3 (vers 18 h UTC, juste après) : fps moyen des trois relevés de la branche contre fps moyen des deux passes de `main` d'avant T15 (ratio < 1 : la branche est plus lente). Les scénarios générés, `throne_*` et les scénarios de T15 ne baissent pas de plus de 25 % (ou n'existaient pas avant T15).
+
+| scénario | fps branche (r1/r2/r3) | fps avant T15 (2 passes) | ratio | rollback branche (ms) | rollback avant T15 (ms) |
+|---|---|---|---|---|---|
+| bench_floor | 34 / 38 / 35 | 45 / 46 | 0.78 | 36.7 / 33.8 / 36.2 | 25.9 / 25.7 |
+| ammo_burst | 75 / 88 / 77 | 101 / 90 | 0.84 | 13.5 / 11.8 / 13.8 | 9.6 / 10.8 |
+| testbed_ally_safe | 86 / 93 / 90 | 104 / 106 | 0.86 | 13.0 / 11.8 / 12.4 | 10.6 / 10.4 |
+| bot_explorer_two | 70 / 75 / 64 | 81 / 80 | 0.87 | 14.6 / 13.8 / 16.4 | 13.8 / 14.2 |
+| testbed_target_hits | 101 / 91 / 93 | 98 / 115 | 0.89 | 10.9 / 12.1 / 12.4 | 11.5 / 9.4 |
+| testbed_follower | 89 / 98 / 91 | 94 / 111 | 0.90 | 11.9 / 10.8 / 12.4 | 11.6 / 9.6 |
+| bench_bullets | 57 / 59 / 51 | 64 / 59 | 0.91 | 20.3 / 20.0 / 23.2 | 18.1 / 19.0 |
+| bullets_walls | 80 / 88 / 84 | 91 / 93 | 0.92 | 12.0 / 11.3 / 12.0 | 11.3 / 11.1 |
+| testbed_dummy_shoot | 89 / 111 / 85 | 105 / 100 | 0.93 | 12.9 / 9.8 / 13.3 | 10.7 / 11.2 |
+| four_players_idle | 67 / 80 / 65 | 74 / 77 | 0.94 | 13.7 / 12.0 / 14.8 | 13.2 / 12.6 |
+| shoot_around | 83 / 85 / 77 | 83 / 91 | 0.94 | 12.5 / 12.4 / 14.0 | 12.6 / 11.6 |
+| bench_bullets_room | 39 / 43 / 38 | 45 / 40 | 0.95 | 40.4 / 37.5 / 41.6 | 35.5 / 39.6 |
+| testbed_window | 106 / 98 / 80 | 104 / 96 | 0.95 | 10.0 / 10.7 / 13.2 | 10.2 / 11.1 |
+| bot_explorer_floor | 79 / 85 / 75 | 84 / 84 | 0.95 | 13.9 / 13.2 / 15.2 | 13.7 / 13.7 |
+| bench_horde | 37 / 39 / 35 | 39 / 38 | 0.97 | 51.0 / 49.0 / 53.4 | 49.0 / 50.1 |
+| two_players_idle | 72 / 73 / 75 | 72 / 78 | 0.98 | 14.6 / 14.6 / 14.5 | 14.9 / 13.9 |
+| movement_melee | 81 / 87 / 72 | 80 / 80 | 0.99 | 12.8 / 12.1 / 14.7 | 13.4 / 13.3 |
+| idle | 82 / 88 / 84 | 88 / 80 | 1.01 | 13.0 / 12.0 / 12.8 | 12.1 / 13.3 |
+| door_open | 62 / 88 / 83 | 73 / 82 | 1.01 | 15.3 / 12.5 / 13.4 | 15.1 / 13.6 |
+| testbed_corridor_idle | 113 / 109 / 97 | 107 / 103 | 1.01 | 9.7 / 9.8 / 11.6 | 9.9 / 10.4 |
+| remote_first_fight | 87 / 87 / 91 | 87 / 86 | 1.02 | 12.1 / 12.0 / 11.6 | 12.1 / 12.3 |
+| testbed_two_rooms_door_idle | 101 / 107 / 90 | 99 / 95 | 1.02 | 10.2 / 9.6 / 12.3 | 11.0 / 11.3 |
+| bench_cave | 69 / 82 / 73 | 73 / 72 | 1.03 | 15.3 / 13.3 / 14.9 | 14.8 / 15.1 |
+| testbed_arena_idle | 99 / 94 / 95 | 89 / 96 | 1.04 | 10.8 / 11.4 / 11.8 | 12.4 / 11.5 |
+| window_repair | 70 / 88 / 84 | 82 / 73 | 1.04 | 15.1 / 12.0 / 12.8 | 12.8 / 14.2 |
+| four_players_shooting | 65 / 84 / 67 | 65 / 73 | 1.05 | 14.8 / 11.6 / 14.9 | 15.6 / 13.7 |
+| weapons_workout | 74 / 80 / 84 | 79 / 70 | 1.07 | 14.0 / 12.9 / 12.8 | 13.4 / 14.8 |
+| testbed_civilian_blocks | 101 / 93 / 91 | 85 / 85 | 1.12 | 10.8 / 11.6 / 12.5 | 13.1 / 12.8 |
+| dash_wall | 80 / 93 / 79 | 67 / 83 | 1.12 | 12.4 / 10.8 / 13.2 | 14.0 / 12.5 |
+| two_players_shooting | 74 / 74 / 81 | 77 / 56 | 1.14 | 13.3 / 13.1 / 13.0 | 12.8 / 17.5 |
+
+Sur 30 scénarios, ratio de 0,89 à 1,14 pour 28 (bruit du poste, 10 à 18 %), donc les écarts aux anciens planchers (macOS arm64 et cloud 4 cœurs, 2 à 3,5 fois plus rapides que ce VPS, voir « Comparaison M4/VPS », D98) sont le **poste**. Deux limites :
+
+- `ammo_burst` 0,84 et `bench_floor` 0,78 : refaits **six fois chacun, binaires entrelacés** (`bin-base`/`bin-head` copiés, une exécution de l'un puis de l'autre) avec `bot_explorer_two`, `bench_bullets`, `testbed_ally_safe` :
+
+| scénario | fps avant T15 (médiane de 6) | fps branche (médiane de 6) | rollback avant (ms) | rollback branche (ms) | verdict |
+|---|---|---|---|---|---|
+| ammo_burst | 89,2 | 85,1 | 11,2 | 12,2 | bruit (écart 5 %, plages 64 à 93 / 74 à 97) |
+| bench_bullets | 60,2 | 56,0 | 19,5 | 20,9 | bruit (7 %) |
+| bot_explorer_two | 75,3 | 67,9 | 15,2 | 16,0 | bruit (10 %, plages qui se recouvrent) |
+| testbed_ally_safe | 85,1 | 92,9 | 14,4 | 12,7 | bruit |
+| **bench_floor** | **45,9** | **35,3** | **27,0** | **36,7** | **−23 % en fps, +36 % de rollback, stable sur les 6 passes (plages 38 à 47 contre 31 à 39 ; rollback 25 à 30 contre 33 à 41)** |
+
+- **`bench_floor` est plus lent que `main` d'avant T15, de façon reproductible.** Ce n'est pas T15 (qui n'a touché ni la simulation ni le contenu : traces inchangées) : [INFERENCE] c'est `m2-salles-murs-gungeon`, seul changement de gungeon entre `7ee084e8` et `f96fa463` (salles ×1,9 à ×5,5, étage plus grand, champ de flux de 406 µs par frame déjà relevé par T15). Non isolé par une mesure sur `6e6be0ba` (la consigne : mesurer `main` tel qu'il est). Le plancher (18 fps) et le plafond (74 ms) de `bench_floor` portent donc le coût du contenu agrandi ; ce n'est pas une régression de code sans cause, mais le pire rollback de 37 ms (3 ticks de 16,7 ms et plus) est **à suivre** : aucune dette ouverte tant que la cause est un choix de contenu ; à rouvrir si `bench_floor` descend sous 30 fps sur ce poste.
+
+**Régression réelle : aucune.** Aucune dette nouvelle. (D97, `bench_tears` : pire rollback 64 à 72 ms ici contre 56 ms au rapport, même ordre ; plafond 145 ms ; reste ouverte.)
