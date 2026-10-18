@@ -1,6 +1,7 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage de curse passe par `fmix32` (D95) ; la graine 5 donne maintenant « unknown », la graine 3 donne « blind » à l'étage 0 (graine la plus petite qui convient).
 // M3-T16 (docs/conventions.md §81, dette de M3-T9 §74) : la curse « Blind » (`HideItemNames`) cache le nom de l'objet
 // ramassé dans le bandeau du HUD (« ??? »), comme dans le prompt de l'objet au sol. `isaac`, séquence `sous_sol_maudit`,
-// graine 5 : « blind ». Un passif (`bottines`) est posé sous les pieds du joueur à f1 et ramassé à f10.
+// graine 3 : « blind ». Un passif (`bottines`) est posé sous les pieds du joueur à f1 et ramassé à f10.
 //
 // À regarder : f20 le bandeau du centre haut affiche « ??? » au lieu du nom, la vie et la minicarte restent visibles
 // (cœurs 3 / 3), en haut à gauche « Malédiction : blind ».
@@ -8,7 +9,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     floors: Some("sous_sol_maudit"),
-    map_seed: 5,
+    map_seed: 3,
     frames: 60,
     items: [(id: "bottines", x: "-8.0", y: "-8.0", at_frame: 1)],
     players: [(inputs: [(from: 10, to: 11, buttons: [Interaction])])],

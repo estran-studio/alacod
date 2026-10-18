@@ -5,6 +5,7 @@
 // À regarder : le champion tombe, un objet apparaît à sa place, le joueur le ramasse.
 //
 // M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la variante à `tint` du champion (`variant_tint`). Trace inchangée.
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : nouveau tirage (graine `champion:14` passée au `fmix32`, course pondérée) : l'objet lâché est `manche` (avant : `bottes`), toujours du pool `commun`.
 
 Scenario(
     game: "testbed",
@@ -24,8 +25,8 @@ Scenario(
     expect: [
         EnemyVariant(entity: NetId(14), variant: Some("riche"), at_frame: 2),
         EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 100),
-        // Mort à f55 : l'objet tiré (`bottes`, graine `champion:14`) est ramassé à f120 par le joueur arrivé à 23 unités.
-        HasItem(handle: 0, id: "bottes", at_frame: 130),
+        // Mort à f55 : l'objet tiré (`manche`, graine `champion:14`) est ramassé à f120 par le joueur arrivé à 23 unités.
+        HasItem(handle: 0, id: "manche", at_frame: 130),
         Event(kind: "feedback", label_contains: Some("champion 14 (riche)"), by_frame: 2),
     ],
 )

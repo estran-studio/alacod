@@ -1,3 +1,4 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : D96 change le butin du boss pour la même graine 23 (`sang_chaud` au lieu de `reservoir_vital`) et la chronologie du bot (phase 1 f1043, boss nettoyé f1370, butin ramassé f1528, victoire f2335) : `Locked` du boss attendu à f1020 (au lieu de f900) et `HasItem` à f1560 (au lieu de f1450). La graine 23 reste : sa grille (boss 2×2, diable, trésor 2×1) est l'objet du scénario.
 // M3-T5 (docs/conventions.md §70) : un étage en grille avec un **boss 2×2** (480 × 288 px), graine 23 (séquence
 // `sous_sol_un`). Neuf salles : le départ, quatre combats, le boss, la salle du diable (case accrochée au boss, tirée
 // ici), un trésor **2×1** à l'ouest et la salle secrète sous le départ. Le bot `explorateur` bat le boss en premier
@@ -8,7 +9,7 @@
 // f2546 ; scénario 2750 frames). Mêmes attentes. Les frames citées ci-dessous sont celles d'avant D88.
 //
 // À regarder : le boss verrouille sa grande salle (f520), passe en phase 1 (f659), meurt (f779) et la salle se rouvre
-// (ses portes, celle de la salle du diable comprise) ; son butin (`reservoir_vital`, pool `boss`, M3-T8 §73) tombe et le bot
+// (ses portes, celle de la salle du diable comprise) ; son butin (`sang_chaud` depuis D96, pool `boss`, M3-T8 §73) tombe et le bot
 // le ramasse ; il finit ensuite les deux combats restants et la victoire n'arrive qu'entre f1775 et f1800 (f1654 avant le
 // butin) : un étage se gagne quand il n'a plus d'ennemi, pas à la mort du boss seulement.
 //
@@ -30,10 +31,10 @@ Scenario(
         RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
         RoomLayout(kind: "tresor", size: Some((480, 144)), touches: ["combat"], at_frame: 5),
         RoomLayout(kind: "secrete", touches: ["depart", "combat"], apart: ["boss", "diable"], at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 900),
+        RoomState(kind: "boss", state: Locked, at_frame: 1020),
         BossPhase(entity: NetId(139), phase: 1, at_frame: 1050),
         RoomState(kind: "boss", state: Cleared, at_frame: 1400),
-        HasItem(handle: 0, id: "reservoir_vital", at_frame: 1450),
+        HasItem(handle: 0, id: "sang_chaud", at_frame: 1560),
         EntityCount(kind: Enemy, min: Some(4), at_frame: 1350),
         DoorLocked(kind: "secrete", locked: true, at_frame: 2650),
         RunState(step: Ended(Victory), at_frame: 2650),

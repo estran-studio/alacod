@@ -1,6 +1,7 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage de curse passe par `fmix32` (D95) ; la graine 5 donne maintenant « unknown », la graine 3 donne « blind » à l'étage 0 (graine la plus petite qui convient).
 // M3-T9 (docs/conventions.md §74) : la curse « Blind » (`HideItemNames`) ne cache ni la santé ni la
 // minicarte ni les salles : c'est le témoin de `curse_hides_minimap` et `curse_hides_health`. `isaac`,
-// séquence `sous_sol_maudit`, graine 5 : « blind ». Le nom des objets et armes à ramasser ou acheter
+// séquence `sous_sol_maudit`, graine 3 : « blind ». Le nom des objets et armes à ramasser ou acheter
 // devient « ??? » dans le prompt du HUD (hors du `HudSnapshot` que lisent les attentes : prouvé par le
 // test unitaire `blind_curse_hides_the_name_of_pickups_and_keeps_the_rest`). Taille de l'étage : la
 // grammaire de `sous_sol` (8 à 12 salles), non agrandie.
@@ -10,7 +11,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     floors: Some("sous_sol_maudit"),
-    map_seed: 5,
+    map_seed: 3,
     frames: 60,
     players: [(inputs: [])],
     expect: [
