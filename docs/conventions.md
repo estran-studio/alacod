@@ -4400,7 +4400,7 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   (`LobbyOnline` ré-entré ; `attempt=2/2 action=lobby` ; `ALACOD_CONNECT_ATTEMPTS`) ; en allumette et sur le web pas de réouverture. Écran du lobby : ligne d'état (« Connecting to peer... »,
   « new attempt (2/2) », « back to the lobby »). **Piège** : la nouvelle tentative d'un seul côté d'une connexion à moitié ouverte (un canal ouvert, l'autre pas) donnait deux cycles de
   30 s décalés qui ne se rejoignaient jamais ; une session `Synchronizing` est donc aussi abandonnée dès qu'un pair de la session en cours quitte la salle
-  (`CurrentSessionPeers`, `ggrs{f=… session_peer_left …}`). Session seulement : aucune trace de scénario ne bouge. Preuves : `p2p-connect-timeout.sh`, `p2p-connect-starts.sh`
+  (`CurrentSessionPeers`, `ggrs{f=… session_peer_left …}`) ; `wait_for_players` attend aussi tant qu'il y a plus de pairs que `max_player` (socket d'une partie finissante, sinon panique à la construction de la session). Session seulement : aucune trace de scénario ne bouge. Preuves : `p2p-connect-timeout.sh`, `p2p-connect-starts.sh`
   (150 démarrages à 3 % joués, 7 retentés, 0 perdu) ; rapport `dettes-d105-d109.md`.
 - **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
   la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur

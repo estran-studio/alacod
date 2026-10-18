@@ -558,6 +558,16 @@ pub fn wait_for_players(
         }
         return; // wait for more players
     }
+    if players.len() > num_players {
+        // Un pair de trop : le socket d'une partie finissante de l'autre pair (D86), pas encore parti de
+        // la salle. Construire la session avec lui dépasserait `max_player` (panique) : on attend son départ.
+        info!(
+            "Too many peers: {}/{} connected, waiting for a stale socket to leave",
+            players.len(),
+            num_players
+        );
+        return;
+    }
     watch.pending_secs = None;
 
     if !session_state.ready {

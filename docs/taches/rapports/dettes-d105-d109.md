@@ -123,23 +123,34 @@ journaliser l'abandon ; le client 1 est repris ; les deux jouent jusqu'à la fra
 Le second délai du mode par défaut (`attempt=2/2 action=lobby`) n'est pas exercé de bout en bout : avec un pair **gelé** il ne se produit pas (cf. §4.1, le nouveau venu ne revoit pas le pair gelé) ; `ATTEMPTS=1` exerce la même branche de code
 (retour au lobby), et `connect_timeout_action(2, 2, true) == ToLobby` est testé.
 
+### 4.5 Après la fusion avec `5fa55fcb` : un pair de trop, et la panique de matchbox
+
+`origin/main` a avancé deux fois pendant la tâche (`8e25731d`, puis `5fa55fcb` : D69 E1/E2, 80 fichiers ; fusions sans conflit). Sur la seconde, un `p2p-connect-timeout.sh` a révélé un **crash** : après le
+retour au lobby, le client 1 voyait **deux** pairs vivants (le socket de partie d'avant et le neuf de l'autre client : l'ancien n'avait pas encore quitté la salle, D86 ne marque que les pairs dont une
+session a été construite), `players.len() >= max_player` passait et `system_after_map_loaded` paniquait (`failed to add player`, handle hors `num_players`). Défaut **préexistant** (la condition était `<`),
+que les sockets supplémentaires de D109 rendent plus probable. Correctif : `wait_for_players` **attend** (`Too many peers: 3/2 connected, waiting for a stale socket to leave`) tant qu'il y a plus de pairs
+que `max_player` ; le chemin nominal (égalité) ne change pas.
+Aussi dans les journaux (`thread 'async-compat/tokio-1' panicked … native.rs:545 … TrySendError { kind: Disconnected }`) : une panique de **matchbox** (callback `on_open` d'un canal dont le socket vient d'être détruit,
+sa tâche tokio) à chaque socket fermé en pleine négociation ; elle ne tue que cette tâche, le processus continue (les parties se jouent ensuite, traces identiques). Third-party (dépôt `AdamWhitehurst/matchbox`),
+non corrigée ici.
+
 ## 5. Vérifications
 
-Sur la fusion avec `origin/main` `8e25731d` :
+La branche a été vérifiée sur la fusion avec `8e25731d` puis, `main` ayant encore avancé, sur la fusion avec `5fa55fcb` ; les lignes ci-dessous sont celles de la **fusion finale** sauf mention.
 
 | Vérification | Résultat |
 |---|---|
-| `make test_scenarios_par SHARDS=3` sans BLESS | **668 scénarios verts**, 3 tranches, 251 s ; aucune `.trace` modifiée (`git status` propre hors documentation) |
-| `make test_crates` | code 0 ; **1 275 tests passés, 0 échec** (dont `connect_timeout_retries_once_then_returns_to_lobby`, `lobby_status_line_reports_slow_peers_and_abandoned_attempts`, `only_a_departing_current_session_peer_abandons_the_session`, `pending_is_the_oldest_peer_neither_connected_nor_ignored`) |
+| `make test_scenarios_par SHARDS=3` sans BLESS | **668 scénarios verts**, 3 tranches, 290 s (fusion `5fa55fcb`) ; aucune `.trace` modifiée (`git status` propre hors documentation). Non rejoué après le dernier correctif (§4.5, lobby en ligne seulement, aucun chemin de scénario) |
+| `make test_crates` | code 0 ; **1 275 tests passés, 0 échec**, rejoué après le dernier correctif (dont `connect_timeout_retries_once_then_returns_to_lobby`, `lobby_status_line_reports_slow_peers_and_abandoned_attempts`, `only_a_departing_current_session_peer_abandons_the_session`, `pending_is_the_oldest_peer_neither_connected_nor_ignored`) |
 | `make lint` (×5 : zombies, testbed, throne, gungeon, isaac) | 5 « aucune erreur » |
 | `cargo fmt --all -- --check` | propre |
-| `cargo check -p game --target wasm32-unknown-unknown` | passe |
-| `scripts/check-launch-seed.sh` | OK (§2) |
-| `scripts/p2p-stress.sh gungeon` (graine 10, bots figés, 4 500 frames, `STRESS=1`, `EXPECT_FLOORS=1`) | OK : **4 947 frames resimulées** (31 pour le client 1), 0 `DesyncDetected`, passage d'étage f4218 resimulé par les deux, 4 499 frames identiques ; rollbacks client 0 : 1 400, profondeur max 11 |
-| `scripts/p2p-lobby.sh zombies` | 5/5 verts (écarts réels 153, 222, 248, 278, 352 ms ; 1 pair obsolète ignoré par essai ; 0 abandon de session) |
-| `scripts/p2p-restart.sh zombies` | OK (parties 1 et 2 identiques entre clients, partie 2 identique au local) |
-| `scripts/p2p-connect-timeout.sh zombies` | OK en `ATTEMPTS=2` et `ATTEMPTS=1` (§4.4) |
-| Démarrages nominaux avec D109 | 1 % : 30/30, 3 % : 150 démarrages joués, aucune tentative superflue à 1 % |
+| `cargo check -p game --target wasm32-unknown-unknown` | passe (avant la fusion `5fa55fcb`) |
+| `scripts/check-launch-seed.sh` | OK (§2), rejoué sur la fusion finale |
+| `scripts/p2p-stress.sh gungeon` (graine 10, bots figés, 4 500 frames, `STRESS=1`, `EXPECT_FLOORS=1`) | OK : **10 899 frames resimulées** (dernier passage ; 4 947 / 31 sur la fusion précédente), 0 `DesyncDetected`, 4 499 frames identiques, passage d'étage resimulé |
+| `scripts/p2p-lobby.sh zombies` | 5/5 verts dans la bande 100–400 ms (dernier passage) |
+| `scripts/p2p-restart.sh zombies` | OK (dernier passage) |
+| `scripts/p2p-connect-timeout.sh zombies` | **10/10** OK sur le script final (5 × `ATTEMPTS=2`, 5 × `ATTEMPTS=1`) ; il rejoue de lui-même un essai quand la course de la suspension est perdue (6 essais sur 16 : le client 1 avait fini sa négociation, ou le client 0 sa moitié, avant le SIGSTOP) : un essai perdu n'est pas un essai de D109 |
+| Démarrages nominaux avec D109 | 1 % : 30/30 sans tentative superflue ; 3 % : 150 joués (§3) |
 
 ## 6. Limites
 
@@ -147,6 +158,7 @@ Sur la fusion avec `origin/main` `8e25731d` :
 - Une machine, un noyau Linux de VM : la fréquence mesurée (2 à 5 % à 3 % de perte) n'est pas celle d'un WAN. 15 s n'a pas été comparé à d'autres délais (le temps normal tient en 7 s au pire, la mesure ne distingue pas 10 s de 15 s).
 - La nouvelle tentative rompt aussi les connexions déjà ouvertes d'une partie à 3 joueurs ou plus (un socket neuf) : non mesuré à N > 2.
 - Web et allumette : pas d'observation des pairs (web), retour direct au lobby (allumette) ; non essayés.
+- Le lot de 150 démarrages (§3) a tourné **avant** la correction du §4.5 (l'attente d'un pair de trop) ; il n'a pas été rejoué.
 - `p2p-connect-timeout.sh` fabrique le pair bloqué par une suspension (le serveur voit le pair, la négociation n'avance pas) ; la perte réelle de paquets est exercée par `p2p-connect-starts.sh`, sans scénario déterministe.
 
 ## 7. Outils ajoutés

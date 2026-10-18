@@ -20,7 +20,7 @@ EXIT_AT=${EXIT_AT:-300}
 CONNECT_TIMEOUT_S=${CONNECT_TIMEOUT_S:-4}
 TIMEOUT=${TIMEOUT:-300}
 OUT=${OUT:-/tmp/p2p-connect-timeout}
-LOBBY="connecttimeout-$$"
+LOBBY="connecttimeout-$$-${FREEZE_RETRIES:-4}"
 
 # shellcheck source=scripts/p2p-lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/p2p-lib.sh"
@@ -33,6 +33,19 @@ cleanup() {
     [ -z "${pids[1]:-}" ] || kill -CONT "${pids[1]}" 2>/dev/null || true
     [ "${#pids[@]}" -eq 0 ] || kill "${pids[@]}" 2>/dev/null || true
     p2p_signaling_down
+}
+
+# Course perdue : essai sans valeur pour D109, on le rejoue dans une salle neuve (4 fois au plus).
+ARGS=("$@")
+lost_race() {
+    if [ "${FREEZE_RETRIES:-4}" -gt 0 ]; then
+        echo "course perdue : $1, nouvel essai"
+        cleanup
+        trap - EXIT
+        FREEZE_RETRIES=$((${FREEZE_RETRIES:-4} - 1)) exec "$0" "${ARGS[@]}"
+    fi
+    echo "ÉCHEC : $1 sur chaque essai (voir $OUT/p2p-*.log)"
+    exit 1
 }
 trap cleanup EXIT
 p2p_signaling_up
@@ -54,7 +67,8 @@ stopped=0
 for ((n = 0; n < 12000; n++)); do
     if grep -q "vu(s) par le signaling" "$OUT/p2p-1.log" 2>/dev/null; then
         kill -STOP "${pids[1]}"
-        stopped=1
+        # Rien ne s'écrit plus dans le journal du client suspendu : s'il a déjà connecté son pair, la course est perdue.
+        grep -q "peer .* connected" "$OUT/p2p-1.log" 2>/dev/null || stopped=1
         break
     fi
     if grep -q "peer .* connected" "$OUT/p2p-1.log" 2>/dev/null; then
@@ -62,7 +76,9 @@ for ((n = 0; n < 12000; n++)); do
     fi
     sleep 0.005
 done
-[ "$stopped" = 1 ] || { echo "ÉCHEC : le client 1 a connecté son pair avant d'être suspendu (voir $OUT/p2p-1.log)"; exit 1; }
+if [ "$stopped" != 1 ]; then
+    lost_race "le client 1 a connecté son pair avant d'être suspendu"
+fi
 echo "client 1 suspendu ($(date +%T)) : annoncé par le signaling, négociation inachevée"
 
 # Le client 0 doit abandonner (nouvelle tentative, ou retour au lobby avec ATTEMPTS=1) ; le client 1 reste suspendu jusque-là.
@@ -73,13 +89,18 @@ for ((n = 0; n < 6000; n++)); do
         seen_timeout=1
         break
     fi
+    # Le canal de données du client 0 s'est ouvert seul (connexion à moitié ouverte) : ce n'est plus la situation d'un pair
+    # jamais connecté, essai sans valeur pour D109.
+    if grep -q "All 2 players are connected" "$OUT/p2p-0.log" 2>/dev/null; then
+        lost_race "le client 0 a connecté le client 1 avant le délai (connexion à moitié ouverte)"
+    fi
     sleep 0.05
 done
 [ "$seen_timeout" = 1 ] || { echo "ÉCHEC : le client 0 n'a jamais journalisé « $expect » (voir $OUT/p2p-0.log)"; exit 1; }
 kill -CONT "${pids[1]}"
 echo "client 1 repris ($(date +%T))"
 
-( sleep "$TIMEOUT"; kill -CONT "${pids[1]}" 2>/dev/null; kill "${pids[@]}" 2>/dev/null ) >/dev/null 2>&1 &
+( sleep "$TIMEOUT"; kill -CONT "${pids[1]}" 2>/dev/null; kill "${pids[@]}" 2>/dev/null; sleep 3; kill -KILL "${pids[@]}" 2>/dev/null ) >/dev/null 2>&1 &
 watchdog=$!
 status=0
 for pid in "${pids[@]}"; do
