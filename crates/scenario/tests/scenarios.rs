@@ -1530,10 +1530,7 @@ fn floor_probe() {
         let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), 3);
         let world = app.world_mut();
         let mut rooms: Vec<(i32, i32, i32, i32, String)> = world
-            .query::<(
-                &map::game::entity::map::room::RoomBounds,
-                &world::RoomKind,
-            )>()
+            .query::<(&map::game::entity::map::room::RoomBounds, &world::RoomKind)>()
             .iter(world)
             .map(|(b, k)| {
                 (
@@ -1603,7 +1600,8 @@ fn floor_probe() {
                 })
                 .map(|o| o.4.as_str())
                 .collect();
-            let count = |points: &[(f32, f32)]| points.iter().filter(|p| inside(room, p.0, p.1)).count();
+            let count =
+                |points: &[(f32, f32)]| points.iter().filter(|p| inside(room, p.0, p.1)).count();
             let room_rocks: Vec<_> = rocks.iter().filter(|r| inside(room, r.0, r.1)).collect();
             println!(
                 "  {:<8} ({:>5},{:>5}) {}x{} cases : voisines {:?}, rochers {} (butin {}), piques {}, ennemis {}, présentoirs {}",

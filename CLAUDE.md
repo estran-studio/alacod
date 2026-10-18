@@ -428,6 +428,9 @@ de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `s
       sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
       `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
       présentoir à vie maximale ou à consommable ; `Health`, `Stat(MaxHealth)` et `ExtraHealth` lisent le paiement.
+    - M3-T11d1 gabarits, boutique, curses, bombe de départ (§76.4) : aucune attente nouvelle (`EntityCount(kind: Rock)`, `Shelf`, `ShelfCount`,
+      `PoolCount`, `Curse`, `Consumable`, `ItemsOnFloor`, `Health`, `Event(kind: "explosion")` couvrent `isaac_shop_buy`, `isaac_bomb_rock`,
+      `isaac_spikes`) ; diagnostic ignoré `floor_probe` (`ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>`, plan d'un étage par graine).
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
