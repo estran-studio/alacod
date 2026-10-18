@@ -121,7 +121,13 @@ Les salles plus vides (même nombre d'ennemis dans plus d'espace) ont supprimé 
 
 ## 4. Vidéos et serveur de revue
 
-(à compléter après le rendu : voir §6)
+`make videos SCENARIO=gungeon_full_run,gungeon_full_run_four,gungeon_classes` rendu sur le commit livré (dossier `target/videos/<sha du commit LIVRÉ>/` : `gungeon_full_run.mp4` 132 s,
+`gungeon_full_run_four.mp4`, `gungeon_classes.mp4`, `montage.mp4`) ; copié dans `~/orca/revue-m2/target/videos/` à côté de `3163a83e` (gardé pour comparaison), page régénérée par
+`python3 scripts/scenario-review.py` (`scripts/scenario-review.py` et `.html` de ce worktree copiés dans `~/orca/revue-m2/scripts/`). Le serveur déjà lancé (port 8766, 0.0.0.0) sert le dossier :
+`http://127.0.0.1:8766/` → 200, la page liste le commit livré et `3163a83e` ; une requête `Range` sur le `.mp4` répond 206. Depuis le réseau local : `http://192.168.8.112:8766/`.
+**Comparaison avant/après** : `make compare_video SCENARIO=gungeon_full_run BASE=f1d5a093` a fonctionné (rendu des deux côtés par `play_scenario` compilé dans un `target` à part, 29 min) :
+`target/videos/compare/gungeon_full_run_f1d5a093_vs_<sha>.mp4` (42 Mo, copié dans `revue-m2/target/videos/compare/`) ; à gauche `f1d5a093` (salles minuscules, sans murs), à droite la branche.
+Les vidéos ne sont pas versionnées (24 Mo chacune : `target/` est ignoré).
 
 ## 5. Jouer (testé par moi sur ce Mac, M-series, binaire `dev` optimisé)
 
