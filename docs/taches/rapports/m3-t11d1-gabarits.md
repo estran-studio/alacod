@@ -308,3 +308,7 @@ Aucune trace d'un autre jeu ne bouge (gungeon, zombies, throne, testbed identiqu
 - `make test_scenarios_par SHARDS=3` : **668 scénarios, 0 échec** (655 s sur poste partagé) après le rebless de `bench_floor_isaac` ; `make test_crates` : **1 265 tests, 0 échec** ; lint ×5 sans erreur ; `make gen` ×5 sans diff ; `cargo fmt --all -- --check` propre ; `check-forbidden.sh`, `check-rollback-registration.sh`, `check_sim_boundary` (13 crates), `make test_tools` (25) OK ;
   fuzz `ALACOD_FUZZ=0:8` et `ALACOD_FUZZ_BOMBS=1` verts.
 - **p2p réel, inputs de bots réenregistrés** sur le code fusionné (`p2p-gungeon-inputs.sh` graine 23, 2 bots, 4 500 frames, passage d'étage f1701) puis `p2p-stress.sh isaac … 4400` : **5 488 frames resimulées**, 476 rollbacks (profondeur moyenne 9, maximale 11), **0 `DesyncDetected`**, passage d'étage f1700 vu par les deux pairs, 4 399 frames contiguës et identiques ; six lignes de bombe, mur secret et porte à clé rejouées.
+
+**Seconde fusion de `main`** (`fc809a11` : D97 réduite, plan de D69 étape 2) : conflits de `taches.md` et `dettes.md` seulement ; suite **668 scénarios, 0 échec, aucune trace ne bouge** (249 s) ; `make test_crates` **1 271 tests, 0 échec** ; fmt, `check-forbidden`, `check_sim_boundary`, `test_tools`, lint ×5 OK ; fuzz `ALACOD_FUZZ_BOMBS=1` vert ;
+p2p isaac avec inputs de bots réenregistrés : **5 139 frames resimulées, 0 desync**, 4 399 frames identiques.
+
