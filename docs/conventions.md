@@ -6479,6 +6479,7 @@ de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `g
     devil: Never,                                     // Never | IfHealthAbove("4.0")
     bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
     anti_jitter: true,                                // s'attache à son but quand il balance sur place (ci-dessous)
+    combat_aware: true,                               // fuit toute bombe allumée, s'approche pour des larmes en orbite
 )
 ```
 
@@ -6523,6 +6524,11 @@ de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `g
   **s'approche** alors de l'ennemi par le chemin (`navigate` calcule la route même sans ligne cachée) et, après 90 frames, **le contourne**
   (tangente, sens alterné toutes les 90 frames, à moins de 60 de lui). Levé dès qu'un coup au but change l'empreinte, ou à la fin du combat.
   Un ennemi qu'aucune ligne de tir atteignable ne touche (tourelle derrière un pilier, graine 63) reste un défaut de contenu T11c/T11d.
+- **`combat_aware`** (faux par défaut) : la fuite d'une bombe allumée ne vaut plus que pour le porteur d'une bombe **ou** sous `combat_aware` (un champion
+  explosif, D88, en pose une : sans la politique, `grid_post_boss` et `grid_floor_seed_23` divergeaient de `main` dès f767 et f2371 ; avec, les traces
+  de tous les scénarios des autres jeux et de la grille sont celles de `main`) ; de même `orbit_reach` n'est lu que sous `combat_aware`. Visée
+  `FourWay` (`pleureur`, suivi Q17) : un combat **engagé** (`engage_reach`) n'écrit que la direction de tir, sans la file de tir qui figeait le bot, et
+  s'approche **en ligne droite** quand la ligne est dégagée (la route contournait un coin que les larmes ne passent pas ; graines 63, 95, 119).
 - **Larmes en orbite** (`BotView::orbit_reach`, lu par `ExplorerWorld::orbit_reach` : `Orbit` des objets et synergies tenus, composés comme au
   tir par `combat::projectile::compose`) : `satellite` (T11b) fait tourner les larmes à 40 unités du porteur ; un boss immobile à 94 unités ne
   perdait plus un point de vie, `prudent` ne s'approchant d'un ennemi immobile que jusqu'à 120 (graine 41 d'`isaac` sans bombe, soft-lock

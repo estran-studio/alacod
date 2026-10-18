@@ -634,6 +634,7 @@ pub fn read_bot_inputs(
                     position,
                     &surfaces,
                     profile == BotProfile::Explorateur,
+                    profile == BotProfile::Explorateur && explorer_options.policy.combat_aware,
                 );
             }
         }
@@ -802,8 +803,16 @@ pub fn read_bot_inputs(
                             .anti_jitter
                             .then(|| jitter.focus(player.handle))
                             .flatten(),
+                        &if explorer_options.policy.anti_jitter {
+                            jitter.banned(player.handle)
+                        } else {
+                            Default::default()
+                        },
                     );
                     if explorer_options.policy.anti_jitter {
+                        if let Some(step) = step.as_ref() {
+                            jitter.pursue(player.handle, frame.frame, position, step);
+                        }
                         match step.as_mut() {
                             Some(step) => jitter.steady(
                                 player.handle,
@@ -967,11 +976,30 @@ fn revive_step(
     position: FixedVec2,
     surfaces: &[(usize, Rect, Fixed, bool)],
     settle: bool,
+    snap: bool,
 ) -> Option<ReviveView> {
     nav.update_from(geometry, body, enemies, position);
     let mut targets: Vec<_> = surfaces.iter().filter(|(.., revive)| *revive).collect();
     targets.sort_by_key(|(id, rect, ..)| (rect.distance(position), *id));
     targets.into_iter().find_map(|(id, rect, reach, _)| {
+        // `snap` (`ExplorerPolicy::combat_aware`) : déjà à portée de la surface que le jeu sélectionnerait : Interaction
+        // tenue sans bouger. Sinon le pas d'approche, qui vise un point à portée − 8, fait osciller le bot autour de la
+        // portée et la réanimation (maintenue plusieurs frames) ne s'achève jamais (graine 103 d'`isaac` à deux bots).
+        if snap {
+            let selected = surfaces
+                .iter()
+                .filter_map(|(other, r, range, _)| {
+                    let d = r.distance(position);
+                    (d <= *range).then_some((d, *other))
+                })
+                .min();
+            if selected.is_some_and(|(_, selected)| selected == *id) {
+                return Some(ReviveView {
+                    direction: FixedVec2::ZERO,
+                    interact: true,
+                });
+            }
+        }
         surface_step_with(nav, position, surfaces, *id, *rect, *reach, settle).map(
             |(direction, interact)| ReviveView {
                 direction,

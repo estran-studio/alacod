@@ -1110,16 +1110,68 @@ pub struct Stall {
     engaged_at: Option<u32>,
 }
 
+/// Un joueur qui marche vers un but (hors salle) sans quitter un rayon de [`GIVE_UP_RADIUS`] pendant
+/// [`GIVE_UP_FRAMES`] frames est contre un obstacle que la navigation ne voit pas (un tas de sous contre un mur qu'elle
+/// croit libre : graine 103 d'`isaac` à deux bots, 600 frames de glissement le long d'un mur, deux buts alternés) : son
+/// but du moment est **écarté** pour ce joueur. Les salles ne le sont jamais.
+pub const GIVE_UP_FRAMES: u32 = 300;
+/// Rayon de la poursuite sur place ([`GIVE_UP_FRAMES`]).
+pub const GIVE_UP_RADIUS: Fixed = Fixed::from_bits(24 << 16);
+
+/// Poursuite en cours : où le joueur est ancré, depuis quand, et la dernière frame vue.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Pursuit {
+    anchor: FixedVec2,
+    since: u32,
+    last: u32,
+}
+
 /// Anti-jitter des `explorateur` (`ExplorerPolicy::anti_jitter`) : **seconde mémoire du bot** après [`ExplorerVisits`],
 /// hors simulation et hors rollback pour la même raison (elle ne sert qu'à produire des inputs que GGRS enregistre).
-/// `.0` : balancements de l'exploration ; `.1` : blocages de combat ([`Self::engage`]).
+/// `.0` : balancements de l'exploration ; `.1` : blocages de combat ([`Self::engage`]) ; `.2` : poursuites ;
+/// `.3` : buts écartés `(joueur, but)` ([`Self::pursue`]).
 #[derive(Resource, Debug, Clone, Default, PartialEq)]
-pub struct ExplorerJitter(pub BTreeMap<usize, Jitter>, pub BTreeMap<usize, Stall>);
+pub struct ExplorerJitter(
+    pub BTreeMap<usize, Jitter>,
+    pub BTreeMap<usize, Stall>,
+    pub BTreeMap<usize, Pursuit>,
+    pub BTreeSet<(usize, u64)>,
+);
 
 impl ExplorerJitter {
     /// But auquel le joueur `handle` s'est attaché (`explore_step` le passe en premier).
     pub fn focus(&self, handle: usize) -> Option<u64> {
         self.0.get(&handle).and_then(|state| state.focus)
+    }
+
+    /// Buts écartés du joueur `handle`.
+    pub fn banned(&self, handle: usize) -> BTreeSet<u64> {
+        self.3
+            .range((handle, 0)..=(handle, u64::MAX))
+            .map(|(_, who)| *who)
+            .collect()
+    }
+
+    /// Note le pas `step` du joueur `handle` à `position`, frame `frame` : [`GIVE_UP_FRAMES`] frames sans quitter
+    /// [`GIVE_UP_RADIUS`] (sans trou de plus de 5 frames) en marchant vers un but qui n'est pas une salle écartent ce but.
+    pub fn pursue(&mut self, handle: usize, frame: u32, position: FixedVec2, step: &Step) {
+        let fresh = Pursuit {
+            anchor: position,
+            since: frame,
+            last: frame,
+        };
+        let state = self.2.entry(handle).or_insert(fresh);
+        if frame.saturating_sub(state.last) > 5 || position.distance(&state.anchor) > GIVE_UP_RADIUS
+        {
+            *state = fresh;
+        }
+        state.last = frame;
+        if frame.saturating_sub(state.since) >= GIVE_UP_FRAMES {
+            if step.what != "room" {
+                self.3.insert((handle, step.target));
+            }
+            state.since = frame;
+        }
     }
 
     /// Combat du joueur `handle` (`in_combat` : un ennemi éveillé en vue ; `progress` : empreinte de la vie des
@@ -1262,12 +1314,14 @@ pub fn explore_step(
     portal: Option<FixedVec2>,
     surfaces: &[(usize, Rect, Fixed, bool)],
     prefer: Option<u64>,
+    avoid: &BTreeSet<u64>,
 ) -> Option<Step> {
     let goals: Vec<Target> = {
         let field = nav.costs_from(position)?;
         let mut goals: Vec<Target> = ordered_goals(field, frame, ctx)
             .into_iter()
             .map(|(_, target)| target)
+            .filter(|target| !avoid.contains(&target.identity()))
             .collect();
         if goals.is_empty() {
             if let Some(free) = free {
@@ -2058,6 +2112,46 @@ mod tests {
         let mut step = pas(0.0, 7);
         jitter.steady(0, 44, v(0.0, 30.0), &mut step, libre);
         assert!(jitter.0.is_empty());
+    }
+
+    /// Un joueur qui marche vers un but sans quitter 24 pendant 300 frames écarte son but du moment (jamais une
+    /// salle) ; un joueur qui avance ou qu'un combat interrompt n'écarte rien.
+    #[test]
+    fn une_poursuite_sur_place_ecarte_le_but() {
+        let mut jitter = ExplorerJitter::default();
+        let step = Step {
+            what: "shell",
+            ..pas(5.0, 9)
+        };
+        for frame in 0..GIVE_UP_FRAMES {
+            jitter.pursue(0, frame, v(0.0, (frame % 10) as f32), &step);
+        }
+        assert!(jitter.banned(0).is_empty());
+        jitter.pursue(0, GIVE_UP_FRAMES, v(0.0, 3.0), &step);
+        assert_eq!(jitter.banned(0), BTreeSet::from([9]));
+        assert!(jitter.banned(1).is_empty(), "propre au joueur");
+        // Une salle n'est jamais écartée.
+        let mut room = Step {
+            what: "room",
+            ..pas(5.0, 4)
+        };
+        let mut other = ExplorerJitter::default();
+        for frame in 0..=2 * GIVE_UP_FRAMES {
+            room.target = 4;
+            other.pursue(0, frame, v(0.0, 0.0), &room);
+        }
+        assert!(other.banned(0).is_empty());
+        // Il avance : rien. Un combat (trou de plus de 5 frames) remet le compteur à zéro.
+        let mut moving = ExplorerJitter::default();
+        for frame in 0..4 * GIVE_UP_FRAMES {
+            moving.pursue(0, frame, v(frame as f32, 0.0), &step);
+        }
+        assert!(moving.banned(0).is_empty());
+        let mut fights = ExplorerJitter::default();
+        for frame in (0..4 * GIVE_UP_FRAMES).filter(|f| f % 100 < 50) {
+            fights.pursue(0, frame, v(0.0, 0.0), &step);
+        }
+        assert!(fights.banned(0).is_empty());
     }
 
     /// Un combat dont l'empreinte de vie ne bouge plus depuis 240 frames s'engage (le bot s'approche, puis contourne
