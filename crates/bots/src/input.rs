@@ -42,7 +42,7 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use bevy_fixed::rng::{fnv1a, RngStreams, RollbackRng};
 use bevy_ggrs::{LocalInputs, LocalPlayers, ReadInputs, Rollback};
-use game::character::config::{CharacterConfig, CharacterConfigHandles};
+use game::character::config::{CharacterConfigKey, CharacterConfigs};
 use game::character::enemy::Enemy;
 use game::character::health::Health;
 use game::character::player::input::{read_local_inputs, BoxInput};
@@ -171,7 +171,7 @@ pub fn read_bot_inputs(
             Option<&combat::inventory::AmmoReserves>,
             Option<&combat::actors::Velocity>,
             Option<&combat::downed::Downed>,
-            Option<&CharacterConfigHandles>,
+            Option<&CharacterConfigKey>,
             // Suivi Q17 : visée à quatre directions (absent = libre).
             Option<&sim_core::aim::AimMode>,
         ),
@@ -244,7 +244,7 @@ pub fn read_bot_inputs(
         Query<(&GgrsNetId, &FixedTransform3D, &WeaponPickup), With<Rollback>>,
         Option<Res<GlobalAsset>>,
         Res<Assets<WeaponsConfig>>,
-        Res<Assets<CharacterConfig>>,
+        Res<CharacterConfigs>,
         ResMut<WeaponChoices>,
         // m1-bots-apres-movement-feel : déplacement réel des ennemis (coincés)
         ResMut<EnemyMoves>,
@@ -415,7 +415,7 @@ pub fn read_bot_inputs(
         reserves,
         velocity,
         downed,
-        config_handles,
+        config_key,
         aim_mode,
     ) in order_iter!(players)
     {
@@ -727,8 +727,8 @@ pub fn read_bot_inputs(
                     .filter(|(_, p)| dry || near(p))
                     .copied()
                     .collect();
-                let slots = config_handles
-                    .and_then(|handles| character_configs.get(&handles.config))
+                let slots = config_key
+                    .and_then(|key| character_configs.get(&key.0))
                     .map_or(0, |config| config.weapon_slots as usize);
                 let free_slot = inventory.weapons.len() < slots;
                 let wanted: Vec<usize> = ground

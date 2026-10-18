@@ -10,12 +10,12 @@
 //!
 //! Idiome repris de `crates/game/src/ui/hud.rs` (`handle_hud_config_changes`) :
 //! `MessageReader<AssetEvent<T>>` pour chacun des types de contenu déjà suivis comme
-//! assets Bevy (`CharacterConfig`, `WeaponsConfig`, `MeleeWeaponsConfig`, `WaveConfig`).
+//! assets Bevy (`CharacterConfigAsset`, `WeaponsConfig`, `MeleeWeaponsConfig`, `WaveConfig`).
 
 use bevy::prelude::*;
 use std::path::PathBuf;
 
-use crate::character::config::CharacterConfig;
+use crate::character::config_asset::CharacterConfigAsset;
 use crate::session::AppState;
 use crate::waves::WaveConfig;
 use crate::weapons::{melee::MeleeWeaponsConfig, WeaponsConfig};
@@ -41,7 +41,7 @@ fn in_lobby(state: Res<State<AppState>>) -> bool {
 
 fn reload_registry_on_change(
     game_root: Option<Res<GameRoot>>,
-    mut characters: MessageReader<AssetEvent<CharacterConfig>>,
+    mut characters: MessageReader<AssetEvent<CharacterConfigAsset>>,
     mut weapons: MessageReader<AssetEvent<WeaponsConfig>>,
     mut melee: MessageReader<AssetEvent<MeleeWeaponsConfig>>,
     mut waves: MessageReader<AssetEvent<WaveConfig>>,

@@ -14,7 +14,7 @@ use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use content::registry::Registry;
 
 use crate::{
-    character::config::CharacterConfig,
+    character::config_asset::CharacterConfigAsset,
     economy::{EconomyConfig, PerksConfig},
     powerups::PowerUpsConfig,
     session::{AppState, OnlineState},
@@ -31,7 +31,8 @@ pub const SLASH_EFFECT_SPRITE_ID: &str = "slash";
 pub struct GlobalAsset {
     pub spritesheets: HashMap<String, HashMap<String, Handle<SpriteSheetConfig>>>,
     pub animations: HashMap<String, Handle<AnimationMapConfig>>,
-    pub character_configs: HashMap<String, Handle<CharacterConfig>>,
+    /// Source de la synchro de `CharacterConfigs` (`character::config_asset::sync_character_configs`).
+    pub character_configs: HashMap<String, Handle<CharacterConfigAsset>>,
     pub weapons: Handle<WeaponsConfig>,
     pub melee_weapons: Handle<MeleeWeaponsConfig>,
 

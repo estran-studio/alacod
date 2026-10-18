@@ -21,7 +21,7 @@ use utils::{
 
 use crate::{
     character::{
-        config::{CharacterConfig, CharacterConfigHandles},
+        config::{CharacterConfigKey, CharacterConfigs},
         health::Health,
         player::Player,
     },
@@ -587,13 +587,13 @@ pub fn handle_revive_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
     mut commands: Commands,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     mut downed_query: Query<
         (
             &GgrsNetId,
             Entity,
             Option<&Reviving>,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &mut Health,
             Option<&mut Modifiers>,
         ),
@@ -619,7 +619,7 @@ pub fn handle_revive_interaction(
             .or_insert_with(|| event.interactor_net_id.clone());
     }
 
-    for (net_id, entity, opt_reviving, config_handles, mut health, opt_modifiers) in
+    for (net_id, entity, opt_reviving, config_key, mut health, opt_modifiers) in
         order_mut_iter!(downed_query)
     {
         let Some(reviver_net_id) = revivers.get(&net_id.0) else {
@@ -631,7 +631,7 @@ pub fn handle_revive_interaction(
         };
 
         let revive_frames = character_configs
-            .get(&config_handles.config)
+            .get(&config_key.0)
             .map_or(180, |config| config.revive_frames);
         let progress = opt_reviving.map_or(0, |r| r.progress_frames) + 1;
 
@@ -683,7 +683,7 @@ pub fn handle_weapon_pickup_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
     mut commands: Commands,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     balance: Res<crate::balance::ResolvedBalance>,
     mut pickup_query: Query<(&Weapon, &mut WeaponPickup), With<Rollback>>,
     mut inventory_query: Query<
@@ -692,7 +692,7 @@ pub fn handle_weapon_pickup_interaction(
             &mut AmmoReserves,
             &mut Currency,
             &Player,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &fixed_math::FixedTransform3D,
         ),
         With<Rollback>,
@@ -736,7 +736,7 @@ pub fn handle_weapon_pickup_interaction(
             }
         }
 
-        let Ok((mut inventory, mut ammo_reserves, mut wallet, player, config_handles, transform)) =
+        let Ok((mut inventory, mut ammo_reserves, mut wallet, player, config_key, transform)) =
             inventory_query.get_mut(event.interactor)
         else {
             continue;
@@ -818,7 +818,7 @@ pub fn handle_weapon_pickup_interaction(
         }
 
         let weapon_slots = character_configs
-            .get(&config_handles.config)
+            .get(&config_key.0)
             .map_or(2, |config| config.weapon_slots) as usize;
 
         // Emplacements pleins (T2.2) : l'arme active cède sa place, elle tombe au sol.

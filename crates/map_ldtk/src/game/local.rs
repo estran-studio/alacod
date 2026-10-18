@@ -9,7 +9,7 @@ use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use game::{
     character::{
-        config::CharacterConfig, enemy::create::spawn_enemy, player::create::create_player,
+        config::CharacterConfigs, enemy::create::spawn_enemy, player::create::create_player,
     },
     collider::CollisionSettings,
     economy::PerkMachine,
@@ -42,7 +42,7 @@ pub struct LevelSpawnAssets<'w> {
     pub global_assets: Res<'w, GlobalAsset>,
     // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
     pub balance: Res<'w, game::balance::ResolvedBalance>,
-    pub character_asset: Res<'w, Assets<CharacterConfig>>,
+    pub character_configs: Res<'w, CharacterConfigs>,
     pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
     pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
     /// Graine de run (T1.5 : tirage des variantes, `game::character::variant`) : la graine de
@@ -155,7 +155,7 @@ fn spawn_players_when_map_loaded(
     collision_settings: Res<CollisionSettings>,
     global_assets: Res<GlobalAsset>,
     balance: Res<game::balance::ResolvedBalance>,
-    character_asset: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
     mut id_provider: ResMut<GgrsNetIdFactory>,
@@ -199,7 +199,7 @@ fn spawn_players_when_map_loaded(
             &global_assets,
             &weapons_asset,
             &melee_weapons_asset,
-            &character_asset,
+            &character_configs,
             &collision_settings,
             fixed_math::vec3_to_fixed(translation),
             ggrs_player.is_local,
@@ -339,11 +339,7 @@ pub fn spawn_character(
         return None;
     }
 
-    let character_config = assets
-        .global_assets
-        .character_configs
-        .get(character)
-        .and_then(|handle| assets.character_asset.get(handle));
+    let character_config = assets.character_configs.get(character);
     let team = team
         .or_else(|| character_config.and_then(|config| config.team))
         .unwrap_or(Team::Enemies);
@@ -368,7 +364,7 @@ pub fn spawn_character(
         commands,
         &assets.weapons_asset,
         &assets.melee_weapons_asset,
-        &assets.character_asset,
+        &assets.character_configs,
         &assets.global_assets,
         &assets.collision_settings,
         id_provider,

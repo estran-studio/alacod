@@ -7,7 +7,7 @@ use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
-    character::{config::CharacterConfig, create::create_character},
+    character::{config::CharacterConfigs, create::create_character},
     collider::{CollisionLayer, CollisionSettings},
     global_asset::GlobalAsset,
     weapons::{
@@ -68,7 +68,7 @@ pub fn spawn_enemy(
     commands: &mut Commands,
     weapons_asset: &Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: &Res<Assets<MeleeWeaponsConfig>>,
-    characters_asset: &Res<Assets<CharacterConfig>>,
+    character_configs: &CharacterConfigs,
 
     global_assets: &Res<GlobalAsset>,
     collision_settings: &Res<CollisionSettings>,
@@ -86,10 +86,7 @@ pub fn spawn_enemy(
     // M3-T7 : joueurs et étage de l'apparition (identifiants de `chance` en expression).
     variant_context: crate::character::variant::VariantContext,
 ) -> Entity {
-    let character_config = global_assets
-        .character_configs
-        .get(&enemy_type_name)
-        .and_then(|handle| characters_asset.get(handle));
+    let character_config = character_configs.get(&enemy_type_name);
     let ai_ron = character_config.and_then(|config| config.ai.as_ref());
     let mut ai_config = ai_ron
         .map(EnemyAiConfig::from)
@@ -155,8 +152,7 @@ pub fn spawn_enemy(
 
     let entity = create_character(
         commands,
-        global_assets,
-        characters_asset,
+        character_configs,
         enemy_type_name,
         skin,
         (LinearRgba::RED).into(),

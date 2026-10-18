@@ -1764,24 +1764,11 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
         // porte sur la navigation du pillard, pas sur ce tirage).
         app.add_systems(
             Update,
-            |mut configs: ResMut<Assets<game::character::config::CharacterConfig>>| {
-                let with_overrides: Vec<_> = configs
-                    .iter()
-                    .filter(|(_, config)| {
-                        config.variants.is_some()
-                            || config
-                                .ai
-                                .as_ref()
-                                .is_some_and(|ai| ai.sight_range.is_some())
-                    })
-                    .map(|(id, _)| id)
-                    .collect();
-                for id in with_overrides {
-                    if let Some(mut config) = configs.get_mut(id) {
-                        config.variants = None;
-                        if let Some(ai) = config.ai.as_mut() {
-                            ai.sight_range = None;
-                        }
+            |mut configs: ResMut<game::character::config::CharacterConfigs>| {
+                for config in configs.0.values_mut() {
+                    config.variants = None;
+                    if let Some(ai) = config.ai.as_mut() {
+                        ai.sight_range = None;
                     }
                 }
             },

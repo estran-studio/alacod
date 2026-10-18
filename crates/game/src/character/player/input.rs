@@ -12,7 +12,7 @@ use sim_core::stats::StatId;
 use stats::StatReader;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
 
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::dash::DashState;
 use crate::character::health::Health;
 use crate::character::movement::{grip, run_velocity, SprintState, Velocity, FIXED_TIMESTEP};
@@ -421,7 +421,7 @@ pub fn apply_inputs(
     _commands: Commands,
     frame: Res<FrameCount>,
     inputs: Res<PlayerInputs<PeerConfig>>,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     stats: StatReader,
     mut dash_started: Option<ResMut<FrameEvents<sim_core::triggers::DashStarted>>>,
     mut query: Query<
@@ -434,7 +434,7 @@ pub fn apply_inputs(
             &mut CursorPosition,
             &mut SprintState,
             &mut InteractionInput,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &Player,
             Has<Downed>,
             // T1.3 : `Stun`/`Freeze` (§19) : inputs ignorés par la simulation (jamais à la
@@ -457,7 +457,7 @@ pub fn apply_inputs(
         mut cursor_position,
         mut sprint_state,
         mut interaction_input,
-        config_handles,
+        config_key,
         player,
         is_downed,
         statuses,
@@ -466,7 +466,7 @@ pub fn apply_inputs(
         dash_override,
     ) in order_mut_iter!(query)
     {
-        let Some(config) = character_configs.get(&config_handles.config) else {
+        let Some(config) = character_configs.get(&config_key.0) else {
             continue;
         };
         let movement = &config.movement;

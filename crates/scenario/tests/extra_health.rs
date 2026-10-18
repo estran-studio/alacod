@@ -252,13 +252,13 @@ fn isaac_health_at_130(strip: bool) -> f32 {
         app.add_systems(
             bevy_ggrs::GgrsSchedule,
             (move |frame: Res<utils::frame::FrameCount>,
-                   mut configs: ResMut<Assets<game::character::config::CharacterConfig>>,
+                   mut configs: ResMut<game::character::config::CharacterConfigs>,
                    players: Query<(
                 &game::character::player::Player,
                 &game::character::health::Health,
             )>| {
                 if strip && frame.frame < 2 {
-                    for (_, config) in configs.iter_mut() {
+                    for config in configs.0.values_mut() {
                         config.hit_iframes = None;
                     }
                 }
