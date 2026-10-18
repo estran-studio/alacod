@@ -14,7 +14,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::global_asset::GlobalAsset;
 
-use super::{appearance::CharacterAppearance, config::CharacterConfig, health::ui::HealthBar};
+use super::{appearance::CharacterAppearance, config::CharacterConfigs, health::ui::HealthBar};
 
 /// Teinte de base des calques (D66, `CharacterConfig::marker`) : relue par
 /// `feedback::apply_layer_colors` à la place du blanc. Présentation, hors rollback.
@@ -28,18 +28,14 @@ pub struct VisualsAttached;
 pub fn attach_character_visuals(
     mut commands: Commands,
     global_assets: Res<GlobalAsset>,
-    character_asset: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     characters: Query<(Entity, &CharacterAppearance), Without<VisualsAttached>>,
 ) {
     for (entity, appearance) in characters.iter() {
-        let Some(config) = global_assets
-            .character_configs
-            .get(&appearance.config_name)
-            .and_then(|handle| character_asset.get(handle))
-        else {
+        let Some(config) = character_configs.get(&appearance.config_name) else {
             continue;
         };
         let (Some(map_layers), Some(animation_handle)) = (
@@ -175,7 +171,7 @@ type EnemySnapshot = BTreeMap<usize, (String, Option<String>, Vec2)>;
 pub fn spawn_death_ghosts(
     mut commands: Commands,
     global_assets: Res<GlobalAsset>,
-    character_asset: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
     animation_assets: Res<Assets<AnimationMapConfig>>,
     asset_server: Res<AssetServer>,
@@ -217,11 +213,7 @@ pub fn spawn_death_ghosts(
         if current.contains_key(net_id) || ghosted.contains(net_id) {
             continue;
         }
-        let Some(config) = global_assets
-            .character_configs
-            .get(config_name)
-            .and_then(|handle| character_asset.get(handle))
-        else {
+        let Some(config) = character_configs.get(config_name) else {
             continue;
         };
         let (Some(map_layers), Some(animation_handle)) = (

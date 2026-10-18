@@ -25,7 +25,7 @@
   },
   {
     "path": "crates/game/src/character/config.rs",
-    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*, reflect::TypePath};",
+    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*};",
     "count": 1,
     "reason": "Configuration des calques/skins ; calques convertis en BTreeMap à la création du personnage."
   },
@@ -73,7 +73,7 @@
   },
   {
     "path": "crates/game/src/global_asset.rs",
-    "code": "pub character_configs: HashMap<String, Handle<CharacterConfig>>,",
+    "code": "pub character_configs: HashMap<String, Handle<CharacterConfigAsset>>,",
     "count": 1,
     "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
   },

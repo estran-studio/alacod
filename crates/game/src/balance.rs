@@ -25,7 +25,7 @@ use content::expr::NumOrExpr;
 use sim_core::players::PlayersCount;
 use std::collections::{BTreeMap, HashMap};
 
-use crate::character::config::CharacterConfig;
+use crate::character::config::CharacterConfigs;
 use crate::economy::{EconomyConfig, PerkModifierDef, PerksConfig};
 use crate::global_asset::GlobalAsset;
 use crate::jjrs::GggrsSessionConfiguration;
@@ -301,7 +301,7 @@ pub fn resolve_balance_system(
     wave_configs: Res<Assets<WaveConfig>>,
     economy_configs: Res<Assets<EconomyConfig>>,
     perks_configs: Res<Assets<PerksConfig>>,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     online: Res<OnlineState>,
     ggrs_config: Res<GggrsSessionConfiguration>,
     players_count: Res<PlayersCount>,
@@ -335,8 +335,8 @@ pub fn resolve_balance_system(
     let perks = resolve_perks(&perks_config, players);
 
     let mut health_max_by_character = BTreeMap::new();
-    for (id, handle) in global_assets.character_configs.iter() {
-        let config = character_configs.get(handle).unwrap_or_else(|| {
+    for id in global_assets.character_configs.keys() {
+        let config = character_configs.get(id).unwrap_or_else(|| {
             panic!("équilibrage F5 : config du personnage « {id} » pas encore chargée")
         });
         let what = format!("personnage « {id} », champ base_health.max");

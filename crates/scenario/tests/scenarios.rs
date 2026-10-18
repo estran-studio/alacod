@@ -1676,16 +1676,13 @@ fn sight_probe() {
             &EnemyAiConfig,
             &MonsterState,
             &EnemyTarget,
-            &game::character::config::CharacterConfigHandles,
+            &game::character::config::CharacterConfigKey,
         ), With<Enemy>>()
         .iter(world)
-        .map(|(id, t, ai, state, target, handles)| {
+        .map(|(id, t, ai, state, target, key)| {
             (
                 id.0,
-                handles
-                    .config
-                    .path()
-                    .map_or_else(|| "?".to_string(), |path| path.to_string()),
+                key.0.clone(),
                 t.translation.truncate(),
                 ai.aggro_range,
                 ai.effective_sight_range(),

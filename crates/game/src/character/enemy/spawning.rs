@@ -6,7 +6,7 @@ use map::game::entity::map::{
 use sim_core::team::Team;
 
 use crate::{
-    character::{config::CharacterConfig, player::Player},
+    character::{config::CharacterConfigs, player::Player},
     collider::CollisionSettings,
     global_asset::GlobalAsset,
     weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
@@ -60,7 +60,7 @@ pub fn enemy_spawn_from_spawners_system(
     collision_settings: Res<CollisionSettings>,
     weapons_asset: Res<Assets<WeaponsConfig>>,
     melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
-    characters_asset: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     balance: Res<crate::balance::ResolvedBalance>,
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
@@ -327,7 +327,7 @@ pub fn enemy_spawn_from_spawners_system(
             &mut commands,
             &weapons_asset,
             &melee_weapons_asset,
-            &characters_asset,
+            &character_configs,
             &global_assets,
             &collision_settings,
             &mut id_factory,
