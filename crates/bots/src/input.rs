@@ -652,9 +652,12 @@ pub fn read_bot_inputs(
             // À sec (aucune réserve pour aucune arme), la menace ne retient plus : l'arme sans réserve
             // (un `fusil_precision` sorti d'un coffre, chargeur vidé) ne tirera plus jamais et
             // l'arme de départ lâchée au sol est le seul moyen de blesser l'ennemi (graines 3, 4, 18).
+            // Règles de ramassage propres à l'`explorateur` : les autres profils (throne, isaac, zombies)
+            // gardent les leurs, leurs traces de scénario ne bougent pas.
+            let explorer_rules = profile == BotProfile::Explorateur;
             if let (None, false, Some(collider), Some(rects)) = (
                 view.revive,
-                threat && !dry,
+                threat && !(dry && explorer_rules),
                 collider,
                 geometry_rects.as_ref(),
             ) {
@@ -675,16 +678,22 @@ pub fn read_bot_inputs(
                         // que son chargeur (ramasser une arme au sol n'ajoute pas de réserve) : à sec, le
                         // bot aurait lâché son arme de départ pour rien (un seul emplacement) et resterait
                         // sans tir, 600 frames, jusqu'au soft-lock.
-                        arms::wants_ground_weapon(
-                            near(p),
-                            dry,
-                            reserves.map_or(0, |r| r.get(ammo_type)),
-                            inventory
-                                .weapons
-                                .iter()
-                                .any(|(_, owned)| &owned.config.name == name),
-                            arms::worth_picking(w, arms_views.get(active), free_slot),
-                        )
+                        let owned = inventory
+                            .weapons
+                            .iter()
+                            .any(|(_, owned)| &owned.config.name == name);
+                        let worth = arms::worth_picking(w, arms_views.get(active), free_slot);
+                        if explorer_rules {
+                            arms::wants_ground_weapon(
+                                near(p),
+                                dry,
+                                reserves.map_or(0, |r| r.get(ammo_type)),
+                                owned,
+                                worth,
+                            )
+                        } else {
+                            near(p) && !owned && worth
+                        }
                     })
                     .map(|(id, ..)| *id)
                     .collect();
