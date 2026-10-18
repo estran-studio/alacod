@@ -10,7 +10,7 @@
 // Bot `explorateur` sur le gungeon rééquilibré de M2-T14d (D64) : mêmes attentes que le `fonceur`,
 // recalées sur la partie jouée.
 //
-// Re-chronométrage (gabarits agrandis, §40 : salles de 12x10 à 22x16, zoom, bot `steady`) : tout est décalé d'environ 60 frames.
+// Re-chronométrage (gabarits agrandis, §40 : salles de 12x10 à 22x16, zoom, politique `games/gungeon/assets/bot.ron`) : tout est décalé d'environ 60 frames.
 //
 // M2-T19 (feedback v2, conventions §55) : le gatling montre les 5 rayons de son éventail avant de
 // tirer (f332), et sa mort (f534) gèle le rendu, zoome sur lui et flashe (moment clé `feedback`

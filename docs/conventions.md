@@ -6806,7 +6806,7 @@ remplace l'autre sans bouger des traces (essais du 2026-10-18, 15 scénarios gun
 `gungeon_full_run` (ligne 1969 de la trace, événements `portal`, `purchase`, `chest`, boss absents) et `gungeon_full_run_four` ; `Patience` à la place de `Hysteresis`
 dans isaac déplace `bot_isaac_floor` (ligne 3904) et `bot_isaac_two` (ligne 637). La campagne gungeon reste verte avec `Hysteresis` seul (20 graines à 1 et 2 bots, 40 victoires,
 0 desync, mais des durées différentes sur chaque graine) : supprimer `Patience` est possible au prix de **rebénir deux scénarios `gungeon_full_run*` avec leurs attentes**,
-décision laissée à la revue (dette D107).
+décision laissée à la revue (dette D110 ; sortie : une stratégie choisie, campagnes rejouées, deux scénarios rebénis avec preuve §5).
 
 **Soft-lock `Floors` : « cases explorées »** : entrer dans une case de 32 px jamais visitée n'est une progression que sous `StopEarly::explored_is_progress`
 (`alacod-sim --explored-progress`, faux par défaut). Les campagnes gungeon la passent ; isaac et throne gardent leur détecteur d'origine (santé, mort, ramassage).

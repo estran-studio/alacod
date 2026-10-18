@@ -43,7 +43,7 @@ trap 'rm -rf "$TMP"' EXIT
 profiles=$(printf 'explorateur,%.0s' $(seq "$PLAYERS"))
 profiles=${profiles%,}
 ${HUB:+env ALACOD_RUN_SEED_ONLINE_GAME=1 ALACOD_SIM_HUB=1} "$TARGET/headless/alacod-sim" --game "${GAME:-gungeon}" --bots "$PLAYERS" --profiles "$profiles" \
-    --floors "${FLOORS:-etages_deux}" --until-floor "${UNTIL_FLOOR:-2}" --seeds "$SEED..$SEED" ${SIM_ARGS---shopping} \
+    --floors "${FLOORS:-etages_deux}" --until-floor "${UNTIL_FLOOR:-2}" --seeds "$SEED..$SEED" ${SIM_ARGS-$([ "${GAME:-gungeon}" = gungeon ] && echo '--shopping --explored-progress' || echo --shopping)} \
     --max-frames "$FRAMES" --save-scenario "$TMP" --json "$TMP/sim.json" 2> "$TMP/sim.log" || {
     tail -5 "$TMP/sim.log"; echo "p2p-gungeon-inputs : alacod-sim a échoué"; exit 1; }
 [ -f "$TMP/seed_$SEED.ron" ] || { echo "p2p-gungeon-inputs : enregistrement absent"; exit 1; }

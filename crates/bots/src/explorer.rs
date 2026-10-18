@@ -536,7 +536,7 @@ impl ExplorerWorld<'_, '_> {
             if matches!(policy.shop, ShopOrder::Nearest) {
                 self.shopping_goals(&mut items, &mut weapon_shelves);
             } else {
-                self.per_player_shopping_goals(&mut items);
+                self.per_player_shopping_goals(&mut items, &mut weapon_shelves);
             }
         }
         if let Some(limit) = policy.detour.shells {
@@ -603,7 +603,11 @@ impl ExplorerWorld<'_, '_> {
 
     /// M3-T14 : présentoirs (douilles ou vie maximale) et coffres de la frame, avec ce que chacun
     /// exige ; `ordered_goals` retient pour chaque joueur ce qu'il peut payer et prendre.
-    fn per_player_shopping_goals(&self, items: &mut Vec<ItemGoal>) {
+    fn per_player_shopping_goals(
+        &self,
+        items: &mut Vec<ItemGoal>,
+        weapon_shelves: &mut Vec<(usize, String)>,
+    ) {
         for (id, t, shelf, interactable) in order_iter!(self.shelves) {
             if !interactable || shelf.sold {
                 continue;
@@ -624,6 +628,9 @@ impl ExplorerWorld<'_, '_> {
                 Some(_) => continue,
             };
             items.push(goal);
+            if let Some(weapon) = items::loot_weapon(&shelf.item_id) {
+                weapon_shelves.push((id.0, weapon.to_string()));
+            }
         }
         for (id, t, chest, interactable) in order_iter!(self.chests) {
             if interactable && !chest.opened {

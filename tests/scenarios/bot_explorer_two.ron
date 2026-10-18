@@ -2,7 +2,7 @@
 // `gungeon` (graine 1, séquence `etages_court_deux`) : mêmes salles, deux joueurs, le boss tombe
 // plus vite et les deux franchissent le portail.
 //
-// Gabarits agrandis (§40 : salles de 12x10 à 22x16, zoom, bot `steady`) : combat verrouillée f85, nettoyée f213, boss verrouillée f399, phases f489 et f572, boss mort f593, portail ouvert f594, franchi f819 ; `frames` 720 -> 880, expectations recalées (boss Locked f410, Cleared f600, FloorIndex 0 f700, 1 f879).
+// Gabarits agrandis (§40 : salles de 12x10 à 22x16, zoom, politique `games/gungeon/assets/bot.ron`) : combat verrouillée f85, nettoyée f213, boss verrouillée f399, phases f489 et f572, boss mort f593, portail ouvert f594, franchi f819 ; `frames` 720 -> 880, expectations recalées (boss Locked f410, Cleared f600, FloorIndex 0 f700, 1 f879).
 //
 // À regarder : les deux bots entrent dans la salle de combat, se partagent les cibles, tuent le
 // boss et passent l'étage ensemble (portail ouvert vers f403, franchi vers f505 ; f433 et f558 avant le recul

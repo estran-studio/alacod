@@ -322,16 +322,15 @@ fn main() {
     // `bot.ron` des assets du jeu s'il existe, sinon la politique par défaut ; `--shopping`, `--devil` la
     // surchargent ensuite. `--bombs <n>` : chaque bot porte la bombe d'essai de ces campagnes (`isaac`
     // n'en donne pas à son personnage avant M3-T11d) avec `n` bombes de départ.
-    let mut policy: game::replay::ExplorerPolicy = {
-        let path = opt("--policy")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(format!("{}/bot.ron", runner::assets_dir(&game))));
-        match std::fs::read_to_string(&path) {
-            Ok(text) => ron::from_str(&text)
-                .unwrap_or_else(|e| panic!("alacod-sim : politique {path:?} invalide : {e}")),
-            Err(_) if opt("--policy").is_none() => Default::default(),
-            Err(e) => panic!("alacod-sim : --policy {path:?} : {e}"),
+    let mut policy: game::replay::ExplorerPolicy = match opt("--policy") {
+        Some(file) => {
+            let path = PathBuf::from(file);
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("alacod-sim : --policy {path:?} : {e}"));
+            ron::from_str(&text)
+                .unwrap_or_else(|e| panic!("alacod-sim : politique {path:?} invalide : {e}"))
         }
+        None => runner::game_bot_policy(&game),
     };
     policy.shopping |= args.iter().any(|arg| arg == "--shopping");
     if let Some(devil) = opt("--devil") {

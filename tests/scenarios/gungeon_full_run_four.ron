@@ -23,7 +23,7 @@
 // f4012 SECOND ÉTAGE ; f4737-5487 la seconde arène ; f5826-5855 boutique ; f5954 le joueur 2 ouvre un coffre
 // (rancune) ; f6238-6331 la seconde escouade ; f6778 le second boss, phase 1 f6814, f6844 VICTOIRE des quatre joueurs.
 //
-// Gabarits agrandis (docs/conventions.md §40) et bot `explorateur` à décisions `steady` : toute la run est
+// Gabarits agrandis (docs/conventions.md §40) et bot `explorateur` à décisions de la politique `games/gungeon/assets/bot.ron` : toute la run est
 // re-chronométrée (victoire f6844, avant f6091). Écarts de sens : la clé n'est plus consommée (aucun coffre à clé
 // ouvert : `Consumable(key)` reste à 1 chez le joueur 0, qui ouvre le coffre libre de f645) ; l'achat en boutique
 // du premier étage est un trèfle (présentoir 1) et la preuve du blank est son ramassage par le joueur 1 ; boss

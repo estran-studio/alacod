@@ -158,7 +158,7 @@ Conflits : `explorer.rs` (17 blocs), `input.rs`, `alacod-sim.rs`, `runner.rs`, `
   `bot.ron` du jeu (`runner::game_bot_policy(..).scene()`).
 - **Une limite de détour** : `Detour { shells, optional, last_stretch }` (`ExplorerPolicy::shells`, `OPTIONAL_DETOUR` et `LAST_STRETCH_DETOUR` n'existent plus).
 - **Une anti-oscillation** : `Oscillation { Off, Hysteresis, Patience }` et une mémoire, `ExplorerJitter` (`ExplorerPatience` y est fusionnée : `anchors`, `patience()`).
-  Elles ne sont **pas interchangeables sans bouger des traces** (essais dans le §79) ; supprimer l'une exige de rebénir deux scénarios de l'autre jeu : non fait, dette D107.
+  Elles ne sont **pas interchangeables sans bouger des traces** (essais dans le §79) ; supprimer l'une exige de rebénir deux scénarios de l'autre jeu : non fait, dette D110.
 - **Cases explorées** : `StopEarly::explored_is_progress` (`--explored-progress`), faux par défaut : isaac et throne gardent leur détecteur.
 - Signatures : `ordered_goals(field, frame, ctx)` (ma forme, `ctx.policy.detour`), `explore_step(..)` de T14, `ExploreView { patience, lead }`, `ExploreFrame { weapon_shelves, .. }`,
   `FloorsProgress { explored, stock, .. }`.
