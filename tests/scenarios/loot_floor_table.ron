@@ -1,6 +1,7 @@
 // M2-T5 (pool par étage, docs/conventions.md §48) : la séquence `deux_butin` donne le pool
 // `commun` à l'étage 0 et `etage2` à l'étage 1 (aucun objet en commun). Un coffre sans pool propre
 // est posé à chaque étage au pied du joueur, ouvert (Interaction) puis ramassé.
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : nouveau tirage (graine `fmix32`, course pondérée) : le coffre de l'étage 0 donne `manche` (avant : `bottes`), toujours du pool `commun`.
 //
 // À regarder : f30/f40 coffre de l'étage 0 ; le joueur tue le follower, passe le portail (f~370) ;
 // f430/f440 coffre de l'étage 1, d'un autre pool.
@@ -26,10 +27,10 @@ Scenario(
         ]),
     ],
     expect: [
-        ItemCount(handle: 0, id: "bottes", count: 1, at_frame: 100),
+        ItemCount(handle: 0, id: "manche", count: 1, at_frame: 100),
         ItemCount(handle: 0, id: "semelles_lentes", count: 0, at_frame: 100),
         FloorIndex(index: 1, at_frame: 410),
-        ItemCount(handle: 0, id: "bottes", count: 1, at_frame: 500),
+        ItemCount(handle: 0, id: "manche", count: 1, at_frame: 500),
         ItemCount(handle: 0, id: "semelles_lentes", count: 1, at_frame: 500),
     ],
 )

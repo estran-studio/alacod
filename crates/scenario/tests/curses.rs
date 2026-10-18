@@ -60,7 +60,7 @@ fn same_seed_same_curse_other_seed_other_curse() {
     );
 
     let mut other = base.clone();
-    other.map_seed = 2;
+    other.map_seed = 22;
     other.expect = vec![
         curse(0, Some("labyrinth"), 5),
         curse(1, Some("darkness"), 240),
@@ -69,9 +69,9 @@ fn same_seed_same_curse_other_seed_other_curse() {
     assert!(other.failures.is_empty(), "{:?}", other.failures);
     assert_ne!(first.trace, other.trace, "autre graine : autre tirage");
 
-    // Une graine sans aucune curse (graine 1 : ni à l'étage 0 ni à l'étage 1).
+    // Une graine sans aucune curse (graine 5 : ni à l'étage 0 ni à l'étage 1 ; D95 : la graine 1 tire « maze » à l'étage 0).
     let mut none = base.clone();
-    none.map_seed = 1;
+    none.map_seed = 5;
     none.expect = vec![curse(0, None, 5), curse(1, None, 240)];
     let none = scenario::run(&none);
     assert!(none.failures.is_empty(), "{:?}", none.failures);
@@ -106,7 +106,7 @@ fn a_modifier_curse_really_slows_the_player() {
     if map_ldtk::RENDER_ENABLED {
         return;
     }
-    // Le joueur marche à droite de f10 à f50 sans tirer. Graine 3 : `maudit_maze` tire « maze » à
+    // Le joueur marche à droite de f10 à f50 sans tirer. Graine 2 (celle de `curse_modifier`) : `maudit_maze` tire « maze » à
     // l'étage 0 ; le témoin joue la même graine (donc la même carte et le même point de départ) sur
     // `deux_niveaux`, sans champ `curses`.
     let walk = |floors: &str| {
