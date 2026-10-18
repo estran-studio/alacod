@@ -315,10 +315,8 @@ version = "0.2.0"
 dependencies = [
  "bevy 0.19.1",
  "bevy_common_assets",
- "bevy_fixed",
- "bevy_ggrs",
  "serde",
- "utils",
+ "sim_core",
 ]
 
 [[package]]
@@ -4340,15 +4338,13 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 name = "combat"
 version = "0.1.0"
 dependencies = [
- "animation",
  "bevy 0.19.1",
- "bevy_common_assets",
  "bevy_fixed",
  "bevy_ggrs",
- "bevy_matchbox",
  "effects",
  "ggrs",
  "items",
+ "matchbox_protocol",
  "ron 0.12.2",
  "run",
  "serde",
@@ -7654,8 +7650,6 @@ name = "map"
 version = "0.2.0"
 dependencies = [
  "bevy 0.19.1",
- "bevy-inspector-egui",
- "bevy_ecs_ldtk",
  "bevy_fixed",
  "once_cell",
  "pathfinding",

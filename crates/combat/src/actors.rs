@@ -300,7 +300,7 @@ pub struct CursorPosition {
 }
 
 pub type BoxConfig = bevy_ggrs::GgrsConfig<BoxInput>;
-pub type PeerConfig = bevy_ggrs::GgrsConfig<BoxInput, bevy_matchbox::prelude::PeerId>;
+pub type PeerConfig = bevy_ggrs::GgrsConfig<BoxInput, matchbox_protocol::PeerId>;
 
 /// Frames d'invulnérabilité (`Health.invulnerable_until_frame`) accordées quand un point de
 /// bouclier absorbe un coup : une rafale n'en consomme pas plusieurs d'un coup.

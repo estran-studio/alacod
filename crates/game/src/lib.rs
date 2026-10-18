@@ -53,9 +53,9 @@ pub mod statuses;
 pub mod system_set;
 pub mod ui;
 pub mod waves;
+pub mod weapons;
 pub mod web;
 pub mod world_sprites;
-pub use combat::weapons;
 
 use lazy_static::lazy_static;
 

@@ -121,6 +121,8 @@ impl Plugin for CoreSetupPlugin {
         }
 
         app.add_plugins(WebPlugin);
+        // L'état logique d'animation (rollback) est enregistré par `sim_core`, avant la présentation.
+        app.add_plugins(sim_core::animation_state::AnimationStatePlugin);
         app.add_plugins(D2AnimationPlugin);
         app.add_plugins(GgrsPlugin::<PeerConfig>::default());
         // `GgrsPlugin` installe aussi `RollbackDespawnPlugin` : les entités de la simulation se
@@ -131,6 +133,7 @@ impl Plugin for CoreSetupPlugin {
         }
 
         app.add_plugins(BaseWeaponGamePlugin {});
+        app.add_plugins(crate::weapons::WeaponAssetsPlugin);
         // Contrats M1 : enregistrés ensemble, aucun état posé ni système exécuté.
         app.add_plugins((
             combat::CombatPlugin,

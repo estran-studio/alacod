@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 world = { path = "../world" }
-bevy = { version = "0.19.1", default-features = false }
+# `serialize` : `Entity` (de)sérialisable (composants portant une `Entity`) ; `bevy_color` : `Color` (teinte du
+# joueur), crate de données sans rendu.
+bevy = { version = "0.19.1", default-features = false, features = ["serialize", "bevy_color"] }
 bevy_fixed = { path = "../bevy_fixed" }
 sim_core = { path = "../sim_core" }
 utils = { path = "../utils" }
@@ -13,13 +15,12 @@ serde = { version = "1.0", features = ["derive"] }
 effects = { path = "../effects" }
 items = { path = "../items" }
 
-animation = { path = "../animation" }
 stats = { path = "../stats" }
 run = { path = "../run" }
 bevy_ggrs = "0.22.0"
 ggrs = "0.13.0"
-bevy_common_assets = { version = "0.17", features = ["ron"] }
-bevy_matchbox = { git = "https://github.com/AdamWhitehurst/matchbox", rev = "593f900c4f27e94632a71232389d9e4ffaeb9bdf", features = ["ggrs"] }
+# `PeerId` seul (uuid) : l'adresse GGRS des pairs matchbox, sans socket ni WebRTC.
+matchbox_protocol = { git = "https://github.com/AdamWhitehurst/matchbox", rev = "593f900c4f27e94632a71232389d9e4ffaeb9bdf" }
 
 [dev-dependencies]
 ron = "0.12"
