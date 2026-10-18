@@ -276,7 +276,13 @@ pub fn read_bot_inputs(
     let weapons_config = global_asset
         .as_deref()
         .and_then(|global| weapon_assets.get(&global.weapons));
-    let ground: Vec<(usize, FixedVec2, String, WeaponView)> = order_iter!(ground_weapons)
+    let ground: Vec<(
+        usize,
+        FixedVec2,
+        String,
+        WeaponView,
+        sim_core::ammo::AmmoType,
+    )> = order_iter!(ground_weapons)
         .into_iter()
         .filter(|(_, _, pickup)| pickup.price.is_none())
         .filter_map(|(id, t, pickup)| {
@@ -290,6 +296,7 @@ pub fn read_bot_inputs(
                 t.translation.truncate(),
                 pickup.weapon_id.clone(),
                 WeaponView::from_config(mode, true),
+                asset.config.ammo_type.clone(),
             ))
         })
         .collect();
@@ -641,9 +648,15 @@ pub fn read_bot_inputs(
             let threat = view
                 .nearest_enemy
                 .is_some_and(|enemy| enemy.distance <= REVIVE_SAFE_DISTANCE && view.enemy_visible);
-            if let (None, false, Some(collider), Some(rects)) =
-                (view.revive, threat, collider, geometry_rects.as_ref())
-            {
+            // À sec (aucune réserve pour aucune arme), la menace ne retient plus : l'arme sans réserve
+            // (un `fusil_precision` sorti d'un coffre, chargeur vidé) ne tirera plus jamais et
+            // l'arme de départ lâchée au sol est le seul moyen de blesser l'ennemi (graines 3, 4, 18).
+            if let (None, false, Some(collider), Some(rects)) = (
+                view.revive,
+                threat && !dry,
+                collider,
+                geometry_rects.as_ref(),
+            ) {
                 let near = |p: &FixedVec2| position.distance(p) <= LOOT_RADIUS;
                 let powerups: Vec<(usize, FixedVec2)> = loot_points
                     .iter()
@@ -656,13 +669,21 @@ pub fn read_bot_inputs(
                 let free_slot = inventory.weapons.len() < slots;
                 let wanted: Vec<usize> = ground
                     .iter()
-                    .filter(|(_, p, name, w)| {
-                        near(p)
-                            && !inventory
+                    .filter(|(_, p, name, w, ammo_type)| {
+                        // m2-salles-murs-gungeon : une arme dont le type de munition n'a aucune réserve n'a
+                        // que son chargeur (ramasser une arme au sol n'ajoute pas de réserve) : à sec, le
+                        // bot aurait lâché son arme de départ pour rien (un seul emplacement) et resterait
+                        // sans tir, 600 frames, jusqu'au soft-lock.
+                        arms::wants_ground_weapon(
+                            near(p),
+                            dry,
+                            reserves.map_or(0, |r| r.get(ammo_type)),
+                            inventory
                                 .weapons
                                 .iter()
-                                .any(|(_, owned)| &owned.config.name == name)
-                            && arms::worth_picking(w, arms_views.get(active), free_slot)
+                                .any(|(_, owned)| &owned.config.name == name),
+                            arms::worth_picking(w, arms_views.get(active), free_slot),
+                        )
                     })
                     .map(|(id, ..)| *id)
                     .collect();
@@ -690,6 +711,17 @@ pub fn read_bot_inputs(
                 (explore_frame.as_ref(), collider, geometry_rects.as_ref())
             {
                 let holder = explorer.holder(player.handle);
+                // Pas de présentoir d'arme sans réserve de son munition (voir
+                // `ExploreFrame::without_unusable_weapons`).
+                let unfiltered = frame_data;
+                let filtered = frame_data.without_unusable_weapons(|weapon| {
+                    weapons_config
+                        .and_then(|config| config.0.get(weapon))
+                        .is_none_or(|asset| {
+                            reserves.is_some_and(|r| r.get(&asset.config.ammo_type) > 0)
+                        })
+                });
+                let frame_data = filtered.as_ref().unwrap_or(unfiltered);
                 let mut explore = crate::explorer::ExploreView {
                     blank: crate::explorer::should_blank(&view, holder),
                     ..Default::default()

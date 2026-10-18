@@ -2919,7 +2919,7 @@ d'id** du dossier `Floors` (`run_state::resolve_run_mode_with_floors`). Ajouter 
 passe avant l'ancien change la partie par défaut : les séquences de grammaire de `gungeon` sont
 nommées `etages_*` pour que `etage_1` (T0d) reste la première. Même piège pour tout nouveau jeu.
 
-**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits de 8×8 tuiles depuis M2-T14d, §52.d ;
+**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits depuis M2-T14d, §52.d ; **agrandis par m2-salles-murs-gungeon, voir « Échelle des gabarits » ci-dessous**, 8×8 tuiles à l'origine ;
 les neuf d'origine viennent du script `docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`,
 `CombatEW/NS/T/Croix`, `Recompense`, `Boutique`, `BossW/N`, puis `ArenaEW/Croix` (M2-T7), `EscouadeEW` (M2-T8),
 `Coffre`, `Secret` et `ArenaNS` (T14d). Grammaires `etage` (10–14 salles depuis T14d), `grand` (15–20) et `court`
@@ -2933,6 +2933,53 @@ boss à l'est, pour ces trois graines : relevé par `ALACOD_FLOOR_DUMP=court` du
 graine 123, deux étages `court` de même forme, `FloorIndex`. `bench_floor` : étage `grand`, deux
 bots `fonceur` (plancher dans `tests/budgets.ron`). L'atteinte du boss est scriptée : les bots
 nettoient les salles de combat mais ne vont pas vers une salle dormante (bot explorateur : T16).
+
+### Échelle des gabarits (m2-salles-murs-gungeon, 2026-10-18)
+
+Revue M2 de William : « chaque salle est minuscule ». Mesure d'avant (`docs/taches/rapports/m2-salles-murs-gungeon.md` §2) :
+les quinze gabarits de `salles.ldtk` faisaient **8×8 cases** (128×128 px, **six cases de sol de large**, 36 cases de sol), soit
+**3 sprites de héros** (32 px) ou **4,8 colliders** (20 px) de large, 0,64 s de traversée à 150 px/s ; à l'écran (960×540,
+`camera.ron` `min_zoom: 0.6` : 576×324 unités) une salle en occupait **22 % × 40 %**. `etage_1.ldtk` (squelette T0d, trois
+salles 8×8) et `hub.ldtk` (256×192 px, déjà 16×12 cases) ne changent pas : ni l'un ni l'autre n'est joué dans une partie ordinaire
+(`entry.floors: "etages_deux"`).
+
+**Échelle retenue** (cases de 16 px, murs compris ; le script `docs/taches/rapports/m2-salles-murs-gungeon.make_gabarits_grands.py`
+réécrit les quinze gabarits depuis la version 8×8, de façon déterministe) :
+
+| type | gabarits | cases | surface ×ancienne | intérieur | écran (zoom 0,5) |
+|---|---|---|---|---|---|
+| départ | `Depart` | 14×12 | 2,6 | 12×10 | 47 % × 71 % |
+| combat, escouade | `CombatEW/NS/T/Croix`, `EscouadeEW` | 16×12 | 3,0 | 14×10 (11 colliders de large) | 53 % × 71 % |
+| récompense, secret | `Recompense`, `Secret` | 12×10 | 1,9 | 10×8 | 40 % × 59 % |
+| boutique | `Boutique` | 14×10 | 2,2 | 12×8 | 47 % × 59 % |
+| coffre | `Coffre` | 14×12 | 2,6 | 12×10 | 47 % × 71 % |
+| arène | `ArenaEW/Croix/NS` | 20×14 | 4,4 | 18×12 (14 colliders) | 67 % × 83 % |
+| boss | `BossW/N` | 22×16 | 5,5 | 20×14 (16 colliders) | 73 % × 95 % |
+
+*Pourquoi ces chiffres.* Combat à ×3 (la fiche attendait 2 à 3) : à `min_zoom: 0.5` (480×270 unités à l'écran, 30×17 cases) une salle de
+combat occupe un peu plus de la moitié de la largeur et 71 % de la hauteur : on la lit d'un coup d'œil, avec ses portes, sans voir
+trois salles voisines (avant : quatre salles et demie dans la largeur). Les salles où l'on ne se bat pas (récompense, secret,
+boutique) restent à ×2 : trois présentoirs espacés de 32 px (`SHELF_SPACING`) et un coffre n'ont pas besoin de plus. L'arène (750 frames à
+tenir, sept ennemis en trois vagues dont une tourelle) et le boss (patterns, trois phases) demandent de la place pour esquiver : ×4,4 et ×5,5.
+Le zoom `camera.ron` passe de 0,6 à 0,5 : le héros reste lisible (64 px de haut à l'écran) et la salle de combat tient dans l'image.
+**Le contenu ne change pas** : mêmes ennemis, mêmes props, mêmes nombres ; les entités sont placées **proportionnellement** dans la salle
+agrandie (centre de chaque entité conservé en fraction de l'intérieur) et vérifiées par le script (aucun recouvrement, aucun prop ni
+apparition sur le passage de deux cases devant une ouverture). Les salles sont donc plus vides : le nombre d'ennemis par salle est une
+décision d'équilibrage de William (D64), pas de cette tâche.
+
+*Portes alignées.* Chaque côté ouvert a deux cases d'ouverture **au milieu** du côté. Des gabarits de tailles différentes ont donc leurs ouvertures
+à des distances différentes du coin, que l'appariement imposait égales (`Connection::are_matching`, `starting_at`). Pour les grammaires
+`Graph` (gungeon) l'appariement ne compare plus `starting_at` (`populate_level_connections_with(.., offset_free: true)`, activé par
+`map_ldtk::generation::from` d'après `MapGenerationMode::Floor` + `FloorLayout::Graph` ; Basic, caverne et grille gardent l'appariement strict) et
+**`Room::get_connecting_room_position`** décale la salle posée pour que les deux ouvertures soient face à face. Cette fonction avait deux
+défauts jamais exercés (les ouvertures étaient toujours au même endroit, les salles de même taille) : elle prenait la taille de la voisine au lieu
+de celle de la salle courante pour un côté est ou sud, et le signe du décalage était faux pour un côté nord. Réécrite, sans changement pour des salles
+égales (test `la_voisine_se_pose_ouverture_contre_ouverture`) ; test de génération `gungeon_etages_de_grammaire` : toute ouverture restée libre
+a, en face, une ouverture libre d'une autre salle, case contre case (étage, grand et court sur 2 000 graines).
+
+*Étendue du monde.* `FloorGrammar::bounds: Option<(i32, i32)>` (pixels, de part et d'autre du départ ; absent : 1000×1000 comme avant) relève la boîte
+dans laquelle le planificateur pose les salles : `etage` et `court_secret` à 3000/2000, `grand` à 4000 (les salles de 224 à 352 px la remplissent
+plus vite). Lint : `bounds` négatif ou nul est refusé (`problems`).
 
 ## Notes essentielles
 

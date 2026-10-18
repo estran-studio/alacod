@@ -381,4 +381,18 @@ mod tests {
         graph.required.insert("combat".into(), 1);
         assert!(!has(&graph, "type de remplissage"));
     }
+
+    /// m2-salles-murs-gungeon : l'étendue du monde est positive (absente : celle de la configuration).
+    #[test]
+    fn l_etendue_du_monde_est_positive() {
+        let mut g = grid("secrete", None);
+        assert_eq!(g.bounds, None);
+        assert!(!g.problems().iter().any(|p| p.contains("bounds")));
+        g.bounds = Some((3000, 3000));
+        assert!(!g.problems().iter().any(|p| p.contains("bounds")));
+        for bad in [(0, 3000), (3000, -1)] {
+            g.bounds = Some(bad);
+            assert!(g.problems().iter().any(|p| p.contains("bounds")), "{bad:?}");
+        }
+    }
 }

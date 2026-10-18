@@ -52,6 +52,22 @@ pub const ROOM_INSET: Fixed = Fixed::from_bits(40 << 16);
 /// Portée visée pour ramasser un objet au contact (sous le `pickup_range` de 24 par défaut).
 const ITEM_REACH: Fixed = Fixed::from_bits(16 << 16);
 
+/// Coût de chemin (10 par case orthogonale de la grille du bot, 8 px) au-delà duquel un objet, un
+/// présentoir, un coffre ou une salle sans verrou (récompense, boutique) ne vaut plus le détour :
+/// 600, soit 60 cases (480 px, ~190 frames à 2,5 px par frame ; les pénalités de proximité des
+/// murs en font moins en ligne droite). Dans les salles agrandies de
+/// m2-salles-murs-gungeon un étage mesure plus de 2000 px et le soft-lock `Floors` tombe à 1200
+/// frames sans dégât ni mort : à courir d'un objet lointain à l'autre (butin d'un combat passé,
+/// présentoirs aux deux bouts de l'étage), le bot laissait passer ce délai sans combattre
+/// (graines 8, 10, 12, 16, 29 de `etages_deux`). Les buts lointains deviennent proches quand le
+/// bot passe à côté, en allant d'une salle de combat à la suivante.
+pub const OPTIONAL_DETOUR: u32 = 600;
+
+/// Même limite quand plus aucune salle de combat ne reste (le boss et d'éventuels détours) : le
+/// trajet jusqu'au boss, souvent à l'autre bout de l'étage, est le dernier avant le combat, et
+/// chaque détour s'ajoute aux 1200 frames du soft-lock (graine 12). 200, soit 20 cases (160 px).
+pub const LAST_STRETCH_DETOUR: u32 = 200;
+
 /// Marge intérieure au-delà de laquelle un joueur « est dans » une salle non verrouillante
 /// (`PLAYER_INSET` de `map_ldtk::game::rooms`) : entrer suffit pour la visiter.
 const VISIT_INSET: Fixed = Fixed::from_bits(24 << 16);
@@ -96,6 +112,9 @@ pub struct RoomGoal {
     pub zone: Rect,
     /// Un boss (`BossState`) y vit.
     pub boss: bool,
+    /// La salle se verrouille (combat, arène, boss) : seule une salle verrouillante fait tuer,
+    /// donc avancer l'étage. Une autre (départ, récompense, boutique) ne vaut que le détour.
+    pub locking: bool,
 }
 
 /// Un objet au sol.
@@ -118,6 +137,32 @@ pub struct ExploreFrame {
     pub items: Vec<ItemGoal>,
     /// `GgrsNetId` des ennemis endormis (`RoomDormant`).
     pub dormant: BTreeSet<usize>,
+    /// Présentoirs payables qui vendent une arme : `(GgrsNetId du présentoir, identifiant de l'arme)`.
+    /// Une arme achetée tombe au pied du joueur que l'Interaction tenue ramasse aussitôt (un seul
+    /// emplacement : l'arme en main tombe) ; voir [`ExploreFrame::without_unusable_weapons`].
+    pub weapon_shelves: Vec<(usize, String)>,
+}
+
+impl ExploreFrame {
+    /// La même frame sans les présentoirs dont l'arme est **inutilisable** pour ce joueur
+    /// (`usable(arme)` faux : aucune réserve du type de munition de l'arme, une arme ramassée
+    /// n'en ajoute pas). Le bot achetait un `fusil_precision` (munitions `calibre`, réserve nulle)
+    /// qui remplaçait son arme de départ : chargeur vide sans recharge possible, il restait sans
+    /// tir jusqu'au soft-lock (graines 3, 4, 18 de `etages_deux`). `None` si rien n'est écarté.
+    pub fn without_unusable_weapons(&self, usable: impl Fn(&str) -> bool) -> Option<ExploreFrame> {
+        let unusable: BTreeSet<usize> = self
+            .weapon_shelves
+            .iter()
+            .filter(|(_, weapon)| !usable(weapon))
+            .map(|(id, _)| *id)
+            .collect();
+        if unusable.is_empty() {
+            return None;
+        }
+        let mut frame = self.clone();
+        frame.items.retain(|item| !unusable.contains(&item.net_id));
+        Some(frame)
+    }
 }
 
 /// Ce que le joueur porte (lu dans son `Inventory` et son `BlankState`).
@@ -248,6 +293,7 @@ impl ExplorerWorld<'_, '_> {
                         id: level.0.clone(),
                         zone: room_zone(bounds.position, bounds.size),
                         boss: enemies.iter().any(|(_, p, _, boss)| *boss && inside(*p)),
+                        locking,
                     });
                 }
             }
@@ -266,20 +312,22 @@ impl ExplorerWorld<'_, '_> {
                     .is_some_and(|def| matches!(def.kind, ItemKind::Active(_))),
             })
             .collect();
+        let mut weapon_shelves = Vec::new();
         if self.options().shopping {
-            self.shopping_goals(&mut items);
+            self.shopping_goals(&mut items, &mut weapon_shelves);
         }
         ExploreFrame {
             rooms,
             items,
             dormant,
+            weapon_shelves,
         }
     }
 
     /// D62 : présentoirs payables et coffres ouvrables (but d'exploration par Interaction, comme
     /// un objet passif au sol). L'arme qui en sort est ramassée par le combat de `prudent`
     /// (butin au sol), jamais par un but d'ici. Solde et clés se lisent dans l'état.
-    fn shopping_goals(&self, items: &mut Vec<ItemGoal>) {
+    fn shopping_goals(&self, items: &mut Vec<ItemGoal>, weapon_shelves: &mut Vec<(usize, String)>) {
         let wallet = self.wallets.iter().map(|(_, c)| c.0).max().unwrap_or(0);
         let keys = self
             .holders
@@ -298,6 +346,9 @@ impl ExplorerWorld<'_, '_> {
                     surface: true,
                     active: false,
                 });
+                if let Some(weapon) = items::loot_weapon(&shelf.item_id) {
+                    weapon_shelves.push((id.0, weapon.to_string()));
+                }
             }
         }
         for (id, t, chest, interactable) in order_iter!(self.chests) {
@@ -408,20 +459,11 @@ pub fn ordered_goals(
     boss_direct: bool,
 ) -> Vec<(GoalKey, Rect, Option<ItemGoal>)> {
     let mut goals: Vec<(GoalKey, Goal)> = Vec::new();
-    if !boss_direct {
-        for item in &frame.items {
-            if item.active && holder.has_active {
-                continue;
-            }
-            let zone = Rect {
-                min: item.position,
-                max: item.position,
-            };
-            if let Some(cost) = zone_cost(field, zone, ITEM_REACH) {
-                goals.push(((cost, 0, item.net_id, String::new()), Goal::Item(*item)));
-            }
-        }
-    }
+    let detour = if frame.rooms.iter().any(|room| room.locking && !room.boss) {
+        OPTIONAL_DETOUR
+    } else {
+        LAST_STRETCH_DETOUR
+    };
     if !portal_open {
         let bosses = frame.rooms.iter().any(|room| room.boss);
         let mut rooms: Vec<(GoalKey, Goal)> = Vec::new();
@@ -430,6 +472,11 @@ pub fn ordered_goals(
             let Some(cost) = zone_cost(field, room.zone, Fixed::ZERO) else {
                 continue;
             };
+            // Une salle sans verrou n'est qu'un détour (voir `OPTIONAL_DETOUR`) : lointaine, elle
+            // ne retarde ni les combats ni le boss.
+            if !room.locking && !room.boss && cost > detour {
+                continue;
+            }
             let entry = ((cost, 1, 0, room.id.clone()), Goal::Room(room.zone));
             if room.boss {
                 boss_rooms.push(entry);
@@ -444,6 +491,23 @@ pub fn ordered_goals(
             goals.extend(boss_rooms);
         } else {
             goals.extend(rooms);
+        }
+    }
+    if !boss_direct {
+        for item in &frame.items {
+            if item.active && holder.has_active {
+                continue;
+            }
+            let zone = Rect {
+                min: item.position,
+                max: item.position,
+            };
+            if let Some(cost) = zone_cost(field, zone, ITEM_REACH) {
+                if cost > detour {
+                    continue;
+                }
+                goals.push(((cost, 0, item.net_id, String::new()), Goal::Item(*item)));
+            }
         }
     }
     goals.sort_by(|a, b| a.0.cmp(&b.0));
@@ -549,11 +613,11 @@ mod tests {
         FixedVec2::new(fx(x), fx(y))
     }
 
-    /// Champ de coûts : distance de Manhattan × 10 depuis la case (0, 0), sur [-80, 80]².
+    /// Champ de coûts : distance de Manhattan × 10 depuis la case (0, 0) (cases de 8 px), sur [-160, 160]².
     fn field() -> FlowField {
         let mut field = FlowField::default();
-        for x in -80..=80 {
-            for y in -80..=80 {
+        for x in -160..=160 {
+            for y in -160..=160 {
                 field
                     .costs
                     .insert(GridPos::new(x, y), ((x.abs() + y.abs()) * 10) as u32);
@@ -567,6 +631,7 @@ mod tests {
             id: id.into(),
             zone: room_zone(v(x, -64.0), v(128.0, 128.0)),
             boss,
+            locking: true,
         }
     }
 
@@ -625,11 +690,13 @@ mod tests {
             id: "a".into(),
             zone: room_zone(v(-192.0, -64.0), v(128.0, 128.0)),
             boss: false,
+            locking: true,
         };
         let b = RoomGoal {
             id: "b".into(),
             zone: room_zone(v(64.0, -64.0), v(128.0, 128.0)),
             boss: false,
+            locking: true,
         };
         for rooms in [vec![a.clone(), b.clone()], vec![b, a]] {
             let frame = ExploreFrame {
@@ -682,6 +749,107 @@ mod tests {
             ordered_goals(&field(), &frame, Holder::default(), false, false).len(),
             1
         );
+    }
+
+    fn item(net_id: usize, x: f32) -> ItemGoal {
+        ItemGoal {
+            net_id,
+            position: v(x, 0.0),
+            surface: true,
+            active: false,
+        }
+    }
+
+    #[test]
+    fn pas_de_detour_lointain() {
+        // Un objet à 800 px (coût ~1000) ne vaut pas le détour, celui à 80 px oui : seul le boss
+        // reste, il passe devant l'objet lointain.
+        let frame = ExploreFrame {
+            rooms: vec![room("z", 1000.0, true)],
+            items: vec![item(1, 800.0), item(2, 80.0)],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let ids: Vec<_> = goals.iter().map(|(k, ..)| (k.1, k.2)).collect();
+        assert_eq!(ids, vec![(0, 2), (1, 0)], "objet proche puis boss");
+        // Même règle quand il reste des salles de combat, et après la mort du boss (portail).
+        let frame = ExploreFrame {
+            rooms: vec![room("a", 200.0, false), room("z", 1000.0, true)],
+            items: vec![item(1, 800.0), item(2, 80.0)],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        assert_eq!(goals.len(), 2, "l'objet proche et la salle");
+        let goals = ordered_goals(&field(), &frame, Holder::default(), true, false);
+        assert_eq!(goals.len(), 1, "portail ouvert : l'objet proche seulement");
+    }
+
+    #[test]
+    fn detour_plus_court_sur_la_derniere_ligne_droite() {
+        // Objet à 250 px (coût ~290) : un détour tant qu'une salle de combat reste, plus ensuite.
+        let with_fight = ExploreFrame {
+            rooms: vec![room("a", 200.0, false), room("z", 1000.0, true)],
+            items: vec![item(1, 250.0)],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &with_fight, Holder::default(), false, false);
+        assert_eq!(goals.len(), 2, "l'objet et la salle de combat");
+        let boss_only = ExploreFrame {
+            rooms: vec![room("z", 1000.0, true)],
+            ..with_fight
+        };
+        let goals = ordered_goals(&field(), &boss_only, Holder::default(), false, false);
+        assert_eq!(goals.len(), 1, "le boss seul");
+    }
+
+    #[test]
+    fn salle_sans_verrou_lointaine_n_est_pas_un_but() {
+        let passive = |id: &str, x: f32| RoomGoal {
+            locking: false,
+            ..room(id, x, false)
+        };
+        // Récompense lointaine (coût > 600) : le combat proche puis le boss ne l'attendent pas ;
+        // proche, elle reste un détour.
+        let frame = ExploreFrame {
+            rooms: vec![
+                passive("loin", 900.0),
+                passive("pres", 100.0),
+                room("combat", 300.0, false),
+            ],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let ids: Vec<_> = goals.iter().map(|(k, ..)| k.3.clone()).collect();
+        assert_eq!(ids, vec!["pres", "combat"]);
+        // Plus qu'une salle sans verrou lointaine et le boss : le boss est le but.
+        let frame = ExploreFrame {
+            rooms: vec![passive("loin", 900.0), room("z", 600.0, true)],
+            ..Default::default()
+        };
+        let goals = ordered_goals(&field(), &frame, Holder::default(), false, false);
+        let ids: Vec<_> = goals.iter().map(|(k, ..)| k.3.clone()).collect();
+        assert_eq!(ids, vec!["z"]);
+    }
+
+    #[test]
+    fn pas_de_presentoir_d_arme_sans_reserve() {
+        let frame = ExploreFrame {
+            items: vec![item(10, 80.0), item(11, 96.0), item(12, 112.0)],
+            weapon_shelves: vec![(10, "fusil_precision".into()), (11, "pistolet".into())],
+            ..Default::default()
+        };
+        // Réserve de `balles` seulement : le fusil (calibre) n'est pas utilisable.
+        let filtered = frame
+            .without_unusable_weapons(|weapon| weapon != "fusil_precision")
+            .expect("un présentoir écarté");
+        let ids: Vec<_> = filtered.items.iter().map(|i| i.net_id).collect();
+        assert_eq!(
+            ids,
+            vec![11, 12],
+            "le présentoir d'arme utilisable et le coffre restent"
+        );
+        // Tout est utilisable : aucune copie.
+        assert!(frame.without_unusable_weapons(|_| true).is_none());
     }
 
     #[test]
