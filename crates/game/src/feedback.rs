@@ -1943,20 +1943,23 @@ fn active_weapon_sound<'a>(
     })
 }
 
-/// Sons propres des armes (`audio_config` de `weapons.ron`), lus sur l'asset du registre : le
+/// Sons propres des armes (`audio_config` de `weapons.ron`), lus dans `WeaponRegistry` : le
 /// composant rollback `Weapon` ne les porte pas.
 #[derive(bevy::ecs::system::SystemParam)]
 struct WeaponAudio<'w> {
-    global: Option<Res<'w, crate::global_asset::GlobalAsset>>,
-    weapons: Res<'w, Assets<crate::weapons::WeaponsConfig>>,
+    weapons: Res<'w, crate::weapons::WeaponRegistry>,
 }
 
 impl WeaponAudio<'_> {
     /// Sons du mode `mode` de l'arme `weapon` (aucun si l'arme ou le mode n'en déclare pas).
     fn mode(&self, weapon: &ActiveWeaponSound) -> Option<&crate::weapons::WeaponModeAudio> {
         let (mode, _) = weapon.mode?;
-        let table = self.weapons.get(&self.global.as_ref()?.weapons)?;
-        table.0.get(weapon.name)?.audio_config.modes.get(mode)
+        self.weapons
+            .weapons
+            .get(weapon.name)?
+            .audio_config
+            .modes
+            .get(mode)
     }
 }
 

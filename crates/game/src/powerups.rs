@@ -847,7 +847,7 @@ mod tests {
     #[test]
     fn max_ammo_additionne_les_reserves_et_annule_le_rechargement() {
         let mut world = world_with_config(Action::RefillAmmo, fixed_math::FIXED_ZERO);
-        let weapons: crate::weapons::WeaponsConfig = ron::from_str(include_str!(
+        let weapons: crate::weapon_assets::WeaponsConfig = ron::from_str(include_str!(
             "../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
         ))
         .unwrap();
@@ -917,7 +917,7 @@ mod tests {
         let balles = AmmoType::Custom("balles".to_string());
         let mut world =
             world_with_config(Action::RefillAmmoOf(obus.clone()), fixed_math::FIXED_ZERO);
-        let weapons: crate::weapons::WeaponsConfig = ron::from_str(include_str!(
+        let weapons: crate::weapon_assets::WeaponsConfig = ron::from_str(include_str!(
             "../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
         ))
         .unwrap();

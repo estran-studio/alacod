@@ -548,10 +548,10 @@ mod tests {
     /// contre 0,25). **La borne de 2 sur (b) n'est pas tenue** et la cause est le planificateur : `grid::attempt` tire un gabarit parmi
     /// ceux qui ont au moins une pose valide, donc évalue (parents × ports × gabarits × ports) à chaque pose, et le remplissage
     /// (`combat`) est passé de **un** gabarit à **neuf** (×8,6 évaluations). La borne est 3 ; la garde déterministe est le nombre
-    /// d'évaluations (`FloorPlan::steps`, moyenne sous 3 500). Piste (non faite) : n'évaluer qu'une pose par gabarit de même taille et
+    /// d'évaluations (`FloorPlan::steps`, moyenne sous 2 700, mesuré 2 396 avec 23 gabarits ; D117 : c'est la garde principale, le
+    /// rapport de temps est le minimum de trois tours A/B/A/B). Piste (non faite) : n'évaluer qu'une pose par gabarit de même taille et
     /// mêmes ports.
-    #[test]
-    fn isaac_grille_de_12_a_15_salles_sous_trois_fois_grand_de_gungeon() {
+    fn isaac_grille_contre_gungeon(repeats: usize, check_time: bool) {
         use map::generation::config::MapGenerationMode;
         let isaac: LdtkJson = load_ldtk_json_file(&get_crate_root_path!(
             "../../games/isaac/assets/maps/salles.ldtk"
@@ -579,6 +579,9 @@ mod tests {
         let (mut isaac_a, mut isaac_p, mut isaac_b) = (zero, zero, zero);
         let (mut gungeon_a, mut gungeon_p, mut gungeon_b) = (zero, zero, zero);
         let runs = 100;
+        // D117 : avec `repeats` > 1 chaque graine est rejouée isaac puis gungeon à chaque tour (A/B/A/B) et on garde le
+        // **minimum** par graine et par phase (un pic de charge ne gonfle qu'un tour).
+        let repeats = repeats.max(1);
         for seed in 1..=runs {
             // Comme le chargeur (`loader::resolve_map_config`) : l'étendue vient de la grammaire (m2-salles-murs-gungeon).
             let config = |grammar: &world::FloorGrammar| MapGenerationConfig {
@@ -588,47 +591,44 @@ mod tests {
                 mode: MapGenerationMode::Floor(grammar.clone()),
                 ..Default::default()
             };
-            for (data, grammar, tree, a, p, b) in [
-                (
-                    &isaac,
-                    &grid,
-                    false,
-                    &mut isaac_a,
-                    &mut isaac_p,
-                    &mut isaac_b,
-                ),
-                (
-                    &gungeon,
-                    &grand,
-                    true,
-                    &mut gungeon_a,
-                    &mut gungeon_p,
-                    &mut gungeon_b,
-                ),
-            ] {
-                let started = std::time::Instant::now();
-                let context = from_map(data, config(grammar));
-                let mut generator = GeneratedMap::create(data.clone());
-                *a += started.elapsed();
-                let started = std::time::Instant::now();
-                let mut rng = bevy_fixed::rng::RollbackRng::new(seed as u32);
-                let plan = map::generation::floor::plan_floor(grammar, &context, &mut rng).unwrap();
-                if !tree {
-                    isaac_steps += plan.steps as usize;
+            let mut best = [[std::time::Duration::MAX; 3]; 2];
+            for repeat in 0..repeats {
+                for (which, (data, grammar, tree)) in
+                    [(&isaac, &grid, false), (&gungeon, &grand, true)]
+                        .into_iter()
+                        .enumerate()
+                {
+                    let started = std::time::Instant::now();
+                    let context = from_map(data, config(grammar));
+                    let mut generator = GeneratedMap::create(data.clone());
+                    best[which][0] = best[which][0].min(started.elapsed());
+                    let started = std::time::Instant::now();
+                    let mut rng = bevy_fixed::rng::RollbackRng::new(seed as u32);
+                    let plan =
+                        map::generation::floor::plan_floor(grammar, &context, &mut rng).unwrap();
+                    if !tree && repeat == 0 {
+                        isaac_steps += plan.steps as usize;
+                    }
+                    std::hint::black_box(plan);
+                    best[which][1] = best[which][1].min(started.elapsed());
+                    let started = std::time::Instant::now();
+                    map_generation(context, &mut generator)
+                        .unwrap_or_else(|_| panic!("graine {seed} : génération échouée"));
+                    if tree {
+                        generator.close_unused_openings();
+                    } else {
+                        generator.close_unused_openings_exact();
+                    }
+                    std::hint::black_box(generator.generated_rooms.len());
+                    best[which][2] = best[which][2].min(started.elapsed());
                 }
-                std::hint::black_box(plan);
-                *p += started.elapsed();
-                let started = std::time::Instant::now();
-                map_generation(context, &mut generator)
-                    .unwrap_or_else(|_| panic!("graine {seed} : génération échouée"));
-                if tree {
-                    generator.close_unused_openings();
-                } else {
-                    generator.close_unused_openings_exact();
-                }
-                std::hint::black_box(generator.generated_rooms.len());
-                *b += started.elapsed();
             }
+            isaac_a += best[0][0];
+            isaac_p += best[0][1];
+            isaac_b += best[0][2];
+            gungeon_a += best[1][0];
+            gungeon_p += best[1][1];
+            gungeon_b += best[1][2];
         }
         let per = |d: std::time::Duration| d / runs as u32;
         println!(
@@ -643,12 +643,30 @@ mod tests {
             isaac_b.as_secs_f64() / gungeon_b.as_secs_f64(),
             isaac_steps / runs as usize
         );
-        assert!(
-            isaac_b < gungeon_b * 3,
-            "(b) {isaac_b:?} contre {gungeon_b:?} ((p) {isaac_p:?} contre {gungeon_p:?}, (a) {isaac_a:?} contre {gungeon_a:?})"
-        );
         let steps = isaac_steps / runs as usize;
-        assert!(steps < 3_500, "{steps} évaluations de candidats par étage");
+        assert!(steps < 2_700, "{steps} évaluations de candidats par étage");
+        if check_time {
+            assert!(
+                isaac_b < gungeon_b * 3,
+                "(b) {isaac_b:?} contre {gungeon_b:?} ((p) {isaac_p:?} contre {gungeon_p:?}, (a) {isaac_a:?} contre {gungeon_a:?})"
+            );
+        }
+    }
+
+    /// Garde de `make test_crates` (D117) : **déterministe**, aucun chronomètre ne la fait échouer (la mesure du temps imprimée
+    /// sert seulement à la lecture).
+    #[test]
+    fn isaac_grille_de_12_a_15_salles_evaluations_de_candidats_bornees() {
+        isaac_grille_contre_gungeon(1, false);
+    }
+
+    /// Rapport de temps du même test, **hors de `test_crates`** (`#[ignore]`, `make perf_generation`) : le minimum de trois tours
+    /// A/B/A/B par graine ne tient pas sur une machine à charge 40 et plus (mesuré 3,49 contre 2,2 au repos, D117) ; une borne de
+    /// temps n'a de sens que sur une machine au repos.
+    #[test]
+    #[ignore = "chronométré : `make perf_generation` sur une machine au repos"]
+    fn isaac_grille_de_12_a_15_salles_sous_trois_fois_grand_de_gungeon() {
+        isaac_grille_contre_gungeon(3, true);
     }
 
     /// M2-T11 (`docs/conventions.md` §46) : les gabarits `CombatEW` et `CombatNS` de `gungeon`

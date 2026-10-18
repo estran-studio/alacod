@@ -19,7 +19,7 @@ use crate::{
     powerups::PowerUpsConfig,
     session::{AppState, OnlineState},
     waves::WaveConfig,
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapon_assets::{MeleeWeaponsConfig, WeaponsConfig},
 };
 
 /// D3 : id de la feuille de l'effet de coup de mêlée (`ui::weapon_visuals::
@@ -33,6 +33,7 @@ pub struct GlobalAsset {
     pub animations: HashMap<String, Handle<AnimationMapConfig>>,
     /// Source de la synchro de `CharacterConfigs` (`character::config_asset::sync_character_configs`).
     pub character_configs: HashMap<String, Handle<CharacterConfigAsset>>,
+    /// Source de la synchro de `WeaponRegistry` (`weapon_assets::sync_weapon_registry`).
     pub weapons: Handle<WeaponsConfig>,
     pub melee_weapons: Handle<MeleeWeaponsConfig>,
 

@@ -767,7 +767,7 @@ pub fn spawn_weapon_for_player(
 #[derive(Component, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct WeaponPickup {
     /// Id de l'arme dans `weapons.ron` (`WeaponConfig::name`, clé du registre) : relu au
-    /// ramassage pour retrouver le `WeaponAsset` complet dans `Assets<WeaponsConfig>`.
+    /// ramassage pour retrouver le `WeaponAsset` complet dans `WeaponRegistry` (`game::weapons`).
     pub weapon_id: String,
     /// Munitions du chargeur du mode par défaut au moment du dépôt (voir
     /// `spawn_weapon_for_player::initial_mag_ammo`) : un seul nombre, pas un par mode — le

@@ -34,12 +34,11 @@ use utils::{
 use world::{RoomChanged, RoomState};
 
 use crate::character::player::Player;
-use crate::global_asset::GlobalAsset;
 use crate::interaction::InteractionEvent;
 use crate::items::spawn_item_pickup;
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
-use crate::weapons::WeaponsConfig;
+use crate::weapons::WeaponRegistry;
 
 /// Consommable qui ouvre un coffre verrouillé.
 pub const KEY_ITEM: &str = "key";
@@ -113,16 +112,12 @@ pub fn spawn_chest(
 /// inconnue du registre chargé (le lint la refuse).
 pub fn spawn_loot_weapon(
     commands: &mut Commands,
-    global_assets: &GlobalAsset,
-    weapons: &Assets<WeaponsConfig>,
+    weapons: &WeaponRegistry,
     weapon_id: &str,
     position: fixed_math::FixedVec3,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
 ) -> bool {
-    let Some(asset) = weapons
-        .get(&global_assets.weapons)
-        .and_then(|config| config.0.get(weapon_id))
-    else {
+    let Some(asset) = weapons.weapons.get(weapon_id) else {
         return false;
     };
     let mag_ammo = crate::weapons::default_mode_capacity(asset);
@@ -214,8 +209,7 @@ pub fn spawn_drawn_loot(
     commands: &mut Commands,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
     items: &ItemTable,
-    global_assets: &GlobalAsset,
-    weapons: &Assets<WeaponsConfig>,
+    weapons: &WeaponRegistry,
     drawn: &str,
     position: fixed_math::FixedVec3,
     origin: usize,
@@ -227,14 +221,7 @@ pub fn spawn_drawn_loot(
             crate::shop::spawn_shell_pickup(commands, id_factory, amount, position, origin);
         }
         (None, Some(weapon_id)) => {
-            if !spawn_loot_weapon(
-                commands,
-                global_assets,
-                weapons,
-                weapon_id,
-                position,
-                id_factory,
-            ) {
+            if !spawn_loot_weapon(commands, weapons, weapon_id, position, id_factory) {
                 warn!("{owner} : arme « {weapon_id} » inconnue");
             }
         }
@@ -267,8 +254,7 @@ pub fn chest_interaction_system(
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut opened: ResMut<FrameEvents<ChestOpened>>,
-    global_assets: Res<GlobalAsset>,
-    weapons: Res<Assets<WeaponsConfig>>,
+    weapons: Res<WeaponRegistry>,
     mut chests: Query<(&mut Chest, &fixed_math::FixedTransform3D), With<Rollback>>,
     mut players: Query<(&GgrsNetId, &Player, Option<&mut Inventory>), Without<Chest>>,
 ) {
@@ -356,7 +342,6 @@ pub fn chest_interaction_system(
             &mut commands,
             &mut id_factory,
             &items,
-            &global_assets,
             &weapons,
             &item_id,
             position,

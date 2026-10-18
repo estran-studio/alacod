@@ -43,7 +43,7 @@ use crate::items::{apply_instant_effects, spawn_item_pickup, with_inventory, Fre
 use crate::loot::{assign_slot, seed_context, SlotContext};
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
-use crate::weapons::WeaponsConfig;
+use crate::weapons::WeaponRegistry;
 use run::currency::{Currency, CurrencyEvent};
 
 /// Prix d'un présentoir dont la rareté n'a pas de prix dans `economy.ron`.
@@ -399,8 +399,7 @@ pub fn shelf_interaction_system(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
     table: Res<ItemTable>,
-    global_assets: Res<GlobalAsset>,
-    weapons: Res<Assets<WeaponsConfig>>,
+    weapons: Res<WeaponRegistry>,
     effect_assets: EffectAssets,
     mut commands: Commands,
     mut picked: ResMut<FrameEvents<ItemPicked>>,
@@ -590,7 +589,6 @@ pub fn shelf_interaction_system(
         if let Some(weapon_id) = weapon {
             crate::loot::spawn_loot_weapon(
                 &mut commands,
-                &global_assets,
                 &weapons,
                 &weapon_id,
                 player_transform.translation,

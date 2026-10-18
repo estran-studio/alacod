@@ -17,7 +17,7 @@ use game::{
     interaction::{Interactable, InteractionType},
     jjrs::{GggrsSessionConfigurationState, GgrsSessionBuilding},
     session::AppState,
-    weapons::{self, melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::{self, WeaponRegistry},
 };
 use map::{
     game::entity::map::{
@@ -43,8 +43,7 @@ pub struct LevelSpawnAssets<'w> {
     // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
     pub balance: Res<'w, game::balance::ResolvedBalance>,
     pub character_configs: Res<'w, CharacterConfigs>,
-    pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
-    pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
+    pub weapon_registry: Res<'w, WeaponRegistry>,
     /// Graine de run (T1.5 : tirage des variantes, `game::character::variant`) : la graine de
     /// carte, celle que `system_after_map_loaded_local`/`p2p` donnera à `RunSeed`/`RngStreams`
     /// — qui ne sont posés qu'à `OnEnter(GameStarting)`, après l'apparition des personnages de
@@ -153,11 +152,9 @@ fn player_spawn_point(spawns: &std::collections::BTreeMap<usize, Vec3>, handle: 
 fn spawn_players_when_map_loaded(
     mut commands: Commands,
     collision_settings: Res<CollisionSettings>,
-    global_assets: Res<GlobalAsset>,
     balance: Res<game::balance::ResolvedBalance>,
     character_configs: Res<CharacterConfigs>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    weapon_registry: Res<WeaponRegistry>,
     mut id_provider: ResMut<GgrsNetIdFactory>,
     ggrs_session_building: Res<GgrsSessionBuilding>,
     player_spawn: Query<(Entity, &GlobalTransform, &PlayerSpawnConfig)>,
@@ -196,9 +193,7 @@ fn spawn_players_when_map_loaded(
 
         create_player(
             &mut commands,
-            &global_assets,
-            &weapons_asset,
-            &melee_weapons_asset,
+            &weapon_registry,
             &character_configs,
             &collision_settings,
             fixed_math::vec3_to_fixed(translation),
@@ -362,10 +357,8 @@ pub fn spawn_character(
         character.to_string(),
         position,
         commands,
-        &assets.weapons_asset,
-        &assets.melee_weapons_asset,
+        &assets.weapon_registry,
         &assets.character_configs,
-        &assets.global_assets,
         &assets.collision_settings,
         id_provider,
         team,
@@ -389,8 +382,7 @@ pub fn spawn_character(
 /// d'arme) avant `id_factory.next`, comme [`spawn_characters_when_map_loaded`].
 fn spawn_weapon_locations_when_map_loaded(
     mut commands: Commands,
-    global_assets: Res<GlobalAsset>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
+    weapon_registry: Res<WeaponRegistry>,
     mut id_provider: ResMut<GgrsNetIdFactory>,
     locations: Query<(Entity, &GlobalTransform, &WeaponLocationComponent)>,
     slots: FloorSlots,
@@ -400,20 +392,13 @@ fn spawn_weapon_locations_when_map_loaded(
         .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
         .map(|(_, transform, location)| (transform, location))
         .collect();
-    spawn_level_weapon_locations(
-        &mut commands,
-        &global_assets,
-        &weapons_asset,
-        &mut id_provider,
-        spawns,
-    );
+    spawn_level_weapon_locations(&mut commands, &weapon_registry, &mut id_provider, spawns);
 }
 
 /// Armes murales d'un niveau (chargement, ou passage de niveau du mode `Floors`).
 pub(crate) fn spawn_level_weapon_locations(
     commands: &mut Commands,
-    global_assets: &GlobalAsset,
-    weapons_asset: &Assets<WeaponsConfig>,
+    weapon_registry: &WeaponRegistry,
     id_provider: &mut ResMut<GgrsNetIdFactory>,
     mut spawns: Vec<(&GlobalTransform, &WeaponLocationComponent)>,
 ) {
@@ -435,10 +420,6 @@ pub(crate) fn spawn_level_weapon_locations(
         spawns.len()
     );
 
-    let Some(weapons_config) = weapons_asset.get(&global_assets.weapons) else {
-        return;
-    };
-
     for (transform, location) in spawns {
         if location.weapon.is_empty() {
             warn!(
@@ -447,7 +428,7 @@ pub(crate) fn spawn_level_weapon_locations(
             );
             continue;
         }
-        let Some(weapon_asset) = weapons_config.0.get(&location.weapon) else {
+        let Some(weapon_asset) = weapon_registry.weapons.get(&location.weapon) else {
             warn!(
                 "WeaponLocation : arme inconnue « {} » (voir `alacod lint`), ignoré",
                 location.weapon
