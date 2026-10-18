@@ -1,12 +1,12 @@
 // M3-T5 (docs/conventions.md §70) : témoin de `grid_treasure_key` au **premier étage** (séquence `sous_sol_un`, graine
-// 26 : même plan, le trésor est la case au sud du départ). `lock_from_floor: 1` : la porte du trésor est ordinaire,
+// 145 (M3-T11d1 : 26 avant les vingt gabarits) : même plan, le trésor est la case au sud du départ). `lock_from_floor: 1` : la porte du trésor est ordinaire,
 // ouverte, sans clé.
 //
 // À regarder : le joueur descend et entre dans le trésor sans rien toucher (y ≈ -191), `DoorLocked` faux, aucune clé.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
-    map_seed: 26,
+    map_seed: 145,
     floors: Some("sous_sol_un"),
     frames: 300,
     players: [

@@ -1,18 +1,18 @@
-// M3-T14 (docs/conventions.md §79) : une partie ordinaire d'`isaac` (séquence par défaut `sous_sol`, deux étages en
-// grille, graine 48) jouée de bout en bout par le bot `explorateur` avec la politique de `games/isaac/assets/bot.ron`,
-// sans input scripté et **sans bombe** (le personnage d'`isaac` n'en porte pas avant M3-T11d : la salle secrète reste
-// close, voir `bot_isaac_secret`).
+// M3-T14 (docs/conventions.md §79), recalé par M3-T11d1 (§76.4) : une partie ordinaire d'`isaac` (séquence par défaut `sous_sol`, deux étages en
+// grille, curses, boutique, graine 6) jouée de bout en bout par le bot `explorateur` avec la politique de `games/isaac/assets/bot.ron`, sans input
+// scripté, avec **la bombe de départ réelle** de `pleureur` (D81 ; la graine 48 « sans bombe » de T14 n'a plus de sens : le personnage en porte une).
 //
-// À regarder : le boss du premier étage est vaincu, le bot ouvre le trésor et prend le portail (« niveau 1 », f2928) ;
-// au second étage le trésor est fermé à clé : le bot va à la porte, une Interaction consomme la clé remise à l'arrivée
-// (f2942), il ouvre le coffre (f3058) ; le second boss meurt et la partie est gagnée (f4941). Les objets tirés
-// changent avec le tirage du butin (D95/D96) : les attentes ne les nomment pas. Seule la graine 48 de 1 à 20
-// gagne avec ce contenu (champions de D88, visée à quatre directions) : voir le rapport de campagne.
+// À regarder : au premier étage le bot pose sa bombe contre le mur secret (f138 et f364 : un détour d'abord, puis le mur ; mur ouvert f439), ouvre le
+// coffre secret (f604), achète à la boutique (bombe f1399, puis deux présentoirs, f1425 et f1465 à 50 sous), ouvre le coffre du trésor (f1842), tue
+// le boss (f2350 à f2670) et prend le portail (« niveau 1 », f3239, curse `blind`) ; au second étage le trésor est fermé à clé : le bot va à la porte,
+// une Interaction consomme la clé remise à l'arrivée (f3268), il ouvre le coffre (f3329), achète trois présentoirs (f3750 à f3806), pose une seconde
+// bombe contre le mur secret (f4187, mur ouvert f4262), ouvre le coffre secret (f4382), le second boss meurt et la partie est gagnée (f4815). Les
+// objets tirés changent avec le tirage du butin (D95/D96) : les attentes ne les nomment pas.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
-    map_seed: 48,
-    frames: 5600,
+    map_seed: 6,
+    frames: 5200,
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
@@ -26,16 +26,21 @@ Scenario(
     expect: [
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        Event(kind: "chest", by_frame: 2800),
-        FloorIndex(index: 0, at_frame: 1900),
-        FloorIndex(index: 1, at_frame: 3000),
-        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 2932),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 2932),
-        DoorLocked(kind: "tresor", nth: 0, locked: false, at_frame: 3100),
-        Consumable(handle: 0, id: "key", count: 0, at_frame: 3100),
-        EventAfter(kind: "chest", after_frame: 2950, by_frame: 3100),
-        DoorLocked(kind: "secrete", locked: true, at_frame: 4900),
-        Event(kind: "victory", by_frame: 5100),
-        PlayerAlive(handle: 0, at_frame: 5599),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 20),
+        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 0)"), by_frame: 500),
+        EventAfter(kind: "chest", after_frame: 439, by_frame: 700),
+        EventAfter(kind: "shelf", after_frame: 1300, by_frame: 1500),
+        Event(kind: "chest", by_frame: 1900),
+        FloorIndex(index: 0, at_frame: 3000),
+        FloorIndex(index: 1, at_frame: 3300),
+        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 3250),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 3250),
+        DoorLocked(kind: "tresor", nth: 0, locked: false, at_frame: 3300),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 3300),
+        EventAfter(kind: "chest", after_frame: 3270, by_frame: 3400),
+        EventAfter(kind: "shelf", after_frame: 3700, by_frame: 3850),
+        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 1)"), by_frame: 4300),
+        Event(kind: "victory", by_frame: 4900),
+        PlayerAlive(handle: 0, at_frame: 5199),
     ],
 )

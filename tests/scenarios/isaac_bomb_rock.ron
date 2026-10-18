@@ -1,0 +1,38 @@
+// M3-T11d1 (docs/conventions.md §76.4, D81) : la bombe de départ de `pleureur` casse les rochers d'un gabarit de combat. Graine 4 (séquence
+// `sous_sol_un`) : la salle au nord du départ est un `CombatButin` (un amas de rochers dans l'angle sud-est dont un rocher à butin).
+// Le joueur monte (f5 à f58) jusqu'au milieu de la salle (trois ennemis), avance vers l'amas (f58 à f88), pose sa bombe (f90, effective f95),
+// recule (f96 à f140) hors du rayon : l'explosion (f170, mèche de 75 frames, rayon 56) casse les trois rochers de l'amas et le rocher à butin laisse un objet.
+//
+// À regarder : `EntityCount(kind: Rock)` passe de 45 (tous les rochers de l'étage) à 42 à f170 ; le butin du rocher (pool `salle`, une `ration`) tombe
+// au sol ; le joueur, sorti du rayon (84 unités de l'explosion, rayon 56), n'est pas blessé par sa bombe. Il a perdu 1 PV à f113 (un ennemi) : ses `hit_iframes`
+// courent jusqu'à f173, donc la santé ne prouve rien à f175, c'est sa position à f170 qui prouve qu'il est hors du rayon.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 4,
+    floors: Some("sous_sol_un"),
+    frames: 300,
+    players: [
+        (
+            inputs: [
+                (from: 5, to: 58, buttons: [Up], pan: (0, 0)),
+                (from: 58, to: 88, buttons: [Right], pan: (0, 0)),
+                (from: 90, to: 91, buttons: [Bomb]),
+                (from: 96, to: 140, buttons: [Left], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        RoomLayout(kind: "combat", touches: ["depart"], at_frame: 5),
+        EntityCount(kind: Rock, min: Some(45), max: Some(45), at_frame: 5),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 60),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 110),
+        EntityCount(kind: Rock, min: Some(45), max: Some(45), at_frame: 165),
+        Event(kind: "explosion", by_frame: 175),
+        EntityCount(kind: Rock, min: Some(42), max: Some(42), at_frame: 175),
+        ItemsOnFloor(id: "ration", count: 0, at_frame: 165),
+        ItemsOnFloor(id: "ration", count: 1, at_frame: 175),
+        PlayerPosition(handle: 0, x: -31.6, y: 98.0, tolerance: 2.0, at_frame: 170),
+        PlayerAlive(handle: 0, at_frame: 299),
+    ],
+)

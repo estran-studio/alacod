@@ -1510,6 +1510,118 @@ fn room_probe() {
     }
 }
 
+/// Diagnostic (M3-T11d1) : le plan d'un étage par graine. `ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>[:<jeu>]` (défaut
+/// `isaac`) : pour chaque graine, une ligne par salle (type, taille en cases de salle, voisines par un bord commun,
+/// rochers dont à butin, cases de piques, ennemis, présentoirs), pour choisir une graine qui pose une salle voulue sans
+/// jouer la partie. Les mondes des étages se superposent : **une séquence d'un seul étage** (`sous_sol_un`) ; sur
+/// `sous_sol` les salles des deux étages se mêlent.
+#[test]
+#[ignore]
+fn floor_probe() {
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    let spec = std::env::var("ALACOD_FLOOR_PROBE").unwrap_or_else(|_| "sous_sol_un:1-5".into());
+    let mut parts = spec.split(':');
+    let sequence = parts.next().unwrap().to_string();
+    let (from, to) = parts.next().unwrap().split_once('-').unwrap();
+    let game = parts.next().unwrap_or("isaac").to_string();
+    for seed in from.parse::<i32>().unwrap()..=to.parse::<i32>().unwrap() {
+        let source = format!(
+            "Scenario(game: \"{game}\", map: \"floor:{sequence}\", map_seed: {seed}, frames: 10, players: [(inputs: [])], floors: Some(\"{sequence}\"))"
+        );
+        let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), 3);
+        let world = app.world_mut();
+        let mut rooms: Vec<(i32, i32, i32, i32, String)> = world
+            .query::<(&map::game::entity::map::room::RoomBounds, &world::RoomKind)>()
+            .iter(world)
+            .map(|(b, k)| {
+                (
+                    b.position.x.to_num::<i32>(),
+                    b.position.y.to_num::<i32>(),
+                    b.size.x.to_num::<i32>(),
+                    b.size.y.to_num::<i32>(),
+                    k.0.clone(),
+                )
+            })
+            .collect();
+        rooms.sort();
+        let inside = |room: &(i32, i32, i32, i32, String), x: f32, y: f32| {
+            x >= room.0 as f32
+                && x < (room.0 + room.2) as f32
+                && y >= room.1 as f32
+                && y < (room.1 + room.3) as f32
+        };
+        let rocks: Vec<(f32, f32, bool)> = world
+            .query::<(&world::Rock, &FixedTransform3D)>()
+            .iter(world)
+            .map(|(r, t)| {
+                (
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                    r.loot,
+                )
+            })
+            .collect();
+        let enemies: Vec<(f32, f32)> = world
+            .query_filtered::<&FixedTransform3D, bevy::prelude::With<game::character::enemy::Enemy>>()
+            .iter(world)
+            .map(|t| {
+                (
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                )
+            })
+            .collect();
+        let shelves: Vec<(f32, f32)> = world
+            .query::<(&items::Shelf, &FixedTransform3D)>()
+            .iter(world)
+            .map(|(_, t)| {
+                (
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                )
+            })
+            .collect();
+        let spikes: Vec<(f32, f32)> = world
+            .resource::<world::SurfaceGrid>()
+            .cells
+            .iter()
+            .filter(|(_, id)| **id == 5)
+            .map(|((x, y), _)| ((*x * 16 + 8) as f32, (*y * 16 + 8) as f32))
+            .collect();
+        println!("graine {seed} ({sequence}) : {} salles", rooms.len());
+        for room in &rooms {
+            let touching: Vec<&str> = rooms
+                .iter()
+                .filter(|o| (o.0, o.1) != (room.0, room.1))
+                .filter(|o| {
+                    let share_x = room.0 < o.0 + o.2 && o.0 < room.0 + room.2;
+                    let share_y = room.1 < o.1 + o.3 && o.1 < room.1 + room.3;
+                    (share_x && (room.1 + room.3 == o.1 || o.1 + o.3 == room.1))
+                        || (share_y && (room.0 + room.2 == o.0 || o.0 + o.2 == room.0))
+                })
+                .map(|o| o.4.as_str())
+                .collect();
+            let count =
+                |points: &[(f32, f32)]| points.iter().filter(|p| inside(room, p.0, p.1)).count();
+            let room_rocks: Vec<_> = rocks.iter().filter(|r| inside(room, r.0, r.1)).collect();
+            println!(
+                "  {:<8} ({:>5},{:>5}) {}x{} cases : voisines {:?}, rochers {} (butin {}), piques {}, ennemis {}, présentoirs {}",
+                room.4,
+                room.0,
+                room.1,
+                room.2 / 240,
+                room.3 / 144,
+                touching,
+                room_rocks.len(),
+                room_rocks.iter().filter(|r| r.2).count(),
+                count(&spikes),
+                count(&enemies),
+                count(&shelves)
+            );
+        }
+    }
+}
+
 /// Diagnostic D66 : vue directe. `ALACOD_SIGHT=<scénario>:<frame>` : joueurs, ennemis (position,
 /// distance au joueur le plus proche, ligne de vue, état, cible) et, pour poser un scénario,
 /// des cases libres atteignables d'où le joueur de plus petit id est vu à `ALACOD_SIGHT_MIN`..

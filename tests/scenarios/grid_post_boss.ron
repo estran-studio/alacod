@@ -1,12 +1,14 @@
-// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage du butin du boss change avec D96 (même graine 8 : `oeil_vif` au lieu de `calice_ardent`) ; la graine reste 8 (la salle du diable qu'elle donne est l'objet du scénario, comme pour `devil_room_chance`). Chronologie remesurée : boss verrouillé f1033, mort f1400, victoire f2117 (frames 2150 → 2200).
-// M3-T5 (docs/conventions.md §70) : la salle post-boss (`diable`) accrochée au boss. Graine 8 (séquence `sous_sol_un`) :
-// la chance de la grammaire (un tiers, tirée une fois par un flux local de la graine de l'emplacement) donne la salle
-// du diable, collée à l'est du boss et à aucune autre salle (le boss est le bout d'un couloir vertical de quatre
-// combats). Le bot `explorateur` nettoie les combats, bat le boss puis finit le dernier combat.
+// M3-T5 (docs/conventions.md §70) : la salle post-boss (`diable`) accrochée au boss. Graine 8 (séquence `sous_sol_un`) : la chance de la grammaire (un tiers, tirée
+// une fois par un flux local de la graine de l'emplacement) donne la salle du diable, collée au sud du boss et à aucune autre salle. M3-T11d1 (2026-10-18, vingt
+// gabarits, boutique exigée, bombe de départ) : le plan est refait (boss 1×1 au bout d'un couloir de combats, diable au sud du boss, boutique collée à un combat),
+// onze ennemis, cinq présentoirs (trois de la boutique, deux du diable). Le bot `explorateur` nettoie les combats, **pose la bombe de départ** contre le mur de la
+// secrète (intégration de T14, D106) et bat le boss.
 //
-// À regarder : le boss verrouille sa salle (f1033), passe en phase 1 (f1125), meurt (f1400) : son butin (`oeil_vif`, pool
-// `boss`, M3-T8 §73) tombe au centre de la salle et le bot le ramasse (f1461) ; la salle se rouvre avec sa porte
-// vers la salle du diable (deux présentoirs à un cœur, `devil_room_chance`) ; victoire à f2117.
+// À regarder : la bombe est posée f674 (explosion f748, mur ouvert f749) ; le boss verrouille sa salle (f1324), passe en phase 1 (f1416), phase 2 (f1579) ; son butin
+// (`sang_chaud`, pool `boss`, M3-T8 §73) tombe au centre de la salle et le bot le ramasse (f1747) ; la salle se rouvre avec sa porte vers la salle du diable (deux
+// présentoirs à un cœur, `devil_room_chance`) ; victoire f1704.
+// Le joueur gagne avec `Armor +200` (`PlayerScript::modifiers`, D93) : avec +100 (valeur d'avant T14) le bot, qui s'est déplacé vers le mur secret, meurt à f1657 au
+// boss (phase 2). L'armure grandit, le bot n'est pas rééquilibré (décision de William : l'équilibrage n'est pas l'objectif).
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
@@ -18,22 +20,23 @@ Scenario(
     floors: Some("sous_sol_un"),
     frames: 2200,
     players: [
-        (bot: explorateur, aim: Some(Free)),
+        (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "200")]),
     ],
     expect: [
-        EntityCount(kind: Enemy, min: Some(13), max: Some(13), at_frame: 5),
+        EntityCount(kind: Enemy, min: Some(11), max: Some(11), at_frame: 5),
         RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
         RoomLayout(kind: "boss", touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
         RoomState(kind: "diable", state: Dormant, at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 1040),
-        BossPhase(entity: NetId(117), phase: 1, at_frame: 1150),
-        RoomState(kind: "boss", state: Cleared, at_frame: 1400),
-        ItemsOnFloor(id: "oeil_vif", count: 0, at_frame: 1360),
-        ItemsOnFloor(id: "oeil_vif", count: 1, at_frame: 1440),
-        HasItem(handle: 0, id: "oeil_vif", at_frame: 1470),
-        ItemsOnFloor(id: "oeil_vif", count: 0, at_frame: 1470),
-        ShelfCount(count: 2, at_frame: 1400),
-        RunState(step: Ended(Victory), at_frame: 2125),
+        RoomState(kind: "boss", state: Locked, at_frame: 1400),
+        BossPhase(entity: NetId(137), phase: 1, at_frame: 1500),
+        BossPhase(entity: NetId(137), phase: 2, at_frame: 1660),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1740),
+        ItemsOnFloor(id: "sang_chaud", count: 0, at_frame: 1700),
+        ItemsOnFloor(id: "sang_chaud", count: 1, at_frame: 1740),
+        HasItem(handle: 0, id: "sang_chaud", at_frame: 1800),
+        ItemsOnFloor(id: "sang_chaud", count: 0, at_frame: 1800),
+        ShelfCount(count: 5, at_frame: 1400),
+        RunState(step: Ended(Victory), at_frame: 1740),
         PlayerAlive(handle: 0, at_frame: 2199),
     ],
 )

@@ -442,6 +442,9 @@ ou d'un crate à l'autre, avec les traces de scénario.
       sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
       `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
       présentoir à vie maximale ou à consommable ; `Health`, `Stat(MaxHealth)` et `ExtraHealth` lisent le paiement.
+    - M3-T11d1 gabarits, boutique, curses, bombe de départ (§76.4) : aucune attente nouvelle (`EntityCount(kind: Rock)`, `Shelf`, `ShelfCount`,
+      `PoolCount`, `Curse`, `Consumable`, `ItemsOnFloor`, `Health`, `Event(kind: "explosion")` couvrent `isaac_shop_buy`, `isaac_bomb_rock`,
+      `isaac_spikes`) ; diagnostic ignoré `floor_probe` (`ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>`, plan d'un étage par graine).
     - M3-T14 bot `explorateur` v3 pour `isaac` (§79) : aucune attente nouvelle (`DoorLocked`, `Consumable`, `Health`,
       `ExtraHealth`, `Currency`, `Shelf`, `EntityCount(kind: Rock)`, `FloorIndex`, `Event` couvrent les dix scénarios
       `bot_isaac_*`) ; moments clés `door_lock` (mur secret ou porte à clé ouverte), `bomb`, `shelf` ; champ de scénario

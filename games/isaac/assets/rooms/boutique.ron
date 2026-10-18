@@ -1,0 +1,6 @@
+// Type de salle `boutique` d'`isaac` (M3-T11d1, docs/conventions.md §73 et §76.4) : un cul-de-sac exigé par la grammaire
+// `sous_sol` (une par étage), jamais verrouillé. Trois présentoirs tirés dans le pool `boutique` (épuisement par run,
+// tiré à la génération de l'étage), posés au centre ; prix en sous par rareté (`economy.ron`, `shop_prices`), comme la
+// boutique de `gungeon` (M2-T6, §50). Le pool vend des objets (larmes, effets, familiers) et des consommables (clé,
+// bombe, cœurs) : jamais de sous (lint `Unsupported`).
+(locks: false, shop: Some((table: "boutique", shelves: 3)))

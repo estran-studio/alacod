@@ -3,8 +3,15 @@
 // le boss du dernier étage vaincu termine la partie par une victoire. Le trésor est fermé à clé à
 // partir du second étage (`lock_from_floor: 1` de `rooms/tresor.ron`) : une clé est remise au début de
 // chaque étage (`consumables_per_floor`, effective à partir du second, le premier n'en a pas besoin).
+// M3-T11d1 (§76.4) : une curse sur 30 % des étages (graine de carte et étage : `game::curses`), tirée parmi les
+// cinq de Q7 selon leurs poids (`curses/` : darkness 3, unknown 2, blind 2, maze 2, labyrinth 1) ; les séquences de test `sous_sol_un`, `sous_sol_cle`, `sous_sol_court`,
+// `sous_sol_grand` n'en ont pas (leurs scénarios ne bougent pas), `sous_sol_maudit` en met une à chaque étage.
 (
     levels: ["floor:sous_sol", "floor:sous_sol"],
     victory_at_end: true,
     consumables_per_floor: {"key": 1},
+    curses: Some((
+        chance: "0.3",
+        pool: ["darkness", "unknown", "blind", "labyrinth", "maze"],
+    )),
 )
