@@ -1435,7 +1435,7 @@ mod tests {
         };
         assert_eq!(
             banner(false, Some("reliquaire")).as_deref(),
-            Some("Reliquaire")
+            Some("Châsse d'âme")
         );
         assert_eq!(banner(true, Some("reliquaire")).as_deref(), Some("???"));
         assert_eq!(banner(false, None), None);

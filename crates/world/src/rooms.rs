@@ -352,7 +352,10 @@ mod tests {
     fn un_type_de_boss_se_reconnait_a_sa_propriete_pas_a_son_nom() {
         let defs: Vec<(&str, RoomKindDef)> = vec![
             ("boss", ron::from_str("(locks: true)").unwrap()),
-            ("boss_profond", ron::from_str("(locks: true, boss: true)").unwrap()),
+            (
+                "boss_profond",
+                ron::from_str("(locks: true, boss: true)").unwrap(),
+            ),
         ];
         let table = RoomKindTable(defs.into_iter().map(|(k, d)| (k.to_string(), d)).collect());
         assert!(table.is_boss("boss_profond"));

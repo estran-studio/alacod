@@ -8,7 +8,7 @@ Décision de William du 2026-10-18 : le volume de Q1 reste le critère de sortie
 | Catégorie | Avant | Après | Cible Q1 |
 |---|---|---|---|
 | Objets (fichiers `objets/*.ron`) | 49 | **100** (80 passifs, 11 actifs, 9 consommables) | 100 |
-| dont objets qui modifient les larmes (tag `larmes`) | 19 | **38** (dont 23 à `projectile`) | ≥ 30 |
+| dont objets qui modifient les larmes (tag `larmes`) | 19 | **37** (dont 23 à `projectile`) | ≥ 30 |
 | dont familiers ou orbitaux | 3 | **9** | 8 |
 | dont actifs | 2 | **11** | 10 |
 | Ennemis (`characters/`, hors joueur, familiers et laboratoire) | 7 | **10** (`araignee`, `follet`, `arroseur`) | 10 |
@@ -42,7 +42,7 @@ Les seuils mesurés sont dans le commentaire de chaque `.ron`. Les trois consomm
 | `pois_chiche` | C | boutique, tresor | larmes minuscules mais rapides à tirer (`ShotSize` Mul 0,6 : collision et sprite réduits, `FireRate` Pct 0,4 : 3 -> 4,2 larmes par seconde). | item_pois_chiche, tears_pois_chiche |
 | `plume` | C | boutique, tresor | larmes plus rapides (`ShotSpeed` Pct 0,4 : 260 -> 364) mais de portée réduite (`Range` Pct -0,3 : 300 -> 210). | item_plume |
 | `lest` | U | boutique, tresor | larmes lourdes : dégâts +60 % (`Damage` Pct 0,6) mais vitesse des larmes -30 % (`ShotSpeed` Pct -0,3 : 260 -> 182). | item_lest |
-| `fer_a_cheval` | R | secrete, tresor | chance +3 (`Luck` Add 3 : +15 % de chance d'effet pour `massue`, `philtre`, `venin`…). | item_fer_a_cheval |
+| `fer_a_cheval` | R | secrete, tresor | (revue : plus de tag `larmes`, il ne touche pas aux larmes) chance +3 (`Luck` Add 3 : +15 % de chance d'effet pour `massue`, `philtre`, `venin`…). | item_fer_a_cheval |
 | `loupe` | U | boutique, tresor | larmes deux fois plus grosses (`ShotSize` Mul 2 : collision et sprite), +10 % de dégâts, cadence -20 % (`FireRate` Pct -0,2). | item_loupe, tears_loupe |
 | `ardoise` | U | boutique, tresor | larmes à courte portée et gros dégâts : elles disparaissent après 45 frames de vol (`Lifetime(45)`), dégâts +80 % (`Damage` Pct 0,8). | item_ardoise, tears_ardoise |
 
@@ -64,10 +64,10 @@ Les seuils mesurés sont dans le commentaire de chaque `.ron`. Les trois consomm
 | `fiole_vive` Active(Rooms(3)) | C | boutique, tresor | actif chargé par trois salles nettoyées ; à l'usage, +2 PV (un cœur, `Heal`, borné aux PV maximaux). Le gabarit `ItemHeld` part à pleine santé : la preuve du soin est le | item_fiole_vive, isaac_fiole_vive |
 | `egide` Active(Rooms(2)) | U | boss | actif chargé par deux salles nettoyées ; à l'usage, un point de bouclier (`GainShield(1)`, `combat::actors::Shield`) : le prochain coup reçu est annulé en entier. Le bouc | item_egide, isaac_egide, isaac_egide_temoin |
 | `bombe_fiole` Active(Frames(900)) | U | boss | actif rechargé par le temps (900 frames, `Frames`) ; à l'usage, une explosion centrée sur le porteur (`Explode`, rayon 60, 8 dégâts, `destroys: false` : ne casse ni roche | item_bombe_fiole, isaac_bombe_fiole |
-| `nova` Active(Damage(60)) | R | tresor | actif chargé par 60 points de dégâts infligés ; à l'usage, une onde de choc autour du porteur (`Explode`, rayon 100, 10 dégâts, `destroys: false`) précédée d'un point de | item_nova, isaac_nova |
+| `nova` Active(Rooms(2)) | R | tresor | actif chargé par deux salles nettoyées (revue : la charge `Damage` de 60 se rechargeait par les dégâts de sa propre onde) ; à l'usage, `GainShield(1)` puis une onde (`Explode`, rayon 100, 10 dégâts, `destroys: false`) ; **coop : un coéquipier à portée prend 10 (D113)**. | item_nova, isaac_nova |
 | `elixir_vitesse` Active(Rooms(2)) | U | boutique, tresor | actif chargé par deux salles nettoyées ; à l'usage (`UseActive`), +60 % de vitesse de déplacement pendant 300 frames (`MoveSpeed` en unités/s : 120 au repos, 192,00073 à | item_elixir_vitesse |
 | `frenesie` Active(Rooms(3)) | U | tresor | actif chargé par trois salles nettoyées ; à l'usage, +100 % de cadence de tir pendant 240 frames (`FireRate` Pct 1,0 : multiplicateur 1 -> 2). | item_frenesie |
-| `grimoire` Active(Damage(45)) | R | diable | actif chargé par 45 points de dégâts infligés ; à l'usage, 3 points de vie d'âme (`GainSoul`). | item_grimoire |
+| `grimoire` Active(Rooms(3)) | R | diable | actif chargé par trois salles nettoyées (revue : doublon de `calice_ame`, qui se charge aux dégâts) ; à l'usage, 1 point de vie d'âme (`GainSoul`) et +2 de chance pendant 600 frames (`TimedModifier` `Luck`). | item_grimoire |
 | `lanterne_vue` Active(Rooms(1)) | C | boutique, tresor | actif chargé par une salle nettoyée ; à l'usage, +80 % de portée et +50 % de vitesse des larmes pendant 600 frames (`Range` 1 -> 1,8, `ShotSpeed` 1 -> 1,5). | item_lanterne_vue |
 | `hydre` Active(Damage(35)) | R | tresor | actif chargé par 35 points de dégâts infligés ; à l'usage, un point de bouclier (`GainShield`) et +50 % de dégâts pendant 240 frames. Substitution : la forme `Emit("hydre | item_hydre |
 
@@ -111,7 +111,7 @@ Pools après T11d2 (entrées avant → après) : `tresor` 33 → 71, `boutique` 
 
 - `araignee` (sol, 4 PV, 66 unités/s, contact), `follet` (`Flying`, 5 PV, `Charge` 25 + contact), `arroseur` (tireur au sol, 8 PV, `KeepDistance`, pattern `gerbe`, `sight_range` 300) : un `test:` chacun (`enemy_<id>_still` / `_moving`, verts). Placés sans changer le nombre d'ennemis par salle, en remplaçant une mouche ou un suiveur dans huit gabarits de combat (`CombatRochers`, `Butin`, `Piques`, `Mixte`, `Croix`, `Long`, `Haut`, `Grand`) : script `m3-t11d2-volume.make_salles.py`, mêmes vérifications que T11d1, `salles.ldtk` régénéré.
 - **`colosse`** (44 PV, immobile, trois phases ; renforts `araignee`, `follet`, `arroseur` ; patterns `gerbe`, `croix`, `couronne`, `tourbillon`) : scénario généré `boss_colosse` vert (un bot `fonceur` le bat, victoire f449 sur l'étage court `sous_sol_profond_court`). Premier jet (50 PV, plus de renforts, spirale à trois bras) : le bot mourait en phase 2 ; allégé jusqu'à ce que le scénario passe (aucune fourchette visée).
-- **Rotation, justification** : second étage de la séquence par défaut (`floors/sous_sol.ron` : `sous_sol` puis `sous_sol_profond`), le `gardien` reste au premier. Choisi plutôt que le hasard : un boss par étage (difficulté croissante), toutes les séquences de test et leurs traces gardent le `gardien`, pas de loterie de graine dans les scénarios de grille. La grammaire n'a pas de filtre par étage : `maps/salles_profond.ldtk` est une copie de `salles.ldtk` hors boss (D115).
+- **Rotation, justification** : second étage de la séquence par défaut (`floors/sous_sol.ron` : `sous_sol` puis `sous_sol_profond`), le `gardien` reste au premier. Choisi plutôt que le hasard : un boss par étage (difficulté croissante), toutes les séquences de test et leurs traces gardent le `gardien`, pas de loterie de graine dans les scénarios de grille. **Mécanisme (revue)** : `FloorGrammar::boss` désigne le type de boss de la grammaire et le planificateur choisit les gabarits par ce type : trois gabarits `BossProfond*` de type `boss_profond` dans `salles.ldtk` (23 gabarits, les vingt premiers inchangés, vérifié par comparaison JSON), `rooms/boss_profond.ron`, grammaires `sous_sol_profond*.ron` à `boss: "boss_profond"`. `salles_profond.ldtk` est supprimé. Deux petits changements de code hors simulation : `RoomKindDef::boss` (RON `boss: true`) lu par la minicarte à la place de `room.kind == "boss"` (`HudRoomBounds::boss`, `RoomKindTable::is_boss`, test unitaire), `BossFightTest::room` (type de la salle du boss dans l'attente générée).
 
 ## 4. Scénarios recalés et écrits
 
@@ -122,13 +122,13 @@ Recalés (graines, chronologies, objets de butin et de présentoir, le but de ch
 ## 5. Traces rebénies, preuve §5
 
 Contre le point de départ : 40 `.trace` modifiées (toutes `isaac`), 134 neuves (118 générées, 16 écrites à la main) ; **zombies, throne, gungeon, testbed : aucune trace ne bouge** (suite complète, `make gen` ×5 sans diff).
-Preuve §5 : dumps `ALACOD_DUMP_TRACE` du même binaire, `ALACOD_GAME_NAME=isaac ALACOD_GAME_DIR=<état>`, quatre états de `games/isaac` (S0 `main` `8e25731d` ; S1 = S0 + objets, pools, statuts, familiers ; S2 = S1 + ennemis, patterns, `salles.ldtk` ; S3 = la branche : `colosse`, `sous_sol_profond`, séquence), `scripts/trace-diff.py … --ignore Inventory,BombCarrier`, six scénarios (`hit_iframes_isaac`, `isaac_boots`, `grid_secret_no_bomb`, `devil_room_absent`, `generated/isaac/boss_gardien`, `generated/isaac/weapon_larmes`) :
+Preuve §5 : dumps `ALACOD_DUMP_TRACE` du même binaire, `ALACOD_GAME_NAME=isaac ALACOD_GAME_DIR=<état>`, états de `games/isaac` (S0 `main` `8e25731d` ; S1 = S0 + objets, pools, statuts, familiers ; S2 = S1 + ennemis, patterns, gabarits ; S3 = la branche : `colosse`, type `boss_profond`, séquence), `scripts/trace-diff.py … --ignore Inventory,BombCarrier`, six scénarios (`hit_iframes_isaac`, `isaac_boots`, `grid_secret_no_bomb`, `devil_room_absent`, `generated/isaac/boss_gardien`, `generated/isaac/weapon_larmes`) puis `isaac_floor_seed_1` (revue) :
 
 | Étape | Résultat |
 |---|---|
 | S0 → S1 (**pools enrichis**) | première frame qui diffère = 0 sur les cinq scénarios d'étage : `PoolState` (objet tiré par pool) et le contenu des présentoirs seulement ; `weapon_larmes` (carte de test, aucun pool) **identique** |
 | S1 → S2 (**nouveaux ennemis dans les gabarits**) | première frame = 0 : les ennemis de salle (`suiveur`, `mouche` → `araignee`, `follet`, `arroseur`), rien d'autre qu'un plan d'étage différent (les ennemis posés changent) ; `weapon_larmes` identique |
-| S2 → S3 (**boss, grammaire profonde, séquence**) | **identiques** sur les six (199 à 1 499 frames) : aucun n'atteint le second étage ; le changement ne se voit que dans les scénarios qui franchissent le premier boss de la séquence par défaut (`isaac_floor_seed_1`, `bot_isaac_floor`) |
+| S2 → S3 (**boss, séquence**) | six scénarios : **identiques** (199 à 1 499 frames, aucun n'atteint le second étage). **`isaac_floor_seed_1`** (4 000 frames, deux étages, revue) : **première frame qui diffère = 3752**, la génération du second étage ; **une seule entité change, le boss net id 584 : `gardien` → `colosse`** (le plan, les ids, les salles, les ennemis et le butin sont identiques) |
 
 Les scénarios de grille `grid_floor_seed_*` jouent `sous_sol_un` (un étage, `gardien`) : ils ne bougent que par les pools et les ennemis (S1, S2).
 
@@ -158,9 +158,9 @@ Atteignabilité observée par les bots : mur secret ouvert à la bombe 202 fois 
 ## 8. Dettes (D112 à D115, `docs/taches/dettes.md`)
 
 - **D112** `SpawnPattern` et `Emit`/`OnEvent` refusés à `OnUse` d'un objet : `nova` = `Explode`, `hydre` = actions directes.
-- **D113** `Explode` d'objet : tir ami `Always`, blesse le porteur : `GainShield(1)` devant `bombe_fiole` et `nova`, `epines_de_chair` protégé par les `hit_iframes`.
+- **D113** `Explode` d'objet : tir ami `Always`, blesse le porteur **et ses coéquipiers** : `GainShield(1)` devant `bombe_fiole` et `nova` (il ne protège que le porteur : un coéquipier à portée meurt à 6 PV), `epines_de_chair` protégé par les `hit_iframes` ; la charge `Damage` compte tous les dégâts du porteur, ses explosions comprises (`nova` passé en `Rooms(2)`).
 - **D114** lacunes de preuve : pas d'attente `Shield`, pas de départ blessé (le `cooldown` de `vengeance` n'est pas prouvé), `familiar:` sans input ni balle hostile, pas de `test:` pour un consommable, `hits` ne prouve pas une absence.
-- **D115** second boss = second fichier de gabarits (`salles_profond.ldtk`).
+- **D115** (réduite) le lint n'exige pas `boss: true` sur le type nommé par `FloorGrammar::boss` ; le `colosse` passe par un type de salle propre `boss_profond` (plus de second fichier de gabarits, voir § 3).
 - Rappel : D93 (un scénario d'armure de plus : `bot_isaac_floor`), pas de sprite d'objet (T17), `spectre` toujours sans gabarit propre.
 
 ## 9. Relecture indépendante (agent `reviewer`, lecture seule)
