@@ -4,8 +4,9 @@
 // (collée au grand combat). Le bot `explorateur` nettoie les trois combats, **pose la bombe de départ** contre le mur de la secrète (intégration de T14, D106) puis bat
 // le boss.
 //
-// À regarder : la bombe est posée f673 (explosion f747, mur ouvert f748) ; le boss verrouille sa grande salle (f1424), phase 1 (f1538), phase 2 (f1620), meurt (salle
-// nettoyée f1725) ; victoire f1726 ; le bot ramasse ensuite le butin du boss (`calice_ardent`, f1821) ; scénario de 2400 frames.
+// À regarder : la bombe est posée f923 (explosion f997, mur ouvert f998) ; le boss verrouille sa grande salle (f1432), phase 1 (f1546), phase 2 (f1629), meurt (salle
+// nettoyée f1733) ; victoire f1734 ; le bot ramasse ensuite le butin du boss (`cendre_froide`, f1830) ; scénario de 2400 frames. M3-T11d2 (2026-10-18, cent objets,
+// trois ennemis dans les gabarits) : la chronologie est décalée (bombe posée f923 au lieu de f673), le butin du boss est un autre objet du pool `boss`.
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
@@ -27,8 +28,8 @@ Scenario(
         RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "diable", "tresor"], at_frame: 5),
         RoomLayout(kind: "boutique", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "depart"], at_frame: 5),
         Consumable(handle: 0, id: "bomb", count: 1, at_frame: 600),
-        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 700),
-        DoorLocked(kind: "secrete", locked: false, at_frame: 800),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 950),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 1050),
         RoomState(kind: "boss", state: Locked, at_frame: 1450),
         BossPhase(entity: NetId(159), phase: 1, at_frame: 1550),
         RoomState(kind: "boss", state: Cleared, at_frame: 1750),

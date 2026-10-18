@@ -1,0 +1,19 @@
+// M3-T11d2 (docs/conventions.md §76.5) : l'effet `OnFloorStart` du `bol_de_soupe` d'`isaac` (`Heal("2")`). Un objet tenu au départ joue `OnFloorStart` au début de l'étage courant.
+// Séquence `sous_sol_cle` (graine de `grid_treasure_key`) : l'étage de passage est franchi à f1, le second étage commence à f1 (`FloorIndex` 1). Un joueur à pleine vie ne
+// montrerait aucun soin : `modifiers: [MaxHealth +2]` pose la vie maximale à 8 sans toucher aux PV courants (6) : il est « blessé de 2 PV » dès le départ.
+//
+// À regarder : à f1 le second étage commence et le bol rend 2 PV : 8 sur 8 (6 sans l'objet, témoin `isaac_bol_de_soupe_temoin`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: -1013904097,
+    floors: Some("sous_sol_cle"),
+    frames: 100,
+    players: [(inputs: [], modifiers: [(stat: MaxHealth, op: Add, value: "2")], items: ["bol_de_soupe"])],
+    expect: [
+        FloorIndex(index: 1, at_frame: 1),
+        Health(handle: 0, min: 8.0, max: 8.0, at_frame: 1),
+        Health(handle: 0, min: 8.0, max: 8.0, at_frame: 60),
+        PlayerAlive(handle: 0, at_frame: 99),
+    ],
+)

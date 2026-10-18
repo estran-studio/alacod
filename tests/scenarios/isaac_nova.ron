@@ -1,0 +1,36 @@
+// M3-T11d2 (docs/conventions.md §76.5) : `nova` d'`isaac`, actif chargé par deux salles nettoyées : onde de choc de rayon 100 et 10 dégâts centrée sur le porteur (`SpawnPattern` est refusé à `OnUse` : explosion à la place). Trois cibles (5 000 PV) posées à f5 : à 38 et à 98 unités (dans le rayon), à 158 (hors rayon). `UseActive` à f30. Le `GainShield(1)` de l'objet absorbe le souffle sur le porteur (tir ami de l'`Explode`).
+//
+// À regarder : f40 les deux cibles proches ont perdu 10 PV (4 990), la lointaine reste à 5 000 ; moment clé `explosion` ; le joueur est toujours à 6 PV ; la charge (2 salles) tombe à 0 à f36 et **reste à 0** : l'onde ne se recharge plus par ses propres dégâts (la charge `Damage` de 60 points du premier jet remontait à 30 avec deux cibles ; revue). En coop (D113) l'explosion blesserait aussi un coéquipier à portée : non joué ici (un seul joueur).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 120,
+    characters: [
+        (character: "cible", x: "30.0", y: "-8.0", at_frame: 5),
+        (character: "cible", x: "-8.0", y: "90.0", at_frame: 5),
+        (character: "cible", x: "-8.0", y: "150.0", at_frame: 5),
+    ],
+    players: [(
+        items: ["nova"],
+        inputs: [
+            (from: 30, to: 31, buttons: [UseActive]),
+        ],
+    )],
+    expect: [
+        HasItem(handle: 0, id: "nova", at_frame: 1),
+        ItemCharge(handle: 0, charge: 2, at_frame: 20),
+        ItemCharge(handle: 0, charge: 0, at_frame: 36),
+        ItemCharge(handle: 0, charge: 0, at_frame: 40),
+        ItemCharge(handle: 0, charge: 0, at_frame: 119),
+        EntityHealth(net_id: 180, min: 5000.0, max: 5000.0, at_frame: 29),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 29),
+        EntityHealth(net_id: 180, min: 4990.0, max: 4990.0, at_frame: 40),
+        EntityHealth(net_id: 181, min: 4990.0, max: 4990.0, at_frame: 40),
+        EntityHealth(net_id: 182, min: 5000.0, max: 5000.0, at_frame: 119),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 40),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 119),
+        Event(kind: "explosion", by_frame: 40),
+        PlayerAlive(handle: 0, at_frame: 119),
+    ],
+)

@@ -228,6 +228,7 @@ fn update_hud_room_geometry(
         .map(|(id, bounds, kind)| game::ui::hud_model::HudRoomBounds {
             id: id.0.clone(),
             kind: kind.0.clone(),
+            boss: table.as_deref().is_some_and(|table| table.is_boss(&kind.0)),
             position: bounds.position,
             size: bounds.size,
         })

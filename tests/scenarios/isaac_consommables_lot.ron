@@ -1,0 +1,40 @@
+// M3-T11d2 (docs/conventions.md §68 et §76.5) : les consommables d'`isaac` (`pain`, `eclat_ame`, `festin`). Graine 1 : le joueur 0 (6 PV, immobile en
+// (-8, -8)) est frappé au contact par une `cible_mordante` (1 PV toutes les 120 frames : f6 environ, f124 environ, f245 environ). Les consommables sont
+// posés sous ses pieds (au contact : pas de touche) à des frames choisies.
+//
+// À regarder : f6 le joueur passe à 5 PV ; f20 le `pain` est ramassé (+1 PV : 6) ; f40 le `festin` posé à pleine vie reste au sol (`refuse_when_full`) ; f124 le coup
+// (5 PV) fait ramasser le festin (+2 PV, plafonnés à 6, et 1 point de vie d'âme) ; f150 l'`eclat_ame` donne un second point d'âme ; f245 le coup suivant
+// est absorbé par l'âme (la santé reste à 6, une âme de moins).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 300,
+    characters: [(character: "cible_mordante", x: "24.0", y: "-8.0", at_frame: 1)],
+    items: [
+        (id: "pain", x: "-8.0", y: "-8.0", at_frame: 20),
+        (id: "festin", x: "-8.0", y: "-8.0", at_frame: 40),
+        (id: "eclat_ame", x: "-8.0", y: "-8.0", at_frame: 150),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 15),
+        // Le pain (Heal 1) : 5 PV -> 6 PV, rien dans l'inventaire.
+        ItemsOnFloor(id: "pain", count: 0, at_frame: 25),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 30),
+        // Le festin refuse l'ouverture à pleine vie : il reste au sol, rien ne change.
+        ItemsOnFloor(id: "festin", count: 1, at_frame: 100),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
+        ExtraHealth(handle: 0, n: 0.0, at_frame: 100),
+        // Le coup de f124 le ramène à 5 PV : le festin est ramassé (Heal 2 plafonné à 6, GainSoul 1).
+        ItemsOnFloor(id: "festin", count: 0, at_frame: 140),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 140),
+        ExtraHealth(handle: 0, n: 1.0, at_frame: 140),
+        // L'éclat d'âme (GainSoul 1), jamais refusé.
+        ItemsOnFloor(id: "eclat_ame", count: 0, at_frame: 160),
+        ExtraHealth(handle: 0, n: 2.0, at_frame: 160),
+        // Le coup de f245 est absorbé par l'âme : la santé ne bouge pas.
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 280),
+        ExtraHealth(handle: 0, n: 1.0, at_frame: 280),
+    ],
+)

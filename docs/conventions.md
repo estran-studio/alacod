@@ -6626,6 +6626,62 @@ porte à clé 51, achats en boutique 143 ; **aucune bombe de rocher en partie or
 **Dettes** : D99 (la réanimation du bot est interrompue par l'esquive ; ses autres blocages de la première campagne, cœur à pleine vie, visée du `gardien`, rochers, sont fermés par T14), D100 fermée (détecteur : `--pickup-progress`), D107 (le planificateur de grille évalue ×8,6 candidats avec neuf gabarits de combat) ; le bot n'achète pas au diable et pose la bombe de départ contre un mur secret (T14, intégré, D106) ; la boutique n'exerce pas
 `shop.cost: Currency(n)` (les prix passent par `economy.ron`) ; D93 reste ouverte (quatre scénarios gagnent par armure).
 
+### 76.5 T11d2 : volume de Q1 (`m3-t11d2-volume`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code Rust. Décision de William du 2026-10-18 : le volume de Q1 reste le critère de sortie de M3 ;
+**pas d'équilibrage** (victoires et morts rapportés, rien n'est réglé pour une fourchette). Rapport : `docs/taches/rapports/m3-t11d2-volume.md`.
+
+| Q1 | Avant | Après | Cible |
+|---|---|---|---|
+| objets | 49 | **100** | 100 |
+| objets qui modifient les larmes (tag `larmes` ; dont 23 à `projectile`) | 19 | **37** | ≥ 30 |
+| familiers ou orbitaux | 3 | **9** | 8 |
+| actifs | 2 | **11** | 10 |
+| ennemis | 7 | **10** (`araignee`, `follet`, `arroseur`) | 10 |
+| ennemis à champions | 3 | 3 (`suiveur`, `mouche`, `tourelle_croix`, §76.3) | 3 |
+| boss à phases | 1 | **2** (`colosse`) | 2 |
+| gabarits (`salles.ldtk`) | 20 | 23 (20 + trois de boss `boss_profond`) | 20 |
+
+**Objets** (51, `objets/*.ron`, un `test:` chacun sauf les trois consommables, que `ItemHeld` refuse : preuve par `isaac_consommables_lot`, comme `coeur` et `ration` ; les quatorze passifs de stats de T8 et T10 qui n'en avaient pas en ont maintenant un, `item_*`).
+Poids de pool 4 / 2 / 1 par rareté (consommables : 3 en boutique pour `pain`, 2 pour `eclat_ame` et `festin`, 3 / 2 / 1 en salle secrète). Le **tableau objet → pools → scénario** est au rapport (§ 2). Répartition :
+
+| Pool | Entrées avant | Après | Nouveaux objets |
+|---|---|---|---|
+| `tresor` | 33 | 71 | 38 (larmes 13, familiers 5, actifs 6, effets 11, stats 3) |
+| `boutique` | 26 | 55 | 29 (les douze objets de larmes du trésor, familiers 4, actifs 3, effets 4, stats 3, consommables 3) |
+| `boss` | 6 | 11 | `coeur_de_pierre`, `egide`, `bombe_fiole`, `escorte`, `cendre_froide` |
+| `diable` | 4 | 9 | `grappe`, `acide`, `philtre`, `epines_de_chair`, `grimoire` |
+| `secrete` (sans épuisement) | 5 | 10 | `pain`, `eclat_ame`, `festin`, `pot_de_miel`, `fer_a_cheval` |
+| `salle` (récompense) | 7 | 8 | `pain` |
+
+Les objets de larmes du trésor sont aussi en boutique (règle `Tears` du lint : deux exemplaires possibles) ; `cendre_froide` (boss), `grappe`, `acide`, `philtre` (diable) n'ont qu'un pool d'épuisement et n'y sont pas soumis.
+Trois statuts nouveaux (`statuses/` : `etourdi` Stun 60 frames, `charme` Charm 200, `saignement` Poison 1 PV / 15 frames pendant 180), trois ennemis, un boss, deux patterns (`gerbe`, `tourbillon`).
+
+**Mécaniques manquantes (dettes, pas de code ici)** : `SpawnPattern` et `Emit`/`OnEvent` sont refusés à `OnUse` d'un objet : `nova` est un `Explode` (rayon 100) et `hydre` pose directement ses deux actions (D112) ; l'`Explode` d'un objet ou d'un effet est une bombe à tir ami `Always` qui blesse le porteur :
+`bombe_fiole` et `nova` se donnent un `GainShield(1)` avant l'explosion (il ne protège que le porteur : **en coop un coéquipier à portée prend l'explosion en entier**), `epines_de_chair` n'est protégé que par les `hit_iframes` de `pleureur` ; la charge `Damage` compte tous les dégâts dont le porteur est la source, ses propres explosions comprises : `nova` se charge donc par salles (`Active(Rooms(2))`, revue) (D113) ; aucune attente `Shield`, aucun départ blessé, `familiar:` sans input ni balle hostile, pas de `test:` pour un consommable : scénarios écrits à la main (D114) ;
+le second boss passe par un type de salle propre `boss_profond` (D115, réécrite). Objets sans sprite propre (inchangé, T17).
+
+**Ennemis** (`characters/`, un `test:` chacun, `enemy_<id>_still/_moving`) : `araignee` (sol, 4 PV, 66 unités/s, contact), `follet` (volant `Flying`, 5 PV, `Charge` télégraphe 25 + contact), `arroseur` (tireur au sol, 8 PV, `KeepDistance` 80 à 140, `gerbe` : télégraphe 18 puis cinq crachats en éventail exact sur 1 rad, `sight_range` 300). Placés **sans changer le nombre d'ennemis par salle**, en remplacement d'une mouche ou d'un suiveur :
+`CombatRochers` (follet), `CombatButin` (araignee), `CombatPiques` (arroseur), `CombatMixte` (araignee), `CombatCroix` (follet), `CombatLong` (arroseur), `CombatHaut` (araignee), `CombatGrand` (follet) ; `Combat` (inchangé) et `spectre` (renfort seulement) comme avant.
+Script : `docs/taches/rapports/m3-t11d2-volume.make_salles.py` (reprend celui de T11d1, mêmes vérifications).
+
+**Boss `colosse`** (`characters/colosse.ron`, 44 PV contre 40, immobile, trois phases, type de salle `boss_profond`, butin du pool `boss` de `rooms/boss_profond.ron`) : phase 0 (≥ 65 %) une gerbe toutes les 150 frames ; phase 1 (< 65 %) deux `araignee` en renfort, croix à f0 et gerbe à f75 ; phase 2 (< 30 %) un `follet` et un `arroseur` en renfort, `tourbillon` (spirale de deux bras, 48 frames) précédé d'un télégraphe de 10 frames.
+Premier jet (50 PV, trois araignées, deux follets, spirale à trois bras) : le bot `fonceur` du scénario généré mourait en phase 2 ; allégé jusqu'à ce que `boss_colosse` le batte (victoire f449) ; aucune fourchette visée.
+**Rotation (justifiée)** : le `colosse` est le boss du **second étage** de la séquence par défaut (`floors/sous_sol.ron` : `floor:sous_sol` puis `floor:sous_sol_profond`), le `gardien` celui du premier : un boss par étage (comme Isaac), plutôt que le hasard, parce que (1) la difficulté monte avec l'étage (44 PV contre 40, renforts plus nombreux ; le butin vient du même pool `boss`, épuisé par run), (2) toutes les séquences de test (`sous_sol_un`, `_court`, `_cle`, `_grand`, `_maudit`) et leurs traces
+gardent le `gardien` : seuls les scénarios qui traversent le premier boss de la séquence par défaut voient le second, (3) un tirage au hasard parmi des gabarits de boss de même type ferait du boss d'un scénario de grille une loterie de graine. Mécanisme (revue) : `FloorGrammar::boss` existait déjà et le planificateur choisit les gabarits de boss par ce type : `floor_grammars/sous_sol_profond.ron` (et `_court`) déclarent `boss: "boss_profond"` et `required: {"boss_profond": 1, …}`, trois gabarits `BossProfond`, `BossProfondGrand`, `BossProfondAbris` (type `boss_profond`, `colosse`) s'ajoutent à `salles.ldtk` (23 gabarits ; les vingt premiers inchangés), `rooms/boss_profond.ron` (verrouille, butin du pool `boss`). `sous_sol_profond_court` (départ, combat, boss) sert le scénario `boss_colosse`.
+**Code (petit, hors simulation)** : la minicarte ne reconnaît plus le boss par le nom `boss` : `RoomKindDef::boss` (RON `boss: true`, faux par défaut, hors hash), `RoomKindTable::is_boss`, `HudRoomBounds::boss` rempli par `map_ldtk::game::rooms` ; les `boss.ron` de `gungeon`, `testbed` (et `boss_butin`) et d'`isaac` posent `boss: true` ; `room_icons` d'`isaac` gagne `boss_profond`. Le gabarit `BossFight` du générateur lit `BossFightTest::room` (type de la salle du boss, `boss` par défaut) pour l'attente « salle <type> nettoyée » (`colosse` : `room: Some("boss_profond")`). D115 (réduite à un lint).
+
+**Scénarios** recalés (graines, chronologies, objets de butin ou de présentoir) : `grid_floor_seed_123`, `_23`, `grid_post_boss` (butin `bombe_fiole`), `isaac_floor_seed_1`, `bot_isaac_floor` (le bot meurt au premier combat du second étage sans `Armor` : `Armor +50`, D93, il bat ensuite le `colosse` f5442), `bot_isaac_two`, `isaac_shop_buy`, `devil_room_chance`, `isaac_spikes_temoin` (marche raccourcie : l'`arroseur` du gabarit `CombatPiques` arrive plus tôt) ;
+écrits : `isaac_fiole_vive`, `isaac_egide` (+ témoin), `isaac_bombe_fiole`, `isaac_nova`, `isaac_sablier` (+ `isaac_sablier_temoin`, partagé avec `isaac_cuirasse` et `isaac_vengeance`), `isaac_bol_de_soupe` (+ témoin), `isaac_bouclier_de_fortune`, `isaac_familiers_file`, `isaac_consommables_lot`, `isaac_ombre_bloque` (+ témoin).
+
+**Traces** : 40 traces `isaac` bougent (écrites à la main ou générées), 134 sont neuves (118 générées, 16 écrites à la main) ; zombies, throne, gungeon, testbed identiques. Preuve §5 (dumps `ALACOD_DUMP_TRACE` du même binaire, `ALACOD_GAME_DIR` sur quatre états de `games/isaac`, `scripts/trace-diff.py … --ignore Inventory,BombCarrier`,
+six scénarios `hit_iframes_isaac`, `isaac_boots`, `grid_secret_no_bomb`, `devil_room_absent`, `generated/isaac/{boss_gardien, weapon_larmes}`) : (1) `main` → **pools et objets** : première frame qui diffère = 0, `PoolState` et le contenu des présentoirs seulement (`weapon_larmes` identique) ; (2) → **ennemis et gabarits** : f0, les ennemis de salle (`suiveur`/`mouche` → `araignee`/`follet`/`arroseur`) ;
+(3) → **boss, grammaire profonde, séquence** : **identiques** sur les six (aucun n'atteint le second étage), le changement ne se voit que dans les scénarios qui franchissent le premier boss de la séquence par défaut (`isaac_floor_seed_1`, `bot_isaac_floor`) ; les `grid_floor_seed_*` jouent `sous_sol_un` (un étage, `gardien`) et ne bougent que par les pools et les ennemis.
+**Revue de livraison, traces rebénies (5, cause)** : `item_nova`, `isaac_nova` (`nova` : `Active(Rooms(2))` au lieu de `Damage(60)`), `item_grimoire` (`grimoire` : `Rooms(3)`, `GainSoul(1)` + `Luck`), `generated/isaac/boss_colosse` et `bot_isaac_floor` (type de salle `boss_profond` : seule la **chaîne** `kind` de `RoomChanged` change, `"boss"` → `"boss_profond"`, première frame f245 et f5273 ; plan, ids et butin identiques ; le renommage des sept objets et le retrait de `larmes` de `fer_a_cheval` ne bougent aucune trace).
+Preuve §5 (dumps du même binaire, `isaac_floor_seed_1`, S2 = pools, objets, ennemis, `salles.ldtk` d'avant les gabarits de boss, séquence à deux `sous_sol` ; contre la branche) : **première frame qui diffère = 3752**, la génération du second étage ; **une seule entité change : le boss net id 584, `gardien` → `colosse`** ; `isaac_floor_seed_1` (4 000 frames) n'atteint pas la salle de ce boss.
+
+**Atteignabilité** : `alacod lint games/isaac` : 0 erreur, 0 avertissement ; chaque objet est dans un pool tiré par la séquence par défaut (tableau du rapport). **Campagnes de T14** (`m3-t11d2-volume.campagne-t14.sh`, 200 graines à 1 et 2 bots, séquence par défaut, `--pickup-progress`, victoires en information) : s1 **24 victoires, 175 morts, 0 desync**, un « soft-lock » de détecteur (graine 63, long trajet D100 : la partie reprend et se résout, boss tué f2738) ; i2 **95 victoires, 105 morts, 0 soft-lock, 0 desync** ; murs secrets ouverts à la bombe 182 et 195 graines, portes à clé 43 et 128, achats 130 et 180 graines. Détail : rapport § 6, `m3-t11d2-volume.campagne-t14.tsv`.
+
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 
 Lint seulement : `content` (plus la déclaration `mechanics` de `games/isaac/assets/game.ron`, une ligne de

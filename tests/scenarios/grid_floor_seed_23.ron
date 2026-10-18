@@ -4,8 +4,10 @@
 // départ), la **boutique** collée au départ (à l'est) ; dix ennemis. Le bot `explorateur` nettoie les trois combats, **pose la bombe de départ** contre le mur de la
 // secrète (intégration de T14, D106), bat le boss et gagne à sa mort.
 //
-// À regarder : la bombe est posée f261 (explosion f335, mur ouvert f336) ; le boss verrouille sa salle (f1296), phase 1 (f1389), phase 2 (f1483), meurt (salle nettoyée
-// f1678, ses portes et celle de la salle du diable se rouvrent) ; la victoire (f1679) précède le ramassage du butin : aucune attente `HasItem` (scénario de 1900 frames).
+// À regarder : la bombe est posée f231 (explosion f305, mur ouvert f306) ; le boss verrouille sa salle (f1199), phase 1 (f1292), phase 2 (f1386), meurt (salle nettoyée
+// f1528, ses portes et celle de la salle du diable se rouvrent) ; la victoire (f1529) précède le ramassage du butin (`egide`, f1544) : aucune attente `HasItem` (scénario
+// de 1900 frames). M3-T11d2 (2026-10-18, cent objets, trois ennemis dans les gabarits) : chronologie décalée (bombe f231 au lieu de f261, boss plus tôt), les deux phases
+// sont attendues (phase 1 à f1300, phase 2 à f1450).
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
 // grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
@@ -31,7 +33,8 @@ Scenario(
         Consumable(handle: 0, id: "bomb", count: 0, at_frame: 280),
         DoorLocked(kind: "secrete", locked: false, at_frame: 400),
         RoomState(kind: "boss", state: Locked, at_frame: 1350),
-        BossPhase(entity: NetId(136), phase: 1, at_frame: 1450),
+        BossPhase(entity: NetId(136), phase: 1, at_frame: 1300),
+        BossPhase(entity: NetId(136), phase: 2, at_frame: 1450),
         RoomState(kind: "boss", state: Cleared, at_frame: 1700),
         RunState(step: Ended(Victory), at_frame: 1700),
         PlayerAlive(handle: 0, at_frame: 1899),

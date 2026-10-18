@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : larmes deux fois plus grosses (`ShotSize` Mul 2 : collision et sprite), +10 % de dégâts, cadence -20 % (`FireRate` Pct -0,2).
+(
+    name: "Loupe",
+    kind: Passive,
+    modifiers: [(stat: ShotSize, op: Mul, value: "2"), (stat: Damage, op: Pct, value: "0.1"), (stat: FireRate, op: Pct, value: "-0.2")],
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_loupe` et son témoin `tears_loupe_sans_objet`, seuils mesurés : cible posée à 22 unités de la ligne de tir : touchée seulement par les larmes agrandies (5 coups), le témoin la rate (0).
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -98, dy: -13)], hits: [(target: 1, with_item: 5, without_item: 0)])),
+    )),
+)

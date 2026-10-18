@@ -1,0 +1,6 @@
+// `isaac` (M3-T11d2, docs/conventions.md §76.5) : un seul étage `sous_sol_profond_court` (départ, combat, boss `colosse`), sans curse ; le scénario
+// généré `boss_colosse` (`characters/colosse.ron`) le joue. Le second étage de la séquence par défaut (`floors/sous_sol.ron`) est `floor:sous_sol_profond`.
+(
+    levels: ["floor:sous_sol_profond_court"],
+    victory_at_end: true,
+)

@@ -1,0 +1,23 @@
+// M3-T11d2 (docs/conventions.md §76.5) : témoin de `isaac_egide` : la même partie sans l'objet (aucun usage, aucun bouclier).
+//
+// À regarder : le premier coup passe (5 PV dès f50, 4 PV dès f130, 3 PV dès f260) : un PV de moins que `isaac_egide` à chaque instant.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 300,
+    characters: [
+        (character: "suiveur", x: "20.0", y: "-8.0", at_frame: 40),
+        (character: "mouche", x: "-36.0", y: "-8.0", at_frame: 40),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 40),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 60),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 120),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 130),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 250),
+        Health(handle: 0, min: 3.0, max: 3.0, at_frame: 270),
+        PlayerAlive(handle: 0, at_frame: 299),
+    ],
+)

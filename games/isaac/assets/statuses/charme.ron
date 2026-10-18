@@ -1,0 +1,2 @@
+// `isaac` (M3-T11d2, docs/conventions.md §76.5) : copie du statut `charme` du testbed (§19) : l'ennemi touché cible l'ennemi hostile le plus proche pendant 200 frames, puis redevient hostile ; posé par l'`on_hit` de `philtre`.
+(kind: Charm, frames: 200)

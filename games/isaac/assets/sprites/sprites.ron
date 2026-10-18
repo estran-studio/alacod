@@ -59,6 +59,23 @@
         animation: "sprites/gungeon/anim_gatling.ron",
         layers: { "body": "sprites/gungeon/tiny_boss_sheet.ron" },
     ),
+    // M3-T11d2 (§76.5) : trois ennemis (tuiles 122, 121, 123 de Tiny Dungeon, Kenney CC0) et le second boss (tuile 109, x3,5), une silhouette chacun.
+    "araignee": (
+        animation: "sprites/gungeon/anim_araignee.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "follet": (
+        animation: "sprites/gungeon/anim_follet.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "arroseur": (
+        animation: "sprites/gungeon/anim_arroseur.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "colosse": (
+        animation: "sprites/gungeon/anim_colosse.ron",
+        layers: { "body": "sprites/gungeon/tiny_boss_sheet.ron" },
+    ),
     // M3-T11a (§76.1, langage visuel de M3-T17, §82) : halo blanc des larmes, teinté au rendu par statut, guidage,
     // opacité (spectrale) et taille (division, perforation) ; remplace les anneaux Kenney de `gungeon` (bullet_*.png
     // restent copiés, `assets.yaml`).

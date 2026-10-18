@@ -1,0 +1,4 @@
+// Type de salle `boss_profond` d'`isaac` (M3-T11d2, docs/conventions.md §76.5) : comme `boss` (verrouille, `boss: true` pour la minicarte, butin du pool
+// `boss` à la mort du boss, épuisement par run, tiré à la génération de l'étage), mais pour le **second étage** : `floor_grammars/sous_sol_profond*.ron`
+// désignent ce type par `boss: "boss_profond"` (`FloorGrammar::boss`), trois gabarits de `maps/salles.ldtk` y posent le `colosse`.
+(locks: true, boss: true, boss_drop: Some((table: "boss", rarity: Common)))

@@ -1576,10 +1576,11 @@ pub fn build_room_scenario(
 
 /// Attentes par défaut du gabarit [`Template::BossFight`] : chaque phase atteinte (moment clé
 /// `boss_phase`, cumulatif : l'attente `BossPhase` échoue une fois le boss mort), puis la salle du
-/// boss nettoyée quand le jeu a un type de salle `boss`.
+/// boss nettoyée quand le jeu a un type de salle `boss` (`room` : le type de la salle du boss, `boss` par défaut).
 pub fn boss_default_expectations(
     phases: usize,
     has_boss_room: bool,
+    room: &str,
     frames: u32,
 ) -> Vec<Expectation> {
     let mut expect: Vec<Expectation> = (1..phases)
@@ -1592,7 +1593,7 @@ pub fn boss_default_expectations(
     if has_boss_room {
         expect.push(Expectation::Event {
             kind: "room".to_string(),
-            label_contains: Some("salle boss nettoyée".to_string()),
+            label_contains: Some(format!("salle {room} nettoyée")),
             by_frame: frames,
         });
     }
@@ -1606,7 +1607,12 @@ pub fn build_boss_scenario(
     fight: &BossFightTest,
     phases: usize,
 ) -> Scenario {
-    let mut expect = boss_default_expectations(phases, scene.has_boss_room, frames);
+    let mut expect = boss_default_expectations(
+        phases,
+        scene.has_boss_room,
+        fight.room.as_deref().unwrap_or("boss"),
+        frames,
+    );
     expect.extend(fight.expect.iter().cloned());
     scene_scenario(
         scene,

@@ -1,0 +1,9 @@
+// M3-T11d2 : tuile 123 de `tiny_dungeon.png` (Idle, Run et mort : une seule image, pas d'animation dessinée).
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 123, end: 123),
+        "Run": (start: 123, end: 123),
+        "Dying_1": (start: 123, end: 123),
+    },
+)

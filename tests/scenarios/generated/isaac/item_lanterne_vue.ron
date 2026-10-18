@@ -1,0 +1,63 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit ItemHeld (M2-T17, §54) : le joueur commence avec « lanterne_vue »
+// (`PlayerScript::items`) ; un actif est utilisé à la frame 10.
+#![enable(implicit_some)]
+Scenario(
+    game: "isaac",
+    map: "maps/gabarit_armes.ldtk",
+    map_seed: 123456,
+    frames: 60,
+    players: [
+        PlayerScript(
+            inputs: [
+                Segment(from: 10, to: 11, buttons: [UseActive], pan: (0, 0)),
+            ],
+            items: [
+                "lanterne_vue",
+            ],
+        ),
+    ],
+    expect: [
+        HasItem(
+            handle: 0,
+            id: "lanterne_vue",
+            at_frame: 1,
+        ),
+        ItemCharge(
+            handle: 0,
+            charge: 1,
+            at_frame: 5,
+        ),
+        ItemCharge(
+            handle: 0,
+            charge: 0,
+            at_frame: 16,
+        ),
+        Stat(
+            handle: 0,
+            stat: Range,
+            value: 1.0,
+            at_frame: 8,
+        ),
+        Stat(
+            handle: 0,
+            stat: ShotSpeed,
+            value: 1.0,
+            at_frame: 8,
+        ),
+        Stat(
+            handle: 0,
+            stat: Range,
+            value: 1.8,
+            at_frame: 30,
+        ),
+        Stat(
+            handle: 0,
+            stat: ShotSpeed,
+            value: 1.5,
+            at_frame: 30,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    mode: Sandbox,
+)

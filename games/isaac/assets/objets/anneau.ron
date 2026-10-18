@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : deux anneaux (`anneau`, `per_copy: 2`) qui tournent à 180° l'un de l'autre autour du porteur (rayon 60, un tour en 150 frames) et arrêtent les tirs ennemis (`Orbit` + `BlockBullets`).
+// Preuve : `familiar_anneau` (`FamiliarCount` 2 ; le rang 0 à 60 unités du porteur, à 120 du rang 1 : deux anneaux à 180°). `BlockBullets` : même code que l'`ombre`, prouvé par `isaac_ombre_bloque`.
+(
+    name: "Anneau",
+    kind: Passive,
+    familiar: Some((character: "anneau", per_copy: 2)),
+    tags: ["familier"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        familiar: Some((frames: Some(120), min_hits: 0, expect: [FamiliarDistance(handle: 0, rank: 0, min: Some(59.5), max: Some(60.5), at_frame: 100), FamiliarDistance(handle: 0, rank: 0, to_rank: Some(1), min: Some(119.0), max: Some(121.0), at_frame: 100)])),
+    )),
+)

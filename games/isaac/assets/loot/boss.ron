@@ -1,5 +1,6 @@
 // `isaac` (M3-T8, §73) : pool du butin du boss (`rooms/boss.ron`, `boss_drop`). Épuisement par run
 // (Q5) : le boss du second étage ne redonne pas l'objet du premier. Contenu : trois passifs de stats (M3-T8) et, depuis M3-T11b (§76.2), `sang_chaud` (`OnKill`) et l'actif `calice_ardent` ; poids 2 par objet peu commun (4/2/1 par rareté).
+// M3-T11d2 (§76.5) : cinq objets de plus : `coeur_de_pierre` (stats), `egide` et `bombe_fiole` (actifs), `escorte` (familiers), `cendre_froide` (larmes, statuts) ; ni le trésor ni la boutique ne les donnent (le pool boss n'a donc pas à exiger un second pool pour `cendre_froide`, règle `Tears` du lint).
 (
     entries: [
         (pick: Item("griffe_acier"), weight: 2),
@@ -7,6 +8,11 @@
         (pick: Item("oeil_vif"), weight: 2),
         (pick: Item("sang_chaud"), weight: 2),
         (pick: Item("calice_ardent"), weight: 2),
+        (pick: Item("coeur_de_pierre"), weight: 1),
+        (pick: Item("egide"), weight: 2),
+        (pick: Item("bombe_fiole"), weight: 2),
+        (pick: Item("escorte"), weight: 1),
+        (pick: Item("cendre_froide"), weight: 1),
         // M3-T10 (§75) : réservé à l'accomplissement `gardien_vaincu` (déblocage `medaille_libre`) ; retiré du pool tant
         // que le profil ne l'a pas (un pool dont les candidats sont cachés ne compte pas dans le tirage : base inchangée).
         (pick: Item("medaille"), weight: 2),
