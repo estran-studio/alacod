@@ -1,0 +1,36 @@
+// D80 (docs/conventions.md §61, §69) : `Explode` dans l'`OnUse` d'un actif. Carte `testbed/rocks_static.ldtk` (même
+// montage que `bomb_breaks_rock`) : trois rochers ferment le couloir (colonne 12), un rocher à butin derrière
+// (colonne 14). Le joueur tient la `bombe_active` (chargée), marche à droite (f10 à f100), s'arrête contre les
+// rochers (x 293,8), appuie sur `UseActive` (f110, effective f115) puis repart à droite (f140 à f250).
+//
+// À regarder : une bombe à mèche d'une frame naît aux pieds du joueur à l'usage et explose à la frame suivante
+// (f116, moment clé `explosion` ; pas de mèche, contrairement à la bombe de joueur) : les trois rochers du couloir disparaissent, le rocher à butin (à 50 px) reste ; le
+// joueur passe l'ancienne ligne de rochers et s'arrête contre le rocher à butin. La charge de l'actif retombe à 0
+// à l'usage puis remonte (5 frames) : un seul usage.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 260,
+    players: [
+        (
+            items: ["bombe_active"],
+            inputs: [
+                (from: 10, to: 100, buttons: [Right], pan: (0, 0)),
+                (from: 110, to: 111, buttons: [UseActive]),
+                (from: 140, to: 250, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "bombe_active", at_frame: 5),
+        EntityCount(kind: Rock, min: 4, max: 4, at_frame: 5),
+        EntityCount(kind: Rock, min: 4, max: 4, at_frame: 114),
+        PlayerPosition(handle: 0, x: 293.8, y: 696, tolerance: 1, at_frame: 114),
+        EntityCount(kind: Rock, min: 1, max: 1, at_frame: 118),
+        EntityCount(kind: Rock, min: 1, max: 1, at_frame: 259),
+        PlayerPosition(handle: 0, x: 325.5, y: 696, tolerance: 1, at_frame: 259),
+        Event(kind: "explosion", by_frame: 118),
+    ],
+)

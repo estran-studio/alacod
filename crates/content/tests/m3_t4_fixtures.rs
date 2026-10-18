@@ -23,3 +23,33 @@ fn explode_in_an_effect_is_no_longer_unsupported() {
         .collect();
     assert!(others.is_empty(), "{others:#?}");
 }
+
+/// D80 : `Explode` est exécutée dans l'`OnUse` d'un objet (même exécution que les effets de personnage),
+/// le lint ne la refuse plus ; ses bornes (rayon > 0) restent vérifiées, comme dans un effet.
+#[test]
+fn explode_in_onuse_of_an_item_is_accepted() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("explode_onuse_ok")).unwrap();
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("entry.start_map"))
+        .collect();
+    assert!(others.is_empty(), "{others:#?}");
+}
+
+#[test]
+fn explode_in_onuse_still_checks_its_radius() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("explode_onuse_radius_zero")).unwrap();
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.kind == LintErrorKind::OutOfRange
+                && e.message.contains("Explode : rayon = 0")),
+        "{errors:#?}"
+    );
+    assert!(
+        !errors
+            .iter()
+            .any(|e| e.message.contains("pas exécutée par OnUse")),
+        "{errors:#?}"
+    );
+}

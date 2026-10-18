@@ -1444,6 +1444,16 @@ pub fn projectile_expire_system(
                 }
             }
         }
+        // D76 : une balle `Explosive` (composable) explose quand son projectile se termine, après
+        // ses `on_expire`.
+        crate::weapons::spawn_blast(
+            &mut commands,
+            &mut id_factory,
+            bullet,
+            net_id,
+            transform.translation,
+            frame.frame,
+        );
         commands.entity(entity).despawn_rollback();
     }
 }

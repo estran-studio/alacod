@@ -1,0 +1,1 @@
+(name: "Bombe", kind: Active(Frames(5)), effects: [(on: OnUse, do: [Explode(radius: "30.0", damage: "10.0", destroys: true)])])

@@ -1,0 +1,12 @@
+// D80 (docs/conventions.md §61, §69) : actif « bombe ». Son effet `OnUse` est l'action `Explode`, exécutée par
+// la même liste d'actions que les effets de personnage (`effects_runtime::apply_action_sourced`) : une bombe à
+// mèche d'une frame posée au point du porteur au moment de l'usage, créditée à lui, qui casse les rochers
+// (`destroys`) et blesse ce qui est dans le rayon, lui compris (tir ami `Always`, comme la bombe d'un joueur).
+// Scénarios `item_active_bomb_rock` et `item_active_bomb_enemy`.
+(
+    name: "Bombe active",
+    kind: Active(Frames(5)),
+    effects: [
+        (on: OnUse, do: [Explode(radius: "30.0", damage: "10.0", destroys: true)]),
+    ],
+)

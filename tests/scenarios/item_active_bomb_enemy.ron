@@ -1,0 +1,37 @@
+// D80 (docs/conventions.md §61, §69) : `Explode` dans l'`OnUse` d'un actif, dégâts. Carte `testbed/rocks_static.ldtk`
+// (couloir nu) : le joueur 0 (immobile, x 168) tient la `bombe_active` ; un `dummy` (200 PV) est placé à f5 à 22 px
+// de lui, un second à 97 px (hors rayon 30). `UseActive` à f30 (effective f35).
+//
+// À regarder : une seule explosion à l'usage (moment clé `explosion`) : le dummy proche perd 10 PV (200 → 190), le joueur
+// aussi (100 → 90 : la bombe de l'actif n'exempte pas son porteur, tir ami `Always`), le dummy lointain est intact.
+// Aucun second usage : l'actif a coûté sa charge, qui remonte sans effet.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 100,
+    characters: [
+        (character: "dummy", x: "190.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "265.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            items: ["bombe_active"],
+            inputs: [
+                (from: 30, to: 31, buttons: [UseActive]),
+            ],
+        ),
+    ],
+    expect: [
+        Health(handle: 0, min: 100, max: 100, at_frame: 34),
+        EntityHealth(net_id: 15, min: 200, max: 200, at_frame: 34),
+        Health(handle: 0, min: 90, max: 90, at_frame: 40),
+        EntityHealth(net_id: 15, min: 190, max: 190, at_frame: 40),
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 40),
+        Health(handle: 0, min: 90, max: 90, at_frame: 99),
+        EntityHealth(net_id: 15, min: 190, max: 190, at_frame: 99),
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 99),
+        Event(kind: "explosion", by_frame: 40),
+    ],
+)
