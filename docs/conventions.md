@@ -1949,10 +1949,16 @@ au format §9 ; `tags` en **union** avec ceux du personnage (immunités §8, `ig
 `champion` + modificateurs) : aucun mécanisme à part, pas de points ×2.
 
 **Tirage** : au `spawn_enemy` de tout personnage qui déclare `variants` (vagues, spawners et
-`CharacterSpawn`), un `RollbackRng` **local** de graine `fnv1a("variants") ^ run_seed ^ net_id`
-(tronqués en `u32` ; `run_seed` = `RngStreams::run_seed`, la graine de carte ; `MapGenerationConfig::seed` pour un
-`CharacterSpawn`, même valeur) : un tirage pour la
-`chance`, un pour le poids. Indépendant de l'ordre d'apparition et du moment de chargement de
+`CharacterSpawn`), un `RollbackRng` **local** de graine `variant_seed(run_seed, net_id)` = `fnv1a("variants:<run_seed>:<net_id>")`
+replié sur 32 bits (`hash ^ hash >> 32`, comme `loot_seed` §48 et `curse_seed` §64) puis passé au
+finaliseur `fmix32` de MurmurHash3 (D88, M3 : l'ancien `fnv1a("variants") ^ run_seed ^ net_id` suivi d'un
+seul pas de congruentiel était quasi linéaire, 0,0004 par unité de graine, donc corrélé par étage ; le repli
+FNV seul laissait encore 0,07 de corrélation entre net ids voisins, le finaliseur la ramène à zéro ; `run_seed` =
+`RngStreams::run_seed`, la graine de carte ; `MapGenerationConfig::seed` pour un `CharacterSpawn`, même valeur) :
+un tirage pour la `chance`, un pour le poids. Preuve statistique (`variant::tests::tirage_independant_par_graine_et_net_id`,
+graines 1 à 20 000 × 16 net ids, chance 0,1) : 18,4 % des graines sans aucun champion (indépendance : 0,9^16 = 18,5 % ;
+avant : 89 %), corrélation de Pearson entre net ids voisins de −0,013 à +0,009 ; `graines_voisines_tirages_differents`. `alacod-sim` compte les variantes
+rencontrées par graine (colonne `variantes`, moment clé `variant_spawn`) et en donne la part des graines concernées (D88). Indépendant de l'ordre d'apparition et du moment de chargement de
 la carte ; **`RngStreams` n'est jamais touché** (y créer un flux changerait le hash de la
 ressource, donc toutes les traces). Le `GgrsNetId` du personnage est alloué par `spawn_enemy`
 avant `create_character` (même valeur que s'il l'était dedans : c'est sa seule allocation)
@@ -5618,7 +5624,7 @@ M3-T7 exécute les champs de `VariantDef` de §63 : `on_death`, `behaviors`, `lo
 `tint` est lu par la présentation seule (T17 le dessine : aucune lecture ici, attente nulle). **Aucune trace
 existante ne bouge** : un personnage sans variante, ou dont la variante n'a aucun champ v2, ne passe par rien de
 neuf (`champion_death_system` sort sans rien toucher), `PatternGhost` est neutre. Le
-tirage de §25 (graine `fnv1a("variants") ^ graine ^ net id`, `RollbackRng` local, jamais `RngStreams`) est inchangé.
+tirage de §25 (`RollbackRng` local, jamais `RngStreams` ; graine `fnv1a("variants:<graine>:<net id>")` depuis D88) est inchangé.
 
 ### `chance` en expression : valeur figée à l'apparition
 
@@ -5631,10 +5637,11 @@ scénario) le passent. Un littéral est exact : même tirage qu'avant, quels que
 l'étage 5 est une erreur de contenu (`0,1 + floor × 0,18`). Variante **imposée** (`CharacterSpawn.variant`, placement
 de scénario) : aucun tirage, la chance ne compte pas.
 
-Piège connu (hérité de §25, **non corrigé**, une correction déplacerait les traces de tout contenu à variantes) : la
-graine `fnv ^ graine ^ net id` donne, via un générateur congruentiel, des **valeurs voisines à des net ids
-consécutifs** ; quarante ennemis posés d'un coup tirent donc presque le même nombre. Les scénarios de chance
-choisissent une graine (1942) qui répartit les tirages de part et d'autre des seuils ; dette à numéroter.
+Ancien piège de §25, **corrigé par la dette D88** : la graine `fnv ^ graine ^ net id` donnait, via un générateur congruentiel,
+des valeurs voisines à des net ids consécutifs (quarante ennemis posés d'un coup tiraient presque le même nombre ; les
+scénarios de chance choisissaient donc la graine 1942 pour répartir les tirages de part et d'autre des seuils). Depuis D88
+(graine par hachage de `variants:<graine>:<net id>`, §25) les tirages sont indépendants ; les scénarios de chance prennent la graine 110
+(4 champions sur 40 à l'étage 0, 11 sur 40 à l'étage 1) et leurs attentes sont celles du nouveau tirage.
 
 ### `behaviors`
 
@@ -5696,7 +5703,7 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 ### Atteignabilité
 
-M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables seulement par graine choisie (1730), **D88 ouverte**.
+M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables par graine choisie (1730) **avant D88** ; depuis D88 (tirage des variantes par hachage, §25) ils sortent avec la graine par défaut et sur la majorité des graines (mesure au rapport `dette-d88-tirage-variantes.md`).
 
 ## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
 
@@ -6233,13 +6240,12 @@ D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37
 | `bourdon` | volant, tireur | boss, phase 2 | 2 | `enemy_bourdon_*` |
 | `gardien` | 3 phases, renforts, spirale | `Boss` | 2 | `boss_gardien` |
 
-**Piège du tirage des variantes = dette moteur D88** (`docs/taches/dettes.md`) : le tirage (`variant.rs:139`) est `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
-pas de congruentiel (A = 1 664 525) : quasi linéaire (0,0004 par unité de graine) et corrélé par étage. **Avec la graine par défaut (`default_seed: 123456`, gardée par le
-restart), aucun champion ne sort au premier étage** ; 89 % des graines donnent 0 champion, 9 % les donnent tous. Net ids 100 à 199 : graines 1 à 255 → premier tirage dans
-[0,67 ; 0,77], 1 à 1279 → au moins 0,277 ; les chances d'`isaac` plafonnent à 0,27 aux deux premiers étages : **aucun champion pour les graines 1 à 1279**, donc jamais dans
-`alacod-sim --seeds 1..200` (1..50 et 1000..1150 essayées). La graine **1730** (`alacod-sim … --seeds 1730..1730 --log` : 4 `explosif`, 4 `essaim`, 3 `salve`, 18
-`champion_split`, 18 `explosion`) est la graine d'atteignabilité des trois variantes : les champions ne sont atteignables que par graine choisie. Remède de D88 : dériver la graine par
-`fnv1a("variants:<graine>:<net id>")` replié sur 32 bits (coût : traces à variantes de gungeon, throne, testbed, isaac).
+**Tirage des variantes : D88 fermée** (2026-10-17, `docs/taches/rapports/dette-d88-tirage-variantes.md`). Le tirage (`variant.rs`) était `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
+pas de congruentiel : quasi linéaire (0,0004 par unité de graine) et corrélé par étage (89 % des graines sans aucun champion, 9 % avec tous ; la graine par défaut `123456` n'en
+donnait aucun au premier étage ; seule la graine 1730 atteignait les trois variantes). Il hache maintenant `variants:<graine>:<net id>` (§25). Atteignabilité mesurée :
+`alacod-sim --game isaac --bots 1 --profiles explorateur --seeds 1..50 --floors sous_sol --until-floor 2 --max-frames 12000` : variantes rencontrées sur **47 graines sur 50** (94 %,
+259 au total, 11 au plus sur une graine ; absentes des graines 3, 29 et 42), graine par défaut comprise (colonne `variantes` du rapport par graine et ligne de synthèse de `alacod-sim`,
+D88). Le bot `explorateur` en subit les conséquences : 10 victoires, 37 morts, 3 soft-locks (graines 9, 42, 43) contre 17, 30 et 3 avant D88 (équilibrage : T11d).
 
 **Équilibrage** (campagne courte, `explorateur`, 50 graines `--floors sous_sol --until-floor 2 --max-frames 12000`, §76.3 du rapport) : l'`explorateur` meurt
 dès qu'une salle de combat compte quatre ennemis (essais : 16 morts sur 16 à quatre ennemis, 5 types ; cracheur, rampant ou tourelle seuls : 9 à 15 morts
@@ -6253,7 +6259,7 @@ Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de
 enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
 
 Dettes : pas de gabarit de combat par ennemi (un seul `Combat` : T11d) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
-de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) ouverte ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
+de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) fermée le 2026-10-17 ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 

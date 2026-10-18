@@ -1,3 +1,4 @@
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes (champions/élites) change pour tous les jeux (`variant_seed`) : repères re-mesurés, portail ouvert à f516 (f530 avant), étage 1 à f1117 (f1131 avant) ; mêmes attentes, frames décalées de 14 (1121/1141 -> 1107/1127).
 // D66 (2026-10-16, dette-d66-vue-directe) : le `rodeur` de la première caverne voit désormais un joueur en ligne de vue dégagée jusqu'à 900 unités (`sight_range`, conventions §22) au lieu d'errer hors de son `Sight(300)` : il fonce sur le bot, la trace entière bouge dès f1 et les repères de temps se décalent ; portail ouvert à f530 (avant ~f510), étage 1 à f1131 (avant ~f1111) ; `frames` 1120 -> 1150.
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
 // et mutations retestées. Les mesures historiques ci-dessous précèdent cette politique.
@@ -23,8 +24,8 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 1121),
-        FloorIndex(index: 1, at_frame: 1141),
+        FloorIndex(index: 0, at_frame: 1107),
+        FloorIndex(index: 1, at_frame: 1127),
         PlayerAlive(handle: 0, at_frame: 1149),
     ],
 )

@@ -100,6 +100,9 @@ struct SimResult {
     /// (`mur_secret`, `porte_a_cle`, `bombe`, `coffre`, `achat`…), voir [`mechanics`].
     #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     mechanics: std::collections::BTreeMap<&'static str, u32>,
+    /// D88 : personnages à variante (champions, élites) apparus pendant la partie (moments clés
+    /// `variant_spawn`) : l'atteignabilité des variantes se lit par graine.
+    variants: u32,
     /// État de chaque joueur à l'arrêt de la graine (objectif atteint, fin de partie ou
     /// plafond) : solde, position, présence dans la salle de départ.
     players_end: Vec<PlayerEnd>,
@@ -643,6 +646,11 @@ fn main() {
         let sim_fps = outcome.metrics.sim_fps;
         let desync_flag = if desync { "  DESYNC" } else { "" };
         let floor = outcome.metrics.final_floor;
+        let variants_seen = outcome
+            .events
+            .iter()
+            .filter(|e| e.kind == "variant_spawn")
+            .count() as u32;
         // D43 : fin de la graine (issue de la partie, soft-lock, ou objectif / plafond)
         let end = match (&outcome.metrics.run_end, &outcome.softlock) {
             (Some((issue, at)), _) => format!("{issue} f{at}"),
@@ -650,7 +658,7 @@ fn main() {
             (None, None) => "objectif".to_string(),
         };
         eprintln!(
-            "seed {seed:>6} : vague {wave:>2}  niveau {floor:>2}  frames {frames_reached:>6}  morts {deaths}/{bots}  kills {kills:>3}  {sim_fps:>6.1} fps  {wall_seconds:>5.2}s  fin {end}{desync_flag}"
+            "seed {seed:>6} : vague {wave:>2}  niveau {floor:>2}  frames {frames_reached:>6}  morts {deaths}/{bots}  kills {kills:>3}  variantes {variants_seen:>3}  {sim_fps:>6.1} fps  {wall_seconds:>5.2}s  fin {end}{desync_flag}"
         );
 
         results.push(SimResult {
@@ -676,6 +684,7 @@ fn main() {
             softlock: outcome.softlock,
             doors_opened: outcome.events.iter().filter(|e| e.kind == "door").count() as u32,
             mechanics: mechanics(&outcome.events),
+            variants: variants_seen,
             players_end: players_end.lock().unwrap().clone(),
             waves: std::mem::take(&mut wave_probe.lock().unwrap().waves),
             outcome: classify_outcome(
@@ -697,6 +706,15 @@ fn main() {
         "alacod-sim : {} graine(s) en {:.1}s",
         results.len(),
         run_started.elapsed().as_secs_f64()
+    );
+    // D88 : atteignabilité des variantes (champions) : part des graines qui en rencontrent au moins une.
+    let with_variants = results.iter().filter(|r| r.variants > 0).count();
+    eprintln!(
+        "alacod-sim : variantes rencontrées : {with_variants}/{} graine(s) ({:.0} %), {} au total, {} au plus sur une graine",
+        results.len(),
+        100.0 * with_variants as f64 / results.len().max(1) as f64,
+        results.iter().map(|r| r.variants).sum::<u32>(),
+        results.iter().map(|r| r.variants).max().unwrap_or(0)
     );
     // M2-T16 : résumé par issue (graines de chaque classe)
     let mut by_outcome: std::collections::BTreeMap<&str, Vec<i32>> = Default::default();
