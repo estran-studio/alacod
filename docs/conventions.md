@@ -127,7 +127,7 @@ déplacé que les sprites.
 - `animations` : table `{ "nom": { start: 0, end: 6 } }` ou `{ "nom": { row: 0, end: 7 } }`. Format direct (indices absolus) ou basé sur les lignes (spécifier la ligne et le nombre de frames).
 - `columns` : optionnel, dérivé de `SpriteSheetConfig` sinon.
 
-**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/animation/src/lib.rs`) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
+**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/sim_core/src/animation_state.rs`, état rollback ; déménagé d'`animation` par D69) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
 
 **Calques (skins)** : un personnage peut avoir plusieurs calques animés (`body`, `shadow`, `effect`). Chaque calque est une `SpriteSheetConfig` et une `AnimationMapConfig` ; ils sont composés dans `CharacterConfig` (`crates/game/src/character/config.rs`).
 
@@ -1949,10 +1949,16 @@ au format §9 ; `tags` en **union** avec ceux du personnage (immunités §8, `ig
 `champion` + modificateurs) : aucun mécanisme à part, pas de points ×2.
 
 **Tirage** : au `spawn_enemy` de tout personnage qui déclare `variants` (vagues, spawners et
-`CharacterSpawn`), un `RollbackRng` **local** de graine `fnv1a("variants") ^ run_seed ^ net_id`
-(tronqués en `u32` ; `run_seed` = `RngStreams::run_seed`, la graine de carte ; `MapGenerationConfig::seed` pour un
-`CharacterSpawn`, même valeur) : un tirage pour la
-`chance`, un pour le poids. Indépendant de l'ordre d'apparition et du moment de chargement de
+`CharacterSpawn`), un `RollbackRng` **local** de graine `variant_seed(run_seed, net_id)` = `fnv1a("variants:<run_seed>:<net_id>")`
+replié sur 32 bits (`hash ^ hash >> 32`, comme `loot_seed` §48 et `curse_seed` §64) puis passé au
+finaliseur `fmix32` de MurmurHash3 (D88, M3 : l'ancien `fnv1a("variants") ^ run_seed ^ net_id` suivi d'un
+seul pas de congruentiel était quasi linéaire, 0,0004 par unité de graine, donc corrélé par étage ; le repli
+FNV seul laissait encore 0,07 de corrélation entre net ids voisins, le finaliseur la ramène à zéro ; `run_seed` =
+`RngStreams::run_seed`, la graine de carte ; `MapGenerationConfig::seed` pour un `CharacterSpawn`, même valeur) :
+un tirage pour la `chance`, un pour le poids. Preuve statistique (`variant::tests::tirage_independant_par_graine_et_net_id`,
+graines 1 à 20 000 × 16 net ids, chance 0,1) : 18,4 % des graines sans aucun champion (indépendance : 0,9^16 = 18,5 % ;
+avant : 89 %), corrélation de Pearson entre net ids voisins de −0,013 à +0,009 ; `graines_voisines_tirages_differents`. `alacod-sim` compte les variantes
+rencontrées par graine (colonne `variantes`, moment clé `variant_spawn`) et en donne la part des graines concernées (D88). Indépendant de l'ordre d'apparition et du moment de chargement de
 la carte ; **`RngStreams` n'est jamais touché** (y créer un flux changerait le hash de la
 ressource, donc toutes les traces). Le `GgrsNetId` du personnage est alloué par `spawn_enemy`
 avant `create_character` (même valeur que s'il l'était dedans : c'est sa seule allocation)
@@ -3493,7 +3499,9 @@ tirage pur), `game::loot` (systèmes), `map_ldtk::game::rooms::room_chest_system
 - **Rareté d'un coffre** (`Chest::rarity`) = rareté **minimale** de l'objet tiré (un consommable compte pour `Common`).
 
 **Flux RNG dédié, indépendant du temps.** `items::loot_seed(graine de la partie, étage, clé de contenu)` =
-FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits ; le tirage lit un **`RollbackRng` local** de cette
+FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits puis passé au finaliseur `fmix32` (D95 : sans lui, `champion:41` et
+`champion:42` restaient corrélés, r jusqu'à 0,063 ; `loot_seed_numbered`/`loot_seed_parts` hachent les mêmes octets sans
+construire la clé) ; le tirage lit un **`RollbackRng` local** de cette
 graine. Il ne touche **aucun** flux de `RngStreams` : le flux nommé `"loot"` des power-ups est consommé à chaque
 mort d'ennemi, il ferait dépendre l'objet du moment d'ouverture (et changerait le hash de la ressource, comme
 `variant.rs` le note déjà). La clé de contenu est celle du coffre (`room:<salle>`, `reward:<salle>`, ou la clé
@@ -4160,7 +4168,7 @@ au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmè
 
 Deux scénarios attestent les mécaniques de M2 du tableau ci-dessous dans **une** partie de bots (graine 10, `etages_deux`,
 `shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 700
-frames, victoire f7545) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6876, synctest). Les
+frames, victoire f7316 depuis D95/D96) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6091, synctest). Les
 moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente.
 
 | Mécanique | Frame (2 bots, frames de la run) | Attente |
@@ -4170,16 +4178,16 @@ moments clés du premier sont dans `events.json` (page de revue), chaque ligne d
 | Escouade | verrou f1471 → f1605 | `SquadSize(bullet_kins)` = 3 (f1480), 0 (f1700) ; à 4 joueurs ≥ 2 (f2150), 0 (f2300) |
 | Salle verrouillée puis nettoyée | f42 → f139 | `Event(room)` ×2 |
 | Blank utilisé | f70, f82 | `Event(blank)` |
-| Objet ramassé | clé f157, rancune f3022 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
-| Achat en boutique | f2825-f2887 (gilet, roulade) | `Event(purchase, shop)`, `HasItem(gilet)`, `HasItem(roulade)` |
+| Objet ramassé | clé f2248, amulette f2915 (joueur 1) ; coffres de l'étage 2 : roulade f4253, rancune f4719 | `Event(item_pickup)`, `HasItem(rancune)`, `Consumable(key, 1)` |
+| Achat en boutique | f2687 (D95/D96 : un blank et une arme ; avant : gilet, roulade) | `Event(purchase, shop)`, `Shelf(nth: 0, sold)` faux f2685 puis vrai f2760, `Consumable(blank)` 0 → 1 |
 | Coffre à clé ouvert, clé consommée | f2928 (`arc`) | `Consumable(key)` 1 (f2920) → 0 (f2930), `Event(chest)` |
 | Arène tenue | f1890 → f2640 (750 frames) | `Event(arena)`, `RoomState(arene, nth: 1, Cleared)` |
-| Boss, trois phases | f3406, phases f3439 et f3487 | `BossPhase(NetId(205), 2)`, `Event(boss_phase)` |
+| Boss, phase 1 | f3310, phase 1 f3354, mort f3355 | `BossPhase(NetId(205), 1)` (f3355), `Event(boss_phase)` |
 | Portail | f3489 | `Event(portal)` |
-| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7325 (phases f7471, f7532) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(694), 2)` |
-| Victoire et profil | f7545 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
+| Second étage | f3691, puis coffre f4711, boutique f5249, arène f6172-6922, boss f7126 (phase 1 f7279, mort f7315) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(704), 1)` |
+| Victoire et profil | f7316 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
 
-**Non attestées, et pourquoi** : (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
+**Non attestées, et pourquoi** : (0) la **phase 2 du boss** (D95/D96) : les deux boss de ces runs meurent une frame (premier) ou 36 frames (second) après leur phase 1, et le boss ne fait « qu'une transition par frame » (`game/src/boss.rs:7`) ; la phase 2 est attestée par `gungeon_boss` (f520) et `gungeon_boss_bot` (f460, bot) ; (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
 s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
 déblocage** : elle n'existe pas, `hub/porte.ron` (`EnterRun`) n'a aucune condition ; seul le marchand exige `first_run`
 (sa visite f120 le prouve pour le profil du scénario) ; l'effet des déblocages sur la run se prouve par `RunUnlocks`
@@ -4619,7 +4627,8 @@ cœurs d'âme paient à la place : T8).
   séquence `Floors` (`FloorsEntry::curses`, `run::CurseConfig`) ; absent = aucune curse (toutes les
   séquences existantes). `run::draw_curse(config, defs, graine, étage)` (M3-T9 : graine de carte, §74) : RNG **local**
   `RollbackRng::new(curse_seed)` avec `curse_seed = fnv1a("curse:<graine>:<étage>")` replié sur 32 bits
-  (même repli que `loot_seed`), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
+  puis passé au finaliseur `fmix32` (`bevy_fixed::rng::seed_from_hash`, D95 ; même graine que `loot_seed` et
+  `variant_seed`, sans allocation), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
   ressource et toutes les traces). Deux tirages toujours consommés, dans l'ordre : la chance
   (`next_fixed() < chance` : `0` ne tombe jamais, `1` toujours), puis le choix pondéré dans l'ordre du
   pool (`next_u32() % Σ poids`). Une entrée inconnue ou de poids `0` est ignorée (le lint la refuse) ; sans
@@ -4648,16 +4657,39 @@ cœurs d'âme paient à la place : T8).
   nommées `weapon:<id>` (comme le tirage). `count(pool)` est l'**index d'épuisement** du prochain tirage ;
   `record(pool, objet)` renvoie vrai pour une nouveauté.
 - **Règle pure** `items::draw_exhausting(table, items, held, rareté, consommables, hidden, seen, rng)` :
-  `draw_loot_with` la rappelle avec un `seen` vide, donc **tous les tirages existants sont inchangés**.
-  Si `table.exhaust`, les objets de `seen` ne sont plus candidats ; sinon `seen` est ignoré. Le flux avance
-  toujours de deux tirages, quel que soit `seen` (comme `draw_loot`). Quand l'épuisement vide les
+  `draw_loot_with` la rappelle avec un `seen` vide. Si `table.exhaust`, les objets de `seen` ne sont plus
+  candidats ; sinon `seen` est ignoré. Le flux avance toujours de deux tirages, quel que soit `seen` (comme
+  `draw_loot`). Quand l'épuisement vide les
   candidats : d'abord les assouplissements de `draw_loot` (rareté du coffre puis `Common`, exclusion des
   objets tenus), **un objet neuf plus commun passe avant de répéter un objet vu**, puis, pool entièrement vu,
   le pool **repart complet** (un objet déjà sorti peut ressortir ; jamais vide si le pool ne l'est pas). Une
   récompense de salle (`consumables_only`) ne descend jamais sous les consommables. Les déblocages
   (`unlocked_table`) étendent le pool avant le filtre.
+- **Le choix est une course pondérée, stable à l'ajout (D96, 2026-10-17).** Les deux tirages du flux forment une
+  clé de base de 64 bits. Niveau 1 : chaque entrée joue **autant de billets que son poids**, de clé
+  `fmix64(fmix64(base ^ contenu de l'entrée) ^ n° du billet × φ)` ; la plus petite clé gagne, donc l'entrée gagne avec la probabilité
+  exacte `poids / somme` (une clé divisée par le poids ne la donnerait pas : poids 1 et 2 → 3/4, non 2/3). Niveau 2 : parmi
+  les candidats de l'entrée gagnante (une entrée `Rarity` en a plusieurs), la plus petite clé `hash(base, entrée, identifiant)`
+  gagne : uniforme. L'identité d'une entrée est le **contenu** de son `pick`, jamais son rang (les entrées d'un déblocage
+  s'ajoutent dans l'ordre des identifiants de déblocage) ; deux entrées de même `pick` valent une entrée de poids somme, et
+  l'ordre des entrées n'a aucun effet. Avant D96, le choix était `tirage % somme des poids` : débloquer un objet changeait la
+  somme (10 → 12 pour le pool `boss` d'`isaac`) et **redistribuait tous les emplacements** (mesuré : 251 emplacements sur 400
+  passaient à un objet non débloqué).
+  **Contrat** (l'ordre de tirage et `PoolState::assign` sont inchangés) : *à graine, `seen`, passe de rareté et exclusions égaux,
+  ajouter une entrée, débloquer un objet caché, ajouter un candidat à une entrée `Rarity` ou augmenter un poids ne change
+  l'objet d'un emplacement que si c'est pour un objet qu'apporte l'ajout* (l'objet d'une entrée `Item`, l'arme ou le tas de sous d'une
+  entrée `Weapon` ou `Currency` ; pour une entrée `Rarity` ajoutée, alourdie ou fusionnée avec une entrée de même contenu, **n'importe lequel
+  de ses candidats**, y compris un qui existait déjà ; inversement, retirer ce qui n'a pas gagné ne change rien). Un
+  contenu qui s'enrichit (T11b, T11c… : des objets ajoutés aux pools) ne fait donc plus bouger que les emplacements qui prennent
+  le nouvel objet, et un déblocage de profil (§75) ne déplace que vers ce qu'il apporte. **Limites** : (1) dans une suite
+  d'emplacements à épuisement, l'objet qu'un déblocage déplace revient dans le pool et peut sortir à un emplacement
+  **suivant** (`seen` n'est plus le même) ; la garantie est par tirage, à `seen` égal ; (2) si l'ajout rend non vide une passe
+  plus stricte (rareté d'un coffre), c'est cette passe qui tire ; (3) coût : deux `fmix64` par unité de poids du pool (`race_key`), d'où
+  `items::MAX_LOOT_WEIGHT` (1 000), refusé au lint (`OutOfRange`) et plafonné au tirage ; (4) une boutique **sans épuisement** (`game::shop::draw_shelves`) enchaîne ses présentoirs sur un seul flux, avec relance des doublons (au plus 8 essais) : un ajout qui change le présentoir 0 change le nombre d'essais, donc le tirage, des suivants ; la garantie vaut par tirage, pas pour une boutique entière. Proportions mesurées sur 100 000
+  tirages (`the_race_keeps_the_weighted_proportions`) : voir le rapport `dette-d95-d96-tirage-butin`.
 - **Graine** `items::exhaust_seed(graine, étage, clé, index)` : `loot_seed` pour l'index `0` (le premier
-  tirage d'un pool qui devient `exhaust` donne l'objet qu'il donnait avant), puis `loot_seed(…, "<clé>#<index>")`.
+  tirage d'un pool qui devient `exhaust` donne l'objet qu'il aurait donné sans `exhaust`),
+  puis `loot_seed(…, "<clé>#<index>")` (mêmes octets, sans allocation).
   `PoolState::next_seed(pool, graine, étage, clé)` prend `count(pool)` comme index.
 
 **Deux façons d'exécuter l'épuisement (décision de T8 : A, voir §73 ; le tableau est celui de T0e).**
@@ -5631,7 +5663,7 @@ M3-T7 exécute les champs de `VariantDef` de §63 : `on_death`, `behaviors`, `lo
 `tint` est lu par la présentation seule (T17 le dessine : aucune lecture ici, attente nulle). **Aucune trace
 existante ne bouge** : un personnage sans variante, ou dont la variante n'a aucun champ v2, ne passe par rien de
 neuf (`champion_death_system` sort sans rien toucher), `PatternGhost` est neutre. Le
-tirage de §25 (graine `fnv1a("variants") ^ graine ^ net id`, `RollbackRng` local, jamais `RngStreams`) est inchangé.
+tirage de §25 (`RollbackRng` local, jamais `RngStreams` ; graine `fnv1a("variants:<graine>:<net id>")` depuis D88) est inchangé.
 
 ### `chance` en expression : valeur figée à l'apparition
 
@@ -5644,10 +5676,11 @@ scénario) le passent. Un littéral est exact : même tirage qu'avant, quels que
 l'étage 5 est une erreur de contenu (`0,1 + floor × 0,18`). Variante **imposée** (`CharacterSpawn.variant`, placement
 de scénario) : aucun tirage, la chance ne compte pas.
 
-Piège connu (hérité de §25, **non corrigé**, une correction déplacerait les traces de tout contenu à variantes) : la
-graine `fnv ^ graine ^ net id` donne, via un générateur congruentiel, des **valeurs voisines à des net ids
-consécutifs** ; quarante ennemis posés d'un coup tirent donc presque le même nombre. Les scénarios de chance
-choisissent une graine (1942) qui répartit les tirages de part et d'autre des seuils ; dette à numéroter.
+Ancien piège de §25, **corrigé par la dette D88** : la graine `fnv ^ graine ^ net id` donnait, via un générateur congruentiel,
+des valeurs voisines à des net ids consécutifs (quarante ennemis posés d'un coup tiraient presque le même nombre ; les
+scénarios de chance choisissaient donc la graine 1942 pour répartir les tirages de part et d'autre des seuils). Depuis D88
+(graine par hachage de `variants:<graine>:<net id>`, §25) les tirages sont indépendants ; les scénarios de chance prennent la graine 110
+(4 champions sur 40 à l'étage 0, 11 sur 40 à l'étage 1) et leurs attentes sont celles du nouveau tirage.
 
 ### `behaviors`
 
@@ -5700,7 +5733,7 @@ séquence `deux_vides` (deux niveaux sans ennemi, le portail s'ouvre aussitôt).
 |---|---|
 | `champion_explodes`, `..._sans_variante` | `Explode` à la frame suivant la mort (f29 → f30) : joueur 90, cible proche 4990, lointaine 5000 ; le familier (10 PV, immunisé) survit ; témoin : personne blessé |
 | `champion_splits`, `..._sans_variante` | trois `elite_divise` en anneau de 14 unités à la mort (f55), sans variante ; témoin : rien |
-| `champion_drops`, `..._sans_variante` | l'objet `bottes` (graine `champion:14`) est lâché, ramassé à f120 ; témoin : rien |
+| `champion_drops`, `..._sans_variante` | l'objet `manche` (graine `champion:14`, D95/D96 : `bottes` avant) est lâché, ramassé à f120 ; témoin : rien |
 | `champion_behaviors`, `..._sans_variante` | `KeepDistance` de la variante au lieu de `Chase` : le champion reste à plus de 190 unités ; témoin : il rejoint le joueur |
 | `champion_pattern` | `SpawnPattern` : huit boules de feu en couronne à f56, une seule couronne, émetteur détruit |
 | `champion_chance_floor_0`, `champion_chance_floor` | `chance` en expression : 2 champions sur 40 à l'étage 0 (10 %), 23 sur 40 à l'étage 1 (28 %) |
@@ -5709,7 +5742,7 @@ Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la
 
 ### Atteignabilité
 
-M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables seulement par graine choisie (1730), **D88 ouverte**.
+M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables par graine choisie (1730) **avant D88** ; depuis D88 (tirage des variantes par hachage, §25) ils sortent avec la graine par défaut et sur la majorité des graines (mesure au rapport `dette-d88-tirage-variantes.md`).
 
 ## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
 
@@ -5844,7 +5877,7 @@ présentoir à `cost`.
 
 | Scénario | Prouve |
 |---|---|
-| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k5`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide |
+| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k14`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide (D96 : `k5` → `k14`, le tirage ayant changé) |
 | `pool_exhaust_two_rooms` | deux salles de types différents d'une carte générée partagent le pool : deux objets sortis dès f10, avant tout coffre ouvert |
 | `pool_exhaust_time_independent_ab` / `_ba` | `k1` → `lame`, `k2` → `boussole` que le joueur ouvre `k1` d'abord ou `k2` d'abord |
 | `pool_unlock` / `_temoin` | le déblocage `manche_epuisable` : quatre objets distincts dont `manche` ; sans : trois puis `bottes` répété |
@@ -5853,8 +5886,8 @@ présentoir à `cost`.
 | `devil_deal_soul_saves` | témoin : même joueur à 1 PV avec un `coeur_ame` : l'achat passe, âme 4 → 2, vie 1/1 |
 | `devil_deal_soul_first` | l'âme paie d'abord (4 → 2, vie et maximum à 100), puis un prix de 6 : l'âme (2) part toute, 4 PV de vie maximale (96) |
 | `devil_deal_isaac` (`isaac`) | le cœur d'`isaac` : 6/6 → 4/4 |
-| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `regard_maudit` sortis du pool `diable`, `pile_rapide` du trésor, `griffe_acier` du boss ; graine 5 : aucune salle, rien tiré dans `diable` |
-| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`griffe_acier`, f871) et le bot le ramasse ; la victoire est retardée (f1384 → ~f1430, f1654 → ~f1790) |
+| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `cornes_noires` et `queue_fourchue` sortis du pool `diable`, `bottines` du trésor, `oeil_vif` du boss (D96 : les objets tirés changent avec le tirage, la grille non) ; graine 5 : aucune salle, rien tiré dans `diable` |
+| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (`oeil_vif`, f1400 à f1440, ramassé f1461 ; `sang_chaud` pour la graine 23) et le bot le ramasse ; la victoire est retardée (f2117, f2335) |
 | `isaac_floor_seed_1` (`isaac`) | `tresor` et `boss` : 1 objet sorti à f5, 2 à la génération du second étage (par run) |
 
 Unitaires : `items::loot` (`assign_*` : sans `exhaust` rien n'est écrit, objets distincts, idempotence, premier emplacement =
@@ -5961,12 +5994,14 @@ pas `RunCurses` (hors périmètre : ils n'affichent ni la santé, ni la minicart
 
 | Scénario | Prouve |
 |---|---|
-| `curse_drawn_seeded`, `_other` | `maudit`, graines 3 (darkness puis rien) et 2 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 3 deux fois (même trace), la graine 2 (autre trace) et la graine 1 (aucune curse, aucun moment clé) |
-| `curse_modifier` | `maudit_maze`, graine 3 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
-| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 1 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
-| `curse_hides_health` | graine 7 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
-| `curse_blind` | graine 5 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
-| `curse_bigger_floor` | graine 2 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+| `curse_drawn_seeded`, `_other` | `maudit`, graines 2 (darkness puis rien) et 22 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 2 deux fois (même trace), la graine 22 (autre trace) et la graine 5 (aucune curse, aucun moment clé) |
+| `curse_modifier` | `maudit_maze`, graine 2 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
+| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 2 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
+| `curse_hides_health` | graine 5 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
+| `curse_blind` | graine 3 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
+| `curse_bigger_floor` | graine 6 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+
+D95 (2026-10-17) : `curse_seed` passe par `fmix32`, les graines ci-dessus sont les plus petites qui donnent l'issue voulue avec le nouveau tirage (les anciennes : 3, 2, 3, 1, 7, 5, 2).
 
 ### Déterminisme
 
@@ -6093,6 +6128,16 @@ troisième manque, `RunUnlocks` ne bouge pas pendant la run, HUD) et `achievemen
 accomplissement, essence créditée, HUD vide). Test `crates/scenario/tests/achievements.rs` : deux runs enchaînées, la relance
 voit les déblocages dans `RunUnlocks` et, **à graine égale** (400 graines), les objets entrent dans les pools `boss` et `tresor`,
 pas ceux dont l'accomplissement manque ; l'historique de la première run n'a pas survécu à la relance.
+
+**Contrat du tirage : un déblocage ne déplace que vers l'objet débloqué (D96, 2026-10-17).** À graine, emplacement et `seen` égaux, ce
+que débloque un accomplissement ne change l'objet d'un emplacement que si c'est pour un objet qu'il apporte (l'objet débloqué d'une entrée
+`Item` ; pour une entrée `Rarity` ajoutée ou alourdie, **n'importe lequel de ses candidats**, y compris un qui existait déjà) : une graine partagée donne
+le même butin à deux profils, aux objets débloqués près. Ce n'est **pas** un effet du hasard : c'est la course pondérée de
+`draw_exhausting` (§64), et `les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante` l'exige (400 emplacements par
+pool, un `PoolState` neuf par emplacement). Avec l'ancien choix `tirage % somme des poids`, la propriété n'était garantie par rien : elle
+ne tenait que pour un contenu de pool donné (le test, vert sur la branche de T10, est rouge sur `main` depuis le merge 3f37ba43 :
+débloquer `medaille` faisait passer la somme du pool `boss` de 10 à 12 et 251 emplacements sur 400 changeaient pour un objet non débloqué ; D96). Limite dite au §64 : le long d'une suite
+d'emplacements à épuisement, l'objet déplacé revient dans le pool et peut ressortir plus loin.
 
 ### Déterminisme et traces
 
@@ -6246,13 +6291,12 @@ D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37
 | `bourdon` | volant, tireur | boss, phase 2 | 2 | `enemy_bourdon_*` |
 | `gardien` | 3 phases, renforts, spirale | `Boss` | 2 | `boss_gardien` |
 
-**Piège du tirage des variantes = dette moteur D88** (`docs/taches/dettes.md`) : le tirage (`variant.rs:139`) est `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
-pas de congruentiel (A = 1 664 525) : quasi linéaire (0,0004 par unité de graine) et corrélé par étage. **Avec la graine par défaut (`default_seed: 123456`, gardée par le
-restart), aucun champion ne sort au premier étage** ; 89 % des graines donnent 0 champion, 9 % les donnent tous. Net ids 100 à 199 : graines 1 à 255 → premier tirage dans
-[0,67 ; 0,77], 1 à 1279 → au moins 0,277 ; les chances d'`isaac` plafonnent à 0,27 aux deux premiers étages : **aucun champion pour les graines 1 à 1279**, donc jamais dans
-`alacod-sim --seeds 1..200` (1..50 et 1000..1150 essayées). La graine **1730** (`alacod-sim … --seeds 1730..1730 --log` : 4 `explosif`, 4 `essaim`, 3 `salve`, 18
-`champion_split`, 18 `explosion`) est la graine d'atteignabilité des trois variantes : les champions ne sont atteignables que par graine choisie. Remède de D88 : dériver la graine par
-`fnv1a("variants:<graine>:<net id>")` replié sur 32 bits (coût : traces à variantes de gungeon, throne, testbed, isaac).
+**Tirage des variantes : D88 fermée** (2026-10-17, `docs/taches/rapports/dette-d88-tirage-variantes.md`). Le tirage (`variant.rs`) était `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
+pas de congruentiel : quasi linéaire (0,0004 par unité de graine) et corrélé par étage (89 % des graines sans aucun champion, 9 % avec tous ; la graine par défaut `123456` n'en
+donnait aucun au premier étage ; seule la graine 1730 atteignait les trois variantes). Il hache maintenant `variants:<graine>:<net id>` (§25). Atteignabilité mesurée :
+`alacod-sim --game isaac --bots 1 --profiles explorateur --seeds 1..50 --floors sous_sol --until-floor 2 --max-frames 12000` : variantes rencontrées sur **47 graines sur 50** (94 %,
+259 au total, 11 au plus sur une graine ; absentes des graines 3, 29 et 42), graine par défaut comprise (colonne `variantes` du rapport par graine et ligne de synthèse de `alacod-sim`,
+D88). Le bot `explorateur` en subit les conséquences : 10 victoires, 37 morts, 3 soft-locks (graines 9, 42, 43) contre 17, 30 et 3 avant D88 (équilibrage : T11d).
 
 **Équilibrage** (campagne courte, `explorateur`, 50 graines `--floors sous_sol --until-floor 2 --max-frames 12000`, §76.3 du rapport) : l'`explorateur` meurt
 dès qu'une salle de combat compte quatre ennemis (essais : 16 morts sur 16 à quatre ennemis, 5 types ; cracheur, rampant ou tourelle seuls : 9 à 15 morts
@@ -6266,7 +6310,7 @@ Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de
 enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
 
 Dettes : pas de gabarit de combat par ennemi (un seul `Combat` : T11d) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
-de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) ouverte ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
+de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) fermée le 2026-10-17 ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste, avec gabarits variés et salle `arene`, en T11d) ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14, à rééquilibrer en T11d.
 
 ## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
 

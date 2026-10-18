@@ -36,7 +36,8 @@ use bevy_ggrs::{GgrsSchedule, Rollback, RollbackDespawnCommandExtension};
 use combat::emitter::Emitter;
 use effects::Action;
 use items::{
-    draw_loot_with, loot_seed, unlocked_table, ItemTable, LootTables, RunUnlocks, UnlockTable,
+    draw_loot_with, loot_seed_numbered, unlocked_table, ItemTable, LootTables, RunUnlocks,
+    UnlockTable,
 };
 use sim_core::{damage::FriendlyFire, frame_events::FrameEvents, tag::Tags, team::Team};
 use utils::{
@@ -365,8 +366,12 @@ fn drop_loot(
         return;
     };
     let (run_seed, floor) = crate::loot::seed_context(&loot.run_seed, &loot.floor);
-    let key = champion_key(net_id.0, None);
-    let mut rng = RollbackRng::new(loot_seed(run_seed, floor, &key));
+    let mut rng = RollbackRng::new(loot_seed_numbered(
+        run_seed,
+        floor,
+        "champion:",
+        net_id.0 as u64,
+    ));
     let table = unlocked_table(table_id, table, &loot.unlocks, &loot.active);
     let hidden: BTreeSet<&str> = loot.unlocks.hidden_items(&loot.active);
     let Some(item_id) = draw_loot_with(
@@ -385,8 +390,8 @@ fn drop_loot(
         // M3-T3 (§68) : un tas de sous au sol.
         crate::shop::spawn_shell_pickup(commands, id_factory, amount, position, net_id.0);
         info!(
-            "ggrs{{f={} champion_loot key={} item={}}}",
-            frame, key, item_id
+            "ggrs{{f={} champion_loot key=champion:{} item={}}}",
+            frame, net_id.0, item_id
         );
         return;
     }
@@ -414,8 +419,8 @@ fn drop_loot(
         }
     }
     info!(
-        "ggrs{{f={} champion_loot key={} item={}}}",
-        frame, key, item_id
+        "ggrs{{f={} champion_loot key=champion:{} item={}}}",
+        frame, net_id.0, item_id
     );
 }
 
@@ -453,6 +458,7 @@ impl Plugin for ChampionsPlugin {
 mod tests {
     use super::*;
     use bevy_fixed::fixed_math::new as fx;
+    use items::loot_seed;
 
     #[test]
     fn plan_classe_les_actions_dans_l_ordre() {

@@ -1,14 +1,15 @@
 // M3-T7 (docs/conventions.md §72) : `chance` en expression, étage 0. Quarante `elite_chance` (chance `0,1 + 0,18 × floor` = 10 %)
 // placés à la frame 1 sur la carte `surfaces` ; la chance est tirée à l'apparition (graine de run, net id, étage 0, un joueur).
 // Témoin de `champion_chance_floor` (même partie à l'étage 1 : 28 %). Le nombre de champions est fixé par la trace.
-// Graine 1942 : le tirage de §25 donne des valeurs voisines à des net ids consécutifs (graine `fnv ^ graine ^ net id`) ; cette graine répartit
-// les quarante valeurs de part et d'autre des deux seuils (10 % et 28 %).
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage de §25 hache désormais `variants:<graine>:<net id>` : les tirages de net ids voisins sont
+// indépendants, et la graine 1942 (choisie pour contourner l'ancienne corrélation) ne s'impose plus. Graine 110 : à l'étage 0 : 4 champions sur 40, chance 10 % ; la trace et les
+// attentes sont celles de ce tirage (le contraste 10 % / 28 % de la chance se lit directement entre les deux scénarios, 4 contre 11).
 //
 // À regarder : quarante mannequins immobiles dont une poignée (variante `elite`) sont des champions.
 Scenario(
     game: "testbed",
     map: "testbed/surfaces.ldtk",
-    map_seed: 1942,
+    map_seed: 110,
     frames: 10,
     powerup_drop_chance_override: "0",
     characters: [
@@ -55,9 +56,9 @@ Scenario(
     ],
     players: [(inputs: [], weapon: "larme")],
     expect: [
-        // Chance 0.10 (étage 0) : 2 champions sur 40 (graine 1942, net ids 14 à 53).
-        EnemyVariant(entity: Placed(0), variant: Some("elite"), at_frame: 2),
-        EnemyVariant(entity: Placed(1), variant: Some("elite"), at_frame: 2),
+        // Chance 0.10 (étage 0) : 4 champions sur 40 (graine 110, net ids 14 à 53).
+        EnemyVariant(entity: Placed(0), variant: None, at_frame: 2),
+        EnemyVariant(entity: Placed(1), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(2), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(3), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(4), variant: None, at_frame: 2),
@@ -70,15 +71,15 @@ Scenario(
         EnemyVariant(entity: Placed(11), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(12), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(13), variant: None, at_frame: 2),
-        EnemyVariant(entity: Placed(14), variant: None, at_frame: 2),
+        EnemyVariant(entity: Placed(14), variant: Some("elite"), at_frame: 2),
         EnemyVariant(entity: Placed(15), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(16), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(17), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(18), variant: None, at_frame: 2),
-        EnemyVariant(entity: Placed(19), variant: None, at_frame: 2),
+        EnemyVariant(entity: Placed(19), variant: Some("elite"), at_frame: 2),
         EnemyVariant(entity: Placed(20), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(21), variant: None, at_frame: 2),
-        EnemyVariant(entity: Placed(22), variant: None, at_frame: 2),
+        EnemyVariant(entity: Placed(22), variant: Some("elite"), at_frame: 2),
         EnemyVariant(entity: Placed(23), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(24), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(25), variant: None, at_frame: 2),
@@ -93,7 +94,7 @@ Scenario(
         EnemyVariant(entity: Placed(34), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(35), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(36), variant: None, at_frame: 2),
-        EnemyVariant(entity: Placed(37), variant: None, at_frame: 2),
+        EnemyVariant(entity: Placed(37), variant: Some("elite"), at_frame: 2),
         EnemyVariant(entity: Placed(38), variant: None, at_frame: 2),
         EnemyVariant(entity: Placed(39), variant: None, at_frame: 2),
     ],

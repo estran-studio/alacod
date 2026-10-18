@@ -13,17 +13,15 @@ use crate::{
     projectile::{Projectile, ProjectileSpec, ProjectileTable},
     team::team_allows_hit,
 };
-use animation::{AnimationStateBundle, FacingDirection};
 use bevy::{
     log::{tracing::span, Level},
-    platform::collections::HashMap,
     prelude::*,
 };
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
+use sim_core::animation_state::{AnimationStateBundle, FacingDirection};
 use sim_core::{
     aim::{aim_direction, AimMode},
     ammo::AmmoType,
@@ -418,6 +416,19 @@ pub struct Bullet {
     pub friendly_fire: FriendlyFire,
 }
 
+/// Ce que la présentation ne peut pas relire du `Bullet` rollback pour dessiner la balle : le
+/// `Size` du projectile composable et la stat `ShotSize` du tireur (absente de `Bullet`, dont le
+/// `Hash` entre dans le checksum). Posé par [`spawn_bullet`], **hors rollback** et jamais haché
+/// (comme le `Sprite` qu'il remplace) ; lu par `game::world_sprites::attach_bullet_visuals` qui
+/// en tire la taille du sprite. Que des `Fixed` : la conversion en `f32` se fait en présentation.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BulletLook {
+    /// `Projectile::size` à l'apparition ; `None` : balle ordinaire (côté de sprite fixe).
+    pub projectile_size: Option<fixed_math::Fixed>,
+    /// Stat `ShotSize` du tireur (1 sans modificateur : aucun calcul de plus).
+    pub shot_size: fixed_math::Fixed,
+}
+
 /// Component to track the player's weapon inventory
 #[derive(Component, Debug, Clone, Default)]
 pub struct WeaponInventory {
@@ -487,11 +498,6 @@ pub struct WeaponState {
 pub struct FireWeaponEvent {
     pub player_entity: Entity,
 }
-
-// ASSETS
-
-#[derive(Asset, TypePath, Serialize, Deserialize)]
-pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);
 
 // UTILITY FUNCTION
 
@@ -672,12 +678,8 @@ pub fn spawn_weapon_for_player(
     inventory.weapons.push((entity, weapon));
 
     if active {
-        commands
-            .entity(entity)
-            .insert((ActiveWeapon {}, Visibility::Inherited));
+        commands.entity(entity).insert(ActiveWeapon {});
         inventory.active_weapon_index = inventory.weapons.len() - 1;
-    } else {
-        commands.entity(entity).insert(Visibility::Hidden);
     }
 
     commands.entity(player_entity).add_child(entity);
@@ -813,9 +815,10 @@ pub const NO_PLAYER_HANDLE: PlayerHandle = PlayerHandle::MAX;
 /// **Seule** fonction d'apparition d'une balle (T1.2) : tir d'un joueur
 /// (`spawn_bullet_rollback`), projectile né d'un pattern
 /// (`projectile::spawn_child_projectile`) et tir d'émetteur (`emitter::emitter_system`).
-/// Rayon (base 5, 8 pour `Explosive`, × `Size`), sprite (3.5, × `Size` si composable),
-/// couleur et marqueurs (`ExplosiveTag`, `PiercingTag`) dérivent du type de balle et du
-/// projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+/// Rayon (base 5, 8 pour `Explosive`, × `Size`) et marqueurs (`ExplosiveTag`, `PiercingTag`)
+/// dérivent du type de balle et du projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+/// Aucun sprite : la présentation le tire de `Bullet` et de [`BulletLook`]
+/// (`game::world_sprites::attach_bullet_visuals`).
 pub fn spawn_bullet(
     commands: &mut Commands,
     collision_settings: &CollisionSettings,
@@ -830,25 +833,18 @@ pub fn spawn_bullet(
         BulletType::Explosive { .. } => fixed_math::new(8.0),
         BulletType::Standard { .. } | BulletType::Piercing { .. } => fixed_math::new(5.0),
     };
-    let (radius, sprite_size) = match &spawn.projectile {
-        Some(projectile) => (
-            projectile.radius(base_radius),
-            fixed_math::to_f32(projectile.size) * crate::projectile::BASE_SPRITE,
-        ),
-        None => (base_radius, 3.5),
+    let radius = match &spawn.projectile {
+        Some(projectile) => projectile.radius(base_radius),
+        None => base_radius,
     };
-    let (radius, sprite_size) = if spawn.shot_size == fixed_math::FIXED_ONE {
-        (radius, sprite_size)
+    let radius = if spawn.shot_size == fixed_math::FIXED_ONE {
+        radius
     } else {
-        (
-            radius.saturating_mul(spawn.shot_size),
-            sprite_size * fixed_math::to_f32(spawn.shot_size),
-        )
+        radius.saturating_mul(spawn.shot_size)
     };
-    let color = match &spawn.bullet_type {
-        BulletType::Standard { .. } => Color::BLACK,
-        BulletType::Explosive { .. } => Color::WHITE,
-        BulletType::Piercing { .. } => Color::BLACK,
+    let look = BulletLook {
+        projectile_size: spawn.projectile.as_ref().map(|projectile| projectile.size),
+        shot_size: spawn.shot_size,
     };
 
     let transform = fixed_math::FixedTransform3D::new(
@@ -869,7 +865,9 @@ pub fn spawn_bullet(
 
     let bullet_type = spawn.bullet_type;
     let mut entity_commands = commands.spawn((
-        Sprite::from_color(color, Vec2::new(sprite_size, sprite_size)),
+        // Seule donnée « visuelle » : `game::world_sprites::attach_bullet_visuals` en tire le
+        // sprite (non rollback, jamais haché).
+        look,
         Bullet {
             velocity: spawn.velocity,
             bullet_type,
@@ -1946,72 +1944,10 @@ pub fn bullet_rollback_collision_system(
     }
 }
 
-// Non rollback system to display the weapon correct sprite
-pub fn weapon_inventory_system(
-    mut commands: Commands,
-    query: Query<(Entity, &WeaponInventory, &MeleeAttackState)>,
-    mut weapon_entities: Query<(Entity, &mut Visibility), With<Weapon>>,
-) {
-    for (_player_entity, inventory, melee_attack_state) in query.iter() {
-        if inventory.weapons.is_empty() {
-            continue;
-        }
-
-        // Update active/inactive weapon visibility
-        for (i, (weapon_entity, _)) in inventory.weapons.iter().enumerate() {
-            let is_active = i == inventory.active_weapon_index;
-
-            // For simplicity, we're using commands to add/remove components
-            // In a real implementation, you might want to use a Visibility component
-            if let Ok((_, mut visibility)) = weapon_entities.get_mut(*weapon_entity) {
-                if is_active {
-                    commands.entity(*weapon_entity).insert(ActiveWeapon);
-                    // Hide weapon during melee attacks
-                    if melee_attack_state.is_attacking {
-                        *visibility = Visibility::Hidden;
-                    } else {
-                        *visibility = Visibility::Visible;
-                    }
-                } else {
-                    commands.entity(*weapon_entity).remove::<ActiveWeapon>();
-                    *visibility = Visibility::Hidden;
-                }
-            }
-        }
-    }
-}
-
-pub fn weapons_config_update_system(
-    _asset_server: Res<AssetServer>,
-
-    weapons_config: Res<Assets<WeaponsConfig>>,
-
-    mut ev_asset: MessageReader<AssetEvent<WeaponsConfig>>,
-
-    mut query_weapons: Query<(&Children, Entity, &mut Weapon)>,
-) {
-    for event in ev_asset.read() {
-        if let AssetEvent::Modified { id } = event {
-            if let Some(weapons_config) = weapons_config.get(*id) {
-                for (_childs, _entity, mut weapon) in query_weapons.iter_mut() {
-                    if let Some(config) = weapons_config.0.get(&weapon.config.name) {
-                        weapon.config = config.config.clone();
-                        weapon.sprite_config = config.sprite_config.clone();
-                    }
-                }
-            }
-        }
-    }
-}
-
 pub struct BaseWeaponGamePlugin {}
 
 impl Plugin for BaseWeaponGamePlugin {
     fn build(&self, app: &mut App) {
-        // Add RON asset plugins for weapons and melee weapons
-        app.add_plugins(RonAssetPlugin::<WeaponsConfig>::new(&["ron"]));
-        app.add_plugins(RonAssetPlugin::<melee::MeleeWeaponsConfig>::new(&["ron"]));
-
         // Kinds existants (lus par le lint de contenu, `crates/content`, T1.5). Les noms
         // sont ceux des tables `weapons.ron`/`melee_weapons.ron`, déjà en dur ailleurs
         // dans ce fichier et dans `character/enemy/create.rs` ; T1.5 les lira depuis le
@@ -2065,10 +2001,8 @@ impl Plugin for BaseWeaponGamePlugin {
             .rollback_and_trace_neutral::<melee::WaveDamageScale>()
             .rollback_and_trace::<melee::MeleeHitbox>();
 
-        app.add_systems(
-            Update,
-            (weapon_inventory_system, weapons_config_update_system),
-        );
+        // La présentation des armes (visibilité des armes portées, rechargement à chaud de
+        // `weapons.ron`, chargeurs RON) est dans `game::weapons`.
 
         app.add_systems(
             GgrsSchedule,

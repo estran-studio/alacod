@@ -1,3 +1,4 @@
+// D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes (champions/élites) change pour tous les jeux (`variant_seed`) : repères re-mesurés, niveau 1 à f490, portail 0 à f516, étage 1 à f1117 (`irradie`, même mutation), niveau 2 à f1501, niveau 3 à f1885, étage 2 à f3086 (`rancune`, `sang_froid` à f2486), alerte de l'étage 2 à f3986 ; mêmes attentes, nouvelles frames.
 // D66 (2026-10-16, dette-d66-vue-directe) : le `rodeur` de la première caverne voit désormais un joueur en ligne de vue dégagée jusqu'à 900 unités (`sight_range`, conventions §22) au lieu d'errer hors de son `Sight(300)` : il fonce sur le bot, la trace entière bouge dès f1 et les repères de temps se décalent ; mesuré : niveau 1 à f506, portail 0 à f530, étage 1 à f1131 (`irradie`), niveau 2 à f1352, étage 2 à f3399, alerte de l'étage 2 à f4299.
 // D50 (2026-10-15) : `drop_chance` de throne 0,25 -> 0,40 : un drop de munitions de plus à la mort d'un ennemi (première divergence f303) ; étage 2 à f3483 (f2804 avant), alerte à ~f4388 (f3710 avant) ; `frames` 3720 -> 4410 pour que l'alerte sonne.
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
@@ -32,17 +33,17 @@ Scenario(
         (bot: prudent),
     ],
     expect: [
-        Event(kind: "levelup", by_frame: 515),
-        Level(handle: 0, level: 1, at_frame: 515),
-        Gauge(handle: 0, id: "rads", min: Some(3.0), at_frame: 515),
-        Mutations(handle: 0, count: 0, at_frame: 1121),
-        Mutations(handle: 0, count: 1, at_frame: 1141),
-        Event(kind: "mutation", by_frame: 1141),
-        Level(handle: 0, level: 2, at_frame: 1890),
-        Clock(id: "alerte", fired: false, at_frame: 4290),
-        Clock(id: "alerte", fired: true, at_frame: 4310),
-        FloorIndex(index: 1, at_frame: 3389),
-        FloorIndex(index: 2, at_frame: 3409),
+        Event(kind: "levelup", by_frame: 499),
+        Level(handle: 0, level: 1, at_frame: 499),
+        Gauge(handle: 0, id: "rads", min: Some(3.0), at_frame: 499),
+        Mutations(handle: 0, count: 0, at_frame: 1107),
+        Mutations(handle: 0, count: 1, at_frame: 1127),
+        Event(kind: "mutation", by_frame: 1127),
+        Level(handle: 0, level: 2, at_frame: 1880),
+        Clock(id: "alerte", fired: false, at_frame: 3976),
+        Clock(id: "alerte", fired: true, at_frame: 3996),
+        FloorIndex(index: 1, at_frame: 3076),
+        FloorIndex(index: 2, at_frame: 3096),
         PlayerAlive(handle: 0, at_frame: 4409),
     ],
 )
