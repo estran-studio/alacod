@@ -31,8 +31,8 @@ Le clone se joue avec du contenu seulement : chaque définition a son `test:` et
      boutique et pool `boutique`, curses dans la séquence par défaut, bombe de départ (D81), tableau d'atteignabilité du §8.1 rempli, campagne
      de contrôle (200 graines à 1 et 2 bots). **L'équilibrage n'est pas un objectif** (William est sceptique sur l'équilibrage mesuré par bot dans la
      boucle de développement) : victoires et morts sont rapportés, rien n'est réglé pour une fourchette (Q14 reste ouverte).
-   - **T11d2 volume de Q1** — `m3-t11d2-volume` (**livrée**, rapport `docs/taches/rapports/m3-t11d2-volume.md`, §76.5) : objets 49 → **100** (dont 38 de larmes, 9 familiers ou orbitaux, 11 actifs),
-     ennemis 7 → **10** (dont 3 à champions), boss 1 → **2** (`colosse`, second étage de la séquence par défaut), placement dans les gabarits de T11d1 ; dettes D112 à D115 (mécaniques qui manquent).
+   - **T11d2 volume de Q1** — `m3-t11d2-volume` (**livrée**, rapport `docs/taches/rapports/m3-t11d2-volume.md`, §76.5) : objets 49 → **100** (dont 37 de larmes, 9 familiers ou orbitaux, 11 actifs),
+     ennemis 7 → **10** (dont 3 à champions), boss 1 → **2** (`colosse`, type de salle `boss_profond`, second étage de la séquence par défaut), placement dans les gabarits de T11d1 ; dettes D112 à D115 (mécaniques qui manquent).
 
 ## Règles
 
