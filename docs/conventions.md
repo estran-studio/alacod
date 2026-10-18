@@ -3203,7 +3203,11 @@ jamais active.
   active quand `Inventory::held_with_tag(items, tag) >= count`, soit le nombre d'objets **distincts** tenus
   (passifs et actif) dont `ItemDef.tags` contient `tag`. **Un exemplaire en double compte une fois**, un consommable ou
   un objet inconnu jamais ; l'actif perdu éteint la transformation. (`SynergyTable::active` prend désormais
-  l'`ItemTable` : tous les appelants migrés.)
+  l'`ItemTable` : tous les appelants migrés.) **D91 (fermée)** : `held_with_tag` n'alloue plus (le `Vec` + tri +
+  `dedup` par appel est remplacé par un balayage : un passif compte à sa première occurrence, l'actif s'il n'est pas
+  déjà tenu en passif) ; son seul appelant est `SynergyDef::is_active`, donc `synergy_modifiers_system`, `projectile_mods`
+  et les effets en profitent sans changer. Même résultat au bit près (test `held_with_tag_compte_les_objets_distincts`,
+  scénarios de synergies et de transformations inchangés).
 - **Effets** : ceux d'une synergie ordinaire (`modifiers` de source `synergy:<id>`, `effects`, `projectile`), posés et
   retirés à chaque frame depuis l'inventaire.
 - **Teinte de présentation** `tint: Some("#rrggbb")` (champ optionnel de `SynergyDef`, hors simulation) : la première
