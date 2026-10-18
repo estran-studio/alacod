@@ -640,7 +640,9 @@ pub fn read_bot_inputs(
                     position,
                     &surfaces,
                     profile == BotProfile::Explorateur,
-                    profile == BotProfile::Explorateur && explorer_options.policy.combat_aware,
+                    profile == BotProfile::Explorateur
+                        && explorer_options.policy.combat_aware
+                        && jitter.snap_hold(player.handle, frame.frame),
                 );
             }
         }
@@ -1005,10 +1007,10 @@ fn revive_step(
             let selected = surfaces
                 .iter()
                 .filter_map(|(other, r, range, _)| {
-                    // Marge de 5 : `Rect::distance` mesure la boîte englobante d'un collider circulaire, le jeu mesure le
-                    // cercle (écart jusqu'à (√2 − 1) × rayon) ; en deçà de la marge le bot approche encore.
+                    // Pas de marge sur la portée : une marge laisse le bot osciller à la limite (graines 1, 168, 180, 187 à
+                    // deux bots) ; la tenue est bornée par `ExplorerJitter::snap_hold`.
                     let d = r.distance(position);
-                    (d + Fixed::from_num(5) <= *range).then_some((d, *other))
+                    (d <= *range).then_some((d, *other))
                 })
                 .min();
             if selected.is_some_and(|(_, selected)| selected == *id) {

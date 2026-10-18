@@ -6655,6 +6655,14 @@ de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `g
   de tous les scénarios des autres jeux et de la grille sont celles de `main`) ; de même `orbit_reach` n'est lu que sous `combat_aware`. Visée
   `FourWay` (`pleureur`, suivi Q17) : un combat **engagé** (`engage_reach`) n'écrit que la direction de tir, sans la file de tir qui figeait le bot, et
   s'approche **en ligne droite** quand la ligne est dégagée (la route contournait un coin que les larmes ne passent pas ; graines 63, 95, 119).
+- **Poursuite sur place** (`ExplorerJitter.2/.3`, `pursue`, sous `anti_jitter`) : 300 frames sans quitter un rayon de 24 en marchant vers un but qui n'est
+  pas une salle **et dont le pas est réellement exécuté** (ni réanimation, ni butin, ni esquive, pas un pas nul) écartent ce but pour ce joueur
+  (`explore_step(…, avoid)`) ; graine 103 d'`isaac` à deux bots : un tas de sous contre un mur que la navigation croit libre, deux buts alternés. La
+  mémoire du bot (`ExplorerJitter` entière) est **remise à zéro à chaque partie** (`OnEnter(InGame)` : les `GgrsNetId` repartent de zéro).
+- **Réanimation à portée** (`revive_step`, `snap`, sous `combat_aware`) : déjà à portée (marge de 5 : `Rect::distance` mesure la boîte d'un collider circulaire)
+  de la surface que le jeu sélectionnerait, Interaction tenue sans bouger (le pas d'approche visait portée − 8 et faisait osciller le bot de ±9 : la
+  réanimation, tenue plusieurs frames, ne finissait jamais) ; `BotView::hold_revive` : sous visée `FourWay`, le bot qui tient la réanimation ne se
+  décale pas pour s'aligner sur un ennemi.
 - **Larmes en orbite** (`BotView::orbit_reach`, lu par `ExplorerWorld::orbit_reach` : `Orbit` des objets et synergies tenus, composés comme au
   tir par `combat::projectile::compose`) : `satellite` (T11b) fait tourner les larmes à 40 unités du porteur ; un boss immobile à 94 unités ne
   perdait plus un point de vie, `prudent` ne s'approchant d'un ennemi immobile que jusqu'à 120 (graine 41 d'`isaac` sans bombe, soft-lock

@@ -1126,16 +1126,24 @@ pub struct Pursuit {
     last: u32,
 }
 
+/// Réanimation tenue à portée sans bouger : au plus ce nombre de frames d'affilée (la réanimation du jeu dure moins), puis
+/// [`SNAP_RELEASE_FRAMES`] frames où le pas d'approche reprend la main.
+pub const SNAP_HOLD_FRAMES: u32 = 240;
+/// Voir [`SNAP_HOLD_FRAMES`].
+pub const SNAP_RELEASE_FRAMES: u32 = 60;
+
 /// Anti-jitter des `explorateur` (`ExplorerPolicy::anti_jitter`) : **seconde mémoire du bot** après [`ExplorerVisits`],
 /// hors simulation et hors rollback pour la même raison (elle ne sert qu'à produire des inputs que GGRS enregistre).
 /// `.0` : balancements de l'exploration ; `.1` : blocages de combat ([`Self::engage`]) ; `.2` : poursuites ;
-/// `.3` : buts écartés `(joueur, but)` ([`Self::pursue`]).
+/// `.3` : buts écartés `(joueur, but)` ([`Self::pursue`]) ; `.4` : tenue d'une réanimation à portée `(depuis, dernière
+/// frame)` ([`Self::snap_hold`]).
 #[derive(Resource, Debug, Clone, Default, PartialEq)]
 pub struct ExplorerJitter(
     pub BTreeMap<usize, Jitter>,
     pub BTreeMap<usize, Stall>,
     pub BTreeMap<usize, Pursuit>,
     pub BTreeSet<(usize, u64)>,
+    pub BTreeMap<usize, (u32, u32)>,
 );
 
 impl ExplorerJitter {
@@ -1150,6 +1158,19 @@ impl ExplorerJitter {
             .range((handle, 0)..=(handle, u64::MAX))
             .map(|(_, who)| *who)
             .collect()
+    }
+
+    /// Le joueur `handle` peut-il se figer à portée de la surface de réanimation à la frame `frame` ([`SNAP_HOLD_FRAMES`]
+    /// frames de tenue, puis [`SNAP_RELEASE_FRAMES`] d'approche) ? La portée du jeu se mesure au cercle du collider, la
+    /// navigation à sa boîte : si le jeu refuse l'Interaction à la limite, l'approche reprend la main au lieu de laisser le bot
+    /// figé. Appelé à chaque frame où une surface de réanimation existe ; un trou de plus de 2 frames recommence le cycle.
+    pub fn snap_hold(&mut self, handle: usize, frame: u32) -> bool {
+        let state = self.4.entry(handle).or_insert((frame, frame));
+        if frame.saturating_sub(state.1) > 2 {
+            *state = (frame, frame);
+        }
+        state.1 = frame;
+        frame.saturating_sub(state.0) % (SNAP_HOLD_FRAMES + SNAP_RELEASE_FRAMES) < SNAP_HOLD_FRAMES
     }
 
     /// Note le pas `step` du joueur `handle` à `position`, frame `frame` : [`GIVE_UP_FRAMES`] frames sans quitter
@@ -2112,6 +2133,25 @@ mod tests {
         let mut step = pas(0.0, 7);
         jitter.steady(0, 44, v(0.0, 30.0), &mut step, libre);
         assert!(jitter.0.is_empty());
+    }
+
+    /// La tenue d'une réanimation à portée dure `SNAP_HOLD_FRAMES`, puis `SNAP_RELEASE_FRAMES` d'approche, puis recommence ;
+    /// un trou de plus de 2 frames (autre but) recommence le cycle ; chaque joueur a son cycle.
+    #[test]
+    fn la_tenue_d_une_reanimation_est_bornee() {
+        let mut jitter = ExplorerJitter::default();
+        for frame in 100..100 + SNAP_HOLD_FRAMES {
+            assert!(jitter.snap_hold(0, frame), "frame {frame}");
+        }
+        for frame in 100 + SNAP_HOLD_FRAMES..100 + SNAP_HOLD_FRAMES + SNAP_RELEASE_FRAMES {
+            assert!(!jitter.snap_hold(0, frame), "relâche à {frame}");
+        }
+        assert!(
+            jitter.snap_hold(0, 100 + SNAP_HOLD_FRAMES + SNAP_RELEASE_FRAMES),
+            "nouveau cycle"
+        );
+        assert!(jitter.snap_hold(1, 5000), "un autre joueur");
+        assert!(jitter.snap_hold(0, 9000), "un trou recommence le cycle");
     }
 
     /// Un joueur qui marche vers un but sans quitter 24 pendant 300 frames écarte son but du moment (jamais une
