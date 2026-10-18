@@ -25,13 +25,12 @@ use sim_core::ammo::AmmoType;
 use utils::frame::FrameCount;
 use world::{RoomState, RoomStates};
 
-use crate::camera::CameraFollowOverride;
 use crate::character::health::Health;
 use crate::character::player::{LocalPlayer, Player};
-use crate::core::SIM_FPS;
 use crate::curses::CurseHides;
 use crate::effects_runtime::Gauges;
 use crate::progression::{Level, ProgressionDef, ProgressionTable};
+use crate::session::SIM_FPS;
 use crate::weapons::{WeaponInventory, WeaponModesState, WeaponState};
 
 /// Sources lues par [`player_source_text`] (celles du joueur).
@@ -69,6 +68,12 @@ pub const ITEM_BANNER_START_GRACE: u32 = 5;
 
 /// Nom affiché d'un objet que la curse `HideItemNames` cache (prompt et bandeau).
 pub const HIDDEN_ITEM_NAME: &str = "???";
+
+/// Ressource optionnelle pour forcer le suivi d'un joueur spécifique (utilisée par play_scenario --follow).
+/// Si présente, remplace le choix de joueur local lors de la sélection initiale.
+/// Stocke le handle GGRS du joueur à suivre.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct CameraFollowOverride(pub usize);
 
 /// Joueur dont le HUD affiche l'état (T2.12) : celui que la caméra suit de force
 /// (`CameraFollowOverride`, `play_scenario --follow <handle>`), sinon le joueur local de plus

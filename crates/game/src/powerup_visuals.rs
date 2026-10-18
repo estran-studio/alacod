@@ -27,7 +27,7 @@ fn sync_powerup_visuals(
     assets: Res<AssetServer>,
     mut gizmos: Gizmos,
     fog: Res<crate::room_fog::FogView>,
-    map: Option<Res<crate::room_fog::FogMap>>,
+    map: Option<Res<crate::fog_map::FogMap>>,
 ) {
     let config = global.powerups_config.as_ref().and_then(|h| configs.get(h));
     // Les entités visuelles sont indépendantes des entités rollback : un retrait,

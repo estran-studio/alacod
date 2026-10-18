@@ -221,7 +221,7 @@ impl Plugin for CursesPlugin {
         app.init_resource::<CurseTable>().add_systems(
             GgrsSchedule,
             curse_system
-                .before(crate::frame::increase_frame_system)
+                .before(crate::frame_counter::increase_frame_system)
                 .in_set(RollbackSystemSet::FrameCounter),
         );
     }

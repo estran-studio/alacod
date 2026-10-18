@@ -5,8 +5,8 @@ use sim_core::players::PlayersCount;
 use utils::cid::generate_random_correlation_id;
 
 use crate::{
-    core::OnlineState,
     jjrs::{GggrsConnectionConfiguration, GggrsSessionConfiguration, PlayerConfig},
+    session::OnlineState,
 };
 
 /// Resource to control debug AI visualization from startup

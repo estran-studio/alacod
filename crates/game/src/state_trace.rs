@@ -506,7 +506,7 @@ impl Plugin for StateTracePlugin {
         })
         .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests))
         .add_systems(
-            OnExit(crate::core::AppState::InGame),
+            OnExit(crate::session::AppState::InGame),
             next_game_after_restart,
         );
     }

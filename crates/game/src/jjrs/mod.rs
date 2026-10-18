@@ -220,7 +220,7 @@ pub fn log_ggrs_events(
     }
     // Headless : seul le desync arrête le processus. Une déconnexion y est normale (le pair a
     // fini sa trace et quitté) et la comparaison des traces reste le juge.
-    if desync && crate::core::is_headless() {
+    if desync && crate::session::is_headless() {
         exit.write(AppExit::from_code(SESSION_LOST_EXIT_CODE));
     }
     lost_writer.write_batch(lost);

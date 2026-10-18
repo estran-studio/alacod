@@ -1,7 +1,7 @@
 use bevy::{asset::AssetMetaCheck, prelude::*, window::WindowResolution};
 use bevy_ecs_ldtk::prelude::*;
 
-use game::core::AppState;
+use game::session::AppState;
 use game::web::WebPlugin;
 use map::{game::entity::map::door::DoorComponent, generation::config::MapGenerationConfig};
 use map_ldtk::{

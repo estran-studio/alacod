@@ -15,8 +15,9 @@ use game::{
         input::{InputSource, ScriptedInputs},
         Player,
     },
-    core::{CoreSetupConfig, CoreSetupPlugin},
+    core::CoreSetupPlugin,
     jjrs::PlayerConfig,
+    session::CoreSetupConfig,
     state_trace::{StateTraceRecorder, StateTraceRecorderPlugin},
     waves::{WaveDebugEnabled, WaveModeEnabled, WaveState},
 };
@@ -434,7 +435,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         // M2-T18 : actions d'UI du scénario (présentation, hors trace) ; absente sans `ui`.
-        .insert_resource(game::ui::screens::ScreenScript {
+        .insert_resource(game::ui::screens::model::ScreenScript {
             steps: scenario.ui.clone(),
             played_until: None,
         })
@@ -524,7 +525,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
 
     // Caméra forcée sur un joueur (play_scenario --follow)
     if let Some(handle) = config.follow_handle {
-        app.insert_resource(game::camera::CameraFollowOverride(handle));
+        app.insert_resource(game::ui::hud_model::CameraFollowOverride(handle));
     }
 
     if headless {
@@ -3575,7 +3576,7 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     ))
     .insert_resource(game::legibility::LegendOpen(config.legend));
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
+        std::time::Duration::from_nanos(1_000_000_000 / game::session::SIM_FPS),
     ))
     .insert_resource(CaptureState {
         dir: config.dir,

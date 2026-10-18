@@ -1,6 +1,6 @@
 //! Présentation des personnages : sprites animés et barre de vie.
 //!
-//! La simulation ne crée que l'entité logique avec un [`CharacterAppearance`].
+//! La simulation ne crée que l'entité logique avec un [`CharacterAppearance`](super::appearance::CharacterAppearance).
 //! [`attach_character_visuals`] y ajoute les sprites dès qu'il voit une entité sans
 //! visuels, y compris une entité recréée par un rollback.
 
@@ -14,27 +14,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::global_asset::GlobalAsset;
 
-use super::{config::CharacterConfig, health::ui::HealthBar};
-
-/// Apparence d'un personnage : donnée par la simulation, dessinée par la présentation.
-#[derive(Component, Clone, Debug)]
-pub struct CharacterAppearance {
-    /// Clé de `GlobalAsset::character_configs`.
-    pub config_name: String,
-    /// Skin de la config ; `None` pour le skin de départ.
-    pub skin: Option<String>,
-    pub health_bar_color: Color,
-}
-
-/// Hash manuel : exclut `health_bar_color` (présentation, `Color` est `f32` et
-/// n'implémente pas `Hash`) ; seuls `config_name`/`skin` (le choix de skin, qui affecte
-/// bien la simulation via le spawn des layers) contribuent au checksum.
-impl std::hash::Hash for CharacterAppearance {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.config_name.hash(state);
-        self.skin.hash(state);
-    }
-}
+use super::{appearance::CharacterAppearance, config::CharacterConfig, health::ui::HealthBar};
 
 /// Teinte de base des calques (D66, `CharacterConfig::marker`) : relue par
 /// `feedback::apply_layer_colors` à la place du blanc. Présentation, hors rollback.

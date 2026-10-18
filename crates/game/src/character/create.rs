@@ -17,11 +17,11 @@ use crate::{
 use bevy_ggrs::Rollback;
 
 use super::{
+    appearance::CharacterAppearance,
     config::CharacterConfig,
     dash::DashState,
     health::{new_health, Health, HealthRegen, HitCount},
     movement::SprintState,
-    visuals::CharacterAppearance,
     Character,
 };
 
@@ -96,7 +96,7 @@ pub fn create_character(
     );
 
     // Entité logique uniquement : les sprites et la barre de vie sont ajoutés par
-    // la présentation à partir de CharacterAppearance (voir character::visuals).
+    // la présentation à partir de CharacterAppearance (voir character::appearance).
     let entity = commands
         .spawn((
             transform_fixed.to_bevy_transform(),

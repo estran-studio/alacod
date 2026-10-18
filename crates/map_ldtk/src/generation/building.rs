@@ -443,7 +443,7 @@ pub fn build_building_ldtk(template: &LdtkJson, seed: i32) -> Result<LdtkJson, S
         .find(|f| f["__identifier"] == "fog_settings")
         .and_then(|f| f["__value"].as_str())
     {
-        use game::room_fog::{FogDoor, FogMap, FogRoom, FogSettings};
+        use game::fog_map::{FogDoor, FogMap, FogRoom, FogSettings};
         let settings: FogSettings =
             ron::from_str(text).map_err(|e| format!("fog_settings: {e}"))?;
         let room_id = |i: usize| format!("building-{seed}-room-{i}");
@@ -706,7 +706,7 @@ mod tests {
                 .unwrap()["__value"]
                 .as_str()
                 .unwrap();
-            let fog: game::room_fog::FogMap = serde_json::from_str(fog_text).unwrap();
+            let fog: game::fog_map::FogMap = serde_json::from_str(fog_text).unwrap();
             fog.validate().unwrap();
             let plan = building_plan(&t, seed).unwrap();
             assert_eq!(fog.rooms.len(), plan.rooms.len());

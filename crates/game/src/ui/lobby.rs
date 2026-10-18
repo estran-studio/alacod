@@ -1,6 +1,6 @@
-use crate::core::AppState;
 use crate::jjrs::GggrsSessionConfiguration;
 use crate::run_state::LocalLobbyHold;
+use crate::session::AppState;
 use bevy::prelude::*;
 use bevy_ggrs::ggrs::PlayerType;
 use bevy_matchbox::prelude::MatchboxSocket;

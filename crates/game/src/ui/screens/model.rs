@@ -6,6 +6,8 @@
 
 use std::collections::BTreeMap;
 
+use bevy::prelude::Resource;
+
 /// Écran ouvert.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ScreenId {
@@ -35,6 +37,22 @@ pub enum UiAction {
     Confirm,
     /// Ferme l'écran ouvert.
     Back,
+}
+
+/// Un pas du script d'un scénario : l'action est jouée à la frame `at_frame` (format RON :
+/// `(at_frame: 20, action: Toggle(Pause))`).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct UiStep {
+    pub at_frame: u32,
+    pub action: UiAction,
+}
+
+/// Script d'actions d'UI d'un scénario (ressource posée par le runner ; absente en jeu).
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct ScreenScript {
+    pub steps: Vec<UiStep>,
+    /// Dernière frame dont les pas ont été joués : un pas ne l'est qu'une fois.
+    pub played_until: Option<u32>,
 }
 
 /// Les entrées du menu de pause, dans l'ordre d'affichage.

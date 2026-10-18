@@ -6,7 +6,8 @@ use bevy::prelude::*;
 use game::content_hot_reload::GameRoot;
 use game::{
     args::BaseArgsPlugin,
-    core::{CoreSetupConfig, CoreSetupPlugin},
+    core::CoreSetupPlugin,
+    session::CoreSetupConfig,
     waves::{WaveDebugEnabled, WaveModeEnabled},
 };
 use map_ldtk::{
@@ -87,7 +88,7 @@ fn main() -> AppExit {
             seed: manifest.entry.default_seed,
         }))
         .add_systems(
-            OnEnter(game::core::AppState::LobbyLocal),
+            OnEnter(game::session::AppState::LobbyLocal),
             choose_local_seed.before(map_ldtk::game::local::configure_map),
         )
         // Enable wave-based spawning mode (CoD Zombies style)

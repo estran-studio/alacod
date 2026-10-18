@@ -17,7 +17,6 @@ use run::Run;
 use crate::jjrs::allumette::AllumetteConfig;
 use crate::{
     character::player::jjrs::PeerConfig,
-    core::{AppState, OnlineState},
     jjrs::restart::{
         restart_room, restart_seed, restart_timed_out, OnlineGames, OnlineRestart,
         RESTART_TIMEOUT_SECS,
@@ -26,6 +25,7 @@ use crate::{
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
+    session::{AppState, OnlineState},
 };
 
 /// D86 : identifiants matchbox des pairs des sessions déjà jouées par ce processus.
@@ -898,7 +898,7 @@ fn session_builder<C: ggrs::Config>(
     }
     Ok(ggrs::SessionBuilder::<C>::new()
         .with_num_players(config.max_player)?
-        .with_fps(crate::core::SIM_FPS as usize)?
+        .with_fps(crate::session::SIM_FPS as usize)?
         .with_max_prediction_window(MAX_PREDICTION_WINDOW)
         .with_disconnect_timeout(disconnect_timeout())
         .with_desync_detection_mode(ggrs::DesyncDetection::On {

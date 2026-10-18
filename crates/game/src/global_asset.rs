@@ -15,9 +15,9 @@ use content::registry::Registry;
 
 use crate::{
     character::config::CharacterConfig,
-    core::{AppState, OnlineState},
     economy::{EconomyConfig, PerksConfig},
     powerups::PowerUpsConfig,
+    session::{AppState, OnlineState},
     waves::WaveConfig,
     weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
 };

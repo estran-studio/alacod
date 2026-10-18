@@ -6,9 +6,9 @@
 
 use bevy::prelude::*;
 use game::{
-    core::AppState,
     hub::{HubSession, HubState},
     run_state::RunRequest,
+    session::AppState,
 };
 use run::{Run, RunMode};
 use scenario::{

@@ -26,6 +26,10 @@ pub enum WavePhase {
     WaveComplete,
 }
 
+/// Resource to toggle wave debug UI visibility.
+#[derive(Resource, Default)]
+pub struct WaveDebugEnabled(pub bool);
+
 /// Wave system state resource
 ///
 /// GGRS CRITICAL: Must be registered with `.rollback_and_trace_resource::<WaveState>()`
