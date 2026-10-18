@@ -576,6 +576,25 @@ pub fn should_blank(view: &BotView, holder: Holder) -> bool {
         })
 }
 
+/// Anticipation de l'élan sur l'axe **transverse** au trajet (m2-salles-murs-gungeon, D82) : une touche
+/// n'agit qu'après [`INPUT_LAG_SECONDS`] (délai d'input du synctest et du p2p, 5 frames) et le héros
+/// garde son élan ; devant une ouverture de 32 px (corps de 20 px) le bot déborde donc de ±8 px, rebrousse,
+/// déborde de l'autre côté : un cycle limite sans fin (graines 51 et 182 de `etages_deux`). On corrige
+/// l'écart transverse de la distance que l'élan fait encore parcourir (`direction − vitesse × délai`) : le
+/// bot freine avant de dépasser l'axe. L'axe du trajet (le plus grand des deux) n'est pas touché : la case
+/// suivante n'est qu'à 8 px, un freinage là l'arrêterait.
+pub(crate) fn lead(direction: FixedVec2, velocity: FixedVec2) -> FixedVec2 {
+    let ahead = INPUT_LAG_SECONDS;
+    if direction.x.abs() >= direction.y.abs() {
+        FixedVec2::new(direction.x, direction.y - velocity.y * ahead)
+    } else {
+        FixedVec2::new(direction.x - velocity.x * ahead, direction.y)
+    }
+}
+
+/// Délai entre la décision du bot et l'effet de la touche (5 frames à 60 Hz, `ALACOD_INPUT_DELAY`).
+const INPUT_LAG_SECONDS: Fixed = Fixed::from_bits(5461); // 5/60 × 65536
+
 /// Décision de l'`explorateur` : `prudent` dès qu'il y a à se battre, esquiver, relever ou
 /// ramasser au passage ; sinon le but d'exploration (pilotage en 8 directions), ou `prudent`
 /// (portail, attente) sans but. Blank en plus.
@@ -588,7 +607,7 @@ pub fn decide_explorer(view: &BotView) -> BoxInput {
     let mut input = match explore.direction {
         Some(direction) if !busy => {
             let mut input = BoxInput::default();
-            crate::decide::steer(&mut input, direction);
+            crate::decide::steer(&mut input, lead(direction, view.velocity));
             if explore.interact {
                 input.buttons |= INPUT_INTERACTION;
             }
@@ -889,5 +908,22 @@ mod tests {
         assert!(!should_blank(&view, holder), "s'éloigne");
         view.projectiles = vec![bullet(80.0, -4.0)];
         assert!(!should_blank(&view, holder), "trop loin");
+    }
+
+    #[test]
+    fn l_elan_transverse_est_anticipe() {
+        // Cap au nord (écart transverse de 3 px à droite) mais élan de 150 px/s vers la gauche : ~12 px
+        // d'élan à rattraper, donc freiner à droite (la composante x garde son signe et grandit).
+        let d = lead(v(3.0, 10.0), v(-150.0, 0.0));
+        assert!(d.x > fx(10.0) && d.y == fx(10.0), "{d:?}");
+        // Même écart sans élan : inchangé.
+        assert_eq!(lead(v(3.0, 10.0), v(0.0, 0.0)), v(3.0, 10.0));
+        // Élan vers l'axe : on lâche (le signe s'inverse : freinage avant de dépasser).
+        assert!(lead(v(3.0, 10.0), v(150.0, 0.0)).x < fx(0.0));
+        // L'axe du trajet n'est pas touché : à toute vitesse vers le nord, y reste.
+        assert_eq!(lead(v(1.0, 10.0), v(0.0, 150.0)), v(1.0, 10.0));
+        // Cap à l'est : c'est y qui est transverse.
+        let d = lead(v(10.0, 2.0), v(0.0, -150.0));
+        assert!(d.y > fx(10.0) && d.x == fx(10.0), "{d:?}");
     }
 }
