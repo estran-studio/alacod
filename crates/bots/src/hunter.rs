@@ -547,6 +547,7 @@ mod profile_tests {
             orbit_reach: None,
             engage_reach: None,
             engage_strafe: 0,
+            hold_revive: false,
             explore: None,
             aim: sim_core::aim::AimMode::Free,
             hunter: Some(hunter),
@@ -589,6 +590,7 @@ mod profile_tests {
             orbit_reach: None,
             engage_reach: None,
             engage_strafe: 0,
+            hold_revive: false,
             explore: None,
             aim: sim_core::aim::AimMode::Free,
             hunter: Some(HunterView {

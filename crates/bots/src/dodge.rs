@@ -103,6 +103,7 @@ mod tests {
             orbit_reach: None,
             engage_reach: None,
             engage_strafe: 0,
+            hold_revive: false,
             explore: None,
             aim: sim_core::aim::AimMode::Free,
         }

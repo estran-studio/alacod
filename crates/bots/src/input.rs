@@ -122,9 +122,14 @@ impl Plugin for BotsPlugin {
         app.init_resource::<crate::explorer::ExplorerJitter>();
         app.add_systems(
             OnEnter(game::core::AppState::InGame),
-            |mut choices: ResMut<WeaponChoices>, mut moves: ResMut<EnemyMoves>| {
+            |mut choices: ResMut<WeaponChoices>,
+             mut moves: ResMut<EnemyMoves>,
+             mut jitter: ResMut<crate::explorer::ExplorerJitter>| {
                 choices.0.clear();
                 moves.0.clear();
+                // Les identifiants de buts et les frames repartent de zéro avec la partie : les buts écartés d'une run
+                // ne valent pas pour la suivante.
+                *jitter = Default::default();
             },
         );
         app.add_systems(
@@ -551,6 +556,7 @@ pub fn read_bot_inputs(
             orbit_reach: None,
             engage_reach: None,
             engage_strafe: 0,
+            hold_revive: explorer_options.policy.combat_aware,
             explore: None,
             aim: aim_mode.copied().unwrap_or_default(),
         };
@@ -810,8 +816,18 @@ pub fn read_bot_inputs(
                         },
                     );
                     if explorer_options.policy.anti_jitter {
-                        if let Some(step) = step.as_ref() {
-                            jitter.pursue(player.handle, frame.frame, position, step);
+                        // Seul un pas réellement exécuté compte : réanimation, butin ou esquive le remplacent
+                        // (`decide_explorer`), et un pas nul n'est pas une poursuite.
+                        let executed = view.revive.is_none()
+                            && view.loot.is_none()
+                            && crate::dodge::dodge(&view).is_none();
+                        match step.as_ref() {
+                            Some(step) if executed && step.direction != FixedVec2::ZERO => {
+                                jitter.pursue(player.handle, frame.frame, position, step);
+                            }
+                            _ => {
+                                jitter.2.remove(&player.handle);
+                            }
                         }
                         match step.as_mut() {
                             Some(step) => jitter.steady(
@@ -989,8 +1005,10 @@ fn revive_step(
             let selected = surfaces
                 .iter()
                 .filter_map(|(other, r, range, _)| {
+                    // Marge de 5 : `Rect::distance` mesure la boîte englobante d'un collider circulaire, le jeu mesure le
+                    // cercle (écart jusqu'à (√2 − 1) × rayon) ; en deçà de la marge le bot approche encore.
                     let d = r.distance(position);
-                    (d <= *range).then_some((d, *other))
+                    (d + Fixed::from_num(5) <= *range).then_some((d, *other))
                 })
                 .min();
             if selected.is_some_and(|(_, selected)| selected == *id) {

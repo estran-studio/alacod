@@ -133,6 +133,9 @@ pub struct BotView {
     /// Combat bloqué qui dure malgré l'approche (`engage_reach`) : contourne l'ennemi (`+1` / `-1` : sens de rotation
     /// autour de lui) pour changer l'angle de tir ; `0` : pas de contournement.
     pub engage_strafe: i8,
+    /// `ExplorerPolicy::combat_aware` : un bot qui tient la réanimation (`ReviveView::interact`) ne se déplace pas pour s'aligner sur
+    /// un ennemi à visée `FourWay` (il quitterait la portée et la réanimation reprendrait à zéro).
+    pub hold_revive: bool,
     /// M2-T16 : exploration de l'étage (profil `explorateur` en mode `Floors`), `None` sinon.
     pub explore: Option<crate::explorer::ExploreView>,
     /// Suivi Q17 : visée du personnage (`AimMode::Free` sans composant). `FourWay` : le bot vise la

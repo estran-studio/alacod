@@ -67,10 +67,12 @@ pub fn decide(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> Box
     let mut input = decide_profile(profile, view, rng);
     if view.aim == AimMode::FourWay {
         // Combat engagé (blocage constaté, `BotView::engage_reach`) : seule la direction de tir est écrite, le bot se
-        // déplace pour changer sa ligne de tir et la file de tir ne le fige pas (graines 95, 119, 134 d'`isaac`).
+        // déplace pour changer sa ligne de tir et la file de tir ne le fige pas (graines 95, 119, 134 d'`isaac`). Réanimation
+        // tenue (`hold_revive`) : idem, le bot ne quitte pas la portée de son coéquipier pour s'aligner.
+        let holding = view.hold_revive && view.revive.is_some_and(|revive| revive.interact);
         apply_four_way(
             &mut input,
-            view.enemy_visible && view.enemy_shootable && view.engage_reach.is_none(),
+            view.enemy_visible && view.enemy_shootable && view.engage_reach.is_none() && !holding,
         );
     }
     input
@@ -480,6 +482,7 @@ mod tests {
             revive: None,
             engage_reach: None,
             engage_strafe: 0,
+            hold_revive: false,
             loot: None,
             loot_interact: false,
             fire_range: None,
@@ -1119,6 +1122,40 @@ mod tests {
         let far = decide(BotProfile::Prudent, &target(500.0, 60.0), &mut rng());
         assert_eq!((far.pan_x, far.pan_y), (127, 0));
         assert!(!far.fire, "hors de portée de tir");
+    }
+
+    /// `hold_revive` (`combat_aware`) : le bot qui tient une réanimation (Interaction, direction nulle) n'ajoute pas de
+    /// décalage pour s'aligner sur un ennemi hors de la file (il quitterait la portée de son coéquipier) ; sans
+    /// `hold_revive`, comme avant.
+    #[test]
+    fn four_way_ne_quitte_pas_une_reanimation_tenue() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.aim = AimMode::FourWay;
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(200.0), fx(60.0)),
+            distance: fx(208.8),
+        });
+        v.revive = Some(crate::view::ReviveView {
+            direction: FixedVec2::ZERO,
+            interact: true,
+        });
+        let before = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(
+            before.buttons & INPUT_UP,
+            0,
+            "sans hold_revive : le décalage de main"
+        );
+        v.hold_revive = true;
+        let held = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_eq!(
+            held.buttons & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT),
+            0
+        );
+        assert_eq!(
+            (held.pan_x, held.pan_y),
+            (127, 0),
+            "la direction de tir reste quantifiée"
+        );
     }
 
     /// `Free` : l'input du profil, au bit près (le contenu d'avant ne bouge pas).
