@@ -660,6 +660,9 @@ pub fn enemy_melee_attack_system(
             Option<&Tags>,
             Has<MeleeHold>,
             Option<&WaveDamageScale>,
+            // Suivi Q12 : un ennemi charmé ne griffe aucun joueur (état dérivé du statut, sans composant à
+            // lever : `Statuses` est retiré dès qu'il est vide).
+            Option<&crate::status::Statuses>,
         ),
         (With<Enemy>, With<Rollback>),
     >,
@@ -685,8 +688,10 @@ pub fn enemy_melee_attack_system(
         opt_tags,
         held,
         wave_scale,
+        statuses,
     ) in order_mut_iter!(enemy_query)
     {
+        let held = held || crate::status::charmed(statuses);
         // Find melee weapon in children
         let mut melee_weapon_opt: Option<&MeleeWeapon> = None;
         for child in children.iter() {

@@ -125,6 +125,9 @@ pub struct BotView {
     pub fire_range: Option<Fixed>,
     /// M2-T16 : exploration de l'étage (profil `explorateur` en mode `Floors`), `None` sinon.
     pub explore: Option<crate::explorer::ExploreView>,
+    /// Suivi Q17 : visée du personnage (`AimMode::Free` sans composant). `FourWay` : le bot vise la
+    /// direction quantifiée par le moteur ([`crate::decide::decide`]).
+    pub aim: sim_core::aim::AimMode,
 }
 
 /// Sélection des projectiles de la vue : `candidates` = (net id, équipe adverse ?, vue).

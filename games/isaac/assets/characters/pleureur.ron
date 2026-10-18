@@ -47,6 +47,10 @@
     weapon_slots: 1,
     starting_weapons: ["larmes"],
 
+    // Suivi Q17 (docs/conventions.md §66, réponse de William du 2026-10-16) : les larmes partent vers le haut, le
+    // bas, la gauche ou la droite, selon l'axe dominant de la visée (égalité parfaite : l'horizontale).
+    aim: FourWay,
+
     // Isaac commence sans clé mais avec un inventaire (M3-T5, docs/conventions.md §70) : sans lui,
     // `consumables_per_floor` (la clé du second étage, qui ouvre le trésor) ne servirait personne avant
     // le premier ramassage.

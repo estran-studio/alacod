@@ -165,6 +165,8 @@ pub fn read_bot_inputs(
             Option<&combat::actors::Velocity>,
             Option<&combat::downed::Downed>,
             Option<&CharacterConfigHandles>,
+            // Suivi Q17 : visée à quatre directions (absent = libre).
+            Option<&sim_core::aim::AimMode>,
         ),
         With<Rollback>,
     >,
@@ -371,6 +373,7 @@ pub fn read_bot_inputs(
         velocity,
         downed,
         config_handles,
+        aim_mode,
     ) in order_iter!(players)
     {
         if !local_players.0.contains(&player.handle) {
@@ -520,6 +523,7 @@ pub fn read_bot_inputs(
             loot_interact: false,
             fire_range: None,
             explore: None,
+            aim: aim_mode.copied().unwrap_or_default(),
         };
 
         let mut view = view;

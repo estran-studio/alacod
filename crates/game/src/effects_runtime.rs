@@ -323,8 +323,8 @@ pub(crate) fn listed_effects<'a>(
         }
     }
     // M2-T4 : effets des synergies actives (par id), clé `synergy:<id>:<index>`
-    if let (Some(inventory), Some(synergies)) = (inventory, synergies) {
-        for (id, def) in synergies.active(inventory) {
+    if let (Some(inventory), Some(synergies), Some(table)) = (inventory, synergies, table) {
+        for (id, def) in synergies.active(inventory, table) {
             for (index, effect) in def.effects.iter().enumerate() {
                 let key = format!("synergy:{id}:{index}");
                 let posed = if matches!(effect.on, On::Tick(_)) {

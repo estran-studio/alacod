@@ -85,6 +85,7 @@ Scenario(
             items: [
                 "frere",
             ],
+            aim: Free,
         ),
     ],
     expect: [

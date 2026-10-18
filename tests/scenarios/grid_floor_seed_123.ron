@@ -7,6 +7,10 @@
 // mort (salle nettoyée f1934) ; victoire f1935.
 // D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions), le bot est plus
 // lent : mêmes attentes, frames recalées sur le nouveau run (boss f1001 → f1548, victoire f1236 → f1935, scénario 2100 frames).
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
+// grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -14,7 +18,7 @@ Scenario(
     floors: Some("sous_sol_un"),
     frames: 2100,
     players: [
-        (bot: explorateur),
+        (bot: explorateur, aim: Some(Free)),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(13), max: Some(13), at_frame: 5),

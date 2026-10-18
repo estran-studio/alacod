@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use bevy_fixed::{
     fixed_math::{self, Fixed},
-    rng::{fnv1a, RollbackRng},
+    rng::{fnv1a_extend, fnv1a_extend_decimal, RollbackRng, FNV1A_OFFSET},
 };
 use content::expr::NumOrExpr;
 use serde::Deserialize;
@@ -143,7 +143,12 @@ impl Default for VariantContext {
 /// par un produit avec un nombre premier à faible poids, et deux net ids voisins gardent une
 /// corrélation de 0,07 (mesurée sur 20 000 graines) ; le finaliseur la ramène à zéro.
 pub fn variant_seed(run_seed: u32, net_id: u64) -> u32 {
-    let hash = fnv1a(format!("variants:{run_seed}:{net_id}").as_bytes());
+    // Les mêmes octets que `fnv1a(format!("variants:{run_seed}:{net_id}"))`, sans allocation
+    // (appelé à chaque apparition d'un ennemi à variantes).
+    let hash = fnv1a_extend(FNV1A_OFFSET, b"variants:");
+    let hash = fnv1a_extend_decimal(hash, u64::from(run_seed));
+    let hash = fnv1a_extend(hash, b":");
+    let hash = fnv1a_extend_decimal(hash, net_id);
     fmix32((hash ^ (hash >> 32)) as u32)
 }
 
@@ -318,6 +323,33 @@ mod tests {
                 vector(seed + 1),
                 "graines {seed} et {}",
                 seed + 1
+            );
+        }
+    }
+
+    /// Le hachage sans allocation produit la graine de la clé textuelle `variants:<graine>:<net id>`.
+    #[test]
+    fn graine_sans_allocation_egale_a_la_cle_textuelle() {
+        for (run_seed, net_id) in [
+            (0, 0),
+            (1, 9),
+            (123_456, 100),
+            (u32::MAX, 10_000),
+            (777, u64::MAX),
+        ] {
+            let hash = bevy_fixed::rng::fnv1a(format!("variants:{run_seed}:{net_id}").as_bytes());
+            let expected = {
+                let mut x = (hash ^ (hash >> 32)) as u32;
+                x ^= x >> 16;
+                x = x.wrapping_mul(0x85eb_ca6b);
+                x ^= x >> 13;
+                x = x.wrapping_mul(0xc2b2_ae35);
+                x ^ (x >> 16)
+            };
+            assert_eq!(
+                variant_seed(run_seed, net_id),
+                expected,
+                "{run_seed}:{net_id}"
             );
         }
     }

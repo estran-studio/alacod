@@ -216,4 +216,13 @@ pub fn create_player(
     if let Some(def) = character_config.and_then(|c| c.bomb) {
         commands.entity(entity).insert(world::BombCarrier::new(def));
     }
+
+    // Visée à quatre directions (suivi Q17) : le composant n'existe que pour `FourWay` ; un
+    // personnage libre (tout le contenu d'avant) ne porte rien.
+    if let Some(aim) = character_config
+        .map(|c| c.aim)
+        .filter(|aim| *aim != sim_core::aim::AimMode::Free)
+    {
+        commands.entity(entity).insert(aim);
+    }
 }

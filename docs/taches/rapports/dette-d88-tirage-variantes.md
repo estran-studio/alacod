@@ -13,7 +13,7 @@ seed = fmix32((hash ^ hash >> 32) as u32)          // repli 32 bits, puis finali
 
 puis le `RollbackRng` local et le tirage existant, inchangés (`chance_at`, table pondérée, deux tirages : chance, puis poids).
 
-**Écart à la demande, mesuré** : le repli FNV seul (l'idiome exact de `loot_seed`) ne suffit pas. Le dernier octet haché n'entre que par un produit avec un nombre premier à faible poids : sur 20 000 graines × net ids 100 à 115, la corrélation de Pearson entre net ids voisins montait à **0,069** (net ids 101/102 ; 0,047 et 0,056 ailleurs, toujours positive), contre un bruit d'échantillon de 0,007. Le test statistique ci-dessous l'a refusé (seuil 0,03). Un `fmix32` après le repli la ramène à zéro. `loot_seed` et `curse_seed` gardent le repli seul (hors périmètre ; leurs clés varient dans toute la chaîne, pas par un chiffre final).
+**Écart à la demande, mesuré** : le repli FNV seul (l'idiome exact de `loot_seed`) ne suffit pas. Le dernier octet haché n'entre que par un produit avec un nombre premier à faible poids : sur 20 000 graines × net ids 100 à 115, la corrélation de Pearson entre net ids voisins montait à **0,069** (net ids 101/102 ; 0,047 et 0,056 ailleurs, toujours positive), contre un bruit d'échantillon de 0,007. Le test statistique ci-dessous l'a refusé (seuil 0,03). Un `fmix32` après le repli la ramène à zéro. `loot_seed` et `curse_seed` gardent le repli seul : **même exposition**, mesurée en §6 (dette D95).
 
 ### Tests (`variant::tests`, graines fixes, aucun hasard)
 
@@ -90,9 +90,40 @@ Les attentes gardent leur type et leur sens ; les frames sont re-mesurées (`ALA
 ## 6. Dettes et remarques
 
 - D88 fermée (`docs/taches/dettes.md`).
-- `loot_seed` / `curse_seed` : repli FNV sans finaliseur ; non mesurés, hors périmètre.
-- Équilibrage : les champions d'isaac font chuter l'`explorateur` (10 victoires sur 50 contre 17) ; les deux scénarios `grid_floor_seed_1` et `isaac_floor_seed_1` reposent sur `Armor +50` du joueur (dette **D89** ouverte : rééquilibrer en T11d, puis retirer l'armure).
+- **D95 ouverte** : `loot_seed` / `curse_seed` ont la même exposition (leurs clés finissent par un nombre qui varie : la première version de ce rapport disait à tort le contraire). Mesure (réplique Python bit à bit, même statistique que le test de `variant` : 20 000 graines × 16 clés voisines, chance 0,1) : `champion:<n>` max **0,053** (n = 100) et **0,063** (n = 1000) ; `shells:<n>` **0,055** (n = 100) et **0,058** (n = 37) ; `rock:3:10:<y>` **0,046**, `rock:3:<x>:5` 0,017 ; `curse:<graine>:<étage>` (6 étages) **0,039**. Seuil 0,03 dépassé : D95 « appliquer `fmix32` à `loot_seed`/`curse_seed` » (coût : traces de butin), hors périmètre ici.
+- Équilibrage : les champions d'isaac font chuter l'`explorateur` (10 victoires sur 50 contre 17) ; les deux scénarios `grid_floor_seed_1` et `isaac_floor_seed_1` reposent sur `Armor +50` du joueur (dette **D93** ouverte : rééquilibrer en T11d, puis retirer l'armure).
 
 ## 7. Relecture indépendante
 
-Verdict « mergeable », aucun P0/P1. P2 corrigé : `conventions.md` §72 disait que les scénarios de chance gardaient la graine 1942 (elle est 110). P2 suivi : `Armor +50` devient la dette numérotée D89 (critère de sortie : retirer l'armure). P3 corrigés : `hud_text_sur_throne_progression` « Étage 3 » à f3096 (et non plus 3490), commentaire périmé de `gungeon_full_run` (f3892). Notes sans correctif : `graines_voisines_tirages_differents` ne détecte pas à lui seul l'ancien défaut (le détecteur est le test statistique) ; la marge de `PlayerAlive` d'`isaac_floor_seed_1` (f3399 contre une mort à f3475) est de même nature que l'originale.
+Verdict « mergeable », aucun P0/P1. P2 corrigé : `conventions.md` §72 disait que les scénarios de chance gardaient la graine 1942 (elle est 110). P2 suivi : `Armor +50` devient la dette numérotée D93 (critère de sortie : retirer l'armure). P3 corrigés : `hud_text_sur_throne_progression` « Étage 3 » à f3096 (et non plus 3490), commentaire périmé de `gungeon_full_run` (f3892). Notes sans correctif : `graines_voisines_tirages_differents` ne détecte pas à lui seul l'ancien défaut (le détecteur est le test statistique) ; la marge de `PlayerAlive` d'`isaac_floor_seed_1` (f3399 contre une mort à f3475) est de même nature que l'originale.
+
+## 8. Intégration de `origin/main` 803cc9f0 (suivis Q13/Q17, T10) — seconde livraison
+
+**Conflits (7)** : `docs/taches.md` (deux lignes de journal gardées), `docs/taches/dettes.md` (D88 fermée gardée, D89 à D92 de main gardées, ma dette « Armor +50 » renumérotée **D93**, D95 ajoutée ; D94 laissé à `dette-d86`), `grid_floor_seed_1.ron`, `grid_floor_seed_123.ron`, `isaac_floor_seed_1.ron` (les épinglages `aim: Some(Free)` de main **et** mon `Armor +50` : `(bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")])` ; `grid_floor_seed_123` garde la note Q17 de main et mes frames recalées), `generated/isaac/boss_gardien.trace` et `room_combat.trace` (rebénies sur le résultat fusionné). Les en-têtes de `grid_floor_seed_1` et `isaac_floor_seed_1` disent « gagne avec `Armor +50` (D93) ».
+
+**Rejeu après fusion** (`make test_scenarios_par SHARDS=3`, sans BLESS) : sur les 46 traces déjà rebénies, seules **deux** bougent (les générés isaac `boss_gardien` et `room_combat`, dont main a changé les scénarios : épinglage `aim`, d'où une trace différente dès la frame 5), plus **deux traces de T10** qui n'existaient pas sur ma branche :
+- `achievement_not_met` : cause = tirage des variantes (même partie isaac, graine 8) ; trace seule.
+- `achievement_unlocks` : cause = tirage ; **en plus** le bot meurt à f1376 (défaite) avec les champions : la victoire, les accomplissements `gardien_vaincu` / `run_finie` et le HUD `achievements` n'arrivaient plus. Adapté comme `grid_floor_seed_1` : `Armor +50` (D93), mêmes attentes, aucune retirée ; gardien en phase 1 à f1110, phase 2 à f1270, victoire f1960 (avant : ~f2110) ; `frames` 2190 inchangé.
+Total rebéni après fusion : **48** traces (46 + ces deux de T10), les 4 ci-dessus bougent par rapport à main + ma première livraison. Les autres scénarios de Q13/Q17/T10 (`aim_four_way*`, `familiar_mirror_*`, `status_charm*`, `transformation_*`…) n'ont aucune trace différente : aucun n'a d'ennemi à variantes qui tire un champion.
+
+**Preuve §5 refaite sur l'arbre fusionné** (dumps `ALACOD_DUMP_TRACE` ; « avant » = le même arbre avec l'ancienne `variant_seed`, pour isoler le tirage ; `scripts/trace-diff.py` et comparaison composant par composant) :
+
+| jeu | scénario | 1re frame qui diffère | ce qui diffère |
+|---|---|---|---|
+| gungeon | `generated/gungeon/enemy_fuyard_kin_still` | 1 (= 1re apparition) | `fuyard_kin` 26 : `Variant`, `Modifiers`, `Velocity`, `FixedTransform3D`, teinte (tout dérive de la variante) |
+| throne | `throne_solo` | 0 (= 1re apparition) | `chien` 84 : `Variant`, `Modifiers`, `Health` |
+| testbed | `champion_chance_floor_0` (graine 110) | 1 (= 1re apparition) | quatre `elite_chance` (28, 33, 36, 51) : `Variant` seul |
+| isaac | `generated/isaac/room_combat`, `achievement_not_met` | 0 (= 1re apparition) | `tourelle_croix` 121 et 143, `mouche` 131 : `Variant` seul |
+
+Témoins à variantes sans champion avant ni après, dump complet : `generated/gungeon/enemy_shotgun_kin_still`, `generated/throne/enemy_rat_still`, `generated/isaac/enemy_mouche_still`, `generated/isaac/enemy_suiveur_still` : « identique (599 frames comparées) ».
+
+## 9. Points de la revue
+- **Phrase fausse corrigée** (§1) : les clés de `loot_seed` / `curse_seed` finissent par un nombre qui varie ; mesure §6 → **D95** ouverte (|r| 0,039 à 0,063 > 0,03).
+- **Pillard** : `throne_recorded_pillard_leaves_the_wall_corner` vérifie maintenant que l'acteur au net id 221 est à (575,96 ; 65) à f2325 (±0,05) avant l'attente de navigation.
+- **`variant_seed` sans allocation** : `bevy_fixed::rng::{fnv1a_extend, fnv1a_extend_decimal, FNV1A_OFFSET}` (`fnv1a` s'appuie dessus) ; mêmes octets que la clé `format!` : test `graine_sans_allocation_egale_a_la_cle_textuelle` (graines et net ids aux bornes, dont `u64::MAX`). Toutes les traces identiques à la version avec `format!`.
+
+## 10. Résultats après fusion (réels)
+- `make test_scenarios_par SHARDS=3` sans BLESS sur l'arbre fusionné : seuls échecs `achievement_not_met`, `achievement_unlocks`, `generated/isaac/boss_gardien`, `generated/isaac/room_combat` (§8) ; rebénis, rejoués avec `grid_floor_seed_1/123`, `isaac_floor_seed_1` : verts.
+- `make test_crates` : 1 206 réussis, **1 échec qui n'est pas de D88** : `achievements::les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante` (`emplacement 1 : reservoir_vital n'est pas un objet débloqué`). Même échec, même message, sur `origin/main` 803cc9f0 **intact** (worktree propre), avec l'ancienne `variant_seed` sans `Armor`, et avec la nouvelle : cause probable (non corrigée, hors périmètre) : `draw_exhausting` tire `pick % total` ; débloquer `medaille` fait passer le poids total du pool `boss` de 10 à 12 et remappe les autres emplacements, alors que le test suppose que seul l'objet débloqué change. À traiter par T10.
+- `make lint` ×5 : 0 erreur ; `make gen` ×5 : zombies 16, testbed 102, throne 39, gungeon 59, isaac 95, tous ok ; `cargo fmt --all -- --check` propre ; `check_sim_boundary`, `check_forbidden`, `check_rollback_registration` OK.
+- `scripts/p2p-stress.sh isaac tests/scenarios/p2p_smoke.ron 3000` : **1 878 frames resimulées**, 0 desync, 2 999 lignes identiques. (Un premier lancement a échoué à la compilation sur `fnv1a_extend` introuvable : empreinte `cargo` périmée de `bevy_fixed` en mode dylib ; `touch crates/bevy_fixed/src/rng.rs` l'a résolu, sans changement de source.)

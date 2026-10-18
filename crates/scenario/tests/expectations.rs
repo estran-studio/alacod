@@ -1806,6 +1806,13 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
                     .find(|(id, ..)| id.0 == PILLARD_NET_ID)
                     .expect("recorded pillard");
                 let p = transform.translation;
+                // The actor found under this net id is the recorded pillard (x 575.96, y 65 in the corner
+                // of the two walls), not whichever actor took the id after a content change.
+                assert!(
+                    (p.x - Fixed::from_num(575.96)).abs() < Fixed::from_num(0.05)
+                        && (p.y - Fixed::from_num(65)).abs() < Fixed::from_num(0.05),
+                    "net id {PILLARD_NET_ID} is not the recorded pillard at (575.96, 65): {p:?}"
+                );
                 // Its 32px provisional sprite also stays outside the two recorded walls.
                 assert!(
                     p.x + Fixed::from_num(16) <= Fixed::from_num(592),

@@ -4,7 +4,7 @@
 // portail et arrive au second étage, où le trésor est fermé à clé et la clé du second étage lui est remise.
 //
 // D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : trois au départ,
-// `salve` et `essaim`) ; le bot arrivait au boss avec 1 PV et mourait à f2112. Adaptation : le joueur reçoit `Armor +50`
+// `salve` et `essaim`) ; le bot arrivait au boss avec 1 PV et mourait à f2112. Adaptation : le joueur gagne avec `Armor +50` (D93)
 // (`PlayerScript::modifiers`). Frames recalées sur le nouveau run : boss verrouillé f2044, phase 1 f2147, phase 2 f2272,
 // nettoyé f2411, butin `sang_chaud` f2476, « niveau 1 » f2831 ; le bot meurt sur le second étage vers f3475 (scénario
 // 3400 frames, vivant à f3399). Les frames citées ci-dessous sont celles d'avant D88.
@@ -18,13 +18,17 @@
 // (un trésor, un boss) ; le second étage en sort un autre, donc les compteurs passent de 1 à 2 à sa génération
 // (l'épuisement est par run, pas par étage). La partie continue sur le second étage jusqu'à la fin du scénario (le bot
 // y meurt vers f3039 : équilibrage de M3-T11d). Avant M3-T11c : boss à f1340, mort du bot vers f2359.
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la grammaire de la
+// grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
     frames: 3400,
     players: [
-        (bot: explorateur, modifiers: [(stat: Armor, op: Add, value: "50")]),
+        (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
     expect: [
         RoomState(kind: "depart", state: Dormant, at_frame: 5),

@@ -1,0 +1,5 @@
+// M3-T10 (§75) : accordé par `gungeon_termine`. Le sablier entre dans le pool du second étage (poids 3).
+(
+    name: "Butin de la victoire",
+    grants: [Loot(table: "coffre_etage2", pick: Item("sablier"), weight: 3)],
+)

@@ -57,9 +57,34 @@ impl Default for RngStreams {
 /// Hash FNV-1a 64 bits, copié de `crates/utils/src/rollback.rs` pour éviter une dépendance.
 /// Stable entre les runs et les machines.
 pub fn fnv1a(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+    fnv1a_extend(FNV1A_OFFSET, bytes)
+}
+
+/// Départ de [`fnv1a`].
+pub const FNV1A_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+
+/// Poursuit un hash FNV-1a : `fnv1a_extend(fnv1a_extend(FNV1A_OFFSET, a), b) == fnv1a(a ++ b)`.
+/// Permet de hacher une clé en morceaux, sans la concaténer dans une `String`.
+pub fn fnv1a_extend(hash: u64, bytes: &[u8]) -> u64 {
+    bytes.iter().fold(hash, |hash, byte| {
         (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
     })
+}
+
+/// Poursuit un hash FNV-1a avec l'écriture décimale de `value` (les mêmes octets que
+/// `value.to_string()`), sans allocation.
+pub fn fnv1a_extend_decimal(hash: u64, mut value: u64) -> u64 {
+    let mut digits = [0u8; 20];
+    let mut start = digits.len();
+    loop {
+        start -= 1;
+        digits[start] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+    fnv1a_extend(hash, &digits[start..])
 }
 
 impl RollbackRng {

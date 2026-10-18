@@ -45,6 +45,9 @@ pub enum AttackTarget {
     Obstacle { net_id: GgrsNetId },
     /// Attacking at a position (for area attacks)
     Position { x: i32, y: i32 },
+    /// Suivi Q12 : un ennemi **charmé** (`combat::status::StatusDef::Charm`) frappe un autre ennemi.
+    /// En fin d'enum (le `derive(Hash)` hache l'index : les trois d'avant gardent le leur).
+    Enemy { net_id: GgrsNetId },
 }
 
 /// Movement type for enemies
@@ -690,6 +693,8 @@ pub enum TargetType {
     None,
     Player,
     Obstacle,
+    /// Suivi Q12 : cible d'un ennemi charmé (l'ennemi hostile le plus proche). En fin d'enum.
+    Enemy,
 }
 
 #[cfg(test)]

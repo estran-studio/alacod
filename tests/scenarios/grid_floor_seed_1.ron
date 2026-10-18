@@ -6,9 +6,13 @@
 // À regarder : les cinq combats se verrouillent et se rouvrent (f57 à f1878) ; le boss verrouille sa salle (f2044),
 // passe en phase 1 (f2147, couronne), phase 2 (f2272), meurt (salle nettoyée f2411) ; victoire f2412.
 // D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes a changé (plus de champions : `salve`, `essaim`) ;
-// le bot arrivait au boss avec 1 PV et mourait à f2112 (défaite). Adaptation : le joueur reçoit `Armor +50`
+// le bot arrivait au boss avec 1 PV et mourait à f2112 (défaite). Adaptation : le joueur gagne avec `Armor +50` (D93)
 // (`PlayerScript::modifiers`) ; mêmes attentes (victoire, boss vaincu, joueur vivant), frames recalées (scénario 2600 frames). La porte de la salle secrète reste fermée
 // pendant toute la partie (aucune bombe) ; le trésor n'est pas fermé à clé au premier étage (`lock_from_floor: 1`).
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
+// grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -16,7 +20,7 @@ Scenario(
     floors: Some("sous_sol_un"),
     frames: 2600,
     players: [
-        (bot: explorateur, modifiers: [(stat: Armor, op: Add, value: "50")]),
+        (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(16), max: Some(16), at_frame: 5),

@@ -276,6 +276,8 @@ pub struct CharacterEntry {
     pub boss: Option<BossEntry>,
     /// M3-T0c (§62) : bombe du personnage (`bomb`), absente = pas de bombe.
     pub bomb: Option<world::BombDef>,
+    /// Suivi Q17 : visée du personnage (`aim`, `Free` par défaut).
+    pub aim: sim_core::aim::AimMode,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
     pub ignore_tags: Vec<String>,
     /// Tags du personnage (`tags`), source des tags connus du jeu (règle `ignore`).
@@ -471,7 +473,6 @@ pub enum BehaviorEntry {
         frames_per_turn: u32,
     },
     MirrorShot {
-        weapon: String,
         #[schemars(extend("x-lint" = "> 0"))]
         every: u32,
     },
@@ -1000,6 +1001,8 @@ pub enum StatusKindEntry {
     Poison,
     /// M3-T1 (§66) : l'ennemi fuit sa cible pendant `frames`.
     Fear,
+    /// Suivi Q12 (§19) : l'ennemi cible l'ennemi le plus proche pendant `frames`, puis redevient hostile.
+    Charm,
 }
 
 /// Statut (T1.3, `docs/conventions.md` §19), `statuses/<id>.ron` :
@@ -1752,6 +1755,15 @@ pub fn known_content_kinds() -> Kinds {
 }
 
 impl Registry {
+    /// Déblocages accordés par un accomplissement (M3-T10, §75) : on ne les achète pas (ni le
+    /// marchand du hub ni `alacod-profile unlock` ne les proposent).
+    pub fn achievement_unlocks(&self) -> std::collections::BTreeSet<&str> {
+        self.achievements
+            .values()
+            .flat_map(|a| a.def.unlocks.iter().map(String::as_str))
+            .collect()
+    }
+
     /// Charge tous les dossiers déclarés par `manifest` (chemins relatifs à
     /// `game_dir/assets/`). Retourne un registre "best effort" (les entrées valides sont
     /// gardées même si d'autres échouent) et la liste des erreurs de chargement (RON
@@ -1985,6 +1997,9 @@ struct CharacterFileSchema {
     /// M3-T0c : bombe.
     #[serde(default)]
     bomb: Option<world::BombDef>,
+    /// Suivi Q17 : visée du personnage (`Free` ou `FourWay`).
+    #[serde(default)]
+    aim: sim_core::aim::AimMode,
     #[serde(default)]
     tags: Vec<String>,
     /// T1.5 : variantes et élites.
@@ -2782,6 +2797,7 @@ fn load_characters(
                 effects: parsed.effects,
                 boss: parsed.boss,
                 bomb: parsed.bomb,
+                aim: parsed.aim,
                 ignore_tags: parsed
                     .ai
                     .as_ref()

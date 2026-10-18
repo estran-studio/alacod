@@ -202,14 +202,17 @@ struct MerchantSource<'w> {
 }
 
 impl MerchantSource<'_> {
-    /// Les déblocages du jeu, dans l'ordre des ids.
+    /// Les déblocages du jeu à acheter, dans l'ordre des ids : ceux qu'un accomplissement accorde
+    /// (M3-T10, §75) n'y sont pas, on les obtient en jouant.
     fn unlocks(&self) -> Vec<(String, items::UnlockDef)> {
         self.registry
             .as_deref()
             .map(|registry| {
+                let earned = registry.achievement_unlocks();
                 registry
                     .unlocks
                     .values()
+                    .filter(|entry| !earned.contains(entry.id.as_str()))
                     .map(|entry| (entry.id.clone(), entry.def.clone()))
                     .collect()
             })

@@ -1,0 +1,31 @@
+// M3-T6 (§71), Q13 : témoin de `familiar_mirror_items` : même scène sans `perforant` (`compagnon` seul). Les larmes
+// du porteur et du familier s'arrêtent chacune dans la première cible : deux coups sur elle, aucun sur les autres.
+//
+// À regarder : les deux larmes s'éteignent dans la première cible.
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "target", x: "600.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "560.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "-194.0", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 21, buttons: [Fire], pan: (-127, 0))],
+            weapon: "larme",
+            items: ["compagnon"],
+        ),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "perforant", count: 0, at_frame: 1),
+        FamiliarCount(handle: 0, count: 1, at_frame: 5),
+        EntityHits(net_id: 15, min: 0, max: Some(0), at_frame: 49),
+        EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 50),
+        EntityHits(net_id: 15, min: 2, max: Some(2), at_frame: 119),
+        EntityHits(net_id: 16, min: 0, max: Some(0), at_frame: 119),
+        EntityHits(net_id: 17, min: 0, max: Some(0), at_frame: 119),
+    ],
+)

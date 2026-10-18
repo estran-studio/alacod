@@ -1,0 +1,26 @@
+// Suivi Q10 (§44) : témoin de `transformation_three` : seulement deux champignons (`amanite` f10, `bolet` f40) : la
+// transformation `champignons` exige trois objets distincts du tag, la vitesse reste 150 jusqu'à la fin.
+//
+// À regarder : le joueur ramasse deux champignons et ne change ni de teinte ni de vitesse.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    items: [
+        (id: "amanite", x: "424.0", y: "696.0", at_frame: 1),
+        (id: "bolet", x: "424.0", y: "696.0", at_frame: 30),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+            (from: 40, to: 41, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "amanite", at_frame: 30),
+        HasItem(handle: 0, id: "bolet", at_frame: 60),
+        Stat(handle: 0, stat: MoveSpeed, value: 150.0, at_frame: 60),
+        Stat(handle: 0, stat: MoveSpeed, value: 150.0, at_frame: 119),
+    ],
+)

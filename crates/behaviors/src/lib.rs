@@ -73,10 +73,10 @@ pub enum Behavior {
         frames_per_turn: u32,
     },
     /// M3-T0d : tire quand le porteur tire, dans sa direction de visée, au plus une fois tous
-    /// les `every` frames, avec l'arme `weapon` du familier (Q13, proposition par défaut : sans
-    /// les modificateurs du porteur).
+    /// les `every` frames. Q13 (William, 2026-10-16) : le familier tire **les larmes du
+    /// porteur** : son arme active composée avec ses objets et synergies (§66), ses stats de
+    /// larmes, le crédit revient au porteur. Pas d'arme propre au familier.
     MirrorShot {
-        weapon: String,
         every: u32,
     },
     /// M3-T0d : une balle hostile qui touche le familier est détruite (comme le blank) ; le
@@ -368,10 +368,7 @@ mod tests {
                 radius: Fixed::from_num(40),
                 frames_per_turn: 120,
             },
-            Behavior::MirrorShot {
-                weapon: "pistol".into(),
-                every: 12,
-            },
+            Behavior::MirrorShot { every: 12 },
             Behavior::BlockBullets,
         ];
         let text = ron::to_string(&familiar).unwrap();
