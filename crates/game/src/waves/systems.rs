@@ -24,15 +24,14 @@ use crate::{
     },
     collider::CollisionSettings,
     global_asset::GlobalAsset,
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::WeaponRegistry,
 };
 
 /// Bundled parameters for enemy spawning (reduces parameter count)
 #[derive(SystemParam)]
 pub struct SpawnAssets<'w> {
     pub collision_settings: Res<'w, CollisionSettings>,
-    pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
-    pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
+    pub weapon_registry: Res<'w, WeaponRegistry>,
     pub character_configs: Res<'w, CharacterConfigs>,
     /// T1.9 : difficulté (santé × difficulté ; 1 sans difficulté activée).
     pub difficulty: crate::clock::DifficultyReader<'w>,
@@ -331,10 +330,8 @@ pub fn wave_spawning_system(
             enemy_type.clone(),
             spawn_pos,
             &mut commands,
-            &spawn_assets.weapons_asset,
-            &spawn_assets.melee_weapons_asset,
+            &spawn_assets.weapon_registry,
             &spawn_assets.character_configs,
-            &global_assets,
             &spawn_assets.collision_settings,
             &mut id_factory,
             Team::Enemies,

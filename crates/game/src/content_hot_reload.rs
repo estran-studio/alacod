@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use crate::character::config_asset::CharacterConfigAsset;
 use crate::session::AppState;
 use crate::waves::WaveConfig;
-use crate::weapons::{melee::MeleeWeaponsConfig, WeaponsConfig};
+use crate::weapon_assets::{MeleeWeaponsConfig, WeaponsConfig};
 
 /// Dossier du jeu (ex. `games/zombies`, posé par `main.rs` depuis
 /// `env!("CARGO_MANIFEST_DIR")`) : sert à relire `game.ron` et ses dossiers de contenu.

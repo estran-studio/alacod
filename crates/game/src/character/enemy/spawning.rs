@@ -8,8 +8,7 @@ use sim_core::team::Team;
 use crate::{
     character::{config::CharacterConfigs, player::Player},
     collider::CollisionSettings,
-    global_asset::GlobalAsset,
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::WeaponRegistry,
 };
 use utils::{
     frame::FrameCount,
@@ -56,10 +55,8 @@ pub fn enemy_spawn_from_spawners_system(
     room_query: Query<(&RoomBounds, &LevelId)>,
     enemy_query: Query<&fixed_math::FixedTransform3D, With<Enemy>>,
     player_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D), With<Player>>,
-    global_assets: Res<GlobalAsset>,
     collision_settings: Res<CollisionSettings>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    weapon_registry: Res<WeaponRegistry>,
     character_configs: Res<CharacterConfigs>,
     balance: Res<crate::balance::ResolvedBalance>,
 
@@ -325,10 +322,8 @@ pub fn enemy_spawn_from_spawners_system(
             enemy_type_name,
             final_spawn_pos,
             &mut commands,
-            &weapons_asset,
-            &melee_weapons_asset,
+            &weapon_registry,
             &character_configs,
-            &global_assets,
             &collision_settings,
             &mut id_factory,
             Team::Enemies,

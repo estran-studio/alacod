@@ -307,14 +307,16 @@ simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, 
 `bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
 
 **Contenu lu par la simulation** (D69 étape 2, en cours) : la cible est zéro `Res<Assets<T>>` et zéro `Handle<T>` dans un système de
-`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a), pas encore pour les armes (`Assets<WeaponsConfig>`,
-E3b) ni `GlobalAsset` (E3d). La simulation lit une **ressource de donnée** (`BTreeMap`) remplie par
+`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a) et les armes (E3b), pas encore pour `GlobalAsset` (E3d).
+La simulation lit une **ressource de donnée** (`BTreeMap`) remplie par
 l'application : `CharacterConfigs` (E3a, `character/config.rs`) à partir de l'enveloppe `CharacterConfigAsset`
-(`character/config_asset.rs`), par un système `PreUpdate.before(bevy_ggrs::RunGgrsSystems)` qui copie ce qui manque et
-recopie sur `AssetEvent::Modified` (rechargement à chaud). Un personnage porte `CharacterConfigKey(String)` (non rollback), pas un
-handle. Une surcharge de scénario se pose **sur la ressource**, après la synchro. Les replis des lecteurs (`continue`,
-vitesse de repli, défauts de santé) masquent un registre vide : tester la ressource elle-même
-(`crates/scenario/tests/character_configs.rs`).
+(`character/config_asset.rs`), `WeaponRegistry` (E3b, `weapons.rs` : `weapons` et `melee`) à partir des enveloppes `WeaponsConfig` /
+`MeleeWeaponsConfig` (`weapon_assets.rs`), chacune par un système `PreUpdate.before(bevy_ggrs::RunGgrsSystems)` qui copie ce qui manque
+(`WeaponRegistry` : une table vide) et recopie sur `AssetEvent::Modified` (rechargement à chaud). Un personnage porte
+`CharacterConfigKey(String)` (non rollback), pas un handle. Une surcharge de scénario se pose **sur la ressource**, après la synchro
+(`apply_weapon_overrides` écrit dans `WeaponRegistry`). Les replis des lecteurs (`continue`,
+vitesse de repli, défauts de santé, arme inconnue ignorée par un `warn!`) masquent un registre vide : tester la ressource elle-même
+(`crates/scenario/tests/character_configs.rs`, `crates/scenario/tests/weapon_registry.rs`).
 
 ## Headless, trace d'état et déterminisme
 

@@ -208,6 +208,21 @@ personnage et avant le premier tick ; preuve : `crates/scenario/tests/character_
 dont le premier, pour zombies, testbed et isaac ; chemin `Modified` ; diagnostic ignoré `fill_timeline`). Les surcharges de
 scénario (`CharacterConfigs` modifié par `run_with`) se posent après la synchro.
 
+**Registre de simulation `WeaponRegistry`** (D69 étape 2, E3b) : la simulation ne lit jamais `Assets<WeaponsConfig>` ni
+`Assets<MeleeWeaponsConfig>`. `WeaponRegistry { weapons, melee }` (`weapons.rs`, `BTreeMap<id, WeaponAsset | MeleeWeaponAsset>`, la table
+de `weapons.ron` et celle de `melee_weapons.ron` du jeu) est lu par les créateurs (`create_player`, `spawn_enemy`, armes murales), le
+butin (`loot`, `shop`, `champions`, `progression`, boss), les effets (`EffectAssets`, `SpawnPattern`), les bots, le runner de scénarios et le
+son des armes. Les enveloppes `WeaponsConfig`/`MeleeWeaponsConfig` (`Asset`, `HashMap` bevy), `WeaponAssetsPlugin`, la visibilité des armes
+portées et `sync_weapon_registry` vivent côté application (`weapon_assets.rs`). La synchro tourne en `PreUpdate.before(RunGgrsSystems)` : elle
+copie une table **vide** dont l'asset est lisible (chargement initial, sans dépendre d'un événement) et **remplace** la table sur
+`AssetEvent::Modified` (rechargement à chaud : une arme retirée du fichier disparaît, une surcharge de scénario aussi) ; `Added` ne fait rien,
+donc une surcharge posée sur le registre n'est jamais écrasée. Les surcharges de scénario (`weapon_overrides`, `PlayerScript::weapon`) lisent et
+écrivent le **registre** (`apply_weapon_overrides` attend qu'il soit rempli, avant la création des joueurs). Une arme absente du registre est ignorée
+avec un `warn!` par les créateurs : seul un test sur la ressource voit un registre vide (`crates/scenario/tests/weapon_registry.rs`).
+Rechargement des armes **déjà portées** : `weapons_config_update_system` (`Update`, inchangé par E3b) interroge `&Children` sur l'entité d'arme ; seules les
+armes qui portent un sprite d'enfant (`attach_weapon_visuals`, avec rendu) sont mises à jour, pas en headless. Les armes créées après un rechargement, elles,
+lisent le registre à jour.
+
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
 - `sprite_config` : `name`, `index` (première frame), `weapon_offset`. Pour une arme à distance, `name` est un id de la table `SpriteSheet` (D3).
@@ -672,7 +687,7 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
 Priorité du tir : `firing` du mode actif de l'arme, sinon la clé de sa famille dans `sounds`,
 sinon `shot` ; du rechargement : `reloading` du mode actif, sinon `reload`. `audio_config` reste
 sur l'asset `WeaponAsset` (lu par `game::feedback::WeaponAudio` dans
-`Assets<WeaponsConfig>`) et n'est jamais copié dans le composant rollback `Weapon` : aucune
+`WeaponRegistry`) et n'est jamais copié dans le composant rollback `Weapon` : aucune
 trace ne bouge. Lint : fichiers présents sous `assets/`, mode connu de `firing_modes`.
 
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :

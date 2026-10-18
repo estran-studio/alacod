@@ -50,8 +50,9 @@ use game::replay::{
     Button, CharacterPlacement, EntityRef, Expectation, Invariants, PlayerScript, Scenario,
     Segment, WaveOverride,
 };
-use game::weapons::melee::{MeleeWeaponAsset, MeleeWeaponsConfig};
-use game::weapons::{WeaponAsset, WeaponTest, WeaponsConfig};
+use game::weapon_assets::{MeleeWeaponsConfig, WeaponsConfig};
+use game::weapons::melee::MeleeWeaponAsset;
+use game::weapons::{WeaponAsset, WeaponTest};
 use sim_core::modifier::resolve;
 use sim_core::stats::Stats;
 use utils::net_id::GgrsNetId;

@@ -52,9 +52,8 @@ use game::character::health::Death;
 use game::character::player::Player;
 use game::collider::CollisionSettings;
 use game::collider::{is_colliding, Collider, CollisionLayer};
-use game::global_asset::GlobalAsset;
 use game::interaction::{Interactable, InteractionEvent, InteractionType};
-use game::weapons::{melee::MeleeWeaponsConfig, WeaponsConfig};
+use game::weapons::WeaponRegistry;
 use map::game::entity::map::door::DoorComponent;
 use map::game::entity::map::level_id::LevelId;
 use map::game::entity::map::room::RoomBounds;
@@ -612,8 +611,7 @@ pub fn boss_drop_system(
     mut pools: ResMut<items::PoolState>,
     run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
     floor: Option<Res<run::FloorState>>,
-    global_assets: Res<GlobalAsset>,
-    weapons: Res<Assets<WeaponsConfig>>,
+    weapons: Res<WeaponRegistry>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
@@ -692,7 +690,6 @@ pub fn boss_drop_system(
             &mut commands,
             &mut id_factory,
             &item_table,
-            &global_assets,
             &weapons,
             &item,
             center,
@@ -1281,10 +1278,8 @@ pub fn key_door_system(
 /// d'arène, M2-T7).
 #[derive(SystemParam)]
 pub struct SpawnParams<'w> {
-    global_assets: Res<'w, GlobalAsset>,
     collision_settings: Res<'w, CollisionSettings>,
-    weapons_asset: Res<'w, Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
+    weapon_registry: Res<'w, WeaponRegistry>,
     character_configs: Res<'w, CharacterConfigs>,
     balance: Res<'w, game::balance::ResolvedBalance>,
     difficulty: game::clock::DifficultyReader<'w>,
@@ -1342,10 +1337,8 @@ impl SpawnParams<'_> {
                 id.to_string(),
                 FixedVec3::new(position.x, position.y, Fixed::ZERO),
                 commands,
-                &self.weapons_asset,
-                &self.melee_weapons_asset,
+                &self.weapon_registry,
                 &self.character_configs,
-                &self.global_assets,
                 &self.collision_settings,
                 &mut self.id_factory,
                 Team::Enemies,

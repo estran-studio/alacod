@@ -94,7 +94,7 @@ impl Plugin for CoreSetupPlugin {
         }
 
         app.add_plugins(BaseWeaponGamePlugin {});
-        app.add_plugins(crate::weapons::WeaponAssetsPlugin);
+        app.add_plugins(crate::weapon_assets::WeaponAssetsPlugin);
         // Contrats M1 : enregistrés ensemble, aucun état posé ni système exécuté.
         app.add_plugins((
             combat::CombatPlugin,
