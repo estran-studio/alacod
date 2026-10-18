@@ -52,6 +52,39 @@ pub fn live_players(
 }
 // For matchbox socket connection
 
+/// D87 (mesure, natif) : `ALACOD_P2P_CHANNEL=unreliable` ouvre le canal GGRS non fiable et non ordonné
+/// (`ChannelConfig::unreliable()`) au lieu du canal fiable du jeu. Réglage d'essai (rapport
+/// `m2-p2p-deux-machines` : il ne supprime pas les silences) ; les deux pairs doivent avoir le même.
+pub const CHANNEL_ENV: &str = "ALACOD_P2P_CHANNEL";
+
+/// D87 (mesure, natif) : `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` remplace [`DISCONNECT_TIMEOUT`] pour un essai.
+pub const DISCONNECT_TIMEOUT_ENV: &str = "ALACOD_DISCONNECT_TIMEOUT_MS";
+
+/// Silence d'un pair au bout duquel GGRS le déclare déconnecté (la notification `NetworkInterrupted`, elle,
+/// reste à 500 ms). D87 : le défaut de GGRS (2 s) est dépassé sous perte de paquets : WebRTC/SCTP retransmet
+/// après un délai de 1 s au moins, doublé à chaque retransmission perdue, d'où des silences de 1,1 à 1,4 s
+/// (une perte) puis de 3,1 à 3,4 s (deux pertes de suite) ; à 3 % de perte par sens, 4 essais sur 8 perdaient
+/// la session en cours de partie avec 2 s, 1 sur 7 avec 5 s (rapport `m2-p2p-deux-machines` §5). Le coût :
+/// un pair réellement parti est constaté au bout de 5 s au lieu de 2 s (la partie attend, c'est tout).
+pub const DISCONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+fn channel_config() -> ChannelConfig {
+    match std::env::var(CHANNEL_ENV).as_deref() {
+        Ok("unreliable") => ChannelConfig::unreliable(),
+        Ok("reliable") | Err(_) => ChannelConfig::reliable(),
+        Ok(other) => panic!("{CHANNEL_ENV} inconnu : {other} (attendu : reliable, unreliable)"),
+    }
+}
+
+fn disconnect_timeout() -> std::time::Duration {
+    std::env::var(DISCONNECT_TIMEOUT_ENV).map_or(DISCONNECT_TIMEOUT, |ms| {
+        std::time::Duration::from_millis(
+            ms.parse()
+                .unwrap_or_else(|_| panic!("{DISCONNECT_TIMEOUT_ENV} doit être un entier (ms)")),
+        )
+    })
+}
+
 /// STUN Google par défaut : configuration historique du chemin `--matchbox`
 /// (inchangée) et repli si l'API allumette ne renvoie aucun serveur ICE.
 fn default_ice_server() -> RtcIceServerConfig {
@@ -120,7 +153,7 @@ pub fn start_matchbox_socket(
 
     let socket = WebRtcSocketBuilder::new(url)
         .ice_server(ice_server)
-        .add_channel(ChannelConfig::reliable())
+        .add_channel(channel_config())
         .build();
 
     commands.insert_resource(MatchboxSocket::from(socket));
@@ -135,7 +168,7 @@ pub fn start_matchbox_socket(
 fn open_matchbox_socket(commands: &mut Commands, matchbox_url: &str, room: &str) {
     let socket = WebRtcSocketBuilder::new(format!("{matchbox_url}/{room}"))
         .ice_server(default_ice_server())
-        .add_channel(ChannelConfig::reliable())
+        .add_channel(channel_config())
         .build();
     commands.insert_resource(MatchboxSocket::from(socket));
 }
@@ -351,6 +384,7 @@ pub fn system_after_map_loaded(
     let channel = socket.take_channel(0).unwrap();
     let mut session_builder = session_builder::<PeerConfig>(&ggrs_config.connection)
         .expect("invalid p2p session configuration");
+    session_builder = session_builder.with_disconnect_timeout(disconnect_timeout());
 
     let players = live_players(socket.players(), &previous.0);
     // D86 : les pairs de cette session ne seront plus jamais des pairs du prochain lobby.

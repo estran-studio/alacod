@@ -317,6 +317,9 @@ Variables d'environnement (natif) :
   arrêt ; avec `neutral`, les prédictions sont toujours justes et rien n'est resimulé).
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
   de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
+- `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` et `ALACOD_P2P_CHANNEL=unreliable` (natif, mesures D87) : remplacent le délai de
+  déconnexion GGRS (`p2p::DISCONNECT_TIMEOUT` = 5 s, 2 s avant D87) et ouvrent le canal non fiable (le jeu utilise le canal fiable ;
+  les deux pairs doivent avoir le même réglage). Matrice : `scripts/p2p-d87.sh`, silences : `scripts/p2p-silences.py`.
 - `ALACOD_STATE_TRACE=<fichier>` + `ALACOD_EXIT_AT_FRAME=<n>` : hash de l'état rollback à chaque frame,
   puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence. Le log
   final donne le nombre de frames resimulées après rollback (zéro en p2p = run sans valeur).
@@ -542,9 +545,12 @@ Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
 (`scripts/p2p-lib.sh` en commun) lancent le binaire `--profile headless` : `p2p-stress.sh` (N clients,
 rollbacks réels par SIGSTOP, `NETEM=…` pour un réseau dégradé sans root, `EXPECT_FLOORS` pour une
 transition d'étage), `p2p-restart.sh` (restart, lobby, hub), `p2p-disconnect.sh` (pair tué en cours
-de partie), `p2p-machine.sh` (un client par machine), `p2p-gungeon-inputs.sh` (inputs de bots
+de partie), `p2p-machine.sh` (un client par machine ; `STRESS=1` suspend le client, `MIN_RESIMULATED`), `p2p-d87.sh` (matrice netem des silences),
+`p2p-gungeon-inputs.sh` (inputs de bots
 `explorateur` figés pour les rejouer en p2p : `ALACOD_SKIP_HUB=1`, `--seed`). Détail, commandes et
-résultats : `docs/taches/rapports/m2-p2p-run-complete.md` et `docs/conventions.md` §57.
+résultats : `docs/taches/rapports/m2-p2p-run-complete.md`, `docs/taches/rapports/m2-p2p-deux-machines.md` (x86-64 contre arm64 :
+traces identiques ; D87) et `docs/conventions.md` §57. Le serveur public `allumette.bascanada.org` ne résout plus (2026-10-18) :
+pour deux machines, `matchbox_server 0.0.0.0:<port>` sur l'une des deux et `MATCHBOX_URL=ws://<ip>:<port>`.
 
 ### Vidéos (validation visuelle)
 `scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,

@@ -4355,6 +4355,18 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   `NETEM`, `MATCHBOX_URL`, `GAME_ARGS`, `EXPECT_FLOORS`), `p2p-restart.sh <jeu>` (restart, lobby, hub ; `RESTART_DELAYS_MS`),
   `p2p-lobby.sh` (D86 : essais consécutifs du retour au lobby), `p2p-sync-timeout.sh` (abandon d'une session non synchronisée),
   `p2p-disconnect.sh` (pair tué), `p2p-machine.sh` (un client par machine), `nightly.sh` étape C2.
+- **Deux machines (m2-p2p-deux-machines, 2026-10-18).** `scripts/p2p-machine.sh` lance **un** client sur chaque machine (`CLIENTS`, `LOBBY` et
+  `MATCHBOX_URL` communs, même commit, mêmes inputs figés) ; `STRESS=1` suspend ce client par à-coups (SIGSTOP/SIGCONT, `SUSPEND_MS`, `RUN_MS`) et
+  `MIN_RESIMULATED=n` échoue sous n frames resimulées. Constaté : le client le plus lent d'une paire ne resimule rien (le plus rapide prédit ses inputs ; le VPS, plus lent que le Mac, resimulait
+  0 frame sur 4 essais) : pour que **les deux** resimulent, suspendre longuement la machine rapide (Mac : `SUSPEND_MS=80 RUN_MS=40`, le VPS
+  resimule alors 23 frames, le Mac 9 580). Signaling : `matchbox_server 0.0.0.0:3536` sur une machine (binaire extrait par `p2p-lib.sh`), `MATCHBOX_URL=ws://<ip publique>:3536`.
+  `isaac` ignore `--seed` (D97) : enregistrer les bots à la graine du manifeste (`alacod-sim --game isaac --floors sous_sol --until-floor 2
+  --seeds 123456..123456`, décalage d'input +5 comme `p2p-gungeon-inputs.sh`). Résultats : rapport `m2-p2p-deux-machines.md` §3.
+- **D87 (silences sous perte, fermée).** Un silence du pair est une retransmission SCTP de WebRTC (`RTO_MIN` 1 s de `webrtc-sctp`, doublé à chaque
+  perte de la retransmission) : 1,1 à 1,4 s, puis 3,0 à 3,4 s ; GGRS déconnecte au bout de `p2p::DISCONNECT_TIMEOUT` (5 s, 2 s avant D87), et la
+  notification `NetworkInterrupted` reste à 500 ms. `scripts/p2p-d87.sh` rejoue la matrice (`CELLS`, `VARIANTS` `default|timeoutNNNN|unreliable`,
+  `REPS`), `scripts/p2p-silences.py` mesure les silences d'un journal (reprise = 500 ms + écart `NetworkInterrupted`→`NetworkResumed`) et distingue
+  la déconnexion **en cours de partie** de la **fin de partie** (le pair a quitté : il ne reste que 2 à 8 s d'attente et la trace finale est tronquée).
 - **Réseau dégradé sans root** : `NETEM="delay 60ms 10ms loss 1%"` relance le script dans `unshare -Urn` (espaces de noms
   utilisateur et réseau sans privilège), met `lo` en `tc netem` (le délai s'applique à chaque sens : RTT = 2 × délai),
   ajoute une interface factice `dummy0` (WebRTC ignore la boucle locale) et y fait tourner le signaling (`matchbox_server`
