@@ -18,12 +18,13 @@ cd "$root"
 base_ref="${1:-origin/main}"
 out="${ALACOD_SCHEDULE_OUT:-$(mktemp -d)}"
 mkdir -p "$out"
+out="$(cd "$out" && pwd)"  # absolu : chaque checkout écrit depuis son propre répertoire
 tests_file="crates/scenario/tests/schedule_order.rs"
-dev_features="$(./scripts/dev-features.sh features)"
 
 dump() { # <dossier du dépôt> <dossier de sortie>
+    # features du checkout lui-même (E9 transfère `dev-dylib` : la base garde les siennes)
     (cd "$1" && APP_VERSION=v0.0.0 ALACOD_SCHEDULE_DUMP="$2" \
-        cargo test -q -p scenario --profile headless $dev_features \
+        cargo test -q -p scenario --profile headless $(./scripts/dev-features.sh features) \
         --test schedule_order -- --include-ignored >/dev/null)
 }
 
