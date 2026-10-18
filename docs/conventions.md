@@ -6609,7 +6609,7 @@ Moments clés ajoutés (`scenario::events`) : `door_lock` (« mur secret ouvert 
 
 | Scénario | Prouve |
 |---|---|
-| `bot_isaac_floor` | partie ordinaire (graine 3, `sous_sol`, sans bombe, politique de `bot.ron`) jouée jusqu'à la victoire : trésor sans clé à l'étage 1, porte à clé et coffre à l'étage 2 |
+| `bot_isaac_floor` | partie ordinaire (graine 48, `sous_sol`, sans bombe, politique de `bot.ron`) jouée jusqu'à la victoire (f4941) : coffre à l'étage 1, porte à clé et coffre à l'étage 2 ; les attentes ne nomment aucun objet (le tirage du butin change : D95/D96) |
 | `bot_isaac_secret` | graine 8 de `sous_sol_un`, une bombe : le bot pose (f19), fuit (vie pleine), le mur s'ouvre (f78), coffre secret ouvert |
 | `bot_isaac_key` | `sous_sol_cle` : le bot ouvre la porte à clé du trésor (f23), le coffre (f87) |
 | `bot_isaac_two` | deux bots, **une seule bombe** posée, le joueur 1 garde la sienne, le diable refusé par les deux |
@@ -6620,14 +6620,17 @@ Moments clés ajoutés (`scenario::events`) : `door_lock` (« mur secret ouvert 
 
 Tests unitaires (`bots::explorer`) : zone et ordre des buts, cœur refusé à pleine vie / stock au plafond, porte à clé, achats, diable
 (`devil_accepts`), mur secret (stock, réserve, mèche en cours), premier rocher du chemin, but atteignable par détour, voisinage de
-salles (`share_an_edge`), fuite. `runner::floors_progress_tests` : un ramassage compte.
+salles (`share_an_edge`), fuite, anti-jitter (`steady`, garde bornée), anti-blocage de combat (`engage`), poursuite sur place (`pursue`), identité
+des buts. `runner::floors_progress_tests` : un ramassage compte. `decide::larmes_en_orbite_le_bot_s_approche`.
 
 ### Campagnes et atteignabilité
 
 Chiffres, tueurs et graines : `docs/taches/rapports/m3-t14-bot-isaac.md` (scripts `campagne.sh`, `analyse.py`, `morts.py`,
 `diable.sh` à côté). Atteignabilité : toute partie ordinaire d'`isaac` rencontre la porte à clé (second étage), les coffres et les sous ;
-bombes sur le mur secret : toute graine avec `--bombs 1` (graine 8 de `sous_sol_un`, `bot_isaac_secret`) ; diable : graines 8, 9, 13, 15, 16, 23…
-(`mechanics.diable` avec `--devil above:4`).
+bombes sur le mur secret : toute graine avec `--bombs 1` (195 graines sur 200 ; graine 8 de `sous_sol_un`, `bot_isaac_secret`) ; diable : les 55
+graines à salle du diable (8, 9, 13, 15, 16, 23, 26…), mais le bot n'y achète que 4 fois en 3 graines (23, 28, 181) : il meurt avant dans 90 % des
+parties (Q14, au rapport). **Campagne finale (contenu de `main` au 2026-10-18, D88/D95/D96, visée `FourWay`)** : 1 bot sans bombe 12 victoires / 188 morts /
+0 soft-lock / 0 desync ; 1 bot avec la bombe d'essai 18 / 182 / 0 / 0 ; 2 bots 112 / 88 / 0 / 0 ; 4 bots (20 graines) 17 / 3 / 0 / 0.
 
 ## 81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
 
