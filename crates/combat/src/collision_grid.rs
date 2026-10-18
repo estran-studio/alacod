@@ -5,7 +5,7 @@
 //! au résultat de la simulation, seulement à sa vitesse. D15 remplace les cellules spatiales
 //! de T2.1 par un balayage des mêmes entrées, aux mêmes points du schedule.
 //!
-//! Deux instantanés (les noms de grille de T2.1 sont gardés pour les consommateurs) :
+//! Trois instantanés (les noms de grille de T2.1 sont gardés pour les consommateurs) :
 //! - [`CollisionGrids::walls`] : murs (`Collider` + `Wall` + `Rollback`) seulement. Statique
 //!   au sein d'une frame (les murs ne bougent jamais) et le plus souvent d'une frame à
 //!   l'autre : reconstruite seulement quand le nombre de murs *avec collider* change (une
@@ -35,12 +35,21 @@
 //!     seulement (positions de fenêtres inchangées depuis, filtrées par son propre `Query::get`
 //!     qui rejette tout ce qui n'est pas une fenêtre — les entrées joueurs/ennemis, elles,
 //!     périmées à ce point, ne sont jamais lues pour cet usage).
+//! - [`CollisionGrids::targets`] (D97) : `characters` **sans les balles**, même ordre. Les balles
+//!   et les projectiles composables ne testent que de vraies cibles (leur `Query` : `Without<Bullet>`,
+//!   `Team`, `Health`) : chaque balle balayait aussi toutes les autres (432 au pic de
+//!   `bench_tears`), soit balles × entités AABB par frame. Reconstruite avec `characters`
+//!   (même passage, un seul tri).
 //!
-//! D15 : les deux instantanés sont de simples listes d'AABB, parcourues en balayage.
-//! Les requêtes gardent exactement le filtrage inclusif et le tri par `net_id` de T2.1.
-//! La grille de séparation des ennemis (`pathing`) reste indépendante de ces collisions.
+//! D15 : les instantanés sont de simples listes d'AABB, parcourues en balayage. Les entrées
+//! gardent le `GgrsNetId.0` seul (le nom du `GgrsNetId` n'y sert jamais : le cloner allouait une
+//! `String` par entité et par reconstruction) et sont **toujours triées par `net_id`** : les
+//! requêtes gardent exactement le filtrage inclusif et l'ordre de T2.1 sans retrier ni allouer
+//! (`iter_overlapping`). La grille de séparation des ennemis (`pathing`) reste indépendante de
+//! ces collisions.
 
-use crate::grid::{Aabb, GridEntry};
+use crate::grid::Aabb;
+use crate::weapons::Bullet;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, FixedVec2, FixedVec3};
 use bevy_ggrs::Rollback;
@@ -59,13 +68,29 @@ pub struct CollisionGrids {
     /// [`maybe_rebuild_wall_grid`].
     walls_signature: (usize, usize),
     pub characters: CollisionCandidates,
+    /// `characters` sans les balles : les cibles que les balles et les projectiles peuvent
+    /// toucher (leur propre `Query` exige `Without<Bullet>`, `Team` et `Health`). Une balle qui
+    /// teste ses cibles ne balaie plus les centaines d'autres balles (D97, `docs/taches.md`).
+    pub targets: CollisionCandidates,
 }
 
-/// Instantané des candidats : balayage des AABB, puis tri par `net_id`.
+/// Entrée d'un instantané : l'entité, son `GgrsNetId.0` (le nom du `GgrsNetId` ne sert jamais
+/// ici, le cloner à chaque reconstruction allouait une `String` par entité et par frame) et son
+/// AABB.
+#[derive(Clone, Copy, Debug)]
+pub struct Candidate {
+    pub net_id: usize,
+    pub entity: Entity,
+    pub aabb: Aabb,
+    bullet: bool,
+}
+
+/// Instantané des candidats : balayage des AABB, **toujours triés par `net_id`** (l'insertion
+/// garde l'ordre, les reconstructions de frame trient une fois).
 /// D15 : aucun découpage en cellules ni insertion dans un arbre pour les collisions.
 #[derive(Default)]
 pub struct CollisionCandidates {
-    entries: Vec<GridEntry>,
+    entries: Vec<Candidate>,
 }
 
 impl CollisionCandidates {
@@ -73,23 +98,52 @@ impl CollisionCandidates {
         self.entries.clear();
     }
 
-    pub fn insert(&mut self, net_id: GgrsNetId, entity: Entity, aabb: Aabb) {
-        self.entries.push(GridEntry {
+    /// Insère à sa place dans l'ordre des `net_id` (après les entrées de même `net_id`).
+    pub fn insert(&mut self, net_id: usize, entity: Entity, aabb: Aabb) {
+        let at = self.entries.partition_point(|entry| entry.net_id <= net_id);
+        self.entries.insert(
+            at,
+            Candidate {
+                net_id,
+                entity,
+                aabb,
+                bullet: false,
+            },
+        );
+    }
+
+    /// Candidats qui chevauchent `aabb`, par `net_id` croissant, sans allocation. Chaque entrée
+    /// apparaît une fois, y compris sur les bords inclus des AABB.
+    pub fn iter_overlapping(&self, aabb: &Aabb) -> impl Iterator<Item = &Candidate> {
+        let aabb = *aabb;
+        self.entries
+            .iter()
+            .filter(move |entry| entry.aabb.overlaps(&aabb))
+    }
+
+    /// [`Self::iter_overlapping`] rassemblé (pour les appelants qui gardent la liste).
+    pub fn query_aabb(&self, aabb: &Aabb) -> Vec<&Candidate> {
+        self.iter_overlapping(aabb).collect()
+    }
+}
+
+impl CollisionGrids {
+    /// Reconstruit `characters` (tout sauf les murs) et `targets` (sans les balles) depuis
+    /// `items` (`net_id`, entité, AABB, est une balle) : un seul tri, réutilisant les tampons.
+    fn rebuild_characters(&mut self, items: impl Iterator<Item = (usize, Entity, Aabb, bool)>) {
+        let entries = &mut self.characters.entries;
+        entries.clear();
+        entries.extend(items.map(|(net_id, entity, aabb, bullet)| Candidate {
             net_id,
             entity,
             aabb,
-        });
-    }
-
-    /// Chaque entrée apparaît une fois, y compris sur les bords inclus des AABB.
-    pub fn query_aabb(&self, aabb: &Aabb) -> Vec<&GridEntry> {
-        let mut result: Vec<_> = self
+            bullet,
+        }));
+        entries.sort_unstable_by_key(|entry| entry.net_id);
+        self.targets.entries.clear();
+        self.targets
             .entries
-            .iter()
-            .filter(|entry| entry.aabb.overlaps(aabb))
-            .collect();
-        result.sort_by_key(|entry| entry.net_id.0);
-        result
+            .extend(entries.iter().filter(|entry| !entry.bullet).copied());
     }
 }
 
@@ -99,6 +153,7 @@ impl Default for CollisionGrids {
             walls: CollisionCandidates::default(),
             walls_signature: (0, 0),
             characters: CollisionCandidates::default(),
+            targets: CollisionCandidates::default(),
         }
     }
 }
@@ -151,7 +206,7 @@ pub fn maybe_rebuild_wall_grid(
     grids.walls.clear();
     for (net_id, entity, transform, collider) in order_iter!(wall_query) {
         let aabb = collider_aabb(&transform.translation, collider);
-        grids.walls.insert(net_id.clone(), entity, aabb);
+        grids.walls.insert(net_id.0, entity, aabb);
     }
 }
 
@@ -170,32 +225,46 @@ pub fn maybe_rebuild_wall_grid(
 /// `crates/game/src/weapons/melee.rs`.
 pub fn rebuild_character_grid_pre_movement(
     mut grids: ResMut<CollisionGrids>,
-    query: Query<
-        (&GgrsNetId, Entity, &fixed_math::FixedTransform3D, &Collider),
-        (Without<Wall>, With<Rollback>),
-    >,
+    query: CharacterQuery,
 ) {
-    grids.characters.clear();
-    for (net_id, entity, transform, collider) in order_iter!(query) {
-        let aabb = collider_aabb(&transform.translation, collider);
-        grids.characters.insert(net_id.clone(), entity, aabb);
-    }
+    rebuild_characters(&mut grids, &query);
 }
 
 /// Après `RollbackSystemSet::Movement`, avant `RollbackSystemSet::Weapon` : voir la doc du
 /// module et de [`rebuild_character_grid_pre_movement`] (même contenu : tout sauf les murs).
 pub fn rebuild_character_grid_post_movement(
     mut grids: ResMut<CollisionGrids>,
-    query: Query<
-        (&GgrsNetId, Entity, &fixed_math::FixedTransform3D, &Collider),
-        (Without<Wall>, With<Rollback>),
-    >,
+    query: CharacterQuery,
 ) {
-    grids.characters.clear();
-    for (net_id, entity, transform, collider) in order_iter!(query) {
-        let aabb = collider_aabb(&transform.translation, collider);
-        grids.characters.insert(net_id.clone(), entity, aabb);
-    }
+    rebuild_characters(&mut grids, &query);
+}
+
+type CharacterQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static GgrsNetId,
+        Entity,
+        &'static fixed_math::FixedTransform3D,
+        &'static Collider,
+        Has<Bullet>,
+    ),
+    (Without<Wall>, With<Rollback>),
+>;
+
+fn rebuild_characters(grids: &mut CollisionGrids, query: &CharacterQuery) {
+    grids.rebuild_characters(
+        query
+            .iter()
+            .map(|(net_id, entity, transform, collider, bullet)| {
+                (
+                    net_id.0,
+                    entity,
+                    collider_aabb(&transform.translation, collider),
+                    bullet,
+                )
+            }),
+    );
 }
 
 #[cfg(test)]
@@ -215,22 +284,65 @@ mod tests {
             let net_id = GgrsNetId(i as usize, "candidate".into());
             let entity = Entity::from_raw_u32(i).unwrap();
             grid.insert(net_id.clone(), entity, aabb);
-            scan.insert(net_id, entity, aabb);
+            scan.insert(net_id.0, entity, aabb);
         }
         for x in -5..55 {
             let center = FixedVec2::new(Fixed::from_num(x * 16), Fixed::ZERO);
             let query = Aabb::from_circle(center, Fixed::from_num(16));
-            let ids = |entries: Vec<&GridEntry>| {
-                entries
-                    .into_iter()
-                    .map(|e| (e.net_id.0, e.entity))
-                    .collect::<Vec<_>>()
-            };
-            assert_eq!(ids(scan.query_aabb(&query)), ids(grid.query_aabb(&query)));
+            let scanned: Vec<_> = scan
+                .query_aabb(&query)
+                .into_iter()
+                .map(|e| (e.net_id, e.entity))
+                .collect();
+            let swept: Vec<_> = grid
+                .query_aabb(&query)
+                .into_iter()
+                .map(|e| (e.net_id.0, e.entity))
+                .collect();
+            assert_eq!(scanned, swept);
         }
         scan.clear();
         assert!(scan
             .query_aabb(&Aabb::from_circle(FixedVec2::ZERO, Fixed::ONE))
             .is_empty());
+    }
+
+    /// D97 : `targets` est `characters` sans les balles, dans le même ordre (`net_id`), quel que
+    /// soit l'ordre d'itération de la requête.
+    #[test]
+    fn targets_are_characters_without_bullets_in_net_id_order() {
+        let aabb = Aabb::from_circle(FixedVec2::ZERO, Fixed::from_num(8));
+        let item = |net_id: usize, bullet: bool| {
+            (
+                net_id,
+                Entity::from_raw_u32(net_id as u32).unwrap(),
+                aabb,
+                bullet,
+            )
+        };
+        let mut grids = CollisionGrids::default();
+        grids.rebuild_characters(
+            [
+                item(9, false),
+                item(3, true),
+                item(7, false),
+                item(1, true),
+                item(5, false),
+            ]
+            .into_iter(),
+        );
+        let ids = |candidates: &CollisionCandidates| {
+            candidates
+                .query_aabb(&aabb)
+                .into_iter()
+                .map(|e| e.net_id)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(ids(&grids.characters), [1, 3, 5, 7, 9]);
+        assert_eq!(ids(&grids.targets), [5, 7, 9]);
+        // une reconstruction repart de zéro
+        grids.rebuild_characters([item(2, false)].into_iter());
+        assert_eq!(ids(&grids.characters), [2]);
+        assert_eq!(ids(&grids.targets), [2]);
     }
 }
