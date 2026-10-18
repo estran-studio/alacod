@@ -4393,6 +4393,15 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   `RESTART_TIMEOUT_SECS` = 30 s, qui lit encore `Time<Real>` : trop court en headless, défaut antérieur non corrigé) est inchangé. Session seulement : aucune trace de scénario ne bouge. Essais :
   `scripts/p2p-lobby.sh` (requêtes à 100–400 ms d'écart, `ALACOD_RESTART_DELAY_MS`), `scripts/p2p-sync-timeout.sh` ((b) de bout en bout :
   un client suspendu avant sa session). `p2p-restart.sh` avec `RESTART_KIND=lobby` ; `EXPECT_VICTORY=1` exige la victoire avant la relance.
+- **Connexion jamais établie au lobby (D109, fermée).** Sous perte de paquets (3 % : 2 à 5 % des démarrages), un pair annoncé par le signaling ne finit jamais sa négociation WebRTC et le
+  lobby attendait sans fin (« Waiting for players: 1/2 »). Le socket matchbox n'expose pas ce pair : `jjrs::signal_watch::ObservedSignallerBuilder` (natif) enveloppe le signaller et
+  note les `NewPeer`/`Signal` reçus ; `wait_for_players` borne l'attente du plus ancien pair vu, ni connecté ni d'une session passée, à `CONNECT_TIMEOUT_SECS` (15 s, **horloge murale**,
+  hors simulation, `ALACOD_CONNECT_TIMEOUT_SECS`) : nouvelle tentative (socket neuf, même salle ; `ggrs{f=0 lobby_connect_timeout attempt=1/2 action=retry …}`), puis retour au lobby
+  (`LobbyOnline` ré-entré ; `attempt=2/2 action=lobby` ; `ALACOD_CONNECT_ATTEMPTS`) ; en allumette et sur le web pas de réouverture. Écran du lobby : ligne d'état (« Connecting to peer... »,
+  « new attempt (2/2) », « back to the lobby »). **Piège** : la nouvelle tentative d'un seul côté d'une connexion à moitié ouverte (un canal ouvert, l'autre pas) donnait deux cycles de
+  30 s décalés qui ne se rejoignaient jamais ; une session `Synchronizing` est donc aussi abandonnée dès qu'un pair de la session en cours quitte la salle
+  (`CurrentSessionPeers`, `ggrs{f=… session_peer_left …}`). Session seulement : aucune trace de scénario ne bouge. Preuves : `p2p-connect-timeout.sh`, `p2p-connect-starts.sh`
+  (150 démarrages à 3 % joués, 7 retentés, 0 perdu) ; rapport `dettes-d105-d109.md`.
 - **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
   la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
   `resimulées` reste cumulé sur toute la durée du processus ; les rollbacks sont comptés **par partie** (`state_trace::RollbackStats`) et
@@ -4408,6 +4417,8 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
 - **Scripts** (`scripts/p2p-lib.sh` en commun) : `p2p-stress.sh` (N clients `CLIENTS`, suspension du client 1,
   `NETEM`, `MATCHBOX_URL`, `GAME_ARGS`, `EXPECT_FLOORS`), `p2p-restart.sh <jeu>` (restart, lobby, hub ; `RESTART_DELAYS_MS`),
   `p2p-lobby.sh` (D86 : essais consécutifs du retour au lobby), `p2p-sync-timeout.sh` (abandon d'une session non synchronisée),
+  `p2p-connect-timeout.sh` (D109 : pair vu par le signaling jamais connecté, `ATTEMPTS=1|2`), `p2p-connect-starts.sh` (D109 : fréquence des démarrages bloqués,
+  `PLAY_FRAMES`), `p2p-linux-box.sh` (les scripts `NETEM` depuis un Mac : conteneur Linux `NET_ADMIN`), `check-launch-seed.sh` (D105),
   `p2p-disconnect.sh` (pair tué), `p2p-machine.sh` (un client par machine), `nightly.sh` étape C2.
 - **Deux machines (m2-p2p-deux-machines, 2026-10-18).** `scripts/p2p-machine.sh` lance **un** client sur chaque machine (`CLIENTS`, `LOBBY` et
   `MATCHBOX_URL` communs, même commit, mêmes inputs figés) ; `STRESS=1` suspend ce client par à-coups (SIGSTOP/SIGCONT, `SUSPEND_MS`, `RUN_MS`) et

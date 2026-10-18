@@ -40,6 +40,20 @@ use crate::{
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub struct PreviousSessionPeers(pub BTreeSet<PeerId>);
 
+/// D109 : pairs distants de la session **en cours** (remplacés à chaque construction de session).
+/// Un pair qui quitte la salle pendant que la session se synchronise ne reviendra pas (identifiant
+/// neuf à chaque socket) : la session est sans issue, `abandon_unsynchronized_session` la quitte
+/// sans attendre `SYNC_TIMEOUT_SECS`.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct CurrentSessionPeers(pub BTreeSet<PeerId>);
+
+/// Parmi les changements d'état du socket, le départ d'un pair de la session en cours.
+pub fn session_peer_left(changes: &[(PeerId, PeerState)], current: &BTreeSet<PeerId>) -> bool {
+    changes
+        .iter()
+        .any(|(peer, state)| matches!(state, PeerState::Disconnected) && current.contains(peer))
+}
+
 /// Joueurs du socket sans les pairs d'une session déjà jouée. L'ordre (identifiants triés,
 /// identique chez tous les pairs) est conservé : les handles GGRS en dépendent.
 pub fn live_players(
@@ -674,6 +688,7 @@ pub fn system_after_map_loaded(
     hub: Option<Res<crate::hub::HubSession>>,
     restart: Option<Res<OnlineRestart>>,
     mut previous: ResMut<PreviousSessionPeers>,
+    mut current: ResMut<CurrentSessionPeers>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -687,12 +702,15 @@ pub fn system_after_map_loaded(
 
     let players = live_players(socket.players(), &previous.0);
     // D86 : les pairs de cette session ne seront plus jamais des pairs du prochain lobby.
-    previous
-        .0
-        .extend(players.iter().filter_map(|player| match player {
+    let remote_peers: BTreeSet<PeerId> = players
+        .iter()
+        .filter_map(|player| match player {
             PlayerType::Remote(id) => Some(*id),
             _ => None,
-        }));
+        })
+        .collect();
+    previous.0.extend(remote_peers.iter().copied());
+    current.0 = remote_peers;
 
     for (i, player) in players.into_iter().enumerate() {
         session_builder = session_builder
@@ -801,9 +819,11 @@ pub fn reset_sync_watch(mut watch: ResMut<SessionSyncWatch>) {
     watch.timeout_secs = secs_from_env(SYNC_TIMEOUT_ENV, SYNC_TIMEOUT_SECS);
 }
 
-/// Session p2p restée en `Synchronizing` plus de [`SessionSyncWatch::timeout_secs`] : abandon et
-/// retour au lobby (`RunRequest::ToLobby`, qui ferme le socket ; ses pairs deviennent des
+/// Session p2p restée en `Synchronizing` plus de [`SessionSyncWatch::timeout_secs`], ou dont un
+/// pair a quitté la salle (D109 : sans issue, ce pair ne revient pas) : abandon et retour au lobby
+/// (`RunRequest::ToLobby`, qui ferme le socket ; ses pairs deviennent des
 /// [`PreviousSessionPeers`] du prochain lobby).
+#[allow(clippy::too_many_arguments)]
 pub fn abandon_unsynchronized_session(
     mut commands: Commands,
     online_state: Res<OnlineState>,
@@ -811,6 +831,8 @@ pub fn abandon_unsynchronized_session(
     frame: Res<utils::frame::FrameCount>,
     request: Option<Res<crate::run_state::RunRequest>>,
     mut watch: ResMut<SessionSyncWatch>,
+    socket: Option<ResMut<MatchboxSocket>>,
+    current: Res<CurrentSessionPeers>,
 ) {
     if !matches!(*online_state, OnlineState::Online) || request.is_some() {
         return;
@@ -824,6 +846,21 @@ pub fn abandon_unsynchronized_session(
     if session.current_state() != bevy_ggrs::ggrs::SessionState::Synchronizing {
         watch.since = None;
         return;
+    }
+    if let Some(mut socket) = socket {
+        if let Ok(changes) = socket.try_update_peers() {
+            if session_peer_left(&changes, &current.0) {
+                warn!(
+                    "ggrs{{f={} session_peer_left waited_secs={:.1} players={}}} pair de la session parti avant la synchronisation, abandon et retour au lobby",
+                    frame.frame,
+                    watch.since.map_or(0.0, |since| since.elapsed().as_secs_f32()),
+                    session.num_players()
+                );
+                watch.since = None;
+                commands.insert_resource(crate::run_state::RunRequest::ToLobby);
+                return;
+            }
+        }
     }
     let since = *watch
         .since

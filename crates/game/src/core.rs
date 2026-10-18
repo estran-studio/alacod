@@ -300,6 +300,7 @@ impl Plugin for CoreSetupPlugin {
         // session qui ne se synchronise pas.
         app.init_resource::<crate::jjrs::restart::OnlineGames>()
             .init_resource::<crate::jjrs::p2p::PreviousSessionPeers>()
+            .init_resource::<crate::jjrs::p2p::CurrentSessionPeers>()
             .init_resource::<crate::jjrs::p2p::SessionSyncWatch>()
             .init_resource::<crate::jjrs::p2p::LobbyConnectWatch>()
             .add_systems(

@@ -61,6 +61,10 @@ l'autre ; même réseau local, ou adresse joignable).
 3. Le serveur public `wss://allumette.estran.studio` **ne marche pas** depuis la ligne de commande (« socket dropped » ;
    `--allumette` exige l'identifiant d'un salon créé par le site) : utiliser le `docker compose` ci-dessus.
 
+Si un pair est annoncé par le serveur mais que la connexion ne s'établit pas (réseau qui perd des paquets : environ 1 démarrage sur 25
+à 3 % de perte), l'écran du lobby le dit (« Connecting to peer... »), puis, au bout de 15 s, rouvre une connexion (« new attempt
+(2/2) ») ; si elle échoue aussi, il revient au lobby (« back to the lobby »). Rien à faire : les deux joueurs se retrouvent.
+
 Si les deux parties divergent, un écran « DESYNC » s'affiche (la partie commune est perdue) : notez la graine et les
 frames, c'est un défaut du moteur.
 
@@ -95,7 +99,7 @@ Nord = interagir, Ouest = recharger, Est = mêlée.
 ## Variables utiles
 
 - `ALACOD_SKIP_HUB=1` : démarrer directement dans la run.
-- `--seed <n>` (argument du jeu) : graine de la carte.
+- `--seed <n>` (argument de tous les jeux : `zombies`, `gungeon`, `isaac`, `throne`, `testbed`) : graine de la carte.
 - `ALACOD_LABELS=1` : étiquettes allumées dès le départ (F6 les bascule).
 - `ALACOD_MUTE=1` : aucun son.
 

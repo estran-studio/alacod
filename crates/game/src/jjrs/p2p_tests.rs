@@ -222,3 +222,21 @@ fn lobby_status_line_reports_slow_peers_and_abandoned_attempts() {
     ));
     assert_eq!(text(None, stale), None);
 }
+
+/// D109 : seul le départ d'un pair de la session **en cours** rend la synchronisation sans issue ;
+/// l'arrivée d'un pair ou le départ d'un pair d'une session passée n'y change rien.
+#[test]
+fn only_a_departing_current_session_peer_abandons_the_session() {
+    use super::session_peer_left;
+    use bevy_matchbox::prelude::PeerState::{Connected, Disconnected};
+    use std::collections::BTreeSet;
+    let current = BTreeSet::from([peer(2)]);
+    assert!(session_peer_left(&[(peer(2), Disconnected)], &current));
+    assert!(session_peer_left(
+        &[(peer(1), Connected), (peer(2), Disconnected)],
+        &current
+    ));
+    assert!(!session_peer_left(&[(peer(2), Connected)], &current));
+    assert!(!session_peer_left(&[(peer(1), Disconnected)], &current));
+    assert!(!session_peer_left(&[], &current));
+}
