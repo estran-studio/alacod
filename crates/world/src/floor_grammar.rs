@@ -49,6 +49,11 @@ pub struct FloorGrammar {
     /// planificateur en arbre d'aujourd'hui.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<FloorLayout>,
+    /// m2-salles-murs-gungeon (§40) : étendue maximale du monde de l'étage en pixels, de part et d'autre
+    /// du départ (largeur, hauteur). Absent : celle de la configuration de la carte (1000 × 1000). Des
+    /// gabarits plus grands remplissent plus vite cette boîte : une grammaire de gabarits agrandis la relève.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<(i32, i32)>,
 }
 
 /// Disposition d'un étage assemblé (M3-T0c, `docs/conventions.md` §62 ; planificateur : M3-T5, §70).
@@ -178,6 +183,11 @@ impl FloorGrammar {
     pub fn problems(&self) -> Vec<String> {
         let (min, max) = self.rooms;
         let mut out = Vec::new();
+        if let Some((w, h)) = self.bounds {
+            if w <= 0 || h <= 0 {
+                out.push(format!("bounds = ({w}, {h}) : étendue positive requise"));
+            }
+        }
         if min > max {
             out.push(format!(
                 "rooms = ({min}, {max}) : minimum supérieur au maximum"
@@ -291,6 +301,7 @@ mod tests {
             filler: "combat".into(),
             min_boss_distance: 3,
             max_attempts: 64,
+            bounds: None,
             layout: Some(FloorLayout::Grid {
                 cell: (15, 9),
                 max: (7, 7),
