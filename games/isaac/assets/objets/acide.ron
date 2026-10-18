@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : chaque larme pose deux piles de `poison` sur sa cible (`ApplyStatus`, `stacks: 2`).
+(
+    name: "Acide",
+    kind: Passive,
+    projectile: Some((on_hit: [ApplyStatus(status: "poison", stacks: 2)])),
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        // M3-T11d2 : TODO
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], expect: [StatusStacks(entity: Placed(0), status: "poison", stacks: 2, at_frame: 150)], control: [HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 150)])),
+    )),
+)

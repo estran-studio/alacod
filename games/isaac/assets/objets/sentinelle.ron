@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : une sentinelle (`sentinelle`) qui tourne autour du porteur (rayon 52, un tour en 90 frames) et tire une larme avec lui (`Orbit` + `MirrorShot`).
+// Preuve : `familiar_sentinelle` et son témoin (600 frames : l'orbite écarte la plupart des larmes de la cible ; seuils mesurés : 32 coups avec l'objet, 28 sans ; `min_hits: 30`), l'orbite à 52 unités (`FamiliarDistance`).
+(
+    name: "Sentinelle",
+    kind: Passive,
+    familiar: Some((character: "sentinelle", per_copy: 1)),
+    tags: ["familier"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        familiar: Some((weapon: Some("larmes"), frames: Some(600), min_hits: 30, expect: [FamiliarDistance(handle: 0, rank: 0, min: Some(51.5), max: Some(52.5), at_frame: 100)])),
+    )),
+)

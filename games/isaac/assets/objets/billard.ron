@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : les larmes rebondissent quatre fois sur les murs (`Bounce(4)`), deux de plus que `ricochet`.
+(
+    name: "Billard",
+    kind: Passive,
+    projectile: Some((modifiers: [Bounce(4)])),
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        // M3-T11d2 : TODO
+        tears: Some((weapon: Some("larmes"), frames: Some(200), aim: Some((-35, 100)), targets: [(character: "cible", dx: -218, dy: -73)], hits: [(target: 1, with_item: 99, without_item: 0)])),
+    )),
+)

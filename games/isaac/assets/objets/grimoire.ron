@@ -1,0 +1,11 @@
+// `isaac` (M3-T11d2, §76.5) : actif chargé par 45 points de dégâts infligés ; à l'usage, 3 points de vie d'âme (`GainSoul`).
+(
+    name: "Grimoire",
+    kind: Active(Damage(45)),
+    effects: [
+        (on: OnUse, do: [GainSoul("3")]),
+    ],
+    tags: ["actif"],
+    rarity: Rare,
+    test: Some((frames: 60, expect: [ExtraHealth(handle: 0, n: 0.0, at_frame: 8), ExtraHealth(handle: 0, n: 3.0, at_frame: 30)])),
+)

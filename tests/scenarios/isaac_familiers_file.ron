@@ -1,0 +1,38 @@
+// M3-T11d2 (docs/conventions.md §71 et §76.5) : les familiers `Follow` d'`isaac` en file. Le joueur 0 (graine 1, départ en (-8, -8)) tient `garde`
+// (un familier, `Follow` à 20 unités) puis `escorte` (deux familiers, `Follow` à 30 unités) : trois suiveurs, de rang 0, 1 et 2. Immobile
+// jusqu'à f20, il marche vers l'est de f20 à f90, puis s'arrête.
+//
+// À regarder : trois carrés en file derrière le joueur : le garde (rang 0) à 20 unités de lui, la première escorte à 30 unités du garde, la seconde
+// à 30 unités de la première à l'arrêt (chaque suiveur vise le précédent, pas le porteur).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 200,
+    players: [
+        (
+            inputs: [
+                (from: 20, to: 90, buttons: [Right], pan: (0, 0)),
+            ],
+            items: ["garde", "escorte"],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "garde", at_frame: 5),
+        HasItem(handle: 0, id: "escorte", at_frame: 5),
+        FamiliarCount(handle: 0, count: 3, at_frame: 5),
+        // Apparus sur le porteur, immobile : les trois sont dans leur laisse.
+        FamiliarDistance(handle: 0, rank: 0, max: Some(0.5), at_frame: 15),
+        FamiliarDistance(handle: 0, rank: 2, max: Some(0.5), at_frame: 15),
+        FamiliarCount(handle: 0, count: 3, at_frame: 199),
+        // En marche (f20 à f90) : chaque suiveur rattrape et garde sa laisse sur celui qu'il suit (le garde sur le joueur, la première escorte sur
+        // le garde, la seconde sur la première). La seconde escorte, qui vise une cible déjà mise en mouvement, reste entre 20 et 30 unités de la première (jamais au-delà de sa laisse).
+        FamiliarDistance(handle: 0, rank: 0, min: Some(19.5), max: Some(20.5), at_frame: 70),
+        FamiliarDistance(handle: 0, rank: 1, to_rank: Some(0), min: Some(29.5), max: Some(30.5), at_frame: 70),
+        FamiliarDistance(handle: 0, rank: 2, to_rank: Some(1), min: Some(20.0), max: Some(30.5), at_frame: 70),
+        // À l'arrêt : ils restent à leur laisse.
+        FamiliarDistance(handle: 0, rank: 0, min: Some(19.5), max: Some(20.5), at_frame: 190),
+        FamiliarDistance(handle: 0, rank: 1, to_rank: Some(0), min: Some(29.5), max: Some(30.5), at_frame: 190),
+        FamiliarDistance(handle: 0, rank: 2, to_rank: Some(1), min: Some(29.5), max: Some(30.5), at_frame: 190),
+    ],
+)

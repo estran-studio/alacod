@@ -1,0 +1,39 @@
+// `isaac` (M3-T11d2, §76.5) : volant à charge (`Flying`, survole fosses et eau). Poursuit le joueur (`Chase`, profil `Flying`) et, entre 22 et 66 unités (`Charge`, `attack_range` à `CHARGE_REACH` fois), s'immobilise 25 frames (télégraphe) puis fonce ; contact 1 PV (`Melee("contact")`). Posé dans `CombatRochers`, `CombatCroix` et `CombatGrand` ; renfort du boss `colosse` (phase 2).
+(
+    movement: (
+        acceleration: "160.0",
+        max_speed: "54.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "follet",
+
+    collider: (
+        shape: Rectangle(width: "16.", height: "16."),
+        offset: ( x: "0.0", y: "-4.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (max: "5.0"),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("22.0"),
+        attack_damage: Some("1.0"),
+        attack_cooldown_frames: Some(100),
+        behaviors: Some([Melee("contact"), Charge(telegraph: 25), Chase(profile: "Flying")]),
+    )),
+    test: Some((frames: 600)),
+)

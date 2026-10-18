@@ -6,6 +6,7 @@
         (pick: Item("key"), weight: 3),
         (pick: Item("blank"), weight: 2),
         (pick: Item("ration"), weight: 2),
+        (pick: Item("pain"), weight: 2),
         (pick: Currency(1), weight: 4),
         (pick: Item("coeur"), weight: 3),
         (pick: Item("coeur_ame"), weight: 1),

@@ -1,0 +1,14 @@
+// `isaac` (M3-T11d2, §76.5) : larmes à courte portée et gros dégâts : elles disparaissent après 45 frames de vol (`Lifetime(45)`), dégâts +80 % (`Damage` Pct 0,8).
+(
+    name: "Ardoise",
+    kind: Passive,
+    modifiers: [(stat: Damage, op: Pct, value: "0.8")],
+    projectile: Some((modifiers: [Lifetime(45)])),
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_ardoise` et son témoin `tears_ardoise_sans_objet`, seuils mesurés : le joueur tire à l'horizontale sur une cible fragile (15 PV) posée à 225 unités (dx 97, dy -48 de la cible de l'arène), hors des 195 unités de vol d'une larme à 45 frames (260 unités par seconde) : elle survit avec l'objet (2 ennemis à f240), le témoin (portée 300) la tue (1 ennemi).
+        tears: Some((weapon: Some("larmes"), frames: Some(250), aim: Some((256, 0)), targets: [(character: "cible_fragile", dx: 97, dy: -48)], expect: [EntityCount(kind: Enemy, min: 2, at_frame: 240)], control: [EntityCount(kind: Enemy, max: 1, at_frame: 240)])),
+    )),
+)

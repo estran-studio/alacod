@@ -1,0 +1,14 @@
+// `isaac` (M3-T11d2, §76.5) : un coup porté (`OnHit`) enflamme la cible (`ApplyStatus` `brulure`), au plus une fois toutes les 240 frames (`cooldown`). Seuils mesurés : `brulure` présente à f140 avec l'objet (9 coups contre 6 sans), absente sans.
+(
+    name: "Contagion",
+    kind: Passive,
+    effects: [
+        (on: OnHit, cooldown: Some(240), do: [ApplyStatus(status: "brulure", stacks: 1)]),
+    ],
+    tags: ["effet"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "brulure", at_frame: 140)], control: [HasStatus(entity: Placed(0), status: "brulure", present: false, at_frame: 140)])),
+    )),
+)

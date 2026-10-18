@@ -1,0 +1,29 @@
+// M3-T11d2 (docs/conventions.md §76.5) : l'effet `OnRoomClear` de la `cuirasse` d'`isaac` (`GainShield(1)`, un coup entier absorbé, §18).
+// Même partie pour les trois scénarios `isaac_sablier*`, `isaac_cuirasse` et `isaac_vengeance` (le bot ne dépend pas de l'objet tenu) : un bot `explorateur` joue l'étage court
+// `sous_sol_court` (graine 1, séquence `sous_sol`) : la première salle de combat se verrouille à f65, un coup touche le joueur à f107 (6 → 5), les kills tombent à f136, f173 et f283,
+// la salle est nettoyée à f282 ; la seconde salle de combat se verrouille à f314, un coup touche le joueur à f415.
+//
+// À regarder : le joueur perd 1 PV à f107 (5) ; la salle nettoyée à f282 donne un point de bouclier ; le coup de f415 est **absorbé** (la santé reste à 5 à f420,
+// 4 sans la cuirasse : `isaac_sablier_temoin`) ; un seul point : le coup suivant (f436) passe (4 à f440).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map: "floor:sous_sol_court",
+    floors: Some("sous_sol"),
+    map_seed: 1,
+    frames: 500,
+    explorer: Some((combat_aware: true, oscillation: Hysteresis)),
+    players: [(bot: explorateur, items: ["cuirasse"])],
+    expect: [
+        Event(kind: "room", label_contains: Some("salle combat verrouillée"), by_frame: 500),
+        Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 500),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 130),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 300),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 400),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 420),
+        // Un point de bouclier = un coup : celui de f436 passe.
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 440),
+        PlayerAlive(handle: 0, at_frame: 499),
+    ],
+)

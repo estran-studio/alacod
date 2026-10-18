@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : un garde (`garde`) collé au porteur (`Follow` à 20 unités) qui arrête les tirs ennemis (`Follow` + `BlockBullets`).
+// Preuve : `familiar_garde` (`FamiliarCount` 1, collé au porteur immobile) ; la laisse de 20 unités en marche est jouée par `tests/scenarios/isaac_familiers_file.ron`. `BlockBullets` : même code que l'`ombre`, prouvé par `isaac_ombre_bloque`.
+(
+    name: "Garde",
+    kind: Passive,
+    familiar: Some((character: "garde", per_copy: 1)),
+    tags: ["familier"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        familiar: Some((frames: Some(120), min_hits: 0, expect: [FamiliarDistance(handle: 0, rank: 0, max: Some(0.5), at_frame: 100)])),
+    )),
+)

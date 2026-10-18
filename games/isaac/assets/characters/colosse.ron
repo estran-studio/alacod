@@ -1,0 +1,75 @@
+// `isaac` (M3-T11d2, docs/conventions.md §76.5, boss de §37 et §45) : le colosse, second boss d'`isaac`, posé par les gabarits de boss de
+// `maps/salles_profond.ldtk` (second étage de la séquence par défaut : `floor_grammars/sous_sol_profond.ron`). Immobile, 50 PV (le `gardien`
+// en a 40), trois phases ; les tirs passent par la frise (`SpawnPattern` avec la table de projectiles de l'`arsenal`) ; son butin est celui de
+// `rooms/boss.ron` (pool `boss`).
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "colosse",
+
+    collider: (
+        shape: Rectangle(width: "20.", height: "20."),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (max: "44.0"),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("0.0"),
+        stationary: Some(true),
+    )),
+
+    // Scénario généré `boss_colosse` (un bot joue l'étage court `sous_sol_profond_court` et bat le boss).
+    test: Some((frames: 3000, still: false, moving: false, boss: Some((floors: Some("sous_sol_profond_court"))))),
+    // Phase 0 (au-dessus de 65 %) : une gerbe de cinq crachats (`gerbe`) à f10, toutes les 150 frames.
+    // Phase 1 (sous 65 %) : deux `araignee` en renfort (`SpawnEnemies`), la croix (deux couronnes de quatre boules, 55 frames de jeu) à f0 et la gerbe à f75, toutes les 150 frames.
+    // Phase 2, la rage (sous 30 %) : un `follet` et un `arroseur` en renfort, puis un tourbillon de deux bras (`tourbillon`, 48 frames de jeu,
+    // il finit avant la répétition de 160) précédé d'un télégraphe de 10 frames. Premier jet (gerbe et croix en phase 0, trois araignées, deux follets, tourbillon à trois bras) : le bot `fonceur` du scénario généré mourait en phase 2.
+    boss: Some((
+        phases: [
+            (
+                until: Some(HealthBelow("0.65")),
+                timeline: Some((
+                    events: [(at: 10, do: [SpawnPattern(pattern: "gerbe", weapon: "arsenal")])],
+                    repeat: Some(150),
+                )),
+            ),
+            (
+                until: Some(HealthBelow("0.3")),
+                on_enter: [SpawnEnemies(id: "araignee", count: 2)],
+                timeline: Some((
+                    events: [
+                        (at: 0, do: [SpawnPattern(pattern: "croix", weapon: "arsenal")]),
+                        (at: 75, do: [SpawnPattern(pattern: "gerbe", weapon: "arsenal")]),
+                    ],
+                    repeat: Some(150),
+                )),
+            ),
+            (
+                on_enter: [SpawnEnemies(id: "follet", count: 1), SpawnEnemies(id: "arroseur", count: 1)],
+                timeline: Some((
+                    events: [(at: 30, do: [Telegraph(10), SpawnPattern(pattern: "tourbillon", weapon: "arsenal")])],
+                    repeat: Some(160),
+                )),
+            ),
+        ],
+    )),
+)

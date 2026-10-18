@@ -1,0 +1,11 @@
+// `isaac` (M3-T11d2, §76.5) : consommable, 2 PV et 1 point de vie d'âme au ramassage ; reste au sol à pleine vie (`refuse_when_full`).
+// Preuve : `tests/scenarios/isaac_consommables_lot.ron` (pas de gabarit généré pour un consommable, comme `coeur` et `ration`).
+(
+    name: "Festin",
+    kind: Consumable,
+    rarity: Uncommon,
+    refuse_when_full: true,
+    effects: [
+        (on: OnUse, do: [Heal("2"), GainSoul("1")]),
+    ],
+)

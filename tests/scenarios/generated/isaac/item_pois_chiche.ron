@@ -1,0 +1,39 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit ItemHeld (M2-T17, §54) : le joueur commence avec « pois_chiche »
+// (`PlayerScript::items`) ; un actif est utilisé à la frame 10.
+#![enable(implicit_some)]
+Scenario(
+    game: "isaac",
+    map: "maps/gabarit_armes.ldtk",
+    map_seed: 123456,
+    frames: 60,
+    players: [
+        PlayerScript(
+            inputs: [],
+            items: [
+                "pois_chiche",
+            ],
+        ),
+    ],
+    expect: [
+        HasItem(
+            handle: 0,
+            id: "pois_chiche",
+            at_frame: 1,
+        ),
+        Stat(
+            handle: 0,
+            stat: ShotSize,
+            value: 0.6000061,
+            at_frame: 1,
+        ),
+        Stat(
+            handle: 0,
+            stat: FireRate,
+            value: 1.3999939,
+            at_frame: 1,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    mode: Sandbox,
+)

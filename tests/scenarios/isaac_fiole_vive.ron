@@ -1,0 +1,29 @@
+// M3-T11d2 (docs/conventions.md §76.5) : `fiole_vive` d'`isaac`, actif dont l'usage soigne 2 PV (`Heal("2")`, un cœur). Le gabarit généré `item_fiole_vive` part à pleine santé : le soin n'y serait pas visible. Ici le joueur (6 PV, chargé au départ) est blessé par un `suiveur` et une `mouche` posés au contact à f5 (même mise en place que `hit_iframes_isaac`), puis appuie sur `UseActive` à f200.
+//
+// À regarder : f7 le premier coup (5 PV) ; f130 le second (4 PV, voir `hit_iframes_isaac`) ; f200 toujours 4 PV ; l'appui de f200 agit à f206 : 6 PV à f210 (+2) ; f259 le prochain coup d'ennemi ramène à 5 PV, jamais plus de 6 PV (borne `Health.max`). Témoin : à f200 la même partie sans l'usage est à 4 PV (`hit_iframes_isaac`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 300,
+    characters: [
+        (character: "suiveur", x: "20.0", y: "-8.0", at_frame: 5),
+        (character: "mouche", x: "-36.0", y: "-8.0", at_frame: 5),
+    ],
+    players: [(
+        items: ["fiole_vive"],
+        inputs: [
+            (from: 200, to: 201, buttons: [UseActive]),
+        ],
+    )],
+    expect: [
+        HasItem(handle: 0, id: "fiole_vive", at_frame: 1),
+        ItemCharge(handle: 0, charge: 3, at_frame: 190),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 6),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 199),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 210),
+        ItemCharge(handle: 0, charge: 0, at_frame: 215),
+        Health(handle: 0, max: 6.0, at_frame: 240),
+        PlayerAlive(handle: 0, at_frame: 299),
+    ],
+)

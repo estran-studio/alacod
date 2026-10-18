@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : larmes minuscules mais rapides à tirer (`ShotSize` Mul 0,6 : collision et sprite réduits, `FireRate` Pct 0,4 : 3 -> 4,2 larmes par seconde).
+(
+    name: "Pois chiche",
+    kind: Passive,
+    modifiers: [(stat: ShotSize, op: Mul, value: "0.6"), (stat: FireRate, op: Pct, value: "0.4")],
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_pois_chiche` et son témoin `tears_pois_chiche_sans_objet`, seuils mesurés : 8 coups sur la cible de l'arène en 150 frames contre 5 (au moins 8 exigés).
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [], hits: [(target: 0, with_item: 8, without_item: 5)])),
+    )),
+)

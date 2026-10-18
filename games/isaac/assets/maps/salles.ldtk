@@ -9326,14 +9326,14 @@
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "mouche",
+         "__value": "follet",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "mouche"
+            "follet"
            ]
           }
          ]
@@ -10163,14 +10163,14 @@
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "suiveur",
+         "__value": "araignee",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "suiveur"
+            "araignee"
            ]
           }
          ]
@@ -11112,14 +11112,14 @@
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "suiveur",
+         "__value": "arroseur",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "suiveur"
+            "arroseur"
            ]
           }
          ]
@@ -12061,14 +12061,14 @@
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "mouche",
+         "__value": "araignee",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "mouche"
+            "araignee"
            ]
           }
          ]
@@ -13115,14 +13115,14 @@
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "mouche",
+         "__value": "follet",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "mouche"
+            "follet"
            ]
           }
          ]
@@ -14036,14 +14036,14 @@
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "suiveur",
+         "__value": "arroseur",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "suiveur"
+            "arroseur"
            ]
           }
          ]
@@ -15770,14 +15770,14 @@
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "mouche",
+         "__value": "araignee",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "mouche"
+            "araignee"
            ]
           }
          ]
@@ -17588,14 +17588,14 @@
         {
          "__identifier": "character",
          "__type": "String",
-         "__value": "mouche",
+         "__value": "follet",
          "__tile": null,
          "defUid": 45,
          "realEditorValues": [
           {
            "id": "V_String",
            "params": [
-            "mouche"
+            "follet"
            ]
           }
          ]

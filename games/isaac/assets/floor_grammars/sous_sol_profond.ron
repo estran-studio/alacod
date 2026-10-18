@@ -1,0 +1,19 @@
+// Grammaire du second étage de `isaac` (M3-T11d2, docs/conventions.md §76.5) : celle de `sous_sol` (de 8 à 12 salles sur une grille de 7 x 7 cases de
+// salle, départ, boss en cul-de-sac à au moins 3 salles, trésor, boutique, salle secrète, marché du diable une fois sur trois), mais sur les gabarits
+// de `maps/salles_profond.ldtk` : mêmes salles de combat, de trésor, secrète, du diable et de boutique, boss `colosse` au lieu de `gardien`
+// (`m3-t11d2-volume.make_salles.py --boss colosse --salt profond`).
+(
+    templates: "maps/salles_profond.ldtk",
+    grammar: (
+        rooms: (8, 12),
+        required: {"boss": 1, "tresor": 1, "secrete": 1, "boutique": 1},
+        min_boss_distance: 3,
+        layout: Some(Grid(
+            cell: (15, 9),
+            max: (7, 7),
+            loops: 1,
+            secret: "secrete",
+            post_boss: Some((kind: "diable", chance: "0.33")),
+        )),
+    ),
+)

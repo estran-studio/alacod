@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : les larmes se guident fortement vers l'ennemi le plus proche (`Homing("0.3")`, trois fois `oeil`).
+(
+    name: "Lynx",
+    kind: Passive,
+    projectile: Some((modifiers: [Homing("0.3")])),
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        // M3-T11d2 : TODO
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -40, dy: 35)], hits: [(target: 1, with_item: 5, without_item: 0)])),
+    )),
+)

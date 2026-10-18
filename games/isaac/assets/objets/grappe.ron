@@ -1,0 +1,14 @@
+// `isaac` (M3-T11d2, §76.5) : à l'impact, la larme éclate en cinq sur un large éventail (`Split(count: 5, spread: "1.4")`) au prix de 25 % de dégâts.
+(
+    name: "Grappe",
+    kind: Passive,
+    modifiers: [(stat: Damage, op: Pct, value: "-0.25")],
+    projectile: Some((modifiers: [Split(count: 5, spread: "1.4")])),
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        // M3-T11d2 : TODO
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], hits: [(target: 0, with_item: 99, without_item: 0)], expect: [BulletCount(count: 5, projectile: Some("larmes"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larmes"), at_frame: 150)])),
+    )),
+)

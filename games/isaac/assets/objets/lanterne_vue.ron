@@ -1,0 +1,14 @@
+// `isaac` (M3-T11d2, §76.5) : actif chargé par une salle nettoyée ; à l'usage, +80 % de portée et +50 % de vitesse des larmes pendant 600 frames (`Range` 1 -> 1,8, `ShotSpeed` 1 -> 1,5).
+(
+    name: "Lanterne de vue",
+    kind: Active(Rooms(1)),
+    effects: [
+        (on: OnUse, do: [
+            TimedModifier(stat: Range, op: Pct, value: "0.8", frames: 600),
+            TimedModifier(stat: ShotSpeed, op: Pct, value: "0.5", frames: 600),
+        ]),
+    ],
+    tags: ["actif"],
+    rarity: Common,
+    test: Some((frames: 60, expect: [Stat(handle: 0, stat: Range, value: 1.0, at_frame: 8), Stat(handle: 0, stat: ShotSpeed, value: 1.0, at_frame: 8), Stat(handle: 0, stat: Range, value: 1.8, at_frame: 30), Stat(handle: 0, stat: ShotSpeed, value: 1.5, at_frame: 30)])),
+)

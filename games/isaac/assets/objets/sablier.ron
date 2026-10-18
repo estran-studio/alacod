@@ -1,0 +1,12 @@
+// `isaac` (M3-T11d2, §76.5) : une salle nettoyée (`OnRoomClear`) soigne 1 PV (`Heal`, un demi-cœur).
+(
+    name: "Sablier",
+    kind: Passive,
+    effects: [
+        (on: OnRoomClear, do: [Heal("1")]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    // `OnRoomClear` ne se joue pas dans le gabarit `ItemHeld` : l'effet est prouvé par le scénario `isaac_sablier` (salle de combat nettoyée par un bot).
+    test: Some((frames: 60)),
+)

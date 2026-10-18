@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : les larmes percent trois personnages (`Pierce(3)`) par exemplaire, deux de plus que `epine`.
+(
+    name: "Aiguille",
+    kind: Passive,
+    projectile: Some((modifiers: [Pierce(3)])),
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        // M3-T11d2 : `tears_aiguille` et son témoin `tears_aiguille_sans_objet`, seuils mesurés : TODO
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -90, dy: -34), (character: "cible", dx: -60, dy: -22), (character: "cible", dx: -30, dy: -11)], hits: [(target: 0, with_item: 4), (target: 3, with_item: 5)])),
+    )),
+)

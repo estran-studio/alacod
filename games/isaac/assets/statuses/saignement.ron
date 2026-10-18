@@ -1,0 +1,2 @@
+// `isaac` (M3-T11d2, docs/conventions.md §76.5) : saignement, un poison court (`Poison`) : 1 point toutes les 15 frames pendant 180 frames, posé par l'`on_hit` de `saignee`.
+(kind: Poison, frames: 180, damage: "1", period: 15)

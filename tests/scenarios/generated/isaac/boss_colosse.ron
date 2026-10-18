@@ -1,0 +1,35 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit BossFight (M2-T17, §54) : un bot `fonceur` affronte « colosse » ;
+// aucun input scripté.
+#![enable(implicit_some)]
+Scenario(
+    game: "isaac",
+    map: "floor:sous_sol_court",
+    map_seed: 123456,
+    frames: 3000,
+    players: [
+        PlayerScript(
+            inputs: [],
+            bot: fonceur,
+        ),
+    ],
+    expect: [
+        Event(
+            kind: "boss_phase",
+            label_contains: "phase 0 → 1",
+            by_frame: 3000,
+        ),
+        Event(
+            kind: "boss_phase",
+            label_contains: "phase 1 → 2",
+            by_frame: 3000,
+        ),
+        Event(
+            kind: "room",
+            label_contains: "salle boss nettoyée",
+            by_frame: 3000,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    floors: "sous_sol_profond_court",
+)

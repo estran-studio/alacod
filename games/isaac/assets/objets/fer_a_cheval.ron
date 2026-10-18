@@ -1,0 +1,9 @@
+// `isaac` (M3-T11d2, §76.5) : chance +3 (`Luck` Add 3 : +15 % de chance d'effet pour `massue`, `philtre`, `venin`…).
+(
+    name: "Fer à cheval",
+    kind: Passive,
+    modifiers: [(stat: Luck, op: Add, value: "3")],
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((frames: 60)),
+)
