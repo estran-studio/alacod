@@ -230,7 +230,7 @@
   {
     "path": "crates/game/src/jjrs/p2p.rs",
     "code": "let now = bevy::platform::time::Instant::now();",
-    "count": 2,
+    "count": 3,
     "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
   },
   {
