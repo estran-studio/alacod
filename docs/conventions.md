@@ -1325,10 +1325,15 @@ source_team, next_tick_frame }`, dans l'ordre de pose.
     regarde pas l'IA) est retenue tant qu'il est charmé (`held || charmed(statuses)` : état dérivé du statut, aucun
     composant à lever) : scénario
     `status_charm_contact` (un `coward` à griffes collé au joueur, aucun dégât pendant le charme). Peur et charme
-    cumulés : `Fear` l'emporte (il fuit, ne frappe pas). Défaut **préexistant** relevé, non corrigé (hors du suivi, il
-    déplacerait `status_fear` et `generated/isaac/tears_rancune_vive`) : `Statuses` est retiré dès qu'il est vide
-    (`combat::projectile`) et `rules::melee_hold_system` ne retrouve plus alors un ennemi sans `BehaviorRuntime` : la
-    `MeleeHold` posée par `Fear` ne se lève jamais. Le charme n'a pas ce défaut (retenue dérivée du statut).
+    cumulés : `Fear` l'emporte (il fuit, ne frappe pas). Défaut **préexistant** relevé par le suivi, **corrigé par D90** : `Statuses` est retiré dès qu'il est vide
+    (`combat::projectile`) et `rules::melee_hold_system` ne retrouvait plus alors un ennemi sans `BehaviorRuntime` : la
+    `MeleeHold` posée par `Fear` ne se levait jamais. Le système voit maintenant aussi tout ennemi qui porte `MeleeHold`
+    (`Or<(BehaviorRuntime, Statuses, MeleeHold)>`) et la lève à la fin de la peur. Preuve §10 : `status_fear` (première
+    frame qui diffère : f301, la fin de la peur, `Statuses` et `MeleeHold` retirés ensemble ; hors `MeleeHold` les 399 frames
+    sont identiques) et `generated/isaac/tears_rancune_vive` (f152 : la retenue levée avec la peur ; f153 : la
+    `cible_mordante`, libérée une frame avant que la peur soit reposée, frappe le joueur, ce qui crée sa hitbox, et la
+    retenue revient à f154) ; test `la_retenue_d_une_peur_finie_est_levee_sans_regles_de_comportement`. Le charme n'avait
+    pas ce défaut (retenue dérivée du statut).
   - **Fin** : le statut retiré (`Statuses::tick`), la cible `Enemy` est effacée à la frame suivante et l'ennemi
     redevient hostile (joueur le plus proche, comme avant) sans état à nettoyer.
   Teinte rose des calques (`feedback::status_tint`, présentation). Scénarios `status_charm` (le `breacher` charmé frappe la
