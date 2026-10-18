@@ -1,0 +1,64 @@
+// M3-T15 (docs/conventions.md §80) : bench de larmes à quatre joueurs. Chacun tient dix objets de larmes (`division`,
+// `guide`, `rebond`, `perforant`, `spectre`, `venin`, `lentille`, `trefle` et deux exemplaires de plus) et deux
+// familiers (`essaim` : deux orbitaux), tire à la `larme` (cadence portée à 20 coups/s : 3 par défaut) dans une direction différente, contre 30 `target`
+// immobiles (5 000 PV, carte `arena`) : synctest à quatre (GGRS resimule 2 frames par frame). Mesures :
+// `advance_ms_avg`, `rollback_ms_worst`, `snapshot_bytes_max`, `bullets_max` (visé : au moins 400 larmes au pic).
+//
+// À regarder : quatre gerbes de larmes qui se divisent, rebondissent et se courbent entre les cibles, huit
+// petits carrés qui tournent autour des joueurs.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 600,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "larme", firing_rate: "20.0")],
+    characters: [
+        (character: "target", x: "304.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "340.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "376.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "412.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "448.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "484.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "556.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "592.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "628.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "304.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "340.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "376.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "412.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "448.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "484.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "556.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "592.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "628.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "304.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "340.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "376.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "412.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "448.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "484.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "556.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "592.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "628.0", y: "744.0", at_frame: 1),
+    ],
+    players: [
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (0, 127))], weapon: "larme", items: ["division", "guide", "rebond", "perforant", "spectre", "venin", "lentille", "trefle", "division", "rebond", "essaim"]),
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (0, -127))], weapon: "larme", items: ["division", "guide", "rebond", "perforant", "spectre", "venin", "lentille", "trefle", "division", "rebond", "essaim"]),
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (127, 0))], weapon: "larme", items: ["division", "guide", "rebond", "perforant", "spectre", "venin", "lentille", "trefle", "division", "rebond", "essaim"]),
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (-127, 0))], weapon: "larme", items: ["division", "guide", "rebond", "perforant", "spectre", "venin", "lentille", "trefle", "division", "rebond", "essaim"]),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 599),
+        PlayerAlive(handle: 1, at_frame: 599),
+        PlayerAlive(handle: 2, at_frame: 599),
+        PlayerAlive(handle: 3, at_frame: 599),
+        FamiliarCount(handle: 0, count: 2, at_frame: 599),
+        FamiliarCount(handle: 1, count: 2, at_frame: 599),
+        FamiliarCount(handle: 2, count: 2, at_frame: 599),
+        FamiliarCount(handle: 3, count: 2, at_frame: 599),
+        EntityCount(kind: Enemy, min: Some(30), at_frame: 599),
+    ],
+)

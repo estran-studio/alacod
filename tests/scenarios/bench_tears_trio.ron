@@ -1,0 +1,52 @@
+// M3-T15 (docs/conventions.md §80) : bench de larmes, un joueur. `division`, `rebond` et `guide` empilés sur la
+// `larme` (§66) contre 30 `target` immobiles (5 000 PV, carte `arena`) : chaque larme se divise en trois à l'impact,
+// se guide, rebondit sur les murs ; cadence de la `larme` portée à 20 coups/s (3 par défaut, `weapon_overrides`). Mesure `advance_ms_avg` d'un tireur seul, sans familier ; `bench_tears` est la
+// version à quatre joueurs et dix objets.
+//
+// À regarder : une gerbe de larmes qui rebondit entre les trente cibles et les murs de la salle.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 600,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "larme", firing_rate: "20.0")],
+    characters: [
+        (character: "target", x: "304.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "340.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "376.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "412.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "448.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "484.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "556.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "592.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "628.0", y: "508.0", at_frame: 1),
+        (character: "target", x: "304.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "340.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "376.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "412.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "448.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "484.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "556.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "592.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "628.0", y: "540.0", at_frame: 1),
+        (character: "target", x: "304.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "340.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "376.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "412.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "448.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "484.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "520.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "556.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "592.0", y: "744.0", at_frame: 1),
+        (character: "target", x: "628.0", y: "744.0", at_frame: 1),
+    ],
+    players: [
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (0, 127))], weapon: "larme", items: ["division", "rebond", "guide"]),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 599),
+        EntityCount(kind: Enemy, min: Some(30), at_frame: 599),
+    ],
+)

@@ -67,6 +67,14 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
    2,7× sur la sauvegarde (1,28 → 0,47 ms) ; `game::core::single_threaded_rollback_schedules`
    les passe en monothread dans le jeu comme dans les scénarios (`ALACOD_EXECUTOR=multi` pour
    comparer).
+
+   **Poste VPS Debian 8 cœurs, 2026-10-17/18 (M3-T15, `rapports/m3-t15-bench-larmes.md`, pire de trois relevés peu chargés, ms par
+   frame simulée)** : bench_bullets_room 3,02 / 2,16 / 2,21, rollback 28,7 ; bench_horde 3,63 / 2,68 / 3,66, 46,6 ; four_players_idle
+   1,53 / 1,05 / 0,61, 8,4 ; **p2p_smoke 1,77 / 1,15 / 1,25, 16,2** (contre 7,06 et 85,1 sur le M4 : la dette D70 ne se voit plus) ;
+   **bench_tears (4 joueurs × 10 objets dont `Split` ×2, 432 balles, 506 entités) 4,46 / 3,57 / 4,39, rollback 56,3, snapshot 218 KiB**
+   (D89). Sur ce poste la sauvegarde et la restauration coûtent 3 à 8 fois leur valeur du M4 alors que la simulation légère n'en
+   coûte que 2 à 6 : à ce poste le coût des snapshots n'est plus négligeable devant la simulation en scénario léger (D90 : le
+   poste explique-t-il tout ?).
 2. **La frontière simulation/présentation est prouvée par la compilation pour 11 crates,
    en dette pour 5.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
    et CI) : `cargo tree` du crate seul sans crate de présentation, puis `cargo check
