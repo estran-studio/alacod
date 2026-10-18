@@ -10,14 +10,14 @@ use bevy_ggrs::Rollback;
 use game::{
     args::BaseArgsPlugin,
     character::{
-        config::CharacterConfig, enemy::spawning::EnemySpawnerState, player::create::create_player,
+        config::CharacterConfigs, enemy::spawning::EnemySpawnerState, player::create::create_player,
     },
     collider::{spawn_test_wall, CollisionSettings},
-    core::{AppState, CoreSetupConfig, CoreSetupPlugin},
-    global_asset::GlobalAsset,
+    core::CoreSetupPlugin,
     jjrs::{GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsSessionBuilding},
+    session::{AppState, CoreSetupConfig},
     waves::{WaveDebugEnabled, WaveModeEnabled},
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::WeaponRegistry,
 };
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use utils::net_id::GgrsNetIdFactory;
@@ -77,10 +77,8 @@ fn system_game_loading(
     mut app_state: ResMut<NextState<AppState>>,
     mut commands: Commands,
     collision_settings: Res<CollisionSettings>,
-    global_assets: Res<GlobalAsset>,
-    character_asset: Res<Assets<CharacterConfig>>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    character_configs: Res<CharacterConfigs>,
+    weapon_registry: Res<WeaponRegistry>,
     // F5 (chantier m0-v11) : santé max résolue par `CoreSetupPlugin` sur `OnEnter(GameLoading)`.
     balance: Res<game::balance::ResolvedBalance>,
 
@@ -110,10 +108,8 @@ fn system_game_loading(
 
         create_player(
             &mut commands,
-            &global_assets,
-            &weapons_asset,
-            &melee_weapons_asset,
-            &character_asset,
+            &weapon_registry,
+            &character_configs,
             &collision_settings,
             position,
             is_local,

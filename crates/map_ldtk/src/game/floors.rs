@@ -644,8 +644,7 @@ pub fn floor_transition_system(
         .collect();
     spawn_level_weapon_locations(
         &mut commands,
-        &assets.global_assets,
-        &assets.weapons_asset,
+        &assets.weapon_registry,
         &mut id_factory,
         weapons,
     );
@@ -766,8 +765,8 @@ fn floor_portal_visual_system(
             commands.spawn((
                 PortalVisual,
                 // Langage visuel (§83) : image `portal` du jeu si elle existe ; le carré violet reste le repli.
-                game::world_sprites::SpriteRequest("portal".to_string()),
-                game::legibility::WorldLabel("portal".to_string()),
+                game::visual_requests::SpriteRequest("portal".to_string()),
+                game::visual_requests::WorldLabel("portal".to_string()),
                 Sprite {
                     color: Color::srgba(0.6, 0.2, 0.9, 0.8),
                     custom_size: Some(Vec2::splat(40.0)),

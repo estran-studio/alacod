@@ -22,7 +22,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::player::Player;
 use crate::economy::PointsCredit;
 use crate::frame_events::FrameEvents;
@@ -151,7 +151,7 @@ pub fn rollback_resolve_damage_events(
             &GgrsNetId,
             &Team,
             Option<&Defenses>,
-            Option<&CharacterConfigHandles>,
+            Option<&CharacterConfigKey>,
             Option<&mut Health>,
             Option<&mut DamageAccumulator>,
             Has<Downed>,
@@ -163,7 +163,7 @@ pub fn rollback_resolve_damage_events(
     >,
     // D61 : stat `Armor` résolue (base + modificateurs).
     stats: StatReader,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     clock: Res<run::Clock>,
     progression: Res<crate::progression::ProgressionTable>,
     floor: Option<Res<run::FloorState>>,
@@ -302,8 +302,8 @@ pub fn rollback_resolve_damage_events(
             );
         }
 
-        if let (Some(health), Some(handles)) = (opt_health.as_deref_mut(), opt_config) {
-            if let Some(config) = character_configs.get(&handles.config) {
+        if let (Some(health), Some(config_key)) = (opt_health.as_deref_mut(), opt_config) {
+            if let Some(config) = character_configs.get(&config_key.0) {
                 if let Some(until) = hit_iframes_until(event.frame, amount, config.hit_iframes) {
                     health.invulnerable_until_frame = Some(
                         health
@@ -364,7 +364,7 @@ pub fn rollback_resolve_damage_events(
 }
 
 /// Handle par défaut de `bleedout_frames`/`downed_speed_mult` quand la config n'a pas pu
-/// être lue (`CharacterConfigHandles` absent ou asset pas encore chargé — ne devrait pas
+/// être lue (`CharacterConfigKey` absent ou entrée de `CharacterConfigs` absente — ne devrait pas
 /// arriver en pratique, garde défensive). Mêmes valeurs que `CharacterConfig::default_*`
 /// (`character/config.rs`), dupliquées ici en constantes simples pour ne pas dépendre d'une
 /// instance de `CharacterConfig` déjà construite.
@@ -374,13 +374,13 @@ pub fn rollback_apply_accumulated_damage(
     frame: Res<FrameCount>,
     mut commands: Commands,
     players_count: Res<PlayersCount>,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     // T2.3, chantier C5 v1 : points au kill (voir `crate::economy`, doc du module, section
     // « Attribution des points »).
     mut points_credits: ResMut<FrameEvents<PointsCredit>>,
     // Lecture seule, indépendante de la query mutable ci-dessous (aucun composant en
     // commun : `Player`/`Downed` vs `Health`/`DamageAccumulator`/`Modifiers`/
-    // `CharacterConfigHandles`) : sert à savoir, pour un joueur qui tombe à 0 PV cette
+    // `CharacterConfigKey`) : sert à savoir, pour un joueur qui tombe à 0 PV cette
     // frame, si un AUTRE joueur est encore debout (ni mort, ni déjà à terre).
     standing_players: Query<(&Player, Has<Downed>)>,
     mut query: Query<
@@ -391,7 +391,7 @@ pub fn rollback_apply_accumulated_damage(
             &mut Health,
             Option<&mut HealthRegen>,
             Option<&Player>,
-            Option<&CharacterConfigHandles>,
+            Option<&CharacterConfigKey>,
             Option<&mut Modifiers>,
             Has<world::BarrelState>,
         ),
@@ -419,7 +419,7 @@ pub fn rollback_apply_accumulated_damage(
         mut health,
         opt_regen,
         opt_player,
-        opt_config_handles,
+        opt_config_key,
         opt_modifiers,
         is_barrel,
     ) in order_mut_iter!(query)
@@ -455,7 +455,7 @@ pub fn rollback_apply_accumulated_damage(
 
                 if players_count.0 > 1 && other_standing {
                     let player = opt_player.expect("other_standing implique un Player");
-                    let config = opt_config_handles.and_then(|h| character_configs.get(&h.config));
+                    let config = opt_config_key.and_then(|key| character_configs.get(&key.0));
                     let bleedout_frames =
                         config.map_or(FALLBACK_BLEEDOUT_FRAMES, |c| c.bleedout_frames);
                     let downed_speed_mult =

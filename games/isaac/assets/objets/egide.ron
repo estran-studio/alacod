@@ -1,0 +1,11 @@
+// `isaac` (M3-T11d2, §76.5) : actif chargé par deux salles nettoyées ; à l'usage, un point de bouclier (`GainShield(1)`, `combat::actors::Shield`) : le prochain coup reçu est annulé en entier. Le bouclier n'a pas d'attente lisible : la preuve est le scénario écrit à la main `isaac_egide` (un coup absorbé contre un témoin sans objet).
+(
+    name: "Égide",
+    kind: Active(Rooms(2)),
+    effects: [
+        (on: OnUse, do: [GainShield(1)]),
+    ],
+    tags: ["actif"],
+    rarity: Uncommon,
+    test: Some((frames: 60)),
+)

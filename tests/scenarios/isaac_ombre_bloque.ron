@@ -1,0 +1,21 @@
+// M3-T11d2 (docs/conventions.md §71 et §76.5) : `BlockBullets` d'`isaac`. Graine 1 : le joueur 0 (6 PV, immobile en (-8, -8)) tient l'`ombre` (un orbital à
+// 24 unités, un tour en 40 frames) ; une `tourelle_croix` posée à 88 unités à l'est (en (80, -8)) lui tire à f1 deux couronnes de quatre boules lentes
+// (`croix`, 1 PV chacune). L'orbital passe sur le chemin de la boule qui vise le joueur et la détruit. Témoin `isaac_ombre_bloque_sans_objet` : même salle
+// sans l'objet (5 PV dès f100 : la boule touche).
+//
+// À regarder : la première boule vers le joueur disparaît au contact du carré qui tourne autour de lui ; la santé reste à 6 jusqu'à f300 (5 sans l'ombre).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 500,
+    characters: [(character: "tourelle_croix", x: "80.0", y: "-8.0", at_frame: 1)],
+    players: [(inputs: [], items: ["ombre"])],
+    expect: [
+        FamiliarCount(handle: 0, count: 1, at_frame: 5),
+        FamiliarDistance(handle: 0, rank: 0, min: Some(23.5), max: Some(24.5), at_frame: 100),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 230),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 300),
+    ],
+)

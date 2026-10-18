@@ -1,0 +1,35 @@
+# Fichiers de crates/game/src déjà séparables en `game_sim` (D69 étape 2) : sans fuite de présentation
+# (sonde `scripts/probe-game-sim.py`) et ne dépendant que de fichiers de cette liste.
+# Cliquet : chaque étape de `docs/taches/dette-d69-etape2.md` y ajoute les fichiers qu'elle libère ;
+# `make probe_game_sim SIM_LIST=scripts/d69-sim-files.txt` échoue si l'un d'eux régresse.
+# Mesuré le 2026-10-18 sur main 09b68187 (+ retouches de dette-d69-plan-etape2) : 16 fichiers, 2 405 lignes.
+# E1 (dette-d69-e1-types-donnees) : + visual_requests.rs, fog_map.rs, frame_counter.rs, character/appearance.rs (20 fichiers).
+# E2 (dette-d69-e2-session) : + session.rs (21 fichiers).
+# E3a (dette-d69-e3a-character-configs) : aucun ajout (21 fichiers). Libérés de toute fuite : character/config.rs, character/health/mod.rs,
+# character/enemy/ai/pathing.rs, familiars.rs, feedback_v3.rs ; aucun n'entre au cliquet car sa fermeture interne contient encore un fichier à fuite
+# (collider/mod.rs, waves/mod.rs, interaction.rs, balance.rs, create.rs, feedback.rs, progression.rs…), à lever par E3b-E4 et E6.
+# E3b (dette-d69-e3b-weapon-registry) : + weapons.rs (22 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : champions.rs,
+# character/enemy/create.rs, character/enemy/spawning.rs, effects_runtime.rs, loot.rs, progression.rs, waves/systems.rs (dépendent de balance.rs, collider/mod.rs,
+# items.rs, shop.rs, interaction.rs, character/create.rs, boss.rs, clock.rs, health/mod.rs…) ; nouveau fichier à fuite : weapon_assets.rs (app).
+character/appearance.rs
+character/enemy/ai/obstacle.rs
+character/enemy/mod.rs
+character/movement.rs
+character/player/jjrs.rs
+character/player/mod.rs
+character/variant.rs
+collision_grid.rs
+fog_map.rs
+frame_counter.rs
+frame_events.rs
+gen_test.rs
+patterns.rs
+rollback.rs
+session.rs
+statuses.rs
+system_set.rs
+ui/screens/model.rs
+visual_requests.rs
+waves/state.rs
+waves/tracking.rs
+weapons.rs

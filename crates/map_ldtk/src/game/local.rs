@@ -9,15 +9,15 @@ use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use game::{
     character::{
-        config::CharacterConfig, enemy::create::spawn_enemy, player::create::create_player,
+        config::CharacterConfigs, enemy::create::spawn_enemy, player::create::create_player,
     },
     collider::CollisionSettings,
-    core::AppState,
     economy::PerkMachine,
     global_asset::GlobalAsset,
     interaction::{Interactable, InteractionType},
     jjrs::{GggrsSessionConfigurationState, GgrsSessionBuilding},
-    weapons::{self, melee::MeleeWeaponsConfig, WeaponsConfig},
+    session::AppState,
+    weapons::{self, WeaponRegistry},
 };
 use map::{
     game::entity::map::{
@@ -42,9 +42,8 @@ pub struct LevelSpawnAssets<'w> {
     pub global_assets: Res<'w, GlobalAsset>,
     // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
     pub balance: Res<'w, game::balance::ResolvedBalance>,
-    pub character_asset: Res<'w, Assets<CharacterConfig>>,
-    pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
-    pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
+    pub character_configs: Res<'w, CharacterConfigs>,
+    pub weapon_registry: Res<'w, WeaponRegistry>,
     /// Graine de run (T1.5 : tirage des variantes, `game::character::variant`) : la graine de
     /// carte, celle que `system_after_map_loaded_local`/`p2p` donnera à `RunSeed`/`RngStreams`
     /// — qui ne sont posés qu'à `OnEnter(GameStarting)`, après l'apparition des personnages de
@@ -68,6 +67,8 @@ pub struct LdtkLocalGamePlugin(pub LdtkGameMap);
 impl Plugin for LdtkLocalGamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.0.clone())
+            // D105 : l'unique consommateur de `--seed` pour tous les jeux.
+            .add_systems(Startup, apply_launch_seed)
             .add_systems(OnEnter(AppState::LobbyLocal), configure_map)
             .add_systems(OnEnter(AppState::LobbyOnline), configure_map)
             .add_systems(
@@ -89,6 +90,21 @@ impl Plugin for LdtkLocalGamePlugin {
                     .run_if(on_message::<LdtkMapLoadingEvent>)
                     .after(MapNetIdAssignment),
             );
+    }
+}
+
+/// `--seed <n>` (`game::args::LaunchSeed`) remplace la graine de carte du manifeste, en local
+/// comme en ligne (les deux pairs d'une preuve p2p reçoivent la même). `Startup`, donc avant
+/// `configure_map` (`OnEnter` des lobbies) et avant tout système d'un jeu qui lirait ou
+/// tirerait la graine (`zombies::choose_local_seed`). Sans la ressource (le runner de scénarios
+/// n'installe pas `BaseArgsPlugin`) ou sans `--seed`, la graine de `LdtkGameMap` ne bouge pas.
+pub fn apply_launch_seed(
+    launch: Option<Res<game::args::LaunchSeed>>,
+    mut map: ResMut<LdtkGameMap>,
+) {
+    if let Some(seed) = launch.and_then(|launch| launch.0) {
+        map.seed = seed;
+        info!("graine de carte imposée --seed {seed}");
     }
 }
 
@@ -136,11 +152,9 @@ fn player_spawn_point(spawns: &std::collections::BTreeMap<usize, Vec3>, handle: 
 fn spawn_players_when_map_loaded(
     mut commands: Commands,
     collision_settings: Res<CollisionSettings>,
-    global_assets: Res<GlobalAsset>,
     balance: Res<game::balance::ResolvedBalance>,
-    character_asset: Res<Assets<CharacterConfig>>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    character_configs: Res<CharacterConfigs>,
+    weapon_registry: Res<WeaponRegistry>,
     mut id_provider: ResMut<GgrsNetIdFactory>,
     ggrs_session_building: Res<GgrsSessionBuilding>,
     player_spawn: Query<(Entity, &GlobalTransform, &PlayerSpawnConfig)>,
@@ -179,10 +193,8 @@ fn spawn_players_when_map_loaded(
 
         create_player(
             &mut commands,
-            &global_assets,
-            &weapons_asset,
-            &melee_weapons_asset,
-            &character_asset,
+            &weapon_registry,
+            &character_configs,
             &collision_settings,
             fixed_math::vec3_to_fixed(translation),
             ggrs_player.is_local,
@@ -322,11 +334,7 @@ pub fn spawn_character(
         return None;
     }
 
-    let character_config = assets
-        .global_assets
-        .character_configs
-        .get(character)
-        .and_then(|handle| assets.character_asset.get(handle));
+    let character_config = assets.character_configs.get(character);
     let team = team
         .or_else(|| character_config.and_then(|config| config.team))
         .unwrap_or(Team::Enemies);
@@ -349,10 +357,8 @@ pub fn spawn_character(
         character.to_string(),
         position,
         commands,
-        &assets.weapons_asset,
-        &assets.melee_weapons_asset,
-        &assets.character_asset,
-        &assets.global_assets,
+        &assets.weapon_registry,
+        &assets.character_configs,
         &assets.collision_settings,
         id_provider,
         team,
@@ -376,8 +382,7 @@ pub fn spawn_character(
 /// d'arme) avant `id_factory.next`, comme [`spawn_characters_when_map_loaded`].
 fn spawn_weapon_locations_when_map_loaded(
     mut commands: Commands,
-    global_assets: Res<GlobalAsset>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
+    weapon_registry: Res<WeaponRegistry>,
     mut id_provider: ResMut<GgrsNetIdFactory>,
     locations: Query<(Entity, &GlobalTransform, &WeaponLocationComponent)>,
     slots: FloorSlots,
@@ -387,20 +392,13 @@ fn spawn_weapon_locations_when_map_loaded(
         .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
         .map(|(_, transform, location)| (transform, location))
         .collect();
-    spawn_level_weapon_locations(
-        &mut commands,
-        &global_assets,
-        &weapons_asset,
-        &mut id_provider,
-        spawns,
-    );
+    spawn_level_weapon_locations(&mut commands, &weapon_registry, &mut id_provider, spawns);
 }
 
 /// Armes murales d'un niveau (chargement, ou passage de niveau du mode `Floors`).
 pub(crate) fn spawn_level_weapon_locations(
     commands: &mut Commands,
-    global_assets: &GlobalAsset,
-    weapons_asset: &Assets<WeaponsConfig>,
+    weapon_registry: &WeaponRegistry,
     id_provider: &mut ResMut<GgrsNetIdFactory>,
     mut spawns: Vec<(&GlobalTransform, &WeaponLocationComponent)>,
 ) {
@@ -422,10 +420,6 @@ pub(crate) fn spawn_level_weapon_locations(
         spawns.len()
     );
 
-    let Some(weapons_config) = weapons_asset.get(&global_assets.weapons) else {
-        return;
-    };
-
     for (transform, location) in spawns {
         if location.weapon.is_empty() {
             warn!(
@@ -434,7 +428,7 @@ pub(crate) fn spawn_level_weapon_locations(
             );
             continue;
         }
-        let Some(weapon_asset) = weapons_config.0.get(&location.weapon) else {
+        let Some(weapon_asset) = weapon_registry.weapons.get(&location.weapon) else {
             warn!(
                 "WeaponLocation : arme inconnue « {} » (voir `alacod lint`), ignoré",
                 location.weapon
@@ -541,7 +535,7 @@ fn spawn_hub_stations_when_map_loaded(
     services: Res<game::hub::HubServices>,
     profiles: Option<Res<meta::Profiles>>,
     session: Res<GgrsSessionBuilding>,
-    online: Option<Res<game::core::OnlineState>>,
+    online: Option<Res<game::session::OnlineState>>,
     slots: FloorSlots,
 ) {
     let mut spawns: Vec<(&GlobalTransform, &HubStationRef)> = stations
@@ -565,7 +559,7 @@ fn spawn_hub_stations_when_map_loaded(
     // En ligne : le hub est celui du profil de l'hôte, transmis avec la configuration de session
     // (M2-T13, comme `RunUnlocks`) ; jamais le profil du pair local.
     let host_profile =
-        matches!(online.as_deref(), Some(game::core::OnlineState::Online)).then(|| {
+        matches!(online.as_deref(), Some(game::session::OnlineState::Online)).then(|| {
             game::profile::online_host_profile(
                 std::env::var(game::profile::RUN_UNLOCKS_ENV)
                     .ok()

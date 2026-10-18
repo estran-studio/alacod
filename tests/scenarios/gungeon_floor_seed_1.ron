@@ -11,6 +11,8 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    // Politique de l'explorateur de gungeon (`games/gungeon/assets/bot.ron`, §79) : détour borné, élan anticipé, patience, armes selon la réserve.
+    explorer: Some((detour: (optional: Some(600), last_stretch: Some(200)), lead: true, oscillation: Patience, weapon_reserve: true)),
     floors: Some("etages_court"),
     map_seed: 1,
     frames: 800,

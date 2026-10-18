@@ -1,0 +1,14 @@
+// `isaac` (M3-T11d2, §76.5) : un ennemi tué (`OnKill`) donne +40 % de vitesse de déplacement pendant 120 frames (`TimedModifier`, `MoveSpeed` en unités/s : 120 au repos). Seuils mesurés : 167,99927 à f190 (la cible fragile meurt vers f100-180) avec l'objet, 120 sans.
+(
+    name: "Avidité",
+    kind: Passive,
+    effects: [
+        (on: OnKill, do: [TimedModifier(stat: MoveSpeed, op: Pct, value: "0.4", frames: 120)]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        tears: Some((weapon: Some("larmes"), frames: Some(200), targets: [(character: "cible_fragile", dx: -48, dy: -18)], expect: [Stat(handle: 0, stat: MoveSpeed, value: 167.99927, at_frame: 190)], control: [Stat(handle: 0, stat: MoveSpeed, value: 120.0, at_frame: 190)])),
+    )),
+)

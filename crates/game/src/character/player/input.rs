@@ -5,7 +5,6 @@ use bevy_ggrs::prelude::*;
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use combat::downed::Downed;
 use leafwing_input_manager::prelude::*;
-use serde::{Deserialize, Serialize};
 use sim_core::animation_state::AnimationState;
 use sim_core::animation_state::FacingDirection;
 use sim_core::frame_events::FrameEvents;
@@ -13,18 +12,17 @@ use sim_core::stats::StatId;
 use stats::StatReader;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
 
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::dash::DashState;
 use crate::character::health::Health;
-use crate::character::movement::{grip, run_velocity, SprintState, Velocity};
+use crate::character::movement::{grip, run_velocity, SprintState, Velocity, FIXED_TIMESTEP};
 use crate::character::movement::{DashEffect, IframesKind};
 use crate::character::player::{control::PlayerAction, Player};
 use crate::collider::{is_colliding, Collider, CollisionLayer, CollisionSettings};
+use crate::interaction::InteractionInput;
 
 use super::jjrs::PeerConfig;
 use super::LocalPlayer;
-
-pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 60 FPS fixed timestep
 
 pub use combat::actors::{
     BoxInput, CursorPosition, INPUT_BLANK, INPUT_BOMB, INPUT_CHOICE_A, INPUT_CHOICE_B,
@@ -37,12 +35,6 @@ const PAN_FACING_THRESHOLD: i16 = 5;
 
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct PointerWorldPosition(pub Vec2);
-
-/// Component that tracks interaction input state
-#[derive(Component, Clone, Copy, Default, Debug, Hash, Serialize, Deserialize)]
-pub struct InteractionInput {
-    pub is_holding: bool,
-}
 
 /// Direction de déplacement demandée par les touches (non normalisée, composantes -1/0/1).
 fn movement_direction(input: &BoxInput) -> fixed_math::FixedVec2 {
@@ -429,7 +421,7 @@ pub fn apply_inputs(
     _commands: Commands,
     frame: Res<FrameCount>,
     inputs: Res<PlayerInputs<PeerConfig>>,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     stats: StatReader,
     mut dash_started: Option<ResMut<FrameEvents<sim_core::triggers::DashStarted>>>,
     mut query: Query<
@@ -442,7 +434,7 @@ pub fn apply_inputs(
             &mut CursorPosition,
             &mut SprintState,
             &mut InteractionInput,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &Player,
             Has<Downed>,
             // T1.3 : `Stun`/`Freeze` (§19) : inputs ignorés par la simulation (jamais à la
@@ -465,7 +457,7 @@ pub fn apply_inputs(
         mut cursor_position,
         mut sprint_state,
         mut interaction_input,
-        config_handles,
+        config_key,
         player,
         is_downed,
         statuses,
@@ -474,7 +466,7 @@ pub fn apply_inputs(
         dash_override,
     ) in order_mut_iter!(query)
     {
-        let Some(config) = character_configs.get(&config_handles.config) else {
+        let Some(config) = character_configs.get(&config_key.0) else {
             continue;
         };
         let movement = &config.movement;

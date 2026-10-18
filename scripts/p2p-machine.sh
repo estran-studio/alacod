@@ -19,7 +19,11 @@
 # Usage : scripts/p2p-machine.sh <jeu> <script-inputs.ron> <frames> <index>
 # Variables : MATCHBOX_URL (obligatoire), LOBBY (obligatoire, identique des deux côtés), CLIENTS (2 :
 #   nombre total de pairs, un par machine), GAME_ARGS, INPUT_DELAY (0), OUT (/tmp/p2p-machine),
-#   TIMEOUT (900 s), P2P_NO_BUILD=1. `ALACOD_*` transmis au client.
+#   TIMEOUT (900 s), P2P_NO_BUILD=1, STRESS (0 ; 1 : ce client est suspendu par à-coups, SIGSTOP/SIGCONT de
+#   SUSPEND_MS = 12 ms toutes les RUN_MS = 30 ms, comme `p2p-stress.sh` : le pair le devance, prédit faux et
+#   resimule. Le client en retard ne resimule rien : pour que les DEUX machines resimulent, suspendre longuement
+#   la machine rapide (Mac M1 contre VPS : `STRESS=1 SUSPEND_MS=80 RUN_MS=40` sur le Mac), voir `docs/conventions.md`
+#   §57), MIN_RESIMULATED (0 : échec si ce client resimule moins de frames). `ALACOD_*` transmis au client.
 set -uo pipefail
 
 [ $# -eq 4 ] || { sed -n '/^# Usage/,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//' | head -6; exit 2; }
@@ -32,6 +36,10 @@ GAME_ARGS=${GAME_ARGS:-}
 INPUT_DELAY=${INPUT_DELAY:-0}
 OUT=${OUT:-/tmp/p2p-machine}
 TIMEOUT=${TIMEOUT:-900}
+STRESS=${STRESS:-0}
+SUSPEND_MS=${SUSPEND_MS:-12}
+RUN_MS=${RUN_MS:-30}
+MIN_RESIMULATED=${MIN_RESIMULATED:-0}
 : "${MATCHBOX_URL:?MATCHBOX_URL obligatoire (signaling joignable des deux machines)}"
 : "${LOBBY:?LOBBY obligatoire (la même salle des deux côtés)}"
 [ -f "$SCRIPT" ] || { echo "p2p-machine : script introuvable : $SCRIPT"; exit 2; }
@@ -57,9 +65,25 @@ pid=$!
 # Garde-fou portable (pas de `timeout` sous macOS) : un pair qui n'arrive jamais bloque l'attente.
 ( sleep "$TIMEOUT"; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
 watchdog=$!
+suspender=""
+if [ "$STRESS" = 1 ]; then
+    (
+        # Laisse la connexion s'établir : suspendre dès le départ ferait expirer le handshake.
+        sleep 8
+        suspend_s=$(awk "BEGIN{print $SUSPEND_MS/1000}")
+        run_s=$(awk "BEGIN{print $RUN_MS/1000}")
+        while kill -0 "$pid" 2>/dev/null; do
+            kill -STOP "$pid" 2>/dev/null || break
+            sleep "$suspend_s"
+            kill -CONT "$pid" 2>/dev/null || break
+            sleep "$run_s"
+        done
+    ) >/dev/null 2>&1 &
+    suspender=$!
+fi
 wait "$pid"
 code=$?
-kill "$watchdog" 2>/dev/null
+kill "$watchdog" ${suspender:+"$suspender"} 2>/dev/null
 
 fail=0
 echo "code de sortie : $code"
@@ -67,7 +91,12 @@ echo "code de sortie : $code"
 desync=$(grep -c "DesyncDetected" "$OUT/p2p-$INDEX.log")
 echo "DesyncDetected : $desync"
 [ "$desync" = 0 ] || fail=1
-echo "frames resimulées : $(p2p_resimulated "$OUT/p2p-$INDEX.log")"
+resim=$(p2p_resimulated "$OUT/p2p-$INDEX.log")
+echo "frames resimulées : $resim (minimum exigé $MIN_RESIMULATED)"
+if [ "$MIN_RESIMULATED" -gt 0 ] && [ "$resim" -lt "$MIN_RESIMULATED" ]; then
+    echo "ÉCHEC : trop peu de frames resimulées (prédictions jamais fausses : la preuve ne prouve rien)"
+    fail=1
+fi
 echo "transitions d'étage distinctes : $(sed -n 's/.*floor_transition from=\([0-9]*\) to=\([0-9]*\).*/\1>\2/p' "$OUT/p2p-$INDEX.log" | sort -u | wc -l | tr -d ' ') (dernière : $(grep 'floor_transition' "$OUT/p2p-$INDEX.log" | tail -1 | sed -n 's/.*ggrs{\(f=[0-9]* floor_transition[^}]*\)}.*/\1/p'))"
 if [ -f "$OUT/p2p-$INDEX.trace" ]; then
     echo "trace : $(wc -l < "$OUT/p2p-$INDEX.trace" | tr -d ' ') lignes (attendu $((FRAMES - 1))), sha256 $(sha "$OUT/p2p-$INDEX.trace")"

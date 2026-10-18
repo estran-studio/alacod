@@ -1,13 +1,18 @@
-// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : D96 change l'objet tiré pour une même graine (`draw_exhausting` à la course pondérée) ; graine 8 conservée (la salle du diable qu'elle donne est l'objet, comme pour `grid_post_boss`), objets attendus remesurés : diable `cornes_noires` + `queue_fourchue` (au lieu de `regard_maudit`), trésor `bottines` (au lieu de `longue_vue`), boss `oeil_vif` (au lieu de `calice_ardent`).
+// M3-T11d2 (2026-10-18) : 100 objets (pools `loot/*.ron` : 71 au trésor, 11 au boss, 55 à la boutique, 9 au diable) et trois ennemis de plus dans les gabarits : le tirage de la graine 8 change.
+// Boutique : `pois_chiche` (15 sous, rareté commune), `venin` et `epouvante` (30 sous) ; trésor : `cuirasse` ; boss : `bombe_fiole` ; diable : `acide` et `pacte_rouge`.
+// M3-T11d1 (2026-10-18) : vingt gabarits, boutique exigée. Graine 8 conservée (la salle du diable qu'elle donne) ; la boutique pose trois
+// présentoirs de plus (`ShelfCount` 5 : trois de la boutique, `rancune_vive`, `venin` et `epouvante` à 30 sous, puis les deux du diable) et
+// les objets tirés changent avec le pool (le boss donne `sang_chaud`, `bottines` reste au trésor).
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : D96 change l'objet tiré pour une même graine (`draw_exhausting` à la course pondérée).
 // M3-T8 (docs/conventions.md §73, Q5 et Q6) : la salle du diable d'`isaac` est remplie. Graine 8 (séquence
 // `sous_sol_un`, la même que `grid_post_boss`) : la chance de la grammaire (un tiers, M3-T5) donne la salle
 // post-boss, collée au boss ; à la génération de l'étage ses deux présentoirs du pool `diable` (`exhaust`) sont
-// tirés (`cornes_noires`, `queue_fourchue`) et payables en un cœur de vie maximale (`MaxHealth("2")`) : deux objets
-// sortis du pool, distincts. Le
-// trésor et le boss ont tiré chacun un objet de leurs pools (`bottines`, `oeil_vif` ; l'objet dépend de la taille des pools : M3-T11a puis M3-T11b, 31 objets au trésor, 5 au boss), dans le même instant.
+// tirés (`acide`, `pacte_rouge`) et payables en un cœur de vie maximale (`MaxHealth("2")`) : deux objets
+// sortis du pool, distincts. Le trésor, le boss et la boutique ont tiré chacun leurs objets (l'objet dépend de la taille des pools : 71 objets
+// au trésor, 11 au boss, 55 à la boutique, depuis T11d2), dans le même instant.
 // Témoin : `devil_room_absent` (graine 5 : pas de salle du diable, rien de tiré dans le pool).
 //
-// À regarder : rien ne bouge (le joueur est immobile) ; f10 deux présentoirs à un cœur dans la salle du diable.
+// À regarder : rien ne bouge (le joueur est immobile) ; f10 trois présentoirs de la boutique (15, 30 et 30 sous) et deux à un cœur (diable).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -17,15 +22,20 @@ Scenario(
     players: [(inputs: [])],
     expect: [
         RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["depart", "secrete", "tresor"], at_frame: 10),
-        ShelfCount(count: 2, at_frame: 10),
-        Shelf(nth: 0, price: Some(0), cost: Some(MaxHealth("2")), sold: Some(false), at_frame: 10),
-        Shelf(nth: 1, price: Some(0), cost: Some(MaxHealth("2")), sold: Some(false), at_frame: 10),
+        ShelfCount(count: 5, at_frame: 10),
+        Shelf(nth: 0, item: Some("pois_chiche"), price: Some(15), sold: Some(false), at_frame: 10),
+        Shelf(nth: 1, item: Some("venin"), price: Some(30), sold: Some(false), at_frame: 10),
+        Shelf(nth: 2, item: Some("epouvante"), price: Some(30), sold: Some(false), at_frame: 10),
+        Shelf(nth: 3, item: Some("acide"), price: Some(0), cost: Some(MaxHealth("2")), sold: Some(false), at_frame: 10),
+        Shelf(nth: 4, item: Some("pacte_rouge"), price: Some(0), cost: Some(MaxHealth("2")), sold: Some(false), at_frame: 10),
         PoolCount(pool: "diable", count: 2, at_frame: 10),
+        PoolCount(pool: "boutique", count: 3, at_frame: 10),
         PoolCount(pool: "tresor", count: 1, at_frame: 10),
         PoolCount(pool: "boss", count: 1, at_frame: 10),
-        PoolSeen(pool: "diable", item: "cornes_noires", seen: true, at_frame: 10),
-        PoolSeen(pool: "diable", item: "queue_fourchue", seen: true, at_frame: 10),
-        PoolSeen(pool: "tresor", item: "bottines", seen: true, at_frame: 10),
-        PoolSeen(pool: "boss", item: "oeil_vif", seen: true, at_frame: 10),
+        PoolSeen(pool: "diable", item: "acide", seen: true, at_frame: 10),
+        PoolSeen(pool: "diable", item: "pacte_rouge", seen: true, at_frame: 10),
+        PoolSeen(pool: "boutique", item: "pois_chiche", seen: true, at_frame: 10),
+        PoolSeen(pool: "tresor", item: "cuirasse", seen: true, at_frame: 10),
+        PoolSeen(pool: "boss", item: "bombe_fiole", seen: true, at_frame: 10),
     ],
 )

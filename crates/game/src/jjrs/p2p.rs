@@ -17,14 +17,15 @@ use run::Run;
 use crate::jjrs::allumette::AllumetteConfig;
 use crate::{
     character::player::jjrs::PeerConfig,
-    core::{AppState, OnlineState},
     jjrs::restart::{
         restart_room, restart_seed, restart_timed_out, OnlineGames, OnlineRestart,
         RESTART_TIMEOUT_SECS,
     },
+    jjrs::signal_watch::SharedSightings,
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
+    session::{AppState, OnlineState},
 };
 
 /// D86 : identifiants matchbox des pairs des sessions déjà jouées par ce processus.
@@ -39,6 +40,20 @@ use crate::{
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub struct PreviousSessionPeers(pub BTreeSet<PeerId>);
 
+/// D109 : pairs distants de la session **en cours** (remplacés à chaque construction de session).
+/// Un pair qui quitte la salle pendant que la session se synchronise ne reviendra pas (identifiant
+/// neuf à chaque socket) : la session est sans issue, `abandon_unsynchronized_session` la quitte
+/// sans attendre `SYNC_TIMEOUT_SECS`.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct CurrentSessionPeers(pub BTreeSet<PeerId>);
+
+/// Parmi les changements d'état du socket, le départ d'un pair de la session en cours.
+pub fn session_peer_left(changes: &[(PeerId, PeerState)], current: &BTreeSet<PeerId>) -> bool {
+    changes
+        .iter()
+        .any(|(peer, state)| matches!(state, PeerState::Disconnected) && current.contains(peer))
+}
+
 /// Joueurs du socket sans les pairs d'une session déjà jouée. L'ordre (identifiants triés,
 /// identique chez tous les pairs) est conservé : les handles GGRS en dépendent.
 pub fn live_players(
@@ -51,6 +66,66 @@ pub fn live_players(
         .collect()
 }
 // For matchbox socket connection
+
+/// D87 (mesure, natif) : `ALACOD_P2P_CHANNEL=unreliable` ouvre le canal GGRS non fiable et non ordonné
+/// (`ChannelConfig::unreliable()`) au lieu du canal fiable du jeu. Réglage d'essai (rapport
+/// `m2-p2p-deux-machines` : il ne supprime pas les silences) ; les deux pairs doivent avoir le même.
+pub const CHANNEL_ENV: &str = "ALACOD_P2P_CHANNEL";
+
+/// D87 (mesure, natif) : `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` remplace [`DISCONNECT_TIMEOUT`] pour un essai.
+pub const DISCONNECT_TIMEOUT_ENV: &str = "ALACOD_DISCONNECT_TIMEOUT_MS";
+
+/// Silence d'un pair au bout duquel GGRS le déclare déconnecté (la notification `NetworkInterrupted`, elle,
+/// reste à 500 ms). D87 : le défaut de GGRS (2 s) est dépassé sous perte de paquets : le pair se tait 1,0 à 1,5 s
+/// (une retransmission SCTP après `RTO_MIN` = 1 s, [INFERENCE]) puis 3,0 à 3,4 s (deux de suite) ; à 3 % de perte par sens, 4 essais sur 8 perdaient
+/// la session en cours de partie avec 2 s, 1 sur 7 avec 5 s (rapport `m2-p2p-deux-machines` §5). Cette
+/// comparaison n'est **pas significative** (Fisher bilatéral, p ≈ 0,28) ; la décision repose sur le
+/// contrefactuel : trois essais à 5 s ont repris après 3,07 à 3,28 s de silence, que 2 s aurait déconnectés
+/// (4 essais sur 7 avec le seul échec à 5 s). Le coût : un pair réellement parti est constaté au bout de 5 s au
+/// lieu de 2 s (la partie attend, c'est tout).
+///
+/// Doit rester **inférieur** à `state_trace::CONFIRMATION_TIMEOUT` (10 s) : la trace attend au plus ce temps
+/// les dernières frames d'un pair parti, qui ne sont confirmées qu'une fois sa déconnexion constatée.
+pub const DISCONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+const _: () = assert!(
+    DISCONNECT_TIMEOUT.as_millis() < crate::state_trace::CONFIRMATION_TIMEOUT.as_millis(),
+    "le délai de déconnexion doit rester sous l'attente de confirmation de la trace"
+);
+
+fn channel_config() -> ChannelConfig {
+    match std::env::var(CHANNEL_ENV).as_deref() {
+        Ok("unreliable") => ChannelConfig::unreliable(),
+        Ok("reliable") | Err(_) => ChannelConfig::reliable(),
+        Ok(other) => {
+            warn!("{CHANNEL_ENV}={other:?} inconnu (reliable ou unreliable attendu), canal fiable gardé");
+            ChannelConfig::reliable()
+        }
+    }
+}
+
+/// [`DISCONNECT_TIMEOUT`] ou `ALACOD_DISCONNECT_TIMEOUT_MS` : une valeur invalide, nulle ou qui atteint
+/// l'attente de confirmation de la trace (10 s) est ignorée avec un `warn!`.
+fn disconnect_timeout() -> std::time::Duration {
+    let Ok(value) = std::env::var(DISCONNECT_TIMEOUT_ENV) else {
+        return DISCONNECT_TIMEOUT;
+    };
+    match value.parse::<u64>() {
+        Ok(ms)
+            if ms > 0 && u128::from(ms) < crate::state_trace::CONFIRMATION_TIMEOUT.as_millis() =>
+        {
+            std::time::Duration::from_millis(ms)
+        }
+        _ => {
+            warn!(
+                "{DISCONNECT_TIMEOUT_ENV}={value:?} invalide (entier de ms, 0 < n < {} attendu), {} ms gardées",
+                crate::state_trace::CONFIRMATION_TIMEOUT.as_millis(),
+                DISCONNECT_TIMEOUT.as_millis()
+            );
+            DISCONNECT_TIMEOUT
+        }
+    }
+}
 
 /// STUN Google par défaut : configuration historique du chemin `--matchbox`
 /// (inchangée) et repli si l'API allumette ne renvoie aucun serveur ICE.
@@ -65,6 +140,182 @@ fn default_ice_server() -> RtcIceServerConfig {
     }
 }
 
+/// D109 : durée (horloge **murale**, hors simulation) pendant laquelle un pair vu par le signaling
+/// (`jjrs::signal_watch`) peut rester sans se connecter au lobby avant une nouvelle tentative.
+/// Une négociation WebRTC normale prend moins d'une seconde sur la boucle locale ; sous perte de
+/// paquets (3 %, RTT 120 ms) le rapport `dettes-d105-d109` mesure la distribution des temps de
+/// connexion et justifie cette valeur. Surcharge d'essai : [`CONNECT_TIMEOUT_ENV`].
+pub const CONNECT_TIMEOUT_SECS: f32 = 15.0;
+
+/// Surcharge de [`CONNECT_TIMEOUT_SECS`] (secondes, essais seulement : `p2p-connect-timeout.sh`).
+pub const CONNECT_TIMEOUT_ENV: &str = "ALACOD_CONNECT_TIMEOUT_SECS";
+
+/// Essais par entrée au lobby : le socket d'origine, puis une nouvelle tentative (même salle,
+/// nouveau socket) ; au délai suivant, retour au lobby (`LobbyOnline` ré-entré : socket et flux
+/// allumette repris de zéro).
+pub const CONNECT_ATTEMPTS: u32 = 2;
+
+/// Surcharge de [`CONNECT_ATTEMPTS`] (entier ≥ 1, essais seulement : `p2p-connect-timeout.sh` ;
+/// `1` : le premier délai écoulé ramène directement au lobby).
+pub const CONNECT_ATTEMPTS_ENV: &str = "ALACOD_CONNECT_ATTEMPTS";
+
+/// Attente d'un pair vu mais pas connecté à partir de laquelle l'écran du lobby le dit.
+pub const CONNECT_SLOW_SECS: f32 = 3.0;
+
+/// Durée (secondes, murale) pendant laquelle l'écran du lobby garde l'avis d'une tentative
+/// abandonnée.
+pub const CONNECT_NOTICE_SECS: f32 = 20.0;
+
+/// Dernière tentative de connexion abandonnée, montrée à l'écran du lobby.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectNotice {
+    /// Nouvelle tentative en cours (`attempt` sur `of`).
+    Retrying { attempt: u32, of: u32 },
+    /// Les `attempts` tentatives ont échoué : le lobby est ré-entré.
+    BackToLobby { attempts: u32 },
+}
+
+/// Ce que fait le lobby quand l'attente d'un pair vu par le signaling dépasse le délai.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectTimeoutAction {
+    Retry,
+    ToLobby,
+}
+
+/// Surveillance de la connexion des pairs au lobby (hors rollback, réseau seulement).
+#[derive(Resource, Debug)]
+pub struct LobbyConnectWatch {
+    /// Pairs vus par le signaling pour le socket courant (neuf à chaque socket).
+    pub sightings: SharedSightings,
+    /// Rang de l'essai courant (1 = socket d'origine), 0 avant le premier socket.
+    pub attempt: u32,
+    /// Essais permis avant le retour au lobby ([`CONNECT_ATTEMPTS`]).
+    pub max_attempts: u32,
+    pub timeout_secs: f32,
+    /// URL de salle à rouvrir pour une nouvelle tentative ; `None` en allumette (URL à jeton,
+    /// flux HTTP à refaire : directement le retour au lobby) et sur le web.
+    pub retry_url: Option<String>,
+    /// Attente (s) du pair vu le plus ancien, `None` sans pair en attente.
+    pub pending_secs: Option<f32>,
+    pub notice: Option<(ConnectNotice, bevy::platform::time::Instant)>,
+    /// L'apparition d'un pair vu par le signaling est déjà journalisée pour ce socket.
+    announced: bool,
+}
+
+impl Default for LobbyConnectWatch {
+    fn default() -> Self {
+        Self {
+            sightings: SharedSightings::default(),
+            attempt: 0,
+            max_attempts: CONNECT_ATTEMPTS,
+            timeout_secs: CONNECT_TIMEOUT_SECS,
+            retry_url: None,
+            pending_secs: None,
+            notice: None,
+            announced: false,
+        }
+    }
+}
+
+impl LobbyConnectWatch {
+    /// Un socket neuf s'ouvre (`attempt` : son rang) : sightings vierges, délai relu.
+    fn begin(&mut self, attempt: u32, retry_url: Option<String>) {
+        self.sightings = SharedSightings::default();
+        self.attempt = attempt;
+        self.timeout_secs = secs_from_env(CONNECT_TIMEOUT_ENV, CONNECT_TIMEOUT_SECS);
+        self.max_attempts = match std::env::var(CONNECT_ATTEMPTS_ENV) {
+            Err(_) => CONNECT_ATTEMPTS,
+            Ok(value) => value.parse::<u32>().ok().filter(|n| *n >= 1).unwrap_or_else(|| {
+                warn!("{CONNECT_ATTEMPTS_ENV}={value:?} invalide (entier >= 1 attendu), {CONNECT_ATTEMPTS} gardés");
+                CONNECT_ATTEMPTS
+            }),
+        };
+        self.retry_url = retry_url;
+        self.pending_secs = None;
+        self.announced = false;
+    }
+}
+
+/// Valeur en secondes (> 0) de la variable d'environnement `name`, sinon `default` (avec un
+/// `warn!` si elle est invalide).
+fn secs_from_env(name: &str, default: f32) -> f32 {
+    match std::env::var(name) {
+        Err(_) => default,
+        Ok(value) => value
+            .parse::<f32>()
+            .ok()
+            .filter(|secs| *secs > 0.0)
+            .unwrap_or_else(|| {
+                warn!("{name}={value:?} invalide (secondes > 0 attendues), {default} s gardées");
+                default
+            }),
+    }
+}
+
+/// L'attente d'un pair vu par le signaling a atteint le délai.
+pub fn connect_timed_out(waited: std::time::Duration, timeout_secs: f32) -> bool {
+    waited.as_secs_f32() >= timeout_secs
+}
+
+/// Nouvelle tentative tant qu'il en reste (`max_attempts`) et qu'une URL de salle est rouvrable,
+/// sinon retour au lobby.
+pub fn connect_timeout_action(
+    attempt: u32,
+    max_attempts: u32,
+    can_retry: bool,
+) -> ConnectTimeoutAction {
+    if can_retry && attempt < max_attempts {
+        ConnectTimeoutAction::Retry
+    } else {
+        ConnectTimeoutAction::ToLobby
+    }
+}
+
+/// Ligne d'état de l'écran du lobby : avis d'une tentative abandonnée (`notice`, âge en secondes),
+/// sinon attente lente d'un pair vu par le signaling (`pending_secs`), sinon rien.
+pub fn connect_status_text(
+    pending_secs: Option<f32>,
+    notice: Option<(ConnectNotice, f32)>,
+) -> Option<String> {
+    match notice {
+        Some((ConnectNotice::Retrying { attempt, of }, age)) if age < CONNECT_NOTICE_SECS => {
+            return Some(format!(
+                "Peer connection failed: new attempt ({attempt}/{of})"
+            ))
+        }
+        Some((ConnectNotice::BackToLobby { attempts }, age)) if age < CONNECT_NOTICE_SECS => {
+            return Some(format!(
+                "Peer connection failed after {attempts} attempt(s): back to the lobby"
+            ))
+        }
+        _ => {}
+    }
+    pending_secs
+        .filter(|secs| *secs >= CONNECT_SLOW_SECS)
+        .map(|secs| format!("Connecting to peer... {secs:.0} s"))
+}
+
+/// Socket matchbox sur `url`. En natif, son signaller note dans `watch.sightings` les pairs que
+/// le serveur annonce (D109).
+fn build_socket(
+    url: String,
+    ice_server: RtcIceServerConfig,
+    watch: &LobbyConnectWatch,
+) -> MatchboxSocket {
+    let builder = WebRtcSocketBuilder::new(url)
+        .ice_server(ice_server)
+        .add_channel(channel_config());
+    #[cfg(not(target_arch = "wasm32"))]
+    let builder = builder.signaller_builder(std::sync::Arc::new(
+        crate::jjrs::signal_watch::ObservedSignallerBuilder {
+            sightings: watch.sightings.clone(),
+        },
+    ));
+    #[cfg(target_arch = "wasm32")]
+    let _ = watch;
+    MatchboxSocket::from(builder.build())
+}
+
 pub fn start_matchbox_socket(
     mut commands: Commands,
     ggrs_config: Res<GggrsSessionConfiguration>,
@@ -77,6 +328,7 @@ pub fn start_matchbox_socket(
         Res<crate::jjrs::browser::BrowserSession>,
     >,
     #[cfg(not(target_arch = "wasm32"))] allumette: Option<Res<AllumetteConfig>>,
+    mut watch: ResMut<LobbyConnectWatch>,
 ) {
     // Mode allumette : URL ws(s)://hôte/JWT et ICE reçus de l'API (`/ice-servers`),
     // au lieu de `{matchbox_url}/{lobby}` et du STUN en dur. Le builder matchbox
@@ -118,12 +370,18 @@ pub fn start_matchbox_socket(
         default_ice_server(),
     );
 
-    let socket = WebRtcSocketBuilder::new(url)
-        .ice_server(ice_server)
-        .add_channel(ChannelConfig::reliable())
-        .build();
-
-    commands.insert_resource(MatchboxSocket::from(socket));
+    let retry_url = {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            allumette.is_none().then(|| url.clone())
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            None::<String>
+        }
+    };
+    watch.begin(1, retry_url);
+    commands.insert_resource(build_socket(url, ice_server, &watch));
 
     info!(
         "start p2p connection with CID={} (salle {room})",
@@ -132,12 +390,15 @@ pub fn start_matchbox_socket(
 }
 
 /// Ouvre un socket matchbox sur `{matchbox_url}/{room}` (chemin `--matchbox`).
-fn open_matchbox_socket(commands: &mut Commands, matchbox_url: &str, room: &str) {
-    let socket = WebRtcSocketBuilder::new(format!("{matchbox_url}/{room}"))
-        .ice_server(default_ice_server())
-        .add_channel(ChannelConfig::reliable())
-        .build();
-    commands.insert_resource(MatchboxSocket::from(socket));
+fn open_matchbox_socket(
+    commands: &mut Commands,
+    watch: &mut LobbyConnectWatch,
+    matchbox_url: &str,
+    room: &str,
+) {
+    let url = format!("{matchbox_url}/{room}");
+    watch.begin(1, Some(url.clone()));
+    commands.insert_resource(build_socket(url, default_ice_server(), watch));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -153,6 +414,7 @@ pub fn wait_for_players(
     mut games: ResMut<OnlineGames>,
     previous: Res<PreviousSessionPeers>,
     mut ignored_logged: Local<BTreeSet<PeerId>>,
+    mut watch: ResMut<LobbyConnectWatch>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -173,7 +435,12 @@ pub fn wait_for_players(
             );
             commands.remove_resource::<OnlineRestart>();
             games.0 = 0;
-            open_matchbox_socket(&mut commands, &ggrs_config.matchbox_url, &ggrs_config.lobby);
+            open_matchbox_socket(
+                &mut commands,
+                &mut watch,
+                &ggrs_config.matchbox_url,
+                &ggrs_config.lobby,
+            );
             return;
         }
     }
@@ -195,7 +462,20 @@ pub fn wait_for_players(
                     info!("peer {peer} d'une session précédente ignoré (D86)");
                 }
             }
-            PeerState::Connected => info!("peer {peer} connected"),
+            PeerState::Connected => {
+                let seen_for = watch
+                    .sightings
+                    .lock()
+                    .ok()
+                    .and_then(|s| s.waited(&peer, bevy::platform::time::Instant::now()));
+                match seen_for {
+                    Some(waited) => info!(
+                        "peer {peer} connected (vu par le signaling depuis {:.2} s)",
+                        waited.as_secs_f32()
+                    ),
+                    None => info!("peer {peer} connected"),
+                }
+            }
             PeerState::Disconnected => info!("peer {peer} disconnected"),
         }
     }
@@ -210,8 +490,85 @@ pub fn wait_for_players(
             players.len(),
             num_players
         );
+        // D109 : un pair vu par le signaling qui ne se connecte jamais.
+        let connected: BTreeSet<PeerId> = socket.connected_peers().collect();
+        let pending = watch.sightings.lock().ok().and_then(|sightings| {
+            sightings.pending(
+                bevy::platform::time::Instant::now(),
+                &connected,
+                &previous.0,
+            )
+        });
+        watch.pending_secs = pending.map(|(_, waited)| waited.as_secs_f32());
+        if pending.is_some() && !watch.announced {
+            watch.announced = true;
+            info!("pair(s) vu(s) par le signaling, connexion en cours (D109)");
+        }
+        if let Some((pending_count, waited)) =
+            pending.filter(|(_, waited)| connect_timed_out(*waited, watch.timeout_secs))
+        {
+            let action = connect_timeout_action(
+                watch.attempt,
+                watch.max_attempts,
+                watch.retry_url.is_some(),
+            );
+            // `ggrs{…}` sans identifiant de pair : comparable (grep) d'un client à l'autre.
+            warn!(
+                "ggrs{{f=0 lobby_connect_timeout attempt={}/{} action={} waited_secs={:.1} pending={pending_count} connected={}}} pair vu par le signaling, jamais connecté : {}",
+                watch.attempt,
+                watch.max_attempts,
+                match action {
+                    ConnectTimeoutAction::Retry => "retry",
+                    ConnectTimeoutAction::ToLobby => "lobby",
+                },
+                waited.as_secs_f32(),
+                players.len(),
+                match action {
+                    ConnectTimeoutAction::Retry => "nouvelle tentative",
+                    ConnectTimeoutAction::ToLobby => "retour au lobby",
+                }
+            );
+            let now = bevy::platform::time::Instant::now();
+            match action {
+                ConnectTimeoutAction::Retry => {
+                    let attempt = watch.attempt + 1;
+                    let url = watch.retry_url.clone().expect("retry sans URL de salle");
+                    watch.begin(attempt, Some(url.clone()));
+                    watch.notice = Some((
+                        ConnectNotice::Retrying {
+                            attempt,
+                            of: watch.max_attempts,
+                        },
+                        now,
+                    ));
+                    commands.insert_resource(build_socket(url, default_ice_server(), &watch));
+                }
+                ConnectTimeoutAction::ToLobby => {
+                    watch.notice = Some((
+                        ConnectNotice::BackToLobby {
+                            attempts: watch.attempt,
+                        },
+                        now,
+                    ));
+                    commands.remove_resource::<OnlineRestart>();
+                    games.0 = 0;
+                    app_state.set(AppState::LobbyOnline);
+                }
+            }
+        }
         return; // wait for more players
     }
+    if players.len() > num_players {
+        // Un pair de trop : le socket d'une partie finissante de l'autre pair (D86), pas encore parti de
+        // la salle. Construire la session avec lui dépasserait `max_player` (panique) : on attend son départ.
+        info!(
+            "Too many peers: {}/{} connected, waiting for a stale socket to leave",
+            players.len(),
+            num_players
+        );
+        return;
+    }
+    watch.pending_secs = None;
 
     if !session_state.ready {
         info!(
@@ -341,6 +698,7 @@ pub fn system_after_map_loaded(
     hub: Option<Res<crate::hub::HubSession>>,
     restart: Option<Res<OnlineRestart>>,
     mut previous: ResMut<PreviousSessionPeers>,
+    mut current: ResMut<CurrentSessionPeers>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Online) {
         return;
@@ -354,12 +712,15 @@ pub fn system_after_map_loaded(
 
     let players = live_players(socket.players(), &previous.0);
     // D86 : les pairs de cette session ne seront plus jamais des pairs du prochain lobby.
-    previous
-        .0
-        .extend(players.iter().filter_map(|player| match player {
+    let remote_peers: BTreeSet<PeerId> = players
+        .iter()
+        .filter_map(|player| match player {
             PlayerType::Remote(id) => Some(*id),
             _ => None,
-        }));
+        })
+        .collect();
+    previous.0.extend(remote_peers.iter().copied());
+    current.0 = remote_peers;
 
     for (i, player) in players.into_iter().enumerate() {
         session_builder = session_builder
@@ -465,22 +826,14 @@ pub fn sync_timed_out(waited: Option<std::time::Duration>, timeout_secs: f32) ->
 /// `OnEnter(InGame)` : une session neuve repart d'une surveillance vierge.
 pub fn reset_sync_watch(mut watch: ResMut<SessionSyncWatch>) {
     watch.since = None;
-    watch.timeout_secs = match std::env::var(SYNC_TIMEOUT_ENV) {
-        Err(_) => SYNC_TIMEOUT_SECS,
-        Ok(value) => value
-            .parse::<f32>()
-            .ok()
-            .filter(|secs| *secs > 0.0)
-            .unwrap_or_else(|| {
-                warn!("{SYNC_TIMEOUT_ENV}={value:?} invalide (secondes > 0 attendues), {SYNC_TIMEOUT_SECS} s gardées");
-                SYNC_TIMEOUT_SECS
-            }),
-    };
+    watch.timeout_secs = secs_from_env(SYNC_TIMEOUT_ENV, SYNC_TIMEOUT_SECS);
 }
 
-/// Session p2p restée en `Synchronizing` plus de [`SessionSyncWatch::timeout_secs`] : abandon et
-/// retour au lobby (`RunRequest::ToLobby`, qui ferme le socket ; ses pairs deviennent des
+/// Session p2p restée en `Synchronizing` plus de [`SessionSyncWatch::timeout_secs`], ou dont un
+/// pair a quitté la salle (D109 : sans issue, ce pair ne revient pas) : abandon et retour au lobby
+/// (`RunRequest::ToLobby`, qui ferme le socket ; ses pairs deviennent des
 /// [`PreviousSessionPeers`] du prochain lobby).
+#[allow(clippy::too_many_arguments)]
 pub fn abandon_unsynchronized_session(
     mut commands: Commands,
     online_state: Res<OnlineState>,
@@ -488,6 +841,8 @@ pub fn abandon_unsynchronized_session(
     frame: Res<utils::frame::FrameCount>,
     request: Option<Res<crate::run_state::RunRequest>>,
     mut watch: ResMut<SessionSyncWatch>,
+    socket: Option<ResMut<MatchboxSocket>>,
+    current: Res<CurrentSessionPeers>,
 ) {
     if !matches!(*online_state, OnlineState::Online) || request.is_some() {
         return;
@@ -501,6 +856,21 @@ pub fn abandon_unsynchronized_session(
     if session.current_state() != bevy_ggrs::ggrs::SessionState::Synchronizing {
         watch.since = None;
         return;
+    }
+    if let Some(mut socket) = socket {
+        if let Ok(changes) = socket.try_update_peers() {
+            if session_peer_left(&changes, &current.0) {
+                warn!(
+                    "ggrs{{f={} session_peer_left waited_secs={:.1} players={}}} pair de la session parti avant la synchronisation, abandon et retour au lobby",
+                    frame.frame,
+                    watch.since.map_or(0.0, |since| since.elapsed().as_secs_f32()),
+                    session.num_players()
+                );
+                watch.since = None;
+                commands.insert_resource(crate::run_state::RunRequest::ToLobby);
+                return;
+            }
+        }
     }
     let since = *watch
         .since
@@ -538,8 +908,9 @@ fn session_builder<C: ggrs::Config>(
     }
     Ok(ggrs::SessionBuilder::<C>::new()
         .with_num_players(config.max_player)?
-        .with_fps(crate::core::SIM_FPS as usize)?
+        .with_fps(crate::session::SIM_FPS as usize)?
         .with_max_prediction_window(MAX_PREDICTION_WINDOW)
+        .with_disconnect_timeout(disconnect_timeout())
         .with_desync_detection_mode(ggrs::DesyncDetection::On {
             interval: config.desync_interval,
         })

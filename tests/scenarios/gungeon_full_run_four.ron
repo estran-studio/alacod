@@ -1,12 +1,10 @@
 // D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : `loot_seed` / `curse_seed` reçoivent `fmix32` et le butin se tire par
-// Preuve d'achat (D95/D96) : `HasItem(gilet/roulade)` (objets vendus avant) est remplacé par le présentoir lu `Shelf(sold)` (non vendu avant l'achat, vendu après) et
-// `Consumable(blank)` du joueur acheteur (0 puis 1 ; indirect : un blank se ramasse aussi).
-// course pondérée (graine de carte 10 inchangée : carte et salles identiques, objets autres). Victoire f6091 (avant :
-// f6455). Attentes re-mesurées, aucune retirée ; écarts de sens : la clé est ramassée par le **joueur 2** (f2154, plus
-// le joueur 1 à f148) et c'est lui qui ouvre le coffre à clé (`double_canon`, f2716) ; l'arène du premier étage vient
-// avant l'escouade ; chaque boss tombe peu après sa phase 1 (phase 1 → 2 jamais observée ; mesure de PV : `gungeon_full_run`) :
-// `BossPhase` lue en phase 1 et l'événement « phase 1 → 2 » devient « phase 0 → 1 » ; coffre du second étage de
-// `joueur 2` à f3554 (rancune), achat de la boutique du second étage f4734.
+// course pondérée (graine de carte 10 inchangée : carte et salles identiques, objets autres). Preuve d'achat : le
+// présentoir lu `Shelf(sold)` (non vendu avant l'achat, vendu après) et `Consumable(blank)` du joueur acheteur (0 puis 1 ;
+// indirect : un blank se ramasse aussi) remplacent `HasItem(gilet/roulade)`. `BossPhase` lue en phase 1 et l'événement
+// « phase 1 → 2 » devient « phase 0 → 1 ». Les frames et les joueurs de ce paragraphe (victoire f6091, clé du joueur 2,
+// coffre à clé `double_canon` f2716) sont ceux d'AVANT les gabarits agrandis : voir « Gabarits agrandis » plus bas pour
+// l'état courant (victoire f6844, aucune clé consommée par les bots).
 // m2-full-run (docs/conventions.md §57, « Run complète de M2 ») : la même run que `gungeon_full_run`
 // (graine 10, `etages_deux`, hub puis run, profil à trois déblocages, `shopping`) à QUATRE joueurs,
 // quatre bots `explorateur`, en synctest. Le gabarit `Depart` n'a que deux `PlayerSpawn` : les joueurs 2
@@ -23,7 +21,7 @@
 // f4012 SECOND ÉTAGE ; f4737-5487 la seconde arène ; f5826-5855 boutique ; f5954 le joueur 2 ouvre un coffre
 // (rancune) ; f6238-6331 la seconde escouade ; f6778 le second boss, phase 1 f6814, f6844 VICTOIRE des quatre joueurs.
 //
-// Gabarits agrandis (docs/conventions.md §40) et bot `explorateur` à décisions `steady` : toute la run est
+// Gabarits agrandis (docs/conventions.md §40) et bot `explorateur` à décisions de la politique `games/gungeon/assets/bot.ron` : toute la run est
 // re-chronométrée (victoire f6844, avant f6091). Écarts de sens : la clé n'est plus consommée (aucun coffre à clé
 // ouvert : `Consumable(key)` reste à 1 chez le joueur 0, qui ouvre le coffre libre de f645) ; l'achat en boutique
 // du premier étage est un trèfle (présentoir 1) et la preuve du blank est son ramassage par le joueur 1 ; boss
@@ -36,6 +34,8 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    // Politique de l'explorateur de gungeon (`games/gungeon/assets/bot.ron`, §79) : détour borné, élan anticipé, patience, armes selon la réserve.
+    explorer: Some((detour: (optional: Some(600), last_stretch: Some(200)), lead: true, oscillation: Patience, weapon_reserve: true)),
     map: "maps/etage_1.ldtk",
     floors: Some("etages_deux"),
     map_seed: 10,
@@ -85,7 +85,8 @@ Scenario(
         Event(kind: "blank", label_contains: "joueur 3", by_frame: 157),
         Event(kind: "item_pickup", label_contains: "key", by_frame: 198),
         Consumable(handle: 0, id: "key", count: 1, at_frame: 2200),
-        // Arène tenue, boutique, coffre à clé (la clé du joueur 1 est consommée).
+        // Arène tenue, boutique, clé : le joueur 0 garde la sienne (aucun coffre à clé ouvert par les bots depuis les gabarits
+        // agrandis ; la consommation d'une clé est attestée par `gungeon_key_chest`).
         Event(kind: "arena", label_contains: "tenue (750 frames)", by_frame: 2718),
         Shelf(nth: 1, sold: Some(false), at_frame: 1700),
         Shelf(nth: 1, sold: Some(true), at_frame: 1760),
@@ -101,7 +102,7 @@ Scenario(
         Event(kind: "portal", by_frame: 3596),
         FloorIndex(index: 0, at_frame: 3800),
         FloorIndex(index: 1, at_frame: 4100),
-        // Second étage (événements postérieurs à l'arrivée f3424) : coffre, boutique, arène, boss.
+        // Second étage (événements postérieurs à l'arrivée f4012) : coffre, boutique, arène, boss.
         EventAfter(kind: "chest", label_contains: "joueur 2 ouvre", after_frame: 4012, by_frame: 5955),
         EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 4012, by_frame: 5856),
         EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 4012, by_frame: 5488),

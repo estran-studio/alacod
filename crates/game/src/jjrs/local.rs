@@ -1,40 +1,21 @@
 use std::net::SocketAddr;
 
-use animation::SpriteSheetConfig;
-use bevy::{
-    color::palettes::{
-        css::TURQUOISE,
-        tailwind::{ORANGE_300, PURPLE_300},
-    },
-    prelude::*,
-};
-use bevy_fixed::{
-    fixed_math,
-    rng::{RngStreams, RunSeed},
-};
+use bevy::prelude::*;
+use bevy_fixed::rng::{RngStreams, RunSeed};
 use bevy_ggrs::{ggrs::PlayerType, prelude::*};
-use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
 use content::manifest::GameManifest;
 use content::registry::Registry;
 use ggrs::UdpNonBlockingSocket;
-use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use map::generation::config::MapGenerationConfig;
 use run::Run;
-use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
-    character::{
-        config::CharacterConfig,
-        enemy::spawning::EnemySpawnerState,
-        player::{create::create_player, jjrs::PeerConfig},
-    },
-    collider::{spawn_test_wall, CollisionSettings},
-    core::{AppState, OnlineState},
-    global_asset::GlobalAsset,
+    character::player::jjrs::PeerConfig,
+    collider::spawn_test_wall,
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
-    weapons::WeaponsConfig,
+    session::{AppState, OnlineState},
 };
 
 pub fn setup_ggrs_local(

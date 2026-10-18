@@ -11,7 +11,7 @@
 // f7315) : `BossPhase` lue en phase 1 (un seul passage de phase à relire) et l'événement « phase 1 → 2 » devient
 // « phase 0 → 1 ». Frames : escouade f2312-2423, arène 1290-2040, boss f3310 / f3354, étage 2 f3549, arène 6052-6802,
 // boss f7126 / f7279, victoire f7316.
-// Re-chronométrage (2026-10-18, gabarits de salles agrandis, `ExplorerOptions::steady`) : les bots jouent d'autres
+// Re-chronométrage (2026-10-18, gabarits de salles agrandis, politique `games/gungeon/assets/bot.ron`) : les bots jouent d'autres
 // frames et d'autres salles. Attentes re-mesurées, aucune retirée ; écarts de sens : (1) aucun coffre à clé n'est
 // ouvert (la clé ramassée f246 n'est jamais consommée : `Consumable(key)` reste à 1) et plus aucun coffre d'arme
 // (`double_canon`, `lance_flammes`) : les coffres donnent `bastion` (f698, joueur 1) puis, au second étage,
@@ -56,6 +56,8 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
+    // Politique de l'explorateur de gungeon (`games/gungeon/assets/bot.ron`, §79) : détour borné, élan anticipé, patience, armes selon la réserve.
+    explorer: Some((detour: (optional: Some(600), last_stretch: Some(200)), lead: true, oscillation: Patience, weapon_reserve: true)),
     map: "maps/etage_1.ldtk",
     floors: Some("etages_deux"),
     map_seed: 10,
@@ -118,7 +120,8 @@ Scenario(
         // Objets de coffre tenus : bastion (coffre f698, joueur 1) ; rancune (coffre de l'étage 2 f6256, joueur 0).
         HasItem(handle: 1, id: "bastion", at_frame: 4300),
         HasItem(handle: 0, id: "rancune", at_frame: 6300),
-        // Clé : plus aucun coffre à clé ouvert (coffres sans clé), la clé reste au joueur 0.
+        // Clé : les bots n'ouvrent plus de coffre à clé (la limite de détour écarte la salle de récompense), la clé reste au joueur 0 ;
+        // la consommation d'une clé par un coffre est attestée par `gungeon_key_chest`.
         Consumable(handle: 0, id: "key", count: 1, at_frame: 2810),
         EventAfter(kind: "chest", label_contains: "bastion", after_frame: 600, by_frame: 699),
         Consumable(handle: 0, id: "key", count: 1, at_frame: 2830),

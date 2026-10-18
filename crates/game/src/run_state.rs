@@ -65,8 +65,8 @@ use crate::{
         enemy::{ai::navigation::FlowFieldCache, Enemy},
         player::{jjrs::PeerConfig, Player},
     },
-    core::{AppState, OnlineState},
     economy::{award_points_system, RepairPointsTracking},
+    session::{AppState, OnlineState},
     system_set::RollbackSystemSet,
     waves::WaveState,
 };

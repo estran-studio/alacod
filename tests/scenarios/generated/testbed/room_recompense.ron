@@ -19,6 +19,26 @@ Scenario(
             at_frame: 119,
         ),
     ],
+    explorer: ExplorerPolicy(
+        shopping: false,
+        shop: Nearest,
+        detour: Detour(
+            shells: None,
+            optional: None,
+            last_stretch: None,
+        ),
+        lead: false,
+        weapon_reserve: false,
+        devil: Never,
+        bombs: BombPolicy(
+            secret: false,
+            secret_min_neighbours: 2,
+            rocks: false,
+            reserve: 0,
+        ),
+        oscillation: Off,
+        combat_aware: false,
+    ),
     powerup_drop_chance_override: "0",
     floors: "salle_combat",
 )

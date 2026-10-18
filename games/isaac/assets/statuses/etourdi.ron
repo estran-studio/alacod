@@ -1,0 +1,2 @@
+// `isaac` (M3-T11d2, docs/conventions.md §76.5) : copie du statut `etourdi` du testbed (§19) : ni déplacement ni tir pendant 60 frames (réappliqué : rafraîchi), posé par l'`on_hit` de `massue`.
+(kind: Stun, frames: 60)

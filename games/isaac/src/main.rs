@@ -5,9 +5,7 @@ use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use game::content_hot_reload::GameRoot;
 use game::{
-    args::BaseArgsPlugin,
-    core::{CoreSetupConfig, CoreSetupPlugin},
-    waves::WaveModeEnabled,
+    args::BaseArgsPlugin, core::CoreSetupPlugin, session::CoreSetupConfig, waves::WaveModeEnabled,
 };
 use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
@@ -80,6 +78,7 @@ fn main() -> AppExit {
             map_path: manifest.entry.start_map.clone(),
             seed: manifest.entry.default_seed,
         }))
-        .insert_resource(WaveModeEnabled(wave_mode))
-        .run()
+        .insert_resource(WaveModeEnabled(wave_mode));
+    // `--seed <n>` (graine de carte explicite, preuves p2p) : `map_ldtk::game::local::apply_launch_seed`.
+    app.run()
 }

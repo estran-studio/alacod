@@ -1082,6 +1082,16 @@ struct FloorsFileSchema {
     curses: Option<run::CurseConfig>,
 }
 
+/// `wall_art` d'un `ui/hud.ron` (m2-salles-murs-gungeon), pour le lint.
+#[derive(Debug, Clone)]
+pub struct HudWallArt {
+    pub file: PathBuf,
+    pub layer: String,
+    pub atlas: String,
+    pub tile: Option<u32>,
+    pub columns: Option<u32>,
+}
+
 #[derive(Debug, Clone)]
 pub struct MapEntry {
     pub id: MapId,
@@ -1121,6 +1131,8 @@ pub struct MapLevelInfo {
     pub surface_values: BTreeSet<u8>,
     /// M3-T12 : valeurs non nulles de la couche `Rocks` autres que 1 et 2 (ignorées au chargement).
     pub rock_other_values: BTreeSet<u64>,
+    /// Identifiants des couches IntGrid du niveau (lint de `wall_art.layer`).
+    pub int_grid_layers: BTreeSet<String>,
 }
 
 /// Couche `LevelConnection` d'un niveau : `open[y * width + x]` est vrai si la case vaut 1
@@ -1313,6 +1325,14 @@ fn ldtk_level_infos(text: &str) -> Vec<MapLevelInfo> {
             ..Default::default()
         };
         for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            if layer["__type"] == "IntGrid" {
+                info.int_grid_layers.insert(
+                    layer["__identifier"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                );
+            }
             if layer["__identifier"] == "LevelConnection" {
                 let width = layer["__cWid"].as_u64().unwrap_or(0) as usize;
                 let height = layer["__cHei"].as_u64().unwrap_or(0) as usize;
@@ -1704,7 +1724,7 @@ pub struct Registry {
     /// Sprites cités par la légende (`legend`) de chaque `ui/hud.ron` (fiche m2-lisibilite-gungeon).
     pub hud_legend_sprites: Vec<(PathBuf, Vec<String>)>,
     /// Feuille des murs (`wall_art`) de chaque `ui/hud.ron` qui en déclare une (m2-salles-murs-gungeon).
-    pub hud_wall_art: Vec<(PathBuf, String, Option<u32>, Option<u32>)>,
+    pub hud_wall_art: Vec<HudWallArt>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -2146,6 +2166,8 @@ struct ChampionTestSchema {
 /// Mirroir de `game::gen_test::BossFightTest`.
 #[derive(schemars::JsonSchema, Deserialize)]
 struct BossFightSchema {
+    #[serde(default)]
+    room: Option<String>,
     #[serde(default)]
     floors: Option<String>,
     #[serde(default)]
@@ -4349,12 +4371,13 @@ fn load_ui(
                     .collect();
                 registry.hud_legend_sprites.push((rel.clone(), sprites));
                 if let Some(art) = &hud.wall_art {
-                    registry.hud_wall_art.push((
-                        rel.clone(),
-                        art.atlas.clone(),
-                        art.tile,
-                        art.columns,
-                    ));
+                    registry.hud_wall_art.push(HudWallArt {
+                        file: rel.clone(),
+                        layer: art.layer.clone(),
+                        atlas: art.atlas.clone(),
+                        tile: art.tile,
+                        columns: art.columns,
+                    });
                 }
             })
         } else {

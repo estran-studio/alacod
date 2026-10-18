@@ -1,0 +1,12 @@
+// Étage court du second boss d'`isaac` (M3-T11d2, docs/conventions.md §76.5) : un départ, un combat, le boss `colosse` (type `boss_profond`, gabarit 1x1 ou 2x2 de
+// `maps/salles.ldtk`), sur une grille de 3 x 3 cases de salle, comme `sous_sol_court` pour le `gardien`. Le scénario généré `boss_colosse` le joue.
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (3, 3),
+        required: {"boss_profond": 1},
+        boss: "boss_profond",
+        min_boss_distance: 2,
+        layout: Some(Grid(cell: (15, 9), max: (3, 3))),
+    ),
+)

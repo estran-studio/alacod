@@ -26,12 +26,12 @@ Ce n'est pas une tâche de session cloud (pas de Docker).
 | Sous-point | État |
 |---|---|
 | 1. 2 puis 4 clients, transition d'étage, rollbacks réels | **fait** (une machine) |
-| 2. Deux machines x86 / arm64 | **non fait** : `scripts/p2p-machine.sh` préparé (exige `FRAMES-1` lignes contiguës), jamais lancé entre deux machines |
+| 2. Deux machines x86 / arm64 | **fait** (m2-p2p-deux-machines, 2026-10-18) : VPS x86-64 contre Mac arm64, gungeon graine 10 (étage f3502), isaac (étage f2922), 4 clients (2 par machine, étage f3369) : traces identiques, 0 `DesyncDetected`, frames resimulées des deux côtés dans `gung-e` et `isa-c` (le VPS, plus en retard que le Mac, n'en resimule pas dans 3 des 8 parties) ; D73 confirmée fausse alerte (rapport `m2-p2p-deux-machines.md`) |
 | 3. Restart en ligne après la fin de run | **fait** à 2 clients (victoire f7138) et à **4 clients** (victoire f6374) |
 | 3. Boucle hub → run → victoire → hub | **faite** à 2 clients (victoire f7461, traces identiques) |
 | 3. Déconnexion d'un pair en cours d'étage | **faite** à 2 et 4 clients |
 | 3. Retour au lobby en ligne après la fin de run | **fait** (dette-d86-lobby-en-ligne, 2026-10-17) : D86 corrigée (pairs de la session finie ignorés + abandon d'une session non synchronisée), **5/5 essais consécutifs** à 208–338 ms d'écart sur zombies et à 126–300 ms sur gungeon après la victoire, traces identiques, binaire d'avant rouge au 1er essai |
-| 4. Réseau dégradé | **fait** pour RTT 120 ms / jitter 20 ms / perte 1 % ; 3 % de perte déconnecte (D87, à mesurer) ; profondeur et fréquence des rollbacks **mesurées** (rapport §8 : 16 à 19 rollbacks par 100 frames sans stress, profondeur médiane 1 en local et 3 sous netem, maximum 11) |
+| 4. Réseau dégradé | **fait** pour RTT 120 ms / jitter 20 ms / perte 1 % ; 3 % de perte déconnectait (D87 : mesurée et fermée le 2026-10-18, `disconnect_timeout` 5 s) ; profondeur et fréquence des rollbacks **mesurées** (rapport §8 : 16 à 19 rollbacks par 100 frames sans stress, profondeur médiane 1 en local et 3 sous netem, maximum 11) |
 | 5. Nightly | **fait** (étape C2) ; nightly complet du 2026-10-17 : code 0, 18 924 s, mais C (allumette) SKIPPED et D (vidéos) PARTIAL sur ce poste (D94) ; le réseau dégradé n'y est couvert que si `NIGHTLY_GUNGEON_NETEM` est défini (sinon « netem SKIPPED ») |
 
-D59 fermée ; D85 fermée (délai d'input) ; D86 fermée (2026-10-17) ; D87 ouverte (reformulée : mesurer) ; D94 ouverte (nightly sans affichage ni allumette). Reste pour la sortie M2 : les deux machines (point 2).
+D59 fermée ; D85 fermée (délai d'input) ; D86 fermée (2026-10-17) ; D87 fermée (2026-10-18) ; D94 ouverte (nightly sans affichage ni allumette). D109 ouverte (connexion jamais établie sous perte). Reste pour la sortie M2 : la revue humaine ; plus rien côté machine.

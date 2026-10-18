@@ -1,0 +1,42 @@
+// `isaac` (M3-T11d2, §76.5) : tireur au sol lent à éventail. Garde 80 à 140 unités (`KeepDistance`), lâche cinq crachats en éventail exact (`gerbe`, 18 frames de télégraphe, toutes les 240 frames) à moins de 240 unités ; comme `cracheur`, il ne sent le joueur qu'à 120 unités (`aggro_range`) mais le cible en ligne de vue dégagée jusqu'à 300 (`sight_range`, D66). Posé dans `CombatPiques` et `CombatLong` ; renfort du boss `colosse` (phase 2).
+(
+    movement: (
+        acceleration: "100.0",
+        max_speed: "30.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "arroseur",
+
+    collider: (
+        shape: Rectangle(width: "18.", height: "18."),
+        offset: ( x: "0.0", y: "-4.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (max: "8.0"),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("120.0"),
+        sight_range: Some("300.0"),
+        attack_range: Some("0.0"),
+        behaviors: Some([
+            Shoot(weapon: "arsenal", pattern: "gerbe", range: "240.0", cooldown_frames: 240),
+            KeepDistance(min: "80.0", max: "140.0"),
+            Chase(profile: "Ground"),
+        ]),
+    )),
+    test: Some((frames: 600)),
+)

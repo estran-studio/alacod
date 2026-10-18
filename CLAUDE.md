@@ -168,7 +168,7 @@ Si les logs contiennent des Entity IDs, le diff montrera des différences même 
 
 Une entité rollback détruite par `despawn()` puis ramenée par un rollback (synctest, prédiction
 p2p ratée) est **respawnée avec ses seuls composants rollback** : sans `Sprite`, sans
-`CharacterConfigHandles`, etc. Elle devient invisible aux systèmes qui exigent ces composants
+`CharacterConfigKey`, etc. Elle devient invisible aux systèmes qui exigent ces composants
 (ex. `move_enemies`), ce qui change la séparation de ses voisins et fait diverger la simulation.
 
 ```rust
@@ -306,6 +306,18 @@ simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, 
 `map`…) ne doivent jamais importer `bevy_render`, `bevy_winit`, `bevy_asset`, `bevy_audio`,
 `bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
 
+**Contenu lu par la simulation** (D69 étape 2, en cours) : la cible est zéro `Res<Assets<T>>` et zéro `Handle<T>` dans un système de
+`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a) et les armes (E3b), pas encore pour `GlobalAsset` (E3d).
+La simulation lit une **ressource de donnée** (`BTreeMap`) remplie par
+l'application : `CharacterConfigs` (E3a, `character/config.rs`) à partir de l'enveloppe `CharacterConfigAsset`
+(`character/config_asset.rs`), `WeaponRegistry` (E3b, `weapons.rs` : `weapons` et `melee`) à partir des enveloppes `WeaponsConfig` /
+`MeleeWeaponsConfig` (`weapon_assets.rs`), chacune par un système `PreUpdate.before(bevy_ggrs::RunGgrsSystems)` qui copie ce qui manque
+(`WeaponRegistry` : une table vide) et recopie sur `AssetEvent::Modified` (rechargement à chaud). Un personnage porte
+`CharacterConfigKey(String)` (non rollback), pas un handle. Une surcharge de scénario se pose **sur la ressource**, après la synchro
+(`apply_weapon_overrides` écrit dans `WeaponRegistry`). Les replis des lecteurs (`continue`,
+vitesse de repli, défauts de santé, arme inconnue ignorée par un `warn!`) masquent un registre vide : tester la ressource elle-même
+(`crates/scenario/tests/character_configs.rs`, `crates/scenario/tests/weapon_registry.rs`).
+
 ## Headless, trace d'état et déterminisme
 
 Variables d'environnement (natif) :
@@ -317,6 +329,9 @@ Variables d'environnement (natif) :
   arrêt ; avec `neutral`, les prédictions sont toujours justes et rien n'est resimulé).
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
   de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
+- `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` et `ALACOD_P2P_CHANNEL=unreliable` (natif, mesures D87) : remplacent le délai de
+  déconnexion GGRS (`p2p::DISCONNECT_TIMEOUT` = 5 s, 2 s avant D87) et ouvrent le canal non fiable (le jeu utilise le canal fiable ;
+  les deux pairs doivent avoir le même réglage). Matrice : `scripts/p2p-d87.sh`, silences : `scripts/p2p-silences.py`.
 - `ALACOD_STATE_TRACE=<fichier>` + `ALACOD_EXIT_AT_FRAME=<n>` : hash de l'état rollback à chaque frame,
   puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence. Le log
   final donne le nombre de frames resimulées après rollback (zéro en p2p = run sans valeur).
@@ -343,7 +358,9 @@ réel) ; `ALACOD_SYSTEM_PROFILE=1` ajoute le temps par `RollbackSystemSet` (plus
 reconstruit à chaque changement de case d'un joueur : 9 ms par frame avec quatre joueurs qui
 bougent) dans `docs/etat-engine.md`. Dans le runner de scénarios, `ALACOD_SYSTEM_PROFILE=1 ALACOD_SCENARIO=<nom>` imprime
 aussi `profil sets : …` (M3-T15, §80). Mesures du poste VPS (2026-10-17/18, M3-T15 ; `bench_tears` : 432 balles, pire rollback
-56 ms, dette D97) et budgets recalibrés au calme (D84 fermée le 2026-10-18, moitié/double de la pire de trois relevés) : `docs/taches/rapports/m3-t15-bench-larmes.md`.
+56 ms) et budgets recalibrés au calme (D84 fermée le 2026-10-18, moitié/double de la pire de trois relevés) : `docs/taches/rapports/m3-t15-bench-larmes.md`. Dette D97 : −54 % sur le
+pire rollback de `bench_tears` (Mac, relatif ; grille `CollisionGrids::targets`, guidage sans tri, `length*` en entiers au bit près),
+à confirmer sur le VPS : `docs/conventions.md` §80, `docs/taches/rapports/dette-d97-cout-larmes.md`.
 
 ### Frontière simulation/présentation (prouvée par la compilation)
 
@@ -358,6 +375,13 @@ va dans `game` (ou un crate `APP`), jamais dans un crate `SIM` : `combat` ne voi
 désérialisés (`WeaponAsset`, `MeleeWeaponAsset` ; leurs enveloppes `Asset` sont dans `game::weapons`),
 le sprite d'une balle est posé par `game::world_sprites::attach_bullet_visuals` (`Added<Bullet>`, à partir
 de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `sim_core::animation_state`.
+
+Étape 2 de D69 (plan `docs/taches/rapports/dette-d69-plan-etape2.md`, fiche `docs/taches/dette-d69-etape2.md`) :
+`make probe_game_sim` compile `game` en ECS seul dans une copie jetable et range les fuites par fichier (mesure de
+la dette tant que `game` est un crate) ; `make schedule_order_diff BASE=<réf>` prouve que l'ordre des systèmes du
+rollback (`ReadInputs`, `GgrsSchedule`, `AdvanceWorld`, `SaveWorld`, `LoadWorld`) et des types rollback n'a pas bougé
+(`crates/scenario/tests/schedule_order.rs`). À lancer à chaque refactoring qui déplace de la simulation d'un module
+ou d'un crate à l'autre, avec les traces de scénario.
 
 ## Scénarios (tests de comportement et de régression)
 
@@ -430,6 +454,15 @@ de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `s
       sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
       `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
       présentoir à vie maximale ou à consommable ; `Health`, `Stat(MaxHealth)` et `ExtraHealth` lisent le paiement.
+    - M3-T11d1 gabarits, boutique, curses, bombe de départ (§76.4) : aucune attente nouvelle (`EntityCount(kind: Rock)`, `Shelf`, `ShelfCount`,
+      `PoolCount`, `Curse`, `Consumable`, `ItemsOnFloor`, `Health`, `Event(kind: "explosion")` couvrent `isaac_shop_buy`, `isaac_bomb_rock`,
+      `isaac_spikes`) ; diagnostic ignoré `floor_probe` (`ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>`, plan d'un étage par graine).
+    - M3-T11d2 volume de Q1 (§76.5) : aucune attente nouvelle (`HasStatus`, `StatusStacks`, `Stat`, `EntityHits`, `EntityCount`, `FamiliarCount`, `FamiliarDistance`, `ExtraHealth`, `Health`, `BulletCount`,
+      `Event(kind: "boss_phase")` couvrent les 91 `item_*`, les `tears_*`, `familiar_*`, `enemy_*` et `boss_colosse`) ; pas d'attente `Shield` (D114).
+    - M3-T14 bot `explorateur` v3 pour `isaac` (§79) : aucune attente nouvelle (`DoorLocked`, `Consumable`, `Health`,
+      `ExtraHealth`, `Currency`, `Shelf`, `EntityCount(kind: Rock)`, `FloorIndex`, `Event` couvrent les dix scénarios
+      `bot_isaac_*`) ; moments clés `door_lock` (mur secret ou porte à clé ouverte), `bomb`, `shelf` ; champ de scénario
+      `Scenario::explorer` (politique du bot, `bot.ron` du jeu) ; `PlayerScript::bomb` et `items` donnent la bombe d'essai.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
@@ -538,15 +571,18 @@ docker compose up -d  # lance le serveur de signaling
 make test_multiplayer TARGET=ldtk_map_explorer N=4 MATCHBOX_URL=http://localhost:3536  # URL personnalisée
 ```
 
-Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
+Défaut : `MATCHBOX_URL=wss://allumette.estran.studio` (serveur cloud, `Makefile:22`).
 
 **Sans affichage (VPS, CI)** : les cibles `*_matchbox` ouvrent une fenêtre ; les scripts headless
 (`scripts/p2p-lib.sh` en commun) lancent le binaire `--profile headless` : `p2p-stress.sh` (N clients,
 rollbacks réels par SIGSTOP, `NETEM=…` pour un réseau dégradé sans root, `EXPECT_FLOORS` pour une
 transition d'étage), `p2p-restart.sh` (restart, lobby, hub), `p2p-disconnect.sh` (pair tué en cours
-de partie), `p2p-machine.sh` (un client par machine), `p2p-gungeon-inputs.sh` (inputs de bots
+de partie), `p2p-machine.sh` (un client par machine ; `STRESS=1` suspend le client, `MIN_RESIMULATED`), `p2p-d87.sh` (matrice netem des silences),
+`p2p-gungeon-inputs.sh` (inputs de bots
 `explorateur` figés pour les rejouer en p2p : `ALACOD_SKIP_HUB=1`, `--seed`). Détail, commandes et
-résultats : `docs/taches/rapports/m2-p2p-run-complete.md` et `docs/conventions.md` §57.
+résultats : `docs/taches/rapports/m2-p2p-run-complete.md`, `docs/taches/rapports/m2-p2p-deux-machines.md` (x86-64 contre arm64 :
+traces identiques ; D87) et `docs/conventions.md` §57. L'ancien nom `allumette.bascanada.org` ne résout plus (2026-10-18) ;
+un `matchbox_server 0.0.0.0:<port>` sur l'une des deux machines (`MATCHBOX_URL=ws://<ip>:<port>`) reste une option sans dépendre du serveur public.
 
 ### Vidéos (validation visuelle)
 `scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,

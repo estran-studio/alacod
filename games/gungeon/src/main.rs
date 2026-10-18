@@ -5,9 +5,7 @@ use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use game::content_hot_reload::GameRoot;
 use game::{
-    args::BaseArgsPlugin,
-    core::{CoreSetupConfig, CoreSetupPlugin},
-    waves::WaveModeEnabled,
+    args::BaseArgsPlugin, core::CoreSetupPlugin, session::CoreSetupConfig, waves::WaveModeEnabled,
 };
 use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
@@ -95,16 +93,6 @@ fn main() -> AppExit {
             in_hub: true,
         });
     }
-    // `--seed <n>` : graine de carte explicite (rejouer une graine de campagne de bots, preuves p2p :
-    // les deux pairs reçoivent la même). Sans elle, la graine du manifeste.
-    app.add_systems(Startup, apply_launch_seed);
+    // `--seed <n>` (graine de carte explicite, preuves p2p) : `map_ldtk::game::local::apply_launch_seed`.
     app.run()
-}
-
-/// `--seed` (`LaunchSeed`) remplace la graine du manifeste, en local comme en ligne.
-fn apply_launch_seed(launch: Res<game::args::LaunchSeed>, mut map: ResMut<LdtkGameMap>) {
-    if let Some(seed) = launch.0 {
-        map.seed = seed;
-        info!("gungeon : graine de carte imposée --seed {seed}");
-    }
 }

@@ -1,14 +1,15 @@
 // Grammaire d'étage de `isaac` (M3-T0f, docs/conventions.md §40 et §65, puis M3-T5, §70) : de 8 à 12
 // salles sur une grille de 7 x 7 cases de salle (15 x 9 cases de 16 px chacune, Q8). Un départ, un boss
 // en cul-de-sac à au moins 3 salles du départ (gabarits 1x1 ou 2x2), un trésor (1x1, 2x1 ou 1x2), une
-// salle secrète voisine d'au moins deux salles ordinaires (murée, ouverte à la bombe), une salle du
-// diable accrochée au boss une fois sur trois, une boucle au plus, le reste en salles de combat.
-// Gabarits : maps/salles.ldtk, généré par docs/taches/rapports/m3-t5-grammaire-grille.make_salles.py.
+// boutique (M3-T11d1, §76.4), une salle secrète voisine d'au moins deux salles ordinaires (murée, ouverte à
+// la bombe), une salle du diable accrochée au boss une fois sur trois, une boucle au plus, le reste en salles
+// de combat (neuf gabarits : rochers, rochers à butin, piques, grandes salles).
+// Gabarits : maps/salles.ldtk, généré par docs/taches/rapports/m3-t11d2-volume.make_salles.py (qui reprend et remplace celui de T11d1).
 (
     templates: "maps/salles.ldtk",
     grammar: (
         rooms: (8, 12),
-        required: {"boss": 1, "tresor": 1, "secrete": 1},
+        required: {"boss": 1, "tresor": 1, "secrete": 1, "boutique": 1},
         min_boss_distance: 3,
         layout: Some(Grid(
             cell: (15, 9),

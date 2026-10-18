@@ -1,0 +1,9 @@
+// M3-T11d2 : tuile 109 de `tiny_dungeon.png` (Idle, Run et mort : une seule image, pas d'animation dessinée), affichée par `tiny_boss_sheet.ron` (x3,5).
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 109, end: 109),
+        "Run": (start: 109, end: 109),
+        "Dying_1": (start: 109, end: 109),
+    },
+)

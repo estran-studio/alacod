@@ -27,14 +27,13 @@ use utils::{frame::FrameCount, net_id::GgrsNetId};
 use world::{Bomb, DoorLocks, Exploded};
 
 use crate::bombs::RockBroken;
-use crate::character::config::CharacterConfig;
+use crate::character::appearance::CharacterAppearance;
+use crate::character::config::CharacterConfigs;
 use crate::character::player::Player;
 use crate::character::variant::Variant;
-use crate::character::visuals::CharacterAppearance;
 use crate::familiars::{FamiliarBehaviors, FamiliarMotion};
 use crate::feedback::{FeedbackCue, FeedbackKind, FeedbackLog};
 use crate::frame_events::FrameEvents;
-use crate::global_asset::GlobalAsset;
 use behaviors::FamiliarOf;
 use items::{Inventory, ItemTable, SynergyTable};
 
@@ -318,12 +317,11 @@ pub fn parse_tint(tint: &str) -> Option<(f32, f32, f32)> {
 
 /// Teinte de la variante `variant` du personnage `config_name`, si la table en déclare une.
 pub fn variant_tint(
-    global: &GlobalAsset,
-    configs: &Assets<CharacterConfig>,
+    configs: &CharacterConfigs,
     config_name: &str,
     variant: &str,
 ) -> Option<(f32, f32, f32)> {
-    let config = configs.get(global.character_configs.get(config_name)?)?;
+    let config = configs.get(config_name)?;
     let tint = config
         .variants
         .as_ref()?
@@ -385,8 +383,7 @@ pub struct V3Inputs<'w, 's> {
     items: Option<Res<'w, ItemTable>>,
     synergies: Option<Res<'w, SynergyTable>>,
     library: Option<Res<'w, StatusLibrary>>,
-    global: Option<Res<'w, GlobalAsset>>,
-    configs: Option<Res<'w, Assets<CharacterConfig>>>,
+    configs: Option<Res<'w, CharacterConfigs>>,
     exploded: Option<Res<'w, FrameEvents<Exploded>>>,
     rocks: Option<Res<'w, FrameEvents<RockBroken>>>,
     locks: Option<Res<'w, DoorLocks>>,
@@ -504,12 +501,11 @@ pub fn record_v3_cues(
 
     // Champions : une variante à `tint`.
     let mut current = BTreeSet::new();
-    if let (Some(global), Some(configs)) = (&inputs.global, &inputs.configs) {
+    if let Some(configs) = &inputs.configs {
         let mut champions: Vec<_> = inputs.champions.iter().collect();
         champions.sort_by_key(|(net_id, ..)| net_id.0);
         for (net_id, variant, appearance, transform) in champions {
-            let Some(tint) = variant_tint(global, configs, &appearance.config_name, &variant.0)
-            else {
+            let Some(tint) = variant_tint(configs, &appearance.config_name, &variant.0) else {
                 continue;
             };
             current.insert(net_id.0);

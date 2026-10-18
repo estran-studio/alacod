@@ -11,12 +11,11 @@ use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
-    character::{config::CharacterConfig, create::create_character},
+    character::{config::CharacterConfigs, create::create_character},
     collider::{CollisionLayer, CollisionSettings},
-    global_asset::GlobalAsset,
     weapons::{
-        melee::{spawn_melee_weapon_for_character, MeleeWeaponsConfig},
-        spawn_weapon_for_player, WeaponInventory, WeaponsConfig,
+        melee::spawn_melee_weapon_for_character, spawn_weapon_for_player, WeaponInventory,
+        WeaponRegistry,
     },
 };
 
@@ -36,10 +35,8 @@ const PLAYER_COLORS: &[LinearRgba] = &[
 
 pub fn create_player(
     commands: &mut Commands,
-    global_assets: &Res<GlobalAsset>,
-    weapons_asset: &Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: &Res<Assets<MeleeWeaponsConfig>>,
-    character_asset: &Res<Assets<CharacterConfig>>,
+    weapon_registry: &WeaponRegistry,
+    character_configs: &CharacterConfigs,
     collision_settings: &Res<CollisionSettings>,
 
     position: FixedVec3,
@@ -63,8 +60,7 @@ pub fn create_player(
 
     let entity = create_character(
         commands,
-        global_assets,
-        character_asset,
+        character_configs,
         config_name.clone(),
         Some(if handle == 0 { "1" } else { "2" }.into()),
         (LinearRgba::GREEN).into(),
@@ -108,15 +104,10 @@ pub fn create_player(
     // (l'ordre déterminait l'arme active : la première du tri). `player_config.ron`
     // déclare `starting_weapons: ["machine_gun", "pistol", "shotgun"]`, cet ordre exact,
     // pour que la simulation ne change pas (même arme active, mêmes GgrsNetId).
-    let character_config = global_assets
-        .character_configs
-        .get(&config_name)
-        .and_then(|handle| character_asset.get(handle));
-    if let (Some(character_config), Some(weapons_config)) =
-        (character_config, weapons_asset.get(&global_assets.weapons))
-    {
+    let character_config = character_configs.get(&config_name);
+    if let Some(character_config) = character_config {
         for (i, weapon_id) in character_config.starting_weapons.iter().enumerate() {
-            let Some(weapon_asset) = weapons_config.0.get(weapon_id) else {
+            let Some(weapon_asset) = weapon_registry.weapons.get(weapon_id) else {
                 // Ne devrait pas arriver : `alacod lint` refuse une référence cassée au
                 // démarrage. On ignore plutôt que de paniquer si le contenu a changé sous
                 // nos pieds (rechargement à chaud hors partie).
@@ -145,10 +136,8 @@ pub fn create_player(
     }
 
     // Add a default melee weapon (bare hands) to all players
-    if let Some(melee_weapons_config) = melee_weapons_asset.get(&global_assets.melee_weapons) {
-        if let Some(bare_hands) = melee_weapons_config.0.get("bare_hands") {
-            spawn_melee_weapon_for_character(commands, entity, bare_hands.clone(), id_factory);
-        }
+    if let Some(bare_hands) = weapon_registry.melee.get("bare_hands") {
+        spawn_melee_weapon_for_character(commands, entity, bare_hands.clone(), id_factory);
     }
 
     // Monnaie et perks (T2.3, chantier C5 v1) : posés une fois, à la création, comme le
@@ -165,7 +154,7 @@ pub fn create_player(
             inventory,
             ammo_reserves,
             CursorPosition::default(),
-            super::input::InteractionInput::default(),
+            crate::interaction::InteractionInput::default(),
             crate::interaction::Interactor,
             Player {
                 handle,
@@ -190,7 +179,7 @@ pub fn create_player(
             inventory,
             ammo_reserves,
             CursorPosition::default(),
-            super::input::InteractionInput::default(),
+            crate::interaction::InteractionInput::default(),
             crate::interaction::Interactor,
             currency,
             perks,

@@ -19,6 +19,26 @@ Scenario(
             at_frame: 119,
         ),
     ],
+    explorer: ExplorerPolicy(
+        shopping: false,
+        shop: Nearest,
+        detour: Detour(
+            shells: None,
+            optional: 600,
+            last_stretch: 200,
+        ),
+        lead: true,
+        weapon_reserve: true,
+        devil: Never,
+        bombs: BombPolicy(
+            secret: false,
+            secret_min_neighbours: 2,
+            rocks: false,
+            reserve: 0,
+        ),
+        oscillation: Patience,
+        combat_aware: false,
+    ),
     powerup_drop_chance_override: "0",
     floors: "etages_court",
 )

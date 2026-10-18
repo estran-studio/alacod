@@ -15,8 +15,9 @@ use game::{
         input::{InputSource, ScriptedInputs},
         Player,
     },
-    core::{CoreSetupConfig, CoreSetupPlugin},
+    core::CoreSetupPlugin,
     jjrs::PlayerConfig,
+    session::CoreSetupConfig,
     state_trace::{StateTraceRecorder, StateTraceRecorderPlugin},
     waves::{WaveDebugEnabled, WaveModeEnabled, WaveState},
 };
@@ -41,8 +42,8 @@ use game::replay::{
     CharacterPlacement, Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario,
     WaveOverride,
 };
-use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
-use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
+use game::weapons::melee::{self, MeleeWeapon};
+use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponRegistry};
 use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
 
 /// Mismatches de synctest : le premier seulement (GGRS répète ensuite le même à chaque
@@ -183,6 +184,18 @@ pub fn assets_dir(game: &str) -> String {
     match external_game_dir(game) {
         Some(dir) => dir.join("assets").to_string_lossy().into_owned(),
         None => format!("{}/../../games/{}/assets", env!("CARGO_MANIFEST_DIR"), game),
+    }
+}
+
+/// Politique de l'`explorateur` du jeu : `bot.ron` de ses assets (M3-T14, `docs/conventions.md` §79), la politique par défaut
+/// s'il n'existe pas. Les campagnes d'`alacod-sim` et les scénarios **générés** (`alacod-gen`) la jouent ; un scénario écrit à la
+/// main la pose dans `Scenario::explorer`. Aucun nom de jeu dans le code : tout vient des données du jeu.
+pub fn game_bot_policy(game: &str) -> game::replay::ExplorerPolicy {
+    let path = format!("{}/bot.ron", assets_dir(game));
+    match std::fs::read_to_string(&path) {
+        Ok(text) => ron::from_str(&text)
+            .unwrap_or_else(|e| panic!("politique de l'explorateur {path} invalide : {e}")),
+        Err(_) => Default::default(),
     }
 }
 
@@ -410,19 +423,19 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         ))
         // `.before(weapon_inventory_system)` : quand `weapon` despawn/recrée les armes du
         // joueur (voir la doc de `apply_player_overrides`), `weapon_inventory_system` (Update,
-        // `game::weapons::WeaponAssetsPlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
+        // `game::weapon_assets::WeaponAssetsPlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
         // despawnées) dans la même frame — Bevy insère un `ApplyDeferred` entre deux systèmes
         // ordonnés (`auto_insert_apply_deferred`, par défaut), ce qui suffit ici : pas besoin
         // d'ordonner aussi par rapport à `spawn_players_when_map_loaded` (voir la doc de la
         // fonction, inchangé : elle attend déjà que `Player` existe).
         .add_systems(
             Update,
-            apply_player_overrides.before(game::weapons::weapon_inventory_system),
+            apply_player_overrides.before(game::weapon_assets::weapon_inventory_system),
         )
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         // M2-T18 : actions d'UI du scénario (présentation, hors trace) ; absente sans `ui`.
-        .insert_resource(game::ui::screens::ScreenScript {
+        .insert_resource(game::ui::screens::model::ScreenScript {
             steps: scenario.ui.clone(),
             played_until: None,
         })
@@ -434,9 +447,11 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(bot_assignments(scenario))
         .insert_resource(bots::explorer::ExplorerOptions {
             boss_direct: false,
-            shopping: scenario.shopping,
-            // m2-salles-murs-gungeon : les décisions d'explorateur des salles agrandies ne valent que pour gungeon
-            steady: scenario.game == "gungeon",
+            policy: {
+                let mut policy = scenario.explorer.clone().unwrap_or_default();
+                policy.shopping |= scenario.shopping;
+                policy
+            },
         })
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
@@ -510,7 +525,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
 
     // Caméra forcée sur un joueur (play_scenario --follow)
     if let Some(handle) = config.follow_handle {
-        app.insert_resource(game::camera::CameraFollowOverride(handle));
+        app.insert_resource(game::ui::hud_model::CameraFollowOverride(handle));
     }
 
     if headless {
@@ -652,23 +667,24 @@ pub fn probe_player_inventory(world: &mut World, handle: usize) -> Option<items:
 #[derive(Resource)]
 struct WeaponOverrides(Vec<game::replay::WeaponOverride>);
 
-/// Applique les modifications d'armes du scénario dès que la config est chargée, avant la
-/// création des joueurs (qui copient la config de leurs armes).
+/// Applique les modifications d'armes du scénario sur `WeaponRegistry` dès qu'il est rempli
+/// (`game::weapon_assets::sync_weapon_registry`, `PreUpdate` avant `RunGgrsSystems`), avant la
+/// création des joueurs (qui copient la config de leurs armes). Une surcharge posée sur le registre
+/// n'est jamais réécrasée par la synchro (elle ne recopie une table que vide ou sur `Modified`).
 fn apply_weapon_overrides(
     overrides: Res<WeaponOverrides>,
-    global_assets: Option<Res<game::global_asset::GlobalAsset>>,
-    mut weapons: ResMut<Assets<game::weapons::WeaponsConfig>>,
+    mut registry: ResMut<WeaponRegistry>,
     mut applied: Local<bool>,
 ) {
     if *applied || overrides.0.is_empty() {
         return;
     }
-    let Some(mut config) = global_assets.and_then(|g| weapons.get_mut(&g.weapons)) else {
-        return;
-    };
+    if registry.weapons.is_empty() {
+        return; // pas encore rempli par la synchro
+    }
     for o in &overrides.0 {
-        let weapon = config
-            .0
+        let weapon = registry
+            .weapons
             .get_mut(&o.weapon)
             .unwrap_or_else(|| panic!("weapon_overrides : arme inconnue {}", o.weapon));
         if let Some(friendly_fire) = o.friendly_fire {
@@ -827,11 +843,7 @@ fn apply_scenario_character_placements(
         .enumerate()
         .filter(|(_, p)| p.at_frame == frame.frame)
     {
-        let config = assets
-            .global_assets
-            .character_configs
-            .get(&placement.character)
-            .and_then(|handle| assets.character_asset.get(handle));
+        let config = assets.character_configs.get(&placement.character);
         let Some(config) = config else {
             errors.0.insert(
                 index,
@@ -1064,12 +1076,22 @@ pub struct StopEarly {
     /// victoire) : un dernier joueur à terre en défaite déjà déclarée n'est plus pris pour un
     /// soft-lock pendant son saignement.
     pub stop_when_run_ended: bool,
+    /// M3-T14 : un ramassage (objet, consommable, sous) ou une dépense compte comme une progression du
+    /// soft-lock `Floors` (`FloorsProgress::stock`). Faux par défaut : les campagnes des autres jeux gardent
+    /// leur détecteur. `alacod-sim --pickup-progress` : sans lui, les détours de l'`explorateur` d'`isaac`
+    /// (objets et sous aux quatre coins d'un étage nettoyé) dépassent 1 200 frames sans kill sans être bloqués.
+    pub pickups_are_progress: bool,
+    /// m2-salles-murs-gungeon : entrer dans une case de 32 px jamais visitée du niveau compte comme une progression du
+    /// soft-lock `Floors` (`FloorsProgress::explored`) : dans des salles agrandies un étage mesure plus de 2 000 px et la
+    /// marche d'une salle de combat à la suivante dépasse [`FLOORS_SOFTLOCK_FRAMES`] sans un coup. Faux par défaut : les
+    /// campagnes des autres jeux gardent leur détecteur. `alacod-sim --explored-progress`.
+    pub explored_is_progress: bool,
 }
 
 /// D44 : état observé pour le soft-lock `Floors`. Il y a progression quand le niveau change, ou
 /// qu'un ennemi disparaît, ou que la santé totale des ennemis baisse (dégâts infligés, même
 /// sans kill : combat lent contre un boss), ou qu'un joueur change d'état (à terre, relevé,
-/// mort), ou qu'un joueur entre dans une **case de 32 px jamais visitée** de ce niveau
+/// mort), ou, si [`StopEarly::explored_is_progress`], qu'un joueur entre dans une **case de 32 px jamais visitée** de ce niveau
 /// (m2-salles-murs-gungeon : sur des salles agrandies, l'étage mesure plus de 2 000 px et la marche d'une
 /// salle de combat à la suivante peut dépasser la fenêtre de [`FLOORS_SOFTLOCK_FRAMES`] sans un seul
 /// coup ; un joueur qui explore encore n'est pas bloqué, un bot qui tourne en rond l'est : les cases
@@ -1077,12 +1099,15 @@ pub struct StopEarly {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FloorsProgress {
     pub floor: u32,
-    /// Nombre de cases de 32 px (par niveau) déjà visitées par un joueur.
+    /// Nombre de cases de 32 px (par niveau) déjà visitées par un joueur (0 si [`StopEarly::explored_is_progress`] est faux).
     pub explored: usize,
     pub enemies: usize,
     pub enemy_health: fixed_math::Fixed,
     /// Par joueur présent (handle), à terre ou non ; un joueur mort disparaît de la liste.
     pub players: Vec<(usize, bool)>,
+    /// M3-T14 : empreinte de l'inventaire et du solde des joueurs (0 si [`StopEarly::pickups_are_progress`]
+    /// est faux) ; tout changement est une progression.
+    pub stock: u64,
 }
 
 impl FloorsProgress {
@@ -1093,6 +1118,7 @@ impl FloorsProgress {
             || now.enemies < self.enemies
             || now.enemy_health < self.enemy_health
             || now.players != self.players
+            || now.stock != self.stock
     }
 }
 
@@ -1162,9 +1188,7 @@ fn apply_player_overrides(
     item_table: Option<Res<items::ItemTable>>,
     ranged_children: Query<(), With<Weapon>>,
     melee_children: Query<(), With<MeleeWeapon>>,
-    global_assets: Option<Res<GlobalAsset>>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    weapon_registry: Res<WeaponRegistry>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut applied: Local<bool>,
 ) {
@@ -1189,9 +1213,6 @@ fn apply_player_overrides(
     if players.iter().count() < overrides.0.len() {
         return; // les joueurs ne sont pas encore tous créés
     }
-    let Some(global_assets) = global_assets else {
-        return; // arme choisie : attend GlobalAsset (comme apply_weapon_overrides)
-    };
     if progression.is_none() && overrides.0.iter().any(|o| !o.mutations.is_empty()) {
         return; // table des mutations pas encore résolue (`OnEnter(GameLoading)`)
     }
@@ -1301,10 +1322,7 @@ fn apply_player_overrides(
             // l'inventaire une fois l'exclusivité appliquée ci-dessus. Vide si `weapon_id`
             // est une arme de mêlée (pas de munitions).
             let mut ammo_reserves = AmmoReserves::new();
-            if let Some(weapon_asset) = weapons_asset
-                .get(&global_assets.weapons)
-                .and_then(|config| config.0.get(weapon_id))
-            {
+            if let Some(weapon_asset) = weapon_registry.weapons.get(weapon_id) {
                 let (ammo_type, amount) =
                     game::weapons::default_mode_ammo_contribution(weapon_asset);
                 ammo_reserves.add(ammo_type, amount);
@@ -1317,10 +1335,7 @@ fn apply_player_overrides(
                     &mut id_factory,
                     None,
                 );
-            } else if let Some(melee_asset) = melee_weapons_asset
-                .get(&global_assets.melee_weapons)
-                .and_then(|config| config.0.get(weapon_id))
-            {
+            } else if let Some(melee_asset) = weapon_registry.melee.get(weapon_id) {
                 melee::spawn_melee_weapon_for_character(
                     &mut commands,
                     entity,
@@ -1486,6 +1501,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut q_player_state = app
         .world_mut()
         .query::<(&Player, Has<combat::downed::Downed>)>();
+    let mut q_player_stock =
+        app.world_mut()
+            .query::<(&Player, Option<&items::Inventory>, Option<&run::Currency>)>();
     let mut q_player_cells = app
         .world_mut()
         .query::<(&Player, &bevy_fixed::fixed_math::FixedTransform3D)>();
@@ -1645,13 +1663,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                         .map(|(player, downed)| (player.handle, downed))
                         .collect();
                     players.sort_unstable();
-                    for (_, transform) in q_player_cells.iter(world) {
-                        let at = transform.translation.truncate();
-                        explored.insert((
-                            floor_index,
-                            (at.x.to_num::<i32>()).div_euclid(32),
-                            (at.y.to_num::<i32>()).div_euclid(32),
-                        ));
+                    if stop.explored_is_progress {
+                        for (_, transform) in q_player_cells.iter(world) {
+                            let at = transform.translation.truncate();
+                            explored.insert((
+                                floor_index,
+                                (at.x.to_num::<i32>()).div_euclid(32),
+                                (at.y.to_num::<i32>()).div_euclid(32),
+                            ));
+                        }
                     }
                     let now = FloorsProgress {
                         floor: floor_index,
@@ -1663,6 +1683,38 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                                 sum.saturating_add(h.current)
                             }),
                         players,
+                        stock: if stop.pickups_are_progress {
+                            // Empreinte déterministe (joueurs triés par handle) de l'inventaire et du solde.
+                            let mut held: Vec<(usize, u64)> = q_player_stock
+                                .iter(world)
+                                .map(|(player, inventory, currency)| {
+                                    let mut sum = u64::from(currency.map_or(0, |c| c.0));
+                                    if let Some(inventory) = inventory {
+                                        sum = sum
+                                            .wrapping_mul(1_000_003)
+                                            .wrapping_add(inventory.passives.len() as u64);
+                                        sum = sum
+                                            .wrapping_mul(1_000_003)
+                                            .wrapping_add(u64::from(inventory.active.is_some()));
+                                        for (id, count) in &inventory.consumables {
+                                            sum = sum
+                                                .wrapping_mul(1_000_003)
+                                                .wrapping_add(u64::from(*count))
+                                                .wrapping_add(id.len() as u64);
+                                        }
+                                    }
+                                    (player.handle, sum)
+                                })
+                                .collect();
+                            held.sort_unstable();
+                            held.iter().fold(0u64, |acc, (handle, sum)| {
+                                acc.wrapping_mul(1_000_003)
+                                    .wrapping_add(*handle as u64)
+                                    .wrapping_add(sum.wrapping_mul(7919))
+                            })
+                        } else {
+                            0
+                        },
                     };
                     match &mut floors_progress {
                         Some((last, since)) if !last.progressed(&now) => {
@@ -3510,7 +3562,7 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     ))
     .insert_resource(game::legibility::LegendOpen(config.legend));
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
+        std::time::Duration::from_nanos(1_000_000_000 / game::session::SIM_FPS),
     ))
     .insert_resource(CaptureState {
         dir: config.dir,
@@ -3820,6 +3872,7 @@ mod floors_progress_tests {
             enemies,
             enemy_health: fixed_math::new(health),
             players: players.to_vec(),
+            stock: 0,
         }
     }
 
@@ -3849,5 +3902,22 @@ mod floors_progress_tests {
         };
         assert!(base.progressed(&explorer));
         assert!(!explorer.progressed(&explorer.clone()));
+    }
+
+    /// M3-T14 : l'empreinte de l'inventaire et du solde (`stock`) compte ; à 0 des deux côtés (détecteur
+    /// d'avant), rien ne change.
+    #[test]
+    fn un_ramassage_compte_quand_le_detecteur_le_demande() {
+        let base = state(2, 600.0, &[(0, false)]);
+        let picked = FloorsProgress {
+            stock: 42,
+            ..base.clone()
+        };
+        assert!(base.progressed(&picked));
+        assert!(!picked.progressed(&picked.clone()));
+        assert!(
+            !base.progressed(&base.clone()),
+            "sans le drapeau, stock reste 0"
+        );
     }
 }

@@ -75,7 +75,7 @@ impl From<MovementType> for NavProfile {
 /// AI configuration for an enemy - loaded from RON
 ///
 /// `Hash` manuel (voir l'impl plus bas) : exclut `stationary` (T2.9). Motif identique à
-/// `CharacterAppearance` (`character/visuals.rs`).
+/// `CharacterAppearance` (`character/appearance.rs`).
 #[derive(Component, Clone, Serialize, Deserialize)]
 pub struct EnemyAiConfig {
     /// Movement type determines pathfinding behavior
@@ -150,7 +150,7 @@ pub struct RangedAttackState {
 /// via `rollback_and_trace`, avec checksum) et casserait les traces de référence
 /// (`tests/scenarios/*.trace`) sans aucun changement de gameplay. Vérifié empiriquement :
 /// sans cet impl manuel, `idle.ron` diverge dès l'apparition du premier zombie (f181).
-/// Même motif que `CharacterAppearance` (`character/visuals.rs`), qui exclut
+/// Même motif que `CharacterAppearance` (`character/appearance.rs`), qui exclut
 /// `health_bar_color` pour une raison différente (pas de `Hash`).
 impl std::hash::Hash for EnemyAiConfig {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -348,7 +348,7 @@ impl EnemyAiConfig {
 }
 
 /// RON configuration for enemy AI (for data-driven setup)
-#[derive(Clone, Debug, Serialize, Deserialize, Asset, TypePath)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EnemyAiConfigRon {
     pub movement_type: Option<MovementType>,
     pub aggro_range: Option<String>, // Fixed as string "300.0"

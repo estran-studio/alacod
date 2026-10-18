@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use run::floors::FloorState;
 
 use crate::camera::{camera_control_system, CameraSettings, GameCamera};
-use crate::core::AppState;
+use crate::session::AppState;
 
 /// Index vu à la frame d'affichage précédente et début du fondu en cours.
 #[derive(Resource, Default, Debug)]

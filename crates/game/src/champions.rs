@@ -48,17 +48,16 @@ use utils::{
 
 use crate::{
     character::{
-        config::{CharacterConfig, CharacterConfigHandles},
+        config::{CharacterConfigKey, CharacterConfigs},
         enemy::create::spawn_enemy,
         health::{rollback_apply_death, rollback_check_defeat, Death, HitBy},
         player::Player,
         variant::Variant,
     },
     collider::CollisionSettings,
-    global_asset::GlobalAsset,
     rollback::RollbackTraceApp,
     system_set::RollbackSystemSet,
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::WeaponRegistry,
 };
 
 /// Rayon de l'anneau où apparaissent les personnages d'une division (unités).
@@ -141,11 +140,8 @@ fn has_death_effects(def: &crate::character::variant::VariantDef) -> bool {
 /// Paramètres d'apparition d'un personnage en cours de partie (division).
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct DivisionAssets<'w> {
-    global_assets: Res<'w, GlobalAsset>,
     collision_settings: Res<'w, CollisionSettings>,
-    weapons_asset: Res<'w, Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
-    characters_asset: Res<'w, Assets<CharacterConfig>>,
+    weapon_registry: Res<'w, WeaponRegistry>,
     balance: Res<'w, crate::balance::ResolvedBalance>,
     difficulty: crate::clock::DifficultyReader<'w>,
 }
@@ -171,14 +167,14 @@ pub fn champion_death_system(
             &GgrsNetId,
             &Death,
             &Variant,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &fixed_math::FixedTransform3D,
             &Team,
         ),
         With<Rollback>,
     >,
     players: Query<(&GgrsNetId, &Player), With<Rollback>>,
-    configs: Res<Assets<CharacterConfig>>,
+    configs: Res<CharacterConfigs>,
     division: DivisionAssets,
     loot: LootAssets,
     rng_streams: Res<RngStreams>,
@@ -192,9 +188,9 @@ pub fn champion_death_system(
         .into_iter()
         .map(|(net_id, player)| (player.handle, net_id.clone()))
         .collect();
-    for (net_id, death, variant, handles, transform, team) in order_iter!(dying) {
+    for (net_id, death, variant, config_key, transform, team) in order_iter!(dying) {
         let Some(def) = configs
-            .get(&handles.config)
+            .get(&config_key.0)
             .and_then(|config| config.variants.as_ref())
             .and_then(|variants| variants.table.get(&variant.0))
             .filter(|def| has_death_effects(def))
@@ -234,10 +230,8 @@ pub fn champion_death_system(
                     character.clone(),
                     position,
                     &mut commands,
-                    &division.weapons_asset,
-                    &division.melee_weapons_asset,
-                    &division.characters_asset,
-                    &division.global_assets,
+                    &division.weapon_registry,
+                    &configs,
                     &division.collision_settings,
                     &mut id_factory,
                     *team,
@@ -331,8 +325,7 @@ pub fn champion_death_system(
                 &mut commands,
                 &mut id_factory,
                 &loot,
-                &division.global_assets,
-                &division.weapons_asset,
+                &division.weapon_registry,
                 table_id,
                 net_id,
                 fixed_math::FixedVec3::new(
@@ -351,8 +344,7 @@ fn drop_loot(
     commands: &mut Commands,
     id_factory: &mut ResMut<GgrsNetIdFactory>,
     loot: &LootAssets,
-    global_assets: &GlobalAsset,
-    weapons: &Assets<WeaponsConfig>,
+    weapons: &WeaponRegistry,
     table_id: &str,
     net_id: &GgrsNetId,
     position: fixed_math::FixedVec3,
@@ -397,14 +389,7 @@ fn drop_loot(
     }
     match items::loot_weapon(&item_id) {
         Some(weapon_id) => {
-            if !crate::loot::spawn_loot_weapon(
-                commands,
-                global_assets,
-                weapons,
-                weapon_id,
-                position,
-                id_factory,
-            ) {
+            if !crate::loot::spawn_loot_weapon(commands, weapons, weapon_id, position, id_factory) {
                 warn!("champion {} : arme « {weapon_id} » inconnue", net_id);
             }
         }

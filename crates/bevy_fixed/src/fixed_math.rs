@@ -86,6 +86,80 @@ pub const FIXED_TAU: Fixed = Fixed::from_bits(411775);
 pub const FIXED_32_MAX: Fixed = FixedI32::<U16>::MAX;
 pub const FIXED_32_MIN: Fixed = FixedI32::<U16>::MIN;
 
+/// Arrondi de `value` à 24 bits significatifs (au plus proche, égalité vers le pair) : ce que
+/// fait la conversion en `f32` (mantisse de 24 bits), sans flottant.
+#[inline]
+fn round_to_24_bits(value: u64) -> u64 {
+    let significant = u64::BITS - value.leading_zeros();
+    if significant <= 24 {
+        return value;
+    }
+    let shift = significant - 24;
+    let remainder = value & ((1 << shift) - 1);
+    let half = 1 << (shift - 1);
+    let mut kept = value >> shift;
+    if remainder > half || (remainder == half && kept & 1 == 1) {
+        kept += 1;
+    }
+    kept << shift
+}
+
+/// Les bits de `x` après l'aller-retour `FixedWide::from_num(x.to_num::<f32>())` que font
+/// `length_squared` et `length_squared_as_wide`, **au bit près** : `f32` arrondit `x` à 24 bits
+/// significatifs, puis le `FixedWide` (32 bits fractionnaires) le représente exactement. Le
+/// carré de cette valeur, en `FixedWide`, est donc le carré de ces bits en entier (jamais
+/// saturé : au plus 2^62). Un composant au-delà de 8 bits entiers (|x| ≥ 256) perd ses bits bas :
+/// c'est le comportement historique, que les traces ont figé, pas une propriété voulue.
+#[inline]
+fn f32_rounded_bits(x: Fixed) -> i64 {
+    let bits = x.to_bits();
+    let rounded = round_to_24_bits(bits.unsigned_abs() as u64) as i64;
+    if bits < 0 {
+        -rounded
+    } else {
+        rounded
+    }
+}
+
+/// Racine entière par défaut (`⌊√n⌋`) de `n` < 2^96. `u128::isqrt` divise en 128 bits (lent) :
+/// on part de la racine `f64` (correctement arrondie par IEEE 754 sur toute plateforme), puis on
+/// corrige en entiers : le résultat est **exactement** `⌊√n⌋`, la valeur flottante n'est qu'une
+/// graine (erreur d'au plus 1 pour n < 2^96, corrigée par les deux boucles).
+#[inline]
+fn isqrt_u96(n: u128) -> u64 {
+    let mut root = (n as f64).sqrt() as u64;
+    while (root as u128) * (root as u128) > n {
+        root -= 1;
+    }
+    while ((root + 1) as u128) * ((root + 1) as u128) <= n {
+        root += 1;
+    }
+    root
+}
+
+/// La longueur `Fixed` d'un carré `FixedWide` : racine (troncature, comme `FixedWide::sqrt`), puis
+/// l'aller-retour `f32` de l'ancien code (`Fixed::from_num(len.to_num::<f32>())`), en entiers :
+/// arrondi à 24 bits significatifs, puis à 16 bits fractionnaires (au plus proche, égalité vers le
+/// pair). Un carré négatif donne 0. Au-delà de `Fixed::MAX` (débordement), on retombe sur la
+/// conversion d'origine (même panique en debug, même repli en release).
+#[inline]
+fn length_from_wide_squared(len_sq: FixedWide) -> Fixed {
+    if len_sq < FixedWide::ZERO {
+        return FIXED_ZERO;
+    }
+    let root = isqrt_u96((len_sq.to_bits() as u128) << 32);
+    let rounded = round_to_24_bits(root);
+    let mut kept = rounded >> 16;
+    let remainder = rounded & 0xffff;
+    if remainder > 0x8000 || (remainder == 0x8000 && kept & 1 == 1) {
+        kept += 1;
+    }
+    if kept > i32::MAX as u64 {
+        return Fixed::from_num(FixedWide::from_bits(root as i64).to_num::<f32>());
+    }
+    Fixed::from_bits(kept as i32)
+}
+
 impl FixedVec2 {
     pub const ZERO: Self = Self {
         x: Fixed::from_bits(0),
@@ -122,56 +196,22 @@ impl FixedVec2 {
     }
 
     /// Calculates the squared length of the vector using FixedWide for intermediate precision.
+    ///
+    /// Chaque composante passe par `f32` avant d'être élevée au carré (arrondi à 24 bits
+    /// significatifs, voir [`f32_rounded_bits`]) : calculé en entiers, au bit près.
     pub fn length_squared_as_wide(&self) -> FixedWide {
-        // Convert components from Fixed (I32F16) to FixedWide (I64F32) before squaring
-        // Assuming FixedWide has a way to be created from Fixed.
-        // If not, use .to_num::<f32>() and FixedWide::from_num(), but direct conversion is better.
-        // Let's assume you add a helper or use from_num for now:
-        let x_fw = FixedWide::from_num(self.x.to_num::<f32>());
-        let y_fw = FixedWide::from_num(self.y.to_num::<f32>());
-
-        // Perform multiplication in the wider FixedWide type
-        let x_sq_fw = x_fw.saturating_mul(x_fw); // FixedWide * FixedWide -> FixedWide
-        let y_sq_fw = y_fw.saturating_mul(y_fw); // FixedWide * FixedWide -> FixedWide
-
-        x_sq_fw.saturating_add(y_sq_fw)
+        let x = f32_rounded_bits(self.x);
+        let y = f32_rounded_bits(self.y);
+        FixedWide::from_bits((x * x).saturating_add(y * y))
     }
 
     /// Calculates the length of the vector.
     pub fn length(&self) -> Fixed {
-        // Returns your standard Fixed type (I32F16)
-        let len_sq_fw = self.length_squared_as_wide(); // This is FixedWide (I64F32)
-
-        // Ensure the squared length is not negative (shouldn't happen with squares)
-        if len_sq_fw < FixedWide::ZERO {
-            return FIXED_ZERO;
-        }
-
-        // Perform sqrt on the FixedWide type.
-        // This assumes FixedSqrt trait is implemented for FixedWide, returning FixedWide.
-        let len_fw = len_sq_fw.sqrt(); // FixedWide.sqrt() -> FixedWide
-
-        // Convert the result (which is FixedWide) back to your standard Fixed type.
-        // This might clamp if the actual length is too large for Fixed (I32F16),
-        // but for your example distance of ~1831, it should fit.
-        // (FixedI32<U16> max is ~32767, so 1831 fits)
-        // Again, using .to_num::<f32>() for conversion:
-        Fixed::from_num(len_fw.to_num::<f32>())
+        length_from_wide_squared(self.length_squared_as_wide())
     }
 
     pub fn length_squared(&self) -> FixedWide {
-        // Convert components from Fixed (I32F16) to FixedWide (I64F32) before squaring.
-        // It's best if FixedWide can be directly constructed from Fixed.
-        // Example: let x_fw = fixed_math::FixedWide::from(self.x);
-        // If not, using .to_num::<f32>() is a common intermediate step:
-        let x_fw = FixedWide::from_num(self.x.to_num::<f32>());
-        let y_fw = FixedWide::from_num(self.y.to_num::<f32>());
-
-        // Perform multiplication in the wider FixedWide type
-        let x_sq_fw = x_fw.saturating_mul(x_fw); // FixedWide * FixedWide -> FixedWide
-        let y_sq_fw = y_fw.saturating_mul(y_fw); // FixedWide * FixedWide -> FixedWide
-
-        x_sq_fw.saturating_add(y_sq_fw)
+        self.length_squared_as_wide()
     }
 
     // distance() method remains the same as it calls the updated length():
@@ -194,7 +234,11 @@ impl FixedVec2 {
     }
 
     pub fn normalize(&self) -> Self {
-        let len = self.length();
+        self.normalize_from_length(self.length())
+    }
+
+    /// `x / len` par composante si `len` > 0, sinon zéro (`len` = `self.length()`).
+    fn normalize_from_length(&self, len: Fixed) -> Self {
         if len > Fixed::from_bits(0) {
             Self {
                 x: self.x.saturating_div(len),
@@ -209,10 +253,22 @@ impl FixedVec2 {
         let len_sq = self.length_squared();
         if len_sq > Fixed::from_bits(256) {
             // Small epsilon to avoid division by very small numbers
-            self.normalize()
+            self.normalize_from_length(length_from_wide_squared(len_sq))
         } else {
             Self::ZERO
         }
+    }
+
+    /// `(self.length(), self.normalize_or_zero())` avec une seule racine carrée (mêmes bits).
+    pub fn length_and_direction(&self) -> (Fixed, Self) {
+        let len_sq = self.length_squared_as_wide();
+        let len = length_from_wide_squared(len_sq);
+        let direction = if len_sq > Fixed::from_bits(256) {
+            self.normalize_from_length(len)
+        } else {
+            Self::ZERO
+        };
+        (len, direction)
     }
 
     pub fn clamp_length_max(&self, max: Fixed) -> Self {
@@ -332,46 +388,20 @@ impl FixedVec3 {
     /// Calculates the squared length of the 3D vector.
     /// Returns a FixedWide (e.g., FixedI64<U32>) to maintain precision for larger vectors,
     /// as Fixed (e.g., FixedI32<U16>) might not be able to represent the true squared length.
+    ///
+    /// Chaque composante passe par `f32` avant d'être élevée au carré (arrondi à 24 bits
+    /// significatifs, voir [`f32_rounded_bits`]) : calculé en entiers, au bit près.
     pub fn length_squared(&self) -> FixedWide {
-        // << Returns FixedWide
-        // Convert components from Fixed (I32F16) to FixedWide (I64F32) before squaring.
-        // Assuming FixedWide::from_num(fixed_value.to_num::<f32>()) is your conversion path.
-        // If you have direct Fixed -> FixedWide conversion, use that (e.g., FixedWide::from(self.x)).
-        let x_fw = FixedWide::from_num(self.x.to_num::<f32>());
-        let y_fw = FixedWide::from_num(self.y.to_num::<f32>());
-        let z_fw = FixedWide::from_num(self.z.to_num::<f32>());
-
-        // Perform multiplication in the wider FixedWide type
-        let x_sq_fw = x_fw.saturating_mul(x_fw); // FixedWide * FixedWide -> FixedWide
-        let y_sq_fw = y_fw.saturating_mul(y_fw); // FixedWide * FixedWide -> FixedWide
-        let z_sq_fw = z_fw.saturating_mul(z_fw); // FixedWide * FixedWide -> FixedWide
-
-        // Sum the squared components (all FixedWide)
-        x_sq_fw.saturating_add(y_sq_fw).saturating_add(z_sq_fw)
+        let x = f32_rounded_bits(self.x);
+        let y = f32_rounded_bits(self.y);
+        let z = f32_rounded_bits(self.z);
+        FixedWide::from_bits((x * x).saturating_add(y * y).saturating_add(z * z))
     }
 
     /// Calculates the length (magnitude) of the 3D vector.
     /// Returns the standard Fixed type (e.g., FixedI32<U16>).
     pub fn length(&self) -> Fixed {
-        // << Final return type is Fixed (I32F16)
-        // Step 1: self.length_squared() now returns FixedWide.
-        let len_sq_fw: FixedWide = self.length_squared();
-
-        // Step 2: Ensure the squared length is not negative.
-        if len_sq_fw < FixedWide::ZERO {
-            return FIXED_ZERO; // Or appropriate error/default
-        }
-
-        // Step 3: Perform sqrt on the FixedWide value.
-        // This assumes your FixedWide type implements the FixedSqrt trait (or has a .sqrt() method)
-        // and that this sqrt() method returns FixedWide.
-        let len_fw: FixedWide = len_sq_fw.sqrt();
-
-        // Step 4: Convert the FixedWide length back to the standard Fixed type.
-        // This conversion might clamp if the true length exceeds Fixed::MAX (~32767),
-        // but this is less likely for length than for length_squared.
-        Fixed::from_num(len_fw.to_num::<f32>())
-        // If you have a more direct/robust FixedWide -> Fixed conversion, use it.
+        length_from_wide_squared(self.length_squared())
     }
 
     // You should also provide distance and distance_squared for FixedVec3 if they don't exist
@@ -401,7 +431,11 @@ impl FixedVec3 {
     }
 
     pub fn normalize(&self) -> Self {
-        let len = self.length();
+        self.normalize_from_length(self.length())
+    }
+
+    /// `x / len` par composante si `len` > 0, sinon zéro (`len` = `self.length()`).
+    fn normalize_from_length(&self, len: Fixed) -> Self {
         if len > Fixed::from_bits(0) {
             // Exactly zero check is fine for fixed point
             Self {
@@ -410,13 +444,8 @@ impl FixedVec3 {
                 z: self.z.saturating_div(len),
             }
         } else {
-            // Behavior for zero-length vector normalization:
-            // Option 1: Return ZERO (common)
+            // Zero-length vector: ZERO.
             Self::ZERO
-            // Option 2: Return a default direction e.g., (1,0,0) if that makes sense for your game
-            // Self::new(super::FIXED_ONE, Fixed::ZERO, Fixed::ZERO)
-            // Option 3: Panic, if normalizing a zero vector is considered an unrecoverable error
-            // panic!("Attempted to normalize a zero-length FixedVec3");
         }
     }
 
@@ -425,7 +454,7 @@ impl FixedVec3 {
         // Using the same epsilon as FixedVec2 (256 in bits for 16.16 is 256/65536 = 0.00390625)
         // This epsilon applies to length_squared.
         if len_sq > Fixed::from_bits(256) {
-            self.normalize()
+            self.normalize_from_length(length_from_wide_squared(len_sq))
         } else {
             Self::ZERO
         }
@@ -996,5 +1025,182 @@ mod tests {
             (1e-3..1e-2).contains(&worst_near_tau),
             "près de 2π : {worst_near_tau}"
         );
+    }
+
+    /// Les implémentations d'origine de `length_squared*` et de `length` (aller-retour `f32`).
+    mod historique {
+        use super::*;
+
+        pub fn carre_2d(v: FixedVec2) -> FixedWide {
+            let x = FixedWide::from_num(v.x.to_num::<f32>());
+            let y = FixedWide::from_num(v.y.to_num::<f32>());
+            x.saturating_mul(x).saturating_add(y.saturating_mul(y))
+        }
+
+        pub fn carre_3d(v: FixedVec3) -> FixedWide {
+            let x = FixedWide::from_num(v.x.to_num::<f32>());
+            let y = FixedWide::from_num(v.y.to_num::<f32>());
+            let z = FixedWide::from_num(v.z.to_num::<f32>());
+            x.saturating_mul(x)
+                .saturating_add(y.saturating_mul(y))
+                .saturating_add(z.saturating_mul(z))
+        }
+
+        pub fn longueur_du_carre(carre: FixedWide) -> Fixed {
+            if carre < FixedWide::ZERO {
+                return FIXED_ZERO;
+            }
+            Fixed::from_num(carre.sqrt().to_num::<f32>())
+        }
+    }
+
+    /// Générateur xorshift64* : déterministe, sans dépendance.
+    fn suivant(etat: &mut u64) -> u64 {
+        *etat ^= *etat >> 12;
+        *etat ^= *etat << 25;
+        *etat ^= *etat >> 27;
+        etat.wrapping_mul(0x2545_F491_4F6C_DD1D)
+    }
+
+    /// Un composant `Fixed` de magnitude variée (de 1 bit à 32 bits significatifs), avec les
+    /// cas limites en tête.
+    fn composant(etat: &mut u64) -> Fixed {
+        const LIMITES: [i32; 14] = [
+            0,
+            1,
+            -1,
+            i32::MAX,
+            i32::MIN,
+            i32::MIN + 1,
+            (1 << 24) - 1,
+            1 << 24,
+            (1 << 24) + 1,
+            (1 << 24) + 2,
+            (1 << 24) + 3,
+            -((1 << 24) + 1),
+            0x7fff_ff80,
+            0x7fff_ffc0,
+        ];
+        let tirage = suivant(etat);
+        if tirage % 11 == 0 {
+            return Fixed::from_bits(LIMITES[(tirage >> 8) as usize % LIMITES.len()]);
+        }
+        let decalage = (tirage >> 40) as u32 % 32;
+        Fixed::from_bits(((suivant(etat) as i32) >> decalage) | ((tirage >> 33) as i32 & 1))
+    }
+
+    /// `length_squared`, `length_squared_as_wide` : mêmes bits que l'aller-retour `f32`
+    /// d'origine, en 2D et en 3D (D97 : le calcul est maintenant en entiers).
+    #[test]
+    fn carres_entiers_identiques_a_l_aller_retour_f32() {
+        let mut etat = 0x9E37_79B9_7F4A_7C15;
+        for _ in 0..600_000 {
+            let v2 = FixedVec2::new(composant(&mut etat), composant(&mut etat));
+            assert_eq!(v2.length_squared(), historique::carre_2d(v2), "{v2:?}");
+            assert_eq!(
+                v2.length_squared_as_wide(),
+                historique::carre_2d(v2),
+                "{v2:?}"
+            );
+            let v3 = FixedVec3::new(
+                composant(&mut etat),
+                composant(&mut etat),
+                composant(&mut etat),
+            );
+            assert_eq!(v3.length_squared(), historique::carre_3d(v3), "{v3:?}");
+        }
+    }
+
+    /// La racine entière est exacte (le `f64` n'est qu'une graine) : au hasard sur 96 bits, et
+    /// aux carrés parfaits et à leurs voisins (là où une graine arrondie se trompe).
+    #[test]
+    fn racine_entiere_exacte() {
+        let mut etat = 0x2545_F491_4F6C_DD1D;
+        for _ in 0..1_000_000 {
+            let n = (((suivant(&mut etat) as u128) << 64) | suivant(&mut etat) as u128)
+                >> (32 + suivant(&mut etat) % 64);
+            assert_eq!(isqrt_u96(n) as u128, n.isqrt(), "n = {n}");
+            let racine = (suivant(&mut etat) >> 16) as u128;
+            for n in [
+                racine * racine - (racine > 0) as u128,
+                racine * racine,
+                racine * racine + 1,
+            ] {
+                assert_eq!(isqrt_u96(n) as u128, n.isqrt(), "n = {n}");
+            }
+        }
+        for n in [0u128, 1, 2, 3, 4, (1 << 96) - 1] {
+            assert_eq!(isqrt_u96(n) as u128, n.isqrt(), "n = {n}");
+        }
+    }
+
+    /// La longueur d'un carré : tous les carrés jusqu'à 2^23 (toutes les égalités d'arrondi des
+    /// petites longueurs), puis des carrés tirés jusqu'à la limite de `Fixed` (au-delà, l'ancien
+    /// code panique en debug).
+    #[test]
+    fn longueur_entiere_identique_a_l_aller_retour_f32() {
+        for bits in 0..(1i64 << 23) {
+            let carre = FixedWide::from_bits(bits);
+            assert_eq!(
+                length_from_wide_squared(carre),
+                historique::longueur_du_carre(carre),
+                "carré {bits}"
+            );
+        }
+        let mut etat = 0xD1B5_4A32_D192_ED03;
+        // longueur < 32767 : carré < 32767² × 2^32 en bits
+        let limite = (32_766i64 * 32_766) << 32;
+        for _ in 0..2_000_000 {
+            let decalage = suivant(&mut etat) % 63;
+            let bits = ((suivant(&mut etat) >> 1) as i64 >> decalage) % limite;
+            let carre = FixedWide::from_bits(bits);
+            assert_eq!(
+                length_from_wide_squared(carre),
+                historique::longueur_du_carre(carre),
+                "carré {bits}"
+            );
+        }
+        assert_eq!(
+            length_from_wide_squared(FixedWide::from_bits(-5)),
+            FIXED_ZERO,
+            "un carré négatif donne 0"
+        );
+    }
+
+    /// `normalize`, `normalize_or_zero` et `length` de bout en bout, 2D et 3D.
+    #[test]
+    fn normalisations_identiques_a_l_ancien_calcul() {
+        let ancien_normalize_2d = |v: FixedVec2| {
+            let carre = historique::carre_2d(v);
+            let len = historique::longueur_du_carre(carre);
+            if len > Fixed::from_bits(0) {
+                FixedVec2::new(v.x.saturating_div(len), v.y.saturating_div(len))
+            } else {
+                FixedVec2::ZERO
+            }
+        };
+        let mut etat = 0xA076_1D64_78BD_642F;
+        for _ in 0..400_000 {
+            // longueurs bornées : la conversion d'origine panique au-delà de `Fixed::MAX`
+            let borne = |c: Fixed| Fixed::from_bits(c.to_bits() >> 2);
+            let v = FixedVec2::new(borne(composant(&mut etat)), borne(composant(&mut etat)));
+            assert_eq!(
+                v.length(),
+                historique::longueur_du_carre(historique::carre_2d(v)),
+                "{v:?}"
+            );
+            assert_eq!(v.normalize(), ancien_normalize_2d(v), "{v:?}");
+            let attendu = if historique::carre_2d(v) > Fixed::from_bits(256) {
+                ancien_normalize_2d(v)
+            } else {
+                FixedVec2::ZERO
+            };
+            assert_eq!(v.normalize_or_zero(), attendu, "{v:?}");
+            assert_eq!(
+                v.length_and_direction(),
+                (v.length(), v.normalize_or_zero()),
+                "{v:?}"
+            );
+        }
     }
 }

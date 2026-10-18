@@ -31,8 +31,8 @@ pub use content::feedback::{
 use crate::character::enemy::ai::state::{BehaviorRuntime, ChargePhase, EnemyAiConfig};
 use crate::character::health::Death;
 use crate::character::player::{LocalPlayer, Player};
-use crate::core::is_headless;
 use crate::frame_events::FrameEvents;
+use crate::session::is_headless;
 use items::{Inventory, ItemTable};
 use sim_core::damage::DamageEvent;
 use world::{RoomState, RoomStates};
@@ -955,7 +955,7 @@ fn apply_feedback_cues(
     mut cameras: Query<(Entity, Option<&mut CameraShake>), With<crate::camera::GameCamera>>,
     mut freeze: ResMut<animation::AnimationFreeze>,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
     config: Option<Res<FeedbackConfigLoaded>>,
     mut fx: ResMut<FeedbackFx>,
 ) {
@@ -1240,7 +1240,7 @@ fn draw_pattern_shapes(
     config: Option<Res<FeedbackConfigLoaded>>,
     subjects: Query<(&FixedTransform3D, &Emitter, Option<&EnemyAiConfig>)>,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
 ) {
     let settings = config.as_ref().map(|config| &config.0);
     let pattern = settings.map(|s| s.pattern_telegraph).unwrap_or_default();
@@ -1412,7 +1412,7 @@ fn animate_damage_numbers(
     time: Res<Time<Real>>,
     mut numbers: Query<(Entity, &DamageNumber, &mut Transform, &mut TextColor)>,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
 ) {
     let now = time.elapsed_secs_f64();
     for (entity, number, mut transform, mut color) in numbers.iter_mut() {
@@ -1440,28 +1440,19 @@ pub struct ChampionTint(pub Option<Color>);
 /// table de variantes de sa fiche.
 fn tint_champions(
     mut commands: Commands,
-    global: Option<Res<crate::global_asset::GlobalAsset>>,
-    configs: Res<Assets<crate::character::config::CharacterConfig>>,
+    configs: Res<crate::character::config::CharacterConfigs>,
     champions: Query<
         (
             Entity,
             &crate::character::variant::Variant,
-            &crate::character::visuals::CharacterAppearance,
+            &crate::character::appearance::CharacterAppearance,
         ),
         Without<ChampionTint>,
     >,
 ) {
-    let Some(global) = global else {
-        return;
-    };
     for (entity, variant, appearance) in &champions {
-        let tint = crate::feedback_v3::variant_tint(
-            &global,
-            &configs,
-            &appearance.config_name,
-            &variant.0,
-        )
-        .map(|(r, g, b)| Color::srgb(r, g, b));
+        let tint = crate::feedback_v3::variant_tint(&configs, &appearance.config_name, &variant.0)
+            .map(|(r, g, b)| Color::srgb(r, g, b));
         commands.entity(entity).insert(ChampionTint(tint));
     }
 }
@@ -1604,7 +1595,7 @@ fn draw_telegraphs(
     )>,
     mut started: Local<BTreeMap<usize, u32>>,
     fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::room_fog::FogMap>>,
+    fog_map: Option<Res<crate::fog_map::FogMap>>,
 ) {
     let (r, g, b, a) = config
         .map(|config| config.0.telegraph.color)
@@ -1952,20 +1943,23 @@ fn active_weapon_sound<'a>(
     })
 }
 
-/// Sons propres des armes (`audio_config` de `weapons.ron`), lus sur l'asset du registre : le
+/// Sons propres des armes (`audio_config` de `weapons.ron`), lus dans `WeaponRegistry` : le
 /// composant rollback `Weapon` ne les porte pas.
 #[derive(bevy::ecs::system::SystemParam)]
 struct WeaponAudio<'w> {
-    global: Option<Res<'w, crate::global_asset::GlobalAsset>>,
-    weapons: Res<'w, Assets<crate::weapons::WeaponsConfig>>,
+    weapons: Res<'w, crate::weapons::WeaponRegistry>,
 }
 
 impl WeaponAudio<'_> {
     /// Sons du mode `mode` de l'arme `weapon` (aucun si l'arme ou le mode n'en déclare pas).
     fn mode(&self, weapon: &ActiveWeaponSound) -> Option<&crate::weapons::WeaponModeAudio> {
         let (mode, _) = weapon.mode?;
-        let table = self.weapons.get(&self.global.as_ref()?.weapons)?;
-        table.0.get(weapon.name)?.audio_config.modes.get(mode)
+        self.weapons
+            .weapons
+            .get(weapon.name)?
+            .audio_config
+            .modes
+            .get(mode)
     }
 }
 

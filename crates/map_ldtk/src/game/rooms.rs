@@ -44,7 +44,7 @@ use world::{
 use combat::actors::Velocity;
 use combat::downed::Downed;
 use game::boss::ReinforcementRequest;
-use game::character::config::CharacterConfig;
+use game::character::config::CharacterConfigs;
 use game::character::enemy::ai::navigation::{FlowFieldCache, GridPos};
 use game::character::enemy::create::spawn_enemy;
 use game::character::enemy::Enemy;
@@ -52,9 +52,8 @@ use game::character::health::Death;
 use game::character::player::Player;
 use game::collider::CollisionSettings;
 use game::collider::{is_colliding, Collider, CollisionLayer};
-use game::global_asset::GlobalAsset;
 use game::interaction::{Interactable, InteractionEvent, InteractionType};
-use game::weapons::{melee::MeleeWeaponsConfig, WeaponsConfig};
+use game::weapons::WeaponRegistry;
 use map::game::entity::map::door::DoorComponent;
 use map::game::entity::map::level_id::LevelId;
 use map::game::entity::map::room::RoomBounds;
@@ -228,6 +227,7 @@ fn update_hud_room_geometry(
         .map(|(id, bounds, kind)| game::ui::hud_model::HudRoomBounds {
             id: id.0.clone(),
             kind: kind.0.clone(),
+            boss: table.as_deref().is_some_and(|table| table.is_boss(&kind.0)),
             position: bounds.position,
             size: bounds.size,
         })
@@ -240,7 +240,9 @@ fn update_hud_room_geometry(
 
 /// Salles typées triées par position (x, y) puis identifiant : ordre stable, indépendant des
 /// `Entity`.
-fn sorted_rooms<'a>(rooms: &'a CurrentRooms) -> Vec<(&'a LevelId, &'a RoomBounds, &'a RoomKind)> {
+pub fn sorted_rooms<'a>(
+    rooms: &'a CurrentRooms,
+) -> Vec<(&'a LevelId, &'a RoomBounds, &'a RoomKind)> {
     let mut typed: Vec<_> = rooms.iter().collect();
     typed.sort_by(|a, b| {
         (a.1.position.x, a.1.position.y, &a.0 .0).cmp(&(b.1.position.x, b.1.position.y, &b.0 .0))
@@ -255,7 +257,7 @@ fn is_secret(table: &RoomKindTable, kind: &RoomKind) -> bool {
 
 /// Nombre de clés qu'ouvre la porte d'un type de salle **à l'étage `floor`** (`door_lock: Key(n)`
 /// à partir de `lock_from_floor`) ; `None` : porte ordinaire ou mur secret.
-pub(crate) fn key_lock_cost(table: &RoomKindTable, kind: &RoomKind, floor: u32) -> Option<u32> {
+pub fn key_lock_cost(table: &RoomKindTable, kind: &RoomKind, floor: u32) -> Option<u32> {
     match table.door_lock_at(&kind.0, floor) {
         Some(DoorLock::Key(n)) => Some(n),
         _ => None,
@@ -271,7 +273,8 @@ fn door_interaction_range(collider: &Collider) -> Fixed {
     }
 }
 
-fn door_near(bounds: &RoomBounds, p: FixedVec2) -> bool {
+/// La porte en `p` appartient-elle à la salle `bounds` (à moins de `DOOR_MARGIN` de ses bords) ?
+pub fn door_near(bounds: &RoomBounds, p: FixedVec2) -> bool {
     inside_box(
         bounds.position,
         bounds.size,
@@ -609,8 +612,7 @@ pub fn boss_drop_system(
     mut pools: ResMut<items::PoolState>,
     run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
     floor: Option<Res<run::FloorState>>,
-    global_assets: Res<GlobalAsset>,
-    weapons: Res<Assets<WeaponsConfig>>,
+    weapons: Res<WeaponRegistry>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
@@ -689,7 +691,6 @@ pub fn boss_drop_system(
             &mut commands,
             &mut id_factory,
             &item_table,
-            &global_assets,
             &weapons,
             &item,
             center,
@@ -1278,11 +1279,9 @@ pub fn key_door_system(
 /// d'arène, M2-T7).
 #[derive(SystemParam)]
 pub struct SpawnParams<'w> {
-    global_assets: Res<'w, GlobalAsset>,
     collision_settings: Res<'w, CollisionSettings>,
-    weapons_asset: Res<'w, Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
-    characters_asset: Res<'w, Assets<CharacterConfig>>,
+    weapon_registry: Res<'w, WeaponRegistry>,
+    character_configs: Res<'w, CharacterConfigs>,
     balance: Res<'w, game::balance::ResolvedBalance>,
     difficulty: game::clock::DifficultyReader<'w>,
     id_factory: ResMut<'w, GgrsNetIdFactory>,
@@ -1339,10 +1338,8 @@ impl SpawnParams<'_> {
                 id.to_string(),
                 FixedVec3::new(position.x, position.y, Fixed::ZERO),
                 commands,
-                &self.weapons_asset,
-                &self.melee_weapons_asset,
-                &self.characters_asset,
-                &self.global_assets,
+                &self.weapon_registry,
+                &self.character_configs,
                 &self.collision_settings,
                 &mut self.id_factory,
                 Team::Enemies,

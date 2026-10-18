@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : passif de stats, +10 % de vitesse de déplacement (`MoveSpeed`) et +10 % de cadence (`FireRate`).
+// Preuve : `item_gants_de_lin` (`Stat` résolue à f1 par `ItemHeld`).
+(
+    name: "Gants de lin",
+    kind: Passive,
+    tags: ["larmes"],
+    rarity: Common,
+    modifiers: [
+        (stat: MoveSpeed, op: Pct, value: "0.1"),
+        (stat: FireRate, op: Pct, value: "0.1"),
+    ],
+    test: Some((frames: 60)),
+)

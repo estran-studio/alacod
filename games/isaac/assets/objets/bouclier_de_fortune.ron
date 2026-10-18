@@ -1,0 +1,12 @@
+// `isaac` (M3-T11d2, §76.5) : au ramassage **de cet objet seul** (`OnPickup` filtré par `item`, §67), deux points de bouclier (`GainShield`, §18).
+(
+    name: "Bouclier de fortune",
+    kind: Passive,
+    effects: [
+        (on: OnPickup, item: Some("bouclier_de_fortune"), do: [GainShield(2)]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    // Un objet de départ ne déclenche pas `OnPickup` : l'effet est prouvé par le scénario `isaac_bouclier_de_fortune` (objet ramassé au sol).
+    test: Some((frames: 60)),
+)

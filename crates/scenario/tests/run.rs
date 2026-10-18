@@ -8,7 +8,7 @@
 use std::time::Instant;
 
 use bevy::prelude::*;
-use game::{core::AppState, run_state::RunRequest, state_trace::StateTraceRecorder};
+use game::{run_state::RunRequest, session::AppState, state_trace::StateTraceRecorder};
 use run::Run;
 use scenario::{
     runner::{build_app, PlayConfig},

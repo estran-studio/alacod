@@ -547,14 +547,14 @@ mod tests {
 
     use crate::character::health::Health;
     use crate::effects_runtime::{apply_effects_system, Effects};
-    use crate::weapons::WeaponsConfig;
+    use crate::weapons::WeaponRegistry;
     use effects::{Condition, Effect, On};
     use items::{Inventory, ItemDef};
 
     fn app() -> App {
         let mut app = App::new();
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
-            .init_resource::<Assets<WeaponsConfig>>()
+            .init_resource::<WeaponRegistry>()
             .insert_resource(FrameCount { frame: 10 })
             .init_resource::<FrameEvents<EffectOut>>()
             .init_resource::<FrameEvents<HitLanded>>();

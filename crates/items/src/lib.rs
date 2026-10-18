@@ -165,18 +165,27 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+/// La règle d'acceptation d'un consommable, sans l'objet entier (`ItemDef::accepts`) : faux au plafond `max_stack` et, pour
+/// `refuse_when_full`, à pleine vie. Partagée avec les décideurs qui n'ont que ces deux champs (bot `explorateur`).
+pub fn consumable_accepts(
+    max_stack: Option<u32>,
+    refuse_when_full: bool,
+    stock: u32,
+    at_full_health: bool,
+) -> bool {
+    if max_stack.is_some_and(|cap| stock >= cap) {
+        return false;
+    }
+    !(refuse_when_full && at_full_health)
+}
+
 impl ItemDef {
     /// Un joueur peut-il prendre ce consommable ? `stock` : son compteur de l'objet ;
     /// `at_full_health` : `current >= max`. Faux au plafond (`max_stack`) et, pour
     /// `refuse_when_full`, à pleine vie (M3-T3, §68). Toujours vrai pour un passif ou un actif.
     pub fn accepts(&self, stock: u32, at_full_health: bool) -> bool {
-        if self.kind != ItemKind::Consumable {
-            return true;
-        }
-        if self.max_stack.is_some_and(|cap| stock >= cap) {
-            return false;
-        }
-        !(self.refuse_when_full && at_full_health)
+        self.kind != ItemKind::Consumable
+            || consumable_accepts(self.max_stack, self.refuse_when_full, stock, at_full_health)
     }
 }
 

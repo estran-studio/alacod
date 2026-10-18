@@ -427,8 +427,7 @@ pub fn weapon_drop_on_death_system(
     frame: Res<FrameCount>,
     table: Res<ProgressionTable>,
     mut rng: ResMut<RngStreams>,
-    global_assets: Option<Res<crate::global_asset::GlobalAsset>>,
-    weapons_asset: Res<Assets<crate::weapons::WeaponsConfig>>,
+    weapons: Res<crate::weapons::WeaponRegistry>,
     mut id_factory: ResMut<utils::net_id::GgrsNetIdFactory>,
     levels: Query<&Level, With<Player>>,
     dying: Query<
@@ -452,12 +451,6 @@ pub fn weapon_drop_on_death_system(
     if def.weapon_drop_chance <= Fixed::ZERO || def.weapon_pool.is_empty() {
         return;
     }
-    let Some(weapons) = global_assets
-        .as_ref()
-        .and_then(|g| weapons_asset.get(&g.weapons))
-    else {
-        return;
-    };
     let max_level = levels.iter().map(|l| l.0).max().unwrap_or(0);
     let candidates = effects::progression::weapon_candidates(&def.weapon_pool, max_level);
     for (net_id, team, transform) in utils::order_iter!(dying) {
@@ -471,7 +464,7 @@ pub fn weapon_drop_on_death_system(
             .get_mut("loot")
             .next_u32_range(0, candidates.len() as u32) as usize;
         let id = candidates[pick];
-        let Some(asset) = weapons.0.get(id) else {
+        let Some(asset) = weapons.weapons.get(id) else {
             warn!("weapon_pool : arme « {id} » inconnue (voir `alacod lint`)");
             continue;
         };

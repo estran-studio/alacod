@@ -1,6 +1,6 @@
 // Manifeste du jeu `isaac` (M3-T0f, docs/conventions.md §3, §17, §40 et §65 ; grille : M3-T5, §70) : le clone de
 // squelette d'Isaac. Deux étages `sous_sol` (nom provisoire, Q9) assemblés par la grammaire d'étage en grille
-// (`Grid`, salles de 15 x 9 cases : départ, combat, boss, trésor, secrète, diable ; 1x1, 2x1, 1x2, 2x2), en mode
+// (`Grid`, salles de 15 x 9 cases : départ, combat, boss, trésor, boutique, secrète, diable ; 1x1, 2x1, 1x2, 2x2 ; vingt gabarits), en mode
 // `Floors` : défaite à la mort, victoire quand le boss du dernier étage est vaincu.
 // Sprites, sons, interface et caméra copiés de `gungeon` (placeholders, voir `assets.yaml`).
 (
@@ -23,8 +23,10 @@
         (path: "statuses", kind: "Status"),
         // M3-T11b (§76.2) : synergie d'objets du pool `tresor`.
         (path: "synergies", kind: "Synergy"),
-        // M3-T9 (§74) : les cinq curses de Q7 ; aucune séquence par défaut ne les tire avant M3-T11d.
+        // M3-T9 (§74) : les cinq curses de Q7 ; la séquence par défaut en tire une sur 30 % des étages (M3-T11d1, §76.4).
         (path: "curses", kind: "Curse"),
+        // M3-T11d1 (§76.4) : piques des gabarits de combat (couche IntGrid `Surfaces`, valeur 5).
+        (path: "surfaces", kind: "Surface"),
         // Types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
         (path: "economy/economy.ron", kind: "Economy"),
@@ -44,7 +46,7 @@
     generate_template: (map: "maps/gabarit_armes.ldtk", target: "cible"),
     // M3-T12 (docs/conventions.md §77) : les mécaniques que la partie ordinaire (séquence `sous_sol`) doit
     // rencontrer, tableau « Atteignabilité » de docs/taches.md §8.1. `alacod lint` avertit de chacune que le
-    // contenu ne porte pas encore (jusqu'à M3-T8, T9, T10, T11).
+    // contenu ne porte pas ; M3-T11d1 (§76.4) les porte toutes.
     mechanics: [
         Tears,
         Effects,

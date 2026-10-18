@@ -1,0 +1,35 @@
+// M3-T14 (docs/conventions.md §79) : l'`explorateur` pose une bombe devant le rocher qui bloque le chemin de son but.
+// Carte `testbed/bot_rocks.ldtk` (scripts/construire-cartes-t14.py), séquence `bot_rocks` : deux salles séparées par
+// un mur dont le seul passage, deux cases, est bouché par deux rochers (aucun détour) ; pas d'ennemi, le portail est
+// ouvert dès le départ, au barycentre des deux `PlayerSpawn`, donc derrière les rochers. Le joueur a une bombe (rayon 56,
+// mèche 60 frames, tir ami actif, `PlayerScript::bomb` et `items`) et la politique par défaut : aucun but ordinaire,
+// aucun rocher « décoratif » à faire sauter.
+//
+// À regarder : le bot s'approche des rochers, pose sa bombe (f48), recule hors du rayon (sa vie reste pleine), les deux
+// rochers disparaissent à l'explosion (f107), il franchit le passage et prend le portail (« niveau 1 », f184).
+// Témoin sans bombe : `bot_isaac_rock_sans_bombe` (il reste devant les rochers).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map_seed: 1,
+    floors: Some("bot_rocks"),
+    frames: 400,
+    players: [
+        (
+            bot: explorateur,
+            bomb: (fuse_frames: 60, radius: "56.0", damage: "4.0", friendly_fire: Always),
+            items: ["bomb"],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Rock, min: Some(2), max: Some(2), at_frame: 5),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 20),
+        FloorIndex(index: 0, at_frame: 100),
+        EntityCount(kind: Rock, min: Some(2), max: Some(2), at_frame: 100),
+        Event(kind: "explosion", by_frame: 115),
+        EntityCount(kind: Rock, min: Some(0), max: Some(0), at_frame: 120),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 130),
+        FloorIndex(index: 1, at_frame: 200),
+        PlayerAlive(handle: 0, at_frame: 399),
+    ],
+)

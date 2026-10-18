@@ -7,12 +7,6 @@ use utils::frame::FrameCount;
 use crate::character::enemy::Enemy;
 use crate::core::GameInfo;
 
-// You can also register resources.
-
-pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
-    frame_count.frame += 1;
-}
-
 // DEBUG
 
 #[derive(Component)]

@@ -21,16 +21,15 @@ use utils::{
 
 use crate::{
     character::{
-        config::{CharacterConfig, CharacterConfigHandles},
+        config::{CharacterConfigKey, CharacterConfigs},
         health::Health,
         player::Player,
     },
     collider::{Collider, CollisionLayer},
-    core::AppState,
     economy::{perk_modifier_source, PerkMachine, PointsCredit},
     frame_events::{FrameEvents, FrameEventsAppExt},
-    global_asset::GlobalAsset,
     rollback::RollbackTraceApp,
+    session::AppState,
     system_set::RollbackSystemSet,
     weapons::{
         default_mode_ammo_contribution, spawn_weapon_for_player, spawn_weapon_pickup, Weapon,
@@ -59,6 +58,12 @@ impl Default for WindowRepairConfig {
 /// Component that marks an entity as capable of interacting
 #[derive(Component, Clone, Copy, Debug, Hash, Serialize, Deserialize, Default)]
 pub struct Interactor;
+
+/// Component that tracks interaction input state
+#[derive(Component, Clone, Copy, Default, Debug, Hash, Serialize, Deserialize)]
+pub struct InteractionInput {
+    pub is_holding: bool,
+}
 
 /// Interaction déclenchée par un joueur, consommée dans la même frame GGRS
 /// (voir [`FrameEvents`]).
@@ -95,7 +100,7 @@ pub fn interaction_detection_system(
             &GgrsNetId,
             Entity,
             &fixed_math::FixedTransform3D,
-            &crate::character::player::input::InteractionInput,
+            &InteractionInput,
         ),
         // À terre (T1.3) : pas d'interaction (ni réanimer, ni ouvrir une porte, ni réparer
         // une fenêtre) — voir la doc de `combat::downed::Downed`.
@@ -582,13 +587,13 @@ pub fn handle_revive_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
     mut commands: Commands,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     mut downed_query: Query<
         (
             &GgrsNetId,
             Entity,
             Option<&Reviving>,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &mut Health,
             Option<&mut Modifiers>,
         ),
@@ -614,7 +619,7 @@ pub fn handle_revive_interaction(
             .or_insert_with(|| event.interactor_net_id.clone());
     }
 
-    for (net_id, entity, opt_reviving, config_handles, mut health, opt_modifiers) in
+    for (net_id, entity, opt_reviving, config_key, mut health, opt_modifiers) in
         order_mut_iter!(downed_query)
     {
         let Some(reviver_net_id) = revivers.get(&net_id.0) else {
@@ -626,7 +631,7 @@ pub fn handle_revive_interaction(
         };
 
         let revive_frames = character_configs
-            .get(&config_handles.config)
+            .get(&config_key.0)
             .map_or(180, |config| config.revive_frames);
         let progress = opt_reviving.map_or(0, |r| r.progress_frames) + 1;
 
@@ -678,8 +683,7 @@ pub fn handle_weapon_pickup_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
     mut commands: Commands,
-    character_configs: Res<Assets<CharacterConfig>>,
-    global_assets: Res<GlobalAsset>,
+    character_configs: Res<CharacterConfigs>,
     balance: Res<crate::balance::ResolvedBalance>,
     mut pickup_query: Query<(&Weapon, &mut WeaponPickup), With<Rollback>>,
     mut inventory_query: Query<
@@ -688,7 +692,7 @@ pub fn handle_weapon_pickup_interaction(
             &mut AmmoReserves,
             &mut Currency,
             &Player,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &fixed_math::FixedTransform3D,
         ),
         With<Rollback>,
@@ -732,7 +736,7 @@ pub fn handle_weapon_pickup_interaction(
             }
         }
 
-        let Ok((mut inventory, mut ammo_reserves, mut wallet, player, config_handles, transform)) =
+        let Ok((mut inventory, mut ammo_reserves, mut wallet, player, config_key, transform)) =
             inventory_query.get_mut(event.interactor)
         else {
             continue;
@@ -814,7 +818,7 @@ pub fn handle_weapon_pickup_interaction(
         }
 
         let weapon_slots = character_configs
-            .get(&config_handles.config)
+            .get(&config_key.0)
             .map_or(2, |config| config.weapon_slots) as usize;
 
         // Emplacements pleins (T2.2) : l'arme active cède sa place, elle tombe au sol.
@@ -1053,7 +1057,7 @@ impl Plugin for InteractionPlugin {
             .rollback_and_trace::<Interactor>()
             .rollback_and_trace::<map::game::entity::map::window::WindowHealth>()
             .rollback_and_trace_resource::<WindowRepairConfig>()
-            .rollback_and_trace::<crate::character::player::input::InteractionInput>();
+            .rollback_and_trace::<InteractionInput>();
 
         // Add interaction detection to GGRS schedule
         // This runs after input processing but before movement

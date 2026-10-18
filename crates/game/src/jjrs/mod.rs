@@ -3,39 +3,17 @@ pub mod browser;
 pub mod local;
 pub mod p2p;
 pub mod restart;
+pub mod signal_watch;
 // Client HTTP allumette (D12, m0-v9) : natif uniquement (le flux challenge/login
 // n'existe pas sur le web en v1, et `ureq` n'est pas compilé pour wasm).
 #[cfg(not(target_arch = "wasm32"))]
 pub mod allumette;
 
-use std::{default, net::SocketAddr};
+use bevy::prelude::*;
+use bevy_fixed::fixed_math;
+use bevy_ggrs::prelude::*;
 
-use animation::SpriteSheetConfig;
-use bevy::{
-    color::palettes::{
-        css::TURQUOISE,
-        tailwind::{ORANGE_300, PURPLE_300},
-    },
-    prelude::*,
-};
-use bevy_fixed::{fixed_math, rng::RollbackRng};
-use bevy_ggrs::{ggrs::PlayerType, prelude::*};
-use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
-use ggrs::UdpNonBlockingSocket;
-use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
-use utils::net_id::GgrsNetIdFactory;
-
-use crate::{
-    character::{
-        config::CharacterConfig,
-        enemy::spawning::EnemySpawnerState,
-        player::{create::create_player, jjrs::PeerConfig},
-    },
-    collider::{spawn_test_wall, CollisionSettings},
-    core::AppState,
-    global_asset::GlobalAsset,
-    weapons::WeaponsConfig,
-};
+use crate::{character::player::jjrs::PeerConfig, collider::spawn_test_wall};
 
 // Shared configuration between the client for the ggrs configuration
 // to apply to their game
@@ -242,7 +220,7 @@ pub fn log_ggrs_events(
     }
     // Headless : seul le desync arrête le processus. Une déconnexion y est normale (le pair a
     // fini sa trace et quitté) et la comparaison des traces reste le juge.
-    if desync && crate::core::is_headless() {
+    if desync && crate::session::is_headless() {
         exit.write(AppExit::from_code(SESSION_LOST_EXIT_CODE));
     }
     lost_writer.write_batch(lost);

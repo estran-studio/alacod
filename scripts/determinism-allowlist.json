@@ -25,7 +25,7 @@
   },
   {
     "path": "crates/game/src/character/config.rs",
-    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*, reflect::TypePath};",
+    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*};",
     "count": 1,
     "reason": "Configuration des calques/skins ; calques convertis en BTreeMap à la création du personnage."
   },
@@ -73,7 +73,7 @@
   },
   {
     "path": "crates/game/src/global_asset.rs",
-    "code": "pub character_configs: HashMap<String, Handle<CharacterConfig>>,",
+    "code": "pub character_configs: HashMap<String, Handle<CharacterConfigAsset>>,",
     "count": 1,
     "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
   },
@@ -132,22 +132,28 @@
     "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
   },
   {
-    "path": "crates/game/src/weapons.rs",
+    "path": "crates/game/src/weapon_assets.rs",
     "code": "use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath};",
-    "count": 2,
-    "reason": "Enveloppes d'asset des tables d'armes (déménagées de combat, D69) : consultées par id, aucun ordre de simulation dérivé de ces collections."
+    "count": 1,
+    "reason": "Enveloppes d'asset des tables d'armes (D69, E3b, côté application) : copiées dans le registre `BTreeMap` de simulation ; aucun ordre de simulation dérivé de ces collections."
   },
   {
-    "path": "crates/game/src/weapons.rs",
+    "path": "crates/game/src/weapon_assets.rs",
     "code": "pub struct MeleeWeaponsConfig(pub HashMap<String, MeleeWeaponAsset>);",
     "count": 1,
     "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
   },
   {
-    "path": "crates/game/src/weapons.rs",
+    "path": "crates/game/src/weapon_assets.rs",
     "code": "pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);",
     "count": 1,
     "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
+  },
+  {
+    "path": "crates/game/src/weapon_assets.rs",
+    "code": "fn copy_table<T: Clone>(from: &HashMap<String, T>, into: &mut BTreeMap<String, T>) {",
+    "count": 1,
+    "reason": "Copie de l'enveloppe d'asset dans le registre `BTreeMap` (`WeaponRegistry`) : l'ordre d'itération du `HashMap` est sans effet, la cible est triée."
   },
   {
     "path": "crates/map/src/generation/floor.rs",
@@ -194,8 +200,8 @@
   {
     "path": "crates/map_ldtk/src/generation/mod.rs",
     "code": "let started = std::time::Instant::now();",
-    "count": 2,
-    "reason": "Mesure de durée des tests de génération (D45) et du test de performance de l'étage en grille (M3-T5), hors simulation."
+    "count": 4,
+    "reason": "Mesure de durée des tests de génération (D45), du test de performance de l'étage en grille (M3-T5) et de la comparaison isaac/gungeon par phase (M3-T11d1, D107), hors simulation."
   },
   {
     "path": "crates/game/src/performance.rs",

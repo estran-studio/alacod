@@ -25,12 +25,14 @@ Le clone se joue avec du contenu seulement : chaque définition a son `test:` et
 3. **T11c ennemis, champions, boss** (prérequis : M3-T7, M3-T4 pour les explosions) — `m3-t11c-ennemis` :
    dix ennemis (au sol, volants `Flying`, tireurs en patterns), trois à champions, deux boss à phases ;
    placement dans les gabarits existants (sans en ajouter : c'est T11d).
-4. **T11d gabarits, pools, curses, équilibrage** (prérequis : M3-T5, M3-T8, M3-T9, M3-T3) —
-   `m3-t11d-gabarits` : vingt gabarits en grille (combat avec rochers, rochers à butin et piques, trésor,
-   boutique, secrète, boss, diable), pools par type de salle, récompenses (cœurs, sous, bombes, clés),
-   curses dans la séquence par défaut ; **brancher ici tout ce que les tâches V1 ont laissé hors de la
-   partie ordinaire** et nommer pour chacun la graine qui le rencontre ; campagne du bot T14 sur 200 graines
-   dans la fourchette de **Q14**.
+4. **T11d gabarits, pools, curses, équilibrage** (prérequis : M3-T5, M3-T8, M3-T9, M3-T3) — **coupé en deux par William le 2026-10-18** :
+   - **T11d1 structure de la partie ordinaire** — `m3-t11d1-gabarits` (**livrée**, rapport `docs/taches/rapports/m3-t11d1-gabarits.md`, §76.4) :
+     vingt gabarits en grille (neuf de combat avec rochers, rochers à butin et piques, trois de boss, trois de trésor, secrète, diable, boutique),
+     boutique et pool `boutique`, curses dans la séquence par défaut, bombe de départ (D81), tableau d'atteignabilité du §8.1 rempli, campagne
+     de contrôle (200 graines à 1 et 2 bots). **L'équilibrage n'est pas un objectif** (William est sceptique sur l'équilibrage mesuré par bot dans la
+     boucle de développement) : victoires et morts sont rapportés, rien n'est réglé pour une fourchette (Q14 reste ouverte).
+   - **T11d2 volume de Q1** — `m3-t11d2-volume` (**livrée**, rapport `docs/taches/rapports/m3-t11d2-volume.md`, §76.5) : objets 49 → **100** (dont 37 de larmes, 9 familiers ou orbitaux, 11 actifs),
+     ennemis 7 → **10** (dont 3 à champions), boss 1 → **2** (`colosse`, type de salle `boss_profond`, second étage de la séquence par défaut), placement dans les gabarits de T11d1 ; dettes D112 à D115 (mécaniques qui manquent).
 
 ## Règles
 
@@ -45,8 +47,8 @@ README §4 (`make test_scenarios`, `make test_crates`, `make lint` ×5, fmt, `ma
 
 ## Atteignabilité
 
-C'est le rôle de la partie d : le tableau du §8.1 de `docs/taches.md` est rempli ligne par ligne (scénario ou
-graine) au rapport de T11d.
+C'est le rôle de la partie d1 : le tableau du §8.1 de `docs/taches.md` est rempli ligne par ligne (scénario ou
+graine) au rapport de T11d1 (`docs/taches/rapports/m3-t11d1-gabarits.md`).
 
 ## Session cloud
 

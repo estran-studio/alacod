@@ -1,6 +1,6 @@
 // `isaac` (M3-T11b, §76.2) : au ramassage **du reliquaire seul** (`OnPickup` filtré par `item`, §67 : sans filtre chaque ramassage ultérieur rendrait 4 points), 4 points de vie d'âme (`GainSoul`, §68).
 (
-    name: "Reliquaire",
+    name: "Châsse d'âme",
     kind: Passive,
     effects: [
         (on: OnPickup, item: Some("reliquaire"), do: [GainSoul("4")]),

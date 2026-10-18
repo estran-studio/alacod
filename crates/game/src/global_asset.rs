@@ -14,12 +14,12 @@ use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use content::registry::Registry;
 
 use crate::{
-    character::config::CharacterConfig,
-    core::{AppState, OnlineState},
+    character::config_asset::CharacterConfigAsset,
     economy::{EconomyConfig, PerksConfig},
     powerups::PowerUpsConfig,
+    session::{AppState, OnlineState},
     waves::WaveConfig,
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapon_assets::{MeleeWeaponsConfig, WeaponsConfig},
 };
 
 /// D3 : id de la feuille de l'effet de coup de mêlée (`ui::weapon_visuals::
@@ -31,7 +31,9 @@ pub const SLASH_EFFECT_SPRITE_ID: &str = "slash";
 pub struct GlobalAsset {
     pub spritesheets: HashMap<String, HashMap<String, Handle<SpriteSheetConfig>>>,
     pub animations: HashMap<String, Handle<AnimationMapConfig>>,
-    pub character_configs: HashMap<String, Handle<CharacterConfig>>,
+    /// Source de la synchro de `CharacterConfigs` (`character::config_asset::sync_character_configs`).
+    pub character_configs: HashMap<String, Handle<CharacterConfigAsset>>,
+    /// Source de la synchro de `WeaponRegistry` (`weapon_assets::sync_weapon_registry`).
     pub weapons: Handle<WeaponsConfig>,
     pub melee_weapons: Handle<MeleeWeaponsConfig>,
 

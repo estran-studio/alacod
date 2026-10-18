@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : à l'impact, la larme se divise en deux en éventail serré (`Split(count: 2, spread: "0.35")`).
+(
+    name: "Bifurqué",
+    kind: Passive,
+    projectile: Some((modifiers: [Split(count: 2, spread: "0.35")])),
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_bifurque` et son témoin, seuils mesurés : 11 coups sur la cible de l'arène en 150 frames contre 6 (les deux éclats de l'impact repartent sur la cible) ; 2 balles en vol à f150 contre 0.
+        tears: Some((weapon: Some("larmes"), frames: Some(150), targets: [(character: "cible", dx: -48, dy: -18)], hits: [(target: 0, with_item: 9, without_item: 6)], expect: [BulletCount(count: 2, projectile: Some("larmes"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larmes"), at_frame: 150)])),
+    )),
+)

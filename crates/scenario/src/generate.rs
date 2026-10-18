@@ -50,8 +50,9 @@ use game::replay::{
     Button, CharacterPlacement, EntityRef, Expectation, Invariants, PlayerScript, Scenario,
     Segment, WaveOverride,
 };
-use game::weapons::melee::{MeleeWeaponAsset, MeleeWeaponsConfig};
-use game::weapons::{WeaponAsset, WeaponTest, WeaponsConfig};
+use game::weapon_assets::{MeleeWeaponsConfig, WeaponsConfig};
+use game::weapons::melee::MeleeWeaponAsset;
+use game::weapons::{WeaponAsset, WeaponTest};
 use sim_core::modifier::resolve;
 use sim_core::stats::Stats;
 use utils::net_id::GgrsNetId;
@@ -1338,6 +1339,7 @@ pub fn build_enemy_scenario(
         profile_setup: None,
         hub: None,
         shopping: false,
+        explorer: None,
         powerup_drop_chance_override: Some(fixed_math::FIXED_ZERO),
         floors: None,
         clocks: None,
@@ -1575,10 +1577,11 @@ pub fn build_room_scenario(
 
 /// Attentes par défaut du gabarit [`Template::BossFight`] : chaque phase atteinte (moment clé
 /// `boss_phase`, cumulatif : l'attente `BossPhase` échoue une fois le boss mort), puis la salle du
-/// boss nettoyée quand le jeu a un type de salle `boss`.
+/// boss nettoyée quand le jeu a un type de salle `boss` (`room` : le type de la salle du boss, `boss` par défaut).
 pub fn boss_default_expectations(
     phases: usize,
     has_boss_room: bool,
+    room: &str,
     frames: u32,
 ) -> Vec<Expectation> {
     let mut expect: Vec<Expectation> = (1..phases)
@@ -1591,7 +1594,7 @@ pub fn boss_default_expectations(
     if has_boss_room {
         expect.push(Expectation::Event {
             kind: "room".to_string(),
-            label_contains: Some("salle boss nettoyée".to_string()),
+            label_contains: Some(format!("salle {room} nettoyée")),
             by_frame: frames,
         });
     }
@@ -1605,7 +1608,12 @@ pub fn build_boss_scenario(
     fight: &BossFightTest,
     phases: usize,
 ) -> Scenario {
-    let mut expect = boss_default_expectations(phases, scene.has_boss_room, frames);
+    let mut expect = boss_default_expectations(
+        phases,
+        scene.has_boss_room,
+        fight.room.as_deref().unwrap_or("boss"),
+        frames,
+    );
     expect.extend(fight.expect.iter().cloned());
     scene_scenario(
         scene,
@@ -1637,7 +1645,11 @@ fn scene_scenario(
     expect: Vec<Expectation>,
 ) -> Scenario {
     let map_path = map.unwrap_or(&scene.start_map);
+    let explorer = (player.bot == Some(game::replay::BotProfile::Explorateur))
+        .then(|| crate::runner::game_bot_policy(&scene.game).scene());
     let mut scenario = base_scenario(&scene.game, map_path, seed, frames, player, expect);
+    // Le bot d'un scénario généré joue la politique du jeu (`bot.ron`) sans achat ni bombe (`ExplorerPolicy::scene`).
+    scenario.explorer = explorer;
     scenario.floors = floors.map(str::to_string);
     if floors.is_none() && map.is_none() {
         scenario.floors = scene.start_floors.clone();
@@ -1688,6 +1700,7 @@ fn base_scenario(
         profile_setup: None,
         hub: None,
         shopping: false,
+        explorer: None,
         powerup_drop_chance_override: Some(fixed_math::FIXED_ZERO),
         floors: None,
         clocks: None,
@@ -1890,6 +1903,7 @@ pub fn build_weapon_scenario(
         profile_setup: None,
         hub: None,
         shopping: false,
+        explorer: None,
         powerup_drop_chance_override: Some(bevy_fixed::fixed_math::FIXED_ZERO),
         floors: None,
         progression: None,

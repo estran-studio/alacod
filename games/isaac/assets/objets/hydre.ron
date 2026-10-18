@@ -1,0 +1,11 @@
+// `isaac` (M3-T11d2, §76.5) : actif chargé par 35 points de dégâts infligés ; à l'usage, un point de bouclier (`GainShield`) et +50 % de dégâts pendant 240 frames. Substitution : la forme `Emit("hydre")` + `OnEvent("hydre")` est refusée par le lint à `OnUse` d'un objet (seuls `Heal`, `GainShield`, `GainSoul`, `TimedModifier`, `Modifier`, `Explode` y sont exécutés) ; les deux actions sont donc posées directement.
+(
+    name: "Hydre",
+    kind: Active(Damage(35)),
+    effects: [
+        (on: OnUse, do: [GainShield(1), TimedModifier(stat: Damage, op: Pct, value: "0.5", frames: 240)]),
+    ],
+    tags: ["actif"],
+    rarity: Rare,
+    test: Some((frames: 60, expect: [Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 8), Stat(handle: 0, stat: Damage, value: 1.5, at_frame: 30)])),
+)

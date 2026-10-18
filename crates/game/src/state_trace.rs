@@ -374,7 +374,7 @@ struct StateTraceFile {
 
 /// Attente maximale de la confirmation des dernières frames avant d'écrire seulement les
 /// frames confirmées (pair parti sans avoir confirmé, session perdue).
-const CONFIRMATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+pub(crate) const CONFIRMATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// Ce que [`confirmation`] décide pour une trace qui s'arrête avant `end`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -506,7 +506,7 @@ impl Plugin for StateTracePlugin {
         })
         .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests))
         .add_systems(
-            OnExit(crate::core::AppState::InGame),
+            OnExit(crate::session::AppState::InGame),
             next_game_after_restart,
         );
     }
