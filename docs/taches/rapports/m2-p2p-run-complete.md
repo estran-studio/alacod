@@ -316,10 +316,10 @@ Détail et commandes : `docs/taches/rapports/dette-d86-lobby-en-ligne.md`.
 
 | Condition (charge au lancement) | Rollbacks par 100 frames (clients 0 / 1) | Profondeur moyenne (0 / 1) | médiane / p90 / max | Profondeur 1 |
 |---|---|---|---|---|
-| Naturelle, boucle locale (2,08) | 17,9 / 18,3 | 1,35 / 1,32 | 1 / 2 / 11 et 8 | 80 % / 81 % |
-| netem RTT 120 ms ± 20 ms, perte 1 % (2,79) | 18,7 / 20,4 | 4,67 / 4,99 | 4 / 9–10 / 11 | 13 % / 9 % |
-| Stress SIGSTOP du client 1 (2,10) | 27,7 / 2,4 | 3,81 / 1,11 | 3 / 8 / 11 (client 0) | 15 % / 90 % |
+| Naturelle, boucle locale (2,67) | 16,3 / 15,7 | 1,27 / 1,24 | 1 / 2 / 4 et 7 | 79 % / 82 % |
+| netem RTT 120 ms ± 20 ms, perte 1 % (2,81) | 18,3 / 18,7 | 4,04 / 3,98 | 3 / 8 / 11 | 12 % / 14 % |
+| Stress SIGSTOP du client 1 (2,64) | 24,4 / 1,2 | 5,14 / 1,11 | 4 / 10 / 11 (client 0) | 7 % / 92 % |
 
-  Profondeur maximale 11 (fenêtre de prédiction 12). Profondeur corrigée à la revue 2 (frames avancées, plus les clés de trace). Détail (p99, coûts) et variabilité entre exécutions : rapport de la dette.
+  Profondeur maximale 11 (fenêtre de prédiction 12), trois exécutions par condition. Profondeur corrigée à la revue 2 (frames avancées, plus les clés de trace). Détail (p99, coûts, répétitions) : rapport de la dette.
 - **Nightly complet** (`NIGHTLY_P2P_GUNGEON=1`, sans `--quick`, `10816160`) : code 0, **18 924 s** ; C2 (p2p gungeon, stress, transition d'étage) ✅ ; C (allumette) SKIPPED et
   D (vidéos) PARTIAL sur ce poste (pas de `../allumette`, pas d'affichage) : dette **D94**.

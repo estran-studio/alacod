@@ -53,26 +53,27 @@ journaux et doit tomber dans 100–400 ms pour compter ; sinon l'essai se rejoue
 
 | Jeu | Essai | Écart demandé | Écart réel | Pairs obsolètes ignorés (somme des 2 clients) | Verdict |
 |---|---|---|---|---|---|
-| zombies (partie 1 : 299 lignes, partie 2 : 299) | tentative 2 | 225 | 338 ms | 1 | VERT |
-| | 3 | 250 | 264 ms | 1 | VERT |
-| | 4 | 275 | 208 ms | 1 | VERT |
-| | 7 | 225 | 332 ms | 1 | VERT |
-| | 8 | 250 | 318 ms | 1 | VERT |
-| gungeon, **après la victoire** (graine 10, inputs figés décalés, requête f7260 ; partie 1 : 7 199 lignes, partie 2 : 1 499) | 1 | 150 | 126 ms | 1 | VERT |
+| zombies (partie 1 : 299 lignes, partie 2 : 299) — binaire final | 1 | 150 | 152 ms | 1 | VERT |
+| | 2 | 225 | 240 ms | 1 | VERT |
+| | 3 | 250 | 331 ms | 1 | VERT |
+| | 4 | 275 | 267 ms | 1 | VERT |
+| | 5 | 350 | 385 ms | 1 | VERT |
+| gungeon, **après la victoire** (binaire de `3eb60a86`, avant les derniers changements, voir ci-dessous ; graine 10, inputs figés décalés, requête f7260 ; parties 1 et 2 : 7 199 et 1 499 lignes) | 1 | 150 | 126 ms | 1 | VERT |
 | | 2 | 225 | 273 ms | 1 | VERT |
 | | 3 | 250 | 292 ms | 1 | VERT |
 | | 4 | 275 | 300 ms | 1 | VERT |
 | | 5 | 350 | 298 ms | 1 | VERT |
 
-Binaire final (celui des mesures du §4). Zombies : 8 tentatives pour 5 dans la bande, toutes vertes (les tentatives 1, 5 et 6, à 627, 482 et 75 ms, sont hors bande et
-non comptées ; l'écart demandé se mêle au décalage de frames des pairs). Chaque essai vert exige (`p2p-restart.sh`) : les deux clients sortent en 0, aucun `DesyncDetected`,
-**traces identiques entre les deux clients pour la partie 1 et pour la partie 2**, partie 2 = partie 1 (graine d'origine, retour au lobby d'origine). Sur gungeon :
-victoire f7143 chez les deux clients (`EXPECT_VICTORY=1`). Les 10 essais comptés (et les 3 hors bande de zombies) ont vu l'ancien socket de l'autre pair (1 pair ignoré, côté
-du client revenu le premier) : la course se produit presque à chaque fois dans ces écarts, le filtre est donc réellement exercé.
+Zombies : 5 tentatives pour 5 dans la bande, toutes vertes (binaire final : `origin/main` `4630291a` fusionné, profondeur des rollbacks corrigée). Chaque essai vert exige (`p2p-restart.sh`) : les deux clients sortent en 0,
+aucun `DesyncDetected`, **traces identiques entre les deux clients pour la partie 1 et pour la partie 2**, partie 2 = partie 1 (graine d'origine, retour au lobby d'origine). Sur gungeon :
+victoire f7143 chez les deux clients (`EXPECT_VICTORY=1`) ; cette série n'a **pas** été rejouée sur le binaire final (12 min par série, et les derniers changements ne touchent pas la session : horloge murale de
+(b) déjà incluse, compteur de rollbacks, fusions de `main`) ; le code de session de cette série est celui d'aujourd'hui (`jjrs/p2p.rs`, `core.rs`, `ui/lobby.rs` inchangés depuis `3eb60a86`). Les 10 essais comptés ont vu
+l'ancien socket de l'autre pair (1 pair ignoré, côté du client revenu le premier) : la course se produit à chaque fois dans ces écarts, le filtre est donc réellement exercé.
 
-**Séries précédentes** (binaires intermédiaires, mêmes scripts, même verdict) : zombies 5/5 verts à 96, 55, 257, 463, 371 ms (premier lot, avant la bande d'écart du script) puis 5/5 dans la bande à
-133, 250, 347, 305, 365 ms ; gungeon après la victoire 5/5 à 168, 255, 287, 273, 309 ms ; un rejeu intermédiaire de zombies : 5/5 en 7 tentatives (144, 227, 305, 136, 108 ms comptés ; la tentative à 53 ms
-n'a pas rencontré l'ancien socket : 0 pair ignoré, pas de course). Au total, **aucun essai rouge après le correctif**, sur 4 séries.
+**Séries précédentes** (binaires intermédiaires, mêmes scripts, même verdict) : zombies 5/5 verts à 96, 55, 257, 463, 371 ms (premier lot, avant la bande d'écart du script), puis 5/5 dans la bande à
+133, 250, 347, 305, 365 ms, puis 8 tentatives pour 5 dans la bande (338, 264, 208, 332, 318 ms ; 627, 482, 75 ms hors bande, non comptées, toutes vertes), puis 6 tentatives (239, 291, 268, 392, 166 ms ; 87 ms hors bande) ;
+gungeon après la victoire 5/5 à 168, 255, 287, 273, 309 ms avant celle du tableau. Une tentative à 53 ms n'a pas rencontré l'ancien socket (0 pair ignoré, pas de course). Au total, **aucun essai rouge après le
+correctif**, sur 6 séries.
 
 **(b) de bout en bout** : `scripts/p2p-sync-timeout.sh zombies` (`ALACOD_SYNC_TIMEOUT_SECS=4`, binaire final) : le client 1 est suspendu (SIGSTOP) dès qu'il voit
 son pair, 8 s ; le client 0 construit sa session, reste `Synchronizing`, abandonne (`waited_secs=4.0`, horloge murale) et revient au lobby ; le client 1, repris,
@@ -95,37 +96,41 @@ sauvegardée, restauration à 98, deux `Advance` jusqu'à 100 = 2 frames resimul
 (clés de trace revues) n'a pas changé de définition ; il n'est plus utilisé pour la profondeur.
 
 Conditions : 2 clients, gungeon graine 10 `etages_deux`, inputs de bots figés (`p2p-gungeon-inputs.sh`, décalés de 5 frames), `ALACOD_INPUT_DELAY=0`,
-4 500 frames, transition d'étage franchie par les deux, traces identiques, 0 `DesyncDetected`, fenêtre de prédiction 12 (`MAX_PREDICTION_WINDOW`).
-Binaire final (`state_trace.rs` à la profondeur par frames avancées, sur `origin/main` `803cc9f0` fusionné), un essai par ligne (**une** exécution par condition, pas une campagne) ; la machine
-était partagée avec b6 (qui mesurait des benchs : ces essais n'ont été lancés qu'hors de ses mesures, charge au lancement 2,1 à 2,8).
+4 500 frames, transition d'étage franchie par les deux (f3497 : les inputs ont dû être **réenregistrés** sur `origin/main` `4630291a`, le contenu ayant changé depuis `803cc9f0`, D88 et D95), traces identiques,
+0 `DesyncDetected`, fenêtre de prédiction 12 (`MAX_PREDICTION_WINDOW`). Binaire final (profondeur par frames avancées, `origin/main` `4630291a` fusionné). La machine était partagée avec b6 (benchs) :
+ces essais n'ont été lancés qu'hors de ses mesures, charge au lancement 2,6 à 2,8.
 
 | Condition (charge au lancement) | Client | Rollbacks n (par 100 frames) | Profondeur moy. / médiane / p90 / p99 / max | Profondeur 1 | Frames revues (compteur historique) |
 |---|---|---|---|---|---|
-| **Naturelle**, boucle locale, sans stress ni netem (2,08) | 0 | 807 (17,9) | 1,35 / 1 / 2 / 5 / 11 | 649 (80 %) | 286 |
-| | 1 | 822 (18,3) | 1,32 / 1 / 2 / 5 / 8 | 664 (81 %) | 266 |
-| **netem** RTT 120 ms ± 20 ms, perte 1 % (2,79) | 0 | 840 (18,7) | 4,67 / 4 / 9 / 11 / 11 | 112 (13 %) | 4 037 |
-| | 1 | 917 (20,4) | 4,99 / 4 / 10 / 11 / 11 | 85 (9 %) | 4 825 |
-| **Stress** SIGSTOP du client 1 (12 ms / 30 ms) (2,10) | 0 | 1 245 (27,7) | 3,81 / 3 / 8 / 11 / 11 | 185 (15 %) | 3 933 |
-| | 1 | 109 (2,4) | 1,11 / 1 / 2 / 2 / 3 | 98 (90 %) | 12 |
+| **Naturelle**, boucle locale, sans stress ni netem (2,67) | 0 | 732 (16,3) | 1,27 / 1 / 2 / 3 / 4 | 576 (79 %) | 199 |
+| | 1 | 705 (15,7) | 1,24 / 1 / 2 / 4 / 7 | 577 (82 %) | 168 |
+| **netem** RTT 120 ms ± 20 ms, perte 1 % (2,81) | 0 | 822 (18,3) | 4,04 / 3 / 8 / 11 / 11 | 102 (12 %) | 3 090 |
+| | 1 | 840 (18,7) | 3,98 / 3 / 8 / 11 / 11 | 116 (14 %) | 3 150 |
+| **Stress** SIGSTOP du client 1 (12 ms / 30 ms) (2,64) | 0 | 1 099 (24,4) | 5,14 / 4 / 10 / 11 / 11 | 79 (7 %) | 5 199 |
+| | 1 | 53 (1,2) | 1,11 / 1 / 1 / 3 / 3 | 49 (92 %) | 6 |
 
-**Avant / après la correction** (mêmes conditions, autre exécution à chaque fois ; l'« avant » est le compteur par clés de trace de la revue 1, profondeur maximale 12) :
+**Répétitions** (trois exécutions par condition avec le compteur corrigé : v5 sur `803cc9f0`, v6 et v7 sur `4630291a` ; v6 avec des inputs périmés, EXPECT_FLOORS rouge, traces identiques, 0 desync, gardée
+pour la distribution) : rollbacks par 100 frames (client 0) **naturelle** 17,9 / 16,4 / 16,3, profondeur moyenne 1,35 / 1,45 / 1,27, maximum 11 / 10 / 4 ; **netem** 18,7 / 22,5 / 18,3, moyenne 4,67 / 3,80 / 4,04,
+maximum 11 / 11 / 11 ; **stress** 27,7 / 28,9 / 24,4, moyenne 3,81 / 4,62 / 5,14, maximum 11 / 11 / 11. La médiane est 1 (naturelle) et 3 à 4 (netem, stress client 0) dans les trois séries.
+
+**Avant / après la correction** (l'« avant » est le compteur par clés de trace de la revue 1, une exécution ; l'« après » est la dernière série v7) :
 
 | Condition | Avant : rollbacks/100 frames ; profondeur moy. ; max | Après : rollbacks/100 frames ; profondeur moy. ; max |
 |---|---|---|
-| Naturelle | 18,9 / 18,7 ; 1,14 / 1,15 ; 4 / 4 | 17,9 / 18,3 ; 1,35 / 1,32 ; 11 / 8 |
-| netem | 20,1 / 20,3 ; 4,50 / 4,53 ; 12 / 12 | 18,7 / 20,4 ; 4,67 / 4,99 ; 11 / 11 |
-| Stress (client 0 / 1) | 28,1 / 1,8 ; 4,12 / 1,06 ; 12 / 2 | 27,7 / 2,4 ; 3,81 / 1,11 ; 11 / 3 |
+| Naturelle | 18,9 / 18,7 ; 1,14 / 1,15 ; 4 / 4 | 16,3 / 15,7 ; 1,27 / 1,24 ; 4 / 7 |
+| netem | 20,1 / 20,3 ; 4,50 / 4,53 ; 12 / 12 | 18,3 / 18,7 ; 4,04 / 3,98 ; 11 / 11 |
+| Stress (client 0 / 1) | 28,1 / 1,8 ; 4,12 / 1,06 ; 12 / 2 | 24,4 / 1,2 ; 5,14 / 1,11 ; 11 / 3 |
 
-Lecture : (i) même **sans** réseau dégradé, sur la boucle locale, GGRS restaure l'état environ 18 fois par 100 frames (une fois sur 5 à 6 frames) ; 80 % de ces rollbacks ne
-resimulent qu'**une** frame (délai d'input 0 : l'input distant arrive une frame après la prédiction), le p99 est 5, le pire 11 ; (ii) un RTT de 120 ms avec 1 % de perte ne change presque
-pas la fréquence (~19 à 20/100 frames) mais **déplace la profondeur** : médiane 4, p90 9 à 10, p99 11, moyenne ~4,8, et seuls 9 à 13 % des rollbacks ne resimulent qu'une frame ; (iii) le stress à
-suspensions (artificiel : le client 1 est arrêté 12 ms sur 42, soit 29 % du temps) concentre les rollbacks sur le client qui devance (1 245 contre 109) ; 58 `WaitRecommendation` pour ce client, 0 pour l'autre.
-**La profondeur maximale mesurée est 11, jamais 12** (fenêtre de prédiction 12) : le pire cas du budget `rollback_ms_worst` (restauration + 12 frames) n'a pas été atteint dans ces essais. La relecture avait
-supposé le contraire en lisant le code ; la mesure ne le confirme pas.
-Coût relevé au profil (moyenne ; pire cas) : restauration 1,7 à 2,4 ms ; 6,3 à 18,8 ms ; simulation d'une frame 1,4 à 2,2 ms ; sauvegarde 2,3 à 4,0 ms (machine partagée, charge 2,1 à 2,8 au lancement,
-valeurs indicatives, pas une mesure de performance).
-**Variabilité** : une exécution par condition, et deux exécutions d'une même condition ne sont pas équivalentes (la condition « naturelle » a donné un maximum de 4 puis de 11, le p99 de 3 puis de 5) : la
-distribution de profondeur dépend de la charge et du minutage, pas seulement de la condition. Pas de conclusion de tendance entre conditions sans répétitions (non faites).
+Lecture : (i) même **sans** réseau dégradé, sur la boucle locale, GGRS restaure l'état environ 16 fois par 100 frames (une fois sur 6 frames) ; 80 % de ces rollbacks ne
+resimulent qu'**une** frame (délai d'input 0 : l'input distant arrive une frame après la prédiction), le p99 est 3 à 5 ; (ii) un RTT de 120 ms avec 1 % de perte ne change presque
+pas la fréquence (~18 à 22/100 frames) mais **déplace la profondeur** : médiane 3 à 4, p90 8 à 10, p99 11, moyenne ~4, et seuls 9 à 14 % des rollbacks ne resimulent qu'une frame ; (iii) le stress à
+suspensions (artificiel : le client 1 est arrêté 12 ms sur 42, soit 29 % du temps) concentre les rollbacks sur le client qui devance (1 099 contre 53) ; 69 `WaitRecommendation` pour ce client, 0 pour l'autre.
+**La profondeur maximale mesurée est 11, jamais 12** (fenêtre de prédiction 12) sur les neuf exécutions : le pire cas du budget `rollback_ms_worst` (restauration + 12 frames) n'a pas été atteint.
+La relecture avait supposé le contraire en lisant le code ; la mesure ne le confirme pas.
+Coût relevé au profil (moyenne ; pire cas, série v7) : restauration 2,0 à 3,0 ms ; 7,6 à 23,5 ms ; simulation d'une frame 1,7 à 2,8 ms ; sauvegarde 3,0 à 4,7 ms (machine partagée, valeurs indicatives,
+pas une mesure de performance).
+**Variabilité** : la médiane et la forme de la distribution tiennent d'une exécution à l'autre, pas le maximum de la condition « naturelle » (4, 10, 11) ni la fréquence sous netem (18 à 22) : pas de conclusion
+de tendance fine entre conditions, trois exécutions chacune, une machine, une graine.
 
 ## 5. Nightly complet
 
@@ -149,16 +154,20 @@ Les p2p de ces changements sont ceux du §3 et du §4 ; la suite de scénarios, 
 
 ## 6. Vérifications
 
-Sur le code final (livraison `5dc1d91a` + correctifs de la relecture : horloge murale de (b), profondeur des rollbacks, scripts, documentation) :
+Sur le code final (`origin/main` `4630291a` fusionné + profondeur des rollbacks par frames avancées ; seules des modifications de documentation suivent les vérifications) :
 
 | Vérification | Résultat |
 |---|---|
-| `make test_scenarios_par SHARDS=3` (sans BLESS) | **501 scénarios verts**, 1 175 s, 3 tranches ok ; `git status` : aucune `.trace` modifiée |
-| `make test_crates` | code 0 ; **1 053 tests passés, 0 échec** (dont `live_players_ignores_previous_session_peers_and_keeps_order`, `sync_timeout_is_reached_only_after_the_delay`, `rollbacks_depth_and_histogram`) |
+| `make test_scenarios_par SHARDS=3` (sans BLESS) | **642 scénarios verts**, 1 077 s, 3 tranches ok ; aucune `.trace` modifiée (`git status` propre hors documentation) |
+| `make test_crates` | code 0 ; **1 221 tests passés, 0 échec** (dont `live_players_ignores_previous_session_peers_and_keeps_order`, `sync_timeout_is_reached_only_after_the_delay`, `rollback_depth_is_frames_advanced_not_trace_keys`) |
 | `make test_tools` | 19 tests OK |
 | `cargo fmt --all -- --check` | propre |
-| `bash -n` des scripts modifiés ou ajoutés (`p2p-lobby.sh`, `p2p-sync-timeout.sh`, `p2p-restart.sh`, `p2p-stress.sh`) | OK |
-| `p2p-lobby.sh` zombies et gungeon (fin de run) ; `p2p-sync-timeout.sh` ; `p2p-restart.sh` ; `p2p-stress.sh` (3 conditions) | §3 et §4, binaire final |
+| `bash -n` des scripts modifiés ou ajoutés | OK |
+| `p2p-lobby.sh` zombies (5/5) ; `p2p-sync-timeout.sh` ; `p2p-restart.sh` ; `p2p-stress.sh` gungeon (3 conditions, 3 exécutions) | §3 et §4, binaire final |
+
+Incident de la fusion de `803cc9f0` : `make test_scenarios_par` y a rendu `achievement_unlocks` rouge (trace différente à la ligne 6) ; **ce n'est pas mon changement** : le même scénario, joué sur `origin/main`
+`803cc9f0` seul (worktree propre), échoue avec les mêmes empreintes (attendu `…1318af9a…`, obtenu `…b18a996a…`) ; `main` l'a corrigé depuis (D96, `4cd1b245`). Aussi : les inputs de bots figés de la série
+précédente étaient périmés sur `main` (aucun franchissement d'étage, `EXPECT_FLOORS` rouge, traces identiques, 0 desync) : réenregistrés (franchissement f3497).
 
 Non relancés sur le code final : `make check_sim_boundary` (les fichiers touchés sont dans `game`, crate `PENDING` ; aucune dépendance ajoutée) et le nightly (voir §5).
 
@@ -173,7 +182,7 @@ Incident d'outillage : vers 12:55 le binaire `~/.cargo/bin/rustup` a disparu (le
 - Une machine, un VPS partagé : charge variable, mesures de §4 à une exécution par condition ; aucune conclusion sur un vrai WAN, NAT, arm64.
 - (b) abandonne après 30 s une session qui n'est pas **légitimement** lente à démarrer : non mesuré sur des cartes lentes de jeu réel (fenêtre, assets).
 - Le retour au lobby en **allumette** n'est pas couvert (le flux est un autre chemin, non touché).
-- Profondeur des rollbacks : exacte par construction (frames avancées) mais mesurée une fois par condition ; la fréquence et la distribution varient d'une exécution à l'autre (§4).
+- Profondeur des rollbacks : exacte par construction (frames avancées) ; trois exécutions par condition, une machine, une graine ; la fréquence et le maximum varient d'une exécution à l'autre (§4).
 - Le repli du restart (`RESTART_TIMEOUT_SECS`) lit encore `Time<Real>` : en headless, 30 « secondes » durent ~10 s réelles (défaut antérieur à ce chantier, constaté à la relecture, non corrigé : hors périmètre).
 - Les enregistrements de bots (inputs figés) sont caducs au moindre changement de simulation.
 

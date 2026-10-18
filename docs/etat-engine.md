@@ -120,13 +120,13 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 
    | Condition (charge au lancement) | Rollbacks / 100 frames (clients 0, 1) | Profondeur moyenne | médiane / p90 / max | Profondeur 1 |
    |---|---|---|---|---|
-   | Boucle locale, sans stress (2,08) | 17,9 ; 18,3 | 1,35 ; 1,32 | 1 / 2 / 11 ; 8 | 80 % |
-   | netem RTT 120 ms ± 20 ms, perte 1 % (2,79) | 18,7 ; 20,4 | 4,67 ; 4,99 | 4 / 9–10 / 11 | 9–13 % |
-   | Stress SIGSTOP du client 1 (2,10) | 27,7 ; 2,4 | 3,81 ; 1,11 | 3 / 8 / 11 (client 0) | 15 % ; 90 % |
+   | Boucle locale, sans stress (2,67) | 16,3 ; 15,7 | 1,27 ; 1,24 | 1 / 2 / 4 ; 7 | 79–82 % |
+   | netem RTT 120 ms ± 20 ms, perte 1 % (2,81) | 18,3 ; 18,7 | 4,04 ; 3,98 | 3 / 8 / 11 | 12–14 % |
+   | Stress SIGSTOP du client 1 (2,64) | 24,4 ; 1,2 | 5,14 ; 1,11 | 4 / 10 / 11 (client 0) | 7 % ; 92 % |
 
-   Profondeur maximale mesurée 11, jamais 12 (fenêtre de prédiction 12). Profondeur = frames resimulées = dernière frame avancée − frame restaurée (corrigée à la revue 2 : une première version la déduisait
-   des clés de trace et la surestimait). Pas encore mesurés : matrice RTT 60/200 ms et pertes 3 % (D87), répétitions (une seule exécution par condition ; deux exécutions d'une même condition ont donné des
-   distributions différentes), vrai WAN.
+   Profondeur maximale mesurée 11 sur neuf exécutions, jamais 12 (fenêtre de prédiction 12). Profondeur = frames resimulées = dernière frame avancée − frame restaurée (corrigée à la revue 2 : une première
+   version la déduisait des clés de trace et la surestimait). Trois exécutions par condition (rapport de la dette, §4) : médiane stable, maximum de la condition « naturelle » et fréquence sous netem variables.
+   Pas encore mesurés : matrice RTT 60/200 ms et pertes 3 % (D87), vrai WAN.
 5. **Plateformes.** Pour chaque combinaison annoncée (natif, navigateur, architectures différentes),
    comparer une même partie et ses états confirmés. Le fixed-point seul ne prouve pas la compatibilité
    des builds ni la stabilité des fonctions de hash entre plateformes/toolchains.
