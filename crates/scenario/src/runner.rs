@@ -530,7 +530,6 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     }
 
     if headless {
-        game::character::skip_device_input(&mut app);
         single_threaded_schedules(&mut app);
     }
 

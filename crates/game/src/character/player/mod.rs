@@ -1,4 +1,3 @@
-pub mod control;
 pub mod create;
 pub mod input;
 pub mod jjrs;

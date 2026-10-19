@@ -104,6 +104,11 @@ impl Plugin for CoreSetupPlugin {
         ));
         app.add_plugins(BaseColliderGamePlugin {});
         app.add_plugins(BaseCharacterGamePlugin {});
+        // Moitié application du personnage (chargeur des configurations, périphériques, debug de l'IA) :
+        // juste après le plugin de simulation (D69 étape 2, E4) ; sans leafwing en headless.
+        app.add_plugins(crate::character::app_plugin::CharacterAppPlugin {
+            headless: self.0.headless,
+        });
         // Monnaie et perks (T2.3, chantier C5 v1) : `run::RunPlugin` enregistre
         // `Currency`/`Perks`/`FrameEvents<CurrencyEvent>` en rollback ; `economy::EconomyPlugin`
         // charge `economy.ron`/`perks.ron` et ajoute le système de points
@@ -494,7 +499,7 @@ impl Plugin for PresentationPlugin {
         }
         app.add_plugins(CameraControlPlugin);
         app.add_plugins(DebugColliderGamePlugin);
-        app.add_plugins(crate::character::CharacterPresentationPlugin);
+        app.add_plugins(crate::character::app_plugin::CharacterPresentationPlugin);
         app.add_plugins(crate::ui::weapon_visuals::WeaponPresentationPlugin);
         app.add_plugins(crate::feedback::FeedbackPlugin);
         app.add_plugins(crate::items::BlankPresentationPlugin);

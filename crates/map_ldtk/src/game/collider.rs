@@ -3,7 +3,8 @@ use bevy_ecs_ldtk::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use game::character::enemy::ai::navigation::FlowFieldCache;
-use game::collider::{spawn_test_wall, Collider, ColliderShape, CollisionSettings, Wall};
+use game::collider::test_wall::spawn_test_wall;
+use game::collider::{Collider, ColliderShape, CollisionSettings, Wall};
 use utils::net_id::GgrsNetIdFactory;
 
 use super::floors::FloorSlots;

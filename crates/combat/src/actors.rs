@@ -255,11 +255,11 @@ pub const INPUT_INTERACTION: u32 = 1 << 9;
 pub const INPUT_MELEE_ATTACK: u32 = 1 << 10;
 pub const INPUT_FORCE_CRASH: u32 = 1 << 11;
 /// Lâche l'arme active au sol (T2.2, chantier B7). Touche `L` (`Devices`, voir
-/// `character::player::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
+/// `character::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
 /// `game::replay::Button`).
 pub const INPUT_DROP_WEAPON: u32 = 1 << 12;
 /// Choix de mutation A/B/C (T1.10, `docs/conventions.md` §27) : touches `1`/`2`/`3`
-/// (`character::player::control::get_input_map`), boutons `ChoiceA`/`ChoiceB`/`ChoiceC` des
+/// (`character::control::get_input_map`), boutons `ChoiceA`/`ChoiceB`/`ChoiceC` des
 /// scénarios (`game::replay::Button`). Sans effet hors d'un choix ouvert (`MutationChoice`).
 pub const INPUT_CHOICE_A: u32 = 1 << 13;
 pub const INPUT_CHOICE_B: u32 = 1 << 14;

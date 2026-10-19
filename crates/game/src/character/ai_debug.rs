@@ -5,8 +5,8 @@
 
 use bevy::prelude::*;
 
-use super::navigation::{FlowFieldCache, NavProfile, GRID_CELL_SIZE};
-use super::state::{EnemyAiConfig, EnemyTarget, MonsterState};
+use crate::character::enemy::ai::navigation::{FlowFieldCache, NavProfile, GRID_CELL_SIZE};
+use crate::character::enemy::ai::state::{EnemyAiConfig, EnemyTarget, MonsterState};
 use crate::character::enemy::Enemy;
 
 /// Resource to control flow field debug visualization
@@ -93,13 +93,14 @@ pub fn draw_flow_field_debug(
         return;
     }
 
-    let flow_field = match cache.get_flow_field(super::navigation::NavKey::new(
-        ff_debug.profile,
-        super::navigation::AgentSize::Small,
-    )) {
-        Some(ff) => ff,
-        None => return,
-    };
+    let flow_field =
+        match cache.get_flow_field(crate::character::enemy::ai::navigation::NavKey::new(
+            ff_debug.profile,
+            crate::character::enemy::ai::navigation::AgentSize::Small,
+        )) {
+            Some(ff) => ff,
+            None => return,
+        };
 
     let cell_size = GRID_CELL_SIZE as f32;
     let half_cell = cell_size / 2.0;
@@ -307,10 +308,18 @@ pub fn draw_enemy_state_debug(
                     Vec2::new(target_pos.x.to_num::<f32>(), target_pos.y.to_num::<f32>());
 
                 let color = match target.target_type {
-                    super::state::TargetType::Player => Color::srgb(1.0, 0.0, 0.0),
-                    super::state::TargetType::Obstacle => Color::srgb(1.0, 0.5, 0.0),
-                    super::state::TargetType::None => Color::srgb(0.5, 0.5, 0.5),
-                    super::state::TargetType::Enemy => Color::srgb(1.0, 0.6, 0.8),
+                    crate::character::enemy::ai::state::TargetType::Player => {
+                        Color::srgb(1.0, 0.0, 0.0)
+                    }
+                    crate::character::enemy::ai::state::TargetType::Obstacle => {
+                        Color::srgb(1.0, 0.5, 0.0)
+                    }
+                    crate::character::enemy::ai::state::TargetType::None => {
+                        Color::srgb(0.5, 0.5, 0.5)
+                    }
+                    crate::character::enemy::ai::state::TargetType::Enemy => {
+                        Color::srgb(1.0, 0.6, 0.8)
+                    }
                 };
 
                 gizmos.line_2d(pos, target_vec, color);

@@ -9,7 +9,7 @@ use leafwing_input_manager::prelude::ActionState;
 
 use super::hud_model::CameraFollowOverride;
 use super::mutation_screen::{update_mutation_screen_view, MutationNavInput};
-use crate::character::player::control::PlayerAction;
+use crate::character::control::PlayerAction;
 use crate::character::player::{LocalPlayer, Player};
 use crate::session::AppState;
 

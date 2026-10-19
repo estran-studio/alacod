@@ -12,7 +12,7 @@ use game::{
     character::{
         config::CharacterConfigs, enemy::spawning::EnemySpawnerState, player::create::create_player,
     },
-    collider::{spawn_test_wall, CollisionSettings},
+    collider::{test_wall::spawn_test_wall, CollisionSettings},
     core::CoreSetupPlugin,
     jjrs::{GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsSessionBuilding},
     session::{AppState, CoreSetupConfig},

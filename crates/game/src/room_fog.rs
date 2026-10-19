@@ -444,7 +444,7 @@ fn filter_world_sprites(
             With<crate::powerups::PowerUpPickup>,
             With<crate::weapons::WeaponPickup>,
             With<crate::interaction::WindowHealthBar>,
-            With<crate::character::health::ui::HealthBar>,
+            With<crate::character::health_bar::HealthBar>,
         )>,
     >,
     mut sprites: Query<(

@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use bevy_kira_audio::prelude::*;
 use combat::damage::Defenses;
 use sim_core::animation_state::AnimationStateBundle;
 use sim_core::modifier::Modifiers;
@@ -99,7 +98,6 @@ pub fn create_character(
     let entity = commands
         .spawn((
             transform_fixed.to_bevy_transform(),
-            Visibility::default(),
             AnimationStateBundle::new(starting_layers),
             CharacterAppearance {
                 config_name: config_name.clone(),
@@ -162,7 +160,6 @@ pub fn create_character(
     // Add gameplay components to the visual entity
     commands.entity(entity).insert((
         transform_fixed,
-        SpatialAudioEmitter { instances: vec![] },
         Velocity {
             main: fixed_math::FixedVec2::ZERO,
             knockback: fixed_math::FixedVec2::ZERO,

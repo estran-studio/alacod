@@ -1,28 +1,30 @@
+pub mod ai_debug;
+pub mod app_plugin;
 pub mod appearance;
 pub mod config;
 pub mod config_asset;
+pub mod control;
 pub mod create;
 pub mod dash;
 pub mod enemy;
 pub mod health;
+pub mod health_bar;
+pub mod input_devices;
 pub mod movement;
 pub mod player;
 pub mod surface;
 pub mod variant;
 pub mod visuals;
 
-use animation::set_sprite_flip;
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, ReadInputs};
 use combat::downed::{Downed, Reviving};
-use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use sim_core::kinds::{KindDecl, KindRegistry};
 use stats::{expire_modifiers_system, StatsPlugin};
 
 use crate::frame_events::FrameEventsAppExt;
 use crate::{
-    args::DebugAiConfig,
     character::{
         config::CharacterConfigs,
         dash::DashState,
@@ -32,10 +34,6 @@ use crate::{
                 behavior::{
                     enemy_attack_damage_translate_system, enemy_attack_system,
                     enemy_target_selection,
-                },
-                debug::{
-                    draw_enemy_state_debug, draw_flow_field_debug, toggle_enemy_state_debug,
-                    toggle_flow_field_debug, EnemyStateDebug, FlowFieldDebug,
                 },
                 // Flow field navigation
                 navigation::{update_flow_field_system, FlowFieldCache, FlowFieldConfig},
@@ -49,12 +47,10 @@ use crate::{
         health::{
             rollback_apply_accumulated_damage, rollback_apply_bleedout, rollback_apply_death,
             rollback_check_defeat, rollback_health_regeneration, rollback_resolve_damage_events,
-            sync_health_from_stats, ui::update_health_bars, DamageAccumulator, Death, Health,
-            HealthRegen, HitCount,
+            sync_health_from_stats, DamageAccumulator, Death, Health, HealthRegen, HitCount,
         },
         movement::{apply_knockback_damping, KnockbackDampingConfig, SprintState, Velocity},
         player::{
-            control::PlayerAction,
             input::{
                 apply_inputs, move_characters, read_local_inputs, update_animation_state,
                 PointerWorldPosition,
@@ -69,26 +65,15 @@ use crate::{
 #[derive(Component, Clone, Copy, Default)]
 pub struct Character;
 
-/// Coupe la lecture des périphériques (perf-suite-scenarios) : `update_action_state` de
-/// leafwing résout les conflits d'entrées (`handle_clashes`) à chaque frame, ~5 % d'une frame
-/// headless. Pour un jeu piloté par scénario (`InputSource::Scripted`, bots), les inputs
-/// viennent du script et `ActionState` n'est jamais lu (`input.rs` ne le lit qu'avec
-/// `InputSource::Devices`) : aucun effet sur la simulation ni sur les traces.
-pub fn skip_device_input(app: &mut App) {
-    use leafwing_input_manager::plugin::InputManagerSystem;
-    app.configure_sets(PreUpdate, InputManagerSystem::Update.run_if(|| false));
-}
-
 pub struct BaseCharacterGamePlugin {}
 
 impl Plugin for BaseCharacterGamePlugin {
     fn build(&self, app: &mut App) {
         // Configurations des personnages : donnée de simulation (`CharacterConfigs`), remplie
-        // hors simulation par l'enveloppe `Asset` (`config_asset`, `PreUpdate` avant `RunGgrsSystems`).
+        // hors simulation par l'enveloppe `Asset` (`config_asset`, ajoutée par
+        // `app_plugin::CharacterAppPlugin`, `PreUpdate` avant `RunGgrsSystems`).
         app.init_resource::<CharacterConfigs>();
-        app.add_plugins(config_asset::CharacterConfigAssetPlugin);
 
-        app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
         // Stats et modificateurs (T1.2, chantier B2) : enregistre `Stats`/`Modifiers` en
         // rollback et l'expiration des modificateurs (`RollbackSystemSet::Status`). Voir
         // `docs/conventions.md` §9.
@@ -105,21 +90,6 @@ impl Plugin for BaseCharacterGamePlugin {
         app.init_resource::<enemy::ai::squad::SquadSlots>();
         app.init_resource::<FlowFieldConfig>();
 
-        // Initialize debug resources with --debug-ai flag if present
-        let debug_ai_enabled = app
-            .world()
-            .get_resource::<DebugAiConfig>()
-            .map(|c| c.enabled)
-            .unwrap_or(false);
-
-        app.insert_resource(FlowFieldDebug {
-            enabled: debug_ai_enabled,
-            ..FlowFieldDebug::new()
-        });
-        app.insert_resource(EnemyStateDebug {
-            enabled: debug_ai_enabled,
-            ..EnemyStateDebug::new()
-        });
         app.add_frame_events::<ObstacleAttackEvent>();
         // `FrameEvents<DamageEvent>` (T1.1, chantier B1) : voir la doc de
         // `sim_core::damage` pour les trois émetteurs et le résolveur unique.
@@ -301,33 +271,6 @@ impl Plugin for BaseCharacterGamePlugin {
                 (process_obstacle_damage,)
                     .after(RollbackSystemSet::EnemyAI)
                     .before(RollbackSystemSet::FrameCounter),
-            ),
-        );
-    }
-}
-
-/// Sprites, barres de vie et debug visuel de l'IA. Ajouté par `PresentationPlugin`.
-pub struct CharacterPresentationPlugin;
-
-impl Plugin for CharacterPresentationPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                visuals::attach_character_visuals,
-                visuals::remove_revived_death_ghosts.before(visuals::spawn_death_ghosts),
-                visuals::spawn_death_ghosts.after(visuals::attach_character_visuals),
-                visuals::animate_death_ghosts,
-                set_sprite_flip,
-                visuals::face_stationary_enemies.after(set_sprite_flip),
-                visuals::orient_familiars.after(set_sprite_flip),
-                update_health_bars,
-                // Debug toggles
-                toggle_flow_field_debug,
-                toggle_enemy_state_debug,
-                // Debug drawing
-                draw_flow_field_debug,
-                draw_enemy_state_debug,
             ),
         );
     }
