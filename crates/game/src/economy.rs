@@ -38,7 +38,6 @@
 //! par frame et garde un seul endroit qui décide de la forme exacte de `CurrencyEvent::reason`.
 
 use bevy::prelude::*;
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::fixed_math::{self, Fixed};
 use bevy_ggrs::{GgrsSchedule, Rollback};
 use effects::CURRENCY_MULTIPLIER_STAT;
@@ -72,11 +71,15 @@ pub fn perk_modifier_source(perk_id: &str) -> ModifierSource {
 /// F5 (chantier m0-v11) : les champs numériques sont des [`NumOrExpr`] — littéral
 /// (inchangé) ou expression évaluée une fois au lancement (voir `crate::balance`).
 ///
+/// Donnée de simulation pure (D69 étape 2, E3c) : la simulation ne la lit jamais, elle lit
+/// [`crate::balance::ResolvedBalance`] ; son enveloppe `Asset` est
+/// `economy_assets::EconomyConfigAsset` (application).
+///
 /// `starting_currency` n'est **pas** un champ de ce type : la monnaie de départ est par
 /// personnage (`character::config::CharacterConfig::starting_currency`), pas globale au jeu —
 /// voir sa doc pour la justification (un testbed pourrait vouloir un personnage riche et un
 /// autre pauvre, par exemple).
-#[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EconomyConfig {
     #[serde(default = "default_kill_points")]
     pub kill_points: content::expr::NumOrExpr,
@@ -158,14 +161,14 @@ pub struct PerkDef {
     pub modifiers: Vec<PerkModifierDef>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct PerkModifierDef {
     pub stat: StatId,
     pub op: sim_core::modifier::ModifierOp,
     pub value: Fixed,
 }
 
-#[derive(Asset, TypePath, Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct PerksConfig(pub BTreeMap<String, PerkDef>);
 
 /// Machine à perks (T2.3) : posée par
@@ -312,9 +315,6 @@ pub struct EconomyPlugin;
 
 impl Plugin for EconomyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<EconomyConfig>::new(&["ron"]));
-        app.add_plugins(RonAssetPlugin::<PerksConfig>::new(&["ron"]));
-
         app.add_frame_events::<PointsCredit>();
 
         app.init_resource::<RepairPointsTracking>();

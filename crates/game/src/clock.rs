@@ -24,7 +24,7 @@ use run::{
 use sim_core::{frame_events::FrameEvents, players::PlayersCount};
 use utils::frame::FrameCount;
 
-use crate::{jjrs::GggrsSessionConfiguration, session::OnlineState};
+use crate::session::SessionPlayers;
 
 /// Horloges demandées par un scénario (`Scenario::clocks`), posé par le runner.
 #[derive(Resource, Clone, Debug)]
@@ -92,9 +92,7 @@ pub fn resolve_clocks_system(
     manifest: Option<Res<GameManifest>>,
     clocks_override: Option<Res<ClocksOverride>>,
     difficulty_override: Option<Res<DifficultyOverride>>,
-    online: Res<OnlineState>,
-    ggrs_config: Res<GggrsSessionConfiguration>,
-    players_count: Res<PlayersCount>,
+    session_players: Res<SessionPlayers>,
 ) {
     commands.remove_resource::<ClockSchedule>();
     commands.remove_resource::<DifficultyConfig>();
@@ -150,10 +148,7 @@ pub fn resolve_clocks_system(
             .map(|entry| Expr::parse(&entry.value))
         {
             Some(Ok(expr)) => {
-                let players = match *online {
-                    OnlineState::Online => ggrs_config.connection.max_player as u32,
-                    OnlineState::Offline | OnlineState::Unset => players_count.0 as u32,
-                };
+                let players = session_players.0;
                 commands.insert_resource(DifficultyConfig { expr, players });
             }
             Some(Err(error)) => warn!("difficulté invalide ({error:?}, voir `alacod lint`)"),

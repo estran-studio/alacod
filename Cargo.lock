@@ -10052,6 +10052,7 @@ dependencies = [
  "map",
  "map_ldtk",
  "meta",
+ "parking_lot",
  "ron 0.12.2",
  "run",
  "serde",

@@ -11,6 +11,9 @@
 # E3b (dette-d69-e3b-weapon-registry) : + weapons.rs (22 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : champions.rs,
 # character/enemy/create.rs, character/enemy/spawning.rs, effects_runtime.rs, loot.rs, progression.rs, waves/systems.rs (dépendent de balance.rs, collider/mod.rs,
 # items.rs, shop.rs, interaction.rs, character/create.rs, boss.rs, clock.rs, health/mod.rs…) ; nouveau fichier à fuite : weapon_assets.rs (app).
+# E3c (dette-d69-e3c-balance) : + clock.rs, waves/config.rs (24 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : balance.rs
+# (character/config.rs), economy.rs (balance.rs, waves/mod.rs), powerups.rs (character/health/mod.rs), shop.rs (health/mod.rs, effects_runtime.rs, interaction.rs, items.rs),
+# waves/mod.rs (character/enemy/spawning.rs, health/mod.rs) ; nouveaux fichiers à fuite (enveloppes, app) : balance_assets.rs, economy_assets.rs, powerups_assets.rs, waves/assets.rs.
 character/appearance.rs
 character/enemy/ai/obstacle.rs
 character/enemy/mod.rs
@@ -18,6 +21,7 @@ character/movement.rs
 character/player/jjrs.rs
 character/player/mod.rs
 character/variant.rs
+clock.rs
 collision_grid.rs
 fog_map.rs
 frame_counter.rs
@@ -30,6 +34,7 @@ statuses.rs
 system_set.rs
 ui/screens/model.rs
 visual_requests.rs
+waves/config.rs
 waves/state.rs
 waves/tracking.rs
 weapons.rs
