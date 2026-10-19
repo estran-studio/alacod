@@ -117,6 +117,7 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(crate::effects_runtime::EffectsRuntimePlugin);
         app.add_plugins(crate::effects_v3::EffectsV3Plugin);
         app.add_plugins(crate::progression::ProgressionPlugin);
+        app.add_plugins(crate::economy_assets::EconomyAssetsPlugin);
         app.add_plugins(crate::economy::EconomyPlugin);
         app.add_plugins(crate::interaction::InteractionPlugin);
         // Power-ups (T2.5, chantier C1 v0) : après `EconomyPlugin` (l'action
@@ -124,6 +125,7 @@ impl Plugin for CoreSetupPlugin {
         // ordre de *systèmes* explicite entre `RollbackSystemSet::Effects` et `::Run`, pas
         // besoin d'ordre entre plugins ici — seulement une dépendance de lecture, listée
         // après par lisibilité).
+        app.add_plugins(crate::powerups_assets::PowerUpsAssetsPlugin);
         app.add_plugins(crate::powerups::PowerUpsPlugin);
         app.add_plugins(crate::items::ItemsPlugin);
         // M3-T6 : familiers et orbitaux (§71), après les tirs des joueurs.
@@ -144,6 +146,7 @@ impl Plugin for CoreSetupPlugin {
         // headless pour prouver le feedback sans écran ; le rendu est dans `PresentationPlugin`.
         app.add_plugins(crate::feedback::FeedbackLogPlugin);
         app.add_plugins(GameUiPlugin);
+        app.add_plugins(crate::waves::assets::WaveAssetsPlugin);
         app.add_plugins(WaveSystemPlugin);
         // État de run (T2.4, chantier F1) : condition de victoire, résumé, relance sans
         // relancer le binaire (`RunRequest`). Voir `crate::run_state`.
@@ -321,7 +324,14 @@ impl Plugin for CoreSetupPlugin {
         app.add_systems(
             OnEnter(AppState::GameLoading),
             (
-                crate::balance::resolve_balance_system,
+                // E3c : le nombre de joueurs de la session, lu par la simulation (`SessionPlayers`),
+                // publié avant les deux résolutions qui s'en servent.
+                crate::balance_assets::publish_session_players,
+                crate::balance_assets::resolve_balance_system
+                    .after(crate::balance_assets::publish_session_players),
+                // E3c : table des power-ups, copiée de l'asset **après** l'équilibrage.
+                crate::powerups_assets::resolve_powerups_table_system
+                    .after(crate::balance_assets::resolve_balance_system),
                 // T1.2 : patterns nommés (kind `Pattern`), hors rollback, voir
                 // `crate::patterns`.
                 crate::patterns::resolve_pattern_library_system,
@@ -330,7 +340,8 @@ impl Plugin for CoreSetupPlugin {
                 // T1.3 : statuts (kind `Status`), hors rollback, voir `crate::statuses`.
                 crate::statuses::resolve_status_library_system,
                 // T1.9 : horloges et difficulté activées, voir `crate::clock`.
-                crate::clock::resolve_clocks_system,
+                crate::clock::resolve_clocks_system
+                    .after(crate::balance_assets::publish_session_players),
             ),
         );
 

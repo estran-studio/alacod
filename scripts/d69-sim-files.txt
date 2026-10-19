@@ -16,6 +16,9 @@
 # state_trace.rs restent bloqués par la chaîne run_state.rs → balance.rs, economy.rs, waves/mod.rs (asset : E3c, E5c) et hub.rs → interaction.rs, shop.rs (E5c) ;
 # recording.rs par character/player/input.rs, replay.rs, progression.rs. Nouveaux fichiers à fuite (application) : jjrs/p2p_socket.rs, jjrs/p2p_socket_tests.rs, jjrs/telemetry.rs,
 # args/telemetry_config.rs ; jjrs/signal_watch.rs (D109, déjà app) ; reste à fuite dans args/mod.rs : `telemetry::TelemetryPlugin` de `BaseArgsPlugin` (E9).
+# E3c (dette-d69-e3c-balance) : + clock.rs, waves/config.rs (24 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : balance.rs
+# (character/config.rs), economy.rs (balance.rs, waves/mod.rs), powerups.rs (character/health/mod.rs), shop.rs (health/mod.rs, effects_runtime.rs, interaction.rs, items.rs),
+# waves/mod.rs (character/enemy/spawning.rs, health/mod.rs) ; nouveaux fichiers à fuite (enveloppes, app) : balance_assets.rs, economy_assets.rs, powerups_assets.rs, waves/assets.rs.
 character/appearance.rs
 character/enemy/ai/mod.rs
 character/enemy/ai/obstacle.rs
@@ -41,6 +44,7 @@ statuses.rs
 system_set.rs
 ui/screens/model.rs
 visual_requests.rs
+waves/config.rs
 waves/state.rs
 waves/tracking.rs
 weapons.rs

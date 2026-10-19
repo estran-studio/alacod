@@ -47,7 +47,6 @@
 //! Les preuves avant bless sont consignées dans le rapport de tâche.
 
 use bevy::{log::tracing::span, log::Level, prelude::*};
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use bevy_ggrs::{GgrsSchedule, Rollback, RollbackDespawnCommandExtension};
 use combat::inventory::AmmoReserves;
@@ -68,7 +67,6 @@ use crate::character::enemy::Enemy;
 use crate::character::health::Death;
 use crate::character::player::Player;
 use crate::economy::PointsCredit;
-use crate::global_asset::GlobalAsset;
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
 use crate::weapons::{MagBulletConfig, Weapon, WeaponInventory, WeaponModesState};
@@ -94,11 +92,22 @@ pub struct PowerUpDef {
 /// `drop_chance` (racine, `[0, 1]`) est la probabilité qu'un ennemi tué en laisse tomber un
 /// **du tout** ; `PowerUpDef::weight` décide ensuite **lequel** parmi ceux de cette table
 /// (voir la doc du module).
-#[derive(Asset, TypePath, Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PowerUpsConfig {
     pub drop_chance: fixed_math::Fixed,
     pub powerups: BTreeMap<String, PowerUpDef>,
 }
+
+/// Table de power-ups lue par la simulation (D69 étape 2, E3c) : copie de
+/// `powerups_assets::PowerUpsConfigAsset`, posée par
+/// `powerups_assets::resolve_powerups_table_system` à `OnEnter(GameLoading)`, **après**
+/// `balance_assets::resolve_balance_system` (même point d'évaluation que l'équilibrage). `None` : le jeu
+/// ne déclare aucun dossier `PowerUp` (aucun power-up ne tombe ni ne se ramasse). Ressource de donnée, ni
+/// rollback ni checksum : fixe pour toute la partie. Avant E3c, les systèmes lisaient l'asset à chaque
+/// frame (un rechargement à chaud pendant une partie changeait les power-ups) ; la table est figée
+/// jusqu'à la prochaine entrée en `GameLoading` (comme `ResolvedBalance`, F5).
+#[derive(Resource, Debug, Clone, Default)]
+pub struct PowerUpsTable(pub Option<PowerUpsConfig>);
 
 /// Power-up au sol (T2.5). Posé par [`loot_drop_on_death_system`] (drop à la mort) ou par
 /// `scenario::runner` (placement scripté déterministe, `Scenario::powerups`, voir sa doc) —
@@ -168,8 +177,7 @@ pub fn spawn_powerup_pickup(
 /// que dans `Interaction` (réservé aux interactions à bouton, voir `interaction.rs`).
 pub fn powerup_pickup_detect_system(
     frame: Res<FrameCount>,
-    global_assets: Res<GlobalAsset>,
-    powerup_assets: Res<Assets<PowerUpsConfig>>,
+    table: Res<PowerUpsTable>,
     mut commands: Commands,
     mut events: ResMut<FrameEvents<PowerUpPickedUp>>,
     pickups: Query<
@@ -186,11 +194,7 @@ pub fn powerup_pickup_detect_system(
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "powerup_pickup");
     let _enter = system_span.enter();
 
-    let Some(config) = global_assets
-        .powerups_config
-        .as_ref()
-        .and_then(|h| powerup_assets.get(h))
-    else {
+    let Some(config) = &table.0 else {
         return;
     };
 
@@ -241,8 +245,7 @@ pub fn powerup_pickup_detect_system(
 pub fn apply_powerup_actions_system(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<PowerUpPickedUp>>,
-    global_assets: Res<GlobalAsset>,
-    powerup_assets: Res<Assets<PowerUpsConfig>>,
+    table: Res<PowerUpsTable>,
     mut players: Query<
         (
             &GgrsNetId,
@@ -266,11 +269,7 @@ pub fn apply_powerup_actions_system(
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "powerup_apply");
     let _enter = system_span.enter();
 
-    let Some(config) = global_assets
-        .powerups_config
-        .as_ref()
-        .and_then(|h| powerup_assets.get(h))
-    else {
+    let Some(config) = &table.0 else {
         return;
     };
 
@@ -492,8 +491,7 @@ pub fn powerup_expiry_system(
 pub fn loot_drop_on_death_system(
     frame: Res<FrameCount>,
     mut rng_streams: ResMut<RngStreams>,
-    global_assets: Res<GlobalAsset>,
-    powerup_assets: Res<Assets<PowerUpsConfig>>,
+    table: Res<PowerUpsTable>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut commands: Commands,
     dying: Query<
@@ -507,11 +505,7 @@ pub fn loot_drop_on_death_system(
         ),
     >,
 ) {
-    let Some(config) = global_assets
-        .powerups_config
-        .as_ref()
-        .and_then(|h| powerup_assets.get(h))
-    else {
+    let Some(config) = &table.0 else {
         return;
     };
     if config.powerups.is_empty() || config.drop_chance <= fixed_math::FIXED_ZERO {
@@ -566,7 +560,7 @@ pub struct PowerUpsPlugin;
 
 impl Plugin for PowerUpsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<PowerUpsConfig>::new(&["ron"]));
+        app.init_resource::<PowerUpsTable>();
         app.add_frame_events::<PowerUpPickedUp>();
         app.rollback_and_trace::<PowerUpPickup>();
 
@@ -596,9 +590,20 @@ mod tests {
     use bevy::ecs::system::RunSystemOnce;
     use sim_core::{ammo::AmmoType, modifier::ModifierOp, stats::StatId};
 
+    /// Les armes à distance du testbed (`weapons.ron`) : la donnée de simulation (`WeaponAsset`), sans
+    /// l'enveloppe `Asset` de l'application.
+    fn testbed_weapons() -> BTreeMap<String, crate::weapons::WeaponAsset> {
+        #[derive(Deserialize)]
+        struct Table(BTreeMap<String, crate::weapons::WeaponAsset>);
+        ron::from_str::<Table>(include_str!(
+            "../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
+        ))
+        .unwrap()
+        .0
+    }
+
     fn world_with_config(action: Action, drop_chance: fixed_math::Fixed) -> World {
-        let mut assets = Assets::<PowerUpsConfig>::default();
-        let handle = assets.add(PowerUpsConfig {
+        let table = PowerUpsTable(Some(PowerUpsConfig {
             drop_chance,
             powerups: BTreeMap::from([(
                 "test".to_string(),
@@ -610,23 +615,10 @@ mod tests {
                     actions: vec![action],
                 },
             )]),
-        });
+        }));
         let mut world = World::new();
         world.init_resource::<bevy_ggrs::RollbackOrdered>();
-        world.insert_resource(assets);
-        world.insert_resource(GlobalAsset {
-            spritesheets: Default::default(),
-            animations: Default::default(),
-            character_configs: Default::default(),
-            weapons: Default::default(),
-            melee_weapons: Default::default(),
-            slash_effect_spritesheet: Default::default(),
-            slash_effect_animation: Default::default(),
-            wave_config: None,
-            economy_config: None,
-            perks_config: None,
-            powerups_config: Some(handle),
-        });
+        world.insert_resource(table);
         world.insert_resource(FrameCount { frame: 10 });
         world.insert_resource(FrameEvents::<PowerUpPickedUp>::default());
         world.insert_resource(FrameEvents::<PointsCredit>::default());
@@ -847,16 +839,13 @@ mod tests {
     #[test]
     fn max_ammo_additionne_les_reserves_et_annule_le_rechargement() {
         let mut world = world_with_config(Action::RefillAmmo, fixed_math::FIXED_ZERO);
-        let weapons: crate::weapon_assets::WeaponsConfig = ron::from_str(include_str!(
-            "../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
-        ))
-        .unwrap();
+        let weapons = testbed_weapons();
         let mut inventory = WeaponInventory {
             reloading_ending_frame: Some(100),
             ..Default::default()
         };
         for id in ["machine_gun", "pistol"] {
-            let mut weapon = Weapon::from(weapons.0.get(id).unwrap().clone());
+            let mut weapon = Weapon::from(weapons.get(id).unwrap().clone());
             weapon.config.ammo_type = AmmoType::Balle;
             let entity = world
                 .spawn((
@@ -917,16 +906,13 @@ mod tests {
         let balles = AmmoType::Custom("balles".to_string());
         let mut world =
             world_with_config(Action::RefillAmmoOf(obus.clone()), fixed_math::FIXED_ZERO);
-        let weapons: crate::weapon_assets::WeaponsConfig = ron::from_str(include_str!(
-            "../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
-        ))
-        .unwrap();
+        let weapons = testbed_weapons();
         let mut inventory = WeaponInventory {
             reloading_ending_frame: Some(100),
             ..Default::default()
         };
         for (id, ammo) in [("machine_gun", balles.clone()), ("pistol", obus.clone())] {
-            let mut weapon = Weapon::from(weapons.0.get(id).unwrap().clone());
+            let mut weapon = Weapon::from(weapons.get(id).unwrap().clone());
             weapon.config.ammo_type = ammo;
             let entity = world
                 .spawn((

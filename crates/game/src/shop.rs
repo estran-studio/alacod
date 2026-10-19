@@ -1,6 +1,7 @@
 //! Monnaie au sol et boutique (M2-T6, chantier C5, `docs/conventions.md` §50).
 //!
-//! - **`shells`** : à la mort d'un ennemi, `EconomyConfig::shells_drop` `(min, max)` donne un tas
+//! - **`shells`** : à la mort d'un ennemi, `ResolvedBalance::economy.shells_drop` (copie de
+//!   `EconomyConfig::shells_drop`, E3c) `(min, max)` donne un tas
 //!   de douilles ([`items::ShellPickup`]) à sa position. Tirage par un `RollbackRng` **local** de
 //!   graine [`items::loot_seed`]`(partie, étage, "shells:<GgrsNetId du mort>")` : aucun flux de
 //!   `RngStreams` n'est touché. [`shell_pickup_system`] les ramasse au contact (le plus petit
@@ -33,11 +34,10 @@ use utils::{
     order_iter,
 };
 
+use crate::balance::{ResolvedBalance, ResolvedEconomyConfig};
 use crate::character::health::{Death, Health};
 use crate::character::player::Player;
-use crate::economy::EconomyConfig;
 use crate::effects_runtime::EffectAssets;
-use crate::global_asset::GlobalAsset;
 use crate::interaction::InteractionEvent;
 use crate::items::{apply_instant_effects, spawn_item_pickup, with_inventory, FreshInventories};
 use crate::loot::{assign_slot, seed_context, SlotContext};
@@ -63,10 +63,13 @@ pub struct ShopOverrides {
     pub shells_drop: Option<(u32, u32)>,
 }
 
-/// Prix d'un objet de rareté `rarity` selon l'économie du jeu.
-pub fn shelf_price(economy: Option<&EconomyConfig>, rarity: Rarity) -> u32 {
+/// Prix d'un objet de rareté `rarity` selon l'économie résolue du jeu (`shop_prices`), ou
+/// [`DEFAULT_SHELF_PRICE`] pour une rareté absente.
+pub fn shelf_price(economy: &ResolvedEconomyConfig, rarity: Rarity) -> u32 {
     economy
-        .and_then(|economy| economy.shop_prices.get(&rarity).copied())
+        .shop_prices
+        .get(&rarity)
+        .copied()
         .unwrap_or(DEFAULT_SHELF_PRICE)
 }
 
@@ -258,8 +261,7 @@ pub fn max_health_after(
 pub fn shell_drop_on_death_system(
     frame: Res<FrameCount>,
     overrides: Res<ShopOverrides>,
-    global_assets: Res<GlobalAsset>,
-    economies: Res<Assets<EconomyConfig>>,
+    balance: Res<ResolvedBalance>,
     run_seed: Option<Res<RunSeed>>,
     floor: Option<Res<run::FloorState>>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
@@ -269,13 +271,7 @@ pub fn shell_drop_on_death_system(
         (With<Rollback>, With<Death>, Without<world::BarrelState>),
     >,
 ) {
-    let drop = overrides.shells_drop.or_else(|| {
-        global_assets
-            .economy_config
-            .as_ref()
-            .and_then(|handle| economies.get(handle))
-            .and_then(|economy| economy.shells_drop)
-    });
+    let drop = overrides.shells_drop.or(balance.economy.shells_drop);
     let Some((min, max)) = drop else {
         return;
     };
@@ -777,14 +773,28 @@ mod tests {
 
     #[test]
     fn price_falls_back_to_default() {
-        assert_eq!(shelf_price(None, Rarity::Rare), DEFAULT_SHELF_PRICE);
+        use crate::balance::resolve_balance;
+        use crate::character::config::CharacterConfigs;
+        use crate::economy::EconomyConfig;
+        let resolve = |economy: &EconomyConfig| {
+            resolve_balance(
+                1,
+                None,
+                Some(economy),
+                None,
+                &CharacterConfigs::default(),
+                [],
+            )
+            .economy
+        };
+        // Économie sans prix (ou jeu sans `economy.ron` : `EconomyConfig::default()`) : le prix par défaut.
+        let empty = resolve(&EconomyConfig::default());
+        assert_eq!(shelf_price(&empty, Rarity::Rare), DEFAULT_SHELF_PRICE);
         let mut economy = EconomyConfig::default();
         economy.shop_prices.insert(Rarity::Rare, 50);
-        assert_eq!(shelf_price(Some(&economy), Rarity::Rare), 50);
-        assert_eq!(
-            shelf_price(Some(&economy), Rarity::Common),
-            DEFAULT_SHELF_PRICE
-        );
+        let priced = resolve(&economy);
+        assert_eq!(shelf_price(&priced, Rarity::Rare), 50);
+        assert_eq!(shelf_price(&priced, Rarity::Common), DEFAULT_SHELF_PRICE);
     }
 
     fn health(current: i32, max: i32) -> Health {

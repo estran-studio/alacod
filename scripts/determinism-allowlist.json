@@ -127,7 +127,7 @@
   },
   {
     "path": "crates/game/src/waves/config.rs",
-    "code": "use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath};",
+    "code": "use bevy::platform::collections::HashMap;",
     "count": 1,
     "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
   },
