@@ -502,7 +502,9 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::character::app_plugin::CharacterPresentationPlugin);
         app.add_plugins(crate::ui::weapon_visuals::WeaponPresentationPlugin);
         app.add_plugins(crate::feedback::FeedbackPlugin);
-        app.add_plugins(crate::items::BlankPresentationPlugin);
+        app.add_plugins(crate::items_view::BlankPresentationPlugin);
+        app.add_plugins(crate::interaction_view::InteractionPresentationPlugin);
+        app.add_plugins(crate::waves::debug::WaveDebugPlugin);
         app.add_plugins(crate::powerup_visuals::PowerUpVisualPlugin);
         app.add_plugins(crate::world_sprites::WorldSpritePlugin);
         app.add_plugins(crate::legibility::LegibilityPlugin);

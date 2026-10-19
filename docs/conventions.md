@@ -2948,7 +2948,7 @@ début de chaque étage suivant (ressource hors rollback `FloorStartConsumables`
 chargement ; `BlankState::floor` retient l'étage servi). Lint : id consommable connu (`BrokenReference`,
 fixture `character_starting_consumable_unknown`).
 
-**Présentation.** `game::items::BlankPresentationPlugin` (`PresentationPlugin`, absent en headless) : onde (cercle
+**Présentation.** `game::items_view::BlankPresentationPlugin` (`PresentationPlugin`, absent en headless) : onde (cercle
 qui s'étend jusqu'au rayon puis s'estompe, 24 frames) dérivée de `BlankUsed` dans `Update` (ressource
 `LastBlank`, jamais lue par la simulation). Moment clé `blank` (scénarios, vidéos). HUD : pas de source
 « compteur de blanks » dans `HUD_SOURCES` : à M2-T18.
@@ -7442,7 +7442,7 @@ nommées dans la légende. Les piques ne sont pas redessinés (surface à `hazar
   (`5 + 1,6·√dégât`, bornée à 8..22) ; sans le champ (défaut), teinte d'équipe et halo agrandi comme avant
   (testbed, isaac, throne, zombies inchangés) ; `style_tears` (M3-T17) s'applique ensuite. Une table ou un
   baril (entités rollback sans `Transform`) pose son image sur l'entité LDtk d'origine (`MapHeld`) et la cache à sa destruction (`reap_held_sprites`) ; l'image d'une porte ouverte reste
-  `Visible` malgré le parent caché par `interaction::update_door_visuals`.
+  `Visible` malgré le parent caché par `interaction_view::update_door_visuals`.
 - **Composants non rollback posés sur des entités rollback** : `AimPointer`, `PickupHalo`, `DoorSprite`,
   `WorldSprite`, `MarkerTint` (joueurs) : tous hors checksum et hors snapshot, recréés pour une entité
   ressuscitée ; les enfants (pointeur, halo) se cachent quand leur parent est désactivé.

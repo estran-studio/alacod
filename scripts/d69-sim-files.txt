@@ -29,15 +29,39 @@
 # state_trace.rs (↔ run_state.rs). Nouveaux fichiers à fuite (application) : character/{input_devices,app_plugin,control,ai_debug,health_bar}.rs, collider/test_wall.rs.
 # E3d (dette-d69-e3d-global-asset) : aucun ajout (24 fichiers). `GlobalAsset` devient une ressource d'application (présentation + sources de synchro) : aucun fichier de simulation ni lecteur
 # externe ne le lit ; aucun fichier n'est libéré (les 0 erreur `asset` des fichiers classés SIM datent de E3a-c) ; seul `global_asset.rs` (APP) gagne deux erreurs `asset` (`Assets<…>` du garde de sortie de `Loading`).
+# E5c (dette-d69-e5c-plugins) : + interaction.rs, items.rs, waves/mod.rs et toute leur fermeture interne, devenue sans fuite (41 fichiers, 76 en tout) : la présentation des interactions,
+# du blank et des vagues (interaction_view.rs, items_view.rs, waves/debug.rs) ne touche plus aucun fichier de simulation. Entrent : le cœur du personnage (character/{mod,create,config}.rs,
+# character/health/mod.rs, character/player/{input,create}.rs, character/enemy/{create,spawning}.rs, character/enemy/ai/{pathing,behavior,rules,squad,charm}.rs), balance.rs, economy.rs, powerups.rs,
+# shop.rs, loot.rs, progression.rs, effects_runtime.rs, effects_v3.rs, boss.rs, champions.rs, familiars.rs, bombs.rs, props.rs, hub.rs, run_state.rs, state_trace.rs, profile.rs, replay.rs,
+# recording.rs, jjrs/{local,p2p}.rs, ui/hud_model.rs, ui/mutation_screen.rs, ui/screens/mod.rs, waves/systems.rs. Non classés sim bien que sans fuite (application par nature, vides en ECS seul
+# par cfg ou par feature) : args/{cli,web}.rs, audio/adaptive.rs, jjrs/{allumette,browser,p2p_socket_tests}.rs, light/mod.rs, logs.rs, performance.rs, ui/{mod,game_over,mutation_hui,weapon_hud}.rs,
+# ui/screens/hui.rs, web/mod.rs, lib.rs. Nouveaux fichiers à fuite (application) : interaction_view.rs, items_view.rs.
+balance.rs
+bombs.rs
+boss.rs
+champions.rs
 character/appearance.rs
+character/config.rs
+character/create.rs
 character/dash.rs
+character/enemy/ai/behavior.rs
+character/enemy/ai/charm.rs
 character/enemy/ai/mod.rs
 character/enemy/ai/navigation.rs
 character/enemy/ai/obstacle.rs
+character/enemy/ai/pathing.rs
 character/enemy/ai/retreat.rs
+character/enemy/ai/rules.rs
+character/enemy/ai/squad.rs
 character/enemy/ai/state.rs
+character/enemy/create.rs
 character/enemy/mod.rs
+character/enemy/spawning.rs
+character/health/mod.rs
+character/mod.rs
 character/movement.rs
+character/player/create.rs
+character/player/input.rs
 character/player/jjrs.rs
 character/player/mod.rs
 character/surface.rs
@@ -46,21 +70,45 @@ clock.rs
 collider/mod.rs
 collision_grid.rs
 curses.rs
+economy.rs
+effects_runtime.rs
+effects_v3.rs
+familiars.rs
 fog_map.rs
 frame_counter.rs
 frame_events.rs
 gen_test.rs
+hub.rs
+interaction.rs
+items.rs
+jjrs/local.rs
 jjrs/mod.rs
+jjrs/p2p.rs
 jjrs/p2p_tests.rs
 jjrs/restart.rs
+loot.rs
 patterns.rs
+powerups.rs
+profile.rs
+progression.rs
+props.rs
+recording.rs
+replay.rs
 rollback.rs
+run_state.rs
 session.rs
+shop.rs
+state_trace.rs
 statuses.rs
 system_set.rs
+ui/hud_model.rs
+ui/mutation_screen.rs
+ui/screens/mod.rs
 ui/screens/model.rs
 visual_requests.rs
 waves/config.rs
+waves/mod.rs
 waves/state.rs
+waves/systems.rs
 waves/tracking.rs
 weapons.rs
