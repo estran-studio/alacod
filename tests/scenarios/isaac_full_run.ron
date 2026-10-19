@@ -1,0 +1,58 @@
+// M3-T18 (critère 3 du §8.1, `isaac_full_run`) : une partie ordinaire d'`isaac` de bout en bout (séquence par défaut `sous_sol` puis
+// `sous_sol_profond`, sans `floors:`, deux étages en grille, boutique, curses possibles : aucune sur cette graine), graine 120 choisie
+// dans la campagne `alacod-sim` s1 de M3-T18 (1 bot, `--pickup-progress`) : la plus petite graine où le bot **nu** (politique de
+// `games/isaac/assets/bot.ron`, sans armure ni aucun `PlayerScript::modifiers`, D93) rencontre tous les moments clés du critère 3 et gagne.
+//
+// À regarder : salle de combat verrouillée (f60) puis nettoyée (f225) ; à la boutique du premier étage, trois achats en sous (f383
+// `glu`, larmes collantes ; f412 ; f439 `encre`, larmes) ; un cœur ramassé (f1188) ; la bombe de départ posée contre le mur secret
+// (f1247) explose à f1321 : le mur s'ouvre (f1322) et le souffle **casse trois rochers** voisins (f1322) ; coffre secret (f1455) ;
+// le `gardien` (verrouillé f2050, phases f2122 et f2163) meurt, le portail s'ouvre (f2328) ; second étage f2780 avec deux champions
+// (`explosif`, `essaim`) : l'`explosif` est tué à f3270 (son explosion de mort, rayon 44), l'`essaim` à f3753 ; la porte du trésor
+// fermée à clé s'ouvre (f4287, la clé est consommée) ; seconde bombe contre le second mur secret (f4361, ouvert f4436) ; à la boutique
+// du second étage le bot achète le familier `frere` (f5032 : le familier suiveur apparaît à côté de lui) ; le `colosse` (verrouillé
+// f5518, phases f5556 et f5600) meurt et la partie est gagnée (f5680).
+Scenario(
+    game: "isaac",
+    map_seed: 120,
+    frames: 5700,
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        detour: (shells: Some(400)),
+        devil: Never,
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+        oscillation: Hysteresis,
+        combat_aware: true,
+    )),
+    players: [(bot: explorateur)],
+    expect: [
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 20),
+        Event(kind: "room", label_contains: Some("salle combat verrouillée"), by_frame: 65),
+        Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 230),
+        Event(kind: "shelf", label_contains: Some("glu (douilles)"), by_frame: 390),
+        Event(kind: "item_pickup", label_contains: Some("ramasse encre"), by_frame: 445),
+        Event(kind: "item_pickup", label_contains: Some("ramasse coeur"), by_frame: 1195),
+        Event(kind: "bomb", by_frame: 1250),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 1260),
+        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 0)"), by_frame: 1325),
+        EventAfter(kind: "feedback", label_contains: Some("rocher cassé"), after_frame: 1300, by_frame: 1325),
+        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 2055),
+        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 2125),
+        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 2165),
+        Event(kind: "portal", by_frame: 2330),
+        FloorIndex(index: 1, at_frame: 2790),
+        EnemyVariant(entity: NetId(455), variant: Some("explosif"), at_frame: 2790),
+        Event(kind: "variant_death", label_contains: Some("explosif tuée (455)"), by_frame: 3275),
+        Event(kind: "variant_death", label_contains: Some("essaim tuée (477)"), by_frame: 3760),
+        Event(kind: "door_lock", label_contains: Some("porte à clé ouverte : salle tresor (niveau 1)"), by_frame: 4290),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 4290),
+        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 1)"), by_frame: 4440),
+        Event(kind: "shelf", label_contains: Some("frere (douilles)"), by_frame: 5035),
+        Event(kind: "feedback", label_contains: Some("familier"), by_frame: 5035),
+        FamiliarCount(handle: 0, count: 1, at_frame: 5100),
+        Event(kind: "room", label_contains: Some("salle boss_profond verrouillée"), by_frame: 5520),
+        EventAfter(kind: "boss_phase", label_contains: Some("phase 1 → 2"), after_frame: 5500, by_frame: 5605),
+        Event(kind: "victory", by_frame: 5685),
+        PlayerAlive(handle: 0, at_frame: 5699),
+    ],
+)

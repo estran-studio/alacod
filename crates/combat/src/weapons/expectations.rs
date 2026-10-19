@@ -201,7 +201,8 @@ pub enum Expectation {
     /// "blank", "room", "boss_phase", "purchase" (achat en boutique : raison `shop` dans le
     /// libellé), "chest" (coffre ouvert), "arena" (arène tenue), "unlock" (déblocages du profil
     /// lus par la partie), "hub" (run entrée depuis le hub), "curse" (M3-T9 : curse tirée à l'entrée
-    /// d'un étage).
+    /// d'un étage), "variant_spawn" (T1.5) et "variant_death" (M3-T18 : champion tué, hors changement
+    /// d'étage).
     Event {
         kind: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]

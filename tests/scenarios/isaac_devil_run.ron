@@ -1,0 +1,42 @@
+// M3-T18 (critère 3 du §8.1, `isaac_devil_run`) : une partie ordinaire d'`isaac` (séquence par défaut, sans `floors:`, graine 103) jouée
+// par deux bots `explorateur` nus (sans armure ni modificateur, D93) dont la politique accepte le marché du diable : `devil:
+// IfHealthAbove("0.0")` (achète tout présentoir que le jeu laisse payer, `Price::can_pay`) au lieu du `Never` de `bot.ron` (défaut des
+// campagnes, Q14). Graine choisie par `alacod-sim --bots 2 --devil above:0` sur les graines dont le premier étage a une salle du diable
+// (`slot_assign pool=diable` des campagnes de M3-T18) : la plus petite où un bot y achète. À un bot (`--devil above:2`, graines 1 à 20),
+// aucun achat : le bot meurt avant le présentoir ou quitte l'étage sans y entrer (rapport § 1).
+//
+// À regarder : le `gardien` meurt (salle nettoyée f1305) et la salle du diable s'ouvre derrière lui ; le joueur 0 y entre et paie deux
+// présentoirs **en vie maximale** (un cœur chacun, `MaxHealth("2")`) : `cornes_noires` (f1590, cadence +30 %) puis `queue_fourchue`
+// (f1612) ; sa vie maximale passe de 6 à 4 puis à 2 PV (un cœur restant), la boutique ne rend rien. Les deux joueurs nettoient le reste de
+// l'étage (portail f2260), achètent en sous au second étage et gagnent (le `colosse` meurt, victoire f6864) : le pacte n'a pas coûté la
+// partie.
+Scenario(
+    game: "isaac",
+    map_seed: 103,
+    frames: 6870,
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        detour: (shells: Some(400)),
+        devil: IfHealthAbove("0.0"),
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+        oscillation: Hysteresis,
+        combat_aware: true,
+    )),
+    players: [(bot: explorateur), (bot: explorateur)],
+    expect: [
+        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 1310),
+        Stat(handle: 0, stat: MaxHealth, value: 6.0, at_frame: 1580),
+        Event(kind: "shelf", label_contains: Some("cornes_noires (diable)"), by_frame: 1595),
+        Stat(handle: 0, stat: MaxHealth, value: 4.0, at_frame: 1595),
+        Event(kind: "shelf", label_contains: Some("queue_fourchue (diable)"), by_frame: 1615),
+        Stat(handle: 0, stat: MaxHealth, value: 2.0, at_frame: 1620),
+        HasItem(handle: 0, id: "cornes_noires", at_frame: 1620),
+        HasItem(handle: 0, id: "queue_fourchue", at_frame: 1620),
+        Stat(handle: 1, stat: MaxHealth, value: 7.0, at_frame: 1620),
+        Event(kind: "portal", by_frame: 2265),
+        FloorIndex(index: 1, at_frame: 2620),
+        Stat(handle: 0, stat: MaxHealth, value: 2.0, at_frame: 2620),
+        Event(kind: "victory", by_frame: 6869),
+    ],
+)

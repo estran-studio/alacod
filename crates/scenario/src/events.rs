@@ -907,10 +907,19 @@ fn detect_events(
     for id in now.clock_fired.difference(&before.clock_fired) {
         push("clock", format!("horloge : {id}"));
     }
-    // T1.5 : un personnage à variante qui apparaît.
+    // T1.5 : un personnage à variante qui apparaît. M3-T18 : `variant_death`, une variante qui
+    // disparaît sans changement d'étage (champion tué : le changement d'étage retire aussi les
+    // ennemis de l'étage quitté, ce n'est pas une mort).
     for (id, name) in &now.variants {
         if !before.variants.contains_key(id) {
             push("variant_spawn", format!("variante {name} ({id})"));
+        }
+    }
+    if now.floor == before.floor {
+        for (id, name) in &before.variants {
+            if !now.variants.contains_key(id) {
+                push("variant_death", format!("variante {name} tuée ({id})"));
+            }
         }
     }
     if let Some((kind, label)) = outcome_event(before.outcome, now.outcome) {

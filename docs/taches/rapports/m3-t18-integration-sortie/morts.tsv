@@ -1,0 +1,626 @@
+campagne	graine	joueur_ou_diable	frame_ou_etages	etage	salles_verrouillees	tueur
+s1	1	diable	-
+s1	2	diable	-
+s1	3	208	3617	0	boss#11	gardien
+s1	3	diable	-
+s1	4	165	3363	0	boss#4	gardien
+s1	4	diable	-
+s1	5	diable	-
+s1	6	122	3670	1	combat#4	suiveur
+s1	6	diable	-
+s1	7	132	5620	1	boss_profond#6	colosse
+s1	7	diable	-
+s1	8	diable	0
+s1	9	164	3067	0	combat#7	suiveur
+s1	9	diable	0
+s1	10	195	4686	1	-	suiveur
+s1	10	diable	-
+s1	11	153	1856	0	combat#1	suiveur
+s1	11	diable	-
+s1	12	215	1242	0	combat#3	araignee
+s1	12	diable	-
+s1	13	190	4479	1	combat#3	tourelle_croix
+s1	13	diable	0
+s1	14	170	1756	0	combat#2	tourelle_croix
+s1	14	diable	-
+s1	15	diable	1
+s1	16	206	1926	0	combat#2	tourelle_croix
+s1	16	diable	0
+s1	17	diable	-
+s1	18	163	5511	1	combat#3	tourelle_croix
+s1	18	diable	1
+s1	19	306	1508	0	combat#12	araignee
+s1	19	diable	-
+s1	20	diable	-
+s1	21	diable	-
+s1	22	306	1062	0	combat#10	mouche
+s1	22	diable	-
+s1	23	129	1894	0	boss#0	gardien
+s1	23	diable	0
+s1	24	172	1968	0	combat#9	follet
+s1	24	diable	-
+s1	25	diable	-
+s1	26	173	1381	0	-	pattern_couronne_unique
+s1	26	diable	0
+s1	27	diable	-
+s1	28	206	2478	0	combat#4	suiveur
+s1	28	diable	0
+s1	29	diable	1
+s1	30	204	2229	0	combat#7	suiveur
+s1	30	diable	0
+s1	31	128	2318	0	boss#1	bourdon
+s1	31	diable	0
+s1	32	197	5339	0	boss#10	cracheur
+s1	32	diable	-
+s1	33	201	4861	0	boss#10	rampant
+s1	33	diable	-
+s1	34	219	6858	1	combat#0	araignee
+s1	34	diable	-
+s1	35	179	1541	0	combat#1	follet
+s1	35	diable	-
+s1	36	diable	0
+s1	37	diable	0
+s1	38	159	2522	0	combat#9	suiveur
+s1	38	diable	-
+s1	39	112	3585	1	combat#9	suiveur
+s1	39	diable	-
+s1	40	140	5482	1	-	suiveur
+s1	40	diable	-
+s1	41	diable	1
+s1	42	diable	1
+s1	43	114	4671	1	combat#8	rampant
+s1	43	diable	0
+s1	44	282	951	0	combat#4	araignee
+s1	44	diable	-
+s1	45	155	1694	0	combat#5	araignee
+s1	45	diable	0
+s1	46	157	2422	0	combat#3	tourelle_croix
+s1	46	diable	-
+s1	47	216	2741	0	-	bourdon
+s1	47	diable	0
+s1	48	165	3388	0	-	bourdon
+s1	48	diable	0
+s1	49	134	6899	1	boss_profond#0	arroseur
+s1	49	diable	0
+s1	50	134	3595	1	combat#5	arroseur
+s1	50	diable	1
+s1	51	138	1102	0	combat#6	araignee
+s1	51	diable	-
+s1	52	diable	-
+s1	53	330	4253	0	combat#12	bourdon
+s1	53	diable	-
+s1	54	255	3275	0	-	suiveur
+s1	54	diable	-
+s1	55	diable	0,1
+s1	56	187	1074	0	combat#11	suiveur
+s1	56	diable	-
+s1	57	diable	0
+s1	58	diable	-
+s1	59	211	3099	0	combat#10	rampant
+s1	59	diable	-
+s1	60	126	7104	1	boss_profond#6	colosse
+s1	60	diable	-
+s1	61	278	1604	0	-	arroseur
+s1	61	diable	-
+s1	62	186	3210	0	combat#1	follet
+s1	62	diable	-
+s1	63	diable	0
+s1	64	138	2975	1	combat#2	arroseur
+s1	64	diable	-
+s1	65	154	1542	0	boss#2	spectre
+s1	65	diable	0
+s1	66	168	3753	1	combat#4	suiveur
+s1	66	diable	1
+s1	67	191	1278	0	combat#3	cracheur
+s1	67	diable	-
+s1	68	175	3068	0	combat#1	arroseur
+s1	68	diable	-
+s1	69	157	5930	1	combat#10	araignee
+s1	69	diable	-
+s1	70	182	5512	1	-	bourdon
+s1	70	diable	1
+s1	71	184	939	0	combat#7	arroseur
+s1	71	diable	0
+s1	72	160	4051	1	combat#8	bourdon
+s1	72	diable	-
+s1	73	diable	-
+s1	74	187	3553	0	boss#8	cracheur
+s1	74	diable	0
+s1	75	diable	0
+s1	76	diable	-
+s1	77	183	5527	1	combat#2	tourelle_croix
+s1	77	diable	-
+s1	78	133	1411	0	combat#7	follet
+s1	78	diable	-
+s1	79	diable	0
+s1	80	158	3807	0	boss#4	gardien
+s1	80	diable	-
+s1	81	diable	-
+s1	82	150	3183	1	-	suiveur
+s1	82	diable	0,1
+s1	83	165	2827	0	combat#4	suiveur
+s1	83	diable	-
+s1	84	147	3708	1	combat#3	cracheur
+s1	84	diable	-
+s1	85	203	1849	0	combat#6	araignee
+s1	85	diable	-
+s1	86	208	2620	0	combat#1	tourelle_croix
+s1	86	diable	-
+s1	87	diable	0
+s1	88	162	2736	0	combat#0	arroseur
+s1	88	diable	-
+s1	89	268	717	0	combat#9	rampant
+s1	89	diable	0
+s1	90	168	2487	0	-	bourdon
+s1	90	diable	-
+s1	91	180	3388	0	boss#3	gardien
+s1	91	diable	-
+s1	92	diable	-
+s1	93	134	4441	1	boss_profond#8	araignee
+s1	93	diable	1
+s1	94	221	2064	0	combat#8	araignee
+s1	94	diable	-
+s1	95	195	1292	0	combat#7	tourelle_croix
+s1	95	diable	-
+s1	96	423	1133	0	combat#9	araignee
+s1	96	diable	0
+s1	97	108	3956	1	combat#5	bourdon
+s1	97	diable	0,1
+s1	98	191	2830	0	-	suiveur
+s1	98	diable	-
+s1	99	179	1506	0	combat#6	tourelle_croix
+s1	99	diable	-
+s1	100	133	2844	0	boss#0	gardien
+s1	100	diable	-
+s1	101	281	6009	0	boss#1	gardien
+s1	101	diable	0
+s1	102	diable	-
+s1	103	150	3073	0	-	gardien
+s1	103	diable	0
+s1	104	diable	-
+s1	105	204	4472	0	boss#1	gardien
+s1	105	diable	-
+s1	106	164	3720	0	boss#8	gardien
+s1	106	diable	-
+s1	107	194	5205	1	combat#7	tourelle_croix
+s1	107	diable	-
+s1	108	205	3465	0	combat#3	araignee
+s1	108	diable	-
+s1	109	192	2171	0	combat#3	mouche
+s1	109	diable	0
+s1	110	168	1992	0	boss#6	gardien
+s1	110	diable	0
+s1	111	138	4417	1	combat#8	cracheur
+s1	111	diable	-
+s1	112	211	4217	0	boss#0	rampant
+s1	112	diable	-
+s1	113	205	1998	0	combat#4	tourelle_croix
+s1	113	diable	-
+s1	114	342	2455	0	combat#17	arroseur
+s1	114	diable	0
+s1	115	181	2185	0	combat#7	bourdon
+s1	115	diable	-
+s1	116	176	2469	0	boss#1	gardien
+s1	116	diable	0
+s1	117	192	2070	0	combat#9	suiveur
+s1	117	diable	-
+s1	118	diable	-
+s1	119	diable	0
+s1	120	diable	-
+s1	121	175	2020	0	combat#6	follet
+s1	121	diable	-
+s1	122	120	6275	1	boss_profond#0	colosse
+s1	122	diable	-
+s1	123	136	1247	0	combat#4	mouche
+s1	123	diable	0
+s1	124	123	3798	1	combat#5	mouche
+s1	124	diable	1
+s1	125	175	3123	0	boss#9	cracheur
+s1	125	diable	-
+s1	126	207	3963	0	boss#9	gardien
+s1	126	diable	-
+s1	127	215	3346	0	combat#4	tourelle_croix
+s1	127	diable	-
+s1	128	204	2779	0	combat#10	arroseur
+s1	128	diable	-
+s1	129	180	1292	0	combat#8	tourelle_croix
+s1	129	diable	-
+s1	130	193	2084	0	combat#6	cracheur
+s1	130	diable	-
+s1	131	149	1327	0	combat#4	araignee
+s1	131	diable	-
+s1	132	149	2805	1	combat#5	follet
+s1	132	diable	0
+s1	133	diable	-
+s1	134	175	4595	1	-	tourelle_croix
+s1	134	diable	-
+s1	135	134	3501	1	combat#7	araignee
+s1	135	diable	0
+s1	136	diable	-
+s1	137	140	1365	0	combat#1	araignee
+s1	137	diable	-
+s1	138	127	4862	1	boss_profond#5	colosse
+s1	138	diable	0
+s1	139	162	2930	0	combat#2	tourelle_croix
+s1	139	diable	-
+s1	140	132	998	0	combat#2	tourelle_croix
+s1	140	diable	0
+s1	141	156	4906	1	combat#5	araignee
+s1	141	diable	1
+s1	142	diable	0
+s1	143	165	2128	0	boss#1	gardien
+s1	143	diable	0
+s1	144	diable	-
+s1	145	diable	0
+s1	146	diable	-
+s1	147	115	1334	0	boss#1	rampant
+s1	147	diable	0
+s1	148	diable	0,1
+s1	149	diable	1
+s1	150	140	4299	1	combat#11	bourdon
+s1	150	diable	1
+s1	151	diable	-
+s1	152	208	1502	0	combat#6	suiveur
+s1	152	diable	0
+s1	153	diable	-
+s1	154	145	3700	0	-	bourdon
+s1	154	diable	0
+s1	155	219	1350	0	combat#8	suiveur
+s1	155	diable	0
+s1	156	138	2951	0	boss#0	gardien
+s1	156	diable	-
+s1	157	172	1503	0	combat#0	mouche
+s1	157	diable	0
+s1	158	diable	0
+s1	159	212	1647	0	combat#4	suiveur
+s1	159	diable	-
+s1	160	202	3711	0	boss#2	rampant
+s1	160	diable	-
+s1	161	123	2999	0	boss#0	gardien
+s1	161	diable	-
+s1	162	168	1806	0	combat#9	mouche
+s1	162	diable	0
+s1	163	diable	-
+s1	164	191	1508	0	combat#0	araignee
+s1	164	diable	-
+s1	165	199	2038	0	-	bourdon
+s1	165	diable	-
+s1	166	diable	-
+s1	167	299	1411	0	combat#14	tourelle_croix
+s1	167	diable	-
+s1	168	163	4480	1	combat#5	follet
+s1	168	diable	-
+s1	169	diable	1
+s1	170	162	1757	0	combat#2	suiveur
+s1	170	diable	-
+s1	171	226	5175	0	boss#11	gardien
+s1	171	diable	-
+s1	172	182	3114	0	boss#8	cracheur
+s1	172	diable	0
+s1	173	129	3642	1	combat#5	araignee
+s1	173	diable	0
+s1	174	197	5005	1	combat#2	tourelle_croix
+s1	174	diable	-
+s1	175	diable	-
+s1	176	108	2885	1	combat#6	mouche
+s1	176	diable	0
+s1	177	179	2487	0	combat#1	arroseur
+s1	177	diable	-
+s1	178	122	1600	0	-	pattern_couronne_unique
+s1	178	diable	-
+s1	179	189	1209	0	combat#7	cracheur
+s1	179	diable	-
+s1	180	214	2621	0	combat#5	cracheur
+s1	180	diable	-
+s1	181	diable	0
+s1	182	diable	0
+s1	183	124	4008	1	-	pattern_couronne_unique
+s1	183	diable	-
+s1	184	154	4238	1	-	suiveur
+s1	184	diable	0
+s1	185	212	2673	0	combat#8	cracheur
+s1	185	diable	0
+s1	186	191	4351	1	combat#6	araignee
+s1	186	diable	0
+s1	187	213	5682	1	combat#6	tourelle_croix
+s1	187	diable	1
+s1	188	148	2736	0	boss#2	bourdon
+s1	188	diable	0
+s1	189	209	2171	0	combat#1	cracheur
+s1	189	diable	-
+s1	190	158	3945	0	boss#9	gardien
+s1	190	diable	-
+s1	191	176	1766	0	combat#4	tourelle_croix
+s1	191	diable	-
+s1	192	184	3891	0	boss#3	gardien
+s1	192	diable	0
+s1	193	diable	1
+s1	194	196	2000	0	combat#0	tourelle_croix
+s1	194	diable	-
+s1	195	135	3889	1	combat#2	tourelle_croix
+s1	195	diable	1
+s1	196	162	4860	1	combat#2	araignee
+s1	196	diable	-
+s1	197	153	4127	1	combat#9	araignee
+s1	197	diable	0
+s1	198	151	4918	1	combat#1	suiveur
+s1	198	diable	1
+s1	199	208	3576	0	combat#9	araignee
+s1	199	diable	0
+s1	200	180	2234	0	combat#9	arroseur
+s1	200	diable	0
+d2	1	diable	-
+d2	2	diable	-
+d2	3	211	4571	1	combat#7	mouche
+d2	3	diable	-
+d2	4	165	5573	1	combat#0	tourelle_croix
+d2	4	diable	1
+d2	5	diable	-
+d2	6	125	4909	1	boss_profond#2	araignee
+d2	6	diable	-
+d2	7	diable	-
+d2	8	diable	0
+d2	9	diable	0
+d2	10	diable	-
+d2	11	diable	-
+d2	12	diable	1
+d2	13	190	3341	0	boss#0	rampant
+d2	13	diable	0
+d2	14	diable	-
+d2	15	diable	1
+d2	16	209	7839	1	boss_profond#2	follet
+d2	16	diable	0
+d2	17	141	1985	0	boss#0	gardien
+d2	17	diable	-
+d2	18	166	4734	1	combat#3	tourelle_croix
+d2	18	diable	1
+d2	19	309	7729	1	combat#1	follet
+d2	19	diable	1
+d2	20	diable	-
+d2	21	diable	-
+d2	22	309	4843	0	boss#12	gardien
+d2	22	diable	-
+d2	23	diable	0
+d2	24	diable	-
+d2	25	diable	-
+d2	26	176	1837	0	boss#4	bourdon
+d2	26	diable	0
+d2	27	diable	1
+d2	28	209	2503	0	combat#8	tourelle_croix
+d2	28	diable	0
+d2	29	diable	1
+d2	30	diable	0
+d2	31	diable	0
+d2	32	200	4668	0	boss#10	bourdon
+d2	32	diable	-
+d2	33	diable	-
+d2	34	diable	-
+d2	35	diable	1
+d2	36	diable	0
+d2	37	diable	0
+d2	38	diable	1
+d2	39	112	4876	1	combat#8	tourelle_croix
+d2	39	diable	-
+d2	40	diable	-
+d2	41	205	6162	1	boss_profond#1	follet
+d2	41	diable	1
+d2	42	diable	1
+d2	43	114	5247	1	boss_profond#4	araignee
+d2	43	diable	0
+d2	44	diable	-
+d2	45	diable	0
+d2	46	diable	-
+d2	47	diable	0
+d2	48	diable	0
+d2	49	diable	0
+d2	50	diable	-
+d2	51	diable	1
+d2	52	diable	-
+d2	53	diable	-
+d2	54	diable	-
+d2	55	diable	0,1
+d2	56	187	2076	0	combat#2	rampant
+d2	56	diable	-
+d2	57	diable	0
+d2	58	147	4728	0	boss#0	gardien
+d2	58	diable	-
+d2	59	211	5500	1	combat#1	bourdon
+d2	59	diable	-
+d2	60	diable	-
+d2	61	diable	-
+d2	62	189	4646	0	boss#0	gardien
+d2	62	diable	-
+d2	63	diable	0
+d2	64	138	3149	1	combat#2	suiveur
+d2	64	diable	-
+d2	65	diable	0
+d2	66	diable	1
+d2	67	diable	-
+d2	68	diable	-
+d2	69	diable	-
+d2	70	diable	1
+d2	71	187	3334	1	combat#5	follet
+d2	71	diable	0
+d2	72	163	7926	1	-	pattern_couronne_unique
+d2	72	diable	-
+d2	73	215	6311	1	combat#3	arroseur
+d2	73	diable	-
+d2	74	diable	0,1
+d2	75	diable	0
+d2	76	diable	-
+d2	77	183	4783	1	combat#2	suiveur
+d2	77	diable	-
+d2	78	136	4135	1	combat#6	pattern_couronne_unique
+d2	78	diable	-
+d2	79	diable	0
+d2	80	diable	-
+d2	81	diable	-
+d2	82	diable	0,1
+d2	83	diable	1
+d2	84	diable	-
+d2	85	diable	-
+d2	86	diable	1
+d2	87	176	6854	1	boss_profond#0	colosse
+d2	87	diable	0
+d2	88	diable	-
+d2	89	diable	0
+d2	90	171	1175	0	combat#8	follet
+d2	90	diable	-
+d2	91	diable	-
+d2	92	diable	-
+d2	93	diable	1
+d2	94	diable	-
+d2	95	diable	-
+d2	96	diable	0
+d2	97	diable	0,1
+d2	98	diable	-
+d2	99	182	1472	0	combat#6	tourelle_croix
+d2	99	diable	-
+d2	100	diable	-
+d2	101	diable	0
+d2	102	diable	-
+d2	103	diable	0
+d2	104	diable	-
+d2	105	207	4866	1	combat#7	cracheur
+d2	105	diable	-
+d2	106	167	4553	1	-	suiveur
+d2	106	diable	-
+d2	107	diable	-
+d2	108	diable	-
+d2	109	diable	0,1
+d2	110	diable	0
+d2	111	141	3791	1	combat#2	pattern_couronne_unique
+d2	111	diable	-
+d2	112	214	3758	0	boss#0	gardien
+d2	112	diable	-
+d2	113	208	4588	1	combat#2	suiveur
+d2	113	diable	-
+d2	114	diable	0
+d2	115	181	3499	0	combat#8	mouche
+d2	115	diable	-
+d2	116	diable	0,1
+d2	117	diable	-
+d2	118	159	1419	0	combat#8	araignee
+d2	118	diable	-
+d2	119	diable	0
+d2	120	diable	-
+d2	121	diable	1
+d2	122	diable	-
+d2	123	diable	0
+d2	124	diable	1
+d2	125	diable	-
+d2	126	diable	1
+d2	127	diable	-
+d2	128	diable	-
+d2	129	diable	-
+d2	130	193	2191	0	combat#11	araignee
+d2	130	diable	-
+d2	131	diable	-
+d2	132	diable	0
+d2	133	diable	-
+d2	134	diable	-
+d2	135	diable	0
+d2	136	diable	-
+d2	137	diable	-
+d2	138	diable	0
+d2	139	diable	-
+d2	140	135	3591	1	combat#1	follet
+d2	140	diable	0
+d2	141	diable	1
+d2	142	diable	0
+d2	143	168	2598	0	boss#1	gardien
+d2	143	diable	0
+d2	144	diable	-
+d2	145	diable	0
+d2	146	diable	-
+d2	147	115	1126	0	boss#1	gardien
+d2	147	diable	0
+d2	148	diable	0,1
+d2	149	diable	1
+d2	150	diable	1
+d2	151	diable	-
+d2	152	diable	0
+d2	153	diable	-
+d2	154	145	5026	1	combat#7	rampant
+d2	154	diable	0
+d2	155	diable	0
+d2	156	diable	-
+d2	157	diable	0
+d2	158	diable	0
+d2	159	diable	1
+d2	160	205	5937	1	combat#1	tourelle_croix
+d2	160	diable	1
+d2	161	123	6898	1	boss_profond#0	colosse
+d2	161	diable	-
+d2	162	diable	0
+d2	163	diable	-
+d2	164	191	6235	1	boss_profond#1	araignee
+d2	164	diable	1
+d2	165	diable	-
+d2	166	diable	-
+d2	167	302	7067	0	boss#13	gardien
+d2	167	diable	-
+d2	168	diable	-
+d2	169	diable	1
+d2	170	diable	-
+d2	171	226	6398	1	combat#4	araignee
+d2	171	diable	-
+d2	172	diable	0
+d2	173	diable	0
+d2	174	diable	-
+d2	175	diable	-
+d2	176	diable	0
+d2	177	diable	-
+d2	178	diable	-
+d2	179	189	5692	1	combat#3	follet
+d2	179	diable	-
+d2	180	214	6718	1	combat#7	tourelle_croix
+d2	180	diable	-
+d2	181	diable	0
+d2	182	diable	0
+d2	183	diable	-
+d2	184	154	4475	1	boss_profond#2	araignee
+d2	184	diable	0
+d2	185	215	2747	0	boss#6	gardien
+d2	185	diable	0
+d2	186	diable	0
+d2	187	diable	1
+d2	188	diable	0
+d2	189	diable	-
+d2	190	diable	-
+d2	191	176	5485	1	boss_profond#0	follet
+d2	191	diable	-
+d2	192	184	3227	0	boss#3	gardien
+d2	192	diable	0
+d2	193	diable	-
+d2	194	196	6238	1	-	arroseur
+d2	194	diable	1
+d2	195	diable	1
+d2	196	diable	-
+d2	197	diable	0
+d2	198	diable	1
+d2	199	208	7249	1	-	arroseur
+d2	199	diable	0,1
+d2	200	diable	0,1
+q4	1	diable	-
+q4	2	diable	-
+q4	3	diable	-
+q4	4	diable	1
+q4	5	129	3039	1	combat#8	arroseur
+q4	5	diable	-
+q4	6	diable	-
+q4	7	diable	-
+q4	8	diable	0
+q4	9	diable	0
+q4	10	diable	-
+q4	11	162	7542	1	boss_profond#6	araignee
+q4	11	diable	-
+q4	12	diable	1
+q4	13	diable	0
+q4	14	diable	-
+q4	15	diable	1
+q4	16	diable	0
+q4	17	diable	-
+q4	18	diable	1
+q4	19	diable	1
+q4	20	diable	-

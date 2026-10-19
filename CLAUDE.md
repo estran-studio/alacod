@@ -472,6 +472,10 @@ ou d'un crate à l'autre, avec les traces de scénario.
       `ExtraHealth`, `Currency`, `Shelf`, `EntityCount(kind: Rock)`, `FloorIndex`, `Event` couvrent les dix scénarios
       `bot_isaac_*`) ; moments clés `door_lock` (mur secret ou porte à clé ouverte), `bomb`, `shelf` ; champ de scénario
       `Scenario::explorer` (politique du bot, `bot.ron` du jeu) ; `PlayerScript::bomb` et `items` donnent la bombe d'essai.
+    - M3-T18 intégration (rapport `m3-t18-integration-sortie.md`) : aucune attente nouvelle ; moment clé `variant_death`
+      (variante qui disparaît sans changement d'étage : champion tué) ; `alacod-sim --events <dossier>` (moments clés par
+      graine) et décomptes `champion_tue`, `rocher`, `curse`, `portail` de `mechanics` ; scénarios `isaac_full_run`,
+      `isaac_devil_run`, `isaac_curse_run`, `isaac_duo`, `isaac_quad`.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments

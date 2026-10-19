@@ -1,0 +1,45 @@
+// M3-T18 (critère 5 du §8.1, synctest à 2) : deux bots `explorateur` nus (politique de `games/isaac/assets/bot.ron`, sans armure ni
+// modificateur, D93) jouent une partie ordinaire d'`isaac` (séquence par défaut, sans `floors:`, graine 2) jusqu'au second étage. Chacun
+// part avec un objet de larmes et un familier (`items`, la seule mise en place du scénario : le synctest doit voir des larmes modifiées
+// et des familiers des deux joueurs dès la frame 1, ce qu'une partie ordinaire ne garantit pas) : joueur 0 `bifurque` (larmes qui se
+// divisent) et `frere` (suiveur qui tire avec lui), joueur 1 `lynx` (larmes guidées) et `orbe` (orbital).
+//
+// À regarder : dès f1 un suiveur derrière le joueur 0 et un orbital autour du joueur 1 ; larmes qui se divisent à l'impact (joueur 0) et
+// larmes qui virent vers l'ennemi (joueur 1) ; salles nettoyées à deux (f58 à f1858), le `gardien` (phases f2217 et f2252, portail
+// f2329) ; second étage f2851 : les familiers suivent leurs porteurs ; un champion `explosif` est tué à f2964, son explosion de mort met
+// le joueur 0 à terre (f2965) et le joueur 1 le réanime (f3544).
+Scenario(
+    game: "isaac",
+    map_seed: 2,
+    frames: 3600,
+    explorer: Some((
+        shopping: true,
+        shop: HeartsThenCheapest(low_health: "0.5"),
+        detour: (shells: Some(400)),
+        devil: Never,
+        bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+        oscillation: Hysteresis,
+        combat_aware: true,
+    )),
+    players: [
+        (bot: explorateur, items: ["bifurque", "frere"]),
+        (bot: explorateur, items: ["lynx", "orbe"]),
+    ],
+    expect: [
+        FamiliarCount(handle: 0, count: 1, at_frame: 10),
+        FamiliarCount(handle: 1, count: 1, at_frame: 10),
+        Event(kind: "feedback", label_contains: Some("(division"), by_frame: 300),
+        Event(kind: "feedback", label_contains: Some("(guidée)"), by_frame: 300),
+        Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 200),
+        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 2260),
+        Event(kind: "portal", by_frame: 2335),
+        FloorIndex(index: 1, at_frame: 2860),
+        FamiliarCount(handle: 0, count: 1, at_frame: 2860),
+        FamiliarCount(handle: 1, count: 1, at_frame: 2860),
+        Event(kind: "variant_death", label_contains: Some("explosif"), by_frame: 2970),
+        PlayerDowned(handle: 0, at_frame: 2970),
+        PlayerRevived(handle: 0, by_frame: 3550),
+        PlayerAlive(handle: 0, at_frame: 3599),
+        PlayerAlive(handle: 1, at_frame: 3599),
+    ],
+)
