@@ -8,7 +8,7 @@
 
 pub mod actions;
 
-pub use actions::{Action, CURRENCY_MULTIPLIER_STAT};
+pub use actions::{Action, ExplodeFriendlyFire, CURRENCY_MULTIPLIER_STAT};
 
 pub mod chance;
 pub mod contracts;

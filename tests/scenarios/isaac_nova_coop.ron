@@ -1,0 +1,33 @@
+// D113 : `nova` d'`isaac` en coop (`friendly_fire: Never`). Deux joueurs (6 PV chacun) au point de départ commun, donc à portée l'un de l'autre (rayon de 100) ; le joueur 0 porte `nova` (chargée au départ par l'essai : `Rooms(2)`), `UseActive` à f30. Une cible (5 000 PV) à 38 unités du joueur 0 prouve que l'onde a bien eu lieu.
+//
+// À regarder : f40 la cible a perdu 10 PV (4 990) et le moment clé `explosion` apparaît ; les deux joueurs restent à 6 PV (avant D113 le coéquipier en prenait 10 et mourait, le porteur était sauvé par un `GainShield`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 1,
+    frames: 120,
+    characters: [
+        (character: "cible", x: "30.0", y: "-8.0", at_frame: 5),
+    ],
+    players: [
+        (
+            items: ["nova"],
+            inputs: [
+                (from: 30, to: 31, buttons: [UseActive]),
+            ],
+        ),
+        (),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "nova", at_frame: 1),
+        ItemCharge(handle: 0, charge: 2, at_frame: 20),
+        ItemCharge(handle: 0, charge: 0, at_frame: 40),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 29),
+        Health(handle: 1, min: 6.0, max: 6.0, at_frame: 29),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 119),
+        Health(handle: 1, min: 6.0, max: 6.0, at_frame: 119),
+        Event(kind: "explosion", by_frame: 40),
+        PlayerAlive(handle: 0, at_frame: 119),
+        PlayerAlive(handle: 1, at_frame: 119),
+    ],
+)

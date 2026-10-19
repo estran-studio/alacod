@@ -1021,8 +1021,10 @@ pub(crate) fn apply_action_sourced(
             radius,
             damage,
             destroys,
+            friendly_fire,
         } => {
             let (radius, damage, destroys) = (*radius, *damage, *destroys);
+            let friendly_fire = sim_core::damage::FriendlyFire::from(*friendly_fire);
             let owner = net_id.clone();
             commands.queue(move |world: &mut World| {
                 let Some(position) = world
@@ -1050,7 +1052,7 @@ pub(crate) fn apply_action_sourced(
                         fuse_until: frame.saturating_add(1),
                         radius,
                         damage,
-                        friendly_fire: sim_core::damage::FriendlyFire::Always,
+                        friendly_fire,
                         team,
                         destroys,
                     },
@@ -1191,6 +1193,7 @@ mod tests {
                         radius: Fixed::from_num(40),
                         damage: Fixed::from_num(7),
                         destroys: true,
+                        friendly_fire: effects::ExplodeFriendlyFire::Always,
                     },
                     net_id,
                     effect_source(net_id, 0),

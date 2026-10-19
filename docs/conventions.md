@@ -4713,7 +4713,7 @@ neutre ou absent du contenu existant, l'input `Bomb` n'est lu par personne.
 
 ### Explosion (`effects::Action::Explode`)
 
-`Explode { radius, damage, destroys }`, en fin d'enum `Action` (les hashs d'avant ne bougent pas).
+`Explode { radius, damage, destroys, friendly_fire }`, en fin d'enum `Action` (les hashs d'avant ne bougent pas ; `friendly_fire` : D113, voir « Action `Explode` »).
 Règle pure `world::explosion_plan(grid, center, radius, destroys, candidates)` : les cibles sont les
 personnages à PV dont le centre est à **strictement** moins de `radius` (carré en `FixedWide`), rendus
 dans l'ordre croissant de `GgrsNetId.0` ; `destroys` casse aussi les rochers de `CellGrid` du rayon
@@ -5522,6 +5522,23 @@ porteur aussi : tir ami `Always`, un `dummy` hors rayon intact) ; fixtures `expl
 sont toujours pas admises : l'exécution commune les refuserait par un `warn!` (action non exécutée), pas en
 silence. Les traces existantes ne bougent pas (72 scénarios d'objets, boutiques, bombes et boss rejoués). `Explode`
 en mort de champion : M3-T7.
+
+**Tir ami (`friendly_fire`, D113)** : `Explode(radius, damage, destroys, friendly_fire: Never | Always)`, champ optionnel
+(`ExplodeFriendlyFire`, `effects::actions`), **défaut `Always` = comportement d'avant** : l'explosion blesse tout personnage
+à PV du rayon, porteur et alliés compris. `Never` pose la `Bomb` avec `FriendlyFire::Never` : les `DamageEvent` de
+l'explosion sont refusés par `resolve_damage` pour tout personnage du **même bord** que le porteur (`Players`/`Allies`
+ensemble, ou deux `Enemies`) : le porteur et ses coéquipiers sont épargnés, un adversaire prend les dégâts normalement.
+Même champ pour l'`Explode` d'une mort de champion (`death_plan`). **Hash manuel** (règle « champ nouveau sous
+checksum ») : `Always` n'écrit rien (les hashs d'avant ne bougent pas), `Never` écrit un octet ; `describe` ajoute
+« épargne les alliés » ; le lint n'a rien à refuser (deux valeurs, toutes valides). Le champ passe par `scaled_action`.
+`nova`, `bombe_fiole` et `epines_de_chair` sont à `Never` et n'ont plus de `GainShield` de contournement ; preuve coop :
+`isaac_nova_coop` (deux joueurs à 6 PV à portée de `nova`, tous deux à 6 PV après l'onde ; avec l'ancien contenu, le
+coéquipier mourait). Traces bougées (preuve §5, dumps `ALACOD_DUMP_TRACE`, `scripts/trace-diff.py`, objets d'avant contre
+objets de la branche, même moteur) : `isaac_nova` et `isaac_bombe_fiole` f35, `generated/isaac/item_nova` et
+`item_bombe_fiole` f15, `generated/isaac/tears_epines_de_chair` f2 : à chaque fois la première frame qui diffère est la
+**pose de la bombe de l'objet** (`friendly_fire: Always` devenu `Never`, plus le `Shield` en moins pour les deux actifs) ;
+`item_epines_de_chair` (porteur sans coup reçu) identique ; aucune autre trace ne bouge (suite complète rejouée).
+Détail : `docs/taches/rapports/dette-d113-tir-ami-explode.md`.
 
 ### Balle explosive (`BulletType::Explosive`, D76 fermée)
 
@@ -6741,8 +6758,7 @@ Poids de pool 4 / 2 / 1 par rareté (consommables : 3 en boutique pour `pain`, 2
 Les objets de larmes du trésor sont aussi en boutique (règle `Tears` du lint : deux exemplaires possibles) ; `cendre_froide` (boss), `grappe`, `acide`, `philtre` (diable) n'ont qu'un pool d'épuisement et n'y sont pas soumis.
 Trois statuts nouveaux (`statuses/` : `etourdi` Stun 60 frames, `charme` Charm 200, `saignement` Poison 1 PV / 15 frames pendant 180), trois ennemis, un boss, deux patterns (`gerbe`, `tourbillon`).
 
-**Mécaniques manquantes (dettes, pas de code ici)** : `SpawnPattern` et `Emit`/`OnEvent` sont refusés à `OnUse` d'un objet : `nova` est un `Explode` (rayon 100) et `hydre` pose directement ses deux actions (D112) ; l'`Explode` d'un objet ou d'un effet est une bombe à tir ami `Always` qui blesse le porteur :
-`bombe_fiole` et `nova` se donnent un `GainShield(1)` avant l'explosion (il ne protège que le porteur : **en coop un coéquipier à portée prend l'explosion en entier**), `epines_de_chair` n'est protégé que par les `hit_iframes` de `pleureur` ; la charge `Damage` compte tous les dégâts dont le porteur est la source, ses propres explosions comprises : `nova` se charge donc par salles (`Active(Rooms(2))`, revue) (D113) ; aucune attente `Shield`, aucun départ blessé, `familiar:` sans input ni balle hostile, pas de `test:` pour un consommable : scénarios écrits à la main (D114) ;
+**Mécaniques manquantes (dettes, pas de code ici)** : `SpawnPattern` et `Emit`/`OnEvent` sont refusés à `OnUse` d'un objet : `nova` est un `Explode` (rayon 100) et `hydre` pose directement ses deux actions (D112) ; l'`Explode` d'un objet ou d'un effet a un `friendly_fire` (D113 : `Never` pour `nova`, `bombe_fiole` et `epines_de_chair`, qui n'ont plus de `GainShield` de contournement ; un coéquipier n'est plus blessé, `isaac_nova_coop`) ; reste de D113 : la charge `Damage` compte tous les dégâts dont le porteur est la source, ses propres explosions comprises : `nova` se charge donc par salles (`Active(Rooms(2))`, revue) ; aucune attente `Shield`, aucun départ blessé, `familiar:` sans input ni balle hostile, pas de `test:` pour un consommable : scénarios écrits à la main (D114) ;
 le second boss passe par un type de salle propre `boss_profond` (D115, réécrite). Objets sans sprite propre (inchangé, T17).
 
 **Ennemis** (`characters/`, un `test:` chacun, `enemy_<id>_still/_moving`) : `araignee` (sol, 4 PV, 66 unités/s, contact), `follet` (volant `Flying`, 5 PV, `Charge` télégraphe 25 + contact), `arroseur` (tireur au sol, 8 PV, `KeepDistance` 80 à 140, `gerbe` : télégraphe 18 puis cinq crachats en éventail exact sur 1 rad, `sight_range` 300). Placés **sans changer le nombre d'ennemis par salle**, en remplacement d'une mouche ou d'un suiveur :
@@ -6784,7 +6800,7 @@ les lignes marquées **T12** sont les trous trouvés par l'audit.
 | Munitions infinies (§60) | `ammo_type` absent alors qu'un mode consomme (`Parse`), donné alors que tous les modes sont `Infinite` (`OutOfRange`) | `weapon_ammo_type_missing`, `weapon_infinite_with_ammo_type` |
 | Larmes, `ProjectileMods` (§60, §66) | formes et plages d'un objet ou d'une synergie (`Homing`, `Bounce` répété, `Split.count`, `Orbit.radius`…), `child` et `on_expire: Spawn` sans table de projectiles (`Unsupported`), `Chance` hors [0, 1] | `projectile_split_out_of_range`, `item_projectile_out_of_range`, `item_projectile_no_table`, `item_projectile_ok`, `projectile_chance_out_of_range` |
 | Stats de larmes, `Luck` (§60) | liste fermée `stat_reader` : **T12** test `every_named_stat_has_a_reader` (liste des stats nommées tenue à la main ; son `match` sans `_` fait échouer la compilation à l'ajout d'une variante de `StatId`, ce qui rappelle d'y décider si elle a un lecteur) ; **T12** `stat_uses` lit aussi les modificateurs de curses et les actions d'entrée et de frise des phases de boss (un `Modifier` y est accepté) | `stat_unread`, `unread_stats_are_found_in_curses_and_boss_phases`, test `reach::tests` |
-| Bombes (§62) | `fuse_frames > 0`, `radius > 0`, `damage >= 0` (`OutOfRange`) ; `Explode` : rayon, dégâts (`OutOfRange`), refusée dans un power-up | `bomb_fuse_zero`, `explode_radius_zero`, `explode_effect_ok` |
+| Bombes (§62) | `fuse_frames > 0`, `radius > 0`, `damage >= 0` (`OutOfRange`) ; `Explode` : rayon, dégâts (`OutOfRange`), `friendly_fire` `Never`/`Always` (D113), refusée dans un power-up | `bomb_fuse_zero`, `explode_radius_zero`, `explode_effect_ok` |
 | Rochers (§62) | **T12** couche `Rocks` : valeur autre que 1 et 2 (ignorée au chargement : `OutOfRange`) | `rocks_and_surfaces_layers_are_checked` |
 | Piques (§62) | `damage > 0`, `period > 0` (`OutOfRange`) ; **T12** couche `Surfaces` : valeur sans surface déclarée (`BrokenReference`) | `hazard_period_zero`, `rocks_and_surfaces_layers_are_checked` |
 | Portes verrouillées (§62, §70) | `Key(0)`, `lock_from_floor` sans `door_lock` ou sur `Secret`, clé introuvable à chaque étage verrouillé | `door_lock_key_zero`, `key_room_*` |
