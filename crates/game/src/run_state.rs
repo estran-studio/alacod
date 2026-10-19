@@ -331,8 +331,24 @@ fn run_summary(
 /// (`RunRequest`). Voir la doc du module.
 pub struct RunStatePlugin;
 
+/// Session hébergée par la page web (`data-session`) : le retour au lobby est celui de l'hôte. Marqueur posé par
+/// l'application (`args::BaseArgsPlugin`) quand `jjrs::browser::session()` existe ; la simulation ne lit pas
+/// la page.
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Debug, Default, Clone, Copy)]
+pub struct HostedSession;
+
+/// Demande de retour au lobby de l'hôte web, écrite par [`apply_run_request_system`] pour une session
+/// [`HostedSession`] ; lue par l'application (`jjrs::browser::return_to_host_lobby`), qui appelle le crochet JS.
+#[cfg(target_arch = "wasm32")]
+#[derive(Event, Message, Debug, Clone, Copy)]
+pub struct ReturnToHostLobby;
+
 impl Plugin for RunStatePlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_arch = "wasm32")]
+        app.add_message::<ReturnToHostLobby>();
+
         app.add_systems(
             GgrsSchedule,
             (
@@ -463,6 +479,8 @@ pub(crate) fn apply_run_request_system(
     online_games: Res<crate::jjrs::restart::OnlineGames>,
     mut hub: Option<ResMut<crate::hub::HubSession>>,
     mut map_config: Option<ResMut<map::generation::config::MapGenerationConfig>>,
+    #[cfg(target_arch = "wasm32")] hosted: Option<Res<HostedSession>>,
+    #[cfg(target_arch = "wasm32")] mut host_lobby: MessageWriter<ReturnToHostLobby>,
 ) {
     let Some(request) = request else {
         return;
@@ -479,12 +497,13 @@ pub(crate) fn apply_run_request_system(
         }
     }
 
+    // Session hébergée par la page web : l'hôte termine la session en cours et délivre un billet d'admission
+    // neuf (jamais une salle de restart dérivée en ajoutant des caractères à un JWT). La simulation émet
+    // `ReturnToHostLobby` ; l'application appelle le crochet JS (`jjrs::browser::return_to_host_lobby`).
     #[cfg(target_arch = "wasm32")]
-    if crate::jjrs::browser::session().is_some() {
-        // The host ends the current session and obtains a fresh admission ticket.
-        // Never derive a restart room by appending characters to a JWT.
+    if hosted.is_some() {
         commands.remove_resource::<RunRequest>();
-        crate::jjrs::browser::alacod_return_to_lobby();
+        host_lobby.write(ReturnToHostLobby);
         return;
     }
     let online = matches!(*online_state, OnlineState::Online);

@@ -11,10 +11,16 @@
 # E3b (dette-d69-e3b-weapon-registry) : + weapons.rs (22 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : champions.rs,
 # character/enemy/create.rs, character/enemy/spawning.rs, effects_runtime.rs, loot.rs, progression.rs, waves/systems.rs (dépendent de balance.rs, collider/mod.rs,
 # items.rs, shop.rs, interaction.rs, character/create.rs, boss.rs, clock.rs, health/mod.rs…) ; nouveau fichier à fuite : weapon_assets.rs (app).
+# E6 (dette-d69-e6-session-reseau) : + jjrs/mod.rs, jjrs/restart.rs, jjrs/p2p_tests.rs, curses.rs, et clock.rs, character/enemy/ai/mod.rs (leur fermeture, sans fuite, devenue
+# fermée avec jjrs/mod.rs : 28 fichiers). Libérés de toute fuite sans entrer : jjrs/p2p.rs (moitié simulation), recording.rs ; jjrs/local.rs, profile.rs, run_state.rs, hub.rs,
+# state_trace.rs restent bloqués par la chaîne run_state.rs → balance.rs, economy.rs, waves/mod.rs (asset : E3c, E5c) et hub.rs → interaction.rs, shop.rs (E5c) ;
+# recording.rs par character/player/input.rs, replay.rs, progression.rs. Nouveaux fichiers à fuite (application) : jjrs/p2p_socket.rs, jjrs/p2p_socket_tests.rs, jjrs/telemetry.rs,
+# args/telemetry_config.rs ; jjrs/signal_watch.rs (D109, déjà app) ; reste à fuite dans args/mod.rs : `telemetry::TelemetryPlugin` de `BaseArgsPlugin` (E9).
 # E3c (dette-d69-e3c-balance) : + clock.rs, waves/config.rs (24 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : balance.rs
 # (character/config.rs), economy.rs (balance.rs, waves/mod.rs), powerups.rs (character/health/mod.rs), shop.rs (health/mod.rs, effects_runtime.rs, interaction.rs, items.rs),
 # waves/mod.rs (character/enemy/spawning.rs, health/mod.rs) ; nouveaux fichiers à fuite (enveloppes, app) : balance_assets.rs, economy_assets.rs, powerups_assets.rs, waves/assets.rs.
 character/appearance.rs
+character/enemy/ai/mod.rs
 character/enemy/ai/obstacle.rs
 character/enemy/mod.rs
 character/movement.rs
@@ -23,10 +29,14 @@ character/player/mod.rs
 character/variant.rs
 clock.rs
 collision_grid.rs
+curses.rs
 fog_map.rs
 frame_counter.rs
 frame_events.rs
 gen_test.rs
+jjrs/mod.rs
+jjrs/p2p_tests.rs
+jjrs/restart.rs
 patterns.rs
 rollback.rs
 session.rs

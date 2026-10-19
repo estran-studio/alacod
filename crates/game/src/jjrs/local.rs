@@ -11,7 +11,6 @@ use run::Run;
 
 use crate::{
     character::player::jjrs::PeerConfig,
-    collider::spawn_test_wall,
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
