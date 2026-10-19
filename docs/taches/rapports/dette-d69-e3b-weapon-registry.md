@@ -121,3 +121,27 @@ vers une table vide → **retiré** (suite rejouée ensuite). Deux P3 de doc : �
 Points confirmés OK : équivalence site par site des créateurs (ordre de `starting_weapons`, `shoot_weapons`, `bare_hands`), des chemins de butin, boutique, champions, boss, bots et son ; moment et logique de la synchro (curseurs vidés,
 `Added` sans effet) ; `apply_weapon_overrides` avant la création des joueurs et `apply_player_overrides` qui attend tous les joueurs ; aucun type rollback ni `HashMap` nouveau dans la simulation ; aucun appelant oublié.
 Les chiffres du § 4 ne sont pas vérifiés par le relecteur (aucun cargo) : ce sont les miens.
+
+## 7. Complément : rechargement à chaud, arme à distance créée après la modification (dette-d69-e3c-balance)
+
+Réserve de la revue de l'E3b : la preuve du § 2 ne montrait, pour une arme à distance, que le journal (`armes rechargées : WeaponRegistry mis à jour`), sans effet observé. Essai refait le 2026-10-18 sur le binaire natif
+`games/zombies` (`--profile headless --no-default-features --features native`, `ALACOD_HEADLESS=1`, `ALACOD_REMOTE=1`, partie pilotée par `scripts/alacod-remote`, fichiers modifiés sur disque pendant la partie puis restaurés :
+`git status` propre à la fin).
+
+**Montage temporaire (non commité, annulé par `git checkout games/zombies/assets`)** : `zombies` n'a aucun ennemi à distance ; on lui en donne un par trois retouches de contenu — `patterns/volee.ron` copié du testbed et déclaré (`kind: "Pattern"`) dans `game.ron` ;
+une table `projectiles: { "arrow": (damage: "5.0", speed: "120.0", range: "320.0") }` sur le `pistol` de `weapons.ron` ; `zombie_full_config.ron` : `behaviors: Some([Shoot(weapon: "pistol", pattern: "volee", range: "240.0", cooldown_frames: 90), Chase(…)])`.
+Un `zombie_full` créé par `spawn_enemy` copie alors `registry.weapons["pistol"]` dans son inventaire (`character/enemy/create.rs`, boucle `shoot_weapons`) et ses flèches font les dégâts de `projectiles["arrow"]` **de cette copie**.
+
+**Déroulé** (joueur immobile, 100 PV, partie avancée par pas de 2 frames) :
+
+| frame | événement | observé (journal de la partie, `resolve_damage`) |
+|---|---|---|
+| 0–500 | `arrow.damage = 5.0` ; zombies `zombie_full-59`, `-61`, `-73` déjà créés à f500 (premières salves f357, f382, f490) | `−5 dmg from (zombie_full-59)` à f496 |
+| entre f500 et f521 | `weapons.ron` : `damage: "5.0"` → `"20.0"` | `Reloaded ZombieShooter/Sprites/Character/weapons.ron` puis `armes rechargées : WeaponRegistry mis à jour (4 armes)` |
+| 521–760 | zombies **créés avant** la modification (59, 61, 73) | tous leurs tirs : `−5 dmg` (f521, 582, 588, 603, 607, 613, 629, 630, 650, 656, 715, 721, 738…) |
+| ≤ 542 | `zombie_full-85` **créé après** (vu à f542, absent à f500) | première salve f632, deuxième f773 |
+| 771, 800 | flèches de `zombie_full-85` | **`<- 20 dmg from (zombie_full-85)`** à f771 (résolu ; `apply_damage` n'y applique qu'un coup de mêlée de 1, cause non investiguée) et à f800 (appliqué : santé 23 → 3) |
+
+Constat : une arme à distance créée **après** le rechargement porte la valeur nouvelle (20), celles créées avant gardent l'ancienne (5) — ce que `spawn_enemy` doit faire (copie du registre à la création). La synchro régénère donc bien `WeaponRegistry`
+avec un effet observé sur la simulation, pas seulement dans le journal. Les armes **déjà portées** d'un joueur ne bougent pas en headless (§ 5 : `weapons_config_update_system` exige `&Children`) ; les dégâts des zombies 59/61/73, eux, n'ont pas changé non plus
+(leur copie date d'avant). Aucun scénario ne joue ce chemin : le test `asset_modification_refreshes_registry_but_overrides_survive` garde le mécanisme.

@@ -48,6 +48,16 @@ pub enum OnlineState {
     Offline, // For ggrs synctest/lan system to be enabe
 }
 
+/// Nombre de joueurs de la session pour l'équilibrage (`players` des expressions de
+/// `balance::resolve_balance`, `clock::DifficultyConfig`) : `max_player` de la session ggrs en ligne, sinon
+/// `PlayersCount` (partie locale ou scénario). Ressource de simulation **écrite par l'application**
+/// (`balance_assets::publish_session_players`, `OnEnter(GameLoading)`, avant `resolve_balance_system` et
+/// `resolve_clocks_system`) : la simulation ne lit plus ni `OnlineState` ni `GggrsSessionConfiguration`
+/// (D69 étape 2, E3c). Hors rollback ; sans valeur par défaut, une résolution lancée sans elle échoue
+/// bruyamment au lieu de résoudre pour zéro joueur.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SessionPlayers(pub u32);
+
 /// Exécuteur monothread pour les schedules du rollback (`ReadInputs`, `AdvanceWorld`,
 /// `GgrsSchedule`, `SaveWorld`, `LoadWorld`), dans le jeu comme dans les scénarios.
 ///

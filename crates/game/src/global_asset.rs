@@ -15,10 +15,10 @@ use content::registry::Registry;
 
 use crate::{
     character::config_asset::CharacterConfigAsset,
-    economy::{EconomyConfig, PerksConfig},
-    powerups::PowerUpsConfig,
+    economy_assets::{EconomyConfigAsset, PerksConfigAsset},
+    powerups_assets::PowerUpsConfigAsset,
     session::{AppState, OnlineState},
-    waves::WaveConfig,
+    waves::assets::WaveConfigAsset,
     weapon_assets::{MeleeWeaponsConfig, WeaponsConfig},
 };
 
@@ -43,20 +43,20 @@ pub struct GlobalAsset {
     pub slash_effect_animation: Option<Handle<AnimationMapConfig>>,
 
     // Wave spawning config (optional - only loaded when the game declares a `Wave` folder)
-    pub wave_config: Option<Handle<WaveConfig>>,
+    pub wave_config: Option<Handle<WaveConfigAsset>>,
 
     /// Économie de run (T2.3, chantier C5 v1) : `Some` seulement si le jeu déclare un dossier
     /// de contenu `Economy`/`Perk` (comme `wave_config` pour `Wave`). Absent : les points et
     /// achats retombent sur `EconomyConfig::default()` (voir `economy::award_points_system`),
     /// et les perks n'ont aucune entrée connue (`interaction::handle_perk_purchase_interaction`
     /// refuse tout achat).
-    pub economy_config: Option<Handle<EconomyConfig>>,
-    pub perks_config: Option<Handle<PerksConfig>>,
+    pub economy_config: Option<Handle<EconomyConfigAsset>>,
+    pub perks_config: Option<Handle<PerksConfigAsset>>,
     /// Power-ups (T2.5, chantier C1 v0) : `Some` seulement si le jeu déclare un dossier de
     /// contenu `PowerUp`, comme `wave_config`/`economy_config` ci-dessus. Absent :
     /// `powerups::loot_drop_on_death_system`/`powerup_pickup_detect_system` ne font rien
     /// (retour anticipé), aucun power-up ne tombe ni ne peut être ramassé.
-    pub powerups_config: Option<Handle<PowerUpsConfig>>,
+    pub powerups_config: Option<Handle<PowerUpsConfigAsset>>,
 }
 
 impl GlobalAsset {

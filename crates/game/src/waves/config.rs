@@ -8,7 +8,7 @@
 //! sont **jamais** évaluées ici ni dans l'état rollback : `resolve_balance_system` produit
 //! des valeurs concrètes avant la première frame de simulation.
 
-use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath};
+use bevy::platform::collections::HashMap;
 use bevy_fixed::fixed_math;
 use content::expr::NumOrExpr;
 use serde::{Deserialize, Serialize};
@@ -23,8 +23,9 @@ pub struct WaveTier {
     pub enemy_probabilities: HashMap<String, NumOrExpr>,
 }
 
-/// Main wave configuration loaded from RON file
-#[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
+/// Main wave configuration loaded from RON file (donnée de simulation pure : son enveloppe `Asset` est
+/// `waves::assets::WaveConfigAsset`, côté application — D69 étape 2, E3c)
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaveConfig {
     // === Enemy Count Formula ===
     // count = base_enemies + ((wave - 1) * enemies_per_wave) + random(0, max_variance)

@@ -20,9 +20,8 @@ use crate::character::enemy::Enemy;
 use crate::character::player::Player;
 use crate::collider::Collider;
 use crate::economy::PerkMachine;
-use crate::global_asset::GlobalAsset;
 use crate::interaction::{point_to_collider_surface_distance_sq, Interactable, InteractionType};
-use crate::powerups::PowerUpsConfig;
+use crate::powerups::PowerUpsTable;
 use crate::session::{AppState, SIM_FPS};
 use crate::ui::hud_model::{
     player_source_text, HeartKind, HeartSlot, HudMapRoom, HudPlayer, HudSnapshot,
@@ -811,10 +810,9 @@ struct HudInteractables<'w, 's> {
         With<Rollback>,
     >,
     item_table: Option<Res<'w, items::ItemTable>>,
-    global_assets: Option<Res<'w, GlobalAsset>>,
     // F5 (chantier m0-v11) : prix et perks résolus une fois au lancement (`crate::balance`).
     balance: Res<'w, crate::balance::ResolvedBalance>,
-    powerups_configs: Res<'w, Assets<PowerUpsConfig>>,
+    powerups: Res<'w, PowerUpsTable>,
 }
 
 fn update_hud_v1_values(
@@ -892,11 +890,7 @@ fn update_hud_v1_values(
         })
         .unwrap_or_default();
 
-    let powerup_config = world
-        .global_assets
-        .as_deref()
-        .and_then(|g| g.powerups_config.as_ref())
-        .and_then(|h| world.powerups_configs.get(h));
+    let powerup_config = world.powerups.0.as_ref();
     let powerups = player
         .and_then(|p| p.5)
         .map(|modifiers| {

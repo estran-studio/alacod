@@ -2,10 +2,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::FixedTransform3D;
 
-use crate::{
-    global_asset::GlobalAsset,
-    powerups::{PowerUpPickup, PowerUpsConfig},
-};
+use crate::powerups::{PowerUpPickup, PowerUpsTable};
 
 pub struct PowerUpVisualPlugin;
 
@@ -22,14 +19,13 @@ fn sync_powerup_visuals(
     mut commands: Commands,
     pickups: Query<(Entity, &PowerUpPickup, &FixedTransform3D)>,
     mut labels: Query<(Entity, &PowerUpLabel, &mut Transform, &mut Visibility)>,
-    global: Res<GlobalAsset>,
-    configs: Res<Assets<PowerUpsConfig>>,
+    table: Res<PowerUpsTable>,
     assets: Res<AssetServer>,
     mut gizmos: Gizmos,
     fog: Res<crate::room_fog::FogView>,
     map: Option<Res<crate::fog_map::FogMap>>,
 ) {
-    let config = global.powerups_config.as_ref().and_then(|h| configs.get(h));
+    let config = table.0.as_ref();
     // Les entités visuelles sont indépendantes des entités rollback : un retrait,
     // une expiration ou une résurrection se reflète au prochain Update.
     for (entity, label, mut transform, mut visibility) in &mut labels {

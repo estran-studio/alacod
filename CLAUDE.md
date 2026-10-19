@@ -307,7 +307,7 @@ simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, 
 `bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
 
 **Contenu lu par la simulation** (D69 étape 2, en cours) : la cible est zéro `Res<Assets<T>>` et zéro `Handle<T>` dans un système de
-`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a) et les armes (E3b), pas encore pour `GlobalAsset` (E3d).
+`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a), les armes (E3b) et l'économie/les power-ups/les vagues (E3c), pas encore pour `GlobalAsset` (E3d).
 La simulation lit une **ressource de donnée** (`BTreeMap`) remplie par
 l'application : `CharacterConfigs` (E3a, `character/config.rs`) à partir de l'enveloppe `CharacterConfigAsset`
 (`character/config_asset.rs`), `WeaponRegistry` (E3b, `weapons.rs` : `weapons` et `melee`) à partir des enveloppes `WeaponsConfig` /
@@ -317,6 +317,13 @@ l'application : `CharacterConfigs` (E3a, `character/config.rs`) à partir de l'e
 (`apply_weapon_overrides` écrit dans `WeaponRegistry`). Les replis des lecteurs (`continue`,
 vitesse de repli, défauts de santé, arme inconnue ignorée par un `warn!`) masquent un registre vide : tester la ressource elle-même
 (`crates/scenario/tests/character_configs.rs`, `crates/scenario/tests/weapon_registry.rs`).
+
+Économie, power-ups, vagues et équilibrage (E3c) : `EconomyConfig`, `PerksConfig`, `PowerUpsConfig` et `WaveConfig` ne sont plus des `Asset` (enveloppes
+`economy_assets.rs`, `powerups_assets.rs`, `waves/assets.rs`, application). La simulation lit `ResolvedBalance` (dont `waves_enabled`, `economy.shells_drop`,
+`economy.shop_prices`) et `PowerUpsTable(Option<PowerUpsConfig>)`, remplies à `OnEnter(GameLoading)` par `balance_assets::resolve_balance_system` puis
+`powerups_assets::resolve_powerups_table_system` ; le nombre de joueurs vient de `SessionPlayers(u32)` (écrit par l'application, `publish_session_players`),
+plus d'`OnlineState` ni de `GggrsSessionConfiguration` dans la simulation. Une surcharge de scénario vise l'**enveloppe** (avant la résolution), jamais `ResolvedBalance`.
+Une table vide est masquée par les replis des lecteurs (`let Some(..) else return`) : tester les ressources (`crates/scenario/tests/balance_tables.rs`).
 
 ## Headless, trace d'état et déterminisme
 

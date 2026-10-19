@@ -223,6 +223,21 @@ Rechargement des armes **déjà portées** : `weapons_config_update_system` (`Up
 armes qui portent un sprite d'enfant (`attach_weapon_visuals`, avec rendu) sont mises à jour, pas en headless. Les armes créées après un rechargement, elles,
 lisent le registre à jour.
 
+**Équilibrage, économie, power-ups et vagues** (D69 étape 2, E3c) : `EconomyConfig`, `PerksConfig`, `PowerUpsConfig` et `WaveConfig` sont des
+données de simulation pures (plus d'`Asset`) ; leurs enveloppes `#[serde(transparent)]` (`EconomyConfigAsset`, `PerksConfigAsset`
+dans `economy_assets.rs`, `PowerUpsConfigAsset` dans `powerups_assets.rs`, `WaveConfigAsset` dans `waves/assets.rs`, **application**) portent
+les `RonAssetPlugin` ; les `.ron` ne changent pas. La simulation lit **`ResolvedBalance`** (équilibrage : vagues, économie, perks, santé ;
+`waves_enabled`, `economy.shells_drop`, `economy.shop_prices` ajoutés par E3c : `shell_drop_on_death_system`, `room_shop_system`, la machine à
+vagues) et **`PowerUpsTable(Option<PowerUpsConfig>)`** (`powerups.rs`, `powerup_pickup_detect_system`, `apply_powerup_actions_system`,
+`loot_drop_on_death_system`, le HUD et les repères au sol). Les deux sont remplies à `OnEnter(GameLoading)`, la table **après** l'équilibrage
+(`powerups_assets::resolve_powerups_table_system`) : un rechargement à chaud de `items/powerups.ron` en cours de partie ne change donc plus
+les power-ups avant la prochaine entrée en `GameLoading` (les systèmes lisaient l'asset à chaque frame ; `ResolvedBalance` était déjà figée,
+F5). Surcharges de scénario : `wave_overrides` et `powerup_drop_chance_override` visent l'**enveloppe** (`Assets<…Asset>`, posée en `Update` dès
+le chargement, donc avant `GameLoading` qui la résout) ; les placements de power-ups scénarisés lisent la table. Parité : test
+`balance_assets::tests::resolved_balance_is_identical_through_the_envelope_and_the_table` (champ à champ, cinq jeux, 1 à 4 joueurs),
+`powerups_assets::tests::table_is_the_envelope_content_field_by_field`, et `crates/scenario/tests/balance_tables.rs` (les ressources
+`SessionPlayers`, `ResolvedBalance` et `PowerUpsTable` au premier tick, surcharges de scénario comprises : les replis des lecteurs masquent une table vide).
+
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
 - `sprite_config` : `name`, `index` (première frame), `weapon_offset`. Pour une arme à distance, `name` est un id de la table `SpriteSheet` (D3).
@@ -1266,16 +1281,22 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   (chaîne RON évaluée, ex. `max: "10.0 + (players - 1) * 40.0"`). La désérialisation tente dans
   cet ordre : entier nu → `Integer` ; chaîne qui est un nombre → `Literal` ; sinon parse
   `Expr` → `Expression` (un échec de parse est un échec du chargement).
-- **Point d'évaluation** : `game::balance::resolve_balance_system`, enregistré sur
+- **Point d'évaluation** : `game::balance_assets::resolve_balance_system` (application, E3c ; le calcul pur est
+  `game::balance::resolve_balance`, simulation), enregistré sur
   `OnEnter(AppState::GameLoading)` — après le chargement des assets, avant le spawn des
   joueurs/personnages (Update de `GameLoading`) et avant la première vague. Il insère la
   ressource ordinaire (hors rollback, comme `Assets`) `game::balance::ResolvedBalance` :
-  `waves`, `economy`, `perks` et `health_max_by_character`, en valeurs concrètes. Les systèmes
+  `waves`, `waves_enabled` (le jeu déclare un dossier `Wave`), `economy` (dont `shells_drop` et `shop_prices`),
+  `perks` et `health_max_by_character`, en valeurs concrètes. Les systèmes
   de simulation lisent `ResolvedBalance`, jamais les assets d'origine — aucune expression dans
   l'état rollback. Une relance locale re-entre `GameLoading` et re-résout avec le même nombre
   de joueurs.
-- **Nombre de joueurs** : `OnlineState::Online` → `ggrs_config.connection.max_player` (source
-  autoritaire en ligne) ; sinon `PlayersCount` (partie locale ou scénario).
+- **Nombre de joueurs** : `game::session::SessionPlayers(u32)`, ressource de simulation que l'application écrit
+  juste avant (`balance_assets::publish_session_players`, `OnEnter(GameLoading)`, ordonné `.before` les deux résolutions) :
+  `OnlineState::Online` → `ggrs_config.connection.max_player` (source
+  autoritaire en ligne) ; sinon `PlayersCount` (partie locale ou scénario). `resolve_balance` et
+  `clock::resolve_clocks_system` (difficulté) la lisent ; la simulation ne lit plus `OnlineState` ni
+  `GggrsSessionConfiguration` pour cela.
 - **Champs couverts** (rien d'autre — le reste des chantiers F est pour M1/M2) :
   - **Vagues** (`games/zombies/assets/waves/wave_config.ron`) : `base_enemies`,
     `enemies_per_wave`, `max_random_variance`, `min_wave_delay_frames`, `grace_period_frames`,
