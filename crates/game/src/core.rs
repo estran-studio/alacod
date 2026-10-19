@@ -46,7 +46,7 @@ use crate::{
     },
     light::ZLightPlugin,
     system_set::RollbackSystemSet,
-    ui::GameUiPlugin,
+    ui::{GameUiInputPlugin, GameUiModelPlugin, GameUiPlugin},
     waves::WaveSystemPlugin,
     weapons::BaseWeaponGamePlugin,
 };
@@ -142,7 +142,11 @@ impl Plugin for CoreSetupPlugin {
         // Feedback v1 (T1.17) : journal de présentation (`FeedbackLog`), rempli aussi en
         // headless pour prouver le feedback sans écran ; le rendu est dans `PresentationPlugin`.
         app.add_plugins(crate::feedback::FeedbackLogPlugin);
+        // Lobby et déconnexion (hors `PresentationPlugin` : aussi en headless p2p), modèles de vue,
+        // puis leurs entrées : `GameUiPlugin` et `GameUiInputPlugin` passent à `CoreAppPlugin` (E7).
         app.add_plugins(GameUiPlugin);
+        app.add_plugins(GameUiModelPlugin);
+        app.add_plugins(GameUiInputPlugin);
         app.add_plugins(WaveSystemPlugin);
         // État de run (T2.4, chantier F1) : condition de victoire, résumé, relance sans
         // relancer le binaire (`RunRequest`). Voir `crate::run_state`.

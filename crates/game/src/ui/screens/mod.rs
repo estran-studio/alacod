@@ -11,15 +11,16 @@
 
 #[cfg(feature = "ui_hui")]
 pub mod hui;
+pub mod input;
 pub mod model;
 
 use bevy::prelude::*;
 use combat::inventory::AmmoReserves;
 use items::{Inventory, ItemKind, ItemTable};
 use model::{
-    actions_from_keys, inventory_focus_len, inventory_view, merchant_lines, merchant_view,
-    pause_view, reduce, ActiveLine, InventoryInput, NavKey, ScreenCommand, ScreenId, ScreenScript,
-    ScreenView, ScreensState, UiAction, WeaponLine,
+    inventory_focus_len, inventory_view, merchant_lines, merchant_view, pause_view, reduce,
+    ActiveLine, InventoryInput, ScreenCommand, ScreenId, ScreenScript, ScreenView, ScreensState,
+    UiAction, WeaponLine,
 };
 use utils::frame::FrameCount;
 
@@ -40,77 +41,24 @@ pub struct Screens {
     pub view: Option<ScreenView>,
 }
 
-/// Actions en attente (clavier, manette) : vidées à chaque update.
+/// Actions en attente (clavier, manette, lues par `input::read_nav_keys`) : vidées à chaque
+/// update.
 #[derive(Resource, Default)]
-struct UiActionQueue(Vec<UiAction>);
+pub struct UiActionQueue(pub Vec<UiAction>);
 
-/// Modèle des écrans, aussi en headless (attente de scénario `ScreenText`).
+/// Modèle des écrans, aussi en headless (attente de scénario `ScreenText`). Sans clavier ni
+/// manette : `input::ScreensInputPlugin`.
 pub struct ScreensPlugin;
 
 impl Plugin for ScreensPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Screens>()
             .init_resource::<UiActionQueue>()
-            .add_systems(
-                Update,
-                (read_nav_keys, update_screens)
-                    .chain()
-                    .run_if(in_state(AppState::InGame)),
-            )
+            .add_systems(Update, update_screens.run_if(in_state(AppState::InGame)))
             .add_systems(OnExit(AppState::InGame), |mut screens: ResMut<Screens>| {
                 *screens = Screens::default();
             });
     }
-}
-
-/// Touches pressées cette frame, clavier et manette (rien en headless ni avec
-/// `ALACOD_INPUT=neutral`).
-fn read_nav_keys(
-    keyboard: Option<Res<ButtonInput<KeyCode>>>,
-    gamepads: Query<&Gamepad>,
-    mut queue: ResMut<UiActionQueue>,
-    screens: Res<Screens>,
-) {
-    if std::env::var("ALACOD_INPUT").is_ok_and(|v| v == "neutral") {
-        return;
-    }
-    let mut pressed = Vec::new();
-    if let Some(keyboard) = keyboard {
-        for (key, nav) in [
-            (KeyCode::Escape, NavKey::Menu),
-            (KeyCode::KeyI, NavKey::Inventory),
-            (KeyCode::ArrowUp, NavKey::Up),
-            (KeyCode::ArrowDown, NavKey::Down),
-            (KeyCode::Enter, NavKey::Confirm),
-            (KeyCode::Space, NavKey::Confirm),
-            (KeyCode::Backspace, NavKey::Back),
-        ] {
-            if keyboard.just_pressed(key) {
-                pressed.push(nav);
-            }
-        }
-    }
-    for gamepad in &gamepads {
-        for (button, nav) in [
-            (GamepadButton::Start, NavKey::Menu),
-            (GamepadButton::Select, NavKey::Inventory),
-            (GamepadButton::DPadUp, NavKey::Up),
-            (GamepadButton::DPadDown, NavKey::Down),
-            (GamepadButton::South, NavKey::Confirm),
-            (GamepadButton::East, NavKey::Back),
-        ] {
-            if gamepad.just_pressed(button) {
-                pressed.push(nav);
-            }
-        }
-    }
-    // Hors d'un écran ouvert, les flèches, Entrée et A sont des touches de jeu.
-    if screens.state.open.is_none() {
-        pressed.retain(|key| matches!(key, NavKey::Menu | NavKey::Inventory));
-    }
-    queue
-        .0
-        .extend(actions_from_keys(screens.state.open, &pressed));
 }
 
 /// Ce que l'inventaire lit du joueur affiché.
