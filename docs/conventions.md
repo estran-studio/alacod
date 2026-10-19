@@ -197,7 +197,7 @@ fixture `character_scale_missing`) au lieu d'échouer au chargement du jeu.
 **Registre de simulation `CharacterConfigs`** (D69 étape 2, E3a) : la simulation ne lit jamais `Assets<CharacterConfig>`.
 `CharacterConfig` est une donnée pure (`Deserialize`, sans `Asset`) ; l'application la charge par l'enveloppe
 `CharacterConfigAsset` (`character/config_asset.rs`, `#[serde(transparent)]` : les `.ron` ne changent pas) et publie
-`CharacterConfigs(BTreeMap<id, CharacterConfig>)` (clés de `GlobalAsset::character_configs`, c'est-à-dire les
+`CharacterConfigs(BTreeMap<id, CharacterConfig>)` (clés : les `CharacterId` du registre de contenu, c'est-à-dire les
 `asset_name_ref`). Un personnage porte `CharacterConfigKey(String)` (composant non rollback, posé par `create_character`,
 remplace `CharacterConfigHandles`). Le système `sync_character_configs` tourne en `PreUpdate.before(RunGgrsSystems)` : il copie
 toute entrée absente dont l'asset est lisible (chargement initial, sans dépendre d'un événement) et recopie sur
@@ -237,6 +237,17 @@ le chargement, donc avant `GameLoading` qui la résout) ; les placements de powe
 `balance_assets::tests::resolved_balance_is_identical_through_the_envelope_and_the_table` (champ à champ, cinq jeux, 1 à 4 joueurs),
 `powerups_assets::tests::table_is_the_envelope_content_field_by_field`, et `crates/scenario/tests/balance_tables.rs` (les ressources
 `SessionPlayers`, `ResolvedBalance` et `PowerUpsTable` au premier tick, surcharges de scénario comprises : les replis des lecteurs masquent une table vide).
+
+**`GlobalAsset`, ressource d'application** (D69 étape 2, E3d) : `game::global_asset::GlobalAsset` tient les `Handle` que l'application doit garder
+chargés, en deux familles : la **présentation** (`spritesheets`, `animations`, `slash_effect_*`, lus par `character/visuals.rs`, `ui/weapon_visuals.rs`,
+`world_sprites.rs`) et les **sources de synchro** (handles des enveloppes de personnages, d'armes, de vagues, d'économie, de perks et de power-ups, lus
+par `sync_character_configs`, `sync_weapon_registry`, `resolve_balance_system` et `resolve_powerups_table_system`). Aucun fichier de simulation, aucun
+lecteur externe (`bots`, `map_ldtk`, `examples`, le code de `scenario/src`) ne le lit : ils lisent `CharacterConfigs`, `WeaponRegistry`, `ResolvedBalance`
+et `PowerUpsTable`, donc aucune `ContentData` n'a été créée (aucun lecteur de simulation ne subsistait). Les surcharges de vagues et de power-ups du runner
+désignent l'enveloppe par `Assets<…Asset>` (un jeu n'en charge qu'une) ; les tests de `crates/scenario/tests` qui comparent registre et enveloppe
+(`character_configs.rs`, `weapon_registry.rs`, `balance_tables.rs`) gardent `GlobalAsset` pour atteindre l'enveloppe. `loading_asset_system` ne
+passe de `Loading` au lobby qu'une fois, en plus des assets chargés, `CharacterConfigs` plein et `WeaponRegistry` rempli (une table vide dans le fichier ne
+bloque pas) : la première partie ne démarre jamais sur un registre vide.
 
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).

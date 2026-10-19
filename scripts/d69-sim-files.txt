@@ -27,6 +27,8 @@
 # (fermeture interne à fuite) : character/mod.rs, character/create.rs, character/player/{input,create}.rs, character/enemy/ai/{pathing,behavior,rules,squad}.rs, character/config.rs,
 # recording.rs ; ils dépendent tous de character/health/mod.rs (↔ character/config.rs en cycle ; economy.rs, effects_v3.rs, progression.rs, interaction.rs : E5c), de waves/mod.rs, de hub.rs ou de
 # state_trace.rs (↔ run_state.rs). Nouveaux fichiers à fuite (application) : character/{input_devices,app_plugin,control,ai_debug,health_bar}.rs, collider/test_wall.rs.
+# E3d (dette-d69-e3d-global-asset) : aucun ajout (24 fichiers). `GlobalAsset` devient une ressource d'application (présentation + sources de synchro) : aucun fichier de simulation ni lecteur
+# externe ne le lit ; aucun fichier n'est libéré (les 0 erreur `asset` des fichiers classés SIM datent de E3a-c) ; seul `global_asset.rs` (APP) gagne deux erreurs `asset` (`Assets<…>` du garde de sortie de `Loading`).
 character/appearance.rs
 character/dash.rs
 character/enemy/ai/mod.rs

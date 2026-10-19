@@ -73,8 +73,7 @@ use crate::{
 
 /// Résout le [`RunMode`] d'une session à partir du manifeste (`entry.mode`, T2.4) et du
 /// registre de contenu (`registry.waves`). Appelée par `jjrs::local`/`jjrs::p2p` au
-/// démarrage de session, avec les mêmes ressources que `GlobalAsset::create` (déjà
-/// présentes à ce moment).
+/// démarrage de session, avec le manifeste et le registre déjà présents à ce moment.
 ///
 /// Règle (voir `docs/conventions.md` section « Run ») : `entry.mode` explicite (`Waves` ou
 /// `Sandbox`) gagne toujours ; absent, `Waves` si le jeu déclare un dossier de contenu

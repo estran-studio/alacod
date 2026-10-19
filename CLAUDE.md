@@ -307,7 +307,9 @@ simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, 
 `bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
 
 **Contenu lu par la simulation** (D69 étape 2, en cours) : la cible est zéro `Res<Assets<T>>` et zéro `Handle<T>` dans un système de
-`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a), les armes (E3b) et l'économie/les power-ups/les vagues (E3c), pas encore pour `GlobalAsset` (E3d).
+`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a), les armes (E3b), l'économie/les power-ups/les vagues (E3c)
+et `GlobalAsset` (E3d : ressource d'application, handles de présentation et sources de synchro des enveloppes, lue par aucun fichier de simulation ni par les
+lecteurs externes `bots`, `scenario`, `map_ldtk`, `examples` ; `loading_asset_system` ne quitte `Loading` qu'une fois `CharacterConfigs` et `WeaponRegistry` publiés).
 La simulation lit une **ressource de donnée** (`BTreeMap`) remplie par
 l'application : `CharacterConfigs` (E3a, `character/config.rs`) à partir de l'enveloppe `CharacterConfigAsset`
 (`character/config_asset.rs`), `WeaponRegistry` (E3b, `weapons.rs` : `weapons` et `melee`) à partir des enveloppes `WeaponsConfig` /

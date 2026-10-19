@@ -7,9 +7,7 @@
 //! `waves_enabled` est faux, `shell_drop_on_death_system` ne lâche rien sans `shells_drop`. Un scénario qui ne
 //! regarde que les résultats ne verrait pas une table jamais remplie : ces tests regardent les ressources elles-mêmes.
 
-use std::sync::Arc;
-
-use parking_lot::Mutex;
+use std::sync::{Arc, Mutex};
 
 use bevy::prelude::*;
 use game::balance::ResolvedBalance;
@@ -57,7 +55,7 @@ fn first_tick(ron: &str) -> FirstTick {
                    table: Res<PowerUpsTable>,
                    global: Res<GlobalAsset>,
                    powerups: Res<Assets<PowerUpsConfigAsset>>| {
-                let mut probe = sink.lock();
+                let mut probe = sink.lock().expect("sonde non empoisonnée");
                 if probe.seen {
                     return;
                 }
@@ -85,6 +83,7 @@ fn first_tick(ron: &str) -> FirstTick {
         .ok()
         .expect("sonde partagée")
         .into_inner()
+        .expect("sonde non empoisonnée")
 }
 
 /// Zombies à quatre joueurs : `SessionPlayers` vaut le nombre de joueurs de la session et pilote la résolution

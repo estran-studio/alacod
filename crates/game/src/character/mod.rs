@@ -96,7 +96,7 @@ impl Plugin for BaseCharacterGamePlugin {
         sim_core::damage::add_damage_events(app);
 
         // Kinds existants (lus par le lint de contenu, `crates/content`, T1.5). Les noms
-        // viennent de `global_asset.rs` (`character_configs`) : ce sont les seuls types
+        // viennent du registre de contenu (`CharacterConfigs`) : ce sont les seuls types
         // d'ennemis chargés aujourd'hui, en dur ; T1.5 les lira depuis le manifeste RON.
         app.register_kinds([
             KindDecl::new("enemy", "zombie_1"),
