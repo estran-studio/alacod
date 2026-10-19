@@ -66,7 +66,13 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - `DoorHorizontal`, `DoorVertical` (32×16 ou 16×32 px) : portes payantes. En éditeur LDtk, deux champs seulement : `price` (entier, coût en points), `electrify` (booléen, desserte électrique si vrai). Le générateur ajoute quatre champs aux portes qu'il place : `interactable` (booléen, défaut `true`), `paired_door_x`, `paired_door_y` (entiers), `paired_door_level` (chaîne) pour les portes appariées (une porte achetée ouvre son jumeau simultanément). Lus par `door_component_from_field` dans `crates/map_ldtk/src/game/entity/door.rs`. Les portes **bloquent le flow field** tant qu'elles ont un collider (portes fermées) ; une porte non interactive ne s'ouvre jamais (`CLAUDE.md`, section « Flow Field - Implémentation Actuelle »).
 - `WindowHorizontal`, `WindowVertical` (16×32 ou 32×16 px) : vitres cassables. Aucun champ en éditeur. Santé fixée à 3 dans le code (`crates/map/src/game/entity/map/window.rs`). Les fenêtres intactes bloquent les ennemis (collision, mais permettent le tir à travers) ; cassées, elles bloquent les joueurs seulement (perméables aux ennemis). Réparation par interaction. Lus par `crates/map_ldtk/src/game/entity/window.rs`.
 - `PlayerSpawn` (16×16 px) : points de départ des joueurs. Champ obligatoire : `index` (0, 1, 2, 3) = handle GGRS du joueur. Seul le niveau de départ a besoin de points de départ. Lus par `crates/map_ldtk/src/game/entity/player_spawn.rs`.
-- `ZombieSpawn` (16×16 px) : emplacements de spawn des ennemis. Aucun champ. Le mode vagues (`WaveModeEnabled`, activé quand le jeu déclare un dossier `Wave` ; `RunMode::Waves` depuis T2.4, §13) y fait apparaître les ennemis. Lus par `crates/map_ldtk/src/game/entity/enemy_spawn.rs`.
+- `ZombieSpawn` (16×16 px) : emplacements de spawn des ennemis. Quatre champs entiers **optionnels**
+  `active_x`, `active_y`, `active_width`, `active_height` (en pixels, **locaux au niveau** dans la
+  bibliothèque, convertis en monde par l'assembleur) : quand ils sont tous présents, le mode vagues
+  ne fait apparaître les ennemis de ce spawner que si un joueur est dans ce rectangle, sinon il est
+  exclu. C'est ainsi qu'une section garde « ses » zombies (courettes derrière les fenêtres) sans en
+  recevoir d'une section fermée. Aucun champ = comportement d'avant (choix par distance au joueur).
+  Lus par `crates/map_ldtk/src/game/entity/enemy_spawn.rs`.
 - `CharacterSpawn` (16×16 px, T2.9, testbed) : fait apparaître, une fois au chargement de la map (pas par les vagues), un personnage précis du registre. Trois champs : `character` (chaîne, `CharacterId`, obligatoire), `variant` (chaîne optionnelle, variante imposée, T1.5, §25) et `team` (chaîne optionnelle : `players`/`enemies`/`allies`/`neutral` ; absente ou vide → `CharacterConfig.team` du personnage, sinon `Enemies`). Lus par `crates/map_ldtk/src/game/entity/character_spawn.rs` ; spawné par `map_ldtk::game::local::spawn_characters_when_map_loaded` via `character::enemy::create::spawn_enemy`. Utilisé par `games/testbed/assets/testbed/*.ldtk` pour placer `dummy`/`target`/`follower`/`ally`/`civilian`/`breacher` (`games/testbed/assets/characters/*.ron`).
 - `WeaponLocation` (16×16 px, T2.3, chantier C5 v1) : arme murale payante. Deux champs en éditeur : `weapon` (chaîne, `WeaponId` de `weapons.ron`), `price` (entier, coût en points). Propagée par le générateur de salles (modèle `CharacterSpawn`, voir `crates/map/src/generation/entity/weapon_location.rs`) ; au chargement de la map, fait apparaître un `weapons::WeaponPickup` mural (`price: Some(...)`, jamais consommé au ramassage — voir `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`). Lue par `crates/map_ldtk/src/game/entity/weapon_location.rs`. `games/zombies/assets/exemples/test_map.ldtk` en pose quatre depuis T2.6 (pistol 500 dans le gabarit de départ `Level_0`, rifle 1200 et shotgun 1000 dans `Level_1`, machine_gun 1500 dans `Level_2` ; tableau dans `games/zombies/README.md`, qui rappelle aussi que la partie assemble des copies de ces gabarits ; depuis D10 le gabarit de départ `Level_0` n'est plus réutilisé, donc un seul mur `pistol`) ; `test_map_shop.ldtk` en pose une (shotgun, 500) pour les scénarios d'achat.
 - `SodaLocation` (16×16 px, T2.3, chantier C5 v1) : machine à perk. Un champ en éditeur : `perk` (chaîne, `PerkId` de `economy/perks.ron`). Même propagation que `WeaponLocation` ; au chargement, fait apparaître une entité `game::economy::PerkMachine` avec `Interactable { interaction_type: Perk }` (voir `map_ldtk::game::local::spawn_soda_locations_when_map_loaded`). Lue par `crates/map_ldtk/src/game/entity/soda_location.rs`.
@@ -76,7 +82,103 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 **Tailles de collision** : les colliders des entités (joueurs, ennemis) font 20×20 pixels aux pieds (voir `crates/game/src/character/config.rs`). Les sprites font 32×32 pixels. Les colliders de porte et fenêtre sont déterminés par leur taille LDtk (32×16 ou 16×32) ; l'engine les lit dans `crates/map_ldtk/src/game/entity/door.rs` et `window.rs`.
 
-**Vérification** : `make map_preview ARGS=games/zombies/assets/exemples/test_map.ldtk` affiche une carte ; `make map_generation ARGS="games/zombies/assets/exemples/test_map.ldtk <sortie.ldtk> [graine]"` la génère avec assemblage des salles par connexions. Un scénario `idle` sur la carte rejouée en vidéo (`make play_scenario SCENARIO=idle`) vérifie visuellement l'assemblage et les entités.
+**Concevoir une bibliothèque de pièces (assemblage `BasicMapGeneration`, 2026-10-17).** C'est
+l'algorithme de carte du projet, le seul pour les cartes de salles (les générateurs `building`
+« Le Relais » et `compound` ont été retirés ce jour : grille fixe et niveau unique, sans
+`LevelConnection`, ils ne permettaient pas de dessiner des pièces qui s'emboîtent). Gungeon y
+ajoute la grammaire d'étage (§40 : types de salles obligatoires, boss en cul-de-sac), qui
+assemble avec les mêmes prises. Code : `crates/map/src/generation/imp/basic.rs`, prises dans
+`context.rs`, placement dans `room.rs`.
+
+- **Une bibliothèque = un `.ldtk` ; une pièce = un niveau** (salle, couloir, section), de
+  n'importe quelle taille (multiple de 16 px). Le générateur clone le niveau tel quel : murs,
+  tuiles, entités.
+- **Une prise** = une suite contiguë de cases à 1 de `LevelConnection` sur un bord. Signature :
+  `côté @ décalage + longueur`, le décalage compté en cases depuis le coin haut-gauche le long
+  du bord (x pour N/S, y pour E/W). `avant_poste` : `Depart` a `N@12+2`, `W@5+2`, `E@8+2`.
+- **Règle d'emboîtement** (`Connection::are_matching`) : deux prises s'emboîtent si et seulement
+  si leurs côtés sont opposés, **même décalage, même longueur**. Rien d'autre n'est regardé : ni
+  la taille des pièces, ni leur nom. Deux pièces de tailles différentes s'emboîtent donc si leurs
+  prises ont le même décalage ; un couloir étroit sert de **pièce de transition** entre deux
+  formats quand ses prises reprennent les décalages de chaque format. Une pièce ne s'emboîte
+  jamais avec elle-même.
+- **Variété = plusieurs pièces par signature de prise.** Le générateur tire au hasard, parmi
+  les pièces compatibles avec la prise choisie, laquelle poser : une signature portée par une
+  seule paire de pièces donne toujours le même voisinage (c'est le cas d'`avant_poste`, dont
+  les neuf signatures sont toutes uniques : les graines ne changent que la forme de l'arbre, pas
+  qui touche qui). Pour des cartes différentes à chaque run : un petit jeu de signatures
+  (ex. `N@12+2`/`S@12+2` et `W@8+2`/`E@8+2` pour tout le format 26×19) et beaucoup de pièces qui
+  les portent, dont des **impasses** (une seule prise : fin de branche, salle à butin), des
+  **couloirs** (deux prises opposées) et des **carrefours** (trois ou quatre prises).
+- **Départ** : le champ de niveau `spawn: true` ; un seul gabarit de départ par carte (D10,
+  jamais réutilisé ensuite ; plusieurs gabarits `spawn` = l'un d'eux tiré au sort). Lui seul
+  porte les `PlayerSpawn` (`index` 0 à 3).
+- **Une porte sur chaque prise** (`DoorHorizontal` 32×16 posé sur les deux cases d'une prise
+  N/S, `DoorVertical` 16×32 sur une prise E/W). Le générateur apparie la porte avec celle de la
+  pièce d'en face (une achetée ouvre les deux ; prix `750 + 250 × profondeur` en portes depuis
+  le départ, `electrify` hors du départ). Une prise restée sans voisine (chevauchement, bord de
+  carte, aucune pièce compatible, génération arrêtée) est **murée** : ses cases passent à 1
+  dans `Walls` et sa porte n'est pas posée (`wall_unused_openings`, décision de William du
+  2026-10-17 ; avant : porte non interactive et ouverture dessinée, encore disponible avec
+  `wall_unused_openings: false`).
+- **Boucles** (`close_loops`, 2026-10-17) : après le placement, deux pièces posées bord à bord
+  dont des prises libres se font face (même emprise dans le monde : côtés opposés, même bord,
+  même intervalle) sont reliées comme une connexion ordinaire : portes appariées, prix de
+  chaque porte selon la profondeur de sa pièce. C'est ce qui donne les convergences et les
+  raccourcis des cartes de CoD Zombies (deux ailes qui retombent dans la même cour) : sans
+  cette passe l'assembleur ne produit que des arbres. Paires examinées dans l'ordre des pièces
+  posées (déterministe) ; une prise déjà fermée (`DeadEnd`, `OutSide`) peut être rouverte par
+  une boucle. Pour qu'une boucle soit possible, il faut que deux pièces puissent se retrouver
+  côte à côte avec des prises de même signature face à face : encore une raison de partager
+  les signatures.
+- **Déroulé** : pièce de départ posée à une position tirée (alignée sur la grille), puis en
+  boucle : prise libre tirée sur la pièce courante → pièce compatible tirée → collée bord à bord ;
+  refusée si elle chevauche une pièce posée ou sort des bornes. Quand la pièce courante n'a plus
+  de prise libre, une autre pièce encore ouverte est tirée. Arrêt à `max_rooms` ou quand plus
+  rien n'est ouvert. Puis fermeture des boucles, murage des prises libres ; portes, fenêtres,
+  apparitions, armes murales, sodas et props sont recopiés de chaque pièce posée.
+- **Réglages par jeu** (`entry.map` de `game.ron`, `world::MapSettings`, tous optionnels) :
+  `max_rooms` (10 ; `0` = sans plafond), `max_width`/`max_height` (1000 px : demi-largeur et
+  demi-hauteur autour de l'origine, soit ~125 cases de côté), `aligned_openings` (`true` :
+  règle d'origine, deux prises s'emboîtent au même décalage, pièces alignées coin haut-gauche ;
+  `false` : côté opposé et même longueur suffisent, la pièce est décalée pour faire coïncider
+  les prises — `get_connecting_room_position` sait déjà le faire), `close_loops` (`true`),
+  `wall_unused_openings` (`true`). Un scénario joue avec les réglages de son jeu.
+  ```ron
+  entry: (
+      start_map: "maps/avant_poste.ldtk",
+      default_seed: 123456,
+      mode: Waves,
+      map: (max_rooms: 14, max_width: 1500, max_height: 1500, aligned_openings: false),
+  ),
+  ```
+- **Juger une bibliothèque sans lancer le jeu** : `alacod-map` (`crates/map_ldtk/src/bin/alacod-map.rs`,
+  bibliothèque `map_ldtk::preview`, aucun Bevy `App`) : `make map_render MAP=games/zombies
+  SEEDS=1,2,3`. La cible compile avec `--no-default-features --features cli` : **aucune dépendance
+  au crate `game`**, ni fenêtre ni simulation démarrée ; les dépendances Bevy transitives de `map`
+  restent présentes à la compilation. Le dossier du jeu fournit `entry.start_map`, `entry.map`
+  et sa graine par défaut si `SEEDS` est absent. Les désignations `floor:` et `cave:` sont résolues ;
+  `ARGS="--floor etage"` choisit une grammaire différente. Avec `MAP=<bibliothèque.ldtk>`, les
+  graines par défaut sont 1 à 6 et les réglages ceux de `MapSettings::default()` ;
+  `ARGS="--game games/<jeu>"` lit plutôt les réglages de ce jeu.
+  Le CLI écrit un PNG et un `.ldtk` par graine dans `target/map_preview/` (`ARGS="--out DIR"`
+  pour changer de dossier). Le PNG dessine **les tuiles des calques LDtk**, auto-tuiles comprises,
+  puis les annotations : index des pièces, prises reliées en vert, sans voisine en rouge,
+  portes orange, joueurs bleus, zombies magenta, fenêtres cyan, départ bordé d'or.
+  `--plain` force le plan abstrait ; un tileset PNG illisible est signalé. Les entités sont des
+  marqueurs de conception, pas leurs sprites en jeu. Les auto-règles ne sont pas recalculées :
+  les nouvelles cases murées sont dessinées sur fond sombre. La console compte les prises
+  réellement murées (pas simplement les côtés sans voisin), les boucles et décrit chaque pièce.
+  L'export LDtk relie les tilesets depuis son dossier réel, y compris derrière un lien symbolique.
+  L'intégration du jeu reste disponible par la feature `runtime` de `map_ldtk`, activée par défaut.
+
+  ```bash
+  cargo run -p map_ldtk --no-default-features --features cli --bin alacod-map -- \
+    games/zombies/assets/maps/avant_poste.ldtk --seeds 1,4 --out target/map_preview
+  make map_render MAP=games/gungeon SEEDS=1 ARGS="--floor etage"
+  ```
+
+**Vérification** : `make map_render MAP=games/zombies SEEDS=1,2,3` (ci-dessus) pour voir les cartes ; `make map_preview ARGS=games/zombies/assets/exemples/test_map.ldtk` affiche une carte dans une fenêtre ; `make map_generation ARGS="games/zombies/assets/exemples/test_map.ldtk <sortie.ldtk> [graine]"` écrit seulement le `.ldtk` assemblé. Un scénario `idle` sur la carte rejouée en vidéo (`make play_scenario SCENARIO=idle`) vérifie l'assemblage et les entités en jeu.
 
 ---
 
@@ -412,6 +514,7 @@ et de ramassage et le chargement des armes murales restent dans `game`/`map_ldtk
 | `make test_scenarios_par [SHARDS=4]` | Même suite en N processus, tranches réparties par durée mesurée (`scripts/scenario-shard-plan.py`) |
 | `make map_preview ARGS=<fichier.ldtk>` | Affiche une carte LDtk (fenêtre) |
 | `make map_generation ARGS=<entrée.ldtk> <sortie.ldtk> <graine>` | Génère une carte assemblée par connexions (voir `examples/map_generation.rs` pour les arguments exacts) |
+| `make map_render MAP=<jeu ou bibliothèque.ldtk> SEEDS=1,2,3 [ARGS="--floor etage --plain"]` | `alacod-map` : PNG avec tuiles et `.ldtk` assemblé par graine dans `target/map_preview/`, sans le jeu (§1, « Concevoir une bibliothèque de pièces ») |
 | `make play_scenario SCENARIO=<nom>` | Rejoue le scénario avec rendu (l'option `--follow <handle>` du binaire suit un joueur) |
 | `make record_session NAME=<nom>` | Enregistre une partie en scénario |
 | `make remote [HEADLESS=1]` | Lance une partie en pause, pilotée par `scripts/alacod-remote` |
@@ -2456,6 +2559,10 @@ après), pour les récompenses `OnRoomClear` à venir. `RoomKindTable` (types du
 `room_dormancy_system`, `EnemySpawning`, avant l'IA) :
 1. Au premier tick d'une carte typée, les portes posées au bord (à moins de 24 px) d'une salle
    typée s'ouvrent (collider et `Interactable` retirés) : une porte de salle est ouverte par défaut.
+   **En `RunMode::Waves`, seules les salles verrouillantes (`locks: true`) s'ouvrent ainsi** ; les
+   portes des salles non verrouillantes restent fermées et payantes (la progression économique se
+   fait en amont, la porte de combat du boss reste gratuite). Autres modes (`Floors`, `Sandbox`,
+   sans `Run`) : toutes les salles typées s'ouvrent comme avant.
 2. Une salle dont le type verrouille passe `Dormant → Locked` quand un joueur **debout** est à plus
    de 24 px de ses bords et qu'un ennemi y vit : ses portes et leurs jumelles (au bord de la salle
    voisine) se referment (le champ de flux les voit comme des murs) ; puis `Locked → Cleared` quand
@@ -2797,8 +2904,9 @@ Fixtures : `floor_bounds_inverted`, `floor_required_without_template`.
   le premier étage chargé à tous (`FloorPlan::slot_of_level` ne fusionne pas les entrées `floor:`).
 - *Graine dérivée par emplacement* : `graine_de_la_run + emplacement × 0x3C6E_F372` (wrapping) ;
   l'emplacement 0 garde la graine de la run. Les ids réseau sont triés par contenu comme partout.
-- *Ouvertures libres murées* (`GeneratedMap::close_unused_openings`) : une ouverture sans voisin
-  reste ouverte en `Basic` ; dans un étage de grammaire elle est refermée.
+- *Ouvertures libres murées* : depuis le 2026-10-17, règle commune à `Basic` et aux étages
+  (`MapSettings::wall_unused_openings`, par prise et sans porte, §1) ; avant, propre aux étages
+  (`GeneratedMap::close_unused_openings`, par côté).
 - *Salles de l'étage courant seulement* : les mondes de tous les emplacements existent dès le
   départ et se superposent dans l'espace ; `rooms::CurrentRooms` ne présente aux systèmes de salle
   que l'emplacement de l'étage en cours. Sans cela les salles de l'étage 2 se verrouillaient et se
@@ -2837,49 +2945,6 @@ nettoient les salles de combat mais ne vont pas vers une salle dormante (bot exp
 **Fixed-point** : voir §2 et `CLAUDE.md` (Déterminisme, règles 1 et 7).
 
 **Tests et scénarios** : `make test_scenarios` vérifie que les scénarios passent en synctest (mode déterministe local). Tout changement de code dans `GgrsSchedule` peut casser les traces `.trace` ; rebase sur `main` chaque jour et revalider en CI rapide (preuve d'un bless : §10). Une tâche de toute voie peut bénir des traces, **avec la preuve du §10**, bénies par l'orchestrateur (`BLESS=1`, justification dans le commit) ; V1 (simulation) est la voie qui les change le plus souvent.
-
-### Brouillard d'exploration opt-in (revue M0, Le Relais)
-
-`game::room_fog::FogMap` est une ressource de présentation immuable décrivant une grille
-LDtk de visibilité : dimensions, origine monde, murs, fenêtres, identifiants de pièces
-et portes avec leurs deux extrémités. Elle n'est ni un état de salle M2 ni un état de
-combat. La présence de `settings.enabled = true` active le rendu ; sans métadonnées,
-les autres jeux conservent leur affichage.
-
-Pour `zombies`, régler `games/zombies/assets/ui/fog.ron`, puis lancer
-`python3 scripts/construire-modules-le-relais.py`. Ce script conserve les réglages RON
-comme champ `fog_settings` des gabarits ; le générateur produit le champ `fog_layout`
-avec les limites exactes de la carte assemblée et ses connexions. Les rectangles de
-défense des spawners ne servent pas au champ de vision. La génération reste à un
-niveau final fusionné : ne pas confondre ces identifiants avec des `LevelId` distincts.
-
-Le champ de vision utilise les murs et l'état des portes. Les fenêtres laissent passer
-la vue avec une portée limitée ; les obstacles bas ne sont pas déduits de leur seule
-collision de mouvement. Dans Le Relais, les cases IntGrid `Walls` sont des occluders
-pleins, y compris le mobilier actuellement dessiné dans cette couche. Pour du mobilier
-bas transparent à la vue, fournir une grille de visibilité différente de celle-ci.
-
-L'observation `capture_vision` est installée seulement par `PresentationPlugin` dans
-`GgrsSchedule` : lecture des positions Fixed et des portes, écriture d'un historique
-**hors simulation**, sans RNG, dégâts, composants rollback ni effet sur les checksums.
-Une resimulation invalide les échantillons prédits ultérieurs. Seules les frames
-`ConfirmedFrameCount` alimentent la mémoire explorée. Le calcul de visibilité et la
-texture RGBA se font hors GgrsSchedule ; une fermeture masque immédiatement et seule
-la révélation est interpolée. La mémoire et les assets sont nettoyés en fin de partie.
-
-Les sprites dynamiques et leurs enfants sont filtrés hors de vue, avec conservation
-de leur alpha propre. Les bonus au sol, leurs noms, les chiffres de dégâts,
-télégraphes et prompts d'interaction lisent aussi la visibilité courante. Ne pas
-restaurer `Visibility` sur les armes : cela pourrait rendre visible une arme inactive.
-Le HUD écran reste hors du masque. Toute extension des effets visuels doit respecter
-ce filtrage si elle affiche des informations sur une entité cachée.
-
-Les connexions des portes déterminent quelles pièces sont accessibles à l'exploration,
-sans les révéler entièrement. Le champ de vision révèle ensuite les seules cases en
-vue. Ce filtre empêche une vue par une fenêtre extérieure de dévoiler les objets d'une
-pièce encore fermée. Lorsqu'une partie d'une porte est en vue, sa face complète reste
-lisible dans les cases de mur du passage ; cela ne révèle aucune case intérieure.
-
 
 **Séquence par défaut et preuve p2p (D59, 2026-10-15).** `entry.floors` (champ optionnel de
 `game.ron`, `content::manifest::EntryPoint`) désigne la séquence du dossier `Floors` que `entry.mode:

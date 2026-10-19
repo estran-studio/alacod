@@ -274,6 +274,16 @@ map_preview:
 map_generation:
 	cargo run --example map_generation $(ARGS)
 
+# Aperçu des cartes assemblées sans le jeu (`alacod-map`) : un PNG (tuiles LDtk) et un .ldtk par
+# graine dans target/map_preview. `MAP` = dossier d'un jeu (ses réglages `entry.map`) ou une
+# bibliothèque .ldtk ; `ARGS` passe le reste (`--floor etage`, `--plain`, `--out DIR`).
+# make map_render MAP=games/zombies SEEDS=1,2,3
+MAP ?= games/zombies
+# Ne pas hériter du défaut SEEDS=1..5 de bench_sim : absent, le CLI choisit son défaut.
+map_render: SEEDS =
+map_render:
+	cargo run -q -p map_ldtk --bin alacod-map --profile headless --no-default-features --features cli -- "$(MAP)" $(if $(strip $(SEEDS)),--seeds "$(SEEDS)") $(ARGS)
+
 map_generation_test:
 	cargo run --example map_generation -- ./games/zombies/assets/exemples/test_map.ldtk ./games/zombies/assets/exemples/test_map_generated.ldtk $RANDOM_SEED
 

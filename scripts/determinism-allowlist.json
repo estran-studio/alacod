@@ -210,6 +210,18 @@
     "reason": "Registre de chargement hors GgrsSchedule ; uniquement contains/insert, aucune itération."
   },
   {
+    "path": "crates/game/src/performance.rs",
+    "code": "capture.simulation_start = Instant::now();",
+    "count": 1,
+    "reason": "Mesure opt-in ALACOD_PERF_CSV hors rollback."
+  },
+  {
+    "path": "crates/game/src/performance.rs",
+    "code": "let now = Instant::now();",
+    "count": 2,
+    "reason": "Mesure opt-in ALACOD_PERF_CSV hors rollback."
+  },
+  {
     "path": "crates/map_ldtk/src/generation/mod.rs",
     "code": "let started = std::time::Instant::now();",
     "count": 1,

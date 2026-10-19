@@ -312,6 +312,7 @@ fn run_summary(
         },
         points_total,
         floor: floor_state.index,
+        objective_done: false,
     };
     mode.summarize(&ctx, outcome)
 }
@@ -358,6 +359,7 @@ pub fn check_run_victory_system(
     mut run: ResMut<Run>,
     balance: Res<crate::balance::ResolvedBalance>,
     wave_state: Res<WaveState>,
+    boss_defeated: Option<Res<crate::frame_events::FrameEvents<behaviors::BossDefeated>>>,
 ) {
     if !run.is_playing() {
         return;
@@ -365,6 +367,10 @@ pub fn check_run_victory_system(
 
     // F5 (chantier m0-v11) : config résolue une fois au lancement (voir `crate::balance`).
     let max_wave = balance.waves.max_wave;
+    // Salle finale (zombies) : un boss tué cette frame gagne la partie `Waves`.
+    // `BossDefeated` est transitoire (émis en `DeathManagement`, lu ici en
+    // `Run`, même frame). Aucun boss dans les autres jeux `Waves` : vide.
+    let objective_done = boss_defeated.is_some_and(|events| !events.is_empty());
 
     let ctx = RunContext {
         frame: frame.frame,
@@ -373,6 +379,7 @@ pub fn check_run_victory_system(
         kills: wave_state.total_enemies_killed,
         points_total: 0,
         floor: 0,
+        objective_done,
     };
 
     if let Some(outcome) = run.mode.check_victory(&ctx) {
@@ -665,6 +672,7 @@ mod tests {
                 progression: None,
                 clocks: None,
                 difficulty: None,
+                map: Default::default(),
             },
             generate_template: None,
         }

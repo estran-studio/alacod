@@ -75,10 +75,12 @@ impl Display for Connection {
 }
 
 impl Connection {
-    fn are_matching(&self, other: &Connection) -> bool {
+    /// Deux prises s'emboîtent si leurs côtés sont opposés et leurs longueurs égales ; avec
+    /// `aligned` (règle d'origine, `MapSettings::aligned_openings`), au même décalage aussi.
+    fn are_matching(&self, other: &Connection, aligned: bool) -> bool {
         self.side.is_opposite(other.side)
-            && self.starting_at == other.starting_at
             && self.size == other.size
+            && (!aligned || self.starting_at == other.starting_at)
     }
 }
 
@@ -186,7 +188,7 @@ pub fn scan_height_side(
     }
 }
 
-pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>) {
+pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>, aligned: bool) {
     let mut to_add_elements: Vec<(usize, usize, (AvailableLevel, usize))> = vec![];
 
     let mut i = 0;
@@ -212,7 +214,7 @@ pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>) {
 
                     let other_connection = other_level.connections.get(yy).unwrap();
 
-                    if connection.are_matching(other_connection) {
+                    if connection.are_matching(other_connection, aligned) {
                         //if other_level.level_type != LevelType::Spawn {
                         to_add_elements.push((i, y, (available_levels[ii + i].clone(), yy)));
                         //}
@@ -321,11 +323,11 @@ mod tests {
         let b = || level("B", LevelType::Normal, &[Side::W]);
 
         let mut spawn_premier = vec![s(), a(), b()];
-        populate_level_connections(&mut spawn_premier);
+        populate_level_connections(&mut spawn_premier, true);
         let mut spawn_milieu = vec![a(), s(), b()];
-        populate_level_connections(&mut spawn_milieu);
+        populate_level_connections(&mut spawn_milieu, true);
         let mut spawn_dernier = vec![a(), b(), s()];
-        populate_level_connections(&mut spawn_dernier);
+        populate_level_connections(&mut spawn_dernier, true);
 
         let attendu = compat(&spawn_premier);
         assert_eq!(attendu, compat(&spawn_milieu));

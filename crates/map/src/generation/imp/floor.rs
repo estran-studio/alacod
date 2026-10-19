@@ -8,7 +8,7 @@ use crate::{
     game::entity::map::player_spawn::PlayerSpawnConfig,
     generation::{
         config::MapGenerationMode,
-        context::MapGenerationContext,
+        context::{MapGenerationContext, Side},
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
             location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
@@ -70,6 +70,13 @@ impl IMapGeneration for FloorMapGeneration {
             connection_of(&planned.room, mine),
             connection_of(parent, theirs),
         ))
+    }
+
+    fn close_loops(&mut self) -> Vec<(RoomConnection, RoomConnection)> {
+        self.basic.close_loops()
+    }
+    fn unused_openings(&self) -> Vec<(String, Side, usize, usize)> {
+        self.basic.unused_openings()
     }
 
     fn get_doors(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, DoorConfig)> {

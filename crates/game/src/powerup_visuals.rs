@@ -26,8 +26,6 @@ fn sync_powerup_visuals(
     configs: Res<Assets<PowerUpsConfig>>,
     assets: Res<AssetServer>,
     mut gizmos: Gizmos,
-    fog: Res<crate::room_fog::FogView>,
-    map: Option<Res<crate::room_fog::FogMap>>,
 ) {
     let config = global.powerups_config.as_ref().and_then(|h| configs.get(h));
     // Les entités visuelles sont indépendantes des entités rollback : un retrait,
@@ -36,20 +34,13 @@ fn sync_powerup_visuals(
         if let Ok((_, _, position)) = pickups.get(label.0) {
             let pos = position.to_bevy_transform().translation;
             transform.translation = Vec3::new(pos.x, pos.y + 16.0, 50.0);
-            *visibility = if fog.sees(map.as_deref(), pos.truncate()) {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            };
+            *visibility = Visibility::Inherited;
         } else {
             commands.entity(entity).despawn();
         }
     }
     for (entity, pickup, position) in &pickups {
         let pos = position.to_bevy_transform().translation.truncate();
-        if !fog.sees(map.as_deref(), pos) {
-            continue;
-        }
         let color = Color::srgb(0.3, 1.0, 0.65);
         gizmos.circle_2d(pos, 10.0, color);
         gizmos.line_2d(pos - Vec2::X * 5.0, pos + Vec2::X * 5.0, color);

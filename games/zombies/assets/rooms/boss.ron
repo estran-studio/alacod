@@ -1,0 +1,3 @@
+// Boss dormant jusqu'à l'entrée ; porte de combat gratuite, verrouillée pendant la finale.
+// Les portes payantes en amont portent la progression économique.
+(locks: true)

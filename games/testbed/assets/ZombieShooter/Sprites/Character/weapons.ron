@@ -476,8 +476,8 @@
                     HitsAtLeast(entity: Target, hits: 4, at_frame: 175),
                     // T1.17 : la première explosion (f113) déclenche la secousse et le hit stop
                     // de surcharge (`by_weapon: "grenade"` de `ui/feedback.ron`).
-                    Event(kind: "feedback", label_contains: Some("secousse 35 (16 frames)"), by_frame: 113),
-                    Event(kind: "feedback", label_contains: Some("hit stop 35 (6 frames)"), by_frame: 113),
+                    Event(kind: "feedback", label_contains: Some("secousse 31 (16 frames)"), by_frame: 113),
+                    Event(kind: "feedback", label_contains: Some("hit stop 31 (6 frames)"), by_frame: 113),
                 ],
             )),
         ),

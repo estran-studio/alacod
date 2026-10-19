@@ -1,12 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnemySpawnConfig {
-    // Can add more config later if needed (spawn type, rate, etc.)
-}
-
-impl Default for EnemySpawnConfig {
-    fn default() -> Self {
-        Self {}
-    }
+    /// Optional activation rectangle `(x, y, width, height)` in level-local LDtk pixels.
+    /// The exporter translates its origin to world pixels; dimensions stay unchanged.
+    #[serde(default)]
+    pub activation_area: Option<(i32, i32, i32, i32)>,
 }

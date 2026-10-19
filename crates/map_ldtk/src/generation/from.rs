@@ -12,6 +12,7 @@ use map::generation::{
     },
     entity::{
         character_spawn::CharacterSpawnConfig,
+        enemy_spawn::EnemySpawnConfig,
         location::{EntityLocation, EntityLocations},
         prop::PropConfig,
         soda_location::SodaLocationConfig,
@@ -65,6 +66,50 @@ macro_rules! get_entities_multi {
             })
             .collect()
     };
+}
+
+/// Activation bounds are authored in level-local LDtk pixels, not grid cells.
+fn get_enemy_spawns(
+    entities: &[bevy_ecs_ldtk::EntityInstance],
+    tile_size: &(i32, i32),
+) -> Vec<(EntityLocation, EnemySpawnConfig)> {
+    entities
+        .iter()
+        .filter(|entity| entity.identifier == map_const::ENTITY_ZOMBIE_SPAWN_LOCATION)
+        .map(|entity| {
+            let names = ["active_x", "active_y", "active_width", "active_height"];
+            let has_bounds = entity
+                .field_instances
+                .iter()
+                .any(|field| names.contains(&field.identifier.as_str()));
+            let activation_area = has_bounds.then(|| {
+                let values = names.map(|name| {
+                    *entity.get_int_field(name).unwrap_or_else(|_| {
+                        panic!(
+                            "ZombieSpawn {}: activation bounds require all four integer fields \
+                             active_x, active_y, active_width and active_height (invalid {name})",
+                            entity.iid
+                        )
+                    })
+                });
+                let [x, y, width, height] = values;
+                assert!(
+                    width > 0 && height > 0,
+                    "ZombieSpawn {}: active_width and active_height must be positive",
+                    entity.iid
+                );
+                (x, y, width, height)
+            });
+            (
+                EntityLocation {
+                    position: Position(entity.grid.x, entity.grid.y),
+                    size: (entity.width / tile_size.0, entity.height / tile_size.1),
+                    level_iid: String::new(),
+                },
+                EnemySpawnConfig { activation_area },
+            )
+        })
+        .collect()
 }
 
 /// T2.9 (testbed) : extrait les entités `CharacterSpawn` avec leurs champs `character`/`team`
@@ -233,12 +278,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
                 map_const::ENTITY_PLAYER_SPAWN_LOCATION,
                 EntityLocation
             ),
-            zombie_spawns: get_entities!(
-                entity_layer.entity_instances,
-                tile_size,
-                map_const::ENTITY_ZOMBIE_SPAWN_LOCATION,
-                EntityLocation
-            ),
+            zombie_spawns: get_enemy_spawns(&entity_layer.entity_instances, tile_size),
             crates: get_entities!(
                 entity_layer.entity_instances,
                 tile_size,
@@ -402,7 +442,7 @@ pub fn from_map(map_json: &LdtkJson, config: MapGenerationConfig) -> MapGenerati
         .map(|item| to_available_level(item, &tile_size))
         .collect();
 
-    populate_level_connections(&mut available_levels);
+    populate_level_connections(&mut available_levels, config.aligned_openings);
 
     let available_levels = available_levels
         .iter()

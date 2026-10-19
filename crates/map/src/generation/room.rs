@@ -100,6 +100,41 @@ impl Room {
         their_room.set_connection(their_connection_index, self, my_connection_index);
     }
 
+    /// Emprise d'une prise dans le monde : côté, coordonnée du bord (x pour E/W, y pour N/S,
+    /// bord **extérieur** du rectangle : `x + largeur` pour E) et intervalle `[début, fin)` en
+    /// pixels le long de ce bord. Deux prises de pièces voisines se font face quand leurs côtés
+    /// sont opposés et ces trois valeurs égales (fermeture des boucles).
+    pub fn opening_span(&self, index: usize, tile_size: &(i32, i32)) -> (Side, i32, i32, i32) {
+        let def = &self.level_def.connections[index];
+        let (w, h) = self.level_def.level_size_p;
+        match def.side {
+            Side::N | Side::S => {
+                let edge = if def.side == Side::N {
+                    self.position.1
+                } else {
+                    self.position.1 + h
+                };
+                let start = self.position.0 + def.starting_at as i32 * tile_size.0;
+                (def.side, edge, start, start + def.size as i32 * tile_size.0)
+            }
+            Side::W | Side::E => {
+                let edge = if def.side == Side::W {
+                    self.position.0
+                } else {
+                    self.position.0 + w
+                };
+                let start = self.position.1 + def.starting_at as i32 * tile_size.1;
+                (def.side, edge, start, start + def.size as i32 * tile_size.1)
+            }
+        }
+    }
+
+    /// Relie une prise à une pièce déjà posée, même si elle avait été fermée (`DeadEnd`,
+    /// `OutSide`) faute de pièce à y poser : fermeture des boucles.
+    pub fn link_opening(&mut self, index: usize, their_iid: &str, their_index: usize) {
+        self.connections[index].to = Some(ConnectionTo::Room((their_iid.to_string(), their_index)));
+    }
+
     /// D46 : deux salles se chevauchent si leurs rectangles partagent une surface ; deux salles
     /// **adjacentes** (bords qui se touchent, le cas de toute connexion) ne se chevauchent pas
     /// (`<=` ; avec `<`, toute salle voisine aurait été déclarée en chevauchement).
@@ -124,6 +159,14 @@ impl Room {
             || (position.1 > config.max_heigth || position.1 < -config.max_heigth)
     }
 
+    /// Position d'une pièce à coller sur ma prise `my_connection` par sa prise
+    /// `their_connection` : bord à bord (le bord opposé de l'autre pièce touche le mien), les
+    /// deux prises exactement en face (même emprise le long du bord, `opening_span`).
+    ///
+    /// 2026-10-17 : avant, la coordonnée perpendiculaire était `± leur taille` pour les côtés
+    /// S et E (juste seulement pour des pièces de même taille, le cas de toutes les cartes
+    /// d'alors) et le décalage le long du bord changeait de signe selon le côté (sans effet
+    /// tant que `aligned_openings` imposait un décalage nul).
     pub fn get_connecting_room_position(
         &self,
         my_connection: &Connection,
@@ -132,31 +175,26 @@ impl Room {
         tile_size: &(i32, i32),
     ) -> Position {
         let my_position = &self.position;
-
+        let (my_w, my_h) = self.level_def.level_size_p;
+        let (their_w, their_h) = their_level.level_size_p;
         let their_connection = their_level.connections.get(their_connection).unwrap();
 
-        let offset = my_connection.starting_at - their_connection.starting_at;
+        // Le long du bord : ma prise commence à `my.start`, la leur à `their.start` (en cases
+        // depuis le coin haut-gauche de chaque pièce) ; elles coïncident si l'autre pièce est
+        // décalée de la différence.
+        let offset = my_connection.starting_at as i32 - their_connection.starting_at as i32;
 
-        // calculate the pixel offset
         match my_connection.side {
-            Side::N | Side::S => {
-                let offset_pixel = (offset as i32) * tile_size.0;
-
-                Position(
-                    my_position.0 + (their_connection.side.get_factor() * (offset_pixel)),
-                    my_position.1
-                        + (-their_connection.side.get_factor() * their_level.level_size_p.1),
-                )
-            }
-            Side::W | Side::E => {
-                let offset_pixel = (offset as i32) * tile_size.1;
-
-                Position(
-                    my_position.0
-                        + (-their_connection.side.get_factor() * their_level.level_size_p.0),
-                    my_position.1 + (their_connection.side.get_factor() * (offset_pixel)),
-                )
-            }
+            Side::N => Position(
+                my_position.0 + offset * tile_size.0,
+                my_position.1 - their_h,
+            ),
+            Side::S => Position(my_position.0 + offset * tile_size.0, my_position.1 + my_h),
+            Side::W => Position(
+                my_position.0 - their_w,
+                my_position.1 + offset * tile_size.1,
+            ),
+            Side::E => Position(my_position.0 + my_w, my_position.1 + offset * tile_size.1),
         }
     }
 }
@@ -221,5 +259,49 @@ mod tests {
         assert!(a.is_overlapping(&room(32, 32, 32, 32)), "incluse");
         assert!(room(32, 32, 32, 32).is_overlapping(&a), "symétrie");
         assert!(a.is_overlapping(&a.clone()), "même place");
+    }
+
+    fn level_with(w: i32, h: i32, side: Side, starting_at: usize) -> AvailableLevel {
+        let mut level = (*room(0, 0, w, h).level_def).clone();
+        level.connections = vec![Connection {
+            index: 0,
+            size: 2,
+            side,
+            starting_at,
+            level_id: "L".into(),
+            compatiable_levels: vec![],
+        }];
+        level
+    }
+
+    /// Une pièce collée par une prise a cette prise exactement en face de la mienne, quelles
+    /// que soient les tailles et les décalages (`aligned_openings: false`).
+    #[test]
+    fn collage_bord_a_bord_prises_en_face() {
+        let tile = (16, 16);
+        for (my_side, my_start, their_side, their_start) in [
+            (Side::N, 12, Side::S, 3),
+            (Side::S, 12, Side::N, 3),
+            (Side::W, 8, Side::E, 2),
+            (Side::E, 8, Side::W, 2),
+        ] {
+            let mut me = room(100, 200, 416, 304);
+            let my_level = level_with(416, 304, my_side, my_start);
+            me.level_def = Rc::new(my_level);
+            let theirs = level_with(160, 112, their_side, their_start);
+            let my_connection = me.level_def.connections[0].clone();
+            let position = me.get_connecting_room_position(&my_connection, &theirs, 0, &tile);
+            let mut placed = room(position.0, position.1, 160, 112);
+            placed.level_def = Rc::new(theirs);
+            let (side_a, edge_a, start_a, end_a) = me.opening_span(0, &tile);
+            let (side_b, edge_b, start_b, end_b) = placed.opening_span(0, &tile);
+            assert!(side_a.is_opposite(side_b));
+            assert_eq!(
+                (edge_a, start_a, end_a),
+                (edge_b, start_b, end_b),
+                "{my_side:?}"
+            );
+            assert!(!me.is_overlapping(&placed), "{my_side:?}");
+        }
     }
 }

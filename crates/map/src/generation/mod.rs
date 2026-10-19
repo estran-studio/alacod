@@ -14,7 +14,7 @@ use crate::{
 };
 
 use self::{
-    context::MapGenerationContext,
+    context::{MapGenerationContext, Side},
     entity::{
         character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
         location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
@@ -34,6 +34,14 @@ trait IMapGeneration {
         &mut self,
         rng: &mut RollbackRng,
     ) -> Option<(Room, RoomConnection, RoomConnection)>;
+    /// Fermeture des boucles (`MapSettings::close_loops`) : après le placement, relie les
+    /// prises libres de deux pièces posées bord à bord qui se font face (même emprise dans le
+    /// monde). Rend les paires reliées, dans l'ordre des pièces posées (déterministe).
+    fn close_loops(&mut self) -> Vec<(RoomConnection, RoomConnection)>;
+    /// Prises restées sans voisine après le placement (et la fermeture des boucles) :
+    /// `(iid de la pièce, côté, décalage, longueur)` ; murées par le générateur de sortie
+    /// (`MapSettings::wall_unused_openings`).
+    fn unused_openings(&self) -> Vec<(String, Side, usize, usize)>;
 
     fn get_doors(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, DoorConfig)>;
     fn get_windows(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, WindowConfig)>;
@@ -74,6 +82,10 @@ pub trait IMapGenerator {
         connection_used: Option<&RoomConnection>,
         connected_to: Option<&RoomConnection>,
     );
+    /// Fermeture d'une boucle : les deux pièces, déjà posées, deviennent voisines.
+    fn link_rooms(&mut self, a: &RoomConnection, b: &RoomConnection);
+    /// Mure une prise (cases `Walls` à 1 sur son emprise).
+    fn close_opening(&mut self, level_iid: &str, side: Side, starting_at: usize, size: usize);
     fn add_doors(&mut self, rng: &mut RollbackRng, doors: &Vec<(EntityLocation, DoorConfig)>);
     fn add_windows(&mut self, rng: &mut RollbackRng, windows: &Vec<(EntityLocation, WindowConfig)>);
     fn add_player_spawns(
@@ -114,6 +126,8 @@ pub fn map_generation(
 ) -> Result<(), ()> {
     //let mut generated_map = GeneratedMap::create(map_json.levels);
     let mut rng = RollbackRng::new(context.config.seed as u32);
+    let close_loops = context.config.close_loops;
+    let wall_unused_openings = context.config.wall_unused_openings;
     let mut generator = get_implementation(context);
 
     // select the spawning room
@@ -130,6 +144,17 @@ pub fn map_generation(
             Some(&next_room_connection),
             Some(&other_room_connection),
         );
+    }
+
+    if close_loops {
+        for (a, b) in generator.close_loops() {
+            map_generator.link_rooms(&a, &b);
+        }
+    }
+    if wall_unused_openings {
+        for (level_iid, side, starting_at, size) in generator.unused_openings() {
+            map_generator.close_opening(&level_iid, side, starting_at, size);
+        }
     }
 
     let doors = generator.get_doors(&mut rng);

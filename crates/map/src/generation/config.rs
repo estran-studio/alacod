@@ -15,7 +15,7 @@ pub enum MapGenerationMode {
     Floor(super::floor::FloorGrammar),
 }
 
-#[derive(Debug, Resource, Serialize, Deserialize)]
+#[derive(Debug, Clone, Resource, Serialize, Deserialize)]
 pub struct MapGenerationConfig {
     pub map_path: String,
 
@@ -26,17 +26,42 @@ pub struct MapGenerationConfig {
 
     pub max_room: usize,
 
+    /// Voir `world::MapSettings::aligned_openings`.
+    #[serde(default = "default_true")]
+    pub aligned_openings: bool,
+    /// Voir `world::MapSettings::close_loops`.
+    #[serde(default = "default_true")]
+    pub close_loops: bool,
+    /// Voir `world::MapSettings::wall_unused_openings`.
+    #[serde(default = "default_true")]
+    pub wall_unused_openings: bool,
+
     pub mode: MapGenerationMode,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for MapGenerationConfig {
     fn default() -> Self {
+        Self::from_settings(&world::MapSettings::default())
+    }
+}
+
+impl MapGenerationConfig {
+    /// Config d'une carte à partir des réglages du jeu (`entry.map` de `game.ron`) ; `map_path`
+    /// vide, graine 1, mode `Basic`.
+    pub fn from_settings(settings: &world::MapSettings) -> Self {
         Self {
             seed: 1,
-            max_width: 1000,
-            max_heigth: 1000,
+            max_width: settings.max_width,
+            max_heigth: settings.max_height,
             map_path: "".into(),
-            max_room: 10,
+            max_room: settings.max_rooms,
+            aligned_openings: settings.aligned_openings,
+            close_loops: settings.close_loops,
+            wall_unused_openings: settings.wall_unused_openings,
             mode: MapGenerationMode::Basic,
         }
     }

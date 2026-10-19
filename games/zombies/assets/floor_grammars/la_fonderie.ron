@@ -1,0 +1,13 @@
+// Sections dessinées dans LDtk ; mêmes prises et placement que l'assembleur originel.
+// Waves reste le mode de jeu : aucune transition d'étage, finale à la mort du boss.
+(
+    templates: "maps/la_fonderie.ldtk",
+    grammar: (
+        rooms: (9, 11),
+        required: {"arene": 1, "armurerie": 1, "infirmerie": 1, "boss": 1},
+        start: "depart",
+        filler: "atelier",
+        min_boss_distance: 4,
+        max_attempts: 256,
+    ),
+)

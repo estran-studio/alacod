@@ -44,7 +44,7 @@ Scenario(
         PlayerPosition(handle: 1, x: 424, y: 608.1, tolerance: 0.1, at_frame: 41),
         // Le joueur 1 étourdi par sa propre balle (1 PV), pendant le dash qu'il aurait lancé
         Health(handle: 1, min: 99.0, max: 99.0, at_frame: 41),
-        HasStatus(entity: NetId(31), status: "etourdi", at_frame: 45),
+        HasStatus(entity: NetId(27), status: "etourdi", at_frame: 45),
         // Pas de dash, pas d'i-frames : la balle du joueur 0 le touche (sans le correctif : 99)
         Health(handle: 1, min: 89.0, max: 89.0, at_frame: 42),
         Health(handle: 1, min: 89.0, max: 89.0, at_frame: 60),

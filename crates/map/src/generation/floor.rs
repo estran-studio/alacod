@@ -480,18 +480,15 @@ mod tests {
 
     fn context(seed: i32, levels: Vec<AvailableLevel>) -> MapGenerationContext {
         let mut levels = levels;
-        populate_level_connections(&mut levels);
+        populate_level_connections(&mut levels, true);
         MapGenerationContext {
             tile_size: (16, 16),
             level_size: (10, 10),
             available_levels: levels.into_iter().map(Rc::new).collect(),
             config: MapGenerationConfig {
                 seed,
-                max_width: 1000,
-                max_heigth: 1000,
                 max_room: 0,
-                map_path: String::new(),
-                mode: MapGenerationMode::Basic,
+                ..Default::default()
             },
         }
     }

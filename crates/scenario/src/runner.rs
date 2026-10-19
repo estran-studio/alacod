@@ -231,6 +231,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     if let Some(mode) = scenario.mode {
         manifest.entry.mode = Some(mode);
     }
+    let map_settings = manifest.entry.map.clone();
 
     let mut app = App::new();
     app.add_plugins(core_plugin.get_default_plugin())
@@ -250,6 +251,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {
             map_path: scenario.map.clone(),
             seed: scenario.map_seed,
+            settings: map_settings,
         }))
         .insert_resource(WaveModeEnabled(true))
         // Overlay de vagues : du texte d'UI Bevy mesuré à chaque frame (~10 % d'une frame

@@ -213,7 +213,6 @@ impl ActiveSlot {
 /// M2-T4 (traces inchangées, `docs/conventions.md` §44).
 impl std::hash::Hash for ActiveSlot {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        use std::hash::Hash as _;
         self.item.hash(state);
         self.charge.hash(state);
         if let Some(uses) = self.uses {
