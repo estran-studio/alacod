@@ -231,13 +231,13 @@
     "path": "crates/game/src/jjrs/signal_watch.rs",
     "code": "let t0 = Instant::now();",
     "count": 1,
-    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+    "reason": "Instant de référence d'un test unitaire de `PeerSightings` (`#[cfg(test)]`), hors simulation : les apparitions sont décalées à la main (`t0 + Duration`)."
   },
   {
     "path": "crates/game/src/jjrs/signal_watch.rs",
     "code": "sightings.saw(*peer, Instant::now());",
     "count": 1,
-    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+    "reason": "Horloge murale du signaller (D109) : instant d'apparition d'un pair vu par le signaling, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
   },
   {
     "path": "crates/game/src/ui/lobby.rs",

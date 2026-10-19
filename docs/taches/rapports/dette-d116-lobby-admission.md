@@ -79,7 +79,7 @@ Deux corrections hors périmètre, trouvées par ces portes (héritées de D109,
 
 - Arrivée tardive (§2) : pas d'engagement entre pairs ; repli par l'abandon de session. Fermer ce cas demande un message de contrôle (second canal matchbox) : hors périmètre.
 - Allumette et web non essayés.
-- Un ignoré qui revient au lobby retombe en boucle tant que la salle reste pleine (un cycle par délai) ; la ligne d'état le dit, rien d'autre.
+- Un ignoré qui revient au lobby ne reboucle pas : son socket neuf ne revoit pas les admis (`PreviousSessionPeers`), il attend dans le lobby (« Waiting for players », avis « Room full … back to the lobby » 20 s) qu'un pair neuf arrive ; si la salle se remplit encore de pairs neufs, il est de nouveau ignoré et un nouveau délai court.
 
 ## 7. Relecture indépendante
 
@@ -89,3 +89,27 @@ Relecteur (agent `reviewer`, lecture seule, sur `b992df81`) : aucun bloquant ; q
 3. `p2p-admission.sh` classait « course perdue » toute session perdue, y compris celle du client ignoré revenu au lobby (la signature du bug du premier jet : faux vert possible). Corrigé : un client ignoré qui démarre une partie ou perd une session après `lobby_room_full` fait **échouer** le script ; la course perdue ne regarde que les admis.
 4. `--players "$(p2p_players 2)"` passé en un seul argument dans `p2p-connect-timeout.sh GHOST=1` : corrigé.
 Remarque du relecteur, non corrigée : sur le web, un intrus absent de `data-participants` classé parmi les admis bloque au `return` de `browser_mapping` sans délai (cas d'avant D116, non régressif) ; un filtre par le mapping avant `admit_players` le fermerait.
+
+## 8. Seconde revue (OK avec réserves) : correctifs
+
+Rien dans `GgrsSchedule`, aucune trace ne bouge, une session incompatible donne un blocage borné et jamais un desync. Réserves corrigées :
+1. **P2 — excédent connecté d'emblée.** L'attente « Too many peers » de `main` couvrait le socket d'une partie finissante (§4.5 de `dettes-d105-d109.md`) : encore connecté, pas encore dans `PreviousSessionPeers`, il était admis d'emblée s'il se classait parmi les `max_player` premiers, et `ADMISSION_SETTLE_SECS` ne le couvrait pas (il est connecté, donc pas « en attente »). Maintenant tout excédent (`players.len() > max_player`) est attendu `ADMISSION_SETTLE_SECS` : `LobbyConnectWatch::excess_since` (`Option<Instant>`), posé à la première frame d'excédent, remis à zéro dans `begin()` et dès qu'il n'y a plus d'excédent ; `settling |= excess_since.elapsed() < ADMISSION_SETTLE_SECS`.
+2. **P3 — délai de D109 pendant l'attente d'admission.** Il ne s'applique plus que si `players.len() < num_players` (`pending.filter(|_| players.len() < num_players)…`).
+3. **P3 — `admission_logged`** remis à `None` quand `players.len() < num_players`, avec `room_full`.
+4. **P3 — `p2p-admission.sh`** échoue maintenant quand plus d'un essai sur quatre est perdu par course (`lost * 4 > attempt`) ; `RACE_RETRIES` (6) reste un arrêt de sécurité.
+5. **P3 — `GHOST=1`** : un fantôme qui n'a pas visé les deux clients (moins de deux « candidat ICE sans suite » dans `ghost.log`) est un **échec**. (Le critère « journal du client : pair vu par le signaling » aurait été faux : l'autre client réel est aussi un pair vu.)
+6. **Doc** : §6 corrigé (l'ignoré ne reboucle pas), raison de l'exception `Instant` de `t0` (`signal_watch.rs`, `#[cfg(test)]`) corrigée dans l'allowlist (et celle de `saw`), D116 **rouverte sur le seul point de l'arrivée tardive**.
+
+Vérifications (build `zombies` fait avant, sur le code corrigé) :
+
+| Script | Résultat |
+|---|---|
+| `cargo test -p game` | 264 passés, 0 échec ; `cargo fmt --check` OK |
+| `p2p-admission.sh` `TRIALS=12` | **12 verts, 2 courses perdues sur 14** (≤ 1 sur 4), traces des deux admis identiques (1 499 lignes), 0 `DesyncDetected` |
+| `p2p-admission.sh` `GHOST=1` ×3 | 3 / 3 OK, traces identiques (1 499 lignes), fantôme visant les deux clients |
+| `p2p-connect-timeout.sh` `ATTEMPTS=2` ×6 (le cas du P2, dépendant du timing) | 6 / 6 OK (traces identiques, 299 lignes) ; **1 course perdue** du script (« le client 1 a connecté son pair avant d'être suspendu », rejouée par le script lui-même) sur 7 lancements |
+| `ATTEMPTS=1` ×2 | 2 / 2 OK |
+| `GHOST=1` ×2 | 2 / 2 : `attempt=1/2 action=retry` puis `attempt=2/2 action=lobby` |
+| `p2p-lobby.sh` (3), `p2p-sync-timeout.sh`, `p2p-restart.sh` | verts |
+
+Non couvert : le P2 n'a pas de test dédié (le socket d'une partie finissante qui n'a pas encore quitté la salle n'est pas reproduit isolément ; `p2p-lobby.sh` le traverse : « pairs obsolètes ignorés : 1 » par tentative, 0 abandon de session).

@@ -144,6 +144,9 @@ pub struct LobbyConnectWatch {
     pub notice: Option<(ConnectNotice, bevy::platform::time::Instant)>,
     /// L'apparition d'un pair vu par le signaling est déjà journalisée pour ce socket.
     announced: bool,
+    /// D116 : depuis quand la salle compte plus de pairs connectés que de places (horloge murale), pour
+    /// l'attente bornée de l'excédent avant l'admission.
+    excess_since: Option<bevy::platform::time::Instant>,
     /// D116 : le joueur local est **ignoré** (salle pleine, [`admit_players`]) depuis `since`.
     pub room_full: Option<RoomFull>,
 }
@@ -159,6 +162,7 @@ impl Default for LobbyConnectWatch {
             pending_secs: None,
             notice: None,
             announced: false,
+            excess_since: None,
             room_full: None,
         }
     }
@@ -181,6 +185,7 @@ impl LobbyConnectWatch {
         self.pending_secs = None;
         self.announced = false;
         self.room_full = None;
+        self.excess_since = None;
     }
 }
 
@@ -430,8 +435,8 @@ pub fn wait_for_players(
 
     // D109 : un pair vu par le signaling qui ne se connecte jamais.
     let connected: BTreeSet<PeerId> = socket.connected_peers().collect();
+    let now = bevy::platform::time::Instant::now();
     let (pending, youngest) = {
-        let now = bevy::platform::time::Instant::now();
         let sightings = watch.sightings.lock().ok();
         (
             sightings
@@ -442,6 +447,19 @@ pub fn wait_for_players(
                 .and_then(|s| s.youngest_pending(now, &connected, &previous.0)),
         )
     };
+    // D116 : un pair connecté en trop peut être le socket d'une partie finissante qui n'a pas encore quitté la
+    // salle (D86, §4.5 de `dettes-d105-d109.md`) et dont l'identifiant n'est pas encore dans
+    // `PreviousSessionPeers` : l'admettre d'emblée (identifiant bas) construirait une session que personne
+    // n'écoute. Tout excédent est donc attendu `ADMISSION_SETTLE_SECS` (depuis son apparition, remis à zéro
+    // quand il disparaît ou à chaque socket neuf) : le temps que ce socket parte.
+    if players.len() > num_players {
+        watch.excess_since.get_or_insert(now);
+    } else {
+        watch.excess_since = None;
+    }
+    let excess_settling = watch.excess_since.is_some_and(|since| {
+        now.saturating_duration_since(since).as_secs_f32() < ADMISSION_SETTLE_SECS
+    });
     // Log the current state of player connections. D116 : un pair vu mais pas encore connecté peut
     // changer les admis (identifiant plus bas) : on ne s'engage pas avant de l'avoir connecté, sinon deux
     // clients qui ne voient pas le même ensemble ne choisiraient pas les mêmes joueurs. Cette attente
@@ -449,7 +467,8 @@ pub fn wait_for_players(
     // récent, pas le plus ancien : un fantôme à moitié connecté, D109, ne doit pas annuler l'attente d'un
     // pair qui arrive après lui) ; le délai de D109 reste la borne des attentes à moins de `max_player`
     // joueurs.
-    let settling = youngest.is_some_and(|waited| waited.as_secs_f32() < ADMISSION_SETTLE_SECS);
+    let settling = youngest.is_some_and(|waited| waited.as_secs_f32() < ADMISSION_SETTLE_SECS)
+        || excess_settling;
     if players.len() < num_players || settling {
         info!(
             "Waiting for players: {}/{} connected",
@@ -461,13 +480,17 @@ pub fn wait_for_players(
         // compte à rebours repart de zéro à la prochaine exclusion.
         if players.len() < num_players {
             watch.room_full = None;
+            *admission_logged = None;
         }
         if pending.is_some() && !watch.announced {
             watch.announced = true;
             info!("pair(s) vu(s) par le signaling, connexion en cours (D109)");
         }
-        if let Some((pending_count, waited)) =
-            pending.filter(|(_, waited)| connect_timed_out(*waited, watch.timeout_secs))
+        // Le délai de D109 ne vise que l'attente d'un pair manquant : pendant l'attente d'admission de 3 s
+        // (assez de pairs connectés), il ne retente ni ne ramène au lobby.
+        if let Some((pending_count, waited)) = pending
+            .filter(|_| players.len() < num_players)
+            .filter(|(_, waited)| connect_timed_out(*waited, watch.timeout_secs))
         {
             let action = connect_timeout_action(
                 watch.attempt,
