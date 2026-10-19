@@ -36,7 +36,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use utils::frame::FrameCount;
 
-use game::global_asset::GlobalAsset;
 use game::powerups::{spawn_powerup_pickup, PowerUpPickup};
 use game::powerups_assets::PowerUpsConfigAsset;
 use game::replay::{
@@ -725,10 +724,11 @@ struct WaveOverrideRes(Option<WaveOverride>);
 /// même idée que `apply_weapon_overrides` mais sur `waves::config::WaveConfig` : dès que
 /// l'asset est chargé, avant que `resolve_balance_system` ne le résolve (`OnEnter(GameLoading)`, E3c : le
 /// scénario vise l'**enveloppe** `WaveConfigAsset`, pas `ResolvedBalance`) donc avant la taille de la
-/// première vague (que `wave_state_machine_system` lit dans `ResolvedBalance::waves`).
+/// première vague (que `wave_state_machine_system` lit dans `ResolvedBalance::waves`). Un jeu ne charge
+/// qu'une enveloppe de vagues (celle de son dossier `Wave`) : `Assets` la désigne ;
+/// sans vagues (aucune enveloppe), la surcharge ne trouve rien, comme avant.
 fn apply_wave_overrides(
     overrides: Res<WaveOverrideRes>,
-    global_assets: Option<Res<game::global_asset::GlobalAsset>>,
     mut wave_configs: ResMut<Assets<game::waves::assets::WaveConfigAsset>>,
     mut applied: Local<bool>,
 ) {
@@ -739,10 +739,10 @@ fn apply_wave_overrides(
         *applied = true;
         return;
     };
-    let Some(handle) = global_assets.and_then(|g| g.wave_config.clone()) else {
+    let Some(id) = wave_configs.ids().next() else {
         return;
     };
-    let Some(mut asset) = wave_configs.get_mut(&handle) else {
+    let Some(mut asset) = wave_configs.get_mut(id) else {
         return;
     };
     let config = &mut asset.0;
@@ -784,10 +784,9 @@ struct PowerUpDropChanceOverrideRes(Option<fixed_math::Fixed>);
 /// (`Assets<PowerUpsConfigAsset>`, E3c), pas la table de simulation : même idée que
 /// [`apply_wave_overrides`], s'applique dès que l'asset est chargé, bien avant
 /// `OnEnter(GameLoading)` qui copie l'asset dans `PowerUpsTable` : la première mort simulée lit donc la
-/// valeur forcée.
+/// valeur forcée. Un jeu ne charge qu'une enveloppe de power-ups : `Assets` la désigne.
 fn apply_powerup_drop_chance_override(
     overrides: Res<PowerUpDropChanceOverrideRes>,
-    global_assets: Option<Res<GlobalAsset>>,
     mut powerup_configs: ResMut<Assets<PowerUpsConfigAsset>>,
     mut applied: Local<bool>,
 ) {
@@ -798,10 +797,10 @@ fn apply_powerup_drop_chance_override(
         *applied = true;
         return;
     };
-    let Some(handle) = global_assets.and_then(|g| g.powerups_config.clone()) else {
+    let Some(id) = powerup_configs.ids().next() else {
         return;
     };
-    let Some(mut asset) = powerup_configs.get_mut(&handle) else {
+    let Some(mut asset) = powerup_configs.get_mut(id) else {
         return;
     };
     let config = &mut asset.0;

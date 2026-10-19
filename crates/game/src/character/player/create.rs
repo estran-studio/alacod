@@ -55,7 +55,7 @@ pub fn create_player(
     let player_name = name;
     let player_pubkey = pubkey;
 
-    // Use "player" as the character config name (defined in global_asset.rs)
+    // Use "player" as the character config name (un `CharacterId` du registre de contenu)
     let config_name = "player".to_string();
 
     let entity = create_character(

@@ -129,7 +129,7 @@ pub struct ResolvedPerkDef {
 pub struct ResolvedBalance {
     pub waves: ResolvedWaveConfig,
     /// Le jeu déclare un dossier `Wave` (E3c) : sans lui la machine à vagues reste inerte, même si
-    /// `waves` porte la configuration par défaut (remplace `global_assets.wave_config.is_none()`).
+    /// `waves` porte la configuration par défaut (avant E3c : « l'asset de vagues existe »).
     pub waves_enabled: bool,
     pub economy: ResolvedEconomyConfig,
     /// Perks par id (`PerksConfig` garde sa clé), prix résolus.
@@ -311,8 +311,8 @@ fn resolve_perks(config: &PerksConfig, players: u32) -> BTreeMap<String, Resolve
 ///
 /// Une configuration absente (`None` : le jeu ne déclare pas le dossier) retombe sur son
 /// `Default`, comme avant E3c. `waves_enabled` vaut « le jeu déclare un dossier `Wave` » (`waves`
-/// donné). `character_ids` : les clés de `GlobalAsset::character_configs`, dont chacune doit être
-/// déjà dans `characters` (panique sinon, comme `spawn_enemy`/`create_player` le feraient plus tard).
+/// donné). `character_ids` : les `CharacterId` que le registre de contenu déclare (l'application les tire des
+/// configurations chargées), dont chacun doit être déjà dans `characters` (panique sinon, comme `spawn_enemy`/`create_player` le feraient plus tard).
 pub fn resolve_balance<'a>(
     players: u32,
     waves: Option<&WaveConfig>,

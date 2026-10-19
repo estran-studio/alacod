@@ -36,8 +36,3 @@ dev-dylib = ["game/dev-dylib"]
 # Présentation (tilemaps et écrans), requise pour afficher un scénario (play_scenario).
 # Les tests headless compilent sans.
 render = ["map_ldtk/render", "game/ui_hui"]
-
-[dev-dependencies]
-# Sondes partagées des tests de scénario qui lisent la simulation au premier tick (`balance_tables.rs`) : le verrou
-# ne s'empoisonne pas, aucun `unwrap` (`parking_lot` est déjà dans le graphe de bevy, aucune crate nouvelle).
-parking_lot = "0.12"

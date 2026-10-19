@@ -245,8 +245,8 @@ fn default_starting_currency() -> u32 {
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct CharacterConfigKey(pub String);
 
-/// Configurations des personnages, **donnée de simulation** (D69 étape 2, E3a) : clés = celles
-/// de `GlobalAsset::character_configs` (les `CharacterId` du registre). Remplie hors simulation
+/// Configurations des personnages, **donnée de simulation** (D69 étape 2, E3a) : clés = les
+/// `CharacterId` du registre de contenu (`asset_name_ref`). Remplie hors simulation
 /// par `config_asset::sync_character_configs` (`PreUpdate`, avant `RunGgrsSystems`) à partir des
 /// assets chargés, et seulement par elle (les surcharges de scénario se posent ensuite, sur cette
 /// ressource). Jamais écrite par `GgrsSchedule`, donc ni rollback ni checksum : c'est une donnée
