@@ -23,8 +23,9 @@ for seed in sys.argv[2:]:
         if d and f:
             who = 'piques' if 'spikes' in d[4] else ('soi' if d[2] == 'player' and d[3] == d[1] else d[2])
             source[(d[1], f[1])] = (who, d[4].replace('Tag(', '').replace(')', '').replace('"', ''))
-        z = re.search(r'\(player-(\d+)\) receive [\d.]+ dmg health is 0\b', line)
-        if z and f:
+        # `health is 0` ou en dessous (sur-dégâts : la graine 149 meurt à `health is -1`).
+        z = re.search(r'\(player-(\d+)\) receive [\d.]+ dmg health is (-?\d+)\b', line)
+        if z and f and int(z[2]) <= 0:
             fall[z[1]] = f[1]
     for player, frame in sorted(fall.items()):
         who, tags = source.get((player, frame), ('?', ''))

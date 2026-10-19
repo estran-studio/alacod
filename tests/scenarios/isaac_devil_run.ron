@@ -26,6 +26,7 @@ Scenario(
     players: [(bot: explorateur), (bot: explorateur)],
     expect: [
         Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 1310),
+        HasItem(handle: 1, id: "pot_de_miel", at_frame: 400),
         Stat(handle: 0, stat: MaxHealth, value: 6.0, at_frame: 1580),
         Event(kind: "shelf", label_contains: Some("cornes_noires (diable)"), by_frame: 1595),
         Stat(handle: 0, stat: MaxHealth, value: 4.0, at_frame: 1595),

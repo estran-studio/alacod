@@ -62,12 +62,11 @@ def rows(events, devil_floors):
 
 def main():
     d = sys.argv[1]
-    # Dernières chutes rejouées par `chutes.py` (bots, graine, joueur, frame, source, tags), quand elles existent.
     chutes = collections.defaultdict(list)
     if os.path.exists(f'{d}/chutes.tsv'):
         for line in open(f'{d}/chutes.tsv'):
             c = line.rstrip('\n').split('\t')
-            if len(c) >= 5:
+            if len(c) >= 5 and c[0] != 'bots':
                 chutes[(c[0], int(c[1]))].append(c)
     for p in sys.argv[2:]:
         R = []

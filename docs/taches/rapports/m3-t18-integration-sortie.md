@@ -35,7 +35,7 @@ donnent des objets de départ (`items`) : leur partie n'est plus celle de la cam
 | `isaac_devil_run` | 103, 2 bots, `devil: IfHealthAbove("0.0")` | 6 870 | salle du `gardien` nettoyée (f1305) ; joueur 0 : `Stat(MaxHealth)` 6 → 4 → 2 (présentoirs du diable `cornes_noires` f1590, `queue_fourchue` f1612, `HasItem`) ; joueur 1 inchangé (7, son `pot_de_miel`) ; portail ; étage 2 avec `MaxHealth` 2 ; victoire f6864 | rien ; la politique du diable n'est pas celle par défaut, voir plus bas |
 | `isaac_curse_run` | 2, 1 bot | 4 150 | curse `darkness` à l'étage 1 (moment `curse`, `Curse`, `HudText(curses)`) ; **effet** : `HudText(minimap)` vide à f30, f2000 et f4000, alors que la vie est affichée (« 6/6 ») ; mur secret, boss et phases, portail ; à l'étage 2 (f4097) : aucune curse, `curses` vide, la minicarte revient (« depart · visitée · actuelle ») | rien |
 | `isaac_duo` | 2, 2 bots, `items` par joueur | 3 600 | familiers des deux joueurs à f10 et après la transition (`FamiliarCount`) ; larmes qui se divisent et larmes guidées (indices `feedback`) ; salles, boss et phases, portail, étage 2 ; champion `explosif` tué (f2964), joueur 0 à terre (f2970), puis réanimé (f3544) | — |
-| `isaac_quad` | 1, 4 bots, `items` par joueur | 3 300 | familiers des quatre joueurs à f10 (1, 1, 1, 2), le joueur 3 achète `cousin` (3 familiers à f1500) ; larmes qui se divisent, guidées et perforantes ; boss et phases, portail, étage 2 avec 1, 1, 1, 3 familiers ; joueur 2 à terre (f2930) puis réanimé (f3181) ; les quatre vivants à f3299 | — |
+| `isaac_quad` | 1, 4 bots, `items` par joueur | 3 300 | familiers des quatre joueurs à f10 (1, 1, 1, 2), le joueur 3 achète `cousin` (3 familiers à f1500) ; les quatre objets de larmes tenus (`HasItem` à f20) ; larmes qui se divisent, guidées et perforantes (indices `feedback`) ; boss et phases, portail, étage 2 avec 1, 1, 1, 3 familiers ; joueur 2 à terre (f2930) puis réanimé (f3181) ; les quatre vivants à f3299 | **larmes de `billard` (joueur 2) : tenues et tirées, mais sans indice propre** (le rebond n'a pas de signe, §82 ; seul `tears_billard` prouve l'effet) |
 
 **`isaac_full_run` en détail.** C'est le critère 3 complet, joué par le bot nu, avec victoire :
 - salle verrouillée (f60), puis nettoyée (f225) ;
@@ -68,7 +68,9 @@ le garantit pas : dans la campagne à quatre bots, un familier est ramassé dans
 
 C'est la seule mise en place. Ce n'est pas un modificateur de confort : aucune stat de survie n'est touchée.
 
-Le rebond de `billard` n'a pas d'indice `feedback` (§82). Aucune attente ne le prouve dans `isaac_quad` ; le commentaire « À regarder » le dit.
+Le rebond de `billard` n'a pas d'indice `feedback` (§82) : `isaac_quad` prouve la tenue des quatre objets de larmes (`HasItem`) et les
+indices de division, de guidage et de perforation, mais pas l'effet du rebond lui-même (seul le scénario généré `tears_billard` le prouve).
+Le commentaire « À regarder » le dit. C'est le manque qui rend le critère 5 partiel.
 
 ## 2. Campagnes (critère 4)
 
@@ -98,14 +100,17 @@ graine 63 / 79, i2 95 / 105 / 0 / 160. D69 E3a à E6 et E5a, mergées depuis, n'
 après f918, et le joueur reste vivant. `ALACOD_BOT_DEBUG=1` montre le bot qui oscille sur place vers un tas de sous qu'il ne ramasse jamais. Son pas
 devient nul toutes les 120 frames, ce qui remet sa poursuite à zéro (`input.rs:876`) : le but n'est jamais écarté.
 
-**Causes des parties perdues.** On compte la dernière chute de chaque joueur. À 1 bot, c'est la chute du joueur ; une partie sans tueur dans le
-journal (25 graines) a été rejouée par `chutes.py`.
+**Causes des parties perdues.** On compte la dernière chute de chaque joueur (santé qui tombe à 0 **ou en dessous** : les sur-dégâts
+comptent ; la graine 149 à 1 bot meurt à `health is -1`). Une partie sans tueur dans le journal est rejouée par `chutes.py` :
+**175 causes pour 175 parties perdues à 1 bot, 210 pour 210 chutes à 2 bots, 20 pour 20 à 4 bots. Rien n'est inclassé.** Sans le
+« ou en dessous », 62 graines à 2 bots et 5 à 4 bots gardaient une cause antérieure au lieu de la dernière (dont 2 chutes entièrement
+manquées, secondes chutes des graines 150 et 183).
 
 | Campagne | Étage de la défaite | Causes |
 |---|---|---|
-| s1 (175) | premier 120, second 55 | `suiveur` 22, `araignee` 22, `tourelle_croix` 22, **piques 21**, `gardien` 19, `bourdon` 13, `cracheur` 12, `arroseur` 11, `mouche` 7, `follet` 7, `rampant` 7, `colosse` 4, sa propre bombe 3, pattern `couronne` 3, `spectre` 1 |
-| d2 (105 parties, 210 chutes) | premier 40, second 65 | **piques 51**, `suiveur` 36, `araignee` 27, `follet` 19, `gardien` 18, `tourelle_croix` 16, `bourdon` 12, `arroseur` 7, `mouche` 5, `colosse` 4, `cracheur` 4, pattern `couronne` 4, `rampant` 3, bombe d'un coéquipier 1, `spectre` 1 |
-| q4 (5 parties, 20 chutes) | second 5 | **piques 11**, `suiveur` 3, `araignee` 3, `arroseur` 2, `colosse` 1 |
+| s1 (175) | premier 120, second 55 | `suiveur` 22, `araignee` 22, `tourelle_croix` 22, **piques 21**, `gardien` 19, `bourdon` 13, `cracheur` 12, `arroseur` 11, `mouche` 7, `follet` 7, `rampant` 7, `colosse` 4, sa propre bombe 4, pattern `couronne` 3, `spectre` 1 |
+| d2 (105 parties, 210 chutes) | premier 40, second 65 | **piques 56**, `araignee` 28, `suiveur` 27, `gardien` 22, `follet` 20, `tourelle_croix` 12, `bourdon` 10, `arroseur` 7, `colosse` 5, `cracheur` 5, `mouche` 4, pattern `couronne` 4, sa propre bombe 4, `rampant` 3, bombe d'un coéquipier 3 |
+| q4 (5 parties, 20 chutes) | second 5 | **piques 14**, `araignee` 3, `arroseur` 2, `colosse` 1 |
 
 **Les piques sont la première cause de chute à 2 et à 4 bots : le bot les ignore (D119, nouvelle).** `crates/bots` ne lit aucune surface de
 dégâts. À la graine 118 à un bot, le joueur tire immobile sous les piques de f522 à f582, puis meurt. À plusieurs, un joueur réanimé reste
@@ -178,7 +183,7 @@ Charge du Mac au lancement : 60 puis 51. Aucun script n'a eu besoin d'une « ver
 | 2 | Empilement prouvé | **fait** | `combat::projectile` teste les 72 paires ordonnées de variantes différentes et les 9 paires identiques (M3-T1) : vert dans `make test_crates`. `tears_stack_two_copies`, `tears_stack_three` et `effect_per_copy` sont verts dans la suite. |
 | 3 | `isaac_full_run`, `isaac_devil_run`, `isaac_curse_run` | **fait** | § 1 : tous les moments clés, bot nu, séquence par défaut. Réserve : le diable est joué à 2 bots avec la politique `IfHealthAbove("0.0")`. |
 | 4 | Bots : 200 graines à 1 et 2 bots, 0 soft-lock, 0 desync, taux de l'étage 1 dans la fourchette Q14 ; 20 graines à 4 bots sans desync | **partiel** | § 2 : 0 desync sur 420 graines. **1 soft-lock** à 1 bot (graine 63, D121). Taux publiés : étage 1 franchi 39,5 %, 80 % et 100 %. **Fourchette Q14 non fixée**, couverture publiée (§ 2.1). |
-| 5 | Synctest à 2 et 4 : `isaac_duo`, `isaac_quad` | **fait** | § 1 : verts dans la suite (synctest), familiers et larmes des 2 et 4 joueurs. |
+| 5 | Synctest à 2 et 4 : `isaac_duo`, `isaac_quad` | **partiel** | § 1 : verts dans la suite (synctest), familiers et larmes des 2 et 4 joueurs, sauf l'effet des larmes de `billard` (joueur 2 de `isaac_quad`), sans indice propre. |
 | 6 | Performance : `bench_tears`, `bench_floor_isaac`, machine nommée au calme | **non vérifié** | Ce sera sur le VPS, au calme, plus tard. Dernières valeurs connues, poste chargé, ni ce commit ni ce protocole : pire rollback de `bench_tears` 31,3 / 32,5 / 31,4 ms sur le VPS (revue de dette-d84-budgets-calme, 2026-10-19 ; budget `max_rollback_ms` 65). Les métriques de la suite sur ce Mac chargé ne valent pas mesure. |
 | 7 | p2p réel : 2 clients à inputs actifs, transition avec bombe, larmes et familier ; smoke à 4 ; deux machines si D73 le permet | **partiel** | § 3 : 2 clients et 4 clients faits sur une machine, traces identiques, 0 `DesyncDetected`. **Deux machines : non vérifié** sur le contenu actuel. |
 | 8 | Humain : trente minutes en coop, notes fermées | **non vérifié** | Ce sera sur le Mac avec William : § 6. |

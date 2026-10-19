@@ -32,6 +32,13 @@ Scenario(
         FamiliarCount(handle: 1, count: 1, at_frame: 10),
         FamiliarCount(handle: 2, count: 1, at_frame: 10),
         FamiliarCount(handle: 3, count: 2, at_frame: 10),
+        // Chaque joueur tient son objet de larmes dès la première frame (`items` du scénario) : le synctest à quatre
+        // fait tirer des larmes modifiées par quatre porteurs. Le rebond de `billard` (joueur 2) n'a pas d'indice
+        // `feedback` (§82) : aucune attente ne prouve son effet, seulement sa tenue et ses tirs (voir le rapport).
+        HasItem(handle: 0, id: "bifurque", at_frame: 20),
+        HasItem(handle: 1, id: "lynx", at_frame: 20),
+        HasItem(handle: 2, id: "billard", at_frame: 20),
+        HasItem(handle: 3, id: "aiguille", at_frame: 20),
         Event(kind: "feedback", label_contains: Some("(division"), by_frame: 600),
         Event(kind: "feedback", label_contains: Some("(guidée)"), by_frame: 600),
         Event(kind: "feedback", label_contains: Some("(perforante)"), by_frame: 600),

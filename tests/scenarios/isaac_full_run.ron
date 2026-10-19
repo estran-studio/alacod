@@ -31,6 +31,7 @@ Scenario(
         Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 230),
         Event(kind: "shelf", label_contains: Some("glu (douilles)"), by_frame: 390),
         Event(kind: "item_pickup", label_contains: Some("ramasse encre"), by_frame: 445),
+        Event(kind: "item_pickup", label_contains: Some("ramasse pain"), by_frame: 445),
         Event(kind: "item_pickup", label_contains: Some("ramasse coeur"), by_frame: 1195),
         Event(kind: "bomb", by_frame: 1250),
         Consumable(handle: 0, id: "bomb", count: 0, at_frame: 1260),
