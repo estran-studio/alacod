@@ -2870,7 +2870,7 @@ désignée comme carte par `floor:<id>` (`entry.start_map`, `Scenario.map`, `lev
     rooms: (8, 12),                                    // départ, boss et requises compris
     required: {"boss": 1, "boutique": 1, "recompense": 1},
     min_boss_distance: 3,                              // en salles
-    // start: "depart", boss: "boss", filler: "combat", max_attempts: 64 (défauts)
+    // start: "depart", boss: "boss", filler: "combat", max_attempts: 64, loops: 0 (défauts)
 ))
 ```
 
@@ -2889,6 +2889,21 @@ gabarit).
 
 **Mesure** (1 000 graines, gabarits 10×10 tuiles du test) : génération moyenne 184 µs, max 11,8 ms,
 1,05 tentative en moyenne, tailles 8 à 12 réparties uniformément.
+
+**Boucles (`loops`, 2026-10-19).** Sans ce champ, l'étage est un arbre : la fermeture des boucles
+(`close_loops`, §1) ne relie que les prises libres qui se touchent par hasard (0,40 boucle par
+graine sur 40 graines de `la_fonderie`, 15/40 graines avec au moins une). Mesure du
+2026-10-19 : sur 190 prises murées (20 graines), 156 donnent sur du vide et 34 sur une voisine
+sans prise en face, aucune paire libre face à face n'est oubliée ; c'est le placement qui étale
+l'arbre. Avec `loops: n`, tant que le plan a moins de `n` paires de prises libres face à face,
+une salle de remplissage qui en crée une est préférée à toute autre ; le plan est refusé sous
+`n` (nouvelle tentative). Les raccourcis comptent : le boss doit rester **strictement** la salle
+la plus loin et à `min_boss_distance` au moins, **boucles comprises** (distance en largeur sur
+l'arbre + les paires). Un poids proportionnel (essayé : `1 + biais × paires`) ne change presque
+rien (0,40 → 0,55) : ces poses n'existent qu'une à trois fois par plan. `loops: 0` garde le
+tirage et la consommation du RNG d'origine (traces gungeon inchangées). `la_fonderie` :
+`loops: 2` exige `rooms: (10, 12)` (avec 9 à 11 salles, 2 boucles échouent sur la plupart des
+graines) ; 200 graines : 2,11 boucles en moyenne, aucune sous 2.
 
 **Lint** : `rooms` min > max ou < 2, `max_attempts` 0, `required` à 0 ou contenant le départ,
 plus d'un boss, départ + boss + requises > max, `min_boss_distance` impossible (`OutOfRange`) ;

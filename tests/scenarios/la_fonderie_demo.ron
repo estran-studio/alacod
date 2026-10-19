@@ -2,24 +2,28 @@
 // scripté). Il achète les portes, casse les fenêtres, se ravitaille et finit par entrer dans
 // la salle du boss (porte de combat gratuite, verrouillée) et le tuer : victoire par objectif.
 //
-// À regarder : le hall à deux sorties (f~150), les premières fenêtres cassées (f~300), la cour
-// de chargement ouverte en fin de vague 2, un ravitaillement/perk acheté, puis l'entrée du boss
-// et la victoire vers f13 390. Les zombies apparaissent dans la section occupée (courettes
-// derrière les fenêtres), jamais derrière une porte encore payante.
+// 2026-10-19 (`loops: 2`, salles 10 à 12) : la carte de la graine 4 a deux boucles autour du
+// hall ; le bot atteint le boss bien plus tôt (victoire vers f5 740, vague 4, 27 kills ; avant :
+// f13 390, vague 5). `alacod-sim` 10 graines, 1 `acheteur` : 8 victoires.
+//
+// À regarder : le hall à deux sorties (f~150), les premières fenêtres cassées (f~300), une porte
+// de boucle achetée qui retombe dans une salle déjà ouverte, puis l'entrée du boss et la victoire
+// vers f5 740. Les zombies apparaissent dans la section occupée (courettes derrière les
+// fenêtres), jamais derrière une porte encore payante.
 Scenario(
     game: "zombies",
     map: "floor:la_fonderie",
     map_seed: 4,
-    frames: 20000,
+    frames: 6200,
     players: [
         (bot: acheteur),
     ],
     expect: [
-        PlayerAlive(handle: 0, at_frame: 19000),
+        PlayerAlive(handle: 0, at_frame: 5700),
         WaveAtLeast(wave: 2, at_frame: 4000),
-        KillsAtLeast(kills: 30, at_frame: 19000),
-        DoorsOpenAtLeast(doors: 4, at_frame: 19000),
-        RunState(step: Ended(Victory), at_frame: 20000),
-        RunSummary(wave_reached_min: 5, kills_min: 30, at_frame: 20000),
+        KillsAtLeast(kills: 25, at_frame: 5700),
+        DoorsOpenAtLeast(doors: 4, at_frame: 5700),
+        RunState(step: Ended(Victory), at_frame: 6200),
+        RunSummary(wave_reached_min: 4, kills_min: 25, at_frame: 6200),
     ],
 )

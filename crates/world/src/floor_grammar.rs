@@ -43,6 +43,13 @@ pub struct FloorGrammar {
     /// Tentatives au plus avant d'échouer.
     #[serde(default = "default_attempts")]
     pub max_attempts: u32,
+    /// Boucles exigées (0 : arbre, comportement d'origine). Tant que l'étage en a moins, une
+    /// salle de remplissage qui met une prise libre face à une prise libre déjà posée est
+    /// préférée ; le plan est refusé sous ce nombre (nouvelle tentative). La fermeture
+    /// (`close_loops`) relie ensuite ces paires. Avec des boucles, la distance au boss se
+    /// mesure **raccourcis compris** (le boss reste strictement la salle la plus loin).
+    #[serde(default)]
+    pub loops: usize,
 }
 
 impl FloorGrammar {

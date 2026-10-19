@@ -28,7 +28,7 @@ use bevy_fixed::rng::RollbackRng;
 use serde_json::Value;
 
 use super::{
-    context::{AvailableLevel, LevelType, MapGenerationContext},
+    context::{AvailableLevel, LevelType, MapGenerationContext, Side},
     position::Position,
     room::{ConnectionTo, Room, RoomConnection},
     LEVEL_PROPERTIES_SPAWN_NAME,
@@ -88,15 +88,118 @@ struct Candidate {
     level: std::rc::Rc<AvailableLevel>,
     level_connection: usize,
     position: Position,
+    /// Prises libres de la pose qui touchent une prise libre déjà posée (boucles qu'elle
+    /// fermera) ; calculé seulement si la grammaire demande des boucles.
+    closes: u32,
+}
+
+/// Deux prises se touchent face à face : côtés opposés, même bord, même emprise (ce que
+/// `close_loops` reliera sans couloir, les salles d'un plan étant posées bord à bord).
+fn touching(a: (Side, i32, i32, i32), b: (Side, i32, i32, i32)) -> bool {
+    a.0.is_opposite(b.0) && a.1 == b.1 && a.2 == b.2 && a.3 == b.3
+}
+
+fn tile_of(room: &Room) -> (i32, i32) {
+    let def = &room.level_def;
+    (
+        def.level_size_p.0 / def.level_size.0 as i32,
+        def.level_size_p.1 / def.level_size.1 as i32,
+    )
+}
+
+/// Paires de prises libres face à face entre salles du plan : `(salle, salle)` par paire,
+/// les boucles que la fermeture ajoutera à l'arbre.
+fn planned_loops(rooms: &[PlannedRoom]) -> Vec<(usize, usize)> {
+    let free = |room: &Room| -> Vec<(Side, i32, i32, i32)> {
+        let tile = tile_of(room);
+        room.connections
+            .iter()
+            .filter(|c| c.to.is_none())
+            .map(|c| room.opening_span(c.index, &tile))
+            .collect()
+    };
+    let spans: Vec<_> = rooms.iter().map(|p| free(&p.room)).collect();
+    let mut out = Vec::new();
+    for i in 0..rooms.len() {
+        for j in (i + 1)..rooms.len() {
+            for a in &spans[i] {
+                if spans[j].iter().any(|b| touching(*a, *b)) {
+                    out.push((i, j));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Distances (en salles) depuis le départ, arêtes de l'arbre et boucles comprises.
+fn distances_with_loops(rooms: &[PlannedRoom]) -> Vec<usize> {
+    let mut adjacency = vec![Vec::new(); rooms.len()];
+    for (i, planned) in rooms.iter().enumerate() {
+        if let Some(parent) = planned.parent {
+            adjacency[i].push(parent);
+            adjacency[parent].push(i);
+        }
+    }
+    for (i, j) in planned_loops(rooms) {
+        adjacency[i].push(j);
+        adjacency[j].push(i);
+    }
+    let mut distance = vec![usize::MAX; rooms.len()];
+    let mut queue = std::collections::VecDeque::from([0]);
+    distance[0] = 0;
+    while let Some(i) = queue.pop_front() {
+        for &j in &adjacency[i] {
+            if distance[j] == usize::MAX {
+                distance[j] = distance[i] + 1;
+                queue.push_back(j);
+            }
+        }
+    }
+    distance
 }
 
 struct Attempt<'a> {
     context: &'a MapGenerationContext,
     rng: RollbackRng,
     placed: Vec<PlannedRoom>,
+    /// La grammaire demande des boucles : calculer `Candidate::closes`.
+    loops: bool,
 }
 
 impl Attempt<'_> {
+    /// Prises libres de la pose (hors celle qui la relie au parent) qui touchent une prise
+    /// libre d'une salle déjà posée.
+    fn touching_openings(
+        &self,
+        level: &std::rc::Rc<AvailableLevel>,
+        via: usize,
+        position: &Position,
+    ) -> u32 {
+        let probe = Room {
+            level_iid: String::new(),
+            position: position.clone(),
+            connections: Vec::new(),
+            entity_locations: level.entity_locations.clone(),
+            level_def: level.clone(),
+            properties: Default::default(),
+        };
+        let tile = self.context.tile_size;
+        let mut count = 0;
+        for index in (0..level.connections.len()).filter(|i| *i != via) {
+            let mine = probe.opening_span(index, &tile);
+            let faces = self.placed.iter().any(|p| {
+                p.room
+                    .connections
+                    .iter()
+                    .filter(|c| c.to.is_none())
+                    .any(|c| touching(mine, p.room.opening_span(c.index, &tile)))
+            });
+            count += faces as u32;
+        }
+        count
+    }
+
     /// Toutes les poses valides d'une salle de type `kind` (et, pour `cul_de_sac`, à une seule
     /// connexion) sur les parents autorisés par `parent_ok`, dans l'ordre déterministe.
     fn candidates(
@@ -136,12 +239,18 @@ impl Attempt<'_> {
                     if !self.fits(level, &position) {
                         continue;
                     }
+                    let closes = if self.loops {
+                        self.touching_openings(level, *level_connection, &position)
+                    } else {
+                        0
+                    };
                     out.push(Candidate {
                         parent: parent_index,
                         parent_connection: connection.index,
                         level: level.clone(),
                         level_connection: *level_connection,
                         position,
+                        closes,
                     });
                 }
             }
@@ -209,6 +318,7 @@ fn try_attempt(
         context,
         rng: RollbackRng::new(seed),
         placed: Vec::new(),
+        loops: grammar.loops > 0,
     };
     let total = attempt
         .rng
@@ -251,9 +361,16 @@ fn try_attempt(
         kind: grammar.start.clone(),
     });
 
-    // 2. remplissage
+    // 2. remplissage ; tant que l'étage a moins de `loops` boucles, une pose qui en ferme une
+    //    (prise libre face à une prise libre posée) est préférée à toute autre
     for _ in 0..fillers {
-        let candidates = attempt.candidates(&grammar.filler, false, &|_| true);
+        let mut candidates = attempt.candidates(&grammar.filler, false, &|_| true);
+        if grammar.loops > 0
+            && planned_loops(&attempt.placed).len() < grammar.loops
+            && candidates.iter().any(|c| c.closes > 0)
+        {
+            candidates.retain(|c| c.closes > 0);
+        }
         if !attempt.place(&grammar.filler, candidates) {
             return None;
         }
@@ -326,6 +443,29 @@ pub fn validate_plan(grammar: &FloorGrammar, rooms: &[PlannedRoom]) -> Result<()
     }
     if boss_room.depth < grammar.min_boss_distance {
         return Err(format!("boss à {} salles du départ", boss_room.depth));
+    }
+    // Boucles demandées : au moins `loops` paires de prises face à face (fermées ensuite par
+    // `close_loops`), et les raccourcis comptent : le boss reste strictement le plus loin et
+    // à `min_boss_distance` au moins, boucles comprises.
+    if grammar.loops > 0 {
+        let loops = planned_loops(rooms).len();
+        if loops < grammar.loops {
+            return Err(format!("{loops} boucle(s) sur {}", grammar.loops));
+        }
+        let distance = distances_with_loops(rooms);
+        let boss_distance = distance[*boss_index];
+        if boss_distance < grammar.min_boss_distance {
+            return Err(format!(
+                "boss à {boss_distance} salles du départ par une boucle"
+            ));
+        }
+        if distance
+            .iter()
+            .enumerate()
+            .any(|(i, d)| i != *boss_index && *d >= boss_distance)
+        {
+            return Err("une salle est aussi loin que le boss, boucles comprises".into());
+        }
     }
     for (i, planned) in rooms.iter().enumerate().skip(1) {
         let parent = planned.parent.ok_or("salle sans parent")?;
@@ -504,6 +644,7 @@ mod tests {
             filler: "combat".into(),
             min_boss_distance: 3,
             max_attempts: 64,
+            loops: 0,
         }
     }
 
@@ -554,6 +695,35 @@ mod tests {
             attempts as f64 / 1000.0,
             sizes
         );
+    }
+
+    /// `loops: 2` : sur 200 graines, chaque étage a au moins deux paires de prises face à face
+    /// (futures boucles), et le boss reste strictement le plus loin et à `min_boss_distance`
+    /// au moins, raccourcis par les boucles compris.
+    #[test]
+    fn boucles_exigees_sans_rapprocher_le_boss() {
+        let grammar = FloorGrammar {
+            loops: 2,
+            max_attempts: 256,
+            ..grammar()
+        };
+        for seed in 0..200 {
+            let context = context(seed, templates());
+            let mut rng = RollbackRng::new(seed as u32);
+            let plan = plan_floor(&grammar, &context, &mut rng)
+                .unwrap_or_else(|e| panic!("graine {seed} : {e}"));
+            assert!(planned_loops(&plan.rooms).len() >= 2, "graine {seed}");
+            let distance = distances_with_loops(&plan.rooms);
+            let boss = plan.rooms.iter().position(|p| p.kind == "boss").unwrap();
+            assert!(distance[boss] >= grammar.min_boss_distance, "graine {seed}");
+            assert!(
+                distance
+                    .iter()
+                    .enumerate()
+                    .all(|(i, d)| i == boss || *d < distance[boss]),
+                "graine {seed}"
+            );
+        }
     }
 
     #[test]

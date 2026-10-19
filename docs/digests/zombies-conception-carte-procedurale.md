@@ -368,10 +368,36 @@ ou cassée), donc il sécurise l'intérieur et répare. C'est le modèle CoD, v�
 assemblée : tous les spawners sont atteignables depuis le vide extérieur, aucun n'est enclos. Le
 boss (`CharacterSpawn boss_zombie`, dormant) est masqué depuis son entrée par une chicane.
 
-Grammaire `floor:la_fonderie` : 9–11 salles, départ, `arene` 1, `armurerie` 1, `infirmerie` 1,
-`boss` 1 (distance ≥ 4), remplissage `atelier`. Types `rooms/*.ron` : seul `boss` verrouille.
+Grammaire `floor:la_fonderie` : 10–12 salles (9–11 avant les boucles), départ, `arene` 1,
+`armurerie` 1, `infirmerie` 1, `boss` 1 (distance ≥ 4), remplissage `atelier`, `loops: 2`.
+Types `rooms/*.ron` : seul `boss` verrouille.
 
-**Limite connue** : l'assemblage reste un arbre avec peu de boucles (0–1 par graine) ; la
-convergence des ailes n'est pas atteinte, la manœuvre se fait dans la cour/halle. Les rendus
-(`make map_render MAP=games/zombies ARGS="--floor la_fonderie"`) montrent des silhouettes
-distinctes, des cours ouvertes sur l'extérieur, aucune porte murée ni spawn dans un mur.
+### Boucles (2026-10-19)
+
+Revue des rendus de six graines (William, 2026-10-19) : 0–1 boucle par graine, une grille de
+pièces identiques, 9 à 12 prises murées, des trous dans la silhouette, un seul chemin vers le
+boss. Diagnostic sur 20 graines : la fermeture (`close_loops`) n'oublie aucune paire ; sur 190
+prises murées, 156 donnent sur du vide et 34 sur une voisine sans prise en face. Le tirage
+uniforme des poses étale l'arbre ; un poids vers les poses qui ferment une boucle ne change
+presque rien (0,40 → 0,55), ces poses n'existant qu'une à trois fois par plan.
+
+Retenu : `FloorGrammar::loops` (`docs/conventions.md` §40), un nombre de boucles **exigé** ; le
+remplissage préfère une pose qui en ferme une tant qu'il en manque, le plan est refusé sinon,
+et la distance au boss se mesure raccourcis compris. `la_fonderie` : `loops: 2` avec 10–12
+salles (avec 9–11, deux boucles échouent sur la plupart des graines).
+
+| Mesure | Arbre (avant) | `loops: 2` |
+| --- | ---: | ---: |
+| Boucles par graine (40 / 200 graines) | 0,40 | 2,11 (aucune sous 2) |
+| Graines avec au moins une boucle | 15/40 | 200/200 |
+| Prises murées par graine | 9,4 | 10,1 |
+| `alacod-sim`, 1 `acheteur`, graines 1–10 : victoires | 7 (3 plafonds) | 8 (1 mort, 1 plafond) |
+
+**Limites restantes** (contenu, pas l'assembleur) : toutes les prises sont `@14+4` sur une
+grille de 32 cases, d'où l'effet de grille ; les côtés longs des pièces 64×32 / 32×64 n'ont
+qu'une prise (moitié gauche/haute), leur autre moitié mure toute voisine ; le départ, les
+armureries et les infirmeries ont 1–2 prises ; les prises murées montent légèrement avec la
+taille. Plans compacts : quatre pièces autour d'un coin y mettent leurs quatre courettes, qui
+forment une cour intérieure fermée (encore une source de zombies derrière des fenêtres, mais
+plus « dehors »). Suite : varier les gabarits (prises décalées, seconde prise sur les côtés
+longs, couloirs 32×16, pièces à trois ou quatre prises pour le départ).
