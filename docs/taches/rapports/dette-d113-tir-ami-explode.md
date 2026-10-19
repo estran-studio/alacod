@@ -27,8 +27,9 @@ Dumps `ALACOD_DUMP_TRACE` + `scripts/trace-diff.py`, même moteur, anciens objet
 
 ## Vérifié (résultats réels, VPS)
 
-- `make test_scenarios_par SHARDS=3` : vert après BLESS ciblé (avant : les cinq diffs ci-dessus).
+- `make test_scenarios_par SHARDS=3` : avant BLESS, cinq diffs (ci-dessus). **Revue** : après fusion de `origin/main` (E7, `gungeon_classes`) et **sans BLESS** (`ALACOD_BLESS=`), la suite complète est relancée sur l'arbre final : **exit 0, aucun écart de trace ni d'attente**. Le BLESS ciblé initial n'avait rejoué que les six ids concernés.
+- `isaac_nova_coop` (revue) : attentes `EntityHealth` sur la `cible` placée (net id 183) : 5 000 à f29, 4 990 à f40 ; une régression qui épargnerait aussi les ennemis échouerait.
 - `make test_crates` : exit 0.
 - `make lint` ×5 (zombies, testbed, throne, gungeon, isaac) : aucune erreur ; `make gen GAME=` ×5 : tout `ok`, aucune trace générée en désaccord après BLESS.
 - `cargo fmt --check` ; `check_forbidden` ; `check_rollback_registration` : OK.
-- `scripts/p2p-stress.sh isaac tests/scenarios/p2p_smoke.ron 3000` : 0 desync, 2999 lignes identiques, 1883 frames resimulées (client 0, 20 rollbacks, profondeur max 11). `MATCHBOX_PORT`/`COMPOSE_PROJECT_NAME` n'étaient pas exportés dans ce shell : projet `alacod`, port 3536 par défaut.
+- `scripts/p2p-stress.sh isaac tests/scenarios/p2p_smoke.ron 3000` (premier passage, ports par défaut ; **relancé sur l'arbre final fusionné avec `MATCHBOX_PORT=3566 COMPOSE_PROJECT_NAME=b2` : OK, 0 desync, 2999 lignes identiques, 1797 frames resimulées, profondeur max 11**) : 0 desync, 2999 lignes identiques, 1883 frames resimulées (client 0, 20 rollbacks, profondeur max 11).
