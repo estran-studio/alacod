@@ -4172,6 +4172,15 @@ construire une ligne déjà détruite lorsque l'inventaire change.
   Retour arrière / B. `ALACOD_INPUT=neutral` coupe la lecture des touches.
 - **La simulation continue et ses touches restent actives** sous les menus, comme avant :
   aucun verrou d'input ni changement de trace n'est introduit.
+- **Modèle et entrées séparés** (D69 E5a) : le modèle (`ScreensPlugin`, `HudModelPlugin`,
+  `MutationScreenModelPlugin`, réunis dans `GameUiModelPlugin`, aussi en headless) ne lit ni
+  clavier ni manette. `ui::screens::input::read_nav_keys` (clavier, manette) pose les actions
+  dans la file `UiActionQueue` (`.before(update_screens)`), `ui::mutation_input::read_mutation_nav`
+  (`ActionState<PlayerAction>`) écrit la ressource `MutationNavInput { handle, held, step }` que
+  `update_mutation_screen_view` lit (`.before(update_mutation_screen_view)`, seulement pour le
+  joueur affiché). Les deux lecteurs sont dans `GameUiInputPlugin`, ajouté après `GameUiModelPlugin` ; lui et
+  `GameUiPlugin` (lobby, déconnexion) sont hors `PresentationPlugin` : le lobby tourne aussi en
+  headless p2p, les lecteurs n'y trouvent rien.
 - Écran de fin : `ui/game_over_screen.html`, dans les quatre jeux. Résumé dérivé de
   `Run.step`/`Run.summary`, mis à jour sans reconstruire la racine ; rollback de l'issue :
   disparition de l'écran. Rejouer (R) et Lobby gardent leurs `RunRequest`, boutons souris
