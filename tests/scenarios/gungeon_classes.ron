@@ -1,11 +1,11 @@
 // m2-lisibilite-gungeon (docs/conventions.md §83) : **toutes les classes d'entités de gungeon sur une image**,
 // pour la revue visuelle et les captures avant/après du rapport. Revue de William (2026-10-19) : la première
 // version tenait dans les trois salles de 128 px d'`etage_1`, à 30 px d'écart, étiquettes superposées, 2,7 s
-// de vidéo ; elle joue maintenant dans l'arène `gabarit_armes` (416 × 304), entités à 60-76 px d'écart,
-// pendant 240 frames. Deux joueurs immobiles au centre de l'arène ; à f2, deux rangées d'ennemis (une par
-// famille, cible d'entraînement comprise ; le boss n'est pas posé : il a sa propre vidéo, `gungeon_boss`),
-// une rangée de ramassables (clé, ration, blank, objets passif / actif / consommable) et le monde (coffre à
-// clé à gauche des joueurs, deux présentoirs à droite). Présentation seule : aucune attente de sprite (le
+// de vidéo ; elle joue maintenant dans l'arène `gabarit_armes`, dont l'intérieur (320 × 160, x 328..648,
+// y 600..760 ; plus étroit en bas) tient entier dans l'image à la caméra des joueurs, pendant 240 frames. Deux
+// joueurs immobiles au centre ; à f2, les neuf familles d'ennemis autour d'eux (cible d'entraînement comprise ;
+// le boss a sa propre vidéo, `gungeon_boss`), une rangée de ramassables en quinconce en bas (clé, ration, blank,
+// objets passif / actif / consommable) et le monde à droite des joueurs (coffre à clé, deux présentoirs). Présentation seule : aucune attente de sprite (le
 // rendu n'existe pas en headless), le scénario garde la simulation sous trace.
 //
 // À regarder (f40, après les premiers télégraphes jaunes et anneaux rouges des tirs ; puis jusqu'à f240, chaque
@@ -24,28 +24,28 @@ Scenario(
     mode: Sandbox,
     frames: 240,
     characters: [
-        (character: "bullet_kin", x: "300.0", y: "745.0", at_frame: 2),
-        (character: "bullet_kin_squad", x: "376.0", y: "745.0", at_frame: 2),
-        (character: "shotgun_kin", x: "452.0", y: "745.0", at_frame: 2),
-        (character: "lanceur_kin", x: "528.0", y: "745.0", at_frame: 2),
-        (character: "tourelle_kin", x: "596.0", y: "700.0", at_frame: 2),
-        (character: "veteran_kin", x: "300.0", y: "620.0", at_frame: 2),
-        (character: "bandana_kin", x: "376.0", y: "620.0", at_frame: 2),
-        (character: "fuyard_kin", x: "528.0", y: "620.0", at_frame: 2),
-        (character: "cible", x: "604.0", y: "620.0", at_frame: 2),
+        (character: "bullet_kin", x: "350.0", y: "740.0", at_frame: 2),
+        (character: "bullet_kin_squad", x: "420.0", y: "740.0", at_frame: 2),
+        (character: "shotgun_kin", x: "490.0", y: "740.0", at_frame: 2),
+        (character: "fuyard_kin", x: "555.0", y: "740.0", at_frame: 2),
+        (character: "veteran_kin", x: "350.0", y: "700.0", at_frame: 2),
+        (character: "bandana_kin", x: "350.0", y: "660.0", at_frame: 2),
+        (character: "cible", x: "560.0", y: "700.0", at_frame: 2),
+        (character: "tourelle_kin", x: "620.0", y: "700.0", at_frame: 2),
+        (character: "lanceur_kin", x: "620.0", y: "660.0", at_frame: 2),
     ],
     items: [
-        (id: "key", x: "300.0", y: "560.0", at_frame: 2),
-        (id: "ration", x: "362.0", y: "560.0", at_frame: 2),
-        (id: "blank", x: "424.0", y: "560.0", at_frame: 2),
-        (id: "amulette", x: "486.0", y: "560.0", at_frame: 2),
-        (id: "fiole", x: "548.0", y: "560.0", at_frame: 2),
-        (id: "egide", x: "610.0", y: "560.0", at_frame: 2),
+        (id: "key", x: "345.0", y: "622.0", at_frame: 2),
+        (id: "ration", x: "395.0", y: "636.0", at_frame: 2),
+        (id: "blank", x: "445.0", y: "622.0", at_frame: 2),
+        (id: "amulette", x: "495.0", y: "636.0", at_frame: 2),
+        (id: "fiole", x: "545.0", y: "622.0", at_frame: 2),
+        (id: "egide", x: "590.0", y: "636.0", at_frame: 2),
     ],
-    chests: [(key: "classes", x: "330.0", y: "680.0", at_frame: 2)],
+    chests: [(key: "classes", x: "495.0", y: "700.0", at_frame: 2)],
     shop: (shelves: [
-        (key: "s0", item: "trefle", price: 30, x: "528.0", y: "680.0", at_frame: 2),
-        (key: "s1", item: "bottes", price: 15, x: "596.0", y: "650.0", at_frame: 2),
+        (key: "s0", item: "trefle", price: 30, x: "495.0", y: "664.0", at_frame: 2),
+        (key: "s1", item: "bottes", price: 15, x: "555.0", y: "664.0", at_frame: 2),
     ]),
     players: [
         (inputs: []),
@@ -54,5 +54,15 @@ Scenario(
     expect: [
         PlayerAlive(handle: 0, at_frame: 85),
         PlayerAlive(handle: 1, at_frame: 85),
+        // Les neuf ennemis posés à f2 sont dans l'intérieur de l'arène, pas dans ses murs.
+        EnemyNeverInWall(entity: Placed(0), from: 2, to: 10),
+        EnemyNeverInWall(entity: Placed(1), from: 2, to: 10),
+        EnemyNeverInWall(entity: Placed(2), from: 2, to: 10),
+        EnemyNeverInWall(entity: Placed(3), from: 2, to: 10),
+        EnemyNeverInWall(entity: Placed(4), from: 2, to: 10),
+        EnemyNeverInWall(entity: Placed(5), from: 2, to: 10),
+        EnemyNeverInWall(entity: Placed(6), from: 2, to: 10),
+        EnemyNeverInWall(entity: Placed(7), from: 2, to: 10),
+        EnemyNeverInWall(entity: Placed(8), from: 2, to: 10),
     ],
 )
