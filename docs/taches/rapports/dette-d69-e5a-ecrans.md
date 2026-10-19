@@ -29,6 +29,7 @@ joueur 1 → carte 2, `step: -1` → carte 1). Il rate si le garde `nav.handle =
 | fichiers du crate | 122 | 124 (`ui/screens/input.rs`, `ui/mutation_input.rs`) |
 | fichiers à fuite | 49 | 49 |
 | erreurs de résolution | 762 | 762 |
+| **après fusion d'`origin/main` `e0061e67`** (E3c, E6, D116) : `origin/main` seul → fusion | 46 fichiers à fuite sur 130, 755 erreurs | 46 sur 132, 755 |
 
 Les fuites ont **changé de fichier** : `ui/screens/mod.rs` (15, `KeyCode`/`Gamepad`/`ButtonInput`) et `ui/mutation_screen.rs` (1, `leafwing_input_manager`) sont libérés, `ui/screens/input.rs` (15) et `ui/mutation_input.rs` (1) les
 portent (app par construction). Fichiers sim libérés : `ui/screens/mod.rs`, `ui/mutation_screen.rs` (`ui/hud_model.rs` l'était déjà).
@@ -41,8 +42,8 @@ portent (app par construction). Fichiers sim libérés : `ui/screens/mod.rs`, `u
 | `ui/screens/mod.rs` | `hub.rs`, `profile.rs`, `run_state.rs` |
 | `ui/mutation_screen.rs` | `character/player/input.rs`, `progression.rs` |
 
-Fermeture maximale des fichiers sans fuite (calcul jetable) : aucun des trois n'y entre ; les ajouts possibles seraient `args/cli.rs`, `args/web.rs`, `character/enemy/ai/mod.rs`, `curses.rs`, `jjrs/browser.rs`, `lib.rs`, `light/mod.rs`, `logs.rs`,
-`performance.rs`, `ui/mod.rs`, `ui/weapon_hud.rs`, `web/mod.rs` (hors fiche, non ajoutés). Même constat qu'à E3b : la fermeture est la limite, à lever par E3c-E4 (`progression.rs`, `profile.rs`), E6 (`run_state.rs`) et E4 (`character/player/input.rs`). Commentaire daté dans
+Fermeture maximale des fichiers sans fuite (calcul jetable, avant la fusion de E6) : aucun des trois n'y entre ; les ajouts possibles auraient été `args/cli.rs`, `args/web.rs`, `character/enemy/ai/mod.rs`, `curses.rs`, `jjrs/browser.rs`, `lib.rs`, `light/mod.rs`, `logs.rs`,
+`performance.rs`, `ui/mod.rs`, `ui/weapon_hud.rs`, `web/mod.rs` (hors fiche, non ajoutés ; E6 a depuis fait entrer `curses.rs` et `character/enemy/ai/mod.rs`). Après la fusion, la sonde refuse toujours les trois (`ui/hud_model.rs` : `character/health/mod.rs`, `effects_runtime.rs`, `loot.rs`, `profile.rs`, `progression.rs` ; `ui/screens/mod.rs` : `hub.rs`, `profile.rs`, `run_state.rs` ; `ui/mutation_screen.rs` : `character/player/input.rs`, `progression.rs`). Même constat qu'à E3b : la fermeture est la limite, à lever par E3c-E4 (`progression.rs`, `profile.rs`), E6 (`run_state.rs`) et E4 (`character/player/input.rs`). Commentaire daté dans
 `scripts/d69-sim-files.txt`. `probe-game-sim.py --tests --sim-list` : sortie 0 (le test ajouté compile en ECS seul).
 
 ## 3. Preuves
@@ -76,17 +77,32 @@ quatre images ; deux rejeux du code avant : identiques entre eux). Bissection (c
 | variantes d'ordre d'enregistrement (modèles avant ou après le lobby, entrées dans ou hors `GameUiPlugin`, sans les entrées) | 4, les mêmes |
 
 Cause : `MutationNavInput` est une **ressource nouvelle** ; en bevy 0.19 une ressource est une entité, donc les `Entity` créées ensuite sont décalées d'un index, et l'ordre de dessin des étiquettes qui se chevauchent à profondeur égale (tri par
-entité) change sur ces quatre images. Ce n'est ni de l'ordre de systèmes ni du déterminisme : la simulation trie par `GgrsNetId`, les traces sont identiques, et toute ressource ajoutée au jeu produit la même différence. Les captures d'E3a/E3b ne l'avaient pas montré
-(leurs ressources nouvelles n'ont pas décalé d'étiquettes superposées sur ces scénarios). Je ne vois pas de coupe qui satisfasse la fiche (la ressource `MutationNavInput` est demandée) sans cette conséquence ; l'écart est accepté et documenté.
+entité) change sur ces quatre images. Ce n'est ni de l'ordre de systèmes ni du déterminisme : la simulation trie par `GgrsNetId`, les traces sont identiques, et toute ressource ajoutée au jeu produit la même différence. [INFERENCE] Les captures d'E3a (autres scénarios) ne l'avaient pas montré :
+leurs ressources nouvelles n'ont probablement pas décalé d'étiquettes superposées sur ces scénarios (non vérifié ; E3b n'a pas rejoué de captures). Je ne vois pas de coupe qui satisfasse la fiche (la ressource `MutationNavInput` est demandée) sans cette conséquence ; l'écart est accepté et documenté.
 
-## 5. Vérifications non vertes avant moi (hors périmètre, constatées sur `8ca55686`)
+## 5. Vérifications non vertes sur `8ca55686` (hors périmètre, corrigées par la fusion)
 
-- `scripts/check-forbidden.sh` : 5 occurrences `Instant::now` non autorisées (`jjrs/p2p.rs:497,531`, `jjrs/signal_watch.rs:159,180`, `ui/lobby.rs:220`) — code de D109 fusionné sans exception ; corrigé par D116 (`allowlist Instant du lobby`, fusionnée depuis).
-- `make test_tools` : `test_hardening.DeterminismGuardTests.test_current_repository_has_no_unreviewed_or_stale_exception` (même cause, plus un `HashMap<String, …>` d'un ajout d'isaac). Je n'ai touché aucun de ces fichiers.
+Sur la base `8ca55686`, avant fusion : `scripts/check-forbidden.sh` (5 occurrences `Instant::now` sans exception : `jjrs/p2p.rs`, `jjrs/signal_watch.rs`, `ui/lobby.rs`, code de D109) et `make test_tools`
+(`DeterminismGuardTests.test_current_repository_has_no_unreviewed_or_stale_exception`, même garde). Aucun de ces fichiers n'est dans mon diff. Après la fusion de `origin/main` (D116 : exceptions `Instant` du lobby) : `check-forbidden.sh` OK (47 occurrences auditées), `make test_tools` OK (§ 6).
 
 ## 6. Fusion de `origin/main` pendant la livraison
 
-`origin/main` a avancé (E3c, E6, D116 : `e0061e67`). Fusion dans la branche : voir le § 7 pour les conflits et le rejeu des preuves.
+`origin/main` a avancé de `8ca55686` à `e0061e67` (E3c, E6, D116). Fusion dans la branche, deux conflits : `core.rs` (la ligne `WaveAssetsPlugin` de E3c touche la même zone : les deux côtés gardés, mes trois plugins d'interface avant `WaveAssetsPlugin`,
+puis `WaveSystemPlugin`) et `scripts/d69-sim-files.txt` (commentaires : E6 et E3c d'abord, E5a ensuite ; cliquet à 29 fichiers). `docs/conventions.md` fusionné sans conflit. Preuves rejouées sur le résultat fusionné : voir le tableau suivant
+(les captures n'ont **pas** été rejouées après la fusion : E3c et E6 ne touchent ni écran, ni HUD, ni étiquette).
+
+| vérification sur le résultat fusionné (`104c4ba4`) | résultat |
+|---|---|
+| `make schedule_order_diff BASE=origin/main` (`e0061e67`) | **sortie 0** : 4 520 lignes, 645 types rollback identiques |
+| `make test_scenarios_par SHARDS=3` sans BLESS | 3 tranches `ok`, **802 scénarios**, aucun `.trace` modifié |
+| `make test_crates`, `make lint` ×5, `make gen GAME=…` ×5 | `exit 0`, 0 erreur, tous `ok ok`, aucune trace différente |
+| fuzz `ALACOD_FUZZ=0:8` / `ALACOD_FUZZ_BOMBS=1 ALACOD_FUZZ=0:8` | OK / OK |
+| `cargo fmt --check`, `check-forbidden.sh` (47 occurrences auditées), `check-rollback-registration.sh`, `make test_tools` (25 tests), `make check_sim_boundary` | OK |
+| `cargo check -p game --features lighting,ui_hui,debug_ui`, build web wasm32, `cargo check --workspace --all-targets` | OK ×3 |
+| p2p-stress zombies (3 000 frames) | codes 0 0, 0 `DesyncDetected`, **1 785 frames resimulées**, 2 999 lignes identiques |
+| p2p-stress isaac | codes 0 0, 0 `DesyncDetected`, **1 858 frames resimulées**, 2 999 lignes identiques |
+| `scripts/p2p-lobby.sh zombies` (`TRIALS=2`) | 2/2 verts (152 et 227 ms), 0 abandon de session |
+| `make probe_game_sim SIM_LIST=scripts/d69-sim-files.txt` | sortie 0 ; 29 fichiers au cliquet ; § 2 |
 
 ## 7. Décisions et limites
 
