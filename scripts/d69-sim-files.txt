@@ -29,8 +29,8 @@
 # state_trace.rs (↔ run_state.rs). Nouveaux fichiers à fuite (application) : character/{input_devices,app_plugin,control,ai_debug,health_bar}.rs, collider/test_wall.rs.
 # E3d (dette-d69-e3d-global-asset) : aucun ajout (24 fichiers). `GlobalAsset` devient une ressource d'application (présentation + sources de synchro) : aucun fichier de simulation ni lecteur
 # externe ne le lit ; aucun fichier n'est libéré (les 0 erreur `asset` des fichiers classés SIM datent de E3a-c) ; seul `global_asset.rs` (APP) gagne deux erreurs `asset` (`Assets<…>` du garde de sortie de `Loading`).
-# E5b (dette-d69-e5b-feedback) : aucun ajout (35 fichiers). Essayés et refusés par la sonde (« dépend de fichiers hors liste ») : feedback_log.rs (nouveau, sans fuite ; direct hors liste :
-# boss.rs, character/health/mod.rs, feedback_v3.rs) et feedback_v3.rs (sans fuite depuis E3a ; bombs.rs, character/config.rs, familiars.rs, feedback_log.rs). Fermeture interne des deux
+# E5b (dette-d69-e5b-feedback) : aucun ajout (35 fichiers). Essayés (37 avec eux) et refusés par la sonde (« dépend de fichiers hors liste ») : feedback_log.rs (nouveau, sans fuite ; hors liste :
+# boss.rs, character/health/mod.rs) et feedback_v3.rs (sans fuite depuis E3a ; hors liste : bombs.rs, character/config.rs, familiars.rs). Fermeture interne des deux
 # (79 fichiers, 49 hors liste) : 16 fichiers à fuite (camera/mod.rs, character/{config_asset,control,health_bar,visuals}.rs, economy_assets.rs, global_asset.rs, interaction.rs, items.rs,
 # legibility.rs, powerups_assets.rs, room_fog.rs, ui/hud.rs, waves/assets.rs, weapon_assets.rs, world_sprites.rs) : à relancer le calcul après E5c et les étapes suivantes.
 character/appearance.rs
