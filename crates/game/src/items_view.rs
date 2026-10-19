@@ -37,7 +37,7 @@ fn track_blank_system(events: Res<FrameEvents<BlankUsed>>, mut last: ResMut<Last
 fn draw_blank_wave_system(
     last: Res<LastBlank>,
     frame: Res<FrameCount>,
-    config: Option<Res<crate::feedback::FeedbackConfigLoaded>>,
+    config: Option<Res<crate::feedback_log::FeedbackConfigLoaded>>,
     mut gizmos: Gizmos,
 ) {
     // M2-T19 (§55) : l'anneau de `ui/feedback.ron` (`blank`) remplace cette onde quand il est actif.

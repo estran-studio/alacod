@@ -36,6 +36,10 @@
 # recording.rs, jjrs/{local,p2p}.rs, ui/hud_model.rs, ui/mutation_screen.rs, ui/screens/mod.rs, waves/systems.rs. Non classés sim bien que sans fuite (application par nature, vides en ECS seul
 # par cfg ou par feature) : args/{cli,web}.rs, audio/adaptive.rs, jjrs/{allumette,browser,p2p_socket_tests}.rs, light/mod.rs, logs.rs, performance.rs, ui/{mod,game_over,mutation_hui,weapon_hud}.rs,
 # ui/screens/hui.rs, web/mod.rs, lib.rs. Nouveaux fichiers à fuite (application) : interaction_view.rs, items_view.rs.
+# E5b (dette-d69-e5b-feedback) : aucun ajout (35 fichiers). Essayés (37 avec eux) et refusés par la sonde (« dépend de fichiers hors liste ») : feedback_log.rs (nouveau, sans fuite ; hors liste :
+# boss.rs, character/health/mod.rs) et feedback_v3.rs (sans fuite depuis E3a ; hors liste : bombs.rs, character/config.rs, familiars.rs). Fermeture interne des deux
+# (79 fichiers, 49 hors liste) : 16 fichiers à fuite (camera/mod.rs, character/{config_asset,control,health_bar,visuals}.rs, economy_assets.rs, global_asset.rs, interaction.rs, items.rs,
+# legibility.rs, powerups_assets.rs, room_fog.rs, ui/hud.rs, waves/assets.rs, weapon_assets.rs, world_sprites.rs) : à relancer le calcul après E5c et les étapes suivantes.
 balance.rs
 bombs.rs
 boss.rs

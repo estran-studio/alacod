@@ -2481,8 +2481,10 @@ stop), et décroît sur sa durée.
 portée de sa table de projectiles. Contour au rayon complet, disque intérieur qui grandit
 jusqu'au déclenchement (gizmos).
 
-**Preuve sans écran** : `game::feedback::FeedbackLog` (ressource de présentation, plugin
-`FeedbackLogPlugin` actif aussi en headless) reçoit les indices `{genre, frame, net_id,
+**Preuve sans écran** : `game::feedback_log::FeedbackLog` (ressource de présentation, plugin
+`FeedbackLogPlugin` actif aussi en headless ; depuis D69 E5b le journal est la moitié **simulation** de
+l'ancien `feedback.rs` : formes, fonctions pures, `FeedbackConfigLoaded`, sans asset ; le chargeur de
+`ui/feedback.ron` est `feedback::FeedbackAssetsPlugin`, côté application) reçoit les indices `{genre, frame, net_id,
 position, valeur}` de chaque **nouvelle** frame simulée (`FrameCount` plus grand que la
 dernière frame journalisée : les frames rejouées par un rollback ne sont pas journalisées deux
 fois). Limites (présentation, sans conséquence) : un tick qui simule plusieurs frames ne voit
@@ -7260,7 +7262,7 @@ dans les traces (aucune trace n'a bougé : suite complète sans `BLESS`), rien d
 de simulation n'importe du rendu (`make check_sim_boundary`). Chaque effet est **dérivé de l'état** (composants
 `Projectile`, `Bomb`, `FamiliarOf`, `Variant`, ressource `DoorLocks`) ou des `FrameEvents` **transitoires** que
 la simulation émet déjà (`Exploded`, `RockBroken`) : un rollback qui rejoue la même situation redonne les mêmes
-indices. Code : `game::feedback_v3` (fonctions pures et journal), `game::feedback` (rendu des explosions, teinte
+indices. Code : `game::feedback_v3` (fonctions pures et journal), `game::feedback_log` (journal v1/v2), `game::feedback` (rendu des explosions, teinte
 des champions), `game::world_sprites` (larmes, bombe, rocher), `game::character::visuals::orient_familiars`.
 
 ### Journal et moments clés

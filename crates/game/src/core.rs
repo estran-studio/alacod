@@ -149,7 +149,8 @@ impl Plugin for CoreSetupPlugin {
         app.add_plugins(crate::profile::ProfilePlugin);
         // Feedback v1 (T1.17) : journal de présentation (`FeedbackLog`), rempli aussi en
         // headless pour prouver le feedback sans écran ; le rendu est dans `PresentationPlugin`.
-        app.add_plugins(crate::feedback::FeedbackLogPlugin);
+        app.add_plugins(crate::feedback::FeedbackAssetsPlugin);
+        app.add_plugins(crate::feedback_log::FeedbackLogPlugin);
         // Lobby et déconnexion (hors `PresentationPlugin` : aussi en headless p2p), modèles de vue,
         // puis leurs entrées : `GameUiPlugin` et `GameUiInputPlugin` passent à `CoreAppPlugin` (E7).
         app.add_plugins(GameUiPlugin);

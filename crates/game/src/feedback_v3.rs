@@ -1,5 +1,5 @@
 //! Feedback v3 (M3-T17, `docs/conventions.md` §82) : larmes lisibles, familiers, champions,
-//! bombes et explosions. Complète [`crate::feedback`] (§31, §55).
+//! bombes et explosions. Complète [`crate::feedback_log`] (§31, §55).
 //!
 //! **Présentation seule.** Rien ici n'est rollback, rien n'entre dans le checksum ni dans les
 //! traces ; la simulation ne lit jamais ces fonctions ni ces composants. Tout est **dérivé de
@@ -32,7 +32,7 @@ use crate::character::config::CharacterConfigs;
 use crate::character::player::Player;
 use crate::character::variant::Variant;
 use crate::familiars::{FamiliarBehaviors, FamiliarMotion};
-use crate::feedback::{FeedbackCue, FeedbackKind, FeedbackLog};
+use crate::feedback_log::{FeedbackCue, FeedbackKind, FeedbackLog};
 use crate::frame_events::FrameEvents;
 use behaviors::FamiliarOf;
 use items::{Inventory, ItemTable, SynergyTable};
@@ -443,7 +443,7 @@ fn cue(kind: FeedbackKind, frame: u32, net_id: usize, position: Vec2) -> Feedbac
 /// Indices de M3-T17 pour la frame simulée de ce tick : une apparition = un indice (larme à
 /// modificateurs, familier, champion, bombe), une explosion ou un rocher cassé = un indice par
 /// événement, un mur secret ouvert = un indice par salle. S'exécute après
-/// `feedback::record_feedback_cues` (qui vide `frame_cues` à chaque tick) et applique la même règle :
+/// `feedback_log::record_feedback_cues` (qui vide `frame_cues` à chaque tick) et applique la même règle :
 /// rien sans nouvelle frame simulée, mémoire remise à zéro quand le compteur de frames recule.
 pub fn record_v3_cues(
     frame: Res<FrameCount>,

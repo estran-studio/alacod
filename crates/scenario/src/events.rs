@@ -201,13 +201,16 @@ fn curse_events(
 }
 
 /// Moments clés `feedback` (T1.17, `docs/conventions.md` §31) : relus de
-/// `game::feedback::FeedbackLog` (journal de présentation, rempli aussi en headless). Seuls
+/// `game::feedback_log::FeedbackLog` (journal de présentation, rempli aussi en headless). Seuls
 /// les indices rares deviennent des moments clés : télégraphe, hit stop, secousse (le flash
 /// et le chiffre accompagnent chaque coup, déjà visibles par les moments `hit`). Libellé :
 /// « télégraphe 34 (30 frames, rayon 48) », « hit stop 35 (4 frames) », « secousse 26 (8
 /// frames) ». M2-T19 : forme du pattern, blank, fin de boss.
-fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: ResMut<GameEvents>) {
-    use game::feedback::FeedbackKind;
+fn feedback_events(
+    log: Option<Res<game::feedback_log::FeedbackLog>>,
+    mut events: ResMut<GameEvents>,
+) {
+    use game::feedback_log::FeedbackKind;
     let Some(log) = log else {
         return;
     };
@@ -229,7 +232,7 @@ fn feedback_events(log: Option<Res<game::feedback::FeedbackLog>>, mut events: Re
                 Some(shape) => format!(
                     "{} {}",
                     cue.kind.label(),
-                    game::feedback::pattern_label(cue.net_id, shape)
+                    game::feedback_log::pattern_label(cue.net_id, shape)
                 ),
                 None => continue,
             },
