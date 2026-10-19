@@ -12,7 +12,7 @@
 #
 # Usage : [TRIALS=n] [GHOST=1] scripts/p2p-admission.sh [jeu]       (zombies par défaut ; signaling démarré et arrêté ici)
 # Variables : TRIALS (1 : essais verts demandés), EXIT_AT (1500), ROOM_FULL_TIMEOUT_S (3 : délai de
-#   l'ignoré, `ALACOD_CONNECT_TIMEOUT_SECS`), TIMEOUT (300 s), OUT (/tmp/p2p-admission), RACE_RETRIES (6),
+#   l'ignoré, `ALACOD_CONNECT_TIMEOUT_SECS`), TIMEOUT (300 s), OUT (/tmp/p2p-admission), RACE_RETRIES (6 : arrêt de sécurité ; le script échoue de toute façon si plus d'un essai sur quatre est perdu),
 #   STAGGER_MS (0 : écart de lancement entre clients), MATCHBOX_PORT, MATCHBOX_URL (voir `p2p-lib.sh`). Natif, sans `tc`.
 #   Bash, pas zsh.
 set -uo pipefail
@@ -68,8 +68,10 @@ if [ "${GHOST:-0}" = 1 ]; then
         wait "${pids[$i]}" || { echo "ÉCHEC : le client $((i - 1)) est sorti en erreur (voir $dir/p2p-$((i - 1)).log)"; fail=1; }
         kill "$wd" 2>/dev/null || true
     done
+    # Le fantôme a bien visé les deux clients (un candidat ICE par pair arrivé) : sinon l'essai ne prouve rien.
+    seen=$(grep -c "candidat ICE sans suite" "$dir/ghost.log" || true)
+    [ "${seen:-0}" -ge 2 ] || { echo "ÉCHEC : le fantôme n'a visé que ${seen:-0} client(s) sur 2 (l'essai ne prouve rien)"; fail=1; }
     for i in 0 1; do
-        grep -q "vu(s) par le signaling" "$dir/p2p-$i.log" || echo "  (le client $i n'a pas vu le fantôme avant de jouer)"
         grep -q "All 2 players are connected and ready" "$dir/p2p-$i.log" || { echo "ÉCHEC : le client $i n'a pas démarré"; fail=1; }
         grep -q "lobby_connect_timeout" "$dir/p2p-$i.log" && { echo "ÉCHEC : le client $i a atteint le délai de D109 (le fantôme l'a bloqué)"; fail=1; }
     done
@@ -186,4 +188,9 @@ while [ "$green" -lt "$TRIALS" ]; do
     [ "$fail" -eq 0 ] || { echo "p2p-admission : ÉCHEC"; exit 1; }
     green=$((green + 1))
 done
+# Une course perdue sur quatre au plus : au-delà, le script ne prouve plus l'admission, il la subit.
+if [ $((lost * 4)) -gt "$attempt" ]; then
+    echo "ÉCHEC : $lost essai(s) perdu(s) par course sur $attempt (plus d'un sur quatre) ; journaux dans $OUT"
+    exit 1
+fi
 echo "p2p-admission : OK ($green essai(s) vert(s), $lost essai(s) perdu(s) par course sur $attempt)"
