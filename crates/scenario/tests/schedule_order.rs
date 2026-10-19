@@ -16,6 +16,9 @@
 //!
 //! `#[ignore]` : outil, pas test de suite. `ALACOD_SCHEDULE_DUMP=<dossier>` (défaut
 //! `target/schedule-order`), `ALACOD_SCHEDULE_SCENARIOS=jeu:nom,jeu:nom` pour d'autres scénarios.
+//! `ALACOD_SCHEDULE_ALL=1` (D69 E7) ajoute `<jeu>.all.txt` (tous les schedules, avec les paires de
+//! systèmes non ordonnés en conflit) et `presentation.all.txt` (avec `PresentationPlugin`) : la sortie
+//! par défaut, celle de `make schedule_order_diff`, n'est pas modifiée.
 
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -143,7 +146,113 @@ fn dump_schedule_order() {
             writeln!(rollback, "{i:04} {}", short(name)).unwrap();
         }
         std::fs::write(dir.join(format!("{game}.rollback.txt")), rollback).unwrap();
+
+        if std::env::var("ALACOD_SCHEDULE_ALL").is_ok_and(|v| v == "1") {
+            std::fs::write(
+                dir.join(format!("{game}.all.txt")),
+                dump_all_schedules(&mut app),
+            )
+            .unwrap();
+        }
     }
+}
+
+/// Option `ALACOD_SCHEDULE_ALL=1` (D69 E7) : **tous** les schedules de l'app headless, pas seulement ceux
+/// du rollback (`Startup`, `Update`, `PostUpdate`, `OnEnter(..)`, `OnExit(..)`, `Last`…), dans l'ordre
+/// exécutable, puis, pour chacun, les paires de systèmes **non ordonnés qui se disputent une donnée**
+/// (`conflicting_systems`), écrites « premier < second » : ce sont les seules paires dont le résultat
+/// peut dépendre de l'ordre d'insertion des plugins. Le tri topologique de bevy ne suit pas l'ordre
+/// d'insertion : un plugin déplacé retourne aussi des paires qu'il ne touche pas ; elles se jugent
+/// une à une (conditions d'état, ressources en jeu). Les schedules de `PresentationPlugin`
+/// n'existent pas en headless : voir `dump_presentation_order`.
+fn dump_all_schedules(app: &mut App) -> String {
+    let labels: Vec<_> = app
+        .world()
+        .resource::<Schedules>()
+        .iter()
+        .map(|(_, schedule)| schedule.label())
+        .collect();
+    let mut sections: Vec<(String, String)> = Vec::new();
+    for label in labels {
+        let label_name = format!("{label:?}");
+        let text = app
+            .world_mut()
+            .try_schedule_scope(label, |world, schedule| {
+                let mut text = String::new();
+                if let Err(e) = schedule.initialize(world) {
+                    writeln!(text, "# {label_name} : {e}").unwrap();
+                    return text;
+                }
+                writeln!(text, "# {label_name}").unwrap();
+                let mut position = std::collections::BTreeMap::new();
+                let mut names = std::collections::BTreeMap::new();
+                for (i, (key, system)) in schedule.systems().unwrap().enumerate() {
+                    let name = short(&system.name().to_string());
+                    writeln!(text, "{i:04} {name}").unwrap();
+                    position.insert(key, i);
+                    names.insert(key, name);
+                }
+                let mut conflicts: Vec<String> = schedule
+                    .graph()
+                    .conflicting_systems()
+                    .0
+                    .iter()
+                    .filter(|(a, b, _)| position.contains_key(a) && position.contains_key(b))
+                    .map(|(a, b, _)| {
+                        let (first, second) = if position[a] < position[b] {
+                            (a, b)
+                        } else {
+                            (b, a)
+                        };
+                        format!("{} < {}", names[first], names[second])
+                    })
+                    .collect();
+                conflicts.sort();
+                for line in conflicts {
+                    writeln!(text, "  conflit {line}").unwrap();
+                }
+                text
+            })
+            .unwrap_or_else(|_| format!("# {label_name} : absent\n"));
+        sections.push((label_name, text));
+    }
+    sections.sort_by(|a, b| a.0.cmp(&b.0));
+    sections.into_iter().map(|(_, text)| text).collect()
+}
+
+/// Ordre des schedules **avec** `PresentationPlugin` (`<dossier>/presentation.all.txt`) : pas de fenêtre
+/// ni de GPU sur un serveur, donc les plugins par défaut sont ceux du mode headless (rendu sans
+/// backend, pas de fenêtre) et seul `CoreSetupPlugin` reçoit `headless: false`, ce qui ajoute
+/// `PresentationPlugin` à sa place exacte dans `build`. Aucune frame n'est jouée. Même format que
+/// `ALACOD_SCHEDULE_ALL` ; c'est la preuve d'ordre des systèmes de présentation (`Update`,
+/// `PostUpdate`…) entre deux commits.
+#[test]
+#[ignore]
+fn dump_presentation_order() {
+    // Option : `make schedule_order_diff` (sortie par défaut) n'écrit pas ce fichier.
+    if std::env::var("ALACOD_SCHEDULE_ALL").map_or(true, |v| v != "1") {
+        return;
+    }
+    let dir = PathBuf::from(
+        std::env::var("ALACOD_SCHEDULE_DUMP").unwrap_or_else(|_| "target/schedule-order".into()),
+    );
+    std::fs::create_dir_all(&dir).unwrap();
+    let config = |headless| game::session::CoreSetupConfig {
+        app_name: "presentation".into(),
+        headless,
+        asset_root: Some(scenario::runner::assets_dir("zombies")),
+    };
+    let mut app = App::new();
+    app.add_plugins(game::core::CoreSetupPlugin(config(true)).get_default_plugin())
+        .insert_resource(game::profile::ProfileSettings { dir: None })
+        .add_plugins(game::core::CoreSetupPlugin(config(false)));
+    app.finish();
+    app.cleanup();
+    std::fs::write(
+        dir.join("presentation.all.txt"),
+        dump_all_schedules(&mut app),
+    )
+    .unwrap();
 }
 
 #[test]
