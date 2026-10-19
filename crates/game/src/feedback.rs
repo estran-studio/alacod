@@ -1336,7 +1336,7 @@ fn apply_layer_colors(
     >,
     // Les barres de vie gardent leur couleur (rouge pour un ennemi, verte pour un joueur) : la teinte
     // et le flash ne vont qu'aux calques du personnage.
-    mut sprites: Query<&mut Sprite, Without<crate::character::health::ui::HealthBar>>,
+    mut sprites: Query<&mut Sprite, Without<crate::character::health_bar::HealthBar>>,
 ) {
     for (layers, flash, statuses, marker, champion, transformation) in &characters {
         // D66 : la teinte du marqueur remplace le blanc de base (statuts et flash passent devant).

@@ -19,15 +19,25 @@
 # E3c (dette-d69-e3c-balance) : + clock.rs, waves/config.rs (24 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : balance.rs
 # (character/config.rs), economy.rs (balance.rs, waves/mod.rs), powerups.rs (character/health/mod.rs), shop.rs (health/mod.rs, effects_runtime.rs, interaction.rs, items.rs),
 # waves/mod.rs (character/enemy/spawning.rs, health/mod.rs) ; nouveaux fichiers à fuite (enveloppes, app) : balance_assets.rs, economy_assets.rs, powerups_assets.rs, waves/assets.rs.
+# E4 (dette-d69-e4-personnage) : + character/dash.rs, character/surface.rs, character/enemy/ai/{navigation,retreat,state}.rs, collider/mod.rs (35 fichiers). Libérés de toute fuite sans entrer au cliquet
+# (fermeture interne à fuite) : character/mod.rs, character/create.rs, character/player/{input,create}.rs, character/enemy/ai/{pathing,behavior,rules,squad}.rs, character/config.rs,
+# recording.rs ; ils dépendent tous de character/health/mod.rs (↔ character/config.rs en cycle ; economy.rs, effects_v3.rs, progression.rs, interaction.rs : E5c), de waves/mod.rs, de hub.rs ou de
+# state_trace.rs (↔ run_state.rs). Nouveaux fichiers à fuite (application) : character/{input_devices,app_plugin,control,ai_debug,health_bar}.rs, collider/test_wall.rs.
 character/appearance.rs
+character/dash.rs
 character/enemy/ai/mod.rs
+character/enemy/ai/navigation.rs
 character/enemy/ai/obstacle.rs
+character/enemy/ai/retreat.rs
+character/enemy/ai/state.rs
 character/enemy/mod.rs
 character/movement.rs
 character/player/jjrs.rs
 character/player/mod.rs
+character/surface.rs
 character/variant.rs
 clock.rs
+collider/mod.rs
 collision_grid.rs
 curses.rs
 fog_map.rs

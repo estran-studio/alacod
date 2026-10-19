@@ -14,7 +14,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::global_asset::GlobalAsset;
 
-use super::{appearance::CharacterAppearance, config::CharacterConfigs, health::ui::HealthBar};
+use super::{appearance::CharacterAppearance, config::CharacterConfigs, health_bar::HealthBar};
 
 /// Teinte de base des calques (D66, `CharacterConfig::marker`) : relue par
 /// `feedback::apply_layer_colors` à la place du blanc. Présentation, hors rollback.
@@ -58,6 +58,9 @@ pub fn attach_character_visuals(
         commands.entity(entity).try_insert((
             AnimationVisualsBundle::new(map_layers.clone(), animation_handle.clone(), 0),
             VisualsAttached,
+            // `create_character` (simulation) ne pose plus `Visibility` (D69 E6/E4) : la présentation la pose
+            // avec les sprites enfants.
+            Visibility::default(),
         ));
 
         // Un skin sans calque (ennemis de `gungeon`, lot C) montre tous les calques de l'entrée de la

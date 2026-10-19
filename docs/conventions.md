@@ -584,8 +584,8 @@ dans l'ordre du gain, et ce qu'il ne faut pas défaire :
   `Hash` est celui de `#[derive(Hash)]` sur `FlowField` (test
   `shared_flow_field_hash_equals_derived`) : aucune trace ne bouge.
 - Contenu (`Registry`, `GameManifest`) chargé **une fois par processus** (`runner::load_content`),
-  lecture des périphériques coupée (`game::character::skip_device_input`, `ActionState` n'est lu
-  qu'avec `InputSource::Devices`) et overlay de vagues (texte d'UI) coupé en headless.
+  pas de lecture des périphériques (depuis D69 E4 `character::app_plugin::CharacterAppPlugin` n'ajoute ni leafwing
+  ni `collect_device_inputs` en headless ; `skip_device_input` n'existe plus) et overlay de vagues (texte d'UI) coupé en headless.
 - **Tranches par durée** : `scripts/test-scenarios-sharded.sh` lit `sim_seconds` dans
   `target/metrics/latest.json` (sinon les `frames` du `.ron`) et remplit les tranches du plus
   long au plus court (plus long d'abord, sur la tranche la moins chargée). Les métriques d'un
