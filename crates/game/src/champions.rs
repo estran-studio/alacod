@@ -76,7 +76,7 @@ pub struct PatternGhost;
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct DeathPlan {
     /// `(rayon, dégâts, destroys)`, dans l'ordre déclaré.
-    pub explosions: Vec<(Fixed, Fixed, bool)>,
+    pub explosions: Vec<(Fixed, Fixed, bool, FriendlyFire)>,
     /// `(personnage, nombre)`, dans l'ordre déclaré.
     pub spawns: Vec<(String, u32)>,
     /// `(pattern, arme)`, dans l'ordre déclaré.
@@ -94,7 +94,10 @@ pub fn death_plan(actions: &[Action]) -> DeathPlan {
                 radius,
                 damage,
                 destroys,
-            } => plan.explosions.push((*radius, *damage, *destroys)),
+                friendly_fire,
+            } => plan
+                .explosions
+                .push((*radius, *damage, *destroys, (*friendly_fire).into())),
             Action::SpawnCharacters { id, count } => plan.spawns.push((id.clone(), *count)),
             Action::SpawnPattern { pattern, weapon } => {
                 plan.patterns.push((pattern.clone(), weapon.clone()))
@@ -262,7 +265,7 @@ pub fn champion_death_system(
                     HitBy::Entity(_) => None,
                 })
                 .unwrap_or_else(|| net_id.clone());
-            for (radius, damage, destroys) in &plan.explosions {
+            for (radius, damage, destroys, friendly_fire) in &plan.explosions {
                 let at = fixed_math::FixedTransform3D::new(
                     fixed_math::FixedVec3::new(center.x, center.y, fixed_math::FIXED_ZERO),
                     fixed_math::FixedMat3::IDENTITY,
@@ -274,7 +277,7 @@ pub fn champion_death_system(
                         fuse_until: frame.frame.saturating_add(1),
                         radius: *radius,
                         damage: *damage,
-                        friendly_fire: FriendlyFire::Always,
+                        friendly_fire: *friendly_fire,
                         team: *team,
                         destroys: *destroys,
                     },
@@ -452,6 +455,7 @@ mod tests {
                 radius: fx(40.0),
                 damage: fx(10.0),
                 destroys: false,
+                friendly_fire: Default::default(),
             },
             Action::SpawnCharacters {
                 id: "petit".into(),
@@ -465,12 +469,16 @@ mod tests {
                 radius: fx(8.0),
                 damage: fx(0.0),
                 destroys: true,
+                friendly_fire: Default::default(),
             },
             Action::Heal(fx(5.0)),
         ]);
         assert_eq!(
             plan.explosions,
-            vec![(fx(40.0), fx(10.0), false), (fx(8.0), fx(0.0), true)]
+            vec![
+                (fx(40.0), fx(10.0), false, FriendlyFire::Always),
+                (fx(8.0), fx(0.0), true, FriendlyFire::Always)
+            ]
         );
         assert_eq!(plan.spawns, vec![("petit".to_string(), 2)]);
         assert_eq!(

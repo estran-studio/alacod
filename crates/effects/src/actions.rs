@@ -20,6 +20,35 @@ use sim_core::stats::StatId;
 /// module `game::powerups`, décision « pas de ressource globale toujours présente »).
 pub const CURRENCY_MULTIPLIER_STAT: &str = "powerup_currency_multiplier";
 
+/// Tir ami de l'`Explode` d'un objet, d'un effet ou d'une mort de champion (D113).
+/// `Always` (défaut) : comportement d'avant, la bombe blesse aussi les alliés et le porteur.
+/// `Never` : aucun allié (même bord que le porteur, lui compris) n'est touché.
+/// `Hash` manuel : `Always` n'écrit rien (les hashs d'avant ne bougent pas), `Never` écrit un octet.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ExplodeFriendlyFire {
+    #[default]
+    Always,
+    Never,
+}
+
+impl std::hash::Hash for ExplodeFriendlyFire {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if matches!(self, Self::Never) {
+            state.write_u8(1);
+        }
+    }
+}
+
+impl From<ExplodeFriendlyFire> for sim_core::damage::FriendlyFire {
+    fn from(value: ExplodeFriendlyFire) -> Self {
+        match value {
+            ExplodeFriendlyFire::Always => Self::Always,
+            ExplodeFriendlyFire::Never => Self::Never,
+        }
+    }
+}
+
 /// Une action appliquée par un power-up ramassé ou un effet. Liste fermée et minimale ; une
 /// action qui doit être multipliée par le nombre d'exemplaires est enveloppée par `Scaled`.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -145,6 +174,11 @@ pub enum Action {
         #[cfg_attr(feature = "schema", schemars(extend("x-lint" = ">= 0")))]
         damage: Fixed,
         destroys: bool,
+        /// D113 : `Never` épargne les alliés du porteur (porteur compris : même équipe) ;
+        /// `Always` (défaut, comportement d'avant) les blesse. Fin de variante : absent des
+        /// contenus d'avant ; haché seulement s'il est actif (`Never`).
+        #[serde(default)]
+        friendly_fire: ExplodeFriendlyFire,
     },
     /// M3-T0d (`docs/conventions.md` §63) : fait apparaître `count` personnages `id` à la position
     /// de l'action (division d'un champion à sa mort). Contrairement à `SpawnEnemies` (frise de
@@ -261,10 +295,12 @@ pub fn scaled_action(action: &Action, copies: u32) -> Option<Action> {
             radius,
             damage,
             destroys,
+            friendly_fire,
         } => Action::Explode {
             radius: *radius,
             damage: damage.saturating_mul(n),
             destroys: *destroys,
+            friendly_fire: *friendly_fire,
         },
         Action::Scaled {
             action,
@@ -387,16 +423,31 @@ mod tests {
                 &Action::Explode {
                     radius: fx(40.0),
                     damage: fx(5.0),
-                    destroys: true
+                    destroys: true,
+                    friendly_fire: ExplodeFriendlyFire::Never,
                 },
                 2
             ),
             Some(Action::Explode {
                 radius: fx(40.0),
                 damage: fx(10.0),
-                destroys: true
+                destroys: true,
+                friendly_fire: ExplodeFriendlyFire::Never,
             })
         );
+    }
+
+    #[test]
+    fn friendly_fire_always_garde_le_hash_d_avant_never_le_change() {
+        use std::hash::{Hash, Hasher};
+        let hash = |v: &ExplodeFriendlyFire| {
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            v.hash(&mut h);
+            h.finish()
+        };
+        let empty = std::collections::hash_map::DefaultHasher::new().finish();
+        assert_eq!(hash(&ExplodeFriendlyFire::Always), empty, "actif seulement");
+        assert_ne!(hash(&ExplodeFriendlyFire::Never), empty);
     }
 
     #[test]

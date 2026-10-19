@@ -1,9 +1,9 @@
-// `isaac` (M3-T11d2, §76.5) : un coup reçu (`OnDamageTaken`) fait exploser le porteur (`Explode`, rayon 40, 3 dégâts, sans détruire le décor). Tir ami (§69) : l'explosion touche aussi le porteur, mais elle suit son propre coup subi de quelques frames et les i-frames de `hit_iframes` (`pleureur`, 60 frames) l'absorbent : mesuré, la santé du porteur est la même avec et sans l'objet (4 à f190). Seuils mesurés (`cible_mordante`) : 3 coups reçus par la cible avec l'objet (explosions), 0 sans. Sans `hit_iframes` le porteur subirait l'explosion (non mesuré : `pleureur`, le personnage d'`isaac`, en a).
+// `isaac` (M3-T11d2, §76.5) : un coup reçu (`OnDamageTaken`) fait exploser le porteur (`Explode`, rayon 40, 3 dégâts, sans détruire le décor). `friendly_fire: Never` (D113) : l'explosion n'atteint ni le porteur ni ses alliés, sans compter sur les `hit_iframes` de `pleureur`. Seuils mesurés (`cible_mordante`) : 3 coups reçus par la cible avec l'objet (explosions), 0 sans. Sans `hit_iframes` le porteur subirait l'explosion (non mesuré : `pleureur`, le personnage d'`isaac`, en a).
 (
     name: "Épines de chair",
     kind: Passive,
     effects: [
-        (on: OnDamageTaken, do: [Explode(radius: "40.0", damage: "3.0", destroys: false)]),
+        (on: OnDamageTaken, do: [Explode(radius: "40.0", damage: "3.0", destroys: false, friendly_fire: Never)]),
     ],
     tags: ["effet"],
     rarity: Rare,

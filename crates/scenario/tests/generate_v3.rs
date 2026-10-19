@@ -321,6 +321,7 @@ fn explode() -> Action {
         radius: Fixed::from_num(70),
         damage: Fixed::from_num(10),
         destroys: false,
+        friendly_fire: Default::default(),
     }
 }
 
