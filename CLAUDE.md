@@ -760,7 +760,7 @@ est ouvert. Détail et mesures : `docs/conventions.md` §56.
 
 Le joueur affiché est celui que la caméra suit de force (`--follow <handle>` de
 `play_scenario`), sinon le joueur local de plus petit handle. Les cercles de portée restent
-dessinés par `interaction::display_interaction_prompts` ; le texte du prompt est dans le HUD.
+dessinés par `interaction_view::display_interaction_prompts` ; le texte du prompt est dans le HUD.
 
 L'écran de fin (`ui/game_over.rs`) affiche le résumé de la run et deux boutons : « Rejouer (R) »
 (`RunRequest::Restart`) et « Lobby » (`RunRequest::ToLobby`, T2.12).

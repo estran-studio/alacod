@@ -721,7 +721,7 @@ fn floor_window_bars_system(
     mut commands: Commands,
     windows: Query<&MapRollbackItem, With<map::game::entity::map::window::WindowHealth>>,
     children: Query<&Children>,
-    bars: Query<(), With<game::interaction::WindowHealthBar>>,
+    bars: Query<(), With<game::interaction_view::WindowHealthBar>>,
 ) {
     for item in windows.iter() {
         let has_bar = children
@@ -732,7 +732,7 @@ fn floor_window_bars_system(
         }
         commands.entity(item.parent).with_children(|parent| {
             parent.spawn((
-                game::interaction::WindowHealthBar,
+                game::interaction_view::WindowHealthBar,
                 Sprite {
                     color: Color::srgb(0.0, 1.0, 0.0),
                     custom_size: Some(Vec2::new(0.0, 2.0)),

@@ -421,17 +421,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                 })
                 .collect(),
         ))
-        // `.before(weapon_inventory_system)` : quand `weapon` despawn/recrée les armes du
-        // joueur (voir la doc de `apply_player_overrides`), `weapon_inventory_system` (Update,
-        // `game::weapon_assets::WeaponAssetsPlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
-        // despawnées) dans la même frame — Bevy insère un `ApplyDeferred` entre deux systèmes
-        // ordonnés (`auto_insert_apply_deferred`, par défaut), ce qui suffit ici : pas besoin
-        // d'ordonner aussi par rapport à `spawn_players_when_map_loaded` (voir la doc de la
-        // fonction, inchangé : elle attend déjà que `Player` existe).
-        .add_systems(
-            Update,
-            apply_player_overrides.before(game::weapon_assets::weapon_inventory_system),
-        )
+        .add_systems(Update, apply_player_overrides)
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         // M2-T18 : actions d'UI du scénario (présentation, hors trace) ; absente sans `ui`.
