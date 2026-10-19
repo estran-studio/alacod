@@ -32,7 +32,10 @@ pub fn attach_weapon_visuals(
             continue;
         };
 
-        commands.entity(entity).insert((
+        // `try_insert` : l'arme peut être détruite avant l'application
+        // différée (override de scénario qui remplace l'arme du joueur,
+        // rollback) — un `insert` paniquait sur l'entité morte.
+        commands.entity(entity).try_insert((
             AnimationVisualsBundle::new(
                 map_layers.clone(),
                 animation_handle.clone(),

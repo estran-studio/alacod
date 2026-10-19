@@ -555,9 +555,12 @@ pub fn create_child_sprite(
         entity_commands.insert(AnimatedLayer {});
     }
 
+    // `ChildOf` sur l'enfant (fraîchement créé, toujours vivant) plutôt que
+    // `add_child` sur le parent : le parent peut être détruit avant
+    // l'application différée (arme remplacée par un override, rollback),
+    // ce qui paniquait dans `attach_*_visuals`.
     let sprite = entity_commands.id();
-
-    commands.entity(parent_entity).add_child(sprite);
+    entity_commands.insert(ChildOf(parent_entity));
 
     sprite
 }

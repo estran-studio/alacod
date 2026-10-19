@@ -6,47 +6,56 @@
 // à `assets/`. Feuilles et images rangées par entité sous `sprites/` (characters/, weapons/,
 // enemies/, effects/) ; voir `docs/conventions.md` §2.
 ({
+    // Post-apo TheLazyStone (overlay privé, sprites/postapo/ gitignoré,
+    // régénéré par scripts/repack-postapocalypse.py ; voir assets.yaml).
     "player": (
-        animation: "sprites/characters/player/player_animation.ron",
+        animation: "sprites/postapo/player_animation.ron",
         layers: {
-            "body": "sprites/characters/player/player_sheet.ron",
-            "shirt": "sprites/characters/player/shirt_1_sheet.ron",
-            "hair": "sprites/characters/player/hair_1_sheet.ron",
+            "body": "sprites/postapo/player_sheet.ron",
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
     ),
     // Armes à distance : portées par le joueur, animées par l'animation du joueur.
     "shotgun": (
         animation: "sprites/characters/player/player_animation.ron",
-        layers: { "body": "sprites/weapons/shotgun_sheet.ron" },
+        layers: { "body": "sprites/postapo/weapon_shotgun_sheet.ron" },
     ),
     "pistol": (
         animation: "sprites/characters/player/player_animation.ron",
-        layers: { "body": "sprites/weapons/pistol_sheet.ron" },
+        layers: { "body": "sprites/postapo/weapon_pistol_sheet.ron" },
     ),
     "machine_gun": (
         animation: "sprites/characters/player/player_animation.ron",
-        layers: { "body": "sprites/weapons/machine_gun_sheet.ron" },
+        layers: { "body": "sprites/postapo/weapon_machine_gun_sheet.ron" },
     ),
     // Le zombie « hard » (`zombie_2`) réutilise l'animation du zombie standard.
     "zombie_1": (
-        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        animation: "sprites/postapo/zombie_small_animation.ron",
         layers: {
-            "body": "sprites/enemies/zombie/zombie_sheet.ron",
+            "body": "sprites/postapo/zombie_small_sheet.ron",
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
     ),
     "zombie_2": (
-        animation: "sprites/enemies/zombie/zombie_animation.ron",
+        animation: "sprites/postapo/zombie_axe_animation.ron",
         layers: {
-            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
+            "body": "sprites/postapo/zombie_axe_sheet.ron",
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
     ),
     "zombie_full": (
-        animation: "sprites/enemies/zombie/zombie_full_animation.ron",
+        animation: "sprites/postapo/zombie_big_animation.ron",
         layers: {
-            "body": "sprites/enemies/zombie/zombie_full_sheet.ron",
+            "body": "sprites/postapo/zombie_big_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    // Boss de la salle finale : même feuille que `zombie_full`, id distinct
+    // (l'id personnage vaut l'`asset_name_ref`).
+    "boss_zombie": (
+        animation: "sprites/postapo/zombie_big_animation.ron",
+        layers: {
+            "body": "sprites/postapo/zombie_big_sheet.ron",
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
     ),

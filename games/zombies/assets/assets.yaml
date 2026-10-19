@@ -182,3 +182,25 @@
     — SunnyLand et Dungeon_asset — sont enregistrés ci-dessus)
   modifications: avant_poste et la_fonderie respectent les conventions de test_map.ldtk ;
     relPath des tilesets préfixés de ../exemples/ (les cartes vivent dans maps/).
+
+- id: thelazystone-postapocalypse
+  fichiers:
+    - sprites/postapo/player.png
+    - sprites/postapo/zombie_small.png
+    - sprites/postapo/zombie_axe.png
+    - sprites/postapo/zombie_big.png
+    - sprites/postapo/weapon_pistol.png
+    - sprites/postapo/weapon_machine_gun.png
+    - sprites/postapo/weapon_shotgun.png
+  source: https://thelazystone.itch.io/post-apocalypse-pixel-art-asset-pack
+    (PostApocalypse_AssetPack_v1.1.2.zip ; page et licence lues le 2026-10-15)
+  auteur: TheLazyStone
+  licence: licence propre de l'auteur — gratuit pour usage non commercial,
+    usage commercial contre paiement (2 $ ou plus) ; redistribution interdite,
+    sous forme originale ou modifiée. Fichiers NON commites (dossier
+    sprites/postapo/ gitignore) : overlay prive pour builds de demo seulement.
+  modifications: feuilles de profil (side) redécoupees et réalignées en cellules
+    uniformes (Idle|Run|Dying_1|Attack, pieds centrés) par
+    scripts/repack-postapocalypse.py ; une frame des calques mains+arme
+    recadrée pour les visuels d'armes rotatifs.
+  statut: overlay privé (throne + zombies), pas un placeholder
