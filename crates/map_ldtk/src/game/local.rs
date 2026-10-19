@@ -13,7 +13,6 @@ use game::{
     },
     collider::CollisionSettings,
     economy::PerkMachine,
-    global_asset::GlobalAsset,
     interaction::{Interactable, InteractionType},
     jjrs::{GggrsSessionConfigurationState, GgrsSessionBuilding},
     session::AppState,
@@ -39,7 +38,6 @@ use super::plugin::{LdtkMapLoadingEvent, MapNetIdAssignment};
 #[derive(SystemParam)]
 pub struct LevelSpawnAssets<'w> {
     pub collision_settings: Res<'w, CollisionSettings>,
-    pub global_assets: Res<'w, GlobalAsset>,
     // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
     pub balance: Res<'w, game::balance::ResolvedBalance>,
     pub character_configs: Res<'w, CharacterConfigs>,
@@ -322,22 +320,14 @@ pub fn spawn_character(
     difficulty: bevy_fixed::fixed_math::Fixed,
     context: game::character::variant::VariantContext,
 ) -> Option<Entity> {
-    if !assets
-        .global_assets
-        .character_configs
-        .contains_key(character)
-    {
+    let Some(character_config) = assets.character_configs.get(character) else {
         warn!(
             "CharacterSpawn : personnage inconnu « {}» (voir `alacod lint`), ignoré",
             character
         );
         return None;
-    }
-
-    let character_config = assets.character_configs.get(character);
-    let team = team
-        .or_else(|| character_config.and_then(|config| config.team))
-        .unwrap_or(Team::Enemies);
+    };
+    let team = team.or(character_config.team).unwrap_or(Team::Enemies);
 
     // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
     let health_max = assets

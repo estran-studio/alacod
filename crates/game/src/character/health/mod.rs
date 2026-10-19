@@ -1,5 +1,3 @@
-pub mod ui;
-
 use bevy::{
     log::{tracing::span, Level},
     prelude::*,

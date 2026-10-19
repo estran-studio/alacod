@@ -11,7 +11,10 @@ use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
 use ui::CameraDebugUIPlugin;
 
-use crate::character::player::{control::PlayerAction, LocalPlayer, Player};
+use crate::character::{
+    control::PlayerAction,
+    player::{LocalPlayer, Player},
+};
 use crate::session::OnlineState;
 
 #[derive(Asset, TypePath, Debug, Clone, Deserialize, Serialize)]

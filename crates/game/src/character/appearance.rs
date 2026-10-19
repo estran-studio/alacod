@@ -6,7 +6,7 @@ use bevy::prelude::*;
 /// Apparence d'un personnage : donnée par la simulation, dessinée par la présentation.
 #[derive(Component, Clone, Debug)]
 pub struct CharacterAppearance {
-    /// Clé de `GlobalAsset::character_configs`.
+    /// Clé de `CharacterConfigs` (le `CharacterId` du registre, l'`asset_name_ref`).
     pub config_name: String,
     /// Skin de la config ; `None` pour le skin de départ.
     pub skin: Option<String>,

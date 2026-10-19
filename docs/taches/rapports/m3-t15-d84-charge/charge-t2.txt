@@ -1,0 +1,16 @@
+2026-10-18T23:18:09Z 2.32 autres=56% top:36%hermes 8%omp 5%node
+2026-10-18T23:18:19Z 2.27 autres=63% top:34%hermes 8%omp 6%tailscaled
+2026-10-18T23:18:29Z 2.52 autres=26% top:8%omp 5%hermes 4%tailscaled
+2026-10-18T23:18:39Z 2.52 autres=53% top:31%hermes 7%omp 5%node
+2026-10-18T23:18:49Z 2.66 autres=83% top:50%hermes 12%omp 8%tailscaled
+2026-10-18T23:18:59Z 2.48 autres=31% top:9%omp 8%hermes 5%tailscaled
+2026-10-18T23:19:09Z 2.40 autres=27% top:9%omp 6%node 3%tailscaled
+2026-10-18T23:19:19Z 2.26 autres=53% top:34%hermes 7%omp 4%node
+2026-10-18T23:19:30Z 2.07 autres=39% top:15%omp 9%tailscaled 5%node
+2026-10-18T23:19:40Z 2.29 autres=26% top:10%omp 5%node 5%hermes
+2026-10-18T23:19:50Z 2.09 autres=57% top:31%hermes 10%omp 4%tailscaled
+2026-10-18T23:20:00Z 2.22 autres=25% top:9%omp 5%tailscaled 4%node
+2026-10-18T23:20:10Z 2.03 autres=42% top:20%hermes 9%omp 5%tailscaled
+2026-10-18T23:20:20Z 1.95 autres=62% top:37%hermes 8%omp 4%node
+2026-10-18T23:20:30Z 1.89 autres=23% top:7%omp 5%node 3%tailscaled
+2026-10-18T23:20:40Z 1.82 autres=43% top:26%hermes 6%omp 5%node

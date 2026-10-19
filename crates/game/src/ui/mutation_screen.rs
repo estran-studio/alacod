@@ -12,7 +12,7 @@
 //!   (`since_frame + choice_frames`) ; la simulation ne s'arrête jamais ;
 //! - `highlighted` : carte surlignée, état UI local. ←/→ (flèches, D-pad) la déplacent ; un
 //!   bouton `ChoiceA/B/C` tenu par le joueur affiché (touches 1/2/3, ou script de scénario) la
-//!   pose ; un nouveau choix la remet à 0. Valider (A / Entrée, [`PlayerAction::ChoiceConfirm`])
+//!   pose ; un nouveau choix la remet à 0. Valider (A / Entrée, `PlayerAction::ChoiceConfirm`)
 //!   émet le bit de la carte surlignée ([`confirm_bit`]) dans `read_local_inputs` : seul chemin
 //!   vers la simulation, le même que les touches 1/2/3.
 //!
@@ -22,10 +22,8 @@
 use bevy::prelude::*;
 use combat::actors::{INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C};
 use content::registry::Registry;
-use leafwing_input_manager::prelude::ActionState;
 use utils::frame::FrameCount;
 
-use crate::character::player::control::PlayerAction;
 use crate::character::player::input::ScriptedInputs;
 use crate::character::player::{LocalPlayer, Player};
 use crate::progression::{MutationChoice, ProgressionTable};
@@ -172,15 +170,30 @@ pub fn confirm_input(view: Option<&MutationScreenView>, handle: usize) -> u32 {
         .unwrap_or(0)
 }
 
+/// Entrées de navigation du joueur affiché, de cette frame : écrites par l'application
+/// (`ui::mutation_input`, clavier et manette) avant [`update_mutation_screen_view`], qui les lit.
+/// En headless ou en scénario, aucune touche n'est pressée : tout vaut zéro.
+#[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MutationNavInput {
+    /// Joueur dont ce sont les entrées.
+    pub handle: usize,
+    /// Boutons `ChoiceA/B/C` tenus (bits `INPUT_CHOICE_*`).
+    pub held: u32,
+    /// `-1` ← pressé, `+1` → pressé (annulés si les deux).
+    pub step: i32,
+}
+
 /// Modèle de vue, en headless comme à l'écran (lecture seule de la simulation).
 pub struct MutationScreenModelPlugin;
 
 impl Plugin for MutationScreenModelPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MutationScreenView>().add_systems(
-            Update,
-            update_mutation_screen_view.run_if(in_state(AppState::InGame)),
-        );
+        app.init_resource::<MutationScreenView>()
+            .init_resource::<MutationNavInput>()
+            .add_systems(
+                Update,
+                update_mutation_screen_view.run_if(in_state(AppState::InGame)),
+            );
     }
 }
 
@@ -192,12 +205,8 @@ pub(crate) fn update_mutation_screen_view(
     registry: Option<Res<Registry>>,
     follow_override: Option<Res<CameraFollowOverride>>,
     scripted: Option<Res<ScriptedInputs>>,
-    players: Query<(
-        &Player,
-        Has<LocalPlayer>,
-        Option<&MutationChoice>,
-        Option<&ActionState<PlayerAction>>,
-    )>,
+    nav: Res<MutationNavInput>,
+    players: Query<(&Player, Has<LocalPlayer>, Option<&MutationChoice>)>,
 ) {
     let shown = match follow_override.as_deref() {
         Some(o) => players.iter().find(|(p, ..)| p.handle == o.0),
@@ -210,32 +219,17 @@ pub(crate) fn update_mutation_screen_view(
         .as_ref()
         .and_then(|t| t.active.as_ref())
         .map_or(0, |def| def.choice_frames);
-    let (handle, choice, actions) = match shown {
-        Some((player, _, choice, actions)) => (Some(player.handle), choice, actions),
-        None => (None, None, None),
+    let (handle, choice) = match shown {
+        Some((player, _, choice)) => (Some(player.handle), choice),
+        None => (None, None),
     };
     let mut next = build_view(choice, handle, choice_frames, frame.frame, &view, |id| {
         registry.as_ref().and_then(|r| registry_card(r, id))
     });
-    let mut held_buttons = 0;
-    let mut step = 0;
-    if let Some(actions) = actions {
-        for (action, bit) in [
-            (PlayerAction::ChoiceA, INPUT_CHOICE_A),
-            (PlayerAction::ChoiceB, INPUT_CHOICE_B),
-            (PlayerAction::ChoiceC, INPUT_CHOICE_C),
-        ] {
-            if actions.pressed(&action) {
-                held_buttons |= bit;
-            }
-        }
-        if actions.just_pressed(&PlayerAction::ChoicePrev) {
-            step -= 1;
-        }
-        if actions.just_pressed(&PlayerAction::ChoiceNext) {
-            step += 1;
-        }
-    }
+    let (mut held_buttons, step) = match handle {
+        Some(handle) if nav.handle == handle => (nav.held, nav.step),
+        _ => (0, 0),
+    };
     if let (Some(scripted), Some(handle)) = (scripted.as_deref(), handle) {
         held_buttons |= scripted.input_at(handle, frame.frame).buttons;
     }
@@ -413,5 +407,49 @@ mod tests {
                 println!("{game}/{} : {name} — {description}", mutation.id.as_str());
             }
         }
+    }
+
+    /// Le modèle lit `MutationNavInput` seulement pour le joueur affiché : la surbrillance
+    /// suit un bouton tenu de ce joueur, pas celui d'un autre.
+    #[test]
+    fn la_vue_suit_les_entrees_du_joueur_affiche_seulement() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, bevy::state::app::StatesPlugin))
+            .insert_state(AppState::InGame)
+            .insert_resource(FrameCount { frame: 120 })
+            .insert_resource(CameraFollowOverride(1))
+            .add_plugins(MutationScreenModelPlugin);
+        for handle in 0..2 {
+            app.world_mut().spawn((
+                Player {
+                    handle,
+                    ..default()
+                },
+                choice(104),
+            ));
+        }
+        let highlighted = |app: &mut App| {
+            app.update();
+            app.world().resource::<MutationScreenView>().highlighted
+        };
+        assert_eq!(highlighted(&mut app), 0);
+        *app.world_mut().resource_mut::<MutationNavInput>() = MutationNavInput {
+            handle: 0,
+            held: INPUT_CHOICE_C,
+            step: 0,
+        };
+        assert_eq!(highlighted(&mut app), 0, "entrées d'un autre joueur");
+        *app.world_mut().resource_mut::<MutationNavInput>() = MutationNavInput {
+            handle: 1,
+            held: INPUT_CHOICE_C,
+            step: 0,
+        };
+        assert_eq!(highlighted(&mut app), 2, "bouton tenu");
+        *app.world_mut().resource_mut::<MutationNavInput>() = MutationNavInput {
+            handle: 1,
+            held: 0,
+            step: -1,
+        };
+        assert_eq!(highlighted(&mut app), 1, "← depuis la carte 2 : la 1");
     }
 }

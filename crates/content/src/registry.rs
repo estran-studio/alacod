@@ -2,7 +2,7 @@
 //! (`manifest.rs`) en tables indexées par des identifiants typés (newtypes sur chaîne,
 //! `Ord`, `BTreeMap` partout : CLAUDE.md, règle de déterminisme 5). C'est la source de
 //! vérité des ids de contenu (`docs/plan-engine.md` §4.2) ; les `Handle<...>` Bevy
-//! (`crates/game/src/global_asset.rs`) restent le support de rendu/animation.
+//! (`crates/game/src/global_asset.rs`, application) sont ceux de la présentation et des sources de synchro.
 //!
 //! Le chargement est "best effort" : une entrée invalide (RON cassé, id dupliqué) est
 //! rapportée comme erreur et ignorée plutôt que d'interrompre tout le chargement, pour que

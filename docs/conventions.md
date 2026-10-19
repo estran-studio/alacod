@@ -197,7 +197,7 @@ fixture `character_scale_missing`) au lieu d'échouer au chargement du jeu.
 **Registre de simulation `CharacterConfigs`** (D69 étape 2, E3a) : la simulation ne lit jamais `Assets<CharacterConfig>`.
 `CharacterConfig` est une donnée pure (`Deserialize`, sans `Asset`) ; l'application la charge par l'enveloppe
 `CharacterConfigAsset` (`character/config_asset.rs`, `#[serde(transparent)]` : les `.ron` ne changent pas) et publie
-`CharacterConfigs(BTreeMap<id, CharacterConfig>)` (clés de `GlobalAsset::character_configs`, c'est-à-dire les
+`CharacterConfigs(BTreeMap<id, CharacterConfig>)` (clés : les `CharacterId` du registre de contenu, c'est-à-dire les
 `asset_name_ref`). Un personnage porte `CharacterConfigKey(String)` (composant non rollback, posé par `create_character`,
 remplace `CharacterConfigHandles`). Le système `sync_character_configs` tourne en `PreUpdate.before(RunGgrsSystems)` : il copie
 toute entrée absente dont l'asset est lisible (chargement initial, sans dépendre d'un événement) et recopie sur
@@ -237,6 +237,17 @@ le chargement, donc avant `GameLoading` qui la résout) ; les placements de powe
 `balance_assets::tests::resolved_balance_is_identical_through_the_envelope_and_the_table` (champ à champ, cinq jeux, 1 à 4 joueurs),
 `powerups_assets::tests::table_is_the_envelope_content_field_by_field`, et `crates/scenario/tests/balance_tables.rs` (les ressources
 `SessionPlayers`, `ResolvedBalance` et `PowerUpsTable` au premier tick, surcharges de scénario comprises : les replis des lecteurs masquent une table vide).
+
+**`GlobalAsset`, ressource d'application** (D69 étape 2, E3d) : `game::global_asset::GlobalAsset` tient les `Handle` que l'application doit garder
+chargés, en deux familles : la **présentation** (`spritesheets`, `animations`, `slash_effect_*`, lus par `character/visuals.rs`, `ui/weapon_visuals.rs`,
+`world_sprites.rs`) et les **sources de synchro** (handles des enveloppes de personnages, d'armes, de vagues, d'économie, de perks et de power-ups, lus
+par `sync_character_configs`, `sync_weapon_registry`, `resolve_balance_system` et `resolve_powerups_table_system`). Aucun fichier de simulation, aucun
+lecteur externe (`bots`, `map_ldtk`, `examples`, le code de `scenario/src`) ne le lit : ils lisent `CharacterConfigs`, `WeaponRegistry`, `ResolvedBalance`
+et `PowerUpsTable`, donc aucune `ContentData` n'a été créée (aucun lecteur de simulation ne subsistait). Les surcharges de vagues et de power-ups du runner
+désignent l'enveloppe par `Assets<…Asset>` (un jeu n'en charge qu'une) ; les tests de `crates/scenario/tests` qui comparent registre et enveloppe
+(`character_configs.rs`, `weapon_registry.rs`, `balance_tables.rs`) gardent `GlobalAsset` pour atteindre l'enveloppe. `loading_asset_system` ne
+passe de `Loading` au lobby qu'une fois, en plus des assets chargés, `CharacterConfigs` plein et `WeaponRegistry` rempli (une table vide dans le fichier ne
+bloque pas) : la première partie ne démarre jamais sur un registre vide.
 
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
@@ -584,8 +595,8 @@ dans l'ordre du gain, et ce qu'il ne faut pas défaire :
   `Hash` est celui de `#[derive(Hash)]` sur `FlowField` (test
   `shared_flow_field_hash_equals_derived`) : aucune trace ne bouge.
 - Contenu (`Registry`, `GameManifest`) chargé **une fois par processus** (`runner::load_content`),
-  lecture des périphériques coupée (`game::character::skip_device_input`, `ActionState` n'est lu
-  qu'avec `InputSource::Devices`) et overlay de vagues (texte d'UI) coupé en headless.
+  pas de lecture des périphériques (depuis D69 E4 `character::app_plugin::CharacterAppPlugin` n'ajoute ni leafwing
+  ni `collect_device_inputs` en headless ; `skip_device_input` n'existe plus) et overlay de vagues (texte d'UI) coupé en headless.
 - **Tranches par durée** : `scripts/test-scenarios-sharded.sh` lit `sim_seconds` dans
   `target/metrics/latest.json` (sinon les `frames` du `.ron`) et remplit les tranches du plus
   long au plus court (plus long d'abord, sur la tranche la moins chargée). Les métriques d'un
@@ -4174,6 +4185,15 @@ construire une ligne déjà détruite lorsque l'inventaire change.
   Retour arrière / B. `ALACOD_INPUT=neutral` coupe la lecture des touches.
 - **La simulation continue et ses touches restent actives** sous les menus, comme avant :
   aucun verrou d'input ni changement de trace n'est introduit.
+- **Modèle et entrées séparés** (D69 E5a) : le modèle (`ScreensPlugin`, `HudModelPlugin`,
+  `MutationScreenModelPlugin`, réunis dans `GameUiModelPlugin`, aussi en headless) ne lit ni
+  clavier ni manette. `ui::screens::input::read_nav_keys` (clavier, manette) pose les actions
+  dans la file `UiActionQueue` (`.before(update_screens)`), `ui::mutation_input::read_mutation_nav`
+  (`ActionState<PlayerAction>`) écrit la ressource `MutationNavInput { handle, held, step }` que
+  `update_mutation_screen_view` lit (`.before(update_mutation_screen_view)`, seulement pour le
+  joueur affiché). Les deux lecteurs sont dans `GameUiInputPlugin`, ajouté après `GameUiModelPlugin` ; lui et
+  `GameUiPlugin` (lobby, déconnexion) sont hors `PresentationPlugin` : le lobby tourne aussi en
+  headless p2p, les lecteurs n'y trouvent rien.
 - Écran de fin : `ui/game_over_screen.html`, dans les quatre jeux. Résumé dérivé de
   `Run.step`/`Run.summary`, mis à jour sans reconstruire la racine ; rollback de l'issue :
   disparition de l'écran. Rejouer (R) et Lobby gardent leurs `RunRequest`, boutons souris
@@ -4469,6 +4489,7 @@ dans `docs/taches/rapports/m2-p2p-run-complete.md`.
   le ramène au lobby au bout de `SYNC_TIMEOUT_SECS` (30 s) ; même cas par construction avec allumette et le web (non essayés). Session seulement : aucune trace de scénario ne bouge.
   Preuves : `p2p-admission.sh` (trois clients, deux places : les deux admis jouent 1 500 frames aux traces identiques, l'ignoré revient au lobby ; `GHOST=1` : deux clients et un fantôme à moitié
   connecté jouent après 3 s), `p2p-connect-timeout.sh GHOST=1` (les deux délais complets `attempt=1/2 action=retry` puis `attempt=2/2 action=lobby`) ; rapport `dette-d116-lobby-admission.md`.
+- **Entrées du joueur local en deux moitiés (D69 étape 2, E4).** La simulation (`character/player/input.rs`) ne nomme ni leafwing, ni `Window`/`Camera`, ni `ui::` : `read_local_inputs` (`ReadInputs`) construit `LocalInputs` d'après la source (`InputSource`) et, pour `Devices`, lit `Option<Res<DeviceInputs>>` (`BTreeMap<handle, BoxInput>`). L'application (`character/input_devices.rs`) l'écrit : `collect_device_inputs` (`ReadInputs`, **avant** `read_local_inputs`, remet la table à vide à chaque appel ; mêmes boutons, même `pan` — souris et caméra —, `confirm_input` de l'écran de mutation) ; `attach_local_player_input` pose `ActionState`/`InputMap` sur le joueur local (`PreUpdate` avant `RunGgrsSystems`, `Added<LocalPlayer>` : au plus une frame de rendu après sa création, D4) et `light::attach_player_light` la lumière (feature `lighting`). `character::app_plugin::CharacterAppPlugin { headless }` (juste après `BaseCharacterGamePlugin`) n'ajoute leafwing, `DeviceInputs` et ces systèmes **que hors headless** : en headless, un joueur local sous `Devices` envoie un input neutre (comme avant, `ActionState` n'y était jamais pressé) et `skip_device_input` n'existe plus. `create_character` ne pose plus `Visibility` (posée par `attach_character_visuals`) ni `SpatialAudioEmitter` (inerte). **Piège de capture** : une ressource nouvelle est une entité (+1 index), et `legibility.rs` déduit la phase du halo des objets de `entity.index % 16` : ajouter une ressource décale le halo d'une capture `gungeon_boss` sans toucher la simulation (preuve : base + ressource factice = 0 image différente) ; comparer des captures par `cmp` exige donc le même nombre de ressources. Rapport `dette-d69-e4-personnage.md`.
 - **Session p2p en deux moitiés (D69 étape 2, E6).** `jjrs/p2p.rs` est la moitié **simulation**, sans socket : `PreviousSessionPeers`, `CurrentSessionPeers`, `SessionPeerLeft`, `live_players`, `admit_players`
   (D116), `AdmittedPlayers`, `pair_session_players` (appariement joueurs du socket ↔ `GggrsSessionConfiguration`, l'application passe la liste des pairs ; un `identity` optionnel pour le web),
   `start_online_run` (graine, `Run`, déblocages, `AppState::InGame`), `SYNC_TIMEOUT_*`, `SessionSyncWatch`, `reset_sync_watch`, `abandon_unsynchronized_session`, `session_builder`,
@@ -7170,7 +7191,7 @@ Règles qui en restent :
 
 ### Budgets par poste
 
-`tests/budgets.ron` : les 29 budgets existants restent ceux de `main` (les relevés VPS, chargés jusqu'à 5, sont indicatifs) ; les quatre scénarios neufs ont des budgets **provisoires** (poste, date, charge en commentaire). Recalibrage au calme : D84, protocole de sortie dans `dettes.md` (trois `make bench` consécutifs, `uptime` < 1,5 tenu, poste nommé, sans autre worker). Règle inchangée : plancher = moitié de la pire mesure, plafond = double,
+`tests/budgets.ron` : 49 entrées recalibrées par D84 (2026-10-18, VPS Debian 8 cœurs, trois `make bench` strict + un quatrième vert d'un seul tenant) : plancher = moitié de la pire mesure (arrondie au-dessus), plafond de rollback = double. Les scénarios `generated/<jeu>/<nom>` se désignent par leur **id complet** (une clé nue ne correspond à rien et retombe sur le défaut). La charge 1 min du bench seul est de 2 à 3 (pointes 14) : le critère « `uptime` < 1,5 » ne se tient pas, on joint la charge **hors bench** (`rapports/m3-t15-d84-charge/`). Règle : plancher = moitié de la pire mesure, plafond = double,
 jamais plus de 2 × la mesure au calme ; on ne relâche pas un seuil pour passer.
 
 

@@ -1,12 +1,6 @@
 use bevy::prelude::*;
 
-#[cfg(feature = "lighting")]
-use bevy_light_2d::light::PointLight2d;
-
 use combat::inventory::AmmoReserves;
-#[cfg(feature = "harmonium")]
-use harmonium_bevy::components::AiDriver;
-use leafwing_input_manager::prelude::ActionState;
 use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
@@ -19,11 +13,7 @@ use crate::{
     },
 };
 
-use super::{
-    control::{get_input_map, PlayerAction},
-    input::CursorPosition,
-    LocalPlayer, Player,
-};
+use super::{input::CursorPosition, LocalPlayer, Player};
 use bevy_fixed::fixed_math::{self, FixedVec3};
 
 const PLAYER_COLORS: &[LinearRgba] = &[
@@ -55,7 +45,7 @@ pub fn create_player(
     let player_name = name;
     let player_pubkey = pubkey;
 
-    // Use "player" as the character config name (defined in global_asset.rs)
+    // Use "player" as the character config name (un `CharacterId` du registre de contenu)
     let config_name = "player".to_string();
 
     let entity = create_character(
@@ -78,19 +68,10 @@ pub fn create_player(
     // `sim_core::team`) : ne pas l'ajouter à `RollbackTraceApp` sans blesser les traces.
     commands.entity(entity).insert(Team::Players);
 
+    // `ActionState`, `InputMap` (et `AiDriver` sous `harmonium`) sont posés par l'application sur le
+    // joueur local (`character::input_devices::attach_local_player_input`, `Added<LocalPlayer>`).
     if local {
-        commands.entity(entity).insert((
-            LocalPlayer {},
-            ActionState::<PlayerAction>::default(),
-            get_input_map(),
-        ));
-
-        #[cfg(feature = "harmonium")]
-        commands.entity(entity).insert(AiDriver {
-            ai_influence: 1.0,
-            detection_radius: 300.0,
-            ..default()
-        });
+        commands.entity(entity).insert(LocalPlayer {});
     }
 
     let mut inventory = WeaponInventory::default();
@@ -148,49 +129,23 @@ pub fn create_player(
     let currency = run::currency::Currency::new(starting_currency);
     let perks = run::perks::Perks::new();
 
-    #[cfg(feature = "lighting")]
-    {
-        commands.entity(entity).insert((
-            inventory,
-            ammo_reserves,
-            CursorPosition::default(),
-            crate::interaction::InteractionInput::default(),
-            crate::interaction::Interactor,
-            Player {
-                handle,
-                color: PLAYER_COLORS[handle].into(),
-                name: player_name.clone(),
-                pubkey: player_pubkey.clone(),
-            },
-            PointLight2d {
-                radius: 200.,
-                cast_shadows: false,
-                falloff: 4.,
-                ..default()
-            },
-            currency,
-            perks,
-        ));
-    }
-
-    #[cfg(not(feature = "lighting"))]
-    {
-        commands.entity(entity).insert((
-            inventory,
-            ammo_reserves,
-            CursorPosition::default(),
-            crate::interaction::InteractionInput::default(),
-            crate::interaction::Interactor,
-            currency,
-            perks,
-            Player {
-                handle,
-                color: PLAYER_COLORS[handle].into(),
-                name: player_name,
-                pubkey: player_pubkey,
-            },
-        ));
-    }
+    // La lumière du joueur (`PointLight2d`, feature `lighting`) est posée par la présentation
+    // (`light::attach_player_light`, `Added<Player>`).
+    commands.entity(entity).insert((
+        inventory,
+        ammo_reserves,
+        CursorPosition::default(),
+        crate::interaction::InteractionInput::default(),
+        crate::interaction::Interactor,
+        currency,
+        perks,
+        Player {
+            handle,
+            color: PLAYER_COLORS[handle].into(),
+            name: player_name,
+            pubkey: player_pubkey,
+        },
+    ));
 
     // Consommables de départ (M2-T1) : un inventaire seulement si le personnage en déclare.
     if let Some(config) = character_config.filter(|c| !c.starting_consumables.is_empty()) {
