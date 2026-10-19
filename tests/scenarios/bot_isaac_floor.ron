@@ -2,20 +2,21 @@
 // grille, curses, boutique, graine 6) jouée de bout en bout par le bot `explorateur` avec la politique de `games/isaac/assets/bot.ron`, sans input
 // scripté, avec **la bombe de départ réelle** de `pleureur` (D81 ; la graine 48 « sans bombe » de T14 n'a plus de sens : le personnage en porte une).
 //
-// À regarder : au premier étage le bot pose sa bombe (f383, explosion f457 : trois rochers cassés avec le mur ; mur ouvert f458), ouvre le
-// coffre secret (f603), achète à la boutique (bombe f1401, puis deux présentoirs, f1423 et f1463 à 50 sous), ouvre le coffre du trésor (f1829), tue le boss
-// (`gardien` : verrouillé f2333, phases f2489 et f2692, mort f2740) et prend le portail (« niveau 1 », f3326, curse `blind`) ; au second étage le trésor est fermé à clé :
-// le bot va à la porte, une Interaction consomme la clé remise à l'arrivée (f3355), il ouvre le coffre (f3416), nettoie deux salles de combat (f3542 à f3689, f3739
-// à f3907), pose une seconde bombe contre le mur secret (f3914, mur ouvert f3989), ouvre le coffre secret (f4137), achète trois présentoirs (f4845 à f4902), puis tue le
-// second boss, le **colosse** (44 PV, trois phases, M3-T11d2 : verrouillé f5273, phases f5342 et f5400) : la partie est gagnée (f5442, salle nettoyée f5441). Les
-// objets tirés changent avec le tirage du butin (D95/D96) : les attentes ne les nomment pas.
+// À regarder : au premier étage le bot nettoie un premier combat (f91 à f632), pose sa bombe (f923, explosion f997 ; mur ouvert f998), ouvre le
+// coffre secret (f1172), nettoie deux autres combats (f1322 à f1768, f2408 à f2570), achète à la boutique (bombe f2885, pain f2912, puis un présentoir à 50 sous f2960),
+// ouvre le coffre du trésor (f3683), tue le boss (`gardien` : verrouillé f4599, phases f4916 et f4998, mort f5045) et prend le portail (« niveau 1 », f6275, curse `blind`) ;
+// au second étage le trésor est fermé à clé : le bot va à la porte, une Interaction consomme la clé remise à l'arrivée (porte ouverte f6327), il ouvre le coffre (f6434),
+// nettoie deux salles de combat (f6667 à f6919, f7777 à f7871), achète trois présentoirs (f7324 à f7368), pose une seconde bombe contre le mur secret (f8084, mur ouvert f8159),
+// nettoie un dernier combat (f8459 à f8669), ouvre le coffre secret (f8914), puis tue le second boss, le **colosse** (44 PV, trois phases, M3-T11d2 : verrouillé f9189,
+// phases f9288 et f9358) : la partie est gagnée (f9453, salle nettoyée f9452). Les objets tirés changent avec le tirage du butin (D95/D96) : les attentes ne les nomment pas.
+// Gabarits ×2 (salles de 30×18 cases) : les trajets sont deux fois plus longs, la partie dure environ 9450 frames au lieu de 5442 (frames d'avant : bombe f383, boss f2333, niveau 1 f3326).
 // M3-T11d2 : le joueur porte `Armor +50` (D93, `PlayerScript::modifiers`) : avec les trois ennemis neufs (`araignee`, `follet`, `arroseur`) dans les gabarits de combat du
 // second étage, le bot mourait dans sa première salle de combat (f3671) ; avec l'armure il traverse l'étage et bat le colosse. Équilibrage : aucun.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 6,
-    frames: 5700,
+    frames: 9800,
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
@@ -30,23 +31,23 @@ Scenario(
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
         Consumable(handle: 0, id: "bomb", count: 1, at_frame: 20),
-        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 0)"), by_frame: 500),
-        EventAfter(kind: "chest", after_frame: 439, by_frame: 700),
-        EventAfter(kind: "shelf", after_frame: 1300, by_frame: 1500),
-        Event(kind: "chest", by_frame: 1900),
-        FloorIndex(index: 0, at_frame: 3000),
-        FloorIndex(index: 1, at_frame: 3340),
-        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 3340),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 3340),
-        DoorLocked(kind: "tresor", nth: 0, locked: false, at_frame: 3380),
-        Consumable(handle: 0, id: "key", count: 0, at_frame: 3380),
-        EventAfter(kind: "chest", after_frame: 3360, by_frame: 3450),
-        EventAfter(kind: "shelf", after_frame: 4700, by_frame: 4900),
-        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 1)"), by_frame: 4100),
-        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 5300),
-        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 5400),
-        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 5450),
-        Event(kind: "victory", by_frame: 5500),
-        PlayerAlive(handle: 0, at_frame: 5699),
+        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 0)"), by_frame: 1050),
+        EventAfter(kind: "chest", after_frame: 998, by_frame: 1200),
+        EventAfter(kind: "shelf", after_frame: 2800, by_frame: 3000),
+        EventAfter(kind: "chest", after_frame: 3400, by_frame: 3750),
+        FloorIndex(index: 0, at_frame: 6000),
+        FloorIndex(index: 1, at_frame: 6290),
+        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 6290),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 6290),
+        DoorLocked(kind: "tresor", nth: 0, locked: false, at_frame: 6340),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 6340),
+        EventAfter(kind: "chest", after_frame: 6300, by_frame: 6450),
+        EventAfter(kind: "shelf", after_frame: 7200, by_frame: 7400),
+        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 1)"), by_frame: 8200),
+        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 4700),
+        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 9350),
+        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 9420),
+        Event(kind: "victory", by_frame: 9500),
+        PlayerAlive(handle: 0, at_frame: 9799),
     ],
 )

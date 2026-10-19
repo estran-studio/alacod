@@ -1,0 +1,10 @@
+// Généré par scripts/generer-sprites-isaac.py : image(s) de `door_v` dans l'atlas.
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 0, end: 0),
+        "Locked": (start: 2, end: 2),
+        "Open": (start: 1, end: 1),
+        "Secret": (start: 3, end: 3),
+    },
+)

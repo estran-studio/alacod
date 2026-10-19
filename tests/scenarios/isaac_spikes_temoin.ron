@@ -1,28 +1,29 @@
-// M3-T11d1 (§76.4), recalé par M3-T11d2 : témoin de `isaac_spikes` : même graine (10, `sous_sol_un`), même salle `CombatPiques`, même montée (f5 à f58), mais la marche vers l'amas du
-// sud-est s'arrête beaucoup plus tôt (f58 à f70, 12 frames : une trentaine d'unités à l'ouest de l'amas, l'arrêt de `isaac_spikes` est à f105) : le joueur n'est jamais sur les piques. Il reste à 6 PV
-// jusqu'à f299 : aucun coup pendant les quatre périodes de piques de `isaac_spikes` (f108, f168, f228, f288), donc ces coups sont bien ceux des piques (`HazardState.last_hit` 107, 167, 227, 287 dans le dump
-// `ALACOD_DUMP_TRACE`) et aucun ennemi n'est arrivé jusque-là. M3-T11d2 : `arroseur` remplace un `suiveur` dans ce gabarit ; l'arrêt de T11d1 (f85) était touché à f151 par un ennemi (5 PV à f170) ;
-// les arrêts de f75 et de f80 le sont aussi (avant f110 et avant f170) : l'arrêt à f70 est le premier qui laisse 6 PV jusqu'à la fin (déterministe : tout changement du gabarit ou des ennemis le recale).
+// M3-T11d1 (§76.4), recalé sur la géométrie ×2 des gabarits : témoin de `isaac_spikes` : même graine (10, `sous_sol_un`), même salle `CombatPiques`, même montée (f13 à f109), mais la marche vers l'amas du
+// sud-est s'arrête plus tôt (f109 à f165 : le joueur s'immobilise vers (115, 184), une vingtaine d'unités à l'ouest de l'amas, l'arrêt de `isaac_spikes` est à f190) : le joueur n'est jamais sur les piques. Il reste à 6 PV
+// jusqu'à f350 : aucun coup pendant les trois premières périodes de piques de `isaac_spikes` (f191, f251, f311), donc ces coups sont bien ceux des piques et aucun ennemi n'est arrivé jusque-là.
+// Un ennemi atteint le joueur vers f357 (premier coup d'ennemi, 5 PV à f358, quel que soit l'arrêt essayé de f110 à f178) : le témoin s'arrête avant, il ne couvre donc plus la quatrième période de `isaac_spikes`
+// (f371 : les `hit_iframes` du coup de piques de f311 recouvrent f357, le coup d'ennemi y est absorbé) ; déterministe : tout changement du gabarit ou des ennemis le recale.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 10,
     floors: Some("sous_sol_un"),
-    frames: 300,
+    frames: 350,
     players: [
         (
             inputs: [
-                (from: 5, to: 58, buttons: [Up], pan: (0, 0)),
-                (from: 58, to: 70, buttons: [Right], pan: (0, 0)),
+                (from: 5, to: 13, buttons: [Right], pan: (0, 0)),
+                (from: 13, to: 109, buttons: [Up], pan: (0, 0)),
+                (from: 109, to: 165, buttons: [Right], pan: (0, 0)),
             ],
         ),
     ],
     expect: [
         Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
-        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 110),
-        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 170),
-        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 235),
-        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 295),
-        PlayerAlive(handle: 0, at_frame: 299),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 200),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 260),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 330),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 345),
+        PlayerAlive(handle: 0, at_frame: 349),
     ],
 )

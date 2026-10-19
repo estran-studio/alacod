@@ -224,6 +224,30 @@ pub struct WallArt {
     /// que le rendu IntGrid colorié de LDtk peint en noir).
     #[serde(default)]
     pub hide_layers: Vec<String>,
+    /// Cases d'autres couches IntGrid dessinées chacune par une tuile fixe de la feuille (m3-salles-murs-isaac : les piques,
+    /// couche `Surfaces` valeur 5, tuile 36). La couche d'origine se cache par `hide_layers`.
+    #[serde(default)]
+    pub cells: Vec<CellArt>,
+}
+
+/// Une case d'IntGrid dessinée par une tuile de la feuille de `WallArt` (`WallArt::cells`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CellArt {
+    /// Couche IntGrid lue.
+    pub layer: String,
+    /// Valeur d'IntGrid dessinée.
+    pub value: i32,
+    /// Indice de la tuile dans la feuille (ligne par ligne).
+    pub tile: u32,
+    /// Profondeur locale au niveau (sous les personnages et les objets du monde, au-dessus du fond).
+    #[serde(default = "CellArt::default_z")]
+    pub z: f32,
+}
+
+impl CellArt {
+    fn default_z() -> f32 {
+        0.5
+    }
 }
 
 impl WallArt {

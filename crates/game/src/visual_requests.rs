@@ -15,3 +15,9 @@ pub struct WorldLabel(pub String);
 /// de couleur de repli) est alors rendue transparente.
 #[derive(Component, Clone, Debug)]
 pub struct SpriteRequest(pub String);
+
+/// Porte d'une salle secrète (et sa jumelle au bord de la salle voisine) : posée **en présentation** par
+/// `map_ldtk::game::rooms::mark_secret_doors`, lue par `world_sprites::sync_door_sprites` pour montrer un mur
+/// fissuré (`Secret`) tant que la porte est fermée. Aucun état de simulation, hors checksum et snapshot.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SecretDoor;

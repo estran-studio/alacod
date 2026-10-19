@@ -7,8 +7,8 @@ Scenario(
     map_seed: 1,
     frames: 120,
     characters: [
-        (character: "cible", x: "30.0", y: "-8.0", at_frame: 5),
-        (character: "cible", x: "-8.0", y: "90.0", at_frame: 5),
+        (character: "cible", x: "14.0", y: "-8.0", at_frame: 5),
+        (character: "cible", x: "-24.0", y: "90.0", at_frame: 5),
     ],
     players: [(
         items: ["bombe_fiole"],

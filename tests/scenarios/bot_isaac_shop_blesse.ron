@@ -3,8 +3,8 @@
 // apparaissent à f20 dans la salle de départ : un cœur (9 douilles, `refuse_when_full`) au sud et une bombe (3) au nord ; il a
 // 12 douilles. Témoin : `bot_isaac_shop` (pleine vie : le jeu refuserait le cœur, le bot l'ignore et prend la moins chère).
 //
-// À regarder : blessé, le bot achète le cœur **d'abord** (f80, 12 → 3 douilles, vie 8/8), pourtant plus cher que la bombe, puis
-// la bombe (f135, 3 → 0).
+// À regarder : blessé, le bot achète le cœur **d'abord** (f72, 12 → 3 douilles, vie 8/8), pourtant plus cher que la bombe, puis
+// la bombe (f120, 3 → 0).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",

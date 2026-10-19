@@ -9,8 +9,9 @@
         required: {"boss_profond": 1, "tresor": 1, "secrete": 1, "boutique": 1},
         boss: "boss_profond",
         min_boss_distance: 3,
+        bounds: Some((1800, 1200)), // m3-salles-murs-isaac : voir `sous_sol.ron`
         layout: Some(Grid(
-            cell: (15, 9),
+            cell: (30, 18),
             max: (7, 7),
             loops: 1,
             secret: "secrete",

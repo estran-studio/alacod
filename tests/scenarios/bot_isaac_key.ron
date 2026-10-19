@@ -1,11 +1,11 @@
 // M3-T14 (docs/conventions.md §79), recalé par M3-T11d1 (§76.4) : l'`explorateur` ouvre le trésor fermé à clé d'`isaac`, sans input scripté.
 // Séquence `sous_sol_cle` (un étage de passage puis le second étage de `sous_sol`, où le trésor est fermé à clé et la
 // clé remise à l'arrivée), graine -1013903988 (plan du second étage = graine 254 : le trésor est la case au sud du départ ; sans salle secrète voisine du départ, donc aucun détour à la bombe, contrairement à `grid_treasure_key` : graine -1013904097) ;
-// M3-T11d1 : -1013904216 avant les vingt gabarits.
+// M3-T11d1 : -1013904216 avant les vingt gabarits. Gabarits ×2 (salles 30×18 cases) : marche deux fois plus longue, chronologie recalée (avant : floor f1, porte f20, coffre f81).
 //
-// À regarder : « niveau 1 » à f1 ; le bot va à la porte du trésor (fermée : `DoorLocked` vrai à f15, une clé en poche),
-// l'Interaction (f20) consomme la clé et ouvre la porte et sa jumelle ; il entre et ouvre le coffre (f81),
-// ramasse son objet (f82 ; l'objet change avec le tirage du butin, il n'est pas nommé).
+// À regarder : « niveau 1 » à f11 ; le bot va à la porte du trésor (fermée : `DoorLocked` vrai à f20, une clé en poche),
+// l'Interaction consomme la clé et ouvre la porte et sa jumelle (f61) ; il entre et ouvre le coffre (f178),
+// ramasse son objet (f179 ; l'objet change avec le tirage du butin, il n'est pas nommé).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -23,13 +23,13 @@ Scenario(
     )),
     players: [(bot: explorateur)],
     expect: [
-        Event(kind: "floor", label_contains: Some("niveau 1"), by_frame: 5),
-        DoorLocked(kind: "tresor", locked: true, at_frame: 15),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 15),
-        DoorLocked(kind: "tresor", locked: false, at_frame: 40),
-        Consumable(handle: 0, id: "key", count: 0, at_frame: 40),
-        Event(kind: "chest", by_frame: 100),
-        Event(kind: "item_pickup", by_frame: 120),
+        Event(kind: "floor", label_contains: Some("niveau 1"), by_frame: 20),
+        DoorLocked(kind: "tresor", locked: true, at_frame: 20),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 20),
+        DoorLocked(kind: "tresor", locked: false, at_frame: 70),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 70),
+        Event(kind: "chest", by_frame: 190),
+        Event(kind: "item_pickup", by_frame: 200),
         PlayerAlive(handle: 0, at_frame: 599),
     ],
 )

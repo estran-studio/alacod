@@ -6,7 +6,7 @@ Scenario(
     game: "isaac",
     map_seed: 1,
     frames: 500,
-    characters: [(character: "tourelle_croix", x: "80.0", y: "-8.0", at_frame: 1)],
+    characters: [(character: "tourelle_croix", x: "64.0", y: "-8.0", at_frame: 1)],
     players: [(inputs: [])],
     expect: [
         Health(handle: 0, min: 5.0, max: 5.0, at_frame: 100),

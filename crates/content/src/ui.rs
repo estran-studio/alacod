@@ -69,6 +69,14 @@ pub struct WallArtSchema {
     pub tile: Option<u32>,
     #[serde(default)]
     pub columns: Option<u32>,
+    /// Cases d'autres couches IntGrid dessinées par une tuile fixe (m3-salles-murs-isaac) : le lint vérifie leur couche.
+    #[serde(default)]
+    pub cells: Vec<CellArtSchema>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CellArtSchema {
+    pub layer: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

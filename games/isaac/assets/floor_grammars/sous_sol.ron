@@ -1,18 +1,21 @@
 // Grammaire d'étage de `isaac` (M3-T0f, docs/conventions.md §40 et §65, puis M3-T5, §70) : de 8 à 12
-// salles sur une grille de 7 x 7 cases de salle (15 x 9 cases de 16 px chacune, Q8). Un départ, un boss
+// salles sur une grille de 7 x 7 cases de salle (30 x 18 cases de 16 px chacune : 480 x 288 px, m3-salles-murs-isaac ; 15 x 9 avant, Q8). Un départ, un boss
 // en cul-de-sac à au moins 3 salles du départ (gabarits 1x1 ou 2x2), un trésor (1x1, 2x1 ou 1x2), une
 // boutique (M3-T11d1, §76.4), une salle secrète voisine d'au moins deux salles ordinaires (murée, ouverte à
 // la bombe), une salle du diable accrochée au boss une fois sur trois, une boucle au plus, le reste en salles
 // de combat (neuf gabarits : rochers, rochers à butin, piques, grandes salles).
-// Gabarits : maps/salles.ldtk, généré par docs/taches/rapports/m3-t11d2-volume.make_salles.py (qui reprend et remplace celui de T11d1).
+// Gabarits : maps/salles.ldtk, généré par docs/taches/rapports/m3-t11d2-volume.make_salles.py (qui reprend et remplace celui de T11d1), puis agrandi ×2 par
+// docs/taches/rapports/m3-salles-murs-isaac.make_gabarits_grands.py.
 (
     templates: "maps/salles.ldtk",
     grammar: (
         rooms: (8, 12),
         required: {"boss": 1, "tresor": 1, "secrete": 1, "boutique": 1},
         min_boss_distance: 3,
+        // m3-salles-murs-isaac (§40) : 7 colonnes de 480 px autour d'un départ centré font ±1680 px, 7 lignes de 288 px ±1008 px (le monde par défaut : ±1000).
+        bounds: Some((1800, 1200)),
         layout: Some(Grid(
-            cell: (15, 9),
+            cell: (30, 18),
             max: (7, 7),
             loops: 1,
             secret: "secrete",

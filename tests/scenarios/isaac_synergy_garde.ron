@@ -8,8 +8,8 @@ Scenario(
     map_seed: 1,
     frames: 100,
     items: [
-        (id: "frere", x: "-8.0", y: "-8.0", at_frame: 1),
-        (id: "orbe", x: "-8.0", y: "-8.0", at_frame: 30),
+        (id: "frere", x: "-24.0", y: "-8.0", at_frame: 1),
+        (id: "orbe", x: "-24.0", y: "-8.0", at_frame: 30),
     ],
     players: [
         (inputs: [

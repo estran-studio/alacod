@@ -1,0 +1,8 @@
+// Généré par scripts/generer-sprites-isaac.py : image(s) de `chest` dans l'atlas.
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 1, end: 1),
+        "Open": (start: 2, end: 2),
+    },
+)

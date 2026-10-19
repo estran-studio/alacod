@@ -7,8 +7,8 @@ Scenario(
     map_seed: 1,
     frames: 300,
     characters: [
-        (character: "suiveur", x: "20.0", y: "-8.0", at_frame: 40),
-        (character: "mouche", x: "-36.0", y: "-8.0", at_frame: 40),
+        (character: "suiveur", x: "4.0", y: "-8.0", at_frame: 40),
+        (character: "mouche", x: "-52.0", y: "-8.0", at_frame: 40),
     ],
     players: [(inputs: [])],
     expect: [

@@ -255,6 +255,60 @@ fn is_secret(table: &RoomKindTable, kind: &RoomKind) -> bool {
     table.door_lock(&kind.0) == Some(DoorLock::Secret)
 }
 
+/// Présentation seule (m3-salles-murs-isaac, `docs/conventions.md` §83) : marque `SecretDoor` les portes d'une salle secrète
+/// (la porte de la salle et sa jumelle, par la même règle de bord que `secret_wall_system`) pour que `world_sprites` les montre en
+/// mur fissuré. Dérivé de l'état à chaque tick, jamais d'un événement ; hors `GgrsSchedule`, absent en headless.
+pub fn mark_secret_doors(
+    mut commands: Commands,
+    table: Res<RoomKindTable>,
+    rooms: CurrentRooms,
+    doors: Query<
+        (Entity, &bevy_fixed::fixed_math::FixedTransform3D),
+        (
+            With<DoorComponent>,
+            Without<game::visual_requests::SecretDoor>,
+        ),
+    >,
+) {
+    let secrets: Vec<_> = rooms
+        .iter()
+        .filter(|(_, _, kind)| is_secret(&table, kind))
+        .map(|(_, bounds, _)| *bounds)
+        .collect();
+    if secrets.is_empty() {
+        return;
+    }
+    for (entity, transform) in &doors {
+        let p = transform.translation.truncate();
+        if secrets.iter().any(|bounds| door_near(bounds, p)) {
+            commands
+                .entity(entity)
+                .try_insert(game::visual_requests::SecretDoor);
+        }
+    }
+}
+
+/// Présentation seule (m3-salles-murs-isaac) : publie les boîtes des salles de l'étage courant (`CameraRooms`) pour le cadrage de la
+/// caméra (`CameraSettings::room_frame`). Triées par position puis identifiant ; la ressource n'est réécrite que si elle change.
+pub fn publish_camera_rooms(
+    rooms: CurrentRooms,
+    published: Option<ResMut<game::camera::CameraRooms>>,
+) {
+    let Some(mut published) = published else {
+        return;
+    };
+    let wanted: Vec<game::camera::CameraRoom> = sorted_rooms(&rooms)
+        .into_iter()
+        .map(|(_, bounds, _)| game::camera::CameraRoom {
+            position: bounds.position,
+            size: bounds.size,
+        })
+        .collect();
+    if published.0 != wanted {
+        published.0 = wanted;
+    }
+}
+
 /// Nombre de clés qu'ouvre la porte d'un type de salle **à l'étage `floor`** (`door_lock: Key(n)`
 /// à partir de `lock_from_floor`) ; `None` : porte ordinaire ou mur secret.
 pub fn key_lock_cost(table: &RoomKindTable, kind: &RoomKind, floor: u32) -> Option<u32> {

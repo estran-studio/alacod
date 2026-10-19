@@ -21,7 +21,7 @@ Scenario(
     frames: 40,
     players: [(inputs: [])],
     expect: [
-        RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["depart", "secrete", "tresor"], at_frame: 10),
+        RoomLayout(kind: "diable", size: Some((480, 288)), touches: ["boss"], apart: ["depart", "secrete", "tresor"], at_frame: 10),
         ShelfCount(count: 5, at_frame: 10),
         Shelf(nth: 0, item: Some("pois_chiche"), price: Some(15), sold: Some(false), at_frame: 10),
         Shelf(nth: 1, item: Some("venin"), price: Some(30), sold: Some(false), at_frame: 10),

@@ -3,14 +3,14 @@
 // départ, quatre combats, boss, trésor, secrète, boutique ; quatorze ennemis) est nettoyé, **la bombe de départ ouvre le mur de la secrète** (intégration de T14, D106),
 // le boss est vaincu ; le bot prend le portail et arrive au second étage, où le trésor est fermé à clé (la clé en poche).
 //
-// À regarder : quatre verrouillages de salle de combat (trois ou quatre ennemis chacune : f65, f374, f715, f2030), la **curse `maze`** du premier étage (la séquence par
-// défaut tire une curse sur 30 % des étages ; graine 1 : `maze` au premier, `blind` au second) ; la bombe est posée f1207 (explosion f1281, mur ouvert f1282) ; le boss
-// (`gardien` : le colosse est le boss du second étage seulement, M3-T11d2) verrouille sa salle (f3035), phase 1 (f3128, renforts, couronne), phase 2 (f3298) et meurt (salle
-// nettoyée f3401) ; son butin (pool `boss`, M3-T8 §73, `reservoir_vital`) est ramassé (f3471) et retarde le portail (« niveau 1 » f3753) : la porte du trésor est alors fermée
-// à clé (`DoorLocked`), le joueur a une clé (`Consumable`, encore là à f3850) ; la porte de la salle secrète s'est ouverte à f1282. M3-T8 : chaque pool à épuisement sort un
+// À regarder : quatre verrouillages de salle de combat (trois ou quatre ennemis chacune : f102, f561, f967, f2235), la **curse `maze`** du premier étage (la séquence par
+// défaut tire une curse sur 30 % des étages ; graine 1 : `maze` au premier, `blind` au second) ; la bombe est posée f1810 (explosion f1884, mur ouvert f1885) ; le boss
+// (`gardien` : le colosse est le boss du second étage seulement, M3-T11d2) verrouille sa salle (f4378), phase 1 (f4486, renforts, couronne), phase 2 (f4566) et meurt (salle
+// nettoyée f4618) ; son butin (pool `boss`, M3-T8 §73, `reservoir_vital`) est ramassé (f4671) et retarde le portail (« niveau 1 » f5203) : la porte du trésor est alors fermée
+// à clé (`DoorLocked`), le joueur a une clé (`Consumable`, encore là à f5300) ; la porte de la salle secrète s'est ouverte à f1885. M3-T8 : chaque pool à épuisement sort un
 // objet par étage (un trésor, un boss, une boutique de trois présentoirs) : les compteurs passent de 1 à 2 (trésor, boss) et de 3 à 6 (boutique) à la génération du second
-// étage (l'épuisement est par run, pas par étage). La partie continue sur le second étage (curse `blind`, première salle de combat verrouillée f3810, nettoyée f3986) jusqu'à
-// la fin du scénario (4 000 frames : le colosse, boss du second étage, n'est pas atteint ici ; il est joué par `bot_isaac_floor`).
+// étage (l'épuisement est par run, pas par étage). La partie continue sur le second étage (curse `blind`, première salle de combat verrouillée f5299, nettoyée f5493) jusqu'à
+// la fin du scénario (5 600 frames : le colosse, boss du second étage, n'est pas atteint ici ; il est joué par `bot_isaac_floor`).
 // D88 (2026-10-17) : le joueur gagne avec `Armor +50` (D93, `PlayerScript::modifiers`).
 //
 // Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la grammaire de la
@@ -20,7 +20,7 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 1,
-    frames: 4000,
+    frames: 5600,
     players: [
         (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
@@ -34,19 +34,19 @@ Scenario(
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
         Consumable(handle: 0, id: "bomb", count: 1, at_frame: 900),
-        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 1230),
-        DoorLocked(kind: "secrete", locked: false, at_frame: 1350),
-        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 3050),
-        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 3150),
-        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 3450),
-        FloorIndex(index: 0, at_frame: 3700),
-        FloorIndex(index: 1, at_frame: 3850),
-        Curse(floor: 1, id: Some("blind"), at_frame: 3850),
-        DoorLocked(kind: "tresor", locked: true, at_frame: 3850),
-        Consumable(handle: 0, id: "key", count: 1, at_frame: 3850),
-        PoolCount(pool: "tresor", count: 2, at_frame: 3850),
-        PoolCount(pool: "boss", count: 2, at_frame: 3850),
-        PoolCount(pool: "boutique", count: 6, at_frame: 3850),
-        PlayerAlive(handle: 0, at_frame: 3999),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 1830),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 1950),
+        Event(kind: "room", label_contains: Some("salle boss verrouillée"), by_frame: 4400),
+        Event(kind: "boss_phase", label_contains: Some("phase 0 → 1"), by_frame: 4510),
+        Event(kind: "room", label_contains: Some("salle boss nettoyée"), by_frame: 4650),
+        FloorIndex(index: 0, at_frame: 4550),
+        FloorIndex(index: 1, at_frame: 5300),
+        Curse(floor: 1, id: Some("blind"), at_frame: 5300),
+        DoorLocked(kind: "tresor", locked: true, at_frame: 5300),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 5300),
+        PoolCount(pool: "tresor", count: 2, at_frame: 5300),
+        PoolCount(pool: "boss", count: 2, at_frame: 5300),
+        PoolCount(pool: "boutique", count: 6, at_frame: 5300),
+        PlayerAlive(handle: 0, at_frame: 5599),
     ],
 )

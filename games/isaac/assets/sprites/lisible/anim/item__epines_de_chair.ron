@@ -1,0 +1,7 @@
+// Généré par scripts/generer-sprites-isaac.py : image(s) de `item/epines_de_chair` dans l'atlas.
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 43, end: 43),
+    },
+)

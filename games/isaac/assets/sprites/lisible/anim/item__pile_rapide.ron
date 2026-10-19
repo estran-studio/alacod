@@ -1,0 +1,7 @@
+// Généré par scripts/generer-sprites-isaac.py : image(s) de `item/pile_rapide` dans l'atlas.
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 81, end: 81),
+    },
+)

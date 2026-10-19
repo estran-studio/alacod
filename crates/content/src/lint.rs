@@ -2216,22 +2216,23 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         // La couche dessinée existe (IntGrid) dans au moins un niveau d'une carte du jeu ; sans carte lisible,
         // rien à comparer.
-        let mut levels = registry
-            .maps
-            .values()
-            .flat_map(|map| map.levels.iter())
-            .peekable();
-        if levels.peek().is_some()
-            && !levels.any(|level| level.int_grid_layers.contains(&art.layer))
-        {
-            errors.push(LintError {
-                kind: LintErrorKind::BrokenReference,
-                file: rel.display().to_string(),
-                message: format!(
-                    "hud : wall_art : couche IntGrid « {} » absente de toutes les cartes",
-                    art.layer
-                ),
-            });
+        // `cells` : chaque couche annexe doit exister aussi.
+        for layer in std::iter::once(&art.layer).chain(&art.cell_layers) {
+            let mut levels = registry
+                .maps
+                .values()
+                .flat_map(|map| map.levels.iter())
+                .peekable();
+            if levels.peek().is_some() && !levels.any(|level| level.int_grid_layers.contains(layer))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: rel.display().to_string(),
+                    message: format!(
+                        "hud : wall_art : couche IntGrid « {layer} » absente de toutes les cartes"
+                    ),
+                });
+            }
         }
     }
     // Légende : chaque sprite cité existe dans la table des feuilles (si le jeu en déclare une).

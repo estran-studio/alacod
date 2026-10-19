@@ -14,4 +14,7 @@
     // T1.16 (§30) : fondu au noir (secondes) et recentrage de la caméra à chaque niveau.
     floor_fade_seconds: 0.4,
     floor_recenter: true,
+    // m3-salles-murs-isaac (§40) : une salle de l'unité (480 x 288) tient dans la vue (`min_zoom` 0,6 : 576 x 324 unités) ; la caméra se cale
+    // sur la salle où se tient le joueur (Isaac : une salle = un écran), une grande salle (960 x 576) est suivie sans montrer au-delà de ses murs.
+    room_frame: true,
 ))

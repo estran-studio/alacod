@@ -3097,6 +3097,40 @@ a, en face, une ouverture libre d'une autre salle, case contre case (étage, gra
 dans laquelle le planificateur pose les salles : `etage` et `court_secret` à 3000/2000, `grand` à 4000 (les salles de 224 à 352 px la remplissent
 plus vite). Lint : `bounds` négatif ou nul est refusé (`problems`).
 
+### Échelle des gabarits d'`isaac` (m3-salles-murs-isaac, 2026-10-19)
+
+Revue de William sur les vidéos `isaac` : « exactement le même problème de visuel que gungeon : pas d'asset pour les murs et autres, salles minuscules où
+tout le monde se chevauche, il faut de grandes pièces ». Rapport chiffré : `docs/taches/rapports/m3-salles-murs-isaac.md`. Dans Isaac une salle de 13×7 cases fait
+**un écran** et le personnage tient à peu près dans une case.
+
+| | avant (T5, T11d1, T11d2) | après |
+|---|---|---|
+| unité de salle (`cell` des grammaires) | 15×9 cases de 16 px = 240×144 px | **30×18 = 480×288 px** (×2 uniforme) |
+| intérieur (murs d'une case) | 13×7 = 91 cases | 28×16 = 448 cases (×4,9) |
+| largeur de sol en héros (32 px) / colliders (20 px) | 6,5 × 3,5 / 10,4 × 5,6 | **14 × 8 / 22,4 × 12,8** |
+| traversée de l'intérieur à 120 px/s | 1,7 s | 3,7 s |
+| ouverture d'un côté d'unité | 3 cases (48 px) | **4 cases (64 px)**, centrée (13..16 sur 30, 7..10 sur 18) |
+| une salle de l'unité à l'écran (960×540, `min_zoom` 0,6 : 576×324 unités) | 42 % × 44 % | **83 % × 89 %** |
+| une salle 2×2 | 480×288 px | 960×576 px |
+| étage 7×7 unités (`bounds`) | ±840 × ±504 px (monde par défaut ±1000) | ±1680 × ±1008 px, `bounds: Some((1800, 1200))` |
+
+Le **facteur est 2 sur toutes les tailles** : un gabarit de 1×1, 2×1, 1×2 ou 2×2 unités reste un multiple de l'unité, la grille de M3-T5 (`FloorLayout::Grid`, ports centrés
+sur chaque segment d'unité) ne change pas de code. Les ouvertures passent de 3 à 4 cases parce que 30 et 18 sont pairs (une ouverture de 3 cases ne se centre plus ; 6 cases
+auraient fait un trou de 96 px dans un mur de 480). *Écart à la demande* : le texte de la fiche donnait « intérieur 26×14 cases » pour une unité de 480×288 ; avec un mur d'une case
+l'intérieur de 30×18 est de 28×16 (26×14 supposerait deux cases de mur), c'est la valeur retenue.
+
+Script : `docs/taches/rapports/m3-salles-murs-isaac.make_gabarits_grands.py` (déterministe, idempotent depuis la version 15×9, refuse un fichier déjà agrandi ; `git show 46a4e8f3:games/isaac/assets/maps/salles.ldtk`).
+Ce qui change : la taille, l'anneau de murs, les ouvertures et les portes ; les apparitions d'ennemis sont placées **proportionnellement** dans l'intérieur ; les points de départ restent
+groupés autour du centre (écarts ×2) ; la couleur du sol des niveaux (`#7B6A5F`, brun clair, plus clair que les murs). Les **rochers** gardent leur nombre, leur forme et leur écart au mur le plus proche (un rocher
+reste une case de 16 px : le nombre de rochers est le contenu, `isaac_bomb_rock` compte 45 → 42) ; les **piques** (couche `Surfaces`, valeur 5) sont un terrain : chaque case devient un bloc 2×2 à 3×3 (6 → 33 cases dans `CombatPiques`),
+leur part de la salle reste la même. Contenu inchangé : mêmes ennemis, mêmes types de salle, mêmes nombres de rochers. Le script **échoue** si une entité recouvre une autre entité, un rocher ou une pique ; si quoi que ce soit se trouve dans le couloir de passage devant une ouverture (largeur de
+l'ouverture, 3 cases de profondeur) ; si un rocher (16 px) ou une pique (12 px) est à moins de la distance de T11d1 (§76.4) d'une ligne droite qu'un bot suit (ouverture ↔ ouverture, ouverture → ennemi, ouverture → centre) ; si les portes ne couvrent pas exactement les ouvertures.
+
+*Moteur.* Aucune ligne de génération : `Connection::are_matching` exige la même distance au coin et les ouvertures sont au milieu de chaque côté d'unité, comme avant ; `FloorGrammar::bounds` (déjà là depuis gungeon) relève le monde à ±1800 × ±1200 pour
+`sous_sol`, `sous_sol_grand` et `sous_sol_profond` (sept colonnes de 480 px ne tiennent pas dans ±1000) ; les grammaires de 3×3 unités tiennent dans le monde par défaut. **Caméra** : `CameraSettings::room_frame` (donnée de `camera.ron`, défaut non) cadre la
+vue sur la salle où se tient la cible (`CameraRooms`, boîtes des salles de l'étage publiées par `map_ldtk::game::rooms::publish_camera_rooms` ; `frame_in_room`, pure, testée) : une salle de l'unité (480×288) tient dans la vue de 576×324 et la caméra y est fixe (une salle = un écran), une grande
+salle est suivie sans montrer au-delà de ses murs. `min_zoom` reste 0,6. **Coût** : le champ de flux couvre toute la boîte englobante de la carte (4 fois plus de cases) : `FlowField` passe à 1,04 ms par frame sur `bench_floor_isaac` (D122).
+
 ## Notes essentielles
 
 **`CrateLocation`** : collectée mais non utilisée, voir §1 (entités et vérification par un scénario `idle`).
@@ -7513,3 +7547,25 @@ fichier de carte à retoucher, aucune trace qui bouge (rien dans `GgrsSchedule`,
   (les couleurs de la face de mur ; ouverte = les jambages seuls), le **mur fissuré** (`secret_wall`) reprend les briques
   du mur et sa fissure claire : tous trois se raccordent aux murs.
 - **Limite** : le sol reste la couleur de fond du niveau (`#696A79`), sans motif ni ombre portée du mur.
+
+### Murs, portes, rochers et piques d'`isaac` (m3-salles-murs-isaac, présentation seule, aucune trace ne bouge de ce fait)
+
+Même mécanisme que ci-dessus (**aucun second mécanisme**) ; seuls changent la palette, les sprites et trois extensions génériques, activées par donnée.
+
+- **`ui/hud.ron`** d'`isaac` : `wall_art: Some((layer: "Walls", atlas: "sprites/lisible/atlas_murs.png", hide_layers: ["LevelConnection", "Rocks", "Surfaces"], cells: [(layer: "Surfaces", value: 5, tile: 36)]))`,
+  `hide_markers: true` (les tuiles d'apparition des ennemis : repères d'auteur) et `names` (étiquettes F6 : `shell` « Sous », `chest`, `rock`, `portal`).
+- **Générateur** : `scripts/generer-sprites-isaac.py` **importe** `scripts/generer-sprites-gungeon.py` (primitives, PNG, atlas, `wall_cap`/`wall_face`, objets) et remplace les couleurs : palette « sous-sol » (face de brique brun-rouge `#4e3228`, dessus `#34231d`,
+  sol `#7B6A5F`), distincte du pourpre de gungeon. `--check`, `--preview`, test `scripts/tests/test_sprites_isaac.py` (fichiers à jour, déterminisme, aucun orphelin, CC0 dans `assets.yaml`, palette distincte, tuiles lues par le moteur).
+  Sorties sous `games/isaac/assets/sprites/lisible/` et bloc `// >>> généré` de `sprites.ron` : `atlas_murs.png` (36 tuiles de mur + **tuile 36 = piques**), `atlas_porte_v.png` (16×64) et `atlas_porte_h.png` (64×16) à **quatre états** (`Idle` planches cerclées de fer,
+  `Open` jambages seuls, `Locked` chaînes et cadenas rouge, `Secret` mur de briques fissuré), `atlas_monde.png` (32 px : `shell`, `chest` (`Idle`/`Open`), `shelf`, `rock`, `rock_loot`, `bomb`, `item/<id>` pour les 100 objets d'`objets/*.ron` (cartes, hexagones, fioles, cœurs rouge, d'âme…), `item/passive|active|consumable`), `atlas_portail.png`.
+  Les personnages (héros, ennemis, boss) gardent leurs tuiles Kenney (`sprites/gungeon/`) : ce ne sont pas des objets « sans sprite ».
+- **Trois extensions génériques** (les autres jeux ne changent pas) :
+  1. `wall_art.cells: [(layer, value, tile, z)]` (`game::ui::hud::CellArt`) : une tuile fixe de la feuille par valeur d'une autre couche IntGrid (`wall_art::value_cells`, pure, testée). Lint : la couche d'une case annexe doit exister
+     dans une carte (fixture `hud_wall_art_cell_layer_unknown`). Les piques d'`isaac` (§69, `Surfaces` valeur 5) sont dessinées ainsi ; la couche d'origine est cachée par `hide_layers` (rendu IntGrid colorié de LDtk).
+  2. **Rochers** : l'image du rocher est celle de l'entité (`world_sprites`, id `rock`), un **rocher à butin** (`world::Rock::loot`) cherche d'abord `rock_loot`, puis `rock` ; la couche `Rocks` (tuiles coloriées de LDtk) est cachée par `hide_layers`. Un rocher détruit disparaît avec son entité (inchangé).
+  3. **Mur secret** : `game::visual_requests::SecretDoor`, posé en présentation (`map_ldtk::game::rooms::mark_secret_doors`, `Update`, hors `GgrsSchedule`, mêmes portes que `secret_wall_system` : la porte d'une salle `door_lock: Secret` et sa jumelle) ;
+     `world_sprites::sync_door_sprites` montre l'état `Secret` d'une porte fermée sans `Interactable` marquée `SecretDoor` (repli `Idle` si la feuille n'a pas l'état : gungeon inchangé), `Open` dès que la bombe retire le collider. Le mur secret
+     avait pour seul signe la poussière (§82, « n'a pas de sprite de porte propre ») : il se lit maintenant comme un mur fissuré.
+- **Limites** : le sol est la couleur de fond du niveau (`#7B6A5F`), sans motif ni ombre portée ; rochers de 16 px dans des salles de 480×288 (un rocher reste une case de 16 unités, plus petit que le héros de 32 px : le nombre de rochers est le contenu des gabarits) ;
+  le sprite `chest` montre un cadenas même sur un coffre non verrouillé (les coffres du trésor et de la secrète d'`isaac` ont `locked: false`) ; halo, pointeur de visée et légende (F7) n'existent pas pour `isaac` (langage visuel des classes d'ennemis : seul gungeon l'a). Rendu jugé par un **rendu synthétique**
+  (`docs/taches/rapports/m3-salles-murs-isaac/rendu_*.png`, même logique de tuiles que le moteur, pas une capture du jeu) : captures impossibles sur le VPS (D94).

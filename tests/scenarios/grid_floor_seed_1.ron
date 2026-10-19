@@ -3,8 +3,9 @@
 // secrète collée sous deux salles de combat et la **boutique** (trois présentoirs) ; quatorze ennemis. Le bot `explorateur` nettoie les quatre combats, **pose la
 // bombe de départ** contre le mur de la secrète et gagne.
 //
-// À regarder : les quatre combats se verrouillent et se rouvrent ; la bombe est posée f986 (explosion f1060, mur ouvert f1061, `DoorLocked` faux à f1100) ; le boss
-// verrouille sa salle (f2599), passe en phase 1 (f2691), phase 2 (f2864), meurt (salle nettoyée f3028) ; victoire f3029 (scénario de 3500 frames).
+// À regarder : les quatre combats se verrouillent et se rouvrent ; la bombe est posée f1694 (explosion f1768, mur ouvert f1769, `DoorLocked` faux à f1850) ; le boss
+// verrouille sa salle (f4015), passe en phase 1 (f4122), phase 2 (f4202), meurt (salle nettoyée f4266) ; victoire f4267 (scénario de 4750 frames). Gabarits ×2
+// (m3-salles-murs-isaac : salles de 480 × 288 px, ouvertures de 4 cases) : les trajets du bot sont ~1,7 fois plus longs (avant : bombe f986, boss f2599, victoire f3029).
 // Le joueur gagne avec `Armor +50` (`PlayerScript::modifiers`, D93 : D88, nouveau tirage des variantes) ; le trésor n'est pas fermé à clé au premier étage
 // (`lock_from_floor: 1`). Intégration de T14 (D106, 2026-10-18) : le bot de T14 pose la bombe de départ, chronologie recalée.
 //
@@ -16,24 +17,24 @@ Scenario(
     game: "isaac",
     map_seed: 1,
     floors: Some("sous_sol_un"),
-    frames: 3500,
+    frames: 4750,
     players: [
         (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "50")]),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(14), max: Some(14), at_frame: 5),
-        RoomLayout(kind: "boss", size: Some((240, 144)), touches: ["combat"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
-        RoomLayout(kind: "tresor", size: Some((240, 288)), touches: ["combat"], apart: ["boss"], at_frame: 5),
+        RoomLayout(kind: "boss", size: Some((480, 288)), touches: ["combat"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
+        RoomLayout(kind: "tresor", size: Some((480, 576)), touches: ["combat"], apart: ["boss"], at_frame: 5),
         RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "depart", "tresor"], at_frame: 5),
         DoorLocked(kind: "secrete", locked: true, at_frame: 5),
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
-        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 900),
-        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 1050),
-        DoorLocked(kind: "secrete", locked: false, at_frame: 1100),
-        RoomState(kind: "boss", state: Locked, at_frame: 2650),
-        BossPhase(entity: NetId(160), phase: 1, at_frame: 2750),
-        RoomState(kind: "boss", state: Cleared, at_frame: 3050),
-        RunState(step: Ended(Victory), at_frame: 3050),
-        PlayerAlive(handle: 0, at_frame: 3499),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 1600),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 1710),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 1850),
+        RoomState(kind: "boss", state: Locked, at_frame: 4050),
+        BossPhase(entity: NetId(160), phase: 1, at_frame: 4160),
+        RoomState(kind: "boss", state: Cleared, at_frame: 4300),
+        RunState(step: Ended(Victory), at_frame: 4300),
+        PlayerAlive(handle: 0, at_frame: 4749),
     ],
 )

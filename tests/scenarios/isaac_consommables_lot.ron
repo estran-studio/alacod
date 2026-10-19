@@ -1,5 +1,5 @@
 // M3-T11d2 (docs/conventions.md §68 et §76.5) : les consommables d'`isaac` (`pain`, `eclat_ame`, `festin`). Graine 1 : le joueur 0 (6 PV, immobile en
-// (-8, -8)) est frappé au contact par une `cible_mordante` (1 PV toutes les 120 frames : f6 environ, f124 environ, f245 environ). Les consommables sont
+// (-24, -8)) est frappé au contact par une `cible_mordante` (1 PV toutes les 120 frames : f6 environ, f124 environ, f245 environ). Les consommables sont
 // posés sous ses pieds (au contact : pas de touche) à des frames choisies.
 //
 // À regarder : f6 le joueur passe à 5 PV ; f20 le `pain` est ramassé (+1 PV : 6) ; f40 le `festin` posé à pleine vie reste au sol (`refuse_when_full`) ; f124 le coup
@@ -10,11 +10,11 @@ Scenario(
     game: "isaac",
     map_seed: 1,
     frames: 300,
-    characters: [(character: "cible_mordante", x: "24.0", y: "-8.0", at_frame: 1)],
+    characters: [(character: "cible_mordante", x: "8.0", y: "-8.0", at_frame: 1)],
     items: [
-        (id: "pain", x: "-8.0", y: "-8.0", at_frame: 20),
-        (id: "festin", x: "-8.0", y: "-8.0", at_frame: 40),
-        (id: "eclat_ame", x: "-8.0", y: "-8.0", at_frame: 150),
+        (id: "pain", x: "-24.0", y: "-8.0", at_frame: 20),
+        (id: "festin", x: "-24.0", y: "-8.0", at_frame: 40),
+        (id: "eclat_ame", x: "-24.0", y: "-8.0", at_frame: 150),
     ],
     players: [(inputs: [])],
     expect: [

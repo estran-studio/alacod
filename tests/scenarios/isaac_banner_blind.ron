@@ -11,7 +11,7 @@ Scenario(
     floors: Some("sous_sol_maudit"),
     map_seed: 3,
     frames: 60,
-    items: [(id: "bottines", x: "-8.0", y: "-8.0", at_frame: 1)],
+    items: [(id: "bottines", x: "-24.0", y: "-8.0", at_frame: 1)],
     players: [(inputs: [(from: 10, to: 11, buttons: [Interaction])])],
     expect: [
         Curse(floor: 0, id: Some("blind"), at_frame: 8),

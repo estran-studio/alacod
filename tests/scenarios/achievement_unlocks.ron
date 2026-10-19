@@ -7,14 +7,14 @@
 // D88 (2026-10-17) : le nouveau tirage des variantes fait sortir des champions ; le bot gagne avec `Armor +50` (D93), mêmes attentes (victoire, accomplissements, HUD).
 // M3-T11d1 (2026-10-18, vingt gabarits, bombe de départ ; intégration de T14, D106) : le bot **pose la bombe de départ** contre le mur de la secrète (f677, explosion f751).
 //
-// À regarder : le boss verrouille sa salle (f1330), phase 1 (f1422), phase 2 (f1590), le gardien meurt (salle nettoyée f1752), la victoire tombe à f1753 (scénario de 2190 frames),
-// le butin est ramassé f1777 ; l'écran de fin (source HUD `achievements`) liste « Gardien vaincu » et « Run finie ».
+// À regarder : le boss verrouille sa salle (f2032), phase 1 (f2149), phase 2 (f2284), le gardien meurt (salle nettoyée f2401), la victoire tombe à f2402 (scénario de 2800 frames),
+// le butin est ramassé f2568 (gabarits ×2, m3-salles-murs-isaac : la bombe est posée f1047, explosion f1121 ; chronologie ~1,4 fois plus longue) ; l'écran de fin (source HUD `achievements`) liste « Gardien vaincu » et « Run finie ».
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 8,
     floors: Some("sous_sol_un"),
-    frames: 2190,
+    frames: 2800,
     profile: true,
     profile_setup: Some((profiles: [(handle: 0)])),
     players: [
@@ -22,13 +22,13 @@ Scenario(
     ],
     expect: [
         RunUnlocks(lacks: ["medaille_libre", "couronne_libre", "bague_libre"], at_frame: 5),
-        ProfileHas(handle: 0, lacks_achievements: ["gardien_vaincu", "run_finie"], lacks_unlocks: ["medaille_libre"], at_frame: 1300),
-        RunState(step: Ended(Victory), at_frame: 2189),
-        ProfileHas(handle: 0, achievement: "gardien_vaincu", unlock: "medaille_libre", at_frame: 2189),
-        ProfileHas(handle: 0, achievement: "run_finie", unlock: "couronne_libre", at_frame: 2189),
-        ProfileHas(handle: 0, lacks_achievements: ["second_etage"], lacks_unlocks: ["bague_libre"], at_frame: 2189),
-        HudText(source: "achievements", contains: "Gardien vaincu", at_frame: 2189),
-        HudText(source: "achievements", contains: "Run finie", at_frame: 2189),
-        RunUnlocks(lacks: ["medaille_libre", "couronne_libre"], at_frame: 2189),
+        ProfileHas(handle: 0, lacks_achievements: ["gardien_vaincu", "run_finie"], lacks_unlocks: ["medaille_libre"], at_frame: 2000),
+        RunState(step: Ended(Victory), at_frame: 2799),
+        ProfileHas(handle: 0, achievement: "gardien_vaincu", unlock: "medaille_libre", at_frame: 2799),
+        ProfileHas(handle: 0, achievement: "run_finie", unlock: "couronne_libre", at_frame: 2799),
+        ProfileHas(handle: 0, lacks_achievements: ["second_etage"], lacks_unlocks: ["bague_libre"], at_frame: 2799),
+        HudText(source: "achievements", contains: "Gardien vaincu", at_frame: 2799),
+        HudText(source: "achievements", contains: "Run finie", at_frame: 2799),
+        RunUnlocks(lacks: ["medaille_libre", "couronne_libre"], at_frame: 2799),
     ],
 )

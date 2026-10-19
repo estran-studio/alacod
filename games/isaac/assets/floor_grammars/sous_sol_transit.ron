@@ -9,6 +9,6 @@
         required: {"transit": 1},
         boss: "transit",
         min_boss_distance: 1,
-        layout: Some(Grid(cell: (15, 9), max: (3, 3))),
+        layout: Some(Grid(cell: (30, 18), max: (3, 3))),
     ),
 )
