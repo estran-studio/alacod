@@ -136,6 +136,13 @@ impl Plugin for WeaponPresentationPlugin {
             app.add_plugins(crate::ui::weapon_hud::WeaponDebugUIPlugin);
         }
 
+        // Visibilité des armes portées (D69 étape 2, E5c : plus de système de headless). Une arme de
+        // mêlée apparaît cachée : juste après `GgrsSchedule`, avant tout système d'`Update`.
+        app.add_systems(
+            PreUpdate,
+            crate::weapon_assets::hide_new_melee_weapons.after(bevy_ggrs::RunGgrsSystems),
+        );
+        app.add_systems(Update, crate::weapon_assets::weapon_inventory_system);
         app.add_systems(
             Update,
             (

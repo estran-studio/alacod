@@ -45,7 +45,6 @@ use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
 
 pub use config::WaveConfig;
-pub use debug::WaveDebugPlugin;
 pub use state::{WaveDebugEnabled, WavePhase, WaveState};
 pub use tracking::WaveEnemy;
 
@@ -61,9 +60,6 @@ pub struct WaveSystemPlugin;
 
 impl Plugin for WaveSystemPlugin {
     fn build(&self, app: &mut App) {
-        // Debug UI plugin
-        app.add_plugins(WaveDebugPlugin);
-
         // Resources
         app.init_resource::<WaveState>();
         app.init_resource::<WaveModeEnabled>();

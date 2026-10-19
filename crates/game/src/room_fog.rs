@@ -443,7 +443,7 @@ fn filter_world_sprites(
             With<crate::weapons::Bullet>,
             With<crate::powerups::PowerUpPickup>,
             With<crate::weapons::WeaponPickup>,
-            With<crate::interaction::WindowHealthBar>,
+            With<crate::interaction_view::WindowHealthBar>,
             With<crate::character::health_bar::HealthBar>,
         )>,
     >,

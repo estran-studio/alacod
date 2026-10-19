@@ -53,13 +53,7 @@ impl Plugin for WeaponAssetsPlugin {
         app.init_resource::<WeaponRegistry>();
 
         app.add_systems(PreUpdate, sync_weapon_registry.before(RunGgrsSystems));
-        // Une arme de mêlée apparaît cachée (comme `spawn_melee_weapon_for_character` la posait
-        // avant D69) : juste après `GgrsSchedule`, avant tout système d'`Update`.
-        app.add_systems(PreUpdate, hide_new_melee_weapons.after(RunGgrsSystems));
-        app.add_systems(
-            Update,
-            (weapon_inventory_system, weapons_config_update_system),
-        );
+        app.add_systems(Update, weapons_config_update_system);
     }
 }
 
@@ -132,7 +126,7 @@ pub fn sync_weapon_registry(
 /// Cache l'arme de mêlée qui n'a pas encore de `Visibility` (`spawn_melee_weapon_for_character` ne
 /// pose plus que la simulation). Filtre `Without<Visibility>` plutôt que `Added` : une arme
 /// ressuscitée par un rollback sans avoir été vue garde le même résultat.
-fn hide_new_melee_weapons(
+pub fn hide_new_melee_weapons(
     mut commands: Commands,
     new: Query<Entity, (With<MeleeWeapon>, Without<Visibility>)>,
 ) {
@@ -160,7 +154,7 @@ pub fn weapon_inventory_system(
 
             if let Ok((_, visibility)) = weapon_entities.get_mut(*weapon_entity) {
                 let target = if is_active {
-                    commands.entity(*weapon_entity).insert(ActiveWeapon);
+                    commands.entity(*weapon_entity).try_insert(ActiveWeapon);
                     // Hide weapon during melee attacks
                     if melee_attack_state.is_attacking {
                         Visibility::Hidden
@@ -168,13 +162,13 @@ pub fn weapon_inventory_system(
                         Visibility::Visible
                     }
                 } else {
-                    commands.entity(*weapon_entity).remove::<ActiveWeapon>();
+                    commands.entity(*weapon_entity).try_remove::<ActiveWeapon>();
                     Visibility::Hidden
                 };
                 match visibility {
                     Some(mut visibility) => *visibility = target,
                     None => {
-                        commands.entity(*weapon_entity).insert(target);
+                        commands.entity(*weapon_entity).try_insert(target);
                     }
                 }
             }
