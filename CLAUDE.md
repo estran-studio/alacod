@@ -299,6 +299,18 @@ d'un événement émis par la simulation : ils restent justes après un rollback
 La simulation ne dépend jamais du rendu. Tout ce qui sert à afficher (caméra, lumière, audio,
 UI de debug) va dans `PresentationPlugin` (`core.rs`), absent en headless.
 
+`CoreSetupPlugin` (`core.rs`, le point d'entrée de tous les jeux) ajoute deux plugins dans cet ordre
+(D69 étape 2, E7) : `CoreSimPlugin` (`core_sim.rs` : plugins de simulation, ressources de session,
+**tous les enregistrements rollback**, ordre de `GgrsSchedule`, états, systèmes de session sans socket) puis
+`CoreAppPlugin` (`core.rs` : assets, réseau, fenêtre, `PresentationPlugin`, UI de lobby). Un enregistrement
+rollback nouveau va **dans `CoreSimPlugin`, avant les cinq de clôture** (`GgrsNetIdFactory`, `FrameCount`,
+`FixedTransform3D`, `GgrsNetId`, `RngStreams`, qui ferment la liste) ; `CoreAppPlugin` n'en pose jamais. Un
+système de simulation qui doit suivre ou précéder un système d'application se déclare **depuis l'application**
+(`app_system.before(sim_system)`), jamais l'inverse. Preuve d'ordre : `make schedule_order_diff` (rollback,
+headless) ; `ALACOD_SCHEDULE_ALL=1` ajoute tous les schedules et les paires de systèmes non ordonnés en conflit,
+avec et sans `PresentationPlugin` (le tri topologique de bevy ne suit pas l'ordre d'insertion : un plugin déplacé
+retourne aussi des paires qu'il ne touche pas, à juger une à une).
+
 Cette frontière est aussi la **frontière de portage console** (décision du 2026-10-03,
 `docs/plan-engine.md` §7) : une cible console future (Switch 1/2, PS4/PS5 en officiel) remplacera
 ce qui est derrière `PresentationPlugin` — rendu, fenêtre, input, audio, UI — jamais la

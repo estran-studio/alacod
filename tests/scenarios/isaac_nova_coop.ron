@@ -26,6 +26,8 @@ Scenario(
         Health(handle: 1, min: 6.0, max: 6.0, at_frame: 29),
         Health(handle: 0, min: 6.0, max: 6.0, at_frame: 119),
         Health(handle: 1, min: 6.0, max: 6.0, at_frame: 119),
+        EntityHealth(net_id: 183, min: 5000.0, max: 5000.0, at_frame: 29),
+        EntityHealth(net_id: 183, min: 4990.0, max: 4990.0, at_frame: 40),
         Event(kind: "explosion", by_frame: 40),
         PlayerAlive(handle: 0, at_frame: 119),
         PlayerAlive(handle: 1, at_frame: 119),
