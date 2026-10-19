@@ -1,6 +1,6 @@
 # dette-d116-lobby-admission — politique d'admission du lobby en ligne (D116)
 
-Worker b0, 2026-10-18, branche `dette-d116-lobby-admission` (depuis `origin/main` `2b15376a`, fusionnée deux fois avec `origin/main` (dernière fusion : `8ca55686`) avant les vérifications finales). Mac M1 Pro partagé
+Worker b0, 2026-10-18, branche `dette-d116-lobby-admission` (depuis `origin/main` `2b15376a`, fusionnée deux fois avec `origin/main` (dernière fusion : `8ca55686`) avant les vérifications finales). Mac arm64 partagé
 (charge 9 à 46 pendant les essais : b1 et b3). Signaling `matchbox_server` d'OrbStack (`b0-signaling`, port 3570, déjà en ligne : les scripts l'utilisent par `MATCHBOX_URL`).
 
 ## 1. Résultat
