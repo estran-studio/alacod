@@ -24,6 +24,9 @@
 //!   porte la bombe d'essai : mèche 60, rayon 56, dégâts 4, tir ami, `n` bombes de départ ; `isaac` n'en donne pas à son
 //!   personnage avant M3-T11d), `--pickup-progress` (un ramassage compte comme une progression du soft-lock), `--explored-progress` (entrer dans une case de 32 px jamais visitée aussi : étages de `gungeon`). Le JSON
 //!   rapporte `mechanics` (décomptes de moments clés : `mur_secret`, `porte_a_cle`, `bombe`, `coffre`, `achat`, `diable`…).
+//! - M3-T18 : `--events <dossier>` écrit `seed_<graine>.events.json`, tous les moments clés de la graine
+//!   (`frame`, `kind`, `label`), pour mesurer l'atteignabilité hors de ces décomptes (objets par tag, cœurs…) ;
+//!   `mechanics` compte aussi `champion_tue` (`variant_death`), `rocher` (rocher cassé), `curse`, `portail`.
 //! - M2-T16 : le JSON rapporte aussi `outcome` (classement de la graine : `victoire`, `objectif`,
 //!   `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage atteint : salles typées,
 //!   salles où un joueur est entré, salles nettoyées) ; un résumé par issue finit la sortie
@@ -292,6 +295,10 @@ fn main() {
         .unwrap_or(20_000);
     let save_scenario_dir = opt("--save-scenario").map(PathBuf::from);
     let json_path = opt("--json").map(PathBuf::from);
+    let events_dir = opt("--events").map(PathBuf::from);
+    if let Some(dir) = &events_dir {
+        std::fs::create_dir_all(dir).unwrap_or_else(|e| panic!("--events {dir:?} : {e}"));
+    }
 
     if let Some(dir) = &save_scenario_dir {
         std::fs::create_dir_all(dir).unwrap_or_else(|e| panic!("--save-scenario {dir:?} : {e}"));
@@ -628,6 +635,13 @@ fn main() {
             std::fs::write(&path, outcome.recorded.to_ron() + "\n")
                 .unwrap_or_else(|e| panic!("--save-scenario {path:?} : {e}"));
         }
+        if let Some(dir) = &events_dir {
+            let path = dir.join(format!("seed_{seed}.events.json"));
+            let json =
+                serde_json::to_string(&outcome.events).expect("sérialisation des moments clés");
+            std::fs::write(&path, json + "\n")
+                .unwrap_or_else(|e| panic!("--events {path:?} : {e}"));
+        }
 
         let deaths = (bots as u32).saturating_sub(outcome.metrics.players_alive);
         let outcome_end = outcome
@@ -765,8 +779,12 @@ fn mechanics(
             "chest" => "coffre",
             "shelf" if event.label.contains("diable") => "diable",
             "shelf" => "achat",
-            "item_pickup" => "objet",
             "boss_phase" => "boss_phase",
+            "variant_death" => "champion_tue",
+            "feedback" if event.label.starts_with("rocher cassé") => "rocher",
+            "curse" => "curse",
+            "portal" => "portail",
+            "item_pickup" => "objet",
             _ => continue,
         };
         *counts.entry(key).or_insert(0) += 1;
