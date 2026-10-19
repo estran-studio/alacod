@@ -20,6 +20,7 @@ pub mod effects_runtime;
 pub mod effects_v3;
 pub mod familiars;
 pub mod feedback;
+pub mod feedback_log;
 pub mod feedback_v3;
 pub mod fog_map;
 pub mod frame;

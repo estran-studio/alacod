@@ -19,6 +19,10 @@
 # E3c (dette-d69-e3c-balance) : + clock.rs, waves/config.rs (24 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : balance.rs
 # (character/config.rs), economy.rs (balance.rs, waves/mod.rs), powerups.rs (character/health/mod.rs), shop.rs (health/mod.rs, effects_runtime.rs, interaction.rs, items.rs),
 # waves/mod.rs (character/enemy/spawning.rs, health/mod.rs) ; nouveaux fichiers à fuite (enveloppes, app) : balance_assets.rs, economy_assets.rs, powerups_assets.rs, waves/assets.rs.
+# E5b (dette-d69-e5b-feedback) : aucun ajout (29 fichiers). Essayés et refusés par la sonde (« dépend de fichiers hors liste ») : feedback_log.rs (nouveau, sans fuite :
+# boss.rs, character/enemy/ai/state.rs, character/health/mod.rs) et feedback_v3.rs (sans fuite depuis E3a : bombs.rs, character/config.rs, familiars.rs). Leur fermeture interne
+# (83 fichiers, 56 hors liste) contient 23 fichiers à fuite (character/{mod,create,visuals,player/input}.rs, interaction.rs, items.rs, collider/mod.rs, global_asset.rs,
+# weapon_assets.rs, args/mod.rs…) : à relancer le calcul après E3d, E4, E5a, E5c.
 character/appearance.rs
 character/enemy/ai/mod.rs
 character/enemy/ai/obstacle.rs
