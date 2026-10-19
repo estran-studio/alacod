@@ -283,7 +283,7 @@ Pour chaque scénario dont le plancher baisse de plus de 25 %, même scénario s
 | dash_wall | 80 / 93 / 79 | 67 / 83 | 1.12 | 12.4 / 10.8 / 13.2 | 14.0 / 12.5 |
 | two_players_shooting | 74 / 74 / 81 | 77 / 56 | 1.14 | 13.3 / 13.1 / 13.0 | 12.8 / 17.5 |
 
-Sur 30 scénarios, ratio de 0,89 à 1,14 pour 28 (bruit du poste, 10 à 18 %), donc les écarts aux anciens planchers (macOS arm64 et cloud 4 cœurs, 2 à 3,5 fois plus rapides que ce VPS, voir « Comparaison M4/VPS », D98) sont le **poste**. Deux limites :
+Sur 30 scénarios, ratio de 0,89 à 1,14 pour 26 (bruit du poste, 10 à 18 %) ; `testbed_ally_safe` (0,86) et `bot_explorer_two` (0,87) sont rendus au bruit par les six passes entrelacées (tableau ci-dessous) ; `ammo_burst` (0,84) et `bench_floor` (0,78) aussi refaits, dont seul `bench_floor` reste plus lent, donc les écarts aux anciens planchers (macOS arm64 et cloud 4 cœurs, 2 à 3,5 fois plus rapides que ce VPS, voir « Comparaison M4/VPS », D98) sont le **poste**. Deux limites :
 
 - `ammo_burst` 0,84 et `bench_floor` 0,78 : refaits **six fois chacun, binaires entrelacés** (`bin-base`/`bin-head` copiés, une exécution de l'un puis de l'autre) avec `bot_explorer_two`, `bench_bullets`, `testbed_ally_safe` :
 
@@ -295,6 +295,30 @@ Sur 30 scénarios, ratio de 0,89 à 1,14 pour 28 (bruit du poste, 10 à 18 %), d
 | testbed_ally_safe | 85,1 | 92,9 | 14,4 | 12,7 | bruit |
 | **bench_floor** | **45,9** | **35,3** | **27,0** | **36,7** | **−23 % en fps, +36 % de rollback, stable sur les 6 passes (plages 38 à 47 contre 31 à 39 ; rollback 25 à 30 contre 33 à 41)** |
 
-- **`bench_floor` est plus lent que `main` d'avant T15, de façon reproductible.** Ce n'est pas T15 (qui n'a touché ni la simulation ni le contenu : traces inchangées) : [INFERENCE] c'est `m2-salles-murs-gungeon`, seul changement de gungeon entre `7ee084e8` et `f96fa463` (salles ×1,9 à ×5,5, étage plus grand, champ de flux de 406 µs par frame déjà relevé par T15). Non isolé par une mesure sur `6e6be0ba` (la consigne : mesurer `main` tel qu'il est). Le plancher (18 fps) et le plafond (74 ms) de `bench_floor` portent donc le coût du contenu agrandi ; ce n'est pas une régression de code sans cause, mais le pire rollback de 37 ms (3 ticks de 16,7 ms et plus) est **à suivre** : aucune dette ouverte tant que la cause est un choix de contenu ; à rouvrir si `bench_floor` descend sous 30 fps sur ce poste.
+- **`bench_floor` est plus lent que `main` d'avant T15, de façon reproductible : dette D118.** Pas T15 (traces inchangées). **Isolé à la revue** : six passes entrelacées de `6e6be0ba` (avant `m2-salles-murs-gungeon`) et `f96fa463` (après, seule fusion entre les deux) : 49,4 / 48,5 / 46,9 / 40,9 / 44,9 / 40,3 fps (rollback 23,5 à 28,2 ms) contre 37,8 / 34,8 / 35,3 / 31,7 / 31,8 / 33,5 (rollback 33,4 à 39,0 ms), soit −25 % de fps et +48 % de pire rollback : c'est la fusion des gabarits gungeon agrandis (contenu), non décomposée par système. Le plancher (18 fps) et le plafond (74 ms) de `bench_floor` portent ce coût.
 
-**Régression réelle : aucune.** Aucune dette nouvelle. (D97, `bench_tears` : pire rollback 64 à 72 ms ici contre 56 ms au rapport, même ordre ; plafond 145 ms ; reste ouverte.)
+**Régression réelle : une, `bench_floor` (D118).** (D97 fermée à la revue : `bench_tears` 31 à 33 ms sur l'arbre fusionné, voir ci-dessous.)
+
+### Revue : arbre fusionné avec main `8ca55686`, passes ciblées
+
+Main apporte D97 (larmes), T11d1/T11d2 (contenu isaac, `bench_floor_isaac.trace` rebénie), D69 E1 à E3b, D105, D109. Trois passes `make bench SCENARIO=<10 scénarios>` strict, même échantillonnage que r2/r3 (`charge-t1..3.txt`, dossier `m3-t15-d84-charge/`) ; charge hors bench : médiane 49 / 43 / 59 % d'un cœur, pointe 165 %. Témoin `idle` : 124 / 126 / 117 fps (82 à 88 en r1 à r3 : le poste change de régime d'une session à l'autre, ce que les budgets absorbent par la moitié).
+
+| scénario | fps t1 / t2 / t3 | rollback (ms) | avant (plancher / plafond) | après |
+|---|---|---|---|---|
+| bench_tears | 45.5 / 43.8 / 45.2 | 31.3 / 32.5 / 31.4 | 14 / 145 | **22 / 65** |
+| bench_tears_trio | 95.1 / 95.8 / 96.2 | 13.1 / 13.2 / 12.9 | 35 / 41 | **48 / 27** |
+| bench_familiars | 115.5 / 89.7 / 83.5 | 9.0 / 12.2 / 13.3 | 36 / 31 | **42 / 27** |
+| bench_floor_isaac | 52.4 / 56.1 / 51.9 | 19.3 / 18.0 / 19.5 | 27 / 42 | **26 / 40** |
+| bench_bullets | 81.5 / 83.8 / 82.1 | 11.8 / 11.3 / 11.5 | 26 / 47 | **41 / 24** |
+| bench_bullets_room | 61.4 / 62.5 / 61.6 | 18.0 / 17.5 / 17.8 | 20 / 84 | **31 / 36** |
+| bench_horde | 50.7 / 53.7 / 57.2 | 30.1 / 28.4 / 26.7 | 18 / 107 | **26 / 61** |
+| bench_cave | 100.2 / 87.1 / 90.4 | 10.0 / 11.8 / 11.2 | 35 / 31 | **44 / 24** |
+| generated/isaac/room_combat | 73.5 / 90.0 / 84.4 | 15.5 / 12.3 / 13.4 | 30 / — | **37 / 31** |
+| idle | 124.2 / 125.6 / 116.9 | 7.7 / 7.6 / 8.2 | 41 / — | **59 / 17** |
+
+`bench_tears` : pire rollback 31,3 / 32,5 / 31,4 ms, sous le seuil de 50 ms : D97 fermée. Les 10 lignes étaient 2 à 5 fois trop lâches (mesurées avant D97 ou sur l'ancien contenu isaac) ; `bench_floor_isaac` descend de 27 à 26 fps (contenu isaac de T11d2). Les autres lignes de `bench_*` (`bench_bullets`…) bougent aussi : ce poste et ce moment sont plus rapides qu'en r1 à r3, donc ces budgets sont resserrés, validés par le `make bench` complet final ci-dessous.
+
+### Revue : `make bench` complet final
+
+Arbre final (fusion de `8ca55686`, budgets des 10 lignes réappliqués) : `make bench` strict complet, **vert d'un seul tenant** (`exit=0`, 653 scénarios, 4 121 s). Charge (`charge-tF.txt`) : loadavg médiane 2,45 / p95 3,8 / max 6,6 ; CPU hors bench (`hermes`, `omp`, `node`) médiane 54 % / p95 107 % / max 162 % d'un cœur. `make test_scenarios_par SHARDS=3` sans BLESS : 3 tranches ok (aucune trace bougée).
+
