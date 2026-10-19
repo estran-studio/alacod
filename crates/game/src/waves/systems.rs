@@ -23,7 +23,6 @@ use crate::{
         player::Player,
     },
     collider::CollisionSettings,
-    global_asset::GlobalAsset,
     weapons::WeaponRegistry,
 };
 
@@ -60,15 +59,14 @@ pub fn wave_state_machine_system(
     mut wave_state: ResMut<WaveState>,
     mut rng_streams: ResMut<RngStreams>,
     balance: Res<crate::balance::ResolvedBalance>,
-    global_assets: Res<GlobalAsset>,
     wave_enemy_query: Query<Entity, (With<Enemy>, With<WaveEnemy>)>,
 ) {
     // F5 (chantier m0-v11) : config résolue une fois au lancement (voir `crate::balance`),
     // plus jamais lue depuis l'asset — valeurs identiques pour un contenu littéral.
-    // Un jeu sans dossier `Wave` (ex. `testbed`) n'a pas de `wave_config` : la machine
-    // reste inerte, comme avant F5 (la résolution ne doit pas réveiller les vagues
+    // Un jeu sans dossier `Wave` (ex. `testbed`) n'a pas de `wave_config` (`waves_enabled` faux) : la
+    // machine reste inerte, comme avant F5 (la résolution ne doit pas réveiller les vagues
     // d'un jeu qui n'en déclare pas).
-    if global_assets.wave_config.is_none() {
+    if !balance.waves_enabled {
         return;
     }
     let config = &balance.waves;
@@ -188,7 +186,6 @@ pub fn wave_spawning_system(
     mut wave_state: ResMut<WaveState>,
     mut rng_streams: ResMut<RngStreams>,
     balance: Res<crate::balance::ResolvedBalance>,
-    global_assets: Res<GlobalAsset>,
 
     // Spawner query (from LDTK map)
     // GGRS CRITICAL: GgrsNetId must be first for deterministic sorting
@@ -214,7 +211,7 @@ pub fn wave_spawning_system(
 
     // Get config (resolved once at run start, F5 — see `crate::balance`)
     // Même garde que la machine : sans dossier `Wave` déclaré, rien à spawner.
-    if global_assets.wave_config.is_none() {
+    if !balance.waves_enabled {
         return;
     }
     let config = &balance.waves;

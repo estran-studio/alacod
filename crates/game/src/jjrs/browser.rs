@@ -30,6 +30,14 @@ extern "C" {
     pub fn alacod_return_to_lobby();
 }
 
+/// Moitié application du retour au lobby de l'hôte web : la simulation (`run_state::apply_run_request_system`)
+/// écrit `ReturnToHostLobby` pour une session hébergée, ce système appelle le crochet JS.
+pub fn return_to_host_lobby(mut requests: MessageReader<crate::run_state::ReturnToHostLobby>) {
+    for _ in requests.read() {
+        alacod_return_to_lobby();
+    }
+}
+
 /// On the single-threaded browser runtime, stop GGRS sends as soon as the
 /// Matchbox future closes. Its default socket adapter panics on a closed channel.
 /// The host destroys this iframe after receiving the return-to-lobby message.

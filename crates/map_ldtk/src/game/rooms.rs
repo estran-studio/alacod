@@ -447,8 +447,7 @@ pub fn room_shop_system(
     item_table: Res<items::ItemTable>,
     unlocks: Res<items::UnlockTable>,
     active: Res<items::RunUnlocks>,
-    global_assets: Res<game::global_asset::GlobalAsset>,
-    economies: Res<Assets<game::economy::EconomyConfig>>,
+    balance: Res<game::balance::ResolvedBalance>,
     run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
     floor: Option<Res<run::FloorState>>,
     mut pools: ResMut<items::PoolState>,
@@ -460,10 +459,7 @@ pub fn room_shop_system(
     if !table.0.values().any(|def| def.shop.is_some()) {
         return;
     }
-    let economy = global_assets
-        .economy_config
-        .as_ref()
-        .and_then(|handle| economies.get(handle));
+    let economy = &balance.economy;
     let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
     let ctx = game::loot::SlotContext {
         frame: frame.frame,

@@ -60,7 +60,7 @@ fn main() {
             (
                 setup_simple_background,
                 // `ResolvedBalance` est insérée par ce système (F5, m0-v11) : passer après.
-                system_game_loading.after(game::balance::resolve_balance_system),
+                system_game_loading.after(game::balance_assets::resolve_balance_system),
             ),
         )
         .add_systems(Update, panic_on_p_press)

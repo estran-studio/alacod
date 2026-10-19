@@ -289,12 +289,12 @@ impl Plugin for RecordingPlugin {
             .add_systems(ReadInputs, record_local_inputs.after(read_local_inputs))
             // Après l'arrêt demandé par la trace d'état : l'app s'arrête à la fin de l'update
             // qui émet AppExit, le message doit être lu dans le même update. Idem pour la
-            // fermeture de la fenêtre : `exit_on_all_closed` émet AppExit dans `Last` (R7)
+            // fermeture de la fenêtre : `exit_on_all_closed` émet AppExit dans `Last` (R7) ; l'application
+            // pose `bevy::window::ExitSystems.before(ExitRequests)` (D69 E6, `CoreSetupPlugin`) : l'ordre
+            // d'avant (après les deux) est conservé sans que la simulation nomme `bevy::window`.
             .add_systems(
                 Last,
-                write_recording_on_exit
-                    .after(crate::state_trace::ExitRequests)
-                    .after(bevy::window::ExitSystems),
+                write_recording_on_exit.after(crate::state_trace::ExitRequests),
             );
     }
 }

@@ -37,7 +37,8 @@ use std::path::PathBuf;
 use utils::frame::FrameCount;
 
 use game::global_asset::GlobalAsset;
-use game::powerups::{spawn_powerup_pickup, PowerUpPickup, PowerUpsConfig};
+use game::powerups::{spawn_powerup_pickup, PowerUpPickup};
+use game::powerups_assets::PowerUpsConfigAsset;
 use game::replay::{
     CharacterPlacement, Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario,
     WaveOverride,
@@ -722,12 +723,13 @@ struct WaveOverrideRes(Option<WaveOverride>);
 
 /// Applique la modification de config des vagues du scénario (T2.1, bench `bench_horde`),
 /// même idée que `apply_weapon_overrides` mais sur `waves::config::WaveConfig` : dès que
-/// l'asset est chargé, avant que `wave_state_machine_system` ne calcule la taille de la
-/// première vague (qui lit cette config).
+/// l'asset est chargé, avant que `resolve_balance_system` ne le résolve (`OnEnter(GameLoading)`, E3c : le
+/// scénario vise l'**enveloppe** `WaveConfigAsset`, pas `ResolvedBalance`) donc avant la taille de la
+/// première vague (que `wave_state_machine_system` lit dans `ResolvedBalance::waves`).
 fn apply_wave_overrides(
     overrides: Res<WaveOverrideRes>,
     global_assets: Option<Res<game::global_asset::GlobalAsset>>,
-    mut wave_configs: ResMut<Assets<game::waves::config::WaveConfig>>,
+    mut wave_configs: ResMut<Assets<game::waves::assets::WaveConfigAsset>>,
     mut applied: Local<bool>,
 ) {
     if *applied {
@@ -740,9 +742,10 @@ fn apply_wave_overrides(
     let Some(handle) = global_assets.and_then(|g| g.wave_config.clone()) else {
         return;
     };
-    let Some(mut config) = wave_configs.get_mut(&handle) else {
+    let Some(mut asset) = wave_configs.get_mut(&handle) else {
         return;
     };
+    let config = &mut asset.0;
     // F5 (chantier m0-v11) : ces champs sont des `content::expr::NumOrExpr` ; un override
     // de scénario est toujours un entier littéral.
     if let Some(v) = o.max_wave {
@@ -777,13 +780,15 @@ struct PowerUpDropChanceOverrideRes(Option<fixed_math::Fixed>);
 
 /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5, scénario
 /// `powerup_drop_on_kill` : preuve du chemin « drop à la mort » sans dépendre du tirage réel
-/// du jeu — voir `game::replay::Scenario::powerup_drop_chance_override`). Même idée que
-/// [`apply_wave_overrides`] : s'applique dès que l'asset est chargé, avant la première mort
-/// simulée (qui lit cette config).
+/// du jeu — voir `game::replay::Scenario::powerup_drop_chance_override`). Vise l'**enveloppe**
+/// (`Assets<PowerUpsConfigAsset>`, E3c), pas la table de simulation : même idée que
+/// [`apply_wave_overrides`], s'applique dès que l'asset est chargé, bien avant
+/// `OnEnter(GameLoading)` qui copie l'asset dans `PowerUpsTable` : la première mort simulée lit donc la
+/// valeur forcée.
 fn apply_powerup_drop_chance_override(
     overrides: Res<PowerUpDropChanceOverrideRes>,
     global_assets: Option<Res<GlobalAsset>>,
-    mut powerup_configs: ResMut<Assets<PowerUpsConfig>>,
+    mut powerup_configs: ResMut<Assets<PowerUpsConfigAsset>>,
     mut applied: Local<bool>,
 ) {
     if *applied {
@@ -796,9 +801,10 @@ fn apply_powerup_drop_chance_override(
     let Some(handle) = global_assets.and_then(|g| g.powerups_config.clone()) else {
         return;
     };
-    let Some(mut config) = powerup_configs.get_mut(&handle) else {
+    let Some(mut asset) = powerup_configs.get_mut(&handle) else {
         return;
     };
+    let config = &mut asset.0;
     config.drop_chance = drop_chance;
     *applied = true;
 }
@@ -906,16 +912,11 @@ fn apply_scenario_character_placements(
 fn apply_scenario_powerup_placements(
     frame: Res<FrameCount>,
     placements: Res<ScenarioPowerUpPlacements>,
-    global_assets: Res<GlobalAsset>,
-    powerup_configs: Res<Assets<PowerUpsConfig>>,
+    table: Res<game::powerups::PowerUpsTable>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
-    let Some(config) = global_assets
-        .powerups_config
-        .as_ref()
-        .and_then(|handle| powerup_configs.get(handle))
-    else {
+    let Some(config) = &table.0 else {
         return;
     };
     for placement in &placements.0 {

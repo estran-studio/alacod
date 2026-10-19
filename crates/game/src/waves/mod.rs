@@ -29,6 +29,7 @@
 //!
 //! Configure via `waves/wave_config.ron` dans les assets du jeu. See `config::WaveConfig` for options.
 
+pub mod assets;
 pub mod config;
 pub mod debug;
 pub mod state;
@@ -36,7 +37,6 @@ pub mod systems;
 pub mod tracking;
 
 use bevy::prelude::*;
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::GgrsSchedule;
 
 use crate::character::enemy::spawning::enemy_spawn_from_spawners_system;
@@ -61,9 +61,6 @@ pub struct WaveSystemPlugin;
 
 impl Plugin for WaveSystemPlugin {
     fn build(&self, app: &mut App) {
-        // RON asset plugin for wave configuration
-        app.add_plugins(RonAssetPlugin::<WaveConfig>::new(&["ron"]));
-
         // Debug UI plugin
         app.add_plugins(WaveDebugPlugin);
 
