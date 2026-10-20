@@ -2,7 +2,9 @@
 // 145 (M3-T11d1 : 26 avant les vingt gabarits) : même plan, le trésor est la case au sud du départ). `lock_from_floor: 1` : la porte du trésor est ordinaire,
 // ouverte, sans clé.
 //
-// À regarder : le joueur descend et entre dans le trésor sans rien toucher (y ≈ -191), `DoorLocked` faux, aucune clé.
+// Géométrie ×2 (m3-salles-murs-isaac : salles de 480 × 288 px, le joueur naît en (-24, -8)) : le trajet jusqu'au mur sud du trésor fait ~390 px (f20 à f240).
+//
+// À regarder : le joueur descend et entre dans le trésor sans rien toucher (y ≈ -399), `DoorLocked` faux, aucune clé.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
@@ -12,13 +14,13 @@ Scenario(
     players: [
         (
             inputs: [
-                (from: 20, to: 140, buttons: [Down], pan: (0, 0)),
+                (from: 20, to: 240, buttons: [Down], pan: (0, 0)),
             ],
         ),
     ],
     expect: [
         DoorLocked(kind: "tresor", locked: false, at_frame: 5),
         Consumable(handle: 0, id: "key", count: 0, at_frame: 80),
-        PlayerPosition(handle: 0, x: -5.5, y: -191.3, tolerance: 1.5, at_frame: 299),
+        PlayerPosition(handle: 0, x: -20, y: -399.3, tolerance: 1.5, at_frame: 299),
     ],
 )

@@ -26,6 +26,7 @@ pub struct CameraControlPlugin;
 impl Plugin for CameraControlPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraSettings>()
+            .init_resource::<CameraRooms>()
             .add_plugins(CameraDebugUIPlugin)
             .add_plugins(RonAssetPlugin::<CameraSettingsAsset>::new(&[".ron"]))
             .add_systems(Startup, (setup_camera, load_camera_settings))
@@ -74,6 +75,58 @@ pub struct CameraSettings {
     /// T1.16 : la caméra saute sur sa cible au changement de niveau au lieu d'y glisser.
     #[serde(default = "default_true")]
     pub floor_recenter: bool,
+    /// m3-salles-murs-isaac : la caméra reste dans la salle où se tient la cible (`CameraRooms`) : vue centrée sur une salle plus
+    /// petite que l'écran, suivi borné aux murs d'une salle plus grande. Défaut : non (autres jeux inchangés).
+    #[serde(default)]
+    pub room_frame: bool,
+}
+
+/// Boîtes des salles de l'étage courant (monde), publiées par `map_ldtk::game::rooms::publish_camera_rooms` : présentation
+/// seule, lue par `camera_control_system` quand `CameraSettings::room_frame` est vrai.
+#[derive(Resource, Default, Clone, Debug, PartialEq)]
+pub struct CameraRooms(pub Vec<CameraRoom>);
+
+/// Position (coin bas gauche) et taille d'une salle, en unités monde (la valeur de `RoomBounds`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CameraRoom {
+    pub position: bevy_fixed::fixed_math::FixedVec2,
+    pub size: bevy_fixed::fixed_math::FixedVec2,
+}
+
+impl CameraRoom {
+    fn rect(&self) -> Rect {
+        Rect {
+            min: Vec2::new(
+                self.position.x.to_num::<f32>(),
+                self.position.y.to_num::<f32>(),
+            ),
+            max: Vec2::new(
+                (self.position.x + self.size.x).to_num::<f32>(),
+                (self.position.y + self.size.y).to_num::<f32>(),
+            ),
+        }
+    }
+}
+
+/// Tous les points sont-ils dans `room` ? Faux sans salle. Règle du cadrage par salle en suivi collectif (`PlayersLock`).
+pub fn all_in_room(points: impl IntoIterator<Item = Vec2>, room: Option<Rect>) -> bool {
+    room.is_some_and(|room| points.into_iter().all(|p| room.contains(p)))
+}
+
+/// Centre de vue `anchor` ramené dans `room` : sur chaque axe, une vue (`view`) au moins aussi grande que la salle se cale sur le
+/// centre de la salle, sinon le centre est borné pour que la vue ne dépasse pas les murs. Fonction pure.
+pub fn frame_in_room(anchor: Vec2, view: Vec2, room: Rect) -> Vec2 {
+    let axis = |a: f32, view: f32, lo: f32, hi: f32| {
+        if view >= hi - lo {
+            (lo + hi) / 2.0
+        } else {
+            a.clamp(lo + view / 2.0, hi - view / 2.0)
+        }
+    };
+    Vec2::new(
+        axis(anchor.x, view.x, room.min.x, room.max.x),
+        axis(anchor.y, view.y, room.min.y, room.max.y),
+    )
 }
 
 fn default_floor_fade_seconds() -> f32 {
@@ -100,6 +153,7 @@ impl Default for CameraSettings {
             online_follow: OnlineFollowMode::LocalPlayer,
             floor_fade_seconds: default_floor_fade_seconds(),
             floor_recenter: true,
+            room_frame: false,
         }
     }
 }
@@ -220,6 +274,8 @@ pub(crate) fn camera_control_system(
     follow_override: Option<Res<crate::ui::hud_model::CameraFollowOverride>>,
     // T1.17 : hit stop, la caméra ne suit plus pendant le gel (présentation seule).
     freeze: Option<Res<animation::AnimationFreeze>>,
+    // m3-salles-murs-isaac : salles de l'étage, publiées par la carte (`CameraRooms`), lues si `room_frame`.
+    rooms: Option<Res<CameraRooms>>,
 ) {
     if freeze.is_some_and(|freeze| freeze.is_frozen()) {
         return;
@@ -408,6 +464,32 @@ pub(crate) fn camera_control_system(
 
             // Keep zoom at min level in free mode
             camera.target_zoom = settings.min_zoom;
+        }
+    }
+
+    // m3-salles-murs-isaac : la salle où se tient la cible cadre la vue (Isaac : une salle = un écran). Une salle plus petite que la
+    // vue se cadre au centre (caméra fixe), une plus grande suit la cible sans montrer au-delà de ses murs.
+    if settings.room_frame && camera.mode != CameraMode::Unlock {
+        if let Some(rooms) = rooms.as_deref() {
+            let anchor = camera.target_position;
+            let found = rooms
+                .0
+                .iter()
+                .map(|room| room.rect())
+                .find(|rect| rect.contains(anchor));
+            // En suivi collectif, le cadrage par salle ne vaut que si tous les joueurs y sont (sinon l'un sortirait du cadre,
+            // le zoom n'étant pas recalculé) ; sinon le cadrage collectif reste.
+            let everyone_inside = camera.mode != CameraMode::PlayersLock
+                || all_in_room(
+                    player_query
+                        .iter()
+                        .map(|(_, t, _, _)| t.translation.truncate()),
+                    found,
+                );
+            if let Some(room) = found.filter(|_| everyone_inside) {
+                let view = window_size * camera.target_zoom;
+                camera.target_position = frame_in_room(anchor, view, room);
+            }
         }
     }
 
@@ -650,5 +732,77 @@ pub fn setup_camera(mut commands: Commands, settings: Res<CameraSettings>) {
                 target_zoom: settings.default_player_zoom, // Use the default player zoom
             },
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn room(x0: f32, y0: f32, x1: f32, y1: f32) -> Rect {
+        Rect {
+            min: Vec2::new(x0, y0),
+            max: Vec2::new(x1, y1),
+        }
+    }
+
+    #[test]
+    fn une_salle_plus_petite_que_la_vue_est_cadree_au_centre_quoi_que_fasse_la_cible() {
+        // Salle de 480 x 288 dans une vue de 576 x 324 : caméra fixe, au centre de la salle.
+        let r = room(960.0, 0.0, 1440.0, 288.0);
+        let view = Vec2::new(576.0, 324.0);
+        for anchor in [
+            Vec2::new(970.0, 10.0),
+            Vec2::new(1200.0, 144.0),
+            Vec2::new(1439.0, 287.0),
+        ] {
+            assert_eq!(frame_in_room(anchor, view, r), Vec2::new(1200.0, 144.0));
+        }
+    }
+
+    #[test]
+    fn une_salle_plus_grande_que_la_vue_suit_la_cible_sans_montrer_au_dela_de_ses_murs() {
+        // Salle de 960 x 576 (2 x 2 unités) : la vue de 576 x 324 reste entre les murs, sur chaque axe.
+        let r = room(0.0, 0.0, 960.0, 576.0);
+        let view = Vec2::new(576.0, 324.0);
+        assert_eq!(
+            frame_in_room(Vec2::new(10.0, 10.0), view, r),
+            Vec2::new(288.0, 162.0)
+        );
+        assert_eq!(
+            frame_in_room(Vec2::new(950.0, 570.0), view, r),
+            Vec2::new(672.0, 414.0)
+        );
+        // Au milieu : la cible garde le centre de la vue.
+        assert_eq!(
+            frame_in_room(Vec2::new(480.0, 288.0), view, r),
+            Vec2::new(480.0, 288.0)
+        );
+    }
+
+    #[test]
+    fn le_cadrage_collectif_exige_tous_les_joueurs_dans_la_salle() {
+        let a = room(0.0, 0.0, 480.0, 288.0);
+        let p = |x: f32| Vec2::new(x, 144.0);
+        assert!(all_in_room([p(400.0), p(100.0)], Some(a)));
+        // deux salles voisines : (400,144) dans la première, (540,144) dans la suivante
+        assert!(!all_in_room([p(400.0), p(540.0)], Some(a)));
+        assert!(!all_in_room([p(400.0)], None));
+        // salles [0,480] et [480,960], joueurs en 400 et 700 : le milieu (550) est dans la seconde salle, mais 400 n'y est pas
+        let b = room(480.0, 0.0, 960.0, 288.0);
+        let mid = Vec2::new((400.0 + 700.0) / 2.0, 144.0);
+        assert!(b.contains(mid));
+        assert!(!all_in_room([p(400.0), p(700.0)], Some(b)));
+    }
+
+    #[test]
+    fn les_axes_sont_independants() {
+        // Salle haute et étroite (480 x 576) : centrée en x (plus petite que la vue), suivie en y.
+        let r = room(0.0, 0.0, 480.0, 576.0);
+        let view = Vec2::new(576.0, 324.0);
+        assert_eq!(
+            frame_in_room(Vec2::new(30.0, 100.0), view, r),
+            Vec2::new(240.0, 162.0)
+        );
     }
 }

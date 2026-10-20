@@ -4,9 +4,10 @@
 // onze ennemis, cinq présentoirs (trois de la boutique, deux du diable). Le bot `explorateur` nettoie les combats, **pose la bombe de départ** contre le mur de la
 // secrète (intégration de T14, D106) et bat le boss.
 //
-// À regarder : la bombe est posée f638 (explosion f712, mur ouvert f713) ; le boss verrouille sa salle (f1265), passe en phase 1 (f1357), phase 2 (f1498) ; son butin
-// (`bombe_fiole`, un actif du pool `boss`, M3-T8 §73) tombe au centre de la salle à sa mort (f1667) et le bot le ramasse (f1710) ; la salle se rouvre avec sa porte vers
-// la salle du diable (deux présentoirs à un cœur, `devil_room_chance`) ; victoire f1667. M3-T11d2 (2026-10-18, cent objets, pool `boss` à onze entrées, trois ennemis
+// À regarder : la bombe est posée f898 (explosion f972, mur ouvert f973) ; le boss verrouille sa salle (f1859), passe en phase 1 (f1968), phase 2 (f2085) ; son butin
+// (`bombe_fiole`, un actif du pool `boss`, M3-T8 §73) tombe au centre de la salle à sa mort (f2143) et le bot le ramasse (f2235) ; la salle se rouvre avec sa porte vers
+// la salle du diable (deux présentoirs à un cœur, `devil_room_chance`) ; victoire f2144. Gabarits ×2 (m3-salles-murs-isaac : salles de 480 × 288 px) : chronologie ~1,4 fois
+// plus longue (avant : bombe f638, boss f1265, victoire f1667). M3-T11d2 (2026-10-18, cent objets, pool `boss` à onze entrées, trois ennemis
 // dans les gabarits) : le butin n'est plus `sang_chaud` et la chronologie est décalée.
 // Le joueur gagne avec `Armor +200` (`PlayerScript::modifiers`, D93) : avec +100 (valeur d'avant T14) le bot, qui s'est déplacé vers le mur secret, meurt à f1657 au
 // boss (phase 2). L'armure grandit, le bot n'est pas rééquilibré (décision de William : l'équilibrage n'est pas l'objectif).
@@ -19,25 +20,25 @@ Scenario(
     game: "isaac",
     map_seed: 8,
     floors: Some("sous_sol_un"),
-    frames: 2200,
+    frames: 2500,
     players: [
         (bot: explorateur, aim: Some(Free), modifiers: [(stat: Armor, op: Add, value: "200")]),
     ],
     expect: [
         EntityCount(kind: Enemy, min: Some(11), max: Some(11), at_frame: 5),
-        RoomLayout(kind: "diable", size: Some((240, 144)), touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
+        RoomLayout(kind: "diable", size: Some((480, 288)), touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
         RoomLayout(kind: "boss", touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
         RoomState(kind: "diable", state: Dormant, at_frame: 5),
-        RoomState(kind: "boss", state: Locked, at_frame: 1400),
-        BossPhase(entity: NetId(137), phase: 1, at_frame: 1400),
-        BossPhase(entity: NetId(137), phase: 2, at_frame: 1500),
-        RoomState(kind: "boss", state: Cleared, at_frame: 1740),
-        ItemsOnFloor(id: "bombe_fiole", count: 0, at_frame: 1650),
-        ItemsOnFloor(id: "bombe_fiole", count: 1, at_frame: 1690),
-        HasItem(handle: 0, id: "bombe_fiole", at_frame: 1800),
-        ItemsOnFloor(id: "bombe_fiole", count: 0, at_frame: 1800),
+        RoomState(kind: "boss", state: Locked, at_frame: 1900),
+        BossPhase(entity: NetId(137), phase: 1, at_frame: 2000),
+        BossPhase(entity: NetId(137), phase: 2, at_frame: 2120),
+        RoomState(kind: "boss", state: Cleared, at_frame: 2180),
+        ItemsOnFloor(id: "bombe_fiole", count: 0, at_frame: 2100),
+        ItemsOnFloor(id: "bombe_fiole", count: 1, at_frame: 2180),
+        HasItem(handle: 0, id: "bombe_fiole", at_frame: 2300),
+        ItemsOnFloor(id: "bombe_fiole", count: 0, at_frame: 2300),
         ShelfCount(count: 5, at_frame: 1400),
-        RunState(step: Ended(Victory), at_frame: 1740),
-        PlayerAlive(handle: 0, at_frame: 2199),
+        RunState(step: Ended(Victory), at_frame: 2180),
+        PlayerAlive(handle: 0, at_frame: 2499),
     ],
 )

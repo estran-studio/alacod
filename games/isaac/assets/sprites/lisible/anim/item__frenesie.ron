@@ -1,0 +1,7 @@
+// Généré par scripts/generer-sprites-isaac.py : image(s) de `item/frenesie` dans l'atlas.
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 50, end: 50),
+    },
+)

@@ -1090,6 +1090,8 @@ pub struct HudWallArt {
     pub atlas: String,
     pub tile: Option<u32>,
     pub columns: Option<u32>,
+    /// Couches IntGrid annexes dessinées par tuile fixe (`wall_art.cells`).
+    pub cell_layers: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -4430,6 +4432,7 @@ fn load_ui(
                         atlas: art.atlas.clone(),
                         tile: art.tile,
                         columns: art.columns,
+                        cell_layers: art.cells.iter().map(|cell| cell.layer.clone()).collect(),
                     });
                 }
             })

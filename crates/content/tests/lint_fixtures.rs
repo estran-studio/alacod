@@ -1107,6 +1107,18 @@ fn hud_wall_art_fixture_reports_unknown_layer() {
     assert_only_one_besides_start_map(&errors);
 }
 
+// m3-salles-murs-isaac : la couche d'une case annexe (`wall_art.cells`) existe aussi dans une carte du jeu.
+#[test]
+fn hud_wall_art_fixture_reports_unknown_cell_layer() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_wall_art_cell_layer_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "couche IntGrid « Pierres »",
+    );
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn sprite_sheet_duplicate_key_fixture_reports_repeated_id() {
     let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_duplicate_key")).unwrap();

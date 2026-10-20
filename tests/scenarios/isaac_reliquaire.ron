@@ -8,8 +8,8 @@ Scenario(
     map_seed: 1,
     frames: 80,
     items: [
-        (id: "reliquaire", x: "-8.0", y: "-8.0", at_frame: 1),
-        (id: "pouls", x: "-8.0", y: "-8.0", at_frame: 30),
+        (id: "reliquaire", x: "-24.0", y: "-8.0", at_frame: 1),
+        (id: "pouls", x: "-24.0", y: "-8.0", at_frame: 30),
     ],
     players: [(inputs: [
         (from: 10, to: 11, buttons: [Interaction]),

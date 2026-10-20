@@ -654,6 +654,9 @@ cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/t
 ```
 L'override s'applique avant le réglage `online_follow`.
 
+`room_frame: true` (`camera.ron`, défaut non ; `isaac`, m3-salles-murs-isaac, `docs/conventions.md` §40) cadre la vue sur la salle où se tient la cible : une salle plus petite que la vue (480×288 contre 576×324 à `min_zoom` 0,6) est cadrée au centre, une plus grande suit la cible sans montrer au-delà de ses murs.
+Présentation seule : `CameraRooms` est publiée par `map_ldtk::game::rooms::publish_camera_rooms`, `frame_in_room` est pure.
+
 ### HUD (Affichage tête haute)
 
 Le HUD est décrit dans un fichier RON (`games/zombies/assets/ui/hud.ron`) et construit automatiquement en UI Bevy.

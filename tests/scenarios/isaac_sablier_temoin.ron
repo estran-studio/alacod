@@ -1,27 +1,30 @@
 // M3-T11d2 (docs/conventions.md §76.5) : témoin de `isaac_sablier` et `isaac_cuirasse` : le bot sans objet.
-// Même partie pour les trois scénarios `isaac_sablier*`, `isaac_cuirasse` et `isaac_vengeance` (le bot ne dépend pas de l'objet tenu) : un bot `explorateur` joue l'étage court
-// `sous_sol_court` (graine 1, séquence `sous_sol`) : la première salle de combat se verrouille à f65, un coup touche le joueur à f107 (6 → 5), les kills tombent à f136, f173 et f283,
-// la salle est nettoyée à f282 ; la seconde salle de combat se verrouille à f314, un coup touche le joueur à f415.
+// Même partie pour les quatre scénarios `isaac_sablier*`, `isaac_cuirasse` et `isaac_vengeance` (le bot ne dépend pas de l'objet tenu) : un bot `explorateur` joue l'étage court
+// `sous_sol_court` (graine 1, séquence `sous_sol`, géométrie ×2 des gabarits) : la première salle de combat se verrouille à f102, un coup touche le joueur à f187 (6 → 5), les kills tombent à f191, f253 et f337,
+// la salle est nettoyée à f336 ; la seconde salle de combat se verrouille à f416 mais le bot n'y est pas touché (il y est nettoyé à f722 sans un coup) : les coups d'après f336 sont donc posés par le scénario,
+// une `cible_mordante` placée à f400 sur la position du bot (-238.7, -271.3 ; le bot s'arrête pour la combattre, elle le mord à f405, puis toutes les 120 frames : f525).
 //
-// À regarder : la santé reste à 5 de f107 à f414 (salle nettoyée f282 sans soin), puis 4 dès le coup de f415.
+// À regarder : la santé reste à 5 de f187 à f404 (salle nettoyée f336 sans soin), puis 4 dès le coup de f405 et 3 dès celui de f525.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map: "floor:sous_sol_court",
     floors: Some("sous_sol"),
     map_seed: 1,
-    frames: 500,
+    frames: 600,
     explorer: Some((combat_aware: true, oscillation: Hysteresis)),
+    characters: [(character: "cible_mordante", x: "-238.7", y: "-271.3", at_frame: 400)],
     players: [(bot: explorateur, items: [])],
     expect: [
         Event(kind: "room", label_contains: Some("salle combat verrouillée"), by_frame: 500),
         Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 500),
-        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 100),
-        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 130),
-        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 300),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 180),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 200),
+        Health(handle: 0, min: 5.0, max: 5.0, at_frame: 340),
         Health(handle: 0, min: 5.0, max: 5.0, at_frame: 400),
         Health(handle: 0, min: 4.0, max: 4.0, at_frame: 420),
-        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 440),
-        PlayerAlive(handle: 0, at_frame: 499),
+        Health(handle: 0, min: 4.0, max: 4.0, at_frame: 500),
+        Health(handle: 0, min: 3.0, max: 3.0, at_frame: 540),
+        PlayerAlive(handle: 0, at_frame: 599),
     ],
 )

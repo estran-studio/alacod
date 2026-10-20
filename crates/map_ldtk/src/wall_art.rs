@@ -17,6 +17,7 @@
 //! |---|---|
 //! | `0..32` | dessus : `rebords + 8 × coins` ; rebords : bit 0 nord, bit 1 est, bit 2 ouest (voisine non mur) ; coins : bit 0 nord-est, bit 1 nord-ouest (angle rentrant : les deux voisines orthogonales sont des murs, la diagonale un sol) |
 //! | `32..36` | face : `32 + (ouest non mur) + 2 × (est non mur)` |
+//! | `36..` | tuiles annexes (`wall_art.cells` : une tuile fixe par valeur d'une autre couche IntGrid ; `isaac` : `36` = piques de `Surfaces`) |
 
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
@@ -64,6 +65,17 @@ pub fn wall_cells(csv: &[i32], w: i32, h: i32) -> Vec<((i32, i32), u32)> {
         }
     }
     cells
+}
+
+/// Cases `(colonne, ligne)` de `csv` (largeur `w`, hauteur `h`) qui valent `value` (couche annexe : `WallArt::cells`).
+pub fn value_cells(csv: &[i32], w: i32, h: i32, value: i32) -> Vec<(i32, i32)> {
+    if w <= 0 || h <= 0 || csv.len() != (w as usize) * (h as usize) {
+        return Vec::new();
+    }
+    (0..h)
+        .flat_map(|y| (0..w).map(move |x| (x, y)))
+        .filter(|&(x, y)| csv[(y * w + x) as usize] == value)
+        .collect()
 }
 
 /// Image et découpage de la feuille, chargés une fois par chemin.
@@ -123,16 +135,28 @@ pub fn draw_walls(
         }
         let mut cells = Vec::new();
         for layer in level.layer_instances.iter().flatten() {
+            let size = layer.grid_size as f32;
+            // Origine du niveau en bas à gauche, y vers le haut : la ligne 0 de l'IntGrid est en haut.
+            let place = |x: i32, y: i32, z: f32| {
+                Vec3::new(
+                    (x as f32 + 0.5) * size,
+                    (layer.c_hei - 1 - y) as f32 * size + size / 2.0,
+                    z,
+                )
+            };
             if layer.identifier == art.layer {
-                let size = layer.grid_size as f32;
                 for ((x, y), tile) in wall_cells(&layer.int_grid_csv, layer.c_wid, layer.c_hei) {
-                    // Origine du niveau en bas à gauche, y vers le haut : la ligne 0 de l'IntGrid est en haut.
-                    let position = Vec3::new(
-                        (x as f32 + 0.5) * size,
-                        (layer.c_hei - 1 - y) as f32 * size + size / 2.0,
-                        art.z,
-                    );
-                    cells.push((tile, position, size));
+                    cells.push((tile, place(x, y, art.z), size));
+                }
+            }
+            for cell_art in art.cells.iter().filter(|c| c.layer == layer.identifier) {
+                for (x, y) in value_cells(
+                    &layer.int_grid_csv,
+                    layer.c_wid,
+                    layer.c_hei,
+                    cell_art.value,
+                ) {
+                    cells.push((cell_art.tile, place(x, y, cell_art.z), size));
                 }
             }
         }
@@ -257,5 +281,16 @@ mod tests {
         assert_eq!(cells.len(), 8);
         // Toutes les tuiles sont dans la feuille.
         assert!(cells.iter().all(|(_, t)| *t < WALL_TILES));
+    }
+
+    #[test]
+    fn une_couche_annexe_ne_dessine_que_la_valeur_demandee() {
+        // Deux valeurs sur une grille 3 x 2 : seules les cases de la valeur 5 (piques) sortent, ligne par ligne.
+        let csv = [0, 5, 0, 5, 5, 2];
+        assert_eq!(value_cells(&csv, 3, 2, 5), vec![(1, 0), (0, 1), (1, 1)]);
+        assert_eq!(value_cells(&csv, 3, 2, 2), vec![(2, 1)]);
+        assert!(value_cells(&csv, 3, 2, 7).is_empty());
+        // Une couche qui n'est pas une grille de `w × h` cases ne dessine rien.
+        assert!(value_cells(&csv, 4, 2, 5).is_empty());
     }
 }

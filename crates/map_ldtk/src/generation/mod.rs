@@ -245,8 +245,9 @@ mod tests {
         use map::generation::config::MapGenerationMode;
         let config = MapGenerationConfig {
             seed,
-            max_width: 1000,
-            max_heigth: 1000,
+            // Comme le chargeur (`loader::resolve_map_config`) : l'étendue vient de la grammaire (m3-salles-murs-isaac : ±1800 × ±1200).
+            max_width: grammar.bounds.map_or(1000, |b| b.0),
+            max_heigth: grammar.bounds.map_or(1000, |b| b.1),
             mode: MapGenerationMode::Floor(grammar.clone()),
             ..Default::default()
         };
@@ -416,7 +417,7 @@ mod tests {
                 for room in rooms {
                     let (_, _, w, h) = room.world_rect();
                     assert!(
-                        w % 240 == 0 && h % 144 == 0,
+                        w % 480 == 0 && h % 288 == 0,
                         "{label} : {} hors grille",
                         room.template
                     );
@@ -425,7 +426,7 @@ mod tests {
                 for room in rooms {
                     let (x, y, _, _) = room.world_rect();
                     assert!(
-                        (x - ox) % 240 == 0 && (y - oy) % 144 == 0,
+                        (x - ox) % 480 == 0 && (y - oy) % 288 == 0,
                         "{label} : {} décalée",
                         room.template
                     );
@@ -456,12 +457,12 @@ mod tests {
                         adjacent[j].insert(i);
                     }
                 }
-                // chaque ouverture non murée d'une salle est une porte vers une voisine : trois
-                // cases d'ouverture par porte
+                // chaque ouverture non murée d'une salle est une porte vers une voisine : quatre
+                // cases d'ouverture par porte (m3-salles-murs-isaac ; trois avant)
                 for (i, room) in rooms.iter().enumerate() {
                     assert_eq!(
                         room.open_cells(),
-                        3 * room.neighbour_iids().len(),
+                        4 * room.neighbour_iids().len(),
                         "{label} : {}",
                         room.template
                     );

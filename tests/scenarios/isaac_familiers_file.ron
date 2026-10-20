@@ -1,4 +1,4 @@
-// M3-T11d2 (docs/conventions.md §71 et §76.5) : les familiers `Follow` d'`isaac` en file. Le joueur 0 (graine 1, départ en (-8, -8)) tient `garde`
+// M3-T11d2 (docs/conventions.md §71 et §76.5) : les familiers `Follow` d'`isaac` en file. Le joueur 0 (graine 1, départ en (-24, -8)) tient `garde`
 // (un familier, `Follow` à 20 unités) puis `escorte` (deux familiers, `Follow` à 30 unités) : trois suiveurs, de rang 0, 1 et 2. Immobile
 // jusqu'à f20, il marche vers l'est de f20 à f90, puis s'arrête.
 //

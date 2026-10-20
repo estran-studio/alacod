@@ -1,0 +1,14 @@
+// Généré par scripts/generer-sprites-isaac.py : ne pas éditer à la main.
+(
+    path: "sprites/lisible/atlas_monde.png",
+    tile_size: (32, 32),
+    columns: 8,
+    rows: 14,
+    animated: false,
+    name: "body",
+    scale: 1.0,
+    anchor: Center,
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 3.4,
+)

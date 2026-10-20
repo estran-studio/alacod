@@ -2,17 +2,17 @@
 // graine 39 : salle secrète au sud du départ, boutique, pas de salle du diable), chacun avec **la bombe de départ réelle** (D81 ; le kit d'essai de T14
 // n'existe plus) et la politique de `bot.ron`.
 //
-// À regarder : les deux bots arrivent ensemble au mur secret ; **un seul** pose sa bombe (f19 : le joueur 0, le plus petit handle ; avant la règle des
-// pairs, `GoalContext::peers`, les deux en posaient une), l'explosion (f93) ouvre le mur, le joueur 1 garde sa bombe ; ils nettoient les trois
-// combats (f337, f822, f1054), le joueur 0 ouvre le coffre secret (f1119) et le joueur 1 celui du trésor (f1501) ; le joueur 0 achète les **trois** présentoirs de la
-// boutique (f1849, f1871, f1893 : 15 sous chacun, `vent_arriere`, `cousin`, `pouls`) ; le `gardien` (boss du seul étage de `sous_sol_un`) meurt (victoire f2418).
-// M3-T11d2 : 100 objets et trois ennemis de plus dans les gabarits de combat : chronologie recalée (avant : coffres f1073 et f1452, achats f1755 à f1792, victoire f2224).
+// À regarder : les deux bots arrivent ensemble au mur secret ; **un seul** pose sa bombe (f51 : le joueur 0, le plus petit handle ; avant la règle des
+// pairs, `GoalContext::peers`, les deux en posaient une), l'explosion (f125) ouvre le mur, le joueur 1 garde sa bombe ; ils nettoient les trois
+// combats (f674, f1234, f1924), le joueur 0 ouvre le coffre secret (f2248) ; le joueur 0 achète les **trois** présentoirs de la
+// boutique (f2919, f2941, f2963 : 15 sous chacun, `vent_arriere`, `cousin`, `pouls`), ouvre le coffre du trésor (f3591) ; le `gardien` (boss du seul étage de `sous_sol_un`) meurt (victoire f4231).
+// M3-T11d2 : 100 objets et trois ennemis de plus dans les gabarits de combat : chronologie recalée (avant : coffres f1073 et f1452, achats f1755 à f1792, victoire f2224 ; gabarits ×2 : marches deux fois plus longues, tout arrive environ deux fois plus tard).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",
     map_seed: 39,
     floors: Some("sous_sol_un"),
-    frames: 2500,
+    frames: 4500,
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
@@ -27,20 +27,20 @@ Scenario(
         RoomLayout(kind: "secrete", touches: ["depart", "combat"], at_frame: 5),
         Consumable(handle: 0, id: "bomb", count: 1, at_frame: 10),
         Consumable(handle: 1, id: "bomb", count: 1, at_frame: 10),
-        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 30),
-        Consumable(handle: 1, id: "bomb", count: 1, at_frame: 30),
-        DoorLocked(kind: "secrete", locked: true, at_frame: 85),
-        DoorLocked(kind: "secrete", locked: false, at_frame: 100),
-        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 110),
-        Health(handle: 1, min: 6.0, max: 6.0, at_frame: 110),
-        EventAfter(kind: "chest", after_frame: 94, by_frame: 1200),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 60),
+        Consumable(handle: 1, id: "bomb", count: 1, at_frame: 60),
+        DoorLocked(kind: "secrete", locked: true, at_frame: 110),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 135),
+        Health(handle: 0, min: 6.0, max: 6.0, at_frame: 140),
+        Health(handle: 1, min: 6.0, max: 6.0, at_frame: 140),
+        EventAfter(kind: "chest", after_frame: 126, by_frame: 2400),
         ShelfCount(count: 3, at_frame: 10),
-        Shelf(nth: 0, sold: Some(false), at_frame: 1700),
-        Shelf(nth: 0, sold: Some(true), at_frame: 1900),
-        Shelf(nth: 1, sold: Some(true), at_frame: 1900),
-        Shelf(nth: 2, sold: Some(true), at_frame: 1900),
-        Event(kind: "victory", by_frame: 2500),
-        PlayerAlive(handle: 0, at_frame: 2499),
-        PlayerAlive(handle: 1, at_frame: 2499),
+        Shelf(nth: 0, sold: Some(false), at_frame: 2800),
+        Shelf(nth: 0, sold: Some(true), at_frame: 3000),
+        Shelf(nth: 1, sold: Some(true), at_frame: 3000),
+        Shelf(nth: 2, sold: Some(true), at_frame: 3000),
+        Event(kind: "victory", by_frame: 4400),
+        PlayerAlive(handle: 0, at_frame: 4499),
+        PlayerAlive(handle: 1, at_frame: 4499),
     ],
 )

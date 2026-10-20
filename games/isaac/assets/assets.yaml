@@ -203,3 +203,21 @@
   licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
   modifications: sans objet (original) ; teinté au rendu (statut, guidage, spectral, taille)
   statut: placeholder (halo de larme) — à remplacer par la voie V6
+
+- id: sprites-murs-isaac
+  fichiers:
+    - sprites/lisible/atlas_monde.png
+    - sprites/lisible/atlas_portail.png
+    - sprites/lisible/atlas_porte_v.png
+    - sprites/lisible/atlas_porte_h.png
+    - sprites/lisible/atlas_murs.png
+  source: scripts/generer-sprites-isaac.py (images dessinées par primitives dans le script, sans source
+    tierce, qui importe les primitives de scripts/generer-sprites-gungeon.py ; `python3
+    scripts/generer-sprites-isaac.py` les réécrit octet pour octet, `--check` vérifie qu'elles sont à
+    jour ; rapport docs/taches/rapports/m3-salles-murs-isaac.md, palette « sous-sol »)
+  auteur: projet alacod (William Quintal et agents)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+  modifications: sans objet (originaux)
+  statut: placeholder généré, à remplacer par la voie V6 — murs (36 tuiles de 16 px auto-tuilées +
+    piques), portes de quatre cases (fermée, ouverte, à clé, mur fissuré), rochers, coffre, présentoir,
+    sous, bombe, portail et objets au sol (`item/<id>`) ; les personnages restent les tuiles Kenney

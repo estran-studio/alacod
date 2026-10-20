@@ -1,6 +1,23 @@
 (
     font: Some("fonts/FiraMono-Medium.ttf"),
     reference_size: Some((960.0, 540.0)),
+    // m3-salles-murs-isaac (§83, §40) : murs dessinés d'après la couche IntGrid `Walls` (auto-tuile en présentation, palette « sous-sol »,
+    // `scripts/generer-sprites-isaac.py`) ; les couches de métadonnées et celles que des sprites remplacent sont cachées : `LevelConnection`
+    // (ouvertures), `Rocks` (un sprite par rocher : `rock`, `rock_loot`), `Surfaces` (piques : tuile 36 de la feuille, valeur 5).
+    wall_art: Some((
+        layer: "Walls",
+        atlas: "sprites/lisible/atlas_murs.png",
+        hide_layers: ["LevelConnection", "Rocks", "Surfaces"],
+        cells: [(layer: "Surfaces", value: 5, tile: 36)],
+    )),
+    hide_markers: true, // tuiles d'apparition des ennemis : repères d'auteur, pas des objets
+    names: {
+        "shell": "Sous",
+        "chest": "Coffre",
+        "chest_open": "Coffre vide",
+        "rock": "Rocher (bombe)",
+        "portal": "Portail",
+    },
     // M3-T16 (§81) : couleurs des cœurs (`heart`, `soul_heart`, `heart_empty`) et icônes des compteurs
     // (`coins`, `keys`, `bombs`), puis celles des objets tenus (icône de l'objet actif, passifs).
     icons: {

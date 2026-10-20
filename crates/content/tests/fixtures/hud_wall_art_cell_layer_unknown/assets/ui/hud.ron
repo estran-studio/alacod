@@ -1,0 +1,8 @@
+// m3-salles-murs-isaac : une couche annexe de `wall_art.cells` (`Pierres`) n'existe dans aucune carte (`LevelConnection` existe, elle) → BrokenReference.
+(
+    widgets: [
+        (kind: Text(source: "health", prefix: None), anchor: TopLeft, offset: (0.0, 0.0), size: None,
+         color: None, font_size: None),
+    ],
+    wall_art: Some((layer: "LevelConnection", atlas: "sprites/murs.png", cells: [(layer: "Pierres", value: 5, tile: 36)])),
+)

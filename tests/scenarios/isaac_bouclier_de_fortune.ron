@@ -9,8 +9,8 @@ Scenario(
     game: "isaac",
     map_seed: 1,
     frames: 600,
-    characters: [(character: "cible_mordante", x: "20.0", y: "-8.0", at_frame: 5)],
-    items: [(id: "bouclier_de_fortune", x: "-8.0", y: "-8.0", at_frame: 150)],
+    characters: [(character: "cible_mordante", x: "4.0", y: "-8.0", at_frame: 5)],
+    items: [(id: "bouclier_de_fortune", x: "-24.0", y: "-8.0", at_frame: 150)],
     players: [(inputs: [(from: 200, to: 201, buttons: [Interaction])])],
     expect: [
         Health(handle: 0, min: 6.0, max: 6.0, at_frame: 4),

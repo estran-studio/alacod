@@ -30,7 +30,7 @@ use sim_core::team::Team;
 use crate::collider::Collider;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::Interactable;
-use crate::visual_requests::SpriteRequest;
+use crate::visual_requests::{SecretDoor, SpriteRequest};
 
 pub struct WorldSpritePlugin;
 
@@ -230,8 +230,13 @@ fn attach_world_sprites(
             vec!["table".into()]
         } else if bomb.is_some() {
             vec!["bomb".into()]
-        } else if rock.is_some() {
-            vec!["rock".into()]
+        } else if let Some(rock) = rock {
+            // m3-salles-murs-isaac : un rocher à butin cherche `rock_loot`, puis `rock` (un jeu sans `rock_loot` ne change pas).
+            if rock.loot {
+                vec!["rock_loot".into(), "rock".into()]
+            } else {
+                vec!["rock".into()]
+            }
         } else if let Some(request) = request {
             vec![request.0.clone()]
         } else {
@@ -417,19 +422,29 @@ fn hide_replaced_map_tiles(
 }
 
 /// État de la porte : sans collider = ouverte (`Open`) ; avec collider et interaction = à ouvrir
-/// (clé ou achat, `Locked`) ; avec collider seul = fermée par sa salle (`Idle`).
+/// (clé ou achat, `Locked`) ; avec collider seul = fermée par sa salle (`Idle`), ou **mur fissuré** (`Secret`) si la
+/// porte est celle d'une salle secrète (`SecretDoor`) : sans image `Secret` dans la feuille, elle reste `Idle`.
 fn sync_door_sprites(
     table: SpriteTable,
-    doors: Query<(&DoorSprite, Has<Collider>, Has<Interactable>)>,
+    doors: Query<(
+        &DoorSprite,
+        Has<Collider>,
+        Has<Interactable>,
+        Has<SecretDoor>,
+    )>,
     mut sprites: Query<&mut Sprite>,
 ) {
-    for (door, closed, interactable) in &doors {
-        let name = match (closed, interactable) {
-            (false, _) => "Open",
-            (true, true) => "Locked",
-            (true, false) => "Idle",
+    for (door, closed, interactable, secret) in &doors {
+        let name = match (closed, interactable, secret) {
+            (false, _, _) => "Open",
+            (true, true, _) => "Locked",
+            (true, false, true) => "Secret",
+            (true, false, false) => "Idle",
         };
-        let Some(frame) = table.frame(door.id, name) else {
+        let Some(frame) = table
+            .frame(door.id, name)
+            .or_else(|| table.frame(door.id, "Idle").filter(|_| name == "Secret"))
+        else {
             continue;
         };
         if let Ok(mut sprite) = sprites.get_mut(door.child) {

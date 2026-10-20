@@ -4,7 +4,7 @@
 // (6) à l'ouest, le plus proche, et une bombe (3) à l'est, plus loin.
 //
 // À regarder : à pleine vie (6/6) le jeu refuserait le cœur (`shop_full`), le bot n'y touche pas ; il achète d'abord la
-// bombe, **la moins chère**, pas le trèfle pourtant plus proche (f35, 12 → 9 douilles), puis le trèfle (f88, 9 → 3) ; il
+// bombe, **la moins chère**, pas le trèfle pourtant plus proche (f43, 12 → 9 douilles), puis le trèfle (f91, 9 → 3) ; il
 // lui reste 3 douilles, de quoi payer le cœur (2), qu'il laisse.
 Scenario(
     powerup_drop_chance_override: "0.0",

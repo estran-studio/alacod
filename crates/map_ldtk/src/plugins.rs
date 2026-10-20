@@ -189,6 +189,8 @@ impl Plugin for LdtkRoguePlugin {
                 (
                     crate::wall_art::draw_walls,
                     crate::wall_art::hide_metadata_layers,
+                    crate::game::rooms::mark_secret_doors,
+                    crate::game::rooms::publish_camera_rooms,
                 )
                     .run_if(crate::wall_art::wall_art_ready),
             );

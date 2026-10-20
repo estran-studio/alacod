@@ -14,12 +14,12 @@ Scenario(
     map_seed: 1,
     frames: 240,
     items: [
-        (id: "bottines", x: "-8.0", y: "-8.0", at_frame: 1),
-        (id: "coeur_ame", x: "-8.0", y: "-8.0", at_frame: 60),
+        (id: "bottines", x: "-24.0", y: "-8.0", at_frame: 1),
+        (id: "coeur_ame", x: "-24.0", y: "-8.0", at_frame: 60),
     ],
     characters: [
-        (character: "suiveur", x: "20.0", y: "-8.0", at_frame: 5),
-        (character: "mouche", x: "-36.0", y: "-8.0", at_frame: 5),
+        (character: "suiveur", x: "4.0", y: "-8.0", at_frame: 5),
+        (character: "mouche", x: "-52.0", y: "-8.0", at_frame: 5),
     ],
     players: [(
         currency: Some(12),

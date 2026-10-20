@@ -1,5 +1,5 @@
 // M3-T8 (docs/conventions.md §73, Q6) : le marché du diable d'`isaac` (6 PV, un cœur = 2 PV). Un présentoir
-// `pacte_rouge` à `MaxHealth("2")` (un cœur) est posé au pied du joueur à f5 (placement de scénario : la vraie
+// `pacte_rouge` à `MaxHealth("2")` (un cœur) est posé au pied du joueur (en (-24, -8) : premier `PlayerSpawn`, gabarits ×2) à f5 (placement de scénario : la vraie
 // salle du diable d'`isaac` est `devil_room_chance`). L'Interaction de f10 l'achète : 6 PV sur 6 deviennent 4
 // sur 4, la perte est définitive (stat `MaxHealth` à 4 longtemps après), l'objet est tenu. Le prompt en cœurs
 // (« Acheter Pacte rouge — 1 cœur ») est écrit par la présentation : testé unitairement (`ui::hud`).
@@ -10,7 +10,7 @@ Scenario(
     game: "isaac",
     map_seed: 1,
     frames: 120,
-    shop: (shelves: [(key: "s", item: "pacte_rouge", price: 0, cost: Some(MaxHealth("2")), x: "-8.0", y: "-8.0", at_frame: 5)]),
+    shop: (shelves: [(key: "s", item: "pacte_rouge", price: 0, cost: Some(MaxHealth("2")), x: "-24.0", y: "-8.0", at_frame: 5)]),
     players: [(inputs: [(from: 10, to: 11, buttons: [Interaction])])],
     expect: [
         Health(handle: 0, min: 6.0, max: 6.0, at_frame: 8),
