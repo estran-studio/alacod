@@ -1,17 +1,21 @@
 // M3-T18 (critère 5 du §8.1, synctest à 2) : deux bots `explorateur` nus (politique de `games/isaac/assets/bot.ron`, sans armure ni
-// modificateur, D93) jouent une partie ordinaire d'`isaac` (séquence par défaut, sans `floors:`, graine 2) jusqu'au second étage. Chacun
+// modificateur, D93) jouent une partie ordinaire d'`isaac` (séquence par défaut, sans `floors:`, graine 198) jusqu'au second étage. Chacun
 // part avec un objet de larmes et un familier (`items`, la seule mise en place du scénario : le synctest doit voir des larmes modifiées
 // et des familiers des deux joueurs dès la frame 1, ce qu'une partie ordinaire ne garantit pas) : joueur 0 `bifurque` (larmes qui se
 // divisent) et `frere` (suiveur qui tire avec lui), joueur 1 `lynx` (larmes guidées) et `orbe` (orbital).
 //
-// À regarder : dès f1 un suiveur derrière le joueur 0 et un orbital autour du joueur 1 ; larmes qui se divisent à l'impact (joueur 0) et
-// larmes qui virent vers l'ennemi (joueur 1) ; salles nettoyées à deux (f58 à f1858), le `gardien` (phases f2217 et f2252, portail
-// f2329) ; second étage f2851 : les familiers suivent leurs porteurs ; un champion `explosif` est tué à f2964, son explosion de mort met
-// le joueur 0 à terre (f2965) et le joueur 1 le réanime (f3544).
+// Graine 198 (gabarits ×2, unité 480×288 : les bots meurent bien moins qu'à l'unité 240×144, la graine 2 d'origine ne met plus personne
+// à terre ; choisie parmi vingt graines jouées avec ces `items`, seule à offrir mise à terre, réanimation et champion `explosif` tué).
+//
+// À regarder : dès f1 un suiveur derrière le joueur 0 et un orbital autour du joueur 1 ; larmes qui se divisent à l'impact (joueur 0, f162)
+// et larmes qui virent vers l'ennemi (joueur 1, f156) ; salles nettoyées à deux (f297 à f3538), le `gardien` (phases f6104 et f6333, portail
+// f6398) ; second étage f7458 : les familiers suivent leurs porteurs ; un champion `explosif` est tué à f8264 ; la mise à terre n'a pas
+// cette cause ici : le joueur 0 tombe à terre au combat du boss du second étage (f9111, entre ses phases f9059 et f9148) et le joueur 1 le
+// réanime (f9593). Partie de 9700 frames (2,7 minutes simulées).
 Scenario(
     game: "isaac",
-    map_seed: 2,
-    frames: 3600,
+    map_seed: 198,
+    frames: 9700,
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
@@ -30,16 +34,16 @@ Scenario(
         FamiliarCount(handle: 1, count: 1, at_frame: 10),
         Event(kind: "feedback", label_contains: Some("(division"), by_frame: 300),
         Event(kind: "feedback", label_contains: Some("(guidée)"), by_frame: 300),
-        Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 200),
-        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 2260),
-        Event(kind: "portal", by_frame: 2335),
-        FloorIndex(index: 1, at_frame: 2860),
-        FamiliarCount(handle: 0, count: 1, at_frame: 2860),
-        FamiliarCount(handle: 1, count: 1, at_frame: 2860),
-        Event(kind: "variant_death", label_contains: Some("explosif"), by_frame: 2970),
-        PlayerDowned(handle: 0, at_frame: 2970),
-        PlayerRevived(handle: 0, by_frame: 3550),
-        PlayerAlive(handle: 0, at_frame: 3599),
-        PlayerAlive(handle: 1, at_frame: 3599),
+        Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 320),
+        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 6360),
+        Event(kind: "portal", by_frame: 6420),
+        FloorIndex(index: 1, at_frame: 7480),
+        FamiliarCount(handle: 0, count: 1, at_frame: 7480),
+        FamiliarCount(handle: 1, count: 1, at_frame: 7480),
+        Event(kind: "variant_death", label_contains: Some("explosif"), by_frame: 8290),
+        PlayerDowned(handle: 0, at_frame: 9130),
+        PlayerRevived(handle: 0, by_frame: 9610),
+        PlayerAlive(handle: 0, at_frame: 9699),
+        PlayerAlive(handle: 1, at_frame: 9699),
     ],
 )

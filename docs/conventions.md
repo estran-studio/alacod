@@ -3129,7 +3129,7 @@ l'ouverture, 3 cases de profondeur) ; si un rocher (16 px) ou une pique (12 px) 
 *Moteur.* Aucune ligne de génération : `Connection::are_matching` exige la même distance au coin et les ouvertures sont au milieu de chaque côté d'unité, comme avant ; `FloorGrammar::bounds` (déjà là depuis gungeon) relève le monde à ±1800 × ±1200 pour
 `sous_sol`, `sous_sol_grand` et `sous_sol_profond` (sept colonnes de 480 px ne tiennent pas dans ±1000) ; les grammaires de 3×3 unités tiennent dans le monde par défaut. **Caméra** : `CameraSettings::room_frame` (donnée de `camera.ron`, défaut non) cadre la
 vue sur la salle où se tient la cible (`CameraRooms`, boîtes des salles de l'étage publiées par `map_ldtk::game::rooms::publish_camera_rooms` ; `frame_in_room`, pure, testée) : une salle de l'unité (480×288) tient dans la vue de 576×324 et la caméra y est fixe (une salle = un écran), une grande
-salle est suivie sans montrer au-delà de ses murs. `min_zoom` reste 0,6. **Coût** : le champ de flux couvre toute la boîte englobante de la carte (4 fois plus de cases) : `FlowField` passe à 1,04 ms par frame sur `bench_floor_isaac` (D122).
+salle est suivie sans montrer au-delà de ses murs. `min_zoom` reste 0,6. **Coût** : le champ de flux couvre toute la boîte englobante de la carte (4 fois plus de cases) : `FlowField` de 1 500 à 2 502 µs par frame sur `bench_floor_isaac` (mesuré en même temps, avant et après, sous charge ≈ 16 ; une partie de bot tourne à ~28 fps contre ~53 avant, à charge comparable) ; budgets de `tests/budgets.ron` à refaire au calme (D122). Les campagnes de bots passent `--explored-progress` (le détecteur de soft-lock de 600 frames ne voit pas une marche de 2 000 px : rapport §2).
 
 ## Notes essentielles
 
@@ -4801,7 +4801,7 @@ défaut). Lint : `Key(0)`. Attente : `DoorLocked(kind, nth, locked, at_frame)` (
 ### Disposition en grille
 
 `FloorGrammar.layout: Option<FloorLayout>`, `FloorLayout { Graph (défaut), Grid { cell, max } }`
-(Q8, proposition retenue : `cell` = 15 × 9 cases, une seule taille). Lint (`lint_floor_grammars`) :
+(Q8, proposition retenue : `cell` = 15 × 9 cases, une seule taille ; **30 × 18 depuis m3-salles-murs-isaac, §40**). Lint (`lint_floor_grammars`) :
 `cell` et `max` > 0, `max` contient au moins `rooms.0` salles, et chaque gabarit de la grammaire
 fait exactement `cell` cases avec une ouverture centrée sur chacun des quatre côtés. `plan_floor`
 **refusait** `Grid` (`FloorError::Unsupported`) tant que M3-T5 n'était pas livrée : le planificateur est

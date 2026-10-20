@@ -1,17 +1,22 @@
 // M3-T18 (critère 5 du §8.1, synctest à 4) : quatre bots `explorateur` nus (politique de `games/isaac/assets/bot.ron`, sans armure ni
-// modificateur, D93) jouent une partie ordinaire d'`isaac` (séquence par défaut, sans `floors:`, graine 1) jusqu'au second étage. Chacun
+// modificateur, D93) jouent une partie ordinaire d'`isaac` (séquence par défaut, sans `floors:`, graine 163) jusqu'au second étage. Chacun
 // part avec un objet de larmes et un familier (`items`, la seule mise en place : familiers et larmes modifiées des **quatre** joueurs dès
 // la frame 1) : joueur 0 `bifurque` + `frere` (suiveur), joueur 1 `lynx` + `orbe` (orbital), joueur 2 `billard` + `cousin` (suiveur),
-// joueur 3 `aiguille` + `anneau` (deux orbitaux) ; le joueur 3 achète en plus `cousin` à la boutique (f1479, troisième familier).
+// joueur 3 `aiguille` + `anneau` (deux orbitaux).
+//
+// Graine rechoisie sur les salles ×2 (m3-salles-murs-isaac ; graine 1 avant : son portail s'ouvre maintenant vers f4958, pas f2525) : quinze graines jouées avec ces `items`
+// (2, 3, 4, 6, 8, 12, 13, 15, 16, 17, 18, 56, 106, 163, 198), **une seule** met un joueur à terre (163), et aucune ne fait acheter `cousin` au joueur 3 (le stock de la boutique dépend de la graine). Écarts à l'original,
+// dits : le joueur à terre puis réanimé est le **joueur 1** (le joueur 2 avant) ; l'achat d'un familier à la boutique est celui du joueur 1 (`frere`, f6569 ;
+// le joueur 3 achetait `cousin` avant : `isaac_full_run` prouve l'achat d'un familier par un joueur, `cousin` à f8921).
 //
 // À regarder : cinq familiers dès f1 (deux suiveurs, trois orbitaux), larmes qui se divisent, guidées et perforantes (le rebond de
-// `billard` n'a pas de signe propre, §82 : ses larmes reviennent des murs) ;
-// boutique : trois présentoirs vendus à deux acheteurs (f1455 à f1523) ; `gardien` (phases f2441 et f2484, portail f2525) ; second étage f2822 : les six familiers
-// réapparaissent auprès de leurs porteurs ; le joueur 2 tombe à terre (f2923) et un coéquipier le réanime (f3181).
+// `billard` n'a pas de signe propre, §82 : ses larmes reviennent des murs) ; le joueur 1 tombe à terre (f4977) et un coéquipier le réanime (f5297) ;
+// boutique du premier étage : trois présentoirs vendus à deux acheteurs (f6570 à f6600), dont `frere` au joueur 1 (un deuxième suiveur) ; `gardien` (phases f7738 et f7775, portail f7799) ;
+// second étage f8791 : les familiers réapparaissent auprès de leurs porteurs.
 Scenario(
     game: "isaac",
-    map_seed: 1,
-    frames: 3300,
+    map_seed: 163,
+    frames: 9300,
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
@@ -39,23 +44,24 @@ Scenario(
         HasItem(handle: 1, id: "lynx", at_frame: 20),
         HasItem(handle: 2, id: "billard", at_frame: 20),
         HasItem(handle: 3, id: "aiguille", at_frame: 20),
-        Event(kind: "feedback", label_contains: Some("(division"), by_frame: 600),
-        Event(kind: "feedback", label_contains: Some("(guidée)"), by_frame: 600),
-        Event(kind: "feedback", label_contains: Some("(perforante)"), by_frame: 600),
-        Event(kind: "shelf", label_contains: Some("cousin (douilles)"), by_frame: 1485),
-        FamiliarCount(handle: 3, count: 3, at_frame: 1500),
-        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 2490),
-        Event(kind: "portal", by_frame: 2530),
-        FloorIndex(index: 1, at_frame: 2830),
-        FamiliarCount(handle: 0, count: 1, at_frame: 2830),
-        FamiliarCount(handle: 1, count: 1, at_frame: 2830),
-        FamiliarCount(handle: 2, count: 1, at_frame: 2830),
-        FamiliarCount(handle: 3, count: 3, at_frame: 2830),
-        PlayerDowned(handle: 2, at_frame: 2930),
-        PlayerRevived(handle: 2, by_frame: 3185),
-        PlayerAlive(handle: 0, at_frame: 3299),
-        PlayerAlive(handle: 1, at_frame: 3299),
-        PlayerAlive(handle: 2, at_frame: 3299),
-        PlayerAlive(handle: 3, at_frame: 3299),
+        Event(kind: "feedback", label_contains: Some("(division"), by_frame: 125),
+        Event(kind: "feedback", label_contains: Some("(guidée)"), by_frame: 125),
+        Event(kind: "feedback", label_contains: Some("(perforante)"), by_frame: 125),
+        Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 270),
+        PlayerDowned(handle: 1, at_frame: 5000),
+        PlayerRevived(handle: 1, by_frame: 5305),
+        Event(kind: "shelf", label_contains: Some("frere (douilles)"), by_frame: 6575),
+        FamiliarCount(handle: 1, count: 2, at_frame: 6600),
+        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 7780),
+        Event(kind: "portal", by_frame: 7805),
+        FloorIndex(index: 1, at_frame: 8800),
+        FamiliarCount(handle: 0, count: 1, at_frame: 8800),
+        FamiliarCount(handle: 1, count: 2, at_frame: 8800),
+        FamiliarCount(handle: 2, count: 1, at_frame: 8800),
+        FamiliarCount(handle: 3, count: 2, at_frame: 8800),
+        PlayerAlive(handle: 0, at_frame: 9299),
+        PlayerAlive(handle: 1, at_frame: 9299),
+        PlayerAlive(handle: 2, at_frame: 9299),
+        PlayerAlive(handle: 3, at_frame: 9299),
     ],
 )

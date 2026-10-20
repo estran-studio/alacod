@@ -1,17 +1,17 @@
 // M3-T18 (critère 3 du §8.1, `isaac_curse_run`) : une partie ordinaire d'`isaac` (séquence par défaut `sous_sol`, sans `floors:`, graine 2
-// choisie dans la campagne `alacod-sim` s1 de M3-T18) jouée par le bot `explorateur` nu (politique de `games/isaac/assets/bot.ron`, sans
+// choisie dans la campagne `alacod-sim` s1 de M3-T18, toujours la bonne sur les salles ×2 : m3-salles-murs-isaac, `choisir_graines.py`) jouée par le bot `explorateur` nu (politique de `games/isaac/assets/bot.ron`, sans
 // armure ni modificateur, D93) : le premier étage tire la curse `darkness` (chance 0,3 par étage, M3-T11d1), le second n'en tire aucune.
 // L'effet de la curse est observé puis son absence : la minicarte est vide pendant tout le premier étage et revient au second.
 //
 // À regarder : dès f1 « Malédiction : darkness » sous les icônes et **aucune minicarte** en haut à droite, alors que la vie reste
-// affichée ; le bot nettoie la première salle de combat (f57 à f256), pose sa bombe de départ (f316) contre le mur secret (ouvert f391),
-// achète trois présentoirs à la boutique (f2442 à f2507), tue le `gardien` (verrouillé f2941, phases f3070 et f3130, portail f3564) ;
-// au second étage (f4097) la curse a disparu et la minicarte réapparaît (salle de départ visitée et actuelle). Le bot meurt ensuite à
-// f4370 (hors du scénario) : la curse n'est pas une run gagnée, la victoire est prouvée par `isaac_full_run`.
+// affichée ; le bot nettoie la première salle de combat (f89 à f380), pose sa bombe de départ (f522) contre le mur secret (explosion f596, ouvert f597),
+// achète trois présentoirs à la boutique (f4248 à f4319), tue le `gardien` (verrouillé f5120, phases f5390 et f5450, portail f6052) ;
+// au second étage (f7141) la curse a disparu et la minicarte réapparaît (salle de départ visitée et actuelle). La partie du bot continue
+// (victoire f15769, hors du scénario) : la curse n'est pas une run gagnée, la victoire est prouvée par `isaac_full_run`.
 Scenario(
     game: "isaac",
     map_seed: 2,
-    frames: 4150,
+    frames: 7200,
     explorer: Some((
         shopping: true,
         shop: HeartsThenCheapest(low_health: "0.5"),
@@ -28,16 +28,17 @@ Scenario(
         HudText(source: "curses", contains: "darkness", at_frame: 30),
         HudText(source: "minimap", empty: true, at_frame: 30),
         HudText(source: "health", contains: "6/6", at_frame: 30),
-        Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 300),
-        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 0)"), by_frame: 400),
+        Event(kind: "room", label_contains: Some("salle combat nettoyée"), by_frame: 385),
+        Event(kind: "door_lock", label_contains: Some("mur secret ouvert : salle secrete (niveau 0)"), by_frame: 600),
         HudText(source: "minimap", empty: true, at_frame: 2000),
-        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 3140),
-        Event(kind: "portal", by_frame: 3570),
+        Event(kind: "boss_phase", label_contains: Some("phase 1 → 2"), by_frame: 5455),
+        Event(kind: "portal", by_frame: 6060),
         HudText(source: "minimap", empty: true, at_frame: 4000),
-        FloorIndex(index: 1, at_frame: 4110),
-        Curse(floor: 1, id: None, at_frame: 4110),
-        HudText(source: "curses", empty: true, at_frame: 4110),
-        HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 4110),
-        PlayerAlive(handle: 0, at_frame: 4149),
+        HudText(source: "minimap", empty: true, at_frame: 7000),
+        FloorIndex(index: 1, at_frame: 7155),
+        Curse(floor: 1, id: None, at_frame: 7155),
+        HudText(source: "curses", empty: true, at_frame: 7155),
+        HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 7155),
+        PlayerAlive(handle: 0, at_frame: 7199),
     ],
 )
