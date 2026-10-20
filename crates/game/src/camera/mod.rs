@@ -788,6 +788,11 @@ mod tests {
         // deux salles voisines : (400,144) dans la première, (540,144) dans la suivante
         assert!(!all_in_room([p(400.0), p(540.0)], Some(a)));
         assert!(!all_in_room([p(400.0)], None));
+        // salles [0,480] et [480,960], joueurs en 400 et 700 : le milieu (550) est dans la seconde salle, mais 400 n'y est pas
+        let b = room(480.0, 0.0, 960.0, 288.0);
+        let mid = Vec2::new((400.0 + 700.0) / 2.0, 144.0);
+        assert!(b.contains(mid));
+        assert!(!all_in_room([p(400.0), p(700.0)], Some(b)));
     }
 
     #[test]
