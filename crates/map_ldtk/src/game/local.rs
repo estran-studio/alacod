@@ -52,12 +52,13 @@ pub struct LevelSpawnAssets<'w> {
     pub difficulty: game::clock::DifficultyReader<'w>,
 }
 
-/// Map et seed de génération de la partie.
+/// Map, seed et réglages d'assemblage (`entry.map` de `game.ron`) de la partie.
 #[derive(Resource, Clone, Debug)]
 pub struct LdtkGameMap {
     /// Chemin du `.ldtk`, relatif au dossier des assets.
     pub map_path: String,
     pub seed: i32,
+    pub settings: world::MapSettings,
 }
 
 pub struct LdtkLocalGamePlugin(pub LdtkGameMap);
@@ -115,9 +116,7 @@ pub fn configure_map(
     let mut config = MapGenerationConfig {
         seed: map.seed,
         map_path: map.map_path.clone(),
-        max_width: 1000,
-        max_heigth: 1000,
-        ..Default::default()
+        ..MapGenerationConfig::from_settings(&map.settings)
     };
     // M2-T13 : au hub, la carte du hub, jouée telle quelle ; sinon celle de la partie.
     if let Some(hub) = hub.as_deref() {

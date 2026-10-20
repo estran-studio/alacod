@@ -8,7 +8,7 @@ use crate::{
     game::entity::map::player_spawn::PlayerSpawnConfig,
     generation::{
         config::MapGenerationMode,
-        context::MapGenerationContext,
+        context::{MapGenerationContext, Side},
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
             location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
@@ -30,7 +30,16 @@ pub struct FloorMapGeneration {
 }
 
 impl FloorMapGeneration {
-    pub fn create(context: MapGenerationContext) -> Self {
+    pub fn create(mut context: MapGenerationContext) -> Self {
+        // Une grille (M3-T5) prévoit ses boucles et mure exactement les ouvertures de son plan
+        // (`close_unused_openings_exact`) : la fermeture des boucles et le murage de `Basic`
+        // (`MapSettings`, 2026-10-17) ne s'y appliquent pas.
+        if let MapGenerationMode::Floor(grammar) = &context.config.mode {
+            if matches!(grammar.layout(), world::FloorLayout::Grid { .. }) {
+                context.config.close_loops = false;
+                context.config.wall_unused_openings = false;
+            }
+        }
         Self {
             basic: BasicMapGeneration::create(context),
             plan: None,
@@ -86,7 +95,15 @@ impl IMapGeneration for FloorMapGeneration {
                     )
                 })
             })
+            .collect::<Vec<_>>()
+            .into_iter()
+            // `Graph` : prises libres qui se touchent après la pose (`MapSettings::close_loops` ;
+            // désactivé en grille, qui prévoit ses boucles).
+            .chain(self.basic.get_links())
             .collect()
+    }
+    fn unused_openings(&self) -> Vec<(String, Side, usize, usize)> {
+        self.basic.unused_openings()
     }
 
     fn get_doors(&mut self, rng: &mut RollbackRng) -> Vec<(EntityLocation, DoorConfig)> {

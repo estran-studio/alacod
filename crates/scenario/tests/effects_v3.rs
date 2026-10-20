@@ -12,7 +12,7 @@ use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
 use sim_core::frame_events::FrameEvents;
 use utils::net_id::GgrsNetId;
 
-const TARGET_NET_ID: usize = 36;
+const TARGET_NET_ID: usize = 32;
 const OTHER_NET_ID: usize = 9999;
 
 /// Coups portés `(frame, source, cible)` observés après résolution, pour des dégâts injectés

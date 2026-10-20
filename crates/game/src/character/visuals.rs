@@ -63,6 +63,10 @@ pub fn attach_character_visuals(
             Visibility::default(),
         ));
 
+        // Barre de vie au-dessus de la tête : le haut du plus grand calque (hors ombre), pas un
+        // offset fixe — un sprite plus grand que les 32 px historiques (postapo : 17 px × échelle 2)
+        // se faisait traverser la tête par la barre à +10.
+        let mut sprite_top = 10.0f32;
         // Un skin sans calque (ennemis de `gungeon`, lot C) montre tous les calques de l'entrée de la
         // table `SpriteSheet` : déclarer des calques dans le RON ajouterait `ActiveLayers` à l'état
         // rollback et déplacerait les traces ; la présentation les lit donc dans la table.
@@ -80,6 +84,12 @@ pub fn attach_character_visuals(
             else {
                 continue;
             };
+            if spritesheet_config.name != "shadow" {
+                sprite_top = sprite_top.max(
+                    spritesheet_config.offset_y
+                        + spritesheet_config.tile_size.1 as f32 * spritesheet_config.scale / 2.0,
+                );
+            }
             let layer_entity = create_child_sprite(
                 &mut commands,
                 &asset_server,
@@ -117,7 +127,7 @@ pub fn attach_character_visuals(
                     custom_size: Some(Vec2::new(30.0, 3.0)),
                     ..default()
                 },
-                Transform::from_translation(Vec3::new(0.0, 10.0, 0.1)),
+                Transform::from_translation(Vec3::new(0.0, sprite_top + 4.0, 0.1)),
             ))
             .id();
         commands.queue_silenced(move |world: &mut World| {

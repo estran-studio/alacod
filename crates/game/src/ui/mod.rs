@@ -11,21 +11,6 @@ pub mod mutation_input;
 pub mod mutation_screen;
 pub mod screens;
 
-/// Modèles de vue de l'interface, tenus à jour aussi en headless (lus par les attentes de
-/// scénario `HudText` et `ScreenText`) : simulation de présentation, sans entrée ni rendu.
-pub struct GameUiModelPlugin;
-
-impl Plugin for GameUiModelPlugin {
-    fn build(&self, app: &mut App) {
-        // T1.16 : modèle de vue de l'écran de mutation, aussi en headless.
-        app.add_plugins(mutation_screen::MutationScreenModelPlugin);
-        // T1.18 : valeurs du HUD du joueur affiché (`HudSnapshot`), aussi en headless.
-        app.add_plugins(hud_model::HudModelPlugin);
-        // M2-T18 : état et vue des écrans pause et inventaire, aussi en headless.
-        app.add_plugins(screens::ScreensPlugin);
-    }
-}
-
 /// Lobby et écran de déconnexion de l'application. Hors `PresentationPlugin` : ils tournent aussi
 /// en headless p2p (`LobbyOnline`).
 pub struct GameUiPlugin;

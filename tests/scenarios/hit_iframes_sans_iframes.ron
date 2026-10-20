@@ -15,6 +15,6 @@ Scenario(
         ]),
     ],
     expect: [
-        EntityHealth(net_id: 36, min: 4984.0, max: 4984.0, at_frame: 40),
+        EntityHealth(net_id: 32, min: 4984.0, max: 4984.0, at_frame: 40),
     ],
 )

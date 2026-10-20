@@ -5,6 +5,9 @@
 // (`AnimationMapConfig`) ; `layers` : calque -> feuille (`SpriteSheetConfig`). Chemins relatifs
 // à `assets/`. Feuilles et images rangées par entité sous `sprites/` (characters/, weapons/,
 // enemies/, effects/) ; voir `docs/conventions.md` §2.
+// Surcharge locale : `sprites/sprites.local.ron` (même format, gitignoré), quand il existe, remplace
+// les entrées de même id (pack post-apo TheLazyStone non redistribuable, écrit par
+// `scripts/repack-postapocalypse.py` ; voir `docs/conventions.md` §2). Sans lui : sprites publics ci-dessous.
 ({
     "player": (
         animation: "sprites/characters/player/player_animation.ron",

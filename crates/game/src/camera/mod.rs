@@ -108,6 +108,11 @@ impl CameraRoom {
     }
 }
 
+/// Tous les points sont-ils dans `room` ? Faux sans salle. Règle du cadrage par salle en suivi collectif (`PlayersLock`).
+pub fn all_in_room(points: impl IntoIterator<Item = Vec2>, room: Option<Rect>) -> bool {
+    room.is_some_and(|room| points.into_iter().all(|p| room.contains(p)))
+}
+
 /// Centre de vue `anchor` ramené dans `room` : sur chaque axe, une vue (`view`) au moins aussi grande que la salle se cale sur le
 /// centre de la salle, sinon le centre est borné pour que la vue ne dépasse pas les murs. Fonction pure.
 pub fn frame_in_room(anchor: Vec2, view: Vec2, room: Rect) -> Vec2 {
@@ -472,7 +477,16 @@ pub(crate) fn camera_control_system(
                 .iter()
                 .map(|room| room.rect())
                 .find(|rect| rect.contains(anchor));
-            if let Some(room) = found {
+            // En suivi collectif, le cadrage par salle ne vaut que si tous les joueurs y sont (sinon l'un sortirait du cadre,
+            // le zoom n'étant pas recalculé) ; sinon le cadrage collectif reste.
+            let everyone_inside = camera.mode != CameraMode::PlayersLock
+                || all_in_room(
+                    player_query
+                        .iter()
+                        .map(|(_, t, _, _)| t.translation.truncate()),
+                    found,
+                );
+            if let Some(room) = found.filter(|_| everyone_inside) {
                 let view = window_size * camera.target_zoom;
                 camera.target_position = frame_in_room(anchor, view, room);
             }
@@ -764,6 +778,16 @@ mod tests {
             frame_in_room(Vec2::new(480.0, 288.0), view, r),
             Vec2::new(480.0, 288.0)
         );
+    }
+
+    #[test]
+    fn le_cadrage_collectif_exige_tous_les_joueurs_dans_la_salle() {
+        let a = room(0.0, 0.0, 480.0, 288.0);
+        let p = |x: f32| Vec2::new(x, 144.0);
+        assert!(all_in_room([p(400.0), p(100.0)], Some(a)));
+        // deux salles voisines : (400,144) dans la première, (540,144) dans la suivante
+        assert!(!all_in_room([p(400.0), p(540.0)], Some(a)));
+        assert!(!all_in_room([p(400.0)], None));
     }
 
     #[test]

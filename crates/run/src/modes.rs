@@ -28,6 +28,9 @@ pub struct RunContext {
     pub points_total: u32,
     /// Niveau courant (mode `Floors`, T1.8 : `FloorState::index` ; `0` sinon).
     pub floor: u32,
+    /// Objectif de carte accompli cette frame (boss de la salle finale tué,
+    /// zombies) : victoire `Waves` immédiate, indépendante de `max_wave`.
+    pub objective_done: bool,
 }
 
 /// Règles de fin de partie propres à un mode. Implémenté pour [`RunMode`] directement (un
@@ -54,6 +57,9 @@ impl RunModeRules for RunMode {
             // atteinte ; `max_wave: None` (défaut) : jamais de victoire, comme avant ce
             // chantier (voir la doc de `WaveConfig::max_wave`).
             RunMode::Waves { .. } => {
+                if ctx.objective_done {
+                    return Some(RunEnd::Victory);
+                }
                 let max_wave = ctx.max_wave?;
                 (max_wave > 0 && ctx.current_wave >= max_wave).then_some(RunEnd::Victory)
             }
@@ -114,6 +120,19 @@ mod tests {
     }
 
     #[test]
+    fn waves_wins_on_objective_without_max_wave() {
+        let ctx = RunContext {
+            current_wave: 1,
+            max_wave: None,
+            objective_done: true,
+            ..Default::default()
+        };
+        assert_eq!(waves().check_victory(&ctx), Some(RunEnd::Victory));
+        // Hors `Waves`, l'objectif ne gagne jamais.
+        assert_eq!(RunMode::Sandbox.check_victory(&ctx), None);
+    }
+
+    #[test]
     fn sandbox_never_wins() {
         let ctx = RunContext {
             current_wave: 1_000_000,
@@ -147,6 +166,7 @@ mod tests {
             kills: 37,
             points_total: 900,
             floor: 0,
+            objective_done: false,
         };
         let summary = waves().summarize(&ctx, RunEnd::Defeat);
         assert_eq!(summary.wave_reached, 4);

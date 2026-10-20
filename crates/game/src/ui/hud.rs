@@ -846,8 +846,6 @@ fn update_hud_v1_values(
     snapshot: Res<HudSnapshot>,
     state: HudPlayerState,
     world: HudInteractables,
-    fog: Res<crate::room_fog::FogView>,
-    fog_map: Option<Res<crate::fog_map::FogMap>>,
     config_handle: Res<HudConfigHandle>,
     configs: Res<Assets<HudConfig>>,
     run: Option<Res<run::Run>>,
@@ -931,19 +929,17 @@ fn update_hud_v1_values(
         .filter(|p| p.3.is_none())
         .and_then(
             |(_, transform, perks_owned, _, _, _, inventory, _, items)| {
-                closest_interactable(&world, transform.translation, &fog, fog_map.as_deref()).map(
-                    |target| {
-                        prompt_for(
-                            &world,
-                            config,
-                            target,
-                            perks_owned,
-                            inventory,
-                            items,
-                            snapshot.values.hides.item_names,
-                        )
-                    },
-                )
+                closest_interactable(&world, transform.translation).map(|target| {
+                    prompt_for(
+                        &world,
+                        config,
+                        target,
+                        perks_owned,
+                        inventory,
+                        items,
+                        snapshot.values.hides.item_names,
+                    )
+                })
             },
         )
         .unwrap_or_default();
@@ -1401,17 +1397,11 @@ fn update_hud_map(
 fn closest_interactable(
     world: &HudInteractables,
     position: fixed_math::FixedVec3,
-    fog: &crate::room_fog::FogView,
-    fog_map: Option<&crate::fog_map::FogMap>,
 ) -> Option<GgrsNetId> {
     let mut candidates: Vec<_> = world.interactables.iter().collect();
     candidates.sort_by_key(|(net_id, ..)| net_id.0);
     let mut closest: Option<(fixed_math::FixedWide, GgrsNetId)> = None;
     for (net_id, transform, interactable, collider, ..) in candidates {
-        let p = transform.translation;
-        if !fog.sees(fog_map, Vec2::new(p.x.to_num(), p.y.to_num())) {
-            continue;
-        }
         let distance_sq = match collider {
             Some(collider) => {
                 point_to_collider_surface_distance_sq(position, transform.translation, collider)

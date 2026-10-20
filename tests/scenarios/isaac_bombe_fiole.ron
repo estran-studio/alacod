@@ -1,6 +1,6 @@
-// M3-T11d2 (docs/conventions.md §76.5) : `bombe_fiole` d'`isaac`, actif rechargé par le temps (900 frames) : explosion de rayon 60 et 8 dégâts centrée sur le porteur. Deux cibles (5 000 PV) posées à f5 : l'une à 38 unités (dans le rayon), l'autre à 98 (hors rayon). Le joueur appuie sur `UseActive` à f30. L'explosion blesserait aussi le porteur (tir ami, 8 dégâts pour 6 PV) : le `GainShield(1)` de l'objet absorbe ce souffle.
+// M3-T11d2 (docs/conventions.md §76.5) : `bombe_fiole` d'`isaac`, actif rechargé par le temps (900 frames) : explosion de rayon 60 et 8 dégâts centrée sur le porteur. Deux cibles (5 000 PV) posées à f5 : l'une à 38 unités (dans le rayon), l'autre à 98 (hors rayon). Le joueur appuie sur `UseActive` à f30. L'`Explode` est à `friendly_fire: Never` (D113) : le souffle (8 dégâts pour 6 PV) épargne le porteur, sans bouclier de contournement.
 //
-// À regarder : f40 la cible proche a perdu 8 PV (4 992), la lointaine reste à 5 000 jusqu'à la fin ; le moment clé `explosion` ; le joueur est toujours à 6 PV (bouclier consommé). La charge de l'actif (`Frames`, rechargée par le temps dès la frame de l'usage) n'est pas lue par ce scénario.
+// À regarder : f40 la cible proche a perdu 8 PV (4 992), la lointaine reste à 5 000 jusqu'à la fin ; le moment clé `explosion` ; le joueur est toujours à 6 PV (aucun bouclier en jeu). La charge de l'actif (`Frames`, rechargée par le temps dès la frame de l'usage) n'est pas lue par ce scénario.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "isaac",

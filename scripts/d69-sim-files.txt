@@ -40,6 +40,9 @@
 # boss.rs, character/health/mod.rs) et feedback_v3.rs (sans fuite depuis E3a ; hors liste : bombs.rs, character/config.rs, familiars.rs). Fermeture interne des deux
 # (79 fichiers, 49 hors liste) : 16 fichiers à fuite (camera/mod.rs, character/{config_asset,control,health_bar,visuals}.rs, economy_assets.rs, global_asset.rs, interaction.rs, items.rs,
 # legibility.rs, powerups_assets.rs, room_fog.rs, ui/hud.rs, waves/assets.rs, weapon_assets.rs, world_sprites.rs) : à relancer le calcul après E5c et les étapes suivantes.
+# E7 (dette-d69-e7-core) : + core_sim.rs (CoreSimPlugin), feedback_log.rs et feedback_v3.rs (leur fermeture, refusée à E5b, est fermée depuis E5c) : 79 fichiers.
+# core.rs (CoreSetupPlugin, CoreAppPlugin, PresentationPlugin, get_default_plugin) reste application : 12 erreurs (fenêtre, asset, rendu, crate d'E/S).
+# better-assets (William, retrait de `building`, `room_fog` et `fog_map`) : − fog_map.rs (supprimé) : 78 fichiers.
 balance.rs
 bombs.rs
 boss.rs
@@ -73,12 +76,14 @@ character/variant.rs
 clock.rs
 collider/mod.rs
 collision_grid.rs
+core_sim.rs
 curses.rs
 economy.rs
 effects_runtime.rs
 effects_v3.rs
 familiars.rs
-fog_map.rs
+feedback_log.rs
+feedback_v3.rs
 frame_counter.rs
 frame_events.rs
 gen_test.rs

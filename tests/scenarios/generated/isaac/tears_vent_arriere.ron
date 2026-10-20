@@ -50,7 +50,7 @@ Scenario(
             at_frame: 1,
         ),
         EntityHits(
-            net_id: 25,
+            net_id: 21,
             min: 1,
             at_frame: 48,
         ),

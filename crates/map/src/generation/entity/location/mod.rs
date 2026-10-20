@@ -1,4 +1,5 @@
 use crate::generation::entity::character_spawn::CharacterSpawnConfig;
+use crate::generation::entity::enemy_spawn::EnemySpawnConfig;
 use crate::generation::entity::prop::PropConfig;
 use crate::generation::entity::soda_location::SodaLocationConfig;
 use crate::generation::entity::weapon_location::WeaponLocationConfig;
@@ -18,7 +19,7 @@ pub struct EntityLocations {
     /// portée comme `character_spawns` ci-dessous (pas recalculée).
     pub sodas: Vec<(EntityLocation, SodaLocationConfig)>,
     pub player_spawns: Vec<EntityLocation>,
-    pub zombie_spawns: Vec<EntityLocation>,
+    pub zombie_spawns: Vec<(EntityLocation, EnemySpawnConfig)>,
     pub crates: Vec<EntityLocation>,
     /// T2.3, chantier C5 v1 : `weapon`/`price` sont des valeurs d'auteur (voir
     /// `WeaponLocationConfig`), portées comme `character_spawns` ci-dessous (pas recalculées).

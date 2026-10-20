@@ -143,11 +143,17 @@ pub fn describe_action(action: &Action) -> String {
             radius,
             damage,
             destroys,
+            friendly_fire,
         } => format!(
-            "explose (rayon {}, {} dégâts{})",
+            "explose (rayon {}, {} dégâts{}{})",
             number(*radius),
             number(*damage),
-            if *destroys { ", casse les rochers" } else { "" }
+            if *destroys { ", casse les rochers" } else { "" },
+            if matches!(friendly_fire, crate::ExplodeFriendlyFire::Never) {
+                ", épargne les alliés"
+            } else {
+                ""
+            }
         ),
         Action::GainShield(n) => format!("gagnez {n} point(s) de bouclier"),
         Action::Telegraph(frames) => format!("télégraphe ({frames} frames)"),

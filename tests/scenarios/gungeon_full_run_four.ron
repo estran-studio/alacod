@@ -1,3 +1,7 @@
+// Fusion de better-assets (2026-10-19) : prises libres murées sans porte (199 → 185 entités à f0, boss 181 → 167,
+// second boss 663 → 636) et boucles reliées. Attentes re-mesurées, aucune retirée ; écart de sens : le coffre du second
+// étage est ouvert par le joueur 3 (f5992, `rancune`) au lieu du joueur 2. Frames : arène 4785-5535, boutique
+// f5868-5895, boss f6762 / f6797, victoire f6820.
 // D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : `loot_seed` / `curse_seed` reçoivent `fmix32` et le butin se tire par
 // course pondérée (graine de carte 10 inchangée : carte et salles identiques, objets autres). Preuve d'achat : le
 // présentoir lu `Shelf(sold)` (non vendu avant l'achat, vendu après) et `Consumable(blank)` du joueur acheteur (0 puis 1 ;
@@ -98,17 +102,17 @@ Scenario(
         Consumable(handle: 0, id: "key", count: 1, at_frame: 660),
         // Boss du premier étage (trois phases), portail, second étage.
         Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3573),
-        BossPhase(entity: NetId(181), phase: 1, at_frame: 3580),
+        BossPhase(entity: NetId(167), phase: 1, at_frame: 3580),
         Event(kind: "portal", by_frame: 3596),
         FloorIndex(index: 0, at_frame: 3800),
         FloorIndex(index: 1, at_frame: 4100),
         // Second étage (événements postérieurs à l'arrivée f4012) : coffre, boutique, arène, boss.
-        EventAfter(kind: "chest", label_contains: "joueur 2 ouvre", after_frame: 4012, by_frame: 5955),
-        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 4012, by_frame: 5856),
-        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 4012, by_frame: 5488),
+        EventAfter(kind: "chest", label_contains: "joueur 3 ouvre", after_frame: 4012, by_frame: 5993),
+        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 4012, by_frame: 5869),
+        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 4012, by_frame: 5536),
         EventAfter(kind: "boss_phase", label_contains: "phase 0 → 1", after_frame: 4012, by_frame: 6815),
         RoomState(kind: "arene", nth: 0, state: Cleared, at_frame: 5500),
-        BossPhase(entity: NetId(663), phase: 1, at_frame: 6820),
+        BossPhase(entity: NetId(636), phase: 1, at_frame: 6805),
         RunState(step: Ended(Victory), at_frame: 6950),
         PlayerAlive(handle: 0, at_frame: 6999),
         PlayerAlive(handle: 1, at_frame: 6999),

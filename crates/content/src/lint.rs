@@ -2829,7 +2829,6 @@ fn lint_behaviors(
     character: &registry::CharacterEntry,
     errors: &mut Vec<LintError>,
 ) {
-    use registry::BehaviorEntry;
     let file = character.file.display().to_string();
     let mut push = |kind: LintErrorKind, message: String| {
         errors.push(LintError {

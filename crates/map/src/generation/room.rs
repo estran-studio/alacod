@@ -100,6 +100,41 @@ impl Room {
         their_room.set_connection(their_connection_index, self, my_connection_index);
     }
 
+    /// Emprise d'une prise dans le monde : côté, coordonnée du bord (x pour E/W, y pour N/S,
+    /// bord **extérieur** du rectangle : `x + largeur` pour E) et intervalle `[début, fin)` en
+    /// pixels le long de ce bord. Deux prises de pièces voisines se font face quand leurs côtés
+    /// sont opposés et ces trois valeurs égales (fermeture des boucles).
+    pub fn opening_span(&self, index: usize, tile_size: &(i32, i32)) -> (Side, i32, i32, i32) {
+        let def = &self.level_def.connections[index];
+        let (w, h) = self.level_def.level_size_p;
+        match def.side {
+            Side::N | Side::S => {
+                let edge = if def.side == Side::N {
+                    self.position.1
+                } else {
+                    self.position.1 + h
+                };
+                let start = self.position.0 + def.starting_at as i32 * tile_size.0;
+                (def.side, edge, start, start + def.size as i32 * tile_size.0)
+            }
+            Side::W | Side::E => {
+                let edge = if def.side == Side::W {
+                    self.position.0
+                } else {
+                    self.position.0 + w
+                };
+                let start = self.position.1 + def.starting_at as i32 * tile_size.1;
+                (def.side, edge, start, start + def.size as i32 * tile_size.1)
+            }
+        }
+    }
+
+    /// Relie une prise à une pièce déjà posée, même si elle avait été fermée (`DeadEnd`,
+    /// `OutSide`) faute de pièce à y poser : fermeture des boucles.
+    pub fn link_opening(&mut self, index: usize, their_iid: &str, their_index: usize) {
+        self.connections[index].to = Some(ConnectionTo::Room((their_iid.to_string(), their_index)));
+    }
+
     /// D46 : deux salles se chevauchent si leurs rectangles partagent une surface ; deux salles
     /// **adjacentes** (bords qui se touchent, le cas de toute connexion) ne se chevauchent pas
     /// (`<=` ; avec `<`, toute salle voisine aurait été déclarée en chevauchement).

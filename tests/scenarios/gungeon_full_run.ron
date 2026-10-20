@@ -1,3 +1,9 @@
+// Fusion de better-assets (2026-10-19) : les prises libres sont murées sans porte (une porte non interactive de moins
+// par prise : 193 → 179 entités à f0, boss 175 → 161, second boss 607 → 591) et les prises qui se touchent après la
+// pose sont reliées (boucles) : les bots jouent d'autres trajets. Attentes re-mesurées, aucune retirée ; écart de sens :
+// au second étage aucun coffre n'est ouvert, le joueur 0 achète (f6196, f6220) et tient `pierre_de_soin` au lieu de
+// `rancune` (le coffre reste attesté au premier étage, `bastion` f698). Frames : ration f3606, boss f3706 / f3795,
+// portail f3837, second étage f4238, arène 5150-5900, boutique f6196-6220, boss f6793 / f6871, victoire f6912.
 // D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : `loot_seed` / `curse_seed` reçoivent `fmix32` et le butin se
 // Preuve d'achat (D95/D96) : `HasItem(gilet/roulade)` (objets vendus avant) est remplacé par le présentoir lu `Shelf(sold)` (non vendu avant l'achat, vendu après) et
 // `Consumable(blank)` du joueur acheteur (0 puis 1 ; indirect : un blank se ramasse aussi).
@@ -119,30 +125,30 @@ Scenario(
         Consumable(handle: 0, id: "blank", count: 1, at_frame: 1800),
         // Objets de coffre tenus : bastion (coffre f698, joueur 1) ; rancune (coffre de l'étage 2 f6256, joueur 0).
         HasItem(handle: 1, id: "bastion", at_frame: 4300),
-        HasItem(handle: 0, id: "rancune", at_frame: 6300),
+        HasItem(handle: 0, id: "pierre_de_soin", at_frame: 6300),
         // Clé : les bots n'ouvrent plus de coffre à clé (la limite de détour écarte la salle de récompense), la clé reste au joueur 0 ;
         // la consommation d'une clé par un coffre est attestée par `gungeon_key_chest`.
         Consumable(handle: 0, id: "key", count: 1, at_frame: 2810),
         EventAfter(kind: "chest", label_contains: "bastion", after_frame: 600, by_frame: 699),
         Consumable(handle: 0, id: "key", count: 1, at_frame: 2830),
         // Objet ramassé.
-        Event(kind: "item_pickup", label_contains: "ration", by_frame: 3539),
+        Event(kind: "item_pickup", label_contains: "ration", by_frame: 3607),
         HasItem(handle: 1, id: "trefle", at_frame: 3290),
         // Boss du premier étage et ses phases, portail, second étage.
-        Event(kind: "room", label_contains: "salle boss verrouillée", by_frame: 3651),
-        Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3741),
-        BossPhase(entity: NetId(175), phase: 1, at_frame: 3750),
-        Event(kind: "portal", by_frame: 3782),
+        Event(kind: "room", label_contains: "salle boss verrouillée", by_frame: 3707),
+        Event(kind: "boss_phase", label_contains: "phase 0 → 1", by_frame: 3796),
+        BossPhase(entity: NetId(161), phase: 1, at_frame: 3800),
+        Event(kind: "portal", by_frame: 3838),
         FloorIndex(index: 0, at_frame: 3500),
-        Event(kind: "floor", label_contains: "niveau 1", by_frame: 4220),
+        Event(kind: "floor", label_contains: "niveau 1", by_frame: 4239),
         FloorIndex(index: 1, at_frame: 4300),
         // Second étage (événements postérieurs à l'arrivée f4219) : coffre, boutique, seconde arène,
         // second boss, victoire.
-        EventAfter(kind: "chest", label_contains: "rancune", after_frame: 4000, by_frame: 6257),
-        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 4000, by_frame: 6144),
-        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 4000, by_frame: 5776),
-        EventAfter(kind: "boss_phase", label_contains: "phase 0 → 1", after_frame: 4000, by_frame: 7152),
-        BossPhase(entity: NetId(607), phase: 1, at_frame: 7170),
+        EventAfter(kind: "item_pickup", label_contains: "pierre_de_soin", after_frame: 4000, by_frame: 6220),
+        EventAfter(kind: "purchase", label_contains: "(shop)", after_frame: 4000, by_frame: 6197),
+        EventAfter(kind: "arena", label_contains: "tenue (750 frames)", after_frame: 4000, by_frame: 5901),
+        EventAfter(kind: "boss_phase", label_contains: "phase 0 → 1", after_frame: 4000, by_frame: 6872),
+        BossPhase(entity: NetId(591), phase: 1, at_frame: 6880),
         RunState(step: Ended(Victory), at_frame: 7400),
         // Le profil du joueur 0 enregistre la fin de run.
         ProfileHas(handle: 0, unlock: "first_victory", at_frame: 7900),
@@ -150,10 +156,10 @@ Scenario(
         // arène `nth: 0` = premier étage (nettoyée f2827), `nth: 1` = second (endormie jusqu'à f4219) ;
         // boss `nth: 1` = premier étage (nettoyé f3780), `nth: 0` = second (endormi jusqu'à son arrivée).
         RoomState(kind: "arene", nth: 0, state: Cleared, at_frame: 2830),
-        RoomState(kind: "boss", nth: 1, state: Cleared, at_frame: 3790),
+        RoomState(kind: "boss", nth: 1, state: Cleared, at_frame: 3840),
         RoomState(kind: "arene", nth: 1, state: Dormant, at_frame: 4300),
         RoomState(kind: "boss", nth: 0, state: Dormant, at_frame: 4300),
-        RoomState(kind: "arene", nth: 1, state: Cleared, at_frame: 5800),
+        RoomState(kind: "arene", nth: 1, state: Cleared, at_frame: 5905),
         RoomState(kind: "boss", nth: 0, state: Cleared, at_frame: 7400),
         PlayerAlive(handle: 0, at_frame: 7899),
         PlayerAlive(handle: 1, at_frame: 7899),

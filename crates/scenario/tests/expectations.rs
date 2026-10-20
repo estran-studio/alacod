@@ -1117,12 +1117,12 @@ fn enemy_state_lit_la_regle_retenue() {
         scenario,
         &[
             Expectation::EnemyState {
-                entity: EntityRef::NetId(27),
+                entity: EntityRef::NetId(23),
                 behavior: "Shoot".into(),
                 at_frame: 20,
             },
             Expectation::EnemyState {
-                entity: EntityRef::NetId(27),
+                entity: EntityRef::NetId(23),
                 behavior: "KeepDistance".into(),
                 at_frame: 81,
             },
@@ -1130,7 +1130,7 @@ fn enemy_state_lit_la_regle_retenue() {
         &[
             (
                 Expectation::EnemyState {
-                    entity: EntityRef::NetId(27),
+                    entity: EntityRef::NetId(23),
                     behavior: "Chase".into(),
                     at_frame: 81,
                 },
@@ -1181,7 +1181,7 @@ fn enemy_distance_entre_bornes() {
     verifie_attentes(
         scenario,
         &[Expectation::EnemyDistance {
-            entity: EntityRef::NetId(27),
+            entity: EntityRef::NetId(23),
             target: DistanceTarget::Player(0),
             min: Some(118.0),
             max: Some(121.0),
@@ -1190,7 +1190,7 @@ fn enemy_distance_entre_bornes() {
         &[
             (
                 Expectation::EnemyDistance {
-                    entity: EntityRef::NetId(27),
+                    entity: EntityRef::NetId(23),
                     target: DistanceTarget::Player(0),
                     min: None,
                     max: Some(100.0),
@@ -1200,7 +1200,7 @@ fn enemy_distance_entre_bornes() {
             ),
             (
                 Expectation::EnemyDistance {
-                    entity: EntityRef::NetId(27),
+                    entity: EntityRef::NetId(23),
                     target: DistanceTarget::Player(3),
                     min: None,
                     max: None,
@@ -1223,12 +1223,12 @@ fn enemy_contact_before_echeance() {
     verifie_attentes(
         scenario,
         &[Expectation::EnemyContactBefore {
-            entity: EntityRef::NetId(27),
+            entity: EntityRef::NetId(23),
             frames: 120,
         }],
         &[(
             Expectation::EnemyContactBefore {
-                entity: EntityRef::NetId(27),
+                entity: EntityRef::NetId(23),
                 frames: 60,
             },
             "jamais à portée",
@@ -1250,7 +1250,7 @@ fn enemy_never_in_wall_passe_en_salle_ouverte() {
         scenario,
         &[
             Expectation::EnemyNeverInWall {
-                entity: EntityRef::NetId(27),
+                entity: EntityRef::NetId(23),
                 from: 1,
                 to: 330,
             },
@@ -1276,12 +1276,12 @@ fn enemy_variant_lit_la_variante() {
         load_scenario("variant_fast"),
         &[
             Expectation::EnemyVariant {
-                entity: EntityRef::NetId(33),
+                entity: EntityRef::NetId(29),
                 variant: Some("rapide".into()),
                 at_frame: 2,
             },
             Expectation::EnemyVariant {
-                entity: EntityRef::NetId(31),
+                entity: EntityRef::NetId(27),
                 variant: None,
                 at_frame: 2,
             },
@@ -1289,7 +1289,7 @@ fn enemy_variant_lit_la_variante() {
         &[
             (
                 Expectation::EnemyVariant {
-                    entity: EntityRef::NetId(32),
+                    entity: EntityRef::NetId(28),
                     variant: Some("rapide".into()),
                     at_frame: 2,
                 },

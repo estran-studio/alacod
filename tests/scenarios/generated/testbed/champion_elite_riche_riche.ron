@@ -83,7 +83,7 @@ Scenario(
         ),
         HasItem(
             handle: 0,
-            id: "bottes",
+            id: "manche",
             at_frame: 199,
         ),
     ],

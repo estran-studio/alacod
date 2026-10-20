@@ -77,6 +77,7 @@ fn main() -> AppExit {
         .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {
             map_path: manifest.entry.start_map.clone(),
             seed: manifest.entry.default_seed,
+            settings: manifest.entry.map.clone(),
         }))
         .insert_resource(WaveModeEnabled(wave_mode));
     // M2-T13 : la partie démarre au hub quand le manifeste en déclare un (`entry.hub`) ; la porte

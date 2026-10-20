@@ -42,7 +42,7 @@ Scenario(
         BulletCount(count: 3, projectile: Some("fireball"), team: Some(Enemies), at_frame: 41),
         Consumable(handle: 0, id: "blank", count: 1, at_frame: 60),
         PlayerAlive(handle: 0, at_frame: 70),
-        Event(kind: "feedback", label_contains: Some("télégraphe spiral 38 (3 rayons)"), by_frame: 7),
+        Event(kind: "feedback", label_contains: Some("télégraphe spiral 34 (3 rayons)"), by_frame: 7),
         Event(kind: "feedback", label_contains: Some("blank 0 (rayon 120)"), by_frame: 36),
     ],
 )

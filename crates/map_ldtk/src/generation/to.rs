@@ -306,57 +306,17 @@ impl GeneratedMap {
         }
     }
 
-    /// M2-T10 (mode `Floor`) : mure les ouvertures des salles qu'aucune salle voisine ne prolonge.
-    /// Un étage de grammaire place des gabarits à plusieurs ouvertures dont certaines restent
-    /// libres : sans cela, le joueur sortirait de l'étage. Une ouverture est une case de la couche
-    /// `LevelConnection` au bord du niveau ; son côté est utilisé si la salle a un voisin de cette
-    /// direction (`neighbours`). `Basic` ne l'appelle pas.
-    pub fn close_unused_openings(&mut self) {
-        for room in &mut self.generated_rooms {
-            let used: Vec<String> = room
-                .level
-                .neighbours
-                .iter()
-                .map(|n| n.dir.clone())
-                .collect();
-            let Some(layers) = room.level.layer_instances.as_mut() else {
-                continue;
-            };
-            let Some(opening_cells) = layers
-                .iter()
-                .find(|l| l.identifier == map_const::LAYER_CONNECTION)
-                .map(|l| (l.c_wid, l.c_hei, l.int_grid_csv.clone()))
-            else {
-                continue;
-            };
-            let (w, h, openings) = opening_cells;
-            let Some(walls) = layers.iter_mut().find(|l| l.identifier == "Walls") else {
-                continue;
-            };
-            for (dir, cells) in [
-                ("n", (0..w).map(|x| (x, 0)).collect::<Vec<_>>()),
-                ("s", (0..w).map(|x| (x, h - 1)).collect()),
-                ("w", (0..h).map(|y| (0, y)).collect()),
-                ("e", (0..h).map(|y| (w - 1, y)).collect()),
-            ] {
-                if used.iter().any(|d| d == dir) {
-                    continue;
-                }
-                for (x, y) in cells {
-                    let i = (y * w + x) as usize;
-                    if openings.get(i).copied().unwrap_or(0) == 1 {
-                        walls.int_grid_csv[i] = 1;
-                    }
-                }
-            }
-        }
+    fn room_mut(&mut self, level_iid: &str) -> &mut GeneratedRoom {
+        self.generated_rooms
+            .iter_mut()
+            .find(|r| r.level.iid == level_iid)
+            .expect("salle posée introuvable")
     }
 
     /// M3-T5 (disposition en grille) : mure exactement les ouvertures qu'aucune porte du plan ne
-    /// prolonge. `close_unused_openings` raisonne par direction (un côté est « utilisé » dès qu'il a
-    /// un voisin), insuffisant pour une grande salle qui a plusieurs ouvertures sur un côté dont
-    /// seules certaines mènent quelque part. À appeler après `map_generation` : les connexions
-    /// finales de chaque salle (portes de boucle et de salle secrète comprises) sont celles du plan.
+    /// prolonge. À appeler après `map_generation` : les connexions finales de chaque salle (portes
+    /// de boucle et de salle secrète comprises) sont celles du plan. `Basic` et `Graph` murent
+    /// leurs prises libres pendant la génération (`IMapGenerator::close_opening`).
     pub fn close_unused_openings_exact(&mut self) {
         for room in &mut self.generated_rooms {
             let Some(layers) = room.level.layer_instances.as_mut() else {
@@ -509,6 +469,33 @@ impl IMapGenerator for GeneratedMap {
         }
     }
 
+    /// Mure une prise sans voisine : ses cases (bord du niveau, côté `side`, cases
+    /// `starting_at..starting_at + size`) passent à 1 dans `Walls`. La couche
+    /// `LevelConnection` est laissée telle quelle (elle ne sert qu'au générateur).
+    fn close_opening(&mut self, level_iid: &str, side: Side, starting_at: usize, size: usize) {
+        let room = self.room_mut(level_iid);
+        let Some(walls) = room
+            .level
+            .layer_instances
+            .as_mut()
+            .and_then(|layers| layers.iter_mut().find(|l| l.identifier == "Walls"))
+        else {
+            return;
+        };
+        let (w, h) = (walls.c_wid as usize, walls.c_hei as usize);
+        for k in starting_at..starting_at + size {
+            let (x, y) = match side {
+                Side::N => (k, 0),
+                Side::S => (k, h - 1),
+                Side::W => (0, k),
+                Side::E => (w - 1, k),
+            };
+            if x < w && y < h {
+                walls.int_grid_csv[y * w + x] = 1;
+            }
+        }
+    }
+
     fn add_doors(&mut self, rng: &mut RollbackRng, doors: &Vec<(EntityLocation, DoorConfig)>) {
         debug!("Adding {} doors to map", doors.len());
 
@@ -622,17 +609,28 @@ impl IMapGenerator for GeneratedMap {
     ) {
         debug!("Adding {} enemy spawns to map", enemy_spawns.len());
 
-        for (location, _spawn) in enemy_spawns.iter() {
+        for (location, spawn) in enemy_spawns.iter() {
             debug!(
                 "  Enemy spawn at ({}, {}) in level {}",
                 location.position.0, location.position.1, location.level_iid
             );
+            let fields = if let Some((x, y, width, height)) = spawn.activation_area {
+                let room = self.room_mut(&location.level_iid);
+                vec![
+                    ("active_x", FieldValue::Int(Some(room.level.world_x + x))),
+                    ("active_y", FieldValue::Int(Some(room.level.world_y + y))),
+                    ("active_width", FieldValue::Int(Some(width))),
+                    ("active_height", FieldValue::Int(Some(height))),
+                ]
+            } else {
+                vec![]
+            };
 
             self.add_entity_to_level(
                 rng,
                 location,
                 map_const::ENTITY_ZOMBIE_SPAWN_LOCATION,
-                vec![],
+                fields,
             );
         }
 

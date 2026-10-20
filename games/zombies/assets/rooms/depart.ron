@@ -1,0 +1,2 @@
+// Hall à deux sorties : progression par achats, pas de verrouillage de combat.
+(locks: false)
