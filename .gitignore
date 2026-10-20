@@ -22,6 +22,7 @@ __pycache__/
 /website/.wrangler/
 rustc-ice-*.txt
 
-# Overlay privé TheLazyStone (licence sans redistribution) : PNG générés
-# par scripts/repack-postapocalypse.py, jamais commites.
+# Overlay privé TheLazyStone (licence sans redistribution) : PNG générés et surcharge locale
+# de la table des sprites, par scripts/repack-postapocalypse.py, jamais commités.
 games/*/assets/sprites/postapo/
+games/*/assets/sprites/*.local.ron

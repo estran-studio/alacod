@@ -214,7 +214,8 @@
   licence: licence propre de l'auteur — gratuit pour usage non commercial,
     usage commercial contre paiement (2 $ ou plus) ; redistribution interdite,
     sous forme originale ou modifiée. Fichiers NON commites (dossier
-    sprites/postapo/ gitignore) : overlay prive pour builds de demo seulement.
+    sprites/postapo/ et sprites/sprites.local.ron gitignores) : surcharge locale
+    de sprites/sprites.ron, sprites publics ailleurs (docs/conventions.md §2).
   modifications: feuilles de profil (side) redécoupees et réalignées en cellules
     uniformes (Idle|Run|Dying_1|Attack, pieds centrés) par
     scripts/repack-postapocalypse.py ; une frame des calques mains+arme

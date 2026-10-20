@@ -146,6 +146,43 @@ def weapon(pack: Path, out_dir: Path, name: str, rel: str) -> None:
 """)
 
 
+# Surcharge locale de sprites/sprites.ron (`content::registry::load_sprite_sheets`) : entités
+# post-apo par jeu. Fichier écrit à côté de la table publique, gitignoré comme les PNG ; chaque id
+# doit exister dans la table publique (repli des autres postes et de la CI).
+ENEMY_SKINS = {
+    "throne": {
+        "rat": "zombie_small", "chien": "zombie_small", "rodeur": "zombie_small",
+        "pillard": "zombie_axe", "cracheur": "zombie_small", "franc_tireur": "zombie_small",
+        "arroseur": "zombie_axe", "tourelle": "zombie_big", "brute": "zombie_big",
+        "buffle": "zombie_big", "roi_rat": "zombie_big",
+    },
+    "zombies": {
+        "zombie_1": "zombie_small", "zombie_2": "zombie_axe",
+        "zombie_full": "zombie_big", "boss_zombie": "zombie_big",
+    },
+}
+SHADOW = "sprites/characters/shadow/shadow_sheet.ron"
+
+
+def write_overlay(game: str, path: Path) -> None:
+    entries = [("player", "sprites/postapo/player_animation.ron",
+                {"body": "sprites/postapo/player_sheet.ron", "shadow": SHADOW})]
+    for name in WEAPONS:
+        entries.append((name, "sprites/characters/player/player_animation.ron",
+                        {"body": f"sprites/postapo/weapon_{name}_sheet.ron"}))
+    for enemy, skin in ENEMY_SKINS.get(game, {}).items():
+        entries.append((enemy, f"sprites/postapo/{skin}_animation.ron",
+                        {"body": f"sprites/postapo/{skin}_sheet.ron", "shadow": SHADOW}))
+    lines = ["// Surcharge locale (pack TheLazyStone, NON redistribuable) : écrit par",
+             "// scripts/repack-postapocalypse.py, gitignoré. Remplace les entrées de même id de sprites.ron.",
+             "({"]
+    for name, animation, layers in entries:
+        body = ", ".join(f'"{k}": "{v}"' for k, v in layers.items())
+        lines.append(f'    "{name}": (animation: "{animation}", layers: {{ {body} }}),')
+    lines.append("})")
+    path.write_text("\n".join(lines) + "\n")
+
+
 def main() -> None:
     pack = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.home() / "Downloads/PostApocalypse_AssetPack_v1.1.2"
     games = sys.argv[2:] or ["throne", "zombies"]
@@ -159,7 +196,8 @@ def main() -> None:
             repack(pack, out_dir, name, scale, states)
         for name, rel in WEAPONS.items():
             weapon(pack, out_dir, name, rel)
-        print(f"{game}: {len(ENTITIES)} personnages + {len(WEAPONS)} armes -> {out_dir}")
+        write_overlay(game, out_dir.parent / "sprites.local.ron")
+        print(f"{game}: {len(ENTITIES)} personnages + {len(WEAPONS)} armes -> {out_dir} (+ sprites.local.ron)")
 
 
 if __name__ == "__main__":

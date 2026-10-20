@@ -246,6 +246,12 @@ personnage, `sprite_config.name` d'une arme à distance, `slash` pour l'effet de
     ),
 })
 ```
+**Surcharge locale** (pack d'images non redistribuable) : un `sprites/sprites.local.ron` à côté de la
+table, même format, **gitignoré** (`games/*/assets/sprites/*.local.ron`), remplace les entrées de même
+id ; un id absent de la table publique est refusé (`BrokenReference` : chaque entrée garde un repli
+public). Sans lui (CI, autres postes, amis), les sprites publics. Seul usage : le pack post-apo
+TheLazyStone de zombies et throne, écrit avec ses PNG (`sprites/postapo/`, gitignoré) par
+`scripts/repack-postapocalypse.py` ; fixture `sprite_sheet_local_overlay`.
 Feuilles, animations et images sont rangées par entité sous `sprites/` : `characters/` (joueur,
 ombre), `weapons/`, `enemies/`, `effects/`. Un personnage sans entrée n'a pas de sprite (les
 personnages de laboratoire du testbed). Lint : fichiers d'une entrée présents (animation,

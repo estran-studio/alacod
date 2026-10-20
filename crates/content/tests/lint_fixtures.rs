@@ -1047,6 +1047,19 @@ fn sprite_sheet_missing_image_fixture_reports_missing_png() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// Surcharge locale (`sprites.local.ron`, pack non redistribuable) : remplace l'entrée de même
+/// id, laisse les autres, et refuse un id sans repli public.
+#[test]
+fn sprite_sheet_local_overlay_replaces_known_ids_only() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_local_overlay")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "ghost");
+    assert_only_one_besides_start_map(&errors);
+    let body = |id: &str| registry.sprite_sheets[&id.into()].layers["body"].clone();
+    assert_eq!(body("hero"), "sprites/hero_local_sheet.ron");
+    assert_eq!(body("villain"), "sprites/villain_sheet.ron");
+    assert!(!registry.sprite_sheets.contains_key(&"ghost".into()));
+}
+
 /// D51 : `spread` doit rester dans [0, π] radians.
 #[test]
 fn weapon_spread_out_of_range_fixture_reports_spread() {

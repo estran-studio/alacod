@@ -1,0 +1,11 @@
+// Fixture : table publique ; `sprites.local.ron` à côté la surcharge (`load_sprite_sheets`).
+({
+    "hero": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/hero_sheet.ron" },
+    ),
+    "villain": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/villain_sheet.ron" },
+    ),
+})
