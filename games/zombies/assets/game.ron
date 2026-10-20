@@ -15,12 +15,16 @@
         // F5 (chantier m0-v11) : preuve « équilibrage par joueurs » (santé par expression,
         // voir `docs/conventions.md` §18).
         (path: "ZombieShooter/Sprites/Zombie/zombie_scaled_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Zombie/boss_zombie_config.ron", kind: "Character"),
         (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
         (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon"),
         (path: "waves", kind: "Wave"),
         (path: "exemples", kind: "Map"),
         // m0-v8 : cartes de la voie V6 (tâche m0-v8-carte-zombies), même kind que exemples/.
         (path: "maps", kind: "Map"),
+        // Sections de La Fonderie : types de salles et assemblage avec finale garantie.
+        (path: "floor_grammars", kind: "FloorGrammar"),
+        (path: "rooms", kind: "Room"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),
         // D3 : feuilles de sprites par id (personnages, armes, effet de mêlée).
@@ -34,9 +38,17 @@
         (path: "items", kind: "PowerUp"),
     ],
     entry: (
-        // S2/S8 : bâtiment composé à partir des modules LDtk du Relais.
-        start_map: "maps/le_relais_modules.ldtk",
+        // Sections LDtk assemblées par leurs prises : cour, ateliers, ravitaillement, finale.
+        start_map: "floor:la_fonderie",
         default_seed: 123456,
+        map: (
+            max_rooms: 10,
+            max_width: 1000,
+            max_height: 1000,
+            aligned_openings: true,
+            close_loops: true,
+            wall_unused_openings: true,
+        ),
         mode: Waves,
     ),
 )

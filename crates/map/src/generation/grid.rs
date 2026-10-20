@@ -1294,6 +1294,7 @@ mod tests {
                 max_room: 0,
                 map_path: String::new(),
                 mode: MapGenerationMode::Basic,
+                ..Default::default()
             },
         }
     }
@@ -1310,6 +1311,7 @@ mod tests {
             min_boss_distance: 3,
             max_attempts: 64,
             bounds: None,
+            loops: 0,
             layout: Some(FloorLayout::Grid {
                 cell: CELL,
                 max: (7, 7),
@@ -1758,6 +1760,7 @@ mod tests {
             min_boss_distance: 2,
             max_attempts: 8,
             bounds: None,
+            loops: 0,
             layout: Some(FloorLayout::Grid {
                 cell: CELL,
                 max: (5, 5),

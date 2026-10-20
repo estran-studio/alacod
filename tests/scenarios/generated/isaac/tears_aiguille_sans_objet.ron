@@ -87,13 +87,13 @@ Scenario(
     ],
     expect: [
         EntityHits(
-            net_id: 25,
+            net_id: 21,
             min: 0,
             max: 0,
             at_frame: 150,
         ),
         EntityHits(
-            net_id: 29,
+            net_id: 25,
             min: 0,
             max: 0,
             at_frame: 150,

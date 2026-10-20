@@ -23,9 +23,9 @@ Scenario(
         HasItem(handle: 0, id: "lentille", at_frame: 1),
         Stat(handle: 0, stat: ShotSpeed, value: 1.5, at_frame: 1),
         Stat(handle: 0, stat: ShotSize, value: 1.5, at_frame: 1),
-        EntityHits(net_id: 35, min: 0, max: Some(0), at_frame: 44),
+        EntityHits(net_id: 31, min: 0, max: Some(0), at_frame: 44),
         HitsAtLeast(entity: Target, hits: 1, at_frame: 46),
         // Une seule larme tirée : un seul coup.
-        EntityHits(net_id: 35, min: 1, max: Some(1), at_frame: 119),
+        EntityHits(net_id: 31, min: 1, max: Some(1), at_frame: 119),
     ],
 )

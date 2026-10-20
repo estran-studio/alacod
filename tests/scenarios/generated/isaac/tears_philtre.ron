@@ -173,7 +173,7 @@ Scenario(
             entity: Placed(0),
             status: "charme",
             present: true,
-            at_frame: 300,
+            at_frame: 200,
         ),
     ],
     powerup_drop_chance_override: "0",

@@ -57,6 +57,7 @@ fn main() {
         .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {
             map_path: manifest.entry.start_map.clone(),
             seed: manifest.entry.default_seed,
+            settings: manifest.entry.map.clone(),
         }))
         .insert_resource(WaveModeEnabled(wave_mode))
         .run();

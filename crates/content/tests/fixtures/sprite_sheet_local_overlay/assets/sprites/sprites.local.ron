@@ -1,0 +1,12 @@
+// Fixture : surcharge locale. `hero` est remplacé ; `ghost` n'a pas de repli public :
+// LintErrorKind::BrokenReference.
+({
+    "hero": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/hero_local_sheet.ron" },
+    ),
+    "ghost": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/hero_local_sheet.ron" },
+    ),
+})

@@ -120,6 +120,11 @@ pub struct EntryPoint {
     /// T1.9 : difficulté (kind `Difficulty`) active dans une partie jouée. Absent : non.
     #[serde(default)]
     pub difficulty: Option<bool>,
+    /// Assemblage des pièces (2026-10-17, `docs/conventions.md` §1) : nombre de pièces,
+    /// bornes, alignement des prises, boucles, murage des prises libres. Absent : défauts de
+    /// `world::MapSettings` (10 pièces, ±1000 px, aligné, boucles et murage actifs).
+    #[serde(default)]
+    pub map: world::MapSettings,
 }
 
 #[derive(Resource, Debug, Clone, Deserialize, PartialEq, Eq)]

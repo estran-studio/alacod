@@ -808,7 +808,7 @@ Scenario(
         RoomState(kind: "combat", state: Locked, at_frame: 900),
         RoomState(kind: "combat", state: Cleared, at_frame: 1120),
         RoomState(kind: "boss", state: Locked, at_frame: 1200),
-        BossPhase(entity: NetId(135), phase: 2, at_frame: 1370), // M2-T14d : NetId 163 → 143 (les salles de combat de l'étage 2 portent moins d'ennemis). M2-T7 : le boss dormant ne tire plus, ses balles ne prennent plus de NetId. Gabarits agrandis : NetId 143 → 135, phase 2 atteinte f1359 (frame d'attente 1350 → 1370)
+        BossPhase(entity: NetId(127), phase: 2, at_frame: 1370), // Fusion de better-assets (2026-10-19) : prises libres murées sans porte, NetId 135 → 127. // M2-T14d : NetId 163 → 143 (les salles de combat de l'étage 2 portent moins d'ennemis). M2-T7 : le boss dormant ne tire plus, ses balles ne prennent plus de NetId. Gabarits agrandis : NetId 143 → 135, phase 2 atteinte f1359 (frame d'attente 1350 → 1370)
         RunState(step: Ended(Victory), at_frame: 1480),
         PlayerAlive(handle: 0, at_frame: 1499),
     ],

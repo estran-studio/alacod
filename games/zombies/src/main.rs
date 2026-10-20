@@ -86,6 +86,7 @@ fn main() -> AppExit {
         .add_plugins(LdtkLocalGamePlugin(LdtkGameMap {
             map_path: manifest.entry.start_map.clone(),
             seed: manifest.entry.default_seed,
+            settings: manifest.entry.map.clone(),
         }))
         .add_systems(
             OnEnter(game::session::AppState::LobbyLocal),

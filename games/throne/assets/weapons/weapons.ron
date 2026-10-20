@@ -352,7 +352,7 @@
             test: Some((
                 frames: 200,
                 min_hits: 8,
-                expect: [EntityHealth(net_id: 34, min: Some(200.0), at_frame: 200)],
+                expect: [EntityHealth(net_id: 30, min: Some(200.0), at_frame: 200)],
             )),
         ),
         sprite_config: (

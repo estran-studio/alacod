@@ -28,10 +28,8 @@ use crate::character::enemy::ai::pathing::EnemyPath;
 use crate::character::enemy::ai::state::EnemyTarget;
 use crate::character::visuals::{MarkerTint, VisualsAttached};
 use crate::collider::{Collider, ColliderShape};
-use crate::fog_map::FogMap;
 use crate::interaction::Interactable;
 use crate::powerups::PowerUpPickup;
-use crate::room_fog::FogView;
 use crate::ui::hud::{HudConfig, HudConfigHandle};
 use crate::visual_requests::WorldLabel;
 use crate::world_sprites::{atlas_sprite, item_candidates, SpriteTable};
@@ -638,8 +636,6 @@ fn sync_labels(
     configs: Res<Assets<HudConfig>>,
     items: Option<Res<ItemTable>>,
     asset_server: Res<AssetServer>,
-    fog: Res<FogView>,
-    fog_map: Option<Res<FogMap>>,
     mut labels: Query<(Entity, &mut Label, &mut Transform, &mut Visibility)>,
     mut texts: Query<(&mut Text2d, &mut TextColor, &ChildOf), Without<LabelBackground>>,
     mut backgrounds: Query<(&mut Sprite, &ChildOf), With<LabelBackground>>,
@@ -677,13 +673,8 @@ fn sync_labels(
         have.insert(label.target, entity);
         if let Some(wish) = wishes.iter().find(|w| w.target == label.target) {
             transform.translation = wish.position.extend(60.0);
-            let wanted = if fog.sees(fog_map.as_deref(), wish.position) {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            };
-            if *visibility != wanted {
-                *visibility = wanted;
+            if *visibility != Visibility::Inherited {
+                *visibility = Visibility::Inherited;
             }
         }
     }

@@ -165,7 +165,7 @@ Scenario(
             entity: Placed(0),
             status: "etourdi",
             present: false,
-            at_frame: 300,
+            at_frame: 130,
         ),
     ],
     powerup_drop_chance_override: "0",

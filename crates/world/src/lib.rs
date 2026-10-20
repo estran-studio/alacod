@@ -12,6 +12,7 @@ pub mod destroy;
 pub mod explosion;
 pub mod floor_grammar;
 pub mod grid;
+pub mod map_settings;
 pub mod nav;
 pub mod plugin;
 pub mod props;
@@ -29,6 +30,7 @@ pub use explosion::{
 };
 pub use floor_grammar::{FloorGrammar, FloorLayout, PostBoss};
 pub use grid::{CellGrid, CellKind, Destructible, CELL_SIZE};
+pub use map_settings::MapSettings;
 pub use plugin::{DestroyTerrainRequest, TerrainDestroyed, WorldPlugin};
 pub use props::{
     flip_direction, flipped_rect, BarrelDef, BarrelState, FlipDirection, PitSafePosition, PropDef,

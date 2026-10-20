@@ -1,4 +1,3 @@
-pub mod building;
 pub mod cave;
 mod from;
 mod to;
@@ -148,7 +147,6 @@ mod tests {
                 let mut generator = GeneratedMap::create(data);
                 map_generation(context, &mut generator)
                     .unwrap_or_else(|_| panic!("{file} graine {seed} : génération échouée"));
-                generator.close_unused_openings();
                 let rooms = &generator.generated_rooms;
                 // m2-salles-murs-gungeon : toute ouverture restée libre donne sur une ouverture libre d'une
                 // autre salle, case contre case (gabarits de tailles différentes).
@@ -346,7 +344,6 @@ mod tests {
             let mut generator = GeneratedMap::create(data.clone());
             map_generation(context, &mut generator)
                 .unwrap_or_else(|_| panic!("arbre ×2 graine {seed} : génération échouée"));
-            generator.close_unused_openings();
             let rooms = &generator.generated_rooms;
             let label = format!("arbre ×2 graine {seed}");
             assert!(
@@ -614,9 +611,8 @@ mod tests {
                     let started = std::time::Instant::now();
                     map_generation(context, &mut generator)
                         .unwrap_or_else(|_| panic!("graine {seed} : génération échouée"));
-                    if tree {
-                        generator.close_unused_openings();
-                    } else {
+                    // Arbre : prises murées pendant la génération ; grille : murage exact du plan.
+                    if !tree {
                         generator.close_unused_openings_exact();
                     }
                     std::hint::black_box(generator.generated_rooms.len());
@@ -708,7 +704,6 @@ mod tests {
             let mut generator = GeneratedMap::create(data);
             map_generation(context, &mut generator)
                 .unwrap_or_else(|_| panic!("graine {seed} : génération échouée"));
-            generator.close_unused_openings();
             let rooms = &generator.generated_rooms;
             assert!(
                 (grammar.rooms.0..=grammar.rooms.1).contains(&rooms.len()),
@@ -772,6 +767,198 @@ mod tests {
         }
         assert_eq!(bosses, 1000, "un boss par étage");
         assert!(decorated_rooms > 100, "salles décorées : {decorated_rooms}");
+    }
+
+    fn activation_field(name: &str, value: i32) -> bevy_ecs_ldtk::ldtk::FieldInstance {
+        bevy_ecs_ldtk::ldtk::FieldInstance {
+            identifier: name.into(),
+            def_uid: 0,
+            field_instance_type: "Int".into(),
+            value: bevy_ecs_ldtk::ldtk::FieldValue::Int(Some(value)),
+            tile: None,
+            real_editor_values: vec![],
+        }
+    }
+
+    fn set_activation_fields(data: &mut LdtkJson, fields: &[(&str, i32)]) {
+        let mut count = 0;
+        for level in &mut data.levels {
+            for layer in level.layer_instances.iter_mut().flatten() {
+                for entity in &mut layer.entity_instances {
+                    if entity.identifier == crate::map_const::ENTITY_ZOMBIE_SPAWN_LOCATION {
+                        entity.field_instances = fields
+                            .iter()
+                            .map(|(name, value)| activation_field(name, *value))
+                            .collect();
+                        count += 1;
+                    }
+                }
+            }
+        }
+        assert!(count > 0, "fixture without ZombieSpawn");
+    }
+
+    fn zombie_library() -> LdtkJson {
+        load_ldtk_json_file(get_crate_root_path!(
+            "../../games/zombies/assets/maps/avant_poste.ldtk"
+        ))
+        .unwrap()
+    }
+
+    /// Both assemblers preserve the optional bounds without changing any generated position,
+    /// UUID or other entity field (and therefore without consuming additional RNG).
+    #[test]
+    fn activation_bounds_survive_basic_and_floor_assembly() {
+        use map::generation::config::MapGenerationMode;
+        let zombies = zombie_library();
+        let mut floors = load_ldtk_json_file(get_crate_root_path!(
+            "../../games/gungeon/assets/maps/salles.ldtk"
+        ))
+        .unwrap();
+        let identifier = crate::map_const::ENTITY_ZOMBIE_SPAWN_LOCATION;
+        let definition = zombies
+            .defs
+            .entities
+            .iter()
+            .find(|entity| entity.identifier == identifier)
+            .unwrap()
+            .clone();
+        let spawn = zombies
+            .levels
+            .iter()
+            .flat_map(|level| level.layer_instances.iter().flatten())
+            .flat_map(|layer| &layer.entity_instances)
+            .find(|entity| entity.identifier == identifier)
+            .unwrap()
+            .clone();
+        floors.defs.entities.push(definition);
+        for level in &mut floors.levels {
+            level
+                .layer_instances
+                .as_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|layer| layer.identifier == crate::map_const::LAYER_ENTITY)
+                .unwrap()
+                .entity_instances
+                .push(spawn.clone());
+        }
+        #[derive(serde::Deserialize)]
+        struct GrammarFile {
+            grammar: world::FloorGrammar,
+        }
+        let grammar = ron::from_str::<GrammarFile>(
+            &std::fs::read_to_string(get_crate_root_path!(
+                "../../games/gungeon/assets/floor_grammars/etage.ron"
+            ))
+            .unwrap(),
+        )
+        .unwrap()
+        .grammar;
+        for (mut source, mode) in [
+            (zombies, MapGenerationMode::Basic),
+            (floors, MapGenerationMode::Floor(grammar)),
+        ] {
+            set_activation_fields(&mut source, &[]);
+            let config = MapGenerationConfig {
+                seed: 1,
+                max_width: 1000,
+                max_heigth: 1000,
+                mode,
+                ..Default::default()
+            };
+            let assemble = |source: LdtkJson| {
+                let context = from_map(&source, config.clone());
+                let mut output = GeneratedMap::create(source);
+                map_generation(context, &mut output).unwrap();
+                output.get_generated_map()
+            };
+            let baseline = assemble(source.clone());
+            set_activation_fields(
+                &mut source,
+                &[
+                    ("active_x", -17),
+                    ("active_y", 29),
+                    ("active_width", 333),
+                    ("active_height", 177),
+                ],
+            );
+            let mut bounded = assemble(source);
+            let mut count = 0;
+            for level in &mut bounded.levels {
+                for layer in level.layer_instances.iter_mut().flatten() {
+                    for entity in &mut layer.entity_instances {
+                        if entity.identifier != identifier {
+                            continue;
+                        }
+                        use bevy_ecs_ldtk::prelude::LdtkFields;
+                        assert_eq!(
+                            *entity.get_int_field("active_x").unwrap(),
+                            level.world_x - 17
+                        );
+                        assert_eq!(
+                            *entity.get_int_field("active_y").unwrap(),
+                            level.world_y + 29
+                        );
+                        assert_eq!(*entity.get_int_field("active_width").unwrap(), 333);
+                        assert_eq!(*entity.get_int_field("active_height").unwrap(), 177);
+                        #[cfg(feature = "runtime")]
+                        {
+                            use bevy_fixed::fixed_math::{Fixed, FixedVec2};
+                            let component =
+                                crate::game::entity::enemy_spawn::enemy_spawner_component_from_field(entity);
+                            let min = FixedVec2::new(
+                                Fixed::from_num(level.world_x - 17),
+                                Fixed::from_num(-level.world_y - 29 - 177),
+                            );
+                            assert!(component.defends(min), "lower bounds must be inclusive");
+                            assert!(component.defends(
+                                min + FixedVec2::new(Fixed::from_num(332), Fixed::from_num(176),)
+                            ));
+                            assert!(
+                                !component.defends(min - FixedVec2::new(Fixed::ONE, Fixed::ZERO))
+                            );
+                            assert!(!component
+                                .defends(min + FixedVec2::new(Fixed::from_num(333), Fixed::ZERO)));
+                            assert!(!component
+                                .defends(min + FixedVec2::new(Fixed::ZERO, Fixed::from_num(177))));
+                        }
+                        entity.field_instances.clear();
+                        count += 1;
+                    }
+                }
+            }
+            assert!(count > 0);
+            assert_eq!(
+                serde_json::to_value(bounded).unwrap(),
+                serde_json::to_value(baseline).unwrap(),
+                "activation bounds changed legacy generation beyond the four fields"
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "activation bounds require all four integer fields")]
+    fn partial_activation_bounds_are_rejected() {
+        let mut source = zombie_library();
+        set_activation_fields(&mut source, &[("active_x", 0)]);
+        from_map(&source, MapGenerationConfig::default());
+    }
+
+    #[test]
+    #[should_panic(expected = "active_width and active_height must be positive")]
+    fn negative_activation_width_is_rejected() {
+        let mut source = zombie_library();
+        set_activation_fields(
+            &mut source,
+            &[
+                ("active_x", 0),
+                ("active_y", 0),
+                ("active_width", -1),
+                ("active_height", 128),
+            ],
+        );
+        from_map(&source, MapGenerationConfig::default());
     }
 
     fn get_context() -> GeneratedMap {

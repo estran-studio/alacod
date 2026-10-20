@@ -8,6 +8,9 @@
     test: Some((
         frames: 60,
         // M3-T13 (§78) : `tears_epouvante` et son témoin `tears_epouvante_sans_objet`, seuils mesurés : 300 frames : la cible posée a peur à f300 (chance 30 %, témoin : aucun statut).
-        tears: Some((weapon: Some("larmes"), frames: Some(300), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "peur", at_frame: 300)], control: [HasStatus(entity: Placed(0), status: "peur", present: false, at_frame: 300)])),
+        // Fusion de better-assets (2026-10-19) : les chances d'`on_hit` sont tirées par net id de larme ; quatre
+        // entités de moins à f0 (prises murées sans porte) déplacent les tirages : le statut est lu f150 (posé
+        // pendant la rafale) au lieu de f300.
+        tears: Some((weapon: Some("larmes"), frames: Some(300), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "peur", at_frame: 150)], control: [HasStatus(entity: Placed(0), status: "peur", present: false, at_frame: 150)])),
     )),
 )

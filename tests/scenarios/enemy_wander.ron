@@ -14,11 +14,11 @@ Scenario(
         (inputs: [(from: 145, to: 220, buttons: [Right])]),
     ],
     expect: [
-        EnemyState(entity: NetId(27), behavior: "Wander", at_frame: 50),
-        EnemyDistance(entity: NetId(27), target: Player(0), min: 185.0, max: 200.0, at_frame: 51),
-        EnemyDistance(entity: NetId(27), target: Player(0), min: 215.0, max: 230.0, at_frame: 121),
-        EnemyState(entity: NetId(27), behavior: "Strafe", at_frame: 231),
-        EnemyState(entity: NetId(27), behavior: "Wander", at_frame: 280),
-        EnemyNeverInWall(entity: NetId(27), from: 1, to: 330),
+        EnemyState(entity: NetId(23), behavior: "Wander", at_frame: 50),
+        EnemyDistance(entity: NetId(23), target: Player(0), min: 185.0, max: 200.0, at_frame: 51),
+        EnemyDistance(entity: NetId(23), target: Player(0), min: 215.0, max: 230.0, at_frame: 121),
+        EnemyState(entity: NetId(23), behavior: "Strafe", at_frame: 231),
+        EnemyState(entity: NetId(23), behavior: "Wander", at_frame: 280),
+        EnemyNeverInWall(entity: NetId(23), from: 1, to: 330),
     ],
 )

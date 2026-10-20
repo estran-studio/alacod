@@ -7,8 +7,8 @@
 //!   l'assembleur), posé en [`world::RoomKind`] sur l'entité du niveau, à côté de `RoomBounds`.
 //!   Sur une carte sans `room_kind`, aucun système de ce module ne fait quoi que ce soit.
 //! - Au premier tick d'une carte typée, les portes posées sur le bord d'une salle typée
-//!   s'ouvrent (une porte de salle est ouverte par défaut) ; [`DoorShape`] garde de quoi les
-//!   refermer.
+//!   s'ouvrent ; en mode `Waves`, seules les salles verrouillantes s'ouvrent ainsi, les autres
+//!   gardent leurs portes payantes. [`DoorShape`] garde de quoi refermer les portes de combat.
 //! - Une salle dont le type verrouille (`RoomKindDef::locks`) passe `Dormant → Locked` quand
 //!   un joueur debout est à l'intérieur et qu'un ennemi y vit : ses portes (et les portes
 //!   jumelles, posées au bord de la salle voisine) se referment, les joueurs restés dehors
@@ -704,6 +704,7 @@ pub fn room_lock_system(
     mut states: ResMut<RoomStates>,
     mut arena_clocks: ResMut<ArenaClocks>,
     mut changed: ResMut<FrameEvents<RoomChanged>>,
+    run: Option<Res<run::Run>>,
     rooms: CurrentRooms,
     doors: Query<
         (
@@ -766,11 +767,19 @@ pub fn room_lock_system(
     // d'office, ni le verrouillage ou la fin d'une salle voisine n'y touchent.
     let sealed_door = |entity: Entity, p: FixedVec2| secret_door(p) || key_door(entity, p);
 
-    // Portes de salle ouvertes par défaut (une fois).
+    // Hors Waves, toutes les salles typées s'ouvrent comme avant. En Waves, les portes
+    // économiques restent fermées ; seules celles des salles de combat s'ouvrent par défaut.
     if !states.doors_opened {
+        let waves = run
+            .as_ref()
+            .is_some_and(|run| matches!(&run.mode, run::RunMode::Waves { .. }));
         for (_, entity, t, shape, closed) in order_iter!(doors) {
             let p = t.translation.truncate();
-            if closed && typed.iter().any(|(_, bounds, _)| door_near(bounds, p)) {
+            if closed
+                && typed.iter().any(|(_, bounds, kind)| {
+                    (!waves || table.locks(&kind.0)) && door_near(bounds, p)
+                })
+            {
                 if secret_door(p) {
                     // M3-T4 : porte d'une salle secrète (et sa jumelle) : un mur plein, qu'aucune
                     // Interaction n'ouvre ; seule une explosion `destroys` l'ouvre.
@@ -1457,7 +1466,159 @@ pub fn boss_room_clear_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use game::{collider::ColliderShape, interaction::InteractionType};
+    use map::generation::entity::door::DoorConfig;
+    use run::{Run, RunMode};
     use world::RoomKindDef;
+
+    fn transform(x: i32, y: i32) -> FixedTransform3D {
+        FixedTransform3D {
+            translation: FixedVec3::new(Fixed::from_num(x), Fixed::from_num(y), Fixed::ZERO),
+            ..FixedTransform3D::IDENTITY
+        }
+    }
+
+    fn room_app(mode: Option<RunMode>, locks: bool) -> (App, Entity) {
+        let mut app = App::new();
+        app.init_resource::<FrameCount>()
+            .init_resource::<RoomStates>()
+            .init_resource::<ArenaClocks>()
+            .init_resource::<FrameEvents<RoomChanged>>()
+            .insert_resource(RoomKindTable(
+                [(
+                    "test".into(),
+                    RoomKindDef {
+                        locks,
+                        ..Default::default()
+                    },
+                )]
+                .into(),
+            ))
+            .add_systems(Update, room_lock_system);
+        if let Some(mode) = mode {
+            app.insert_resource(Run::new(1, mode, vec![0], 0));
+        }
+        app.world_mut().spawn((
+            LevelId("room".into()),
+            RoomKind("test".into()),
+            RoomBounds {
+                position: FixedVec2::ZERO,
+                size: FixedVec2::new(Fixed::from_num(256), Fixed::from_num(256)),
+            },
+        ));
+        let collider = Collider {
+            shape: ColliderShape::Rectangle {
+                width: Fixed::from_num(16),
+                height: Fixed::from_num(64),
+            },
+            offset: FixedVec3::ZERO,
+        };
+        let layer = CollisionLayer(4);
+        let door = app
+            .world_mut()
+            .spawn((
+                GgrsNetId(1, "door".into()),
+                DoorComponent {
+                    config: DoorConfig {
+                        cost: 750,
+                        ..Default::default()
+                    },
+                },
+                transform(0, 128),
+                DoorShape {
+                    collider: collider.clone(),
+                    layer: layer.clone(),
+                },
+                collider,
+                layer,
+                Interactable {
+                    interaction_range: Fixed::from_num(50),
+                    interaction_type: InteractionType::Door,
+                },
+            ))
+            .id();
+        (app, door)
+    }
+
+    #[test]
+    fn waves_nonlocking_rooms_keep_paid_doors_closed() {
+        let (mut app, door) = room_app(
+            Some(RunMode::Waves {
+                config: "waves".into(),
+            }),
+            false,
+        );
+        for _ in 0..2 {
+            app.update();
+            let door = app.world().entity(door);
+            assert!(door.contains::<Collider>());
+            assert!(door.contains::<CollisionLayer>());
+            assert!(door.contains::<Interactable>());
+            assert_eq!(door.get::<DoorComponent>().unwrap().config.cost, 750);
+        }
+    }
+
+    #[test]
+    fn floors_and_other_modes_still_open_typed_room_doors() {
+        for mode in [
+            Some(RunMode::Floors {
+                config: "floors".into(),
+            }),
+            Some(RunMode::Sandbox),
+            None,
+        ] {
+            for locks in [false, true] {
+                let (mut app, door) = room_app(mode.clone(), locks);
+                app.update();
+                let door = app.world().entity(door);
+                assert!(!door.contains::<Collider>());
+                assert!(!door.contains::<CollisionLayer>());
+                assert!(!door.contains::<Interactable>());
+            }
+        }
+    }
+
+    #[test]
+    fn waves_combat_room_opens_locks_then_reopens() {
+        let (mut app, door) = room_app(
+            Some(RunMode::Waves {
+                config: "waves".into(),
+            }),
+            true,
+        );
+        app.update();
+        assert!(!app.world().entity(door).contains::<Collider>());
+        assert!(!app.world().entity(door).contains::<Interactable>());
+        app.world_mut().spawn((
+            GgrsNetId(2, "player".into()),
+            Player::default(),
+            transform(64, 128),
+        ));
+        let enemy = app
+            .world_mut()
+            .spawn((
+                GgrsNetId(3, "enemy".into()),
+                Enemy::default(),
+                transform(192, 128),
+            ))
+            .id();
+        app.update();
+        assert!(app.world().entity(door).contains::<Collider>());
+        assert!(app.world().entity(door).contains::<CollisionLayer>());
+        assert_eq!(
+            app.world().resource::<RoomStates>().get("room"),
+            RoomState::Locked
+        );
+        app.world_mut().despawn(enemy);
+        app.update();
+        assert!(!app.world().entity(door).contains::<Collider>());
+        assert!(!app.world().entity(door).contains::<CollisionLayer>());
+        assert_eq!(
+            app.world().resource::<RoomStates>().get("room"),
+            RoomState::Cleared
+        );
+    }
 
     /// La salle secrète n'est dessinée qu'une fois son mur ouvert ; les autres types, toujours.
     #[test]

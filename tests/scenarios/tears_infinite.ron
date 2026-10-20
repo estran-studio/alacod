@@ -24,8 +24,8 @@ Scenario(
         Ammo(handle: 0, ammo: 0, at_frame: 309),
         // Une larme toutes les 20 frames (f20, f40…), 38 frames de vol jusqu'à la cible : toutes
         // les larmes tirées jusqu'à f62, f162, f271 ont touché, sans palier de rechargement.
-        EntityHits(net_id: 35, min: 3, max: Some(3), at_frame: 100),
-        EntityHits(net_id: 35, min: 8, max: Some(8), at_frame: 200),
-        EntityHits(net_id: 35, min: 13, max: Some(13), at_frame: 309),
+        EntityHits(net_id: 31, min: 3, max: Some(3), at_frame: 100),
+        EntityHits(net_id: 31, min: 8, max: Some(8), at_frame: 200),
+        EntityHits(net_id: 31, min: 13, max: Some(13), at_frame: 309),
     ],
 )

@@ -94,8 +94,8 @@ Scenario(
             at_frame: 1,
         ),
         EntityHits(
-            net_id: 37,
-            min: 9,
+            net_id: 33,
+            min: 7,
             at_frame: 150,
         ),
         HasStatus(

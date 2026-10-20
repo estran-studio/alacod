@@ -4113,6 +4113,12 @@ fn load_perks(
 /// D3 : table des feuilles de sprites (kind `SpriteSheet`). Un id répété (dans un fichier
 /// ou entre deux fichiers) est un `DuplicateId`, la première entrée est gardée. L'image de
 /// chaque feuille lisible est relevée pour le lint (fichier présent sous `assets/`).
+///
+/// Surcharge locale : à côté de chaque fichier `x.ron`, un `x.local.ron` (même format, hors
+/// dépôt : gitignoré) remplace les entrées de même id, pour un pack d'images non redistribuable
+/// installé sur une seule machine (`scripts/repack-postapocalypse.py`). Une surcharge d'un id
+/// absent du fichier public est un `BrokenReference` : chaque entrée garde ainsi un repli public.
+/// Sans le fichier local, rien ne change (CI, autres postes).
 fn load_sprite_sheets(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
@@ -4127,26 +4133,10 @@ fn load_sprite_sheets(
         }
     };
 
-    for rel in files {
-        let text = match read_file(assets_dir, &rel) {
-            Ok(t) => t,
-            Err(e) => {
-                errors.push(e);
-                continue;
-            }
+    for rel in files.into_iter().filter(|rel| !is_local_overlay(rel)) {
+        let Some(parsed) = read_sprite_sheets_file(assets_dir, &rel, errors) else {
+            continue;
         };
-        let parsed: SpriteSheetsFileSchema = match ron::from_str(&text) {
-            Ok(p) => p,
-            Err(e) => {
-                errors.push(LintError {
-                    kind: LintErrorKind::Parse,
-                    file: rel.display().to_string(),
-                    message: format!("erreur RON : {e}"),
-                });
-                continue;
-            }
-        };
-
         for (name, entry) in parsed.0 .0 {
             let id = SpriteSheetId::from(name);
             if let Some(existing) = registry.sprite_sheets.get(&id) {
@@ -4160,26 +4150,89 @@ fn load_sprite_sheets(
                 });
                 continue;
             }
-            let images = entry
-                .layers
-                .iter()
-                .filter_map(|(layer, sheet)| {
-                    let text = assets_dir.read(Path::new(sheet)).ok()?;
-                    let sheet: SheetImageSchema = ron::from_str(&text).ok()?;
-                    Some((layer.clone(), sheet.path))
-                })
-                .collect();
-            registry.sprite_sheets.insert(
-                id.clone(),
-                SpriteSheetEntry {
-                    id,
-                    file: rel.clone(),
-                    animation: entry.animation,
-                    layers: entry.layers,
-                    images,
-                },
-            );
+            let entry = sprite_sheet_entry(assets_dir, id.clone(), &rel, entry);
+            registry.sprite_sheets.insert(id, entry);
         }
+
+        let local = rel.with_extension("local.ron");
+        if !assets_dir.contains(&local) {
+            continue;
+        }
+        let Some(parsed) = read_sprite_sheets_file(assets_dir, &local, errors) else {
+            continue;
+        };
+        for (name, entry) in parsed.0 .0 {
+            let id = SpriteSheetId::from(name);
+            if !registry.sprite_sheets.contains_key(&id) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: local.display().to_string(),
+                    message: format!(
+                        "surcharge locale de « {id} » : id absent de {} (chaque entrée garde un repli public)",
+                        rel.display()
+                    ),
+                });
+                continue;
+            }
+            let entry = sprite_sheet_entry(assets_dir, id.clone(), &local, entry);
+            registry.sprite_sheets.insert(id, entry);
+        }
+    }
+}
+
+/// Un fichier `*.local.ron` : surcharge locale d'une table, jamais une table à part.
+fn is_local_overlay(rel: &Path) -> bool {
+    rel.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.ends_with(".local.ron"))
+}
+
+fn read_sprite_sheets_file(
+    assets_dir: &ContentFiles,
+    rel: &Path,
+    errors: &mut Vec<LintError>,
+) -> Option<SpriteSheetsFileSchema> {
+    let text = match read_file(assets_dir, rel) {
+        Ok(t) => t,
+        Err(e) => {
+            errors.push(e);
+            return None;
+        }
+    };
+    match ron::from_str(&text) {
+        Ok(p) => Some(p),
+        Err(e) => {
+            errors.push(LintError {
+                kind: LintErrorKind::Parse,
+                file: rel.display().to_string(),
+                message: format!("erreur RON : {e}"),
+            });
+            None
+        }
+    }
+}
+
+fn sprite_sheet_entry(
+    assets_dir: &ContentFiles,
+    id: SpriteSheetId,
+    rel: &Path,
+    entry: SpriteSheetEntrySchema,
+) -> SpriteSheetEntry {
+    let images = entry
+        .layers
+        .iter()
+        .filter_map(|(layer, sheet)| {
+            let text = assets_dir.read(Path::new(sheet)).ok()?;
+            let sheet: SheetImageSchema = ron::from_str(&text).ok()?;
+            Some((layer.clone(), sheet.path))
+        })
+        .collect();
+    SpriteSheetEntry {
+        id,
+        file: rel.to_path_buf(),
+        animation: entry.animation,
+        layers: entry.layers,
+        images,
     }
 }
 

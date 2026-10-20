@@ -13,7 +13,7 @@ use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
 use sim_core::modifier::{ModifierOp, ModifierSource, Modifiers};
 use sim_core::stats::StatId;
 
-const TARGET_NET_ID: usize = 36;
+const TARGET_NET_ID: usize = 32;
 
 #[derive(Clone, Copy)]
 struct Setup {

@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::{
     game::entity::map::player_spawn::PlayerSpawnConfig,
     generation::{
-        context::{AvailableLevel, LevelType, MapGenerationContext, MapGenerationData},
+        context::{AvailableLevel, LevelType, MapGenerationContext, MapGenerationData, Side},
         entity::{
             character_spawn::CharacterSpawnConfig, door::DoorConfig, enemy_spawn::EnemySpawnConfig,
             location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
@@ -381,6 +381,85 @@ impl IMapGeneration for BasicMapGeneration {
         room
     }
 
+    fn get_links(&mut self) -> Vec<(RoomConnection, RoomConnection)> {
+        if !self.context.config.close_loops {
+            return Vec::new();
+        }
+        let tile_size = self.context.tile_size;
+        let mut linked = Vec::new();
+        for i in 0..self.map.rooms.len() {
+            for j in (i + 1)..self.map.rooms.len() {
+                for a in 0..self.map.rooms[i].connections.len() {
+                    if matches!(
+                        self.map.rooms[i].connections[a].to,
+                        Some(ConnectionTo::Room(_))
+                    ) {
+                        continue;
+                    }
+                    let (side_a, edge_a, start_a, end_a) =
+                        self.map.rooms[i].opening_span(a, &tile_size);
+                    let facing = (0..self.map.rooms[j].connections.len()).find(|&b| {
+                        if matches!(
+                            self.map.rooms[j].connections[b].to,
+                            Some(ConnectionTo::Room(_))
+                        ) {
+                            return false;
+                        }
+                        let (side_b, edge_b, start_b, end_b) =
+                            self.map.rooms[j].opening_span(b, &tile_size);
+                        // Deux prises libres se font face si elles sont sur des côtés opposés, au
+                        // même bord (salles bord contre bord) et à la même emprise. Deux salles
+                        // séparées par du vide ne sont jamais reliées : la porte donnerait sur le
+                        // vide (étages `Graph` à pose décalée, fusion de main 2026-10-19).
+                        side_a.is_opposite(side_b)
+                            && edge_a == edge_b
+                            && start_a == start_b
+                            && end_a == end_b
+                    });
+                    let Some(b) = facing else {
+                        continue;
+                    };
+                    let iid_i = self.map.rooms[i].level_iid.clone();
+                    let iid_j = self.map.rooms[j].level_iid.clone();
+                    self.map.rooms[i].link_opening(a, &iid_j, b);
+                    self.map.rooms[j].link_opening(b, &iid_i, a);
+                    debug!(
+                        "loop closed between {} ({:?}) and {} ({:?})",
+                        iid_i,
+                        side_a,
+                        iid_j,
+                        side_a.get_opposite()
+                    );
+                    linked.push((
+                        self.map.rooms[i].connections[a].clone(),
+                        self.map.rooms[j].connections[b].clone(),
+                    ));
+                }
+            }
+        }
+        linked
+    }
+
+    fn unused_openings(&self) -> Vec<(String, Side, usize, usize)> {
+        if !self.context.config.wall_unused_openings {
+            return Vec::new();
+        }
+        self.map
+            .rooms
+            .iter()
+            .flat_map(|room| {
+                room.connections
+                    .iter()
+                    .filter(|c| !matches!(c.to, Some(ConnectionTo::Room(_))))
+                    .map(|c| {
+                        let def = &room.level_def.connections[c.index];
+                        (room.level_iid.clone(), def.side, def.starting_at, def.size)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
     fn get_doors(
         &mut self,
         _rng: &mut RollbackRng,
@@ -416,6 +495,7 @@ impl IMapGeneration for BasicMapGeneration {
         // We'll build a list of pairings to apply after iteration
         let mut pairings: Vec<(usize, usize)> = vec![]; // (door_index, other_door_index)
         let mut non_interactable: Vec<usize> = vec![]; // door indices that should not be interactable
+        let mut removed: Vec<usize> = vec![]; // door indices at walled openings
 
         for (room_index, room) in self.map.rooms.iter().enumerate() {
             for connection in &room.connections {
@@ -466,13 +546,17 @@ impl IMapGeneration for BasicMapGeneration {
                             }
                         }
                     }
-                } else if connection.to.is_some() {
-                    // This is a dead-end or outside connection
-                    // Mark doors at this connection as non-interactable
+                } else {
+                    // Prise sans voisine (fermée, ou jamais tentée) : sa porte est retirée quand
+                    // la prise est murée (`wall_unused_openings`), non interactive sinon.
                     for (door_index, (door_room_index, door_loc, _)) in all_doors.iter().enumerate()
                     {
-                        if *door_room_index == room_index {
-                            if is_door_at_connection(door_loc, room, connection) {
+                        if *door_room_index == room_index
+                            && is_door_at_connection(door_loc, room, connection)
+                        {
+                            if self.context.config.wall_unused_openings {
+                                removed.push(door_index);
+                            } else if connection.to.is_some() {
                                 non_interactable.push(door_index);
                             }
                         }
@@ -504,7 +588,9 @@ impl IMapGeneration for BasicMapGeneration {
         // Return all doors with their updated configs
         all_doors
             .into_iter()
-            .map(|(_, loc, config)| (loc, config))
+            .enumerate()
+            .filter(|(i, _)| !removed.contains(i))
+            .map(|(_, (_, loc, config))| (loc, config))
             .collect()
     }
 
@@ -578,7 +664,7 @@ impl IMapGeneration for BasicMapGeneration {
 
     fn get_enemy_spawns(
         &mut self,
-        rng: &mut RollbackRng,
+        _rng: &mut RollbackRng,
     ) -> Vec<(EntityLocation, EnemySpawnConfig)> {
         self.map
             .rooms
@@ -587,14 +673,14 @@ impl IMapGeneration for BasicMapGeneration {
                 room.entity_locations
                     .zombie_spawns
                     .iter()
-                    .map(|location| {
+                    .map(|(location, config)| {
                         (
                             EntityLocation {
                                 position: location.position,
                                 size: location.size,
                                 level_iid: room.level_iid.clone(),
                             },
-                            EnemySpawnConfig {},
+                            config.clone(),
                         )
                     })
                     .collect::<Vec<(EntityLocation, EnemySpawnConfig)>>()
@@ -704,5 +790,185 @@ impl IMapGeneration for BasicMapGeneration {
                     .collect::<Vec<(EntityLocation, PropConfig)>>()
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::generation::{
+        config::MapGenerationConfig,
+        context::{Connection, Side},
+        entity::location::EntityLocations,
+    };
+
+    fn level(id: &str, openings: &[(Side, usize)]) -> AvailableLevel {
+        AvailableLevel {
+            level_id: id.into(),
+            level_size: (10, 10),
+            level_size_p: (160, 160),
+            level_type: LevelType::Normal,
+            connections: openings
+                .iter()
+                .enumerate()
+                .map(|(index, (side, starting_at))| Connection {
+                    index,
+                    size: 2,
+                    side: *side,
+                    starting_at: *starting_at,
+                    level_id: id.into(),
+                    compatiable_levels: vec![],
+                })
+                .collect(),
+            entity_locations: EntityLocations {
+                doors: openings
+                    .iter()
+                    .map(|(side, starting_at)| {
+                        let start = *starting_at as i32;
+                        let (position, size) = match side {
+                            Side::N => (Position(start, 0), (2, 1)),
+                            Side::S => (Position(start, 9), (2, 1)),
+                            Side::W => (Position(0, start), (1, 2)),
+                            Side::E => (Position(9, start), (1, 2)),
+                        };
+                        EntityLocation {
+                            position,
+                            size,
+                            level_iid: id.into(),
+                        }
+                    })
+                    .collect(),
+                sodas: vec![],
+                props: vec![],
+                player_spawns: vec![],
+                zombie_spawns: vec![],
+                crates: vec![],
+                weapons: vec![],
+                windows: vec![],
+                character_spawns: vec![],
+            },
+            room_kind: None,
+        }
+    }
+
+    fn generator(rooms: Vec<(AvailableLevel, Position)>) -> BasicMapGeneration {
+        let mut rng = RollbackRng::new(1);
+        let context = MapGenerationContext {
+            tile_size: (16, 16),
+            level_size: (10, 10),
+            available_levels: vec![],
+            config: MapGenerationConfig::default(),
+        };
+        let mut generator = BasicMapGeneration::create(context);
+        for (level, position) in rooms {
+            generator.map.rooms.push(Room::create(
+                &mut rng,
+                Rc::new(level),
+                position,
+                Default::default(),
+            ));
+            generator.map.room_depths.push(0);
+        }
+        generator
+    }
+
+    /// Deux pièces dont les prises libres se font face à travers du vide ne sont pas reliées :
+    /// seule une prise bord contre bord ferme une boucle.
+    #[test]
+    fn fermeture_des_boucles_exige_le_contact() {
+        // A (0,0) avec E@4 ; B (176,0) avec W@4 : une tuile de vide entre les deux.
+        let mut gap = generator(vec![
+            (level("A", &[(Side::E, 4)]), Position(0, 0)),
+            (level("B", &[(Side::W, 4)]), Position(176, 0)),
+        ]);
+        assert!(gap.get_links().is_empty());
+        assert_eq!(
+            gap.unused_openings().len(),
+            2,
+            "les deux prises sont murées"
+        );
+    }
+
+    /// Une boucle fermée ouvre le passage : la porte de chaque prise reliée est appariée
+    /// (interactable) comme une connexion d'arbre, jamais retirée.
+    #[test]
+    fn boucle_fermee_ouvre_les_portes_apparies() {
+        let mut generator = generator(vec![
+            (level("A", &[(Side::E, 4)]), Position(0, 0)),
+            (level("B", &[(Side::W, 4)]), Position(160, 0)),
+        ]);
+        assert_eq!(generator.get_links().len(), 1);
+        let mut rng = RollbackRng::new(1);
+        let doors = generator.get_doors(&mut rng);
+        // Les deux prises ont chacune une porte, appariée et interactive (pas retirée).
+        assert_eq!(doors.len(), 2, "deux portes aux prises de la boucle");
+        assert!(
+            doors
+                .iter()
+                .all(|(_, config)| config.interactable && config.paired_door.is_some()),
+            "chaque porte de boucle est appariée et interactive : {:?}",
+            doors
+                .iter()
+                .map(|(_, c)| (c.interactable, c.paired_door.is_some()))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Deux pièces posées bord à bord dont les prises libres se font face sont reliées ; une
+    /// prise qui fait face à un mur plein ou à une prise décalée reste libre et sera murée.
+    #[test]
+    fn fermeture_des_boucles_prises_en_face() {
+        // A (0,0) avec E@4 ; B (160,0) avec W@4 (en face) et S@4 ; C (160,160) avec N@6
+        // (décalée : pas en face de B.S) et W@2 ; D (0,160) avec E@2 (en face de C.W).
+        let mut generator = generator(vec![
+            (level("A", &[(Side::E, 4)]), Position(0, 0)),
+            (level("B", &[(Side::W, 4), (Side::S, 4)]), Position(160, 0)),
+            (
+                level("C", &[(Side::N, 6), (Side::W, 2)]),
+                Position(160, 160),
+            ),
+            (level("D", &[(Side::E, 2)]), Position(0, 160)),
+        ]);
+        let linked = generator.get_links();
+        let pairs: Vec<(String, String)> = linked
+            .iter()
+            .map(|(a, b)| (a.level_id.clone(), b.level_id.clone()))
+            .collect();
+        assert_eq!(
+            pairs,
+            vec![
+                ("A".to_string(), "B".to_string()),
+                ("C".to_string(), "D".to_string())
+            ]
+        );
+        let unused: Vec<(String, Side)> = generator
+            .unused_openings()
+            .into_iter()
+            .map(|(iid, side, _, _)| {
+                let room = generator
+                    .map
+                    .rooms
+                    .iter()
+                    .find(|r| r.level_iid == iid)
+                    .unwrap();
+                (room.level_def.level_id.clone(), side)
+            })
+            .collect();
+        assert_eq!(
+            unused,
+            vec![("B".to_string(), Side::S), ("C".to_string(), Side::N)]
+        );
+    }
+
+    /// Les deux passes sont idempotentes et ne relient jamais une prise déjà reliée.
+    #[test]
+    fn fermeture_des_boucles_ignore_les_prises_reliees() {
+        let mut generator = generator(vec![
+            (level("A", &[(Side::E, 4)]), Position(0, 0)),
+            (level("B", &[(Side::W, 4)]), Position(160, 0)),
+        ]);
+        assert_eq!(generator.get_links().len(), 1);
+        assert!(generator.get_links().is_empty());
+        assert!(generator.unused_openings().is_empty());
     }
 }

@@ -8,6 +8,8 @@
     test: Some((
         frames: 60,
         // M3-T13 (§78) : scénarios générés `tears_venin` et son témoin `tears_venin_sans_objet` : empoisonne la cible posée (9 coups contre 6, statut `poison`).
-        tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], hits: [(target: 1, with_item: 9, without_item: 6)], expect: [HasStatus(entity: Placed(0), status: "poison", at_frame: 150)], control: [HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 150)])),
+        // Fusion de better-assets (2026-10-19) : la chance de poison est tirée par net id de larme ; quatre entités de
+        // moins à f0 (prises murées sans porte) : 7 coups (poison compris) au lieu de 9, toujours plus que sans objet (6).
+        tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], hits: [(target: 1, with_item: 7, without_item: 6)], expect: [HasStatus(entity: Placed(0), status: "poison", at_frame: 150)], control: [HasStatus(entity: Placed(0), status: "poison", present: false, at_frame: 150)])),
     )),
 )

@@ -311,7 +311,7 @@ Scenario(
     ],
     expect: [
         EntityHits(
-            net_id: 35,
+            net_id: 31,
             min: 20,
             at_frame: 600,
         ),
@@ -332,12 +332,12 @@ Scenario(
         ),
         Event(
             kind: "feedback",
-            label_contains: "secousse 35 (16 frames)",
+            label_contains: "secousse 31 (16 frames)",
             by_frame: 113,
         ),
         Event(
             kind: "feedback",
-            label_contains: "hit stop 35 (6 frames)",
+            label_contains: "hit stop 31 (6 frames)",
             by_frame: 113,
         ),
     ],

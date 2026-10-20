@@ -9,7 +9,7 @@ use game::replay::Expectation;
 use scenario::Scenario;
 use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
 
-const TARGET_NET_ID: usize = 36;
+const TARGET_NET_ID: usize = 32;
 
 /// Vie de la cible à `frame` après avoir injecté `hits` (`(frame, dégât)`).
 fn target_health(hits: &[(u32, f32)], frames: u32) -> f32 {

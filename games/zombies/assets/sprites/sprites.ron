@@ -5,6 +5,9 @@
 // (`AnimationMapConfig`) ; `layers` : calque -> feuille (`SpriteSheetConfig`). Chemins relatifs
 // à `assets/`. Feuilles et images rangées par entité sous `sprites/` (characters/, weapons/,
 // enemies/, effects/) ; voir `docs/conventions.md` §2.
+// Surcharge locale : `sprites/sprites.local.ron` (même format, gitignoré), quand il existe, remplace
+// les entrées de même id (pack post-apo TheLazyStone non redistribuable, écrit par
+// `scripts/repack-postapocalypse.py` ; voir `docs/conventions.md` §2). Sans lui : sprites publics ci-dessous.
 ({
     "player": (
         animation: "sprites/characters/player/player_animation.ron",
@@ -44,6 +47,15 @@
         },
     ),
     "zombie_full": (
+        animation: "sprites/enemies/zombie/zombie_full_animation.ron",
+        layers: {
+            "body": "sprites/enemies/zombie/zombie_full_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    // Boss de la salle finale de La Fonderie : même feuille que `zombie_full`, id distinct
+    // (l'id personnage vaut l'`asset_name_ref`).
+    "boss_zombie": (
         animation: "sprites/enemies/zombie/zombie_full_animation.ron",
         layers: {
             "body": "sprites/enemies/zombie/zombie_full_sheet.ron",

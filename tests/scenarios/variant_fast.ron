@@ -15,9 +15,9 @@ Scenario(
         (inputs: []),
     ],
     expect: [
-        EnemyVariant(entity: NetId(33), variant: Some("rapide"), at_frame: 2),
-        Stat(handle: 0, stat: EnemyMoveSpeed, value: 90.0, at_frame: 2, entity: Some(NetId(33))),
-        EnemyDistance(entity: NetId(33), target: Player(0), min: 50.0, max: 65.0, at_frame: 80),
-        EnemyDistance(entity: NetId(31), target: Player(0), min: 90.0, max: 105.0, at_frame: 80),
+        EnemyVariant(entity: NetId(29), variant: Some("rapide"), at_frame: 2),
+        Stat(handle: 0, stat: EnemyMoveSpeed, value: 90.0, at_frame: 2, entity: Some(NetId(29))),
+        EnemyDistance(entity: NetId(29), target: Player(0), min: 50.0, max: 65.0, at_frame: 80),
+        EnemyDistance(entity: NetId(27), target: Player(0), min: 90.0, max: 105.0, at_frame: 80),
     ],
 )

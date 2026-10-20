@@ -4,31 +4,53 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.19.1"
+bevy = { version = "0.19.1", default-features = false }
 bevy_ecs_ldtk = { version = "0.15", default-features = false, features = ["derive", "internal_levels"] }
-bevy_ggrs = "0.22.0"
-bevy_ecs_tilemap = { version = "0.19.0", default-features = false }
+bevy_ggrs = { version = "0.22.0", optional = true }
+bevy_ecs_tilemap = { version = "0.19.0", default-features = false, optional = true }
 
 bevy_fixed = { path = "../bevy_fixed"}
 map = { path = "../map"}
-game = { path = "../game"}
-content = { path = "../content"}
-run = { path = "../run"}
-combat = { path = "../combat"}
-sim_core = { path = "../sim_core"}
+game = { path = "../game", optional = true }
+content = { path = "../content", optional = true }
+run = { path = "../run", optional = true }
+combat = { path = "../combat", optional = true }
+sim_core = { path = "../sim_core", optional = true }
 utils = { path = "../utils"}
 world = { path = "../world" }
-items = { path = "../items" }
-meta = { path = "../meta" }
-behaviors = { path = "../behaviors" }
+items = { path = "../items", optional = true }
+meta = { path = "../meta", optional = true }
+behaviors = { path = "../behaviors", optional = true }
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ron = "0.12"
-once_cell = "1.19.0"
+png = "0.18"
+clap = { version = "4.4", features = ["derive"], optional = true }
 
 bevy-inspector-egui = { version = "0.37.0", optional = true }
 
 [features]
-debug_ui = ["bevy-inspector-egui"]
-render = ["bevy_ecs_ldtk/render"]
+default = ["runtime"]
+# Intégration du jeu et chargement d'assets Bevy ; l'assemblage et l'aperçu restent autonomes.
+runtime = [
+    "bevy/default",
+    "dep:bevy_ggrs",
+    "dep:bevy_ecs_tilemap",
+    "dep:game",
+    "dep:content",
+    "dep:run",
+    "dep:combat",
+    "dep:sim_core",
+    "dep:items",
+    "dep:meta",
+    "dep:behaviors",
+]
+cli = ["dep:clap", "dep:content"]
+debug_ui = ["runtime", "dep:bevy-inspector-egui"]
+render = ["runtime", "bevy_ecs_ldtk/render"]
+
+[[bin]]
+name = "alacod-map"
+path = "src/bin/alacod-map.rs"
+required-features = ["cli"]

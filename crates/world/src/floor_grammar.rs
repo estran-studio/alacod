@@ -45,6 +45,13 @@ pub struct FloorGrammar {
     /// Tentatives au plus avant d'échouer.
     #[serde(default = "default_attempts")]
     pub max_attempts: u32,
+    /// Boucles exigées (0 : arbre, comportement d'origine). Tant que l'étage en a moins, une
+    /// salle de remplissage qui met une prise libre face à une prise libre déjà posée est
+    /// préférée ; le plan est refusé sous ce nombre (nouvelle tentative). La fermeture
+    /// (`close_loops`) relie ensuite ces paires. Avec des boucles, la distance au boss se
+    /// mesure **raccourcis compris** (le boss reste strictement la salle la plus loin).
+    #[serde(default)]
+    pub loops: usize,
     /// M3-T0c (§62) : disposition de l'étage. Absent (tout le contenu existant) : `Graph`, le
     /// planificateur en arbre d'aujourd'hui.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -215,6 +222,12 @@ impl FloorGrammar {
         if self.required.get(&self.boss).is_some_and(|n| *n > 1) {
             out.push(format!("required : un seul boss (« {} »)", self.boss));
         }
+        if self.loops > 0 && !matches!(self.layout(), FloorLayout::Graph) {
+            out.push(format!(
+                "loops = {} : ne vaut que pour la disposition Graph (Grid : layout.loops)",
+                self.loops
+            ));
+        }
         if let FloorLayout::Grid {
             cell,
             max,
@@ -302,6 +315,7 @@ mod tests {
             min_boss_distance: 3,
             max_attempts: 64,
             bounds: None,
+            loops: 0,
             layout: Some(FloorLayout::Grid {
                 cell: (15, 9),
                 max: (7, 7),

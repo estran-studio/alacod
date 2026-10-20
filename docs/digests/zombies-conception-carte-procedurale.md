@@ -205,3 +205,199 @@ Campagne complète du bâtiment : 20/20 graines à quatre acheteurs atteignent V
 La graine 11 atteint V5 à f18713 après une V3 de 12754 frames : ce retard de
 navigation mérite une revue humaine. Le ressenti de ce nouveau bâtiment n’est
 pas encore validé. Le manifeste conserve avant_poste et la graine fixe.
+
+## Retour à l'assemblage de pièces (2026-10-17)
+
+William tranche le 2026-10-16 : la génération revient à 100 % à son algorithme (des niveaux
+LDtk qui s'emboîtent par leurs prises `LevelConnection`, assemblés au hasard). Le bâtiment
+« Le Relais » à grille fixe et le générateur organique `compound` sont retirés
+(`docs/taches.md`, journal du 2026-10-17 ; guide de conception des pièces :
+`docs/conventions.md` §1). Cette section relit les cartes de Call of Duty Zombies sous
+l'angle de la **structure** (ce qu'un assembleur de pièces doit reproduire), puis propose la
+bibliothèque et les deux règles qui manquent.
+
+### Structure des cartes classiques
+
+Sources : [Nacht der Untoten](https://callofduty.fandom.com/wiki/Nacht_der_Untoten),
+[Der Riese](https://callofduty.fandom.com/wiki/Der_Riese) (Call of Duty Wiki, « Map Layout »),
+[Kino der Toten](https://codzombie.com/maps/kino-der-toten) (CODZombie, « Power »).
+
+| Carte | Salles | Forme | Portes | Ce qui tire le joueur |
+| --- | ---: | --- | --- | --- |
+| Nacht der Untoten | 3 | Départ → « Help » (boîte mystère) ; départ → étage (deux salles) : un Y, pas de boucle | 1000, 1000, 1000 | boîte mystère, armes murales 200 → 600 → 1200 → 1500/1800 |
+| Der Riese | ~10 | Départ (mainframe) avec **deux portes** ; deux ailes symétriques (garage / labo) qui **retombent toutes deux dans la cour** (générateur) ; l'usine au fond ; le courant **ouvre des portes de raccourci** et un pont entre les ailes | 750, 750, 1000, 1000, 1250, 1250 | le courant (au bout), les téléporteurs, le Pack-a-Punch, un perk par zone (Jug loin) |
+| Kino der Toten | ~9 | Hall avec **deux routes en miroir** (étage / rez-de-chaussée) qui **finissent toutes deux au théâtre** (courant) ; le courant rouvre les portes théâtre → hall : la carte devient une **boucle** d'entraînement | 750 → 1250 | MP40 sur la route haute, courant, perks, téléporteur → Pack-a-Punch |
+
+Constantes, carte après carte :
+
+1. **Un hub de départ à deux sorties**, puis deux ailes qui convergent dans une **grande salle
+   ouverte** (cour, théâtre) : c'est là qu'on « entraîne » la horde. Les petites salles et les
+   couloirs sont des transits risqués, pas des lieux où rester.
+2. **Gradient de prix** des portes par profondeur (750 → 1000 → 1250) et des armes murales
+   (200 près du départ, 1500 au fond). Chaque ouverture est un choix de dépense contre
+   l'équipement : c'est tout le jeu des premières vagues.
+3. **Les zombies viennent de dehors** : 2 à 5 barricades (fenêtres) par salle, sur les façades
+   extérieures. Une salle sans fenêtre ni voisine est un refuge ; une salle à quatre fenêtres,
+   un piège.
+4. **Une récompense par salle** (arme murale, perk, boîte) et **un but au bout** (courant, puis
+   Pack-a-Punch) qui oblige à quitter le refuge.
+5. **Raccourcis débloqués plus tard** (portes au courant) qui ferment des boucles : la carte
+   change de forme en cours de partie.
+
+### Ce que l'assembleur fait déjà, ce qui manque
+
+Déjà là (`BasicMapGeneration`, grammaire d'étage, M2-E1) : arbre de pièces tiré au hasard, prix
+des portes `750 + 250 × profondeur`, fenêtres / armes murales / sodas / apparitions recopiés de
+chaque pièce, types de salle (`room_kind`) avec salles obligatoires et boss à distance maximale
+en cul-de-sac (`FloorGrammar`), victoire `Waves` quand un boss meurt (`RunContext::objective_done`).
+
+Manque pour la cohérence de CoD, par ordre d'importance :
+
+1. **Les boucles.** L'assembleur construit un **arbre** : une pièce n'est reliée qu'à son
+   parent ; deux pièces posées côte à côte avec des prises qui se font face restent séparées
+   (`docs/digests`, étude du 2026-10-09, déjà noté). Sans boucle, pas de convergence des ailes
+   ni d'entraînement de horde entre salles. Proposition : une **passe de fermeture** après le
+   placement, dans `BasicMapGeneration` — pour chaque paire de pièces posées, bord à bord, dont
+   deux prises libres se font face (même décalage, même longueur : la règle d'emboîtement
+   existante), relier ces prises comme une connexion ordinaire (portes appariées, prix de la
+   plus profonde). Déterministe (paires triées par iid de pièce), additive (le placement ne
+   change pas), mesurable (l'aperçu compte les boucles). Une porte de boucle est une porte
+   comme les autres : le raccourci « au courant » de CoD devient simplement une porte plus
+   chère, sans mécanique de courant (le champ `electrify` des portes n'a aujourd'hui aucun
+   effet en jeu).
+2. **L'extérieur comme pièces.** Le mode vagues choisit un spawner par distance au joueur
+   (`waves/systems.rs`, `min/max_player_distance`), pas par salle : un spawner inaccessible fait
+   apparaître des zombies perdus. Avec des pièces, l'extérieur se dessine **comme des pièces**
+   (`cour`, `ruelle`, `jardin`) : grandes, sans mur intérieur, **sans mur sur leur bord** du côté
+   du bâtiment, portant tous les `ZombieSpawn`. Elles s'accrochent au bâtiment par des prises
+   (porte extérieure payante, comme la cour de Der Riese) ; les fenêtres des salles sont
+   dessinées sur les façades qui touchent une cour, et les zombies les cassent pour entrer
+   (`enemy_target_selection`, mécanique déjà en place). Règle de conception à vérifier par
+   l'aperçu : chaque cour touche au moins une fenêtre.
+3. **Taille et bornes en données.** `max_room` (10) et les bornes ±1000 px sont codés dans
+   `configure_map` : 9 pièces de 26×19 au plus. Une carte CoD (10–14 pièces dont deux grandes)
+   demande `max_room` et bornes dans `game.ron`.
+4. (Plus tard) prix des armes murales dérivé de la profondeur comme celui des portes ; un
+   « générateur » qui ouvre d'un coup les portes `electrify` ; la boîte mystère.
+
+### Bibliothèque proposée (v1)
+
+**Standard de prises, une seule famille** : toute prise fait 2 cases ; N/S au décalage **x = 12**,
+E/W au décalage **y = 8**. Toute pièce d'au moins 15 × 11 cases peut la porter, les grandes
+(52 × 38) comme les petites. Conséquence de la règle « même décalage » : deux pièces se collent
+**coin haut-gauche aligné** (`get_connecting_room_position`, décalage nul) ; une petite pièce
+accrochée au nord d'une grande se place à son bord gauche, jamais centrée. Si cette asymétrie
+gêne à l'usage, le bouton est connu et minuscule : `Connection::are_matching` exige
+`starting_at` égaux alors que le placement sait déjà décaler (`offset` dans `room.rs`) ; le
+relâcher autoriserait une prise à x = 38 sur une grande pièce, mais c'est une règle de
+l'algorithme d'origine, à décider explicitement, pas en passant.
+
+| `room_kind` | Pièces | Prises | Contenu | Rôle CoD |
+| --- | --- | --- | --- | --- |
+| `accueil` (`spawn`) | 3 | W + E (parfois N) | 4 `PlayerSpawn`, 1 arme à 200–500, 2–4 fenêtres sur les façades sans prise | hub à deux sorties |
+| `couloir` | 4 | 2 opposées (W/E ou N/S) | 1 arme murale, 1–2 fenêtres, aucun refuge | transit risqué |
+| `salle` | 6 | 2–3 | 1 arme ou 1 soda, 2–3 fenêtres, mobilier contournable | combat, choix de dépense |
+| `carrefour` | 2 | 4 | repère central, 1 fenêtre | distribution des ailes |
+| `impasse` | 3 | 1 | soda ou arme chère, 1 fenêtre | récompense à aller chercher |
+| `arene` | 2 | 3–4, 52 × 38 | boucle autour d'un obstacle, 2 armes, 1 soda, 4 fenêtres | cour / théâtre, entraînement |
+| `cour` (extérieur) | 3 | 1–2 | `ZombieSpawn` ×4–6, bord ouvert vers le bâtiment, clôtures | d'où viennent les zombies |
+| `boss` | 2 | 1 | `CharacterSpawn boss_zombie` + gardes, 4 fenêtres | salle finale, victoire |
+
+Vingt-cinq pièces, huit types, une famille de prises : chaque prise libre a une dizaine de
+candidats, contre un seul dans `avant_poste` (neuf signatures toutes uniques, mesuré le
+2026-10-17). Grammaire `zombies` (`FloorGrammar`) : `rooms: (10, 14)`, `required: {arene: 1,
+cour: 2, impasse: 1, boss: 1}`, `filler: salle`, `min_boss_distance: 4` ; jouée par
+`start_map: "floor:<grammaire>"` en mode `Waves` (chemin `floor:` de `resolve_map_config`, à
+vérifier en `Waves` : il n'a servi qu'en `Floors`).
+
+```mermaid
+flowchart LR
+    A[accueil] --> C1[couloir] --> S1[salle] --> AR[arene]
+    A --> S2[salle] --> K[carrefour] --> AR
+    K --> I[impasse]
+    S1 --- CO1[cour]
+    AR --- CO2[cour]
+    AR --> C2[couloir] --> B[boss]
+    S2 -. boucle fermée .- S1
+```
+
+Ce qui varie d'une graine à l'autre : quelle aile est courte, où tombent l'arène et les cours,
+combien de boucles se ferment, quelles salles portent soda ou arme. Ce qui ne varie pas :
+deux sorties au départ, une arène, deux cours, un boss à au moins quatre portes.
+
+### Ordre proposé
+
+1. **Fait le 2026-10-17** : fermeture des boucles dans `BasicMapGeneration`, prises libres
+   murées (porte retirée), aperçu qui compte boucles et prises murées. Reste à l'aperçu : les
+   cours sans fenêtre (quand la bibliothèque aura des cours).
+2. **Fait le 2026-10-17** : `entry.map` de `game.ron` (`max_rooms`, bornes, `aligned_openings`,
+   `close_loops`, `wall_unused_openings`) ; le collage de pièces de tailles différentes est
+   corrigé au passage (`get_connecting_room_position`).
+3. Bibliothèque v1 : squelettes générés par script (murs de bord, prises au standard, portes
+   et fenêtres posées), puis dessin à la main dans LDtk ; `make map_render` à chaque passe.
+4. Grammaire `zombies` et `start_map: "floor:..."` en `Waves` ; campagne de bots
+   (`alacod-sim`, 20 graines, V5) comme pour Le Relais.
+
+## La Fonderie (2026-10-17)
+
+Bibliothèque réelle, pas la v1 à 25 pièces : 16 sections dessinées, une grammaire, deux
+raccords moteur. Le but est une démo jouable, pas un éditeur de niveau générique.
+
+**Deux raccords moteur manquaient pour ce genre de carte :**
+
+1. **Les champs d'activation des spawners étaient détruits par l'assemblage.** Le runtime sait
+   déjà ne faire apparaître une vague que dans la section occupée (`activation_area`), mais
+   `EnemySpawnConfig` était vide : `Basic` recréait chaque `ZombieSpawn` avec `vec![]`. Désormais
+   les quatre champs `active_x/y/width/height` sont conservés (en pixels locaux au niveau dans la
+   bibliothèque, convertis en monde à l'export), et leur absence ne change aucune carte existante.
+2. **Une salle typée ouvrait gratuitement toutes ses portes.** `room_lock_system` retirait
+   collider et interaction des portes proches de toute salle `room_kind`, y compris celles qui ne
+   verrouillent pas (`locks: false`). En `Waves`, seules les salles verrouillantes (boss) s'ouvrent
+   désormais par défaut ; les ateliers/armureries gardent leurs portes payantes.
+
+**Contenu** (`scripts/construire-fonderie.py`, idempotent, génère
+`games/zombies/assets/maps/la_fonderie.ldtk`) : 16 sections de 32×32, 64×32 ou 32×64, chacune une
+situation lisible — hall à deux sorties, ateliers aux établis/serpentins, galerie de tir
+transversale, vestiaires en coude, poste d'aiguillage, réserve traversante, cour de chargement
+(64×32) et halle de convoyeur (32×64) en espaces de manœuvre, deux armureries (fusil 1 000, seul
+non possédé au départ), deux infirmeries (Juggernog en impasse), deux finales de boss. Chaque
+section porte 2 à 4 **cours extérieures** : le spawner est **dehors**, dans un vide ouvert sur le
+bord de la carte, et le mur du bâtiment (avec la **fenêtre**) le sépare de l'intérieur — le zombie
+apparaît dehors, casse la vitre et entre ; le joueur ne peut jamais franchir une fenêtre (intacte
+ou cassée), donc il sécurise l'intérieur et répare. C'est le modèle CoD, vérifié sur la carte
+assemblée : tous les spawners sont atteignables depuis le vide extérieur, aucun n'est enclos. Le
+boss (`CharacterSpawn boss_zombie`, dormant) est masqué depuis son entrée par une chicane.
+
+Grammaire `floor:la_fonderie` : 10–12 salles (9–11 avant les boucles), départ, `arene` 1,
+`armurerie` 1, `infirmerie` 1, `boss` 1 (distance ≥ 4), remplissage `atelier`, `loops: 2`.
+Types `rooms/*.ron` : seul `boss` verrouille.
+
+### Boucles (2026-10-19)
+
+Revue des rendus de six graines (William, 2026-10-19) : 0–1 boucle par graine, une grille de
+pièces identiques, 9 à 12 prises murées, des trous dans la silhouette, un seul chemin vers le
+boss. Diagnostic sur 20 graines : la fermeture (`close_loops`) n'oublie aucune paire ; sur 190
+prises murées, 156 donnent sur du vide et 34 sur une voisine sans prise en face. Le tirage
+uniforme des poses étale l'arbre ; un poids vers les poses qui ferment une boucle ne change
+presque rien (0,40 → 0,55), ces poses n'existant qu'une à trois fois par plan.
+
+Retenu : `FloorGrammar::loops` (`docs/conventions.md` §40), un nombre de boucles **exigé** ; le
+remplissage préfère une pose qui en ferme une tant qu'il en manque, le plan est refusé sinon,
+et la distance au boss se mesure raccourcis compris. `la_fonderie` : `loops: 2` avec 10–12
+salles (avec 9–11, deux boucles échouent sur la plupart des graines).
+
+| Mesure | Arbre (avant) | `loops: 2` |
+| --- | ---: | ---: |
+| Boucles par graine (40 / 200 graines) | 0,40 | 2,11 (aucune sous 2) |
+| Graines avec au moins une boucle | 15/40 | 200/200 |
+| Prises murées par graine | 9,4 | 10,1 |
+| `alacod-sim`, 1 `acheteur`, graines 1–10 : victoires | 7 (3 plafonds) | 8 (1 mort, 1 plafond) |
+
+**Limites restantes** (contenu, pas l'assembleur) : toutes les prises sont `@14+4` sur une
+grille de 32 cases, d'où l'effet de grille ; les côtés longs des pièces 64×32 / 32×64 n'ont
+qu'une prise (moitié gauche/haute), leur autre moitié mure toute voisine ; le départ, les
+armureries et les infirmeries ont 1–2 prises ; les prises murées montent légèrement avec la
+taille. Plans compacts : quatre pièces autour d'un coin y mettent leurs quatre courettes, qui
+forment une cour intérieure fermée (encore une source de zombies derrière des fenêtres, mais
+plus « dehors »). Suite : varier les gabarits (prises décalées, seconde prise sur les côtés
+longs, couloirs 32×16, pièces à trois ou quatre prises pour le départ).

@@ -25,8 +25,8 @@ Scenario(
         // En place sur l'arc (rayon 40 ± tolérance et strafe léger), avant que la salve ne les
         // dérange. Gabarits agrandis : la salle est plus grande, les membres arrivent plus tard (f200 :
         // un membre à 62 > 55) ; mesure re-datée f200 → f240, tolérance inchangée
-        EnemyDistance(entity: NetId(33), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
-        EnemyDistance(entity: NetId(35), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
-        EnemyDistance(entity: NetId(37), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
+        EnemyDistance(entity: NetId(30), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
+        EnemyDistance(entity: NetId(32), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
+        EnemyDistance(entity: NetId(34), target: Player(0), min: 25.0, max: 55.0, at_frame: 240),
     ],
 )
