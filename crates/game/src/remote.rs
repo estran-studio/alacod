@@ -41,9 +41,9 @@ use crate::{
             Player,
         },
     },
-    core::SIM_FPS,
     recording::{write_recording, InputRecorder},
     replay::{box_input, Button},
+    session::SIM_FPS,
     waves::WaveState,
     weapons::{WeaponInventory, WeaponModesState, WeaponState},
 };

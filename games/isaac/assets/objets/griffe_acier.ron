@@ -1,0 +1,9 @@
+// `isaac` (M3-T8, §73) : passif du pool `boss` (donnée d'attente, contenu : M3-T11).
+(
+    name: "Griffe d'acier",
+    kind: Passive,
+    rarity: Uncommon,
+    modifiers: [(stat: Damage, op: Pct, value: "0.2")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_griffe_acier`).
+    test: Some((frames: 60)),
+)

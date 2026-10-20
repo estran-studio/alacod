@@ -4,10 +4,8 @@
 //! ([`HudFileSchema`], les autres champs sont ceux de `game::ui::hud::HudConfig`) et refuse
 //! une source absente de [`HUD_SOURCES`] (`UnknownKind`).
 //!
-//! T1.16 (`docs/conventions.md` §30) : `ui/mutation_screen.ron`, l'écran de mutation. Le jeu
-//! (`game::ui::mutation_screen`) le charge tel quel ; le lint vérifie que la police existe sous
-//! `assets/`, qu'il y a exactement trois emplacements de carte (bits `ChoiceA/B/C`) et que les
-//! tailles sont positives.
+//! L'écran de mutation (T1.16) n'a plus de schéma RON : c'est un gabarit `bevy_hui`
+//! (`ui/mutation_screen.html`, D71, `docs/conventions.md` §56), lu comme les autres `.html`.
 
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +13,8 @@ use serde::{Deserialize, Serialize};
 pub const HUD_FILE_NAME: &str = "hud.ron";
 
 /// Sources que le HUD sait lire (liste fermée). T2.12 : `perks`, `downed`, `powerups`,
-/// `prompt` ; T1.18 (§32) : `rads`, `level`, `ammo_by_type`, `statuses`, `floor`.
+/// `prompt` ; T1.18 (§32) : `rads`, `level`, `ammo_by_type`, `statuses`, `floor` ; M3-T16 (§81) :
+/// `hearts`, `coins`, `item_banner`.
 pub const HUD_SOURCES: &[&str] = &[
     "health",
     "wave",
@@ -35,17 +34,52 @@ pub const HUD_SOURCES: &[&str] = &[
     "floor",
     "blanks",
     "keys",
+    "bombs",
     "shells",
     "passives",
     "active_item",
     "active_charge",
     "minimap",
+    "curses",
+    "achievements",
+    "legend",
+    "hearts",
+    "coins",
+    "item_banner",
 ];
 
 /// Ce que le lint lit de `ui/hud.ron` : la source de chaque widget.
 #[derive(Debug, Clone, Deserialize)]
 pub struct HudFileSchema {
     pub widgets: Vec<HudWidgetSchema>,
+    /// Légende (source `legend`, `docs/conventions.md` §83) : le lint vérifie que chaque `sprite`
+    /// cité existe dans la table `SpriteSheet` du jeu.
+    #[serde(default)]
+    pub legend: Vec<LegendGroupSchema>,
+    /// Dessin des murs (`game::ui::hud::WallArt`, §83) : le lint vérifie que la feuille existe.
+    #[serde(default)]
+    pub wall_art: Option<WallArtSchema>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WallArtSchema {
+    pub layer: String,
+    pub atlas: String,
+    #[serde(default)]
+    pub tile: Option<u32>,
+    #[serde(default)]
+    pub columns: Option<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LegendGroupSchema {
+    pub entries: Vec<LegendEntrySchema>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LegendEntrySchema {
+    #[serde(default)]
+    pub sprite: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -70,6 +104,15 @@ pub enum HudWidgetKindSchema {
     Map {
         source: String,
     },
+    Legend {
+        source: String,
+    },
+    Hearts {
+        source: String,
+    },
+    Counter {
+        source: String,
+    },
 }
 
 impl HudWidgetKindSchema {
@@ -78,43 +121,12 @@ impl HudWidgetKindSchema {
             Self::Bar { source }
             | Self::Text { source, .. }
             | Self::Icons { source }
-            | Self::Map { source } => source,
+            | Self::Map { source }
+            | Self::Legend { source }
+            | Self::Hearts { source }
+            | Self::Counter { source } => source,
         }
     }
-}
-
-/// Nom du fichier de l'écran de mutation dans un dossier `Ui`.
-pub const MUTATION_SCREEN_FILE_NAME: &str = "mutation_screen.ron";
-
-/// Nombre de cartes de l'écran : une par bit `ChoiceA/B/C`.
-pub const MUTATION_SCREEN_SLOTS: usize = 3;
-
-/// Écran de mutation (`ui/mutation_screen.ron`). Positions en pixels depuis le centre de
-/// l'écran (`x` vers la droite, `y` vers le bas) ; couleurs `#rrggbb` ou `#rrggbbaa`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MutationScreenLayout {
-    /// Police de tous les textes, relative à `assets/` (doit exister : lint).
-    pub font: String,
-    pub title: String,
-    pub title_offset: (f32, f32),
-    pub title_size: f32,
-    /// Taille d'une carte (largeur, hauteur).
-    pub card_size: (f32, f32),
-    /// Centre de chaque carte : exactement trois (lint).
-    pub slots: Vec<(f32, f32)>,
-    pub name_size: f32,
-    pub text_size: f32,
-    pub card_color: String,
-    /// Bordure de la carte surlignée.
-    pub highlight_color: String,
-    pub text_color: String,
-    /// Barre de temps : centre, taille à plein, couleur.
-    pub bar_offset: (f32, f32),
-    pub bar_size: (f32, f32),
-    pub bar_color: String,
-    /// Aide sous les cartes (« ← → choisir · A / Entrée valider · 1 2 3 »).
-    pub hint: String,
-    pub hint_offset: (f32, f32),
 }
 
 #[cfg(test)]
@@ -122,19 +134,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mutation_screen_des_jeux() {
-        for text in [
-            include_str!("../../../games/testbed/assets/ui/mutation_screen.ron"),
-            include_str!("../../../games/throne/assets/ui/mutation_screen.ron"),
-        ] {
-            let layout: MutationScreenLayout = ron::from_str(text).expect("mutation_screen.ron");
-            assert_eq!(layout.slots.len(), MUTATION_SCREEN_SLOTS);
-        }
-    }
-
-    #[test]
     fn hud_des_jeux_sources_connues() {
         for text in [
+            include_str!("../../../games/isaac/assets/ui/hud.ron"),
             include_str!("../../../games/testbed/assets/ui/hud.ron"),
             include_str!("../../../games/throne/assets/ui/hud.ron"),
             include_str!("../../../games/zombies/assets/ui/hud.ron"),

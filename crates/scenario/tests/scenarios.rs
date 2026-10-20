@@ -11,6 +11,8 @@
 //! - `make test_scenarios` : compile sans rendu, avec le profil `headless`.
 //! - `ALACOD_BLESS=1` : réécrit les traces de référence (après un changement voulu).
 //! - `ALACOD_SCENARIO=<nom>` : ne joue que ce scénario (plusieurs : `a,b,c`).
+//! - `ALACOD_EVENTS=1` : affiche les moments clés ; `ALACOD_EVENTS_JSON=<dossier>` les écrit en
+//!   `<dossier>/<nom>.events.json` (format de `events.json` de la capture vidéo, sans GPU).
 //! - `ALACOD_SCENARIO_SLICE=<k>/<n>` : ne joue que la tranche `k` (de 0 à `n-1`) des scénarios
 //!   triés (indice modulo `n`) : la suite complète par lots, quand une commande ne peut pas durer
 //!   assez longtemps (session cloud, M2-T11). Se combine avec `ALACOD_SCENARIO`.
@@ -259,6 +261,22 @@ fn scenarios() {
             for event in &outcome.events {
                 eprintln!("  f{:>5} {:<7} {}", event.frame, event.kind, event.label);
             }
+        }
+        // Moments clés au format de `events.json` de la capture vidéo (page de revue), sans rendu :
+        // `<dossier>/<nom>.events.json`.
+        if let Ok(dir) = std::env::var("ALACOD_EVENTS_JSON") {
+            let events: Vec<_> = outcome
+                .events
+                .iter()
+                .filter(|event| event.frame < scenario.frames)
+                .collect();
+            let path = PathBuf::from(&dir).join(format!("{}.events.json", name.replace('/', "__")));
+            std::fs::create_dir_all(&dir).expect("création du dossier ALACOD_EVENTS_JSON");
+            std::fs::write(
+                &path,
+                serde_json::to_string_pretty(&events).expect("sérialisation des moments clés"),
+            )
+            .unwrap_or_else(|e| panic!("écriture de {}: {e}", path.display()));
         }
 
         // Budget : bloquant seulement en bench (`ALACOD_BENCH_STRICT=1`, `make bench`) ; les
@@ -959,6 +977,32 @@ fn map_probe() {
             h.current.to_num::<f32>()
         );
     }
+    // M3-T1 : personnages non joueurs (net id, position, équipe, santé), pour poser un scénario
+    {
+        let mut others: Vec<_> = world
+            .query_filtered::<(
+                &GgrsNetId,
+                &FixedTransform3D,
+                &game::character::health::Health,
+                &sim_core::team::Team,
+                Option<&game::character::variant::Variant>,
+            ), Without<Player>>()
+            .iter(world)
+            .map(|(id, t, h, team, v)| {
+                (
+                    id.0,
+                    pos(t),
+                    h.current.to_num::<f32>(),
+                    *team,
+                    v.map(|v| v.0.clone()),
+                )
+            })
+            .collect();
+        others.sort_by_key(|o| o.0);
+        for (id, at, health, team, variant) in others {
+            println!("personnage {id} {at:?} équipe {team:?} santé {health} variante {variant:?}");
+        }
+    }
     // M2-T11 : entités de carte lues (diagnostic)
     {
         let registry = world.resource::<map_ldtk::game::plugin::LdtkMapEntityLoadingRegistry>();
@@ -1203,6 +1247,136 @@ fn bullets_probe() {
     println!("balles : au plus {max_alive} en vol, x {min_x:.1}..{max_x:.1}, y max {max_y:.1}");
 }
 
+/// Diagnostic (M3-T1) : à chaque frame, les projectiles (net id, étiquette, position, génération)
+/// et les changements de coups reçus (`HitCount`) et de statuts, pour calibrer les scénarios de larmes
+/// (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`).
+#[test]
+#[ignore]
+fn projectile_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use utils::frame::FrameCount;
+    use utils::net_id::GgrsNetId;
+    let spec = std::env::var("ALACOD_PROJECTILES").unwrap_or_else(|_| "tears_split:0:140".into());
+    let p: Vec<&str> = spec.split(':').collect();
+    let (from, to): (u32, u32) = (p[1].parse().unwrap(), p[2].parse().unwrap());
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{}.ron", p[0]))).unwrap();
+    let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), from);
+    let mut last_hits: std::collections::BTreeMap<usize, u32> = Default::default();
+    let mut last_status: std::collections::BTreeMap<usize, Vec<String>> = Default::default();
+    while app.world().resource::<FrameCount>().frame < to {
+        app.update();
+        let world = app.world_mut();
+        let frame = world.resource::<FrameCount>().frame;
+        let mut bullets: Vec<String> = world
+            .query::<(
+                &GgrsNetId,
+                &FixedTransform3D,
+                &combat::projectile::Projectile,
+            )>()
+            .iter(world)
+            .map(|(id, t, pr)| {
+                format!(
+                    "#{} {} ({:.0},{:.0}) g{}",
+                    id.0,
+                    pr.id,
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                    pr.generation
+                )
+            })
+            .collect();
+        bullets.sort();
+        if !bullets.is_empty() {
+            println!("f{frame} projectiles {}", bullets.join(" | "));
+        }
+        let hits: Vec<(usize, u32)> = world
+            .query::<(&GgrsNetId, &game::character::health::HitCount)>()
+            .iter(world)
+            .map(|(id, h)| (id.0, h.0))
+            .collect();
+        for (id, count) in hits {
+            if last_hits.insert(id, count) != Some(count) {
+                println!("f{frame} coups #{id} = {count}");
+            }
+        }
+        let statuses: Vec<(usize, Vec<String>)> = world
+            .query::<(&GgrsNetId, &combat::status::Statuses)>()
+            .iter(world)
+            .map(|(id, s)| {
+                (
+                    id.0,
+                    s.0.iter()
+                        .map(|e| format!("{}x{}", e.id, e.stacks))
+                        .collect(),
+                )
+            })
+            .collect();
+        for (id, list) in statuses {
+            if last_status.insert(id, list.clone()) != Some(list.clone()) {
+                println!("f{frame} statuts #{id} = {list:?}");
+            }
+        }
+        // M3-T6 : joueurs et familiers (porteur, rang, position), toutes les 10 frames
+        if frame % 10 == 0 {
+            let players: Vec<String> = world
+                .query_filtered::<(&game::character::player::Player, &FixedTransform3D), Without<behaviors::FamiliarOf>>()
+                .iter(world)
+                .map(|(p, t)| format!("j{} ({:.0},{:.0})", p.handle, t.translation.x.to_num::<f32>(), t.translation.y.to_num::<f32>()))
+                .collect();
+            let mut familiars: Vec<(usize, u32, usize, f32, f32)> = world
+                .query::<(&GgrsNetId, &behaviors::FamiliarOf, &FixedTransform3D)>()
+                .iter(world)
+                .map(|(id, f, t)| {
+                    (
+                        f.owner.0,
+                        f.rank,
+                        id.0,
+                        t.translation.x.to_num::<f32>(),
+                        t.translation.y.to_num::<f32>(),
+                    )
+                })
+                .collect();
+            familiars.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            if !familiars.is_empty() {
+                let list: Vec<String> = familiars
+                    .iter()
+                    .map(|(o, r, id, x, y)| format!("#{id}(porteur {o} rang {r}) ({x:.0},{y:.0})"))
+                    .collect();
+                println!(
+                    "f{frame} joueurs {} familiers {}",
+                    players.join(" "),
+                    list.join(" | ")
+                );
+            }
+        }
+        let others: Vec<String> = world
+            .query_filtered::<(
+                &GgrsNetId,
+                &FixedTransform3D,
+                &game::character::health::Health,
+            ), (
+                Without<game::weapons::Bullet>,
+                With<game::character::enemy::Enemy>,
+            )>()
+            .iter(world)
+            .filter(|(id, ..)| id.0 < 20)
+            .map(|(id, t, h)| {
+                format!(
+                    "#{} ({:.0},{:.0}) pv{:.0}",
+                    id.0,
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                    h.current.to_num::<f32>()
+                )
+            })
+            .collect();
+        if frame % 20 == 0 && !others.is_empty() {
+            println!("f{frame} ennemis {}", others.join(" | "));
+        }
+    }
+}
+
 /// Diagnostic (M2-T1) : à chaque frame, le nombre de balles et leur position
 /// (`ALACOD_BULLET_LINES=<scénario>:<de>:<à>`), pour calibrer les attentes `BulletCount`.
 #[test]
@@ -1260,6 +1434,319 @@ fn bullet_lines() {
         println!(
             "f{frame} n={} {ps:?} joueurs={players:?} inv={inv:?} hp={hp:?}",
             ps.len()
+        );
+    }
+}
+
+/// Diagnostic (D62) : salles typées, présentoirs et coffres d'un scénario à une frame.
+/// `ALACOD_ROOM_PROBE=<scénario>:<frame>`
+#[test]
+#[ignore]
+fn room_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use utils::net_id::GgrsNetId;
+    let spec = std::env::var("ALACOD_ROOM_PROBE").unwrap_or_else(|_| "shop_seeded:20".into());
+    let (name, frame) = spec.split_once(':').unwrap();
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
+    let mut app = scenario::runner::run_until(
+        &Scenario::from_ron(&source).unwrap(),
+        frame.parse().unwrap(),
+    );
+    let world = app.world_mut();
+    for (id, b, k) in world
+        .query::<(
+            &map::game::entity::map::level_id::LevelId,
+            &map::game::entity::map::room::RoomBounds,
+            &world::RoomKind,
+        )>()
+        .iter(world)
+    {
+        println!(
+            "salle {} {} pos ({},{}) taille ({},{})",
+            id.0,
+            k.0,
+            b.position.x.to_num::<f32>(),
+            b.position.y.to_num::<f32>(),
+            b.size.x.to_num::<f32>(),
+            b.size.y.to_num::<f32>()
+        );
+    }
+    for (p, t) in world
+        .query::<(&game::character::player::Player, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "joueur {} ({},{})",
+            p.handle,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
+        );
+    }
+    for (id, s, t) in world
+        .query::<(&GgrsNetId, &items::Shelf, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "présentoir {} {} {} ({},{})",
+            id.0,
+            s.item_id,
+            s.price,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
+        );
+    }
+    for (id, c, t) in world
+        .query::<(&GgrsNetId, &items::Chest, &FixedTransform3D)>()
+        .iter(world)
+    {
+        println!(
+            "coffre {} {} ({},{})",
+            id.0,
+            c.key,
+            t.translation.x.to_num::<f32>(),
+            t.translation.y.to_num::<f32>()
+        );
+    }
+}
+
+/// Diagnostic (M3-T11d1) : le plan d'un étage par graine. `ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>[:<jeu>]` (défaut
+/// `isaac`) : pour chaque graine, une ligne par salle (type, taille en cases de salle, voisines par un bord commun,
+/// rochers dont à butin, cases de piques, ennemis, présentoirs), pour choisir une graine qui pose une salle voulue sans
+/// jouer la partie. Les mondes des étages se superposent : **une séquence d'un seul étage** (`sous_sol_un`) ; sur
+/// `sous_sol` les salles des deux étages se mêlent.
+#[test]
+#[ignore]
+fn floor_probe() {
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    let spec = std::env::var("ALACOD_FLOOR_PROBE").unwrap_or_else(|_| "sous_sol_un:1-5".into());
+    let mut parts = spec.split(':');
+    let sequence = parts.next().unwrap().to_string();
+    let (from, to) = parts.next().unwrap().split_once('-').unwrap();
+    let game = parts.next().unwrap_or("isaac").to_string();
+    for seed in from.parse::<i32>().unwrap()..=to.parse::<i32>().unwrap() {
+        let source = format!(
+            "Scenario(game: \"{game}\", map: \"floor:{sequence}\", map_seed: {seed}, frames: 10, players: [(inputs: [])], floors: Some(\"{sequence}\"))"
+        );
+        let mut app = scenario::runner::run_until(&Scenario::from_ron(&source).unwrap(), 3);
+        let world = app.world_mut();
+        let mut rooms: Vec<(i32, i32, i32, i32, String)> = world
+            .query::<(&map::game::entity::map::room::RoomBounds, &world::RoomKind)>()
+            .iter(world)
+            .map(|(b, k)| {
+                (
+                    b.position.x.to_num::<i32>(),
+                    b.position.y.to_num::<i32>(),
+                    b.size.x.to_num::<i32>(),
+                    b.size.y.to_num::<i32>(),
+                    k.0.clone(),
+                )
+            })
+            .collect();
+        rooms.sort();
+        let inside = |room: &(i32, i32, i32, i32, String), x: f32, y: f32| {
+            x >= room.0 as f32
+                && x < (room.0 + room.2) as f32
+                && y >= room.1 as f32
+                && y < (room.1 + room.3) as f32
+        };
+        let rocks: Vec<(f32, f32, bool)> = world
+            .query::<(&world::Rock, &FixedTransform3D)>()
+            .iter(world)
+            .map(|(r, t)| {
+                (
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                    r.loot,
+                )
+            })
+            .collect();
+        let enemies: Vec<(f32, f32)> = world
+            .query_filtered::<&FixedTransform3D, bevy::prelude::With<game::character::enemy::Enemy>>()
+            .iter(world)
+            .map(|t| {
+                (
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                )
+            })
+            .collect();
+        let shelves: Vec<(f32, f32)> = world
+            .query::<(&items::Shelf, &FixedTransform3D)>()
+            .iter(world)
+            .map(|(_, t)| {
+                (
+                    t.translation.x.to_num::<f32>(),
+                    t.translation.y.to_num::<f32>(),
+                )
+            })
+            .collect();
+        let spikes: Vec<(f32, f32)> = world
+            .resource::<world::SurfaceGrid>()
+            .cells
+            .iter()
+            .filter(|(_, id)| **id == 5)
+            .map(|((x, y), _)| ((*x * 16 + 8) as f32, (*y * 16 + 8) as f32))
+            .collect();
+        println!("graine {seed} ({sequence}) : {} salles", rooms.len());
+        for room in &rooms {
+            let touching: Vec<&str> = rooms
+                .iter()
+                .filter(|o| (o.0, o.1) != (room.0, room.1))
+                .filter(|o| {
+                    let share_x = room.0 < o.0 + o.2 && o.0 < room.0 + room.2;
+                    let share_y = room.1 < o.1 + o.3 && o.1 < room.1 + room.3;
+                    (share_x && (room.1 + room.3 == o.1 || o.1 + o.3 == room.1))
+                        || (share_y && (room.0 + room.2 == o.0 || o.0 + o.2 == room.0))
+                })
+                .map(|o| o.4.as_str())
+                .collect();
+            let count =
+                |points: &[(f32, f32)]| points.iter().filter(|p| inside(room, p.0, p.1)).count();
+            let room_rocks: Vec<_> = rocks.iter().filter(|r| inside(room, r.0, r.1)).collect();
+            println!(
+                "  {:<8} ({:>5},{:>5}) {}x{} cases : voisines {:?}, rochers {} (butin {}), piques {}, ennemis {}, présentoirs {}",
+                room.4,
+                room.0,
+                room.1,
+                room.2 / 240,
+                room.3 / 144,
+                touching,
+                room_rocks.len(),
+                room_rocks.iter().filter(|r| r.2).count(),
+                count(&spikes),
+                count(&enemies),
+                count(&shelves)
+            );
+        }
+    }
+}
+
+/// Diagnostic D66 : vue directe. `ALACOD_SIGHT=<scénario>:<frame>` : joueurs, ennemis (position,
+/// distance au joueur le plus proche, ligne de vue, état, cible) et, pour poser un scénario,
+/// des cases libres atteignables d'où le joueur de plus petit id est vu à `ALACOD_SIGHT_MIN`..
+/// `ALACOD_SIGHT_MAX` unités (défaut 700..900), une sur `ALACOD_SIGHT_STEP` (défaut 6) ;
+/// `ALACOD_SIGHT_HIDDEN=1` : les cases d'où il n'est **pas** vu (un mur sur le segment).
+#[test]
+#[ignore]
+fn sight_probe() {
+    use bevy::prelude::*;
+    use bevy_fixed::fixed_math::FixedTransform3D;
+    use game::character::enemy::{
+        ai::{
+            navigation::MOVEMENT_FLOW_KEY, EnemyAiConfig, EnemyTarget, FlowFieldCache, GridPos,
+            MonsterState,
+        },
+        Enemy,
+    };
+    use game::character::player::Player;
+    use utils::net_id::GgrsNetId;
+    let env_f32 = |key: &str, default: f32| {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(default)
+    };
+    let spec = std::env::var("ALACOD_SIGHT").unwrap_or_else(|_| "idle:5".into());
+    let (name, frame) = spec.split_once(':').unwrap();
+    let source = std::fs::read_to_string(scenarios_dir().join(format!("{name}.ron"))).unwrap();
+    let mut app = scenario::runner::run_until(
+        &Scenario::from_ron(&source).unwrap(),
+        frame.parse().unwrap(),
+    );
+    let world = app.world_mut();
+    let cache = world.resource::<FlowFieldCache>().clone();
+    let mut players: Vec<_> = world
+        .query_filtered::<(&GgrsNetId, &FixedTransform3D), With<Player>>()
+        .iter(world)
+        .map(|(id, t)| (id.0, t.translation.truncate()))
+        .collect();
+    players.sort_by_key(|p| p.0);
+    for (id, at) in &players {
+        println!(
+            "joueur #{id} ({:.0}, {:.0})",
+            at.x.to_num::<f32>(),
+            at.y.to_num::<f32>()
+        );
+    }
+    let mut enemies: Vec<_> = world
+        .query_filtered::<(
+            &GgrsNetId,
+            &FixedTransform3D,
+            &EnemyAiConfig,
+            &MonsterState,
+            &EnemyTarget,
+            &game::character::config::CharacterConfigKey,
+        ), With<Enemy>>()
+        .iter(world)
+        .map(|(id, t, ai, state, target, key)| {
+            (
+                id.0,
+                key.0.clone(),
+                t.translation.truncate(),
+                ai.aggro_range,
+                ai.effective_sight_range(),
+                format!("{state:?}"),
+                target.target.as_ref().map(|t| t.0),
+            )
+        })
+        .collect();
+    enemies.sort_by_key(|e| e.0);
+    for (id, name, at, aggro, sight, state, target) in &enemies {
+        let nearest = players
+            .iter()
+            .map(|(pid, pat)| (at.distance(pat), *pid, cache.line_of_sight(*at, *pat)))
+            .min_by_key(|(d, pid, _)| (*d, *pid));
+        let (distance, los) = nearest.map_or((0.0, false), |(d, _, los)| (d.to_num::<f32>(), los));
+        println!(
+            "ennemi #{id} {name} ({:.0}, {:.0}) distance {distance:.0} vue directe {los} aggro {} vue {} état {state} cible {target:?}",
+            at.x.to_num::<f32>(),
+            at.y.to_num::<f32>(),
+            aggro.to_num::<f32>(),
+            sight.to_num::<f32>(),
+        );
+    }
+    let Some((_, from)) = players.first().copied() else {
+        return;
+    };
+    let (min, max, step) = (
+        env_f32("ALACOD_SIGHT_MIN", 700.0),
+        env_f32("ALACOD_SIGHT_MAX", 900.0),
+        env_f32("ALACOD_SIGHT_STEP", 6.0) as usize,
+    );
+    let hidden = std::env::var("ALACOD_SIGHT_HIDDEN").is_ok_and(|v| v == "1");
+    let mut found = Vec::new();
+    if let Some(field) = cache.get_flow_field(MOVEMENT_FLOW_KEY) {
+        for &cell in field.directions.keys() {
+            let at = cell.to_fixed();
+            let distance = from.distance(&at).to_num::<f32>();
+            if distance >= min
+                && distance <= max
+                && !cache.is_blocked_for(&cell, MOVEMENT_FLOW_KEY)
+                && !cache.is_too_narrow_for(&cell, MOVEMENT_FLOW_KEY)
+                // Dégagement de deux cases : un ennemi posé là n'a aucun mur à portée de collider.
+                && (-2..=2).all(|dy| {
+                    (-2..=2).all(|dx| !cache.wall_cells.contains(&GridPos::new(cell.x + dx, cell.y + dy)))
+                })
+                && cache.line_of_sight(from, at) != hidden
+            {
+                found.push((cell, distance));
+            }
+        }
+    }
+    println!(
+        "{} cases libres vues du joueur #{} à {min}..{max} unités",
+        found.len(),
+        players[0].0
+    );
+    for (cell, distance) in found.iter().step_by(step.max(1)) {
+        let at = cell.to_fixed();
+        println!(
+            "  case ({}, {}) = ({:.0}, {:.0}) distance {distance:.0}",
+            cell.x,
+            cell.y,
+            at.x.to_num::<f32>(),
+            at.y.to_num::<f32>()
         );
     }
 }

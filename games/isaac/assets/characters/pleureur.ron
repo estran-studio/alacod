@@ -1,0 +1,65 @@
+// `isaac` (M3-T0f, docs/conventions.md §65) : le personnage joueur (le moteur crée toujours les
+// joueurs depuis le personnage d'id `player` = `asset_name_ref`). Vie basse : 6 PV, un coup de
+// contact en retire 1 (modèle de cœurs : Q2, 6 PV en attendant). Pas de dash ni de sprint ici
+// (le déplacement d'Isaac est à vitesse constante) ; arme : les larmes. Sprites placeholders.
+(
+    movement: (
+        acceleration: "3000.0",
+        max_speed: "120.0",
+        deceleration: "3000.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "player",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "6.0",
+    ),
+
+    // M3-T3 (§68) : invulnérable 60 frames (une seconde) après avoir perdu de la vie, comme Isaac : deux
+    // ennemis au contact ne retirent pas leurs coups à quelques frames d'écart (`hit_iframes_isaac`).
+    hit_iframes: Some(60),
+
+    starting_skin: "1",
+    // "2" : skin du joueur de handle 1 (`player::create`, le second joueur en ligne).
+    skins: {
+        "1": (layers: {}),
+        "2": (layers: {}),
+    },
+
+    // Un seul emplacement d'arme à distance : les larmes.
+    weapon_slots: 1,
+    starting_weapons: ["larmes"],
+
+    // Suivi Q17 (docs/conventions.md §66, réponse de William du 2026-10-16) : les larmes partent vers le haut, le
+    // bas, la gauche ou la droite, selon l'axe dominant de la visée (égalité parfaite : l'horizontale).
+    aim: FourWay,
+
+    // Isaac commence sans clé mais avec un inventaire (M3-T5, docs/conventions.md §70) : sans lui,
+    // `consumables_per_floor` (la clé du second étage, qui ouvre le trésor) ne servirait personne avant
+    // le premier ramassage.
+    // M3-T11d1 (D81, §76.4) : une bombe au départ, comme Isaac, et de quoi la poser (bouton Bomb, touche E).
+    starting_consumables: {"key": 0, "bomb": 1},
+
+    // Bombe : mèche de 75 frames (1,25 s), rayon 56 (3,5 cases : l'explosion touche le bord de la porte de la salle
+    // secrète d'où l'on pose la bombe, et casse les rochers voisins, `destroys`), 4 PV (deux cœurs) aux personnages du
+    // rayon. Tir ami `Always` (défaut, Q4, comme Isaac) : la bombe blesse son poseur et les autres joueurs ; `hit_iframes` (60)
+    // ne laisse passer qu'un coup. Le poseur à 6 PV survit à une bombe (4 PV) ; deux bombes à plus de 60 frames d'écart (8 PV) le tuent.
+    bomb: Some((fuse_frames: 75, radius: "56.0", damage: "4.0")),
+)

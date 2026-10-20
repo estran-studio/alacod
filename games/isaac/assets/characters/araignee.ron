@@ -1,0 +1,39 @@
+// `isaac` (M3-T11d2, §76.5) : ennemi au sol rapide et fragile (66 unités/s contre 42 pour `suiveur`, 4 PV contre 10) : poursuit le joueur par le champ de flux (`Chase`, profil `Ground`) et le frappe au contact (`Melee("contact")`, 1 PV). Posé dans les gabarits `CombatButin`, `CombatMixte` et `CombatHaut` ; renfort du boss `colosse` (phase 1).
+(
+    movement: (
+        acceleration: "220.0",
+        max_speed: "66.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "araignee",
+
+    collider: (
+        shape: Rectangle(width: "14.", height: "14."),
+        offset: ( x: "0.0", y: "-4.0", z: "0.0" )
+    ),
+
+    scale: "0.9",
+
+    base_health: (max: "4.0"),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("24.0"),
+        attack_damage: Some("1.0"),
+        attack_cooldown_frames: Some(90),
+        behaviors: Some([Melee("contact"), Chase(profile: "Ground")]),
+    )),
+    test: Some((frames: 600)),
+)

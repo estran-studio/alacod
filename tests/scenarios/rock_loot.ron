@@ -1,0 +1,34 @@
+// M3-T4 (docs/conventions.md §69) : le rocher à butin laisse un objet. Même carte et même tir que
+// `bomb_breaks_rock` (témoin : rayon 30, le rocher à butin reste et rien ne tombe), mais le rayon est de 60 : les
+// quatre rochers cassent, dont le rocher à butin de la colonne 14 (à 50 px de la bombe).
+//
+// À regarder : à l'explosion (f135) le rocher à butin disparaît et laisse un consommable au sol (la clé du pool
+// `salle`, tirée par `loot_seed` de la clé `rock:<salle>:<x>:<y>`, donc la même à chaque partie) ; le joueur,
+// reparti à droite (f140), le ramasse au passage : compteur `key` à 1 ; plus aucun rocher.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 260,
+    players: [
+        (
+            bomb: (fuse_frames: 20, radius: "60.0", damage: "10.0", friendly_fire: Never),
+            items: ["bomb"],
+            inputs: [
+                (from: 10, to: 100, buttons: [Right], pan: (0, 0)),
+                (from: 110, to: 111, buttons: [Bomb]),
+                (from: 140, to: 250, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Rock, min: 4, max: 4, at_frame: 5),
+        EntityCount(kind: Rock, min: 4, max: 4, at_frame: 120),
+        PlayerPosition(handle: 0, x: 293.8, y: 696, tolerance: 1, at_frame: 120),
+        EntityCount(kind: Rock, min: 0, max: 0, at_frame: 136),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 136),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 259),
+        Event(kind: "explosion", by_frame: 136),
+    ],
+)

@@ -1,0 +1,9 @@
+// M3-T2 (docs/conventions.md §67) : objet d'essai de `effects_hundred_items` (échelle : 100 objets tenus).
+// Un soin minuscule à pleine vie : aucun effet visible, seulement le coût d'exécution.
+(
+    name: "cent_kill",
+    kind: Passive,
+    effects: [
+        (on: OnKill, do: [Heal("0.01")]),
+    ],
+)

@@ -22,6 +22,10 @@ fn scenario(frames: u32) -> Scenario {
         room_reward_chance_override: None,
         shop: Default::default(),
         profile: false,
+        profile_setup: None,
+        hub: None,
+        shopping: false,
+        explorer: None,
         powerup_drop_chance_override: None,
         floors: None,
         progression: None,
@@ -68,6 +72,8 @@ fn objectif_atteint_a_la_frame_plafond_sans_dump() {
             until_wave: Some(1),
             stop_when_all_players_dead: true,
             stop_when_run_ended: false,
+            pickups_are_progress: false,
+            explored_is_progress: false,
         }),
     );
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);

@@ -136,10 +136,10 @@ fn pit_and_prop_fixtures_are_refused() {
 #[test]
 fn effect_fixtures_report_unsupported_and_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_unsupported")).unwrap();
-    assert_has_error(&errors, LintErrorKind::Unsupported, "OnHit");
-    assert_has_error(&errors, LintErrorKind::Unsupported, "TargetInRange");
-    assert_has_error(&errors, LintErrorKind::Unsupported, "OnEvent");
     assert_has_error(&errors, LintErrorKind::Unsupported, "RefillAmmo");
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_name_empty")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Emit : nom vide");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "OnEvent : nom vide");
     let (_, _, errors) = load_and_lint(&fixture_dir("effect_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Tick(0)");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "Heal = 0");
@@ -224,6 +224,110 @@ fn m1_audit_fixtures() {
             "boss_fight_without_boss",
             LintErrorKind::OutOfRange,
             &["personnage « gardien »", "BossFight", "sans boss:"],
+        ),
+        (
+            "champion_test_unknown_variant",
+            LintErrorKind::BrokenReference,
+            &[
+                "personnage « grunt »",
+                "test.champions",
+                "« fantome » absente de `variants`",
+            ],
+        ),
+        (
+            "champion_test_duplicate_variant",
+            LintErrorKind::DuplicateId,
+            &[
+                "personnage « grunt »",
+                "test.champions",
+                "« champion » répétée",
+            ],
+        ),
+        (
+            "champion_test_unknown_weapon",
+            LintErrorKind::BrokenReference,
+            &[
+                "personnage « grunt »",
+                "test.champions",
+                "arme « fantome » inconnue",
+            ],
+        ),
+        (
+            "champion_test_kill_untranslatable",
+            LintErrorKind::Unsupported,
+            &[
+                "personnage « grunt »",
+                "kill: true sans effet de mort traduisible",
+            ],
+        ),
+        (
+            "champion_test_weapon_without_kill",
+            LintErrorKind::OutOfRange,
+            &["personnage « grunt »", "`weapon` sans `kill: true`"],
+        ),
+        (
+            "tears_test_min_hits_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « lentille »", "test.tears.hits", "with_item = 0"],
+        ),
+        (
+            "tears_test_hits_not_above_control",
+            LintErrorKind::OutOfRange,
+            &[
+                "objet « lentille »",
+                "with_item (3) doit dépasser without_item (3)",
+            ],
+        ),
+        (
+            "tears_test_nothing_proven",
+            LintErrorKind::OutOfRange,
+            &["objet « lentille »", "ni `hits` ni `expect`"],
+        ),
+        (
+            "tears_test_expect_without_control",
+            LintErrorKind::OutOfRange,
+            &["objet « lentille »", "`expect` et `control` vont ensemble"],
+        ),
+        (
+            "tears_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « lentille »", "test.tears : frames = 0"],
+        ),
+        (
+            "tears_test_hit_target_out_of_range",
+            LintErrorKind::BrokenReference,
+            &["objet « lentille »", "cible 2 absente"],
+        ),
+        (
+            "tears_test_weapon_unknown",
+            LintErrorKind::BrokenReference,
+            &[
+                "objet « lentille »",
+                "test.tears : arme « fantome » inconnue",
+            ],
+        ),
+        (
+            "tears_test_target_unknown",
+            LintErrorKind::BrokenReference,
+            &["objet « lentille »", "« fantome » (targets[0]) inconnu"],
+        ),
+        (
+            "tears_test_target_no_counts_hits",
+            LintErrorKind::Unsupported,
+            &[
+                "objet « lentille »",
+                "la cible « cible » ne compte pas ses coups",
+            ],
+        ),
+        (
+            "familiar_test_without_familiar",
+            LintErrorKind::Unsupported,
+            &["objet « bottes »", "test.familiar", "sans `familiar:`"],
+        ),
+        (
+            "familiar_test_frames_zero",
+            LintErrorKind::OutOfRange,
+            &["objet « bottes »", "test.familiar : frames = 0"],
         ),
         (
             "room_kind_unknown",
@@ -512,6 +616,17 @@ fn t2_8_fixtures_have_a_single_problem() {
         ("prop_barrel_radius_non_positive", LintErrorKind::OutOfRange),
         ("prop_table_no_bullets", LintErrorKind::OutOfRange),
         ("effect_unsupported", LintErrorKind::Unsupported),
+        ("effect_name_empty", LintErrorKind::OutOfRange),
+        ("effect_status_no_target", LintErrorKind::Unsupported),
+        ("effect_status_unknown", LintErrorKind::BrokenReference),
+        ("effect_status_stacks_zero", LintErrorKind::OutOfRange),
+        ("effect_status_on_kill", LintErrorKind::Unsupported),
+        (
+            "effect_item_filter_wrong_trigger",
+            LintErrorKind::Unsupported,
+        ),
+        ("effect_item_filter_unknown", LintErrorKind::BrokenReference),
+        ("effect_per_copy_not_linear", LintErrorKind::Unsupported),
         ("effect_out_of_range", LintErrorKind::OutOfRange),
         ("effect_limits_invalid", LintErrorKind::OutOfRange),
         ("progression_out_of_range", LintErrorKind::OutOfRange),
@@ -548,6 +663,21 @@ fn t2_8_fixtures_have_a_single_problem() {
             "fixture {name} : attendu uniquement des erreurs {kind:?}, obtenu :\n{errors:#?}"
         );
     }
+}
+
+/// D79 : `scale` est obligatoire comme dans `CharacterConfig` (un personnage sans `scale` passait
+/// le lint puis faisait échouer le chargement du jeu).
+#[test]
+fn character_without_scale_is_refused_with_a_clear_message() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("character_scale_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "`scale`");
+    assert_has_error(&errors, LintErrorKind::Parse, "scale: \"1.0\"");
+    let scale_errors = errors
+        .iter()
+        .filter(|e| e.message.contains("scale"))
+        .collect::<Vec<_>>();
+    assert_eq!(scale_errors.len(), 1, "{errors:#?}");
+    assert_eq!(scale_errors[0].file, "characters/hero.ron");
 }
 
 #[test]
@@ -722,6 +852,27 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
             1,
         ),
         ("feedback_boss_freeze_zero", LintErrorKind::OutOfRange, 1),
+        // M3-T17
+        (
+            "feedback_explosion_frames_zero",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        (
+            "feedback_explosion_amplitude_negative",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        (
+            "feedback_explosion_shake_frames_too_long",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
+        (
+            "feedback_explosion_color_out_of_range",
+            LintErrorKind::OutOfRange,
+            1,
+        ),
         // T1.17
         (
             "feedback_by_weapon_unknown",
@@ -755,28 +906,15 @@ fn t3_4_fixtures_have_a_single_rule_failure() {
     }
 }
 
-/// T1.16 : écran de mutation (`ui/mutation_screen.ron`) — police absente, deux emplacements ;
 /// T1.18 : source de HUD inconnue ;
 /// une seule erreur par fixture en plus du start_map commun.
 #[test]
-fn mutation_screen_fixtures() {
-    for (name, kind, needle) in [
-        (
-            "mutation_screen_font_missing",
-            LintErrorKind::BrokenReference,
-            "champ font = « fonts/absente.ttf »",
-        ),
-        (
-            "mutation_screen_two_slots",
-            LintErrorKind::OutOfRange,
-            "2 emplacements, il en faut 3",
-        ),
-        (
-            "hud_unknown_source",
-            LintErrorKind::UnknownKind,
-            "hud : source inconnue « mana »",
-        ),
-    ] {
+fn hud_source_fixtures() {
+    for (name, kind, needle) in [(
+        "hud_unknown_source",
+        LintErrorKind::UnknownKind,
+        "hud : source inconnue « mana »",
+    )] {
         let (_, _, errors) = load_and_lint(&fixture_dir(name)).unwrap();
         assert_has_error(&errors, kind, needle);
         let others: Vec<_> = errors
@@ -928,6 +1066,34 @@ fn weapon_sprite_unknown_fixture_reports_unknown_sheet() {
     assert_only_one_besides_start_map(&errors);
 }
 
+// m2-lisibilite-gungeon : la légende du HUD ne cite que des sprites de `sprites.ron`.
+#[test]
+fn hud_legend_fixture_reports_unknown_sprite() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_legend_unknown_sprite")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "sprite « dragon »");
+    assert_only_one_besides_start_map(&errors);
+}
+
+// m2-salles-murs-gungeon : la feuille de tuiles de `wall_art` existe.
+#[test]
+fn hud_wall_art_fixture_reports_missing_atlas() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_wall_art_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "murs_absents.png");
+    assert_only_one_besides_start_map(&errors);
+}
+
+// m2-salles-murs-suivi : la couche IntGrid de `wall_art` existe dans une carte du jeu.
+#[test]
+fn hud_wall_art_fixture_reports_unknown_layer() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_wall_art_layer_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "couche IntGrid « Murs »",
+    );
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn sprite_sheet_duplicate_key_fixture_reports_repeated_id() {
     let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_duplicate_key")).unwrap();
@@ -1071,6 +1237,12 @@ fn variant_weight_zero_fixture_reports_weight() {
 fn variant_chance_out_of_range_fixture_reports_chance() {
     let (_, _, errors) = load_and_lint(&fixture_dir("variant_chance_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "chance = 1.5");
+}
+
+#[test]
+fn player_skin_second_missing_fixture_reports_skin() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("player_skin_second_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "skin « 2 »");
 }
 
 #[test]
@@ -1265,7 +1437,66 @@ fn item_effect_unsupported_fixture_reports_unsupported() {
         LintErrorKind::Unsupported,
         "OnUse n'a de sens que pour un objet actif",
     );
-    assert_has_error(&errors, LintErrorKind::Unsupported, "OnEvent");
+}
+
+/// M3-T2 (§67) : `ApplyStatus` d'un effet (hors cible, statut inconnu, `stacks = 0`) et noms vides.
+#[test]
+fn effect_status_fixtures_report_one_rule_each() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_no_target")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pas de cible hors OnHit",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "statut « fantome » inconnu",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_stacks_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "stacks = 0");
+}
+
+/// M3-T2 (§67) : `ApplyStatus` sur `OnKill` (cible morte), filtre `item` de `OnPickup`, `PerCopy` non linéaire.
+#[test]
+fn effect_v3_contract_fixtures_report_one_rule_each() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_status_on_kill")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "OnKill : la cible est déjà morte",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_item_filter_wrong_trigger")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "filtre réservé à OnPickup",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_item_filter_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "objet « fantome » inconnu",
+    );
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_per_copy_not_linear")).unwrap();
+    for needle in ["Modifier", "Emit", "RefillAmmo"] {
+        assert_has_error(&errors, LintErrorKind::Unsupported, needle);
+    }
+    assert_eq!(
+        errors
+            .iter()
+            .filter(|e| e.message.contains("Scaled(PerCopy)"))
+            .count(),
+        3
+    );
+    // témoin : les actions linéaires passent
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_per_copy_linear_ok")).unwrap();
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("entry.start_map") && !e.message.contains("start_map"))
+        .collect();
+    assert!(others.is_empty(), "{others:#?}");
 }
 
 /// M2-T3 : cooldown/charges nuls et recharge sans charges.
@@ -1401,6 +1632,26 @@ fn loot_weight_zero_fixture_reports_out_of_range() {
 }
 
 #[test]
+fn loot_weight_over_cap_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("loot_weight_over_cap")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "poids 1001 (au plus 1000",
+    );
+}
+
+#[test]
+fn unlock_weight_over_cap_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_weight_over_cap")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "poids 1001 (au plus 1000",
+    );
+}
+
+#[test]
 fn loot_unknown_item_fixture_reports_broken_reference() {
     let (_, _, errors) = load_and_lint(&fixture_dir("loot_unknown_item")).unwrap();
     assert_has_error(&errors, LintErrorKind::BrokenReference, "fantome");
@@ -1475,6 +1726,108 @@ fn arena_and_boss_t7_fixtures_report_their_rule() {
     }
 }
 
+// M3-T0c (docs/conventions.md §62) : contrats du monde.
+#[test]
+fn world_contract_fixtures_report_their_rule() {
+    for (fixture, kind, expected) in [
+        (
+            "explode_radius_zero",
+            LintErrorKind::OutOfRange,
+            "Explode : rayon = 0",
+        ),
+        ("door_lock_key_zero", LintErrorKind::OutOfRange, "Key(0)"),
+        (
+            "hazard_period_zero",
+            LintErrorKind::OutOfRange,
+            "period = 0",
+        ),
+        (
+            "bomb_fuse_zero",
+            LintErrorKind::OutOfRange,
+            "fuse_frames = 0",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert_has_error(&errors, kind, expected);
+    }
+}
+
+// M3-T5 (docs/conventions.md §70) : disposition en grille et trésor derrière une clé obtenable.
+#[test]
+fn grid_and_key_fixtures_report_their_rule() {
+    for (fixture, kind, expected) in [
+        (
+            "grid_template_size_not_multiple",
+            LintErrorKind::OutOfRange,
+            "gabarit « Boss » (type « boss ») fait 6 × 3 cases : doit être un multiple",
+        ),
+        (
+            "grid_template_missing_opening",
+            LintErrorKind::OutOfRange,
+            "gabarit « Boss » (type « boss », 10 × 3 cases, case de salle 5 × 3) sans ouverture centrée sur chaque segment de chaque côté (côté bas, segment 2/2 : aucune ouverture)",
+        ),
+        (
+            "grid_post_boss_chance_out_of_range",
+            LintErrorKind::OutOfRange,
+            "post_boss.chance = 1.5",
+        ),
+        (
+            "lock_from_floor_on_secret",
+            LintErrorKind::OutOfRange,
+            "lock_from_floor sur door_lock Secret",
+        ),
+        (
+            "lock_from_floor_without_lock",
+            LintErrorKind::OutOfRange,
+            "lock_from_floor sans door_lock",
+        ),
+        (
+            "key_room_without_key_source",
+            LintErrorKind::Unsupported,
+            "trésor fermé à clé sans source de clé",
+        ),
+        (
+            "key_room_key_at_floor_zero_only",
+            LintErrorKind::Unsupported,
+            "trésor fermé à clé sans source de clé",
+        ),
+        (
+            "key_room_floor_zero_locked_two_floors",
+            LintErrorKind::Unsupported,
+            "étage(s) d'indice 0 sans clé",
+        ),
+        (
+            "grid_template_opening_widths_differ",
+            LintErrorKind::OutOfRange,
+            "gabarit « Boss » (type « boss ») a une ouverture de 5 case(s) mais gabarit « Depart » une de 3 case(s)",
+        ),
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert_has_error(&errors, kind, expected);
+        // une seule erreur : la règle visée, rien de collatéral (hors `entry.start_map`, commun à
+        // la fixture sans carte)
+        let others: Vec<_> = errors
+            .iter()
+            .filter(|e| !e.message.contains("entry.start_map"))
+            .collect();
+        assert_eq!(others.len(), 1, "{fixture} : {errors:#?}");
+    }
+}
+
+/// Les grandes salles (1×1, 2×1, 1×2, 2×2) correctes et un trésor à clé dont la clé arrive à
+/// l'étage du verrou ne produisent aucune erreur : la règle n'est pas durcie à tort.
+#[test]
+fn valid_grid_and_key_fixtures_have_no_lint_error() {
+    for fixture in [
+        "grid_large_rooms_ok",
+        "key_room_with_key_source",
+        "key_room_lock_never_applies",
+    ] {
+        let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+        assert!(errors.is_empty(), "{fixture} : {errors:#?}");
+    }
+}
+
 // D61 (docs/conventions.md §18) : bouclier et stats lues.
 #[test]
 fn shield_zero_fixture_reports_out_of_range() {
@@ -1497,7 +1850,8 @@ fn assert_has_warning(fixture: &str, kind: content::LintWarningKind, needle: &st
 #[test]
 fn stat_unread_fixture_is_an_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("stat_unread")).unwrap();
-    assert_has_error(&errors, LintErrorKind::UnreadStat, "Luck");
+    // M3-T0a : `Luck` est lue (chance d'effet) ; une stat `Custom` sans lecteur reste refusée.
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "superstition");
 }
 
 #[test]
@@ -1516,6 +1870,30 @@ fn reach_fixtures_report_their_warning() {
         assert!(
             errors.iter().all(|e| !e.message.contains("inatteignable")),
             "{fixture} : {errors:#?}"
+        );
+    }
+}
+
+/// D63 : seules les règles des ennemis atteints donnent une source d'armes.
+#[test]
+fn reached_enemy_rules_are_weapon_sources() {
+    let (registry, manifest, errors) = load_and_lint(&fixture_dir("reach_enemy_weapons")).unwrap();
+    assert!(errors.is_empty(), "{errors:#?}");
+    let warnings = content::warnings(&registry, &manifest);
+    for weapon in ["shoot", "phase", "enter", "timeline"] {
+        assert!(
+            warnings
+                .iter()
+                .all(|w| !w.message.contains(&format!("arme « {weapon} »"))),
+            "{warnings:#?}"
+        );
+    }
+    for weapon in ["unused", "lab_weapon"] {
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.message.contains(&format!("arme « {weapon} »"))),
+            "{warnings:#?}"
         );
     }
 }
@@ -1553,13 +1931,41 @@ fn test_only_content_is_ignored_by_reach() {
 
 #[test]
 fn shipped_games_lint_without_error() {
-    for game in ["zombies", "testbed", "throne", "gungeon"] {
+    for game in ["zombies", "testbed", "throne", "gungeon", "isaac"] {
         let (registry, manifest, errors) = load_and_lint(&game_dir(game)).unwrap();
         assert!(errors.is_empty(), "{game} : {errors:#?}");
         for warning in content::warnings(&registry, &manifest) {
             eprintln!("avertissement {game} : {warning}");
         }
     }
+}
+
+#[test]
+fn unlock_cost_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_cost_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "cost = 0");
+}
+
+#[test]
+fn unlock_unknown_item_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_unknown_item")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "fantome");
+}
+
+#[test]
+fn unlock_unknown_table_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_unknown_table")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "nulle");
+}
+
+#[test]
+fn unlock_cycle_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_cycle")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "cycle de prérequis",
+    );
 }
 
 #[test]
@@ -1582,6 +1988,12 @@ fn shop_without_table_fixture_reports_broken_reference() {
         LintErrorKind::BrokenReference,
         "boutique : pool « fantome » inconnu",
     );
+}
+
+#[test]
+fn unlock_unknown_requires_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("unlock_unknown_requires")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "prérequis « zz »");
 }
 
 #[test]
@@ -1614,5 +2026,279 @@ fn entry_floors_fixtures_report_their_rule() {
         &errors,
         LintErrorKind::Unsupported,
         "exige entry.mode = Floors",
+    );
+}
+
+// ---------------------------------------------------------------------------------------
+// M3-T0a (docs/conventions.md §60) : munitions infinies, contrats de larmes, projectile d'objet
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn weapon_infinite_with_ammo_type_fixture_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_infinite_with_ammo_type")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Infinite");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+}
+
+#[test]
+fn weapon_ammo_type_missing_fixture_is_refused() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_ammo_type_missing")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "ammo_type absent");
+    assert_eq!(m4_t0a_errors(&errors), 1, "{errors:#?}");
+}
+
+/// M3-T1 (§66) : `Spectral`, `Split` et `Orbit` sont exécutés, une arme qui les porte passe.
+#[test]
+fn projectile_contract_fixture_is_clean() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_contract_ok")).unwrap();
+    assert_eq!(m4_t0a_errors(&errors), 0, "{errors:#?}");
+}
+
+#[test]
+fn projectile_split_out_of_range_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_split_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "count = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "radius");
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "inconnu");
+}
+
+/// M3-T1 : un objet n'a pas de table `projectiles` : `Split` avec `child` et `on_expire: Spawn`
+/// sont refusés.
+#[test]
+fn item_projectile_without_table_fixture_is_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_no_table")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "Split : child « eclat »",
+    );
+    assert_has_error(&errors, LintErrorKind::Unsupported, "on_expire Spawn");
+    assert_eq!(m4_t0a_errors(&errors), 2, "{errors:#?}");
+}
+
+#[test]
+fn item_projectile_ok_fixture_is_clean() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_ok")).unwrap();
+    assert_eq!(m4_t0a_errors(&errors), 0, "{errors:#?}");
+}
+
+#[test]
+fn item_projectile_out_of_range_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("item_projectile_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Homing");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Bounce répété");
+}
+
+/// M3-T1 : `Action::Chance` : base dans [0, 1], enveloppe une action à modificateur ou
+/// `ApplyStatus` (statut vérifié à travers elle), jamais une autre `Chance` ni `DestroyTerrain` ;
+/// `Orbit` refuse `Homing` et `Gravity` dans la même liste.
+#[test]
+fn projectile_chance_out_of_range_fixture_reports_each_rule() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_chance_out_of_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : base = 1.5");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : base = -0.1");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Chance : then Chance");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "Chance : then DestroyTerrain",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "ApplyStatus : statut « inconnu » inconnu",
+    );
+    assert_has_error(&errors, LintErrorKind::Unsupported, "Orbit avec Homing");
+}
+
+#[test]
+fn projectile_split_cycle_fixture_reports_cycle() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("projectile_split_cycle")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "Split se divise en lui-même",
+    );
+}
+
+#[test]
+fn status_poison_fear_fixture_reports_ranges() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("status_poison_fear_out_of_range")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "damage = 0 : doit être > 0 (Poison)",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "period = 0 : doit être > 0 (Poison)",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "frames = 0");
+}
+
+/// Erreurs d'une fixture M3-T0a hors la carte de départ absente (`start_map: "unused"`, commune
+/// aux fixtures sans carte).
+fn m4_t0a_errors(errors: &[content::LintError]) -> usize {
+    errors
+        .iter()
+        .filter(|e| !e.message.contains("entry.start_map"))
+        .count()
+}
+
+/// Les fixtures n'ont pas de carte : la seule erreur tolérée d'un contenu valide est celle de
+/// `entry.start_map`.
+fn only_missing_start_map(errors: &[content::LintError]) -> bool {
+    errors
+        .iter()
+        .all(|error| error.message.contains("entry.start_map"))
+}
+
+/// M3-T0d (§63) : un familier valide (porteur, behaviors de familier) passe le lint.
+#[test]
+fn familiar_ok_fixture_is_clean() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_ok")).unwrap();
+    assert!(only_missing_start_map(&errors), "{errors:?}");
+}
+
+#[test]
+fn familiar_unknown_character_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_unknown_character")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "personnage « fantome » inconnu",
+    );
+}
+
+#[test]
+fn familiar_orphan_behavior_fixture_reports_missing_carrier() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_orphan_behavior")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "sans porteur");
+}
+
+#[test]
+fn familiar_without_behavior_fixture_reports_unsupported() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_without_behavior")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "sans behavior de familier",
+    );
+}
+
+#[test]
+fn familiar_gap_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("familiar_gap_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Follow : gap = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Orbit : radius = 0");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "Orbit : frames_per_turn = 0",
+    );
+}
+
+#[test]
+fn champion_bad_death_fixture_reports_each_field() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("champion_bad_death")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Unsupported, "refusée à la mort");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "Explode : rayon = 0");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "SpawnCharacters : personnage « fantome » inconnu",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "count = 0");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "pool « fantome » inconnu",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "tint « rouge »");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "behaviors vide");
+}
+
+#[test]
+fn champion_ok_fixture_is_clean() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("champion_ok")).unwrap();
+    assert!(only_missing_start_map(&errors), "{errors:?}");
+}
+
+#[test]
+fn variant_chance_expression_range_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_chance_expression_range")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "doit être dans [0, 1]");
+}
+
+#[test]
+fn variant_chance_expression_unknown_fixture_reports_identifier() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("variant_chance_expression_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "identifiant « minutes » inconnu",
+    );
+}
+
+#[test]
+fn hub_unknown_unlock_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hub_unknown_unlock")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "fantome");
+}
+
+#[test]
+fn hub_stat_zero_fixture_reports_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hub_stat_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "toujours vraie");
+}
+
+#[test]
+fn hub_without_door_fixture_reports_broken_reference() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hub_without_door")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "aucun service d'action EnterRun",
+    );
+}
+
+/// M3-T7 (§72) : un `SpawnPattern` à la mort d'un champion ne peut pas être infini (`Ring` avec
+/// `every > 0`) ; un pattern à `every: 0` passe.
+#[test]
+fn champion_death_infinite_pattern_fixture_refuses_only_the_infinite_one() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("champion_death_infinite_pattern")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pattern « couronne » infini",
+    );
+    assert!(
+        !errors.iter().any(|e| e.message.contains("« unique »")),
+        "le pattern à every: 0 est accepté : {errors:#?}"
+    );
+}
+
+/// M3-T7 : le pattern infini est aussi refusé quand il est atteint par `Named` (deux niveaux), une
+/// chaîne cyclique est refusée, une chaîne qui aboutit à `every: 0` passe.
+#[test]
+fn champion_death_infinite_pattern_named_fixture_follows_the_chain() {
+    let (_, _, errors) =
+        load_and_lint(&fixture_dir("champion_death_infinite_pattern_named")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pattern « alias2 » infini",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "pattern « boucle_a » : chaîne `Named` cyclique",
+    );
+    assert!(
+        !errors
+            .iter()
+            .any(|e| e.message.contains("« alias_unique »")),
+        "chaîne vers every: 0 acceptée : {errors:#?}"
     );
 }

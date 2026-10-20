@@ -1,0 +1,3 @@
+// `isaac` (M2-T0d) : consommable, un compteur `key` dans l'inventaire (ramassé au contact). M3-T3 (§68) :
+// plafonné à 99, au-delà le ramassage est refusé et la clé reste au sol.
+(name: "Clé", kind: Consumable, rarity: Common, max_stack: Some(99))

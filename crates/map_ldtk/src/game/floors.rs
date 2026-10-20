@@ -40,10 +40,7 @@ use game::{
         health::Death,
         player::Player,
     },
-    run_state::{
-        finalize_run_summary_system, floor_levels, floors_victory_at_end,
-        resolve_run_mode_with_floors,
-    },
+    run_state::{finalize_run_summary_system, floor_levels, floors_victory_at_end},
     system_set::RollbackSystemSet,
 };
 use map::game::entity::{
@@ -184,11 +181,13 @@ pub fn compute_floor_plan(
     manifest: Option<Res<GameManifest>>,
     registry: Option<Res<Registry>>,
     floors_override: Option<Res<game::run_state::FloorsOverride>>,
+    hub: Option<Res<game::hub::HubSession>>,
 ) {
-    let mode = resolve_run_mode_with_floors(
+    let mode = game::hub::resolve_session_mode(
         manifest.as_deref(),
         registry.as_deref(),
         floors_override.as_deref().map(|o| o.0.as_str()),
+        hub.as_deref(),
     );
     let levels = floor_levels(&mode, registry.as_deref()).filter(|levels| !levels.is_empty());
     let mode_for_victory = mode.clone();
@@ -220,6 +219,12 @@ pub fn compute_floor_plan(
         }
         _ => commands.remove_resource::<FloorPlan>(),
     }
+    // M3-T9 (§74) : curses de la séquence (vides hors `Floors` ou sans champ `curses`), lues à la
+    // génération des étages (`FloorRooms`) et par `game::curses::curse_system`.
+    commands.insert_resource(game::curses::CurseTable::for_mode(
+        &mode_for_victory,
+        registry.as_deref(),
+    ));
     // Hors du mode `Floors` : rien à remonter au changement d'étage.
     if !matches!(&mode_for_victory, run::RunMode::Floors { .. }) {
         commands.insert_resource(game::items::FloorStartConsumables::default());
@@ -484,6 +489,7 @@ pub fn floor_transition_system(
     plan: Res<FloorPlan>,
     mut floor_state: ResMut<FloorState>,
     mut room_states: Option<ResMut<world::RoomStates>>,
+    mut door_locks: ResMut<world::DoorLocks>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut flow_field_cache: ResMut<FlowFieldCache>,
     props: Res<world::PropTable>,
@@ -628,6 +634,7 @@ pub fn floor_transition_system(
         &mut id_factory,
         characters,
         difficulty,
+        assets.difficulty.variant_context_at(next),
     );
     let weapons = data
         .weapon_locations
@@ -637,8 +644,7 @@ pub fn floor_transition_system(
         .collect();
     spawn_level_weapon_locations(
         &mut commands,
-        &assets.global_assets,
-        &assets.weapons_asset,
+        &assets.weapon_registry,
         &mut id_factory,
         weapons,
     );
@@ -654,6 +660,11 @@ pub fn floor_transition_system(
     // s'ouvrent de nouveau au prochain tick (`rooms::room_lock_system`).
     if let Some(states) = room_states.as_mut() {
         states.doors_opened = false;
+    }
+    // M3-T4 (§69) : les portes secrètes du nouvel étage naissent fermées ; leur état « ouvert »
+    // (par `LevelId`, répété d'un étage à l'autre) est remis à zéro avec elles.
+    if !door_locks.0.is_empty() {
+        door_locks.0.clear();
     }
     floor_state.index = next;
     floor_state.portal_open = false;
@@ -710,7 +721,7 @@ fn floor_window_bars_system(
     mut commands: Commands,
     windows: Query<&MapRollbackItem, With<map::game::entity::map::window::WindowHealth>>,
     children: Query<&Children>,
-    bars: Query<(), With<game::interaction::WindowHealthBar>>,
+    bars: Query<(), With<game::interaction_view::WindowHealthBar>>,
 ) {
     for item in windows.iter() {
         let has_bar = children
@@ -721,7 +732,7 @@ fn floor_window_bars_system(
         }
         commands.entity(item.parent).with_children(|parent| {
             parent.spawn((
-                game::interaction::WindowHealthBar,
+                game::interaction_view::WindowHealthBar,
                 Sprite {
                     color: Color::srgb(0.0, 1.0, 0.0),
                     custom_size: Some(Vec2::new(0.0, 2.0)),
@@ -753,6 +764,9 @@ fn floor_portal_visual_system(
         (Some(anchor), Err(_)) => {
             commands.spawn((
                 PortalVisual,
+                // Langage visuel (§83) : image `portal` du jeu si elle existe ; le carré violet reste le repli.
+                game::visual_requests::SpriteRequest("portal".to_string()),
+                game::visual_requests::WorldLabel("portal".to_string()),
                 Sprite {
                     color: Color::srgba(0.6, 0.2, 0.9, 0.8),
                     custom_size: Some(Vec2::splat(40.0)),

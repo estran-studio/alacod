@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && alacod lint --json . | jq -e '.errors | length == 0' > /dev/null || { alacod lint . >&2; exit 2; }",
+            "timeout": 120,
+            "statusMessage": "alacod lint"
+          }
+        ]
+      }
+    ]
+  }
+}

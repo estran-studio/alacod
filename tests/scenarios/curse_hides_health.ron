@@ -1,0 +1,23 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage de curse passe par `fmix32` (D95) ; la graine 7 donne maintenant « darkness », la graine 5 donne « unknown » à l'étage 0 (graine la plus petite qui convient).
+// M3-T9 (docs/conventions.md §74) : la curse « Unknown » cache la santé. `isaac`, séquence
+// `sous_sol_maudit`, graine 5 : « unknown ». Le joueur reste immobile dans la salle de départ : la source
+// `health` du HUD est **vide** (ni texte ni barre, pas même un préfixe) alors que le joueur est vivant,
+// la minicarte reste affichée. Témoin inverse : `curse_blind` (santé « 6/6 »).
+//
+// À regarder : les cœurs (en haut à gauche) et le texte de vie en bas à gauche sont absents, la minicarte est là.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    floors: Some("sous_sol_maudit"),
+    map_seed: 5,
+    frames: 60,
+    players: [(inputs: [])],
+    expect: [
+        Curse(floor: 0, id: Some("unknown"), at_frame: 30),
+        HudText(source: "curses", contains: "unknown", at_frame: 30),
+        PlayerAlive(handle: 0, at_frame: 30),
+        HudText(source: "health", empty: true, at_frame: 30),
+        HudText(source: "hearts", empty: true, at_frame: 30),
+        HudText(source: "minimap", contains: "depart · visitée · actuelle", at_frame: 30),
+    ],
+)

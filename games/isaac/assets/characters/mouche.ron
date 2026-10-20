@@ -1,0 +1,52 @@
+// `isaac` (M3-T0f) : mouche volante — poursuit le joueur en survolant fosses et eau (`Chase`, profil
+// `Flying`), plus rapide et plus fragile que le suiveur ; coup de contact de 1 PV.
+(
+    movement: (
+        acceleration: "160.0",
+        max_speed: "55.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "mouche",
+
+    collider: (
+        shape: Rectangle(width: "16.", height: "16."),
+        offset: ( x: "0.0", y: "-4.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (max: "4.0"),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("26.0"),
+        attack_damage: Some("1.0"),
+        attack_cooldown_frames: Some(120),
+        behaviors: Some([Melee("contact"), Chase(profile: "Flying")]),
+    )),
+    // M3-T11c (§76.3) : champion `essaim` (chance `0,12 + étage × 0,1`) : à sa mort, deux mouches ordinaires (sans
+    // variante : pas de cascade, `SpawnCharacters`).
+    variants: Some((
+        chance: "0.12 + floor * 0.1",
+        table: {
+            "essaim": (tags: ["champion"], on_death: [SpawnCharacters(id: "mouche", count: 2)], tint: Some("#f1c40f")),
+        },
+    )),
+    // §78 : `champion_mouche_essaim` (variante imposée, `kill` : les deux mouches nées).
+    test: Some((
+        frames: 600,
+        champions: [(variant: "essaim", kill: true, weapon: Some("larmes"))],
+    )),
+)

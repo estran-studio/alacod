@@ -1,0 +1,29 @@
+// Suivi Q12 (§19) : témoin de `status_charm` : même scène, le joueur ne tire pas. Le `breacher` marche droit sur lui et le frappe ;
+// les deux `target` ne sont jamais touchées.
+//
+// À regarder : le `breacher` va vers le joueur sans se soucier des cibles.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 480,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "breacher", x: "-448.0", y: "248.0", at_frame: 1),
+        (character: "target", x: "-388.0", y: "248.0", at_frame: 1),
+        (character: "target", x: "-328.0", y: "248.0", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [],
+            weapon: "status_charm",
+        ),
+    ],
+    expect: [
+        HasStatus(entity: NetId(14), status: "charme", present: false, at_frame: 479),
+        // Sans charme, le `breacher` atteint le joueur (premier coup à f71) et ne s'occupe jamais des cibles.
+        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 70),
+        Health(handle: 0, max: Some(97.5), at_frame: 100),
+        EntityHealth(net_id: 16, min: Some(5000.0), max: Some(5000.0), at_frame: 479),
+        EntityHealth(net_id: 17, min: Some(5000.0), max: Some(5000.0), at_frame: 479),
+    ],
+)

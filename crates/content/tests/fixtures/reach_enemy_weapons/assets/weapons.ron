@@ -1,0 +1,8 @@
+({
+    "shoot": (config: (ammo_type: Balle, projectiles: {"ball": (damage: "1.0", speed: "90.0", range: "100.0")})),
+    "phase": (config: (ammo_type: Balle, projectiles: {"ball": (damage: "1.0", speed: "90.0", range: "100.0")})),
+    "enter": (config: (ammo_type: Balle, projectiles: {"ball": (damage: "1.0", speed: "90.0", range: "100.0")})),
+    "timeline": (config: (ammo_type: Balle, projectiles: {"ball": (damage: "1.0", speed: "90.0", range: "100.0")})),
+    "unused": (config: (ammo_type: Balle, projectiles: {"ball": (damage: "1.0", speed: "90.0", range: "100.0")})),
+    "lab_weapon": (config: (ammo_type: Balle, projectiles: {"ball": (damage: "1.0", speed: "90.0", range: "100.0")})),
+})

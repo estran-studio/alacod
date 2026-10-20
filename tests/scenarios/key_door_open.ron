@@ -1,0 +1,33 @@
+// M3-T5 (docs/conventions.md §70) : la porte à clé. Carte `testbed/salles_cle.ldtk` (graine 1) : la salle de départ
+// et, collée à l'est, une salle de type `tresor` (`door_lock: Key(1)`) dont la porte (et sa jumelle) reste fermée
+// jusqu'à ce qu'un joueur la touche par Interaction avec une clé. Le joueur porte une clé (`items`), marche vers
+// la porte (f10 à f60), la touche par Interaction (f65 à f70), puis repart vers l'est (f90 à f250).
+//
+// À regarder : le joueur s'arrête devant la porte (x ≈ -842), `DoorLocked` vrai ; à f65 la clé est consommée
+// (`Consumable(key, 0)`), la porte et sa jumelle disparaissent (`DoorLocked` faux), le joueur entre dans le
+// trésor (x ≈ -714). Témoin : `key_door_no_key`, même carte, mêmes déplacements, sans clé : la porte reste fermée.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_cle.ldtk",
+    map_seed: 1,
+    frames: 260,
+    players: [
+        (
+            items: ["key"],
+            inputs: [
+                (from: 10, to: 60, buttons: [Right], pan: (0, 0)),
+                (from: 65, to: 70, buttons: [Interaction]),
+                (from: 90, to: 250, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 50),
+        Consumable(handle: 0, id: "key", count: 1, at_frame: 50),
+        PlayerPosition(handle: 0, x: -842.4, y: -584, tolerance: 1, at_frame: 60),
+        DoorLocked(kind: "tresor", nth: 0, locked: false, at_frame: 80),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 80),
+        PlayerPosition(handle: 0, x: -714, y: -574, tolerance: 1.5, at_frame: 259),
+    ],
+)

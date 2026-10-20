@@ -1,0 +1,6 @@
+(
+    hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+    shake: (frames: 8, amplitude: 1.0),
+    explosion: (ring_frames: 0),
+    sounds: {},
+)

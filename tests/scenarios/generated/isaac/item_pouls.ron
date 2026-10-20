@@ -1,0 +1,39 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit ItemHeld (M2-T17, §54) : le joueur commence avec « pouls »
+// (`PlayerScript::items`) ; un actif est utilisé à la frame 10.
+#![enable(implicit_some)]
+Scenario(
+    game: "isaac",
+    map: "maps/gabarit_armes.ldtk",
+    map_seed: 123456,
+    frames: 120,
+    players: [
+        PlayerScript(
+            inputs: [],
+            items: [
+                "pouls",
+            ],
+        ),
+    ],
+    expect: [
+        HasItem(
+            handle: 0,
+            id: "pouls",
+            at_frame: 1,
+        ),
+        Stat(
+            handle: 0,
+            stat: MoveSpeed,
+            value: 120.0,
+            at_frame: 60,
+        ),
+        Stat(
+            handle: 0,
+            stat: MoveSpeed,
+            value: 156.00037,
+            at_frame: 100,
+        ),
+    ],
+    powerup_drop_chance_override: "0",
+    mode: Sandbox,
+)

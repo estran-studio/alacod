@@ -544,7 +544,12 @@ mod profile_tests {
             loot: None,
             loot_interact: false,
             fire_range: None,
+            orbit_reach: None,
+            engage_reach: None,
+            engage_strafe: 0,
+            hold_revive: false,
             explore: None,
+            aim: sim_core::aim::AimMode::Free,
             hunter: Some(hunter),
         };
         for profile in [BotProfile::Chasseur, BotProfile::Acheteur] {
@@ -582,7 +587,12 @@ mod profile_tests {
             loot: None,
             loot_interact: false,
             fire_range: None,
+            orbit_reach: None,
+            engage_reach: None,
+            engage_strafe: 0,
+            hold_revive: false,
             explore: None,
+            aim: sim_core::aim::AimMode::Free,
             hunter: Some(HunterView {
                 can_fire: true,
                 interact: true,

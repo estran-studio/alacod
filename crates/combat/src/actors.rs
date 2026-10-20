@@ -255,11 +255,11 @@ pub const INPUT_INTERACTION: u32 = 1 << 9;
 pub const INPUT_MELEE_ATTACK: u32 = 1 << 10;
 pub const INPUT_FORCE_CRASH: u32 = 1 << 11;
 /// Lâche l'arme active au sol (T2.2, chantier B7). Touche `L` (`Devices`, voir
-/// `character::player::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
+/// `character::control::get_input_map`), bouton `DropWeapon` des scénarios (voir
 /// `game::replay::Button`).
 pub const INPUT_DROP_WEAPON: u32 = 1 << 12;
 /// Choix de mutation A/B/C (T1.10, `docs/conventions.md` §27) : touches `1`/`2`/`3`
-/// (`character::player::control::get_input_map`), boutons `ChoiceA`/`ChoiceB`/`ChoiceC` des
+/// (`character::control::get_input_map`), boutons `ChoiceA`/`ChoiceB`/`ChoiceC` des
 /// scénarios (`game::replay::Button`). Sans effet hors d'un choix ouvert (`MutationChoice`).
 pub const INPUT_CHOICE_A: u32 = 1 << 13;
 pub const INPUT_CHOICE_B: u32 = 1 << 14;
@@ -271,6 +271,10 @@ pub const INPUT_USE_ACTIVE: u32 = 1 << 16;
 /// Blank (M2-T0b) : touche `Q`, bouton `Blank` des scénarios. Contrat seul : compteur de
 /// consommable et input, l'effet vient de M2-T1.
 pub const INPUT_BLANK: u32 = 1 << 17;
+/// Bombe (M3-T0c, `docs/conventions.md` §62) : touche `E`, bouton `Bomb` des scénarios. Contrat :
+/// sans effet tant que le personnage n'a pas de `bomb` dans sa définition (aucun contenu existant
+/// n'en a) ; la pose vient de M3-T4.
+pub const INPUT_BOMB: u32 = 1 << 18;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -296,7 +300,7 @@ pub struct CursorPosition {
 }
 
 pub type BoxConfig = bevy_ggrs::GgrsConfig<BoxInput>;
-pub type PeerConfig = bevy_ggrs::GgrsConfig<BoxInput, bevy_matchbox::prelude::PeerId>;
+pub type PeerConfig = bevy_ggrs::GgrsConfig<BoxInput, matchbox_protocol::PeerId>;
 
 /// Frames d'invulnérabilité (`Health.invulnerable_until_frame`) accordées quand un point de
 /// bouclier absorbe un coup : une rafale n'en consomme pas plusieurs d'un coup.
@@ -321,6 +325,35 @@ pub fn queue_gain_shield(commands: &mut Commands, entity: Entity, points: u32) {
             Some(mut shield) => shield.0 = shield.0.saturating_add(points),
             None => {
                 target.insert(Shield(points));
+            }
+        }
+    });
+}
+
+/// Couche de vie en plus des PV (M3-T3, `docs/conventions.md` §68, Q2) : les cœurs d'âme d'Isaac.
+/// `soul` points absorbent les dégâts **point par point, avant les PV** (un demi-cœur = 1 PV =
+/// 1 point) ; ils ne se régénèrent pas, ne comptent pas dans `Health.max` et ne sont pas bornés.
+/// Distinct de [`Shield`], qui absorbe un coup entier. Composant **neutre**
+/// (`rollback_and_trace_neutral`) posé au premier gain (`Action::GainSoul`) : sans porteur il ne
+/// contribue pas au checksum, les traces des personnages sans cœur d'âme ne bougent pas. Le
+/// composant reste posé à `soul == 0` (comme [`Shield`] à 0). Lisible par `Price::can_pay` (T8,
+/// Q6) : le champ `soul` est public.
+#[derive(Component, Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ExtraHealth {
+    pub soul: fixed_math::Fixed,
+}
+
+/// Donne `points` de vie d'âme à `entity` au prochain flush des commandes : ajoute à un
+/// [`ExtraHealth`] existant, en pose un sinon. Une entité disparue est ignorée.
+pub fn queue_gain_soul(commands: &mut Commands, entity: Entity, points: fixed_math::Fixed) {
+    commands.queue(move |world: &mut World| {
+        let Ok(mut target) = world.get_entity_mut(entity) else {
+            return;
+        };
+        match target.get_mut::<ExtraHealth>() {
+            Some(mut extra) => extra.soul = extra.soul.saturating_add(points),
+            None => {
+                target.insert(ExtraHealth { soul: points });
             }
         }
     });

@@ -1,41 +1,20 @@
 use std::net::SocketAddr;
 
-use animation::SpriteSheetConfig;
-use bevy::{
-    color::palettes::{
-        css::TURQUOISE,
-        tailwind::{ORANGE_300, PURPLE_300},
-    },
-    prelude::*,
-};
-use bevy_fixed::{
-    fixed_math,
-    rng::{RngStreams, RunSeed},
-};
+use bevy::prelude::*;
+use bevy_fixed::rng::{RngStreams, RunSeed};
 use bevy_ggrs::{ggrs::PlayerType, prelude::*};
-use bevy_matchbox::{prelude::PeerState, MatchboxSocket};
 use content::manifest::GameManifest;
 use content::registry::Registry;
 use ggrs::UdpNonBlockingSocket;
-use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use map::generation::config::MapGenerationConfig;
 use run::Run;
-use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
-    character::{
-        config::CharacterConfig,
-        enemy::spawning::EnemySpawnerState,
-        player::{create::create_player, jjrs::PeerConfig},
-    },
-    collider::{spawn_test_wall, CollisionSettings},
-    core::{AppState, OnlineState},
-    global_asset::GlobalAsset,
+    character::player::jjrs::PeerConfig,
     jjrs::{
         GggrsSessionConfiguration, GggrsSessionConfigurationState, GgrsPlayer, GgrsSessionBuilding,
     },
-    run_state::resolve_run_mode_with_floors,
-    weapons::WeaponsConfig,
+    session::{AppState, OnlineState},
 };
 
 pub fn setup_ggrs_local(
@@ -87,6 +66,8 @@ pub fn system_after_map_loaded_local(
     manifest: Option<Res<GameManifest>>,
     registry: Option<Res<Registry>>,
     floors_override: Option<Res<crate::run_state::FloorsOverride>>,
+    profiles: Option<Res<meta::Profiles>>,
+    hub: Option<Res<crate::hub::HubSession>>,
 ) {
     if !matches!(online_state.as_ref(), OnlineState::Offline) {
         return;
@@ -141,6 +122,18 @@ pub fn system_after_map_loaded_local(
         Some(config) => RunSeed(config.seed as u32),
         None => RunSeed(12345), // Graine par défaut si la map n'est pas configurée
     };
+    // `ALACOD_RUN_SEED_ONLINE_GAME=<n>` (natif, enregistrement des bots pour le p2p, D85) : la graine de
+    // run est celle qu'une partie **en ligne** de rang `n` aurait (`restart_seed`, §33) alors que la
+    // graine de carte reste celle du hub : la run lancée par la porte du hub (n = 1) se rejoue ainsi
+    // à l'identique en ligne. Absente (toujours, hors `scripts/p2p-gungeon-inputs.sh`) : inchangé.
+    #[cfg(not(target_arch = "wasm32"))]
+    let run_seed = match std::env::var("ALACOD_RUN_SEED_ONLINE_GAME")
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
+    {
+        Some(game) => RunSeed(crate::jjrs::restart::restart_seed(run_seed.0, game)),
+        None => run_seed,
+    };
     let rng_streams = RngStreams::new(run_seed.0);
 
     // État de run (T2.4, chantier F1) : créée au même instant que `RunSeed`/`RngStreams`
@@ -155,12 +148,21 @@ pub fn system_after_map_loaded_local(
         .map(|player| player.handle)
         .collect();
     // T1.8 : une séquence imposée (scénario, `alacod-sim --floors`) force le mode `Floors`.
-    let mode = resolve_run_mode_with_floors(
+    let mode = crate::hub::resolve_session_mode(
         manifest.as_deref(),
         registry.as_deref(),
         floors_override.as_deref().map(|o| o.0.as_str()),
+        hub.as_deref(),
     );
+    // M2-T12 : déblocages de la partie = union des profils des joueurs locaux, figés ici.
+    // Seuls les `Unlock` du jeu comptent, pas les jalons du profil : une relance rejoue à l'identique.
+    let run_unlocks = crate::profile::local_run_unlocks(profiles.as_deref(), &players, |id| {
+        registry
+            .as_deref()
+            .is_some_and(|registry| registry.unlocks.contains_key(id))
+    });
     let run = Run::new(run_seed.0, mode, players, 0);
+    commands.insert_resource(run_unlocks);
 
     // Insert the GGRS session resource
     commands.insert_resource(run_seed);

@@ -1,10 +1,11 @@
 //! Présentation des armes et de la mêlée, dérivée de l'état de combat.
 use crate::{character::visuals::VisualsAttached, global_asset::GlobalAsset};
-use animation::{create_child_sprite, AnimationVisualsBundle, FacingDirection, SpriteSheetConfig};
+use animation::{create_child_sprite, AnimationVisualsBundle, SpriteSheetConfig};
 use bevy::{platform::collections::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
 use combat::weapons::melee::*;
 use combat::weapons::*;
+use sim_core::animation_state::FacingDirection;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 /// Présentation : ajoute le sprite animé des armes qui n'en ont pas encore
@@ -32,9 +33,8 @@ pub fn attach_weapon_visuals(
             continue;
         };
 
-        // `try_insert` : l'arme peut être détruite avant l'application
-        // différée (override de scénario qui remplace l'arme du joueur,
-        // rollback) — un `insert` paniquait sur l'entité morte.
+        // `try_insert` : même course que `attach_character_visuals` — le porteur
+        // a pu mourir (arme détruite avec lui) avant l'application différée.
         commands.entity(entity).try_insert((
             AnimationVisualsBundle::new(
                 map_layers.clone(),
@@ -136,6 +136,13 @@ impl Plugin for WeaponPresentationPlugin {
             app.add_plugins(crate::ui::weapon_hud::WeaponDebugUIPlugin);
         }
 
+        // Visibilité des armes portées (D69 étape 2, E5c : plus de système de headless). Une arme de
+        // mêlée apparaît cachée : juste après `GgrsSchedule`, avant tout système d'`Update`.
+        app.add_systems(
+            PreUpdate,
+            crate::weapon_assets::hide_new_melee_weapons.after(bevy_ggrs::RunGgrsSystems),
+        );
+        app.add_systems(Update, crate::weapon_assets::weapon_inventory_system);
         app.add_systems(
             Update,
             (

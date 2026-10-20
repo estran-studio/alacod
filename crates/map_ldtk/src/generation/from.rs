@@ -7,8 +7,8 @@ use bevy_ecs_ldtk::prelude::LdtkFields;
 use map::generation::{
     config::MapGenerationConfig,
     context::{
-        populate_level_connections, scan_height_side, scan_width_side, AvailableLevel, LevelType,
-        MapGenerationContext, Side,
+        populate_level_connections_with, scan_height_side, scan_width_side, AvailableLevel,
+        LevelType, MapGenerationContext, Side,
     },
     entity::{
         character_spawn::CharacterSpawnConfig,
@@ -442,7 +442,16 @@ pub fn from_map(map_json: &LdtkJson, config: MapGenerationConfig) -> MapGenerati
         .map(|item| to_available_level(item, &tile_size))
         .collect();
 
-    populate_level_connections(&mut available_levels, config.aligned_openings);
+    // Les prises s'apparient au même décalage sauf `aligned_openings: false` (réglage du jeu) ou un
+    // étage de grammaire en arbre (`Graph`, m2-salles-murs-gungeon : gabarits de tailles différentes,
+    // portes au milieu de chaque côté).
+    let offset_free = !config.aligned_openings
+        || matches!(
+            &config.mode,
+            map::generation::config::MapGenerationMode::Floor(grammar)
+                if matches!(grammar.layout(), world::FloorLayout::Graph)
+        );
+    populate_level_connections_with(&mut available_levels, offset_free);
 
     let available_levels = available_levels
         .iter()

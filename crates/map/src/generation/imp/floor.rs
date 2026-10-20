@@ -30,7 +30,16 @@ pub struct FloorMapGeneration {
 }
 
 impl FloorMapGeneration {
-    pub fn create(context: MapGenerationContext) -> Self {
+    pub fn create(mut context: MapGenerationContext) -> Self {
+        // Une grille (M3-T5) prévoit ses boucles et mure exactement les ouvertures de son plan
+        // (`close_unused_openings_exact`) : la fermeture des boucles et le murage de `Basic`
+        // (`MapSettings`, 2026-10-17) ne s'y appliquent pas.
+        if let MapGenerationMode::Floor(grammar) = &context.config.mode {
+            if matches!(grammar.layout(), world::FloorLayout::Grid { .. }) {
+                context.config.close_loops = false;
+                context.config.wall_unused_openings = false;
+            }
+        }
         Self {
             basic: BasicMapGeneration::create(context),
             plan: None,
@@ -72,8 +81,26 @@ impl IMapGeneration for FloorMapGeneration {
         ))
     }
 
-    fn close_loops(&mut self) -> Vec<(RoomConnection, RoomConnection)> {
-        self.basic.close_loops()
+    fn get_links(&mut self) -> Vec<(RoomConnection, RoomConnection)> {
+        let Some(plan) = self.plan.as_ref() else {
+            return Vec::new();
+        };
+        plan.rooms
+            .iter()
+            .flat_map(|planned| {
+                planned.links.iter().map(|link| {
+                    (
+                        connection_of(&planned.room, link.mine),
+                        connection_of(&plan.rooms[link.other].room, link.theirs),
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            // `Graph` : prises libres qui se touchent après la pose (`MapSettings::close_loops` ;
+            // désactivé en grille, qui prévoit ses boucles).
+            .chain(self.basic.get_links())
+            .collect()
     }
     fn unused_openings(&self) -> Vec<(String, Side, usize, usize)> {
         self.basic.unused_openings()

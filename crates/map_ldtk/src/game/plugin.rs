@@ -7,7 +7,7 @@ use game::{
     character::enemy::ai::Obstacle,
     character::enemy::spawning::EnemySpawnerState,
     collider::{Collider, CollisionLayer, CollisionSettings, Wall, Window},
-    core::AppState,
+    session::AppState,
 };
 use map::game::entity::{
     map::{
@@ -622,7 +622,7 @@ pub(crate) fn spawn_map_items<'a>(
         if window_bars && item.kind.as_str() == "window" {
             commands.entity(item.entity).with_children(|parent| {
                 parent.spawn((
-                    game::interaction::WindowHealthBar,
+                    game::interaction_view::WindowHealthBar,
                     Sprite {
                         color: Color::srgb(0.0, 1.0, 0.0),      // Green health bar
                         custom_size: Some(Vec2::new(0.0, 2.0)), // Start at 0 width (0 health), smaller height

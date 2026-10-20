@@ -1,0 +1,54 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit RoomClear (M2-T17, §54) : un bot `explorateur` joue un étage qui contient
+// une salle « combat » ; aucun input scripté.
+#![enable(implicit_some)]
+Scenario(
+    game: "isaac",
+    map: "floor:sous_sol_court",
+    map_seed: 1,
+    frames: 500,
+    players: [
+        PlayerScript(
+            inputs: [],
+            bot: explorateur,
+        ),
+    ],
+    expect: [
+        Event(
+            kind: "room",
+            label_contains: "salle combat verrouillée",
+            by_frame: 500,
+        ),
+        Event(
+            kind: "room",
+            label_contains: "salle combat nettoyée",
+            by_frame: 500,
+        ),
+        PlayerAlive(
+            handle: 0,
+            at_frame: 499,
+        ),
+    ],
+    explorer: ExplorerPolicy(
+        shopping: false,
+        shop: Nearest,
+        detour: Detour(
+            shells: None,
+            optional: None,
+            last_stretch: None,
+        ),
+        lead: false,
+        weapon_reserve: false,
+        devil: Never,
+        bombs: BombPolicy(
+            secret: false,
+            secret_min_neighbours: 2,
+            rocks: false,
+            reserve: 0,
+        ),
+        oscillation: Hysteresis,
+        combat_aware: true,
+    ),
+    powerup_drop_chance_override: "0",
+    floors: "sous_sol",
+)

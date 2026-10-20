@@ -1,0 +1,1 @@
+(name: "Eclat", kind: Active(Frames(5)), effects: [(on: OnUse, do: [Scaled(action: GainShield(1), scale: Some(PerCopy))])])

@@ -54,5 +54,13 @@ pub enum InteractionType {
     /// `Interactable` sur une entité `items::Shelf` (`game::shop::spawn_shelf`) ; consommé par
     /// `game::shop::shelf_interaction_system`.
     Shop,
+    /// Utiliser une station du hub (M2-T13, `docs/conventions.md` §57). Posé avec `Interactable`
+    /// sur une entité `game::hub::HubStation` ; consommé par `game::hub::hub_station_system`.
+    Hub,
+    /// Ouvrir une porte à clé (M3-T5, `docs/conventions.md` §70). Posé avec `Interactable` (même
+    /// portée que la porte ordinaire qu'il remplace) sur une porte scellée d'une salle
+    /// `door_lock: Key(n)` (`map_ldtk::game::rooms::room_lock_system`) ; consommé par
+    /// `map_ldtk::game::rooms::key_door_system`, jamais par `game::interaction::handle_door_interaction`.
+    KeyDoor,
     // Future: Crate, etc.
 }

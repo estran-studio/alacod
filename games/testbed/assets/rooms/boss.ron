@@ -1,3 +1,3 @@
 // Type de salle `boss` du testbed (M2-T7, docs/conventions.md §45) : verrouillante, comme celle de
 // `gungeon` ; le boss y dort jusqu'à l'entrée du joueur, la salle se rouvre à sa mort.
-(locks: true)
+(locks: true, boss: true)

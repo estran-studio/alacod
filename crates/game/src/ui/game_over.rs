@@ -1,8 +1,8 @@
 //! Écran de fin en `bevy_hui` : résumé dérivé de `Run`, commandes locales uniquement.
 #![cfg(feature = "ui_hui")]
 
-use crate::core::AppState;
 use crate::run_state::RunRequest;
+use crate::session::AppState;
 use bevy::prelude::*;
 use bevy_hui::prelude::*;
 use run::{Run, RunEnd, RunStep};
@@ -43,6 +43,8 @@ fn update_game_over_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     run: Option<Res<Run>>,
+    earned: Option<Res<crate::profile::AchievementsEarned>>,
+    achievements: Option<Res<meta::Achievements>>,
     mut roots: Query<(Entity, &mut GameOverUiRoot, &mut TemplateProperties)>,
 ) {
     let ended = run.as_deref().and_then(|run| match run.step {
@@ -55,7 +57,11 @@ fn update_game_over_ui(
         }
         return;
     };
-    let summary = summary_text(outcome, run.as_deref());
+    let obtained = earned
+        .as_deref()
+        .map(|earned| earned.all_names(achievements.as_deref()))
+        .unwrap_or_default();
+    let summary = summary_text(outcome, run.as_deref(), &obtained);
     if let Ok((entity, mut root, mut properties)) = roots.single_mut() {
         if root.summary != summary {
             properties.set("summary", &summary);
@@ -75,7 +81,19 @@ fn update_game_over_ui(
 /// `step` devenant `Ended` (voir `finalize_run_summary_system`, même `RollbackSystemSet`
 /// mais après le système qui pose `step`) : la toute première frame affiche encore le titre
 /// seul, complété dès que le résumé arrive.
-fn summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
+///
+/// M3-T10 (§75) : les accomplissements obtenus à la fin de cette run (`obtained`, noms) sont listés
+/// sous le résumé ; rien sans accomplissement. Dérivé de `AchievementsEarned` (hors simulation).
+fn summary_text(outcome: RunEnd, run: Option<&Run>, obtained: &[String]) -> String {
+    let text = run_summary_text(outcome, run);
+    if obtained.is_empty() {
+        return text;
+    }
+    let list: Vec<String> = obtained.iter().map(|name| format!("* {name}")).collect();
+    format!("{text}\n\nAccomplissements :\n{}", list.join("\n"))
+}
+
+fn run_summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
     let title = match outcome {
         RunEnd::Defeat => "DÉFAITE",
         RunEnd::Victory => "VICTOIRE",
@@ -88,8 +106,8 @@ fn summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
             "{title}\n\nÉtage {}  ·  {} éliminés\n{}:{:02}",
             summary.floor_reached + 1,
             summary.kills,
-            summary.frames / (crate::core::SIM_FPS as u32 * 60),
-            summary.frames / crate::core::SIM_FPS as u32 % 60
+            summary.frames / (crate::session::SIM_FPS as u32 * 60),
+            summary.frames / crate::session::SIM_FPS as u32 % 60
         ),
         Some(summary) => format!(
             "{title}\n\nvague {} - {} kills - {} points\n{} frames",
@@ -113,9 +131,16 @@ fn button_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     screen: Query<(), With<GameOverUiRoot>>,
     interaction_query: Query<(&Interaction, &UiId), Changed<Interaction>>,
+    hub: Option<Res<crate::hub::HubSession>>,
 ) {
+    // M2-T13 : dans un jeu à hub, « Rejouer » ramène au hub (le profil de la run est déjà écrit).
+    let replay = if hub.is_some() {
+        RunRequest::ToHub
+    } else {
+        RunRequest::Restart
+    };
     if keyboard.just_pressed(KeyCode::KeyR) && !screen.is_empty() {
-        commands.insert_resource(RunRequest::Restart);
+        commands.insert_resource(replay);
     }
 
     for (interaction, id) in &interaction_query {
@@ -123,7 +148,7 @@ fn button_system(
             continue;
         }
         match id.id().as_str() {
-            "restart" => commands.insert_resource(RunRequest::Restart),
+            "restart" => commands.insert_resource(replay),
             "lobby" => commands.insert_resource(RunRequest::ToLobby),
             _ => {}
         }
@@ -148,6 +173,22 @@ mod tests {
             .press(KeyCode::KeyR);
         app.update();
         app.world().get_resource::<RunRequest>().copied()
+    }
+
+    /// M3-T10 : les accomplissements obtenus sont listés sous le titre ; aucun, rien de plus.
+    #[test]
+    fn l_ecran_de_fin_liste_les_accomplissements() {
+        let none = summary_text(RunEnd::Victory, None, &[]);
+        assert_eq!(none, "VICTOIRE");
+        let some = summary_text(
+            RunEnd::Victory,
+            None,
+            &["Gardien vaincu".to_string(), "Run finie".to_string()],
+        );
+        assert_eq!(
+            some,
+            "VICTOIRE\n\nAccomplissements :\n* Gardien vaincu\n* Run finie"
+        );
     }
 
     /// Revue M0 (R5) : `R` recharge pendant la partie, ne relance que depuis l'écran de fin.

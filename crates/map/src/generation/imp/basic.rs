@@ -300,45 +300,6 @@ fn snap_to_tile_grid(v: i32, min: i32, max: i32, size: i32) -> i32 {
     }
 }
 
-/// Fermeture des boucles : le rectangle vide qui sépare deux prises qui se font face
-/// (le long de la même emprise `[début, fin)`) est franchissable s'il n'est traversé
-/// par aucune pièce. Un écart d'une tuile de vide (marge) entre deux pièces posées non
-/// voisines est relié ; une pièce qui occupe la marge bloque le couloir.
-fn gap_is_clear(
-    side: Side,
-    edge_a: i32,
-    edge_b: i32,
-    start: i32,
-    end: i32,
-    rooms: &[Room],
-) -> bool {
-    let (low_edge, high_edge) = if edge_a <= edge_b {
-        (edge_a, edge_b)
-    } else {
-        (edge_b, edge_a)
-    };
-    // Le corridor vide qui relierait les deux prises.
-    let (gx0, gy0, gx1, gy1) = match side {
-        Side::N | Side::S => (start, low_edge, end, high_edge),
-        Side::W | Side::E => (low_edge, start, high_edge, end),
-    };
-    for room in rooms {
-        let (w, h) = room.level_def.level_size_p;
-        let (rx0, ry0, rx1, ry1) = (
-            room.position.0,
-            room.position.1,
-            room.position.0 + w,
-            room.position.1 + h,
-        );
-        // La pièce est coupée par le corridor si leurs rectangles se rencontrent
-        // (strictement, pas au simple contact des bords).
-        if gx0 < rx1 && gx1 > rx0 && gy0 < ry1 && gy1 > ry0 {
-            return false;
-        }
-    }
-    true
-}
-
 impl IMapGeneration for BasicMapGeneration {
     fn get_spawning_room(&mut self, rng: &mut RollbackRng) -> Room {
         let spawning_levels: Vec<&Rc<AvailableLevel>> = self
@@ -420,7 +381,10 @@ impl IMapGeneration for BasicMapGeneration {
         room
     }
 
-    fn close_loops(&mut self) -> Vec<(RoomConnection, RoomConnection)> {
+    fn get_links(&mut self) -> Vec<(RoomConnection, RoomConnection)> {
+        if !self.context.config.close_loops {
+            return Vec::new();
+        }
         let tile_size = self.context.tile_size;
         let mut linked = Vec::new();
         for i in 0..self.map.rooms.len() {
@@ -443,14 +407,14 @@ impl IMapGeneration for BasicMapGeneration {
                         }
                         let (side_b, edge_b, start_b, end_b) =
                             self.map.rooms[j].opening_span(b, &tile_size);
-                        // Deux prises libres se font face si elles sont sur des côtés opposés,
-                        // à la même emprise le long du bord, et que le rectangle vide qui les
-                        // sépare n'est traversé par aucun mur ni aucune autre prise (marge,
-                        // typiquement une tuile de vide entre deux pièces posées non voisines).
+                        // Deux prises libres se font face si elles sont sur des côtés opposés, au
+                        // même bord (salles bord contre bord) et à la même emprise. Deux salles
+                        // séparées par du vide ne sont jamais reliées : la porte donnerait sur le
+                        // vide (étages `Graph` à pose décalée, fusion de main 2026-10-19).
                         side_a.is_opposite(side_b)
+                            && edge_a == edge_b
                             && start_a == start_b
                             && end_a == end_b
-                            && gap_is_clear(side_a, edge_a, edge_b, start_a, end_a, &self.map.rooms)
                     });
                     let Some(b) = facing else {
                         continue;
@@ -477,6 +441,9 @@ impl IMapGeneration for BasicMapGeneration {
     }
 
     fn unused_openings(&self) -> Vec<(String, Side, usize, usize)> {
+        if !self.context.config.wall_unused_openings {
+            return Vec::new();
+        }
         self.map
             .rooms
             .iter()
@@ -905,31 +872,21 @@ mod tests {
         generator
     }
 
-    /// Deux pièces dont les prises libres se font face à travers une tuile de vide (marge)
-    /// sont reliées ; une pièce qui occupe cette marge empêche la fermeture.
+    /// Deux pièces dont les prises libres se font face à travers du vide ne sont pas reliées :
+    /// seule une prise bord contre bord ferme une boucle.
     #[test]
-    fn fermeture_des_boucles_traverse_la_marge() {
-        // A (0,0) avec E@4 ; B (176,0) avec W@4 (une tuile de marge à x=160..176) ;
-        // C (160,160) n'occupe pas la marge.
-        let mut clear = generator(vec![
+    fn fermeture_des_boucles_exige_le_contact() {
+        // A (0,0) avec E@4 ; B (176,0) avec W@4 : une tuile de vide entre les deux.
+        let mut gap = generator(vec![
             (level("A", &[(Side::E, 4)]), Position(0, 0)),
             (level("B", &[(Side::W, 4)]), Position(176, 0)),
-            (level("C", &[(Side::N, 6)]), Position(160, 160)),
         ]);
-        let pairs: Vec<(String, String)> = clear
-            .close_loops()
-            .iter()
-            .map(|(a, b)| (a.level_id.clone(), b.level_id.clone()))
-            .collect();
-        assert_eq!(pairs, vec![("A".to_string(), "B".to_string())]);
-
-        // Une pièce D placée dans la marge (x=160) bloque le couloir : aucune boucle.
-        let mut blocked = generator(vec![
-            (level("A", &[(Side::E, 4)]), Position(0, 0)),
-            (level("B", &[(Side::W, 4)]), Position(176, 0)),
-            (level("D", &[(Side::N, 6)]), Position(160, 0)),
-        ]);
-        assert!(blocked.close_loops().is_empty());
+        assert!(gap.get_links().is_empty());
+        assert_eq!(
+            gap.unused_openings().len(),
+            2,
+            "les deux prises sont murées"
+        );
     }
 
     /// Une boucle fermée ouvre le passage : la porte de chaque prise reliée est appariée
@@ -938,9 +895,9 @@ mod tests {
     fn boucle_fermee_ouvre_les_portes_apparies() {
         let mut generator = generator(vec![
             (level("A", &[(Side::E, 4)]), Position(0, 0)),
-            (level("B", &[(Side::W, 4)]), Position(176, 0)),
+            (level("B", &[(Side::W, 4)]), Position(160, 0)),
         ]);
-        assert_eq!(generator.close_loops().len(), 1);
+        assert_eq!(generator.get_links().len(), 1);
         let mut rng = RollbackRng::new(1);
         let doors = generator.get_doors(&mut rng);
         // Les deux prises ont chacune une porte, appariée et interactive (pas retirée).
@@ -972,7 +929,7 @@ mod tests {
             ),
             (level("D", &[(Side::E, 2)]), Position(0, 160)),
         ]);
-        let linked = generator.close_loops();
+        let linked = generator.get_links();
         let pairs: Vec<(String, String)> = linked
             .iter()
             .map(|(a, b)| (a.level_id.clone(), b.level_id.clone()))
@@ -1010,8 +967,8 @@ mod tests {
             (level("A", &[(Side::E, 4)]), Position(0, 0)),
             (level("B", &[(Side::W, 4)]), Position(160, 0)),
         ]);
-        assert_eq!(generator.close_loops().len(), 1);
-        assert!(generator.close_loops().is_empty());
+        assert_eq!(generator.get_links().len(), 1);
+        assert!(generator.get_links().is_empty());
         assert!(generator.unused_openings().is_empty());
     }
 }

@@ -15,8 +15,9 @@ use game::{
         input::{InputSource, ScriptedInputs},
         Player,
     },
-    core::{CoreSetupConfig, CoreSetupPlugin},
+    core::CoreSetupPlugin,
     jjrs::PlayerConfig,
+    session::CoreSetupConfig,
     state_trace::{StateTraceRecorder, StateTraceRecorderPlugin},
     waves::{WaveDebugEnabled, WaveModeEnabled, WaveState},
 };
@@ -31,18 +32,18 @@ use serde::{Deserialize, Serialize};
 use sim_core::modifier::{resolve, Modifier, ModifierSource, Modifiers};
 use sim_core::stats::{StatId, Stats};
 use sim_core::tag::Tags;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use utils::frame::FrameCount;
 
-use game::global_asset::GlobalAsset;
-use game::powerups::{spawn_powerup_pickup, PowerUpPickup, PowerUpsConfig};
+use game::powerups::{spawn_powerup_pickup, PowerUpPickup};
+use game::powerups_assets::PowerUpsConfigAsset;
 use game::replay::{
     CharacterPlacement, Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario,
     WaveOverride,
 };
-use game::weapons::melee::{self, MeleeWeapon, MeleeWeaponsConfig};
-use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponsConfig};
+use game::weapons::melee::{self, MeleeWeapon};
+use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponRegistry};
 use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
 
 /// Mismatches de synctest : le premier seulement (GGRS répète ensuite le même à chaque
@@ -55,6 +56,9 @@ struct SyncTestMismatches {
 
 /// Updates maximum pour charger la map avant la première frame de simulation.
 const MAX_LOADING_UPDATES: u32 = 10_000;
+
+/// Frames maximum de la phase du hub d'un scénario qui suit la relance (`HubSetup { stay: false }`).
+const HUB_PHASE_MAX_FRAMES: u32 = 2_000;
 
 /// Métriques de performance d'un scénario.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -156,18 +160,43 @@ pub struct ScenarioOutcome {
     pub softlock: Option<crate::softlock::SoftlockDump>,
 }
 
+/// Jeu hors de l'engine (`alacod test` sur un jeu créé par `alacod new`) : `ALACOD_GAME_NAME` et
+/// `ALACOD_GAME_DIR` désignent son nom (celui de `game.ron`) et son dossier. Les autres jeux
+/// (testbed, jeux de `games/`) se résolvent comme avant.
+fn external_game_dir(game: &str) -> Option<std::path::PathBuf> {
+    let name = std::env::var("ALACOD_GAME_NAME").ok()?;
+    (name == game).then(|| std::env::var("ALACOD_GAME_DIR").ok().map(Into::into))?
+}
+
 /// Dossier racine du jeu (`games/<jeu>`), pour `content::load_and_lint` (T1.5).
 pub fn game_dir(game: &str) -> std::path::PathBuf {
-    std::path::PathBuf::from(format!(
-        "{}/../../games/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        game
-    ))
+    external_game_dir(game).unwrap_or_else(|| {
+        std::path::PathBuf::from(format!(
+            "{}/../../games/{}",
+            env!("CARGO_MANIFEST_DIR"),
+            game
+        ))
+    })
 }
 
 /// Dossier des assets du jeu.
 pub fn assets_dir(game: &str) -> String {
-    format!("{}/../../games/{}/assets", env!("CARGO_MANIFEST_DIR"), game)
+    match external_game_dir(game) {
+        Some(dir) => dir.join("assets").to_string_lossy().into_owned(),
+        None => format!("{}/../../games/{}/assets", env!("CARGO_MANIFEST_DIR"), game),
+    }
+}
+
+/// Politique de l'`explorateur` du jeu : `bot.ron` de ses assets (M3-T14, `docs/conventions.md` §79), la politique par défaut
+/// s'il n'existe pas. Les campagnes d'`alacod-sim` et les scénarios **générés** (`alacod-gen`) la jouent ; un scénario écrit à la
+/// main la pose dans `Scenario::explorer`. Aucun nom de jeu dans le code : tout vient des données du jeu.
+pub fn game_bot_policy(game: &str) -> game::replay::ExplorerPolicy {
+    let path = format!("{}/bot.ron", assets_dir(game));
+    match std::fs::read_to_string(&path) {
+        Ok(text) => ron::from_str(&text)
+            .unwrap_or_else(|e| panic!("politique de l'explorateur {path} invalide : {e}")),
+        Err(_) => Default::default(),
+    }
 }
 
 /// Configuration de lecture d'un scénario.
@@ -185,6 +214,45 @@ fn scenario_profile_dir() -> PathBuf {
         COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
     let _ = std::fs::remove_dir_all(&dir);
+    dir
+}
+
+/// Dossier des profils d'un scénario `profile: true`, avec les profils et achats imposés par
+/// `profile_setup` (M2-T12) déjà écrits : la run les lit au lancement, comme le jeu.
+fn prepare_profiles(scenario: &Scenario, registry: &content::Registry) -> PathBuf {
+    let dir = scenario_profile_dir();
+    let Some(setup) = &scenario.profile_setup else {
+        return dir;
+    };
+    let mut profiles: BTreeMap<String, meta::Profile> = BTreeMap::new();
+    for seed in &setup.profiles {
+        let id = meta::local_id(seed.handle);
+        let mut profile = meta::Profile::new(id.clone());
+        profile.unlocks.extend(seed.unlocks.iter().cloned());
+        profile.stats = seed.stats.clone();
+        if seed.essence > 0 {
+            profile
+                .currencies
+                .insert(meta::ESSENCE.into(), seed.essence);
+        }
+        profiles.insert(id, profile);
+    }
+    for purchase in &setup.purchases {
+        let id = meta::local_id(purchase.handle);
+        let profile = profiles
+            .entry(id.clone())
+            .or_insert_with(|| meta::Profile::new(id.clone()));
+        let def = &registry
+            .unlocks
+            .get(&purchase.unlock)
+            .unwrap_or_else(|| panic!("achat : déblocage « {} » inconnu", purchase.unlock))
+            .def;
+        game::profile::purchase_unlock(profile, &purchase.unlock, def)
+            .unwrap_or_else(|e| panic!("achat de « {} » refusé : {e}", purchase.unlock));
+    }
+    for profile in profiles.values() {
+        meta::save(&dir, profile).unwrap_or_else(|e| panic!("profil non écrit : {e}"));
+    }
     dir
 }
 
@@ -226,6 +294,9 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     // Registre de contenu (T1.5) : mêmes règles que `alacod lint`, un contenu invalide
     // fait échouer le test tout de suite plutôt qu'en plein milieu de la simulation.
     let (registry, mut manifest) = load_content(&scenario.game);
+    let profile_dir = scenario
+        .profile
+        .then(|| prepare_profiles(scenario, &registry));
 
     // Suite de T1.13 : mode de run imposé par le scénario, à la place de `entry.mode`.
     if let Some(mode) = scenario.mode {
@@ -244,7 +315,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // M2-T0c : un scénario n'écrit aucun profil, sauf `profile: true` (dossier temporaire
         // propre à ce scénario, jamais le profil de l'utilisateur).
         .insert_resource(game::profile::ProfileSettings {
-            dir: scenario.profile.then(scenario_profile_dir),
+            dir: profile_dir,
         })
         .add_plugins(core_plugin)
         .add_plugins(LdtkRoguePlugin)
@@ -347,24 +418,16 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                     mutations: p.mutations.clone(),
                     dash: p.dash.clone(),
                     items: p.items.clone(),
+                    bomb: p.bomb,
+                    aim: p.aim,
                 })
                 .collect(),
         ))
-        // `.before(weapon_inventory_system)` : quand `weapon` despawn/recrée les armes du
-        // joueur (voir la doc de `apply_player_overrides`), `weapon_inventory_system` (Update,
-        // `BaseWeaponGamePlugin`) ne doit jamais lire l'ancien `WeaponInventory` (armes déjà
-        // despawnées) dans la même frame — Bevy insère un `ApplyDeferred` entre deux systèmes
-        // ordonnés (`auto_insert_apply_deferred`, par défaut), ce qui suffit ici : pas besoin
-        // d'ordonner aussi par rapport à `spawn_players_when_map_loaded` (voir la doc de la
-        // fonction, inchangé : elle attend déjà que `Player` existe).
-        .add_systems(
-            Update,
-            apply_player_overrides.before(game::weapons::weapon_inventory_system),
-        )
+        .add_systems(Update, apply_player_overrides)
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         // M2-T18 : actions d'UI du scénario (présentation, hors trace) ; absente sans `ui`.
-        .insert_resource(game::ui::screens::ScreenScript {
+        .insert_resource(game::ui::screens::model::ScreenScript {
             steps: scenario.ui.clone(),
             played_until: None,
         })
@@ -374,6 +437,14 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         // joueurs de `bot_assignments` sont remplacés ensuite quel que soit ce mode.
         .add_plugins(BotsPlugin)
         .insert_resource(bot_assignments(scenario))
+        .insert_resource(bots::explorer::ExplorerOptions {
+            boss_direct: false,
+            policy: {
+                let mut policy = scenario.explorer.clone().unwrap_or_default();
+                policy.shopping |= scenario.shopping;
+                policy
+            },
+        })
         .init_resource::<SyncTestMismatches>()
         .add_observer(|mismatch: On<SyncTestMismatch>, mut log: ResMut<SyncTestMismatches>| {
             let m = mismatch.event();
@@ -402,6 +473,43 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
     if let Some(floors) = &scenario.floors {
         app.insert_resource(game::run_state::FloorsOverride(floors.clone()));
     }
+    // M2-T13 : le scénario démarre au hub du manifeste (`entry.hub`).
+    if let Some(hub) = &scenario.hub {
+        let hub_map = app
+            .world()
+            .resource::<content::manifest::GameManifest>()
+            .entry
+            .hub
+            .as_ref()
+            .map(|hub| hub.map.clone());
+        if let Some(hub_map) = hub_map {
+            app.insert_resource(game::hub::HubSession {
+                hub_map,
+                run_map: scenario.map.clone(),
+                in_hub: true,
+            });
+            if hub.stay {
+                app.insert_resource(game::hub::HubStay);
+            } else {
+                // La relance est suivie : `play` et `capture` n'arrêtent la partie qu'une fois la
+                // run commencée (`HubPhaseOver`).
+                app.init_resource::<HubPhaseOver>()
+                    .add_systems(Update, track_hub_phase);
+                if !hub.inputs.is_empty() {
+                    // m2-full-run : le hub a ses propres pistes, sans bot ; les `players` du
+                    // scénario reprennent la main quand la porte relance la session
+                    // (`swap_hub_inputs`).
+                    app.insert_resource(RunPhaseInputs {
+                        scripted: scenario.scripted_inputs(),
+                        bots: bot_assignments(scenario),
+                    })
+                    .insert_resource(scenario.hub_scripted_inputs())
+                    .insert_resource(BotAssignments::default())
+                    .add_systems(Update, swap_hub_inputs);
+                }
+            }
+        }
+    }
     // T1.10 : progression imposée par le scénario.
     if let Some(progression) = &scenario.progression {
         app.insert_resource(game::progression::ProgressionOverride(progression.clone()));
@@ -409,11 +517,10 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
 
     // Caméra forcée sur un joueur (play_scenario --follow)
     if let Some(handle) = config.follow_handle {
-        app.insert_resource(game::camera::CameraFollowOverride(handle));
+        app.insert_resource(game::ui::hud_model::CameraFollowOverride(handle));
     }
 
     if headless {
-        game::character::skip_device_input(&mut app);
         single_threaded_schedules(&mut app);
     }
 
@@ -459,6 +566,49 @@ fn bot_assignments(scenario: &Scenario) -> BotAssignments {
     BotAssignments(assignments)
 }
 
+/// Hub suivi (`HubSetup { stay: false }`) : vrai une fois la run commencée (la session relancée
+/// repart de la frame 0). `play` et `capture` ne comptent les frames de `Scenario::frames` qu'à
+/// partir de là.
+#[derive(Resource, Default)]
+struct HubPhaseOver(bool);
+
+fn track_hub_phase(
+    session: Res<game::hub::HubSession>,
+    frame: Res<FrameCount>,
+    mut over: ResMut<HubPhaseOver>,
+) {
+    if !over.0 && !session.in_hub && frame.frame == 0 {
+        over.0 = true;
+    }
+}
+
+/// Inputs de la run d'un scénario qui passe par le hub avec ses propres pistes
+/// (`HubSetup::inputs`) : posés quand la porte relance la session.
+#[derive(Resource)]
+struct RunPhaseInputs {
+    scripted: ScriptedInputs,
+    bots: BotAssignments,
+}
+
+/// Quand `HubSession::in_hub` passe à faux (la sortie du hub est confirmée), les pistes et les
+/// bots du scénario remplacent ceux du hub. Les joueurs sont encore ceux du hub ou en cours de
+/// recréation : aucune frame de run n'est lue avant cet échange.
+fn swap_hub_inputs(
+    mut commands: Commands,
+    session: Option<Res<game::hub::HubSession>>,
+    run_inputs: Option<Res<RunPhaseInputs>>,
+) {
+    let (Some(session), Some(run_inputs)) = (session, run_inputs) else {
+        return;
+    };
+    if session.in_hub {
+        return;
+    }
+    commands.insert_resource(run_inputs.scripted.clone());
+    commands.insert_resource(run_inputs.bots.clone());
+    commands.remove_resource::<RunPhaseInputs>();
+}
+
 /// Fait avancer le scénario (headless) jusqu'à la frame `frame` et rend l'app, pour
 /// inspecter le monde à cet instant (diagnostic).
 pub fn run_until(scenario: &Scenario, frame: u32) -> App {
@@ -477,26 +627,55 @@ pub fn run_until(scenario: &Scenario, frame: u32) -> App {
     app
 }
 
+/// Joue `scenario` jusqu'à la frame `frames` en appelant `visit(monde, frame)` une fois par frame
+/// de simulation atteinte (sonde du générateur, M3-T13 : mesures image par image sans attentes).
+pub fn run_visiting<F: FnMut(&mut World, u32)>(scenario: &Scenario, frames: u32, mut visit: F) {
+    let config = PlayConfig {
+        follow_handle: None,
+    };
+    let mut app = build_app(scenario, true, &config);
+    app.finish();
+    app.cleanup();
+    let mut last = None;
+    for _ in 0..MAX_LOADING_UPDATES + frames {
+        app.update();
+        let frame = app.world().resource::<FrameCount>().frame;
+        if last != Some(frame) {
+            last = Some(frame);
+            visit(app.world_mut(), frame);
+        }
+        if frame >= frames {
+            break;
+        }
+    }
+}
+
+/// Inventaire du joueur `handle` (copie), pour les sondes du générateur.
+pub fn probe_player_inventory(world: &mut World, handle: usize) -> Option<items::Inventory> {
+    player_inventory(world, handle).ok().flatten()
+}
+
 #[derive(Resource)]
 struct WeaponOverrides(Vec<game::replay::WeaponOverride>);
 
-/// Applique les modifications d'armes du scénario dès que la config est chargée, avant la
-/// création des joueurs (qui copient la config de leurs armes).
+/// Applique les modifications d'armes du scénario sur `WeaponRegistry` dès qu'il est rempli
+/// (`game::weapon_assets::sync_weapon_registry`, `PreUpdate` avant `RunGgrsSystems`), avant la
+/// création des joueurs (qui copient la config de leurs armes). Une surcharge posée sur le registre
+/// n'est jamais réécrasée par la synchro (elle ne recopie une table que vide ou sur `Modified`).
 fn apply_weapon_overrides(
     overrides: Res<WeaponOverrides>,
-    global_assets: Option<Res<game::global_asset::GlobalAsset>>,
-    mut weapons: ResMut<Assets<game::weapons::WeaponsConfig>>,
+    mut registry: ResMut<WeaponRegistry>,
     mut applied: Local<bool>,
 ) {
     if *applied || overrides.0.is_empty() {
         return;
     }
-    let Some(mut config) = global_assets.and_then(|g| weapons.get_mut(&g.weapons)) else {
-        return;
-    };
+    if registry.weapons.is_empty() {
+        return; // pas encore rempli par la synchro
+    }
     for o in &overrides.0 {
-        let weapon = config
-            .0
+        let weapon = registry
+            .weapons
             .get_mut(&o.weapon)
             .unwrap_or_else(|| panic!("weapon_overrides : arme inconnue {}", o.weapon));
         if let Some(friendly_fire) = o.friendly_fire {
@@ -534,12 +713,14 @@ struct WaveOverrideRes(Option<WaveOverride>);
 
 /// Applique la modification de config des vagues du scénario (T2.1, bench `bench_horde`),
 /// même idée que `apply_weapon_overrides` mais sur `waves::config::WaveConfig` : dès que
-/// l'asset est chargé, avant que `wave_state_machine_system` ne calcule la taille de la
-/// première vague (qui lit cette config).
+/// l'asset est chargé, avant que `resolve_balance_system` ne le résolve (`OnEnter(GameLoading)`, E3c : le
+/// scénario vise l'**enveloppe** `WaveConfigAsset`, pas `ResolvedBalance`) donc avant la taille de la
+/// première vague (que `wave_state_machine_system` lit dans `ResolvedBalance::waves`). Un jeu ne charge
+/// qu'une enveloppe de vagues (celle de son dossier `Wave`) : `Assets` la désigne ;
+/// sans vagues (aucune enveloppe), la surcharge ne trouve rien, comme avant.
 fn apply_wave_overrides(
     overrides: Res<WaveOverrideRes>,
-    global_assets: Option<Res<game::global_asset::GlobalAsset>>,
-    mut wave_configs: ResMut<Assets<game::waves::config::WaveConfig>>,
+    mut wave_configs: ResMut<Assets<game::waves::assets::WaveConfigAsset>>,
     mut applied: Local<bool>,
 ) {
     if *applied {
@@ -549,12 +730,13 @@ fn apply_wave_overrides(
         *applied = true;
         return;
     };
-    let Some(handle) = global_assets.and_then(|g| g.wave_config.clone()) else {
+    let Some(id) = wave_configs.ids().next() else {
         return;
     };
-    let Some(mut config) = wave_configs.get_mut(&handle) else {
+    let Some(mut asset) = wave_configs.get_mut(id) else {
         return;
     };
+    let config = &mut asset.0;
     // F5 (chantier m0-v11) : ces champs sont des `content::expr::NumOrExpr` ; un override
     // de scénario est toujours un entier littéral.
     if let Some(v) = o.max_wave {
@@ -589,13 +771,14 @@ struct PowerUpDropChanceOverrideRes(Option<fixed_math::Fixed>);
 
 /// Force `PowerUpsConfig::drop_chance` pour ce scénario (T2.5, scénario
 /// `powerup_drop_on_kill` : preuve du chemin « drop à la mort » sans dépendre du tirage réel
-/// du jeu — voir `game::replay::Scenario::powerup_drop_chance_override`). Même idée que
-/// [`apply_wave_overrides`] : s'applique dès que l'asset est chargé, avant la première mort
-/// simulée (qui lit cette config).
+/// du jeu — voir `game::replay::Scenario::powerup_drop_chance_override`). Vise l'**enveloppe**
+/// (`Assets<PowerUpsConfigAsset>`, E3c), pas la table de simulation : même idée que
+/// [`apply_wave_overrides`], s'applique dès que l'asset est chargé, bien avant
+/// `OnEnter(GameLoading)` qui copie l'asset dans `PowerUpsTable` : la première mort simulée lit donc la
+/// valeur forcée. Un jeu ne charge qu'une enveloppe de power-ups : `Assets` la désigne.
 fn apply_powerup_drop_chance_override(
     overrides: Res<PowerUpDropChanceOverrideRes>,
-    global_assets: Option<Res<GlobalAsset>>,
-    mut powerup_configs: ResMut<Assets<PowerUpsConfig>>,
+    mut powerup_configs: ResMut<Assets<PowerUpsConfigAsset>>,
     mut applied: Local<bool>,
 ) {
     if *applied {
@@ -605,12 +788,13 @@ fn apply_powerup_drop_chance_override(
         *applied = true;
         return;
     };
-    let Some(handle) = global_assets.and_then(|g| g.powerups_config.clone()) else {
+    let Some(id) = powerup_configs.ids().next() else {
         return;
     };
-    let Some(mut config) = powerup_configs.get_mut(&handle) else {
+    let Some(mut asset) = powerup_configs.get_mut(id) else {
         return;
     };
+    let config = &mut asset.0;
     config.drop_chance = drop_chance;
     *applied = true;
 }
@@ -645,18 +829,17 @@ fn apply_scenario_character_placements(
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut errors: ResMut<PlacementErrors>,
+    // M3-T7 : étage courant (contexte de `chance` des variantes)
+    floor: Option<Res<run::FloorState>>,
 ) {
+    let floor = floor.as_deref().map_or(0, |floor| floor.index);
     for (index, placement) in placements
         .0
         .iter()
         .enumerate()
         .filter(|(_, p)| p.at_frame == frame.frame)
     {
-        let config = assets
-            .global_assets
-            .character_configs
-            .get(&placement.character)
-            .and_then(|handle| assets.character_asset.get(handle));
+        let config = assets.character_configs.get(&placement.character);
         let Some(config) = config else {
             errors.0.insert(
                 index,
@@ -693,6 +876,7 @@ fn apply_scenario_character_placements(
             placement.team,
             placement.variant.as_deref(),
             assets.difficulty.current(),
+            assets.difficulty.variant_context_at(floor),
         );
         if let Some(entity) = spawned {
             commands.entity(entity).insert(ScriptedPlacement(index));
@@ -718,16 +902,11 @@ fn apply_scenario_character_placements(
 fn apply_scenario_powerup_placements(
     frame: Res<FrameCount>,
     placements: Res<ScenarioPowerUpPlacements>,
-    global_assets: Res<GlobalAsset>,
-    powerup_configs: Res<Assets<PowerUpsConfig>>,
+    table: Res<game::powerups::PowerUpsTable>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
-    let Some(config) = global_assets
-        .powerups_config
-        .as_ref()
-        .and_then(|handle| powerup_configs.get(handle))
-    else {
+    let Some(config) = &table.0 else {
         return;
     };
     for placement in &placements.0 {
@@ -794,29 +973,48 @@ fn apply_scenario_item_placements(
 #[derive(Resource)]
 struct ScenarioChestPlacements(Vec<game::replay::ChestPlacement>);
 
+#[allow(clippy::too_many_arguments)]
 fn apply_scenario_chest_placements(
     frame: Res<FrameCount>,
     placements: Res<ScenarioChestPlacements>,
+    tables: Res<items::LootTables>,
+    floors: Res<game::loot::FloorLootTables>,
+    item_table: Res<items::ItemTable>,
+    unlocks: Res<items::UnlockTable>,
+    active: Res<items::RunUnlocks>,
+    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
+    floor: Option<Res<run::FloorState>>,
+    mut pools: ResMut<items::PoolState>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
+    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
+    let ctx = game::loot::SlotContext {
+        frame: frame.frame,
+        tables: &tables,
+        items: &item_table,
+        unlocks: &unlocks,
+        active: &active,
+        run_seed,
+        floor,
+    };
     for placement in &placements.0 {
         if frame.frame != placement.at_frame {
             continue;
         }
         let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
-        game::loot::spawn_chest(
-            &mut commands,
-            &mut id_factory,
-            items::Chest {
-                key: placement.key.clone(),
-                table: placement.table.clone(),
-                rarity: placement.rarity,
-                locked: placement.locked,
-                opened: false,
-            },
-            position,
-        );
+        let chest = items::Chest {
+            key: placement.key.clone(),
+            table: placement.table.clone(),
+            rarity: placement.rarity,
+            locked: placement.locked,
+            opened: false,
+        };
+        // M3-T8 (§73) : comme un coffre de salle, l'objet d'un pool qui s'épuise est assigné à la
+        // pose (idempotent : une seconde pose de la même clé donne le même objet).
+        let table_id = game::loot::chest_table_id(&chest, &floors, floor).to_string();
+        game::loot::assign_slot(&ctx, &mut pools, &table_id, chest.rarity, false, &chest.key);
+        game::loot::spawn_chest(&mut commands, &mut id_factory, chest, position);
     }
 }
 
@@ -844,6 +1042,7 @@ fn apply_scenario_shelf_placements(
                 price: placement.price,
                 sold: false,
                 retry_after: 0,
+                cost: placement.cost.clone(),
             },
             position,
         );
@@ -868,28 +1067,49 @@ pub struct StopEarly {
     /// victoire) : un dernier joueur à terre en défaite déjà déclarée n'est plus pris pour un
     /// soft-lock pendant son saignement.
     pub stop_when_run_ended: bool,
+    /// M3-T14 : un ramassage (objet, consommable, sous) ou une dépense compte comme une progression du
+    /// soft-lock `Floors` (`FloorsProgress::stock`). Faux par défaut : les campagnes des autres jeux gardent
+    /// leur détecteur. `alacod-sim --pickup-progress` : sans lui, les détours de l'`explorateur` d'`isaac`
+    /// (objets et sous aux quatre coins d'un étage nettoyé) dépassent 1 200 frames sans kill sans être bloqués.
+    pub pickups_are_progress: bool,
+    /// m2-salles-murs-gungeon : entrer dans une case de 32 px jamais visitée du niveau compte comme une progression du
+    /// soft-lock `Floors` (`FloorsProgress::explored`) : dans des salles agrandies un étage mesure plus de 2 000 px et la
+    /// marche d'une salle de combat à la suivante dépasse [`FLOORS_SOFTLOCK_FRAMES`] sans un coup. Faux par défaut : les
+    /// campagnes des autres jeux gardent leur détecteur. `alacod-sim --explored-progress`.
+    pub explored_is_progress: bool,
 }
 
 /// D44 : état observé pour le soft-lock `Floors`. Il y a progression quand le niveau change, ou
 /// qu'un ennemi disparaît, ou que la santé totale des ennemis baisse (dégâts infligés, même
 /// sans kill : combat lent contre un boss), ou qu'un joueur change d'état (à terre, relevé,
-/// mort).
+/// mort), ou, si [`StopEarly::explored_is_progress`], qu'un joueur entre dans une **case de 32 px jamais visitée** de ce niveau
+/// (m2-salles-murs-gungeon : sur des salles agrandies, l'étage mesure plus de 2 000 px et la marche d'une
+/// salle de combat à la suivante peut dépasser la fenêtre de [`FLOORS_SOFTLOCK_FRAMES`] sans un seul
+/// coup ; un joueur qui explore encore n'est pas bloqué, un bot qui tourne en rond l'est : les cases
+/// visitées finissent par ne plus grandir).
 #[derive(Debug, Clone, PartialEq)]
 pub struct FloorsProgress {
     pub floor: u32,
+    /// Nombre de cases de 32 px (par niveau) déjà visitées par un joueur (0 si [`StopEarly::explored_is_progress`] est faux).
+    pub explored: usize,
     pub enemies: usize,
     pub enemy_health: fixed_math::Fixed,
     /// Par joueur présent (handle), à terre ou non ; un joueur mort disparaît de la liste.
     pub players: Vec<(usize, bool)>,
+    /// M3-T14 : empreinte de l'inventaire et du solde des joueurs (0 si [`StopEarly::pickups_are_progress`]
+    /// est faux) ; tout changement est une progression.
+    pub stock: u64,
 }
 
 impl FloorsProgress {
     /// `true` si `now` marque une progression par rapport à `self` (voir le type).
     pub fn progressed(&self, now: &FloorsProgress) -> bool {
         now.floor != self.floor
+            || now.explored > self.explored
             || now.enemies < self.enemies
             || now.enemy_health < self.enemy_health
             || now.players != self.players
+            || now.stock != self.stock
     }
 }
 
@@ -912,6 +1132,10 @@ struct PlayerOverride {
     dash: Option<game::character::movement::DashConfig>,
     /// M2-T17 : voir `game::replay::PlayerScript::items`.
     items: Vec<String>,
+    /// M3-T4 : voir `game::replay::PlayerScript::bomb`.
+    bomb: Option<world::BombDef>,
+    /// Suivi Q17 : voir `game::replay::PlayerScript::aim`.
+    aim: Option<sim_core::aim::AimMode>,
 }
 
 #[derive(Resource)]
@@ -955,9 +1179,7 @@ fn apply_player_overrides(
     item_table: Option<Res<items::ItemTable>>,
     ranged_children: Query<(), With<Weapon>>,
     melee_children: Query<(), With<MeleeWeapon>>,
-    global_assets: Option<Res<GlobalAsset>>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
+    weapon_registry: Res<WeaponRegistry>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut applied: Local<bool>,
 ) {
@@ -973,6 +1195,8 @@ fn apply_player_overrides(
             && o.mutations.is_empty()
             && o.dash.is_none()
             && o.items.is_empty()
+            && o.bomb.is_none()
+            && o.aim.is_none()
     }) {
         *applied = true;
         return;
@@ -980,9 +1204,6 @@ fn apply_player_overrides(
     if players.iter().count() < overrides.0.len() {
         return; // les joueurs ne sont pas encore tous créés
     }
-    let Some(global_assets) = global_assets else {
-        return; // arme choisie : attend GlobalAsset (comme apply_weapon_overrides)
-    };
     if progression.is_none() && overrides.0.iter().any(|o| !o.mutations.is_empty()) {
         return; // table des mutations pas encore résolue (`OnEnter(GameLoading)`)
     }
@@ -998,6 +1219,20 @@ fn apply_player_overrides(
                 game::character::dash::DashOverride(dash.clone()),
                 combat::actors::DashExtra::with_charges(dash.charges.unwrap_or(0)),
             ));
+        }
+        if let Some(def) = over.bomb {
+            commands.entity(entity).insert(world::BombCarrier::new(def));
+        }
+        // Suivi Q17 : `Free` retire la visée du personnage (scénarios de contenu, voir
+        // `PlayerScript::aim`), `FourWay` la pose.
+        match over.aim {
+            Some(sim_core::aim::AimMode::Free) => {
+                commands.entity(entity).remove::<sim_core::aim::AimMode>();
+            }
+            Some(aim) => {
+                commands.entity(entity).insert(aim);
+            }
+            None => {}
         }
         if !over.tags.is_empty() {
             commands
@@ -1078,10 +1313,7 @@ fn apply_player_overrides(
             // l'inventaire une fois l'exclusivité appliquée ci-dessus. Vide si `weapon_id`
             // est une arme de mêlée (pas de munitions).
             let mut ammo_reserves = AmmoReserves::new();
-            if let Some(weapon_asset) = weapons_asset
-                .get(&global_assets.weapons)
-                .and_then(|config| config.0.get(weapon_id))
-            {
+            if let Some(weapon_asset) = weapon_registry.weapons.get(weapon_id) {
                 let (ammo_type, amount) =
                     game::weapons::default_mode_ammo_contribution(weapon_asset);
                 ammo_reserves.add(ammo_type, amount);
@@ -1094,10 +1326,7 @@ fn apply_player_overrides(
                     &mut id_factory,
                     None,
                 );
-            } else if let Some(melee_asset) = melee_weapons_asset
-                .get(&global_assets.melee_weapons)
-                .and_then(|config| config.0.get(weapon_id))
-            {
+            } else if let Some(melee_asset) = weapon_registry.melee.get(weapon_id) {
                 melee::spawn_melee_weapon_for_character(
                     &mut commands,
                     entity,
@@ -1165,12 +1394,28 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     app.finish();
     app.cleanup();
 
+    // Hub suivi (m2-full-run) : la session démarre au hub, la porte la relance en run.
+    let hub_follow = scenario.hub.as_ref().is_some_and(|hub| !hub.stay)
+        && app.world().contains_resource::<game::hub::HubSession>();
+    let is_hub_expectation = |e: &Expectation| {
+        matches!(
+            e,
+            Expectation::HubExit { .. } | Expectation::HubVisit { .. }
+        )
+    };
+    let mut hub_pending: Vec<&Expectation> = scenario
+        .expect
+        .iter()
+        .filter(|e| hub_follow && is_hub_expectation(e))
+        .collect();
+    hub_pending.sort_by_key(|e| e.at_frame());
+
     // Séparer les attentes ponctuelles des attentes continues (NoDamageBetween, et T1.4 :
     // EnemyContactBefore, EnemyNeverInWall)
     let mut pending: Vec<&Expectation> = scenario
         .expect
         .iter()
-        .filter(|e| !is_continuous(e))
+        .filter(|e| !is_continuous(e) && !(hub_follow && is_hub_expectation(e)))
         .collect();
     pending.sort_by_key(|e| e.at_frame());
 
@@ -1247,9 +1492,24 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut q_player_state = app
         .world_mut()
         .query::<(&Player, Has<combat::downed::Downed>)>();
+    let mut q_player_stock =
+        app.world_mut()
+            .query::<(&Player, Option<&items::Inventory>, Option<&run::Currency>)>();
+    let mut q_player_cells = app
+        .world_mut()
+        .query::<(&Player, &bevy_fixed::fixed_math::FixedTransform3D)>();
+    let mut explored: BTreeSet<(u32, i32, i32)> = BTreeSet::new();
     let mut floors_softlocked = false;
 
-    let max_updates = MAX_LOADING_UPDATES + scenario.frames;
+    // Hub suivi (`HubSetup { stay: false }`) : la phase du hub s'ajoute au budget d'updates.
+    let mut hub_phase = hub_follow;
+    let max_updates = MAX_LOADING_UPDATES
+        + scenario.frames
+        + if hub_follow {
+            MAX_LOADING_UPDATES + HUB_PHASE_MAX_FRAMES
+        } else {
+            0
+        };
     let mut frame = 0;
     let mut stopped_early = false;
     let mut previous_snapshot = None;
@@ -1270,6 +1530,13 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             t_update += t0.elapsed().as_secs_f64();
         }
         frame = app.world().resource::<FrameCount>().frame;
+        if hub_phase && frame == 0 && !app.world().resource::<game::hub::HubSession>().in_hub {
+            // La porte du hub a relancé la session : la run commence (frames de 0). Le chrono de
+            // simulation repart avec elle (le hub n'entre pas dans `sim_fps`).
+            hub_phase = false;
+            sim_start = None;
+            sim_elapsed = 0.0;
+        }
         if let Some(start) = sim_start {
             sim_elapsed = start.elapsed().as_secs_f64();
         }
@@ -1352,8 +1619,15 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             break; // la session synctest n'avance plus après un mismatch
         }
 
-        while pending.first().is_some_and(|e| e.at_frame() <= frame) {
-            let expectation = pending.remove(0);
+        // Attentes du hub (phase hub d'un scénario qui suit la relance) ou de la run : les frames
+        // repartent de 0 à la run, chaque liste n'est lue que pendant sa phase.
+        let due = if hub_phase {
+            &mut hub_pending
+        } else {
+            &mut pending
+        };
+        while due.first().is_some_and(|e| e.at_frame() <= frame) {
+            let expectation = due.remove(0);
             if let Err(reason) = check(app.world_mut(), expectation) {
                 failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
             }
@@ -1380,8 +1654,19 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                         .map(|(player, downed)| (player.handle, downed))
                         .collect();
                     players.sort_unstable();
+                    if stop.explored_is_progress {
+                        for (_, transform) in q_player_cells.iter(world) {
+                            let at = transform.translation.truncate();
+                            explored.insert((
+                                floor_index,
+                                (at.x.to_num::<i32>()).div_euclid(32),
+                                (at.y.to_num::<i32>()).div_euclid(32),
+                            ));
+                        }
+                    }
                     let now = FloorsProgress {
                         floor: floor_index,
+                        explored: explored.len(),
                         enemies: q_enemies.iter(world).count(),
                         enemy_health: q_enemy_health
                             .iter(world)
@@ -1389,6 +1674,38 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                                 sum.saturating_add(h.current)
                             }),
                         players,
+                        stock: if stop.pickups_are_progress {
+                            // Empreinte déterministe (joueurs triés par handle) de l'inventaire et du solde.
+                            let mut held: Vec<(usize, u64)> = q_player_stock
+                                .iter(world)
+                                .map(|(player, inventory, currency)| {
+                                    let mut sum = u64::from(currency.map_or(0, |c| c.0));
+                                    if let Some(inventory) = inventory {
+                                        sum = sum
+                                            .wrapping_mul(1_000_003)
+                                            .wrapping_add(inventory.passives.len() as u64);
+                                        sum = sum
+                                            .wrapping_mul(1_000_003)
+                                            .wrapping_add(u64::from(inventory.active.is_some()));
+                                        for (id, count) in &inventory.consumables {
+                                            sum = sum
+                                                .wrapping_mul(1_000_003)
+                                                .wrapping_add(u64::from(*count))
+                                                .wrapping_add(id.len() as u64);
+                                        }
+                                    }
+                                    (player.handle, sum)
+                                })
+                                .collect();
+                            held.sort_unstable();
+                            held.iter().fold(0u64, |acc, (handle, sum)| {
+                                acc.wrapping_mul(1_000_003)
+                                    .wrapping_add(*handle as u64)
+                                    .wrapping_add(sum.wrapping_mul(7919))
+                            })
+                        } else {
+                            0
+                        },
                     };
                     match &mut floors_progress {
                         Some((last, since)) if !last.progressed(&now) => {
@@ -1420,7 +1737,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
             previous_snapshot = Some(crate::softlock::snapshot(app.world_mut()));
         }
 
-        if stopped_early || floors_softlocked || frame >= scenario.frames {
+        if stopped_early || floors_softlocked || (frame >= scenario.frames && !hub_phase) {
             break;
         }
     }
@@ -1437,6 +1754,43 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         0.0
     };
 
+    if hub_follow {
+        if hub_phase {
+            failures.push(format!(
+                "la porte du hub n'a jamais relancé la run (frame {frame} au hub)"
+            ));
+        }
+        failures.extend(hub_pending.iter().map(|expectation| {
+            format!("{expectation:?} : jamais évaluée, la phase du hub s'est terminée avant")
+        }));
+        if scenario.expect.iter().any(is_continuous) {
+            failures.push(
+                "attentes continues (NoDamageBetween, EnemyContactBefore, EnemyNeverInWall) \
+                 non prises en charge avec un hub suivi (`hub: Some((stay: false))`)"
+                    .into(),
+            );
+        }
+        // `apply_player_overrides` ne s'applique qu'à la première session : les joueurs de la run
+        // lancée par la porte n'en recevraient aucun, mieux vaut refuser que mal jouer.
+        if scenario.players.iter().any(|p| {
+            !p.tags.is_empty()
+                || !p.immune_to.is_empty()
+                || !p.modifiers.is_empty()
+                || p.weapon.is_some()
+                || p.currency.is_some()
+                || !p.mutations.is_empty()
+                || p.dash.is_some()
+                || !p.items.is_empty()
+                || p.bomb.is_some()
+                || p.aim.is_some()
+        }) {
+            failures.push(
+                "réglages de joueur (tags, weapon, currency, items, modifiers, mutations, dash, \
+                 bomb, aim) non pris en charge avec un hub suivi (`hub: Some((stay: false))`)"
+                    .into(),
+            );
+        }
+    }
     if frame < scenario.frames && !stopped_early && !floors_softlocked {
         failures.push(format!(
             "la simulation n'a atteint que la frame {frame} sur {} (map pas chargée ?)",
@@ -1501,6 +1855,16 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let profile = app
         .world()
         .resource::<utils::snapshot_profile::SnapshotProfile>();
+
+    // `ALACOD_SYSTEM_PROFILE=1` (diagnostic, M3-T15) : temps par `RollbackSystemSet` de ce scénario.
+    if let Some(timings) = app
+        .world()
+        .get_resource::<utils::system_profile::SetTimings>()
+    {
+        for row in timings.report() {
+            println!("profil sets : {row}");
+        }
+    }
 
     let metrics = Metrics {
         frames: frame,
@@ -1890,6 +2254,23 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 found.unwrap_or("aucun")
             )),
         },
+        Expectation::SquadSize {
+            squad, min, max, ..
+        } => {
+            use game::character::enemy::ai::state::EnemyBehaviors;
+            let count = world
+                .query::<&EnemyBehaviors>()
+                .iter(world)
+                .filter(|rules| rules.squad.as_deref() == Some(squad.as_str()))
+                .count() as u32;
+            if min.is_some_and(|m| count < m) || max.is_some_and(|m| count > m) {
+                Err(format!(
+                    "{count} ennemi(s) de l'escouade « {squad} » (min {min:?}, max {max:?})"
+                ))
+            } else {
+                Ok(())
+            }
+        }
         Expectation::EnemyVariant {
             entity, variant, ..
         } => {
@@ -1950,6 +2331,10 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .query_filtered::<(), With<world::TableState>>()
                     .iter(world)
                     .count() as u32,
+                game::replay::EntityKind::Rock => world
+                    .query_filtered::<(), With<world::Rock>>()
+                    .iter(world)
+                    .count() as u32,
             };
 
             if let Some(min_val) = min {
@@ -1985,6 +2370,33 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .map(|l| format!(", label contient '{}'", l))
                     .unwrap_or_default();
                 Err(format!("événement '{}' non trouvé{}", kind, label_desc))
+            }
+        }
+        Expectation::EventAfter {
+            kind,
+            label_contains,
+            after_frame,
+            by_frame: _,
+        } => {
+            let events = world.resource::<GameEvents>();
+            let found = events.events.iter().any(|event| {
+                event.kind == kind.as_str()
+                    && event.frame > *after_frame
+                    && label_contains
+                        .as_ref()
+                        .map_or(true, |label| event.label.contains(label))
+            });
+            if found {
+                Ok(())
+            } else {
+                let label_desc = label_contains
+                    .as_ref()
+                    .map(|l| format!(", label contient '{}'", l))
+                    .unwrap_or_default();
+                Err(format!(
+                    "événement '{}' non trouvé après la frame {}{}",
+                    kind, after_frame, label_desc
+                ))
             }
         }
         // À terre (T1.3, chantier B6). `PlayerDowned` : vérification ponctuelle (comme
@@ -2239,6 +2651,23 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        // M3-T3 (§68) : points de vie d'âme du joueur (0 sans le composant).
+        Expectation::ExtraHealth { handle, n, .. } => {
+            let Some(actual) = world
+                .query::<(&Player, Option<&combat::actors::ExtraHealth>)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, extra)| extra.map_or(fixed_math::Fixed::ZERO, |extra| extra.soul))
+            else {
+                return Err("joueur absent".into());
+            };
+            let wanted = fixed_math::Fixed::from_num(*n);
+            if actual == wanted {
+                Ok(())
+            } else {
+                Err(format!("{actual} points de vie d'âme (attendu {wanted})"))
+            }
+        }
         Expectation::ItemCount {
             handle, id, count, ..
         } => {
@@ -2255,10 +2684,80 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        // M3-T0d : familiers du joueur (`behaviors::FamiliarOf`).
+        Expectation::FamiliarCount { handle, count, .. } => {
+            let owner = world
+                .query::<(&Player, &GgrsNetId)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, net_id)| net_id.clone())
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let actual = world
+                .query::<&behaviors::FamiliarOf>()
+                .iter(world)
+                .filter(|familiar| familiar.owner == owner)
+                .count();
+            if actual == *count as usize {
+                Ok(())
+            } else {
+                Err(format!(
+                    "joueur {handle} : {actual} familier(s) (attendu {count})"
+                ))
+            }
+        }
+        // M3-T6 : distance d'un familier à son porteur ou à un autre familier du même porteur.
+        Expectation::FamiliarDistance {
+            handle,
+            rank,
+            to_rank,
+            min,
+            max,
+            ..
+        } => {
+            let (owner, owner_position) = world
+                .query::<(
+                    &Player,
+                    &GgrsNetId,
+                    &bevy_fixed::fixed_math::FixedTransform3D,
+                )>()
+                .iter(world)
+                .find(|(player, ..)| player.handle == *handle)
+                .map(|(_, net_id, transform)| (net_id.clone(), transform.translation.truncate()))
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let position_of = |world: &mut World, wanted: u32| {
+                world
+                    .query::<(
+                        &behaviors::FamiliarOf,
+                        &bevy_fixed::fixed_math::FixedTransform3D,
+                    )>()
+                    .iter(world)
+                    .find(|(familiar, _)| familiar.owner == owner && familiar.rank == wanted)
+                    .map(|(_, transform)| transform.translation.truncate())
+                    .ok_or_else(|| format!("joueur {handle} : pas de familier de rang {wanted}"))
+            };
+            let familiar = position_of(world, *rank)?;
+            let other = match to_rank {
+                Some(other) => position_of(world, *other)?,
+                None => owner_position,
+            };
+            let distance = familiar.distance(&other);
+            if let Some(min) = min {
+                if distance < fixed_math::new(*min) {
+                    return Err(format!("distance {distance} < min {min}"));
+                }
+            }
+            if let Some(max) = max {
+                if distance > fixed_math::new(*max) {
+                    return Err(format!("distance {distance} > max {max}"));
+                }
+            }
+            Ok(())
+        }
         Expectation::Shelf {
             nth,
             item,
             price,
+            cost,
             sold,
             ..
         } => {
@@ -2276,6 +2775,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             };
             if item.as_ref().is_some_and(|item| *item != shelf.item_id)
                 || price.is_some_and(|price| price != shelf.price)
+                || cost
+                    .as_ref()
+                    .is_some_and(|cost| Some(cost) != shelf.cost.as_ref())
                 || sold.is_some_and(|sold| sold != shelf.sold)
             {
                 return Err(format!("présentoir {nth} : {shelf:?}"));
@@ -2362,6 +2864,122 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        // M3-T5 : géométrie d'une salle typée (taille, voisinage par un bord commun).
+        Expectation::RoomLayout {
+            kind,
+            nth,
+            size,
+            touches,
+            apart,
+            ..
+        } => {
+            let mut rooms: Vec<_> = world
+                .query::<(&map::game::entity::map::room::RoomBounds, &world::RoomKind)>()
+                .iter(world)
+                .map(|(bounds, k)| {
+                    (
+                        bounds.position.x.to_num::<i32>(),
+                        bounds.position.y.to_num::<i32>(),
+                        bounds.size.x.to_num::<i32>(),
+                        bounds.size.y.to_num::<i32>(),
+                        k.0.clone(),
+                    )
+                })
+                .collect();
+            rooms.sort();
+            let of_kind: Vec<_> = rooms.iter().filter(|room| &room.4 == kind).collect();
+            let Some(&&(x, y, w, h, _)) = of_kind.get(*nth) else {
+                return Err(format!(
+                    "{} salle(s) de type « {kind} » (index {nth} demandé)",
+                    of_kind.len()
+                ));
+            };
+            if let Some((width, height)) = size {
+                if (w, h) != (*width as i32, *height as i32) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : {w} × {h} (attendu {width} × {height})"
+                    ));
+                }
+            }
+            // un bord commun de longueur non nulle (salles voisines d'une grille)
+            let touching = |other: &&(i32, i32, i32, i32, String)| {
+                let (ox, oy, ow, oh, _) = **other;
+                let share_x = x < ox + ow && ox < x + w;
+                let share_y = y < oy + oh && oy < y + h;
+                (share_x && (y + h == oy || oy + oh == y))
+                    || (share_y && (x + w == ox || ox + ow == x))
+            };
+            let neighbours: std::collections::BTreeSet<&str> = rooms
+                .iter()
+                .filter(|other| (other.0, other.1) != (x, y))
+                .filter(touching)
+                .map(|other| other.4.as_str())
+                .collect();
+            for wanted in touches {
+                if !neighbours.contains(wanted.as_str()) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : aucune salle « {wanted} » ne la touche (voisines : {neighbours:?})"
+                    ));
+                }
+            }
+            for refused in apart {
+                if neighbours.contains(refused.as_str()) {
+                    return Err(format!(
+                        "salle {kind}#{nth} : touche une salle « {refused} » (voisines : {neighbours:?})"
+                    ));
+                }
+            }
+            Ok(())
+        }
+        // M3-T9 : nombre de salles de la carte (curse `Labyrinth`).
+        Expectation::RoomCount { min, max, .. } => {
+            let count = world
+                .query::<&map::game::entity::map::room::RoomBounds>()
+                .iter(world)
+                .count() as u32;
+            if count >= *min && max.is_none_or(|max| count <= max) {
+                Ok(())
+            } else {
+                Err(format!("{count} salle(s) (attendu entre {min} et {max:?})"))
+            }
+        }
+        // M3-T0c : porte verrouillée d'une salle typée (`world::DoorLocks`, `RoomKindDef::door_lock`).
+        Expectation::DoorLocked {
+            kind, nth, locked, ..
+        } => {
+            let mut rooms: Vec<_> = world
+                .query::<(
+                    &map::game::entity::map::level_id::LevelId,
+                    &map::game::entity::map::room::RoomBounds,
+                    &world::RoomKind,
+                )>()
+                .iter(world)
+                .filter(|(_, _, k)| &k.0 == kind)
+                .map(|(id, bounds, _)| (bounds.position.x, bounds.position.y, id.0.clone()))
+                .collect();
+            rooms.sort();
+            let Some((_, _, id)) = rooms.get(*nth) else {
+                return Err(format!(
+                    "{} salle(s) de type « {kind} » (index {nth} demandé)",
+                    rooms.len()
+                ));
+            };
+            // Verrou de l'étage courant (`lock_from_floor`, M3-T5) ; 0 hors `Floors`.
+            let floor = world
+                .get_resource::<run::FloorState>()
+                .map_or(0, |state| state.index);
+            let has_lock = world
+                .resource::<world::RoomKindTable>()
+                .door_lock_at(kind, floor)
+                .is_some();
+            let actual = has_lock && !world.resource::<world::DoorLocks>().is_open(id);
+            if actual != *locked {
+                return Err(format!(
+                    "salle {kind}#{nth} : porte verrouillée = {actual} (attendu {locked})"
+                ));
+            }
+            Ok(())
+        }
         // M2-T0c : phase d'un boss (`behaviors::BossState`).
         Expectation::BossPhase { entity, phase, .. } => {
             let target = resolve_entity(world, entity).ok_or("entité absente")?;
@@ -2380,6 +2998,9 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             handle,
             unlock,
             currency,
+            achievement,
+            lacks_unlocks,
+            lacks_achievements,
             ..
         } => {
             let id = meta::local_id(*handle);
@@ -2402,19 +3023,167 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     return Err(format!("profil « {id} » : {currency} = {actual} < {min}"));
                 }
             }
-            if unlock.is_none() && currency.is_none() {
-                return Err("ProfileHas sans unlock ni currency".into());
+            if let Some(achievement) = achievement {
+                if !profile.achievements.contains(achievement) {
+                    return Err(format!(
+                        "profil « {id} » sans accomplissement « {achievement} » ({:?})",
+                        profile.achievements
+                    ));
+                }
+            }
+            if let Some(extra) = lacks_unlocks.iter().find(|u| profile.has_unlock(u)) {
+                return Err(format!("profil « {id} » possède le déblocage « {extra} »"));
+            }
+            if let Some(extra) = lacks_achievements
+                .iter()
+                .find(|a| profile.achievements.contains(*a))
+            {
+                return Err(format!(
+                    "profil « {id} » possède l'accomplissement « {extra} »"
+                ));
+            }
+            if unlock.is_none()
+                && currency.is_none()
+                && achievement.is_none()
+                && lacks_unlocks.is_empty()
+                && lacks_achievements.is_empty()
+            {
+                return Err("ProfileHas sans condition".into());
             }
             Ok(())
         }
+        // M2-T12 : déblocages de la partie (ressource rollback neutre, statique).
+        Expectation::RunUnlocks { has, lacks, .. } => {
+            let active = world
+                .get_resource::<items::RunUnlocks>()
+                .cloned()
+                .unwrap_or_default();
+            if let Some(missing) = has.iter().find(|id| !active.has(id)) {
+                return Err(format!("RunUnlocks sans « {missing} » ({:?})", active.0));
+            }
+            if let Some(extra) = lacks.iter().find(|id| active.has(id)) {
+                return Err(format!("RunUnlocks contient « {extra} » ({:?})", active.0));
+            }
+            Ok(())
+        }
+        // M3-T0e (§64) : curse de l'étage (ressource rollback neutre `run::RunCurses`).
+        Expectation::Curse { floor, id, .. } => {
+            let actual = world
+                .get_resource::<run::RunCurses>()
+                .and_then(|curses| curses.get(*floor).map(str::to_string));
+            if actual == *id {
+                Ok(())
+            } else {
+                Err(format!(
+                    "curse de l'étage {floor} : {actual:?} (attendu {id:?})"
+                ))
+            }
+        }
+        // M3-T0e (§64) : objets sortis des pools à épuisement (`items::PoolState`).
+        Expectation::PoolSeen {
+            pool, item, seen, ..
+        } => {
+            let actual = world
+                .get_resource::<items::PoolState>()
+                .is_some_and(|state| state.has_seen(pool, item));
+            if actual == *seen {
+                Ok(())
+            } else {
+                Err(format!(
+                    "pool « {pool} » : « {item} » sorti = {actual} (attendu {seen})"
+                ))
+            }
+        }
+        // M3-T8 (§73) : objets distincts sortis d'un pool à épuisement.
+        Expectation::PoolCount { pool, count, .. } => {
+            let actual = world
+                .get_resource::<items::PoolState>()
+                .map_or(0, |state| state.count(pool));
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!(
+                    "pool « {pool} » : {actual} objet(s) sorti(s) (attendu {count})"
+                ))
+            }
+        }
+        // M3-T8 (§73) : objets au sol (butin de boss, objet lâché).
+        Expectation::ItemsOnFloor { id, count, .. } => {
+            let actual = world
+                .query::<&items::ItemPickup>()
+                .iter(world)
+                .filter(|pickup| pickup.item_id == *id)
+                .count() as u32;
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!("{actual} « {id} » au sol (attendu {count})"))
+            }
+        }
+        // M2-T13 : décisions du hub dans la simulation (`game::hub::HubState`).
+        Expectation::HubExit {
+            handle,
+            exit_frame,
+            none,
+            ..
+        } => {
+            let state = world
+                .get_resource::<game::hub::HubState>()
+                .cloned()
+                .unwrap_or_default();
+            match (state.exit, *none) {
+                (None, true) => Ok(()),
+                (Some(exit), true) => Err(format!("sortie du hub décidée : {exit:?}")),
+                (None, false) => Err("aucune sortie du hub décidée".into()),
+                (Some(exit), false) => {
+                    if handle.is_some_and(|handle| handle != exit.handle) {
+                        Err(format!(
+                            "sortie par le joueur {} (attendu {handle:?})",
+                            exit.handle
+                        ))
+                    } else if exit_frame.is_some_and(|frame| frame != exit.frame) {
+                        Err(format!(
+                            "sortie à la frame {} (attendu {exit_frame:?})",
+                            exit.frame
+                        ))
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
+        }
+        Expectation::HubVisit {
+            handle, service, ..
+        } => {
+            let state = world
+                .get_resource::<game::hub::HubState>()
+                .cloned()
+                .unwrap_or_default();
+            match state.visits.get(handle) {
+                Some(visit) if visit.service == *service => Ok(()),
+                other => Err(format!(
+                    "service du joueur {handle} : {other:?} (attendu « {service} »)"
+                )),
+            }
+        }
         // T1.18 : texte d'une source du HUD (présentation, hors trace).
         Expectation::HudText {
-            source, contains, ..
+            source,
+            contains,
+            empty,
+            ..
         } => {
             let Some(snapshot) = world.get_resource::<game::ui::hud_model::HudSnapshot>() else {
                 return Err("pas de HudSnapshot".into());
             };
             let text = snapshot.texts.get(source).map_or("", String::as_str);
+            if *empty {
+                return if text.is_empty() {
+                    Ok(())
+                } else {
+                    Err(format!("HUD {source} = « {text} » (attendu vide)"))
+                };
+            }
             if text.contains(contains.as_str()) {
                 Ok(())
             } else {
@@ -2535,7 +3304,11 @@ fn player_stat(world: &mut World, handle: usize, stat: &StatId) -> Option<fixed_
 
 /// Stat résolue d'une entité (base `Stats` + `Modifiers` actifs).
 fn entity_stat(world: &mut World, entity: Entity, stat: &StatId) -> Option<fixed_math::Fixed> {
-    let base = world.get::<Stats>(entity)?.get(stat)?;
+    // M3-T0a : `ShotSpeed`/`ShotSize` ne sont pas posées dans `Stats` (base 1, comme au tir).
+    let base = world
+        .get::<Stats>(entity)?
+        .get(stat)
+        .or_else(|| sim_core::stats::default_base(stat))?;
     let frame = world.resource::<FrameCount>().frame;
     Some(match world.get::<Modifiers>(entity) {
         Some(modifiers) => resolve(base, modifiers.iter().filter(|m| &m.stat == stat), frame),
@@ -2710,8 +3483,10 @@ pub fn play(scenario: &Scenario, config: PlayConfig) -> AppExit {
     let mut app = build_app(scenario, false, &config);
     app.add_systems(
         Update,
-        move |frame: Res<FrameCount>, mut exit: MessageWriter<AppExit>| {
-            if frame.frame >= frames {
+        move |frame: Res<FrameCount>,
+              hub_over: Option<Res<HubPhaseOver>>,
+              mut exit: MessageWriter<AppExit>| {
+            if frame.frame >= frames && hub_over.map_or(true, |over| over.0) {
                 exit.write(AppExit::Success);
             }
         },
@@ -2729,6 +3504,12 @@ pub struct CaptureConfig {
     pub follow_handle: Option<usize>,
     /// Capture viewport, for checking responsive HUD layouts.
     pub size: (u32, u32),
+    /// Frames à capturer (sinon : une toutes les `every`). Non vide : la partie s'arrête après la
+    /// dernière (`play_scenario --at 42,157`), pour les captures de preuve d'un rapport.
+    pub at: Vec<u32>,
+    /// Légende ouverte (F7) et sans étiquettes : image de légende en tête des vidéos de revue
+    /// (`scripts/scenario-video`, `play_scenario --legend`).
+    pub legend: bool,
 }
 
 #[derive(Resource)]
@@ -2741,6 +3522,7 @@ struct CaptureState {
     /// Image où la caméra rend pendant la capture (taille fixe, indépendante de la fenêtre).
     target: Option<Handle<Image>>,
     size: (u32, u32),
+    at: Vec<u32>,
 }
 
 /// Taille des images capturées.
@@ -2764,8 +3546,14 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     // caméra (présentation seule : la simulation et la trace ne lisent ni l'un ni l'autre).
     app.insert_resource(WaveDebugEnabled(false))
         .insert_resource(game::camera::ui::CameraDebugUiEnabled(false));
+    // Fiche m2-lisibilite-gungeon : les captures expliquent ce qu'elles montrent. Étiquettes allumées
+    // par défaut (`ALACOD_LABELS=0` les coupe) ; la légende seule pour l'image de tête des vidéos.
+    app.insert_resource(game::legibility::LabelsEnabled(
+        !config.legend && std::env::var("ALACOD_LABELS").map_or(true, |v| v != "0"),
+    ))
+    .insert_resource(game::legibility::LegendOpen(config.legend));
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        std::time::Duration::from_nanos(1_000_000_000 / game::core::SIM_FPS),
+        std::time::Duration::from_nanos(1_000_000_000 / game::session::SIM_FPS),
     ))
     .insert_resource(CaptureState {
         dir: config.dir,
@@ -2775,6 +3563,7 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
         updates_after_end: 0,
         target: None,
         size: config.size,
+        at: config.at,
     })
     .add_systems(Startup, configure_capture_window)
     .add_systems(Update, (render_cameras_to_image, capture_frames).chain());
@@ -2831,6 +3620,7 @@ fn capture_frames(
     session: Option<Res<bevy_ggrs::Session<game::character::player::jjrs::PeerConfig>>>,
     mut state: ResMut<CaptureState>,
     events: Res<GameEvents>,
+    hub_over: Option<Res<HubPhaseOver>>,
     mut exit: MessageWriter<AppExit>,
 ) {
     use bevy::render::view::screenshot::{save_to_disk, Screenshot};
@@ -2844,7 +3634,13 @@ fn capture_frames(
     };
 
     let frame = frame.frame;
-    if frame >= state.frames {
+    let run_started = hub_over.as_ref().map_or(true, |over| over.0);
+    if !run_started {
+        // Hub suivi : aucune image tant que la run n'a pas commencé (la vidéo montre la run seule).
+        return;
+    }
+    let last_at = state.at.iter().copied().max();
+    if frame >= state.frames || last_at.is_some_and(|last| frame > last) {
         // Laisser le temps aux dernières captures d'être écrites
         state.updates_after_end += 1;
         if state.updates_after_end > 10 {
@@ -2860,7 +3656,12 @@ fn capture_frames(
         return;
     }
 
-    if frame % state.every == 0 && state.last_captured != Some(frame) {
+    let wanted = if state.at.is_empty() {
+        frame % state.every == 0
+    } else {
+        state.at.contains(&frame)
+    };
+    if wanted && state.last_captured != Some(frame) {
         let path = state.dir.join(format!("frame_{frame:05}.png"));
         commands
             .spawn(Screenshot::image(target))
@@ -3058,9 +3859,11 @@ mod floors_progress_tests {
     fn state(enemies: usize, health: f32, players: &[(usize, bool)]) -> FloorsProgress {
         FloorsProgress {
             floor: 2,
+            explored: 10,
             enemies,
             enemy_health: fixed_math::new(health),
             players: players.to_vec(),
+            stock: 0,
         }
     }
 
@@ -3083,5 +3886,29 @@ mod floors_progress_tests {
         assert!(base.progressed(&next_floor));
         // Santé des ennemis qui remonte (régénération) : pas une progression
         assert!(!base.progressed(&state(2, 610.0, &[(0, false), (1, false)])));
+        // Une case jamais visitée : le joueur explore encore ; la même case revisitée n'est rien
+        let explorer = FloorsProgress {
+            explored: 11,
+            ..base.clone()
+        };
+        assert!(base.progressed(&explorer));
+        assert!(!explorer.progressed(&explorer.clone()));
+    }
+
+    /// M3-T14 : l'empreinte de l'inventaire et du solde (`stock`) compte ; à 0 des deux côtés (détecteur
+    /// d'avant), rien ne change.
+    #[test]
+    fn un_ramassage_compte_quand_le_detecteur_le_demande() {
+        let base = state(2, 600.0, &[(0, false)]);
+        let picked = FloorsProgress {
+            stock: 42,
+            ..base.clone()
+        };
+        assert!(base.progressed(&picked));
+        assert!(!picked.progressed(&picked.clone()));
+        assert!(
+            !base.progressed(&base.clone()),
+            "sans le drapeau, stock reste 0"
+        );
     }
 }

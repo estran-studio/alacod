@@ -1,0 +1,10 @@
+// Fixture M3-T5 : grid_template_size_not_multiple (gabarit du boss de 6 × 3 cases dans une grille de cases 5 × 3).
+(
+    name: "fixture-grid_template_size_not_multiple",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "maps", kind: "Map"),
+        (path: "floor_grammars", kind: "FloorGrammar"),
+    ],
+    entry: (start_map: "floor:etage", default_seed: 1),
+)

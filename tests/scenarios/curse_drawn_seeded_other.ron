@@ -1,0 +1,27 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage de curse passe par `fmix32` (D95) ; la graine 2 (désormais « darkness » à l'étage 0) devient la graine 22, la plus petite qui tire « labyrinth » à l'étage 0 puis « darkness » à l'étage 1.
+// M3-T9 (docs/conventions.md §74) : le même scénario que `curse_drawn_seeded` avec la graine 22 : un autre
+// tirage. L'étage 0 tire « labyrinth » (sans effet ici : les étages du testbed sont des cartes fixes, pas
+// une grammaire ; son effet est prouvé par `curse_bigger_floor` sur `isaac`), l'étage 1 « darkness ».
+//
+// À regarder : comme `portal_next_floor` ; moment clé « curse » f0 (labyrinth), puis au passage du
+// portail (f230) la curse de l'étage 1 (darkness) remplace celle de l'étage 0 dans la source `curses` du HUD.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("maudit"),
+    map_seed: 22,
+    frames: 300,
+    players: [
+        (inputs: [
+            (from: 0, to: 200, buttons: [Fire], pan: (-64, 48)),
+            (from: 220, to: 226, buttons: [Right, Down], pan: (0, 0)),
+        ]),
+    ],
+    expect: [
+        Curse(floor: 0, id: Some("labyrinth"), at_frame: 5),
+        HudText(source: "curses", contains: "labyrinth", at_frame: 100),
+        FloorIndex(index: 1, at_frame: 240),
+        Curse(floor: 1, id: Some("darkness"), at_frame: 240),
+        HudText(source: "curses", contains: "darkness", at_frame: 240),
+    ],
+)

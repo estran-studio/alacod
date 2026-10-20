@@ -1,0 +1,39 @@
+// M3-T5 (docs/conventions.md §70) : un étage en grille avec une salle du diable, graine 123 (séquence `sous_sol_un`). M3-T11d1 (2026-10-18, vingt gabarits, boutique
+// exigée) : le plan change et la graine 123 porte le **boss 2×2** (480 × 288 px) que portait la graine 23 : neuf salles : le départ, trois combats dont un 2×1 (rochers
+// à butin, piques), le boss 2×2 au sud-est avec la salle du diable collée à lui, un trésor 1×1, la salle secrète au nord d'un combat (et d'un autre), la **boutique**
+// (collée au grand combat). Le bot `explorateur` nettoie les trois combats, **pose la bombe de départ** contre le mur de la secrète (intégration de T14, D106) puis bat
+// le boss.
+//
+// À regarder : la bombe est posée f923 (explosion f997, mur ouvert f998) ; le boss verrouille sa grande salle (f1432), phase 1 (f1546), phase 2 (f1629), meurt (salle
+// nettoyée f1733) ; victoire f1734 ; le bot ramasse ensuite le butin du boss (`cendre_froide`, f1830) ; scénario de 2400 frames. M3-T11d2 (2026-10-18, cent objets,
+// trois ennemis dans les gabarits) : la chronologie est décalée (bombe posée f923 au lieu de f673), le butin du boss est un autre objet du pool `boss`.
+//
+// Suivi Q17 (§66) : `aim: Some(Free)` : `pleureur` vise à quatre directions, ce qui ralentit le bot (la
+// grammaire de la grille, pas la visée, est l'objet de ce scénario) ; la visée à quatre directions du bot est prouvée par
+// `generated/isaac/boss_gardien`, `generated/isaac/room_combat` et `aim_four_way*`.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 123,
+    floors: Some("sous_sol_un"),
+    frames: 2400,
+    players: [
+        (bot: explorateur, aim: Some(Free)),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(11), max: Some(11), at_frame: 5),
+        RoomLayout(kind: "boss", size: Some((480, 288)), touches: ["combat", "diable"], apart: ["depart", "tresor", "secrete"], at_frame: 5),
+        RoomLayout(kind: "diable", touches: ["boss"], apart: ["combat", "depart", "secrete", "tresor"], at_frame: 5),
+        RoomLayout(kind: "tresor", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "diable"], at_frame: 5),
+        RoomLayout(kind: "secrete", touches: ["combat"], apart: ["boss", "diable", "tresor"], at_frame: 5),
+        RoomLayout(kind: "boutique", size: Some((240, 144)), touches: ["combat"], apart: ["boss", "depart"], at_frame: 5),
+        Consumable(handle: 0, id: "bomb", count: 1, at_frame: 600),
+        Consumable(handle: 0, id: "bomb", count: 0, at_frame: 950),
+        DoorLocked(kind: "secrete", locked: false, at_frame: 1050),
+        RoomState(kind: "boss", state: Locked, at_frame: 1450),
+        BossPhase(entity: NetId(159), phase: 1, at_frame: 1550),
+        RoomState(kind: "boss", state: Cleared, at_frame: 1750),
+        RunState(step: Ended(Victory), at_frame: 1750),
+        PlayerAlive(handle: 0, at_frame: 2399),
+    ],
+)

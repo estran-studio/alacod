@@ -1,0 +1,6 @@
+// M3-T3 (docs/conventions.md §68) : pool d'essai d'une récompense de salle qui donne des sous (`Currency`, un tas
+// de 3 au sol). Désigné par `floors/sous_salle.ron` ; scénario `room_reward_coins`. Jamais de coffre, chance forcée à 1.
+(
+    entries: [(pick: Currency(3), weight: 1)],
+    reward: Some((chance: "1.0", chest_chance: "0.0")),
+)

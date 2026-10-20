@@ -1,0 +1,11 @@
+// M3-T5 (docs/conventions.md §70) : deux étages identiques de `salles_cle_floors.ldtk` (même carte, donc même
+// monde et mêmes `LevelId` : ses entités sont recréées à chaque passage), dont le trésor est de type `tresor_ferme`
+// (`door_lock: Key(1)`, `lock_from_floor: 1`). Une clé est servie au début de chaque étage (`max(stock, 1)`) :
+// la clé de l'étage 1 vient d'ici. Scénario `key_door_floors`.
+(
+    levels: [
+        "testbed/salles_cle_floors.ldtk",
+        "testbed/salles_cle_floors.ldtk",
+    ],
+    consumables_per_floor: {"key": 1},
+)

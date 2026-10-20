@@ -1,0 +1,14 @@
+// `isaac` (M3-T11d2, §76.5) : un coup reçu (`OnDamageTaken`) gèle son auteur (`ApplyStatus` pose `gel` sur la source du coup). Seuils mesurés : `gel` présent sur la cible à f190 avec l'objet, absent sans.
+(
+    name: "Rancune froide",
+    kind: Passive,
+    effects: [
+        (on: OnDamageTaken, do: [ApplyStatus(status: "gel", stacks: 1)]),
+    ],
+    tags: ["effet"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        tears: Some((weapon: Some("larmes"), frames: Some(200), targets: [(character: "cible_mordante", dx: -150, dy: -48)], expect: [HasStatus(entity: Placed(0), status: "gel", at_frame: 190)], control: [HasStatus(entity: Placed(0), status: "gel", present: false, at_frame: 190)])),
+    )),
+)

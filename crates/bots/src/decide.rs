@@ -14,6 +14,7 @@ use game::character::player::input::{
     BoxInput, INPUT_DOWN, INPUT_INTERACTION, INPUT_LEFT, INPUT_RELOAD, INPUT_RIGHT, INPUT_UP,
 };
 use game::replay::BotProfile;
+use sim_core::aim::AimMode;
 
 use crate::view::{BotView, WindowView};
 
@@ -37,6 +38,9 @@ pub(crate) const PRUDENT_MAX_DISTANCE: Fixed = Fixed::from_bits(320 << 16);
 /// Distance d'approche d'un ennemi immobile (voir [`BotView::enemy_still`]) : `prudent` ne
 /// recule pas devant lui (il ne peut pas venir au contact).
 pub(crate) const STILL_TARGET_DISTANCE: Fixed = Fixed::from_bits(120 << 16);
+/// Contournement d'un combat bloqué (`BotView::engage_strafe`) : seulement tout près de l'ennemi, là où la tangente
+/// change vraiment l'angle de tir ; plus loin, l'approche par le chemin continue.
+const STRAFE_MAX_DISTANCE: Fixed = Fixed::from_bits(60 << 16);
 
 /// `prudent` (T1.14) : approche du portail. Les boutons ne donnent que le signe de chaque
 /// axe et le corps garde son élan : en visant le portail (ou le pas suivant de la route) à
@@ -56,8 +60,77 @@ pub(crate) const PORTAL_BRAKE_DISTANCE: Fixed = Fixed::from_bits(48 << 16);
 /// sin 22,5°, direction quantifiée en 8 secteurs égaux.
 const STEER_AXIS_SHARE: Fixed = Fixed::from_bits(25080); // 0,38268 × 65536
 
-/// Décide l'input d'un joueur local piloté par un bot, pour une frame.
+/// Décide l'input d'un joueur local piloté par un bot, pour une frame. Suivi Q17 : un personnage
+/// à visée `FourWay` ([`BotView::aim`]) vise la direction que le moteur retiendra, voir
+/// [`apply_four_way`] ; `Free` (tout le contenu d'avant) : l'input du profil, inchangé.
 pub fn decide(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> BoxInput {
+    let mut input = decide_profile(profile, view, rng);
+    if view.aim == AimMode::FourWay {
+        // Combat engagé (blocage constaté, `BotView::engage_reach`) : seule la direction de tir est écrite, le bot se
+        // déplace pour changer sa ligne de tir et la file de tir ne le fige pas (graines 95, 119, 134 d'`isaac`). Réanimation
+        // tenue (`hold_revive`) : idem, le bot ne quitte pas la portée de son coéquipier pour s'aligner.
+        let holding = view.hold_revive && view.revive.is_some_and(|revive| revive.interact);
+        apply_four_way(
+            &mut input,
+            view.enemy_visible && view.enemy_shootable && view.engage_reach.is_none() && !holding,
+        );
+    }
+    input
+}
+
+/// Demi-largeur (unités monde) de la file de tir d'un personnage à visée `FourWay` : une cible dont
+/// l'écart perpendiculaire à la direction retenue dépasse cette valeur n'est pas touchée (rayon d'une
+/// larme 5 + demi-corps d'un ennemi ~10 : marge de 1).
+pub(crate) const FOUR_WAY_LANE: i16 = 14;
+
+/// Distance (sur l'axe retenu) en deçà de laquelle un bot à visée `FourWay` s'aligne sur sa cible :
+/// la portée de tir de `prudent` ([`PRUDENT_MAX_DISTANCE`]) ; au-delà, il approche comme avant.
+const FOUR_WAY_ENGAGE: i16 = 320;
+
+/// Visée `FourWay` (suivi Q17) : `pan` vaut l'écart du joueur à la cible visée (voir [`aim_at`]) ; le
+/// moteur n'en garde que la direction la plus proche parmi haut, bas, gauche, droite
+/// (`sim_core::aim::four_way`, l'horizontale l'emporte sur une diagonale parfaite). Le bot écrit cette
+/// direction dans son input (pleine inclinaison, 127), puis, cible à moins de [`FOUR_WAY_ENGAGE`] sur
+/// l'axe retenu :
+/// - hors de la file (écart perpendiculaire > [`FOUR_WAY_LANE`]) : gâchette relâchée et décalage
+///   **imposé** vers la cible sur l'axe perpendiculaire (le déplacement du profil y est remplacé), le
+///   mouvement sur l'axe de tir restant celui du profil (approche ou recul) ;
+/// - dans la file : le profil tire comme avant, sans dérive perpendiculaire (boutons de l'axe
+///   perpendiculaire relâchés) pour rester aligné.
+/// Sans visée (`pan` nul), cible lointaine ou sans ligne dégagée jusqu'à elle (`clear_line` faux : un
+/// mur, le bot suit sa route et ne doit pas être détourné) : seule la direction est écrite.
+pub(crate) fn apply_four_way(input: &mut BoxInput, clear_line: bool) {
+    let (x, y) = sim_core::aim::four_way(input.pan_x, input.pan_y);
+    if (x, y) == (0, 0) {
+        return;
+    }
+    let (off_x, off_y) = (input.pan_x, input.pan_y);
+    input.pan_x = i16::from(x) * 127;
+    input.pan_y = i16::from(y) * 127;
+    // Distance sur l'axe de tir, écart perpendiculaire et son signe.
+    let (along, perpendicular) = if x != 0 {
+        (off_x, off_y)
+    } else {
+        (off_y, off_x)
+    };
+    if !clear_line || i32::from(along).abs() > i32::from(FOUR_WAY_ENGAGE) {
+        return;
+    }
+    let (toward, away) = match (x != 0, perpendicular > 0) {
+        (true, true) => (INPUT_UP, INPUT_DOWN),
+        (true, false) => (INPUT_DOWN, INPUT_UP),
+        (false, true) => (INPUT_RIGHT, INPUT_LEFT),
+        (false, false) => (INPUT_LEFT, INPUT_RIGHT),
+    };
+    if i32::from(perpendicular).abs() > i32::from(FOUR_WAY_LANE) {
+        input.fire = false;
+        input.buttons = (input.buttons & !away) | toward;
+    } else {
+        input.buttons &= !(toward | away);
+    }
+}
+
+fn decide_profile(profile: BotProfile, view: &BotView, rng: &mut RollbackRng) -> BoxInput {
     let _ = rng; // réservé aux profils futurs (voir la doc du module)
     match profile {
         BotProfile::Immobile => BoxInput::default(),
@@ -193,11 +266,35 @@ pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
     if let Some(enemy) = view.nearest_enemy {
         aim_at(&mut input, view.position, enemy.position);
 
-        let close_in = view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE;
+        // Larmes en orbite (`satellite`) : elles ne touchent qu'à `orbit_reach` du porteur, un boss immobile à
+        // 94 unités ne perdait jamais un point de vie (graine 41 d'`isaac` sans bombe, T11b) : le bot s'approche,
+        // immobile ou non, et ne recule plus devant un ennemi qui l'approche. Même chose quand le tir stagne
+        // (`engage_reach`, larmes arrêtées par un coin de mur).
+        let reach = match (view.orbit_reach, view.engage_reach) {
+            (Some(orbit), Some(engage)) => Some(orbit.min(engage)),
+            (orbit, engage) => orbit.or(engage),
+        };
+        let close_in = match reach {
+            Some(reach) => enemy.distance > reach,
+            None => view.enemy_still && enemy.distance > STILL_TARGET_DISTANCE,
+        };
         // m1-v3-bots-softlocks : ni recul ni tir vers un ennemi caché (mode `Floors`) : le bot
         // reculait dans la roche en vidant ses chargeurs sur elle (soft-locks des graines 63,
         // 111, 139, 149 ; munitions épuisées devant le boss, graines 23, 43, 76).
-        if enemy.distance < PRUDENT_MIN_DISTANCE && !view.enemy_still && view.enemy_visible {
+        if view.engage_strafe != 0 && enemy.distance <= STRAFE_MAX_DISTANCE {
+            // Combat bloqué malgré l'approche : tourne autour de l'ennemi pour changer l'angle de tir.
+            let away = view.position - enemy.position;
+            let tangent = if view.engage_strafe > 0 {
+                FixedVec2::new(-away.y, away.x)
+            } else {
+                FixedVec2::new(away.y, -away.x)
+            };
+            set_direction_buttons(&mut input, tangent);
+        } else if reach.is_none()
+            && enemy.distance < PRUDENT_MIN_DISTANCE
+            && !view.enemy_still
+            && view.enemy_visible
+        {
             set_direction_buttons(&mut input, view.position - enemy.position); // s'éloigne
         } else if !view.enemy_visible || close_in || enemy.distance > PRUDENT_MAX_DISTANCE {
             // s'approche : par le chemin (ennemi caché, ou loin), ligne droite en repli
@@ -207,7 +304,14 @@ pub(crate) fn decide_prudent(view: &BotView) -> BoxInput {
                 // caché, la route suivie au signe faisait dépasser chaque case visée (élan) ;
                 // le bot allait et venait dans un couloir sans prendre la sortie : pilotage en
                 // vitesse, comme vers le portail.
-                Some(route) if !view.enemy_visible => steer(&mut input, route),
+                // Combat engagé et ligne dégagée : tout droit vers l'ennemi (jusqu'au contact, puis contournement) ; la
+                // route contournait un coin de mur que les larmes ne passent pas (graines 63, 95, 119 d'`isaac`).
+                Some(_) if view.enemy_visible && view.engage_reach.is_some() => {
+                    steer(&mut input, toward)
+                }
+                Some(route) if !view.enemy_visible || view.engage_reach.is_some() => {
+                    steer(&mut input, route)
+                }
                 _ => set_direction_buttons(&mut input, route_unless(false, view, toward)),
             }
         } // sinon : garde sa position (visible, dans la bande [MIN, MAX])
@@ -262,7 +366,15 @@ fn route_unless(direct: bool, view: &BotView, straight: FixedVec2) -> FixedVec2 
 fn approach_portal(input: &mut BoxInput, view: &BotView, portal: FixedVec2) {
     // La route n'existe sous `PORTAL_BRAKE_DISTANCE` que si un mur coupe la ligne droite
     // (m1-v3-bots-softlocks, `input::navigate`).
-    steer(input, view.route.unwrap_or(portal - view.position));
+    let direction = view.route.unwrap_or(portal - view.position);
+    // `explorateur` seulement (`view.explore` n'existe que pour lui) : l'élan transverse est anticipé
+    // (D82, `explorer::lead`) ; les autres profils gardent leur pilotage (leurs traces ne bougent pas).
+    let direction = if view.explore.is_some_and(|explore| explore.lead) {
+        crate::explorer::lead(direction, view.velocity)
+    } else {
+        direction
+    };
+    steer(input, direction);
 }
 
 /// Pilotage (m1-bots-apres-movement-feel, voir [`PORTAL_BRAKE_DISTANCE`]) : presse la
@@ -376,10 +488,15 @@ mod tests {
             enemy_still: false,
             enemy_shootable: true,
             revive: None,
+            engage_reach: None,
+            engage_strafe: 0,
+            hold_revive: false,
             loot: None,
             loot_interact: false,
             fire_range: None,
+            orbit_reach: None,
             explore: None,
+            aim: sim_core::aim::AimMode::Free,
         }
     }
 
@@ -698,6 +815,50 @@ mod tests {
         }
     }
 
+    /// Larmes en orbite (`orbit_reach`) : le bot s'approche d'un ennemi immobile à 94 unités (sans orbite, il garde sa
+    /// position sous `STILL_TARGET_DISTANCE`) et ne recule plus devant un ennemi mobile à 100 ; arrivé à portée de
+    /// l'orbite, il se tient.
+    #[test]
+    fn larmes_en_orbite_le_bot_s_approche() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(94.0), fx(0.0)),
+            distance: fx(94.0),
+        });
+        v.enemy_still = true;
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons,
+            0,
+            "sans orbite : il tient"
+        );
+        v.orbit_reach = Some(fx(40.0));
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_RIGHT,
+            INPUT_RIGHT,
+            "avec orbite : il s'approche"
+        );
+        v.enemy_still = false;
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(100.0), fx(0.0)),
+            distance: fx(100.0),
+        });
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons & INPUT_LEFT,
+            0,
+            "ennemi mobile : il ne recule pas"
+        );
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(30.0), fx(0.0)),
+            distance: fx(30.0),
+        });
+        v.enemy_still = true;
+        assert_eq!(
+            decide(BotProfile::Prudent, &v, &mut rng()).buttons,
+            0,
+            "à portée de l'orbite : il tient"
+        );
+    }
+
     /// m1-v3-bots-armes : à portée d'une arme au sol choisie, Interaction tenue.
     #[test]
     fn ramasser_une_arme_tient_interaction() {
@@ -934,5 +1095,135 @@ mod tests {
         let a = decide(BotProfile::Fonceur, &v, &mut rng());
         let b = decide(BotProfile::Fonceur, &v, &mut rng());
         assert_eq!(a, b);
+    }
+
+    /// Suivi Q17 : un bot à visée `FourWay` écrit la direction que le moteur retiendra, ne tire que si
+    /// la cible est dans la file, et se décale sinon.
+    #[test]
+    fn four_way_vise_la_direction_quantifiee() {
+        let target = |x: f32, y: f32| {
+            let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+            v.aim = AimMode::FourWay;
+            v.nearest_enemy = Some(EnemyView {
+                position: FixedVec2::new(fx(x), fx(y)),
+                distance: fx(x.hypot(y)),
+            });
+            v
+        };
+        // Dans la file (écart 10 ≤ 14) : pan = est plein, tir conservé, aucune dérive verticale.
+        let aligned = decide(BotProfile::Prudent, &target(200.0, 10.0), &mut rng());
+        assert_eq!((aligned.pan_x, aligned.pan_y), (127, 0));
+        assert!(aligned.fire);
+        assert_eq!(aligned.buttons & (INPUT_UP | INPUT_DOWN), 0);
+        // Hors de la file (écart 60) : même direction, gâchette relâchée, décalage vers la cible (haut).
+        let off = decide(BotProfile::Prudent, &target(200.0, 60.0), &mut rng());
+        assert_eq!((off.pan_x, off.pan_y), (127, 0));
+        assert!(!off.fire);
+        assert_ne!(off.buttons & INPUT_UP, 0, "se décale vers la cible");
+        assert_eq!(off.buttons & INPUT_DOWN, 0);
+        // Cible au sud, dominante verticale : bas, décalage horizontal vers la droite.
+        let south = decide(BotProfile::Prudent, &target(60.0, -200.0), &mut rng());
+        assert_eq!((south.pan_x, south.pan_y), (0, -127));
+        assert!(!south.fire);
+        assert_ne!(south.buttons & INPUT_RIGHT, 0);
+        // Cible lointaine (> 320 sur l'axe) : seule la direction change, le profil approche comme avant.
+        let far = decide(BotProfile::Prudent, &target(500.0, 60.0), &mut rng());
+        assert_eq!((far.pan_x, far.pan_y), (127, 0));
+        assert!(!far.fire, "hors de portée de tir");
+    }
+
+    /// `hold_revive` (`combat_aware`) : le bot qui tient une réanimation (Interaction, direction nulle) n'ajoute pas de
+    /// décalage pour s'aligner sur un ennemi hors de la file (il quitterait la portée de son coéquipier) ; sans
+    /// `hold_revive`, comme avant.
+    #[test]
+    fn four_way_ne_quitte_pas_une_reanimation_tenue() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.aim = AimMode::FourWay;
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(200.0), fx(60.0)),
+            distance: fx(208.8),
+        });
+        v.revive = Some(crate::view::ReviveView {
+            direction: FixedVec2::ZERO,
+            interact: true,
+        });
+        let before = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_ne!(
+            before.buttons & INPUT_UP,
+            0,
+            "sans hold_revive : le décalage de main"
+        );
+        v.hold_revive = true;
+        let held = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_eq!(
+            held.buttons & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT),
+            0
+        );
+        assert_eq!(
+            (held.pan_x, held.pan_y),
+            (127, 0),
+            "la direction de tir reste quantifiée"
+        );
+    }
+
+    /// `Free` : l'input du profil, au bit près (le contenu d'avant ne bouge pas).
+    #[test]
+    fn libre_ne_change_rien() {
+        let mut v = view(FixedVec2::new(fx(0.0), fx(0.0)));
+        v.nearest_enemy = Some(EnemyView {
+            position: FixedVec2::new(fx(200.0), fx(60.0)),
+            distance: fx(208.8),
+        });
+        let free = decide(BotProfile::Prudent, &v, &mut rng());
+        assert_eq!((free.pan_x, free.pan_y), (200, 60));
+        assert!(free.fire);
+    }
+
+    /// Le décalage remplace une dérive de sens contraire, la file garde le profil sans dérive, et sans
+    /// visée rien ne bouge.
+    #[test]
+    fn four_way_pilote_l_axe_perpendiculaire() {
+        let mut idle = BoxInput::default();
+        apply_four_way(&mut idle, true);
+        assert_eq!(idle, BoxInput::default());
+        // Hors file, le profil s'éloignait (bas) alors que la cible est en haut : décalage vers le haut,
+        // le mouvement sur l'axe de tir (gauche) est gardé.
+        let mut retreating = BoxInput {
+            pan_x: 200,
+            pan_y: 60,
+            fire: true,
+            buttons: INPUT_DOWN | INPUT_LEFT,
+            ..BoxInput::default()
+        };
+        apply_four_way(&mut retreating, true);
+        assert!(!retreating.fire);
+        assert_eq!(retreating.buttons, INPUT_UP | INPUT_LEFT);
+        // Dans la file, la dérive perpendiculaire du profil est retirée.
+        let mut drifting = BoxInput {
+            pan_x: 200,
+            pan_y: 5,
+            fire: true,
+            buttons: INPUT_UP | INPUT_RIGHT,
+            ..BoxInput::default()
+        };
+        apply_four_way(&mut drifting, true);
+        assert!(drifting.fire);
+        assert_eq!(drifting.buttons, INPUT_RIGHT);
+    }
+
+    /// Sans ligne dégagée (mur), le bot garde sa route : seule la direction de visée est écrite.
+    #[test]
+    fn four_way_sans_ligne_laisse_la_route() {
+        let mut input = BoxInput {
+            pan_x: 200,
+            pan_y: 60,
+            fire: true,
+            buttons: INPUT_DOWN | INPUT_LEFT,
+            ..BoxInput::default()
+        };
+        apply_four_way(&mut input, false);
+        assert_eq!((input.pan_x, input.pan_y), (127, 0));
+        assert!(input.fire);
+        assert_eq!(input.buttons, INPUT_DOWN | INPUT_LEFT);
     }
 }

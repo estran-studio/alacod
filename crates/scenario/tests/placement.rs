@@ -32,6 +32,7 @@ fn test_600() -> CharacterTest {
         expect_still: vec![],
         expect_moving: vec![],
         boss: None,
+        champions: vec![],
     }
 }
 

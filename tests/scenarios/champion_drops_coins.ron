@@ -1,0 +1,30 @@
+// M3-T3 (§68) : le butin d'un champion peut être un tas de sous. Même partie que `champion_drops` avec `elite_sous`
+// (variante `sous`, `loot: pieces`, entrée `Currency(7)`) : à sa mort le champion laisse un `ShellPickup` de 7 sous
+// (`champions::drop_loot`, tirage `champion:<net_id>`), pas un objet ; le joueur avance et le ramasse au contact.
+//
+// À regarder : le champion tombe (f54), un tas de sous apparaît (ShellPiles 1) ; le joueur avance, le tas disparaît
+// (f120) et le solde passe de 580 (500 de départ + 80 points des coups et de la mort du champion) à 587.
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 200,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "elite_sous", x: "-528", y: "248", at_frame: 1, variant: "sous"),
+    ],
+    players: [
+        (
+            inputs: [(from: 20, to: 41, buttons: [Fire], pan: (127, 0)), (from: 100, to: 116, buttons: [Right], pan: (127, 0))],
+            weapon: "larme",
+            items: [],
+        ),
+    ],
+    expect: [
+        EnemyVariant(entity: NetId(14), variant: Some("sous"), at_frame: 2),
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 100),
+        ShellPiles(count: 1, at_frame: 99),
+        Currency(handle: 0, min: 580, max: 580, at_frame: 99),
+        ShellPiles(count: 0, at_frame: 199),
+        Currency(handle: 0, min: 587, max: 587, at_frame: 199),
+    ],
+)

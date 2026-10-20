@@ -1,0 +1,20 @@
+// M3-T0b : deux tirs espacés de 10 frames sur une cible à i-frames (30 frames) ; le second est absorbé.
+// À regarder : deux balles touchent (f~16 et f~26) mais la cible n'encaisse qu'un coup (5000 -> 4992 ; sans i-frames : 4984).
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 40,
+    powerup_drop_chance_override: "0.0",
+    characters: [
+        (character: "iframes_target", x: "520.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Fire], pan: (176, 0)),
+            (from: 20, to: 21, buttons: [Fire], pan: (176, 0)),
+        ]),
+    ],
+    expect: [
+        EntityHealth(net_id: 32, min: 4992.0, max: 4992.0, at_frame: 40),
+    ],
+)

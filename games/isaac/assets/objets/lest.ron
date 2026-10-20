@@ -1,0 +1,9 @@
+// `isaac` (M3-T11d2, §76.5) : larmes lourdes : dégâts +60 % (`Damage` Pct 0,6) mais vitesse des larmes -30 % (`ShotSpeed` Pct -0,3 : 260 -> 182).
+(
+    name: "Lest",
+    kind: Passive,
+    modifiers: [(stat: Damage, op: Pct, value: "0.6"), (stat: ShotSpeed, op: Pct, value: "-0.3")],
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((frames: 60)),
+)

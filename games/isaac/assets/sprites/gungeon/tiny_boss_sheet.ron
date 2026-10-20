@@ -1,0 +1,14 @@
+// Lot C : même planche que `tiny_sheet.ron`, affichée x3,5 (56 px) pour le boss `gatling`.
+(
+    path: "sprites/gungeon/tiny_dungeon.png",
+    tile_size: (16, 16),
+    columns: 12,
+    rows: 11,
+    animated: true,
+    name: "body",
+    scale: 3.5,
+    anchor: Center,
+    offset_x: 0.0,
+    offset_y: 6.0,
+    offset_z: 1.0,
+)

@@ -5,9 +5,7 @@ use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use game::content_hot_reload::GameRoot;
 use game::{
-    args::BaseArgsPlugin,
-    core::{CoreSetupConfig, CoreSetupPlugin},
-    waves::WaveModeEnabled,
+    args::BaseArgsPlugin, core::CoreSetupPlugin, session::CoreSetupConfig, waves::WaveModeEnabled,
 };
 use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
@@ -81,6 +79,21 @@ fn main() -> AppExit {
             seed: manifest.entry.default_seed,
             settings: manifest.entry.map.clone(),
         }))
-        .insert_resource(WaveModeEnabled(wave_mode))
-        .run()
+        .insert_resource(WaveModeEnabled(wave_mode));
+    // M2-T13 : la partie démarre au hub quand le manifeste en déclare un (`entry.hub`) ; la porte
+    // lance la run (`entry.start_map`, mode `Floors` du manifeste).
+    // `ALACOD_SKIP_HUB=1` (natif, preuves p2p) : la partie démarre directement dans la run, comme
+    // `alacod-sim` et les scénarios sans champ `hub` ; les inputs enregistrés d'un scénario de
+    // bots s'y rejouent à l'identique (la graine de run d'une partie en ligne passée par le
+    // hub est dérivée de celle du hub, §33, celle d'un scénario non).
+    let skip_hub = std::env::var("ALACOD_SKIP_HUB").is_ok_and(|v| v == "1");
+    if let Some(hub) = manifest.entry.hub.as_ref().filter(|_| !skip_hub) {
+        app.insert_resource(game::hub::HubSession {
+            hub_map: hub.map.clone(),
+            run_map: manifest.entry.start_map.clone(),
+            in_hub: true,
+        });
+    }
+    // `--seed <n>` (graine de carte explicite, preuves p2p) : `map_ldtk::game::local::apply_launch_seed`.
+    app.run()
 }

@@ -1,0 +1,10 @@
+(
+    movement: (max_speed: "60.0"),
+    asset_name_ref: "satellite",
+    scale: "1.0",
+    base_health: (max: "20.0"),
+    starting_skin: "1",
+    skins: {"1": (layers: {})},
+    team: Some(Players),
+    ai: Some((behaviors: Some([Follow(gap: "28.0"), Orbit(radius: "40.0", frames_per_turn: 120), BlockBullets]))),
+)

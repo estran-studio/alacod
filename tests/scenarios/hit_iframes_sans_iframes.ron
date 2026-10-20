@@ -1,0 +1,20 @@
+// M3-T0b : témoin de `hit_iframes` : même tir, mais `iframes_temoin` n'a pas `hit_iframes`.
+// À regarder : les deux balles touchent (f~16 et f~26) et la cible encaisse deux coups (5000 -> 4984, contre 4992 avec i-frames).
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 40,
+    powerup_drop_chance_override: "0.0",
+    characters: [
+        (character: "iframes_temoin", x: "520.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: [
+            (from: 10, to: 11, buttons: [Fire], pan: (176, 0)),
+            (from: 20, to: 21, buttons: [Fire], pan: (176, 0)),
+        ]),
+    ],
+    expect: [
+        EntityHealth(net_id: 32, min: 4984.0, max: 4984.0, at_frame: 40),
+    ],
+)

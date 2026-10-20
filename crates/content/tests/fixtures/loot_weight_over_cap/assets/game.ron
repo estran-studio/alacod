@@ -1,0 +1,9 @@
+// Fixture D96 : poids de pool au-dessus de `items::MAX_LOOT_WEIGHT` (OutOfRange)
+(
+    name: "fixture-loot_weight_over_cap",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

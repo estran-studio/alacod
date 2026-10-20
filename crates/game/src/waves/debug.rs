@@ -2,15 +2,11 @@
 
 use bevy::prelude::*;
 
-use super::{WaveModeEnabled, WavePhase, WaveState};
+use super::{WaveDebugEnabled, WaveModeEnabled, WavePhase, WaveState};
 
 /// Marker component for wave debug UI text.
 #[derive(Component)]
 struct WaveDebugText;
-
-/// Resource to toggle wave debug UI visibility.
-#[derive(Resource, Default)]
-pub struct WaveDebugEnabled(pub bool);
 
 /// Sets up the wave debug UI (matches existing weapon UI style).
 fn setup_wave_debug_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -99,7 +95,6 @@ pub struct WaveDebugPlugin;
 
 impl Plugin for WaveDebugPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WaveDebugEnabled>();
         app.add_systems(Startup, setup_wave_debug_ui);
         app.add_systems(Update, (toggle_wave_debug, update_wave_debug_text));
     }

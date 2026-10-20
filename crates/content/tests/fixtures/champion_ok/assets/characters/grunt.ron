@@ -1,0 +1,15 @@
+(
+    movement: (max_speed: "60.0"),
+    asset_name_ref: "grunt",
+    scale: "1.0",
+    base_health: (max: "60.0"),
+    starting_skin: "1",
+    skins: {"1": (layers: {})},
+    ai: Some((behaviors: Some([Chase(profile: "Ground")]))),
+    variants: Some((chance: "0.2 + floor * 0.1", table: {"champion": (
+        tags: ["champion"],
+        on_death: [Explode(radius: "48.0", damage: "10.0", destroys: false), SpawnCharacters(id: "grunt", count: 2)],
+        behaviors: Some([Chase(profile: "Flying")]),
+        tint: Some("#c0392b"),
+    )})),
+)

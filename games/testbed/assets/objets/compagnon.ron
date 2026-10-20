@@ -1,0 +1,10 @@
+// M3-T0d (docs/conventions.md §63), exécuté par M3-T6 (§71) : objet d'essai qui donne un familier (le
+// personnage `compagnon`), un par exemplaire tenu. Scénarios `familiar_follow`, `familiar_mirror_shot`,
+// `familiar_two_copies`.
+(
+    name: "Compagnon",
+    kind: Passive,
+    familiar: Some((character: "compagnon", per_copy: 1)),
+    // M3-T13 (§78) : scénarios générés `item_compagnon` (ItemHeld) et `familiar_compagnon` (FamiliarHeld : `FamiliarCount` 1, coups du familier).
+    test: Some((frames: 60, familiar: Some((weapon: Some("larme"), frames: Some(120), min_hits: 8)))),
+)

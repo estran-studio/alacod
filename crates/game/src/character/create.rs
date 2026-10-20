@@ -1,34 +1,33 @@
-use animation::AnimationStateBundle;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use bevy_kira_audio::prelude::*;
 use combat::damage::Defenses;
+use sim_core::animation_state::AnimationStateBundle;
 use sim_core::modifier::Modifiers;
 use sim_core::stats::{StatId, Stats};
 use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
 
 use crate::{
-    character::{config::CharacterConfigHandles, movement::Velocity},
+    character::{
+        config::{CharacterConfigKey, CharacterConfigs},
+        movement::Velocity,
+    },
     collider::{Collider, CollisionLayer},
-    global_asset::GlobalAsset,
     weapons::melee::MeleeAttackState,
 };
 
 use bevy_ggrs::Rollback;
 
 use super::{
-    config::CharacterConfig,
+    appearance::CharacterAppearance,
     dash::DashState,
     health::{new_health, Health, HealthRegen, HitCount},
     movement::SprintState,
-    visuals::CharacterAppearance,
     Character,
 };
 
 pub fn create_character(
     commands: &mut Commands,
-    global_assets: &Res<GlobalAsset>,
-    character_asset: &Res<Assets<CharacterConfig>>,
+    character_configs: &CharacterConfigs,
 
     config_name: String,
 
@@ -56,21 +55,33 @@ pub fn create_character(
     // entre les deux.
     net_id: Option<GgrsNetId>,
 ) -> Entity {
-    let handle = global_assets.character_configs.get(&config_name).unwrap();
-    let config = character_asset.get(handle).unwrap();
-
-    let player_config_handle = global_assets
-        .character_configs
+    let config = character_configs.get(&config_name).unwrap();
+    // Clé du personnage : l'`asset_name_ref` (même entrée de `CharacterConfigs` que `config_name`
+    // pour tout contenu valide ; un contenu où elle manque faisait déjà paniquer ici).
+    character_configs
         .get(&config.asset_name_ref)
-        .unwrap()
-        .clone();
+        .expect("asset_name_ref est une clé de CharacterConfigs");
+    let config_key = CharacterConfigKey(config.asset_name_ref.clone());
 
     // BTreeMap (pas HashMap) : `AnimationStateBundle` place ces layers dans `ActiveLayers`,
     // un composant rollback dont l'ordre d'itération doit être stable entre clients.
+    // D78 : un skin demandé absent (ex. "2" du second joueur sur un personnage qui n'en a qu'un)
+    // retombe sur `starting_skin` au lieu de paniquer ; le lint le refuse pour `player`. Même
+    // contenu chez tous les pairs : le repli est le même partout.
+    let requested = skin.as_deref().unwrap_or(&config.starting_skin);
+    let chosen = if config.skins.contains_key(requested) {
+        requested
+    } else {
+        warn!(
+            "personnage « {config_name} » : skin « {requested} » absent, repli sur « {} »",
+            config.starting_skin
+        );
+        &config.starting_skin
+    };
     let starting_layers: std::collections::BTreeMap<String, String> = config
         .skins
-        .get(skin.as_deref().unwrap_or(&config.starting_skin))
-        .unwrap()
+        .get(chosen)
+        .expect("starting_skin est une clé de skins (lint)")
         .layers
         .iter()
         .map(|(k, v)| (k.clone(), v.clone()))
@@ -83,11 +94,10 @@ pub fn create_character(
     );
 
     // Entité logique uniquement : les sprites et la barre de vie sont ajoutés par
-    // la présentation à partir de CharacterAppearance (voir character::visuals).
+    // la présentation à partir de CharacterAppearance (voir character::appearance).
     let entity = commands
         .spawn((
             transform_fixed.to_bevy_transform(),
-            Visibility::default(),
             AnimationStateBundle::new(starting_layers),
             CharacterAppearance {
                 config_name: config_name.clone(),
@@ -150,7 +160,6 @@ pub fn create_character(
     // Add gameplay components to the visual entity
     commands.entity(entity).insert((
         transform_fixed,
-        SpatialAudioEmitter { instances: vec![] },
         Velocity {
             main: fixed_math::FixedVec2::ZERO,
             knockback: fixed_math::FixedVec2::ZERO,
@@ -162,9 +171,7 @@ pub fn create_character(
         health,
         collision_layer,
         Character,
-        CharacterConfigHandles {
-            config: player_config_handle.clone(),
-        },
+        config_key,
         // `Tags`/`Defenses` (T1.1, chantier B1) : composants statiques, non enregistrés en
         // rollback (même justification que `Team`, voir sa doc dans `sim_core::team`) —
         // jamais mutés en T1.1, une entité rollback détruite passe toujours par

@@ -1,0 +1,18 @@
+// `isaac` (M3-T8, §73) : pool du marché du diable (`rooms/diable.ron`), vendu en vie maximale. Épuisement
+// par run (Q5) ; quatre objets pour au plus deux étages de deux présentoirs : le pool ne repart jamais
+// complet dans la séquence par défaut. Contenu : M3-T11 ; M3-T11d2 (§76.5) y ajoute cinq objets rares (`grappe`, `acide`, `philtre` : larmes à
+// statuts ou à éclats ; `epines_de_chair` : représailles ; `grimoire` : actif à âme), poids 1 comme les quatre d'origine.
+(
+    entries: [
+        (pick: Item("pacte_rouge"), weight: 1),
+        (pick: Item("cornes_noires"), weight: 1),
+        (pick: Item("queue_fourchue"), weight: 1),
+        (pick: Item("regard_maudit"), weight: 1),
+        (pick: Item("grappe"), weight: 1),
+        (pick: Item("acide"), weight: 1),
+        (pick: Item("philtre"), weight: 1),
+        (pick: Item("epines_de_chair"), weight: 1),
+        (pick: Item("grimoire"), weight: 1),
+    ],
+    exhaust: true,
+)

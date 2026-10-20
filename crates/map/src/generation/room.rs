@@ -159,14 +159,11 @@ impl Room {
             || (position.1 > config.max_heigth || position.1 < -config.max_heigth)
     }
 
-    /// Position d'une pièce à coller sur ma prise `my_connection` par sa prise
-    /// `their_connection` : bord à bord (le bord opposé de l'autre pièce touche le mien), les
-    /// deux prises exactement en face (même emprise le long du bord, `opening_span`).
-    ///
-    /// 2026-10-17 : avant, la coordonnée perpendiculaire était `± leur taille` pour les côtés
-    /// S et E (juste seulement pour des pièces de même taille, le cas de toutes les cartes
-    /// d'alors) et le décalage le long du bord changeait de signe selon le côté (sans effet
-    /// tant que `aligned_openings` imposait un décalage nul).
+    /// Position (coin haut gauche, pixels monde, y vers le bas) d'une salle `their_level` posée contre la
+    /// connexion `my_connection` de cette salle par sa connexion `their_connection`, ouvertures
+    /// **alignées** : sur l'axe du côté partagé la salle voisine est contre le bord de *cette* salle (la
+    /// taille de la voisine compte au nord et à l'ouest, celle de cette salle au sud et à l'est), sur
+    /// l'autre axe le décalage des deux distances au coin met les deux ouvertures face à face.
     pub fn get_connecting_room_position(
         &self,
         my_connection: &Connection,
@@ -176,22 +173,20 @@ impl Room {
     ) -> Position {
         let my_position = &self.position;
         let (my_w, my_h) = self.level_def.level_size_p;
-        let (their_w, their_h) = their_level.level_size_p;
+
         let their_connection = their_level.connections.get(their_connection).unwrap();
 
-        // Le long du bord : ma prise commence à `my.start`, la leur à `their.start` (en cases
-        // depuis le coin haut-gauche de chaque pièce) ; elles coïncident si l'autre pièce est
-        // décalée de la différence.
+        // en tuiles, de mon coin à celui de la voisine, le long du côté partagé
         let offset = my_connection.starting_at as i32 - their_connection.starting_at as i32;
 
         match my_connection.side {
             Side::N => Position(
                 my_position.0 + offset * tile_size.0,
-                my_position.1 - their_h,
+                my_position.1 - their_level.level_size_p.1,
             ),
             Side::S => Position(my_position.0 + offset * tile_size.0, my_position.1 + my_h),
             Side::W => Position(
-                my_position.0 - their_w,
+                my_position.0 - their_level.level_size_p.0,
                 my_position.1 + offset * tile_size.1,
             ),
             Side::E => Position(my_position.0 + my_w, my_position.1 + offset * tile_size.1),
@@ -261,47 +256,45 @@ mod tests {
         assert!(a.is_overlapping(&a.clone()), "même place");
     }
 
-    fn level_with(w: i32, h: i32, side: Side, starting_at: usize) -> AvailableLevel {
-        let mut level = (*room(0, 0, w, h).level_def).clone();
-        level.connections = vec![Connection {
+    /// m2-salles-murs-gungeon : deux gabarits de tailles différentes se posent ouvertures face à face, bord
+    /// contre bord, dans les quatre directions (et la réciproque retombe sur la position de départ).
+    #[test]
+    fn la_voisine_se_pose_ouverture_contre_ouverture() {
+        use crate::generation::context::Connection;
+        let tile = (16, 16);
+        let conn = |side, starting_at| Connection {
             index: 0,
             size: 2,
             side,
             starting_at,
             level_id: "L".into(),
             compatiable_levels: vec![],
-        }];
-        level
-    }
-
-    /// Une pièce collée par une prise a cette prise exactement en face de la mienne, quelles
-    /// que soient les tailles et les décalages (`aligned_openings: false`).
-    #[test]
-    fn collage_bord_a_bord_prises_en_face() {
-        let tile = (16, 16);
-        for (my_side, my_start, their_side, their_start) in [
-            (Side::N, 12, Side::S, 3),
-            (Side::S, 12, Side::N, 3),
-            (Side::W, 8, Side::E, 2),
-            (Side::E, 8, Side::W, 2),
+        };
+        // A : 16 x 12 cases en (0, 0), ouverture au milieu de chaque côté ; B : 22 x 16 cases.
+        let a = room(0, 0, 256, 192);
+        let b = room(0, 0, 352, 256);
+        for (side, a_start, b_start) in [
+            (Side::E, 5, 7),
+            (Side::W, 5, 7),
+            (Side::N, 7, 10),
+            (Side::S, 7, 10),
         ] {
-            let mut me = room(100, 200, 416, 304);
-            let my_level = level_with(416, 304, my_side, my_start);
-            me.level_def = Rc::new(my_level);
-            let theirs = level_with(160, 112, their_side, their_start);
-            let my_connection = me.level_def.connections[0].clone();
-            let position = me.get_connecting_room_position(&my_connection, &theirs, 0, &tile);
-            let mut placed = room(position.0, position.1, 160, 112);
-            placed.level_def = Rc::new(theirs);
-            let (side_a, edge_a, start_a, end_a) = me.opening_span(0, &tile);
-            let (side_b, edge_b, start_b, end_b) = placed.opening_span(0, &tile);
-            assert!(side_a.is_opposite(side_b));
-            assert_eq!(
-                (edge_a, start_a, end_a),
-                (edge_b, start_b, end_b),
-                "{my_side:?}"
-            );
-            assert!(!me.is_overlapping(&placed), "{my_side:?}");
+            let mut level_b = (*b.level_def).clone();
+            level_b.connections = vec![conn(side.get_opposite(), b_start)];
+            let a_connection = conn(side, a_start);
+            let p = a.get_connecting_room_position(&a_connection, &level_b, 0, &tile);
+            // Côté partagé : bord contre bord.
+            match side {
+                Side::E => assert_eq!(p.0, 256),
+                Side::W => assert_eq!(p.0, -352),
+                Side::S => assert_eq!(p.1, 192),
+                Side::N => assert_eq!(p.1, -256),
+            }
+            // Autre axe : la première case de chaque ouverture est au même endroit du monde.
+            match side {
+                Side::E | Side::W => assert_eq!(p.1 + b_start as i32 * 16, a_start as i32 * 16),
+                Side::N | Side::S => assert_eq!(p.0 + b_start as i32 * 16, a_start as i32 * 16),
+            }
         }
     }
 }

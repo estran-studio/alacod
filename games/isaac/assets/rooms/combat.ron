@@ -1,0 +1,4 @@
+// Type de salle `combat` (docs/conventions.md §35) : se verrouille quand un joueur debout y entre et
+// qu'un ennemi y vit.
+(locks: true, test: Some((frames: 500, floors: "sous_sol", seed: 1)))
+// Scénario généré `room_combat` (un bot `explorateur` nettoie une salle de combat de l'étage).

@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : les larmes tournent autour du porteur (rayon 72, un tour en 90 frames) pendant 360 frames (`Orbit`).
+(
+    name: "Cerceau",
+    kind: Passive,
+    projectile: Some((modifiers: [Orbit(radius: "72.0", frames_per_turn: 90), Lifetime(360)])),
+    tags: ["larmes"],
+    rarity: Rare,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_halo` et son témoin, seuils mesurés : cible posée sur l'orbite de rayon 72, visée (-100, 18) : au moins 5 coups avec l'objet, 0 sans.
+        tears: Some((weapon: Some("larmes"), frames: Some(150), aim: Some((-100, 18)), targets: [(character: "cible", dx: -128, dy: -120)], hits: [(target: 1, with_item: 5)])),
+    )),
+)

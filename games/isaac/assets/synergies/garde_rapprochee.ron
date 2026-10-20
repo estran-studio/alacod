@@ -1,0 +1,6 @@
+// `isaac` (M3-T11b, docs/conventions.md §76.2) : le frère et l'orbe ensemble (deux objets du pool `tresor`) ajoutent +20 % de dégâts (modificateur `synergy:garde_rapprochee`).
+(
+    name: "Garde rapprochée",
+    requires: ["frere", "orbe"],
+    modifiers: [(stat: Damage, op: Pct, value: "0.2")],
+)

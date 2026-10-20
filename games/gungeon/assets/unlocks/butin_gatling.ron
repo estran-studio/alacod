@@ -1,0 +1,9 @@
+// M3-T10 (docs/conventions.md §75) : accordé par l'accomplissement `gatling_vaincu`, jamais acheté (le marchand du hub ne
+// le propose pas). `Loot` : une entrée de plus (le parchemin de garde, poids 3) dans les pools de coffres des deux étages.
+(
+    name: "Butin du gatling",
+    grants: [
+        Loot(table: "coffre_etage1", pick: Item("parchemin"), weight: 3),
+        Loot(table: "coffre_etage2", pick: Item("parchemin"), weight: 3),
+    ],
+)

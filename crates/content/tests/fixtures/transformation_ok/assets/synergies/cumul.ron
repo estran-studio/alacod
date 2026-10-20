@@ -1,0 +1,1 @@
+(name: "Cumul", requires: ["a", "d"], requires_tag: Some((tag: "champignon", count: 3)))

@@ -1,0 +1,10 @@
+// M3-T4 (docs/conventions.md §69) : la bombe, consommable `bomb` (nom réservé, `game::loot::BOMB_ITEM`).
+// Chaque appui sur `Bomb` d'un porteur de `BombDef` en consomme un et pose une bombe aux pieds.
+// Donné par `PlayerScript::items` ; M3-T3 (§68) : plafonné à 3 (`bomb_pickup_cap`), au-delà le
+// ramassage est refusé et la bombe reste au sol.
+(
+    name: "Bombe",
+    kind: Consumable,
+    rarity: Common,
+    max_stack: Some(3),
+)

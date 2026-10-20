@@ -1,0 +1,8 @@
+// `isaac` (M3-T11d2, §76.5) : passif de stats, un demi-cœur de plus (`MaxHealth` +1 PV), sans soin. Preuve : `item_pot_de_miel` (`Stat` résolue à f1 par `ItemHeld`).
+(
+    name: "Pot de miel",
+    kind: Passive,
+    rarity: Common,
+    modifiers: [(stat: MaxHealth, op: Add, value: "1")],
+    test: Some((frames: 60)),
+)

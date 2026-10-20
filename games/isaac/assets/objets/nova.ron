@@ -1,0 +1,13 @@
+// `isaac` (M3-T11d2, §76.5) : actif chargé par deux salles nettoyées ; à l'usage, une onde de choc autour du porteur (`Explode`, rayon 100, 10 dégâts, `destroys: false`, `friendly_fire: Never` : ni le porteur ni un coéquipier ne sont blessés, D113).
+// **Charge par salles, non par dégâts** (revue) : la charge `Damage` additionne tous les `DamageEvent` dont le porteur est la source, quelle que soit la cible (`items.rs`) : les coups de sa propre onde la rechargeaient (avec plusieurs cibles à portée, entièrement à chaque usage). Reste ouvert dans D113 (point b). **Coop** : `friendly_fire: Never`, un coéquipier à portée n'est pas touché (scénario `isaac_nova_coop`).
+// Substitution : `SpawnPattern` (couronne de balles) est refusée par le lint à `OnUse` d'un objet (D112) ; l'onde est une explosion plus large que celle de `bombe_fiole`. Preuve : scénario écrit à la main `isaac_nova`.
+(
+    name: "Nova",
+    kind: Active(Rooms(2)),
+    effects: [
+        (on: OnUse, do: [Explode(radius: "100.0", damage: "10.0", destroys: false, friendly_fire: Never)]),
+    ],
+    tags: ["actif"],
+    rarity: Rare,
+    test: Some((frames: 60)),
+)

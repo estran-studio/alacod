@@ -12,7 +12,7 @@ l’écart initial du 2026-09-28 : ne pas les lire comme l’inventaire actuel.
 | M0 / zombies | Boucle de vagues, achats, portes/fenêtres, perks, à terre/réanimation, restart | Campagnes de bots, traces P2P à 2 et 4 clients | Runs humaines sur plusieurs machines et validation du ressenti |
 | M1 / throne | Trois cavernes, destruction, armes/munitions, mutations, portail, boss, HUD | Digest : 198/200 runs à 2 bots, 200/200 à 4, sans soft-lock ni desync sur la révision mesurée | Revue humaine finale, équilibrage, nouvelles campagnes après changements de contenu |
 | M2 / gungeon | Salles et grammaires, patterns, blanks, esquives, effets, synergies, boss, props, formations, bot explorateur | Scénarios dédiés ; campagne explorateur sur une version antérieure du boss | Butin/coffres/boutique, contenu accessible, profil/hub/UI selon fiches, puis run intégrée P2P |
-| M3–M6 | Plan et contrats partiels réutilisables | Pas de validation de clone complet | Terminer les critères de M2 avant d’étendre fortement le vocabulaire |
+| M3–M5 | M3 `isaac` en fiches, contrats en cours (T0) ; M4 (1837) attend la bible ; plan et contrats partiels réutilisables | Pas de validation de clone complet | Terminer les critères de M2 avant d’étendre fortement le vocabulaire |
 
 Les réussites de bots sont des résultats fonctionnels sur une configuration donnée ; elles ne
 mesurent ni le plaisir, ni la difficulté pour un humain. « Zéro desync » en synctest n'équivaut
@@ -64,31 +64,45 @@ de projets ont ce filet. Les trois risques qui pèsent le plus sur « l'ultime e
    `FlowFieldCache::update_interval` vaut 0 par `Default` (dette **D70**, deux sorties
    chiffrées). En ligne, un rollback de 12 frames coûte cinq ticks avant toute horde. Autre
    constat du p2p réel : l'exécuteur multithread de Bevy sur les schedules du rollback coûtait
-   2,7× sur la sauvegarde (1,28 → 0,47 ms) ; `game::core::single_threaded_rollback_schedules`
+   2,7× sur la sauvegarde (1,28 → 0,47 ms) ; `game::session::single_threaded_rollback_schedules`
    les passe en monothread dans le jeu comme dans les scénarios (`ALACOD_EXECUTOR=multi` pour
    comparer).
-2. **La frontière simulation/présentation est prouvée par la compilation pour 11 crates,
-   en dette pour 5.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
+
+   **Poste VPS Debian 8 cœurs, 2026-10-17/18 (M3-T15, `rapports/m3-t15-bench-larmes.md`, pire de trois relevés peu chargés, ms par
+   frame simulée)** : bench_bullets_room 3,02 / 2,16 / 2,21, rollback 28,7 ; bench_horde 3,63 / 2,68 / 3,66, 46,6 ; four_players_idle
+   1,53 / 1,05 / 0,61, 8,4 ; **p2p_smoke 1,77 / 1,15 / 1,25, 16,2** (contre 7,06 et 85,1 sur le M4 : la dette D70 ne se voit plus) ;
+   **bench_tears (4 joueurs × 10 objets dont `Split` ×2, 432 balles, 506 entités) 4,46 / 3,57 / 4,39, rollback 56,3, snapshot 218 KiB**
+   (D97). Sur ce poste la sauvegarde et la restauration coûtent 3 à 8 fois leur valeur du M4 alors que la simulation légère n'en
+   coûte que 2 à 6 : à ce poste le coût des snapshots n'est plus négligeable devant la simulation en scénario léger (D98 : le
+   poste explique-t-il tout ?).
+   **Après D97 (dette-d97-cout-larmes, Mac M1 Pro partagé, mesures relatives A/B, médiane de 5)** : bench_tears simulation 1,94 → 0,84 ms par
+   frame, pire rollback 24,3 → 11,2 ms (−54 %), `save` 1,1 et `load` 1,0 ms inchangés, snapshot 217 KiB ; bench_horde 17,0 → 8,1 ms,
+   bench_bullets_room 13,3 → 6,0 ms (`rapports/dette-d97-cout-larmes.md`). Aucune mesure VPS d'après : projection ≈ 26 ms pour bench_tears, à confirmer.
+2. **La frontière simulation/présentation est prouvée par la compilation pour 13 crates,
+   en dette pour 2.** `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, `make check`
    et CI) : `cargo tree` du crate seul sans crate de présentation, puis `cargo check
-   --no-default-features` ECS seul (35 s). Propres : `sim_core`, `stats`, `effects`, `behaviors`,
-   `world`, `run`, `items`, `meta`, `content`, `bevy_fixed`, `utils` (journal natif, plugin web
-   et caméra de debug déménagés dans `game`). Dette **D69**, affichée sans bloquer : `combat`
-   (`animation`, loaders RON, `bevy_matchbox`, `Sprite` dans `spawn_bullet`), `animation`,
-   `map`/`map_ldtk` (`bevy_ecs_ldtk`), `game` (≈ 28 k lignes, simulation et UI/caméra/audio/
-   réseau dans le même crate). Un crate nouveau doit être classé. Sort de D69 : `FacingDirection`
-   et `PeerConfig` vers `sim_core`, visuels de balle en présentation, puis `game_sim`/`game_app`.
+   --no-default-features` ECS seul. Propres : `sim_core`, `stats`, `effects`, `behaviors`,
+   `world`, `run`, `items`, `meta`, `content`, `bevy_fixed`, `utils`, **`combat`** et **`map`**
+   (étape 1 de D69, 2026-10-18 : `combat` ne tire plus que 147 crates au lieu de 505 ;
+   `animation`, qui ne porte plus que de la présentation, est classé `APP`). Dette **D69**,
+   affichée sans bloquer : `map_ldtk` (`bevy_ecs_ldtk`, rendu) et `game` (≈ 47 k lignes,
+   simulation et UI/caméra/audio/réseau dans le même crate). Un crate nouveau doit être classé.
+   Sort de D69 : `game_sim`/`game_app` (étape 2, chiffrée dans `docs/taches/dettes.md` ; plan exécutable et fiche par étape :
+   `docs/taches/rapports/dette-d69-plan-etape2.md`, `docs/taches/dette-d69-etape2.md` ; mesure : 59 fichiers de `game` sur 114 fuient en ECS seul).
 3. **La partie en ligne n'a pas de politique de session** (dette, pas prioritaire : décision du
    2026-10-15). Une déconnexion termine la partie
    pour tout le monde (overlay et sortie du processus) alors que GGRS continue sans le pair
-   parti ; pas de spectateur (`PlayerType::Spectator` n'est jamais ajouté au builder), pas de
-   réglage de `disconnect_timeout`, flux allumette bloquant sur le thread principal avec
+   parti ; pas de spectateur (`PlayerType::Spectator` n'est jamais ajouté au builder), `disconnect_timeout` réglé à 5 s depuis D87 (2026-10-18, le défaut de GGRS
+   étant 2 s), flux allumette bloquant sur le thread principal avec
    `process::exit`. Pour une coop à 4, décider : continuer à 3, ou fin de partie ; le code fait
    aujourd'hui le choix le plus brutal par défaut.
 
 Risques de second rang : la suite de scénarios est le goulot de tout (1 à 2 h par vérification
 sur orca, 4 h sur le runner) et son coût fixe par frame domine (synctest ×2, checksum, trace,
-invariants) ; la boucle gungeon n'est pas jouable de bout en bout (D59, D62 : objets sans source,
-étage par grammaire jamais joué en p2p) ; les dettes de jouabilité zombies tranchées le 10-14
+invariants) ; la boucle gungeon n'était rejouée qu'en synctest (D59, D62 : objets sans source) ; depuis
+m2-p2p-run-complete (2026-10-16) elle l'est en p2p réel sur une machine : 2 clients de l'entrée à la victoire (f7138) puis
+restart, 4 clients jusqu'après la transition d'étage (4 500 frames, sans fin de run), transition d'étage avec rollbacks réels,
+réseau dégradé 120 ms / 20 ms / 1 %, le tout **sans le hub** pour les runs à bots (D85) ; et entre deux machines x86-64 / arm64 le 2026-10-18 (`m2-p2p-deux-machines` : traces identiques, D73 confirmée fausse alerte) ; les dettes de jouabilité zombies tranchées le 10-14
 (D28, D29) changeront les traces `test_map` ; le `rust-toolchain` nightly n'est pas épinglé par
 date (stabilité des hash entre machines, §5 du contrat de sortie).
 
@@ -108,21 +122,45 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 3. **P2P intégré.** Au moins une run complète à deux, puis quatre joueurs lorsque le clone les
    supporte, avec combat, choix/objets, boss, transitions et restart. Inclure deux machines distinctes.
    Garder des inputs actifs : le smoke de 600 frames à inputs neutres ne valide pas cette boucle.
+   *Deux machines faites le 2026-10-18* (`docs/taches/rapports/m2-p2p-deux-machines.md`, essais sur `7ee084e8`, reprise sur le commit livré au §3.4) : VPS x86-64 contre Mac arm64 (M1 Pro), signaling
+   `matchbox_server` sur le VPS (l'ancien nom `allumette.bascanada.org` ne résout plus ; le défaut du Makefile est `allumette.estran.studio`, non utilisé pour ces essais), gungeon graine 10 avec étage franchi f3502,
+   isaac avec étage franchi f2922 (inputs figés de bots, 4 500 frames, rollbacks réels des deux côtés) et 4 clients (2 par machine, étage
+   f3369, 4 000 frames) : traces identiques, 0 `DesyncDetected`. Portée : deux machines : jusqu'au franchissement d'étage ; boss, victoire et restart sur une machine seulement. Reste de ce point : la revue humaine (point 7).
 4. **Réseau dégradé.** Mesurer et documenter les conditions, puis tester retard, jitter et pertes.
    Matrice de départ proposée : RTT 60/120/200 ms, jitter 0/20 ms, pertes 0/1/3 %, séparément puis
    quelques combinaisons représentatives. Mesurer stalls, profondeur/fréquence des rollbacks et
    récupération ; les conditions hors cible peuvent ralentir, mais ne doivent pas masquer un desync.
    Les tests en mémoire couvrent le protocole et la resimulation ; ils ne remplacent pas WebRTC/NAT.
+   *Mesuré le 2026-10-17* (m2-p2p-run-complete §8, `dette-d86-lobby-en-ligne` ; 2 clients, gungeon graine 10, 4 500 frames, une exécution par condition,
+   une machine partagée ; rollback = restauration d'état (`LoadWorld`), profondeur = frames resimulées par rollback (≥ 1) ; le jeu journalise désormais « rollbacks : n=… » à la sortie) :
+
+   | Condition (charge au lancement) | Rollbacks / 100 frames (clients 0, 1) | Profondeur moyenne | médiane / p90 / max | Profondeur 1 |
+   |---|---|---|---|---|
+   | Boucle locale, sans stress (2,67) | 16,3 ; 15,7 | 1,27 ; 1,24 | 1 / 2 / 4 ; 7 | 79–82 % |
+   | netem RTT 120 ms ± 20 ms, perte 1 % (2,81) | 18,3 ; 18,7 | 4,04 ; 3,98 | 3 / 8 / 11 | 12–14 % |
+   | Stress SIGSTOP du client 1 (2,64) | 24,4 ; 1,2 | 5,14 ; 1,11 | 4 / 10 / 11 (client 0) | 7 % ; 92 % |
+
+   Profondeur maximale mesurée 11 sur neuf exécutions, jamais 12 (fenêtre de prédiction 12). Profondeur = frames resimulées = dernière frame avancée − frame restaurée (corrigée à la revue 2 : une première
+   version la déduisait des clés de trace et la surestimait). Trois exécutions par condition (rapport de la dette, §4) : médiane stable, maximum de la condition « naturelle » et fréquence sous netem variables.
+   *D87 mesurée le 2026-10-18* (rapport `m2-p2p-deux-machines` §5 ; 2 clients, gungeon graine 10, 31 essais, netem sans root, une machine partagée) :
+   la perte de paquets donne des silences du pair de 0,5 à 1 s, de 1,0 à 1,5 s et de 3,0 à 3,4 s (compatibles avec une retransmission rapide, une
+   retransmission SCTP après `RTO_MIN` = 1 s, puis une seconde ; [INFERENCE], rien n'instrumente SCTP) ; GGRS déconnectait à 2 s : à 3 % de perte par sens (RTT 120 et 200 ms) 4 essais sur 8 perdaient la session en cours de partie ; réglage
+   porté à **5 s** (`p2p::DISCONNECT_TIMEOUT`) : 1 essai sur 7 ; à 1 % de perte (RTT 120 ms) 0 perte de session sur 7 essais, tous réglages
+   confondus. Un canal non fiable n'y change rien. Pas mesurés : RTT 60 ms, jitter nul avec perte, pertes en rafale, un WAN autre que VPS ↔ Mac (RTT 27 à 41 ms, Mac derrière un NAT).
 5. **Plateformes.** Pour chaque combinaison annoncée (natif, navigateur, architectures différentes),
    comparer une même partie et ses états confirmés. Le fixed-point seul ne prouve pas la compatibilité
    des builds ni la stabilité des fonctions de hash entre plateformes/toolchains.
+   *x86-64 contre arm64 fait le 2026-10-18* (point 3 ci-dessus) : Linux x86-64 (`rustc` 1.101.0-nightly du 2026-10-17, édition de liens statique)
+   contre macOS arm64 (`rustc` 1.96.0-nightly du 2026-03-26, Bevy en bibliothèque dynamique) : mêmes traces, ligne à ligne, sur 9 parties (20 clients).
+   Natif seulement : le navigateur (wasm) n'est pas couvert.
 6. **Performance.** Sur une machine cible nommée et au calme, publier simulation, sauvegarde et
    restauration des snapshots, mémoire et coût des ticks avec resimulation. À 60 Hz, un tick dispose
    de 16,7 ms ; réserver une marge pour rejouer les frames prédites. Mesurer percentiles et pics sur
    horde, bullet hell, étage complet, explosions en chaîne et transitions. Les valeurs du harness
    headless/synctest sont des indicateurs de régression, pas une mesure directe du budget de production.
 7. **Humain.** Jouer en coop, vérifier esquive/visée, lisibilité des dangers et du HUD, progression et
-   redémarrage. Consigner les problèmes observés avant de déclarer le jalon terminé.
+   redémarrage. Consigner les problèmes observés avant de déclarer le jalon terminé. Commandes et touches
+   pour jouer à gungeon (solo, deux joueurs locaux, en ligne à deux) : [`docs/jouer.md`](jouer.md).
 
 ## Ordre recommandé après cette branche
 
@@ -135,9 +173,10 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 4. Calibrer une référence de performance reproductible, profiler le coût dominant et corriger
    selon les mesures. Ne pas relever artificiellement les seuils de `tests/budgets.ron`.
 5. Réduire progressivement les dépendances de présentation dans les modules de simulation :
-   `combat` porte encore `animation`, les loaders RON et le type d’adresse Matchbox ; `map` et
-   `utils` portent également des dépendances/features de présentation. Le headless actuel évite
-   fenêtre/GPU à l’exécution ; il ne prouve pas une compilation ECS seule ni un portage console.
+   `combat` et `map` sont maintenant des crates `SIM` (D69, étape 1) ; reste `game` (simulation et
+   présentation dans le même crate) et `map_ldtk` (D69, étape 2). Le headless actuel évite
+   fenêtre/GPU à l’exécution ; la compilation ECS seule est prouvée pour 13 crates, pas encore pour
+   `game`, donc pas encore un portage console.
 6. Faire assembler un petit jeu par une autre personne : une arme, un ennemi, un objet et une salle.
    Consigner le Rust nécessaire, les erreurs de contenu et les difficultés rencontrées.
 

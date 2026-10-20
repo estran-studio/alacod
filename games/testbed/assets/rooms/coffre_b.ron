@@ -1,0 +1,6 @@
+// M3-T8 (docs/conventions.md §73) : second type de salle d'essai, un coffre dans le même pool `epuisable` :
+// deux salles de types différents partagent un pool et l'épuisent ensemble (Q5, par pool).
+(
+    locks: false,
+    chest: Some((table: Some("epuisable"), locked: false, rarity: Common)),
+)

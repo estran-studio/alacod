@@ -1,16 +1,22 @@
+pub mod describe;
 pub mod expr;
 pub mod feedback;
 pub mod files;
 pub mod lint;
 pub mod manifest;
+mod mechanics;
 pub mod reach;
 pub mod registry;
+pub mod scaffold;
+pub mod schema;
 pub mod ui;
 pub mod value;
 
 pub use expr::{BoolExpr, Context, Expr, Kind, NumExpr, ParseError, Value};
 pub use lint::{LintError, LintErrorKind};
-pub use manifest::{ContentFolderDecl, EntryMode, EntryPoint, GameManifest, ManifestError};
+pub use manifest::{
+    ContentFolderDecl, EntryMode, EntryPoint, GameManifest, ManifestError, Mechanic,
+};
 pub use reach::{warnings, LintWarning, LintWarningKind};
 pub use registry::{
     known_content_kinds, CharacterId, EnemyId, MapId, MeleeWeaponId, PowerUpId, Registry,

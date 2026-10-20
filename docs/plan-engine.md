@@ -533,7 +533,7 @@ semaines, **XL** plus.
 
 ## 6. Découpage en jalons
 
-Chaque jalon livre un clone minimal jouable de 1 à 4 en ligne (M3 se limite à 2, comme la bible le
+Chaque jalon livre un clone minimal jouable de 1 à 4 en ligne (M4 se limite à 2, comme la bible le
 demande), ses scénarios headless verts, ses vidéos dans la page de revue, et son contenu en RON
 seulement. Les critères de sortie détaillés sont au §9.8.
 
@@ -542,25 +542,32 @@ seulement. Les critères de sortie détaillés sont au §9.8.
 | **M0** | `zombies` complet (CoD Zombies) | Le jeu est un crate et un dossier ; points, achats, perks, à terre et réanimation, power-ups ; 4 joueurs en ligne, caméra par joueur ; le déterminisme se vérifie tout seul et la CI tourne | K0, K6, A1 à A4, B1, B2, B4, B6 (à terre), B7, C5 (v1), F1 (`Waves`), F5, I3, J1, K1, K3, K4 | L |
 | **M1** | `throne` (Nuclear Throne) | Cavernes destructibles, projectiles ennemis, deux armes et cinq munitions, niveaux et mutations, portail, run seedée, horloge de difficulté | B3, B5 (v1), C1 (v1), C4 (v1), D1 (v1), D2, E3, E4 (v1), F1 (`Floors`), F2 | L |
 | **M2** | `gungeon` (Enter the Gungeon) | Étages de salles typées et verrouillées, bullet hell, roulade à i-frames, blanks, coffres, clés, boutique, objets passifs et actifs, synergies, boss à phases et arènes à tenir, hub et déblocages | B5 (v2), B6, C1 (v2), C2, C4, C5, D4, E1, E2, G1, G2, I1 (v1), I2, K2 (v1) | XL |
-| **M3** | **1837 : « La coupe »** (tranche verticale, bible §13) | Engelure et jauge de sacre, camp et poêle, 5 à 8 objets, mistigris (horde, variantes), feu follet (immunité, contres), loup-garou (parade → délivrance), 1 et 2 joueurs en ligne, sprites assetgen | A5, B5 (parade), D3, D5 (v1), E4 (neige, chaleur), E8 (v1), F2 (nuit), H1 (v1), J2, plugin `1837` | L |
-| **M4** | `isaac` (Binding of Isaac) | Effets à l'échelle (100 objets en RON), empilement de modificateurs de projectiles et par nombre d'exemplaires, familiers et orbitaux, rochers et bombes, cœurs, clés, sous, marchés du diable, curses, champions et élites | B5 (v3), C1 (v3), C3, D2 (v2), E4 (v2), F4, G1 (v2) | L |
-| **M5** | `hades` (Hades) | Capacités (attaque, spécial, cast, dash, call), bienfaits à rareté, niveaux, prérequis et duos, portes-récompenses, hub avec PNJ et barks, miroir, pacte de punition, souvenirs, armure, télégraphes, codex | B6 (v2), C1 (v4), D4 (v2), F3 (v1), F4, G2 (v2), G3, G4, H1 (v2), I2 (v2) | L |
-| **M6** | **1837 : une région, puis la campagne** | Les chantiers en entier (3 étages et la digue), carte de campagne, loge, âmes, codex, classes, Reviré, feu, marée, barques, Diable au tempo, bots à 4 pour l'équilibrage | A5, B8, D5, E5 à E7, E9, F3, G1 à G4, H2, I1 (v2), J3, K2 (v2), plugin `1837` | XL |
+| **M3** | `isaac` (Binding of Isaac) | Effets à l'échelle (100 objets en RON), empilement de modificateurs de projectiles et par nombre d'exemplaires, familiers et orbitaux, rochers et bombes, cœurs, clés, sous, marchés du diable, curses, champions et élites | B5 (v3), C1 (v3), C3, D2 (v2), E4 (v2), F4, G1 (v2) | L |
+| **M4** | **1837 : « La coupe »** (tranche verticale, bible §13) | Engelure et jauge de sacre, camp et poêle, 5 à 8 objets, mistigris (horde, variantes), feu follet (immunité, contres), loup-garou (parade → délivrance), 1 et 2 joueurs en ligne, sprites assetgen | A5, B5 (parade), D3, D5 (v1), E4 (neige, chaleur), E8 (v1), F2 (nuit), H1 (v1), J2, plugin `1837` | L |
+| **M5** | **1837 : une région, puis la campagne** | Les chantiers en entier (3 étages et la digue), carte de campagne, loge, âmes, codex, classes, Reviré, feu, marée, barques, Diable au tempo, bots à 4 pour l'équilibrage | A5, B8, D5, E5 à E7, E9, F3, G1 à G4, H2, I1 (v2), J3, K2 (v2), plugin `1837` | XL |
 
 Notes.
 
-- **M3 avant Isaac et Hadès, exprès.** La bible dit « savoir si la boucle est amusante avant de
-  produire le reste ». Après M2, tout ce que la tranche verticale demande existe, sauf la délivrance,
-  la chaleur et les barks, qui sont petits. Isaac et Hadès enrichissent ensuite le vocabulaire que M6
-  utilisera.
+- **Isaac avant 1837 (décision de William du 2026-10-15).** 1837 est encore en design initial et en
+  définition de ses mécaniques : la tranche verticale (M4) attend la bible. Les clones continuent
+  d'abord (`zombies`, `throne`, `gungeon`, puis `isaac` en M3) et enrichissent le vocabulaire que la
+  tranche et M5 utiliseront. D'autres inspirations de gameplay pourront s'ajouter : à discuter avec
+  William plus tard, pas planifiées. (Avant cette décision, la tranche de 1837 était M3 et `isaac` M4 ;
+  les branches déjà créées gardent leur nom `m4-t…`.)
+- **Hades : analysé, pas cloné (décision de William du 2026-10-15).** Aucune de ses mécaniques
+  n'est un besoin propre ; la seule retenue est le hub où l'on revient entre les runs pour débloquer
+  des éléments et partir vers le ou les mondes disponibles, déjà porté par `gungeon` (M2-T12 profil et
+  déblocages, M2-T13 hub, chantiers G1, G2) puis par la loge de 1837. Les autres (bienfaits à rareté,
+  portes-récompenses, barks, codex, pacte) restent dans les chantiers (F3, F4, G3, H1) et ne seront
+  faites que si 1837 les demande. L'ancien M5 `hades` est retiré ; la campagne de 1837 devient M5.
 - **Risk of Rain : analysé, pas cloné.** Ses mécaniques atterrissent ailleurs : l'horloge de
-  difficulté en M1 (F2), l'empilement par nombre d'exemplaires et les élites en M4 (C1, D2),
+  difficulté en M1 (F2), l'empilement par nombre d'exemplaires et les élites en M3 (C1, D2),
   l'événement « tenir la zone » en M2 (D4), les quatre joueurs en ligne avec caméra par joueur dès
   M0 (J1, I3, F5). Ses plateformes sont hors plan.
 - **Chaque clone reste petit.** Le but est le vocabulaire, pas la fidélité : dix ennemis et vingt
   objets bien choisis exercent plus de kinds qu'un catalogue.
 - **La performance se mesure dès M0** (bench de vagues à 4 joueurs) et se vérifie à chaque jalon
-  (M2 : 500 balles ; M6 : une région entière).
+  (M2 : 500 balles ; M5 : une région entière).
 
 ## 7. Décisions
 
@@ -597,6 +604,7 @@ mutation reste une dette explicite (§56 des conventions), avec son protocole d'
 | 7 | Web : cible ou vitrine | Vitrine (démos des clones) ; les cibles de perf sont natives, le web reste compilable. |
 | 8 | Format de sauvegarde | RON versionné, un profil par joueur (pubkey allumette), écrit hors simulation. |
 | 9 | Rejoindre en cours | Non pour la version 1 ; J4 seulement si la bible tranche oui (question ouverte 10). |
+| 10 | Progression en coop (hub, déblocages) | Tranché le 2026-10-15 : l'hôte décide (ses déblocages et son hub valent pour la run) ; chaque joueur gagne et écrit son propre profil ; un achat au hub prend effet au passage de la porte (M2-T12, M2-T13). La carte de campagne de 1837 suivra la même règle sauf décision contraire. |
 
 ### 7.1 L'UI : de quoi choisir
 
@@ -652,7 +660,7 @@ Recommandation :
 - **Dépendances forkées** (`bevy_ecs_ldtk`, `matchbox`, `harmonium` non porté) : chaque montée de
   Bevy coûte ; grouper les montées entre deux jalons.
 - **Contenu autochtone** : rien dans l'engine ne bloque ; les éléments concernés restent hors des
-  clones et de M3 tant que la validation des nations n'a pas eu lieu (bible §15.8).
+  clones et de M4 tant que la validation des nations n'a pas eu lieu (bible §15.8).
 
 ## 9. Tests et validation : développer avec le moins de validation humaine possible
 
@@ -718,7 +726,7 @@ Trois trous, constatés dans le code :
 | **N6 Bench** | frames/s headless, taille des snapshots, entités et balles max, sur `bench_*` | minutes | chaque commit sur `main`, seuils dans `budgets.ron` | K3 |
 | **N7 P2P réel** | 2 puis 4 clients headless par allumette en local (docker compose), même scénario, `diff_log` identique ; déconnexion ; délai d'input | minutes | chaque nuit, avant jalon | `test_multiplayer` étendu |
 | **N8 Captures et vidéos** | vidéos des scénarios et d'un échantillon de parties bots, avant/après, captures des écrans d'UI comparées à des références | minutes | chaque commit sur `main` | `make videos`, page de revue |
-| **N9 Humain** | jouer le clone ; le fun (M3), la direction artistique, la lisibilité sans texte | heures | sorties de jalon | page de revue, notes |
+| **N9 Humain** | jouer le clone ; le fun (M4), la direction artistique, la lisibilité sans texte | heures | sorties de jalon | page de revue, notes |
 
 ### 9.4 Ce qu'on teste, chantier par chantier
 
@@ -807,7 +815,7 @@ entre deux bornes) ; la page de revue affiche l'évolution par commit.
 | Moment | Ce qu'il regarde | Ce qu'il en sort |
 |---|---|---|
 | Sortie de jalon | joue le clone trente minutes ; regarde le montage des scénarios et un échantillon de parties bots | notes sur la page de revue → attentes, invariants ou scénarios (principe 5) ; go ou pas |
-| Tranche verticale de 1837 (M3) | les cinq critères de réussite de la bible §13, en jouant à deux | décisions de design |
+| Tranche verticale de 1837 (M4) | les cinq critères de réussite de la bible §13, en jouant à deux | décisions de design |
 | Décisions (§7) | les options écrites par l'agent | une réponse |
 | Direction artistique, son, lisibilité sans texte | vidéos et captures | notes |
 | Chaque semaine | un digest écrit par l'agent : ce qui a bougé, les métriques, les vidéos à voir (liens vers la page de revue) | dix minutes |
@@ -820,6 +828,9 @@ le serveur de revue) que l'agent lit et ferme note par note.
 synctest à 2 et à 4 ; les bots finissent le clone sur 200 graines sans softlock ni desync ; bench
 dans les budgets ; vidéos publiées ; doc des conventions à jour ; les notes du jalon précédent
 fermées.
+
+Critères propres à M3 (`isaac` : empilement prouvé, `isaac_full_run`, campagnes, bench de larmes, p2p à
+inputs actifs) : `docs/taches.md` §8.1 (proposition du 2026-10-15, à valider par William).
 
 ### 9.9 La CI (K6)
 

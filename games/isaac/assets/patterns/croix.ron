@@ -1,0 +1,8 @@
+// `isaac` (M3-T11c, §76.3) : télégraphe de 30 frames puis deux couronnes de quatre boules lentes, la seconde 25
+// frames après la première (`Ring` à `every: 0`) ; `tourelle_croix`.
+Sequence([
+    Telegraph(30),
+    Ring(count: 4, speed: "70.0", projectile: "boule", every: 0),
+    Wait(25),
+    Ring(count: 4, speed: "70.0", projectile: "boule", every: 0),
+])

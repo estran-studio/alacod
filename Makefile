@@ -133,7 +133,17 @@ perf_review:
 	@test -n "$(PERF_BASELINE)" || { echo 'PERF_BASELINE=<mesures de référence.json> est requis'; exit 2; }
 	python3 scripts/perf-review.py --current "$(PERF_CURRENT)" --baseline "$(PERF_BASELINE)" --max-regression "$(PERF_MAX_REGRESSION)" $(foreach scenario,$(PERF_SCENARIOS),--scenario "$(scenario)") $(if $(PERF_MIN_SIM_FPS),--min-sim-fps "$(PERF_MIN_SIM_FPS)") $(if $(PERF_MAX_ROLLBACK_MS),--max-rollback-ms "$(PERF_MAX_ROLLBACK_MS)")
 
-.PHONY: test_crates test_tools perf_review sweep
+# Rapport de temps des étages en grille contre gungeon (D117) : chronométré, donc hors de `test_crates` ;
+# à lancer sur une machine au repos (la garde déterministe, elle, est dans `test_crates`).
+perf_generation:
+	cargo test -q -p map_ldtk --profile headless --no-default-features --lib $(DEV_FEATURES) -- --ignored --nocapture isaac_grille_de_12_a_15_salles_sous_trois_fois
+
+# `alacod test` de bout en bout (crée un jeu hors de l'engine, joue ses scénarios générés) :
+# compile l'engine en profil headless, d'où `#[ignore]` hors de test_crates.
+test_alacod_cli:
+	cargo test -p content --test cli --profile headless -- --ignored --nocapture
+
+.PHONY: test_crates test_tools test_alacod_cli perf_review perf_generation sweep
 
 # Purge du target (scripts/target-sweep.sh) : incremental/ et générations périmées des crates du
 # workspace. À lancer entre deux commandes cargo. SWEEP=1 sur test_scenarios la lance à la fin.
@@ -155,6 +165,18 @@ check_rollback_registration:
 check_sim_boundary:
 	./scripts/check-sim-boundary.sh
 
+# Outils de l'étape 2 de D69 (`docs/taches/dette-d69-etape2.md`), sans effet sur le dépôt :
+# `probe_game_sim` compile `game` en ECS seul dans une copie jetable et range les fuites par fichier ;
+# `schedule_order_diff` prouve que l'ordre des systèmes et des types rollback n'a pas bougé par
+# rapport à BASE (défaut origin/main).
+probe_game_sim:
+	./scripts/probe-game-sim.py $(ARGS) $(if $(SIM_LIST),--sim-list $(SIM_LIST))
+
+schedule_order_diff:
+	./scripts/schedule-order-diff.sh $(BASE)
+
+.PHONY: check_sim_boundary probe_game_sim schedule_order_diff
+
 # Lint du contenu (crates/content, T1.5) : références cassées, ids dupliqués, valeurs hors
 # plage, kinds inconnus, littéraux nus dans des champs Fixed. Sans lancer le moteur.
 # Code de sortie 1 (messages sur stderr) si un des jeux a une erreur.
@@ -167,6 +189,8 @@ lint:
 	cargo run -q -p content --bin alacod --profile headless -- lint games/throne
 	@echo "alacod lint games/gungeon"
 	cargo run -q -p content --bin alacod --profile headless -- lint games/gungeon
+	@echo "alacod lint games/isaac"
+	cargo run -q -p content --bin alacod --profile headless -- lint games/isaac
 
 .PHONY: lint
 
@@ -298,7 +322,7 @@ character_tester:
 character_tester_matchbox:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
-# Lance un jeu du dossier games/ en local (un joueur) : make zombies / testbed / throne / gungeon
+# Lance un jeu du dossier games/ en local (un joueur) : make zombies / testbed / throne / gungeon / isaac
 zombies:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
@@ -311,11 +335,17 @@ throne:
 gungeon:
 	APP_VERSION=$(VERSION) cargo run -p gungeon $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
+isaac:
+	APP_VERSION=$(VERSION) cargo run -p isaac $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
+
 ldtk_map_explorer:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 ldtk_map_explorer_matchbox:
 	APP_VERSION=$(VERSION) cargo run -p zombies $(ARGS) --features native $(DEV_FEATURES) -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
+
+gungeon_matchbox:
+	APP_VERSION=$(VERSION) cargo run -p gungeon $(ARGS) --features native $(DEV_FEATURES) -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
 
 host_website:
 	cd website && APP_VERSION=$(VERSION) npm run dev

@@ -7,6 +7,7 @@ edition = "2021"
 bevy = { version = "0.19.1", default-features = false }
 bevy_ecs_ldtk = { version = "0.15", default-features = false, features = ["derive", "internal_levels"] }
 bevy_ggrs = { version = "0.22.0", optional = true }
+bevy_ecs_tilemap = { version = "0.19.0", default-features = false, optional = true }
 
 bevy_fixed = { path = "../bevy_fixed"}
 map = { path = "../map"}
@@ -18,6 +19,7 @@ sim_core = { path = "../sim_core", optional = true }
 utils = { path = "../utils"}
 world = { path = "../world" }
 items = { path = "../items", optional = true }
+meta = { path = "../meta", optional = true }
 behaviors = { path = "../behaviors", optional = true }
 
 serde = { version = "1.0", features = ["derive"] }
@@ -34,17 +36,19 @@ default = ["runtime"]
 runtime = [
     "bevy/default",
     "dep:bevy_ggrs",
+    "dep:bevy_ecs_tilemap",
     "dep:game",
     "dep:content",
     "dep:run",
     "dep:combat",
     "dep:sim_core",
     "dep:items",
+    "dep:meta",
     "dep:behaviors",
 ]
 cli = ["dep:clap", "dep:content"]
 debug_ui = ["runtime", "dep:bevy-inspector-egui"]
-render = ["runtime", "map/render", "bevy_ecs_ldtk/render"]
+render = ["runtime", "bevy_ecs_ldtk/render"]
 
 [[bin]]
 name = "alacod-map"

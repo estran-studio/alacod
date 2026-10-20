@@ -1,0 +1,16 @@
+// `isaac` (M3-T11d2, §76.5) : une larme sur cinq étourdit sa cible (20 % de chance, +5 % par point de `Luck`, statut `etourdi` : 60 frames sans bouger ni tirer).
+(
+    name: "Massue",
+    kind: Passive,
+    projectile: Some((on_hit: [Chance(base: "0.2", per_luck: "0.05", then: ApplyStatus(status: "etourdi", stacks: 1))])),
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : `tears_massue` et son témoin `tears_massue_sans_objet`, seuils mesurés : 300 frames : la cible posée est étourdie à f300 (20 % de chance, témoin : aucun statut).
+        // Fusion de better-assets (2026-10-19) : les chances d'`on_hit` sont tirées par net id de larme ; quatre
+        // entités de moins à f0 (prises murées sans porte) déplacent les tirages : le statut est lu f130 (posé
+        // pendant la rafale) au lieu de f300.
+        tears: Some((weapon: Some("larmes"), frames: Some(300), targets: [(character: "cible", dx: -48, dy: -18)], expect: [HasStatus(entity: Placed(0), status: "etourdi", at_frame: 130)], control: [HasStatus(entity: Placed(0), status: "etourdi", present: false, at_frame: 130)])),
+    )),
+)

@@ -1,0 +1,54 @@
+// Généré par `alacod-gen`, ne pas éditer à la main (crates/scenario/src/generate.rs).
+// Gabarit RoomClear (M2-T17, §54) : un bot `explorateur` joue un étage qui contient
+// une salle « arene » ; aucun input scripté.
+#![enable(implicit_some)]
+Scenario(
+    game: "gungeon",
+    map: "maps/etage_1.ldtk",
+    map_seed: 1,
+    frames: 1000,
+    players: [
+        PlayerScript(
+            inputs: [],
+            bot: explorateur,
+        ),
+    ],
+    expect: [
+        Event(
+            kind: "room",
+            label_contains: "salle arene verrouillée",
+            by_frame: 1000,
+        ),
+        Event(
+            kind: "room",
+            label_contains: "salle arene nettoyée",
+            by_frame: 1000,
+        ),
+        PlayerAlive(
+            handle: 0,
+            at_frame: 999,
+        ),
+    ],
+    explorer: ExplorerPolicy(
+        shopping: false,
+        shop: Nearest,
+        detour: Detour(
+            shells: None,
+            optional: 600,
+            last_stretch: 200,
+        ),
+        lead: true,
+        weapon_reserve: true,
+        devil: Never,
+        bombs: BombPolicy(
+            secret: false,
+            secret_min_neighbours: 2,
+            rocks: false,
+            reserve: 0,
+        ),
+        oscillation: Patience,
+        combat_aware: false,
+    ),
+    powerup_drop_chance_override: "0",
+    floors: "etages_court_arene",
+)

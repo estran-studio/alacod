@@ -73,6 +73,14 @@ def load_events(path):
         return []
 
 
+def load_legend(path):
+    """Secondes d'image de légende en tête de la vidéo (`scenario-video`), 0 sans fichier."""
+    try:
+        return float(path.read_text().strip())
+    except (OSError, ValueError):
+        return 0.0
+
+
 def commit_info(dirname):
     sha = dirname.removesuffix("-dirty")
     subject = git("log", "-1", "--format=%s", sha)
@@ -114,7 +122,8 @@ def main():
             "metrics": metrics_data,
             "sim": sim_data,
             "videos": [
-                {"name": v, **scenario_info(v), "events": load_events(d / f"{v}.events.json")}
+                {"name": v, **scenario_info(v), "events": load_events(d / f"{v}.events.json"),
+                 "legend": load_legend(d / f"{v}.legend")}
                 for v in videos
             ],
         })

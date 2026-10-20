@@ -1,0 +1,22 @@
+// M3-T8 (docs/conventions.md §73) : témoin de `devil_room_chance`. Graine 5 (séquence `sous_sol_un`) : la chance
+// de la grammaire ne donne pas de salle post-boss ; aucun présentoir, rien de tiré dans le pool `diable`. Le
+// trésor et le boss, eux, ont toujours tiré leur objet.
+//
+// M3-T11d1 : la boutique (exigée par la grammaire) pose ses trois présentoirs ; aucun du diable.
+//
+// À regarder : rien ne bouge ; f10 trois présentoirs (la boutique), aucun du diable.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    map_seed: 5,
+    floors: Some("sous_sol_un"),
+    frames: 40,
+    players: [(inputs: [])],
+    expect: [
+        ShelfCount(count: 3, at_frame: 10),
+        PoolCount(pool: "diable", count: 0, at_frame: 10),
+        PoolCount(pool: "boutique", count: 3, at_frame: 10),
+        PoolCount(pool: "tresor", count: 1, at_frame: 10),
+        PoolCount(pool: "boss", count: 1, at_frame: 10),
+    ],
+)

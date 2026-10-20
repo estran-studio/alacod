@@ -1,0 +1,182 @@
+[
+  {
+    "frame": 0,
+    "kind": "player",
+    "label": "joueur 0 apparaît"
+  },
+  {
+    "frame": 0,
+    "kind": "weapon",
+    "label": "joueur 0 : chargeur vide (larme)"
+  },
+  {
+    "frame": 26,
+    "kind": "feedback",
+    "label": "larme 20 (poison)"
+  },
+  {
+    "frame": 46,
+    "kind": "feedback",
+    "label": "larme 21 (poison)"
+  },
+  {
+    "frame": 66,
+    "kind": "feedback",
+    "label": "larme 22 (poison)"
+  },
+  {
+    "frame": 72,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 72,
+    "kind": "feedback",
+    "label": "hit stop 14 (2 frames)"
+  },
+  {
+    "frame": 86,
+    "kind": "feedback",
+    "label": "larme 23 (poison)"
+  },
+  {
+    "frame": 92,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 92,
+    "kind": "feedback",
+    "label": "hit stop 15 (2 frames)"
+  },
+  {
+    "frame": 102,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 102,
+    "kind": "feedback",
+    "label": "hit stop 14 (2 frames)"
+  },
+  {
+    "frame": 106,
+    "kind": "feedback",
+    "label": "larme 24 (poison)"
+  },
+  {
+    "frame": 112,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 112,
+    "kind": "feedback",
+    "label": "hit stop 16 (2 frames)"
+  },
+  {
+    "frame": 122,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 122,
+    "kind": "feedback",
+    "label": "hit stop 15 (2 frames)"
+  },
+  {
+    "frame": 126,
+    "kind": "feedback",
+    "label": "larme 25 (poison)"
+  },
+  {
+    "frame": 132,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 132,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 132,
+    "kind": "feedback",
+    "label": "hit stop 17 (2 frames)"
+  },
+  {
+    "frame": 142,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 142,
+    "kind": "feedback",
+    "label": "hit stop 16 (2 frames)"
+  },
+  {
+    "frame": 152,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 152,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 152,
+    "kind": "feedback",
+    "label": "hit stop 18 (2 frames)"
+  },
+  {
+    "frame": 162,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 162,
+    "kind": "feedback",
+    "label": "hit stop 14 (2 frames)"
+  },
+  {
+    "frame": 172,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 172,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 172,
+    "kind": "feedback",
+    "label": "hit stop 19 (2 frames)"
+  },
+  {
+    "frame": 182,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 182,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 182,
+    "kind": "feedback",
+    "label": "hit stop 15 (2 frames)"
+  },
+  {
+    "frame": 192,
+    "kind": "points",
+    "label": "joueur 0 gagne 10 points (hit)"
+  },
+  {
+    "frame": 192,
+    "kind": "feedback",
+    "label": "hit stop 14 (2 frames)"
+  }
+]

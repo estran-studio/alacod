@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 
 use super::model::{ListItem, ScreenId, ScreenView, Section};
 use super::Screens;
-use crate::core::AppState;
+use crate::session::AppState;
 
 const ROW_TEMPLATE: &str = "ui/hui_row.html";
 const TEXT: &str = "#ffffff";
@@ -52,6 +52,7 @@ impl Plugin for HuiScreensPlugin {
 struct HuiHandles {
     pause: Option<Handle<HtmlTemplate>>,
     inventory: Option<Handle<HtmlTemplate>>,
+    merchant: Option<Handle<HtmlTemplate>>,
     row: Option<Handle<HtmlTemplate>>,
 }
 
@@ -77,8 +78,10 @@ fn load_templates(
     };
     handles.pause = load(ScreenId::Pause);
     handles.inventory = load(ScreenId::Inventory);
-    handles.row = (handles.pause.is_some() || handles.inventory.is_some())
-        .then(|| asset_server.load::<HtmlTemplate>(ROW_TEMPLATE));
+    handles.merchant = load(ScreenId::Merchant);
+    handles.row =
+        (handles.pause.is_some() || handles.inventory.is_some() || handles.merchant.is_some())
+            .then(|| asset_server.load::<HtmlTemplate>(ROW_TEMPLATE));
 }
 
 /// Racine d'un écran `bevy_hui` ; `shown` : la vue qui a servi aux propriétés.
@@ -178,6 +181,7 @@ fn sync_screen(
             let template = match view.screen {
                 ScreenId::Pause => &handles.pause,
                 ScreenId::Inventory => &handles.inventory,
+                ScreenId::Merchant => &handles.merchant,
             };
             let Some(template) = template.clone() else {
                 return;
@@ -283,10 +287,12 @@ mod tests {
             pause: Some(server.load("ui/pause_screen.html")),
             inventory: Some(server.load("ui/inventory_screen.html")),
             row: Some(server.load("ui/hui_row.html")),
+            ..Default::default()
         });
         app.insert_resource(Screens {
             state: ScreensState::default(),
             view: Some(view),
+            ..Default::default()
         });
         app.add_systems(Update, sync_screen.before(bevy_hui::HuiSystems::Build));
         app
@@ -399,10 +405,12 @@ mod tests {
             pause: Some(server.load("ui/pause_screen.html")),
             inventory: None,
             row: Some(server.load("ui/hui_row.html")),
+            ..Default::default()
         });
         app.insert_resource(Screens {
             state: ScreensState::default(),
             view: Some(pause_view(&ScreensState::default())),
+            ..Default::default()
         });
         app.add_systems(Update, sync_screen.before(bevy_hui::HuiSystems::Build));
         wait_for(&mut app, "> Reprendre");

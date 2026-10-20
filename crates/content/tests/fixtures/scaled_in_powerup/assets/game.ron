@@ -1,0 +1,8 @@
+// Fixture M3-T0b : `Scaled` refusé dans un power-up (réservé aux effets d'objet)
+(
+    name: "fixture-scaled_in_powerup",
+    content_folders: [
+        (path: "items", kind: "PowerUp"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

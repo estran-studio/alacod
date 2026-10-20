@@ -33,6 +33,10 @@
         "1": (layers: {"body": "", "shadow": ""}),
     },
 
+    // D66 (présentation seule) : sprite de zombie provisoire, la tourelle se lit à sa teinte
+    // métallique bleutée et à sa taille (aucun asset nouveau).
+    marker: Some((tint: Some((0.55, 0.75, 1.0)), scale: Some(1.25))),
+
     ai: Some((
         aggro_range: Some("400.0"),
         attack_range: Some("0.0"),

@@ -1,0 +1,98 @@
+// D3 : table des feuilles de sprites (kind `SpriteSheet` de `game.ron`, chargée par
+// `content::registry::load_sprite_sheets`, lue par `game::global_asset`). Un id par entrée :
+// le `asset_name_ref` d'un personnage, le `sprite_config.name` d'une arme à distance, ou
+// `slash` (effet de coup de mêlée). `animation` : configuration d'animation
+// (`AnimationMapConfig`) ; `layers` : calque -> feuille (`SpriteSheetConfig`). Chemins relatifs
+// à `assets/`. Feuilles et images rangées par entité sous `sprites/` (characters/, weapons/,
+// enemies/, effects/) ; voir `docs/conventions.md` §2.
+({
+    // `isaac` (M3-T0f) : placeholders, mêmes tuiles Tiny Dungeon (Kenney, CC0) que `gungeon`.
+    // Lot C (docs/plan-assets.md) : héros, ennemis, boss et objets du monde de `gungeon` viennent du pack
+    // Tiny Dungeon de Kenney (CC0, `sprites/gungeon/`) ; l'image est choisie par l'animation (une case).
+    "player": (
+        animation: "sprites/gungeon/anim_player.ron",
+        layers: {
+            "body": "sprites/gungeon/tiny_sheet.ron",
+            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
+        },
+    ),
+    "cible": (
+        animation: "sprites/gungeon/anim_cible.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    // M3-T11a (§76.1) : cible fragile du laboratoire (`characters/cible_fragile.ron`), même visuel que `cible`.
+    "cible_fragile": (
+        animation: "sprites/gungeon/anim_cible.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "suiveur": (
+        animation: "sprites/gungeon/anim_bullet_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "mouche": (
+        animation: "sprites/gungeon/anim_fuyard_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    // M3-T11c (§76.3) : ennemis, mêmes silhouettes Kenney que `gungeon` (une par famille : charge, tireur, tourelle,
+    // volant, fantôme).
+    "rampant": (
+        animation: "sprites/gungeon/anim_bandana_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "spectre": (
+        animation: "sprites/gungeon/anim_bullet_kin_squad.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "cracheur": (
+        animation: "sprites/gungeon/anim_veteran_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "tourelle_croix": (
+        animation: "sprites/gungeon/anim_tourelle_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "bourdon": (
+        animation: "sprites/gungeon/anim_lanceur_kin.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "gardien": (
+        animation: "sprites/gungeon/anim_gatling.ron",
+        layers: { "body": "sprites/gungeon/tiny_boss_sheet.ron" },
+    ),
+    // M3-T11d2 (§76.5) : trois ennemis (tuiles 122, 121, 123 de Tiny Dungeon, Kenney CC0) et le second boss (tuile 109, x3,5), une silhouette chacun.
+    "araignee": (
+        animation: "sprites/gungeon/anim_araignee.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "follet": (
+        animation: "sprites/gungeon/anim_follet.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "arroseur": (
+        animation: "sprites/gungeon/anim_arroseur.ron",
+        layers: { "body": "sprites/gungeon/tiny_sheet.ron" },
+    ),
+    "colosse": (
+        animation: "sprites/gungeon/anim_colosse.ron",
+        layers: { "body": "sprites/gungeon/tiny_boss_sheet.ron" },
+    ),
+    // M3-T11a (§76.1, langage visuel de M3-T17, §82) : halo blanc des larmes, teinté au rendu par statut, guidage,
+    // opacité (spectrale) et taille (division, perforation) ; remplace les anneaux Kenney de `gungeon` (bullet_*.png
+    // restent copiés, `assets.yaml`).
+    "bullet_player": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/tear_sheet.ron" },
+    ),
+    "bullet_enemy": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/tear_sheet.ron" },
+    ),
+    "pistol": (
+        animation: "sprites/characters/player/player_animation.ron",
+        layers: { "body": "sprites/weapons/pistol_sheet.ron" },
+    ),
+    "slash": (
+        animation: "sprites/effects/slash/slash_animation.ron",
+        layers: { "body": "sprites/effects/slash/slash_sheet.ron" },
+    ),
+})

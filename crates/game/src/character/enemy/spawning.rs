@@ -6,10 +6,9 @@ use map::game::entity::map::{
 use sim_core::team::Team;
 
 use crate::{
-    character::{config::CharacterConfig, player::Player},
+    character::{config::CharacterConfigs, player::Player},
     collider::CollisionSettings,
-    global_asset::GlobalAsset,
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::WeaponRegistry,
 };
 use utils::{
     frame::FrameCount,
@@ -56,16 +55,16 @@ pub fn enemy_spawn_from_spawners_system(
     room_query: Query<(&RoomBounds, &LevelId)>,
     enemy_query: Query<&fixed_math::FixedTransform3D, With<Enemy>>,
     player_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D), With<Player>>,
-    global_assets: Res<GlobalAsset>,
     collision_settings: Res<CollisionSettings>,
-    weapons_asset: Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: Res<Assets<MeleeWeaponsConfig>>,
-    characters_asset: Res<Assets<CharacterConfig>>,
+    weapon_registry: Res<WeaponRegistry>,
+    character_configs: Res<CharacterConfigs>,
     balance: Res<crate::balance::ResolvedBalance>,
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
     // T1.9 : difficulté (santé × difficulté ; 1 sans difficulté activée).
     difficulty: crate::clock::DifficultyReader,
+    // M3-T7 : étage courant (contexte de `chance` des variantes)
+    floor: Option<Res<run::FloorState>>,
 ) {
     // --- Step 0: Decrement cooldowns for all spawners first (deterministic order) ---
     // This ensures cooldowns are always decremented, even if spawner isn't selected
@@ -323,10 +322,8 @@ pub fn enemy_spawn_from_spawners_system(
             enemy_type_name,
             final_spawn_pos,
             &mut commands,
-            &weapons_asset,
-            &melee_weapons_asset,
-            &characters_asset,
-            &global_assets,
+            &weapon_registry,
+            &character_configs,
             &collision_settings,
             &mut id_factory,
             Team::Enemies,
@@ -334,6 +331,7 @@ pub fn enemy_spawn_from_spawners_system(
             // Graine de run (T1.5 : tirage des variantes), lue sans toucher aux flux.
             rng_streams.run_seed,
             None,
+            difficulty.variant_context_at(floor.as_deref().map_or(0, |floor| floor.index)),
         );
 
         state.cooldown_remaining = config.max_cooldown;

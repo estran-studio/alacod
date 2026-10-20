@@ -1,29 +1,5 @@
 [
   {
-    "path": "crates/combat/src/weapons/melee.rs",
-    "code": "platform::collections::HashMap,",
-    "count": 1,
-    "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
-  },
-  {
-    "path": "crates/combat/src/weapons/melee.rs",
-    "code": "pub struct MeleeWeaponsConfig(pub HashMap<String, MeleeWeaponAsset>);",
-    "count": 1,
-    "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
-  },
-  {
-    "path": "crates/combat/src/weapons/mod.rs",
-    "code": "platform::collections::HashMap,",
-    "count": 1,
-    "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
-  },
-  {
-    "path": "crates/combat/src/weapons/mod.rs",
-    "code": "pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);",
-    "count": 1,
-    "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
-  },
-  {
     "path": "crates/game/src/balance.rs",
     "code": "pub enemy_probabilities: HashMap<String, u32>,",
     "count": 1,
@@ -49,7 +25,7 @@
   },
   {
     "path": "crates/game/src/character/config.rs",
-    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*, reflect::TypePath};",
+    "code": "use bevy::{platform::collections::hash_map::HashMap, prelude::*};",
     "count": 1,
     "reason": "Configuration des calques/skins ; calques convertis en BTreeMap à la création du personnage."
   },
@@ -97,7 +73,7 @@
   },
   {
     "path": "crates/game/src/global_asset.rs",
-    "code": "pub character_configs: HashMap<String, Handle<CharacterConfig>>,",
+    "code": "pub character_configs: HashMap<String, Handle<CharacterConfigAsset>>,",
     "count": 1,
     "reason": "Handles Bevy de présentation et chargement ; accès par id, ordre de spawn explicite ailleurs."
   },
@@ -151,9 +127,33 @@
   },
   {
     "path": "crates/game/src/waves/config.rs",
-    "code": "use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath};",
+    "code": "use bevy::platform::collections::HashMap;",
     "count": 1,
     "reason": "Configuration des probabilités ; les candidats sont triés avant consommation du RNG."
+  },
+  {
+    "path": "crates/game/src/weapon_assets.rs",
+    "code": "use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath};",
+    "count": 1,
+    "reason": "Enveloppes d'asset des tables d'armes (D69, E3b, côté application) : copiées dans le registre `BTreeMap` de simulation ; aucun ordre de simulation dérivé de ces collections."
+  },
+  {
+    "path": "crates/game/src/weapon_assets.rs",
+    "code": "pub struct MeleeWeaponsConfig(pub HashMap<String, MeleeWeaponAsset>);",
+    "count": 1,
+    "reason": "Assets de mêlée consultés par id, aucun ordre de simulation dérivé de cette collection."
+  },
+  {
+    "path": "crates/game/src/weapon_assets.rs",
+    "code": "pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);",
+    "count": 1,
+    "reason": "WeaponsConfig : assets consultés par id ; ordre explicite aux sites de création des armes."
+  },
+  {
+    "path": "crates/game/src/weapon_assets.rs",
+    "code": "fn copy_table<T: Clone>(from: &HashMap<String, T>, into: &mut BTreeMap<String, T>) {",
+    "count": 1,
+    "reason": "Copie de l'enveloppe d'asset dans le registre `BTreeMap` (`WeaponRegistry`) : l'ordre d'itération du `HashMap` est sans effet, la cible est triée."
   },
   {
     "path": "crates/map/src/generation/floor.rs",
@@ -186,18 +186,6 @@
     "reason": "Propriétés LDtk consultées par clé ; ne pas utiliser leur ordre pour la génération."
   },
   {
-    "path": "crates/map_ldtk/src/game/local.rs",
-    "code": "let spawns: HashMap<usize, &GlobalTransform> = player_spawn",
-    "count": 1,
-    "reason": "Index des points de spawn par handle, consulté par clé pendant le chargement."
-  },
-  {
-    "path": "crates/map_ldtk/src/game/local.rs",
-    "code": "use bevy::{ecs::system::SystemParam, platform::collections::HashMap, prelude::*};",
-    "count": 1,
-    "reason": "Index des points de spawn par handle, consulté par clé pendant le chargement."
-  },
-  {
     "path": "crates/map_ldtk/src/game/plugin.rs",
     "code": "pub registered_entities: std::collections::HashSet<Entity>,",
     "count": 1,
@@ -210,21 +198,51 @@
     "reason": "Registre de chargement hors GgrsSchedule ; uniquement contains/insert, aucune itération."
   },
   {
-    "path": "crates/game/src/performance.rs",
-    "code": "capture.simulation_start = Instant::now();",
-    "count": 1,
-    "reason": "Mesure opt-in ALACOD_PERF_CSV hors rollback."
+    "path": "crates/map_ldtk/src/generation/mod.rs",
+    "code": "let started = std::time::Instant::now();",
+    "count": 4,
+    "reason": "Mesure de durée des tests de génération (D45), du test de performance de l'étage en grille (M3-T5) et de la comparaison isaac/gungeon par phase (M3-T11d1, D107), hors simulation."
   },
   {
     "path": "crates/game/src/performance.rs",
     "code": "let now = Instant::now();",
     "count": 2,
-    "reason": "Mesure opt-in ALACOD_PERF_CSV hors rollback."
+    "reason": "Capture de cadence native (ALACOD_PERF_CSV, revue M1) : mesure de temps réel écrite dans un CSV, jamais lue par la simulation."
   },
   {
-    "path": "crates/map_ldtk/src/generation/mod.rs",
-    "code": "let started = std::time::Instant::now();",
+    "path": "crates/game/src/performance.rs",
+    "code": "capture.simulation_start = Instant::now();",
     "count": 1,
-    "reason": "Mesure de durée des tests de génération, hors simulation."
+    "reason": "Capture de cadence native (ALACOD_PERF_CSV, revue M1) : mesure de temps réel écrite dans un CSV, jamais lue par la simulation."
+  },
+  {
+    "path": "crates/game/src/jjrs/p2p_socket.rs",
+    "code": ".and_then(|s| s.waited(&peer, bevy::platform::time::Instant::now()));",
+    "count": 1,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/jjrs/p2p_socket.rs",
+    "code": "let now = bevy::platform::time::Instant::now();",
+    "count": 3,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/jjrs/signal_watch.rs",
+    "code": "let t0 = Instant::now();",
+    "count": 1,
+    "reason": "Instant de référence d'un test unitaire de `PeerSightings` (`#[cfg(test)]`), hors simulation : les apparitions sont décalées à la main (`t0 + Duration`)."
+  },
+  {
+    "path": "crates/game/src/jjrs/signal_watch.rs",
+    "code": "sightings.saw(*peer, Instant::now());",
+    "count": 1,
+    "reason": "Horloge murale du signaller (D109) : instant d'apparition d'un pair vu par le signaling, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/ui/lobby.rs",
+    "code": "let now = bevy::platform::time::Instant::now();",
+    "count": 1,
+    "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
   }
 ]

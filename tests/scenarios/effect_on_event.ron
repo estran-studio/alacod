@@ -1,0 +1,18 @@
+// M3-T2 (docs/conventions.md §67) : `Emit` / `OnEvent`. L'`echo` ramassé (f10) émet « go » ; l'effet qui écoute
+// « go » répond dans la même frame (+1 de dégâts), pas celui qui écoute « autre » (+10).
+//
+// À regarder : les dégâts passent de 1 à 2 au ramassage (f10), pas à 11. Témoin : `effect_on_event_temoin`
+// (même scénario sans l'objet : rien ne bouge).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 80,
+    items: [(id: "echo", x: "-904.0", y: "-584.0", at_frame: 5)],
+    players: [(inputs: [(from: 10, to: 13, buttons: [Interaction])])],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 8),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 60),
+    ],
+)

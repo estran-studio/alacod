@@ -1,0 +1,9 @@
+// Lot C : tuile 84 de `tiny_dungeon.png` (Idle, Run et mort : une seule image, pas d'animation dessinée).
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 84, end: 84),
+        "Run": (start: 84, end: 84),
+        "Dying_1": (start: 84, end: 84),
+    },
+)

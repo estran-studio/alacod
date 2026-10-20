@@ -1,0 +1,9 @@
+// `isaac` (M3-T11a, docs/conventions.md §76.1) : chance +2 (`Luck` Add 2 : +25 % de chance d'effet pour `venin`).
+(
+    name: "Trèfle noir",
+    kind: Passive,
+    modifiers: [(stat: Luck, op: Add, value: "2")],
+    tags: ["larmes"],
+    rarity: Uncommon,
+    test: Some((frames: 60)),
+)

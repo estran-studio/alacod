@@ -18,7 +18,7 @@ use map::{
             location::EntityLocation, prop::PropConfig, soda_location::SodaLocationConfig,
             weapon_location::WeaponLocationConfig, window::WindowConfig,
         },
-        room::{Room, RoomConnection},
+        room::{ConnectionTo, Room, RoomConnection},
         IMapGenerator,
     },
 };
@@ -32,9 +32,95 @@ pub struct GeneratedRoom {
     /// Gabarit LDtk d'origine (`level.identifier` est remplacé par l'iid de la salle) :
     /// signature des cartes générées (D45, tests de diversité).
     pub template: String,
+    /// Ouvertures du gabarit qu'aucune porte du plan ne prolonge : `(côté, première case, nombre de
+    /// cases)`, lues dans les connexions finales de la salle (M3-T5, grille).
+    unused_openings: Vec<(Side, usize, usize)>,
 }
 
 impl GeneratedRoom {
+    /// Identifiant de la salle générée.
+    pub fn iid(&self) -> &str {
+        &self.level.iid
+    }
+
+    /// Identifiants des salles reliées à celle-ci par une porte du plan (arêtes de pose, boucles
+    /// et portes de la salle secrète comprises ; contrôle des tests de grille, M3-T5).
+    pub fn neighbour_iids(&self) -> Vec<String> {
+        self.level
+            .neighbours
+            .iter()
+            .map(|n| n.level_iid.clone())
+            .collect()
+    }
+
+    /// Nombre de cases d'ouverture (`LevelConnection`) au bord de la salle que le mur ne ferme pas :
+    /// trois par porte dans les gabarits de `isaac` (contrôle des tests de grille, M3-T5).
+    pub fn open_cells(&self) -> usize {
+        let Some(layers) = self.level.layer_instances.as_ref() else {
+            return 0;
+        };
+        let find = |name: &str| layers.iter().find(|l| l.identifier == name);
+        let (Some(openings), Some(walls)) = (find(map_const::LAYER_CONNECTION), find("Walls"))
+        else {
+            return 0;
+        };
+        openings
+            .int_grid_csv
+            .iter()
+            .zip(&walls.int_grid_csv)
+            .filter(|(opening, wall)| **opening == 1 && **wall == 0)
+            .count()
+    }
+
+    /// Cases d'ouverture encore libres (`LevelConnection` à 1 et `Walls` à 0) en coordonnées monde (coin haut
+    /// gauche de la case, pixels). Pour les contrôles de raccord des gabarits de tailles différentes.
+    pub fn open_cell_positions(&self) -> Vec<(i32, i32)> {
+        let Some(layers) = self.level.layer_instances.as_ref() else {
+            return Vec::new();
+        };
+        let find = |name: &str| layers.iter().find(|l| l.identifier == name);
+        let (Some(openings), Some(walls)) = (find(map_const::LAYER_CONNECTION), find("Walls"))
+        else {
+            return Vec::new();
+        };
+        let (w, size) = (openings.c_wid, openings.grid_size);
+        openings
+            .int_grid_csv
+            .iter()
+            .zip(&walls.int_grid_csv)
+            .enumerate()
+            .filter(|(_, (opening, wall))| **opening == 1 && **wall == 0)
+            .map(|(i, _)| {
+                let i = i as i32;
+                (
+                    self.level.world_x + (i % w) * size,
+                    self.level.world_y + (i / w) * size,
+                )
+            })
+            .collect()
+    }
+
+    /// Direction (`dx`, `dy` unitaires) vers l'extérieur de la salle de la case monde `(x, y)` d'un bord.
+    pub fn side_of_cell(&self, x: i32, y: i32) -> (i32, i32) {
+        let (rx, ry, rw, rh) = self.world_rect();
+        if x == rx {
+            (-1, 0)
+        } else if x + 16 == rx + rw {
+            (1, 0)
+        } else if y == ry {
+            (0, -1)
+        } else {
+            debug_assert_eq!(y + 16, ry + rh);
+            (0, 1)
+        }
+    }
+
+    /// Vrai si la case monde dont le coin haut gauche est `(x, y)` est dans la salle.
+    pub fn contains_world_cell(&self, x: i32, y: i32) -> bool {
+        let (rx, ry, rw, rh) = self.world_rect();
+        x >= rx && y >= ry && x + 16 <= rx + rw && y + 16 <= ry + rh
+    }
+
     /// Rectangle monde de la salle (`world_x`, `world_y`, largeur, hauteur) en pixels.
     pub fn world_rect(&self) -> (i32, i32, i32, i32) {
         (
@@ -98,6 +184,18 @@ impl GeneratedRoom {
             level,
             ldtk: ldtk_json,
             template: room.level_def.level_id.clone(),
+            unused_openings: room
+                .level_def
+                .connections
+                .iter()
+                .filter(|def| {
+                    !matches!(
+                        room.connections.get(def.index).and_then(|c| c.to.as_ref()),
+                        Some(ConnectionTo::Room(_))
+                    )
+                })
+                .map(|def| (def.side, def.starting_at, def.size))
+                .collect(),
         }
     }
 }
@@ -215,6 +313,42 @@ impl GeneratedMap {
             .expect("salle posée introuvable")
     }
 
+    /// M3-T5 (disposition en grille) : mure exactement les ouvertures qu'aucune porte du plan ne
+    /// prolonge. À appeler après `map_generation` : les connexions finales de chaque salle (portes
+    /// de boucle et de salle secrète comprises) sont celles du plan. `Basic` et `Graph` murent
+    /// leurs prises libres pendant la génération (`IMapGenerator::close_opening`).
+    pub fn close_unused_openings_exact(&mut self) {
+        for room in &mut self.generated_rooms {
+            let Some(layers) = room.level.layer_instances.as_mut() else {
+                continue;
+            };
+            let Some((w, h, openings)) = layers
+                .iter()
+                .find(|l| l.identifier == map_const::LAYER_CONNECTION)
+                .map(|l| (l.c_wid, l.c_hei, l.int_grid_csv.clone()))
+            else {
+                continue;
+            };
+            let Some(walls) = layers.iter_mut().find(|l| l.identifier == "Walls") else {
+                continue;
+            };
+            for (side, start, size) in &room.unused_openings {
+                for t in *start as i32..(*start + *size) as i32 {
+                    let (x, y) = match side {
+                        Side::N => (t, 0),
+                        Side::S => (t, h - 1),
+                        Side::W => (0, t),
+                        Side::E => (w - 1, t),
+                    };
+                    let i = (y * w + x) as usize;
+                    if openings.get(i).copied().unwrap_or(0) == 1 {
+                        walls.int_grid_csv[i] = 1;
+                    }
+                }
+            }
+        }
+    }
+
     pub fn get_generated_map(&self) -> LdtkJson {
         let mut new_map: LdtkJson = (*self.ldtk_json).clone();
 
@@ -320,23 +454,19 @@ impl IMapGenerator for GeneratedMap {
         self.generated_rooms.push(generated_room);
     }
 
-    fn link_rooms(&mut self, a: &RoomConnection, b: &RoomConnection) {
-        self.room_mut(&a.level_iid)
-            .level
-            .neighbours
-            .push(NeighbourLevel {
-                level_iid: b.level_iid.clone(),
-                dir: a.side.to_dir_str().into(),
+    fn add_link(&mut self, a: &RoomConnection, b: &RoomConnection) {
+        for (from, to) in [(a, b), (b, a)] {
+            let room = self
+                .generated_rooms
+                .iter_mut()
+                .find(|r| r.level.iid == from.level_iid)
+                .expect("une porte de plus relie deux salles déjà ajoutées");
+            room.level.neighbours.push(NeighbourLevel {
+                level_iid: to.level_iid.clone(),
+                dir: from.side.to_dir_str().into(),
                 ..Default::default()
             });
-        self.room_mut(&b.level_iid)
-            .level
-            .neighbours
-            .push(NeighbourLevel {
-                level_iid: a.level_iid.clone(),
-                dir: b.side.to_dir_str().into(),
-                ..Default::default()
-            });
+        }
     }
 
     /// Mure une prise sans voisine : ses cases (bord du niveau, côté `side`, cases

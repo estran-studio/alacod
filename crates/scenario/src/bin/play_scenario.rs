@@ -6,6 +6,8 @@
 //! - `--capture <dossier> [--every N]` : capture une image toutes les N frames de simulation
 //!   (utilisé par `scripts/scenario-video`).
 //! - `--size 640x360` : taille des captures (défaut 960x540), pour vérifier le HUD.
+//! - `--at 42,157,1890` : avec `--capture`, seulement ces frames (la partie s'arrête après la dernière).
+//! - `--legend` : avec `--capture --at N`, ouvre la légende (F7) sans étiquettes : image de tête des vidéos.
 //! - `--follow <handle>` : force la caméra à suivre le joueur avec ce handle GGRS
 //!   (utilisé pour les vidéos de validation, tous les joueurs du scénario sont locaux).
 
@@ -50,6 +52,15 @@ fn main() {
                     height.parse().expect("--size : hauteur entière"),
                 )
             });
+            let at = option("--at").map_or_else(Vec::new, |list| {
+                list.split(',')
+                    .map(|f| {
+                        f.trim()
+                            .parse()
+                            .expect("--at : frames entières séparées par des virgules")
+                    })
+                    .collect()
+            });
             capture(
                 &scenario,
                 CaptureConfig {
@@ -57,6 +68,8 @@ fn main() {
                     every,
                     follow_handle,
                     size,
+                    at,
+                    legend: args.iter().any(|a| a == "--legend"),
                 },
             );
         }

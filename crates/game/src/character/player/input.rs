@@ -1,48 +1,39 @@
-use animation::AnimationState;
-use animation::FacingDirection;
-use bevy::window::PrimaryWindow;
+use std::collections::BTreeMap;
+
 use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
 use bevy_ggrs::prelude::*;
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use combat::downed::Downed;
-use leafwing_input_manager::prelude::*;
-use serde::{Deserialize, Serialize};
+use sim_core::animation_state::AnimationState;
+use sim_core::animation_state::FacingDirection;
 use sim_core::frame_events::FrameEvents;
 use sim_core::stats::StatId;
 use stats::StatReader;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
 
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::dash::DashState;
 use crate::character::health::Health;
-use crate::character::movement::{grip, run_velocity, SprintState, Velocity};
+use crate::character::movement::{grip, run_velocity, SprintState, Velocity, FIXED_TIMESTEP};
 use crate::character::movement::{DashEffect, IframesKind};
-use crate::character::player::{control::PlayerAction, Player};
+use crate::character::player::Player;
 use crate::collider::{is_colliding, Collider, CollisionLayer, CollisionSettings};
+use crate::interaction::InteractionInput;
 
 use super::jjrs::PeerConfig;
-use super::LocalPlayer;
-
-pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 60 FPS fixed timestep
 
 pub use combat::actors::{
-    BoxInput, CursorPosition, INPUT_BLANK, INPUT_CHOICE_A, INPUT_CHOICE_B, INPUT_CHOICE_C,
-    INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH, INPUT_INTERACTION, INPUT_LEFT,
-    INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT, INPUT_SPRINT,
-    INPUT_SWITCH_WEAPON_MODE, INPUT_UP, INPUT_USE_ACTIVE,
+    BoxInput, CursorPosition, INPUT_BLANK, INPUT_BOMB, INPUT_CHOICE_A, INPUT_CHOICE_B,
+    INPUT_CHOICE_C, INPUT_DASH, INPUT_DOWN, INPUT_DROP_WEAPON, INPUT_FORCE_CRASH,
+    INPUT_INTERACTION, INPUT_LEFT, INPUT_MELEE_ATTACK, INPUT_MODIFIER, INPUT_RELOAD, INPUT_RIGHT,
+    INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP, INPUT_USE_ACTIVE,
 };
 
 const PAN_FACING_THRESHOLD: i16 = 5;
 
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct PointerWorldPosition(pub Vec2);
-
-/// Component that tracks interaction input state
-#[derive(Component, Clone, Copy, Default, Debug, Hash, Serialize, Deserialize)]
-pub struct InteractionInput {
-    pub is_holding: bool,
-}
 
 /// Direction de déplacement demandée par les touches (non normalisée, composantes -1/0/1).
 fn movement_direction(input: &BoxInput) -> fixed_math::FixedVec2 {
@@ -155,14 +146,35 @@ impl ScriptedInputs {
     }
 }
 
+/// Pistes du hub (`HubSetup::inputs` d'un scénario rejoué par `ALACOD_INPUT=script:`), lues à la
+/// place de [`ScriptedInputs`] tant que la session est au hub (`HubSession::in_hub`) : les
+/// frames du hub et celles de la run repartent toutes deux de 0, une seule piste ne peut pas
+/// servir les deux phases. Hors hub, ou sans cette ressource : [`ScriptedInputs`].
+#[derive(Resource, Clone, Debug, Default)]
+pub struct ScriptedHubInputs(pub ScriptedInputs);
+
+/// Pistes à lire : celles du hub (frames du hub) tant que la session est au hub et que le scénario
+/// en a, sinon celles de la run.
+fn scripted_tracks<'a>(
+    run: &'a ScriptedInputs,
+    hub_tracks: Option<&'a ScriptedHubInputs>,
+    in_hub: bool,
+) -> &'a ScriptedInputs {
+    match hub_tracks {
+        Some(hub_tracks) if in_hub => &hub_tracks.0,
+        _ => run,
+    }
+}
+
 impl InputSource {
     /// Source choisie par `ALACOD_INPUT` ; `script:<scénario.ron>` (natif) rejoue les inputs
     /// du `PlayerScript` de chaque joueur local (handle GGRS = index dans `players`) et
-    /// retourne la ressource [`ScriptedInputs`] à installer avec [`Self::Scripted`].
-    pub fn from_env() -> (Self, Option<ScriptedInputs>) {
+    /// retourne la ressource [`ScriptedInputs`] à installer avec [`Self::Scripted`], plus les
+    /// pistes du hub du scénario ([`ScriptedHubInputs`]) s'il en a.
+    pub fn from_env() -> (Self, Option<ScriptedInputs>, Option<ScriptedHubInputs>) {
         match std::env::var("ALACOD_INPUT").as_deref() {
-            Err(_) | Ok("devices") => (Self::Devices, None),
-            Ok("neutral") => (Self::Neutral, None),
+            Err(_) | Ok("devices") => (Self::Devices, None, None),
+            Ok("neutral") => (Self::Neutral, None, None),
             #[cfg(not(target_arch = "wasm32"))]
             Ok(value) if value.starts_with("script:") => {
                 let path = &value["script:".len()..];
@@ -170,7 +182,11 @@ impl InputSource {
                     .unwrap_or_else(|e| panic!("ALACOD_INPUT : lecture de {path} : {e}"));
                 let scenario = crate::replay::Scenario::from_ron(&source)
                     .unwrap_or_else(|e| panic!("ALACOD_INPUT : scénario {path} invalide : {e}"));
-                (Self::Scripted, Some(scenario.scripted_inputs()))
+                let hub = scenario
+                    .hub
+                    .is_some()
+                    .then(|| ScriptedHubInputs(scenario.hub_scripted_inputs()));
+                (Self::Scripted, Some(scenario.scripted_inputs()), hub)
             }
             Ok(other) => panic!(
                 "ALACOD_INPUT inconnu : {other} (attendu : devices, neutral, script:<scénario.ron>)"
@@ -191,18 +207,23 @@ fn press_blank_at() -> Option<u32> {
     })
 }
 
+/// Inputs des périphériques des joueurs locaux, par handle GGRS (`InputSource::Devices`). Écrite par
+/// l'application (`character::input_devices::collect_device_inputs`, `ReadInputs`, avant
+/// [`read_local_inputs`]) ; absente en headless (aucun périphérique : input neutre). La simulation ne
+/// lit ni clavier, ni souris, ni caméra, ni fenêtre.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct DeviceInputs(pub BTreeMap<usize, BoxInput>);
+
 pub fn read_local_inputs(
     mut commands: Commands,
     input_source: Res<InputSource>,
-    players: Query<(&ActionState<PlayerAction>, &Transform, &Player), With<LocalPlayer>>,
-
-    q_window: Query<&Window, With<PrimaryWindow>>,
-    q_camera: Query<(&Camera, &GlobalTransform)>,
+    device_inputs: Option<Res<DeviceInputs>>,
     local_players: Res<LocalPlayers>,
     frame: Res<FrameCount>,
     scripted: Option<Res<ScriptedInputs>>,
+    hub_scripted: Option<Res<ScriptedHubInputs>>,
+    hub: Option<Res<crate::hub::HubSession>>,
     remote: Option<Res<RemoteInputs>>,
-    mutation_screen: Option<Res<crate::ui::mutation_screen::MutationScreenView>>,
 ) {
     let mut local_inputs = HashMap::new();
 
@@ -218,121 +239,22 @@ pub fn read_local_inputs(
 
     if *input_source == InputSource::Scripted {
         let scripted = scripted.expect("InputSource::Scripted demande la ressource ScriptedInputs");
+        let tracks = scripted_tracks(
+            &scripted,
+            hub_scripted.as_deref(),
+            hub.as_deref().is_some_and(|session| session.in_hub),
+        );
         for handle in &local_players.0 {
-            local_inputs.insert(*handle, scripted.input_at(*handle, frame.frame));
+            local_inputs.insert(*handle, tracks.input_at(*handle, frame.frame));
         }
     }
 
-    for (action_state, transform, player) in players
-        .iter()
-        .filter(|_| *input_source == InputSource::Devices)
-    {
-        let mut input = BoxInput::default();
-
-        if action_state.pressed(&PlayerAction::MoveUp) {
-            input.buttons |= INPUT_UP;
-        }
-        if action_state.pressed(&PlayerAction::MoveDown) {
-            input.buttons |= INPUT_DOWN;
-        }
-        if action_state.pressed(&PlayerAction::MoveLeft) {
-            input.buttons |= INPUT_LEFT;
-        }
-        if action_state.pressed(&PlayerAction::MoveRight) {
-            input.buttons |= INPUT_RIGHT;
-        }
-
-        if action_state.pressed(&PlayerAction::PointerClick) {
-            input.fire = true;
-        }
-
-        if action_state.pressed(&PlayerAction::SwitchWeapon) {
-            input.switch_weapon = true;
-        }
-        if action_state.pressed(&PlayerAction::SwitchWeaponMode) {
-            input.buttons |= INPUT_SWITCH_WEAPON_MODE;
-        }
-
-        if action_state.pressed(&PlayerAction::Reload) {
-            input.buttons |= INPUT_RELOAD;
-        }
-
-        if action_state.pressed(&PlayerAction::Sprint) {
-            input.buttons |= INPUT_SPRINT;
-        }
-
-        if action_state.pressed(&PlayerAction::Dash) {
-            input.buttons |= INPUT_DASH;
-        }
-
-        if action_state.pressed(&PlayerAction::Interaction) {
-            input.buttons |= INPUT_INTERACTION;
-        }
-
-        if action_state.pressed(&PlayerAction::Modifier) {
-            input.buttons |= INPUT_MODIFIER;
-        }
-
-        if action_state.pressed(&PlayerAction::MeleeAttack) {
-            input.buttons |= INPUT_MELEE_ATTACK;
-        }
-
-        if action_state.just_pressed(&PlayerAction::DropWeapon) {
-            input.buttons |= INPUT_DROP_WEAPON;
-        }
-
-        if action_state.pressed(&PlayerAction::UseActive) {
-            input.buttons |= INPUT_USE_ACTIVE;
-        }
-        if action_state.pressed(&PlayerAction::Blank) {
-            input.buttons |= INPUT_BLANK;
-        }
-
-        if action_state.pressed(&PlayerAction::ChoiceA) {
-            input.buttons |= INPUT_CHOICE_A;
-        }
-        if action_state.pressed(&PlayerAction::ChoiceB) {
-            input.buttons |= INPUT_CHOICE_B;
-        }
-        if action_state.pressed(&PlayerAction::ChoiceC) {
-            input.buttons |= INPUT_CHOICE_C;
-        }
-        // T1.16 : valider sur l'écran de mutation = le bit de la carte surlignée.
-        if action_state.pressed(&PlayerAction::ChoiceConfirm) {
-            input.buttons |= crate::ui::mutation_screen::confirm_input(
-                mutation_screen.as_deref(),
-                player.handle,
-            );
-        }
-
-        // F12 to force crash (debug)
-        if action_state.pressed(&PlayerAction::DebugForceCrash) {
-            input.buttons |= INPUT_FORCE_CRASH;
-        }
-
-        if let Ok(window) = q_window.single() {
-            if let Ok((camera, camera_transform)) = q_camera.single() {
-                if let Some(cursor_position) = window.cursor_position() {
-                    if let Ok(world_position) =
-                        camera.viewport_to_world_2d(camera_transform, cursor_position)
-                    {
-                        let player_position = transform.translation.truncate();
-                        let pointer_distance = world_position - player_position;
-
-                        input.pan_x = (pointer_distance.x)
-                            .round()
-                            .clamp(i16::MIN as f32, i16::MAX as f32)
-                            as i16;
-                        input.pan_y = (pointer_distance.y)
-                            .round()
-                            .clamp(i16::MIN as f32, i16::MAX as f32)
-                            as i16;
-                    }
-                }
+    if *input_source == InputSource::Devices {
+        if let Some(device_inputs) = device_inputs.as_deref() {
+            for (handle, input) in &device_inputs.0 {
+                local_inputs.insert(*handle, *input);
             }
         }
-
-        local_inputs.insert(player.handle, input);
     }
 
     // GGRS exige un input par joueur local à chaque frame : un joueur mort
@@ -394,7 +316,7 @@ pub fn apply_inputs(
     _commands: Commands,
     frame: Res<FrameCount>,
     inputs: Res<PlayerInputs<PeerConfig>>,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     stats: StatReader,
     mut dash_started: Option<ResMut<FrameEvents<sim_core::triggers::DashStarted>>>,
     mut query: Query<
@@ -407,7 +329,7 @@ pub fn apply_inputs(
             &mut CursorPosition,
             &mut SprintState,
             &mut InteractionInput,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &Player,
             Has<Downed>,
             // T1.3 : `Stun`/`Freeze` (§19) : inputs ignorés par la simulation (jamais à la
@@ -430,7 +352,7 @@ pub fn apply_inputs(
         mut cursor_position,
         mut sprint_state,
         mut interaction_input,
-        config_handles,
+        config_key,
         player,
         is_downed,
         statuses,
@@ -439,7 +361,7 @@ pub fn apply_inputs(
         dash_override,
     ) in order_mut_iter!(query)
     {
-        let Some(config) = character_configs.get(&config_handles.config) else {
+        let Some(config) = character_configs.get(&config_key.0) else {
             continue;
         };
         let movement = &config.movement;
@@ -817,58 +739,6 @@ mod movement_tests {
     use fixed_math::{Fixed, FixedTransform3D, FixedVec2, FixedVec3};
 
     #[test]
-    fn held_drop_sends_one_request_and_rearms_after_release() {
-        let mut world = World::new();
-        world.insert_resource(InputSource::Devices);
-        world.insert_resource(LocalPlayers(vec![0]));
-        world.insert_resource(FrameCount::default());
-        let mut actions = ActionState::<PlayerAction>::default();
-        actions.press(&PlayerAction::DropWeapon);
-        actions.press(&PlayerAction::Interaction);
-        let player = world
-            .spawn((
-                actions,
-                Transform::default(),
-                Player::default(),
-                LocalPlayer {},
-            ))
-            .id();
-        world.run_system_once(read_local_inputs).unwrap();
-        assert_ne!(
-            world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons & INPUT_DROP_WEAPON,
-            0
-        );
-        let instant = bevy::time::Time::<bevy::time::Real>::default().startup();
-        for _ in 0..120 {
-            let mut entity = world.entity_mut(player);
-            let mut actions = entity.get_mut::<ActionState<PlayerAction>>().unwrap();
-            actions.tick(instant, instant);
-            actions.press(&PlayerAction::DropWeapon);
-            drop(actions);
-            world.run_system_once(read_local_inputs).unwrap();
-            let buttons = world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons;
-            assert_eq!(buttons & INPUT_DROP_WEAPON, 0, "held drop must not repeat");
-            assert_ne!(
-                buttons & INPUT_INTERACTION,
-                0,
-                "holding interaction remains supported"
-            );
-        }
-        {
-            let mut entity = world.entity_mut(player);
-            let mut actions = entity.get_mut::<ActionState<PlayerAction>>().unwrap();
-            actions.release(&PlayerAction::DropWeapon);
-            actions.tick(instant, instant);
-            actions.press(&PlayerAction::DropWeapon);
-        }
-        world.run_system_once(read_local_inputs).unwrap();
-        assert_ne!(
-            world.resource::<LocalInputs<PeerConfig>>().0[&0].buttons & INPUT_DROP_WEAPON,
-            0
-        );
-    }
-
-    #[test]
     fn sliding_on_both_axes_never_enters_a_wall_corner() {
         let mut world = World::new();
         world.init_resource::<bevy_ggrs::RollbackOrdered>();
@@ -929,5 +799,37 @@ mod movement_tests {
             after.translation.x > Fixed::from_num(-2),
             "the free axis still slides"
         );
+    }
+}
+
+#[cfg(test)]
+mod scripted_tracks_tests {
+    use super::*;
+
+    fn track(input_from: u32, buttons: u32) -> ScriptedInputs {
+        ScriptedInputs {
+            players: vec![vec![InputSegment {
+                from: input_from,
+                to: input_from + 10,
+                input: BoxInput {
+                    buttons,
+                    ..Default::default()
+                },
+            }]],
+        }
+    }
+
+    /// Au hub, `ALACOD_INPUT=script:` lit les pistes du hub, pas celles de la run : les frames des
+    /// deux phases repartent de 0, la run ne doit pas rejouer ses entrées dans le hub (la porte
+    /// ne serait jamais franchie), ni le hub dans la run.
+    #[test]
+    fn hub_tracks_only_while_in_hub() {
+        let run = track(0, INPUT_UP);
+        let hub = ScriptedHubInputs(track(0, INPUT_DOWN));
+        let at = |tracks: &ScriptedInputs| tracks.input_at(0, 5).buttons;
+        assert_eq!(at(scripted_tracks(&run, Some(&hub), true)), INPUT_DOWN);
+        assert_eq!(at(scripted_tracks(&run, Some(&hub), false)), INPUT_UP);
+        // Scénario sans piste de hub : la run joue aussi au hub (comportement d'avant).
+        assert_eq!(at(scripted_tracks(&run, None, true)), INPUT_UP);
     }
 }

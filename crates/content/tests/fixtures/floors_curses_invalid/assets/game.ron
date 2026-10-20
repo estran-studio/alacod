@@ -1,0 +1,9 @@
+// Fixture M3-T0e : champ `curses` d'une séquence `Floors` refusé par `lint::lint_curses`.
+(
+    name: "fixture-floors-curses-invalid",
+    content_folders: [
+        (path: "floors", kind: "Floors"),
+        (path: "curses", kind: "Curse"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

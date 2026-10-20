@@ -26,7 +26,8 @@
 //! `bevy_ggrs::schedule_systems::run_ggrs_schedules`), `Run` elle-même, et les ressources
 //! rollback globales qui ne sont pas réinitialisées ailleurs par le chargement normal d'une
 //! partie (`FrameCount`, `GgrsNetIdFactory`, `WaveState`, `FlowFieldCache`,
-//! `RepairPointsTracking`), et la donnée dérivée `CollisionGrids` (D14 : sa grille de murs
+//! `RepairPointsTracking`, l'état des salles `RoomStates`, `ArenaClocks`, `DoorLocks`, et, M3-T0e, `RunCurses`
+//! et `PoolState`), et la donnée dérivée `CollisionGrids` (D14 : sa grille de murs
 //! n'est reconstruite que si la signature des murs change). **`bevy_ggrs::RollbackOrdered`** (interne à bevy_ggrs, pas
 //! passée par `RollbackTraceApp`) aussi : elle compte *tous* les `Rollback` jamais créés
 //! depuis le lancement du processus (pas juste la partie en cours, voir sa doc), et
@@ -64,16 +65,15 @@ use crate::{
         enemy::{ai::navigation::FlowFieldCache, Enemy},
         player::{jjrs::PeerConfig, Player},
     },
-    core::{AppState, OnlineState},
     economy::{award_points_system, RepairPointsTracking},
+    session::{AppState, OnlineState},
     system_set::RollbackSystemSet,
     waves::WaveState,
 };
 
 /// Résout le [`RunMode`] d'une session à partir du manifeste (`entry.mode`, T2.4) et du
 /// registre de contenu (`registry.waves`). Appelée par `jjrs::local`/`jjrs::p2p` au
-/// démarrage de session, avec les mêmes ressources que `GlobalAsset::create` (déjà
-/// présentes à ce moment).
+/// démarrage de session, avec le manifeste et le registre déjà présents à ce moment.
 ///
 /// Règle (voir `docs/conventions.md` section « Run ») : `entry.mode` explicite (`Waves` ou
 /// `Sandbox`) gagne toujours ; absent, `Waves` si le jeu déclare un dossier de contenu
@@ -208,6 +208,11 @@ pub enum RunRequest {
     Restart,
     /// Retour au lobby (`LobbyLocal`/`LobbyOnline` selon `OnlineState`).
     ToLobby,
+    /// M2-T13 (§57) : du hub vers la run. Comme `Restart` (mêmes pairs, même chemin en ligne), mais
+    /// la carte et le mode de la session passent à ceux de la run (`hub::HubSession`).
+    EnterRun,
+    /// M2-T13 : de la run vers le hub (fin de partie). Comme `Restart`, vers la carte du hub.
+    ToHub,
 }
 
 /// D13 : le lobby local attend une action du joueur avant de relancer une partie. Posée
@@ -246,8 +251,13 @@ fn plan_run_request(
     playing: bool,
     restart_online: bool,
 ) -> RunRequestPlan {
-    let restart_redirected = request == RunRequest::Restart && online && !restart_online;
-    if request == RunRequest::Restart && online && restart_online {
+    // M2-T13 : `EnterRun` et `ToHub` relancent comme `Restart` (la carte change, pas les pairs).
+    let restart_like = matches!(
+        request,
+        RunRequest::Restart | RunRequest::EnterRun | RunRequest::ToHub
+    );
+    let restart_redirected = restart_like && online && !restart_online;
+    if restart_like && online && restart_online {
         // D14 : même règle que le restart local (pas d'abandon), mais via une nouvelle
         // session en ligne.
         RunRequestPlan {
@@ -321,8 +331,24 @@ fn run_summary(
 /// (`RunRequest`). Voir la doc du module.
 pub struct RunStatePlugin;
 
+/// Session hébergée par la page web (`data-session`) : le retour au lobby est celui de l'hôte. Marqueur posé par
+/// l'application (`args::BaseArgsPlugin`) quand `jjrs::browser::session()` existe ; la simulation ne lit pas
+/// la page.
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Debug, Default, Clone, Copy)]
+pub struct HostedSession;
+
+/// Demande de retour au lobby de l'hôte web, écrite par [`apply_run_request_system`] pour une session
+/// [`HostedSession`] ; lue par l'application (`jjrs::browser::return_to_host_lobby`), qui appelle le crochet JS.
+#[cfg(target_arch = "wasm32")]
+#[derive(Event, Message, Debug, Clone, Copy)]
+pub struct ReturnToHostLobby;
+
 impl Plugin for RunStatePlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_arch = "wasm32")]
+        app.add_message::<ReturnToHostLobby>();
+
         app.add_systems(
             GgrsSchedule,
             (
@@ -444,7 +470,7 @@ pub fn finalize_run_summary_system(
 /// (`OnExit(AppState::InGame)`, voir [`cleanup_rollback_world_system`] et la doc du
 /// module), pas ici.
 #[allow(clippy::too_many_arguments)]
-fn apply_run_request_system(
+pub(crate) fn apply_run_request_system(
     mut commands: Commands,
     request: Option<Res<RunRequest>>,
     mut app_state: ResMut<NextState<AppState>>,
@@ -457,17 +483,33 @@ fn apply_run_request_system(
     mut run: ResMut<Run>,
     ggrs_config: Option<Res<crate::jjrs::GggrsSessionConfiguration>>,
     online_games: Res<crate::jjrs::restart::OnlineGames>,
+    mut hub: Option<ResMut<crate::hub::HubSession>>,
+    mut map_config: Option<ResMut<map::generation::config::MapGenerationConfig>>,
+    #[cfg(target_arch = "wasm32")] hosted: Option<Res<HostedSession>>,
+    #[cfg(target_arch = "wasm32")] mut host_lobby: MessageWriter<ReturnToHostLobby>,
 ) {
     let Some(request) = request else {
         return;
     };
+    // M2-T13 : le hub et la run ont chacun leur carte ; un `Restart` garde la phase courante.
+    if let Some(hub) = hub.as_deref_mut() {
+        match *request {
+            RunRequest::EnterRun => hub.in_hub = false,
+            RunRequest::ToHub => hub.in_hub = true,
+            _ => {}
+        }
+        if let Some(map_config) = map_config.as_deref_mut() {
+            crate::hub::apply_to_map_config(hub, map_config);
+        }
+    }
 
+    // Session hébergée par la page web : l'hôte termine la session en cours et délivre un billet d'admission
+    // neuf (jamais une salle de restart dérivée en ajoutant des caractères à un JWT). La simulation émet
+    // `ReturnToHostLobby` ; l'application appelle le crochet JS (`jjrs::browser::return_to_host_lobby`).
     #[cfg(target_arch = "wasm32")]
-    if crate::jjrs::browser::session().is_some() {
-        // The host ends the current session and obtains a fresh admission ticket.
-        // Never derive a restart room by appending characters to a JWT.
+    if hosted.is_some() {
         commands.remove_resource::<RunRequest>();
-        crate::jjrs::browser::alacod_return_to_lobby();
+        host_lobby.write(ReturnToHostLobby);
         return;
     }
     let online = matches!(*online_state, OnlineState::Online);
@@ -545,8 +587,23 @@ fn cleanup_rollback_world_system(
     // T1.8 : l'index de niveau repart de zéro (la nouvelle partie repose son portail au
     // chargement de la carte, `map_ldtk::game::floors`).
     commands.insert_resource(FloorState::default());
+    // M2-T13 : la sortie du hub décidée dans la partie quittée ne vaut pas pour la suivante.
+    commands.insert_resource(crate::hub::HubState::default());
+    // M2 (m2-full-run) : l'état des salles de la partie quittée ne vaut pas pour la suivante.
+    // Le hub est une salle typée (`room_kind: depart`) : sa session posait `doors_opened`, et la
+    // run lancée par sa porte gardait toutes ses portes fermées (aucun bot, aucun joueur ne
+    // sortait de la salle de départ) ; un restart (touche R) rejouait de même avec les salles
+    // nettoyées de la partie précédente.
+    commands.insert_resource(world::RoomStates::default());
+    commands.insert_resource(world::ArenaClocks::default());
+    commands.insert_resource(world::DoorLocks::default());
     // T1.9 : horloges et difficulté de la partie suivante repartent de zéro.
     commands.insert_resource(run::Clock::default());
+    // M3-T0e (§64) : curses et objets sortis des pools à épuisement valent pour une run.
+    commands.insert_resource(run::RunCurses::default());
+    commands.insert_resource(items::PoolState::default());
+    // M3-T10 (§75) : boss vaincus et objets tenus valent pour une run.
+    commands.insert_resource(crate::profile::RunHistory::default());
     commands.insert_resource(FlowFieldCache::default());
     commands.insert_resource(RepairPointsTracking::default());
     // D14 : grilles de collision dérivées (hors rollback). La grille des murs n'est
@@ -669,12 +726,14 @@ mod tests {
                 default_seed: 1,
                 mode,
                 floors: None,
+                hub: None,
                 progression: None,
                 clocks: None,
                 difficulty: None,
                 map: Default::default(),
             },
             generate_template: None,
+            mechanics: vec![],
         }
     }
 

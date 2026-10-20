@@ -1,29 +1,32 @@
+pub mod ai_debug;
+pub mod app_plugin;
+pub mod appearance;
 pub mod config;
+pub mod config_asset;
+pub mod control;
 pub mod create;
 pub mod dash;
 pub mod enemy;
 pub mod health;
+pub mod health_bar;
+pub mod input_devices;
 pub mod movement;
 pub mod player;
 pub mod surface;
 pub mod variant;
 pub mod visuals;
 
-use animation::set_sprite_flip;
 use bevy::prelude::*;
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::{GgrsSchedule, ReadInputs};
 use combat::downed::{Downed, Reviving};
-use leafwing_input_manager::plugin::InputManagerPlugin;
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use sim_core::kinds::{KindDecl, KindRegistry};
 use stats::{expire_modifiers_system, StatsPlugin};
 
 use crate::frame_events::FrameEventsAppExt;
 use crate::{
-    args::DebugAiConfig,
     character::{
-        config::CharacterConfig,
+        config::CharacterConfigs,
         dash::DashState,
         enemy::{
             ai::{
@@ -31,10 +34,6 @@ use crate::{
                 behavior::{
                     enemy_attack_damage_translate_system, enemy_attack_system,
                     enemy_target_selection,
-                },
-                debug::{
-                    draw_enemy_state_debug, draw_flow_field_debug, toggle_enemy_state_debug,
-                    toggle_flow_field_debug, EnemyStateDebug, FlowFieldDebug,
                 },
                 // Flow field navigation
                 navigation::{update_flow_field_system, FlowFieldCache, FlowFieldConfig},
@@ -48,12 +47,10 @@ use crate::{
         health::{
             rollback_apply_accumulated_damage, rollback_apply_bleedout, rollback_apply_death,
             rollback_check_defeat, rollback_health_regeneration, rollback_resolve_damage_events,
-            sync_health_from_stats, ui::update_health_bars, DamageAccumulator, Death, Health,
-            HealthRegen, HitCount,
+            sync_health_from_stats, DamageAccumulator, Death, Health, HealthRegen, HitCount,
         },
         movement::{apply_knockback_damping, KnockbackDampingConfig, SprintState, Velocity},
         player::{
-            control::PlayerAction,
             input::{
                 apply_inputs, move_characters, read_local_inputs, update_animation_state,
                 PointerWorldPosition,
@@ -68,23 +65,15 @@ use crate::{
 #[derive(Component, Clone, Copy, Default)]
 pub struct Character;
 
-/// Coupe la lecture des périphériques (perf-suite-scenarios) : `update_action_state` de
-/// leafwing résout les conflits d'entrées (`handle_clashes`) à chaque frame, ~5 % d'une frame
-/// headless. Pour un jeu piloté par scénario (`InputSource::Scripted`, bots), les inputs
-/// viennent du script et `ActionState` n'est jamais lu (`input.rs` ne le lit qu'avec
-/// `InputSource::Devices`) : aucun effet sur la simulation ni sur les traces.
-pub fn skip_device_input(app: &mut App) {
-    use leafwing_input_manager::plugin::InputManagerSystem;
-    app.configure_sets(PreUpdate, InputManagerSystem::Update.run_if(|| false));
-}
-
 pub struct BaseCharacterGamePlugin {}
 
 impl Plugin for BaseCharacterGamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((RonAssetPlugin::<CharacterConfig>::new(&["ron"]),));
+        // Configurations des personnages : donnée de simulation (`CharacterConfigs`), remplie
+        // hors simulation par l'enveloppe `Asset` (`config_asset`, ajoutée par
+        // `app_plugin::CharacterAppPlugin`, `PreUpdate` avant `RunGgrsSystems`).
+        app.init_resource::<CharacterConfigs>();
 
-        app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
         // Stats et modificateurs (T1.2, chantier B2) : enregistre `Stats`/`Modifiers` en
         // rollback et l'expiration des modificateurs (`RollbackSystemSet::Status`). Voir
         // `docs/conventions.md` §9.
@@ -101,28 +90,13 @@ impl Plugin for BaseCharacterGamePlugin {
         app.init_resource::<enemy::ai::squad::SquadSlots>();
         app.init_resource::<FlowFieldConfig>();
 
-        // Initialize debug resources with --debug-ai flag if present
-        let debug_ai_enabled = app
-            .world()
-            .get_resource::<DebugAiConfig>()
-            .map(|c| c.enabled)
-            .unwrap_or(false);
-
-        app.insert_resource(FlowFieldDebug {
-            enabled: debug_ai_enabled,
-            ..FlowFieldDebug::new()
-        });
-        app.insert_resource(EnemyStateDebug {
-            enabled: debug_ai_enabled,
-            ..EnemyStateDebug::new()
-        });
         app.add_frame_events::<ObstacleAttackEvent>();
         // `FrameEvents<DamageEvent>` (T1.1, chantier B1) : voir la doc de
         // `sim_core::damage` pour les trois émetteurs et le résolveur unique.
         sim_core::damage::add_damage_events(app);
 
         // Kinds existants (lus par le lint de contenu, `crates/content`, T1.5). Les noms
-        // viennent de `global_asset.rs` (`character_configs`) : ce sont les seuls types
+        // viennent du registre de contenu (`CharacterConfigs`) : ce sont les seuls types
         // d'ennemis chargés aujourd'hui, en dur ; T1.5 les lira depuis le manifeste RON.
         app.register_kinds([
             KindDecl::new("enemy", "zombie_1"),
@@ -139,7 +113,7 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace::<EnemySpawnerState>()
             .rollback_and_trace::<EnemyPath>()
             .rollback_and_trace::<Obstacle>()
-            .rollback_and_trace::<visuals::CharacterAppearance>()
+            .rollback_and_trace::<appearance::CharacterAppearance>()
             .rollback_and_trace::<enemy::ai::pathing::WallSlideTracker>()
             // New AI components
             .rollback_and_trace::<EnemyAiConfig>()
@@ -170,6 +144,8 @@ impl Plugin for BaseCharacterGamePlugin {
             .rollback_and_trace_neutral::<combat::actors::DashExtra>()
             // D61 (§18) : points de bouclier, posés au premier gain (neutre sans porteur).
             .rollback_and_trace_neutral::<combat::actors::Shield>()
+            // M3-T3 (§68) : cœurs d'âme, posés au premier gain (neutre sans porteur).
+            .rollback_and_trace_neutral::<combat::actors::ExtraHealth>()
             .rollback_and_trace::<SprintState>()
             .rollback_and_trace::<Velocity>()
             .rollback_and_trace::<Death>()
@@ -190,10 +166,13 @@ impl Plugin for BaseCharacterGamePlugin {
         app.rollback_and_trace_resource::<FlowFieldCache>();
         // Note: FlowFieldConfig is not rolled back (static configuration)
 
-        let (input_source, scripted) = player::input::InputSource::from_env();
+        let (input_source, scripted, hub_scripted) = player::input::InputSource::from_env();
         app.insert_resource(input_source);
         if let Some(scripted) = scripted {
             app.insert_resource(scripted);
+        }
+        if let Some(hub_scripted) = hub_scripted {
+            app.insert_resource(hub_scripted);
         }
         app.add_systems(ReadInputs, read_local_inputs);
 
@@ -292,28 +271,6 @@ impl Plugin for BaseCharacterGamePlugin {
                 (process_obstacle_damage,)
                     .after(RollbackSystemSet::EnemyAI)
                     .before(RollbackSystemSet::FrameCounter),
-            ),
-        );
-    }
-}
-
-/// Sprites, barres de vie et debug visuel de l'IA. Ajouté par `PresentationPlugin`.
-pub struct CharacterPresentationPlugin;
-
-impl Plugin for CharacterPresentationPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                visuals::attach_character_visuals,
-                set_sprite_flip,
-                update_health_bars,
-                // Debug toggles
-                toggle_flow_field_debug,
-                toggle_enemy_state_debug,
-                // Debug drawing
-                draw_flow_field_debug,
-                draw_enemy_state_debug,
             ),
         );
     }

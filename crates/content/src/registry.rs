@@ -2,7 +2,7 @@
 //! (`manifest.rs`) en tables indexées par des identifiants typés (newtypes sur chaîne,
 //! `Ord`, `BTreeMap` partout : CLAUDE.md, règle de déterminisme 5). C'est la source de
 //! vérité des ids de contenu (`docs/plan-engine.md` §4.2) ; les `Handle<...>` Bevy
-//! (`crates/game/src/global_asset.rs`) restent le support de rendu/animation.
+//! (`crates/game/src/global_asset.rs`, application) sont ceux de la présentation et des sources de synchro.
 //!
 //! Le chargement est "best effort" : une entrée invalide (RON cassé, id dupliqué) est
 //! rapportée comme erreur et ignorée plutôt que d'interrompre tout le chargement, pour que
@@ -274,6 +274,10 @@ pub struct CharacterEntry {
     pub squad: Option<String>,
     /// M2-T0c : boss à phases (`boss`).
     pub boss: Option<BossEntry>,
+    /// M3-T0c (§62) : bombe du personnage (`bomb`), absente = pas de bombe.
+    pub bomb: Option<world::BombDef>,
+    /// Suivi Q17 : visée du personnage (`aim`, `Free` par défaut).
+    pub aim: sim_core::aim::AimMode,
     /// T1.4 : tags ignorés par le ciblage (`ai.targeting: Some(Nearest(ignore: [...]))`).
     pub ignore_tags: Vec<String>,
     /// Tags du personnage (`tags`), source des tags connus du jeu (règle `ignore`).
@@ -286,10 +290,12 @@ pub struct CharacterEntry {
     /// T1.5 : table de variantes (`variants`), dans l'ordre du fichier (doublons gardés pour
     /// la règle « nom en double »).
     pub variants: Option<VariantsEntry>,
-    /// T1.13 : `test:` (scénarios générés), pour `lint_character_test`.
+    /// T1.13 : `test:` (attentes comptées).
     pub test: Option<CharacterTestEntry>,
     /// T1.13 : `counts_hits`, pour la cible de `generate_template`.
     pub counts_hits: bool,
+    /// M3-T0b (§61) : i-frames après un dégât réel.
+    pub hit_iframes: Option<u32>,
     /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
     /// grande distance du centre du personnage à un bord de son collider, en px. 0 sans collider.
     pub body_extent: Fixed,
@@ -308,6 +314,16 @@ pub struct CharacterTestEntry {
     pub expect_moving: usize,
     /// M2-T17 : gabarit `BossFight` (`boss:` du `test:`).
     pub boss: Option<BossFightEntry>,
+    /// M3-T13 (§78) : variantes du gabarit `ChampionForced`.
+    pub champions: Vec<ChampionTestEntry>,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::ChampionTest` (attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChampionTestEntry {
+    pub variant: String,
+    pub kill: bool,
+    pub weapon: Option<String>,
 }
 
 /// M2-T17 : mirroir de `game::gen_test::BossFightTest` (attentes comptées).
@@ -323,6 +339,38 @@ pub struct BossFightEntry {
 pub struct ItemTestEntry {
     pub frames: u32,
     pub expect: usize,
+    /// M3-T13 : gabarit `TearsOnTarget` (`tears:`).
+    pub tears: Option<TearsTestEntry>,
+    /// M3-T13 : gabarit `FamiliarHeld` (`familiar:`).
+    pub familiar: Option<FamiliarTestEntry>,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::TearsTest` (attentes comptées).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TearsTestEntry {
+    pub frames: Option<u32>,
+    pub weapon: Option<String>,
+    /// `(personnage, dx, dy)` des cibles posées.
+    pub targets: Vec<(String, i32, i32)>,
+    pub hits: Vec<TearsHitsEntry>,
+    pub expect: usize,
+    pub control: usize,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::TearsHits`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TearsHitsEntry {
+    pub target: usize,
+    pub with_item: u32,
+    pub without_item: u32,
+}
+
+/// M3-T13 : mirroir de `game::gen_test::FamiliarTest`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FamiliarTestEntry {
+    pub frames: Option<u32>,
+    pub weapon: Option<String>,
+    pub min_hits: u32,
 }
 
 /// M2-T17 : `test:` d'un type de salle (`game::gen_test::RoomTest`, attentes comptées).
@@ -337,14 +385,16 @@ pub struct RoomTestEntry {
 /// T1.5 : mirroir de `game::character::variant::VariantsConfig`.
 #[derive(Debug, Clone)]
 pub struct VariantsEntry {
-    pub chance: FixedField,
+    /// M3-T0d : nombre ou expression (`players`, `floor`).
+    pub chance: NumOrExpr,
     pub table: Vec<(String, VariantEntry)>,
 }
 
 /// T1.5 : mirroir de `game::character::variant::VariantDef`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct VariantEntry {
     #[serde(default = "default_variant_weight")]
+    #[schemars(extend("x-lint" = "> 0"))]
     pub weight: u32,
     #[serde(default)]
     pub modifiers: Vec<VariantModifierEntry>,
@@ -352,6 +402,16 @@ pub struct VariantEntry {
     pub tags: Vec<String>,
     #[serde(default)]
     pub skin: Option<String>,
+    /// M3-T0d (§63) : mirroir des champs de champion de `game::character::variant::VariantDef`.
+    #[serde(default)]
+    pub on_death: Vec<effects::Action>,
+    #[serde(default)]
+    pub behaviors: Option<Vec<BehaviorEntry>>,
+    #[serde(default)]
+    pub loot: Option<String>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "#rrggbb"))]
+    pub tint: Option<String>,
 }
 
 fn default_variant_weight() -> u32 {
@@ -359,7 +419,7 @@ fn default_variant_weight() -> u32 {
 }
 
 /// T1.5 : un modificateur de variante (format §9 ; une stat inconnue échoue au chargement).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct VariantModifierEntry {
     pub stat: StatId,
     pub op: ModifierOp,
@@ -368,23 +428,27 @@ pub struct VariantModifierEntry {
 
 /// T1.4 : mirroir de `behaviors::Behavior` (`docs/conventions.md` §22) ; les `Fixed` passent
 /// par [`FixedField`].
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum BehaviorEntry {
     Chase {
         profile: String,
     },
     KeepDistance {
+        #[schemars(extend("x-lint" = "< max"))]
         min: FixedField,
         max: FixedField,
     },
     Strafe,
     Charge {
+        #[schemars(extend("x-lint" = "> 0"))]
         telegraph: u32,
     },
     Shoot {
         weapon: String,
         pattern: String,
+        #[schemars(extend("x-lint" = "> 0"))]
         range: FixedField,
+        #[schemars(extend("x-lint" = "> 0"))]
         cooldown_frames: u32,
     },
     Melee(String),
@@ -397,40 +461,59 @@ pub enum BehaviorEntry {
         #[serde(default)]
         volley: bool,
     },
+    /// M3-T0d (§63) : mirroirs des behaviors de familier de `behaviors::Behavior`.
+    Follow {
+        #[schemars(extend("x-lint" = "> 0"))]
+        gap: FixedField,
+    },
+    Orbit {
+        #[schemars(extend("x-lint" = "> 0"))]
+        radius: FixedField,
+        #[schemars(extend("x-lint" = "> 0"))]
+        frames_per_turn: u32,
+    },
+    MirrorShot {
+        #[schemars(extend("x-lint" = "> 0"))]
+        every: u32,
+    },
+    BlockBullets,
 }
 
 /// M2-T8 : mirroir de `behaviors::FormationShape`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum FormationShapeEntry {
     Arc {
+        #[schemars(extend("x-lint" = "> 0"))]
         radius: FixedField,
+        #[schemars(extend("x-lint" = "]0, 2π]"))]
         spread: FixedField,
     },
 }
 
 /// M2-T0c : mirroirs de `behaviors::boss` (`docs/conventions.md` §37) ; les `Fixed` passent par
 /// [`FixedField`], les actions sont le type réel `effects::Action`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum PhaseEndEntry {
-    HealthBelow(FixedField),
-    AfterFrames(u32),
+    HealthBelow(#[schemars(extend("x-lint" = "]0, 1]"))] FixedField),
+    AfterFrames(#[schemars(extend("x-lint" = "> 0"))] u32),
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct TimelineEventEntry {
     pub at: u32,
     #[serde(rename = "do")]
     pub r#do: Vec<effects::Action>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]
 pub struct TimelineEntry {
     pub events: Vec<TimelineEventEntry>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
     pub repeat: Option<u32>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]
 pub struct PhaseEntry {
     #[serde(default)]
     pub until: Option<PhaseEndEntry>,
@@ -442,13 +525,13 @@ pub struct PhaseEntry {
     pub timeline: Option<TimelineEntry>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]
 pub struct BossEntry {
     pub phases: Vec<PhaseEntry>,
 }
 
 /// T1.4 : mirroir de `behaviors::Targeting`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum TargetingEntry {
     Nearest {
         #[serde(default)]
@@ -466,21 +549,21 @@ pub struct ClockEntry {
 }
 
 /// T1.9 : mirroir de `run::clock::ClockFileSchema`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct ClockFileSchema {
     scope: ClockScopeEntry,
     events: Vec<ClockEventEntry>,
 }
 
 /// T1.9 : mirroir de `run::clock::ClockScope`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum ClockScopeEntry {
     Run,
     Floor,
 }
 
 /// T1.9 : un événement d'horloge (mirroir de `run::clock::ClockEventDef`).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct ClockEventEntry {
     pub id: String,
     pub at: ClockTimeEntry,
@@ -489,7 +572,7 @@ pub struct ClockEventEntry {
 }
 
 /// T1.9 : mirroir de `run::clock::ClockTime`.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Copy, Deserialize)]
 pub enum ClockTimeEntry {
     Frames(u32),
     Seconds(FixedField),
@@ -516,7 +599,7 @@ pub struct DifficultyEntry {
     pub value: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct DifficultyFileSchema {
     value: String,
 }
@@ -542,8 +625,12 @@ pub struct WeaponEntry {
     /// (`frames > 0`, `min_hits <= max_hits`). `None` : pas de `test:`, aucune règle à
     /// vérifier (l'arme obtient quand même un scénario généré, invariants seulement).
     pub test: Option<WeaponTestRange>,
-    /// Type de munition (T2.2), pour la règle « `Custom` au nom non vide » (T2.8).
-    pub ammo_type: AmmoType,
+    /// Type de munition (T2.2), pour la règle « `Custom` au nom non vide » (T2.8). M3-T0a :
+    /// `None` si le RON n'en déclare pas (permis seulement si tous les modes sont `Infinite`).
+    pub ammo_type: Option<AmmoType>,
+    /// M3-T0a : modes de tir à munitions infinies (`mag: Infinite`), pour les règles
+    /// « `ammo_type` absent seulement si tous les modes sont infinis » et inversement.
+    pub infinite_modes: BTreeSet<String>,
     /// Sons référencés par `audio_config` (T2.8), pour la règle « fichier présent sous
     /// `assets/` ». Dans l'ordre (mode, champ) : déterministe pour les messages.
     pub sounds: Vec<SoundRef>,
@@ -560,7 +647,7 @@ pub struct WeaponEntry {
 
 /// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
 /// `combat`). Les champs `Fixed` passent par [`FixedField`] (littéral nu refusé).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum ProjectileModifierEntry {
     Bounce(u32),
     Pierce(u32),
@@ -568,6 +655,18 @@ pub enum ProjectileModifierEntry {
     Lifetime(u32),
     Homing(FixedField),
     Gravity(FixedField),
+    /// M3-T0a (§60), exécutés par M3-T1 (§66), voir `effects::projectile::ProjectileModifier`.
+    Spectral,
+    Split {
+        count: u32,
+        spread: FixedField,
+        #[serde(default)]
+        child: Option<String>,
+    },
+    Orbit {
+        radius: FixedField,
+        frames_per_turn: u32,
+    },
 }
 
 impl ProjectileModifierEntry {
@@ -579,12 +678,15 @@ impl ProjectileModifierEntry {
             Self::Lifetime(_) => "Lifetime",
             Self::Homing(_) => "Homing",
             Self::Gravity(_) => "Gravity",
+            Self::Spectral => "Spectral",
+            Self::Split { .. } => "Split",
+            Self::Orbit { .. } => "Orbit",
         }
     }
 }
 
 /// Mirroir de `combat::projectile::Pattern`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum PatternEntry {
     Aimed {
         count: u32,
@@ -640,7 +742,7 @@ pub enum PatternEntry {
 }
 
 /// Mirroir de `combat::projectile::ExpireAction`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub enum ExpireActionEntry {
     Spawn(PatternEntry),
     /// T1.6 : creuse le terrain d'une caverne au point de fin du projectile.
@@ -650,7 +752,7 @@ pub enum ExpireActionEntry {
 }
 
 /// Mirroir de `combat::projectile::ProjectileSpec`.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]
 pub struct ProjectileSpecEntry {
     #[serde(default)]
     pub modifiers: Vec<ProjectileModifierEntry>,
@@ -661,7 +763,7 @@ pub struct ProjectileSpecEntry {
 }
 
 /// Mirroir de `combat::projectile::ProjectileDef`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct ProjectileDefEntry {
     pub damage: FixedField,
     pub speed: FixedField,
@@ -759,6 +861,9 @@ pub struct FloorsEntry {
     /// M2-T5 : pool de butin de chaque étage (index = étage, le dernier vaut pour les suivants) ;
     /// vide : `commun` pour les coffres, `salle` pour les récompenses de salle.
     pub loot: Vec<String>,
+    /// M3-T0e (§64) : chance par étage et pool de curses (`curses/<id>.ron`, kind `Curse`) ;
+    /// `None` : aucune curse dans cette séquence.
+    pub curses: Option<run::CurseConfig>,
 }
 
 /// Caverne générée (T1.6, `docs/conventions.md` §21), un fichier RON par caverne
@@ -784,7 +889,7 @@ pub struct FloorGrammarEntry {
     pub grammar: world::FloorGrammar,
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, serde::Deserialize)]
 struct FloorGrammarFileSchema {
     templates: String,
     grammar: world::FloorGrammar,
@@ -803,21 +908,28 @@ pub struct SurfaceEntry {
     pub acceleration: Fixed,
     /// M2-T11 (§46) : la surface est une fosse.
     pub pit: Option<world::PitDef>,
+    /// M3-T0c (§62) : la surface blesse (piques).
+    pub hazard: Option<world::HazardDef>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct SurfaceFileSchema {
+    #[schemars(extend("x-lint" = "> 0 et unique"))]
     intgrid_value: u8,
     tags: Vec<String>,
+    #[schemars(extend("x-lint" = "> 0"))]
     move_speed: FixedField,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
     acceleration: Option<FixedField>,
     #[serde(default)]
     pit: Option<world::PitDef>,
+    #[serde(default)]
+    hazard: Option<world::HazardDef>,
 }
 
 /// When earned mutation choices are presented. Existing games keep immediate choices.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 pub enum MutationTiming {
     #[default]
     Immediate,
@@ -850,18 +962,21 @@ pub struct ProgressionEntry {
 }
 
 /// Armes débloquées à partir de `level` (niveau max des joueurs).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 pub struct WeaponPoolEntry {
     pub level: u32,
     pub weapons: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct ProgressionFileSchema {
     gauge: String,
+    #[schemars(extend("x-lint" = "> 0"))]
     per_kill: FixedField,
     levels: Vec<FixedField>,
+    #[schemars(extend("x-lint" = "entre 1 et la taille du pool de mutations"))]
     choices: u32,
+    #[schemars(extend("x-lint" = "> 0"))]
     choice_frames: u32,
     #[serde(default)]
     choice_timing: MutationTiming,
@@ -870,17 +985,24 @@ struct ProgressionFileSchema {
     #[serde(default)]
     weapon_pool: Vec<WeaponPoolEntry>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     weapon_drop_chance: Option<FixedField>,
 }
 
 /// Genre d'un statut (miroir de `combat::status::StatusDef`, T1.3 ; `content` ne dépend pas
 /// de `combat`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum StatusKindEntry {
     Burn,
     Slow,
     Stun,
     Freeze,
+    /// M3-T1 (§66) : comme `Burn`, dégâts de poison.
+    Poison,
+    /// M3-T1 (§66) : l'ennemi fuit sa cible pendant `frames`.
+    Fear,
+    /// Suivi Q12 (§19) : l'ennemi cible l'ennemi le plus proche pendant `frames`, puis redevient hostile.
+    Charm,
 }
 
 /// Statut (T1.3, `docs/conventions.md` §19), `statuses/<id>.ron` :
@@ -896,15 +1018,19 @@ pub struct StatusContentEntry {
     pub factor: Fixed,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct StatusFileSchema {
     kind: StatusKindEntry,
+    #[schemars(extend("x-lint" = "> 0"))]
     frames: u32,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (Burn)"))]
     damage: Option<FixedField>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (Burn)"))]
     period: Option<u32>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "]0, 1] (Slow)"))]
     factor: Option<FixedField>,
 }
 
@@ -921,14 +1047,16 @@ pub struct MutationEntry {
     pub effects: Vec<effects::Effect>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct MutationFileSchema {
     name: String,
     #[serde(default = "one")]
+    #[schemars(extend("x-lint" = "> 0"))]
     weight: u32,
     #[serde(default)]
     tags: Vec<String>,
     #[serde(default = "one")]
+    #[schemars(extend("x-lint" = "> 0"))]
     max_stacks: u32,
     effects: Vec<effects::Effect>,
 }
@@ -937,7 +1065,7 @@ fn one() -> u32 {
     1
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
 struct FloorsFileSchema {
     levels: Vec<String>,
     /// M2-T0d : voir [`FloorsEntry::victory_at_end`].
@@ -949,6 +1077,19 @@ struct FloorsFileSchema {
     /// M2-T5 : voir [`FloorsEntry::loot`].
     #[serde(default)]
     loot: Vec<String>,
+    /// M3-T0e : voir [`FloorsEntry::curses`].
+    #[serde(default)]
+    curses: Option<run::CurseConfig>,
+}
+
+/// `wall_art` d'un `ui/hud.ron` (m2-salles-murs-gungeon), pour le lint.
+#[derive(Debug, Clone)]
+pub struct HudWallArt {
+    pub file: PathBuf,
+    pub layer: String,
+    pub atlas: String,
+    pub tile: Option<u32>,
+    pub columns: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -977,6 +1118,184 @@ pub struct MapLevelInfo {
     pub room_kind: Option<String>,
     pub characters: Vec<String>,
     pub weapons: Vec<String>,
+    /// M3-T0c (§62) : taille du niveau en cases de 16 px `(largeur, hauteur)`, pour le lint
+    /// d'une disposition en grille.
+    pub size_cells: (u32, u32),
+    /// M3-T5 (§70) : cases d'ouverture de la couche `LevelConnection` du niveau (vide si le
+    /// niveau n'a pas cette couche), pour le lint par segment d'une disposition en grille.
+    pub connection: OpeningGrid,
+    /// M3-T12 (§77) : rochers de la couche `Rocks` (valeur 1), puis rochers à butin (valeur 2).
+    pub rocks: u32,
+    pub loot_rocks: u32,
+    /// M3-T12 (§77) : valeurs IntGrid non nulles de la couche `Surfaces` (surfaces, dont les piques).
+    pub surface_values: BTreeSet<u8>,
+    /// M3-T12 : valeurs non nulles de la couche `Rocks` autres que 1 et 2 (ignorées au chargement).
+    pub rock_other_values: BTreeSet<u64>,
+    /// Identifiants des couches IntGrid du niveau (lint de `wall_art.layer`).
+    pub int_grid_layers: BTreeSet<String>,
+}
+
+/// Couche `LevelConnection` d'un niveau : `open[y * width + x]` est vrai si la case vaut 1
+/// (rangées de haut en bas, ordre LDtk). Vide (`Default`) : le niveau n'a pas de couche.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OpeningGrid {
+    pub width: usize,
+    pub height: usize,
+    pub open: Vec<bool>,
+}
+
+/// Côté d'un gabarit (le haut est la rangée 0).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpeningSide {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl OpeningSide {
+    fn label(self) -> &'static str {
+        match self {
+            OpeningSide::Top => "haut",
+            OpeningSide::Bottom => "bas",
+            OpeningSide::Left => "gauche",
+            OpeningSide::Right => "droite",
+        }
+    }
+}
+
+/// Ce qui ne va pas sur un segment de côté.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SegmentFault {
+    /// Aucune case ouverte sur le segment.
+    Missing,
+    /// Plusieurs groupes de cases ouvertes séparés.
+    SeveralGroups,
+    /// Un seul groupe, mais pas symétrique par rapport au milieu du segment.
+    OffCenter,
+}
+
+/// Un segment de côté (une case de salle de long) dont l'ouverture est absente ou mal placée.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OpeningFault {
+    pub side: OpeningSide,
+    /// Rang du segment sur le côté, de 0 (gauche → droite ou haut → bas).
+    pub segment: u32,
+    /// Nombre de segments du côté.
+    pub segments: u32,
+    pub fault: SegmentFault,
+}
+
+impl std::fmt::Display for OpeningFault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let what = match self.fault {
+            SegmentFault::Missing => "aucune ouverture",
+            SegmentFault::SeveralGroups => "plusieurs groupes d'ouvertures",
+            SegmentFault::OffCenter => "ouverture décentrée",
+        };
+        write!(
+            f,
+            "côté {}, segment {}/{} : {what}",
+            self.side.label(),
+            self.segment + 1,
+            self.segments
+        )
+    }
+}
+
+impl SegmentFault {
+    /// `None` si `line` (les cases d'un segment) est un seul groupe de cases ouvertes
+    /// symétrique par rapport au milieu du segment.
+    fn of(line: &[bool]) -> Option<SegmentFault> {
+        let open: Vec<usize> = (0..line.len()).filter(|i| line[*i]).collect();
+        let (Some(first), Some(last)) = (open.first(), open.last()) else {
+            return Some(SegmentFault::Missing);
+        };
+        if open.len() != last - first + 1 {
+            Some(SegmentFault::SeveralGroups)
+        } else if first + last != line.len() - 1 {
+            Some(SegmentFault::OffCenter)
+        } else {
+            None
+        }
+    }
+}
+
+/// Un gabarit de `size` cases de 16 px est un rectangle d'au moins une case de salle de `cell`
+/// cases, aux dimensions multiples de `cell` (M3-T5, §70).
+pub fn size_fits_cell(size: (u32, u32), cell: (u32, u32)) -> bool {
+    cell.0 > 0
+        && cell.1 > 0
+        && size.0 > 0
+        && size.1 > 0
+        && size.0 % cell.0 == 0
+        && size.1 % cell.1 == 0
+}
+
+impl OpeningGrid {
+    /// Segments de côté sans ouverture centrée pour un gabarit de `size` cases de 16 px (M3-T5,
+    /// §70) : chaque côté de chaque case de salle de `cell` cases (un gabarit 2×1 a deux segments
+    /// au nord, deux au sud, un à l'ouest, un à l'est) doit porter **un seul** groupe de cases
+    /// ouvertes, symétrique par rapport au milieu du segment. Les cases ouvertes d'un segment
+    /// voisin ne comptent pas. Une taille qui n'est pas un multiple de `cell` (voir
+    /// [`size_fits_cell`]) : aucun segment n'est défini, liste vide (c'est une autre erreur). Une
+    /// couche absente ou de dimensions différentes de `size` : tous les segments sont sans
+    /// ouverture.
+    pub fn segment_faults(&self, size: (u32, u32), cell: (u32, u32)) -> Vec<OpeningFault> {
+        self.segment_lines(size, cell)
+            .into_iter()
+            .filter_map(|(side, segment, segments, line)| {
+                SegmentFault::of(&line).map(|fault| OpeningFault {
+                    side,
+                    segment,
+                    segments,
+                    fault,
+                })
+            })
+            .collect()
+    }
+
+    /// Largeur (nombre de cases ouvertes) de l'ouverture de chaque segment de côté d'un gabarit
+    /// de `size` cases de 16 px, dans l'ordre haut, bas, gauche, droite ; un segment sans
+    /// ouverture vaut 0. Vide si la taille n'est pas un multiple de `cell`. M3-T5 : le
+    /// planificateur n'accepte une porte que si les deux ouvertures ont la même largeur.
+    pub fn opening_widths(&self, size: (u32, u32), cell: (u32, u32)) -> Vec<usize> {
+        self.segment_lines(size, cell)
+            .into_iter()
+            .map(|(_, _, _, line)| line.iter().filter(|open| **open).count())
+            .collect()
+    }
+
+    /// Cases de chaque segment de côté : `(côté, rang, nombre de segments du côté, cases)`.
+    fn segment_lines(
+        &self,
+        size: (u32, u32),
+        cell: (u32, u32),
+    ) -> Vec<(OpeningSide, u32, u32, Vec<bool>)> {
+        if !size_fits_cell(size, cell) {
+            return Vec::new();
+        }
+        let (width, height) = (size.0 as usize, size.1 as usize);
+        let (cell_w, cell_h) = (cell.0 as usize, cell.1 as usize);
+        let consistent =
+            self.width == width && self.height == height && self.open.len() == width * height;
+        let at = |x: usize, y: usize| consistent && self.open[y * width + x];
+        let mut out = Vec::new();
+        let (across, down) = (width / cell_w, height / cell_h);
+        for (side, y) in [(OpeningSide::Top, 0), (OpeningSide::Bottom, height - 1)] {
+            for s in 0..across {
+                let line = (0..cell_w).map(|i| at(s * cell_w + i, y)).collect();
+                out.push((side, s as u32, across as u32, line));
+            }
+        }
+        for (side, x) in [(OpeningSide::Left, 0), (OpeningSide::Right, width - 1)] {
+            for s in 0..down {
+                let line = (0..cell_h).map(|i| at(x, s * cell_h + i)).collect();
+                out.push((side, s as u32, down as u32, line));
+            }
+        }
+        out
+    }
 }
 
 /// M2-T15 : [`MapLevelInfo`] de chaque niveau d'un `.ldtk`, dans l'ordre du fichier ; vide si la
@@ -999,8 +1318,60 @@ fn ldtk_level_infos(text: &str) -> Vec<MapLevelInfo> {
         let mut info = MapLevelInfo {
             id: level["identifier"].as_str().unwrap_or_default().to_string(),
             room_kind: field(level, "room_kind"),
+            size_cells: (
+                (level["pxWid"].as_u64().unwrap_or(0) / 16) as u32,
+                (level["pxHei"].as_u64().unwrap_or(0) / 16) as u32,
+            ),
             ..Default::default()
         };
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            if layer["__type"] == "IntGrid" {
+                info.int_grid_layers.insert(
+                    layer["__identifier"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                );
+            }
+            if layer["__identifier"] == "LevelConnection" {
+                let width = layer["__cWid"].as_u64().unwrap_or(0) as usize;
+                let height = layer["__cHei"].as_u64().unwrap_or(0) as usize;
+                let cells: Vec<bool> = layer["intGridCsv"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|v| v.as_u64() == Some(1))
+                    .collect();
+                info.connection = OpeningGrid {
+                    width,
+                    height,
+                    open: cells,
+                };
+            }
+            if layer["__identifier"] == world::LAYER_ROCKS {
+                for value in layer["intGridCsv"].as_array().into_iter().flatten() {
+                    match value.as_u64() {
+                        Some(v) if v == world::ROCK_VALUE as u64 => info.rocks += 1,
+                        Some(v) if v == world::ROCK_LOOT_VALUE as u64 => info.loot_rocks += 1,
+                        Some(0) | None => {}
+                        Some(other) => {
+                            info.rock_other_values.insert(other);
+                        }
+                    }
+                }
+            }
+            if layer["__identifier"] == world::surface::LAYER_SURFACES {
+                info.surface_values.extend(
+                    layer["intGridCsv"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|v| v.as_u64())
+                        .filter(|v| *v > 0 && *v <= u64::from(u8::MAX))
+                        .map(|v| v as u8),
+                );
+            }
+        }
         for layer in level["layerInstances"].as_array().into_iter().flatten() {
             for entity in layer["entityInstances"].as_array().into_iter().flatten() {
                 match entity["__identifier"].as_str() {
@@ -1071,6 +1442,54 @@ pub struct LootTableEntry {
     pub id: String,
     pub file: PathBuf,
     pub def: items::LootTableDef,
+}
+
+/// Déblocage de méta-progression (M2-T12, `docs/conventions.md` §51), un fichier RON par
+/// déblocage (`unlocks/<id>.ron` dans un dossier de kind `Unlock`, champs de
+/// [`items::UnlockDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct UnlockEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: items::UnlockDef,
+}
+
+/// Curse de run (M3-T0e, `docs/conventions.md` §64), un fichier RON par curse (`curses/<id>.ron`
+/// dans un dossier de kind `Curse`, champs de [`run::CurseDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct CurseEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: run::CurseDef,
+}
+
+/// Accomplissement (M3-T0e, `docs/conventions.md` §64), un fichier RON par accomplissement
+/// (`achievements/<id>.ron` dans un dossier de kind `Achievement`, champs de
+/// [`meta::AchievementDef`]) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct AchievementEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: meta::AchievementDef,
+}
+
+/// Service du hub (M2-T13, `docs/conventions.md` §57), un fichier RON par service
+/// (`hub/<id>.ron` dans un dossier de kind `HubService`, champs de [`meta::HubServiceDef`]) ;
+/// id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct HubServiceEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub def: meta::HubServiceDef,
+}
+
+/// Règles d'essence du jeu (M2-T12, kind `MetaEconomy`, `meta/<id>.ron`, champs de
+/// [`meta::EssenceRules`]) ; le premier fichier par identifiant fait foi.
+#[derive(Debug, Clone)]
+pub struct MetaEconomyEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub rules: meta::EssenceRules,
 }
 
 /// Objet de décor (M2-T11, `docs/conventions.md` §46), un fichier RON par objet
@@ -1252,6 +1671,16 @@ pub struct Registry {
     pub synergies: BTreeMap<String, SynergyEntry>,
     /// M2-T5 : pools de butin (kind `LootTable`).
     pub loot_tables: BTreeMap<String, LootTableEntry>,
+    /// M2-T12 : déblocages de méta-progression (kind `Unlock`).
+    pub unlocks: BTreeMap<String, UnlockEntry>,
+    /// M3-T0e : curses de run (kind `Curse`).
+    pub curses: BTreeMap<String, CurseEntry>,
+    /// M3-T0e : accomplissements (kind `Achievement`).
+    pub achievements: BTreeMap<String, AchievementEntry>,
+    /// M2-T13 : services du hub (kind `HubService`).
+    pub hub_services: BTreeMap<String, HubServiceEntry>,
+    /// M2-T12 : règles d'essence (kind `MetaEconomy`).
+    pub meta_economy: BTreeMap<String, MetaEconomyEntry>,
     /// M2-T11 : objets de décor (kind `Prop`) : tables renversables et barils explosifs.
     pub props: BTreeMap<String, PropEntry>,
     /// M2-E1 : types de salles (kind `Room`).
@@ -1290,10 +1719,12 @@ pub struct Registry {
     pub ui_files: Vec<PathBuf>,
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
-    /// T1.16 : écrans de mutation (`ui/mutation_screen.ron`) parmi les fichiers Ui.
-    pub mutation_screens: Vec<(PathBuf, crate::ui::MutationScreenLayout)>,
     /// T1.18 : sources des widgets de chaque `ui/hud.ron`.
     pub hud_sources: Vec<(PathBuf, Vec<String>)>,
+    /// Sprites cités par la légende (`legend`) de chaque `ui/hud.ron` (fiche m2-lisibilite-gungeon).
+    pub hud_legend_sprites: Vec<(PathBuf, Vec<String>)>,
+    /// Feuille des murs (`wall_art`) de chaque `ui/hud.ron` qui en déclare une (m2-salles-murs-gungeon).
+    pub hud_wall_art: Vec<HudWallArt>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -1329,6 +1760,11 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "Difficulty",
     "Synergy",
     "LootTable",
+    "Unlock",
+    "Curse",
+    "Achievement",
+    "MetaEconomy",
+    "HubService",
     "Prop",
 ];
 
@@ -1341,6 +1777,15 @@ pub fn known_content_kinds() -> Kinds {
 }
 
 impl Registry {
+    /// Déblocages accordés par un accomplissement (M3-T10, §75) : on ne les achète pas (ni le
+    /// marchand du hub ni `alacod-profile unlock` ne les proposent).
+    pub fn achievement_unlocks(&self) -> std::collections::BTreeSet<&str> {
+        self.achievements
+            .values()
+            .flat_map(|a| a.def.unlocks.iter().map(String::as_str))
+            .collect()
+    }
+
     /// Charge tous les dossiers déclarés par `manifest` (chemins relatifs à
     /// `game_dir/assets/`). Retourne un registre "best effort" (les entrées valides sont
     /// gardées même si d'autres échouent) et la liste des erreurs de chargement (RON
@@ -1427,6 +1872,11 @@ impl Registry {
                 "Item" => load_items(&assets_dir, decl, &mut registry, &mut errors),
                 "Synergy" => load_synergies(&assets_dir, decl, &mut registry, &mut errors),
                 "LootTable" => load_loot_tables(&assets_dir, decl, &mut registry, &mut errors),
+                "Unlock" => load_unlocks(&assets_dir, decl, &mut registry, &mut errors),
+                "Curse" => load_curses(&assets_dir, decl, &mut registry, &mut errors),
+                "Achievement" => load_achievements(&assets_dir, decl, &mut registry, &mut errors),
+                "HubService" => load_hub_services(&assets_dir, decl, &mut registry, &mut errors),
+                "MetaEconomy" => load_meta_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Prop" => load_props(&assets_dir, decl, &mut registry, &mut errors),
                 "Surface" => load_surfaces(&assets_dir, decl, &mut registry, &mut errors),
                 "Pattern" => load_patterns(&assets_dir, decl, &mut registry, &mut errors),
@@ -1522,7 +1972,7 @@ fn read_file(assets_dir: &ContentFiles, rel: &Path) -> Result<String, LintError>
 // par serde (pas de `deny_unknown_fields`), donc un fichier réel plus riche (collider,
 // sprite_config, audio_config...) se charge sans erreur.
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct CharacterFileSchema {
     movement: MovementSchema,
     /// M2-T2 (§43) : dash nommé.
@@ -1532,6 +1982,7 @@ struct CharacterFileSchema {
     base_health: HealthSchema,
     starting_skin: String,
     #[serde(default)]
+    #[schemars(with = "BTreeMap<String, serde_json::Value>")]
     skins: BTreeMap<String, serde::de::IgnoredAny>,
     #[serde(default)]
     starting_weapons: Vec<String>,
@@ -1541,13 +1992,17 @@ struct CharacterFileSchema {
     stats: BTreeMap<StatId, FixedField>,
     /// T1.3, chantier B6 : voir `game::character::config::CharacterConfig::bleedout_frames`.
     #[serde(default = "default_bleedout_frames")]
+    #[schemars(extend("x-lint" = "> 0"))]
     bleedout_frames: u32,
     #[serde(default = "default_revive_frames")]
+    #[schemars(extend("x-lint" = "> 0"))]
     revive_frames: u32,
     #[serde(default = "default_downed_speed_mult")]
+    #[schemars(extend("x-lint" = "]0, 1]"))]
     downed_speed_mult: FixedField,
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
+    #[schemars(extend("x-lint" = "> 0"))]
     weapon_slots: u32,
     /// M2-T1 : voir `game::character::config::CharacterConfig::starting_consumables`.
     #[serde(default)]
@@ -1561,6 +2016,12 @@ struct CharacterFileSchema {
     /// M2-T0c : boss à phases.
     #[serde(default)]
     boss: Option<BossEntry>,
+    /// M3-T0c : bombe.
+    #[serde(default)]
+    bomb: Option<world::BombDef>,
+    /// Suivi Q17 : visée du personnage (`Free` ou `FourWay`).
+    #[serde(default)]
+    aim: sim_core::aim::AimMode,
     #[serde(default)]
     tags: Vec<String>,
     /// T1.5 : variantes et élites.
@@ -1572,6 +2033,10 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
+    /// M3-T0b (§61) : i-frames après un dégât réel.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+    hit_iframes: Option<u32>,
     /// D63 : contenu de test, ignoré par l'analyse d'atteignabilité (`WeaponConfigSchema` idem).
     #[serde(default)]
     test_only: bool,
@@ -1579,7 +2044,8 @@ struct CharacterFileSchema {
     /// dans les RON de personnages (`collider: (...)`, comme `CharacterConfig`).
     #[serde(default, deserialize_with = "present")]
     collider: Option<ColliderSchema>,
-    #[serde(default = "default_scale")]
+    /// D79 : obligatoire, comme `CharacterConfig.scale` (sans défaut côté jeu : un personnage
+    /// sans `scale` ne doit pas passer le lint pour échouer ensuite au chargement).
     scale: FixedField,
 }
 
@@ -1592,19 +2058,15 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
-fn default_scale() -> FixedField {
-    FixedField(Fixed::ONE)
-}
-
 /// Mirroir RON de `game::collider::Collider` (seules les dimensions servent).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct ColliderSchema {
     shape: ColliderShapeSchema,
     #[serde(default)]
     offset: OffsetSchema,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 enum ColliderShapeSchema {
     Rectangle {
         width: FixedField,
@@ -1615,11 +2077,12 @@ enum ColliderShapeSchema {
     },
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct OffsetSchema {
     x: FixedField,
     y: FixedField,
     #[serde(rename = "z", default)]
+    #[schemars(with = "serde_json::Value")]
     _z: serde::de::IgnoredAny,
 }
 
@@ -1667,7 +2130,7 @@ pub const SMALL_AGENT_MAX: i32 = 20;
 
 /// Mirroir RON de `game::character::config::CharacterTest` (comme `WeaponTestSchema`) : les
 /// attentes ne sont que comptées (`content` ne type pas `Expectation`).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct CharacterTestSchema {
     frames: u32,
     #[serde(default = "default_true")]
@@ -1675,21 +2138,42 @@ struct CharacterTestSchema {
     #[serde(default = "default_true")]
     moving: bool,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect_still: Vec<serde::de::IgnoredAny>,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect_moving: Vec<serde::de::IgnoredAny>,
     #[serde(default)]
     boss: Option<BossFightSchema>,
+    /// M3-T13 (§78) : un scénario `champion_<id>_<variante>` par entrée.
+    #[serde(default)]
+    champions: Vec<ChampionTestSchema>,
+}
+
+/// Mirroir de `game::gen_test::ChampionTest`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct ChampionTestSchema {
+    variant: String,
+    #[serde(default)]
+    kill: bool,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
 }
 
 /// Mirroir de `game::gen_test::BossFightTest`.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct BossFightSchema {
+    #[serde(default)]
+    room: Option<String>,
     #[serde(default)]
     floors: Option<String>,
     #[serde(default)]
     map: Option<String>,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
 }
 
@@ -1700,10 +2184,74 @@ struct ItemTestFile {
     test: Option<ItemTestSchema>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, schemars::JsonSchema)]
 struct ItemTestSchema {
     frames: u32,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
+    /// M3-T13 (§78) : scénario `tears_<id>`.
+    #[serde(default)]
+    tears: Option<TearsTestSchema>,
+    /// M3-T13 : scénario `familiar_<id>` (objet à `familiar:`).
+    #[serde(default)]
+    familiar: Option<FamiliarTestSchema>,
+}
+
+/// Mirroir de `game::gen_test::TearsTest` : les scénarios `tears_<id>` (avec l'objet) et
+/// `tears_<id>_sans_objet` (le témoin).
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsTestSchema {
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    frames: Option<u32>,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    aim: Option<(i16, i16)>,
+    #[serde(default)]
+    targets: Vec<TearsTargetSchema>,
+    #[serde(default)]
+    hits: Vec<TearsHitsSchema>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    expect: Vec<serde::de::IgnoredAny>,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
+    control: Vec<serde::de::IgnoredAny>,
+}
+
+/// Mirroir de `game::gen_test::TearsTarget`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsTargetSchema {
+    character: String,
+    dx: i32,
+    dy: i32,
+}
+
+/// Mirroir de `game::gen_test::TearsHits`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TearsHitsSchema {
+    #[serde(default)]
+    target: usize,
+    #[schemars(extend("x-lint" = "> 0"))]
+    with_item: u32,
+    #[serde(default)]
+    without_item: u32,
+}
+
+/// Mirroir de `game::gen_test::FamiliarTest`.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct FamiliarTestSchema {
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    frames: Option<u32>,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    min_hits: u32,
+    #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
 }
 
@@ -1714,7 +2262,7 @@ struct RoomTestFile {
     test: Option<RoomTestSchema>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, schemars::JsonSchema)]
 struct RoomTestSchema {
     frames: u32,
     #[serde(default)]
@@ -1722,6 +2270,7 @@ struct RoomTestSchema {
     #[serde(default)]
     map: Option<String>,
     #[serde(default)]
+    #[schemars(with = "Vec<serde_json::Value>")]
     expect: Vec<serde::de::IgnoredAny>,
 }
 
@@ -1755,18 +2304,19 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct VariantsSchema {
     #[serde(default = "default_variant_chance")]
-    chance: FixedField,
+    #[schemars(extend("x-lint" = "[0, 1] (nombre) ou expression `players`/`floor`"))]
+    chance: NumOrExpr,
     table: KeyedEntries<VariantEntry>,
 }
 
-fn default_variant_chance() -> FixedField {
-    FixedField(Fixed::from_num(1))
+fn default_variant_chance() -> NumOrExpr {
+    NumOrExpr::Literal(Fixed::from_num(1))
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct AiSchema {
     #[serde(default)]
     behaviors: Option<Vec<BehaviorEntry>>,
@@ -1775,6 +2325,10 @@ struct AiSchema {
     /// M2-T8 : `squad: Some(("id", Some("role")))`, voir `game::...::state::SquadRon`.
     #[serde(default)]
     squad: Option<(String, Option<String>)>,
+    /// D66 : portée de la vue directe (`sight_range`, `game::...::state::EnemyAiConfig`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    sight_range: Option<FixedField>,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -1793,8 +2347,9 @@ fn default_weapon_slots() -> u32 {
     2
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct MovementSchema {
+    #[schemars(extend("x-lint" = ">= 0"))]
     max_speed: FixedField,
     #[serde(default)]
     dash_duration_frames: u32,
@@ -1806,7 +2361,7 @@ struct MovementSchema {
     dash_recharge_frames: u32,
 }
 
-#[derive(Deserialize, PartialEq)]
+#[derive(schemars::JsonSchema, Deserialize, PartialEq)]
 enum DashEffectSchema {
     Roll,
     Shove,
@@ -1814,7 +2369,7 @@ enum DashEffectSchema {
 }
 
 /// M2-T2 : `dash` du personnage (miroir de `game::character::movement::DashConfig`).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct DashSchema {
     #[serde(default)]
     duration_frames: Option<u32>,
@@ -1823,21 +2378,23 @@ struct DashSchema {
     #[serde(default)]
     effect: Option<DashEffectSchema>,
     #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
     charges: Option<u32>,
     #[serde(default)]
     recharge_frames: Option<u32>,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct HealthSchema {
     /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    #[schemars(extend("x-lint" = "> 0"))]
     max: NumOrExpr,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponsFileSchema(KeyedEntries<WeaponEntrySchema>);
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponEntrySchema {
     config: WeaponConfigSchema,
     /// T2.8 : sons de l'arme. Lu par aucun type de `game` aujourd'hui (les sons joués
@@ -1852,7 +2409,7 @@ struct WeaponEntrySchema {
     sprite_config: WeaponSpriteSchema,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(schemars::JsonSchema, Deserialize, Default)]
 struct WeaponSpriteSchema {
     #[serde(default)]
     name: String,
@@ -1860,10 +2417,10 @@ struct WeaponSpriteSchema {
 
 /// D3 : `sprites/sprites.ron`, table `{ "id": (animation: "...", layers: { ... }) }`, lue en
 /// liste pour rapporter un id répété (comme `weapons.ron`, voir [`KeyedEntries`]).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct SpriteSheetsFileSchema(KeyedEntries<SpriteSheetEntrySchema>);
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct SpriteSheetEntrySchema {
     animation: String,
     layers: BTreeMap<String, String>,
@@ -1875,7 +2432,7 @@ struct SheetImageSchema {
     path: String,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(schemars::JsonSchema, Deserialize, Default)]
 struct WeaponAudioSchema {
     #[serde(default)]
     modes: BTreeMap<String, WeaponAudioModeSchema>,
@@ -1883,7 +2440,7 @@ struct WeaponAudioSchema {
 
 /// `String` (pas `Option<String>`, pour la même raison que `audio_config`) : un champ absent
 /// vaut `""`, ignoré par le lint.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponAudioModeSchema {
     #[serde(default)]
     reloading: String,
@@ -1891,7 +2448,7 @@ struct WeaponAudioModeSchema {
     firing: String,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponConfigSchema {
     #[serde(default)]
     firing_modes: BTreeMap<String, FiringModeSchema>,
@@ -1904,8 +2461,12 @@ struct WeaponConfigSchema {
     /// RON) plutôt que de la laisser silencieusement absente d'un `WeaponEntry` construit
     /// avec des valeurs par défaut. T2.8 : une variante inconnue est rapportée avec le nom
     /// du champ (`de_ammo_type`), un `Custom("")` par `lint::lint_weapons`.
-    #[serde(deserialize_with = "de_ammo_type")]
-    ammo_type: AmmoType,
+    ///
+    /// M3-T0a : optionnel ici (`None` si absent) ; le lint l'exige pour une arme dont un mode
+    /// consomme des munitions (comme avant, mais en erreur de lint plutôt qu'en erreur RON) et le
+    /// refuse pour une arme dont tous les modes sont `Infinite`.
+    #[serde(default, deserialize_with = "de_opt_ammo_type")]
+    ammo_type: Option<AmmoType>,
     /// T2.8 : mirroité seulement pour que le lint voie une valeur inconnue (enum fermé
     /// `FriendlyFire`, `#[serde(default)]` = `Never` comme le type réel) ; aucune règle
     /// sémantique dessus.
@@ -1924,21 +2485,36 @@ fn zero_spread() -> FixedField {
     FixedField(Fixed::ZERO)
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct FiringModeSchema {
+    #[schemars(extend("x-lint" = "> 0"))]
     firing_rate: FixedField,
     /// D51 : voir `WeaponEntry::spreads` (absent : 0, aucune règle violée).
     #[serde(default = "zero_spread")]
+    #[schemars(extend("x-lint" = "[0, π] (radians)"))]
     spread: FixedField,
     /// T1.1 : voir `WeaponEntry::mode_projectiles`.
     #[serde(default)]
     projectile: ProjectileSpecEntry,
+    /// M3-T0a : voir `WeaponEntry::infinite_modes` (absent des fixtures : `None`). Écrit sans
+    /// `Some(..)` dans le RON, comme le champ réel.
+    #[serde(default, deserialize_with = "de_opt_mag")]
+    mag: Option<MagSchema>,
+}
+
+/// M3-T0a : mirroir de `combat::weapons::MagBulletConfig` (seule la variante compte).
+#[derive(schemars::JsonSchema, Deserialize)]
+#[allow(dead_code)]
+enum MagSchema {
+    Mag { mag_size: u32, mag_limit: u32 },
+    Magless { bullet_limit: u32 },
+    Infinite,
 }
 
 /// Mirroir RON de `game::weapons::WeaponTest` (voir `WeaponTestRange`) : ignore `expect`,
 /// que `content` ne peut pas typer (`Expectation` vit dans `game`, `content` n'en dépend
 /// pas) — silencieusement, comme tout champ non déclaré ici (voir la doc du module).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WeaponTestSchema {
     frames: u32,
     min_hits: u32,
@@ -1956,16 +2532,17 @@ impl From<&WeaponTestSchema> for WeaponTestRange {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct MeleeWeaponsFileSchema(KeyedEntries<MeleeWeaponEntrySchema>);
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct MeleeWeaponEntrySchema {
     config: MeleeWeaponConfigSchema,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct MeleeWeaponConfigSchema {
+    #[schemars(extend("x-lint" = ">= 0"))]
     damage: FixedField,
     #[serde(default)]
     test: Option<WeaponTestSchema>,
@@ -1975,13 +2552,13 @@ struct MeleeWeaponConfigSchema {
     friendly_fire: FriendlyFire,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WaveConfigFileSchema {
     #[serde(default)]
     wave_tiers: Vec<WaveTierSchema>,
 }
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct WaveTierSchema {
     #[serde(default)]
     enemy_probabilities: BTreeMap<String, u32>,
@@ -1990,7 +2567,7 @@ struct WaveTierSchema {
 /// Mirroir de `game::economy::EconomyConfig` (T2.3, chantier C5 v1). Défauts identiques
 /// (voir leur doc respective) : un `economy.ron` qui ne déclare qu'un sous-ensemble des
 /// champs se comporte pareil ici et à l'exécution. F5 (chantier m0-v11) : `NumOrExpr`.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct EconomyFileSchema {
     #[serde(default = "default_kill_points")]
     kill_points: NumOrExpr,
@@ -2003,6 +2580,7 @@ struct EconomyFileSchema {
     #[serde(default)]
     repair_points_cap_per_wave: Option<NumOrExpr>,
     #[serde(default = "default_refill_price_ratio")]
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     refill_price_ratio: NumOrExpr,
     #[serde(default)]
     shells_drop: Option<(u32, u32)>,
@@ -2034,12 +2612,13 @@ fn default_refill_price_ratio() -> NumOrExpr {
 /// (`price > 0`, au moins un modificateur, `Mul` > 0, voir `lint::lint_perks`). La table est
 /// lue en liste ([`KeyedEntries`], T2.8) : un id écrit deux fois dans le fichier est
 /// rapporté `DuplicateId` au lieu d'être écrasé en silence.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PerksFileSchema(KeyedEntries<PerkEntrySchema>);
 
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PerkEntrySchema {
     /// F5 (chantier m0-v11) : littéral ou expression `players` (`crate::expr::NumOrExpr`).
+    #[schemars(extend("x-lint" = "> 0"))]
     price: NumOrExpr,
     #[serde(default)]
     modifiers: Vec<PerkModifierSchema>,
@@ -2047,7 +2626,7 @@ struct PerkEntrySchema {
 
 /// Mirroir de `game::economy::PerkModifierDef` (`value` en [`FixedField`] : même règle de
 /// chaîne que le type réel `Fixed`, message plus clair pour un littéral nu).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PerkModifierSchema {
     #[serde(deserialize_with = "de_stat")]
     stat: StatId,
@@ -2058,8 +2637,9 @@ struct PerkModifierSchema {
 /// Mirroir de `game::powerups::PowerUpsConfig` (T2.5, chantier C1 v0) : `drop_chance`
 /// (racine du fichier, probabilité qu'un ennemi tué laisse tomber un power-up) et la table
 /// nommée des power-ups eux-mêmes.
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PowerUpsFileSchema {
+    #[schemars(extend("x-lint" = "[0, 1]"))]
     drop_chance: FixedField,
     powerups: KeyedEntries<PowerUpEntrySchema>,
 }
@@ -2074,10 +2654,13 @@ struct PowerUpsFileSchema {
 /// `pickup_range`/`lifetime_frames` (T2.8) : obligatoires, comme dans le type réel
 /// `game::powerups::PowerUpDef` (un fichier qui les omet échoue au chargement du jeu ; le
 /// lint rapporte la même erreur plutôt que de laisser passer le fichier).
-#[derive(Deserialize)]
+#[derive(schemars::JsonSchema, Deserialize)]
 struct PowerUpEntrySchema {
+    #[schemars(extend("x-lint" = "> 0"))]
     weight: u32,
+    #[schemars(extend("x-lint" = "> 0"))]
     pickup_range: FixedField,
+    #[schemars(extend("x-lint" = "> 0"))]
     lifetime_frames: u32,
     #[serde(default)]
     actions: Vec<effects::Action>,
@@ -2098,8 +2681,12 @@ where
     T::deserialize(deserializer).map_err(|e| de::Error::custom(format!("champ {field} : {e}")))
 }
 
-fn de_ammo_type<'de, D: Deserializer<'de>>(d: D) -> Result<AmmoType, D::Error> {
-    with_field_name(d, "ammo_type")
+fn de_opt_mag<'de, D: Deserializer<'de>>(d: D) -> Result<Option<MagSchema>, D::Error> {
+    with_field_name(d, "mag").map(Some)
+}
+
+fn de_opt_ammo_type<'de, D: Deserializer<'de>>(d: D) -> Result<Option<AmmoType>, D::Error> {
+    with_field_name(d, "ammo_type").map(Some)
 }
 
 fn de_friendly_fire<'de, D: Deserializer<'de>>(d: D) -> Result<FriendlyFire, D::Error> {
@@ -2115,6 +2702,21 @@ fn de_stat<'de, D: Deserializer<'de>>(d: D) -> Result<StatId, D::Error> {
 /// dernière valeur d'une clé répétée sans rien dire ; le chargeur, qui insère les entrées
 /// une à une dans le registre, rapporte ainsi le doublon comme `DuplicateId`.
 struct KeyedEntries<V>(Vec<(String, V)>);
+
+/// Schéma : une table `{ "id": V, … }`.
+impl<V: schemars::JsonSchema> schemars::JsonSchema for KeyedEntries<V> {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        format!("Table<{}>", V::schema_name()).into()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "object",
+            "description": "Table RON `{ \"id\": entrée, … }` : une entrée par id.",
+            "additionalProperties": generator.subschema_for::<V>()
+        })
+    }
+}
 
 impl<'de, V: Deserialize<'de>> Deserialize<'de> for KeyedEntries<V> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -2169,10 +2771,16 @@ fn load_characters(
         let parsed: CharacterFileSchema = match ron::from_str(&text) {
             Ok(p) => p,
             Err(e) => {
+                let message = e.to_string();
+                let hint = if message.contains("missing field named `scale`") {
+                    " (D79 : `scale` est obligatoire pour un personnage, ex. `scale: \"1.0\"`)"
+                } else {
+                    ""
+                };
                 errors.push(LintError {
                     kind: LintErrorKind::Parse,
                     file: rel.display().to_string(),
-                    message: format!("erreur RON : {e}"),
+                    message: format!("erreur RON : {message}{hint}"),
                 });
                 continue;
             }
@@ -2215,6 +2823,8 @@ fn load_characters(
                 starting_consumables: parsed.starting_consumables,
                 effects: parsed.effects,
                 boss: parsed.boss,
+                bomb: parsed.bomb,
+                aim: parsed.aim,
                 ignore_tags: parsed
                     .ai
                     .as_ref()
@@ -2245,8 +2855,18 @@ fn load_characters(
                         map: boss.map,
                         expect: boss.expect.len(),
                     }),
+                    champions: test
+                        .champions
+                        .into_iter()
+                        .map(|champion| ChampionTestEntry {
+                            variant: champion.variant,
+                            kill: champion.kill,
+                            weapon: champion.weapon,
+                        })
+                        .collect(),
                 }),
                 counts_hits: parsed.counts_hits,
+                hit_iframes: parsed.hit_iframes,
                 body_extent: parsed
                     .collider
                     .as_ref()
@@ -2312,7 +2932,11 @@ fn load_weapons(
             let mut firing_rates = BTreeMap::new();
             let mut spreads = BTreeMap::new();
             let mut mode_projectiles = BTreeMap::new();
+            let mut infinite_modes = BTreeSet::new();
             for (mode, cfg) in entry.config.firing_modes {
+                if matches!(cfg.mag, Some(MagSchema::Infinite)) {
+                    infinite_modes.insert(mode.clone());
+                }
                 firing_rates.insert(mode.clone(), cfg.firing_rate);
                 spreads.insert(mode.clone(), cfg.spread);
                 mode_projectiles.insert(mode, cfg.projectile);
@@ -2338,6 +2962,7 @@ fn load_weapons(
                     spreads,
                     test,
                     ammo_type: entry.config.ammo_type,
+                    infinite_modes,
                     sounds,
                     sprite: Some(entry.sprite_config.name).filter(|name| !name.is_empty()),
                     mode_projectiles,
@@ -2699,6 +3324,7 @@ fn load_floors(
                 victory_at_end: parsed.victory_at_end,
                 consumables_per_floor: parsed.consumables_per_floor,
                 loot: parsed.loot,
+                curses: parsed.curses,
             },
         );
     }
@@ -2826,6 +3452,31 @@ fn load_items(
             .map(|test| ItemTestEntry {
                 frames: test.frames,
                 expect: test.expect.len(),
+                tears: test.tears.map(|tears| TearsTestEntry {
+                    frames: tears.frames,
+                    weapon: tears.weapon,
+                    targets: tears
+                        .targets
+                        .into_iter()
+                        .map(|t| (t.character, t.dx, t.dy))
+                        .collect(),
+                    hits: tears
+                        .hits
+                        .into_iter()
+                        .map(|h| TearsHitsEntry {
+                            target: h.target,
+                            with_item: h.with_item,
+                            without_item: h.without_item,
+                        })
+                        .collect(),
+                    expect: tears.expect.len(),
+                    control: tears.control.len(),
+                }),
+                familiar: test.familiar.map(|familiar| FamiliarTestEntry {
+                    frames: familiar.frames,
+                    weapon: familiar.weapon,
+                    min_hits: familiar.min_hits,
+                }),
             });
         registry.items.insert(
             id.clone(),
@@ -2886,6 +3537,126 @@ fn load_loot_tables(
         registry
             .loot_tables
             .insert(id.clone(), LootTableEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T12 : `unlocks/<id>.ron` (kind `Unlock`), un déblocage par fichier ; id = nom de fichier.
+fn load_unlocks(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<items::UnlockDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.unlocks.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de déblocage « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .unlocks
+            .insert(id.clone(), UnlockEntry { id, file: rel, def });
+    }
+}
+
+/// M3-T0e : `curses/<id>.ron` (kind `Curse`), une curse par fichier ; id = nom de fichier.
+fn load_curses(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<run::CurseDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.curses.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de curse « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .curses
+            .insert(id.clone(), CurseEntry { id, file: rel, def });
+    }
+}
+
+/// M3-T0e : `achievements/<id>.ron` (kind `Achievement`), un accomplissement par fichier ; id =
+/// nom de fichier.
+fn load_achievements(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<meta::AchievementDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.achievements.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id d'accomplissement « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .achievements
+            .insert(id.clone(), AchievementEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T13 : `hub/<id>.ron` (kind `HubService`), un service par fichier ; id = nom de fichier.
+fn load_hub_services(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, def) in load_ron_files::<meta::HubServiceDef>(assets_dir, decl, errors) {
+        if let Some(existing) = registry.hub_services.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de service du hub « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry
+            .hub_services
+            .insert(id.clone(), HubServiceEntry { id, file: rel, def });
+    }
+}
+
+/// M2-T12 : `meta/<id>.ron` (kind `MetaEconomy`), règles d'essence ; id = nom de fichier.
+fn load_meta_economy(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    for (id, rel, rules) in load_ron_files::<meta::EssenceRules>(assets_dir, decl, errors) {
+        registry
+            .meta_economy
+            .entry(id.clone())
+            .or_insert(MetaEconomyEntry {
+                id,
+                file: rel,
+                rules,
+            });
     }
 }
 
@@ -3020,6 +3791,7 @@ fn load_surfaces(
                 move_speed: parsed.move_speed.get(),
                 acceleration: parsed.acceleration.map_or(Fixed::ONE, |a| a.get()),
                 pit: parsed.pit,
+                hazard: parsed.hazard,
             },
         );
     }
@@ -3537,8 +4309,7 @@ fn load_maps(
     }
 }
 
-/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4), comme
-/// `mutation_screen.ron` (T1.16, [`crate::ui::MutationScreenLayout`]).
+/// Les réglages `feedback.ron` déclarés comme Ui ont un schéma typé (T3.4).
 /// Les autres RON gardent la validation syntaxique ; les gabarits HTML doivent être lisibles.
 fn load_ui(
     assets_dir: &ContentFiles,
@@ -3592,12 +4363,22 @@ fn load_ui(
                     .map(|w| w.kind.source().to_string())
                     .collect();
                 registry.hud_sources.push((rel.clone(), sources));
-            })
-        } else if rel.file_name().and_then(|name| name.to_str())
-            == Some(crate::ui::MUTATION_SCREEN_FILE_NAME)
-        {
-            ron::from_str::<crate::ui::MutationScreenLayout>(&text).map(|layout| {
-                registry.mutation_screens.push((rel.clone(), layout));
+                let sprites = hud
+                    .legend
+                    .iter()
+                    .flat_map(|group| group.entries.iter())
+                    .filter_map(|entry| entry.sprite.clone())
+                    .collect();
+                registry.hud_legend_sprites.push((rel.clone(), sprites));
+                if let Some(art) = &hud.wall_art {
+                    registry.hud_wall_art.push(HudWallArt {
+                        file: rel.clone(),
+                        layer: art.layer.clone(),
+                        atlas: art.atlas.clone(),
+                        tile: art.tile,
+                        columns: art.columns,
+                    });
+                }
             })
         } else {
             ron::from_str::<ron::Value>(&text).map(|_| ())
@@ -3672,6 +4453,179 @@ mod tests {
             "testbed_empty"
         );
     }
+
+    /// Couche `LevelConnection` de `width × height` cases dont seules `open` (x, y) valent 1.
+    fn connection(width: usize, height: usize, open: &[(usize, usize)]) -> OpeningGrid {
+        let mut cells = vec![false; width * height];
+        for (x, y) in open {
+            cells[y * width + x] = true;
+        }
+        OpeningGrid {
+            width,
+            height,
+            open: cells,
+        }
+    }
+
+    /// Case de salle de test : 5 × 3 cases de 16 px (milieu : x = 2, y = 1).
+    const CELL: (u32, u32) = (5, 3);
+
+    fn fault(side: OpeningSide, segment: u32, segments: u32, fault: SegmentFault) -> OpeningFault {
+        OpeningFault {
+            side,
+            segment,
+            segments,
+            fault,
+        }
+    }
+
+    #[test]
+    fn one_cell_template_with_centered_openings_is_valid() {
+        let grid = connection(5, 3, &[(2, 0), (2, 2), (0, 1), (4, 1)]);
+        assert_eq!(grid.segment_faults((5, 3), CELL), []);
+        // une ouverture large symétrique est centrée aussi
+        let wide = connection(
+            5,
+            3,
+            &[
+                (1, 0),
+                (2, 0),
+                (3, 0),
+                (1, 2),
+                (2, 2),
+                (3, 2),
+                (0, 0),
+                (0, 1),
+                (0, 2),
+                (4, 0),
+                (4, 1),
+                (4, 2),
+            ],
+        );
+        assert_eq!(wide.segment_faults((5, 3), CELL), []);
+    }
+
+    #[test]
+    fn segment_without_opening_is_reported_with_its_side() {
+        let grid = connection(5, 3, &[(2, 0), (2, 2), (4, 1)]);
+        assert_eq!(
+            grid.segment_faults((5, 3), CELL),
+            [fault(OpeningSide::Left, 0, 1, SegmentFault::Missing)]
+        );
+    }
+
+    #[test]
+    fn off_center_opening_is_reported() {
+        let grid = connection(5, 3, &[(1, 0), (2, 2), (0, 1), (4, 1)]);
+        assert_eq!(
+            grid.segment_faults((5, 3), CELL),
+            [fault(OpeningSide::Top, 0, 1, SegmentFault::OffCenter)]
+        );
+    }
+
+    #[test]
+    fn two_opening_groups_on_one_segment_are_reported() {
+        // (1, 0) et (3, 0) : symétriques, mais séparés par la case 2
+        let grid = connection(5, 3, &[(1, 0), (3, 0), (2, 2), (0, 1), (4, 1)]);
+        assert_eq!(
+            grid.segment_faults((5, 3), CELL),
+            [fault(OpeningSide::Top, 0, 1, SegmentFault::SeveralGroups)]
+        );
+    }
+
+    #[test]
+    fn wide_template_needs_an_opening_per_segment() {
+        // 2 × 1 : deux segments au haut et au bas, un à gauche, un à droite
+        let all = [(2, 0), (7, 0), (2, 2), (7, 2), (0, 1), (9, 1)];
+        assert_eq!(connection(10, 3, &all).segment_faults((10, 3), CELL), []);
+        let without_south_east = [(2, 0), (7, 0), (2, 2), (0, 1), (9, 1)];
+        assert_eq!(
+            connection(10, 3, &without_south_east).segment_faults((10, 3), CELL),
+            [fault(OpeningSide::Bottom, 1, 2, SegmentFault::Missing)]
+        );
+        // une ouverture à cheval sur les deux segments du haut ne centre ni l'un ni l'autre
+        let straddling = [(4, 0), (5, 0), (2, 2), (7, 2), (0, 1), (9, 1)];
+        assert_eq!(
+            connection(10, 3, &straddling).segment_faults((10, 3), CELL),
+            [
+                fault(OpeningSide::Top, 0, 2, SegmentFault::OffCenter),
+                fault(OpeningSide::Top, 1, 2, SegmentFault::OffCenter),
+            ]
+        );
+    }
+
+    #[test]
+    fn tall_template_needs_an_opening_per_segment() {
+        // 1 × 2 : un segment au haut et au bas, deux à gauche, deux à droite
+        let all = [(2, 0), (2, 5), (0, 1), (0, 4), (4, 1), (4, 4)];
+        assert_eq!(connection(5, 6, &all).segment_faults((5, 6), CELL), []);
+        let without_west_lower = [(2, 0), (2, 5), (0, 1), (4, 1), (4, 4)];
+        assert_eq!(
+            connection(5, 6, &without_west_lower).segment_faults((5, 6), CELL),
+            [fault(OpeningSide::Left, 1, 2, SegmentFault::Missing)]
+        );
+    }
+
+    #[test]
+    fn big_template_is_valid_with_every_segment_open() {
+        // 2 × 2 : deux segments par côté
+        let all = [
+            (2, 0),
+            (7, 0),
+            (2, 5),
+            (7, 5),
+            (0, 1),
+            (0, 4),
+            (9, 1),
+            (9, 4),
+        ];
+        assert_eq!(connection(10, 6, &all).segment_faults((10, 6), CELL), []);
+    }
+
+    #[test]
+    fn size_must_be_a_multiple_of_the_cell() {
+        assert!(size_fits_cell((5, 3), CELL));
+        assert!(size_fits_cell((10, 6), CELL));
+        assert!(!size_fits_cell((6, 3), CELL));
+        assert!(!size_fits_cell((10, 4), CELL));
+        assert!(!size_fits_cell((0, 0), CELL));
+        assert!(!size_fits_cell((5, 3), (0, 3)));
+        // pas de segment défini : la taille est l'erreur
+        assert_eq!(connection(6, 3, &[]).segment_faults((6, 3), CELL), []);
+    }
+
+    #[test]
+    fn opening_widths_count_open_cells_per_segment() {
+        // 2 × 1 : haut 1 et 3 cases, bas 1 et 1, gauche 1, droite 1
+        let open = [
+            (2, 0),
+            (6, 0),
+            (7, 0),
+            (8, 0),
+            (2, 2),
+            (7, 2),
+            (0, 1),
+            (9, 1),
+        ];
+        assert_eq!(
+            connection(10, 3, &open).opening_widths((10, 3), CELL),
+            [1, 3, 1, 1, 1, 1]
+        );
+        assert!(OpeningGrid::default()
+            .opening_widths((6, 3), CELL)
+            .is_empty());
+    }
+
+    #[test]
+    fn missing_connection_layer_reports_every_segment() {
+        let faults = OpeningGrid::default().segment_faults((10, 3), CELL);
+        assert_eq!(faults.len(), 6);
+        assert!(faults.iter().all(|f| f.fault == SegmentFault::Missing));
+        assert_eq!(
+            faults[0].to_string(),
+            "côté haut, segment 1/2 : aucune ouverture"
+        );
+    }
 }
 
 /// D41 : dégagement des points d'apparition selon le corps en jeu.
@@ -3706,4 +4660,59 @@ mod spawn_clearance_tests {
         assert_eq!(spawn_clearance_for(Fixed::from_num(40)), 2);
         assert_eq!(spawn_clearance_for(Fixed::from_num(41)), 3);
     }
+}
+
+/// Schéma exhaustif du fichier d'un kind (`crate::schema`), pour les types privés de ce module.
+pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
+    Some(match kind {
+        "Item" => schemars::schema_for!(ItemFileView),
+        "Synergy" => schemars::schema_for!(items::SynergyDef),
+        "LootTable" => schemars::schema_for!(items::LootTableDef),
+        "Room" => schemars::schema_for!(RoomFileView),
+        "Prop" => schemars::schema_for!(world::PropDef),
+        "Cave" => schemars::schema_for!(world::CaveConfig),
+        "Status" => schemars::schema_for!(StatusFileSchema),
+        "Mutation" => schemars::schema_for!(MutationFileSchema),
+        "Progression" => schemars::schema_for!(ProgressionFileSchema),
+        "FloorGrammar" => schemars::schema_for!(FloorGrammarFileSchema),
+        "Floors" => schemars::schema_for!(FloorsFileSchema),
+        "Surface" => schemars::schema_for!(SurfaceFileSchema),
+        "Clock" => schemars::schema_for!(ClockFileSchema),
+        "Difficulty" => schemars::schema_for!(DifficultyFileSchema),
+        "Economy" => schemars::schema_for!(EconomyFileSchema),
+        "Perk" => schemars::schema_for!(PerksFileSchema),
+        "PowerUp" => schemars::schema_for!(PowerUpsFileSchema),
+        "Character" => schemars::schema_for!(CharacterFileSchema),
+        "Weapon" => schemars::schema_for!(WeaponsFileSchema),
+        "MeleeWeapon" => schemars::schema_for!(MeleeWeaponsFileSchema),
+        "Pattern" => schemars::schema_for!(PatternEntry),
+        "Wave" => schemars::schema_for!(WaveConfigFileSchema),
+        "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
+        "Unlock" => schemars::schema_for!(items::UnlockDef),
+        "Curse" => schemars::schema_for!(run::CurseDef),
+        "Achievement" => schemars::schema_for!(meta::AchievementDef),
+        "MetaEconomy" => schemars::schema_for!(meta::EssenceRules),
+        "HubService" => schemars::schema_for!(meta::HubServiceDef),
+        _ => return None,
+    })
+}
+
+// Vues pour le schéma seulement : le contrat (`items::ItemDef`, `world::RoomKindDef`) plus le
+// champ `test:` que le registre relit à part (`read_test_field`, gabarits générés M2-T17).
+#[allow(dead_code)]
+#[derive(schemars::JsonSchema)]
+struct ItemFileView {
+    #[serde(flatten)]
+    def: items::ItemDef,
+    /// M2-T17 : gabarit de test généré (`make gen`), scénario `item_<id>`.
+    test: Option<ItemTestSchema>,
+}
+
+#[allow(dead_code)]
+#[derive(schemars::JsonSchema)]
+struct RoomFileView {
+    #[serde(flatten)]
+    def: world::RoomKindDef,
+    /// M2-T17 : gabarit de test généré (`make gen`), scénario `room_<id>`.
+    test: Option<RoomTestSchema>,
 }

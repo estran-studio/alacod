@@ -1,0 +1,9 @@
+// `isaac` (M3-T10, §75) : passif du pool `tresor`, réservé à l'accomplissement `run_finie` (déblocage `couronne_libre`).
+(
+    name: "Couronne de fin",
+    kind: Passive,
+    rarity: Uncommon,
+    modifiers: [(stat: Range, op: Pct, value: "0.15")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_couronne`).
+    test: Some((frames: 60)),
+)

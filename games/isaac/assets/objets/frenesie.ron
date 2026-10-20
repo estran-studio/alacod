@@ -1,0 +1,11 @@
+// `isaac` (M3-T11d2, §76.5) : actif chargé par trois salles nettoyées ; à l'usage, +100 % de cadence de tir pendant 240 frames (`FireRate` Pct 1,0 : multiplicateur 1 -> 2).
+(
+    name: "Frénésie",
+    kind: Active(Rooms(3)),
+    effects: [
+        (on: OnUse, do: [TimedModifier(stat: FireRate, op: Pct, value: "1.0", frames: 240)]),
+    ],
+    tags: ["actif"],
+    rarity: Uncommon,
+    test: Some((frames: 60, expect: [Stat(handle: 0, stat: FireRate, value: 1.0, at_frame: 8), Stat(handle: 0, stat: FireRate, value: 2.0, at_frame: 30)])),
+)

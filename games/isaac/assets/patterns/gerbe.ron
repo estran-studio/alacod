@@ -1,0 +1,6 @@
+// `isaac` (M3-T11d2, §76.5) : télégraphe de 18 frames puis cinq crachats en éventail exact sur 1 rad (`Fan`, sans hasard), vitesse 100 ;
+// `arroseur` et phases 0 et 1 du boss `colosse`.
+Sequence([
+    Telegraph(18),
+    Fan(count: 5, spread: "1.0", speed: "100.0", projectile: "crachat"),
+])

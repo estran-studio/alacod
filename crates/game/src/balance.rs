@@ -2,17 +2,23 @@
 //!
 //! Les champs numériques de vagues, prix et santé acceptent une expression
 //! [`content::expr::NumOrExpr`] avec la variable `players` (voir `docs/conventions.md`
-//! §18). [`resolve_balance_system`] évalue ces champs **une fois**, au démarrage de la
-//! partie (`OnEnter(AppState::GameLoading)`), en [`ResolvedBalance`] : des valeurs
-//! concrètes, figées pour toute la partie. Les systèmes de simulation (vagues, économie,
-//! interactions, création de personnages) lisent `ResolvedBalance`, jamais les assets
-//! d'origine — **aucune expression ne vit dans l'état rollback**.
+//! §18). `balance_assets::resolve_balance_system` (application) évalue ces champs **une fois**,
+//! au démarrage de la partie (`OnEnter(AppState::GameLoading)`), par [`resolve_balance`] (le calcul
+//! pur, ce fichier), en [`ResolvedBalance`] : des valeurs concrètes, figées pour toute la partie.
+//! Les systèmes de simulation (vagues, économie, interactions, boutique, création de personnages)
+//! lisent `ResolvedBalance`, jamais les assets d'origine — **aucune expression ne vit dans l'état
+//! rollback**.
 //!
-//! Nombre de joueurs : `OnlineState::Online` → `max_player` de la session ggrs (source
-//! autoritaire en ligne) ; sinon `PlayersCount` (partie locale ou scénario). Une erreur
-//! d'expression (parse, division par zéro, identifiant inconnu, valeur hors domaine) est
-//! un **échec du chargement** : `resolve_balance_system` panique avec un message qui nomme
-//! le fichier, le champ et l'erreur — jamais de valeur par défaut silencieuse.
+//! D69 étape 2, E3c : ce fichier est de la simulation (aucun `Asset`, aucun `Handle`) ; les enveloppes
+//! `Asset` des configurations sont `economy_assets`, `waves::assets` (et `powerups_assets` pour
+//! `PowerUpsTable`), et la résolution qui les lit est `balance_assets`.
+//!
+//! Nombre de joueurs : [`crate::session::SessionPlayers`], publié par l'application avant la
+//! résolution (`OnlineState::Online` → `max_player` de la session ggrs, source autoritaire en
+//! ligne ; sinon `PlayersCount`, partie locale ou scénario). Une erreur d'expression (parse,
+//! division par zéro, identifiant inconnu, valeur hors domaine) est un **échec du chargement** :
+//! `resolve_balance_system` panique avec un message qui nomme le fichier, le champ et l'erreur —
+//! jamais de valeur par défaut silencieuse.
 //!
 //! Le point d'évaluation (`OnEnter(GameLoading)`) est après le chargement des assets et
 //! avant le spawn des joueurs/personnages (Update de `GameLoading`) et avant la première
@@ -22,25 +28,21 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed};
 use content::expr::NumOrExpr;
-use sim_core::players::PlayersCount;
 use std::collections::{BTreeMap, HashMap};
 
-use crate::character::config::CharacterConfig;
-use crate::core::OnlineState;
+use crate::character::config::CharacterConfigs;
 use crate::economy::{EconomyConfig, PerkModifierDef, PerksConfig};
-use crate::global_asset::GlobalAsset;
-use crate::jjrs::GggrsSessionConfiguration;
 use crate::waves::config::WaveConfig;
 
 /// Palier de vague résolu (`WaveTier` aux valeurs concrètes).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedWaveTier {
     pub max_wave: u32,
     pub enemy_probabilities: HashMap<String, u32>,
 }
 
 /// `WaveConfig` résolue : mêmes champs, valeurs concrètes, méthodes de calcul inchangées.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedWaveConfig {
     pub base_enemies: u32,
     pub enemies_per_wave: u32,
@@ -86,7 +88,7 @@ impl ResolvedWaveConfig {
 }
 
 /// `EconomyConfig` résolue : mêmes champs, valeurs concrètes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedEconomyConfig {
     pub kill_points: u32,
     pub hit_points: u32,
@@ -94,6 +96,12 @@ pub struct ResolvedEconomyConfig {
     pub nuke_points: u32,
     pub repair_points_cap_per_wave: Option<u32>,
     pub refill_price_ratio: Fixed,
+    /// M2-T6 : `shells` lâchés à la mort d'un ennemi, `(min, max)` inclus (`shop::shell_drop_on_death_system`) ;
+    /// `None` : aucun drop. Copie de `EconomyConfig::shells_drop` (E3c).
+    pub shells_drop: Option<(u32, u32)>,
+    /// M2-T6 : prix d'un présentoir par rareté (`shop::shelf_price`, `map_ldtk::game::rooms::room_shop_system`) ;
+    /// une rareté absente vaut `shop::DEFAULT_SHELF_PRICE`. Copie de `EconomyConfig::shop_prices` (E3c).
+    pub shop_prices: BTreeMap<items::Rarity, u32>,
 }
 
 impl ResolvedEconomyConfig {
@@ -107,19 +115,22 @@ impl ResolvedEconomyConfig {
 
 /// Un perk résolu (`PerkDef` aux valeurs concrètes) : `price` en `u32`, modificateurs
 /// inchangés (`PerkModifierDef.value` reste un `Fixed` littéral — hors périmètre F5).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedPerkDef {
     pub name: String,
     pub price: u32,
     pub modifiers: Vec<PerkModifierDef>,
 }
 
-/// Résultat de la résolution F5, inséré par [`resolve_balance_system`] à
+/// Résultat de la résolution F5, inséré par `balance_assets::resolve_balance_system` à
 /// `OnEnter(AppState::GameLoading)` et lu par les systèmes de simulation. Ressource
 /// ordinaire, **hors rollback** (comme `Assets`).
-#[derive(Resource, Debug, Clone)]
+#[derive(Resource, Debug, Clone, PartialEq)]
 pub struct ResolvedBalance {
     pub waves: ResolvedWaveConfig,
+    /// Le jeu déclare un dossier `Wave` (E3c) : sans lui la machine à vagues reste inerte, même si
+    /// `waves` porte la configuration par défaut (avant E3c : « l'asset de vagues existe »).
+    pub waves_enabled: bool,
     pub economy: ResolvedEconomyConfig,
     /// Perks par id (`PerksConfig` garde sa clé), prix résolus.
     pub perks: BTreeMap<String, ResolvedPerkDef>,
@@ -265,6 +276,9 @@ fn resolve_economy(config: &EconomyConfig, players: u32) -> ResolvedEconomyConfi
             players,
             "economy.ron, champ refill_price_ratio",
         ),
+        // Littéraux (`(u32, u32)` et `u32`, pas des `NumOrExpr`) : copiés tels quels.
+        shells_drop: config.shells_drop,
+        shop_prices: config.shop_prices.clone(),
     }
 }
 
@@ -289,54 +303,36 @@ fn resolve_perks(config: &PerksConfig, players: u32) -> BTreeMap<String, Resolve
         .collect()
 }
 
-/// Résout tous les champs F5 (vagues, économie, perks, santé des personnages) pour le
-/// nombre de joueurs de la partie et insère [`ResolvedBalance`].
-///
-/// Enregistré sur `OnEnter(AppState::GameLoading)` (voir la doc du module pour la
+/// Résout tous les champs F5 (vagues, économie, perks, santé des personnages) pour `players`
+/// joueurs : le calcul pur de [`ResolvedBalance`], sans asset ni ressource (D69 étape 2, E3c).
+/// L'application (`balance_assets::resolve_balance_system`) lui donne le contenu des enveloppes
+/// `Asset` et insère le résultat à `OnEnter(AppState::GameLoading)` (voir la doc du module pour la
 /// justification du point d'évaluation).
-#[allow(clippy::too_many_arguments)]
-pub fn resolve_balance_system(
-    mut commands: Commands,
-    global_assets: Res<GlobalAsset>,
-    wave_configs: Res<Assets<WaveConfig>>,
-    economy_configs: Res<Assets<EconomyConfig>>,
-    perks_configs: Res<Assets<PerksConfig>>,
-    character_configs: Res<Assets<CharacterConfig>>,
-    online: Res<OnlineState>,
-    ggrs_config: Res<GggrsSessionConfiguration>,
-    players_count: Res<PlayersCount>,
-) {
-    let players = match *online {
-        OnlineState::Online => ggrs_config.connection.max_player as u32,
-        OnlineState::Offline | OnlineState::Unset => players_count.0 as u32,
-    };
-
-    let wave_config = global_assets
-        .wave_config
-        .as_ref()
-        .and_then(|h| wave_configs.get(h))
-        .cloned()
-        .unwrap_or_default();
-    let economy_config = global_assets
-        .economy_config
-        .as_ref()
-        .and_then(|h| economy_configs.get(h))
-        .cloned()
-        .unwrap_or_default();
-    let perks_config = global_assets
-        .perks_config
-        .as_ref()
-        .and_then(|h| perks_configs.get(h))
-        .cloned()
-        .unwrap_or_default();
+///
+/// Une configuration absente (`None` : le jeu ne déclare pas le dossier) retombe sur son
+/// `Default`, comme avant E3c. `waves_enabled` vaut « le jeu déclare un dossier `Wave` » (`waves`
+/// donné). `character_ids` : les `CharacterId` que le registre de contenu déclare (l'application les tire des
+/// configurations chargées), dont chacun doit être déjà dans `characters` (panique sinon, comme `spawn_enemy`/`create_player` le feraient plus tard).
+pub fn resolve_balance<'a>(
+    players: u32,
+    waves: Option<&WaveConfig>,
+    economy: Option<&EconomyConfig>,
+    perks: Option<&PerksConfig>,
+    characters: &CharacterConfigs,
+    character_ids: impl IntoIterator<Item = &'a String>,
+) -> ResolvedBalance {
+    let waves_enabled = waves.is_some();
+    let wave_config = waves.cloned().unwrap_or_default();
+    let economy_config = economy.cloned().unwrap_or_default();
+    let perks_config = perks.cloned().unwrap_or_default();
 
     let waves = resolve_waves(&wave_config, players);
     let economy = resolve_economy(&economy_config, players);
     let perks = resolve_perks(&perks_config, players);
 
     let mut health_max_by_character = BTreeMap::new();
-    for (id, handle) in global_assets.character_configs.iter() {
-        let config = character_configs.get(handle).unwrap_or_else(|| {
+    for id in character_ids {
+        let config = characters.get(id).unwrap_or_else(|| {
             panic!("équilibrage F5 : config du personnage « {id} » pas encore chargée")
         });
         let what = format!("personnage « {id} », champ base_health.max");
@@ -344,12 +340,13 @@ pub fn resolve_balance_system(
         health_max_by_character.insert(id.clone(), max);
     }
 
-    commands.insert_resource(ResolvedBalance {
+    ResolvedBalance {
         waves,
+        waves_enabled,
         economy,
         perks,
         health_max_by_character,
-    });
+    }
 }
 
 #[cfg(test)]

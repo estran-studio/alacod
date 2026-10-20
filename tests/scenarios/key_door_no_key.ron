@@ -1,0 +1,33 @@
+// M3-T5 (docs/conventions.md §70) : sans clé, la porte à clé reste fermée. Même carte (`testbed/salles_cle.ldtk`,
+// graine 1), mêmes déplacements que `key_door_open`, mais le joueur n'a pas de clé : il touche la porte par
+// Interaction (f65 à f70, puis f120 à f130), et pousse vers l'est (f90 à f250).
+//
+// À regarder : le joueur reste devant la porte (x ≈ -842, f60 à f259) ; elle reste fermée (`DoorLocked` vrai),
+// aucune clé n'est consommée (`Consumable(key, 0)`) ; le trésor reste vide de joueur. Témoin : `key_door_open`.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_cle.ldtk",
+    map_seed: 1,
+    frames: 260,
+    players: [
+        (
+            inputs: [
+                (from: 10, to: 60, buttons: [Right], pan: (0, 0)),
+                (from: 65, to: 70, buttons: [Interaction]),
+                (from: 90, to: 120, buttons: [Right], pan: (0, 0)),
+                (from: 120, to: 130, buttons: [Right, Interaction], pan: (0, 0)),
+                (from: 130, to: 250, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 50),
+        PlayerPosition(handle: 0, x: -842.4, y: -584, tolerance: 1, at_frame: 60),
+        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 80),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 80),
+        DoorLocked(kind: "tresor", nth: 0, locked: true, at_frame: 259),
+        PlayerPosition(handle: 0, x: -842.4, y: -584, tolerance: 1, at_frame: 259),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 259),
+    ],
+)

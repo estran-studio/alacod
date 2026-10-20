@@ -1,0 +1,11 @@
+// `isaac` (M3-T8, docs/conventions.md §73) : passif du pool `tresor`, **donnée d'attente** : le contenu
+// des pools est M3-T11 (T11d). Il faut des candidats distincts pour que l'épuisement par run soit
+// jouable de bout en bout (un objet sorti du pool n'y revient plus) ; T11 les remplace.
+(
+    name: "Semelles lestées",
+    kind: Passive,
+    rarity: Common,
+    modifiers: [(stat: MoveSpeed, op: Pct, value: "0.1")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_semelles_lestees`).
+    test: Some((frames: 60)),
+)

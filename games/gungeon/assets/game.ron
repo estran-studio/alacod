@@ -21,11 +21,21 @@
         (path: "synergies", kind: "Synergy"),
         // M2-T5 : pools de butin (docs/conventions.md §48).
         (path: "loot", kind: "LootTable"),
+        // M2-T12 : déblocages de méta-progression et essence gagnée (docs/conventions.md §51).
+        (path: "unlocks", kind: "Unlock"),
+        // M3-T10 (§75) : accomplissements de la run ; leurs déblocages ne sont pas à acheter au marchand.
+        (path: "achievements", kind: "Achievement"),
+        (path: "meta", kind: "MetaEconomy"),
+        // M2-T13 : services du hub (docs/conventions.md §57).
+        (path: "hub", kind: "HubService"),
         // M2-E1 : types de salles du champ de niveau `room_kind`.
         (path: "rooms", kind: "Room"),
         // M2-T11 : tables renversables et barils explosifs (entités LDtk `Table` / `Barrel` des
         // gabarits CombatEW et CombatNS de `maps/salles.ldtk`, docs/conventions.md §46).
         (path: "props", kind: "Prop"),
+        // M2-T14d : surfaces des gabarits `coffre` et `secret` (couche IntGrid `Surfaces` de
+        // `maps/salles.ldtk`, docs/conventions.md §26 et §52.d).
+        (path: "surfaces", kind: "Surface"),
         (path: "economy/economy.ron", kind: "Economy"),
         (path: "ui", kind: "Ui"),
         (path: "camera.ron", kind: "Camera"),
@@ -42,6 +52,8 @@
         // (`floors/etages_deux.ron`, portail à la mort du boss du premier) ; l'étage squelette T0d
         // (`etage_1`) reste jouable par `floors: Some("etage_1")` et par les scénarios.
         floors: "etages_deux",
+        // M2-T13 : la partie démarre au hub (`maps/hub.ldtk`) ; la porte lance la run ci-dessus.
+        hub: Some((map: "maps/hub.ldtk")),
     ),
     // `docs/conventions.md` §28 : scénarios générés de gungeon (`make gen GAME=gungeon`) joués
     // sur la carte gabarit, en mode `Sandbox` imposé par le générateur.

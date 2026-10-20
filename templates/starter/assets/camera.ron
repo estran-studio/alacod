@@ -1,0 +1,17 @@
+((
+    free_move_speed: 500.0,
+    edge_margin: 0.05,
+    lerp_speed: 12.0, // Suit le joueur de près (63 % de l'écart en 83 ms)
+    max_zoom_out: 3.0,
+    min_zoom: 0.6,
+    default_player_zoom: 1.0, // Default zoom when in player mode
+    player_padding: 100.0,
+    indicator_size: 20.0,
+    indicator_edge_distance: 20.0,
+    use_edge_detection: true,
+    // En ligne, mode de suivi : LocalPlayer (défaut, suit mon joueur) ou AllPlayers (cadre tout le monde)
+    online_follow: LocalPlayer,
+    // T1.16 (§30) : fondu au noir (secondes) et recentrage de la caméra à chaque niveau.
+    floor_fade_seconds: 0.4,
+    floor_recenter: true,
+))

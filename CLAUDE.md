@@ -168,7 +168,7 @@ Si les logs contiennent des Entity IDs, le diff montrera des différences même 
 
 Une entité rollback détruite par `despawn()` puis ramenée par un rollback (synctest, prédiction
 p2p ratée) est **respawnée avec ses seuls composants rollback** : sans `Sprite`, sans
-`CharacterConfigHandles`, etc. Elle devient invisible aux systèmes qui exigent ces composants
+`CharacterConfigKey`, etc. Elle devient invisible aux systèmes qui exigent ces composants
 (ex. `move_enemies`), ce qui change la séparation de ses voisins et fait diverger la simulation.
 
 ```rust
@@ -245,6 +245,9 @@ pièges) s'applique à chaque système et fait foi pour l'enregistrement rollbac
 - [ ] Pas de `f32`/`f64` - uniquement `Fixed`/`FixedWide`
 - [ ] RNG via `RollbackRng` consommé dans ordre déterministe
 - [ ] Destruction d'une entité rollback via `despawn_rollback()` (jamais `despawn()`)
+- [ ] `rollback_and_trace_resource_no_checksum` (M3-T10, `RunHistory`) : **seulement** pour une donnée dérivée d'un état déjà sous
+      checksum et **jamais lue par `GgrsSchedule`** (lecteur hors simulation) ; sinon un desync passerait inaperçu. À lister
+      dans `docs/conventions.md` §10 « Exclusions assumées du checksum ».
 - [ ] Resource enregistrée avec l'extension `RollbackTraceApp` (`rollback_and_trace_resource`
       / `_debug_resource` / `_copy_resource`), jamais `rollback_resource_with_*` directement
       (un script CI le bloque, voir `scripts/check-rollback-registration.sh`)
@@ -266,11 +269,16 @@ pièges) s'applique à chaque système et fait foi pour l'enregistrement rollbac
       et déplace les traces de tout porteur dès la frame 0. Remède : `impl Hash` manuel où la
       variante historique garde son hash d'avant (sans discriminant), la nouvelle en ajoute un ;
       le documenter au § conventions de la tâche.
+- [ ] **Ajouter un champ à un composant rollback sous checksum** (constaté par M3-T1, `Projectile`) :
+      le `derive(Hash)` hacherait le champ de **tous** les porteurs existants et déplacerait toutes les
+      traces. `impl Hash` manuel : les champs d'avant dans leur ordre, les champs nouveaux **seulement
+      s'ils sont actifs** (valeur non neutre) ; faire de même pour le `Debug` (dump détaillé, preuve §5).
 - [ ] **Donnée dérivée non rollbackée** (ex. `CursorPosition`, lue la même frame par un système
       du `GgrsSchedule`) : réécrite **à chaque frame, avant tout `continue`/retour anticipé** du
       système qui l'écrit ; sinon c'est un état caché qu'une frame resimulée lit avec la valeur
       d'une frame plus récente (desync du dash, scénario `dash_aim_change`, 2026-10-03). Les
-      scénarios à visée constante ne le voient pas : `fuzz_inputs` (`ALACOD_FUZZ=0:8`) oui.
+      scénarios à visée constante ne le voient pas : `fuzz_inputs` (`ALACOD_FUZZ=0:8`) oui ; `ALACOD_FUZZ_BOMBS=1` y joue un
+      personnage à bombes (M3-T4, §69).
 - [ ] Logs utilisent `GgrsNetId`/`player.handle` (pas `Entity`) pour comparaison
 - [ ] Trace logs suivent format `ggrs{{f={} system_name key=value...}}` pour diff_log
 
@@ -291,12 +299,45 @@ d'un événement émis par la simulation : ils restent justes après un rollback
 La simulation ne dépend jamais du rendu. Tout ce qui sert à afficher (caméra, lumière, audio,
 UI de debug) va dans `PresentationPlugin` (`core.rs`), absent en headless.
 
+`CoreSetupPlugin` (`core.rs`, le point d'entrée de tous les jeux) ajoute deux plugins dans cet ordre
+(D69 étape 2, E7) : `CoreSimPlugin` (`core_sim.rs` : plugins de simulation, ressources de session,
+**tous les enregistrements rollback**, ordre de `GgrsSchedule`, états, systèmes de session sans socket) puis
+`CoreAppPlugin` (`core.rs` : assets, réseau, fenêtre, `PresentationPlugin`, UI de lobby). Un enregistrement
+rollback nouveau va **dans `CoreSimPlugin`, avant les cinq de clôture** (`GgrsNetIdFactory`, `FrameCount`,
+`FixedTransform3D`, `GgrsNetId`, `RngStreams`, qui ferment la liste) ; `CoreAppPlugin` n'en pose jamais. Un
+système de simulation qui doit suivre ou précéder un système d'application se déclare **depuis l'application**
+(`app_system.before(sim_system)`), jamais l'inverse. Preuve d'ordre : `make schedule_order_diff` (rollback,
+headless) ; `ALACOD_SCHEDULE_ALL=1` ajoute tous les schedules et les paires de systèmes non ordonnés en conflit,
+avec et sans `PresentationPlugin` (le tri topologique de bevy ne suit pas l'ordre d'insertion : un plugin déplacé
+retourne aussi des paires qu'il ne touche pas, à juger une à une).
+
 Cette frontière est aussi la **frontière de portage console** (décision du 2026-10-03,
 `docs/plan-engine.md` §7) : une cible console future (Switch 1/2, PS4/PS5 en officiel) remplacera
 ce qui est derrière `PresentationPlugin` — rendu, fenêtre, input, audio, UI — jamais la
 simulation. Les crates de simulation (`sim_core`, `combat`, `stats`, `effects`, `behaviors`,
 `map`…) ne doivent jamais importer `bevy_render`, `bevy_winit`, `bevy_asset`, `bevy_audio`,
 `bevy_ui` ni `winit` : elles ne dépendent de `bevy` qu'en `default-features = false` (ECS seul).
+
+**Contenu lu par la simulation** (D69 étape 2, en cours) : la cible est zéro `Res<Assets<T>>` et zéro `Handle<T>` dans un système de
+`GgrsSchedule` ou un créateur de personnage ; atteinte pour les configurations de personnages (E3a), les armes (E3b), l'économie/les power-ups/les vagues (E3c)
+et `GlobalAsset` (E3d : ressource d'application, handles de présentation et sources de synchro des enveloppes, lue par aucun fichier de simulation ni par les
+lecteurs externes `bots`, `scenario`, `map_ldtk`, `examples` ; `loading_asset_system` ne quitte `Loading` qu'une fois `CharacterConfigs` et `WeaponRegistry` publiés).
+La simulation lit une **ressource de donnée** (`BTreeMap`) remplie par
+l'application : `CharacterConfigs` (E3a, `character/config.rs`) à partir de l'enveloppe `CharacterConfigAsset`
+(`character/config_asset.rs`), `WeaponRegistry` (E3b, `weapons.rs` : `weapons` et `melee`) à partir des enveloppes `WeaponsConfig` /
+`MeleeWeaponsConfig` (`weapon_assets.rs`), chacune par un système `PreUpdate.before(bevy_ggrs::RunGgrsSystems)` qui copie ce qui manque
+(`WeaponRegistry` : une table vide) et recopie sur `AssetEvent::Modified` (rechargement à chaud). Un personnage porte
+`CharacterConfigKey(String)` (non rollback), pas un handle. Une surcharge de scénario se pose **sur la ressource**, après la synchro
+(`apply_weapon_overrides` écrit dans `WeaponRegistry`). Les replis des lecteurs (`continue`,
+vitesse de repli, défauts de santé, arme inconnue ignorée par un `warn!`) masquent un registre vide : tester la ressource elle-même
+(`crates/scenario/tests/character_configs.rs`, `crates/scenario/tests/weapon_registry.rs`).
+
+Économie, power-ups, vagues et équilibrage (E3c) : `EconomyConfig`, `PerksConfig`, `PowerUpsConfig` et `WaveConfig` ne sont plus des `Asset` (enveloppes
+`economy_assets.rs`, `powerups_assets.rs`, `waves/assets.rs`, application). La simulation lit `ResolvedBalance` (dont `waves_enabled`, `economy.shells_drop`,
+`economy.shop_prices`) et `PowerUpsTable(Option<PowerUpsConfig>)`, remplies à `OnEnter(GameLoading)` par `balance_assets::resolve_balance_system` puis
+`powerups_assets::resolve_powerups_table_system` ; le nombre de joueurs vient de `SessionPlayers(u32)` (écrit par l'application, `publish_session_players`),
+plus d'`OnlineState` ni de `GggrsSessionConfiguration` dans la simulation. Une surcharge de scénario vise l'**enveloppe** (avant la résolution), jamais `ResolvedBalance`.
+Une table vide est masquée par les replis des lecteurs (`let Some(..) else return`) : tester les ressources (`crates/scenario/tests/balance_tables.rs`).
 
 ## Headless, trace d'état et déterminisme
 
@@ -307,6 +348,11 @@ Variables d'environnement (natif) :
   `ALACOD_INPUT=script:<scénario.ron>` (natif) : chaque joueur local rejoue le `PlayerScript` de son
   handle (preuve p2p avec rollback réel : `tests/scenarios/p2p_smoke.ron`, inputs qui changent sans
   arrêt ; avec `neutral`, les prédictions sont toujours justes et rien n'est resimulé).
+- `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
+  de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
+- `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` et `ALACOD_P2P_CHANNEL=unreliable` (natif, mesures D87) : remplacent le délai de
+  déconnexion GGRS (`p2p::DISCONNECT_TIMEOUT` = 5 s, 2 s avant D87) et ouvrent le canal non fiable (le jeu utilise le canal fiable ;
+  les deux pairs doivent avoir le même réglage). Matrice : `scripts/p2p-d87.sh`, silences : `scripts/p2p-silences.py`.
 - `ALACOD_STATE_TRACE=<fichier>` + `ALACOD_EXIT_AT_FRAME=<n>` : hash de l'état rollback à chaque frame,
   puis arrêt. `ALACOD_STATE_TRACE_FULL=1` ajoute l'état détaillé pour trouver une divergence. Le log
   final donne le nombre de frames resimulées après rollback (zéro en p2p = run sans valeur).
@@ -331,17 +377,32 @@ types les plus lourds dans le journal à la sortie, repris par le résumé du ni
 réel) ; `ALACOD_SYSTEM_PROFILE=1` ajoute le temps par `RollbackSystemSet` (plus une tranche
 `FlowField`), pour savoir où passe la frame. Mesures du 2026-10-15 et dette D70 (champ de flux
 reconstruit à chaque changement de case d'un joueur : 9 ms par frame avec quatre joueurs qui
-bougent) dans `docs/etat-engine.md`.
+bougent) dans `docs/etat-engine.md`. Dans le runner de scénarios, `ALACOD_SYSTEM_PROFILE=1 ALACOD_SCENARIO=<nom>` imprime
+aussi `profil sets : …` (M3-T15, §80). Mesures du poste VPS (2026-10-17/18, M3-T15 ; `bench_tears` : 432 balles, pire rollback
+56 ms) et budgets recalibrés au calme (D84 fermée le 2026-10-18, moitié/double de la pire de trois relevés) : `docs/taches/rapports/m3-t15-bench-larmes.md`. Dette D97 : −54 % sur le
+pire rollback de `bench_tears` (Mac, relatif ; grille `CollisionGrids::targets`, guidage sans tri, `length*` en entiers au bit près),
+à confirmer sur le VPS : `docs/conventions.md` §80, `docs/taches/rapports/dette-d97-cout-larmes.md`.
 
 ### Frontière simulation/présentation (prouvée par la compilation)
 
 `make check_sim_boundary` (`scripts/check-sim-boundary.sh`, dans `make check` et la CI) vérifie
 que chaque crate de simulation listé `SIM` n'a aucun crate de présentation dans son graphe
 (`cargo tree` du crate seul) et que ces crates compilent ensemble en `--no-default-features`
-(bevy ECS seul). Les crates `PENDING` (`combat`, `animation`, `map`, `map_ldtk`, `game`) sont
-la dette D69, affichée sans bloquer ; un crate nouveau doit être classé (échec sinon). Un module
-qui a besoin de `Sprite`, `Window`, `KeyCode`, des assets ou du réseau va dans `game` (ou un
-crate `APP`), jamais dans un crate `SIM`.
+(bevy ECS seul). 13 crates sont `SIM` (dont `combat` et `map`, étape 1 de D69 fermée le 2026-10-18) ;
+les crates `PENDING` (`map_ldtk`, `game`) sont la dette D69 (étape 2 : `game_sim`/`game_app`), affichée
+sans bloquer ; un crate nouveau doit être classé (échec sinon). Un module qui a besoin de `Sprite`,
+`Window`, `KeyCode`, `Visibility`, des assets (`Asset`, `Assets<T>`, chargeurs RON) ou du réseau (socket)
+va dans `game` (ou un crate `APP`), jamais dans un crate `SIM` : `combat` ne voit que les types
+désérialisés (`WeaponAsset`, `MeleeWeaponAsset` ; leurs enveloppes `Asset` sont dans `game::weapons`),
+le sprite d'une balle est posé par `game::world_sprites::attach_bullet_visuals` (`Added<Bullet>`, à partir
+de `Bullet` et de `BulletLook`), `FacingDirection`/`AnimationState` sont dans `sim_core::animation_state`.
+
+Étape 2 de D69 (plan `docs/taches/rapports/dette-d69-plan-etape2.md`, fiche `docs/taches/dette-d69-etape2.md`) :
+`make probe_game_sim` compile `game` en ECS seul dans une copie jetable et range les fuites par fichier (mesure de
+la dette tant que `game` est un crate) ; `make schedule_order_diff BASE=<réf>` prouve que l'ordre des systèmes du
+rollback (`ReadInputs`, `GgrsSchedule`, `AdvanceWorld`, `SaveWorld`, `LoadWorld`) et des types rollback n'a pas bougé
+(`crates/scenario/tests/schedule_order.rs`). À lancer à chaque refactoring qui déplace de la simulation d'un module
+ou d'un crate à l'autre, avec les traces de scénario.
 
 ## Scénarios (tests de comportement et de régression)
 
@@ -366,8 +427,72 @@ crate `APP`), jamais dans un crate `SIM`.
     - T1.9 horloges (§23) : `Clock`.
     - T1.10 progression et mutations (§27) : `Gauge`, `Level`, `Mutations`.
     - M2-E1 salles (§35) : `RoomState` ; M2-T0b objets (§36) : `HasItem`, `ItemCharge`, `Consumable` ; M2-T5 (§48) : `ItemCount`.
+    - M3-T0b contrats objets/santé (§61) : `ItemCount` (existe, §48) ; `Invulnerable(handle, at_frame)` pour les i-frames si un scénario l'expose.
     - M2-T0c boss (§37) : `BossPhase` ; profil (§38) : `ProfileHas`.
+    - M3-T0c contrats du monde (§62) : `DoorLocked` ; `EntityCount(kind: Rock)`.
+    - M3-T0d familiers et champions (§63) : `FamiliarCount` ; `EnemyVariant` (existe, §25).
+    - M3-T7 champions (§72) : aucune attente nouvelle (`EnemyVariant`, `EnemyState`, `EnemyDistance`, `EntityCount`,
+      `EntityHealth`, `HasItem`, `BulletCount`, `FamiliarCount` couvrent les onze scénarios).
+    - M3-T4 bombes, rochers, piques, mur secret (§69) : aucune attente nouvelle (`Consumable`, `EntityCount(kind: Rock |
+      Barrel)`, `EntityHealth`, `Health`, `PlayerPosition`, `DoorLocked`, `EnemyDistance`, `Event(kind: "explosion")` couvrent
+      les seize scénarios `bomb_*`, `rock_*`, `secret_wall_*`, `explode_effect`, `spikes_damage`) ; champ de scénario `PlayerScript::bomb`
+      (la `BombDef` du joueur, le stock par `items: ["bomb", ...]`, bouton `Bomb` = bit 18, front montant).
+    - M3-T5 grille (§70) : `RoomLayout(kind, nth, size: Some((l, h)), touches: [types], apart: [types])` (géométrie
+      d'une salle typée relue sur ses bornes : taille en pixels, voisinage par un bord commun ; à employer sur un
+      étage unique, les mondes des étages se superposent) ; `DoorLocked` lit désormais `door_lock_at` (étage courant,
+      `RoomKindDef::lock_from_floor`) ; aucune autre attente nouvelle (`RoomState`, `BossPhase`, `Consumable`, `Event`,
+      `EntityCount` couvrent les scénarios `grid_*` et `key_door_*`).
+    - M3-T6 familiers (§71) : `FamiliarDistance` (distance d'un familier à son porteur ou à un autre familier
+      du même porteur) ; `FamiliarCount` (§63) compte maintenant de vrais familiers.
+    - Suivis Q13, Q17, Q12 et Q10 (`m3-suivis-q10-q12-q13-q17`, §71, §66, §19, §44) : aucune attente nouvelle ; champ de
+      scénario `PlayerScript::aim` (`Some(FourWay)` pose la visée à quatre directions, `Some(Free)` retire celle du
+      personnage : les scénarios générés d'un jeu à visée `FourWay` l'épinglent) ; `EntityHits`, `EntityHealth`,
+      `EnemyDistance`, `HasStatus`, `NoDamageBetween`, `Stat` et `Event(kind: "feedback")` couvrent `familiar_mirror_items*`,
+      `aim_four_way*`, `status_charm*` et `transformation_three`/`transformation_two`.
+    - M3-T3 cœurs, sous, bombes et clés au sol (§68) : `ExtraHealth` (points de vie d'âme du joueur : `ExtraHealth(handle: 0,
+      n: 4.0, at_frame: 110)`, égalité exacte, 0 sans le composant) ; `Consumable`, `Currency`, `Health`, `HudText`
+      (source `bombs`) et `ShellPiles` couvrent les autres scénarios (`soul_heart_absorbs`, `heart_full_stays`, `coin_pickup`,
+      `bomb_pickup_cap`, `coop_pickups_per_player`, `hit_iframes_isaac`).
+    - M3-T1 larmes v3 (§66) : aucune attente nouvelle (`BulletCount` avec filtre `projectile`, `HitsAtLeast`,
+      `HasStatus`, `StatusStacks`, `EnemyDistance`, `EntityHealth` couvrent les douze scénarios) ; `Stat`
+      résout `Luck` avec la base 0 (`sim_core::stats::default_base`).
+    - M3-T0e curses et pools (§64) : `Curse(floor, id: Some("…") | None, at_frame)` (curse de l'étage,
+      `run::RunCurses`), `PoolSeen(pool, item, seen, at_frame)` (objet sorti d'un pool à épuisement,
+      `items::PoolState`) ; M3-T8 (§73) les remplit (assignation à la génération de l'étage).
+    - M3-T9 curses en jeu (§74) : `RoomCount(min, max: Some(n), at_frame)` (nombre de `RoomBounds` du monde, tous
+      étages confondus : à employer sur un étage unique) ; `HudText` gagne `empty: true` (le texte de la source est **vide** : une
+      source masquée) et la source `curses` ; `Curse` lit maintenant les tirages réels de `game::curses` ;
+      moment clé `curse` (curse tirée à l'entrée d'un étage).
+    - M3-T10 accomplissements (§75) : `ProfileHas` gagne `achievement: Some("id")` (accomplissement obtenu, `Profile::achievements`),
+      `lacks_unlocks` et `lacks_achievements` (absents du profil) ; `HudText(source: "achievements", contains | empty)` (liste des
+      accomplissements obtenus à la fin de la run) ; scénarios `achievement_unlocks` et `achievement_not_met` (`profile: true`) ;
+      deux runs enchaînées : test `crates/scenario/tests/achievements.rs`.
+    - M3-T16 HUD `isaac` (§81) : aucune attente nouvelle ; `HudText` lit les sources `hearts` (« 2,5 / 3 · âme 1 »,
+      cœurs en demi-PV), `coins`, `keys`, `bombs`, `item_banner` (nom de l'objet ramassé depuis moins de 3 s, « ??? » sous
+      `HideItemNames`), `active_item`/`active_charge`, `minimap` et `curses` (scénarios `isaac_hud_items`,
+      `isaac_banner_blind`, `isaac_reliquaire`) ; `ammo` est **vide** pour une arme `Infinite`.
+    - M3-T8 pools par type de salle et marché du diable (§73) : `PoolCount(pool, count, at_frame)` (objets **distincts**
+      sortis du pool, `items::PoolState`), `ItemsOnFloor(id, count, at_frame)` (objets `id` au sol : le butin d'un boss) ;
+      `Shelf` gagne `cost: Some(MaxHealth("2"))` (prix propre du présentoir) ; `Scenario::shop.shelves[].cost` pose un
+      présentoir à vie maximale ou à consommable ; `Health`, `Stat(MaxHealth)` et `ExtraHealth` lisent le paiement.
+    - M3-T11d1 gabarits, boutique, curses, bombe de départ (§76.4) : aucune attente nouvelle (`EntityCount(kind: Rock)`, `Shelf`, `ShelfCount`,
+      `PoolCount`, `Curse`, `Consumable`, `ItemsOnFloor`, `Health`, `Event(kind: "explosion")` couvrent `isaac_shop_buy`, `isaac_bomb_rock`,
+      `isaac_spikes`) ; diagnostic ignoré `floor_probe` (`ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>`, plan d'un étage par graine).
+    - M3-T11d2 volume de Q1 (§76.5) : aucune attente nouvelle (`HasStatus`, `StatusStacks`, `Stat`, `EntityHits`, `EntityCount`, `FamiliarCount`, `FamiliarDistance`, `ExtraHealth`, `Health`, `BulletCount`,
+      `Event(kind: "boss_phase")` couvrent les 91 `item_*`, les `tears_*`, `familiar_*`, `enemy_*` et `boss_colosse`) ; pas d'attente `Shield` (D114).
+    - M3-T14 bot `explorateur` v3 pour `isaac` (§79) : aucune attente nouvelle (`DoorLocked`, `Consumable`, `Health`,
+      `ExtraHealth`, `Currency`, `Shelf`, `EntityCount(kind: Rock)`, `FloorIndex`, `Event` couvrent les dix scénarios
+      `bot_isaac_*`) ; moments clés `door_lock` (mur secret ou porte à clé ouverte), `bomb`, `shelf` ; champ de scénario
+      `Scenario::explorer` (politique du bot, `bot.ron` du jeu) ; `PlayerScript::bomb` et `items` donnent la bombe d'essai.
+    - M3-T18 intégration (rapport `m3-t18-integration-sortie.md`) : aucune attente nouvelle ; moment clé `variant_death`
+      (variante qui disparaît sans changement d'étage : champion tué) ; `alacod-sim --events <dossier>` (moments clés par
+      graine) et décomptes `champion_tue`, `rocher`, `curse`, `portail` de `mechanics` ; scénarios `isaac_full_run`,
+      `isaac_devil_run`, `isaac_curse_run`, `isaac_duo`, `isaac_quad`.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
+    - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
+    - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
+      clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :
+      le runner suit la relance du hub (frames de la run repartent de 0).
     - T1.18 HUD throne (§32) : `HudText` (texte d'une source du HUD, présentation, hors trace).
     - M2-T18 écrans (§56) : `ScreenText` (texte d'une section de l'écran de pause ou de l'inventaire, présentation, hors trace) ; le script `ui:` du scénario joue les actions d'UI (`Toggle(Pause)`, `Down`, `Confirm`…), jamais dans l'input rollback.
     - Réenregistrement : le scénario rejoué depuis son enregistrement garde ses réglages
@@ -385,7 +510,8 @@ crate `APP`), jamais dans un crate `SIM`.
     mutation `ChoiceA`/`ChoiceB`/`ChoiceC` = bits d'input 13/14/15 (`INPUT_CHOICE_A/B/C`,
     touches 1/2/3) ; bits 0–12 : déplacement, recharge, mode, sprint, dash, modificateur,
     interaction, mêlée, crash de debug, lâcher d'arme ; bits 16/17 (M2-T0b, input `u32`) :
-    `UseActive` (objet actif) et `Blank`.
+    `UseActive` (objet actif) et `Blank` ; bit 18 (M3-T0c, §62) : `Bomb` (touche E), sans effet
+    tant que le personnage n'a pas de `bomb`.
   - Format documenté dans `crates/game/src/replay.rs`.
 - `tests/scenarios/<nom>.trace` : trace d'état de référence. Toute différence fait échouer le test.
 - `tests/budgets.ron` : planchers de non-régression en frames simulées par seconde (défaut et
@@ -470,7 +596,18 @@ docker compose up -d  # lance le serveur de signaling
 make test_multiplayer TARGET=ldtk_map_explorer N=4 MATCHBOX_URL=http://localhost:3536  # URL personnalisée
 ```
 
-Défaut : `MATCHBOX_URL=wss://allumette.bascanada.org` (serveur cloud).
+Défaut : `MATCHBOX_URL=wss://allumette.estran.studio` (serveur cloud, `Makefile:22`).
+
+**Sans affichage (VPS, CI)** : les cibles `*_matchbox` ouvrent une fenêtre ; les scripts headless
+(`scripts/p2p-lib.sh` en commun) lancent le binaire `--profile headless` : `p2p-stress.sh` (N clients,
+rollbacks réels par SIGSTOP, `NETEM=…` pour un réseau dégradé sans root, `EXPECT_FLOORS` pour une
+transition d'étage), `p2p-restart.sh` (restart, lobby, hub), `p2p-disconnect.sh` (pair tué en cours
+de partie), `p2p-machine.sh` (un client par machine ; `STRESS=1` suspend le client, `MIN_RESIMULATED`), `p2p-d87.sh` (matrice netem des silences),
+`p2p-gungeon-inputs.sh` (inputs de bots
+`explorateur` figés pour les rejouer en p2p : `ALACOD_SKIP_HUB=1`, `--seed`). Détail, commandes et
+résultats : `docs/taches/rapports/m2-p2p-run-complete.md`, `docs/taches/rapports/m2-p2p-deux-machines.md` (x86-64 contre arm64 :
+traces identiques ; D87) et `docs/conventions.md` §57. L'ancien nom `allumette.bascanada.org` ne résout plus (2026-10-18) ;
+un `matchbox_server 0.0.0.0:<port>` sur l'une des deux machines (`MATCHBOX_URL=ws://<ip>:<port>`) reste une option sans dépendre du serveur public.
 
 ### Vidéos (validation visuelle)
 `scripts/scenario-video` rejoue les scénarios avec rendu et capture chaque frame (image n = frame n,
@@ -608,6 +745,22 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
   (« balles 120 »).
 - `statuses` (T1.18) : statuts posés, une ligne chacun (« brulure ×2 · 3 s »).
 - `floor` (T1.18) : « Étage 3 » (index + 1), en mode `Floors` seulement.
+- `curses` (M3-T9, §74) : id de la curse de l'étage courant (« darkness »), vide sans curse. Les curses
+  de présentation masquent des sources : `HideMinimap` vide `minimap`, `HideHealth` vide `health` (texte et
+  barre), `HideItemNames` remplace par « ??? » le nom des objets et armes du prompt (`prompt`, hors snapshot).
+- `achievements` (M3-T10, §75) : accomplissements obtenus **à cette fin de run** par le joueur affiché (nom du contenu, une ligne
+  chacun) ; vide en cours de partie. L'écran de fin les liste sous le résumé. Évalués hors simulation à `Ended`, une fois la fin
+  confirmée (`game::profile`), jamais dans `GgrsSchedule` ; la simulation n'écrit que `RunHistory` (rollback sans checksum).
+- `hearts` (M3-T16, §81) : `Health` + `ExtraHealth` en demi-cœurs (1 PV = ½ cœur, `items::HEART_POINTS`), texte
+  « 2,5 / 3 · âme 1 » ; widget `Hearts(source)` (rangée de carrés, demi-cœur à moitié rempli, passe à la ligne,
+  couleurs `icons.heart` / `soul_heart` / `heart_empty`) ; vide sous `HideHealth`.
+- `coins` (M3-T16) : sous du joueur (comme `shells`, jeux à objets seulement) ; widget `Counter(source)` : carré
+  `icons[source]` (`coins`, `keys`, `bombs`) suivi du nombre.
+- `item_banner` (M3-T16) : nom du dernier objet ramassé pendant 3 s (`ITEM_BANNER_FRAMES`), dérivé de l'inventaire
+  du joueur affiché (`hud_model::ItemBannerState`, présentation seule) ; « ??? » sous `HideItemNames` ; les objets de
+  départ ne l'annoncent pas. Le prompt d'un objet au sol (« Ramasser … ») et celui d'une porte à clé
+  (« Ouvrir — clé (2) » / « Fermé — clé (0) ») complètent la source `prompt`. `Icons(source: "active_item")` dessine
+  l'icône de l'actif ; `room_icons` (racine de `hud.ron`) pose une lettre et une bordure par type de salle sur `minimap`.
 
 #### Écrans : pause et inventaire (M2-T18, test comparatif)
 
@@ -619,7 +772,7 @@ est ouvert. Détail et mesures : `docs/conventions.md` §56.
 
 Le joueur affiché est celui que la caméra suit de force (`--follow <handle>` de
 `play_scenario`), sinon le joueur local de plus petit handle. Les cercles de portée restent
-dessinés par `interaction::display_interaction_prompts` ; le texte du prompt est dans le HUD.
+dessinés par `interaction_view::display_interaction_prompts` ; le texte du prompt est dans le HUD.
 
 L'écran de fin (`ui/game_over.rs`) affiche le résumé de la run et deux boutons : « Rejouer (R) »
 (`RunRequest::Restart`) et « Lobby » (`RunRequest::ToLobby`, T2.12).
@@ -814,6 +967,10 @@ crates/game/src/character/enemy/
 - **F3** : Toggle Flow Field visualization
 - **F4** : Cycle NavProfile (Ground → GroundBreaker → Flying → Phasing)
 - **F5** : Toggle Enemy State visualization
+- **F6** : étiquettes au-dessus des entités (nom, prix, état ; `ALACOD_LABELS=1` au départ, allumées d'office
+  dans `play_scenario --capture` et les vidéos) — langage visuel de `docs/conventions.md` §83
+  (avec le flow field actif (F3), F6 bascule aussi sa source IntGrid)
+- **F7** : légende des silhouettes et couleurs (widget `Legend` de `hud.ron`)
 
 ## Collision Layers
 
@@ -892,3 +1049,14 @@ devient leur cible (`enemy_target_selection`) : ils la frappent avec le cooldown
 collider : elle bloque toujours les joueurs, plus les zombies ; la réparer la rend bloquante à nouveau.
 Dans le flow field, une fenêtre intacte coûte `breakable_penalty` (le temps de la casser) : les
 zombies prennent un passage ouvert s'il n'est pas beaucoup plus long.
+
+**Perception et vue directe** (D66, `docs/conventions.md` §22) : `move_enemies` suit le champ de flux
+vers le joueur le plus proche **quel que soit l'état** (`Idle` ou `Chasing`) : `aggro_range` ne
+décide que de la **cible** (donc des attaques, des tirs et des règles à cible comme `Chase` d'un
+`Wander`). Un ennemi à `Wander` (`throne/rodeur`) hors de son rayon errait donc dans son coin, même
+avec le joueur en face. `ai.sight_range` (donnée, défaut `aggro_range` : rien ne bouge) cible un
+joueur en **ligne de vue dégagée** (`FlowFieldCache::line_of_sight`, `wall_cells`, `FixedWide`,
+tie-break par `net_id` comme le reste de `enemy_target_selection`) jusqu'à cette portée, et le garde
+tant qu'il est à portée même derrière un coin (mémoire = `EnemyTarget`, déjà rollback). Champ statique,
+hors `Hash` et hors `Debug` quand il est absent : un jeu qui ne le pose pas ne voit aucune trace bouger.
+Diagnostic : test ignoré `sight_probe` (`crates/scenario/tests/scenarios.rs`).

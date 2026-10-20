@@ -1,0 +1,6 @@
+// M2-T12 : le trèfle quitte les pools de butin tant que ce déblocage manque (docs/conventions.md §51).
+(
+    name: "Trésor : le trèfle",
+    cost: Some(20),
+    grants: [Item("trefle")],
+)

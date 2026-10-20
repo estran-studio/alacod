@@ -39,6 +39,9 @@ pub struct FeedbackSettings {
     /// Gel de rendu, zoom et flash à la mort d'un boss (M2-T19, §55).
     #[serde(default)]
     pub boss_end: BossEndConfig,
+    /// Anneau et secousse d'une explosion de bombe, de baril ou de champion (M3-T17, §82).
+    #[serde(default)]
+    pub explosion: ExplosionFxConfig,
     /// Surcharges par genre de dégât (`DamageKind`, ex. `Explosion`, `Custom("acide")`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub by_kind: BTreeMap<DamageKind, FeedbackOverride>,
@@ -128,6 +131,34 @@ impl Default for BlankFlashConfig {
             ring_frames: 24,
             color: (0.7, 0.9, 1.0, 1.0),
             flash_alpha: 0.15,
+        }
+    }
+}
+
+/// Explosion (M3-T17) : anneau qui s'étend sur le rayon de l'explosion, secousse de caméra
+/// proportionnelle au rayon (`shake_amplitude` pour un rayon de 100), débris des rochers cassés.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ExplosionFxConfig {
+    pub enabled: bool,
+    /// Durée de l'anneau, en frames de simulation.
+    pub ring_frames: u32,
+    /// Couleur RGBA de l'anneau.
+    pub color: (f32, f32, f32, f32),
+    /// Durée de la secousse (0 : pas de secousse).
+    pub shake_frames: u32,
+    /// Amplitude de la secousse pour un rayon de 100 (proportionnelle au rayon, plafonnée à 3×).
+    pub shake_amplitude: f32,
+}
+
+impl Default for ExplosionFxConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            ring_frames: 18,
+            color: (1.0, 0.55, 0.15, 1.0),
+            shake_frames: 10,
+            shake_amplitude: 8.0,
         }
     }
 }
@@ -306,6 +337,40 @@ impl FeedbackSettings {
             if !unit.contains(&v) {
                 bad(
                     &format!("blank.color.{c}"),
+                    format!("{v} : doit être dans [0, 1]"),
+                );
+            }
+        }
+        let explosion = &self.explosion;
+        if !frames.contains(&explosion.ring_frames) {
+            bad(
+                "explosion.ring_frames",
+                format!(
+                    "{} : doit être dans [1, {MAX_PRESENTATION_FRAMES}]",
+                    explosion.ring_frames
+                ),
+            );
+        }
+        if explosion.shake_frames > MAX_PRESENTATION_FRAMES {
+            bad(
+                "explosion.shake_frames",
+                format!(
+                    "{} : doit être dans [0, {MAX_PRESENTATION_FRAMES}]",
+                    explosion.shake_frames
+                ),
+            );
+        }
+        if explosion.shake_amplitude < 0.0 {
+            bad(
+                "explosion.shake_amplitude",
+                format!("{} : doit être >= 0", explosion.shake_amplitude),
+            );
+        }
+        let (r, g, b, a) = explosion.color;
+        for (c, v) in [("r", r), ("g", g), ("b", b), ("a", a)] {
+            if !unit.contains(&v) {
+                bad(
+                    &format!("explosion.color.{c}"),
                     format!("{v} : doit être dans [0, 1]"),
                 );
             }

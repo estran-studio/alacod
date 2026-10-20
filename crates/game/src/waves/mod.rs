@@ -29,6 +29,7 @@
 //!
 //! Configure via `waves/wave_config.ron` dans les assets du jeu. See `config::WaveConfig` for options.
 
+pub mod assets;
 pub mod config;
 pub mod debug;
 pub mod state;
@@ -36,7 +37,6 @@ pub mod systems;
 pub mod tracking;
 
 use bevy::prelude::*;
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::GgrsSchedule;
 
 use crate::character::enemy::spawning::enemy_spawn_from_spawners_system;
@@ -45,8 +45,7 @@ use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
 
 pub use config::WaveConfig;
-pub use debug::{WaveDebugEnabled, WaveDebugPlugin};
-pub use state::{WavePhase, WaveState};
+pub use state::{WaveDebugEnabled, WavePhase, WaveState};
 pub use tracking::WaveEnemy;
 
 /// Resource to enable/disable wave spawning mode.
@@ -61,15 +60,10 @@ pub struct WaveSystemPlugin;
 
 impl Plugin for WaveSystemPlugin {
     fn build(&self, app: &mut App) {
-        // RON asset plugin for wave configuration
-        app.add_plugins(RonAssetPlugin::<WaveConfig>::new(&["ron"]));
-
-        // Debug UI plugin
-        app.add_plugins(WaveDebugPlugin);
-
         // Resources
         app.init_resource::<WaveState>();
         app.init_resource::<WaveModeEnabled>();
+        app.init_resource::<WaveDebugEnabled>();
 
         // Register types for reflection (useful for debugging)
         app.register_type::<WavePhase>();

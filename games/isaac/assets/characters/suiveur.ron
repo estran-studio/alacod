@@ -1,0 +1,53 @@
+// `isaac` (M3-T0f) : ennemi suiveur simple — poursuit le joueur par le champ de flux (`Chase`,
+// profil `Ground`) et le frappe au contact (`Melee("contact")`, 1 PV).
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "42.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "suiveur",
+
+    collider: (
+        shape: Rectangle(width: "20.", height: "20."),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (max: "10.0"),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("30.0"),
+        attack_damage: Some("1.0"),
+        attack_cooldown_frames: Some(120),
+        behaviors: Some([Melee("contact"), Chase(profile: "Ground")]),
+    )),
+    // M3-T11c (§76.3) : champion `explosif` (chance `0,1 + étage × 0,15`) : à sa mort, une explosion de 44 unités
+    // (2 PV, `Explode`, ne détruit pas les murs : `destroys: false`, la salle secrète reste à la bombe).
+    variants: Some((
+        chance: "0.1 + floor * 0.15",
+        table: {
+            "explosif": (tags: ["champion"], on_death: [Explode(radius: "44.0", damage: "2.0", destroys: false)], tint: Some("#c0392b")),
+        },
+    )),
+    // `docs/conventions.md` §28 : scénarios générés `enemy_suiveur_still`/`_moving` (`make gen GAME=isaac`), attentes
+    // par défaut ; §78 : `champion_suiveur_explosif` (variante imposée, `kill` : l'explosion à la mort).
+    test: Some((
+        frames: 600,
+        champions: [(variant: "explosif", kill: true, weapon: Some("larmes"))],
+    )),
+)

@@ -147,3 +147,106 @@ fn p2p_detects_a_divergent_checksum() {
         "a divergent checksum must reach DesyncDetected"
     );
 }
+
+fn peer(n: u8) -> matchbox_protocol::PeerId {
+    serde_json::from_str(&format!("\"00000000-0000-0000-0000-0000000000{n:02}\"")).unwrap()
+}
+
+/// D86 : les pairs d'une session déjà jouée disparaissent de la liste, l'ordre des autres
+/// (donc les handles GGRS) est celui du socket.
+#[test]
+fn live_players_ignores_previous_session_peers_and_keeps_order() {
+    use super::live_players;
+    use bevy_ggrs::ggrs::PlayerType as P;
+    let players = vec![
+        P::Remote(peer(1)),
+        P::Local,
+        P::Remote(peer(2)),
+        P::Remote(peer(3)),
+    ];
+    let stale = [peer(1), peer(3)].into_iter().collect();
+    assert_eq!(
+        live_players(players.clone(), &stale),
+        vec![P::Local, P::Remote(peer(2))]
+    );
+    assert_eq!(live_players(players.clone(), &Default::default()), players);
+}
+
+#[test]
+fn sync_timeout_is_reached_only_after_the_delay() {
+    use super::sync_timed_out;
+    use std::time::Duration;
+    assert!(!sync_timed_out(None, 30.0));
+    assert!(!sync_timed_out(Some(Duration::from_millis(29_900)), 30.0));
+    assert!(sync_timed_out(Some(Duration::from_secs(30)), 30.0));
+}
+
+/// D116 : les `max_player` premiers joueurs du socket (triés par identifiant) sont admis ; le joueur
+/// local est ignoré s'il n'en fait pas partie ; sans pair en trop, tout le monde est admis.
+#[test]
+fn admission_keeps_the_first_players_by_peer_id() {
+    use super::admit_players;
+    use bevy_ggrs::ggrs::PlayerType as P;
+    // Ordre du socket (`players()` trie les identifiants, le joueur local y compris).
+    let local_last = vec![P::Remote(peer(1)), P::Remote(peer(2)), P::Local];
+    let admission = admit_players(local_last, 2);
+    assert_eq!(
+        admission.admitted,
+        vec![P::Remote(peer(1)), P::Remote(peer(2))]
+    );
+    assert!(!admission.local_admitted);
+    assert_eq!(admission.excess, 1);
+
+    let local_first = vec![P::Local, P::Remote(peer(2)), P::Remote(peer(3))];
+    let admission = admit_players(local_first, 2);
+    assert_eq!(admission.admitted, vec![P::Local, P::Remote(peer(2))]);
+    assert!(admission.local_admitted);
+    assert_eq!(admission.excess, 1);
+
+    let exact = vec![P::Remote(peer(1)), P::Local];
+    let admission = admit_players(exact.clone(), 2);
+    assert_eq!(admission.admitted, exact);
+    assert!(admission.local_admitted);
+    assert_eq!(admission.excess, 0);
+}
+
+/// D116 : chaque client, avec le même ensemble de pairs, désigne les mêmes admis (même ensemble,
+/// mêmes handles) : la politique ne dépend que des identifiants.
+#[test]
+fn admission_is_identical_for_every_client_seeing_the_same_peers() {
+    use super::admit_players;
+    use bevy_ggrs::ggrs::PlayerType as P;
+    let ids = [peer(7), peer(3), peer(9)];
+    let view = |me: usize| {
+        let mut sorted = ids.to_vec();
+        sorted.sort();
+        sorted
+            .into_iter()
+            .map(|id| {
+                if id == ids[me] {
+                    P::Local
+                } else {
+                    P::Remote(id)
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    let admitted_ids = |me: usize| -> Vec<_> {
+        let admission = admit_players(view(me), 2);
+        admission
+            .admitted
+            .iter()
+            .map(|p| match p {
+                P::Local => ids[me],
+                P::Remote(id) => *id,
+                _ => unreachable!(),
+            })
+            .collect()
+    };
+    assert_eq!(admitted_ids(0), vec![peer(3), peer(7)]);
+    assert_eq!(admitted_ids(1), vec![peer(3), peer(7)]);
+    assert_eq!(admitted_ids(2), vec![peer(3), peer(7)]);
+    assert!(admit_players(view(0), 2).local_admitted);
+    assert!(admit_players(view(1), 2).local_admitted);
+    assert!(!admit_players(view(2), 2).local_admitted);
+}

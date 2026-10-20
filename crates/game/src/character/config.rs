@@ -1,4 +1,4 @@
-use bevy::{platform::collections::hash_map::HashMap, prelude::*, reflect::TypePath};
+use bevy::{platform::collections::hash_map::HashMap, prelude::*};
 use bevy_fixed::fixed_math;
 use serde::Deserialize;
 use sim_core::stats::StatId;
@@ -34,6 +34,9 @@ pub struct CharacterTest {
     /// M2-T17 (§54) : gabarit `BossFight`, pour un personnage qui a `boss:`.
     #[serde(default)]
     pub boss: Option<crate::gen_test::BossFightTest>,
+    /// M3-T13 (§78) : gabarits `ChampionForced`, une entrée par variante testée.
+    #[serde(default)]
+    pub champions: Vec<crate::gen_test::ChampionTest>,
 }
 
 fn enabled() -> bool {
@@ -45,7 +48,17 @@ pub struct CharacterSkin {
     pub layers: HashMap<String, String>,
 }
 
-#[derive(Asset, TypePath, Deserialize, Debug, Clone)]
+/// Marqueur visuel d'un personnage (D66) : `tint` = couleur RGB (0 à 1) multipliée aux calques,
+/// `scale` = facteur appliqué à l'échelle des calques.
+#[derive(Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct CharacterMarker {
+    #[serde(default)]
+    pub tint: Option<(f32, f32, f32)>,
+    #[serde(default)]
+    pub scale: Option<f32>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct CharacterConfig {
     pub movement: MovementConfig,
 
@@ -104,6 +117,17 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub boss: Option<behaviors::BossDef>,
 
+    /// Bombe du personnage (M3-T0c, `docs/conventions.md` §62) : sans elle, le bouton `Bomb` est
+    /// sans effet (aucun contenu existant n'en a). La pose vient de M3-T4.
+    #[serde(default)]
+    pub bomb: Option<world::BombDef>,
+
+    /// Visée du personnage (suivi Q17, `docs/conventions.md` §66) : `Free` (défaut, 360°) ou
+    /// `FourWay` (haut, bas, gauche, droite : `isaac`). Quantifiée dans `weapon_rollback_system`.
+    /// Composant posé seulement pour `FourWay` : aucun contenu existant ne change.
+    #[serde(default)]
+    pub aim: sim_core::aim::AimMode,
+
     /// Équipe par défaut d'un personnage spawné via `spawn_enemy` sans `team` explicite sur
     /// l'entité `CharacterSpawn` qui l'a créé (T2.9, testbed). `None` pour tout le contenu
     /// zombies existant (comportement inchangé : `Team::Enemies` en dur, voir
@@ -123,12 +147,20 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub variants: Option<crate::character::variant::VariantsConfig>,
 
-    /// Si vrai, ce personnage reçoit un composant `HitCount` (rollback) à sa création,
-    /// incrémenté par le résolveur de dégâts pour chaque coup reçu (T2.9, testbed : la
-    /// cible `target`). Faux par défaut : ne s'applique à aucun personnage zombie/joueur
-    /// existant.
+    /// Si vrai, ce personnage reçoit un composant `HitCount` à sa création.
     #[serde(default)]
     pub counts_hits: bool,
+
+    /// I-frames après un coup subi (M3-T0b, §61). Absent : comportement historique ; le
+    /// résolveur ne pose aucune invulnérabilité supplémentaire.
+    #[serde(default)]
+    pub hit_iframes: Option<u32>,
+
+    /// Marqueur visuel (D66, présentation seule : aucune simulation ne le lit) : teinte et échelle
+    /// des calques, pour distinguer un personnage dont le sprite est provisoire (tourelle à
+    /// silhouette de zombie). `None` : sprites inchangés.
+    #[serde(default)]
+    pub marker: Option<CharacterMarker>,
 
     /// Scénarios générés de ce personnage (T1.13, `docs/conventions.md` §28, gabarits
     /// `EnemyVsStillPlayer`/`EnemyVsMovingPlayer` de `scenario::generate`). Aucun effet en jeu ;
@@ -207,7 +239,24 @@ fn default_starting_currency() -> u32 {
     500
 }
 
-#[derive(Component)]
-pub struct CharacterConfigHandles {
-    pub config: Handle<CharacterConfig>,
+/// Clé du `CharacterConfig` d'un personnage dans [`CharacterConfigs`] : l'`asset_name_ref`
+/// (le `CharacterId` du registre de contenu). Composant non rollback, posé à la création
+/// (`create_character`) ; remplace l'ancien `CharacterConfigHandles` (`Handle<CharacterConfig>`).
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct CharacterConfigKey(pub String);
+
+/// Configurations des personnages, **donnée de simulation** (D69 étape 2, E3a) : clés = les
+/// `CharacterId` du registre de contenu (`asset_name_ref`). Remplie hors simulation
+/// par `config_asset::sync_character_configs` (`PreUpdate`, avant `RunGgrsSystems`) à partir des
+/// assets chargés, et seulement par elle (les surcharges de scénario se posent ensuite, sur cette
+/// ressource). Jamais écrite par `GgrsSchedule`, donc ni rollback ni checksum : c'est une donnée
+/// statique d'une partie, comme l'était l'`Assets<CharacterConfig>` qu'elle remplace.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct CharacterConfigs(pub BTreeMap<String, CharacterConfig>);
+
+impl CharacterConfigs {
+    /// Configuration d'un personnage, `None` si la clé est inconnue (registre pas encore rempli).
+    pub fn get(&self, key: &str) -> Option<&CharacterConfig> {
+        self.0.get(key)
+    }
 }

@@ -1,0 +1,11 @@
+// `isaac` (M3-T11d2, §76.5) : toutes les 120 frames (`Tick`), +60 % de cadence de tir pendant 40 frames (`TimedModifier`, `FireRate` : multiplicateur de base 1). Seuils mesurés : 1,0 à f60 (hors fenêtre), 1,6 à f140 (le `Tick(120)` tombe à f120, la fenêtre court jusqu'à f160).
+(
+    name: "Pendule",
+    kind: Passive,
+    effects: [
+        (on: Tick(120), do: [TimedModifier(stat: FireRate, op: Pct, value: "0.6", frames: 40)]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    test: Some((frames: 200, expect: [Stat(handle: 0, stat: FireRate, value: 1.0, at_frame: 60), Stat(handle: 0, stat: FireRate, value: 1.6, at_frame: 140)])),
+)

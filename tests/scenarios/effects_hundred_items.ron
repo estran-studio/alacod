@@ -1,0 +1,29 @@
+// M3-T2 (docs/conventions.md §67) : échelle. Le joueur tient 100 objets à effets (97 `cent_*` de charge + 3 observateurs `obs_*` à une charge : `Tick`, `OnHit`, `OnKill`), tire en
+// rafale (`machine_gun`) sur un `dummy` (200 PV, mort après ~25 coups) puis sur une `target` ; chaque coup et la mort
+// exécutent 33 effets. Mesure : `advance_ms_avg` (métriques), à comparer à `effects_hundred_items_temoin` du même run.
+
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 600,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "560.0", y: "-194.0", at_frame: 1), (character: "dummy", x: "620.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 20, to: 560, buttons: [Fire], pan: (-127, 0))],
+            weapon: "machine_gun",
+            items: ["cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "cent_hit", "cent_kill", "cent_tick", "obs_tick", "obs_hit", "obs_kill"],
+        ),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 599),
+        // conséquence observable de chaque famille, une charge chacune (Tick -> Luck, OnHit -> HealthRegen, OnKill -> Damage)
+        // ; morts : le `dummy` (15) et le `follower` de la carte (12), la `target` (14) survit (compte d'`Enemy` 3 -> 1)
+        Stat(handle: 0, stat: Luck, value: 1.0, at_frame: 599),
+        Stat(handle: 0, stat: HealthRegen, value: 11.0, at_frame: 599),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 599),
+        EntityHealth(net_id: 14, min: Some(1.0), at_frame: 599),
+        EntityCount(kind: Enemy, min: 3, max: 3, at_frame: 20),
+        EntityCount(kind: Enemy, min: 1, max: 1, at_frame: 599),
+    ],
+)

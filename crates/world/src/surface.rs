@@ -59,13 +59,74 @@ pub struct SurfaceDef {
     /// M2-T11 (§46) : la surface est une fosse. `None` pour toute surface de mouvement.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pit: Option<PitDef>,
+    /// M3-T0c (§62) : la surface blesse (piques). `None` pour toute surface existante.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hazard: Option<HazardDef>,
+}
+
+/// Piques (M3-T0c, `docs/conventions.md` §62) : le joueur dont les pieds sont sur la case perd
+/// `damage` PV (dégâts `True`, ou typés : Q2 pour les demi-cœurs) au plus une fois par `period`
+/// frames. Contrat seul : la forme RON, le lint et la règle pure ; l'exécution vient de M3-T4.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub struct HazardDef {
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+    pub damage: Fixed,
+    /// Frames entre deux coups sur le même joueur (> 0).
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
+    pub period: u32,
+    /// Un joueur en plein dash traverse les piques sans être touché (M3-T4, §69). Faux (défaut) :
+    /// le dash n'y change rien, les piques le blessent sauf s'il a des i-frames à cette frame.
+    /// Fin de structure : absent des définitions d'avant.
+    #[serde(default)]
+    pub dash_crosses: bool,
+}
+
+/// Dernier coup de piques reçu par un joueur (M3-T4, §69), rollback **neutre** : posé à la première
+/// blessure, sur les seuls joueurs d'une carte à piques. Fait respecter `period` entre deux coups.
+#[derive(bevy::prelude::Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct HazardState {
+    pub last_hit: u32,
+}
+
+impl HazardDef {
+    /// Les piques blessent-ils un joueur à `frame` ? Faux pendant un dash si `dash_crosses` ; sinon
+    /// un coup au plus toutes les `period` frames ([`HazardDef::is_due`]).
+    pub fn applies(&self, dashing: bool, last_hit: Option<u32>, frame: u32) -> bool {
+        !(dashing && self.dash_crosses) && self.is_due(last_hit, frame)
+    }
+
+    /// Le joueur est-il blessé à `frame` ? `last_hit` = frame du dernier coup reçu de cette
+    /// surface (`None` : jamais).
+    pub fn is_due(&self, last_hit: Option<u32>, frame: u32) -> bool {
+        match last_hit {
+            None => true,
+            Some(last) => frame.saturating_sub(last) >= self.period,
+        }
+    }
+
+    /// Problèmes de la définition (lint) ; vide si elle est valide.
+    pub fn problems(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if self.damage <= Fixed::ZERO {
+            out.push(format!("hazard : damage = {} : doit être > 0", self.damage));
+        }
+        if self.period == 0 {
+            out.push("hazard : period = 0 : doit être > 0".to_string());
+        }
+        out
+    }
 }
 
 /// Fosse (M2-T11, `docs/conventions.md` §46) : un joueur dont les pieds y entrent perd
 /// `fall_damage` PV et revient à sa dernière position sûre ; les ennemis au sol ne la traversent
 /// pas (champ de flux, déplacement), les volants la survolent.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PitDef {
+    #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub fall_damage: Fixed,
     /// Où revient le joueur tombé.
     #[serde(default)]
@@ -76,6 +137,7 @@ pub struct PitDef {
 }
 
 /// Point de retour d'un joueur tombé dans une fosse.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PitRespawn {
     /// Dernière position dont la case et ses 8 voisines étaient sans fosse
@@ -94,6 +156,16 @@ impl SurfaceTable {
     pub fn has_pits(&self) -> bool {
         self.0.values().any(|def| def.pit.is_some())
     }
+
+    /// Définition de piques de la surface `id`, s'il y en a une (M3-T4).
+    pub fn hazard(&self, id: SurfaceId) -> Option<&HazardDef> {
+        self.0.get(&id)?.hazard.as_ref()
+    }
+
+    /// Le jeu a au moins une surface de piques.
+    pub fn has_hazards(&self) -> bool {
+        self.0.values().any(|def| def.hazard.is_some())
+    }
 }
 
 impl SurfaceGrid {
@@ -110,6 +182,20 @@ impl SurfaceGrid {
                     .is_none_or(|id| table.pit(id).is_none())
             })
         })
+    }
+
+    /// Piques sous `position` (monde), s'il y en a (M3-T4).
+    pub fn hazard_at<'a>(
+        &self,
+        table: &'a SurfaceTable,
+        position: FixedVec2,
+    ) -> Option<&'a HazardDef> {
+        table.hazard(self.at(position)?)
+    }
+
+    /// La grille a au moins une case de piques.
+    pub fn has_hazard_cells(&self, table: &SurfaceTable) -> bool {
+        self.cells.values().any(|id| table.hazard(*id).is_some())
     }
 
     /// Cases de fosse de la grille, dans l'ordre de la grille (déterministe).
@@ -173,6 +259,7 @@ mod tests {
             move_speed: Fixed::from_num(0.5),
             acceleration: Fixed::ONE,
             pit: None,
+            hazard: None,
         }
     }
 
@@ -209,6 +296,31 @@ mod tests {
         assert!(grid.is_safe_cell(&table, 7, 5));
         assert!(grid.is_safe_cell(&table, 0, 1), "l'eau n'est pas une fosse");
         assert_eq!(grid.pit_cells(&table).collect::<Vec<_>>(), vec![(5, 5)]);
+    }
+
+    #[test]
+    fn piques_une_fois_par_periode_et_dash() {
+        let piques = HazardDef {
+            damage: Fixed::from_num(5),
+            period: 30,
+            dash_crosses: false,
+        };
+        assert!(piques.applies(false, None, 10), "premier coup");
+        assert!(
+            !piques.applies(false, Some(10), 39),
+            "avant la fin de la période"
+        );
+        assert!(piques.applies(false, Some(10), 40), "période écoulée");
+        assert!(
+            piques.applies(true, None, 10),
+            "le dash ne protège pas par défaut"
+        );
+        let franchis = HazardDef {
+            dash_crosses: true,
+            ..piques
+        };
+        assert!(!franchis.applies(true, None, 10), "dash_crosses : franchis");
+        assert!(franchis.applies(false, None, 10));
     }
 
     #[test]
@@ -249,6 +361,7 @@ mod tests {
             move_speed: Fixed::ONE,
             acceleration: Fixed::from_num(0.2),
             pit: None,
+            hazard: None,
         };
         let player = surface_modifiers(&glace, Walker::Player);
         assert_eq!(player.len(), 1);

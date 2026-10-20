@@ -1,0 +1,108 @@
+// `isaac` (M3-T0f, docs/conventions.md §65) : l'arme du joueur et l'arsenal du boss.
+// `larmes` (M3-T11a, docs/conventions.md §60 et §76.1) : tir automatique, 3 tirs/s, `mag: Infinite` (jamais
+// vide, jamais rechargé, pas d'`ammo_type` : aucune réserve). Les stats de larmes sont des multiplicateurs
+// de base 1 posés par les objets : `Damage` (3,5), `FireRate` (3 tirs/s), `Range` (300), `ShotSpeed`
+// (260), `ShotSize` (collision et sprite), `Luck` (chance d'effet). `arsenal` : table de projectiles du boss
+// (`eventail`, `couronne`, `spirale`, `crachat`, `croix`, `rafale`, `couronne_unique`).
+({
+    "larmes": (
+        config: (
+            name: "larmes",
+            default_firing_mode: "default",
+            // Pas d'`ammo_type` : tous les modes sont `Infinite`.
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    firing_mode: Automatic(),
+                    spread: "0.001",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "3.5",
+                        speed: "260.0",
+                    ),
+                    range: "300.0",
+                    reload_time_seconds: "0.0",
+                    mag: Infinite,
+                )
+            },
+            test: Some((frames: 200, min_hits: 1)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_pistol.ogg")}),
+    ),
+    // M3-T11a (§76.1) : arme de laboratoire, `larmes` à courte portée (100) : la cible de l'arène (137 unités) n'est
+    // atteinte qu'avec `Range` (`tears_longue_vue`) ; l'arène (416 x 304) est plus petite que la portée de `larmes`.
+    "larmes_courtes": (
+        config: (
+            name: "larmes_courtes",
+            test_only: true,
+            default_firing_mode: "default",
+            firing_modes: {
+                "default": (
+                    firing_rate: "3.0",
+                    firing_mode: Automatic(),
+                    spread: "0.001",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "3.5",
+                        speed: "260.0",
+                    ),
+                    range: "100.0",
+                    reload_time_seconds: "0.0",
+                    mag: Infinite,
+                )
+            },
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    "arsenal": (
+        config: (
+            name: "arsenal",
+            default_firing_mode: "default",
+            ammo_type: Custom("balles"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "1.0",
+                        speed: "300.0",
+                    ),
+                    range: "900.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(mag_size: 30, mag_limit: 4),
+                )
+            },
+            projectiles: {
+                // Plombs en éventail du boss (`eventail`).
+                "plomb": (damage: "1.0", speed: "140.0", range: "260.0"),
+                // Couronne lente du boss (`couronne`).
+                "boule": (damage: "1.0", speed: "90.0", range: "400.0"),
+                // M3-T11c (§76.3) : crachats visés de `cracheur` et `bourdon` (`crachat`, `rafale`).
+                "crachat": (damage: "1.0", speed: "110.0", range: "320.0"),
+            },
+            test: Some((frames: 200, min_hits: 2)),
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+})

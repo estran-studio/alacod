@@ -5,9 +5,7 @@ use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use game::content_hot_reload::GameRoot;
 use game::{
-    args::BaseArgsPlugin,
-    core::{CoreSetupConfig, CoreSetupPlugin},
-    waves::WaveModeEnabled,
+    args::BaseArgsPlugin, core::CoreSetupPlugin, session::CoreSetupConfig, waves::WaveModeEnabled,
 };
 use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},

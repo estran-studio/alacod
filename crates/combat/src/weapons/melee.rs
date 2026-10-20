@@ -1,15 +1,14 @@
 use crate::downed::Downed;
 use crate::team::team_allows_hit;
-use animation::FacingDirection;
 use bevy::{
     log::{tracing::span, Level},
-    platform::collections::HashMap,
     prelude::*,
 };
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
+use sim_core::animation_state::FacingDirection;
 use sim_core::damage::{DamageEvent, DamageKind, FriendlyFire};
 use sim_core::tag::{Tag, Tags};
 use sim_core::team::Team;
@@ -202,10 +201,6 @@ impl std::hash::Hash for MeleeHitbox {
     }
 }
 
-// MELEE WEAPONS CONFIG ASSET
-#[derive(Asset, TypePath, Serialize, Deserialize)]
-pub struct MeleeWeaponsConfig(pub HashMap<String, MeleeWeaponAsset>);
-
 // SPAWN MELEE WEAPON
 pub fn spawn_melee_weapon_for_character(
     commands: &mut Commands,
@@ -230,7 +225,6 @@ pub fn spawn_melee_weapon_for_character(
             ggrs_transform,
             weapon_component.clone(),
             id_factory.next(weapon_component.config.name.clone()),
-            Visibility::Hidden, // Melee weapons can be invisible or shown only during attack
         ))
         .insert(Rollback)
         .id();
@@ -660,6 +654,9 @@ pub fn enemy_melee_attack_system(
             Option<&Tags>,
             Has<MeleeHold>,
             Option<&WaveDamageScale>,
+            // Suivi Q12 : un ennemi charmé ne griffe aucun joueur (état dérivé du statut, sans composant à
+            // lever : `Statuses` est retiré dès qu'il est vide).
+            Option<&crate::status::Statuses>,
         ),
         (With<Enemy>, With<Rollback>),
     >,
@@ -685,8 +682,10 @@ pub fn enemy_melee_attack_system(
         opt_tags,
         held,
         wave_scale,
+        statuses,
     ) in order_mut_iter!(enemy_query)
     {
+        let held = held || crate::status::charmed(statuses);
         // Find melee weapon in children
         let mut melee_weapon_opt: Option<&MeleeWeapon> = None;
         for child in children.iter() {

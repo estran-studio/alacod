@@ -15,16 +15,17 @@ use sim_core::modifier::{ModifierSource, Modifiers};
 use utils::frame::FrameCount;
 use utils::net_id::GgrsNetId;
 
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::enemy::Enemy;
 use crate::character::player::Player;
 use crate::collider::Collider;
-use crate::core::{AppState, SIM_FPS};
 use crate::economy::PerkMachine;
-use crate::global_asset::GlobalAsset;
 use crate::interaction::{point_to_collider_surface_distance_sq, Interactable, InteractionType};
-use crate::powerups::PowerUpsConfig;
-use crate::ui::hud_model::{player_source_text, HudMapRoom, HudPlayer, HudSnapshot};
+use crate::powerups::PowerUpsTable;
+use crate::session::{AppState, SIM_FPS};
+use crate::ui::hud_model::{
+    player_source_text, HeartKind, HeartSlot, HudMapRoom, HudPlayer, HudSnapshot,
+};
 use crate::waves::state::WaveState;
 use crate::weapons::{WeaponInventory, WeaponPickup};
 
@@ -69,6 +70,23 @@ pub struct HudIconsWidget {
     pub font: Option<Handle<Font>>,
 }
 
+/// Rangée d'un compteur à icône : masquée tant que sa source n'a pas de valeur (D22, pas même
+/// l'icône).
+#[derive(Component)]
+struct HudCounterRow {
+    source: String,
+}
+
+/// Rangée de cœurs (source `hearts`) : `shown` garde les cœurs dessinés, les enfants ne sont
+/// reconstruits que s'ils changent.
+#[derive(Component)]
+struct HudHeartsWidget {
+    #[allow(dead_code)]
+    source: String,
+    icon_size: f32,
+    shown: Option<Vec<HeartSlot>>,
+}
+
 /// Minicarte spatiale dérivée du snapshot ; reconstruite seulement si ses salles changent.
 #[derive(Component)]
 struct HudMapWidget {
@@ -76,6 +94,8 @@ struct HudMapWidget {
     shown: Vec<HudMapRoom>,
     font: Option<Handle<Font>>,
     font_size: f32,
+    /// Icône par type de salle (`HudConfig::room_icons`).
+    room_icons: BTreeMap<String, HudIcon>,
 }
 
 /// Les sources que le HUD sait lire (liste fermée, lint `UnknownKind`) : une autre dans le RON
@@ -115,6 +135,21 @@ pub enum HudWidgetKind {
     Map {
         source: String,
     },
+    /// Légende des silhouettes et couleurs (touche F7, source `legend`) : lignes lues dans
+    /// [`HudConfig::legend`]. Fermée par défaut ; `size` est celle du panneau.
+    Legend {
+        source: String,
+    },
+    /// Rangée de cœurs (M3-T16, §81, source `hearts`) : un carré `size.1` par cœur, rouge puis
+    /// d'âme, rempli à moitié pour un demi-cœur ; passe à la ligne à la largeur `size.0`.
+    Hearts {
+        source: String,
+    },
+    /// Compteur à icône (M3-T16, `coins`, `keys`, `bombs`) : le carré `icons[source]` suivi du
+    /// nombre, de hauteur `size.1`.
+    Counter {
+        source: String,
+    },
 }
 
 /// A single HUD widget definition
@@ -144,6 +179,65 @@ pub struct HudIcon {
     pub label: String,
 }
 
+/// Groupe de la légende (`HudConfig::legend`) : un titre et des lignes, rangés dans la colonne
+/// `column` du panneau (0, 1, 2…).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegendGroup {
+    pub title: String,
+    #[serde(default)]
+    pub column: usize,
+    pub entries: Vec<LegendEntry>,
+}
+
+/// Une ligne de la légende : l'image `sprite` (id de `sprites.ron`, case `Idle`) éventuellement
+/// teintée (`tint`), ou une pastille de couleur (`color`), et son texte.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegendEntry {
+    pub label: String,
+    #[serde(default)]
+    pub sprite: Option<String>,
+    /// Animation de l'entrée à montrer (`Open`, `Locked`…) ; `Idle` par défaut.
+    #[serde(default)]
+    pub anim: Option<String>,
+    #[serde(default)]
+    pub tint: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
+/// Dessin des murs d'une couche IntGrid (`HudConfig::wall_art`) : présentation seule, dérivée des cases
+/// de la couche à chaque apparition d'un niveau (auto-tuile : `map_ldtk::wall_art`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WallArt {
+    /// Couche IntGrid dont les cases non nulles sont des murs (`Walls`).
+    pub layer: String,
+    /// Feuille de tuiles (relative à `assets/`), tuiles carrées de `tile` pixels sur `columns` colonnes.
+    pub atlas: String,
+    #[serde(default = "WallArt::default_tile")]
+    pub tile: u32,
+    #[serde(default = "WallArt::default_columns")]
+    pub columns: u32,
+    /// Profondeur locale au niveau (le fond du niveau est à 0, la couche `Walls` à 1).
+    #[serde(default = "WallArt::default_z")]
+    pub z: f32,
+    /// Couches de métadonnées que la carte ne doit pas dessiner (`LevelConnection` : ouvertures des gabarits,
+    /// que le rendu IntGrid colorié de LDtk peint en noir).
+    #[serde(default)]
+    pub hide_layers: Vec<String>,
+}
+
+impl WallArt {
+    fn default_tile() -> u32 {
+        16
+    }
+    fn default_columns() -> u32 {
+        8
+    }
+    fn default_z() -> f32 {
+        1.5
+    }
+}
+
 /// HUD configuration asset
 #[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
 pub struct HudConfig {
@@ -165,6 +259,25 @@ pub struct HudConfig {
     /// smaller windows; omitted by existing games to preserve their UI scale.
     #[serde(default)]
     pub reference_size: Option<(f32, f32)>,
+    /// Couleur des joueurs par handle (`#rrggbb`), appliquée à leurs calques (modulo le nombre de
+    /// couleurs). Absent : les personnages gardent leur teinte.
+    #[serde(default)]
+    pub player_colors: Vec<String>,
+    /// Légende des silhouettes et couleurs (source `legend`, touche F7).
+    #[serde(default)]
+    pub legend: Vec<LegendGroup>,
+    /// Cache les repères d'apparition de la carte (tuiles d'éditeur) : `true` dans un jeu dont les
+    /// ennemis ont leurs propres sprites.
+    #[serde(default)]
+    pub hide_markers: bool,
+    /// M3-T16 : icône par type de salle (`tresor`, `boutique`, `boss`, `secrete`, `diable`…) sur la
+    /// minicarte : l'étiquette est écrite dans la salle, la couleur en teinte la bordure.
+    #[serde(default)]
+    pub room_icons: BTreeMap<String, HudIcon>,
+    /// Dessin des murs de la carte (`map_ldtk::wall_art`, `docs/conventions.md` §83) : absent, les murs ne
+    /// sont pas dessinés (autres jeux inchangés).
+    #[serde(default)]
+    pub wall_art: Option<WallArt>,
 }
 
 pub struct HudPlugin;
@@ -186,7 +299,13 @@ impl Plugin for HudPlugin {
             )
             .add_systems(
                 Update,
-                (update_hud_v1_values, update_hud_map)
+                (
+                    update_hud_v1_values,
+                    update_hud_map,
+                    update_hud_hearts,
+                    update_hud_counters,
+                    update_hud_legend,
+                )
                     .after(crate::ui::hud_model::HudModelSet)
                     .run_if(in_state(AppState::InGame)),
             )
@@ -208,7 +327,14 @@ impl Plugin for HudPlugin {
 
 /// Resource to hold the HUD config asset handle
 #[derive(Resource, Default)]
-struct HudConfigHandle(Option<Handle<HudConfig>>);
+pub struct HudConfigHandle(Option<Handle<HudConfig>>);
+
+impl HudConfigHandle {
+    /// La configuration du HUD, une fois chargée.
+    pub fn get<'a>(&self, configs: &'a Assets<HudConfig>) -> Option<&'a HudConfig> {
+        self.0.as_ref().and_then(|handle| configs.get(handle))
+    }
+}
 
 /// Derived presentation only: reserve the screen for mutation/end modals and fit
 /// the complete UI into the viewport, including screenshot render targets.
@@ -372,7 +498,10 @@ fn spawn_hud_widgets(
                 HudWidgetKind::Bar { source }
                 | HudWidgetKind::Text { source, .. }
                 | HudWidgetKind::Icons { source }
-                | HudWidgetKind::Map { source } => source,
+                | HudWidgetKind::Map { source }
+                | HudWidgetKind::Legend { source }
+                | HudWidgetKind::Hearts { source }
+                | HudWidgetKind::Counter { source } => source,
             };
             if !SOURCES.contains(&source.as_str()) {
                 warn!("hud.ron : source inconnue « {source} » (connues : {SOURCES:?})");
@@ -421,6 +550,76 @@ fn spawn_hud_widgets(
                         },
                     ));
                 }
+                HudWidgetKind::Hearts { source } => {
+                    // Rangée qui passe à la ligne à la largeur du RON (jusqu'à douze cœurs et plus).
+                    let mut node = node;
+                    node.height = Val::Auto;
+                    node.flex_direction = FlexDirection::Row;
+                    node.flex_wrap = FlexWrap::Wrap;
+                    node.column_gap = Val::Px(3.0);
+                    node.row_gap = Val::Px(3.0);
+                    parent.spawn((
+                        node,
+                        HudHeartsWidget {
+                            source: source.clone(),
+                            icon_size: size.1,
+                            shown: None,
+                        },
+                    ));
+                }
+                HudWidgetKind::Counter { source } => {
+                    let (icon_color, label) = config
+                        .icons
+                        .get(source)
+                        .map_or((Color::srgb(0.5, 0.5, 0.5), String::new()), |icon| {
+                            (parse_color(&icon.color), icon.label.clone())
+                        });
+                    let mut node = node;
+                    node.flex_direction = FlexDirection::Row;
+                    node.align_items = AlignItems::Center;
+                    node.column_gap = Val::Px(6.0);
+                    parent
+                        .spawn((
+                            node,
+                            Visibility::Hidden,
+                            HudCounterRow {
+                                source: source.clone(),
+                            },
+                        ))
+                        .with_children(|row| {
+                            row.spawn((
+                                Node {
+                                    width: Val::Px(size.1),
+                                    height: Val::Px(size.1),
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
+                                    border: UiRect::all(Val::Px(1.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(icon_color),
+                                BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.8)),
+                            ))
+                            .with_children(|icon| {
+                                icon.spawn((
+                                    Text::new(label),
+                                    hud_text_font(&font, size.1 * 0.6),
+                                    TextColor(Color::WHITE),
+                                ));
+                            });
+                            row.spawn((
+                                Text::new(""),
+                                hud_text_font(&font, font_size),
+                                TextColor(color),
+                                BackgroundColor(Color::NONE),
+                                HudTextWidget {
+                                    source: source.clone(),
+                                    prefix: String::new(),
+                                    background: None,
+                                    compact: false,
+                                },
+                            ));
+                        });
+                }
                 HudWidgetKind::Map { source } => {
                     parent.spawn((
                         node,
@@ -428,6 +627,27 @@ fn spawn_hud_widgets(
                         HudMapWidget {
                             source: source.clone(),
                             shown: Vec::new(),
+                            font: font.clone(),
+                            font_size,
+                            room_icons: config.room_icons.clone(),
+                        },
+                    ));
+                }
+                HudWidgetKind::Legend { source } => {
+                    // Panneau de la légende : fermé jusqu'à F7, rempli à l'ouverture (`update_hud_legend`).
+                    let mut node = node;
+                    node.height = Val::Auto;
+                    node.flex_direction = FlexDirection::Row;
+                    node.column_gap = Val::Px(14.0);
+                    node.padding = UiRect::all(Val::Px(8.0));
+                    let background = widget.background.as_deref().map(parse_color);
+                    parent.spawn((
+                        node,
+                        BackgroundColor(background.unwrap_or(Color::srgba(0.02, 0.03, 0.05, 0.9))),
+                        Visibility::Hidden,
+                        HudLegendWidget {
+                            source: source.clone(),
+                            built: false,
                             font: font.clone(),
                             font_size,
                         },
@@ -557,14 +777,14 @@ struct HudPlayerState<'w, 's> {
             Option<&'static Reviving>,
             Option<&'static Modifiers>,
             Option<&'static WeaponInventory>,
-            Option<&'static CharacterConfigHandles>,
+            Option<&'static CharacterConfigKey>,
             Option<&'static items::Inventory>,
         ),
         With<Player>,
     >,
     /// Joueurs à terre en cours de réanimation, pour « Réanimation 40 % » côté réanimateur.
-    revivals: Query<'w, 's, (&'static Reviving, &'static CharacterConfigHandles), With<Downed>>,
-    character_configs: Res<'w, Assets<CharacterConfig>>,
+    revivals: Query<'w, 's, (&'static Reviving, &'static CharacterConfigKey), With<Downed>>,
+    character_configs: Res<'w, CharacterConfigs>,
 }
 
 /// Interactables (même filtre que `interaction::interaction_detection_system`) et ce qu'il
@@ -585,14 +805,14 @@ struct HudInteractables<'w, 's> {
             Option<&'static PerkMachine>,
             Option<&'static items::Chest>,
             Option<&'static items::Shelf>,
+            Option<&'static items::ItemPickup>,
         ),
         With<Rollback>,
     >,
     item_table: Option<Res<'w, items::ItemTable>>,
-    global_assets: Option<Res<'w, GlobalAsset>>,
     // F5 (chantier m0-v11) : prix et perks résolus une fois au lancement (`crate::balance`).
     balance: Res<'w, crate::balance::ResolvedBalance>,
-    powerups_configs: Res<'w, Assets<PowerUpsConfig>>,
+    powerups: Res<'w, PowerUpsTable>,
 }
 
 fn update_hud_v1_values(
@@ -614,6 +834,11 @@ fn update_hud_v1_values(
         names: BTreeMap::new(),
         font: None,
         reference_size: None,
+        player_colors: Vec::new(),
+        legend: Vec::new(),
+        hide_markers: false,
+        room_icons: BTreeMap::new(),
+        wall_art: None,
     };
     let config = config_handle
         .0
@@ -637,17 +862,17 @@ fn update_hud_v1_values(
         .unwrap_or_default();
 
     let downed = player
-        .map(|(net_id, _, _, downed, reviving, _, _, handles, _)| {
-            let revive_frames = |handles: Option<&CharacterConfigHandles>| {
-                handles
-                    .and_then(|h| state.character_configs.get(&h.config))
+        .map(|(net_id, _, _, downed, reviving, _, _, config_key, _)| {
+            let revive_frames = |config_key: Option<&CharacterConfigKey>| {
+                config_key
+                    .and_then(|key| state.character_configs.get(&key.0))
                     .map_or(180, |c| c.revive_frames)
             };
             match downed {
                 Some(downed) => downed_text(
                     frame,
                     Some(downed.bleedout_at_frame),
-                    reviving.map(|r| (r.progress_frames, revive_frames(handles))),
+                    reviving.map(|r| (r.progress_frames, revive_frames(config_key))),
                 ),
                 // Réanimateur : la progression du joueur qu'il relève.
                 None => state
@@ -663,11 +888,7 @@ fn update_hud_v1_values(
         })
         .unwrap_or_default();
 
-    let powerup_config = world
-        .global_assets
-        .as_deref()
-        .and_then(|g| g.powerups_config.as_ref())
-        .and_then(|h| world.powerups_configs.get(h));
+    let powerup_config = world.powerups.0.as_ref();
     let powerups = player
         .and_then(|p| p.5)
         .map(|modifiers| {
@@ -684,8 +905,17 @@ fn update_hud_v1_values(
         .filter(|p| p.3.is_none())
         .and_then(
             |(_, transform, perks_owned, _, _, _, inventory, _, items)| {
-                closest_interactable(&world, transform.translation)
-                    .map(|target| prompt_for(&world, config, target, perks_owned, inventory, items))
+                closest_interactable(&world, transform.translation).map(|target| {
+                    prompt_for(
+                        &world,
+                        config,
+                        target,
+                        perks_owned,
+                        inventory,
+                        items,
+                        snapshot.values.hides.item_names,
+                    )
+                })
             },
         )
         .unwrap_or_default();
@@ -712,6 +942,7 @@ fn update_hud_v1_values(
     }
 
     for (entity, mut widget) in icon_widgets.iter_mut() {
+        let is_active_icon = widget.source == "active_item";
         let ids = perks
             .iter()
             .take(if widget.source == "perks" {
@@ -731,6 +962,15 @@ fn update_hud_v1_values(
                         0
                     })
                     .map(|(id, _)| id.as_str()),
+            )
+            // M3-T16 : l'icône de l'objet actif.
+            .chain(
+                snapshot
+                    .values
+                    .active_item
+                    .iter()
+                    .filter(|_| is_active_icon)
+                    .map(|item| item.id.as_str()),
             );
         if ids.clone().eq(widget.shown.iter().map(String::as_str)) {
             continue;
@@ -768,6 +1008,288 @@ fn update_hud_v1_values(
     }
 }
 
+/// Panneau de la légende (F7) ; `built` : ses lignes sont posées pour l'ouverture courante.
+#[derive(Component)]
+struct HudLegendWidget {
+    #[allow(dead_code)]
+    source: String,
+    built: bool,
+    font: Option<Handle<Font>>,
+    font_size: f32,
+}
+
+/// Légende (F7) : ouvre ou ferme le panneau ; à l'ouverture, une colonne par `column` des groupes de
+/// `hud.ron`, chaque ligne montrant l'image du sprite (case `Idle`, teintée) ou une pastille de
+/// couleur, puis son texte. Reconstruite à chaque ouverture : le jeu courant fait foi.
+#[allow(clippy::too_many_arguments)]
+fn update_hud_legend(
+    mut commands: Commands,
+    open: Res<crate::legibility::LegendOpen>,
+    handle: Res<HudConfigHandle>,
+    configs: Res<Assets<HudConfig>>,
+    table: crate::world_sprites::SpriteTable,
+    items: Option<Res<items::ItemTable>>,
+    asset_server: Res<AssetServer>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut widgets: Query<(
+        Entity,
+        &mut HudLegendWidget,
+        &mut Visibility,
+        Option<&Children>,
+    )>,
+) {
+    let Some(config) = handle.get(&configs) else {
+        return;
+    };
+    for (entity, mut widget, mut visibility, children) in &mut widgets {
+        let wanted = if open.0 {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != wanted {
+            *visibility = wanted;
+        }
+        if !open.0 {
+            widget.built = false;
+            continue;
+        }
+        if widget.built {
+            continue;
+        }
+        widget.built = true;
+        for child in children.into_iter().flat_map(|c| c.iter()) {
+            commands.entity(child).despawn();
+        }
+        let columns = config
+            .legend
+            .iter()
+            .map(|g| g.column + 1)
+            .max()
+            .unwrap_or(0);
+        let text_font = hud_text_font(&widget.font, widget.font_size.max(10.0));
+        let title_font = hud_text_font(&widget.font, widget.font_size.max(10.0) + 1.0);
+        commands.entity(entity).with_children(|panel| {
+            for column in 0..columns {
+                panel
+                    .spawn(Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(2.0),
+                        ..default()
+                    })
+                    .with_children(|col| {
+                        for group in config.legend.iter().filter(|g| g.column == column) {
+                            col.spawn((
+                                Text::new(group.title.clone()),
+                                title_font.clone(),
+                                TextColor(Color::srgb(1.0, 0.85, 0.3)),
+                                Node {
+                                    margin: UiRect::top(Val::Px(6.0)),
+                                    ..default()
+                                },
+                            ));
+                            for entry in &group.entries {
+                                spawn_legend_row(
+                                    col,
+                                    entry,
+                                    &text_font,
+                                    &table,
+                                    items.as_deref(),
+                                    &asset_server,
+                                    &mut layouts,
+                                );
+                            }
+                        }
+                    });
+            }
+        });
+    }
+}
+
+fn spawn_legend_row(
+    col: &mut ChildSpawnerCommands,
+    entry: &LegendEntry,
+    text_font: &TextFont,
+    table: &crate::world_sprites::SpriteTable,
+    items: Option<&items::ItemTable>,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) {
+    col.spawn(Node {
+        flex_direction: FlexDirection::Row,
+        align_items: AlignItems::Center,
+        column_gap: Val::Px(6.0),
+        height: Val::Px(22.0),
+        ..default()
+    })
+    .with_children(|row| {
+        let tint = entry
+            .tint
+            .as_deref()
+            .map(parse_color)
+            .unwrap_or(Color::WHITE);
+        let image = entry.sprite.as_deref().and_then(|id| {
+            crate::legibility::legend_frame(
+                table,
+                id,
+                entry.anim.as_deref().unwrap_or("Idle"),
+                items,
+            )
+        });
+        if let Some((sheet, frame)) = image {
+            let layout = TextureAtlasLayout::from_grid(
+                UVec2::new(sheet.tile_size.0, sheet.tile_size.1),
+                sheet.columns,
+                sheet.rows,
+                None,
+                None,
+            );
+            let mut node = ImageNode::new(asset_server.load(&sheet.path)).with_color(tint);
+            node.texture_atlas = Some(TextureAtlas {
+                layout: layouts.add(layout),
+                index: frame,
+            });
+            row.spawn((
+                node,
+                Node {
+                    width: Val::Px(22.0),
+                    height: Val::Px(22.0),
+                    ..default()
+                },
+            ));
+        } else if let Some(color) = entry.color.as_deref() {
+            row.spawn((
+                Node {
+                    width: Val::Px(22.0),
+                    height: Val::Px(14.0),
+                    ..default()
+                },
+                BackgroundColor(parse_color(color)),
+            ));
+        } else {
+            row.spawn(Node {
+                width: Val::Px(22.0),
+                ..default()
+            });
+        }
+        row.spawn((
+            Text::new(entry.label.clone()),
+            text_font.clone(),
+            TextColor(Color::WHITE),
+        ));
+    });
+}
+
+fn update_hud_counters(
+    snapshot: Res<HudSnapshot>,
+    mut rows: Query<(&HudCounterRow, &mut Visibility)>,
+) {
+    for (row, mut visibility) in &mut rows {
+        let shown = snapshot
+            .texts
+            .get(row.source.as_str())
+            .is_some_and(|text| !text.is_empty());
+        let next = if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != next {
+            *visibility = next;
+        }
+    }
+}
+
+/// Couleurs des cœurs : `icons.heart`, `icons.soul_heart`, `icons.heart_empty` du RON, sinon
+/// ces valeurs par défaut.
+fn heart_colors(config: &HudConfig) -> (Color, Color, Color) {
+    let color = |id: &str, default: &str| {
+        parse_color(
+            config
+                .icons
+                .get(id)
+                .map_or(default, |icon| icon.color.as_str()),
+        )
+    };
+    (
+        color("heart", "#d63031"),
+        color("soul_heart", "#74b9ff"),
+        color("heart_empty", "#2d1b1b"),
+    )
+}
+
+/// Cœurs de la source `hearts`, dérivés du snapshot : reconstruits seulement quand ils changent.
+fn update_hud_hearts(
+    mut commands: Commands,
+    snapshot: Res<HudSnapshot>,
+    config_handle: Res<HudConfigHandle>,
+    configs: Res<Assets<HudConfig>>,
+    mut widgets: Query<(Entity, &mut HudHeartsWidget)>,
+) {
+    let slots = snapshot.values.hearts.map(|hearts| hearts.slots());
+    let default_config;
+    let config = match config_handle.get(&configs) {
+        Some(config) => config,
+        None => {
+            default_config = HudConfig {
+                widgets: Vec::new(),
+                icons: BTreeMap::new(),
+                names: BTreeMap::new(),
+                font: None,
+                reference_size: None,
+                player_colors: Vec::new(),
+                legend: Vec::new(),
+                hide_markers: false,
+                room_icons: BTreeMap::new(),
+                wall_art: None,
+            };
+            &default_config
+        }
+    };
+    let (red, soul, empty) = heart_colors(config);
+    for (entity, mut widget) in &mut widgets {
+        if widget.shown == slots {
+            continue;
+        }
+        widget.shown = slots.clone();
+        let size = widget.icon_size;
+        commands
+            .entity(entity)
+            .despawn_related::<Children>()
+            .with_children(|row| {
+                for slot in slots.iter().flatten() {
+                    let fill = match slot.kind {
+                        HeartKind::Red => red,
+                        HeartKind::Soul => soul,
+                    };
+                    row.spawn((
+                        Node {
+                            width: Val::Px(size),
+                            height: Val::Px(size),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(empty),
+                        BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.7)),
+                    ))
+                    .with_children(|heart| {
+                        // Un demi-cœur remplit la moitié gauche.
+                        if slot.fill > 0 {
+                            heart.spawn((
+                                Node {
+                                    width: Val::Percent(f32::from(slot.fill) * 50.0),
+                                    height: Val::Percent(100.0),
+                                    ..default()
+                                },
+                                BackgroundColor(fill),
+                            ));
+                        }
+                    });
+                }
+            });
+    }
+}
+
 fn update_hud_map(
     mut commands: Commands,
     snapshot: Res<HudSnapshot>,
@@ -795,8 +1317,11 @@ fn update_hud_map(
                         _ if room.visited => Color::srgb(0.27, 0.36, 0.48),
                         _ => Color::srgb(0.08, 0.10, 0.14),
                     };
+                    let icon = widget.room_icons.get(&room.kind);
                     let border = if room.current {
                         Color::srgb(1.0, 0.85, 0.2)
+                    } else if let Some(icon) = icon {
+                        parse_color(&icon.color)
                     } else if room.boss {
                         Color::srgb(0.8, 0.45, 1.0)
                     } else {
@@ -819,11 +1344,14 @@ fn update_hud_map(
                         BorderColor::all(border),
                     ))
                     .with_children(|tile| {
-                        let label = match (room.boss, room.state) {
-                            (true, world::RoomState::Locked) => "B ×",
-                            (true, _) => "B",
-                            (false, world::RoomState::Locked) => "×",
-                            _ => "",
+                        let locked = room.state == world::RoomState::Locked;
+                        let label = match (icon, room.boss, locked) {
+                            (Some(icon), _, true) => format!("{} ×", icon.label),
+                            (Some(icon), _, false) => icon.label.clone(),
+                            (None, true, true) => "B ×".to_string(),
+                            (None, true, false) => "B".to_string(),
+                            (None, false, true) => "×".to_string(),
+                            _ => String::new(),
                         };
                         if !label.is_empty() {
                             tile.spawn((
@@ -874,11 +1402,13 @@ fn prompt_for(
     perks_owned: Option<&Perks>,
     inventory: Option<&WeaponInventory>,
     items: Option<&items::Inventory>,
+    hide_names: bool,
 ) -> String {
-    let Some((_, _, interactable, _, door, window, pickup, perk_machine, chest, shelf)) = world
-        .interactables
-        .iter()
-        .find(|(net_id, ..)| **net_id == target)
+    let Some((_, _, interactable, _, door, window, pickup, perk_machine, chest, shelf, item)) =
+        world
+            .interactables
+            .iter()
+            .find(|(net_id, ..)| **net_id == target)
     else {
         return String::new();
     };
@@ -890,8 +1420,20 @@ fn prompt_for(
             damaged: window.is_some_and(|w| w.current < w.max),
         },
         InteractionType::Revive => Prompt::Revive,
-        // M2-T0b : pas de prompt d'objet avant le HUD de M2 (V4).
-        InteractionType::Item => return String::new(),
+        // M3-T16 : « Ramasser Reliquaire » ; le nom devient « ??? » sous `HideItemNames` (dette T9 :
+        // l'objet au sol n'avait pas de prompt, donc rien à cacher).
+        InteractionType::Item => {
+            let Some(item) = item else {
+                return String::new();
+            };
+            Prompt::Item {
+                name: world
+                    .item_table
+                    .as_ref()
+                    .and_then(|table| table.0.get(&item.item_id))
+                    .map_or_else(|| item.item_id.clone(), |def| def.name.clone()),
+            }
+        }
         InteractionType::Chest => {
             let Some(chest) = chest else {
                 return String::new();
@@ -914,9 +1456,15 @@ fn prompt_for(
                     .as_ref()
                     .and_then(|table| table.0.get(&shelf.item_id))
                     .map_or_else(|| shelf.item_id.clone(), |def| def.name.clone()),
-                price: shelf.price,
+                price: shelf_price_label(shelf, world.item_table.as_deref()),
             }
         }
+        // M2-T13 : pas de prompt du hub avant le HUD de M2 (V4).
+        InteractionType::Hub => return String::new(),
+        // M3-T5 : porte à clé (la clé est consommée à l'ouverture, `key_door_system`).
+        InteractionType::KeyDoor => Prompt::KeyDoor {
+            keys: items.map_or(0, |i| i.consumable(crate::loot::KEY_ITEM)),
+        },
         InteractionType::Weapon => {
             let Some(pickup) = pickup else {
                 return String::new();
@@ -950,7 +1498,29 @@ fn prompt_for(
             }
         }
     };
+    let prompt = if hide_names {
+        prompt.hide_name()
+    } else {
+        prompt
+    };
     prompt.text()
+}
+
+/// Prix d'un présentoir pour son prompt (M3-T8, §73) : les douilles (`price`), ou le coût propre du
+/// présentoir — « 1 cœur » pour la vie maximale (`items::heart_label`), « 3 Bombe » pour un
+/// consommable (nom de l'objet).
+fn shelf_price_label(shelf: &items::Shelf, item_table: Option<&items::ItemTable>) -> String {
+    match &shelf.cost {
+        None => shelf.price.to_string(),
+        Some(items::Price::Currency(amount)) => amount.to_string(),
+        Some(items::Price::MaxHealth(amount)) => items::heart_label(*amount),
+        Some(items::Price::Consumable(id, amount)) => {
+            let name = item_table
+                .and_then(|table| table.0.get(id))
+                .map_or(id.as_str(), |def| def.name.as_str());
+            format!("{amount} {name}")
+        }
+    }
 }
 
 /// Ce que le prompt annonce, indépendamment de l'ECS (testé en bas du fichier).
@@ -981,7 +1551,9 @@ enum Prompt {
     /// M2-T6 : présentoir de boutique.
     Shelf {
         name: String,
-        price: u32,
+        /// Prix tel qu'écrit : des douilles (« 30 ») ou, pour un prix de vie, des cœurs
+        /// (« 1 cœur », M3-T8 §73).
+        price: String,
     },
     /// `owned` : déjà acheté, l'interaction ne fait rien.
     Perk {
@@ -989,9 +1561,44 @@ enum Prompt {
         price: Option<u32>,
         owned: bool,
     },
+    /// M3-T5 : porte d'une salle à clé ; `keys` : clés du joueur (M3-T16).
+    KeyDoor {
+        keys: u32,
+    },
+    /// M3-T16 : passif ou actif au sol.
+    Item {
+        name: String,
+    },
 }
 
 impl Prompt {
+    /// M3-T9 (curse `HideItemNames`, §74) : le nom de l'objet ou de l'arme à ramasser ou acheter
+    /// devient `???` ; le prix et le reste du texte restent.
+    fn hide_name(self) -> Self {
+        const HIDDEN: &str = crate::ui::hud_model::HIDDEN_ITEM_NAME;
+        match self {
+            Prompt::Weapon {
+                price,
+                refill_price,
+                owned,
+                ..
+            } => Prompt::Weapon {
+                name: HIDDEN.to_string(),
+                price,
+                refill_price,
+                owned,
+            },
+            Prompt::Shelf { price, .. } => Prompt::Shelf {
+                name: HIDDEN.to_string(),
+                price,
+            },
+            Prompt::Item { .. } => Prompt::Item {
+                name: HIDDEN.to_string(),
+            },
+            other => other,
+        }
+    }
+
     fn text(&self) -> String {
         match self {
             Prompt::Door { cost } if *cost > 0 => format!("Ouvrir — ${cost}"),
@@ -1024,6 +1631,9 @@ impl Prompt {
                 ..
             } => format!("{name} — ${price}"),
             Prompt::Perk { name, .. } => name.clone(),
+            Prompt::KeyDoor { keys: 0 } => "Fermé — clé (0)".to_string(),
+            Prompt::KeyDoor { keys } => format!("Ouvrir — clé ({keys})"),
+            Prompt::Item { name } => format!("Ramasser {name}"),
         }
     }
 }
@@ -1314,6 +1924,15 @@ mod tests {
         assert_eq!(Prompt::Window { damaged: true }.text(), "Réparer");
         assert_eq!(Prompt::Window { damaged: false }.text(), "");
         assert_eq!(Prompt::Revive.text(), "Réanimer");
+        assert_eq!(Prompt::KeyDoor { keys: 2 }.text(), "Ouvrir — clé (2)");
+        assert_eq!(Prompt::KeyDoor { keys: 0 }.text(), "Fermé — clé (0)");
+        assert_eq!(
+            Prompt::Item {
+                name: "Reliquaire".into()
+            }
+            .text(),
+            "Ramasser Reliquaire"
+        );
         let weapon = |price, owned| Prompt::Weapon {
             name: "fusil à pompe".into(),
             price,
@@ -1341,14 +1960,87 @@ mod tests {
         assert_eq!(
             Prompt::Shelf {
                 name: "Trèfle".into(),
-                price: 30
+                price: "30".into()
             }
             .text(),
             "Acheter Trèfle — 30"
         );
+        // M3-T8 : prix de vie du marché du diable, en cœurs (2 PV = 1 cœur).
+        let devil = |points: i32| items::Shelf {
+            key: "k".into(),
+            item_id: "x".into(),
+            price: 0,
+            sold: false,
+            retry_after: 0,
+            cost: Some(items::Price::MaxHealth(
+                bevy_fixed::fixed_math::Fixed::from_num(points),
+            )),
+        };
+        let label = |points| shelf_price_label(&devil(points), None);
+        assert_eq!(label(2), "1 cœur");
+        assert_eq!(label(4), "2 cœurs");
+        assert_eq!(label(1), "½ cœur");
+        assert_eq!(
+            Prompt::Shelf {
+                name: "Lentille".into(),
+                price: label(2),
+            }
+            .text(),
+            "Acheter Lentille — 1 cœur"
+        );
         assert_eq!(chest(false, false).text(), "Ouvrir le coffre");
         assert_eq!(chest(true, false).text(), "Fermé — 1 clé");
         assert_eq!(chest(true, true).text(), "Ouvrir — 1 clé");
+    }
+
+    #[test]
+    fn blind_curse_hides_the_name_of_pickups_and_keeps_the_rest() {
+        let weapon = Prompt::Weapon {
+            name: "fusil à pompe".into(),
+            price: Some(1000),
+            refill_price: Some(500),
+            owned: false,
+        };
+        assert_eq!(weapon.clone().hide_name().text(), "Acheter ??? — $1000");
+        let owned = Prompt::Weapon {
+            name: "fusil à pompe".into(),
+            price: Some(1000),
+            refill_price: Some(500),
+            owned: true,
+        };
+        assert_eq!(owned.hide_name().text(), "Munitions ??? — $500");
+        let free = Prompt::Weapon {
+            name: "fusil à pompe".into(),
+            price: None,
+            refill_price: None,
+            owned: false,
+        };
+        assert_eq!(free.hide_name().text(), "Ramasser ???");
+        let shelf = Prompt::Shelf {
+            name: "Trèfle".into(),
+            price: "30".into(),
+        };
+        assert_eq!(shelf.hide_name().text(), "Acheter ??? — 30");
+        // M3-T16 : l'objet au sol a un prompt, donc un nom à cacher.
+        let item = Prompt::Item {
+            name: "Reliquaire".into(),
+        };
+        assert_eq!(item.hide_name().text(), "Ramasser ???");
+        // Une porte, un coffre ou une machine à perk n'ont pas de nom d'objet : inchangés.
+        for prompt in [
+            Prompt::Door { cost: 750 },
+            Prompt::Chest {
+                locked: true,
+                has_key: true,
+            },
+            Prompt::Perk {
+                name: "Juggernog".into(),
+                price: Some(2500),
+                owned: false,
+            },
+        ] {
+            assert_eq!(prompt.clone().hide_name().text(), prompt.text());
+        }
     }
 
     #[test]
@@ -1416,6 +2108,11 @@ mod tests {
             names: BTreeMap::new(),
             font: None,
             reference_size: None,
+            player_colors: Vec::new(),
+            legend: Vec::new(),
+            hide_markers: false,
+            room_icons: BTreeMap::new(),
+            wall_art: None,
         };
         config.icons.insert(
             "juggernog".into(),
@@ -1437,7 +2134,10 @@ mod tests {
                 HudWidgetKind::Bar { source }
                 | HudWidgetKind::Text { source, .. }
                 | HudWidgetKind::Icons { source }
-                | HudWidgetKind::Map { source } => source,
+                | HudWidgetKind::Map { source }
+                | HudWidgetKind::Legend { source }
+                | HudWidgetKind::Hearts { source }
+                | HudWidgetKind::Counter { source } => source,
             };
             assert!(
                 SOURCES.contains(&source.as_str()),
@@ -1492,5 +2192,44 @@ mod tests {
         )));
         assert_eq!(icon_for(&config, "amulette").1, "A");
         assert_eq!(icon_for(&config, "bottes").1, "B");
+    }
+
+    #[test]
+    fn isaac_hud_ron_montre_cœurs_compteurs_actif_bandeau_et_icones_de_salle() {
+        let text = include_str!("../../../../games/isaac/assets/ui/hud.ron");
+        let config: HudConfig = ron::from_str(text).expect("HUD isaac");
+        for source in ["hearts", "coins", "keys", "bombs", "item_banner", "minimap"] {
+            assert!(
+                config.widgets.iter().any(|widget| match &widget.kind {
+                    HudWidgetKind::Hearts { source: s }
+                    | HudWidgetKind::Counter { source: s }
+                    | HudWidgetKind::Text { source: s, .. }
+                    | HudWidgetKind::Map { source: s } => s == source,
+                    _ => false,
+                }),
+                "widget {source} absent de hud.ron"
+            );
+        }
+        assert!(config.widgets.iter().any(|widget| matches!(
+            &widget.kind, HudWidgetKind::Icons { source } if source == "active_item"
+        )));
+        for kind in ["tresor", "boutique", "boss", "secrete", "diable"] {
+            assert!(config.room_icons.contains_key(kind), "{kind}");
+        }
+        // Chaque compteur a son icône, chaque cœur sa couleur.
+        for id in [
+            "coins",
+            "keys",
+            "bombs",
+            "heart",
+            "soul_heart",
+            "heart_empty",
+        ] {
+            assert!(config.icons.contains_key(id), "{id}");
+        }
+        let schema: content::ui::HudFileSchema = ron::from_str(text).expect("schéma");
+        for widget in &schema.widgets {
+            assert!(SOURCES.contains(&widget.kind.source()));
+        }
     }
 }

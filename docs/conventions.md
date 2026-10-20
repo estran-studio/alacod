@@ -6,7 +6,7 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 
 **Numérotation du 2026-10-05** (m1-relecture-conventions) : « Feedback (présentation, T2.13) », ancien second §9 placé après le §10, devient le **§7** (il n'y avait pas de §7) et vient après le §6 ; §8 Combat, §9 Stats et §10 Blesser une trace gardent leur numéro, l'ancre `{#section7}` du §8 disparaît. Les fiches et rapports antérieurs qui citent « §9 » pour le feedback visent l'actuel §7 ; ceux qui citent « §7 » pour les stats ou « §8 » pour la preuve visent l'actuel §9 et l'actuel §10 (numérotation de M0).
 
-**Sommaire**
+**Sommaire** (un `## ` par entrée, dans l'ordre du fichier : les §40 et §41, §49 et §45, §51 et §50 y sont dans l'ordre où ils ont été écrits)
 
 - §1. Cartes LDtk
 - §2. Sprites et animations
@@ -47,7 +47,47 @@ Référence pour ceux qui créent du contenu (cartes LDtk, sprites RON) et ceux 
 - §37. Boss à phases (M2-T0c, chantier D4)
 - §38. Profil de méta-progression (M2-T0c, chantier G1)
 - §39. Le jeu `gungeon` (M2-T0d, squelette)
+- §41. Projectiles v2 et blank (M2-T1, chantier B5 v2)
+- §40. Grammaire d'étage (M2-T10, chantier E2)
 - Notes essentielles
+- §42. Effets v2 : déclencheurs, conditions, cooldowns et charges (M2-T3, chantier C1 v2)
+- §43. Esquive v2 (M2-T2, chantier B6)
+- §44. Objets v2 et synergies (M2-T4, chantier C2)
+- §49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
+- §45. Boss et arène (M2-T7, chantier D4)
+- §46. Surfaces v2 : fosses, tables renversables, barils explosifs (M2-T11, chantier E4 v2)
+- §47. Bot explorateur d'étages (M2-T16, chantier K2 v1)
+- §48. Butin, coffres et clés (M2-T5, chantier C4)
+- §51. Profil et déblocages qui enrichissent le butin (M2-T12, chantier G1)
+- §50. Boutique et monnaie `shells` (M2-T6, chantier C5)
+- §52. Contenu `gungeon` (M2-T14, quatre parties)
+- §53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
+- §54. Générateur v2 : gabarits par objet, par salle et par boss (M2-T17, voie V3)
+- §55. Feedback v2 : télégraphes de patterns, flash du blank, fin de boss (M2-T19, voie V4)
+- §56. Écrans en bevy_hui et HUD gungeon (M2-T18, voie V4)
+- §57. Hub : stations, marchand de déblocages, entrée en run (M2-T13, chantier G2)
+- §60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
+- §61. Contrats des objets et de la santé (M3-T0b)
+- §62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M3-T0c)
+- §63. Contrats des familiers, orbitaux et champions v2 (M3-T0d)
+- §64. Curses, pools à épuisement, accomplissements : contrats (M3-T0e)
+- §65. Le jeu `isaac` : squelette (M3-T0f)
+- §66. Larmes v3 : tir composé, `Spectral`, `Split`, `Orbit`, `Poison`, `Fear`, chance d'effet (M3-T1, chantier B5 v3)
+- §67. Effets v3 : `OnHit`, `OnEvent`/`Emit`, `ApplyStatus`, `PerCopy` (M3-T2, chantier C1 v3)
+- §68. Cœurs, i-frames, sous, bombes et clés au sol (M3-T3, chantiers C4 et C5)
+- §69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
+- §70. Étage en grille : planificateur, salle secrète, trésor à clé, salle post-boss (M3-T5, chantier E2 v2)
+- §71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
+- §72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
+- §73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
+- §74. Curses d'étage en jeu : tirage, modificateur, étage agrandi, HUD masqué (M3-T9, chantier F4)
+- §75. Accomplissements en jeu : faits de run, évaluation à `Ended`, profil v2 (M3-T10, chantier G1 v2)
+- §76. Contenu `isaac` (M3-T11, quatre parties)
+- §77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
+- §78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
+- §81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
+- §82. Feedback v3 : larmes lisibles, familiers, champions, bombes et explosions (M3-T17, voie V4)
+- §83. Langage visuel provisoire : on doit comprendre ce qu'on voit (m2-lisibilite-gungeon, voie V4)
 
 ## 1. Cartes LDtk
 
@@ -229,7 +269,7 @@ déplacé que les sprites.
 - `animations` : table `{ "nom": { start: 0, end: 6 } }` ou `{ "nom": { row: 0, end: 7 } }`. Format direct (indices absolus) ou basé sur les lignes (spécifier la ligne et le nombre de frames).
 - `columns` : optionnel, dérivé de `SpriteSheetConfig` sinon.
 
-**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/animation/src/lib.rs`) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
+**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/sim_core/src/animation_state.rs`, état rollback ; déménagé d'`animation` par D69) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
 
 **Calques (skins)** : un personnage peut avoir plusieurs calques animés (`body`, `shadow`, `effect`). Chaque calque est une `SpriteSheetConfig` et une `AnimationMapConfig` ; ils sont composés dans `CharacterConfig` (`crates/game/src/character/config.rs`).
 
@@ -250,6 +290,66 @@ déplacé que les sprites.
     }
 )
 ```
+
+`scale` est **obligatoire** (D79, fermée) : `CharacterConfig.scale` n'a pas de défaut côté jeu, et le schéma
+de contenu (`content::registry::CharacterFileSchema`) l'exige comme lui. Un personnage sans `scale` est
+refusé par `alacod lint` (`Parse`, « `scale` est obligatoire pour un personnage, ex. `scale: "1.0"` »,
+fixture `character_scale_missing`) au lieu d'échouer au chargement du jeu.
+
+**Registre de simulation `CharacterConfigs`** (D69 étape 2, E3a) : la simulation ne lit jamais `Assets<CharacterConfig>`.
+`CharacterConfig` est une donnée pure (`Deserialize`, sans `Asset`) ; l'application la charge par l'enveloppe
+`CharacterConfigAsset` (`character/config_asset.rs`, `#[serde(transparent)]` : les `.ron` ne changent pas) et publie
+`CharacterConfigs(BTreeMap<id, CharacterConfig>)` (clés : les `CharacterId` du registre de contenu, c'est-à-dire les
+`asset_name_ref`). Un personnage porte `CharacterConfigKey(String)` (composant non rollback, posé par `create_character`,
+remplace `CharacterConfigHandles`). Le système `sync_character_configs` tourne en `PreUpdate.before(RunGgrsSystems)` : il copie
+toute entrée absente dont l'asset est lisible (chargement initial, sans dépendre d'un événement) et recopie sur
+`AssetEvent::Modified` (rechargement à chaud : l'entrée recopiée remplace alors une surcharge) ; `Added`/`LoadedWithDependencies`
+ne font rien, pour qu'une surcharge de scénario posée sur la ressource ne soit jamais écrasée par eux. Le chargement finit en `AppState::Loading` (tous les assets chargés)
+avant le lobby, donc la ressource est pleine avant `resolve_balance_system` (`OnEnter(GameLoading)`), avant tout spawn de
+personnage et avant le premier tick ; preuve : `crates/scenario/tests/character_configs.rs` (ressource relue à chaque tick,
+dont le premier, pour zombies, testbed et isaac ; chemin `Modified` ; diagnostic ignoré `fill_timeline`). Les surcharges de
+scénario (`CharacterConfigs` modifié par `run_with`) se posent après la synchro.
+
+**Registre de simulation `WeaponRegistry`** (D69 étape 2, E3b) : la simulation ne lit jamais `Assets<WeaponsConfig>` ni
+`Assets<MeleeWeaponsConfig>`. `WeaponRegistry { weapons, melee }` (`weapons.rs`, `BTreeMap<id, WeaponAsset | MeleeWeaponAsset>`, la table
+de `weapons.ron` et celle de `melee_weapons.ron` du jeu) est lu par les créateurs (`create_player`, `spawn_enemy`, armes murales), le
+butin (`loot`, `shop`, `champions`, `progression`, boss), les effets (`EffectAssets`, `SpawnPattern`), les bots, le runner de scénarios et le
+son des armes. Les enveloppes `WeaponsConfig`/`MeleeWeaponsConfig` (`Asset`, `HashMap` bevy), `WeaponAssetsPlugin`, la visibilité des armes
+portées et `sync_weapon_registry` vivent côté application (`weapon_assets.rs`). La synchro tourne en `PreUpdate.before(RunGgrsSystems)` : elle
+copie une table **vide** dont l'asset est lisible (chargement initial, sans dépendre d'un événement) et **remplace** la table sur
+`AssetEvent::Modified` (rechargement à chaud : une arme retirée du fichier disparaît, une surcharge de scénario aussi) ; `Added` ne fait rien,
+donc une surcharge posée sur le registre n'est jamais écrasée. Les surcharges de scénario (`weapon_overrides`, `PlayerScript::weapon`) lisent et
+écrivent le **registre** (`apply_weapon_overrides` attend qu'il soit rempli, avant la création des joueurs). Une arme absente du registre est ignorée
+avec un `warn!` par les créateurs : seul un test sur la ressource voit un registre vide (`crates/scenario/tests/weapon_registry.rs`).
+Rechargement des armes **déjà portées** : `weapons_config_update_system` (`Update`, inchangé par E3b) interroge `&Children` sur l'entité d'arme ; seules les
+armes qui portent un sprite d'enfant (`attach_weapon_visuals`, avec rendu) sont mises à jour, pas en headless. Les armes créées après un rechargement, elles,
+lisent le registre à jour.
+
+**Équilibrage, économie, power-ups et vagues** (D69 étape 2, E3c) : `EconomyConfig`, `PerksConfig`, `PowerUpsConfig` et `WaveConfig` sont des
+données de simulation pures (plus d'`Asset`) ; leurs enveloppes `#[serde(transparent)]` (`EconomyConfigAsset`, `PerksConfigAsset`
+dans `economy_assets.rs`, `PowerUpsConfigAsset` dans `powerups_assets.rs`, `WaveConfigAsset` dans `waves/assets.rs`, **application**) portent
+les `RonAssetPlugin` ; les `.ron` ne changent pas. La simulation lit **`ResolvedBalance`** (équilibrage : vagues, économie, perks, santé ;
+`waves_enabled`, `economy.shells_drop`, `economy.shop_prices` ajoutés par E3c : `shell_drop_on_death_system`, `room_shop_system`, la machine à
+vagues) et **`PowerUpsTable(Option<PowerUpsConfig>)`** (`powerups.rs`, `powerup_pickup_detect_system`, `apply_powerup_actions_system`,
+`loot_drop_on_death_system`, le HUD et les repères au sol). Les deux sont remplies à `OnEnter(GameLoading)`, la table **après** l'équilibrage
+(`powerups_assets::resolve_powerups_table_system`) : un rechargement à chaud de `items/powerups.ron` en cours de partie ne change donc plus
+les power-ups avant la prochaine entrée en `GameLoading` (les systèmes lisaient l'asset à chaque frame ; `ResolvedBalance` était déjà figée,
+F5). Surcharges de scénario : `wave_overrides` et `powerup_drop_chance_override` visent l'**enveloppe** (`Assets<…Asset>`, posée en `Update` dès
+le chargement, donc avant `GameLoading` qui la résout) ; les placements de power-ups scénarisés lisent la table. Parité : test
+`balance_assets::tests::resolved_balance_is_identical_through_the_envelope_and_the_table` (champ à champ, cinq jeux, 1 à 4 joueurs),
+`powerups_assets::tests::table_is_the_envelope_content_field_by_field`, et `crates/scenario/tests/balance_tables.rs` (les ressources
+`SessionPlayers`, `ResolvedBalance` et `PowerUpsTable` au premier tick, surcharges de scénario comprises : les replis des lecteurs masquent une table vide).
+
+**`GlobalAsset`, ressource d'application** (D69 étape 2, E3d) : `game::global_asset::GlobalAsset` tient les `Handle` que l'application doit garder
+chargés, en deux familles : la **présentation** (`spritesheets`, `animations`, `slash_effect_*`, lus par `character/visuals.rs`, `ui/weapon_visuals.rs`,
+`world_sprites.rs`) et les **sources de synchro** (handles des enveloppes de personnages, d'armes, de vagues, d'économie, de perks et de power-ups, lus
+par `sync_character_configs`, `sync_weapon_registry`, `resolve_balance_system` et `resolve_powerups_table_system`). Aucun fichier de simulation, aucun
+lecteur externe (`bots`, `map_ldtk`, `examples`, le code de `scenario/src`) ne le lit : ils lisent `CharacterConfigs`, `WeaponRegistry`, `ResolvedBalance`
+et `PowerUpsTable`, donc aucune `ContentData` n'a été créée (aucun lecteur de simulation ne subsistait). Les surcharges de vagues et de power-ups du runner
+désignent l'enveloppe par `Assets<…Asset>` (un jeu n'en charge qu'une) ; les tests de `crates/scenario/tests` qui comparent registre et enveloppe
+(`character_configs.rs`, `weapon_registry.rs`, `balance_tables.rs`) gardent `GlobalAsset` pour atteindre l'enveloppe. `loading_asset_system` ne
+passe de `Loading` au lobby qu'une fois, en plus des assets chargés, `CharacterConfigs` plein et `WeaponRegistry` rempli (une table vide dans le fichier ne
+bloque pas) : la première partie ne démarre jamais sur un registre vide.
 
 **Armes** (exemple : `games/zombies/assets/weapons/melee/melee_weapons.ron`, table `{ "bare_hands": (...), ... }`) :
 - `config` : `name`, `damage`, `range`, `attack_pattern` (enum : `SingleStrike`, `Combo(strikes_in_combo: N)`, `Sweep(arc_angle)`, `Thrust`), `attack_duration_frames`, `cooldown_frames`, `knockback_force`, `stamina_cost`. Tous les nombres décimaux en chaîne (`"100.0"`).
@@ -307,10 +407,10 @@ Chaque entrée de `content_folders` est un **fichier** ou un **dossier**, relati
 mélangent encore plusieurs kinds dans un même dossier historique
 (`ZombieShooter/Sprites/Character/` contient à la fois `player_config.ron` et des feuilles
 de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
-entier (voir `games/zombies/assets/game.ron`). Les kinds connus (20) : `Character`, `Weapon`,
-`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`, `SpriteSheet` (D3),
-`Floors`, `Cave`, `Room`, `Item`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`
-(`content::registry::KNOWN_KIND_NAMES`, qui fait foi) ; un
+entier (voir `games/zombies/assets/game.ron`). Les kinds connus (31 : `content::registry::KNOWN_KIND_NAMES` fait foi, lu dans cet ordre) : `Character`, `Weapon`,
+`MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`, `SpriteSheet` (D3), `Floors`, `Cave`,
+`FloorGrammar`, `Room`, `Item`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`,
+`Synergy`, `LootTable`, `Unlock`, `Curse`, `Achievement`, `MetaEconomy`, `HubService`, `Prop` ; un
 autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
 **Le registre** (`content::registry::Registry`, chargé par `Registry::build`) est la
@@ -386,8 +486,6 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `ui/feedback.ron` | arme de `by_weapon` connue du jeu (T1.17, §31) | `BrokenReference` | `feedback_by_weapon_unknown` |
 | `ui/feedback.ron` | clé de `volumes` présente dans `sounds` (assets) ; valeur dans [-60, 12] dB | `BrokenReference` / `OutOfRange` | `feedback_volume_unknown_key` |
 | `ui/feedback.ron` | surcharges `by_kind`/`by_weapon` dans les bornes (T1.17, §31) | `OutOfRange` | `feedback_override_out_of_range` |
-| `ui/mutation_screen.ron` | `font` présent sous `assets/` (T1.16, §30) | `BrokenReference` | `mutation_screen_font_missing` |
-| `ui/mutation_screen.ron` | exactement `MUTATION_SCREEN_SLOTS` (3) emplacements (T1.16, §30) | `OutOfRange` | `mutation_screen_two_slots` |
 | `ui/hud.ron` | source de widget inconnue (T1.18, §32) | `UnknownKind` | `hud_unknown_source` |
 | power-up | `RefillAmmoOf` : munition déclarée par au moins une arme (D40, §14) | `BrokenReference` | `powerup_refill_ammo_unknown` |
 | feuilles de sprites | `animation` et feuille de chaque calque présentes sous `assets/` (D3) | `BrokenReference` | `sprite_sheet_missing_file` |
@@ -398,6 +496,7 @@ un seul problème en plus de `start_map: "unused"` commun à toutes), un test pa
 | `game.ron` | `entry.clocks` vers une horloge inconnue ; `entry.difficulty` sans fichier `Difficulty` (T1.9, §23) | `BrokenReference` | `entry_clock_unknown`, `entry_difficulty_missing` |
 | `game.ron` | `entry.progression` vers une progression inconnue (T1.10, §27 ; audit T1.12) | `BrokenReference` | `entry_progression_unknown` |
 | `game.ron` | `generate_template` : carte connue, cible à `counts_hits` (T1.13, §28) | `BrokenReference` | `generate_template_unknown_map`, `generate_template_target_without_hits` |
+| `game.ron` | `mechanics` : mécaniques d'une partie ordinaire que le contenu doit porter (M3-T12, §77) | avertissement `MechanicUnmet` (aucune erreur) | `mechanics_ok` et les tests de `m3_t12_fixtures.rs` |
 | arme | projectiles composables (T1.1, §16) : projectile de pattern absent de la table, cycle de `on_expire`, pattern temporel ou `Scatter` en `on_expire`, `Size > 0`, `0 < Homing <= 1`, modificateur répété, `on_hit` limité aux actions à cible | `BrokenReference`, `OutOfRange` | `projectile_broken_reference`, `projectile_cycle`, `projectile_temporal_pattern`, `pattern_scatter_on_expire` |
 | arme | `on_hit` `ApplyStatus` : statut inconnu, `stacks > 0` (T1.3, §19) | `BrokenReference`, `OutOfRange` | `status_unknown` |
 | pattern | `Named` inconnu ou cyclique ; `count > 0`, `spread >= 0`, `speed >= 0` (T1.2, §20) | `BrokenReference`, `OutOfRange` | `pattern_unknown_name` |
@@ -423,7 +522,7 @@ enums ouverts (`AmmoType`, `StatId`, qui n'acceptent un nom libre que sous `Cust
 clé répétée. Le registre lit donc `perks.ron`, `weapons.ron`, `melee_weapons.ron` et la table
 `powerups` de `items/powerups.ron` en liste (`registry::KeyedEntries`) pour rapporter les
 doublons, y compris dans un même fichier. La première entrée est conservée, la seconde
-produit `DuplicateId`. Les fichiers `feedback.ron`, `hud.ron` et `mutation_screen.ron` déclarés sous le kind `Ui`
+produit `DuplicateId`. Les fichiers `feedback.ron` et `hud.ron` déclarés sous le kind `Ui`
 sont lus avec un schéma typé ; les autres fichiers Ui restent validés syntaxiquement.
 
 **CLI** : `cargo run -p content --bin alacod --profile headless -- lint games/<jeu>` (code
@@ -432,6 +531,44 @@ de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon) ; `make lint` l'app
 `scripts/lint-edited-game.sh`) relance ce lint en arrière-plan quand un fichier sous
 `games/**` est édité.
 
+**Pour un agent** : `alacod lint --json games/<jeu>` écrit un objet `{game, errors, warnings}` sur
+stdout (`kind`, `file`, `message` par entrée ; même code de sortie que `lint`).
+`alacod describe games/<jeu> [Kind] [--json]` (`crates/content/src/describe.rs`) inventorie le
+contenu d'un jeu : kinds et dossiers, ids, champs de premier niveau **utilisés** (fréquence,
+exemple), fichier modèle. Pour chaque kind couvert (tous sauf `Map`, `Ui`, `Camera`, test
+`every_kind_has_a_schema`), il ajoute le **schéma exhaustif** dérivé des types Rust
+(`crates/content/src/schema.rs`, `schemars`) : champs, types, requis ou défaut, variantes d'enum et
+commentaires de doc ; les `Fixed` y sont des chaînes. `--json` donne le JSON Schema brut (`schema`).
+Les types de contenu portent `#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]`
+(feature `schema` de `bevy_fixed`, `sim_core`, `effects`, `items`, `world`, activée par `content`) :
+**un nouveau champ ou une nouvelle variante apparaît donc seul dans `describe`**. Les plages que le lint
+vérifie s'écrivent `[requis, lint : > 0]` : elles viennent de `#[schemars(extend("x-lint" = "> 0"))]`
+posé sur le champ, **à maintenir à la main avec la règle de `lint.rs`** (une règle de lint ajoutée sans
+annotation n'apparaît pas dans `describe`). Un champ `Fixed`
+porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))]`.
+
+**Créer et tester** : `alacod new-content [jeu] <Kind> <id> [--from <modèle>]`
+(`crates/content/src/scaffold.rs`) copie un modèle du jeu (fichier `<dossier>/<id>.ron`, ou entrée
+dupliquée à la fin d'une table comme `weapons.ron`), réécrit l'id et le nom, relance le lint. Pas
+pour `Map`, `Ui`, `Camera`, `Economy`, `Difficulty`. `alacod test [jeu] [id…] [--list] [--bless]
+[--json]` joue les scénarios générés (§28, §54) par `alacod-gen --only` (le crate `scenario`
+dépend de `content`, donc `alacod` appelle `cargo run -p scenario` dans l'engine : celui du jeu
+(`Cargo.toml`), de `--engine`, ou d'où `alacod` a été compilé). Traces ignorées sauf `--bless` ;
+sortie JSON : `scenario`, `frames`, `hits`, `expectations`, `expectations_ok`, `failures`. Un jeu
+hors de l'engine est retrouvé par `ALACOD_GAME_NAME`/`ALACOD_GAME_DIR` (posés par `alacod-gen`) ;
+ses scénarios sont écrits sous `<jeu>/tests/generated`. Les armes se jouent sur la
+`generate_template` du manifeste (sinon dans le testbed de l'engine, où une arme nouvelle n'existe
+pas).
+
+**Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis
+`alacod new mon-jeu [--engine <racine>] [--git [--rev <sha>]]` copie `templates/starter/` (contenu minimal qui passe le
+lint : joueur, quatre armes, une arène) dans `./mon-jeu`, avec un `Cargo.toml` à dépendances par
+chemin vers l'engine (ou par git avec `--git` : URL de `origin` et révision, qui doit être poussée) (+ `[workspace]` et `[patch.crates-io]` `bevy_ecs_ldtk`, que cargo n'applique
+qu'à la racine), le `Cargo.lock` de l'engine, un `CLAUDE.md` et un hook de lint. `lint` et
+`describe` sans chemin trouvent le jeu depuis le dossier courant. Le gabarit est un instantané
+d'assets du testbed : à resynchroniser si le format du contenu change (le lint du gabarit échoue
+alors).
+
 **Rechargement à chaud** : hors partie (`AppState::LobbyLocal`/`LobbyOnline`), si un
 fichier de contenu suivi par bevy change (feature `native`, `bevy/file_watcher`), le
 registre est relu depuis le disque et le lint relancé
@@ -439,6 +576,8 @@ registre est relu depuis le disque et le lint relancé
 `crates/game/src/ui/hud.rs`) ; un contenu invalide laisse l'ancien registre en place
 (erreur journalisée). Jamais pendant une partie (`GgrsSchedule`) : les snapshots rollback ne
 se réécrivent pas à chaud.
+Le registre `CharacterConfigs` suit le même événement (`AssetEvent::Modified` d'un personnage) : il est recopié dans
+`PreUpdate` (journal `personnage « … » rechargé`), hors partie comme en partie (dev seulement, comme avant avec `Assets`).
 
 ---
 
@@ -559,8 +698,8 @@ dans l'ordre du gain, et ce qu'il ne faut pas défaire :
   `Hash` est celui de `#[derive(Hash)]` sur `FlowField` (test
   `shared_flow_field_hash_equals_derived`) : aucune trace ne bouge.
 - Contenu (`Registry`, `GameManifest`) chargé **une fois par processus** (`runner::load_content`),
-  lecture des périphériques coupée (`game::character::skip_device_input`, `ActionState` n'est lu
-  qu'avec `InputSource::Devices`) et overlay de vagues (texte d'UI) coupé en headless.
+  pas de lecture des périphériques (depuis D69 E4 `character::app_plugin::CharacterAppPlugin` n'ajoute ni leafwing
+  ni `collect_device_inputs` en headless ; `skip_device_input` n'existe plus) et overlay de vagues (texte d'UI) coupé en headless.
 - **Tranches par durée** : `scripts/test-scenarios-sharded.sh` lit `sim_seconds` dans
   `target/metrics/latest.json` (sinon les `frames` du `.ron`) et remplit les tranches du plus
   long au plus court (plus long d'abord, sur la tranche la moins chargée). Les métriques d'un
@@ -677,7 +816,7 @@ NIGHTLY_SEEDS=1..100 NIGHTLY_BOTS=4 NIGHTLY_WAVE=15 NIGHTLY_P2P=2,4,8 NIGHTLY_VI
 Priorité du tir : `firing` du mode actif de l'arme, sinon la clé de sa famille dans `sounds`,
 sinon `shot` ; du rechargement : `reloading` du mode actif, sinon `reload`. `audio_config` reste
 sur l'asset `WeaponAsset` (lu par `game::feedback::WeaponAudio` dans
-`Assets<WeaponsConfig>`) et n'est jamais copié dans le composant rollback `Weapon` : aucune
+`WeaponRegistry`) et n'est jamais copié dans le composant rollback `Weapon` : aucune
 trace ne bouge. Lint : fichiers présents sous `assets/`, mode connu de `firing_modes`.
 
 **Systèmes** : tous en `PostUpdate` (hors `GgrsSchedule`), lisant les événements de simulation dans `FrameEvents<T>` émis par `GgrsSchedule`. Les trois émetteurs sont :
@@ -761,10 +900,11 @@ traces. Détail et mesure : §20.
 
 ### Exclusions assumées du checksum
 
-Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
+Trois données sont délibérément hors du checksum GGRS — les inclure déplacerait les traces de référence sans changer aucun comportement de jeu (D5, m0-v10) :
 
 - **`HitCount`** (`crates/game/src/character/health/mod.rs`, T2.9) : compteur de coups reçus, posé à la création uniquement si `CharacterConfig::counts_hits` (`crates/game/src/character/create.rs`, faux par défaut — aucun personnage zombie/joueur ne le pose ; seuls `target` (testbed) et `cible` (throne) le déclarent, `crates/scenario/src/generate.rs`). Enregistré via `rollback_and_trace_no_checksum::<HitCount>()` (`crates/game/src/character/mod.rs`) : rollback et trace, mais hors checksum. Il sert aux attentes `EntityHits` des scénarios (`crates/combat/src/weapons/expectations.rs`) ; aucune décision de jeu ne le lit.
 - **`EnemyAiConfig::stationary`** (`crates/game/src/character/enemy/ai/state.rs`, T2.9) : immobilité totale d'un ennemi de testbed (`dummy`/`target`/`ally`/`civilian`), exclue du `Hash` manuel du composant. Aucun contenu zombie ne la pose ; hacher un champ de plus déplacerait le checksum de toute entité `Enemy` sans aucun changement de gameplay (vérifié empiriquement à l'époque : sans l'impl manuel, `idle.ron` diverge dès f181).
+- **`RunHistory`** (`crates/game/src/profile.rs`, M3-T10, §75) : boss vaincus et objets tenus par joueur, lus **seulement** à `Ended` par `write_achievements_at_run_end` (`Update`). Enregistré via `rollback_and_trace_resource_no_checksum` : il suit les rollbacks mais n'entre pas dans le checksum. Dérivé d'états déjà sous checksum (`Health`/`Death` du boss, `Inventory`), jamais lu par `GgrsSchedule` ; l'inclure déplacerait les traces dès qu'un boss meurt.
 
 ## 11. Munitions et inventaire d'armes (T2.2, chantier B7)
 
@@ -802,7 +942,7 @@ Deux champs de test (testbed) sont délibérément hors du checksum GGRS — les
 
 ## 13. État de run et mode `Waves` (T2.4, chantier F1)
 
-**`Run`** (`run::run::Run`, crate `run`) : ressource rollback (checksum + trace, `RunPlugin`) qui représente la partie en cours — `seed: u32` (graine, dupliquée de `RunSeed` pour que `Run` seule décrive la partie), `mode: RunMode` (`Waves { config }` = le système de vagues actuel, `Sandbox` = aucune condition de fin hors défaite ; `Floors { config }` = séquence de niveaux, T1.8, §17 ; `Campaign` viendra en M2), `step: RunStep` (`Lobby` — valeur par défaut de l'enum, jamais celle d'un `Run` réellement inséré, voir plus bas —, `Playing { since_frame }`, `Ended { at_frame, outcome: RunEnd }`), `players: Vec<usize>` (handles GGRS triés), `flags: BTreeSet<String>` (ouvert pour de futurs modes, vide aujourd'hui) et `summary: Option<RunSummary>`. Remplace `combat::downed::RunOutcome` (T1.3), qui disparaît : la défaite est maintenant une valeur de `RunStep`, pas une ressource à part. **Décision** : `RunSummary` est un champ de `Run`, pas une ressource rollback séparée — un seul enregistrement, pas de valeur sentinelle à inventer pour « pas encore de résumé » (`RunEnd` n'a pas de variante neutre).
+**`Run`** (`run::run::Run`, crate `run`) : ressource rollback (checksum + trace, `RunPlugin`) qui représente la partie en cours — `seed: u32` (graine, dupliquée de `RunSeed` pour que `Run` seule décrive la partie), `mode: RunMode` (`Waves { config }` = le système de vagues actuel, `Sandbox` = aucune condition de fin hors défaite ; `Floors { config }` = séquence de niveaux, T1.8, §17 ; `Campaign` viendra en M2), `step: RunStep` (`Lobby` — valeur par défaut de l'enum, jamais celle d'un `Run` réellement inséré, voir plus bas —, `Playing { since_frame }`, `Ended { at_frame, outcome: RunEnd }`), `players: Vec<usize>` (handles GGRS triés), (`flags: BTreeSet<String>` : **retiré par D76**, rien ne l'écrivait ni ne le lisait ; `impl Hash for Run` écrit toujours le hash d'un ensemble vide à sa place pour que les traces ne bougent pas, test `hash_de_run_inchange_apres_le_retrait_de_flags` ; un futur champ de drapeaux reprend cette place) et `summary: Option<RunSummary>`. Remplace `combat::downed::RunOutcome` (T1.3), qui disparaît : la défaite est maintenant une valeur de `RunStep`, pas une ressource à part. **Décision** : `RunSummary` est un champ de `Run`, pas une ressource rollback séparée — un seul enregistrement, pas de valeur sentinelle à inventer pour « pas encore de résumé » (`RunEnd` n'a pas de variante neutre).
 
 **Création** : `Run::new(seed, mode, players, since_frame)` construit toujours directement `Playing` (jamais `Lobby` dans ce chantier : réservé à un futur état où `Run` existerait déjà pendant un lobby interactif, M1/M2). Appelée par `game::jjrs::{local, p2p}` (`system_after_map_loaded_local`/`system_after_map_loaded`, `OnEnter(AppState::GameStarting)`), au même instant que `RunSeed`/`RngStreams` (T1.6) — avant que `GgrsSchedule` ne tourne pour la première fois (aucune session GGRS encore présente). `players` vient de `GgrsSessionBuilding.players[].handle`. `mode` vient de `game::run_state::resolve_run_mode(manifest, registry)` : `entry.mode` du manifeste (`content::manifest::EntryMode::Waves`/`Sandbox`/`Floors`, enum fermé comme `sim_core::damage::FriendlyFire`) s'il est présent, sinon `Waves` si le jeu déclare un dossier de contenu `Wave`, sinon `Sandbox` — `content::lint` refuse `entry.mode: Waves` sans dossier `Wave` déclaré (`lint_entry_point`), mais pas l'absence d'`entry.mode` avec un dossier `Wave` présent (c'est le chemin par défaut).
 
@@ -1255,16 +1395,22 @@ expression `content::expr` en chaîne RON (ex. `health: "120.0 + (players - 1) *
   (chaîne RON évaluée, ex. `max: "10.0 + (players - 1) * 40.0"`). La désérialisation tente dans
   cet ordre : entier nu → `Integer` ; chaîne qui est un nombre → `Literal` ; sinon parse
   `Expr` → `Expression` (un échec de parse est un échec du chargement).
-- **Point d'évaluation** : `game::balance::resolve_balance_system`, enregistré sur
+- **Point d'évaluation** : `game::balance_assets::resolve_balance_system` (application, E3c ; le calcul pur est
+  `game::balance::resolve_balance`, simulation), enregistré sur
   `OnEnter(AppState::GameLoading)` — après le chargement des assets, avant le spawn des
   joueurs/personnages (Update de `GameLoading`) et avant la première vague. Il insère la
   ressource ordinaire (hors rollback, comme `Assets`) `game::balance::ResolvedBalance` :
-  `waves`, `economy`, `perks` et `health_max_by_character`, en valeurs concrètes. Les systèmes
+  `waves`, `waves_enabled` (le jeu déclare un dossier `Wave`), `economy` (dont `shells_drop` et `shop_prices`),
+  `perks` et `health_max_by_character`, en valeurs concrètes. Les systèmes
   de simulation lisent `ResolvedBalance`, jamais les assets d'origine — aucune expression dans
   l'état rollback. Une relance locale re-entre `GameLoading` et re-résout avec le même nombre
   de joueurs.
-- **Nombre de joueurs** : `OnlineState::Online` → `ggrs_config.connection.max_player` (source
-  autoritaire en ligne) ; sinon `PlayersCount` (partie locale ou scénario).
+- **Nombre de joueurs** : `game::session::SessionPlayers(u32)`, ressource de simulation que l'application écrit
+  juste avant (`balance_assets::publish_session_players`, `OnEnter(GameLoading)`, ordonné `.before` les deux résolutions) :
+  `OnlineState::Online` → `ggrs_config.connection.max_player` (source
+  autoritaire en ligne) ; sinon `PlayersCount` (partie locale ou scénario). `resolve_balance` et
+  `clock::resolve_clocks_system` (difficulté) la lisent ; la simulation ne lit plus `OnlineState` ni
+  `GggrsSessionConfiguration` pour cela.
 - **Champs couverts** (rien d'autre — le reste des chantiers F est pour M1/M2) :
   - **Vagues** (`games/zombies/assets/waves/wave_config.ron`) : `base_enemies`,
     `enemies_per_wave`, `max_random_variance`, `min_wave_delay_frames`, `grace_period_frames`,
@@ -1358,6 +1504,47 @@ source_team, next_tick_frame }`, dans l'ordre de pose.
   charge est interrompue), pas de déplacement (`move_enemies`), pas d'attaque, émetteur suspendu.
 - `Freeze` : `Stun`, plus vitesse **et recul** remis à zéro chaque frame (`status_motion_system`,
   `Movement`, avant `move_characters`).
+
+- `Charm` (suivi Q12, réponse de William du 2026-10-16 ; `StatusDef::Charm`, **en fin d'enum** : le `derive(Hash)` hache
+  l'index de variante, les sept d'avant gardent le leur, et aucun contenu existant ne l'utilise, donc aucune trace ne
+  bouge ; `StatusKindEntry::Charm`, `(kind: Charm, frames: 200)`). Réapplication : durée rafraîchie, jamais de pile.
+  **Sans effet sur un joueur.** Un ennemi charmé sert le camp des joueurs pendant la durée :
+  - **Cible** (`ai::behavior::enemy_target_selection`, `ai::charm::nearest_target`, pure) : l'ennemi **hostile le plus
+    proche**, c'est-à-dire un autre ennemi vivant, **non charmé**, de l'équipe `Enemies` (jamais `Allies` ni `Neutral` :
+    un coup `Players` ne les touche pas), hors salle dormante ; distance au carré en
+    `FixedWide`, **égalité : le plus petit `GgrsNetId`** (indépendant de l'ordre d'itération). Portée illimitée, ni
+    aggro ni vue. Cible stockée dans `EnemyTarget` avec `TargetType::Enemy` (variante ajoutée en fin d'enum) ; sans
+    ennemi hostile : `Idle`. Une attaque en cours contre un ennemi encore présent va à son terme ; toute autre
+    attaque (joueur, fenêtre) est abandonnée à la sélection suivante.
+  - **Mouvement** (`pathing::move_enemies`, `ai::charm::charm_motion`, pure) : droit sur la cible à pleine vitesse, à
+    l'arrêt à moins de `min(OptimalAttackDistance, attack_range)` (un ennemi à portée courte, `mouche` à 26, doit pouvoir
+    frapper) ; glissement sur les murs comme tout ennemi, **sans champ de flux** (il ne
+    mène qu'aux joueurs : un charmé ne contourne pas un mur). Il n'est pas repoussé par sa cible (la séparation entre
+    ennemis le tenait à une quarantaine d'unités, hors de portée de corps à corps).
+  - **Attaque** (`behavior::charm_attack`) : corps à corps seulement, portée `attack_range` et cadence
+    `attack_cooldown_frames` de l'ennemi, `MonsterState::Attacking { target: AttackTarget::Enemy }` (variante ajoutée
+    en fin d'enum) ; le dégât est traduit à la frame suivante (`enemy_attack_damage_translate_system`) avec
+    `source_team: Players` (adversaire de sa cible : `team_allows_hit` le laisse passer). **Aucun tir et aucune
+    attaque sur un joueur** : une salve commencée contre un joueur est interrompue (`Emitter` retiré), les règles de
+    comportement de l'ennemi (`behaviors`) sont ignorées pendant le charme (aucune règle retenue : ni `Charge`, ni
+    ouïe qui lui donnerait un joueur pour cible) ; sa **hitbox de mêlée** (`enemy_melee_attack_system`, qui ne
+    regarde pas l'IA) est retenue tant qu'il est charmé (`held || charmed(statuses)` : état dérivé du statut, aucun
+    composant à lever) : scénario
+    `status_charm_contact` (un `coward` à griffes collé au joueur, aucun dégât pendant le charme). Peur et charme
+    cumulés : `Fear` l'emporte (il fuit, ne frappe pas). Défaut **préexistant** relevé par le suivi, **corrigé par D90** : `Statuses` est retiré dès qu'il est vide
+    (`combat::projectile`) et `rules::melee_hold_system` ne retrouvait plus alors un ennemi sans `BehaviorRuntime` : la
+    `MeleeHold` posée par `Fear` ne se levait jamais. Le système voit maintenant aussi tout ennemi qui porte `MeleeHold`
+    (`Or<(BehaviorRuntime, Statuses, MeleeHold)>`) et la lève à la fin de la peur. Preuve §10 : `status_fear` (première
+    frame qui diffère : f301, la fin de la peur, `Statuses` et `MeleeHold` retirés ensemble ; hors `MeleeHold` les 399 frames
+    sont identiques) et `generated/isaac/tears_rancune_vive` (f152 : la retenue levée avec la peur ; f153 : la
+    `cible_mordante`, libérée une frame avant que la peur soit reposée, frappe le joueur, ce qui crée sa hitbox, et la
+    retenue revient à f154) ; test `la_retenue_d_une_peur_finie_est_levee_sans_regles_de_comportement`. Le charme n'avait
+    pas ce défaut (retenue dérivée du statut).
+  - **Fin** : le statut retiré (`Statuses::tick`), la cible `Enemy` est effacée à la frame suivante et l'ennemi
+    redevient hostile (joueur le plus proche, comme avant) sans état à nettoyer.
+  Teinte rose des calques (`feedback::status_tint`, présentation). Scénarios `status_charm` (le `breacher` charmé frappe la
+  `target` la plus proche, jamais la lointaine ni le joueur, puis se retourne contre le joueur à l'expiration) et son
+  témoin `status_charm_temoin` ; arme `status_charm` (scénario généré `weapon_status_charm`), statut `charme`.
 
 **Ordre** : pose (`Projectiles`, après les coups de la frame) → `status_tick_system` (même set,
 juste après : ticks de `Burn` puis expiration, `expires_at_frame <= frame`, porteurs par
@@ -1666,9 +1853,32 @@ Chase(profile: "GroundBreaker")]` : « les zombies deviennent un fichier », tra
 
 **Perception et ciblage** : `Sight(r)` = rayon seul, sans ligne de vue ni lumière ; se compile
 vers `aggro_range` (repli). `Hearing(r)` : un tir de joueur né à moins de `r` rend le tireur
-connu 120 frames, même hors de vue. `needs_light` ignoré (E8). `Targeting::Nearest { ignore }`
+connu 120 frames, même hors de vue (seulement pour un ennemi à `BehaviorRuntime`). `needs_light` ignoré (E8). `Targeting::Nearest { ignore }`
 (repli `ignore: []`) : l'algorithme d'origine (plus proche par le champ de flux, repli en ligne
 droite, joueurs à terre ignorés) ; un joueur portant un tag d'`ignore` n'est jamais ciblé.
+
+**Vue directe** (D66, champ `sight_range` de `ai`, chaîne `Fixed`, lint `>= 0`) : un joueur au-delà
+de `aggro_range` mais à moins de `sight_range` est **ciblé** s'il est en ligne de vue dégagée
+(`FlowFieldCache::line_of_sight`, segment ennemi→joueur contre `wall_cells` : murs de l'IntGrid,
+terrain dynamique et portes fermées coupent le regard, une fenêtre non ; parcours de grille exact en entiers (bits des `Fixed` en `i128`, frontière x ou y la plus proche
+décidée par produits croisés, sans quotient accumulé : verdict symétrique par construction) ; au passage
+d'un coin exact, deux cases orthogonales murées coupent la vue, une seule non). Un ennemi déjà
+en `Chasing` vers un joueur le garde tant que celui-ci est à moins de `sight_range`, coin ou pas
+(sans quoi le champ de flux qui contourne un mur lui ferait perdre sa cible en route) : la mémoire
+est `EnemyTarget`, déjà rollback, aucun état nouveau. `sight_range` absent (ou inférieur à
+`aggro_range`) = `aggro_range` : le chemin d'avant, aucune trace ne bouge ; le champ est
+statique et **exclu du `Hash`** de `EnemyAiConfig` (comme `stationary`) : `EnemyAiConfig` est bien rollbacké
+et sous checksum, mais le champ est immuable après la création de l'ennemi (donnée de contenu, jamais écrite
+en simulation), donc un rollback ne peut pas le faire diverger ; l'exclusion est un choix explicite qui garde
+les traces des jeux sans vue directe. Ne change **que** les
+ennemis dont le comportement dépend d'une cible : `move_enemies` suit le champ de flux vers le joueur
+le plus proche quel que soit l'état (`Idle` ou `Chasing`), si bien qu'un `Chase` seul approche de toute
+la carte, `aggro_range` ou non (constaté, D66) ; un ennemi à `Wander` (`rodeur`) ou un tireur, lui,
+n'agit qu'avec une cible. `throne/rodeur` : `sight_range: "900.0"`. Outil : test ignoré
+`sight_probe` (`ALACOD_SIGHT=<scénario>:<frame>`, ennemis, ligne de vue, cases d'un tir à `MIN`..`MAX`
+unités, `ALACOD_SIGHT_HIDDEN=1` pour les cases cachées). Scénarios : `throne_vue_directe` (caverne
+d'essai `essai_vue`, rodeur à 730 unités), `throne_vue_coupee` (témoin : mur sur le segment),
+`throne_rodeur_vue_graine_4` (la vraie carte, `cave:niveau_1` graine 4).
 
 **État et traces** (critère central : aucune trace existante ne change) :
 - les règles résolues sont un composant **statique, hors rollback** (`EnemyBehaviors`, comme
@@ -1955,10 +2165,16 @@ au format §9 ; `tags` en **union** avec ceux du personnage (immunités §8, `ig
 `champion` + modificateurs) : aucun mécanisme à part, pas de points ×2.
 
 **Tirage** : au `spawn_enemy` de tout personnage qui déclare `variants` (vagues, spawners et
-`CharacterSpawn`), un `RollbackRng` **local** de graine `fnv1a("variants") ^ run_seed ^ net_id`
-(tronqués en `u32` ; `run_seed` = `RngStreams::run_seed`, la graine de carte ; `MapGenerationConfig::seed` pour un
-`CharacterSpawn`, même valeur) : un tirage pour la
-`chance`, un pour le poids. Indépendant de l'ordre d'apparition et du moment de chargement de
+`CharacterSpawn`), un `RollbackRng` **local** de graine `variant_seed(run_seed, net_id)` = `fnv1a("variants:<run_seed>:<net_id>")`
+replié sur 32 bits (`hash ^ hash >> 32`, comme `loot_seed` §48 et `curse_seed` §64) puis passé au
+finaliseur `fmix32` de MurmurHash3 (D88, M3 : l'ancien `fnv1a("variants") ^ run_seed ^ net_id` suivi d'un
+seul pas de congruentiel était quasi linéaire, 0,0004 par unité de graine, donc corrélé par étage ; le repli
+FNV seul laissait encore 0,07 de corrélation entre net ids voisins, le finaliseur la ramène à zéro ; `run_seed` =
+`RngStreams::run_seed`, la graine de carte ; `MapGenerationConfig::seed` pour un `CharacterSpawn`, même valeur) :
+un tirage pour la `chance`, un pour le poids. Preuve statistique (`variant::tests::tirage_independant_par_graine_et_net_id`,
+graines 1 à 20 000 × 16 net ids, chance 0,1) : 18,4 % des graines sans aucun champion (indépendance : 0,9^16 = 18,5 % ;
+avant : 89 %), corrélation de Pearson entre net ids voisins de −0,013 à +0,009 ; `graines_voisines_tirages_differents`. `alacod-sim` compte les variantes
+rencontrées par graine (colonne `variantes`, moment clé `variant_spawn`) et en donne la part des graines concernées (D88). Indépendant de l'ordre d'apparition et du moment de chargement de
 la carte ; **`RngStreams` n'est jamais touché** (y créer un flux changerait le hash de la
 ressource, donc toutes les traces). Le `GgrsNetId` du personnage est alloué par `spawn_enemy`
 avant `create_character` (même valeur que s'il l'était dedans : c'est sa seule allocation)
@@ -2144,7 +2360,7 @@ f122/f242/f362), `levelup_choice` (`ChoiceC` → `coriace`), `levelup_timeout` (
 f704), `weapon_pool_drop` (progression `armes`).
 
 **Hors périmètre** (écran de choix et HUD des rads livrés depuis : §30, §32) : déclencheurs et conditions v2,
-objets passifs/actifs (M2), modificateurs de projectiles (M4), pause, `--progression` dans
+objets passifs/actifs (M2), modificateurs de projectiles (M3, `isaac`), pause, `--progression` dans
 `alacod-sim`.
 
 ## 28. Générateur v1 et placement scripté (T1.13, voie V3)
@@ -2314,11 +2530,10 @@ Présentation seule : aucune trace ne change, la simulation ne fait jamais de pa
   (Entrée, A) ajoute à l'input du joueur affiché le bit de la carte surlignée
   (`read_local_inputs`) : seul chemin vers la simulation, le même que 1/2/3. Le D-pad et → gardent
   aussi leur action de déplacement (la partie continue pendant le choix).
-- **Mise en page** `ui/mutation_screen.ron` (kind `Ui`, schéma `content::ui::MutationScreenLayout`
-  partagé par le lint et le jeu) : police, titre, taille des cartes, `slots` (centre de chaque
-  carte depuis le centre de l'écran), couleurs, barre de temps, aide. Lint : police présente sous
-  `assets/` (BrokenReference), exactement trois `slots` et tailles > 0 (OutOfRange). Absent : pas
-  d'écran (le choix se fait aux touches 1/2/3 ou d'office).
+- **Mise en page** (D71, §56) : gabarit `bevy_hui` `ui/mutation_screen.html` (throne, testbed),
+  rempli par `game::ui::mutation_hui` depuis `MutationScreenView`. Remplace l'ancien
+  `ui/mutation_screen.ron` et son schéma de lint (retirés). Absent : pas d'écran (le choix se
+  fait aux touches 1/2/3 ou d'office).
 - **Transition de niveau** `game::ui::floor_transition` : à chaque changement de
   `FloorState::index` lu côté présentation (pas `FloorEntered`), voile noir qui s'éclaircit
   linéairement en `floor_fade_seconds` (`camera.ron`, défaut 0,4) et caméra posée sur sa cible
@@ -2369,8 +2584,10 @@ stop), et décroît sur sa durée.
 portée de sa table de projectiles. Contour au rayon complet, disque intérieur qui grandit
 jusqu'au déclenchement (gizmos).
 
-**Preuve sans écran** : `game::feedback::FeedbackLog` (ressource de présentation, plugin
-`FeedbackLogPlugin` actif aussi en headless) reçoit les indices `{genre, frame, net_id,
+**Preuve sans écran** : `game::feedback_log::FeedbackLog` (ressource de présentation, plugin
+`FeedbackLogPlugin` actif aussi en headless ; depuis D69 E5b le journal est la moitié **simulation** de
+l'ancien `feedback.rs` : formes, fonctions pures, `FeedbackConfigLoaded`, sans asset ; le chargeur de
+`ui/feedback.ron` est `feedback::FeedbackAssetsPlugin`, côté application) reçoit les indices `{genre, frame, net_id,
 position, valeur}` de chaque **nouvelle** frame simulée (`FrameCount` plus grand que la
 dernière frame journalisée : les frames rejouées par un rollback ne sont pas journalisées deux
 fois). Limites (présentation, sans conséquence) : un tick qui simule plusieurs frames ne voit
@@ -2592,6 +2809,11 @@ optionnel, nombre de portes fermées de la carte. Moment clé `room` (« salle c
 `two_rooms_door.ldtk` ; scénarios `rooms_lock_solo`, `rooms_dormant`, `rooms_lock_coop`,
 `rooms_door_occupied`. Diagnostic : `ALACOD_MAP_PROBE=<scénario>:<frame>` affiche aussi les salles
 (état) et les ennemis (position, dormant).
+
+D68 : si un ennemi chevauche une porte ouverte, une salle dormante réveille ses ennemis dès
+qu'un joueur debout y entre (même marge `PLAYER_INSET` que le verrouillage). La porte
+reste ouverte tant qu'un corps la chevauche. Un ennemi endormi sur une porte ne peut ainsi plus
+empêcher son propre réveil. La dormance est recalculée avant l'IA à chaque frame, sans état caché.
 
 ## 36. Objets et inventaire (M2-T0b, chantier C2)
 
@@ -2835,7 +3057,7 @@ début de chaque étage suivant (ressource hors rollback `FloorStartConsumables`
 chargement ; `BlankState::floor` retient l'étage servi). Lint : id consommable connu (`BrokenReference`,
 fixture `character_starting_consumable_unknown`).
 
-**Présentation.** `game::items::BlankPresentationPlugin` (`PresentationPlugin`, absent en headless) : onde (cercle
+**Présentation.** `game::items_view::BlankPresentationPlugin` (`PresentationPlugin`, absent en headless) : onde (cercle
 qui s'étend jusqu'au rayon puis s'estompe, 24 frames) dérivée de `BlankUsed` dans `Update` (ressource
 `LastBlank`, jamais lue par la simulation). Moment clé `blank` (scénarios, vidéos). HUD : pas de source
 « compteur de blanks » dans `HUD_SOURCES` : à M2-T18.
@@ -2935,9 +3157,11 @@ d'id** du dossier `Floors` (`run_state::resolve_run_mode_with_floors`). Ajouter 
 passe avant l'ancien change la partie par défaut : les séquences de grammaire de `gungeon` sont
 nommées `etages_*` pour que `etage_1` (T0d) reste la première. Même piège pour tout nouveau jeu.
 
-**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (9 gabarits de 8×8 tuiles, script
-`docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`, `CombatEW/NS/T/Croix`,
-`Recompense`, `Boutique`, `BossW/N`. Grammaires `etage` (8–12 salles), `grand` (15–20) et `court`
+**Gungeon.** Gabarits `games/gungeon/assets/maps/salles.ldtk` (quinze gabarits (8×8 tuiles à l'origine, **agrandis par m2-salles-murs-gungeon : voir « Échelle des gabarits » ci-dessous**), comptés dans les niveaux du fichier : 1 `depart`, 4 `combat`, 1 `recompense`, 1 `boutique`,
+2 `boss`, 3 `arene`, 1 `escouade`, 1 `coffre`, 1 `secret` ; neuf à l'origine, douze avant M2-T14d, §52.d ;
+les neuf d'origine viennent du script `docs/taches/rapports/m2-t10-grammaire-etage.make_salles.py`) : `Depart`,
+`CombatEW/NS/T/Croix`, `Recompense`, `Boutique`, `BossW/N`, puis `ArenaEW/Croix` (M2-T7), `EscouadeEW` (M2-T8),
+`Coffre`, `Secret` et `ArenaNS` (T14d). Grammaires `etage` (10–14 salles depuis T14d), `grand` (15–20) et `court`
 (3 salles : départ, combat, boss) ; séquences `etages_grammaire`, `etages_grand`, `etages_court`,
 `etages_court_deux`. T0d (`etage_1`) reste la séquence par défaut : les traces `gungeon_*` d'avant
 ne bougent pas, la grammaire est activée par `floors: Some("etages_...")`.
@@ -2948,6 +3172,53 @@ boss à l'est, pour ces trois graines : relevé par `ALACOD_FLOOR_DUMP=court` du
 graine 123, deux étages `court` de même forme, `FloorIndex`. `bench_floor` : étage `grand`, deux
 bots `fonceur` (plancher dans `tests/budgets.ron`). L'atteinte du boss est scriptée : les bots
 nettoient les salles de combat mais ne vont pas vers une salle dormante (bot explorateur : T16).
+
+### Échelle des gabarits (m2-salles-murs-gungeon, 2026-10-18)
+
+Revue M2 de William : « chaque salle est minuscule ». Mesure d'avant (`docs/taches/rapports/m2-salles-murs-gungeon.md` §2) :
+les quinze gabarits de `salles.ldtk` faisaient **8×8 cases** (128×128 px, **six cases de sol de large**, 36 cases de sol), soit
+**3 sprites de héros** (32 px) ou **4,8 colliders** (20 px) de large, 0,64 s de traversée à 150 px/s ; à l'écran (960×540,
+`camera.ron` `min_zoom: 0.6` : 576×324 unités) une salle en occupait **22 % × 40 %**. `etage_1.ldtk` (squelette T0d, trois
+salles 8×8) et `hub.ldtk` (256×192 px, déjà 16×12 cases) ne changent pas : ni l'un ni l'autre n'est joué dans une partie ordinaire
+(`entry.floors: "etages_deux"`).
+
+**Échelle retenue** (cases de 16 px, murs compris ; le script `docs/taches/rapports/m2-salles-murs-gungeon.make_gabarits_grands.py`
+réécrit les quinze gabarits depuis la version 8×8, de façon déterministe) :
+
+| type | gabarits | cases | surface ×ancienne | intérieur | écran (zoom 0,5) |
+|---|---|---|---|---|---|
+| départ | `Depart` | 14×12 | 2,6 | 12×10 | 47 % × 71 % |
+| combat, escouade | `CombatEW/NS/T/Croix`, `EscouadeEW` | 16×12 | 3,0 | 14×10 (11 colliders de large) | 53 % × 71 % |
+| récompense, secret | `Recompense`, `Secret` | 12×10 | 1,9 | 10×8 | 40 % × 59 % |
+| boutique | `Boutique` | 14×10 | 2,2 | 12×8 | 47 % × 59 % |
+| coffre | `Coffre` | 14×12 | 2,6 | 12×10 | 47 % × 71 % |
+| arène | `ArenaEW/Croix/NS` | 20×14 | 4,4 | 18×12 (14 colliders) | 67 % × 83 % |
+| boss | `BossW/N` | 22×16 | 5,5 | 20×14 (16 colliders) | 73 % × 95 % |
+
+*Pourquoi ces chiffres.* Combat à ×3 (la fiche attendait 2 à 3) : à `min_zoom: 0.5` (480×270 unités à l'écran, 30×17 cases) une salle de
+combat occupe un peu plus de la moitié de la largeur et 71 % de la hauteur : on la lit d'un coup d'œil, avec ses portes, sans voir
+trois salles voisines (avant : quatre salles et demie dans la largeur). Les salles où l'on ne se bat pas (récompense, secret,
+boutique) restent à ×2 : trois présentoirs espacés de 32 px (`SHELF_SPACING`) et un coffre n'ont pas besoin de plus. L'arène (750 frames à
+tenir, sept ennemis en trois vagues dont une tourelle) et le boss (patterns, trois phases) demandent de la place pour esquiver : ×4,4 et ×5,5.
+Le zoom `camera.ron` passe de 0,6 à 0,5 : le héros reste lisible (64 px de haut à l'écran) et la salle de combat tient dans l'image.
+**Le contenu ne change pas** : mêmes ennemis, mêmes props, mêmes nombres ; les entités sont placées **proportionnellement** dans la salle
+agrandie (centre de chaque entité conservé en fraction de l'intérieur) et vérifiées par le script (aucun recouvrement, aucun prop ni
+apparition sur le passage de deux cases devant une ouverture). Les salles sont donc plus vides : le nombre d'ennemis par salle est une
+décision d'équilibrage de William (D64), pas de cette tâche.
+
+*Portes alignées.* Chaque côté ouvert a deux cases d'ouverture **au milieu** du côté. Des gabarits de tailles différentes ont donc leurs ouvertures
+à des distances différentes du coin, que l'appariement imposait égales (`Connection::are_matching`, `starting_at`). Pour les grammaires
+`Graph` (gungeon) l'appariement ne compare plus `starting_at` (`populate_level_connections_with(.., offset_free: true)`, activé par
+`map_ldtk::generation::from` d'après `MapGenerationMode::Floor` + `FloorLayout::Graph` ; Basic, caverne et grille gardent l'appariement strict) et
+**`Room::get_connecting_room_position`** décale la salle posée pour que les deux ouvertures soient face à face. Cette fonction avait deux
+défauts jamais exercés (les ouvertures étaient toujours au même endroit, les salles de même taille) : elle prenait la taille de la voisine au lieu
+de celle de la salle courante pour un côté est ou sud, et le signe du décalage le long du côté partagé était faux pour le sud et l'est (juste pour le nord et l'ouest). Réécrite, sans changement pour des salles
+égales (test `la_voisine_se_pose_ouverture_contre_ouverture`) ; test de génération `gungeon_etages_de_grammaire` : toute ouverture restée libre
+a, en face, une ouverture libre d'une autre salle, case contre case (étage, grand et court sur 2 000 graines).
+
+*Étendue du monde.* `FloorGrammar::bounds: Option<(i32, i32)>` (pixels, de part et d'autre du départ ; absent : 1000×1000 comme avant) relève la boîte
+dans laquelle le planificateur pose les salles : `etage` et `court_secret` à 3000/2000, `grand` à 4000 (les salles de 224 à 352 px la remplissent
+plus vite). Lint : `bounds` négatif ou nul est refusé (`problems`).
 
 ## Notes essentielles
 
@@ -3139,7 +3410,7 @@ au ramassage** et n'entre pas dans l'inventaire : aucun bouton d'usage n'existe 
 sans effet reste un compteur (`key`, `blank`, `obus`). Pas de refus de ramassage à pleine santé (le soin est
 simplement borné).
 
-**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`),
+**Lint** : synergie à objet inconnu (`BrokenReference`), à moins de deux objets distincts (`OutOfRange`, sauf transformation, voir plus bas),
 à un consommable (`Unsupported`), deux synergies pour le même ensemble (`DuplicateId`), `OnUse` dans une
 synergie ; `uses_per_floor = 0` (`OutOfRange`), `uses_per_floor`/`cost` sur un non-actif, `cost` vers un
 objet inconnu ou non consommable. Fixtures `synergy_unknown_item`, `synergy_single_item`,
@@ -3156,6 +3427,43 @@ la réduction de dégâts existera. `testbed` : objets d'essai `lame`, `manche`,
 `synergy_lost` (actif remplacé : dégâts 3 puis 1), `item_active_per_floor` (trois appuis par étage, deux
 effets, sur `deux_niveaux`), `item_active_cost` (obus 3 → 1, second usage refusé), `consumable_heal`
 (santé 92 → 97 au ramassage). Aucune trace existante ne bouge : types neutres, champs optionnels hors hash.
+
+### Transformations : `requires_tag` (suivi Q10, réponse de William du 2026-10-16)
+
+Une **transformation** est une synergie dont la condition est un **tag** d'objet : `SynergyDef.requires_tag:
+Some((tag: "champignon", count: 3))` (`items::TagRequirement`) ; champ optionnel, **absent** : la synergie d'avant, au bit
+près (aucune trace ne bouge : définition de contenu, hors rollback). `requires` devient facultatif (`#[serde(default)]`) :
+vide, la transformation n'exige que le tag ; non vide, les deux se **cumulent**. Une synergie sans aucune condition n'est
+jamais active.
+
+- **Règle** (`SynergyDef::is_active`, pure, utilisée par `SynergyTable::active` et par
+  `game::items::synergy_modifiers_system`, donc par `projectile_mods`, les effets et les modificateurs) :
+  active quand `Inventory::held_with_tag(items, tag) >= count`, soit le nombre d'objets **distincts** tenus
+  (passifs et actif) dont `ItemDef.tags` contient `tag`. **Un exemplaire en double compte une fois**, un consommable ou
+  un objet inconnu jamais ; l'actif perdu éteint la transformation. (`SynergyTable::active` prend désormais
+  l'`ItemTable` : tous les appelants migrés.) **D91 (fermée)** : `held_with_tag` n'alloue plus (le `Vec` + tri +
+  `dedup` par appel est remplacé par un balayage : un passif compte à sa première occurrence, l'actif s'il n'est pas
+  déjà tenu en passif) ; son seul appelant est `SynergyDef::is_active`, donc `synergy_modifiers_system`, `projectile_mods`
+  et les effets en profitent sans changer. Même résultat au bit près (test `held_with_tag_compte_les_objets_distincts`,
+  scénarios de synergies et de transformations inchangés).
+- **Effets** : ceux d'une synergie ordinaire (`modifiers` de source `synergy:<id>`, `effects`, `projectile`), posés et
+  retirés à chaque frame depuis l'inventaire.
+- **Teinte de présentation** `tint: Some("#rrggbb")` (champ optionnel de `SynergyDef`, hors simulation) : la première
+  transformation active (par id) à `tint` colore les calques du joueur (`feedback::TransformationTint`, relue de l'état
+  chaque tick, derrière la teinte d'un champion et devant celle du marqueur) et produit un moment clé `feedback`
+  « transformation 8 (champignons) » (`FeedbackKind::Transformation`, une fois à l'acquisition).
+- **Lint des mécaniques** (`content::mechanics`) : une transformation compte comme atteignable (ligne « transformations »)
+  quand au moins `count` objets non consommables du tag sont atteignables par pool, départ ou étage ; sinon
+  avertissement « seulement n objet(s) à source portent le tag ».
+- **Lint** (`lint_synergies`) : `count = 0` (`OutOfRange`), tag que **aucun objet** ne porte (`BrokenReference`), `count`
+  supérieur au nombre d'objets non consommables qui portent le tag (`OutOfRange` : jamais active), `tint` qui n'est pas
+  `#rrggbb` (`OutOfRange`) ; « au moins deux objets distincts » ne vaut plus que sans `requires_tag` ; deux synergies de
+  même ensemble **et** de même condition de tag restent un doublon. Fixtures `transformation_ok`, `transformation_bad`
+  (`crates/content/tests/transformations.rs`).
+- **Testbed** : objets `amanite`, `bolet`, `morille` (tag `champignon`, sans effet seuls), synergie `champignons`
+  (`count: 3`, `MoveSpeed` `Pct` +0,3, teinte `#c07040`). Scénarios `transformation_three` (trois ramassages à f10, f40, f70 : la
+  vitesse monte à la troisième prise) et son témoin `transformation_two` (deux champignons : rien) ; générés `item_amanite`,
+  `item_bolet`, `item_morille`.
 
 ## 49. Formations simples : escouades en arc et tir alterné (M2-T8, chantier D1 v2)
 
@@ -3394,7 +3702,12 @@ profils existants sont inchangés (aucune trace existante ne bouge).
 - **Zone morte** : `surface_step` considère le bot arrivé quand son pas est sous `ROUTE_DEAD_ZONE`
   sur les deux axes ; sinon il restait immobile à 36 px de la portée, sans presser Interaction
   (graine 47 à 2 bots, `etages_deux`, soft-lock).
+- **D68 : à terre, l'explorateur envoie un input neutre** jusqu'à sa réanimation. Il poursuivait
+  sinon le repli de `prudent` ou le portail, quittant la portée de l'équipier. Le jeu continue
+  d'autoriser le déplacement à terre pour les joueurs humains (`downed_speed_mult`).
 - Campagne : `docs/taches/rapports/bot-explorateur-v2/campagne.sh` (lots de 10 graines).
+- **M3-T14 (§79)** : porte à clé, bombes (mur secret, rochers) et fuite de la mèche, achats par politique, diable, sous au
+  sol, objets refusés ; politique en données (`ExplorerPolicy`, `bot.ron`), campagnes `isaac`.
 
 **`alacod-sim`** : `--floors <séquence> --until-floor N` existait (T1.14) ; le JSON gagne `outcome`
 (`victoire`, `objectif`, `mort`, `soft-lock`, `plafond`, `desync`) et `rooms` (par étage : salles typées,
@@ -3435,7 +3748,9 @@ tirage pur), `game::loot` (systèmes), `map_ldtk::game::rooms::room_chest_system
 - **Rareté d'un coffre** (`Chest::rarity`) = rareté **minimale** de l'objet tiré (un consommable compte pour `Common`).
 
 **Flux RNG dédié, indépendant du temps.** `items::loot_seed(graine de la partie, étage, clé de contenu)` =
-FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits ; le tirage lit un **`RollbackRng` local** de cette
+FNV-1a de `loot:<graine>:<étage>:<clé>` replié sur 32 bits puis passé au finaliseur `fmix32` (D95 : sans lui, `champion:41` et
+`champion:42` restaient corrélés, r jusqu'à 0,063 ; `loot_seed_numbered`/`loot_seed_parts` hachent les mêmes octets sans
+construire la clé) ; le tirage lit un **`RollbackRng` local** de cette
 graine. Il ne touche **aucun** flux de `RngStreams` : le flux nommé `"loot"` des power-ups est consommé à chaque
 mort d'ennemi, il ferait dépendre l'objet du moment d'ouverture (et changerait le hash de la ressource, comme
 `variant.rs` le note déjà). La clé de contenu est celle du coffre (`room:<salle>`, `reward:<salle>`, ou la clé
@@ -3483,6 +3798,82 @@ pool inconnu dans `loot` d'une séquence. Fixtures `loot_empty_table`, `loot_wei
 le HUD des clés (T18). Les deux types de salle `recompense` et `boutique` de `gungeon` gagnent un coffre : les
 scénarios qui jouent ces gabarits (étages `etage`/`grand`) changent de trace, preuve dans le rapport.
 
+## 51. Profil et déblocages qui enrichissent le butin (M2-T12, chantier G1)
+
+**Kind `Unlock`** (`unlocks/<id>.ron`, `items::UnlockDef`) : `name`, `cost: Option<i64>` (essence ;
+`None` = gratuit, conditions seules), `requires` (déblocages préalables), `stat: Option<(nom, n)>`
+(statistique de profil minimale) et `grants` : `Item(id)` (l'objet quitte **tous** les pools tant que
+le déblocage manque) ou `Loot(table, pick, weight)` (une entrée de plus dans le pool). Kind
+`MetaEconomy` (`meta/essence.ron`, `(per_run, per_kill, per_victory)`) : l'essence gagnée par run,
+qui remplace les règles provisoires de §38 (mêmes valeurs ; défaut identique sans fichier).
+
+**`RunUnlocks`** (`items::RunUnlocks`, `BTreeSet<String>`) : les déblocages **de la partie**, figés au
+lancement, ressource rollback **neutre** (`rollback_and_trace_resource_neutral`, contribution 0 si
+vide) et statique pendant la run. Seule donnée du profil lue par la simulation.
+- **Local** : union des profils des joueurs locaux (`profile::local_run_unlocks`).
+- **En ligne** : le profil de l'**hôte** (plus petit handle), transmis avec la configuration de
+  session comme la graine (`ALACOD_RUN_UNLOCKS`, ids séparés par des virgules ; jamais le profil
+  du pair local). Choix de l'hôte plutôt que de l'intersection : un seul ensemble à transmettre,
+  et un joueur qui rejoint n'appauvrit pas la partie.
+
+**Tirage** (`items::draw_loot_with`) : retire les objets « hidden » (réservés à un déblocage absent)
+et ajoute les entrées `Loot` des déblocages actifs ; le RNG consomme toujours ses deux `next_u32`,
+donc une même graine donne la même suite de tirages avec ou sans déblocage, et seul l'objet change.
+Ensemble vide et jeu sans `unlocks/` : comportement d'avant.
+
+**Achat** hors simulation : `Profile::purchase` (déjà possédé, prérequis, statistique, essence ;
+écriture atomique) et `alacod-profile unlock games/<jeu> <id> [--handle n]` (`list` pour l'état).
+
+**Lint** (`lint_unlocks`, fixtures `unlock_*`) : objet ou table inconnus, prix ≤ 0, déblocage
+préalable inconnu, cycle de prérequis.
+
+**Contenu `gungeon`** : `tresor_trefle` (20 essence, retire le trèfle des pools), `etendard_royal`
+(40, statistique `runs` ≥ 1, retire l'étendard), `coffre_riche` (60, exige le trèfle, entrée Rare
+dans `commun`). `zombies`, `testbed`, `throne` : inchangés.
+
+**Scénarios** : `Scenario.profile_setup` (profils de départ et achats, `profile: true`),
+attente `RunUnlocks { has, lacks, at_frame }`. `unlock_enriches_pool` / `unlock_base_pool` (même
+graine, mêmes coffres, l'un avec les trois déblocages : « amulette » ×2, l'autre sans :
+« amulette » + « bottes »), `unlock_purchase`, `unlock_two_players_host` (union locale).
+
+**Traces** : aucune trace existante n'a bougé.
+
+### Armes aux sources (D62, `m2-armes-sources`)
+
+Une arme a une source quand un pool de butin la nomme. Les dix-huit armes de `gungeon` (hors
+`pistolet`, arme de départ, et `arsenal*`, contenu de test `test_only: true`) sont dans les pools.
+
+- **Entrée de pool** `LootPick::Weapon("id", Rareté)` (`items::loot`). Le tirage la désigne par
+  l'identifiant `weapon:<id>` (`items::loot_weapon`) ; la rareté joue comme celle d'un objet (filtre
+  de rareté d'un coffre, prix d'un présentoir). Une récompense de salle sans coffre (consommables
+  seulement) l'ignore. Le flux RNG avance comme avant (deux `next_u32` par tirage) : seul le candidat
+  change.
+- **Coffre** : l'arme tombe à côté du coffre (`game::loot::spawn_loot_weapon`), arme lâchée ordinaire
+  (`price: None`, chargeur plein), ramassée par l'interaction habituelle, qui échange avec l'emplacement
+  (`weapon_slots`, une seule arme pour le `pistolero`) : l'arme posée tombe à son tour.
+  `ChestOpened::item_id` vaut `weapon:<id>`.
+- **Boutique** : prix par rareté de l'arme (`economy.ron`, `shop_prices`). Acheter un présentoir
+  d'arme la pose au pied de l'acheteur (log `shop_buy item=weapon:<id>`), à ramasser ensuite.
+  `RoomShopDef` gagne `weapon_shelves` (les N premiers présentoirs ne tirent que des armes du pool :
+  au moins une arme par boutique) et `floor_tables` (pool de chaque étage, le dernier vaut pour les
+  suivants ; vide : `table`).
+- **Pondération par étage** : `boutique` puis `boutique_profond` (armes rares plus lourdes), et
+  `commun` puis `commun_profond` pour les coffres (`floors/etages_deux.ron`, champ `loot`).
+- **Échange d'emplacement** : l'arme lâchée par un échange ne peut pas être ramassée pendant
+  `WEAPON_SWAP_COOLDOWN_FRAMES` (30) frames (`WeaponPickup::can_buy_after_frame`, jusque-là réservé aux
+  armes murales). Sans ce délai, Interaction maintenu rééquipait à chaque frame l'arme qu'on vient de
+  poser (bug trouvé par le bot, emplacement unique).
+- **Lint** : arme inconnue (`BrokenReference`), `weapon_shelves` > `shelves`, `floor_tables` inconnu,
+  `weapon_shelves` sans arme dans le pool. `reach::loot_pool_weapons` compte les armes des pools :
+  `alacod lint games/gungeon` n'a plus d'avertissement d'arme.
+- **Atteignabilité** : le bot `explorateur` gagne l'option `ExplorerOptions::shopping`
+  (`alacod-sim --shopping`) : ouvrir les coffres (clé en main si verrouillés) et acheter les
+  présentoirs payables sont des buts d'exploration (Interaction sur la surface) ; l'arme qui tombe
+  est ramassée par le combat de `prudent` (butin au sol). Faux par défaut : aucune trace de bot ne
+  bouge. Test `explorer_finds_weapons_on_ordinary_floors` (`crates/scenario/tests/bots.rs`,
+  `ALACOD_SHOP_SEEDS`, `ALACOD_SHOP_FRAMES`) : partie `etages_deux`, graine 3, une arme autre que le
+  pistolet achetée à f69. Scénario `shop_weapon` : achat puis échange, bout en bout.
+
 ## 50. Boutique et monnaie `shells` (M2-T6, chantier C5)
 
 Les ennemis lâchent des douilles (`shells`), dépensées sur les présentoirs d'une salle `boutique`.
@@ -3529,6 +3920,11 @@ Scénarios : `shells_drop`, `shop_buy`, `shop_refused` (testbed), `shop_seeded` 
 
 **Hors périmètre** : marchand PNJ et déblocages méta (M2-T12, T13), vol, réduction de prix, HUD des
 shells (M2-T18).
+D68 : les drops de mort (douilles, power-ups et armes de progression) interrogent `With<Death>`
+avant `rollback_apply_death`, qui désactive immédiatement le mort. Le drop reste unique et se
+rejoue après restauration d'une mort posée en fin de frame (arène) ; les ticks `Added` ne font pas
+partie du snapshot rollback et ne peuvent pas servir à détecter cette mort.
+
 
 ## 52. Contenu `gungeon` (M2-T14, quatre parties)
 
@@ -3618,6 +4014,65 @@ appuient). `alacod lint gungeon` : aucun nouvel avertissement d'ennemi.
 inchangées. Un renfort `lanceur_kin` en phase 2 a été essayé : le bot meurt et `gungeon_boss_bot` dépasse son
 `EntityCount`, retiré.
 
+### 52.d Gabarits de salles et équilibrage de l'étage, D64 (T14d)
+
+Données seulement (`games/gungeon/assets/`, scénarios, traces gungeon), aucun code de moteur ; le test de
+grammaire `map_ldtk::generation::tests` a ses constantes mises à jour (bornes de `etage`, types exigés,
+gabarits décorés). Scripts : `docs/taches/rapports/m2-t14d-gabarits.make_gabarits.py` (gabarits et couche
+`Surfaces`) et `.make_ennemis.py` (composition des ennemis par gabarit), idempotents. Rapport et mesures :
+`docs/taches/rapports/m2-t14d-gabarits.md`.
+
+**Quinze gabarits** (8×8 cases, ouvertures de deux cases au milieu des côtés) : `Depart`, `CombatEW/NS/T/Croix`,
+`Recompense`, `Boutique`, `BossW/N`, `ArenaEW/Croix`, `EscouadeEW` (douze avant T14d) et trois nouveaux :
+
+| Gabarit | Type (`room_kind`) | Ouvertures | Contenu |
+|---|---|---|---|
+| `Coffre` | `coffre` | N E S W | trois tables, sable (`Surfaces`) autour du coffre central |
+| `Secret` | `secret` | W (cul-de-sac) | trois tables, eau et fosse dans les angles |
+| `ArenaNS` | `arene` | N S | deux barils et une table (les vagues viennent de `rooms/arene.ron`) |
+
+Types de salle nouveaux (`rooms/`) : `coffre` (non verrouillant, coffre ouvert au centre, rareté mini Uncommon, pool
+de l'étage) et `secret` (idem, rareté Rare, cul-de-sac). **« Secret » ne l'est que par sa place** : le mur secret
+(`DoorLock::Secret`, §62, exécuté par M3-T4) exige une bombe et `gungeon` n'en donne aucune (D81) : un mur plein
+que personne ne casserait. Un coffre de salle s'ouvre par Interaction : le
+bot ne le fait qu'avec `alacod-sim --shopping`. Les tables ne sont jamais posées devant une ouverture (une table
+sur les deux cases d'ouverture murerait la salle). Les accessoires sont toujours trois par salle décorée (le test
+de décor compte `CombatEW`, `CombatNS`, `Coffre`, `Secret`, `ArenaNS`).
+
+**Surfaces dans `gungeon`** : dossier `surfaces/` (`eau` 1, `sable` 2, `fosse` 4, copies de celles du testbed ;
+pas de glace, aucun gabarit n'en pose), couche IntGrid `Surfaces` ajoutée au projet de `salles.ldtk` et aux
+seuls niveaux `Coffre` et `Secret` ; la couche suit le gabarit dans l'étage assemblé (sonde `map_probe` : « fosse :
+3 cases » sur la graine 28). `SurfaceGrid` est neutre quand elle est vide : les étages sans gabarit à surface
+gardent leur hash.
+
+**Grammaire `etage`** : de 10 à 14 salles, types exigés `boss`, `recompense`, `boutique`, `arene`, **`escouade`**,
+`coffre`, `secret` (une fois chacun) ; le reste en `combat` (2 à 6 salles). La salle `escouade` de M2-T8 n'existait
+que dans la grammaire `court_escouade`. Validée sur 1 000 graines par `gungeon_etages_de_grammaire`
+(`ALACOD_FLOOR_SEEDS=1000`) et `gungeon_decor_sur_1000_graines`. `court`, `grand` et `court_escouade` ne
+bougent pas (leurs scénarios scriptés gardent leur forme). `court_arene` et `court_coffre` (départ, la salle, boss)
+portent les `test:` de `rooms/arene.ron` et `rooms/coffre.ron` ; `rooms/escouade.ron` joue `etages_court_escouade`.
+Scénarios générés `room_arene`, `room_coffre`, `room_escouade`, `room_secret` (grammaire `court_secret`, 5 salles).
+
+**D64, équilibrage** (leviers, tous en données). Un `bullet_kin` : 30 PV (40), salve de trois balles simples de
+4 dégâts (trois salves de deux, 6 dégâts), recharge de 150 frames (90), `ricochet` : `Bounce(1)`, portée 320 (500) ;
+idem `bullet_kin_squad`. Autres ennemis : `crachat` 4 (6), `chevrotine` 3 (5), explosion de `grenade` 10 (14) et
+éclat 3 (4), `bandana_kin` 10 de dégât (15), `tourelle_kin` 60 PV (90) et `croix` avec la nouvelle boule `boulette`
+(4 dégâts : `boule` reste celle du boss, non touchée). Gabarits (ennemis avant → après) : `CombatEW` 2 `bullet_kin` + `shotgun_kin` + `fuyard_kin` → 2 `bullet_kin` + `fuyard_kin` ;
+`CombatNS` 2 `bullet_kin` + `veteran_kin` + `tourelle_kin` → 2 `bullet_kin` + `veteran_kin` ; `CombatCroix` 3 `bullet_kin` +
+`bandana_kin` + `lanceur_kin` → 2 `bullet_kin` + `shotgun_kin` ; `CombatT` (3 `bullet_kin`) et `EscouadeEW` inchangés ; positions
+aux coins de la salle. Arène :
+horloge 750 (900), vagues à 0/250/500 (0/300/600), un `bullet_kin` au lieu de deux, un au lieu de trois. Soin :
+chaque salle `combat` nettoyée laisse une récompense (`salle.ron` : chance 1, ration 6/9) et la `ration` rend 25 PV (15).
+Joueur, boss, armes du joueur : intouchés (le renfort `bullet_kin` du boss profite de l'allègement).
+
+**Mesures** (`alacod-sim`, `etages_deux`, 200 graines, explorateur, `until-floor 1`) : à 1 bot 200 morts sur 200 → 54
+(27 %) ; à 2 bots 174 → 7 (3,5 %) ; 0 desync. Soft-locks : 0 avant, 4 sur 200 à 1 bot après, 0 à 2 bots ; cause
+et pistes dans le rapport (bot : cycle limite devant une ouverture de deux cases, dette D82).
+
+**Graines** (2 bots, `etages_deux`, `--shopping` ; `docs/taches/rapports/m2-t14d-gabarits/rencontre.py`) : 41 :
+coffre secret f369, coffre f1045, escouade f1096-f1233, arène f1476-f2226, boutique f2334, baril f604 ; 13 : secret
+f1100, coffre f3392, arène f2064-f2814, escouade f2971-f3257, boutique f1663.
+
 ## 53. Lint des kinds M2 et atteignabilité statique (M2-T15, voie V2)
 
 Lint seulement : aucune simulation touchée, aucune trace ne bouge.
@@ -3642,11 +4097,12 @@ Types tirables d'une grammaire = `FloorGrammar::kinds_needed()`. Avertissements 
 - gabarit d'une carte `templates` dont le type n'est tiré par aucune grammaire atteinte ;
 - ennemi (`ai` présent) absent des niveaux jouables (cartes posées, gabarits tirables), des arènes
   des salles tirables, des vagues, des cavernes et des renforts de boss (point fixe) ;
-- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool**. Le point de branchement
-  de M2-T5 est `reach::loot_pool_items` (et `loot_pool_weapons`), vides aujourd'hui : y renvoyer les
-  ids de chaque pool (une dizaine de lignes) ;
+- objet sans source : `starting_consumables`, `consumables_per_floor`, **pool** (`reach::loot_pool_items`,
+  `loot_pool_weapons` : branchés depuis M2-T5 et D62), déblocages (M3-T12, §77) ;
 - arme sans source : `starting_weapons`, `WeaponLocation` des niveaux jouables, `weapon_pool` de
-  progression, pools.
+  progression, pools, armes citées par les règles des ennemis atteints (`Shoot`, phases de boss,
+  `SpawnPattern` des effets, entrées de phase et frises). Un ennemi inatteint ou `test_only`
+  ne compte pas comme source de ces armes.
 `MapEntry::levels` (`MapLevelInfo` : type de salle, personnages, armes murales par niveau LDtk) porte
 les données. Limites : pas de lecture des scénarios (une arme ou un objet donné par scénario seulement
 est signalé), ni des cartes assemblées autrement que par les désignations ci-dessus ; la sandbox
@@ -3657,7 +4113,8 @@ de personnage (`test_only: true,`), dans `config:` d'une arme (`config: (test_on
 l'ignore : pas d'avertissement « ennemi » ou « arme » pour lui, et un personnage marqué n'est pas une
 source d'armes. Lu par `content` seulement (`CharacterEntry::test_only`, `WeaponEntry::test_only`) : les
 types de `game` et `combat` l'ignorent comme tout champ inconnu, donc aucun effet en jeu et aucune trace
-qui bouge. Marqués : `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+qui bouge. Marqués : `zombie_scaled` (zombies), `cible` et `mannequin` (throne), `cible` (gungeon). Fixtures
+`reach_enemy_weapons` (règles atteintes, phases et frises ; sources inatteintes et de test exclues),
 `reach_test_only_character` et `reach_test_only_weapon` (jumelles de `reach_enemy_unplaced` et
 `reach_weapon_no_source`, test `test_only_content_is_ignored_by_reach`).
 
@@ -3808,15 +4265,28 @@ construire une ligne déjà détruite lorsque l'inventaire change.
   Retour arrière / B. `ALACOD_INPUT=neutral` coupe la lecture des touches.
 - **La simulation continue et ses touches restent actives** sous les menus, comme avant :
   aucun verrou d'input ni changement de trace n'est introduit.
+- **Modèle et entrées séparés** (D69 E5a, E7) : le modèle (`ScreensPlugin`, `HudModelPlugin`,
+  `MutationScreenModelPlugin`, ajoutés un à un par `core_sim::CoreSimPlugin`, aussi en headless) ne lit ni
+  clavier ni manette. `ui::screens::input::read_nav_keys` (clavier, manette) pose les actions
+  dans la file `UiActionQueue` (`.before(update_screens)`), `ui::mutation_input::read_mutation_nav`
+  (`ActionState<PlayerAction>`) écrit la ressource `MutationNavInput { handle, held, step }` que
+  `update_mutation_screen_view` lit (`.before(update_mutation_screen_view)`, seulement pour le
+  joueur affiché). Les deux lecteurs sont dans `GameUiInputPlugin`, ajouté par `core::CoreAppPlugin` après `GameUiPlugin` (lobby, déconnexion) ;
+  les deux sont hors `PresentationPlugin` : le lobby tourne aussi en
+  headless p2p, les lecteurs n'y trouvent rien. `GameUiModelPlugin` n'existe plus (E7).
 - Écran de fin : `ui/game_over_screen.html`, dans les quatre jeux. Résumé dérivé de
   `Run.step`/`Run.summary`, mis à jour sans reconstruire la racine ; rollback de l'issue :
   disparition de l'écran. Rejouer (R) et Lobby gardent leurs `RunRequest`, boutons souris
   inclus. La présentation est chargée seulement dans `PresentationPlugin`.
-- **Dette mutation** : le modèle `MutationScreenView` et le rendu `mutation_screen.ron`
-  restent distincts. Le choix de trois cartes chronométrées, la surbrillance et
-  `ChoiceConfirm` alimentent les bits `ChoiceA/B/C` du joueur, pas les commandes locales
-  de `ScreensState`. Cette migration nécessite un adaptateur spécifique conservant ce
-  protocole et la mise en page des cartes ; elle n'est pas assimilée au menu d'inventaire.
+- **Écran de mutation (D71, 2026-10-15)** : `ui/mutation_screen.html` dans throne et testbed,
+  adaptateur `game::ui::mutation_hui` (`MutationHuiPlugin`, dans `PresentationPlugin`, feature
+  `ui_hui`). `MutationScreenView` et le protocole sont inchangés : valider émet toujours le bit
+  `ChoiceA/B/C` dans l'input (`confirm_input`), l'adaptateur ne lit que la vue. Propriétés du
+  gabarit : `name{i}`, `desc{i}`, `tint{i}`, `border{i}` (carte surlignée en or) pour trois cartes,
+  `bar_width` (barre de temps, en %). Écran dérivé de l'état : un rollback qui annule le choix le
+  fait disparaître. `mutation_screen.ron`, `MutationScreenLayout` et son lint sont retirés (aucune
+  trace ne bouge). Tests : `mutation_hui::gabarit_des_jeux_construit_et_recompile` construit les
+  vrais gabarits de throne et testbed.
 
 Les fichiers HTML sont découverts directement dans les dossiers `Ui`, sans compagnon RON.
 Le registre vérifie leur lecture UTF-8 ; le lint exige aussi `ui/hui_row.html` lisible
@@ -3833,6 +4303,7 @@ en headless et dans la liste fermée `content::ui::HUD_SOURCES` :
 |---|---|
 | `blanks` | compteur `Inventory::consumables["blank"]` |
 | `keys` | compteur `Inventory::consumables["key"]` |
+| `bombs` | compteur `Inventory::consumables["bomb"]` (M3-T3, §68) |
 | `shells` | monnaie `Currency` (les douilles de boutique la créditent) |
 | `passives` | noms des passifs ; `Icons` utilise leurs ids |
 | `active_item` | nom de l'objet actif |
@@ -3842,12 +4313,17 @@ en headless et dans la liste fermée `content::ui::HUD_SOURCES` :
 Sans joueur/objet : textes vides et charge masquée. `HudRoomGeometry` reçoit uniquement
 la géométrie de l'étage courant depuis `CurrentRooms`, en `Update` avant `HudModelSet`.
 La carte se dérive de cette géométrie, de la position du joueur et de `RoomStates` :
-aucun nouveau composant/état rollback, aucun cache de visites.
-**Limite du contrat actuel** : `RoomStates` ne mémorise pas une visite d'une salle non
-combattante restée `Dormant`. La carte distingue comme visitées la salle courante,
-le départ et les salles `Locked`/`Cleared` ; une boutique dormante quittée ne conserve
-pas de marque de visite. Ajouter une mémoire simulation changerait les traces et sort
-de cette tâche de présentation seule.
+aucun nouveau composant/état rollback.
+**Mémoire de visite (D72, 2026-10-15)** : `RoomStates` ne retient pas une salle non combattante
+restée `Dormant` (boutique, récompense). `hud_model::MinimapVisits` (ressource de présentation,
+`Update`, hors rollback et hors trace) garde les ids des salles où un joueur **local** est entré
+(`track_minimap_visits`, avant `update_hud_snapshot`) ; elle repart de zéro quand la géométrie de
+l'étage change (nouvel étage, restart). Une salle visitée puis quittée reste « visitée ». Limite
+assumée : un rollback ne défait pas une visite (l'exploration n'est pas un fait de simulation) ;
+aucun état `Visited` rollback n'a été nécessaire. Preuve : scénario `minimap_shop_visit`
+(gungeon, `etages_grammaire`, graine 12 : la boutique est voisine du départ ; attentes `HudText`
+« boutique · inexplorée » f10, « visitée · actuelle » f90, « visitée » après la sortie f199, alors
+que `RoomState` reste `Dormant`).
 
 ### Scénarios et revue visuelle
 
@@ -3871,3 +4347,3267 @@ Carte : `gungeon_clear` 100 (verrouillage), 650 (nettoyée) ;
 Rechargement en jeu : `cargo run -p gungeon --features native`, ouvrir un écran puis
 modifier son `.html`. Le rapport précise les captures effectivement observées.
 
+
+## 57. Hub : stations, marchand de déblocages, entrée en run (M2-T13, chantier G2)
+
+Le hub est une **session à part** : une salle LDtk où l'on se déplace et interagit (simulation
+rollback, sans ennemi), puis la porte relance la session en run. Il ne change rien aux jeux sans
+`entry.hub` (`zombies`, `testbed`, `throne`, `isaac`) ni aux scénarios sans champ `hub`.
+
+**Données.** `game.ron` : `entry.hub: Some((map: "maps/hub.ldtk"))` et un dossier `(path: "hub",
+kind: "HubService")`. `hub/<id>.ron` (`meta::HubServiceDef`) : `name`, `needs` (conditions de profil :
+`Unlock("first_run")`, `Stat("runs", 2)`, toutes requises) et `action` : `EnterRun` (la porte) ou
+`Merchant` (l'écran des déblocages). `meta::MILESTONES` (`first_run`, `first_victory`) sont des
+conditions valides en plus des `Unlock` du jeu. **Lint** : carte du hub inconnue, hub sans service
+`EnterRun` (`BrokenReference`) ; condition `Unlock` inconnue (`BrokenReference`) ; `Stat(_, 0)`
+toujours vraie (`OutOfRange`). Fixtures `hub_unknown_unlock`, `hub_stat_zero`, `hub_without_door`.
+
+**Carte.** `maps/hub.ldtk` (une salle 16×12, quatre `PlayerSpawn`) et l'entité LDtk `HubStation`
+(champ `service` : id de `hub/<id>.ron`). Le hub est chargé avec `MapGenerationMode::Static` (variante
+ajoutée en dernier) : la carte est jouée **telle que dessinée**, sans assemblage de salles.
+
+**Stations dans la simulation.** `map_ldtk::game::local::spawn_hub_stations_when_map_loaded` pose une
+`game::hub::HubStation { service }` (rollback neutre) + `Interactable { Hub }`
+(`InteractionType::Hub`, en fin d'enum) par station dont le service est **ouvert** pour la session :
+en local, si le profil d'un des joueurs locaux remplit ses conditions ; **en ligne, le profil de
+l'hôte** reconstitué de la configuration de session (`ALACOD_RUN_UNLOCKS` pour les déblocages,
+`ALACOD_HOST_STATS=nom:n,…` pour les statistiques ; stand-in de la synchronisation des profils,
+hors périmètre). `GgrsNetId` triés par position puis service.
+`game::hub::hub_station_system` (`Interaction`) écrit `HubState` (ressource rollback **neutre**,
+vide par défaut) : `EnterRun` pose `exit: Some(HubExit { frame, handle })` (le premier ; **par défaut
+n'importe quel joueur déclenche la porte**, à confirmer par William), `Merchant` enregistre
+`visits[handle] = HubVisit { service, frame }`. Aucune autre règle : le profil n'est jamais lu dans
+`GgrsSchedule`.
+
+**Sortie : décision confirmée.** `game::hub::hub_exit_trigger` (`Update`) pose
+`RunRequest::EnterRun` quand `HubState.exit.frame <= ConfirmedFrameCount` : un état prédit puis annulé
+ne lance rien et les pairs qui confirment la même frame prennent la même décision au même moment.
+`EnterRun` et `ToHub` passent par le chemin du restart (`plan_run_request` : `Restart` local = retour
+direct en `GameLoading` ; en ligne, la salle `{lobby}-r{n}` et la graine dérivée de §33) ;
+`apply_run_request_system` bascule `HubSession.in_hub` et la carte (`hub::apply_to_map_config`).
+`HubState` est remis à zéro à la sortie d'`InGame`.
+
+**Phase.** `game::hub::HubSession { hub_map, run_map, in_hub }` (hors rollback, survit aux relances)
+est posée par `games/gungeon/src/main.rs` (le jeu démarre **au hub**) ou par un scénario
+(`hub: Some((stay: false))`). Au hub le mode de run est `Sandbox` (`hub::resolve_session_mode`) ; la
+run reprend le mode du manifeste (`Floors`, `entry.floors`). **Les outils sans binaire de jeu
+(`alacod-sim`, `make gen`, les campagnes de bots, le runner de scénarios sans champ `hub`) ne posent pas
+`HubSession` : ils jouent la run directement**, donc aucun faux soft-lock d'explorateur au hub (choix
+retenu plutôt que d'apprendre la porte aux bots). Fin de run : le bouton « Rejouer (R) » de l'écran
+de fin devient « Retour au hub (R) » (`RunRequest::ToHub`) quand `HubSession` existe ; le résumé de
+la run reste affiché, le profil est déjà écrit.
+
+**Marchand.** Écran `ScreenId::Merchant` (`ui/merchant_screen.html`, gabarit bevy_hui, même moteur
+que la pause et l'inventaire, §56) : une visite `HubVisit` du joueur affiché, dont la frame est
+confirmée, l'ouvre (`Screens::merchant_seen` : une visite ne rouvre pas l'écran). Lignes
+(`model::merchant_lines`) : les `Unlock` du jeu (ordre des ids), état `Owned` / `Available` /
+`Locked(raison)` calculé par `Profile::purchase` sur une copie. Entrée sur une ligne : commande
+`ScreenCommand::Buy(n)` → `game::profile::purchase_for_handle` (hors simulation) : débit de l'essence,
+profil écrit tout de suite (écriture atomique de §38), message affiché. **Un achat entre dans la
+simulation partagée au passage de la porte** : `RunUnlocks` est figé au lancement de chaque session
+(§51) et la run relit les profils au lancement ; au hub il ne change pas.
+
+**Scénarios.** `Scenario::hub: Option<HubSetup>` (`stay: true` : la run n'est pas lancée, la preuve
+reste dans la session du hub), attentes `HubExit { handle, exit_frame, none, at_frame }` et
+`HubVisit { handle, service, at_frame }`. `hub_use_stations` (marchand puis porte), `hub_buy_unlock`
+(écran, achat, `ProfileHas`, `RunUnlocks` inchangé). Avec `stay: true` le runner ne suit pas la relance
+(la preuve reste dans la session du hub) ; avec `stay: false` il la suit (m2-full-run, ci-dessous). La
+relance a aussi son test, `crates/scenario/tests/hub.rs` (porte → requête une fois la frame confirmée →
+`Floors { etage_1 }` étage 0, `HubState` et `RoomStates` remis à zéro, `RunUnlocks` de la run contient le
+déblocage acheté au hub).
+
+**Limites.** Local : la graine de la run ne change pas d'une run à l'autre (le restart local garde la
+graine, §33). En ligne : la porte est jouée par le chemin du restart de §33 (preuve p2p rejouée par
+l'orchestrateur) ; les déblocages et services de l'hôte viennent de la configuration de session
+(`ALACOD_RUN_UNLOCKS`, `ALACOD_HOST_STATS`), pas encore d'un échange réseau, et un achat de l'hôte
+au hub n'atteint les pairs qu'avec la synchronisation des profils (hors périmètre).
+
+### Run complète de M2 : `gungeon_full_run` (m2-full-run)
+
+Deux scénarios attestent les mécaniques de M2 du tableau ci-dessous dans **une** partie de bots (graine 10, `etages_deux`,
+`shopping: true`, profil à trois déblocages, hub puis run) : `gungeon_full_run` (2 bots `explorateur`, 7 900
+frames, victoire f7200 depuis les gabarits agrandis, §40) et `gungeon_full_run_four` (4 bots, 7 000 frames, victoire f6844,
+synctest). Les moments clés du premier sont dans `events.json` (page de revue), chaque ligne du tableau a une attente
+**sauf le coffre à clé**, attesté par `gungeon_key_chest` (voir sa ligne).
+
+| Mécanique | Frame (2 bots, frames de la run) | Attente |
+|---|---|---|
+| Entrée depuis le hub | marchand f80 et porte f175 du hub ; `hub` f1 | `HubVisit`, `HubExit(exit_frame: 175)`, `Event(hub)` |
+| Déblocages lus du profil (M2-T12) | f1 | `RunUnlocks(has: 3)`, `Event(unlock)` |
+| Escouade | verrou f356 → f506 | `SquadSize(bullet_kins)` = 3 (f380), 0 (f520) ; à 4 joueurs ≥ 2 (f380), 0 (f460) |
+| Salle verrouillée puis nettoyée | f66 → f186 | `Event(room)` ×2 |
+| Blank utilisé | f95, f107 | `Event(blank)` |
+| Objet ramassé | clé f246, blank f1783, ration f3538 ; coffres libres : `bastion` f698 (joueur 1), `rancune` f6256 (joueur 0, étage 2) | `Event(item_pickup)`, `HasItem(bastion)`, `HasItem(rancune)`, `Consumable(key, 1)` |
+| Achat en boutique | f1896-1922 (trèfle, présentoir 1 ; second étage f6117-6143) | `Event(purchase, shop)`, `Shelf(nth: 1, sold)` faux f1850 puis vrai f1950, `Consumable(blank)` 0 (f1700) → 1 (f1800) |
+| Coffre à clé ouvert, clé consommée | **hors des runs de bots** : la limite de détour du bot écarte la salle de récompense (`recompense`, coffre `locked: true`) et la clé ramassée f246 reste au joueur (`Consumable(key)` = 1 jusqu'à la fin). **Attesté par `gungeon_key_chest`** (`game: "gungeon"`, coffre verrouillé, clé f5, interaction f10, objet `bastion` ramassé f45) | `Consumable(key)` 1 (f8) → 0 (f20), `Event(chest)`, `ItemCount(bastion)` 0 → 1 |
+| Arène tenue | f2077 → f2827 (750 frames) | `Event(arena)`, `RoomState(arene, nth: 0, Cleared)` |
+| Boss, phase 1 | boss f3650, phase 0 → 1 f3740, 1 → 2 f3761, nettoyée f3780 | `BossPhase(NetId(175), 1)` (f3750), `Event(boss_phase)` |
+| Portail | f3781 | `Event(portal)` |
+| Second étage | f4219, puis arène f5025-5775, boutique f6117-6143, coffre f6256, boss f7111 (phase 1 f7151) | `FloorIndex(1)`, `EventAfter(chest, purchase, arena, boss_phase)`, `BossPhase(NetId(607), 1)` |
+| Victoire et profil | f7200 | `RunState(Ended(Victory))`, `ProfileHas(first_victory)` |
+
+**Non attestées, et pourquoi** : (0) la **phase 2 du boss** n'est lue par aucune attente de ces runs : `BossPhase` y est lue en phase 1 (le boss ne fait « qu'une transition par frame », `game/src/boss.rs:7`, et disparaît à sa mort) ; le premier boss passe en phase 2 f3761 (moment clé) ; la phase 2 est attestée par `gungeon_boss` (f520) et `gungeon_boss_bot` (bot) ; (1) la **salle secrète** : absente de la graine 10 et, de toute façon, son mur ne
+s'ouvre qu'à une explosion alors que gungeon ne donne aucune bombe (D81) ; (2) la **porte du hub conditionnée par un
+déblocage** : elle n'existe pas, `hub/porte.ron` (`EnterRun`) n'a aucune condition ; seul le marchand exige `first_run`
+(sa visite f120 le prouve pour le profil du scénario) ; l'effet des déblocages sur la run se prouve par `RunUnlocks`
+(le trèfle quitte les pools sans `tresor_trefle`, §51), pas par la porte. Attente ajoutée `SquadSize { squad, min,
+max, at_frame }` : ennemis vivants déclarant `ai.squad`.
+
+**Runner : la relance du hub est suivie** (`HubSetup { stay: false, inputs }`). Le scénario se joue en deux
+phases dans une même boucle : le hub (frames du hub ; seules `HubExit` et `HubVisit` sont évaluées, `inputs` :
+une piste par joueur, remplace `players[i]` pendant le hub) puis, quand la porte a relancé la session
+(`HubSession::in_hub` faux, `FrameCount` revenu à 0), la run (`swap_hub_inputs` rend aux joueurs leurs pistes ou
+leurs bots). `frames`, les autres attentes, la **trace** (l'enregistreur est vidé à la relance), `sim_fps` et
+`events.json` sont ceux de la run ; `play` et `capture` ne comptent `frames` et ne capturent qu'une fois la run
+commencée (`HubPhaseOver`) : la vidéo montre la run seule, sans image du hub. Refusés explicitement
+(échec du scénario) : les attentes continues et les réglages de joueur (`weapon`, `items`, `currency`…), qui
+ne s'appliquent qu'à la première session. `HubSetup { stay: true }` et les scénarios sans hub : inchangés.
+
+**`Scenario::shopping`** : le bot `explorateur` ouvre les coffres et achète les présentoirs (D62,
+`ExplorerOptions::shopping`) sans code côté appelant ; faux par défaut, aucune trace de bot ne bouge.
+
+**Moments clés ajoutés** (`crates/scenario/src/events.rs`) : `chest` (`ChestOpened`), `arena` (arène dont le
+type porte `RoomKindDef::arena`, de `Locked` à `Cleared` : « arène tenue (750 frames) »), `unlock` (`RunUnlocks`
+non vide, une fois), `hub` (« entrée en run depuis le hub », daté de la première frame de la run) ; l'achat
+en boutique est le moment `purchase` existant (`CurrencyEvent` de raison `shop`). Attente `EventAfter` : un
+moment clé survenu après une frame donnée (la seconde arène, le second boss). **Les moments clés tirés de
+`FrameEvents` (`room`, `blank`, `item_pickup`, `boss_phase`, `arena`, `chest`) portent la frame de la
+simulation qui les a émis, une de moins que celle lue après l'update : `by_frame` = frame affichée + 1.**
+
+**Trois défauts trouvés en le faisant** (aucune trace existante ne bouge) :
+1. *Hub → run : toutes les portes restaient fermées.* Le hub est une salle typée (`room_kind: depart`) : sa
+   session posait `RoomStates::doors_opened`, que la relance ne remettait pas à zéro ; aucun bot ni joueur ne
+   sortait de la salle de départ (mesure : 39 portes fermées contre 3 sans hub). Même défaut au restart
+   (touche R) avec les salles nettoyées de la partie précédente. `cleanup_rollback_world_system` remet
+   maintenant `RoomStates`, `ArenaClocks` et `DoorLocks` à zéro (assertions dans `tests/hub.rs`).
+2. *Quatre joueurs sur `gungeon` : panique « pas de point de spawn pour le joueur 2 ».* Le gabarit `Depart` n'a que
+   deux `PlayerSpawn` ; en ajouter décalait le barycentre du portail et la numérotation des entités de tous les
+   étages (toutes les traces gungeon). `map_ldtk::game::local::player_spawn_point` : un joueur sans point
+   propre prend celui de rang `handle % n` décalé de 24 unités vers le bas par tour, uniquement là où le
+   chargement paniquait. À l'étage suivant, `floors.rs` laisse déjà « en place » un joueur sans point.
+3. *`HashMap` des points de spawn* remplacé par un `BTreeMap` (deux entrées retirées de
+   `determinism-allowlist.json`).
+
+**Fuzz** : `ALACOD_FUZZ_SCENARIO=<nom>` (`fuzz_inputs`) joue le scénario avec des inputs aléatoires à la place de
+ses bots (attentes retirées, pistes du hub conservées) : `ALACOD_FUZZ=0:8 ALACOD_FUZZ_SCENARIO=gungeon_full_run
+cargo test -p scenario --profile headless --test fuzz_inputs -- --ignored --nocapture`.
+Résultat (2026-10-16, 3 600 frames, synctest) : graines 0 à 7 sur `gungeon_full_run` et sur
+`gungeon_full_run_four`, aucune divergence ; tous les joueurs restent en vie. La couverture n'est pas mesurée : des
+inputs aléatoires ne cherchent pas à traverser les étages, les deux scénarios de bots le font (synctest, 0 desync).
+
+**Vidéo et moments clés.** `scripts/scenario-video` ne tourne pas ici : `play_scenario --capture` ouvre une fenêtre
+winit (cachée) et panique (`Failed to build event loop`, « neither WAYLAND… nor DISPLAY is set » : ni X11 ni Wayland, aucun `Xvfb`
+installé, pas de droits root ; `lavapipe` est installé mais la fenêtre échoue avant). Les vidéos sont à rendre sur un
+poste avec écran. Les moments clés se produisent sans rendu : `ALACOD_EVENTS_JSON=<dossier> ALACOD_SCENARIO=<nom>
+make test_scenarios` écrit `<dossier>/<nom>.events.json`, au format de la capture ; ceux des deux scénarios sont dans
+`docs/taches/rapports/m2-full-run/` (à copier dans `target/videos/<commit>/<nom>.events.json` pour la page de revue).
+
+**Graine** : sur 64 graines à 2 bots (`alacod-sim --shopping`, 15 000 frames, avant la relance par le hub) : 48
+victoires, 13 soft-locks (bot, D82), 3 défaites, 0 desync ; la 10 est une graine où tout arrive (coffre à clé,
+achats, deux arènes, deux boss) et où les phases 0 → 1 → 2 du boss tombent aux deux étages ; elle gagne aussi à
+4 joueurs.
+
+### p2p réel de la run complète (m2-p2p-run-complete)
+
+Preuves en ligne (transport WebRTC réel, rollbacks réels, sans affichage) de la run de M2 ; mesures et commandes
+dans `docs/taches/rapports/m2-p2p-run-complete.md`.
+
+- **Inputs des bots figés.** Les bots (`crates/bots`) ne sont pas dans le binaire du jeu : `scripts/p2p-gungeon-inputs.sh
+  <joueurs> <graine> <frames> <sortie.ron>` joue la run par `alacod-sim --save-scenario` (l'enregistrement exact de ce qui
+  part à GGRS) ; chaque client la rejoue (`ALACOD_INPUT=script:<fichier>`, handle GGRS = piste). Valable pour la même
+  graine, les mêmes réglages et le même contenu seulement : après un changement de simulation, l'étage 2 n'est plus
+  atteint, et `EXPECT_FLOORS` de `p2p-stress.sh` (nombre de `floor_transition` distincts du journal) échoue au lieu
+  d'un faux vert.
+- **`ALACOD_SKIP_HUB=1`** (gungeon, natif) : pas de `HubSession`, la partie démarre dans la run ; **`--seed <n>`** (tous les jeux, D105) : graine de
+  carte imposée par **un seul** consommateur, `map_ldtk::game::local::apply_launch_seed` (`Startup`, installé par `LdtkLocalGamePlugin`,
+  en local comme en ligne ; sans lui, `entry.default_seed`, sauf `zombies` en local, qui tire une graine au hasard : `choose_local_seed`
+  ne garde que ce tirage et le titre de fenêtre, `--seed` passe par le système commun ; le runner de scénarios n'installe pas
+  `BaseArgsPlugin`, donc aucune graine n'est imposée aux scénarios). `scripts/check-launch-seed.sh` : trois parties locales par jeu
+  (graines A, B, A), frame 0 différente entre A et B, identique entre les deux A. Raison : une partie en
+  ligne passée par le hub joue sa run sur une graine **dérivée** (`restart_seed`, §33) alors que la graine de carte
+  du hub est conservée : un enregistrement de bots fait par `alacod-sim` (même graine partout) ne s'y rejoue pas à
+  l'identique. Sans `ALACOD_SKIP_HUB`, le hub est joué pour de vrai : `ALACOD_INPUT=script:` lit les pistes `hub:
+  Some((stay: false, inputs: …))` du scénario (`ScriptedHubInputs`) tant que `HubSession::in_hub`, puis les
+  `players` ; `scripts/p2p-stress-inputs.py --hub-door` génère un script (hub : le joueur 0 va à la porte, run : entrées
+  aléatoires).
+- **Délai d'input des enregistrements de bots (D85, fermée).** `alacod-sim` joue en synctest avec `ALACOD_INPUT_DELAY` = 5 (défaut) : l'input
+  décidé à la frame f est appliqué à f+5 ; les clients p2p des preuves tournent à 0. `scripts/p2p-gungeon-inputs.sh` décale donc les segments de
+  `INPUT_SHIFT` (5) frames (0 pour des clients à délai 5) : sans cela la run rejouée n'est pas celle des bots (franchissement d'étage f3725 au
+  lieu de f3731, aucune victoire après le hub). `HUB=1` enregistre une run lancée par la porte du hub en ligne (`ALACOD_SIM_HUB=1` : hub puis run
+  dans `alacod-sim` ; `ALACOD_RUN_SEED_ONLINE_GAME=1` : graine de run `restart_seed(graine, 1)`, `jjrs::local`, natif, absente = inchangé) ;
+  le client se lance alors sans `ALACOD_SKIP_HUB`.
+- **Retour au lobby en ligne (D86, fermée).** Cause : « Lobby » rouvre la salle d'**origine**, où l'autre pair garde son socket de la partie finissante
+  jusqu'à `OnExit(InGame)` ; le premier revenu s'y connectait et construisait sa session sur cet ancien identifiant. Correctif sans protocole
+  nouveau (`jjrs::p2p`) : (a) `PreviousSessionPeers` mémorise les identifiants des pairs de chaque session construite
+  (`system_after_map_loaded`) et `live_players` les retire de la liste du socket (`wait_for_players`, interface du lobby, construction de la
+  session ; l'ordre trié des identifiants, donc les handles GGRS, est conservé) ; (b) une session p2p restée `Synchronizing` plus de
+  `SYNC_TIMEOUT_SECS` (30 s d'**horloge murale**, `Instant` : `Time<Real>` avance de 1/60 s par update en headless ; `ALACOD_SYNC_TIMEOUT_SECS`
+  pour les essais ; l'autre pair peut légitimement finir de charger) est abandonnée :
+  `ggrs{f=… session_sync_timeout waited_secs=… players=…}` au journal, puis `RunRequest::ToLobby` ; le repli du restart (`{lobby}` après
+  `RESTART_TIMEOUT_SECS` = 30 s, qui lit encore `Time<Real>` : trop court en headless, défaut antérieur non corrigé) est inchangé. Session seulement : aucune trace de scénario ne bouge. Essais :
+  `scripts/p2p-lobby.sh` (requêtes à 100–400 ms d'écart, `ALACOD_RESTART_DELAY_MS`), `scripts/p2p-sync-timeout.sh` ((b) de bout en bout :
+  un client suspendu avant sa session). `p2p-restart.sh` avec `RESTART_KIND=lobby` ; `EXPECT_VICTORY=1` exige la victoire avant la relance.
+- **Connexion jamais établie au lobby (D109, fermée).** Sous perte de paquets (3 % : 2 à 5 % des démarrages), un pair annoncé par le signaling ne finit jamais sa négociation WebRTC et le
+  lobby attendait sans fin (« Waiting for players: 1/2 »). Le socket matchbox n'expose pas ce pair : `jjrs::signal_watch::ObservedSignallerBuilder` (natif) enveloppe le signaller et
+  note les `NewPeer`/`Signal` reçus ; `wait_for_players` borne l'attente du plus ancien pair vu, ni connecté ni d'une session passée, à `CONNECT_TIMEOUT_SECS` (15 s, **horloge murale**,
+  hors simulation, `ALACOD_CONNECT_TIMEOUT_SECS`) : nouvelle tentative (socket neuf, même salle ; `ggrs{f=0 lobby_connect_timeout attempt=1/2 action=retry …}`), puis retour au lobby
+  (`LobbyOnline` ré-entré ; `attempt=2/2 action=lobby` ; `ALACOD_CONNECT_ATTEMPTS`) ; en allumette et sur le web pas de réouverture. Écran du lobby : ligne d'état (« Connecting to peer... »,
+  « new attempt (2/2) », « back to the lobby »). **Piège** : la nouvelle tentative d'un seul côté d'une connexion à moitié ouverte (un canal ouvert, l'autre pas) donnait deux cycles de
+  30 s décalés qui ne se rejoignaient jamais ; une session `Synchronizing` est donc aussi abandonnée dès qu'un pair de la session en cours quitte la salle
+  (`CurrentSessionPeers`, `ggrs{f=… session_peer_left …}`). Session seulement : aucune trace de scénario ne bouge. Preuves : `p2p-connect-timeout.sh`, `p2p-connect-starts.sh`
+  (150 démarrages à 3 % joués, 7 retentés, 0 perdu) ; rapport `dettes-d105-d109.md`.
+- **Admission au lobby (D116, corrigée ; ouverte sur l'arrivée tardive).** `wait_for_players` attendait sans fin quand des pairs en trop restaient dans la salle (D109 : « attend tant qu'il y a plus de pairs que
+  `max_player` »). Politique : `jjrs::p2p::admit_players` garde les `max_player` **premiers** joueurs du socket (identifiants triés, le même ordre chez tous les pairs qui voient le même
+  ensemble ; les handles GGRS en dépendent), les suivants sont **ignorés**. Les admis démarrent sans attendre les pairs en trop (`ggrs{f=0 lobby_admission peers=3 max=2 excess=1 local=admitted|ignored}`,
+  journalisé une fois par changement) et `AdmittedPlayers` (ressource, fixée par `wait_for_players`) est reprise telle quelle par `system_after_map_loaded` : un pair arrivé pendant le chargement de la carte ne
+  change ni les handles ni la taille de la session. L'ignoré attend une place (écran du lobby : « Room full (3 peers for 2 places): waiting for a free place »), puis, au bout de
+  `ALACOD_CONNECT_TIMEOUT_SECS` (15 s, horloge murale), revient au lobby (`ggrs{f=0 lobby_room_full … action=lobby}`, « back to the lobby ») en tenant les admis pour occupés
+  (`PreviousSessionPeers`) : sans cela son socket neuf les reverrait et le classerait parmi les admis d'une session que personne n'écoute (constaté : 1 essai sur 2 au premier jet).
+  Un excédent de pairs **connectés** (`players.len() > max_player`, p. ex. le socket d'une partie finissante pas encore dans `PreviousSessionPeers`) est attendu `ADMISSION_SETTLE_SECS` depuis son apparition (`LobbyConnectWatch::excess_since`) ; le délai de D109 ne vaut que s'il manque des joueurs. Un pair vu par le signaling et pas encore connecté retarde l'admission d'au plus `ADMISSION_SETTLE_SECS` (3 s) : sans cette attente, deux clients qui ne voient pas le même ensemble
+  choisissent des admis différents ; elle est bornée pour qu'un pair à moitié connecté qui ne finit jamais (D109) ne bloque pas les pairs connectés. **Limite assumée** : pas de protocole d'engagement entre pairs (une course sur 24 essais depuis la correction du premier jet : un client a démarré avant que le signaling lui annonce le troisième).
+  Un pair qui arrive après le démarrage des autres voit trois pairs et se classe parmi les admis si son identifiant est bas : sa session ne se synchronise jamais et `abandon_unsynchronized_session`
+  le ramène au lobby au bout de `SYNC_TIMEOUT_SECS` (30 s) ; même cas par construction avec allumette et le web (non essayés). Session seulement : aucune trace de scénario ne bouge.
+  Preuves : `p2p-admission.sh` (trois clients, deux places : les deux admis jouent 1 500 frames aux traces identiques, l'ignoré revient au lobby ; `GHOST=1` : deux clients et un fantôme à moitié
+  connecté jouent après 3 s), `p2p-connect-timeout.sh GHOST=1` (les deux délais complets `attempt=1/2 action=retry` puis `attempt=2/2 action=lobby`) ; rapport `dette-d116-lobby-admission.md`.
+- **Entrées du joueur local en deux moitiés (D69 étape 2, E4).** La simulation (`character/player/input.rs`) ne nomme ni leafwing, ni `Window`/`Camera`, ni `ui::` : `read_local_inputs` (`ReadInputs`) construit `LocalInputs` d'après la source (`InputSource`) et, pour `Devices`, lit `Option<Res<DeviceInputs>>` (`BTreeMap<handle, BoxInput>`). L'application (`character/input_devices.rs`) l'écrit : `collect_device_inputs` (`ReadInputs`, **avant** `read_local_inputs`, remet la table à vide à chaque appel ; mêmes boutons, même `pan` — souris et caméra —, `confirm_input` de l'écran de mutation) ; `attach_local_player_input` pose `ActionState`/`InputMap` sur le joueur local (`PreUpdate` avant `RunGgrsSystems`, `Added<LocalPlayer>` : au plus une frame de rendu après sa création, D4) et `light::attach_player_light` la lumière (feature `lighting`). `character::app_plugin::CharacterAppPlugin { headless }` (juste après `BaseCharacterGamePlugin`) n'ajoute leafwing, `DeviceInputs` et ces systèmes **que hors headless** : en headless, un joueur local sous `Devices` envoie un input neutre (comme avant, `ActionState` n'y était jamais pressé) et `skip_device_input` n'existe plus. `create_character` ne pose plus `Visibility` (posée par `attach_character_visuals`) ni `SpatialAudioEmitter` (inerte). **Piège de capture** : une ressource nouvelle est une entité (+1 index), et `legibility.rs` déduit la phase du halo des objets de `entity.index % 16` : ajouter une ressource décale le halo d'une capture `gungeon_boss` sans toucher la simulation (preuve : base + ressource factice = 0 image différente) ; comparer des captures par `cmp` exige donc le même nombre de ressources. Rapport `dette-d69-e4-personnage.md`.
+- **Session p2p en deux moitiés (D69 étape 2, E6).** `jjrs/p2p.rs` est la moitié **simulation**, sans socket : `PreviousSessionPeers`, `CurrentSessionPeers`, `SessionPeerLeft`, `live_players`, `admit_players`
+  (D116), `AdmittedPlayers`, `pair_session_players` (appariement joueurs du socket ↔ `GggrsSessionConfiguration`, l'application passe la liste des pairs ; un `identity` optionnel pour le web),
+  `start_online_run` (graine, `Run`, déblocages, `AppState::InGame`), `SYNC_TIMEOUT_*`, `SessionSyncWatch`, `reset_sync_watch`, `abandon_unsynchronized_session`, `session_builder`,
+  `DISCONNECT_TIMEOUT`, `MAX_PREDICTION_WINDOW`, `secs_from_env` ; `PeerId` vient de `matchbox_protocol` (crate de données). `jjrs/p2p_socket.rs` est la moitié **application** (tout ce qui lit
+  `MatchboxSocket`) : `start_matchbox_socket`, `wait_for_players`, `LobbyConnectWatch`, `build_p2p_session` (canal du socket, session GGRS, `Session::P2P`), `observe_session_peers` (écrit
+  `SessionPeerLeft`), `drop_matchbox_socket` (ex-`restart.rs`, `OnExit(InGame)`), avec `signal_watch.rs`, `allumette.rs`, `browser.rs`. L'ancien `system_after_map_loaded` est `build_p2p_session`
+  (app) puis `start_online_run` (sim), dans le même tuple `OnEnter(GameStarting)` ; `abandon_unsynchronized_session` lit `SessionPeerLeft` après `observe_session_peers` (même update, même frame).
+  Télémétrie : `log_ggrs_events` écrit le message `DesyncObserved` (même idiome que `SessionLostEvent`), `jjrs/telemetry.rs` (app) le transmet à `telemetry` ; `GameArgsPlugin` (lu par `scenario`) ne
+  pose plus `TelemetryConfig`, `args::telemetry_config::TelemetryConfigPlugin` (app, ajouté par `BaseArgsPlugin` après lui). `recording.rs` ne nomme plus `bevy::window::ExitSystems` (l'application pose
+  `ExitSystems.before(ExitRequests)`). Web : `run_state::apply_run_request_system` écrit `ReturnToHostLobby` pour une session `HostedSession` (marqueur posé par `BaseArgsPlugin`),
+  `jjrs::browser::return_to_host_lobby` appelle le crochet JS. Aucun type rollback touché, aucune trace ne bouge, ordre des schedules identique (`make schedule_order_diff`). Au passage en
+  `game_app` (E9), `p2p_socket.rs`, `telemetry.rs`, `signal_watch.rs` et `telemetry_config.rs` suivent sans changement de contenu ; rapport `dette-d69-e6-session-reseau.md`.
+- **Trace** : `StateTracePlugin` vide l'enregistreur à **chaque** sortie d'`InGame` (pas seulement au restart) : les frames de
+  la run (qui repartent de 0 après le hub) ne se mêlent pas à celles du hub et ne comptent pas comme resimulées. Le compteur
+  `resimulées` reste cumulé sur toute la durée du processus ; les rollbacks sont comptés **par partie** (`state_trace::RollbackStats`) et
+  journalisés à la sortie : un rollback = une restauration d'état de bevy_ggrs (schedule `LoadWorld`, même nombre que `load ×N` du
+  profil rollback) ; sa profondeur = frames resimulées = `dernière frame avancée avant la restauration − frame restaurée` (lue à la fin de
+  chaque `AdvanceWorld`, indépendante de la trace : GGRS sauvegarde la frame courante même pendant un tick bloqué au seuil de prédiction,
+  ce qui réenregistre une clé de trace sans rien resimuler) ; ligne
+  `rollbacks : n=… frames=… profondeur_moy=… profondeur_max=… par_100_frames=… histogramme=profondeur:nombre,…`
+  (`p2p-stress.sh` l'affiche par client).
+- **`ALACOD_RESTART_KIND`** (avec `ALACOD_RESTART_AT_FRAME`) : requête posée à la frame de relance, `restart` (défaut),
+  `lobby` (`RunRequest::ToLobby`) ou `hub` (`RunRequest::ToHub`) ; `ALACOD_RESTART_DELAY_MS` retarde la pose de la requête
+  (temps réel, essais D86).
+- **Scripts** (`scripts/p2p-lib.sh` en commun) : `p2p-stress.sh` (N clients `CLIENTS`, suspension du client 1,
+  `NETEM`, `MATCHBOX_URL`, `GAME_ARGS`, `EXPECT_FLOORS`), `p2p-restart.sh <jeu>` (restart, lobby, hub ; `RESTART_DELAYS_MS`),
+  `p2p-lobby.sh` (D86 : essais consécutifs du retour au lobby), `p2p-sync-timeout.sh` (abandon d'une session non synchronisée ; le client repris abandonne par `session_peer_left` ou `session_sync_timeout`),
+  `p2p-connect-timeout.sh` (D109 : pair vu par le signaling jamais connecté, `ATTEMPTS=1|2` ; `GHOST=1` : second délai `attempt=2/2` avec un pair fantôme visible à chaque socket, `p2p-ghost-peer.mjs`), `p2p-admission.sh` (D116 : trois clients, salle à deux places ; `GHOST=1` : deux clients et un fantôme), `p2p-connect-starts.sh` (D109 : fréquence des démarrages bloqués,
+  `PLAY_FRAMES`), `p2p-linux-box.sh` (les scripts `NETEM` depuis un Mac : conteneur Linux `NET_ADMIN`), `check-launch-seed.sh` (D105),
+  `p2p-disconnect.sh` (pair tué), `p2p-machine.sh` (un client par machine), `nightly.sh` étape C2.
+- **Deux machines (m2-p2p-deux-machines, 2026-10-18).** `scripts/p2p-machine.sh` lance **un** client sur chaque machine (`CLIENTS`, `LOBBY` et
+  `MATCHBOX_URL` communs, même commit, mêmes inputs figés) ; `STRESS=1` suspend ce client par à-coups (SIGSTOP/SIGCONT, `SUSPEND_MS`, `RUN_MS`) et
+  `MIN_RESIMULATED=n` échoue sous n frames resimulées. Constaté sur 8 parties : le VPS resimulait 0 frame dans 3 (`gung-b`, `gung-d`, `isa-b`), le Mac toujours ; [INFERENCE] le client en retard n'a rien à
+  corriger, le plus rapide prédit les inputs de l'autre. Pour que **les deux** resimulent, suspendre longuement la machine qui resimule (Mac :
+  `SUSPEND_MS=80 RUN_MS=40`, le VPS resimule alors 23 frames, le Mac 9 580). Signaling : `matchbox_server 0.0.0.0:3536` sur une machine (binaire extrait par `p2p-lib.sh`), `MATCHBOX_URL=ws://<ip publique>:3536`.
+  `isaac` ignorait `--seed` (D108, corrigé par `m3-t14-bot-isaac`) ; throne et testbed aussi (D105, corrigée par `dettes-d105-d109` : un consommateur commun) : les enregistrements de
+  bots (`alacod-sim --game isaac --floors sous_sol --until-floor 2 --seeds 5..5`, décalage d'input +5 comme `p2p-gungeon-inputs.sh`) se rejouent désormais avec `--seed 5`. Résultats : rapport `m2-p2p-deux-machines.md` §3.
+- **D87 (silences sous perte, fermée).** Sous perte de paquets le pair se tait 0,5 à 1 s, 1,0 à 1,5 s ou 3,0 à 3,4 s ([INFERENCE] : retransmission rapide, retransmission SCTP de
+  WebRTC après `RTO_MIN` = 1 s de `webrtc-sctp`, puis une seconde après 2 s de plus ; rien n'instrumente SCTP) ; GGRS déconnecte au bout de `p2p::DISCONNECT_TIMEOUT` (5 s, 2 s avant D87), et la
+  notification `NetworkInterrupted` reste à 500 ms. `scripts/p2p-d87.sh` rejoue la matrice (`CELLS`, `VARIANTS` `timeout2000|timeoutNNNN|unreliable`,
+  `REPS`), `scripts/p2p-silences.py` mesure les silences d'un journal (reprise = 500 ms + écart `NetworkInterrupted`→`NetworkResumed`) et distingue
+  la déconnexion **en cours de partie** de la **fin de partie** (le pair a fini et quitté : le survivant attend le délai de déconnexion puis valide ses dernières frames avec les inputs par défaut du pair parti, d'où des dernières lignes de trace différentes ; 2 essais sur 31, à 2 s et à 8 s).
+- **Réseau dégradé sans root** : `NETEM="delay 60ms 10ms loss 1%"` relance le script dans `unshare -Urn` (espaces de noms
+  utilisateur et réseau sans privilège), met `lo` en `tc netem` (le délai s'applique à chaque sens : RTT = 2 × délai),
+  ajoute une interface factice `dummy0` (WebRTC ignore la boucle locale) et y fait tourner le signaling (`matchbox_server`
+  extrait de l'image Docker du compose, ou `MATCHBOX_BIN`). Aucun accès réseau extérieur dans cet espace.
+
+## 60. Contrats des larmes et de l'empilement de projectiles (M3-T0a, chantier B5 v3)
+
+Contrats posés pour M3-T1 (larmes v3), M3-T6 (familiers qui tirent), M3-T11a (contenu de larmes)
+et M3-T15 (bench). **Aucune trace existante ne bouge** : variantes en fin d'enum, stats lues avec
+une base 1 sans être posées dans `Stats`, champs d'objet optionnels hors rollback.
+
+### Munitions infinies
+
+`MagBulletConfig::Infinite` (en fin d'enum, `combat::weapons`) : le mode tire tant que la cadence
+le permet ; jamais vide, jamais rechargé (pas même le délai de pompe d'un `Shotgun`), `mag_ammo` et
+`mag_size` restent à 0 (attente `Ammo` à 0 ; le HUD affichera `∞` ou rien, M3-T16). Réserve
+initiale : 0, comme `Magless`.
+
+```ron
+"larme": (config: (name: "larme", default_firing_mode: "default", firing_modes: {
+    "default": (firing_rate: "3.0", firing_mode: Automatic(), /* … */ mag: Infinite),
+})),
+```
+
+`ammo_type` devient facultatif dans le RON (`#[serde(default)]`, défaut `Custom("")`, la seule
+valeur qu'un RON ne peut pas écrire : T2.8 la refuse) **seulement** pour une arme dont tous les
+modes sont `Infinite`. Lint : `ammo_type` absent alors qu'un mode consomme (`Mag`, `Magless`) →
+`Parse` (comme l'erreur RON d'avant) ; `ammo_type` donné alors que tous les modes sont `Infinite` →
+`OutOfRange`. Une arme mixte (un mode `Mag`, un mode `Infinite`) garde son `ammo_type`.
+
+### Stats de larmes et `Luck`
+
+- `StatId::ShotSpeed` (vitesse de la balle) et `StatId::ShotSize` (rayon de collision et sprite,
+  après `Size`), **après `Custom`** dans l'enum : l'`Ord` des clés de `Stats` et le hash des stats
+  existantes ne changent pas. Lues au tir (`weapon_rollback_system`, `ShotStats`) par
+  `StatReader::get(…, 1)` : base 1 sans être posées dans `Stats` (le `Stats` de tout personnage
+  reste identique) ; à 1, aucun produit n'est calculé. `sim_core::stats::default_base` donne cette
+  base aux lecteurs hors simulation (attente `Stat`, générateur `ItemHeld`).
+- `Luck` a un lecteur de contrat : `effects::chance_with_luck(base, luck, par_point)` =
+  `clamp(base + luck × par_point, 0, 1)` en `Fixed`, saturant. Rien ne l'appelle encore dans la
+  simulation (M3-T1 : statut posé par une larme ; M3-T2 : effets d'objet). Le lint accepte donc
+  désormais un modificateur sur `Luck` (`stat_reader`).
+
+### Modificateurs de projectile portés par un objet
+
+Les contrats `ProjectileModifier`, `Pattern`, `ExpireAction` et `ProjectileSpec` vivent désormais
+dans `effects::projectile` (crate de simulation) et sont réexportés par `combat::projectile` :
+`items` (simulation, sans rendu) peut les porter sans dépendre de `combat` (dette D69). Le `Hash`,
+le `Debug` et le RON ne dépendent pas du crate de définition : aucune trace ne bouge.
+
+```ron
+// objets/<id>.ron (ou synergies/<id>.ron)
+(name: "Ricochet", kind: Passive, projectile: Some((modifiers: [Bounce(2)], on_hit: [], on_expire: [])))
+```
+
+`ItemDef.projectile` et `SynergyDef.projectile` : `Option<ProjectileMods>` (`ProjectileMods` =
+`ProjectileSpec` : `modifiers`, `on_hit`, `on_expire`), absent = v1 exacte. Ce sont des
+définitions (`ItemTable`/`SynergyTable`, ressources hors rollback, sans `Hash`) : le champ n'entre
+dans aucun checksum. **Le tir ne le lit pas encore** (M3-T1) : le lint vérifie sa forme (mêmes
+plages qu'une arme, doublon refusé dans la liste d'un objet) puis le refuse (`Unsupported`).
+
+### Composition (`combat::projectile::compose`)
+
+`compose(base, ajouts) -> ResolvedModifiers`, pure, `Fixed` seulement. Chaque liste est d'abord
+résolue seule (`resolve_modifiers` : dans une liste, le dernier l'emporte, le lint y refuse les
+doublons), puis les sources se combinent (règles par défaut de Q3, retenues par William le
+2026-10-15) :
+
+| Modificateur | Règle entre sources | Pourquoi |
+|---|---|---|
+| `Bounce(n)`, `Pierce(n)` | addition (saturante) | deux objets de rebond rebondissent plus |
+| `Size(f)` | produit | comme une stat multiplicative |
+| `Lifetime(n)` | maximum des sources qui en ont un | une larme vit au moins aussi longtemps |
+| `Homing(f)` | somme plafonnée à 1 | le guidage se renforce sans dépasser le virage complet |
+| `Gravity(g)` | somme | |
+| `Spectral` | présence | |
+| `Split` | addition des `count` ; `spread`, `child` de la première source | addition des branches |
+| `Orbit` | présence ; paramètres de la première source | |
+
+Ordre des sources, déterministe : arme (`base`), passifs dans l'ordre de ramassage (un passif en
+double compte deux fois), actif, synergies actives par id ; `items::projectile_sources(items,
+synergies, inventory)` rend les listes des objets dans cet ordre. Sans ajout,
+`compose(base, &[]) == resolve_modifiers(base)` exactement. `resolve_modifiers` reste l'unique
+appel au tir (inchangé) ; `ResolvedModifiers` n'est plus `Copy` (il porte `split`, `orbit`,
+`spectral`, que `Projectile::new` ne lit pas encore).
+
+### Nouveaux modificateurs (contrats)
+
+En fin d'enum `ProjectileModifier` (les six d'avant gardent leur hash, test
+`variantes_historiques_gardent_leur_hash`) :
+
+- `Spectral` : traverse murs et obstacles, pas les personnages ;
+- `Split(count, spread, child: Some("id"))` : à l'impact sur un personnage, `count` projectiles en
+  éventail de `spread` radians ; `child` = id de la table `projectiles` de l'arme, absent = le
+  projectile par défaut du porteur (Q3) ;
+- `Orbit(radius, frames_per_turn)` : tourne autour du tireur au lieu d'avancer.
+
+Lint : formes et plages (`Split.count > 0`, `spread >= 0`, `child` présent dans la table de
+l'arme ; `Orbit.radius > 0`, `frames_per_turn > 0`), puis `Unsupported` sur une arme tant que
+M3-T1 ne les exécute pas. Kinds `projectile_modifier` : `Spectral`, `Split`, `Orbit` (et `Fan`,
+`Spiral`, `Burst`, qui manquaient aux `pattern` déclarés par `CombatPlugin`).
+
+### Testbed et scénarios
+
+Arme `larme` (`Automatic`, 3 tirs/s, `mag: Infinite`, sans `ammo_type`) et objet `lentille`
+(`ShotSpeed Pct 0.5`, `ShotSize Mul 1.5`). Le testbed n'a pas de choix de personnage joueur dans
+un scénario : le « personnage d'essai » de la fiche est l'arme, donnée par `PlayerScript::weapon`.
+Scénarios : `tears_infinite` (300 frames de tir, `Ammo` à 0 tout du long, les coups continuent),
+`tears_shot_speed` (avec `lentille`, la larme touche `target` à une frame où, dans le témoin
+`tears_shot_speed_sans_objet`, elle n'est pas encore arrivée).
+
+
+## 61. Contrats des objets et de la santé (M3-T0b)
+
+Contrats posés pour M3-T2 (effets v3), M3-T3 (cœurs et pickups), M3-T8 (marché du diable) et
+le contenu Isaac. **Aucune trace existante ne bouge** : les champs nouveaux sont optionnels et
+absents du contenu livré, les nouveaux types rollback sont neutres, et les variantes sont ajoutées
+en fin d'enum.
+
+### Inventaire et exemplaires
+
+`Inventory::count(id)` compte les passifs dans leur ordre (doublons compris), l'actif s'il porte
+`id`, et le compteur consommable `id`. La clé historique d'un effet est
+`item:<id>:<index>` pour le premier exemplaire ; les suivants réservent
+`item:<id>#<k>:<index>`, avec `k >= 1`. Le branchement dans `listed_effects` et l'exécution de
+`PerCopy` restent M3-T2 : ce point ne change aucune partie existante.
+
+`effects::Scale::PerCopy` est porté par l'action contractuelle `Scaled { action, scale }`.
+`effects::scale_value` est la règle pure : `PerCopy` multiplie par `Inventory::count(id)`, le
+champ absent ne modifie pas la valeur. `scale` est accepté seulement dans un effet d'objet ;
+les power-ups, frises de boss, personnages, mutations et synergies le refusent au lint. L'action
+enveloppée est validée comme une action nue (`Heal` > 0, références de `SpawnPattern`…), y compris
+dans l'`OnUse` d'un objet. `Scale` est hors de l'exécution de cette dette.
+
+### Prix et compteurs
+
+`items::Price` est `Currency(u32)`, `Consumable(String, u32)` ou `MaxHealth(Fixed)`. Un
+`Shelf` conserve `price: u32` pour son hash historique et reçoit `cost: Option<Price>` ; absent,
+`cost` ne contribue pas au hash, et `Price::Currency` est équivalent à `price`. Les règles pures
+`can_pay`/`pay` refusent un prix de vie qui tuerait le joueur et réduisent la vie courante et
+maximale ensemble ; l'interaction de boutique est M3-T8. Un montant nul n'est jamais payable
+(`can_pay` faux, `pay` sans effet et sans panique) ; `Price::problems` donne les erreurs de contenu
+(montant nul, consommable inconnu, vie maximale hors `]0, max]`), sans surface de contenu avant T8.
+
+`ItemDef.max_stack: Option<u32>` ne plafonne un consommable que lorsqu'il est présent (Isaac :
+99). Absent conserve le comportement illimité actuel. Le ramassage au plafond laisse l'objet au
+sol ; son exécution est M3-T3. `game::loot::BOMB_ITEM` réserve le nom `"bomb"`.
+
+### I-frames et questions ouvertes
+
+`CharacterConfig.hit_iframes: Option<u32>` est absent par défaut. Après un dégât final strictement
+positif (après immunité, bouclier et armure), le résolveur pose `Health.invulnerable_until_frame`
+à `event.frame + n`, en conservant la valeur la plus longue. Un coup absorbé par un bouclier ou
+annulé par l'armure ne déclenche pas cette durée. La preuve future est le scénario
+`hit_iframes` : deux balles à dix frames d'écart, la seconde n'enlève rien avec `Some(30)` (4992) ;
+son témoin `hit_iframes_sans_iframes` (personnage `iframes_temoin`, sans `hit_iframes`) en perd
+deux (4984). Le résolveur lui-même est testé par `crates/scenario/tests/hit_iframes.rs`.
+
+**Q2 — modèle des cœurs (proposition par défaut).** Une demi-case vaut un point de `Health`,
+les personnages livrés gardent des PV pairs, et `ExtraHealth { soul: Fixed }` absorbe les dégâts
+point par point avant les PV ; il reste distinct de `Shield`, qui absorbe un coup entier.
+T0b ne code pas cette couche.
+
+**Q4 — partage en coop (bloqué).** Option par joueur : chaque `Inventory` reste local, et le
+ramassage est attribué au premier `GgrsNetId` dans l'ordre déterministe. Option équipe : une
+ressource rollback d'équipe porte sous, bombes et clés, les prompts lisent cette ressource et
+un seul ramassage la crédite. T0b ne choisit ni ne code l'une des deux.
+
+**Q16 — exemplaires.** Proposition par défaut : limites indépendantes pour tous les exemplaires,
+avec preuve des traces gungeon touchées ; l'alternative est un champ par objet
+`stack: Independent | Shared`. T0b réserve la clé indépendante mais ne branche pas les limites
+dans `listed_effects` avant M3-T2.
+
+## 62. Contrats du monde : bombes, rochers, piques, portes verrouillées, grille (M3-T0c)
+
+Contrats seuls, sans exécution : M3-T4 (bombes, rochers cassés, mur secret, piques) et M3-T5
+(planificateur en grille) les exécutent. **Aucune trace existante ne bouge** : tout type nouveau est
+neutre ou absent du contenu existant, l'input `Bomb` n'est lu par personne.
+
+### Explosion (`effects::Action::Explode`)
+
+`Explode { radius, damage, destroys, friendly_fire }`, en fin d'enum `Action` (les hashs d'avant ne bougent pas ; `friendly_fire` : D113, voir « Action `Explode` »).
+Règle pure `world::explosion_plan(grid, center, radius, destroys, candidates)` : les cibles sont les
+personnages à PV dont le centre est à **strictement** moins de `radius` (carré en `FixedWide`), rendus
+dans l'ordre croissant de `GgrsNetId.0` ; `destroys` casse aussi les rochers de `CellGrid` du rayon
+(`destroy_terrain`). Elle vit dans `world` (comme `destroy_terrain`, dans la frontière `SIM`), pas dans
+`combat` : elle ne connaît que des identifiants et des positions. Lint : `radius > 0`, `damage >= 0`,
+puis `Unsupported` dans un effet tant que M3-T4 ne l'exécute pas ; refusée dans un power-up. Le baril
+**ne bascule pas** dessus ici (sa trace ne doit pas bouger) : M3-T4 l'a fait (§69), traces identiques. Moment clé
+`explosion` (`world::Exploded`, `FrameEvents` neutre) déclaré, émis en T4.
+
+### Bombe
+
+Bit d'input `INPUT_BOMB` (18), bouton `Bomb` des scénarios (`game::replay::Button`), touche **E**
+(présentation ; la manette attend Q17). `CharacterConfig.bomb: Option<world::BombDef>`
+(`BombDef { fuse_frames, radius, damage }`, absent = pas de bombe, aucun contenu existant n'en a) ;
+composant `world::Bomb { owner: GgrsNetId, fuse_until, radius, damage }`, rollback **neutre**.
+`world::bomb_requested(buttons, def, bit)` est la lecture de l'input : faux sans `bomb`. Lint :
+`fuse_frames > 0`, `radius > 0`, `damage >= 0`. `fuzz_inputs` : le bit 18 n'a aucun effet sans `bomb`
+(personne ne le lit), donc aucune desync possible avant T4.
+
+### Rochers de salle
+
+Couche IntGrid optionnelle **`Rocks`** d'un gabarit LDtk (1 = rocher, 2 = rocher à butin ; le nom
+final dépend de Q9). **Écart à la proposition de la fiche** (remplir `CellGrid`) : un rocher est **une
+entité rollback** `world::Rock { cell, loot }` (neutre) avec collider (couche des murs) et `Obstacle`
+`Wall`, créée à côté des murs (`map_ldtk::game::collider::spawn_level_rocks`), numérotée
+`rock_<x>_<y>` dans l'ordre de lecture de la couche, niveaux triés par iid. Raison : `CellGrid` est
+dense, ancrée à l'origine et non négative, et `rebuild_cave_walls_system` détruit **tous** les murs pour
+les recréer depuis la grille et `reload_walls` remplace les cases murées de la navigation par celles
+de la grille : sur un étage assemblé (salles à des positions quelconques, murs IntGrid propres) cela
+effacerait les murs des salles. Le champ de flux voit l'`Obstacle` sans code de plus. Un niveau sans
+la couche ne crée aucune entité ni aucun id : traces inchangées. M3-T4 détruira un rocher par
+`despawn_rollback` (explosion `destroys`). Attente : `EntityCount(kind: Rock)`.
+
+### Piques
+
+`SurfaceDef.hazard: Option<HazardDef { damage, period }>` (fin de structure, absent des surfaces
+existantes ; fichier `surfaces/*.ron`, champ `hazard`). Règle pure `HazardDef::is_due(last_hit,
+frame)` : un coup au plus toutes les `period` frames. Lint : `damage > 0`, `period > 0`. Dégâts `True`
+ou typés (demi-cœurs : Q2) et exécution en T4.
+
+### Portes verrouillées
+
+`RoomKindDef.door_lock: Option<DoorLock>`, `DoorLock { Key(n), Secret }` (`rooms/*.ron`, hors
+sérialisation quand absent). `Key(n)` : porte fermée jusqu'à une Interaction avec `n` clés
+(`KEY_ITEM`, consommées à l'ouverture) ; `Secret` : mur plein jusqu'à une explosion `destroys`. État
+rollback **neutre** `world::DoorLocks` (ensemble des salles dont la porte est ouverte, vide par
+défaut). Lint : `Key(0)`. Attente : `DoorLocked(kind, nth, locked, at_frame)` (même tri que
+`RoomState`). Types réservés dans le testbed, aucun dans `gungeon` : `rooms/secrete.ron` (`Secret`),
+`tresor.ron` (`Key(1)`), `diable.ron` (sémantique en T8).
+
+### Disposition en grille
+
+`FloorGrammar.layout: Option<FloorLayout>`, `FloorLayout { Graph (défaut), Grid { cell, max } }`
+(Q8, proposition retenue : `cell` = 15 × 9 cases, une seule taille). Lint (`lint_floor_grammars`) :
+`cell` et `max` > 0, `max` contient au moins `rooms.0` salles, et chaque gabarit de la grammaire
+fait exactement `cell` cases avec une ouverture centrée sur chacun des quatre côtés. `plan_floor`
+**refusait** `Grid` (`FloorError::Unsupported`) tant que M3-T5 n'était pas livrée : le planificateur est
+`map::generation::grid` (§70), le lint des gabarits passe aux multiples de `cell` et aux ouvertures par
+case de salle (§70), `Grid` gagne `loops`, `secret` et `post_boss`.
+
+### Testbed et scénarios
+
+Carte `testbed/rocks_static.ldtk` (`scripts/construire-cartes-t0c.py`) et scénario `rocks_static` :
+le joueur marche vers trois rochers qui ferment un couloir et s'y arrête ; quatre rochers comptés
+(dont un à butin) à f5 et à la fin ; `joueur_hors_mur` tient.
+
+
+## 63. Contrats des familiers, orbitaux et champions v2 (M3-T0d)
+
+Contrats seuls : rien n'est rencontré en partie ordinaire, aucune trace ne bouge. M3-T6 exécute les
+familiers, M3-T7 les champions.
+
+**Behaviors de familier** (`behaviors::Behavior`, variantes **en fin d'enum**) : `Follow { gap }` (suit
+le porteur à `gap` unités, en file derrière les autres familiers du même porteur : rang = ordre
+d'apparition), `Orbit { radius, frames_per_turn }` (tourne autour du porteur, phase = rang × 2π /
+nombre d'orbitaux, par `fixed_math`), `MirrorShot { every }` (tire quand le porteur tire, dans
+sa direction de visée, au plus une fois tous les `every` frames ; **Q13** : les larmes du porteur, voir §71 « Q13 »), `BlockBullets` (une balle hostile qui touche le familier est détruite par
+`despawn_rollback`, comme le blank ; le familier est immunisé). `Behavior::is_familiar`. `select`
+ne retient jamais ces règles (un familier n'a pas d'IA de poursuite) ; kinds `Follow`, `Orbit`,
+`MirrorShot`, `BlockBullets` déclarés (`register_kinds`). Un familier est un **personnage** de
+`characters/` (équipe `Players` ; l'IA ennemie ne cible que `With<Player>`, un familier n'est donc ni
+visé ni attaqué : le ciblage ne change pas ici, allié qui combat = D5).
+
+**Lien au porteur.** `behaviors::FamiliarOf { owner: GgrsNetId, rank: u32 }` : composant rollback
+**neutre** (`rollback_and_trace_neutral`), contribution 0 sans porteur. Créé et détruit par les
+objets en M3-T6 ; son `GgrsNetId` viendra de `id_factory` au ramassage, dans l'ordre déterministe des
+ramassages de la frame.
+
+**Champ d'objet.** `ItemDef.familiar: Option<FamiliarRef { character, per_copy }>` (`per_copy` : 1 par
+défaut, par exemplaire tenu). Définition hors rollback et hors hash. **Lint** : personnage inconnu
+(`BrokenReference`), personnage sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0,
+`frames_per_turn = 0`, `every = 0` ; réciproquement un behavior de
+familier sur un personnage qu'aucun objet ne cite est refusé (`Unsupported`, « sans porteur »).
+
+**Champions v2.** Champs optionnels de `VariantDef` (hors hash : le composant `Variant(nom)` ne change
+pas) : `on_death: [Action]` (vide par défaut), `behaviors: Option<Vec<Behavior>>` (remplace la liste
+du personnage), `loot: Option<String>` (pool de butin lâché à la mort, graine de §48 avec la clé de
+contenu `champion:<net_id>`), `tint: Option<String>` (`#rrggbb`, présentation seule). `chance`
+accepte un nombre (valeur inchangée) **ou une expression** (`NumOrExpr`, §18) avec les identifiants
+`players` et `floor` ; `VariantsConfig::chance_at(players, floor)`. Tant que M3-T7 n'exécute rien, le
+tirage de la variante résout l'expression avec 1 joueur à l'étage 0 (`draw_variant`) ; un nombre est
+toujours exact, le tirage de la graine de §25 est donc inchangé.
+**Nouvelle action** `Action::SpawnCharacters { id, count }` (fin d'enum) : fait apparaître `count`
+personnages à la position de l'action, à des **décalages fixes** autour du point, sans RNG (justification
+contre `SpawnEnemies`, qui tire ses positions dans le flux RNG de la salle `room:<niveau>` : la mort d'un
+champion ne doit pas déplacer ce tirage). **Lint** des actions à la mort : seules `Explode`, `SpawnCharacters`
+et `SpawnPattern` sont admises (`Unsupported` sinon ; `SpawnCharacters` est refusée dans un effet, un
+power-up et une frise de boss) ; `Explode` rayon > 0 et dégâts ≥ 0, `SpawnCharacters` personnage connu et
+`count > 0`, `SpawnPattern` pattern et arme connus, pool de butin connu, couleur `#rrggbb`, `behaviors`
+non vide et valides (mêmes règles que `ai.behaviors`), `chance` dans [0, 1] pour 1 et 4 joueurs aux
+étages 0 et 5.
+
+**Preuves.** Fixtures `familiar_ok`, `familiar_unknown_character`, `familiar_orphan_behavior`,
+`familiar_without_behavior`, `familiar_gap_zero`, `champion_ok`, `champion_bad_death`,
+`variant_chance_expression_range`, `variant_chance_expression_unknown` ; contenu `testbed` : personnage
+`compagnon` (`Follow` + `MirrorShot`) et objet `compagnon` (`familiar`), accepté par le lint,
+sans scénario de jeu (le ramassage ne crée rien encore). Attente de scénario `FamiliarCount { handle,
+count, at_frame }` (familiers dont le porteur est le joueur ; 0 tant que M3-T6 n'existe pas).
+
+## 64. Curses, pools à épuisement, accomplissements : contrats (M3-T0e)
+
+Contrats et règles pures seuls : rien n'est rencontré en partie ordinaire, **aucune trace ne bouge**
+(`curses: None`, `exhaust: false`, ressources neutres vides). Le tirage d'une curse et ses effets sont
+M3-T9 (HUD : T16), l'épuisement en jeu et la salle du diable M3-T8, l'écriture des accomplissements dans
+le profil M3-T10. Réponses de William du 2026-10-16 : **Q5** (épuisement par run et par pool, tirage
+indépendant du moment), **Q7** (les cinq curses), **Q6** (le diable refuse si le paiement tuerait ; les
+cœurs d'âme paient à la place : T8).
+
+### Curses (`run::curse`, kind `Curse`)
+
+- **Contenu** `curses/<id>.ron` (id = nom de fichier ; `game.ron` : `(path: "curses", kind: "Curse")`) :
+  `CurseDef { weight: u32, effects: [CurseEffect] }`. `CurseEffect`, liste fermée, variantes **en fin
+  d'enum** : `HideMinimap`, `HideHealth`, `HideItemNames` (présentation seule : lues par le HUD, T16),
+  `FloorRooms("2.0")` (multiplicateur du nombre de salles : lu par la grammaire en grille, T5/T9),
+  `Modifier(stat, op, "valeur")` (posé sur chaque joueur pour la durée de l'étage ;
+  `CurseEffect::to_modifier(id)` : source `curse:<id>`, comme `item:<id>`, sans expiration, retiré à la
+  sortie de l'étage par T9).
+- **Les cinq de Q7** (exemples du `testbed`) : `darkness` (`HideMinimap`), `unknown` (`HideHealth`),
+  `blind` (`HideItemNames`), `labyrinth` (`FloorRooms("2.0")`), `maze` (`Modifier(MoveSpeed, Mul,
+  "0.85")`). `Modifier` est la variante générique (Maze/Lost d'Isaac : vitesse ou chance en moins) ; ne pas
+  en coder d'autres que ces cinq sans nouvelle réponse.
+- **Tirage par étage** : champ optionnel `curses: Some((chance: "0.5", pool: ["darkness", …]))` d'une
+  séquence `Floors` (`FloorsEntry::curses`, `run::CurseConfig`) ; absent = aucune curse (toutes les
+  séquences existantes). `run::draw_curse(config, defs, graine, étage)` (M3-T9 : graine de carte, §74) : RNG **local**
+  `RollbackRng::new(curse_seed)` avec `curse_seed = fnv1a("curse:<graine>:<étage>")` replié sur 32 bits
+  puis passé au finaliseur `fmix32` (`bevy_fixed::rng::seed_from_hash`, D95 ; même graine que `loot_seed` et
+  `variant_seed`, sans allocation), **aucun flux de `RngStreams`** (en créer un changerait le hash de la
+  ressource et toutes les traces). Deux tirages toujours consommés, dans l'ordre : la chance
+  (`next_fixed() < chance` : `0` ne tombe jamais, `1` toujours), puis le choix pondéré dans l'ordre du
+  pool (`next_u32() % Σ poids`). Une entrée inconnue ou de poids `0` est ignorée (le lint la refuse) ; sans
+  entrée valide, pas de curse. Le résultat ne dépend que de la graine et de l'étage : pas du moment où
+  l'étage est entré, ni de l'ordre des étages.
+- **État** `run::RunCurses { floors: BTreeMap<u32 étage, String curse>, entered }` (`entered` ajouté par M3-T9, §74) : ressource rollback **neutre**
+  (`RunPlugin`, `rollback_and_trace_resource_neutral`), vide donc de hash `0` tant que T9 n'a rien écrit ;
+  remise à zéro par la relance (`game::run_state::cleanup_rollback_world_system`). T9 écrit l'entrée de
+  l'étage à l'entrée dans l'étage (événement `FloorEntered`) avec `draw_curse`.
+- **Lint** (`lint_curses`) : `weight = 0`, `effects` vide, `FloorRooms` ≤ 0, `Modifier` `Mul` ≤ 0
+  (`OutOfRange`) ; `curses.chance` hors [0, 1], `curses.pool` vide (`OutOfRange`) ; curse du pool inconnue
+  (`BrokenReference`).
+
+### Pools : `table` suffit, et l'épuisement
+
+- **Pas de champ `pool`.** Un coffre (`RoomChestDef.table`), une boutique (`RoomShopDef.table`,
+  `floor_tables`) et une séquence (`FloorsEntry.loot`) nomment déjà un pool de butin
+  (`loot/<id>.ron`) ; un type de salle n'a rien de plus à porter. Les pools du boss et du diable (T8) sont
+  de nouvelles tables nommées par la même clé. Le « pool » de l'épuisement est donc **le nom d'une table**.
+- **`LootTableDef.exhaust: bool`** (défaut faux : comportement d'avant, hors de tout hash et de toute
+  trace) : un objet sorti du pool n'y revient plus pendant la run. **Par run et par pool** (Q5) : un pool
+  partagé par plusieurs salles est le même pour toutes. `weapons_only` garde le drapeau.
+- **État** `items::PoolState { seen: BTreeMap<pool, BTreeSet<objet>>, assigned }` (M3-T8, §73 : `assigned` conserve
+  l'objet assigné à chaque emplacement ; tuple `PoolState(BTreeMap)` avant T8) : ressource rollback **neutre**
+  (`LootPlugin`), vide tant qu'aucun pool n'a `exhaust` ; remise à zéro à chaque relance. Les armes y sont
+  nommées `weapon:<id>` (comme le tirage). `count(pool)` est l'**index d'épuisement** du prochain tirage ;
+  `record(pool, objet)` renvoie vrai pour une nouveauté.
+- **Règle pure** `items::draw_exhausting(table, items, held, rareté, consommables, hidden, seen, rng)` :
+  `draw_loot_with` la rappelle avec un `seen` vide. Si `table.exhaust`, les objets de `seen` ne sont plus
+  candidats ; sinon `seen` est ignoré. Le flux avance toujours de deux tirages, quel que soit `seen` (comme
+  `draw_loot`). Quand l'épuisement vide les
+  candidats : d'abord les assouplissements de `draw_loot` (rareté du coffre puis `Common`, exclusion des
+  objets tenus), **un objet neuf plus commun passe avant de répéter un objet vu**, puis, pool entièrement vu,
+  le pool **repart complet** (un objet déjà sorti peut ressortir ; jamais vide si le pool ne l'est pas). Une
+  récompense de salle (`consumables_only`) ne descend jamais sous les consommables. Les déblocages
+  (`unlocked_table`) étendent le pool avant le filtre.
+- **Le choix est une course pondérée, stable à l'ajout (D96, 2026-10-17).** Les deux tirages du flux forment une
+  clé de base de 64 bits. Niveau 1 : chaque entrée joue **autant de billets que son poids**, de clé
+  `fmix64(fmix64(base ^ contenu de l'entrée) ^ n° du billet × φ)` ; la plus petite clé gagne, donc l'entrée gagne avec la probabilité
+  exacte `poids / somme` (une clé divisée par le poids ne la donnerait pas : poids 1 et 2 → 3/4, non 2/3). Niveau 2 : parmi
+  les candidats de l'entrée gagnante (une entrée `Rarity` en a plusieurs), la plus petite clé `hash(base, entrée, identifiant)`
+  gagne : uniforme. L'identité d'une entrée est le **contenu** de son `pick`, jamais son rang (les entrées d'un déblocage
+  s'ajoutent dans l'ordre des identifiants de déblocage) ; deux entrées de même `pick` valent une entrée de poids somme, et
+  l'ordre des entrées n'a aucun effet. Avant D96, le choix était `tirage % somme des poids` : débloquer un objet changeait la
+  somme (10 → 12 pour le pool `boss` d'`isaac`) et **redistribuait tous les emplacements** (mesuré : 251 emplacements sur 400
+  passaient à un objet non débloqué).
+  **Contrat** (l'ordre de tirage et `PoolState::assign` sont inchangés) : *à graine, `seen`, passe de rareté et exclusions égaux,
+  ajouter une entrée, débloquer un objet caché, ajouter un candidat à une entrée `Rarity` ou augmenter un poids ne change
+  l'objet d'un emplacement que si c'est pour un objet qu'apporte l'ajout* (l'objet d'une entrée `Item`, l'arme ou le tas de sous d'une
+  entrée `Weapon` ou `Currency` ; pour une entrée `Rarity` ajoutée, alourdie ou fusionnée avec une entrée de même contenu, **n'importe lequel
+  de ses candidats**, y compris un qui existait déjà ; inversement, retirer ce qui n'a pas gagné ne change rien). Un
+  contenu qui s'enrichit (T11b, T11c… : des objets ajoutés aux pools) ne fait donc plus bouger que les emplacements qui prennent
+  le nouvel objet, et un déblocage de profil (§75) ne déplace que vers ce qu'il apporte. **Limites** : (1) dans une suite
+  d'emplacements à épuisement, l'objet qu'un déblocage déplace revient dans le pool et peut sortir à un emplacement
+  **suivant** (`seen` n'est plus le même) ; la garantie est par tirage, à `seen` égal ; (2) si l'ajout rend non vide une passe
+  plus stricte (rareté d'un coffre), c'est cette passe qui tire ; (3) coût : deux `fmix64` par unité de poids du pool (`race_key`), d'où
+  `items::MAX_LOOT_WEIGHT` (1 000), refusé au lint (`OutOfRange`) et plafonné au tirage ; (4) une boutique **sans épuisement** (`game::shop::draw_shelves`) enchaîne ses présentoirs sur un seul flux, avec relance des doublons (au plus 8 essais) : un ajout qui change le présentoir 0 change le nombre d'essais, donc le tirage, des suivants ; la garantie vaut par tirage, pas pour une boutique entière. Proportions mesurées sur 100 000
+  tirages (`the_race_keeps_the_weighted_proportions`) : voir le rapport `dette-d95-d96-tirage-butin`.
+- **Graine** `items::exhaust_seed(graine, étage, clé, index)` : `loot_seed` pour l'index `0` (le premier
+  tirage d'un pool qui devient `exhaust` donne l'objet qu'il aurait donné sans `exhaust`),
+  puis `loot_seed(…, "<clé>#<index>")` (mêmes octets, sans allocation).
+  `PoolState::next_seed(pool, graine, étage, clé)` prend `count(pool)` comme index.
+
+**Deux façons d'exécuter l'épuisement (décision de T8 : A, voir §73 ; le tableau est celui de T0e).**
+
+| | A. tirage à la génération de l'étage (proposé) | B. tirage à l'ouverture |
+|---|---|---|
+| Quand | à la création des emplacements (salles dans l'ordre du plan, graine de l'emplacement) | quand le joueur ouvre le coffre / entre dans la boutique |
+| Index d'épuisement | rang de l'emplacement dans le plan : **indépendant du moment** (Q5) | nombre d'objets déjà sortis à l'ouverture : dépend de l'ordre des ouvertures |
+| Coût | l'objet d'un coffre jamais ouvert est quand même sorti du pool ; il faut **porter l'objet assigné** (un champ optionnel de `Chest`/`Shelf` hors hash quand vide, ou une table d'assignation dans `PoolState`) puisque l'ouverture ne tire plus | rien à porter (le tirage actuel de `chest_interaction_system`) |
+| Rollback | l'état (`PoolState` + assignations) est écrit une seule fois par étage, à la génération | écrit à chaque ouverture : un rollback qui remonte avant une ouverture doit défaire `PoolState` (il le fait, c'est une ressource rollback) |
+
+L'option A est la seule qui tienne la règle « un coffre ouvert tôt ou tard donne le même objet » de §48 avec
+un pool qui s'épuise ; la règle pure sert les deux (T8 choisit en passant `seen` de la génération ou de
+l'ouverture). **Décision de T8 : option A**, exécutée et documentée au §73 (assignation à la génération de
+l'étage, conservée dans `PoolState::assigned`).
+
+### Accomplissements (`meta::achievement`, kind `Achievement`)
+
+- **Contenu** `achievements/<id>.ron` : `AchievementDef { when: [AchievementCondition], unlocks: [id d'Unlock] }`.
+  Conditions, cumulatives (ET) : `Victory` (issue `RunEnd::Victory`), `FloorAtLeast(n)` (même index que
+  `RunSummary::floor_reached` et l'attente `FloorIndex` : `0` = premier étage), `BossDefeated(id)` (un
+  personnage à `boss:`), `ItemHeld(id)` (objet tenu à la fin).
+- **Règle pure** `meta::achieved(&RunFacts, &AchievementDef)` ; une définition sans condition n'est jamais
+  accomplie. **Hors simulation** : évalué à la fin de la run, comme l'écriture du profil (`game::profile`) ;
+  `meta` ne lit ni n'écrit rien, T10 réunit les faits et ajoute les `unlocks` au profil.
+- **`RunFacts` plutôt qu'un `RunSummary` élargi.** La fiche proposait des champs optionnels de `RunSummary`
+  (boss vaincus, objets tenus). `RunSummary` est `Copy`, dans `Run` (rollback, haché) : y ajouter des listes
+  de chaînes l'alourdirait pour un état que la simulation ne lit jamais. `RunFacts { summary, bosses_defeated,
+  items_held }` est hors rollback ; T10 lit les boss vaincus (`BossDefeated`, hors checksum, §45) et
+  l'`Inventory` des joueurs à `Ended`.
+- **Lint** (`lint_achievements`) : `when` vide, `unlocks` vide (`OutOfRange`) ; déblocage, objet ou boss
+  inconnu (`BrokenReference`).
+
+### Attentes de scénario
+
+`Curse { floor, id: Some("darkness") | None, at_frame }` (curse de l'étage `floor`, index de `FloorIndex`,
+ou absente) et `PoolSeen { pool, item, seen, at_frame }` (`item` est ou non sorti du pool). Elles lisent
+`RunCurses` et `PoolState`. `PoolState` n'est rempli qu'à partir de T8 ; `RunCurses` l'est par M3-T9 (§74) : un scénario `.ron` ne peut donc
+encore y poser que `None` / `seen: false` (ce que fait le témoin ci-dessous) ; le test
+`crates/scenario/tests/curses_pools.rs` les remplit depuis un système de `GgrsSchedule`.
+
+### Déterminisme et traces
+
+Aucune trace existante ne bouge : `RunCurses` et `PoolState` sont enregistrées par
+`rollback_and_trace_resource_neutral` (contribution `0` à leur valeur par défaut, aucune parité de type vide
+à compenser), `LootTableDef.exhaust` et `FloorsEntry.curses` sont des définitions hors hash, les RNG de
+curse et de pool sont locaux. `RunSummary` est inchangé. Les kinds `Curse` et `Achievement` ont leur schéma
+(`every_kind_has_a_schema`).
+
+### Preuves
+
+Unitaires : `run::curse` (chance 0 et 1, indépendance de l'ordre des étages, pondération, entrées
+inutilisables, le tirage de chance ne dépend pas du pool, `to_modifier`), `items::loot` (`exhaust` faux
+= `draw_loot`, objets vus exclus puis pool qui repart complet, armes, rareté assouplie avant répétition,
+consommables, flux identique quel que soit `seen`, graine à l'index 0 = `loot_seed`, ordre du plan sans
+doublon), `meta::achievement` (chaque condition, seuil inclusif, ET, sans condition). Fixtures de lint :
+`curse_invalid_values`, `floors_curses_invalid`, `achievement_invalid` (`crates/content/tests/
+m3_t0e_fixtures.rs`). Contenu `testbed` : cinq curses, séquence `maudit` (`curses: Some(…)`), pool
+`epuisable` (`exhaust: true`), accomplissement `deux_etages` et déblocage `manche_epuisable` (un `Loot` sur
+`epuisable` seulement : aucun pool existant ne change). Test `curses_pools` : les ressources écrites en
+cours de partie traversent le synctest sans divergence, les attentes les lisent (et échouent avec la valeur
+observée), la relance les remet à zéro.
+
+### Atteignabilité
+
+Contrats : rien en partie ordinaire. T9 tire une curse dans la séquence `Floors` d'`isaac` (graine nommée),
+T8 active `exhaust` sur le pool du trésor, T10 écrit un accomplissement à la fin d'une partie ordinaire.
+
+## 65. Le jeu `isaac` : squelette (M3-T0f)
+
+Le clone `isaac` démarre, sur la grammaire d'étage **en arbre existante** (`Graph`) : rien de nouveau
+côté moteur. Modèle : `gungeon` (§39). Données et un `main.rs` seulement (`games/isaac/`, membre du
+workspace par `games/*`, `make isaac`, `make lint` ×5 avec `games/isaac`).
+
+- **Manifeste** `games/isaac/assets/game.ron` : mode `Floors`, séquence `floors/sous_sol.ron` (nom
+  provisoire, Q9) d'un seul étage `floor:sous_sol`, `victory_at_end` ; `generate_template` copié de
+  `gungeon` (scénarios générés `make gen GAME=isaac`).
+- **Personnage** `pleureur` (`asset_name_ref: "player"`) : 6 PV (Q2, en attendant), aucun dash ni
+  sprint, arme `larmes` (`Automatic`, 3 tirs/s, chargeur 9999 faute de munition infinie ici : le
+  `mag: Infinite` de M3-T0a viendra avec M3-T11a). Contact des ennemis : `ai.attack_damage` (1 PV) et
+  `attack_cooldown_frames` (120) ; **l'arme de mêlée nommée dans `Melee("contact")` ne fixe ni les
+  dégâts ni la cadence** (`enemy_attack_damage_translate_system` lit l'`EnemyAiConfig`, défaut 10 PV et
+  60 frames) : ne pas s'y fier pour équilibrer un ennemi au corps à corps.
+- **Ennemis** : `suiveur` (`Chase` profil `Ground` + contact), `mouche` (`Chase` profil `Flying` +
+  contact), boss `gardien` immobile à deux phases (éventail, puis couronne sous 50 % de santé).
+  Valeurs choisies pour que les bots `fonceur` (scénario généré `boss_gardien`) et `explorateur` (6 PV, aucune
+  esquive du premier) finissent l'étage : 10, 4 et 40 PV, un coup de contact toutes les 120 frames.
+- **Gabarits** `maps/salles.ldtk`, produit par `docs/taches/rapports/m4-t0f-squelette-isaac.make_salles.py` :
+  salles de **15 × 9 cases** (Q8, préparation de la grille de M3-T5), types `depart`, `combat`
+  (un suiveur, une mouche), `boss`. Ouvertures de 3 cases **centrées** (colonnes 6-8 au nord et au sud,
+  rangées 3-5 à l'ouest et à l'est). `depart` et `combat` ont les quatre ; le boss a **une seule** ouverture
+  (quatre gabarits `BossN/E/S/W`) car le planificateur en arbre exige un boss à une connexion
+  (`floor.rs`, « cul-de-sac ») : la grille de M3-T5 apportera ses propres gabarits.
+- **Grammaire** `floor_grammars/sous_sol.ron` : 5 à 7 salles, un boss requis à au moins 2 salles du
+  départ, `Graph`. Test `map_ldtk::generation::tests::isaac_etages_de_grammaire` : 1 000 graines
+  (`ALACOD_FLOOR_SEEDS`, 500 par défaut, doublées par la graine dérivée), 5 à 7 salles, un seul boss,
+  toutes de 240 × 144, sans chevauchement.
+- **Sprites, sons, UI** : copiés de `gungeon` (placeholders Kenney CC0 et sons du registre), registre
+  `assets.yaml` de `isaac` renvoyant à celui de `gungeon` ; aucun nom ni visuel tiré du jeu commercial.
+- **Scénarios** : `isaac_boots` (démarrage, tir continu sans rechargement), `isaac_floor_seed_1`
+  (le bot `explorateur` bat l'étage, victoire à f1009) ; générés : `weapon_*`, `enemy_*`, `room_combat`,
+  `boss_gardien`.
+
+## 66. Larmes v3 : tir composé, `Spectral`, `Split`, `Orbit`, `Poison`, `Fear`, chance d'effet (M3-T1, chantier B5 v3)
+
+M3-T1 fait **lire au tir** les contrats de §60 et ajoute les statuts v2 et la chance d'effet.
+**Aucune trace existante ne bouge** (suite complète sans `BLESS`) : tout passe par des objets, des
+modificateurs ou des champs que le contenu d'avant n'a pas. Scénarios neufs seulement : douze
+(`tears_*`, `status_poison`, `status_fear`) et les générés `weapon_status_poison`/`weapon_status_fear`,
+`item_*` des neuf objets d'essai.
+
+### Tir composé
+
+`weapon_rollback_system` lit, au tir d'un joueur, `items::Inventory` (le tireur), `ItemTable` et
+`SynergyTable` (`items::projectile_mods` : passifs dans l'ordre de ramassage, un passif en double
+compte deux fois, puis l'actif, puis les synergies actives par id). Les `ProjectileMods` **non vides**
+sont composés avec le `projectile:` du mode de tir par `Projectile::composed` (règles de `compose`,
+§60) ; leur `on_hit` et leur `on_expire` s'**ajoutent** à ceux de l'arme, dans le même ordre.
+
+- Aucun objet qui ajoute quelque chose (cas de tout le contenu d'avant) : chemin d'origine,
+  `Projectile::new` ou balle ordinaire sans `Projectile`, au bit près.
+- Une balle ordinaire devient un `Projectile` (id : le nom de l'arme) dès qu'un objet ajoute quelque
+  chose ; `Size` agrandit alors collider et sprite, comme pour une arme.
+- `Projectile` (rollback) gagne `spectral`, `split`, `orbit`, `luck` ; son `Hash` est **manuel** :
+  ces champs ne sont hachés que s'ils sont actifs, donc le hash d'un projectile d'avant M3-T1 est
+  inchangé (même règle pour le `Debug` du dump détaillé).
+- `combat` dépend maintenant de `items` (crate de simulation, sans rendu : `check_sim_boundary` inchangé).
+- Familiers (Q13, question ouverte) : le tir d'un familier n'est **pas** composé ici ; `Projectile::composed`
+  prend ses ajouts en paramètre, M3-T6 y passera `items::projectile_mods` du porteur s'il retient l'héritage.
+
+### `Spectral`, `Split`, `Orbit`
+
+- **`Spectral`** : `projectile_collision_system` saute la branche des murs (rebond, arrêt, `BulletWallHit`) ;
+  les personnages touchent toujours. La portée (`range`) borne encore le vol.
+- **`Split { count, spread, child }`** : à chaque impact sur un personnage (après `register_hit`),
+  `spawn_split_children` fait naître `count` projectiles en éventail de `spread` radians centré sur la
+  direction de vol, à la position du parent, un `GgrsNetId` chacun dans l'ordre de l'éventail.
+  `child: Some(id)` : l'entrée `id` de la table `projectiles` de l'arme (dégâts, vitesse, portée et
+  modificateurs de sa définition) ; `child: None` (**Q3 : le projectile par défaut du porteur**) : une
+  **copie du parent** (mêmes dégâts, vitesse et portée, modificateurs et `on_hit` restants, sans `Split`,
+  sans `Orbit`, sans `on_expire`). Dans les deux cas l'enfant **hérite de la liste des cibles déjà touchées**
+  (il ne retouche pas la cible qu'il quitte) et compte une génération de plus : au-delà de `MAX_GENERATION`
+  (8) la division est ignorée avec un `warn!`. L'enfant n'hérite pas de `ShotSize`. Lint : un cycle de
+  `Split` dans la table (`a → b → a`) est refusé (`OutOfRange`).
+- **`Orbit { radius, frames_per_turn }`** : `projectile_steering_system` fixe chaque frame la vitesse
+  de la frame suivante à l'écart jusqu'à `combat::projectile::orbit_position` : angle
+  `phase + 2π · (âge mod frames_per_turn) / frames_per_turn` (sens trigonométrique, `phase` = direction
+  de tir, fixée à l'apparition), rayon qui croît de 0 à `radius` pendant 10 frames
+  (`ORBIT_RAMP_FRAMES`), centre = position du **tireur** à cette frame. Ni gravité ni guidage en orbite
+  (lint : `Orbit` avec `Homing` ou `Gravity` dans la même liste est refusé). Le projectile ne s'arrête que
+  par un coup (`Pierce`), un mur (sauf `Spectral`), `Lifetime`, la portée (la longueur d'arc compte) ou la
+  disparition du tireur (portée mise à 0).
+
+### Statuts `Poison` et `Fear`
+
+`StatusDef::{Poison, Fear}` en fin d'enum (`status_def_ron_round_trip` ; `StatusDef` avait quatre variantes,
+le `Hash` dérivé garde l'index des anciennes). Contenu : `(kind: Poison, frames: 120, damage: "2", period: 30)`,
+`(kind: Fear, frames: 150)` ; le lint exige `damage > 0` et `period > 0` pour `Poison`, `frames > 0` pour les deux.
+
+- **`Poison`** : exactement les règles de `Burn` (ticks, piles jusqu'à 2, durée plafonnée à 2 × la base,
+  dernière source créditée) ; dégâts de genre `DamageKind::Poison` (`status_tick_system`).
+- **`Fear`** : `Statuses::feared()`. L'ennemi **fuit** sa cible : `move_enemies` impose le recul de
+  `Flee` (`ai::rules::flee_motion`, extrait de `behavior_motion` : champ de recul de l'ennemi, sinon à
+  l'opposé de la cible) qu'il liste `Flee` ou non ; `enemy_attack_system` ne lance plus d'attaque au corps à
+  corps et `melee_hold_system` pose `MeleeHold` (mêlée d'arme) tant que la peur dure. Réapplication :
+  durée rafraîchie ; sans effet sur un joueur. **Charme : Q12**, hors tâche (rien codé).
+
+### Chance d'effet
+
+`Action::Chance { base, per_luck, then }` (en fin d'enum `Action`) enveloppe une action d'`on_hit`
+(`ApplyStatus`, `TimedModifier`, `CurrencyMultiplier` ; ni une autre `Chance` ni `DestroyTerrain`) :
+
+```ron
+projectile: Some((on_hit: [Chance(base: "0.5", per_luck: "0.125", then: ApplyStatus(status: "poison", stacks: 1))]))
+```
+
+Chance finale `effects::chance_with_luck(base, Luck, per_luck)` (§60), `Luck` lue **au tir** et gardée dans
+`Projectile::luck` (seulement pour un projectile qui porte une `Chance`). Le tirage est un RNG **local** :
+`effects::chance::roll_chance(run_seed, net id du projectile, rang de l'action)`, graine mélangée
+(`chance_seed`, splitmix64 : deux net ids voisins ne donnent pas deux tirages voisins), aucun `RngStreams`
+consommé (la graine de run est lue seule). Il est résolu dans `projectile_collision_system` (le seul à
+connaître le net id) : l'événement `ProjectileHit` porte l'action `then` si le tirage réussit, la `Chance`
+elle-même sinon (les systèmes d'application l'ignorent), ce qui garde le **rang** de chaque action, donc la
+source `projectile:<id>:<rang>` des modificateurs posés. Lint : `base` dans `[0, 1]`, statut vérifié à travers
+la `Chance`. Refusée (`Unsupported`) dans un effet, un power-up et une frise de boss.
+
+### Lint
+
+`Spectral`, `Split` et `Orbit` ne sont plus refusés dans une arme ; un objet ou une synergie à `projectile:`
+est vérifié sans être refusé : mêmes plages qu'une arme, doublon refusé **dans une liste**, `on_hit` comme
+une arme (statut connu), et, faute de table `projectiles` (celle de l'arme qui tire), `Split` **sans** `child`
+et `on_expire` **sans** `Spawn` (`DestroyTerrain` seulement). Fixtures : `projectile_contract_ok`,
+`item_projectile_ok`, `item_projectile_no_table`, `item_projectile_out_of_range`,
+`projectile_chance_out_of_range`, `projectile_split_cycle`, `status_poison_fear_out_of_range`.
+
+`sim_core::stats::default_base` donne 0 à `Luck` (attente `Stat`, générateur `ItemHeld`).
+
+### Testbed et scénarios
+
+Carte `testbed/props_room.ldtk` (salle de 28 × 9 cases, un joueur en (696, -200), un `follower` en
+(328, -200) ; monde = `(x_ldtk + 280, -120 - y_ldtk)`), cibles `target` posées par `characters`. Objets
+d'essai (`tags: ["larmes"]`) : `guide` (`Homing`), `perforant` (`Pierce(1)`), `rebond` (`Bounce(2)`),
+`spectre` (`Spectral`), `division` (`Split` en 3, 0,6 rad), `orbite` (rayon 40, un tour en 60 frames),
+`venin` (`Chance` 0,5, +0,125 par `Luck`, `ApplyStatus poison`), `trefle` (`Luck` +4). Armes `status_poison`,
+`status_fear`. Statuts `poison`, `peur`.
+
+| Scénario | Prouve |
+|---|---|
+| `tears_item_homing`, `..._sans_objet` | un objet ajoute `Homing` à une arme sans modificateur : touche à f58 ; témoin : aucun coup |
+| `tears_stack_two_copies` | deux `perforant` : `Pierce` 1 + 1, la larme touche trois cibles sur quatre |
+| `tears_stack_three` | `rebond` + `guide` + `division` : une larme, impact, trois larmes de génération 1 qui se courbent vers le `follower` |
+| `tears_spectral_wall`, `..._sans_objet` | `Spectral` franchit le mur de la salle et touche la cible derrière (f49) ; témoin : arrêtée par le mur |
+| `tears_split` | une larme, trois enfants qui touchent chacun sa cible (f72), personne touché deux fois |
+| `tears_orbit` | la larme tourne autour du joueur et touche la cible derrière lui (demi-tour, f48) |
+| `status_poison` | ticks de 2 toutes les 30 frames, santé exacte de la cible, expiration |
+| `status_fear` | le `follower` touché fuit 150 frames (distance ≥ 360 à f300), reprend sa marche, ne touche pas le joueur |
+| `tears_luck_chance` | six larmes, chance 0,5 : quatre cibles empoisonnées (graine de run, net id, rang) |
+| `tears_luck_stat` | même tir avec `trefle` (`Luck` 4 → chance 1) : les six |
+
+Diagnostic : `ALACOD_PROJECTILES=<scénario>:<de>:<à> cargo test -p scenario --profile headless
+--no-default-features --test scenarios projectile_probe -- --ignored --nocapture` (projectiles, coups,
+statuts frame par frame) ; `map_probe` liste aussi les personnages non joueurs.
+
+### Visée à quatre directions, `aim: FourWay` (suivi Q17, réponse de William du 2026-10-16)
+
+Option de personnage (**donnée**) : `aim: Free` (défaut, 360°, tout le contenu d'avant) ou `aim: FourWay` (`isaac` :
+`pleureur`). Type `sim_core::aim::AimMode` (`CharacterConfig::aim`, miroir `content::CharacterEntry::aim`, schéma
+généré). **Hors hash et hors trace** : composant **statique, non rollback** (comme `Team`, voir `sim_core::aim`), posé à
+la création du joueur **seulement pour `FourWay`** (`character::player::create`) ; un personnage sans `aim:` ne porte
+rien, aucune trace d'un autre jeu ne bouge (suite complète, 0 `BLESS` hors la liste ci-dessous).
+
+**Quantification dans `weapon_rollback_system`** (`sim_core::aim::aim_direction(mode, pan_x, pan_y)`, un seul code pour
+le tir du joueur et le `MirrorShot` de ses familiers, §71) : `FourWay` ne garde que l'**axe dominant** du `pan`
+(comparaison des entiers `|pan_x|` et `|pan_y|`, avant toute normalisation : ni division ni arrondi, `Fixed` exact), avec
+le signe de sa composante, vecteur unitaire `(±1, 0)` ou `(0, ±1)`. **Égalité exacte des deux axes (diagonale parfaite) :
+l'horizontale l'emporte** ; `pan` nul : pas de visée (aucun tir, comme avant). `Free` : la normalisation d'avant, au bit
+près. La dispersion (`spread`) et les plombs d'un fusil à pompe tournent ensuite autour de cette direction, comme avant.
+Limite connue : la **visée affichée** (rotation du sprite d'arme, `CursorPosition` dérivé du `pan` réel) reste celle de la
+souris ; seule la direction des balles est quantifiée.
+
+**Scénarios** : `PlayerScript::aim: Option<AimMode>` (réglage de joueur, comme `bomb`) : `Some(FourWay)` pose la visée,
+`Some(Free)` **retire** celle du personnage. `aim_four_way` (testbed, trois tirs en biais à 17°, 17° et 45° exact : les
+trois larmes partent plein ouest et touchent la cible alignée aux frames 80, 105 et 129 ; la diagonale parfaite vérifie le
+choix de l'horizontale) et son témoin `aim_four_way_libre` (visée libre : aucun coup).
+
+**Bot** (`crates/bots`) : `BotView::aim` (lu sur le composant du joueur), `decide::apply_four_way` appliqué à la sortie de
+`decide` pour tous les profils : le bot écrit la direction que le moteur retiendra (127 sur l'axe dominant), et, cible à
+moins de 320 sur cet axe **avec ligne dégagée** (`enemy_visible && enemy_shootable` : derrière un mur, il garde sa route) :
+hors de la file de tir (écart perpendiculaire > 14, rayon de larme 5 + demi-corps ~10 − 1) il relâche la gâchette et se
+décale **vers la cible** sur l'axe perpendiculaire (le mouvement du profil y est remplacé, celui sur l'axe de tir est
+gardé) ; dans la file il tire comme avant et ne dérive plus en perpendiculaire. `Free` : l'input du profil, inchangé.
+Le bot reste efficace mais plus lent : sur `grid_post_boss` (graine 8, avant la fusion de T11c) le boss verrouille sa salle à
+f712 au lieu de f628, passe en phase 1 à f825 au lieu de f740 et meurt à f945 au lieu de f862.
+
+**`isaac`** : `pleureur` active `aim: FourWay`. **Générateur** (`alacod-gen`) : les scénarios générés d'un jeu dont le
+joueur vise à quatre directions épinglent `aim: Some(Free)` sur les joueurs scriptés qui tirent : la cible de l'arène
+(+128, −48 : `AIM_AT_TARGET`, carte `gabarit_armes.ldtk`) est en biais et ne peut pas être touchée à quatre directions ; ces
+scénarios prouvent un contenu (arme, larme, familier, statut), pas la visée. Ils sont **bit-identiques** à avant (le
+composant n'existe pas), leurs `.ron` gagnent la ligne `aim: Free`. Épinglés pour la même raison (`explorateur` : la
+grammaire de la grille est leur objet, pas la visée) : `grid_floor_seed_1`, `grid_floor_seed_23`, `grid_floor_seed_123`,
+`grid_post_boss`, `isaac_floor_seed_1` (traces inchangées).
+
+**Traces bougées, avec preuve §5** (dumps `ALACOD_DUMP_TRACE`, `main` `2d30a1c1` contre la branche, `scripts/trace-diff.py`) :
+`generated/isaac/boss_gardien` et `generated/isaac/room_combat` (bots `fonceur` et `explorateur` d'`isaac`, qui tirent à
+quatre directions). Première frame qui diffère : **5**, la première où le bot a un ennemi en vue : le `pan` écrit par le bot
+est quantifié, donc le `CursorPosition` dérivé change et, avec lui, la rotation du sprite d'arme (`FixedTransform3D` de
+`larmes` : `x_axis (-0,986, -0,167)` devient `(-0,999, 0,039)` pour `boss_gardien` ; `FacingDirection` `DownLeft` devient
+`Down` pour `room_combat`). Les attentes tiennent (le boss de `boss_gardien` tombe à f499, `room_combat` nettoyée). Aucun autre
+scénario d'`isaac` ne bouge.
+
+### Atteignabilité
+
+Rencontré quand M3-T11a met les objets de larmes dans le pool trésor d'`isaac` ; d'ici là, scénarios
+testbed seulement.
+
+## 67. Effets v3 : `OnHit`, `OnEvent`/`Emit`, `ApplyStatus`, `PerCopy` (M3-T2, chantier C1 v3)
+
+Exécute les contrats de §61. **Aucune trace existante ne bouge** : variantes en fin d'enum, champs
+optionnels, files transitoires (hors checksum, vidées au `FrameStart`).
+
+- **`OnHit`** : le porteur a infligé un dégât **réel** (> 0, après immunité, bouclier, armure) à une autre
+  entité. `character::health::rollback_resolve_damage_events` émet `effects_v3::HitLanded`, lu par
+  `apply_effects_system`. Jamais pour un dégât que la source s'inflige. La condition `TargetInRange` lit
+  la position de la cible (`OnHit`, `OnKill`, `OnDamageTaken`) ; fausse sans cible.
+- **`ApplyStatus { status, stacks }`** dans un effet : statut posé sur la **cible** du déclencheur, donc
+  `OnHit` ou `OnDamageTaken` (la source du coup) seulement. **Pas `OnKill`** : la cible est morte dans la
+  frame, le statut ne serait jamais posé (lint : refusé) ; pour un effet à la mort, `ApplyStatusSelf` pose
+  sur le porteur. Posé par `effects_v3::effect_status_system` avec la règle des `on_hit` de projectile
+  (auteur crédité des dégâts, `Slow` pose son modificateur de vitesse). Statut inconnu et `stacks = 0` : lint.
+- **`OnPickup` filtré** : champ `item: Some("bottes")` de l'**effet** (pas une variante `OnPickup(Some(item))` :
+  l'enum `On` et le hash des effets existants ne bougent pas). Sans filtre, tout ramassage ; avec, le seul
+  objet nommé (le sien compris). Lint : `item` hors `OnPickup` et objet inconnu refusés. Hors hash quand absent.
+- **`Emit(nom)` / `OnEvent(nom)`** : les effets `OnEvent` du même porteur répondent aux `Emit` de ses
+  effets, dans la même frame, par tours (`MAX_EVENT_ROUNDS` = 8, au-delà les émissions sont abandonnées
+  avec un `warn!`). Le lint refuse un nom vide ; il ne vérifie pas qu'un `OnEvent` a un émetteur.
+- **`Scaled { PerCopy }`** : l'action enveloppée n'est exécutée **qu'une fois par objet** (par le premier
+  exemplaire), multipliée par le nombre d'exemplaires (`Inventory::count`). `scale: None` est transparent.
+  **Actions linéaires seulement** (`effects::actions::is_linear`) : `Heal`, `GainShield`,
+  `Modifier`/`TimedModifier` d'op `Add` ou `Pct`, `ApplyStatus`, `ApplyStatusSelf`, `Explode` (dégâts, pas le
+  rayon). Le lint refuse toute autre action sous `PerCopy` (`Modifier` `Mul`/`Set`, `Emit`, `RefillAmmo`…) :
+  l'exécution ne la sauterait pas sans rien dire.
+- **Composition `Emit` × `OnEvent` par exemplaire : linéaire.** Une action non `Scaled` s'exécute **par
+  exemplaire** (n exemplaires = n `Emit`), mais un effet `OnEvent` **écoute une fois par objet** (le récepteur
+  n'est pas dupliqué ; `listed_effects` ne le liste que pour le premier exemplaire). Exemple, la `vipere`
+  (`OnHit : Emit("coup")`, `OnEvent("coup") : +1 de dégâts`) : 1 exemplaire = 1 émission × 1 récepteur = +1 ;
+  2 exemplaires = 2 × 1 = **+2** (et non +4) ; seul `Scaled(PerCopy)` multiplie.
+- **Limites par exemplaire (Q16)** : `ItemDef::stack` (`Shared`, défaut, ou `Independent`). `Shared` :
+  clé `item:<id>:<index>` commune, les `cooldown`/`charges` sont partagés ; `Independent` : clé
+  `item:<id>#k:<index>` par exemplaire.
+- **Ordre d'exécution** : porteurs par `GgrsNetId` ; pour chacun, effets du personnage, puis objets (passifs
+  dans l'ordre de ramassage, puis l'actif), exemplaire après exemplaire, puis synergies. Les `Emit` sont
+  traités après (`apply_event_effects_system`), puis les statuts (`effect_status_system`).
+- **Scénarios** (chacun avec son témoin `_temoin`, sauf `effect_on_hit`/`effect_per_copy` dont le témoin est
+  la frame d'avant le coup) : `effect_on_hit` (`vipere`), `effect_on_event` (`echo`), `effect_target_in_range`
+  (`portee`), `effect_apply_status` (`morsure`), `effect_pickup_filtered` (`filtre`), `effect_per_copy`,
+  `effect_scale_per_copy` (`empile`). Unitaires : `effects_v3::tests`, `effects_runtime::tests`,
+  `effects::runtime::tests`, `crates/scenario/tests/effects_v3.rs` (`HitLanded` dans le vrai résolveur).
+- **Échelle** : `effects_hundred_items` (100 objets : 97 `cent_*` de charge et 3 observateurs à une charge, un par
+  famille `Tick`, `OnHit`, `OnKill`, dont la conséquence visible est comparée au témoin ; `machine_gun` sur un
+  `dummy` puis une `target`, le `follower` de la carte meurt aussi) et son témoin sans objets. `advance_ms_avg`, trois exécutions du même run, machine
+  partagée (indicatif) : **0,19 ms** avec les 100 objets, **0,12 ms** sans, 0,145 ms pour `four_players_idle`
+  (115 entités). Surcoût ≈ 0,07 ms par frame sur 16,7 : `listed_effects` n'est pas précalculé.
+- Hors périmètre : exécution des effets d'objet par les pools Isaac (T11b), transformations (Q10, non retenues
+  ici : `transformation_three` non livré).
+
+## 68. Cœurs, i-frames, sous, bombes et clés au sol (M3-T3, chantiers C4 et C5)
+
+Exécute les contrats de §61 (Q2, Q4, `max_stack`, `hit_iframes`). Code : `combat::{actors::ExtraHealth,
+damage::apply_layers}`, `character::health::rollback_resolve_damage_events`, `effects::Action::GainSoul`,
+`items::{ItemDef::accepts, LootPick::Currency}`, `game::{items, shop, loot, champions}`,
+`map_ldtk::game::rooms::rock_loot_system`. **Aucune trace existante ne bouge** hors `isaac` (voir « Traces ») :
+tout type nouveau est neutre ou absent des jeux existants, les variantes sont ajoutées en fin d'enum.
+
+### Couche de vie `ExtraHealth` (Q2 de William)
+
+Un demi-cœur vaut **1 PV** (`Health` en points, les PV d'`isaac` restent pairs). `combat::actors::ExtraHealth
+{ soul: Fixed }` est un composant rollback **neutre** (`rollback_and_trace_neutral`), posé au premier gain
+(`combat::actors::queue_gain_soul`, comme `Shield`) : sans porteur il ne contribue pas au checksum. Il n'entre
+pas dans `Health.max`, ne se régénère pas, n'est borné par rien (le plafond de 12 cœurs d'Isaac est un
+réglage de T16) et reste posé à `soul == 0`.
+
+**Ordre retenu des couches de défense**, en un seul endroit pur et testé, `combat::damage::apply_layers`
+(appelé par `rollback_resolve_damage_events`, après `resolve_damage`) :
+
+1. **bouclier** (`Shield`) : un point absorbe le coup **entier** (brèves i-frames `SHIELD_IFRAMES`) ; ni
+   l'armure ni l'âme ne sont touchées ;
+2. **armure** (`stat Armor`, `after_armor`) : réduction proportionnelle ;
+3. **`ExtraHealth`** : absorbe ce qui reste **point par point** ;
+4. **PV** : ce qui reste après l'âme, via `DamageAccumulator` (donc mort, à terre et `last_hit_by` comme avant).
+
+`DamageKind::True` ignore le bouclier et l'armure (des atténuations) mais **pas** `ExtraHealth` (c'est de la
+vie : une chute ou des piques entament d'abord les cœurs d'âme, comme dans Isaac). Un coup que l'âme absorbe
+en entier **est un coup** : `hit_iframes` démarrent, `HitLanded` (donc `OnHit`) et `HitCount` le comptent, le
+crédit de points aussi ; en revanche rien n'est accumulé (`DamageAccumulator` intact : ni mort, ni `last_hit_by`,
+ni délai de régénération). **`OnDamageTaken` dépend du porteur** (`effects_runtime`, §25) : avec `HealthRegen`
+il se lit sur la perte de PV réellement appliquée, donc un coup absorbé en entier par l'âme ne le déclenche pas ;
+**sans `HealthRegen` — le cas de `pleureur`, le joueur d'`isaac` — il se déclenche sur tout `DamageEvent` qui vise
+le porteur**, donc aussi sur un coup que l'âme absorbe en entier (et sur un coup ignoré par les i-frames). **La
+règle du §25 n'est pas modifiée** par cette tâche : c'est la documentation qui est corrigée. Un objet d'`isaac`
+qui doit réagir aux seules pertes de PV devra attendre une règle unique (hors fiche).
+
+Sans bouclier, avec une armure ≤ 0 et sans âme, le montant reste exactement celui de `resolve_damage` (identité,
+aucune trace ne bouge). Traces de jeu : `ggrs{f=… soul_absorb target=… took=… left=…}` (et `shield_absorb` comme avant).
+
+**Consommable « cœur d'âme »** : action `effects::Action::GainSoul(Fixed)` (variante **en fin d'enum**, linéaire
+donc acceptée sous `Scaled(PerCopy)` dans un effet, décrite par `describe_action`), exécutée dans un effet de
+personnage ou d'objet (`effects_runtime`) et à `OnUse` d'un consommable (`items::apply_instant_effects`) ;
+refusée dans un power-up et dans les actions où `GainShield` l'est ; lint `GainSoul = 0` (`OutOfRange`).
+**`Scaled` est refusé à `OnUse`** (consommable et actif, lint `Unsupported`, fixture `scaled_in_onuse`) :
+`apply_instant_effects` n'exécute pas l'enveloppe, donc `OnUse: [Scaled(GainSoul(..))]`, `Scaled(Heal(..))` ou
+`Scaled(GainShield(..))` aurait été accepté puis sans effet (T0b avait fait déballer l'enveloppe par le lint ; aucun
+contenu ne l'utilisait). Le sens de `PerCopy` pour un consommable consommé au ramassage reste à décider si un
+besoin apparaît. Un consommable à
+effets s'applique au ramassage et n'entre pas dans l'inventaire (§44). `testbed` : `coeur_ame` (4 points) ;
+`isaac` : `coeur_ame` (2 points = un cœur entier).
+
+**Attente de scénario** `ExtraHealth(handle, n, at_frame)` : points de vie d'âme du joueur (0 sans le composant),
+égalité exacte. **T8 (Q6)** : `ExtraHealth::soul` est un champ public de `combat` ; `Price::MaxHealth` reçoit déjà
+`health` et `max_health` en `Fixed` et T8 y ajoutera `soul` à l'appel de `can_pay`/`pay` (« les cœurs d'âme
+paient à la place s'ils sont présents ») : rien n'est décidé ici sur la règle de paiement.
+
+### Plafonds et refus au ramassage
+
+`ItemDef::accepts(stock, at_full_health)` (pure) : faux pour un consommable dont le compteur a atteint
+`max_stack`, et, quand l'objet déclare **`refuse_when_full: true`**, à pleine vie (`Health.current >= max`).
+`refuse_when_full` (champ de fin d'`ItemDef`, hors hash, faux par défaut) est réservé aux consommables qui
+soignent (lint : exige un effet `Heal`) ; **un cœur reste donc au sol seulement pour les consommables qui le
+déclarent** (`coeur`) : la `ration` garde son comportement (ramassée sans effet à pleine vie).
+`item_consumable_pickup_system` prend le **premier joueur à portée (ordre `GgrsNetId`) qui peut le prendre** :
+un joueur au plafond ou à pleine vie laisse le tas à un autre joueur à portée, sinon l'objet reste au sol et
+sera ramassé plus tard. Sans `max_stack` ni `refuse_when_full`, `accepts` est toujours vrai : le premier joueur
+à portée, comme avant. **Boutique** : un présentoir de consommable que l'acheteur ne peut pas prendre ne vend
+pas : rien n'est dépensé, `CurrencyEvent { delta: 0, reason: "shop_full" }` et anti-rebond `retry_after`
+(`ggrs{shop_full}`). Lint : `max_stack` déjà vérifié (T0b) ; `starting_consumables` qui dépasse `max_stack`
+(`OutOfRange`), `refuse_when_full` sans `Heal` (`Unsupported`). `isaac` : `key` et `bomb` plafonnés à 99 ;
+`testbed` : `bomb` à 3.
+
+### Sous au sol (`LootPick::Currency`)
+
+Entrée de pool `pick: Currency(n)` (variante **en fin** de `LootPick`, `n > 0` au lint). Le tirage la désigne par
+`currency:<n>` (`items::loot_currency`, comme `weapon:<id>`) ; elle compte comme un **consommable `Common`** : elle
+sort d'une récompense de salle ou d'un rocher (`consumables_only`), pas d'un coffre de rareté minimale
+supérieure. Les consommateurs du tirage posent un **`ShellPickup`** (la même entité que les douilles des
+ennemis, M2-T6 §50 : `game::shop::spawn_shell_pickup`, ramassé au contact par `shell_pickup_system`, crédité à
+`Currency` par `CurrencyEvent { reason: "pickup" }`) : coffre (`chest_interaction_system`), récompense de salle
+(`room_reward_system`), butin de champion (`champions::drop_loot`), butin de rocher (`rock_loot_system`). Un pool
+de **boutique** ne peut pas en porter (lint `Unsupported`, y compris les entrées ajoutées par un déblocage) :
+un présentoir ne vend pas de sous. La mort d'un ennemi laisse déjà des sous par `economy.ron`
+`shells_drop` (§50, `isaac` : 2 à 5) ; un champion peut en lâcher par son pool. `isaac` : `loot/salle.ron`
+(récompense de salle) gagne `Currency(1)`, `coeur`, `coeur_ame` et `bomb` aux poids 4, 3, 1 et 2.
+
+**Épuisement (M3-T0e, §64)** : `Currency` est un `pick` ordinaire pour `draw_exhausting` et `draw_loot_with` (candidat `currency:<n>`, filtres de rareté et de consommable inchangés) mais n'est **jamais « vu »** : `PoolState::record` ignore un `currency:<n>` (renvoie `false`, aucun état). Un tas de sous n'épuise donc pas un pool `exhaust: true` et reste tirable à chaque emplacement ; la variante reste en fin de `LootPick` (T0e n'a ajouté aucune variante).
+
+### Partage en coop (Q4 de William) : par joueur
+
+Sous, bombes et clés sont **par joueur** (l'`Inventory` et le `Currency` de chacun, comme avant) : celui qui
+ramasse possède. Rien de nouveau à coder, sinon l'ordre de ramassage déjà déterministe (plus petit `GgrsNetId`
+à portée qui peut prendre l'objet ; coffre : premier événement d'interaction). Prompts et HUD lisent le joueur
+concerné (prompt du coffre : les clés de l'interacteur) ; le HUD gagne la source **`bombs`** (compteur `bomb` du
+joueur affiché, à côté de `keys` et `shells`, liste fermée `content::ui::HUD_SOURCES`) ; `isaac/ui/hud.ron`
+l'affiche. Aucune ressource d'équipe (l'option « équipe » de §61 n'est pas retenue).
+
+### I-frames de `isaac`
+
+`pleureur` (le personnage joueur) pose `hit_iframes: Some(60)` : une seconde d'invulnérabilité après avoir
+perdu de la vie (résolveur de T0b, §61). Deux ennemis au contact qui frappent à quelques frames d'écart ne
+retirent plus qu'un coup (`hit_iframes_isaac` : 4 PV à f130 et 3 PV à f260, contre 3 et 1 sans la donnée —
+témoin joué par `crates/scenario/tests/extra_health.rs`, `isaac_without_hit_iframes_loses_more`).
+
+### Traces
+
+Fusion avec `origin/main` `64ec961c` (M3-T5 : `isaac` en grille) : **onze traces `isaac` bougent** (plus `hit_iframes_isaac`,
+neuve) ; aucune autre. Preuve §5 : dumps détaillés (`ALACOD_DUMP_TRACE`) des onze scénarios sur trois états, comparés par
+`scripts/trace-diff.py` sans `--ignore` : (1) `main` ; (2) la branche **sans** `hit_iframes` de `pleureur` (reste : le pool
+`loot/salle.ron` d'`isaac` et le code) ; (3) la branche complète. Deux causes distinctes, jamais confondues :
+
+- **`hit_iframes`** (2 → 3) : première frame qui diffère = frame du premier coup reçu par le joueur, **une seule ligne** (le
+  joueur), **un seul champ** : `Health.invulnerable_until_frame` `None` → `Some(f+60)` ;
+- **pool `salle`** (1 → 2) : première frame qui diffère = frame où la récompense de salle est tirée, **une seule ligne** :
+  l'objet au sol change (`item_key`/`item_blank`/`item_ration` → `item_bomb`/`item_ration`, même position).
+
+| Trace | 1 → 3 : première frame et cause | autre cause, plus tard |
+|---|---|---|
+| `grid_floor_seed_1` | f250, `hit_iframes` (→ 310) | pool `salle` f529 (clé → bombe, (248, −8)) |
+| `grid_floor_seed_123` | f365, `hit_iframes` (→ 425) | aucune (pool seul : identique à `main`) |
+| `grid_floor_seed_23` | f254, `hit_iframes` (→ 314) | pool `salle` f357 (blank → ration, (248, 136)) |
+| `grid_post_boss` | f352, **pool `salle`** (clé → bombe, (−232, 136)) | `hit_iframes` f845 (→ 905) |
+| `isaac_floor_seed_1` | f250, `hit_iframes` (→ 310) | pool `salle` f529 (clé → bombe) |
+| `generated/isaac/boss_gardien` | f160, `hit_iframes` (→ 220) | pool `salle` f163 (ration → bombe, (−232, −8)) |
+| `generated/isaac/enemy_mouche_moving` | f73, `hit_iframes` (→ 133) | aucune |
+| `generated/isaac/enemy_mouche_still` | f202, `hit_iframes` (→ 262) | aucune |
+| `generated/isaac/enemy_suiveur_moving` | f77, `hit_iframes` (→ 137) | aucune |
+| `generated/isaac/enemy_suiveur_still` | f264, `hit_iframes` (→ 324) | aucune |
+| `generated/isaac/room_combat` | f250, `hit_iframes` (→ 310) | aucune (pool seul : identique) |
+
+Le pool `salle` **fait donc bouger des `grid_*`** (`grid_floor_seed_1`, `grid_floor_seed_23`, `grid_post_boss`) et
+`isaac_floor_seed_1`, `boss_gardien` : ces traces sont bénies pour les deux causes. `hit_iframes_isaac` n'existe pas
+sur `main` : sa trace est neuve (la carte `map_seed: 1` est maintenant la grille). Ses ennemis, posés à (20, −8) et
+(−36, −8), restent à 28 px du joueur (départ (−8, −8), ancre de l'étage inchangée) : les attentes (6, 5, 4, 4, 3 PV)
+passent sans changement, rien à recaler. Toutes les autres traces (`grid_secret_*`, `grid_treasure_*`, `isaac_boots`,
+générées `weapon_*`, testbed, zombies, gungeon, throne, autres jeux) sont identiques.
+
+### Scénarios (testbed sauf mention)
+
+| Scénario | Prouve |
+|---|---|
+| `soul_heart_absorbs` / `_temoin` | la `tourelle_spirale` retire 8 PV par volée ; avec un `coeur_ame` (4) : ExtraHealth 4 puis 0, santé 100 → 96 → 88 ; sans : 92 → 84 |
+| `heart_full_stays` / `_temoin` | à pleine vie le `coeur` (`refuse_when_full`) reste au sol et soigne dès le premier coup (96) ; la `ration` ramassée à f5 est perdue (92) |
+| `coin_pickup` | un coffre du pool `pieces` (`Currency(7)`) laisse un tas de 7 sous, ramassé : 500 → 507 |
+| `room_reward_coins` | l'étage `sous_salle` (pool `pieces_salle`, `Currency(3)`) : la salle `combat` nettoyée laisse un `ShellPickup` de 3 sous (f480), ramassé aussitôt (1120 → 1123), aucune clé ; chemin `room_reward_system` |
+| `champion_drops_coins` | `elite_sous` (variante `sous`, pool `pieces`) : à sa mort (f54) un tas de 7 sous (`champions::drop_loot`), ramassé (580 → 587) ; chemin champion |
+| `shop_full` / `_temoin` | un présentoir de `bomb` (5 sous) : avec 3 bombes (plafond) l'achat est refusé sans dépense (500, 3 bombes, présentoir invendu) ; avec 2 bombes il passe (495, 3 bombes, vendu) |
+| `bomb_pickup_cap` | au plafond (3) la bombe du sol est refusée (3 à f29) ; après la pose d'une bombe (explosion), elle est ramassée (3 à f40) |
+| `coop_pickups_per_player` | deux joueurs : une clé chacun, la bombe du milieu va à P0 (plafond 3), la seconde est refusée par P0 et prise par P1 ; 7 sous pour P1 seul ; HUD sur P0 |
+| `hit_iframes_isaac` (`isaac`) | voir ci-dessus |
+
+Les sous du **rocher à butin** passent par le même `items::loot_currency` + `shop::spawn_shell_pickup` que la
+récompense de salle et le champion, mais **aucun scénario ne les observe** : un étage dont le pool est `pieces_salle`
+sur la carte `rocks_static` ne laisse pas le joueur bouger (non élucidé), le scénario a été retiré.
+
+Unitaires : `combat::damage::layer_tests` (ordre bouclier → armure → âme → PV, `True`, coup absorbé en entier),
+`items::tests::accepts_refuses_a_full_counter_and_a_wasted_heal`, `items::loot::tests`
+(`currency_pick_is_a_common_consumable…`), `crates/scenario/tests/extra_health.rs` (les mêmes règles dans le vrai
+résolveur, dont `a_hit_absorbed_by_the_shield_does_not_start_the_hit_iframes` : bouclier d'un point, coups à f12 et
+f30, attendu `(4992, 0, 0)` ; 5000 si le coup absorbé posait `hit_iframes`), `crates/content/tests/m3_t3_fixtures.rs`
+(8 fixtures : `item_refuse_when_full_without_heal`, `item_gain_soul_zero`, `loot_currency_zero`, `shop_currency_pool`,
+`character_starting_over_max_stack`, `unlock_currency_zero`, `unlock_currency_shop_pool`, `scaled_in_onuse`).
+
+### Atteignabilité et dettes
+
+Récompense de salle `combat` d'`isaac` (cœurs, sous, bombes, clés) ; mort d'ennemi d'`isaac` (`shells_drop`) ;
+tables de champions et d'ennemis (M3-T11c). `OnDamageTaken` et cœurs d'âme : voir « Ordre retenu » ci-dessus
+(sans `HealthRegen`, un coup absorbé par l'âme le déclenche) ; `ExtraHealth` n'a pas de plafond ; la pose de
+bombe d'`isaac` (`BombCarrier`) est M3-T11 ; HUD des cœurs : T16.
+
+## 69. Bombes, explosions, rochers cassés, piques, mur secret (M3-T4, chantiers E3 et E4 v2)
+
+Exécute les contrats de §62. Code : `game::bombs` (`BombsPlugin`), `world::{bomb, explosion, surface}`,
+`map_ldtk::game::rooms::secret_wall_system`, `game::effects_runtime` (action `Explode`). **Aucune trace
+existante ne bouge** : tout état nouveau est neutre ou transitoire et absent des jeux sans `bomb`, sans
+rocher, sans piques ni salle secrète ; le baril garde sa trace (`barrel_chain`, `bench_floor`) en changeant
+de code.
+
+### Bombe
+
+`CharacterConfig.bomb` donne au joueur un composant `world::BombCarrier { def, held }` (rollback **neutre**,
+`PlayerScript::bomb` le pose aussi en scénario). `bomb_place_system` (`Effects`, après
+`synergy_modifiers_system`, joueurs par `GgrsNetId`) : au **front montant** de `INPUT_BOMB` (`held` réécrit à
+chaque frame, avant tout retour anticipé), joueur debout, avec au moins un consommable `bomb` dans son
+`Inventory` (`starting_consumables` ou `PlayerScript::items`), il en consomme un et pose une `world::Bomb`
+aux pieds (centre du collider, offset compris) : entité rollback neutre numérotée `bomb_<poseur>`,
+mèche de `fuse_frames`. `BombDef.friendly_fire` (fin de structure, défaut **`Always`**, Q4 : la bombe blesse
+son poseur et les autres joueurs, comme Isaac ; `Never` pour la couper). Sans `BombCarrier` rien ne lit le bit.
+
+### Explosion
+
+Trois sources, une règle. `world::ExplosionRequest { id, source, source_team, x, y, radius, damage,
+destroys, friendly_fire }` (`FrameEvents` **transitoire**, hors checksum : un baril en émet dans des parties
+existantes) est émise par `bomb_fuse_system` (bombe dont la mèche est écoulée, puis `despawn_rollback`), par
+le baril mort (lu dans `explosion_system`) et par l'action `Explode` (voir plus bas). Deux étages :
+
+1. `World` (`bomb_fuse_system` puis `explosion_terrain_system`, après `pit_system`, **avant**
+   `apply_destroy_terrain_system`) : si `destroys`, terrain de caverne (`DestroyTerrainRequest` : les murs
+   de `CellGrid` et le champ de flux sont refaits dans la frame, comme pour `DestroyTerrain`) et rochers.
+2. `CollisionDamage` (`explosion_system`, à l'emplacement de l'ancien `barrel_explosion_system`, avant
+   `rollback_resolve_damage_events`) : les demandes de la frame (bombes + barils morts) sont **triées par
+   `GgrsNetId` de l'objet** (tri stable) ; chacune envoie `damage` (`Physical`, tag `explosion`, source =
+   le poseur, donc crédité) à tout personnage à PV dont le centre est à **strictement** moins de `radius`
+   (`world::within_radius`), sauf l'objet lui-même, un personnage déjà à l'agonie (`Death`) et un personnage
+   **invulnérable** (`Health::is_invulnerable_at`, comme les balles : c'est ce qui protège les familiers de
+   M3-T6, `invulnerable_until_frame = u32::MAX`). Elle émet `world::Exploded` (transitoire, moment clé
+   `explosion`) ; un baril est détruit par `despawn_rollback()` avec sa demande. Une chaîne de barils
+   reste « un baril par frame » (le voisin touché meurt dans la frame, explose à la suivante).
+
+Écart avec le baril d'avant : le rayon est **strict** (`<`) et non inclusif, et un personnage invulnérable
+n'est plus visé (le résolveur l'ignorait déjà) ; aucune des scènes existantes ne place un personnage à
+exactement `radius` (traces de `barrel_chain` et des cartes à barils identiques).
+
+### Rochers et butin
+
+`explosion_terrain_system` casse chaque `world::Rock` dont le centre est à moins de `radius`
+(`world::cells_in_radius` : rendus par `(y, x)` croissants, un rocher cassé une seule fois par frame) par
+`despawn_rollback()`. Le champ de flux relit les `Obstacle` à chaque mise à jour : le passage s'ouvre sans code
+de plus (`rock_flow_field`). Chaque rocher cassé émet un `game::bombs::RockBroken` (transitoire) ;
+`map_ldtk::game::rooms::rock_loot_system` (`World`, après `explosion_terrain_system`, qui seul voit `CurrentRooms`)
+tire le butin d'un rocher à butin (`loot`) : un `ItemPickup` tiré par
+`items::draw_loot_with` (consommables seulement) avec un `RollbackRng` **local** de graine
+`loot_seed(graine, étage, "rock:<salle>:<x>:<y>")` (`game::bombs::rock_loot_key`, case de grille monde ;
+`<salle>` = identifiant de la plus petite salle **de l'étage courant** dont les bornes contiennent le rocher, `-`
+sinon : `game::bombs::room_of`, nourri par `CurrentRooms` ; en `Floors` les mondes se superposent, une salle d'un
+étage inactif donnerait une clé fausse) ; pool =
+celui de l'étage s'il existe, sinon `salle` (aucune chance : le tirage est certain). Q : pool propre aux
+rochers ?
+
+### Mur secret
+
+Une salle dont le type porte `door_lock: Secret` garde ses portes **et leurs jumelles** (celles du bord de la
+salle voisine) fermées : au premier tick, `room_lock_system` les laisse closes et leur retire seulement
+`Interactable` (aucune Interaction ne les ouvre) ; les autres portes de salle s'ouvrent comme avant. Les deux
+branches `Locked → Cleared` (fin d'une salle de combat ou d'une arène **voisine**) **et le verrouillage** d'une salle
+voisine (`to_close`) ignorent aussi les portes secrètes (`secret_door`), ouvertes ou fermées : leur état est du seul
+ressort de `secret_wall_system` (`secret_wall_open_then_fight` : mur ouvert, puis la salle voisine se verrouille et se
+nettoie, il reste ouvert ; témoin `_sans_bombe`) : nettoyer la salle d'à côté n'ouvre pas le mur (`secret_wall_after_clear`). Le mode
+`Floors` remet `DoorLocks` à zéro à la transition d'étage (`floor_transition_system`) : les portes renaissent
+fermées, et un étage répété (mêmes `LevelId`) ne les croit pas déjà ouvertes (`secret_wall_floors`).
+`secret_wall_system` (`World`, après `bomb_fuse_system`) : une `ExplosionRequest` qui `destroys` et dont le
+rayon touche le **bord du collider** d'une de ces portes (`world::rect_within_radius`, strict) ouvre
+**toutes** les portes de la salle (colliders retirés) et la range dans `DoorLocks` (`DoorLocked(kind, nth,
+locked: false)`). Le champ de flux relit les portes à chaque mise à jour : les deux salles sont reliées
+(`secret_wall_bomb`, un ennemi de la salle secrète rejoint le joueur). Placement par la grammaire : M3-T5 (§70).
+
+### Piques
+
+`hazard_system` (`World`, après `pit_system`, seulement si la carte a une case de piques) : un joueur debout
+dont les pieds sont sur une surface à `hazard` reçoit `damage` (`True`, tag `spikes`, source = lui-même) si
+`HazardDef::applies` : une fois toutes les `period` frames (`world::HazardState { last_hit }`, rollback
+neutre posé au premier coup), sauf pendant un dash si `dash_crosses` (champ de fin de structure, faux par
+défaut : le dash ne franchit pas les piques, il y est blessé quand il n'a pas d'i-frames). Surface du
+testbed : `surfaces/piques.ron` (valeur IntGrid 5, 5 PV, 30 frames).
+
+### Action `Explode`
+
+`effects::Action::Explode { radius, damage, destroys }` est exécutée dans un effet de personnage, d'objet
+tenu, de mutation ou une frise de boss (`apply_action_sourced`) : une **bombe à mèche d'une frame** est
+posée au point du porteur (commande différée : `GgrsNetIdFactory` et position se lisent à l'application),
+équipe du porteur, tir ami `Always` ; elle explose à la frame suivante par le même chemin. Le porteur n'est
+pas exempté : au centre du rayon, il prend les dégâts comme les autres (`explode_effect`). Le lint ne la
+refuse plus dans un effet (rayon > 0, dégâts >= 0 inchangés) ; les power-ups la refusent toujours.
+**`OnUse` d'un objet (D80, fermée)** : `items::apply_instant_effects` n'a plus sa propre liste d'actions
+(`Heal`, `GainShield`, `TimedModifier`, `Modifier`) : chaque action passe par `apply_action_sourced`, la même
+exécution que les effets de personnage et d'objet tenu (source `item:<id>`, comme avant ; `Heal` sans `Health` :
+sans effet). `Explode` est donc acceptée en `OnUse` d'un actif ou d'un consommable (lint : rayon > 0, dégâts >= 0) :
+bombe à mèche d'une frame au point du porteur **lu à l'application** (commande différée), créditée à lui, de son
+équipe. Un actif « bombe » : `testbed/objets/bombe_active.ron`, scénarios `item_active_bomb_rock` (les trois
+rochers du couloir cassés à la frame suivant l'usage) et `item_active_bomb_enemy` (un `dummy` à 22 px blessé, le
+porteur aussi : tir ami `Always`, un `dummy` hors rayon intact) ; fixtures `explode_onuse_ok`,
+`explode_onuse_radius_zero`. Les actions que le lint refuse à `OnUse` (`GaugeAdd`, `SpawnPattern`, `Scaled`…) ne
+sont toujours pas admises : l'exécution commune les refuserait par un `warn!` (action non exécutée), pas en
+silence. Les traces existantes ne bougent pas (72 scénarios d'objets, boutiques, bombes et boss rejoués). `Explode`
+en mort de champion : M3-T7.
+
+**Tir ami (`friendly_fire`, D113)** : `Explode(radius, damage, destroys, friendly_fire: Never | Always)`, champ optionnel
+(`ExplodeFriendlyFire`, `effects::actions`), **défaut `Always` = comportement d'avant** : l'explosion blesse tout personnage
+à PV du rayon, porteur et alliés compris. `Never` pose la `Bomb` avec `FriendlyFire::Never` : les `DamageEvent` de
+l'explosion sont refusés par `resolve_damage` pour tout personnage du **même bord** que le porteur (`Players`/`Allies`
+ensemble, ou deux `Enemies`) : le porteur et ses coéquipiers sont épargnés, un adversaire prend les dégâts normalement.
+Même champ pour l'`Explode` d'une mort de champion (`death_plan`). **Hash manuel** (règle « champ nouveau sous
+checksum ») : `Always` n'écrit rien (les hashs d'avant ne bougent pas), `Never` écrit un octet ; `describe` ajoute
+« épargne les alliés » ; le lint n'a rien à refuser (deux valeurs, toutes valides). Le champ passe par `scaled_action`.
+`nova`, `bombe_fiole` et `epines_de_chair` sont à `Never` et n'ont plus de `GainShield` de contournement ; preuve coop :
+`isaac_nova_coop` (deux joueurs à 6 PV à portée de `nova`, tous deux à 6 PV après l'onde ; avec l'ancien contenu, le
+coéquipier mourait). Traces bougées (preuve §5, dumps `ALACOD_DUMP_TRACE`, `scripts/trace-diff.py`, objets d'avant contre
+objets de la branche, même moteur) : `isaac_nova` et `isaac_bombe_fiole` f35, `generated/isaac/item_nova` et
+`item_bombe_fiole` f15, `generated/isaac/tears_epines_de_chair` f2 : à chaque fois la première frame qui diffère est la
+**pose de la bombe de l'objet** (`friendly_fire: Always` devenu `Never`, plus le `Shield` en moins pour les deux actifs) ;
+`item_epines_de_chair` (porteur sans coup reçu) identique ; aucune autre trace ne bouge (suite complète rejouée).
+Détail : `docs/taches/rapports/dette-d113-tir-ami-explode.md`.
+
+### Balle explosive (`BulletType::Explosive`, D76 fermée)
+
+`blast_radius` (et `explosive_damage_multiplier`) n'étaient lus par rien : une balle `Explosive` ne faisait que
+disparaître. **Branchée sur l'explosion commune, sans second chemin** (choix : la variante existe déjà dans le schéma
+RON des armes, la retirer aurait décalé le discriminant de `Piercing` dans le `derive(Hash)` de `BulletType`, donc
+déplacé toutes les traces à balle perforante). Quand une balle `Explosive` se termine, `combat::weapons::spawn_blast`
+pose **la même bombe à mèche d'une frame** que l'action `Explode` et les champions (`world::Bomb`, `fuse_until =
+frame + 1`, numérotée `blast_<balle>`, créditée au tireur, de son équipe, politique de tir ami de l'arme) à la position
+de la balle : rayon `blast_radius`, dégâts `Bullet.damage × explosive_damage_multiplier` (la cible touchée prend le coup
+**puis** le souffle), tir ami `Cursed` **résolu au tir** (`Always` si le tireur porte `cursed`, `Never` sinon : le souffle n'émet que le tag `explosion`, test `souffle_cursed_suit_les_tags_du_tireur`), `destroys: false` (ni rochers ni terrain : `on_expire: [DestroyTerrain]` le demande
+explicitement). Trois sites, tous dans l'ordre `GgrsNetId` du système : l'arrêt contre un personnage ou un mur d'une
+balle ordinaire (`bullet_rollback_collision_system`), sa fin de portée (`bullet_rollback_system`), la fin d'un projectile
+composable (`projectile_expire_system`, après ses `on_expire`, qui couvre sa touche, son mur et sa durée de vie). Une
+balle `Piercing` ou `Standard` ne pose rien. Une balle explosive **annulée** (blank, effacement hostile, bouclier de familier) disparaît sans exploser : choix
+assumé (relecture de D76), l'explosion est celle d'une balle qui se termine, pas d'une balle détruite. Les `GgrsNetId` ne sont alloués que quand une balle explosive se termine :
+**aucune trace existante ne bouge** (aucun contenu d'un jeu ne déclarait `Explosive`, vérifié par `grep` sur `games/`,
+`templates/`, `tests/` : seules les deux armes de testbed ajoutées ici). Testbed : armes `balle_explosive` (sans
+`projectile:`, portée 100) et `balle_explosive_composee` (`Lifetime(20)`) (scénarios générés `weapon_balle_explosive` et `weapon_balle_explosive_composee`, `make gen GAME=testbed`), scénarios `explosive_bullet_hit` (le premier
+`dummy` 200 → 185 : balle puis souffle ; le deuxième, derrière, 200 → 190 : souffle seul ; le troisième, hors rayon, et
+le joueur intacts), `explosive_bullet_range` et `explosive_bullet_composed` (la balle s'éteint sans toucher : le `dummy`
+voisin prend le souffle seul, 200 → 190). Pas de lint propre à `Explosive` (aucun lint de `bullet_type` n'existe).
+
+### Déterminisme
+
+`Fixed` partout (`FixedWide` pour les carrés), `order_iter!`/`order_mut_iter!`, `BTreeMap`/`BTreeSet`,
+`despawn_rollback()` pour bombes, barils et rochers, un seul `RollbackRng` local par rocher à butin.
+`ExplosionRequest` et `Exploded` sont transitoires (vidés au `FrameStart`, jamais lus avant leur émetteur) :
+`explosion_system` est après `bomb_fuse_system` et les dégâts d'une frame se résolvent dans la frame. Types
+neutres sans porteur hors des cartes concernées : `BombCarrier`, `Bomb`, `HazardState`, `Rock` (T0c),
+`DoorLocks` (T0c). `PlayerScript::bomb` est un champ de scénario sans effet sur les parties enregistrées.
+`fuzz_inputs` : `ALACOD_FUZZ_BOMBS=1` joue un personnage à huit bombes dans la salle à rochers du testbed
+(`rock_flow.ldtk`) avec des appuis aléatoires sur `Bomb`.
+
+### Testbed et scénarios
+
+Cartes `testbed/spikes.ldtk`, `testbed/rock_flow.ldtk`, `testbed/salles_secret.ldtk`
+(`scripts/construire-cartes-t4.py`) ; `rocks_static.ldtk` (T0c) sert aux bombes et au butin. Objet
+`objets/bomb.ron` (consommable `bomb`), surface `surfaces/piques.ron`.
+
+| Scénario | Prouve |
+|---|---|
+| `bomb_place_explode`, `bomb_hurts_owner` | pose au front montant, compteur `bomb` 1 → 0, explosion 20 frames après (f35, `explosion`) ; un mannequin à 35 px perd 50 PV, un autre à 100 px non ; tir ami coupé : le poseur intact, actif : il perd 50 |
+| `bomb_breaks_rock` | les trois rochers du couloir disparaissent, le rocher à butin (50 px) reste, le joueur passe ; aucun butin |
+| `bomb_digs_cave` | caverne `petite` : la bombe creuse (26, 15) et (27, 15) (7 cases détruites, f96) par la même requête que la grenade ; le joueur traverse |
+| `rock_loot` | rayon 60 : le rocher à butin laisse une clé (`loot_seed`), ramassée (f156) |
+| `bomb_chain_barrel` | bombe → premier baril (f80) → second (f81) → joueur 1 touché (100 → 70, f82) |
+| `secret_wall_bomb`, `secret_wall_closed` | porte fermée (`DoorLocked`), joueur et ennemi bloqués ; la bombe l'ouvre (f95) : ils passent ; témoin sans bombe |
+| `spikes_damage` | 5 PV à f71 puis toutes les 30 frames (95, 90, … 75 à f199), santé intacte avant |
+| `secret_wall_after_clear` | la salle de combat voisine nettoyée (f489) rouvre ses portes ordinaires, pas la porte secrète : le joueur s'arrête contre elle (x -714,8), aucune bombe |
+| `secret_wall_floors` | deux étages identiques (`deux_secrets`) : porte ouverte par une bombe à l'étage 0, de nouveau fermée à l'étage 1 (f306), rouverte par la seconde bombe (f395) |
+| `explode_effect` | un effet `Explode` (`kamikaze`, `Tick(40)`, une charge) : une seule explosion (f47), joueur 100 → 70, porteur 50 → 20 (aucune exemption), `dummy` hors rayon intact |
+| `rock_flow_field`, `rock_flow_field_blocked` | le `follower` prend le détour ; la bombe rouvre le passage direct : distance 59,7 à f240 contre 109,2 ; il rejoint le joueur vers f280 contre f360 |
+
+Unitaires : `game::effects_runtime` (`Explode` pose une bombe à mèche d'une frame, équipe et crédit du porteur,
+`destroys`), `game::bombs::room_of` (sélection de la salle parmi celles de l'étage courant), `world::explosion` (rayon strict, rectangle touché, cases triées), `world::surface`
+(`HazardDef::applies`), `game::bombs` (`explosion_system` : ordre des ids, invulnérables et mourants
+épargnés, ordre des explosions ; clé de butin), `content` (`explode_effect_ok`).
+
+### Questions pour William
+
+Q4 (reprise de §62) : tir ami de la bombe, proposition `Always` ; pool de butin propre aux rochers (le pool
+`salle` ne donne qu'une clé) ; dégâts des piques `True` en points (demi-cœurs : Q2) ; mur secret ouvert par
+une explosion de baril (aujourd'hui non : le baril n'a pas `destroys`).
+
+### Atteignabilité
+
+Rencontré quand `isaac` donne des bombes de départ à son personnage (dette : le faire change ses traces,
+décision de l'orchestrateur : faite par M3-T11d1, §76.4), que M3-T11d1 a placé rochers et piques dans les gabarits `combat` ; M3-T5 a placé
+le mur secret (§70 : une salle secrète par étage de `isaac`, graines 25 et 39 depuis M3-T11d1, 5 et 8 avant : `grid_secret_*`).
+
+## 70. Étage en grille : planificateur, salle secrète, trésor à clé, salle post-boss (M3-T5, chantier E2 v2)
+
+Exécute `FloorLayout::Grid` (contrat de §62) : un étage d'Isaac pose ses salles sur une grille de cases de
+même taille, une porte par côté partagé relié, des boucles possibles, des culs-de-sac pour les salles
+spéciales, une salle secrète voisine de plusieurs salles. Code : `map::generation::grid` (planificateur et
+contrôle indépendant), `map::generation::floor` (dispatch, `FloorPlan`), `map::generation::imp::floor`,
+`map_ldtk::generation::to` (portes de plus, murage exact), `map_ldtk::game::rooms` (portes à clé, minicarte),
+`content::lint` (gabarits et clés). **`Graph` est inchangé** : mêmes plans, mêmes traces pour `gungeon`,
+`zombies`, `throne` et `testbed` (preuve en fin de §).
+
+### Contenu : la grammaire
+
+```ron
+// games/isaac/assets/floor_grammars/sous_sol.ron
+(templates: "maps/salles.ldtk", grammar: (
+    rooms: (8, 12),                                   // départ, boss, requises, secrète, diable compris
+    required: {"boss": 1, "tresor": 1, "secrete": 1}, // en grille : exactement ce nombre
+    min_boss_distance: 3,
+    layout: Some(Grid(
+        cell: (15, 9),                                // une case de salle, en cases de 16 px (Q8)
+        max: (7, 7),                                  // étendue de la grille, en cases de salle
+        loops: 1,                                     // boucles au plus (défaut 0 : un arbre)
+        secret: "secrete",                            // type de la salle secrète (défaut)
+        post_boss: Some((kind: "diable", chance: "0.33")), // salle post-boss, absente : aucune
+    )),
+))
+```
+
+Réponse de William à Q8 : **case unique et grandes salles 2×1, 1×2, 2×2 dès T5** (formes en L hors périmètre).
+Un gabarit couvre un rectangle de cases de salle : sa taille en cases de 16 px est un **multiple de `cell`**, et
+**chaque côté de chaque case de salle** a une ouverture `LevelConnection` **centrée sur ce segment** (un 2×1 :
+deux ouvertures au nord, deux au sud, une à l'ouest et à l'est). Cette ouverture est un *port* : `(côté, case le
+long du côté)`. Lecture de « ouverture centrée sur chaque côté » pour une grande salle : **par segment de case**,
+seule façon d'aligner ses portes sur celles de voisines 1×1 ; à relire (Q8 ne tranchait pas ce point). Deux salles ne
+se relient que par des ouvertures **de même largeur** (sinon leurs bords ne coïncident pas : le contrôle indépendant
+refuserait la porte, `Layout::width` l'exclut dès la pose ; le lint exige une même largeur pour tous les gabarits d'une
+grammaire en grille). **L'étendue `max` est bornée par le monde** : le départ est à la case `(max - taille) / 2` et le
+monde fait ±1000 px (`max_width`/`max_heigth`), si bien que huit colonnes de 240 px ne tiennent pas (la huitième est
+refusée par `Layout::free`) : `sous_sol_grand` est en 7×7, comme `sous_sol`. Un
+gabarit n'a plus besoin d'être un cul-de-sac : le boss et le trésor ont leurs quatre ouvertures, le plan n'en
+relie qu'une, le chargeur mure les autres. Les quatre `BossN/E/S/W` de T0f disparaissent.
+
+### Algorithme (`grid::attempt`, une tentative = une graine)
+
+1. **Départ** (gabarit `Spawn` du type de départ) au centre de la grille, aligné sur les tuiles comme en `Graph`.
+2. **Remplissage** : croissance, une pose = tirage d'un gabarit parmi ceux qui ont au moins une pose valide (un 2×2
+   n'est pas favorisé par ses huit ports), puis d'une pose de ce gabarit. Une pose est valide si le rectangle est
+   dans la grille et dans le monde (`max_width`/`max_heigth`), sans salle, et **ne touche que son parent** (règle
+   d'Isaac). Sauf à `loops` pas de croissance tirés d'un flux local, où la pose peut toucher **une seconde** salle
+   ordinaire, reliée par une porte de plus (une boucle ; ports libres face à face exigés).
+3. **Boss** sur une salle de profondeur maximale (distance en salles, boucles comprises) : le cul-de-sac le plus loin ;
+   `min_boss_distance` ; strictement le plus loin de l'étage.
+4. **Salle post-boss** : la chance (`post_boss.chance`) est tirée **une fois par étage** par un flux local de la
+   graine de l'emplacement (avant les tentatives : toutes les tentatives voient la même décision) ; la place est
+   réservée dans `rooms` ; la case est accrochée au boss (seul voisin) et n'est pas comptée comme « plus loin que le
+   boss ». Le boss a donc un voisin de plus, elle.
+5. **Salles requises** (hors boss et secrète) : culs-de-sac accrochés à une salle ordinaire (départ ou remplissage)
+   de profondeur ≤ celle du boss − 2.
+6. **Salle secrète** (`required` la demande) : un rectangle libre, sans voisin boss ni post-boss, qui touche **au
+   moins deux salles ordinaires** par un port libre de part et d'autre ; une porte par voisine (la première dans
+   l'ordre des ports). Les candidats sont énumérés dans l'ordre (`BTreeSet`), tirés comme les poses.
+7. **Contrôle indépendant** `validate_grid_plan`, relu depuis les `Room` (positions, connexions) et non depuis l'état du
+   planificateur : bornes, types **exacts**, un seul départ en tête, un seul boss, alignement sur la grille et
+   tailles multiples, aucun chevauchement ni identifiant en double, **portes réciproques entre salles voisines aux
+   ouvertures face à face** (aucune porte vers le vide), connexité hors salle secrète, arêtes ≤ arbre + `loops`, deux
+   salles voisines (hors secrète) toujours reliées, boss en cul-de-sac strictement le plus loin (distances sans la
+   secrète : un raccourci par elle ne compte pas) à la salle post-boss près, requises en culs-de-sac, secrète à ≥ 2
+   portes toutes ordinaires et loin du boss. Un plan refusé relance une tentative.
+
+**Déterminisme.** `BTreeMap`/`BTreeSet`, `Vec` parcourus dans l'ordre de pose, aucun `HashMap`. Le RNG d'une
+tentative est découpé en **flux locaux** par usage (croissance, pas de boucle, secrète, départ, identifiants de salle
+par indice) dérivés de la graine de la tentative (`mix`) : ajouter un tirage à l'un ne déplace pas les autres. Les
+tirages bornés prennent les bits de poids fort du LCG (`below` : `RollbackRng::next_u32_range` prend un modulo, dont
+les bits de poids faible alternent). Identifiants de salle `seed ^ (indice + 1) × 0x9E3779B9` : injectif, jamais deux
+salles au même identifiant. Graine par emplacement : inchangée (§40).
+
+**Terminaison (le risque de la fiche).** Aucune boucle `while`. La croissance est un `for` borné par le nombre de
+salles ; une pose énumère un nombre fini de candidats (parents × ports × gabarits × ports) ; les pas de boucle sont
+tirés sans remise ; les tentatives sont bornées par `max_attempts` (`FloorError::Exhausted`, `NoTemplate` si un type
+n'a aucun gabarit à ports). `grid::step_bound(grammaire, gabarits)` majore les évaluations de candidats ;
+`FloorPlan::steps` les compte, tentatives échouées comprises. Tests : 1 000 graines sous la borne (maximum observé
+353 pour une borne de 77 millions, gabarits du test), grammaire impossible (grille d'une case, distance du boss
+irréaliste, plus de requises que de salles) : échec explicite sous la borne.
+
+### Plan : de l'arbre au graphe
+
+`PlannedRoom.links: Vec<PlannedLink { mine, other, theirs }>` : les portes qui ne sont l'arête de pose (parent) d'aucune
+salle (boucle, voisines supplémentaires de la salle secrète), portées par la salle posée en dernier des deux ; vide en
+`Graph`. `IMapGeneration::get_links` et `IMapGenerator::add_link` les rendent après les salles (`map_generation`).
+En `Basic` et `Graph`, `get_links` rend aussi les prises libres qui se touchent après la pose (fermeture des boucles,
+§1, `MapSettings::close_loops`) ; une grille ne les ferme pas (`FloorMapGeneration` désactive `close_loops` et
+`wall_unused_openings` : son plan fixe ses boucles). `Room::connections` finales portent déjà toutes les portes :
+l'appariement des portes (`get_doors`) est inchangé.
+
+**Murage exact.** En grille le chargeur appelle `close_unused_openings_exact` : chaque salle générée garde la liste
+de ses ouvertures sans porte du plan (lue dans ses connexions finales) et les mure. `Basic` et `Graph` murent leurs
+prises libres pendant `map_generation` (`IMapGeneration::unused_openings`, `IMapGenerator::close_opening`, §1) ;
+l'ancien murage par direction (`close_unused_openings`) est retiré (fusion de `better-assets`, 2026-10-19).
+
+### Salle secrète
+
+Type `secrete` (`rooms/secrete.ron`, `door_lock: Secret`) : une par étage si `required` la demande, murée (§69 : une
+explosion `destroys` ouvre toutes ses portes). Elle n'est reliée qu'à des salles **ordinaires** (départ, combat) :
+seules, les portes du mur secret restent closes (`doors_closed` de `isaac_boots`, graine 1 : six portes, les quatre de la salle secrète dont deux murées et les deux jumelles de ses deux voisines).
+**Accessible à la bombe** : ses voisines sont atteignables du départ sans la franchir (testé sur 1 000 graines, deux
+grammaires) et `grid_secret_bomb` l'ouvre par une vraie explosion. **Minicarte** (M2-T18, `hud_model::minimap_rooms`) :
+elle lit déjà les bornes de chaque salle et `RoomStates`, donc dessine une grille (grandes salles à leur taille)
+sans changement ; l'adaptateur de carte (`update_hud_room_geometry`) ne lui donne pas la salle secrète **tant que son
+mur est fermé** (`hidden_from_minimap`, unitaire) : elle apparaît à l'ouverture (`DoorLocks`).
+
+### Trésor à clé
+
+`RoomKindDef.lock_from_floor: u32` (défaut 0, champ de fin de structure absent du contenu existant) : étage de la
+séquence `Floors` (indice, 0 = le premier) à partir duquel `door_lock` s'applique ; `RoomKindTable::door_lock_at(kind,
+floor)`. `rooms/tresor.ron` d'`isaac` : `door_lock: Some(Key(1)), lock_from_floor: 1` (Q6 : fermé à partir du second
+étage). **`DoorLock::Key` n'était exécuté par personne** (T0c le disait pour T4, qui n'a fait que `Secret`) :
+- `InteractionType::KeyDoor` (fin d'enum) : au premier tick, la porte d'une salle `Key(n)` de l'étage courant **et sa
+  jumelle** (`DoorConfig::paired_door` renseigné : les ouvertures murées restent des portes de salle ordinaires)
+  gardent leur collider et leur `Interactable` devient `KeyDoor` (même portée) : `handle_door_interaction` ne les voit
+  plus, donc **aucun coût de porte** n'est débité. Prompt du HUD « Ouvrir — clé (n) » / « Fermé — clé (0) » (§81).
+- `key_door_system` (`Interaction`, après tous les handlers qui écrivent `Inventory`) : une Interaction sur une porte
+  `KeyDoor` consomme `n` clés **de l'interacteur** (Q4 : les clés sont par joueur), retire collider, couche et
+  `Interactable` de toutes les portes scellées de la salle, inscrit la salle dans `DoorLocks`
+  (`ggrs{f=… key_door_open room=… by=…}`) ; sans clé suffisante : `key_door_refused`, rien ne change.
+- ni l'ouverture d'office, ni le verrouillage d'une salle de combat voisine, ni sa fin (`Locked → Cleared`) ne touchent
+  une porte à clé, ouverte ou fermée (même règle que le mur secret).
+- `DoorLocked` (attente) et le lint lisent `door_lock_at` avec l'étage courant.
+**Clé obtenable** : lint (§ plus bas) et donnée : `consumables_per_floor: {"key": 1}` de la séquence `sous_sol`
+(servi à l'arrivée du second étage) ; `pleureur.ron` gagne `starting_consumables: {"key": 0}` : `blank_system` ne sert
+que les joueurs qui **ont** un `Inventory` (posé au premier ramassage ou par `starting_consumables`), sans quoi la clé du
+second étage n'aurait servi personne avant le premier ramassage.
+
+### Salle post-boss
+
+Type `diable` (`rooms/diable.ron`, vide ; le marché est T8). Tirée par `post_boss.chance` (un tiers pour `isaac`), une fois
+par étage, accrochée au boss, jamais voisine de la salle secrète. Le boss verrouille sa salle comme avant ; à sa mort ses
+portes s'ouvrent, celle de la salle post-boss comprise.
+
+### Lint
+
+`lint_floor_grammars` (grammaires en grille) : taille d'un gabarit d'un type nécessaire multiple de `cell`, ouverture
+centrée sur **chaque segment de chaque côté** (message : côté et segment), `FloorGrammar::problems()` : `secret` égal au
+départ/boss/remplissage, plus d'une secrète requise, `post_boss.chance` hors [0, 1], `post_boss.kind` déjà pris ;
+`lock_from_floor` sans `door_lock` ou sur `Secret` (le mur secret ne lit pas l'étage) ; **clé obtenable** : un type `Key(n)` exigé par une grammaire que nomme une séquence
+`Floors` doit avoir une source de ≥ n clés pour l'étage où le verrou s'applique (`consumables_per_floor["key"]` servi à
+partir de l'étage 1 seulement, pool de butin qui donne `key`, `starting_consumables`). Fixtures : `grid_template_size_not_multiple`,
+`grid_template_missing_opening`, `grid_post_boss_chance_out_of_range`, `lock_from_floor_without_lock`,
+`key_room_without_key_source`, `key_room_key_at_floor_zero_only` ; cas valides `grid_large_rooms_ok`,
+`key_room_with_key_source`.
+
+### `isaac` en grille
+
+Gabarits `maps/salles.ldtk` (T5 : `docs/taches/rapports/m3-t5-grammaire-grille.make_salles.py` ; **vingt depuis M3-T11d1**,
+§76.4, script `m3-t11d1-gabarits.make_salles.py`, qui reprend les dix de T5 tels quels) : `Depart`, `Combat`, `Boss`
+(1×1), `BossGrand` (2×2), `Tresor` (1×1), `TresorLong` (2×1), `TresorHaut` (1×2), `Secrete`, `Diable`, `Transit`, plus huit
+gabarits de combat, `BossAbris` et `Boutique`. Grammaires :
+`sous_sol` (8 à 12 salles, 7×7), `sous_sol_grand` (12 à 15, 8×8, deux boucles), `sous_sol_court` (3 salles, désignée par
+`entry.start_map = floor:sous_sol_court` pour les scénarios générés sans carte : `boss_gardien`), `sous_sol_transit` (un
+départ et une salle sans ennemi : portail ouvert aussitôt). Séquences : `sous_sol` (**défaut : deux étages**, clé au second),
+`sous_sol_un`, `sous_sol_grand`, `sous_sol_court`, `sous_sol_cle` (étage de passage puis `sous_sol` : le second étage des
+scénarios à clé sans jouer le premier). Objet `bomb` (copie du testbed : la bombe des scénarios ; `pleureur` en a une au départ depuis M3-T11d1, D81). **Les traces d'isaac bougent** : (1) la carte est une grille ; (2) le joueur a un `Inventory`
+(`starting_consumables`). Preuve et traces re-bénies : rapport `docs/taches/rapports/m3-t5-grammaire-grille.md`.
+
+### Scénarios et attente `RoomLayout`
+
+Attente nouvelle `RoomLayout(kind, nth, size: Some((w, h)), touches: [types], apart: [types], at_frame)` (même tri que
+`RoomState`, géométrie relue sur `RoomBounds`, à employer sur un étage unique : les mondes des étages se superposent) :
+taille en pixels (2×2 = 480 × 288) et voisinage par un bord commun.
+
+| Scénario | Prouve |
+|---|---|
+| `grid_floor_seed_1`, `_23`, `_123` | un étage entier joué par le bot `explorateur` jusqu'à la victoire (M3-T11d1 : vingt gabarits, plans refaits ; `Armor +50` de D88 pour la graine 1, aucune armure pour les graines 23 et 123) : boss 1×1 (graine 1, trésor 1×2, quatre combats, boutique), boss 1×1 avec salle du diable et trésor 2×1 (graine 23), **boss 2×2** avec salle du diable (graine 123) ; tailles, voisinages, secrète fermée, trésor ouvert au premier étage |
+| `grid_secret_room` | graine 25 (graine 5 avant M3-T11d1) : secrète placée (voisine du départ et d'un combat, loin du boss), fermée, rien n'y entre |
+| `grid_secret_bomb`, `grid_secret_no_bomb` | graine 39 (graine 8 avant) : **la bombe de départ de `pleureur`** (D81 : mèche 75 frames, rayon 56) posée f35, le joueur s'écarte, l'explosion (f110) ouvre toutes les portes de la secrète sans le blesser, il y entre ; témoin sans pose : il s'arrête contre le mur |
+| `grid_treasure_key`, `grid_treasure_floor0` | séquence `sous_sol_cle`, graine -1013904097 (plan du second étage = graine 145 ; -1013904216 et 26 avant M3-T11d1) : le trésor est fermé à clé, la clé du second étage l'ouvre (f56), le joueur entre ; témoin du premier étage : porte ordinaire |
+| `grid_post_boss` | graine 8 : la salle du diable collée au boss et à lui seul, boss verrouillé puis nettoyé (f1383, f1726), butin ramassé (f1785), victoire f1727 ; `Armor +100` |
+| `isaac_floor_seed_1`, `isaac_boots` | partie ordinaire (séquence par défaut) : premier étage nettoyé, portail, second étage : trésor fermé, clé servie, secrète fermée ; M3-T11d1 : curses `maze` puis `blind`, boutique de trois présentoirs par étage |
+
+Tests : `map::generation::grid` (unitaires : ports par forme, `port_cell`/`origin_for` réciproques, pose d'un 2×2 sur un
+rectangle libre qui ne touche que le parent, 1 000 graines, boucles bornées, chance 0 et 1, déterminisme, grammaires
+impossibles, plan altéré refusé), `map_ldtk::generation` (`isaac_etages_de_grille_sur_1000_graines` : 2 × 1 000 graines
+sur les gabarits réels, `isaac_grille_de_12_a_15_salles_sous_trois_fois_grand_de_gungeon`, M3-T11d1 : génération entière 2,1 à 2,4 × `grand` de gungeon, planificateur 0,14 → 0,67 ms et 278 → 2 396 évaluations de candidats par étage ; borne de 2 à 3, voir D107), `map_ldtk::game::rooms`
+(minicarte), `world::rooms` (`door_lock_at`), `content` (lint et fixtures).
+
+### Mesures
+
+1 000 graines, gabarits du test (départ, combat, boss 1×1 et 2×2, trésor 1×1/2×1/1×2, secrète, diable) : 1,08 tentative en
+moyenne, 353 évaluations de candidats au plus ; gabarits d'`isaac` (2 grammaires × 1 000 graines) : salle du diable 304
+fois sur 1 000 (un tiers), boucle dans 510 étages `sous_sol` sur 1 000 et 929 `sous_sol_grand` ; génération d'un étage de 12 à
+15 salles en grille 0,80 ms contre 0,99 ms pour `grand` de gungeon (rapport 0,81, machine partagée ; fiche : moins de 2).
+
+### Questions pour William
+
+Ouverture « centrée sur chaque côté » d'une grande salle : lue par segment de case de salle (voir plus haut). Bot et
+trésor à clé : l'`explorateur` les ouvre depuis M3-T14 (§79). Aucune salle secrète n'apparaît sur la minicarte de la
+fiche T16 tant que le mur est fermé : T16 reprendra le dessin.
+
+### Atteignabilité
+
+La séquence par défaut d'`isaac` est en grille : toute partie ordinaire la rencontre (deux étages). Secrète : graines 25 et 39
+(`grid_secret_*`, M3-T11d1 : 5 et 8 avant les vingt gabarits) ; trésor à clé : second étage de toute partie par défaut, graine -1013904097 de `sous_sol_cle` ;
+post-boss : graines 8, 23, 123 (celles-ci n'ont pas bougé de rôle : le plan change, la salle du diable reste).
+
+## 71. Familiers et orbitaux en jeu (M3-T6, chantier C3)
+
+M3-T6 exécute les contrats de §63 : `Follow`, `Orbit`, `MirrorShot`, `BlockBullets`, `FamiliarOf`,
+`ItemDef.familiar`. **Aucune trace existante ne bouge** : aucun objet existant n'a `familiar`, donc aucun
+`FamiliarOf` ni `FamiliarGun` (neutres) n'existe, et les systèmes sortent sans rien toucher quand il n'y a
+pas de familier (`game::familiars`, plugin `FamiliarsPlugin`, dans `RollbackSystemSet::Weapon`).
+
+### Apparition : dérivée de l'état
+
+`familiar_sync_system` compare chaque frame, par joueur, les familiers **voulus** (`desired_familiars` : les objets
+tenus dans l'ordre passifs (ordre de ramassage, un passif en double compte deux fois) puis actif ; `per_copy`
+fois le personnage de chaque objet à `familiar`) aux familiers **existants** (`FamiliarOf`, triés par rang).
+`reconcile` garde le plus long préfixe commun (par personnage) : le reste est détruit par `despawn_rollback()`
+puis recréé. Ramasser un objet crée ses familiers (rangs à la suite), perdre l'actif remplacé détruit ceux de
+l'actif (queue de liste : les autres gardent leur rang) ; perdre un passif du milieu refait les rangs suivants.
+Pas d'événement à rejouer : un rollback avant le ramassage retombe sur le même état. `GgrsNetId` (étiquette =
+id du personnage) : porteurs par `GgrsNetId` croissant, puis rang croissant ; le familier naît **sur le porteur**.
+Porteur à terre : ses familiers ne bougent ni ne tirent ; porteur mort (entité détruite) : ils restent en place,
+immobiles (proposition de la fiche, retenue).
+
+### Un familier est un personnage, ni `Enemy` ni `Player`
+
+Créé par `create_character` (`character/` du jeu), de l'équipe de sa fiche (sinon celle du porteur), avec :
+`FamiliarOf { owner, rank }` (rollback, neutre), `FamiliarBehaviors` (liste `ai.behaviors`, **statique**, comme
+`EnemyBehaviors`), `FamiliarGun` (neutre, seulement avec `MirrorShot`). Sans `Enemy` : ni compté par les salles,
+les vagues, le HUD ; sans `Player` : l'IA ennemie ne le cible pas. **Aucun obstacle** : couche `environment` (aucune
+entrée dans la matrice de collision), donc ni joueur, ni ennemi, ni balle n'est gêné par un familier ; il traverse
+aussi les murs (il vole). **Immunisé** : `Health.invulnerable_until_frame = u32::MAX`, que les collisions de balles,
+de projectiles et de mêlée respectent déjà (traversé, jamais touché). Limite : `Homing`/`Aimed` hostiles « visent
+toujours » un personnage invulnérable (§16) : une balle à tête chercheuse peut chasser un familier.
+
+### Comportements (`behaviors::familiar`, pures, `Fixed` seulement)
+
+- **`Orbit { radius, frames_per_turn }`** : `orbit_position(centre, radius, fpt, index, count, frame)` = centre +
+  `radius` × (cos, sin) de `index × 2π / count + 2π × (frame mod fpt) / fpt` (sens trigonométrique). `index` = rang
+  parmi les orbitaux du porteur, `count` = leur nombre. **Sans état** : se déduit du numéro de frame (fraction de
+  tour en entiers : `Fixed` est un I16F16, un tour de plus de 32 767 frames ne déborde pas), angle replié dans
+  `[-π, π]` (le CORDIC perd sa précision au-delà de 3π/2). Rang = ordre d'apparition.
+- **`Follow { gap }`** : `follow_step(position, ancre, gap)` : immobile à `gap` ou moins de l'ancre, sinon avance de
+  `max(5, excédent / 4)` unités par frame sans dépasser l'excédent. Les suiveurs d'un porteur, par rang croissant,
+  forment une **file** : le premier vise le porteur, chacun des suivants le précédent (position déjà mise à jour dans
+  la frame). Pas de mémoire de trajectoire : la file se déduit des positions courantes.
+- **`MirrorShot { every }`** : quand le porteur a **réellement tiré** cette frame, le familier tire **les larmes du
+  porteur** (Q13, réponse de William du 2026-10-16, reprise de T6 : `weapon` a disparu du contrat, un familier n'a plus
+  d'arme propre) : l'arme **active** du porteur dans son **mode actif**, composée avec ses objets et synergies par
+  `combat::weapons::shot_projectile` (`Projectile::composed` de §66 + `items::projectile_mods`, même code que le tir du
+  joueur : `carried_projectile_mods`, `tear_motion`, `aim_direction` sont partagés avec `weapon_rollback_system`) et avec
+  ses stats de larmes (`Damage`, `Range`, `ShotSpeed`, `ShotSize`, `Luck`), dans la direction de visée du porteur
+  (`pan` de l'input), au plus une fois par `every` frames (`FamiliarGun`). Le déclencheur est l'événement transitoire
+  `sim_core::triggers::WeaponFired { frame, player_handle }`, émis par `weapon_rollback_system` quand la balle part
+  (cadence respectée, chargeur non vide) et lu la même frame (`owner_fired`, pure) : une gâchette tenue que la cadence
+  refuse n'émet rien (à la frame 0, `last_fire_frame` valait 0 par défaut et faisait croire à un tir). Événement
+  transitoire : hors checksum, hors snapshot. Un seul tir par déclenchement (pas de plombs multiples pour un fusil à
+  pompe), ni dispersion ni recul (aucun RNG consommé), ni chargeur ni cadence du porteur consommés. La balle porte le
+  `GgrsNetId` et l'équipe du **porteur** (les kills et les points lui reviennent, elle ne le touche jamais),
+  `player_handle` du porteur, les tags du familier, `friendly_fire` de l'arme du porteur. Porteur sans arme (inventaire
+  d'armes vide) : pas de tir. **Traces** : un familier dont le porteur tient la même arme que l'ancien `weapon` du
+  familier et aucun objet de larmes tire **exactement** la même balle qu'avant (`isaac` : `frere` tirait `larmes`, ses
+  traces ne bougent pas) ; le testbed (`compagnon` tirait `pistol`, dégâts 15 vitesse 400) tire désormais `larme`
+  (3,5 / 200) : preuve au § « Q13 : traces bougées » ci-dessous.
+- **`BlockBullets`** : entre le mouvement des balles et leurs collisions, une balle (ordinaire ou composable) que
+  `team_allows_hit` dit hostile au familier et dont le **disque balayé** de la frame (segment ancienne → nouvelle
+  position, rayon de la balle) touche son collider est détruite par `despawn_rollback()` (sans `on_expire`), comme le
+  blank. L'AABB balayée ne sert qu'à présélectionner ; le contact se décide par `swept_hits_collider` (pure,
+  `FixedWide`) : rond = distance du centre au segment < R + r ; rectangle = segment qui le traverse, ou distance
+  segment–rectangle < r (bouts du segment et coins). Une balle qui frôle un coin n'est donc plus détruite.
+
+Ordre dans `Weapon` : `weapon_rollback_system` → `familiar_sync_system` → `familiar_motion_system` →
+`familiar_mirror_shot_system` → `bullet_rollback_system` → `familiar_block_bullets_system` →
+`bullet_rollback_collision_system`. Les `GgrsNetId` des balles de familier sont donc alloués entre ceux des tirs de
+joueurs et le mouvement des balles, dans l'ordre porteur puis rang.
+
+### Lint et attentes
+
+Inchangé pour l'essentiel (§63). Un personnage cité par un objet `familiar` n'est plus signalé « n'apparaît dans
+aucune salle » (son atteignabilité est celle de l'objet). Attente de scénario **`FamiliarDistance { handle, rank,
+to_rank, min, max, at_frame }`** : distance du familier de rang `rank` du joueur `handle` à son porteur ou au
+familier de rang `to_rank` (avec `FamiliarCount` de §63).
+
+### Testbed et scénarios
+
+Personnages `compagnon` (`Follow` 28 + `MirrorShot` tous les 12), `orbital` (`Orbit` 36, un tour en 120 frames,
+`BlockBullets`), `rempart` (`Orbit` 24 en 36 000 frames : quasi immobile à l'est du porteur, `BlockBullets`). Objets
+`compagnon`, `compagnon_actif` (actif), `orbital`, `essaim` (`per_copy: 2`), `trio` (`per_copy: 3`), `rempart`.
+
+| Scénario | Prouve |
+|---|---|
+| `familiar_follow` | apparaît sur le porteur, reste dans sa laisse, rattrape et garde 28 unités |
+| `familiar_mirror_shot`, `..._sans_objet` | une larme du porteur, deux coups sur la cible (le familier f81, le porteur f83 ; avant Q13, `pistol` : f58) ; témoin : un seul |
+| `familiar_mirror_items`, `..._sans_objet` | Q13 : avec `perforant` (`Pierce(1)`), la larme du porteur **et** celle du familier traversent la première cible et s'arrêtent dans la deuxième (deux coups chacune, f50 et f62, la troisième jamais touchée) ; témoin sans `perforant` : deux coups sur la première, rien sur les autres |
+| `familiar_two_copies` | deux `compagnon` en file (rangs 0, 1) et un `trio` (rangs 2 à 4, à 120°) |
+| `familiar_lost_with_active` | l'actif remplacé détruit son familier, l'orbital passif reste |
+| `orbital_blocks_bullet`, `..._sans_objet` | l'orbital arrête la boule de feu de la tourelle (f125 : au bord, 19 en vol comme le témoin ; f126 : 18 contre 19), santé 100 à f200 contre 74 sans objet |
+| `familiar_mirror_cadence` | gâchette tenue dès f0 : la cadence refuse le tir jusqu'à f20, le familier ne tire pas avant ; deux balles à f20 (le familier tire désormais la larme du porteur : trace rebénie, Q13) |
+| `familiar_quad` | quatre joueurs, deux familiers chacun, synctest (resimulation + checksums à chaque frame) |
+
+Diagnostic : `projectile_probe` (`ALACOD_PROJECTILES=<scénario>:<de>:<à>`) affiche aussi joueurs et familiers
+(porteur, rang, position) toutes les 10 frames.
+
+### Q13 : `MirrorShot` tire les larmes du porteur (suivi `m3-suivis-q10-q12-q13-q17`)
+
+Contrat : `Behavior::MirrorShot { every }` (le champ `weapon` disparaît : migration de `BehaviorEntry`, du lint — plus
+d'« arme inconnue » — et des deux personnages `compagnon` du testbed et `frere` d'`isaac`). Exécution : voir la puce
+`MirrorShot` ci-dessus. Les trois aides communes (`aim_direction`, `tear_motion`, `carried_projectile_mods` /
+`shot_projectile`) ont été extraites de `weapon_rollback_system` sans changer une valeur (les 600 autres traces sont
+inchangées).
+
+**Traces bougées, avec preuve §5** (dumps complets `ALACOD_DUMP_TRACE`, `main` `2d30a1c1` contre la branche,
+`scripts/trace-diff.py` : première frame qui diffère = première frame où un familier tire, une seule ligne en
+désaccord : la `Bullet` du familier, `damage: 15, speed: 400` (le `pistol` de l'ancien `compagnon`) devenue `damage: 3.5,
+speed: 200` (la `larme` du porteur)) :
+
+| Trace | Première frame qui diffère | Cause |
+|---|---|---|
+| `familiar_mirror_cadence` | 20 | premier tir du porteur à f20, donc premier tir miroir |
+| `familiar_mirror_shot` | 35 | idem (tir demandé f30, balles parties f35) |
+| `familiar_quad` | 105 | premiers tirs miroirs des joueurs 1 et 3 |
+| `champion_explodes`, `champion_explodes_sans_variante` | 25 | idem ; la larme du familier est plus lente : le champion meurt à f35 au lieu de f29, attentes décalées |
+| `generated/testbed/familiar_compagnon` | 21 | idem ; `min_hits` 9 → 8 (`objets/compagnon.ron`) et témoin `_sans_objet` `max` 8 → 7 (dérivé) |
+
+Rien d'autre ne bouge : `familiar_frere` d'`isaac` (le frère tirait déjà `larmes`, le porteur a `larmes`, aucun objet de
+larmes) est **identique au bit près** ; les scénarios de `tears_*` et le tir de joueur n'ont pas changé. Neufs :
+`familiar_mirror_items` et son témoin `familiar_mirror_items_sans_objet`.
+
+### Atteignabilité
+
+M3-T11b (§76.2) met trois familiers (`frere`, `orbe`, `nuee`) dans le pool trésor d'`isaac` : dette fermée.
+
+
+## 72. Champions et élites v2 en jeu (M3-T7, chantier D2 v2)
+
+M3-T7 exécute les champs de `VariantDef` de §63 : `on_death`, `behaviors`, `loot`, `chance` en expression ;
+`tint` est lu par la présentation seule (T17 le dessine : aucune lecture ici, attente nulle). **Aucune trace
+existante ne bouge** : un personnage sans variante, ou dont la variante n'a aucun champ v2, ne passe par rien de
+neuf (`champion_death_system` sort sans rien toucher), `PatternGhost` est neutre. Le
+tirage de §25 (`RollbackRng` local, jamais `RngStreams` ; graine `fnv1a("variants:<graine>:<net id>")` depuis D88) est inchangé.
+
+### `chance` en expression : valeur figée à l'apparition
+
+`draw_variant(config, forced, graine, net id, VariantContext { players, floor })` : `players` = joueurs de la session
+(`PlayersCount`, au moins 1), `floor` = étage de l'apparition (`run::FloorState::index`, 0 hors mode `Floors` ;
+`variant_context_at(étage suivant)` au passage de niveau). `DifficultyReader` porte le contexte (`variant_context_at`) ;
+les cinq sites d'apparition (`spawn_enemy` : vagues, spawners, renforts de salle, `CharacterSpawn`, placements de
+scénario) le passent. Un littéral est exact : même tirage qu'avant, quels que soient joueurs et étage. Le lint
+(§63) borne l'expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 : une expression qui dépasserait 1 à
+l'étage 5 est une erreur de contenu (`0,1 + floor × 0,18`). Variante **imposée** (`CharacterSpawn.variant`, placement
+de scénario) : aucun tirage, la chance ne compte pas.
+
+Ancien piège de §25, **corrigé par la dette D88** : la graine `fnv ^ graine ^ net id` donnait, via un générateur congruentiel,
+des valeurs voisines à des net ids consécutifs (quarante ennemis posés d'un coup tiraient presque le même nombre ; les
+scénarios de chance choisissaient donc la graine 1942 pour répartir les tirages de part et d'autre des seuils). Depuis D88
+(graine par hachage de `variants:<graine>:<net id>`, §25) les tirages sont indépendants ; les scénarios de chance prennent la graine 110
+(4 champions sur 40 à l'étage 0, 11 sur 40 à l'étage 1) et leurs attentes sont celles du nouveau tirage.
+
+### `behaviors`
+
+Ceux de la variante **remplacent** ceux du personnage à la création (`enemy::create::spawn_enemy`, après le tirage) :
+`EnemyBehaviors::rules`, et `ai.ranged` suit la première règle `Shoot` comme pour un personnage. `BehaviorRuntime`
+est posé si la nouvelle liste en a besoin. Un personnage dont la variante n'a pas de `behaviors` garde le chemin d'avant.
+
+### `on_death`
+
+`champion_death_system` (`RollbackSystemSet::DeathManagement`, après `rollback_check_defeat` et
+`shell_drop_on_death_system`, avant `rollback_apply_death`, comme `boss_defeated_system`) : pour chaque mort qui porte
+`Variant`, par `GgrsNetId` croissant, **à la frame de sa mort** :
+
+- **`SpawnCharacters { id, count }`** : `count` personnages `id` de l'**équipe du mort**, santé résolue (F5 × difficulté),
+  par `spawn_enemy`, à des **décalages fixes** (`split_offsets` : un anneau de 14 unités, rang 0 vers +x, aucune
+  consommation de RNG), `GgrsNetId` alloués dans l'ordre (mort, puis rang `k` ; clé de contenu `champion:<net id>:<k>`
+  dans les logs `champion_split`). Ils sont créés **sans variante** (`NO_VARIANT` = `"-"`, absente de toute table) : pas de
+  division en cascade, même si la chance du personnage est de 1.
+- **`Explode { radius, damage, destroys }`** : **le mécanisme de M3-T4 (§69), sans second chemin** : une **bombe à mèche
+  d'une frame** (`world::Bomb`, `fuse_until = mort + 1`, comme l'`Action::Explode` des effets) posée à la position du mort,
+  **de son équipe**, tir ami `Always`, créditée au dernier joueur qui l'a touché (points des victimes), sinon au mort ;
+  `destroys` est transmis. `game::bombs::bomb_fuse_system` puis `explosion_system` l'exécutent à la frame suivante (une
+  `ExplosionRequest`, un `DamageEvent` par cible, un `Exploded`, rayon strict, exclusions `Death` et **invulnérables** :
+  un familier immunisé n'est jamais touché, scénario `champion_explodes`). Une seule émission de dégâts et d'`Exploded`
+  par explosion ; `PendingBlasts` et `champion_blast_system` (premier jet de T7) n'existent plus. L'équipe du mort
+  (`Enemies`) est celle de la source : la difficulté d'étage multiplie donc les dégâts, comme ceux de tout ennemi.
+- **`SpawnPattern { pattern, weapon }`** : un émetteur **sans personnage** (`PatternGhost`, rollback neutre) à la position du
+  mort, de l'équipe du mort, joue le pattern avec la table de projectiles de l'arme (`effects_runtime::spawn_pattern`, le
+  chemin des effets), puis `pattern_ghost_cleanup_system` le détruit (`despawn_rollback`) quand son `Emitter` est fini. Les
+  projectiles naissent à la frame suivante (`Weapon`). Lint ajouté : un pattern **infini** (`Ring` avec `every > 0`, y compris
+  atteint par une chaîne `Named`, profondeur bornée ; chaîne cyclique ou inconnue refusée aussi) est
+  refusé à la mort (`Unsupported`) : l'émetteur n'a pas de personnage pour l'arrêter ; utiliser `every: 0`.
+- Toute autre action est refusée par le lint (§63) et, si elle arrivait, ignorée avec un `warn!`.
+
+### `loot`
+
+La table de la variante (`loot/<table>.ron`) est tirée à la mort par `items::draw_loot_with` avec un `RollbackRng` de graine
+`items::loot_seed(graine de run, étage, "champion:<net id>")` (§48 : indépendant du moment, jamais `RngStreams`), les
+déblocages actifs de la run appliqués comme pour un coffre ; l'objet (ou l'arme, `items::loot_weapon`) est posé au sol
+16 unités à l'est du mort (`spawn_item_pickup`, `spawn_loot_weapon`) et se ramasse comme n'importe quel objet.
+
+### Testbed et scénarios
+
+Personnages `elite_explosif` (variantes `explosif`, `salve`, `nu`), `elite_divise` (`divise`, `nu`), `elite_riche` (`riche`,
+`nu`), `elite_comportement` (`distant`, `nu`), `elite_chance` (chance `0,1 + 0,18 × floor`) ; pattern `couronne_unique` ;
+séquence `deux_vides` (deux niveaux sans ennemi, le portail s'ouvre aussitôt). Les scénarios **forcent** la variante
+(`variant:` du placement) et gardent un témoin `_sans_variante` (variante `nu`, sans effet).
+
+| Scénario | Prouve |
+|---|---|
+| `champion_explodes`, `..._sans_variante` | `Explode` à la frame suivant la mort (f29 → f30) : joueur 90, cible proche 4990, lointaine 5000 ; le familier (10 PV, immunisé) survit ; témoin : personne blessé |
+| `champion_splits`, `..._sans_variante` | trois `elite_divise` en anneau de 14 unités à la mort (f55), sans variante ; témoin : rien |
+| `champion_drops`, `..._sans_variante` | l'objet `manche` (graine `champion:14`, D95/D96 : `bottes` avant) est lâché, ramassé à f120 ; témoin : rien |
+| `champion_behaviors`, `..._sans_variante` | `KeepDistance` de la variante au lieu de `Chase` : le champion reste à plus de 190 unités ; témoin : il rejoint le joueur |
+| `champion_pattern` | `SpawnPattern` : huit boules de feu en couronne à f56, une seule couronne, émetteur détruit |
+| `champion_chance_floor_0`, `champion_chance_floor` | `chance` en expression : 2 champions sur 40 à l'étage 0 (10 %), 23 sur 40 à l'étage 1 (28 %) |
+
+Diagnostic : `map_probe` (`ALACOD_MAP_PROBE=<scénario>:<frame>`) liste aussi la variante des personnages.
+
+### Atteignabilité
+
+M3-T11c (§76.3) donne des champions à trois ennemis des salles `combat` d'`isaac` : atteignables par graine choisie (1730) **avant D88** ; depuis D88 (tirage des variantes par hachage, §25) ils sortent avec la graine par défaut et sur la majorité des graines (mesure au rapport `dette-d88-tirage-variantes.md`).
+
+## 73. Pools par type de salle, épuisement à la génération, marché du diable (M3-T8, chantiers C4 v2 et C5 v2)
+
+Exécute les contrats de §64 (`exhaust`, `PoolState`, option A/B) et de §61 (`Price`, `can_pay`/`pay`) avec les
+réponses de William du 2026-10-16 : **Q5** (épuisement par run et par pool : trésor, boutique, boss, diable) et **Q6**
+(le diable refuse si le paiement tuerait, sinon la vie maximale baisse définitivement ; les cœurs d'âme paient à la
+place s'ils sont présents). Code : `items::{PoolState::assign, BossDropDef, RoomShopDef::cost, Price::{can_pay, pay}}`,
+`game::{loot::assign_slot, shop::{assign_shelves, pay_cost}}`, `map_ldtk::game::rooms::{room_chest_system,
+room_shop_system, room_boss_slot_system, boss_drop_system}`. **Un pool sans `exhaust` et une boutique à prix en douilles
+gardent leur comportement et leurs traces** : tout champ nouveau est optionnel et absent du contenu existant.
+
+### Option A retenue : l'objet est tiré à la génération de l'étage
+
+Option A de §64 (option B, tirage à l'ouverture, écartée : elle ne tient pas Q5, le même coffre donnerait un autre objet
+selon l'ordre des visites). **Un emplacement** est une clé de contenu (`room:<salle>` coffre de salle, `shelf:<salle>:<i>`
+présentoir, `boss:<salle>` butin du boss, la clé d'un placement de scénario). Quand le pool de l'emplacement a `exhaust`,
+l'objet est assigné **à la création de l'emplacement** : `PoolState::assign` tire sur la graine
+`exhaust_seed(graine, étage, clé, nombre d'objets déjà sortis du pool)` avec `draw_exhausting` (sans l'objet déjà sorti),
+retire l'objet du pool (`record`) et **conserve l'assignation** dans `PoolState::assigned` (`"<étage>:<clé>"` → objet).
+Ouvrir un coffre, mourir pour un boss ou acheter ne tire plus rien : l'objet vient de `assigned`, donc **ne dépend ni du
+moment, ni de l'ordre des visites, ni du joueur** (scénarios `pool_exhaust_time_independent_ab`/`_ba`).
+
+- **Ordre canonique.** Les salles de l'étage courant se parcourent dans l'ordre `(x, y, identifiant)` (`sorted_rooms`) ; les
+  trois systèmes (coffres, puis présentoirs, puis butin du boss, `Run`) l'appliquent dans cet ordre. L'ordre de tirage est
+  donc une fonction du plan et des types de salle, jamais du jeu. Un pool partagé par deux types de salle
+  (`coffre_a` et `coffre_b` du testbed) s'épuise dans cet ordre. Un placement de scénario est assigné à sa pose, dans
+  l'ordre de la liste (un scénario fixe lui-même le moment de la pose).
+- **Par run, par pool.** `PoolState` est une ressource de la run (remise à zéro à la relance, §64) : le trésor du second
+  étage ne redonne pas celui du premier (`isaac_floor_seed_1` : `tresor` et `boss` comptent 1 objet à f5, 2 à la
+  génération du second étage). La clé d'assignation porte l'étage : deux étages qui rechargent la même carte (mêmes
+  identifiants de salle) ne se confondent pas.
+- **Pool vidé.** Quand tous les objets du pool sont sortis, il repart complet (§64) : un objet déjà sorti peut ressortir, rien
+  de plus n'entre dans `seen`. `pool_unlock_temoin` : quatre coffres, trois objets, le quatrième répète `bottes`.
+- **Déblocages (§51).** `unlocked_table` étend le pool et `hidden_items` retire les objets réservés avant le filtre, comme
+  pour tout autre tirage (`pool_unlock` : le déblocage `manche_epuisable` donne quatre objets distincts, `manche` compris).
+  Le chemin des boutiques sans `exhaust` (`draw_shelves`) ignore toujours les déblocages (comportement d'avant, dette
+  ancienne).
+- **Ce qui n'épuise pas.** La récompense de salle (`reward:<salle>`, `room_reward_system`), les rochers et les champions
+  tirent à l'usage sur leur graine, avec `seen` vide : ils sont créés en cours d'étage, leur rang dépendrait de l'ordre des
+  salles nettoyées, donc du moment (Q5 interdit). Un coffre de récompense ouvert lit `assigned` s'il y trouve sa clé (jamais
+  aujourd'hui) puis tire comme avant. Un pool qui a `exhaust` et `exclude_held` est refusé au lint : l'inventaire de l'ouvreur
+  est inconnu à la génération.
+
+### Pools par type de salle
+
+Aucun champ `pool` (§64) : le pool est la table nommée par le type de salle. M3-T8 ajoute au contenu de type de salle
+(`rooms/<id>.ron`, `world::RoomKindDef`) :
+
+```ron
+(locks: true, boss_drop: Some((table: "boss", rarity: Common)))                              // butin du boss
+(locks: false, shop: Some((table: "diable", shelves: 2, cost: Some(MaxHealth("2")))))         // marché du diable
+```
+
+- **`boss_drop`** (`items::BossDropDef { table, rarity }`) : à la mort du boss (`FrameEvents<BossDefeated>`, `Run` suit
+  `DeathManagement` dans la même frame), `boss_drop_system` (ordonné **avant** `floor_transition_system` : un joueur au portail change d'étage dans la même frame, l'événement se lit dans l'étage d'origine) pose l'objet au centre de la salle qui contient le boss : celui
+  que `room_boss_slot_system` avait assigné à la génération (pool à épuisement ; un boss mort au tout premier tick, avant ce
+  système, est assigné par `boss_drop_system` lui-même avec la même fonction idempotente), sinon un tirage sur la graine
+  `boss:<salle>` (pool sans épuisement, indépendant du moment). Pose commune avec le coffre : `game::loot::spawn_drawn_loot`
+  (objet, arme ou tas de sous).
+- **`shop.cost`** (`items::RoomShopDef::cost: Option<Price>`) : prix **de chaque présentoir** de ce type de salle, quelle que
+  soit la rareté. Absent : les prix en douilles par rareté de `economy.ron`, comme avant. `Currency(n)` fixe un prix en
+  douilles (`Shelf::price`) ; `MaxHealth(n)` et `Consumable(id, n)` vont dans `Shelf::cost` (le prix en douilles vaut alors 0).
+  Le pool d'une boutique peut s'épuiser comme les autres (`assign_shelves` : un emplacement `shelf:<salle>:<i>` par
+  présentoir, sur sa propre graine ; les `weapon_shelves` restent réservés aux armes).
+- **Secrète et trésor** : les coffres de ces types (`chest.table`) nomment déjà leur pool. `isaac` : `tresor`, `boss`, `diable`
+  (`exhaust: true`), `secrete` (consommables, sans épuisement), `salle` (récompense de salle, inchangé).
+
+### Marché du diable : `Price` payé en vie maximale ou en âme
+
+`shelf_interaction_system` (inchangé pour un présentoir sans `cost`) paie un présentoir à `cost` par `game::shop::pay_cost`
+(`Price::pay` sur les valeurs du payeur, écrites seulement si le paiement réussit). **Règle de Q6, en un seul endroit
+(`Price::{soul_split, can_pay, pay}`, testé)** : les points d'`ExtraHealth` partent **d'abord** (comme au combat, §68) ; ce
+qu'ils ne couvrent pas se paie en vie maximale ; **ce reste est refusé s'il tuerait** (`vie courante <= reste`) ou dépasse la
+vie maximale. `shelf_interaction_system` refuse aussi si la **stat `MaxHealth` résolue après** la perte serait ≤ 0
+(`shop::max_health_after` : un `Set`/`Mul` de `MaxHealth` amplifie la perte ; scénario `devil_deal_refused_multiplied`).
+Un payeur à 1 PV sans âme est donc toujours refusé, avec une âme qui couvre le prix il est servi sans perdre une
+goutte. Le choix « âme partielle puis reste en vie maximale » est de T8 (Q6 dit seulement « à la place s'ils sont présents ») ;
+à relire. Refus : rien ne change (ni vie, ni âme, ni monnaie), `CurrencyEvent { delta: 0, reason: "shop_refused" }`, anti-rebond
+`retry_after` de 30 frames, trace `ggrs{… shop_refused … cost=…}`. Succès : trace `shop_buy … soul=<points> max_health_lost=<PV>`.
+
+**La perte de vie maximale est définitive** : `sync_health_from_stats` réécrit `Health.max` depuis la stat `MaxHealth` à
+chaque frame, donc abaisser `Health.max` seul se serait défait au tick suivant. Le paiement pose donc un modificateur
+permanent `MaxHealth Add −perte` de source `price:<clé du présentoir>` (et abaisse aussi la vie courante de la perte). Un
+modificateur multiplicatif sur `MaxHealth` (`Mul`) amplifie la perte réelle de la stat, `sync_health_from_stats` borne alors
+la vie courante ; aucun contenu n'en a. Le prix d'un cœur est écrit `MaxHealth("2")` (Q2 : 2 PV = un cœur, `items::HEART_POINTS`).
+
+`Price::Consumable` est exécuté de même (`pay` retire le stock de l'inventaire du payeur ; sans `Inventory`, refus) :
+`a_consumable_price_needs_the_stock_and_spends_it`, aucun contenu ne l'emploie encore.
+
+**Prompt du HUD** (`game::ui::hud`, source `prompt`, présentation) : « Acheter Pacte rouge — 1 cœur » (`items::heart_label` :
+½ cœur, 1 cœur, 1½ cœur, 2 cœurs…), « — 3 Bombe » pour un consommable, les douilles comme avant. Le prompt est calculé par
+les widgets : il n'est pas lisible par `HudText` en headless, d'où des tests unitaires (`ui::hud`). Les autres affichages en
+cœurs (barre de vie, prix à l'écran) restent T16.
+
+### Salle du diable (post-boss de T5)
+
+`rooms/diable.ron` d'`isaac` : deux présentoirs du pool `diable` à `MaxHealth("2")`, posés au centre de chaque salle de ce
+type que l'étage présente (la salle post-boss de T5, `post_boss.chance` = un tiers, graines 8, 23 et 123 de `sous_sol_un`, encore vraies avec les vingt gabarits). **La chance reste
+celle de la grammaire** (tirée une fois par étage à la génération du plan, T5). La proposition de la fiche (réduire la chance
+si le joueur a subi des dégâts au boss) demanderait de tirer la salle **après** le combat alors que le plan est posé avant : non
+retenue, non confirmée par William (Q6 ne la mentionne pas), à reprendre s'il la veut. Salles d'ange : hors périmètre (Q6).
+
+### Lint et schémas
+
+`exhaust` avec `exclude_held` (`Unsupported`), `shop.cost` (`Price::problems` : montant nul, vie maximale hors `]0, max]` du
+joueur `player`, `OutOfRange` ; consommable inconnu, `BrokenReference`), `boss_drop.table` inconnu (`BrokenReference`).
+Fixtures `loot_exhaust_exclude_held`, `shop_cost_invalid`, `boss_drop_unknown_pool` (`crates/content/tests/m3_t8_fixtures.rs`).
+
+### Contenu
+
+`isaac` : pools `tresor` (4), `boss` (3), `diable` (4) à `exhaust`, `secrete` (consommables), onze objets passifs de **donnée
+d'attente** (une stat chacun : `semelles_lestees`, `pile_rapide`, `lunette_longue`, `trefle_chat`, `griffe_acier`,
+`reservoir_vital`, `oeil_vif`, `pacte_rouge`, `cornes_noires`, `queue_fourchue`, `regard_maudit`) : le contenu des pools est
+M3-T11 (T11d1 : §76.4), il faut seulement des candidats distincts pour que l'épuisement soit jouable de bout en bout. Salles : `tresor`
+(pool `tresor`), `secrete` (pool `secrete`), `boss` (`boss_drop`), `diable` (marché). **Boutique `isaac`** (M3-T11d1, §76.4) : type `boutique`, pool `boutique`, gabarit `Boutique` ; le moteur l'exécute (`assign_shelves`, `shop.cost`) mais le testbed n'a aucune salle `shop` : `cost` n'est exercé que par le diable d'`isaac` (et des présentoirs posés par scénario) ; la branche `Currency(n)` de `shop.cost` n'est exercée par aucun scénario (dette). `testbed` : types de
+salle `coffre_a`/`coffre_b`, carte `salles_coffres.ldtk`, étage `coffres_epuisables`, pool `epuisable_temoin` (jumeau sans
+`exhaust`).
+
+### Bot
+
+Le bot `explorateur` ne vise pas un présentoir à `cost` sans politique (son `price` vaut 0 : il l'aurait cru gratuit) ; la décision du
+diable est celle de M3-T14 (§79 : `DevilPolicy`, défaut `Never`). Il **ramasse** le butin du boss : les parties `grid_*` de l'`explorateur` en sont retardées (voir « Traces »).
+
+### Attentes de scénario
+
+`PoolCount { pool, count, at_frame }` (objets **distincts** sortis du pool), `ItemsOnFloor { id, count, at_frame }` (objets
+`id` au sol : le butin d'un boss), `Shelf` gagne `cost: Some(MaxHealth("2"))` ; `Scenario::shop.shelves[].cost` pose un
+présentoir à `cost`.
+
+### Scénarios (testbed sauf mention)
+
+| Scénario | Prouve |
+|---|---|
+| `pool_exhaust_two_chests` / `_temoin` | deux coffres (`k1`, `k14`) du pool à épuisement : `lame` et `bottes`, deux objets sortis ; témoin (pool jumeau sans `exhaust`) : `lame` ×2, `PoolState` vide (D96 : `k5` → `k14`, le tirage ayant changé) |
+| `pool_exhaust_two_rooms` | deux salles de types différents d'une carte générée partagent le pool : deux objets sortis dès f10, avant tout coffre ouvert |
+| `pool_exhaust_time_independent_ab` / `_ba` | `k1` → `lame`, `k2` → `boussole` que le joueur ouvre `k1` d'abord ou `k2` d'abord |
+| `pool_unlock` / `_temoin` | le déblocage `manche_epuisable` : quatre objets distincts dont `manche` ; sans : trois puis `bottes` répété |
+| `devil_deal_pay_health` | un cœur payé : vie 100 → 98 et vie maximale 98 définitivement (f30 et f110), l'objet est tenu, douilles intactes |
+| `devil_deal_refused_lethal` | à 1 PV (`MaxHealth` `Set 1`) deux tentatives (f10, f60) refusées : rien ne bouge |
+| `devil_deal_soul_saves` | témoin : même joueur à 1 PV avec un `coeur_ame` : l'achat passe, âme 4 → 2, vie 1/1 |
+| `devil_deal_soul_first` | l'âme paie d'abord (4 → 2, vie et maximum à 100), puis un prix de 6 : l'âme (2) part toute, 4 PV de vie maximale (96) |
+| `devil_deal_isaac` (`isaac`) | le cœur d'`isaac` : 6/6 → 4/4 |
+| `devil_room_chance` / `devil_room_absent` (`isaac`) | graine 8 : salle du diable, deux présentoirs à un cœur, `pacte_rouge` et `queue_fourchue` sortis du pool `diable`, `bottines` du trésor, `sang_chaud` du boss, trois présentoirs de boutique (M3-T11d1 : les objets tirés suivent le plan et les pools, D96) ; graine 5 : aucune salle, rien tiré dans `diable` |
+| `grid_post_boss`, `grid_floor_seed_23` (`isaac`) | le butin du boss tombe (graine 8 : `sang_chaud`, ramassé f1785, victoire f1727 ; graine 23 : `griffe_acier`, ramassé f1537, victoire f1485 ; chronologies de M3-T11d1, vingt gabarits) et le bot le ramasse |
+| `isaac_floor_seed_1` (`isaac`) | `tresor` et `boss` : 1 objet sorti à f5, 2 à la génération du second étage (par run) |
+
+Unitaires : `items::loot` (`assign_*` : sans `exhaust` rien n'est écrit, objets distincts, idempotence, premier emplacement =
+tirage d'avant `exhaust`, par run entre étages, pool vidé, objets cachés), `items` (`Price` avec âme : refus mortel, âme
+d'abord, âme partielle, refus sans effet de bord ; `heart_label`), `game::shop` (`pay_cost` : cœur, refus à 1 et 2 PV, âme,
+consommable, douilles ; `assign_shelves` sur deux salles), `ui::hud` (prompt en cœurs).
+
+### Traces
+
+(voir le rapport `docs/taches/rapports/m3-t8-pools-marche-diable.md`)
+
+### Dettes connues (M3-T8)
+
+- `max_health_after` ne regarde que la frame courante : un bonus `MaxHealth` temporaire qui expire rend a posteriori le paiement mortel.
+- Le butin du boss est détruit par `floor_transition_system` si un joueur est déjà sur le portail à la frame de la mort (le drop est posé avant la transition, mais l'objet vit dans l'étage quitté).
+- Garde « butin déjà tombé » : une fois par salle **et par frame** seulement (deux `BossPlan` morts à des frames différentes dans la même salle lâcheraient deux fois).
+
+### Atteignabilité
+
+Trésor, boss et secrète : toute partie ordinaire d'`isaac` (deux étages) ; diable : graines 8, 23 et 123 de `sous_sol_un`, ou
+toute partie par défaut dont un étage tire la salle (`devil_room_chance`) ; le bot qui achète au diable : M3-T14 (§79, `bot_isaac_devil`) ; la boutique
+d'`isaac` (gabarit, type, pool `boutique`) : M3-T11d1 (§76.4).
+
+## 74. Curses d'étage en jeu : tirage, modificateur, étage agrandi, HUD masqué (M3-T9, chantier F4)
+
+Exécute les contrats de §64 (les cinq curses de Q7). Code : `game::curses` (tirage et modificateurs),
+`world::FloorGrammar::scaled_rooms` + `map_ldtk::loader::with_curse_floor_rooms` (étage agrandi),
+`game::ui::hud_model` et `game::ui::hud` (présentation). **Une séquence `Floors` sans champ `curses` ne tire
+rien** : `CurseTable` est vide, `curse_system` rend la main avant de toucher une ressource ou un composant, le HUD
+lit des valeurs absentes ; aucune trace existante ne bouge (preuve en fin de §).
+
+### Tirage : quand et par quoi
+
+`curse_system` (`GgrsSchedule`, `RollbackSystemSet::FrameCounter`, avant l'incrément de frame, donc **après** le
+passage d'étage du set `Run`) compare `FloorState::index` au dernier étage traité (`RunCurses::entered`, rollback) :
+à l'entrée dans un étage, **y compris le premier** (frame 0), il tire `run::draw_curse` (RNG local de graine
+`curse_seed(graine, étage)`, jamais `RngStreams`), écrit `RunCurses` et la trace
+`ggrs{f=… curse floor=… id=<id|none>}`. La fiche disait « à `FloorEntered` » : cet événement n'est émis que quand les
+horloges ou la difficulté sont activées (§23) et jamais pour le premier étage ; le tirage détecte donc lui-même
+l'entrée, à la même frame que `FloorEntered` l'aurait été. `RunCurses` devient `{ floors: BTreeMap<étage, id>, entered:
+Option<u32> }` (T0e : tuple `BTreeMap` seul) : sans `entered`, « tiré, pas de curse » ne se distinguerait pas de « pas
+encore tiré » et le tirage serait refait à chaque frame. Toujours neutre (`Default` : hash 0) ; **elle ne l'est plus
+dès qu'une séquence a un champ `curses`** : `entered` s'écrit à la frame 0, donc les traces d'une partie à curses
+changent (`curse_pool_unset` de T0e, seul scénario dans ce cas sur `main`, est retiré : son propos — « rien n'exécute le
+tirage » — n'est plus vrai). Moment clé `curse` (« étage 2 : curse « darkness » ») ; les étages sans curse n'en sont pas.
+`CurseTable` (hors rollback : champ `curses` de la séquence + `curses/*.ron` du registre) est posée à `compute_floor_plan`
+comme `FloorLootTables`.
+
+**Graine du tirage = graine de carte** (`game::curses::curse_map_seed`, `MapGenerationConfig::seed as u32`), pas
+`RunSeed` : la session remplace `RunSeed` par `restart_seed(graine de carte, n° de partie)` après un « Rejouer » en
+ligne ou une entrée du hub (§33), alors que les cartes sont assemblées avec la graine de carte inchangée. Avec `RunSeed`,
+`FloorRooms` (génération) et `curse_system` (entrée) auraient lu deux graines : un étage doublé sans « Labyrinth »
+annoncée, ou l'inverse. Même expression des deux côtés, test `the_draw_follows_the_map_seed_not_the_derived_run_seed`.
+Conséquence assumée : un « Rejouer » rejoue les mêmes curses (comme il rejoue les mêmes cartes ; le butin, lui, suit
+`RunSeed`).
+
+### Les cinq effets
+
+| Curse (Q7) | Effet | Où | Quand |
+|---|---|---|---|
+| `Modifier(stat, op, v)` | modificateur de source `curse:<id>` sur chaque joueur | `curse_system` | posé à l'entrée de l'étage ; **tout** `curse:*` est retiré à l'entrée de l'étage suivant avant la pose de la nouvelle ; un joueur qui n'a pas le compte attendu (apparu après l'entrée) le reçoit à la frame suivante ; rien n'est écrit tant que le compte est bon (pas de `Changed`) |
+| `FloorRooms(×m)` | `rooms` de la grammaire multiplié | `with_curse_floor_rooms`, `setup_generated_map` | **à la génération** : toutes les cartes d'une séquence sont assemblées au chargement de la partie, avant la première frame. Le tirage ne dépendant que de (graine de carte, étage), le planificateur retrouve la curse que `curse_system` écrira à l'entrée |
+| `HideMinimap` | `hud_values.minimap` vide | `Update` | tant que `RunCurses` donne la curse à l'étage courant |
+| `HideHealth` | `hud_values.health` absent : ni texte ni barre (D22) | `Update` | idem |
+| `HideItemNames` | nom de l'objet ou de l'arme du prompt → `???` (`Weapon`, `Shelf` ; prix et reste du texte intacts) | `Update` (`ui::hud`) | idem |
+
+**Étage et emplacement.** Le monde d'un emplacement `s` de la séquence est assemblé avec la curse de l'**étage `s`**
+(un emplacement par `floor:<id>` de `levels`). Au-delà de la séquence, `level_for_floor` boucle sur le dernier niveau :
+ces étages réutilisent le monde déjà assemblé et ne reçoivent **pas** de `FloorRooms` de leur propre tirage (leurs
+modificateurs et leur HUD, eux, suivent leur tirage). Sans effet sur une carte qui n'est pas une grammaire (`floor:<id>`).
+
+**`FloorGrammar::scaled_rooms(m)`** (pure, arithmétique `Fixed`) : bornes de `rooms` × `m` arrondies au plus proche, puis
+**ramenées à une grammaire satisfiable** : au moins départ + boss + requises (et `min_boss_distance + 1`), au plus la
+capacité de la grille (`max.0 × max.1`) ; `m = 1` rend la grammaire inchangée. `isaac/sous_sol` ×2 : 16 à 24 salles. Preuves :
+1 000 graines en grille 7 × 7 (`mille_graines_doublees_par_la_curse_respectent_la_grille` : validées, sous la borne de
+travail, 16 à 24 salles) ; 2 × 200 graines sur les gabarits réels, en grille (`isaac`) et en arbre (`gungeon/etage`, 20 à
+28) : `la_curse_labyrinth_double_les_salles_sans_rendre_l_etage_impossible`. **Limite** : un multiplicateur que la grille ne
+peut pas tenir (×100 sur 7 × 7, jusqu'à 49 salles) échoue explicitement (`FloorError::Exhausted`, comme toute grammaire
+impossible) ; seules les valeurs jusqu'à ×2 sont prouvées sur `isaac`.
+
+### Présentation
+
+`game::curses::CurseHides { minimap, health, item_names }` (pur, `CurseHides::of(effects)`), lu depuis `RunCurses` à chaque
+`Update` : jamais d'un événement, donc juste après un rollback. `HudPlayerInput::curse` (id et définition de la curse de
+l'étage courant) alimente `hud_values` : `health` et `minimap` sont **absents** (même chemin que « joueur mort » :
+barre à zéro, texte vide sans préfixe). Nouvelle source `curses` (`content::ui::HUD_SOURCES`, `PLAYER_SOURCES`) : l'id de la
+curse de l'étage courant, vide sans curse ; `isaac/ui/hud.ron` la montre (« Malédiction : darkness »). Le prompt d'objet est
+calculé dans `ui::hud` (hors `HudSnapshot`) : `HideItemNames` y est prouvé par test unitaire, pas par `HudText`. La machine à
+perk, les portes et les coffres n'ont pas de nom d'objet : inchangés. Les écrans de pause et d'inventaire (§56) ne lisent
+pas `RunCurses` (hors périmètre : ils n'affichent ni la santé, ni la minicarte, ni le nom des objets du sol).
+
+### Contenu et lint
+
+- `testbed` : `floors/maudit.ron` (chance 0,5, les cinq curses), `floors/maudit_maze.ron` (chance 0,5, `maze` seule).
+- `isaac` : dossier `curses/` (les cinq de Q7, copies de celles du testbed), `floors/sous_sol_maudit.ron` (un étage
+  `floor:sous_sol`, chance **1** : la graine choisit la curse). La séquence par défaut d'`isaac` (`floors/sous_sol.ron`) a des `curses` depuis M3-T11d1 (chance 0,3 par étage, les cinq selon leurs poids, §76.4) ;
+  les séquences de test `sous_sol_un`, `_cle`, `_court`, `_grand` n'en ont pas.
+- Lint : `reach::stat_uses` compte désormais le `Modifier` d'une curse : une stat que la simulation ne lit pas
+  (`stat_reader`) est une erreur `UnreadStat`.
+- Attentes : `RoomCount(min, max)` (nombre de `RoomBounds`), `HudText(empty: true)` (texte vide : une source masquée ;
+  `contains: ""` ne prouvait rien).
+
+### Scénarios (graines choisies par `draw_curse`, vérifiées en jeu)
+
+| Scénario | Prouve |
+|---|---|
+| `curse_drawn_seeded`, `_other` | `maudit`, graines 2 (darkness puis rien) et 22 (labyrinth puis darkness) : `Curse` aux deux étages, source `curses` du HUD, moment clé `curse` ; le test `curses` rejoue la graine 2 deux fois (même trace), la graine 22 (autre trace) et la graine 5 (aucune curse, aucun moment clé) |
+| `curse_modifier` | `maudit_maze`, graine 2 : `MoveSpeed` 150 → 127,5009155 à l'entrée de l'étage 0, **150** au passage du portail ; le test `curses` mesure l'abscisse du joueur : sous `maze` il avance de 70 à 95 % de la distance libre |
+| `curse_hides_minimap` | `isaac/sous_sol_maudit`, graine 2 : `minimap` **vide**, santé « 6/6 » intacte, 8 à 12 salles |
+| `curse_hides_health` | graine 5 (unknown) : `health` **vide** le joueur vivant, minicarte affichée |
+| `curse_blind` | graine 3 (blind) : témoin, santé et minicarte visibles, 8 à 12 salles |
+| `curse_bigger_floor` | graine 6 (labyrinth) : `RoomCount` 16 à 24 là où l'étage ordinaire n'a jamais plus de 12 ; boss, trésor, secrète présents |
+
+D95 (2026-10-17) : `curse_seed` passe par `fmix32`, les graines ci-dessus sont les plus petites qui donnent l'issue voulue avec le nouveau tirage (les anciennes : 3, 2, 3, 1, 7, 5, 2).
+
+### Déterminisme
+
+RNG local par (graine, étage) ; `order_mut_iter!` pour les joueurs ; `BTreeMap`, `Fixed` ; trace `ggrs{f=… curse …}` ; aucun
+flux de `RngStreams`. Hors séquence à curses, aucune ressource ne bouge : `RunCurses` n'est pas écrite (test
+`a_sequence_without_curses_draws_nothing_and_leaves_the_state_neutral`, vérifié à chaque frame), `CurseTable` est vide.
+
+### Atteignabilité
+
+`isaac/sous_sol_maudit` joue les cinq curses par graine ; la séquence par défaut d'`isaac` les tire depuis M3-T11d1 (graines 1, 2, 13, 19, 42 : §76.4). Le testbed joue `maudit` et `maudit_maze` à deux étages.
+
+## 75. Accomplissements en jeu : faits de run, évaluation à `Ended`, profil v2 (M3-T10, chantier G1 v2)
+
+Code : `game::profile` (`RunHistory`, `record_held_items`, `write_achievements_at_run_end`, `grant_achievements`,
+`summary_is_final`, `AchievementsEarned`), `meta` (`Profile::achievements`, `Profile::grant_achievement`,
+`Achievements`, `PROFILE_VERSION` 2), `game::boss::boss_defeated_system`, HUD (`achievements`), écran de fin,
+contenu `isaac` et `gungeon`. Contrats : §64 (`AchievementDef`, `RunFacts`, `achieved`), §38 (profil), §51 (déblocages).
+
+### Faits de la run : `RunHistory`
+
+`BossDefeated` est un événement **transitoire** (§45) : il ne laisse aucun historique. `game::profile::RunHistory`
+`{ bosses_defeated, items_held }` en est un, écrit par la simulation :
+
+- **boss vaincus** : `boss_defeated_system` (`DeathManagement`) y inscrit le **nom du personnage** (le `String` de
+  `GgrsNetId`, celui de `characters/<id>.ron` : ce que `BossDefeated("gardien")` désigne). Aucun changement de l'événement.
+- **objets tenus** : `record_held_items` (`GgrsSchedule`, `FrameCounter`) recopie, à chaque frame de partie en cours,
+  l'union des passifs et de l'actif, **par joueur** (`held_by_player`, union à l'évaluation : `RunHistory::items_held()`), des joueurs qui ont un `Inventory` (comparée avant de cloner : aucun `String` copié tant
+  que l'ensemble ne change pas). Un joueur mort perd son inventaire : la **dernière valeur connue reste** (« tenu à la fin » =
+  tenu à la dernière frame où quelqu'un tenait quelque chose) ; rien n'est écrit une fois la run terminée (sauf la frame même de la fin : `run_counts_at`). Même garde pour les
+  boss, défaite posée à cette frame comprise : la simulation continue après `Ended`, un boss tué ensuite (poison, explosion) n'est pas un fait de la run.
+- **étages, temps, issue** : déjà dans `RunSummary` (`floor_reached`, `frames`, `outcome` : la défaite est une issue, il
+  n'y a pas de compteur de morts à ajouter).
+
+**Rollback sans checksum** (`RollbackTraceApp::rollback_and_trace_resource_no_checksum`, nouveau : `Clone + Debug`, la
+variante `Copy` existait). Choix entre « hors rollback » et « rollback neutre » de la fiche : l'historique est écrit **dans**
+`GgrsSchedule` ; hors rollback, une prédiction ratée (boss « mort » dans une frame resimulée autrement) resterait dans
+l'ensemble et accorderait à tort un accomplissement écrit sur disque. En rollback, le rollback le défait. Sans checksum :
+rien en simulation ne le lit, donc aucune trace ni aucun checksum ne bouge, quel que soit le contenu (une ressource neutre
+bougerait dès qu'un boss meurt). Contrepartie : un desync de cet historique ne serait pas détecté, ce qui est sans effet
+sur la simulation. Remise à zéro à la relance (`run_state::cleanup_rollback_world_system`).
+
+### Évaluation hors simulation
+
+`write_achievements_at_run_end` (`Update`, chaîné après l'écriture d'essence de §38 et après `apply_run_request_system`, jamais
+`GgrsSchedule`) : quand `Run` est `Ended` avec un `RunSummary`, **une fois par run** et une fois la fin **confirmée**
+(`summary_is_final` : `summary.frames <= ConfirmedFrameCount`, qui vaut -1 hors session ; un **abandon** est définitif tout de
+suite : décision locale, la session est détruite à la frame suivante), il construit `RunFacts { summary, bosses_defeated,
+items_held }` et, pour chaque joueur de la **session** (`bevy_ggrs::LocalPlayers` : tous en partie locale ou synctest, seulement
+les joueurs locaux en p2p, morts compris : un mort n'a plus d'entité), appelle `grant_achievements` :
+chaque accomplissement de la table `meta::Achievements` (chargée du registre avec les autres tables, hors rollback) dont
+`meta::achieved` est vrai et que le profil n'a pas encore obtenu ajoute son id à `Profile::achievements` et ses `unlocks` à
+`Profile::unlocks`, puis le profil est écrit (atomique, §38). Pourquoi attendre la confirmation : sur disque, un
+accomplissement ne se reprend pas, et une fin vue pendant une prédiction peut être défaite. Contrepartie : quitter l'écran de
+fin (Rejouer, Lobby) **avant** la confirmation (quelques frames en local, un aller-retour réseau en p2p) perd l'évaluation.
+**Abandon sans confirmation** : c'est une décision locale du joueur, la session est détruite à la frame suivante et la confirmation n'arriverait jamais ; les faits peuvent donc venir de frames encore prédites (surtout en p2p) et un accomplissement peut être accordé sur un boss « vaincu » par une prédiction ratée. Accepté : l'alternative (ne rien évaluer à l'abandon) perd des accomplissements réels, et le cas demande un abandon pile pendant une prédiction fausse.
+
+Même règle d'`ended_handles` pour l'essence (§38) : un joueur mort la reçoit désormais aussi. `AchievementsEarned`
+(`{handle → ids}`, présentation, vidé à la relance) garde les accomplissements **nouveaux** de cette fin.
+
+**Profil v2** : `PROFILE_VERSION` 2, champ `achievements: BTreeSet<String>` (`#[serde(default)]`). Un fichier v0 ou v1 se
+lit tel quel (champ absent : aucun accomplissement) et se réécrit en v2 ; un fichier plus récent que le jeu reste `TooNew`
+et n'est pas touché : `meta::save` **refuse** de remplacer un fichier existant illisible ou plus récent (`TooNew`), que `Profiles::load_dir`
+a écarté au lancement (la partie joue alors avec un profil vierge qui n'est pas écrit : sans cette garde, un build v1 relancé après un
+build v2 aurait détruit le profil v2 à la première fin de run). Un accomplissement déjà obtenu ne rajoute rien : un déblocage retiré à la main ne revient pas.
+
+**Entrée dans la run suivante** : par `RunUnlocks` (§51), **sans autre chemin**. La relance relit le profil
+(`jjrs::local`), filtré sur les `Unlock` du jeu : les ids d'accomplissements (`Profile::achievements`) n'y entrent jamais, seuls
+leurs déblocages. Le marchand du hub (§57) et `alacod-profile unlock` **ne vendent pas** un déblocage qu'un accomplissement
+accorde (`Registry::achievement_unlocks`) : on l'obtient en jouant.
+
+**En ligne : règle de l'hôte** (décision du 2026-10-15). Les faits sont ceux de la partie commune, identiques chez tous les pairs
+(l'historique suit les rollbacks, n'est plus écrit après `Ended`, et la fin est évaluée une fois confirmée) : chaque pair n'écrit que le profil de **ses** joueurs
+locaux (`LocalPlayers`). Ce qui entre dans la run suivante est inchangé : le profil de **l'hôte** (`ALACOD_RUN_UNLOCKS`, §51), jamais celui du pair
+local. L'accomplissement d'un invité est donc dans son fichier, et ne sert que quand c'est lui qui héberge. `ItemHeld` lit
+l'union des objets des joueurs de la run (contrat de §64), pas ceux d'un joueur.
+
+### Présentation
+
+Source HUD `achievements` (`content::ui::HUD_SOURCES`, source du joueur affiché) : une ligne par accomplissement **obtenu à
+cette fin de run** (`AchievementDef::name`, nouveau champ optionnel : l'id sinon) ; vide en cours de partie, donc rien (et vide aussi quand le joueur affiché est mort : le HUD ne montre plus rien de lui, l'écran de fin
+liste tout). L'écran
+de fin (`ui::game_over`) l'ajoute sous le résumé (« Accomplissements : * … »). Pas d'écran des accomplissements (hors périmètre) :
+le profil les garde (`Profile::achievements`).
+
+### Attentes de scénario
+
+`ProfileHas` gagne `achievement: Some("id")` (obtenu), `lacks_unlocks` et `lacks_achievements` (absents du profil) ;
+`HudText(source: "achievements", contains | empty)`. Un scénario n'écrit toujours rien sans `profile: true`.
+
+### Contenu
+
+`isaac` : quatre accomplissements. Les objets débloqués sont des **objets neufs**, ajoutés aux pools **et** cachés par un `Item`
+(§51) : un pool dont les candidats d'une entrée sont tous cachés ne compte pas cette entrée (`draw_exhausting`), donc, profil
+vide, le tirage est celui d'avant : **aucune trace d'`isaac` ne bouge**. Retirer un objet existant d'un pool décalerait les
+tirages de tous les scénarios.
+
+| Accomplissement | Condition | Déblocage | Ce qui entre |
+|---|---|---|---|
+| `gardien_vaincu` | `BossDefeated("gardien")` | `medaille_libre` | « Médaille du gardien » (`medaille`, +10 % dégâts) dans le pool `boss` |
+| `run_finie` | `Victory` | `couronne_libre` | « Couronne de fin » (`couronne`, +15 % portée) dans le pool `tresor` |
+| `second_etage` | `FloorAtLeast(1)` | `bague_libre` | « Bague des profondeurs » (`bague`, +10 % cadence) dans le pool `tresor` |
+| `semelles_aux_pieds` | `ItemHeld("semelles_lestees")` | `bombes_en_reserve` | la bombe (poids 3) dans le pool `salle` (`Loot` : rien n'est caché) |
+
+`gungeon` : quatre accomplissements dont les déblocages sont des entrées `Loot` (rien ne quitte un pool : aucune trace ne
+bouge) ; le marchand ne les propose pas.
+
+| Accomplissement | Condition | Déblocage | Ce qui entre |
+|---|---|---|---|
+| `gatling_vaincu` | `BossDefeated("gatling")` | `butin_gatling` | `parchemin` dans `coffre_etage1` et `coffre_etage2` |
+| `gungeon_termine` | `Victory` | `butin_victoire` | `sablier` dans `coffre_etage2` |
+| `second_etage` | `FloorAtLeast(1)` | `butin_second_etage` | `trophee` dans `coffre_etage2` |
+| `bottes_aux_pieds` | `ItemHeld("bottes")` | `butin_bottes` | `cartouchiere` dans `coffre_etage1` et `coffre_etage2` |
+
+Le lint d'`isaac` ne signale plus « aucun accomplissement dont le déblocage donne un objet ou une entrée à un pool tiré »
+(T12, §77). Le « Q10 » de la fiche (tenir une transformation) n'a pas de réponse : `semelles_aux_pieds` tient un objet.
+
+### Preuves
+
+Unitaires : `meta` (migration v1 → v2, déblocages accordés une fois), `game::profile` (accomplissements atteints seulement et
+une fois, fin confirmée, noms affichés, objets tenus et dernière valeur après la mort, rien après la fin), écran de fin.
+Scénarios `achievement_unlocks` (isaac, graine 8, `sous_sol_un` : boss vaincu + victoire accordent deux accomplissements, le
+troisième manque, `RunUnlocks` ne bouge pas pendant la run, HUD) et `achievement_not_met` (isaac, défaite à l'étage 0 : aucun
+accomplissement, essence créditée, HUD vide). Test `crates/scenario/tests/achievements.rs` : deux runs enchaînées, la relance
+voit les déblocages dans `RunUnlocks` et, **à graine égale** (400 graines), les objets entrent dans les pools `boss` et `tresor`,
+pas ceux dont l'accomplissement manque ; l'historique de la première run n'a pas survécu à la relance.
+
+**Contrat du tirage : un déblocage ne déplace que vers l'objet débloqué (D96, 2026-10-17).** À graine, emplacement et `seen` égaux, ce
+que débloque un accomplissement ne change l'objet d'un emplacement que si c'est pour un objet qu'il apporte (l'objet débloqué d'une entrée
+`Item` ; pour une entrée `Rarity` ajoutée ou alourdie, **n'importe lequel de ses candidats**, y compris un qui existait déjà) : une graine partagée donne
+le même butin à deux profils, aux objets débloqués près. Ce n'est **pas** un effet du hasard : c'est la course pondérée de
+`draw_exhausting` (§64), et `les_accomplissements_d_une_run_entrent_dans_le_pool_de_la_suivante` l'exige (400 emplacements par
+pool, un `PoolState` neuf par emplacement). Avec l'ancien choix `tirage % somme des poids`, la propriété n'était garantie par rien : elle
+ne tenait que pour un contenu de pool donné (le test, vert sur la branche de T10, est rouge sur `main` depuis le merge 3f37ba43 :
+débloquer `medaille` faisait passer la somme du pool `boss` de 10 à 12 et 251 emplacements sur 400 changeaient pour un objet non débloqué ; D96). Limite dite au §64 : le long d'une suite
+d'emplacements à épuisement, l'objet déplacé revient dans le pool et peut ressortir plus loin.
+
+### Déterminisme et traces
+
+Rien de non rollbacké n'est lu par la simulation. `RunHistory` est rollback sans checksum, `RunUnlocks` inchangée,
+`AchievementsEarned` et `Achievements` hors rollback (présentation et profil). Aucune trace existante n'a bougé (suite
+complète sans BLESS) ; seules les traces des deux scénarios nouveaux sont ajoutées.
+
+### Limites
+
+- Pas de hub dans `isaac` : un déblocage d'accomplissement n'y a d'autre chemin que le profil (voulu, fiche).
+- L'ensemble en ligne vient de la variable d'environnement de l'hôte (§51) : l'échange réseau des profils n'existe pas.
+- `ItemHeld` est l'union des joueurs, pas par joueur ; un accomplissement par joueur (« tenir X en coop ») viendrait avec un
+  `RunFacts` par joueur.
+
+## 76. Contenu `isaac` (M3-T11, quatre parties)
+
+### 76.1 T11a : larmes et stats (`m3-t11a-larmes`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur.
+
+- **`larmes` en `mag: Infinite`** (§60) : plus d'`ammo_type`, plus de chargeur de 9 999. Les stats de larmes sont des
+  multiplicateurs de base 1 que posent les objets : `Damage` (3,5), `FireRate` (3 tirs/s), `Range` (300), `ShotSpeed` (260),
+  `ShotSize` (collision et sprite), `Luck` (chance des `Chance`). `MoveSpeed` est celle du personnage.
+- **Statuts** `statuses/` (copies du testbed : `poison`, `brulure`, `gel`, `peur`, `lenteur`), déclarés dans `game.ron`.
+- **19 objets** `objets/*.ron` (tag `larmes`), tous dans le pool `loot/tresor.ron` (entrées `Item(id)` : un `Rarity(…)` piocherait
+  aussi clé, bombe et cœurs, de rareté `Common` ; poids commun 4, peu commun 2, rare 1 ; `exhaust: true` (T8 : un objet sorti n'y revient plus par run, donc pas de doublon par ce pool), pas d'`exclude_held`. Il contient aussi les quatre passifs de T8). `rooms/tresor.ron` y pointe (`chest.table: "tresor"`) ; la salle secrète garde `salle`.
+  Boutique : pool `boutique` de M3-T11d1 (§76.4).
+- **Lisibilité (§82)** : `bullet_player`/`bullet_enemy` d'`isaac` utilisent le halo blanc de M3-T17
+  (`sprites/feedback/tear.png`, copie du testbed, `assets.yaml`) : teinte par statut/guidage, opacité spectrale, taille par
+  division/perforation, sans code. Les objets n'ont pas de sprite propre (aucun champ d'image dans `ItemDef`).
+- **Lab** : `characters/cible_fragile.ron` (15 PV, `test_only`) et l'arme `larmes_courtes` (portée 100, `test_only`) : l'arène
+  (416 x 304) est plus petite que la portée de `larmes`, `Range` ne se prouve qu'avec une arme courte.
+
+| Objet | Effet | Rareté | Graine `alacod-sim` (premier coffre de trésor) | Scénarios générés |
+|---|---|---|---|---|
+| `encre` | `Damage` +50 % | Common | 48 | `item_encre`, `tears_encre` (+ `_sans_objet`) |
+| `ressort` | `FireRate` +50 % | Common | 35 | `item_ressort`, `tears_ressort` |
+| `longue_vue` | `Range` +100 % | Common | 44 | `item_longue_vue`, `tears_longue_vue` |
+| `vent_arriere` | `ShotSpeed` +50 % | Common | 1 | `item_vent_arriere`, `tears_vent_arriere` |
+| `goutte` | `ShotSize` ×1,5, `Damage` +20 % | Uncommon | 11 | `item_goutte`, `tears_goutte` |
+| `bottines` | `MoveSpeed` +25 % | Common | 4 | `item_bottines` |
+| `trefle_noir` | `Luck` +2 | Uncommon | 53 | `item_trefle_noir` |
+| `plomb_fondu` | `Damage` +100 %, `FireRate` −30 % | Rare | 56 | `item_plomb_fondu` |
+| `oeil` | `Homing` | Common | 95 | `item_oeil`, `tears_oeil` |
+| `epine` | `Pierce(1)` | Uncommon | 47 | `item_epine`, `tears_epine` |
+| `ricochet` | `Bounce(2)` | Common | 66 | `item_ricochet`, `tears_ricochet` |
+| `fantome` | `Spectral` | Rare | 69 | `item_fantome`, `tears_fantome` |
+| `eclat` | `Split(3)` | Rare | 62 | `item_eclat`, `tears_eclat` |
+| `satellite` | `Orbit` + `Lifetime(240)` | Rare | 77 | `item_satellite`, `tears_satellite` |
+| `venin` | `Chance` 50 % (+12,5 %/`Luck`) poison | Uncommon | 28 | `item_venin`, `tears_venin` |
+| `braise` | brûlure à l'impact | Uncommon | 103 | `item_braise`, `tears_braise` |
+| `givre` | `Chance` 30 % gel | Uncommon | 59 | `item_givre`, `tears_givre` |
+| `epouvante` | `Chance` 30 % peur | Uncommon | 71 | `item_epouvante`, `tears_epouvante` |
+| `glu` | lenteur à l'impact | Common | 7 | `item_glu`, `tears_glu` |
+
+Graines : `alacod-sim --game isaac --bots 1 --profiles explorateur --shopping --seeds N..N --floors sous_sol --until-floor 2
+--max-frames 12000 --log`, la ligne `game::loot: … slot_assign pool=tresor floor=0 … item=<id>` (balayage 1..400 de M3-T11d1, plan à vingt gabarits et boutique : l'objet est
+assigné à la génération de l'étage, `--max-frames 6` suffit ; première graine qui donne l'objet au trésor du premier étage, ouvert). Les seuils des `tears:` sont mesurés avec témoin
+(commentaire de chaque `test:`) ; `tears_longue_vue` utilise `larmes_courtes`, `tears_goutte` une cible posée à 22 unités de la
+ligne de tir (touchée seulement par la larme ×1,5).
+
+**Traces** : le passage en `Infinite` change l'état de l'arme dès f0 pour tout scénario `isaac` qui a le personnage ; le pool
+`tresor` change l'objet des coffres de trésor (preuve §5 au rapport `m3-t11a-larmes.md`). Les autres jeux ne bougent pas.
+
+Dettes : `Chance` dépend du net id des larmes (un changement de cadence déplace
+les tirages : les seuils de `venin`, `givre`, `epouvante` sont « au moins un statut à f300 ») ; pas de sprite d'objet.
+
+### 76.2 T11b : effets, familiers, actifs (`m3-t11b-effets`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur. Tout passe par des vocabulaires déjà livrés :
+effets v3 (§67), familiers (§71), cœurs d'âme (§68), pools à épuisement (§73), générateur v3 (§78).
+
+- **Dix objets**, tous avec `test:` ; poids par rareté 4 / 2 / 1 dans leur pool (`exhaust: true`, aucun `exclude_held`).
+  Pool `tresor` (`loot/tresor.ron`, 23 → 31 entrées) : `frere`, `orbe`, `nuee`, `crocs`, `pouls`, `rancune_vive`, `reliquaire`,
+  `calice_ame`. Pool `boss` (`loot/boss.ron`, 3 → 5 entrées ; les trois passifs de T8, peu communs, passent de poids 1 à 2) : `sang_chaud`,
+  `calice_ardent`.
+- **Familiers** (`characters/`, fiche de §71 : équipe `Players`, `stationary`, collider 12 x 12, immunisés) : `frere` (`Follow(gap: 28)` +
+  `MirrorShot(every: 12)` : les larmes du porteur, son arme et ses objets, Q13) ; `orbe` (`Orbit(radius: 36, frames_per_turn: 120)`
+  + `BlockBullets`). Lab : `cible_mordante` (`test_only`, immobile, 5 000 PV, `counts_hits`, mêlée au contact à 40 : le générateur retrouve ses
+  cibles **par position**, une cible mobile n'a pas de compteur dans la sonde).
+- **Synergie** `synergies/garde_rapprochee.ron` (`requires: ["frere", "orbe"]`, deux objets du pool `tresor`, `Damage` +20 %) ; dossier `synergies`
+  déclaré dans `game.ron`. Preuve : scénario `isaac_synergy_garde` (frère ramassé f10 : dégâts 1, un familier ; orbe f40 : deux familiers, dégâts 1,2).
+- **Cœurs d'âme** : `coeur_ame` est déjà dans le pool de récompense `loot/salle.ron` (T3, poids 1) ; `reliquaire` et `calice_ame` en donnent aussi
+  (`GainSoul`). `salle.ron` n'a pas changé (aucune trace de plus ne bouge).
+
+| Objet | Effet | Pool (rareté, poids) | Graine `alacod-sim` | Scénarios |
+|---|---|---|---|---|
+| `frere` | familier `Follow` + `MirrorShot` | tresor (Common, 4) | 18 (coffre) | `item_frere`, `familiar_frere` (+ `_sans_objet` : ≥ 6 coups contre 5), `isaac_synergy_garde` |
+| `orbe` | familier `Orbit` + `BlockBullets` | tresor (Uncommon, 2) | 13 (coffre) | `item_orbe`, `familiar_orbe` (`FamiliarDistance` 30–40) |
+| `nuee` | trois `orbe` (`per_copy: 3`) | tresor (Rare, 1) | 5 | `item_nuee`, `familiar_nuee` (rangs 0 et 1 à 60–64) |
+| `crocs` | `OnHit` : `Scaled(PerCopy) ApplyStatus poison` | tresor (Common, 4) | 14 | `item_crocs`, `tears_crocs` (poison / témoin sans) |
+| `pouls` | `Tick(90)` : `TimedModifier` `MoveSpeed` +30 % 60 frames | tresor (Common, 4) | 3 | `item_pouls` (`MoveSpeed` 120 à f60, 156,00037 à f100) |
+| `rancune_vive` | `OnDamageTaken` : `ApplyStatus peur` sur l'auteur du coup | tresor (Uncommon, 2) | 51 | `item_rancune_vive`, `tears_rancune_vive` (`cible_mordante` : peur / témoin sans) |
+| `reliquaire` | `OnPickup` filtré `item: Some("reliquaire")` : `GainSoul(4)` (sans filtre, chaque ramassage suivant rendrait 4 points : relecture) | tresor (Common, 4) | 10 | `item_reliquaire`, `isaac_reliquaire` (ramassé au sol, puis un autre objet : rien de plus) |
+| `calice_ame` | actif `Active(Damage(30))`, `OnUse` : `GainSoul(2)` | tresor (Rare, 1) | 2 | `item_calice_ame` (charge, usage, `ExtraHealth` 2) |
+| `sang_chaud` | `OnKill` : `TimedModifier` `FireRate` +50 % 300 frames | boss (Uncommon, 2) | 8 (butin du boss, `slot_assign pool=boss`) | `item_sang_chaud`, `tears_sang_chaud` (`cible_fragile` tuée : `FireRate` 1,5 / témoin 1) |
+| `calice_ardent` | actif `Active(Rooms(2))`, `OnUse` : `Damage` +100 % 300 frames | boss (Uncommon, 2) | 4 (butin du boss) | `item_calice_ardent` (`Damage` 2 après l'usage) |
+
+Graines : `alacod-sim --game isaac --bots 1 --profiles explorateur --shopping --seeds N..N --floors sous_sol --until-floor 2 --max-frames 12000
+--log` (M3-T11d1 : balayage 1..400 de la ligne `slot_assign pool=tresor` ou `pool=boss` du premier étage, `--max-frames 6` ; les anciennes graines de T11b n'étaient plus justes : le plan et le pool `boutique` ont changé). Les 10 objets sortent.
+
+**Limites de preuve.** Un objet **donné au départ** (`PlayerScript::items`) ne déclenche pas `OnPickup` : `reliquaire` se prouve par un scénario
+écrit (`isaac_reliquaire`, objet posé sous le joueur) et son `test:` ne génère que la tenue ; l'attente `ExtraHealth` n'y est donc pas. `Stat` d'une
+vitesse est en unités/s (`MoveSpeed` 120), pas en multiplicateur : le seuil de `pouls` est une valeur mesurée.
+Lint : `make lint GAME=isaac` perd les avertissements « aucun objet à effets » (trésor, boss), « aucune synergie atteignable » et « familiers : 0 sur 2 »
+(la boutique est faite par M3-T11d1, §76.4).
+
+**Traces** : le pool `tresor` change les coffres de trésor et le pool `boss` le butin du boss (tirage à la génération de l'étage : l'objet tiré dépend
+de la taille du pool) ; preuve §5 au rapport `m3-t11b-effets.md`. Les autres jeux ne bougent pas.
+
+Dettes : pas de transformation (Q10 non retenue) ; la synergie n'est jouée qu'en scénario (le bot ne rouvre pas le trésor du
+second étage, deux objets du même pool ne sortent pas dans une même partie du bot) ; pas de sprite d'objet ni de familier propre (placeholders).
+
+### 76.3 T11c : ennemis, champions, boss (`m3-t11c-ennemis`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur. Vocabulaires déjà livrés : behaviors (§22), vue directe
+D66 (`sight_range`, §22), variantes v2 (§72), boss à phases et renforts (§37, §45), générateur v3 (§78).
+
+- **Sept ennemis** (`characters/`, un `test:` chacun, scénarios `enemy_<id>_still`/`_moving`) : `suiveur` et `mouche` (T0f), et cinq nouveaux.
+  `rampant` (`Charge(telegraph: 30)` + `Chase` Ground, 6 PV, 1 PV de dégât), `spectre` (`Chase` profil `Phasing` : ignore fenêtres, barricades, eau et fosses, **pas les murs ni les rochers** (`navigation.rs`, `Phasing` ignore tout sauf `Wall`) ; 8 PV,
+  contact 1 PV, aucun `sight_range` : son `aggro_range` de 500 couvre toute salle de 240 unités), `cracheur` (`Shoot` du pattern `crachat` + `Chase` Ground, 6 PV,
+  `aggro_range` 130, `sight_range` 360), `tourelle_croix` (immobile, `croix` : deux couronnes de quatre boules, `aggro_range` 100, `sight_range` 260,
+  12 PV), `bourdon` (`Chase` profil `Flying` + `Shoot` du pattern `rafale`, 6 PV, `aggro_range` 140, `sight_range` 360). **`sight_range`
+  cohérent** : un tireur sans portée de flair (`aggro_range` bas) mais à vue longue ne cible qu'en ligne de vue dégagée (un coin le met hors de
+  portée) ; un ennemi qui flaire toute la salle (`spectre`, `aggro_range` 500) n'en a pas. Dans `isaac`, aucun obstacle franchissable par `Phasing` n'est posé : le `spectre` se comporte comme un `Chase` Ground (dette moteur/contenu : un vrai fantôme à travers rochers exigerait un obstacle `Wall` traversable).
+- **Patterns** (`patterns/`) : `crachat` (télégraphe 15, un tir visé), `croix` (deux couronnes de quatre, 25 frames d'écart), `rafale` (trois tirs
+  visés, un par 8 frames), `couronne_unique` (une couronne de huit boules, `every: 0` : le motif de mort d'un champion), `spirale` (deux bras,
+  six salves, 60 frames). Projectiles de l'`arsenal` : `crachat` (dégât 1 : un demi-cœur d'isaac, vitesse 110) en plus de `plomb` et `boule`.
+- **Trois ennemis à champions** (`variants:`, `chance` en expression par étage, `tint`, un effet de mort chacun, tous dans le gabarit de combat) :
+  `suiveur` → `explosif` (`0,1 + floor × 0,15`, `Explode` rayon 44, dégât 2, `destroys: false` : la salle secrète reste à la bombe) ;
+  `mouche` → `essaim` (`0,12 + floor × 0,1`, `SpawnCharacters` : deux `mouche` ordinaires) ; `tourelle_croix` → `salve` (`0,15 + floor × 0,12`,
+  `SpawnPattern` `couronne_unique`). Générateur v3 : `champions: [(variant, kill: true, weapon: Some("larmes"))]` → `champion_suiveur_explosif`,
+  `champion_mouche_essaim`, `champion_tourelle_croix_salve` (la sonde relève la mort et attend l'explosion, les deux mouches nées, la couronne).
+- **Placement** (aucun gabarit ajouté, `docs/taches/rapports/m3-t11c-ennemis.make_placement.py`) : le gabarit `Combat` garde `suiveur` et `mouche`
+  et gagne `tourelle_croix` (13, 7) : trois ennemis par salle de combat, 16 ennemis (au lieu de 11) à l'étage de la graine 1. **Le reste vient du boss**.
+- **Boss `gardien`** (3 phases, `boss_drop` du pool `boss` inchangé : `rooms/boss.ron`) : phase 0 (≥ 60 %) éventail ; phase 1 (< 60 %) `rampant` et
+  `cracheur` en renfort (`SpawnEnemies`) + couronne ; phase 2 (< 25 %) `spectre` et `bourdon` en renfort + spirale (télégraphe de 10 frames).
+  Aucune vague d'arène : `isaac` n'a pas de type de salle `arene` (gabarit : T11d2 ; la boutique, les rochers et les piques de T11d1 n'y changent rien).
+
+| Ennemi / variante | Comportement | Gabarit / vague | Graine `alacod-sim` | Scénario généré |
+|---|---|---|---|---|
+| `suiveur` | `Chase` Ground, contact | `Combat` | 2 (salle verrouillée f57) | `enemy_suiveur_still`/`_moving` |
+| `suiveur` / `explosif` | explosion à la mort | `Combat` | 1730 | `champion_suiveur_explosif` |
+| `mouche` | volante, contact | `Combat` | 2 | `enemy_mouche_*` |
+| `mouche` / `essaim` | deux mouches à la mort | `Combat` | 1730 | `champion_mouche_essaim` |
+| `tourelle_croix` | immobile, `croix`, vue directe | `Combat` | 2 | `enemy_tourelle_croix_*` |
+| `tourelle_croix` / `salve` | couronne à la mort | `Combat` | 1730 | `champion_tourelle_croix_salve` |
+| `rampant` | charge | boss, phase 1 | 2 (renfort f2370) | `enemy_rampant_*` |
+| `cracheur` | tireur, vue directe | boss, phase 1 | 2 | `enemy_cracheur_*` |
+| `spectre` | `Phasing` | boss, phase 2 | 2 | `enemy_spectre_*` |
+| `bourdon` | volant, tireur | boss, phase 2 | 2 | `enemy_bourdon_*` |
+| `gardien` | 3 phases, renforts, spirale | `Boss` | 2 | `boss_gardien` |
+
+**Tirage des variantes : D88 fermée** (2026-10-17, `docs/taches/rapports/dette-d88-tirage-variantes.md`). Le tirage (`variant.rs`) était `fnv1a("variants") ^ graine ^ net id` suivi d'un seul
+pas de congruentiel : quasi linéaire (0,0004 par unité de graine) et corrélé par étage (89 % des graines sans aucun champion, 9 % avec tous ; la graine par défaut `123456` n'en
+donnait aucun au premier étage ; seule la graine 1730 atteignait les trois variantes). Il hache maintenant `variants:<graine>:<net id>` (§25). Atteignabilité mesurée :
+`alacod-sim --game isaac --bots 1 --profiles explorateur --seeds 1..50 --floors sous_sol --until-floor 2 --max-frames 12000` : variantes rencontrées sur **47 graines sur 50** (94 %,
+259 au total, 11 au plus sur une graine ; absentes des graines 3, 29 et 42), graine par défaut comprise (colonne `variantes` du rapport par graine et ligne de synthèse de `alacod-sim`,
+D88). Le bot `explorateur` en subit les conséquences : 10 victoires, 37 morts, 3 soft-locks (graines 9, 42, 43) contre 17, 30 et 3 avant D88 (équilibrage : hors boucle de développement, décision de William du 2026-10-18).
+
+**Équilibrage** (campagne courte, `explorateur`, 50 graines `--floors sous_sol --until-floor 2 --max-frames 12000`, §76.3 du rapport) : l'`explorateur` meurt
+dès qu'une salle de combat compte quatre ennemis (essais : 16 morts sur 16 à quatre ennemis, 5 types ; cracheur, rampant ou tourelle seuls : 9 à 15 morts
+sur 16 avec un boss à renforts doubles), d'où les trois ennemis par salle et les renforts du boss. Mesure finale : 30 morts, 17 victoires, 3 soft-locks
+(9 et 43 existent sur `main` à l'identique, 42 est de la même famille : plafond sans progrès, ennemis hors de vue, aucun dégât). Les 5 scénarios
+`grid_floor_seed_1`/`_123`/`_23`, `grid_post_boss`, `isaac_floor_seed_1` (chronologie du boss) ont leurs attentes recalées (16 ennemis, boss verrouillé vers f2021 au lieu de f1340 pour la graine 1).
+
+Lint : `make lint GAME=isaac` perd l'avertissement « aucun ennemi des salles de la partie ordinaire ne porte `variants` » (§72 : dette fermée).
+
+**Traces** : un ennemi de plus par salle de combat décale les net ids de tout ce qui suit (preuve §5 au rapport `m3-t11c-ennemis.md` : `FloorState.
+enemies_placed` 11 → 16, 7 → 10 ; seul changement : les cinq `tourelle_croix`) ; `generated/isaac/weapon_arsenal.trace` bouge aussi (entrée `crachat` ajoutée à la table de projectiles de l'`arsenal`). Les autres jeux ne bougent pas.
+
+Dettes : pas de gabarit de combat par ennemi (neuf `Combat…` de M3-T11d1, §76.4, mêlent six des sept ennemis : `spectre` n'est dans aucun gabarit) ; pas de salle à vagues ; tirage des variantes groupé pour les petites graines ; le soft-lock
+de l'`explorateur` (graines 9, 42, 43) relève de T14 ; D88 (tirage des variantes) fermée le 2026-10-17 ; écart de périmètre : 7 ennemis et 1 boss livrés sur 10 et 2 (le reste en T11d2 (volume Q1), les gabarits variés sont faits par T11d1 ; 60 % de morts et 34 % de victoires à 1 bot, sous la cible Q14 : l'équilibrage n'est plus un objectif (décision de William du 2026-10-18, chiffres au rapport de T11d1).
+
+### 76.4 T11d1 : structure de la partie ordinaire (`m3-t11d1-gabarits`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code moteur : un test de `map_ldtk` ajusté (gabarits, borne de temps) et un
+diagnostic ignoré du harnais (`floor_probe`). Décision de William du 2026-10-18 : T11d est **coupé en deux** ; T11d1 (ici) fait la structure de la partie ordinaire,
+**T11d2** (autre branche) le volume de Q1 (objets 49 → 100, ennemis 7 → 10, boss 1 → 2). L'équilibrage n'est pas un objectif : victoires et morts sont
+rapportés, aucun réglage n'a visé une fourchette.
+
+**Vingt gabarits** (`maps/salles.ldtk`, `docs/taches/rapports/m3-t11d1-gabarits.make_salles.py`, qui reprend les dix de T5 octet pour octet et vérifie les dix
+autres : ouvertures reliées, aucun obstacle sur une ouverture ou devant elle). Neuf gabarits de combat (au lieu d'un), trois de boss (dont le grand), trois de
+trésor, une secrète, un diable, une **boutique**, un départ, un transit :
+
+| Gabarit | Cases | Contenu |
+|---|---|---|
+| `Combat` | 1×1 | inchangé (T0f, T11c) : `suiveur`, `mouche`, `tourelle_croix` |
+| `CombatRochers` | 1×1 | un amas de rochers (trois cases en L) dans chaque angle ; `suiveur`, `mouche`, `tourelle_croix` au centre |
+| `CombatButin` | 1×1 | deux angles de rochers dont le coin est un **rocher à butin** ; `suiveur`, `mouche`, `cracheur` |
+| `CombatPiques` | 1×1 | deux angles de **piques** (nord-ouest, sud-est) ; `suiveur`, `suiveur`, `bourdon` |
+| `CombatMixte` | 1×1 | rochers (un amas plein, un à butin), piques dans les deux autres angles ; `suiveur`, `rampant`, `mouche` |
+| `CombatCroix` | 1×1 | deux angles de rochers ; `tourelle_croix`, `cracheur`, `mouche` |
+| `CombatLong` | 2×1 | deux angles de rochers à butin, deux de piques ; `suiveur` ×2, `mouche`, `cracheur` |
+| `CombatHaut` | 1×2 | trois angles de rochers (deux à butin), un de piques ; `suiveur`, `mouche`, `rampant`, `tourelle_croix` |
+| `CombatGrand` | 2×2 | quatre angles de rochers (deux à butin) ; `suiveur`, `mouche`, `cracheur`, `bourdon` |
+| `Boss`, `BossGrand` | 1×1, 2×2 | inchangés : `gardien` au centre |
+| `BossAbris` | 1×1 | `gardien` au centre, un amas de rochers dans chaque angle |
+| `Tresor`, `TresorLong`, `TresorHaut` | 1×1, 2×1, 1×2 | inchangés |
+| `Secrete`, `Diable`, `Transit`, `Depart` | 1×1 | inchangés |
+| `Boutique` | 1×1 | vide (les présentoirs sont posés par le type de salle) |
+
+Les neuf gabarits de combat sont tirés au hasard (un gabarit par pose, uniforme) : sur 300 graines de `sous_sol_un`, 139 à 183 salles chacun. **Rochers et piques
+sont dans les angles** : le bot `explorateur` ne voit pas les rochers (ils n'ont pas le marqueur `Wall` que `bots::input` lit pour son maillage), marche en ligne
+droite et reste collé à un rocher posé sur son chemin (premier essai, rochers au centre : étage sans progrès après 700 frames) ; le script refuse tout rocher à
+moins d'une case (piques : trois quarts) d'une ligne droite entre deux ouvertures, une ouverture et un ennemi ou le centre. Casser un rocher n'est donc jamais
+nécessaire pour traverser une salle : la bombe ouvre le butin et la salle secrète. Nouvelles couches du projet LDtk : `Rocks` (1 rocher, 2 rocher à butin, §62) et
+`Surfaces` (5 piques) ; `surfaces/piques.ron` (valeur 5, 1 PV tous les 60 frames, dégâts `True` : l'âme les absorbe d'abord ; les `hit_iframes` de `pleureur`
+recouvrent la période) ; dossier `surfaces` déclaré dans `game.ron`.
+
+**Boutique** : type `boutique` (`rooms/boutique.ron` : jamais verrouillée, `shop` de trois présentoirs du pool `boutique`, prix en sous par rareté de
+`economy.ron` : 15, 30, 50), exigé par la grammaire `sous_sol` (`required: {boss, tresor, secrete, boutique}` : cul-de-sac derrière une salle ordinaire, une par
+étage ; `sous_sol_grand`, `_court`, `_transit` n'en ont pas). Pool `loot/boutique.ron`, 26 entrées, `exhaust: true` (Q5 : par run et par pool, un consommable compte
+comme un objet vu) : les **treize objets de larmes** (chacun est aussi au trésor : deux exemplaires possibles sans pool qui les exclue, règle `Tears` du lint),
+quatre passifs à effets (`crocs`, `pouls`, `rancune_vive`, `reliquaire`), les trois familiers, deux objets de stats (`encre`, `bottines`) et quatre consommables (`key`,
+`bomb`, `coeur`, `coeur_ame`), poids 4, 2, 1 par rareté, 3, 3, 3, 2 pour les consommables ; jamais de `Currency` (lint). La boutique **vend en sous** les objets : les
+sous viennent de la mort des ennemis (`shells_drop`, 2 à 5) et des récompenses de salle (`Currency(1)`). Récompenses de salle (`loot/salle.ron`, T3) et coffre secret
+(`loot/secrete.ron`, T8) : **inchangés** (cœurs, sous, bombes, clés déjà cohérents avec §68 et §73).
+
+**Curses dans la séquence par défaut** : `floors/sous_sol.ron` gagne `curses: Some((chance: "0.3", pool: ["darkness", "unknown", "blind", "labyrinth", "maze"]))` : une
+curse sur 30 % des étages (graine de carte et étage, §74, les cinq selon leurs poids : `darkness` 3, `unknown` 2, `blind` 2, `maze` 2, `labyrinth` 1 ; 112 étages maudits sur 400 graines au premier étage). Les séquences de test (`sous_sol_un`, `_cle`, `_court`, `_grand`) n'en ont pas :
+leurs scénarios ne bougent que par les gabarits. Conséquence propre à la séquence par défaut : `RunCurses::entered` s'écrit dès la frame 0, même sans curse tirée
+(§74), donc toutes ses traces changent.
+
+**Bombe de départ (D81, fermée)** : `pleureur.ron` gagne `bomb: Some((fuse_frames: 75, radius: "56.0", damage: "4.0"))` (tir ami `Always`, défaut de Q4 : la bombe
+blesse son poseur, 4 PV sur 6 ; mèche de 1,25 s ; rayon 3,5 cases : l'explosion touche le bord de la porte secrète d'où l'on pose la bombe et casse les rochers voisins)
+et `starting_consumables: {"key": 0, "bomb": 1}` (objet `bomb`, plafond 99). Comme Isaac, une bombe au départ. **Réserve pour T11d2 et T14** : `damage: "4.0"` enlève **deux cœurs** au poseur (sur trois), contre un seul dans Isaac ; valeur de départ, non réglée (équilibrage hors objectif).
+
+**Lint** : `alacod lint games/isaac` passe de **24 avertissements à 0** (24 mesurés sur `main` avant la tâche : boutique absente et ses quatre règles, rochers et piques absents des
+gabarits `combat`, aucune bombe jouable, salle secrète sans bombe, curses de la séquence par défaut, treize objets de larmes sans second pool). Aucun avertissement
+d'atteignabilité, hors `test_only`, ne reste. `testbed` (115), `gungeon` (1) : inchangés ; `zombies`, `throne` : aucun.
+
+**Scénarios** : recalés (graines, chronologies, comptes d'ennemis ; les plans de toutes les graines ont changé : `GgrsNetId`, gabarits tirés au hasard, boutique) :
+`devil_room_chance` (cinq présentoirs : trois de la boutique, deux du diable), `devil_room_absent` (trois : la boutique seule, aucun du diable), `grid_floor_seed_1` (14 ennemis, boss f2245, victoire f2674), `_23` (boss 1×1
+désormais, victoire f1485), `_123` (porte maintenant le **boss 2×2** de l'ancienne 23, victoire f1502), `grid_post_boss` (`Armor +100`, victoire f1727),
+`grid_secret_room` (graine 25), `grid_secret_bomb` (graine 39, **bombe de départ**, sans `bomb:` ni `items:` du scénario : l'explosion f110 ouvre la salle,
+le joueur sorti du rayon n'est pas blessé, il entre dans la secrète : f339), `grid_secret_no_bomb` (même graine, la bombe n'est pas posée : aucune explosion, la porte reste fermée, le joueur s'arrête contre le mur), `grid_treasure_key`/`_floor0` (graine 145, -1013904097 pour `sous_sol_cle`), `isaac_floor_seed_1` (curses `maze` puis `blind`,
+boss f2500, « niveau 1 » f3220, boutique 3 puis 6 objets sortis), `isaac_hud_items` (source `curses` : `maze`). Neufs : `isaac_shop_buy` (graine 2 : le joueur à 60 sous achète
+`reliquaire` à 15 sous, `ExtraHealth` 4), `isaac_bomb_rock` (graine 4 : la bombe de départ casse l'amas de rochers d'un `CombatButin`, 45 → 42 rochers, le rocher à butin
+laisse une `ration`, le joueur hors du rayon n'est pas blessé), `isaac_spikes` (graine 10 : un demi-cœur dès f108, f168, f228, f288 sur l'amas de piques d'un `CombatPiques`) et son témoin `isaac_spikes_temoin` (même marche arrêtée avant l'amas : 6 PV jusqu'à f170, un ennemi arrive vers f172 : les deux premiers coups sont ceux des piques ; `HazardState.last_hit` du dump : 107, 167, 227, 287).
+Diagnostic `floor_probe` (`ALACOD_FLOOR_PROBE=<séquence>:<de>-<à>`, `crates/scenario/tests/scenarios.rs`) : le plan d'un étage par graine (type, taille, voisines, rochers,
+piques, ennemis, présentoirs) sans jouer la partie, pour choisir une graine. Test `map_ldtk::generation::isaac_etages_de_grille_sur_1000_graines` : `Combat…` (neuf
+gabarits) compte comme salle ordinaire, une boutique par `sous_sol` (cul-de-sac derrière une salle ordinaire) ; `…_sous_trois_fois_grand_de_gungeon` : trois chronomètres ((a) clone + `from_map`, (p) planificateur, (b) génération entière), borne 3 sur (b), garde sur le nombre d'évaluations de candidats (moyenne sous 3 500, mesuré 2 396, 278 avec dix gabarits) :
+cause de l'écart avec la borne d'origine de 2 (2,1 à 2,4 mesuré contre 0,8 avec dix gabarits) **dans le planificateur** : un gabarit tiré parmi les poses valides, neuf gabarits de combat au lieu d'un (D107).
+
+**Traces** : toutes les traces `isaac` bougent (124 : 120 rebénies, 4 neuves) ; zombies, throne, gungeon, testbed **identiques** (suite complète de 653 scénarios).
+Preuve §5, douze scénarios (`generated/isaac/{weapon_larmes, enemy_suiveur_still, tears_encre, champion_suiveur_explosif, familiar_frere, room_combat, boss_gardien}`,
+`hit_iframes_isaac`, `isaac_hud_items`, `isaac_boots`, `grid_secret_no_bomb`, `devil_room_absent`), dumps `ALACOD_DUMP_TRACE` du même binaire avec `ALACOD_GAME_DIR` pointé
+sur cinq états de `games/isaac` : (1) `main` ; (2) **bombe seule** (`pleureur.ron`, `bomb.ron`) ; (3) bombe + curses de la séquence par défaut ; (4) la branche ; (5) vingt gabarits **sans** boutique exigée (état intermédiaire entre 3 et 4).
+`scripts/trace-diff.py … --ignore Inventory,BombCarrier` : 1 → 2 **identiques sur les douze** (`Inventory` gagne `bomb: 1`, `BombCarrier` est neutre : seules ces lignes
+bougent) ; 1 → 4 identiques sur cinq scénarios en carte de test (`gabarit_armes` : aucune boutique, curse ni gabarit n'y entre). 2 → 3 : sur `hit_iframes_isaac`,
+`isaac_hud_items`, `isaac_boots`, `room_combat` (séquence par défaut, graine 1) f0 : `RunCurses { floors: {0: "maze"}, entered: Some(0) }` (au lieu de `{}`, `None`) et
+`Modifiers` du joueur gagne `MoveSpeed ×0,85` de source `curse:maze` ; identiques sur `boss_gardien`, `devil_room_absent`, `grid_secret_no_bomb` (séquences sans curse). 3 → 5 (séquence par défaut) dès f0 : le plan change. **Gabarits et boutique sont séparés par un cinquième état** (« vingt gabarits, boutique non exigée » : la grammaire sans `boutique` dans `required`, sur `hit_iframes_isaac`, `isaac_hud_items`, `isaac_boots`) : 3 → gabarits seuls : `FloorState.enemies_placed` 16 → 17, `GgrsNetIdFactory.counter` 148 → 193 (le plan change, `PoolState` aussi) ; gabarits → boutique exigée (la branche) : `enemies_placed` 17 → 14, `PoolState` gagne `boutique`. Chacun déplace le plan à lui seul (le planificateur tire un gabarit parmi neuf, puis la boutique prend une place de cul-de-sac).
+
+**Atteignabilité** (tableau du §8.1 de `docs/taches.md`, une ligne par mécanique, avec les graines `alacod-sim --game isaac --floors sous_sol --until-floor 2 --shopping` (séquence par
+défaut ; plan et butin de l'étage 0 lus à la génération, `--max-frames 6`, balayage 1..400) et le scénario qui la prouve à la main tant que le bot de T14 n'est pas sur `main`) :
+
+| Mécanique | Graine (étage 1) | Scénario |
+|---|---|---|
+| Larmes modifiées, empilement | 1 : trésor `vent_arriere`, boutique `givre` ; deux exemplaires par deux pools : 71 (`epouvante`), 76 (`vent_arriere`), 95 (`oeil`) | `isaac_shop_buy`, `tears_*`, `tears_stack_two_copies` (testbed) |
+| Effets v3 | trésor `crocs` 14, `pouls` 3 ; boutique `rancune_vive` 8 ; boss `sang_chaud` 8, `calice_ardent` 4 | `item_*`, `tears_crocs`, `tears_rancune_vive`, `tears_sang_chaud` |
+| Familiers, orbitaux | 9 (trésor `nuee`, boutique `frere`), 13 (`orbe` aux deux), 18 (`frere` aux deux) | `isaac_synergy_garde`, `familiar_*` |
+| Bombes | toute graine (bombe de départ) | `grid_secret_bomb`, `isaac_bomb_rock` |
+| Rochers, rochers à butin | 4 : `CombatButin` au nord du départ | `isaac_bomb_rock` (45 → 42, une `ration`) |
+| Piques | 10 : `CombatPiques` au nord du départ | `isaac_spikes`, `isaac_spikes_temoin` |
+| Salle secrète | toute graine ; sud du départ : 39 ; est : 25 | `grid_secret_bomb`, `grid_secret_room`, `grid_secret_no_bomb` |
+| Clés, trésor fermé | `key` en boutique : 1 ; clé de récompense : 14, 20, 22 ; second étage de toute partie | `grid_treasure_key`, `isaac_floor_seed_1` |
+| Cœurs, sous, boutique | cœur de récompense 1, 3, 14 ; cœur d'âme 3, 23, 32 ; sous à chaque mort ; boutique : toute graine | `isaac_shop_buy`, `isaac_floor_seed_1` |
+| Pools à épuisement | toute partie (trésor, boss 1 → 2, boutique 3 → 6 au second étage) | `isaac_floor_seed_1`, `devil_room_chance` |
+| Marché du diable | 8, 13, 16 | `devil_room_chance`, `devil_deal_isaac` ; l'achat par le bot : T14 |
+| Champions | 1 (`essaim`, `salve`), 4 (`explosif`) | `champion_*` |
+| Curses | 1 (`maze` puis `blind`), 2 (`darkness`), 13 (`blind`), 19 (`labyrinth`), 42 (`unknown`) | `isaac_floor_seed_1`, `isaac_hud_items` |
+| Accomplissements | deux parties d'affilée | `achievement_unlocks` (une run), test `crates/scenario/tests/achievements.rs` (deux runs enchaînées) |
+
+**Campagne de contrôle** (bot actuel, séquence par défaut, `--shopping`, lots de 20 graines, `docs/taches/rapports/m3-t11d1-gabarits.campagne.sh`, résumé graine par graine :
+`m3-t11d1-gabarits.campagne.tsv`) : **1 bot, graines 1 à 200 : 0 desync, 12 victoires, 169 morts, 19 « soft-locks »** (64 graines franchissent le premier étage) ; **2 bots, graines 1 à 200 :
+0 desync, 72 victoires (36 %), 102 morts, 26 « soft-locks »** (141 franchissent le premier étage). Chaque « soft-lock » a été rejoué en scénario, **prolongé de 2 000 frames sans détecteur**
+(`until_floor` absent), et classé :
+
+| Famille | 1 bot | 2 bots | Preuve |
+|---|---|---|---|
+| Cœur à pleine vie, au sol | 5 (39, 63, 112, 122, 171) | 3 (63, 144, 152) | ne reprend pas, vivant ; `coeur` à 4 à 11 unités (D99) |
+| Cœur à pleine vie, en boutique | 1 (149) | 2 (86, 149) | ne reprend pas ; `purchase_refused … shop_full` toutes les 30 frames (D99) |
+| `gardien` intact | 1 (4) | 0 | ne reprend pas ; 48 unités du boss, visée à quatre directions (D99) |
+| Réanimation interrompue par l'esquive | 0 | 1 (84) | ne reprend pas ; le coéquipier à terre meurt au saignement (f7076) puis l'autre (f7380) (D99) |
+| Long trajet pris pour un soft-lock | 12 | 20 | **28 reprennent** (76 à 759 frames après l'arrêt : un ennemi meurt, une salle est nettoyée, ou l'étage change), **4 se résolvent par la défaite** du bot (1 bot 30, 35, 196 ; 2 bots 159, 95 à 337 frames après) : **aucune ne gèle** (D100) |
+
+**Cause de 84 (2 bots, second étage, boss en phase 2).** Le joueur 0 tombe à f5276 (saignement jusqu'à f7075). Le joueur 1 est collé à lui (11 unités) et **tient `Interaction` pendant 119 frames, la lâche 31, tient 119, la lâche 31…**
+(cycle de 150 frames = la répétition de l'éventail du boss) : la progression de la réanimation (`handle_revive_interaction`, 180 frames **consécutives**) atteint au plus 119 puis retombe à 0, 9 fois. Interactable visé :
+le seul à portée, le joueur à terre (net id 147, `Revive`, prompt « Réanimer », `view.revive = (direction nulle, interact = vrai)` à chaque frame du relevé) ; aucun présentoir, cœur ou porte ne capte l'interaction (les entités
+à moins de 85 unités sont le joueur à terre, un familier `orbe`, des balles et un mur). Ennemi le plus proche : le `gardien`, 177,7 unités, en vue, **au-delà de `REVIVE_SAFE_DISTANCE` (150)** : pas de « menace »
+au sens de la réanimation. `Downed { since_frame: 5275, bleedout_at_frame: 7075 }`. Les 31 frames sans `Interaction` sont celles où `decide_prudent` exécute `crate::dodge::dodge` (un projectile du boss approche dans les
+30 prochaines frames, direction d'esquive `(0, 1)`, le bot ne bouge pas : position constante) : la branche d'esquive précède la réanimation et remplace tout l'input. **Cause : le bot (D99), pas le contenu.**
+**Cause de 86 (2 bots, premier étage).** Les deux joueurs (6 PV et 4 PV sur 6) sont collés au présentoir 0 de la boutique (un `coeur`, 2,2 et 2,8 unités) ; le joueur 0, à pleine vie, le vise et reçoit `shop_full` toutes
+les 30 frames (103 refus en 3 000 frames) ; le joueur 1, qui pourrait l'acheter, ne l'obtient jamais. **Bot (D99) : cœur en boutique, deux joueurs.**
+
+Les chiffres sont des informations, pas des objectifs (décision de William). La campagne est à refaire avec le bot de T14 (cœurs, bombe, clés, achats) : mêmes commandes.
+
+**Intégration de T14 (D106, `m3-t14-bot-isaac` fusionné, §79).** Le bot de T14 pose des bombes par défaut dès qu'un joueur en porte une : la bombe de départ de `pleureur` les active dans tous les scénarios isaac à `explorateur`.
+**Quinze traces rebénies** (quatorze, plus `bench_floor_isaac` de T15 à la fusion de `main`) (parmi elles, huit `bot_isaac_*` joués sur `isaac`, recalés sur les graines des vingt gabarits et la bombe de départ réelle, sans kit d'essai ; les deux `bot_isaac_rock*` de T14, joués sur la carte `testbed` dont le personnage n'a pas de bombe de départ, gardent leur kit et ne bougent pas ; `grid_floor_seed_1/23/123`, `grid_post_boss` à `Armor +200`, `isaac_floor_seed_1`, `achievement_unlocks`) ;
+**preuve §5** : bombe portée avec les décisions de bombe du bot coupées (`bombs: (secret: false, rocks: false)`) = identique à l'état sans bombe sur neuf scénarios ; avec elles, la première frame qui diffère est le **trajet vers le mur secret**, 13 à 350 frames
+**avant** la pose (le critère de T14 « première frame = première bombe posée » est trop strict). **Campagnes `s1`, `i2`, `i4` rejouées sur le contenu livré** (séquence par défaut, bombe de départ réelle, `--pickup-progress`, sans `--bombs`) : s1 **29 victoires, 171 morts**, i2 **115 victoires, 85 morts**,
+i4 **20 victoires sur 20** ; **0 desync, 0 soft-lock** (420 graines) ; les 45 graines laissées en soft-lock par le bot d'avant T14 finissent toutes en victoire ou en mort. D106 et D100 fermées, D99 réduite à l'esquive qui coupe la réanimation. Atteignabilité du bot : mur secret à la bombe 187 graines sur 200 (s1),
+porte à clé 51, achats en boutique 143 ; **aucune bombe de rocher en partie ordinaire** (rochers dans les angles : 45 poses du joueur (`bomb_place`) = 45 murs secrets ouverts sur 40 graines ; le compteur `bombe` du JSON compte aussi les bombes de champions ; rochers cassés par le souffle : 29 dans 12 graines) ; achat au diable : `Never` par défaut (Q14). Détail : rapport § 10, résumé `m3-t11d1-gabarits.campagne-t14.tsv`.
+
+**Dettes** : D99 (la réanimation du bot est interrompue par l'esquive ; ses autres blocages de la première campagne, cœur à pleine vie, visée du `gardien`, rochers, sont fermés par T14), D100 fermée (détecteur : `--pickup-progress`), D107 (le planificateur de grille évalue ×8,6 candidats avec neuf gabarits de combat) ; le bot n'achète pas au diable et pose la bombe de départ contre un mur secret (T14, intégré, D106) ; la boutique n'exerce pas
+`shop.cost: Currency(n)` (les prix passent par `economy.ron`) ; D93 reste ouverte (quatre scénarios gagnent par armure).
+
+### 76.5 T11d2 : volume de Q1 (`m3-t11d2-volume`)
+
+Données seulement (`games/isaac/assets/`, scénarios et traces `isaac`) ; aucun code Rust. Décision de William du 2026-10-18 : le volume de Q1 reste le critère de sortie de M3 ;
+**pas d'équilibrage** (victoires et morts rapportés, rien n'est réglé pour une fourchette). Rapport : `docs/taches/rapports/m3-t11d2-volume.md`.
+
+| Q1 | Avant | Après | Cible |
+|---|---|---|---|
+| objets | 49 | **100** | 100 |
+| objets qui modifient les larmes (tag `larmes` ; dont 23 à `projectile`) | 19 | **37** | ≥ 30 |
+| familiers ou orbitaux | 3 | **9** | 8 |
+| actifs | 2 | **11** | 10 |
+| ennemis | 7 | **10** (`araignee`, `follet`, `arroseur`) | 10 |
+| ennemis à champions | 3 | 3 (`suiveur`, `mouche`, `tourelle_croix`, §76.3) | 3 |
+| boss à phases | 1 | **2** (`colosse`) | 2 |
+| gabarits (`salles.ldtk`) | 20 | 23 (20 + trois de boss `boss_profond`) | 20 |
+
+**Objets** (51, `objets/*.ron`, un `test:` chacun sauf les trois consommables, que `ItemHeld` refuse : preuve par `isaac_consommables_lot`, comme `coeur` et `ration` ; les quatorze passifs de stats de T8 et T10 qui n'en avaient pas en ont maintenant un, `item_*`).
+Poids de pool 4 / 2 / 1 par rareté (consommables : 3 en boutique pour `pain`, 2 pour `eclat_ame` et `festin`, 3 / 2 / 1 en salle secrète). Le **tableau objet → pools → scénario** est au rapport (§ 2). Répartition :
+
+| Pool | Entrées avant | Après | Nouveaux objets |
+|---|---|---|---|
+| `tresor` | 33 | 71 | 38 (larmes 13, familiers 5, actifs 6, effets 11, stats 3) |
+| `boutique` | 26 | 55 | 29 (les douze objets de larmes du trésor, familiers 4, actifs 3, effets 4, stats 3, consommables 3) |
+| `boss` | 6 | 11 | `coeur_de_pierre`, `egide`, `bombe_fiole`, `escorte`, `cendre_froide` |
+| `diable` | 4 | 9 | `grappe`, `acide`, `philtre`, `epines_de_chair`, `grimoire` |
+| `secrete` (sans épuisement) | 5 | 10 | `pain`, `eclat_ame`, `festin`, `pot_de_miel`, `fer_a_cheval` |
+| `salle` (récompense) | 7 | 8 | `pain` |
+
+Les objets de larmes du trésor sont aussi en boutique (règle `Tears` du lint : deux exemplaires possibles) ; `cendre_froide` (boss), `grappe`, `acide`, `philtre` (diable) n'ont qu'un pool d'épuisement et n'y sont pas soumis.
+Trois statuts nouveaux (`statuses/` : `etourdi` Stun 60 frames, `charme` Charm 200, `saignement` Poison 1 PV / 15 frames pendant 180), trois ennemis, un boss, deux patterns (`gerbe`, `tourbillon`).
+
+**Mécaniques manquantes (dettes, pas de code ici)** : `SpawnPattern` et `Emit`/`OnEvent` sont refusés à `OnUse` d'un objet : `nova` est un `Explode` (rayon 100) et `hydre` pose directement ses deux actions (D112) ; l'`Explode` d'un objet ou d'un effet a un `friendly_fire` (D113 : `Never` pour `nova`, `bombe_fiole` et `epines_de_chair`, qui n'ont plus de `GainShield` de contournement ; un coéquipier n'est plus blessé, `isaac_nova_coop`) ; reste de D113 : la charge `Damage` compte tous les dégâts dont le porteur est la source, ses propres explosions comprises : `nova` se charge donc par salles (`Active(Rooms(2))`, revue) ; aucune attente `Shield`, aucun départ blessé, `familiar:` sans input ni balle hostile, pas de `test:` pour un consommable : scénarios écrits à la main (D114) ;
+le second boss passe par un type de salle propre `boss_profond` (D115, réécrite). Objets sans sprite propre (inchangé, T17).
+
+**Ennemis** (`characters/`, un `test:` chacun, `enemy_<id>_still/_moving`) : `araignee` (sol, 4 PV, 66 unités/s, contact), `follet` (volant `Flying`, 5 PV, `Charge` télégraphe 25 + contact), `arroseur` (tireur au sol, 8 PV, `KeepDistance` 80 à 140, `gerbe` : télégraphe 18 puis cinq crachats en éventail exact sur 1 rad, `sight_range` 300). Placés **sans changer le nombre d'ennemis par salle**, en remplacement d'une mouche ou d'un suiveur :
+`CombatRochers` (follet), `CombatButin` (araignee), `CombatPiques` (arroseur), `CombatMixte` (araignee), `CombatCroix` (follet), `CombatLong` (arroseur), `CombatHaut` (araignee), `CombatGrand` (follet) ; `Combat` (inchangé) et `spectre` (renfort seulement) comme avant.
+Script : `docs/taches/rapports/m3-t11d2-volume.make_salles.py` (reprend celui de T11d1, mêmes vérifications).
+
+**Boss `colosse`** (`characters/colosse.ron`, 44 PV contre 40, immobile, trois phases, type de salle `boss_profond`, butin du pool `boss` de `rooms/boss_profond.ron`) : phase 0 (≥ 65 %) une gerbe toutes les 150 frames ; phase 1 (< 65 %) deux `araignee` en renfort, croix à f0 et gerbe à f75 ; phase 2 (< 30 %) un `follet` et un `arroseur` en renfort, `tourbillon` (spirale de deux bras, 48 frames) précédé d'un télégraphe de 10 frames.
+Premier jet (50 PV, trois araignées, deux follets, spirale à trois bras) : le bot `fonceur` du scénario généré mourait en phase 2 ; allégé jusqu'à ce que `boss_colosse` le batte (victoire f449) ; aucune fourchette visée.
+**Rotation (justifiée)** : le `colosse` est le boss du **second étage** de la séquence par défaut (`floors/sous_sol.ron` : `floor:sous_sol` puis `floor:sous_sol_profond`), le `gardien` celui du premier : un boss par étage (comme Isaac), plutôt que le hasard, parce que (1) la difficulté monte avec l'étage (44 PV contre 40, renforts plus nombreux ; le butin vient du même pool `boss`, épuisé par run), (2) toutes les séquences de test (`sous_sol_un`, `_court`, `_cle`, `_grand`, `_maudit`) et leurs traces
+gardent le `gardien` : seuls les scénarios qui traversent le premier boss de la séquence par défaut voient le second, (3) un tirage au hasard parmi des gabarits de boss de même type ferait du boss d'un scénario de grille une loterie de graine. Mécanisme (revue) : `FloorGrammar::boss` existait déjà et le planificateur choisit les gabarits de boss par ce type : `floor_grammars/sous_sol_profond.ron` (et `_court`) déclarent `boss: "boss_profond"` et `required: {"boss_profond": 1, …}`, trois gabarits `BossProfond`, `BossProfondGrand`, `BossProfondAbris` (type `boss_profond`, `colosse`) s'ajoutent à `salles.ldtk` (23 gabarits ; les vingt premiers inchangés), `rooms/boss_profond.ron` (verrouille, butin du pool `boss`). `sous_sol_profond_court` (départ, combat, boss) sert le scénario `boss_colosse`.
+**Code (petit, hors simulation)** : la minicarte ne reconnaît plus le boss par le nom `boss` : `RoomKindDef::boss` (RON `boss: true`, faux par défaut, hors hash), `RoomKindTable::is_boss`, `HudRoomBounds::boss` rempli par `map_ldtk::game::rooms` ; les `boss.ron` de `gungeon`, `testbed` (et `boss_butin`) et d'`isaac` posent `boss: true` ; `room_icons` d'`isaac` gagne `boss_profond`. Le gabarit `BossFight` du générateur lit `BossFightTest::room` (type de la salle du boss, `boss` par défaut) pour l'attente « salle <type> nettoyée » (`colosse` : `room: Some("boss_profond")`). D115 (réduite à un lint).
+
+**Scénarios** recalés (graines, chronologies, objets de butin ou de présentoir) : `grid_floor_seed_123`, `_23`, `grid_post_boss` (butin `bombe_fiole`), `isaac_floor_seed_1`, `bot_isaac_floor` (le bot meurt au premier combat du second étage sans `Armor` : `Armor +50`, D93, il bat ensuite le `colosse` f5442), `bot_isaac_two`, `isaac_shop_buy`, `devil_room_chance`, `isaac_spikes_temoin` (marche raccourcie : l'`arroseur` du gabarit `CombatPiques` arrive plus tôt) ;
+écrits : `isaac_fiole_vive`, `isaac_egide` (+ témoin), `isaac_bombe_fiole`, `isaac_nova`, `isaac_sablier` (+ `isaac_sablier_temoin`, partagé avec `isaac_cuirasse` et `isaac_vengeance`), `isaac_bol_de_soupe` (+ témoin), `isaac_bouclier_de_fortune`, `isaac_familiers_file`, `isaac_consommables_lot`, `isaac_ombre_bloque` (+ témoin).
+
+**Traces** : 40 traces `isaac` bougent (écrites à la main ou générées), 134 sont neuves (118 générées, 16 écrites à la main) ; zombies, throne, gungeon, testbed identiques. Preuve §5 (dumps `ALACOD_DUMP_TRACE` du même binaire, `ALACOD_GAME_DIR` sur quatre états de `games/isaac`, `scripts/trace-diff.py … --ignore Inventory,BombCarrier`,
+six scénarios `hit_iframes_isaac`, `isaac_boots`, `grid_secret_no_bomb`, `devil_room_absent`, `generated/isaac/{boss_gardien, weapon_larmes}`) : (1) `main` → **pools et objets** : première frame qui diffère = 0, `PoolState` et le contenu des présentoirs seulement (`weapon_larmes` identique) ; (2) → **ennemis et gabarits** : f0, les ennemis de salle (`suiveur`/`mouche` → `araignee`/`follet`/`arroseur`) ;
+(3) → **boss, grammaire profonde, séquence** : **identiques** sur les six (aucun n'atteint le second étage), le changement ne se voit que dans les scénarios qui franchissent le premier boss de la séquence par défaut (`isaac_floor_seed_1`, `bot_isaac_floor`) ; les `grid_floor_seed_*` jouent `sous_sol_un` (un étage, `gardien`) et ne bougent que par les pools et les ennemis.
+**Revue de livraison, traces rebénies (5, cause)** : `item_nova`, `isaac_nova` (`nova` : `Active(Rooms(2))` au lieu de `Damage(60)`), `item_grimoire` (`grimoire` : `Rooms(3)`, `GainSoul(1)` + `Luck`), `generated/isaac/boss_colosse` et `bot_isaac_floor` (type de salle `boss_profond` : seule la **chaîne** `kind` de `RoomChanged` change, `"boss"` → `"boss_profond"`, première frame f245 et f5273 ; plan, ids et butin identiques ; le renommage des sept objets et le retrait de `larmes` de `fer_a_cheval` ne bougent aucune trace).
+Preuve §5 (dumps du même binaire, `isaac_floor_seed_1`, S2 = pools, objets, ennemis, `salles.ldtk` d'avant les gabarits de boss, séquence à deux `sous_sol` ; contre la branche) : **première frame qui diffère = 3752**, la génération du second étage ; **une seule entité change : le boss net id 584, `gardien` → `colosse`** ; `isaac_floor_seed_1` (4 000 frames) n'atteint pas la salle de ce boss.
+
+**Atteignabilité** : `alacod lint games/isaac` : 0 erreur, 0 avertissement ; chaque objet est dans un pool tiré par la séquence par défaut (tableau du rapport). **Campagnes de T14** (`m3-t11d2-volume.campagne-t14.sh`, 200 graines à 1 et 2 bots, séquence par défaut, `--pickup-progress`, victoires en information) : s1 **24 victoires, 175 morts, 0 desync**, un « soft-lock » de détecteur (graine 63, long trajet D100 : la partie reprend et se résout, boss tué f2738) ; i2 **95 victoires, 105 morts, 0 soft-lock, 0 desync** ; murs secrets ouverts à la bombe 182 et 195 graines, portes à clé 43 et 128, achats 130 et 180 graines. Détail : rapport § 6, `m3-t11d2-volume.campagne-t14.tsv`.
+
+## 77. Lint des kinds M3 et atteignabilité des mécaniques (M3-T12, voie V2)
+
+Lint seulement : `content` (plus la déclaration `mechanics` de `games/isaac/assets/game.ron`, une ligne de
+`crates/game/src/run_state.rs` dans un test pour le littéral du manifeste) ; aucune simulation touchée, **aucune
+trace ne bouge**. Code : `crates/content/src/mechanics.rs` (avertissements), `reach.rs` (sources d'objets et d'armes,
+stats), `lint.rs` (trois règles de plus), tests `crates/content/tests/m3_t12_fixtures.rs` sur la fixture
+`mechanics_ok`.
+
+### Audit des règles de lint des kinds M3
+
+Une ligne par mécanique de M3 : ce que le lint refuse, la fixture qui le prouve. Les règles de T0a à T7 existaient ;
+les lignes marquées **T12** sont les trous trouvés par l'audit.
+
+| Mécanique | Règle (niveau) | Fixture / test |
+|---|---|---|
+| Munitions infinies (§60) | `ammo_type` absent alors qu'un mode consomme (`Parse`), donné alors que tous les modes sont `Infinite` (`OutOfRange`) | `weapon_ammo_type_missing`, `weapon_infinite_with_ammo_type` |
+| Larmes, `ProjectileMods` (§60, §66) | formes et plages d'un objet ou d'une synergie (`Homing`, `Bounce` répété, `Split.count`, `Orbit.radius`…), `child` et `on_expire: Spawn` sans table de projectiles (`Unsupported`), `Chance` hors [0, 1] | `projectile_split_out_of_range`, `item_projectile_out_of_range`, `item_projectile_no_table`, `item_projectile_ok`, `projectile_chance_out_of_range` |
+| Stats de larmes, `Luck` (§60) | liste fermée `stat_reader` : **T12** test `every_named_stat_has_a_reader` (liste des stats nommées tenue à la main ; son `match` sans `_` fait échouer la compilation à l'ajout d'une variante de `StatId`, ce qui rappelle d'y décider si elle a un lecteur) ; **T12** `stat_uses` lit aussi les modificateurs de curses et les actions d'entrée et de frise des phases de boss (un `Modifier` y est accepté) | `stat_unread`, `unread_stats_are_found_in_curses_and_boss_phases`, test `reach::tests` |
+| Bombes (§62) | `fuse_frames > 0`, `radius > 0`, `damage >= 0` (`OutOfRange`) ; `Explode` : rayon, dégâts (`OutOfRange`), `friendly_fire` `Never`/`Always` (D113), refusée dans un power-up | `bomb_fuse_zero`, `explode_radius_zero`, `explode_effect_ok` |
+| Rochers (§62) | **T12** couche `Rocks` : valeur autre que 1 et 2 (ignorée au chargement : `OutOfRange`) | `rocks_and_surfaces_layers_are_checked` |
+| Piques (§62) | `damage > 0`, `period > 0` (`OutOfRange`) ; **T12** couche `Surfaces` : valeur sans surface déclarée (`BrokenReference`) | `hazard_period_zero`, `rocks_and_surfaces_layers_are_checked` |
+| Portes verrouillées (§62, §70) | `Key(0)`, `lock_from_floor` sans `door_lock` ou sur `Secret`, clé introuvable à chaque étage verrouillé | `door_lock_key_zero`, `key_room_*` |
+| Grille (§62, §70) | `cell`, `max`, `post_boss.chance`, gabarits multiples de `cell`, ouvertures centrées et de même largeur, types distincts ; **T12** la salle secrète `required` d'une grille a `door_lock: Secret` (sinon posée ouverte : `OutOfRange`) | `grid_*`, `secret_room_not_required_or_not_walled` |
+| Familiers (§63) | personnage inconnu ou sans behavior de familier, `per_copy = 0`, `gap`/`radius` ≤ 0, `every = 0`, behavior de familier sans porteur | `familiar_*` |
+| Champions (§63, §72) | actions de mort admises (`Explode`, `SpawnCharacters`, `SpawnPattern`), pattern fini, pool de butin connu, `#rrggbb`, `chance` en expression dans [0, 1] pour 1 et 4 joueurs aux étages 0 et 5 | `champion_ok`, `champion_bad_death`, `champion_death_infinite_pattern*`, `variant_chance_expression_*` |
+| Curses (§64) | poids 0, aucun effet, `FloorRooms` ≤ 0, `Modifier Mul` ≤ 0, chance hors [0, 1], pool vide ou inconnu | `curse_invalid_values`, `floors_curses_invalid` |
+| Pools à épuisement (§64) | **T12** `exhaust: true` sur un pool qui n'a que des `Currency` (jamais « vu » : `OutOfRange`) | `exhaust_pool_of_coins_only_is_an_error` |
+| Accomplissements, déblocages (§64) | `when`/`unlocks` vides, objet, boss ou déblocage inconnu | `achievement_invalid` |
+| `Price` (§61, §73) | la surface de contenu est `shop.cost` d'un type de salle (T8) : `Price::problems` (montant nul, consommable inconnu, vie max hors `]0, max]` : `OutOfRange` / `BrokenReference`), `boss_drop.table` inconnu ; T12 n'ajoute rien (le trou de la première lecture, « aucune surface avant T8 », est fermé par T8) | `shop_cost_invalid`, `boss_drop_unknown_pool` (`m3_t8_fixtures.rs`) ; `items` : `price_problems_report_unknown_consumable_and_out_of_range_health` |
+| `ExtraHealth` (§61, §68) | `GainSoul > 0` dans un objet, une synergie, un personnage ; refusée dans un power-up | `item_gain_soul_zero` |
+| `hit_iframes` (§61) | `Some(0)` (`OutOfRange`) | `character_hit_iframes_zero` |
+| Plafond de compteur (§61, §68) | `max_stack` 0 ou sur un non-consommable, `starting_consumables` au-dessus du plafond, `refuse_when_full` sans soin | `item_max_stack_zero`, `character_starting_over_max_stack`, `item_refuse_when_full_without_heal` |
+| `Scaled(PerCopy)` (§61) | refusée hors d'un effet d'objet, action enveloppée validée, linéaire seulement | `scaled_*`, `effect_per_copy_*` |
+
+### `mechanics` : les mécaniques d'une partie ordinaire
+
+Le manifeste gagne `mechanics: [Mechanic]` (défaut vide : aucune vérification, tous les jeux avant `isaac`).
+`content::Mechanic` a une variante par ligne du tableau « Atteignabilité » de `docs/taches.md` §8.1 : `Tears`,
+`Effects`, `Familiars`, `Bombs`, `SecretRoom`, `Keys`, `Hearts`, `ExhaustPools`, `DevilMarket`, `Champions`,
+`Curses`, `Achievements`. Pourquoi une déclaration : le lint ne peut pas deviner qu'`isaac` *doit* avoir un
+familier ; sans elle, un jeu sans contenu de familier est muet, et « `make lint GAME=isaac` sans avertissement
+d'atteignabilité » (critère de sortie M3, T11) serait vrai par vacuité. `isaac` déclare les douze.
+
+**Partie ordinaire** (`mechanics::Play::ordinary`) : en mode `Floors`, la séquence de `entry.floors` (à défaut la
+première par ordre d'id, comme le jeu), sans `FloorsOverride` ni les autres séquences ; sinon la carte de départ.
+Les règles « toujours actives » ci-dessous gardent, comme §53, **toute** séquence déclarée comme racine (un
+scénario ou le lobby peut en imposer une autre) ; seules les règles déclarées sont restreintes à la partie ordinaire.
+
+**Sites de tirage** (`Play::draws`) : un pool est tiré par le coffre (`chest`) et la boutique d'un type de salle atteint
+(`floor_tables` quand il y en a, sinon `table` : `RoomShopDef::table_for_floor` ignore `table` dès qu'il y a des
+`floor_tables`), par la récompense des salles `combat` (le pool d'étage s'il a `reward`, **sinon** `salle` : `salle` n'est
+tiré que pour une séquence sans `loot` ou à pool d'étage sans `reward`) et par le coffre de cette récompense quand
+`chest_chance > 0` (pool d'étage ou `commun`), par le butin du boss (`boss_drop`, T8) d'un type de salle atteint, par les
+rochers à butin des niveaux joués, par le butin (`loot`) des variantes à chance non nulle des ennemis atteints. Un coffre sans
+`table` tire le `loot` de l'étage de chaque séquence, `commun` pour une séquence sans `loot` (`game::loot::chest_table_id`).
+Chaque site porte un nombre de tirages par partie, au moins (salles exigées × étages de la partie, trois pour le remplissage).
+
+Kind d'avertissement `LintWarningKind::MechanicUnmet` (JSON : `"kind": "MechanicUnmet"`), message « mécanique
+« <nom> » : … » qui nomme la salle ou le pool qui devrait porter la mécanique ; fichier : le type de salle, le pool ou
+la séquence fautif, `game.ron` quand le manque est global.
+
+| Règle | Quand | Avertit si | Fixture (`m3_t12_fixtures.rs`) |
+|---|---|---|---|
+| pool jamais tiré | toujours | un pool n'a aucun site de tirage | `pool_that_nothing_draws`, `pool_of_a_default_chest_is_drawn` |
+| familier sans objet atteignable | toujours | tous les objets qui citent le personnage (hors `test_only`, D63) sont hors des pools tirés, du départ des personnages jouables, des étages et des déblocages | `familiar_whose_items_have_no_source`, `test_only_familiar_is_not_warned` |
+| synergie à objet sans source | toujours | un objet requis n'a aucune source | `synergy_with_an_item_that_has_no_source` |
+| salle spéciale vide | toujours, grammaire en grille | une salle exigée, la salle secrète ou la salle post-boss à chance > 0 n'a ni `chest`, `shop`, `arena`, `boss_drop` ni `locks` | `special_room_that_carries_nothing` |
+| mur secret sans bombe | toujours | un type à `door_lock: Secret` est atteint sans bombe jouable (consommable `bomb` **et** personnage à `bomb`) ni objet à `Explode { destroys: true }` | `secret_wall_without_a_bomb` |
+| curse jamais tirée | toujours | aucune séquence ne la met dans `curses.pool` (chance > 0) | `curse_that_no_sequence_draws` |
+| variante à chance nulle | toujours | `variants.chance` nulle pour 1 et 4 joueurs aux étages 0 et 5 | `variant_with_a_zero_chance` |
+| accomplissement inaccomplissable | toujours | `FloorAtLeast(n)` au-delà d'une séquence finie (`victory_at_end`), `BossDefeated` d'un boss jamais posé, `ItemHeld` d'un objet sans source | `achievement_with_an_impossible_condition` |
+| déblocage jamais accordé | toujours | ni accomplissement ni service `Merchant` ne l'accorde | `unlock_that_nothing_grants` |
+| `Tears` | déclarée | aucun objet de larmes (`projectile`, `ShotSpeed`, `ShotSize`) dans le pool d'une salle exigée à coffre (trésor) ni dans une boutique ; ou l'objet ne peut pas être tenu en deux exemplaires : chaque pool qui le donne a `exclude_held` ou `exhaust` (un objet sorti ne revient pas avant que le pool soit vu en entier) et il n'y a pas deux pools sans `exclude_held` | `tears_missing_from_the_*`, `tears_that_cannot_be_held_twice`, `tears_in_a_single_exhausting_pool_cannot_stack` |
+| `Effects` | déclarée | aucun objet à effets dans le pool trésor, boutique ou boss ; aucune synergie dont tous les objets sont atteignables | `effects_missing_from_the_boss_pool_and_no_transformation` |
+| `Familiars` | déclarée | moins de deux objets à `familiar` dans le pool trésor, aucun dans une boutique | `familiars_missing_from_the_treasure_and_shop_pools` |
+| `Bombs` | déclarée | pas de bombe de départ (personnage jouable), d'étage, de pool tiré (récompense, coffre, boutique, rocher, champion) ni de déblocage ; aucun personnage jouable à `bomb` (un personnage `test_only` ne compte pas, D63) ; aucun rocher ni pique (surface à `hazard`) dans un gabarit du type de remplissage | `bombs_rocks_and_spikes`, `test_only_characters_give_no_bomb_and_wrapped_explosions_count` |
+| `SecretRoom` | déclarée | pas de grammaire en grille ; la salle secrète n'est pas dans `required` ou n'est pas murée ; aucune explosion atteignable | `secret_room_not_required_or_not_walled` |
+| `Keys` | déclarée | pas de clé dans la récompense de combat ni dans une boutique ; aucune salle exigée à `door_lock: Key` | `keys_in_rewards_shops_and_locked_treasure` |
+| `Hearts` | déclarée | pas de `Currency` ni de cœur (`Heal`, `GainSoul`) dans la récompense de combat ; aucune boutique exigée (`required`) : une salle à `shop` payé en vie maximale (le diable) n'est pas la boutique | `hearts_coins_and_shop`, `devil_market_is_not_the_shop` |
+| `ExhaustPools` | déclarée | aucun pool `exhaust` tiré au moins deux fois par partie ordinaire | `exhausting_pool_drawn_once` |
+| `DevilMarket` | déclarée | aucune salle post-boss à chance > 0 dans une grammaire de la partie ordinaire ; ou son type de salle n'a pas de `shop` à `cost` (présentoirs payés, T8 : sans prix ce n'est qu'une boutique) | `devil_market_without_a_post_boss_room`, `devil_market_needs_priced_shelves` |
+| `Champions` | déclarée | aucun ennemi atteint, hors `test_only`, ne porte une variante à chance non nulle | `champions_on_no_reachable_enemy` |
+| `Curses` | déclarée | la séquence ordinaire n'a pas de `curses` (chance > 0, une curse de poids > 0) | `curses_only_count_in_the_ordinary_sequence` |
+| `Achievements` | déclarée | aucun accomplissement aux conditions remplissables (§ ci-dessus) dont un déblocage donne un objet ou une entrée à un pool tiré | `achievements_without_a_visible_unlock`, `achievement_with_an_impossible_condition_is_not_visible` |
+
+Les avertissements M2 nomment maintenant la mécanique : « type de salle « secrete » : … ; mécanique : salle secrète
+(murée, ouverte à la bombe) » (`room_mechanic`), « objet « x » : aucune source … ; mécanique : familiers, effets »
+(`item_mechanics`). Fixture de base `mechanics_ok` : un jeu en grille (départ, combat avec rocher, rocher à butin et
+pique, boss, trésor à clé, secrète, boutique, diable) qui porte les douze mécaniques, sans erreur ni avertissement
+(`base_is_clean`) ; chaque test lui retire un élément dans un dossier temporaire. Sans `mechanics`, aucune règle
+déclarée ne parle (`undeclared_mechanics_are_not_checked`). `alacod lint --json` rend `MechanicUnmet`
+(`lint_json_reports_mechanic_warnings`).
+
+### Sources d'objets et d'armes
+
+`reach::loot_pool_items` (pools, entrées `Item` et `Rarity`) et `loot_pool_weapons` (entrées `Weapon`) sont tous deux
+branchés depuis D62 : le constat de la fiche (« le second renvoie un ensemble vide ») était périmé, rien à y ajouter
+pour les armes. Ajouté : `unlock_grant_sources` (les entrées qu'un déblocage ajoute à un pool, `UnlockGrant::Loot`,
+comptent comme sources d'objets et d'armes : sans elles, un objet que seul un accomplissement donne était signalé
+« sans source ») et `item_sources` (départ, étage, pools, déblocages) partagé par les règles. Les sources M3 de la
+fiche (rochers à butin, champions, salles trésor, diable, secrète) sont **toutes des pools nommés** : leur contenu est
+déjà dans `loot_pool_items` ; ce qui manquait était de savoir si quelqu'un tire le pool (règle « pool jamais tiré »).
+
+### Limites
+
+Statique : une salle posée par la grammaire n'est pas une salle *rencontrée* (probabilités, graines : bot T14 et
+campagnes T18) ; l'ordre des étages (`lock_from_floor` contre la longueur d'une séquence)
+n'est vérifié que pour les clés (`lint_key_sources`) ; le nombre de tirages par partie est un minimum prudent ; une entrée
+qu'un déblocage ajoute à un pool (`UnlockGrant::Loot`) compte comme source d'objet sans vérifier que le déblocage est
+accordé (la règle « déblocage jamais accordé » le dit à part).
+
+### Atteignabilité (jeux livrés)
+
+`zombies`, `throne` : aucun avertissement. `gungeon` : un, **réel** (pool `boss` jamais branché : le butin du boss est
+`boss_drop` de T8, `gungeon` ne le pose pas ; aucune tâche M3 ne le ferme : dette). `testbed` (bac à sable, beaucoup
+d'avertissements voulus) : dix de plus (pools d'essai non tirés dont `epuisable_temoin`, familiers et synergie d'essai, mur
+secret sans bombe). `isaac` : **0** depuis M3-T11d1 (§76.4 ; 24 mesurés sur `main` avant la tâche : boutique, curses, bombe, rochers, piques, secrète sans bombe et l'empilement des
+objets de larmes) ; la liste des 18 de T12 reste au rapport `docs/taches/rapports/m3-t12-lint-atteignabilite.md`.
+
+## 78. Générateur v3 : gabarits `TearsOnTarget`, `FamiliarHeld`, `ChampionForced` (M3-T13)
+
+Code : `crates/scenario/src/generate.rs` (`build_tears_scenario`, `build_familiar_scenario`,
+`build_champion_scenario`, `champion_death_expectations`, `discover_target`), `game::gen_test`
+(`TearsTest`, `FamiliarTest`, `ChampionTest`), `game::character::config::CharacterTest::champions`,
+`content::lint` (`lint_item_tests`, `lint_character_tests`). Complète §28 et §54 : mêmes règles
+(opt-in par `test:`, aucun effet en jeu, un scénario écrit par `make gen GAME=<jeu>`, champ absent =
+rien de généré, les scénarios et traces existants ne bougent pas). **Aucune attente nouvelle** : les
+gabarits n'emploient que `HasItem`, `Stat`, `EntityHits`, `HitsAtLeast`, `FamiliarCount`,
+`EnemyVariant`, `EntityCount`, `Event`, `PlayerAlive`.
+
+Les trois gabarits sont des **champs ajoutés à des `test:` existants** : un objet ou un personnage
+déjà généré garde son fichier octet pour octet. Ils jouent dans l'arène de `generate_template`
+(`WeaponArena`, `target`/`cible` avec `counts_hits`) pour les objets, dans l'arène du gabarit ennemi
+(§28) pour les champions. Les nouveaux sujets sont rangés **après** les anciens dans `--list`.
+
+**Larmes** (`objets/<id>.ron`, fichiers `tears_<id>.ron` **et** `tears_<id>_sans_objet.ron`) :
+`test: Some((frames: 60, tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], hits: [(target: 0, with_item: 5, without_item: 0)], expect: [...], control: [...]))))`.
+Le joueur tient l'objet (`PlayerScript::items`), tire par impulsions (`weapon`, visée `aim` : par
+défaut vers la cible de l'arène) ; le **témoin** rejoue le même tir, le même placement, sans l'objet :
+la preuve de l'effet est la différence entre les deux fichiers, dans le dépôt. Attentes avec l'objet :
+`HasItem`, une `Stat` par modificateur de stat (valeur sondée comme `ItemHeld`, §54), chaque `hits`
+(`EntityHits ≥ with_item`), puis `expect` ; témoin : chaque `hits` (`EntityHits ≤ without_item`),
+puis `control` (le contraire de `expect`). `targets` : personnages à `counts_hits` posés à `(dx, dy)`
+unités monde de la cible de l'arène (cible d'index 0 de `hits`, les posées ont l'index `n + 1`, et
+`Placed(n)` dans `expect`/`control`) ; leur santé règle le test ; les net ids sont retrouvés par
+position (`discover_hit_net_ids`). `frames` propre au gabarit (défaut `test.frames`) : le `ItemHeld`
+d'un objet existant ne change pas. Le lint exige `with_item > 0` et `with_item > without_item` (un
+seuil que le témoin passerait est refusé), `expect` et `control` ensemble, au moins un `hits` ou un
+`expect`. Un objet dont l'effet ne change pas les coups prouve par `expect`/`control` (ex.
+`BulletCount` exact, `HasStatus` / `present: false`).
+
+**Familier** (objet à `familiar:`, fichier `familiar_<id>.ron`, et `familiar_<id>_sans_objet.ron` si
+`min_hits > 0`) :
+`test: Some((frames: 60, familiar: Some((weapon: ..., frames: Some(120), min_hits: 9, expect: [...]))))`.
+Attentes : `HasItem`, `FamiliarCount = per_copy` à la frame 5 et à l'avant-dernière frame ; si
+`min_hits > 0`, le joueur tire aussi et la cible reçoit au moins `min_hits` coups ; le témoin (même
+tir sans l'objet) en reçoit au plus `min_hits - 1` et n'a aucun familier : fixer `min_hits` d'après
+le témoin. `familiar:` sur un objet sans `familiar:` : erreur de lint.
+
+**Champion** (personnage à `variants:`, fichier `champion_<id>_<variante>.ron`) :
+`test: Some((frames: 150, still: false, moving: false, champions: [(variant: "explosif", kill: true, weapon: Some("larme")), (variant: "nu")]))`.
+L'ennemi apparaît à 200 unités à droite du joueur avec la variante imposée
+(`CharacterPlacement::variant`, §63) ; attente `EnemyVariant(Placed(0))` à la frame 2. `kill: true` :
+une **sonde** (`probe_champion_death`) joue la partie, relève la frame de la mort (première frame sans
+`Variant`) et ce qui l'entoure ; le scénario attend alors **la mort** : `EntityCount(Enemy)` exact
+avant (frame − 1) et après (frame + 1 : avant − 1 + personnages nés), puis chaque effet de mort
+déclaré : `Explode` → moment clé `explosion` ; `SpawnCharacters` → `count` ennemis de plus ;
+`SpawnPattern` → `BulletCount` des balles de l'équipe ennemie (0 avant, le nombre mesuré après) ;
+`loot` → le joueur tire jusqu'à la mort puis marche vers +x et appuie sur Interaction (80 frames de
+marche), `HasItem` de l'objet ramassé (`frames` assez long). Une variante sans effet traduisible
+est refusée par le lint (`kill: true`), et un effet qui n'a laissé aucune trace à la sonde (motif sans
+balle, butin non ramassé) fait échouer la génération : rien n'est ignoré en silence. Une variante
+répétée ou absente de la table est une erreur ; `still: false, moving: false` : pas de gabarit
+`enemy_<id>_*` en plus.
+
+**Lint** (`content`) : voir ci-dessus ; `tears.frames`, `familiar.frames > 0` ; armes connues ;
+cibles `targets` connues et à `counts_hits` ; `hits.target` dans les cibles ; `champions` : variantes
+de la table, sans doublon, `weapon` seulement avec `kill` et connue, `kill` seulement avec un effet de
+mort traduisible. Fixtures : `champion_test_{unknown_variant,duplicate_variant,unknown_weapon,
+kill_untranslatable,weapon_without_kill}`, `tears_test_{min_hits_zero,hits_not_above_control,
+nothing_proven,expect_without_control,frames_zero,hit_target_out_of_range,weapon_unknown,
+target_unknown,target_no_counts_hits}`, `familiar_test_{without_familiar,frames_zero}`.
+Le schéma de `alacod describe` (kind `Item`, `Character`) expose les nouveaux champs.
+
+**Limites des preuves.** Le lint vérifie la cohérence des seuils **déclarés** (`with_item >
+without_item`, `expect`/`control` ensemble) ; leur adéquation aux parties réelles n'est prouvée qu'en
+jouant les scénarios (`make gen` joue l'objet et son témoin). Une preuve par `BulletCount` exact à
+une frame (`rebond`, `spectre` : 1 balle en vol contre 0 à la dernière frame) dépend de la phase
+tir/vol/durée de vie : un changement de cadence, de vitesse ou de `lifetime` de l'arme la fait
+basculer (les traces et le témoin le signalent) ; préférer un compte de coups quand l'effet en change.
+
+**Échelle** : le nom d'un fichier est une fonction de l'id seul (`tears_<id>`, `familiar_<id>`,
+`champion_<id>_<variante>`) ; ajouter un objet ordinaire = un `.ron` de contenu avec `test:`, jamais
+un scénario écrit à la main. Mesures : voir `docs/taches/rapports/m3-t13-generateur-v3.md`.
+
+## 79. Bot `explorateur` v3 pour `isaac` : bombes, clés, achats, diable (M3-T14, chantier K2 v3)
+
+Complète §24 et §47 (`explorateur`, D65). Code : `crates/bots/src/explorer.rs` (réécrit : `ExplorerWorld::frame`,
+`GoalContext`, `ordered_goals`, `rock_goal`, `explore_step`, `flee_step`), `crates/bots/src/input.rs`, `game::replay`
+(`ExplorerPolicy`), `scenario::{runner, events}`, `alacod-sim`. **Le bot ne produit que des inputs** (`ReadInputs`, hors
+`GgrsSchedule`) : aucune simulation touchée, aucun type rollback nouveau. **Aucune trace existante ne bouge** (la suite entière
+rejouée sans BLESS, dont les 25 scénarios à `explorateur` de `main` : `bot_explorer_*`, `grid_floor_seed_*`, `grid_post_boss`,
+`gungeon_*`, `isaac_floor_seed_1`, `achievement_unlocks`, les `room_*` générés : traces identiques). Les décisions nouvelles sont **inertes sans leur objet** : aucun porteur
+de bombe, porte à clé, salle secrète, rocher ni présentoir à `cost` dans `gungeon`, `throne`, `zombies` ou `testbed`
+(hors cartes d'essai). **Cette inertie tient parce que personne ne porte de bombe** : `BombPolicy::default()` a `secret` et `rocks` vrais.
+Quand `pleureur` portera `bomb` (T11d1), les scénarios isaac à `explorateur` en politique par défaut poseront des bombes et leurs traces
+bougeront : le défaut reste tel quel, **la branche mergée en second rebénit ces traces avec preuve §5** et rejoue les campagnes `s1`, `i2`, `i4` : **fait par M3-T11d1 (§76.4, D106 fermée)**.
+
+### Politique en données : `ExplorerPolicy`
+
+```ron
+// games/isaac/assets/bot.ron (lu par alacod-sim ; Scenario::explorer : Some((…)) pour un scénario)
+(
+    shopping: true,                                   // coffres et présentoirs (D62)
+    shop: HeartsThenCheapest(low_health: "0.5"),      // Nearest (défaut, ordre d'avant) | HeartsThenCheapest
+    detour: (shells: Some(400)),                      // limite de détour (unique) : sous à au plus 400 de coût de chemin (10 par case de 8 px)
+    devil: Never,                                     // Never | IfHealthAbove("4.0")
+    bombs: (secret: true, secret_min_neighbours: 2, rocks: true, reserve: 0),
+    oscillation: Hysteresis,                          // anti-oscillation (une stratégie : Off | Hysteresis | Patience, ci-dessous)
+    combat_aware: true,                               // fuit toute bombe allumée, s'approche pour des larmes en orbite
+)
+```
+
+`Default` = comportement d'avant M3-T14 (aucun achat, ordre du plus proche) : un jeu sans `bot.ron` ne change pas.
+`alacod-sim` : `--policy <fichier>` (sinon `bot.ron` du jeu), `--shopping`, `--devil never|above:<n>`,
+`--bombs <n>` (voir « Bombes d'essai »), `--pickup-progress` (soft-lock, ci-dessous). Le JSON rapporte `mechanics` (décomptes
+`mur_secret`, `porte_a_cle`, `bombe`, `coffre`, `achat`, `diable`, `objet`…) lus dans les moments clés.
+
+### Décisions
+
+- **Porte à clé** : une porte `InteractionType::KeyDoor` fermée (et pas déjà dans `DoorLocks`) est un but d'objet (approche du
+  collider à portée d'interaction − 8, Interaction tenue) quand le joueur a **au moins `n` clés**, `n` lu dans
+  `RoomKindTable::door_lock_at(kind, étage)` comme `key_door_system` (salles triées par position puis identifiant : la même
+  qui lit le prix). Sans la clé : pas un but (sinon `key_door_refused` en boucle).
+- **Mur secret** : la salle est « probable » quand son type porte `door_lock: Secret`, qu'elle n'est pas dans `DoorLocks` et
+  qu'elle touche **au moins `secret_min_neighbours` autres salles** par un bord commun (règle de la grille, §70). Le but est un
+  point à moins de `rayon − 8 − |décalage du collider|` du bord d'une de ses portes closes (l'explosion touche **strictement** à
+  moins du rayon, `world::rect_within_radius`). Le bot lit **le type de la salle dans le contenu** (la minicarte ne la montre pas
+  tant que le mur est fermé) : une inférence sans cette lecture (case vide voisine de deux salles) est une dette.
+- **Rocher** : seulement quand plus aucun but ordinaire n'est atteignable et qu'il en reste (salle à visiter, objet, portail). Un
+  second champ de navigation **sans les rochers** (`RockNavigation`) dit ce qu'une bombe ouvrirait ; le rocher visé est le
+  **premier du chemin** vers le but le moins cher de ce champ (cases du chemin à moins de 14 du bord de son collider, 16 × 16), la
+  zone de pose est à portée de bombe de son centre (`cells_in_radius` : centre à moins du rayon). Un but que le champ réel atteint
+  (détour) n'est jamais une raison de bombe.
+- **Pose et mèche** : le bot presse `Bomb` à l'arrivée (front montant : `BombCarrier::held` lu), puis **fuit** (`flee_step`, prioritaire
+  sur tout, combat compris) vers la case accessible la moins chère à plus de `rayon + 16 + 8` de **toutes** les bombes, sinon à
+  l'opposé de la bombe. Tir ami `Always` : sans la fuite la bombe lui retire 4 PV sur 6 (`bot_isaac_secret` : vie pleine à f100).
+  **Un seul poseur par mur** : un mur ou un rocher dont un joueur de **plus petit handle**, porteur de bombe et debout, est déjà à
+  portée de pose (+ 40) est le sien (`GoalContext::peers` : deux bots arrivés ensemble en posaient chacun une, `bot_isaac_two`).
+  Pas de nouveau but de bombe tant qu'une mèche brûle.
+- **Objets refusés** : un consommable que le jeu refuserait (`ItemDef::accepts` : stock au `max_stack`, cœur `refuse_when_full` à
+  pleine vie) n'est **pas un but** (`PickupRule`) : le bot attendrait sans fin sur le tas. Vaut pour les présentoirs (`shop_full`).
+- **Achats en douilles** (`shop: HeartsThenCheapest { low_health }`, par joueur : il n'achète que ce qu'il paie) : **un cœur d'abord**
+  quand sa vie est au plus `low_health × max` (et qu'elle n'est pas pleine), **sinon l'objet le moins cher**, puis le plus proche ;
+  un seul présentoir à la fois, les autres suivent. `Nearest` garde l'ordre d'avant (D62 : le plus riche des joueurs paie).
+- **Sous au sol** : `ShellPickup` à moins de `n` de coût de chemin (contact). Sans limite, un étage nettoyé envoyait le bot
+  ramasser des tas aux quatre coins (graines 79, 89, 96, 132 de la première campagne : 1 200 frames sans kill).
+- **Anti-blocage de combat** (`oscillation: Hysteresis`, `ExplorerJitter.1`, `BotView::{engage_reach, engage_strafe}`) : un combat où l'empreinte de
+  la vie des ennemis (`ExplorerWorld::enemy_progress` : nombre et somme des vies courantes) ne bouge plus depuis 240 frames est un blocage :
+  les larmes s'arrêtent sur un coin de mur ou un pilier (`ldtk_wall_1x3` devant la tourelle de la graine 63), le bot tire sans fin vers un
+  ennemi qui ne perd rien (graines 86, 178, 182 de la première campagne sur le contenu T11c : le boss `gardien` restait à 14,8 PV). Le bot
+  **s'approche** alors de l'ennemi par le chemin (`navigate` calcule la route même sans ligne cachée) et, après 90 frames, **le contourne**
+  (tangente, sens alterné toutes les 90 frames, à moins de 60 de lui). Levé dès qu'un coup au but change l'empreinte, ou à la fin du combat.
+  Un ennemi qu'aucune ligne de tir atteignable ne touche (tourelle derrière un pilier, graine 63) reste un défaut de contenu T11c/T11d.
+- **`combat_aware`** (faux par défaut) : la fuite d'une bombe allumée ne vaut plus que pour le porteur d'une bombe **ou** sous `combat_aware` (un champion
+  explosif, D88, en pose une : sans la politique, `grid_post_boss` et `grid_floor_seed_23` divergeaient de `main` dès f767 et f2371 ; avec, les traces
+  de tous les scénarios des autres jeux et de la grille sont celles de `main`) ; de même `orbit_reach` n'est lu que sous `combat_aware`. Visée
+  `FourWay` (`pleureur`, suivi Q17) : un combat **engagé** (`engage_reach`) n'écrit que la direction de tir, sans la file de tir qui figeait le bot, et
+  s'approche **en ligne droite** quand la ligne est dégagée (la route contournait un coin que les larmes ne passent pas ; graines 63, 95, 119).
+- **Poursuite sur place** (`ExplorerJitter.2/.3`, `pursue`, sous `Hysteresis`) : 300 frames sans quitter un rayon de 24 en marchant vers un but qui n'est
+  pas une salle **et dont le pas est réellement exécuté** (ni réanimation, ni butin, ni esquive, pas un pas nul) écartent ce but pour ce joueur
+  (`explore_step(…, avoid)`) ; graine 103 d'`isaac` à deux bots : un tas de sous contre un mur que la navigation croit libre, deux buts alternés. La
+  mémoire du bot (`ExplorerJitter` : champs `sway`, `stalls`, `pursuits`, `banned_goals`, `snaps`, `floor`) est **remise à zéro à chaque partie** (`OnEnter(InGame)` : les `GgrsNetId` repartent de zéro) ; buts écartés, poursuites, blocages et tenues sont **oubliés à chaque changement d'étage** (`enter_floor` : l'identité d'un mur est sa zone, qui peut revenir à l'identique).
+- **Réanimation à portée** (`revive_step`, `snap`, sous `combat_aware`) : déjà à portée de la surface que le jeu sélectionnerait, Interaction tenue
+  sans bouger (le pas d'approche visait portée − 8 et faisait osciller le bot de ±9 : la réanimation, tenue plusieurs frames, ne finissait jamais) ;
+  **sans marge** (une marge de 5 recréait le blocage : 4 soft-locks à 2 bots) mais **tenue bornée** (`ExplorerJitter::snap_hold` : 240 frames puis 60
+  d'approche, car `Rect::distance` mesure la boîte d'un collider circulaire et le jeu le cercle) ; `BotView::hold_revive` : sous visée `FourWay`, le bot qui tient la réanimation ne se
+  décale pas pour s'aligner sur un ennemi.
+- **Larmes en orbite** (`BotView::orbit_reach`, lu par `ExplorerWorld::orbit_reach` : `Orbit` des objets et synergies tenus, composés comme au
+  tir par `combat::projectile::compose`) : `satellite` (T11b) fait tourner les larmes à 40 unités du porteur ; un boss immobile à 94 unités ne
+  perdait plus un point de vie, `prudent` ne s'approchant d'un ennemi immobile que jusqu'à 120 (graine 41 d'`isaac` sans bombe, soft-lock
+  de 600 frames). Avec une orbite, `decide_prudent` s'approche jusqu'à `orbit_reach` (immobile ou non) et ne recule plus devant un ennemi
+  mobile ; sans orbite (`None`), rien ne change pour aucun profil ni aucun jeu.
+- **Anti-jitter** (`oscillation: Hysteresis`, seconde mémoire du bot après `ExplorerVisits`, `ExplorerJitter`, hors rollback) : un bot qui veut
+  avancer mais reste dans un rayon de 12 pendant 40 frames balance entre deux buts (ou deux routes) de coût presque égal dont l'ordre
+  s'inverse à chaque pas, la commande arrivant avec le délai d'input. Il **s'attache** alors à son but du moment (`Step::target`,
+  passé en premier à `explore_step` tant qu'il est atteignable) et **tient** son prochain point de passage 60 frames au plus.
+  Découvert sur la graine 19 d'`isaac` sans bombe (deux salles équidistantes, bot immobile 600 frames, soft-lock) ; inerte tant qu'il
+  n'y a pas de balancement, et faux par défaut (aucun autre jeu ne change).
+- **Diable** (`Price::MaxHealth(perte)`) : `Never`, ou `IfHealthAbove(n)` : achète si l'âme couvre tout le prix, ou si la vie
+  courante dépasse **strictement** `n` et dépasse le reste à payer (le jeu refuse un paiement qui tuerait, §73). **Défaut : `Never`**
+  (Q14, à confirmer par William) : sur les 55 graines de la campagne qui ont une salle du diable, **contenu de T11b (2026-10-17)** :
+  55 victoires avec `Never`, 48 victoires et 7 morts avec `IfHealthAbove("4.0")` ; **contenu final (D69, 2026-10-18)** : 5 victoires
+  contre 5, aucun signal (le bot meurt avant le présentoir : 4 achats en 3 graines) ; les objets du diable sont encore des données
+  d'attente (un cœur de moins ne se rachète pas, T11d). Écart connu avec le jeu : `shop::max_health_after` refuse aussi un `Mul`/`Set` de `MaxHealth` qui annulerait la
+  stat ; le bot ne le modélise pas (aucun contenu `isaac` n'en a ; dette).
+
+### Bombes d'essai
+
+**Depuis M3-T11d1 (§76.4, D81 fermée), `pleureur` porte une bombe de départ réelle** (`bomb` : mèche 75, rayon 56, 4 PV, tir ami `Always` ; `starting_consumables: {"bomb": 1}`) : les campagnes d'`isaac` jouent la configuration « livrée »
+**sans kit** (`kit de bombes None` au journal d'`alacod-sim`) et les scénarios n'ont plus besoin de `PlayerScript::bomb` ni de `items: ["bomb"]`. Le kit `--bombs <n>` reste disponible pour un jeu dont le personnage n'a pas de bombe (mèche 60, rayon 56, dégâts 4, tir ami `Always`,
+une bombe dans `items`). Le bot lit la `BombDef` du `BombCarrier` (rayon, mèche) : rien à changer.
+
+### Soft-lock et diagnostic
+
+`alacod-sim --pickup-progress` (`StopEarly::pickups_are_progress`, **faux par défaut** : les autres campagnes gardent leur détecteur) : un
+changement d'inventaire, de solde ou de compteur de consommables d'un joueur est une **progression** du soft-lock `Floors`
+(`FloorsProgress::stock`, empreinte par joueur triée par handle). Sans lui, les détours légitimes d'un étage nettoyé (ramasser un objet
+loin, revenir au portail) dépassaient les 1 200 frames sans kill. Un vrai blocage (bot immobile, boucle sans ramassage) reste détecté ;
+une boucle qui ramasse et lâche sans fin finit au plafond (`plafond`, classé échec).
+`ALACOD_BOT_DEBUG=1` : l'`explorateur` écrit son pas d'exploration à chaque frame sur stderr (hors simulation).
+Moments clés ajoutés (`scenario::events`) : `door_lock` (« mur secret ouvert » / « porte à clé ouverte », lus dans `DoorLocks`),
+`bomb` (bombe posée), `shelf` (présentoir vendu, douilles ou diable) ; ni rollback ni trace.
+
+### Scénarios
+
+| Scénario | Prouve |
+|---|---|
+| `bot_isaac_floor` | partie ordinaire (graine 6, séquence par défaut `sous_sol`, bombe de départ réelle, politique de `bot.ron`) jouée jusqu'à la victoire (f4815) : bombe contre le mur secret aux deux étages, coffre, boutique, porte à clé (f3268) ; les attentes ne nomment aucun objet (le tirage du butin change : D95/D96) |
+| `bot_isaac_secret` | graine 39 de `sous_sol_un`, la bombe de départ : le bot pose (f19), fuit (vie pleine), le mur s'ouvre (f94), coffre secret ouvert (f1412) |
+| `bot_isaac_key` | `sous_sol_cle` (graine -1013903988, plan 254 : aucune secrète près du départ, pas de détour à la bombe) : le bot ouvre la porte à clé du trésor (f20), le coffre (f81) |
+| `bot_isaac_two` | deux bots (graine 39, `sous_sol_un`), **une seule bombe** posée au mur secret (le joueur 1 garde la sienne), trois achats en boutique (f1755 à f1792), victoire f2224 ; le refus du diable est prouvé par `bot_isaac_devil_never` |
+| `bot_isaac_devil` / `_devil_never` | présentoir à `MaxHealth("2")` posé au pied du joueur : `IfHealthAbove("4.0")` l'achète (f12, 6/6 → 4/4), `Never` non |
+| `bot_isaac_rock` / `_rock_sans_bombe` | carte `testbed/bot_rocks.ldtk` (`scripts/construire-cartes-t14.py`) : portail derrière deux rochers sans détour ; avec une bombe le bot les casse (f48 → f107) et passe (« niveau 1 », f184) ; sans bombe il reste devant |
+| `bot_isaac_shop` | trois présentoirs en douilles (un cœur à pleine vie, un trèfle proche, une bombe moins chère) : la bombe d'abord (f35), le trèfle (f88), le cœur refusé |
+| `bot_isaac_shop_blesse` | blessé (6 PV sur 8), le cœur à 9 douilles **d'abord** (f80), puis la bombe (f135) |
+
+Tests unitaires (`bots::explorer`) : zone et ordre des buts, cœur refusé à pleine vie / stock au plafond, porte à clé, achats, diable
+(`devil_accepts`), mur secret (stock, réserve, mèche en cours), premier rocher du chemin, but atteignable par détour, voisinage de
+salles (`share_an_edge`), fuite, anti-jitter (`Hysteresis`, garde bornée), patience (`ExplorerJitter::patience`), détour borné (`Detour`), anti-blocage de combat (`engage`), poursuite sur place (`pursue`), identité
+des buts. `runner::floors_progress_tests` : un ramassage compte. `decide::larmes_en_orbite_le_bot_s_approche`.
+
+### Réconciliation avec m2-salles-murs-gungeon (`ExplorerOptions::steady` éclaté en politique)
+
+La branche `m2-salles-murs-gungeon` avait ajouté des décisions d'`explorateur` pour les salles agrandies derrière un seul booléen `ExplorerOptions::steady`,
+posé par le runner et `alacod-sim` quand `scenario.game == "gungeon"` : **un nom de jeu dans le code**. Il n'existe plus. Chaque décision est un champ de
+`ExplorerPolicy`, posé **en données** par gungeon (`games/gungeon/assets/bot.ron` ; `Scenario::explorer` des scénarios gungeon écrits à la main ; les scénarios
+**générés** lisent le `bot.ron` du jeu, `runner::game_bot_policy`, par `ExplorerPolicy::scene()` : ni achat, ni sous, ni diable, ni bombe, un gabarit teste une salle) :
+
+| Champ | Rôle | gungeon | isaac |
+|---|---|---|---|
+| `detour: (shells, optional, last_stretch)` | **une seule limite de détour** : un but facultatif de coût de chemin supérieur à la borne n'est pas un but. `shells` : les sous au sol ; `optional` : objets, présentoirs, coffres et salles sans verrou tant qu'une salle de combat reste ; `last_stretch` : idem quand plus aucune salle de combat ne reste (ligne droite jusqu'au boss) | `optional: 600`, `last_stretch: 200` | `shells: 400` |
+| `lead` | anticipe l'élan transverse (`explorer::lead`) devant une ouverture de 32 px (D82) | vrai | faux |
+| `oscillation` | **une seule stratégie anti-oscillation** (`Off` \| `Hysteresis` \| `Patience`), une seule mémoire (`ExplorerJitter`) | `Patience` | `Hysteresis` |
+| `weapon_reserve` | ni achat ni ramassage d'une arme sans réserve de munition ; ramassage « à sec » | vrai | faux |
+
+`Detour` remplace `ExplorerPolicy::shells` et les constantes `OPTIONAL_DETOUR`/`LAST_STRETCH_DETOUR` : `GoalContext::detour(frame)` donne la borne, `ordered_goals`
+l'applique aux objets, présentoirs et salles. **Anti-oscillation : un seul emplacement, pas deux mécanismes parallèles**, mais deux stratégies parce qu'aucune ne
+remplace l'autre sans bouger des traces (essais du 2026-10-18, 15 scénarios gungeon et 9 isaac) : `Hysteresis` à la place de `Patience` dans gungeon déplace
+`gungeon_full_run` (ligne 1969 de la trace, événements `portal`, `purchase`, `chest`, boss absents) et `gungeon_full_run_four` ; `Patience` à la place de `Hysteresis`
+dans isaac déplace `bot_isaac_floor` (ligne 3904) et `bot_isaac_two` (ligne 637). La campagne gungeon reste verte avec `Hysteresis` seul (20 graines à 1 et 2 bots, 40 victoires,
+0 desync, mais des durées différentes sur chaque graine) : supprimer `Patience` est possible au prix de **rebénir deux scénarios `gungeon_full_run*` avec leurs attentes**,
+décision laissée à la revue (dette D110 ; sortie : une stratégie choisie, campagnes rejouées, deux scénarios rebénis avec preuve §5).
+
+**Soft-lock `Floors` : « cases explorées »** : entrer dans une case de 32 px jamais visitée n'est une progression que sous `StopEarly::explored_is_progress`
+(`alacod-sim --explored-progress`, faux par défaut). Les campagnes gungeon la passent ; isaac et throne gardent leur détecteur d'origine (santé, mort, ramassage).
+Commande de la campagne de contrôle : `alacod-sim --game gungeon --bots N --profiles explorateur[,explorateur] --floors etages_deux --until-floor 5 --seeds 1..20
+--max-frames 20000 --shopping --explored-progress`. Mesure de la réconciliation : durées (frames) et issues **identiques graine par graine** aux campagnes de
+`m2-salles-murs-gungeon` (gungeon, 20 graines × 1 et 2 bots) et de T14 (`isaac` `s1`, 20 graines).
+
+### Campagnes et atteignabilité
+
+Chiffres, tueurs et graines : `docs/taches/rapports/m3-t14-bot-isaac.md` (scripts `campagne.sh`, `analyse.py`, `morts.py`,
+`diable.sh` à côté). Atteignabilité : toute partie ordinaire d'`isaac` rencontre la porte à clé (second étage), les coffres et les sous ;
+bombes sur le mur secret : toute graine avec `--bombs 1` (195 graines sur 200 ; graine 8 de `sous_sol_un`, `bot_isaac_secret`) ; diable : les 55
+graines à salle du diable (8, 9, 13, 15, 16, 23, 26…), mais le bot n'y achète que 4 fois en 3 graines (23, 28, 181) : il meurt avant dans 90 % des
+parties (Q14, au rapport). **Campagne finale (contenu de `main` au 2026-10-18, D88/D95/D96, visée `FourWay`)** : 1 bot sans bombe 12 victoires / 188 morts /
+0 soft-lock / 0 desync ; 1 bot avec la bombe d'essai 18 / 182 / 0 / 0 ; 2 bots 116 / 84 / 0 / 0 ; 4 bots (20 graines) 18 / 2 / 0 / 0.
+
+## 80. Bench de larmes, de familiers et d'étage en grille ; budgets par poste (M3-T15, D84)
+
+**Mesure seulement** : quatre scénarios neufs, budgets provisoires dans `tests/budgets.ron`, une ligne de diagnostic dans le runner.
+**Aucune trace existante ne bouge.** Rapport et tableaux : `docs/taches/rapports/m3-t15-bench-larmes.md`.
+
+### Scénarios
+
+| scénario | carte | contenu | pic mesuré (poste VPS, relevé 3) |
+|---|---|---|---|
+| `bench_tears_trio` | `testbed/arena` | un joueur, `division` + `rebond` + `guide` sur la `larme` (20 coups/s), 30 `target` (5 000 PV, immobiles) | 86 entités, 24 balles |
+| `bench_tears` | `testbed/arena` | **quatre** joueurs (synctest), dix objets de larmes chacun (`division` ×2, `guide`, `rebond` ×2, `perforant`, `spectre`, `venin`, `lentille`, `trefle`) + `essaim` (2 familiers), mêmes 30 cibles | 506 entités, **432 balles** |
+| `bench_familiars` | `testbed/arena` | quatre joueurs × `essaim` (deux familiers), `larme` sans objet | 63 entités |
+| `bench_floor_isaac` | `isaac`, `sous_sol_grand` (12 à 15 salles, §70), graine 1 | deux bots `explorateur`, 3 000 frames, 6 `suiveur` champions `explosif` posés à f5 (`characters` avec `variant`) | 225 entités, 31 ennemis |
+
+La cadence de la `larme` est portée à 20 coups/s par `weapon_overrides` (3 par défaut : 24 balles au plus avec trois objets).
+Les 432 balles de `bench_tears` viennent de la chaîne de `Split` (deux `division`, `MAX_GENERATION` = 8), pas du nombre de
+tireurs : `guide` fait toucher les cibles plus tôt (sans lui : 1 080 balles).
+Les champions de `bench_floor_isaac` sont posés (la chance `0,1 + 0,15 × étage` n'en tire aucun sur la graine 1) ; leurs
+explosions pèsent aussi dans la mesure.
+
+### Mesurer
+
+- `make bench` (strict) : une suite complète en un processus, ~40 à 52 minutes sur le poste VPS ; la mesure vaut sa charge :
+  noter `uptime` au départ et à la fin (le processus de bench pèse lui-même ~1,1). Relevés à 2,7 de charge : jusqu'à 2 fois plus lents qu'à 0,1.
+- `ALACOD_SYSTEM_PROFILE=1 ALACOD_SCENARIO=<nom>` : le runner imprime désormais `profil sets : …` (temps par `RollbackSystemSet` et
+  tranche `FlowField`, frames comptées en simulation + resimulation du synctest) juste avant la ligne du scénario ; `snapshot_heaviest`
+  est déjà dans les métriques.
+- Attribution mesurée de `bench_tears` (rollback ×12 = 56 ms sur le VPS) : `Projectiles` 2,29 ms par frame sur 3,9 (~5 µs par balle et par
+  frame) ; sans `division` : 39 balles, 18,9 ms ; sans `guide` : 1 080 balles, 78,9 ms. Dette D97, **réduite** (ci-dessous).
+
+### D97 : coût des larmes empilées (dette-d97-cout-larmes)
+
+Rapport : `docs/taches/rapports/dette-d97-cout-larmes.md`. **Aucune trace ne bouge** ; Mac M1 Pro partagé, mesures relatives (binaires A et B
+alternés) : pire rollback de `bench_tears` **24,3 → 11,2 ms (−54 %)**, simulation 1,94 → 0,84 ms par frame, `save`/`load` inchangés
+(1,1 / 1,0 ms), population inchangée (432 balles). Le profil échantillonné (`sample` de macOS) montrait trois coûts :
+
+- **guidage** (`projectile_steering_system`, 40 %) : tri de tous les personnages et quatre racines carrées *par balle* ;
+- **`FixedVec2::length_squared`/`length`** (22 %) : un aller-retour `f32` par composante (arrondi à 24 bits significatifs : D111) et une racine bit à bit ;
+- **collision** (16 %) : chaque balle balayait `CollisionGrids::characters`, qui contient aussi les 432 balles.
+
+Règles qui en restent :
+
+- `CollisionGrids::targets` = `characters` **sans les balles**, reconstruite avec lui (un seul tri) : à employer pour toute requête dont le `.get()` exige
+  `Without<Bullet>`, `Team` ou `Health` (balles, projectiles composables) ; `characters` reste pour ceux qui comptent aussi les balles (`move_characters`,
+  fenêtres des ennemis). Les entrées portent le `GgrsNetId.0` seul, **triées** : `iter_overlapping` n'alloue ni ne retrie.
+- Un système qui itère des projectiles sans que l'ordre change le résultat (chaque balle n'écrit que son propre état et ne lit que des personnages) n'a pas à passer par
+  `order_mut_iter!` : trier 432 balles par frame est un coût ; la règle d'ordre de `CLAUDE.md` vaut pour tout ce qui alloue des `GgrsNetId`, tire au RNG ou émet
+  des événements (`projectile_collision_system`, `projectile_expire_system`, `bullet_rollback_system` restent triés).
+- `nearest_target` est un minimum (distance, `GgrsNetId`) : il ne dépend pas de l'ordre d'itération, donc pas de tri préalable des cibles.
+- `FixedVec2`/`FixedVec3` `length_squared`, `length`, `normalize`, `normalize_or_zero` sont en entiers, **au bit près** de l'ancien code (oracle gardé dans les tests de
+  `bevy_fixed`) : ne pas « corriger » l'arrondi à 24 bits sans `BLESS` global (D111). `FixedVec2::length_and_direction` = `(length, normalize_or_zero)` avec une seule racine.
+- Mesure de coût d'un composant rollback (clone, hash) : une sonde jetable à la population maximale (404 balles : clone `Projectile` 71 µs, `Bullet` 34 µs, hash 121 et 65 µs,
+  soit 291 µs de `save`) ; `save`/`load` sont surtout `bevy_ggrs` (un système par type, ~100 types × 506 porteurs).
+
+### Budgets par poste
+
+`tests/budgets.ron` : 49 entrées recalibrées par D84 (2026-10-18, VPS Debian 8 cœurs, trois `make bench` strict + un quatrième vert d'un seul tenant) : plancher = moitié de la pire mesure (arrondie au-dessus), plafond de rollback = double. Les scénarios `generated/<jeu>/<nom>` se désignent par leur **id complet** (une clé nue ne correspond à rien et retombe sur le défaut). La charge 1 min du bench seul est de 2 à 3 (pointes 14) : le critère « `uptime` < 1,5 » ne se tient pas, on joint la charge **hors bench** (`rapports/m3-t15-d84-charge/`). Règle : plancher = moitié de la pire mesure, plafond = double,
+jamais plus de 2 × la mesure au calme ; on ne relâche pas un seuil pour passer.
+
+
+
+## 81. HUD `isaac` : cœurs, compteurs, objet actif, bandeau d'objet, minicarte typée (M3-T16, voie V4)
+
+Présentation seule : `game::ui::{hud, hud_model}`, `content::ui`, `games/isaac/assets/ui/hud.ron`. **Aucune trace ne
+bouge** (aucun état rollback, aucun système de la simulation touché ; les deux scénarios neufs ont leur propre trace).
+Rien de spécifique à `isaac` dans le code : un jeu reprend ces sources en les posant dans son `hud.ron`.
+
+### Sources nouvelles (liste fermée `content::ui::HUD_SOURCES`, lint `UnknownKind`)
+
+| Source | Rendu | Attente `HudText` |
+|---|---|---|
+| `hearts` | widget `Hearts(source)` : rangée de carrés (côté `size.1`), un par cœur, **rouges** (vides compris, jusqu'à la vie maximale) puis **d'âme**, rempli à moitié pour un demi-cœur, passe à la ligne à la largeur `size.0` ; texte `Text(source: "hearts")` : « 2,5 / 3 · âme 1 » | `isaac_hud_items` (f3 « 3 / 3 », f30 « 2,5 / 3 », f100 « 2,5 / 3 · âme 1 »), `isaac_reliquaire` (« 3 / 3 · âme 2 »), `curse_hides_health` (`empty: true`) |
+| `coins` | `Counter(source)` : carré `icons.coins` + nombre (sous du joueur) ; la rangée est masquée sans valeur (D22). Alias de `shells` (même valeur), gardé pour l'icône par source : dette, à fusionner si `shells` disparaît des HUD | `isaac_hud_items` (« 12 ») |
+| `keys`, `bombs` (existantes) | `Counter` : carré `icons.keys` / `icons.bombs` + nombre | `isaac_hud_items` (« 2 », « 3 ») |
+| `item_banner` | `Text` sur fond, centré en haut : nom de l'objet ramassé pendant 3 s | `isaac_hud_items` (vide f3, « Bottines légères » f30, vide f230), `isaac_reliquaire` (« Reliquaire » f20, « Pouls » f60), `isaac_banner_blind` (« ??? ») |
+| `active_item` (existante) | `Icons(source: "active_item")` : le carré de l'objet actif (couleur et lettre de `icons[<id>]`) | `isaac_hud_items` (« Calice d'âme ») |
+| `active_charge` (existante) | texte « 30 / 30 · prêt » + jauge | `isaac_hud_items` (« prêt ») |
+| `minimap` (existante) | lettre et bordure teintée par type de salle (`room_icons`) | `isaac_hud_items` (« tresor · inexplorée », « boss · boss · inexplorée ») |
+| `curses` (existante, §74) | texte « Malédiction : blind » | `isaac_hud_items` (`empty: true` sans curse), `curse_*` |
+| `ammo` (existante) | **vide pour une arme `Infinite`** (ni chargeur ni réserve : l'ancien « 0 \| 0 » des larmes) | `isaac_hud_items` (`empty: true`) |
+
+**Cœurs** (`HudHearts`, `HudHearts::slots`) : `Health` et `ExtraHealth` (§68) en points de vie, un cœur valant
+`items::HEART_POINTS` = 2 points (Q2 : un demi-cœur = 1 PV). C'est une convention du moteur (`heart_label` des prix en
+cœurs la partage), pas un réglage du RON. Couleurs : `icons.heart`, `icons.soul_heart`, `icons.heart_empty` de `hud.ron`
+(défauts dans `heart_colors`). La curse `HideHealth` vide `hearts` comme `health`. **Pas de plafond de 12 cœurs** : la
+fiche de M3-T3 (§68) renvoyait à T16 « le plafond de 12 cœurs d'Isaac » ; borner le gameplay n'est pas de la
+présentation, donc T16 n'en pose aucun (`ExtraHealth` et `Health.max` restent non bornés) et la rangée **passe à la
+ligne** au lieu de tronquer. Un plafond reste à décider si William le veut, côté simulation.
+
+**Bandeau d'objet** (`ItemBannerState`, `track_item_banner`, `Update`, ressource hors rollback) : dérivé de l'**état
+d'inventaire** du joueur affiché, jamais d'un événement de la simulation : un passif dont le nombre d'exemplaires
+augmente, ou un actif qui change, depuis l'`Update` précédent, annonce l'objet pendant `ITEM_BANNER_FRAMES` (180 frames)
+**depuis la frame du ramassage** (`frame - from`). Les objets reçus dans les `ITEM_BANNER_START_GRACE` (5) frames qui
+suivent la première observation d'un joueur (objets de départ, `PlayerScript::items`) ne sont pas annoncés ; un
+consommable (clé, bombe, cœur) n'est jamais annoncé. Le nom vient de `ItemTable`, remplacé par « ??? »
+(`HIDDEN_ITEM_NAME`) sous `CurseHides::item_names` ; la source est vide sinon. Limite : un rollback qui retire puis
+redonne l'objet le réannonce, et un objet annoncé qui n'est plus tenu (prédiction annulée) éteint le bandeau ; un
+joueur sans `Inventory` (créé au premier ramassage) est suivi avec un inventaire vide : son premier objet est annoncé ; la mémoire (`ItemBannerState`) n'est pas rollbackée, comme `MinimapVisits` (D72).
+
+**Prompts** (`ui::hud::Prompt`, hors snapshot : testés unitairement, pas par `HudText`) : dette de T9 (§74) — un objet
+au sol (`InteractionType::Item`, composant `items::ItemPickup`) n'avait aucun prompt, donc aucun nom à cacher ; il
+affiche « Ramasser Reliquaire » (« Ramasser ??? » sous `HideItemNames`, `Prompt::hide_name`). Dette de T5 (§70) : la
+porte à clé affiche les **clés du joueur** : « Ouvrir — clé (2) » avec au moins une clé, « Fermé — clé (0) » sans
+(comme « Fermé — 1 clé » du coffre). Le coût `n` de la porte (`DoorLock::Key(n)`) n'est pas affiché : le HUD ne connaît
+pas la salle de la porte ; `isaac` n'a que `Key(1)`.
+
+**Minicarte** : la géométrie, les salles visitées/actuelle (bordure or épaisse) et la salle secrète n'apparaissant
+qu'ouverte (§70) existaient ; T16 ajoute `room_icons` à la racine de `hud.ron` (type de salle → `(color, label)`) :
+la lettre est écrite dans la salle (`T` trésor, `S` boutique, `B` boss, `?` secrète, `D` diable pour `isaac`) et la
+bordure teintée (la salle courante garde l'or) ; une salle verrouillée ajoute « × ». Sans `room_icons`, comportement
+d'avant (`B` pour le boss, `×` verrouillée) : `gungeon` et les autres jeux ne changent pas. `boutique` existe dans
+`isaac` depuis M3-T11d1 (§76.4) : l'icône déclarée par T16 s'affiche.
+
+### Scénarios et captures
+
+`isaac_hud_items` (6 PV, 12 sous, `calice_ame`, 2 clés, 3 bombes ; bottines ramassées f6, `suiveur` + `mouche` au contact
+dès f7, cœur d'âme ramassé f60), `isaac_banner_blind` (« ??? » sous `blind`), `isaac_reliquaire` (§76.2, attentes ajoutées).
+Captures `play_scenario --capture … --at` et vidéo : `docs/captures/m3-t16-hud-isaac/`, rapport
+`docs/taches/rapports/m3-t16-hud-isaac.md`.
+
+## 82. Feedback v3 : larmes lisibles, familiers, champions, bombes et explosions (M3-T17, voie V4)
+
+Complète §31 et §55 : mêmes règles. **Tout est présentation** : rien de rollback, rien dans le checksum ni
+dans les traces (aucune trace n'a bougé : suite complète sans `BLESS`), rien dans `GgrsSchedule`, aucun crate
+de simulation n'importe du rendu (`make check_sim_boundary`). Chaque effet est **dérivé de l'état** (composants
+`Projectile`, `Bomb`, `FamiliarOf`, `Variant`, ressource `DoorLocks`) ou des `FrameEvents` **transitoires** que
+la simulation émet déjà (`Exploded`, `RockBroken`) : un rollback qui rejoue la même situation redonne les mêmes
+indices. Code : `game::feedback_v3` (fonctions pures et journal), `game::feedback_log` (journal v1/v2), `game::feedback` (rendu des explosions, teinte
+des champions), `game::world_sprites` (larmes, bombe, rocher), `game::character::visuals::orient_familiars`.
+
+### Journal et moments clés
+
+`feedback_v3::record_v3_cues` (`PostUpdate`, après `record_feedback_cues`, headless compris) remplit
+`FeedbackLog` ; sept genres de plus dans `FeedbackKind` et un champ `note: Option<String>` dans `FeedbackCue`.
+`scenario::events` en fait des moments clés `feedback` (`feedback_v3::cue_label`) :
+
+| Genre | Quand | Libellé |
+|---|---|---|
+| `Tear` | première frame d'une larme à modificateurs (`TearLook::is_plain` faux) | « larme 15 (guidée, division) » : liste des traits, dans l'ordre guidée, spectrale, orbite, division, perforante, statut, génération n |
+| `Familiar` | un familier apparaît (`FamiliarOf`) | « familier 14 (suiveur, porteur 8, rang 0) » ; « orbital » pour `Orbit` |
+| `Champion` | un personnage à `Variant` dont la variante a un `tint` apparaît | « champion 15 (explosif) » |
+| `BombFuse` | une `Bomb` apparaît | « mèche 17 (19 frames) » (frames restantes à la pose) |
+| `Explosion` | un `Exploded` | « anneau d'explosion (rayon 48) » |
+| `RockBroken` | un `RockBroken` | « rocher cassé (19,44) » (case de grille) |
+| `SecretWall` | une salle entre dans `DoorLocks` | « mur secret ouvert (<iid de la salle>) » |
+
+Une larme **plate** (aucun trait) ne produit rien : le contenu d'avant garde ses journaux. La mémoire (ids déjà
+vus, salles déjà ouvertes) est remise à zéro quand le compteur de frames recule (nouvelle partie) ; un
+rollback qui retombe avant l'ouverture d'un mur la retire de `DoorLocks` et la mémoire suit. Limites de §31
+reprises : un tick qui simule plusieurs frames ne journalise que les `FrameEvents` de la dernière ; un indice
+prédit puis annulé par un rollback p2p reste dans le journal.
+
+### Larmes
+
+`feedback_v3::tear_look(projectile, statuts, base)` (pure) : **couleur** = celle du premier statut posé par l'`on_hit`
+(`Chance` déballée, `StatusLibrary` : brûlure orange, poison vert, gel bleu, peur violet, lenteur, étourdissement),
+sinon turquoise si guidée, sinon la couleur d'équipe d'avant (jaune joueur, rouge ennemi) ; **opacité** 0,5 si
+`Spectral` ; **taille** (facteur sur `custom_size`, déjà agrandi par `Size` : `Projectile::size`) : ×1,25 `Split`,
+×1,15 `Pierce`, ×0,8 par génération (plancher 0,5). `world_sprites::style_tears` l'applique **une fois** par larme,
+après `skin_bullets` (qui pose l'image et la couleur d'équipe). Une larme plate n'est pas touchée.
+
+### Familiers et orbitaux
+
+Sprites provisoires par l'entrée `compagnon`/`orbital`/`rempart` de la table `SpriteSheet` du jeu (visuels
+`character::visuals`, comme les ennemis : un jeu sans entrée garde le rendu d'avant, aucun). **Orientation**
+(`orient_familiars`, après `set_sprite_flip`) : un suiveur regarde du côté où va son porteur, à défaut vers lui
+(`follower_faces_left`) ; un orbital tourne sur lui-même, la pointe vers l'extérieur du cercle (`outward_angle`).
+Seuls les calques à image sont touchés (pas la barre de vie).
+
+### Champions
+
+`feedback::tint_champions` pose `ChampionTint(Option<Color>)` (présentation, une fois) d'après `VariantDef::tint` de
+la variante (`#rrggbb`, lu dans `CharacterConfig::variants` par `feedback_v3::variant_tint`) ; `apply_layer_colors`
+l'utilise comme **couleur de base** des calques, devant `MarkerTint` (D66) ; statuts et flash passent encore devant.
+Les variantes du testbed ont une teinte (sauf `nu`, le témoin).
+
+### Bombe, explosion, rocher, mur secret
+
+- **Mèche.** `world_sprites::sync_world_sprites` : l'enfant-sprite de la `Bomb` (entrée `bomb`) clignote selon les
+  frames restantes `fuse_until - frame` : demi-période `clamp(restant / 4, 2, 8)` frames (`blink_half_period`), rouge
+  (1, 0,25, 0,2) en phase allumée, gris sinon, taille jusqu'à +25 % sur les 30 dernières frames (`fuse_blink`).
+- **Explosion** (`ExplosionFxConfig`, `explosion:` de `ui/feedback.ron`, optionnel, actif par défaut) : deux anneaux
+  (plein rayon et 0,6 plus clair) sur `ring_frames` (18), orange ; secousse de `shake_frames` (10) d'amplitude
+  `shake_amplitude` (8) **pour un rayon de 100**, proportionnelle au rayon, bornée à [1, 3 × l'amplitude]
+  (`explosion_shake`). Valable pour la bombe, le baril et l'explosion d'un champion (même `Exploded`).
+- **Rocher cassé.** Sprite de rocher (entrée `rock`), puis six éclats par rocher (`debris_offset` : directions
+  réparties, vitesse selon l'indice, freinage ; `debris_alpha` : pleins puis estompés sur 24 frames), dérivés de
+  l'âge en frames de simulation, détruits à l'échéance. La **tuile** de la carte (couche IntGrid `Rocks`) est dessinée
+  ssi un `world::Rock` vivant est à moins de 4 unités de son centre (`map_ldtk::plugins::sync_rock_tiles`, chaque tick,
+  **dérivée de l'état**, jamais d'un indice : juste quand un tick simule plusieurs frames ou quand un rollback annule
+  la casse ; seules les tuiles non nulles de la couche `Rocks` sont touchées).
+- **Mur secret.** Au tick où la salle entre dans `DoorLocks`, nuage de douze éclats ocre et anneau de poussière de rayon
+  48 à l'endroit de l'explosion de la même frame (sans explosion, seul le journal change).
+
+Lint (`FeedbackSettings::problems`, `OutOfRange`) : `explosion.ring_frames` dans `[1, 600]`, `shake_frames` dans `[0, 600]`,
+`shake_amplitude >= 0`, couleur dans `[0, 1]`. Fixtures `feedback_explosion_frames_zero`,
+`feedback_explosion_amplitude_negative`, `feedback_explosion_shake_frames_too_long`,
+`feedback_explosion_color_out_of_range`.
+
+### Assets provisoires
+
+`games/testbed/assets/sprites/feedback/` : `tear`, `bomb`, `rock`, `companion`, `orbital`, `champion` (PNG), feuilles
+`*_sheet.ron`, `anim_still.ron` ; entrées `bullet_player`, `bullet_enemy`, `bomb`, `rock`, `compagnon`, `orbital`,
+`rempart`, `elite_*` de `sprites/sprites.ron`. **Images originales du projet**, dessinées par
+`scripts/generer-sprites-feedback.py` (déterministe, CC0, `assets.yaml`), en niveaux de blanc pour que la teinte du
+rendu se voie ; statut `placeholder`, à remplacer par la voie V6. Les autres jeux n'ont pas ces entrées : rendu d'avant.
+
+### Preuve sans écran
+
+Attentes `Event(kind: "feedback", label_contains: …)` sur **11 scénarios** (14 attentes) : les genres qui prouvent une
+**logique de feedback propre** : `Tear` (`tear_look` : `tears_*`) et `Champion` (teinte résolue par `variant_tint` :
+`champion_*`), commentaire `// M3-T17` en tête de chacun, **traces inchangées**. Les genres qui ne font que **redire un
+événement d'état** (`Explosion` = `Exploded`, `SecretWall` = `DoorLocks`, `Familiar` = `FamiliarOf`, `BombFuse` = `Bomb`,
+`RockBroken` = `RockBroken`) sont journalisés (moments clés des vidéos) mais **ne sont plus attendus** : ils seraient
+tautologiques. Le rendu qu'ils pilotent (anneau conditionné à `explosion.enabled` et au brouillard, éclats, secousse,
+clignotement, orientation) n'a pas de preuve headless : preuve = captures et vidéos
+(`docs/taches/rapports/m3-t17-feedback-v3/`). Unitaires : `game::feedback_v3` (look d'une larme, mèche, secousse, éclats,
+teinte, orientation) et `map_ldtk::plugins` (tuile d'un rocher : retirée puis ressuscitée).
+
+### Limites
+
+- Aucun son d'explosion ni de mèche (aucun asset licencié retenu : `sounds` n'a pas de clé).
+- L'orbital et l'élite sont visibles dans le testbed seulement ; `isaac` aura ses propres entrées avec M3-T11.
+- Une bombe de champion (mèche d'une frame) apparaît une frame avec son sprite et un indice « mèche (0 frames) ».
+- Le mur secret n'a pas de sprite de porte propre : seule la poussière annonce l'ouverture.
+
+## 83. Langage visuel provisoire : on doit comprendre ce qu'on voit (m2-lisibilite-gungeon, voie V4)
+
+Constat de William sur les vidéos `gungeon_full_run` (2026-10-17) : « je ne comprends absolument rien ».
+Trois causes, toutes corrigées en **présentation seule** (aucune trace ne bouge, rien dans
+`GgrsSchedule`, aucun état rollback) :
+
+1. **La caméra était figée après le hub.** `camera_control_system` ne choisissait sa cible qu'une fois ;
+   la relance hub → run recrée les joueurs, la cible mémorisée n'existait plus et la caméra restait où
+   le hub l'avait laissée : les vidéos ne montraient plus les joueurs (flèches rouge et bleue de
+   `player_indicator_system` sur le bord). Une cible disparue est maintenant oubliée et re-choisie.
+2. **Tout se ressemblait** : héros, ennemis, objets partageaient les cases de Tiny Dungeon. Un langage
+   visuel **par classe d'entité** les remplace ; il est généré par `scripts/generer-sprites-gungeon.py`
+   (stdlib seule, CC0, `--check`, `--preview`) dans `games/gungeon/assets/sprites/lisible/` et déclaré dans
+   `sprites.ron` (bloc `// >>> généré`). Les sprites de Kenney du lot C sont retirés.
+3. **Rien n'indiquait ce qui est ramassable, achetable, dangereux.** Halo, pointeur, étiquettes, légende.
+
+### Les classes (id de `sprites.ron` = classe)
+
+| Classe | Silhouette / couleur | Id |
+|---|---|---|
+| joueur | pistolero (grand chapeau, poncho), **clair** : teinté par handle (0 bleu, 1 vert, 2 jaune, 3 violet, `player_colors` de `hud.ron`) | `player` |
+| bullet kin | balle de laiton ronde, jaune | `bullet_kin` |
+| escouade | petite balle pointue, orange, trois traits blancs | `bullet_kin_squad` |
+| shotgun kin | cartouche rouge large, culot de laiton | `shotgun_kin` |
+| lanceur | corps rond violet, tube de mortier | `lanceur_kin` |
+| tourelle (stationnaire) | cube d'acier sur trépied, lentille rouge | `tourelle_kin` |
+| vétéran | carrure large, casque à crête, chevrons, vert olive | `veteran_kin` |
+| bandana | élancé turquoise, bandeau rouge aux pans | `bandana_kin` |
+| fuyard | goutte bleu pâle, traits de vitesse | `fuyard_kin` |
+| cible | disque rouge et blanc sur pied | `cible` |
+| boss | forteresse cramoisie 64 px, couronne dorée (`atlas_boss`) | `gatling` |
+| tir ennemi | orbe **rond rouge** (taille = racine du dégât) | `bullet_enemy` |
+| tir allié | **losange** blanc bleuté | `bullet_player` |
+| douille | pièce jaune | `shell` |
+| clé / bombe / cœur / blank | clé d'or / bombe noire à mèche / cœur rouge / disque bleu | `item/key`, `item/bomb`, `item/heart`, `item/blank` |
+| objet passif / actif / consommable | carte à initiale / hexagone / fiole, teinte stable par id (`item/<id>`) | `item/<id>`, `item/passive`, `item/active`, `item/consumable` |
+| arme au sol | silhouette par famille (pistolet, revolver, fusil, fusil à pompe, arc, énergie, lanceur, flammes), orange | `weapon/<id>`, `weapon` |
+| coffre | bois, bandes d'or, cadenas ; ouvert : couvercle relevé (`Open`) | `chest` |
+| présentoir | socle de pierre, plateau doré, étiquette | `shelf` |
+| baril / table / rocher / mur fissuré | baril rouge à flamme / table de bois / bloc gris / brique fissurée | `barrel`, `table`, `rock`, `secret_wall` |
+| porte | fermée (planches) / ouverte (deux montants, sol visible) / à clé (cadenas rouge, chaînes) ; 16×32 et 32×16 | `door_v`, `door_h` (`Idle`, `Open`, `Locked`) |
+| portail | spirale violette et cyan 64 px | `portal` |
+| halo, pointeur | disque doux blanc, chevron blanc (la teinte vient du rendu) | `halo`, `aim` |
+
+Eau, sable et fosse restent les couleurs d'IntGrid de la couche `Surfaces` (`#3b7dd8`, `#d8c27a`, `#202020`),
+nommées dans la légende. Les piques ne sont pas redessinés (surface à `hazard`, aucun jeu n'en pose).
+
+### Données et systèmes génériques
+
+- **`sprites.ron`** : une entrée par classe. Un objet au sol cherche `item/<id>`, puis `item/<genre>`
+  (`passive`, `active`, `consumable`), puis `item` ; une arme `weapon/<id>` puis `weapon`
+  (`world_sprites::item_candidates`, `weapon_candidates`). Une entité sans entrée garde son rendu d'avant
+  (autres jeux inchangés).
+- **`hud.ron`** (champs optionnels de `HudConfig`) : `player_colors`, `names` (id → nom des étiquettes :
+  `player`, `shell`, `chest`, `chest_locked`, `chest_open`, `barrel`, `table`, `rock`, `portal`, ids de
+  personnages et d'armes), `legend` (groupes `(title, column, entries: [(label, sprite, anim, tint,
+  color)])`), `hide_markers` (cache les tuiles d'apparition des ennemis, repères d'auteur). Widget
+  `Legend(source: "legend")`, source ajoutée à `HUD_SOURCES`. Le lint refuse un `sprite` de légende absent de
+  `sprites.ron`.
+- **`game::legibility`** (`LegibilityPlugin`, dans `PresentationPlugin` : absent en headless) :
+  - pointeur de visée (`AimPivot`, enfant de chaque ennemi) : visée figée de l'émetteur, sinon dernière
+    position connue de la cible (`EnemyTarget`), sinon cible de déplacement ; caché sans cible ;
+  - halo pulsant (`Halo`, enfant) sous douilles, objets (couleur par rareté), armes, power-ups, coffres,
+    présentoirs ; il respire sur `FrameCount` (image n = frame n en capture) ; masqué à l'ouverture du coffre
+    ou à la vente ;
+  - couleur par handle : `MarkerTint` posé sur les joueurs (relu par `feedback::apply_layer_colors`, qui
+    n'efface plus la couleur des barres de vie : rouge ennemi, verte joueur) ;
+  - **étiquettes** (`Label`, entités indépendantes comme `PowerUpLabel`) : nom de l'ennemi, du joueur
+    (`J 1`), de l'objet, de l'arme (+ prix d'une arme murale), de la douille (`+n`), du coffre (clé, vide),
+    du présentoir (nom + prix), baril, table, rocher, porte fermée ou à clé (une porte ouverte n'en a pas),
+    portail (`WorldLabel`). Désencombrées (une étiquette qui en recouvre une autre monte) et masquées hors
+    de la vue (`FogView::sees`). **F6** les bascule ; `ALACOD_LABELS=1` les allume au départ ;
+    `play_scenario --capture` et `make videos` les allument d'office (`ALACOD_LABELS=0` les coupe) ;
+  - **légende** : **F7** (`LegendOpen`) ouvre le panneau du HUD, reconstruit à chaque ouverture.
+- **`world_sprites`** : `SpriteTable` (feuille et case d'un id), `SpriteRequest` (sprite demandé par id sur
+  une entité de carte : le portail), portes (`DoorSprite`, état d'après `Collider` et `Interactable` :
+  sans collider = ouverte, avec collider et interaction = à clé, collider seul = fermée par sa salle),
+  `hide_replaced_map_tiles` (la tuile de l'entité LDtk d'origine devient transparente quand son entité
+  rollback porte l'image du monde). Projectiles : une feuille déclarée `own_colors: true`
+  (`SpriteSheetConfig`, gungeon) porte sa couleur (pas de teinte d'équipe) et sa taille suit le dégât
+  (`5 + 1,6·√dégât`, bornée à 8..22) ; sans le champ (défaut), teinte d'équipe et halo agrandi comme avant
+  (testbed, isaac, throne, zombies inchangés) ; `style_tears` (M3-T17) s'applique ensuite. Une table ou un
+  baril (entités rollback sans `Transform`) pose son image sur l'entité LDtk d'origine (`MapHeld`) et la cache à sa destruction (`reap_held_sprites`) ; l'image d'une porte ouverte reste
+  `Visible` malgré le parent caché par `interaction_view::update_door_visuals`.
+- **Composants non rollback posés sur des entités rollback** : `AimPointer`, `PickupHalo`, `DoorSprite`,
+  `WorldSprite`, `MarkerTint` (joueurs) : tous hors checksum et hors snapshot, recréés pour une entité
+  ressuscitée ; les enfants (pointeur, halo) se cachent quand leur parent est désactivé.
+- **Dettes assumées (écarts à la fiche)** :
+  - `AimPointer`, `PickupHalo`, `DoorSprite` (et `WorldSprite`, `MarkerTint`) sont posés sur des entités
+    rollback, hors checksum et snapshot (comme `WorldSprite` avant eux) ; un composant de présentation sur
+    une entité rollback n'est pas un état, mais la fiche demandait de n'en poser aucun nouveau.
+  - Couleurs de catégorie du halo, du pointeur et des étiquettes en dur dans `legibility.rs` (voie V6 :
+    les passer dans `hud.ron`).
+  - Piques non dessinés (aucun jeu n'en pose ; le sprite `spikes` est généré mais non branché).
+  - Coût des étiquettes : `gather_labels` et `sync_labels` cherchent linéairement (`wishes.iter().find`),
+    `declutter` est quadratique ; non mesuré, à mesurer au-delà de ~50 étiquettes (salles d'arène, étage
+    entier visible) avant d'indexer par entité.
+  - Les images de porte, de table et de baril sont des enfants de l'entité LDtk persistante (l'entité
+    rollback n'a pas de `Transform`) : leur visibilité est **héritée** du monde de l'étage (`Inherited`,
+    jamais `Visible`) et `reap_held_sprites` les cache quand l'entité rollback propriétaire n'existe plus
+    (changement d'étage, création annulée par un rollback). Test : `world_sprites::tests`.
+
+### Preuves et vidéos
+
+`play_scenario --capture <dir> --at 42,157,…` ne capture que ces frames (et s'arrête après la dernière) ;
+`--legend` ouvre la légende sans étiquettes. `scripts/scenario-video` rend, pour chaque scénario dont le jeu
+déclare un widget `Legend`, l'**image de légende** (frame 40, par le moteur) et la place en tête de la
+vidéo pendant `LEGEND_SECONDS` (1,2 s) : `ffmpeg` sans `drawtext` suffit (concat, aucun texte incrusté par
+ffmpeg). La page de revue lit `<nom>.legend` (secondes de tête) et compte frames et moments clés depuis la fin
+de la légende. Seul `render` ajoute la légende (pas `views` ni `compare`). Rapport : `docs/taches/rapports/m2-lisibilite-gungeon.md`.
+
+### Ajouter une classe
+
+1. Dessiner le sprite dans `scripts/generer-sprites-gungeon.py` (primitives `Img`, contour automatique), le
+   déclarer dans `PERSOS` / `world_sprites()`, relancer le script, `--preview /tmp/apercu.png` pour le voir.
+2. Ajouter la ligne de légende dans `ui/hud.ron` et, si besoin, un nom dans `names`.
+3. `python3 -m unittest scripts/tests/test_sprites_gungeon.py` (sprites à jour, CC0 dans `assets.yaml`,
+   légende résolue, silhouettes distinctes). Un autre jeu fait de même avec ses propres entrées : le code
+   ne connaît aucune classe, seulement des ids.
+
+**Remplacement par la voie V6** : un fichier `png` (et sa feuille) remplace la classe ; l'id de
+`sprites.ron` ne change pas.
+
+### Murs dessinés (m2-salles-murs-gungeon, présentation seule)
+
+Constat de William (revue M2, 2026-10-18) : « les murs n'ont pas de sprite » (sol gris, extérieur sombre, aucun
+mur). Cause : les gabarits LDtk ne portent **aucune tuile** de mur (`autoLayerTiles` vide : la couche IntGrid
+`Walls` est écrite par script, puis l'assembleur de salles la modifie : ouvertures murées, cases de sol), donc
+des règles d'auto-couche LDtk n'auraient rien à habiller. **Choix : auto-tuile en présentation**, dérivée des cases
+de la carte *assemblée* (`map_ldtk::wall_art`, `LdtkRoguePlugin`) : correcte pour toute carte générée, aucun
+fichier de carte à retoucher, aucune trace qui bouge (rien dans `GgrsSchedule`, aucun état rollback).
+
+- **Activation par donnée** (`ui/hud.ron`, champ optionnel `wall_art`, `game::ui::hud::WallArt`) :
+  `wall_art: Some((layer: "Walls", atlas: "sprites/lisible/atlas_murs.png", hide_layers: ["LevelConnection"]))`
+  (`tile` 16, `columns` 8, `z` 1,5 par défaut). Sans le champ, ou sans rendu (headless : `HudConfigHandle` absent,
+  le système ne tourne pas), rien ne change : zombies, throne, isaac, testbed identiques. Le lint (`hud_wall_art_missing`)
+  refuse une feuille absente, un `tile` ou un `columns` nul ; `wall_cells` ignore une couche qui n'est pas une grille `largeur × hauteur`.
+- **Système** `wall_art::draw_walls` : à l'apparition d'un niveau (entité `LevelIid` avec ses couches), lit la couche
+  `layer` dans le projet (`Assets<LdtkProject>`, monde de l'étage par `FloorSlots`), choisit une tuile par case non
+  nulle et pose un sprite par case sous une racine `WallArtRoot`, **enfant du niveau** (il hérite de sa visibilité :
+  étage quitté caché, comme les portes). Un niveau déjà dessiné se reconnaît à son enfant `WallArtRoot` (pas de marqueur à tenir à jour). Hors du niveau, une case compte comme un mur. Le lint vérifie que `layer` est une couche IntGrid d'au moins une carte du jeu.
+- **Choix de la tuile** (`wall_tile`, pure, testée) : vue de dessus avec **face de mur** côté sud. Case dont la voisine
+  du sud est un sol : **face** (briques ; chapeau latéral côté ouest/est si la voisine est un sol : 4 tuiles, indices
+  32 à 35) ; sinon **dessus** (liseré clair + contour sombre sur chaque bord qui touche le sol, nord/est/ouest ; angle
+  rentrant nord-est/nord-ouest quand les deux voisines sont des murs mais pas la diagonale : 8 × 4 tuiles, indices 0 à 31).
+- **`hide_layers`** : cache les couches de métadonnées que LDtk peint par défaut. `LevelConnection` (ouvertures des
+  gabarits, valeur de couleur noire) se voyait en noir par-dessus le sol dès que la porte ouverte laissait voir la case.
+- **Sprites** : `scripts/generer-sprites-gungeon.py` (CC0, même style et même script que le reste de §83) écrit
+  `atlas_murs.png` (36 tuiles de 16 px). Les **portes** (`door_v`/`door_h`) gagnent deux jambages de pierre aux bouts
+  (les couleurs de la face de mur ; ouverte = les jambages seuls), le **mur fissuré** (`secret_wall`) reprend les briques
+  du mur et sa fissure claire : tous trois se raccordent aux murs.
+- **Limite** : le sol reste la couleur de fond du niveau (`#696A79`), sans motif ni ombre portée du mur.

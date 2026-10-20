@@ -1397,8 +1397,8 @@ fn clock_expectation_pass_and_fail() {
 
 /// T1.18 (§32) : `HudText` lit le HUD du joueur affiché (`HudSnapshot`, aussi en headless) sur
 /// `throne_progression` (scénario inchangé, attentes ajoutées ici) : étage, munitions par type,
-/// niveau 1 à f365 puis 2 à f1290 (D51), rads ; échoue sur un texte absent. Depuis D51, le bot
-/// est au deuxième étage à f1912 (« Étage 3 »). Depuis D50 (`drop_chance` 0,40), « Étage 3 » à f3490.
+/// niveau 1 à f499 (D66 : le rodeur chasse de loin, f365 avant ; D88 : f515 avant le nouveau tirage des variantes) puis 2 à f1880 (f1890 avant D88), rads ; échoue sur un texte absent. Depuis D51, le bot
+/// est au deuxième étage à f1912 (« Étage 3 »). Depuis D50 (`drop_chance` 0,40), « Étage 3 » à f3490 (f3086 depuis D88, vérifié à f3096).
 #[test]
 fn hud_text_sur_throne_progression() {
     if map_ldtk::RENDER_ENABLED {
@@ -1407,6 +1407,7 @@ fn hud_text_sur_throne_progression() {
     let hud = |source: &str, contains: &str, at_frame: u32| Expectation::HudText {
         source: source.into(),
         contains: contains.into(),
+        empty: false,
         at_frame,
     };
     verifie_attentes(
@@ -1416,10 +1417,10 @@ fn hud_text_sur_throne_progression() {
             hud("ammo_by_type", "balles", 60),
             hud("level", "Niv. 0", 60),
             hud("rads", "rads", 60),
-            hud("level", "Niv. 1", 365),
-            hud("level", "Niv. 2", 1890),
-            // D50 : l'étage 3 est atteint à f3483 (f2804 avant `drop_chance` 0,40 de throne).
-            hud("floor", "Étage 3", 3490),
+            hud("level", "Niv. 1", 499),
+            hud("level", "Niv. 2", 1880),
+            // D50 : l'étage 3 est atteint à f3483 (f2804 avant `drop_chance` 0,40 de throne) ; D88 : f3086.
+            hud("floor", "Étage 3", 3096),
         ],
         &[
             (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),
@@ -1662,7 +1663,7 @@ fn throne_mutations_wait_for_clear_and_every_duo_choice_before_transition() {
             residual_damage_during_choice
                 .after(game::character::enemy::ai::rules::charge_damage_translate_system)
                 // T11 (barils) émet aussi des `DamageEvent` dans `CollisionDamage` : ordre fixé.
-                .after(game::props::barrel_explosion_system)
+                .after(game::bombs::explosion_system)
                 .before(game::character::health::rollback_resolve_damage_events)
                 .in_set(game::system_set::RollbackSystemSet::CollisionDamage),
         );
@@ -1723,7 +1724,9 @@ fn throne_mutations_wait_for_clear_and_every_duo_choice_before_transition() {
 const PILLARD_NET_ID: usize = 221;
 
 /// Regression from William's run: the recorded pillard pressed into the wall while fleeing.
-/// Retain historical mutation timing to isolate navigation from the intermission change.
+/// Retain historical mutation timing to isolate navigation from the intermission change, and the
+/// historical perception (no `sight_range`, D66) : the recorded inputs replay one exact world, and
+/// a `rodeur` that chases from afar instead of wandering changes it from the first frame.
 #[test]
 fn throne_recorded_pillard_leaves_the_wall_corner() {
     use bevy::prelude::*;
@@ -1754,6 +1757,22 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
             .get_mut(&content::registry::ProgressionId::from("run".to_string()))
             .unwrap()
             .choice_timing = content::registry::MutationTiming::Immediate;
+        // D66 : la vue directe du rodeur est retirée des fiches chargées, avant le premier spawn
+        // (les fiches ne sont prêtes qu'à la fin du chargement, qui précède `OnEnter`). D88 : les
+        // variantes aussi (le tirage de §25 hache `variants:<graine>:<net id>` : sur ce monde
+        // enregistré il fait sortir des champions, donc des drops et des net ids de plus ; l'attente
+        // porte sur la navigation du pillard, pas sur ce tirage).
+        app.add_systems(
+            Update,
+            |mut configs: ResMut<game::character::config::CharacterConfigs>| {
+                for config in configs.0.values_mut() {
+                    config.variants = None;
+                    if let Some(ai) = config.ai.as_mut() {
+                        ai.sight_range = None;
+                    }
+                }
+            },
+        );
         let observed = observed.clone();
         app.add_systems(
             Update,
@@ -1774,6 +1793,13 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
                     .find(|(id, ..)| id.0 == PILLARD_NET_ID)
                     .expect("recorded pillard");
                 let p = transform.translation;
+                // The actor found under this net id is the recorded pillard (x 575.96, y 65 in the corner
+                // of the two walls), not whichever actor took the id after a content change.
+                assert!(
+                    (p.x - Fixed::from_num(575.96)).abs() < Fixed::from_num(0.05)
+                        && (p.y - Fixed::from_num(65)).abs() < Fixed::from_num(0.05),
+                    "net id {PILLARD_NET_ID} is not the recorded pillard at (575.96, 65): {p:?}"
+                );
                 // Its 32px provisional sprite also stays outside the two recorded walls.
                 assert!(
                     p.x + Fixed::from_num(16) <= Fixed::from_num(592),
@@ -1804,7 +1830,7 @@ fn throne_deferred_choice_trace_starts_at_the_earned_level() {
         return;
     }
     let mut fixture = load_scenario("throne_floor_1");
-    fixture.frames = 400;
+    fixture.frames = 600;
     fixture.expect.clear();
     let proof = std::env::var_os("ALACOD_DUMP_TRACE").map(std::path::PathBuf::from);
     let execute = |timing| {
@@ -1833,7 +1859,7 @@ fn throne_deferred_choice_trace_starts_at_the_earned_level() {
             .iter()
             .zip(&deferred.trace)
             .position(|(a, b)| a != b),
-        Some(303),
+        Some(489),
         "choice deferral must not change combat before the first earned level"
     );
     if let Some(dir) = proof {

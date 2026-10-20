@@ -1,0 +1,27 @@
+// M3-T15 (docs/conventions.md §80) : bench de familiers. Quatre joueurs, deux familiers chacun (`essaim` : deux
+// orbitaux), tirent à la `larme` sans objet de larmes, 600 frames, synctest à quatre. Isole le coût des huit familiers
+// (apparition dérivée, orbite, collisions) de celui des projectiles composés (`bench_tears`).
+//
+// À regarder : huit petits carrés qui tournent autour des quatre joueurs pendant qu'ils tirent.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 600,
+    powerup_drop_chance_override: "0",
+    players: [
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (0, 127))], weapon: "larme", items: ["essaim"]),
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (0, -127))], weapon: "larme", items: ["essaim"]),
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (127, 0))], weapon: "larme", items: ["essaim"]),
+        (inputs: [(from: 10, to: 600, buttons: [Fire], pan: (-127, 0))], weapon: "larme", items: ["essaim"]),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 599),
+        PlayerAlive(handle: 1, at_frame: 599),
+        PlayerAlive(handle: 2, at_frame: 599),
+        PlayerAlive(handle: 3, at_frame: 599),
+        FamiliarCount(handle: 0, count: 2, at_frame: 599),
+        FamiliarCount(handle: 1, count: 2, at_frame: 599),
+        FamiliarCount(handle: 2, count: 2, at_frame: 599),
+        FamiliarCount(handle: 3, count: 2, at_frame: 599),
+    ],
+)

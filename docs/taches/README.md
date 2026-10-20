@@ -142,28 +142,51 @@ revu et [les critères de sortie](../etat-engine.md), puis consigner les résult
 obtenus. `check-forbidden.sh` échoue aussi si une exception devient périmée : retirer son entrée
 ou adapter son compte avec justification, sans régénérer la liste pour accepter une régression.
 
-**p2p à deux clients** (obligatoire quand la simulation ou la session change) :
+**p2p à deux clients, avec rollbacks réels** (obligatoire quand la simulation, la session ou l'état
+rollback change ; **remplace l'ancienne recette sans stress**, dont les deux clients ne rollbackaient
+presque jamais : « frames resimulées : 0 à 3 », donc une comparaison de traces sans valeur) :
 ```bash
-docker compose -f docker-compose.ci.yaml up -d signaling && sleep 3
-cargo build -q -p zombies --profile headless --no-default-features
-for i in 0 1; do
-  ALACOD_HEADLESS=1 ALACOD_STATE_TRACE=/tmp/p2p-$i.trace ALACOD_EXIT_AT_FRAME=600 APP_VERSION=x \
-  cargo run -q -p zombies --profile headless --no-default-features -- --matchbox ws://127.0.0.1:${MATCHBOX_PORT:-3536} \
-    --lobby test-$$ --number-player 2 --players localhost remote --cid client_$i --name client_$i \
-    > /tmp/p2p-$i.log 2>&1 &
-done; wait
-cmp /tmp/p2p-0.trace /tmp/p2p-1.trace && echo "p2p : traces identiques"
-docker compose -f docker-compose.ci.yaml down
+scripts/p2p-stress-inputs.py 3000 > /tmp/inputs.ron    # deux joueurs, entrées qui changent toutes les 1 à 3 frames
+scripts/p2p-stress.sh zombies /tmp/inputs.ron 3000       # jeu, script d'inputs, frames (3000 par défaut)
 ```
-Un port de signaling par session (`MATCHBOX_PORT` et `COMPOSE_PROJECT_NAME` dans `env.sh` : b0 3536,
-orch 3546, b1 3556) : `docker compose -f docker-compose.ci.yaml up -d signaling` les lit, inutile
-de se prévenir. (script bash : en zsh les `wait $pid` d'une variable non éclatée échouent). Attendu :
-« traces identiques », 599 lignes.
+Le script démarre et arrête `signaling` (bash ; `MATCHBOX_PORT`, `COMPOSE_PROJECT_NAME` et sous
+OrbStack `PATH=$HOME/.orbstack/bin:$PATH`), compile le jeu en `headless`, lance deux clients
+(`ALACOD_INPUT_DELAY=0`, `ALACOD_INPUT=script:`, `ALACOD_STATE_TRACE`, `ALACOD_EXIT_AT_FRAME`) et
+suspend le client 1 par `SIGSTOP`/`SIGCONT` (12 ms toutes les 30 ms) : le client 0 le devance, prédit
+faux et resimule. Il imprime les codes de sortie, les `DesyncDetected`, le **compteur de frames
+resimulées lu dans le journal du jeu** (jamais les `ggrs{f=N}` en double : une ligne émise une fois par
+exemplaire n'est pas une resimulation), le `cmp` des traces et le nombre de lignes comparées. Il échoue
+(code 1) sur un code de sortie non nul, un `DesyncDetected`, des traces différentes ou moins de
+`MIN_RESIMULATED` (1000) frames resimulées chez le client le plus resimulé. Autres réglages : `SUSPEND_MS`,
+`RUN_MS`, `INPUT_DELAY`, `OUT`, `TIMEOUT`, `KEEP_SIGNALING` (en-tête du script). Attendu : « p2p-stress :
+OK », traces de `frames - 1` lignes identiques (la trace n'écrit que des frames **confirmées** : à l'arrêt,
+le client en avance attend la confirmation de ses dernières frames, jusqu'à 10 s).
+Un système, un état rollback ou un vocabulaire qui n'apparaît que dans une situation précise (ramassage,
+bombe, champion…) demande un montage qui l'y met (jeu ou carte de test **temporaire non commité**,
+script d'inputs qui y mène : `p2p-stress-inputs.py --pool … --hold Bouton:de:à`) : sans cela le p2p ne prouve
+rien de cette situation. Le stress de zombies seul ne couvre que le jeu de base.
 
 **Restart en ligne** (D14, §33 ; quand la session, le lobby ou la sortie de partie changent) :
 `./scripts/p2p-restart.sh` (démarre et arrête `signaling` lui-même). Attendu : « p2p partie 1 :
 traces identiques », « p2p partie 2 : traces identiques », « partie 2 différente de la partie 1 »,
 « local : partie 2 identique à la partie 1 » ; code de sortie 0.
+
+**Run gungeon complète, N clients, réseau dégradé, déconnexion, deux machines** (m2-p2p-run-complete,
+`docs/conventions.md` §57 « p2p réel de la run complète » ; commandes et mesures dans
+`docs/taches/rapports/m2-p2p-run-complete.md`) :
+```bash
+scripts/p2p-gungeon-inputs.sh 2 10 5000 /tmp/run.ron      # inputs de 2 bots (graine 10, ~2,5 min)
+ALACOD_SKIP_HUB=1 GAME_ARGS="--seed 10" EXPECT_FLOORS=1 scripts/p2p-stress.sh gungeon /tmp/run.ron 4500
+CLIENTS=4 … scripts/p2p-stress.sh …                        # 4 clients (script à 4 pistes : `… 4 10 5000 …`)
+NETEM="delay 60ms 10ms loss 1%" STRESS=0 … scripts/p2p-stress.sh …   # RTT 120 ms, sans root (`unshare -Urn` + `tc netem`)
+scripts/p2p-disconnect.sh gungeon /tmp/run.ron 4500        # un pair tué en cours d'étage
+RESTART_KIND=restart RESTART_AT=7200 EXIT_AT=1500 INPUTS=/tmp/run_full.ron … scripts/p2p-restart.sh gungeon
+MATCHBOX_URL=wss://… LOBBY=x scripts/p2p-machine.sh gungeon /tmp/run.ron 4500 0   # un client par machine
+```
+Les cibles `make *_matchbox` ouvrent une fenêtre ; sans affichage, ces scripts (headless) les remplacent.
+`P2P_WAIT_CALM=3` attend `uptime` < 3 avant de lancer les clients (machine partagée : sous charge extrême un pair était déconnecté, D87 ; délai porté à 5 s le 2026-10-18) ; `HUB=1` enregistre une run
+par la porte du hub (`RESTART_KIND=hub EXPECT_VICTORY=1 … p2p-restart.sh` la rejoue : hub → run → victoire → hub) ; les inputs des bots sont décalés de 5 frames
+(délai d'input du synctest, D85).
 
 ## 5. Traces et preuve (protocole `docs/conventions.md` §10)
 

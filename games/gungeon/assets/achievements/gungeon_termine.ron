@@ -1,0 +1,6 @@
+// M3-T10 (§75) : finir la run (victoire) ouvre le butin de la victoire.
+(
+    name: "Gungeon terminé",
+    when: [Victory],
+    unlocks: ["butin_victoire"],
+)

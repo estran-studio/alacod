@@ -44,6 +44,7 @@ use world::{RoomChanged, RoomState};
 use crate::character::health::Health;
 use crate::character::player::jjrs::PeerConfig;
 use crate::character::player::Player;
+use crate::effects_runtime::{apply_action_sourced, EffectAssets, EffectState};
 use crate::interaction::InteractionEvent;
 use crate::rollback::RollbackTraceApp;
 use crate::system_set::RollbackSystemSet;
@@ -128,6 +129,7 @@ pub fn item_consumable_pickup_system(
     frame: Res<FrameCount>,
     table: Res<ItemTable>,
     mut commands: Commands,
+    assets: EffectAssets,
     mut picked: ResMut<FrameEvents<ItemPicked>>,
     pickups: Query<
         (
@@ -158,13 +160,29 @@ pub fn item_consumable_pickup_system(
             continue;
         }
         let pickup_pos = pickup_transform.translation.truncate();
-        let Some((player_net_id, _)) = order
-            .iter()
-            .find(|(_, position)| pickup_pos.distance(position) <= def.pickup_range)
-        else {
+        // M3-T3 (§68) : le premier joueur (ordre `GgrsNetId`) à portée **qui peut le prendre** :
+        // compteur au plafond (`max_stack`) ou soin refusé à pleine vie (`refuse_when_full`)
+        // laissent l'objet au sol, et un autre joueur à portée le prend. Sans ces deux champs,
+        // `accepts` est toujours vrai : le premier joueur à portée, comme avant.
+        let Some((player_net_id, _)) = order.iter().find(|(id, position)| {
+            pickup_pos.distance(position) <= def.pickup_range
+                && players
+                    .iter()
+                    .find(|(other, ..)| other.0 == *id)
+                    .is_some_and(|(_, _, _, _, inventory, _, health)| {
+                        let stock = match inventory {
+                            Some(inventory) => inventory.consumable(&pickup.item_id),
+                            None => fresh
+                                .get(id)
+                                .map_or(0, |(_, fresh)| fresh.consumable(&pickup.item_id)),
+                        };
+                        let full = health.is_some_and(|health| health.current >= health.max);
+                        def.accepts(stock, full)
+                    })
+        }) else {
             continue;
         };
-        let Some((_, entity, player, _, inventory, mut modifiers, health)) =
+        let Some((owner_id, entity, player, _, inventory, mut modifiers, health)) =
             players.iter_mut().find(|(id, ..)| id.0 == *player_net_id)
         else {
             continue;
@@ -183,10 +201,12 @@ pub fn item_consumable_pickup_system(
                 def,
                 &pickup.item_id,
                 frame.frame,
+                owner_id,
                 health,
                 &mut modifiers,
                 &mut commands,
                 entity,
+                &assets,
             );
         }
         info!(
@@ -288,54 +308,56 @@ pub fn handle_item_interaction(
     insert_fresh_inventories(&mut commands, fresh);
 }
 
-/// Applique les effets `OnUse` d'un objet (actif utilisé, consommable ramassé) : `Heal`,
-/// `Modifier` (permanent) et `TimedModifier`, source `item:<id>`. Les autres actions sont
-/// refusées par le lint.
+/// Applique les effets `OnUse` d'un objet (actif utilisé, consommable ramassé), source `item:<id>` :
+/// chaque action passe par `effects_runtime::apply_action_sourced`, la même exécution que les effets
+/// de personnage et d'objet tenu (D80 : une seule liste d'actions). `Explode` pose donc une bombe à
+/// mèche d'une frame au point du porteur lu à l'application, créditée à `net_id`. Le lint
+/// (`content::lint`) ne laisse passer à `OnUse` que les actions qui ont un sens pour un objet
+/// (`Heal`, `GainShield`, `GainSoul`, `Modifier`, `TimedModifier`, `Explode`).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_instant_effects(
     def: &items::ItemDef,
     item_id: &str,
     frame: u32,
+    net_id: &GgrsNetId,
     mut health: Option<Mut<Health>>,
     modifiers: &mut Modifiers,
     commands: &mut Commands,
     entity: Entity,
+    assets: &EffectAssets,
 ) {
     let source: ModifierSource = item_source(item_id);
+    // Aucune action `OnUse` n'écrit l'état d'effet (`GaugeAdd` est refusée par le lint, sans jauge
+    // ici) : il n'existe que pour la signature commune.
+    let mut state = EffectState::default();
     for effect in def.effects.iter().filter(|e| e.on == effects::On::OnUse) {
         for action in &effect.r#do {
-            match action {
-                Action::TimedModifier { .. } => {
-                    if let Some(modifier) = action.as_modifier(frame, source.clone()) {
-                        modifiers.push(modifier);
-                    }
-                }
-                Action::Modifier { stat, op, value } => {
-                    modifiers.push_from(source.clone(), stat.clone(), *op, *value, None)
-                }
-                Action::Heal(amount) => {
-                    if let Some(health) = health.as_deref_mut() {
-                        health.current =
-                            effects::runtime::healed(health.current, health.max, *amount);
-                    }
-                }
-                // D61 : bouclier (distinct de l'armure), posé au premier gain.
-                Action::GainShield(points) => {
-                    combat::actors::queue_gain_shield(commands, entity, *points);
-                }
-                // Refusées par le lint (effets v2).
-                _ => {}
-            }
+            apply_action_sourced(
+                action,
+                net_id,
+                source.clone(),
+                frame,
+                health.as_deref_mut(),
+                modifiers,
+                &mut state,
+                None,
+                (entity, false),
+                commands,
+                assets,
+            );
         }
     }
 }
 
 /// Synergies (M2-T4, `docs/conventions.md` §44) : les modificateurs `synergy:<id>` d'un joueur
 /// suivent l'`Inventory` à chaque frame (état dérivé, aucun composant) : posés quand tous les
-/// objets requis sont tenus, retirés dès qu'un manque (actif remplacé). Synergies par id,
+/// objets requis sont tenus (et, pour une transformation, `count` objets distincts du tag :
+/// `items::SynergyDef::is_active`, suivi Q10), retirés dès qu'un manque (actif remplacé). Synergies par id,
 /// joueurs par `GgrsNetId`. Les effets des synergies sont lus par
 /// `game::effects_runtime` (clé `synergy:<id>:<index>`).
 pub fn synergy_modifiers_system(
     synergies: Res<SynergyTable>,
+    items: Res<ItemTable>,
     mut players: Query<(&GgrsNetId, &Inventory, &mut Modifiers)>,
 ) {
     if synergies.0.is_empty() {
@@ -347,7 +369,7 @@ pub fn synergy_modifiers_system(
                 continue;
             }
             let source = synergy_source(id);
-            let wanted = !def.requires.is_empty() && def.requires.iter().all(|r| inventory.has(r));
+            let wanted = def.is_active(inventory, &items);
             let present = modifiers.iter().any(|m| m.source == source);
             if wanted && !present {
                 for modifier in &def.modifiers {
@@ -413,6 +435,7 @@ pub fn item_use_active_system(
     floor: Option<Res<run::FloorState>>,
     inputs: Res<PlayerInputs<PeerConfig>>,
     mut commands: Commands,
+    assets: EffectAssets,
     mut players: Query<(
         &GgrsNetId,
         Entity,
@@ -462,10 +485,12 @@ pub fn item_use_active_system(
             def,
             &item_id,
             frame.frame,
+            net_id,
             health,
             &mut modifiers,
             &mut commands,
             entity,
+            &assets,
         );
         let counts_uses = def.uses_per_floor.is_some();
         if let Some(slot) = inventory.active.as_mut() {
@@ -601,74 +626,6 @@ pub fn blank_system(
         info!(
             "ggrs{{f={} blank net_id={} item={} cleared={}}}",
             frame.frame, net_id.0, blank_id, cleared
-        );
-    }
-}
-
-/// Dernier blank utilisé, pour l'onde de présentation (M2-T1) : dérivé de `FrameEvents<BlankUsed>`
-/// dans `Update`, jamais lu par la simulation. Un rollback qui réémet l'événement réécrit les
-/// mêmes valeurs.
-#[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct LastBlank(pub Option<BlankUsedAt>);
-
-#[derive(Clone, Copy, Debug)]
-pub struct BlankUsedAt {
-    pub frame: u32,
-    pub center: Vec2,
-    pub radius: f32,
-}
-
-/// Durée de l'onde, en frames de simulation.
-pub const BLANK_WAVE_FRAMES: u32 = 24;
-
-fn track_blank_system(events: Res<FrameEvents<BlankUsed>>, mut last: ResMut<LastBlank>) {
-    for blank in events.iter() {
-        last.0 = Some(BlankUsedAt {
-            frame: blank.frame,
-            center: Vec2::new(blank.x.to_num::<f32>(), blank.y.to_num::<f32>()),
-            radius: blank.radius.to_num::<f32>(),
-        });
-    }
-}
-
-/// Onde du blank : un cercle qui s'étend jusqu'au rayon et s'estompe (`Update`, présentation).
-fn draw_blank_wave_system(
-    last: Res<LastBlank>,
-    frame: Res<FrameCount>,
-    config: Option<Res<crate::feedback::FeedbackConfigLoaded>>,
-    mut gizmos: Gizmos,
-) {
-    // M2-T19 (§55) : l'anneau de `ui/feedback.ron` (`blank`) remplace cette onde quand il est actif.
-    if config.is_some_and(|config| config.0.blank.enabled) {
-        return;
-    }
-    let Some(blank) = last.0 else {
-        return;
-    };
-    let age = frame.frame.saturating_sub(blank.frame);
-    if age >= BLANK_WAVE_FRAMES {
-        return;
-    }
-    let progress = age as f32 / BLANK_WAVE_FRAMES as f32;
-    let color = Color::srgba(0.7, 0.9, 1.0, 1.0 - progress);
-    gizmos.circle_2d(
-        Isometry2d::from_translation(blank.center),
-        blank.radius * progress,
-        color,
-    );
-}
-
-/// Présentation du blank (absente en headless, avec `PresentationPlugin`).
-pub struct BlankPresentationPlugin;
-
-impl Plugin for BlankPresentationPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<LastBlank>().add_systems(
-            Update,
-            (
-                track_blank_system,
-                draw_blank_wave_system.after(track_blank_system),
-            ),
         );
     }
 }

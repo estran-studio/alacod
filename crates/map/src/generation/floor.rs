@@ -67,6 +67,19 @@ pub struct PlannedRoom {
     /// Connexions utilisées à la pose : (celle de cette salle, celle du parent).
     pub via: Option<(usize, usize)>,
     pub kind: String,
+    /// Portes supplémentaires hors de l'arbre de pose (boucles et voisines de la salle secrète
+    /// d'une grille, M3-T5) ; toujours vide en `Graph`. Chaque porte est portée par la salle posée
+    /// en dernier des deux.
+    pub links: Vec<PlannedLink>,
+}
+
+/// Une porte entre deux salles qui n'est pas l'arête de pose : la connexion de la salle qui la
+/// porte, l'autre salle (index dans le plan) et sa connexion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlannedLink {
+    pub mine: usize,
+    pub other: usize,
+    pub theirs: usize,
 }
 
 /// Plan d'un étage : salles dans l'ordre de pose (chaque salle suit son parent).
@@ -75,9 +88,12 @@ pub struct FloorPlan {
     pub rooms: Vec<PlannedRoom>,
     /// Numéro (à partir de 1) de la tentative réussie.
     pub attempts: u32,
+    /// Évaluations de candidats de toute la planification, tentatives échouées comprises (grille
+    /// seulement, 0 en `Graph`) : la preuve de terminaison de `grid::step_bound`.
+    pub steps: u64,
 }
 
-fn kind_of(level: &AvailableLevel) -> &str {
+pub(super) fn kind_of(level: &AvailableLevel) -> &str {
     level.room_kind.as_deref().unwrap_or("")
 }
 
@@ -300,6 +316,7 @@ impl Attempt<'_> {
             depth,
             via: Some((candidate.level_connection, candidate.parent_connection)),
             kind: kind.to_string(),
+            links: Vec::new(),
         });
         true
     }
@@ -359,6 +376,7 @@ fn try_attempt(
         depth: 0,
         via: None,
         kind: grammar.start.clone(),
+        links: Vec::new(),
     });
 
     // 2. remplissage ; tant que l'étage a moins de `loops` boucles, une pose qui en ferme une
@@ -505,6 +523,9 @@ pub fn plan_floor(
     context: &MapGenerationContext,
     rng: &mut RollbackRng,
 ) -> Result<FloorPlan, FloorError> {
+    if let world::FloorLayout::Grid { .. } = grammar.layout() {
+        return super::grid::plan_grid(grammar, context, rng);
+    }
     for kind in grammar.required.keys().chain([&grammar.filler]) {
         if !context.available_levels.iter().any(|l| kind_of(l) == kind) {
             return Err(FloorError::NoTemplate(kind.clone()));
@@ -520,6 +541,7 @@ pub fn plan_floor(
             return Ok(FloorPlan {
                 rooms,
                 attempts: attempt,
+                steps: 0,
             });
         }
     }
@@ -620,7 +642,7 @@ mod tests {
 
     fn context(seed: i32, levels: Vec<AvailableLevel>) -> MapGenerationContext {
         let mut levels = levels;
-        populate_level_connections(&mut levels, true);
+        populate_level_connections(&mut levels);
         MapGenerationContext {
             tile_size: (16, 16),
             level_size: (10, 10),
@@ -645,6 +667,8 @@ mod tests {
             min_boss_distance: 3,
             max_attempts: 64,
             loops: 0,
+            bounds: None,
+            layout: None,
         }
     }
 
@@ -768,6 +792,17 @@ mod tests {
             plan_floor(&g, &context(1, boss_double), &mut rng).unwrap_err(),
             FloorError::Exhausted { attempts: 5 }
         );
+    }
+
+    #[test]
+    fn graph_explicite_est_l_absence_de_champ() {
+        let mut explicit = grammar();
+        explicit.layout = Some(world::FloorLayout::Graph);
+        let run = |g: &FloorGrammar| {
+            let mut rng = RollbackRng::new(1);
+            signature(&plan_floor(g, &context(1, templates()), &mut rng).unwrap())
+        };
+        assert_eq!(run(&grammar()), run(&explicit));
     }
 
     #[test]

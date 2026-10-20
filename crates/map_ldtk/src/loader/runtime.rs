@@ -32,6 +32,7 @@ pub fn surface_table(registry: Option<&Registry>) -> world::SurfaceTable {
                 move_speed: surface.move_speed,
                 acceleration: surface.acceleration,
                 pit: surface.pit.clone(),
+                hazard: surface.hazard,
             },
         );
     }
@@ -79,6 +80,49 @@ pub fn loot_tables(registry: Option<&Registry>) -> items::LootTables {
             .flat_map(|r| r.loot_tables.values())
             .map(|table| (table.id.clone(), table.def.clone()))
             .collect(),
+    )
+}
+
+/// Déblocages de méta-progression (M2-T12) depuis le registre : `unlocks/<id>.ron` → définition.
+pub fn unlock_table(registry: Option<&Registry>) -> items::UnlockTable {
+    items::UnlockTable(
+        registry
+            .iter()
+            .flat_map(|r| r.unlocks.values())
+            .map(|unlock| (unlock.id.clone(), unlock.def.clone()))
+            .collect(),
+    )
+}
+
+/// Accomplissements (M3-T10, §75) depuis le registre : `achievements/<id>.ron` → définition.
+pub fn achievement_table(registry: Option<&Registry>) -> meta::Achievements {
+    meta::Achievements(
+        registry
+            .iter()
+            .flat_map(|r| r.achievements.values())
+            .map(|achievement| (achievement.id.clone(), achievement.def.clone()))
+            .collect(),
+    )
+}
+
+/// Services du hub (M2-T13) depuis le registre : `hub/<id>.ron` → définition.
+pub fn hub_services(registry: Option<&Registry>) -> game::hub::HubServices {
+    game::hub::HubServices(
+        registry
+            .iter()
+            .flat_map(|r| r.hub_services.values())
+            .map(|service| (service.id.clone(), service.def.clone()))
+            .collect(),
+    )
+}
+
+/// Règles d'essence du jeu (M2-T12, kind `MetaEconomy`) ; les règles par défaut sans fichier.
+pub fn meta_rules(registry: Option<&Registry>) -> meta::MetaRules {
+    meta::MetaRules(
+        registry
+            .and_then(|r| r.meta_economy.values().next())
+            .map(|entry| entry.rules)
+            .unwrap_or_default(),
     )
 }
 
@@ -131,8 +175,13 @@ pub fn resolve_map_config(
         } else {
             base.seed
         },
-        max_width: base.max_width,
-        max_heigth: base.max_heigth,
+        // m2-salles-murs-gungeon : une grammaire de gabarits agrandis relève l'étendue du monde de l'étage.
+        max_width: floor
+            .and_then(|f| f.grammar.bounds)
+            .map_or(base.max_width, |(w, _)| w),
+        max_heigth: floor
+            .and_then(|f| f.grammar.bounds)
+            .map_or(base.max_heigth, |(_, h)| h),
         max_room: base.max_room,
         aligned_openings: base.aligned_openings,
         close_loops: base.close_loops,
@@ -178,10 +227,25 @@ pub fn get_asset_loader_generation() -> LdtkProjectLoader {
                 return crate::generation::cave::build_cave_ldtk(&map_json, &id, config.seed, cave);
             }
 
+            // M2-T13 : le hub est joué tel qu'il est dessiné.
+            if matches!(config.mode, MapGenerationMode::Static) {
+                return map_json;
+            }
+
             let context = from_map(&map_json, config);
             let mut generator = GeneratedMap::create(map_json);
 
+            let grid = matches!(
+                &context.config.mode,
+                MapGenerationMode::Floor(grammar)
+                    if matches!(grammar.layout(), world::FloorLayout::Grid { .. })
+            );
             map_generation(context, &mut generator).unwrap();
+            // M3-T5 : une grille mure exactement les ouvertures sans porte du plan ; `Basic` et
+            // `Graph` murent les prises libres pendant la génération (`wall_unused_openings`).
+            if grid {
+                generator.close_unused_openings_exact();
+            }
 
             generator.get_generated_map()
         })),
@@ -256,6 +320,35 @@ pub fn load_map_snapshot(
         .id()
 }
 
+/// M3-T9 (`docs/conventions.md` §74) : applique la curse `FloorRooms` de l'étage `slot` à la
+/// grammaire d'un étage assemblé. Toutes les cartes d'une séquence `Floors` sont assemblées au
+/// chargement ; le tirage (`run::draw_curse`) ne dépendant que de la graine de carte et de
+/// l'étage, il donne ici la curse que `game::curses::curse_system` écrira à l'entrée de cet
+/// étage. L'emplacement `slot` est l'étage d'index `slot` ; un étage au-delà de la séquence
+/// (boucle sur le dernier niveau) réutilise ce monde sans second assemblage. Sans curse
+/// `FloorRooms`, la configuration revient inchangée.
+pub fn with_curse_floor_rooms(
+    mut config: MapGenerationConfig,
+    curses: Option<&game::curses::CurseTable>,
+    map_seed: u32,
+    slot: usize,
+) -> MapGenerationConfig {
+    let Some(mult) =
+        curses.and_then(|table| game::curses::floor_rooms_for_slot(table, map_seed, slot as u32))
+    else {
+        return config;
+    };
+    if let MapGenerationMode::Floor(grammar) = &mut config.mode {
+        let scaled = grammar.scaled_rooms(mult);
+        info!(
+            "curse FloorRooms ×{mult} à l'étage {slot} : salles {:?} → {:?}",
+            grammar.rooms, scaled.rooms
+        );
+        *grammar = scaled;
+    }
+    config
+}
+
 /// Charge la carte de la partie : une seule (`MapGenerationConfig`), ou, en mode `Floors`
 /// (T1.8, [`FloorPlan`] présent), un monde LDtk par carte distincte de la séquence. Chaque
 /// monde porte [`FloorWorld`] (son emplacement dans la séquence), `FloorWorld(0)` pour la
@@ -267,6 +360,7 @@ pub fn setup_generated_map(
     config: Res<MapGenerationConfig>,
     plan: Option<Res<FloorPlan>>,
     registry: Option<Res<Registry>>,
+    curses: Option<Res<game::curses::CurseTable>>,
 ) {
     // T1.7 : table des surfaces du jeu (valeur IntGrid → définition), hors rollback
     commands.insert_resource(surface_table(registry.as_deref()));
@@ -280,6 +374,12 @@ pub fn setup_generated_map(
     commands.insert_resource(synergy_table(registry.as_deref()));
     // M2-T5 : pools de butin (kind `LootTable`), hors rollback
     commands.insert_resource(loot_tables(registry.as_deref()));
+    // M2-T12 : déblocages et règles d'essence (kinds `Unlock`, `MetaEconomy`), hors rollback
+    commands.insert_resource(unlock_table(registry.as_deref()));
+    commands.insert_resource(meta_rules(registry.as_deref()));
+    // M3-T10 : accomplissements (kind `Achievement`), évalués hors simulation à la fin de la run
+    commands.insert_resource(achievement_table(registry.as_deref()));
+    commands.insert_resource(hub_services(registry.as_deref()));
     let mut caves = CaveSlots::default();
     let Some(plan) = plan else {
         let (load, cave) = resolve_map_config(&config, &config.map_path, registry.as_deref(), 0);
@@ -291,9 +391,11 @@ pub fn setup_generated_map(
         commands.insert_resource(caves);
         return;
     };
+    let map_seed = game::curses::curse_map_seed(Some(&*config));
     for slot in plan.distinct_slots() {
         let (floor_config, cave) =
             resolve_map_config(&config, &plan.levels[slot], registry.as_deref(), slot);
+        let floor_config = with_curse_floor_rooms(floor_config, curses.as_deref(), map_seed, slot);
         if let Some(cave) = cave {
             caves.0.insert(slot, (config.seed, cave));
         }

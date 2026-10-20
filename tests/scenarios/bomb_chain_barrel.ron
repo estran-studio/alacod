@@ -1,0 +1,38 @@
+// M3-T4 (docs/conventions.md §69) : une bombe déclenche la chaîne de barils. Carte `testbed/props_barrels.ldtk` (voir
+// `barrel_chain`) : couloir A, deux barils voisins (GgrsNetId 1 et 2, x -424 et -392, 20 PV, rayon 48, 30 dégâts) ;
+// couloir B, le joueur 1 (x -360) à 45 unités du second baril. Ici personne ne tire : le joueur 0 marche vers l'est
+// (f10 à f57), pose une bombe (f60, effective f65 ; mèche 15 frames, rayon 40, 30 dégâts, tir ami coupé) à 34 unités
+// du premier baril.
+//
+// À regarder : la bombe explose à f80 et abîme le premier baril (30 >= 20 PV : à 0 PV) ; il explose à f81 (le
+// poseur, à 34 unités, encaisse les 30 dégâts du baril : les barils ont toujours le tir ami) et tue le second ;
+// celui-ci explose à f82 et blesse le joueur 1 (100 -> 70). Témoin : `barrel_chain` (mêmes barils, balles).
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/props_barrels.ldtk",
+    frames: 140,
+    players: [
+        (
+            bomb: (fuse_frames: 15, radius: "40.0", damage: "30.0", friendly_fire: Never),
+            items: ["bomb"],
+            inputs: [
+                (from: 10, to: 57, buttons: [Right], pan: (0, 0)),
+                (from: 60, to: 61, buttons: [Bomb]),
+            ],
+        ),
+        (),
+    ],
+    expect: [
+        EntityCount(kind: Barrel, min: 2, max: 2, at_frame: 80),
+        EntityHealth(net_id: 1, min: 20, max: 20, at_frame: 80),
+        EntityHealth(net_id: 1, min: 0, max: 0, at_frame: 81),
+        EntityCount(kind: Barrel, min: 2, max: 2, at_frame: 81),
+        EntityCount(kind: Barrel, min: 1, max: 1, at_frame: 82),
+        Health(handle: 1, min: 100, max: 100, at_frame: 82),
+        Health(handle: 1, min: 70, max: 70, at_frame: 83),
+        EntityCount(kind: Barrel, min: 0, max: 0, at_frame: 83),
+        Health(handle: 0, min: 70, max: 70, at_frame: 139),
+    ],
+)

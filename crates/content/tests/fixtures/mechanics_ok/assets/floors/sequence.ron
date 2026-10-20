@@ -1,0 +1,6 @@
+(
+    levels: ["floor:etage", "floor:etage"],
+    victory_at_end: true,
+    consumables_per_floor: {"key": 1},
+    curses: Some((chance: "0.5", pool: ["darkness"])),
+)

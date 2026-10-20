@@ -1,0 +1,9 @@
+// `isaac` (M3-T8, §73) : passif du pool `diable` (donnée d'attente, contenu : M3-T11).
+(
+    name: "Queue fourchue",
+    kind: Passive,
+    rarity: Rare,
+    modifiers: [(stat: MoveSpeed, op: Pct, value: "0.2")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_queue_fourchue`).
+    test: Some((frames: 60)),
+)

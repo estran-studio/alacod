@@ -1,0 +1,26 @@
+// M3-T8 (docs/conventions.md §73) : témoin de `pool_exhaust_two_chests`. Mêmes clés `k1` et `k14`, mêmes
+// positions, mêmes appuis ; le pool `epuisable_temoin` a les mêmes trois objets mais **pas** `exhaust`. Le tirage
+// se fait à l'ouverture sur la graine de la clé (§48) et rien n'est retiré du pool : les deux coffres donnent
+// la même `lame` (le joueur en tient deux), `PoolState` reste vide.
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : clé `k5` → `k14`, la même que `pool_exhaust_two_chests` (avec le nouveau tirage `k1` et `k5` donnent `lame` puis `bottes` sans épuisement ; `k1` et `k14` donnent bien deux `lame`). La graine de carte reste 1 : elle détermine le niveau, donc la position du joueur.
+//
+// À regarder : f20 aucun objet « sorti » ; deux lames à la fin.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    map_seed: 1,
+    frames: 90,
+    chests: [
+        (key: "k1", table: Some("epuisable_temoin"), x: "-232.0", y: "-232.0", at_frame: 5),
+        (key: "k14", table: Some("epuisable_temoin"), x: "-232.0", y: "-232.0", at_frame: 6),
+    ],
+    players: [(inputs: [
+        (from: 30, to: 31, buttons: [Interaction]), (from: 40, to: 41, buttons: [Interaction]),
+        (from: 50, to: 51, buttons: [Interaction]), (from: 60, to: 61, buttons: [Interaction]),
+    ])],
+    expect: [
+        PoolCount(pool: "epuisable_temoin", count: 0, at_frame: 20),
+        ItemCount(handle: 0, id: "lame", count: 2, at_frame: 89),
+    ],
+)

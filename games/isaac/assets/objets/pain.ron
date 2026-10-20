@@ -1,0 +1,10 @@
+// `isaac` (M3-T11d2, §76.5) : consommable de soin, 1 PV (un demi-cœur) au ramassage, ramassé même à pleine vie (pas de `refuse_when_full`).
+// Preuve : `tests/scenarios/isaac_consommables_lot.ron` (pas de gabarit généré pour un consommable, comme `coeur` et `ration`).
+(
+    name: "Pain",
+    kind: Consumable,
+    rarity: Common,
+    effects: [
+        (on: OnUse, do: [Heal("1")]),
+    ],
+)

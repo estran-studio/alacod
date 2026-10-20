@@ -1,0 +1,20 @@
+// Grammaire d'étage agrandie de `isaac` (M3-T5, docs/conventions.md §70) : de 12 à 15 salles sur une
+// grille de 7 x 7 cases de salle (huit colonnes de 240 px ne tiennent pas autour d'un départ centré dans
+// les ±1000 px du monde, `max_width`). Mesure de performance de la fiche (un étage de 12 à 15 salles se
+// génère en moins de deux fois le temps de `grand` de gungeon) et préfiguration de la curse « étage
+// agrandi » (M3-T9, Q7 : `Labyrinth`).
+(
+    templates: "maps/salles.ldtk",
+    grammar: (
+        rooms: (12, 15),
+        required: {"boss": 1, "tresor": 1, "secrete": 1},
+        min_boss_distance: 4,
+        layout: Some(Grid(
+            cell: (15, 9),
+            max: (7, 7),
+            loops: 2,
+            secret: "secrete",
+            post_boss: Some((kind: "diable", chance: "0.33")),
+        )),
+    ),
+)

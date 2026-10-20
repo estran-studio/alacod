@@ -1,0 +1,8 @@
+// Fixture M3-T1 (docs/conventions.md §66) : Poison (comme Burn : damage et period > 0) et Fear (frames > 0)
+(
+    name: "fixture-status_poison_fear_out_of_range",
+    content_folders: [
+        (path: "statuses", kind: "Status"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

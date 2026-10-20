@@ -124,6 +124,7 @@ mod tests {
             move_speed: Fixed::from_num(move_speed),
             acceleration: Fixed::ONE,
             pit: None,
+            hazard: None,
         }
     }
 

@@ -1,0 +1,6 @@
+// M3-T10 (§75) : atteindre le second étage (index 1) ouvre le butin du second étage.
+(
+    name: "Second étage",
+    when: [FloorAtLeast(1)],
+    unlocks: ["butin_second_etage"],
+)

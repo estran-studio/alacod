@@ -11,13 +11,15 @@ Alacod is a modular Bevy engine for top-down 2D roguelikes and shooters with P2P
 
 Use the Rust nightly toolchain selected by `rust-toolchain.toml` and the native system
 prerequisites listed in [.github/workflows/pr.yaml](.github/workflows/pr.yaml).
-`make zombies`, `make throne`, and `make gungeon` launch the current games locally;
+`make zombies`, `make throne`, `make gungeon`, and `make isaac` launch the current games locally;
 `make testbed` opens the mechanics sandbox.
 
 Use `make test_tools` for fast validation-tool checks without building the engine.
 `make check` runs format checks, deterministic-pattern and rollback-registration guards,
 headless tests across the workspace, the scenario suite, and content lint. The full suite can
 be lengthy; `make test_scenarios SCENARIO=idle` runs one scenario.
+
+To play gungeon (solo, two local heroes, two players online, keys): [docs/jouer.md](docs/jouer.md).
 
 [Current engine status and milestone exit criteria](docs/etat-engine.md) ·
 [Engine plan](docs/plan-engine.md) · [Task journal](docs/taches.md)

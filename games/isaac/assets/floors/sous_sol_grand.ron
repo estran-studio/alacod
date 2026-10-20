@@ -1,0 +1,6 @@
+// `isaac` (M3-T5, docs/conventions.md §70) : un étage agrandi de 12 à 15 salles
+// (`floor_grammars/sous_sol_grand.ron`).
+(
+    levels: ["floor:sous_sol_grand"],
+    victory_at_end: true,
+)

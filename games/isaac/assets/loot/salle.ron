@@ -1,0 +1,16 @@
+// Pool de la récompense de salle de `isaac` (M3-T0f, docs/conventions.md §48) : une salle `combat` nettoyée
+// laisse une récompense une fois sur trois ; pas de coffre (aucun objet à rareté dans le squelette, M3-T11).
+// M3-T3 (§68) : à la manière d'Isaac, des sous (un tas de 1, `Currency`), des cœurs, des bombes et des clés.
+(
+    entries: [
+        (pick: Item("key"), weight: 3),
+        (pick: Item("blank"), weight: 2),
+        (pick: Item("ration"), weight: 2),
+        (pick: Item("pain"), weight: 2),
+        (pick: Currency(1), weight: 4),
+        (pick: Item("coeur"), weight: 3),
+        (pick: Item("coeur_ame"), weight: 1),
+        (pick: Item("bomb"), weight: 2),
+    ],
+    reward: Some((chance: "0.33", chest_chance: "0.0")),
+)

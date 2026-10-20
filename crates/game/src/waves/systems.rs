@@ -17,25 +17,25 @@ use utils::{
 
 use crate::{
     character::{
-        config::CharacterConfig,
+        config::CharacterConfigs,
         enemy::{create::spawn_enemy, Enemy},
         health::Death,
         player::Player,
     },
     collider::CollisionSettings,
-    global_asset::GlobalAsset,
-    weapons::{melee::MeleeWeaponsConfig, WeaponsConfig},
+    weapons::WeaponRegistry,
 };
 
 /// Bundled parameters for enemy spawning (reduces parameter count)
 #[derive(SystemParam)]
 pub struct SpawnAssets<'w> {
     pub collision_settings: Res<'w, CollisionSettings>,
-    pub weapons_asset: Res<'w, Assets<WeaponsConfig>>,
-    pub melee_weapons_asset: Res<'w, Assets<MeleeWeaponsConfig>>,
-    pub characters_asset: Res<'w, Assets<CharacterConfig>>,
+    pub weapon_registry: Res<'w, WeaponRegistry>,
+    pub character_configs: Res<'w, CharacterConfigs>,
     /// T1.9 : difficulté (santé × difficulté ; 1 sans difficulté activée).
     pub difficulty: crate::clock::DifficultyReader<'w>,
+    /// M3-T7 : étage courant (contexte de `chance` des variantes).
+    pub floor: Option<Res<'w, run::FloorState>>,
 }
 
 use super::{
@@ -59,15 +59,14 @@ pub fn wave_state_machine_system(
     mut wave_state: ResMut<WaveState>,
     mut rng_streams: ResMut<RngStreams>,
     balance: Res<crate::balance::ResolvedBalance>,
-    global_assets: Res<GlobalAsset>,
     wave_enemy_query: Query<Entity, (With<Enemy>, With<WaveEnemy>)>,
 ) {
     // F5 (chantier m0-v11) : config résolue une fois au lancement (voir `crate::balance`),
     // plus jamais lue depuis l'asset — valeurs identiques pour un contenu littéral.
-    // Un jeu sans dossier `Wave` (ex. `testbed`) n'a pas de `wave_config` : la machine
-    // reste inerte, comme avant F5 (la résolution ne doit pas réveiller les vagues
+    // Un jeu sans dossier `Wave` (ex. `testbed`) n'a pas de `wave_config` (`waves_enabled` faux) : la
+    // machine reste inerte, comme avant F5 (la résolution ne doit pas réveiller les vagues
     // d'un jeu qui n'en déclare pas).
-    if global_assets.wave_config.is_none() {
+    if !balance.waves_enabled {
         return;
     }
     let config = &balance.waves;
@@ -187,7 +186,6 @@ pub fn wave_spawning_system(
     mut wave_state: ResMut<WaveState>,
     mut rng_streams: ResMut<RngStreams>,
     balance: Res<crate::balance::ResolvedBalance>,
-    global_assets: Res<GlobalAsset>,
 
     // Spawner query (from LDTK map)
     // GGRS CRITICAL: GgrsNetId must be first for deterministic sorting
@@ -213,7 +211,7 @@ pub fn wave_spawning_system(
 
     // Get config (resolved once at run start, F5 — see `crate::balance`)
     // Même garde que la machine : sans dossier `Wave` déclaré, rien à spawner.
-    if global_assets.wave_config.is_none() {
+    if !balance.waves_enabled {
         return;
     }
     let config = &balance.waves;
@@ -329,10 +327,8 @@ pub fn wave_spawning_system(
             enemy_type.clone(),
             spawn_pos,
             &mut commands,
-            &spawn_assets.weapons_asset,
-            &spawn_assets.melee_weapons_asset,
-            &spawn_assets.characters_asset,
-            &global_assets,
+            &spawn_assets.weapon_registry,
+            &spawn_assets.character_configs,
             &spawn_assets.collision_settings,
             &mut id_factory,
             Team::Enemies,
@@ -340,6 +336,9 @@ pub fn wave_spawning_system(
             // Graine de run (T1.5 : tirage des variantes), lue sans toucher aux flux.
             rng_streams.run_seed,
             None,
+            spawn_assets
+                .difficulty
+                .variant_context_at(spawn_assets.floor.as_deref().map_or(0, |floor| floor.index)),
         );
 
         // Add WaveEnemy component to track this enemy for wave completion
@@ -510,7 +509,8 @@ fn select_enemy_type(
 pub fn wave_enemy_death_tracking_system(
     frame: Res<FrameCount>,
     mut wave_state: ResMut<WaveState>,
-    query: Query<(&utils::net_id::GgrsNetId, &WaveEnemy), Added<Death>>,
+    // `With`, pas `Added` : voir `shop::shell_drop_on_death_system`.
+    query: Query<(&utils::net_id::GgrsNetId, &WaveEnemy), With<Death>>,
 ) {
     for (net_id, wave_enemy) in query.iter() {
         info!(

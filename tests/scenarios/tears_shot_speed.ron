@@ -1,0 +1,31 @@
+// M4-T0a (docs/conventions.md §60) : stats de larmes. Le joueur 0 n'a que `larme` (3 tirs par
+// seconde : premier tir à f20) et tient l'objet `lentille` (`ShotSpeed` +50 %, `ShotSize` ×1,5) ; il
+// tient la gâchette de f10 à f30 en visant `target` : une seule larme part, à f20.
+//
+// Mesuré : avec l'objet, la larme touche la cible à f46 ; sans (témoin
+// `tears_shot_speed_sans_objet`, même tir), à f58. La cible n'a encore aucun coup à f44 ici, et
+// aucun à f50 dans le témoin.
+//
+// À regarder : la balle, plus grosse et plus rapide, part à f20 et touche la cible à f46.
+Scenario(
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (128, 48))],
+            weapon: "larme",
+            items: ["lentille"],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "lentille", at_frame: 1),
+        Stat(handle: 0, stat: ShotSpeed, value: 1.5, at_frame: 1),
+        Stat(handle: 0, stat: ShotSize, value: 1.5, at_frame: 1),
+        EntityHits(net_id: 31, min: 0, max: Some(0), at_frame: 44),
+        HitsAtLeast(entity: Target, hits: 1, at_frame: 46),
+        // Une seule larme tirée : un seul coup.
+        EntityHits(net_id: 31, min: 1, max: Some(1), at_frame: 119),
+    ],
+)

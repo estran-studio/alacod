@@ -1,0 +1,21 @@
+bots	graine	issue	frames	etage	objet de larmes ramassé	empilement : deux objets de larmes sur un joueur	deux exemplaires du même objet sur un joueur	objet à effets ramassé	transformation	familier ou orbital ramassé	bombe du joueur qui explose (rayon 56)	rocher cassé	salle secrète ouverte (mur secret)	porte à clé ouverte (trésor fermé)	cœur ramassé (coeur, coeur_ame, pain, festin, eclat_ame)	sous ramassés	achat en boutique (sous)	objet tiré d'un pool et pris (coffre, présentoir)	salle du diable générée sur un étage atteint	achat au diable	champion apparu	champion tué	curse	boss et phases	portail ouvert (premier boss tué)
+4	1	mort	3419	1	1	0	0	1	0	1	1	0	1	0	1	1	1	1	0	0	1	0	1	1	1
+4	2	victoire	7883	1	1	0	1	1	0	0	1	0	1	1	1	1	1	1	0	0	1	1	1	1	1
+4	3	victoire	5629	1	1	1	1	1	0	0	1	1	1	1	1	1	1	1	0	0	1	1	1	1	1
+4	4	victoire	5785	1	1	1	1	1	0	1	1	1	1	1	1	1	1	1	1	0	1	1	1	1	1
+4	5	mort	3040	1	0	0	1	1	0	1	1	0	1	0	0	1	1	1	0	0	1	0	0	1	1
+4	6	victoire	4245	1	1	1	0	1	0	0	1	1	1	1	1	1	1	1	0	0	1	1	1	1	1
+4	7	victoire	5242	1	1	1	1	1	0	0	1	0	1	1	1	1	1	1	0	0	1	1	0	1	1
+4	8	victoire	5320	1	1	1	0	1	0	1	1	0	1	1	1	1	1	1	1	0	1	1	0	1	1
+4	9	victoire	6936	1	1	0	0	1	0	1	1	0	1	1	1	1	1	1	1	0	1	1	0	1	1
+4	10	victoire	7970	1	1	0	0	1	0	1	1	0	1	1	1	1	1	1	0	0	1	1	0	1	1
+4	11	mort	7543	1	1	1	0	1	0	1	1	1	1	1	1	1	1	1	0	0	1	1	1	1	1
+4	12	mort	6362	1	1	1	0	1	0	0	1	0	1	1	1	1	1	1	1	0	1	1	0	1	1
+4	13	victoire	9302	1	1	1	1	1	0	1	1	0	1	1	1	1	1	1	1	0	1	1	1	1	1
+4	14	victoire	6105	1	1	1	1	1	0	0	1	0	1	1	1	1	1	1	0	0	1	1	1	1	1
+4	15	victoire	4961	1	1	1	0	1	0	0	1	0	1	1	1	1	1	1	1	0	1	1	0	1	1
+4	16	mort	4404	1	1	0	1	1	0	0	1	0	1	1	0	1	1	1	1	0	1	1	1	1	1
+4	17	victoire	6556	1	1	1	1	1	0	1	1	0	1	1	1	1	1	1	0	0	1	1	0	1	1
+4	18	victoire	6076	1	1	0	0	1	0	1	1	0	1	1	1	1	1	1	1	0	1	1	0	1	1
+4	19	victoire	11362	1	1	1	1	1	0	0	1	1	1	1	1	1	1	1	1	0	1	1	1	1	1
+4	20	victoire	5557	1	1	1	0	1	0	0	1	1	1	1	1	1	1	1	0	0	1	1	0	1	1

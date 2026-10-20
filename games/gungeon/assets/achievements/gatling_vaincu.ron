@@ -1,0 +1,6 @@
+// M3-T10 (docs/conventions.md §75) : le boss `gatling` vaincu (même si la run se perd ensuite) ouvre le butin du gatling.
+(
+    name: "Gatling vaincu",
+    when: [BossDefeated("gatling")],
+    unlocks: ["butin_gatling"],
+)

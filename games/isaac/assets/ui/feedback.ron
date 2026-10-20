@@ -1,0 +1,62 @@
+// Feedback (présentation seule, docs/conventions.md §7 et §31). `hit_flash.color` multiplie
+// la couleur des calques : au-delà de 1.0 le sprite est surexposé ((1, 1, 1) serait invisible).
+// `hit_stop_frames` : frames de rendu gelées (animations, caméra) quand un joueur local touche
+// ou est touché ; la simulation continue.
+(
+    hit_flash: (
+        frames: 4,
+        color: (2.5, 2.5, 2.5),
+    ),
+    shake: (
+        frames: 8,
+        amplitude: 12.0,
+    ),
+    hit_stop_frames: 2,
+    damage_numbers: true,
+    telegraph: (color: (1.0, 0.3, 0.2, 0.8)),
+    // M2-T19 (conventions §55) : forme des patterns pendant le télégraphe (rayons d'un éventail,
+    // amorce d'une spirale, cône d'un burst ; couleur du cercle si `color` est absent), anneau et
+    // flash du blank, fin de boss (gel de rendu, zoom sur le boss, flash). Tout est de la
+    // présentation : la simulation n'est jamais ralentie ; `enabled: false` coupe un effet.
+    pattern_telegraph: (enabled: true, color: Some((1.0, 0.8, 0.2, 0.8))),
+    blank: (
+        enabled: true,
+        ring_frames: 24,
+        color: (0.7, 0.9, 1.0, 1.0),
+        flash_alpha: 0.15,
+    ),
+    boss_end: (
+        enabled: true,
+        freeze_frames: 30,
+        zoom: 1.5,
+        zoom_frames: 60,
+        flash_alpha: 0.6,
+        flash_color: (1.0, 1.0, 1.0),
+    ),
+    // Surcharges par arme (prioritaires sur `by_kind`) : les explosifs secouent aussi quand le
+    // joueur local touche (secousse de surcharge).
+    by_weapon: {},
+    sounds: {
+        // Sons de base. Tir : clé de la famille du mode de tir actif (Manual : shot_pistol,
+        // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot". Une arme
+        // remplace le tir et le rechargement de chacun de ses modes par son `audio_config`
+        // (weapons.ron), au volume de la clé qu'il remplace (`volumes`).
+        "shot_pistol": "sounds/shot_pistol.ogg",
+        "shot_shotgun": "sounds/shot_shotgun.ogg",
+        "shot_smg": "sounds/shot_smg.ogg",
+        "reload": "sounds/reload.ogg",
+        // Événements (lot B) : coup porté par un joueur local, dégâts reçus, ennemi tué, dash,
+        // blank, porte ouverte.
+        "hit": "sounds/hit.ogg",
+        "melee": "sounds/melee.ogg",
+        "hurt": "sounds/hurt.ogg",
+        "death": "sounds/death.ogg",
+        "dash": "sounds/dash.ogg",
+        "blank": "sounds/blank.ogg",
+        "door": "sounds/door.ogg",
+    },
+    // Volume par clé de `sounds`, en dB (0 : inchangé ; plage -60 à +12), ex. {"hit": -3.0}.
+    // -12 dB partout (2026-10-16, retour de William : tout trop fort par défaut ;
+    // les fichiers des lots A/B sont normalisés à -3 dBFS crête).
+    volumes: {"shot_pistol": -12.0, "shot_shotgun": -12.0, "shot_smg": -12.0, "reload": -12.0, "hit": -12.0, "melee": -9.0, "hurt": -12.0, "death": -6.0, "dash": -12.0, "blank": -12.0, "door": -12.0},
+)

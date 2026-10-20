@@ -1,0 +1,12 @@
+// `isaac` (M3-T11d2, §76.5) : passif de stats, +1 de chance (`Luck`) et +10 % de dégâts (`Damage`). Preuve : `item_talisman` (`Stat` résolue à f1 par `ItemHeld`).
+(
+    name: "Talisman",
+    kind: Passive,
+    tags: ["larmes"],
+    rarity: Uncommon,
+    modifiers: [
+        (stat: Luck, op: Add, value: "1"),
+        (stat: Damage, op: Pct, value: "0.1"),
+    ],
+    test: Some((frames: 60)),
+)

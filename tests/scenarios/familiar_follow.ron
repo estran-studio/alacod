@@ -1,0 +1,36 @@
+// M3-T6 (docs/conventions.md §71) : `Follow`. Le joueur 0 (carte `surfaces`, départ en (-568, 248)) tient l'objet
+// `compagnon` (un familier, `Follow` à 28 unités). Immobile jusqu'à f20 : le familier apparaît sur le joueur et
+// reste dans sa laisse. Le joueur marche vers l'est de f20 à f120 : le familier rattrape et reste à 28 unités
+// derrière lui, jamais plus près. Il ne bloque pas le joueur (couche sans collision).
+//
+// À regarder : un carré qui suit le joueur à distance constante.
+
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 200,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            inputs: [
+            (from: 20, to: 120, buttons: [Right], pan: (0, 0)),
+            ],
+            weapon: "larme",
+            items: ["compagnon"],
+        ),
+    ],
+    expect: [
+        HasItem(handle: 0, id: "compagnon", at_frame: 5),
+        FamiliarCount(handle: 0, count: 1, at_frame: 5),
+        // Apparu sur le porteur (laisse de 28 : immobile tant qu'il est plus près).
+        FamiliarDistance(handle: 0, rank: 0, max: Some(0.5), at_frame: 15),
+        // Le joueur part à f20 : le familier reste sur place tant que la laisse (28) n'est pas tendue.
+        FamiliarDistance(handle: 0, rank: 0, min: Some(4.0), max: Some(28.0), at_frame: 28),
+        // En marche (le joueur avance de f20 à f130) : le familier rattrape et garde 28 unités.
+        FamiliarDistance(handle: 0, rank: 0, min: Some(27.5), max: Some(28.5), at_frame: 60),
+        FamiliarDistance(handle: 0, rank: 0, min: Some(27.5), max: Some(28.5), at_frame: 100),
+        // À l'arrêt : il reste à sa laisse, il n'est pas venu se coller au joueur.
+        FamiliarDistance(handle: 0, rank: 0, min: Some(27.5), max: Some(28.5), at_frame: 190),
+        FamiliarCount(handle: 0, count: 1, at_frame: 199),
+    ],
+)

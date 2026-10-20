@@ -1,0 +1,8 @@
+// Fixture M3-T0c : door_lock_key_zero
+(
+    name: "fixture-door_lock_key_zero",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

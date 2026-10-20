@@ -20,6 +20,9 @@ pub fn build_status_library(registry: &Registry) -> StatusLibrary {
                     StatusKindEntry::Slow => StatusDef::Slow,
                     StatusKindEntry::Stun => StatusDef::Stun,
                     StatusKindEntry::Freeze => StatusDef::Freeze,
+                    StatusKindEntry::Poison => StatusDef::Poison,
+                    StatusKindEntry::Fear => StatusDef::Fear,
+                    StatusKindEntry::Charm => StatusDef::Charm,
                 };
                 (
                     id.as_str().to_string(),

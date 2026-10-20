@@ -7,12 +7,11 @@ use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
-    character::{config::CharacterConfig, create::create_character},
+    character::{config::CharacterConfigs, create::create_character},
     collider::{CollisionLayer, CollisionSettings},
-    global_asset::GlobalAsset,
     weapons::{
-        melee::{spawn_melee_weapon_for_character, MeleeWeaponsConfig},
-        spawn_weapon_for_player, WeaponInventory, WeaponsConfig,
+        melee::spawn_melee_weapon_for_character, spawn_weapon_for_player, WeaponInventory,
+        WeaponRegistry,
     },
 };
 
@@ -66,11 +65,9 @@ pub fn spawn_enemy(
     enemy_type_name: String,
     position: fixed_math::FixedVec3,
     commands: &mut Commands,
-    weapons_asset: &Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: &Res<Assets<MeleeWeaponsConfig>>,
-    characters_asset: &Res<Assets<CharacterConfig>>,
+    weapon_registry: &WeaponRegistry,
+    character_configs: &CharacterConfigs,
 
-    global_assets: &Res<GlobalAsset>,
     collision_settings: &Res<CollisionSettings>,
 
     id_factory: &mut ResMut<GgrsNetIdFactory>,
@@ -83,13 +80,12 @@ pub fn spawn_enemy(
     // d'un `CharacterSpawn`, `None` ailleurs). Sans table `variants`, ignorés.
     run_seed: u32,
     forced_variant: Option<&str>,
+    // M3-T7 : joueurs et étage de l'apparition (identifiants de `chance` en expression).
+    variant_context: crate::character::variant::VariantContext,
 ) -> Entity {
-    let character_config = global_assets
-        .character_configs
-        .get(&enemy_type_name)
-        .and_then(|handle| characters_asset.get(handle));
+    let character_config = character_configs.get(&enemy_type_name);
     let ai_ron = character_config.and_then(|config| config.ai.as_ref());
-    let ai_config = ai_ron
+    let mut ai_config = ai_ron
         .map(EnemyAiConfig::from)
         .unwrap_or_else(EnemyAiConfig::zombie);
     // T1.4 : règles de comportement (liste du RON, sinon liste par défaut dérivée de la
@@ -112,9 +108,13 @@ pub fn spawn_enemy(
     let mut spawn_health = health_max;
     if let Some(variants) = character_config.and_then(|config| config.variants.as_ref()) {
         let id = id_factory.next(enemy_type_name.clone());
-        if let Some(name) =
-            crate::character::variant::draw_variant(variants, forced_variant, run_seed, id.0 as u64)
-        {
+        if let Some(name) = crate::character::variant::draw_variant(
+            variants,
+            forced_variant,
+            run_seed,
+            id.0 as u64,
+            variant_context,
+        ) {
             let def = &variants.table[&name];
             spawn_health =
                 crate::character::variant::variant_health(health_max, &def.modifiers(&name), 0);
@@ -127,11 +127,29 @@ pub fn spawn_enemy(
         net_id = Some(id);
     }
     let skin = chosen.as_ref().and_then(|(_, def)| def.skin.clone());
+    // M3-T7 (§72) : les `behaviors` d'une variante remplacent ceux du personnage à la création ;
+    // `Shoot` se compile vers `ai_config.ranged` comme pour une liste de personnage (`From`).
+    if let Some(rules) = chosen.as_ref().and_then(|(_, def)| def.behaviors.as_ref()) {
+        ai_config.ranged = rules.iter().find_map(|rule| match rule {
+            behaviors::Behavior::Shoot {
+                weapon,
+                pattern,
+                range,
+                cooldown_frames,
+            } => Some(super::ai::state::RangedAttack {
+                weapon: weapon.clone(),
+                pattern: pattern.clone(),
+                range: *range,
+                cooldown_frames: *cooldown_frames,
+            }),
+            _ => None,
+        });
+        behaviors.rules = rules.clone();
+    }
 
     let entity = create_character(
         commands,
-        global_assets,
-        characters_asset,
+        character_configs,
         enemy_type_name,
         skin,
         (LinearRgba::RED).into(),
@@ -167,14 +185,12 @@ pub fn spawn_enemy(
     // liste par défaut contient `Melee("zombie_claws")` exactement quand `attack_range > 0` :
     // inchangé pour le contenu existant.
     if let Some(melee_weapon) = behaviors.melee_weapon() {
-        if let Some(melee_weapons_config) = melee_weapons_asset.get(&global_assets.melee_weapons) {
-            if let Some(weapon) = melee_weapons_config
-                .0
-                .get(melee_weapon)
-                .or_else(|| melee_weapons_config.0.get("bare_hands"))
-            {
-                spawn_melee_weapon_for_character(commands, entity, weapon.clone(), id_factory);
-            }
+        if let Some(weapon) = weapon_registry
+            .melee
+            .get(melee_weapon)
+            .or_else(|| weapon_registry.melee.get("bare_hands"))
+        {
+            spawn_melee_weapon_for_character(commands, entity, weapon.clone(), id_factory);
         }
     }
 
@@ -200,10 +216,7 @@ pub fn spawn_enemy(
     }
     let ranged = !shoot_weapons.is_empty();
     for (index, weapon_name) in shoot_weapons.iter().enumerate() {
-        match weapons_asset
-            .get(&global_assets.weapons)
-            .and_then(|config| config.0.get(weapon_name))
-        {
+        match weapon_registry.weapons.get(weapon_name) {
             Some(weapon) => {
                 spawn_weapon_for_player(
                     commands,

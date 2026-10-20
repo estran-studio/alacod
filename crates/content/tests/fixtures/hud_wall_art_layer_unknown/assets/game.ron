@@ -1,0 +1,11 @@
+// m2-salles-murs-suivi : `wall_art.layer` cite une couche IntGrid absente des cartes → BrokenReference.
+(
+    name: "fixture-hud_wall_art_layer_unknown",
+    content_folders: [
+        (path: "rooms", kind: "Room"),
+        (path: "ui", kind: "Ui"),
+        (path: "maps", kind: "Map"),
+        (path: "floor_grammars", kind: "FloorGrammar"),
+    ],
+    entry: (start_map: "floor:etage", default_seed: 1),
+)

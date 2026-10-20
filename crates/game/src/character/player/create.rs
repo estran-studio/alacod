@@ -1,30 +1,19 @@
 use bevy::prelude::*;
 
-#[cfg(feature = "lighting")]
-use bevy_light_2d::light::PointLight2d;
-
 use combat::inventory::AmmoReserves;
-#[cfg(feature = "harmonium")]
-use harmonium_bevy::components::AiDriver;
-use leafwing_input_manager::prelude::ActionState;
 use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
 use crate::{
-    character::{config::CharacterConfig, create::create_character},
+    character::{config::CharacterConfigs, create::create_character},
     collider::{CollisionLayer, CollisionSettings},
-    global_asset::GlobalAsset,
     weapons::{
-        melee::{spawn_melee_weapon_for_character, MeleeWeaponsConfig},
-        spawn_weapon_for_player, WeaponInventory, WeaponsConfig,
+        melee::spawn_melee_weapon_for_character, spawn_weapon_for_player, WeaponInventory,
+        WeaponRegistry,
     },
 };
 
-use super::{
-    control::{get_input_map, PlayerAction},
-    input::CursorPosition,
-    LocalPlayer, Player,
-};
+use super::{input::CursorPosition, LocalPlayer, Player};
 use bevy_fixed::fixed_math::{self, FixedVec3};
 
 const PLAYER_COLORS: &[LinearRgba] = &[
@@ -36,10 +25,8 @@ const PLAYER_COLORS: &[LinearRgba] = &[
 
 pub fn create_player(
     commands: &mut Commands,
-    global_assets: &Res<GlobalAsset>,
-    weapons_asset: &Res<Assets<WeaponsConfig>>,
-    melee_weapons_asset: &Res<Assets<MeleeWeaponsConfig>>,
-    character_asset: &Res<Assets<CharacterConfig>>,
+    weapon_registry: &WeaponRegistry,
+    character_configs: &CharacterConfigs,
     collision_settings: &Res<CollisionSettings>,
 
     position: FixedVec3,
@@ -58,13 +45,12 @@ pub fn create_player(
     let player_name = name;
     let player_pubkey = pubkey;
 
-    // Use "player" as the character config name (defined in global_asset.rs)
+    // Use "player" as the character config name (un `CharacterId` du registre de contenu)
     let config_name = "player".to_string();
 
     let entity = create_character(
         commands,
-        global_assets,
-        character_asset,
+        character_configs,
         config_name.clone(),
         Some(if handle == 0 { "1" } else { "2" }.into()),
         (LinearRgba::GREEN).into(),
@@ -82,19 +68,10 @@ pub fn create_player(
     // `sim_core::team`) : ne pas l'ajouter à `RollbackTraceApp` sans blesser les traces.
     commands.entity(entity).insert(Team::Players);
 
+    // `ActionState`, `InputMap` (et `AiDriver` sous `harmonium`) sont posés par l'application sur le
+    // joueur local (`character::input_devices::attach_local_player_input`, `Added<LocalPlayer>`).
     if local {
-        commands.entity(entity).insert((
-            LocalPlayer {},
-            ActionState::<PlayerAction>::default(),
-            get_input_map(),
-        ));
-
-        #[cfg(feature = "harmonium")]
-        commands.entity(entity).insert(AiDriver {
-            ai_influence: 1.0,
-            detection_radius: 300.0,
-            ..default()
-        });
+        commands.entity(entity).insert(LocalPlayer {});
     }
 
     let mut inventory = WeaponInventory::default();
@@ -108,15 +85,10 @@ pub fn create_player(
     // (l'ordre déterminait l'arme active : la première du tri). `player_config.ron`
     // déclare `starting_weapons: ["machine_gun", "pistol", "shotgun"]`, cet ordre exact,
     // pour que la simulation ne change pas (même arme active, mêmes GgrsNetId).
-    let character_config = global_assets
-        .character_configs
-        .get(&config_name)
-        .and_then(|handle| character_asset.get(handle));
-    if let (Some(character_config), Some(weapons_config)) =
-        (character_config, weapons_asset.get(&global_assets.weapons))
-    {
+    let character_config = character_configs.get(&config_name);
+    if let Some(character_config) = character_config {
         for (i, weapon_id) in character_config.starting_weapons.iter().enumerate() {
-            let Some(weapon_asset) = weapons_config.0.get(weapon_id) else {
+            let Some(weapon_asset) = weapon_registry.weapons.get(weapon_id) else {
                 // Ne devrait pas arriver : `alacod lint` refuse une référence cassée au
                 // démarrage. On ignore plutôt que de paniquer si le contenu a changé sous
                 // nos pieds (rechargement à chaud hors partie).
@@ -145,10 +117,8 @@ pub fn create_player(
     }
 
     // Add a default melee weapon (bare hands) to all players
-    if let Some(melee_weapons_config) = melee_weapons_asset.get(&global_assets.melee_weapons) {
-        if let Some(bare_hands) = melee_weapons_config.0.get("bare_hands") {
-            spawn_melee_weapon_for_character(commands, entity, bare_hands.clone(), id_factory);
-        }
+    if let Some(bare_hands) = weapon_registry.melee.get("bare_hands") {
+        spawn_melee_weapon_for_character(commands, entity, bare_hands.clone(), id_factory);
     }
 
     // Monnaie et perks (T2.3, chantier C5 v1) : posés une fois, à la création, comme le
@@ -159,49 +129,23 @@ pub fn create_player(
     let currency = run::currency::Currency::new(starting_currency);
     let perks = run::perks::Perks::new();
 
-    #[cfg(feature = "lighting")]
-    {
-        commands.entity(entity).insert((
-            inventory,
-            ammo_reserves,
-            CursorPosition::default(),
-            super::input::InteractionInput::default(),
-            crate::interaction::Interactor,
-            Player {
-                handle,
-                color: PLAYER_COLORS[handle].into(),
-                name: player_name.clone(),
-                pubkey: player_pubkey.clone(),
-            },
-            PointLight2d {
-                radius: 200.,
-                cast_shadows: false,
-                falloff: 4.,
-                ..default()
-            },
-            currency,
-            perks,
-        ));
-    }
-
-    #[cfg(not(feature = "lighting"))]
-    {
-        commands.entity(entity).insert((
-            inventory,
-            ammo_reserves,
-            CursorPosition::default(),
-            super::input::InteractionInput::default(),
-            crate::interaction::Interactor,
-            currency,
-            perks,
-            Player {
-                handle,
-                color: PLAYER_COLORS[handle].into(),
-                name: player_name,
-                pubkey: player_pubkey,
-            },
-        ));
-    }
+    // La lumière du joueur (`PointLight2d`, feature `lighting`) est posée par la présentation
+    // (`light::attach_player_light`, `Added<Player>`).
+    commands.entity(entity).insert((
+        inventory,
+        ammo_reserves,
+        CursorPosition::default(),
+        crate::interaction::InteractionInput::default(),
+        crate::interaction::Interactor,
+        currency,
+        perks,
+        Player {
+            handle,
+            color: PLAYER_COLORS[handle].into(),
+            name: player_name,
+            pubkey: player_pubkey,
+        },
+    ));
 
     // Consommables de départ (M2-T1) : un inventaire seulement si le personnage en déclare.
     if let Some(config) = character_config.filter(|c| !c.starting_consumables.is_empty()) {
@@ -209,5 +153,20 @@ pub fn create_player(
             consumables: config.starting_consumables.clone(),
             ..default()
         });
+    }
+
+    // Bombes (M3-T4, §69) : seulement un personnage qui déclare `bomb` (aucun contenu existant
+    // n'en a) ; le stock est un consommable `bomb` (`starting_consumables`).
+    if let Some(def) = character_config.and_then(|c| c.bomb) {
+        commands.entity(entity).insert(world::BombCarrier::new(def));
+    }
+
+    // Visée à quatre directions (suivi Q17) : le composant n'existe que pour `FourWay` ; un
+    // personnage libre (tout le contenu d'avant) ne porte rien.
+    if let Some(aim) = character_config
+        .map(|c| c.aim)
+        .filter(|aim| *aim != sim_core::aim::AimMode::Free)
+    {
+        commands.entity(entity).insert(aim);
     }
 }

@@ -1,0 +1,10 @@
+// `isaac` (M3-T8, §73) : passif du pool `boss` (donnée d'attente, contenu : M3-T11) : deux PV de plus
+// (un cœur). Le joueur n'est pas soigné (`sync_health_from_stats` ne relève jamais la vie courante).
+(
+    name: "Réservoir vital",
+    kind: Passive,
+    rarity: Uncommon,
+    modifiers: [(stat: MaxHealth, op: Add, value: "2")],
+    // M3-T11d2 (§76.5) : le gabarit `ItemHeld` vérifie la valeur résolue de chaque modificateur (scénario `item_reservoir_vital`).
+    test: Some((frames: 60)),
+)

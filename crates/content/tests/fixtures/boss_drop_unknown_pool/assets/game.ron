@@ -1,0 +1,10 @@
+// Fixture M3-T8 : butin de boss dont le pool est inconnu (boss_drop_unknown_pool)
+(
+    name: "fixture-boss_drop_unknown_pool",
+    content_folders: [
+        (path: "objets", kind: "Item"),
+        (path: "loot", kind: "LootTable"),
+        (path: "rooms", kind: "Room"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

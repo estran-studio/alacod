@@ -1,11 +1,14 @@
-// Grammaire d'étage de `gungeon` (M2-T10, docs/conventions.md §40) : de 8 à 12 salles, un départ,
-// un boss en cul-de-sac à distance maximale (au moins 3 salles du départ), une récompense, une
-// boutique, une arène à tenir (M2-T7), le reste en salles de combat. Gabarits : maps/salles.ldtk.
+// Grammaire d'étage de `gungeon` (M2-T10, docs/conventions.md §40) : de 10 à 14 salles, un départ, un
+// boss en cul-de-sac à distance maximale (au moins 3 salles du départ), une récompense, une boutique, une
+// arène à tenir (M2-T7), une escouade (M2-T8), un coffre et une salle secrète (M2-T14d, §52.d), le reste
+// en salles de combat. Gabarits : maps/salles.ldtk.
 (
     templates: "maps/salles.ldtk",
     grammar: (
-        rooms: (8, 12),
-        required: {"boss": 1, "recompense": 1, "boutique": 1, "arene": 1},
+        rooms: (10, 14),
+        required: {"boss": 1, "recompense": 1, "boutique": 1, "arene": 1, "escouade": 1, "coffre": 1, "secret": 1},
+        // m2-salles-murs-gungeon (§40) : gabarits agrandis (jusqu'à 352 px), 10 à 14 salles de 224 à 352 px : l'étage tient dans ±3000 px ; défaut 1000.
+        bounds: Some((3000, 3000)),
         min_boss_distance: 3,
     ),
 )

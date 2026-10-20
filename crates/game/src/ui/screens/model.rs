@@ -6,11 +6,15 @@
 
 use std::collections::BTreeMap;
 
+use bevy::prelude::Resource;
+
 /// Écran ouvert.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ScreenId {
     Pause,
     Inventory,
+    /// Marchand de déblocages du hub (M2-T13, `docs/conventions.md` §57).
+    Merchant,
 }
 
 impl ScreenId {
@@ -18,6 +22,7 @@ impl ScreenId {
         match self {
             Self::Pause => "pause",
             Self::Inventory => "inventory",
+            Self::Merchant => "merchant",
         }
     }
 }
@@ -32,6 +37,22 @@ pub enum UiAction {
     Confirm,
     /// Ferme l'écran ouvert.
     Back,
+}
+
+/// Un pas du script d'un scénario : l'action est jouée à la frame `at_frame` (format RON :
+/// `(at_frame: 20, action: Toggle(Pause))`).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct UiStep {
+    pub at_frame: u32,
+    pub action: UiAction,
+}
+
+/// Script d'actions d'UI d'un scénario (ressource posée par le runner ; absente en jeu).
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct ScreenScript {
+    pub steps: Vec<UiStep>,
+    /// Dernière frame dont les pas ont été joués : un pas ne l'est qu'une fois.
+    pub played_until: Option<u32>,
 }
 
 /// Les entrées du menu de pause, dans l'ordre d'affichage.
@@ -66,6 +87,8 @@ impl PauseEntry {
 pub enum ScreenCommand {
     Restart,
     ToLobby,
+    /// Acheter la ligne `n` du marchand (M2-T13), hors simulation.
+    Buy(usize),
 }
 
 /// État local des écrans (présentation, hors rollback).
@@ -74,6 +97,7 @@ pub struct ScreensState {
     pub open: Option<ScreenId>,
     pub pause_focus: usize,
     pub inventory_focus: usize,
+    pub merchant_focus: usize,
     /// « Réglages » validé : l'écran des réglages est vide, on l'affiche.
     pub settings_shown: bool,
 }
@@ -87,7 +111,7 @@ pub fn focus_step(focus: usize, len: usize, step: i32) -> usize {
 }
 
 /// Applique une action (pur). `inventory_len` : nombre d'éléments qui peuvent prendre le focus
-/// dans l'inventaire. Renvoie la commande à transmettre au jeu, s'il y en a une.
+/// dans l'écran ouvert à liste (l'inventaire, ou les déblocages du marchand). Renvoie la commande à transmettre au jeu, s'il y en a une.
 pub fn reduce(
     state: &mut ScreensState,
     action: UiAction,
@@ -120,6 +144,9 @@ pub fn reduce(
                 Some(ScreenId::Inventory) => {
                     state.inventory_focus = focus_step(state.inventory_focus, inventory_len, step);
                 }
+                Some(ScreenId::Merchant) => {
+                    state.merchant_focus = focus_step(state.merchant_focus, inventory_len, step);
+                }
                 None => {}
             }
             None
@@ -143,6 +170,9 @@ pub fn reduce(
                     None
                 }
             },
+            Some(ScreenId::Merchant) if inventory_len > 0 => Some(ScreenCommand::Buy(
+                state.merchant_focus.min(inventory_len - 1),
+            )),
             _ => None,
         },
     }
@@ -386,6 +416,105 @@ pub fn inventory_view(input: &InventoryInput, state: &ScreensState) -> ScreenVie
     sections.insert("hint".into(), text("↑ ↓ parcourir · I / Échap / B fermer"));
     ScreenView {
         screen: ScreenId::Inventory,
+        sections,
+    }
+}
+
+/// État d'un déblocage pour le joueur au marchand.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MerchantStatus {
+    Owned,
+    /// Achetable maintenant.
+    Available,
+    /// Pas encore : la raison (prérequis, statistique ou essence manquants).
+    Locked(String),
+}
+
+/// Une ligne du marchand : un `Unlock` du jeu.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MerchantLine {
+    pub id: String,
+    pub name: String,
+    pub cost: Option<i64>,
+    pub status: MerchantStatus,
+}
+
+/// Les déblocages du jeu (ordre des ids) et leur état pour `profile` (pur). Un achat qui serait
+/// refusé (`meta::Profile::purchase`) donne `Locked(raison)`.
+pub fn merchant_lines(
+    unlocks: &[(String, items::UnlockDef)],
+    profile: &meta::Profile,
+) -> Vec<MerchantLine> {
+    unlocks
+        .iter()
+        .map(|(id, def)| {
+            let status = if profile.has_unlock(id) {
+                MerchantStatus::Owned
+            } else {
+                match profile.clone().purchase(
+                    id,
+                    &meta::PurchaseTerms {
+                        cost: def.cost,
+                        requires: &def.requires,
+                        stat: def.stat.as_ref().map(|(stat, need)| (stat.as_str(), *need)),
+                    },
+                ) {
+                    Ok(()) => MerchantStatus::Available,
+                    Err(error) => MerchantStatus::Locked(error.to_string()),
+                }
+            };
+            MerchantLine {
+                id: id.clone(),
+                name: if def.name.is_empty() {
+                    id.clone()
+                } else {
+                    def.name.clone()
+                },
+                cost: def.cost,
+                status,
+            }
+        })
+        .collect()
+}
+
+/// Vue du marchand (pure) : l'essence du joueur, la liste (focus), le détail de la ligne
+/// focalisée et `message` (résultat du dernier achat).
+pub fn merchant_view(
+    lines: &[MerchantLine],
+    state: &ScreensState,
+    essence: u64,
+    message: &str,
+) -> ScreenView {
+    let focus = state.merchant_focus.min(lines.len().saturating_sub(1));
+    let entries = lines
+        .iter()
+        .enumerate()
+        .map(|(index, line)| ListItem {
+            label: line.name.clone(),
+            detail: match (&line.status, line.cost) {
+                (MerchantStatus::Owned, _) => "possédé".into(),
+                (_, Some(cost)) => format!("{cost} essence"),
+                (_, None) => "gratuit".into(),
+            },
+            focused: index == focus,
+        })
+        .collect();
+    let detail = match lines.get(focus).map(|line| &line.status) {
+        Some(MerchantStatus::Locked(reason)) => reason.clone(),
+        _ => String::new(),
+    };
+    let mut sections = BTreeMap::new();
+    sections.insert("title".into(), text("Marchand"));
+    sections.insert("essence".into(), text(format!("Essence : {essence}")));
+    sections.insert("entries".into(), Section::List(entries));
+    sections.insert("detail".into(), text(detail));
+    sections.insert("message".into(), text(message));
+    sections.insert(
+        "hint".into(),
+        text("↑ ↓ choisir · Entrée / A acheter · Échap / B fermer"),
+    );
+    ScreenView {
+        screen: ScreenId::Merchant,
         sections,
     }
 }

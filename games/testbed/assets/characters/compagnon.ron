@@ -1,0 +1,58 @@
+// M3-T0d (docs/conventions.md §63), exécuté par M3-T6 (§71) : familier d'essai. Personnage de l'équipe
+// `Players`, sans IA de poursuite : il suit son porteur (`Follow`) et tire avec lui (`MirrorShot` : les
+// larmes du porteur, son arme et ses objets, Q13). Cité par les objets `compagnon`
+// et `compagnon_actif` (champ `familiar`) ; créé au ramassage, détruit à la perte de l'objet.
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "compagnon",
+
+    collider: (
+        shape: Rectangle(
+            width: "12.",
+            height: "12.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "0.6",
+
+    base_health: (
+        max: "10.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    team: Some(Players),
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("0.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: Some(true),
+        behaviors: Some([
+            Follow(gap: "28.0"),
+            MirrorShot(every: 12),
+        ]),
+    )),
+)

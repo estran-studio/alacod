@@ -6,7 +6,7 @@ use std::{fmt::Display, rc::Rc, usize};
 
 // This package does the conversion between ldtk map and my AvailableLevel struct to be used by the algo
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Side {
     N,
     S,
@@ -75,12 +75,14 @@ impl Display for Connection {
 }
 
 impl Connection {
-    /// Deux prises s'emboîtent si leurs côtés sont opposés et leurs longueurs égales ; avec
-    /// `aligned` (règle d'origine, `MapSettings::aligned_openings`), au même décalage aussi.
-    fn are_matching(&self, other: &Connection, aligned: bool) -> bool {
+    /// Deux ouvertures se raccordent si elles sont sur des côtés opposés, de même taille et, sauf
+    /// `offset_free`, à la même distance du coin (des gabarits de tailles différentes ont leur porte au
+    /// milieu de leur côté, donc à des distances différentes : la pose décale alors la salle,
+    /// `Room::get_connecting_room_position`).
+    fn are_matching(&self, other: &Connection, offset_free: bool) -> bool {
         self.side.is_opposite(other.side)
+            && (offset_free || self.starting_at == other.starting_at)
             && self.size == other.size
-            && (!aligned || self.starting_at == other.starting_at)
     }
 }
 
@@ -188,7 +190,17 @@ pub fn scan_height_side(
     }
 }
 
-pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>, aligned: bool) {
+pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>) {
+    populate_level_connections_with(available_levels, false);
+}
+
+/// Comme [`populate_level_connections`] ; `offset_free` : les ouvertures n'ont pas besoin d'être à la même
+/// distance du coin de leur côté (m2-salles-murs-gungeon, §40 : étages de grammaire à gabarits de tailles
+/// différentes). `false` (défaut de tous les autres modes) : appariement inchangé.
+pub fn populate_level_connections_with(
+    available_levels: &mut Vec<AvailableLevel>,
+    offset_free: bool,
+) {
     let mut to_add_elements: Vec<(usize, usize, (AvailableLevel, usize))> = vec![];
 
     let mut i = 0;
@@ -214,7 +226,7 @@ pub fn populate_level_connections(available_levels: &mut Vec<AvailableLevel>, al
 
                     let other_connection = other_level.connections.get(yy).unwrap();
 
-                    if connection.are_matching(other_connection, aligned) {
+                    if connection.are_matching(other_connection, offset_free) {
                         //if other_level.level_type != LevelType::Spawn {
                         to_add_elements.push((i, y, (available_levels[ii + i].clone(), yy)));
                         //}
@@ -323,11 +335,11 @@ mod tests {
         let b = || level("B", LevelType::Normal, &[Side::W]);
 
         let mut spawn_premier = vec![s(), a(), b()];
-        populate_level_connections(&mut spawn_premier, true);
+        populate_level_connections(&mut spawn_premier);
         let mut spawn_milieu = vec![a(), s(), b()];
-        populate_level_connections(&mut spawn_milieu, true);
+        populate_level_connections(&mut spawn_milieu);
         let mut spawn_dernier = vec![a(), b(), s()];
-        populate_level_connections(&mut spawn_dernier, true);
+        populate_level_connections(&mut spawn_dernier);
 
         let attendu = compat(&spawn_premier);
         assert_eq!(attendu, compat(&spawn_milieu));

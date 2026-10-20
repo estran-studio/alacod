@@ -1,0 +1,30 @@
+// M3-T3 (§68) : la récompense d'une salle nettoyée peut être un tas de sous. Même partie que `room_reward`, mais l'étage
+// (`sous_salle`) a pour pool de butin `pieces_salle` (`Currency(3)`, récompense forcée, jamais de coffre) : la salle
+// `combat` nettoyée laisse un `ShellPickup` de 3 sous au centre de la salle (`room_reward_system`), pas une clé.
+//
+// À regarder : f30-90 le joueur entre dans la salle de combat et tire ; quand les deux ennemis sont morts un tas de
+// sous apparaît au centre (f479) ; le joueur le ramasse aussitôt (f480) : solde 1120 → 1123 (les points des kills
+// montent le solde depuis 500), aucune clé.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    room_reward_chance_override: "1.0",
+    game: "testbed",
+    floors: Some("sous_salle"),
+    map_seed: 1,
+    frames: 600,
+    players: [
+        (inputs: [
+            (from: 30, to: 90, buttons: [Right]),
+            (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+        ]),
+    ],
+    expect: [
+        RoomState(kind: "combat", state: Cleared, at_frame: 500),
+        ShellPiles(count: 0, at_frame: 470),
+        ShellPiles(count: 1, at_frame: 480),
+        Currency(handle: 0, min: 1120, max: 1120, at_frame: 480),
+        ShellPiles(count: 0, at_frame: 485),
+        Currency(handle: 0, min: 1123, max: 1123, at_frame: 485),
+        Consumable(handle: 0, id: "key", count: 0, at_frame: 590),
+    ],
+)

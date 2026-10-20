@@ -1,6 +1,6 @@
-use crate::core::AppState;
 use crate::jjrs::GggrsSessionConfiguration;
 use crate::run_state::LocalLobbyHold;
+use crate::session::AppState;
 use bevy::prelude::*;
 use bevy_ggrs::ggrs::PlayerType;
 use bevy_matchbox::prelude::MatchboxSocket;
@@ -15,7 +15,7 @@ impl Plugin for LobbyUiPlugin {
         // We only update if the socket changed (players connected/disconnected)
         app.add_systems(
             Update,
-            update_lobby_ui.run_if(in_state(AppState::LobbyOnline)),
+            (update_lobby_ui, update_lobby_status).run_if(in_state(AppState::LobbyOnline)),
         );
         // D13 : lobby local en attente après un retour de partie (`LocalLobbyHold`).
         app.add_systems(OnEnter(AppState::LobbyLocal), spawn_local_hold_ui);
@@ -147,6 +147,10 @@ struct LobbyUiRoot;
 #[derive(Component)]
 struct PlayerListContainer;
 
+/// D109 : ligne d'état de la connexion des pairs (attente lente, tentative abandonnée).
+#[derive(Component)]
+struct LobbyStatusText;
+
 fn despawn_lobby_ui(mut commands: Commands, q_root: Query<Entity, With<LobbyUiRoot>>) {
     for entity in q_root.iter() {
         // In Bevy 0.17, despawn() on a UI node hierarchy should handle children via the hierarchy system
@@ -190,7 +194,42 @@ fn spawn_lobby_ui(mut commands: Commands) {
                 },
                 PlayerListContainer,
             ));
+
+            // D109 : vide tant que la connexion se passe normalement.
+            parent.spawn((
+                Text::new(""),
+                TextFont {
+                    font_size: FontSize::Px(24.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.4, 0.2)),
+                Node {
+                    margin: UiRect::top(Val::Px(20.0)),
+                    ..default()
+                },
+                LobbyStatusText,
+            ));
         });
+}
+
+/// D109 : texte de [`LobbyStatusText`] d'après `LobbyConnectWatch` (horloge murale).
+fn update_lobby_status(
+    watch: Res<crate::jjrs::p2p_socket::LobbyConnectWatch>,
+    mut texts: Query<&mut Text, With<LobbyStatusText>>,
+) {
+    let now = bevy::platform::time::Instant::now();
+    let notice = watch
+        .notice
+        .map(|(notice, since)| (notice, now.saturating_duration_since(since).as_secs_f32()));
+    let room_full = watch.room_full.map(|full| (full.peers, full.max));
+    let status =
+        crate::jjrs::p2p_socket::connect_status_text(watch.pending_secs, room_full, notice)
+            .unwrap_or_default();
+    for mut text in &mut texts {
+        if text.0 != status {
+            text.0.clone_from(&status);
+        }
+    }
 }
 
 fn update_lobby_ui(
@@ -199,6 +238,7 @@ fn update_lobby_ui(
     config: Res<GggrsSessionConfiguration>,
     q_container: Query<Entity, With<PlayerListContainer>>,
     q_children: Query<&Children>,
+    previous: Res<crate::jjrs::p2p::PreviousSessionPeers>,
 ) {
     let Some(mut socket) = socket else { return };
 
@@ -228,7 +268,8 @@ fn update_lobby_ui(
         }
 
         commands.entity(container_entity).with_children(|parent| {
-            let socket_players = socket.players();
+            // D86 : sans les pairs d'une session déjà jouée.
+            let socket_players = crate::jjrs::p2p::live_players(socket.players(), &previous.0);
             let player_configs = &config.players;
 
             // Display each player config with their connection status

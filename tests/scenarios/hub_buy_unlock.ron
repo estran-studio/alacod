@@ -1,0 +1,37 @@
+// M2-T13 (docs/conventions.md §57) : le marchand du hub. Le joueur 0 (jalon `first_run`, 20 d'essence)
+// utilise le marchand : la visite est décidée dans la simulation, l'écran s'ouvre une fois la frame
+// confirmée. Il choisit « Trésor : le trèfle » (20 essence) : l'achat écrit le profil tout de suite
+// (hors simulation) mais `RunUnlocks`, figé au lancement de cette session, ne change pas : le
+// déblocage entre dans la run suivante, à la porte (relance : `crates/scenario/tests/hub.rs`).
+//
+// À regarder : le pilote va au marchand (f80), l'écran s'ouvre, le focus descend sur le trèfle
+// (f100–101), l'achat est validé (f110) : « possédé » remplace le prix, l'essence tombe à 0.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "gungeon",
+    map: "maps/etage_1.ldtk",
+    floors: Some("etage_1"),
+    hub: Some((stay: true)),
+    frames: 140,
+    profile: true,
+    profile_setup: Some((profiles: [(handle: 0, unlocks: ["first_run"], essence: 20)])),
+    players: [(inputs: [
+        (from: 10, to: 42, buttons: [Right]),
+        (from: 42, to: 74, buttons: [Up]),
+        (from: 80, to: 82, buttons: [Interaction]),
+    ])],
+    ui: [
+        (at_frame: 100, action: Down),
+        (at_frame: 101, action: Down),
+        (at_frame: 110, action: Confirm),
+    ],
+    expect: [
+        ScreenText(screen: "merchant", section: "entries", contains: "", closed: true, at_frame: 70),
+        ScreenText(screen: "merchant", section: "entries", contains: "> Coffres plus riches  60 essence\n  Étendard royal  40 essence\n  Trésor : le trèfle  20 essence", at_frame: 95),
+        ScreenText(screen: "merchant", section: "entries", contains: "> Trésor : le trèfle  20 essence", at_frame: 105),
+        ProfileHas(handle: 0, unlock: "tresor_trefle", currency: ("essence", 0), at_frame: 130),
+        ScreenText(screen: "merchant", section: "entries", contains: "> Trésor : le trèfle  possédé", at_frame: 130),
+        ScreenText(screen: "merchant", section: "essence", contains: "Essence : 0", at_frame: 130),
+        RunUnlocks(lacks: ["tresor_trefle"], at_frame: 130),
+    ],
+)

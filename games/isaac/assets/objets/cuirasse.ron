@@ -1,0 +1,12 @@
+// `isaac` (M3-T11d2, §76.5) : une salle nettoyée (`OnRoomClear`) donne un point de bouclier (`GainShield`) : il absorbe un coup entier (§18).
+(
+    name: "Cuirasse",
+    kind: Passive,
+    effects: [
+        (on: OnRoomClear, do: [GainShield(1)]),
+    ],
+    tags: ["effet"],
+    rarity: Uncommon,
+    // `OnRoomClear` ne se joue pas dans le gabarit `ItemHeld` : l'effet est prouvé par le scénario `isaac_cuirasse`.
+    test: Some((frames: 60)),
+)

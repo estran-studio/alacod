@@ -1,0 +1,30 @@
+// M3-T7 (§72) : `behaviors` d'une variante (variante `distant`). Un `elite_comportement` (`Chase`) placé à 150 unités du joueur 0 (carte
+// `surfaces`, immobile) : avec `distant`, ses `behaviors` remplacent les siens à la création (`KeepDistance` 200-260) : il
+// ne s'approche pas à moins de 200 unités du joueur ; sans (témoin `nu`), il le poursuit.
+//
+// À regarder : le champion s'arrête à ~200 unités du joueur ; le témoin le rejoint.
+//
+// M3-T17 (feedback v3, conventions §82) : moments clés `feedback` qui prouvent la variante à `tint` du champion (`variant_tint`). Trace inchangée.
+
+Scenario(
+    game: "testbed",
+    map: "testbed/surfaces.ldtk",
+    frames: 300,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "elite_comportement", x: "-418", y: "248", at_frame: 1, variant: "distant"),
+    ],
+    players: [
+        (
+            inputs: [],
+            weapon: "larme",
+            items: [],
+        ),
+    ],
+    expect: [
+        EnemyVariant(entity: Placed(0), variant: Some("distant"), at_frame: 2),
+        EnemyState(entity: Placed(0), behavior: "KeepDistance", at_frame: 60),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(190.0), at_frame: 299),
+        Event(kind: "feedback", label_contains: Some("champion 14 (distant)"), by_frame: 2),
+    ],
+)

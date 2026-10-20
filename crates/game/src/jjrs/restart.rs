@@ -20,9 +20,8 @@
 
 use bevy::prelude::*;
 use bevy_fixed::rng::fnv1a;
-use bevy_matchbox::MatchboxSocket;
 
-use crate::core::OnlineState;
+use crate::session::OnlineState;
 
 /// Délai d'attente des pairs dans la salle de restart avant le retour au lobby.
 pub const RESTART_TIMEOUT_SECS: f32 = 30.0;
@@ -67,14 +66,6 @@ pub fn reset_online_games(restart: Option<Res<OnlineRestart>>, mut games: ResMut
 pub fn count_online_game(online: Res<OnlineState>, mut games: ResMut<OnlineGames>) {
     if matches!(*online, OnlineState::Online) {
         games.0 += 1;
-    }
-}
-
-/// `OnExit(InGame)` : ferme le socket matchbox de la partie (le pair resté n'y voit plus
-/// l'autre ; le prochain `LobbyOnline` en rouvre un).
-pub fn drop_matchbox_socket(mut commands: Commands, socket: Option<Res<MatchboxSocket>>) {
-    if socket.is_some() {
-        commands.remove_resource::<MatchboxSocket>();
     }
 }
 

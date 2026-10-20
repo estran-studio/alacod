@@ -1,0 +1,25 @@
+// M4-T0c (contrats du monde, docs/conventions.md §62) : rochers de salle. Carte
+// `testbed/rocks_static.ldtk` : couloir de 3 cases de haut, trois rochers à la colonne 12 (x 192
+// à 208) qui le ferment, un rocher à butin derrière (colonne 14). Le joueur marche à droite de
+// f10 à f200.
+//
+// À regarder : le joueur avance jusqu'au premier rocher (x ≈ 294, le rocher commence à 304) et s'y arrête, sans le
+// traverser ni se coincer dans le mur ; les quatre rochers restent en place (aucune explosion,
+// les bombes arrivent avec M4-T4).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 220,
+    players: [
+        (inputs: [(from: 10, to: 200, buttons: [Right], pan: (0, 0))]),
+    ],
+    expect: [
+        // La couche `Rocks` : trois rochers + un rocher à butin
+        EntityCount(kind: Rock, min: 4, max: 4, at_frame: 5),
+        PlayerPosition(handle: 0, x: 293.8, y: 696, tolerance: 1, at_frame: 100),
+        PlayerPosition(handle: 0, x: 293.8, y: 696, tolerance: 1, at_frame: 215),
+        EntityCount(kind: Rock, min: 4, max: 4, at_frame: 219),
+        PlayerAlive(handle: 0, at_frame: 219),
+    ],
+)

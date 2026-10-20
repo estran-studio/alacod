@@ -1,0 +1,32 @@
+// M3-T8 (docs/conventions.md §73, Q5) : deux coffres d'un même pool **à épuisement** ne donnent pas le même
+// objet. Les clés `k1` et `k14` (posées à f5 et f6, au pied du joueur) piochent dans `epuisable` (`exhaust: true`,
+// trois objets) : l'objet de chaque coffre est assigné **à la pose**, dans l'ordre des emplacements, et sort du
+// pool (`PoolState`) ; ouvrir un coffre ne tire plus rien. Résultat : `lame` puis `bottes`.
+// Témoin : `pool_exhaust_two_chests_temoin` (mêmes clés, pool jumeau sans `exhaust` : `lame` deux fois).
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : clé `k5` → `k14` (la graine de carte détermine le niveau, donc la position du joueur : elle reste 1) ; avec le nouveau tirage `k1` et `k5` donnent deux objets différents au témoin sans épuisement, `k1` et `k14` deux `lame` ; ici toujours `lame` puis `bottes`.
+//
+// À regarder : f20 deux objets sortis du pool ; le joueur ouvre puis ramasse (f30–f90) : une lame et des bottes.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    map_seed: 1,
+    frames: 90,
+    chests: [
+        (key: "k1", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 5),
+        (key: "k14", table: Some("epuisable"), x: "-232.0", y: "-232.0", at_frame: 6),
+    ],
+    players: [(inputs: [
+        (from: 30, to: 31, buttons: [Interaction]), (from: 40, to: 41, buttons: [Interaction]),
+        (from: 50, to: 51, buttons: [Interaction]), (from: 60, to: 61, buttons: [Interaction]),
+    ])],
+    expect: [
+        PoolCount(pool: "epuisable", count: 0, at_frame: 4),
+        PoolCount(pool: "epuisable", count: 2, at_frame: 20),
+        PoolSeen(pool: "epuisable", item: "lame", seen: true, at_frame: 20),
+        PoolSeen(pool: "epuisable", item: "bottes", seen: true, at_frame: 20),
+        PoolSeen(pool: "epuisable", item: "boussole", seen: false, at_frame: 20),
+        ItemCount(handle: 0, id: "lame", count: 1, at_frame: 89),
+        ItemCount(handle: 0, id: "bottes", count: 1, at_frame: 89),
+    ],
+)

@@ -1,0 +1,5 @@
+// `isaac` (M3-T10, §75) : accordé par `second_etage`. « Bague des profondeurs » (pool `tresor`) quitte les pools tant que ce déblocage manque.
+(
+    name: "Bague des profondeurs",
+    grants: [Item("bague")],
+)

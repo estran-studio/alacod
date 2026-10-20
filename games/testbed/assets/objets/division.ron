@@ -1,0 +1,13 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : à l'impact sur un personnage, la larme se divise en trois en éventail (`Split` sans `child` : copie du tir du porteur). Scénarios `tears_split`, `tears_stack_three`.
+(
+    name: "Division",
+    kind: Passive,
+    projectile: Some((modifiers: [Split(count: 3, spread: "0.6")])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : scénarios générés `tears_division` et son témoin `tears_division_sans_objet` : les éclats touchent la cible de l'arène (5 coups contre 0) ; 6 balles en vol contre 0.
+        tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], hits: [(target: 0, with_item: 5, without_item: 0)], expect: [BulletCount(count: 6, projectile: Some("larme"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larme"), at_frame: 150)])),
+    )),
+)

@@ -1,0 +1,8 @@
+// Fixture M3-T0c : bomb_fuse_zero
+(
+    name: "fixture-bomb_fuse_zero",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

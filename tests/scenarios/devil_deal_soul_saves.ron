@@ -1,0 +1,29 @@
+// M3-T8 (docs/conventions.md §73, Q6) : témoin de `devil_deal_refused_lethal`. Même joueur à 1 PV
+// (`MaxHealth` `Set 1`), même présentoir `boussole` à un cœur ; la différence est un `coeur_ame` (4 points)
+// ramassé à f5. L'âme paie : l'achat de f10 passe, 2 points d'âme partent (4 → 2), le joueur reste à 1 PV
+// sur 1 de vie maximale.
+//
+// À regarder : f10 l'achat malgré 1 PV ; ExtraHealth 2 ; vie 1/1.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("deux_niveaux"),
+    items: [(id: "coeur_ame", x: "424.0", y: "696.0", at_frame: 5)],
+    shop: (shelves: [(key: "s", item: "boussole", price: 0, cost: Some(MaxHealth("2")), x: "424.0", y: "696.0", at_frame: 5)]),
+    frames: 100,
+    players: [
+        (modifiers: [(stat: MaxHealth, op: Set, value: "1")], inputs: [
+            (from: 10, to: 11, buttons: [Interaction]),
+        ]),
+    ],
+    expect: [
+        ExtraHealth(handle: 0, n: 4.0, at_frame: 9),
+        Health(handle: 0, min: 1.0, max: 1.0, at_frame: 9),
+        Shelf(nth: 0, sold: Some(true), at_frame: 30),
+        HasItem(handle: 0, id: "boussole", at_frame: 30),
+        ExtraHealth(handle: 0, n: 2.0, at_frame: 30),
+        Health(handle: 0, min: 1.0, max: 1.0, at_frame: 90),
+        Stat(handle: 0, stat: MaxHealth, value: 1.0, at_frame: 90),
+        PlayerAlive(handle: 0, at_frame: 99),
+    ],
+)

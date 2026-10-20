@@ -1,0 +1,5 @@
+// `isaac` (M3-T11d1, docs/conventions.md §69 et §76.4 ; copie de `testbed`, M3-T4) : piques, valeur 5 de la couche IntGrid
+// `Surfaces` des gabarits de combat (`maps/salles.ldtk`). Un joueur qui y pose les pieds perd un demi-cœur (1 PV, dégâts
+// `True` : l'âme les absorbe d'abord), au plus une fois par seconde (60 frames) ; `hit_iframes` (60) de `pleureur`
+// recouvre la période. Un dash ne les franchit pas (`pleureur` n'en a pas). Les ennemis ne les craignent pas.
+(intgrid_value: 5, tags: ["piques"], move_speed: "1.0", hazard: Some((damage: "1.0", period: 60)))

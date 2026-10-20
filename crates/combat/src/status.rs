@@ -1,4 +1,5 @@
-//! Statuts (B3, T1.3, `docs/conventions.md` §19) : `Burn`, `Slow`, `Stun`, `Freeze`.
+//! Statuts (B3, T1.3, `docs/conventions.md` §19) : `Burn`, `Slow`, `Stun`, `Freeze` ; M3-T1
+//! (§66) : `Poison`, `Fear` ; suivi Q12 : `Charm`.
 //!
 //! Un statut du contenu (kind `Status`, `statuses/<id>.ron`) est un [`StatusSpec`] : son genre
 //! ([`StatusDef`]) et ses paramètres. Les définitions du jeu forment la [`StatusLibrary`]
@@ -14,6 +15,13 @@
 //!   rafraîchit la durée.
 //! - `Stun` : ni déplacement ni tir ; réapplication rafraîchit.
 //! - `Freeze` : comme `Stun`, plus vitesse et recul remis à zéro ; réapplication rafraîchit.
+//! - `Poison` (M3-T1) : exactement les règles de `Burn` (ticks, piles, durée plafonnée), dégâts de
+//!   genre `DamageKind::Poison` (résistances propres).
+//! - `Fear` (M3-T1) : l'ennemi fuit sa cible (`Flee` imposé, aucune attaque au corps à corps)
+//!   pendant la durée ; réapplication rafraîchit. Sans effet sur un joueur.
+//! - `Charm` (suivi Q12) : l'ennemi cible l'**ennemi hostile le plus proche** (égalité : le plus petit
+//!   `GgrsNetId`) pendant la durée, le frappe, ne touche aucun joueur, puis redevient hostile ;
+//!   réapplication rafraîchit. Sans effet sur un joueur.
 //!
 //! Un statut expire à la frame `expires_at_frame` (retiré par [`Statuses::tick`]).
 use std::collections::BTreeMap;
@@ -30,6 +38,19 @@ pub enum StatusDef {
     Slow,
     Stun,
     Freeze,
+    // M3-T1 : en fin d'enum (le `derive(Hash)` hache l'index : les quatre d'avant gardent le leur).
+    Poison,
+    Fear,
+    // Suivi Q12 : encore en fin d'enum (les sept d'avant gardent leur index haché).
+    Charm,
+}
+
+impl StatusDef {
+    /// Statut à dégâts périodiques (`Burn`, `Poison`) : un tick de `damage` toutes les `period`
+    /// frames, piles plafonnées à [`BURN_MAX_STACKS`].
+    pub fn is_damage_over_time(self) -> bool {
+        matches!(self, StatusDef::Burn | StatusDef::Poison)
+    }
 }
 
 /// Plafond des piles de `Burn` (et de sa durée : 2 × la base).
@@ -76,10 +97,11 @@ pub struct StatusEntry {
 #[derive(Component, Default, Clone, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
 pub struct Statuses(pub Vec<StatusEntry>);
 
-/// Un tick de `Burn` dû cette frame.
+/// Un tick de `Burn` ou de `Poison` dû cette frame.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BurnTick {
+pub struct StatusTick {
     pub id: String,
+    pub status: StatusDef,
     pub source: Option<GgrsNetId>,
     pub source_team: Option<Team>,
     pub damage: Fixed,
@@ -104,7 +126,7 @@ impl Statuses {
             entry.source = source;
             entry.source_team = source_team;
             match spec.kind {
-                StatusDef::Burn => {
+                StatusDef::Burn | StatusDef::Poison => {
                     let remaining = entry.expires_at_frame.saturating_sub(frame);
                     let extended = remaining
                         .saturating_add(spec.frames.saturating_mul(stacks))
@@ -112,14 +134,18 @@ impl Statuses {
                     entry.expires_at_frame = frame.saturating_add(extended);
                     entry.stacks = entry.stacks.saturating_add(stacks).min(BURN_MAX_STACKS);
                 }
-                StatusDef::Slow | StatusDef::Stun | StatusDef::Freeze => {
+                StatusDef::Slow
+                | StatusDef::Stun
+                | StatusDef::Freeze
+                | StatusDef::Fear
+                | StatusDef::Charm => {
                     entry.expires_at_frame = frame.saturating_add(spec.frames);
                 }
             }
             return;
         }
         let (duration, stacks) = match spec.kind {
-            StatusDef::Burn => {
+            StatusDef::Burn | StatusDef::Poison => {
                 let stacks = stacks.min(BURN_MAX_STACKS);
                 (spec.frames.saturating_mul(stacks), stacks)
             }
@@ -136,20 +162,21 @@ impl Statuses {
         });
     }
 
-    /// Ticks de `Burn` dus à `frame` (dans l'ordre de pose), puis retrait des statuts
-    /// expirés (`expires_at_frame <= frame`). Un tick tombant à l'expiration compte.
-    pub fn tick(&mut self, frame: u32, library: &StatusLibrary) -> Vec<BurnTick> {
+    /// Ticks de `Burn` et de `Poison` dus à `frame` (dans l'ordre de pose), puis retrait des
+    /// statuts expirés (`expires_at_frame <= frame`). Un tick tombant à l'expiration compte.
+    pub fn tick(&mut self, frame: u32, library: &StatusLibrary) -> Vec<StatusTick> {
         let mut ticks = Vec::new();
         for entry in &mut self.0 {
-            if entry.status != StatusDef::Burn {
+            if !entry.status.is_damage_over_time() {
                 continue;
             }
             let Some(spec) = library.statuses.get(&entry.id) else {
                 continue;
             };
             if frame >= entry.next_tick_frame && entry.next_tick_frame <= entry.expires_at_frame {
-                ticks.push(BurnTick {
+                ticks.push(StatusTick {
                     id: entry.id.clone(),
+                    status: entry.status,
                     source: entry.source.clone(),
                     source_team: entry.source_team,
                     damage: spec.damage,
@@ -181,6 +208,28 @@ impl Statuses {
     pub fn frozen(&self) -> bool {
         self.0.iter().any(|e| e.status == StatusDef::Freeze)
     }
+
+    /// `Fear` (M3-T1) : l'ennemi fuit sa cible.
+    pub fn feared(&self) -> bool {
+        self.0.iter().any(|e| e.status == StatusDef::Fear)
+    }
+}
+
+/// `Charm` (suivi Q12) : l'ennemi sert le camp des joueurs pendant la durée.
+impl Statuses {
+    pub fn charmed(&self) -> bool {
+        self.0.iter().any(|e| e.status == StatusDef::Charm)
+    }
+}
+
+/// `Charm` sur une entité qui porte peut-être des statuts.
+pub fn charmed(statuses: Option<&Statuses>) -> bool {
+    statuses.is_some_and(Statuses::charmed)
+}
+
+/// `Fear` sur une entité qui porte peut-être des statuts.
+pub fn feared(statuses: Option<&Statuses>) -> bool {
+    statuses.is_some_and(Statuses::feared)
 }
 
 /// `Stun`/`Freeze` sur une entité qui porte peut-être des statuts.
@@ -221,6 +270,15 @@ mod tests {
             .statuses
             .insert("gel".into(), spec(StatusDef::Freeze));
         library
+            .statuses
+            .insert("poison".into(), spec(StatusDef::Poison));
+        library
+            .statuses
+            .insert("peur".into(), spec(StatusDef::Fear));
+        library
+            .statuses
+            .insert("charme".into(), spec(StatusDef::Charm));
+        library
     }
 
     fn net(id: usize) -> GgrsNetId {
@@ -234,6 +292,9 @@ mod tests {
             StatusDef::Slow,
             StatusDef::Stun,
             StatusDef::Freeze,
+            StatusDef::Poison,
+            StatusDef::Fear,
+            StatusDef::Charm,
         ];
         assert_eq!(
             ron::from_str::<Vec<StatusDef>>(&ron::to_string(&values).unwrap()).unwrap(),
@@ -333,5 +394,74 @@ mod tests {
         g.apply("gel", &lib.statuses["gel"], None, 0, 1);
         assert!(g.incapacitated() && g.frozen());
         assert!(!incapacitated(None));
+    }
+
+    #[test]
+    fn poison_suit_les_regles_de_burn() {
+        let lib = library();
+        let mut s = Statuses::default();
+        s.apply(
+            "poison",
+            &lib.statuses["poison"],
+            Some((net(7), None)),
+            100,
+            1,
+        );
+        s.apply(
+            "poison",
+            &lib.statuses["poison"],
+            Some((net(7), None)),
+            160,
+            1,
+        );
+        assert_eq!(s.0[0].expires_at_frame, 340, "durée empilée comme Burn");
+        assert_eq!(s.stacks("poison"), 2);
+        let ticks = s.tick(190, &lib);
+        assert_eq!(ticks.len(), 1);
+        assert_eq!(ticks[0].status, StatusDef::Poison);
+        assert_eq!(ticks[0].damage, fx(4.0));
+        assert!(!s.incapacitated() && !s.feared());
+    }
+
+    #[test]
+    fn peur_rafraichit_et_ne_bloque_pas() {
+        let lib = library();
+        let mut s = Statuses::default();
+        s.apply("peur", &lib.statuses["peur"], None, 100, 1);
+        s.apply("peur", &lib.statuses["peur"], None, 150, 3);
+        assert_eq!(s.0[0].expires_at_frame, 270, "rafraîchi depuis f150");
+        assert_eq!(s.stacks("peur"), 1);
+        assert!(s.feared());
+        assert!(
+            !s.incapacitated() && !s.frozen(),
+            "la peur n'immobilise pas"
+        );
+        assert!(s.tick(200, &lib).is_empty(), "aucun tick de dégâts");
+        s.tick(270, &lib);
+        assert!(!s.feared(), "expiré");
+        assert!(!feared(None));
+    }
+
+    /// `Charm` : se pose, se rafraîchit à la réapplication (sans empiler) et expire à `frames`.
+    #[test]
+    fn charme_se_rafraichit_et_expire() {
+        let lib = library();
+        let mut s = Statuses::default();
+        assert!(!s.charmed());
+        s.apply("charme", &lib.statuses["charme"], None, 100, 1);
+        assert!(s.charmed());
+        assert!(charmed(Some(&s)));
+        assert!(!charmed(None));
+        assert_eq!(s.0[0].expires_at_frame, 220);
+        s.apply("charme", &lib.statuses["charme"], None, 150, 3);
+        assert_eq!(
+            s.0[0].expires_at_frame, 270,
+            "durée rafraîchie, pas cumulée"
+        );
+        assert_eq!(s.stacks("charme"), 1, "jamais de pile");
+        assert!(s.tick(269, &lib).is_empty());
+        assert!(s.charmed(), "encore charmé à f269");
+        s.tick(270, &lib);
+        assert!(!s.charmed(), "redevient hostile à f270");
     }
 }

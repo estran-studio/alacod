@@ -1,0 +1,123 @@
+# Fichiers de crates/game/src déjà séparables en `game_sim` (D69 étape 2) : sans fuite de présentation
+# (sonde `scripts/probe-game-sim.py`) et ne dépendant que de fichiers de cette liste.
+# Cliquet : chaque étape de `docs/taches/dette-d69-etape2.md` y ajoute les fichiers qu'elle libère ;
+# `make probe_game_sim SIM_LIST=scripts/d69-sim-files.txt` échoue si l'un d'eux régresse.
+# Mesuré le 2026-10-18 sur main 09b68187 (+ retouches de dette-d69-plan-etape2) : 16 fichiers, 2 405 lignes.
+# E1 (dette-d69-e1-types-donnees) : + visual_requests.rs, fog_map.rs, frame_counter.rs, character/appearance.rs (20 fichiers).
+# E2 (dette-d69-e2-session) : + session.rs (21 fichiers).
+# E3a (dette-d69-e3a-character-configs) : aucun ajout (21 fichiers). Libérés de toute fuite : character/config.rs, character/health/mod.rs,
+# character/enemy/ai/pathing.rs, familiars.rs, feedback_v3.rs ; aucun n'entre au cliquet car sa fermeture interne contient encore un fichier à fuite
+# (collider/mod.rs, waves/mod.rs, interaction.rs, balance.rs, create.rs, feedback.rs, progression.rs…), à lever par E3b-E4 et E6.
+# E3b (dette-d69-e3b-weapon-registry) : + weapons.rs (22 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : champions.rs,
+# character/enemy/create.rs, character/enemy/spawning.rs, effects_runtime.rs, loot.rs, progression.rs, waves/systems.rs (dépendent de balance.rs, collider/mod.rs,
+# items.rs, shop.rs, interaction.rs, character/create.rs, boss.rs, clock.rs, health/mod.rs…) ; nouveau fichier à fuite : weapon_assets.rs (app).
+# E6 (dette-d69-e6-session-reseau) : + jjrs/mod.rs, jjrs/restart.rs, jjrs/p2p_tests.rs, curses.rs, et clock.rs, character/enemy/ai/mod.rs (leur fermeture, sans fuite, devenue
+# fermée avec jjrs/mod.rs : 28 fichiers). Libérés de toute fuite sans entrer : jjrs/p2p.rs (moitié simulation), recording.rs ; jjrs/local.rs, profile.rs, run_state.rs, hub.rs,
+# state_trace.rs restent bloqués par la chaîne run_state.rs → balance.rs, economy.rs, waves/mod.rs (asset : E3c, E5c) et hub.rs → interaction.rs, shop.rs (E5c) ;
+# recording.rs par character/player/input.rs, replay.rs, progression.rs. Nouveaux fichiers à fuite (application) : jjrs/p2p_socket.rs, jjrs/p2p_socket_tests.rs, jjrs/telemetry.rs,
+# args/telemetry_config.rs ; jjrs/signal_watch.rs (D109, déjà app) ; reste à fuite dans args/mod.rs : `telemetry::TelemetryPlugin` de `BaseArgsPlugin` (E9).
+# E3c (dette-d69-e3c-balance) : + clock.rs, waves/config.rs (24 fichiers). Libérés de toute fuite sans entrer au cliquet (fermeture interne à fuite) : balance.rs
+# (character/config.rs), economy.rs (balance.rs, waves/mod.rs), powerups.rs (character/health/mod.rs), shop.rs (health/mod.rs, effects_runtime.rs, interaction.rs, items.rs),
+# waves/mod.rs (character/enemy/spawning.rs, health/mod.rs) ; nouveaux fichiers à fuite (enveloppes, app) : balance_assets.rs, economy_assets.rs, powerups_assets.rs, waves/assets.rs.
+# E5a (dette-d69-e5a-ecrans) : aucun ajout (29 fichiers après fusion de E3c et E6). Libérés de toute fuite (absents de la sonde) sans entrer au cliquet, la fermeture interne contenant encore un
+# fichier à fuite : ui/hud_model.rs (character/health/mod.rs, effects_runtime.rs, loot.rs, profile.rs, progression.rs), ui/screens/mod.rs (hub.rs, profile.rs, run_state.rs,
+# ui/hud_model.rs), ui/mutation_screen.rs (character/player/input.rs, progression.rs, ui/hud_model.rs) ; la sonde les refuse à l'essai (« n'en appellent aucun autre »).
+# Nouveaux fichiers à fuite (app par construction) : ui/screens/input.rs, ui/mutation_input.rs.
+# E4 (dette-d69-e4-personnage) : + character/dash.rs, character/surface.rs, character/enemy/ai/{navigation,retreat,state}.rs, collider/mod.rs (35 fichiers). Libérés de toute fuite sans entrer au cliquet
+# (fermeture interne à fuite) : character/mod.rs, character/create.rs, character/player/{input,create}.rs, character/enemy/ai/{pathing,behavior,rules,squad}.rs, character/config.rs,
+# recording.rs ; ils dépendent tous de character/health/mod.rs (↔ character/config.rs en cycle ; economy.rs, effects_v3.rs, progression.rs, interaction.rs : E5c), de waves/mod.rs, de hub.rs ou de
+# state_trace.rs (↔ run_state.rs). Nouveaux fichiers à fuite (application) : character/{input_devices,app_plugin,control,ai_debug,health_bar}.rs, collider/test_wall.rs.
+# E3d (dette-d69-e3d-global-asset) : aucun ajout (24 fichiers). `GlobalAsset` devient une ressource d'application (présentation + sources de synchro) : aucun fichier de simulation ni lecteur
+# externe ne le lit ; aucun fichier n'est libéré (les 0 erreur `asset` des fichiers classés SIM datent de E3a-c) ; seul `global_asset.rs` (APP) gagne deux erreurs `asset` (`Assets<…>` du garde de sortie de `Loading`).
+# E5c (dette-d69-e5c-plugins) : + interaction.rs, items.rs, waves/mod.rs et toute leur fermeture interne, devenue sans fuite (41 fichiers, 76 en tout) : la présentation des interactions,
+# du blank et des vagues (interaction_view.rs, items_view.rs, waves/debug.rs) ne touche plus aucun fichier de simulation. Entrent : le cœur du personnage (character/{mod,create,config}.rs,
+# character/health/mod.rs, character/player/{input,create}.rs, character/enemy/{create,spawning}.rs, character/enemy/ai/{pathing,behavior,rules,squad,charm}.rs), balance.rs, economy.rs, powerups.rs,
+# shop.rs, loot.rs, progression.rs, effects_runtime.rs, effects_v3.rs, boss.rs, champions.rs, familiars.rs, bombs.rs, props.rs, hub.rs, run_state.rs, state_trace.rs, profile.rs, replay.rs,
+# recording.rs, jjrs/{local,p2p}.rs, ui/hud_model.rs, ui/mutation_screen.rs, ui/screens/mod.rs, waves/systems.rs. Non classés sim bien que sans fuite (application par nature, vides en ECS seul
+# par cfg ou par feature) : args/{cli,web}.rs, audio/adaptive.rs, jjrs/{allumette,browser,p2p_socket_tests}.rs, light/mod.rs, logs.rs, performance.rs, ui/{mod,game_over,mutation_hui,weapon_hud}.rs,
+# ui/screens/hui.rs, web/mod.rs, lib.rs. Nouveaux fichiers à fuite (application) : interaction_view.rs, items_view.rs.
+# E5b (dette-d69-e5b-feedback) : aucun ajout (35 fichiers). Essayés (37 avec eux) et refusés par la sonde (« dépend de fichiers hors liste ») : feedback_log.rs (nouveau, sans fuite ; hors liste :
+# boss.rs, character/health/mod.rs) et feedback_v3.rs (sans fuite depuis E3a ; hors liste : bombs.rs, character/config.rs, familiars.rs). Fermeture interne des deux
+# (79 fichiers, 49 hors liste) : 16 fichiers à fuite (camera/mod.rs, character/{config_asset,control,health_bar,visuals}.rs, economy_assets.rs, global_asset.rs, interaction.rs, items.rs,
+# legibility.rs, powerups_assets.rs, room_fog.rs, ui/hud.rs, waves/assets.rs, weapon_assets.rs, world_sprites.rs) : à relancer le calcul après E5c et les étapes suivantes.
+# E7 (dette-d69-e7-core) : + core_sim.rs (CoreSimPlugin), feedback_log.rs et feedback_v3.rs (leur fermeture, refusée à E5b, est fermée depuis E5c) : 79 fichiers.
+# core.rs (CoreSetupPlugin, CoreAppPlugin, PresentationPlugin, get_default_plugin) reste application : 12 erreurs (fenêtre, asset, rendu, crate d'E/S).
+balance.rs
+bombs.rs
+boss.rs
+champions.rs
+character/appearance.rs
+character/config.rs
+character/create.rs
+character/dash.rs
+character/enemy/ai/behavior.rs
+character/enemy/ai/charm.rs
+character/enemy/ai/mod.rs
+character/enemy/ai/navigation.rs
+character/enemy/ai/obstacle.rs
+character/enemy/ai/pathing.rs
+character/enemy/ai/retreat.rs
+character/enemy/ai/rules.rs
+character/enemy/ai/squad.rs
+character/enemy/ai/state.rs
+character/enemy/create.rs
+character/enemy/mod.rs
+character/enemy/spawning.rs
+character/health/mod.rs
+character/mod.rs
+character/movement.rs
+character/player/create.rs
+character/player/input.rs
+character/player/jjrs.rs
+character/player/mod.rs
+character/surface.rs
+character/variant.rs
+clock.rs
+collider/mod.rs
+collision_grid.rs
+core_sim.rs
+curses.rs
+economy.rs
+effects_runtime.rs
+effects_v3.rs
+familiars.rs
+feedback_log.rs
+feedback_v3.rs
+fog_map.rs
+frame_counter.rs
+frame_events.rs
+gen_test.rs
+hub.rs
+interaction.rs
+items.rs
+jjrs/local.rs
+jjrs/mod.rs
+jjrs/p2p.rs
+jjrs/p2p_tests.rs
+jjrs/restart.rs
+loot.rs
+patterns.rs
+powerups.rs
+profile.rs
+progression.rs
+props.rs
+recording.rs
+replay.rs
+rollback.rs
+run_state.rs
+session.rs
+shop.rs
+state_trace.rs
+statuses.rs
+system_set.rs
+ui/hud_model.rs
+ui/mutation_screen.rs
+ui/screens/mod.rs
+ui/screens/model.rs
+visual_requests.rs
+waves/config.rs
+waves/mod.rs
+waves/state.rs
+waves/systems.rs
+waves/tracking.rs
+weapons.rs

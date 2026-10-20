@@ -13,18 +13,17 @@ use crate::{
     projectile::{Projectile, ProjectileSpec, ProjectileTable},
     team::team_allows_hit,
 };
-use animation::{AnimationStateBundle, FacingDirection};
 use bevy::{
     log::{tracing::span, Level},
-    platform::collections::HashMap,
     prelude::*,
 };
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use ggrs::PlayerHandle;
 use serde::{Deserialize, Serialize};
+use sim_core::animation_state::{AnimationStateBundle, FacingDirection};
 use sim_core::{
+    aim::{aim_direction, AimMode},
     ammo::AmmoType,
     damage::{DamageEvent, DamageKind, FriendlyFire},
     frame_events::{FrameEvents, FrameEventsAppExt},
@@ -81,8 +80,26 @@ pub enum FiringMode {
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub enum MagBulletConfig {
-    Mag { mag_size: u32, mag_limit: u32 },
-    Magless { bullet_limit: u32 },
+    Mag {
+        mag_size: u32,
+        mag_limit: u32,
+    },
+    Magless {
+        bullet_limit: u32,
+    },
+    /// M3-T0a (`docs/conventions.md` §60, larmes d'isaac) : munitions infinies. Le mode tire
+    /// tant que la cadence le permet, jamais de rechargement (pas même le délai de pompe d'un
+    /// `Shotgun`), aucune réserve (`ammo_type` absent de l'arme, refusé par le lint s'il est
+    /// donné) ; `mag_ammo` reste à 0 (le HUD affiche `∞` ou rien : M3-T16). **En fin d'enum** :
+    /// le `derive(Hash)` des deux variantes d'avant ne change pas.
+    Infinite,
+}
+
+impl MagBulletConfig {
+    /// M3-T0a : munitions infinies (aucun chargeur, aucune réserve).
+    pub fn is_infinite(&self) -> bool {
+        matches!(self, Self::Infinite)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize, PartialEq)]
@@ -196,6 +213,11 @@ pub struct WeaponConfig {
     /// des scénarios existants, qui ne changent pas de comportement observable ; la valeur
     /// qui compte pour la simulation vit dans `combat::inventory::AmmoReserves`, déjà
     /// rollback). Voir le rapport de la tâche T2.2, décision « ammo_type hors hash ».
+    ///
+    /// M3-T0a : optionnel dans le RON (`#[serde(default)]`, défaut [`no_ammo_type`]) pour une arme
+    /// dont tous les modes sont `MagBulletConfig::Infinite` ; le lint le rend obligatoire pour
+    /// toute autre arme (comme avant) et le refuse sur une arme `Infinite`.
+    #[serde(default = "no_ammo_type")]
     pub ammo_type: AmmoType,
     /// Gabarit de scénario généré (T2.10, `crates/scenario/src/generate.rs`) : nombre de
     /// coups attendus sur `target` après `frames` images de tir continu. `None` (défaut) :
@@ -212,6 +234,13 @@ pub struct WeaponConfig {
     /// `FiringModeConfig`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub projectiles: ProjectileTable,
+}
+
+/// M3-T0a : `ammo_type` d'une arme qui n'en déclare pas (munitions `Infinite`) :
+/// `Custom("")`, la seule valeur qu'aucun RON ne peut écrire (le lint refuse un `Custom` au nom
+/// vide, T2.8). La réserve de ce type reste à 0 et n'est jamais consultée par un mode `Infinite`.
+pub fn no_ammo_type() -> AmmoType {
+    AmmoType::Custom(String::new())
 }
 
 /// Hash manuel : reprend exactement les champs (et l'ordre) que dérivait `WeaponConfig`
@@ -387,6 +416,91 @@ pub struct Bullet {
     pub friendly_fire: FriendlyFire,
 }
 
+impl Bullet {
+    /// Politique de tir ami du souffle. L'explosion (`explosion_system`) n'émet que le tag `explosion` :
+    /// `Cursed`, qui lit les tags de la source (`team::CURSED_TAG`), ne pourrait jamais blesser un allié.
+    /// Elle est donc résolue ici depuis les tags capturés de la balle : `Always` si le tireur est
+    /// `cursed`, `Never` sinon (même verdict que la balle en direct). Choisi plutôt que de transmettre
+    /// les tags : `Bomb` (rollback, hash) ne change pas, et les autres sources d'explosion non plus.
+    fn blast_friendly_fire(&self) -> FriendlyFire {
+        match self.friendly_fire {
+            FriendlyFire::Cursed if self.tags.has(&Tag::new(crate::team::CURSED_TAG)) => {
+                FriendlyFire::Always
+            }
+            FriendlyFire::Cursed => FriendlyFire::Never,
+            other => other,
+        }
+    }
+
+    /// D76 : le souffle d'une balle `Explosive` qui se termine (touche, mur, fin de portée) : une
+    /// bombe à mèche d'une frame, **la même** que celle de `Action::Explode` et des champions
+    /// (explosion commune de M3-T4, `docs/conventions.md` §69). `blast_radius` est son rayon,
+    /// `damage × explosive_damage_multiplier` ses dégâts, créditée au tireur, de son équipe, avec
+    /// la politique de tir ami de l'arme ; elle ne casse ni rochers ni terrain (`destroys: false` :
+    /// `on_expire: [DestroyTerrain]` le dit explicitement). La cible touchée prend le coup de la
+    /// balle **puis** le souffle. `None` pour les autres types de balle.
+    pub fn blast(&self, frame: u32) -> Option<world::Bomb> {
+        let BulletType::Explosive {
+            blast_radius,
+            explosive_damage_multiplier,
+            ..
+        } = self.bullet_type
+        else {
+            return None;
+        };
+        Some(world::Bomb {
+            owner: self.source.clone(),
+            fuse_until: frame.saturating_add(1),
+            radius: blast_radius,
+            damage: self.damage.saturating_mul(explosive_damage_multiplier),
+            friendly_fire: self.blast_friendly_fire(),
+            team: self.source_team,
+            destroys: false,
+        })
+    }
+}
+
+/// Pose le souffle d'une balle `Explosive` ([`Bullet::blast`]) à `position`, numéroté
+/// `blast_<balle>` ; sans effet pour une autre balle. À appeler **avant** la destruction de la
+/// balle, dans l'ordre `GgrsNetId` du système appelant (l'id vient de `GgrsNetIdFactory`).
+pub fn spawn_blast(
+    commands: &mut Commands,
+    id_factory: &mut GgrsNetIdFactory,
+    bullet: &Bullet,
+    bullet_id: &GgrsNetId,
+    position: fixed_math::FixedVec3,
+    frame: u32,
+) {
+    let Some(bomb) = bullet.blast(frame) else {
+        return;
+    };
+    let transform = fixed_math::FixedTransform3D::new(
+        position,
+        fixed_math::FixedMat3::IDENTITY,
+        fixed_math::FixedVec3::ONE,
+    );
+    commands.spawn((
+        bomb,
+        transform.to_bevy_transform(),
+        transform,
+        id_factory.next(format!("blast_{}", bullet_id.0)),
+        Rollback,
+    ));
+}
+
+/// Ce que la présentation ne peut pas relire du `Bullet` rollback pour dessiner la balle : le
+/// `Size` du projectile composable et la stat `ShotSize` du tireur (absente de `Bullet`, dont le
+/// `Hash` entre dans le checksum). Posé par [`spawn_bullet`], **hors rollback** et jamais haché
+/// (comme le `Sprite` qu'il remplace) ; lu par `game::world_sprites::attach_bullet_visuals` qui
+/// en tire la taille du sprite. Que des `Fixed` : la conversion en `f32` se fait en présentation.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BulletLook {
+    /// `Projectile::size` à l'apparition ; `None` : balle ordinaire (côté de sprite fixe).
+    pub projectile_size: Option<fixed_math::Fixed>,
+    /// Stat `ShotSize` du tireur (1 sans modificateur : aucun calcul de plus).
+    pub shot_size: fixed_math::Fixed,
+}
+
 /// Component to track the player's weapon inventory
 #[derive(Component, Debug, Clone, Default)]
 pub struct WeaponInventory {
@@ -456,11 +570,6 @@ pub struct WeaponState {
 pub struct FireWeaponEvent {
     pub player_entity: Entity,
 }
-
-// ASSETS
-
-#[derive(Asset, TypePath, Serialize, Deserialize)]
-pub struct WeaponsConfig(pub HashMap<String, WeaponAsset>);
 
 // UTILITY FUNCTION
 
@@ -546,6 +655,7 @@ pub fn default_mode_capacity(weapon: &WeaponAsset) -> u32 {
         .map_or(0, |mode| match mode.mag {
             MagBulletConfig::Mag { mag_size, .. } => mag_size,
             MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+            MagBulletConfig::Infinite => 0,
         })
 }
 
@@ -559,7 +669,7 @@ pub fn default_mode_ammo_contribution(weapon: &WeaponAsset) -> (AmmoType, u32) {
                 mag_size,
                 mag_limit,
             } => mag_size * mag_limit,
-            MagBulletConfig::Magless { .. } => 0,
+            MagBulletConfig::Magless { .. } | MagBulletConfig::Infinite => 0,
         });
     (weapon.config.ammo_type.clone(), amount)
 }
@@ -599,6 +709,8 @@ pub fn spawn_weapon_for_player(
                 mag_size
             }
             MagBulletConfig::Magless { bullet_limit } => bullet_limit,
+            // M3-T0a : aucun chargeur, `mag_ammo` et `mag_size` restent à 0.
+            MagBulletConfig::Infinite => 0,
         };
         // `initial_mag_ammo` (T2.2) ne s'applique qu'au mode par défaut : c'est le seul dont
         // `WeaponPickup` a capturé le `mag_ammo` au moment du dépôt (voir sa doc) ; les
@@ -638,12 +750,8 @@ pub fn spawn_weapon_for_player(
     inventory.weapons.push((entity, weapon));
 
     if active {
-        commands
-            .entity(entity)
-            .insert((ActiveWeapon {}, Visibility::Inherited));
+        commands.entity(entity).insert(ActiveWeapon {});
         inventory.active_weapon_index = inventory.weapons.len() - 1;
-    } else {
-        commands.entity(entity).insert(Visibility::Hidden);
     }
 
     commands.entity(player_entity).add_child(entity);
@@ -659,7 +767,7 @@ pub fn spawn_weapon_for_player(
 #[derive(Component, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct WeaponPickup {
     /// Id de l'arme dans `weapons.ron` (`WeaponConfig::name`, clé du registre) : relu au
-    /// ramassage pour retrouver le `WeaponAsset` complet dans `Assets<WeaponsConfig>`.
+    /// ramassage pour retrouver le `WeaponAsset` complet dans `WeaponRegistry` (`game::weapons`).
     pub weapon_id: String,
     /// Munitions du chargeur du mode par défaut au moment du dépôt (voir
     /// `spawn_weapon_for_player::initial_mag_ammo`) : un seul nombre, pas un par mode — le
@@ -688,6 +796,11 @@ pub struct WeaponPickup {
 /// après un achat réussi — même ordre de grandeur que
 /// `interaction::WindowRepairConfig::repair_cooldown_frames` (défaut 60, 1 s à 60 FPS).
 pub const WALL_WEAPON_PURCHASE_COOLDOWN_FRAMES: u32 = 60;
+
+/// D62 : délai (frames) pendant lequel l'arme lâchée par un échange d'emplacement ne peut pas
+/// être ramassée : Interaction maintenu (humain ou bot) rééquiperait sinon, à chaque frame,
+/// l'arme qu'on vient de poser.
+pub const WEAPON_SWAP_COOLDOWN_FRAMES: u32 = 30;
 
 /// Fait tomber une arme au sol (`WeaponPickup`), interactable au ramassage. Portée
 /// commune à `weapons::weapon_drop_system` (T2.2, `price: None`) et à T2.3 (armes murales,
@@ -761,6 +874,10 @@ pub struct BulletSpawn<'a> {
     /// Préfixe du `GgrsNetId` de la balle (type de balle pour un tir de joueur, id de
     /// projectile pour un projectile né d'un pattern).
     pub id_label: String,
+    /// M3-T0a : stat `ShotSize` du tireur (1 sans modificateur, et pour les projectiles nés
+    /// d'un pattern et les tirs d'émetteur) : multiplie le rayon de collision et le sprite,
+    /// après `Size`. À 1, aucun calcul : rayon et sprite exactement ceux d'avant.
+    pub shot_size: fixed_math::Fixed,
 }
 
 /// `player_handle` d'une balle tirée par un émetteur (T1.2, ennemi) : aucun joueur. Seule la
@@ -770,30 +887,36 @@ pub const NO_PLAYER_HANDLE: PlayerHandle = PlayerHandle::MAX;
 /// **Seule** fonction d'apparition d'une balle (T1.2) : tir d'un joueur
 /// (`spawn_bullet_rollback`), projectile né d'un pattern
 /// (`projectile::spawn_child_projectile`) et tir d'émetteur (`emitter::emitter_system`).
-/// Rayon (base 5, 8 pour `Explosive`, × `Size`), sprite (3.5, × `Size` si composable),
-/// couleur et marqueurs (`ExplosiveTag`, `PiercingTag`) dérivent du type de balle et du
-/// projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+/// Rayon (base 5, 8 pour `Explosive`, × `Size`) et marqueurs (`ExplosiveTag`, `PiercingTag`)
+/// dérivent du type de balle et du projectile ; le `GgrsNetId` est alloué ici, une fois par balle.
+/// Aucun sprite : la présentation le tire de `Bullet` et de [`BulletLook`]
+/// (`game::world_sprites::attach_bullet_visuals`).
 pub fn spawn_bullet(
     commands: &mut Commands,
     collision_settings: &CollisionSettings,
     id_factory: &mut GgrsNetIdFactory,
-    spawn: BulletSpawn,
+    mut spawn: BulletSpawn,
 ) -> Entity {
+    // M3-T1 : un projectile `Orbit` part du côté où il a été tiré.
+    if let Some(projectile) = spawn.projectile.as_mut() {
+        projectile.start_orbit(spawn.velocity);
+    }
     let base_radius = match &spawn.bullet_type {
         BulletType::Explosive { .. } => fixed_math::new(8.0),
         BulletType::Standard { .. } | BulletType::Piercing { .. } => fixed_math::new(5.0),
     };
-    let (radius, sprite_size) = match &spawn.projectile {
-        Some(projectile) => (
-            projectile.radius(base_radius),
-            fixed_math::to_f32(projectile.size) * crate::projectile::BASE_SPRITE,
-        ),
-        None => (base_radius, 3.5),
+    let radius = match &spawn.projectile {
+        Some(projectile) => projectile.radius(base_radius),
+        None => base_radius,
     };
-    let color = match &spawn.bullet_type {
-        BulletType::Standard { .. } => Color::BLACK,
-        BulletType::Explosive { .. } => Color::WHITE,
-        BulletType::Piercing { .. } => Color::BLACK,
+    let radius = if spawn.shot_size == fixed_math::FIXED_ONE {
+        radius
+    } else {
+        radius.saturating_mul(spawn.shot_size)
+    };
+    let look = BulletLook {
+        projectile_size: spawn.projectile.as_ref().map(|projectile| projectile.size),
+        shot_size: spawn.shot_size,
     };
 
     let transform = fixed_math::FixedTransform3D::new(
@@ -814,7 +937,9 @@ pub fn spawn_bullet(
 
     let bullet_type = spawn.bullet_type;
     let mut entity_commands = commands.spawn((
-        Sprite::from_color(color, Vec2::new(sprite_size, sprite_size)),
+        // Seule donnée « visuelle » : `game::world_sprites::attach_bullet_visuals` en tire le
+        // sprite (non rollback, jamais haché).
+        look,
         Bullet {
             velocity: spawn.velocity,
             bullet_type,
@@ -881,31 +1006,15 @@ fn spawn_bullet_rollback(
     // Projectile composable (T1.1) : `Size` agrandit collider et sprite ; `None` (mode de
     // tir sans `projectile:`) : balle ordinaire, inchangée.
     projectile: Option<Projectile>,
+    // M3-T0a : stats de larmes du porteur (`ShotSpeed`, `ShotSize`, 1 par défaut).
+    shot: ShotStats,
 ) -> Entity {
-    let (velocity, damage) = match &bullet_type {
-        BulletType::Standard {
-            speed,
-            damage: damage_bullet,
-        }
-        | BulletType::Explosive {
-            speed,
-            damage: damage_bullet,
-            ..
-        }
-        | BulletType::Piercing {
-            speed,
-            damage: damage_bullet,
-            ..
-        } => (
-            direction * (*speed / fixed_math::Fixed::from_num(60)),
-            *damage_bullet,
-        ),
-    };
+    let (velocity, damage) = tear_motion(&bullet_type, direction, shot, damage_mult);
 
     // Stats branchées (T1.2, chantier B2) : sans modificateur actif, `damage_mult`/
     // `range_mult` valent exactement 1 (voir `character::create::create_character`), donc
-    // ce produit ne change aucune valeur par rapport à avant ce chantier.
-    let damage = damage.saturating_mul(damage_mult);
+    // ce produit ne change aucune valeur par rapport à avant ce chantier (`damage_mult` est
+    // appliqué par `tear_motion`).
     let range = range.saturating_mul(range_mult);
 
     let local_muzzle_offset_v2 = if !facing_direction.should_flip_x() {
@@ -962,8 +1071,100 @@ fn spawn_bullet_rollback(
             friendly_fire,
             projectile,
             id_label,
+            shot_size: shot.size,
         },
     )
+}
+
+/// M3-T0a : stats de larmes du tireur lues au tir (`StatId::ShotSpeed`, `StatId::ShotSize`,
+/// base 1 pour tout personnage, `sim_core::stats::default_base`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShotStats {
+    pub speed: fixed_math::Fixed,
+    pub size: fixed_math::Fixed,
+}
+
+/// Vitesse (par frame) et dégât d'une balle du mode de tir `bullet_type` dans `direction` :
+/// `ShotSpeed` multiplie la vitesse et `damage_mult` (stat `Damage`) le dégât ; à 1, aucun produit
+/// (valeurs au bit près identiques à avant ces stats). Partagé par `spawn_bullet_rollback` et les
+/// tirs miroirs des familiers.
+pub fn tear_motion(
+    bullet_type: &BulletType,
+    direction: fixed_math::FixedVec2,
+    shot: ShotStats,
+    damage_mult: fixed_math::Fixed,
+) -> (fixed_math::FixedVec2, fixed_math::Fixed) {
+    let (speed, damage) = match bullet_type {
+        BulletType::Standard { speed, damage }
+        | BulletType::Explosive { speed, damage, .. }
+        | BulletType::Piercing { speed, damage, .. } => (*speed, *damage),
+    };
+    let speed = if shot.speed == fixed_math::FIXED_ONE {
+        speed
+    } else {
+        speed.saturating_mul(shot.speed)
+    };
+    (
+        direction * (speed / fixed_math::Fixed::from_num(60)),
+        damage.saturating_mul(damage_mult),
+    )
+}
+
+/// Objets et synergies du tireur dont les `projectile` se composent avec ceux de l'arme (§66), dans
+/// l'ordre de `items::projectile_mods`, sans les listes vides. Vide hors jeu complet (pas
+/// d'inventaire d'objets ou de tables) : chemin d'origine.
+pub fn carried_projectile_mods<'a>(
+    held: Option<&items::Inventory>,
+    item_table: Option<&'a items::ItemTable>,
+    synergy_table: Option<&'a items::SynergyTable>,
+) -> Vec<&'a effects::projectile::ProjectileMods> {
+    match (held, item_table, synergy_table) {
+        (Some(held), Some(items), Some(synergies)) => {
+            let mut mods = items::projectile_mods(items, synergies, held);
+            mods.retain(|mods| !mods.is_empty());
+            mods
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Projectile composable d'un tir de joueur : celui du mode de tir de l'arme (T1.1), composé avec les
+/// `carried` des objets du tireur (M3-T1, §66). Sans objet qui ajoute quelque chose : chemin
+/// d'origine (`Projectile::new`, `None` pour un mode sans `projectile:`). `luck` n'est appelé (et
+/// gardé) que pour un projectile qui a une `Action::Chance` à tirer. Partagé par le tir du joueur et
+/// les tirs miroirs de ses familiers (Q13).
+pub fn shot_projectile(
+    weapon: &WeaponConfig,
+    mode: &FiringModeConfig,
+    carried: &[&effects::projectile::ProjectileMods],
+    damage_mult: fixed_math::Fixed,
+    luck: impl FnOnce() -> fixed_math::Fixed,
+) -> Option<Projectile> {
+    let mut projectile = if carried.is_empty() {
+        (!mode.projectile.is_empty()).then(|| {
+            Projectile::new(
+                weapon.name.clone(),
+                &mode.projectile,
+                std::sync::Arc::new(weapon.projectiles.clone()),
+                damage_mult,
+                0,
+            )
+        })
+    } else {
+        Some(Projectile::composed(
+            weapon.name.clone(),
+            &mode.projectile,
+            carried,
+            std::sync::Arc::new(weapon.projectiles.clone()),
+            damage_mult,
+        ))
+    };
+    if let Some(projectile) = projectile.as_mut() {
+        if projectile.has_chance() {
+            projectile.luck = luck();
+        }
+    }
+    projectile
 }
 
 // SYSTEMS
@@ -1125,6 +1326,8 @@ pub fn weapon_rollback_system(
         &GgrsNetId,
         &Team,
         Option<&Tags>,
+        // Visée du personnage (suivi Q17) : absent = libre.
+        Option<&AimMode>,
     )>,
 
     collision_settings: Res<CollisionSettings>,
@@ -1133,6 +1336,13 @@ pub fn weapon_rollback_system(
 
     mut id_factory: ResMut<GgrsNetIdFactory>,
     mut reload_finished: Option<ResMut<FrameEvents<sim_core::triggers::ReloadFinished>>>,
+    // M3-T6 : un tir réellement parti (lu par `MirrorShot`)
+    mut weapon_fired: Option<ResMut<FrameEvents<sim_core::triggers::WeaponFired>>>,
+    // M3-T1 (§66) : objets et synergies du tireur, dont les `projectile` s'ajoutent à l'arme
+    // (absents hors jeu complet : chemin d'origine).
+    item_inventories: Query<&items::Inventory>,
+    item_table: Option<Res<items::ItemTable>>,
+    synergy_table: Option<Res<items::SynergyTable>>,
 ) {
     let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "weapon");
     let _enter = system_span.enter(); // Enter the span
@@ -1308,6 +1518,8 @@ pub fn weapon_rollback_system(
                 let current_frame = frame.frame;
                 let frames_since_last_shot = current_frame - weapon_state.last_fire_frame;
 
+                // M3-T0a : munitions infinies, jamais vide ni rechargé.
+                let infinite = weapon_config.mag.is_infinite();
                 let (can_fire, empty) = match weapon_config.firing_mode {
                     FiringMode::Automatic { .. } => (
                         frames_since_last_shot >= frame_per_shot,
@@ -1367,7 +1579,7 @@ pub fn weapon_rollback_system(
                     }
                 };
 
-                if empty {
+                if empty && !infinite {
                     // Empty mag: reload if the reserve has enough for a full mag, otherwise
                     // just a dry click (`reserve` computed above, unchanged since : neither
                     // branch reached this point after consuming it this frame).
@@ -1380,8 +1592,15 @@ pub fn weapon_rollback_system(
                 weapon_state.is_firing = input.fire;
 
                 if can_fire {
-                    if let Ok((_, facing_direction, _, shooter_net_id, shooter_team, opt_tags)) =
-                        player_query.get(child_of.parent())
+                    if let Ok((
+                        _,
+                        facing_direction,
+                        _,
+                        shooter_net_id,
+                        shooter_team,
+                        opt_tags,
+                        aim_mode,
+                    )) = player_query.get(child_of.parent())
                     {
                         let shooter_tags = opt_tags.cloned().unwrap_or_default();
                         // Stats branchées (T1.2) : dégâts et portée de la balle multipliés
@@ -1389,23 +1608,33 @@ pub fn weapon_rollback_system(
                         let damage_mult =
                             stats.get(shooter, &StatId::Damage, fixed_math::FIXED_ONE);
                         let range_mult = stats.get(shooter, &StatId::Range, fixed_math::FIXED_ONE);
-                        let mut aim_dir = fixed_math::FixedVec2::new(
-                            fixed_math::Fixed::from_num(input.pan_x),
-                            fixed_math::Fixed::from_num(input.pan_y),
+                        // M3-T0a : stats de larmes (1 par défaut, sans être posées dans `Stats`).
+                        let shot = ShotStats {
+                            speed: stats.get(shooter, &StatId::ShotSpeed, fixed_math::FIXED_ONE),
+                            size: stats.get(shooter, &StatId::ShotSize, fixed_math::FIXED_ONE),
+                        };
+                        let aim_dir = aim_direction(
+                            aim_mode.copied().unwrap_or_default(),
+                            input.pan_x,
+                            input.pan_y,
                         );
-                        aim_dir.x /= fixed_math::new(127.0);
-                        aim_dir.y /= fixed_math::new(127.0);
-                        aim_dir = aim_dir.normalize_or_zero();
-                        // Projectile composable du mode de tir (T1.1), cloné par balle.
-                        let projectile = (!weapon_config.projectile.is_empty()).then(|| {
-                            Projectile::new(
-                                weapon.config.name.clone(),
-                                &weapon_config.projectile,
-                                std::sync::Arc::new(weapon.config.projectiles.clone()),
-                                damage_mult,
-                                0,
-                            )
-                        });
+                        // Projectile composable du mode de tir (T1.1), cloné par balle. M3-T1
+                        // (§66) : les `projectile` des objets et synergies du tireur s'y
+                        // composent ; sans objet qui ajoute quelque chose, chemin d'origine.
+                        // La chance du tireur n'est lue que par un projectile qui a une
+                        // `Action::Chance` à tirer.
+                        let carried = carried_projectile_mods(
+                            item_inventories.get(shooter).ok(),
+                            item_table.as_deref(),
+                            synergy_table.as_deref(),
+                        );
+                        let projectile = shot_projectile(
+                            &weapon.config,
+                            weapon_config,
+                            &carried,
+                            damage_mult,
+                            || stats.get(shooter, &StatId::Luck, fixed_math::Fixed::ZERO),
+                        );
 
                         match weapon_config.firing_mode {
                             FiringMode::Shotgun {
@@ -1449,10 +1678,15 @@ pub fn weapon_rollback_system(
                                         damage_mult,
                                         range_mult,
                                         projectile.clone(),
+                                        shot,
                                     );
                                 }
-                                weapon_mode_state.mag_ammo -= 1; // Shotgun uses one ammo for all pellets
-                                inventory.start_reload(frame.frame, reload_time_seconds);
+                                // M3-T0a : `Infinite` ne consomme rien et n'a pas de délai de
+                                // pompe (la cadence seule règle le tir).
+                                if !infinite {
+                                    weapon_mode_state.mag_ammo -= 1; // Shotgun uses one ammo for all pellets
+                                    inventory.start_reload(frame.frame, reload_time_seconds);
+                                }
                             }
                             _ => {
                                 let random_fixed_val = rng_streams.get_mut("weapons").next_fixed();
@@ -1482,8 +1716,11 @@ pub fn weapon_rollback_system(
                                     damage_mult,
                                     range_mult,
                                     projectile,
+                                    shot,
                                 );
-                                weapon_mode_state.mag_ammo -= 1;
+                                if !infinite {
+                                    weapon_mode_state.mag_ammo -= 1;
+                                }
 
                                 if matches!(weapon_config.firing_mode, FiringMode::Burst { .. })
                                     && weapon_mode_state.burst_shots_left > 0
@@ -1498,6 +1735,12 @@ pub fn weapon_rollback_system(
                             }
                         }
                         weapon_state.last_fire_frame = frame.frame;
+                        if let Some(events) = weapon_fired.as_mut() {
+                            events.send(sim_core::triggers::WeaponFired {
+                                frame: frame.frame,
+                                player_handle: player.handle,
+                            });
+                        }
                     }
                 }
             } else {
@@ -1510,6 +1753,7 @@ pub fn weapon_rollback_system(
 pub fn bullet_rollback_system(
     mut commands: Commands,
     frame: Res<FrameCount>,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
     mut bullet_query: Query<(
         &GgrsNetId,
         Entity,
@@ -1542,6 +1786,15 @@ pub fn bullet_rollback_system(
                 projectile.ended = true;
             } else {
                 use bevy_ggrs::RollbackDespawnCommandExtension;
+                // D76 : une balle `Explosive` explose aussi en fin de portée.
+                spawn_blast(
+                    &mut commands,
+                    &mut id_factory,
+                    &bullet,
+                    g_id,
+                    transform.translation,
+                    frame.frame,
+                );
                 commands.entity(entity).despawn_rollback();
             }
         }
@@ -1576,6 +1829,7 @@ enum BulletTarget {
 pub fn bullet_rollback_collision_system(
     frame: Res<FrameCount>,
     mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
     settings: Res<CollisionSettings>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
     mut wall_hits: ResMut<FrameEvents<crate::projectile::BulletWallHit>>,
@@ -1671,7 +1925,7 @@ pub fn bullet_rollback_collision_system(
             }
         }
 
-        for char_entry in grids.characters.query_aabb(&swept_aabb) {
+        for char_entry in grids.targets.iter_overlapping(&swept_aabb) {
             let Ok((
                 target_transform,
                 target_collider,
@@ -1761,6 +2015,15 @@ pub fn bullet_rollback_collision_system(
         }
 
         if should_bullet_despawn_now {
+            // D76 : une balle `Explosive` explose là où elle s'arrête (personnage ou mur).
+            spawn_blast(
+                &mut commands,
+                &mut id_factory,
+                bullet,
+                ggrs_net_id,
+                bullet_transform.translation,
+                frame.frame,
+            );
             bullets_to_despawn.insert(ggrs_net_id.0, bullet_entity);
             // Since the original code had a `break` here, we effectively stop processing
             // more targets for this bullet after this first deterministic interaction.
@@ -1773,72 +2036,10 @@ pub fn bullet_rollback_collision_system(
     }
 }
 
-// Non rollback system to display the weapon correct sprite
-pub fn weapon_inventory_system(
-    mut commands: Commands,
-    query: Query<(Entity, &WeaponInventory, &MeleeAttackState)>,
-    mut weapon_entities: Query<(Entity, &mut Visibility), With<Weapon>>,
-) {
-    for (_player_entity, inventory, melee_attack_state) in query.iter() {
-        if inventory.weapons.is_empty() {
-            continue;
-        }
-
-        // Update active/inactive weapon visibility
-        for (i, (weapon_entity, _)) in inventory.weapons.iter().enumerate() {
-            let is_active = i == inventory.active_weapon_index;
-
-            // For simplicity, we're using commands to add/remove components
-            // In a real implementation, you might want to use a Visibility component
-            if let Ok((_, mut visibility)) = weapon_entities.get_mut(*weapon_entity) {
-                if is_active {
-                    commands.entity(*weapon_entity).insert(ActiveWeapon);
-                    // Hide weapon during melee attacks
-                    if melee_attack_state.is_attacking {
-                        *visibility = Visibility::Hidden;
-                    } else {
-                        *visibility = Visibility::Visible;
-                    }
-                } else {
-                    commands.entity(*weapon_entity).remove::<ActiveWeapon>();
-                    *visibility = Visibility::Hidden;
-                }
-            }
-        }
-    }
-}
-
-pub fn weapons_config_update_system(
-    _asset_server: Res<AssetServer>,
-
-    weapons_config: Res<Assets<WeaponsConfig>>,
-
-    mut ev_asset: MessageReader<AssetEvent<WeaponsConfig>>,
-
-    mut query_weapons: Query<(&Children, Entity, &mut Weapon)>,
-) {
-    for event in ev_asset.read() {
-        if let AssetEvent::Modified { id } = event {
-            if let Some(weapons_config) = weapons_config.get(*id) {
-                for (_childs, _entity, mut weapon) in query_weapons.iter_mut() {
-                    if let Some(config) = weapons_config.0.get(&weapon.config.name) {
-                        weapon.config = config.config.clone();
-                        weapon.sprite_config = config.sprite_config.clone();
-                    }
-                }
-            }
-        }
-    }
-}
-
 pub struct BaseWeaponGamePlugin {}
 
 impl Plugin for BaseWeaponGamePlugin {
     fn build(&self, app: &mut App) {
-        // Add RON asset plugins for weapons and melee weapons
-        app.add_plugins(RonAssetPlugin::<WeaponsConfig>::new(&["ron"]));
-        app.add_plugins(RonAssetPlugin::<melee::MeleeWeaponsConfig>::new(&["ron"]));
-
         // Kinds existants (lus par le lint de contenu, `crates/content`, T1.5). Les noms
         // sont ceux des tables `weapons.ron`/`melee_weapons.ron`, déjà en dur ailleurs
         // dans ce fichier et dans `character/enemy/create.rs` ; T1.5 les lira depuis le
@@ -1878,6 +2079,9 @@ impl Plugin for BaseWeaponGamePlugin {
         // (`World`, après `Weapon` et `Projectiles`) ; une file neutre non vide serait hachée
         // et déplacerait la trace de tout tir contre un mur.
         app.add_frame_events_transient::<crate::projectile::BulletWallHit>();
+        // M3-T6 : tir réellement parti (transitoire : émis par `weapon_rollback_system`, lu la même
+        // frame par `MirrorShot`).
+        app.add_frame_events_transient::<sim_core::triggers::WeaponFired>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
@@ -1889,10 +2093,8 @@ impl Plugin for BaseWeaponGamePlugin {
             .rollback_and_trace_neutral::<melee::WaveDamageScale>()
             .rollback_and_trace::<melee::MeleeHitbox>();
 
-        app.add_systems(
-            Update,
-            (weapon_inventory_system, weapons_config_update_system),
-        );
+        // La présentation des armes (visibilité des armes portées, rechargement à chaud de
+        // `weapons.ron`, chargeurs RON) est dans `game::weapons`.
 
         app.add_systems(
             GgrsSchedule,
@@ -1943,6 +2145,50 @@ mod tests {
     use super::*;
     use bevy_fixed::fixed_math::{new as fx, Fixed, FixedVec2};
 
+    /// Revue D76 : le souffle d'une balle `Cursed` blesse un allié si et seulement si le tireur est
+    /// `cursed` (le souffle n'émet que le tag `explosion`, il ne peut pas lire `cursed` lui-même).
+    #[test]
+    fn souffle_cursed_suit_les_tags_du_tireur() {
+        let bullet = |tags: &[&str], policy| Bullet {
+            velocity: FixedVec2::ZERO,
+            bullet_type: BulletType::Explosive {
+                damage: fx(5.0),
+                speed: fx(300.0),
+                blast_radius: fx(40.0),
+                explosive_damage_multiplier: fx(2.0),
+            },
+            damage: fx(5.0),
+            range: fx(100.0),
+            distance_traveled: Fixed::ZERO,
+            player_handle: 0,
+            created_at: 0,
+            source: GgrsNetId(1, "p".into()),
+            source_team: Team::Players,
+            tags: Tags::parse(tags.iter().copied()),
+            friendly_fire: policy,
+        };
+        let hits_ally = |b: &Bullet| {
+            let bomb = b.blast(10).unwrap();
+            // le souffle n'a que le tag `explosion`, comme `explosion_system`
+            crate::team::team_allows_hit(
+                bomb.team,
+                Team::Players,
+                bomb.friendly_fire,
+                &Tags::parse(["explosion"]),
+            )
+        };
+        assert!(hits_ally(&bullet(
+            &["bullet", "cursed"],
+            FriendlyFire::Cursed
+        )));
+        assert!(!hits_ally(&bullet(&["bullet"], FriendlyFire::Cursed)));
+        assert!(hits_ally(&bullet(&["bullet"], FriendlyFire::Always)));
+        assert!(!hits_ally(&bullet(
+            &["bullet", "cursed"],
+            FriendlyFire::Never
+        )));
+    }
+
     /// D51 : `spread` 0 → la direction visée exactement, quel que soit le tirage.
     #[test]
     fn dispersion_nulle_tir_exact() {
@@ -1972,5 +2218,39 @@ mod tests {
             (angle + 0.075).abs() < 2e-3,
             "tirage 0 : −spread/2, obtenu {angle}"
         );
+    }
+}
+
+#[cfg(test)]
+mod tear_tests {
+    use super::*;
+    use bevy_fixed::fixed_math::{new as fx, FixedVec2};
+
+    fn standard() -> BulletType {
+        BulletType::Standard {
+            damage: fx(10.0),
+            speed: fx(600.0),
+        }
+    }
+
+    fn shot(speed: f32) -> ShotStats {
+        ShotStats {
+            speed: fx(speed),
+            size: fx(1.0),
+        }
+    }
+
+    /// À `ShotSpeed` 1 et `Damage` 1 : vitesse par frame = vitesse / 60, dégât du mode, au bit près ;
+    /// les stats multiplient l'un et l'autre.
+    #[test]
+    fn tear_motion_applique_les_stats_du_porteur() {
+        let east = FixedVec2::new(fx(1.0), fx(0.0));
+        let (velocity, damage) = tear_motion(&standard(), east, shot(1.0), fx(1.0));
+        assert_eq!(velocity.x, fx(600.0) / fixed_math::Fixed::from_num(60));
+        assert_eq!(velocity.y, fixed_math::Fixed::ZERO);
+        assert_eq!(damage, fx(10.0));
+        let (fast, strong) = tear_motion(&standard(), east, shot(2.0), fx(1.5));
+        assert_eq!(fast.x, velocity.x * fixed_math::Fixed::from_num(2));
+        assert_eq!(strong, fx(15.0));
     }
 }

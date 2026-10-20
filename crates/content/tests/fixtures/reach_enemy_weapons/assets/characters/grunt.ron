@@ -1,0 +1,15 @@
+(
+    movement: (max_speed: "0.0"),
+    asset_name_ref: "grunt",
+    collider: (shape: Rectangle(width: "20.", height: "20."), offset: (x: "0.0", y: "0.0", z: "0.0")),
+    scale: "1.0",
+    base_health: (max: "100.0"),
+    starting_skin: "1",
+    skins: {"1": (layers: {})},
+    ai: Some((aggro_range: Some("100.0"), attack_range: Some("0.0"), stationary: Some(true), behaviors: Some([Shoot(weapon: "shoot", pattern: "shot", range: "100.0", cooldown_frames: 30)]))),
+    boss: Some((phases: [(
+        behaviors: [Shoot(weapon: "phase", pattern: "shot", range: "100.0", cooldown_frames: 30)],
+        on_enter: [SpawnPattern(pattern: "shot", weapon: "enter")],
+        timeline: Some((events: [(at: 1, do: [SpawnPattern(pattern: "shot", weapon: "timeline")])])),
+    )])),
+)

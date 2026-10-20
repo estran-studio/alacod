@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 /// `EnemyMoveSpeed`), qui remplacent les constantes jusque-là figées dans
 /// `character::enemy::ai::pathing::PathfindingConfig`. Voir
 /// `character::create::create_character` pour la valeur de base de chacune.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StatId {
     MaxHealth,
@@ -47,6 +48,28 @@ pub enum StatId {
     /// ne touche jamais l'autre.
     EnemyMoveSpeed,
     Custom(String),
+    // M3-T0a (`docs/conventions.md` §60) : stats de larmes, **après** `Custom` pour garder
+    // l'ordre (`Ord` des clés de `Stats`) et le hash (discriminant) des stats existantes. Base 1
+    // pour tout personnage sans être posées dans `Stats` (lues par `StatReader::get` avec 1 par
+    // défaut, voir [`default_base`]) : `Stats` de tous les personnages reste inchangé.
+    /// Multiplie la vitesse de la balle au tir (`combat::weapons`).
+    ShotSpeed,
+    /// Multiplie le rayon de collision et le sprite de la balle au tir, comme le modificateur
+    /// de projectile `Size` (`combat::weapons`).
+    ShotSize,
+}
+
+/// M3-T0a : base d'une stat qu'aucun personnage ne porte dans [`Stats`] mais que l'engine lit
+/// avec une valeur par défaut (`ShotSpeed`, `ShotSize` : 1 ; `Luck` : 0, M3-T1). `None` : la base
+/// vient de `Stats`.
+/// Sert aux lecteurs hors simulation (attente `Stat`, générateur) pour résoudre ces stats comme
+/// le tir les résout.
+pub fn default_base(stat: &StatId) -> Option<Fixed> {
+    match stat {
+        StatId::ShotSpeed | StatId::ShotSize => Some(bevy_fixed::fixed_math::FIXED_ONE),
+        StatId::Luck => Some(bevy_fixed::fixed_math::FIXED_ZERO),
+        _ => None,
+    }
 }
 
 /// M2-T15 (`docs/conventions.md` §53) : où la simulation **lit** une stat, ou `None` si aucun
@@ -73,8 +96,11 @@ pub fn stat_reader(stat: &StatId) -> Option<&'static str> {
         | StatId::EnemyMoveSpeed => Some("character::enemy::ai::pathing (move_enemies)"),
         // D61 : réduction des dégâts reçus, `dégât × 100 / (100 + armure)`.
         StatId::Armor => Some("character::health (rollback_resolve_damage_events : armure)"),
-        // Aucun lecteur aujourd'hui : `Luck` attend le butin (M2-T5).
-        StatId::Luck => None,
+        // M3-T0a : lecteur de contrat, la chance d'effet (`effects::chance_with_luck`) ; M3-T1
+        // et M3-T2 l'appellent pour les chances d'effet des objets.
+        StatId::Luck => Some("effects::chance_with_luck (chance d'effet)"),
+        StatId::ShotSpeed => Some("combat::weapons (vitesse de la balle)"),
+        StatId::ShotSize => Some("combat::weapons (taille de la balle)"),
         // Seule stat `Custom` lue : le multiplicateur de points des power-ups
         // (`effects::CURRENCY_MULTIPLIER_STAT`, lu par `game::economy`).
         StatId::Custom(name) if name == "powerup_currency_multiplier" => {

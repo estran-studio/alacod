@@ -1,15 +1,14 @@
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::enemy::Enemy;
-use crate::character::movement::Velocity;
-use crate::character::player::input::FIXED_TIMESTEP;
+use crate::character::movement::{Velocity, FIXED_TIMESTEP};
 use crate::character::player::Player;
 use crate::collider::{is_colliding, Collider, Wall, Window};
-use animation::FacingDirection;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use combat::downed::Downed;
 use serde::{Deserialize, Serialize};
+use sim_core::animation_state::FacingDirection;
 use sim_core::stats::StatId;
 use stats::StatReader;
 use std::collections::VecDeque;
@@ -186,7 +185,7 @@ pub fn move_enemies(
             &mut Velocity,
             &mut EnemyPath,
             &mut FacingDirection,
-            &CharacterConfigHandles,
+            &CharacterConfigKey,
             &Collider,
             &crate::collider::CollisionLayer,
             &mut WallSlideTracker,
@@ -210,7 +209,7 @@ pub fn move_enemies(
         (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<&fixed_math::FixedTransform3D, (With<Player>, Without<Enemy>)>,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     config: Res<PathfindingConfig>,
     collision_settings: Res<crate::collider::CollisionSettings>,
     wall_collider_query: Query<
@@ -288,7 +287,7 @@ pub fn move_enemies(
         mut velocity_component,
         mut path,
         mut facing_direction,
-        config_handles,
+        config_key,
         enemy_collider,
         enemy_collision_layer,
         mut wall_slide_tracker,
@@ -310,12 +309,11 @@ pub fn move_enemies(
         let enemy_pos_v2 = fixed_transform.translation.truncate();
 
         // Get character movement config
-        let base_movement_speed =
-            if let Some(char_config) = character_configs.get(&config_handles.config) {
-                char_config.movement.max_speed // This should be fixed_math::Fixed
-            } else {
-                config.movement_speed // Fallback is also Fixed
-            };
+        let base_movement_speed = if let Some(char_config) = character_configs.get(&config_key.0) {
+            char_config.movement.max_speed // This should be fixed_math::Fixed
+        } else {
+            config.movement_speed // Fallback is also Fixed
+        };
         // Stats branchées (T1.2, chantier B2) : les constantes de `PathfindingConfig` sont
         // maintenant des stats par ennemi (`character::create::create_character` les pose
         // depuis ce même `PathfindingConfig::default()` à la création, voir
@@ -553,8 +551,16 @@ pub fn move_enemies(
             max: fixed_math::FixedVec2::new(enemy_pos_v2.x + cell_size, enemy_pos_v2.y + cell_size),
         };
 
+        // Suivi Q12 : un ennemi charmé ne se fait pas repousser par sa cible (il doit venir à portée de
+        // corps à corps ; la séparation l'arrêterait à une quarantaine d'unités).
+        let charm_target = enemy_target_opt
+            .filter(|target| {
+                target.target_type == super::state::TargetType::Enemy
+                    && combat::status::charmed(statuses)
+            })
+            .and_then(|target| target.target.as_ref());
         for other_entry in separation_grid.query_aabb(&neighborhood) {
-            if other_entry.entity == entity {
+            if other_entry.entity == entity || charm_target == Some(&other_entry.net_id) {
                 continue;
             }
             let other_pos_v2 = other_entry.aabb.min;
@@ -596,20 +602,49 @@ pub fn move_enemies(
         // T1.4 : un behavior nouveau retenu (`KeepDistance`, `Flee`, `Strafe`, `Wander`,
         // `Charge`) impose sa direction et sa vitesse, sans ralentissement près du joueur ;
         // sinon (tous les ennemis d'avant T1.4) le calcul d'origine, inchangé.
-        let motion = behavior_runtime
-            .zip(enemy_behaviors)
-            .and_then(|(runtime, rules)| {
-                super::rules::behavior_motion(
-                    rules.active(boss.map_or(0, |b| b.phase)),
-                    runtime,
-                    frame.frame,
-                    enemy_pos_v2,
-                    enemy_target_opt.and_then(|target| target.last_known_position),
+        // M3-T1 : `Fear` impose `Flee` (même recul que le behavior), qu'il soit listé ou non.
+        let feared = combat::status::feared(statuses);
+        let motion = feared
+            .then(|| {
+                super::rules::flee_motion(
                     &flow_field_cache,
                     nav_key,
+                    enemy_pos_v2,
                     &body,
-                    squad_slots.0.get(&net_id.0),
+                    enemy_target_opt.and_then(|target| target.last_known_position),
                 )
+            })
+            // Suivi Q12 : un ennemi charmé marche droit sur sa cible ennemie (`charm`), jamais vers un
+            // joueur ; sans cible, il reste là.
+            .or_else(|| {
+                combat::status::charmed(statuses).then(|| {
+                    super::charm::charm_motion(
+                        enemy_pos_v2,
+                        enemy_target_opt
+                            .filter(|target| target.target_type == super::state::TargetType::Enemy)
+                            .and_then(|target| target.last_known_position),
+                        // Jamais plus loin que la portée de corps à corps de l'ennemi (`attack_range`
+                        // de `mouche`, `chien` : moins que `OptimalAttackDistance`).
+                        optimal_attack_distance.min(ai_config.attack_range),
+                    )
+                })
+            })
+            .or_else(|| {
+                behavior_runtime
+                    .zip(enemy_behaviors)
+                    .and_then(|(runtime, rules)| {
+                        super::rules::behavior_motion(
+                            rules.active(boss.map_or(0, |b| b.phase)),
+                            runtime,
+                            frame.frame,
+                            enemy_pos_v2,
+                            enemy_target_opt.and_then(|target| target.last_known_position),
+                            &flow_field_cache,
+                            nav_key,
+                            &body,
+                            squad_slots.0.get(&net_id.0),
+                        )
+                    })
             });
         let desired_move_velocity_v2 = match &motion {
             Some(motion) => motion.direction * movement_speed.saturating_mul(motion.speed_mult),

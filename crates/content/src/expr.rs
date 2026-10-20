@@ -672,6 +672,20 @@ pub fn difficulty_context(
 /// nu pour un champ `u32`, `Fixed` en chaîne pour un champ `Fixed` — inchangée), soit une
 /// expression [`NumExpr`] évaluée une fois au lancement de la partie (F5, chantier m0-v11 :
 /// équilibrage par nombre de joueurs, `docs/conventions.md` §18).
+/// Schéma : un entier nu, un `Fixed` en chaîne ou une expression en chaîne (ex. `"120 + (players - 1) * 30"`).
+impl schemars::JsonSchema for NumOrExpr {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "NumOrExpr".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "Entier nu (`6`), `Fixed` en chaîne (`\"150.0\"`) ou expression en chaîne (`\"120.0 + (players - 1) * 30\"`).",
+            "oneOf": [{"type": "integer", "minimum": 0}, {"type": "string"}]
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NumOrExpr {
     /// Entier RON nu (`base_enemies: 6`), valeur inchangée.
@@ -690,6 +704,16 @@ impl NumOrExpr {
             NumOrExpr::Integer(n) => Ok(Fixed::from_num(*n)),
             NumOrExpr::Literal(f) => Ok(*f),
             NumOrExpr::Expression(expr) => expr.try_eval(&players_context(players)),
+        }
+    }
+
+    /// Résout ce champ avec un contexte quelconque (M3-T0d : `players` et `floor` pour la chance
+    /// d'une variante). Les littéraux sont inchangés.
+    pub fn resolve_with(&self, ctx: &dyn Context) -> Result<Fixed, EvalError> {
+        match self {
+            NumOrExpr::Integer(n) => Ok(Fixed::from_num(*n)),
+            NumOrExpr::Literal(f) => Ok(*f),
+            NumOrExpr::Expression(expr) => expr.try_eval(ctx),
         }
     }
 

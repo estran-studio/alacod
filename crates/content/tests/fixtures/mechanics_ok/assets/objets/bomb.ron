@@ -1,0 +1,1 @@
+(name: "Bombe", kind: Consumable, rarity: Common, max_stack: Some(99))

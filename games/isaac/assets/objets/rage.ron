@@ -1,0 +1,14 @@
+// `isaac` (M3-T11d2, §76.5) : un coup reçu (`OnDamageTaken`) donne +50 % de dégâts pendant 180 frames (`TimedModifier`). Seuils mesurés (`cible_mordante`, premier coup à f~8, un coup toutes les 120 frames) : `Damage` 1,5 à f60 avec l'objet, 1,0 sans. Deux coups dans la fenêtre de 180 frames ajoutent leurs `Pct` (1 × (1 + 0,5 + 0,5) = 2,0, règle de `sim_core::modifier::resolve`), non mesuré ici.
+(
+    name: "Rage",
+    kind: Passive,
+    effects: [
+        (on: OnDamageTaken, do: [TimedModifier(stat: Damage, op: Pct, value: "0.5", frames: 180)]),
+    ],
+    tags: ["effet"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        tears: Some((weapon: Some("larmes"), frames: Some(200), targets: [(character: "cible_mordante", dx: -150, dy: -48)], expect: [Stat(handle: 0, stat: Damage, value: 1.5, at_frame: 60)], control: [Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 60)])),
+    )),
+)

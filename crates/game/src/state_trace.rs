@@ -13,7 +13,12 @@
 //!   écrit sa trace dans `<fichier>-g1`, puis pose `RunRequest::Restart`
 //!   [`RESTART_GRACE_FRAMES`] frames plus tard (le temps que le pair atteigne lui aussi `r`) ;
 //!   la seconde partie écrit `<fichier>-g2` à `ALACOD_EXIT_AT_FRAME` (compté depuis son début)
-//!   et quitte.
+//!   et quitte. `ALACOD_RESTART_KIND=lobby` : la requête est `RunRequest::ToLobby` (bouton
+//!   « Lobby » de l'écran de fin) au lieu de `Restart` ; en ligne, les pairs reviennent dans la
+//!   salle d'origine et rejouent avec la graine d'origine (pas de graine dérivée, §33).
+//!   `ALACOD_RESTART_KIND=hub` : `RunRequest::ToHub` (« Retour au hub », jeux à hub).
+//!   `ALACOD_RESTART_DELAY_MS=<ms>` (D86, essais) : retarde la pose de la requête de ce temps réel
+//!   (la partie continue), pour que les pairs ne reviennent pas ensemble (`p2p-lobby.sh`).
 //!
 //! Deux runs avec les mêmes inputs et les mêmes seeds doivent produire le même
 //! fichier. En synctest, une frame resimulée remplace sa ligne précédente.
@@ -40,7 +45,10 @@
 use std::{collections::BTreeMap, fmt::Write as _, path::PathBuf};
 
 use bevy::prelude::*;
-use bevy_ggrs::{Checksum, Rollback, RollbackFrameCount, SaveWorld, SaveWorldSystems};
+use bevy_ggrs::{
+    AdvanceWorld, AdvanceWorldSystems, Checksum, LoadWorld, LoadWorldSystems, Rollback,
+    RollbackFrameCount, SaveWorld, SaveWorldSystems,
+};
 use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::rollback::StateTracers;
@@ -68,6 +76,83 @@ pub struct StateTraceRecorder {
     /// chaque frame l'est `check_distance` fois ; en p2p, c'est la mesure des prédictions
     /// ratées (zéro = aucun rollback n'a eu lieu, le run ne prouve rien du rollback réseau).
     pub resimulated: u32,
+    /// Rollbacks (suites de frames resimulées) et leur profondeur, voir [`RollbackStats`].
+    pub rollback: RollbackStats,
+}
+
+/// Rollbacks réseau vus par l'enregistreur (mesure, hors simulation). Un **rollback** est une
+/// restauration d'état de bevy_ggrs (schedule `LoadWorld`, [`count_rollback_load`]). Sa
+/// **profondeur** est le nombre de frames que GGRS fait resimuler pour revenir où le jeu en
+/// était : `dernière frame avancée avant la restauration − frame restaurée` (la dernière frame
+/// avancée est lue à la fin de chaque `AdvanceWorld`, [`note_advanced_frame`]). Elle ne dépend
+/// **pas** de la trace : une sauvegarde de la frame courante pendant un tick bloqué au seuil de
+/// prédiction (GGRS sauvegarde avant de décider de ne pas avancer) réenregistre une clé déjà vue
+/// sans resimuler rien. Les compteurs repartent de zéro à chaque nouvelle partie (`resimulated` de
+/// [`StateTraceRecorder`], lui, cumule sur le processus et compte les clés de trace revues).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct RollbackStats {
+    pub rollbacks: u32,
+    pub depth_max: u32,
+    /// Somme des profondeurs : frames resimulées de la partie.
+    pub depth_sum: u32,
+    /// Profondeur → nombre de rollbacks de cette profondeur.
+    depths: BTreeMap<u32, u32>,
+    /// `RollbackFrameCount` à la fin du dernier `AdvanceWorld`.
+    advanced: Option<i32>,
+}
+
+impl RollbackStats {
+    /// Fin d'un `AdvanceWorld` : le jeu vient d'atteindre la frame `frame`.
+    pub fn advanced(&mut self, frame: i32) {
+        self.advanced = Some(frame);
+    }
+
+    /// `LoadWorld` : l'état de la frame `restored` vient d'être restauré.
+    pub fn load(&mut self, restored: i32) {
+        let depth = self
+            .advanced
+            .map_or(0, |last| u32::try_from(last - restored).unwrap_or(0));
+        self.rollbacks += 1;
+        self.depth_sum += depth;
+        self.depth_max = self.depth_max.max(depth);
+        *self.depths.entry(depth).or_default() += 1;
+    }
+
+    /// Une nouvelle partie repart de la frame 0 et de compteurs vierges.
+    pub fn new_game(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Histogramme profondeur → nombre de rollbacks.
+    pub fn histogram(&self) -> &BTreeMap<u32, u32> {
+        &self.depths
+    }
+
+    /// Ligne de journal : `rollbacks : n=… frames=… profondeur_moy=… profondeur_max=…
+    /// par_100_frames=… histogramme=profondeur:nombre,…` (`frames` : frames de la partie).
+    pub fn summary(&self, frames: u32) -> String {
+        let mean = if self.rollbacks == 0 {
+            0.0
+        } else {
+            f64::from(self.depth_sum) / f64::from(self.rollbacks)
+        };
+        let per_100 = if frames == 0 {
+            0.0
+        } else {
+            f64::from(self.rollbacks) * 100.0 / f64::from(frames)
+        };
+        let histogram: Vec<String> = self
+            .depths
+            .iter()
+            .map(|(depth, count)| format!("{depth}:{count}"))
+            .collect();
+        format!(
+            "rollbacks : n={} frames={frames} profondeur_moy={mean:.2} profondeur_max={} par_100_frames={per_100:.2} histogramme={}",
+            self.rollbacks,
+            self.depth_max,
+            histogram.join(",")
+        )
+    }
 }
 
 /// Nombre de lignes gardées dans `history` (une frame = jusqu'à trois versions).
@@ -88,6 +173,7 @@ impl StateTraceRecorder {
         self.frames.clear();
         self.divergences.clear();
         self.history.clear();
+        self.rollback.new_game();
         if let Some(dump) = self.dump.as_mut() {
             dump.clear();
         }
@@ -229,9 +315,29 @@ impl Plugin for StateTraceRecorderPlugin {
             dump: self.dump.is_some().then(BTreeMap::new),
             history: std::collections::VecDeque::new(),
             resimulated: 0,
+            rollback: RollbackStats::default(),
         })
-        .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot));
+        .add_systems(SaveWorld, record_state.in_set(SaveWorldSystems::Snapshot))
+        .add_systems(
+            LoadWorld,
+            count_rollback_load.after(LoadWorldSystems::Mapping),
+        )
+        .add_systems(
+            AdvanceWorld,
+            note_advanced_frame.after(AdvanceWorldSystems::Last),
+        );
     }
+}
+
+/// `LoadWorld` : bevy_ggrs restaure un état (rollback), voir [`RollbackStats`]. bevy_ggrs a posé
+/// `RollbackFrameCount` sur la frame restaurée avant ce schedule.
+fn count_rollback_load(frame: Res<RollbackFrameCount>, mut recorder: ResMut<StateTraceRecorder>) {
+    recorder.rollback.load(frame.0);
+}
+
+/// Fin d'un `AdvanceWorld` : la frame atteinte, pour la profondeur du prochain rollback.
+fn note_advanced_frame(frame: Res<RollbackFrameCount>, mut recorder: ResMut<StateTraceRecorder>) {
+    recorder.rollback.advanced(frame.0);
 }
 
 /// Systèmes de `Last` qui peuvent demander l'arrêt du jeu (`AppExit`). Ce qui doit réagir
@@ -250,11 +356,59 @@ struct StateTraceFile {
     written: bool,
     /// D14 : `ALACOD_RESTART_AT_FRAME`.
     restart_at_frame: Option<u32>,
+    /// `ALACOD_RESTART_KIND` : la requête posée à la frame de relance.
+    restart_request: crate::run_state::RunRequest,
     /// Partie courante (1, puis 2 après le restart).
     game: u32,
     /// `<fichier>-g1` écrit, `RunRequest::Restart` posé.
     first_written: bool,
     restart_requested: bool,
+    /// `ALACOD_RESTART_DELAY_MS` : attente (temps réel) avant de poser la requête, et depuis
+    /// quand elle court.
+    restart_delay: std::time::Duration,
+    restart_ready_since: Option<std::time::Instant>,
+    /// Depuis quand l'écriture attend la confirmation des dernières frames (voir
+    /// [`confirmation`]).
+    waiting_since: Option<std::time::Instant>,
+}
+
+/// Attente maximale de la confirmation des dernières frames avant d'écrire seulement les
+/// frames confirmées (pair parti sans avoir confirmé, session perdue).
+pub(crate) const CONFIRMATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Ce que [`confirmation`] décide pour une trace qui s'arrête avant `end`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Confirmation {
+    /// Des frames avant `end` ne sont pas encore confirmées : attendre (le jeu continue).
+    Wait,
+    /// Écrire les frames `0..end` (toutes confirmées, ou `end` ramené aux confirmées après
+    /// l'attente maximale).
+    Write(u32),
+}
+
+/// Une frame prédite (entrée d'un pair devinée) peut être resimulée : seule une frame
+/// confirmée (`frame <= confirmed`, `ConfirmedFrameCount` de GGRS) est définitive. À l'arrêt
+/// demandé, le client en avance sur son pair a ses dernières frames prédites : sans cette
+/// attente, sa trace diffère de celle du pair sur ces lignes alors qu'il n'y a pas de desync.
+/// `confirmed` vaut `None` hors session. En synctest, la confirmation suit la frame courante
+/// avec `check_distance` de retard : l'attente est de quelques frames.
+fn confirmation(
+    recorded: impl Iterator<Item = u32>,
+    confirmed: Option<i32>,
+    end: u32,
+    waited: std::time::Duration,
+) -> Confirmation {
+    let Some(last) = recorded.filter(|frame| *frame < end).max() else {
+        return Confirmation::Write(end);
+    };
+    let confirmed = confirmed.unwrap_or(-1);
+    if i64::from(confirmed) >= i64::from(last) {
+        Confirmation::Write(end)
+    } else if waited >= CONFIRMATION_TIMEOUT {
+        Confirmation::Write(end.min(u32::try_from(confirmed + 1).unwrap_or(0)))
+    } else {
+        Confirmation::Wait
+    }
 }
 
 /// Ce que [`write_trace_at_exit_frame`] fait à cette frame (pur, D14).
@@ -295,6 +449,16 @@ fn trace_step(
     }
 }
 
+/// `ALACOD_RESTART_KIND` : `lobby` (`ToLobby`), `hub` (`ToHub`), sinon `Restart`.
+fn restart_request_from_env() -> crate::run_state::RunRequest {
+    use crate::run_state::RunRequest;
+    match std::env::var("ALACOD_RESTART_KIND").as_deref() {
+        Ok("lobby") => RunRequest::ToLobby,
+        Ok("hub") => RunRequest::ToHub,
+        _ => RunRequest::Restart,
+    }
+}
+
 /// Trace d'état pilotée par les variables d'environnement (voir le module).
 pub struct StateTracePlugin;
 
@@ -324,13 +488,25 @@ impl Plugin for StateTracePlugin {
                 v.parse()
                     .expect("ALACOD_RESTART_AT_FRAME doit être un entier")
             }),
+            restart_request: restart_request_from_env(),
             game: 1,
             first_written: false,
             restart_requested: false,
+            restart_delay: std::time::Duration::from_millis(
+                std::env::var("ALACOD_RESTART_DELAY_MS")
+                    .ok()
+                    .map(|v| {
+                        v.parse()
+                            .expect("ALACOD_RESTART_DELAY_MS doit être un entier")
+                    })
+                    .unwrap_or(0),
+            ),
+            restart_ready_since: None,
+            waiting_since: None,
         })
         .add_systems(Last, write_trace_at_exit_frame.in_set(ExitRequests))
         .add_systems(
-            OnExit(crate::core::AppState::InGame),
+            OnExit(crate::session::AppState::InGame),
             next_game_after_restart,
         );
     }
@@ -418,15 +594,17 @@ fn record_state(world: &mut World) {
     recorder.frames.insert(frame, hash_line);
 }
 
-/// D14 : à la sortie de la première partie (restart demandé), la trace repart de zéro.
+/// D14 : à la sortie de la première partie (restart demandé), la trace repart de zéro. Aussi à
+/// la sortie du hub (M2-T13, `RunRequest::EnterRun`) : les frames de la run repartent de 0 et ne
+/// doivent ni se mêler à celles du hub ni compter comme des frames resimulées.
 fn next_game_after_restart(
     mut file: ResMut<StateTraceFile>,
     mut trace: ResMut<StateTraceRecorder>,
 ) {
     if file.restart_requested && file.game == 1 {
         file.game = 2;
-        trace.clear();
     }
+    trace.clear();
 }
 
 /// Avec `ALACOD_STATE_TRACE_FULL=1` : écrit aussi `<fichier>.full`, le détail des dernières
@@ -459,6 +637,45 @@ fn trace_path(path: &std::path::Path, restart: bool, game: u32) -> PathBuf {
     }
 }
 
+/// Fin (exclue) des frames à écrire, ou `None` tant que les dernières ne sont pas confirmées.
+fn confirmed_end(
+    file: &mut StateTraceFile,
+    trace: &StateTraceRecorder,
+    confirmed: Option<&bevy_ggrs::ConfirmedFrameCount>,
+    end: u32,
+) -> Option<u32> {
+    let since = *file
+        .waiting_since
+        .get_or_insert_with(std::time::Instant::now);
+    match confirmation(
+        trace.frames.keys().copied(),
+        confirmed.map(|c| c.0),
+        end,
+        since.elapsed(),
+    ) {
+        Confirmation::Wait => None,
+        Confirmation::Write(written_end) => {
+            if written_end < end {
+                warn!(
+                    "trace d'état tronquée à la frame {written_end} : dernières frames jamais confirmées"
+                );
+            }
+            file.waiting_since = None;
+            Some(written_end)
+        }
+    }
+}
+
+/// Nombre de lignes d'une trace qui s'arrête à la frame `at_frame` : `at_frame - 1`, toujours.
+/// La frame `at_frame - 1` n'est jamais écrite : `record_state` vit dans `SaveWorld`, et la
+/// `SaveGameState` de cette frame n'a pas encore été traitée quand le système voit `FrameCount`
+/// atteindre `at_frame` (constaté, reproductible en synctest). Un client en avance sur son pair,
+/// qui attend la confirmation (voir `confirmation`) pendant que sa frame courante avance,
+/// écrirait sinon une ligne de plus que le pair.
+fn last_trace_line(at_frame: u32) -> u32 {
+    at_frame.saturating_sub(1)
+}
+
 fn write_trace_at_exit_frame(
     mut commands: Commands,
     frame: Res<FrameCount>,
@@ -467,6 +684,7 @@ fn write_trace_at_exit_frame(
     mut exit: MessageWriter<AppExit>,
     snapshot_profile: Option<Res<utils::snapshot_profile::SnapshotProfile>>,
     set_timings: Option<Res<utils::system_profile::SetTimings>>,
+    confirmed: Option<Res<bevy_ggrs::ConfirmedFrameCount>>,
 ) {
     if file.written {
         return;
@@ -483,49 +701,58 @@ fn write_trace_at_exit_frame(
     match step {
         TraceStep::Nothing => return,
         TraceStep::Restart => {
+            let since = *file
+                .restart_ready_since
+                .get_or_insert_with(std::time::Instant::now);
+            if since.elapsed() < file.restart_delay {
+                return;
+            }
             info!(
-                "ALACOD_RESTART_AT_FRAME : RunRequest::Restart à la frame {}",
-                frame.frame
+                "ALACOD_RESTART_AT_FRAME : RunRequest::{:?} à la frame {}",
+                file.restart_request, frame.frame
             );
-            commands.insert_resource(crate::run_state::RunRequest::Restart);
+            commands.insert_resource(file.restart_request);
             file.restart_requested = true;
             return;
         }
         TraceStep::WriteFirst => {
-            let restart_at = file.restart_at_frame.unwrap_or(0);
+            // Même plafond que la trace de sortie : l'attente de confirmation fait avancer la
+            // simulation, la frame `restart_at - 1` n'est pas fiable (voir `last_trace_line`).
+            let restart_at = last_trace_line(file.restart_at_frame.unwrap_or(0));
+            let Some(end) = confirmed_end(&mut file, &trace, confirmed.as_deref(), restart_at)
+            else {
+                return;
+            };
             let path = trace_path(&file.path, true, 1);
             let out: String = trace
-                .lines_until(restart_at)
+                .lines_until(end)
                 .map(|line| format!("{line}\n"))
                 .collect();
             std::fs::write(&path, out).expect("écriture de la trace d'état");
-            write_full_history(&path, &trace, restart_at);
+            write_full_history(&path, &trace, end);
             info!("trace d'état de la partie 1 écrite dans {path:?}");
             file.first_written = true;
             return;
         }
         TraceStep::WriteAndExit => {}
     }
-    // La toute dernière frame demandée (`exit_at_frame - 1`) manque systématiquement :
-    // `record_state` vit dans `SaveWorld`, et la `SaveGameState` de cette dernière frame
-    // n'a pas encore été traitée quand ce système voit `FrameCount` atteindre
-    // `exit_at_frame` (constaté empiriquement, de façon reproductible : attendre plusieurs
-    // ticks de plus avant d'écrire ne change rien, la donnée n'arrive jamais par ce
-    // chemin). La trace compte donc `exit_at_frame - 1` lignes (frames `0..exit_at_frame -
-    // 2` inclus) au lieu de `exit_at_frame` : documenté ici plutôt que deviné plus loin ;
-    // aucun impact sur ce qui EST enregistré, complet et correct jusque-là.
+    let exit_at = last_trace_line(file.exit_at_frame);
+    let Some(end) = confirmed_end(&mut file, &trace, confirmed.as_deref(), exit_at) else {
+        return;
+    };
     let mut out = String::new();
-    for line in trace.lines_until(file.exit_at_frame) {
+    for line in trace.lines_until(end) {
         out.push_str(line);
         out.push('\n');
     }
     let path = trace_path(&file.path, restart, file.game);
     std::fs::write(&path, out).expect("écriture de la trace d'état");
-    write_full_history(&path, &trace, file.exit_at_frame);
+    write_full_history(&path, &trace, end);
     info!(
         "trace d'état écrite dans {path:?} ; frames resimulées après rollback : {}",
         trace.resimulated
     );
+    info!("{}", trace.rollback.summary(end));
     if let Some(profile) = snapshot_profile {
         info!("profil rollback : {}", profile.summary());
         for sample in profile.heaviest(5) {
@@ -582,6 +809,49 @@ mod restart_tests {
     }
 
     #[test]
+    fn plafond_des_lignes_independant_de_la_simulation() {
+        use std::time::Duration;
+        assert_eq!(last_trace_line(600), 599);
+        assert_eq!(last_trace_line(0), 0);
+        // La simulation a avancé pendant l'attente (trace jusqu'à 602, tout confirmé) :
+        // la partie 1 (`-g1`) comme la sortie s'arrêtent à 599 lignes, jamais 600.
+        assert_eq!(
+            confirmation(0..602, Some(601), last_trace_line(600), Duration::ZERO),
+            Confirmation::Write(599)
+        );
+    }
+
+    #[test]
+    fn attend_la_confirmation_des_dernieres_frames() {
+        use std::time::Duration;
+        let zero = Duration::ZERO;
+        // Confirmé jusqu'à la dernière frame enregistrée : tout s'écrit.
+        assert_eq!(
+            confirmation(0..598, Some(597), 600, zero),
+            Confirmation::Write(600)
+        );
+        // Frames prédites en fin de trace : on attend.
+        assert_eq!(
+            confirmation(0..598, Some(590), 600, zero),
+            Confirmation::Wait
+        );
+        // Pair parti : après l'attente maximale, seulement les frames confirmées.
+        assert_eq!(
+            confirmation(0..598, Some(590), 600, CONFIRMATION_TIMEOUT),
+            Confirmation::Write(591)
+        );
+        assert_eq!(
+            confirmation(0..598, None, 600, CONFIRMATION_TIMEOUT),
+            Confirmation::Write(0)
+        );
+        // Les frames au-delà de `end` ne comptent pas.
+        assert_eq!(
+            confirmation(0..700, Some(599), 600, zero),
+            Confirmation::Write(600)
+        );
+    }
+
+    #[test]
     fn suffixe_des_fichiers() {
         let path = std::path::Path::new("/tmp/p2p-0.trace");
         assert_eq!(
@@ -596,5 +866,47 @@ mod restart_tests {
             trace_path(path, true, 2),
             PathBuf::from("/tmp/p2p-0.trace-g2")
         );
+    }
+}
+
+#[cfg(test)]
+mod rollback_stats_tests {
+    use super::RollbackStats;
+
+    /// La profondeur est `dernière frame avancée − frame restaurée`, quelles que soient les
+    /// sauvegardes (cas du seuil de prédiction : GGRS sauvegarde la frame courante 100 pendant un
+    /// tick qui n'avance pas, puis restaure 98 et rejoue 99 et 100 : profondeur 2, pas 3).
+    #[test]
+    fn rollback_depth_is_frames_advanced_not_trace_keys() {
+        let mut stats = RollbackStats::default();
+        for frame in 1..=100 {
+            stats.advanced(frame);
+        }
+        // (tick bloqué au seuil : sauvegarde de la frame 100, aucun `advanced`)
+        stats.load(98);
+        stats.advanced(99);
+        stats.advanced(100);
+        stats.advanced(101); // la frame nouvelle
+        stats.load(100); // rollback d'une frame depuis 101
+        stats.advanced(101);
+        stats.advanced(102);
+        stats.load(102); // restauration de la dernière frame avancée : rien à resimuler
+        assert_eq!(stats.rollbacks, 3);
+        assert_eq!(stats.depth_max, 2);
+        assert_eq!(stats.depth_sum, 2 + 1);
+        assert_eq!(
+            stats
+                .histogram()
+                .iter()
+                .map(|(d, n)| (*d, *n))
+                .collect::<Vec<_>>(),
+            vec![(0, 1), (1, 1), (2, 1)]
+        );
+        assert_eq!(
+            stats.summary(200),
+            "rollbacks : n=3 frames=200 profondeur_moy=1.00 profondeur_max=2 par_100_frames=1.50 histogramme=0:1,1:1,2:1"
+        );
+        stats.new_game();
+        assert_eq!(stats, RollbackStats::default());
     }
 }

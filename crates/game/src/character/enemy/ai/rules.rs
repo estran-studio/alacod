@@ -39,7 +39,8 @@ use crate::{
 /// D38 : pose `combat::weapons::melee::MeleeHold` sur un ennemi tant que sa règle retenue est
 /// `Flee` (il ne lance plus d'attaque au corps à corps en fuyant), le retire ensuite. Lu par
 /// `enemy_melee_attack_system` à la frame suivante (set `Weapon`, avant `EnemyAI`).
-/// `RollbackSystemSet::EnemyAI`, en dernier (après `enemy_attack_system`).
+/// M3-T1 : un ennemi sous `Fear` fuit aussi (`Flee` imposé) : même retenue, qu'il liste `Flee` ou
+/// non. `RollbackSystemSet::EnemyAI`, en dernier (après `enemy_attack_system`).
 #[allow(clippy::type_complexity)]
 pub fn melee_hold_system(
     mut commands: Commands,
@@ -47,23 +48,37 @@ pub fn melee_hold_system(
         (
             &GgrsNetId,
             Entity,
-            &EnemyBehaviors,
-            &BehaviorRuntime,
+            Option<&EnemyBehaviors>,
+            Option<&BehaviorRuntime>,
             Has<combat::weapons::melee::MeleeHold>,
             Option<&BossState>,
+            Option<&combat::status::Statuses>,
         ),
-        With<Enemy>,
+        (
+            With<Enemy>,
+            // D90 : `MeleeHold` aussi. `Statuses` est retiré dès qu'il est vide (`combat::projectile`) :
+            // sans cette branche, un ennemi sans `BehaviorRuntime` dont la peur finit n'était plus vu et
+            // gardait `MeleeHold` pour toujours.
+            Or<(
+                With<BehaviorRuntime>,
+                With<combat::status::Statuses>,
+                With<combat::weapons::melee::MeleeHold>,
+            )>,
+        ),
     >,
 ) {
-    for (_, entity, rules, runtime, held, boss) in order_iter!(enemies) {
-        let fleeing = runtime
-            .selected
-            .and_then(|index| {
-                rules
-                    .active(boss.map_or(0, |b| b.phase))
-                    .get(index as usize)
-            })
-            .is_some_and(|rule| matches!(rule, Behavior::Flee));
+    for (_, entity, rules, runtime, held, boss, statuses) in order_iter!(enemies) {
+        let fleeing = combat::status::feared(statuses)
+            || rules.zip(runtime).is_some_and(|(rules, runtime)| {
+                runtime
+                    .selected
+                    .and_then(|index| {
+                        rules
+                            .active(boss.map_or(0, |b| b.phase))
+                            .get(index as usize)
+                    })
+                    .is_some_and(|rule| matches!(rule, Behavior::Flee))
+            });
         if fleeing && !held {
             commands
                 .entity(entity)
@@ -175,8 +190,11 @@ pub fn behavior_select_system(
         let phase_rules = rules.active(boss.map_or(0, |b| b.phase));
         let position = transform.translation.truncate();
 
+        // Suivi Q12 : un charmé n'entend personne, n'a aucune règle retenue (ni `Charge` sur un joueur) : il
+        // sert le camp des joueurs, `behavior::charm_attack` et `pathing` le pilotent.
+        let charmed = combat::status::charmed(statuses);
         // Ouïe : un tir de joueur né cette frame à portée rend le tireur connu.
-        if let Some(radius) = rules.hearing {
+        if let Some(radius) = rules.hearing.filter(|_| !charmed) {
             for (_, bullet, bullet_transform) in order_iter!(bullet_query) {
                 if bullet.created_at == now
                     && bullet.source_team == Team::Players
@@ -190,7 +208,7 @@ pub fn behavior_select_system(
         if let Some((heard_id, until)) = runtime.heard.clone() {
             if now >= until {
                 runtime.heard = None;
-            } else if target.target.is_none() {
+            } else if target.target.is_none() && !charmed {
                 if let Some((_, player_transform, ..)) =
                     player_query.iter().find(|(id, ..)| **id == heard_id)
                 {
@@ -241,7 +259,7 @@ pub fn behavior_select_system(
             charge_ready: now >= runtime.charge_ready_at,
             previous: runtime.selected.map(|index| index as usize),
         };
-        let selected = if combat::status::incapacitated(statuses) {
+        let selected = if combat::status::incapacitated(statuses) || charmed {
             None
         } else {
             select(phase_rules, &ctx).map(|index| index as u32)
@@ -333,6 +351,39 @@ pub struct BehaviorMotion {
     pub speed_mult: fixed_math::Fixed,
 }
 
+/// Recul loin de la cible (`Flee`, `KeepDistance`, et le statut `Fear`, M3-T1) : la direction du
+/// champ de recul de l'ennemi ; sans champ encore, droit à l'opposé de la cible ; avec un champ
+/// mais sans issue (maximum local), à l'arrêt plutôt qu'un vecteur dans la roche.
+pub fn flee_motion(
+    flow_field_cache: &FlowFieldCache,
+    nav_key: NavKey,
+    position: fixed_math::FixedVec2,
+    body: &AgentBody,
+    target: Option<fixed_math::FixedVec2>,
+) -> BehaviorMotion {
+    let retreat = flow_field_cache
+        .retreat_direction(nav_key, position, body)
+        .or_else(|| {
+            // Before a field exists, retain the startup behavior. With a field,
+            // a local maximum is a safe stop, not a vector into the rock.
+            flow_field_cache
+                .get_flow_field(nav_key)
+                .is_none()
+                .then(|| target.map(|t| (position - t).normalize_or_zero()))
+                .flatten()
+        });
+    match retreat {
+        Some(direction) => BehaviorMotion {
+            direction,
+            speed_mult: fixed_math::FIXED_ONE,
+        },
+        None => BehaviorMotion {
+            direction: fixed_math::FixedVec2::ZERO,
+            speed_mult: fixed_math::FIXED_ZERO,
+        },
+    }
+}
+
 /// Déplacement du behavior retenu (appelé par `move_enemies` pour les ennemis à
 /// [`BehaviorRuntime`]). `target` : position de la cible connue.
 pub fn behavior_motion(
@@ -356,26 +407,13 @@ pub fn behavior_motion(
         speed_mult: fixed_math::FIXED_ZERO,
     };
     match rule {
-        Behavior::KeepDistance { .. } | Behavior::Flee => {
-            let retreat = flow_field_cache
-                .retreat_direction(nav_key, position, body)
-                .or_else(|| {
-                    // Before a field exists, retain the startup behavior. With a field,
-                    // a local maximum is a safe stop, not a vector into the rock.
-                    flow_field_cache
-                        .get_flow_field(nav_key)
-                        .is_none()
-                        .then(|| target.map(|t| (position - t).normalize_or_zero()))
-                        .flatten()
-                });
-            Some(match retreat {
-                Some(direction) => BehaviorMotion {
-                    direction,
-                    speed_mult: fixed_math::FIXED_ONE,
-                },
-                None => still(),
-            })
-        }
+        Behavior::KeepDistance { .. } | Behavior::Flee => Some(flee_motion(
+            flow_field_cache,
+            nav_key,
+            position,
+            body,
+            target,
+        )),
         Behavior::Strafe => {
             let to_target = (target? - position).normalize_or_zero();
             let perpendicular = fixed_math::FixedVec2::new(-to_target.y, to_target.x);
@@ -649,5 +687,26 @@ mod tests {
         assert!(!ignored(&[], Some(&tags)));
         assert!(!ignored(&[Tag::new("other")], Some(&tags)));
         assert!(!ignored(std::slice::from_ref(&ghost), None));
+    }
+
+    /// D90 : un ennemi sans règles de comportement ni statuts (`Statuses` est retiré dès qu'il est
+    /// vide) dont la peur est finie garde-t-il `MeleeHold` ? Non : le système le voit encore par la
+    /// retenue qu'il porte et la lève.
+    #[test]
+    fn la_retenue_d_une_peur_finie_est_levee_sans_regles_de_comportement() {
+        use combat::weapons::melee::MeleeHold;
+        let mut app = App::new();
+        app.add_systems(Update, melee_hold_system);
+        let held = app
+            .world_mut()
+            .spawn((Enemy {}, GgrsNetId(1, "follower".into()), MeleeHold))
+            .id();
+        let free = app
+            .world_mut()
+            .spawn((Enemy {}, GgrsNetId(2, "autre".into())))
+            .id();
+        app.update();
+        assert!(!app.world().entity(held).contains::<MeleeHold>());
+        assert!(!app.world().entity(free).contains::<MeleeHold>());
     }
 }

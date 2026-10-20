@@ -8,9 +8,11 @@
 //! et armes sont des chaînes de contenu, pour ne dépendre ni de game ni du crate qui exécutera
 //! un pattern.
 pub mod boss;
+pub mod familiar;
 pub use boss::{
     BossDef, BossDefeated, BossPhaseChanged, BossState, Phase, PhaseEnd, Timeline, TimelineEvent,
 };
+pub use familiar::FamiliarGun;
 
 use bevy::prelude::{App, Component, Plugin};
 use bevy_fixed::fixed_math::Fixed;
@@ -57,6 +59,52 @@ pub enum Behavior {
         #[serde(default)]
         volley: bool,
     },
+    /// M3-T0d (`docs/conventions.md` §63) : **familier** (personnage cité par un objet
+    /// `familiar`). Suit son porteur à `gap` unités, en file derrière les autres familiers du
+    /// même porteur (rang = ordre d'apparition, [`FamiliarOf::rank`]). Contrat seul : l'exécution
+    /// vient de M3-T6 ; [`select`] l'ignore d'ici là. Variante en fin d'enum.
+    Follow {
+        gap: Fixed,
+    },
+    /// M3-T0d : familier **orbital**. Tourne autour du porteur à `radius` unités, un tour en
+    /// `frames_per_turn` frames ; phase = rang × 2π / nombre d'orbitaux.
+    Orbit {
+        radius: Fixed,
+        frames_per_turn: u32,
+    },
+    /// M3-T0d : tire quand le porteur tire, dans sa direction de visée, au plus une fois tous
+    /// les `every` frames. Q13 (William, 2026-10-16) : le familier tire **les larmes du
+    /// porteur** : son arme active composée avec ses objets et synergies (§66), ses stats de
+    /// larmes, le crédit revient au porteur. Pas d'arme propre au familier.
+    MirrorShot {
+        every: u32,
+    },
+    /// M3-T0d : une balle hostile qui touche le familier est détruite (comme le blank) ; le
+    /// familier est immunisé.
+    BlockBullets,
+}
+
+/// Familier lié à son porteur (M3-T0d, §63). Composant rollback **neutre** : sans porteur de ce
+/// composant (aucun avant M3-T6), il ne contribue pas au checksum.
+#[derive(Component, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct FamiliarOf {
+    /// `GgrsNetId` du porteur.
+    pub owner: GgrsNetId,
+    /// Rang d'apparition parmi les familiers du même porteur (0, 1, 2…).
+    pub rank: u32,
+}
+
+impl Behavior {
+    /// Le behavior n'a de sens que sur un familier (M3-T0d) : le lint exige un objet qui le cite.
+    pub fn is_familiar(&self) -> bool {
+        matches!(
+            self,
+            Behavior::Follow { .. }
+                | Behavior::Orbit { .. }
+                | Behavior::MirrorShot { .. }
+                | Behavior::BlockBullets
+        )
+    }
 }
 
 /// Forme d'une formation (M2-T8).
@@ -80,6 +128,10 @@ impl Behavior {
             Behavior::Flee => "Flee",
             Behavior::Wander => "Wander",
             Behavior::Formation { .. } => "Formation",
+            Behavior::Follow { .. } => "Follow",
+            Behavior::Orbit { .. } => "Orbit",
+            Behavior::MirrorShot { .. } => "MirrorShot",
+            Behavior::BlockBullets => "BlockBullets",
         }
     }
 }
@@ -143,6 +195,12 @@ pub fn applicable(index: usize, behavior: &Behavior, ctx: &SelectionContext) -> 
         Behavior::Chase { .. } => distance.is_some(),
         Behavior::Formation { .. } => distance.is_some_and(|d| d < ctx.sight),
         Behavior::Wander => true,
+        // M3-T0d : comportements de familier, exécutés par M3-T6 ; jamais retenus par la sélection
+        // des ennemis (un familier n'a pas d'IA de poursuite).
+        Behavior::Follow { .. }
+        | Behavior::Orbit { .. }
+        | Behavior::MirrorShot { .. }
+        | Behavior::BlockBullets => false,
     }
 }
 
@@ -201,6 +259,10 @@ impl Plugin for BehaviorsPlugin {
                     "Flee",
                     "Wander",
                     "Formation",
+                    "Follow",
+                    "Orbit",
+                    "MirrorShot",
+                    "BlockBullets",
                 ][..],
             ),
             ("perception", &["Sight", "Hearing"][..]),
@@ -209,6 +271,10 @@ impl Plugin for BehaviorsPlugin {
             app.register_kinds(names.iter().map(|name| KindDecl::new(category, *name)));
         }
         app.rollback_and_trace::<BehaviorState>();
+        // M3-T0d : neutre (aucun porteur avant M3-T6), les traces ne bougent pas.
+        app.rollback_and_trace_neutral::<FamiliarOf>();
+        // M3-T6 : idem (posé seulement sur un familier à `MirrorShot`).
+        app.rollback_and_trace_neutral::<FamiliarGun>();
     }
 }
 
@@ -288,6 +354,34 @@ mod tests {
         Behavior::Chase {
             profile: "GroundBreaker".into(),
         }
+    }
+
+    /// M3-T0d (§63) : les behaviors de familier font l'aller-retour RON, portent leur nom, ne sont
+    /// jamais retenus par la sélection (exécutés par M3-T6) et se reconnaissent comme tels.
+    #[test]
+    fn familiar_behaviors_are_contract_only() {
+        let familiar = vec![
+            Behavior::Follow {
+                gap: Fixed::from_num(28),
+            },
+            Behavior::Orbit {
+                radius: Fixed::from_num(40),
+                frames_per_turn: 120,
+            },
+            Behavior::MirrorShot { every: 12 },
+            Behavior::BlockBullets,
+        ];
+        let text = ron::to_string(&familiar).unwrap();
+        assert_eq!(ron::from_str::<Vec<Behavior>>(&text).unwrap(), familiar);
+        assert_eq!(
+            familiar.iter().map(Behavior::name).collect::<Vec<_>>(),
+            ["Follow", "Orbit", "MirrorShot", "BlockBullets"]
+        );
+        assert!(familiar.iter().all(Behavior::is_familiar));
+        assert!(!chase().is_familiar());
+        // Même avec une cible à portée et une règle de repli : la sélection saute le familier.
+        let rules = [familiar, vec![chase()]].concat();
+        assert_eq!(select(&rules, &ctx()), Some(4));
     }
 
     /// Table de cas : (règles, faits, règle attendue).
@@ -479,6 +573,10 @@ mod tests {
             "Flee",
             "Wander",
             "Formation",
+            "Follow",
+            "Orbit",
+            "MirrorShot",
+            "BlockBullets",
         ] {
             assert!(kinds.has("behavior", name));
         }
@@ -486,7 +584,7 @@ mod tests {
             assert!(kinds.has("perception", name));
         }
         assert!(kinds.has("targeting", "Nearest"));
-        assert_eq!(kinds.names("behavior").count(), 9);
+        assert_eq!(kinds.names("behavior").count(), 13);
         assert_eq!(kinds.names("perception").count(), 2);
         assert_eq!(kinds.names("targeting").count(), 1);
         let name = std::any::type_name::<BehaviorState>();

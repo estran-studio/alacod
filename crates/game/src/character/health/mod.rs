@@ -1,13 +1,11 @@
-pub mod ui;
-
 use bevy::{
     log::{tracing::span, Level},
     prelude::*,
 };
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use combat::actors::{Shield, SHIELD_IFRAMES};
-use combat::damage::{after_armor, resolve_damage, Defenses};
+use combat::actors::{ExtraHealth, Shield, SHIELD_IFRAMES};
+use combat::damage::{apply_layers, resolve_damage, Defenses, Layered};
 use combat::downed::{downed_modifier_source, Downed, Reviving};
 use ggrs::PlayerHandle;
 use run::{Run, RunEnd, RunStep};
@@ -22,7 +20,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
-use crate::character::config::{CharacterConfig, CharacterConfigHandles};
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::player::Player;
 use crate::economy::PointsCredit;
 use crate::frame_events::FrameEvents;
@@ -114,6 +112,15 @@ pub fn new_health(max: fixed_math::Fixed) -> Health {
     }
 }
 
+/// Jusqu'à quelle frame une invulnérabilité issue d'un coup doit durer.
+pub fn hit_iframes_until(
+    frame: u32,
+    damage: fixed_math::Fixed,
+    iframes: Option<u32>,
+) -> Option<u32> {
+    (damage > fixed_math::Fixed::ZERO).then(|| iframes.map(|n| frame.saturating_add(n)))?
+}
+
 /// Lit `FrameEvents<DamageEvent>` (émis par six émetteurs : collision de balles, collision de
 /// mêlée, attaque d'ennemi, collision de projectile composable (B5), brûlure des statuts (T1.3),
 /// charge d'ennemi (T1.4) ; `docs/conventions.md` §8) dans l'ordre d'émission et applique
@@ -133,6 +140,8 @@ pub fn rollback_resolve_damage_events(
     // T2.3, chantier C5 v1 : points au coup au but (voir `crate::economy`, doc du module,
     // section « Attribution des points »).
     mut points_credits: ResMut<FrameEvents<PointsCredit>>,
+    // M3-T2 : coups portés (dégât réel strictement positif), lus par `OnHit`.
+    mut hits_landed: ResMut<FrameEvents<crate::effects_v3::HitLanded>>,
     net_id_query: Query<(&GgrsNetId, Entity), With<Rollback>>,
     player_handle_query: Query<(&GgrsNetId, &Player)>,
     mut target_query: Query<
@@ -140,19 +149,19 @@ pub fn rollback_resolve_damage_events(
             &GgrsNetId,
             &Team,
             Option<&Defenses>,
+            Option<&CharacterConfigKey>,
             Option<&mut Health>,
             Option<&mut DamageAccumulator>,
             Has<Downed>,
             Option<&mut HitCount>,
-            // D61 : bouclier, posé au premier gain (neutre sans porteur).
             Option<&mut Shield>,
+            Option<&mut ExtraHealth>,
         ),
         With<Rollback>,
     >,
     // D61 : stat `Armor` résolue (base + modificateurs).
     stats: StatReader,
-    // T1.9 : multiplicateur de difficulté des dégâts infligés par les ennemis (1 sans
-    // difficulté activée : aucun calcul, voir `crate::clock::scale`).
+    character_configs: Res<CharacterConfigs>,
     clock: Res<run::Clock>,
     progression: Res<crate::progression::ProgressionTable>,
     floor: Option<Res<run::FloorState>>,
@@ -185,11 +194,13 @@ pub fn rollback_resolve_damage_events(
             target_net_id,
             target_team,
             opt_defenses,
+            opt_config,
             mut opt_health,
             opt_accumulator,
             downed,
             opt_hit_count,
-            opt_shield,
+            mut opt_shield,
+            mut opt_extra,
         )) = target_query.get_mut(entity)
         else {
             continue;
@@ -236,15 +247,26 @@ pub fn rollback_resolve_damage_events(
             continue;
         };
 
-        // D61 : bouclier d'abord (un point absorbe un coup entier, brèves i-frames), puis armure
-        // sur ce qui passe. `DamageKind::True` ignore l'un et l'autre. Armure 0 et pas de
-        // bouclier : le montant reste exactement celui de `resolve_damage`.
-        let amount = if event.kind == DamageKind::True {
-            amount
+        // D61 + M3-T3 (§68) : couches de défense dans l'ordre bouclier (un coup entier, brèves
+        // i-frames) → armure → `ExtraHealth` (point par point) → PV (`combat::damage::apply_layers`).
+        // `DamageKind::True` ignore le bouclier et l'armure, pas `ExtraHealth`. Sans les trois
+        // couches, le montant reste exactement celui de `resolve_damage`.
+        let armor = if event.kind == DamageKind::True {
+            fixed_math::Fixed::ZERO
         } else {
-            if let Some(mut shield) = opt_shield {
-                if shield.0 > 0 {
-                    shield.0 -= 1;
+            stats.get(entity, &StatId::Armor, fixed_math::Fixed::ZERO)
+        };
+        let mut no_shield = 0u32;
+        let mut no_soul = fixed_math::Fixed::ZERO;
+        let shield_points = opt_shield
+            .as_deref_mut()
+            .map_or(&mut no_shield, |s| &mut s.0);
+        let soul_points = opt_extra
+            .as_deref_mut()
+            .map_or(&mut no_soul, |e| &mut e.soul);
+        let (amount, to_health) =
+            match apply_layers(&event.kind, amount, shield_points, armor, soul_points) {
+                Layered::ShieldAbsorbed => {
                     if let Some(health) = opt_health.as_deref_mut() {
                         let until = event.frame.saturating_add(SHIELD_IFRAMES);
                         health.invulnerable_until_frame = Some(
@@ -255,16 +277,40 @@ pub fn rollback_resolve_damage_events(
                     }
                     info!(
                         "ggrs{{f={} shield_absorb target={} left={}}}",
-                        frame.frame, target_net_id.0, shield.0
+                        frame.frame,
+                        target_net_id.0,
+                        opt_shield.as_deref().map_or(0, |s| s.0)
                     );
                     continue;
                 }
+                Layered::Through { hit, to_health } => (hit, to_health),
+            };
+        // Des cœurs d'âme ont pris une partie du coup (ou tout) : le coup a eu lieu (i-frames,
+        // `HitLanded`, `HitCount` plus bas), seul le reste va aux PV.
+        let soul_took = amount > to_health;
+        if soul_took {
+            info!(
+                "ggrs{{f={} soul_absorb target={} took={} left={}}}",
+                frame.frame,
+                target_net_id.0,
+                amount - to_health,
+                opt_extra
+                    .as_deref()
+                    .map_or(fixed_math::Fixed::ZERO, |e| e.soul)
+            );
+        }
+
+        if let (Some(health), Some(config_key)) = (opt_health.as_deref_mut(), opt_config) {
+            if let Some(config) = character_configs.get(&config_key.0) {
+                if let Some(until) = hit_iframes_until(event.frame, amount, config.hit_iframes) {
+                    health.invulnerable_until_frame = Some(
+                        health
+                            .invulnerable_until_frame
+                            .map_or(until, |current| current.max(until)),
+                    );
+                }
             }
-            after_armor(
-                amount,
-                stats.get(entity, &StatId::Armor, fixed_math::Fixed::ZERO),
-            )
-        };
+        }
 
         // T2.9 (testbed) : compte le coup pour toute entité qui porte `HitCount`, quel que
         // soit le montant final (le coup a bien été résolu en dégât réel ici, après équipe,
@@ -273,25 +319,37 @@ pub fn rollback_resolve_damage_events(
             hit_count.0 += 1;
         }
 
+        if amount > fixed_math::Fixed::ZERO && event.source.0 != target_net_id.0 {
+            hits_landed.send(crate::effects_v3::HitLanded {
+                frame: frame.frame,
+                source: event.source.0,
+                target: target_net_id.0,
+            });
+        }
+
         let mut last_hit_by = Vec::with_capacity(2);
         if let Some(&handle) = player_handle_by_net_id.get(&event.source.0) {
             last_hit_by.push(HitBy::Player(handle));
             // T2.3, chantier C5 v1 : coup au but porté par un joueur sur une cible qui n'en
-            // est pas un (pas de points à se tirer dessus entre joueurs, même sous tir ami).
+            // est pas un (pas de points de se tirer dessus entre joueurs, même sous tir ami).
             if *target_team != Team::Players {
                 points_credits.send(PointsCredit::Hit { handle });
             }
         }
         last_hit_by.push(HitBy::Entity(event.source.clone()));
 
+        if soul_took && to_health <= fixed_math::Fixed::ZERO {
+            // Absorbé en entier : aucune perte de PV, rien à accumuler (ni mort, ni `last_hit_by`).
+            continue;
+        }
         if let Some(mut accumulator) = opt_accumulator {
-            accumulator.total_damage = accumulator.total_damage.saturating_add(amount);
+            accumulator.total_damage = accumulator.total_damage.saturating_add(to_health);
             accumulator.hit_count += 1;
             accumulator.last_hit_by = Some(last_hit_by);
         } else {
             commands.entity(entity).insert(DamageAccumulator {
                 hit_count: 1,
-                total_damage: amount,
+                total_damage: to_health,
                 last_hit_by: Some(last_hit_by),
             });
         }
@@ -304,7 +362,7 @@ pub fn rollback_resolve_damage_events(
 }
 
 /// Handle par défaut de `bleedout_frames`/`downed_speed_mult` quand la config n'a pas pu
-/// être lue (`CharacterConfigHandles` absent ou asset pas encore chargé — ne devrait pas
+/// être lue (`CharacterConfigKey` absent ou entrée de `CharacterConfigs` absente — ne devrait pas
 /// arriver en pratique, garde défensive). Mêmes valeurs que `CharacterConfig::default_*`
 /// (`character/config.rs`), dupliquées ici en constantes simples pour ne pas dépendre d'une
 /// instance de `CharacterConfig` déjà construite.
@@ -314,13 +372,13 @@ pub fn rollback_apply_accumulated_damage(
     frame: Res<FrameCount>,
     mut commands: Commands,
     players_count: Res<PlayersCount>,
-    character_configs: Res<Assets<CharacterConfig>>,
+    character_configs: Res<CharacterConfigs>,
     // T2.3, chantier C5 v1 : points au kill (voir `crate::economy`, doc du module, section
     // « Attribution des points »).
     mut points_credits: ResMut<FrameEvents<PointsCredit>>,
     // Lecture seule, indépendante de la query mutable ci-dessous (aucun composant en
     // commun : `Player`/`Downed` vs `Health`/`DamageAccumulator`/`Modifiers`/
-    // `CharacterConfigHandles`) : sert à savoir, pour un joueur qui tombe à 0 PV cette
+    // `CharacterConfigKey`) : sert à savoir, pour un joueur qui tombe à 0 PV cette
     // frame, si un AUTRE joueur est encore debout (ni mort, ni déjà à terre).
     standing_players: Query<(&Player, Has<Downed>)>,
     mut query: Query<
@@ -331,7 +389,7 @@ pub fn rollback_apply_accumulated_damage(
             &mut Health,
             Option<&mut HealthRegen>,
             Option<&Player>,
-            Option<&CharacterConfigHandles>,
+            Option<&CharacterConfigKey>,
             Option<&mut Modifiers>,
             Has<world::BarrelState>,
         ),
@@ -359,7 +417,7 @@ pub fn rollback_apply_accumulated_damage(
         mut health,
         opt_regen,
         opt_player,
-        opt_config_handles,
+        opt_config_key,
         opt_modifiers,
         is_barrel,
     ) in order_mut_iter!(query)
@@ -395,7 +453,7 @@ pub fn rollback_apply_accumulated_damage(
 
                 if players_count.0 > 1 && other_standing {
                     let player = opt_player.expect("other_standing implique un Player");
-                    let config = opt_config_handles.and_then(|h| character_configs.get(&h.config));
+                    let config = opt_config_key.and_then(|key| character_configs.get(&key.0));
                     let bleedout_frames =
                         config.map_or(FALLBACK_BLEEDOUT_FRAMES, |c| c.bleedout_frames);
                     let downed_speed_mult =
@@ -625,3 +683,16 @@ pub fn sync_health_from_stats(
 }
 
 pub use combat::actors::Health;
+
+#[cfg(test)]
+mod m3_t0b_tests {
+    use super::*;
+    use bevy_fixed::fixed_math::new as fx;
+
+    #[test]
+    fn hit_iframes_only_follow_positive_damage() {
+        assert_eq!(hit_iframes_until(10, fx(1.0), Some(30)), Some(40));
+        assert_eq!(hit_iframes_until(10, fx(0.0), Some(30)), None);
+        assert_eq!(hit_iframes_until(10, fx(1.0), None), None);
+    }
+}

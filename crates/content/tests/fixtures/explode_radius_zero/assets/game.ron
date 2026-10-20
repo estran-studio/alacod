@@ -1,0 +1,8 @@
+// Fixture M3-T0c : explode_radius_zero
+(
+    name: "fixture-explode_radius_zero",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

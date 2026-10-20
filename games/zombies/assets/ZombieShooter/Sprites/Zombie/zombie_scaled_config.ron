@@ -13,6 +13,7 @@
 // n'est référencé par aucun palier de `wave_config.ron` et par aucune entité des cartes
 // existantes : les 62 scénarios existants ne le rencontrent jamais.
 (
+    test_only: true,
     movement: (
         acceleration: "0.0",
         max_speed: "0.0",

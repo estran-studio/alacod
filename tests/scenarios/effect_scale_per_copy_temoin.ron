@@ -1,0 +1,19 @@
+// M3-T2 : témoin de `effect_scale_per_copy` : un seul exemplaire d'`empile` ; +1 de dégâts (1 + 1 = 2).
+
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 150,
+    powerup_drop_chance_override: "0",
+    characters: [(character: "target", x: "560.0", y: "-194.0", at_frame: 1)],
+    players: [
+        (
+            inputs: [(from: 30, to: 32, buttons: [Fire], pan: (-127, 0))],
+            weapon: "pistol",
+            items: ["empile"],
+        ),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 100),
+    ],
+)

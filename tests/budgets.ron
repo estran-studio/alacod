@@ -1,83 +1,81 @@
-// Budgets de performance : planchers de NON-RÉGRESSION en frames simulées par seconde, par
-// scénario. Ce ne sont pas des objectifs : la moitié de la mesure, arrondie à la dizaine. Ils ne
-// bloquent que `make bench` (ALACOD_BENCH_STRICT=1) ; `make test_scenarios` se contente d'avertir.
-// Relevés le 2026-10-14 (perf-suite-scenarios) sur la mesure de la suite complète en un
-// processus, machine cloud de 4 cœurs au calme, profil headless : exécuteur monothread, champs
-// de flux partagés (docs/conventions.md §5). Avant : idle 54, bench_floor 38, ammo_burst 155
-// (poste de dev de 2026-09-28), bench_bullets 44 ; après : idle 225, bench_floor 90,
-// ammo_burst 253, bench_bullets 162. Quatre tranches en parallèle partagent la mémoire : un
-// plancher à la moitié de la mesure y reste tenable.
+// Budgets de performance : planchers de NON-RÉGRESSION en frames simulées par seconde et plafonds du pire rollback, par
+// scénario. Ce ne sont pas des objectifs. Ils ne bloquent que `make bench` (ALACOD_BENCH_STRICT=1) ;
+// `make test_scenarios` se contente d'avertir.
+//
+// RÈGLE (D84, dette-d84-budgets-calme, 2026-10-18) : plancher = moitié (arrondie au-dessus, à l'entier) de la PIRE des trois
+// mesures `make bench` strict ; plafond de rollback = double (arrondi au-dessus) de la PIRE des trois. Poste de référence :
+// VPS Debian 8 cœurs (profil headless, un processus, tests/budgets.ron relu par `make bench`). Les trois relevés (2026-10-18,
+// 14:10 à 17:36 UTC) sont dans docs/taches/rapports/m3-t15-bench-larmes.md, section « D84 au calme » ; charge : la charge
+// 1 min du processus de bench seul est de 2 à 3 (il occupe 1,5 à 2 cœurs), pointes à 10 à 14 ; hors bench, 26 à 43 % d'un
+// cœur en médiane, pointes à 3 cœurs (hermes, chrome, node : outillage de l'orchestrateur).
+// Les anciens planchers (macOS arm64 et cloud 4 cœurs, 2026-09 à 2026-10) sont remplacés.
+// Les scénarios `generated/<jeu>/<nom>` sont désignés par leur id complet (une clé « item_bottes » ne correspondait à rien :
+// ces scénarios retombaient sur le défaut).
 (
     default: (min_sim_fps: 40.0),
     scenarios: {
-        // M2-T10 : étage assemblé de 15 à 20 salles, deux bots (mesure du 2026-10-12 : 18 sim fps
-        // sur une machine partagée, 37 ennemis et 282 entités au plus ; gungeon_floor_seed_1 : 30).
-        "bench_floor": (min_sim_fps: 40.0, max_rollback_ms: 18.0),
-        // M2-T16 : un étage `court` joué par des bots (mesure cloud du 2026-10-14 : 38 et 37).
-        "bot_explorer_floor": (min_sim_fps: 120.0),
-        "bot_explorer_two": (min_sim_fps: 100.0),
-        // M2-T17 : scénarios générés d'objets, de salle et de boss (mesure cloud du 2026-10-14 :
-        // 35 à 42 sim fps ; les objets ne jouent que 60 frames, démarrage compris).
-        "item_bottes": (min_sim_fps: 20.0),
-        "item_fiole": (min_sim_fps: 20.0),
-        "item_pierre_de_soin": (min_sim_fps: 20.0),
-        "item_lame": (min_sim_fps: 20.0),
-        "room_combat": (min_sim_fps: 25.0),
-        "boss_gatling": (min_sim_fps: 25.0),
-        "ammo_burst": (min_sim_fps: 120.0),
-        "bullets_walls": (min_sim_fps: 140.0),
-        "dash_wall": (min_sim_fps: 100.0),
-        "door_open": (min_sim_fps: 45.0),
-        "idle": (min_sim_fps: 110.0),
-        "movement_melee": (min_sim_fps: 90.0),
-        "remote_first_fight": (min_sim_fps: 120.0),
-        "shoot_around": (min_sim_fps: 100.0),
-        "two_players_idle": (min_sim_fps: 80.0),
-        "two_players_shooting": (min_sim_fps: 130.0),
-        "weapons_workout": (min_sim_fps: 100.0),
-        "window_repair": (min_sim_fps: 100.0),
-        // quatre joueurs (mesures du 2026-09-29 : 179 et 209)
-        "four_players_idle": (min_sim_fps: 100.0),
-        "four_players_shooting": (min_sim_fps: 100.0),
-        // T2.9, testbed (mesures du 2026-09-29 : ally_safe 214, arena_idle 230,
-        // civilian_blocks 218, corridor_idle 282, dummy_shoot 224, follower 234,
-        // target_hits 220, two_rooms_door_idle 281, window 269)
-        "testbed_ally_safe": (min_sim_fps: 150.0),
-        "testbed_arena_idle": (min_sim_fps: 150.0),
-        "testbed_civilian_blocks": (min_sim_fps: 160.0),
-        "testbed_corridor_idle": (min_sim_fps: 180.0),
-        "testbed_dummy_shoot": (min_sim_fps: 160.0),
-        "testbed_follower": (min_sim_fps: 170.0),
-        "testbed_target_hits": (min_sim_fps: 140.0),
-        "testbed_two_rooms_door_idle": (min_sim_fps: 180.0),
-        "testbed_window": (min_sim_fps: 160.0),
-        // T2.1, chantier B4b (grille spatiale) : bench_bullets (4 joueurs, mitrailleuse
-        // chargeur énorme/cadence maximale, ~155 balles vivantes) et bench_horde (4 joueurs,
-        // 60+ ennemis dès la vague 1). Planchers = moitié de la mesure sur la branche
-        // (2026-09-29), mais mesurée avec un job CFD externe (simpleFoam, 6-7 processus à
-        // ~98% CPU chacun, sans rapport avec cette tâche) saturant 6-7 des 12 coeurs de la
-        // machine : mesures anormalement basses (bench_bullets 24.7-31.3 fps, bench_horde
-        // 20.3-21.3 fps) par rapport à une machine calme (bench_bullets a atteint 158 fps,
-        // bench_horde 64.7 fps, avant que ce job n'apparaisse dans la même session). Ces deux
-        // planchers sont donc plus prudents (bas) que la convention habituelle : à resserrer
-        // une fois une mesure propre disponible (voir le rapport de la tâche T2.1).
-        "bench_bullets": (min_sim_fps: 80.0, max_rollback_ms: 8.0),
-        // M2-T1 : ~535 balles ENNEMIES vivantes (testbed, salle verrouillée, 3 tourelles de brume). Mesure
-        // du 2026-10-11 sur la machine chargée (trois suites en parallèle) : 34 fps ; plancher
-        // à confirmer au calme (`make bench`).
-        "bench_bullets_room": (min_sim_fps: 40.0, max_rollback_ms: 26.0),
-        // Les trois scénarios throne les plus lourds (mesures du 2026-10-14 : 28, 40 et 53 fps).
-        "throne_quad": (min_sim_fps: 14.0),
-        "throne_three_floors": (min_sim_fps: 20.0),
-        "throne_softlock_recul": (min_sim_fps: 26.0),
-        // `max_rollback_ms` : plafond du pire rollback en ligne (restauration + 12 frames
-        // resimulées, `Metrics::rollback_ms_worst`), au double de la mesure du 2026-10-15 sur le
-        // poste M4 (bench_bullets 3,9 ms ; bench_bullets_room 13,0 ; bench_cave 2,1 ; bench_floor
-        // 8,8 ; bench_horde 35,3 = deux ticks de 16,7 ms : la frame de simulation de la horde,
-        // 2,9 ms, domine, pas les snapshots, ~0,45 ms). Même régime que `min_sim_fps`.
-        "bench_horde": (min_sim_fps: 38.0, max_rollback_ms: 70.0),
-        // T1.6 : caverne destructible (quatre joueurs, six followers, ≥ 50 destructions) ; plancher
-        // par défaut, mesure sous charge (200 graines en parallèle, load 20) : 62,7 le 2026-10-04.
-        "bench_cave": (min_sim_fps: 100.0, max_rollback_ms: 5.0),
+        // M2-T10 / m2-salles-murs-gungeon : étage assemblé (gabarits gungeon agrandis ×1,9 à ×5,5), deux bots ; la run complète
+        // (hub, deux étages, victoire) à deux et quatre joueurs.
+        "bench_floor": (min_sim_fps: 18.0, max_rollback_ms: 74.0),
+        "gungeon_full_run": (min_sim_fps: 21.0, max_rollback_ms: 50.0),
+        "gungeon_full_run_four": (min_sim_fps: 15.0, max_rollback_ms: 60.0),
+        // M2-T16 : un étage `court` joué par des bots.
+        "bot_explorer_floor": (min_sim_fps: 38.0),
+        "bot_explorer_two": (min_sim_fps: 32.0),
+        // M2-T17 : scénarios générés d'objets, de salle et de boss (60 frames pour les objets, démarrage compris).
+        "generated/gungeon/boss_gatling": (min_sim_fps: 31.0),
+        "generated/gungeon/item_bottes": (min_sim_fps: 44.0),
+        "generated/gungeon/item_fiole": (min_sim_fps: 46.0),
+        "generated/gungeon/item_pierre_de_soin": (min_sim_fps: 39.0),
+        "generated/gungeon/room_combat": (min_sim_fps: 32.0),
+        "generated/isaac/room_combat": (min_sim_fps: 37.0, max_rollback_ms: 31.0),
+        "generated/testbed/item_bottes": (min_sim_fps: 38.0),
+        "generated/testbed/item_fiole": (min_sim_fps: 43.0),
+        "generated/testbed/item_lame": (min_sim_fps: 42.0),
+        "generated/testbed/room_combat": (min_sim_fps: 35.0),
+        // Scénarios M0 et quatre joueurs.
+        "ammo_burst": (min_sim_fps: 38.0),
+        "bullets_walls": (min_sim_fps: 41.0),
+        "dash_wall": (min_sim_fps: 40.0),
+        "door_open": (min_sim_fps: 32.0),
+        "idle": (min_sim_fps: 59.0, max_rollback_ms: 17.0),
+        "movement_melee": (min_sim_fps: 36.0),
+        "remote_first_fight": (min_sim_fps: 44.0),
+        "shoot_around": (min_sim_fps: 39.0),
+        "two_players_idle": (min_sim_fps: 37.0),
+        "two_players_shooting": (min_sim_fps: 37.0),
+        "weapons_workout": (min_sim_fps: 38.0),
+        "window_repair": (min_sim_fps: 36.0),
+        "four_players_idle": (min_sim_fps: 33.0),
+        "four_players_shooting": (min_sim_fps: 33.0),
+        // T2.9, testbed.
+        "testbed_ally_safe": (min_sim_fps: 44.0),
+        "testbed_arena_idle": (min_sim_fps: 48.0),
+        "testbed_civilian_blocks": (min_sim_fps: 46.0),
+        "testbed_corridor_idle": (min_sim_fps: 49.0),
+        "testbed_dummy_shoot": (min_sim_fps: 43.0),
+        "testbed_follower": (min_sim_fps: 45.0),
+        "testbed_target_hits": (min_sim_fps: 46.0),
+        "testbed_two_rooms_door_idle": (min_sim_fps: 45.0),
+        "testbed_window": (min_sim_fps: 40.0),
+        // Remesurés avec les larmes (même passe ciblée, voir plus bas ; avant : relevés r1 à r3 du 2026-10-18).
+        // T2.1 et M2-T1 : bench_bullets (4 joueurs, ~155 balles), bench_bullets_room (~535 balles ennemies) ; T1.6 : bench_cave ;
+        // bench_horde (4 joueurs, 60+ ennemis dès la vague 1) ; plafonds de rollback au double du pire.
+        "bench_bullets": (min_sim_fps: 41.0, max_rollback_ms: 24.0),
+        "bench_bullets_room": (min_sim_fps: 31.0, max_rollback_ms: 36.0),
+        "bench_horde": (min_sim_fps: 26.0, max_rollback_ms: 61.0),
+        "bench_cave": (min_sim_fps: 44.0, max_rollback_ms: 24.0),
+        // Throne les plus lourds.
+        "throne_quad": (min_sim_fps: 23.0),
+        "throne_three_floors": (min_sim_fps: 27.0),
+        "throne_softlock_recul": (min_sim_fps: 29.0),
+        // M3-T15 (docs/conventions.md §80) : larmes, familiers, étage isaac. Remesurés sur l'arbre fusionné avec main 8ca55686
+        // (D97 : optimisation des larmes ; T11d1/T11d2 : contenu isaac), trois passes ciblées, VPS Debian 8 cœurs, 2026-10-18/19,
+        // charge hors bench 42 à 59 % d'un cœur en médiane, pointes à 165 %. Témoin `idle` : 117 à 126 fps (82 à 88 dans les
+        // relevés du premier recalibrage : le régime du poste change d'une session à l'autre). Même règle moitié/double.
+        "bench_tears": (min_sim_fps: 22.0, max_rollback_ms: 65.0),
+        "bench_tears_trio": (min_sim_fps: 48.0, max_rollback_ms: 27.0),
+        "bench_familiars": (min_sim_fps: 42.0, max_rollback_ms: 27.0),
+        "bench_floor_isaac": (min_sim_fps: 26.0, max_rollback_ms: 40.0),
     },
 )

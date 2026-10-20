@@ -1,0 +1,11 @@
+// `isaac` (M3-T11d2, §76.5) : actif chargé par trois salles nettoyées ; à l'usage, +2 PV (un cœur, `Heal`, borné aux PV maximaux). Le gabarit `ItemHeld` part à pleine santé : la preuve du soin est le scénario écrit à la main `isaac_fiole_vive`.
+(
+    name: "Fiole vive",
+    kind: Active(Rooms(3)),
+    effects: [
+        (on: OnUse, do: [Heal("2")]),
+    ],
+    tags: ["actif"],
+    rarity: Common,
+    test: Some((frames: 60, expect: [Health(handle: 0, min: 6.0, max: 6.0, at_frame: 30)])),
+)

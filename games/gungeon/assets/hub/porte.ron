@@ -1,0 +1,3 @@
+// M2-T13 (docs/conventions.md §57) : la porte d'entrée en run, toujours ouverte. L'interaction pose
+// `HubExit` dans la simulation ; la run démarre une fois cette frame confirmée.
+(name: "Porte de la Brèche", action: EnterRun)

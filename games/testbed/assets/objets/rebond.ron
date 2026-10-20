@@ -1,0 +1,13 @@
+// M3-T1 (docs/conventions.md §66) : objet d'essai : les larmes rebondissent deux fois sur les murs (`Bounce(2)`). Empilé dans `tears_stack_three`.
+(
+    name: "Rebond",
+    kind: Passive,
+    projectile: Some((modifiers: [Bounce(2)])),
+    tags: ["larmes"],
+    rarity: Common,
+    test: Some((
+        frames: 60,
+        // M3-T13 (§78) : scénarios générés `tears_rebond` et son témoin `tears_rebond_sans_objet` : la larme survit à l'impact (1 balle en vol contre 0 à la dernière frame).
+        tears: Some((weapon: Some("larme"), frames: Some(150), targets: [(character: "target", dx: -48, dy: -18)], expect: [BulletCount(count: 1, projectile: Some("larme"), at_frame: 150)], control: [BulletCount(count: 0, projectile: Some("larme"), at_frame: 150)])),
+    )),
+)

@@ -1,0 +1,2 @@
+// Type de salle `depart` (docs/conventions.md §35) : ne verrouille pas.
+(locks: false)

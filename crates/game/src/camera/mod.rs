@@ -11,20 +11,17 @@ use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
 use ui::CameraDebugUIPlugin;
 
-use crate::character::player::{control::PlayerAction, LocalPlayer, Player};
-use crate::core::OnlineState;
+use crate::character::{
+    control::PlayerAction,
+    player::{LocalPlayer, Player},
+};
+use crate::session::OnlineState;
 
 #[derive(Asset, TypePath, Debug, Clone, Deserialize, Serialize)]
 pub struct CameraSettingsAsset(pub CameraSettings);
 
 // Plugin to add all camera systems
 pub struct CameraControlPlugin;
-
-/// Ressource optionnelle pour forcer le suivi d'un joueur spécifique (utilisée par play_scenario --follow).
-/// Si présente, remplace le choix de joueur local lors de la sélection initiale.
-/// Stocke le handle GGRS du joueur à suivre.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct CameraFollowOverride(pub usize);
 
 impl Plugin for CameraControlPlugin {
     fn build(&self, app: &mut App) {
@@ -220,7 +217,7 @@ pub(crate) fn camera_control_system(
     mut camera_query: Query<(&mut GameCamera, &mut Transform, &mut Projection), Without<Player>>,
     player_query: Query<(Entity, &Transform, &Player, Option<&LocalPlayer>), Without<GameCamera>>,
     online_state: Res<OnlineState>,
-    follow_override: Option<Res<CameraFollowOverride>>,
+    follow_override: Option<Res<crate::ui::hud_model::CameraFollowOverride>>,
     // T1.17 : hit stop, la caméra ne suit plus pendant le gel (présentation seule).
     freeze: Option<Res<animation::AnimationFreeze>>,
 ) {
@@ -255,6 +252,15 @@ pub(crate) fn camera_control_system(
             return;
         };
 
+    // La cible suivie a disparu (relance du hub vers la run : les joueurs sont recréés) : sans ce
+    // retour à `None`, la caméra restait figée à l'endroit où le hub l'avait laissée et les vidéos de
+    // `gungeon_full_run` ne montraient plus les joueurs (constaté le 2026-10-17).
+    if camera
+        .target_player_id
+        .is_some_and(|target| player_query.get(target).is_err())
+    {
+        camera.target_player_id = None;
+    }
     // Find the player to follow if not already set
     if camera.target_player_id.is_none() {
         // If there's an override, follow that player by handle (used by play_scenario --follow)

@@ -40,7 +40,7 @@
         aggro_range: Some("500.0"),
         attack_range: Some("40.0"),
         attack_cooldown_frames: Some(90),
-        attack_damage: Some("15.0"),
+        attack_damage: Some("10.0"),
         behaviors: Some([Charge(telegraph: 30), Chase(profile: "Ground")]),
     )),
 

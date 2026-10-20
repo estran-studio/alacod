@@ -1,0 +1,4 @@
+// Fixture M3-T1 : même règles dans un objet ; `Chance` hors `on_hit` d'un projectile refusée ailleurs.
+(name: "Malchance", kind: Passive, projectile: Some((
+    on_hit: [Chance(base: "-0.1", per_luck: "0.0", then: ApplyStatus(status: "inconnu", stacks: 1))],
+)))

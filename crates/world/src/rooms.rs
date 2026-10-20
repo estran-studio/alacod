@@ -26,6 +26,7 @@ use std::collections::BTreeMap;
 pub struct RoomKind(pub String);
 
 /// Définition d'un type de salle (`rooms/<id>.ron`, kind de contenu `Room`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomKindDef {
     /// La salle se verrouille quand un joueur debout y entre et qu'un ennemi y vit, et ses
@@ -45,13 +46,75 @@ pub struct RoomKindDef {
     /// qu'à la fin de son horloge, si un joueur vit encore. Implique le verrouillage.
     #[serde(default)]
     pub arena: Option<ArenaDef>,
+    /// M3-T0c (§62) : la porte des salles de ce type est fermée à clé ou murée. Absent (tout le
+    /// contenu existant) : porte ordinaire, hors du hash de la définition.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub door_lock: Option<DoorLock>,
+    /// M3-T5 (§70) : étage (indice dans la séquence `Floors`, 0 = le premier) à partir duquel
+    /// `door_lock` s'applique ; avant, la porte est ordinaire. 0 (défaut) : dès le premier étage.
+    /// Le trésor d'Isaac est ouvert au premier étage et fermé à clé ensuite.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub lock_from_floor: u32,
+    /// M3-T8 (§73) : butin du boss de cette salle (pool, rareté mini) : à sa mort un objet tombe au
+    /// centre de la salle. Absent (tout le contenu existant) : rien ne tombe, hors du hash.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boss_drop: Option<items::BossDropDef>,
+    /// M3-T11d2 (§76.5) : les salles de ce type sont des **salles de boss** (minicarte : pastille et mention « boss »). Une
+    /// grammaire désigne son type de boss par `FloorGrammar::boss` (`boss`, `boss_profond`…) : la minicarte ne devine pas
+    /// le boss par un nom de type. Faux par défaut (aucun effet de simulation).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub boss: bool,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+/// Verrou de la porte d'une salle (M3-T0c, `docs/conventions.md` §62).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub enum DoorLock {
+    /// Reste fermée jusqu'à ce qu'un joueur la touche par Interaction avec `n` clés
+    /// (`game::loot::KEY_ITEM`, consommées à l'ouverture). `n > 0`.
+    Key(#[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))] u32),
+    /// Mur plein jusqu'à une explosion `destroys` qui le touche (M3-T4).
+    Secret,
+}
+
+/// Salles dont la porte verrouillée a été ouverte, par identifiant de niveau. Rollback +
+/// checksum + trace en variante **neutre** : vide (défaut) tant qu'aucune porte verrouillée n'a
+/// été ouverte. Une salle à `door_lock` absente de l'ensemble est fermée.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct DoorLocks(pub std::collections::BTreeSet<String>);
+
+impl DoorLocks {
+    /// La porte de `room` est-elle ouverte ? (Une salle sans `door_lock` ne passe pas par ici.)
+    pub fn is_open(&self, room: &str) -> bool {
+        self.0.contains(room)
+    }
+}
+
+impl DoorLock {
+    /// Problème du verrou pour le lint ; `None` s'il est valide.
+    pub fn problem(&self) -> Option<String> {
+        match self {
+            DoorLock::Key(0) => Some("door_lock : Key(0) : doit être > 0".to_string()),
+            _ => None,
+        }
+    }
 }
 
 /// Arène à tenir (M2-T7) : horloge de `clock` frames comptée depuis le verrouillage, vagues
 /// internes datées sur cette horloge.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ArenaDef {
     /// Durée à tenir, en frames depuis le verrouillage (> 0).
+    #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
     pub clock: u32,
     /// Vagues internes (au moins une), dans l'ordre de leurs `at`.
     pub waves: Vec<ArenaWave>,
@@ -59,6 +122,7 @@ pub struct ArenaDef {
 
 /// Une vague d'arène : à `at` frames du verrouillage, les personnages listés apparaissent dans
 /// la salle (positions tirées du flux RNG de la salle, `room:<niveau>`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ArenaWave {
     pub at: u32,
@@ -84,6 +148,11 @@ pub fn room_rng_stream(level_id: &str) -> String {
 pub struct RoomKindTable(pub BTreeMap<String, RoomKindDef>);
 
 impl RoomKindTable {
+    /// Le type est-il une salle de boss (`RoomKindDef::boss`) ? (Type inconnu : non.)
+    pub fn is_boss(&self, kind: &str) -> bool {
+        self.0.get(kind).is_some_and(|def| def.boss)
+    }
+
     /// Le type verrouille-t-il ses salles ? (Type inconnu : non.)
     pub fn locks(&self, kind: &str) -> bool {
         self.0
@@ -94,6 +163,20 @@ impl RoomKindTable {
     /// L'arène du type, s'il en est une (M2-T7).
     pub fn arena(&self, kind: &str) -> Option<&ArenaDef> {
         self.0.get(kind).and_then(|def| def.arena.as_ref())
+    }
+
+    /// Le verrou de porte du type, s'il en a un (M3-T0c), tous étages confondus.
+    pub fn door_lock(&self, kind: &str) -> Option<DoorLock> {
+        self.0.get(kind).and_then(|def| def.door_lock)
+    }
+
+    /// Le verrou de porte du type **à l'étage `floor`** (M3-T5) : `door_lock` seulement à partir
+    /// de `lock_from_floor`, sinon la porte est ordinaire.
+    pub fn door_lock_at(&self, kind: &str, floor: u32) -> Option<DoorLock> {
+        self.0
+            .get(kind)
+            .filter(|def| floor >= def.lock_from_floor)
+            .and_then(|def| def.door_lock)
     }
 }
 
@@ -217,5 +300,66 @@ mod tests {
     fn etat_par_defaut_neutre() {
         assert_eq!(RoomStates::default().get("x"), RoomState::Dormant);
         assert!(!RoomKindTable::default().locks("combat"));
+    }
+
+    fn table_with(kind: &str, door_lock: Option<DoorLock>, lock_from_floor: u32) -> RoomKindTable {
+        let mut table = RoomKindTable::default();
+        table.0.insert(
+            kind.to_string(),
+            RoomKindDef {
+                door_lock,
+                lock_from_floor,
+                ..Default::default()
+            },
+        );
+        table
+    }
+
+    #[test]
+    fn verrou_des_le_premier_etage_par_defaut() {
+        let table = table_with("tresor", Some(DoorLock::Key(1)), 0);
+        assert_eq!(table.door_lock_at("tresor", 0), Some(DoorLock::Key(1)));
+        assert_eq!(table.door_lock_at("tresor", 3), Some(DoorLock::Key(1)));
+        assert_eq!(table.door_lock("tresor"), Some(DoorLock::Key(1)));
+    }
+
+    #[test]
+    fn verrou_seulement_a_partir_de_lock_from_floor() {
+        let table = table_with("tresor_ferme", Some(DoorLock::Key(2)), 1);
+        assert_eq!(table.door_lock_at("tresor_ferme", 0), None);
+        assert_eq!(
+            table.door_lock_at("tresor_ferme", 1),
+            Some(DoorLock::Key(2))
+        );
+        assert_eq!(
+            table.door_lock_at("tresor_ferme", 2),
+            Some(DoorLock::Key(2))
+        );
+        // `door_lock` ignore l'étage : tous étages confondus.
+        assert_eq!(table.door_lock("tresor_ferme"), Some(DoorLock::Key(2)));
+    }
+
+    #[test]
+    fn verrou_absent_ou_type_inconnu() {
+        let table = table_with("combat", None, 1);
+        assert_eq!(table.door_lock_at("combat", 5), None);
+        assert_eq!(table.door_lock_at("inconnu", 5), None);
+    }
+
+    /// Une salle de boss est celle dont le type porte `boss: true`, quel que soit son nom (`boss`, `boss_profond`) ;
+    /// absent du RON : faux ; type inconnu : faux.
+    #[test]
+    fn un_type_de_boss_se_reconnait_a_sa_propriete_pas_a_son_nom() {
+        let defs: Vec<(&str, RoomKindDef)> = vec![
+            ("boss", ron::from_str("(locks: true)").unwrap()),
+            (
+                "boss_profond",
+                ron::from_str("(locks: true, boss: true)").unwrap(),
+            ),
+        ];
+        let table = RoomKindTable(defs.into_iter().map(|(k, d)| (k.to_string(), d)).collect());
+        assert!(table.is_boss("boss_profond"));
+        assert!(!table.is_boss("boss"));
+        assert!(!table.is_boss("inconnu"));
     }
 }

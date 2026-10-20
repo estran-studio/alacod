@@ -1,0 +1,26 @@
+// D95/D96 (2026-10-17, dette-d95-d96-tirage-butin) : le tirage de curse passe par `fmix32` (D95) ; la graine 1 donne maintenant « maze », la graine 2 donne « darkness » à l'étage 0 (graine la plus petite qui convient).
+// M3-T9 (docs/conventions.md §74) : la curse « Darkness » cache la minicarte. `isaac`, séquence
+// `sous_sol_maudit` (un étage, une curse à chaque étage tirée dans les cinq de Q7), graine 2 : « darkness ».
+// Le joueur reste immobile dans la salle de départ. Le HUD affiche toujours la santé (6/6) et
+// nomme la curse (source `curses`), mais la source `minimap` est **vide** : l'étage a ses salles
+// (RoomCount) et la minicarte ne montre rien. Témoin inverse : `curse_blind` (même séquence, graine 3,
+// minicarte visible).
+//
+// À regarder : la minicarte en haut à droite est absente, la vie en bas à gauche est pleine,
+// « Malédiction : darkness » sous les icônes.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "isaac",
+    floors: Some("sous_sol_maudit"),
+    map_seed: 2,
+    frames: 60,
+    players: [(inputs: [])],
+    expect: [
+        Event(kind: "curse", by_frame: 5),
+        Curse(floor: 0, id: Some("darkness"), at_frame: 30),
+        HudText(source: "curses", contains: "darkness", at_frame: 30),
+        HudText(source: "minimap", empty: true, at_frame: 30),
+        HudText(source: "health", contains: "6/6", at_frame: 30),
+        RoomCount(min: 8, max: Some(12), at_frame: 30),
+    ],
+)
