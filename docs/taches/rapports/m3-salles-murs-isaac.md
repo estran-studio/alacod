@@ -81,7 +81,7 @@ rien sur les lignes droites qu'un bot suit (rochers à moins de 16 px, piques à
 ### Soft-lock : le détecteur ne passait pas à l'échelle (même cause que gungeon, `m2-salles-murs-gungeon` §3.1)
 
 Première partie à 1 bot après le changement (graine 2) : « soft-lock » à f14 875, alors que le bot marchait vers le boss (2 000 px entre le coffre secret et la salle du boss ; ses positions de f13 920 à f14 874 le montrent, `ALACOD_BOT_DEBUG=1`) : le détecteur
-(600 frames sans mort, dégât ni ramassage) ne voit pas une marche. Les campagnes ci-dessous passent donc **`--explored-progress`** (entrer dans une case de 32 px jamais visitée est une progression), seul écart aux commandes de T18.
+(`FLOORS_SOFTLOCK_FRAMES` = 1 200 frames sans mort, dégât ni ramassage) ne voit pas une marche. Les campagnes ci-dessous passent donc **`--explored-progress`** (entrer dans une case de 32 px jamais visitée est une progression), seul écart aux commandes de T18 : **le détecteur de soft-lock n'est donc plus le même qu'« avant »** (les chiffres d'avant n'ont pas cette progression ; les comparaisons sont indicatives sur ce point).
 
 ## 3. Traces rebénies et preuve §5
 
@@ -102,6 +102,8 @@ on choisit donc les scénarios dont le `.ron` n'a pas changé) :
 (les deux écarts d'un type sont des types conditionnels à la partie : un projectile ou un coup de mêlée qui n'a pas eu lieu dans l'un des deux runs). Résumé : `m3-salles-murs-isaac/preuve_5_resume.txt`. Pour les scénarios dont le script d'inputs ou les attentes ont été recalés,
 la même cause vaut (rien d'autre n'a bougé dans le moteur de simulation : voir le diff), mais la comparaison directe est impossible (le `.ron` diffère).
 
+**Après la fusion de `origin/main` (D113, E7, `gungeon_classes`)** : `isaac_nova` et `isaac_bombe_fiole` (conflits de trace), `isaac_nova_coop` (nouveau, D113) rebénies sur l'arbre fusionné. Preuve §5 : même binaire, `isaac_nova*`/`isaac_bombe_fiole` joués avec les assets de `origin/main` (`games/isaac` de `2767709c`, `friendly_fire` de D113 compris) contre ceux de la branche : **première frame qui diffère = 0**, cause = positions des `character_spawn`, `FlowFieldCache`, colliders : **la géométrie** ; `friendly_fire` est identique des deux côtés. `isaac_nova_coop` reste vrai (coéquipier à 6 PV, cible à 4 990) et son net id 183 n'a pas changé. `generated/isaac/item_nova`, `item_bombe_fiole`, `tears_epines_de_chair` (cartes de test, sans gabarit) restent vertes sans nouvelle bénédiction.
+
 ## 4. Campagnes `alacod-sim` (T18 §2) rejouées sur les salles ×2
 
 **Commande** : `docs/taches/rapports/m3-salles-murs-isaac/campagne.sh <préfixe> <bots> <de> <à>` = celle de T18 (`alacod-sim --game isaac --bots N --profiles explorateur… --floors sous_sol --seeds A..B --until-floor 5 --max-frames 20000
@@ -112,14 +114,14 @@ Script de dépouillement : `m3-salles-murs-isaac/resultats.py` ; résultats par 
 | Campagne | Graines | Victoires | Parties perdues | Soft-locks | Desyncs | Étage 1 franchi | Frames de victoire (médiane) |
 |---|---|---|---|---|---|---|---|
 | s1 avant (T18) | 1–200, 1 bot | 24 (12,0 %) | 175 | 1 (graine 63) | 0 | 79 (39,5 %) | 6 147 |
-| **s1 après** | 1–200, 1 bot | **138** + 2 « plafond » gagnées à 40 000 frames = **140 (70,0 %)** | **60** | **0** | **0** | **177 (88,5 %)** | 12 443 |
+| **s1 après**, plafond commun 20 000 frames | 1–200, 1 bot | **138 (69,0 %)** (+ 2 « plafond », voir ci-dessous) | **60** | **0** | **0** | **177 (88,5 %)** | 12 443 |
 | d2 avant (T18) | 1–200, 2 bots | 95 (47,5 %) | 105 | 0 | 0 | 160 (80,0 %) | 6 565 |
-| **d2 après** | 1–200, 2 bots | **183** + 2 « plafond » gagnées à 40 000 frames = **185 (92,5 %)** | **14** | **1 (graine 178)** | **0** | **198 (99,0 %)** | 11 780 |
+| **d2 après**, plafond commun 20 000 frames | 1–200, 2 bots | **183 (91,5 %)** (+ 2 « plafond », voir ci-dessous) | **14** | **1 (graine 178)** | **0** | **198 (99,0 %)** | 11 780 |
 | q4 avant (T18) | 1–20, 4 bots | 15 (75 %) | 5 | 0 | 0 | 20 | 6 076 |
-| **q4 après** | 1–20, 4 bots | **18 (90 %)** | **2** | **0** | **0** | **20** | 11 124 |
+| **q4 après**, plafond commun 20 000 frames | 1–20, 4 bots | **18 (90 %)** | **2** | **0** | **0** | **20** | 11 124 |
 
 - **0 desync sur 420 graines.** Les parties durent ~1,9 fois plus (médiane de victoire 12 443 frames à 1 bot).
-- **Quatre « plafond » (20 000 frames atteintes sans issue)** : s1 graines 53 et 101, d2 graines 44 et 101. Ce ne sont pas des blocages : les bots y nettoient encore des salles à f19 500 ; rejouées avec `--max-frames 40000`, **les quatre gagnent** (f20 570, f24 607, f24 204, f23 397).
+- **Quatre « plafond » (20 000 frames atteintes sans issue)** : s1 graines 53 et 101, d2 graines 44 et 101. Ce ne sont pas des blocages : les bots y nettoient encore des salles à f19 500 ; rejouées **à part** avec `--max-frames 40000`, **les quatre gagnent** (f20 570, f24 607, f24 204, f23 397) : prolongation s1 138 + 2 = 140 (70,0 %), d2 183 + 2 = 185 (92,5 %), **hors du tableau ci-dessus** (« avant » est à 20 000 frames aussi).
   Le plafond de 20 000 frames de T18 est devenu serré ; il n'est pas relevé dans le script.
 - **Le détecteur sans `--explored-progress`** classait déjà la graine 2 à 1 bot en « soft-lock » à f14 875 alors que le bot marchait vers le boss (§2) : sans l'option, les chiffres ci-dessus ne seraient pas comparables.
 - **Un vrai soft-lock, d2 graine 178 (D124)** : f12 908 sur le `colosse` (44 PV restants), les deux joueurs vivants, le plus proche à 191 px **en vue** ; aucun kill de f12 308 à f12 908. Journal de f11 800 à f12 900 : le joueur 122 tire (`Standard-672`… `-693`, depuis (−300 ; 852))
