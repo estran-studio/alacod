@@ -1,25 +1,21 @@
-# polissage-session-amis — validation en ligne de bout en bout (B9)
+# polissage-session-amis — validation en ligne de bout en bout, dans le navigateur (S1-11)
 
-Lire d'abord `docs/taches/README.md`, `docs/taches/plan-polissage.md` (§1, §4),
-`docs/taches/rapports/m2-p2p-run-complete.md`, `docs/taches/rapports/m2-p2p-deux-machines.md`, `docs/jouer.md`,
-`scripts/p2p-lib.sh`, `scripts/p2p-stress.sh`, `scripts/p2p-disconnect.sh`, `docs/taches/session-test-manuelle.md`.
-Branche `polissage-session-amis` depuis `origin/main`, **après B1, B2 et B3** (l'essai se fait sur les archives de B2,
-sans argument). Estimation : 2 j. Clones : les quatre. Machines : deux machines réelles (Mac + VPS x86-64 pour la
-partie headless, Mac + Mac avec William pour la partie jouée) ; `b2` prépare, William joue.
+Lire d'abord `docs/taches/README.md`, `docs/taches/plan-polissage.md` (§1, §4), `docs/contrat-lancement-web.md`,
+`docs/taches/rapports/m2-p2p-run-complete.md`, `docs/taches/rapports/m2-p2p-deux-machines.md`, `tools/web-smoke`,
+`scripts/p2p-stress.sh`, `scripts/p2p-disconnect.sh`, `docs/taches/session-test-manuelle.md`. Branche
+`polissage-session-amis` depuis `origin/main`, **après S1-1 à S1-4**. Estimation : 1 j (zombies, semaine 1) puis 1 j par clone
+terminé. Machines : Mac + second réseau avec William ; VPS pour le headless.
 
 ## À faire
 
-1. Par clone : archive de B2 → menu de B3 → salle commune → partie à **2** puis à **4** (décision 3) ; headless avec
-   `p2p-stress.sh` (rollbacks réels, `NETEM` dégradé 120 ms / 20 ms / 1 %) et partie jouée avec William.
-2. Déconnexion d'un pair en cours de partie (`p2p-disconnect.sh`) : message en français, retour au menu, l'autre joueur
-   n'est pas bloqué.
-3. Redémarrage de partie en ligne (`RunRequest::Restart`, D14) : une nouvelle partie démarre sans relancer les binaires.
-4. Chaque `DESYNC` : graine, frame, trace complète (`ALACOD_STATE_TRACE_FULL=1`) ; ouvrir une dette (**D131+**).
-5. Notes de William (30 min en coop par clone, décision 13) transformées en dettes, jamais en correction sans fiche.
+1. Zombies sur le site : solo, puis salon à 2 entre deux réseaux, **à la manette** ; partie jouée 15 min avec William.
+2. Réseau dégradé (`NETEM` 120 ms / 20 ms / 1 %) en headless (`p2p-stress.sh`) ; déconnexion d'un pair (`p2p-disconnect.sh`
+   et dans le navigateur) : message français, retour au salon, l'autre joueur n'est pas bloqué ; redémarrage d'une partie.
+3. Chaque `DESYNC` : graine, frame, trace complète (`ALACOD_STATE_TRACE_FULL=1`) ; dette **D131+**.
+4. Répéter pour chaque clone terminé (gungeon et isaac en semaine 2) ; notes de William transformées en dettes.
 
 ## Acceptation
 
-- Rapport `docs/taches/rapports/polissage-session-amis.md` : un tableau (clone × 2 / 4 joueurs × deux machines /
-  réseau dégradé / déconnexion / restart) avec « fait / non vérifié » et la preuve (traces, durées) ; 0 `DESYNC` ou une
-  dette ouverte par cas.
+- Rapport `docs/taches/rapports/polissage-session-amis.md` : tableau clone × 2 joueurs × réseaux × dégradé × déconnexion ×
+  restart, « fait / non vérifié » et preuve ; 0 `DESYNC` ou dette ouverte.
 - Ligne de journal `LIVRÉ polissage-session-amis`.

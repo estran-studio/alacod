@@ -1,4 +1,7 @@
-# polissage-throne-jouable — D66/D67 et campagne chiffrée de throne (B7)
+# polissage-throne-jouable — D66/D67 et campagne chiffrée de throne (S2-7)
+
+> **Révisé le 2026-10-21** : tâche S2-7 (semaine 2) dans `docs/taches/plan-polissage.md` §3.2 ; le jeu se joue dans le navigateur (captures et vidéos sur Mac), et les estimations et clones de ce document sont ceux du plan.
+
 
 Lire d'abord `docs/taches/README.md`, `docs/taches/plan-polissage.md` (§1 axes 3 et 4),
 `docs/taches/lisibilite-throne-d66-d67.md` (fiche existante D66/D67), `docs/taches/rapports/m1-revue-humaine.md`,

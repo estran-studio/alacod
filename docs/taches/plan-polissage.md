@@ -1,13 +1,14 @@
-# Plan de la semaine de polissage des quatre clones
+# Plan de la semaine de polissage des quatre clones — révision du 2026-10-21
 
-Rédigé le 2026-10-21 (branche `plan-polissage`, base `origin/main`). **Décision de William des 2026-10-19 à
-2026-10-21** : pause du développement de mécaniques ; la semaine qui vient (≈ 5 jours, 4 à 5 workers, ≈ 20
-jours-agent) sert à polir `zombies`, `throne`, `gungeon` et `isaac`. Elle s'intercale **entre M3 et M4**
-(`docs/taches.md` §8). L'inventaire factuel qui fonde les tableaux est
-`docs/taches/rapports/plan-polissage.inventaire.md` (noté « inventaire » ci-dessous, avec sa section).
+Rédigé le 2026-10-21 (branche `plan-polissage`), **révisé le même jour après revue de William** : les jeux se jouent
+**seulement dans le navigateur, via le site** (`website/`) ; pas d'écran de démarrage dans le jeu ; **la manette est
+cruciale** ; quatre axes manquaient (game feel, visuel complet, effets sonores complets, map design). Décision
+d'origine (2026-10-19/21) : pause des mécaniques, polissage des quatre clones, entre M3 et M4 (`docs/taches.md` §8.0).
+Inventaire factuel : `docs/taches/rapports/plan-polissage.inventaire.md` (« inventaire », sections 1 à 13).
 
-Convention : chaque fait cite sa source ; `[INFERENCE]` = déduit, non observé. Aucun chiffre n'est inventé : une
-cellule sans mesure dit « non mesuré ».
+Convention : chaque fait cite sa source ; `[INFERENCE]` = déduit, non observé. Aucun chiffre inventé : « non mesuré » ou
+« non trouvé » dit ce qui manque, et **la tâche correspondante commence alors par un audit chiffré**. Les estimations
+(jours-agent) sont toutes des `[INFERENCE]` de planification.
 
 ## 1. Objectif
 
@@ -15,45 +16,55 @@ cellule sans mesure dit « non mesuré ».
 > propre » — pour que des amis y jouent ensemble en ligne, et pour servir de démo de vente de l'engine (William,
 > 2026-10-19/21). Ensuite viendra 1837 (hors périmètre).
 
-**Définition de « fini » par axe** (critères observables, un par clone sauf mention) :
+**Définition de « fini » par axe** (un critère observable ; « par clone » = vrai pour chacun des quatre) :
 
 | Axe | Fini quand… (vérifiable) |
 |---|---|
-| 1. Lancer en ligne sans terminal | Un ami qui n'a ni Rust ni Docker télécharge **une archive**, double-clique, choisit « Héberger » ou « Rejoindre » + un nom de salon, et la partie démarre ; testé à 2 (puis 4) sur **deux machines réelles** pour **chaque clone** (rapport de session, traces identiques via `ALACOD_STATE_TRACE`, 0 `DESYNC`). Le signaling par défaut du binaire est joignable depuis internet (pas de `docker compose` à lancer). |
-| 2. Contrôles | Chaque action utile d'un clone a une touche clavier **et** un bouton de manette, listés dans un écran d'aide du jeu ; William a coché l'essai manuel E4 (`dette-d69-e4-personnage.md` §8) clavier/souris et manette, 1 et 2 joueurs. |
-| 3. Lisibilité et visuels | Sur une capture et une vidéo de chaque clone : on distingue **son joueur** de ses coéquipiers (couleur par handle), un ennemi qui tire d'un ennemi qui marche (D66/D67), un ramassable d'un décor ; aucun sprite d'un autre jeu (« zombie » dans un clone qui n'en a pas) sur un ennemi principal ; William valide la page de revue vidéo. Pas d'attente d'un jeu release. |
-| 4. Équilibrage | Par clone, un **tableau de campagne chiffré** (bot `explorateur`, 1 et 2 bots, ≥ 100 graines, avec la mesure de la mort par cause) publié dans un rapport, et un essai de William de 30 min en coop qui dit « ni trop dur ni trop facile » ; aucun soft-lock de bot non expliqué. La fourchette n'est pas une boucle automatique (William sceptique) : la campagne **informe**, William **tranche**. |
-| 5. Son et feedback | Chaque clone : un coup de feu = un échantillon court (D32 fermée), un son de début/fin de vague ou de salle, un son de dégâts reçus/mort audibles et à un volume non pénible (S7) ; réglage de volume global ; licences dans `assets.yaml`. Pas de musique exigée. |
-| 6. Menus et écrans | Écran de démarrage → partie → pause/inventaire → fin de partie → retour au menu, **sans argument de ligne de commande**, tout en français ; déconnexion et `DESYNC` expliqués au joueur avec une action (retour au menu). |
-| 7. Performance | Sur le Mac de William (au calme, pas le VPS) : chaque clone tient 60 Hz **sans à-coup** à 2 joueurs et ≥ 40 fps simulées à 4 (`min_sim_fps` de `tests/budgets.ron`), et le pire rollback (`rollback_ms_worst`) reste sous 2 ticks (33 ms) sur les scénarios jouables ; mesures publiées. |
+| 1. Web et en ligne | **Depuis le site, un ami choisit un clone et solo ou multi (salon), et joue dans son navigateur, à la manette.** Les quatre clones sont dans `releases.json` (`solo` et `online` vrais), la partie à 2 s'établit entre **deux réseaux distincts** (preuve ouverte aujourd'hui, `contrat-lancement-web.md:97-100`), 0 `DESYNC`, retour au salon propre ; le signaling est en `wss://` joignable d'un navigateur. |
+| 2. Contrôles | Par clone, **toutes les actions utiles et tous les menus** (pause, inventaire, fin de partie, choix de mutation) se jouent à la manette **dans le navigateur** (tir compris) ; schéma validé par William ; un écran d'aide liste les boutons ; William a fait l'essai E4 (`dette-d69-e4-personnage.md` §8). |
+| 3. Lisibilité | Sur capture/vidéo de chaque clone à 2 et 4 joueurs : son héros se distingue (couleur par handle), un ennemi qui tire se distingue d'un ennemi qui marche (D66/D67), un ramassable d'un décor. |
+| 4. Équilibrage | Par clone, un tableau de campagne chiffré (bot `explorateur`, 1 et 2 bots, ≥ 100 graines, morts par cause) et un essai de William de 30 min en coop : « ni trop dur ni trop facile ». La campagne informe, William tranche (pas de fourchette automatique). |
+| 5. Son et feedback (réglages) | Pas de tir soutenu (D32), tirs non pénibles (S7), un **réglage de volume global** dans le jeu, licences à jour ; le son démarre au premier clic dans le navigateur. |
+| 6. Menus et écrans | Pause → fin de partie → retour au salon du site, **tout en français**, déconnexion et `DESYNC` expliqués avec une action ; **aucun menu de démarrage dans le jeu** (le site connecte). |
+| 7. Performance | Dans le navigateur (Chrome, Mac de William) : FPS d'affichage et FPS de simulation **mesurés** par clone à 2 joueurs, aucune partie qui tombe sous la vitesse de simulation à 60 Hz [seuil à fixer par la mesure] ; en natif, `make bench` strict vert au calme. |
+| 8. Game feel | Pour chaque clone, une vidéo de 60 s de prise en main où mouvement, dash, tir et coups reçus ont un retour net (accélération/friction réglées en données, recul, flash, secousse, hit-stop, caméra stable), le rendu est **fluide à toute fréquence d'écran** (interpolation d'affichage), et chaque personnage a ses animations idle/marche/attaque/mort. William dit « agréable » sur course, dash et tir. |
+| 9. Visuel complet | Un tableau « classe d'entité × clone » (joueur, chaque famille d'ennemi, boss, projectile, ramassable, porte, mur, sol, prop, portail, HUD) où **chaque case est « propre au jeu »** (plus de tuile d'un autre jeu), animée pour les personnages ; sol et murs propres par clone (`wall_art` aussi pour zombies et throne). Pas de niveau release : cohérent et lisible. |
+| 10. Effets sonores complets | Un tableau « événement × clone » où chaque événement a un son : tir par arme, impact, dégâts reçus, mort par famille, boss, porte, achat, ramassage, vague/salle/étage, explosion/bombe, menus. Aucune case vide. |
+| 11. Map design | Par clone, un audit de cartes (nombre de salles/gabarits, spawners par salle, couvertures, couloirs problématiques) et les défauts relevés corrigés : variété, rythme (pas de salle vide ni de couloir mort), spawners dans toutes les salles de combat ; William valide à la vidéo. |
 
 ## 2. État mesuré
 
 Verdicts : ✅ fait et prouvé · ⚠️ partiel ou non vérifié sur la cible · ❌ manquant. Source entre parenthèses.
 
-### Axe 1 — Lancer une partie en ligne sans terminal
+### Axe 1 — Web et en ligne
 
 | Point | zombies | throne | gungeon | isaac |
 |---|---|---|---|---|
-| Lancement local | ✅ `make zombies` (inventaire §1) | ✅ `make throne` | ✅ `make gungeon`, démarre au hub (`docs/jouer.md:24-27`) | ✅ `make isaac` (`m3-salles-murs-isaac.md:210`) |
-| En ligne documenté | ⚠️ `jouer-a-deux.md:39-43` (recette de 2026-10-04, dernier état « deux machines distinctes **non vérifié** » dans ce document ; vérifié depuis par `m2-p2p-deux-machines.md`, inventaire §1, `etat-engine.md:125`) | ❌ pas de cible `throne_matchbox` trouvée (inventaire §1) | ✅ procédure `jouer.md:34-60` ; run complète 2/4 en ligne (`m2-p2p-run-complete.md`) | ⚠️ essais à 2 et 4 sur **une** machine ; deux machines pas vérifiées sur le contenu actuel (`m3-salles-murs-isaac.md:164-177`) |
-| Signaling public par défaut | ❌ `wss://allumette.estran.studio` (`Makefile:22`) : « ne marche pas » en ligne de commande, `--allumette` exige un salon créé par le site (`docs/jouer.md:36-62`) | ❌ idem | ❌ idem | ❌ idem ; repli = `docker compose -f docker-compose.ci.yaml up -d signaling` sur une machine |
-| Traversée NAT | ⚠️ STUN Google en dur, pas de TURN (`jouer-a-deux.md:5-6`) ; NAT résidentiel sans Tailscale **non vérifié** (ibid.) | ⚠️ idem | ⚠️ idem | ⚠️ idem |
-| Distribution binaire | ❌ aucune archive Mac/Windows : `.github/workflows/release.yaml` ne construit que le WASM puis Cloudflare Pages (runner auto-hébergé) | ❌ | ❌ | ❌ |
-| Build web | ⚠️ rapporté pour zombies (`dette-d69-e4-personnage.md:78`) ; contrat : `/play?id=zombies\|throne`, boutons online **désactivés** (`contrat-lancement-web.md:6-14,41-45`) | ⚠️ idem | ❌ hors du catalogue web (contrat : zombies et throne seulement) | ❌ idem |
-| Lobby | ⚠️ `ui/lobby.rs` : liste des joueurs et état de connexion ; nombre de joueurs et salon viennent des arguments, aucun choix en jeu (inventaire §6) | idem | idem | idem |
-| Pairs en trop / attente | ⚠️ D116 (attente non bornée) : ouverte en tant que cas non couvert (`dettes.md:126`) | idem | idem | idem |
+| Dans le catalogue du site | ✅ `releases.json` (build `rtc-fix-20261009`, `solo` et `online` vrais, `website/static/releases.json:3-16`) ; entrée dans `catalog.ts` | ✅ idem (`catalog.ts`, `image: ''`) | ❌ absent de `releases.json` et de `catalog.ts` ; `scripts/build-web-games.mjs:6-8` refuse le jeu | ❌ idem |
+| Compile en wasm | ✅ build du 2026-10-09 (`contrat-lancement-web.md`) | ✅ idem | ⚠️ non tenté : même `Cargo.toml` (`webgl2`, `getrandom` js à confirmer) mais **jamais compilé en wasm** [INFERENCE : aucune trace dans les rapports] | ⚠️ idem |
+| Online navigateur | ⚠️ `BrowserChannel` (`jjrs/browser.rs:44-70`), `HostedSession`/`ReturnToHostLobby` (`run_state.rs:338-350`) ; **preuve deux Chromium sur le même hôte** (2026-10-09) ; deux réseaux **non prouvé** ; `online: true` publié alors que le contrat dit « boutons online désactivés » tant que la recette n'est pas faite (`contrat-lancement-web.md:39-45,78-81`) : incohérence à trancher | ⚠️ idem | ❌ | ❌ |
+| Signaling | ⚠️ le site passe une URL `wss://` exacte + ticket (`contrat-lancement-web.md:20-32`) ; le flux HTTP Allumette est natif seulement (`jjrs/mod.rs:9-12`) ; `allumette.estran.studio` « ne marche pas » en ligne de commande native (`docs/jouer.md:36-62`) mais le parcours **navigateur** a tourné en production le 2026-10-09 ; état actuel non vérifié | idem | idem | idem |
+| Capacité du salon | ⚠️ le site ne propose que 2 joueurs au départ (`contrat-lancement-web.md`, § intégration : « Le site ne propose initialement que deux joueurs ») | idem | idem | idem (4 joueurs prouvés en natif seulement, `m3-salles-murs-isaac.md:164-169`) |
+| Gungeon : hub sur le web | — | — | ⚠️ `hub: Some(...)` (`game.ron:47-57`) ; `ALACOD_SKIP_HUB` est une variable d'environnement : équivalent web non trouvé | — |
+| FPS en wasm | ❌ aucune mesure (inventaire §13) | ❌ | ❌ | ❌ |
+| Threads wasm | ⚠️ aucun `atomics`/`wasm-bindgen-rayon` trouvé (inventaire §13) : la simulation tourne sur le thread principal [INFERENCE] | idem | idem | idem |
+| Audio navigateur | ⚠️ plugin Kira ; déblocage au premier clic **non prouvé** (inventaire §13) | idem | idem | idem |
+| Limite de taille | ⚠️ le script avertit au-delà de 25 MiB par fichier (limite Cloudflare Pages, `build-web-games.mjs`) ; tailles des quatre assets non mesurées | idem | idem (198 RON, sprites) | idem (349 RON) |
+| Déploiement | ⚠️ `release.yaml` : WASM → Cloudflare Pages sur tag `v*`, runner auto-hébergé ; construit **zombies et throne** seulement (`Makefile:379-380`) | idem | ❌ | ❌ |
 
 ### Axe 2 — Contrôles
 
 | Point | zombies | throne | gungeon | isaac |
 |---|---|---|---|---|
-| Clavier/souris | ⚠️ table `docs/jouer.md:71-94` ; essai E4 de William **non fait** (`dette-d69-e4-personnage.md` §8-9) | ⚠️ idem (même `get_input_map`, `control.rs:58-108`) | ⚠️ idem | ⚠️ idem |
-| Manette | ❌ **on ne peut pas tirer** : `PointerClick` (le tir) = clic gauche seul, aucune gâchette ni bouton (`control.rs:102`) ; la visée est le stick gauche (`input_devices.rs:43-50`) alors que le déplacement est au D-pad ; **aucune liaison** pour Sprint, Dash, SwitchWeapon/Mode, DropWeapon, UseActive, Blank, Bomb, ChoiceA/B/C, Modifier (inventaire §2, `control.rs:71-88`) ; jamais essayée | ❌ idem | ❌ idem | ❌ idem (actif, bombe, choix) |
-| Remappage | ❌ non trouvé (inventaire §2) | ❌ | ❌ | ❌ |
-| Écran d'aide des touches | ❌ non trouvé [INFERENCE : aucune source ne le cite hors `docs/jouer.md`] ; F7 = légende des silhouettes seulement | ❌ | ⚠️ `legend` dans `hud.ron` (3 occurrences) | ❌ |
+| Clavier/souris | ⚠️ `docs/jouer.md:71-94` ; essai E4 de William **non fait** (`dette-d69-e4-personnage.md` §8-9) | ⚠️ idem | ⚠️ idem | ⚠️ idem |
+| Manette : tir | ❌ **aucune gâchette ni bouton pour le tir** : `PointerClick` = clic gauche seul (`control.rs:102`) ; la visée est le stick **gauche** (`control.rs:107`, `input_devices.rs:43-50`) alors que le déplacement est au D-pad | ❌ idem | ❌ idem | ❌ idem |
+| Manette : actions | ❌ **aucune liaison** pour Sprint, Dash, SwitchWeapon, SwitchWeaponMode, DropWeapon, UseActive, Blank, Bomb, ChoiceA/B/C, Modifier (`control.rs:71-88`, inventaire §2) ; présentes : D-pad (déplacement), Nord interaction, Ouest recharge, Est mêlée, D-pad G/D `ChoicePrev/Next`, Sud `ChoiceConfirm` | ❌ idem | ❌ idem (actif, blank) | ❌ idem (actif, bombe) |
+| Manette : menus | ⚠️ pause, inventaire : Start, Select, D-pad, Sud, Est (`ui/screens/input.rs:53-60`) ; fin de partie et mutation : Sud/D-pad seulement pour la mutation ; **fin de partie non vérifiée à la manette** [INFERENCE : aucune liaison trouvée dans `game_over.rs`] | idem + choix de mutation | idem | idem |
+| Manette dans le navigateur | ⚠️ `bevy_gilrs`/`gilrs` est dans `Cargo.lock:1775-1802` et dans les features par défaut de `bevy` 0.19.1 (`Cargo.toml` de bevy, liste `default`), que `crates/game/Cargo.toml:8` (`bevy = "0.19.1"`, défauts actifs) fait unifier même si `games/*/Cargo.toml:8-10` les désactivent [INFERENCE : à confirmer par `cargo tree -e features --target wasm32-unknown-unknown`] ; **activation wasm et API Gamepad du navigateur non prouvées** (inventaire §13) | ❌ | ❌ | ❌ |
+| Remappage | ❌ non trouvé | ❌ | ❌ | ❌ |
+| Écran d'aide | ❌ non trouvé | ❌ | ⚠️ `legend` de `hud.ron` (silhouettes) | ❌ |
 
-### Axe 3 — Lisibilité et visuels
+### Axe 3 — Lisibilité (couleur par joueur, légende, télégraphes)
 
 | Point | zombies | throne | gungeon | isaac |
 |---|---|---|---|---|
@@ -88,7 +99,7 @@ Verdicts : ✅ fait et prouvé · ⚠️ partiel ou non vérifié sur la cible �
 
 | Point | zombies | throne | gungeon | isaac |
 |---|---|---|---|---|
-| Démarrage | ❌ ligne de commande (inventaire §1) | ❌ | ❌ (hub oui, mais après le lancement) | ❌ |
+| Démarrage | ✅ **décision de William : pas d'écran dans le jeu**, le site choisit solo/multi (paramètres d'URL, salon) | idem | idem | idem |
 | Pause / inventaire | ✅ `ui/screens` (Échap/Start, I/Select) (inventaire §6) | ✅ | ✅ | ✅ |
 | Fin de partie | ✅ `ui/game_over.rs` « Rejouer (R) » / « Lobby » | ✅ | ✅ | ✅ |
 | Hub | ❌ (mode `Waves`, `game.ron:40-53`) | ❌ (`Floors`, `game.ron:29-36`) | ✅ `hub: Some(...)` | ❌ (`game.ron:38-43`) |
@@ -103,133 +114,214 @@ Verdicts : ✅ fait et prouvé · ⚠️ partiel ou non vérifié sur la cible �
 | Dernière mesure disponible (headless VPS, `latest.json` du commit `0d2c1b61`, 2026-10-20, inventaire §7) | ✅ `four_players_idle` 70,5 fps / 13,5 ms, `four_players_shooting` 71,3 fps / 13,2 ms ; `bench_horde` 42,0 fps / 37,8 ms | ✅ `throne_quad` 44,5 fps / 29,0 ms, `throne_three_floors` 53,3 fps / 23,9 ms | ⚠️ `gungeon_full_run_four` 27,2 fps / 31,7 ms (plancher 15) ; `bench_floor` 33,2 fps / 37,2 ms (plancher 18) | ❌ `bench_floor_isaac` 22,7 fps **sous son plancher de 26** (D122) ; `isaac_duo` 20,5 fps / 34,4 ms ; **`isaac_quad` 10,1 fps / pire rollback 50,4 ms (3 ticks)** ; tout le reste sous budget. Poste partagé, pas le Mac : non mesuré sur la cible |
 | Dettes | D70 : champ de flux 9,1 ms/frame à 4 joueurs qui bougent | — | D118 | D122 (champ de flux ×4 cases), D97 (larmes empilées : 56 ms au pire rollback, 4 joueurs × 10 objets) |
 
-**Lecture** : le moteur est solide (0 desync sur 420 graines isaac ; deux machines x86-64/arm64 identiques, D73 fausse
-alerte, `etat-engine.md:105`) ; ce qui manque est **autour** : atteindre une partie sans terminal, savoir qui est qui à
-quatre, des armes réglées, des sons, des mesures sur un vrai poste.
+
+### Axe 8 — Game feel
+
+| Point | zombies | throne | gungeon | isaac |
+|---|---|---|---|---|
+| Mouvement | ✅ accélération/décélération en fixed-point à 60 Hz (`movement.rs:147-176`) ; William : course et dash « marchent assez bien » (2026-10-09, `revue-m0.md:31-33`) ; **aucune donnée `max_speed`/dash dans ses configs** (inventaire §9 : « non trouvé ») [INFERENCE : valeurs par défaut du code] | ⚠️ `max_speed` 0–150, dash 0–64 px / 0–8 frames / cooldown 0–24 / i-frames 6 (un RON) | ⚠️ mêmes valeurs que throne | ⚠️ `max_speed` 0–120, **`dash_distance` 0 partout** : pas de dash [INFERENCE : voulu pour isaac, à confirmer par William] |
+| Recul, bousculade | ⚠️ knockback amorti à 0,85/frame et `Shove` du dash (`movement.rs:179-205`) ; **aucun recul de tir** | idem | idem | idem |
+| Flash, secousse, hit-stop, chiffres, télégraphe | ✅ en données, `ui/feedback.ron` : flash 4 frames, secousse 8/12, hit-stop 2, chiffres (`feedback.rs:1-13`) | ✅ mêmes valeurs + `by_weapon` | ✅ mêmes valeurs + `pattern_telegraph`, `blank`, `boss_end` | ✅ idem gungeon |
+| Réglage propre au clone | ❌ **mêmes valeurs dans les quatre jeux** : aucun réglage de feel propre à un clone | ❌ | ❌ | ❌ |
+| Flash de bouche, traînée de balle, douilles, particules d'impact | ❌ non trouvés (`muzzle|trail|impact|casing` : aucun résultat dans `crates/game/src`) | ❌ | ❌ | ❌ |
+| Disparition à la mort | ⚠️ `Death` et visuels dérivés ; effet de mort propre non identifié (`feedback.rs:288-295`) | ⚠️ idem | ⚠️ idem | ⚠️ idem |
+| Caméra | ⚠️ `lerp_speed 12`, marge 0,05, zoom min 0,6 (`camera.ron:1-13`) | ⚠️ idem + fondu et recentrage d'étage | ⚠️ zoom min 0,5, fondu | ⚠️ `room_frame: true` ; D125 : jamais vu avec rendu |
+| Fluidité du rendu | ⚠️ `FixedTransform3D` recopié vers `Transform` après chaque frame GGRS, **sans interpolation** (`core_sim.rs:193-198`) : saccades possibles si l'écran n'est pas à 60 Hz [INFERENCE] ; non mesuré | idem | idem | idem |
+| Animations | ⚠️ 16 fichiers d'animation (`sprites/**/*.ron`) ; **décompte idle/marche/attaque/mort par entité non trouvé** | ⚠️ 14 | ⚠️ 91 | ⚠️ 157 |
+
+### Axe 9 — Visuel complet
+
+| Classe d'entité | zombies | throne | gungeon | isaac |
+|---|---|---|---|---|
+| Joueur, ennemis, boss | ⚠️ registre du jeu, statut propre/emprunté non trouvé (inventaire §10) | ❌ empruntés au testbed (`game.ron:1-4`) | ⚠️ silhouettes générées CC0 sur placeholders (`assets.yaml:1-12`) | ❌ tuiles Kenney de `sprites/gungeon/` (`assets.yaml:1-6`, `m3-salles-murs-isaac.md:34-35`) |
+| Projectiles, objets, props | ⚠️ statut non trouvé | ⚠️ statut non trouvé | ⚠️ générés/provisoires, détail par classe non trouvé | ⚠️ objets générés ; projectiles/props : détail non trouvé |
+| Portes, murs (`wall_art`) | ❌ `wall_art` absent | ❌ absent | ✅ présent | ✅ présent (121 fichiers générés) |
+| Sol et tilesets | ❌ SunnyLand/Dungeon partagés (inventaire §10) | ❌ idem | ❌ idem (hors `wall_art`) | ⚠️ sol d'une couleur unie `#7B6A5F`, D123 |
+| Portail, HUD | ⚠️ sprite de portail propre non trouvé | ⚠️ idem | ✅ hub et `wall_art` | ⚠️ portail propre non trouvé |
+| Animations idle/marche/attaque/mort | audit à faire (comptes d'animation par entité non trouvés) | audit à faire | audit à faire | audit à faire |
+| Comptage propre/emprunté/absent par classe | ❌ **non trouvé pour les quatre** : les manifestes déclarent sources et licences, pas un statut par entité (inventaire §10) → **le premier livrable de chaque tâche visuelle est ce tableau chiffré** | | | |
+
+### Axe 10 — Effets sonores complets
+
+| Événement | zombies | throne | gungeon | isaac |
+|---|---|---|---|---|
+| Tir, recharge | ⚠️ `shot_pistol/shotgun/smg`, `reload` : **trois familles**, pas un son par arme (`audio_config` peut remplacer, `feedback.ron:18-21`) | ⚠️ idem (13 armes) | ⚠️ idem (21 armes) | ⚠️ idem |
+| Impact, dégâts reçus, mêlée, dash, porte | ✅ clés `hit`, `hurt`, `melee`, `dash`, `door` | ✅ | ✅ | ✅ |
+| Mort | ⚠️ une seule clé `death` pour joueur et ennemis (`feedback.rs:203-212`) : pas de son par famille | ⚠️ idem | ⚠️ idem | ⚠️ idem |
+| Blank | — | — | ✅ `blank` | ✅ `blank` |
+| Vague, salle, étage | ❌ aucun son (S6 en file pour zombies) | ❌ | ❌ | ❌ |
+| Boss | ❌ aucun son dédié | ❌ | ❌ | ❌ |
+| Achat, ramassage | ❌ | ❌ | ❌ | ❌ |
+| Explosion, bombe | ❌ (inventaire §11) | ❌ | ❌ | ❌ |
+| Menus (navigation, confirmation) | ❌ | ❌ | ❌ | ❌ |
+| Fichiers | 11 (mêmes noms communs que les trois autres : `hit.ogg`, `death.ogg`, `shot_*.ogg`, `reload.ogg`, `dash.ogg`, `door.ogg`) ; **identiques entre jeux ? MD5 non comparé** (inventaire §11) | 10 | 11 | 11 |
+| Volume | ⚠️ par clé en dB (`volumes`, −12 sur la plupart) ; **pas de volume global** | idem | idem | idem |
+
+### Axe 11 — Map design
+
+| Point | zombies | throne | gungeon | isaac |
+|---|---|---|---|---|
+| Cartes | 2 LDtk, 25 niveaux : `avant_poste` (9, `Depart` ; les cinq spawners étaient **tous** dans `Depart`, `revue-m0.md:38-48`) et `la_fonderie` (16 sections, boucles) | cavernes : 5 `caves`, `floors/run.ron` ; **nombre de salles par étage non trouvé** | 20 niveaux : 15 gabarits `salles`, 3 `etage_1`, hub, armes | 24 niveaux : 23 gabarits `salles` de 480×288 à 960×576, armes |
+| Grammaires | 1 `floor_grammars`, 6 `rooms` | 1 `floors/run.ron` | 7 `floor_grammars`, 9 `rooms` | 6 `floor_grammars`, 9 `rooms` |
+| Variété, couvertures | ⚠️ spawners dans d'autres salles que `Depart` : constat « les 5 `ZombieSpawn` sont tous dans `Depart` » ; ajouter spawners et fenêtres aux autres salles (`m0-revue-suite-contenu.md:60-65`, en file) ; couloirs problématiques signalés, **décompte non trouvé** | ❌ audit à faire | ⚠️ salles de combat devenues vides après agrandissement (D64, D118) ; tables/barils/rochers : **nombre par gabarit non trouvé** | ⚠️ props (rochers, tables, barils) : **comptes par étage non trouvés** ; D123 (sol), D125 (cadrage de salle, mur fissuré non vus avec rendu) |
+| Rythme / spawners | ❌ audit à faire | ❌ audit à faire | ⚠️ 27 % de morts à 1 bot, dont la plupart dans les salles `combat` (D64) | ⚠️ D121/D124 : soft-locks aux sous et au `colosse` ; piques = première cause de chute à 2 et 4 bots (D119) |
+
+**Lecture** : le moteur est solide (0 desync sur 420 graines isaac ; x86-64/arm64 identiques, D73 fausse alerte,
+`etat-engine.md:105`), la sim est déterministe et les effets de base (flash, shake, hit-stop) existent. Ce qui manque est
+**autour** : la manette (on ne peut pas tirer), le web pour gungeon et isaac, le son hors tir/dégâts, des visuels et
+des cartes propres à chaque jeu, un feel réglé par jeu. Et trois **inconnues à mesurer d'abord** : la manette en wasm,
+les FPS en wasm, les tailles de build.
 
 ## 3. Tâches
 
-**B** = bloque « jouer entre amis ». **P** = polissage. Estimations en jours-agent. « Preuve attendue » = ce qui ferme la
-tâche. Fiches des B : `docs/taches/polissage-*.md`. Les tâches P n'ont pas de fiche : elles sont écrites si William les
-retient (décision 12).
+**B** = bloque « jouer entre amis, dans le navigateur, à la manette, sur des jeux propres ». **P** = polissage classé
+valeur/coût. Estimation en jours-agent. **Capacité : 4 voies × 5 jours = 20 j par semaine** (b0, b1, b3 sur Mac ; **une
+seule** voie VPS). Le B total **dépasse largement 20 j** (≈ 40 j, § 3.3) : il est découpé en **semaine 1** et
+**semaine 2**. Les fiches (`docs/taches/polissage-*.md`) existent pour chaque B de la semaine 1 ; celles de la semaine 2
+sont écrites à la fin de la semaine 1 avec ce qu'elle aura appris (audits).
 
-### 3.1 Bloquantes (B) — total **20 j**
+**Choix de découpe** : la semaine 1 met en place ce qui vaut **pour les quatre clones à la fois** (web + online, manette,
+textes français, mesure wasm, un premier lot de game feel et de sons **dans le moteur**, en données) et rend **un clone
+complet** : `zombies` (le plus petit contenu : 4 armes, 6 configs, 1 boss, 6 salles, inventaire §4 ; déjà dans le
+catalogue ; plaintes de William en file S4/S6/S7 et spawners). Semaine 2 : `gungeon`, puis `isaac`, puis `throne`
+(décision 4 à confirmer). Faire « quatre clones à moitié » est écarté : un clone terminé sert de démo.
+
+### 3.1 Semaine 1 — B, total **19,5 j**
 
 | # | B/P | Tâche (fiche) | Clone(s) | Ce que ça change pour le joueur | Est. | Dépend de | Preuve attendue |
 |---|---|---|---|---|---|---|---|
-| B1 | B | Signaling joignable par défaut + salon par nom (`polissage-reseau-amis.md`) | 4 | On se retrouve entre amis par un nom de salon, sans lancer Docker ni connaître d'IP | 2 | décisions 1, 11 | partie à 2 sur deux machines réelles via le serveur par défaut, traces identiques ; D116 refermée |
-| B2 | B | Archives Mac (et Windows) téléchargeables et jouables (`polissage-distribution.md`) | 4 | Un ami télécharge un zip, double-clique, joue : plus de Rust ni de `make` | 2 | décisions 2, 9, 10 | archive construite en CI, lancée sur une machine **sans** toolchain, un clone par archive |
-| B3 | B | Écran de démarrage et textes en français (`polissage-demarrage.md`) | 4 | Menu : solo / héberger / rejoindre + salon, nombre de joueurs, nom ; messages réseau, DESYNC, fin de partie en français | 3 | B1 (interface réseau), décisions 3, 8 | de l'archive B2 au premier niveau sans argument CLI, pour chaque clone ; capture de chaque écran |
-| B4 | B | Manette jouable (tir, visée, toutes les actions) et écran d'aide des touches (`polissage-manette.md`) | 4 | Aujourd'hui **on ne peut pas tirer à la manette** ; toute action utile a un bouton ; on lit les touches dans le jeu | 3 | rien | essai E4 coché par William (clavier + manette, 1 et 2 joueurs) ; scénarios inchangés |
-| B5 | B | Couleur par joueur et lisibilité coop (`polissage-lisibilite-coop.md`) | zombies, throne, isaac (gungeon : contrôle) | À 2–4 joueurs, on sait quel héros est le sien ; halo des ramassables ; légende F7 | 2 | rien | captures/vidéos 2 et 4 joueurs par clone, `hud.ron` avec `player_colors` et `legend` ; traces intactes |
-| B6 | B | Zombies : armes, son de vague et volumes (`polissage-zombies-equilibrage-son.md`) | zombies | Fusil à pompe, pistolet et mitraillette utilisables ; on entend les vagues ; les tirs ne fatiguent pas | 2 | rien (campagne b2) | tableau de campagne `alacod-sim` avant/après ; traces rebénies avec preuve §5 ; écoute de William |
-| B7 | B | Throne jouable : D66/D67 + campagne chiffrée (`polissage-throne-jouable.md`) | throne | Une tourelle ressemble à une tourelle et son tir se lit ; on sait si le jeu est trop dur | 2 | rien | vidéo des tourelles/boss, campagne 1 et 2 bots publiée ; D66/D67 fermées |
-| B8 | B | Perf sur le Mac de William : mesure, plafonds, D70 (`polissage-perf-machine.md`) | 4 | Pas d'à-coup à 2 et surtout à 4 joueurs (`isaac_quad` : 10 fps sur le VPS) sur un portable | 2 | B5 (scènes à 4) conseillé | `make bench` strict au calme sur Mac, tableau par clone ; trace identique si le champ de flux est touché |
-| B9 | B | Session d'amis : validation en ligne de bout en bout (`polissage-session-amis.md`) | 4 | La promesse tenue : 4 jeux, 2 puis 4 joueurs, déconnexion et retour au menu propres | 2 | B1 à B3 | rapport de session, un tableau par clone, 0 DESYNC, notes de William |
-| | | **Total B** | | | **20** | | |
+| S1-1 | B | **Manette** jouable dans le navigateur, menus compris, écran d'aide (`polissage-manette.md`) — **priorité 1** | 4 | On peut tirer, viser, dasher, utiliser un actif, naviguer pause/fin de partie/mutation à la manette dans Chrome | 3 | schéma validé par William (décision 2), `bevy_gilrs` wasm | partie de zombies et d'une autre jouée entièrement à la manette dans le navigateur ; scénarios et traces inchangés ; essai E4 |
+| S1-2 | B | **Web : les 4 clones dans le catalogue du site** (`polissage-web-4-clones.md`) | 4 | gungeon et isaac jouables dans le navigateur comme zombies et throne | 3 | rien | `build-web-games.mjs` construit 4 jeux ; `releases.json` et `catalog.ts` à 4 entrées ; chaque clone atteint la première salle sous Chrome ; tailles et temps de chargement mesurés |
+| S1-3 | B | **Online navigateur** : signaling `wss://` joignable, deux réseaux, `online` activé honnêtement, D116 (`polissage-reseau-amis.md`) | 4 | On se retrouve par le site (salon) et on joue à 2 | 2,5 | décision 1 (signaling) | partie à 2 entre deux réseaux distincts, traces identiques ; `online: true` seulement là où la recette est faite |
+| S1-4 | B | **Textes en français** : lobby, réseau, DESYNC, fin de partie, pause (`polissage-textes-fr.md`) | 4 | Plus de « Connecting to peer… » à côté de « Rejouer » | 1 | rien | grep des textes anglais listés = 0 ; captures ; aucune trace ne bouge |
+| S1-5 | B | **Perf wasm** : FPS d'affichage et de simulation par clone dans le navigateur (`polissage-perf-web.md`) | 4 | Savoir si la partie tourne à 60 Hz dans un onglet ; seuils pour la suite | 1 | S1-2 | tableau FPS par clone (Chrome, Mac de William), tailles de build |
+| S1-6 | B | **Game feel, lot commun** : interpolation d'affichage, réglages `movement`/`dash`/`feedback.ron`/`camera.ron` **par clone**, flash de bouche, recul de tir, effet de mort (`polissage-feel.md`) | 4 (réglé sur zombies) | Mouvement et tirs nets, fluides à 144 Hz | 2 | rien | vidéo de prise en main de zombies ; l'interpolation ne touche pas `GgrsSchedule` (traces inchangées) ; réglages en données |
+| S1-7 | B | **Sons : événements manquants dans le moteur** (vague, salle, étage, boss, achat, ramassage, explosion, menus, mort par famille, volume global, déblocage audio navigateur) (`polissage-sons-evenements.md`) | 4 | Chaque événement peut avoir un son par clone, réglable | 1,5 | rien | clés `sounds` et lint ; sons dérivés de l'état (jamais d'un événement de simulation) ; traces inchangées |
+| S1-8 | B | **Zombies complet : visuel** (audit d'abord ; sol/murs/`wall_art`, joueur et ennemis animés, armes ; couleur par joueur et légende) (`polissage-zombies-visuel.md`) | zombies | Zombies a son propre visage et on s'y retrouve à 4 | 2 | décision 5 (DA) | tableau classe × état avant/après ; captures et vidéo ; traces intactes |
+| S1-9 | B | **Zombies complet : sons** (tir par arme, vague S6, volumes S7, mort, achat, ramassage…) (`polissage-zombies-sons.md`) | zombies | Le jeu « sonne » | 1 | S1-7 | tableau événement × son sans case vide ; écoute de William |
+| S1-10 | B | **Zombies complet : map et équilibrage** (spawners dans toutes les salles, S4 armes, campagne chiffrée) (`polissage-zombies-map-equilibrage.md`) | zombies | Les vagues viennent de partout, les trois armes ont un rôle | 1,5 | rien | audit de cartes, campagne avant/après, traces rebénies avec preuve §5 |
+| S1-11 | B | **Session d'amis** : zombies à 2 puis 4 sur le site, réseau dégradé, déconnexion, restart (`polissage-session-amis.md`) | zombies (puis les autres) | La promesse tenue sur un clone complet | 1 | S1-1 à S1-4 | rapport tableau « fait / non vérifié », 0 DESYNC |
+| | | **Total semaine 1** | | | **19,5** | | |
 
-### 3.2 Polissage (P), classé valeur / coût — total **26,5 j** (≈ 1,3 semaine de plus)
+### 3.2 Semaine 2 — B, total **20 j**
 
 | # | B/P | Tâche | Clone(s) | Ce que ça change pour le joueur | Est. | Dépend de | Preuve attendue |
 |---|---|---|---|---|---|---|---|
-| P1 | P | Gungeon : équilibrage fin des armes et du boss (`taches.md` §7 ligne 11 ; D64) | gungeon | Salles `combat` moins mortelles à 1 joueur (27 % de morts aujourd'hui), boss lisible | 2 | B9 (essai humain) | campagne 200 graines avant/après ; traces rebénies avec preuve §5 |
-| P2 | P | Isaac : équilibrage, D93 (armure) et décision Q14 | isaac | Les parties ne se gagnent plus « par l'armure » ; difficulté choisie | 2 | décision 6 | campagne ; D93 fermée |
-| P3 | P | Sons : coup unique pour throne/testbed (D32), événements de salle/étage/boss, volume global | 4 | Le jeu « sonne » ; réglage du volume | 3 | décisions 5, 7 | licences dans `assets.yaml`, écoute de William |
-| P4 | P | Bots : D119 (piques), D120, D121, D124 | isaac (D119 touche aussi `crates/bots`) | Campagnes fiables pour toute la suite | 2,5 | rien | campagne sans soft-lock (graines 63, 178) |
-| P5 | P | Sprites propres des personnages/ennemis/boss isaac (D123) : sol, ombres, pointeur de visée | isaac | Isaac ne ressemble plus à gungeon | 3 | décision 5 | captures avant/après |
-| P6 | P | Écran de mutation `bevy_hui` et minicarte (D71, D72) | throne | Choix de mutation lisible, repère dans la carte | 1,5 | rien | `dettes-ui-d71-d72.md` |
-| P7 | P | Caméra par salle d'isaac et mur fissuré vus avec rendu (D125) | isaac | Pas de glissement ni de mur secret invisible | 1 | rendu sur Mac (b0/b1/b3) | captures, D125 fermée |
-| P8 | P | Remappage des touches | 4 | Chacun règle ses touches | 2 | B4 | écran de réglage, fichier de config |
-| P9 | P | Perf : champ de flux incrémental (D70, D122), gungeon D118 | 4 | Marge de manœuvre sur vieux portables | 3 | B8 | traces identiques (preuve §5), `rollback_ms_worst` en baisse |
-| P10 | P | Build web et ligue en ligne web pour zombies/throne | zombies, throne | Jouer depuis un lien | 4 | contrat Allumette (`contrat-lancement-web.md`), B1 | `/play?id=…` avec online activé |
-| P11 | P | Musique d'ambiance courte par clone | 4 | Ambiance | 1,5 | décisions 5, 7 | licences, volume |
-| P12 | P | Revue de lisibilité de gungeon (D66/D67 en vidéo, légende, `player_colors` déjà là) | gungeon | Cohérence avec isaac | 1 | rien | page de revue |
-| P13 | P | Hub minimal de retour au menu pour zombies/throne/isaac | 3 | `[INFERENCE]` une salle d'attente avant la partie | — | **non retenue** : mécanique, voir § 6 | — |
-| | | **Total P (hors P13)** | | | **26,5** | | |
+| S2-1 | B | Gungeon complet : visuel (silhouettes générées → sprites propres et animés, 11 personnages, boss, sol) | gungeon | Gungeon a son identité | 3 | S1-8 (méthode), décision 5 | tableau classe × état, vidéo |
+| S2-2 | B | Gungeon complet : sons (21 armes → familles, boss, hub, achat, coffre, salles) | gungeon | idem | 1 | S1-7 | tableau événement × son |
+| S2-3 | B | Gungeon complet : map et équilibrage (D64 : 27 % de morts à 1 bot, salles vides après agrandissement, armes et boss) | gungeon | Moins mortel, mieux rythmé | 2,5 | rien | campagne 200 graines avant/après, preuve §5 |
+| S2-4 | B | Isaac complet : visuel (personnages/ennemis/boss : fin des tuiles Kenney, sol, pointeur de visée ; D123) | isaac | Isaac ne ressemble plus à gungeon | 3,5 | S1-8, décision 5 | tableau classe × état, vidéo |
+| S2-5 | B | Isaac complet : sons (bombe, objets, boss ×9, clés, sous) | isaac | idem | 1 | S1-7 | tableau |
+| S2-6 | B | Isaac complet : map et équilibrage (D93 armure, Q14, props, D125 cadrage de salle vu avec rendu) | isaac | idem | 3,5 | décision 6 | campagne, captures |
+| S2-7 | B | Throne jouable : D66/D67 (tourelle lisible), campagne chiffrée (`polissage-throne-jouable.md`) | throne | On sait ce qu'est une tourelle | 2 | rien | D66/D67 fermées, campagne publiée |
+| S2-8 | B | Lisibilité coop : couleur par joueur, légende, halo pour throne et isaac (`polissage-lisibilite-coop.md`) | throne, isaac | À 4 on se reconnaît | 1,5 | S1-8 | captures à 4 |
+| S2-9 | B | Perf : budgets du navigateur et du natif (`isaac_quad` 10,1 fps / 50 ms au pire rollback sur le VPS, `bench_floor_isaac` sous son plancher), D70 | 4 | Pas d'à-coup à 4 | 2 | S1-5 | mesures navigateur et Mac ; traces identiques si le champ de flux est touché |
+| | | **Total semaine 2** | | | **20** | | |
 
-Ordre de valeur/coût : P1, P2, P7, P6, P12, P4, P3, P5, P8, P9, P11, P10.
+### 3.3 Totaux et ce qui n'entre pas
 
-## 4. Semaine
+**B : 39,5 j** (19,5 + 20) : deux semaines pleines à quatre voies. Rester dans ce total demande de **déclasser en P** :
+**throne complet** (visuel 3 j, sons 1 j, map 2 j = 6 j) ; throne n'a, en semaine 2, que la lisibilité et la campagne. Si William
+veut quatre clones complets, il faut une troisième semaine (+ 6 j) ou deux voies de plus. Toutes les estimations sont des
+`[INFERENCE]` : les audits (visuel, animations, cartes, tailles wasm) peuvent les changer ; chaque tâche commence par
+son audit chiffré et **redit son estimation à la fin du premier jour**.
 
-Cinq voies. Les voies **Mac** (b0, b1, b3) ont un affichage et Docker ; les voies **VPS** (b2, b6) n'ont ni l'un ni
-l'autre : **aucune capture ni vidéo** n'y est produite (D94, `bevy_winit` sans `DISPLAY`) ; elles font contenu, bots,
-campagnes, p2p headless, hébergement du signaling. Total : 20 j de B sur 25 j de capacité : 5 j de marge pour les
-reprises et les P classés par valeur.
+### 3.4 Polissage (P), classé valeur / coût — total **21,5 j**
 
-| Jour | b0 (Mac) | b1 (Mac) | b3 (Mac) | b2 (VPS) | b6 (VPS) |
-|---|---|---|---|---|---|
-| 1 | B1 : signaling par défaut | B2 : binaires et workflow | B5 : couleurs et légendes (captures) | campagnes zombies et throne (entrées de B6/B7), préparation de B1 côté VPS (hébergement si décision 1 = auto-héberger) | B6 : armes de zombies, volumes, son de vague |
-| 2 | B1 fin (D116) | B2 : un clone par archive | B5 fin | B7 (campagne 1/2 bots throne) | B6 fin, traces rebénies |
-| 3 | B3 : menu de démarrage | B4 : liaisons manette (tir en premier) | B8 : mesures `make bench` au calme sur Mac, dont `isaac_quad`/`isaac_duo` (sans budget aujourd'hui) | B9 : préparation, p2p headless à 4 sur l'archive | B7 : D66/D67 (données, vidéo par b3 ensuite) |
-| 4 | B3 : textes FR et écrans réseau | B4 : tir à la manette, bouton par action, essai E4 avec William | B8 : plafonds ; D70 si nécessaire | B9 : stress réseau dégradé (`p2p-stress.sh`) | B7 fin, P1/P4 si de la marge |
-| 5 | B3 fin ; **B9 deux machines** avec William | B4 fin : écran d'aide, scénarios inchangés ; page de revue | vidéos de recette (4 clones) | rapport B9, `make check`, ligne de journal | P1/P2 (campagnes) |
+| # | B/P | Tâche | Clone(s) | Ce que ça change pour le joueur | Est. | Dépend de | Preuve attendue |
+|---|---|---|---|---|---|---|---|
+| P1 | P | Throne complet : visuel, sons, map (cavernes, nombre de salles par étage à auditer) | throne | Throne a son identité | 6 | S1-8, S1-7 | tableaux classe × état |
+| P2 | P | Bots : D119 (piques), D120, D121, D124 | isaac, `crates/bots` | Campagnes fiables | 2,5 | rien | campagne sans soft-lock (graines 63, 178) |
+| P3 | P | Écran de mutation `bevy_hui` et minicarte (D71, D72), à la manette | throne | Choix lisible | 1,5 | S1-1 | `dettes-ui-d71-d72.md` |
+| P4 | P | Caméra par salle d'isaac et mur fissuré vus avec rendu (D125) | isaac | Pas de glissement | 1 | rendu Mac | captures |
+| P5 | P | Remappage des touches et boutons | 4 | Chacun règle sa manette | 2 | S1-1 | écran de réglage, fichier de config |
+| P6 | P | Salon à 4 joueurs sur le site (le site propose 2) | 4 | Jouer à 4 | 2 | S1-3 | partie à 4 entre réseaux distincts |
+| P7 | P | Perf : champ de flux incrémental (D70, D122, D118) | 4 | Marge | 3 | S2-9 | traces identiques (preuve §5) |
+| P8 | P | Feel, lot 2 : traînées de balles, douilles, avance de caméra | 4 | Plus de punch | 2 | S1-6 | vidéo |
+| P9 | P | Musique d'ambiance courte par clone (licences) | 4 | Ambiance | 1,5 | décision 7 | licences |
+| | | **Total P** | | | **21,5** | | |
 
-**Ordre de merge** (du moins au plus conflictuel) : B6 et B7 (contenu d'un seul clone, traces d'un seul jeu) → B5
-(`hud.ron` de trois jeux) → B2 (`Makefile`, `.github/workflows`) → B4 (`control.rs`, `input_devices.rs`) → B1 (`jjrs/`) →
-B3 (`ui/lobby.rs`, `core.rs`, `game_over.rs` : dépend de B1 et touche aux textes de B4) → B8 (`tests/budgets.ron`) → B9.
+Ordre valeur/coût : P2, P4, P3, P6, P5, P1, P8, P9, P7. (P1 est le plus gros et le plus cher mais « 4 clones complets » le
+demande ; William tranche, décision 4.)
 
-**Conflits prévisibles** : `docs/taches.md` et `docs/taches/dettes.md` (journal et dettes : chaque worker ajoute sa ligne
-à la fin de son lot, résoudre par rebase) ; `tests/budgets.ron` (B6, B7, B8) ; `crates/game/src/ui/lobby.rs` (B1 pour la
-logique, B3 pour l'écran : B1 livre l'API avant que B3 ne commence) ; `Makefile` (B2 et B1 pour `MATCHBOX_URL`) ;
-traces `tests/scenarios/*.trace` (B6 et B7 : jeux différents, pas de conflit ; B8 ne doit en bouger aucune).
+## 4. Semaine 1 : calendrier à quatre voies
 
-**Ce qui attend William** :
+Quatre voies : **b0, b1, b3 sur Mac** (affichage, navigateur, Docker, manette physique) et **une seule voie VPS, b2**
+(ni affichage ni navigateur : **aucune capture ni vidéo** — D94 ; contenu, bots, campagnes, p2p headless, hébergement du
+signaling). La semaine 2 reprend la même grille avec le tableau § 3.2 (b0 : S2-4 isaac visuel ; b1 : S2-1 et S2-2 gungeon ;
+b3 : S2-8, S2-9 et S2-5 ; b2 : S2-3, S2-6, S2-7 [INFERENCE : campagnes et contenu sur le VPS, vidéos de recette sur Mac]).
 
-- Jour 0 : les décisions 1 à 4 (§ 5), sinon B1 et B2 démarrent sur les défauts.
-- Jour 4 : essai manuel E4 (clavier/souris, manette, 1 et 2 joueurs) et écoute des sons de zombies (B6).
-- Jour 5 : session en ligne à deux machines réelles et à quatre (B9) ; revue de la page de vidéos des quatre clones.
-- Fin de semaine : 30 min en coop par clone (jugement d'équilibrage), notes transformées en dettes **D126** et suivantes.
+| Jour | b0 (Mac) | b1 (Mac) | b3 (Mac) | b2 (VPS) |
+|---|---|---|---|---|
+| 1 | S1-1 : **proposition de schéma manette à William** (matin), vérification `bevy_gilrs` en wasm, liaisons | S1-2 : script 4 jeux, compilation wasm de gungeon et isaac | S1-6 : interpolation d'affichage, réglages par clone | S1-3 : état réel de `allumette.estran.studio` ; serveur `wss://` (décision 1) |
+| 2 | S1-1 : tir, visée, actions | S1-2 : tailles, chargement, `catalog.ts` | S1-6 : flash de bouche, recul, mort | S1-3 : D116, test headless à deux |
+| 3 | S1-1 : menus, mutation, écran d'aide ; **essai E4 avec William** | S1-2 : `releases.json`, `release.yaml`, gungeon hub web | S1-8 : audit visuel de zombies, tilesets | S1-7 : clés de sons, volume global |
+| 4 | S1-4 : textes français | S1-3 : recette navigateur entre **deux réseaux** | S1-8 : sprites animés, couleurs de joueur | S1-7 fin (déblocage audio côté Mac) ; S1-10 : audit des cartes, spawners |
+| 5 | S1-11 : session d'amis (avec William) | S1-5 : FPS wasm par clone | S1-9 : sons de zombies | S1-10 : campagne avant/après, traces rebénies |
+
+**Ordre de merge** (du moins au plus conflictuel) : S1-7 → S1-9 → S1-10 → S1-8 → S1-6 → S1-2 → S1-3 → S1-1 → S1-4 → S1-5
+→ S1-11.
+
+**Conflits prévisibles** : `website/static/releases.json`, `website/src/lib/game/catalog.ts`, `Makefile`,
+`.github/workflows/release.yaml` (S1-2 et S1-3) ; `crates/game/src/ui/screens/input.rs`, `character/control.rs`,
+`input_devices.rs` (S1-1) et `ui/game_over.rs`, `ui/lobby.rs` (S1-4 et S1-1) ; `crates/game/src/feedback.rs` et
+`crates/content/src/feedback.rs` (S1-6 et S1-7) ; `core_sim.rs` (interpolation, S1-6) ; `games/zombies/assets/ui/hud.ron`
+et `feedback.ron` (S1-6, S1-8, S1-9) ; `tests/scenarios/*.trace` de zombies (S1-10 seul peut les bouger ; les autres
+tâches n'en bougent aucune) ; `docs/taches.md` et `dettes.md` (une ligne de journal par lot, rebase).
+
+**Ce qui attend William** : jour 0 : décisions 1 à 5 de § 5 (sans réponse, défauts) ; jour 1 : **validation du schéma
+manette** (S1-1 écrit le code après) ; jour 3 : essai E4 à la manette dans le navigateur ; jour 4 : un **second réseau**
+(le Mac de recette passait par un tunnel qui échouait même sans engine : `contrat-lancement-web.md`, preuve sur deux réseaux
+ouverte) ; jour 5 : session d'amis, écoute des sons de zombies, revue de la vidéo de zombies ; fin de semaine 2 : 30 min en
+coop par clone.
 
 ## 5. Décisions attendues de William
 
-Avec l'option par défaut si William ne répond pas.
+Décisions **déjà prises** (2026-10-21, retirées de la liste) : jeux **web seulement** via le site (plus d'archives
+Mac/Windows, plus de question de plateforme, de signature Gatekeeper ni d'hébergement d'archives) ; **pas d'écran de
+démarrage dans le jeu** ; **manette prioritaire**. Restent, avec l'option par défaut :
 
-1. **Signaling public** : réparer `allumette.estran.studio` (service d'Allumette, avec JWT) ou **héberger** un
-   `matchbox_server` nu sur le VPS ? Défaut : héberger `matchbox_server` sur le VPS et en faire la valeur par défaut du
-   binaire (la « réparation par défaut » avait été refusée faute de décision explicite ; jouer entre amis l'exige).
-2. **Plateformes livrées aux amis** : Mac arm64 seul, Mac + Windows x86-64, ou web ? Défaut : **Mac arm64 + Windows
-   x86-64** (le web reste P10 : les boutons online y sont désactivés, `contrat-lancement-web.md`).
-3. **Nombre de joueurs visé** : 2 ou 4 ? Défaut : **2 garanti sur les quatre clones, 4 « supporté »** (isaac et zombies
-   déjà essayés à 4 ; throne et gungeon à confirmer en B9).
-4. **Clone en premier** : si le temps manque, lequel on garantit d'abord ? Défaut : zombies, puis isaac, gungeon,
-   throne [INFERENCE : zombies a les plaintes de William en attente, isaac a la campagne la plus récente].
-5. **Direction artistique** : garder les sprites CC0 générés, ou acheter/commander ? Défaut : **garder** cette semaine,
-   aucun achat, décision pour M4 ; les sprites d'isaac (P5) attendent cette décision.
-6. **Q14** : la couverture des mécaniques remplace-t-elle la fourchette de victoires ? Défaut : **oui** (conforme au
-   scepticisme sur l'équilibrage automatique) ; William juge à l'essai.
-7. **Sons et musique** : autorise-t-on de nouveaux fichiers (licences CC0 / CC BY à citer) et de la musique ? Défaut :
-   sons CC0 oui, **pas de musique** cette semaine.
-8. **Langue du jeu** : tout en français ? Défaut : **oui** (textes de menus, réseau, fin de partie).
-9. **Mac non signé** : accepter le contournement Gatekeeper (clic droit → Ouvrir) pour des amis, sans compte développeur
-   Apple ? Défaut : **oui**, notice dans l'archive.
-10. **Hébergement des archives** : GitHub Release du dépôt (privé ?) ou page Cloudflare ? Défaut : **GitHub Release**,
-    lien partagé aux amis.
-11. **TURN** : héberger un serveur TURN (STUN seul aujourd'hui, `jouer-a-deux.md:5-6`) pour les amis derrière un NAT
-    symétrique ? Défaut : **non** ; repli documenté = Tailscale.
-12. **Les P** : lesquels engager si une voie finit tôt ? Défaut : dans l'ordre de § 3.2 (P1, P2, P7, P6…).
-13. **Essai humain** : William joue 30 min en coop par clone en fin de semaine et écrit ses notes dans
-    `docs/taches/rapports/plan-polissage-notes.md` ? Défaut : oui (c'est la preuve de l'axe 4).
+1. **Signaling** : héberger `matchbox_server` nu derrière TLS sur le VPS, ou **réparer/relancer Allumette** ? Défaut :
+   Allumette, parce que le site passe déjà par lui (invités, salons, TURN : parcours prouvé sur deux Chromium le 2026-10-09,
+   `contrat-lancement-web.md`) ; un `matchbox_server` nu obligerait à réécrire le flux du site et n'apporte pas de TURN
+   [INFERENCE]. Dans les deux cas : `wss://`, joignable d'un navigateur ; version du protocole Matchbox à vérifier
+   (client 0.15 d'un fork, serveur Allumette 0.13.0, `contrat-lancement-web.md`).
+2. **Schéma manette** (proposition à valider, table dans `polissage-manette.md`) : stick gauche déplacement, stick droit
+   visée, gâchette droite tir, etc. Défaut : la proposition de la fiche.
+3. **Perf web acceptable** : seuil à fixer après la mesure de S1-5. Défaut de travail : la simulation tient 60 Hz à
+   2 joueurs dans Chrome sur le Mac de William ; sinon, dégrader (lumière désactivée pour le web, déjà le défaut de la
+   feature `lighting`, `crates/game/Cargo.toml`) avant de réduire le contenu.
+4. **Quel(s) clone(s) rendre complets en premier** : défaut **zombies (semaine 1), puis gungeon, puis isaac (semaine 2),
+   throne en P1** (+ 6 j). Alternative : isaac avant gungeon.
+5. **Direction artistique** : garder la génération CC0 de la voie V6 (`plan-assets.md`) pour les sprites « propres au jeu »,
+   ou acheter/commander ? Défaut : générer cette semaine, décider un achat avant S2-1 si le rendu de zombies déçoit.
+6. **Q14** : la couverture des mécaniques remplace-t-elle la fourchette de victoires ? Défaut : oui.
+7. **Sons et musique** : sons CC0/CC BY nouveaux autorisés (licence dans `assets.yaml`) ; musique en P9. Défaut : sons oui,
+   musique non.
+8. **Gungeon sur le web** : commence-t-on au hub (`hub: Some(...)`) ou directement en run ? Défaut : au hub, comme natif.
+9. **`online` dans `releases.json`** : le fichier annonce `online: true` pour zombies et throne alors que le contrat dit
+   « désactivé tant que la recette n'est pas faite » : repasser à `false` jusqu'à S1-3 ? Défaut : oui.
+10. **Isaac sans dash** (`dash_distance` 0 partout, inventaire §9) : voulu ? Défaut : oui, isaac n'a pas de dash.
+11. **Essai humain** : 30 min en coop par clone à la fin de chaque semaine, notes dans
+    `docs/taches/rapports/plan-polissage-notes.md`. Défaut : oui.
+12. **Les P** : lesquels engager si une voie finit tôt. Défaut : l'ordre de § 3.4.
 
 ## 6. Hors périmètre
 
-Dit explicitement, pour qu'aucune mécanique ne passe pour du polissage :
-
-- **Aucune mécanique nouvelle** : pas d'objet, d'ennemi, d'arme, de mode ni de hub dans zombies, throne ou isaac
-  (P13 non retenue).
-- **Suite de D69** (E8 et au-delà, frontière simulation/présentation) : pas cette semaine.
-- **1837** et M4 : après la semaine.
-- **Équilibrage automatique** par fourchette de victoires dans la boucle de l'engine : refusé par William.
-- **Remappage, musique, build web** : P, jamais B.
-- **Modifier la simulation sans preuve §5** : tout réglage de gameplay (B6, B7, P1, P2) passe par `BLESS` justifié ; les
-  tâches présentation (B3, B4, B5) ne doivent faire bouger aucune trace.
-- **Dettes de tooling sans effet sur le joueur** (D110, D111, D112, D114, D115, D117) : inchangées.
+- **Archives natives Mac/Windows** et workflow `dist` : supprimés (décision du 2026-10-21).
+- **Écran de démarrage, menu solo/héberger/rejoindre dans le jeu** : le site connecte (décision du 2026-10-21).
+- **Mécaniques nouvelles** (objet, ennemi, arme, mode, hub pour un clone qui n'en a pas) ; **suite de D69** (E8+) ; **1837**
+  et M4 ; **équilibrage automatique** par fourchette de victoires.
+- **Remappage, salon à 4 sur le site, musique, feel lot 2, perf profonde** : P, jamais B.
+- **Dettes d'outillage sans effet sur le joueur** (D110, D111, D112, D114, D115, D117).
 
 ## 7. Règles de la semaine
 
-- Déterminisme et checklist GGRS de `CLAUDE.md` : toute fiche qui touche la simulation (B6, B7, B8) respecte `Fixed`,
-  `order_iter!`, `despawn_rollback`, traces au format `ggrs{f=…}`.
-- Présentation dérivée de l'état, jamais d'un événement de simulation (`CLAUDE.md`, « Événements dans la simulation »).
-- Numéros de dettes : prochain libre **D126** ; réservés cette semaine : **D126 à D130** à l'orchestrateur du plan (les
-  workers en ouvrent à partir de **D131** après avoir vérifié `dettes.md`).
+- Déterminisme et checklist GGRS de `CLAUDE.md` : l'**interpolation d'affichage** (S1-6) vit en `PostUpdate`/présentation,
+  jamais dans `GgrsSchedule` et jamais dans le hash ; les sons et effets sont **dérivés de l'état** (`Update`), jamais d'un
+  événement émis par la simulation ; tout réglage de gameplay (S1-10, S2-3, S2-6) passe par `BLESS` avec preuve §5.
+- Présentation seule (S1-1, S1-4, S1-6, S1-7, S1-8, S1-9) : `make test_scenarios` sans `BLESS`, aucune trace ne bouge.
+- Numéros de dettes : prochain libre **D126** ; **D126 à D130 réservés** à ce plan (audits : manette wasm, interpolation,
+  tailles wasm, sons manquants, cartes) ; les workers ouvrent à partir de **D131** après avoir relu `dettes.md`.
 - Chaque lot finit par `LIVRÉ <branche>` dans le journal (`docs/taches.md` §10) et un rapport dans
   `docs/taches/rapports/`.

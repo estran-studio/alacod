@@ -174,3 +174,98 @@ Mesures et dettes: D70 mesure 9,1 ms/frame pour reconstruire le champ de flux av
 13. Les textes affichés mélangent français et anglais.
 14. Le budget de référence est 40 fps; les budgets lourds gungeon/Isaac sont réduits par D118/D122 et D70 concerne le champ de flux.
 15. Les revues humaines, essais périphériques et sessions coop de William sont encore explicitement demandés.
+
+## 9. Game feel (mouvement, physique, fluidité)
+
+Le pas de simulation est fixe à 60 Hz (`FIXED_TIMESTEP = 1/60`, `crates/game/src/character/movement.rs:7`). Le déplacement des joueurs n'est donc pas une vitesse instantanée : `run_velocity` approche la vitesse cible par axe, avec accélération et décélération (`movement.rs:147-176`). La décélération absente de la donnée reprend l'accélération (`movement.rs:131-135`). Les ennemis lisent surtout `max_speed`, l'IA décidant le reste (`movement.rs:9-11`).
+
+| Donnée extraite des configs de personnages | zombies | throne | gungeon | isaac |
+|---|---:|---:|---:|---:|
+| `max_speed` min–max (tous les RON, tests inclus) | non trouvé | 0–150 | 0–150 | 0–120 |
+| `dash_distance` min–max | non trouvé | 0–64 | 0–64 | 0 |
+| `dash_duration_frames` min–max | non trouvé | 0–8 | 0–8 | 0 |
+| `dash_cooldown_frames` min–max | non trouvé | 0–24 | 0–24 | 0 |
+| `dash_iframes` trouvé | non trouvé | 6 (un RON) | 6 (un RON) | non trouvé |
+
+Le dash porte distance, durée, cooldown, i-frames, charges et bousculade (`movement.rs:27-43,68-90`); le recul est une `Velocity.knockback` amortie à 0,85 par frame (`movement.rs:179-205`). Les recherches `knockback|recoil|shove` trouvent cette implémentation et le `Shove` de dash; aucun autre recul de tir documenté. Le feedback commun implémente flash, secousse, hit-stop, télégraphe et chiffres (`feedback.rs:1-13,218-220`; `feedback_log.rs:47-58`); la simulation continue pendant le gel de rendu (`games/*/assets/ui/feedback.ron:1-4`).
+
+| Clés de `ui/feedback.ron` | zombies | throne | gungeon | isaac |
+|---|---|---|---|---|
+| Effets | `hit_flash`, `shake`, `hit_stop_frames`, `damage_numbers`, `telegraph` | mêmes clés + `by_weapon` | mêmes clés + `pattern_telegraph`, `blank`, `boss_end`, `by_weapon` | mêmes clés + `pattern_telegraph`, `blank`, `boss_end`, `by_weapon` |
+| Réglages communs | flash 4 frames, secousse 8/12, hit-stop 2, chiffres activés | idem | idem | idem |
+
+Les quatre caméras utilisent `lerp_speed: 12`, marge 0,05, zoom par défaut 1, suivi du joueur local en ligne et `use_edge_detection: true` (`games/*/assets/camera.ron:1-13`). Le zoom minimal est 0,6 pour zombies/throne/Isaac et 0,5 pour gungeon; throne/gungeon/Isaac ajoutent fondu et recentrage d'étage, et Isaac ajoute `room_frame: true` (`camera.ron:5-19`). Après chaque frame GGRS, `FixedTransform3D` est recopié vers `Transform` en `PostUpdate`; aucune interpolation entre deux états fixes n'est trouvée (`crates/game/src/core_sim.rs:193-198`).
+
+Les registres sprites contiennent des fichiers d'animation (zombies 16 RON, throne 14, gungeon 91, Isaac 157; comptage des fichiers `assets/sprites/**/*.ron`). Les champs d'animation et `FacingDirection` sont gérés par le système de personnages (`crates/game/src/character/visuals.rs:183-200,331-380`). Un décompte fiable « idle/marche/attaque/mort » par entité et le nombre de sprites fixes n'est pas trouvé dans les registres. Les recherches `muzzle|trail|impact|casing` dans `crates/game/src` ne trouvent pas de système de traînée, flash de bouche ou douilles; les morts sont suivies par `Death` et les visuels dérivés, sans système de disparition sèche identifié (`feedback.rs:288-295`; `character/visuals.rs:331-380`).
+
+William a écrit que le movement-feel (course et dash) « marche assez bien », validé le 2026-10-09 (`docs/digests/revue-m0.md:31-33,45-48`; historique `docs/taches/rapports/fix-revue-m0.md:27-30`). Les points ouverts associés sont l'équilibrage du shotgun/pistolet/mitraillette, les sons de vagues et le son des tirs (`revue-m0.md:33-35`; `m0-revue-suite-contenu.md:47-58`), ainsi qu'une meilleure carte avec des spawners dans les autres salles (`revue-m0.md:38-48`).
+
+## 10. Visuel complet
+
+Les catégories de rendu communes sont les personnages joueurs, ennemis, boss, projectiles, objets/ramassables, portes, murs, sol, props, portail et HUD. Le registre d'apparence des personnages est partagé par le moteur (`crates/game/src/character/visuals.rs:183-200`); les chemins et statuts d'assets sont ceux des manifestes:
+
+| Classe d'entité | zombies | throne | gungeon | isaac |
+|---|---|---|---|---|
+| Joueurs, ennemis, boss | registre du jeu; statut de copie non trouvé | empruntés au testbed/placeholders (`games/throne/assets/game.ron:1-4`) | placeholders historiques puis silhouettes générées CC0 (`games/gungeon/assets/assets.yaml:1-12`; `sprites/sprites.ron:9-12`) | joueurs/ennemis/boss encore Kenney de `sprites/gungeon/` (`games/isaac/assets/assets.yaml:1-6`; `docs/taches/rapports/m3-salles-murs-isaac.md:34-35`) |
+| Projectiles, objets, portes, murs, sol, props | registres du jeu; statut propre/emprunté non trouvé | registres du jeu; statut propre/emprunté non trouvé | générés/provisoires pour plusieurs objets et murs; détail par classe non trouvé | murs/portes/objets générés; détail des projectiles/props non trouvé (`m3-salles-murs-isaac.md:10-14,34-39`) |
+| Portail et HUD | présents dans le moteur; sprite propre non trouvé | présents dans le moteur; sprite propre non trouvé | hub et `wall_art` présents (`game.ron:29-30,47-57`; `ui/hud.ron`) | `wall_art` présent (`ui/hud.ron`); sprite de portail propre non trouvé |
+
+Tilesets: les fichiers LDtk de chaque jeu référencent `SunnyLand_by_Ansimuz-extended.png`, `SunnyLand-player.png` et `Dungeon_Tileset.png` (zombies `avant_poste.ldtk`/`la_fonderie.ldtk`, throne via `assets/caves/gabarit.ldtk`, gungeon `maps/*.ldtk`, Isaac `maps/*.ldtk`). Un tileset exclusivement propre à un clone n'est donc pas trouvé. `wall_art` est absent de zombies/throne et présent dans gungeon/Isaac (inventaire §3, lignes 69-72).
+
+Un comptage final exhaustif propres/empruntés/absents par classe n'est pas trouvé: les manifestes déclarent des sources et licences, mais pas un champ de statut pour chaque entité. Les seuls totaux publiés sont les RON d'assets (39/57/198/349, inventaire §3:69) et les constats de copie ci-dessus.
+
+## 11. Effets sonores complets
+
+Les systèmes de feedback jouent explicitement les sons de tir, rechargement, coup porté, dégâts reçus, mêlée, mort, dash, blank et porte (`crates/game/src/feedback.rs:203-212`). Les clés réellement configurées sont:
+
+| Clés `sounds` | zombies | throne | gungeon | isaac |
+|---|---|---|---|---|
+| Tir/recharge | `shot_pistol`, `shot_shotgun`, `shot_smg`, `reload` | mêmes | mêmes | mêmes |
+| Combat | `hit`, `melee`, `hurt`, `death`, `dash`, `door` | mêmes | mêmes + `blank` | mêmes + `blank` |
+| Spécifique | non trouvé | non trouvé | `blank` | `blank` |
+
+Les événements « tir par arme » sont regroupés par famille de mode et les armes peuvent remplacer tir/reload via `audio_config` (`games/*/assets/ui/feedback.ron:18-21`); il n'existe pas de clé dédiée par arme dans ces fichiers. Pour impact, dégâts reçus, mort du joueur/ennemi et attaque de mêlée, les clés correspondantes existent. Aucun son dédié n'est trouvé pour vague/salle/étage, achat, ramassage, boss ou explosion; bombe et menu ne sont pas des clés `sounds` dans ces quatre RON. La mort d'ennemi utilise la même clé `death` que les autres morts (`feedback.rs:203-212`).
+
+Chaque jeu contient 10–11 fichiers dans `assets/sounds/` (zombies 11, throne 10, gungeon 11, Isaac 11; inventaire §5:107). Les chemins des lots A/B et licences sont déclarés dans `assets/assets.yaml`; les registres gungeon et Isaac indiquent notamment CC BY 3.0/CC0 (`games/gungeon/assets/assets.yaml:11-98`; `games/isaac/assets/assets.yaml:25-95`). Les noms communs (`hit.ogg`, `death.ogg`, `shot_pistol.ogg`, `shot_shotgun.ogg`, `shot_smg.ogg`, `reload.ogg`, `dash.ogg`, `door.ogg`) sont présents dans les quatre répertoires; une comparaison MD5 complète n'est pas trouvée dans l'inventaire. Le volume est réglable par clé en décibels (`volumes`, plage documentée -60 à +12) et les quatre clones utilisent principalement -12 dB (`games/*/assets/ui/feedback.ron:35-38`).
+
+## 12. Map design
+
+| Donnée des cartes | zombies | throne | gungeon | isaac |
+|---|---:|---:|---:|---:|
+| Fichiers LDtk / niveaux | 2 / 25 (16 `la_fonderie`, 9 `avant_poste`) | gabarit de caverne présent; nombre de niveaux LDtk non trouvé | 4 / 20 (3 `etage_1`, 15 `salles`, 1 armes, 1 hub) | 2 / 24 (23 `salles`, 1 armes) |
+| Gabarits/grammaires | 1 `floor_grammars`, 6 `rooms` | 5 `caves`, 1 `floors/run.ron` | 7 `floor_grammars`, 10 `floors`, 9 `rooms` | 6 `floor_grammars`, 7 `floors`, 9 `rooms` |
+| Tailles relevées | 416×304; 512×512/1024×512/512×1024 | non trouvé | 192×160 à 352×256 pour `salles`; hub 256×192 | 480×288, 480×576, 960×288, 960×576 |
+
+Zombies assemblait l'avant-poste par modules et graine; les sources indiquent 5–8 pièces, portes, obstacles et spawners (`docs/digests/revue-m0.md:297-315`). La carte « La Fonderie » est présente dans `games/zombies/assets/maps/la_fonderie.ldtk` et sa grammaire dans `assets/floor_grammars/la_fonderie.ron` (grep `fonderie` dans `games`/`docs`). Le défaut documenté est que les cinq spawners d'`avant_poste` étaient dans `Depart`, les autres salles sans menace (`docs/digests/revue-m0.md:38-48`; `m0-revue-suite-contenu.md:60-65`); des couloirs problématiques sont signalés dans les rapports de génération, mais un décompte de couloirs n'est pas trouvé.
+
+Throne assemble des étages à partir des cavernes (`assets/caves/*.ron`, `floors/run.ron`); un nombre fixe de salles par étage et une variété par type ne sont pas trouvés. Le rapport de revue vise explicitement les cavernes (`docs/taches/dettes-d66-vue-directe.md:13-16`), sans inventaire de salles équivalent.
+
+Gungeon utilise des grammaires de plancher et des salles typées (`combat`, `arene`, `secret`, `recompense`, `depart`, `boss`, `boutique`, `escouade`, `assets/rooms/*.ron`). Le rapport documente des salles de combat et des agrandissements; les salles devenues vides après agrandissement sont D64/D118 (`docs/taches/rapports/bot-explorateur-v2.md:77-80`; `docs/taches/dettes.md:72,128`). Les props de couverture (tables/barils/rochers) sont des entités de monde, mais leur nombre par gabarit n'est pas trouvé.
+
+Isaac assemble les étages par grammaires `sous_sol*` et salles typées (`combat`, `transit`, `depart`, `tresor`, `secrete`, `diable`, `boss`, `boss_profond`). Les rapports donnent 23 gabarits et une unité de salle de 480×288 (`docs/taches/rapports/m3-salles-murs-isaac.md:46-52,78-79`). Les défauts cartographiques ouverts sont D123/D125 (limites visuelles, cadrage/caméra et mur fissuré) (`docs/taches/dettes.md:133-135`; `m3-salles-murs-isaac.md:179-182`). Les rochers, tables et barils sont couverts par les props du monde; les comptes par étage ne sont pas trouvés.
+
+## 13. Contraintes web et manette
+
+La cible web publiée par le Makefile construit seulement zombies et throne (`Makefile:379-380`); le script refuse tout autre jeu (`scripts/build-web-games.mjs:6-8`) et compile `-p <jeu> --target wasm32-unknown-unknown --no-default-features --features render` (`build-web-games.mjs:28-36`). Le catalogue commité contient zombies et throne, avec `solo: true` et `online: true` (`website/static/releases.json:3-16`), mais le contrat précise que les boutons online restent désactivés tant que la recette complète n'est pas autorisée (`docs/contrat-lancement-web.md:39-45,78-81`). `/play?id=zombies|throne` transmet les paramètres publics de build et jeu; solo n'envoie ni JWT, salon ni ICE (`contrat-lancement-web.md:6-18`).
+
+Dans le navigateur, `BrowserChannel` encapsule le canal WebRTC Matchbox et GGRS (`crates/game/src/jjrs/browser.rs:44-70`). `HostedSession` et `ReturnToHostLobby` organisent le retour au salon par crochet JavaScript (`crates/game/src/run_state.rs:338-350,507-513`). Le flux HTTP Allumette challenge/login/lobby/ICE est natif seulement (`crates/game/src/jjrs/mod.rs:9-12`; `crates/game/src/jjrs/allumette.rs:1-10`); le navigateur reçoit donc une URL WSS/ticket par l'intégration site, et le contrat exige une URL WSS exacte (`docs/contrat-lancement-web.md:20-32`). Une preuve TURN/WebRTC dans deux Chromium existe, mais la preuve sur deux réseaux et le catalogue online publié restent ouverts (`contrat-lancement-web.md:83-100`).
+
+La dépendance `leafwing-input-manager` est en version 0.21.0 (`crates/game/Cargo.toml:22`; `Cargo.lock:7479-7482`). `bevy_gilrs`/`gilrs` apparaît dans le lockfile (`Cargo.lock:1775-1802,6256-6270`), mais une activation WASM explicite et une liaison de manette navigateur ne sont pas trouvées; les contrôles codés utilisent notamment clavier/souris et `GamepadStick::LEFT` (`crates/game/src/character/control.rs:58-108`). Aucun `wasm-bindgen-rayon`/`atomics` n'est trouvé dans les manifestes ou le script web. Aucune mesure FPS WASM n'est trouvée dans `docs/taches/rapports/*.md`. L'audio web utilise le plugin Kira du moteur (`crates/game/src/audio/`), mais une preuve spécifique d'autoplay/déblocage au premier clic n'est pas trouvée.
+
+## Résumé 2
+
+1. Le mouvement joueur est accéléré/freiné en fixed-point à 60 Hz; le rendu recopie l'état fixe sans interpolation trouvée.
+2. Dash, i-frames, knockback amorti, flash, secousse, hit-stop et chiffres de dégâts existent; traînées de balle, douilles et flash de bouche non trouvés.
+3. Les quatre caméras ont le même lerp; Isaac ajoute le cadrage de salle.
+4. Les registres d'animation existent, mais aucun décompte fiable par type d'animation n'est publié.
+5. Les registres de sprites documentent surtout des placeholders/copies; les statuts propres par classe ne sont pas exhaustifs.
+6. Les quatre jeux partagent les tilesets SunnyLand/Dungeon référencés par LDtk.
+7. Les sons couvrent tir, reload, hit, hurt, melee, death, dash et door; blank s'ajoute à gungeon/Isaac.
+8. Aucun son dédié de vague, achat, ramassage, boss ou explosion n'est trouvé dans les feedback RON.
+9. Les volumes par clé sont réglables en dB; aucune comparaison MD5 publiée n'est trouvée.
+10. Zombies possède l'avant-poste et La Fonderie; ses spawners concentrés dans une salle sont documentés.
+11. Throne assemble des cavernes, mais le nombre de salles par étage n'est pas trouvé.
+12. Gungeon et Isaac utilisent grammaires, floors et salles typées; leurs dettes de cartes sont documentées.
+13. Le build WASM officiel cible zombies et throne; le script refuse gungeon et Isaac.
+14. Le catalogue commité annonce solo/online pour ces deux jeux, avec boutons online contractuellement désactivés en attente de recette.
+15. La manette navigateur, les FPS WASM, les threads wasm et l'audio autoplay n'ont pas de preuve complète trouvée.
