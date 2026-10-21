@@ -749,6 +749,14 @@ quand la bible sera prête : A5 en V4, B5 parade et D3 en V1a et V1c, E4 neige e
 nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M5 la région des
 chantiers puis la campagne.
 
+### 8.0 Semaine de polissage (entre M3 et M4)
+
+**Décision de William du 2026-10-21** : M3 (`isaac`) est sortie côté machine ; le développement de mécaniques est en
+**pause** et une semaine de **polissage des quatre clones** (jouables et agréables entre amis, pas au niveau d'un jeu
+release) s'intercale **entre M3 et M4** (1837). Plan, état mesuré, tâches B et P, calendrier à cinq voies et décisions
+attendues : `docs/taches/plan-polissage.md` ; inventaire : `docs/taches/rapports/plan-polissage.inventaire.md`. Pas de
+mécanique nouvelle, pas de suite de D69 pendant la semaine.
+
 ### 8.1 M3 : `isaac` (Binding of Isaac) en tâches
 
 **Décision de William du 2026-10-15** : les propositions par défaut des questions Q1 à Q18 (`docs/taches/rapports/plan-m4-isaac.md` §7) sont retenues.
@@ -1658,3 +1666,4 @@ LIVRÉ dette-d69-e5c-plugins : D69 étape 2, E5c — présentation des interacti
 
 LIVRÉ dette-d113-tir-ami-explode : D113 réduite au point (b) ; un coéquipier n'est plus blessé par `nova` (`isaac_nova_coop`) ; cinq traces rebénies, p2p isaac sans desync
 | 2026-10-19 | dette-d69-e7-core « D69 étape 2, E7 : `CoreSetupPlugin` en deux plugins » (b2 : `core_sim.rs` `CoreSimPlugin(CoreSetupConfig)` (éléments de simulation dans l'ordre exact de l'ancien `build`, cinq enregistrements de clôture derniers, `finish`) puis `core.rs` `CoreAppPlugin(CoreSetupConfig)` (assets, réseau, présentation, `GameUiPlugin` et `GameUiInputPlugin` rattachés) ; `CoreSetupPlugin` garde son nom et ses appelants ; `GameUiModelPlugin` supprimé ; test `core_sim_seul_sur_minimal_plugins` ; `schedule_order_diff` strictement vide (4 520 lignes, 645 types) ; `ALACOD_SCHEDULE_ALL=1` : tous les schedules et paires en conflit, avec et sans présentation (20 paires retournées en headless, jugées sauf le chargement de carte ; 138 avec présentation, à prouver par captures) ; cliquet 76 → 79 ; sonde 44 → 44 / 754 → 754 ; 807 scénarios sans BLESS, 1 304 tests, `make gen` ×5 431, fuzz, p2p-stress zombies 1 639 et isaac 1 581 resimulées, restart, lobby, disconnect, sync-timeout, build web, features ; captures `cmp` non faites (pas d'affichage sur le VPS, commandes au rapport § 5) ; rapport `docs/taches/rapports/dette-d69-e7-core.md`) | `dette-d69-e7-core` | Worker b2 | Livré, non mergé ; à relire : captures `cmp` sur le Mac |
+| 2026-10-21 | plan-polissage « plan de la semaine de polissage des 4 clones (décision de William du 2026-10-21) » (plan-polissage : `docs/taches/plan-polissage.md` (sept axes, état mesuré par clone, neuf tâches B = 20 j, douze P = 26,5 j, semaine à cinq voies, treize décisions attendues), neuf fiches `docs/taches/polissage-*.md`, inventaire `docs/taches/rapports/plan-polissage.inventaire.md` ; documentation seule, aucune compilation ni trace) | `plan-polissage` | Claude | livrée ; revue de William attendue sur les décisions 1 à 4 |
