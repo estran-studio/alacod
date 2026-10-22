@@ -980,6 +980,20 @@ Ceux du plan §9.8 et du contrat de `docs/etat-engine.md`, plus :
 Calendrier indicatif : **environ 80 jours-agent**, six à huit semaines calendaires à quatre voies, dont
 deux à trois en recouvrement de la fin de M2 (vague 0).
 
+### 8.2 Éditeur par l'IA (chantier K5 redéfini, plan du 2026-10-22)
+
+L'idée de William est de remplacer l'éditeur graphique par une IA à la voix (Claude depuis Hermes ou tout client vocal) qui modifie les RON,
+pilote la partie en marche par `bevy_remote` et voit le résultat par rechargement à chaud. Le remote existe déjà avec sept méthodes ; les
+personnages et les armes se rechargent déjà en partie, tandis que `Registry` ne se recharge qu'au lobby. Le mode local avec
+`check_distance = 0`, valeur par défaut du jeu joué, est la condition retenue pour ce rechargement en partie ; les sessions en ligne et les
+synctests ne sont pas visés. Les lots prévus sont K5-0 (mode éditeur et instructions BRP, V3, 0,5 j), K5-1 (partie pilotable, V3 avec V1, 1 j),
+K5-2 (commandes indexées par frame et application des statistiques, V1, 3 j), K5-3 (apps de test, V3, 1 j) et K5-4 (branchement vocal,
+V3 + William, 1 j).
+Révision du 2026-10-22 : pas de serveur MCP (BRP est auto-décrit par `rpc.discover` et Claude Code a un shell et le hook de lint) ; pont MCP
+seulement si le client vocal l'exige, décidé en K5-4. Total : **≈ 6,5 j**.
+K5-0 et K5-1 peuvent commencer maintenant, K5-4 suit leur merge ; K5-2 et K5-3 attendent la frontière de `core_sim.rs` ou la fin de la
+semaine de polissage. Proposition : lancer K5-0 et K5-1 avant la semaine, puis K5-4, et garder K5-2/K5-3 à la frontière. Fiche : `docs/taches/plan-editeur-vocal.md`.
+
 ## 9. Suivi
 
 - T1.0a : mergée (`51d70b6`).
@@ -1671,3 +1685,4 @@ LIVRÉ dette-d113-tir-ami-explode : D113 réduite au point (b) ; un coéquipier 
 | 2026-10-19 | dette-d69-e7-core « D69 étape 2, E7 : `CoreSetupPlugin` en deux plugins » (b2 : `core_sim.rs` `CoreSimPlugin(CoreSetupConfig)` (éléments de simulation dans l'ordre exact de l'ancien `build`, cinq enregistrements de clôture derniers, `finish`) puis `core.rs` `CoreAppPlugin(CoreSetupConfig)` (assets, réseau, présentation, `GameUiPlugin` et `GameUiInputPlugin` rattachés) ; `CoreSetupPlugin` garde son nom et ses appelants ; `GameUiModelPlugin` supprimé ; test `core_sim_seul_sur_minimal_plugins` ; `schedule_order_diff` strictement vide (4 520 lignes, 645 types) ; `ALACOD_SCHEDULE_ALL=1` : tous les schedules et paires en conflit, avec et sans présentation (20 paires retournées en headless, jugées sauf le chargement de carte ; 138 avec présentation, à prouver par captures) ; cliquet 76 → 79 ; sonde 44 → 44 / 754 → 754 ; 807 scénarios sans BLESS, 1 304 tests, `make gen` ×5 431, fuzz, p2p-stress zombies 1 639 et isaac 1 581 resimulées, restart, lobby, disconnect, sync-timeout, build web, features ; captures `cmp` non faites (pas d'affichage sur le VPS, commandes au rapport § 5) ; rapport `docs/taches/rapports/dette-d69-e7-core.md`) | `dette-d69-e7-core` | Worker b2 | Livré, non mergé ; à relire : captures `cmp` sur le Mac |
 | 2026-10-22 | plan-polissage « plan de la semaine de polissage des 4 clones : décisions du 2026-10-22 : une semaine, 7 voies, zombies d'abord, Allumette, pack d'assets acheté ou libre » (plan-polissage : `docs/taches/plan-polissage.md` (onze axes, état mesuré, B unique de 47 j pour 35 j nominaux, P 14,5 j, calendrier à sept voies, neuf décisions restantes), sept fiches ajoutées ou réécrites (`polissage-pack-assets`, `-gungeon-complet`, `-isaac-complet`, `-throne-complet`, `-perf-budgets`, `-reseau-amis`, `-zombies-visuel`) ; documentation seule, aucune trace) | `plan-polissage` | Claude | livrée et fusionnée dans `main` ; premier jalon : choix du pack par William à J2 |
 | 2026-10-22 | plan-polissage (suite) : rapport des packs d'assets (`rapports/polissage-pack-assets.md`), décision d'achat attendue (option A / B / B′ / C), plan mis à jour (S-0, S1-8 + 1 j de travaux moteur) ; aucun lancement (William relit, choisit, puis donne le départ) | `main` | Claude | documentation seule, aucune trace |
+| 2026-10-22 | plan-editeur-vocal (décision de William : pas de serveur MCP ; mode éditeur BRP + instructions, hook de lint, session locale à 1 joueur et `check_distance=0`, cinq lots K5-0 à K5-4 ≈ 6,5 j) | `plan-editeur-vocal` | Claude | documentation seule, aucune trace ; pont MCP écarté jusqu'à une exigence du client vocal |
