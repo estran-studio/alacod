@@ -1,5 +1,7 @@
 # Plan de la semaine de polissage des quatre clones — révision du 2026-10-22 (une semaine, sept voies)
 
+**État au 2026-10-22 : plan documenté et mergé ; aucune voie lancée** (décision de William : il relit, choisit les packs, puis donne le départ) ; point de départ de la semaine = § 4 J1.
+
 Rédigé le 2026-10-21 (branche `plan-polissage`), **révisé le même jour après revue de William** : les jeux se jouent
 **seulement dans le navigateur, via le site** (`website/`) ; pas d'écran de démarrage dans le jeu ; **la manette est
 cruciale** ; quatre axes manquaient (game feel, visuel complet, effets sonores complets, map design). Décision
@@ -195,7 +197,7 @@ génération CC0 maison pour les sprites « propres au jeu ».
 
 | # | B/P | Tâche (fiche) | Clone(s) | Ce que ça change pour le joueur | Est. | Dépend de | Preuve attendue |
 |---|---|---|---|---|---|---|---|
-| S-0 | B | **Pack d'assets** : besoins par clone, recherche, 2–3 candidats avec prix/licence, **William achète à J2**, intégration J3–J5 (`polissage-pack-assets.md`) | 4 | Des sprites propres cohérents au lieu de tuiles empruntées | 1,5 (+ intégration comptée dans les visuels) | rien | tableau besoins × candidats ; pack choisi, licence archivée dans `assets.yaml` |
+| S-0 | B | **Pack d'assets** : recherche **faite** (`rapports/polissage-pack-assets.md`, recommandation § 3) ; reste à William : **choisir l'option (A / B / B′ / C) et acheter** ; l'archivage des licences et `assets.yaml` suivent | 4 | Des sprites propres cohérents au lieu de tuiles empruntées | 0,5 (archivage ; intégration comptée dans les visuels) | décision 8 (option de packs) | option choisie, licences archivées dans `assets.yaml` |
 | S1-1 | B | **Manette** jouable dans le navigateur, menus compris, écran d'aide — **priorité 1** (`polissage-manette.md`) | 4 | On tire, vise, dashe, navigue les menus à la manette dans Chrome | 3 | schéma accepté ; `bevy_gilrs` wasm | partie jouée entièrement à la manette dans Chrome ; traces inchangées ; essai E4 |
 | S1-2 | B | **Web : les 4 clones dans le catalogue du site** (`polissage-web-4-clones.md`) | 4 | gungeon et isaac jouables dans le navigateur | 3 | rien | `build-web-games.mjs` à 4 jeux ; `releases.json` et `catalog.ts` à 4 entrées ; chaque clone atteint la première salle sous Chrome |
 | S1-3 | B | **Online navigateur par Allumette** : état réel du service, `wss://`, deux réseaux, `online` honnête, D116 (`polissage-reseau-amis.md`) | 4 | On se retrouve par le site et on joue à 2 | 2,5 | accès Allumette (William) | partie à 2 entre deux réseaux, traces identiques |
@@ -203,7 +205,7 @@ génération CC0 maison pour les sprites « propres au jeu ».
 | S1-5 | B | **Perf wasm** : FPS affichage et simulation par clone (`polissage-perf-web.md`) | 4 | Savoir si ça tient 60 Hz dans un onglet | 1 | S1-2 | tableau FPS par clone |
 | S1-6 | B | **Game feel, lot commun** : interpolation d'affichage, réglages par clone en données, flash de bouche, recul, mort (`polissage-feel.md`) | 4 (réglé sur zombies) | Mouvement et tirs nets, fluides | 2 | rien | vidéo avant/après ; traces inchangées |
 | S1-7 | B | **Sons : événements manquants dans le moteur**, volume global, audio navigateur (`polissage-sons-evenements.md`) | 4 | Chaque événement peut sonner, volume réglable | 1,5 | rien | lint, tests ; traces inchangées |
-| S1-8 | B | **Zombies visuel** (audit, intégration du pack, couleurs, légende) (`polissage-zombies-visuel.md`) | zombies | Zombies a son propre visage | 2 | S-0 (pack choisi J2) | tableau classe × état ; captures |
+| S1-8 | B | **Zombies visuel** (audit, intégration du pack, couleurs, légende ; **+ trois travaux moteur révélés par le rapport des packs** : (a) icônes image dans `HudIcon` (aujourd'hui `color` + `label` seulement), (b) script de recomposition de la feuille `wall_art` (36 tuiles dans un ordre précis) et `wall_art` ajouté au `hud.ron` de zombies, (c) surcharge locale étendue aux atlas/tilesets/sons, ou dépôt privé, car elle ne couvre que `sprites.ron` ; licence « No Redistribution » de TheLazyStone à confirmer par l'auteur avant tout build web public) (`polissage-zombies-visuel.md`) | zombies | Zombies a son propre visage | 3 | S-0 (pack choisi J2) | tableau classe × état ; captures |
 | S1-9 | B | **Zombies sons** (`polissage-zombies-sons.md`) | zombies | Le jeu sonne | 1 | S1-7 | tableau événement × son |
 | S1-10 | B | **Zombies map + équilibrage** (spawners partout, S4, campagne) (`polissage-zombies-map-equilibrage.md`) | zombies | Les vagues viennent de partout | 1,5 | rien | audit, campagne avant/après, preuve §5 |
 | S1-11 | B | **Session d'amis** : zombies à 2 puis les autres (`polissage-session-amis.md`) | 4 | La promesse tenue | 1 (+1 par clone) | S1-1 à S1-4 | rapport tableau, 0 DESYNC |
@@ -219,7 +221,7 @@ génération CC0 maison pour les sprites « propres au jeu ».
 | S2-10 | B | **Throne visuel** (`polissage-throne-complet.md`) | throne | Throne a son identité | 3 | S-0 | tableau, vidéo |
 | S2-11 | B | **Throne sons** (idem) | throne | idem | 1 | S1-7 | tableau |
 | S2-12 | B | **Throne map** (cavernes : audit du nombre de salles par étage) (idem) | throne | Variété, rythme | 2 | rien | audit, vidéo |
-| | | **Total B** | | | **47** | | |
+| | | **Total B** | | | **47,5** | | |
 
 Capacité nominale 7 × 5 = 35 j : **dépassement ≈ 12 j** à absorber par les glissements ci-dessus ou une voie de plus.
 
@@ -282,8 +284,7 @@ par défaut :
 6. **Essai humain** : 30 min en coop par clone, notes dans `docs/taches/rapports/plan-polissage-notes.md`. Défaut : oui.
 7. **Capacité** : 47 j de B pour 35 j nominaux (William : ≈ 42 j) : accepter l'ordre de glissement de § 3, ou ajouter une
    voie ? Défaut : l'ordre de glissement.
-8. **Budget du pack** : plafond de prix par clone (à fixer à J2 sur les candidats de S-0). Défaut : aucun plafond posé par
-   l'agent, William décide devant les prix.
+8. **Option de packs A / B / B′ / C** (`rapports/polissage-pack-assets.md` § 3) : A tout libre 0 $, B 54,97 $, B′ 8,99 $ (throne = Aymen B + Ittai), C 125,95 $. Défaut : **B′**. À acheter à J2 ; confirmer aussi la licence de TheLazyStone (zombies, 2 $).
 9. **Les P** : lesquels engager si une voie finit tôt. Défaut : l'ordre de § 3.2.
 
 ## 6. Hors périmètre

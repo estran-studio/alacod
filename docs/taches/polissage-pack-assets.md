@@ -14,6 +14,10 @@ compilation ; navigation web.
 le besoin ; plus de génération CC0 maison. Les quatre jeux partagent aujourd'hui des tilesets SunnyLand/Dungeon (inventaire
 §10) ; gungeon/isaac ont des silhouettes générées ou des tuiles Kenney ; zombies et throne n'ont pas de `wall_art`.
 
+## État au 2026-10-22
+
+**La recherche est faite** : `docs/taches/rapports/polissage-pack-assets.md` (besoins § 1, candidats § 2, recommandation et options A / B / B′ / C § 3, ce qu'il faudra fabriquer § 4, étapes d'intégration § 5). **Reste à William** : choisir l'option (défaut B′, 8,99 $) et acheter ; puis archiver licences et `assets.yaml`. Points à connaître (travaux moteur dans S1-8) : icônes de HUD sans champ image dans `HudIcon` ; `wall_art` attend une feuille de 36 tuiles ; la surcharge locale ne couvre que `sprites.ron` ; licence « No Redistribution » de TheLazyStone à confirmer par l'auteur. Les points 1 à 3 ci-dessous sont remplis par ce rapport.
+
 ## À faire
 
 1. **J1 — besoins par clone** : tableau « classe d'entité × clone » (joueur et chaque famille d'ennemi, boss, projectiles,
