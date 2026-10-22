@@ -12,7 +12,8 @@ use combat::status::StatusLibrary;
 use content::registry::{Registry, StatusId};
 use game::{
     character::player::Player,
-    content_hot_reload::{reload_registry_now, GameRoot},
+    content_hot_reload::GameRoot,
+    editor_mode::EditorMode,
     global_asset::GlobalAsset,
     jjrs::GggrsSessionConfiguration,
     remote::{apply_set_modifier, SetModifierParams},
@@ -151,6 +152,13 @@ fn registry_reloads_outside_lobby_and_restart_rederives_tables() {
         },
     );
     app.world_mut().insert_resource(GameRoot(tmp.clone()));
+    // Mode éditeur : la scrutation n'existe qu'avec lui, et la garde (`hot_edit_allowed`) exige
+    // `check_distance = 0` hors lobby (le runner joue en synctest d = 2 par défaut).
+    app.world_mut().insert_resource(EditorMode);
+    app.world_mut()
+        .resource_mut::<GggrsSessionConfiguration>()
+        .connection
+        .check_distance = 0;
     app.finish();
     app.cleanup();
     run_to_frame(&mut app, 10);
@@ -202,10 +210,9 @@ fn registry_reloads_outside_lobby_and_restart_rederives_tables() {
         "StatusLibrary redérivée au GameLoading"
     );
 
-    // D : fichier invalide, registre inchangé, pas de panique.
+    // D : fichier invalide écrit pendant que le jeu tourne (scrutation seule : aucun appel direct),
+    // registre inchangé, pas de panique.
     std::fs::write(tmp.join("assets/statuses/brulure.ron"), "(((").unwrap();
-    let report = reload_registry_now(app.world_mut()).expect("GameRoot posée");
-    assert!(!report.errors.is_empty(), "le lint doit être rouge");
     std::thread::sleep(Duration::from_millis(1200));
     for _ in 0..3 {
         app.update();
@@ -297,4 +304,51 @@ fn set_modifier_slows_the_player_and_rejects_bad_params() {
     assert!(apply_set_modifier(app.world_mut(), &modifier("Nope", "0.5", 0)).is_err());
     assert!(apply_set_modifier(app.world_mut(), &modifier("MoveSpeed", "abc", 0)).is_err());
     assert!(apply_set_modifier(app.world_mut(), &modifier("MoveSpeed", "0.5", 9)).is_err());
+}
+
+/// Hors mode éditeur, la scrutation ne tourne pas (un binaire normal ne la paie pas). La garde
+/// (`check_distance`, en ligne) du remplacement automatique est couverte par `editor_mode::tests`.
+#[test]
+fn registry_is_not_polled_without_editor_mode() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let source = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/scenarios/hit_iframes.ron"
+    ))
+    .unwrap();
+    let tmp = std::env::temp_dir().join(format!("alacod-editor-guard-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tmp);
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../games/testbed"),
+        &tmp,
+    );
+    // Sans EditorMode, d = 0 : pas de scrutation.
+    let mut app = build_app(
+        &scenario(&source),
+        true,
+        &PlayConfig {
+            follow_handle: None,
+        },
+    );
+    app.world_mut().insert_resource(GameRoot(tmp.clone()));
+    app.world_mut()
+        .resource_mut::<GggrsSessionConfiguration>()
+        .connection
+        .check_distance = 0;
+    app.finish();
+    app.cleanup();
+    run_to_frame(&mut app, 10);
+    write_burn(&tmp, "9");
+    std::thread::sleep(Duration::from_millis(1200));
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(
+        registry_burn(&app),
+        4,
+        "sans mode éditeur : pas de scrutation"
+    );
+    let _ = std::fs::remove_dir_all(&tmp);
 }

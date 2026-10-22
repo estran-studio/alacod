@@ -53,7 +53,7 @@ use crate::{
         },
     },
     content_hot_reload::{reload_registry_now, GameRoot},
-    editor_mode::{hot_edit_allowed, EditorMode},
+    editor_mode::{session_hot_edit_allowed, EditorMode},
     jjrs::GggrsSessionConfiguration,
     recording::{write_recording, InputRecorder},
     replay::{box_input, Button},
@@ -401,17 +401,15 @@ fn save_recording(In(params): In<Option<Value>>, world: &mut World) -> BrpResult
 
 /// Garde de toutes les commandes d'édition (D1) : session locale à `check_distance == 0`.
 fn guard_hot_edit(world: &World) -> Result<(), BrpError> {
-    let online = matches!(
-        world.get_resource::<OnlineState>(),
-        Some(OnlineState::Online)
-    );
-    let check_distance = world
-        .get_resource::<GggrsSessionConfiguration>()
-        .map(|config| config.connection.check_distance)
-        .ok_or_else(|| internal("session inconnue : check_distance illisible"))?;
-    hot_edit_allowed(online, check_distance).map_err(|refusal| BrpError {
+    session_hot_edit_allowed(
+        world.get_resource::<OnlineState>().copied(),
+        world
+            .get_resource::<GggrsSessionConfiguration>()
+            .map(|config| config.connection.check_distance),
+    )
+    .map_err(|cause| BrpError {
         code: error_codes::INVALID_REQUEST,
-        message: refusal.to_string(),
+        message: cause,
         data: None,
     })
 }
@@ -634,5 +632,129 @@ mod tests {
         );
         let err = parse_stat("Nope").unwrap_err();
         assert!(err.contains("Nope"), "{err}");
+    }
+
+    // Garde des handlers d'édition (D1) : monde minimal, sans effet quand la garde refuse.
+    use crate::jjrs::GggrsConnectionConfiguration;
+    use combat::actors::Player as PlayerComponent;
+    use sim_core::modifier::Modifiers;
+
+    fn session(check_distance: usize) -> GggrsSessionConfiguration {
+        GggrsSessionConfiguration {
+            cid: String::new(),
+            matchbox: false,
+            matchbox_url: String::new(),
+            allumette_url: String::new(),
+            lobby: String::new(),
+            connection: GggrsConnectionConfiguration {
+                max_player: 1,
+                input_delay: 0,
+                desync_interval: 10,
+                socket: false,
+                udp_port: 0,
+                check_distance,
+            },
+            players: vec![],
+        }
+    }
+
+    fn world(check_distance: usize, online: OnlineState) -> (World, Entity) {
+        let mut world = World::new();
+        world.insert_resource(session(check_distance));
+        world.insert_resource(online);
+        world.insert_resource(FrameCount::default());
+        world.insert_resource(MapGenerationConfig::default());
+        let player = world
+            .spawn((
+                PlayerComponent::default(),
+                sim_core::modifier::Modifiers::default(),
+            ))
+            .id();
+        (world, player)
+    }
+
+    fn refused(result: BrpResult, cause: &str) {
+        let err = result.expect_err("la garde doit refuser");
+        assert_eq!(err.code, error_codes::INVALID_REQUEST);
+        assert!(err.message.contains(cause), "{}", err.message);
+    }
+
+    fn all_handlers(world: &mut World) -> [BrpResult; 4] {
+        [
+            restart(In(Some(json!({ "seed": 7 }))), world),
+            set_modifier(
+                In(Some(
+                    json!({ "stat": "MoveSpeed", "op": "Mul", "value": "0.5" }),
+                )),
+                world,
+            ),
+            clear_modifiers(In(None), world),
+            reload_content(In(None), world),
+        ]
+    }
+
+    fn untouched(world: &World, player: Entity) {
+        assert!(
+            !world.contains_resource::<RunRequest>(),
+            "aucun RunRequest posé"
+        );
+        assert!(world.get::<Modifiers>(player).unwrap().0.is_empty());
+        assert_eq!(
+            world.resource::<MapGenerationConfig>().seed,
+            MapGenerationConfig::default().seed
+        );
+    }
+
+    #[test]
+    fn handlers_refuse_synctest_distance_without_effect() {
+        let (mut world, player) = world(2, OnlineState::Offline);
+        for result in all_handlers(&mut world) {
+            refused(result, "check_distance=2");
+        }
+        untouched(&world, player);
+    }
+
+    #[test]
+    fn handlers_refuse_online_without_effect() {
+        let (mut world, player) = world(0, OnlineState::Online);
+        for result in all_handlers(&mut world) {
+            refused(result, "online");
+        }
+        untouched(&world, player);
+    }
+
+    #[test]
+    fn restart_at_distance_zero_writes_seed_and_requests_restart() {
+        let (mut world, _) = world(0, OnlineState::Offline);
+        restart(In(Some(json!({ "seed": 7 }))), &mut world).expect("restart accepté");
+        assert_eq!(world.resource::<MapGenerationConfig>().seed, 7);
+        assert_eq!(*world.resource::<RunRequest>(), RunRequest::Restart);
+    }
+
+    #[test]
+    fn restart_to_lobby_with_seed_is_refused() {
+        let (mut world, _) = world(0, OnlineState::Offline);
+        let err = restart(
+            In(Some(json!({ "kind": "ToLobby", "seed": 7 }))),
+            &mut world,
+        )
+        .expect_err("ToLobby + seed");
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+        assert!(!world.contains_resource::<RunRequest>());
+    }
+
+    #[test]
+    fn set_modifier_at_distance_zero_pushes_and_clear_removes() {
+        let (mut world, player) = world(0, OnlineState::Offline);
+        set_modifier(
+            In(Some(
+                json!({ "stat": "MoveSpeed", "op": "Mul", "value": "0.5" }),
+            )),
+            &mut world,
+        )
+        .expect("modificateur posé");
+        assert_eq!(world.get::<Modifiers>(player).unwrap().0.len(), 1);
+        clear_modifiers(In(None), &mut world).expect("retiré");
+        assert!(world.get::<Modifiers>(player).unwrap().0.is_empty());
     }
 }

@@ -4,7 +4,7 @@
 //! est relu depuis le disque (`load_and_lint` sur [`GameRoot`]) quand :
 //! - un asset Bevy sentinelle émet `AssetEvent::Modified` (personnages, armes, mêlée, vagues ;
 //!   feature `native`, `bevy/file_watcher`) ;
-//! - la **scrutation** (natif seulement) voit changer l'empreinte des fichiers du contenu : (chemin
+//! - la **scrutation** (natif, **mode éditeur seulement** : `ALACOD_EDITOR=1`) voit changer l'empreinte des fichiers du contenu : (chemin
 //!   relatif, mtime, taille) de `game.ron` et de chaque fichier ou dossier déclaré par
 //!   `content_folders` (dossiers non récursifs, comme `Registry::build`), une fois par seconde. Elle
 //!   couvre ce qu'aucun asset ne suit (`items/`, `rooms/`, `statuses/`, `patterns/`, `curses/`,
@@ -28,6 +28,9 @@ use bevy::prelude::*;
 use std::path::PathBuf;
 
 use crate::character::config_asset::CharacterConfigAsset;
+use crate::editor_mode::{session_hot_edit_allowed, EditorMode};
+use crate::jjrs::GggrsSessionConfiguration;
+use crate::session::{AppState, OnlineState};
 use crate::waves::assets::WaveConfigAsset;
 use crate::weapon_assets::{MeleeWeaponsConfig, WeaponsConfig};
 use content::{manifest::GameManifest, registry::Registry};
@@ -106,6 +109,9 @@ pub fn reload_registry_now(world: &mut World) -> Result<ReloadReport, String> {
         .get_resource::<GameRoot>()
         .map(|root| root.0.clone())
         .ok_or_else(|| "GameRoot absente : pas de dossier de jeu à relire".to_string())?;
+    // Empreinte relevée **avant** la lecture : une édition survenue pendant le chargement sera revue.
+    #[cfg(not(target_arch = "wasm32"))]
+    let fingerprint = content_fingerprint(&root);
     let (loaded, report) = load_content(&root);
     log_report(&report);
     if let Some((registry, manifest)) = loaded {
@@ -114,7 +120,7 @@ pub fn reload_registry_now(world: &mut World) -> Result<ReloadReport, String> {
     }
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(mut poll) = world.get_resource_mut::<ContentPoll>() {
-        poll.fingerprint = None; // le prochain relevé sert de nouvelle base
+        poll.fingerprint = Some(fingerprint);
     }
     Ok(report)
 }
@@ -201,7 +207,12 @@ fn reload_registry_on_change(
     mut weapons: MessageReader<AssetEvent<WeaponsConfig>>,
     mut melee: MessageReader<AssetEvent<MeleeWeaponsConfig>>,
     mut waves: MessageReader<AssetEvent<WaveConfigAsset>>,
+    app_state: Option<Res<State<AppState>>>,
+    online: Option<Res<OnlineState>>,
+    session: Option<Res<GggrsSessionConfiguration>>,
+    editor: Option<Res<EditorMode>>,
     mut commands: Commands,
+    mut warned: Local<bool>,
     #[cfg(not(target_arch = "wasm32"))] mut poll: Local<ContentPoll>,
 ) {
     // `|` (pas `||`) : les quatre lecteurs doivent être vidés à chaque appel, même si un
@@ -218,10 +229,11 @@ fn reload_registry_on_change(
     #[allow(unused_mut)]
     let mut changed = events;
 
-    // Scrutation des fichiers (natif). Un changement vu par les événements d'assets renouvelle
-    // aussi l'empreinte, pour que la même écriture ne recharge pas deux fois.
+    // Scrutation des fichiers (natif, **mode éditeur seulement** : un binaire normal ne paie rien).
+    // Un changement vu par les événements d'assets renouvelle aussi l'empreinte, pour que la même
+    // écriture ne recharge pas deux fois.
     #[cfg(not(target_arch = "wasm32"))]
-    {
+    if editor.is_some() {
         let polled = content_changed_on_disk(&game_root.0, &mut poll);
         if changed && !polled {
             poll.fingerprint = Some(content_fingerprint(&game_root.0));
@@ -231,6 +243,25 @@ fn reload_registry_on_change(
 
     if !changed {
         return;
+    }
+
+    // Garde : hors lobby, remplacer le registre d'une session en ligne ou resimulée ferait diverger
+    // les pairs au prochain `GameLoading` (D1). Au lobby, comportement d'avant K5-1.
+    let in_lobby = app_state
+        .as_deref()
+        .is_some_and(|s| matches!(s.get(), AppState::LobbyLocal | AppState::LobbyOnline));
+    if !in_lobby {
+        let allowed = session_hot_edit_allowed(
+            online.as_deref().copied(),
+            session.as_deref().map(|c| c.connection.check_distance),
+        );
+        if let Err(cause) = allowed {
+            if !*warned {
+                warn!("registre non rechargé : {cause}");
+                *warned = true;
+            }
+            return;
+        }
     }
 
     let (loaded, report) = load_content(&game_root.0);

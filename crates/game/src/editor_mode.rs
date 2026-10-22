@@ -65,6 +65,21 @@ pub fn hot_edit_allowed(online: bool, check_distance: usize) -> Result<(), Edito
     }
 }
 
+/// Garde sur l'état de la session : `online` est testé **avant** de lire `check_distance` (une session
+/// en ligne sans configuration lisible doit se dire « online », pas « session inconnue »). Renvoie la
+/// cause en texte ; `check_distance` absent (hors ligne) est une erreur, jamais « autorisé ».
+pub fn session_hot_edit_allowed(
+    online: Option<crate::session::OnlineState>,
+    check_distance: Option<usize>,
+) -> Result<(), String> {
+    if online == Some(crate::session::OnlineState::Online) {
+        return Err(EditorRefusal::Online.to_string());
+    }
+    let check_distance =
+        check_distance.ok_or_else(|| "session inconnue : check_distance illisible".to_string())?;
+    hot_edit_allowed(false, check_distance).map_err(|refusal| refusal.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,5 +101,19 @@ mod tests {
         assert_eq!(refusal, EditorRefusal::CheckDistance(2));
         assert!(refusal.to_string().contains("check_distance=2"));
         assert!(EditorRefusal::Online.to_string().contains("online"));
+    }
+
+    #[test]
+    fn online_is_named_before_unknown_session() {
+        use crate::session::OnlineState;
+        let err = session_hot_edit_allowed(Some(OnlineState::Online), None).unwrap_err();
+        assert!(err.contains("online"), "{err}");
+        assert!(session_hot_edit_allowed(Some(OnlineState::Offline), None)
+            .unwrap_err()
+            .contains("session inconnue"));
+        assert!(session_hot_edit_allowed(None, Some(0)).is_ok());
+        assert!(session_hot_edit_allowed(None, Some(2))
+            .unwrap_err()
+            .contains("check_distance=2"));
     }
 }
