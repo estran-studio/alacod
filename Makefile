@@ -265,6 +265,18 @@ else
 	ALACOD_REMOTE=1 $(MAKE) ldtk_map_explorer
 endif
 
+# Mode éditeur (K5-0, docs/editeur-vocal.md) : le jeu GAME (zombies par défaut) joué normalement,
+# avec le remote BRP (127.0.0.1:15702), le file watcher (feature `native`), les étiquettes F6 et
+# ALACOD_EDITOR=1. SEED=<n> impose la graine de carte (`--seed`, D105) ; il n'y a pas d'option
+# `--map` : la carte vient du manifeste du jeu. HEADLESS=1 : sans fenêtre (profil headless).
+# make editor GAME=zombies [SEED=42] [HEADLESS=1]
+editor:
+ifeq ($(HEADLESS), 1)
+	ALACOD_HEADLESS=1 ALACOD_EDITOR=1 ALACOD_REMOTE=1 ALACOD_LABELS=1 APP_VERSION=$(VERSION) cargo run --profile headless -p $(GAME) --no-default-features --features native $(DEV_FEATURES) -- $(if $(SEED),--seed $(SEED)) $(GARGS) --local-port 7000 --players localhost
+else
+	ALACOD_EDITOR=1 ALACOD_REMOTE=1 ALACOD_LABELS=1 APP_VERSION=$(VERSION) cargo run -p $(GAME) --features native $(DEV_FEATURES) -- $(if $(SEED),--seed $(SEED)) $(GARGS) --local-port 7000 --players localhost
+endif
+
 # Joue au clavier et enregistre la session en scénario : make record_session NAME=ma_session
 # (écrit tests/scenarios/<NAME>.ron à la fermeture ; puis make test_scenarios SCENARIO=<NAME> BLESS=1)
 record_session:
