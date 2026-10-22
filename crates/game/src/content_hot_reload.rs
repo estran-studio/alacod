@@ -178,7 +178,10 @@ const POLL_PERIOD: std::time::Duration = std::time::Duration::from_secs(1);
 #[cfg(not(target_arch = "wasm32"))]
 fn content_changed_on_disk(root: &std::path::Path, poll: &mut ContentPoll) -> bool {
     let now = std::time::Instant::now();
-    if poll.last.is_some_and(|last| now.duration_since(last) < POLL_PERIOD) {
+    if poll
+        .last
+        .is_some_and(|last| now.duration_since(last) < POLL_PERIOD)
+    {
         return false;
     }
     poll.last = Some(now);
@@ -266,7 +269,11 @@ mod tests {
     fn fingerprint_changes_on_edit_and_new_file_and_ignores_undeclared() {
         let dir = temp_game("fp");
         let base = content_fingerprint(&dir);
-        assert_eq!(base.len(), 3, "game.ron, items/a.ron, camera.ron : {base:?}");
+        assert_eq!(
+            base.len(),
+            3,
+            "game.ron, items/a.ron, camera.ron : {base:?}"
+        );
         assert_eq!(base, content_fingerprint(&dir));
 
         // Fichier hors contenu déclaré : sans effet.
@@ -288,7 +295,10 @@ mod tests {
     fn poll_is_throttled_and_first_reading_is_a_baseline() {
         let dir = temp_game("poll");
         let mut poll = ContentPoll::default();
-        assert!(!content_changed_on_disk(&dir, &mut poll), "premier relevé = base");
+        assert!(
+            !content_changed_on_disk(&dir, &mut poll),
+            "premier relevé = base"
+        );
         fs::write(dir.join("assets/items/a.ron"), "(12345)").unwrap();
         assert!(
             !content_changed_on_disk(&dir, &mut poll),
@@ -299,5 +309,24 @@ mod tests {
         poll.last = Some(std::time::Instant::now() - Duration::from_secs(2));
         assert!(!content_changed_on_disk(&dir, &mut poll), "rien de neuf");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Mesure (K5-1) : coût d'un relevé d'empreinte sur `games/isaac` (349 RON). `cargo test -p game
+    /// --lib --profile headless --no-default-features -- --ignored --nocapture fingerprint_cost`.
+    #[test]
+    #[ignore]
+    fn fingerprint_cost_on_isaac() {
+        let root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../games/isaac"));
+        let first = content_fingerprint(&root);
+        assert!(first.len() > 100, "isaac : {} fichiers suivis", first.len());
+        let start = std::time::Instant::now();
+        for _ in 0..100 {
+            std::hint::black_box(content_fingerprint(&root));
+        }
+        let per_call = start.elapsed() / 100;
+        eprintln!(
+            "empreinte isaac : {} fichiers, {per_call:?} par relevé (100 appels)",
+            first.len()
+        );
     }
 }

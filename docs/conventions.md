@@ -7673,3 +7673,22 @@ Même mécanisme que ci-dessus (**aucun second mécanisme**) ; seuls changent la
 - **Limites** : le sol est la couleur de fond du niveau (`#7B6A5F`), sans motif ni ombre portée ; rochers de 16 px dans des salles de 480×288 (un rocher reste une case de 16 unités, plus petit que le héros de 32 px : le nombre de rochers est le contenu des gabarits) ;
   le sprite `chest` montre un cadenas même sur un coffre non verrouillé (les coffres du trésor et de la secrète d'`isaac` ont `locked: false`) ; halo, pointeur de visée et légende (F7) n'existent pas pour `isaac` (langage visuel des classes d'ennemis : seul gungeon l'a). Rendu jugé par un **rendu synthétique**
   (`docs/taches/rapports/m3-salles-murs-isaac/rendu_*.png`, même logique de tuiles que le moteur, pas une capture du jeu) : captures impossibles sur le VPS (D94).
+
+## 84. Éditeur par l'IA : mode éditeur, commandes de partie, `Registry` hors lobby (K5-1)
+
+Guide d'usage : `docs/editeur-vocal.md`. Plan : `docs/taches/plan-editeur-vocal.md` (D1 à D7). **Aucun système dans `GgrsSchedule`, aucune ressource rollback** : les traces ne bougent pas.
+
+- **Mode éditeur** (`game::editor_mode`, `ALACOD_EDITOR=1`, ressource `EditorMode`) : implique le remote ; `RemoteClock` démarre **en marche** ; `InputSource::Remote` n'est **pas** posé (le clavier reste la source,
+  `read_local_inputs` laisse `RemoteInputs::held` prendre la main par handle, un `alacod/input` vide la rend) ; `play_check_distance_from_env` renvoie **0** même avec `ALACOD_STATE_TRACE`
+  (un `ALACOD_CHECK_DISTANCE` explicite reste prioritaire). Hors mode éditeur, `ALACOD_REMOTE=1` se comporte comme avant (pause au départ, clavier coupé).
+- **Garde `hot_edit_allowed(online, check_distance)`** : les écritures hors simulation (`Modifiers`, `Registry`, `RunRequest`) ne sont licites qu'en session locale à `check_distance = 0` (à d > 0, le synctest recharge
+  un snapshot et perd l'écriture ; en ligne, elle diverge entre pairs). Les quatre méthodes d'édition appellent `remote::guard_hot_edit`, qui lit `OnlineState` et `GggrsSessionConfiguration.connection.check_distance` ;
+  erreur JSON-RPC `INVALID_REQUEST` qui nomme la cause (`EditorRefusal`). Ne pas l'assouplir.
+- **Méthodes** : `alacod/restart {kind?, seed?}` (`RunRequest` ; `seed` écrit `MapGenerationConfig.seed`, refusé avec `ToLobby`), `alacod/set_modifier {handle?|net_id?, stat, op, value: "Fixed", source?, until_frames?}`
+  (`apply_set_modifier`, `ModifierSource::Named`, défaut `editor`), `alacod/clear_modifiers`, `alacod/reload_content` ; `alacod/state` enrichi (`editor`, `online`, `check_distance`, `game`, `map`, `seed`, `run.step`, `config` des ennemis).
+- **`Registry` hors lobby** (`content_hot_reload`) : le système ne tourne plus sous `in_lobby` ; il remplace `Registry` **et** `GameManifest` quand un asset sentinelle (personnages, armes, mêlée, vagues) émet `Modified`
+  **ou** quand la scrutation (natif, `Instant`, 1 s : `Time` est figé par la pause du remote) voit changer l'empreinte (chemin, mtime, taille) de `game.ron` et des fichiers déclarés par `content_folders`.
+  Lint rouge : l'ancien registre reste (`ERROR contenu invalide, registre non rechargé`). Aucun lecteur de `Registry` ne tourne dans `GgrsSchedule` : les tables dérivées (`StatusLibrary`, patterns, progression,
+  horloges…) ne se recalculent qu'à `OnEnter(GameLoading)`, donc au `restart`. Limite : `GlobalAsset` lit le registre au `Startup` seulement (un personnage ou une arme **ajouté** exige une relance du binaire).
+- **Tests** : unitaires `editor_mode`, `content_hot_reload`, `remote::parse_stat` ; `crates/scenario/tests/editor_reload.rs` (scrutation, événement d'asset, relance, fichier invalide ; `set_modifier` à d = 0 et cas d'erreur).
+

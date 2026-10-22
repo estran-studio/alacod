@@ -16,10 +16,14 @@ make editor GAME=zombies SEED=42        # graine de carte imposée (--seed, D105
 
 | Variable | Rôle |
 |---|---|
-| `ALACOD_EDITOR=1` | mode éditeur (lot K5-1 : clavier jouable, partie non en pause, `check_distance` 0 forcé) |
+| `ALACOD_EDITOR=1` | mode éditeur (K5-1) : implique le remote ; la partie **tourne dès le départ** (pas de `resume`), le **clavier reste la source d'input**, `check_distance` forcé à 0 |
 | `ALACOD_REMOTE=1` | serveur BRP (JSON-RPC sur HTTP) `127.0.0.1:15702` ; `ALACOD_REMOTE_PORT` change le port |
 | `ALACOD_LABELS=1` | étiquettes F6 au-dessus des entités (nom, prix, état) |
 | feature `native` | `bevy/file_watcher` : le rechargement à chaud des assets |
+
+En mode éditeur la partie n'est pas en pause : on joue au clavier pendant que Claude édite. `alacod-remote input Right` **prend la main** sur le
+clavier pour ce handle (le joueur avance seul) ; `alacod-remote input ""` (vide) **rend la main au clavier**. Hors mode éditeur (`make remote`),
+le comportement d'avant est inchangé : partie en pause, clavier coupé, `step` pour avancer.
 
 Il n'y a pas d'option `--map` dans la ligne de commande des jeux : la carte vient du manifeste (`entry.start_map` de `game.ron`) ; `SEED` fait varier
 l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lancement n'importe pas.
@@ -28,8 +32,19 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 
 - **`scripts/alacod-remote`** (Python, `urllib`, sans dépendance) : `state` (JSON complet), `brief` (une ligne par joueur + ennemis proches),
   `input Up,Fire --pan 100,0 [--handle 0]`, `step 30 [--no-wait]`, `pause`, `resume`, `screenshot <png>`, `save <scénario.ron>`, `discover`.
-  Les sous-commandes `restart`, `modifier`, `unmodify` et `reload` arrivent avec le lot K5-1 (section 6 de ce fichier).
-- **`scripts/alacod-remote discover`** : appelle `rpc.discover` (OpenRPC 1.3.2) et liste les méthodes (les sept `alacod/*`, puis les intégrées
+  Mode éditeur (K5-1) : `restart [--kind K] [--seed N]`, `modifier [--handle 0|--net-id N] STAT OP VALEUR [--until FRAMES] [--source S]`,
+  `unmodify [--handle 0] [--source S]`, `reload`. `brief` commence par `editor=… online=… check_distance=… run.step=…`.
+- **Méthodes `alacod/*` du mode éditeur** (JSON-RPC, `http://127.0.0.1:15702`) :
+  - `alacod/restart` `{kind?: "Restart"|"ToLobby"|"EnterRun"|"ToHub", seed?: i32}` : pose un `RunRequest` ; le jeu repasse par `GameLoading`
+    (tables dérivées du `Registry` recalculées, carte rechargée) puis `InGame`. `seed` écrit `MapGenerationConfig.seed` ; refusé avec `ToLobby`.
+  - `alacod/set_modifier` `{handle?|net_id?, stat, op: Add|Pct|Mul|Set, value: "0.9", source?: "editor", until_frames?}` : modificateur
+    **vivant** sur une entité (joueur 0 par défaut) ; `stat` = un `StatId` (`MoveSpeed`, `MaxHealth`, `Damage`, `FireRate`, `ReloadSpeed`…) ou `custom:<nom>`.
+  - `alacod/clear_modifiers` `{handle?|net_id?, source?: "editor"}` : retire ceux de la source.
+  - `alacod/reload_content` : relit le `Registry` tout de suite ; renvoie les compteurs et `errors` (liste vide = remplacé).
+  - `alacod/state` s'enrichit : `editor`, `online`, `check_distance`, `game`, `map`, `seed`, `run.step`, `config` de chaque ennemi.
+  - **Garde** : `restart`, `set_modifier`, `clear_modifiers` et `reload_content` sont refusées si la session est en ligne ou si
+    `check_distance > 0` ; l'erreur JSON-RPC nomme la cause (« check_distance=2 »…).
+- **`scripts/alacod-remote discover`** : appelle `rpc.discover` (OpenRPC 1.3.2) et liste les méthodes (les `alacod/*`, puis les intégrées
   `world.*`, `registry.schema`, `schedule.*`). Les `world.*` exigent des types `Reflect` : presque aucun type de simulation ne l'est ;
   **l'état de la partie se lit par `alacod/state`**, pas par `world.query`.
 - **`alacod lint games/<jeu>`** (`cargo run -q -p content --bin alacod --profile headless -- lint games/<jeu>`) : valide manifeste et RON.
@@ -99,12 +114,12 @@ Mesuré sur `make editor GAME=zombies HEADLESS=1` (2026-10-22) : une édition de
 
 | Donnée | Effet | Preuve (plan § 2) |
 |---|---|---|
-| tables de personnages (`*_config.ron`) → `CharacterConfigs` | **immédiat** pour les spawns futurs ; les entités vivantes gardent leurs `Stats` (copiées au spawn : « plus rapide » dans le RON ne change pas le joueur vivant → `alacod/set_modifier`, K5-1) | `character/config_asset.rs:44` |
+| tables de personnages (`*_config.ron`) → `CharacterConfigs` | **immédiat** pour les spawns futurs ; les entités vivantes gardent leurs `Stats` (copiées au spawn : « plus rapide » dans le RON ne change pas le joueur vivant → `alacod-remote modifier`, ou `restart`) | `character/config_asset.rs:44` |
 | armes (`weapons.ron`) → `WeaponRegistry` et armes portées | **immédiat** (armes portées : `weapons_config_update_system`, `Update`) ; la mêlée n'est pas couverte (risque 7) | `weapon_assets.rs:55-56`, `:179-199` |
 | `camera.ron`, `ui/feedback.ron`, `ui/hud.ron` | **immédiat** (présentation) | `camera/mod.rs:666-681`, `feedback.rs:71-86`, `ui/hud.rs:1750-1763` |
-| `Registry` (items, salles, curses, patterns, statuts, progression, ennemis) | K5-0 : **relance du binaire** (rechargé seulement au lobby) ; K5-1 : rechargé hors lobby, appliqué **au `restart`** | `content_hot_reload.rs:34-40`, `core_sim.rs:249-262` |
-| balance, power-ups, vagues (`ResolvedBalance`, `PowerUpsTable`) | **au `restart`** (résolus à `OnEnter(GameLoading)`) ; K5-0 : relance | `core.rs:166-176`, `balance.rs:5-26` |
-| RON **invalide** | aucun rechargement : erreur `Failed to load asset … Could not parse RON` au journal, la table en mémoire reste l'ancienne ; la correction suivante recharge | mesuré 2026-10-22 (écriture d'un RON invalide pendant que le jeu tourne) |
+| `Registry` et `GameManifest` (items, salles, curses, patterns, statuts, progression, économie, perks, `game.ron`) | rechargé **dans tous les états** (K5-1) : événement d'asset **et** scrutation des fichiers du contenu, une fois par seconde (natif) ; les tables dérivées ne changent qu'**au `restart`**. Limite : `GlobalAsset` ne lit le registre qu'au démarrage du binaire, donc un personnage ou une arme **ajouté** (nouveau fichier) exige une **relance du binaire** ; les fichiers existants se rechargent par leurs assets | `content_hot_reload.rs:34-40`, `core_sim.rs:249-262` |
+| balance, power-ups, vagues (`ResolvedBalance`, `PowerUpsTable`) | **au `restart`** (résolus à `OnEnter(GameLoading)`) | `core.rs:166-176`, `balance.rs:5-26` |
+| RON **invalide** | aucun rechargement : `ERROR contenu invalide, registre non rechargé` (scrutation) ou `Failed to load asset … Could not parse RON` (asset) au journal, la table en mémoire reste l'ancienne ; la correction suivante recharge | mesuré 2026-10-22 (écriture d'un RON invalide pendant que le jeu tourne) |
 
 ### Assets : images, sons, LDtk, polices
 
@@ -131,6 +146,6 @@ Audit complet : `docs/taches/rapports/k5-audit-hot-reload-assets.md`. En bref :
 
 ## 7. Limites
 
-- **Local seulement** : session synctest locale, un joueur. Pas de p2p (une édition à chaud divergerait entre pairs, sans canal pour la répliquer), pas de web (ni file watcher ni remote en wasm).
-- Les commandes de partie du lot K5-1 sont refusées si la session est en ligne ou si `check_distance` ≠ 0 (le mode éditeur le force à 0 ; erreur JSON-RPC qui nomme la cause).
+- **Local seulement** : session locale à `check_distance` 0 (pas de synctest), un joueur. Pas de p2p (une édition à chaud divergerait entre pairs, sans canal pour la répliquer), pas de web (ni file watcher ni remote en wasm).
+- Les commandes de partie (`restart`, `set_modifier`, `clear_modifiers`, `reload_content`) sont refusées si la session est en ligne ou si `check_distance` ≠ 0 (le mode éditeur le force à 0 ; erreur JSON-RPC qui nomme la cause).
 - Aucune vérification de rollback en mode éditeur : un réglage qui casserait le déterminisme ne se voit qu'aux scénarios (`make test_scenarios`).

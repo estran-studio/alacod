@@ -56,8 +56,8 @@ use crate::{
     editor_mode::{hot_edit_allowed, EditorMode},
     jjrs::GggrsSessionConfiguration,
     recording::{write_recording, InputRecorder},
-    run_state::RunRequest,
     replay::{box_input, Button},
+    run_state::RunRequest,
     session::{OnlineState, SIM_FPS},
     waves::WaveState,
     weapons::{WeaponInventory, WeaponModesState, WeaponState},
@@ -275,7 +275,10 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
     doors.sort_by_key(|d| d["id"].as_u64());
 
     let editor = world.contains_resource::<EditorMode>();
-    let online = matches!(world.get_resource::<OnlineState>(), Some(OnlineState::Online));
+    let online = matches!(
+        world.get_resource::<OnlineState>(),
+        Some(OnlineState::Online)
+    );
     let check_distance = world
         .get_resource::<GggrsSessionConfiguration>()
         .map(|config| config.connection.check_distance);
@@ -329,7 +332,8 @@ struct InputParams {
 fn input(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
     let params: InputParams = parse(params)?;
     // Mode éditeur : un input vide (aucun bouton, pas de visée) rend la main au clavier.
-    if world.contains_resource::<EditorMode>() && params.buttons.is_empty() && params.pan.is_none() {
+    if world.contains_resource::<EditorMode>() && params.buttons.is_empty() && params.pan.is_none()
+    {
         world
             .resource_mut::<RemoteInputs>()
             .held
@@ -397,7 +401,10 @@ fn save_recording(In(params): In<Option<Value>>, world: &mut World) -> BrpResult
 
 /// Garde de toutes les commandes d'édition (D1) : session locale à `check_distance == 0`.
 fn guard_hot_edit(world: &World) -> Result<(), BrpError> {
-    let online = matches!(world.get_resource::<OnlineState>(), Some(OnlineState::Online));
+    let online = matches!(
+        world.get_resource::<OnlineState>(),
+        Some(OnlineState::Online)
+    );
     let check_distance = world
         .get_resource::<GggrsSessionConfiguration>()
         .map(|config| config.connection.check_distance)
@@ -501,27 +508,32 @@ pub fn parse_stat(name: &str) -> Result<sim_core::stats::StatId, String> {
 #[derive(Deserialize)]
 pub struct SetModifierParams {
     #[serde(default)]
-    handle: Option<usize>,
+    pub handle: Option<usize>,
     #[serde(default)]
-    net_id: Option<u64>,
-    stat: String,
-    op: sim_core::modifier::ModifierOp,
+    pub net_id: Option<u64>,
+    pub stat: String,
+    pub op: sim_core::modifier::ModifierOp,
     /// `Fixed` en chaîne (`"0.9"`), comme dans les RON.
-    value: String,
+    pub value: String,
     #[serde(default)]
-    source: Option<String>,
+    pub source: Option<String>,
     #[serde(default)]
-    until_frames: Option<u32>,
+    pub until_frames: Option<u32>,
 }
 
 /// Écrit un `Modifier` vivant dans `Modifiers` de la cible (sans garde : voir [`set_modifier`]).
 /// Renvoie le nombre de modificateurs de la cible.
-pub fn apply_set_modifier(world: &mut World, params: &SetModifierParams) -> Result<usize, BrpError> {
+pub fn apply_set_modifier(
+    world: &mut World,
+    params: &SetModifierParams,
+) -> Result<usize, BrpError> {
     let stat = parse_stat(&params.stat).map_err(invalid_params)?;
-    let value: fixed_math::Fixed = params
-        .value
-        .parse()
-        .map_err(|e| invalid_params(format!("value « {} » n'est pas un Fixed : {e}", params.value)))?;
+    let value: fixed_math::Fixed = params.value.parse().map_err(|e| {
+        invalid_params(format!(
+            "value « {} » n'est pas un Fixed : {e}",
+            params.value
+        ))
+    })?;
     let entity = target_entity(
         world,
         &TargetParams {
@@ -535,7 +547,10 @@ pub fn apply_set_modifier(world: &mut World, params: &SetModifierParams) -> Resu
         .ok_or_else(|| invalid_params("la cible n'a pas de Modifiers"))?;
     modifiers.push_from(
         sim_core::modifier::ModifierSource::Named(
-            params.source.clone().unwrap_or_else(|| EDITOR_SOURCE.to_string()),
+            params
+                .source
+                .clone()
+                .unwrap_or_else(|| EDITOR_SOURCE.to_string()),
         ),
         stat,
         params.op,
@@ -603,4 +618,21 @@ fn reload_content(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         "waves": report.waves,
         "errors": report.errors,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sim_core::stats::StatId;
+
+    #[test]
+    fn parse_stat_reads_names_and_custom() {
+        assert_eq!(parse_stat("MoveSpeed"), Ok(StatId::MoveSpeed));
+        assert_eq!(
+            parse_stat("custom:xx"),
+            Ok(StatId::Custom("xx".to_string()))
+        );
+        let err = parse_stat("Nope").unwrap_err();
+        assert!(err.contains("Nope"), "{err}");
+    }
 }
