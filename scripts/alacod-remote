@@ -3,11 +3,17 @@
 
   alacod-remote state                     état complet (JSON)
   alacod-remote brief                     résumé d'une ligne par joueur + ennemis proches
-  alacod-remote input Up,Fire --pan 100,0 [--handle 0]   input maintenu (vide = relâcher)
+  alacod-remote input Up,Fire --pan 100,0 [--handle 0]   input maintenu (vide = relâcher ; en mode
+                                          éditeur, relâcher rend la main au clavier)
   alacod-remote step 30 [--no-wait]       avance de 30 frames, attend, affiche le résumé
   alacod-remote pause | resume
   alacod-remote screenshot /tmp/x.png
   alacod-remote save tests/scenarios/ma_session.ron
+  alacod-remote restart [--kind K] [--seed N]   relance la partie (Restart|ToLobby|EnterRun|ToHub) [mode éditeur]
+  alacod-remote modifier [--handle 0|--net-id N] STAT OP VALEUR [--until FRAMES] [--source editor]
+                                          modificateur vivant (OP : Add|Pct|Mul|Set ; VALEUR : « 0.9 »)
+  alacod-remote unmodify [--handle 0|--net-id N] [--source editor]   retire les modificateurs de la source
+  alacod-remote reload                    relit le registre de contenu (appliqué au prochain restart)
   alacod-remote discover                  méthodes du remote (rpc.discover, OpenRPC) : une ligne par
                                           méthode, puis ses paramètres si le document en donne
 
@@ -30,7 +36,14 @@ def call(method, params=None):
 
 
 def brief(state):
-    lines = [f"frame {state['frame']}  pause={state['clock']['paused']}  vague={state['wave']}"]
+    lines = []
+    if "editor" in state:  # éditeur K5-1 : mode et garde d'abord
+        run = (state.get("run") or {}).get("step")
+        lines.append(
+            f"editor={state['editor']} online={state['online']} check_distance={state['check_distance']} "
+            f"run.step={run} jeu={state.get('game')} carte={state.get('map')} graine={state.get('seed')}"
+        )
+    lines += [f"frame {state['frame']}  pause={state['clock']['paused']}  vague={state['wave']}"]
     for p in state["players"]:
         w = p.get("weapon") or {}
         lines.append(
@@ -40,7 +53,7 @@ def brief(state):
         near = sorted(state["enemies"], key=lambda e: math.dist((e["x"], e["y"]), (p["x"], p["y"])))[:5]
         for e in near:
             dx, dy = e["x"] - p["x"], e["y"] - p["y"]
-            lines.append(f"  ennemi {e['id']} dx={dx:.0f} dy={dy:.0f} dist={math.hypot(dx, dy):.0f} pv {e['health']} {e['state']}")
+            lines.append(f"  ennemi {e['id']} {e.get('config') or ''} dx={dx:.0f} dy={dy:.0f} dist={math.hypot(dx, dy):.0f} pv {e['health']} {e['state']}")
     lines.append(f"ennemis {len(state['enemies'])}, fenêtres {[w['health'] for w in state['windows']]}")
     return "\n".join(lines)
 
@@ -78,6 +91,22 @@ def main():
     p = sub.add_parser("save")
     p.add_argument("path")
     sub.add_parser("discover")
+    p = sub.add_parser("restart")
+    p.add_argument("--kind", choices=["Restart", "ToLobby", "EnterRun", "ToHub"])
+    p.add_argument("--seed", type=int)
+    p = sub.add_parser("modifier")
+    p.add_argument("stat")
+    p.add_argument("op", choices=["Add", "Pct", "Mul", "Set"])
+    p.add_argument("value")
+    p.add_argument("--handle", type=int)
+    p.add_argument("--net-id", type=int)
+    p.add_argument("--until", type=int, help="durée en frames (permanent sinon)")
+    p.add_argument("--source", default="editor")
+    p = sub.add_parser("unmodify")
+    p.add_argument("--handle", type=int)
+    p.add_argument("--net-id", type=int)
+    p.add_argument("--source", default="editor")
+    sub.add_parser("reload")
     args = parser.parse_args()
 
     if args.cmd == "state":
@@ -99,6 +128,30 @@ def main():
         print(call(f"alacod/{args.cmd}"))
     elif args.cmd == "screenshot":
         print(call("alacod/screenshot", {"path": os.path.abspath(args.path)}))
+    elif args.cmd == "restart":
+        params = {k: v for k, v in (("kind", args.kind), ("seed", args.seed)) if v is not None}
+        print(json.dumps(call("alacod/restart", params)))
+    elif args.cmd == "modifier":
+        params = {"stat": args.stat, "op": args.op, "value": args.value, "source": args.source}
+        if args.handle is not None:
+            params["handle"] = args.handle
+        if args.net_id is not None:
+            params["net_id"] = args.net_id
+        if args.until is not None:
+            params["until_frames"] = args.until
+        print(json.dumps(call("alacod/set_modifier", params)))
+    elif args.cmd == "unmodify":
+        params = {"source": args.source}
+        if args.handle is not None:
+            params["handle"] = args.handle
+        if args.net_id is not None:
+            params["net_id"] = args.net_id
+        print(json.dumps(call("alacod/clear_modifiers", params)))
+    elif args.cmd == "reload":
+        result = call("alacod/reload_content")
+        print(json.dumps(result))
+        if result.get("errors"):
+            sys.exit(1)
     elif args.cmd == "discover":
         print(discover(call("rpc.discover")))
     elif args.cmd == "save":

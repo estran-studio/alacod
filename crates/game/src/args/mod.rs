@@ -53,12 +53,19 @@ pub fn check_distance_from_env() -> usize {
 /// Local play simulates once; scenario tests retain rollback verification by default.
 /// Explicit `ALACOD_CHECK_DISTANCE=2` also enables verification in the native client.
 /// State tracing needs GGRS snapshots, which sync-test distance zero does not save.
+///
+/// Mode éditeur (`ALACOD_EDITOR=1`, K5-1) : 0 même avec `ALACOD_STATE_TRACE` (les commandes d'édition
+/// exigent d=0, voir `crate::editor_mode`) ; un `ALACOD_CHECK_DISTANCE` explicite reste prioritaire
+/// (et les commandes d'édition sont alors refusées, avec la cause nommée).
 pub fn play_check_distance_from_env() -> usize {
-    check_distance_with_default(if std::env::var_os("ALACOD_STATE_TRACE").is_some() {
-        2
-    } else {
-        0
-    })
+    let traced = std::env::var_os("ALACOD_STATE_TRACE").is_some();
+    if crate::editor_mode::EditorMode::enabled_by_env() {
+        if traced {
+            info!("mode éditeur : check_distance forcé à 0 malgré ALACOD_STATE_TRACE (le journal d'état n'est pas écrit par un synctest à distance 0)");
+        }
+        return check_distance_with_default(0);
+    }
+    check_distance_with_default(if traced { 2 } else { 0 })
 }
 
 fn check_distance_with_default(default: usize) -> usize {

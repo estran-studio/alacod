@@ -14,6 +14,7 @@ pub mod collision_grid;
 pub mod content_hot_reload;
 pub mod core;
 pub mod core_sim;
+pub mod editor_mode;
 pub mod curses;
 pub mod economy;
 pub mod economy_assets;
