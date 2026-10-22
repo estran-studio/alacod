@@ -108,13 +108,25 @@ Mesuré sur `make editor GAME=zombies HEADLESS=1` (2026-10-22) : une édition de
 
 ### Assets : images, sons, LDtk, polices
 
-À compléter par l'audit en cours.
+Audit complet : `docs/taches/rapports/k5-audit-hot-reload-assets.md`. En bref :
+
+- **PNG des sprites** : immédiat (les sprites gardent leur handle ; Bevy recharge l'image). Garder le même chemin.
+- **Grilles et animations** (`sprites/sprites.ron`, configs d'animation) : immédiat (layouts reconstruits sur `Modified`).
+- **Sons** : à la prochaine lecture (prochain tir, coup…) ; le son en cours n'est pas remplacé.
+- **LDtk et tilesets** (`maps/*.ldtk`, `wall_art`) : au `restart` seulement ; le PNG d'un tileset est immédiat, pas une nouvelle grille.
+- **HUD, caméra, feedback** : immédiat (arbre UI reconstruit, paramètres recopiés sur `Modified`).
+- **Polices** : suivies par handle, rechargées par Bevy.
 
 ## 6. Voix
 
 - **Entrée** : la dictée du système. macOS : dictée (touche micro ou `Fn Fn`) dans le terminal de Claude Code. Rien à installer.
-- **Sortie** : hook `Stop` de Claude Code, **opt-in** (`ALACOD_VOICE=1`) : lit la dernière réponse avec `say` (macOS) ou `espeak-ng` (Linux).
-  Le script est `scripts/claude-say.sh` (écrit à part, branche `k5-0-voix`) ; sans `ALACOD_VOICE=1` il ne fait rien.
+- **Sortie** : hook `Stop` de `.claude/settings.json` → `scripts/claude-say.sh`, **opt-in**. Sans `ALACOD_VOICE=1` il ne fait rien.
+  - `ALACOD_VOICE=1 claude` : à la fin de chaque réponse, la dernière réponse (Markdown et blocs de code retirés) est lue par
+    `say` (macOS), sinon `espeak-ng`/`espeak` (Linux), sinon `piper` (avec `ALACOD_VOICE_PIPER_MODEL`), sinon écrite dans `$TMPDIR/alacod-voice.txt`.
+  - `ALACOD_VOICE_NAME=Thomas` : voix `say` (Thomas ou Amélie, à installer dans Réglages > Accessibilité > Contenu énoncé) ; ignorée si la voix n'est pas installée.
+  - `ALACOD_VOICE_MAX=300` : longueur maximale lue en caractères (600 par défaut), coupée à la dernière phrase entière.
+  - `ALACOD_VOICE=stop scripts/claude-say.sh` : coupe la lecture en cours (`pkill say`).
+  - Tests du script : `scripts/tests/test_claude_say.py`.
 - **Client vocal complet** (Hermes ou autre) : décision en K5-4. Il lui suffit d'un shell et de HTTP local ; pas de pont MCP (plan D5).
 
 ## 7. Limites
