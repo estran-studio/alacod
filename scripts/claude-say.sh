@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hook Stop Claude Code : silencieux par défaut, voix explicitement activée.
+# Voix Apple françaises à installer : Thomas ou Amélie (Réglages > Accessibilité > Contenu énoncé).
 set +e
 if [[ "${ALACOD_VOICE:-}" == "stop" ]]; then
   pkill say 2>/dev/null || true
@@ -55,13 +55,18 @@ PY
 [[ -n "$text" ]] || exit 0
 
 if command -v say >/dev/null 2>&1; then
-  say -v "${ALACOD_VOICE_NAME:-Thomas}" "$text" >/dev/null 2>&1 &
+  voice_args=()
+  voice="${ALACOD_VOICE_NAME:-}"
+  if [[ -n "$voice" ]] && say -v '?' 2>&1 | awk '{print $1}' | grep -qx "$voice"; then
+    voice_args=(-v "$voice")
+  fi
+  ( nohup say "${voice_args[@]}" "$text" >/dev/null 2>&1 & )
 elif command -v espeak-ng >/dev/null 2>&1; then
-  espeak-ng -v fr "$text" >/dev/null 2>&1 &
+  ( nohup espeak-ng -v fr "$text" >/dev/null 2>&1 & )
 elif command -v espeak >/dev/null 2>&1; then
-  espeak -v fr "$text" >/dev/null 2>&1 &
+  ( nohup espeak -v fr "$text" >/dev/null 2>&1 & )
 elif command -v piper >/dev/null 2>&1 && [[ -n "${ALACOD_VOICE_PIPER_MODEL:-}" ]]; then
-  printf '%s\n' "$text" | piper --model "$ALACOD_VOICE_PIPER_MODEL" >/dev/null 2>&1 &
+  ( printf '%s\n' "$text" | nohup piper --model "$ALACOD_VOICE_PIPER_MODEL" >/dev/null 2>&1 & )
 else
   printf '%s\n' "$text" > "${TMPDIR:-/tmp}/alacod-voice.txt"
 fi
