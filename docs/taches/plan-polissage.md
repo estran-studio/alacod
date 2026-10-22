@@ -1,9 +1,10 @@
-# Plan de la semaine de polissage des quatre clones — révision du 2026-10-21
+# Plan de la semaine de polissage des quatre clones — révision du 2026-10-22 (une semaine, sept voies)
 
 Rédigé le 2026-10-21 (branche `plan-polissage`), **révisé le même jour après revue de William** : les jeux se jouent
 **seulement dans le navigateur, via le site** (`website/`) ; pas d'écran de démarrage dans le jeu ; **la manette est
 cruciale** ; quatre axes manquaient (game feel, visuel complet, effets sonores complets, map design). Décision
 d'origine (2026-10-19/21) : pause des mécaniques, polissage des quatre clones, entre M3 et M4 (`docs/taches.md` §8.0).
+**Décisions de William du 2026-10-22** : une seule semaine, tout l'effort nécessaire (sept voies) ; zombies complet en premier ; schéma manette accepté (conflit du bouton A réglé en route) ; signaling par Allumette ; direction artistique : pack acheté ou libre (tâche S-0).
 Inventaire factuel : `docs/taches/rapports/plan-polissage.inventaire.md` (« inventaire », sections 1 à 13).
 
 Convention : chaque fait cite sa source ; `[INFERENCE]` = déduit, non observé. Aucun chiffre inventé : « non mesuré » ou
@@ -28,7 +29,7 @@ Convention : chaque fait cite sa source ; `[INFERENCE]` = déduit, non observé.
 | 6. Menus et écrans | Pause → fin de partie → retour au salon du site, **tout en français**, déconnexion et `DESYNC` expliqués avec une action ; **aucun menu de démarrage dans le jeu** (le site connecte). |
 | 7. Performance | Dans le navigateur (Chrome, Mac de William) : FPS d'affichage et FPS de simulation **mesurés** par clone à 2 joueurs, aucune partie qui tombe sous la vitesse de simulation à 60 Hz [seuil à fixer par la mesure] ; en natif, `make bench` strict vert au calme. |
 | 8. Game feel | Pour chaque clone, une vidéo de 60 s de prise en main où mouvement, dash, tir et coups reçus ont un retour net (accélération/friction réglées en données, recul, flash, secousse, hit-stop, caméra stable), le rendu est **fluide à toute fréquence d'écran** (interpolation d'affichage), et chaque personnage a ses animations idle/marche/attaque/mort. William dit « agréable » sur course, dash et tir. |
-| 9. Visuel complet | Un tableau « classe d'entité × clone » (joueur, chaque famille d'ennemi, boss, projectile, ramassable, porte, mur, sol, prop, portail, HUD) où **chaque case est « propre au jeu »** (plus de tuile d'un autre jeu), animée pour les personnages ; sol et murs propres par clone (`wall_art` aussi pour zombies et throne). Pas de niveau release : cohérent et lisible. |
+| 9. Visuel complet | (sprites issus d'un **pack acheté ou libre**, S-0) Un tableau « classe d'entité × clone » (joueur, chaque famille d'ennemi, boss, projectile, ramassable, porte, mur, sol, prop, portail, HUD) où **chaque case est « propre au jeu »** (plus de tuile d'un autre jeu), animée pour les personnages ; sol et murs propres par clone (`wall_art` aussi pour zombies et throne). Pas de niveau release : cohérent et lisible. |
 | 10. Effets sonores complets | Un tableau « événement × clone » où chaque événement a un son : tir par arme, impact, dégâts reçus, mort par famille, boss, porte, achat, ramassage, vague/salle/étage, explosion/bombe, menus. Aucune case vide. |
 | 11. Map design | Par clone, un audit de cartes (nombre de salles/gabarits, spawners par salle, couvertures, couloirs problématiques) et les défauts relevés corrigés : variété, rythme (pas de salle vide ni de couloir mort), spawners dans toutes les salles de combat ; William valide à la vidéo. |
 
@@ -174,154 +175,135 @@ les FPS en wasm, les tailles de build.
 
 ## 3. Tâches
 
-**B** = bloque « jouer entre amis, dans le navigateur, à la manette, sur des jeux propres ». **P** = polissage classé
-valeur/coût. Estimation en jours-agent. **Capacité : 4 voies × 5 jours = 20 j par semaine** (b0, b1, b3 sur Mac ; **une
-seule** voie VPS). Le B total **dépasse largement 20 j** (≈ 40 j, § 3.3) : il est découpé en **semaine 1** et
-**semaine 2**. Les fiches (`docs/taches/polissage-*.md`) existent pour chaque B de la semaine 1 ; celles de la semaine 2
-sont écrites à la fin de la semaine 1 avec ce qu'elle aura appris (audits).
+**B** = bloque « jouer entre amis, dans le navigateur, à la manette, sur des jeux propres ». **P** = polissage hors semaine,
+classé valeur/coût. Estimation en jours-agent, toutes `[INFERENCE]` : **chaque voie les réestime à J1** après son audit
+chiffré. **Décision de William du 2026-10-22 : une seule semaine, « tout l'effort nécessaire », autant de voies que
+nécessaire** : sept voies (§ 4). Les identifiants S1-x et S2-x sont ceux des fiches déjà écrites ; ils ne désignent plus
+deux semaines mais deux familles (S1 = transversal moteur et zombies, S2 = autres clones), **tout se joue dans la même
+semaine**. **Zombies complet passe en premier** (décision du 2026-10-22).
 
-**Choix de découpe** : la semaine 1 met en place ce qui vaut **pour les quatre clones à la fois** (web + online, manette,
-textes français, mesure wasm, un premier lot de game feel et de sons **dans le moteur**, en données) et rend **un clone
-complet** : `zombies` (le plus petit contenu : 4 armes, 6 configs, 1 boss, 6 salles, inventaire §4 ; déjà dans le
-catalogue ; plaintes de William en file S4/S6/S7 et spawners). Semaine 2 : `gungeon`, puis `isaac`, puis `throne`
-(décision 4 à confirmer). Faire « quatre clones à moitié » est écarté : un clone terminé sert de démo.
+**Ce que l'on ne ferait pas à moitié** : les quatre clones sont tous inclus (throne complet aussi). Le B ainsi réuni
+(≈ 47 j) dépasse 7 voies × 5 j = 35 j de capacité nominale (William parle de ≈ 42 j ; l'écart n'est pas expliqué dans les
+sources, **à lui de trancher**) : **c'est serré, dit explicitement**. Si J1 confirme le dépassement, ce qui glisse en P, dans
+cet ordre : S2-6 (isaac map, partie hors campagne), S2-12 (throne map), S2-10 (throne visuel), S2-9 (perf), S2-3 (gungeon map).
 
-### 3.1 Semaine 1 — B, total **19,5 j**
+**Schéma manette accepté** par William (2026-10-22) ; le conflit du bouton A (bombe / confirmer) se règle en cours de route.
+**Signaling : Allumette obligatoire** (pas de `matchbox_server` nu). **Sprites : pack acheté ou libre** (S-0), plus de
+génération CC0 maison pour les sprites « propres au jeu ».
+
+### 3.1 B — liste unique, total **47 j**
 
 | # | B/P | Tâche (fiche) | Clone(s) | Ce que ça change pour le joueur | Est. | Dépend de | Preuve attendue |
 |---|---|---|---|---|---|---|---|
-| S1-1 | B | **Manette** jouable dans le navigateur, menus compris, écran d'aide (`polissage-manette.md`) — **priorité 1** | 4 | On peut tirer, viser, dasher, utiliser un actif, naviguer pause/fin de partie/mutation à la manette dans Chrome | 3 | schéma validé par William (décision 2), `bevy_gilrs` wasm | partie de zombies et d'une autre jouée entièrement à la manette dans le navigateur ; scénarios et traces inchangés ; essai E4 |
-| S1-2 | B | **Web : les 4 clones dans le catalogue du site** (`polissage-web-4-clones.md`) | 4 | gungeon et isaac jouables dans le navigateur comme zombies et throne | 3 | rien | `build-web-games.mjs` construit 4 jeux ; `releases.json` et `catalog.ts` à 4 entrées ; chaque clone atteint la première salle sous Chrome ; tailles et temps de chargement mesurés |
-| S1-3 | B | **Online navigateur** : signaling `wss://` joignable, deux réseaux, `online` activé honnêtement, D116 (`polissage-reseau-amis.md`) | 4 | On se retrouve par le site (salon) et on joue à 2 | 2,5 | décision 1 (signaling) | partie à 2 entre deux réseaux distincts, traces identiques ; `online: true` seulement là où la recette est faite |
-| S1-4 | B | **Textes en français** : lobby, réseau, DESYNC, fin de partie, pause (`polissage-textes-fr.md`) | 4 | Plus de « Connecting to peer… » à côté de « Rejouer » | 1 | rien | grep des textes anglais listés = 0 ; captures ; aucune trace ne bouge |
-| S1-5 | B | **Perf wasm** : FPS d'affichage et de simulation par clone dans le navigateur (`polissage-perf-web.md`) | 4 | Savoir si la partie tourne à 60 Hz dans un onglet ; seuils pour la suite | 1 | S1-2 | tableau FPS par clone (Chrome, Mac de William), tailles de build |
-| S1-6 | B | **Game feel, lot commun** : interpolation d'affichage, réglages `movement`/`dash`/`feedback.ron`/`camera.ron` **par clone**, flash de bouche, recul de tir, effet de mort (`polissage-feel.md`) | 4 (réglé sur zombies) | Mouvement et tirs nets, fluides à 144 Hz | 2 | rien | vidéo de prise en main de zombies ; l'interpolation ne touche pas `GgrsSchedule` (traces inchangées) ; réglages en données |
-| S1-7 | B | **Sons : événements manquants dans le moteur** (vague, salle, étage, boss, achat, ramassage, explosion, menus, mort par famille, volume global, déblocage audio navigateur) (`polissage-sons-evenements.md`) | 4 | Chaque événement peut avoir un son par clone, réglable | 1,5 | rien | clés `sounds` et lint ; sons dérivés de l'état (jamais d'un événement de simulation) ; traces inchangées |
-| S1-8 | B | **Zombies complet : visuel** (audit d'abord ; sol/murs/`wall_art`, joueur et ennemis animés, armes ; couleur par joueur et légende) (`polissage-zombies-visuel.md`) | zombies | Zombies a son propre visage et on s'y retrouve à 4 | 2 | décision 5 (DA) | tableau classe × état avant/après ; captures et vidéo ; traces intactes |
-| S1-9 | B | **Zombies complet : sons** (tir par arme, vague S6, volumes S7, mort, achat, ramassage…) (`polissage-zombies-sons.md`) | zombies | Le jeu « sonne » | 1 | S1-7 | tableau événement × son sans case vide ; écoute de William |
-| S1-10 | B | **Zombies complet : map et équilibrage** (spawners dans toutes les salles, S4 armes, campagne chiffrée) (`polissage-zombies-map-equilibrage.md`) | zombies | Les vagues viennent de partout, les trois armes ont un rôle | 1,5 | rien | audit de cartes, campagne avant/après, traces rebénies avec preuve §5 |
-| S1-11 | B | **Session d'amis** : zombies à 2 puis 4 sur le site, réseau dégradé, déconnexion, restart (`polissage-session-amis.md`) | zombies (puis les autres) | La promesse tenue sur un clone complet | 1 | S1-1 à S1-4 | rapport tableau « fait / non vérifié », 0 DESYNC |
-| | | **Total semaine 1** | | | **19,5** | | |
+| S-0 | B | **Pack d'assets** : besoins par clone, recherche, 2–3 candidats avec prix/licence, **William achète à J2**, intégration J3–J5 (`polissage-pack-assets.md`) | 4 | Des sprites propres cohérents au lieu de tuiles empruntées | 1,5 (+ intégration comptée dans les visuels) | rien | tableau besoins × candidats ; pack choisi, licence archivée dans `assets.yaml` |
+| S1-1 | B | **Manette** jouable dans le navigateur, menus compris, écran d'aide — **priorité 1** (`polissage-manette.md`) | 4 | On tire, vise, dashe, navigue les menus à la manette dans Chrome | 3 | schéma accepté ; `bevy_gilrs` wasm | partie jouée entièrement à la manette dans Chrome ; traces inchangées ; essai E4 |
+| S1-2 | B | **Web : les 4 clones dans le catalogue du site** (`polissage-web-4-clones.md`) | 4 | gungeon et isaac jouables dans le navigateur | 3 | rien | `build-web-games.mjs` à 4 jeux ; `releases.json` et `catalog.ts` à 4 entrées ; chaque clone atteint la première salle sous Chrome |
+| S1-3 | B | **Online navigateur par Allumette** : état réel du service, `wss://`, deux réseaux, `online` honnête, D116 (`polissage-reseau-amis.md`) | 4 | On se retrouve par le site et on joue à 2 | 2,5 | accès Allumette (William) | partie à 2 entre deux réseaux, traces identiques |
+| S1-4 | B | **Textes en français** (lobby, réseau, DESYNC, fin de partie, pause) (`polissage-textes-fr.md`) | 4 | Plus de mélange français/anglais | 1 | rien | grep des textes anglais = 0 ; traces inchangées |
+| S1-5 | B | **Perf wasm** : FPS affichage et simulation par clone (`polissage-perf-web.md`) | 4 | Savoir si ça tient 60 Hz dans un onglet | 1 | S1-2 | tableau FPS par clone |
+| S1-6 | B | **Game feel, lot commun** : interpolation d'affichage, réglages par clone en données, flash de bouche, recul, mort (`polissage-feel.md`) | 4 (réglé sur zombies) | Mouvement et tirs nets, fluides | 2 | rien | vidéo avant/après ; traces inchangées |
+| S1-7 | B | **Sons : événements manquants dans le moteur**, volume global, audio navigateur (`polissage-sons-evenements.md`) | 4 | Chaque événement peut sonner, volume réglable | 1,5 | rien | lint, tests ; traces inchangées |
+| S1-8 | B | **Zombies visuel** (audit, intégration du pack, couleurs, légende) (`polissage-zombies-visuel.md`) | zombies | Zombies a son propre visage | 2 | S-0 (pack choisi J2) | tableau classe × état ; captures |
+| S1-9 | B | **Zombies sons** (`polissage-zombies-sons.md`) | zombies | Le jeu sonne | 1 | S1-7 | tableau événement × son |
+| S1-10 | B | **Zombies map + équilibrage** (spawners partout, S4, campagne) (`polissage-zombies-map-equilibrage.md`) | zombies | Les vagues viennent de partout | 1,5 | rien | audit, campagne avant/après, preuve §5 |
+| S1-11 | B | **Session d'amis** : zombies à 2 puis les autres (`polissage-session-amis.md`) | 4 | La promesse tenue | 1 (+1 par clone) | S1-1 à S1-4 | rapport tableau, 0 DESYNC |
+| S2-1 | B | **Gungeon visuel** (pack, 11 personnages, boss, sol) (`polissage-gungeon-complet.md`) | gungeon | Gungeon a son identité | 3 | S-0 | tableau classe × état, vidéo |
+| S2-2 | B | **Gungeon sons** (21 armes → familles, boss, hub, achat) (idem) | gungeon | idem | 1 | S1-7 | tableau événement × son |
+| S2-3 | B | **Gungeon map + équilibrage** (D64, salles vides, armes, boss) (idem) | gungeon | Moins mortel, mieux rythmé | 2,5 | rien | campagne 200 graines avant/après, preuve §5 |
+| S2-4 | B | **Isaac visuel** (fin des tuiles Kenney, sol, pointeur ; D123) (`polissage-isaac-complet.md`) | isaac | Isaac ne ressemble plus à gungeon | 3,5 | S-0 | tableau, vidéo |
+| S2-5 | B | **Isaac sons** (bombe, objets, 9 boss, clés, sous) (idem) | isaac | idem | 1 | S1-7 | tableau |
+| S2-6 | B | **Isaac map + équilibrage** (D93, props, D125 vu avec rendu ; Q14) (idem) | isaac | idem | 3,5 | décision Q14 | campagne, captures |
+| S2-7 | B | **Throne jouable** : D66/D67, campagne chiffrée (`polissage-throne-jouable.md`) | throne | On sait ce qu'est une tourelle | 2 | rien | D66/D67 fermées, campagne |
+| S2-8 | B | **Lisibilité coop** throne et isaac (`polissage-lisibilite-coop.md`) | throne, isaac | À 4 on se reconnaît | 1,5 | S-0 (couleurs) | captures à 4 |
+| S2-9 | B | **Perf budgets** natif et navigateur, `isaac_quad`, D70 (`polissage-perf-budgets.md`) | 4 | Pas d'à-coup à 4 | 2 | S1-5 | tableaux, traces identiques |
+| S2-10 | B | **Throne visuel** (`polissage-throne-complet.md`) | throne | Throne a son identité | 3 | S-0 | tableau, vidéo |
+| S2-11 | B | **Throne sons** (idem) | throne | idem | 1 | S1-7 | tableau |
+| S2-12 | B | **Throne map** (cavernes : audit du nombre de salles par étage) (idem) | throne | Variété, rythme | 2 | rien | audit, vidéo |
+| | | **Total B** | | | **47** | | |
 
-### 3.2 Semaine 2 — B, total **20 j**
+Capacité nominale 7 × 5 = 35 j : **dépassement ≈ 12 j** à absorber par les glissements ci-dessus ou une voie de plus.
 
-| # | B/P | Tâche | Clone(s) | Ce que ça change pour le joueur | Est. | Dépend de | Preuve attendue |
+### 3.2 Polissage (P), hors semaine — total **14,5 j**
+
+| # | B/P | Tâche | Clone(s) | Ce que ça change | Est. | Dépend de | Preuve attendue |
 |---|---|---|---|---|---|---|---|
-| S2-1 | B | Gungeon complet : visuel (silhouettes générées → sprites propres et animés, 11 personnages, boss, sol) | gungeon | Gungeon a son identité | 3 | S1-8 (méthode), décision 5 | tableau classe × état, vidéo |
-| S2-2 | B | Gungeon complet : sons (21 armes → familles, boss, hub, achat, coffre, salles) | gungeon | idem | 1 | S1-7 | tableau événement × son |
-| S2-3 | B | Gungeon complet : map et équilibrage (D64 : 27 % de morts à 1 bot, salles vides après agrandissement, armes et boss) | gungeon | Moins mortel, mieux rythmé | 2,5 | rien | campagne 200 graines avant/après, preuve §5 |
-| S2-4 | B | Isaac complet : visuel (personnages/ennemis/boss : fin des tuiles Kenney, sol, pointeur de visée ; D123) | isaac | Isaac ne ressemble plus à gungeon | 3,5 | S1-8, décision 5 | tableau classe × état, vidéo |
-| S2-5 | B | Isaac complet : sons (bombe, objets, boss ×9, clés, sous) | isaac | idem | 1 | S1-7 | tableau |
-| S2-6 | B | Isaac complet : map et équilibrage (D93 armure, Q14, props, D125 cadrage de salle vu avec rendu) | isaac | idem | 3,5 | décision 6 | campagne, captures |
-| S2-7 | B | Throne jouable : D66/D67 (tourelle lisible), campagne chiffrée (`polissage-throne-jouable.md`) | throne | On sait ce qu'est une tourelle | 2 | rien | D66/D67 fermées, campagne publiée |
-| S2-8 | B | Lisibilité coop : couleur par joueur, légende, halo pour throne et isaac (`polissage-lisibilite-coop.md`) | throne, isaac | À 4 on se reconnaît | 1,5 | S1-8 | captures à 4 |
-| S2-9 | B | Perf : budgets du navigateur et du natif (`isaac_quad` 10,1 fps / 50 ms au pire rollback sur le VPS, `bench_floor_isaac` sous son plancher), D70 | 4 | Pas d'à-coup à 4 | 2 | S1-5 | mesures navigateur et Mac ; traces identiques si le champ de flux est touché |
-| | | **Total semaine 2** | | | **20** | | |
-
-### 3.3 Totaux et ce qui n'entre pas
-
-**B : 39,5 j** (19,5 + 20) : deux semaines pleines à quatre voies. Rester dans ce total demande de **déclasser en P** :
-**throne complet** (visuel 3 j, sons 1 j, map 2 j = 6 j) ; throne n'a, en semaine 2, que la lisibilité et la campagne. Si William
-veut quatre clones complets, il faut une troisième semaine (+ 6 j) ou deux voies de plus. Toutes les estimations sont des
-`[INFERENCE]` : les audits (visuel, animations, cartes, tailles wasm) peuvent les changer ; chaque tâche commence par
-son audit chiffré et **redit son estimation à la fin du premier jour**.
-
-### 3.4 Polissage (P), classé valeur / coût — total **21,5 j**
-
-| # | B/P | Tâche | Clone(s) | Ce que ça change pour le joueur | Est. | Dépend de | Preuve attendue |
-|---|---|---|---|---|---|---|---|
-| P1 | P | Throne complet : visuel, sons, map (cavernes, nombre de salles par étage à auditer) | throne | Throne a son identité | 6 | S1-8, S1-7 | tableaux classe × état |
 | P2 | P | Bots : D119 (piques), D120, D121, D124 | isaac, `crates/bots` | Campagnes fiables | 2,5 | rien | campagne sans soft-lock (graines 63, 178) |
 | P3 | P | Écran de mutation `bevy_hui` et minicarte (D71, D72), à la manette | throne | Choix lisible | 1,5 | S1-1 | `dettes-ui-d71-d72.md` |
-| P4 | P | Caméra par salle d'isaac et mur fissuré vus avec rendu (D125) | isaac | Pas de glissement | 1 | rendu Mac | captures |
-| P5 | P | Remappage des touches et boutons | 4 | Chacun règle sa manette | 2 | S1-1 | écran de réglage, fichier de config |
-| P6 | P | Salon à 4 joueurs sur le site (le site propose 2) | 4 | Jouer à 4 | 2 | S1-3 | partie à 4 entre réseaux distincts |
-| P7 | P | Perf : champ de flux incrémental (D70, D122, D118) | 4 | Marge | 3 | S2-9 | traces identiques (preuve §5) |
-| P8 | P | Feel, lot 2 : traînées de balles, douilles, avance de caméra | 4 | Plus de punch | 2 | S1-6 | vidéo |
-| P9 | P | Musique d'ambiance courte par clone (licences) | 4 | Ambiance | 1,5 | décision 7 | licences |
-| | | **Total P** | | | **21,5** | | |
+| P5 | P | Remappage touches et boutons | 4 | Chacun règle sa manette | 2 | S1-1 | écran de réglage |
+| P6 | P | Salon à 4 joueurs sur le site (le site propose 2) | 4 | Jouer à 4 | 2 | S1-3 | partie à 4 entre réseaux |
+| P7 | P | Champ de flux incrémental (D70, D122, D118) | 4 | Marge de perf | 3 | S2-9 | traces identiques (§5) |
+| P8 | P | Feel lot 2 : traînées, douilles, avance de caméra | 4 | Plus de punch | 2 | S1-6 | vidéo |
+| P9 | P | Musique d'ambiance par clone | 4 | Ambiance | 1,5 | décision musique | licences |
+| | | **Total P** | | | **14,5** | | |
 
-Ordre valeur/coût : P2, P4, P3, P6, P5, P1, P8, P9, P7. (P1 est le plus gros et le plus cher mais « 4 clones complets » le
-demande ; William tranche, décision 4.)
+(P1 « throne complet » et P4 « D125 » sont absorbés dans S2-10 à S2-12 et S2-6.) Ordre : P2, P3, P6, P5, P8, P9, P7.
 
-## 4. Semaine 1 : calendrier à quatre voies
+## 4. Calendrier : une semaine, sept voies
 
-Quatre voies : **b0, b1, b3 sur Mac** (affichage, navigateur, Docker, manette physique) et **une seule voie VPS, b2**
-(ni affichage ni navigateur : **aucune capture ni vidéo** — D94 ; contenu, bots, campagnes, p2p headless, hébergement du
-signaling). La semaine 2 reprend la même grille avec le tableau § 3.2 (b0 : S2-4 isaac visuel ; b1 : S2-1 et S2-2 gungeon ;
-b3 : S2-8, S2-9 et S2-5 ; b2 : S2-3, S2-6, S2-7 [INFERENCE : campagnes et contenu sur le VPS, vidéos de recette sur Mac]).
+Voies : **Mac** (affichage, Chrome, Docker, manette physique) : b0, b1, b3, b4 (nouvelle) ; **VPS** (aucun affichage ni
+navigateur : pas de capture ni de vidéo, D94) : b2, b6 ; **v1** : agent de recherche (pas de build) puis Mac. Charge
+nominale par voie (jours) : b0 5,5 · b1 6 · b3 5,5 · b4 6,5 · b2 5,5 · b6 6,5 · v1 8 ; **S2-6 (3,5 j)** non attribué :
+**première tâche à prendre par la voie qui finit tôt**, sinon elle glisse. Toutes les voies **réestiment à J1**.
 
-| Jour | b0 (Mac) | b1 (Mac) | b3 (Mac) | b2 (VPS) |
-|---|---|---|---|---|
-| 1 | S1-1 : **proposition de schéma manette à William** (matin), vérification `bevy_gilrs` en wasm, liaisons | S1-2 : script 4 jeux, compilation wasm de gungeon et isaac | S1-6 : interpolation d'affichage, réglages par clone | S1-3 : état réel de `allumette.estran.studio` ; serveur `wss://` (décision 1) |
-| 2 | S1-1 : tir, visée, actions | S1-2 : tailles, chargement, `catalog.ts` | S1-6 : flash de bouche, recul, mort | S1-3 : D116, test headless à deux |
-| 3 | S1-1 : menus, mutation, écran d'aide ; **essai E4 avec William** | S1-2 : `releases.json`, `release.yaml`, gungeon hub web | S1-8 : audit visuel de zombies, tilesets | S1-7 : clés de sons, volume global |
-| 4 | S1-4 : textes français | S1-3 : recette navigateur entre **deux réseaux** | S1-8 : sprites animés, couleurs de joueur | S1-7 fin (déblocage audio côté Mac) ; S1-10 : audit des cartes, spawners |
-| 5 | S1-11 : session d'amis (avec William) | S1-5 : FPS wasm par clone | S1-9 : sons de zombies | S1-10 : campagne avant/après, traces rebénies |
+| Jour | b0 (Mac) | b1 (Mac) | b3 (Mac) | b4 (Mac) | b2 (VPS) | b6 (VPS) | v1 |
+|---|---|---|---|---|---|---|---|
+| J1 | S1-1 : preuve `bevy_gilrs` wasm, liaisons | S1-6 : audit feel, interpolation | S1-10 : audit cartes zombies, campagne « avant » | S2-3 : audit gungeon, campagne | S1-2 : script 4 jeux, wasm gungeon/isaac | S1-7 : clés de sons moteur | **S-0 : besoins × clones, recherche de packs** |
+| J2 | S1-1 : tir, visée, actions | S1-6 : réglages par clone, bouche/recul | S1-8 : audit visuel zombies ; S1-10 | S2-3 puis S2-2 | S1-2 : tailles, catalog, releases ; état Allumette (S1-3) | S1-7 fin ; S1-4 : textes FR | S-0 : 2–3 candidats par clone → **William choisit et achète** |
+| J3 | S1-1 : menus, mutation, aide ; **E4 avec William** | S1-5 : FPS wasm ; S2-9 | S1-8 : intégration du pack ; S1-9 | S2-1 : pack gungeon | S1-3 : Allumette, `wss://`, D116 | S2-7 : throne D66/D67 | S2-4 : isaac visuel (pack) |
+| J4 | S2-8 : coop throne/isaac ; S2-5 isaac sons | S2-11 throne sons ; S2-9 | S1-9 ; S1-10 après | S2-1 fin ; S2-2 | S1-3 : **deux réseaux** (avec b1 ou William) | S2-12 : throne map ; S2-6 | S2-4 ; S2-10 (throne visuel) |
+| J5 | S2-8 fin ; session isaac | recette navigateur 4 clones | **S1-11 session d'amis (avec William)** ; vidéos zombies | captures gungeon, isaac, throne | rapports, `make check` | campagnes finales ; `LIVRÉ` | S2-10 fin ; rapport |
 
-**Ordre de merge** (du moins au plus conflictuel) : S1-7 → S1-9 → S1-10 → S1-8 → S1-6 → S1-2 → S1-3 → S1-1 → S1-4 → S1-5
-→ S1-11.
+**Ordre de merge** (du moins au plus conflictuel) : S1-7 → S1-9 / S2-2 / S2-5 / S2-11 (sons de contenu) → S1-10 / S2-3 /
+S2-6 / S2-12 (contenu, traces d'un jeu chacun) → S1-8 / S2-1 / S2-4 / S2-10 (visuels, `assets.yaml`) → S1-6 → S1-2 → S1-3 →
+S1-1 → S1-4 → S2-8 → S1-5 / S2-9 → S1-11.
 
 **Conflits prévisibles** : `website/static/releases.json`, `website/src/lib/game/catalog.ts`, `Makefile`,
-`.github/workflows/release.yaml` (S1-2 et S1-3) ; `crates/game/src/ui/screens/input.rs`, `character/control.rs`,
-`input_devices.rs` (S1-1) et `ui/game_over.rs`, `ui/lobby.rs` (S1-4 et S1-1) ; `crates/game/src/feedback.rs` et
-`crates/content/src/feedback.rs` (S1-6 et S1-7) ; `core_sim.rs` (interpolation, S1-6) ; `games/zombies/assets/ui/hud.ron`
-et `feedback.ron` (S1-6, S1-8, S1-9) ; `tests/scenarios/*.trace` de zombies (S1-10 seul peut les bouger ; les autres
-tâches n'en bougent aucune) ; `docs/taches.md` et `dettes.md` (une ligne de journal par lot, rebase).
+`.github/workflows/release.yaml` (S1-2, S1-3) ; `character/control.rs`, `input_devices.rs`, `ui/screens/input.rs` (S1-1) et
+`ui/game_over.rs`, `ui/lobby.rs` (S1-4, S1-1) ; `feedback.rs`, `content/src/feedback.rs` (S1-6, S1-7) ; `core_sim.rs`
+(interpolation S1-6) ; `games/*/assets/assets.yaml` et `ui/hud.ron` par jeu (S-0, visuels, S2-8) ; `tests/budgets.ron` (S2-9,
+S2-3, S2-6) ; `tests/scenarios/*.trace` : seules les tâches de contenu et d'équilibrage (S1-10, S2-3, S2-6, S2-7, S2-12) en
+bougent, chacune dans **un** jeu ; `docs/taches.md` et `dettes.md` (une ligne par lot, rebase).
 
-**Ce qui attend William** : jour 0 : décisions 1 à 5 de § 5 (sans réponse, défauts) ; jour 1 : **validation du schéma
-manette** (S1-1 écrit le code après) ; jour 3 : essai E4 à la manette dans le navigateur ; jour 4 : un **second réseau**
-(le Mac de recette passait par un tunnel qui échouait même sans engine : `contrat-lancement-web.md`, preuve sur deux réseaux
-ouverte) ; jour 5 : session d'amis, écoute des sons de zombies, revue de la vidéo de zombies ; fin de semaine 2 : 30 min en
-coop par clone.
+**Ce qui attend William** : J1 schéma manette (**fait**) ; J2 **choix et achat du pack** ; J3 essai E4 à la manette dans le
+navigateur ; J4 un second réseau pour la recette en ligne ; J5 session d'amis et 30 min en coop par clone (écoute des sons).
 
 ## 5. Décisions attendues de William
 
-Décisions **déjà prises** (2026-10-21, retirées de la liste) : jeux **web seulement** via le site (plus d'archives
-Mac/Windows, plus de question de plateforme, de signature Gatekeeper ni d'hébergement d'archives) ; **pas d'écran de
-démarrage dans le jeu** ; **manette prioritaire**. Restent, avec l'option par défaut :
+Tranchées (2026-10-21 et 22), retirées : web seul, pas d'écran de démarrage, manette prioritaire, une semaine à tout
+l'effort, zombies en premier, schéma manette, signaling par Allumette, pack d'assets acheté ou libre. Restent, avec l'option
+par défaut :
 
-1. **Signaling** : héberger `matchbox_server` nu derrière TLS sur le VPS, ou **réparer/relancer Allumette** ? Défaut :
-   Allumette, parce que le site passe déjà par lui (invités, salons, TURN : parcours prouvé sur deux Chromium le 2026-10-09,
-   `contrat-lancement-web.md`) ; un `matchbox_server` nu obligerait à réécrire le flux du site et n'apporte pas de TURN
-   [INFERENCE]. Dans les deux cas : `wss://`, joignable d'un navigateur ; version du protocole Matchbox à vérifier
-   (client 0.15 d'un fork, serveur Allumette 0.13.0, `contrat-lancement-web.md`).
-2. **Schéma manette** (proposition à valider, table dans `polissage-manette.md`) : stick gauche déplacement, stick droit
-   visée, gâchette droite tir, etc. Défaut : la proposition de la fiche.
-3. **Perf web acceptable** : seuil à fixer après la mesure de S1-5. Défaut de travail : la simulation tient 60 Hz à
-   2 joueurs dans Chrome sur le Mac de William ; sinon, dégrader (lumière désactivée pour le web, déjà le défaut de la
-   feature `lighting`, `crates/game/Cargo.toml`) avant de réduire le contenu.
-4. **Quel(s) clone(s) rendre complets en premier** : défaut **zombies (semaine 1), puis gungeon, puis isaac (semaine 2),
-   throne en P1** (+ 6 j). Alternative : isaac avant gungeon.
-5. **Direction artistique** : garder la génération CC0 de la voie V6 (`plan-assets.md`) pour les sprites « propres au jeu »,
-   ou acheter/commander ? Défaut : générer cette semaine, décider un achat avant S2-1 si le rendu de zombies déçoit.
-6. **Q14** : la couverture des mécaniques remplace-t-elle la fourchette de victoires ? Défaut : oui.
-7. **Sons et musique** : sons CC0/CC BY nouveaux autorisés (licence dans `assets.yaml`) ; musique en P9. Défaut : sons oui,
-   musique non.
-8. **Gungeon sur le web** : commence-t-on au hub (`hub: Some(...)`) ou directement en run ? Défaut : au hub, comme natif.
-9. **`online` dans `releases.json`** : le fichier annonce `online: true` pour zombies et throne alors que le contrat dit
-   « désactivé tant que la recette n'est pas faite » : repasser à `false` jusqu'à S1-3 ? Défaut : oui.
-10. **Isaac sans dash** (`dash_distance` 0 partout, inventaire §9) : voulu ? Défaut : oui, isaac n'a pas de dash.
-11. **Essai humain** : 30 min en coop par clone à la fin de chaque semaine, notes dans
-    `docs/taches/rapports/plan-polissage-notes.md`. Défaut : oui.
-12. **Les P** : lesquels engager si une voie finit tôt. Défaut : l'ordre de § 3.4.
+1. **Q14** : la couverture des mécaniques remplace-t-elle la fourchette de victoires ? Défaut : oui.
+2. **Musique** : sons CC0/CC BY nouveaux autorisés ; musique en P9. Défaut : sons oui, musique non.
+3. **Gungeon sur le web** : démarrer au hub (`hub: Some(...)`) ? Défaut : oui, comme en natif.
+4. **`online` dans `releases.json`** : annonce `online: true` pour zombies et throne alors que le contrat dit « désactivé
+   tant que la recette n'est pas faite » : repasser à `false` jusqu'à S1-3 ? Défaut : oui.
+5. **Isaac sans dash** (`dash_distance` 0 partout, inventaire §9) : voulu ? Défaut : oui.
+6. **Essai humain** : 30 min en coop par clone, notes dans `docs/taches/rapports/plan-polissage-notes.md`. Défaut : oui.
+7. **Capacité** : 47 j de B pour 35 j nominaux (William : ≈ 42 j) : accepter l'ordre de glissement de § 3, ou ajouter une
+   voie ? Défaut : l'ordre de glissement.
+8. **Budget du pack** : plafond de prix par clone (à fixer à J2 sur les candidats de S-0). Défaut : aucun plafond posé par
+   l'agent, William décide devant les prix.
+9. **Les P** : lesquels engager si une voie finit tôt. Défaut : l'ordre de § 3.2.
 
 ## 6. Hors périmètre
 
-- **Archives natives Mac/Windows** et workflow `dist` : supprimés (décision du 2026-10-21).
-- **Écran de démarrage, menu solo/héberger/rejoindre dans le jeu** : le site connecte (décision du 2026-10-21).
-- **Mécaniques nouvelles** (objet, ennemi, arme, mode, hub pour un clone qui n'en a pas) ; **suite de D69** (E8+) ; **1837**
-  et M4 ; **équilibrage automatique** par fourchette de victoires.
+- **Archives natives Mac/Windows** ; **écran de démarrage dans le jeu** (le site connecte) ; **`matchbox_server` nu**
+  (Allumette obligatoire).
+- **Mécaniques nouvelles**, **suite de D69** (E8+), **1837** et M4, **équilibrage automatique** par fourchette.
 - **Remappage, salon à 4 sur le site, musique, feel lot 2, perf profonde** : P, jamais B.
+- **Génération maison de sprites « propres »** : remplacée par le pack (S-0) ; la génération reste valable pour des
+  éléments que le pack ne couvre pas, à dire à William.
 - **Dettes d'outillage sans effet sur le joueur** (D110, D111, D112, D114, D115, D117).
 
 ## 7. Règles de la semaine
 
-- Déterminisme et checklist GGRS de `CLAUDE.md` : l'**interpolation d'affichage** (S1-6) vit en `PostUpdate`/présentation,
-  jamais dans `GgrsSchedule` et jamais dans le hash ; les sons et effets sont **dérivés de l'état** (`Update`), jamais d'un
-  événement émis par la simulation ; tout réglage de gameplay (S1-10, S2-3, S2-6) passe par `BLESS` avec preuve §5.
-- Présentation seule (S1-1, S1-4, S1-6, S1-7, S1-8, S1-9) : `make test_scenarios` sans `BLESS`, aucune trace ne bouge.
-- Numéros de dettes : prochain libre **D126** ; **D126 à D130 réservés** à ce plan (audits : manette wasm, interpolation,
-  tailles wasm, sons manquants, cartes) ; les workers ouvrent à partir de **D131** après avoir relu `dettes.md`.
-- Chaque lot finit par `LIVRÉ <branche>` dans le journal (`docs/taches.md` §10) et un rapport dans
-  `docs/taches/rapports/`.
+- Déterminisme et checklist GGRS de `CLAUDE.md` : l'interpolation d'affichage (S1-6) vit en `PostUpdate`, jamais dans
+  `GgrsSchedule` ni dans un hash ; sons et effets **dérivés de l'état** (`Update`) ; tout réglage de gameplay (S1-10, S2-3,
+  S2-6, S2-7, S2-12) passe par `BLESS` avec preuve §5.
+- Présentation seule : `make test_scenarios` sans `BLESS`, aucune trace ne bouge.
+- Assets achetés ou libres : **licence compatible commerciale et console** (`docs/plan-engine.md` §7, « Consoles »),
+  archivée dans `assets.yaml` (source, licence, prix, date) ; aucun fichier sans licence lisible.
+- Numéros de dettes : prochain libre **D126** ; **D126 à D130 réservés** à ce plan ; les voies ouvrent à partir de **D131**
+  après relecture de `dettes.md` (sept voies en parallèle : annoncer le numéro pris dans le journal pour éviter les collisions).
+- Chaque lot finit par `LIVRÉ <branche>` dans le journal (`docs/taches.md` §10) et un rapport dans `docs/taches/rapports/`.

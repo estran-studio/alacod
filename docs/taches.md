@@ -749,15 +749,14 @@ quand la bible sera prête : A5 en V4, B5 parade et D3 en V1a et V1c, E4 neige e
 nuit en V1e, H1 en V4, J2 en V1e, le plugin `1837` dans son dépôt) ; M5 la région des
 chantiers puis la campagne.
 
-### 8.0 Semaine de polissage (entre M3 et M4), révisé le 2026-10-21 après revue de William : web seul, manette, axes 8–11
+### 8.0 Semaine de polissage (entre M3 et M4), révisé le 2026-10-21 après revue de William : web seul, manette, axes 8–11 ; décisions du 2026-10-22 : une semaine, 7 voies, zombies d'abord, Allumette, pack d'assets acheté ou libre
 
 **Décision de William du 2026-10-21** : M3 (`isaac`) est sortie côté machine ; le développement de mécaniques est en
 **pause** et une période de **polissage des quatre clones** (jouables et agréables entre amis, pas au niveau d'un jeu
 release) s'intercale **entre M3 et M4** (1837). **Révisé après sa revue du plan** : les jeux se jouent **seulement dans le
 navigateur, via le site** (plus d'archives natives ; pas d'écran de démarrage dans le jeu) ; **la manette est cruciale**
 (navigateur compris) ; quatre axes s'ajoutent aux sept d'origine : game feel, visuel complet, effets sonores complets, map
-design. Le B dépasse 20 j (≈ 40 j) : il est découpé en **semaine 1** (web et online pour les quatre, manette, textes
-français, feel et sons dans le moteur, **zombies complet**) et **semaine 2** (gungeon, isaac, throne jouable, perf). Plan,
+design. **Décisions du 2026-10-22** : **une seule semaine à sept voies** (« tout l'effort nécessaire » ; B ≈ 47 j pour 35 j nominaux : serré), **zombies complet en premier**, schéma manette accepté, signaling **par Allumette**, sprites par **pack acheté ou libre** (tâche S-0). Plan,
 état mesuré, tâches, calendrier à quatre voies et décisions : `docs/taches/plan-polissage.md` ; inventaire :
 `docs/taches/rapports/plan-polissage.inventaire.md`. Pas de mécanique nouvelle, pas de suite de D69.
 
@@ -1670,4 +1669,4 @@ LIVRÉ dette-d69-e5c-plugins : D69 étape 2, E5c — présentation des interacti
 
 LIVRÉ dette-d113-tir-ami-explode : D113 réduite au point (b) ; un coéquipier n'est plus blessé par `nova` (`isaac_nova_coop`) ; cinq traces rebénies, p2p isaac sans desync
 | 2026-10-19 | dette-d69-e7-core « D69 étape 2, E7 : `CoreSetupPlugin` en deux plugins » (b2 : `core_sim.rs` `CoreSimPlugin(CoreSetupConfig)` (éléments de simulation dans l'ordre exact de l'ancien `build`, cinq enregistrements de clôture derniers, `finish`) puis `core.rs` `CoreAppPlugin(CoreSetupConfig)` (assets, réseau, présentation, `GameUiPlugin` et `GameUiInputPlugin` rattachés) ; `CoreSetupPlugin` garde son nom et ses appelants ; `GameUiModelPlugin` supprimé ; test `core_sim_seul_sur_minimal_plugins` ; `schedule_order_diff` strictement vide (4 520 lignes, 645 types) ; `ALACOD_SCHEDULE_ALL=1` : tous les schedules et paires en conflit, avec et sans présentation (20 paires retournées en headless, jugées sauf le chargement de carte ; 138 avec présentation, à prouver par captures) ; cliquet 76 → 79 ; sonde 44 → 44 / 754 → 754 ; 807 scénarios sans BLESS, 1 304 tests, `make gen` ×5 431, fuzz, p2p-stress zombies 1 639 et isaac 1 581 resimulées, restart, lobby, disconnect, sync-timeout, build web, features ; captures `cmp` non faites (pas d'affichage sur le VPS, commandes au rapport § 5) ; rapport `docs/taches/rapports/dette-d69-e7-core.md`) | `dette-d69-e7-core` | Worker b2 | Livré, non mergé ; à relire : captures `cmp` sur le Mac |
-| 2026-10-21 | plan-polissage « plan de la semaine de polissage des 4 clones, révisé après revue de William : web seul, manette, axes 8–11 (game feel, visuel, sons, map design) » (plan-polissage : `docs/taches/plan-polissage.md` (onze axes, état mesuré par clone, B de la semaine 1 = 19,5 j, de la semaine 2 = 20 j, P = 21,5 j, calendrier à quatre voies, douze décisions attendues), treize fiches `docs/taches/polissage-*.md`, inventaire `docs/taches/rapports/plan-polissage.inventaire.md` (13 sections) ; documentation seule, aucune compilation ni trace) | `plan-polissage` | Claude | livrée ; revue de William attendue sur les décisions 1 à 5 |
+| 2026-10-22 | plan-polissage « plan de la semaine de polissage des 4 clones : décisions du 2026-10-22 : une semaine, 7 voies, zombies d'abord, Allumette, pack d'assets acheté ou libre » (plan-polissage : `docs/taches/plan-polissage.md` (onze axes, état mesuré, B unique de 47 j pour 35 j nominaux, P 14,5 j, calendrier à sept voies, neuf décisions restantes), sept fiches ajoutées ou réécrites (`polissage-pack-assets`, `-gungeon-complet`, `-isaac-complet`, `-throne-complet`, `-perf-budgets`, `-reseau-amis`, `-zombies-visuel`) ; documentation seule, aucune trace) | `plan-polissage` | Claude | livrée et fusionnée dans `main` ; premier jalon : choix du pack par William à J2 |
