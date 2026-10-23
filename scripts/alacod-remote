@@ -14,9 +14,9 @@
                                           modificateur vivant (OP : Add|Pct|Mul|Set ; VALEUR : « 0.9 »)
   alacod-remote unmodify [--handle 0|--net-id N] [--source editor]   retire les modificateurs de la source
   alacod-remote reload                    relit le registre de contenu (appliqué au prochain restart)
-  alacod-remote spawn <personnage> --at X,Y [--team T] [--variant V]
-  alacod-remote spawn-powerup <id> --at X,Y
-  alacod-remote spawn-item <id> --at X,Y
+  alacod-remote spawn <personnage> (--at X,Y | --ahead [PX]) [--team T] [--variant V] [--handle N]
+  alacod-remote spawn-powerup <id> (--at X,Y | --ahead [PX])
+  alacod-remote spawn-item <id> (--at X,Y | --ahead [PX])
   alacod-remote discover                  méthodes du remote (rpc.discover, OpenRPC), puis ses paramètres
 
 Boutons : Up Down Left Right Fire SwitchWeapon SwitchWeaponMode Reload Sprint Dash
@@ -76,6 +76,25 @@ def discover(doc):
     return "\n".join(lines)
 
 
+FACING = {"Right": (1, 0), "UpRight": (1, 1), "Up": (0, 1), "UpLeft": (-1, 1),
+          "Left": (-1, 0), "DownLeft": (-1, -1), "Down": (0, -1), "DownRight": (1, -1)}
+
+
+def resolve_position(args):
+    """`--at X,Y` tel quel ; `--ahead [PX]` : position du joueur `--handle` avancée de PX dans son `facing`."""
+    if (args.at is None) == (args.ahead is None):
+        sys.exit("donner --at X,Y ou --ahead [PX]")
+    if args.at is not None:
+        x, y = (float(v) for v in args.at.split(",", 1))
+        return x, y
+    player = next((p for p in call("alacod/state")["players"] if p["handle"] == args.handle), None)
+    if player is None:
+        sys.exit(f"joueur {args.handle} absent")
+    dx, dy = FACING.get(player.get("facing") or "Right", (1, 0))
+    norm = math.hypot(dx, dy)
+    return player["x"] + args.ahead * dx / norm, player["y"] + args.ahead * dy / norm
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -113,15 +132,21 @@ def main():
     sub.add_parser("reload")
     p = sub.add_parser("spawn")
     p.add_argument("character")
-    p.add_argument("--at", required=True)
+    p.add_argument("--at")
+    p.add_argument("--ahead", type=float, nargs="?", const=60.0, help="devant le joueur (PX, 60 par défaut)")
+    p.add_argument("--handle", type=int, default=0)
     p.add_argument("--team")
     p.add_argument("--variant")
     p = sub.add_parser("spawn-powerup")
     p.add_argument("id")
-    p.add_argument("--at", required=True)
+    p.add_argument("--at")
+    p.add_argument("--ahead", type=float, nargs="?", const=60.0, help="devant le joueur (PX, 60 par défaut)")
+    p.add_argument("--handle", type=int, default=0)
     p = sub.add_parser("spawn-item")
     p.add_argument("id")
-    p.add_argument("--at", required=True)
+    p.add_argument("--at")
+    p.add_argument("--ahead", type=float, nargs="?", const=60.0, help="devant le joueur (PX, 60 par défaut)")
+    p.add_argument("--handle", type=int, default=0)
     args = parser.parse_args()
 
     if args.cmd == "state":
@@ -170,7 +195,7 @@ def main():
         if result.get("errors"):
             sys.exit(1)
     elif args.cmd in ("spawn", "spawn-powerup", "spawn-item"):
-        x, y = (float(v) for v in args.at.split(",", 1))
+        x, y = resolve_position(args)
         params = {"x": x, "y": y}
         if args.cmd == "spawn":
             params["character"] = args.character

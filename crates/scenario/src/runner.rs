@@ -390,6 +390,8 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
             apply_scenario_shelf_placements
                 .after(apply_scenario_chest_placements)
                 .before(game::items::item_consumable_pickup_system)
+                // Commandes d'édition (K5-2) : leurs net ids viennent après ceux des placements du scénario.
+                .before(map_ldtk::game::commands::apply_game_commands_pickups)
                 .in_set(game::system_set::RollbackSystemSet::Effects),
         )
         // T1.13 : placements scriptés de personnages (voir la doc de
@@ -403,6 +405,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
                 // Après les spawns du jeu de la même frame (ordre des net ids déterministe).
                 .after(game::waves::systems::wave_spawning_system)
                 .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system)
+                .before(map_ldtk::game::commands::apply_game_commands_spawn)
                 .in_set(game::system_set::RollbackSystemSet::EnemySpawning),
         )
         .insert_resource(PlayerOverrides(

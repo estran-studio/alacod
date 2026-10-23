@@ -131,6 +131,14 @@ impl Stats {
     pub fn set(&mut self, id: StatId, value: Fixed) {
         self.0.insert(id, value);
     }
+
+    /// Réécrit les bases présentes dans `other` et garde les autres (rechargement à chaud :
+    /// les défauts propres à la création, ex. ceux d'un ennemi, restent).
+    pub fn overlay(&mut self, other: &Stats) {
+        for (id, value) in &other.0 {
+            self.0.insert(id.clone(), *value);
+        }
+    }
 }
 
 #[cfg(test)]

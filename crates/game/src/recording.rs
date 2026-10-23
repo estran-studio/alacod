@@ -347,6 +347,7 @@ fn start_native_recording(
     difficulty: Option<Res<crate::clock::DifficultyConfig>>,
     progression: Res<crate::progression::ProgressionTable>,
     map: Option<Res<MapGenerationConfig>>,
+    game_commands: Option<Res<crate::game_commands::GameCommands>>,
 ) {
     if !recorder.native || (recorder.started && frame.frame != 0) {
         return;
@@ -389,6 +390,15 @@ fn start_native_recording(
         difficulty.is_some(),
         &progression,
     );
+    // `GameCommands` est vidée à l'entrée de `GameLoading` : ce qu'elle contient à la frame 0 a été
+    // posé pour cette run avant son premier tick (K5-2) et doit survivre à la remise à zéro.
+    if let Some(commands) = game_commands {
+        for (at_frame, list) in &commands.0 {
+            for command in list {
+                recorder.record_command(command, *at_frame);
+            }
+        }
+    }
 }
 
 fn live_settings(

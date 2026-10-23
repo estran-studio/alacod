@@ -93,11 +93,22 @@ pub fn refresh_live_stats(
     global: Option<Res<GlobalAsset>>,
     assets: Res<Assets<CharacterConfigAsset>>,
     mut events: MessageReader<AssetEvent<CharacterConfigAsset>>,
-    balance: Res<crate::balance::ResolvedBalance>,
+    balance: Option<Res<crate::balance::ResolvedBalance>>,
     online: Option<Res<crate::session::OnlineState>>,
     session: Option<Res<crate::jjrs::GggrsSessionConfiguration>>,
     mut query: Query<(&utils::net_id::GgrsNetId, &CharacterConfigKey, &mut Stats)>,
 ) {
+    // Événements lus à chaque frame (curseur avancé), même quand la garde refuse.
+    let modified: Vec<_> = events
+        .read()
+        .filter_map(|event| match event {
+            AssetEvent::Modified { id } => Some(*id),
+            _ => None,
+        })
+        .collect();
+    if modified.is_empty() {
+        return;
+    }
     if crate::editor_mode::session_hot_edit_allowed(
         online.as_deref().copied(),
         session.as_deref().map(|s| s.connection.check_distance),
@@ -106,13 +117,7 @@ pub fn refresh_live_stats(
     {
         return;
     }
-    let modified: Vec<_> = events
-        .read()
-        .filter_map(|event| match event {
-            AssetEvent::Modified { id } => Some(*id),
-            _ => None,
-        })
-        .collect();
+    let Some(balance) = balance else { return };
     let Some(global) = global else { return };
     for (key, handle) in &global.character_configs {
         if !modified.contains(&handle.id()) {
@@ -128,7 +133,7 @@ pub fn refresh_live_stats(
             if config_key.0 != *key {
                 continue;
             }
-            *stats = base_stats(config, health_max, &[]);
+            stats.overlay(&base_stats(config, health_max, &[]));
         }
     }
 }

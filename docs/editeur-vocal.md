@@ -41,11 +41,12 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
   - `alacod/restart` `{kind?: "Restart"|"ToLobby"|"EnterRun"|"ToHub", seed?: i32}` : pose un `RunRequest` ; le jeu repasse par `GameLoading`
     (tables dérivées du `Registry` recalculées, carte rechargée) puis `InGame`. `seed` écrit `MapGenerationConfig.seed` ; refusé avec `ToLobby`.
   - `alacod/set_modifier` `{handle?|net_id?, stat, op: Add|Pct|Mul|Set, value: "0.9", source?: "editor", until_frames?}` : modificateur
-- `alacod/spawn_character` `{character, x, y, team?, variant?}` : valide puis programme le personnage à la frame suivante.
-- `alacod/spawn_powerup` `{id, x, y}` et `alacod/spawn_item` `{id, x, y}` : valident l'id puis programment le pickup à la frame suivante.
-  Les commandes sont rejouables, visibles dans `state.commands`, et incluses comme placements par `save`.
     **vivant** sur une entité (joueur 0 par défaut) ; `stat` = un `StatId` (`MoveSpeed`, `MaxHealth`, `Damage`, `FireRate`, `ReloadSpeed`…) ou `custom:<nom>`.
   - `alacod/clear_modifiers` `{handle?|net_id?, source?: "editor"}` : retire ceux de la source.
+  - `alacod/spawn_character` `{character, x, y, team?: "players"|"enemies"|"neutral", variant?}`, `alacod/spawn_powerup` `{id, x, y}`, `alacod/spawn_item` `{id, x, y}` :
+    l'id est validé (erreur `INVALID_PARAMS` sinon), la commande est posée dans `GameCommands` à la frame **suivante** (réponse `{frame}`), appliquée par la simulation
+    (net id attribué dans l'ordre de la file) et ajoutée comme placement (`characters`/`powerups`/`items`) à l'enregistreur : `save` produit un scénario que le runner rejoue
+    à l'identique. Visibles dans `state.commands` tant que leur frame n'est pas passée. Même garde que les autres écritures (d=0, hors ligne).
   - `alacod/reload_content` : relit le `Registry` tout de suite ; renvoie les compteurs et `errors` (liste vide = remplacé). Les tables dérivées
     prennent effet au prochain `GameLoading` (`restart` ou changement d'étage).
   - `alacod/state` s'enrichit : `editor`, `online`, `check_distance`, `game`, `map`, `seed`, `run.step`, `config` de chaque ennemi.
@@ -65,9 +66,9 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 ## 2.1 Commandes vocales de placement
 
 « Spawne un zombie_runner devant moi » se traduit par `spawn zombie_runner --at X,Y`.
-La position « devant moi » est celle du joueur ciblé, avancée de **60 px** dans sa direction de visée
-(visée libre ; à défaut, la dernière visée connue). Le client vocal lit `alacod/state` pour obtenir
-la position et la visée, puis envoie la commande explicite ; le moteur applique le spawn à la frame suivante.
+« Devant moi » : `spawn zombie_runner --ahead` (60 px, ou `--ahead 100`, `--handle N`). Le script lit `alacod/state`
+(`players[].x`, `y` et `facing`, l'une des huit directions du personnage : `Right` = +x, `Up` = +y) et envoie la position explicite
+(diagonales normalisées) ; le moteur ne connaît que des coordonnées, jamais « devant ». Sans `facing`, le script prend `Right`.
 
 ## 3. Vocabulaire → champs RON
 

@@ -144,6 +144,7 @@ pub fn register(app: &mut App) {
             .run_if(has_commands)
             .in_set(RollbackSystemSet::Effects)
             .before(game::powerups::powerup_pickup_detect_system)
-            .after(apply_game_commands_spawn),
+            // `Effects` précède `EnemySpawning` : pickups d'abord, personnages ensuite (comme le runner).
+            .before(game::items::item_consumable_pickup_system),
     );
 }

@@ -192,9 +192,12 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         &Health,
         Option<&WeaponInventory>,
         Option<&combat::inventory::AmmoReserves>,
+        Option<&sim_core::animation_state::FacingDirection>,
     )>();
     let mut players = Vec::new();
-    for (player, id, transform, health, inventory, ammo_reserves) in players_query.iter(world) {
+    for (player, id, transform, health, inventory, ammo_reserves, facing) in
+        players_query.iter(world)
+    {
         let weapon = inventory.and_then(|inventory| {
             let (entity, weapon) = inventory.weapons.get(inventory.active_weapon_index)?;
             let (state, modes) = weapons.get(world, *entity).ok()?;
@@ -219,6 +222,7 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
             "health": round(health.current),
             "max_health": round(health.max),
             "weapon": weapon,
+            "facing": facing.map(|f| format!("{f:?}")),
         }));
     }
     players.sort_by_key(|p| p["handle"].as_u64());
@@ -894,5 +898,105 @@ mod tests {
         assert_eq!(world.get::<Modifiers>(player).unwrap().0.len(), 1);
         clear_modifiers(In(None), &mut world).expect("retiré");
         assert!(world.get::<Modifiers>(player).unwrap().0.is_empty());
+    }
+
+    // Handlers `alacod/spawn_*` (K5-2) : id validé et garde avant toute écriture.
+    fn spawn_world(check_distance: usize) -> World {
+        let (mut world, _) = world(check_distance, OnlineState::Offline);
+        world.insert_resource(GameCommands::default());
+        world.insert_resource(CharacterConfigs::default());
+        world.insert_resource(items::ItemTable::default());
+        world.insert_resource(PowerUpsTable(Some(crate::powerups::PowerUpsConfig {
+            drop_chance: fixed_math::FIXED_ZERO,
+            powerups: [(
+                "insta_kill".to_string(),
+                crate::powerups::PowerUpDef {
+                    name: "Insta-Kill".into(),
+                    weight: 1,
+                    pickup_range: fixed_math::FIXED_ONE,
+                    lifetime_frames: 600,
+                    actions: vec![],
+                },
+            )]
+            .into(),
+        })));
+        world.resource_mut::<FrameCount>().frame = 41;
+        world
+    }
+
+    #[test]
+    fn spawn_handlers_refuse_unknown_ids_without_command() {
+        let mut world = spawn_world(0);
+        for (result, what) in [
+            (
+                spawn_character(
+                    In(Some(json!({ "character": "nope", "x": 1.0, "y": 2.0 }))),
+                    &mut world,
+                ),
+                "personnage inconnu",
+            ),
+            (
+                spawn_powerup(
+                    In(Some(json!({ "id": "nope", "x": 1.0, "y": 2.0 }))),
+                    &mut world,
+                ),
+                "power-up inconnu",
+            ),
+            (
+                spawn_item(
+                    In(Some(json!({ "id": "nope", "x": 1.0, "y": 2.0 }))),
+                    &mut world,
+                ),
+                "objet inconnu",
+            ),
+        ] {
+            let err = result.expect_err("id inconnu");
+            assert_eq!(err.code, error_codes::INVALID_PARAMS);
+            assert!(err.message.contains(what), "{}", err.message);
+        }
+        assert!(world.resource::<GameCommands>().0.is_empty());
+    }
+
+    #[test]
+    fn spawn_handlers_refuse_synctest_distance_without_command() {
+        let mut world = spawn_world(2);
+        for result in [
+            spawn_character(
+                In(Some(json!({ "character": "nope", "x": 1.0, "y": 2.0 }))),
+                &mut world,
+            ),
+            spawn_powerup(
+                In(Some(json!({ "id": "insta_kill", "x": 1.0, "y": 2.0 }))),
+                &mut world,
+            ),
+            spawn_item(
+                In(Some(json!({ "id": "nope", "x": 1.0, "y": 2.0 }))),
+                &mut world,
+            ),
+        ] {
+            refused(result, "check_distance=2");
+        }
+        assert!(world.resource::<GameCommands>().0.is_empty());
+    }
+
+    #[test]
+    fn spawn_powerup_at_distance_zero_queues_for_next_frame() {
+        let mut world = spawn_world(0);
+        let reply = spawn_powerup(
+            In(Some(json!({ "id": "insta_kill", "x": 100.5, "y": 200.0 }))),
+            &mut world,
+        )
+        .expect("commande acceptée");
+        assert_eq!(reply["frame"], 42);
+        let commands = world.resource::<GameCommands>();
+        assert_eq!(
+            commands.0.get(&42),
+            Some(&vec![GameCommand::SpawnPowerUp {
+                id: "insta_kill".into(),
+                x: fixed_math::Fixed::from_num(100.5),
+                y: fixed_math::Fixed::from_num(200),
+            }])
+        );
+        assert_eq!(commands.0.len(), 1);
     }
 }
