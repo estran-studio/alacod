@@ -43,7 +43,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 use crate::{
     character::{
-        config::CharacterConfigKey,
+        config::{CharacterConfigKey, CharacterConfigs},
         enemy::{ai::MonsterState, Enemy},
         health::Health,
         player::{
@@ -54,7 +54,9 @@ use crate::{
     },
     content_hot_reload::{reload_registry_now, GameRoot},
     editor_mode::{session_hot_edit_allowed, EditorMode},
+    game_commands::{GameCommand, GameCommands},
     jjrs::GggrsSessionConfiguration,
+    powerups::PowerUpsTable,
     recording::{write_recording, InputRecorder},
     replay::{box_input, Button},
     run_state::RunRequest,
@@ -105,7 +107,10 @@ impl Plugin for RemoteControlPlugin {
                 .with_method_main("alacod/restart", restart)
                 .with_method_main("alacod/set_modifier", set_modifier)
                 .with_method_main("alacod/clear_modifiers", clear_modifiers)
-                .with_method_main("alacod/reload_content", reload_content),
+                .with_method_main("alacod/reload_content", reload_content)
+                .with_method_main("alacod/spawn_character", spawn_character)
+                .with_method_main("alacod/spawn_powerup", spawn_powerup)
+                .with_method_main("alacod/spawn_item", spawn_item),
         )
         .add_plugins(RemoteHttpPlugin::default().with_port(self.port))
         .insert_resource(RemoteClock {
@@ -301,6 +306,14 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         .get_resource::<run::Run>()
         .map(|run| json!({ "step": format!("{:?}", run.step) }));
 
+    let commands = world
+        .get_resource::<GameCommands>()
+        .map(|commands| {
+            commands.0.iter().filter(|(at_frame, _)| **at_frame > frame)
+                .flat_map(|(at_frame, list)| list.iter().map(move |command| {
+                    json!({ "frame": at_frame, "kind": format!("{command:?}").split_whitespace().next().unwrap_or("unknown") })
+                })).collect::<Vec<_>>()
+        }).unwrap_or_default();
     Ok(json!({
         "editor": editor,
         "online": online,
@@ -316,6 +329,7 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         "enemies": enemies,
         "windows": windows,
         "doors": doors,
+        "commands": commands,
     }))
 }
 
@@ -616,6 +630,130 @@ fn reload_content(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         "waves": report.waves,
         "errors": report.errors,
     }))
+}
+
+#[derive(Deserialize)]
+struct SpawnCharacterParams {
+    character: String,
+    x: f32,
+    y: f32,
+    #[serde(default)]
+    team: Option<String>,
+    #[serde(default)]
+    variant: Option<String>,
+}
+#[derive(Deserialize)]
+struct SpawnPickupParams {
+    id: String,
+    x: f32,
+    y: f32,
+}
+
+fn parse_team_name(team: Option<&str>) -> Result<Option<sim_core::team::Team>, BrpError> {
+    match team {
+        None => Ok(None),
+        Some("players") => Ok(Some(sim_core::team::Team::Players)),
+        Some("enemies") => Ok(Some(sim_core::team::Team::Enemies)),
+        Some("neutral") => Ok(Some(sim_core::team::Team::Neutral)),
+        Some(other) => Err(invalid_params(format!("équipe inconnue « {other} »"))),
+    }
+}
+
+fn enqueue_command(world: &mut World, command: GameCommand) -> BrpResult {
+    let at_frame = world.resource::<FrameCount>().frame.saturating_add(1);
+    world
+        .resource_mut::<GameCommands>()
+        .0
+        .entry(at_frame)
+        .or_default()
+        .push(command.clone());
+    if let Some(mut recorder) = world.get_resource_mut::<InputRecorder>() {
+        recorder.record_command(&command, at_frame);
+    }
+    Ok(json!({ "frame": at_frame }))
+}
+
+fn spawn_character(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let params: SpawnCharacterParams = parse(params)?;
+    guard_hot_edit(world)?;
+    let team = parse_team_name(params.team.as_deref())?;
+    let configs = world.resource::<CharacterConfigs>();
+    let config = configs
+        .get(&params.character)
+        .ok_or_else(|| invalid_params(format!("personnage inconnu « {} »", params.character)))?;
+    if let Some(variant) = &params.variant {
+        if !config
+            .variants
+            .as_ref()
+            .is_some_and(|v| v.table.contains_key(variant))
+        {
+            return Err(invalid_params(format!("variante inconnue « {variant} »")));
+        }
+    }
+    if !world
+        .resource::<crate::balance::ResolvedBalance>()
+        .health_max_by_character
+        .contains_key(&params.character)
+    {
+        return Err(invalid_params(format!(
+            "équilibrage absent pour « {} »",
+            params.character
+        )));
+    }
+    enqueue_command(
+        world,
+        GameCommand::SpawnCharacter {
+            character: params.character,
+            x: fixed_math::Fixed::from_num(params.x),
+            y: fixed_math::Fixed::from_num(params.y),
+            team,
+            variant: params.variant,
+        },
+    )
+}
+
+fn spawn_powerup(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let params: SpawnPickupParams = parse(params)?;
+    guard_hot_edit(world)?;
+    if !world
+        .resource::<PowerUpsTable>()
+        .0
+        .as_ref()
+        .is_some_and(|table| table.powerups.contains_key(&params.id))
+    {
+        return Err(invalid_params(format!(
+            "power-up inconnu « {} »",
+            params.id
+        )));
+    }
+    enqueue_command(
+        world,
+        GameCommand::SpawnPowerUp {
+            id: params.id,
+            x: fixed_math::Fixed::from_num(params.x),
+            y: fixed_math::Fixed::from_num(params.y),
+        },
+    )
+}
+
+fn spawn_item(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let params: SpawnPickupParams = parse(params)?;
+    guard_hot_edit(world)?;
+    if !world
+        .resource::<items::ItemTable>()
+        .0
+        .contains_key(&params.id)
+    {
+        return Err(invalid_params(format!("objet inconnu « {} »", params.id)));
+    }
+    enqueue_command(
+        world,
+        GameCommand::SpawnItem {
+            id: params.id,
+            x: fixed_math::Fixed::from_num(params.x),
+            y: fixed_math::Fixed::from_num(params.y),
+        },
+    )
 }
 
 #[cfg(test)]

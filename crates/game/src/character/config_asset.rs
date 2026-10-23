@@ -27,9 +27,12 @@ use bevy::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ggrs::RunGgrsSystems;
 use serde::Deserialize;
+use utils::order_mut_iter;
 
-use super::config::{CharacterConfig, CharacterConfigs};
+use super::config::{CharacterConfig, CharacterConfigKey, CharacterConfigs};
+use crate::character::health::Health;
 use crate::global_asset::GlobalAsset;
+use sim_core::stats::{StatId, Stats};
 
 /// Enveloppe `Asset` d'un fichier de personnage (`assets/characters/*.ron`).
 #[derive(Asset, TypePath, Deserialize, Debug, Clone)]
@@ -42,6 +45,12 @@ impl Plugin for CharacterConfigAssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(RonAssetPlugin::<CharacterConfigAsset>::new(&["ron"]));
         app.add_systems(PreUpdate, sync_character_configs.before(RunGgrsSystems));
+        app.add_systems(
+            PreUpdate,
+            refresh_live_stats
+                .after(sync_character_configs)
+                .before(RunGgrsSystems),
+        );
     }
 }
 
@@ -77,5 +86,57 @@ pub fn sync_character_configs(
             debug!("personnage « {key} » : CharacterConfigs rempli");
         }
         configs.0.insert(key.clone(), asset.0.clone());
+    }
+}
+
+pub fn refresh_live_stats(
+    global: Option<Res<GlobalAsset>>,
+    assets: Res<Assets<CharacterConfigAsset>>,
+    mut events: MessageReader<AssetEvent<CharacterConfigAsset>>,
+    configs: Res<CharacterConfigs>,
+    balance: Res<crate::balance::ResolvedBalance>,
+    online: Option<Res<crate::session::OnlineState>>,
+    session: Option<Res<crate::jjrs::GggrsSessionConfiguration>>,
+    mut query: Query<(&utils::net_id::GgrsNetId, &CharacterConfigKey, &mut Stats)>,
+) {
+    if crate::editor_mode::session_hot_edit_allowed(
+        online.as_deref().copied(),
+        session.as_deref().map(|s| s.connection.check_distance),
+    )
+    .is_err()
+    {
+        return;
+    }
+    let modified: Vec<_> = events
+        .read()
+        .filter_map(|event| match event {
+            AssetEvent::Modified { id } => Some(*id),
+            _ => None,
+        })
+        .collect();
+    let Some(global) = global else { return };
+    for (key, handle) in &global.character_configs {
+        if !modified.contains(&handle.id()) {
+            continue;
+        }
+        let Some(config) = assets.get(handle).map(|asset| &asset.0) else {
+            continue;
+        };
+        let Some(health_max) = balance.health_max_by_character.get(key).copied() else {
+            continue;
+        };
+        for (_net_id, config_key, mut stats) in order_mut_iter!(query) {
+            if config_key.0 != *key {
+                continue;
+            }
+            stats.set(StatId::MoveSpeed, config.movement.max_speed);
+            stats.set(StatId::EnemyMoveSpeed, config.movement.max_speed);
+            stats.set(StatId::Acceleration, config.movement.acceleration);
+            stats.set(StatId::SprintMultiplier, config.movement.sprint_multiplier);
+            stats.set(StatId::MaxHealth, health_max);
+            for (id, value) in &config.stats {
+                stats.set(id.clone(), *value);
+            }
+        }
     }
 }

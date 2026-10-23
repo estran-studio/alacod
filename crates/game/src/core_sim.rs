@@ -125,9 +125,9 @@ impl Plugin for CoreSimPlugin {
         app.add_plugins(crate::run_state::RunStatePlugin);
 
         app.init_resource::<GggrsSessionConfigurationState>();
+        app.init_resource::<crate::game_commands::GameCommands>();
         app.init_resource::<GgrsNetIdFactory>();
         app.init_resource::<FrameCount>();
-
         // Flux RNG nommés (T1.6) : remplacés au démarrage de session par ceux dérivés de
         // `RunSeed` (jjrs/local.rs, jjrs/p2p.rs) ; enregistrés en rollback plus bas.
         app.insert_resource(RngStreams::new(12345));

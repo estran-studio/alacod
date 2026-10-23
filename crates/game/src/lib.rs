@@ -27,6 +27,7 @@ pub mod feedback_v3;
 pub mod frame;
 pub mod frame_counter;
 pub mod frame_events;
+pub mod game_commands;
 pub mod gen_test;
 pub mod global_asset;
 pub mod hub;

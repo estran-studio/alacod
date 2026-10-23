@@ -22,6 +22,7 @@ use crate::{
         input::{read_local_inputs, BoxInput},
         jjrs::PeerConfig,
     },
+    game_commands::GameCommand,
     replay::{
         CharacterPlacement, PlayerScript, PowerUpPlacement, Scenario, Segment, WaveOverride,
         WeaponOverride,
@@ -165,6 +166,41 @@ impl InputRecorder {
     /// Nombre de frames enregistrées (dernière frame + 1).
     pub fn frame_count(&self) -> u32 {
         self.frames.keys().next_back().map_or(0, |f| f + 1)
+    }
+
+    pub fn record_command(&mut self, command: &GameCommand, frame: u32) {
+        match command {
+            GameCommand::SpawnCharacter {
+                character,
+                x,
+                y,
+                team,
+                variant,
+            } => self.settings.characters.push(CharacterPlacement {
+                character: character.clone(),
+                x: *x,
+                y: *y,
+                at_frame: frame,
+                team: *team,
+                variant: variant.clone(),
+            }),
+            GameCommand::SpawnPowerUp { id, x, y } => {
+                self.settings.powerups.push(PowerUpPlacement {
+                    id: id.clone(),
+                    x: *x,
+                    y: *y,
+                    at_frame: frame,
+                })
+            }
+            GameCommand::SpawnItem { id, x, y } => {
+                self.settings.items.push(crate::replay::ItemPlacement {
+                    id: id.clone(),
+                    x: *x,
+                    y: *y,
+                    at_frame: frame,
+                })
+            }
+        }
     }
 
     /// Scénario rejouant la session enregistrée, sans attentes.

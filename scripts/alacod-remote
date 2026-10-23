@@ -14,8 +14,10 @@
                                           modificateur vivant (OP : Add|Pct|Mul|Set ; VALEUR : « 0.9 »)
   alacod-remote unmodify [--handle 0|--net-id N] [--source editor]   retire les modificateurs de la source
   alacod-remote reload                    relit le registre de contenu (appliqué au prochain restart)
-  alacod-remote discover                  méthodes du remote (rpc.discover, OpenRPC) : une ligne par
-                                          méthode, puis ses paramètres si le document en donne
+  alacod-remote spawn <personnage> --at X,Y [--team T] [--variant V]
+  alacod-remote spawn-powerup <id> --at X,Y
+  alacod-remote spawn-item <id> --at X,Y
+  alacod-remote discover                  méthodes du remote (rpc.discover, OpenRPC), puis ses paramètres
 
 Boutons : Up Down Left Right Fire SwitchWeapon SwitchWeaponMode Reload Sprint Dash
 Modifier Interaction Melee. Port : ALACOD_REMOTE_PORT (15702 par défaut).
@@ -55,6 +57,8 @@ def brief(state):
             dx, dy = e["x"] - p["x"], e["y"] - p["y"]
             lines.append(f"  ennemi {e['id']} {e.get('config') or ''} dx={dx:.0f} dy={dy:.0f} dist={math.hypot(dx, dy):.0f} pv {e['health']} {e['state']}")
     lines.append(f"ennemis {len(state['enemies'])}, fenêtres {[w['health'] for w in state['windows']]}")
+    if state.get("commands"):
+        lines.append("commandes en attente: " + ", ".join(f"{c['frame']}:{c['kind']}" for c in state["commands"]))
     return "\n".join(lines)
 
 
@@ -107,6 +111,17 @@ def main():
     p.add_argument("--net-id", type=int)
     p.add_argument("--source", default="editor")
     sub.add_parser("reload")
+    p = sub.add_parser("spawn")
+    p.add_argument("character")
+    p.add_argument("--at", required=True)
+    p.add_argument("--team")
+    p.add_argument("--variant")
+    p = sub.add_parser("spawn-powerup")
+    p.add_argument("id")
+    p.add_argument("--at", required=True)
+    p = sub.add_parser("spawn-item")
+    p.add_argument("id")
+    p.add_argument("--at", required=True)
     args = parser.parse_args()
 
     if args.cmd == "state":
@@ -154,6 +169,20 @@ def main():
         print(json.dumps(result))
         if result.get("errors"):
             sys.exit(1)
+    elif args.cmd in ("spawn", "spawn-powerup", "spawn-item"):
+        x, y = (float(v) for v in args.at.split(",", 1))
+        params = {"x": x, "y": y}
+        if args.cmd == "spawn":
+            params["character"] = args.character
+            if args.team is not None:
+                params["team"] = args.team
+            if args.variant is not None:
+                params["variant"] = args.variant
+            method = "alacod/spawn_character"
+        else:
+            params["id"] = args.id
+            method = "alacod/" + args.cmd.replace("-", "_")
+        print(json.dumps(call(method, params)))
     elif args.cmd == "discover":
         print(discover(call("rpc.discover")))
     elif args.cmd == "save":
