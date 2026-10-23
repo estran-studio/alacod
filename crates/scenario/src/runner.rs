@@ -4,10 +4,8 @@ use crate::events::{GameEvent, GameEvents, GameEventsPlugin};
 use crate::invariants::InvariantQueries;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-use bevy_ggrs::{GgrsSchedule, SyncTestMismatch};
+use bevy_ggrs::SyncTestMismatch;
 use bots::{BotAssignments, BotsPlugin};
-use combat::damage::Defenses;
-use combat::inventory::AmmoReserves;
 use game::recording::{InputRecorder, RecordedSettings};
 use game::{
     args::{GameArgs, GameArgsPlugin},
@@ -22,6 +20,7 @@ use game::{
     waves::{WaveDebugEnabled, WaveModeEnabled, WaveState},
 };
 use map::generation::config::MapGenerationConfig;
+use map_ldtk::game::profile::{PlacementErrors, Profile, ProfilePlugin, ScriptedPlacement};
 use map_ldtk::{
     game::local::{LdtkGameMap, LdtkLocalGamePlugin},
     plugins::LdtkRoguePlugin,
@@ -29,22 +28,17 @@ use map_ldtk::{
 use run::currency::Currency;
 use run::{Run, RunStep};
 use serde::{Deserialize, Serialize};
-use sim_core::modifier::{resolve, Modifier, ModifierSource, Modifiers};
+use sim_core::modifier::{resolve, Modifiers};
 use sim_core::stats::{StatId, Stats};
-use sim_core::tag::Tags;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use utils::frame::FrameCount;
 
-use game::powerups::{spawn_powerup_pickup, PowerUpPickup};
+use game::powerups::PowerUpPickup;
 use game::powerups_assets::PowerUpsConfigAsset;
-use game::replay::{
-    CharacterPlacement, Expectation, ModifierSpec, PowerUpPlacement, RunStepExpectation, Scenario,
-    WaveOverride,
-};
-use game::weapons::melee::{self, MeleeWeapon};
-use game::weapons::{spawn_weapon_for_player, Weapon, WeaponInventory, WeaponRegistry};
-use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
+use game::replay::{Expectation, RunStepExpectation, Scenario, WaveOverride};
+use game::weapons::WeaponRegistry;
+use utils::net_id::GgrsNetId;
 
 /// Mismatches de synctest : le premier seulement (GGRS répète ensuite le même à chaque
 /// frame et n'avance plus), avec les frames qu'il incrimine.
@@ -347,87 +341,24 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         .insert_resource(WaveOverrideRes(scenario.wave_overrides.clone()))
         .add_systems(Update, apply_wave_overrides)
         // Power-ups (T2.5, chantier C1 v0) : `drop_chance` forcé (pré-run, comme
-        // `apply_wave_overrides`) et placements scriptés (pendant la simulation, voir la
-        // doc de `apply_scenario_powerup_placements`).
+        // `apply_wave_overrides`) ; leurs placements scriptés (pendant la simulation) sont
+        // dans `map_ldtk::game::profile`, posés plus bas.
         .insert_resource(PowerUpDropChanceOverrideRes(
             scenario.powerup_drop_chance_override,
         ))
         .add_systems(Update, apply_powerup_drop_chance_override)
-        .insert_resource(ScenarioPowerUpPlacements(scenario.powerups.clone()))
-        .add_systems(
-            GgrsSchedule,
-            apply_scenario_powerup_placements
-                .before(game::powerups::powerup_pickup_detect_system)
-                .in_set(game::system_set::RollbackSystemSet::Effects),
-        )
-        // M2-T0b : placements scriptés d'objets
-        .insert_resource(ScenarioItemPlacements(scenario.items.clone()))
-        .add_systems(
-            GgrsSchedule,
-            apply_scenario_item_placements
-                .after(apply_scenario_powerup_placements)
-                .before(game::items::item_consumable_pickup_system)
-                .in_set(game::system_set::RollbackSystemSet::Effects),
-        )
-        // M2-T5 : placements scriptés de coffres et chance de récompense de salle
-        .insert_resource(ScenarioChestPlacements(scenario.chests.clone()))
+        // Profil de la partie (placements et réglages des joueurs, `map_ldtk::game::profile`) : mêmes
+        // systèmes et même ordre que le bac à sable ; ils vivent dans `GgrsSchedule` (placements) et
+        // `Update` (réglages des joueurs).
+        .add_plugins(ProfilePlugin(Profile::from_scenario(scenario)))
+        // M2-T5 : chance de récompense de salle imposée
         .insert_resource(game::loot::LootOverrides {
             reward_chance: scenario.room_reward_chance_override,
         })
-        .add_systems(
-            GgrsSchedule,
-            apply_scenario_chest_placements
-                .after(apply_scenario_item_placements)
-                .before(game::items::item_consumable_pickup_system)
-                .in_set(game::system_set::RollbackSystemSet::Effects),
-        )
-        // M2-T6 : présentoirs scriptés et drop de douilles imposé
-        .insert_resource(ScenarioShelfPlacements(scenario.shop.shelves.clone()))
+        // M2-T6 : drop de douilles imposé
         .insert_resource(game::shop::ShopOverrides {
             shells_drop: scenario.shop.shells_drop_override,
         })
-        .add_systems(
-            GgrsSchedule,
-            apply_scenario_shelf_placements
-                .after(apply_scenario_chest_placements)
-                .before(game::items::item_consumable_pickup_system)
-                // Commandes d'édition (K5-2) : leurs net ids viennent après ceux des placements du scénario.
-                .before(map_ldtk::game::commands::apply_game_commands_pickups)
-                .in_set(game::system_set::RollbackSystemSet::Effects),
-        )
-        // T1.13 : placements scriptés de personnages (voir la doc de
-        // `apply_scenario_character_placements`).
-        .insert_resource(ScenarioCharacterPlacements(scenario.characters.clone()))
-        .init_resource::<PlacementErrors>()
-        .add_systems(
-            GgrsSchedule,
-            apply_scenario_character_placements
-                .run_if(|placements: Res<ScenarioCharacterPlacements>| !placements.0.is_empty())
-                // Après les spawns du jeu de la même frame (ordre des net ids déterministe).
-                .after(game::waves::systems::wave_spawning_system)
-                .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system)
-                .before(map_ldtk::game::commands::apply_game_commands_spawn)
-                .in_set(game::system_set::RollbackSystemSet::EnemySpawning),
-        )
-        .insert_resource(PlayerOverrides(
-            scenario
-                .players
-                .iter()
-                .map(|p| PlayerOverride {
-                    tags: p.tags.clone(),
-                    immune_to: p.immune_to.clone(),
-                    modifiers: p.modifiers.clone(),
-                    weapon: p.weapon.clone(),
-                    currency: p.currency,
-                    mutations: p.mutations.clone(),
-                    dash: p.dash.clone(),
-                    items: p.items.clone(),
-                    bomb: p.bomb,
-                    aim: p.aim,
-                })
-                .collect(),
-        ))
-        .add_systems(Update, apply_player_overrides)
         .insert_resource(InputSource::Scripted)
         .insert_resource::<ScriptedInputs>(scenario.scripted_inputs())
         // M2-T18 : actions d'UI du scénario (présentation, hors trace) ; absente sans `ui`.
@@ -803,135 +734,6 @@ fn apply_powerup_drop_chance_override(
     *applied = true;
 }
 
-#[derive(Resource)]
-struct ScenarioPowerUpPlacements(Vec<PowerUpPlacement>);
-
-#[derive(Resource)]
-struct ScenarioCharacterPlacements(Vec<CharacterPlacement>);
-
-/// Placements refusés (personnage ou variante inconnus), par index : rapportés en échec en fin
-/// de partie. Hors rollback ; un placement rejoué par un rollback n'ajoute pas de doublon.
-#[derive(Resource, Default)]
-struct PlacementErrors(BTreeMap<usize, String>);
-
-/// Index (dans `Scenario::characters`) du placement qui a créé ce personnage, pour
-/// `EntityRef::Placed`. Composant d'observation, **hors rollback** (non enregistré, donc hors
-/// checksum et hors trace) : reposé à l'identique quand un rollback rejoue le placement.
-#[derive(Component)]
-struct ScriptedPlacement(usize);
-
-/// Placements scriptés de personnages (T1.13, `Scenario::characters`, `docs/conventions.md`
-/// §28) : à `frame == at_frame`, dans l'ordre de déclaration, crée le personnage par le chemin
-/// des `CharacterSpawn` de carte (`map_ldtk::game::local::spawn_character`). Dans
-/// `GgrsSchedule`, `RollbackSystemSet::EnemySpawning`, comme un spawn de vague : rejoué à
-/// l'identique après un rollback (le net id est alloué à cette frame). Sans placement, le
-/// système ne tourne pas (condition d'exécution).
-fn apply_scenario_character_placements(
-    frame: Res<FrameCount>,
-    placements: Res<ScenarioCharacterPlacements>,
-    assets: map_ldtk::game::local::LevelSpawnAssets,
-    mut commands: Commands,
-    mut id_factory: ResMut<GgrsNetIdFactory>,
-    mut errors: ResMut<PlacementErrors>,
-    // M3-T7 : étage courant (contexte de `chance` des variantes)
-    floor: Option<Res<run::FloorState>>,
-) {
-    let floor = floor.as_deref().map_or(0, |floor| floor.index);
-    for (index, placement) in placements
-        .0
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| p.at_frame == frame.frame)
-    {
-        let config = assets.character_configs.get(&placement.character);
-        let Some(config) = config else {
-            errors.0.insert(
-                index,
-                format!(
-                    "placement {index} : personnage inconnu « {} »",
-                    placement.character
-                ),
-            );
-            continue;
-        };
-        if let Some(variant) = &placement.variant {
-            let known = config
-                .variants
-                .as_ref()
-                .is_some_and(|variants| variants.table.contains_key(variant));
-            if !known {
-                errors.0.insert(
-                    index,
-                    format!(
-                        "placement {index} : variante « {variant} » inconnue de « {} »",
-                        placement.character
-                    ),
-                );
-                continue;
-            }
-        }
-        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
-        let spawned = map_ldtk::game::local::spawn_character(
-            &mut commands,
-            &assets,
-            &mut id_factory,
-            &placement.character,
-            position,
-            placement.team,
-            placement.variant.as_deref(),
-            assets.difficulty.current(),
-            assets.difficulty.variant_context_at(floor),
-        );
-        if let Some(entity) = spawned {
-            commands.entity(entity).insert(ScriptedPlacement(index));
-        }
-    }
-}
-
-/// Placements scriptés de power-ups (T2.5, `Scenario::powerups`) : fait apparaître un
-/// power-up à une position et une frame exactes, sans dépendre d'une carte LDtk ni du
-/// tirage RNG `loot` (voir la doc de `game::replay::PowerUpPlacement`). Contrairement aux
-/// autres réglages de scénario de ce fichier (`Update`, une seule application avant la
-/// première frame), celui-ci tourne dans `GgrsSchedule` : un placement doit apparaître à
-/// une frame précise **pendant** la simulation, comme un spawn d'ennemi de vague — la
-/// condition `frame.frame == at_frame` est naturellement rollback-safe (même raisonnement
-/// que `waves::systems::wave_spawning_system` : re-simuler la même frame retrouve le même
-/// `GgrsNetIdFactory`, donc le même id), pas besoin d'un `Local<bool>` par placement.
-///
-/// `RollbackSystemSet::Effects`, `.before(game::powerups::powerup_pickup_detect_system)` :
-/// un power-up placé exactement sur un joueur déjà présent est ramassable la **même**
-/// frame où il apparaît (contrairement à un drop à la mort, posé dans
-/// `DeathManagement`, un set plus tard — un frame de latence avant que
-/// `Effects` ne le revoie, sans conséquence observable).
-fn apply_scenario_powerup_placements(
-    frame: Res<FrameCount>,
-    placements: Res<ScenarioPowerUpPlacements>,
-    table: Res<game::powerups::PowerUpsTable>,
-    mut commands: Commands,
-    mut id_factory: ResMut<GgrsNetIdFactory>,
-) {
-    let Some(config) = &table.0 else {
-        return;
-    };
-    for placement in &placements.0 {
-        if frame.frame != placement.at_frame {
-            continue;
-        }
-        let Some(definition) = config.powerups.get(&placement.id) else {
-            continue;
-        };
-        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
-        let expires_at_frame = frame.frame.saturating_add(definition.lifetime_frames);
-        spawn_powerup_pickup(
-            &mut commands,
-            placement.id.clone(),
-            position,
-            expires_at_frame,
-            &mut id_factory,
-        );
-    }
-}
-
 /// Inventaire (copie) du joueur `handle` : `Ok(None)` s'il n'en porte pas (rien ramassé).
 fn player_inventory(world: &mut World, handle: usize) -> Result<Option<items::Inventory>, String> {
     world
@@ -940,117 +742,6 @@ fn player_inventory(world: &mut World, handle: usize) -> Result<Option<items::In
         .find(|(player, _)| player.handle == handle)
         .map(|(_, inventory)| inventory.cloned())
         .ok_or_else(|| format!("joueur {handle} absent"))
-}
-
-/// Placements scriptés d'objets (M2-T0b, `Scenario::items`) : même principe que
-/// [`apply_scenario_powerup_placements`], dans `RollbackSystemSet::Effects` avant le ramassage.
-#[derive(Resource)]
-struct ScenarioItemPlacements(Vec<game::replay::ItemPlacement>);
-
-fn apply_scenario_item_placements(
-    frame: Res<FrameCount>,
-    placements: Res<ScenarioItemPlacements>,
-    table: Res<items::ItemTable>,
-    mut commands: Commands,
-    mut id_factory: ResMut<GgrsNetIdFactory>,
-) {
-    for placement in &placements.0 {
-        if frame.frame != placement.at_frame {
-            continue;
-        }
-        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
-        if game::items::spawn_item_pickup(
-            &mut commands,
-            &table,
-            placement.id.clone(),
-            position,
-            &mut id_factory,
-        )
-        .is_none()
-        {
-            warn!("placement d'objet : « {} » inconnu", placement.id);
-        }
-    }
-}
-
-/// Placements scriptés de coffres (M2-T5, `Scenario::chests`).
-#[derive(Resource)]
-struct ScenarioChestPlacements(Vec<game::replay::ChestPlacement>);
-
-#[allow(clippy::too_many_arguments)]
-fn apply_scenario_chest_placements(
-    frame: Res<FrameCount>,
-    placements: Res<ScenarioChestPlacements>,
-    tables: Res<items::LootTables>,
-    floors: Res<game::loot::FloorLootTables>,
-    item_table: Res<items::ItemTable>,
-    unlocks: Res<items::UnlockTable>,
-    active: Res<items::RunUnlocks>,
-    run_seed: Option<Res<bevy_fixed::rng::RunSeed>>,
-    floor: Option<Res<run::FloorState>>,
-    mut pools: ResMut<items::PoolState>,
-    mut commands: Commands,
-    mut id_factory: ResMut<GgrsNetIdFactory>,
-) {
-    let (run_seed, floor) = game::loot::seed_context(&run_seed, &floor);
-    let ctx = game::loot::SlotContext {
-        frame: frame.frame,
-        tables: &tables,
-        items: &item_table,
-        unlocks: &unlocks,
-        active: &active,
-        run_seed,
-        floor,
-    };
-    for placement in &placements.0 {
-        if frame.frame != placement.at_frame {
-            continue;
-        }
-        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
-        let chest = items::Chest {
-            key: placement.key.clone(),
-            table: placement.table.clone(),
-            rarity: placement.rarity,
-            locked: placement.locked,
-            opened: false,
-        };
-        // M3-T8 (§73) : comme un coffre de salle, l'objet d'un pool qui s'épuise est assigné à la
-        // pose (idempotent : une seconde pose de la même clé donne le même objet).
-        let table_id = game::loot::chest_table_id(&chest, &floors, floor).to_string();
-        game::loot::assign_slot(&ctx, &mut pools, &table_id, chest.rarity, false, &chest.key);
-        game::loot::spawn_chest(&mut commands, &mut id_factory, chest, position);
-    }
-}
-
-/// Placements scriptés de présentoirs (M2-T6, `Scenario::shop`).
-#[derive(Resource)]
-struct ScenarioShelfPlacements(Vec<game::replay::ShelfPlacement>);
-
-fn apply_scenario_shelf_placements(
-    frame: Res<FrameCount>,
-    placements: Res<ScenarioShelfPlacements>,
-    mut commands: Commands,
-    mut id_factory: ResMut<GgrsNetIdFactory>,
-) {
-    for placement in &placements.0 {
-        if frame.frame != placement.at_frame {
-            continue;
-        }
-        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
-        game::shop::spawn_shelf(
-            &mut commands,
-            &mut id_factory,
-            items::Shelf {
-                key: placement.key.clone(),
-                item_id: placement.item.clone(),
-                price: placement.price,
-                sold: false,
-                retry_after: 0,
-                cost: placement.cost.clone(),
-            },
-            position,
-        );
-    }
 }
 
 /// Condition d'arrêt anticipé du runner (`alacod-sim`, T2.11) : la simulation s'arrête avant
@@ -1119,264 +810,6 @@ impl FloorsProgress {
 
 /// Soft-lock `Floors` (T1.14) : frames sans passage de niveau ni ennemi en moins.
 pub const FLOORS_SOFTLOCK_FRAMES: u32 = 1200;
-
-/// Tags, immunités, modificateurs de stats et choix d'arme par joueur (T1.1 chantier B1,
-/// T1.2 chantier B2, T2.10 générateur) — voir `game::replay::PlayerScript::{tags,
-/// immune_to, modifiers, weapon}`.
-struct PlayerOverride {
-    tags: Vec<String>,
-    immune_to: Vec<String>,
-    modifiers: Vec<ModifierSpec>,
-    weapon: Option<String>,
-    /// T2.3, chantier C5 v1 (scénarios d'achat) : voir `game::replay::PlayerScript::currency`.
-    currency: Option<u32>,
-    /// T1.10 : voir `game::replay::PlayerScript::mutations`.
-    mutations: Vec<String>,
-    /// M2-T2 : voir `game::replay::PlayerScript::dash`.
-    dash: Option<game::character::movement::DashConfig>,
-    /// M2-T17 : voir `game::replay::PlayerScript::items`.
-    items: Vec<String>,
-    /// M3-T4 : voir `game::replay::PlayerScript::bomb`.
-    bomb: Option<world::BombDef>,
-    /// Suivi Q17 : voir `game::replay::PlayerScript::aim`.
-    aim: Option<sim_core::aim::AimMode>,
-}
-
-#[derive(Resource)]
-struct PlayerOverrides(Vec<PlayerOverride>);
-
-/// Pose les `tags`/`immune_to`/`modifiers`/`weapon` d'un scénario sur les joueurs une fois
-/// créés (composants `Tags`/`Defenses`/`Modifiers`/`WeaponInventory`). Contrairement à
-/// `apply_weapon_overrides` (qui doit s'appliquer *avant* la création des joueurs, qui
-/// copient la config de leurs armes), celui-ci s'applique *après* : il attend que les
-/// entités `Player` existent, puis pose les composants une seule fois (`Local<bool>`).
-/// `Tags`/`Defenses` sont hors rollback (voir leur doc) : les poser ici, avant la première
-/// frame simulée, suffit — ils ne sont jamais mutés ensuite. `Modifiers`/`WeaponInventory`
-/// sont en rollback, mais poser leur valeur initiale avant la première frame simulée est
-/// tout aussi correct : elle est identique sur tous les clients (même scénario), donc fait
-/// partie de l'état de départ comme les autres — `weapon` n'ajoute donc rien de nouveau au
-/// checksum GGRS, ce n'est qu'un choix d'inventaire à la création (voir la doc de
-/// `PlayerScript::weapon`).
-///
-/// `weapon` : le joueur apparaît avec **cette seule arme** (à distance ou de mêlée, id du
-/// registre), à la place de la totalité de son équipement par défaut — exclusivité complète
-/// (les armes à distance par défaut du personnage *et* son arme de mêlée par défaut,
-/// `bare_hands`, sont retirées, même si `weapon` désigne une arme à distance). Décision
-/// (rapport T2.10) : plus simple et plus sûr pour un scénario généré isolé par arme (aucun
-/// risque qu'un coup de mêlée ou un tir parasite d'une arme de départ non retirée fausse
-/// `EntityHits`) que de ne retirer que la catégorie choisie. Cherche `weapon_id` d'abord
-/// dans `weapons.ron` (arme à distance), puis dans `melee_weapons.ron` (arme de mêlée) ;
-/// panique si absent des deux (même style que `apply_weapon_overrides`, faute de contenu
-/// plutôt que silencieuse).
-#[allow(clippy::too_many_arguments)]
-fn apply_player_overrides(
-    overrides: Res<PlayerOverrides>,
-    mut commands: Commands,
-    players: Query<(
-        Entity,
-        &Player,
-        &Children,
-        Option<&game::effects_runtime::Effects>,
-        Option<&Modifiers>,
-    )>,
-    progression: Option<Res<game::progression::ProgressionTable>>,
-    item_table: Option<Res<items::ItemTable>>,
-    ranged_children: Query<(), With<Weapon>>,
-    melee_children: Query<(), With<MeleeWeapon>>,
-    weapon_registry: Res<WeaponRegistry>,
-    mut id_factory: ResMut<GgrsNetIdFactory>,
-    mut applied: Local<bool>,
-) {
-    if *applied {
-        return;
-    }
-    if overrides.0.iter().all(|o| {
-        o.tags.is_empty()
-            && o.immune_to.is_empty()
-            && o.modifiers.is_empty()
-            && o.weapon.is_none()
-            && o.currency.is_none()
-            && o.mutations.is_empty()
-            && o.dash.is_none()
-            && o.items.is_empty()
-            && o.bomb.is_none()
-            && o.aim.is_none()
-    }) {
-        *applied = true;
-        return;
-    }
-    if players.iter().count() < overrides.0.len() {
-        return; // les joueurs ne sont pas encore tous créés
-    }
-    if progression.is_none() && overrides.0.iter().any(|o| !o.mutations.is_empty()) {
-        return; // table des mutations pas encore résolue (`OnEnter(GameLoading)`)
-    }
-    if item_table.is_none() && overrides.0.iter().any(|o| !o.items.is_empty()) {
-        return; // table des objets posée au chargement de la carte
-    }
-    for (entity, player, children, effects, existing_modifiers) in players.iter() {
-        let Some(over) = overrides.0.get(player.handle) else {
-            continue;
-        };
-        if let Some(dash) = &over.dash {
-            commands.entity(entity).insert((
-                game::character::dash::DashOverride(dash.clone()),
-                combat::actors::DashExtra::with_charges(dash.charges.unwrap_or(0)),
-            ));
-        }
-        if let Some(def) = over.bomb {
-            commands.entity(entity).insert(world::BombCarrier::new(def));
-        }
-        // Suivi Q17 : `Free` retire la visée du personnage (scénarios de contenu, voir
-        // `PlayerScript::aim`), `FourWay` la pose.
-        match over.aim {
-            Some(sim_core::aim::AimMode::Free) => {
-                commands.entity(entity).remove::<sim_core::aim::AimMode>();
-            }
-            Some(aim) => {
-                commands.entity(entity).insert(aim);
-            }
-            None => {}
-        }
-        if !over.tags.is_empty() {
-            commands
-                .entity(entity)
-                .insert(Tags::parse(over.tags.clone()));
-        }
-        if !over.immune_to.is_empty() {
-            commands.entity(entity).insert(Defenses {
-                immune_to: Tags::parse(over.immune_to.clone()),
-                resistances: Default::default(),
-            });
-        }
-        let mut built = existing_modifiers.cloned().unwrap_or_default();
-        let mut modifiers_changed = false;
-        if !over.modifiers.is_empty() {
-            built = Modifiers::default();
-            modifiers_changed = true;
-            for (i, spec) in over.modifiers.iter().enumerate() {
-                built.push(Modifier {
-                    stat: spec.stat.clone(),
-                    op: spec.op,
-                    value: spec.value,
-                    // Source stable par joueur/index : suffit pour un scénario (jamais
-                    // retiré par `remove_by_source`), et distingue les modificateurs entre
-                    // eux si un futur scénario en pose plusieurs sur le même joueur.
-                    source: ModifierSource::Named(format!("scenario_player_{}_{i}", player.handle)),
-                    until: spec.until,
-                });
-            }
-        }
-        // M2-T17 (§54) : objets tenus dès le départ, posés comme un ramassage (passif : inventaire
-        // et modificateurs `item:<id>` ; actif : emplacement actif **chargé**).
-        if !over.items.is_empty() {
-            let table = item_table.as_ref().expect("vérifié avant la boucle");
-            let mut inventory = items::Inventory::default();
-            for id in &over.items {
-                let Some(def) = table.0.get(id) else {
-                    panic!(
-                        "PlayerScript::items : objet inconnu « {id} » pour le joueur {}",
-                        player.handle
-                    );
-                };
-                match def.kind {
-                    items::ItemKind::Passive => {
-                        inventory.passives.push(id.clone());
-                        for modifier in &def.modifiers {
-                            built.push(modifier.to_modifier(id));
-                        }
-                    }
-                    items::ItemKind::Active(charge) => {
-                        let mut slot = items::ActiveSlot::new(id.clone());
-                        slot.charge = charge.required();
-                        inventory.active = Some(slot);
-                    }
-                    items::ItemKind::Consumable => {
-                        *inventory.consumables.entry(id.clone()).or_insert(0) += 1;
-                    }
-                }
-            }
-            modifiers_changed = true;
-            commands.entity(entity).insert(inventory);
-        }
-        if modifiers_changed {
-            commands.entity(entity).insert(built);
-        }
-        if let Some(weapon_id) = &over.weapon {
-            // Exclusivité complète (voir la doc de la fonction) : retire toute arme (à
-            // distance ou de mêlée) déjà posée par `create_player` avant d'en spawner une
-            // seule.
-            for child in children.iter() {
-                if ranged_children.get(child).is_ok() || melee_children.get(child).is_ok() {
-                    commands.entity(child).despawn();
-                }
-            }
-            let mut inventory = WeaponInventory::default();
-            // Réserve de munitions (T2.2) recalculée pour cette seule arme — pas la somme
-            // des armes de départ du personnage (`create_player`), qui n'existent plus dans
-            // l'inventaire une fois l'exclusivité appliquée ci-dessus. Vide si `weapon_id`
-            // est une arme de mêlée (pas de munitions).
-            let mut ammo_reserves = AmmoReserves::new();
-            if let Some(weapon_asset) = weapon_registry.weapons.get(weapon_id) {
-                let (ammo_type, amount) =
-                    game::weapons::default_mode_ammo_contribution(weapon_asset);
-                ammo_reserves.add(ammo_type, amount);
-                spawn_weapon_for_player(
-                    &mut commands,
-                    true,
-                    entity,
-                    weapon_asset.clone(),
-                    &mut inventory,
-                    &mut id_factory,
-                    None,
-                );
-            } else if let Some(melee_asset) = weapon_registry.melee.get(weapon_id) {
-                melee::spawn_melee_weapon_for_character(
-                    &mut commands,
-                    entity,
-                    melee_asset.clone(),
-                    &mut id_factory,
-                );
-            } else {
-                panic!(
-                    "PlayerScript::weapon : arme inconnue « {weapon_id} » pour le joueur {} (ni dans weapons.ron ni dans melee_weapons.ron)",
-                    player.handle
-                );
-            }
-            // Remplace l'inventaire par défaut (potentiellement plusieurs armes à distance)
-            // par celui-ci (une seule arme, ou aucune si `weapon_id` est une arme de mêlée).
-            commands.entity(entity).insert(inventory);
-            commands.entity(entity).insert(ammo_reserves);
-        }
-        // T2.3, chantier C5 v1 (scénarios d'achat `buy_door`/`buy_wall_weapon`/`buy_perk`) :
-        // remplace le `Currency` posé par `create_player`
-        // (`CharacterConfig::starting_currency`), avant la première frame simulée — même
-        // raisonnement que `weapon` ci-dessus (voir sa doc).
-        if let Some(amount) = over.currency {
-            commands.entity(entity).insert(Currency::new(amount));
-        }
-        // T1.10 : mutations imposées, prises dans l'ordre (effets ajoutés à ceux du joueur).
-        if !over.mutations.is_empty() {
-            let table = progression.as_ref().expect("vérifié avant la boucle");
-            let mut all = effects.cloned().unwrap_or_default();
-            for id in &over.mutations {
-                let Some(mutation) = table.mutations.get(id) else {
-                    panic!(
-                        "PlayerScript::mutations : mutation inconnue « {id} » pour le joueur {}",
-                        player.handle
-                    );
-                };
-                all.0.extend(mutation.iter().cloned());
-            }
-            commands.entity(entity).insert((
-                all,
-                game::effects_runtime::EffectState::default(),
-                game::progression::Mutations(over.mutations.clone()),
-            ));
-        }
-    }
-    *applied = true;
-}
 
 /// Joue le scénario jusqu'à `scenario.frames` et vérifie ses attentes, après avoir appliqué
 /// `configure` à l'app (pour les tests qui ajoutent un système ou une ressource).

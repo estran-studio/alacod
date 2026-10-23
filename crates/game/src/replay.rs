@@ -68,7 +68,7 @@ pub struct Scenario {
     /// Placements scriptés de power-ups (T2.5, chantier C1 v0) : fait apparaître un
     /// power-up à une position et une frame exactes, sans dépendre d'une carte LDtk ni du
     /// tirage RNG `loot` — voir [`PowerUpPlacement`] et
-    /// `scenario::runner::apply_scenario_powerup_placements`.
+    /// `map_ldtk::game::profile::apply_scenario_powerup_placements`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub powerups: Vec<PowerUpPlacement>,
     /// Placements scriptés d'objets (M2-T0b, `docs/conventions.md` §36) : même principe que
@@ -133,7 +133,7 @@ pub struct Scenario {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub difficulty: Option<bool>,
     /// Placements scriptés de personnages (T1.13, voir [`CharacterPlacement`] et
-    /// `scenario::runner::apply_scenario_character_placements`). Vide (défaut) : rien.
+    /// `map_ldtk::game::profile::apply_scenario_character_placements`). Vide (défaut) : rien.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub characters: Vec<CharacterPlacement>,
     /// Mode de run imposé (suite de T1.13, `docs/conventions.md` §28) : l'emporte sur
@@ -171,7 +171,7 @@ pub struct CharacterPlacement {
 /// Même idée que `wave_overrides`/`weapon_overrides` (réglage de scénario, pas un vrai
 /// champ de contenu) mais appliquée pendant la simulation (`GgrsSchedule`, pas `Update`) :
 /// un placement doit apparaître à une frame précise et rester rollback-safe, comme un
-/// spawn d'ennemi de vague — voir `scenario::runner::apply_scenario_powerup_placements`.
+/// spawn d'ennemi de vague — voir `map_ldtk::game::profile::apply_scenario_powerup_placements`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerUpPlacement {
     pub id: String,
@@ -415,7 +415,7 @@ pub struct PlayerScript {
     pub bot: Option<BotProfile>,
     /// Tags du personnage (T1.1, chantier B1), ex. `["cursed"]` (scénario
     /// `friendly_fire_cursed`). Vide par défaut : n'affecte pas les scénarios existants.
-    /// Posé en composant `Tags` une fois le joueur créé (`scenario::runner::apply_player_overrides`).
+    /// Posé en composant `Tags` une fois le joueur créé (`map_ldtk::game::profile::apply_player_overrides`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
     /// Tags de dégât contre lesquels ce joueur est immunisé (T1.1, scénario `immune_tag`).
@@ -425,33 +425,33 @@ pub struct PlayerScript {
     pub immune_to: Vec<String>,
     /// Modificateurs de stats posés sur ce joueur une fois créé (T1.2, chantier B2,
     /// scénario `stat_move_speed`), comme `tags`/`immune_to`
-    /// (`scenario::runner::apply_player_overrides`). Vide par défaut.
+    /// (`map_ldtk::game::profile::apply_player_overrides`). Vide par défaut.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub modifiers: Vec<ModifierSpec>,
     /// Arme unique de ce joueur (T2.10, générateur de scénarios), id du registre (arme à
     /// distance de `weapons.ron` ou de mêlée de `melee_weapons.ron`) : le joueur apparaît
     /// avec **cette seule arme** au lieu de ses `starting_weapons` (et sans l'arme de mêlée
     /// par défaut, `bare_hands`, si l'id choisi est une arme à distance — exclusivité
-    /// complète, voir `scenario::runner::apply_player_overrides`). `None` (défaut) :
+    /// complète, voir `map_ldtk::game::profile::apply_player_overrides`). `None` (défaut) :
     /// comportement inchangé, le joueur reçoit les armes de son `CharacterConfig` comme
     /// avant ce champ (tous les scénarios existants).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weapon: Option<String>,
     /// Solde de départ (T2.3, chantier C5 v1, scénarios d'achat : `buy_door`,
     /// `buy_wall_weapon`, `buy_perk`) : remplace `starting_currency` du personnage, posé
-    /// comme `weapon` ci-dessus (`scenario::runner::apply_player_overrides`), avant la
+    /// comme `weapon` ci-dessus (`map_ldtk::game::profile::apply_player_overrides`), avant la
     /// première frame simulée. `None` (défaut) : comportement inchangé, le joueur démarre
     /// avec `CharacterConfig::starting_currency` (tous les scénarios existants).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub currency: Option<u32>,
     /// Mutations imposées (T1.10) : ids du kind `Mutation`, prises dans l'ordre avant la
     /// première frame simulée (effets ajoutés à `Effects`, `Mutations` posé), comme
-    /// `modifiers` ci-dessus (`scenario::runner::apply_player_overrides`). Vide (défaut) :
+    /// `modifiers` ci-dessus (`map_ldtk::game::profile::apply_player_overrides`). Vide (défaut) :
     /// aucune.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mutations: Vec<String>,
     /// Dash imposé (M2-T2, §43, scénarios `dash_shove`, `dash_in_place`) : remplace le `dash` du
-    /// personnage (`scenario::runner::apply_player_overrides`). Absent (défaut) : rien.
+    /// personnage (`map_ldtk::game::profile::apply_player_overrides`). Absent (défaut) : rien.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dash: Option<crate::character::movement::DashConfig>,
     /// Objets tenus dès la première frame (M2-T17, §54, gabarit `ItemHeld`) : ids du kind `Item`,
@@ -472,7 +472,7 @@ pub struct PlayerScript {
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création
-/// (`scenario::runner::apply_player_overrides`). Format RON :
+/// (`map_ldtk::game::profile::apply_player_overrides`). Format RON :
 /// `(stat: MoveSpeed, op: Mul, value: "0.5")`. `until` absent = permanent (dure toute la
 /// partie, largement suffisant pour un scénario de test).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

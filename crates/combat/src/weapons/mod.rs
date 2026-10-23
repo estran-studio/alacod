@@ -643,7 +643,7 @@ impl WeaponInventory {
 /// B7) : `mag_limit × mag_size` de son mode par défaut ; `0` pour une arme magless (pas de
 /// chargeur séparé à réapprovisionner, voir la doc de `WeaponModeState::can_reload`).
 /// Partagée par `character::player::create::create_player` (somme des armes de départ) et
-/// `scenario::runner::apply_player_overrides` (`PlayerScript::weapon`, une seule arme).
+/// `map_ldtk::game::profile::apply_player_overrides` (`PlayerScript::weapon`, une seule arme).
 /// Capacité (chargeur plein) du mode par défaut de cette arme : `mag_size` (chargeur séparé)
 /// ou `bullet_limit` (magless). T2.3 (chantier C5 v1) : arme murale fraîchement achetée,
 /// toujours livrée chargeur plein (voir `map_ldtk::game::local::spawn_weapon_locations_when_map_loaded`).
