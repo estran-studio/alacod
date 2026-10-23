@@ -31,16 +31,18 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 ## 2. Outils
 
 - **`scripts/alacod-remote`** (Python, `urllib`, sans dépendance) : `state` (JSON complet), `brief` (une ligne par joueur + ennemis proches),
-  `input Up,Fire --pan 100,0 [--handle 0]`, `step 30 [--no-wait]`, `pause`, `resume`, `screenshot <png>`, `save <scénario.ron>`, `discover`.
-  Mode éditeur (K5-1) : `restart [--kind K] [--seed N]`, `modifier [--handle 0|--net-id N] STAT OP VALEUR [--until FRAMES] [--source S]`,
-  `unmodify [--handle 0] [--source S]`, `reload`. `brief` commence par `editor=… online=… check_distance=… run.step=…`.
+  `input Up,Fire --pan 100,0 [--handle 0]` ; **`input ""` relâche et rend la main au clavier**, `step 30 [--no-wait]`, `pause`, `resume`,
+  `screenshot <png>`, `save <scénario.ron>`, `discover`.
+  Mode éditeur (K5-1) : `restart [--kind {Restart,ToLobby,EnterRun,ToHub}] [--seed N]`, `modifier [--handle 0|--net-id N] [--until FRAMES] [--source S] STAT {Add,Pct,Mul,Set} VALEUR`,
+  `unmodify [--handle 0|--net-id N] [--source S]`, `reload`. `brief` commence par `editor=… online=… check_distance=… run.step=…`.
 - **Méthodes `alacod/*` du mode éditeur** (JSON-RPC, `http://127.0.0.1:15702`) :
   - `alacod/restart` `{kind?: "Restart"|"ToLobby"|"EnterRun"|"ToHub", seed?: i32}` : pose un `RunRequest` ; le jeu repasse par `GameLoading`
     (tables dérivées du `Registry` recalculées, carte rechargée) puis `InGame`. `seed` écrit `MapGenerationConfig.seed` ; refusé avec `ToLobby`.
   - `alacod/set_modifier` `{handle?|net_id?, stat, op: Add|Pct|Mul|Set, value: "0.9", source?: "editor", until_frames?}` : modificateur
     **vivant** sur une entité (joueur 0 par défaut) ; `stat` = un `StatId` (`MoveSpeed`, `MaxHealth`, `Damage`, `FireRate`, `ReloadSpeed`…) ou `custom:<nom>`.
   - `alacod/clear_modifiers` `{handle?|net_id?, source?: "editor"}` : retire ceux de la source.
-  - `alacod/reload_content` : relit le `Registry` tout de suite ; renvoie les compteurs et `errors` (liste vide = remplacé).
+  - `alacod/reload_content` : relit le `Registry` tout de suite ; renvoie les compteurs et `errors` (liste vide = remplacé). Les tables dérivées
+    prennent effet au prochain `GameLoading` (`restart` ou changement d'étage).
   - `alacod/state` s'enrichit : `editor`, `online`, `check_distance`, `game`, `map`, `seed`, `run.step`, `config` de chaque ennemi.
   - **Garde** : `restart`, `set_modifier`, `clear_modifiers` et `reload_content` sont refusées si la session est en ligne ou si
     `check_distance > 0` ; l'erreur JSON-RPC nomme la cause (« check_distance=2 »…).
@@ -263,9 +265,9 @@ Tu règles un jeu alacod en marche (make editor) pour William, qui parle : tes r
 2. N'écris que sous games/<jeu>/assets, du jeu lancé. Jamais de Rust, de Makefile ni de tests.
 3. Lint vert avant de dire « fait » : alacod lint games/<jeu>. Le hook est asynchrone : attends son verdict.
 4. Un changement de fichier = un commit « editor: <résumé> » du seul fichier touché.
-5. Un modificateur vivant (alacod-remote modifier) n'est pas un commit ; il s'annule par alacod-remote unmodify.
-6. « Annule ça » : git log -1 --format=%s ; si le sujet commence par « editor: », git revert --no-edit HEAD. Si le dernier changement était un modificateur vivant, alacod-remote unmodify. Sinon dis-le et ne touche à rien.
-7. Dis en une phrase quoi, où, et quand l'effet se voit : tout de suite, ou après alacod-remote restart.
+5. Un modificateur vivant (`alacod-remote modifier`) n'est pas un commit ; il s'annule par `alacod-remote unmodify --handle 0 --source editor`.
+6. « Annule ça » : `git log -1 --format=%s` ; si le sujet commence par « editor: », `git revert --no-edit HEAD`. Si le dernier changement était un modificateur vivant, `alacod-remote unmodify --handle 0 --source editor`. Sinon dis-le et ne touche à rien.
+7. Dis en une phrase quoi, où, et quand l'effet se voit : tout de suite, ou après `alacod-remote restart --kind Restart`.
 8. « Un peu » = 10 à 15 %, « beaucoup » = fois deux. Refuse une valeur nulle ou absurde.
 9. Phrase ambiguë ou identifiant incertain : pose une question courte, ou liste les ids (alacod describe) et propose le plus proche.
 10. Réponses courtes : deux phrases, sans tableau, sans code, sans adresse.
@@ -276,13 +278,12 @@ Tu règles un jeu alacod en marche (make editor) pour William, qui parle : tes r
 
 | | Modification de fichier | Modificateur vivant |
 |---|---|---|
-| Commande | édition d'un RON sous `games/<jeu>/assets` + commit `editor: …` | `alacod-remote modifier --handle 0 MoveSpeed Mul 0.9` |
+| Commande | édition d'un RON sous `games/<jeu>/assets` + commit `editor: …` | `alacod-remote modifier --handle 0 MoveSpeed Mul 0.9 --source editor` |
 | Dure | tant que le fichier ne change pas : survit au `restart` et à la relance | jusqu'au `restart` (le nouveau personnage repart sans modificateur) |
-| S'annule par | `git revert --no-edit HEAD` (si HEAD commence par `editor:`) | `alacod-remote unmodify` |
+| S'annule par | `git revert --no-edit HEAD` (si HEAD commence par `editor:`) | `alacod-remote unmodify --handle 0 --source editor` |
 | Usage | réglage voulu durable | essai immédiat sur le joueur vivant |
 
-Pour « c'est un peu trop rapide » : le modificateur donne l'effet tout de suite, puis l'édition du RON rend le réglage durable (K5-1 ; avec K5-2, le RON
-s'applique aussi au personnage vivant). Un changement qui n'existe que comme modificateur disparaît au `restart` : le dire.
+Pour « c'est un peu trop rapide » : `alacod-remote modifier --handle 0 MoveSpeed Mul 0.9 --source editor` donne l'effet tout de suite, puis l'édition du RON rend le réglage durable. Un changement qui n'existe que comme modificateur disparaît au `restart` : le dire.
 
 ## 5. Ce qui se recharge à chaud
 
@@ -294,8 +295,8 @@ Mesuré sur `make editor GAME=zombies HEADLESS=1` (2026-10-22) : une édition de
 | tables de personnages (`*_config.ron`) → `CharacterConfigs` | **immédiat** pour les spawns futurs ; les entités vivantes gardent leurs `Stats` (copiées au spawn : « plus rapide » dans le RON ne change pas le joueur vivant → `alacod-remote modifier`, ou `restart`) | `character/config_asset.rs:44` |
 | armes (`weapons.ron`) → `WeaponRegistry` et armes portées | **immédiat** (armes portées : `weapons_config_update_system`, `Update`) ; la mêlée n'est pas couverte (risque 7) | `weapon_assets.rs:55-56`, `:179-199` |
 | `camera.ron`, `ui/feedback.ron`, `ui/hud.ron` | **immédiat** (présentation) | `camera/mod.rs:666-681`, `feedback.rs:71-86`, `ui/hud.rs:1750-1763` |
-| `Registry` et `GameManifest` (items, salles, curses, patterns, statuts, progression, économie, perks, `game.ron`) | rechargé hors lobby **seulement en mode éditeur** (K5-1, session locale à `check_distance` 0 ; hors mode éditeur, en ligne ou à `check_distance` > 0, aucun remplacement hors lobby, `warn!` « registre non rechargé : <cause> ») : événement d'asset **et** scrutation des fichiers du contenu, une fois par seconde (natif ; la scrutation n'existe qu'en mode éditeur) ; les tables dérivées ne changent qu'**au prochain `GameLoading`** : `restart`, mais aussi **changement d'étage** (mode `Floors`) ; l'écran de mutation et l'écran de fin peuvent afficher transitoirement le contenu neuf. Limite : `GlobalAsset` ne lit le registre qu'au démarrage du binaire, donc un personnage ou une arme **ajouté** (nouveau fichier) exige une **relance du binaire** ; les fichiers existants se rechargent par leurs assets | `content_hot_reload.rs:34-40`, `core_sim.rs:249-262` |
-| balance, power-ups, vagues (`ResolvedBalance`, `PowerUpsTable`) | **au `restart`** (résolus à `OnEnter(GameLoading)`) | `core.rs:166-176`, `balance.rs:5-26` |
+| `Registry` et `GameManifest` (items, salles, curses, patterns, statuts, progression, économie, perks, `game.ron`) | rechargé hors lobby **seulement en mode éditeur** (K5-1, session locale à `check_distance` 0 ; hors mode éditeur, en ligne ou à `check_distance` > 0, aucun remplacement hors lobby, `warn!` « registre non rechargé : <cause> ») : événement d'asset **et** scrutation des fichiers du contenu, une fois par seconde (natif ; la scrutation n'existe qu'en mode éditeur) ; les tables dérivées prennent effet au prochain `GameLoading` : `alacod-remote restart --kind Restart` ou changement d'étage (mode `Floors`). |
+| balance, power-ups, vagues (`ResolvedBalance`, `PowerUpsTable`) | prennent effet au prochain `GameLoading` : `alacod-remote restart --kind Restart` ou changement d'étage (mode `Floors`) | `core.rs:166-176`, `balance.rs:5-26` |
 | RON **invalide** | aucun rechargement : `ERROR contenu invalide, registre non rechargé` (scrutation) ou `Failed to load asset … Could not parse RON` (asset) au journal, la table en mémoire reste l'ancienne ; la correction suivante recharge | mesuré 2026-10-22 (écriture d'un RON invalide pendant que le jeu tourne) |
 
 ### Assets : images, sons, LDtk, polices
@@ -360,12 +361,8 @@ Dans l'ordre : le plus fréquent d'abord. Chaque cas donne le signe, la cause, l
 - **RON invalide** (journal : `Failed to load asset … Could not parse RON`). Le jeu garde l'ancienne valeur en mémoire et ne recharge rien. Lire
   l'erreur (fichier, ligne), corriger, ou revenir en arrière avec `git checkout -- <fichier>` (fichier non commité seulement). La correction suivante
   recharge d'elle-même. Les nombres `Fixed` sont des chaînes (`"150.0"`), pas des nombres nus.
-- **`reload` avec `errors` non vide** (`alacod-remote reload`). Le registre n'est pas remplacé : l'ancien reste. Lire chaque erreur (un id inconnu, un
-  champ mal écrit), corriger le fichier nommé, relancer `alacod-remote reload` jusqu'à `errors: []`, puis `alacod lint games/<jeu>`.
-- **Rien ne change à l'écran.** Relire la section 5 : la donnée est-elle rechargée « au `restart` » (registre, vagues, économie, cartes LDtk) ou
-  seulement pour les prochains spawns (tables de personnages) ? Si oui, `alacod-remote restart` (ou `spawn`, avec K5-2). Vérifier aussi que le fichier
-  modifié est bien sous `games/<jeu>/assets` **du jeu lancé** (`alacod-remote brief` : la première ligne donne le jeu) et que le journal du jeu
-  montre le rechargement (`armes rechargées` pour `weapons.ron`).
+- **`reload` avec `errors` non vide** (`alacod-remote reload`). Le registre n'est pas remplacé : l'ancien reste. Lire chaque erreur (un id inconnu, un champ mal écrit), corriger le fichier nommé, relancer `alacod-remote reload` jusqu'à `errors: []`, puis `alacod-remote restart --kind Restart` pour appliquer les tables dérivées. La commande échoue (code 1) si `errors` n'est pas vide.
+- **Rien ne change à l'écran.** Relire la section 5 : une édition de registre ou de balance prend effet au prochain `GameLoading` (restart ou changement d'étage), tandis que les tables de personnages concernent les prochains spawns et que les armes, caméra et feedback sont immédiats. Utiliser `alacod-remote reload`, puis `alacod-remote restart --kind Restart` si nécessaire. `alacod-remote input ""` relâche l'input distant et rend la main au clavier ; il n'existe pas de sous-commande `spawn` dans K5-1. Vérifier aussi que le fichier modifié est bien sous `games/<jeu>/assets` **du jeu lancé** (`alacod-remote brief` : la première ligne donne le jeu) et que le journal montre le rechargement (`armes rechargées` pour `weapons.ron`).
 - **Lint rouge.** Lire le message de `alacod lint games/<jeu>` (le hook asynchrone rend la main avant la fin : attendre son verdict ou lancer la
   commande soi-même). Corriger le champ nommé ou restaurer le fichier ; ne pas committer `editor:` tant que le lint n'est pas vert.
 - **La voix ne lit rien.** Vérifier `ALACOD_VOICE=1` dans l'environnement de `claude` (le hook n'agit pas sans), puis qu'une commande de synthèse
