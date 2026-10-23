@@ -79,7 +79,7 @@ def main():
     sub.add_parser("brief")
     p = sub.add_parser("input")
     p.add_argument("buttons", nargs="?", default="")
-    p.add_argument("--pan", default="0,0")
+    p.add_argument("--pan", default=None, help="visée dx,dy ; absente avec des boutons vides = relâcher (mode éditeur)")
     p.add_argument("--handle", type=int, default=0)
     p = sub.add_parser("step")
     p.add_argument("frames", type=int)
@@ -115,8 +115,10 @@ def main():
         print(brief(call("alacod/state")))
     elif args.cmd == "input":
         buttons = [b for b in args.buttons.split(",") if b]
-        pan = [int(v) for v in args.pan.split(",")]
-        print(call("alacod/input", {"handle": args.handle, "buttons": buttons, "pan": pan}))
+        params = {"handle": args.handle, "buttons": buttons}
+        if args.pan is not None:
+            params["pan"] = [int(v) for v in args.pan.split(",")]
+        print(call("alacod/input", params))
     elif args.cmd == "step":
         target = call("alacod/step", {"frames": args.frames})["target_frame"]
         if not args.no_wait:
