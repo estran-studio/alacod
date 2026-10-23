@@ -30,15 +30,20 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 
 ## 2. Outils
 
-- **`scripts/alacod-remote`** (Python, `urllib`, sans dépendance) : `state` (JSON complet), `brief` (une ligne par joueur + ennemis proches),
+- **`scripts/alacod-remote`** (Python, `urllib`, sans dépendance) : `state` (JSON complet), `brief` (joueurs, ennemis proches et commandes en attente),
   `input Up,Fire --pan 100,0 [--handle 0]` ; **`input ""` relâche et rend la main au clavier**, `step 30 [--no-wait]`, `pause`, `resume`,
   `screenshot <png>`, `save <scénario.ron>`, `discover`.
-  Mode éditeur (K5-1) : `restart [--kind {Restart,ToLobby,EnterRun,ToHub}] [--seed N]`, `modifier [--handle 0|--net-id N] [--until FRAMES] [--source S] STAT {Add,Pct,Mul,Set} VALEUR`,
-  `unmodify [--handle 0|--net-id N] [--source S]`, `reload`. `brief` commence par `editor=… online=… check_distance=… run.step=…`.
+  Mode éditeur (K5-1/K5-2) : `restart [--kind {Restart,ToLobby,EnterRun,ToHub}] [--seed N]`, `modifier [--handle 0|--net-id N] [--until FRAMES] [--source S] STAT {Add,Pct,Mul,Set} VALEUR`,
+  `unmodify [--handle 0|--net-id N] [--source S]`, `reload`, `spawn <personnage> --at X,Y [--team T] [--variant V]`,
+  `spawn-powerup <id> --at X,Y`, `spawn-item <id> --at X,Y`.
+  `brief` commence par `editor=… online=… check_distance=… run.step=…`.
 - **Méthodes `alacod/*` du mode éditeur** (JSON-RPC, `http://127.0.0.1:15702`) :
   - `alacod/restart` `{kind?: "Restart"|"ToLobby"|"EnterRun"|"ToHub", seed?: i32}` : pose un `RunRequest` ; le jeu repasse par `GameLoading`
     (tables dérivées du `Registry` recalculées, carte rechargée) puis `InGame`. `seed` écrit `MapGenerationConfig.seed` ; refusé avec `ToLobby`.
   - `alacod/set_modifier` `{handle?|net_id?, stat, op: Add|Pct|Mul|Set, value: "0.9", source?: "editor", until_frames?}` : modificateur
+- `alacod/spawn_character` `{character, x, y, team?, variant?}` : valide puis programme le personnage à la frame suivante.
+- `alacod/spawn_powerup` `{id, x, y}` et `alacod/spawn_item` `{id, x, y}` : valident l'id puis programment le pickup à la frame suivante.
+  Les commandes sont rejouables, visibles dans `state.commands`, et incluses comme placements par `save`.
     **vivant** sur une entité (joueur 0 par défaut) ; `stat` = un `StatId` (`MoveSpeed`, `MaxHealth`, `Damage`, `FireRate`, `ReloadSpeed`…) ou `custom:<nom>`.
   - `alacod/clear_modifiers` `{handle?|net_id?, source?: "editor"}` : retire ceux de la source.
   - `alacod/reload_content` : relit le `Registry` tout de suite ; renvoie les compteurs et `errors` (liste vide = remplacé). Les tables dérivées
@@ -56,6 +61,13 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 - **Hook de lint** (`.claude/settings.json` → `scripts/lint-edited-game.sh`) : après chaque `Edit`/`Write` sous `games/<jeu>/`, relance
   `alacod lint games/<jeu>` (asynchrone, 300 s). Un lint rouge est à corriger avant de dire « fait ».
 - `git` : `git revert --no-edit HEAD` pour « annule ça ».
+
+## 2.1 Commandes vocales de placement
+
+« Spawne un zombie_runner devant moi » se traduit par `spawn zombie_runner --at X,Y`.
+La position « devant moi » est celle du joueur ciblé, avancée de **60 px** dans sa direction de visée
+(visée libre ; à défaut, la dernière visée connue). Le client vocal lit `alacod/state` pour obtenir
+la position et la visée, puis envoie la commande explicite ; le moteur applique le spawn à la frame suivante.
 
 ## 3. Vocabulaire → champs RON
 

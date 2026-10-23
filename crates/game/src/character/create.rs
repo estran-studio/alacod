@@ -8,7 +8,7 @@ use utils::net_id::{GgrsNetId, GgrsNetIdFactory};
 
 use crate::{
     character::{
-        config::{CharacterConfigKey, CharacterConfigs},
+        config::{CharacterConfig, CharacterConfigKey, CharacterConfigs},
         movement::Velocity,
     },
     collider::{Collider, CollisionLayer},
@@ -24,6 +24,34 @@ use super::{
     movement::SprintState,
     Character,
 };
+
+/// Stats de base communes aux créations et au rechargement à chaud.
+pub(crate) fn base_stats(
+    config: &CharacterConfig,
+    health_max: fixed_math::Fixed,
+    extra_stat_defaults: &[(StatId, fixed_math::Fixed)],
+) -> Stats {
+    let mut stats = Stats::new();
+    stats.set(StatId::MoveSpeed, config.movement.max_speed);
+    stats.set(StatId::EnemyMoveSpeed, config.movement.max_speed);
+    stats.set(StatId::Acceleration, config.movement.acceleration);
+    stats.set(StatId::SprintMultiplier, config.movement.sprint_multiplier);
+    stats.set(StatId::MaxHealth, health_max);
+    if let Some(regen_rate) = config.base_health.regen_rate {
+        stats.set(StatId::HealthRegen, regen_rate);
+    }
+    stats.set(StatId::FireRate, fixed_math::FIXED_ONE);
+    stats.set(StatId::ReloadSpeed, fixed_math::FIXED_ONE);
+    stats.set(StatId::Damage, fixed_math::FIXED_ONE);
+    stats.set(StatId::Range, fixed_math::FIXED_ONE);
+    for (id, value) in extra_stat_defaults {
+        stats.set(id.clone(), *value);
+    }
+    for (id, value) in &config.stats {
+        stats.set(id.clone(), *value);
+    }
+    stats
+}
 
 pub fn create_character(
     commands: &mut Commands,
@@ -125,37 +153,9 @@ pub fn create_character(
 
     let health = new_health(health_max);
 
-    // Stats de base (T1.2, chantier B2, `docs/conventions.md` §9) : dérivées des champs
-    // existants de `CharacterConfig`, puis `extra_stat_defaults` (ennemis), puis
-    // `config.stats` du RON en dernier — RON gagne toujours. Aucun de ces défauts ne
-    // change la simulation d'un personnage qui ne déclare pas `stats:` : c'est exactement
-    // la valeur que lisait jusqu'ici le code branché sur `CharacterConfig`/`PathfindingConfig`.
-    let mut stats = Stats::new();
-    stats.set(StatId::MoveSpeed, config.movement.max_speed);
-    // Même valeur de base que `MoveSpeed`, lue par `move_enemies` : une stat distincte pour
-    // ne pas coupler réglage joueur et ennemi (voir la doc de `StatId::EnemyMoveSpeed`).
-    // Posée pour tout personnage, y compris les joueurs (jamais lue pour eux : inoffensif).
-    stats.set(StatId::EnemyMoveSpeed, config.movement.max_speed);
-    stats.set(StatId::Acceleration, config.movement.acceleration);
-    stats.set(StatId::SprintMultiplier, config.movement.sprint_multiplier);
-    stats.set(StatId::MaxHealth, health_max);
-    if let Some(regen_rate) = config.base_health.regen_rate {
-        stats.set(StatId::HealthRegen, regen_rate);
-    }
-    // Multiplicateurs à 1 par défaut : un `Mul`/`Pct` posé dessus par un futur chantier
-    // (perk, statut) s'applique tel quel ; sans lui, `resolve()` renvoie exactement 1 et le
-    // produit avec la valeur de configuration (dégâts, portée, cadence...) ne change rien
-    // (voir la contrainte « traces identiques » du rapport de tâche).
-    stats.set(StatId::FireRate, fixed_math::FIXED_ONE);
-    stats.set(StatId::ReloadSpeed, fixed_math::FIXED_ONE);
-    stats.set(StatId::Damage, fixed_math::FIXED_ONE);
-    stats.set(StatId::Range, fixed_math::FIXED_ONE);
-    for (id, value) in extra_stat_defaults {
-        stats.set(id.clone(), *value);
-    }
-    for (id, value) in &config.stats {
-        stats.set(id.clone(), *value);
-    }
+    // Les champs dédiés, les valeurs par défaut et les surcharges RON suivent une séquence
+    // commune au spawn et au rechargement à chaud.
+    let stats = base_stats(config, health_max, extra_stat_defaults);
 
     // Add gameplay components to the visual entity
     commands.entity(entity).insert((

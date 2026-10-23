@@ -30,9 +30,9 @@ use serde::Deserialize;
 use utils::order_mut_iter;
 
 use super::config::{CharacterConfig, CharacterConfigKey, CharacterConfigs};
-use crate::character::health::Health;
+use super::create::base_stats;
 use crate::global_asset::GlobalAsset;
-use sim_core::stats::{StatId, Stats};
+use sim_core::stats::Stats;
 
 /// Enveloppe `Asset` d'un fichier de personnage (`assets/characters/*.ron`).
 #[derive(Asset, TypePath, Deserialize, Debug, Clone)]
@@ -93,7 +93,6 @@ pub fn refresh_live_stats(
     global: Option<Res<GlobalAsset>>,
     assets: Res<Assets<CharacterConfigAsset>>,
     mut events: MessageReader<AssetEvent<CharacterConfigAsset>>,
-    configs: Res<CharacterConfigs>,
     balance: Res<crate::balance::ResolvedBalance>,
     online: Option<Res<crate::session::OnlineState>>,
     session: Option<Res<crate::jjrs::GggrsSessionConfiguration>>,
@@ -129,14 +128,7 @@ pub fn refresh_live_stats(
             if config_key.0 != *key {
                 continue;
             }
-            stats.set(StatId::MoveSpeed, config.movement.max_speed);
-            stats.set(StatId::EnemyMoveSpeed, config.movement.max_speed);
-            stats.set(StatId::Acceleration, config.movement.acceleration);
-            stats.set(StatId::SprintMultiplier, config.movement.sprint_multiplier);
-            stats.set(StatId::MaxHealth, health_max);
-            for (id, value) in &config.stats {
-                stats.set(id.clone(), *value);
-            }
+            *stats = base_stats(config, health_max, &[]);
         }
     }
 }

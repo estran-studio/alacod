@@ -574,7 +574,8 @@ Rejouer avec `make play_scenario SCENARIO=<nom>` (avec rendu). Pour regénérer 
   `screenshot`, `save <fichier.ron>`, `pause`/`resume`.
   Mode éditeur (`ALACOD_EDITOR=1`, `make editor`) : partie en marche, clavier conservé ; méthodes `alacod/restart`
   (`--kind`, `--seed`), `alacod/set_modifier` / `clear_modifiers` (modificateur vivant : `modifier --handle 0 MoveSpeed Mul 0.9`,
-  `unmodify`), `alacod/reload_content` (`reload`) ; `Registry` rechargé hors lobby (événements d'assets et scrutation des fichiers, 1 s),
+  `unmodify`), `alacod/reload_content` (`reload`), `alacod/spawn_character`, `alacod/spawn_powerup` et `alacod/spawn_item`
+  (commandes indexées par frame, rejouables et visibles dans `brief`) ; `Registry` rechargé hors lobby (événements d'assets et scrutation des fichiers, 1 s),
   tables dérivées recalculées au `restart`.
 - **Enregistrement** (`game::recording`) : les inputs réellement envoyés à GGRS sont capturés à chaque
   frame ; `save` (remote) ou `ALACOD_RECORD=<fichier>` (écrit à la fermeture, ex.
