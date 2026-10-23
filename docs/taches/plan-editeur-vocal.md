@@ -112,7 +112,7 @@ Branches `k5-<n>-<sujet>`. Estimations `[INFERENCE]`. V1 = simulation, V3 = outi
 | K5-1 | Partie pilotable, lot 1 | V3 avec V1 | K5-0 | 1 j | `docs/taches/k5-1-partie-pilotable.md` |
 | K5-2 | Partie pilotable, lot 2 | V1 | K5-1 | 3 j | `docs/taches/k5-2-commandes-spawn.md` |
 | K5-3 | Apps de test | V3 | K5-1 (K5-2 pour les spawns) | 1 j | `docs/taches/k5-3-apps-de-test.md` |
-| K5-4 | Branchement vocal et décision MCP | V3 + William | K5-1 | 1 j (+1 j si pont) | `docs/taches/k5-4-branchement-vocal.md` |
+| K5-4 | Branchement vocal et décision MCP | V3 + William | K5-1 | 1 j (+1 j si pont) | `docs/taches/k5-4-branchement-vocal.md` : guide et protocole écrits ; essai William à faire |
 
 ### **K5-0 Mode éditeur et instructions** (V3, 0,5 j)
 - `Makefile` cible `editor` (`ALACOD_EDITOR=1` ⇒ `ALACOD_REMOTE=1`, features `native`, `ALACOD_LABELS=1`).
