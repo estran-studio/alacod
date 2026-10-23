@@ -241,6 +241,7 @@ fn dump_presentation_order() {
         app_name: "presentation".into(),
         headless,
         asset_root: Some(scenario::runner::assets_dir("zombies")),
+        editor: false,
     };
     let mut app = App::new();
     app.add_plugins(game::core::CoreSetupPlugin(config(true)).get_default_plugin())

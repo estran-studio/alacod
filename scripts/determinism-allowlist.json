@@ -244,5 +244,23 @@
     "code": "let now = bevy::platform::time::Instant::now();",
     "count": 1,
     "reason": "Horloge murale du lobby en ligne (D109/D116) : délai de connexion et d'admission, présentation du réseau seulement ; jamais lue par la simulation, des traces ou du checksum."
+  },
+  {
+    "path": "crates/game/src/content_hot_reload.rs",
+    "code": "let now = std::time::Instant::now();",
+    "count": 1,
+    "reason": "Scrutation des fichiers du contenu (K5-1, mode éditeur, natif) : période de 1 s en temps réel (`Time` est figé par la pause du remote), hors `GgrsSchedule`, jamais lue par la simulation."
+  },
+  {
+    "path": "crates/game/src/content_hot_reload.rs",
+    "code": "let start = std::time::Instant::now();",
+    "count": 1,
+    "reason": "Mesure de durée du test ignoré `fingerprint_cost_on_isaac` (K5-1), hors simulation."
+  },
+  {
+    "path": "crates/game/src/content_hot_reload.rs",
+    "code": "poll.last = Some(std::time::Instant::now() - Duration::from_secs(2));",
+    "count": 2,
+    "reason": "Test de la scrutation (K5-1) : recule l'instant du dernier relevé, hors simulation."
   }
 ]

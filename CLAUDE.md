@@ -348,6 +348,10 @@ Variables d'environnement (natif) :
   `ALACOD_INPUT=script:<scénario.ron>` (natif) : chaque joueur local rejoue le `PlayerScript` de son
   handle (preuve p2p avec rollback réel : `tests/scenarios/p2p_smoke.ron`, inputs qui changent sans
   arrêt ; avec `neutral`, les prédictions sont toujours justes et rien n'est resimulé).
+- `ALACOD_EDITOR=1` (natif, `make editor`, K5-1, `docs/editeur-vocal.md`, `docs/conventions.md` §84) : mode éditeur ; implique `ALACOD_REMOTE=1`,
+  la partie **n'est pas en pause**, le clavier reste la source d'input (un `alacod/input` prend la main par handle, un `input` vide la rend) et
+  `check_distance` vaut **0** (même avec `ALACOD_STATE_TRACE` ; un `ALACOD_CHECK_DISTANCE` explicite reste prioritaire). Les commandes qui écrivent
+  hors `GgrsSchedule` (`alacod/restart`, `set_modifier`, `clear_modifiers`, `reload_content`) sont refusées en ligne ou à `check_distance > 0`.
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
   de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
 - `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` et `ALACOD_P2P_CHANNEL=unreliable` (natif, mesures D87) : remplacent le délai de
@@ -568,6 +572,11 @@ Rejouer avec `make play_scenario SCENARIO=<nom>` (avec rendu). Pour regénérer 
   lance la partie en pause ; `scripts/alacod-remote` la pilote : `brief`/`state` (joueurs, ennemis
   avec dx/dy, vague, fenêtres, portes), `input Fire --pan 100,0`, `step 30` (avance puis affiche),
   `screenshot`, `save <fichier.ron>`, `pause`/`resume`.
+  Mode éditeur (`ALACOD_EDITOR=1`, `make editor`) : partie en marche, clavier conservé ; méthodes `alacod/restart`
+  (`--kind`, `--seed`), `alacod/set_modifier` / `clear_modifiers` (modificateur vivant : `modifier --handle 0 MoveSpeed Mul 0.9`,
+  `unmodify`), `alacod/reload_content` (`reload`), `alacod/spawn_character`, `alacod/spawn_powerup` et `alacod/spawn_item` (`spawn … --at X,Y | --ahead`)
+  (commandes indexées par frame, rejouables et visibles dans `brief`) ; `Registry` rechargé hors lobby (événements d'assets et scrutation des fichiers, 1 s),
+  tables dérivées recalculées au `restart`.
 - **Enregistrement** (`game::recording`) : les inputs réellement envoyés à GGRS sont capturés à chaque
   frame ; `save` (remote) ou `ALACOD_RECORD=<fichier>` (écrit à la fermeture, ex.
   `make record_session NAME=x`) produit un scénario rejouable. Ajouter des `expect`, puis

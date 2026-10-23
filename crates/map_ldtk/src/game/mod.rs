@@ -1,5 +1,6 @@
 pub mod cave;
 pub mod collider;
+pub mod commands;
 pub mod entity;
 pub mod floors;
 pub mod local;

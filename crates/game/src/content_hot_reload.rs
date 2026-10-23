@@ -1,24 +1,39 @@
-//! Rechargement à chaud du registre de contenu, hors partie (T1.5).
+//! Rechargement à chaud du registre de contenu, dans tous les états (T1.5, K5-1).
 //!
-//! Quand un fichier de contenu suivi par Bevy change sur disque (feature `native`,
-//! `bevy/file_watcher` : voir `games/zombies/Cargo.toml`), et que l'app est dans un état de
-//! lobby (`AppState::LobbyLocal`/`LobbyOnline`), on relit `game.ron` et ses dossiers
-//! depuis le disque et on relance le lint. Le registre n'est remplacé que si le contenu
-//! est valide ; sinon l'ancien registre reste en place et les erreurs sont journalisées.
-//! Jamais en partie (`AppState::InGame`) : ce système ne tourne que dans les états de
-//! lobby, jamais dans `GgrsSchedule` (les snapshots rollback ne se réécrivent pas à chaud).
+//! Le registre ([`content::registry::Registry`], et le manifeste [`content::manifest::GameManifest`])
+//! est relu depuis le disque (`load_and_lint` sur [`GameRoot`]) quand :
+//! - un asset Bevy sentinelle émet `AssetEvent::Modified` (personnages, armes, mêlée, vagues ;
+//!   feature `native`, `bevy/file_watcher`) ;
+//! - la **scrutation** (natif, **mode éditeur seulement** : `ALACOD_EDITOR=1`) voit changer l'empreinte des fichiers du contenu : (chemin
+//!   relatif, mtime, taille) de `game.ron` et de chaque fichier ou dossier déclaré par
+//!   `content_folders` (dossiers non récursifs, comme `Registry::build`), une fois par seconde. Elle
+//!   couvre ce qu'aucun asset ne suit (`items/`, `rooms/`, `statuses/`, `patterns/`, `curses/`,
+//!   `economy`, `perks`, `game.ron`) et l'édition à la main dans un éditeur de texte ;
+//! - `alacod/reload_content` (`remote.rs`) appelle [`reload_registry_now`].
+//!
+//! Le registre n'est remplacé que si le lint est vert ; sinon l'ancien reste en place et les erreurs
+//! sont journalisées. Le remplacement a lieu dans **tous** les états (lobby comme partie) : aucun
+//! système de `GgrsSchedule` ne lit `Registry` ni `GameManifest` (les lecteurs sont les `OnEnter(GameLoading)`
+//! qui redérivent leurs tables, le chargement de la carte, le démarrage de session et des écrans :
+//! `docs/editeur-vocal.md` § 5). Une partie en cours garde donc ses tables dérivées jusqu'au prochain
+//! `GameLoading` (`alacod/restart`). Ce système ne tourne jamais dans `GgrsSchedule`.
+//!
+//! Limite : `GlobalAsset` ne lit le registre qu'au `Startup` (handles des assets de personnages et
+//! d'armes) ; un fichier de personnage **ajouté** n'est donc suivi comme asset qu'après relance.
 //!
 //! Idiome repris de `crates/game/src/ui/hud.rs` (`handle_hud_config_changes`) :
-//! `MessageReader<AssetEvent<T>>` pour chacun des types de contenu déjà suivis comme
-//! assets Bevy (`CharacterConfigAsset`, `WeaponsConfig`, `MeleeWeaponsConfig`, `WaveConfigAsset`).
+//! `MessageReader<AssetEvent<T>>` pour chacun des types de contenu déjà suivis comme assets Bevy.
 
 use bevy::prelude::*;
 use std::path::PathBuf;
 
 use crate::character::config_asset::CharacterConfigAsset;
-use crate::session::AppState;
+use crate::editor_mode::{session_hot_edit_allowed, EditorMode};
+use crate::jjrs::GggrsSessionConfiguration;
+use crate::session::{AppState, OnlineState};
 use crate::waves::assets::WaveConfigAsset;
 use crate::weapon_assets::{MeleeWeaponsConfig, WeaponsConfig};
+use content::{manifest::GameManifest, registry::Registry};
 
 /// Dossier du jeu (ex. `games/zombies`, posé par `main.rs` depuis
 /// `env!("CARGO_MANIFEST_DIR")`) : sert à relire `game.ron` et ses dossiers de contenu.
@@ -31,57 +46,318 @@ pub struct ContentHotReloadPlugin;
 
 impl Plugin for ContentHotReloadPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, reload_registry_on_change.run_if(in_lobby));
+        app.add_systems(Update, reload_registry_on_change);
     }
 }
 
-fn in_lobby(state: Res<State<AppState>>) -> bool {
-    matches!(state.get(), AppState::LobbyLocal | AppState::LobbyOnline)
+/// Résultat d'un rechargement : compteurs du registre **lu** (remplacé seulement si `errors` est vide).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ReloadReport {
+    pub reloaded: bool,
+    pub characters: usize,
+    pub weapons: usize,
+    pub melee: usize,
+    pub waves: usize,
+    pub errors: Vec<String>,
 }
 
+/// Relit le contenu de `root` ; renvoie le registre et le manifeste neufs s'ils sont valides.
+fn load_content(root: &std::path::Path) -> (Option<(Registry, GameManifest)>, ReloadReport) {
+    match content::load_and_lint(root) {
+        Ok((registry, manifest, errors)) => {
+            let mut report = ReloadReport {
+                reloaded: errors.is_empty(),
+                characters: registry.characters.len(),
+                weapons: registry.weapons.len(),
+                melee: registry.melee_weapons.len(),
+                waves: registry.waves.len(),
+                errors: errors.iter().map(|e| e.to_string()).collect(),
+            };
+            if errors.is_empty() {
+                (Some((registry, manifest)), report)
+            } else {
+                report.reloaded = false;
+                (None, report)
+            }
+        }
+        Err(e) => (
+            None,
+            ReloadReport {
+                errors: vec![format!("game.ron invalide : {e}")],
+                ..Default::default()
+            },
+        ),
+    }
+}
+
+fn log_report(report: &ReloadReport) {
+    if report.reloaded {
+        info!(
+            "contenu rechargé ({} personnages, {} armes, {} armes de corps à corps, {} vagues)",
+            report.characters, report.weapons, report.melee, report.waves,
+        );
+    } else {
+        for e in &report.errors {
+            error!("contenu invalide, registre non rechargé : {e}");
+        }
+    }
+}
+
+/// Recharge le registre tout de suite (`alacod/reload_content`). `Err` si [`GameRoot`] est absente.
+pub fn reload_registry_now(world: &mut World) -> Result<ReloadReport, String> {
+    let root = world
+        .get_resource::<GameRoot>()
+        .map(|root| root.0.clone())
+        .ok_or_else(|| "GameRoot absente : pas de dossier de jeu à relire".to_string())?;
+    // Empreinte relevée **avant** la lecture : une édition survenue pendant le chargement sera revue.
+    #[cfg(not(target_arch = "wasm32"))]
+    let fingerprint = content_fingerprint(&root);
+    let (loaded, report) = load_content(&root);
+    log_report(&report);
+    if let Some((registry, manifest)) = loaded {
+        world.insert_resource(registry);
+        world.insert_resource(manifest);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(mut poll) = world.get_resource_mut::<ContentPoll>() {
+        poll.fingerprint = Some(fingerprint);
+    }
+    Ok(report)
+}
+
+/// Empreinte des fichiers du contenu : ensemble trié de (chemin relatif à `assets/`, mtime, taille)
+/// de `game.ron` et de chaque fichier ou dossier (non récursif) déclaré par `content_folders`.
+/// Un fichier illisible compte comme absent. Vide si `game.ron` ne se lit pas.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn content_fingerprint(root: &std::path::Path) -> Vec<(String, std::time::SystemTime, u64)> {
+    use std::path::Path;
+    let assets = GameManifest::assets_dir(root);
+    let mut out = Vec::new();
+    let mut push = |path: &Path, out: &mut Vec<(String, std::time::SystemTime, u64)>| {
+        if let Ok(meta) = std::fs::metadata(path) {
+            if meta.is_file() {
+                let rel = path.strip_prefix(&assets).unwrap_or(path);
+                out.push((
+                    rel.to_string_lossy().replace('\\', "/"),
+                    meta.modified().unwrap_or(std::time::UNIX_EPOCH),
+                    meta.len(),
+                ));
+            }
+        }
+    };
+    push(&GameManifest::manifest_path(root), &mut out);
+    let Ok(manifest) = GameManifest::load(root) else {
+        // `game.ron` en cours d'écriture ou invalide : l'empreinte de `game.ron` seule change déjà.
+        out.sort();
+        return out;
+    };
+    for decl in &manifest.content_folders {
+        let path = assets.join(&decl.path);
+        if path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&path) {
+                for entry in entries.flatten() {
+                    push(&entry.path(), &mut out);
+                }
+            }
+        } else {
+            push(&path, &mut out);
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// État de la scrutation : dernière empreinte et instant du dernier relevé.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Resource, Default)]
+struct ContentPoll {
+    fingerprint: Option<Vec<(String, std::time::SystemTime, u64)>>,
+    last: Option<std::time::Instant>,
+}
+
+/// Période de la scrutation. `Instant` et non `Time` : la partie du remote en pause fige `Time`, et
+/// une édition faite pendant la pause doit se voir aussi.
+#[cfg(not(target_arch = "wasm32"))]
+const POLL_PERIOD: std::time::Duration = std::time::Duration::from_secs(1);
+
+#[cfg(not(target_arch = "wasm32"))]
+fn content_changed_on_disk(root: &std::path::Path, poll: &mut ContentPoll) -> bool {
+    let now = std::time::Instant::now();
+    if poll
+        .last
+        .is_some_and(|last| now.duration_since(last) < POLL_PERIOD)
+    {
+        return false;
+    }
+    poll.last = Some(now);
+    let current = content_fingerprint(root);
+    let changed = poll
+        .fingerprint
+        .as_ref()
+        .is_some_and(|previous| *previous != current);
+    poll.fingerprint = Some(current);
+    changed
+}
+
+#[allow(clippy::too_many_arguments)]
 fn reload_registry_on_change(
     game_root: Option<Res<GameRoot>>,
     mut characters: MessageReader<AssetEvent<CharacterConfigAsset>>,
     mut weapons: MessageReader<AssetEvent<WeaponsConfig>>,
     mut melee: MessageReader<AssetEvent<MeleeWeaponsConfig>>,
     mut waves: MessageReader<AssetEvent<WaveConfigAsset>>,
+    app_state: Option<Res<State<AppState>>>,
+    online: Option<Res<OnlineState>>,
+    session: Option<Res<GggrsSessionConfiguration>>,
+    editor: Option<Res<EditorMode>>,
     mut commands: Commands,
+    mut warned: Local<bool>,
+    #[cfg(not(target_arch = "wasm32"))] mut poll: Local<ContentPoll>,
 ) {
     // `|` (pas `||`) : les quatre lecteurs doivent être vidés à chaque appel, même si un
     // des premiers a déjà trouvé un changement (sinon leurs curseurs prennent du retard).
-    let changed = characters.read().any(is_modified)
+    let events = characters.read().any(is_modified)
         | weapons.read().any(is_modified)
         | melee.read().any(is_modified)
         | waves.read().any(is_modified);
-
-    if !changed {
-        return;
-    }
 
     let Some(game_root) = game_root else {
         return;
     };
 
-    match content::load_and_lint(&game_root.0) {
-        Ok((registry, _manifest, errors)) if errors.is_empty() => {
-            info!(
-                "contenu rechargé ({} personnages, {} armes, {} armes de corps à corps, {} vagues)",
-                registry.characters.len(),
-                registry.weapons.len(),
-                registry.melee_weapons.len(),
-                registry.waves.len(),
-            );
-            commands.insert_resource(registry);
+    #[allow(unused_mut)]
+    let mut changed = events;
+
+    // Scrutation des fichiers (natif, **mode éditeur seulement** : un binaire normal ne paie rien).
+    // Un changement vu par les événements d'assets renouvelle aussi l'empreinte, pour que la même
+    // écriture ne recharge pas deux fois.
+    #[cfg(not(target_arch = "wasm32"))]
+    if editor.is_some() {
+        let polled = content_changed_on_disk(&game_root.0, &mut poll);
+        if changed && !polled {
+            poll.fingerprint = Some(content_fingerprint(&game_root.0));
         }
-        Ok((_, _, errors)) => {
-            for e in &errors {
-                error!("contenu invalide, registre non rechargé : {e}");
+        changed |= polled;
+    }
+
+    if !changed {
+        return;
+    }
+
+    // Garde : hors lobby, remplacer le registre d'une session en ligne ou resimulée ferait diverger
+    // les pairs au prochain `GameLoading` (D1). Au lobby, comportement d'avant K5-1.
+    let in_lobby = app_state
+        .as_deref()
+        .is_some_and(|s| matches!(s.get(), AppState::LobbyLocal | AppState::LobbyOnline));
+    if !in_lobby {
+        let allowed = session_hot_edit_allowed(
+            online.as_deref().copied(),
+            session.as_deref().map(|c| c.connection.check_distance),
+        );
+        if let Err(cause) = allowed {
+            if !*warned {
+                warn!("registre non rechargé : {cause}");
+                *warned = true;
             }
+            return;
         }
-        Err(e) => error!("game.ron invalide, registre non rechargé : {e}"),
+    }
+
+    let (loaded, report) = load_content(&game_root.0);
+    log_report(&report);
+    if let Some((registry, manifest)) = loaded {
+        commands.insert_resource(registry);
+        commands.insert_resource(manifest);
     }
 }
 
 fn is_modified<T: Asset>(event: &AssetEvent<T>) -> bool {
     matches!(event, AssetEvent::Modified { .. })
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::time::Duration;
+
+    fn temp_game(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("alacod-hot-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("assets/items")).unwrap();
+        fs::write(
+            dir.join("assets/game.ron"),
+            r#"(name: "t", content_folders: [(path: "items", kind: "PowerUp"), (path: "camera.ron", kind: "Camera")], entry: (start_map: "x", default_seed: 1))"#,
+        )
+        .unwrap();
+        fs::write(dir.join("assets/items/a.ron"), "()").unwrap();
+        fs::write(dir.join("assets/camera.ron"), "()").unwrap();
+        dir
+    }
+
+    #[test]
+    fn fingerprint_changes_on_edit_and_new_file_and_ignores_undeclared() {
+        let dir = temp_game("fp");
+        let base = content_fingerprint(&dir);
+        assert_eq!(
+            base.len(),
+            3,
+            "game.ron, items/a.ron, camera.ron : {base:?}"
+        );
+        assert_eq!(base, content_fingerprint(&dir));
+
+        // Fichier hors contenu déclaré : sans effet.
+        fs::write(dir.join("assets/ignored.png"), "x").unwrap();
+        assert_eq!(base, content_fingerprint(&dir));
+
+        // Édition (taille change) d'un fichier d'un dossier déclaré.
+        fs::write(dir.join("assets/items/a.ron"), "(1)").unwrap();
+        let edited = content_fingerprint(&dir);
+        assert_ne!(base, edited);
+
+        // Nouveau fichier dans un dossier déclaré.
+        fs::write(dir.join("assets/items/b.ron"), "()").unwrap();
+        assert_eq!(content_fingerprint(&dir).len(), 4);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn poll_is_throttled_and_first_reading_is_a_baseline() {
+        let dir = temp_game("poll");
+        let mut poll = ContentPoll::default();
+        assert!(
+            !content_changed_on_disk(&dir, &mut poll),
+            "premier relevé = base"
+        );
+        fs::write(dir.join("assets/items/a.ron"), "(12345)").unwrap();
+        assert!(
+            !content_changed_on_disk(&dir, &mut poll),
+            "moins d'une seconde : pas de relevé"
+        );
+        poll.last = Some(std::time::Instant::now() - Duration::from_secs(2));
+        assert!(content_changed_on_disk(&dir, &mut poll));
+        poll.last = Some(std::time::Instant::now() - Duration::from_secs(2));
+        assert!(!content_changed_on_disk(&dir, &mut poll), "rien de neuf");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Mesure (K5-1) : coût d'un relevé d'empreinte sur `games/isaac` (349 RON). `cargo test -p game
+    /// --lib --profile headless --no-default-features -- --ignored --nocapture fingerprint_cost`.
+    #[test]
+    #[ignore]
+    fn fingerprint_cost_on_isaac() {
+        let root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../games/isaac"));
+        let first = content_fingerprint(&root);
+        assert!(first.len() > 100, "isaac : {} fichiers suivis", first.len());
+        let start = std::time::Instant::now();
+        for _ in 0..100 {
+            std::hint::black_box(content_fingerprint(&root));
+        }
+        let per_call = start.elapsed() / 100;
+        eprintln!(
+            "empreinte isaac : {} fichiers, {per_call:?} par relevé (100 appels)",
+            first.len()
+        );
+    }
 }

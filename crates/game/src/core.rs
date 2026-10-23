@@ -194,8 +194,16 @@ impl Plugin for CoreAppPlugin {
         // feature `native`, aucun `AssetEvent` de modification n'est jamais émis).
         app.add_plugins(ContentHotReloadPlugin);
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(remote) = crate::remote::RemoteControlPlugin::from_env() {
-            app.add_plugins(remote);
+        {
+            // Mode éditeur (K5-1) : voulu par l'exécutable (`CoreSetupConfig::editor`, K5-3) ou par
+            // `ALACOD_EDITOR=1`. Posé avant le remote, qui lit sa présence ; il implique le remote.
+            let editor = self.0.editor || crate::editor_mode::EditorMode::enabled_by_env();
+            if editor {
+                app.insert_resource(crate::editor_mode::EditorMode);
+            }
+            if let Some(remote) = crate::remote::RemoteControlPlugin::new(editor) {
+                app.add_plugins(remote);
+            }
         }
     }
 }

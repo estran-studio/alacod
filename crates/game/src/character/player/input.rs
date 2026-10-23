@@ -115,7 +115,8 @@ pub enum InputSource {
 }
 
 /// Input maintenu par joueur (handle GGRS) en mode [`InputSource::Remote`] ; un joueur
-/// absent envoie un input neutre.
+/// absent envoie un input neutre. En mode éditeur (`InputSource::Devices`), une entrée prend la
+/// main sur le clavier pour ce handle, et son absence rend la main au clavier.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct RemoteInputs {
     pub held: HashMap<usize, BoxInput>,
@@ -228,7 +229,9 @@ pub fn read_local_inputs(
     let mut local_inputs = HashMap::new();
 
     if *input_source == InputSource::Remote {
-        let remote = remote.expect("InputSource::Remote demande la ressource RemoteInputs");
+        let remote = remote
+            .as_ref()
+            .expect("InputSource::Remote demande la ressource RemoteInputs");
         for handle in &local_players.0 {
             local_inputs.insert(
                 *handle,
@@ -253,6 +256,16 @@ pub fn read_local_inputs(
         if let Some(device_inputs) = device_inputs.as_deref() {
             for (handle, input) in &device_inputs.0 {
                 local_inputs.insert(*handle, *input);
+            }
+        }
+        // Mode éditeur (K5-1) : le clavier reste la source ; un `alacod/input` prend la main pour son
+        // handle jusqu'à un `alacod/input` vide (`RemoteInputs::held` sans l'entrée). Hors mode
+        // éditeur `RemoteInputs` n'existe pas avec `Devices` : aucun effet.
+        if let Some(remote) = remote.as_deref() {
+            for handle in &local_players.0 {
+                if let Some(input) = remote.held.get(handle) {
+                    local_inputs.insert(*handle, *input);
+                }
             }
         }
     }

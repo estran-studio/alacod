@@ -16,6 +16,10 @@ pub struct CoreSetupConfig {
     pub headless: bool,
     /// Dossier des assets ; `None` pour le dossier par défaut de bevy.
     pub asset_root: Option<String>,
+    /// Mode éditeur voulu par l'exécutable, en plus de `ALACOD_EDITOR=1` (K5-3) : insère `EditorMode`
+    /// et démarre le remote sans variable d'environnement.
+    #[serde(default)]
+    pub editor: bool,
 }
 
 impl CoreSetupConfig {
@@ -25,6 +29,7 @@ impl CoreSetupConfig {
             app_name: app_name.into(),
             headless: is_headless(),
             asset_root: None,
+            editor: false,
         }
     }
 }

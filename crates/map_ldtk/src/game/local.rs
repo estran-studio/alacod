@@ -65,6 +65,7 @@ pub struct LdtkLocalGamePlugin(pub LdtkGameMap);
 
 impl Plugin for LdtkLocalGamePlugin {
     fn build(&self, app: &mut App) {
+        super::commands::register(app);
         app.insert_resource(self.0.clone())
             // D105 : l'unique consommateur de `--seed` pour tous les jeux.
             .add_systems(Startup, apply_launch_seed)

@@ -23,7 +23,13 @@ use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use utils::net_id::GgrsNetIdFactory;
 
 fn main() {
+    // Mode éditeur sans variable posée à la main (K5-3). `BaseArgsPlugin` calcule `check_distance`
+    // (0 en mode éditeur) depuis l'environnement seul, avant `CoreSetupPlugin` : on allume donc aussi
+    // `ALACOD_EDITOR` ici, tout au début du `main` (aucun autre thread n'existe encore). Local à l'exemple.
+    #[cfg(not(target_arch = "wasm32"))]
+    std::env::set_var("ALACOD_EDITOR", "1");
     let mut game_config = CoreSetupConfig::from_env("zrl-character_tester");
+    game_config.editor = true;
 
     // Cet exemple joue avec le contenu de `games/zombies` (assets, manifeste, registre, T1.5) :
     // même chargement et même lint que le binaire `zombies`.
