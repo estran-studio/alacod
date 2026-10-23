@@ -1,6 +1,6 @@
 # Plan de l'éditeur vocal (chantier K5) — rédigé le 2026-10-22
 
-**État au 2026-10-22 : K5-0 livré sur `k5-0-1-editeur` le 2026-10-22 : `make editor`, `alacod-remote discover`, `docs/editeur-vocal.md`, hook vocal `scripts/claude-say.sh`, audit des assets (`rapports/k5-audit-hot-reload-assets.md`) ; K5-1 à K5-4 en fiches, à implémenter par des agents moins chers ; non mergé.** K5-1 a un point de départ partiel : branche `k5-1-wip` (code Rust compilé, non testé ; voir la fiche). Remplace le chantier K5 « Éditeur de tuning (Egui) » de `docs/plan-engine.md:530`.
+**État au 2026-10-23 : K5-0 à K5-3 livrés et fusionnés dans `main` (local, non poussé) : `make editor`, `character_tester` en mode éditeur, `alacod/*` (état, input, restart, modifiers, reload, spawn), rechargement à chaud en partie, hook vocal, guide et protocole K5-4. Essai vocal K5-4 et décision du pont MCP en attente de William.** Remplace le chantier K5 « Éditeur de tuning (Egui) » de `docs/plan-engine.md:530`.
 **Révision du 2026-10-22 (William)** : pas de serveur MCP en K5-0. BRP suffit à un client doté d'un shell ; le pont MCP n'est envisagé qu'en K5-4 si le client vocal l'exige.
 Idée de William (2026-10-22) : pas d'éditeur graphique à la Unity ; l'éditeur, c'est une IA à la voix.
 Analyse technique source : rapport « rechargement à chaud / commandes de partie / apps de test » du 2026-10-22 (agent `analyse-hot-reload-partie`).
