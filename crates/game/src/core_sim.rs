@@ -316,6 +316,7 @@ mod tests {
             app_name: "core_sim".into(),
             headless: true,
             asset_root: None,
+            editor: false,
         }));
         app.finish();
         app.cleanup();

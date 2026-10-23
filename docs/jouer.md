@@ -31,6 +31,18 @@ Les commandes `cargo run` ci-dessous recompilent au besoin ; `make gungeon` est 
 **N'utilisez pas** `make gungeon GARGS="--players localhost localhost"` : le Makefile ajoute déjà un `--players localhost`,
 et `--players` s'**ajoute** au lieu de remplacer : cela donne **trois** joueurs.
 
+## Éditer en jouant (mode éditeur)
+
+Pour régler le jeu pendant qu'on y joue (avec Claude, à la voix ou au clavier) :
+
+- `make editor GAME=zombies` (ou `gungeon`, `isaac`, `throne`, `testbed`) : le jeu choisi, partie en marche, clavier actif ;
+- `make character_tester` : un joueur et des zombies sans carte, pour essayer un personnage, une arme, un ennemi.
+
+Dans les deux cas la partie tourne dès le départ, les étiquettes F6 (nom, prix, état) se voient au-dessus des entités, et le port 15702 répond :
+`scripts/alacod-remote discover` puis `brief` (première ligne `editor=True online=False check_distance=0`). Aucune variable à poser pour
+`character_tester`. Limite : édition en **local** seulement (pas de partie en ligne) et à `check_distance` 0. Le mode d'emploi complet est dans
+`docs/editeur-vocal.md`.
+
 ## En ligne à deux
 
 Il faut Docker (ou OrbStack) sur **une** des deux machines, appelée A ci-dessous (celle dont l'adresse IP est connue de

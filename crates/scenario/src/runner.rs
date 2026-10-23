@@ -289,6 +289,7 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
         app_name: "scenario".into(),
         headless,
         asset_root: Some(assets_dir(&scenario.game)),
+        editor: false,
     });
 
     // Registre de contenu (T1.5) : mêmes règles que `alacod lint`, un contenu invalide

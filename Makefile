@@ -329,7 +329,7 @@ map_generation_diff_test:
 	diff ./games/zombies/assets/exemples/test_map_generated_1.ldtk ./games/zombies/assets/exemples/test_map_generated_2.ldtk
 
 character_tester:
-	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- $(GARGS) --local-port 7000 --players localhost
+	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
 
 character_tester_matchbox:
 	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)

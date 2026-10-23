@@ -109,9 +109,9 @@ Branches `k5-<n>-<sujet>`. Estimations `[INFERENCE]`. V1 = simulation, V3 = outi
 | # | Lot | Voie | Dépend de | Est. `[INFERENCE]` | Fiche |
 |---|---|---|---|---|---|
 | K5-0 | Mode éditeur et instructions | V3 | rien | 0,5 j | livré (`k5-0-1-editeur`) |
-| K5-1 | Partie pilotable, lot 1 | V3 avec V1 | K5-0 | 1 j | `docs/taches/k5-1-partie-pilotable.md` |
-| K5-2 | Partie pilotable, lot 2 | V1 | K5-1 | 3 j | `docs/taches/k5-2-commandes-spawn.md` |
-| K5-3 | Apps de test | V3 | K5-1 (K5-2 pour les spawns) | 1 j | `docs/taches/k5-3-apps-de-test.md` |
+| K5-1 | Partie pilotable, lot 1 | V3 avec V1 | K5-0 | 1 j | livré (`k5-1-partie-pilotable`) ; fiche `docs/taches/k5-1-partie-pilotable.md` |
+| K5-2 | Partie pilotable, lot 2 | V1 | K5-1 | 3 j | livré (`k5-2-commandes-spawn`) ; fiche `docs/taches/k5-2-commandes-spawn.md` |
+| K5-3 | Apps de test | V3 | K5-1 (K5-2 pour les spawns) | 1 j | livré (`k5-3-apps-de-test`) ; fiche `docs/taches/k5-3-apps-de-test.md` |
 | K5-4 | Branchement vocal et décision MCP | V3 + William | K5-1 | 1 j (+1 j si pont) | `docs/taches/k5-4-branchement-vocal.md` : guide et protocole écrits ; essai William à faire |
 
 ### **K5-0 Mode éditeur et instructions** (V3, 0,5 j)

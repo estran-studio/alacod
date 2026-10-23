@@ -21,6 +21,20 @@ make editor GAME=zombies SEED=42        # graine de carte imposée (--seed, D105
 | `ALACOD_LABELS=1` | étiquettes F6 au-dessus des entités (nom, prix, état) |
 | feature `native` | `bevy/file_watcher` : le rechargement à chaud des assets |
 
+### Apps de test
+
+| App | Commande | Ce qu'elle apporte |
+|---|---|---|
+| Jeu complet en mode éditeur | `make editor GAME=<jeu>` | Les cinq jeux, carte du manifeste, `--seed` ; variables `ALACOD_EDITOR`/`ALACOD_REMOTE` posées par le Makefile |
+| Character Tester | `make character_tester` | Un joueur, vagues de zombies de `games/zombies`, sans carte LDtk ; mode éditeur et remote allumés **par l'exécutable** (`CoreSetupConfig::editor`), sans variable à poser ; `check_distance` à 0 |
+| Map Tester | `make editor` + `alacod-remote restart --seed N` | Pas d'app dédiée : la carte se régénère par graine |
+| `map_preview` | `cargo run --example map_preview` | Aperçu statique rechargé à la touche R ; **sans** session GGRS, donc sans remote (`alacod/state` n'y a rien à lire) |
+| `map_generation` | `make map_generation_test` | Ligne de commande sans `App` |
+| Music Tester | hors périmètre | Attend Harmonium ; même mode local et même `scripts/alacod-remote` |
+
+Un jeu lancé à la main (`cargo run -p zombies`) reste un jeu : seuls `make editor` et `character_tester` allument le mode éditeur.
+Deux apps de test ne peuvent pas tourner ensemble sur le port 15702 sans `ALACOD_REMOTE_PORT`.
+
 En mode éditeur la partie n'est pas en pause : on joue au clavier pendant que Claude édite. `alacod-remote input Right` **prend la main** sur le
 clavier pour ce handle (le joueur avance seul) ; `alacod-remote input ""` (vide) **rend la main au clavier**. Hors mode éditeur (`make remote`),
 le comportement d'avant est inchangé : partie en pause, clavier coupé, `step` pour avancer.

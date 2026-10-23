@@ -78,10 +78,10 @@ pub struct RemoteControlPlugin {
 }
 
 impl RemoteControlPlugin {
-    /// `Some` si `ALACOD_REMOTE=1` ou `ALACOD_EDITOR=1` (le mode éditeur implique le remote).
-    pub fn from_env() -> Option<Self> {
-        if !std::env::var("ALACOD_REMOTE").is_ok_and(|v| v == "1") && !EditorMode::enabled_by_env()
-        {
+    /// `Some` si `editor` (mode éditeur voulu par la config ou `ALACOD_EDITOR=1` : il implique le remote)
+    /// ou `ALACOD_REMOTE=1`. Port : `ALACOD_REMOTE_PORT`.
+    pub fn new(editor: bool) -> Option<Self> {
+        if !editor && !std::env::var("ALACOD_REMOTE").is_ok_and(|v| v == "1") {
             return None;
         }
         let port = std::env::var("ALACOD_REMOTE_PORT")
