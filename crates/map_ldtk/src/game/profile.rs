@@ -798,3 +798,115 @@ pub fn apply_player_overrides(
     }
     *applied = true;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce;
+
+    /// Un joueur (un enfant, pour `Children`) et la pose de `profile` dessus, sans registre ni table.
+    fn apply(world: &mut World, entity: Entity, profile: PlayerProfile) -> Result<(), String> {
+        world.init_resource::<GgrsNetIdFactory>();
+        world.init_resource::<WeaponRegistry>();
+        world
+            .run_system_once(
+                move |mut commands: Commands,
+                      mut ids: ResMut<GgrsNetIdFactory>,
+                      registry: Res<WeaponRegistry>,
+                      players: Query<&Children>| {
+                    let tables = ProfileTables {
+                        progression: None,
+                        items: None,
+                        weapons: &registry,
+                    };
+                    let target = PlayerTarget {
+                        entity,
+                        handle: 3,
+                        children: players.get(entity).unwrap(),
+                        effects: None,
+                        modifiers: None,
+                    };
+                    apply_player_profile(
+                        &mut commands,
+                        &mut ids,
+                        &tables,
+                        &target,
+                        &profile,
+                        |_| false,
+                    )
+                },
+            )
+            .unwrap()
+    }
+
+    fn player(world: &mut World) -> Entity {
+        world.spawn(()).with_children(|p| {
+            p.spawn(());
+        });
+        world
+            .query::<(Entity, &Children)>()
+            .iter(world)
+            .next()
+            .unwrap()
+            .0
+    }
+
+    #[test]
+    fn un_profil_pose_argent_tags_et_visee() {
+        let mut world = World::new();
+        let entity = player(&mut world);
+        let profile = PlayerProfile {
+            currency: Some(500),
+            tags: vec!["lourd".into()],
+            aim: Some(sim_core::aim::AimMode::FourWay),
+            ..Default::default()
+        };
+        apply(&mut world, entity, profile).unwrap();
+        assert_eq!(world.get::<Currency>(entity), Some(&Currency::new(500)));
+        assert_eq!(world.get::<Tags>(entity).map(Tags::len), Some(1));
+        assert_eq!(
+            world.get::<sim_core::aim::AimMode>(entity),
+            Some(&sim_core::aim::AimMode::FourWay)
+        );
+    }
+
+    /// Un contenu inconnu est une erreur nommant le joueur, et **rien** n'est mis en file : l'argent,
+    /// pourtant valide, n'est pas posé (un appelant qui ne panique pas, ex. une commande vocale,
+    /// n'obtient pas un joueur à moitié équipé).
+    #[test]
+    fn un_contenu_inconnu_est_refuse_sans_rien_poser() {
+        for (profile, attendu) in [
+            (
+                PlayerProfile {
+                    weapon: Some("fantome".into()),
+                    ..Default::default()
+                },
+                "arme inconnue « fantome » pour le joueur 3",
+            ),
+            (
+                PlayerProfile {
+                    items: vec!["fantome".into()],
+                    ..Default::default()
+                },
+                "table des objets absente",
+            ),
+            (
+                PlayerProfile {
+                    mutations: vec!["fantome".into()],
+                    ..Default::default()
+                },
+                "table des mutations absente",
+            ),
+        ] {
+            let mut world = World::new();
+            let entity = player(&mut world);
+            let profile = PlayerProfile {
+                currency: Some(500),
+                ..profile
+            };
+            let error = apply(&mut world, entity, profile).unwrap_err();
+            assert!(error.contains(attendu), "{error}");
+            assert_eq!(world.get::<Currency>(entity), None);
+        }
+    }
+}
