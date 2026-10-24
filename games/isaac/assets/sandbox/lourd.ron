@@ -1,0 +1,11 @@
+// Profil `lourd` (SB-1) : trois objets passifs, des bombes et des clés, deux ennemis posés à droite du
+// joueur (frame 1, ligne du point d'apparition de `maps/gabarit_armes.ldtk`).
+(
+    players: [
+        (items: ["lunette_longue", "cuirasse", "loupe", "bomb", "bomb", "bomb", "key", "key"]),
+    ],
+    characters: [
+        (character: "mouche", x: "560", y: "696", at_frame: 1),
+        (character: "araignee", x: "624", y: "696", at_frame: 1),
+    ],
+)

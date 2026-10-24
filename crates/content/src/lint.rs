@@ -102,6 +102,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_difficulty(registry, manifest, &mut errors);
     lint_entry_point(registry, manifest, &mut errors);
     lint_generate_template(registry, manifest, &mut errors);
+    lint_sandbox(registry, manifest, &mut errors);
     lint_stat_readers(registry, &mut errors);
 
     errors
@@ -5417,6 +5418,217 @@ fn lint_map_layers(registry: &Registry, errors: &mut Vec<LintError>) {
                         unknown.join(", ")
                     ),
                 });
+            }
+        }
+    }
+}
+
+/// Une désignation de carte (`Scenario::map`, `entry.start_map`, `sandbox.arena`) est connue : carte
+/// LDtk chargée, `cave:<id>` ou `floor:<id>`.
+fn designation_known(registry: &Registry, designation: &str) -> bool {
+    match (
+        registry::cave_designation(designation),
+        registry::floor_designation(designation),
+    ) {
+        (Some(cave), _) => registry.caves.contains_key(&cave),
+        (None, Some(floor)) => registry.floor_grammars.contains_key(&floor),
+        (None, None) => registry
+            .maps
+            .contains_key(&registry::map_id_from_path(designation)),
+    }
+}
+
+/// SB-1 (`docs/conventions.md` §85, `docs/taches/plan-bac-a-sable.md` D1/D2) : le kind `Sandbox`.
+///
+/// - un jeu qui déclare un dossier `Sandbox` a une arène (`sandbox.arena`, sinon `generate_template.map`)
+///   **connue**, et un profil `arene` (celui de `--sandbox` sans argument) ;
+/// - `sandbox.arena` est connue même sans dossier `Sandbox` (une faute ne dort pas) ;
+/// - par profil : `map` connue ; arme, objets, mutations connus ; stats lues par un système ; personnages
+///   posés connus (et variante connue) ; objets, coffres (pool) et présentoirs connus ; clés de
+///   coffre/présentoir uniques (elles servent de graine et d'identité).
+fn lint_sandbox(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
+    let manifest_file = crate::manifest::MANIFEST_FILE_NAME.to_string();
+    let declared = manifest
+        .content_folders
+        .iter()
+        .any(|decl| decl.kind == "Sandbox");
+    if let Some(sandbox) = &manifest.sandbox {
+        if !designation_known(registry, &sandbox.arena) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: manifest_file.clone(),
+                message: format!(
+                    "champ sandbox.arena = « {} » : aucune carte chargée avec cet id (« {} »)",
+                    sandbox.arena,
+                    registry::map_id_from_path(&sandbox.arena)
+                ),
+            });
+        }
+    }
+    if declared {
+        if crate::sandbox::manifest_arena(manifest).is_none() {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: manifest_file.clone(),
+                message:
+                    "dossier « Sandbox » déclaré sans arène : poser `sandbox: (arena: \"…\")` \
+                          (ou `generate_template`, qui sert de repli)"
+                        .to_string(),
+            });
+        }
+        if !registry
+            .sandbox_profiles
+            .contains_key(crate::sandbox::DEFAULT_PROFILE)
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: manifest_file,
+                message: format!(
+                    "dossier « Sandbox » sans profil « {} » (celui de `--sandbox` sans argument)",
+                    crate::sandbox::DEFAULT_PROFILE
+                ),
+            });
+        }
+    }
+
+    for entry in registry.sandbox_profiles.values() {
+        let file = entry.file.display().to_string();
+        let profile = &entry.profile;
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message: format!("profil « {} » : {message}", entry.id),
+            });
+        };
+        if let Some(map) = &profile.map {
+            if !designation_known(registry, map) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!(
+                        "champ map = « {map} » : aucune carte chargée avec cet id (« {} »)",
+                        registry::map_id_from_path(map)
+                    ),
+                );
+            }
+        }
+        for (handle, player) in profile.players.iter().enumerate() {
+            let at = format!("players[{handle}]");
+            if let Some(weapon) = &player.weapon {
+                let ranged = registry
+                    .weapons
+                    .contains_key(&registry::WeaponId::from(weapon.clone()));
+                let melee = registry
+                    .melee_weapons
+                    .contains_key(&registry::MeleeWeaponId::from(weapon.clone()));
+                if !ranged && !melee {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at}.weapon = « {weapon} » : arme inconnue"),
+                    );
+                }
+            }
+            for item in &player.items {
+                if !registry.items.contains_key(item) {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at}.items : objet « {item} » inconnu"),
+                    );
+                }
+            }
+            for mutation in &player.mutations {
+                if !registry
+                    .mutations
+                    .contains_key(&registry::MutationId::from(mutation.clone()))
+                {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at}.mutations : mutation « {mutation} » inconnue"),
+                    );
+                }
+            }
+            for modifier in &player.modifiers {
+                if sim_core::stats::stat_reader(&modifier.stat).is_none() {
+                    push(
+                        LintErrorKind::UnreadStat,
+                        format!(
+                            "{at}.modifiers : stat {:?} : aucun système ne la lit",
+                            modifier.stat
+                        ),
+                    );
+                }
+            }
+            if let Some(bomb) = &player.bomb {
+                if bomb.fuse_frames == 0 || bomb.radius <= Fixed::ZERO {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("{at}.bomb : fuse_frames et radius doivent être > 0"),
+                    );
+                }
+            }
+        }
+        for placed in &profile.characters {
+            let character = registry
+                .characters
+                .get(&registry::CharacterId::from(placed.character.clone()));
+            if character.is_none() {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("characters : personnage « {} » inconnu", placed.character),
+                );
+            }
+            if let Some(variant) = &placed.variant {
+                let known = character
+                    .and_then(|c| c.variants.as_ref())
+                    .is_some_and(|v| v.table.iter().any(|(name, _)| name == variant));
+                if !known {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!(
+                            "characters : « {} » : variante « {variant} » inconnue",
+                            placed.character
+                        ),
+                    );
+                }
+            }
+        }
+        for placed in &profile.items {
+            if !registry.items.contains_key(&placed.id) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("items : objet « {} » inconnu", placed.id),
+                );
+            }
+        }
+        let mut keys = BTreeSet::new();
+        for chest in &profile.chests {
+            if let Some(table) = &chest.table {
+                if !registry.loot_tables.contains_key(table) {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("chests « {} » : pool « {table} » inconnu", chest.key),
+                    );
+                }
+            }
+            if !keys.insert(("chest", chest.key.as_str())) {
+                push(
+                    LintErrorKind::DuplicateId,
+                    format!("chests : clé « {} » en double", chest.key),
+                );
+            }
+        }
+        for shelf in &profile.shop.shelves {
+            if !registry.items.contains_key(&shelf.item) {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("shop « {} » : objet « {} » inconnu", shelf.key, shelf.item),
+                );
+            }
+            if !keys.insert(("shelf", shelf.key.as_str())) {
+                push(
+                    LintErrorKind::DuplicateId,
+                    format!("shop : clé « {} » en double", shelf.key),
+                );
             }
         }
     }

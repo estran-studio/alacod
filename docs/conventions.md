@@ -413,10 +413,10 @@ Chaque entrée de `content_folders` est un **fichier** ou un **dossier**, relati
 mélangent encore plusieurs kinds dans un même dossier historique
 (`ZombieShooter/Sprites/Character/` contient à la fois `player_config.ron` et des feuilles
 de sprite) : dans ce cas le manifeste déclare le **fichier** précis plutôt que le dossier
-entier (voir `games/zombies/assets/game.ron`). Les kinds connus (31 : `content::registry::KNOWN_KIND_NAMES` fait foi, lu dans cet ordre) : `Character`, `Weapon`,
+entier (voir `games/zombies/assets/game.ron`). Les kinds connus (32 : `content::registry::KNOWN_KIND_NAMES` fait foi, lu dans cet ordre) : `Character`, `Weapon`,
 `MeleeWeapon`, `Wave`, `Map`, `Ui`, `Camera`, `Economy`, `Perk`, `PowerUp`, `SpriteSheet` (D3), `Floors`, `Cave`,
 `FloorGrammar`, `Room`, `Item`, `Surface`, `Pattern`, `Progression`, `Mutation`, `Status`, `Clock`, `Difficulty`,
-`Synergy`, `LootTable`, `Unlock`, `Curse`, `Achievement`, `MetaEconomy`, `HubService`, `Prop` ; un
+`Synergy`, `LootTable`, `Unlock`, `Curse`, `Achievement`, `MetaEconomy`, `HubService`, `Prop`, `Sandbox` (SB-1, §85) ; un
 autre kind produit une erreur de lint (« kind inconnu ») plutôt qu'un échec RON générique.
 
 **Le registre** (`content::registry::Registry`, chargé par `Registry::build`) est la
@@ -7704,3 +7704,27 @@ Guide d'usage : `docs/editeur-vocal.md`. Plan : `docs/taches/plan-editeur-vocal.
   horloges…) ne se recalculent qu'à `OnEnter(GameLoading)` : au `restart` **et au changement d'étage** (mode `Floors`) ; l'écran de mutation et l'écran de fin peuvent afficher transitoirement le contenu neuf. Limite : `GlobalAsset` lit le registre au `Startup` seulement (un personnage ou une arme **ajouté** exige une relance du binaire).
 - **Tests** : unitaires `editor_mode`, `content_hot_reload`, `remote::parse_stat` ; `crates/scenario/tests/editor_reload.rs` (scrutation, événement d'asset, relance, fichier invalide ; `set_modifier` à d = 0 et cas d'erreur).
 
+
+## 85. Bac à sable : kind `Sandbox`, profils et arène (SB-1)
+
+Plan : `docs/taches/plan-bac-a-sable.md` (D1, D2). SB-1 ne livre que le **contenu** (kind, schéma, lint, profils, arènes) ; l'application d'un profil (SB-2/SB-3) et `--sandbox` (SB-3) viennent après.
+Aucun système, aucun type rollback, rien dans `GgrsSchedule` : aucune trace ne bouge.
+
+- **Kind `Sandbox`** (32ᵉ de `KNOWN_KIND_NAMES`) : `sandbox/<id>.ron`, id = nom du fichier (`SandboxProfileEntry`, `Registry::sandbox_profiles`). `alacod describe Sandbox` (schéma exhaustif),
+  `alacod new-content Sandbox <id>` (copie du premier profil, par `scaffold::per_file`), `alacod lint`. Un jeu déclare `(path: "sandbox", kind: "Sandbox")` dans `content_folders`.
+- **Format = sous-ensemble de `Scenario`, pas un second format** (D1). `content::sandbox::SandboxProfile` : `map` (facultatif), `players[]`, `characters[]`, `items[]`, `chests[]`, `shop`. Les types
+  `CharacterPlacement`, `ItemPlacement`, `ChestPlacement`, `ShopSetup`, `ShelfPlacement`, `ModifierSpec` ont **déménagé** de `game::replay` vers `content::sandbox`, et `DashConfig`/`DashEffect`/`IframesKind`
+  de `game::character::movement` vers `sim_core::dash` (`content` est une dépendance de `game`, pas l'inverse) ; `game::replay` et `game::character::movement` les **réexportent** : chemins et RON inchangés.
+  `SandboxPlayer` est le seul type propre : les champs de `PlayerScript` **sans `inputs` ni `bot`** (même noms, mêmes types). `game::replay` le prouve (`sandbox_player_est_un_sous_ensemble_de_player_script` :
+  mêmes clés, même RON dans les deux sens) et convertit par `From<SandboxPlayer> for PlayerScript` ; ajouter un champ à l'un sans l'autre fait échouer le test. `deny_unknown_fields` : `inputs`, `frames`, `expect`…
+  sont refusés (erreur `Parse`). `Some(..)` est implicite (`SandboxProfile::parse`, comme `Scenario::from_ron`) ; les `at_frame` sont relatifs au début de la session ; les `Fixed` s'écrivent en chaîne.
+- **Profil par défaut** : `arene` (`content::sandbox::DEFAULT_PROFILE`), celui de `--sandbox` sans argument. Livrés : `arene` + `lourd` pour zombies, gungeon, isaac, throne, testbed ; `arene` dans `templates/starter`.
+  Le personnage du joueur n'est **pas** un champ de profil (`PlayerScript` n'en a pas : c'est celui du jeu) — voir D126 du rapport `sb-1-contenu`.
+- **Arène** (D2) : `SandboxProfile::map`, sinon `sandbox: (arena: "…")` du manifeste (champ facultatif, `SandboxEntry`), sinon `generate_template.map` (`content::sandbox::manifest_arena`, `SandboxProfile::arena`).
+  Une désignation est une carte LDtk, `cave:<id>` ou `floor:<id>` (comme `entry.start_map`). zombies (`exemples/test_map.ldtk`) et testbed (`testbed/arena.ldtk`) déclarent la leur ; gungeon, isaac, throne et le gabarit
+  retombent sur leur carte gabarit. Dans toutes ces cartes, le joueur 0 apparaît à (424, 696) : un ennemi posé à (624, 696) est à 200 unités à sa droite (même point que les scénarios générés).
+- **Lint** (`lint_sandbox`) : un jeu à dossier `Sandbox` a une arène (`sandbox.arena` ou `generate_template`) **et** un profil `arene` ; `sandbox.arena` connue (même sans dossier) ; par profil : `map` connue, `weapon`
+  (arme à distance ou de mêlée), `items`, `mutations`, `characters[].character` et `variant`, `items[].id`, `chests[].table` (pool `LootTable`), `shop.shelves[].item` connus ; stat de `modifiers` lue par un système
+  (`UnreadStat`) ; `bomb` à `fuse_frames` et `radius` > 0 ; clés de coffre et de présentoir uniques (`DuplicateId`).
+- **Tests** : `crates/content/tests/sandbox.rs` (fixtures `sandbox_*`, jeux livrés, `describe`, `new-content`) ; `crates/scenario/tests/sandbox_profiles.rs` joue chaque profil livré soixante frames en mode `Sandbox`
+  (invariants verts, arme, solde et objets posés, personnages présents).

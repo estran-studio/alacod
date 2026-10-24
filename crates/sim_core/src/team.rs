@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 #[derive(
     Component, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub enum Team {
     Players,
     Enemies,

@@ -1,0 +1,2 @@
+// Fixture SB-1 : `frames` n'est pas du sous-ensemble de Scenario (deny_unknown_fields).
+(frames: 600, players: [()])

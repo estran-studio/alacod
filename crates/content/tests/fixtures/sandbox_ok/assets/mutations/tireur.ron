@@ -1,0 +1,1 @@
+(name: "Tireur", weight: 1, tags: [], max_stacks: 1, effects: [(on: OnPickup, do: [Heal("1")])])

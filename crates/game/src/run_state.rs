@@ -734,6 +734,7 @@ mod tests {
             },
             generate_template: None,
             mechanics: vec![],
+            sandbox: None,
         }
     }
 

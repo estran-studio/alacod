@@ -1,0 +1,8 @@
+(
+    players: [(weapon: "rifle", items: ["bomb"], currency: 500, mutations: ["tireur"],
+               modifiers: [(stat: MoveSpeed, op: Mul, value: "1.2")])],
+    characters: [(character: "grunt", x: "624", y: "696", at_frame: 1)],
+    items: [(id: "bomb", x: "500", y: "696", at_frame: 1)],
+    chests: [(key: "c1", table: "salle", x: "520", y: "696", at_frame: 1)],
+    shop: (shelves: [(key: "s1", item: "bomb", price: 5, x: "540", y: "696", at_frame: 1)]),
+)

@@ -1,0 +1,16 @@
+// Fixture SB-1 : toutes les références d'un profil sont fausses.
+(
+    map: "maps/absente.ldtk",
+    players: [(weapon: "plasma", items: ["fantome"], mutations: ["inconnue"],
+               modifiers: [(stat: Luck, op: Add, value: "1")])],
+    characters: [
+        (character: "dragon", x: "0", y: "0", at_frame: 1),
+        (character: "grunt", x: "0", y: "0", at_frame: 1, variant: "geant"),
+    ],
+    items: [(id: "bague_perdue", x: "0", y: "0", at_frame: 1)],
+    chests: [
+        (key: "c", table: "pool_perdu", x: "0", y: "0", at_frame: 1),
+        (key: "c", x: "0", y: "0", at_frame: 1),
+    ],
+    shop: (shelves: [(key: "s", item: "vitrine", price: 1, x: "0", y: "0", at_frame: 1)]),
+)

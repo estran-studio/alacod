@@ -16,6 +16,8 @@
         (path: "items", kind: "PowerUp"),
         (path: "economy/economy.ron", kind: "Economy"),
         (path: "ui", kind: "Ui"),
+        // SB-1 : profils du bac à sable (`--sandbox`, `docs/conventions.md` §85) ; `arene` est le défaut.
+        (path: "sandbox", kind: "Sandbox"),
         (path: "camera.ron", kind: "Camera"),
         (path: "sprites/sprites.ron", kind: "SpriteSheet"),
         // Carte du gabarit des scénarios générés d'armes (T1.13, `cible` à +128/−48 du spawn).
