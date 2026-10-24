@@ -35,6 +35,7 @@ pub mod aim;
 pub mod ammo;
 pub mod animation_state;
 pub mod damage;
+pub mod dash;
 pub mod frame_events;
 pub mod gauge;
 pub mod kinds;

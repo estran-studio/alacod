@@ -1,0 +1,12 @@
+// Profil de bac à sable `arene` (SB-1) : l'arène de ton jeu, ouverte par `--sandbox` sans argument.
+// Sous-ensemble de `Scenario` (`alacod describe Sandbox` liste les champs) ; `Some(..)` est implicite.
+// Une cible `target` à 200 unités à droite du joueur ; ajoute des armes (`weapon`), des objets
+// (`items`), un solde (`currency`), des ennemis posés (`characters`) à ta mesure.
+(
+    players: [
+        (currency: 1000),
+    ],
+    characters: [
+        (character: "target", x: "624", y: "696", at_frame: 1),
+    ],
+)

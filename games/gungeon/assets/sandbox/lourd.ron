@@ -1,0 +1,15 @@
+// Profil `lourd` (SB-1) : la mitrailleuse lourde, trois objets passifs et deux ennemis posés à droite
+// du joueur (frame 1, ligne du point d'apparition de `maps/gabarit_armes.ldtk`).
+(
+    players: [
+        (
+            weapon: "mitrailleuse_lourde",
+            currency: 5000,
+            items: ["gilet", "bottes", "cartouchiere"],
+        ),
+    ],
+    characters: [
+        (character: "bullet_kin", x: "560", y: "696", at_frame: 1),
+        (character: "bandana_kin", x: "624", y: "696", at_frame: 1),
+    ],
+)

@@ -7,6 +7,7 @@ pub mod manifest;
 mod mechanics;
 pub mod reach;
 pub mod registry;
+pub mod sandbox;
 pub mod scaffold;
 pub mod schema;
 pub mod ui;
@@ -15,7 +16,7 @@ pub mod value;
 pub use expr::{BoolExpr, Context, Expr, Kind, NumExpr, ParseError, Value};
 pub use lint::{LintError, LintErrorKind};
 pub use manifest::{
-    ContentFolderDecl, EntryMode, EntryPoint, GameManifest, ManifestError, Mechanic,
+    ContentFolderDecl, EntryMode, EntryPoint, GameManifest, ManifestError, Mechanic, SandboxEntry,
 };
 pub use reach::{warnings, LintWarning, LintWarningKind};
 pub use registry::{

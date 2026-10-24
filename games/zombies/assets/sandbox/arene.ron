@@ -1,0 +1,9 @@
+// Profil de bac à sable `arene` (SB-1, `docs/conventions.md` §86) : l'arène calme de zombies, ouverte
+// par `--sandbox` sans argument. Sous-ensemble de `Scenario` (`alacod describe Sandbox`) ; `Some(..)`
+// est implicite. Le joueur démarre avec ses armes de départ et de quoi tout acheter ; rien n'est posé :
+// les ennemis se font à la demande (`alacod/spawn_character`, « spawne-moi un zombie devant moi »).
+(
+    players: [
+        (currency: 10000),
+    ],
+)

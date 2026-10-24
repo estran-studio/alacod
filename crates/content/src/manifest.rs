@@ -140,6 +140,10 @@ pub struct GameManifest {
     /// contenu est un avertissement. Absent (tous les jeux avant `isaac`) : aucune vérification.
     #[serde(default)]
     pub mechanics: Vec<Mechanic>,
+    /// SB-1 (`docs/taches/plan-bac-a-sable.md` D2) : réglages du bac à sable (`--sandbox`). Absent :
+    /// l'arène est `generate_template.map`. Un jeu qui a un dossier `Sandbox` doit avoir une arène.
+    #[serde(default)]
+    pub sandbox: Option<SandboxEntry>,
 }
 
 /// `hub: Some((map: "maps/hub.ldtk"))` (M2-T13, §57) : la carte LDtk du hub, relative à
@@ -147,6 +151,14 @@ pub struct GameManifest {
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct HubEntry {
     pub map: String,
+}
+
+/// `sandbox: (arena: "maps/arena.ldtk")` (SB-1, D2) : la carte de l'arène du bac à sable, relative à
+/// `<jeu>/assets/` (carte LDtk ; `cave:<id>` et `floor:<id>` comme `entry.start_map`). Un profil la
+/// remplace par son champ `map`. Validée par `lint::lint_sandbox`.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct SandboxEntry {
+    pub arena: String,
 }
 
 /// `generate_template: (map: "maps/salle.ldtk", target: "cible")` (T1.13) : les gabarits

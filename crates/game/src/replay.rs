@@ -30,11 +30,12 @@ use bevy_fixed::fixed_math::Fixed;
 pub use combat::weapons::expectations::{
     DistanceTarget, EntityKind, EntityRef, Expectation, RunStepExpectation,
 };
+pub use content::sandbox::{
+    CharacterPlacement, ChestPlacement, ItemPlacement, ModifierSpec, ShelfPlacement, ShopSetup,
+};
 use serde::{Deserialize, Serialize};
 use sim_core::ammo::AmmoType;
 use sim_core::damage::FriendlyFire;
-use sim_core::modifier::ModifierOp;
-use sim_core::stats::StatId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scenario {
@@ -148,24 +149,6 @@ pub struct Scenario {
     pub ui: Vec<crate::ui::screens::model::UiStep>,
 }
 
-/// Placement scripté d'un personnage (T1.13, `docs/conventions.md` §28) : fait apparaître
-/// `character` (id du kind `Character`) à la position `(x, y)` du monde, à la frame `at_frame`
-/// exacte, par le même chemin qu'un `CharacterSpawn` de carte (`map_ldtk::game::local::
-/// spawn_character` : net id alloué à cette frame, santé × difficulté, variante imposée par
-/// `variant` ou tirée). `team` : sinon `CharacterConfig.team`, sinon `Enemies`. Les placements
-/// d'une même frame sont appliqués dans l'ordre de déclaration.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CharacterPlacement {
-    pub character: String,
-    pub x: Fixed,
-    pub y: Fixed,
-    pub at_frame: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variant: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub team: Option<sim_core::team::Team>,
-}
-
 /// Placement scripté d'un power-up (T2.5) : fait apparaître le power-up `id` (clé de
 /// `items/powerups.ron`) à la position `(x, y)` du monde, à la frame `at_frame` exacte.
 /// Même idée que `wave_overrides`/`weapon_overrides` (réglage de scénario, pas un vrai
@@ -174,16 +157,6 @@ pub struct CharacterPlacement {
 /// spawn d'ennemi de vague — voir `map_ldtk::game::profile::apply_scenario_powerup_placements`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerUpPlacement {
-    pub id: String,
-    pub x: Fixed,
-    pub y: Fixed,
-    pub at_frame: u32,
-}
-
-/// Placement scripté d'un objet (M2-T0b) : fait apparaître l'objet `id` (fichier de `items/`) à
-/// la position `(x, y)` du monde, à la frame `at_frame` exacte.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ItemPlacement {
     pub id: String,
     pub x: Fixed,
     pub y: Fixed,
@@ -236,55 +209,6 @@ pub struct ProfileSetup {
     pub profiles: Vec<ProfileSeed>,
     #[serde(default)]
     pub purchases: Vec<ProfilePurchase>,
-}
-
-/// Placement scripté d'un coffre (M2-T5) : `key` est sa clé de contenu (graine du tirage),
-/// `table` son pool (`None` : celui de l'étage), `rarity` la rareté minimale de l'objet.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ChestPlacement {
-    pub key: String,
-    #[serde(default)]
-    pub table: Option<String>,
-    #[serde(default)]
-    pub rarity: items::Rarity,
-    #[serde(default)]
-    pub locked: bool,
-    pub x: Fixed,
-    pub y: Fixed,
-    pub at_frame: u32,
-}
-
-/// Réglages de boutique d'un scénario (M2-T6).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct ShopSetup {
-    /// Présentoirs posés à une position et une frame exactes.
-    #[serde(default)]
-    pub shelves: Vec<ShelfPlacement>,
-    /// Force `EconomyConfig::shells_drop` pour ce scénario (preuve du drop sans toucher
-    /// l'économie du jeu). `None` : celle du jeu.
-    #[serde(default)]
-    pub shells_drop_override: Option<(u32, u32)>,
-}
-
-impl ShopSetup {
-    pub fn is_empty(&self) -> bool {
-        *self == Self::default()
-    }
-}
-
-/// Placement scripté d'un présentoir : `key` est sa clé de contenu, `item` l'objet, `price` en
-/// `shells`. `cost` (M3-T8, §73) : prix de vie maximale ou de consommable (`Price`), exécuté à la
-/// place des douilles (`price` vaut alors 0) ; absent : le prix en douilles, comme avant.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ShelfPlacement {
-    pub key: String,
-    pub item: String,
-    pub price: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cost: Option<items::Price>,
-    pub x: Fixed,
-    pub y: Fixed,
-    pub at_frame: u32,
 }
 
 /// Invariants de la simulation vérifiés par le runner à chaque frame (plan §9.4,
@@ -471,17 +395,104 @@ pub struct PlayerScript {
     pub aim: Option<sim_core::aim::AimMode>,
 }
 
-/// Un modificateur de scénario, posé sur un joueur après sa création
-/// (`map_ldtk::game::profile::apply_player_profile`). Format RON :
-/// `(stat: MoveSpeed, op: Mul, value: "0.5")`. `until` absent = permanent (dure toute la
-/// partie, largement suffisant pour un scénario de test).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ModifierSpec {
-    pub stat: StatId,
-    pub op: ModifierOp,
-    pub value: Fixed,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub until: Option<u32>,
+/// Un état de départ de profil de bac à sable devient un `PlayerScript` sans input ni bot : la mise en
+/// place (scénario ou bac à sable) lit alors **un seul** type.
+impl From<content::sandbox::SandboxPlayer> for PlayerScript {
+    fn from(player: content::sandbox::SandboxPlayer) -> Self {
+        let content::sandbox::SandboxPlayer {
+            tags,
+            immune_to,
+            modifiers,
+            weapon,
+            currency,
+            mutations,
+            dash,
+            items,
+            bomb,
+            aim,
+        } = player;
+        Self {
+            inputs: Vec::new(),
+            bot: None,
+            tags,
+            immune_to,
+            modifiers,
+            weapon,
+            currency,
+            mutations,
+            dash,
+            items,
+            bomb,
+            aim,
+        }
+    }
+}
+
+#[cfg(test)]
+mod sandbox_subset {
+    use super::*;
+    use content::sandbox::{SandboxPlayer, SandboxProfile};
+
+    fn keys(value: serde_json::Value) -> std::collections::BTreeSet<String> {
+        value.as_object().unwrap().keys().cloned().collect()
+    }
+
+    /// `SandboxPlayer` = les champs de `PlayerScript` moins `inputs` et `bot` : ajouter un champ à l'un
+    /// sans l'autre casse ce test (D1 : un seul format).
+    #[test]
+    fn sandbox_player_est_un_sous_ensemble_de_player_script() {
+        let player = SandboxPlayer {
+            tags: vec!["t".into()],
+            immune_to: vec!["fire".into()],
+            modifiers: vec![ModifierSpec {
+                stat: sim_core::stats::StatId::MoveSpeed,
+                op: sim_core::modifier::ModifierOp::Mul,
+                value: Fixed::from_num(2),
+                until: Some(9),
+            }],
+            weapon: Some("pistol".into()),
+            currency: Some(5),
+            mutations: vec!["m".into()],
+            dash: Some(Default::default()),
+            items: vec!["bomb".into()],
+            bomb: Some(world::BombDef {
+                fuse_frames: 60,
+                radius: Fixed::from_num(40),
+                damage: Fixed::from_num(10),
+                friendly_fire: FriendlyFire::Always,
+            }),
+            aim: Some(sim_core::aim::AimMode::FourWay),
+        };
+        let script = PlayerScript::from(player.clone());
+        let mut script_keys = keys(serde_json::to_value(&script).unwrap());
+        // Un `PlayerScript` écrit ne sérialise pas `inputs` vide ni `bot` absent : on ajoute les deux.
+        script_keys.insert("inputs".into());
+        script_keys.insert("bot".into());
+        let mut player_keys = keys(serde_json::to_value(&player).unwrap());
+        player_keys.insert("inputs".into());
+        player_keys.insert("bot".into());
+        assert_eq!(
+            player_keys, script_keys,
+            "champs de SandboxPlayer et PlayerScript"
+        );
+        assert_eq!(script_keys.len(), 12, "10 champs d'état + inputs + bot");
+
+        // Aller-retour : la même représentation RON se lit des deux côtés, à l'identique.
+        let text = ron::to_string(&player).unwrap();
+        let as_script: PlayerScript = ron::from_str(&text).unwrap();
+        assert_eq!(as_script, script);
+        let back: SandboxPlayer = ron::from_str(&text).unwrap();
+        assert_eq!(back, player);
+    }
+
+    /// Un profil refuse ce qui n'est pas du sous-ensemble (`inputs`, `frames`, `expect`).
+    #[test]
+    fn un_profil_refuse_les_champs_de_scenario_hors_sous_ensemble() {
+        assert!(SandboxProfile::parse("(players: [(inputs: [])])").is_err());
+        assert!(SandboxProfile::parse("(frames: 10)").is_err());
+        assert!(SandboxProfile::parse("(expect: [])").is_err());
+        assert!(SandboxProfile::parse("(players: [(weapon: \"pistol\")])").is_ok());
+    }
 }
 
 /// Politique de l'`explorateur` (M3-T14, `docs/conventions.md` §79) : ce qu'il ouvre, achète et fait

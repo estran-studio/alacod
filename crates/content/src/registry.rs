@@ -1700,6 +1700,8 @@ pub struct Registry {
     pub statuses: BTreeMap<StatusId, StatusContentEntry>,
     /// T1.9 : horloges (kind `Clock`).
     pub clocks: BTreeMap<ClockId, ClockEntry>,
+    /// SB-1 : profils de bac à sable (kind `Sandbox`, `sandbox/<id>.ron`), par id.
+    pub sandbox_profiles: BTreeMap<String, SandboxProfileEntry>,
     /// T1.9 : difficulté (kind `Difficulty`, un fichier ; le dernier chargé gagne).
     pub difficulty: Option<DifficultyEntry>,
     /// T2.3, chantier C5 v1.
@@ -1768,6 +1770,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "MetaEconomy",
     "HubService",
     "Prop",
+    "Sandbox",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -1887,6 +1890,7 @@ impl Registry {
                 "Status" => load_statuses(&assets_dir, decl, &mut registry, &mut errors),
                 "Clock" => load_clocks(&assets_dir, decl, &mut registry, &mut errors),
                 "Difficulty" => load_difficulty(&assets_dir, decl, &mut registry, &mut errors),
+                "Sandbox" => load_sandbox_profiles(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -3164,6 +3168,73 @@ fn load_clocks(
                 file: rel,
                 scope: parsed.scope,
                 events: parsed.events,
+            },
+        );
+    }
+}
+
+/// SB-1 : profil de bac à sable (`sandbox/<id>.ron`, kind `Sandbox`) ; id = nom de fichier.
+#[derive(Debug, Clone)]
+pub struct SandboxProfileEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub profile: crate::sandbox::SandboxProfile,
+}
+
+fn load_sandbox_profiles(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let profile = match crate::sandbox::SandboxProfile::parse(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        let id = rel
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_string();
+        if let Some(existing) = registry.sandbox_profiles.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id de profil de bac à sable « {id} » déjà défini dans {}",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        registry.sandbox_profiles.insert(
+            id.clone(),
+            SandboxProfileEntry {
+                id,
+                file: rel,
+                profile,
             },
         );
     }
@@ -4735,6 +4806,7 @@ pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
         "Surface" => schemars::schema_for!(SurfaceFileSchema),
         "Clock" => schemars::schema_for!(ClockFileSchema),
         "Difficulty" => schemars::schema_for!(DifficultyFileSchema),
+        "Sandbox" => schemars::schema_for!(crate::sandbox::SandboxProfile),
         "Economy" => schemars::schema_for!(EconomyFileSchema),
         "Perk" => schemars::schema_for!(PerksFileSchema),
         "PowerUp" => schemars::schema_for!(PowerUpsFileSchema),

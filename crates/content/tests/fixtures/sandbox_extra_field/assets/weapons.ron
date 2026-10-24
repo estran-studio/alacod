@@ -1,0 +1,12 @@
+({
+    "rifle": (
+        config: (
+            name: "rifle",
+            default_firing_mode: "default",
+            ammo_type: Balle,
+            firing_modes: {
+                "default": (firing_rate: "4.0"),
+            },
+        ),
+    ),
+})

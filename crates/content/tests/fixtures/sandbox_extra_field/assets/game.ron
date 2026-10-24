@@ -1,0 +1,15 @@
+// Fixture SB-1 : jeu minimal à profil de bac à sable valide (arène `sandbox.arena`).
+(
+    name: "fixture-sandbox-ok",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "weapons.ron", kind: "Weapon"),
+        (path: "objets", kind: "Item"),
+        (path: "mutations", kind: "Mutation"),
+        (path: "loot", kind: "LootTable"),
+        (path: "maps", kind: "Map"),
+        (path: "sandbox", kind: "Sandbox"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+    sandbox: (arena: "maps/salle.ldtk"),
+)

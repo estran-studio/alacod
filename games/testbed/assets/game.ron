@@ -20,6 +20,8 @@
         (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon", generate: false),
         (path: "testbed", kind: "Map"),
         (path: "ui", kind: "Ui"),
+        // SB-1 : profils du bac à sable (`--sandbox`, `docs/conventions.md` §86) ; `arene` est le défaut.
+        (path: "sandbox", kind: "Sandbox"),
         (path: "camera.ron", kind: "Camera"),
         // D3 : feuilles de sprites par id (joueur, armes, effet de mêlée ; les personnages
         // de laboratoire n'ont pas de sprite).
@@ -72,4 +74,6 @@
         default_seed: 123456,
         mode: Sandbox,
     ),
+    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`), remplaçable par le champ `map` d'un profil.
+    sandbox: (arena: "testbed/arena.ldtk"),
 )

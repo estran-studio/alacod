@@ -1,0 +1,18 @@
+// Profil `lourd` (SB-1) : la mitrailleuse, deux objets, une mutation, un peu plus de vitesse et trois
+// personnages de laboratoire posés à droite du joueur (frame 1, ligne du point d'apparition de
+// `testbed/arena.ldtk`).
+(
+    players: [
+        (
+            weapon: "machine_gun",
+            items: ["egide", "bottes"],
+            mutations: ["tireur"],
+            modifiers: [(stat: MoveSpeed, op: Mul, value: "1.2")],
+        ),
+    ],
+    characters: [
+        (character: "grunt", x: "496", y: "696", at_frame: 1),
+        (character: "archer", x: "560", y: "696", at_frame: 1),
+        (character: "cible", x: "624", y: "696", at_frame: 1),
+    ],
+)

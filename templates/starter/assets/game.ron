@@ -7,6 +7,8 @@
         (path: "characters", kind: "Character"),
         (path: "maps", kind: "Map"),
         (path: "ui", kind: "Ui"),
+        // SB-1 : profils du bac à sable (`--sandbox`, `docs/conventions.md` §86) ; `arene` est le défaut.
+        (path: "sandbox", kind: "Sandbox"),
         (path: "camera.ron", kind: "Camera"),
         (path: "sprites/sprites.ron", kind: "SpriteSheet"),
         (path: "economy/economy.ron", kind: "Economy"),
@@ -19,4 +21,6 @@
     // Scénarios générés (`alacod test`) : les armes sont jouées sur cette carte, contre `target`
     // (personnage `counts_hits`), et non dans le testbed de l'engine.
     generate_template: (map: "maps/arena.ldtk", target: "target"),
+    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`), remplaçable par le champ `map` d'un profil.
+    sandbox: (arena: "maps/arena.ldtk"),
 )
