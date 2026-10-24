@@ -861,7 +861,7 @@ trace ne bouge. Lint : fichiers présents sous `assets/`, mode connu de `firing_
 
 **Ce qui reste de `CollisionLayer`/`layer_matrix`** (`crates/combat/src/collider.rs`, `CollisionSettings::layer_matrix`) : uniquement les collisions **physiques** avec les murs (balles et personnages qui s'arrêtent sur un mur) et entre personnages/fenêtres. La décision « cette balle/cette mêlée touche-t-elle ce personnage » ne passe plus par la matrice : elle vient de `Team` + `combat::team::team_allows_hit` (équipe + politique de tir ami de l'arme), évaluée pour chaque personnage candidat indépendamment de son `CollisionLayer`.
 
-**Scénarios de référence** (`tests/scenarios/`) : `friendly_fire_never.ron`, `friendly_fire_cursed.ron`, `immune_tag.ron`. Format `Scenario` étendu (`game::replay`) : `PlayerScript` gagne `tags`/`immune_to` (posés en composants après création par `scenario::runner::apply_player_overrides`) ; `WeaponOverride` gagne `friendly_fire` (posé sur l'arme entière, avant la création des joueurs, par `apply_weapon_overrides`).
+**Scénarios de référence** (`tests/scenarios/`) : `friendly_fire_never.ron`, `friendly_fire_cursed.ron`, `immune_tag.ron`. Format `Scenario` étendu (`game::replay`) : `PlayerScript` gagne `tags`/`immune_to` (posés en composants après création par `map_ldtk::game::profile::apply_player_overrides`) ; `WeaponOverride` gagne `friendly_fire` (posé sur l'arme entière, avant la création des joueurs, par `apply_weapon_overrides`).
 
 **Bug pré-existant préservé (pas corrigé par T1.1)** : avant ce chantier, l'attaque directe de `EnemyAiConfig::attack_damage` (`enemy_attack_system`) n'avait presque jamais d'effet — elle écrivait dans `DamageAccumulator` sans `Option`, composant retiré dès qu'appliqué la même frame, donc absent la plupart du temps. Seule la griffe via hitbox (`MeleeWeaponConfig::damage`, ex. `zombie_claws` à 2.5) touchait vraiment le joueur. `enemy_attack_damage_translate_system` reproduit ce comportement à l'identique (garde explicite, voir sa doc) : le corriger changerait l'équilibrage (dégâts ennemis beaucoup plus fréquents) sans rapport avec ce chantier.
 
@@ -884,7 +884,7 @@ stats: {
 
 **Lecture branchée** : `character::player::input::apply_inputs` (accélération, multiplicateur de sprint, vitesse max — aussi la vitesse de sortie du dash, §34), `character::enemy::ai::pathing::move_enemies` (vitesse, séparation, ralentissement, distance d'attaque optimale — la granularité de la grille spatiale de séparation reste la constante globale de `PathfindingConfig`, seulement pour le partitionnement, voir le commentaire dans `move_enemies`), `weapons::weapon_rollback_system`/`spawn_bullet_rollback` (cadence de tir, temps de rechargement, dégâts et portée d'une balle, multipliés par les stats du porteur) et `character::health::sync_health_from_stats` (`Health.max` et `HealthRegen.regen_rate`, recalculés chaque frame après l'expiration des modificateurs — `current` est borné à `max` s'il le dépasse, jamais relevé automatiquement). Le freinage (`movement.deceleration`, multiplié par l'adhérence `Acceleration` résolue / `movement.acceleration`, §34) et les champs de dash (`dash_distance`, `dash_duration_frames`, `dash_cooldown_frames`, `dash_iframes`, `dash_buffer_frames`) et de sprint (`sprint_acceleration_per_frame`/`sprint_deceleration_per_frame`) restent des lectures directes de `CharacterConfig` : ils ne sont pas dans la liste de stats de la tâche T1.2.
 
-**Scénario de preuve** (`tests/scenarios/stat_move_speed.ron`) : deux joueurs avancent avec le même script d'inputs, l'un avec un modificateur `(stat: MoveSpeed, op: Mul, value: "0.5")` posé après création (`PlayerScript::modifiers`, comme `tags`/`immune_to`, appliqué par `scenario::runner::apply_player_overrides`), l'autre sans — `PlayerPosition` aux mêmes frames pour les deux, lecture directe de l'écart.
+**Scénario de preuve** (`tests/scenarios/stat_move_speed.ron`) : deux joueurs avancent avec le même script d'inputs, l'un avec un modificateur `(stat: MoveSpeed, op: Mul, value: "0.5")` posé après création (`PlayerScript::modifiers`, comme `tags`/`immune_to`, appliqué par `map_ldtk::game::profile::apply_player_overrides`), l'autre sans — `PlayerPosition` aux mêmes frames pour les deux, lecture directe de l'écart.
 
 ## 10. Blesser une trace : la preuve
 
@@ -2371,7 +2371,7 @@ objets passifs/actifs (M2), modificateurs de projectiles (M3, `isaac`), pause, `
 
 ## 28. Générateur v1 et placement scripté (T1.13, voie V3)
 
-Code : `crates/scenario/src/generate.rs` (gabarits), `scenario::runner::
+Code : `crates/scenario/src/generate.rs` (gabarits), `map_ldtk::game::profile::
 apply_scenario_character_placements` (placement), `map_ldtk::game::local::spawn_character`
 (chemin commun avec les `CharacterSpawn` de carte), `game::character::config::CharacterTest`.
 
@@ -4183,7 +4183,7 @@ Aucun autre trou trouvé dans l'audit (les `props` et le profil n'ont pas de ré
 ## 54. Générateur v2 : gabarits par objet, par salle et par boss (M2-T17, voie V3)
 
 Code : `crates/scenario/src/generate.rs` (gabarits), `game::gen_test` (`ItemTest`, `RoomTest`,
-`BossFightTest`), `scenario::runner::apply_player_overrides` (objets de départ), `content::lint`
+`BossFightTest`), `map_ldtk::game::profile::apply_player_overrides` (objets de départ), `content::lint`
 (`lint_item_tests`, `lint_room_tests`, `lint_character_tests`). Complète §28 : mêmes règles
 (opt-in par un champ `test:`, aucun effet en jeu, un scénario écrit par `make gen GAME=<jeu>` dans
 `tests/scenarios/generated/<jeu>/`, champ absent = rien de généré : aucune trace existante ne bouge).
@@ -7705,7 +7705,25 @@ Guide d'usage : `docs/editeur-vocal.md`. Plan : `docs/taches/plan-editeur-vocal.
 - **Tests** : unitaires `editor_mode`, `content_hot_reload`, `remote::parse_stat` ; `crates/scenario/tests/editor_reload.rs` (scrutation, événement d'asset, relance, fichier invalide ; `set_modifier` à d = 0 et cas d'erreur).
 
 
-## 85. Bac à sable : kind `Sandbox`, profils et arène (SB-1)
+## 85. Mise en place d'un profil : `map_ldtk::game::profile` (SB-2, `docs/taches/plan-bac-a-sable.md` D4)
+
+Ce que `game::replay::{Scenario, PlayerScript}` décrit **hors inputs** (armes, objets, argent, modificateurs, mutations, dash, bombe, visée du joueur ; placements de personnages, power-ups, objets, coffres,
+présentoirs) s'applique par **un seul code**, `map_ldtk::game::profile` (il lui faut `local::spawn_character`, donc `map_ldtk`), appelé par le runner de scénarios (`ProfilePlugin(Profile::from_scenario(..))`)
+et, à partir de SB-3, par le bac à sable. Plus aucune copie dans `crates/scenario`. Les types restent ceux de `game::replay` (pas de second format ; une partie vit dans `content::sandbox` et `sim_core::dash`, réexportés, §86). Détail de l'API et de l'ordre : `docs/taches/rapports/sb-2-mise-en-place.md`.
+
+- **Règle d'ordre** : `ProfilePlugin` s'ajoute **après** `LdtkLocalGamePlugin` (qui enregistre `commands::apply_game_commands_*`) et **avant** tout système de `GgrsSchedule` qui devrait suivre le profil. Il déclare les cinq
+  systèmes de placement dans l'ordre historique (power-ups → objets → coffres → présentoirs en `Effects`, personnages en `EnemySpawning`) : l'ordre d'attribution des `GgrsNetId` en dépend, et le tri topologique de bevy
+  ne suit pas l'ordre d'insertion (déplacer l'`add_systems` d'un cran peut retourner des paires sans lien).
+- **Noms conservés** : `apply_scenario_*_placements` et `apply_player_overrides` gardent leur nom d'avant le déplacement. `make schedule_order_diff` normalise le chemin de module, pas le nom court : un renommage
+  le rendrait non vide. Ne les renomme que dans un lot qui accepte ce diff.
+- **Réglages d'un joueur** : `apply_player_profile` (fonction) pose un `PlayerProfile` sur un joueur créé et rend `Err` **sans rien mettre en file** pour un contenu inconnu ; `apply_player_overrides` (système `Update`,
+  une fois, quand tous les joueurs existent) en fait une panique, comme avant.
+- **Pas de rollback, pas de trace** : aucun type rollback ajouté, `ScriptedPlacement` et `PlacementErrors` restent hors rollback. Preuve du lot : aucune trace ne bouge, `schedule_order_diff` vide.
+- **Pose initiale seulement** : `apply_player_profile` est hors `GgrsSchedule`, avant la première frame simulée (armes retirées par `despawn()`, `Tags`/`Defenses` hors rollback) ; elle **remplace** (modificateurs, inventaire, arsenal, `EffectState`) et n'ajoute pas. Elle ne sert pas telle quelle à
+  un « donne-moi » en cours de partie (SB-3 écrira un mode d'ajout). Les modificateurs gardent la source `scenario_player_<handle>_<i>` (les traces en dépendent).
+- **Piège du `restart`** : `apply_player_overrides` garde un `Local<bool>` jamais remis à zéro : le profil n'est **pas rejoué après un `restart`** et `ProfilePlugin` ne peut pas être ajouté deux fois ; SB-3 le remplacera par une ressource remise à zéro à `OnEnter(GameLoading)`.
+
+## 86. Bac à sable : kind `Sandbox`, profils et arène (SB-1)
 
 Plan : `docs/taches/plan-bac-a-sable.md` (D1, D2). SB-1 ne livre que le **contenu** (kind, schéma, lint, profils, arènes) ; l'application d'un profil (SB-2/SB-3) et `--sandbox` (SB-3) viennent après.
 Aucun système, aucun type rollback, rien dans `GgrsSchedule` : aucune trace ne bouge.

@@ -26,7 +26,7 @@
         (path: "floor_grammars", kind: "FloorGrammar"),
         (path: "rooms", kind: "Room"),
         (path: "ui", kind: "Ui"),
-        // SB-1 : profils du bac à sable (`--sandbox`, `docs/conventions.md` §85) ; `arene` est le défaut.
+        // SB-1 : profils du bac à sable (`--sandbox`, `docs/conventions.md` §86) ; `arene` est le défaut.
         (path: "sandbox", kind: "Sandbox"),
         (path: "camera.ron", kind: "Camera"),
         // D3 : feuilles de sprites par id (personnages, armes, effet de mêlée).

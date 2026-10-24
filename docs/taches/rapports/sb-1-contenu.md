@@ -1,7 +1,7 @@
 # Rapport sb-1-contenu (b6) : kind `Sandbox`, profils et arènes
 
 Fiche : `docs/taches/plan-bac-a-sable.md` (§1, §3 D1/D2, §4 SB-1, §5). Branche `sb-1-contenu` depuis `origin/main` `9381b3ac`. VPS 8 cœurs partagé avec b2 (charge 4 à 60), pas d'affichage.
-Doc : `docs/conventions.md` §85. Aucune trace ne bouge, aucun `BLESS`.
+Doc : `docs/conventions.md` §86. Aucune trace ne bouge, aucun `BLESS`.
 
 ## Format retenu et où vivent les types (D1)
 

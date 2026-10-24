@@ -172,7 +172,7 @@ pub struct ShelfPlacement {
 }
 
 /// Un modificateur de scénario, posé sur un joueur après sa création
-/// (`scenario::runner::apply_player_overrides`). Format RON :
+/// (`map_ldtk::game::profile::apply_player_profile`). Format RON :
 /// `(stat: MoveSpeed, op: Mul, value: "0.5")`. `until` absent = permanent (dure toute la
 /// partie, largement suffisant pour un scénario de test).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]

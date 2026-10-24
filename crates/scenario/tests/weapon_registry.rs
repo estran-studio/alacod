@@ -182,7 +182,7 @@ fn isaac_registry_is_full_at_first_tick() {
     );
 }
 
-/// `PlayerScript::weapon` (`apply_player_overrides`, lit le registre) : le joueur ne porte que
+/// `PlayerScript::weapon` (`map_ldtk::game::profile::apply_player_overrides`, lit le registre) : le joueur ne porte que
 /// l'arme demandée (arme à distance puis arme de mêlée), pour deux jeux.
 #[test]
 fn player_weapon_override_reads_the_registry() {

@@ -7,7 +7,7 @@
         (path: "characters", kind: "Character"),
         (path: "maps", kind: "Map"),
         (path: "ui", kind: "Ui"),
-        // SB-1 : profils du bac à sable (`--sandbox`, `docs/conventions.md` §85) ; `arene` est le défaut.
+        // SB-1 : profils du bac à sable (`--sandbox`, `docs/conventions.md` §86) ; `arene` est le défaut.
         (path: "sandbox", kind: "Sandbox"),
         (path: "camera.ron", kind: "Camera"),
         (path: "sprites/sprites.ron", kind: "SpriteSheet"),

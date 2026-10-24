@@ -1,4 +1,4 @@
-//! SB-1 (`docs/conventions.md` §85, `docs/taches/plan-bac-a-sable.md` D1/D2) : le kind `Sandbox`,
+//! SB-1 (`docs/conventions.md` §86, `docs/taches/plan-bac-a-sable.md` D1/D2) : le kind `Sandbox`,
 //! les profils livrés par les jeux et le gabarit, la résolution de l'arène et la création par modèle.
 
 use content::sandbox::{manifest_arena, SandboxProfile, DEFAULT_PROFILE};

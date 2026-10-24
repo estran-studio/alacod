@@ -1,4 +1,4 @@
-//! SB-1 (`docs/conventions.md` §85) : les profils `sandbox/*.ron` livrés par les jeux **se jouent**.
+//! SB-1 (`docs/conventions.md` §86) : les profils `sandbox/*.ron` livrés par les jeux **se jouent**.
 //!
 //! Chaque profil devient un `Scenario` (D1 : sous-ensemble de `Scenario`, mêmes types) joué soixante
 //! frames en mode `Sandbox` sur l'arène résolue (`SandboxProfile::arena`) : invariants par défaut

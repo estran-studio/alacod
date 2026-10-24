@@ -1,4 +1,4 @@
-// Profil de bac à sable `arene` (SB-1, `docs/conventions.md` §85) : l'arène calme du testbed
+// Profil de bac à sable `arene` (SB-1, `docs/conventions.md` §86) : l'arène calme du testbed
 // (`testbed/arena.ldtk`, `sandbox.arena`), ouverte par `--sandbox` sans argument. Sous-ensemble de
 // `Scenario` (`alacod describe Sandbox`) ; `Some(..)` est implicite. Une cible `cible` à 200 unités à
 // droite du joueur ; les autres personnages de laboratoire se font à la demande.

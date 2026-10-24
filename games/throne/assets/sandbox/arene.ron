@@ -1,4 +1,4 @@
-// Profil de bac à sable `arene` (SB-1, `docs/conventions.md` §85) : l'arène calme de throne (carte
+// Profil de bac à sable `arene` (SB-1, `docs/conventions.md` §86) : l'arène calme de throne (carte
 // gabarit `generate_template`), ouverte par `--sandbox` sans argument. Sous-ensemble de `Scenario`
 // (`alacod describe Sandbox`) ; `Some(..)` est implicite. Le joueur garde ses armes de départ ; une
 // cible `cible` à 200 unités à sa droite ; les autres ennemis se font à la demande.

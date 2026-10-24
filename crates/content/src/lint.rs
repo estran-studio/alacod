@@ -5438,7 +5438,7 @@ fn designation_known(registry: &Registry, designation: &str) -> bool {
     }
 }
 
-/// SB-1 (`docs/conventions.md` §85, `docs/taches/plan-bac-a-sable.md` D1/D2) : le kind `Sandbox`.
+/// SB-1 (`docs/conventions.md` §86, `docs/taches/plan-bac-a-sable.md` D1/D2) : le kind `Sandbox`.
 ///
 /// - un jeu qui déclare un dossier `Sandbox` a une arène (`sandbox.arena`, sinon `generate_template.map`)
 ///   **connue**, et un profil `arene` (celui de `--sandbox` sans argument) ;
