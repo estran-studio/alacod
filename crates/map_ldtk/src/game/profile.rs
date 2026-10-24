@@ -506,7 +506,19 @@ pub struct PlayerTarget<'a> {
     pub modifiers: Option<&'a Modifiers>,
 }
 
-/// Pose `profile` sur un joueur déjà créé : composants `Tags`/`Defenses`/`Modifiers`/`Inventory`/
+/// **Pose initiale, hors `GgrsSchedule`, avant la première frame simulée** (comme l'ancien
+/// `apply_player_overrides` : `Update`, joueurs créés, simulation pas commencée). Pas faite pour un joueur
+/// en cours de partie : armes retirées par `despawn()` (pas `despawn_rollback()`), `Tags`/`Defenses` hors
+/// rollback, `Commands` ordinaires.
+///
+/// Elle **remplace**, elle n'ajoute pas : `modifiers` (le `Modifiers` entier ; les modificateurs des
+/// `items` s'y ajoutent), `items` (l'`Inventory` entier), `weapon` (toutes les armes, `WeaponInventory` et
+/// `AmmoReserves`), `mutations` (`EffectState` remis à zéro ; les `Effects` existants sont conservés et
+/// prolongés), `currency`, `tags`, `immune_to`. Aucun mode d'ajout (donner une arme ou un objet à un joueur
+/// équipé) : SB-3 devra l'écrire, cette fonction ne sert pas telle quelle à `alacod/give`. Les modificateurs
+/// gardent la source `scenario_player_<handle>_<i>` (les traces en dépendent).
+///
+/// Composants posés : `Tags`/`Defenses`/`Modifiers`/`Inventory`/
 /// `WeaponInventory`/`AmmoReserves`/`Currency`/`Effects`/`Mutations`, dash, bombe, visée.
 /// `is_weapon(child)` dit si un enfant du joueur est une arme (à distance ou de mêlée) : `weapon`
 /// retire toutes celles que `create_player` a posées avant d'en créer une seule.
@@ -732,6 +744,10 @@ pub fn apply_player_profile(
 /// copient la config de leurs armes), celui-ci s'applique *après* : il attend que les
 /// entités `Player` existent (et que les tables de mutations et d'objets soient posées si un
 /// réglage en a besoin), puis applique [`apply_player_profile`] une seule fois (`Local<bool>`).
+///
+/// **Piège** : ce `Local<bool>` n'est jamais remis à zéro, donc le profil n'est **pas rejoué après un
+/// `restart`** (les joueurs de la nouvelle run n'en reçoivent rien), et `ProfilePlugin` ne peut pas être
+/// ajouté deux fois. SB-3 le remplacera par une ressource remise à zéro à `OnEnter(GameLoading)`.
 ///
 /// Panique sur un contenu inconnu (arme, objet, mutation) : faute de contenu plutôt que silencieuse,
 /// même style que `apply_weapon_overrides`.

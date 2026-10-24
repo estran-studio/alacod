@@ -1209,18 +1209,11 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         }
         // `apply_player_overrides` ne s'applique qu'à la première session : les joueurs de la run
         // lancée par la porte n'en recevraient aucun, mieux vaut refuser que mal jouer.
-        if scenario.players.iter().any(|p| {
-            !p.tags.is_empty()
-                || !p.immune_to.is_empty()
-                || !p.modifiers.is_empty()
-                || p.weapon.is_some()
-                || p.currency.is_some()
-                || !p.mutations.is_empty()
-                || p.dash.is_some()
-                || !p.items.is_empty()
-                || p.bomb.is_some()
-                || p.aim.is_some()
-        }) {
+        if scenario
+            .players
+            .iter()
+            .any(|p| !map_ldtk::game::profile::PlayerProfile::from_script(p).is_empty())
+        {
             failures.push(
                 "réglages de joueur (tags, weapon, currency, items, modifiers, mutations, dash, \
                  bomb, aim) non pris en charge avec un hub suivi (`hub: Some((stay: false))`)"

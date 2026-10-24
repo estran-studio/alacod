@@ -19,7 +19,7 @@ Fonctions et systèmes (publics, réutilisables hors du runner) :
 
 | Item | Rôle |
 |---|---|
-| `apply_player_profile(commands, id_factory, &ProfileTables, &PlayerTarget, &PlayerProfile, is_weapon) -> Result<(), String>` | **nouveau** : le corps de l'ancien `apply_player_overrides`, pour **un** joueur déjà créé. Valide d'abord (arme, objet, mutation inconnus, tables absentes) : `Err` ⇒ **rien en file** (le runner panique comme avant ; un appelant interactif, par ex. `alacod/give` de SB-3, peut refuser proprement) |
+| `apply_player_profile(commands, id_factory, &ProfileTables, &PlayerTarget, &PlayerProfile, is_weapon) -> Result<(), String>` | **nouveau** : le corps de l'ancien `apply_player_overrides`, pour **un** joueur déjà créé, en **pose initiale hors `GgrsSchedule`, avant la première frame simulée** (armes retirées par `despawn()`, `Tags`/`Defenses` hors rollback). Elle **remplace** (modificateurs, inventaire, arsenal, `EffectState`), elle n'ajoute pas. Valide d'abord (arme, objet, mutation inconnus, tables absentes) : `Err` ⇒ **rien en file** (le runner panique comme avant ; un appelant interactif, par ex. `alacod/give` de SB-3, peut refuser proprement) |
 | `ProfileTables { progression, items, weapons }`, `PlayerTarget { entity, handle, children, effects, modifiers }` | arguments de la fonction ci-dessus |
 | `spawn_character_placement(commands, &LevelSpawnAssets, id_factory, floor, index, &CharacterPlacement) -> Result<Entity, String>` | **nouveau** : validation (personnage, variante) + `local::spawn_character` ; mêmes messages qu'avant |
 | `apply_scenario_character_placements`, `apply_scenario_powerup_placements`, `apply_scenario_item_placements`, `apply_scenario_chest_placements`, `apply_scenario_shelf_placements` | systèmes `GgrsSchedule`, inchangés (noms conservés) |
@@ -51,7 +51,8 @@ Ordre d'attribution des `GgrsNetId` : identique (même ordre d'itération des pl
 ## Ce qui reste dans le runner
 
 `apply_weapon_overrides`, `apply_wave_overrides`, `apply_powerup_drop_chance_override` (surcharges d'**enveloppes** de contenu, avant création des joueurs : pas du profil), `player_inventory`/`probe_player_inventory` (sondes d'attentes), `LootOverrides`/`ShopOverrides` (réglages de scénario, pas de profil), les attentes, les invariants, les entrées scriptées, les bots.
-Non couvert, pour SB-3 : une application **à chaud** d'un profil à un joueur vivant (`alacod/give`) appellera `apply_player_profile` depuis un système de `GgrsSchedule` ou `Update` ; ce module n'impose pas encore de commande rejouable (cf. `GameCommands`).
+Non couvert, pour SB-3 : `apply_player_profile` **ne sert pas telle quelle** à `alacod/give` (pose initiale, remplace, `despawn()`) ; SB-3 écrira un mode d'ajout rejouable (cf. `GameCommands`).
+**Piège** : `apply_player_overrides` garde un `Local<bool>` jamais remis à zéro : le profil n'est **pas rejoué après un `restart`** et `ProfilePlugin` ne peut pas être ajouté deux fois. SB-3 le remplacera par une ressource remise à zéro à `OnEnter(GameLoading)`.
 
 ## Tests
 
@@ -66,7 +67,7 @@ Machine partagée (charge 7 à 62), tout joué au premier plan, **sans BLESS** ;
 |---|---|
 | `make schedule_order_diff BASE=origin/main` (sur `07cdf794`) | **vide** : « OK : ordre des systèmes et des types rollback identiques (4 550 lignes de schedules, 645 types) » (la base `9381b3ac` a la même taille que celle citée par les lots D69 : 4 520 lignes + les deux systèmes de K5-2 et leurs `apply_deferred`) |
 | `make test_scenarios_par SHARDS=3` (sans BLESS) | **809 scénarios** fusionnés, 3 tranches `ok`, 3 787 s ; **0 trace bougée** |
-| `test_crates` par paquet (`-p`, mêmes options que la cible, `--exact --skip scenarios`) | animation 2, sim_core 46, bevy_fixed 19, utils 4, behaviors 17, effects 38, bots 99, combat 119, items 52, run 38, stats 0, world 41, game 285, content 359, meta 18, map 26, telemetry 0, scenario 143, gungeon/isaac/testbed/throne/zombies/alacod 0 : **0 échec** ; `map_ldtk` avec `--features runtime` (sans, le module `game` n'est pas compilé, donc ni ses tests ni les miens) : 33 passés, 1 ignoré, dont les 2 nouveaux |
+| `test_crates` par paquet (`-p`, mêmes options que la cible, `--exact --skip scenarios`) | animation 2, sim_core 46, bevy_fixed 19, utils 4, behaviors 17, effects 38, bots 99, combat 119, items 52, run 38, stats 0, world 41, game 285, content 359, meta 18, map 26, telemetry 0, scenario 143, gungeon/isaac/testbed/throne/zombies/alacod 0 : **0 échec** ; `map_ldtk` avec `--features runtime` : 33 passés, 1 ignoré, dont les 2 nouveaux (`make test_crates`, workspace, unifie les features : `runtime` y est actif, ces tests y sont joués ; le `-p` seul sans `--features runtime` ne les compile pas) |
 | `make lint` ×5 | 0 erreur (1 avertissement `loot/boss.ron` de gungeon, préexistant) |
 | `make gen GAME=` ×5 (zombies, testbed, throne, gungeon, isaac) | exit 0 ×5, aucun fichier modifié |
 | `cargo fmt --all -- --check` | OK |

@@ -7719,3 +7719,6 @@ et, à partir de SB-3, par le bac à sable. Plus aucune copie dans `crates/scena
 - **Réglages d'un joueur** : `apply_player_profile` (fonction) pose un `PlayerProfile` sur un joueur créé et rend `Err` **sans rien mettre en file** pour un contenu inconnu ; `apply_player_overrides` (système `Update`,
   une fois, quand tous les joueurs existent) en fait une panique, comme avant.
 - **Pas de rollback, pas de trace** : aucun type rollback ajouté, `ScriptedPlacement` et `PlacementErrors` restent hors rollback. Preuve du lot : aucune trace ne bouge, `schedule_order_diff` vide.
+- **Pose initiale seulement** : `apply_player_profile` est hors `GgrsSchedule`, avant la première frame simulée (armes retirées par `despawn()`, `Tags`/`Defenses` hors rollback) ; elle **remplace** (modificateurs, inventaire, arsenal, `EffectState`) et n'ajoute pas. Elle ne sert pas telle quelle à
+  un « donne-moi » en cours de partie (SB-3 écrira un mode d'ajout). Les modificateurs gardent la source `scenario_player_<handle>_<i>` (les traces en dépendent).
+- **Piège du `restart`** : `apply_player_overrides` garde un `Local<bool>` jamais remis à zéro : le profil n'est **pas rejoué après un `restart`** et `ProfilePlugin` ne peut pas être ajouté deux fois ; SB-3 le remplacera par une ressource remise à zéro à `OnEnter(GameLoading)`.
