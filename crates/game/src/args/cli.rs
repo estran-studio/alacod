@@ -29,6 +29,11 @@ pub struct Opt {
     /// Display name for the local player
     #[clap(long)]
     pub name: Option<String>,
+    /// Bac à sable (`docs/taches/plan-bac-a-sable.md`) : ouvre l'arène du jeu avec un profil de départ
+    /// (`sandbox/<profil>.ron`, `arene` sans argument), sans vagues ni étages, en mode éditeur
+    /// (remote `alacod/*`, `check_distance` 0).
+    #[clap(long, value_name = "PROFIL", num_args = 0..=1, default_missing_value = content::sandbox::DEFAULT_PROFILE)]
+    pub sandbox: Option<String>,
     #[clap(long)]
     pub debug_ai: bool,
     #[clap(long)]
@@ -40,4 +45,34 @@ pub struct Opt {
     pub telemetry_url: String,
     #[clap(long, default_value = "")]
     pub telemetry_auth: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sandbox(args: &[&str]) -> Option<String> {
+        let mut argv = vec!["jeu"];
+        argv.extend_from_slice(args);
+        Opt::try_parse_from(argv)
+            .expect("ligne de commande")
+            .sandbox
+    }
+
+    /// `--sandbox` sans profil charge `arene` (`content::sandbox::DEFAULT_PROFILE`), avec profil celui-là, et
+    /// ne mange jamais l'option suivante.
+    #[test]
+    fn sandbox_a_un_profil_facultatif() {
+        assert_eq!(sandbox(&[]), None);
+        assert_eq!(sandbox(&["--sandbox"]).as_deref(), Some("arene"));
+        assert_eq!(sandbox(&["--sandbox", "lourd"]).as_deref(), Some("lourd"));
+        assert_eq!(
+            sandbox(&["--sandbox", "--players", "localhost"]).as_deref(),
+            Some("arene")
+        );
+        assert_eq!(
+            sandbox(&["--seed", "7", "--sandbox", "lourd", "--local-port", "7000"]).as_deref(),
+            Some("lourd")
+        );
+    }
 }

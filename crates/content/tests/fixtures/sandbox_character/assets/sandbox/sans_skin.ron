@@ -1,0 +1,2 @@
+// Faute : `grunt` a le skin "1" mais pas "2" : le joueur de handle 1 n'aurait pas de skin.
+(players: [(character: "grunt")])

@@ -7,5 +7,6 @@ pub mod local;
 pub mod plugin;
 pub mod profile;
 pub mod rooms;
+pub mod sandbox;
 pub mod system;
 pub mod utility;

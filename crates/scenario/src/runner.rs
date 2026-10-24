@@ -1385,6 +1385,7 @@ fn game_args(player_count: usize) -> GameArgs {
         lobby: String::new(),
         cid: "scenario".into(),
         debug_ai: false,
+        sandbox: None,
         telemetry: false,
         telemetry_url: String::new(),
         telemetry_auth: String::new(),

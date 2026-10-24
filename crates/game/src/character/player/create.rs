@@ -23,8 +23,16 @@ const PLAYER_COLORS: &[LinearRgba] = &[
     LinearRgba::BLACK,
 ];
 
+/// Personnage d'un joueur quand aucun profil n'en choisit un (`PlayerProfile::character`, D126) : l'id
+/// dont `alacod lint` vérifie les skins `1` et `2` (D78) et que les équilibrages résolvent pour tout jeu.
+pub const DEFAULT_PLAYER_CHARACTER: &str = "player";
+
+/// `character` : id du personnage (registre `CharacterConfigs`) ; le joueur reçoit sa configuration, ses
+/// armes de départ et son solde. `health_max` doit être celui de ce même personnage
+/// (`ResolvedBalance::health_max_by_character`).
 pub fn create_player(
     commands: &mut Commands,
+    character: &str,
     weapon_registry: &WeaponRegistry,
     character_configs: &CharacterConfigs,
     collision_settings: &Res<CollisionSettings>,
@@ -45,8 +53,8 @@ pub fn create_player(
     let player_name = name;
     let player_pubkey = pubkey;
 
-    // Use "player" as the character config name (un `CharacterId` du registre de contenu)
-    let config_name = "player".to_string();
+    // `character` : un `CharacterId` du registre de contenu
+    let config_name = character.to_string();
 
     let entity = create_character(
         commands,

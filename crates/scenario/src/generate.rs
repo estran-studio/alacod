@@ -1306,6 +1306,7 @@ pub fn build_enemy_scenario(
         players: vec![PlayerScript {
             inputs,
             bot: None,
+            character: None,
             tags: vec![],
             immune_to: vec![],
             modifiers: vec![],
@@ -1878,6 +1879,7 @@ pub fn build_weapon_scenario(
         players: vec![PlayerScript {
             inputs,
             bot: None,
+            character: None,
             tags: vec![],
             immune_to: vec![],
             modifiers: vec![],

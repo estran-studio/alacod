@@ -37,6 +37,8 @@ pub struct GameArgs {
     pub lobby: String,
     pub cid: String,
     pub debug_ai: bool,
+    /// `--sandbox [profil]` : le profil de bac à sable demandé (natif seulement).
+    pub sandbox: Option<String>,
     pub telemetry: bool,
     pub telemetry_url: String,
     pub telemetry_auth: String,
@@ -54,12 +56,13 @@ pub fn check_distance_from_env() -> usize {
 /// Explicit `ALACOD_CHECK_DISTANCE=2` also enables verification in the native client.
 /// State tracing needs GGRS snapshots, which sync-test distance zero does not save.
 ///
-/// Mode éditeur (`ALACOD_EDITOR=1`, K5-1) : 0 même avec `ALACOD_STATE_TRACE` (les commandes d'édition
-/// exigent d=0, voir `crate::editor_mode`) ; un `ALACOD_CHECK_DISTANCE` explicite reste prioritaire
-/// (et les commandes d'édition sont alors refusées, avec la cause nommée).
-pub fn play_check_distance_from_env() -> usize {
+/// Mode éditeur (`ALACOD_EDITOR=1`, K5-1, ou `--sandbox`, qui l'implique : `sandbox`) : 0 même avec
+/// `ALACOD_STATE_TRACE` (les commandes d'édition exigent d=0, voir `crate::editor_mode`) ; un
+/// `ALACOD_CHECK_DISTANCE` explicite reste prioritaire (et les commandes d'édition sont alors refusées,
+/// avec la cause nommée).
+pub fn play_check_distance_from_env(sandbox: bool) -> usize {
     let traced = std::env::var_os("ALACOD_STATE_TRACE").is_some();
-    if crate::editor_mode::EditorMode::enabled_by_env() {
+    if sandbox || crate::editor_mode::EditorMode::enabled_by_env() {
         if traced {
             info!("mode éditeur : check_distance forcé à 0 malgré ALACOD_STATE_TRACE (le journal d'état n'est pas écrit par un synctest à distance 0)");
         }
@@ -148,10 +151,11 @@ pub fn get_args() -> GameArgs {
             lobby: args.lobby.unwrap_or(String::new()),
             cid: args.cid.unwrap_or(generate_random_correlation_id()),
             debug_ai: args.debug_ai,
+            check_distance: play_check_distance_from_env(args.sandbox.is_some()),
+            sandbox: args.sandbox,
             telemetry: args.telemetry,
             telemetry_url: args.telemetry_url,
             telemetry_auth: args.telemetry_auth,
-            check_distance: play_check_distance_from_env(),
         }
     }
     #[cfg(target_arch = "wasm32")]
@@ -200,10 +204,11 @@ pub fn get_args() -> GameArgs {
             lobby: canvas_config.lobby.unwrap_or(String::new()),
             cid: generate_random_correlation_id(),
             debug_ai: false, // debug_ai not supported on WASM
+            sandbox: None,   // le bac à sable est natif seulement (remote BRP)
             telemetry: canvas_config.telemetry,
             telemetry_url: canvas_config.telemetry_url,
             telemetry_auth: canvas_config.telemetry_auth,
-            check_distance: play_check_distance_from_env(),
+            check_distance: play_check_distance_from_env(false),
         }
     }
 }
@@ -244,6 +249,11 @@ impl Plugin for GameArgsPlugin {
     fn build(&self, app: &mut App) {
         let args = self.0.clone();
         app.insert_resource(LaunchSeed(args.seed));
+        if let Some(profile) = &args.sandbox {
+            // Lue par `CoreSetupPlugin` (mode éditeur), `map_ldtk::game::local::LdtkLocalGamePlugin`
+            // (arène, profil) et le remote (`alacod/sandbox_profile`).
+            app.insert_resource(crate::sandbox::SandboxRequest(profile.clone()));
+        }
         app.insert_resource(DebugAiConfig {
             enabled: args.debug_ai,
         });

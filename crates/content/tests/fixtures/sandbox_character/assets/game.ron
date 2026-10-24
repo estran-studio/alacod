@@ -1,0 +1,15 @@
+// Fixture SB-3 (D126) : le personnage d'un joueur de profil est connu et a les skins "1" et "2".
+(
+    name: "fixture-sandbox-character",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "weapons.ron", kind: "Weapon"),
+        (path: "objets", kind: "Item"),
+        (path: "mutations", kind: "Mutation"),
+        (path: "loot", kind: "LootTable"),
+        (path: "maps", kind: "Map"),
+        (path: "sandbox", kind: "Sandbox"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+    sandbox: (arena: "maps/salle.ldtk"),
+)

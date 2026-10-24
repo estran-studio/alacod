@@ -26,13 +26,13 @@ make editor GAME=zombies SEED=42        # graine de carte imposée (--seed, D105
 | App | Commande | Ce qu'elle apporte |
 |---|---|---|
 | Jeu complet en mode éditeur | `make editor GAME=<jeu>` | Les cinq jeux, carte du manifeste, `--seed` ; variables `ALACOD_EDITOR`/`ALACOD_REMOTE` posées par le Makefile |
-| Character Tester | `make character_tester` | Un joueur, vagues de zombies de `games/zombies`, sans carte LDtk ; mode éditeur et remote allumés **par l'exécutable** (`CoreSetupConfig::editor`), sans variable à poser ; `check_distance` à 0 |
+| Bac à sable | `make sandbox GAME=<jeu> [PROFIL=lourd]` (ou `cargo run -p <jeu> -- --sandbox [profil]`) | L'arène du jeu, sans vagues ni étages, avec un profil de départ (`sandbox/<profil>.ron`) ; mode éditeur et remote allumés par `--sandbox` lui-même, sans variable à poser ; `check_distance` à 0. Remplace `character_tester` (`make character_tester` = `make sandbox GAME=zombies`). Voir §2.2 |
 | Map Tester | `make editor` + `alacod-remote restart --seed N` | Pas d'app dédiée : la carte se régénère par graine |
 | `map_preview` | `cargo run --example map_preview` | Aperçu statique rechargé à la touche R ; **sans** session GGRS, donc sans remote (`alacod/state` n'y a rien à lire) |
 | `map_generation` | `make map_generation_test` | Ligne de commande sans `App` |
 | Music Tester | hors périmètre | Attend Harmonium ; même mode local et même `scripts/alacod-remote` |
 
-Un jeu lancé à la main (`cargo run -p zombies`) reste un jeu : seuls `make editor` et `character_tester` allument le mode éditeur.
+Un jeu lancé à la main (`cargo run -p zombies`) reste un jeu : seuls `make editor` et `--sandbox` allument le mode éditeur.
 Deux apps de test ne peuvent pas tourner ensemble sur le port 15702 sans `ALACOD_REMOTE_PORT`.
 
 En mode éditeur la partie n'est pas en pause : on joue au clavier pendant que Claude édite. `alacod-remote input Right` **prend la main** sur le
@@ -83,6 +83,24 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 « Devant moi » : `spawn zombie_runner --ahead` (60 px, ou `--ahead 100`, `--handle N`). Le script lit `alacod/state`
 (`players[].x`, `y` et `facing`, l'une des huit directions du personnage : `Right` = +x, `Up` = +y) et envoie la position explicite
 (diagonales normalisées) ; le moteur ne connaît que des coordonnées, jamais « devant ». Sans `facing`, le script prend `Right`.
+
+## 2.2 Bac à sable : « donne-moi », « charge le profil », « reset »
+
+`--sandbox [profil]` (§1) ouvre l'arène du jeu avec un **profil** : le sous-ensemble de `Scenario` que décrit `alacod describe Sandbox` (`players[]` avec `character`, `weapon`, `items`, `currency`, `modifiers`, `mutations`, `dash`, `bomb`, `aim`, `tags`,
+`immune_to` ; `characters[]` posés ; `items[]`, `chests[]`, `shop`). Un profil se crée par `alacod new-content Sandbox <nom>`, se lint comme le reste. Commandes (tout est gardé : local, `check_distance` 0) :
+
+| On dit | On lance | Effet |
+|---|---|---|
+| « Quels profils ? » | `alacod-remote profile` | liste (l'actif marqué `*`, arène, joueur, ennemis posés) |
+| « Charge le profil lourd » | `alacod-remote profile lourd` | arène du profil, puis `restart` : joueur recréé (avec son `character`), profil reposé |
+| « Donne-moi le fusil » | `alacod-remote give --weapon shotgun` | **ajoute** l'arme (réserve complétée si déjà tenue ; l'arme active cède sa place si les emplacements sont pleins ; mêlée : remplace la mêlée tenue) |
+| « Donne-moi la bague » | `alacod-remote give --item <id>` | objet comme un ramassage (passif + ses modificateurs, actif chargé, consommable +1) |
+| « Mets-moi 500 sous » | `alacod-remote give --set-currency 500` | impose le solde ; `--currency 100` ajoute, `--currency -100` retire |
+| « Spawne-moi un X devant moi » | `alacod-remote spawn X --ahead` | §2.1 |
+| « Un peu plus rapide » | `alacod-remote modifier MoveSpeed Mul 1.1` | modificateur vivant |
+| « Reset » | `alacod-remote restart` | rejoue le profil actif : tout ce qui a été donné, modifié ou spawné disparaît |
+
+Pour changer un profil : éditer `games/<jeu>/assets/sandbox/<nom>.ron`, puis `alacod-remote reload` et `restart` (le profil se relit du registre à chaque entrée en partie). `give` n'est pas enregistré par `save`.
 
 ## 3. Vocabulaire → champs RON
 

@@ -54,6 +54,11 @@ pub struct SandboxProfile {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SandboxPlayer {
+    /// Personnage du joueur (id du kind `Character`) choisi **à la création du joueur** : absent, le
+    /// personnage par défaut du moteur (`game::character::player::create::DEFAULT_PLAYER_CHARACTER`).
+    /// Les autres champs se posent une fois le joueur créé ; celui-ci décide de quel joueur il s'agit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub character: Option<String>,
     /// Tags du personnage.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,

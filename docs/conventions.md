@@ -7720,8 +7720,9 @@ et, à partir de SB-3, par le bac à sable. Plus aucune copie dans `crates/scena
   une fois, quand tous les joueurs existent) en fait une panique, comme avant.
 - **Pas de rollback, pas de trace** : aucun type rollback ajouté, `ScriptedPlacement` et `PlacementErrors` restent hors rollback. Preuve du lot : aucune trace ne bouge, `schedule_order_diff` vide.
 - **Pose initiale seulement** : `apply_player_profile` est hors `GgrsSchedule`, avant la première frame simulée (armes retirées par `despawn()`, `Tags`/`Defenses` hors rollback) ; elle **remplace** (modificateurs, inventaire, arsenal, `EffectState`) et n'ajoute pas. Elle ne sert pas telle quelle à
-  un « donne-moi » en cours de partie (SB-3 écrira un mode d'ajout). Les modificateurs gardent la source `scenario_player_<handle>_<i>` (les traces en dépendent).
-- **Piège du `restart`** : `apply_player_overrides` garde un `Local<bool>` jamais remis à zéro : le profil n'est **pas rejoué après un `restart`** et `ProfilePlugin` ne peut pas être ajouté deux fois ; SB-3 le remplacera par une ressource remise à zéro à `OnEnter(GameLoading)`.
+  un « donne-moi » en cours de partie : `game::grant::give` (SB-3, §87) l'écrit, avec les deux fonctions de pose partagées (`grant_item`, `equip_weapon`). Les modificateurs gardent la source `scenario_player_<handle>_<i>` (les traces en dépendent).
+- **Piège du `restart`** (levé par SB-3, §87) : `apply_player_overrides` gardait un `Local<bool>` jamais remis à zéro (le profil n'était pas rejoué après un `restart`) ; c'est maintenant la ressource `ProfileApplied`, remise à zéro à
+  `OnEnter(GameLoading)`. `ProfilePlugin` ne s'ajoute toujours qu'une fois ; charger un autre profil = `Profile::install`.
 
 ## 86. Bac à sable : kind `Sandbox`, profils et arène (SB-1)
 
@@ -7737,7 +7738,7 @@ Aucun système, aucun type rollback, rien dans `GgrsSchedule` : aucune trace ne 
   mêmes clés, même RON dans les deux sens) et convertit par `From<SandboxPlayer> for PlayerScript` ; ajouter un champ à l'un sans l'autre fait échouer le test. `deny_unknown_fields` : `inputs`, `frames`, `expect`…
   sont refusés (erreur `Parse`). `Some(..)` est implicite (`SandboxProfile::parse`, comme `Scenario::from_ron`) ; les `at_frame` sont relatifs au début de la session ; les `Fixed` s'écrivent en chaîne.
 - **Profil par défaut** : `arene` (`content::sandbox::DEFAULT_PROFILE`), celui de `--sandbox` sans argument. Livrés : `arene` + `lourd` pour zombies, gungeon, isaac, throne, testbed ; `arene` dans `templates/starter`.
-  Le personnage du joueur n'est **pas** un champ de profil (`PlayerScript` n'en a pas : c'est celui du jeu) — voir D126 du rapport `sb-1-contenu`.
+  Le personnage du joueur est le champ `players[].character` (D126, fermée par SB-3 : §87).
 - **Arène** (D2) : `SandboxProfile::map`, sinon `sandbox: (arena: "…")` du manifeste (champ facultatif, `SandboxEntry`), sinon `generate_template.map` (`content::sandbox::manifest_arena`, `SandboxProfile::arena`).
   Une désignation est une carte LDtk, `cave:<id>` ou `floor:<id>` (comme `entry.start_map`). zombies (`exemples/test_map.ldtk`) et testbed (`testbed/arena.ldtk`) déclarent la leur ; gungeon, isaac, throne et le gabarit
   retombent sur leur carte gabarit. Dans toutes ces cartes, le joueur 0 apparaît à (424, 696) : un ennemi posé à (624, 696) est à 200 unités à sa droite (même point que les scénarios générés).
@@ -7746,3 +7747,38 @@ Aucun système, aucun type rollback, rien dans `GgrsSchedule` : aucune trace ne 
   (`UnreadStat`) ; `bomb` à `fuse_frames` et `radius` > 0 ; clés de coffre et de présentoir uniques (`DuplicateId`).
 - **Tests** : `crates/content/tests/sandbox.rs` (fixtures `sandbox_*`, jeux livrés, `describe`, `new-content`) ; `crates/scenario/tests/sandbox_profiles.rs` joue chaque profil livré soixante frames en mode `Sandbox`
   (invariants verts, arme, solde et objets posés, personnages présents).
+
+## 87. Mode bac à sable : `--sandbox [profil]` (SB-3, `docs/taches/plan-bac-a-sable.md` D2, D3, D5, D6)
+
+`cargo run -p <jeu> -- --sandbox [profil]` ouvre l'**arène** du jeu avec le profil `sandbox/<profil>.ron` (`arene` sans argument), **sans vagues ni étages**, en **mode éditeur** (remote BRP `alacod/*`,
+rechargement à chaud, `check_distance` 0, clavier ou manette). Aucune ligne dans le `main.rs` d'un jeu : `args::cli::Opt::sandbox` → `GameArgs::sandbox` → ressource `game::sandbox::SandboxRequest` (posée par
+`GameArgsPlugin`, donc `BaseArgsPlugin`) → `CoreSetupPlugin` allume le mode éditeur (comme `ALACOD_EDITOR=1`, `play_check_distance_from_env(sandbox)` donne 0) et `LdtkLocalGamePlugin` **ajoute
+`map_ldtk::game::sandbox::SandboxPlugin` quand la ressource existe** (un jeu créé par `alacod new` a ce `main.rs`, donc le mode). `make sandbox GAME=<jeu> [PROFIL=lourd] [SEED=n] [HEADLESS=1]` ;
+`make character_tester` = `make sandbox GAME=zombies`. Un jeu sans dossier `Sandbox`, un profil inconnu (les profils du jeu sont listés), une arène absente ou une session en ligne : message sur la sortie d'erreur et code 1.
+
+- **Au lancement** (`SandboxPlugin`, `Startup`) : arène du profil dans `LdtkGameMap` (D2 : `map` du profil > `sandbox.arena` > `generate_template.map`), graine `ARENA_SEED` (123456, celle de `Scenario::map_seed` : une arène
+  assemblée par graine, comme zombies, serait sinon tirée au hasard et les placements du profil tomberaient dans un mur ; `--seed` la remplace), `entry.mode = Sandbox` (aucune condition de fin), `WaveModeEnabled(false)`,
+  `HubSession` retirée (le `main` de gungeon la pose : la porte du hub lancerait une run).
+- **À chaque `OnEnter(GameLoading)`** : `install_session_profile` lit le profil actif (`SandboxSession`) dans le **registre** (rechargé à chaud : un RON modifié se prend au `restart`) et le pose par `Profile::install`
+  (ressources de placement, `PlayerOverrides`, `ProfileApplied` remis à zéro, `ShopOverrides` pour `shop.shells_drop_override`) ; `disable_waves` remet `ResolvedBalance::waves_enabled` à faux **après** `resolve_balance_system`
+  (qui le recalcule). Un profil à plus de joueurs que la session est tronqué à `PlayersCount`.
+- **`restart`** (`alacod/restart`, `RunRequest::Restart`) : retour en `GameLoading`, `FrameCount` à 0, tout ce qui vit dans la partie disparaît, le joueur est **recréé** avec le `character` du profil et le **profil est reposé**
+  (réglages du joueur, placements `at_frame`). Perdus : ce que `alacod/give` et `alacod/set_modifier` ont posé, ce que `alacod/spawn_*` a fait apparaître (`GameCommands` est vidée). `alacod/reload_content` puis `restart`
+  prend un profil modifié.
+- **`PlayerProfile::character` / `PlayerScript::character` / `SandboxPlayer::character`** (D126) : id d'un personnage du registre, choisi à la **création** du joueur (`local::spawn_players_when_map_loaded` lit `PlayerOverrides`,
+  `create_player(character, ..)`, santé max de **ce** personnage) ; absent = `DEFAULT_PLAYER_CHARACTER` (`player`, dont le lint exige les skins `1`/`2`, D78) ; le lint d'un profil exige le même couple de skins. Les trois structures
+  se construisent l'une de l'autre sans `..` : `PlayerProfile::from_script` et `From<SandboxPlayer> for PlayerProfile` déstructurent leur source (ajouter un champ à une seule ne compile plus), en plus du test
+  `sandbox_player_est_un_sous_ensemble_de_player_script`.
+- **Remote** (tous gardés par `hot_edit_allowed` sauf la liste) : `alacod/sandbox_profile {id?}` (sans `id` : `{active, profiles[]}` ; avec `id` : valide, pose l'arène de ce profil dans `MapGenerationConfig`, change `SandboxSession`,
+  `Restart`) ; `alacod/give {handle?, weapon?, item?, currency?, set_currency?}` (`game::grant::give`) ; `alacod/state` gagne `sandbox: {profile}` ; `scripts/alacod-remote profile [id]`, `give`. Commandes vocales : « charge le profil lourd »
+  = `profile lourd`, « donne-moi le fusil » = `give --weapon shotgun`, « mets-moi 500 sous » = `give --set-currency 500`, « reset » = `restart`, « spawne-moi X devant moi » = `spawn X --ahead`.
+- **`game::grant`** : `grant_item` et `equip_weapon` sont **les fonctions de pose** de `apply_player_profile` (remplace) et de `give` (ajoute) ; l'ordre des opérations, donc des `GgrsNetId`, est celui d'avant (traces identiques).
+  `give` écrit des composants rollback depuis le monde, entre deux frames : sûr **seulement** en session locale à `check_distance` 0 (même garde que `set_modifier`) ; **il n'est pas enregistré** (`InputRecorder`) : un scénario
+  enregistré ne le rejoue pas (D130). Arme à distance déjà tenue : réserve complétée et arme redevenue active ; sinon ajoutée et active ; sans emplacement (`weapon_slots`) l'arme active est retirée (sans tomber au sol) ;
+  mêlée : remplace celle que le joueur tient. Objet : comme un ramassage (passif ajouté à l'inventaire et ses modificateurs `item:<id>`, actif chargé qui remplace l'actif, consommable +1).
+- **`apply_player_overrides`** parcourt les joueurs **par handle** (les armes créées consomment le `GgrsNetIdFactory`) ; `ProfileApplied` remplace le `Local<bool>`. Aucune trace ne bouge (preuve : suite complète sans `BLESS`).
+- **Rien dans `GgrsSchedule`** : le plugin n'ajoute que des systèmes `Startup`, `OnEnter` et `Update` ; `ProfilePlugin` garde ses cinq systèmes de placement dans le même ordre (`make schedule_order_diff` vide).
+- **`character_tester` retiré** (D6) : `examples/character_tester.rs`, l'entrée `[[example]]`, les cibles `character_tester_matchbox` et `build_character_tester_web`, l'entrée `applications.json` du site. Le « Map Tester » reste `make editor` + `restart --seed`.
+- **Preuves** : `crates/scenario/tests/sandbox_mode.rs` (l'assemblage d'un `main.rs` avec `sandbox: Some(..)` : arène, `Sandbox`, pas de vague, profil posé, `restart` qui le rejoue, changement de profil, don, `character` ; les cinq jeux
+  s'ouvrent sur `arene`), `crates/content/tests/sandbox_character.rs`, tests unitaires de `game::{grant, sandbox}`, de `remote.rs` (gardes, profil, don) et d'`args::cli` (`--sandbox` à profil facultatif).
+  Essais headless de `--sandbox` pour les cinq jeux : `docs/taches/rapports/sb-3-mode-bac-a-sable.md`.

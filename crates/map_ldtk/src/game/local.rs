@@ -9,7 +9,9 @@ use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use game::{
     character::{
-        config::CharacterConfigs, enemy::create::spawn_enemy, player::create::create_player,
+        config::CharacterConfigs,
+        enemy::create::spawn_enemy,
+        player::create::{create_player, DEFAULT_PLAYER_CHARACTER},
     },
     collider::CollisionSettings,
     economy::PerkMachine,
@@ -90,6 +92,14 @@ impl Plugin for LdtkLocalGamePlugin {
                     .run_if(on_message::<LdtkMapLoadingEvent>)
                     .after(MapNetIdAssignment),
             );
+        // `--sandbox [profil]` (`game::args`) : l'arène du jeu et un profil, sans une ligne dans le `main`
+        // du jeu (`super::sandbox`). Après `commands::register` : le profil se range par rapport à elle.
+        if app
+            .world()
+            .contains_resource::<game::sandbox::SandboxRequest>()
+        {
+            app.add_plugins(super::sandbox::SandboxPlugin);
+        }
     }
 }
 
@@ -157,6 +167,8 @@ fn spawn_players_when_map_loaded(
     ggrs_session_building: Res<GgrsSessionBuilding>,
     player_spawn: Query<(Entity, &GlobalTransform, &PlayerSpawnConfig)>,
     slots: FloorSlots,
+    // D126 : personnage du joueur choisi par le profil (`PlayerProfile::character`), sinon le défaut.
+    profile: Option<Res<super::profile::PlayerOverrides>>,
 ) {
     // T1.8 : seuls les points de départ du premier niveau (emplacement 0 ; la carte unique
     // hors mode `Floors`).
@@ -180,17 +192,22 @@ fn spawn_players_when_map_loaded(
             return;
         }
 
+        let character = profile
+            .as_deref()
+            .and_then(|profile| profile.character_of(handle))
+            .unwrap_or(DEFAULT_PLAYER_CHARACTER);
         // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
         let health_max = balance
             .health_max_by_character
-            .get("player")
+            .get(character)
             .copied()
             .unwrap_or_else(|| {
-                panic!("équilibrage F5 : pas de santé résolue pour le personnage « player »")
+                panic!("équilibrage F5 : pas de santé résolue pour le personnage « {character} »")
             });
 
         create_player(
             &mut commands,
+            character,
             &weapon_registry,
             &character_configs,
             &collision_settings,

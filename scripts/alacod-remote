@@ -17,6 +17,11 @@
   alacod-remote spawn <personnage> (--at X,Y | --ahead [PX]) [--team T] [--variant V] [--handle N]
   alacod-remote spawn-powerup <id> (--at X,Y | --ahead [PX])
   alacod-remote spawn-item <id> (--at X,Y | --ahead [PX])
+  alacod-remote profile [ID]              bac à sable (--sandbox) : sans ID, liste les profils du jeu ; avec ID, charge ce
+                                          profil (arène du profil + restart : joueur et profil reposés)
+  alacod-remote give [--handle N] [--weapon ID] [--item ID] [--currency N | --set-currency N]
+                                          ajoute une arme, un objet, de l'argent au joueur en cours de partie
+                                          (--currency ajoute, négatif retire ; --set-currency impose le solde)
   alacod-remote discover                  méthodes du remote (rpc.discover, OpenRPC), puis ses paramètres
 
 Boutons : Up Down Left Right Fire SwitchWeapon SwitchWeaponMode Reload Sprint Dash
@@ -41,9 +46,11 @@ def brief(state):
     lines = []
     if "editor" in state:  # éditeur K5-1 : mode et garde d'abord
         run = (state.get("run") or {}).get("step")
+        sandbox = (state.get("sandbox") or {}).get("profile")
         lines.append(
             f"editor={state['editor']} online={state['online']} check_distance={state['check_distance']} "
             f"run.step={run} jeu={state.get('game')} carte={state.get('map')} graine={state.get('seed')}"
+            + (f" sandbox={sandbox}" if sandbox else "")
         )
     lines += [f"frame {state['frame']}  pause={state['clock']['paused']}  vague={state['wave']}"]
     for p in state["players"]:
@@ -59,6 +66,22 @@ def brief(state):
     lines.append(f"ennemis {len(state['enemies'])}, fenêtres {[w['health'] for w in state['windows']]}")
     if state.get("commands"):
         lines.append("commandes en attente: " + ", ".join(f"{c['frame']}:{c['kind']}" for c in state["commands"]))
+    return "\n".join(lines)
+
+
+def profiles(result):
+    """Les profils de bac à sable : l'actif marqué d'une étoile, leur arène, leur joueur et leurs personnages posés."""
+    lines = []
+    for entry in result["profiles"]:
+        mark = "*" if entry["id"] == result.get("active") else " "
+        players = "; ".join(
+            " ".join(f"{k}={v}" for k, v in player.items() if v not in (None, []))
+            for player in entry["players"]
+        )
+        placed = ",".join(entry["characters"])
+        lines.append(f"{mark} {entry['id']}  carte={entry['map']}  joueurs=[{players}]  posés=[{placed}]")
+    if not result.get("active"):
+        lines.append("(pas en bac à sable : relancer avec --sandbox [profil], `make sandbox GAME=<jeu>`)")
     return "\n".join(lines)
 
 
@@ -130,6 +153,15 @@ def main():
     p.add_argument("--net-id", type=int)
     p.add_argument("--source", default="editor")
     sub.add_parser("reload")
+    p = sub.add_parser("profile")
+    p.add_argument("id", nargs="?")
+    p = sub.add_parser("give")
+    p.add_argument("--handle", type=int)
+    p.add_argument("--weapon")
+    p.add_argument("--item")
+    amount = p.add_mutually_exclusive_group()
+    amount.add_argument("--currency", type=int, help="montant ajouté au solde (négatif : retiré)")
+    amount.add_argument("--set-currency", type=int, help="solde imposé")
     p = sub.add_parser("spawn")
     p.add_argument("character")
     p.add_argument("--at")
@@ -194,6 +226,18 @@ def main():
         print(json.dumps(result))
         if result.get("errors"):
             sys.exit(1)
+    elif args.cmd == "profile":
+        result = call("alacod/sandbox_profile", {"id": args.id} if args.id else {})
+        if args.id:
+            print(json.dumps(result))
+        else:
+            print(profiles(result))
+    elif args.cmd == "give":
+        params = {k: v for k, v in (("handle", args.handle), ("weapon", args.weapon), ("item", args.item),
+                                    ("currency", args.currency), ("set_currency", args.set_currency)) if v is not None}
+        if not {"weapon", "item", "currency", "set_currency"} & params.keys():
+            sys.exit("donner --weapon, --item, --currency ou --set-currency")
+        print(json.dumps(call("alacod/give", params)))
     elif args.cmd in ("spawn", "spawn-powerup", "spawn-item"):
         x, y = resolve_position(args)
         params = {"x": x, "y": y}

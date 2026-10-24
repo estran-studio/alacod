@@ -49,7 +49,7 @@ Ne pas déclarer M1 entièrement clos sans vérifier sa revue humaine.
 - L'accueil présente surtout l'ancienne description de l'engine et 1837.
   `DevProgress.svelte` calcule un pourcentage depuis les numéros de version : à remplacer
   par des jalons explicites avec date et état.
-- `applications.json` propose `map_explorer` et `character_tester`, pas les clones nommés.
+- `applications.json` propose `map_explorer` (`character_tester` retiré par SB-3 : bac à sable natif, `--sandbox`), pas les clones nommés.
   Le Makefile compile déjà `zombies` sous l'ancien nom **`map_explorer`**.
 - `cp_asset` copie uniquement les assets de zombies dans un dossier commun par version.
   Aucun build web de throne dans ce pipeline.

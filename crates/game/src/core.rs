@@ -197,7 +197,12 @@ impl Plugin for CoreAppPlugin {
         {
             // Mode éditeur (K5-1) : voulu par l'exécutable (`CoreSetupConfig::editor`, K5-3) ou par
             // `ALACOD_EDITOR=1`. Posé avant le remote, qui lit sa présence ; il implique le remote.
-            let editor = self.0.editor || crate::editor_mode::EditorMode::enabled_by_env();
+            // `--sandbox` (`BaseArgsPlugin`, avant ce plugin) implique le mode éditeur.
+            let editor = self.0.editor
+                || crate::editor_mode::EditorMode::enabled_by_env()
+                || app
+                    .world()
+                    .contains_resource::<crate::sandbox::SandboxRequest>();
             if editor {
                 app.insert_resource(crate::editor_mode::EditorMode);
             }
