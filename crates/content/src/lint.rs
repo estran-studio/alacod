@@ -3877,15 +3877,8 @@ fn lint_generate_template(
 }
 
 fn lint_entry_point(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
+    let start_is_known = designation_known(registry, &manifest.entry.start_map);
     let start_map_id = registry::map_id_from_path(&manifest.entry.start_map);
-    let start_is_known = match (
-        registry::cave_designation(&manifest.entry.start_map),
-        registry::floor_designation(&manifest.entry.start_map),
-    ) {
-        (Some(cave), _) => registry.caves.contains_key(&cave),
-        (None, Some(floor)) => registry.floor_grammars.contains_key(&floor),
-        (None, None) => registry.maps.contains_key(&start_map_id),
-    };
     if !start_is_known {
         errors.push(LintError {
             kind: LintErrorKind::BrokenReference,
@@ -5648,6 +5641,35 @@ fn lint_sandbox(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<L
                     LintErrorKind::BrokenReference,
                     format!("shop « {} » : objet « {} » inconnu", shelf.key, shelf.item),
                 );
+            }
+            if let Some(cost) = &shelf.cost {
+                if let items::Price::Consumable(id, _) = cost {
+                    let is_consumable = registry
+                        .items
+                        .get(id)
+                        .is_some_and(|item| item.def.kind == items::ItemKind::Consumable);
+                    if !is_consumable {
+                        push(
+                            LintErrorKind::BrokenReference,
+                            format!(
+                                "shop « {} » : cost : « {id} » n'est pas un consommable du jeu",
+                                shelf.key
+                            ),
+                        );
+                    }
+                }
+                let player_max = registry
+                    .characters
+                    .values()
+                    .find(|character| character.id.as_str() == "player")
+                    .and_then(|character| character.base_health_max.literal())
+                    .unwrap_or(Fixed::MAX);
+                for problem in cost.problems(|_| true, player_max) {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("shop « {} » : cost : {problem}", shelf.key),
+                    );
+                }
             }
             if !keys.insert(("shelf", shelf.key.as_str())) {
                 push(

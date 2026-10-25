@@ -2,7 +2,8 @@
 (
     map: "maps/absente.ldtk",
     players: [(weapon: "plasma", items: ["fantome"], mutations: ["inconnue"],
-               modifiers: [(stat: Luck, op: Add, value: "1")])],
+               modifiers: [(stat: Luck, op: Add, value: "1"), (stat: Custom("muette"), op: Add, value: "1")],
+               bomb: Some((fuse_frames: 0, radius: "0", damage: "0")))],
     characters: [
         (character: "dragon", x: "0", y: "0", at_frame: 1),
         (character: "grunt", x: "0", y: "0", at_frame: 1, variant: "geant"),
@@ -12,5 +13,9 @@
         (key: "c", table: "pool_perdu", x: "0", y: "0", at_frame: 1),
         (key: "c", x: "0", y: "0", at_frame: 1),
     ],
-    shop: (shelves: [(key: "s", item: "vitrine", price: 1, x: "0", y: "0", at_frame: 1)]),
+    shop: (shelves: [
+        (key: "s", item: "vitrine", price: 1, x: "0", y: "0", at_frame: 1),
+        (key: "s", item: "bomb", price: 0, cost: Some(Consumable("rien", 1)), x: "0", y: "0", at_frame: 1),
+        (key: "t", item: "bomb", price: 0, cost: Some(MaxHealth("0")), x: "0", y: "0", at_frame: 1),
+    ]),
 )

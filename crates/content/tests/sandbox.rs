@@ -62,11 +62,24 @@ fn toutes_les_references_d_un_profil_sont_verifiees() {
         "objet « bague_perdue »",
         "pool « pool_perdu »",
         "objet « vitrine »",
+        "n'est pas un consommable du jeu",
     ] {
         assert_has_error(&errors, LintErrorKind::BrokenReference, needle);
     }
     assert_has_error(&errors, LintErrorKind::DuplicateId, "clé « c » en double");
-    assert_eq!(errors.len(), 10, "{errors:#?}");
+    assert_has_error(
+        &errors,
+        LintErrorKind::DuplicateId,
+        "shop : clé « s » en double",
+    );
+    assert_has_error(&errors, LintErrorKind::UnreadStat, "modifiers");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "fuse_frames et radius");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "le montant doit être > 0",
+    );
+    assert_eq!(errors.len(), 15, "{errors:#?}");
 }
 
 #[test]

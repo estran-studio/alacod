@@ -15,7 +15,7 @@ Un profil est un **sous-ensemble de `Scenario`**, pas un second format. `content
 | `SandboxPlayer` | — | `content::sandbox` : les champs de `PlayerScript` **sans `inputs` ni `bot`** |
 
 `From<SandboxPlayer> for PlayerScript` (dans `game::replay`) et le test `sandbox_player_est_un_sous_ensemble_de_player_script` (mêmes clés JSON, même RON dans les deux sens, 12 clés = 10 + `inputs` + `bot`) :
-ajouter un champ à un seul type casse le test. `deny_unknown_fields` refuse `inputs`, `frames`, `expect`… (erreur `Parse`). SB-3 charge le profil par `Registry::sandbox_profiles` et convertit par `From`.
+ajouter un champ à un seul type casse le test. `deny_unknown_fields` refuse `inputs`, `frames`, `expect`… (erreur `Parse`). La garde ne couvre que `SandboxProfile` et `SandboxPlayer` : les placements, partagés avec `Scenario`, ignorent un champ inconnu. SB-3 charge le profil par `Registry::sandbox_profiles` et convertit par `From`.
 
 ## Livré
 

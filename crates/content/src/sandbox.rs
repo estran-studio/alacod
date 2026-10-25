@@ -11,7 +11,10 @@
 //! convertit par `From<SandboxPlayer> for PlayerScript`.
 //!
 //! Un profil ne contient ni `inputs`, ni `frames`, ni `expect` : `deny_unknown_fields` refuse ce qui
-//! n'appartient pas au sous-ensemble (une faute de frappe ne passe pas en silence).
+//! n'appartient pas au sous-ensemble. La garde vaut pour [`SandboxProfile`] et [`SandboxPlayer`] ;
+//! les placements (`CharacterPlacement`, `ItemPlacement`, `ChestPlacement`, `ShelfPlacement`…) sont
+//! partagés avec `Scenario` et n'ont pas `deny_unknown_fields` : une faute de frappe **dans un
+//! placement** est ignorée en silence (un champ à défaut garde son défaut).
 //!
 //! Les `at_frame` des placements sont relatifs au début de la session (frame 0 = ouverture de l'arène).
 
