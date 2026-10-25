@@ -7791,3 +7791,24 @@ rechargement à chaud, `check_distance` 0, clavier ou manette). Aucune ligne dan
 - **Preuves** : `crates/scenario/tests/sandbox_mode.rs` (l'assemblage d'un `main.rs` avec `sandbox: Some(..)` : arène, `Sandbox`, pas de vague, profil posé, `restart` qui le rejoue, changement de profil, don, `character` ; les cinq jeux
   s'ouvrent sur `arene` ; **avec `GameRoot`**, copie d'isaac : `reload` puis `restart` gardent `Sandbox` et relisent le profil, un `map` ajouté au profil est pris au `restart`) et `map_ldtk::game::sandbox::tests` (`pin_session`, `pin_mode`), `crates/content/tests/sandbox_character.rs`, tests unitaires de `game::{grant, sandbox}`, de `remote.rs` (gardes, profil, don) et d'`args::cli` (`--sandbox` à profil facultatif).
   Essais headless de `--sandbox` pour les cinq jeux : `docs/taches/rapports/sb-3-mode-bac-a-sable.md`.
+
+## 88. Bac à sable d'un jeu créé par `alacod new` : preuve de bout en bout et mode d'emploi (SB-4, `docs/taches/plan-bac-a-sable.md` §1 critère 2)
+
+Un jeu créé par `alacod new demo` (gabarit `templates/starter`) ouvre son bac à sable **sans une ligne de code ajoutée** : `src/main.rs` du gabarit pose `BaseArgsPlugin` (qui lit `--sandbox`), `CoreSetupPlugin` et
+`LdtkLocalGamePlugin` (qui pose `SandboxPlugin` quand `SandboxRequest` existe, §87) ; le gabarit livre le kind `Sandbox` (`(path: "sandbox", kind: "Sandbox")` de `game.ron`), le profil `assets/sandbox/arene.ron` (solde 1 000,
+une cible `target` à (624, 696), 200 unités à droite du joueur en (424, 696)) et son arène (`generate_template.map: "maps/arena.ldtk"`, D2, pas de champ `sandbox.arena`).
+
+- **Lancer** (dans le dossier du jeu) : `cargo run --features native -- --sandbox [profil]` (**`native` = `bevy/file_watcher`** : sans lui, pas de rechargement à chaud des armes et des personnages ; `--local-port 0` et un joueur local sont les défauts, prouvés par le test) ; sans fenêtre : `ALACOD_HEADLESS=1 cargo run --no-default-features --features native -- --sandbox`.
+  Un second profil : `alacod new-content Sandbox lourd` (copie de `arene`), puis `-- --sandbox lourd`. Le pilotage est celui des cinq jeux (`<engine>/scripts/alacod-remote profile|give|spawn|modifier|reload|restart`, `docs/editeur-vocal.md` §2.2) ;
+  `ALACOD_REMOTE_PORT` change le port 15702. `templates/starter/CLAUDE.md` le dit à l'agent qui travaille dans le jeu créé.
+- **Preuve** : `crates/content/tests/cli.rs::new_game_opens_its_sandbox_without_any_added_code` (`#[ignore]`, **`make test_alacod_cli`**, comme le test de `alacod test`) : dossier temporaire, `alacod new demo --engine <engine>`, **un seul fichier Rust**
+  (`src/main.rs`) qui ne contient pas « sandbox », compilation du jeu en profil `headless` (le jeu est son propre workspace : le profil est redéclaré par `--config profile.headless.*`, mêmes réglages que celui de l'engine ;
+  `CARGO_TARGET_DIR` partagé avec l'engine, rendu absolu, sinon `demo/target`), puis `demo --sandbox` (sans autre option) avec `ALACOD_HEADLESS=1`, un port libre (`ALACOD_REMOTE_PORT`) et
+  `ALACOD_STATE_TRACE` + `ALACOD_EXIT_AT_FRAME=1200` (**`ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`** : sans elle le jeu ne s'arrête pas ; à `check_distance` 0 le fichier de trace reste vide, seul le code de sortie 0 prouve l'arrêt).
+  Lecture par `scripts/alacod-remote state` dès la frame 300 : `sandbox.profile = arene`, `editor`, pas `online`, `check_distance` 0, `game = demo`, `map = maps/arena.ldtk`, vague 0 `NotStarted`, joueur 0 en (424, 696) avec une arme, cible
+  `target` en (624, 696), `profile` liste `arene`, **solde 1 000** du profil (`give --currency 0` renvoie le solde ; `alacod/state` ne l'expose pas), un seul joueur ; le jeu quitte seul avec le code 0 (le jeu est tenu par une garde RAII (`Game` : kill + wait au `Drop`, panique comprise), jamais tué par motif ; échéances monotones, y compris pour chaque appel de `alacod-remote`). Durée mesurée sur le VPS : 591 s dont ≈ 9 min de compilation à froid ; hors `test_crates`
+  et hors CI (la compilation d'un jeu complet n'a pas sa place dans `make check`).
+- **Observé, pas une anomalie** : la carte du gabarit porte cinq `character_spawn` (civilian, follower, dummy, ally, target) : ils apparaissent **en plus** de la cible du profil (six « ennemis » dans `brief` dont un `follower` qui vient au joueur).
+  Le journal affiche une ligne `ggrs{f=N spawner_skip reason=no_valid_spawner}` par frame (trace du spawner d'ennemis sans point d'apparition valide, voulue pour `diff_log`).
+- **Docs** : `docs/editeur-vocal.md` §1 (apps de test : le bac à sable d'abord, jeu créé), §2.1/§2.2 (phrases → commandes exactes), §4 (bloc « prêt à coller » : mode bac à sable), §8 ; `docs/jouer.md` (« Bac à sable », ligne du jeu créé) ; `CLAUDE.md` (variables et commandes) ;
+  protocole de l'essai William : `docs/taches/rapports/sb-5-essai-vocal.md`.

@@ -6,8 +6,9 @@
 //! l'engine (`#[ignore]`, `make test_alacod_cli`).
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::{Duration, Instant};
 
 fn alacod() -> Command {
     Command::new(env!("CARGO_BIN_EXE_alacod"))
@@ -455,4 +456,231 @@ fn regex_free_replace_damage(text: &str) -> String {
     let start = text.find(key).unwrap() + key.len();
     let end = start + text[start..].find('"').unwrap();
     format!("{}0.0{}", &text[..start], &text[end..])
+}
+
+// ---------------------------------------------------------------------------------------
+// bac à sable d'un jeu créé par `alacod new` (SB-4) — `make test_alacod_cli`
+// ---------------------------------------------------------------------------------------
+
+/// Dossier `target` de la construction du jeu créé : `CARGO_TARGET_DIR` (rendu absolu : cargo
+/// tourne dans le dossier du jeu) ou le `target/` du jeu. Partager celui de l'engine évite de
+/// recompiler bevy et les crates de l'engine pour chaque jeu d'essai.
+fn game_target_dir(game: &Path) -> PathBuf {
+    match std::env::var_os("CARGO_TARGET_DIR") {
+        Some(dir) => std::env::current_dir().unwrap().join(dir),
+        None => game.join("target"),
+    }
+}
+
+/// Un port local libre (la fenêtre entre la libération et la réutilisation est négligeable ici).
+fn free_port() -> u16 {
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+}
+
+/// `scripts/alacod-remote <args>` sur `port`, tuée si elle dépasse `deadline` (échéance monotone :
+/// le script a lui-même un délai de requête de 10 s, qui ne doit pas dépasser le temps restant).
+/// `Err` : python absent, ou échéance dépassée.
+fn remote(port: u16, args: &[&str], deadline: Instant) -> Result<Output, String> {
+    let mut child = Command::new("python3")
+        .arg(engine_root().join("scripts/alacod-remote"))
+        .args(args)
+        .env("ALACOD_REMOTE_PORT", port.to_string())
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("python3 ne se lance pas : {e}"))?;
+    // Lecteurs dédiés : un tube plein ne doit pas bloquer le script jusqu'à l'échéance.
+    fn drain<R: std::io::Read + Send + 'static>(mut r: R) -> std::thread::JoinHandle<Vec<u8>> {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            let _ = r.read_to_end(&mut buf);
+            buf
+        })
+    }
+    let out = drain(child.stdout.take().unwrap());
+    let err = drain(child.stderr.take().unwrap());
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(20)),
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("alacod-remote {args:?} : échéance dépassée"));
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    };
+    Ok(Output {
+        status,
+        stdout: out.join().unwrap_or_default(),
+        stderr: err.join().unwrap_or_default(),
+    })
+}
+
+/// Le jeu lancé : tué et attendu au `Drop`, sur tout chemin (assertion, JSON invalide, python absent).
+struct Game(std::process::Child);
+
+impl Drop for Game {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// `alacod new demo`, compilation, `--sandbox` headless : le profil `arene` du gabarit pose le
+/// joueur et la cible **sans une ligne de code ajoutée** au jeu créé. Commande équivalente à la
+/// main : voir `docs/conventions.md` §88.
+#[test]
+#[ignore = "compile un jeu créé hors de l'engine (≈ 10 min à froid) : make test_alacod_cli"]
+fn new_game_opens_its_sandbox_without_any_added_code() {
+    let tmp = Tmp::new("sandbox-e2e");
+    let out = new_game(&tmp, "demo", &[]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    let game = tmp.0.join("demo");
+
+    // Le jeu créé ne contient que du gabarit : un seul fichier Rust, qui ne dit pas « sandbox ».
+    let main = std::fs::read_to_string(game.join("src/main.rs")).unwrap();
+    assert!(
+        !main.to_lowercase().contains("sandbox"),
+        "main.rs parle de sandbox"
+    );
+    let rust_files: Vec<_> = std::fs::read_dir(game.join("src"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(rust_files, ["main.rs"]);
+
+    // Compilation headless : le profil `headless` de l'engine, redéclaré en ligne de commande
+    // (le jeu est son propre workspace et ne le porte pas).
+    let target = game_target_dir(&game);
+    let build = Command::new("cargo")
+        .current_dir(&game)
+        .env("CARGO_TARGET_DIR", &target)
+        .args([
+            "build",
+            "--no-default-features",
+            "--features",
+            "native",
+            "--profile",
+            "headless",
+            "--config",
+            "profile.headless.inherits=\"dev\"",
+            "--config",
+            "profile.headless.opt-level=1",
+            "--config",
+            "profile.headless.debug=\"line-tables-only\"",
+            "--config",
+            "profile.headless.package.\"*\".opt-level=3",
+        ])
+        .output()
+        .expect("cargo se lance");
+    assert!(build.status.success(), "{}", text(&build.stderr));
+
+    // `--sandbox` **sans autre option** (`--local-port` et `--players` ont leurs valeurs par défaut) :
+    // arène du gabarit, profil `arene`, frames comptées par la trace d'état (`ALACOD_EXIT_AT_FRAME`
+    // exige `ALACOD_STATE_TRACE`), le jeu s'arrête de lui-même. `Game` le tue au `Drop`.
+    let port = free_port();
+    let trace = tmp.0.join("trace.txt");
+    let mut game_proc = Game(
+        Command::new(target.join("headless/demo"))
+            .current_dir(&game)
+            .arg("--sandbox")
+            .env("ALACOD_HEADLESS", "1")
+            .env("ALACOD_REMOTE_PORT", port.to_string())
+            .env("ALACOD_STATE_TRACE", &trace)
+            .env("ALACOD_EXIT_AT_FRAME", "1200")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("le jeu créé se lance"),
+    );
+
+    // Attend une frame jouée (échéance totale de 60 s), puis lit l'état.
+    let ready_deadline = Instant::now() + Duration::from_secs(60);
+    let state: serde_json::Value = loop {
+        if let Some(status) = game_proc.0.try_wait().unwrap() {
+            panic!("le jeu s'est arrêté trop tôt : {status}");
+        }
+        assert!(
+            Instant::now() < ready_deadline,
+            "aucune frame jouée en 60 s"
+        );
+        let out = remote(port, &["state"], ready_deadline).unwrap();
+        if out.status.success() {
+            let state: serde_json::Value = serde_json::from_slice(&out.stdout)
+                .unwrap_or_else(|e| panic!("état illisible ({e}) : {}", text(&out.stdout)));
+            if state["frame"].as_u64().unwrap_or(0) >= 300 {
+                break state;
+            }
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    };
+    let query_deadline = Instant::now() + Duration::from_secs(30);
+    let profiles = text(&remote(port, &["profile"], query_deadline).unwrap().stdout);
+
+    assert_eq!(state["sandbox"]["profile"], "arene");
+    assert_eq!(state["editor"], true);
+    assert_eq!(state["online"], false);
+    assert_eq!(state["check_distance"], 0);
+    assert_eq!(state["game"], "demo");
+    assert_eq!(state["map"], "maps/arena.ldtk");
+    assert_eq!(state["wave"]["phase"], "NotStarted");
+    assert_eq!(state["wave"]["number"], 0);
+    assert!(profiles.contains("arene"), "{profiles}");
+    // Un seul joueur par défaut, posé sur le `PlayerSpawn` de l'arène, avec l'arme du personnage.
+    assert_eq!(
+        state["players"].as_array().unwrap().len(),
+        1,
+        "{}",
+        state["players"]
+    );
+    let player = &state["players"][0];
+    assert_eq!(
+        (player["x"].as_f64(), player["y"].as_f64()),
+        (Some(424.0), Some(696.0))
+    );
+    assert!(player["weapon"]["name"].is_string(), "{player}");
+    // La cible du profil (`characters` à (624, 696), 200 unités à droite du joueur).
+    let target_posed = state["enemies"].as_array().unwrap().iter().any(|e| {
+        e["config"] == "target" && e["x"].as_f64() == Some(624.0) && e["y"].as_f64() == Some(696.0)
+    });
+    assert!(target_posed, "{}", state["enemies"]);
+    // Le réglage du profil `arene` (`currency: 1000`) : `alacod/state` n'expose pas le solde,
+    // `give --currency 0` ne change rien et renvoie le solde.
+    let given = remote(port, &["give", "--currency", "0"], query_deadline).unwrap();
+    assert!(
+        given.status.success(),
+        "{}{}",
+        text(&given.stdout),
+        text(&given.stderr)
+    );
+    let given: serde_json::Value = serde_json::from_slice(&given.stdout)
+        .unwrap_or_else(|e| panic!("réponse de give illisible ({e})"));
+    assert_eq!(given["currency"], 1000, "{given}");
+
+    // Le jeu quitte seul à la frame demandée : code 0 et trace écrite (échéance de 120 s).
+    let exit_deadline = Instant::now() + Duration::from_secs(120);
+    let status = loop {
+        if let Some(status) = game_proc.0.try_wait().unwrap() {
+            break status;
+        }
+        assert!(
+            Instant::now() < exit_deadline,
+            "le jeu ne s'est pas arrêté à la frame 1200"
+        );
+        std::thread::sleep(Duration::from_millis(200));
+    };
+    assert!(status.success(), "{status}");
+    assert!(trace.exists());
 }

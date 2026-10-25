@@ -355,6 +355,8 @@ Variables d'environnement (natif) :
 - `--sandbox [profil]` (natif, tout jeu, `docs/conventions.md` §87, `make sandbox GAME=<jeu> [PROFIL=]`) : bac à sable, l'arène du jeu (`sandbox.arena` du manifeste, sinon `generate_template.map`), `RunMode::Sandbox`,
   sans vagues, profil `sandbox/<profil>.ron` (`arene` par défaut) posé par `map_ldtk::game::profile` à chaque entrée en `GameLoading` (donc rejoué par `restart`), mode éditeur et remote allumés, `check_distance` 0 ;
   méthodes `alacod/sandbox_profile` et `alacod/give`. Remplace `character_tester` (retiré).
+  Un jeu créé par `alacod new` l'a **sans code** (`templates/starter` : profil `arene`, `main.rs` inchangé) ; preuve de bout en bout
+  `make test_alacod_cli` (`new_game_opens_its_sandbox_without_any_added_code`, §88). `ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`.
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
   de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
 - `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` et `ALACOD_P2P_CHANNEL=unreliable` (natif, mesures D87) : remplacent le délai de

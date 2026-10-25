@@ -7,12 +7,14 @@ d'un shell.
 ## 1. Lancer
 
 ```bash
+make sandbox GAME=zombies               # le bac à sable (§2.2) : arène calme + profil de départ, mode éditeur compris
 make editor GAME=zombies                # fenêtre, rendu, clavier jouable
 make editor GAME=zombies HEADLESS=1     # sans fenêtre (VPS, CI) : profil headless
 make editor GAME=zombies SEED=42        # graine de carte imposée (--seed, D105)
 ```
 
-`GAME` = un dossier de `games/` (zombies, gungeon, isaac, throne, testbed). La cible lance le binaire du jeu avec :
+`GAME` = un dossier de `games/` (zombies, gungeon, isaac, throne, testbed). Un jeu créé par `alacod new` n'a pas de `make` : `cargo run --features native -- --sandbox [profil]`
+dans son dossier (`native` : rechargement à chaud) (SB-4, `docs/conventions.md` §88). `make editor` lance le binaire du jeu avec :
 
 | Variable | Rôle |
 |---|---|
@@ -26,7 +28,7 @@ make editor GAME=zombies SEED=42        # graine de carte imposée (--seed, D105
 | App | Commande | Ce qu'elle apporte |
 |---|---|---|
 | Jeu complet en mode éditeur | `make editor GAME=<jeu>` | Les cinq jeux, carte du manifeste, `--seed` ; variables `ALACOD_EDITOR`/`ALACOD_REMOTE` posées par le Makefile |
-| Bac à sable | `make sandbox GAME=<jeu> [PROFIL=lourd]` (ou `cargo run -p <jeu> -- --sandbox [profil]`) | L'arène du jeu, sans vagues ni étages, avec un profil de départ (`sandbox/<profil>.ron`) ; mode éditeur et remote allumés par `--sandbox` lui-même, sans variable à poser ; `check_distance` à 0. Remplace `character_tester` (`make character_tester` = `make sandbox GAME=zombies`). Voir §2.2 |
+| Bac à sable | `make sandbox GAME=<jeu> [PROFIL=lourd]` (ou `cargo run -p <jeu> --features native -- --sandbox [profil]`) | L'arène du jeu, sans vagues ni étages, avec un profil de départ (`sandbox/<profil>.ron`) ; mode éditeur et remote allumés par `--sandbox` lui-même, sans variable à poser ; `check_distance` à 0. Remplace `character_tester` (`make character_tester` = `make sandbox GAME=zombies`). Voir §2.2 |
 | Map Tester | `make editor` + `alacod-remote restart --seed N` | Pas d'app dédiée : la carte se régénère par graine |
 | `map_preview` | `cargo run --example map_preview` | Aperçu statique rechargé à la touche R ; **sans** session GGRS, donc sans remote (`alacod/state` n'y a rien à lire) |
 | `map_generation` | `make map_generation_test` | Ligne de commande sans `App` |
@@ -83,6 +85,8 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 « Devant moi » : `spawn zombie_runner --ahead` (60 px, ou `--ahead 100`, `--handle N`). Le script lit `alacod/state`
 (`players[].x`, `y` et `facing`, l'une des huit directions du personnage : `Right` = +x, `Up` = +y) et envoie la position explicite
 (diagonales normalisées) ; le moteur ne connaît que des coordonnées, jamais « devant ». Sans `facing`, le script prend `Right`.
+Le tableau des phrases du bac à sable (« donne-moi », « mets-moi 500 sous », « charge le profil », « reset », « un peu plus rapide ») est au §2.2.
+L'id d'un ennemi ou d'une arme vient de `alacod describe games/<jeu> Character` / `Weapon` (la dictée déforme les ids : lister, proposer le plus proche).
 
 ## 2.2 Bac à sable : « donne-moi », « charge le profil », « reset »
 
@@ -92,13 +96,15 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 | On dit | On lance | Effet |
 |---|---|---|
 | « Quels profils ? » | `alacod-remote profile` | liste (l'actif marqué `*`, arène, joueur, ennemis posés) |
-| « Charge le profil lourd » | `alacod-remote profile lourd` | arène du profil, puis `restart` : joueur recréé (avec son `character`), profil reposé |
-| « Donne-moi le fusil » | `alacod-remote give --weapon shotgun` | **ajoute** l'arme (réserve complétée si déjà tenue ; l'arme active cède sa place si les emplacements sont pleins ; mêlée : remplace la mêlée tenue) |
+| « Charge le profil lourd » | `alacod-remote profile lourd` | arène du profil, puis `restart` : joueur recréé (avec son `character`), profil reposé. Id inconnu : erreur qui liste les profils |
+| « Donne-moi le fusil » | `alacod-remote give --weapon <id de l'arme>` (`shotgun` dans zombies, `fusil_pompe` dans gungeon) | **ajoute** l'arme (réserve complétée si déjà tenue ; l'arme active cède sa place si les emplacements sont pleins ; mêlée : remplace la mêlée tenue) |
 | « Donne-moi la bague » | `alacod-remote give --item <id>` | objet comme un ramassage (passif + ses modificateurs, actif chargé, consommable +1) |
-| « Mets-moi 500 sous » | `alacod-remote give --set-currency 500` | impose le solde ; `--currency 100` ajoute, `--currency -100` retire |
-| « Spawne-moi un X devant moi » | `alacod-remote spawn X --ahead` | §2.1 |
-| « Un peu plus rapide » | `alacod-remote modifier MoveSpeed Mul 1.1` | modificateur vivant |
+| « Mets-moi 500 sous » | `alacod-remote give --set-currency 500` | impose le solde ; « ajoute 100 » : `--currency 100`, « retire 100 » : `--currency -100` |
+| « Spawne-moi un X devant moi » | `alacod-remote spawn X --ahead` (`--ahead 100` : 100 px) | §2.1 ; ennemi à 60 px devant le joueur à la frame suivante |
+| « Un peu plus rapide » | `alacod-remote modifier --handle 0 --source editor MoveSpeed Mul 1.1` | modificateur vivant ×1,1 (barème §4 : « un peu » = 10 à 15 %) ; « annule » : `alacod-remote unmodify --handle 0 --source editor` |
 | « Reset » | `alacod-remote restart` | rejoue le profil actif : tout ce qui a été donné, modifié ou spawné disparaît |
+
+Un jeu créé par `alacod new` a un seul profil, `arene` (`assets/sandbox/arene.ron` : 1 000 de solde et une cible `target` à 200 unités à droite du joueur) ; en ajouter un : `alacod new-content Sandbox lourd`.
 
 Pour changer un profil : éditer `games/<jeu>/assets/sandbox/<nom>.ron`, puis `alacod-remote reload` et `restart` (le profil se relit du registre à chaque entrée en partie). `give` n'est pas enregistré par `save`.
 
@@ -302,21 +308,22 @@ Le joueur de throne est `characters/pilote.ron` (`asset_name_ref: "player"`, tro
 
 ### Bloc prêt à coller
 
-À mettre dans le `CLAUDE.md` du dépôt ou dans le prompt système du client vocal (12 lignes, lisibles à voix haute) :
+À mettre dans le `CLAUDE.md` du dépôt ou dans le prompt système du client vocal (12 points, lisibles à voix haute) :
 
 ```
-Tu règles un jeu alacod en marche (make editor) pour William, qui parle : tes réponses sont lues à voix haute.
+Tu règles un jeu alacod en marche (make sandbox ou make editor) pour William, qui parle : tes réponses sont lues à voix haute.
 1. Une seule modification à la fois : lis la valeur dans le fichier (docs/editeur-vocal.md, section 3), écris-la, constate.
 2. N'écris que sous games/<jeu>/assets, du jeu lancé. Jamais de Rust, de Makefile ni de tests.
 3. Lint vert avant de dire « fait » : alacod lint games/<jeu>. Le hook est asynchrone : attends son verdict.
 4. Un changement de fichier = un commit « editor: <résumé> » du seul fichier touché.
-5. Un modificateur vivant (`alacod-remote modifier`) n'est pas un commit ; il s'annule par `alacod-remote unmodify --handle 0 --source editor`.
-6. « Annule ça » : `git log -1 --format=%s` ; si le sujet commence par « editor: », `git revert --no-edit HEAD`. Si le dernier changement était un modificateur vivant, `alacod-remote unmodify --handle 0 --source editor`. Sinon dis-le et ne touche à rien.
-7. Dis en une phrase quoi, où, et quand l'effet se voit : tout de suite, ou après `alacod-remote restart --kind Restart`.
-8. « Un peu » = 10 à 15 %, « beaucoup » = fois deux. Refuse une valeur nulle ou absurde.
-9. Phrase ambiguë ou identifiant incertain : pose une question courte, ou liste les ids (alacod describe) et propose le plus proche.
-10. Réponses courtes : deux phrases, sans tableau, sans code, sans adresse.
-11. Jamais git push, jamais git stash, jamais de commande destructive.
+5. Bac à sable (docs/editeur-vocal.md, 2.2), sans commit ni fichier : « donne-moi X » = alacod-remote give --weapon X ou --item X ; « mets-moi 500 sous » = give --set-currency 500 ; « charge le profil P » = profile P ; « spawne X devant moi » = spawn X --ahead ; « reset » = restart.
+6. Un modificateur vivant (`alacod-remote modifier --handle 0 --source editor STAT Mul 1.1`) n'est pas un commit ; il s'annule par `alacod-remote unmodify --handle 0 --source editor`. Il disparaît au restart : dis-le.
+7. « Annule ça » : `git log -1 --format=%s` ; si le sujet commence par « editor: », `git revert --no-edit HEAD`. Si le dernier changement était un modificateur vivant, unmodify. Sinon dis-le et ne touche à rien.
+8. Dis en une phrase quoi, où, et quand l'effet se voit : tout de suite, ou après `alacod-remote restart`.
+9. « Un peu » = 10 à 15 %, « beaucoup » = fois deux. Refuse une valeur nulle ou absurde.
+10. Phrase ambiguë ou identifiant incertain : pose une question courte, ou liste les ids (alacod describe) et propose le plus proche.
+11. Réponses courtes : deux phrases, sans tableau, sans code, sans adresse.
+12. Jamais git push, jamais git stash, jamais de commande destructive.
 ```
 
 ### Deux sortes de changement
@@ -407,7 +414,7 @@ Dans l'ordre : le plus fréquent d'abord. Chaque cas donne le signe, la cause, l
   l'erreur (fichier, ligne), corriger, ou revenir en arrière avec `git checkout -- <fichier>` (fichier non commité seulement). La correction suivante
   recharge d'elle-même. Les nombres `Fixed` sont des chaînes (`"150.0"`), pas des nombres nus.
 - **`reload` avec `errors` non vide** (`alacod-remote reload`). Le registre n'est pas remplacé : l'ancien reste. Lire chaque erreur (un id inconnu, un champ mal écrit), corriger le fichier nommé, relancer `alacod-remote reload` jusqu'à `errors: []`, puis `alacod-remote restart --kind Restart` pour appliquer les tables dérivées. La commande échoue (code 1) si `errors` n'est pas vide.
-- **Rien ne change à l'écran.** Relire la section 5 : une édition de registre ou de balance prend effet au prochain `GameLoading` (restart ou changement d'étage), tandis que les tables de personnages concernent les prochains spawns et que les armes, caméra et feedback sont immédiats. Utiliser `alacod-remote reload`, puis `alacod-remote restart --kind Restart` si nécessaire. `alacod-remote input ""` relâche l'input distant et rend la main au clavier ; il n'existe pas de sous-commande `spawn` dans K5-1. Vérifier aussi que le fichier modifié est bien sous `games/<jeu>/assets` **du jeu lancé** (`alacod-remote brief` : la première ligne donne le jeu) et que le journal montre le rechargement (`armes rechargées` pour `weapons.ron`).
+- **Rien ne change à l'écran.** Relire la section 5 : une édition de registre ou de balance prend effet au prochain `GameLoading` (restart ou changement d'étage), tandis que les tables de personnages concernent les prochains spawns et que les armes, caméra et feedback sont immédiats. Utiliser `alacod-remote reload`, puis `alacod-remote restart --kind Restart` si nécessaire. `alacod-remote input ""` relâche l'input distant et rend la main au clavier ; `alacod-remote spawn` pose un personnage, `give` un objet ou une arme (§2.2). Vérifier aussi que le fichier modifié est bien sous `games/<jeu>/assets` **du jeu lancé** (`alacod-remote brief` : la première ligne donne le jeu) et que le journal montre le rechargement (`armes rechargées` pour `weapons.ron`).
 - **Lint rouge.** Lire le message de `alacod lint games/<jeu>` (le hook asynchrone rend la main avant la fin : attendre son verdict ou lancer la
   commande soi-même). Corriger le champ nommé ou restaurer le fichier ; ne pas committer `editor:` tant que le lint n'est pas vert.
 - **La voix ne lit rien.** Vérifier `ALACOD_VOICE=1` dans l'environnement de `claude` (le hook n'agit pas sans), puis qu'une commande de synthèse

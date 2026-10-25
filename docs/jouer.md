@@ -44,16 +44,17 @@ Dans les deux cas la partie tourne dès le départ, les étiquettes F6 (nom, pri
 
 ### Bac à sable : essayer un personnage, une arme, un ennemi
 
-`--sandbox [profil]` fonctionne sur **tout** jeu construit avec l'engine (les cinq clones ; un jeu créé par `alacod new` a le même `main.rs`, la preuve de bout en bout est le lot SB-4) : l'arène du jeu, calme (ni vagues ni étages), un
+`--sandbox [profil]` fonctionne sur **tout** jeu construit avec l'engine (les cinq clones ; un jeu créé par `alacod new` l'a aussi, sans une ligne de code : `cargo run --features native -- --sandbox` dans son dossier (`native` : rechargement à chaud des RON) ; preuve : `make test_alacod_cli`) : l'arène du jeu, calme (ni vagues ni étages), un
 **profil** de départ (`sandbox/<profil>.ron` du jeu : personnage, arme, objets, argent, modificateurs, ennemis posés), le mode éditeur allumé. Sans nom, le profil est `arene` ; chaque jeu livre aussi `lourd`.
 
 | Je veux | Commande |
 |---|---|
 | Le bac à sable d'un jeu (profil `arene`) | `make sandbox GAME=zombies` (ou `gungeon`, `isaac`, `throne`, `testbed`) |
 | Un autre profil | `make sandbox GAME=isaac PROFIL=lourd` |
-| La même chose sans passer par `make` | `APP_VERSION=dev cargo run -p zombies --features native -- --sandbox lourd --local-port 7000 --players localhost` |
+| La même chose sans passer par `make` | `APP_VERSION=dev cargo run -p zombies --features native -- --sandbox lourd` |
 | Une autre graine d'arène (zombies assemble la sienne par graine) | `make sandbox GAME=zombies SEED=42` (sans `SEED`, toujours la graine 123456 : l'arène est la même à chaque lancement) |
 | Sans fenêtre (VPS, CI) | `make sandbox GAME=zombies HEADLESS=1` |
+| Un jeu créé par `alacod new demo` | `cd demo && cargo run --features native -- --sandbox` (profil `assets/sandbox/arene.ron` ; un autre : `alacod new-content Sandbox lourd`, puis `-- --sandbox lourd`) |
 | Le remplaçant de `make character_tester` | `make character_tester` (alias de `make sandbox GAME=zombies`) |
 
 Pendant la partie, par `scripts/alacod-remote` (ou à la voix, via Claude) :
