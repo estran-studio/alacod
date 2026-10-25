@@ -13,8 +13,8 @@ make editor GAME=zombies HEADLESS=1     # sans fenêtre (VPS, CI) : profil headl
 make editor GAME=zombies SEED=42        # graine de carte imposée (--seed, D105)
 ```
 
-`GAME` = un dossier de `games/` (zombies, gungeon, isaac, throne, testbed). Un jeu créé par `alacod new` n'a pas de `make` : `cargo run -- --sandbox [profil]`
-dans son dossier (SB-4, `docs/conventions.md` §88). `make editor` lance le binaire du jeu avec :
+`GAME` = un dossier de `games/` (zombies, gungeon, isaac, throne, testbed). Un jeu créé par `alacod new` n'a pas de `make` : `cargo run --features native -- --sandbox [profil]`
+dans son dossier (`native` : rechargement à chaud) (SB-4, `docs/conventions.md` §88). `make editor` lance le binaire du jeu avec :
 
 | Variable | Rôle |
 |---|---|
@@ -28,7 +28,7 @@ dans son dossier (SB-4, `docs/conventions.md` §88). `make editor` lance le bina
 | App | Commande | Ce qu'elle apporte |
 |---|---|---|
 | Jeu complet en mode éditeur | `make editor GAME=<jeu>` | Les cinq jeux, carte du manifeste, `--seed` ; variables `ALACOD_EDITOR`/`ALACOD_REMOTE` posées par le Makefile |
-| Bac à sable | `make sandbox GAME=<jeu> [PROFIL=lourd]` (ou `cargo run -p <jeu> -- --sandbox [profil]`) | L'arène du jeu, sans vagues ni étages, avec un profil de départ (`sandbox/<profil>.ron`) ; mode éditeur et remote allumés par `--sandbox` lui-même, sans variable à poser ; `check_distance` à 0. Remplace `character_tester` (`make character_tester` = `make sandbox GAME=zombies`). Voir §2.2 |
+| Bac à sable | `make sandbox GAME=<jeu> [PROFIL=lourd]` (ou `cargo run -p <jeu> --features native -- --sandbox [profil]`) | L'arène du jeu, sans vagues ni étages, avec un profil de départ (`sandbox/<profil>.ron`) ; mode éditeur et remote allumés par `--sandbox` lui-même, sans variable à poser ; `check_distance` à 0. Remplace `character_tester` (`make character_tester` = `make sandbox GAME=zombies`). Voir §2.2 |
 | Map Tester | `make editor` + `alacod-remote restart --seed N` | Pas d'app dédiée : la carte se régénère par graine |
 | `map_preview` | `cargo run --example map_preview` | Aperçu statique rechargé à la touche R ; **sans** session GGRS, donc sans remote (`alacod/state` n'y a rien à lire) |
 | `map_generation` | `make map_generation_test` | Ligne de commande sans `App` |
