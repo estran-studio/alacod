@@ -60,7 +60,23 @@ Refus au lancement (code 1) : `--sandbox nope` (« profil « nope » inconnu du 
 
 ## Vérifications
 
-VERIF
+Machine partagée (charge 4 à 8), tout joué au premier plan ou en tâche attendue, **sans BLESS**, `git status` propre hors code et docs après chaque étape. Les cinq premières lignes sont sur `f91a0d63` (code du lot) ; après la fusion de `origin/main` `b224c896`
+(suites de SB-1 par b2 : lint, fixtures, docs ; aucun fichier de simulation) seules les lignes marquées « après fusion » ont été rejouées.
+
+| Vérification | Résultat |
+|---|---|
+| `make test_scenarios_par SHARDS=3` (sans BLESS) | **809 scénarios**, 3 tranches `ok`, 2 549 s ; **aucune trace bougée**, arbre propre |
+| `make schedule_order_diff BASE=origin/main` | **identique** : 4 550 lignes de schedules, 645 types rollback, 5 jeux (base = `origin/main` `b224c896`, tête = le lot ; les deux sorties comparées par `diff -r`). Le script a d'abord échoué sur la tête (voir « Piège de méthode ») : la tête a été rejouée seule après `touch` des fichiers modifiés, la base n'avait pas échoué |
+| `test_crates` par paquet (`-p`, mêmes options que la cible : `--profile headless --no-default-features --no-fail-fast -- --exact --skip scenarios`) | animation 2, sim_core 46, bevy_fixed 19, utils 4, behaviors 17, effects 38, bots 99, combat 119, items 52, run 38, stats 0, world 41, **game 298**, **content 370**, meta 18, map 26, telemetry 0, **scenario 160**, gungeon/isaac/testbed/throne/zombies/alacod 0, `map_ldtk` (`--features runtime`) 33 : **0 échec** |
+| après fusion : content 370, game 298, scenario 160 | **0 échec** |
+| `make lint` ×5 (avant et après fusion) | zombies, testbed, throne, gungeon, isaac : « aucune erreur » ; avertissements préexistants : gungeon 1 (`loot/boss.ron`), testbed 115 (contenu de laboratoire non tiré), les trois autres 0 |
+| `make gen` ×5 (avant et après fusion) | rc 0 ×5, tous `ok`, **aucun fichier modifié** (`character: None` ne se sérialise pas) |
+| `cargo fmt --all -- --check` (avant et après fusion) | ok |
+| `scripts/check-forbidden.sh` (avant et après fusion) | OK, 51 occurrences auditées |
+| `make check_sim_boundary` | OK, 13 crates SIM, 2 en dette D69 |
+| `make test_tools` | 38 tests OK |
+| après fusion : `make test_alacod_cli` | 1 test (ignoré par défaut, 426 s) : ok |
+| Essais headless `--sandbox` ×5 jeux | voir plus haut : 0 `ERROR`/`panicked` |
 
 ## Limites et dettes
 
