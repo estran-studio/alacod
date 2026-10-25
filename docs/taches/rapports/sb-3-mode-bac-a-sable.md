@@ -100,6 +100,10 @@ en (424, 696)) et `reload_puis_restart_prennent_l_arene_modifiee_du_profil` (deu
 **Essai headless `isaac --sandbox`** (port 15741, PID propre) : `brief` initial `carte=maps/gabarit_armes.ldtk graine=123456 sandbox=arene` ; `reload` → `{"reloaded": true, "errors": []}` ; `restart` → `carte=maps/gabarit_armes.ldtk … sandbox=arene`, `joueur 0 (424.0,696.0)`, `cible` posée (frame 30) ;
 `profile lourd` après reload → `carte=maps/gabarit_armes.ldtk … sandbox=lourd`, `mouche` posée ; `reload` + `restart --seed 99` → `graine=99`, même carte. 0 `ERROR`/`panicked`.
 
+**Vérifications après correctifs** (sans BLESS, arbre propre) : `make test_scenarios_par SHARDS=3` **809 scénarios**, 3 tranches `ok`, 2 305 s, aucune trace bougée ; `make schedule_order_diff BASE=origin/main` **identique** (4 550 lignes, 645 types ; le script a de nouveau échoué sur le piège du target partagé,
+tête rejouée seule après `touch` des fichiers du diff et comparée par `diff -r` à la sortie de la base `b224c896`) ; `test_crates` (`-p`, options de la cible) : game 298, content 370, scenario 162, `map_ldtk --features runtime` 36 : 0 échec ; fmt, `check-forbidden` (51 occurrences), `check_sim_boundary` (13 crates) OK.
+`pin_session`/`pin_mode` ne sont ajoutés que par `SandboxPlugin` : les applications de scénario n'ont pas ce plugin.
+
 ## Limites et dettes
 
 - **Rendu non vu** (D94, D132) : pas de fenêtre ici ; les commandes que William jouera sont dans le Summary et `docs/jouer.md`. `restart --kind ToLobby` non essayé (D132).
