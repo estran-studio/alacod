@@ -15,6 +15,21 @@ sous `assets/`, déclarés dans `assets/game.ron`, assemblent des behaviors cod�
    boss, personnage : leur `test:`). `alacod test` seul les joue tous, `--list` les liste. Un test
    « ok » sans attente ne prouve rien : renseigner `test:` dans l'entrée.
 
+## Bac à sable : essayer le jeu sans le code
+
+`cargo run -- --sandbox [profil]` (rien à ajouter dans `src/main.rs`) ouvre l'arène du jeu (`generate_template.map` de
+`assets/game.ron`, ou `sandbox: (arena: "…")`), sans vagues ni étages, avec le **profil** `assets/sandbox/<profil>.ron`
+(`arene` par défaut : solde de 1 000 et une cible `target` à 200 unités du joueur). Mode éditeur allumé : remote sur
+`127.0.0.1:15702` (`ALACOD_REMOTE_PORT` pour un autre port), rechargement à chaud, local seulement.
+
+- Profil : `alacod describe Sandbox` (champs : `players[]` avec `character`, `weapon`, `items`, `currency`, `modifiers`…,
+  `characters[]` posés, `items[]`, `chests[]`, `shop`) ; `alacod new-content Sandbox lourd` en crée un.
+- Pendant la partie, par `scripts/alacod-remote` de l'engine (`{{engine}}/scripts/alacod-remote`) : `profile [id]`,
+  `give --weapon <id> | --item <id> | --set-currency N`, `spawn <personnage> --ahead`, `modifier MoveSpeed Mul 1.1`,
+  `reload`, `restart` (rejoue le profil : ce qui a été donné ou spawné disparaît).
+- Modifier le RON d'un profil, puis `reload` et `restart` ; `alacod lint` valide les ids (personnages, armes, objets).
+- Guide complet : `{{engine}}/docs/editeur-vocal.md` §2.2 et `{{engine}}/docs/conventions.md` §87–88.
+
 ## Règles qui piègent
 
 - Les valeurs `Fixed` s'écrivent en **chaînes** RON : `"1.5"`, jamais `1.5`.
@@ -25,4 +40,4 @@ sous `assets/`, déclarés dans `assets/game.ron`, assemblent des behaviors cod�
 
 ## Lancer
 
-`cargo run` (rendu) ou `ALACOD_HEADLESS=1 cargo run --no-default-features`.
+`cargo run` (rendu), `cargo run -- --sandbox` (bac à sable) ou `ALACOD_HEADLESS=1 cargo run --no-default-features --features native`.
