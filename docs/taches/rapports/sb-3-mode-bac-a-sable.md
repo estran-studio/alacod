@@ -78,6 +78,28 @@ Machine partagée (charge 4 à 8), tout joué au premier plan ou en tâche atten
 | après fusion : `make test_alacod_cli` | 1 test (ignoré par défaut, 426 s) : ok |
 | Essais headless `--sandbox` ×5 jeux | voir plus haut : 0 `ERROR`/`panicked` |
 
+## Correctifs de la revue (BLOQUANT ×2, confiance 0,99)
+
+1. **Le mode `Sandbox` ne survivait pas à `reload`.** `reload_registry_now` et le rechargement automatique remplacent `GameManifest` par le disque ; `entry.mode = Sandbox` n'était posé qu'au `Startup`. `isaac --sandbox` → `reload` → `restart` rétablissait `Floors` :
+   `compute_floor_plan` construisait un `FloorPlan`, `setup_generated_map` chargeait les niveaux de la run. Correctif (`map_ldtk/src/game/sandbox.rs`) : `pin_mode` (`Update`, `run_if(resource_changed::<GameManifest>)`) et `pin_session` (`OnEnter(GameLoading)`,
+   **`.before(compute_floor_plan)`**) rétablissent le mode à chaque relecture et à chaque (re)chargement de partie. L'écriture est gardée par un test de valeur : `force_sandbox_mode` lit par `Deref` (un `&mut *manifest` marquerait la ressource modifiée et `pin_mode`
+   se redéclencherait chaque frame ; relevé par le test `pin_mode_retablit_sandbox_sans_marquer_une_ressource_deja_juste`).
+2. **Un `map` modifié dans le profil actif était ignoré au `restart`.** `Restart` va droit en `GameLoading`, `apply_arena` ne tourne qu'à l'entrée de `LobbyLocal`. `pin_session` pose maintenant la carte du profil actif (relu du registre, `resolve(..).arena`) dans `LdtkGameMap` et
+   `MapGenerationConfig` à chaque `GameLoading`, avant `setup_generated_map`, **sans toucher aux graines** (`restart --seed`).
+
+**Autres lecteurs vérifiés après `reload` en bac à sable** (`grep GameManifest` dans `game`, `map_ldtk`, `map`, `run`) : `compute_floor_plan` (`GameLoading`, désormais ordonné après `pin_session`) ; `jjrs::local::system_after_map_loaded_local` (mode de run, `GameStarting`, donc après) ; `jjrs::p2p::start_online_run`
+(en ligne : refusé au lancement) ; `recording::start_native_recording` (lit le mode épinglé) ; `resolve_progression_system` (`entry.progression`), `resolve_clocks_system` (`entry.clocks`, `entry.difficulty`) : lus au disque, **voulu** (réglages de jeu, éditables à chaud, identiques hors bac à sable,
+et inchangés par un `restart` sans `reload`) ; `entry.hub` (lu par le `main` seulement ; `HubSession` retirée au lancement, jamais reposée) ; `entry.map`, `start_map` (copiés dans `LdtkGameMap` par le `main`, jamais relus) ; vagues (`ResolvedBalance::waves_enabled` recalculé à chaque `GameLoading`
+puis remis à faux par `disable_waves`, ordonné après `resolve_balance_system` ; `WaveModeEnabled` jamais relue du disque). Aucun autre lecteur du mode ne retombe sur le disque.
+
+**Tests ajoutés** : `scenario/tests/sandbox_mode.rs` (maintenant 9) — `reload_puis_restart_gardent_le_mode_bac_a_sable` (copie d'isaac **avec `GameRoot`**, profil édité sur le disque, `reload_registry_now` réel qui remet `Floors`, puis `restart` : mode `Sandbox`, pas de `FloorPlan`, arène, profil relu : solde 777, 1 placement, joueur
+en (424, 696)) et `reload_puis_restart_prennent_l_arene_modifiee_du_profil` (deux arènes distinctes : la seconde a ses `PlayerSpawn` décalés de 160 ; `map` ajouté au profil, `reload`, `restart` : `map_path` nouveau, graine inchangée, `FloorPlan` absent, joueur 160 plus loin, placement posé) ;
+`map_ldtk::game::sandbox::tests` (3) — `pin_session` (mode, carte du profil ou du manifeste dans les deux ressources, graines 11 et 7 intactes ; sans session ou profil introuvable, la carte ne bouge pas) et `pin_mode`. **Échec avant correctif prouvé** : `pin_session` et `pin_mode` désactivés, les deux tests d'intégration échouent
+(`Some(Floors)` au lieu de `Some(Sandbox)` ; `maps/gabarit_armes.ldtk` au lieu de `maps/arene_decalee.ldtk`).
+
+**Essai headless `isaac --sandbox`** (port 15741, PID propre) : `brief` initial `carte=maps/gabarit_armes.ldtk graine=123456 sandbox=arene` ; `reload` → `{"reloaded": true, "errors": []}` ; `restart` → `carte=maps/gabarit_armes.ldtk … sandbox=arene`, `joueur 0 (424.0,696.0)`, `cible` posée (frame 30) ;
+`profile lourd` après reload → `carte=maps/gabarit_armes.ldtk … sandbox=lourd`, `mouche` posée ; `reload` + `restart --seed 99` → `graine=99`, même carte. 0 `ERROR`/`panicked`.
+
 ## Limites et dettes
 
 - **Rendu non vu** (D94, D132) : pas de fenêtre ici ; les commandes que William jouera sont dans le Summary et `docs/jouer.md`. `restart --kind ToLobby` non essayé (D132).

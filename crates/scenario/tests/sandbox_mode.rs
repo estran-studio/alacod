@@ -38,15 +38,25 @@ fn quiet_remote() {
 
 /// L'app d'un jeu lancé avec `--sandbox <profile>` : l'assemblage de `games/<jeu>/src/main.rs`.
 fn sandbox_app(game: &str, profile: &str) -> App {
+    build_app(&scenario::runner::game_dir(game), profile, false)
+}
+
+/// Comme [`sandbox_app`] sur le dossier `dir`, avec `GameRoot` (comme les `main.rs` natifs) : le registre et
+/// le manifeste se relisent sur le disque (`alacod/reload_content`).
+fn sandbox_app_with_root(dir: &std::path::Path, profile: &str) -> App {
+    build_app(dir, profile, true)
+}
+
+fn build_app(dir: &std::path::Path, profile: &str, game_root: bool) -> App {
     quiet_remote();
-    let (registry, manifest, errors) =
-        content::load_and_lint(&scenario::runner::game_dir(game)).expect("manifeste");
+    let game = dir.display();
+    let (registry, manifest, errors) = content::load_and_lint(dir).expect("manifeste");
     assert!(errors.is_empty(), "{game} : {errors:#?}");
     let wave_mode = !registry.waves.is_empty();
     let core_plugin = CoreSetupPlugin(CoreSetupConfig {
         app_name: "sandbox".into(),
         headless: true,
-        asset_root: Some(scenario::runner::assets_dir(game)),
+        asset_root: Some(dir.join("assets").to_string_lossy().into_owned()),
         editor: false,
     });
     let args = GameArgs {
@@ -71,6 +81,9 @@ fn sandbox_app(game: &str, profile: &str) -> App {
         check_distance: 0,
     };
     let mut app = App::new();
+    if game_root {
+        app.insert_resource(game::content_hot_reload::GameRoot(dir.to_path_buf()));
+    }
     app.add_plugins(core_plugin.get_default_plugin())
         .add_plugins(GameArgsPlugin(args))
         .insert_resource(registry)
@@ -327,4 +340,159 @@ fn le_profil_choisit_le_personnage_du_joueur() {
         default_health, chosen_health,
         "la santé max est celle du personnage choisi (`ResolvedBalance::health_max_by_character`)"
     );
+}
+
+// --- Rechargement du contenu : la session prime sur le disque -----------------------------------
+
+/// Copie récursive d'un dossier de jeu dans un dossier temporaire neuf (le test édite des RON).
+fn copy_game(game: &str, tag: &str) -> std::path::PathBuf {
+    fn copy(from: &std::path::Path, to: &std::path::Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap() {
+            let entry = entry.unwrap();
+            let target = to.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+    let dir = std::env::temp_dir().join(format!("alacod-sandbox-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    copy(&scenario::runner::game_dir(game), &dir);
+    dir
+}
+
+fn floor_plan_present(app: &App) -> bool {
+    app.world()
+        .contains_resource::<map_ldtk::game::floors::FloorPlan>()
+}
+
+fn manifest_mode(app: &App) -> Option<content::EntryMode> {
+    app.world().resource::<content::GameManifest>().entry.mode
+}
+
+fn map_config(app: &App) -> map::generation::config::MapGenerationConfig {
+    app.world()
+        .resource::<map::generation::config::MapGenerationConfig>()
+        .clone()
+}
+
+fn player_position(app: &mut App) -> (f32, f32) {
+    snapshot(app).position
+}
+
+/// isaac déclare `entry.mode: Floors` : `reload` relit ce mode sur le disque. Un `restart` doit rester en bac à
+/// sable (arène, pas les niveaux de la run), et le profil **relu** (modifié sur le disque) doit être posé.
+#[test]
+fn reload_puis_restart_gardent_le_mode_bac_a_sable() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let dir = copy_game("isaac", "reload-mode");
+    let mut app = sandbox_app_with_root(&dir, "arene");
+    run_to(&mut app, 30);
+    assert_eq!(manifest_mode(&app), Some(content::EntryMode::Sandbox));
+    assert!(!floor_plan_present(&app));
+    assert_eq!(map_config(&app).map_path, "maps/gabarit_armes.ldtk");
+    assert_eq!(run_mode(&app), run::RunMode::Sandbox);
+
+    // Édition du profil actif sur le disque, puis `alacod/reload_content`.
+    let profile = dir.join("assets/sandbox/arene.ron");
+    std::fs::write(
+        &profile,
+        r#"(players: [(currency: 777)], characters: [(character: "cible", x: "624", y: "696", at_frame: 1)])"#,
+    )
+    .unwrap();
+    let report = game::content_hot_reload::reload_registry_now(app.world_mut()).expect("reload");
+    assert!(report.reloaded, "{:?}", report.errors);
+    assert_eq!(
+        app.world().resource::<content::GameManifest>().entry.mode,
+        Some(content::EntryMode::Floors),
+        "le disque dit `Floors` : c'est ce que `reload` a posé (c'est la session qui doit primer)"
+    );
+
+    restart_and_run_to(&mut app, 30);
+    assert_eq!(manifest_mode(&app), Some(content::EntryMode::Sandbox));
+    assert_eq!(run_mode(&app), run::RunMode::Sandbox);
+    assert!(!floor_plan_present(&app), "aucun niveau de la run chargé");
+    assert_eq!(map_config(&app).map_path, "maps/gabarit_armes.ldtk");
+    let again = snapshot(&mut app);
+    assert_eq!(again.currency, 777, "profil relu du disque");
+    assert_eq!(again.placed, 1);
+    assert!(
+        (again.position.0 - 424.0).abs() < 1.0 && (again.position.1 - 696.0).abs() < 1.0,
+        "joueur sur le point de départ de l'arène : {:?}",
+        again.position
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Un `map` ajouté au profil actif, puis `reload` + `restart` (qui va droit en `GameLoading`, sans lobby) :
+/// la nouvelle arène est chargée **avant** la pose des placements, et la graine reste celle de la session.
+#[test]
+fn reload_puis_restart_prennent_l_arene_modifiee_du_profil() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let dir = copy_game("isaac", "reload-arena");
+    // Seconde arène : la première avec ses points de départ décalés de 160 unités (10 cases) vers la droite
+    // (le joueur y apparaît 160 plus loin).
+    let source = std::fs::read_to_string(dir.join("assets/maps/gabarit_armes.ldtk")).unwrap();
+    let mut project: serde_json::Value = serde_json::from_str(&source).unwrap();
+    for level in project["levels"].as_array_mut().unwrap() {
+        for layer in level["layerInstances"].as_array_mut().into_iter().flatten() {
+            for entity in layer["entityInstances"]
+                .as_array_mut()
+                .into_iter()
+                .flatten()
+            {
+                if entity["__identifier"] == "PlayerSpawn" {
+                    entity["px"][0] = (entity["px"][0].as_i64().unwrap() + 160).into();
+                    entity["__grid"][0] = (entity["__grid"][0].as_i64().unwrap() + 10).into();
+                }
+            }
+        }
+    }
+    std::fs::write(
+        dir.join("assets/maps/arene_decalee.ldtk"),
+        serde_json::to_string(&project).unwrap(),
+    )
+    .unwrap();
+
+    let mut app = sandbox_app_with_root(&dir, "arene");
+    run_to(&mut app, 30);
+    assert_eq!(map_config(&app).map_path, "maps/gabarit_armes.ldtk");
+    let before = player_position(&mut app);
+    assert!((before.0 - 424.0).abs() < 1.0, "{before:?}");
+
+    // Édition du profil actif sur le disque, puis `reload` et `restart`.
+    std::fs::write(
+        dir.join("assets/sandbox/arene.ron"),
+        r#"(map: "maps/arene_decalee.ldtk", characters: [(character: "cible", x: "944", y: "696", at_frame: 1)])"#,
+    )
+    .unwrap();
+    let report = game::content_hot_reload::reload_registry_now(app.world_mut()).expect("reload");
+    assert!(report.reloaded, "{:?}", report.errors);
+    let seed = map_config(&app).seed;
+    restart_and_run_to(&mut app, 30);
+
+    let config = map_config(&app);
+    assert_eq!(config.map_path, "maps/arene_decalee.ldtk");
+    // (Une arène assemblée par graine change avec elle : la graine reste celle d'avant le `restart`, ce
+    // qui permet de comparer les positions. Le test unitaire `pin_session_…` prouve une graine de 7 intacte.)
+    assert_eq!(config.seed, seed, "la graine n'est pas écrasée");
+    assert!(!floor_plan_present(&app));
+    let after = player_position(&mut app);
+    assert!(
+        (after.0 - (before.0 + 160.0)).abs() < 1.0 && (after.1 - before.1).abs() < 1.0,
+        "le joueur apparaît sur la nouvelle arène : avant {before:?}, après {after:?}"
+    );
+    assert_eq!(
+        snapshot(&mut app).placed,
+        1,
+        "placement posé sur la nouvelle carte"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
 }
