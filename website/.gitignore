@@ -25,5 +25,4 @@ vite.config.ts.timestamp-*
 
 
 static/map_preview
-static/character_tester
 static/assets

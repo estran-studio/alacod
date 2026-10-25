@@ -48,10 +48,7 @@ use game::{
         PowerUpPlacement, Scenario, ShelfPlacement,
     },
     system_set::RollbackSystemSet,
-    weapons::{
-        melee::{self, MeleeWeapon},
-        spawn_weapon_for_player, Weapon, WeaponInventory, WeaponRegistry,
-    },
+    weapons::{melee::MeleeWeapon, Weapon, WeaponInventory, WeaponRegistry},
 };
 use run::currency::Currency;
 use sim_core::{
@@ -64,10 +61,17 @@ use super::local::LevelSpawnAssets;
 
 // --- Données --------------------------------------------------------------------------------
 
-/// Réglages d'un joueur : les champs de [`PlayerScript`] qui ne sont pas des inputs. Tags, immunités,
-/// modificateurs de stats, choix d'arme, argent, mutations, dash, objets, bombe, visée.
+/// Réglages d'un joueur : les champs de [`PlayerScript`] qui ne sont pas des inputs. Personnage, tags,
+/// immunités, modificateurs de stats, choix d'arme, argent, mutations, dash, objets, bombe, visée.
+///
+/// Trois structures portent ces champs (`content::sandbox::SandboxPlayer`, `game::replay::PlayerScript`, celle-ci) :
+/// [`PlayerProfile::from_script`] et `From<SandboxPlayer>` **déstructurent** leur source champ par champ, sans
+/// `..` : ajouter un champ à l'une sans l'autre ne compile plus.
 #[derive(Debug, Clone, Default)]
 pub struct PlayerProfile {
+    /// D126 : voir `PlayerScript::character`. Posé **à la création** du joueur
+    /// (`local::spawn_players_when_map_loaded`), pas par [`apply_player_profile`].
+    pub character: Option<String>,
     pub tags: Vec<String>,
     pub immune_to: Vec<String>,
     pub modifiers: Vec<ModifierSpec>,
@@ -90,21 +94,38 @@ pub struct PlayerProfile {
 impl PlayerProfile {
     /// Les réglages de `script` (sans ses inputs ni son bot).
     pub fn from_script(script: &PlayerScript) -> Self {
+        let PlayerScript {
+            inputs: _,
+            bot: _,
+            character,
+            tags,
+            immune_to,
+            modifiers,
+            weapon,
+            currency,
+            mutations,
+            dash,
+            items,
+            bomb,
+            aim,
+        } = script;
         Self {
-            tags: script.tags.clone(),
-            immune_to: script.immune_to.clone(),
-            modifiers: script.modifiers.clone(),
-            weapon: script.weapon.clone(),
-            currency: script.currency,
-            mutations: script.mutations.clone(),
-            dash: script.dash.clone(),
-            items: script.items.clone(),
-            bomb: script.bomb,
-            aim: script.aim,
+            character: character.clone(),
+            tags: tags.clone(),
+            immune_to: immune_to.clone(),
+            modifiers: modifiers.clone(),
+            weapon: weapon.clone(),
+            currency: *currency,
+            mutations: mutations.clone(),
+            dash: dash.clone(),
+            items: items.clone(),
+            bomb: *bomb,
+            aim: *aim,
         }
     }
 
-    /// `true` si rien n'est à poser.
+    /// `true` si rien n'est à poser **par [`apply_player_profile`]** (le `character` se pose à la création
+    /// du joueur et ne compte pas ici).
     pub fn is_empty(&self) -> bool {
         self.tags.is_empty()
             && self.immune_to.is_empty()
@@ -116,6 +137,38 @@ impl PlayerProfile {
             && self.items.is_empty()
             && self.bomb.is_none()
             && self.aim.is_none()
+    }
+}
+
+/// Un état de départ de profil de bac à sable, directement (sans passer par un `PlayerScript`).
+impl From<content::sandbox::SandboxPlayer> for PlayerProfile {
+    fn from(player: content::sandbox::SandboxPlayer) -> Self {
+        let content::sandbox::SandboxPlayer {
+            character,
+            tags,
+            immune_to,
+            modifiers,
+            weapon,
+            currency,
+            mutations,
+            dash,
+            items,
+            bomb,
+            aim,
+        } = player;
+        Self {
+            character,
+            tags,
+            immune_to,
+            modifiers,
+            weapon,
+            currency,
+            mutations,
+            dash,
+            items,
+            bomb,
+            aim,
+        }
     }
 }
 
@@ -147,6 +200,40 @@ impl Profile {
             shelves: scenario.shop.shelves.clone(),
         }
     }
+
+    /// Le profil d'un fichier `sandbox/<id>.ron` (kind `Sandbox`) : mêmes champs que
+    /// [`Profile::from_scenario`], sans power-ups.
+    pub fn from_sandbox(profile: &content::sandbox::SandboxProfile) -> Self {
+        Self {
+            players: profile
+                .players
+                .iter()
+                .cloned()
+                .map(PlayerProfile::from)
+                .collect(),
+            characters: profile.characters.clone(),
+            powerups: Vec::new(),
+            items: profile.items.clone(),
+            chests: profile.chests.clone(),
+            shelves: profile.shop.shelves.clone(),
+        }
+    }
+
+    /// Pose ce profil dans le monde : remplace les ressources que lisent les systèmes de [`ProfilePlugin`]
+    /// et remet à zéro [`ProfileApplied`] (les joueurs en reçoivent les réglages, une fois, quand ils
+    /// existent). Appelé par [`ProfilePlugin::build`] (profil de départ) et, **à chaque `OnEnter(GameLoading)`**,
+    /// par le bac à sable (`super::sandbox`) : charger un autre profil = poser celui-là.
+    pub fn install(&self, world: &mut World) {
+        world.insert_resource(ScenarioPowerUpPlacements(self.powerups.clone()));
+        world.insert_resource(ScenarioItemPlacements(self.items.clone()));
+        world.insert_resource(ScenarioChestPlacements(self.chests.clone()));
+        world.insert_resource(ScenarioShelfPlacements(self.shelves.clone()));
+        world.insert_resource(ScenarioCharacterPlacements(self.characters.clone()));
+        world.insert_resource(PlayerOverrides(self.players.clone()));
+        world.insert_resource(ProfileApplied(false));
+        world.init_resource::<PlacementErrors>();
+        world.resource_mut::<PlacementErrors>().0.clear();
+    }
 }
 
 /// Placements de personnages (T1.13, `Scenario::characters`, `docs/conventions.md` §28).
@@ -173,6 +260,24 @@ pub struct ScenarioShelfPlacements(pub Vec<ShelfPlacement>);
 #[derive(Resource)]
 pub struct PlayerOverrides(pub Vec<PlayerProfile>);
 
+impl PlayerOverrides {
+    /// Le personnage que le profil impose au joueur `handle` (D126), `None` : le personnage par défaut.
+    pub fn character_of(&self, handle: usize) -> Option<&str> {
+        self.0.get(handle)?.character.as_deref()
+    }
+}
+
+/// Les réglages de [`PlayerOverrides`] ont-ils été posés sur les joueurs de **cette** partie ? Remise à
+/// `false` à chaque `OnEnter(GameLoading)` ([`reset_profile_applied`]) et par [`Profile::install`] : un
+/// `restart` rejoue le profil sur les joueurs recréés. Hors rollback (écrite avant la première frame).
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProfileApplied(pub bool);
+
+/// `OnEnter(GameLoading)` : les joueurs de la partie qui commence n'ont encore rien reçu du profil.
+pub fn reset_profile_applied(mut applied: ResMut<ProfileApplied>) {
+    applied.0 = false;
+}
+
 /// Placements refusés (personnage ou variante inconnus), par index : à rapporter en échec en fin
 /// de partie. Hors rollback ; un placement rejoué par un rollback n'ajoute pas de doublon.
 #[derive(Resource, Default)]
@@ -193,58 +298,57 @@ pub struct ProfilePlugin(pub Profile);
 
 impl Plugin for ProfilePlugin {
     fn build(&self, app: &mut App) {
-        let profile = &self.0;
-        app.insert_resource(ScenarioPowerUpPlacements(profile.powerups.clone()))
-            .add_systems(
-                GgrsSchedule,
-                apply_scenario_powerup_placements
-                    .before(game::powerups::powerup_pickup_detect_system)
-                    .in_set(RollbackSystemSet::Effects),
-            )
-            // M2-T0b : placements scriptés d'objets
-            .insert_resource(ScenarioItemPlacements(profile.items.clone()))
-            .add_systems(
-                GgrsSchedule,
-                apply_scenario_item_placements
-                    .after(apply_scenario_powerup_placements)
-                    .before(game::items::item_consumable_pickup_system)
-                    .in_set(RollbackSystemSet::Effects),
-            )
-            // M2-T5 : placements scriptés de coffres
-            .insert_resource(ScenarioChestPlacements(profile.chests.clone()))
-            .add_systems(
-                GgrsSchedule,
-                apply_scenario_chest_placements
-                    .after(apply_scenario_item_placements)
-                    .before(game::items::item_consumable_pickup_system)
-                    .in_set(RollbackSystemSet::Effects),
-            )
-            // M2-T6 : présentoirs scriptés
-            .insert_resource(ScenarioShelfPlacements(profile.shelves.clone()))
-            .add_systems(
-                GgrsSchedule,
-                apply_scenario_shelf_placements
-                    .after(apply_scenario_chest_placements)
-                    .before(game::items::item_consumable_pickup_system)
-                    // Commandes d'édition (K5-2) : leurs net ids viennent après ceux des placements du profil.
-                    .before(super::commands::apply_game_commands_pickups)
-                    .in_set(RollbackSystemSet::Effects),
-            )
-            // T1.13 : placements scriptés de personnages.
-            .insert_resource(ScenarioCharacterPlacements(profile.characters.clone()))
-            .init_resource::<PlacementErrors>()
-            .add_systems(
-                GgrsSchedule,
-                apply_scenario_character_placements
-                    .run_if(|placements: Res<ScenarioCharacterPlacements>| !placements.0.is_empty())
-                    // Après les spawns du jeu de la même frame (ordre des net ids déterministe).
-                    .after(game::waves::systems::wave_spawning_system)
-                    .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system)
-                    .before(super::commands::apply_game_commands_spawn)
-                    .in_set(RollbackSystemSet::EnemySpawning),
-            )
-            .insert_resource(PlayerOverrides(profile.players.clone()))
-            .add_systems(Update, apply_player_overrides);
+        // Ressources du profil de départ ; le bac à sable les remplace à chaque `OnEnter(GameLoading)`.
+        self.0.install(app.world_mut());
+        app.add_systems(
+            GgrsSchedule,
+            apply_scenario_powerup_placements
+                .before(game::powerups::powerup_pickup_detect_system)
+                .in_set(RollbackSystemSet::Effects),
+        )
+        // M2-T0b : placements scriptés d'objets
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_item_placements
+                .after(apply_scenario_powerup_placements)
+                .before(game::items::item_consumable_pickup_system)
+                .in_set(RollbackSystemSet::Effects),
+        )
+        // M2-T5 : placements scriptés de coffres
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_chest_placements
+                .after(apply_scenario_item_placements)
+                .before(game::items::item_consumable_pickup_system)
+                .in_set(RollbackSystemSet::Effects),
+        )
+        // M2-T6 : présentoirs scriptés
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_shelf_placements
+                .after(apply_scenario_chest_placements)
+                .before(game::items::item_consumable_pickup_system)
+                // Commandes d'édition (K5-2) : leurs net ids viennent après ceux des placements du profil.
+                .before(super::commands::apply_game_commands_pickups)
+                .in_set(RollbackSystemSet::Effects),
+        )
+        // T1.13 : placements scriptés de personnages.
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_character_placements
+                .run_if(|placements: Res<ScenarioCharacterPlacements>| !placements.0.is_empty())
+                // Après les spawns du jeu de la même frame (ordre des net ids déterministe).
+                .after(game::waves::systems::wave_spawning_system)
+                .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system)
+                .before(super::commands::apply_game_commands_spawn)
+                .in_set(RollbackSystemSet::EnemySpawning),
+        )
+        .add_systems(Update, apply_player_overrides)
+        // Un `restart` (retour en `GameLoading`) recrée les joueurs : le profil se repose.
+        .add_systems(
+            OnEnter(game::session::AppState::GameLoading),
+            reset_profile_applied,
+        );
     }
 }
 
@@ -649,27 +753,12 @@ pub fn apply_player_profile(
         }
     }
     // M2-T17 (§54) : objets tenus dès le départ, posés comme un ramassage (passif : inventaire
-    // et modificateurs `item:<id>` ; actif : emplacement actif **chargé**).
+    // et modificateurs `item:<id>` ; actif : emplacement actif **chargé**). Même fonction que
+    // `alacod/give` (`game::grant::grant_item`).
     if let Some(table) = item_defs {
         let mut inventory = items::Inventory::default();
         for id in &profile.items {
-            let def = &table.0[id];
-            match def.kind {
-                items::ItemKind::Passive => {
-                    inventory.passives.push(id.clone());
-                    for modifier in &def.modifiers {
-                        built.push(modifier.to_modifier(id));
-                    }
-                }
-                items::ItemKind::Active(charge) => {
-                    let mut slot = items::ActiveSlot::new(id.clone());
-                    slot.charge = charge.required();
-                    inventory.active = Some(slot);
-                }
-                items::ItemKind::Consumable => {
-                    *inventory.consumables.entry(id.clone()).or_insert(0) += 1;
-                }
-            }
+            game::grant::grant_item(table, id, &mut inventory, &mut built)?;
         }
         modifiers_changed = true;
         commands.entity(entity).insert(inventory);
@@ -692,26 +781,16 @@ pub fn apply_player_profile(
         // l'inventaire une fois l'exclusivité appliquée ci-dessus. Vide si `weapon_id`
         // est une arme de mêlée (pas de munitions).
         let mut ammo_reserves = AmmoReserves::new();
-        if let Some(weapon_asset) = tables.weapons.weapons.get(weapon_id) {
-            let (ammo_type, amount) = game::weapons::default_mode_ammo_contribution(weapon_asset);
-            ammo_reserves.add(ammo_type, amount);
-            spawn_weapon_for_player(
-                commands,
-                true,
-                entity,
-                weapon_asset.clone(),
-                &mut inventory,
-                id_factory,
-                None,
-            );
-        } else if let Some(melee_asset) = tables.weapons.melee.get(weapon_id) {
-            melee::spawn_melee_weapon_for_character(
-                commands,
-                entity,
-                melee_asset.clone(),
-                id_factory,
-            );
-        }
+        // Même fonction que `alacod/give` (`game::grant::equip_weapon`) ; l'arme est validée plus haut.
+        game::grant::equip_weapon(
+            commands,
+            id_factory,
+            tables.weapons,
+            entity,
+            &mut inventory,
+            &mut ammo_reserves,
+            weapon_id,
+        )?;
         // Remplace l'inventaire par défaut (potentiellement plusieurs armes à distance)
         // par celui-ci (une seule arme, ou aucune si `weapon_id` est une arme de mêlée).
         commands.entity(entity).insert(inventory);
@@ -743,11 +822,11 @@ pub fn apply_player_profile(
 /// `apply_weapon_overrides` du runner (qui doit s'appliquer *avant* la création des joueurs, qui
 /// copient la config de leurs armes), celui-ci s'applique *après* : il attend que les
 /// entités `Player` existent (et que les tables de mutations et d'objets soient posées si un
-/// réglage en a besoin), puis applique [`apply_player_profile`] une seule fois (`Local<bool>`).
+/// réglage en a besoin), puis applique [`apply_player_profile`] une seule fois par partie ([`ProfileApplied`]).
 ///
-/// **Piège** : ce `Local<bool>` n'est jamais remis à zéro, donc le profil n'est **pas rejoué après un
-/// `restart`** (les joueurs de la nouvelle run n'en reçoivent rien), et `ProfilePlugin` ne peut pas être
-/// ajouté deux fois. SB-3 le remplacera par une ressource remise à zéro à `OnEnter(GameLoading)`.
+/// [`ProfileApplied`] (remise à zéro à `OnEnter(GameLoading)`, SB-3) dit si c'est fait pour cette partie :
+/// un `restart` recrée les joueurs et le profil se rejoue sur eux. Les joueurs sont parcourus **par handle**
+/// (les armes créées consomment le `GgrsNetIdFactory` : l'ordre de la requête ne doit pas décider des ids).
 ///
 /// Panique sur un contenu inconnu (arme, objet, mutation) : faute de contenu plutôt que silencieuse,
 /// même style que `apply_weapon_overrides`.
@@ -768,13 +847,13 @@ pub fn apply_player_overrides(
     melee_children: Query<(), With<MeleeWeapon>>,
     weapon_registry: Res<WeaponRegistry>,
     mut id_factory: ResMut<GgrsNetIdFactory>,
-    mut applied: Local<bool>,
+    mut applied: ResMut<ProfileApplied>,
 ) {
-    if *applied {
+    if applied.0 {
         return;
     }
     if overrides.0.iter().all(PlayerProfile::is_empty) {
-        *applied = true;
+        applied.0 = true;
         return;
     }
     if players.iter().count() < overrides.0.len() {
@@ -791,7 +870,9 @@ pub fn apply_player_overrides(
         items: item_table.as_deref(),
         weapons: &weapon_registry,
     };
-    for (entity, player, children, effects, existing_modifiers) in players.iter() {
+    let mut ordered: Vec<_> = players.iter().collect();
+    ordered.sort_by_key(|(_, player, ..)| player.handle);
+    for (entity, player, children, effects, existing_modifiers) in ordered {
         let Some(profile) = overrides.0.get(player.handle) else {
             continue;
         };
@@ -812,7 +893,7 @@ pub fn apply_player_overrides(
         )
         .unwrap_or_else(|message| panic!("{message}"));
     }
-    *applied = true;
+    applied.0 = true;
 }
 
 #[cfg(test)]

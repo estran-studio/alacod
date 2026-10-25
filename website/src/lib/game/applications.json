@@ -6,14 +6,6 @@
         "online": true,
 
         "content": "Preview app to generate random map and preview them from an overview"
-    },
-    {
-        "id": "character_tester",
-        "name": "Character Tester",
-
-        "online": true,
-        
-        "content": "Preview app to test the characters and weapons"
     }
 
 ]

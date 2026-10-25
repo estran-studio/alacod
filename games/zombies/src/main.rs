@@ -50,7 +50,7 @@ fn main() -> AppExit {
     // avant T1.5, `WaveModeEnabled(true)` était codé en dur ici.
     let wave_mode = !registry.waves.is_empty();
 
-    let mut game_config = CoreSetupConfig::from_env("zrl-character_tester");
+    let mut game_config = CoreSetupConfig::from_env("zombies");
     // Assets du jeu : chemin explicite (dossier du manifeste capturé à la compilation), pour
     // que le binaire lancé hors de `cargo run` (CI de nuit, p2p headless) les trouve aussi.
     #[cfg(not(target_arch = "wasm32"))]

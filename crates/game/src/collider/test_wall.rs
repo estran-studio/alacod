@@ -1,5 +1,5 @@
 //! Mur de test (`Sprite`, lumière sous `lighting`), moitié **application** (D69 étape 2, E4) : sorti de
-//! `collider/mod.rs` (simulation) tel quel. Appelants : `map_ldtk::game::collider`, `examples/character_tester.rs`.
+//! `collider/mod.rs` (simulation) tel quel. Appelant : `map_ldtk::game::collider`.
 //!
 //! Chemin final (E9) : `game_app/src/collider/test_wall.rs`.
 

@@ -5540,6 +5540,31 @@ fn lint_sandbox(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<L
                     );
                 }
             }
+            if let Some(character) = &player.character {
+                match registry
+                    .characters
+                    .get(&registry::CharacterId::from(character.clone()))
+                {
+                    None => push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at}.character = « {character} » : personnage inconnu"),
+                    ),
+                    // D78 : le joueur de handle 0 porte le skin « 1 », les autres le skin « 2 ».
+                    Some(def) => {
+                        for skin in ["1", "2"] {
+                            if !def.skins.contains(skin) {
+                                push(
+                                    LintErrorKind::BrokenReference,
+                                    format!(
+                                        "{at}.character = « {character} » : skin « {skin} » absent de skins ({:?}) : un joueur n'aurait pas de skin",
+                                        def.skins
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
             for modifier in &player.modifiers {
                 if sim_core::stats::stat_reader(&modifier.stat).is_none() {
                     push(

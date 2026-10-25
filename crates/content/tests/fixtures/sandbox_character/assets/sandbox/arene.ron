@@ -1,0 +1,2 @@
+// Profil valide : `heros` a les skins "1" (handle 0) et "2" (les autres).
+(players: [(character: "heros", currency: 10)])

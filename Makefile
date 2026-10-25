@@ -277,6 +277,19 @@ else
 	ALACOD_EDITOR=1 ALACOD_REMOTE=1 ALACOD_LABELS=1 APP_VERSION=$(VERSION) cargo run -p $(GAME) --features native $(DEV_FEATURES) -- $(if $(SEED),--seed $(SEED)) $(GARGS) --local-port 7000 --players localhost
 endif
 
+# Bac à sable (docs/taches/plan-bac-a-sable.md, docs/jouer.md) : l'arène du jeu GAME (zombies par défaut), sans vagues
+# ni étages, avec le profil PROFIL (`sandbox/<profil>.ron` du jeu ; `arene` par défaut), en mode éditeur : remote BRP
+# (127.0.0.1:15702), étiquettes F6, rechargement à chaud, check_distance 0. `--sandbox` du binaire fait tout ça ;
+# la cible n'ajoute que le remote par défaut, les étiquettes et la fenêtre. SEED=<n> impose la graine de carte.
+# HEADLESS=1 : sans fenêtre (profil headless). GAME peut être un jeu créé par `alacod new` (son paquet cargo).
+# make sandbox GAME=zombies [PROFIL=lourd] [SEED=42] [HEADLESS=1]
+sandbox:
+ifeq ($(HEADLESS), 1)
+	ALACOD_HEADLESS=1 ALACOD_LABELS=1 APP_VERSION=$(VERSION) cargo run --profile headless -p $(GAME) --no-default-features --features native $(DEV_FEATURES) -- --sandbox $(PROFIL) $(if $(SEED),--seed $(SEED)) $(GARGS) --local-port 7000 --players localhost
+else
+	ALACOD_LABELS=1 APP_VERSION=$(VERSION) cargo run -p $(GAME) --features native $(DEV_FEATURES) -- --sandbox $(PROFIL) $(if $(SEED),--seed $(SEED)) $(GARGS) --local-port 7000 --players localhost
+endif
+
 # Joue au clavier et enregistre la session en scénario : make record_session NAME=ma_session
 # (écrit tests/scenarios/<NAME>.ron à la fermeture ; puis make test_scenarios SCENARIO=<NAME> BLESS=1)
 record_session:
@@ -328,11 +341,9 @@ map_generation_diff_test:
 	cargo run --example map_generation -- ./games/zombies/assets/exemples/test_map.ldtk ./games/zombies/assets/exemples/test_map_generated_2.ldtk $RANDOM_SEED
 	diff ./games/zombies/assets/exemples/test_map_generated_1.ldtk ./games/zombies/assets/exemples/test_map_generated_2.ldtk
 
+# Alias : `character_tester` a été remplacé par le bac à sable générique (docs/taches/plan-bac-a-sable.md).
 character_tester:
-	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native $(DEV_FEATURES) -- $(GARGS) --local-port 7000 --players localhost
-
-character_tester_matchbox:
-	APP_VERSION=$(VERSION) cargo run --example character_tester $(ARGS) --features native -- --number-player $(NUMBER_PLAYER) --matchbox $(MATCHBOX_URL) --lobby $(LOBBY) --players $(PLAYERS) --cid $(CID) --name $(NAME)
+	$(MAKE) sandbox GAME=zombies
 
 # Lance un jeu du dossier games/ en local (un joueur) : make zombies / testbed / throne / gungeon / isaac
 zombies:
@@ -371,13 +382,6 @@ build_map_preview_web:
 	wasm-bindgen --out-dir ./website/static/$(VERSION)/map_preview --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/map_preview.wasm
 ifeq ($(PROFILE), prod)
 	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/map_preview/wasm_bg.wasm -o ./website/static/$(VERSION)/map_preview/wasm_bg.wasm
-endif
-
-build_character_tester_web:
-	APP_VERSION=$(VERSION) cargo build --example character_tester --target wasm32-unknown-unknown --no-default-features --features render $(RELEASE)
-	wasm-bindgen --out-dir ./website/static/$(VERSION)/character_tester --out-name wasm --target web $(CARGO_TARGET_DIR)/wasm32-unknown-unknown/$(MODE_DIR)/examples/character_tester.wasm
-ifeq ($(PROFILE), prod)
-	wasm-opt -Oz --vacuum ./website/static/$(VERSION)/character_tester/wasm_bg.wasm -o ./website/static/$(VERSION)/character_tester/wasm_bg.wasm
 endif
 
 build_ldtk_map_explorer_web:

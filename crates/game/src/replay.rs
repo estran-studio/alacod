@@ -337,6 +337,11 @@ pub struct PlayerScript {
     /// reste un scénario `Scripted` ordinaire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bot: Option<BotProfile>,
+    /// Personnage du joueur (id du kind `Character`), posé **à la création du joueur**
+    /// (`map_ldtk::game::local`, D126) au lieu du personnage par défaut du moteur. Absent (défaut) :
+    /// le personnage par défaut, aucune trace existante ne bouge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub character: Option<String>,
     /// Tags du personnage (T1.1, chantier B1), ex. `["cursed"]` (scénario
     /// `friendly_fire_cursed`). Vide par défaut : n'affecte pas les scénarios existants.
     /// Posé en composant `Tags` une fois le joueur créé (`map_ldtk::game::profile::apply_player_profile`).
@@ -400,6 +405,7 @@ pub struct PlayerScript {
 impl From<content::sandbox::SandboxPlayer> for PlayerScript {
     fn from(player: content::sandbox::SandboxPlayer) -> Self {
         let content::sandbox::SandboxPlayer {
+            character,
             tags,
             immune_to,
             modifiers,
@@ -414,6 +420,7 @@ impl From<content::sandbox::SandboxPlayer> for PlayerScript {
         Self {
             inputs: Vec::new(),
             bot: None,
+            character,
             tags,
             immune_to,
             modifiers,
@@ -442,6 +449,7 @@ mod sandbox_subset {
     #[test]
     fn sandbox_player_est_un_sous_ensemble_de_player_script() {
         let player = SandboxPlayer {
+            character: Some("c".into()),
             tags: vec!["t".into()],
             immune_to: vec!["fire".into()],
             modifiers: vec![ModifierSpec {
@@ -475,7 +483,7 @@ mod sandbox_subset {
             player_keys, script_keys,
             "champs de SandboxPlayer et PlayerScript"
         );
-        assert_eq!(script_keys.len(), 12, "10 champs d'état + inputs + bot");
+        assert_eq!(script_keys.len(), 13, "11 champs d'état + inputs + bot");
 
         // Aller-retour : la même représentation RON se lit des deux côtés, à l'identique.
         let text = ron::to_string(&player).unwrap();

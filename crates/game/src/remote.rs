@@ -23,6 +23,12 @@
 //! - `alacod/set_modifier` `{handle?, net_id?, stat, op, value, source?, until_frames?}` et
 //!   `alacod/clear_modifiers` `{handle?, net_id?, source?}` : un `Modifier` vivant sur les stats ;
 //! - `alacod/reload_content` : relit le registre (voir `content_hot_reload`).
+//!
+//! Bac à sable (`--sandbox`, `docs/taches/plan-bac-a-sable.md`, [`crate::sandbox`]) :
+//! - `alacod/sandbox_profile` `{id?}` : sans `id`, liste les profils du jeu et le profil actif ; avec `id`,
+//!   charge ce profil (arène du profil, puis `Restart` : le joueur et le profil sont reposés) ;
+//! - `alacod/give` `{handle?, weapon?, item?, currency?, set_currency?}` : ajoute une arme, un objet ou de
+//!   l'argent à un joueur en cours de partie (`crate::grant::give`).
 
 use std::time::Duration;
 
@@ -110,7 +116,9 @@ impl Plugin for RemoteControlPlugin {
                 .with_method_main("alacod/reload_content", reload_content)
                 .with_method_main("alacod/spawn_character", spawn_character)
                 .with_method_main("alacod/spawn_powerup", spawn_powerup)
-                .with_method_main("alacod/spawn_item", spawn_item),
+                .with_method_main("alacod/spawn_item", spawn_item)
+                .with_method_main("alacod/sandbox_profile", sandbox_profile)
+                .with_method_main("alacod/give", give),
         )
         .add_plugins(RemoteHttpPlugin::default().with_port(self.port))
         .insert_resource(RemoteClock {
@@ -318,8 +326,12 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
                     json!({ "frame": at_frame, "kind": format!("{command:?}").split_whitespace().next().unwrap_or("unknown") })
                 })).collect::<Vec<_>>()
         }).unwrap_or_default();
+    let sandbox = world
+        .get_resource::<crate::sandbox::SandboxSession>()
+        .map(|session| json!({ "profile": session.profile }));
     Ok(json!({
         "editor": editor,
+        "sandbox": sandbox,
         "online": online,
         "check_distance": check_distance,
         "game": game,
@@ -760,6 +772,107 @@ fn spawn_item(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
     )
 }
 
+#[derive(Deserialize)]
+struct SandboxProfileParams {
+    #[serde(default)]
+    id: Option<String>,
+}
+
+/// `alacod/sandbox_profile` : sans `id`, les profils du jeu (`{active, profiles: [{id, map, ...}]}`) ; avec
+/// `id`, charge le profil : validé (`crate::sandbox::resolve`), arène du profil posée dans
+/// `MapGenerationConfig`, `SandboxSession` changée, puis `RunRequest::Restart` (les ressources du profil
+/// sont reposées à `OnEnter(GameLoading)` par `map_ldtk::game::sandbox`). Hors bac à sable : erreur.
+fn sandbox_profile(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let params: SandboxProfileParams = parse(params.or(Some(json!({}))))?;
+    let active = world
+        .get_resource::<crate::sandbox::SandboxSession>()
+        .map(|session| session.profile.clone());
+    let Some(id) = params.id else {
+        let registry = world
+            .get_resource::<content::registry::Registry>()
+            .ok_or_else(|| internal("registre de contenu absent"))?;
+        let manifest = world.get_resource::<content::manifest::GameManifest>();
+        let profiles: Vec<Value> = registry
+            .sandbox_profiles
+            .values()
+            .map(|entry| {
+                let profile = &entry.profile;
+                json!({
+                    "id": entry.id,
+                    "map": manifest.and_then(|manifest| profile.arena(manifest)),
+                    "players": profile.players.iter().map(|player| json!({
+                        "character": player.character,
+                        "weapon": player.weapon,
+                        "currency": player.currency,
+                        "items": player.items,
+                    })).collect::<Vec<_>>(),
+                    "characters": profile.characters.iter().map(|placed| placed.character.as_str()).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        return Ok(json!({ "active": active, "profiles": profiles }));
+    };
+    guard_hot_edit(world)?;
+    if active.is_none() {
+        return Err(invalid_params(
+            "pas en bac à sable : relancer le jeu avec --sandbox [profil] (`make sandbox GAME=<jeu>`)",
+        ));
+    }
+    let arena = {
+        let registry = world
+            .get_resource::<content::registry::Registry>()
+            .ok_or_else(|| internal("registre de contenu absent"))?;
+        let manifest = world
+            .get_resource::<content::manifest::GameManifest>()
+            .ok_or_else(|| internal("manifeste absent"))?;
+        crate::sandbox::resolve(registry, manifest, &id)
+            .map_err(invalid_params)?
+            .arena
+            .to_string()
+    };
+    world
+        .get_resource_mut::<MapGenerationConfig>()
+        .ok_or_else(|| internal("MapGenerationConfig absente : aucune carte configurée"))?
+        .map_path = arena.clone();
+    world.insert_resource(crate::sandbox::SandboxSession {
+        profile: id.clone(),
+    });
+    world.insert_resource(RunRequest::Restart);
+    Ok(json!({ "profile": id, "map": arena, "request": "Restart" }))
+}
+
+#[derive(Deserialize)]
+struct GiveParams {
+    #[serde(default)]
+    handle: Option<usize>,
+    #[serde(default)]
+    weapon: Option<String>,
+    #[serde(default)]
+    item: Option<String>,
+    /// Montant ajouté au solde (négatif : retiré).
+    #[serde(default)]
+    currency: Option<i64>,
+    /// Solde imposé.
+    #[serde(default)]
+    set_currency: Option<u32>,
+}
+
+/// `alacod/give` : arme, objet et/ou argent au joueur `handle` (0 par défaut), à chaud, par
+/// `crate::grant::give`. Garde d'édition d'abord.
+fn give(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let params: GiveParams = parse(params)?;
+    guard_hot_edit(world)?;
+    let gift = crate::grant::Gift {
+        weapon: params.weapon,
+        item: params.item,
+        currency: params.currency,
+        set_currency: params.set_currency,
+    };
+    let report =
+        crate::grant::give(world, params.handle.unwrap_or(0), &gift).map_err(invalid_params)?;
+    Ok(serde_json::to_value(report).map_err(internal)?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -821,8 +934,10 @@ mod tests {
         assert!(err.message.contains(cause), "{}", err.message);
     }
 
-    fn all_handlers(world: &mut World) -> [BrpResult; 4] {
+    fn all_handlers(world: &mut World) -> [BrpResult; 6] {
         [
+            give(In(Some(json!({ "currency": 5 }))), world),
+            sandbox_profile(In(Some(json!({ "id": "arene" }))), world),
             restart(In(Some(json!({ "seed": 7 }))), world),
             set_modifier(
                 In(Some(
@@ -863,6 +978,99 @@ mod tests {
             refused(result, "online");
         }
         untouched(&world, player);
+    }
+
+    #[test]
+    fn sandbox_profile_charge_un_profil_valide_et_relance() {
+        use content::manifest::{EntryPoint, GameManifest, SandboxEntry};
+        use content::registry::{Registry, SandboxProfileEntry};
+        use content::sandbox::SandboxProfile;
+        let (mut world, _) = world(0, OnlineState::Offline);
+        let mut registry = Registry::default();
+        for (id, map) in [("arene", None), ("loin", Some("autre.ldtk"))] {
+            registry.sandbox_profiles.insert(
+                id.to_string(),
+                SandboxProfileEntry {
+                    id: id.to_string(),
+                    file: format!("sandbox/{id}.ron").into(),
+                    profile: SandboxProfile {
+                        map: map.map(str::to_string),
+                        ..Default::default()
+                    },
+                },
+            );
+        }
+        world.insert_resource(registry);
+        world.insert_resource(GameManifest {
+            name: "demo".to_string(),
+            content_folders: vec![],
+            entry: EntryPoint {
+                start_map: "m.ldtk".to_string(),
+                default_seed: 1,
+                mode: None,
+                floors: None,
+                hub: None,
+                progression: None,
+                clocks: None,
+                difficulty: None,
+                map: Default::default(),
+            },
+            generate_template: None,
+            mechanics: vec![],
+            sandbox: Some(SandboxEntry {
+                arena: "salle.ldtk".to_string(),
+            }),
+        });
+
+        // La liste marche partout ; charger exige le bac à sable.
+        let list = sandbox_profile(In(None), &mut world).expect("liste");
+        assert_eq!(list["active"], Value::Null);
+        assert_eq!(list["profiles"][0]["id"], "arene");
+        assert_eq!(list["profiles"][0]["map"], "salle.ldtk");
+        assert_eq!(list["profiles"][1]["map"], "autre.ldtk");
+        let err = sandbox_profile(In(Some(json!({ "id": "loin" }))), &mut world)
+            .expect_err("hors bac à sable");
+        assert!(
+            err.message.contains("pas en bac à sable"),
+            "{}",
+            err.message
+        );
+        assert!(!world.contains_resource::<RunRequest>());
+
+        world.insert_resource(crate::sandbox::SandboxSession {
+            profile: "arene".into(),
+        });
+        let err =
+            sandbox_profile(In(Some(json!({ "id": "nope" }))), &mut world).expect_err("inconnu");
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+        assert!(err.message.contains("arene, loin"), "{}", err.message);
+        assert!(!world.contains_resource::<RunRequest>());
+
+        sandbox_profile(In(Some(json!({ "id": "loin" }))), &mut world).expect("chargé");
+        assert_eq!(
+            world.resource::<crate::sandbox::SandboxSession>().profile,
+            "loin"
+        );
+        assert_eq!(
+            world.resource::<MapGenerationConfig>().map_path,
+            "autre.ldtk"
+        );
+        assert_eq!(*world.resource::<RunRequest>(), RunRequest::Restart);
+    }
+
+    #[test]
+    fn give_refuse_un_don_vide_et_un_joueur_absent() {
+        let (mut world, _) = world(0, OnlineState::Offline);
+        let err = give(In(Some(json!({}))), &mut world).expect_err("rien à donner");
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+        assert!(err.message.contains("rien à donner"), "{}", err.message);
+        let err =
+            give(In(Some(json!({ "currency": 1, "handle": 4 }))), &mut world).expect_err("handle");
+        assert!(
+            err.message.contains("aucun joueur de handle 4"),
+            "{}",
+            err.message
+        );
     }
 
     #[test]

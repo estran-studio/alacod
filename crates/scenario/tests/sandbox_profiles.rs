@@ -8,6 +8,7 @@
 use bevy::prelude::*;
 use game::character::config::CharacterConfigKey;
 use game::replay::{Expectation, PlayerScript, Scenario};
+use map_ldtk::game::profile::ScriptedPlacement;
 use std::collections::BTreeMap;
 
 const FRAMES: u32 = 60;
@@ -107,26 +108,34 @@ fn play_profile(game: &str, profile_id: &str) {
         outcome.failures
     );
 
+    // Chaque personnage posé par le profil porte un `ScriptedPlacement` (index dans `characters`) : on les compte
+    // un à un, les cartes gabarit posent déjà leurs propres personnages (`cible`).
     let mut app = scenario::runner::run_until(&scenario, CHECK_AT);
     let world = app.world_mut();
-    let mut present: BTreeMap<String, usize> = BTreeMap::new();
-    for key in world.query::<&CharacterConfigKey>().iter(world) {
-        *present.entry(key.0.clone()).or_default() += 1;
+    let mut placed: BTreeMap<usize, String> = BTreeMap::new();
+    for (placement, key) in world
+        .query::<(&ScriptedPlacement, &CharacterConfigKey)>()
+        .iter(world)
+    {
+        placed.insert(placement.0, key.0.clone());
     }
-    let mut placed: BTreeMap<&str, usize> = BTreeMap::new();
-    for character in &profile.characters {
-        *placed.entry(character.character.as_str()).or_default() += 1;
+    for (index, character) in profile.characters.iter().enumerate() {
         assert!(
             character.at_frame < CHECK_AT,
             "{game}/{profile_id} : placement {character:?}"
         );
-    }
-    for (id, count) in placed {
-        assert!(
-            present.get(id).copied().unwrap_or(0) >= count,
-            "{game}/{profile_id} : {count} « {id} » posé(s), présents : {present:?}"
+        assert_eq!(
+            placed.get(&index),
+            Some(&character.character),
+            "{game}/{profile_id} : placement {index} ({}) absent, posés : {placed:?}",
+            character.character
         );
     }
+    assert_eq!(
+        placed.len(),
+        profile.characters.len(),
+        "{game}/{profile_id} : posés {placed:?}"
+    );
 }
 
 macro_rules! profile_test {

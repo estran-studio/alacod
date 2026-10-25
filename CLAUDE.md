@@ -352,6 +352,9 @@ Variables d'environnement (natif) :
   la partie **n'est pas en pause**, le clavier reste la source d'input (un `alacod/input` prend la main par handle, un `input` vide la rend) et
   `check_distance` vaut **0** (même avec `ALACOD_STATE_TRACE` ; un `ALACOD_CHECK_DISTANCE` explicite reste prioritaire). Les commandes qui écrivent
   hors `GgrsSchedule` (`alacod/restart`, `set_modifier`, `clear_modifiers`, `reload_content`) sont refusées en ligne ou à `check_distance > 0`.
+- `--sandbox [profil]` (natif, tout jeu, `docs/conventions.md` §87, `make sandbox GAME=<jeu> [PROFIL=]`) : bac à sable, l'arène du jeu (`sandbox.arena` du manifeste, sinon `generate_template.map`), `RunMode::Sandbox`,
+  sans vagues, profil `sandbox/<profil>.ron` (`arene` par défaut) posé par `map_ldtk::game::profile` à chaque entrée en `GameLoading` (donc rejoué par `restart`), mode éditeur et remote allumés, `check_distance` 0 ;
+  méthodes `alacod/sandbox_profile` et `alacod/give`. Remplace `character_tester` (retiré).
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
   de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
 - `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` et `ALACOD_P2P_CHANNEL=unreliable` (natif, mesures D87) : remplacent le délai de
