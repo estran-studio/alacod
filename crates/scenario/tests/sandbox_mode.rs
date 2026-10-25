@@ -496,3 +496,37 @@ fn reload_puis_restart_prennent_l_arene_modifiee_du_profil() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Manifeste rechargé **après** l'`Update` qui demande `GameStarting` : `OnEnter(GameStarting)` passe avant
+/// `Update` et résout le mode de la `Run` depuis le manifeste du disque (`Floors` pour isaac). La session doit primer.
+#[test]
+fn un_rechargement_avant_game_starting_ne_change_pas_le_mode_de_la_run() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let dir = copy_game("isaac", "reload-starting");
+    let mut app = sandbox_app_with_root(&dir, "arene");
+    run_to(&mut app, 5);
+    app.world_mut().insert_resource(RunRequest::Restart);
+    let mut injected = false;
+    for _ in 0..MAX_UPDATES {
+        app.update();
+        let state = app.world().resource::<State<AppState>>().get().clone();
+        // `GameStarting` est demandé (état suivant), pas encore entré : on remet le disque ici.
+        let next = app.world().resource::<NextState<AppState>>();
+        if !injected && matches!(next, NextState::Pending(AppState::GameStarting)) {
+            let report =
+                game::content_hot_reload::reload_registry_now(app.world_mut()).expect("reload");
+            assert!(report.reloaded, "{:?}", report.errors);
+            assert_eq!(manifest_mode(&app), Some(content::EntryMode::Floors));
+            injected = true;
+        }
+        if injected && state == AppState::InGame {
+            break;
+        }
+    }
+    assert!(injected, "GameStarting jamais demandé");
+    assert_eq!(run_mode(&app), run::RunMode::Sandbox);
+    assert!(!floor_plan_present(&app));
+    let _ = std::fs::remove_dir_all(&dir);
+}

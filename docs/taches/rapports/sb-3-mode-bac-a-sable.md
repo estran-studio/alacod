@@ -104,6 +104,8 @@ en (424, 696)) et `reload_puis_restart_prennent_l_arene_modifiee_du_profil` (deu
 tête rejouée seule après `touch` des fichiers du diff et comparée par `diff -r` à la sortie de la base `b224c896`) ; `test_crates` (`-p`, options de la cible) : game 298, content 370, scenario 162, `map_ldtk --features runtime` 36 : 0 échec ; fmt, `check-forbidden` (51 occurrences), `check_sim_boundary` (13 crates) OK.
 `pin_session`/`pin_mode` ne sont ajoutés que par `SandboxPlugin` : les applications de scénario n'ont pas ce plugin.
 
+**Contre-revue** : `pin_mode` ajouté à `OnEnter(GameStarting)` avant `system_after_map_loaded_local` (rechargement entre le dernier `Update` de `GameLoading` et la résolution du mode de la `Run`) ; test `un_rechargement_avant_game_starting_ne_change_pas_le_mode_de_la_run` (échec avant : `Floors { config: "sous_sol" }`, succès après).
+
 ## Limites et dettes
 
 - **Rendu non vu** (D94, D132) : pas de fenêtre ici ; les commandes que William jouera sont dans le Summary et `docs/jouer.md`. `restart --kind ToLobby` non essayé (D132).

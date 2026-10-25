@@ -37,6 +37,7 @@ use game::{
     args::LaunchSeed,
     balance::ResolvedBalance,
     balance_assets::resolve_balance_system,
+    jjrs::local::system_after_map_loaded_local,
     sandbox::{resolve, SandboxRequest, SandboxSession},
     session::{AppState, OnlineState},
     shop::ShopOverrides,
@@ -66,6 +67,12 @@ impl Plugin for SandboxPlugin {
             // rétablit dès que le manifeste change, et surtout **avant** `compute_floor_plan` à chaque
             // `GameLoading` (`restart`), son premier lecteur.
             .add_systems(Update, pin_mode.run_if(resource_changed::<GameManifest>))
+            // Un rechargement du dernier `Update` de `GameLoading` (après `pin_mode`) précède
+            // `OnEnter(GameStarting)`, qui passe avant `Update` : le mode de la `Run` se résout là.
+            .add_systems(
+                OnEnter(AppState::GameStarting),
+                pin_mode.before(system_after_map_loaded_local),
+            )
             .add_systems(
                 OnEnter(AppState::GameLoading),
                 (
