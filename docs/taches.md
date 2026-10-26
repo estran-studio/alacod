@@ -996,6 +996,14 @@ semaine de polissage. Proposition : lancer K5-0 et K5-1 avant la semaine, puis K
 **État au 2026-10-23 : K5-0 à K5-3 livrés et fusionnés dans `main` (local, non poussé) ; guide et protocole K5-4 écrits ; essai vocal et décision du pont MCP en attente de William.**
 **État (2026-10-22) : K5-0 livré sur `k5-0-1-editeur` (non mergé) ; fiches K5-1 à K5-4 écrites (`docs/taches/k5-1-partie-pilotable.md` … `k5-4-branchement-vocal.md`), à implémenter par des agents moins chers ; point de départ partiel de K5-1 sur `k5-1-wip`.**
 
+### 8.3 Atelier de réglage (chantier K7, plan du 2026-10-26)
+
+Suite de la séance de réglage de `zombies` (2026-10-24 au 26) : mesurer, comparer et voir les chiffres des personnages, ennemis et armes de
+tout jeu alacod, par la seule commande `alacod`. Lots AT-0 (consolidation de la séance) à AT-9 (séance de William), ≈ 10 j : commandes de
+confort, `DevMetrics` (rollback sans checksum, insérée sur demande), widgets HUD `dev_*`, surimpressions, ralenti, banc `alacod bench --vs`,
+fiches `alacod table`, séance → scénario. Fiche : `docs/taches/plan-atelier-reglage.md`.
+**État au 2026-10-26 : plan écrit, aucun lot lancé ; AT-0 d'abord (le travail SB-6, SB-7 et le correctif de sprite n'est pas commité).**
+
 ## 9. Suivi
 
 - T1.0a : mergée (`51d70b6`).
@@ -1705,3 +1713,6 @@ LIVRÉ sb-3-mode-bac-a-sable : `--sandbox [profil]` pour tout jeu (arène, profi
 
 LIVRÉ sb-4-jeu-externe-docs : bac à sable d'un jeu créé par `alacod new` prouvé sans code ajouté ; docs et protocole SB-5 à jour
 | 2026-10-26 | état du bac à sable (orchestrateur) : SB-1 à SB-4 mergés, SB-5 à faire par William (`rapports/sb-5-essai-vocal.md`) ; D133 ouverte (`schedule_order_diff` partage le target base/tête) ; réserve de dettes du polissage déplacée à D134–D138 (D126–D133 pris par le bac à sable) | `main` | Claude (orch) | docs seules |
+| 2026-10-26 | sb-6-arene-vide « SB-6 : arène vide générique et commande `alacod` seule » (`alacod new-arena` (`content::arena` : carte LDtk à un niveau, murs + `PlayerSpawn` seulement, `defs` recopiés d'une carte du jeu, tuiles d'auto-règles recalculées et prouvées identiques à celles de LDtk) ; les cinq jeux et le gabarit l'ouvrent en bac à sable (`sandbox.arena`), profils `arene` sans ennemi ; `alacod sandbox|editor` (`content::launch`, `--detach`) et `alacod remote …` (`content::remote`, port Rust de `scripts/alacod-remote`, supprimé) ; `make sandbox` = alias ; fenêtre qui se ferme : aucun code du jeu en cause, §89) | `main` | Claude | aucune trace modifiée ; `docs/conventions.md` §89, `docs/editeur-vocal.md` §1–2.3 |
+| 2026-10-26 | sb-7-cli-editeur « `alacod` outil unique de réglage et de test » (`alacod get/set/undo` : édition textuelle d'une valeur RON, lint avec restauration, commit `editor:` du seul fichier, annulation ; `alacod remote` : codes de sortie 0/1/2/3/4 stables, `--json`, `remote run <fichier>` (scripts `wait`/`sleep`/`expect`, exemple `games/zombies/scripts/monde_test.alacod`), `step` rend la partie comme elle était (`--keep-paused`) ; `alacod --help` lisible, `cargo install --path crates/content --bin alacod --locked` vérifié ; tableaux du §3 de `docs/editeur-vocal.md` corrigés pour `set` ; bloc de prompt du §4 mis à jour) | `main` | Claude | aucune trace modifiée (aucun code de simulation) ; `docs/conventions.md` §89, `docs/editeur-vocal.md` §2, §2.4, §2.5, §4 |
+| 2026-10-26 | plan-atelier-reglage (chantier K7, lots AT-0 à AT-9, ≈ 10 j) : leçons de la séance de réglage de `zombies` (14 constats), `DevMetrics` sur demande, widgets HUD `dev_*`, surimpressions, ralenti, `alacod bench --vs`, `alacod table`, séance → scénario ; aucun lot lancé, AT-0 d'abord (travail SB-6/SB-7/sprite non commité, suite complète non jouée) | `essai-vocal` | Claude | docs seules |

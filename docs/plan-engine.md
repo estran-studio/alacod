@@ -527,10 +527,11 @@ semaines, **XL** plus.
 - **K3. Benchmarks** (S). Scénarios `bench_*`, métriques dans la page de revue.
 - **K4. Doc des conventions** (S). LDtk (couches, entités, champs), dossier de jeu, checklist d'un
   nouveau vocabulaire.
-- **K5. Éditeur par l'IA** (M, redéfini le 2026-10-22). Plus d'Egui : l'éditeur est une IA (voix ou texte) qui parle au remote BRP (`rpc.discover`, méthodes `alacod/*`) par `scripts/alacod-remote` et édite les RON (hook de lint, commits `editor:`) ; pont MCP seulement si un client vocal l'exige. Plan et lots K5-0 à K5-4 : `docs/taches/plan-editeur-vocal.md`.
+- **K5. Éditeur par l'IA** (M, redéfini le 2026-10-22). Plus d'Egui : l'éditeur est une IA (voix ou texte) qui parle au remote BRP (`rpc.discover`, méthodes `alacod/*`) par `alacod remote` et édite les RON (hook de lint, commits `editor:`) ; pont MCP seulement si un client vocal l'exige. Plan et lots K5-0 à K5-4 : `docs/taches/plan-editeur-vocal.md`.
   **Bac à sable générique** (2026-10-23, décision de William) : tout jeu de l'engine, clones et jeux créés par `alacod new`, se lance en arène calme avec un profil (`--sandbox [profil]`, kind `Sandbox`), en mode éditeur ; remplace `character_tester`. Plan et lots SB-1 à SB-5 : `docs/taches/plan-bac-a-sable.md`.
 - **K6. CI** (M). Réparer le jeton, puis deux étages (rapide à chaque commit, lent chaque nuit),
   artefacts par commit et page de revue publiée ; notes de revue dans un fichier du dépôt (§9.9).
+- **K7. Atelier de réglage** (M, 2026-10-26). Mesures de simulation (`DevMetrics`), widgets de dev du HUD, banc sans fenêtre (`alacod bench … --vs <ref>`), fiches statiques et triches de dev, tout par `alacod`, pour régler personnages, ennemis et armes de tout jeu. Plan et lots AT-0 à AT-9 : `docs/taches/plan-atelier-reglage.md`.
 
 ## 6. Découpage en jalons
 
