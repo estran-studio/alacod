@@ -421,9 +421,14 @@ pub enum RemoteCommand {
     },
     Pause,
     Resume,
-    /// Capture d'écran PNG de la fenêtre du jeu (rendu seulement).
+    /// Capture d'écran PNG de la fenêtre du jeu (rendu seulement). La capture est écrite après la réponse du
+    /// jeu : la commande attend que le fichier soit (ré)écrit et que sa taille ne bouge plus entre deux relevés
+    /// (code 1 au-delà de `--wait`).
     Screenshot {
         path: String,
+        /// Secondes d'attente du fichier complet ; `0` rend la main dès la réponse du jeu (fichier pas encore écrit).
+        #[arg(long, default_value_t = 5.0)]
+        wait: f64,
     },
     /// Écrit la session jouée en scénario rejouable (`tests/scenarios/ma_session.ron`).
     Save {
@@ -542,6 +547,42 @@ fn absolute(path: &str) -> String {
         std::env::current_dir()
             .map(|cwd| cwd.join(path).display().to_string())
             .unwrap_or_else(|_| path.display().to_string())
+    }
+}
+
+/// Date de modification et taille d'un fichier, `None` s'il n'existe pas.
+fn file_stamp(path: &str) -> Option<(std::time::SystemTime, u64)> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((meta.modified().ok()?, meta.len()))
+}
+
+/// Attend que `path` soit écrit après `before` (absent avant, ou date changée) et que sa taille, non nulle,
+/// soit la même sur deux relevés successifs : la capture de bevy est écrite par un observateur, après la réponse.
+fn wait_written(
+    path: &str,
+    before: Option<(std::time::SystemTime, u64)>,
+    timeout: Duration,
+) -> Result<(), String> {
+    let deadline = Instant::now() + timeout;
+    let mut last: Option<u64> = None;
+    loop {
+        let now = file_stamp(path);
+        match now {
+            Some((modified, len)) if len > 0 && before.map_or(true, |(old, _)| old != modified) => {
+                if last == Some(len) {
+                    return Ok(());
+                }
+                last = Some(len);
+            }
+            _ => last = None,
+        }
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "capture {path} : fichier pas écrit (ou pas complet) après {:.1} s (--wait pour attendre plus)",
+                timeout.as_secs_f64()
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 
@@ -712,10 +753,15 @@ pub fn execute(port: u16, command: &RemoteCommand) -> Result<Output, Failure> {
         }
         RemoteCommand::Pause => Ok(plain(call("alacod/pause", None)?)),
         RemoteCommand::Resume => Ok(plain(call("alacod/resume", None)?)),
-        RemoteCommand::Screenshot { path } => Ok(plain(call(
-            "alacod/screenshot",
-            Some(json!({"path": absolute(path)})),
-        )?)),
+        RemoteCommand::Screenshot { path, wait } => {
+            let path = absolute(path);
+            let before = file_stamp(&path);
+            let value = call("alacod/screenshot", Some(json!({"path": path})))?;
+            if *wait > 0.0 {
+                wait_written(&path, before, Duration::from_secs_f64(*wait))?;
+            }
+            Ok(plain(value))
+        }
         RemoteCommand::Save { path } => Ok(plain(call(
             "alacod/save_recording",
             Some(json!({"path": absolute(path)})),

@@ -79,7 +79,7 @@ Sans installation, `cargo build -p content --bin alacod` puis `target/debug/alac
 
 - **`alacod remote <commande>`** (Rust, sans dépendance : un `TcpStream` vers le remote ; remplace l'ancien script Python `scripts/alacod-remote`, supprimé) : `state` (JSON complet), `brief` (joueurs, ennemis proches et commandes en attente),
   `input Up,Fire --pan 100,0 [--handle 0]` ; **`input ""` relâche et rend la main au clavier**, `step 30 [--no-wait] [--keep-paused]` (rend la partie comme elle était : §2.5), `pause`, `resume`,
-  `screenshot <png>`, `save <scénario.ron>`, `discover`, `run <fichier>` (scripts : §2.5).
+  `screenshot <png> [--wait S]` (attend jusqu'à `S` secondes, 5 par défaut, que le fichier soit écrit et complet ; code 1 sinon ; `--wait 0` rend la main sans attendre), `save <scénario.ron>`, `discover`, `run <fichier>` (scripts : §2.5).
   Mode éditeur (K5-1/K5-2) : `restart [--kind {Restart,ToLobby,EnterRun,ToHub}] [--seed N]`, `modifier [--handle 0|--net-id N] [--until FRAMES] [--source S] STAT {Add,Pct,Mul,Set} VALEUR`,
   `unmodify [--handle 0|--net-id N] [--source S]`, `reload`, `spawn <personnage> (--at X,Y | --ahead [PX]) [--team T] [--variant V]`,
   `spawn-powerup <id> (--at X,Y | --ahead [PX])`, `spawn-item <id> (--at X,Y | --ahead [PX])`. Bac à sable : `profile [id]`, `give`.
