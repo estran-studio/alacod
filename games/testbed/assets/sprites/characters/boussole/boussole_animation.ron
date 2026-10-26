@@ -1,0 +1,9 @@
+// X-4a : les indices sont ceux de la première ligne de direction (E) ; le rendu y ajoute
+// `ligne × columns` (docs/conventions.md §89). `Run` rejoue les quatre images d'`Idle`.
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 0, end: 3),
+        "Run": (start: 0, end: 3),
+    },
+)

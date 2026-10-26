@@ -1047,6 +1047,73 @@ fn sprite_sheet_missing_image_fixture_reports_missing_png() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// X-4a (§89) : une direction inconnue dans `directions` est une erreur de lecture.
+#[test]
+fn sprite_sheet_directions_unknown_name_is_a_parse_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_directions_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "East");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// X-4a : le nombre de lignes de la planche doit être un multiple du nombre de directions.
+#[test]
+fn sprite_sheet_directions_rows_not_a_multiple_is_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_directions_rows")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "12 ligne(s)");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// Les espaces RON autour de `:` ne doivent pas désactiver le lint des directions.
+#[test]
+fn sprite_sheet_directions_with_spaced_colon_are_still_validated() {
+    const MANIFEST: &str = r#"(
+        name: "sprite_directions_spacing",
+        content_folders: [(path: "sprites/sprites.ron", kind: "SpriteSheet")],
+        entry: (start_map: "unused", default_seed: 1),
+    )"#;
+    const TABLE: &str =
+        r#"({"hero": (animation: "sprites/hero_animation.ron", layers: {"body": "sprites/hero_sheet.ron"})})"#;
+    const BAD_NAME: &[(&str, Option<&str>)] = &[
+        ("game.ron", Some(MANIFEST)),
+        ("sprites/sprites.ron", Some(TABLE)),
+        (
+            "sprites/hero_sheet.ron",
+            Some(r#"(path: "sprites/hero.png", rows: 8, directions : Some((rows: [East])))"#),
+        ),
+    ];
+    const ZERO_ROWS: &[(&str, Option<&str>)] = &[
+        ("game.ron", Some(MANIFEST)),
+        ("sprites/sprites.ron", Some(TABLE)),
+        (
+            "sprites/hero_sheet.ron",
+            Some(
+                r#"(path: "sprites/hero.png", rows: 0, directions : Some((rows: [E, NE, N, NW, W, SW, S, SE])))"#,
+            ),
+        ),
+    ];
+    for (files, kind, message) in [
+        (BAD_NAME, LintErrorKind::Parse, "East"),
+        (ZERO_ROWS, LintErrorKind::OutOfRange, "0 ligne(s)"),
+    ] {
+        let (_, _, errors) = content::load_embedded(files).unwrap();
+        assert_has_error(&errors, kind, message);
+    }
+}
+
+/// X-4a : huit directions sur deux blocs de huit lignes : propre.
+#[test]
+fn sprite_sheet_directions_two_blocks_of_eight_is_clean() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_directions_ok")).unwrap();
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("start_map"))
+        .collect();
+    assert!(others.is_empty(), "{others:#?}");
+    assert!(registry.sprite_sheets[&"hero".into()]
+        .directions
+        .contains_key("body"));
+}
+
 /// Surcharge locale (`sprites.local.ron`, pack non redistribuable) : remplace l'entrée de même
 /// id, laisse les autres, et refuse un id sans repli public.
 #[test]

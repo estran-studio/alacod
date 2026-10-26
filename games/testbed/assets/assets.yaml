@@ -100,3 +100,13 @@
   modifications: sans objet (originaux) ; teintés au rendu (larmes, mèche de la bombe, champions)
   statut: placeholder (formes de lisibilité : larme, bombe, rocher, suiveur, orbital, élite) — à
     remplacer par la voie V6
+
+- id: sprites-directions-x4a-projet
+  fichiers:
+    - sprites/characters/boussole/boussole.png
+  source: dessinée pour le projet par scripts/generer-sprites-directions.py (X-4a, docs/conventions.md §89) ;
+    aucune source tierce, aucun visuel tiré d'un jeu
+  auteur: projet alacod
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
+  modifications: sans objet (original)
+  statut: planche de test (flèche, étiquette du compas et numéro d'image par cellule ; huit directions)

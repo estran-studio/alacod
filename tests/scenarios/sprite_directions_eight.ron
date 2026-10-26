@@ -1,0 +1,35 @@
+// X-4a (docs/conventions.md §89) : un personnage dont la planche dessine huit directions
+// (`boussole`, `sprites/characters/boussole/`, `directions: [E, NE, N, NW, W, SW, S, SE]`) tourne sur lui-même :
+// la visée passe par les huit directions à la souris, trente frames chacune, dans l'ordre de la planche (E, NE, N,
+// NW, W, SW, S, SE), puis revient à l'est. Présentation seule : la simulation n'a pas de planche, la trace ne dépend
+// que de la visée.
+//
+// À regarder : la flèche du sprite (32 px, planche de 160 px réduite par `scale: 0.2`) pointe vers la direction de la
+// visée ; chaque ligne a sa couleur et son étiquette (rouge E, jaune NE, vert N, vert d'eau NW, cyan W, bleu SW, violet
+// S, rose SE), et les points comptent l'image jouée (1 à 4). Aucun retournement : W est dessiné, pas miroir de E.
+// Fins de segment : f40 E, f70 NE, f100 N, f130 NW, f160 W, f190 SW, f220 S, f250 SE, f280 E.
+Scenario(
+    game: "testbed",
+    map: "testbed/floor_vide_a.ldtk",
+    frames: 290,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            character: "boussole",
+            inputs: [
+                (from: 10, to: 40, buttons: [], pan: (100, 0)),
+                (from: 40, to: 70, buttons: [], pan: (100, 100)),
+                (from: 70, to: 100, buttons: [], pan: (0, 100)),
+                (from: 100, to: 130, buttons: [], pan: (-100, 100)),
+                (from: 130, to: 160, buttons: [], pan: (-100, 0)),
+                (from: 160, to: 190, buttons: [], pan: (-100, -100)),
+                (from: 190, to: 220, buttons: [], pan: (0, -100)),
+                (from: 220, to: 250, buttons: [], pan: (100, -100)),
+                (from: 250, to: 280, buttons: [], pan: (100, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 280),
+    ],
+)

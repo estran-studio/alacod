@@ -335,4 +335,15 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn directional_sheet_schema_lists_rows_mirror_and_compass() {
+        let text = render(&crate::registry::sprite_sheet_direction_schema());
+        for name in ["directions", "rows", "mirror", "NE", "SW"] {
+            assert!(
+                text.contains(name),
+                "{name} absent du schéma de feuille :\n{text}"
+            );
+        }
+    }
 }

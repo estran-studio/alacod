@@ -404,6 +404,13 @@ pub fn render_kind(info: &KindInfo) -> String {
             "\n  (pas de schéma exhaustif pour ce kind : champs ci-dessus = ceux utilisés)\n",
         ),
     }
+    if info.kind == "SpriteSheet" {
+        out.push_str("\n  schéma de la feuille référencée (grille et directions) :\n");
+        for line in crate::schema::render(&crate::registry::sprite_sheet_direction_schema()).lines()
+        {
+            out.push_str(&format!("  {line}\n"));
+        }
+    }
     out
 }
 
