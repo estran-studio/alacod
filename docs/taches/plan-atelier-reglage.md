@@ -1,10 +1,10 @@
 # Plan de l'atelier de réglage (chantier K7, lots AT) — rédigé le 2026-10-26
 
-**État au 2026-10-26 : AT-0 en cours (branche `at-0-consolidation`) ; les autres lots attendent AT-0.**
+**État au 2026-10-26 : AT-0 livré (`at-0-consolidation`, fusionné dans `main`, rapport `rapports/at-0-consolidation.md`) ; AT-1, AT-2, AT-4, AT-5 et AT-7 peuvent partir.**
 
 | Lot | Contenu court | Prérequis | Estimation |
 |---|---|---|---|
-| AT-0 | Consolidation de la séance : commit, revue, suite complète, binaire `alacod` installé, petits défauts relevés — **en cours : fonctionnalités faites, suite complète à jouer** | — | 0,5 j |
+| AT-0 | Consolidation de la séance : commit, revue, suite complète, binaire `alacod` installé, petits défauts relevés — **livré** (`at-0-consolidation`) | — | 0,5 j |
 | AT-1 | Commandes de confort : `list`, triches de dev, spawn en formation, gel des ennemis, vues de debug par la CLI | AT-0 | 1 j |
 | AT-2 | Mesures dans la simulation : `DevMetrics`, fenêtres de mesure, `alacod remote metrics` | AT-0 | 1,5 j |
 | AT-3 | Widgets de dev à l'écran (sources HUD `dev_*`, F8, `alacod remote widget`) | AT-2 | 1,5 j |
