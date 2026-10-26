@@ -93,6 +93,33 @@ pub fn sync_rock_tiles(
     }
 }
 
+/// Présentation seule : un personnage posé à `z = 0` (commande `alacod remote spawn`, placement d'un
+/// profil sandbox ou d'un scénario, apparition de vague en rayon : la simulation n'y met jamais le `z` de
+/// la carte) se dessinait **sous** les couches de tuiles de LDtk (`Walls` z = 1, `LevelConnection` z = 2)
+/// : ni sprite ni ombre, seules la barre de vie et les étiquettes restaient visibles. Chaque personnage à
+/// visuels remonte donc, **dans son `Transform` seulement**, au `z` de la couche `Entities` (celle de
+/// ses `PlayerSpawn` : un personnage de la carte y est déjà). `FixedTransform3D` (rollback, checksum,
+/// traces) n'est jamais touché. Après `sync_bevy_transforms_from_fixed`, avant la propagation vers les
+/// calques enfants. Sans `Entities` chargée (menu, rendu des tests) ou sans visuels (headless) : rien.
+pub fn lift_characters_to_entity_layer(
+    layers: Query<(&LayerMetadata, &GlobalTransform)>,
+    mut characters: Query<&mut Transform, With<game::character::visuals::VisualsAttached>>,
+) {
+    let Some(layer_z) = layers
+        .iter()
+        .filter(|(layer, _)| layer.identifier == crate::map_const::LAYER_ENTITY)
+        .map(|(_, transform)| transform.translation().z)
+        .max_by(f32::total_cmp)
+    else {
+        return;
+    };
+    for mut transform in &mut characters {
+        if transform.translation.z < layer_z {
+            transform.translation.z = layer_z;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,6 +194,42 @@ mod tests {
         assert!(!rock_tile_visible(tile, [Vec2::new(16.0, 8.0)]));
         assert!(!rock_tile_visible(tile, []));
     }
+
+    /// Un personnage à `z = 0` remonte au `z` de la couche `Entities` ; un personnage déjà plus haut ou sans
+    /// visuels n'est pas touché.
+    #[test]
+    fn le_personnage_remonte_a_la_couche_des_entites() {
+        let mut app = App::new();
+        app.add_systems(Update, lift_characters_to_entity_layer);
+        let layer = |app: &mut App, name: &str, z: f32| {
+            app.world_mut().spawn((
+                LayerMetadata {
+                    identifier: name.into(),
+                    ..default()
+                },
+                GlobalTransform::from_xyz(0.0, 0.0, z),
+            ));
+        };
+        layer(&mut app, "Walls", 1.0);
+        layer(&mut app, crate::map_const::LAYER_ENTITY, 3.0);
+        let at = |app: &mut App, z: f32, visuals: bool| {
+            let id = app.world_mut().spawn(Transform::from_xyz(0.0, 0.0, z)).id();
+            if visuals {
+                app.world_mut()
+                    .entity_mut(id)
+                    .insert(game::character::visuals::VisualsAttached);
+            }
+            id
+        };
+        let low = at(&mut app, 0.0, true);
+        let high = at(&mut app, 5.0, true);
+        let bare = at(&mut app, 0.0, false);
+        app.update();
+        let z = |app: &App, e: Entity| app.world().get::<Transform>(e).unwrap().translation.z;
+        assert_eq!(z(&app, low), 3.0);
+        assert_eq!(z(&app, high), 5.0);
+        assert_eq!(z(&app, bare), 0.0);
+    }
 }
 
 pub struct LdtkRoguePlugin;
@@ -183,6 +246,12 @@ impl Plugin for LdtkRoguePlugin {
             })
             .add_plugins(EntityPlugin)
             .add_systems(PostUpdate, sync_rock_tiles)
+            .add_systems(
+                PostUpdate,
+                lift_characters_to_entity_layer
+                    .after(bevy_fixed::fixed_math::sync_bevy_transforms_from_fixed)
+                    .before(bevy::transform::TransformSystems::Propagate),
+            )
             // m2-salles-murs-gungeon (§83) : murs dessinés d'après la couche IntGrid, si `hud.ron` le demande.
             .add_systems(
                 Update,
