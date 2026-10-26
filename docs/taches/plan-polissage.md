@@ -305,6 +305,6 @@ par défaut :
 - Présentation seule : `make test_scenarios` sans `BLESS`, aucune trace ne bouge.
 - Assets achetés ou libres : **licence compatible commerciale et console** (`docs/plan-engine.md` §7, « Consoles »),
   archivée dans `assets.yaml` (source, licence, prix, date) ; aucun fichier sans licence lisible.
-- Numéros de dettes : D126 à D133 ont été pris par le bac à sable (`plan-bac-a-sable.md`, 2026-10-23/26) ; la réserve de ce plan devient **D134 à D138** et les voies ouvrent à
-  partir de **D139** après relecture de `dettes.md` (sept voies en parallèle : annoncer le numéro pris dans le journal pour éviter les collisions).
+- Numéros de dettes : D126 à D133 ont été pris par le bac à sable (`plan-bac-a-sable.md`, 2026-10-23/26) et D139 à D148 sont réservés à `plan-1837-cli.md` ; la réserve de ce plan
+  devient **D134 à D138** et les voies ouvrent à partir de **D149** après relecture de `dettes.md` (sept voies en parallèle : annoncer le numéro pris dans le journal pour éviter les collisions).
 - Chaque lot finit par `LIVRÉ <branche>` dans le journal (`docs/taches.md` §10) et un rapport dans `docs/taches/rapports/`.

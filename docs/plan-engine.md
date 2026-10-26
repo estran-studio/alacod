@@ -372,6 +372,41 @@ alors avec un langage entier-seulement et sans état propre.
 | Testament de Lorimier, sursis, Carême | effets de run et de profil ; modificateurs de run | F4, G1 |
 | Plugin Rust `1837` | la jauge partagée en coop et le « oui » du Diable, si le vocabulaire ne suffit pas | — |
 
+### 4.8 Engine, contenu ou plugin de jeu : le critère (décision de William, 2026-10-26)
+
+L'engine rassemble des mécaniques qui s'assemblent comme des legos. Pour les armes et l'équipement, les legos sont
+des **données posées sur une entité** (projectile, modificateur, pattern). Pour le gameplay pur, les legos sont des
+**verbes** : déclencheurs (`On`), conditions (`if`), actions (`do`) de la grammaire des effets (§4.3), horloges,
+jauges, stats et modificateurs, behaviors. Un « système de rythme » ou un « système de parade » d'un seul bloc est
+propre à un jeu ; les verbes qui le composent sont de l'engine. Chaque mécanique demandée par un jeu passe ces
+questions, dans l'ordre :
+
+1. **Faisable en assemblant les primitives existantes ?** → contenu RON seulement, aucune ligne de Rust.
+2. **Se découpe en verbes génériques** (déclencheur, condition, action, horloge, jauge, behavior) ?
+   - **et** au moins deux jeux de référence ou un genre s'en servent → **engine** : les verbes, avec lint,
+     schéma, scénarios et trace ; les valeurs vivent dans les RON du jeu.
+   - sinon → **plugin du jeu**, écrit contre les contrats de l'engine (ci-dessous).
+3. **Indécoupable** : design encore en exploration (prototype de game feel) ou identité/récit d'un seul jeu →
+   **plugin du jeu**.
+4. **Promotion** : un plugin de jeu dont la mécanique sert un deuxième jeu, ou dont le design s'est stabilisé,
+   remonte dans l'engine sous forme de verbes. Il n'y a rien à réécrire si le plugin a suivi les contrats.
+
+**Contrats d'un plugin de jeu** (ce qui rend la promotion mécanique) : la checklist GGRS de `CLAUDE.md`, vocabulaire
+déclaré par `KindRegistry`, état en composants et ressources rollback, événements en `FrameEvents`, valeurs en RON
+validées par le lint, comportement prouvé par des scénarios joués **avec** le plugin. Au 2026-10-26, ces contrats ne
+sont pas tenables par un jeu externe (`docs/taches/plan-1837-cli.md` §2) : le runner de scénarios (`alacod test`)
+est un binaire de l'engine sans le code du jeu, les kinds de contenu sont une liste fermée (`KNOWN_KIND_NAMES`),
+`Behavior`/`Action`/`Condition` sont des enums fermés, et l'ordre des enregistrements rollback est fixé par
+`CoreSimPlugin`. Le lot X-1 de ce plan les ouvre.
+
+**Exemple, la gigue rythmée de 1837** : le tempo est une `Clock` à événement répété (existe, §23 des conventions :
+120 bpm = 30 frames à 60 Hz) ; la **fenêtre de jugement** (parfait / bien / raté, mesurée par rapport à un repère :
+temps d'horloge, début d'une action, coup qui arrive) est un verbe d'engine nouveau, qui sert aussi la parade, le
+rechargement actif et l'esquive parfaite ; la conséquence d'une note est une `Action` existante ; la musique calée
+sur l'horloge de simulation est de la présentation d'engine. Il reste à 1837 des valeurs (120 bpm, pas de 2 m, coup
+coupable à 62 % du dash) et une animation : du contenu. Le « oui » du Diable et la délivrance (tant que son design
+est en suspens) sont, eux, des candidats au plugin.
+
 ## 5. Les chantiers
 
 Chaque chantier : ce qu'il couvre, ce qui existe, ce qu'il faut faire, ce qu'il sert. Tailles

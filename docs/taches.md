@@ -760,6 +760,13 @@ design. **Décisions du 2026-10-22** : **une seule semaine à sept voies** (« t
 état mesuré, tâches, calendrier à quatre voies et décisions : `docs/taches/plan-polissage.md` ; inventaire :
 `docs/taches/rapports/plan-polissage.inventaire.md`. Pas de mécanique nouvelle, pas de suite de D69.
 
+### 8.0a Préparer l'engine pour 1837, premier jeu externe géré par la CLI (2026-10-26)
+
+**Décision de William du 2026-10-26** : préparer l'engine pour 1837 et créer le premier jeu externe, géré à 100 % par la CLI `alacod`. Règle de
+découpage validée le même jour : engine, contenu ou plugin de jeu (`docs/plan-engine.md` §4.8, `docs/conventions.md` §4 point 0) ; le gameplay
+entre dans l'engine sous forme de verbes composables, jamais comme un système d'un seul bloc. Plan, état relevé, décisions et lots X-1 à X-6 :
+`docs/taches/plan-1837-cli.md`. Dettes réservées : D139–D148.
+
 ### 8.1 M3 : `isaac` (Binding of Isaac) en tâches
 
 **Décision de William du 2026-10-15** : les propositions par défaut des questions Q1 à Q18 (`docs/taches/rapports/plan-m4-isaac.md` §7) sont retenues.
@@ -1705,3 +1712,4 @@ LIVRÉ sb-3-mode-bac-a-sable : `--sandbox [profil]` pour tout jeu (arène, profi
 
 LIVRÉ sb-4-jeu-externe-docs : bac à sable d'un jeu créé par `alacod new` prouvé sans code ajouté ; docs et protocole SB-5 à jour
 | 2026-10-26 | état du bac à sable (orchestrateur) : SB-1 à SB-4 mergés, SB-5 à faire par William (`rapports/sb-5-essai-vocal.md`) ; D133 ouverte (`schedule_order_diff` partage le target base/tête) ; réserve de dettes du polissage déplacée à D134–D138 (D126–D133 pris par le bac à sable) | `main` | Claude (orch) | docs seules |
+| 2026-10-26 | plan-1837-cli (orchestrateur) : critère engine / contenu / plugin de jeu validé par William (`plan-engine.md` §4.8, `conventions.md` §4 point 0) ; plan `docs/taches/plan-1837-cli.md` (lots X-1 à X-6, décisions par défaut D-a à D-e, questions Q-1 à Q-3) ; dettes D139–D148 réservées, voies du polissage à partir de D149 | `main` | Claude (orch) | docs seules |
