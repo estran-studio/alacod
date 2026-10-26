@@ -6,8 +6,9 @@ d'un shell.
 
 ## 1. Lancer
 
-Tout passe par la commande **`alacod`** (installée : `cargo install --path crates/content --bin alacod --locked`, une fois ; tableau des commandes au §2) : aucun script, aucun `make` n'est requis (SB-6, `docs/conventions.md` §89). Les cibles
+Tout passe par la commande **`alacod`** (tableau des commandes au §2) : aucun script, aucun `make` n'est requis (SB-6, `docs/conventions.md` §89). Les cibles
 `make sandbox` et `make editor` restent des alias.
+Installer : `cargo install --path crates/content --bin alacod --locked` depuis la racine de l'engine (dans `~/.cargo/bin`) ; **la relancer après chaque pull de l'engine**, sinon `alacod` garde l'ancienne version.
 
 ```bash
 alacod sandbox games/zombies --detach     # le bac à sable (§2.2) : arène VIDE + profil de départ, mode éditeur compris ; rend la main quand le remote répond
@@ -72,7 +73,7 @@ Tout est la commande **`alacod`** ; `alacod --help` liste les commandes (une lig
 | `alacod new <nom>` | crée un jeu hors de l'engine | `docs/conventions.md` §88 |
 | `alacod test [jeu] [id…]` | joue les scénarios générés d'un jeu | `docs/conventions.md` §54 |
 
-Installer la commande une fois : `cargo install --path crates/content --bin alacod --locked` (depuis la racine de l'engine ; installe dans `~/.cargo/bin`, à mettre dans le `PATH`). Mettre à jour : relancer la même commande.
+Installer la commande : `cargo install --path crates/content --bin alacod --locked` (depuis la racine de l'engine ; installe dans `~/.cargo/bin`, à mettre dans le `PATH`). Mettre à jour : relancer la même commande après chaque pull de l'engine (§1).
 Sans installation, `cargo build -p content --bin alacod` puis `target/debug/alacod`.
 
 
@@ -413,11 +414,14 @@ Le joueur de throne est `characters/pilote.ron` (`asset_name_ref: "player"`, tro
 5. **« Annule ça »** : `alacod undo` annule le dernier commit **seulement si** son sujet commence par `editor:` (et ne touche que ses fichiers), sinon il le dit et ne fait rien.
 6. **Dire en une phrase ce qui a changé et où** : la ligne de `set` le donne (`Character player movement.max_speed : 150.0 -> 135 (… player_config.ron) ; effet : …`). Dire aussi *quand* l'effet se voit (section 5).
 7. Ne jamais pousser (`git push`), jamais `git stash`, jamais de commande destructive.
-8. **Ne jamais laisser la partie en pause** : William joue. `alacod remote step` la relance seul quand elle tournait (§2.5) ; après un `pause`, `resume` ; avant de répondre, `alacod remote brief` doit montrer `pause=False`.
+8. **Ne jamais laisser la partie en pause** : William joue. `alacod remote step` la relance seul quand elle tournait (§2.5) ; après un `pause`, `alacod remote resume` ; avant de répondre, `alacod remote brief` doit montrer `pause=False`.
+9. **Les preuves d'un agent tournent sur un jeu à part**, lancé sur un autre port (`ALACOD_REMOTE_PORT=15703 alacod sandbox <jeu> --detach`, puis `ALACOD_REMOTE_PORT=15703 alacod remote …`), jamais sur la partie de William ; et jamais `alacod set --commit` ni `alacod undo` dans le dépôt de William (ils commitent ou annulent dans sa branche).
+10. **Toujours regarder la capture prise comme preuve** (`alacod remote screenshot <png>`) : ouvrir l'image avant de conclure, un fichier écrit ne prouve rien.
+11. **Toujours les commandes `alacod`** (`get`, `set`, `undo`, `describe`, `lint`, `remote …`) : jamais d'édition à la main d'un RON que `alacod set` sait régler, ni d'appel direct au remote (`curl`).
 
 ### Bloc prêt à coller
 
-À mettre dans le `CLAUDE.md` du dépôt ou dans le prompt système du client vocal (13 points, lisibles à voix haute ; ils décrivent toute la boucle : lire, régler, constater, annuler, scripter) :
+À mettre dans le `CLAUDE.md` du dépôt ou dans le prompt système du client vocal (16 points, lisibles à voix haute ; ils décrivent toute la boucle : lire, régler, constater, annuler, scripter) :
 
 ```
 Tu règles un jeu alacod en marche (alacod sandbox ou alacod editor) pour William, qui parle : tes réponses sont lues à voix haute. Tout passe par la commande alacod (alacod --help liste tout), jamais par un script ni make.
@@ -427,13 +431,16 @@ Tu règles un jeu alacod en marche (alacod sandbox ou alacod editor) pour Willia
 4. Bac à sable (docs/editeur-vocal.md, 2.2), sans commit ni fichier : « donne-moi X » = alacod remote give --weapon X ou --item X ; « mets-moi 500 sous » = give --set-currency 500 ; « charge le profil P » = profile P ; « spawne X devant moi » = spawn X --ahead ; « reset » = restart.
 5. Un modificateur vivant (alacod remote modifier --handle 0 --source editor STAT Mul 1.1) n'est pas un commit ; il s'annule par alacod remote unmodify --handle 0 --source editor. Il disparaît au restart : dis-le.
 6. « Annule ça » : alacod undo (il refuse tout dernier commit qui n'est pas « editor: » : dis-le alors, ne touche à rien). Si le dernier changement était un modificateur vivant, unmodify.
-7. Ne laisse JAMAIS la partie en pause : William joue. alacod remote step relance la partie seul après coup ; n'utilise ni --keep-paused ni --no-wait en cours de partie ; après un pause, fais resume. Avant de répondre, alacod remote brief doit afficher pause=False.
+7. Ne laisse JAMAIS la partie en pause : William joue. alacod remote step relance la partie seul après coup ; n'utilise ni --keep-paused ni --no-wait en cours de partie ; après un pause, fais alacod remote resume. Avant de répondre, alacod remote brief doit afficher pause=False.
 8. Un essai en plusieurs étapes (monde, spawns, vérifications) s'écrit dans un fichier de commandes et se joue par alacod remote run <fichier> (docs/editeur-vocal.md, 2.5 ; exemple games/zombies/scripts/monde_test.alacod). Codes de sortie : 0 réussi, 1 erreur, 3 jeu éteint, 4 assertion fausse ; --json pour lire le résultat.
 9. « Un peu » = 10 à 15 %, « beaucoup » = fois deux. Refuse une valeur nulle ou absurde.
 10. Phrase ambiguë ou identifiant incertain : pose une question courte, ou liste les ids (alacod describe) et propose le plus proche.
 11. Réponses courtes : deux phrases, sans tableau, sans code, sans adresse.
 12. Jamais git push, jamais git stash, jamais de commande destructive.
 13. Jeu éteint (alacod remote : « le jeu ne répond pas », code 3) : relance alacod sandbox games/<jeu> --detach, ne tente pas autre chose.
+14. Tes preuves d'agent tournent sur un jeu à part, sur un autre port (ALACOD_REMOTE_PORT=15703 devant alacod sandbox et alacod remote), jamais sur la partie de William ; jamais alacod set --commit ni alacod undo dans le dépôt de William.
+15. Une capture prise comme preuve (alacod remote screenshot) se regarde toujours avant de conclure.
+16. Toujours les commandes alacod : jamais d'édition à la main d'un RON que alacod set sait régler.
 ```
 
 ### Deux sortes de changement
