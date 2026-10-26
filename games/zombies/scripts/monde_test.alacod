@@ -1,0 +1,16 @@
+# Monde de test de zombies, joué par `alacod remote run games/zombies/scripts/monde_test.alacod`
+# (docs/editeur-vocal.md §2.5) ; le bac à sable doit tourner : `alacod sandbox games/zombies --detach`.
+# Une commande `alacod remote` par ligne, sans le préfixe ; `wait` et `expect` sont propres aux scripts.
+
+restart                          # rejoue le profil actif : on repart de l'arène vide
+wait 30 frames                   # la partie se relance, le joueur est recréé
+give --weapon shotgun            # le fusil, en plus de l'arme de départ
+give --set-currency 500
+spawn zombie_1 --ahead 120       # deux zombies communs, un zombie « full », devant le joueur
+spawn zombie_1 --ahead 160
+spawn zombie_full --ahead 200
+wait 5 frames                    # le jeu applique un spawn à la frame suivante
+expect enemies == 3
+expect enemies[zombie_1] == 2
+expect player.health > 0
+brief

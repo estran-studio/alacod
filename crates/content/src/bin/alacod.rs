@@ -1,6 +1,9 @@
-//! CLI `alacod` : `alacod lint <dossier-du-jeu>` valide le contenu d'un jeu (manifeste,
-//! registre, références, plages, kinds) sans lancer le moteur (`docs/plan-engine.md` §4.2,
-//! carte T1.5). Code de sortie 1 et messages sur stderr en cas d'erreur, 0 sinon.
+//! CLI `alacod` : le point d'entrée unique de l'engine pour un humain, un script ou un agent IA
+//! (`alacod --help` liste tout ; guide : `docs/editeur-vocal.md`, `docs/conventions.md` §89).
+//! `alacod lint <dossier-du-jeu>` valide le contenu d'un jeu (manifeste, registre, références, plages, kinds)
+//! sans lancer le moteur (`docs/plan-engine.md` §4.2, carte T1.5) ; `get`/`set`/`undo` lisent et règlent le RON ;
+//! `sandbox`/`editor`/`remote` lancent et pilotent la partie. Code de sortie 1 et messages sur stderr en cas
+//! d'erreur, 0 sinon (`remote` : 2 usage, 3 jeu injoignable, 4 assertion fausse).
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -9,7 +12,23 @@ use clap::{Parser, Subcommand};
 use content::load_and_lint;
 
 #[derive(Parser)]
-#[command(name = "alacod", about = "Outils de contenu pour l'engine alacod")]
+#[command(
+    name = "alacod",
+    version,
+    about = "Outils de contenu et pilotage du bac à sable de l'engine alacod",
+    after_help = "\
+Exemples :
+  alacod new mon-jeu && cd mon-jeu     crée un jeu ; `alacod lint` valide son contenu
+  alacod sandbox games/zombies --detach  lance le bac à sable ; `alacod remote brief` le lit
+  alacod set games/zombies Character zombie_1 movement.max_speed 100 --commit
+                                       règle UNE valeur (lint, restauration si rouge, commit `editor:`)
+  alacod undo                          annule le dernier commit `editor:`
+  alacod remote run games/zombies/scripts/monde_test.alacod
+                                       joue un fichier de commandes (spawn, give, wait, expect…)
+
+Codes de sortie : 0 réussi, 1 erreur, 2 usage, 3 jeu injoignable (remote), 4 assertion fausse (remote run).
+Guide complet : docs/editeur-vocal.md"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -17,8 +36,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Valide le contenu d'un jeu : `alacod lint games/zombies` (sans chemin : le jeu qui
-    /// contient le dossier courant).
+    /// Valide le contenu d'un jeu (manifeste, registre, références, plages).
+    ///
+    /// `alacod lint games/zombies` ; sans chemin : le jeu qui contient le dossier courant. Code de sortie 1 s'il y
+    /// a des erreurs.
     Lint {
         /// Dossier du jeu (contient `assets/game.ron`), ex. `games/zombies`.
         game_dir: Option<PathBuf>,
@@ -26,7 +47,9 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Crée un nouveau jeu hors de l'engine : `alacod new mon-jeu [--engine ~/alacod]`.
+    /// Crée un nouveau jeu hors de l'engine.
+    ///
+    /// `alacod new mon-jeu [--engine ~/alacod]`.
     New {
         /// Nom du jeu (minuscules, chiffres, `-` et `_`) ; crée le dossier `./<nom>`.
         name: String,
@@ -42,9 +65,10 @@ enum Command {
         #[arg(long)]
         rev: Option<String>,
     },
-    /// Joue les scénarios générés d'un jeu (`test:` des armes, personnages, objets, salles,
-    /// boss) : `alacod test [jeu] [id…] [--list]`. Sans id, tous ; avec un id (`amulette` ou
-    /// `item_amulette`), seulement celui-là. Les traces de référence sont ignorées sauf `--bless`.
+    /// Joue les scénarios générés d'un jeu (armes, personnages, objets, salles, boss).
+    ///
+    /// `alacod test [jeu] [id…] [--list]`. Sans id, tous ; avec un id (`amulette` ou `item_amulette`), seulement
+    /// celui-là. Les traces de référence sont ignorées sauf `--bless`.
     Test {
         /// `[dossier du jeu] [id…]` : le premier argument est pris pour un dossier s'il existe.
         args: Vec<String>,
@@ -61,7 +85,8 @@ enum Command {
         #[arg(long)]
         engine: Option<PathBuf>,
     },
-    /// Crée une entrée de contenu à partir d'un modèle du jeu :
+    /// Crée une entrée de contenu à partir d'un modèle du jeu.
+    ///
     /// `alacod new-content [jeu] <Kind> <id> [--from <modèle>]`.
     NewContent {
         /// `[dossier du jeu] <Kind> <id>`.
@@ -70,11 +95,146 @@ enum Command {
         #[arg(long)]
         from: Option<String>,
     },
-    /// Inventaire du vocabulaire d'un jeu : `alacod describe [games/gungeon] [Kind]`.
+    /// Écrit l'arène vide du bac à sable (murs + joueurs, rien d'autre).
+    ///
+    /// `alacod new-arena [jeu] [--name arene_vide] [--size 26x19] [--players 4] [--use]`, à partir des cartes du jeu.
+    NewArena {
+        /// Dossier du jeu (contient `assets/game.ron`) ; sans chemin : le jeu du dossier courant.
+        game_dir: Option<PathBuf>,
+        /// Id de la carte (nom du fichier sans `.ldtk`).
+        #[arg(long, default_value = content::arena::DEFAULT_ARENA_NAME)]
+        name: String,
+        /// Taille en cases `LxH` (26x19 = 416x304 px : le joueur 0 apparaît en (424, 696)).
+        #[arg(long)]
+        size: Option<String>,
+        /// Nombre de points de départ de joueurs (1 à 4).
+        #[arg(long, default_value_t = 4)]
+        players: u32,
+        /// Carte donneuse des définitions LDtk (tilesets, couches, entités) ; défaut : l'arène du bac à sable
+        /// du jeu, sa carte de gabarit, sa première carte.
+        #[arg(long)]
+        from: Option<String>,
+        /// Fichier écrit, relatif à `assets/` (défaut : `maps/<nom>.ldtk`, ou le dossier du donneur).
+        #[arg(long)]
+        out: Option<String>,
+        /// Pose `sandbox: (arena: "<carte>")` dans `game.ron` : le bac à sable du jeu s'ouvre sur cette arène.
+        #[arg(long = "use")]
+        use_arena: bool,
+    },
+    /// Construit et lance le jeu en bac à sable (arène vide + profil).
+    ///
+    /// `alacod sandbox [jeu] [--profile lourd] [--seed N] [--headless] [--detach]`. Le pilotage se fait ensuite par
+    /// `alacod remote …`.
+    Sandbox {
+        /// Dossier du jeu (a un `Cargo.toml`) ; sans chemin : le jeu du dossier courant.
+        game_dir: Option<PathBuf>,
+        /// Profil `sandbox/<profil>.ron` (défaut du jeu : `arene`).
+        #[arg(long)]
+        profile: Option<String>,
+        /// Graine de carte imposée (`--seed`).
+        #[arg(long)]
+        seed: Option<i64>,
+        /// Sans fenêtre ni GPU (VPS, CI).
+        #[arg(long)]
+        headless: bool,
+        /// Lance le jeu en arrière-plan (groupe de processus à part, journal dans le dossier temporaire) et
+        /// rend la main quand le remote répond.
+        #[arg(long)]
+        detach: bool,
+        /// Avec `--detach` : secondes d'attente du remote (compilation à froid comprise).
+        #[arg(long, default_value_t = 900)]
+        wait: u64,
+        /// Arguments passés au jeu après `--sandbox` (`-- --lobby x`).
+        #[arg(last = true)]
+        game_args: Vec<String>,
+    },
+    /// Construit et lance le jeu complet (cartes, vagues) en mode éditeur.
+    ///
+    /// `alacod editor [jeu] [--seed N] [--headless] [--detach]` : partie en marche, clavier actif. Pilotage par
+    /// `alacod remote …`.
+    Editor {
+        /// Dossier du jeu (a un `Cargo.toml`) ; sans chemin : le jeu du dossier courant.
+        game_dir: Option<PathBuf>,
+        /// Graine de carte imposée (`--seed`).
+        #[arg(long)]
+        seed: Option<i64>,
+        /// Sans fenêtre ni GPU (VPS, CI).
+        #[arg(long)]
+        headless: bool,
+        /// Lance le jeu en arrière-plan et rend la main quand le remote répond.
+        #[arg(long)]
+        detach: bool,
+        /// Avec `--detach` : secondes d'attente du remote.
+        #[arg(long, default_value_t = 900)]
+        wait: u64,
+        /// Arguments passés au jeu (`-- --lobby x`).
+        #[arg(last = true)]
+        game_args: Vec<String>,
+    },
+    /// Pilote le jeu en cours (bac à sable ou éditeur) : état, spawn, give, step, restart, script.
+    ///
+    /// Le remote BRP écoute sur 127.0.0.1:15702 (`ALACOD_REMOTE_PORT`) : `alacod remote
+    /// brief|give|spawn|restart|reload|modifier|screenshot|run|…`. `--json` donne une enveloppe JSON ;
+    /// codes de sortie : 0 réussi, 1 erreur, 3 jeu injoignable, 4 assertion fausse.
+    Remote {
+        /// Sortie JSON sur stdout : `{"ok": true, "result": …}` ou `{"ok": false, "error": …, "code": N}`.
+        #[arg(long, global = true)]
+        json: bool,
+        #[command(subcommand)]
+        command: content::remote::RemoteCommand,
+    },
+    /// Inventaire du vocabulaire d'un jeu : kinds, ids, champs.
+    ///
+    /// `alacod describe [games/gungeon] [Kind]`.
     Describe {
         /// `[dossier du jeu] [Kind]` : le premier argument est pris pour un dossier s'il
         /// existe, sinon pour un kind (`alacod describe Item` dans un dossier de jeu).
         args: Vec<String>,
+        /// Sortie JSON sur stdout.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Lit la valeur d'un champ d'un fichier RON de contenu.
+    ///
+    /// `alacod get [jeu] <Kind> <id> <chemin.du.champ>`, ex. `alacod get games/zombies Character zombie_1
+    /// movement.max_speed`. Le chemin traverse structs, tables, listes
+    /// (`modifiers.0.value`) et variantes ; un bloc rend son texte et la liste des réglages qu'il contient.
+    Get {
+        /// `[dossier du jeu] <Kind> <id> <chemin.du.champ>`.
+        args: Vec<String>,
+        /// Sortie JSON sur stdout.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Règle UNE valeur d'un fichier RON de contenu (lint, restauration si rouge, commit possible).
+    ///
+    /// `alacod set [jeu] <Kind> <id> <chemin.du.champ> <valeur>`, ex. `alacod set games/zombies Character zombie_1
+    /// movement.max_speed 100 --commit`. Remplacement textuel (commentaires et mise en
+    /// forme du fichier intacts), un `Fixed` reste une chaîne (`"100.0"`). Le lint de `alacod lint` tourne
+    /// ensuite : s'il apparaît une erreur nouvelle, le fichier est restauré. Un chemin inconnu ou ambigu est
+    /// refusé avec les chemins possibles. Dit quand l'effet se voit (immédiat, ou `alacod remote restart`).
+    Set {
+        /// `[dossier du jeu] <Kind> <id> <chemin.du.champ> <valeur>`.
+        #[arg(allow_negative_numbers = true)]
+        args: Vec<String>,
+        /// Commit `editor: <Kind> <id> <chemin> <ancien> -> <nouveau>` du seul fichier touché (refusé si ce fichier
+        /// a déjà des changements non commités).
+        #[arg(long)]
+        commit: bool,
+        /// Écrit `<valeur>` telle quelle à la place du nœud désigné (un bloc, `Some("500.0")`, `None`…).
+        #[arg(long)]
+        raw: bool,
+        /// Sortie JSON sur stdout.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Annule le dernier commit `editor:` (et lui seul) : `alacod undo [jeu]`.
+    ///
+    /// `git revert` du dernier commit si son sujet commence par `editor:`, sinon refus sans rien toucher ; relance
+    /// ensuite le lint du jeu.
+    Undo {
+        /// Dossier du jeu ou du dépôt ; sans chemin : le dossier courant.
+        game_dir: Option<PathBuf>,
         /// Sortie JSON sur stdout.
         #[arg(long)]
         json: bool,
@@ -149,12 +309,148 @@ fn main() -> ExitCode {
                 Err(e) => fail(&e),
             }
         }
+        Command::Get { args, json } => get_cmd(args, json),
+        Command::Set {
+            args,
+            raw,
+            commit,
+            json,
+        } => set_cmd(args, raw, commit, json),
+        Command::Undo { game_dir, json } => undo_cmd(game_dir, json),
+        Command::NewArena {
+            game_dir,
+            name,
+            size,
+            players,
+            from,
+            out,
+            use_arena,
+        } => match resolve_game_dir(game_dir) {
+            Ok(dir) => new_arena(&dir, name, size.as_deref(), players, from, out, use_arena),
+            Err(e) => fail(&e),
+        },
+        Command::Sandbox {
+            game_dir,
+            profile,
+            seed,
+            headless,
+            detach,
+            wait,
+            game_args,
+        } => launch_game(content::launch::GameLaunch {
+            kind: content::launch::LaunchKind::Sandbox,
+            game_dir: game_dir.unwrap_or_default(),
+            profile,
+            seed,
+            headless,
+            detach,
+            wait_secs: wait,
+            game_args,
+        }),
+        Command::Editor {
+            game_dir,
+            seed,
+            headless,
+            detach,
+            wait,
+            game_args,
+        } => launch_game(content::launch::GameLaunch {
+            kind: content::launch::LaunchKind::Editor,
+            game_dir: game_dir.unwrap_or_default(),
+            profile: None,
+            seed,
+            headless,
+            detach,
+            wait_secs: wait,
+            game_args,
+        }),
+        Command::Remote { json, command } => ExitCode::from(content::remote::run_cli(&command, json)),
     }
 }
 
 fn fail(message: &str) -> ExitCode {
     eprintln!("{message}");
     ExitCode::FAILURE
+}
+
+/// `alacod sandbox` et `alacod editor` : le dossier du jeu est celui d'`assets/game.ron` (argument vide : le
+/// jeu du dossier courant).
+fn launch_game(mut launch: content::launch::GameLaunch) -> ExitCode {
+    let arg = (!launch.game_dir.as_os_str().is_empty()).then(|| launch.game_dir.clone());
+    launch.game_dir = match resolve_game_dir(arg) {
+        Ok(dir) => dir,
+        Err(e) => return fail(&e),
+    };
+    match content::launch::run(&launch) {
+        Ok(0) => ExitCode::SUCCESS,
+        Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(1)),
+        Err(e) => fail(&e),
+    }
+}
+
+/// `alacod new-arena` : écrit l'arène vide et dit où elle est, d'où elle vient et ce qui reste à faire.
+fn new_arena(
+    game_dir: &std::path::Path,
+    name: String,
+    size: Option<&str>,
+    players: u32,
+    from: Option<String>,
+    out: Option<String>,
+    use_arena: bool,
+) -> ExitCode {
+    let mut spec = content::arena::ArenaSpec {
+        name,
+        players,
+        ..Default::default()
+    };
+    if let Some(size) = size {
+        let parsed = size.split_once(['x', 'X']).and_then(|(w, h)| {
+            Some((w.trim().parse::<u32>().ok()?, h.trim().parse::<u32>().ok()?))
+        });
+        let Some((w, h)) = parsed else {
+            return fail(&format!(
+                "--size « {size} » : attendu LxH en cases (ex. 26x19)"
+            ));
+        };
+        spec.width_tiles = w;
+        spec.height_tiles = h;
+    }
+    let request = content::arena::ArenaRequest {
+        spec,
+        from,
+        out,
+        set_default: use_arena,
+    };
+    let report = match content::arena::new_arena(game_dir, &request) {
+        Ok(report) => report,
+        Err(e) => return fail(&e),
+    };
+    println!(
+        "{} : {} (définitions de {})",
+        report.map,
+        if report.unchanged {
+            "inchangée"
+        } else {
+            "écrite"
+        },
+        report.donor.display()
+    );
+    if report.manifest_updated {
+        println!("game.ron : sandbox: (arena: \"{}\")", report.map);
+    } else if !report.is_default {
+        println!(
+            "pour l'ouvrir au lancement du bac à sable : `sandbox: (arena: \"{}\")` dans game.ron (ou --use)",
+            report.map
+        );
+    }
+    if !report.declared {
+        println!(
+            "attention : le registre du jeu ne connaît pas cette carte ; ajouter \
+             `(path: \"{}\", kind: \"Map\")` à `content_folders` de game.ron",
+            report.map
+        );
+    }
+    ExitCode::SUCCESS
 }
 
 /// Dossier du jeu : l'argument s'il est donné, sinon le premier ancêtre du dossier courant
@@ -626,5 +922,151 @@ fn new_content(game_dir: &std::path::Path, kind: &str, id: &str, from: Option<&s
             ExitCode::FAILURE
         }
         Err(e) => fail(&e.to_string()),
+    }
+}
+
+/// `[dossier du jeu] <n mots>` : le dossier est celui qui précède les `n` mots, s'il y en a un de plus.
+fn split_game_args(
+    args: Vec<String>,
+    n: usize,
+    usage: &str,
+) -> Result<(Option<PathBuf>, Vec<String>), String> {
+    if args.len() == n {
+        Ok((None, args))
+    } else if args.len() == n + 1 {
+        let mut words = args.into_iter();
+        let dir = words.next().map(PathBuf::from);
+        Ok((dir, words.collect()))
+    } else {
+        Err(format!("usage : {usage}"))
+    }
+}
+
+/// Erreur d'une commande : texte sur stderr, ou `{"ok": false, "error": …}` sur stdout avec `--json` ; code 1.
+fn fail_as(message: &str, json: bool) -> ExitCode {
+    if json {
+        println!("{}", serde_json::json!({"ok": false, "error": message}));
+        ExitCode::FAILURE
+    } else {
+        fail(message)
+    }
+}
+
+/// `alacod get` : la valeur actuelle d'un champ d'un fichier RON de contenu.
+fn get_cmd(args: Vec<String>, json: bool) -> ExitCode {
+    let usage = "alacod get [jeu] <Kind> <id> <chemin.du.champ>";
+    let (dir_arg, words) = match split_game_args(args, 3, usage) {
+        Ok(split) => split,
+        Err(e) => return fail_as(&e, json),
+    };
+    let dir = match resolve_game_dir(dir_arg) {
+        Ok(dir) => dir,
+        Err(e) => return fail_as(&e, json),
+    };
+    match content::edit::get(&dir, &words[0], &words[1], &words[2]) {
+        Ok(reading) if json => {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "ok": true, "kind": reading.kind, "id": reading.id, "path": reading.path,
+                    "file": reading.file, "value": reading.value, "raw": reading.raw,
+                    "scalar": reading.scalar, "leaves": reading.leaves,
+                })
+            );
+            ExitCode::SUCCESS
+        }
+        Ok(reading) => {
+            println!("{}", reading.raw);
+            if !reading.scalar {
+                println!("réglages : {}", reading.leaves.join(", "));
+            }
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail_as(&e, json),
+    }
+}
+
+/// `alacod set` : règle une valeur, lint, restaure si le lint s'aggrave, commit si demandé.
+fn set_cmd(args: Vec<String>, raw: bool, commit: bool, json: bool) -> ExitCode {
+    let usage = "alacod set [jeu] <Kind> <id> <chemin.du.champ> <valeur> [--commit] [--raw]";
+    let (dir_arg, words) = match split_game_args(args, 4, usage) {
+        Ok(split) => split,
+        Err(e) => return fail_as(&e, json),
+    };
+    let dir = match resolve_game_dir(dir_arg) {
+        Ok(dir) => dir,
+        Err(e) => return fail_as(&e, json),
+    };
+    let options = content::edit::SetOptions { raw, commit };
+    match content::edit::set(&dir, &words[0], &words[1], &words[2], &words[3], &options) {
+        Ok(change) => {
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "ok": true, "kind": change.kind, "id": change.id, "path": change.path,
+                        "file": change.file, "old": change.old, "new": change.new,
+                        "changed": change.changed, "effect": change.effect, "commit": change.commit,
+                        "preexisting_lint_errors": change.preexisting_lint_errors,
+                    })
+                );
+            } else {
+                println!("{}", change.line());
+                if change.preexisting_lint_errors > 0 {
+                    eprintln!(
+                        "lint : {} erreur(s) déjà présente(s) avant ce changement, aucune nouvelle (alacod lint)",
+                        change.preexisting_lint_errors
+                    );
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail_as(&e, json),
+    }
+}
+
+/// `alacod undo` : annule le dernier commit `editor:` (et lui seul), puis relance le lint du jeu s'il y en a un.
+fn undo_cmd(game_dir: Option<PathBuf>, json: bool) -> ExitCode {
+    let repo_dir = game_dir.clone().unwrap_or_else(|| PathBuf::from("."));
+    let undone = match content::edit::undo(&repo_dir) {
+        Ok(undone) => undone,
+        Err(e) => return fail_as(&e, json),
+    };
+    let lint = resolve_game_dir(game_dir)
+        .ok()
+        .map(|dir| load_and_lint(&dir).map(|(_, _, errors)| errors));
+    let errors: Vec<String> = match &lint {
+        Some(Ok(errors)) => errors.iter().map(ToString::to_string).collect(),
+        Some(Err(e)) => vec![e.to_string()],
+        None => Vec::new(),
+    };
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": errors.is_empty(), "undone": undone.subject, "commit": undone.commit,
+                "effect": undone.effect, "linted": lint.is_some(), "lint_errors": errors,
+            })
+        );
+    } else {
+        println!(
+            "annulé : {} (commit {}) ; effet : {}",
+            undone.subject, undone.commit, undone.effect
+        );
+        match (&lint, errors.is_empty()) {
+            (None, _) => {}
+            (Some(_), true) => println!("lint : aucune erreur"),
+            (Some(_), false) => {
+                for e in &errors {
+                    eprintln!("{e}");
+                }
+                eprintln!("lint : {} erreur(s) après l'annulation", errors.len());
+            }
+        }
+    }
+    if errors.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
 }

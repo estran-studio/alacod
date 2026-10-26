@@ -1,15 +1,20 @@
+pub mod arena;
 pub mod describe;
+pub mod edit;
 pub mod expr;
 pub mod feedback;
 pub mod files;
+pub mod launch;
 pub mod lint;
 pub mod manifest;
 mod mechanics;
 pub mod reach;
 pub mod registry;
+pub mod remote;
 pub mod sandbox;
 pub mod scaffold;
 pub mod schema;
+pub mod script;
 pub mod ui;
 pub mod value;
 
