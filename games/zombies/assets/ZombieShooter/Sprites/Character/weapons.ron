@@ -60,7 +60,7 @@
                 "default": (
                     firing_rate: "10.0",
                     firing_mode: Automatic(),
-                    spread: "0.15",
+                    spread: "0.12",
                     recoil: "1.5",
                     bullet_type: Standard(
                         damage: "8.0",
