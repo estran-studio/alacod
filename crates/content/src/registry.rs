@@ -2447,6 +2447,7 @@ struct SpriteSheetEntrySchema {
 /// X-4a : directions et nombre de lignes de la feuille (`animation::SpriteSheetConfig`).
 #[derive(schemars::JsonSchema, Deserialize)]
 struct SheetDirectionsSchema {
+    #[serde(default)]
     rows: u32,
     #[serde(default)]
     directions: Option<sim_core::sprite_directions::SheetDirections>,
@@ -4323,11 +4324,12 @@ fn sprite_sheet_entry(
         let Some(text) = assets_dir.read(Path::new(path)).ok() else {
             continue;
         };
-        // La désérialisation détecte `directions` indépendamment de l'espacement RON ;
-        // sans déclaration, la feuille garde le comportement historique.
-        if let Ok(sheet) = ron::from_str::<SheetPathSchema>(&text) {
-            images.insert(layer.clone(), sheet.path);
-        }
+        // La désérialisation détecte `directions` indépendamment de l'espacement RON.
+        // Une feuille sans `path` lisible reste hors de ce contrôle, comme auparavant.
+        let Ok(sheet) = ron::from_str::<SheetPathSchema>(&text) else {
+            continue;
+        };
+        images.insert(layer.clone(), sheet.path);
         match ron::from_str::<SheetDirectionsSchema>(&text) {
             Ok(sheet) => {
                 if let Some(parsed) = sheet.directions {
