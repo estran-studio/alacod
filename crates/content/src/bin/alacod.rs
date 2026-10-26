@@ -244,6 +244,9 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Dit en une ligne si le binaire `alacod` installé est plus ancien que le fichier le plus récent de
+    /// `crates/content/src` et `crates/game/src` de l'engine dont il a été compilé (code 1 : périmé, à réinstaller).
+    SelfCheck,
 }
 
 fn main() -> ExitCode {
@@ -370,6 +373,7 @@ fn main() -> ExitCode {
             game_args,
         }),
         Command::Remote { json, command } => ExitCode::from(content::remote::run_cli(&command, json)),
+        Command::SelfCheck => self_check(),
     }
 }
 
@@ -590,6 +594,82 @@ fn describe(game_dir: &PathBuf, kind: Option<&str>, json: bool) -> ExitCode {
 /// Racine de l'engine par défaut : deux niveaux au-dessus de `crates/content`, capturée à la
 /// compilation de `alacod`.
 const BUILT_FROM_ENGINE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
+
+/// Le fichier le plus récent sous `dir` (récursif) : sa date de modification et son chemin.
+fn newest_file(dir: &std::path::Path) -> Option<(std::time::SystemTime, PathBuf)> {
+    let mut newest: Option<(std::time::SystemTime, PathBuf)> = None;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let path = entry.path();
+        let candidate = if path.is_dir() {
+            newest_file(&path)
+        } else {
+            entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .map(|t| (t, path))
+        };
+        if let Some(candidate) = candidate {
+            if newest.as_ref().map_or(true, |(t, _)| candidate.0 > *t) {
+                newest = Some(candidate);
+            }
+        }
+    }
+    newest
+}
+
+/// `alacod self-check` : binaire installé (date de `current_exe`) contre les sources de `crates/content/src` et
+/// `crates/game/src` de l'engine de compilation (`BUILT_FROM_ENGINE`) ; code 1 si le binaire est plus ancien.
+fn self_check() -> ExitCode {
+    let reinstall = "env -u CI cargo install --path crates/content --bin alacod --locked";
+    let exe = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(e) => return fail(&format!("self-check : binaire introuvable : {e}")),
+    };
+    let built = match std::fs::metadata(&exe).and_then(|m| m.modified()) {
+        Ok(t) => t,
+        Err(e) => return fail(&format!("self-check : {} : {e}", exe.display())),
+    };
+    let root = std::fs::canonicalize(BUILT_FROM_ENGINE)
+        .unwrap_or_else(|_| PathBuf::from(BUILT_FROM_ENGINE));
+    let newest = ["crates/content/src", "crates/game/src"]
+        .iter()
+        .filter_map(|rel| newest_file(&root.join(rel)))
+        .max_by_key(|(t, _)| *t);
+    let Some((source_time, source)) = newest else {
+        println!(
+            "alacod self-check : sources de l'engine introuvables sous {} : rien à comparer",
+            root.display()
+        );
+        return ExitCode::SUCCESS;
+    };
+    let source_rel = source
+        .strip_prefix(&root)
+        .unwrap_or(&source)
+        .display()
+        .to_string();
+    match source_time.duration_since(built) {
+        Ok(late) if !late.is_zero() => {
+            let minutes = late.as_secs() / 60;
+            println!(
+                "alacod PÉRIMÉ : {} est plus ancien de {} h {:02} min que {source_rel} ; réinstaller depuis {} : {reinstall}",
+                exe.display(),
+                minutes / 60,
+                minutes % 60,
+                root.display()
+            );
+            ExitCode::FAILURE
+        }
+        _ => {
+            println!(
+                "alacod à jour : {} est plus récent que crates/content/src et crates/game/src ({}, dernier : {source_rel})",
+                exe.display(),
+                root.display()
+            );
+            ExitCode::SUCCESS
+        }
+    }
+}
 
 /// `alacod new` : copie `<engine>/templates/starter` dans `./<name>` en remplaçant `{{name}}`
 /// et `{{engine}}` dans les fichiers texte, et reprend le `Cargo.lock` de l'engine (mêmes

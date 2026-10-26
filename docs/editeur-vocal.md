@@ -9,6 +9,7 @@ d'un shell.
 Tout passe par la commande **`alacod`** (tableau des commandes au §2) : aucun script, aucun `make` n'est requis (SB-6, `docs/conventions.md` §89). Les cibles
 `make sandbox` et `make editor` restent des alias.
 Installer : `cargo install --path crates/content --bin alacod --locked` depuis la racine de l'engine (dans `~/.cargo/bin`) ; **la relancer après chaque pull de l'engine**, sinon `alacod` garde l'ancienne version.
+`alacod self-check` le dit en une ligne : binaire plus ancien que le fichier le plus récent de `crates/content/src` ou `crates/game/src` (engine d'où il a été compilé) → « PÉRIMÉ » et code 1, sinon code 0.
 
 ```bash
 alacod sandbox games/zombies --detach     # le bac à sable (§2.2) : arène VIDE + profil de départ, mode éditeur compris ; rend la main quand le remote répond
