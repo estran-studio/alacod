@@ -179,6 +179,11 @@ alacod undo                                                                     
 - **Textuel, pas resérialisé.** La valeur est remplacée à sa place exacte : commentaires, ordre, indentation, lignes vides du fichier ne bougent pas.
 - **Le type de l'ancienne valeur est gardé** : un `Fixed` reste une chaîne (`100` → `"100.0"`, la décimale d'origine est reprise), un entier reste un entier (`30.5` pour un nombre de frames est refusé), un booléen un booléen, une variante un nom
   (`Common` → `Rare`). `Some("500.0")` se règle par sa valeur (`500`) ; une valeur négative s'écrit telle quelle (`-5`).
+- **Valeurs relatives** (nombre ou `Fixed` seulement) : `x0.9` ou `*0.9` (facteur), `+10%` / `-10%` (pourcentage, **signe obligatoire**), `+=5` / `-=5` (ajout). `+5` et `-5` restent des valeurs
+  **absolues** (5 et −5) : seul `%` ou `=` après le signe rend la valeur relative. Le calcul part de la valeur écrite dans le fichier : `"0.15"` `x0.9` → `"0.135"` (au plus deux décimales de plus que
+  l'ancienne, zéros de fin retirés, la virgule d'origine gardée : `"150.0"` `+10%` → `"165.0"`). Un entier reste un entier : un résultat fractionnaire est refusé avec les deux entiers voisins
+  (`« x0.9 » sur l'entier 36 donne 32.4 : pas un entier ; donner 32 ou 33`). La ligne imprimée montre ancien -> nouveau. Barème « un peu » = 10 à 15 % : `x0.9`, `+10%`.
+  `--commit`, `--raw` et `--json` peuvent suivre une valeur qui commence par `-` (`alacod set … -10% --commit`).
 - **`--raw`** écrit la valeur telle quelle **à la place du nœud désigné**, bloc ou `Some(..)` compris : `alacod set … base_health.regen_rate None --raw`, `… grammar.rooms '(12, 16)' --raw`. Un RON mal formé est refusé avant d'écrire.
 - **Chemins** : `movement.max_speed`, `config.firing_modes.default.bullet_type.Standard.damage` (clé de table sans guillemets, nom de variante facultatif : `…bullet_type.damage`), `modifiers.0.value` (liste par indice, ou par le nom
   d'une variante si elle est unique), `grammar.rooms.1` (tuple). Un chemin inconnu ou ambigu est refusé avec les chemins possibles ; un chemin qui désigne un bloc est refusé avec la liste des réglages qu'il contient.
@@ -433,7 +438,7 @@ Tu règles un jeu alacod en marche (alacod sandbox ou alacod editor) pour Willia
 6. « Annule ça » : alacod undo (il refuse tout dernier commit qui n'est pas « editor: » : dis-le alors, ne touche à rien). Si le dernier changement était un modificateur vivant, unmodify.
 7. Ne laisse JAMAIS la partie en pause : William joue. alacod remote step relance la partie seul après coup ; n'utilise ni --keep-paused ni --no-wait en cours de partie ; après un pause, fais alacod remote resume. Avant de répondre, alacod remote brief doit afficher pause=False.
 8. Un essai en plusieurs étapes (monde, spawns, vérifications) s'écrit dans un fichier de commandes et se joue par alacod remote run <fichier> (docs/editeur-vocal.md, 2.5 ; exemple games/zombies/scripts/monde_test.alacod). Codes de sortie : 0 réussi, 1 erreur, 3 jeu éteint, 4 assertion fausse ; --json pour lire le résultat.
-9. « Un peu » = 10 à 15 %, « beaucoup » = fois deux. Refuse une valeur nulle ou absurde.
+9. « Un peu » = 10 à 15 %, « beaucoup » = fois deux : écris la valeur relative (alacod set … x0.9, +10%, -10%, +=5), ne calcule pas à la main. Refuse une valeur nulle ou absurde.
 10. Phrase ambiguë ou identifiant incertain : pose une question courte, ou liste les ids (alacod describe) et propose le plus proche.
 11. Réponses courtes : deux phrases, sans tableau, sans code, sans adresse.
 12. Jamais git push, jamais git stash, jamais de commande destructive.

@@ -675,6 +675,11 @@ fn like_old_style(old: &str, new: &str) -> String {
 /// (`"120.0"`), un entier reste un entier, un booléen un booléen, une variante un identifiant.
 pub fn format_value(old_raw: &str, new: &str) -> Result<String, String> {
     let new = new.trim();
+    // `+5` est la valeur absolue 5 (les valeurs relatives sont `x0.9`, `+10%`, `+=5`) : écrite sans son signe.
+    let new = match new.strip_prefix('+') {
+        Some(rest) if looks_numeric(rest) && !rest.starts_with(['+', '-']) => rest,
+        _ => new,
+    };
     match classify(old_raw) {
         Lit::Str(inner) => {
             if new.len() >= 2 && new.starts_with('"') && new.ends_with('"') {
@@ -734,6 +739,109 @@ pub fn display_value(raw: &str) -> String {
     match classify(raw) {
         Lit::Str(inner) => inner.to_string(),
         _ => raw.split_whitespace().collect::<Vec<_>>().join(" "),
+    }
+}
+
+/// Une valeur relative d'`alacod set` : `x0.9` / `*0.9` (facteur), `+10%` / `-10%` (pourcentage, signe
+/// obligatoire), `+=5` / `-=5` (ajout). `+5` et `-5` restent des valeurs **absolues** (5, −5).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Relative {
+    Mul(f64),
+    Percent(f64),
+    Add(f64),
+}
+
+fn finite(s: &str) -> Option<f64> {
+    looks_numeric(s)
+        .then(|| s.parse::<f64>().ok())
+        .flatten()
+        .filter(|v| v.is_finite())
+}
+
+impl Relative {
+    /// Lit une valeur relative ; `None` pour une valeur absolue (`0.9`, `-5`, `"texte"`, `Common`…).
+    pub fn parse(value: &str) -> Option<Relative> {
+        let value = value.trim();
+        if let Some(rest) = value.strip_prefix(['x', '*']) {
+            return finite(rest).map(Relative::Mul);
+        }
+        if let Some(rest) = value.strip_prefix("+=") {
+            return finite(rest).map(Relative::Add);
+        }
+        if let Some(rest) = value.strip_prefix("-=") {
+            return finite(rest).map(|v| Relative::Add(-v));
+        }
+        let pct = value.strip_suffix('%')?;
+        if !pct.starts_with(['+', '-']) {
+            return None;
+        }
+        finite(pct).map(Relative::Percent)
+    }
+
+    fn apply(self, old: f64) -> f64 {
+        match self {
+            Relative::Mul(f) => old * f,
+            Relative::Percent(p) => old * (1.0 + p / 100.0),
+            Relative::Add(a) => old + a,
+        }
+    }
+}
+
+/// Nombre de chiffres après la virgule d'un nombre écrit (`0.15` → 2, `100` → 0).
+fn decimals(s: &str) -> usize {
+    let mantissa = s.split(['e', 'E']).next().unwrap_or(s);
+    mantissa.split_once('.').map_or(0, |(_, d)| d.len())
+}
+
+/// Écrit `v` avec au plus `max(décimales de l'ancienne, 1) + 2` décimales, zéros de fin retirés (`110.000` → `110`,
+/// mis ensuite à `110.0` par [`format_value`] si l'ancienne valeur avait une virgule) : `0.15 x0.9` → `0.135`.
+fn decimal_text(v: f64, old: &str) -> String {
+    let places = decimals(old).max(1) + 2;
+    let text = format!("{v:.places$}");
+    let text = text.trim_end_matches('0').trim_end_matches('.');
+    if text == "-0" {
+        "0".to_string()
+    } else {
+        text.to_string()
+    }
+}
+
+/// Le texte (absolu, avant [`format_value`]) d'une valeur relative appliquée à `old_raw` : un nombre ou une chaîne
+/// `Fixed` seulement ; un entier reste un entier (résultat fractionnaire refusé, avec les entiers voisins proposés).
+pub fn apply_relative(old_raw: &str, value: &str, relative: Relative) -> Result<String, String> {
+    match classify(old_raw) {
+        Lit::Int => {
+            let old: f64 = old_raw
+                .parse()
+                .map_err(|_| format!("entier illisible : {old_raw}"))?;
+            let new = relative.apply(old);
+            let rounded = new.round();
+            if (new - rounded).abs() > 1e-9 {
+                return Err(format!(
+                    "« {value} » sur l'entier {old_raw} donne {} : pas un entier ; donner {} ou {}",
+                    decimal_text(new, "0.0"),
+                    new.floor() as i64,
+                    new.ceil() as i64
+                ));
+            }
+            Ok(format!("{}", rounded as i64))
+        }
+        Lit::Float => {
+            let old: f64 = old_raw
+                .parse()
+                .map_err(|_| format!("nombre illisible : {old_raw}"))?;
+            Ok(decimal_text(relative.apply(old), old_raw))
+        }
+        Lit::Str(inner) if looks_numeric(inner) => {
+            let old: f64 = inner
+                .parse()
+                .map_err(|_| format!("nombre illisible : {inner}"))?;
+            Ok(decimal_text(relative.apply(old), inner))
+        }
+        _ => Err(format!(
+            "« {value} » est une valeur relative : seulement sur un nombre ou un `Fixed` (la valeur actuelle est \
+             {old_raw}) ; pour écrire ce texte tel quel : --raw"
+        )),
     }
 }
 
@@ -1057,7 +1165,12 @@ pub fn set(
         parse(value).map_err(|e| format!("--raw « {value} » : {e}"))?;
         value.trim().to_string()
     } else {
-        format_value(&old_raw, value).map_err(|e| format!("chemin « {path} » : {e}"))?
+        let value = match Relative::parse(value) {
+            Some(relative) => apply_relative(&old_raw, value, relative)
+                .map_err(|e| format!("chemin « {path} » : {e}"))?,
+            None => value.to_string(),
+        };
+        format_value(&old_raw, &value).map_err(|e| format!("chemin « {path} » : {e}"))?
     };
     let mut change = Change {
         kind: kind.to_string(),

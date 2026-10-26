@@ -197,6 +197,58 @@ fn set_ne_change_que_la_valeur_et_dit_quand_elle_prend_effet() {
 }
 
 #[test]
+fn set_relatif_garde_le_type_et_montre_l_ancienne_et_la_nouvelle_valeur() {
+    let w = Work::new("relatif");
+    let set = |path: &str, value: &str| w.alacod(&["set", "Character", "player", path, value]);
+
+    // Facteur sur un `Fixed` : reste une chaîne avec sa virgule, sans bruit de flottant.
+    let o = set("movement.max_speed", "x1.1");
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(out(&o).contains("150.0 -> 165.0"), "{}", out(&o));
+    assert!(w.read(PLAYER).contains("max_speed: \"165.0\","));
+    let o = set("movement.max_speed", "*0.9");
+    assert!(out(&o).contains("165.0 -> 148.5"), "{}", out(&o));
+    // Pourcentages (signe obligatoire, `-` en tête accepté comme valeur), puis ajout.
+    let o = set("movement.max_speed", "-10%");
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(out(&o).contains("148.5 -> 133.65"), "{}", out(&o));
+    let o = set("movement.max_speed", "+=6.35");
+    assert!(out(&o).contains("133.65 -> 140.0"), "{}", out(&o));
+    let o = set("movement.max_speed", "-=40");
+    assert!(out(&o).contains("140.0 -> 100.0"), "{}", out(&o));
+    assert!(w.read(PLAYER).contains("max_speed: \"100.0\","));
+
+    // Entier : reste un entier ; un résultat fractionnaire est refusé avec les deux entiers voisins.
+    let o = set("movement.dash_cooldown_frames", "+50%");
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(out(&o).contains("24 -> 36"), "{}", out(&o));
+    assert!(w.read(PLAYER).contains("dash_cooldown_frames: 36,      // 0,4 s"));
+    let before = w.read(PLAYER);
+    let o = set("movement.dash_cooldown_frames", "x0.9");
+    assert_eq!(o.status.code(), Some(1));
+    assert!(err(&o).contains("32.4") && err(&o).contains("donner 32 ou 33"), "{}", err(&o));
+    assert_eq!(w.read(PLAYER), before);
+    let o = set("base_health.regen_delay_frames", "-=30");
+    assert!(out(&o).contains("180 -> 150"), "{}", out(&o));
+
+    // Sur autre chose qu'un nombre : refusé, rien d'écrit.
+    let before = w.read(PLAYER);
+    let o = set("asset_name_ref", "x0.9");
+    assert_eq!(o.status.code(), Some(1));
+    assert!(err(&o).contains("valeur relative"), "{}", err(&o));
+    assert_eq!(w.read(PLAYER), before);
+
+    // Nombre non chaîne ; `-5` et `+5` restent absolus.
+    let o = w.alacod(&["set", "Camera", "camera", "lerp_speed", "+=0.5"]);
+    assert!(out(&o).contains("12.0 -> 12.5"), "{}", out(&o));
+    let o = w.alacod(&["set", "Camera", "camera", "lerp_speed", "+5"]);
+    assert!(out(&o).contains("12.5 -> 5.0 ("), "{}", out(&o));
+    let o = w.alacod(&["set", "Camera", "camera", "lerp_speed", "-5", "--json"]);
+    let json: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!((json["old"].as_str(), json["new"].as_str()), (Some("5.0"), Some("-5.0")));
+}
+
+#[test]
 fn set_refuse_les_valeurs_de_mauvais_type_sans_rien_ecrire() {
     let w = Work::new("types");
     let before = w.read(PLAYER);

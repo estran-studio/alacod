@@ -213,9 +213,14 @@ enum Command {
     /// forme du fichier intacts), un `Fixed` reste une chaîne (`"100.0"`). Le lint de `alacod lint` tourne
     /// ensuite : s'il apparaît une erreur nouvelle, le fichier est restauré. Un chemin inconnu ou ambigu est
     /// refusé avec les chemins possibles. Dit quand l'effet se voit (immédiat, ou `alacod remote restart`).
+    ///
+    /// Valeurs relatives (nombre ou `Fixed` seulement) : `x0.9` ou `*0.9` (facteur), `+10%` / `-10%` (pourcentage,
+    /// signe obligatoire), `+=5` / `-=5` (ajout). `+5` et `-5` restent des valeurs absolues. Un `Fixed` reste une
+    /// chaîne (`"0.15"` x0.9 → `"0.135"`), un entier reste un entier : un résultat fractionnaire est refusé avec les
+    /// deux entiers voisins. La sortie montre l'ancienne et la nouvelle valeur.
     Set {
-        /// `[dossier du jeu] <Kind> <id> <chemin.du.champ> <valeur>`.
-        #[arg(allow_negative_numbers = true)]
+        /// `[dossier du jeu] <Kind> <id> <chemin.du.champ> <valeur>` (valeur absolue ou relative : `x0.9`, `-10%`, `+=5`).
+        #[arg(allow_hyphen_values = true)]
         args: Vec<String>,
         /// Commit `editor: <Kind> <id> <chemin> <ancien> -> <nouveau>` du seul fichier touché (refusé si ce fichier
         /// a déjà des changements non commités).
@@ -988,6 +993,19 @@ fn get_cmd(args: Vec<String>, json: bool) -> ExitCode {
 
 /// `alacod set` : règle une valeur, lint, restaure si le lint s'aggrave, commit si demandé.
 fn set_cmd(args: Vec<String>, raw: bool, commit: bool, json: bool) -> ExitCode {
+    // Les mots acceptent un `-` en tête (`-10%`, `-=5`, `-5`) : clap range alors dans `args` les drapeaux écrits
+    // après la valeur ; on les reprend ici.
+    let (mut raw, mut commit, mut json) = (raw, commit, json);
+    let mut words = Vec::with_capacity(args.len());
+    for arg in args {
+        match arg.as_str() {
+            "--raw" => raw = true,
+            "--commit" => commit = true,
+            "--json" => json = true,
+            _ => words.push(arg),
+        }
+    }
+    let args = words;
     let usage = "alacod set [jeu] <Kind> <id> <chemin.du.champ> <valeur> [--commit] [--raw]";
     let (dir_arg, words) = match split_game_args(args, 4, usage) {
         Ok(split) => split,
