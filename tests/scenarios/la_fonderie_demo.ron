@@ -6,15 +6,19 @@
 // hall ; le bot atteint le boss bien plus tôt (victoire vers f5 740, vague 4, 27 kills ; avant :
 // f13 390, vague 5). `alacod-sim` 10 graines, 1 `acheteur` : 8 victoires.
 //
+// 2026-10-26 (89b2679b, dispersion de la mitraillette 0.15 -> 0.12) : le bot tire autrement ;
+// victoire à f6 378 (vague 4, 29 kills) au lieu de f5 740 : `frames` 6200 -> 6800, fin de run
+// vérifiée à f6800.
+//
 // À regarder : le hall à deux sorties (f~150), les premières fenêtres cassées (f~300), une porte
 // de boucle achetée qui retombe dans une salle déjà ouverte, puis l'entrée du boss et la victoire
-// vers f5 740. Les zombies apparaissent dans la section occupée (courettes derrière les
+// à f6 378. Les zombies apparaissent dans la section occupée (courettes derrière les
 // fenêtres), jamais derrière une porte encore payante.
 Scenario(
     game: "zombies",
     map: "floor:la_fonderie",
     map_seed: 4,
-    frames: 6200,
+    frames: 6800,
     players: [
         (bot: acheteur),
     ],
@@ -23,7 +27,7 @@ Scenario(
         WaveAtLeast(wave: 2, at_frame: 4000),
         KillsAtLeast(kills: 25, at_frame: 5700),
         DoorsOpenAtLeast(doors: 4, at_frame: 5700),
-        RunState(step: Ended(Victory), at_frame: 6200),
-        RunSummary(wave_reached_min: 4, kills_min: 25, at_frame: 6200),
+        RunState(step: Ended(Victory), at_frame: 6800),
+        RunSummary(wave_reached_min: 4, kills_min: 25, at_frame: 6800),
     ],
 )

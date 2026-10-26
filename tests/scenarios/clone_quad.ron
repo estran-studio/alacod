@@ -19,6 +19,9 @@
 // D10 (gabarit de départ exclu des salles suivantes, carte test_map sans salle en double) : moins
 // de zombies par vague et trajets différents ; vagues 2/3/4/5 à f871/f2360/f3617/f4674, attente M0
 // tenue à f4674 (13 kills, quatre joueurs debout) ; soldes remesurés.
+// 89b2679b (dispersion de la mitraillette 0.15 -> 0.12, changement voulu) : vagues 2/3/4/5 à
+// f871/f2383/f3623/f4536 ; attentes de vague 3 et 4 déplacées de f2360/f3617 à f2383/f3623, attente M0
+// tenue à f4674 (13 kills, quatre debout) ; soldes des bots remesurés : 1570/1380/1360 (joueur 3 : 3420).
 Scenario(
     game: "zombies",
     map: "exemples/test_map.ldtk",
@@ -193,15 +196,15 @@ Scenario(
         RunState(step: Playing, at_frame: 600),
         WaveAtLeast(wave: 1, at_frame: 600),
         WaveAtLeast(wave: 2, at_frame: 900),
-        WaveAtLeast(wave: 3, at_frame: 2360),
-        WaveAtLeast(wave: 4, at_frame: 3617),
+        WaveAtLeast(wave: 3, at_frame: 2383),
+        WaveAtLeast(wave: 4, at_frame: 3623),
         WaveAtLeast(wave: 5, at_frame: 4674),
         KillsAtLeast(kills: 13, at_frame: 4674),
         // Les trois bots gagnent des points ; le joueur scripté garde 3000 après achats, + 400 du
         // Nuke (D17).
-        Currency(handle: 0, min: 1550, max: 1550, at_frame: 4674),
-        Currency(handle: 1, min: 1510, max: 1510, at_frame: 4674),
-        Currency(handle: 2, min: 1410, max: 1410, at_frame: 4674),
+        Currency(handle: 0, min: 1570, max: 1570, at_frame: 4674),
+        Currency(handle: 1, min: 1380, max: 1380, at_frame: 4674),
+        Currency(handle: 2, min: 1360, max: 1360, at_frame: 4674),
         Currency(handle: 3, min: 3420, max: 3420, at_frame: 4674),
         PlayerAlive(handle: 0, at_frame: 4674),
         PlayerAlive(handle: 1, at_frame: 4674),

@@ -266,3 +266,7 @@ Ce que la séance de réglage de `zombies` a montré, et où chaque point est tr
   3. Attribution des dégâts indirects (brûlure, explosion, familiers) : clé « inconnue » plutôt qu'une fausse arme ; le dire dans le widget.
   4. Mêlée non rechargée à chaud (`weapons_config_update_system`) : un réglage de mêlée exige `restart` ; à lever ou à dire en AT-0.
   5. Gel des ennemis : `EnemyMoveSpeed Set 0` peut ne pas couper les attaques à distance ; à vérifier en AT-1 (D5).
+  6. Tout réglage `editor:` d'une arme ou d'un personnage de départ déplace des traces et peut casser des attentes de scénario (les bots
+     jouent autrement) : constaté en AT-0, `89b2679b` (dispersion de la mitraillette 0,15 → 0,12) a déplacé 51 traces `zombies` et cassé
+     les attentes de `clone_quad` et `la_fonderie_demo`. Règle : `BLESS` groupé en fin de séance, en **un** commit qui cite les commits
+     `editor:`, attentes corrigées revues avec William ; commande candidate `alacod bless` pour AT-8.
