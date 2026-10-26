@@ -1066,33 +1066,36 @@ fn sprite_sheet_directions_rows_not_a_multiple_is_out_of_range() {
 /// Les espaces RON autour de `:` ne doivent pas désactiver le lint des directions.
 #[test]
 fn sprite_sheet_directions_with_spaced_colon_are_still_validated() {
-    for (rows, compass, kind, message) in [
-        (8, "East", LintErrorKind::Parse, "East"),
-        (0, "E, NE, N, NW, W, SW, S, SE", LintErrorKind::OutOfRange, "0 ligne(s)"),
+    const MANIFEST: &str = r#"(
+        name: "sprite_directions_spacing",
+        content_folders: [(path: "sprites/sprites.ron", kind: "SpriteSheet")],
+        entry: (start_map: "unused", default_seed: 1),
+    )"#;
+    const TABLE: &str =
+        r#"({"hero": (animation: "sprites/hero_animation.ron", layers: {"body": "sprites/hero_sheet.ron"})})"#;
+    const BAD_NAME: &[(&str, Option<&str>)] = &[
+        ("game.ron", Some(MANIFEST)),
+        ("sprites/sprites.ron", Some(TABLE)),
+        (
+            "sprites/hero_sheet.ron",
+            Some(r#"(path: "sprites/hero.png", rows: 8, directions : Some((rows: [East])))"#),
+        ),
+    ];
+    const ZERO_ROWS: &[(&str, Option<&str>)] = &[
+        ("game.ron", Some(MANIFEST)),
+        ("sprites/sprites.ron", Some(TABLE)),
+        (
+            "sprites/hero_sheet.ron",
+            Some(
+                r#"(path: "sprites/hero.png", rows: 0, directions : Some((rows: [E, NE, N, NW, W, SW, S, SE])))"#,
+            ),
+        ),
+    ];
+    for (files, kind, message) in [
+        (BAD_NAME, LintErrorKind::Parse, "East"),
+        (ZERO_ROWS, LintErrorKind::OutOfRange, "0 ligne(s)"),
     ] {
-        let sheet = format!(
-            "(path: \"sprites/hero.png\", rows: {rows}, directions : Some((rows: [{compass}])))"
-        );
-        let (_, _, errors) = content::load_embedded(&[
-            (
-                "game.ron",
-                Some(
-                    r#"(
-                        name: "sprite_directions_spacing",
-                        content_folders: [(path: "sprites/sprites.ron", kind: "SpriteSheet")],
-                        entry: (start_map: "unused", default_seed: 1),
-                    )"#,
-                ),
-            ),
-            (
-                "sprites/sprites.ron",
-                Some(
-                    r#"({"hero": (animation: "sprites/hero_animation.ron", layers: {"body": "sprites/hero_sheet.ron"})})"#,
-                ),
-            ),
-            ("sprites/hero_sheet.ron", Some(sheet.as_str())),
-        ])
-        .unwrap();
+        let (_, _, errors) = content::load_embedded(files).unwrap();
         assert_has_error(&errors, kind, message);
     }
 }
