@@ -1,6 +1,6 @@
 # Plan de l'éditeur vocal (chantier K5) — rédigé le 2026-10-22
 
-**État au 2026-10-23 : K5-0 à K5-3 livrés et fusionnés dans `main` (local, non poussé) : `make editor`, `character_tester` en mode éditeur, `alacod/*` (état, input, restart, modifiers, reload, spawn), rechargement à chaud en partie, hook vocal, guide et protocole K5-4. Essai vocal K5-4 et décision du pont MCP en attente de William.** Remplace le chantier K5 « Éditeur de tuning (Egui) » de `docs/plan-engine.md:530`.
+**État au 2026-10-26 : K5-0 à K5-3 livrés et sur `origin/main` ; l'app de test est désormais le bac à sable (`make sandbox GAME=<jeu> [PROFIL=]`, `docs/taches/plan-bac-a-sable.md`, SB-1 à SB-4 mergés), `character_tester` est retiré (`make character_tester` = alias). L'essai vocal K5-4 est refait dans le bac à sable (SB-5, `docs/taches/rapports/sb-5-essai-vocal.md`) ; décision du pont MCP en attente de William.** Remplace le chantier K5 « Éditeur de tuning (Egui) » de `docs/plan-engine.md:530`.
 **Révision du 2026-10-22 (William)** : pas de serveur MCP en K5-0. BRP suffit à un client doté d'un shell ; le pont MCP n'est envisagé qu'en K5-4 si le client vocal l'exige.
 Idée de William (2026-10-22) : pas d'éditeur graphique à la Unity ; l'éditeur, c'est une IA à la voix.
 Analyse technique source : rapport « rechargement à chaud / commandes de partie / apps de test » du 2026-10-22 (agent `analyse-hot-reload-partie`).
@@ -194,6 +194,6 @@ Conflits prévisibles avec la semaine : `Makefile` (S1-2, S1-3) et `core_sim.rs`
 - Logs : `ggrs{f=… editor_command …}` avec `GgrsNetId`, jamais `Entity`.
 - Pas de pont MCP tant qu'un client ne l'exige ; `scripts/alacod-remote` reste sans dépendance (`urllib`).
 - Nouveau crate : à classer dans `scripts/check-sim-boundary.sh` (aucun n'est prévu ; `editor_mode.rs` et `game_commands.rs` vont dans `game`).
-- Dettes : le prochain numéro libre est **D126**, réservé avec D127-D130 au plan de polissage (`plan-polissage.md:308`) ; les voies ouvrent à partir de **D131** après relecture de `dettes.md`. Ce plan **réserve D131 et D132** pour K5 (si `weapons_config_update_system` ne couvre pas la mêlée, risque 7 ; si une copie de `Registry` échappe à K5-1, risque 5) ; à confirmer dans le journal avant d'en ouvrir une.
+- Dettes : D126 à D133 ont été prises par le bac à sable (`plan-bac-a-sable.md`) ; les réservations K5 d'origine (D131, D132) ne valent plus : un risque K5 confirmé prend le prochain numéro libre de `dettes.md` (réserve du polissage : D134–D138).
 - Chaque lot finit par `LIVRÉ <branche>` dans le journal (`docs/taches.md` §10) et un rapport dans `docs/taches/rapports/`.
 - Documentation à jour au merge de K5-0 : `docs/conventions.md` (section éditeur vocal) et `CLAUDE.md` (variables `ALACOD_EDITOR`, outils BRP). `docs/taches.md` §8.2 et `docs/plan-engine.md` K5 renvoient déjà à ce plan.

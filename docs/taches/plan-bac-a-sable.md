@@ -1,5 +1,20 @@
 # Plan du bac à sable de l'engine (chantier K5, lots SB) — rédigé le 2026-10-23
 
+**État au 2026-10-26 : SB-1 à SB-4 livrés et mergés dans `main` (`0fe303f5`) ; reste SB-5 (essai de William sur son Mac).**
+
+| Lot | Merge | Rapport |
+|---|---|---|
+| SB-1 (+ suites de revue) | `6aa63588`, `b224c896` | `rapports/sb-1-contenu.md` |
+| SB-2 | `46047401` | `rapports/sb-2-mise-en-place.md` |
+| SB-3 | `fb93c818` | `rapports/sb-3-mode-bac-a-sable.md` |
+| SB-4 | `0fe303f5` | `rapports/sb-4-jeu-externe-docs.md` |
+| SB-5 | à faire (William) | protocole et fiche : `rapports/sb-5-essai-vocal.md` |
+
+Preuves : 809 scénarios sans `BLESS`, `schedule_order_diff` vide, `make test_crates` paquet par paquet vert, essais headless `--sandbox` sur les cinq jeux, test de bout en bout
+`alacod new` (`make test_alacod_cli`) ; revue indépendante de chaque lot. Jamais vu avec rendu (VPS sans affichage) : c'est l'objet de SB-5. Docs : `docs/conventions.md` §85–§88,
+`docs/jouer.md`, `docs/editeur-vocal.md`. Dettes ouvertes : D130 (`give` non enregistré), D131 (`player` par défaut en dur), D132 (rendu, `ToLobby`), D133 (`schedule_order_diff`) ; D126 fermée.
+Suite après SB-5 : remplir la fiche, décider du pont MCP (`rapports/k5-4-essai-vocal.md` §3), puis polissage des clones (`docs/taches/plan-polissage.md`).
+
 Remplace la fiche `k5-5-bac-a-sable` (spécifique aux clones, retirée). Décision de William (2026-10-23) : « une solution générique d'alacod pour
 tester la configuration de nos personnages et ennemis d'un jeu, qui marche pour mes clones internes et pour les jeux créés avec l'engine, comme
 mon futur 1837 ». Point de départ : relevé du code du 2026-10-23 (scout, `main` `19e62e42`) ; chaque fait cite `fichier:ligne`.
