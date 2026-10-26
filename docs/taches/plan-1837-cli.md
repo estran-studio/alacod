@@ -58,11 +58,17 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
 - **D-e Une seule entrée de jeu** : le `main.rs` d'un jeu ne fait plus que déclarer ses plugins ; l'engine fournit le point d'entrée qui sert la
   partie, `--sandbox`, le runner de scénarios, le lint du jeu et les bots. C'est ce qui rend le plugin visible partout.
 
+- **Échelle (ex-Q-1, réglage du jeu, William 2026-10-26)** : la taille des personnages à l'écran est un **réglage propre à chaque jeu**, pas une
+  décision d'engine. 1837 la règle en jouant D1 (`scale` des planches, `camera.ron`). Ce que l'engine doit garantir : qu'un jeu choisisse librement son
+  nombre d'unités par mètre. Contrainte actuelle : les cases du monde et du champ de flux font 16 unités en dur (`world/src/grid.rs:9`,
+  `character/enemy/ai/navigation.rs:30`, alignées sur les tuiles LDtk) ; un jeu à grands sprites garde donc des unités de monde « à la taille des
+  cases » et réduit ses planches par `scale` (X-4a le documente, X-4b le propose à l'import). Pivot : aux pieds (design de 1837), à vérifier sur une
+  planche réelle en X-4b (le manifeste le place à mi-hauteur).
+- **Ennemis de D1 (ex-Q-2, tranché par William le 2026-10-26)** : **petit rôdeur** (charge en zigzag, recul) et **tireur qui recule** (tir annoncé,
+  couvert pendant le rechargement), inspirés des adversaires de Gungeon (`1867_lore/design/archetypes-ennemis.md`). Sprites : `fantassin-de-ligne`
+  ou `volontaire-loyaliste` pour le tireur ; `loup-hiver-1837` provisoire pour le rôdeur.
+
 À trancher par William (bloque seulement le lot indiqué) :
-- **Q-1 Échelle et pivot des sprites** (X-5) : `1867_lore` dit 160 px pour un humain à 91 px/m (`assets/style.yaml`, `design/poc-frontiere.md`) mais
-  son `tools/assetgen/README.md` dit ≈ 58 px à 32 px/m ; le pivot est « au sol » dans le design et à mi-hauteur dans le manifeste
-  (`volontaire-loyaliste.sprite.json` : `pivot [187.12,193.77]` sur une cellule de 364). Les murs LDtk de l'engine sont en cases de 16.
-- **Q-2 Archétypes de D1** (X-5) : les deux ennemis de la pièce (étape C.1 de la feuille de route : quatre archétypes au plus pour la démo).
 - **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md`.
 
 ## 4. Lots (quatre voies au plus en parallèle depuis le 2026-10-26)
@@ -75,7 +81,7 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
 | **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | — (verbes natifs de l'engine ; conflits possibles avec les `Custom` de X-1 dans les mêmes enums, résolus au merge) | C (Mac) | high |
 | **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | D (Mac) | medium |
 | **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a, X-2a (`alacod.rs`) | D | medium |
-| **X-5 Création de 1837 et palier D1** | `alacod new 1837`, assets du kit Frontière importés, une pièce, deux ennemis, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; tout par `alacod` | X-1 à X-4, D-a, Q-1, Q-2 | A ou B | medium |
+| **X-5 Création de 1837 et palier D1** | `alacod new 1837`, assets du kit Frontière importés, une pièce, rôdeur et tireur qui recule, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; échelle réglée en jouant ; tout par `alacod` | X-1 à X-4, D-a | A ou B | medium |
 | **X-6 Paliers D2 à D5** | verbes `Lure`/`Grab`, contrainte de branche de la clé du boss (`map::generation::grid`), graine de la sauvegarde (`meta::Profile`), extérieur dessiné → intérieur généré ; contenu des paliers | X-5, Q-3 | — | à planifier |
 
 Chemin critique : X-1 → X-2b → X-5. Quatre voies depuis le 2026-10-26 (Mac disponible) : A = X-1 puis X-2b (VPS), B = X-2a (VPS),
@@ -93,8 +99,8 @@ C = X-3 (Mac), D = X-4a puis X-4b (Mac ; le rendu y est possible).
 - **X-3** : un verbe par besoin, jamais un « système de rythme » (§4.8) ; valeurs en frames entières (60 ms ≈ 4 frames à 60 Hz : arrondi à
   documenter) ; tout en `Fixed`, `FrameEvents`, checksum neutre pour les types nouveaux.
 - **X-4a** : la sélection de ligne est de la présentation ; la simulation ne change pas (`FacingDirection` existe déjà, 8 valeurs). Une planche
-  sans déclaration garde le comportement actuel (une orientation et le miroir) : aucune trace, aucune capture des clones ne change.
-
+  sans déclaration garde le comportement actuel (une orientation et le miroir) : aucune trace, aucune capture des clones ne change. Documenter
+  comment un jeu choisit son échelle (unités par mètre face aux cases de 16, `scale` des couches, `camera.ron`) : c'est un réglage du jeu.
 ## 5. Règles communes
 
 - `CLAUDE.md` (déterminisme, frontière simulation/présentation), `docs/conventions.md` §4 (point 0 compris).
