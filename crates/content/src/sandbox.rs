@@ -126,6 +126,29 @@ pub struct ItemPlacement {
     pub at_frame: u32,
 }
 
+/// Don scripté (D130) : ce que `alacod/give` a donné à chaud, enregistré par `alacod/save` et rejoué à la
+/// frame `at_frame` exacte (`game::grant::give`, appliqué dans `GgrsSchedule` : sûr en synctest et en
+/// p2p, contrairement au don à chaud). Au moins un des quatre champs de don doit être posé.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct GiftPlacement {
+    /// Joueur qui reçoit (handle GGRS), 0 par défaut.
+    #[serde(default)]
+    pub handle: usize,
+    /// Id d'une arme à distance ou de mêlée.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weapon: Option<String>,
+    /// Id d'un objet (passif, actif ou consommable).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item: Option<String>,
+    /// Montant **ajouté** au solde (négatif : retiré, jamais sous zéro).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency: Option<i64>,
+    /// Solde **imposé**.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub set_currency: Option<u32>,
+    pub at_frame: u32,
+}
+
 /// Placement scripté d'un coffre (M2-T5) : `key` est sa clé de contenu (graine du tirage),
 /// `table` son pool (`None` : celui de l'étage), `rarity` la rareté minimale de l'objet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]

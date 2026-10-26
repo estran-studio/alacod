@@ -12,8 +12,9 @@
 //! [`give`] écrit dans des composants rollback (`WeaponInventory`, `AmmoReserves`, `Inventory`, `Modifiers`,
 //! `Currency`) depuis le monde, entre deux frames, et crée des armes avec le `GgrsNetIdFactory` : comme
 //! `alacod/set_modifier`, c'est sûr **seulement** en session locale à `check_distance == 0`, où rien n'est
-//! sauvegardé ni resimulé (garde `session_hot_edit_allowed` de `remote.rs`). Un don n'est **pas** enregistré
-//! (`InputRecorder`) : un scénario enregistré ne le rejoue pas.
+//! sauvegardé ni resimulé (garde `session_hot_edit_allowed` de `remote.rs`). Un don est **enregistré**
+//! (`InputRecorder::record_gift`, D130) et son rejeu (`Scenario::gifts`) passe par [`queue_gift`], dans
+//! `GgrsSchedule` : sûr en synctest et en p2p.
 
 use bevy::prelude::*;
 use combat::inventory::AmmoReserves;
@@ -146,6 +147,24 @@ pub struct GiveReport {
     pub item_kind: Option<&'static str>,
     /// Solde final, si l'argent a bougé.
     pub currency: Option<u32>,
+}
+
+/// Rejoue un don scripté dans `GgrsSchedule` (D130) : file l'appel de [`give`] pour le prochain point de
+/// synchronisation des commandes. Un don refusé (joueur absent, id inconnu) est journalisé, jamais
+/// fatal : la même règle que les placements scriptés.
+pub fn queue_gift(commands: &mut Commands, placement: &content::sandbox::GiftPlacement) {
+    let handle = placement.handle;
+    let gift = Gift {
+        weapon: placement.weapon.clone(),
+        item: placement.item.clone(),
+        currency: placement.currency,
+        set_currency: placement.set_currency,
+    };
+    commands.queue(move |world: &mut World| {
+        if let Err(error) = give(world, handle, &gift) {
+            warn!("don scripté refusé (joueur {handle}) : {error}");
+        }
+    });
 }
 
 /// Donne `gift` au joueur `handle`, **à chaud** (voir le module). Valide tout avant d'écrire : `Err` ne

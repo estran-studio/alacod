@@ -39,12 +39,12 @@ Pour régler le jeu pendant qu'on y joue (avec Claude, à la voix ou au clavier)
 - `make sandbox GAME=zombies` : le **bac à sable**, voir ci-dessous.
 
 Dans les deux cas la partie tourne dès le départ, les étiquettes F6 (nom, prix, état) se voient au-dessus des entités, et le port 15702 répond :
-`scripts/alacod-remote discover` puis `brief` (première ligne `editor=True online=False check_distance=0`). Limite : édition en **local** seulement
+`alacod remote discover` puis `brief` (ou `scripts/alacod-remote`) (première ligne `editor=True online=False check_distance=0`). Limite : édition en **local** seulement
 (pas de partie en ligne) et à `check_distance` 0. Le mode d'emploi complet est dans `docs/editeur-vocal.md`.
 
 ### Bac à sable : essayer un personnage, une arme, un ennemi
 
-`--sandbox [profil]` fonctionne sur **tout** jeu construit avec l'engine (les cinq clones ; un jeu créé par `alacod new` l'a aussi, sans une ligne de code : `cargo run --features native -- --sandbox` dans son dossier (`native` : rechargement à chaud des RON) ; preuve : `make test_alacod_cli`) : l'arène du jeu, calme (ni vagues ni étages), un
+`--sandbox [profil]` fonctionne sur **tout** jeu construit avec l'engine (les cinq clones ; un jeu créé par `alacod new` l'a aussi, sans une ligne de code : `alacod run --sandbox` dans son dossier (`native` : rechargement à chaud des RON) ; preuve : `make test_alacod_cli`) : l'arène du jeu, calme (ni vagues ni étages), un
 **profil** de départ (`sandbox/<profil>.ron` du jeu : personnage, arme, objets, argent, modificateurs, ennemis posés), le mode éditeur allumé. Sans nom, le profil est `arene` ; chaque jeu livre aussi `lourd`.
 
 | Je veux | Commande |
@@ -54,24 +54,24 @@ Dans les deux cas la partie tourne dès le départ, les étiquettes F6 (nom, pri
 | La même chose sans passer par `make` | `APP_VERSION=dev cargo run -p zombies --features native -- --sandbox lourd` |
 | Une autre graine d'arène (zombies assemble la sienne par graine) | `make sandbox GAME=zombies SEED=42` (sans `SEED`, toujours la graine 123456 : l'arène est la même à chaque lancement) |
 | Sans fenêtre (VPS, CI) | `make sandbox GAME=zombies HEADLESS=1` |
-| Un jeu créé par `alacod new demo` | `cd demo && cargo run --features native -- --sandbox` (profil `assets/sandbox/arene.ron` ; un autre : `alacod new-content Sandbox lourd`, puis `-- --sandbox lourd`) |
+| Un jeu créé par `alacod new demo` | `cd demo && alacod run --sandbox` (sans fenêtre : `--headless` ; deux joueurs : `--players 2` ; profil `assets/sandbox/arene.ron` ; un autre : `alacod new-content Sandbox lourd`, puis `-- --sandbox lourd`) |
 | Le remplaçant de `make character_tester` | `make character_tester` (alias de `make sandbox GAME=zombies`) |
 
-Pendant la partie, par `scripts/alacod-remote` (ou à la voix, via Claude) :
+Pendant la partie, par `alacod remote` (ou à la voix, via Claude ; `scripts/alacod-remote` fait la même chose pour l'engine) :
 
 ```bash
-scripts/alacod-remote profile              # les profils du jeu, l'actif marqué *
-scripts/alacod-remote profile lourd        # « charge le profil lourd » : arène du profil, puis restart
-scripts/alacod-remote give --weapon shotgun         # « donne-moi le fusil »
-scripts/alacod-remote give --item bottes            # un objet (passif, actif ou consommable)
-scripts/alacod-remote give --set-currency 500       # « mets-moi 500 sous » (--currency 100 ajoute, -100 retire)
-scripts/alacod-remote spawn zombie_runner --ahead   # « spawne-moi un zombie_runner devant moi »
-scripts/alacod-remote modifier MoveSpeed Mul 1.2    # « un peu plus rapide » (unmodify pour retirer)
-scripts/alacod-remote restart                       # « reset » : joueur recréé, profil reposé, ennemis du profil reposés
+alacod remote profile              # les profils du jeu, l'actif marqué *
+alacod remote profile lourd        # « charge le profil lourd » : arène du profil, puis restart
+alacod remote give --weapon shotgun         # « donne-moi le fusil »
+alacod remote give --item bottes            # un objet (passif, actif ou consommable)
+alacod remote give --set-currency 500       # « mets-moi 500 sous » (--currency 100 ajoute, -100 retire)
+alacod remote spawn zombie_runner --ahead   # « spawne-moi un zombie_runner devant moi »
+alacod remote modifier MoveSpeed Mul 1.2    # « un peu plus rapide » (unmodify pour retirer)
+alacod remote restart                       # « reset » : joueur recréé, profil reposé, ennemis du profil reposés
 ```
 
-`restart` rejoue le profil actif : ce que tu as donné (`give`, `modifier`) ou fait apparaître (`spawn`) disparaît. Modifie le RON d'un profil, puis `scripts/alacod-remote reload && scripts/alacod-remote restart`.
-Limites : local seulement (une session en ligne est refusée au lancement), `give` n'est pas enregistré dans un scénario (`save`).
+`restart` rejoue le profil actif : ce que tu as donné (`give`, `modifier`) ou fait apparaître (`spawn`) disparaît. Modifie le RON d'un profil, puis `alacod remote reload && alacod remote restart`.
+Limites : local seulement (une session en ligne est refusée au lancement) ; `give` est enregistré par `save` et rejoué (`gifts`), pas `modifier` (D144).
 
 ## En ligne à deux
 
@@ -146,3 +146,14 @@ Nord = interagir, Ouest = recharger, Est = mêlée.
 - `ALACOD_MUTE=1` : aucun son.
 
 Où regarder les parties automatiques (vidéos des bots, page de revue) : `docs/taches/rapports/m2-salles-murs-gungeon.md`, §4.
+
+### Un jeu créé par `alacod new` : tout par `alacod`
+
+```bash
+alacod new mon-jeu && cd mon-jeu     # dépendance git au dernier tag de l'engine
+alacod run --sandbox                 # arène + profil arene ; --headless sans fenêtre, --players 2, --seed 7
+alacod remote brief                  # dans un autre terminal : step 30, give --weapon x, spawn zombie --ahead…
+alacod engine status                 # version d'engine, surcharge locale, racine compilée
+alacod engine local ~/alacod         # développer engine et jeu ensemble (patch hors du Cargo.toml versionné)
+alacod engine pin v0.2.0             # revenir à un tag (retire la surcharge)
+```

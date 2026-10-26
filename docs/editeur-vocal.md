@@ -46,7 +46,7 @@ l'assemblage. Le client vocal et Claude parlent au même port ; l'ordre de lance
 
 ## 2. Outils
 
-- **`scripts/alacod-remote`** (Python, `urllib`, sans dépendance) : `state` (JSON complet), `brief` (joueurs, ennemis proches et commandes en attente),
+- **`alacod remote <commande>`** (Rust, X-2a, `docs/conventions.md` §89) est le même client, mêmes sous-commandes et mêmes méthodes `alacod/*`, sans Python : c'est celui d'un jeu créé par `alacod new` (`alacod run --sandbox`). **`scripts/alacod-remote`** (Python, `urllib`, sans dépendance) : `state` (JSON complet), `brief` (joueurs, ennemis proches et commandes en attente),
   `input Up,Fire --pan 100,0 [--handle 0]` ; **`input ""` relâche et rend la main au clavier**, `step 30 [--no-wait]`, `pause`, `resume`,
   `screenshot <png>`, `save <scénario.ron>`, `discover`.
   Mode éditeur (K5-1/K5-2) : `restart [--kind {Restart,ToLobby,EnterRun,ToHub}] [--seed N]`, `modifier [--handle 0|--net-id N] [--until FRAMES] [--source S] STAT {Add,Pct,Mul,Set} VALEUR`,

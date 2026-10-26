@@ -558,8 +558,8 @@ porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::Fixed
 dupliquée à la fin d'une table comme `weapons.ron`), réécrit l'id et le nom, relance le lint. Pas
 pour `Map`, `Ui`, `Camera`, `Economy`, `Difficulty`. `alacod test [jeu] [id…] [--list] [--bless]
 [--json]` joue les scénarios générés (§28, §54) par `alacod-gen --only` (le crate `scenario`
-dépend de `content`, donc `alacod` appelle `cargo run -p scenario` dans l'engine : celui du jeu
-(`Cargo.toml`), de `--engine`, ou d'où `alacod` a été compilé). Traces ignorées sauf `--bless` ;
+dépend de `content`, donc `alacod` appelle `cargo run -p scenario` dans l'engine : `--engine`, sinon
+celui que le jeu compile réellement, lu par `cargo metadata` (§89)). Traces ignorées sauf `--bless` ;
 sortie JSON : `scenario`, `frames`, `hits`, `expectations`, `expectations_ok`, `failures`. Un jeu
 hors de l'engine est retrouvé par `ALACOD_GAME_NAME`/`ALACOD_GAME_DIR` (posés par `alacod-gen`) ;
 ses scénarios sont écrits sous `<jeu>/tests/generated`. Les armes se jouent sur la
@@ -567,9 +567,9 @@ ses scénarios sont écrits sous `<jeu>/tests/generated`. Les armes se jouent su
 pas).
 
 **Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis
-`alacod new mon-jeu [--engine <racine>] [--git [--rev <sha>]]` copie `templates/starter/` (contenu minimal qui passe le
-lint : joueur, quatre armes, une arène) dans `./mon-jeu`, avec un `Cargo.toml` à dépendances par
-chemin vers l'engine (ou par git avec `--git` : URL de `origin` et révision, qui doit être poussée) (+ `[workspace]` et `[patch.crates-io]` `bevy_ecs_ldtk`, que cargo n'applique
+`alacod new mon-jeu [--engine <racine>] [--tag T | --rev R] [--url U] [--path]` copie `templates/starter/` (contenu minimal qui passe le
+lint : joueur, quatre armes, une arène) dans `./mon-jeu`, avec un `Cargo.toml` qui dépend de l'engine par un **tag git** (le dernier de l'engine ; §89 ;
+`--path` : dépendance par chemin, hors ligne) (+ `[workspace]` et `[patch.crates-io]` `bevy_ecs_ldtk`, que cargo n'applique
 qu'à la racine), le `Cargo.lock` de l'engine, un `CLAUDE.md` et un hook de lint. `lint` et
 `describe` sans chemin trouvent le jeu depuis le dossier courant. Le gabarit est un instantané
 d'assets du testbed : à resynchroniser si le format du contenu change (le lint du gabarit échoue
@@ -7780,7 +7780,7 @@ rechargement à chaud, `check_distance` 0, clavier ou manette). Aucune ligne dan
   se construisent l'une de l'autre sans `..` : `PlayerProfile::from_script` et `From<SandboxPlayer> for PlayerProfile` déstructurent leur source (ajouter un champ à une seule ne compile plus), en plus du test
   `sandbox_player_est_un_sous_ensemble_de_player_script`.
 - **Remote** (tous gardés par `hot_edit_allowed` sauf la liste) : `alacod/sandbox_profile {id?}` (sans `id` : `{active, profiles[]}` ; avec `id` : valide, pose l'arène de ce profil dans `MapGenerationConfig`, change `SandboxSession`,
-  `Restart`) ; `alacod/give {handle?, weapon?, item?, currency?, set_currency?}` (`game::grant::give`) ; `alacod/state` gagne `sandbox: {profile}` ; `scripts/alacod-remote profile [id]`, `give`. Commandes vocales : « charge le profil lourd »
+  `Restart`) ; `alacod/give {handle?, weapon?, item?, currency?, set_currency?}` (`game::grant::give`) ; `alacod/state` gagne `sandbox: {profile}` ; `alacod remote profile [id]`, `give` (§89 ; `scripts/alacod-remote` reste pour l'engine). Commandes vocales : « charge le profil lourd »
   = `profile lourd`, « donne-moi le fusil » = `give --weapon shotgun`, « mets-moi 500 sous » = `give --set-currency 500`, « reset » = `restart`, « spawne-moi X devant moi » = `spawn X --ahead`.
 - **`game::grant`** : `grant_item` et `equip_weapon` sont **les fonctions de pose** de `apply_player_profile` (remplace) et de `give` (ajoute) ; l'ordre des opérations, donc des `GgrsNetId`, est celui d'avant (traces identiques).
   `give` écrit des composants rollback depuis le monde, entre deux frames : sûr **seulement** en session locale à `check_distance` 0 (même garde que `set_modifier`) ; **il n'est pas enregistré** (`InputRecorder`) : un scénario
@@ -7802,7 +7802,7 @@ une cible `target` à (624, 696), 200 unités à droite du joueur en (424, 696))
 - **Lancer** (dans le dossier du jeu) : `cargo run --features native -- --sandbox [profil]` (**`native` = `bevy/file_watcher`** : sans lui, pas de rechargement à chaud des armes et des personnages ; `--local-port 0` et un joueur local sont les défauts, prouvés par le test) ; sans fenêtre : `ALACOD_HEADLESS=1 cargo run --no-default-features --features native -- --sandbox`.
   Un second profil : `alacod new-content Sandbox lourd` (copie de `arene`), puis `-- --sandbox lourd`. Le pilotage est celui des cinq jeux (`<engine>/scripts/alacod-remote profile|give|spawn|modifier|reload|restart`, `docs/editeur-vocal.md` §2.2) ;
   `ALACOD_REMOTE_PORT` change le port 15702. `templates/starter/CLAUDE.md` le dit à l'agent qui travaille dans le jeu créé.
-- **Preuve** : `crates/content/tests/cli.rs::new_game_opens_its_sandbox_without_any_added_code` (`#[ignore]`, **`make test_alacod_cli`**, comme le test de `alacod test`) : dossier temporaire, `alacod new demo --engine <engine>`, **un seul fichier Rust**
+- **Preuve** : `crates/content/tests/cli.rs::new_game_runs_its_sandbox_and_answers_remote_through_alacod_alone` (§89 ; ex-`new_game_opens_its_sandbox_without_any_added_code`) (`#[ignore]`, **`make test_alacod_cli`**, comme le test de `alacod test`) : dossier temporaire, `alacod new demo --engine <engine>`, **un seul fichier Rust**
   (`src/main.rs`) qui ne contient pas « sandbox », compilation du jeu en profil `headless` (le jeu est son propre workspace : le profil est redéclaré par `--config profile.headless.*`, mêmes réglages que celui de l'engine ;
   `CARGO_TARGET_DIR` partagé avec l'engine, rendu absolu, sinon `demo/target`), puis `demo --sandbox` (sans autre option) avec `ALACOD_HEADLESS=1`, un port libre (`ALACOD_REMOTE_PORT`) et
   `ALACOD_STATE_TRACE` + `ALACOD_EXIT_AT_FRAME=1200` (**`ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`** : sans elle le jeu ne s'arrête pas ; à `check_distance` 0 le fichier de trace reste vide, seul le code de sortie 0 prouve l'arrêt).
@@ -7813,3 +7813,31 @@ une cible `target` à (624, 696), 200 unités à droite du joueur en (424, 696))
   Le journal affiche une ligne `ggrs{f=N spawner_skip reason=no_valid_spawner}` par frame (trace du spawner d'ennemis sans point d'apparition valide, voulue pour `diff_log`).
 - **Docs** : `docs/editeur-vocal.md` §1 (apps de test : le bac à sable d'abord, jeu créé), §2.1/§2.2 (phrases → commandes exactes), §4 (bloc « prêt à coller » : mode bac à sable), §8 ; `docs/jouer.md` (« Bac à sable », ligne du jeu créé) ; `CLAUDE.md` (variables et commandes) ;
   protocole de l'essai William : `docs/taches/rapports/sb-5-essai-vocal.md`.
+
+## 89. CLI : dépendance par tag, racine de l'engine, `run` et `remote` (X-2a, `docs/taches/plan-1837-cli.md` D-b, D-d)
+
+Un jeu créé par `alacod new` se développe, se lance et se pilote **par `alacod` seul** (ni Makefile ni script de l'engine), sur le Mac comme sur le VPS. Code : `crates/content/src/bin/alacod/` (`main.rs`, `engine.rs`, `run.rs`, `remote.rs`).
+
+- **Dépendance** : `alacod new mon-jeu` écrit `content = { git = "<origin de l'engine>", tag = "<dernier tag>" }` (et les six autres crates du gabarit) ; le dernier tag = `git tag --sort=-v:refname` du dépôt de l'engine (`v0.10.0` après `v0.9.0`).
+  `--tag T` / `--rev R` choisissent la version, `--url U` l'URL (sinon `origin`), **`--path`** écrit un chemin absolu (hors ligne : les tests rapides de la CLI, un poste sans réseau ; le chemin entre alors dans le `Cargo.toml` versionné).
+  Le gabarit et le `Cargo.lock` viennent du dépôt `--engine`, sinon de celui d'où `alacod` a été compilé (`TEMPLATE_ENGINE`, seule trace de l'ancien `BUILT_FROM_ENGINE` : un jeu n'existe pas encore) ; un message prévient quand ce dépôt est plus récent que le tag épinglé.
+  Un moteur sans tag refuse (`--tag`, `--rev` ou `--path`). Le premier build clone l'engine au tag (réseau) ; un **tag poussé** est requis pour un vrai jeu.
+- **`alacod engine status | pin <tag|rev> | local <chemin> [--game <dossier>]`** : `status` affiche la dépendance déclarée, la surcharge locale et la **racine réellement compilée** ; `pin` réécrit les dépendances qui visent le même dépôt (clés `features`… conservées ;
+  tag ou révision reconnus par `git ls-remote --tags <url>`, sinon une révision de 7 à 40 chiffres hexadécimaux, sinon refus sans rien écrire) et retire la surcharge ; `local` écrit dans **`.cargo/config.toml`** (ignoré par git : le gabarit et `local` l'ajoutent au `.gitignore`) un bloc
+  `[patch."<url>"]` qui substitue **toutes** les crates de `<chemin>/crates/*` (substituer seulement les sept du gabarit mêlerait deux versions du même dépôt). Le `Cargo.toml` versionné ne bouge pas : `git diff` reste vide. `local` refuse un jeu à dépendance par chemin (`pin` d'abord).
+- **Racine de l'engine des outils** (`alacod test`, `engine status`) : `engine::resolve_root` lit `cargo metadata` du jeu (`--offline` d'abord, puis en ligne) et prend le dossier de la crate `content` résolue : checkout git du tag (dans le cache de cargo), surcharge locale, ou chemin.
+  Plus de `BUILT_FROM_ENGINE`, plus d'heuristique d'ancêtre ni de lecture du `Cargo.toml` à la main. `--engine <racine>` reste prioritaire. Un checkout du cache de cargo n'est pas compilé sur place : `alacod test` passe `--target-dir <jeu>/target/alacod-engine`.
+  `alacod test` lance toujours `alacod-gen` **de l'engine** (le binaire du jeu : X-2b).
+- **`alacod run [dossier] [--sandbox [profil]] [--headless] [--seed N] [--players N] [-- args…]`** : `cargo run` dans le dossier du jeu (`--features native` si le jeu la déclare : rechargement à chaud), puis les arguments du jeu (`--sandbox`, `--seed=N`, `--players localhost…`, puis ceux d'après `--`).
+  `--headless` = `ALACOD_HEADLESS=1`, compilation `--no-default-features` en profil `headless` redéclaré par `--config` (le jeu est son propre workspace). Le dossier se donne **avant** les options (`--sandbox` avale le mot suivant comme profil). Les variables `ALACOD_*` (`ALACOD_REMOTE_PORT`, `ALACOD_STATE_TRACE`, `ALACOD_EXIT_AT_FRAME`…) sont héritées.
+- **`alacod remote [--port P] <commande>`** : le client de `scripts/alacod-remote` en Rust (JSON-RPC 2.0 sur HTTP, sans dépendance) ; mêmes méthodes BRP `alacod/*`, **pas de second protocole**. Commandes : `state`, `brief`, `input`, `step`, `pause`, `resume`, `screenshot`, `save`, `discover`, `restart`, `modifier`, `unmodify`, `reload`, `profile`, `give`, `spawn`, `spawn-powerup`, `spawn-item`.
+  Port : `--port`, sinon `ALACOD_REMOTE_PORT`, sinon 15702. Jeu injoignable : message qui dit quoi lancer. `scripts/alacod-remote` reste pour l'engine tant que `docs/editeur-vocal.md` et le Makefile s'en servent.
+- **D131** : `entry.player` (`game.ron`, facultatif) = id du personnage joueur par défaut (`content::manifest::DEFAULT_PLAYER_CHARACTER` = `player` sans lui ; `GameManifest::player_character()`), lu par la création du joueur (`local::spawn_players_when_map_loaded`), le lint D78 (skins `1` et `2`) et celui du prix des présentoirs, l'étiquette du joueur (`legibility`) et le gabarit « visée à quatre directions » de `scenario::generate`.
+  Un `entry.player` inconnu est une erreur de lint (`BrokenReference`). Le champ est hors checksum et hors trace.
+- **D126** : fermée par SB-3 (`character` dans `PlayerScript`, `SandboxPlayer` et `PlayerProfile`, §87) ; rien d'ajouté ici, les scénarios qui le posent sont rejoués sans `BLESS`.
+- **D130** : un don à chaud (`alacod/give`) est **enregistré** : `InputRecorder::record_gift` → `RecordedSettings::gifts` → `Scenario::gifts` (`GiftPlacement { handle, weapon, item, currency, set_currency, at_frame }`, `content::sandbox`). Le rejeu passe par
+  `ScenarioGiftPlacements` (posée par `Profile::install`, vide pour un profil de bac à sable) et **`apply_scenario_item_placements`** (aucun système de plus dans `GgrsSchedule`) : à `at_frame` il file `grant::queue_gift`, une commande qui appelle `grant::give` au prochain point de synchronisation, **dans** `GgrsSchedule` (sûr en synctest et en p2p, contrairement au don à chaud).
+  La session jouée applique le don **avant** la frame `at_frame` ; le rejeu l'applique dans `Effects` de cette frame : les systèmes qui précèdent `Effects` voient l'ancien état une frame de plus (écart d'ordre intra-frame, jamais de perte ; dette D145). `ModifierSpec` / `alacod/set_modifier` gardent le même trou (D144).
+  Preuves : `crates/scenario/tests/gifts.rs` (enregistrement, rejeu à la frame exacte, synctest sans mismatch).
+- **Preuves** : `crates/content/tests/cli.rs` (rapide : `new` par tag, `--tag`/`--rev`/`--url`, refus sans tag, `engine pin`/`local`/`status`, racine par `cargo metadata`, `run` contre un faux `cargo`, `remote` contre un faux serveur BRP) et `new_game_runs_its_sandbox_and_answers_remote_through_alacod_alone`
+  (`#[ignore]`, `make test_alacod_cli`) : `new` à une révision, `engine local`, `run --sandbox --headless`, `remote`, `engine pin`, le tout par `alacod`.

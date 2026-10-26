@@ -25,7 +25,7 @@ schemars = "1"
 
 [[bin]]
 name = "alacod"
-path = "src/bin/alacod.rs"
+path = "src/bin/alacod/main.rs"
 
 [[bin]]
 name = "alacod-profile"

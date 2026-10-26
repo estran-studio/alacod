@@ -254,6 +254,7 @@ mod tests {
                 progression: None,
                 clocks: None,
                 difficulty: None,
+                player: None,
                 map: Default::default(),
             },
             generate_template: None,

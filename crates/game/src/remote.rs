@@ -870,6 +870,11 @@ fn give(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
     };
     let report =
         crate::grant::give(world, params.handle.unwrap_or(0), &gift).map_err(invalid_params)?;
+    // D130 : le don est enregistré (`alacod/save`) et rejoué par `Scenario::gifts` à la frame où il a pris effet.
+    let at_frame = world.resource::<FrameCount>().frame.saturating_add(1);
+    if let Some(mut recorder) = world.get_resource_mut::<InputRecorder>() {
+        recorder.record_gift(report.handle, &gift, at_frame);
+    }
     Ok(serde_json::to_value(report).map_err(internal)?)
 }
 
@@ -1013,6 +1018,7 @@ mod tests {
                 progression: None,
                 clocks: None,
                 difficulty: None,
+                player: None,
                 map: Default::default(),
             },
             generate_template: None,

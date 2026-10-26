@@ -51,14 +51,40 @@ fn run(mut cmd: Command) -> Output {
     cmd.output().expect("alacod se lance")
 }
 
-/// `alacod new <nom> --engine <engine>` dans `tmp`.
+/// `alacod new <nom> --engine <engine> --path` dans `tmp` : dépendance par chemin, hors ligne (le défaut,
+/// un tag git, demande le réseau au premier build).
 fn new_game(tmp: &Tmp, name: &str, extra: &[&str]) -> Output {
     let mut cmd = alacod();
     cmd.current_dir(&tmp.0)
         .args(["new", name, "--engine"])
         .arg(engine_root())
+        .arg("--path")
         .args(extra);
     run(cmd)
+}
+
+/// Un faux dépôt d'engine : le gabarit de l'engine (lien symbolique) dans un dépôt git à `origin` donné,
+/// avec les tags `tags` sur son seul commit. `alacod new --engine <lui>` n'a besoin que de cela.
+fn fake_engine(tmp: &Tmp, tags: &[&str]) -> PathBuf {
+    let dir = tmp.0.join("fake-engine");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::os::unix::fs::symlink(engine_root().join("templates"), dir.join("templates")).unwrap();
+    let git = |args: &[&str]| {
+        let out = Command::new("git")
+            .current_dir(&dir)
+            .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+            .args(args)
+            .output()
+            .expect("git");
+        assert!(out.status.success(), "git {args:?} : {}", text(&out.stderr));
+    };
+    git(&["init", "-q"]);
+    git(&["remote", "add", "origin", "https://example.org/engine.git"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "engine"]);
+    for tag in tags {
+        git(&["tag", tag]);
+    }
+    dir
 }
 
 fn lint_json(dir: &Path) -> (bool, serde_json::Value) {
@@ -255,22 +281,382 @@ fn new_rejects_bad_names_and_existing_folders() {
     assert!(text(&again.stderr).contains("existe déjà"));
 }
 
+/// Par défaut le jeu dépend de l'engine par le **dernier tag** de son dépôt (ordre de version : `v0.10.0`
+/// après `v0.9.0`), jamais par un chemin absolu.
 #[test]
-fn new_with_git_writes_git_dependencies_pinned_to_a_revision() {
-    let tmp = Tmp::new("new-git");
-    let out = new_game(&tmp, "demo", &["--git", "--rev", "abc1234"]);
-    // L'engine de test est un dépôt git avec `origin` ; sans lui, la commande échoue proprement.
-    if !out.status.success() {
-        assert!(text(&out.stderr).contains("git"), "{}", text(&out.stderr));
-        return;
-    }
+fn new_pins_the_latest_engine_tag_by_default() {
+    let tmp = Tmp::new("new-tag");
+    let engine = fake_engine(&tmp, &["v0.9.0", "v0.10.0", "v0.2.1"]);
+    let mut cmd = alacod();
+    cmd.current_dir(&tmp.0)
+        .args(["new", "demo", "--engine"])
+        .arg(&engine);
+    let out = run(cmd);
+    assert!(out.status.success(), "{}", text(&out.stderr));
     let cargo = std::fs::read_to_string(tmp.0.join("demo/Cargo.toml")).unwrap();
-    assert!(cargo.contains("git = \""), "{cargo}");
-    assert!(cargo.contains("rev = \"abc1234\""), "{cargo}");
     assert!(
-        !cargo.contains("path = \""),
-        "aucune dépendance par chemin avec --git :\n{cargo}"
+        cargo.contains("content = { git = \"https://example.org/engine.git\", tag = \"v0.10.0\" }"),
+        "{cargo}"
     );
+    assert!(!cargo.contains("path = \""), "aucun chemin par défaut :\n{cargo}");
+    assert!(!cargo.contains("{{"), "{cargo}");
+    assert!(text(&out.stdout).contains("tag v0.10.0"), "{}", text(&out.stdout));
+}
+
+#[test]
+fn new_accepts_an_explicit_tag_rev_and_url_and_refuses_an_engine_without_tags() {
+    let tmp = Tmp::new("new-ref");
+    let engine = fake_engine(&tmp, &["v1.0.0"]);
+    let new = |name: &str, extra: &[&str]| {
+        let mut cmd = alacod();
+        cmd.current_dir(&tmp.0)
+            .args(["new", name, "--engine"])
+            .arg(&engine)
+            .args(extra);
+        run(cmd)
+    };
+    let out = new("a", &["--rev", "abc1234", "--url", "file:///x/engine"]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let cargo = std::fs::read_to_string(tmp.0.join("a/Cargo.toml")).unwrap();
+    assert!(cargo.contains("git = \"file:///x/engine\", rev = \"abc1234\""), "{cargo}");
+    let out = new("b", &["--tag", "v7"]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let cargo = std::fs::read_to_string(tmp.0.join("b/Cargo.toml")).unwrap();
+    assert!(cargo.contains("tag = \"v7\""), "{cargo}");
+    // Une dépendance par chemin et un tag s'excluent.
+    assert!(!new("c", &["--path", "--tag", "v1.0.0"]).status.success());
+
+    let bare = Tmp::new("new-no-tag");
+    let engine = fake_engine(&bare, &[]);
+    let mut cmd = alacod();
+    cmd.current_dir(&bare.0).args(["new", "demo", "--engine"]).arg(&engine);
+    let out = run(cmd);
+    assert!(!out.status.success());
+    assert!(text(&out.stderr).contains("aucun tag"), "{}", text(&out.stderr));
+    assert!(!bare.0.join("demo").exists());
+}
+
+// ---------------------------------------------------------------------------------------
+// engine local / pin / status
+// ---------------------------------------------------------------------------------------
+
+/// Un jeu qui dépend d'un dépôt git `file://` (avec un tag), comme celui d'un `alacod new` publié.
+fn game_on_git_tag(tmp: &Tmp) -> (PathBuf, String) {
+    let engine = fake_engine(tmp, &["v1.0.0", "v1.1.0"]);
+    let url = format!("file://{}", engine.display());
+    let mut cmd = alacod();
+    cmd.current_dir(&tmp.0)
+        .args(["new", "demo", "--tag", "v1.0.0", "--url", &url, "--engine"])
+        .arg(&engine);
+    assert!(run(cmd).status.success());
+    (tmp.0.join("demo"), url)
+}
+
+#[test]
+fn engine_pin_switches_tag_or_rev_and_keeps_other_dependency_keys() {
+    let tmp = Tmp::new("engine-pin");
+    let (game, url) = game_on_git_tag(&tmp);
+    let cargo_path = game.join("Cargo.toml");
+    let before = std::fs::read_to_string(&cargo_path).unwrap();
+    assert!(before.contains(&format!("git = \"{url}\", tag = \"v1.0.0\"")), "{before}");
+
+    let pin = |reference: &str| {
+        let mut cmd = alacod();
+        cmd.current_dir(&game).args(["engine", "pin", reference]);
+        run(cmd)
+    };
+    let out = pin("v1.1.0");
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let after = std::fs::read_to_string(&cargo_path).unwrap();
+    assert_eq!(after.matches("tag = \"v1.1.0\"").count(), 7, "{after}");
+    assert!(!after.contains("v1.0.0"), "{after}");
+    // Seules les dépendances de l'engine bougent.
+    assert_eq!(before.replace("v1.0.0", "v1.1.0"), after);
+
+    // Une révision (pas un tag du dépôt) : `rev`.
+    let head = text(
+        &Command::new("git")
+            .current_dir(tmp.0.join("fake-engine"))
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .unwrap()
+            .stdout,
+    );
+    let out = pin(head.trim());
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let after = std::fs::read_to_string(&cargo_path).unwrap();
+    assert!(after.contains(&format!("rev = \"{}\"", head.trim())), "{after}");
+    assert!(!after.contains("tag = "), "{after}");
+
+    // Ni tag ni révision : refus, rien d'écrit.
+    let snapshot = std::fs::read_to_string(&cargo_path).unwrap();
+    let out = pin("v9.9.9");
+    assert!(!out.status.success());
+    assert!(text(&out.stderr).contains("ni un tag"), "{}", text(&out.stderr));
+    assert_eq!(std::fs::read_to_string(&cargo_path).unwrap(), snapshot);
+}
+
+/// `engine local` ne touche pas au `Cargo.toml` versionné : la surcharge est dans `.cargo/config.toml`,
+/// ignoré par git ; `pin` la retire.
+#[test]
+fn engine_local_patches_outside_the_versioned_manifest_and_pin_removes_it() {
+    let tmp = Tmp::new("engine-local");
+    let (game, url) = game_on_git_tag(&tmp);
+    let manifest = std::fs::read(game.join("Cargo.toml")).unwrap();
+
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["engine", "local"]).arg(engine_root());
+    let out = run(cmd);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert_eq!(std::fs::read(game.join("Cargo.toml")).unwrap(), manifest, "Cargo.toml versionné inchangé");
+    let config = std::fs::read_to_string(game.join(".cargo/config.toml")).unwrap();
+    assert!(config.contains(&format!("[patch.\"{url}\"]")), "{config}");
+    for krate in ["content", "game", "map_ldtk", "combat", "sim_core"] {
+        assert!(
+            config.contains(&format!("{krate} = {{ path = \"{}/crates/{krate}\" }}", engine_root().display())),
+            "{krate} manquant :\n{config}"
+        );
+    }
+    let ignore = std::fs::read_to_string(game.join(".gitignore")).unwrap();
+    assert!(ignore.lines().any(|l| l == "/.cargo/config.toml"), "{ignore}");
+
+    // `status` voit la surcharge ; la racine compilée n'est pas demandée à un réseau absent.
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["engine", "status"]);
+    let status = text(&run(cmd).stdout);
+    assert!(status.contains(&format!("git {url} tag v1.0.0")), "{status}");
+    assert!(status.contains(&format!("surcharge locale : {}", engine_root().display())), "{status}");
+
+    // Un dossier qui n'est pas un engine est refusé.
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["engine", "local"]).arg(&tmp.0);
+    assert!(!run(cmd).status.success());
+
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["engine", "pin", "v1.1.0"]);
+    let out = run(cmd);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(!game.join(".cargo").exists(), "la surcharge est retirée avec son dossier");
+    assert!(text(&out.stdout).contains("surcharge locale retirée"), "{}", text(&out.stdout));
+}
+
+/// La racine de l'engine d'un jeu se lit dans ce que **cargo résout** (ici une dépendance par chemin) :
+/// ni `BUILT_FROM_ENGINE` ni heuristique.
+#[test]
+fn engine_status_resolves_the_root_the_game_really_compiles() {
+    let tmp = Tmp::new("engine-root");
+    assert!(new_game(&tmp, "demo", &[]).status.success());
+    let mut cmd = alacod();
+    cmd.current_dir(tmp.0.join("demo")).args(["engine", "status"]);
+    let out = run(cmd);
+    let status = text(&out.stdout);
+    assert!(out.status.success(), "{}{}", status, text(&out.stderr));
+    assert!(status.contains(&format!("dépendance : chemin {}", engine_root().display())), "{status}");
+    assert!(status.contains("surcharge locale : aucune"), "{status}");
+    assert!(status.contains(&format!("racine compilée : {}", engine_root().display())), "{status}");
+}
+
+// ---------------------------------------------------------------------------------------
+// run (cargo simulé : seuls les arguments et l'environnement comptent)
+// ---------------------------------------------------------------------------------------
+
+/// Un `cargo` qui affiche son dossier courant, ses arguments et `ALACOD_HEADLESS`, placé en tête du PATH.
+fn fake_cargo(tmp: &Tmp) -> std::ffi::OsString {
+    use std::os::unix::fs::PermissionsExt;
+    let bin = tmp.0.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let script = bin.join("cargo");
+    std::fs::write(
+        &script,
+        "#!/bin/sh\necho \"cwd=$(basename \"$PWD\")\"\necho \"args=$*\"\necho \"headless=$ALACOD_HEADLESS\"\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let mut path = std::ffi::OsString::from(&bin);
+    path.push(":");
+    path.push(std::env::var_os("PATH").unwrap_or_default());
+    path
+}
+
+#[test]
+fn run_launches_cargo_in_the_game_folder_with_the_game_arguments() {
+    let tmp = Tmp::new("run");
+    assert!(new_game(&tmp, "demo", &[]).status.success());
+    let path = fake_cargo(&tmp);
+
+    let mut cmd = alacod();
+    cmd.env("PATH", &path).env_remove("ALACOD_HEADLESS").current_dir(tmp.0.join("demo/assets")).args([
+        "run", "--sandbox", "lourd", "--headless", "--seed", "-7", "--players", "2", "--", "--debug-ai",
+    ]);
+    let out = run(cmd);
+    let stdout = text(&out.stdout);
+    assert!(out.status.success(), "{stdout}{}", text(&out.stderr));
+    assert!(stdout.contains("cwd=demo"), "{stdout}");
+    assert!(stdout.contains("headless=1"), "{stdout}");
+    let args = stdout.lines().find_map(|l| l.strip_prefix("args=")).unwrap();
+    assert!(args.starts_with("run --no-default-features --features native --profile headless"), "{args}");
+    assert!(
+        args.ends_with("-- --sandbox lourd --seed=-7 --players localhost localhost --debug-ai"),
+        "{args}"
+    );
+
+    // Sans option : le profil `arene` est celui du jeu (`--sandbox` seul), rien d'autre.
+    let mut cmd = alacod();
+    cmd.env("PATH", &path).env_remove("ALACOD_HEADLESS").current_dir(tmp.0.join("demo")).args(["run", "--sandbox"]);
+    let stdout = text(&run(cmd).stdout);
+    assert!(stdout.contains("args=run --features native -- --sandbox arene"), "{stdout}");
+    assert!(stdout.contains("headless=\n"), "{stdout}");
+
+    let mut cmd = alacod();
+    cmd.env("PATH", &path).env_remove("ALACOD_HEADLESS").current_dir(tmp.0.join("demo")).args(["run", "--players", "0"]);
+    assert!(!run(cmd).status.success());
+}
+
+// ---------------------------------------------------------------------------------------
+// remote (faux jeu : un serveur JSON-RPC local)
+// ---------------------------------------------------------------------------------------
+
+/// Un faux remote : répond `handler(méthode, paramètres)` à chaque requête et garde `(méthode, paramètres)`.
+struct FakeRemote {
+    port: u16,
+    seen: std::sync::Arc<std::sync::Mutex<Vec<(String, serde_json::Value)>>>,
+}
+
+impl FakeRemote {
+    fn start(handler: impl Fn(&str, &serde_json::Value, usize) -> serde_json::Value + Send + 'static) -> Self {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = seen.clone();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { return };
+                let mut raw = Vec::new();
+                let mut chunk = [0u8; 4096];
+                // Requête complète : en-têtes, puis `Content-Length` octets de corps.
+                let body = loop {
+                    let n = stream.read(&mut chunk).unwrap_or(0);
+                    if n == 0 {
+                        break String::new();
+                    }
+                    raw.extend_from_slice(&chunk[..n]);
+                    let text = String::from_utf8_lossy(&raw).into_owned();
+                    if let Some((head, body)) = text.split_once("\r\n\r\n") {
+                        let length: usize = head
+                            .lines()
+                            .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse().unwrap()))
+                            .unwrap_or(0);
+                        if body.len() >= length {
+                            break body.to_string();
+                        }
+                    }
+                };
+                let request: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                let method = request["method"].as_str().unwrap_or("").to_string();
+                let calls = log.lock().unwrap().len();
+                let result = handler(&method, &request["params"], calls);
+                log.lock().unwrap().push((method, request["params"].clone()));
+                let reply = serde_json::json!({"jsonrpc": "2.0", "id": 1, "result": result}).to_string();
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}",
+                    reply.len()
+                );
+            }
+        });
+        Self { port, seen }
+    }
+
+    fn remote(&self, args: &[&str]) -> Output {
+        let mut cmd = alacod();
+        cmd.arg("remote").args(["--port", &self.port.to_string()]).args(args);
+        run(cmd)
+    }
+
+    fn calls(&self) -> Vec<(String, serde_json::Value)> {
+        self.seen.lock().unwrap().clone()
+    }
+}
+
+#[test]
+fn remote_speaks_the_alacod_methods_of_the_game() {
+    let fake = FakeRemote::start(|method, _params, calls| match method {
+        "alacod/give" => serde_json::json!({"handle": 0, "currency": 1000}),
+        "alacod/step" => serde_json::json!({"target_frame": 3}),
+        // La partie avance d'une frame par lecture d'état.
+        "alacod/state" => serde_json::json!({
+            "frame": calls, "clock": {"paused": false}, "wave": null, "enemies": [], "windows": [],
+            "players": [{"handle": 0, "x": 10.0, "y": 20.0, "facing": "Up", "health": 4, "max_health": 5,
+                         "weapon": {"name": "pistol", "ammo": 1, "reserve": 2, "reloading": false}}]
+        }),
+        "alacod/sandbox_profile" => serde_json::json!({
+            "active": "arene",
+            "profiles": [{"id": "arene", "map": "maps/arena.ldtk", "players": [{"currency": 1000, "items": []}], "characters": ["target"]}]
+        }),
+        "alacod/reload_content" => serde_json::json!({"errors": ["boum"]}),
+        _ => serde_json::json!({"ok": true}),
+    });
+
+    let out = fake.remote(&["give", "--weapon", "shotgun", "--currency", "-5", "--handle", "1"]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(text(&out.stdout).contains("\"currency\":1000"), "{}", text(&out.stdout));
+    assert_eq!(
+        fake.calls()[0],
+        ("alacod/give".to_string(), serde_json::json!({"handle": 1, "weapon": "shotgun", "currency": -5}))
+    );
+    // Rien à donner : refus avant tout appel.
+    let before = fake.calls().len();
+    assert!(!fake.remote(&["give"]).status.success());
+    assert_eq!(fake.calls().len(), before);
+
+    // `step` avance, puis attend la frame cible en lisant l'état, et affiche le résumé.
+    let out = fake.remote(&["step", "3"]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let stdout = text(&out.stdout);
+    assert!(stdout.contains("joueur 0 (10.0,20.0) pv 4/5 arme pistol 1x2"), "{stdout}");
+    assert!(fake.calls().iter().any(|(m, p)| m == "alacod/step" && p == &serde_json::json!({"frames": 3})));
+
+    // `spawn --ahead` : devant le joueur, dans son `facing` (Up : +y).
+    let out = fake.remote(&["spawn", "zombie", "--ahead", "30", "--team", "enemies"]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let (method, params) = fake.calls().into_iter().rfind(|(m, _)| m == "alacod/spawn_character").unwrap();
+    assert_eq!(method, "alacod/spawn_character");
+    assert_eq!(params, serde_json::json!({"x": 10.0, "y": 50.0, "character": "zombie", "team": "enemies"}));
+    let out = fake.remote(&["spawn-item", "bomb", "--at", "1,2"]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert_eq!(fake.calls().last().unwrap().1, serde_json::json!({"x": 1.0, "y": 2.0, "id": "bomb"}));
+    assert!(!fake.remote(&["spawn", "zombie"]).status.success(), "ni --at ni --ahead");
+
+    let out = fake.remote(&["profile"]);
+    assert!(text(&out.stdout).contains("* arene  carte=maps/arena.ldtk  joueurs=[currency=1000]  posés=[target]"), "{}", text(&out.stdout));
+    let out = fake.remote(&["modifier", "MoveSpeed", "Mul", "0.9", "--handle", "0", "--until", "60"]);
+    assert!(out.status.success());
+    assert_eq!(
+        fake.calls().last().unwrap(),
+        &(
+            "alacod/set_modifier".to_string(),
+            serde_json::json!({"stat": "MoveSpeed", "op": "Mul", "value": "0.9", "source": "editor", "handle": 0, "until_frames": 60})
+        )
+    );
+    let out = fake.remote(&["input", "Up,Fire", "--pan", "100,0"]);
+    assert!(out.status.success());
+    assert_eq!(
+        fake.calls().last().unwrap(),
+        &("alacod/input".to_string(), serde_json::json!({"handle": 0, "buttons": ["Up", "Fire"], "pan": [100, 0]}))
+    );
+    // Des erreurs de rechargement : code de sortie non nul.
+    assert!(!fake.remote(&["reload"]).status.success());
+}
+
+#[test]
+fn remote_says_what_to_do_when_no_game_listens() {
+    let port = free_port();
+    let mut cmd = alacod();
+    cmd.args(["remote", "--port", &port.to_string(), "brief"]);
+    let out = run(cmd);
+    assert!(!out.status.success());
+    assert!(text(&out.stderr).contains("ne répond pas"), "{}", text(&out.stderr));
 }
 
 // ---------------------------------------------------------------------------------------
@@ -481,20 +867,19 @@ fn free_port() -> u16 {
         .port()
 }
 
-/// `scripts/alacod-remote <args>` sur `port`, tuée si elle dépasse `deadline` (échéance monotone :
-/// le script a lui-même un délai de requête de 10 s, qui ne doit pas dépasser le temps restant).
-/// `Err` : python absent, ou échéance dépassée.
+/// `alacod remote <args>` sur `port`, tuée si elle dépasse `deadline` (échéance monotone). `Err` : échéance
+/// dépassée.
 fn remote(port: u16, args: &[&str], deadline: Instant) -> Result<Output, String> {
-    let mut child = Command::new("python3")
-        .arg(engine_root().join("scripts/alacod-remote"))
+    let mut child = alacod()
+        .arg("remote")
+        .args(["--port", &port.to_string()])
         .args(args)
-        .env("ALACOD_REMOTE_PORT", port.to_string())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("python3 ne se lance pas : {e}"))?;
-    // Lecteurs dédiés : un tube plein ne doit pas bloquer le script jusqu'à l'échéance.
+        .map_err(|e| format!("alacod remote ne se lance pas : {e}"))?;
+    // Lecteurs dédiés : un tube plein ne doit pas bloquer la commande jusqu'à l'échéance.
     fn drain<R: std::io::Read + Send + 'static>(mut r: R) -> std::thread::JoinHandle<Vec<u8>> {
         std::thread::spawn(move || {
             let mut buf = Vec::new();
@@ -511,7 +896,7 @@ fn remote(port: u16, args: &[&str], deadline: Instant) -> Result<Output, String>
             Ok(None) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(format!("alacod-remote {args:?} : échéance dépassée"));
+                return Err(format!("alacod remote {args:?} : échéance dépassée"));
             }
             Err(e) => return Err(e.to_string()),
         }
@@ -523,99 +908,94 @@ fn remote(port: u16, args: &[&str], deadline: Instant) -> Result<Output, String>
     })
 }
 
-/// Le jeu lancé : tué et attendu au `Drop`, sur tout chemin (assertion, JSON invalide, python absent).
+/// Le jeu lancé par `alacod run` (donc `alacod` → `cargo` → jeu) : son **groupe de processus** est tué au
+/// `Drop`, sur tout chemin (assertion, JSON invalide). Jamais de `pkill` par motif : on tue le groupe de
+/// l'enfant que ce test a lancé.
 struct Game(std::process::Child);
 
 impl Drop for Game {
     fn drop(&mut self) {
+        let _ = Command::new("kill")
+            .args(["-KILL", "--", &format!("-{}", self.0.id())])
+            .output();
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
 }
 
-/// `alacod new demo`, compilation, `--sandbox` headless : le profil `arene` du gabarit pose le
-/// joueur et la cible **sans une ligne de code ajoutée** au jeu créé. Commande équivalente à la
-/// main : voir `docs/conventions.md` §88.
+/// Un dépôt git de l'engine à `HEAD`, sans réseau : le jeu en dépend par `git = "file://…", rev = HEAD`.
+fn engine_head() -> (String, String) {
+    let root = engine_root();
+    let head = Command::new("git")
+        .current_dir(&root)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .expect("git");
+    assert!(head.status.success(), "{}", text(&head.stderr));
+    (format!("file://{}", root.display()), text(&head.stdout).trim().to_string())
+}
+
+/// Un jeu créé par `alacod new` (dépendance git épinglée sur `HEAD`, sans réseau), mené **uniquement par
+/// `alacod`** : `engine local` (le code de ce dépôt, y compris non commité), `run --sandbox --headless`,
+/// `remote`, puis `engine pin` qui revient à la révision. Ni Makefile ni script de l'engine. Commandes
+/// équivalentes à la main : voir `docs/conventions.md` §89.
 #[test]
 #[ignore = "compile un jeu créé hors de l'engine (≈ 10 min à froid) : make test_alacod_cli"]
-fn new_game_opens_its_sandbox_without_any_added_code() {
+fn new_game_runs_its_sandbox_and_answers_remote_through_alacod_alone() {
     let tmp = Tmp::new("sandbox-e2e");
-    let out = new_game(&tmp, "demo", &[]);
-    assert!(
-        out.status.success(),
-        "{}{}",
-        text(&out.stdout),
-        text(&out.stderr)
-    );
+    let (url, head) = engine_head();
+    let mut cmd = alacod();
+    cmd.current_dir(&tmp.0)
+        .args(["new", "demo", "--rev", &head, "--url", &url, "--engine"])
+        .arg(engine_root());
+    let out = run(cmd);
+    assert!(out.status.success(), "{}{}", text(&out.stdout), text(&out.stderr));
     let game = tmp.0.join("demo");
+    let manifest = std::fs::read(game.join("Cargo.toml")).unwrap();
 
     // Le jeu créé ne contient que du gabarit : un seul fichier Rust, qui ne dit pas « sandbox ».
     let main = std::fs::read_to_string(game.join("src/main.rs")).unwrap();
-    assert!(
-        !main.to_lowercase().contains("sandbox"),
-        "main.rs parle de sandbox"
-    );
-    let rust_files: Vec<_> = std::fs::read_dir(game.join("src"))
-        .unwrap()
-        .map(|e| e.unwrap().file_name())
-        .collect();
+    assert!(!main.to_lowercase().contains("sandbox"), "main.rs parle de sandbox");
+    let rust_files: Vec<_> = std::fs::read_dir(game.join("src")).unwrap().map(|e| e.unwrap().file_name()).collect();
     assert_eq!(rust_files, ["main.rs"]);
 
-    // Compilation headless : le profil `headless` de l'engine, redéclaré en ligne de commande
-    // (le jeu est son propre workspace et ne le porte pas).
-    let target = game_target_dir(&game);
-    let build = Command::new("cargo")
-        .current_dir(&game)
-        .env("CARGO_TARGET_DIR", &target)
-        .args([
-            "build",
-            "--no-default-features",
-            "--features",
-            "native",
-            "--profile",
-            "headless",
-            "--config",
-            "profile.headless.inherits=\"dev\"",
-            "--config",
-            "profile.headless.opt-level=1",
-            "--config",
-            "profile.headless.debug=\"line-tables-only\"",
-            "--config",
-            "profile.headless.package.\"*\".opt-level=3",
-        ])
-        .output()
-        .expect("cargo se lance");
-    assert!(build.status.success(), "{}", text(&build.stderr));
+    // Développer engine et jeu ensemble : l'engine local remplace le tag, `Cargo.toml` ne bouge pas.
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["engine", "local"]).arg(engine_root());
+    let out = run(cmd);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert_eq!(std::fs::read(game.join("Cargo.toml")).unwrap(), manifest);
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["engine", "status"]);
+    let status = text(&run(cmd).stdout);
+    assert!(status.contains(&format!("racine compilée : {}", engine_root().display())), "{status}");
 
-    // `--sandbox` **sans autre option** (`--local-port` et `--players` ont leurs valeurs par défaut) :
-    // arène du gabarit, profil `arene`, frames comptées par la trace d'état (`ALACOD_EXIT_AT_FRAME`
-    // exige `ALACOD_STATE_TRACE`), le jeu s'arrête de lui-même. `Game` le tue au `Drop`.
+    // `alacod run --sandbox --headless` : compile (profil headless) puis joue ; `ALACOD_EXIT_AT_FRAME`
+    // exige `ALACOD_STATE_TRACE`, le jeu s'arrête de lui-même.
     let port = free_port();
     let trace = tmp.0.join("trace.txt");
-    let mut game_proc = Game(
-        Command::new(target.join("headless/demo"))
-            .current_dir(&game)
-            .arg("--sandbox")
-            .env("ALACOD_HEADLESS", "1")
+    let mut game_proc = {
+        use std::os::unix::process::CommandExt;
+        let mut cmd = alacod();
+        cmd.current_dir(&game)
+            .args(["run", "--sandbox", "--headless"])
             .env("ALACOD_REMOTE_PORT", port.to_string())
             .env("ALACOD_STATE_TRACE", &trace)
             .env("ALACOD_EXIT_AT_FRAME", "1200")
+            .env("CARGO_TARGET_DIR", game_target_dir(&game))
+            .process_group(0)
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("le jeu créé se lance"),
-    );
+            .stderr(Stdio::null());
+        Game(cmd.spawn().expect("alacod run se lance"))
+    };
 
-    // Attend une frame jouée (échéance totale de 60 s), puis lit l'état.
-    let ready_deadline = Instant::now() + Duration::from_secs(60);
+    // Attend une frame jouée (la compilation à froid compte dans l'échéance), puis lit l'état.
+    let ready_deadline = Instant::now() + Duration::from_secs(1800);
     let state: serde_json::Value = loop {
         if let Some(status) = game_proc.0.try_wait().unwrap() {
-            panic!("le jeu s'est arrêté trop tôt : {status}");
+            panic!("alacod run s'est arrêté trop tôt : {status}");
         }
-        assert!(
-            Instant::now() < ready_deadline,
-            "aucune frame jouée en 60 s"
-        );
+        assert!(Instant::now() < ready_deadline, "aucune frame jouée en 30 min");
         let out = remote(port, &["state"], ready_deadline).unwrap();
         if out.status.success() {
             let state: serde_json::Value = serde_json::from_slice(&out.stdout)
@@ -638,49 +1018,38 @@ fn new_game_opens_its_sandbox_without_any_added_code() {
     assert_eq!(state["wave"]["phase"], "NotStarted");
     assert_eq!(state["wave"]["number"], 0);
     assert!(profiles.contains("arene"), "{profiles}");
-    // Un seul joueur par défaut, posé sur le `PlayerSpawn` de l'arène, avec l'arme du personnage.
-    assert_eq!(
-        state["players"].as_array().unwrap().len(),
-        1,
-        "{}",
-        state["players"]
-    );
+    assert_eq!(state["players"].as_array().unwrap().len(), 1, "{}", state["players"]);
     let player = &state["players"][0];
-    assert_eq!(
-        (player["x"].as_f64(), player["y"].as_f64()),
-        (Some(424.0), Some(696.0))
-    );
+    assert_eq!((player["x"].as_f64(), player["y"].as_f64()), (Some(424.0), Some(696.0)));
     assert!(player["weapon"]["name"].is_string(), "{player}");
-    // La cible du profil (`characters` à (624, 696), 200 unités à droite du joueur).
     let target_posed = state["enemies"].as_array().unwrap().iter().any(|e| {
         e["config"] == "target" && e["x"].as_f64() == Some(624.0) && e["y"].as_f64() == Some(696.0)
     });
     assert!(target_posed, "{}", state["enemies"]);
-    // Le réglage du profil `arene` (`currency: 1000`) : `alacod/state` n'expose pas le solde,
-    // `give --currency 0` ne change rien et renvoie le solde.
+    // Le réglage du profil `arene` (`currency: 1000`) : `give --currency 0` ne change rien et renvoie le solde.
     let given = remote(port, &["give", "--currency", "0"], query_deadline).unwrap();
-    assert!(
-        given.status.success(),
-        "{}{}",
-        text(&given.stdout),
-        text(&given.stderr)
-    );
+    assert!(given.status.success(), "{}{}", text(&given.stdout), text(&given.stderr));
     let given: serde_json::Value = serde_json::from_slice(&given.stdout)
         .unwrap_or_else(|e| panic!("réponse de give illisible ({e})"));
     assert_eq!(given["currency"], 1000, "{given}");
 
-    // Le jeu quitte seul à la frame demandée : code 0 et trace écrite (échéance de 120 s).
+    // Le jeu quitte seul à la frame demandée : code 0 et trace écrite.
     let exit_deadline = Instant::now() + Duration::from_secs(120);
     let status = loop {
         if let Some(status) = game_proc.0.try_wait().unwrap() {
             break status;
         }
-        assert!(
-            Instant::now() < exit_deadline,
-            "le jeu ne s'est pas arrêté à la frame 1200"
-        );
+        assert!(Instant::now() < exit_deadline, "le jeu ne s'est pas arrêté à la frame 1200");
         std::thread::sleep(Duration::from_millis(200));
     };
     assert!(status.success(), "{status}");
     assert!(trace.exists());
+
+    // Retour au tag : la surcharge locale part, `Cargo.toml` est celui d'origine (même révision).
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["engine", "pin", &head]);
+    let out = run(cmd);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(!game.join(".cargo").exists());
+    assert_eq!(std::fs::read(game.join("Cargo.toml")).unwrap(), manifest);
 }

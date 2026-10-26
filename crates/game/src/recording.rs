@@ -40,6 +40,8 @@ pub struct RecordedSettings {
     pub wave_overrides: Option<WaveOverride>,
     pub powerups: Vec<PowerUpPlacement>,
     pub items: Vec<crate::replay::ItemPlacement>,
+    /// D130 : dons à chaud (`alacod/give`) de la session, rejoués par `Scenario::gifts`.
+    pub gifts: Vec<crate::replay::GiftPlacement>,
     pub chests: Vec<crate::replay::ChestPlacement>,
     pub room_reward_chance_override: Option<Fixed>,
     pub shop: crate::replay::ShopSetup,
@@ -73,6 +75,7 @@ impl Default for RecordedSettings {
             wave_overrides: None,
             powerups: vec![],
             items: vec![],
+            gifts: vec![],
             chests: vec![],
             room_reward_chance_override: None,
             shop: Default::default(),
@@ -98,6 +101,7 @@ impl RecordedSettings {
             wave_overrides: scenario.wave_overrides.clone(),
             powerups: scenario.powerups.clone(),
             items: scenario.items.clone(),
+            gifts: scenario.gifts.clone(),
             chests: scenario.chests.clone(),
             room_reward_chance_override: scenario.room_reward_chance_override,
             shop: scenario.shop.clone(),
@@ -166,6 +170,20 @@ impl InputRecorder {
     /// Nombre de frames enregistrées (dernière frame + 1).
     pub fn frame_count(&self) -> u32 {
         self.frames.keys().next_back().map_or(0, |f| f + 1)
+    }
+
+    /// D130 : enregistre un don à chaud (`alacod/give`) fait avant la frame `at_frame`. Le don n'est pas
+    /// une `GameCommand` : il est appliqué tout de suite par `grant::give` (session locale à
+    /// `check_distance` 0) ; seul son rejeu passe par `GgrsSchedule` (`Scenario::gifts`).
+    pub fn record_gift(&mut self, handle: usize, gift: &crate::grant::Gift, at_frame: u32) {
+        self.settings.gifts.push(crate::replay::GiftPlacement {
+            handle,
+            weapon: gift.weapon.clone(),
+            item: gift.item.clone(),
+            currency: gift.currency,
+            set_currency: gift.set_currency,
+            at_frame,
+        });
     }
 
     pub fn record_command(&mut self, command: &GameCommand, frame: u32) {
@@ -242,6 +260,7 @@ impl InputRecorder {
             invariants: Default::default(),
             powerups: settings.powerups,
             items: settings.items,
+            gifts: settings.gifts,
             chests: settings.chests,
             room_reward_chance_override: settings.room_reward_chance_override,
             shop: settings.shop,
@@ -488,6 +507,7 @@ mod tests {
                 at_frame: 10,
             }],
             items: vec![],
+            gifts: vec![],
             chests: vec![],
             room_reward_chance_override: None,
             shop: Default::default(),

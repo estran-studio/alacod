@@ -23,10 +23,6 @@ const PLAYER_COLORS: &[LinearRgba] = &[
     LinearRgba::BLACK,
 ];
 
-/// Personnage d'un joueur quand aucun profil n'en choisit un (`PlayerProfile::character`, D126) : l'id
-/// dont `alacod lint` vérifie les skins `1` et `2` (D78) et que les équilibrages résolvent pour tout jeu.
-pub const DEFAULT_PLAYER_CHARACTER: &str = "player";
-
 /// `character` : id du personnage (registre `CharacterConfigs`) ; le joueur reçoit sa configuration, ses
 /// armes de départ et son solde. `health_max` doit être celui de ce même personnage
 /// (`ResolvedBalance::health_max_by_character`).

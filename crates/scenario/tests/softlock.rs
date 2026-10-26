@@ -18,6 +18,7 @@ fn scenario(frames: u32) -> Scenario {
         invariants: Default::default(),
         powerups: vec![],
         items: vec![],
+        gifts: vec![],
         chests: vec![],
         room_reward_chance_override: None,
         shop: Default::default(),

@@ -88,6 +88,10 @@ pub enum Mechanic {
     Achievements,
 }
 
+/// Personnage du joueur quand ni le manifeste (`entry.player`), ni un profil, ni un scénario n'en
+/// choisit un (D131).
+pub const DEFAULT_PLAYER_CHARACTER: &str = "player";
+
 /// Point d'entrée d'une partie : carte de départ, graine par défaut, mode de run.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct EntryPoint {
@@ -125,6 +129,11 @@ pub struct EntryPoint {
     /// `world::MapSettings` (10 pièces, ±1000 px, aligné, boucles et murage actifs).
     #[serde(default)]
     pub map: world::MapSettings,
+    /// D131 : id du personnage joueur (kind `Character`) quand aucun profil de bac à sable ni
+    /// scénario n'en choisit un. Absent : [`DEFAULT_PLAYER_CHARACTER`] (`player`). C'est lui dont
+    /// le lint exige les skins `1` et `2` (D78) et dont la santé borne le prix d'un présentoir.
+    #[serde(default)]
+    pub player: Option<String>,
 }
 
 #[derive(Resource, Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -196,6 +205,14 @@ impl fmt::Display for ManifestError {
 impl std::error::Error for ManifestError {}
 
 impl GameManifest {
+    /// Personnage du joueur par défaut (D131) : `entry.player`, sinon [`DEFAULT_PLAYER_CHARACTER`].
+    pub fn player_character(&self) -> &str {
+        self.entry
+            .player
+            .as_deref()
+            .unwrap_or(DEFAULT_PLAYER_CHARACTER)
+    }
+
     /// Dossier `assets/` d'un jeu, à partir de son dossier racine (ex. `games/zombies`).
     /// Tous les chemins de `content_folders` et `entry.start_map` sont relatifs à ce
     /// dossier (convention `docs/conventions.md` §3).
