@@ -101,8 +101,13 @@ C = X-3 (Mac), D = X-4a puis X-4b (Mac ; le rendu y est possible).
 - **X-4a** : la sélection de ligne est de la présentation ; la simulation ne change pas (`FacingDirection` existe déjà, 8 valeurs). Une planche
   sans déclaration garde le comportement actuel (une orientation et le miroir) : aucune trace, aucune capture des clones ne change. Documenter
   comment un jeu choisit son échelle (unités par mètre face aux cases de 16, `scale` des couches, `camera.ron`) : c'est un réglage du jeu.
+
 ## 5. Règles communes
 
+- **Rien de 1837 dans `alacod` (William, 2026-10-26)** : le dépôt de l'engine ne reçoit que des **blocs de logique génériques** (verbes, behaviors,
+  composants, outillage). Aucun personnage, ennemi, arme, sprite, carte, valeur de réglage ni nom de 1837 (pas de « gigue », « rôdeur », « loge »,
+  120 bpm…) dans le code, le contenu, les fixtures ou les scénarios de l'engine ; ceux-ci utilisent le contenu générique du testbed et des noms
+  neutres (`dash`, `parade`, `renvoi`). Le contenu de 1837 (ennemis de D1, sprites, réglages) vit dans son dépôt, créé au lot X-5.
 - `CLAUDE.md` (déterminisme, frontière simulation/présentation), `docs/conventions.md` §4 (point 0 compris).
 - Aucun nom de jeu dans le code de l'engine ; aucune trace de clone ne bouge (`BLESS` interdit) ; `make schedule_order_diff` vide pour X-1 et X-3.
 - VPS : `make test_crates` un paquet à la fois, `scripts/target-sweep.sh` sous 30 Go libres.

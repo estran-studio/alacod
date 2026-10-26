@@ -20,6 +20,9 @@ sont synthétisés dans `docs/etat-engine.md` ; les matrices du plan décrivent 
 - **Code = Behaviors/Systems** : L'engine fournit des behaviors réutilisables
 - **RON = Configuration/Assembly** : Les designers assemblent les behaviors sans coder
 - **Plugins = Extensions** : Nouveaux behaviors peuvent être ajoutés via plugins
+- **Jeux externes (1837 et les jeux créés par `alacod new`)** : leur contenu (personnages, ennemis, armes, sprites, cartes, réglages, noms)
+  vit dans **leur** dépôt ; `alacod` ne reçoit que des blocs de logique génériques (verbes, behaviors, composants, outillage), testés avec le
+  contenu générique du testbed et des noms neutres (William, 2026-10-26). Engine, contenu ou plugin de jeu : `docs/plan-engine.md` §4.8.
 
 ### Pattern Actuel (Armes)
 
