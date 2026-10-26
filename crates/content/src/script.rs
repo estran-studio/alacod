@@ -177,9 +177,9 @@ fn parse_duration(word: &str) -> Result<Duration, String> {
     } else {
         (word.strip_suffix('s').unwrap_or(word), 1.0)
     };
-    let seconds: f64 = number
-        .parse()
-        .map_err(|_| format!("durée « {word} » : nombre de secondes attendu (`0.5`, `2s`, `500ms`)"))?;
+    let seconds: f64 = number.parse().map_err(|_| {
+        format!("durée « {word} » : nombre de secondes attendu (`0.5`, `2s`, `500ms`)")
+    })?;
     if !(seconds >= 0.0 && seconds.is_finite()) {
         return Err(format!("durée « {word} » : positive attendue"));
     }
@@ -231,7 +231,10 @@ fn parse_expect(rest: &str) -> Result<Expectation, String> {
         .trim_matches(|c: char| c == '"' || c == '\'')
         .to_string();
     if metric.is_empty() || value.is_empty() {
-        return Err("expect : `expect <mesure> <op> <valeur>` attendu, ex. `expect enemies == 3`".to_string());
+        return Err(
+            "expect : `expect <mesure> <op> <valeur>` attendu, ex. `expect enemies == 3`"
+                .to_string(),
+        );
     }
     Ok(Expectation {
         metric,
@@ -259,8 +262,14 @@ fn parse_line(number: usize, raw: &str) -> Result<Option<Line>, String> {
             let [_, count, unit @ ..] = words else {
                 return Err("wait : `wait <N> [frames]` attendu".to_string());
             };
-            if !matches!(unit, [] | [_]) || unit.first().is_some_and(|u| !matches!(u.as_str(), "frames" | "frame" | "f")) {
-                return Err("wait : `wait <N> [frames]` attendu (pour des secondes : `sleep`)".to_string());
+            if !matches!(unit, [] | [_])
+                || unit
+                    .first()
+                    .is_some_and(|u| !matches!(u.as_str(), "frames" | "frame" | "f"))
+            {
+                return Err(
+                    "wait : `wait <N> [frames]` attendu (pour des secondes : `sleep`)".to_string(),
+                );
             }
             let frames: i64 = count
                 .parse()
@@ -287,8 +296,8 @@ fn parse_line(number: usize, raw: &str) -> Result<Option<Line>, String> {
         }
         "run" => return Err("run : un script n'en appelle pas un autre".to_string()),
         _ => {
-            let parsed = LineCli::try_parse_from(words)
-                .map_err(|e| e.to_string().trim_end().to_string())?;
+            let parsed =
+                LineCli::try_parse_from(words).map_err(|e| e.to_string().trim_end().to_string())?;
             Step::Remote(parsed.command)
         }
     };
@@ -355,8 +364,14 @@ pub fn metric(state: &Value, lhs: &str) -> Result<Value, String> {
                 .parse::<usize>()
                 .ok()
                 .and_then(|i| items.get(i).cloned())
-                .ok_or_else(|| format!("mesure « {lhs} » : « {name} » n'est pas un indice de liste"))?,
-            _ => return Err(format!("mesure « {lhs} » : « {name} » : pas de champ dans une valeur simple")),
+                .ok_or_else(|| {
+                    format!("mesure « {lhs} » : « {name} » n'est pas un indice de liste")
+                })?,
+            _ => {
+                return Err(format!(
+                    "mesure « {lhs} » : « {name} » : pas de champ dans une valeur simple"
+                ))
+            }
         };
         if let Some(selector) = selector {
             let Value::Array(items) = &current else {
@@ -371,7 +386,9 @@ pub fn metric(state: &Value, lhs: &str) -> Result<Value, String> {
                 Ok(n) => usize::try_from(n)
                     .ok()
                     .and_then(|i| items.get(i).cloned())
-                    .ok_or_else(|| format!("mesure « {lhs} » : « {name}[{n}] » hors de la liste"))?,
+                    .ok_or_else(|| {
+                        format!("mesure « {lhs} » : « {name}[{n}] » hors de la liste")
+                    })?,
                 Err(_) => json!(items
                     .iter()
                     .filter(|it| {
@@ -489,7 +506,10 @@ fn run_wait(port: u16, frames: i64) -> Result<Output, Failure> {
                 }
                 last = now;
                 if elapsed >= frames {
-                    return Ok((format!("frame {now}"), json!({"frame": now, "waited": elapsed})));
+                    return Ok((
+                        format!("frame {now}"),
+                        json!({"frame": now, "waited": elapsed}),
+                    ));
                 }
             }
             Err(e) if e.contains(remote::UNREACHABLE_MARK) => return Err(e.into()),
@@ -629,7 +649,13 @@ pub fn run_file(
 
 /// `alacod remote run` : joue le fichier en affichant chaque ligne au fur et à mesure (texte), ou un seul document
 /// JSON à la fin (`--json`). Rend le code de sortie.
-pub fn run_file_cli(port: u16, file: &str, keep_going: bool, expect_timeout: f64, json: bool) -> u8 {
+pub fn run_file_cli(
+    port: u16,
+    file: &str,
+    keep_going: bool,
+    expect_timeout: f64,
+    json: bool,
+) -> u8 {
     let fail = |message: String, code: u8| -> u8 {
         if json {
             println!("{}", json!({"ok": false, "error": message, "code": code}));
@@ -710,7 +736,9 @@ mod tests {
         assert_eq!(metric(&s, "player[3].health").unwrap(), json!(40.0));
         assert_eq!(metric(&s, "clock.paused").unwrap(), json!(false));
         assert!(metric(&s, "enemis").unwrap_err().contains("enemies"));
-        assert!(metric(&s, "player[9].health").unwrap_err().contains("handle 9"));
+        assert!(metric(&s, "player[9].health")
+            .unwrap_err()
+            .contains("handle 9"));
         assert!(metric(&s, "clock").unwrap_err().contains("paused"));
     }
 
@@ -753,7 +781,10 @@ step 3
             .collect();
         assert_eq!(
             kinds,
-            ["remote", "remote", "remote", "wait", "sleep", "expect", "expect", "expect", "remote"]
+            [
+                "remote", "remote", "remote", "wait", "sleep", "expect", "expect", "expect",
+                "remote"
+            ]
         );
         assert_eq!(lines[1].text, "give --weapon shotgun");
         assert_eq!(lines[1].number, 3);
@@ -767,7 +798,10 @@ step 3
         let Step::Expect(e) = &lines[7].step else {
             panic!("expect")
         };
-        assert_eq!((e.metric.as_str(), e.op, e.value.as_str()), ("enemies[zombie_1]", Op::Eq, "2"));
+        assert_eq!(
+            (e.metric.as_str(), e.op, e.value.as_str()),
+            ("enemies[zombie_1]", Op::Eq, "2")
+        );
     }
 
     #[test]

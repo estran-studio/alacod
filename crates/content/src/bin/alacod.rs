@@ -372,7 +372,9 @@ fn main() -> ExitCode {
             wait_secs: wait,
             game_args,
         }),
-        Command::Remote { json, command } => ExitCode::from(content::remote::run_cli(&command, json)),
+        Command::Remote { json, command } => {
+            ExitCode::from(content::remote::run_cli(&command, json))
+        }
         Command::SelfCheck => self_check(),
     }
 }

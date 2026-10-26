@@ -197,9 +197,7 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek() {
                 None => return Err(self.error("chaîne brute non fermée")),
-                Some(b'"')
-                    if (0..hashes).all(|i| self.b.get(self.pos + 1 + i) == Some(&b'#')) =>
-                {
+                Some(b'"') if (0..hashes).all(|i| self.b.get(self.pos + 1 + i) == Some(&b'#')) => {
                     self.pos += 1 + hashes;
                     return Ok(true);
                 }
@@ -467,20 +465,27 @@ fn step<'n>(node: &'n Node, seg: &str, src: &str) -> Result<&'n Node, Miss> {
             if name.as_deref() == Some(seg) {
                 return Ok(n);
             }
-            Err(Miss::NotFound(fields.iter().map(|(k, _)| k.clone()).collect()))
+            Err(Miss::NotFound(
+                fields.iter().map(|(k, _)| k.clone()).collect(),
+            ))
         }
         Node::Map { entries, .. } => entries
             .iter()
             .find(|(k, _)| key_text(k, src) == seg)
             .map(|(_, v)| v)
             .ok_or_else(|| {
-                Miss::NotFound(entries.iter().map(|(k, _)| key_text(k, src).to_string()).collect())
+                Miss::NotFound(
+                    entries
+                        .iter()
+                        .map(|(k, _)| key_text(k, src).to_string())
+                        .collect(),
+                )
             }),
         Node::List { items, .. } => {
             if let Ok(i) = seg.parse::<usize>() {
-                return items
-                    .get(i)
-                    .ok_or_else(|| Miss::NotFound((0..items.len()).map(|i| i.to_string()).collect()));
+                return items.get(i).ok_or_else(|| {
+                    Miss::NotFound((0..items.len()).map(|i| i.to_string()).collect())
+                });
             }
             let hits: Vec<usize> = items
                 .iter()
@@ -500,14 +505,16 @@ fn step<'n>(node: &'n Node, seg: &str, src: &str) -> Result<&'n Node, Miss> {
                         })
                         .collect(),
                 )),
-                many => Err(Miss::Ambiguous(many.iter().map(|i| i.to_string()).collect())),
+                many => Err(Miss::Ambiguous(
+                    many.iter().map(|i| i.to_string()).collect(),
+                )),
             }
         }
         Node::Tuple { name, items, .. } => {
             if let Ok(i) = seg.parse::<usize>() {
-                return items
-                    .get(i)
-                    .ok_or_else(|| Miss::NotFound((0..items.len()).map(|i| i.to_string()).collect()));
+                return items.get(i).ok_or_else(|| {
+                    Miss::NotFound((0..items.len()).map(|i| i.to_string()).collect())
+                });
             }
             if name.as_deref() == Some(seg) {
                 return Ok(if items.len() == 1 { &items[0] } else { n });
@@ -515,7 +522,9 @@ fn step<'n>(node: &'n Node, seg: &str, src: &str) -> Result<&'n Node, Miss> {
             if items.len() == 1 {
                 return step(&items[0], seg, src);
             }
-            Err(Miss::NotFound((0..items.len()).map(|i| i.to_string()).collect()))
+            Err(Miss::NotFound(
+                (0..items.len()).map(|i| i.to_string()).collect(),
+            ))
         }
         Node::Scalar(_) => Err(Miss::Scalar),
     }
@@ -532,7 +541,12 @@ fn join(prefix: &str, seg: &str) -> String {
 /// Au plus douze éléments, puis « … (+N) ».
 fn list_some(items: &[String]) -> String {
     const MAX: usize = 12;
-    let shown = items.iter().take(MAX).cloned().collect::<Vec<_>>().join(", ");
+    let shown = items
+        .iter()
+        .take(MAX)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
     if items.len() > MAX {
         format!("{shown}, … (+{})", items.len() - MAX)
     } else {
@@ -556,7 +570,11 @@ pub fn resolve<'n>(root: &'n Node, path: &str, src: &str) -> Result<&'n Node, St
             Ok(next) => cur = next,
             Err(Miss::NotFound(candidates)) => {
                 let full: Vec<String> = candidates.iter().map(|c| join(&trail, c)).collect();
-                let at = if trail.is_empty() { "la racine" } else { &trail };
+                let at = if trail.is_empty() {
+                    "la racine"
+                } else {
+                    &trail
+                };
                 return Err(format!(
                     "chemin « {path} » : « {seg} » introuvable sous {at} ; chemins possibles : {}",
                     list_some(&full)
@@ -663,7 +681,10 @@ fn looks_numeric(s: &str) -> bool {
 
 /// Ajoute `.0` à un entier quand l'ancienne valeur s'écrivait avec une virgule (`"150.0"` → `"120.0"`).
 fn like_old_style(old: &str, new: &str) -> String {
-    let integer = new.trim_start_matches(['+', '-']).bytes().all(|c| c.is_ascii_digit());
+    let integer = new
+        .trim_start_matches(['+', '-'])
+        .bytes()
+        .all(|c| c.is_ascii_digit());
     if old.contains('.') && integer {
         format!("{new}.0")
     } else {
@@ -892,7 +913,14 @@ fn closest(wanted: &str, ids: &BTreeSet<String>) -> Vec<String> {
         .map(|id| {
             let lower = id.to_lowercase();
             let near = lower.contains(&wanted) || wanted.contains(&lower);
-            (if near { 0 } else { edit_distance(&wanted, &lower) }, id)
+            (
+                if near {
+                    0
+                } else {
+                    edit_distance(&wanted, &lower)
+                },
+                id,
+            )
         })
         .collect();
     scored.sort();
@@ -916,7 +944,8 @@ pub fn locate(game_dir: &Path, kind: &str, id: &str) -> Result<Entry, String> {
     }
     if kind == "Map" {
         return Err(
-            "les cartes (kind Map, fichiers .ldtk) s'éditent dans LDtk, pas par `alacod set`".to_string(),
+            "les cartes (kind Map, fichiers .ldtk) s'éditent dans LDtk, pas par `alacod set`"
+                .to_string(),
         );
     }
     let assets = GameManifest::assets_dir(game_dir);
@@ -991,13 +1020,20 @@ pub fn locate(game_dir: &Path, kind: &str, id: &str) -> Result<Entry, String> {
                 list_some(&near)
             );
             if !skipped.is_empty() {
-                message.push_str(&format!(" ; fichiers illisibles ignorés : {}", skipped.join(" ; ")));
+                message.push_str(&format!(
+                    " ; fichiers illisibles ignorés : {}",
+                    skipped.join(" ; ")
+                ));
             }
             Err(message)
         }
         _ => Err(format!(
             "id « {id} » ambigu pour le kind {kind} : défini dans {}",
-            found.iter().map(|e| e.rel.as_str()).collect::<Vec<_>>().join(", ")
+            found
+                .iter()
+                .map(|e| e.rel.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
         )),
     }
 }
@@ -1222,7 +1258,10 @@ pub fn set(
     let restore = |why: String| -> String {
         match std::fs::write(&entry.abs, &entry.text) {
             Ok(()) => format!("{why} ; {} restauré", entry.rel),
-            Err(e) => format!("{why} ; ATTENTION, {} n'a pas pu être restauré : {e}", entry.rel),
+            Err(e) => format!(
+                "{why} ; ATTENTION, {} n'a pas pu être restauré : {e}",
+                entry.rel
+            ),
         }
     };
     let after = match lint_errors(game_dir) {
@@ -1235,7 +1274,11 @@ pub fn set(
         return Err(restore(format!(
             "lint rouge après {kind} {id} {path} = {} : {}",
             change.new,
-            fresh.iter().map(|e| e.as_str()).collect::<Vec<_>>().join(" | ")
+            fresh
+                .iter()
+                .map(|e| e.as_str())
+                .collect::<Vec<_>>()
+                .join(" | ")
         )));
     }
     change.preexisting_lint_errors = after.len();
@@ -1292,7 +1335,10 @@ pub fn undo(dir: &Path) -> Result<Undone, String> {
         ));
     }
     let sha = git(&root, &["rev-parse", "HEAD"])?;
-    let listed = git(&root, &["diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"])?;
+    let listed = git(
+        &root,
+        &["diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+    )?;
     let files: Vec<&str> = listed.lines().collect();
     let pathspec = |args: &mut Vec<String>| {
         args.push("--".to_string());
@@ -1383,9 +1429,18 @@ mod tests {
         assert_eq!(at("pistolet.config.name").unwrap(), "\"pistolet\"");
         let base = "pistolet.config.firing_modes.default";
         assert_eq!(at(&format!("{base}.firing_rate")).unwrap(), "\"3.0\"");
-        assert_eq!(at(&format!("{base}.bullet_type.Standard.damage")).unwrap(), "\"12.0\"");
-        assert_eq!(at(&format!("{base}.bullet_type.speed")).unwrap(), "\"380.0\"");
-        assert_eq!(at(&format!("{base}.firing_mode.pellet_count")).unwrap(), "8");
+        assert_eq!(
+            at(&format!("{base}.bullet_type.Standard.damage")).unwrap(),
+            "\"12.0\""
+        );
+        assert_eq!(
+            at(&format!("{base}.bullet_type.speed")).unwrap(),
+            "\"380.0\""
+        );
+        assert_eq!(
+            at(&format!("{base}.firing_mode.pellet_count")).unwrap(),
+            "8"
+        );
         assert_eq!(at(&format!("{base}.mag.mag_size")).unwrap(), "12");
         assert_eq!(at("pistolet.config.test.frames").unwrap(), "200");
         assert_eq!(at("pistolet.config.aggro").unwrap(), "\"500.0\"");
@@ -1397,7 +1452,10 @@ mod tests {
     #[test]
     fn un_chemin_inconnu_liste_les_candidats() {
         let e = at("pistolet.config.nom").unwrap_err();
-        assert!(e.contains("pistolet.config.name") && e.contains("introuvable"), "{e}");
+        assert!(
+            e.contains("pistolet.config.name") && e.contains("introuvable"),
+            "{e}"
+        );
         let e = at("pistolet.config.firing_modes.default.bullet_type.Standard.dmg").unwrap_err();
         assert!(e.contains("Standard.damage"), "{e}");
         let e = at("pistolet.config.name.x").unwrap_err();
@@ -1408,7 +1466,10 @@ mod tests {
     fn un_nom_de_variante_en_double_est_ambigu_et_l_indice_tranche() {
         let base = "pistolet.config.firing_modes.default.on_expire";
         let e = at(&format!("{base}.Spawn.count")).unwrap_err();
-        assert!(e.contains("ambigu") && e.contains(&format!("{base}.0")), "{e}");
+        assert!(
+            e.contains("ambigu") && e.contains(&format!("{base}.0")),
+            "{e}"
+        );
         assert_eq!(at(&format!("{base}.1.count")).unwrap(), "4");
     }
 
@@ -1417,8 +1478,14 @@ mod tests {
         assert_eq!(format_value("\"150.0\"", "120").unwrap(), "\"120.0\"");
         assert_eq!(format_value("\"150.0\"", "120.5").unwrap(), "\"120.5\"");
         assert_eq!(format_value("\"1\"", "2").unwrap(), "\"2\"");
-        assert_eq!(format_value("\"150.0\"", "\"1 + floor\"").unwrap(), "\"1 + floor\"");
-        assert_eq!(format_value("\"1 + floor\"", "2 + floor").unwrap(), "\"2 + floor\"");
+        assert_eq!(
+            format_value("\"150.0\"", "\"1 + floor\"").unwrap(),
+            "\"1 + floor\""
+        );
+        assert_eq!(
+            format_value("\"1 + floor\"", "2 + floor").unwrap(),
+            "\"2 + floor\""
+        );
         assert_eq!(format_value("12", "20").unwrap(), "20");
         assert!(format_value("12", "20.5").unwrap_err().contains("entier"));
         assert_eq!(format_value("3.0", "4").unwrap(), "4.0");

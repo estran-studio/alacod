@@ -63,7 +63,11 @@ fn serve(mut stream: TcpStream, game: &Arc<Mutex<Game>>) {
         if let Some(split) = text.find("\r\n\r\n") {
             let length = text
                 .lines()
-                .find_map(|l| l.to_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse::<usize>().unwrap()))
+                .find_map(|l| {
+                    l.to_lowercase()
+                        .strip_prefix("content-length:")
+                        .map(|v| v.trim().parse::<usize>().unwrap())
+                })
                 .unwrap_or(0);
             if text.len() >= split + 4 + length {
                 break text[split + 4..split + 4 + length].to_string();
@@ -111,7 +115,9 @@ fn serve(mut stream: TcpStream, game: &Arc<Mutex<Game>>) {
             game.paused = false;
             json!({"result": {"frame": game.frame}})
         }
-        "alacod/restart" => json!({"error": {"code": -32602, "message": "refusé : check_distance=2"}}),
+        "alacod/restart" => {
+            json!({"error": {"code": -32602, "message": "refusé : check_distance=2"}})
+        }
         other => json!({"error": {"code": -32601, "message": format!("méthode inconnue {other}")}}),
     };
     let body = answer.to_string();
@@ -191,7 +197,10 @@ fn json_donne_une_enveloppe_sur_stdout_succes_comme_echec() {
     let o = alacod(fake.port, &["--json", "restart"]);
     assert_eq!(o.status.code(), Some(1));
     let json: Value = serde_json::from_str(&out(&o)).unwrap();
-    assert_eq!((json["ok"].clone(), json["code"].clone()), (json!(false), json!(1)));
+    assert_eq!(
+        (json["ok"].clone(), json["code"].clone()),
+        (json!(false), json!(1))
+    );
     assert!(json["error"].as_str().unwrap().contains("check_distance=2"));
     assert_eq!(err(&o), "", "avec --json, rien sur stderr");
 
@@ -224,7 +233,14 @@ fn un_script_joue_ses_lignes_dans_l_ordre_et_verifie_ses_assertions() {
     assert!(text.contains("enemies = 2"), "{text}");
     assert!(text.contains("script ok : 9 lignes"), "{text}");
     let methods = fake.methods();
-    assert_eq!(&methods[..3], ["alacod/give", "alacod/spawn_character", "alacod/spawn_character"]);
+    assert_eq!(
+        &methods[..3],
+        [
+            "alacod/give",
+            "alacod/spawn_character",
+            "alacod/spawn_character"
+        ]
+    );
 
     // --json : un seul document, une entrée par ligne (sur un jeu neuf : les spawns de la première passe restent).
     let fake = Fake::start();
@@ -244,17 +260,32 @@ fn une_assertion_fausse_arrete_le_script_avec_le_code_4() {
          expect enemies == 3\n\
          give --weapon shotgun\n",
     );
-    let o = alacod(fake.port, &["run", "--expect-timeout", "0.2", file.to_str().unwrap()]);
+    let o = alacod(
+        fake.port,
+        &["run", "--expect-timeout", "0.2", file.to_str().unwrap()],
+    );
     assert_eq!(o.status.code(), Some(4), "{}", out(&o));
     let message = err(&o);
-    assert!(message.contains("assertion fausse : enemies == 3 ; obtenu 1"), "{message}");
+    assert!(
+        message.contains("assertion fausse : enemies == 3 ; obtenu 1"),
+        "{message}"
+    );
     assert!(message.contains("1 non exécutée"), "{message}");
-    assert!(!fake.methods().contains(&"alacod/give".to_string()), "la ligne suivante ne doit pas partir");
+    assert!(
+        !fake.methods().contains(&"alacod/give".to_string()),
+        "la ligne suivante ne doit pas partir"
+    );
 
     // --keep-going : la ligne suivante part, le code reste celui du premier échec.
     let o = alacod(
         fake.port,
-        &["run", "--keep-going", "--expect-timeout", "0.2", file.to_str().unwrap()],
+        &[
+            "run",
+            "--keep-going",
+            "--expect-timeout",
+            "0.2",
+            file.to_str().unwrap(),
+        ],
     );
     assert_eq!(o.status.code(), Some(4));
     assert!(fake.methods().contains(&"alacod/give".to_string()));
@@ -263,11 +294,18 @@ fn une_assertion_fausse_arrete_le_script_avec_le_code_4() {
 #[test]
 fn un_script_mal_forme_est_refuse_avant_la_premiere_commande() {
     let fake = Fake::start();
-    let file = script("syntaxe", "give --weapon shotgun\nwait vite\nspawn zombie_1 --at 1,2\n");
+    let file = script(
+        "syntaxe",
+        "give --weapon shotgun\nwait vite\nspawn zombie_1 --at 1,2\n",
+    );
     let o = alacod(fake.port, &["run", file.to_str().unwrap()]);
     assert_eq!(o.status.code(), Some(2));
     assert!(err(&o).contains("ligne 2"), "{}", err(&o));
-    assert!(fake.methods().is_empty(), "aucune commande n'est partie : {:?}", fake.methods());
+    assert!(
+        fake.methods().is_empty(),
+        "aucune commande n'est partie : {:?}",
+        fake.methods()
+    );
 
     let o = alacod(fake.port, &["run", "/chemin/qui/n/existe/pas.alacod"]);
     assert_eq!(o.status.code(), Some(1));
@@ -287,7 +325,8 @@ fn une_erreur_du_jeu_dans_un_script_garde_son_code() {
 #[test]
 fn le_script_d_exemple_de_zombies_est_syntaxiquement_valide() {
     // Même vérification que `alacod remote run` avant la première commande, sans jeu.
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../games/zombies/scripts/monde_test.alacod");
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../games/zombies/scripts/monde_test.alacod");
     let source = std::fs::read_to_string(&path).unwrap();
     let lines = content::script::parse_script(&source).unwrap();
     assert!(lines.len() >= 8, "{} lignes", lines.len());

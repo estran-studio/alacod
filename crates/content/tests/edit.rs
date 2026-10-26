@@ -130,7 +130,11 @@ fn get_lit_une_valeur_un_bloc_et_refuse_ce_qui_n_existe_pas() {
     let o = w.alacod(&["get", "Character", "player", "base_health.regen_rate"]);
     assert_eq!(out(&o).trim(), "\"10.0\"");
     let o = w.alacod(&["get", "Character", "player", "base_health"]);
-    assert!(out(&o).contains("réglages : base_health.max, base_health.regen_rate"), "{}", out(&o));
+    assert!(
+        out(&o).contains("réglages : base_health.max, base_health.regen_rate"),
+        "{}",
+        out(&o)
+    );
 
     let o = w.alacod(&["get", "--json", "Camera", "camera", "lerp_speed"]);
     let json: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
@@ -168,22 +172,61 @@ fn set_ne_change_que_la_valeur_et_dit_quand_elle_prend_effet() {
     assert_eq!(diff.len(), 1, "{diff:?}");
     assert_eq!(diff[0].0.trim(), "max_speed: \"150.0\",");
     assert_eq!(diff[0].1.trim(), "max_speed: \"120.0\",");
-    assert_eq!(before.replacen("max_speed: \"150.0\"", "max_speed: \"120.0\"", 1), after);
+    assert_eq!(
+        before.replacen("max_speed: \"150.0\"", "max_speed: \"120.0\"", 1),
+        after
+    );
 
     // Un entier reste un entier, `Some(..)` se règle par sa valeur, un commentaire de fin de ligne survit.
     let before = after;
-    let o = w.alacod(&["set", "Character", "player", "movement.dash_cooldown_frames", "30"]);
+    let o = w.alacod(&[
+        "set",
+        "Character",
+        "player",
+        "movement.dash_cooldown_frames",
+        "30",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
-    let o = w.alacod(&["set", "Character", "player", "base_health.regen_rate", "12.5"]);
+    let o = w.alacod(&[
+        "set",
+        "Character",
+        "player",
+        "base_health.regen_rate",
+        "12.5",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
-    let o = w.alacod(&["set", "Character", "player", "base_health.regen_delay_frames", "120"]);
+    let o = w.alacod(&[
+        "set",
+        "Character",
+        "player",
+        "base_health.regen_delay_frames",
+        "120",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
     let after = w.read(PLAYER);
     let diff = changed_lines(&before, &after);
     assert_eq!(diff.len(), 3, "{diff:?}");
-    assert!(diff[0].1.contains("dash_cooldown_frames: 30,      // 0,4 s"), "{}", diff[0].1);
-    assert!(diff[1].1.contains("regen_rate: Some(\"12.5\"),  // 1 HP per second"), "{}", diff[1].1);
-    assert!(diff[2].1.contains("regen_delay_frames: Some(120),  // 3 seconds"), "{}", diff[2].1);
+    assert!(
+        diff[0]
+            .1
+            .contains("dash_cooldown_frames: 30,      // 0,4 s"),
+        "{}",
+        diff[0].1
+    );
+    assert!(
+        diff[1]
+            .1
+            .contains("regen_rate: Some(\"12.5\"),  // 1 HP per second"),
+        "{}",
+        diff[1].1
+    );
+    assert!(
+        diff[2]
+            .1
+            .contains("regen_delay_frames: Some(120),  // 3 seconds"),
+        "{}",
+        diff[2].1
+    );
 
     // Une valeur déjà posée ne réécrit rien.
     let o = w.alacod(&["set", "Character", "player", "movement.max_speed", "120.0"]);
@@ -193,7 +236,11 @@ fn set_ne_change_que_la_valeur_et_dit_quand_elle_prend_effet() {
     // Valeur négative acceptée comme valeur.
     let o = w.alacod(&["set", "Camera", "camera", "lerp_speed", "-5"]);
     assert!(o.status.success(), "{}", err(&o));
-    assert!(w.read(CAMERA).contains("lerp_speed: -5.0,"), "{}", w.read(CAMERA));
+    assert!(
+        w.read(CAMERA).contains("lerp_speed: -5.0,"),
+        "{}",
+        w.read(CAMERA)
+    );
 }
 
 #[test]
@@ -222,11 +269,17 @@ fn set_relatif_garde_le_type_et_montre_l_ancienne_et_la_nouvelle_valeur() {
     let o = set("movement.dash_cooldown_frames", "+50%");
     assert!(o.status.success(), "{}", err(&o));
     assert!(out(&o).contains("24 -> 36"), "{}", out(&o));
-    assert!(w.read(PLAYER).contains("dash_cooldown_frames: 36,      // 0,4 s"));
+    assert!(w
+        .read(PLAYER)
+        .contains("dash_cooldown_frames: 36,      // 0,4 s"));
     let before = w.read(PLAYER);
     let o = set("movement.dash_cooldown_frames", "x0.9");
     assert_eq!(o.status.code(), Some(1));
-    assert!(err(&o).contains("32.4") && err(&o).contains("donner 32 ou 33"), "{}", err(&o));
+    assert!(
+        err(&o).contains("32.4") && err(&o).contains("donner 32 ou 33"),
+        "{}",
+        err(&o)
+    );
     assert_eq!(w.read(PLAYER), before);
     let o = set("base_health.regen_delay_frames", "-=30");
     assert!(out(&o).contains("180 -> 150"), "{}", out(&o));
@@ -245,14 +298,23 @@ fn set_relatif_garde_le_type_et_montre_l_ancienne_et_la_nouvelle_valeur() {
     assert!(out(&o).contains("12.5 -> 5.0 ("), "{}", out(&o));
     let o = w.alacod(&["set", "Camera", "camera", "lerp_speed", "-5", "--json"]);
     let json: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
-    assert_eq!((json["old"].as_str(), json["new"].as_str()), (Some("5.0"), Some("-5.0")));
+    assert_eq!(
+        (json["old"].as_str(), json["new"].as_str()),
+        (Some("5.0"), Some("-5.0"))
+    );
 }
 
 #[test]
 fn set_refuse_les_valeurs_de_mauvais_type_sans_rien_ecrire() {
     let w = Work::new("types");
     let before = w.read(PLAYER);
-    let o = w.alacod(&["set", "Character", "player", "movement.dash_cooldown_frames", "30.5"]);
+    let o = w.alacod(&[
+        "set",
+        "Character",
+        "player",
+        "movement.dash_cooldown_frames",
+        "30.5",
+    ]);
     assert!(err(&o).contains("entier attendu"), "{}", err(&o));
     // Une valeur de `Fixed` non numérique est une chaîne : le lint tranche, le fichier est restauré.
     let o = w.alacod(&["set", "Character", "player", "movement.max_speed", "vite"]);
@@ -261,7 +323,11 @@ fn set_refuse_les_valeurs_de_mauvais_type_sans_rien_ecrire() {
     // Un bloc n'est pas une valeur : les réglages possibles sont listés.
     let o = w.alacod(&["set", "Character", "player", "movement", "3"]);
     assert_eq!(o.status.code(), Some(1));
-    assert!(err(&o).contains("movement.max_speed") && err(&o).contains("--raw"), "{}", err(&o));
+    assert!(
+        err(&o).contains("movement.max_speed") && err(&o).contains("--raw"),
+        "{}",
+        err(&o)
+    );
     assert_eq!(w.read(PLAYER), before);
 }
 
@@ -272,9 +338,16 @@ fn le_lint_rouge_restaure_le_fichier() {
     let o = w.alacod(&["set", "Character", "player", "starting_skin", "9"]);
     assert_eq!(o.status.code(), Some(1), "{}", out(&o));
     let message = err(&o);
-    assert!(message.contains("lint rouge") && message.contains("starting_skin"), "{message}");
+    assert!(
+        message.contains("lint rouge") && message.contains("starting_skin"),
+        "{message}"
+    );
     assert!(message.contains("player_config.ron restauré"), "{message}");
-    assert_eq!(w.read(PLAYER), before, "le fichier doit être restauré octet pour octet");
+    assert_eq!(
+        w.read(PLAYER),
+        before,
+        "le fichier doit être restauré octet pour octet"
+    );
     assert_eq!(w.git(&["status", "--porcelain"]), "");
 
     // Avec --json, l'erreur est sur stdout.
@@ -288,7 +361,9 @@ fn le_lint_rouge_restaure_le_fichier() {
 fn des_erreurs_de_lint_deja_presentes_ne_bloquent_pas_un_reglage_sain() {
     let w = Work::new("preexistant");
     // Le contenu est déjà rouge avant le réglage (commit de départ compris).
-    let broken = w.read(PLAYER).replacen("starting_skin: \"1\"", "starting_skin: \"9\"", 1);
+    let broken = w
+        .read(PLAYER)
+        .replacen("starting_skin: \"1\"", "starting_skin: \"9\"", 1);
     w.write(PLAYER, &broken);
     let o = w.alacod(&["set", "Camera", "camera", "lerp_speed", "10"]);
     assert!(o.status.success(), "{}", err(&o));
@@ -302,7 +377,10 @@ fn les_chemins_inconnus_ou_ambigus_listent_les_candidats() {
     let o = w.alacod(&["set", "Character", "player", "movement.max_spead", "1"]);
     assert_eq!(o.status.code(), Some(1));
     let message = err(&o);
-    assert!(message.contains("introuvable") && message.contains("movement.max_speed"), "{message}");
+    assert!(
+        message.contains("introuvable") && message.contains("movement.max_speed"),
+        "{message}"
+    );
 
     // Deux modes de tir portent la même variante dans une liste : l'indice tranche.
     w.write(
@@ -323,19 +401,40 @@ fn les_chemins_inconnus_ou_ambigus_listent_les_candidats() {
 #[test]
 fn raw_remplace_le_noeud_tel_quel() {
     let w = Work::new("raw");
-    let o = w.alacod(&["set", "--raw", "Character", "player", "base_health.regen_rate", "None"]);
+    let o = w.alacod(&[
+        "set",
+        "--raw",
+        "Character",
+        "player",
+        "base_health.regen_rate",
+        "None",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
     assert!(w.read(PLAYER).contains("regen_rate: None,"));
     // Sans --raw, `None` n'a pas de type à reprendre.
     let o = w.alacod(&["set", "Character", "player", "base_health.regen_rate", "5"]);
     assert_eq!(o.status.code(), Some(1));
     assert!(err(&o).contains("--raw"), "{}", err(&o));
-    let o = w.alacod(&["set", "--raw", "Character", "player", "base_health.regen_rate", "Some(\"5.0\")"]);
+    let o = w.alacod(&[
+        "set",
+        "--raw",
+        "Character",
+        "player",
+        "base_health.regen_rate",
+        "Some(\"5.0\")",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
     assert!(w.read(PLAYER).contains("regen_rate: Some(\"5.0\"),"));
     // Un RON mal formé est refusé avant toute écriture.
     let before = w.read(PLAYER);
-    let o = w.alacod(&["set", "--raw", "Character", "player", "base_health.regen_rate", "Some(("]);
+    let o = w.alacod(&[
+        "set",
+        "--raw",
+        "Character",
+        "player",
+        "base_health.regen_rate",
+        "Some((",
+    ]);
     assert_eq!(o.status.code(), Some(1));
     assert_eq!(w.read(PLAYER), before);
 }
@@ -348,7 +447,14 @@ fn commit_ne_prend_que_le_fichier_touche() {
     w.write("assets/notes.txt", "à moi");
     w.git(&["add", "assets/notes.txt"]);
 
-    let o = w.alacod(&["set", "--commit", "Character", "player", "movement.max_speed", "120"]);
+    let o = w.alacod(&[
+        "set",
+        "--commit",
+        "Character",
+        "player",
+        "movement.max_speed",
+        "120",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
     assert!(out(&o).contains("; commit "), "{}", out(&o));
 
@@ -370,10 +476,21 @@ fn commit_ne_prend_que_le_fichier_touche() {
 #[test]
 fn commit_refuse_un_fichier_deja_modifie() {
     let w = Work::new("commit-sale");
-    w.write(PLAYER, &w.read(PLAYER).replacen("// Double speed", "// Double vitesse", 1));
+    w.write(
+        PLAYER,
+        &w.read(PLAYER)
+            .replacen("// Double speed", "// Double vitesse", 1),
+    );
     let dirty = w.read(PLAYER);
     let head = w.git(&["rev-parse", "HEAD"]);
-    let o = w.alacod(&["set", "--commit", "Character", "player", "movement.max_speed", "120"]);
+    let o = w.alacod(&[
+        "set",
+        "--commit",
+        "Character",
+        "player",
+        "movement.max_speed",
+        "120",
+    ]);
     assert_eq!(o.status.code(), Some(1));
     assert!(err(&o).contains("changements non commités"), "{}", err(&o));
     assert_eq!(w.read(PLAYER), dirty, "rien n'est écrit");
@@ -384,13 +501,24 @@ fn commit_refuse_un_fichier_deja_modifie() {
 fn undo_annule_un_commit_editor_et_lui_seul() {
     let w = Work::new("undo");
     let original = w.read(PLAYER);
-    let o = w.alacod(&["set", "--commit", "Character", "player", "movement.max_speed", "100"]);
+    let o = w.alacod(&[
+        "set",
+        "--commit",
+        "Character",
+        "player",
+        "movement.max_speed",
+        "100",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
     assert_ne!(w.read(PLAYER), original);
 
     let o = w.alacod(&["undo"]);
     assert!(o.status.success(), "{}", err(&o));
-    assert!(out(&o).contains("annulé : editor: Character player movement.max_speed 150.0 -> 100.0"), "{}", out(&o));
+    assert!(
+        out(&o).contains("annulé : editor: Character player movement.max_speed 150.0 -> 100.0"),
+        "{}",
+        out(&o)
+    );
     assert!(out(&o).contains("lint : aucune erreur"), "{}", out(&o));
     assert_eq!(w.read(PLAYER), original);
     assert!(w.git(&["log", "-1", "--format=%s"]).starts_with("Revert"));
@@ -414,7 +542,14 @@ fn undo_annule_un_commit_editor_et_lui_seul() {
 #[test]
 fn undo_garde_le_travail_en_cours_des_autres_fichiers() {
     let w = Work::new("undo-sale");
-    let o = w.alacod(&["set", "--commit", "Character", "player", "movement.max_speed", "100"]);
+    let o = w.alacod(&[
+        "set",
+        "--commit",
+        "Character",
+        "player",
+        "movement.max_speed",
+        "100",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
     w.write(CAMERA, &w.read(CAMERA).replacen("12.0", "13.0", 1));
     w.write("assets/notes.txt", "à moi");
@@ -429,9 +564,20 @@ fn undo_garde_le_travail_en_cours_des_autres_fichiers() {
 #[test]
 fn undo_refuse_si_le_fichier_du_commit_a_des_changements_non_commites() {
     let w = Work::new("undo-fichier-sale");
-    let o = w.alacod(&["set", "--commit", "Character", "player", "movement.max_speed", "100"]);
+    let o = w.alacod(&[
+        "set",
+        "--commit",
+        "Character",
+        "player",
+        "movement.max_speed",
+        "100",
+    ]);
     assert!(o.status.success(), "{}", err(&o));
-    w.write(PLAYER, &w.read(PLAYER).replacen("// Double speed", "// Double vitesse", 1));
+    w.write(
+        PLAYER,
+        &w.read(PLAYER)
+            .replacen("// Double speed", "// Double vitesse", 1),
+    );
     let dirty = w.read(PLAYER);
     let head = w.git(&["rev-parse", "HEAD"]);
     let o = w.alacod(&["undo"]);
