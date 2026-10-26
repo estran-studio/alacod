@@ -765,7 +765,7 @@ design. **Décisions du 2026-10-22** : **une seule semaine à sept voies** (« t
 **Décision de William du 2026-10-26** : préparer l'engine pour 1837 et créer le premier jeu externe, géré à 100 % par la CLI `alacod`. Règle de
 découpage validée le même jour : engine, contenu ou plugin de jeu (`docs/plan-engine.md` §4.8, `docs/conventions.md` §4 point 0) ; le gameplay
 entre dans l'engine sous forme de verbes composables, jamais comme un système d'un seul bloc. Plan, état relevé, décisions et lots X-1 à X-6 :
-`docs/taches/plan-1837-cli.md`. Dettes réservées : D139–D148.
+`docs/taches/plan-1837-cli.md`. Dettes réservées : D139–D155. Sprites (William, 2026-10-26) : 8 directions pour 1837, l'engine reste flexible (1, 4, 5 ou 8 directions par planche).
 
 ### 8.1 M3 : `isaac` (Binding of Isaac) en tâches
 

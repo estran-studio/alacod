@@ -50,7 +50,9 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
 - **D-b Dépendance** : tag git épinglé (`alacod new` prend le dernier tag par défaut) ; `alacod engine local <chemin>` pose une surcharge locale
   (patch Cargo hors `Cargo.toml` versionné) pour développer engine et jeu ensemble ; `alacod engine pin <tag>` / `status`. Un tag `v0.1.0` est posé
   au merge de X-2a (le dernier, `v0.0.2`, précède le bac à sable).
-- **D-c Sprites** : l'engine apprend à choisir une **ligne par direction** (8 lignes) ; le retournement reste le défaut des jeux existants.
+- **D-c Sprites (confirmé par William le 2026-10-26)** : 1837 a besoin des **8 directions**, mais l'engine reste **flexible** : une planche déclare
+  combien de directions elle dessine (1 avec miroir : le défaut actuel des clones ; 4 ; 5 avec miroir pour l'autre côté ; 8) et l'engine choisit la
+  ligne de la direction la plus proche dessinée, en miroir si la planche le permet. Aucune planche existante ne change.
 - **D-d Petites dettes** : D126 (personnage dans `PlayerScript`), D130 (`give` enregistré par `save`), D131 (`player` en dur) vont dans X-2a ;
   D133 (`schedule_order_diff`) dans X-1, qui s'en sert.
 - **D-e Une seule entrée de jeu** : le `main.rs` d'un jeu ne fait plus que déclarer ses plugins ; l'engine fournit le point d'entrée qui sert la
@@ -63,19 +65,21 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
 - **Q-2 Archétypes de D1** (X-5) : les deux ennemis de la pièce (étape C.1 de la feuille de route : quatre archétypes au plus pour la démo).
 - **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md`.
 
-## 4. Lots (deux voies au plus en parallèle)
+## 4. Lots (quatre voies au plus en parallèle depuis le 2026-10-26)
 
 | Lot | Contenu | Prérequis | Voie | Effort |
 |---|---|---|---|---|
 | **X-1 Points d'extension** | entrée unique (D-e) ; runner de scénarios appelable depuis le binaire du jeu ; point d'insertion des enregistrements rollback d'un plugin ; variantes `Custom` ouvertes ; kinds de contenu et règles de lint déclarés par un plugin ; D133 | — | A | high |
 | **X-2a CLI : dépendance et lancement** | D-b (`new` par tag, `engine local/pin/status`), racine engine par `cargo metadata` au lieu de `BUILT_FROM_ENGINE` ; `alacod run [--sandbox [profil]] [--headless] [--seed] [--players]` ; `alacod remote …` (remplace `scripts/alacod-remote` pour un jeu externe) ; D126, D130, D131 | — | B | medium |
 | **X-2b CLI : test, vidéo, build** | `alacod test` joue les scénarios par le binaire du jeu (plugin compris) et écrit dans le jeu ; `alacod video` (rendu, Mac) ; `alacod build --release` et `--web` (version du jeu dans `APP_VERSION`) ; test de bout en bout du §1.1 | X-1, X-2a | B | medium |
-| **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | X-1 (pour les `Custom` et le critère §4.8) | A | high |
-| **X-4 Sprites** | choix de ligne par `FacingDirection` (`crates/animation`), `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | — | B | medium |
+| **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | — (verbes natifs de l'engine ; conflits possibles avec les `Custom` de X-1 dans les mêmes enums, résolus au merge) | C (Mac) | high |
+| **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | D (Mac) | medium |
+| **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a, X-2a (`alacod.rs`) | D | medium |
 | **X-5 Création de 1837 et palier D1** | `alacod new 1837`, assets du kit Frontière importés, une pièce, deux ennemis, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; tout par `alacod` | X-1 à X-4, D-a, Q-1, Q-2 | A ou B | medium |
 | **X-6 Paliers D2 à D5** | verbes `Lure`/`Grab`, contrainte de branche de la clé du boss (`map::generation::grid`), graine de la sauvegarde (`meta::Profile`), extérieur dessiné → intérieur généré ; contenu des paliers | X-5, Q-3 | — | à planifier |
 
-Chemin critique : X-1 → X-2b → X-5. X-1 et X-2a partent ensemble ; X-3 suit X-1 sur la voie A, X-4 suit X-2a sur la voie B.
+Chemin critique : X-1 → X-2b → X-5. Quatre voies depuis le 2026-10-26 (Mac disponible) : A = X-1 puis X-2b (VPS), B = X-2a (VPS),
+C = X-3 (Mac), D = X-4a puis X-4b (Mac ; le rendu y est possible).
 
 ### Espace de solution par lot
 
@@ -88,13 +92,15 @@ Chemin critique : X-1 → X-2b → X-5. X-1 et X-2a partent ensemble ; X-3 suit 
   coexistent, sans second protocole (mêmes méthodes `alacod/*`).
 - **X-3** : un verbe par besoin, jamais un « système de rythme » (§4.8) ; valeurs en frames entières (60 ms ≈ 4 frames à 60 Hz : arrondi à
   documenter) ; tout en `Fixed`, `FrameEvents`, checksum neutre pour les types nouveaux.
-- **X-4** : la sélection de ligne est de la présentation ; la simulation ne change pas (`FacingDirection` existe déjà, 8 valeurs).
+- **X-4a** : la sélection de ligne est de la présentation ; la simulation ne change pas (`FacingDirection` existe déjà, 8 valeurs). Une planche
+  sans déclaration garde le comportement actuel (une orientation et le miroir) : aucune trace, aucune capture des clones ne change.
 
 ## 5. Règles communes
 
 - `CLAUDE.md` (déterminisme, frontière simulation/présentation), `docs/conventions.md` §4 (point 0 compris).
 - Aucun nom de jeu dans le code de l'engine ; aucune trace de clone ne bouge (`BLESS` interdit) ; `make schedule_order_diff` vide pour X-1 et X-3.
 - VPS : `make test_crates` un paquet à la fois, `scripts/target-sweep.sh` sous 30 Go libres.
-- Dettes : **D139 à D148** réservées à ce plan (D134–D138 : polissage) ; annoncer le numéro pris dans le journal.
+- Dettes : **D139 à D155** réservées à ce plan (D134–D138 : polissage) : X-1 D139–D143, X-2a D144–D148, X-3 D149–D152, X-4a D153–D155 ;
+  annoncer le numéro pris dans le journal.
 - Docs au merge : `docs/conventions.md` (un § par lot), `docs/jouer.md`, `templates/starter/CLAUDE.md`, `CLAUDE.md` (CLI et entrée unique).
 - Chaque lot finit par `LIVRÉ <branche>` dans le journal (`docs/taches.md` §10) et un rapport dans `docs/taches/rapports/x-<n>-*.md`.
