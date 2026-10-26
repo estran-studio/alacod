@@ -4323,33 +4323,31 @@ fn sprite_sheet_entry(
         let Some(text) = assets_dir.read(Path::new(path)).ok() else {
             continue;
         };
-        // Le lint historique ne lisait que `path` : une feuille illisible sans `directions`
-        // reste hors de ce nouveau contrôle (la table garde le chemin du fichier).
+        // La désérialisation détecte `directions` indépendamment de l'espacement RON ;
+        // sans déclaration, la feuille garde le comportement historique.
         if let Ok(sheet) = ron::from_str::<SheetPathSchema>(&text) {
             images.insert(layer.clone(), sheet.path);
         }
-        if text.contains("directions:") {
-            match ron::from_str::<SheetDirectionsSchema>(&text) {
-                Ok(sheet) => {
-                    if let Some(parsed) = sheet.directions {
-                        directions.insert(
-                            layer.clone(),
-                            SheetDirectionsDecl {
-                                sheet_rows: (sheet.rows != 0).then_some(sheet.rows),
-                                parsed: Ok(parsed),
-                            },
-                        );
-                    }
-                }
-                Err(error) => {
+        match ron::from_str::<SheetDirectionsSchema>(&text) {
+            Ok(sheet) => {
+                if let Some(parsed) = sheet.directions {
                     directions.insert(
                         layer.clone(),
                         SheetDirectionsDecl {
-                            sheet_rows: None,
-                            parsed: Err(error.to_string()),
+                            sheet_rows: Some(sheet.rows),
+                            parsed: Ok(parsed),
                         },
                     );
                 }
+            }
+            Err(error) => {
+                directions.insert(
+                    layer.clone(),
+                    SheetDirectionsDecl {
+                        sheet_rows: None,
+                        parsed: Err(error.to_string()),
+                    },
+                );
             }
         }
     }

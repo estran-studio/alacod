@@ -1063,6 +1063,40 @@ fn sprite_sheet_directions_rows_not_a_multiple_is_out_of_range() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// Les espaces RON autour de `:` ne doivent pas désactiver le lint des directions.
+#[test]
+fn sprite_sheet_directions_with_spaced_colon_are_still_validated() {
+    for (rows, compass, kind, message) in [
+        (8, "East", LintErrorKind::Parse, "East"),
+        (0, "E, NE, N, NW, W, SW, S, SE", LintErrorKind::OutOfRange, "0 ligne(s)"),
+    ] {
+        let sheet = format!(
+            "(path: \"sprites/hero.png\", rows: {rows}, directions : Some((rows: [{compass}])))"
+        );
+        let (_, _, errors) = content::load_embedded(&[
+            (
+                "game.ron",
+                Some(
+                    r#"(
+                        name: "sprite_directions_spacing",
+                        content_folders: [(path: "sprites/sprites.ron", kind: "SpriteSheet")],
+                        entry: (start_map: "unused", default_seed: 1),
+                    )"#,
+                ),
+            ),
+            (
+                "sprites/sprites.ron",
+                Some(
+                    r#"({"hero": (animation: "sprites/hero_animation.ron", layers: {"body": "sprites/hero_sheet.ron"})})"#,
+                ),
+            ),
+            ("sprites/hero_sheet.ron", Some(sheet.as_str())),
+        ])
+        .unwrap();
+        assert_has_error(&errors, kind, message);
+    }
+}
+
 /// X-4a : huit directions sur deux blocs de huit lignes : propre.
 #[test]
 fn sprite_sheet_directions_two_blocks_of_eight_is_clean() {
