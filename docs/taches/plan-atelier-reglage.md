@@ -1,10 +1,10 @@
 # Plan de l'atelier de réglage (chantier K7, lots AT) — rédigé le 2026-10-26
 
-**État au 2026-10-26 : plan écrit, aucun lot lancé. Décision attendue de William : ordre des lots et départ d'AT-0.**
+**État au 2026-10-26 : AT-0 en cours (branche `at-0-consolidation`) ; les autres lots attendent AT-0.**
 
 | Lot | Contenu court | Prérequis | Estimation |
 |---|---|---|---|
-| AT-0 | Consolidation de la séance : commit, revue, suite complète, binaire `alacod` installé, petits défauts relevés | — | 0,5 j |
+| AT-0 | Consolidation de la séance : commit, revue, suite complète, binaire `alacod` installé, petits défauts relevés — **en cours : fonctionnalités faites, suite complète à jouer** | — | 0,5 j |
 | AT-1 | Commandes de confort : `list`, triches de dev, spawn en formation, gel des ennemis, vues de debug par la CLI | AT-0 | 1 j |
 | AT-2 | Mesures dans la simulation : `DevMetrics`, fenêtres de mesure, `alacod remote metrics` | AT-0 | 1,5 j |
 | AT-3 | Widgets de dev à l'écran (sources HUD `dev_*`, F8, `alacod remote widget`) | AT-2 | 1,5 j |
@@ -38,14 +38,14 @@ Ce que la séance de réglage de `zombies` a montré, et où chaque point est tr
 |---|---|---|---|---|
 | 1 | Le jeu « se fermait tout seul » à chaque lancement | process lancé par l'outil supervisé de l'agent, tué en fin de tour ; aucun code du jeu en cause | réglé : `alacod sandbox --detach` (SB-6, §89) | — |
 | 2 | Le bac à sable ouvrait la carte roguelike (fenêtres, portes, armes murales) | `sandbox.arena` de `zombies` = `exemples/test_map.ldtk` | réglé : `alacod new-arena`, `arene_vide.ldtk` dans les cinq jeux et le gabarit | — |
-| 3 | Un ennemi posé par `remote spawn` était invisible (barre de vie seule) | personnage à `z = 0`, sous les couches de tuiles LDtk | réglé : `lift_characters_to_entity_layer` (`map_ldtk/src/plugins.rs`) ; **objets et power-ups posés à `z = 0` non vérifiés** | AT-0 |
+| 3 | Un ennemi posé par `remote spawn` était invisible (barre de vie seule) | personnage à `z = 0`, sous les couches de tuiles LDtk | réglé : `lift_characters_to_entity_layer` (`map_ldtk/src/plugins.rs`) ; objets et power-ups posés à `z = 0` vérifiés visibles (AT-0) : l'image d'un objet au sol (`sheet_monde`, `offset_z` 3,4 dans `gungeon` et `isaac`) passe au-dessus de la couche `Entities` (z = 3), un power-up est un repère gizmo et une étiquette à z = 50 ; pas de remontée à ajouter | AT-0 |
 | 4 | La partie « gelait » après un coup de zombie | un agent avait fait `step` sans `resume` ; rien à l'écran ne disait « pause » | réglé côté client (`step` rend l'état d'avant) ; **pas d'indicateur de pause à l'écran** | AT-1 |
 | 5 | Chaque réglage coûtait une lecture et une édition de fichier | pas de commande d'édition | réglé : `alacod get/set/undo` (SB-7) | — |
-| 6 | Chaque commande `alacod` prenait 36 à 55 s | appel par `cargo run -p content --bin alacod` (vérification et édition de liens à chaque fois) | **ouvert** : binaire installé et documenté comme seule forme | AT-0 |
-| 7 | `remote screenshot` rendait la main avant d'écrire le fichier (une image périmée a été lue) | capture asynchrone (`remote.rs`, observateur `save_to_disk`) | **ouvert** : `screenshot --wait` (attend le fichier) | AT-0 |
+| 6 | Chaque commande `alacod` prenait 36 à 55 s | appel par `cargo run -p content --bin alacod` (vérification et édition de liens à chaque fois) | réglé : binaire installé, seule forme documentée ; `alacod self-check` dit s'il est plus ancien que les sources (code 1) | AT-0 |
+| 7 | `remote screenshot` rendait la main avant d'écrire le fichier (une image périmée a été lue) | capture asynchrone (`remote.rs`, observateur `save_to_disk`) | réglé : `screenshot` attend le fichier écrit et de taille stable (`--wait`, 5 s par défaut, code 1 au-delà) | AT-0 |
 | 8 | Dans l'arène ouverte, trois zombies tuent le joueur immobile ; la défaite arrête la simulation | aucun mode invulnérable, aucun soin, aucun « tout effacer » | **ouvert** | AT-1 |
 | 9 | La dictée déforme les ids ; `describe` est long à lire | pas de liste courte avec recherche approchée | **ouvert** : `alacod list <Kind> [filtre]` | AT-1 |
-| 10 | « Un peu moins de dispersion » a donné 0,15 → 0,12 (−20 %, au-delà du barème « un peu » = 10 à 15 %) | calcul à la main par l'agent | **ouvert** : valeurs relatives `alacod set … x0.9` / `-10%` | AT-0 |
+| 10 | « Un peu moins de dispersion » a donné 0,15 → 0,12 (−20 %, au-delà du barème « un peu » = 10 à 15 %) | calcul à la main par l'agent | réglé : valeurs relatives `alacod set … x0.9`, `+10%`/`-10%`, `+=5`/`-=5` (`+5`/`-5` restent absolus) | AT-0 |
 | 11 | Rien à l'écran ne dit ce qui vient de changer | `set` n'informe que la CLI | **ouvert** : bandeau « dernier réglage » | AT-3 |
 | 12 | Impossible de dire si l'arme est « meilleure » après un réglage | aucun compteur de tirs, coups, dégâts par arme ; `Bullet` ne porte pas l'id de son arme | **ouvert** | AT-2, AT-3, AT-6 |
 | 13 | Les preuves des agents ont laissé deux commits `editor:` (`b1aab036` et son revert) dans l'historique de William | `set --commit` joué dans le dépôt de William | **ouvert** : règle §7 (preuves sur port et dépôt jetables) | AT-0 |
@@ -251,6 +251,8 @@ Ce que la séance de réglage de `zombies` a montré, et où chaque point est tr
 - **Tout par `alacod`** : aucun lot n'ajoute de cible `make` nécessaire ni de script dans `scripts/` ; une cible `make` peut rester un alias.
 - **Preuves d'agent** : partie jetable sur un autre port (`ALACOD_REMOTE_PORT`), jamais `--commit` dans le dépôt de William, jamais `kill` de
   sa partie ; une partie relancée l'est par `alacod sandbox <jeu> --detach`. Jamais laisser une partie en pause.
+- **Dossier de compilation à part** pendant que William joue : `CARGO_TARGET_DIR=target/agent` devant `alacod sandbox`, `cargo test`, `cargo run` et
+  `make` qui lient un binaire de jeu. Sur macOS, relier `target/debug/zombies` pendant qu'il tourne a tué la partie de William (2026-10-26, AT-0).
 - Une capture d'écran prise pour preuve est **regardée**, pas seulement écrite.
 - Un rapport par lot dans `docs/taches/rapports/`, ligne `LIVRÉ <branche>` au journal de `docs/taches.md` §10, une phrase au §8.3.
 - Une commande cargo à la fois, `env -u CI`.

@@ -422,6 +422,7 @@ Le joueur de throne est `characters/pilote.ron` (`asset_name_ref: "player"`, tro
 7. Ne jamais pousser (`git push`), jamais `git stash`, jamais de commande destructive.
 8. **Ne jamais laisser la partie en pause** : William joue. `alacod remote step` la relance seul quand elle tournait (§2.5) ; après un `pause`, `alacod remote resume` ; avant de répondre, `alacod remote brief` doit montrer `pause=False`.
 9. **Les preuves d'un agent tournent sur un jeu à part**, lancé sur un autre port (`ALACOD_REMOTE_PORT=15703 alacod sandbox <jeu> --detach`, puis `ALACOD_REMOTE_PORT=15703 alacod remote …`), jamais sur la partie de William ; et jamais `alacod set --commit` ni `alacod undo` dans le dépôt de William (ils commitent ou annulent dans sa branche).
+   Ce jeu à part se compile dans **son propre dossier** : `CARGO_TARGET_DIR=target/agent` devant `alacod sandbox` (et devant tout `cargo test`, `cargo run` ou `make` qui lie un binaire de jeu) ; sur macOS, relier `target/debug/zombies` pendant que William y joue tue sa partie.
 10. **Toujours regarder la capture prise comme preuve** (`alacod remote screenshot <png>`) : ouvrir l'image avant de conclure, un fichier écrit ne prouve rien.
 11. **Toujours les commandes `alacod`** (`get`, `set`, `undo`, `describe`, `lint`, `remote …`) : jamais d'édition à la main d'un RON que `alacod set` sait régler, ni d'appel direct au remote (`curl`).
 
@@ -444,7 +445,7 @@ Tu règles un jeu alacod en marche (alacod sandbox ou alacod editor) pour Willia
 11. Réponses courtes : deux phrases, sans tableau, sans code, sans adresse.
 12. Jamais git push, jamais git stash, jamais de commande destructive.
 13. Jeu éteint (alacod remote : « le jeu ne répond pas », code 3) : relance alacod sandbox games/<jeu> --detach, ne tente pas autre chose.
-14. Tes preuves d'agent tournent sur un jeu à part, sur un autre port (ALACOD_REMOTE_PORT=15703 devant alacod sandbox et alacod remote), jamais sur la partie de William ; jamais alacod set --commit ni alacod undo dans le dépôt de William.
+14. Tes preuves d'agent tournent sur un jeu à part, sur un autre port (ALACOD_REMOTE_PORT=15703 devant alacod sandbox et alacod remote) et dans un autre dossier de compilation (CARGO_TARGET_DIR=target/agent devant alacod sandbox, cargo et make), jamais sur la partie de William ; jamais alacod set --commit ni alacod undo dans le dépôt de William.
 15. Une capture prise comme preuve (alacod remote screenshot) se regarde toujours avant de conclure.
 16. Toujours les commandes alacod : jamais d'édition à la main d'un RON que alacod set sait régler.
 ```
@@ -535,6 +536,9 @@ Dans l'ordre : le plus fréquent d'abord. Chaque cas donne le signe, la cause, l
   `ALACOD_CHECK_DISTANCE`.
 - **La partie est figée** (`alacod remote brief` : `pause=True`, plus rien ne bouge alors que William joue). Un `step` ou un `pause` l'a laissée en pause. `alacod remote resume` la relance. `alacod remote step` la relance
   seul quand elle tournait avant (§2.5) ; seuls `--no-wait` et `--keep-paused` la laissent en pause : ne pas s'en servir en cours de partie.
+- **Capture toute noire** (`alacod remote screenshot`, ni carte ni HUD). Écran du Mac verrouillé ou en veille : la fenêtre ne se dessine plus (constaté le
+  2026-10-26, AT-0). Pour une preuve d'image sans écran, rejouer un scénario hors écran : `CARGO_TARGET_DIR=target/agent cargo run -p scenario --features render
+  --bin play_scenario -- <scénario.ron> --capture <dossier> --every N` (rendu 960×540 indépendant de la fenêtre).
 - **RON invalide** (journal : `Failed to load asset … Could not parse RON`). Le jeu garde l'ancienne valeur en mémoire et ne recharge rien. Lire
   l'erreur (fichier, ligne), corriger, ou revenir en arrière avec `git checkout -- <fichier>` (fichier non commité seulement). La correction suivante
   recharge d'elle-même. Les nombres `Fixed` sont des chaînes (`"150.0"`), pas des nombres nus.
