@@ -35,42 +35,42 @@ et `--players` s'**ajoute** au lieu de remplacer : cela donne **trois** joueurs.
 
 Pour régler le jeu pendant qu'on y joue (avec Claude, à la voix ou au clavier) :
 
-- `make editor GAME=zombies` (ou `gungeon`, `isaac`, `throne`, `testbed`) : le jeu choisi, partie en marche, clavier actif ;
-- `make sandbox GAME=zombies` : le **bac à sable**, voir ci-dessous.
+- `alacod editor games/zombies` (ou `gungeon`, `isaac`, `throne`, `testbed` ; alias `make editor GAME=zombies`) : le jeu choisi, partie en marche, clavier actif ;
+- `alacod sandbox games/zombies` (alias `make sandbox GAME=zombies`) : le **bac à sable**, voir ci-dessous.
 
 Dans les deux cas la partie tourne dès le départ, les étiquettes F6 (nom, prix, état) se voient au-dessus des entités, et le port 15702 répond :
-`scripts/alacod-remote discover` puis `brief` (première ligne `editor=True online=False check_distance=0`). Limite : édition en **local** seulement
+`alacod remote discover` puis `brief` (première ligne `editor=True online=False check_distance=0`). Limite : édition en **local** seulement
 (pas de partie en ligne) et à `check_distance` 0. Le mode d'emploi complet est dans `docs/editeur-vocal.md`.
 
 ### Bac à sable : essayer un personnage, une arme, un ennemi
 
-`--sandbox [profil]` fonctionne sur **tout** jeu construit avec l'engine (les cinq clones ; un jeu créé par `alacod new` l'a aussi, sans une ligne de code : `cargo run --features native -- --sandbox` dans son dossier (`native` : rechargement à chaud des RON) ; preuve : `make test_alacod_cli`) : l'arène du jeu, calme (ni vagues ni étages), un
-**profil** de départ (`sandbox/<profil>.ron` du jeu : personnage, arme, objets, argent, modificateurs, ennemis posés), le mode éditeur allumé. Sans nom, le profil est `arene` ; chaque jeu livre aussi `lourd`.
+`--sandbox [profil]` fonctionne sur **tout** jeu construit avec l'engine (les cinq clones ; un jeu créé par `alacod new` l'a aussi, sans une ligne de code : `alacod sandbox` dans son dossier (`native` : rechargement à chaud des RON) ; preuve : `make test_alacod_cli`) : l'**arène vide** du jeu (une salle de murs et le joueur, rien d'autre : `alacod new-arena`, `docs/editeur-vocal.md` §2.3 ; ni vagues ni étages), un
+**profil** de départ (`sandbox/<profil>.ron` du jeu : personnage, arme, objets, argent, modificateurs, ennemis posés ; `arene` n'en pose aucun), le mode éditeur allumé. Sans nom, le profil est `arene` ; chaque jeu livre aussi `lourd`.
 
 | Je veux | Commande |
 |---|---|
-| Le bac à sable d'un jeu (profil `arene`) | `make sandbox GAME=zombies` (ou `gungeon`, `isaac`, `throne`, `testbed`) |
-| Un autre profil | `make sandbox GAME=isaac PROFIL=lourd` |
-| La même chose sans passer par `make` | `APP_VERSION=dev cargo run -p zombies --features native -- --sandbox lourd` |
-| Une autre graine d'arène (zombies assemble la sienne par graine) | `make sandbox GAME=zombies SEED=42` (sans `SEED`, toujours la graine 123456 : l'arène est la même à chaque lancement) |
-| Sans fenêtre (VPS, CI) | `make sandbox GAME=zombies HEADLESS=1` |
-| Un jeu créé par `alacod new demo` | `cd demo && cargo run --features native -- --sandbox` (profil `assets/sandbox/arene.ron` ; un autre : `alacod new-content Sandbox lourd`, puis `-- --sandbox lourd`) |
+| Le bac à sable d'un jeu (profil `arene`) | `alacod sandbox games/zombies` (ou `gungeon`, `isaac`, `throne`, `testbed` ; alias `make sandbox GAME=zombies`) ; `--detach` : en arrière-plan, la commande rend la main quand le jeu répond |
+| Un autre profil | `alacod sandbox games/isaac --profile lourd` (`make sandbox GAME=isaac PROFIL=lourd`) |
+| Une autre graine d'arène | `alacod sandbox games/zombies --seed 42` (sans `--seed`, toujours la graine 123456 : l'arène est la même à chaque lancement) |
+| Sans fenêtre (VPS, CI) | `alacod sandbox games/zombies --headless` |
+| Un jeu créé par `alacod new demo` | `cd demo && alacod sandbox` (profil `assets/sandbox/arene.ron` ; un autre : `alacod new-content Sandbox lourd`, puis `alacod sandbox --profile lourd`) |
+| Une autre arène vide (taille, joueurs) | `alacod new-arena games/zombies --name grande --size 40x30 --use` |
 | Le remplaçant de `make character_tester` | `make character_tester` (alias de `make sandbox GAME=zombies`) |
 
-Pendant la partie, par `scripts/alacod-remote` (ou à la voix, via Claude) :
+Pendant la partie, par `alacod remote` (ou à la voix, via Claude) :
 
 ```bash
-scripts/alacod-remote profile              # les profils du jeu, l'actif marqué *
-scripts/alacod-remote profile lourd        # « charge le profil lourd » : arène du profil, puis restart
-scripts/alacod-remote give --weapon shotgun         # « donne-moi le fusil »
-scripts/alacod-remote give --item bottes            # un objet (passif, actif ou consommable)
-scripts/alacod-remote give --set-currency 500       # « mets-moi 500 sous » (--currency 100 ajoute, -100 retire)
-scripts/alacod-remote spawn zombie_runner --ahead   # « spawne-moi un zombie_runner devant moi »
-scripts/alacod-remote modifier MoveSpeed Mul 1.2    # « un peu plus rapide » (unmodify pour retirer)
-scripts/alacod-remote restart                       # « reset » : joueur recréé, profil reposé, ennemis du profil reposés
+alacod remote profile              # les profils du jeu, l'actif marqué *
+alacod remote profile lourd        # « charge le profil lourd » : arène du profil, puis restart
+alacod remote give --weapon shotgun         # « donne-moi le fusil »
+alacod remote give --item bottes            # un objet (passif, actif ou consommable)
+alacod remote give --set-currency 500       # « mets-moi 500 sous » (--currency 100 ajoute, -100 retire)
+alacod remote spawn zombie_runner --ahead   # « spawne-moi un zombie_runner devant moi »
+alacod remote modifier MoveSpeed Mul 1.2    # « un peu plus rapide » (unmodify pour retirer)
+alacod remote restart                       # « reset » : joueur recréé, profil reposé, ennemis du profil reposés
 ```
 
-`restart` rejoue le profil actif : ce que tu as donné (`give`, `modifier`) ou fait apparaître (`spawn`) disparaît. Modifie le RON d'un profil, puis `scripts/alacod-remote reload && scripts/alacod-remote restart`.
+`restart` rejoue le profil actif : ce que tu as donné (`give`, `modifier`) ou fait apparaître (`spawn`) disparaît. Modifie le RON d'un profil, puis `alacod remote reload && alacod remote restart`.
 Limites : local seulement (une session en ligne est refusée au lancement), `give` n'est pas enregistré dans un scénario (`save`).
 
 ## En ligne à deux

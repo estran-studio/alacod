@@ -352,9 +352,10 @@ Variables d'environnement (natif) :
   la partie **n'est pas en pause**, le clavier reste la source d'input (un `alacod/input` prend la main par handle, un `input` vide la rend) et
   `check_distance` vaut **0** (même avec `ALACOD_STATE_TRACE` ; un `ALACOD_CHECK_DISTANCE` explicite reste prioritaire). Les commandes qui écrivent
   hors `GgrsSchedule` (`alacod/restart`, `set_modifier`, `clear_modifiers`, `reload_content`) sont refusées en ligne ou à `check_distance > 0`.
-- `--sandbox [profil]` (natif, tout jeu, `docs/conventions.md` §87, `make sandbox GAME=<jeu> [PROFIL=]`) : bac à sable, l'arène du jeu (`sandbox.arena` du manifeste, sinon `generate_template.map`), `RunMode::Sandbox`,
+- `--sandbox [profil]` (natif, tout jeu, `docs/conventions.md` §87 et §89, `alacod sandbox <jeu> [--profile P] [--detach]`, alias `make sandbox GAME=<jeu> [PROFIL=]`) : bac à sable, l'**arène vide** du jeu (`sandbox.arena` du manifeste : murs et joueur, rien d'autre, écrite par `alacod new-arena` ; repli `generate_template.map`), `RunMode::Sandbox`,
   sans vagues, profil `sandbox/<profil>.ron` (`arene` par défaut) posé par `map_ldtk::game::profile` à chaque entrée en `GameLoading` (donc rejoué par `restart`), mode éditeur et remote allumés, `check_distance` 0 ;
-  méthodes `alacod/sandbox_profile` et `alacod/give`. Remplace `character_tester` (retiré).
+  méthodes `alacod/sandbox_profile` et `alacod/give`. Remplace `character_tester` (retiré). **La commande `alacod` est le point d'entrée unique** (§89) : `alacod sandbox|editor <jeu>` lancent le jeu, `alacod remote …` le pilote
+  (`brief`, `give`, `spawn`, `restart`, `reload`, `modifier`, `screenshot`…), `alacod new-arena` écrit l'arène vide, `alacod lint|describe|new-content|test|new` ; aucun `make` ni script requis.
   Un jeu créé par `alacod new` l'a **sans code** (`templates/starter` : profil `arene`, `main.rs` inchangé) ; preuve de bout en bout
   `make test_alacod_cli` (`new_game_opens_its_sandbox_without_any_added_code`, §88). `ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`.
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
@@ -574,7 +575,7 @@ Rejouer avec `make play_scenario SCENARIO=<nom>` (avec rendu). Pour regénérer 
 
 ### Jouer et enregistrer
 - **Contrôle remote** (`game::remote`, `ALACOD_REMOTE=1`) : `make remote` (ou `make remote HEADLESS=1`)
-  lance la partie en pause ; `scripts/alacod-remote` la pilote : `brief`/`state` (joueurs, ennemis
+  lance la partie en pause ; `alacod remote` la pilote : `brief`/`state` (joueurs, ennemis
   avec dx/dy, vague, fenêtres, portes), `input Fire --pan 100,0`, `step 30` (avance puis affiche),
   `screenshot`, `save <fichier.ron>`, `pause`/`resume`.
   Mode éditeur (`ALACOD_EDITOR=1`, `make editor`) : partie en marche, clavier conservé ; méthodes `alacod/restart`

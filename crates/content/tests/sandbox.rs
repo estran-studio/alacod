@@ -39,14 +39,27 @@ fn l_arene_du_profil_l_emporte_puis_le_manifeste_puis_generate_template() {
     assert_eq!(own.arena(&manifest), Some("maps/autre.ldtk"));
     assert_eq!(manifest_arena(&manifest), Some("maps/salle.ldtk"));
 
-    // Sans `sandbox.arena`, le repli est `generate_template.map` (gungeon, isaac, throne, gabarit).
-    let (_, gungeon, _) = load_and_lint(&engine_dir("games/gungeon")).unwrap();
-    assert!(gungeon.sandbox.is_none());
-    assert_eq!(manifest_arena(&gungeon), Some("maps/gabarit_armes.ldtk"));
-    let (_, zombies, _) = load_and_lint(&engine_dir("games/zombies")).unwrap();
-    assert_eq!(manifest_arena(&zombies), Some("exemples/test_map.ldtk"));
-    let (_, testbed, _) = load_and_lint(&engine_dir("games/testbed")).unwrap();
-    assert_eq!(manifest_arena(&testbed), Some("testbed/arena.ldtk"));
+    // Sans `sandbox.arena`, le repli est `generate_template.map` (un jeu qui n'a pas écrit son arène vide).
+    let without = content::manifest::GameManifest::parse(
+        "(name: \"x\", content_folders: [], entry: (start_map: \"m.ldtk\", default_seed: 1), \
+         generate_template: (map: \"maps/gabarit_armes.ldtk\", target: \"cible\"))",
+        PathBuf::from("game.ron"),
+    )
+    .unwrap();
+    assert!(without.sandbox.is_none());
+    assert_eq!(manifest_arena(&without), Some("maps/gabarit_armes.ldtk"));
+    // Les jeux livrés déclarent leur arène vide (`alacod new-arena`, §89).
+    for (game, arena) in [
+        ("games/zombies", "maps/arene_vide.ldtk"),
+        ("games/gungeon", "maps/arene_vide.ldtk"),
+        ("games/isaac", "maps/arene_vide.ldtk"),
+        ("games/throne", "arene_vide.ldtk"),
+        ("games/testbed", "testbed/arene_vide.ldtk"),
+        ("templates/starter", "maps/arene_vide.ldtk"),
+    ] {
+        let (_, manifest, _) = load_and_lint(&engine_dir(game)).unwrap();
+        assert_eq!(manifest_arena(&manifest), Some(arena), "{game}");
+    }
 }
 
 #[test]

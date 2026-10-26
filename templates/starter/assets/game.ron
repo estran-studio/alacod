@@ -21,6 +21,7 @@
     // Scénarios générés (`alacod test`) : les armes sont jouées sur cette carte, contre `target`
     // (personnage `counts_hits`), et non dans le testbed de l'engine.
     generate_template: (map: "maps/arena.ldtk", target: "target"),
-    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`) retombe sur `generate_template.map` ; un champ
-    // `sandbox: (arena: "…")` ou le champ `map` d'un profil la remplace.
+    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`) : une salle vide (murs et points de départ, rien d'autre),
+    // écrite par `alacod new-arena` (`docs/conventions.md` §89) ; un profil la remplace par son champ `map`.
+    sandbox: (arena: "maps/arene_vide.ldtk"),
 )

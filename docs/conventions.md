@@ -662,7 +662,7 @@ et de ramassage et le chargement des armes murales restent dans `game`/`map_ldtk
 | `make map_render MAP=<jeu ou bibliothèque.ldtk> SEEDS=1,2,3 [ARGS="--floor etage --plain"]` | `alacod-map` : PNG avec tuiles et `.ldtk` assemblé par graine dans `target/map_preview/`, sans le jeu (§1, « Concevoir une bibliothèque de pièces ») |
 | `make play_scenario SCENARIO=<nom>` | Rejoue le scénario avec rendu (l'option `--follow <handle>` du binaire suit un joueur) |
 | `make record_session NAME=<nom>` | Enregistre une partie en scénario |
-| `make remote [HEADLESS=1]` | Lance une partie en pause, pilotée par `scripts/alacod-remote` |
+| `make remote [HEADLESS=1]` | Lance une partie en pause, pilotée par `alacod remote` |
 | `make videos [SCENARIO=<nom>]` | Encode les scénarios en vidéos (960×540, `target/videos/<commit>/`) ; plusieurs noms : `SCENARIO=a,b` ou `SCENARIO="a b"` ; `DRY_RUN=1` liste sans compiler (D23) |
 | `make review_videos [TAILSCALE=1]` | Serveur de revue des vidéos (`localhost:8766`) |
 | `make diff_log CID_1=alice CID_2=bob` | Compare les logs d'état entre deux clients (déterminisme) |
@@ -7683,7 +7683,7 @@ Guide d'usage : `docs/editeur-vocal.md`. Plan : `docs/taches/plan-editeur-vocal.
   vidée à `OnEnter(GameLoading)`. `alacod/spawn_character|powerup|item` valident l'id, écrivent à `frame + 1` et ajoutent le placement équivalent à l'`InputRecorder` (`record_command`).
   Les systèmes `map_ldtk::game::commands::{apply_game_commands_spawn (EnemySpawning, après vagues et spawners), apply_game_commands_pickups (Effects, avant ramassages)}` (non déplacés : `LevelSpawnAssets`
   vit dans `map_ldtk`) reprennent l'ordre des placements du runner et journalisent `ggrs{f=… editor_command kind=… rank=…}`. Les coordonnées f32 du JSON sont converties en `Fixed` dans le handler.
-  « Devant moi » n'existe que côté script : `alacod-remote spawn … --ahead [PX]` (60 px dans le `facing` du joueur, lu dans `alacod/state`).
+  « Devant moi » n'existe que côté script : `alacod remote spawn … --ahead [PX]` (60 px dans le `facing` du joueur, lu dans `alacod/state`).
 - **`Stats` vivantes** (K5-2) : `character::config_asset::refresh_live_stats` (`PreUpdate`, avant `RunGgrsSystems`, même garde `session_hot_edit_allowed`) réécrit sur `AssetEvent::Modified` les bases de `Stats`
   (`create::base_stats`, partagée avec `create_character`) des entités portant la clé rechargée, dans l'ordre `GgrsNetId`, par `Stats::overlay` (les défauts de création d'un ennemi restent) ;
   ni `Modifiers` ni `Health`.
@@ -7740,8 +7740,9 @@ Aucun système, aucun type rollback, rien dans `GgrsSchedule` : aucune trace ne 
 - **Profil par défaut** : `arene` (`content::sandbox::DEFAULT_PROFILE`), celui de `--sandbox` sans argument. Livrés : `arene` + `lourd` pour zombies, gungeon, isaac, throne, testbed ; `arene` dans `templates/starter`.
   Le personnage du joueur est le champ `players[].character` (D126, fermée par SB-3 : §87).
 - **Arène** (D2) : `SandboxProfile::map`, sinon `sandbox: (arena: "…")` du manifeste (champ facultatif, `SandboxEntry`), sinon `generate_template.map` (`content::sandbox::manifest_arena`, `SandboxProfile::arena`).
-  Une désignation est une carte LDtk, `cave:<id>` ou `floor:<id>` (comme `entry.start_map`). zombies (`exemples/test_map.ldtk`) et testbed (`testbed/arena.ldtk`) déclarent la leur ; gungeon, isaac, throne et le gabarit
-  retombent sur leur carte gabarit. Dans toutes ces cartes, le joueur 0 apparaît à (424, 696) : un ennemi posé à (624, 696) est à 200 unités à sa droite (même point que les scénarios générés).
+  Une désignation est une carte LDtk, `cave:<id>` ou `floor:<id>` (comme `entry.start_map`). **Depuis SB-6 (§89)** les cinq jeux et le gabarit déclarent tous `sandbox: (arena: "…/arene_vide.ldtk")` : l'**arène vide** écrite par
+  `alacod new-arena` (zombies, gungeon, isaac, `maps/arene_vide.ldtk` ; throne `arene_vide.ldtk` ; testbed `testbed/arene_vide.ldtk` ; gabarit `maps/arene_vide.ldtk`) ; le repli `generate_template.map` ne sert plus qu'à un jeu qui n'a pas écrit la sienne.
+  Le joueur 0 y apparaît à (424, 696) : un ennemi posé à (624, 696) est à 200 unités à sa droite (même point que les scénarios générés).
 - **Lint** (`lint_sandbox`) : un jeu à dossier `Sandbox` a une arène (`sandbox.arena` ou `generate_template`) **et** un profil `arene` ; `sandbox.arena` connue (même sans dossier) ; par profil : `map` connue, `weapon`
   (arme à distance ou de mêlée), `items`, `mutations`, `characters[].character` et `variant`, `items[].id`, `chests[].table` (pool `LootTable`), `shop.shelves[].item` connus ; stat de `modifiers` lue par un système
   (`UnreadStat`) ; `bomb` à `fuse_frames` et `radius` > 0 ; clés de coffre et de présentoir uniques (`DuplicateId`).
@@ -7753,7 +7754,7 @@ Aucun système, aucun type rollback, rien dans `GgrsSchedule` : aucune trace ne 
 `cargo run -p <jeu> -- --sandbox [profil]` ouvre l'**arène** du jeu avec le profil `sandbox/<profil>.ron` (`arene` sans argument), **sans vagues ni étages**, en **mode éditeur** (remote BRP `alacod/*`,
 rechargement à chaud, `check_distance` 0, clavier ou manette). Aucune ligne dans le `main.rs` d'un jeu : `args::cli::Opt::sandbox` → `GameArgs::sandbox` → ressource `game::sandbox::SandboxRequest` (posée par
 `GameArgsPlugin`, donc `BaseArgsPlugin`) → `CoreSetupPlugin` allume le mode éditeur (comme `ALACOD_EDITOR=1`, `play_check_distance_from_env(sandbox)` donne 0) et `LdtkLocalGamePlugin` **ajoute
-`map_ldtk::game::sandbox::SandboxPlugin` quand la ressource existe** (un jeu créé par `alacod new` a ce `main.rs`, donc le mode). `make sandbox GAME=<jeu> [PROFIL=lourd] [SEED=n] [HEADLESS=1]` ;
+`map_ldtk::game::sandbox::SandboxPlugin` quand la ressource existe** (un jeu créé par `alacod new` a ce `main.rs`, donc le mode). `alacod sandbox <jeu> [--profile lourd] [--seed n] [--headless] [--detach]` (§89 ; `make sandbox GAME=<jeu> [PROFIL=lourd] [SEED=n] [HEADLESS=1]` en est l'alias) ;
 `make character_tester` = `make sandbox GAME=zombies`. Un jeu sans dossier `Sandbox`, un profil inconnu (les profils du jeu sont listés), une arène absente ou une session en ligne : message sur la sortie d'erreur et code 1.
 
 - **Au lancement** (`SandboxPlugin`, `Startup`) : arène du profil dans `LdtkGameMap` (D2 : `map` du profil > `sandbox.arena` > `generate_template.map`), graine `ARENA_SEED` (123456, celle de `Scenario::map_seed` : une arène
@@ -7779,7 +7780,7 @@ rechargement à chaud, `check_distance` 0, clavier ou manette). Aucune ligne dan
   se construisent l'une de l'autre sans `..` : `PlayerProfile::from_script` et `From<SandboxPlayer> for PlayerProfile` déstructurent leur source (ajouter un champ à une seule ne compile plus), en plus du test
   `sandbox_player_est_un_sous_ensemble_de_player_script`.
 - **Remote** (tous gardés par `hot_edit_allowed` sauf la liste) : `alacod/sandbox_profile {id?}` (sans `id` : `{active, profiles[]}` ; avec `id` : valide, pose l'arène de ce profil dans `MapGenerationConfig`, change `SandboxSession`,
-  `Restart`) ; `alacod/give {handle?, weapon?, item?, currency?, set_currency?}` (`game::grant::give`) ; `alacod/state` gagne `sandbox: {profile}` ; `scripts/alacod-remote profile [id]`, `give`. Commandes vocales : « charge le profil lourd »
+  `Restart`) ; `alacod/give {handle?, weapon?, item?, currency?, set_currency?}` (`game::grant::give`) ; `alacod/state` gagne `sandbox: {profile}` ; `alacod remote profile [id]`, `give`. Commandes vocales : « charge le profil lourd »
   = `profile lourd`, « donne-moi le fusil » = `give --weapon shotgun`, « mets-moi 500 sous » = `give --set-currency 500`, « reset » = `restart`, « spawne-moi X devant moi » = `spawn X --ahead`.
 - **`game::grant`** : `grant_item` et `equip_weapon` sont **les fonctions de pose** de `apply_player_profile` (remplace) et de `give` (ajoute) ; l'ordre des opérations, donc des `GgrsNetId`, est celui d'avant (traces identiques).
   `give` écrit des composants rollback depuis le monde, entre deux frames : sûr **seulement** en session locale à `check_distance` 0 (même garde que `set_modifier`) ; **il n'est pas enregistré** (`InputRecorder`) : un scénario
@@ -7796,19 +7797,67 @@ rechargement à chaud, `check_distance` 0, clavier ou manette). Aucune ligne dan
 
 Un jeu créé par `alacod new demo` (gabarit `templates/starter`) ouvre son bac à sable **sans une ligne de code ajoutée** : `src/main.rs` du gabarit pose `BaseArgsPlugin` (qui lit `--sandbox`), `CoreSetupPlugin` et
 `LdtkLocalGamePlugin` (qui pose `SandboxPlugin` quand `SandboxRequest` existe, §87) ; le gabarit livre le kind `Sandbox` (`(path: "sandbox", kind: "Sandbox")` de `game.ron`), le profil `assets/sandbox/arene.ron` (solde 1 000,
-une cible `target` à (624, 696), 200 unités à droite du joueur en (424, 696)) et son arène (`generate_template.map: "maps/arena.ldtk"`, D2, pas de champ `sandbox.arena`).
+aucun ennemi) et son arène vide (`sandbox: (arena: "maps/arene_vide.ldtk")`, écrite par `alacod new-arena`, §89 ; l'ancienne carte `maps/arena.ldtk`, avec ses cinq `CharacterSpawn`, ne sert plus qu'aux scénarios générés : `generate_template`).
 
-- **Lancer** (dans le dossier du jeu) : `cargo run --features native -- --sandbox [profil]` (**`native` = `bevy/file_watcher`** : sans lui, pas de rechargement à chaud des armes et des personnages ; `--local-port 0` et un joueur local sont les défauts, prouvés par le test) ; sans fenêtre : `ALACOD_HEADLESS=1 cargo run --no-default-features --features native -- --sandbox`.
-  Un second profil : `alacod new-content Sandbox lourd` (copie de `arene`), puis `-- --sandbox lourd`. Le pilotage est celui des cinq jeux (`<engine>/scripts/alacod-remote profile|give|spawn|modifier|reload|restart`, `docs/editeur-vocal.md` §2.2) ;
+- **Lancer** (dans le dossier du jeu) : `alacod sandbox [--profile P]` (§89 : `cargo run --features native -- --sandbox [profil]` ; **`native` = `bevy/file_watcher`** : sans lui, pas de rechargement à chaud des armes et des personnages ; `--local-port 0` et un joueur local sont les défauts, prouvés par le test) ; sans fenêtre : `alacod sandbox --headless` (`ALACOD_HEADLESS=1 cargo run --no-default-features --features native -- --sandbox`).
+  Un second profil : `alacod new-content Sandbox lourd` (copie de `arene`), puis `alacod sandbox --profile lourd`. Le pilotage est celui des cinq jeux (`alacod remote profile|give|spawn|modifier|reload|restart`, `docs/editeur-vocal.md` §2.2) ;
   `ALACOD_REMOTE_PORT` change le port 15702. `templates/starter/CLAUDE.md` le dit à l'agent qui travaille dans le jeu créé.
 - **Preuve** : `crates/content/tests/cli.rs::new_game_opens_its_sandbox_without_any_added_code` (`#[ignore]`, **`make test_alacod_cli`**, comme le test de `alacod test`) : dossier temporaire, `alacod new demo --engine <engine>`, **un seul fichier Rust**
   (`src/main.rs`) qui ne contient pas « sandbox », compilation du jeu en profil `headless` (le jeu est son propre workspace : le profil est redéclaré par `--config profile.headless.*`, mêmes réglages que celui de l'engine ;
   `CARGO_TARGET_DIR` partagé avec l'engine, rendu absolu, sinon `demo/target`), puis `demo --sandbox` (sans autre option) avec `ALACOD_HEADLESS=1`, un port libre (`ALACOD_REMOTE_PORT`) et
   `ALACOD_STATE_TRACE` + `ALACOD_EXIT_AT_FRAME=1200` (**`ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`** : sans elle le jeu ne s'arrête pas ; à `check_distance` 0 le fichier de trace reste vide, seul le code de sortie 0 prouve l'arrêt).
-  Lecture par `scripts/alacod-remote state` dès la frame 300 : `sandbox.profile = arene`, `editor`, pas `online`, `check_distance` 0, `game = demo`, `map = maps/arena.ldtk`, vague 0 `NotStarted`, joueur 0 en (424, 696) avec une arme, cible
-  `target` en (624, 696), `profile` liste `arene`, **solde 1 000** du profil (`give --currency 0` renvoie le solde ; `alacod/state` ne l'expose pas), un seul joueur ; le jeu quitte seul avec le code 0 (le jeu est tenu par une garde RAII (`Game` : kill + wait au `Drop`, panique comprise), jamais tué par motif ; échéances monotones, y compris pour chaque appel de `alacod-remote`). Durée mesurée sur le VPS : 591 s dont ≈ 9 min de compilation à froid ; hors `test_crates`
+  Lecture par `alacod remote state` dès la frame 300 : `sandbox.profile = arene`, `editor`, pas `online`, `check_distance` 0, `game = demo`, `map = maps/arene_vide.ldtk`, vague 0 `NotStarted`, joueur 0 en (424, 696) avec une arme, **aucun ennemi** (`spawn target --ahead` en fait apparaître un),
+  `profile` liste `arene`, **solde 1 000** du profil (`give --currency 0` renvoie le solde ; `alacod/state` ne l'expose pas), un seul joueur ; le jeu quitte seul avec le code 0 (le jeu est tenu par une garde RAII (`Game` : kill + wait au `Drop`, panique comprise), jamais tué par motif ; échéances monotones, y compris pour chaque appel de `alacod remote`). Durée mesurée sur le VPS : 591 s dont ≈ 9 min de compilation à froid ; hors `test_crates`
   et hors CI (la compilation d'un jeu complet n'a pas sa place dans `make check`).
-- **Observé, pas une anomalie** : la carte du gabarit porte cinq `character_spawn` (civilian, follower, dummy, ally, target) : ils apparaissent **en plus** de la cible du profil (six « ennemis » dans `brief` dont un `follower` qui vient au joueur).
+- **Observé, pas une anomalie (avant SB-6)** : la carte du gabarit portait cinq `character_spawn` (civilian, follower, dummy, ally, target) qui apparaissaient **en plus** de la cible du profil ; depuis SB-6 l'arène du bac à sable est vide (§89) et le profil `arene` du gabarit ne pose rien.
   Le journal affiche une ligne `ggrs{f=N spawner_skip reason=no_valid_spawner}` par frame (trace du spawner d'ennemis sans point d'apparition valide, voulue pour `diff_log`).
 - **Docs** : `docs/editeur-vocal.md` §1 (apps de test : le bac à sable d'abord, jeu créé), §2.1/§2.2 (phrases → commandes exactes), §4 (bloc « prêt à coller » : mode bac à sable), §8 ; `docs/jouer.md` (« Bac à sable », ligne du jeu créé) ; `CLAUDE.md` (variables et commandes) ;
   protocole de l'essai William : `docs/taches/rapports/sb-5-essai-vocal.md`.
+
+## 89. L'arène vide, `alacod new-arena` et la commande `alacod` comme point d'entrée unique (SB-6)
+
+Décision de William (2026-10-26) : le bac à sable s'ouvre sur **une salle de murs avec le joueur, rien d'autre** (ni fenêtre, porte, arme murale, soda, `ZombieSpawn`, ni personnage), pour **tout** jeu, et tout se pilote par
+la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `exemples/test_map.ldtk` (une carte de jeu complète : fenêtres, portes, points d'apparition) et celle des autres jeux leur carte gabarit
+(portes, `CharacterSpawn`). Aucun système, rien dans `GgrsSchedule` : aucune trace de scénario ne bouge (les scénarios gardent leurs cartes).
+
+- **`alacod new-arena [jeu] [--name arene_vide] [--size LxH] [--players 1..4] [--from <carte>] [--out <chemin>] [--use]`** (`content::arena`, `crates/content/src/arena.rs`). Une carte LDtk **à un niveau** (26×19 cases = 416×304 px par défaut,
+  `spawn: true`), construite à partir des cartes **du jeu** : `defs` (tilesets, couches, définitions d'entités) copiés d'un donneur (`--from`, sinon `sandbox.arena`, sinon `generate_template.map`, sinon la première carte du registre). Un
+  gabarit d'un autre jeu ne marche pas : ses tilesets ne se résolvent pas (tuiles cassées) et ses `CharacterSpawn` désignent des personnages que le lint refuse. Les `relPath` de tileset sont recalculés pour le dossier d'écriture
+  (`maps/` par défaut si le jeu en a un, sinon le dossier du donneur ; `--out` relatif à `assets/`, l'id de carte = nom du fichier). Entités : **seulement `PlayerSpawn`** (index 0 à `players − 1`, aux points des gabarits (160, 80), (224, 80), (160, 112),
+  (224, 112) : le joueur 0 apparaît en (424, 696) pour la taille par défaut ; une autre taille décale les points et la position dépend de la graine). Murs : couronne de 1 case dans la couche IntGrid `Walls` (première valeur de la couche).
+- **Tuiles des murs** : les cartes de l'engine portent leurs `autoLayerTiles` (LDtk les recalcule à l'enregistrement) ; sans elles les murs sont invisibles. `content::arena::auto_layer_tiles` rejoue les règles de la couche (groupes et règles dans l'ordre,
+  `breakOnMatch`, retournements X/Y, hors-limites sans correspondance si `outOfBoundsValue` est nul, tuile `Single`) et trie comme LDtk (ordre inverse des règles, puis case). **Preuve** (`crates/content/tests/arena.rs`) : recalculées sur les trois niveaux de
+  `games/zombies/assets/exemples/test_map.ldtk`, elles sont identiques, dans le même ordre, à celles écrites par LDtk. Une règle active qu'on ne sait pas jouer (damier, Perlin, `tileMode` ≠ `Single`) est une erreur, jamais une tuile fausse.
+- **Déterminisme** : identifiants dérivés du nom (FNV), clés triées, une indentation : la relancer ne change pas un octet (`inchangée`). `--use` pose `sandbox: (arena: "…")` dans `game.ron` (champ existant remplacé, sinon ajouté avant la parenthèse finale).
+  Si la carte n'est pas dans un dossier `Map` déclaré (throne : fichier par fichier), la commande dit la ligne à ajouter ; throne déclare `(path: "arene_vide.ldtk", kind: "Map")`.
+- **Profils** : les profils `arene` de gungeon, isaac, throne, testbed et du gabarit ne posent plus la `cible`/`target` (zombies n'en posait pas) ; `lourd` pose ses ennemis comme avant. Un ennemi à la demande : `alacod remote spawn <id> --ahead`.
+- **La commande `alacod` seule** (`crates/content/src/bin/alacod.rs`, modules `launch` et `remote`) : `alacod sandbox [jeu] [--profile P] [--seed N] [--headless] [--detach] [--wait S] [-- args]` et `alacod editor [jeu] [--seed N] …`
+  construisent et lancent le jeu (même commande cargo, mêmes features `native` et `game/dev-dylib` — règle de `scripts/dev-features.sh` : coupée par `ALACOD_DYLIB=0`, `CI`, `ALACOD_PROFILE=prod`, `ALACOD_TARGET=web` —, même `APP_VERSION` (`git describe`)
+  que `make` : pas de recompilation d'une commande à l'autre) ; le paquet vient du `Cargo.toml` du jeu ; un jeu de l'engine se lance par `-p <paquet>` depuis la racine, un jeu créé par `alacod new` (`[workspace]` propre) par `cargo run` dans son dossier.
+  `--detach` : groupe de processus à part, journal `$TMPDIR/alacod-<sandbox|editor>-<paquet>.log`, retour quand le remote répond (échec si le jeu meurt ou après `--wait`, 900 s ; refus si le port répond déjà). `alacod remote <commande>` porte
+  tout `scripts/alacod-remote` (supprimé) : `state`, `brief`, `input`, `step`, `pause`, `resume`, `screenshot`, `save`, `discover`, `restart`, `modifier`, `unmodify`, `reload`, `profile`, `give`, `spawn`, `spawn-powerup`, `spawn-item`, en Rust sans
+  dépendance (un `TcpStream`, JSON-RPC sur HTTP, délai de 10 s, port `ALACOD_REMOTE_PORT`) ; les lectures sont du texte (`brief` : mêmes lignes que l'ancien script), les écritures la réponse JSON du jeu, une erreur du jeu sort sur stderr (code 1).
+  `make sandbox` et `make editor` sont des alias (`make sandbox` appelle `alacod sandbox`).
+- **Tests** : `crates/content/tests/arena.rs` (arènes livrées vides et déclarées, tuiles = celles de LDtk, `new-arena` déterministe, refus), `crates/content/src/{remote,launch,arena}.rs` (HTTP, `brief`, `--ahead`, plan de lancement, pose du champ),
+  `crates/scenario/tests/sandbox_mode.rs` (chaque jeu s'ouvre sur une arène vide : 0 ennemi, 0 placement), `cli.rs` (`#[ignore]`, `make test_alacod_cli` : le jeu créé se pilote par `alacod remote`).
+- **La fenêtre qui se ferme** (constat du 2026-10-26 : « Closing window » au journal, code 0, quelques secondes après le lancement par l'outil supervisé) : **aucun code du jeu ne ferme la fenêtre** (ni `AppExit`, `WindowCloseRequested`, `close_on_esc` ni `exit_on_all_closed`
+  hors des chemins de fin déjà documentés : trace d'état, desync en ligne, capture ; `Échap` n'ouvre que le menu de pause). Le jeu lancé par `alacod sandbox --detach` est resté ouvert plus de dix minutes sans toucher à rien ; le binaire lancé en avant-plan par l'outil
+  supervisé a tourné 45 s (2 200 frames) jusqu'à l'arrêt par `timeout`. La fermeture venait donc de l'extérieur (fenêtre fermée à la main ou par le lanceur), pas du jeu.
+- **`alacod get` / `set` / `undo`** (`crates/content/src/edit.rs`, `docs/editeur-vocal.md` §2.4 ; l'IA règle le jeu **par la commande**, plus par une édition de fichier à la main). `get [jeu] <Kind> <id> <champ.pointé>` lit, `set … <valeur> [--commit] [--raw] [--json]` écrit **une**
+  valeur, `undo [jeu]` annule le dernier commit `editor:`. L'édition est **textuelle** : un parseur RON à positions (`edit::parse`, `Node` : l'étendue en octets de chaque valeur, commentaires et `#![enable]` compris) localise la valeur, elle est remplacée à
+  sa place, rien n'est resérialisé (commentaires, indentation et lignes vides intacts ; le test compare le fichier ligne à ligne). Entrée localisée par `edit::locate` à partir des `content_folders` de `game.ron` : clé d'une table racine (`{ "pistolet": (…) }`,
+  nue ou `({ … })`), sinon nom de fichier (comme `describe`) ou, pour un personnage, `asset_name_ref` (l'id du registre) ; un id inconnu donne le plus proche et la liste, un id en double les fichiers. Chemin : `a.b.c` à travers structs, tables
+  (clé sans guillemets), listes (indice, ou nom de variante unique), tuples (`rooms.0`), `Some(..)` et variantes à un champ (`Standard(damage: …)`) sans les nommer ; inconnu ou ambigu → refus avec les chemins possibles. Le type de la valeur actuelle est gardé
+  (`Fixed` : chaîne `"120.0"`, entier, booléen, variante) ; `--raw` remplace le nœud par du RON tel quel. **Lint** : `load_and_lint` avant et après, un fichier restauré octet pour octet si une erreur **nouvelle** apparaît (les erreurs préexistantes ne bloquent
+  pas). `--commit` : `editor: <Kind> <id> <champ> <ancien> -> <nouveau>` par `git commit --only` du seul fichier (refusé s'il avait déjà des changements) ; `undo` ne revient que sur un `editor:` (il écrit `Revert "editor: …"`, qu'un second `undo` refuse) et seulement sur
+  les fichiers du commit (`git revert` exigerait un index propre : le travail en cours ailleurs l'empêcherait). La ligne affichée dit **quand l'effet se voit** (`edit::effect_for`, §5 de `docs/editeur-vocal.md` : armes, caméra, interface immédiats ; personnages au prochain spawn ;
+  le reste après `alacod remote restart`).
+- **Sorties machine et scripts** (`crates/content/src/{remote,script}.rs`, `docs/editeur-vocal.md` §2.5). `alacod remote` : codes de sortie stables **0** réussi, **1** erreur du jeu ou de la commande, **2** usage (clap, script mal formé), **3** jeu injoignable, **4** assertion
+  ou attente fausse ; `--json` (global) : une enveloppe `{"ok", "result" | "error", "code"}` sur stdout. `alacod remote run <fichier> [--keep-going] [--expect-timeout S]` joue un fichier de commandes, une par ligne : toute commande `alacod remote` (préfixe toléré) plus
+  `wait N [frames]`, `sleep S` et `expect <mesure> <op> <valeur> [within S]` (mesure = chemin du JSON de `alacod/state`, une liste vaut sa longueur, `enemies[zombie_1]`, `player.health` ; réévaluée jusqu'au délai). Le fichier est vérifié en entier **avant** la première commande ;
+  exemple `games/zombies/scripts/monde_test.alacod`. **`step` rend la partie comme elle était** : l'état de pause est lu avant, la partie est relancée après (jeu en marche en mode éditeur et bac à sable) ; `--keep-paused` et `--no-wait` la laissent en pause. Avant, un `step`
+  oublié suivi de rien figeait la partie de William. Aucun code de jeu touché : tout est dans le client.
+- **Aide et installation** : `alacod --help` (une ligne par commande, exemples, codes de sortie) ; `cargo install --path crates/content --bin alacod --locked` installe `alacod` seul (vérifié le 2026-10-26 avec `--root` et `CARGO_TARGET_DIR` temporaires, 1 min 30 de compilation). Les commandes `alacod`
+  de `scripts/lint-edited-game.sh` et du `Makefile` gardent `cargo run` (elles n'exigent pas l'installation).
+- **Tests** : `crates/content/tests/edit.rs` (jeu de travail = copie du gabarit dans un dépôt git temporaire : formatage conservé, types, chemins inconnus/ambigus, lint rouge restauré, erreurs préexistantes, commit du seul fichier, undo), `crates/content/tests/remote_script.rs` (faux jeu JSON-RPC :
+  codes de sortie, `--json`, scripts, `step`), unitaires de `edit.rs` et `script.rs`.

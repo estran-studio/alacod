@@ -1,12 +1,11 @@
-// Profil de bac à sable `arene` (SB-1) : l'arène de ton jeu, ouverte par `--sandbox` sans argument.
+// Profil de bac à sable `arene` (SB-1) : l'arène vide de ton jeu (`maps/arene_vide.ldtk`, écrite par
+// `alacod new-arena` : murs et joueur, rien d'autre), ouverte par `--sandbox` sans argument.
 // Sous-ensemble de `Scenario` (`alacod describe Sandbox` liste les champs) ; `Some(..)` est implicite.
-// Une cible `target` à 200 unités à droite du joueur ; ajoute des armes (`weapon`), des objets
-// (`items`), un solde (`currency`), des ennemis posés (`characters`) à ta mesure.
+// Aucun ennemi posé : `alacod remote spawn target --ahead` fait apparaître la cible (`counts_hits`) devant
+// toi. Ajoute des armes (`weapon`), des objets (`items`), un solde (`currency`), des ennemis posés
+// (`characters`, ex. `(character: "target", x: "624", y: "696", at_frame: 1)`) à ta mesure.
 (
     players: [
         (currency: 1000),
-    ],
-    characters: [
-        (character: "target", x: "624", y: "696", at_frame: 1),
     ],
 )

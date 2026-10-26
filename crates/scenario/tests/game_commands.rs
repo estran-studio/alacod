@@ -244,8 +244,8 @@ fn max_speed_edite_change_les_stats_vivantes_sans_toucher_aux_modificateurs() {
     );
 }
 
-/// Diagnostic (ignoré) : rejoue par le runner une session sauvée par `alacod-remote save` et imprime
-/// l'état de fin (frame, joueurs, ennemis : net id, clé, position), à comparer à `alacod-remote state` :
+/// Diagnostic (ignoré) : rejoue par le runner une session sauvée par `alacod remote save` et imprime
+/// l'état de fin (frame, joueurs, ennemis : net id, clé, position), à comparer à `alacod remote state` :
 /// `ALACOD_K52_SESSION=/tmp/s.ron cargo test -p scenario --test game_commands rejoue_une_session_sauvee -- --ignored --nocapture`.
 #[test]
 #[ignore]

@@ -74,6 +74,7 @@
         default_seed: 123456,
         mode: Sandbox,
     ),
-    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`), remplaçable par le champ `map` d'un profil.
-    sandbox: (arena: "testbed/arena.ldtk"),
+    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`) : une salle vide (murs et points de départ, rien d'autre),
+    // écrite par `alacod new-arena` (`docs/conventions.md` §89) ; un profil la remplace par son champ `map`.
+    sandbox: (arena: "testbed/arene_vide.ldtk"),
 )

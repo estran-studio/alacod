@@ -192,25 +192,28 @@ fn zombies_lourd_se_pose_se_rejoue_au_restart_et_se_change() {
         return;
     }
     let mut app = sandbox_app("zombies", "lourd");
-    // Arène assemblée par graine : toujours la même (`ARENA_SEED`), le joueur 0 en (424, 696) comme dans les
-    // scénarios, donc les zombies posés à sa droite le sont à l'intérieur de l'arène.
+    // Arène vide (`maps/arene_vide.ldtk`, `alacod new-arena`) assemblée avec la graine `ARENA_SEED` : toujours la
+    // même, le joueur 0 en (424, 696) comme dans les scénarios, donc les zombies posés à sa droite le sont à
+    // l'intérieur de l'arène.
     run_to(&mut app, 3);
     let start = snapshot(&mut app).position;
     assert!(
         (start.0 - 424.0).abs() < 1.0 && (start.1 - 696.0).abs() < 1.0,
         "{start:?}"
     );
-    run_to(&mut app, 700);
+    // Les zombies posés par `lourd` se jettent sur le joueur immobile de l'arène vide (un seul joueur, aucune
+    // entrée) : on lit l'état tôt, avant qu'il ne tombe.
+    run_to(&mut app, 90);
 
-    // Bac à sable : mode `Sandbox`, aucune vague (zombies en déclare : sans la coupure, la vague 1 apparaît avant
-    // la frame 700, voir l'essai headless du rapport), l'arène du manifeste, le profil posé.
+    // Bac à sable : mode `Sandbox`, aucune vague (`waves_enabled` coupé : zombies en déclare ; l'arène vide n'a
+    // de toute façon aucun point d'apparition), l'arène du manifeste, le profil posé.
     assert_eq!(run_mode(&app), run::RunMode::Sandbox);
     assert!(!app.world().resource::<ResolvedBalance>().waves_enabled);
     assert_eq!(
         app.world()
             .resource::<map::generation::config::MapGenerationConfig>()
             .map_path,
-        "exemples/test_map.ldtk"
+        "maps/arene_vide.ldtk"
     );
     let first = snapshot(&mut app);
     assert_eq!(first.currency, 50000);
@@ -231,7 +234,7 @@ fn zombies_lourd_se_pose_se_rejoue_au_restart_et_se_change() {
     )
     .expect("don");
     assert_eq!(report.currency, Some(50025));
-    run_to(&mut app, 720);
+    run_to(&mut app, 110);
     let given = snapshot(&mut app);
     assert_eq!(given.currency, 50025);
     assert_eq!(
@@ -243,7 +246,7 @@ fn zombies_lourd_se_pose_se_rejoue_au_restart_et_se_change() {
 
     // `restart` : le profil se rejoue sur le joueur recréé, le don est perdu, les zombies sont reposés.
     restart_and_run_to(&mut app, 30);
-    assert!(app.world().resource::<FrameCount>().frame < 700);
+    assert!(app.world().resource::<FrameCount>().frame < 90);
     let again = snapshot(&mut app);
     assert_eq!(again.currency, 50000, "profil rejoué, don perdu");
     assert_eq!(again.weapons, ["machine_gun"]);
@@ -286,6 +289,10 @@ macro_rules! arene_test {
                 .profile
                 .arena(&manifest)
                 .unwrap();
+            assert!(
+                arena.ends_with("arene_vide.ldtk"),
+                "l'arène vide, pas une carte de jeu : {arena}"
+            );
             assert_eq!(
                 app.world()
                     .resource::<map::generation::config::MapGenerationConfig>()
@@ -296,6 +303,8 @@ macro_rules! arene_test {
             assert_eq!(session.profile, profile);
             let snapshot = snapshot(&mut app);
             assert_eq!(snapshot.character, "player");
+            assert_eq!(snapshot.enemies, 0, "arène vide : aucun ennemi");
+            assert_eq!(snapshot.placed, 0, "le profil `arene` ne pose rien");
         }
     };
 }
@@ -395,7 +404,7 @@ fn reload_puis_restart_gardent_le_mode_bac_a_sable() {
     run_to(&mut app, 30);
     assert_eq!(manifest_mode(&app), Some(content::EntryMode::Sandbox));
     assert!(!floor_plan_present(&app));
-    assert_eq!(map_config(&app).map_path, "maps/gabarit_armes.ldtk");
+    assert_eq!(map_config(&app).map_path, "maps/arene_vide.ldtk");
     assert_eq!(run_mode(&app), run::RunMode::Sandbox);
 
     // Édition du profil actif sur le disque, puis `alacod/reload_content`.
@@ -417,7 +426,7 @@ fn reload_puis_restart_gardent_le_mode_bac_a_sable() {
     assert_eq!(manifest_mode(&app), Some(content::EntryMode::Sandbox));
     assert_eq!(run_mode(&app), run::RunMode::Sandbox);
     assert!(!floor_plan_present(&app), "aucun niveau de la run chargé");
-    assert_eq!(map_config(&app).map_path, "maps/gabarit_armes.ldtk");
+    assert_eq!(map_config(&app).map_path, "maps/arene_vide.ldtk");
     let again = snapshot(&mut app);
     assert_eq!(again.currency, 777, "profil relu du disque");
     assert_eq!(again.placed, 1);
@@ -439,7 +448,7 @@ fn reload_puis_restart_prennent_l_arene_modifiee_du_profil() {
     let dir = copy_game("isaac", "reload-arena");
     // Seconde arène : la première avec ses points de départ décalés de 160 unités (10 cases) vers la droite
     // (le joueur y apparaît 160 plus loin).
-    let source = std::fs::read_to_string(dir.join("assets/maps/gabarit_armes.ldtk")).unwrap();
+    let source = std::fs::read_to_string(dir.join("assets/maps/arene_vide.ldtk")).unwrap();
     let mut project: serde_json::Value = serde_json::from_str(&source).unwrap();
     for level in project["levels"].as_array_mut().unwrap() {
         for layer in level["layerInstances"].as_array_mut().into_iter().flatten() {
@@ -463,7 +472,7 @@ fn reload_puis_restart_prennent_l_arene_modifiee_du_profil() {
 
     let mut app = sandbox_app_with_root(&dir, "arene");
     run_to(&mut app, 30);
-    assert_eq!(map_config(&app).map_path, "maps/gabarit_armes.ldtk");
+    assert_eq!(map_config(&app).map_path, "maps/arene_vide.ldtk");
     let before = player_position(&mut app);
     assert!((before.0 - 424.0).abs() < 1.0, "{before:?}");
 

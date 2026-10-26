@@ -60,4 +60,7 @@
     // `docs/conventions.md` §28 : scénarios générés de gungeon (`make gen GAME=gungeon`) joués
     // sur la carte gabarit, en mode `Sandbox` imposé par le générateur.
     generate_template: (map: "maps/gabarit_armes.ldtk", target: "cible"),
+    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`) : une salle vide (murs et points de départ, rien d'autre),
+    // écrite par `alacod new-arena` (`docs/conventions.md` §89) ; un profil la remplace par son champ `map`.
+    sandbox: (arena: "maps/arene_vide.ldtk"),
 )

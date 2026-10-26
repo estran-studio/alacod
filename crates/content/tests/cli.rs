@@ -481,20 +481,20 @@ fn free_port() -> u16 {
         .port()
 }
 
-/// `scripts/alacod-remote <args>` sur `port`, tuée si elle dépasse `deadline` (échéance monotone :
-/// le script a lui-même un délai de requête de 10 s, qui ne doit pas dépasser le temps restant).
-/// `Err` : python absent, ou échéance dépassée.
+/// `alacod remote <args>` sur `port`, tuée si elle dépasse `deadline` (échéance monotone : la commande a
+/// elle-même un délai de requête de 10 s, qui ne doit pas dépasser le temps restant).
+/// `Err` : le binaire ne se lance pas, ou échéance dépassée.
 fn remote(port: u16, args: &[&str], deadline: Instant) -> Result<Output, String> {
-    let mut child = Command::new("python3")
-        .arg(engine_root().join("scripts/alacod-remote"))
+    let mut child = alacod()
+        .arg("remote")
         .args(args)
         .env("ALACOD_REMOTE_PORT", port.to_string())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("python3 ne se lance pas : {e}"))?;
-    // Lecteurs dédiés : un tube plein ne doit pas bloquer le script jusqu'à l'échéance.
+        .map_err(|e| format!("alacod ne se lance pas : {e}"))?;
+    // Lecteurs dédiés : un tube plein ne doit pas bloquer la commande jusqu'à l'échéance.
     fn drain<R: std::io::Read + Send + 'static>(mut r: R) -> std::thread::JoinHandle<Vec<u8>> {
         std::thread::spawn(move || {
             let mut buf = Vec::new();
@@ -511,7 +511,7 @@ fn remote(port: u16, args: &[&str], deadline: Instant) -> Result<Output, String>
             Ok(None) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(format!("alacod-remote {args:?} : échéance dépassée"));
+                return Err(format!("alacod remote {args:?} : échéance dépassée"));
             }
             Err(e) => return Err(e.to_string()),
         }
@@ -523,7 +523,7 @@ fn remote(port: u16, args: &[&str], deadline: Instant) -> Result<Output, String>
     })
 }
 
-/// Le jeu lancé : tué et attendu au `Drop`, sur tout chemin (assertion, JSON invalide, python absent).
+/// Le jeu lancé : tué et attendu au `Drop`, sur tout chemin (assertion, JSON invalide).
 struct Game(std::process::Child);
 
 impl Drop for Game {
@@ -533,9 +533,9 @@ impl Drop for Game {
     }
 }
 
-/// `alacod new demo`, compilation, `--sandbox` headless : le profil `arene` du gabarit pose le
-/// joueur et la cible **sans une ligne de code ajoutée** au jeu créé. Commande équivalente à la
-/// main : voir `docs/conventions.md` §88.
+/// `alacod new demo`, compilation, `--sandbox` headless : le profil `arene` du gabarit ouvre l'arène vide
+/// (`maps/arene_vide.ldtk`, §89) et pose le joueur **sans une ligne de code ajoutée** au jeu créé ; `alacod
+/// remote` le pilote. Commande équivalente à la main : voir `docs/conventions.md` §88.
 #[test]
 #[ignore = "compile un jeu créé hors de l'engine (≈ 10 min à froid) : make test_alacod_cli"]
 fn new_game_opens_its_sandbox_without_any_added_code() {
@@ -634,7 +634,7 @@ fn new_game_opens_its_sandbox_without_any_added_code() {
     assert_eq!(state["online"], false);
     assert_eq!(state["check_distance"], 0);
     assert_eq!(state["game"], "demo");
-    assert_eq!(state["map"], "maps/arena.ldtk");
+    assert_eq!(state["map"], "maps/arene_vide.ldtk");
     assert_eq!(state["wave"]["phase"], "NotStarted");
     assert_eq!(state["wave"]["number"], 0);
     assert!(profiles.contains("arene"), "{profiles}");
@@ -651,11 +651,26 @@ fn new_game_opens_its_sandbox_without_any_added_code() {
         (Some(424.0), Some(696.0))
     );
     assert!(player["weapon"]["name"].is_string(), "{player}");
-    // La cible du profil (`characters` à (624, 696), 200 unités à droite du joueur).
-    let target_posed = state["enemies"].as_array().unwrap().iter().any(|e| {
-        e["config"] == "target" && e["x"].as_f64() == Some(624.0) && e["y"].as_f64() == Some(696.0)
-    });
-    assert!(target_posed, "{}", state["enemies"]);
+    // L'arène est vide : le profil `arene` ne pose aucun ennemi (ni la carte, qui n'a que des `PlayerSpawn`).
+    assert_eq!(
+        state["enemies"].as_array().unwrap().len(),
+        0,
+        "{}",
+        state["enemies"]
+    );
+    // ... et la cible se fait apparaître à la demande, 60 px devant le joueur.
+    let spawned = remote(
+        port,
+        &["spawn", "target", "--ahead"],
+        Instant::now() + Duration::from_secs(30),
+    )
+    .unwrap();
+    assert!(
+        spawned.status.success(),
+        "{}{}",
+        text(&spawned.stdout),
+        text(&spawned.stderr)
+    );
     // Le réglage du profil `arene` (`currency: 1000`) : `alacod/state` n'expose pas le solde,
     // `give --currency 0` ne change rien et renvoie le solde.
     let given = remote(port, &["give", "--currency", "0"], query_deadline).unwrap();

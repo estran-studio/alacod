@@ -815,7 +815,7 @@ fn sandbox_profile(In(params): In<Option<Value>>, world: &mut World) -> BrpResul
     guard_hot_edit(world)?;
     if active.is_none() {
         return Err(invalid_params(
-            "pas en bac à sable : relancer le jeu avec --sandbox [profil] (`make sandbox GAME=<jeu>`)",
+            "pas en bac à sable : relancer le jeu avec --sandbox [profil] (`alacod sandbox <jeu>`)",
         ));
     }
     let arena = {

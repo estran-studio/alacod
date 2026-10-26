@@ -22,6 +22,8 @@
         (path: "sprites/sprites.ron", kind: "SpriteSheet"),
         // Carte du gabarit des scénarios générés d'armes (T1.13, `cible` à +128/−48 du spawn).
         (path: "gabarit_armes.ldtk", kind: "Map"),
+        // Arène vide du bac à sable (`alacod new-arena`).
+        (path: "arene_vide.ldtk", kind: "Map"),
         // Phase 2 (T1.9, T1.10) : progression, mutations, horloge d'étage, difficulté.
         (path: "progression", kind: "Progression"),
         (path: "mutations", kind: "Mutation"),
@@ -40,4 +42,6 @@
     // dans ce jeu, sur la carte gabarit (cible à +128/-48 LDtk du spawn, comme l'arène du
     // testbed), en mode `Sandbox` imposé par le générateur.
     generate_template: (map: "gabarit_armes.ldtk", target: "cible"),
+    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`) ; `alacod new-arena` l'écrit.
+    sandbox: (arena: "arene_vide.ldtk"),
 )

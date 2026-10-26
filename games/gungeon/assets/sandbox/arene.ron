@@ -1,12 +1,10 @@
-// Profil de bac à sable `arene` (SB-1, `docs/conventions.md` §86) : l'arène calme de gungeon (carte
-// gabarit `generate_template`), ouverte par `--sandbox` sans argument. Sous-ensemble de `Scenario`
-// (`alacod describe Sandbox`) ; `Some(..)` est implicite. Une cible `cible` (compte les coups) à 200
-// unités à droite du joueur ; les autres ennemis se font à la demande (`alacod/spawn_character`).
+// Profil de bac à sable `arene` (SB-1, `docs/conventions.md` §86) : l'arène vide de gungeon
+// (`alacod new-arena`, `sandbox.arena` de `game.ron` : murs et joueur, rien d'autre), ouverte par
+// `--sandbox` sans argument. Sous-ensemble de `Scenario` (`alacod describe Sandbox`) ; `Some(..)` est
+// implicite. Aucun ennemi posé : ils se font à la demande (`alacod remote spawn <id> --ahead`, ex. la
+// cible `cible` qui compte les coups).
 (
     players: [
         (currency: 1000),
-    ],
-    characters: [
-        (character: "cible", x: "624", y: "696", at_frame: 1),
     ],
 )

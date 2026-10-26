@@ -256,7 +256,7 @@ compare_video:
 review_videos:
 	./scripts/scenario-review.py --serve 8766 --bind $(if $(TAILSCALE),$$(tailscale ip -4),127.0.0.1)
 
-# Partie pilotée à distance (scripts/alacod-remote), en pause au départ.
+# Partie pilotée à distance (`alacod remote …`), en pause au départ.
 # HEADLESS=1 : sans fenêtre, bien plus rapide.
 remote:
 ifeq ($(HEADLESS), 1)
@@ -277,18 +277,14 @@ else
 	ALACOD_EDITOR=1 ALACOD_REMOTE=1 ALACOD_LABELS=1 APP_VERSION=$(VERSION) cargo run -p $(GAME) --features native $(DEV_FEATURES) -- $(if $(SEED),--seed $(SEED)) $(GARGS) --local-port 7000 --players localhost
 endif
 
-# Bac à sable (docs/taches/plan-bac-a-sable.md, docs/jouer.md) : l'arène du jeu GAME (zombies par défaut), sans vagues
-# ni étages, avec le profil PROFIL (`sandbox/<profil>.ron` du jeu ; `arene` par défaut), en mode éditeur : remote BRP
-# (127.0.0.1:15702), étiquettes F6, rechargement à chaud, check_distance 0. `--sandbox` du binaire fait tout ça ;
-# la cible n'ajoute que le remote par défaut, les étiquettes et la fenêtre. SEED=<n> impose la graine de carte.
-# HEADLESS=1 : sans fenêtre (profil headless). GAME peut être un jeu créé par `alacod new` (son paquet cargo).
+# Bac à sable : alias de `alacod sandbox` (la commande `alacod` est le point d'entrée, `docs/conventions.md` §89) ;
+# `alacod sandbox <jeu> [--profile P] [--seed N] [--headless] [--detach]` construit et lance le jeu en bac à sable
+# (arène vide, sans vagues ni étages, mode éditeur : remote BRP 127.0.0.1:15702, étiquettes F6, rechargement à chaud),
+# avec les mêmes features et le même APP_VERSION que les autres cibles. GAME : un dossier de games/ ou le chemin d'un
+# jeu créé par `alacod new`.
 # make sandbox GAME=zombies [PROFIL=lourd] [SEED=42] [HEADLESS=1]
 sandbox:
-ifeq ($(HEADLESS), 1)
-	ALACOD_HEADLESS=1 ALACOD_LABELS=1 APP_VERSION=$(VERSION) cargo run --profile headless -p $(GAME) --no-default-features --features native $(DEV_FEATURES) -- --sandbox $(PROFIL) $(if $(SEED),--seed $(SEED)) $(GARGS) --local-port 7000 --players localhost
-else
-	ALACOD_LABELS=1 APP_VERSION=$(VERSION) cargo run -p $(GAME) --features native $(DEV_FEATURES) -- --sandbox $(PROFIL) $(if $(SEED),--seed $(SEED)) $(GARGS) --local-port 7000 --players localhost
-endif
+	cargo run -q -p content --bin alacod --profile headless -- sandbox $(if $(wildcard games/$(GAME)),games/$(GAME),$(GAME)) $(if $(PROFIL),--profile $(PROFIL)) $(if $(SEED),--seed $(SEED)) $(if $(filter 1,$(HEADLESS)),--headless) $(if $(GARGS),-- $(GARGS))
 
 # Joue au clavier et enregistre la session en scénario : make record_session NAME=ma_session
 # (écrit tests/scenarios/<NAME>.ron à la fermeture ; puis make test_scenarios SCENARIO=<NAME> BLESS=1)
