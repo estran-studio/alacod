@@ -1,7 +1,7 @@
 (
     movement: (
         acceleration: "80.0",
-        max_speed: "40.0",
+        max_speed: "120.0",
 
         sprint_multiplier: "2.0",                // Double speed
         sprint_acceleration_per_frame: "0.1",    // Reach full sprint in 10 frames
