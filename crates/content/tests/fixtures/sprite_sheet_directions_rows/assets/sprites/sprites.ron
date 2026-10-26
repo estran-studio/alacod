@@ -1,0 +1,6 @@
+({
+    "hero": (
+        animation: "sprites/hero_animation.ron",
+        layers: { "body": "sprites/hero_sheet.ron" },
+    ),
+})

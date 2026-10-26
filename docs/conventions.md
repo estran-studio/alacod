@@ -269,13 +269,21 @@ déplacé que les sprites.
 - `scale` : facteur appliqué au rendu.
 - `animated` : `true` si la planche a plusieurs frames ; `false` sinon.
 - `name` : nom interne du calque (exemple : `"body"`, `"shadow"`).
+- `directions` (X-4a, facultatif) : `Some((rows: [E, NE, N, NW, W, SW, S, SE], mirror: false))` ;
+  direction dessinée par ligne, dans l'ordre de la planche. Absent : une seule ligne tournée à droite,
+  miroir pour la gauche, comme avant. Voir §89.
 
 `AnimationMapConfig` (même dossier que la planche) :
 - `frame_duration` : millisecondes par frame.
 - `animations` : table `{ "nom": { start: 0, end: 6 } }` ou `{ "nom": { row: 0, end: 7 } }`. Format direct (indices absolus) ou basé sur les lignes (spécifier la ligne et le nombre de frames).
 - `columns` : optionnel, dérivé de `SpriteSheetConfig` sinon.
 
-**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/sim_core/src/animation_state.rs`, état rollback ; déménagé d'`animation` par D69) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
+**8 directions, de 1 à 8 dessinées (X-4a)** : `FacingDirection` conserve ses huit valeurs dans la
+simulation (rollback inchangé). Une planche sans `directions` dessine une orientation tournée à droite,
+retournée pour la gauche (`set_sprite_flip`, comportement historique). Une planche qui déclare
+`directions` sélectionne en présentation la ligne dessinée angulairement la plus proche, éventuellement
+retournée si `mirror: true`. Les calques déclarent chacun leurs propres lignes ; §89 donne le format,
+les règles d'égalité, le lint et le cas des grandes planches.
 
 **Calques (skins)** : un personnage peut avoir plusieurs calques animés (`body`, `shadow`, `effect`). Chaque calque est une `SpriteSheetConfig` et une `AnimationMapConfig` ; ils sont composés dans `CharacterConfig` (`crates/game/src/character/config.rs`).
 
@@ -7813,3 +7821,74 @@ une cible `target` à (624, 696), 200 unités à droite du joueur en (424, 696))
   Le journal affiche une ligne `ggrs{f=N spawner_skip reason=no_valid_spawner}` par frame (trace du spawner d'ennemis sans point d'apparition valide, voulue pour `diff_log`).
 - **Docs** : `docs/editeur-vocal.md` §1 (apps de test : le bac à sable d'abord, jeu créé), §2.1/§2.2 (phrases → commandes exactes), §4 (bloc « prêt à coller » : mode bac à sable), §8 ; `docs/jouer.md` (« Bac à sable », ligne du jeu créé) ; `CLAUDE.md` (variables et commandes) ;
   protocole de l'essai William : `docs/taches/rapports/sb-5-essai-vocal.md`.
+
+## 89. Sprites directionnels et échelle par jeu (X-4a, voie D)
+
+**Format.** Chaque `SpriteSheetConfig` peut déclarer `directions: Some((rows: [E, NE, N, NW, W,
+SW, S, SE], mirror: false))`. `rows[i]` donne la direction **dessinée** de la ligne `i` du bloc ;
+les noms sont les huit points du compas (est = droite, nord = haut), dans n'importe quel ordre
+connu. Une feuille à huit directions en ordre angulaire a `rows: 8` dans la grille et les indices
+de ligne `E=0, NE=1, N=2, NW=3, W=4, SW=5, S=6, SE=7` (angle / 45°), colonnes = images de
+l'animation. Exemple : 12 colonnes × 8 lignes avec cellules de 376×364 ; `AnimationMapConfig`
+déclare les indices des images de la **première** ligne (`Idle: (start: 0, end: 11)`), et le rendu
+ajoute `ligne × columns`. Pour plusieurs animations dans la même feuille, chaque animation occupe
+un bloc de `directions.rows.len()` lignes ; la grille a un multiple de ce nombre de lignes,
+et les indices de la carte d'animation pointent vers la première ligne du bloc concerné.
+
+| Dessin | `directions.rows` | `mirror` |
+|---|---|---|
+| 1 orientation vers la droite, miroir à gauche (défaut quand `directions` est absent) | `[E]` | `true` |
+| 4 directions | `[E, N, W, S]` | `false` |
+| 5 directions, l'autre côté au miroir | `[S, SE, E, NE, N]` | `true` |
+| 8 directions | `[E, NE, N, NW, W, SW, S, SE]` | `false` |
+
+**Choix de ligne.** `sim_core::sprite_directions::SheetDirections::choose` compare la direction
+`FacingDirection` aux lignes dessinées et, si `mirror`, à leurs reflets horizontaux (`E↔W`,
+`NE↔NW`, `SE↔SW`, `N`/`S` fixes). Distance angulaire minimale en pas de 45° ; à égalité,
+la ligne non retournée gagne, puis la première ligne dans l'ordre déclaré. Le nombre de lignes
+peut donc être différent de 1, 4, 5 ou 8, sans changer la simulation. Sans `directions`, le
+retournement reste **exactement** `FacingDirection::should_flip_x()` (les haut/bas ne sont pas
+retournés). Le calque qui déclare `directions` suit sa propre feuille et ses propres colonnes ;
+le calque qui n'en déclare pas garde le comportement précédent (ombre, arme, etc.). Les sprites
+attachés à un personnage portent `DirectionRow` (présentation seule) : un changement de direction
+déplace l'index d'atlas de `(nouvelle ligne − ancienne ligne) × columns` **sans perdre la colonne
+de l'image courante** ; l'animation retire ce décalage avant d'avancer l'image. Le rechargement
+à chaud réinitialise la ligne et l'index d'atlas. `face_stationary_enemies` et `orient_familiars`
+ne réécrivent pas le miroir de ces calques, pour ne pas contredire la ligne choisie ; voir D153
+pour leur orientation visuelle supplémentaire quand la ligne devrait suivre la cible ou l'orbite.
+
+**Lint.** `content::lint::lint_sprite_sheets` lit la déclaration des feuilles référencées par
+`sprites.ron` : nom inconnu ou champ inconnu = `Parse`, liste vide, direction répétée, moins de
+lignes que de directions ou `rows` de la grille non multiple du nombre déclaré = `OutOfRange`.
+La planche sans champ `directions` n'est pas soumise à ce nouveau lint. La fixture de lint
+`sprite_sheet_directions_*` vérifie les noms et les multiples ; `sim_core::sprite_directions::tests`
+et `animation::direction_row_tests` couvrent 1/4/5/8 directions, miroir et animation.
+
+`alacod describe SpriteSheet` montre aussi le schéma des métadonnées de la feuille cible
+(`rows`, `directions`, `mirror` et les noms possibles), distinct du schéma de la table
+`sprites.ron` qui ne porte que les chemins.
+
+**Échelle, décision du jeu.** Une case du monde vaut 16 unités
+(`world::grid::CELL_SIZE`, `crates/world/src/grid.rs:9`) ; le champ de flux de l'IA utilise aussi
+16 unités (`game::character::enemy::ai::navigation::GRID_CELL_SIZE`,
+`crates/game/src/character/enemy/ai/navigation.rs:30`). Ces deux constantes ne fixent **pas**
+la taille d'une image : `SpriteSheetConfig::tile_size` est en pixels source, `scale` réduit
+ou agrandit le calque en unités monde, `offset_x/y` et `anchor` le placent sur l'entité, et
+`camera.ron` règle le cadrage (`default_player_zoom`, `min_zoom`, `max_zoom_out`). Exemple dans
+le testbed : planche originale de 160×160 px, `scale: 0.2` → 32×32 unités monde (deux cases),
+ancre `Center`, `offset_z: 1` ; le collider reste à 20×20 unités et la caméra du jeu reste à
+`default_player_zoom: 1`. `ImagePlugin::default_nearest()` échantillonne les sprites au plus
+proche (pixel art net, sans interpolation) ; à 0,2 les détails sous cinq pixels source se
+perdent, donc dessiner les formes à cette échelle et vérifier la capture dans le jeu. Modifier
+`CharacterConfig::scale` change l'échelle logique du personnage/collider ; pour **seulement**
+réduire l'image, utiliser le `scale` de la feuille. Un jeu qui veut changer la taille **en unités
+monde** de la grille et du champ de flux, et non la taille des images, se heurte aux deux
+constantes 16 : dette D154, ne pas les modifier pour X-4a.
+
+**Preuve de rendu.** Testbed `boussole` (`games/testbed/assets/sprites/characters/boussole/`,
+source `scripts/generer-sprites-directions.py`, CC0 dans `assets.yaml`) : quatre images par
+ligne, huit lignes colorées et fléchées. `tests/scenarios/sprite_directions_eight.ron` fait
+tourner le joueur par la visée `E, NE, N, NW, W, SW, S, SE` sans mouvement ; la capture
+`play_scenario --capture` et la mosaïque sont dans
+`docs/taches/rapports/x-4a-sprites-directions.md`. Aucun sprite ni personnage d'un jeu externe
+n'entre dans ce dépôt ; aucune trace existante n'est réécrite.

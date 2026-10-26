@@ -15,6 +15,11 @@
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
     ),
+    // X-4a (docs/conventions.md §89) : planche de test à huit directions (personnage `boussole`).
+    "boussole": (
+        animation: "sprites/characters/boussole/boussole_animation.ron",
+        layers: { "body": "sprites/characters/boussole/boussole_sheet.ron" },
+    ),
     // Armes à distance : portées par le joueur, animées par l'animation du joueur.
     "shotgun": (
         animation: "sprites/characters/player/player_animation.ron",

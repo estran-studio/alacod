@@ -1,0 +1,15 @@
+// Fixture X-4a : 8 directions déclarées pour 12 lignes (pas un multiple) : LintErrorKind::OutOfRange.
+(
+    path: "sprites/hero.png",
+    tile_size: (16, 16),
+    columns: 2,
+    name: "body",
+    scale: 1.0,
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 0.0,
+    animated: true,
+    anchor: Center,
+    rows: 12,
+    directions: Some((rows: [E, NE, N, NW, W, SW, S, SE])),
+)

@@ -1,0 +1,26 @@
+// X-4a (docs/conventions.md §89) : planche de test à huit directions, générée par
+// `scripts/generer-sprites-directions.py` (CC0, `assets.yaml`). 4 colonnes (images) × 8 lignes
+// (directions, dans l'ordre `E, NE, N, NW, W, SW, S, SE` = angle / 45°), cellules de 160×160 réduites à
+// 32×32 à l'écran par `scale: 0.2` (le cas d'une planche de grand sprite : voir « Échelle » du §89).
+(
+    path: "sprites/characters/boussole/boussole.png",
+    tile_size: (160, 160),
+    columns: 4,
+    rows: 8,
+
+    animated: true,
+    name: "body",
+
+    scale: 0.2,
+
+    anchor: Center,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 1.0,
+
+    directions: Some((
+        rows: [E, NE, N, NW, W, SW, S, SE],
+        mirror: false,
+    )),
+)

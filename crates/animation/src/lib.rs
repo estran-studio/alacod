@@ -4,6 +4,7 @@ use bevy::{platform::collections::HashMap, prelude::*, reflect::TypePath, sprite
 use bevy_common_assets::ron::RonAssetPlugin;
 use serde::Deserialize;
 use sim_core::animation_state::{AnimationState, FacingDirection};
+pub use sim_core::sprite_directions::{Compass, RowChoice, SheetDirections};
 
 // CONFIG
 
@@ -58,6 +59,11 @@ pub struct SpriteSheetConfig {
     /// équipe et sa taille affichée suit le dégât. Faux par défaut : comportement d'avant.
     #[serde(default)]
     pub own_colors: bool,
+    /// Directions dessinées par la planche (X-4a, `docs/conventions.md` §89) : la direction de chaque
+    /// ligne d'un bloc, et si le côté non dessiné est la ligne retournée. Absent : une orientation
+    /// tournée vers la droite, retournée pour la gauche (comportement d'avant).
+    #[serde(default)]
+    pub directions: Option<SheetDirections>,
 }
 
 // -- Animation Definition Configuration --
@@ -112,6 +118,14 @@ pub struct AnimatedLayer {}
 
 #[derive(Component)]
 pub struct ColoredLayer {}
+
+/// Ligne de direction actuellement appliquée à un calque dont la planche déclare `directions`
+/// (présentation seule, posée par [`set_sprite_flip`]). `atlas.index` = image de l'animation
+/// + `row × columns` ; les systèmes qui lisent l'image d'animation retirent d'abord ce décalage.
+#[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct DirectionRow {
+    pub row: usize,
+}
 
 // Handles are loaded once, assume they don't change and don't need rollback/reflection
 #[derive(Component)]
@@ -191,7 +205,7 @@ fn animate_sprite_system(
         &mut AnimationTimer,
         &AnimationState,
     )>,
-    mut query_sprites: Query<(&mut Sprite, &LayerName), With<AnimatedLayer>>,
+    mut query_sprites: Query<(&mut Sprite, &LayerName, Option<&DirectionRow>), With<AnimatedLayer>>,
 ) {
     if freeze.is_frozen() {
         return;
@@ -215,23 +229,35 @@ fn animate_sprite_system(
             timer.frame_timer.tick(time.delta());
             if timer.frame_timer.just_finished() {
                 for child in childs.iter() {
-                    if let Ok((mut sprite, _)) = query_sprites.get_mut(child.clone()) {
+                    if let Ok((mut sprite, layer, direction)) = query_sprites.get_mut(child.clone())
+                    {
+                        // Décalage de la ligne de direction (X-4a) : l'image d'animation est
+                        // `atlas.index` sans lui, il y est remis après l'avance.
+                        let row_offset = direction.map_or(0, |d| {
+                            let layer_columns = config_handles
+                                .spritesheets
+                                .get(&layer.name)
+                                .and_then(|h| spritesheet_configs.get(h))
+                                .map_or(columns, |c| c.columns);
+                            d.row * layer_columns as usize
+                        });
                         if let Some(atlas) = &mut sprite.texture_atlas {
-                            if let Some(indices) = anim_config.animations.get(&state.0) {
+                            let local = atlas.index.saturating_sub(row_offset);
+                            let next = if let Some(indices) = anim_config.animations.get(&state.0) {
                                 let (start_index, end_index) = indices.to_absolute(columns);
-                                if atlas.index < start_index || atlas.index > end_index {
-                                    atlas.index = start_index;
+                                if local < start_index || local > end_index {
+                                    start_index
                                 } else {
-                                    atlas.index = (atlas.index + 1 - start_index)
-                                        % (end_index - start_index + 1)
-                                        + start_index;
+                                    (local + 1 - start_index) % (end_index - start_index + 1)
+                                        + start_index
                                 }
                             } else {
-                                atlas.index = anim_config.animations.get("Idle").map_or(0, |idx| {
+                                anim_config.animations.get("Idle").map_or(0, |idx| {
                                     let (start, _) = idx.to_absolute(columns);
                                     start
-                                });
-                            }
+                                })
+                            };
+                            atlas.index = next + row_offset;
                         }
                     }
                 }
@@ -293,7 +319,13 @@ fn character_visuals_update_system(
     spritesheet_configs: Res<Assets<SpriteSheetConfig>>,
     mut ev_asset: MessageReader<AssetEvent<SpriteSheetConfig>>,
     query: Query<(&Children, Entity, &CharacterAnimationHandles)>,
-    mut query_sprite: Query<(&mut Sprite, &mut Transform, &mut Anchor, &LayerName)>,
+    mut query_sprite: Query<(
+        &mut Sprite,
+        &mut Transform,
+        &mut Anchor,
+        &LayerName,
+        Option<&mut DirectionRow>,
+    )>,
 ) {
     for event in ev_asset.read() {
         if let AssetEvent::Modified { id } | AssetEvent::Added { id } = event {
@@ -312,8 +344,13 @@ fn character_visuals_update_system(
                             );
 
                             for child in childs.iter() {
-                                if let Ok((mut sprite, mut transform, mut anchor, layer_name)) =
-                                    query_sprite.get_mut(child.clone())
+                                if let Ok((
+                                    mut sprite,
+                                    mut transform,
+                                    mut anchor,
+                                    layer_name,
+                                    direction,
+                                )) = query_sprite.get_mut(child.clone())
                                 {
                                     if layer_name.name == new_config.name {
                                         sprite.texture_atlas = Some(TextureAtlas {
@@ -326,6 +363,10 @@ fn character_visuals_update_system(
                                         transform.scale = Vec3::splat(new_config.scale);
                                         sprite.image = asset_server.load(&new_config.path);
                                         *anchor = new_config.anchor.to_anchor();
+                                        // L'atlas repart de `starting_index` : ligne 0.
+                                        if let Some(mut direction) = direction {
+                                            direction.row = 0;
+                                        }
                                     }
                                 }
                             }
@@ -339,15 +380,59 @@ fn character_visuals_update_system(
 
 // SYSTEM THAT RUN ON THE BEVY SCHEDULE FOR SYNCH
 
+/// Orientation des calques (présentation, `Update`) : retournement horizontal et, pour une planche
+/// qui déclare `directions` (X-4a, §89), ligne de la direction dessinée la plus proche de
+/// `FacingDirection` ([`SheetDirections::choose`]). Un calque sans déclaration garde le retournement
+/// d'avant (`should_flip_x`). La simulation ne lit rien de tout cela.
 pub fn set_sprite_flip(
-    query: Query<(&Children, &FacingDirection)>,
-    mut sprite_query: Query<&mut Sprite>,
+    mut commands: Commands,
+    sheets: Res<Assets<SpriteSheetConfig>>,
+    query: Query<(
+        &Children,
+        &FacingDirection,
+        Option<&CharacterAnimationHandles>,
+    )>,
+    mut sprite_query: Query<(&mut Sprite, Option<&LayerName>, Option<&mut DirectionRow>)>,
 ) {
-    for (childrens, direction) in query.iter() {
+    for (childrens, direction, handles) in query.iter() {
         for child in childrens.iter() {
-            if let Ok(mut sprite) = sprite_query.get_mut(child.clone()) {
+            let Ok((mut sprite, layer, row)) = sprite_query.get_mut(child.clone()) else {
+                continue;
+            };
+            let sheet = handles
+                .zip(layer)
+                .and_then(|(handles, layer)| handles.spritesheets.get(&layer.name))
+                .and_then(|handle| sheets.get(handle));
+            let declared = sheet.and_then(|sheet| sheet.directions.as_ref().map(|d| (sheet, d)));
+            let Some((sheet, directions)) = declared else {
                 // Flip sprite horizontally for left-facing directions
                 sprite.flip_x = direction.should_flip_x();
+                if let (Some(row), Some(sheet)) = (row, sheet) {
+                    // Déclaration retirée (rechargement à chaud) : retour à la ligne 0.
+                    if let Some(atlas) = &mut sprite.texture_atlas {
+                        atlas.index = atlas.index.saturating_sub(row.row * sheet.columns as usize);
+                    }
+                    commands.entity(child).try_remove::<DirectionRow>();
+                }
+                continue;
+            };
+            let choice = directions.choose(*direction);
+            sprite.flip_x = choice.flip_x;
+            match row {
+                Some(mut row) => {
+                    if row.row != choice.row {
+                        if let Some(atlas) = &mut sprite.texture_atlas {
+                            let columns = sheet.columns as usize;
+                            atlas.index = atlas.index.saturating_sub(row.row * columns)
+                                + choice.row * columns;
+                        }
+                        row.row = choice.row;
+                    }
+                }
+                // Posé à la ligne 0, où l'atlas démarre ; la ligne voulue est appliquée à la frame suivante.
+                None => {
+                    commands.entity(child).try_insert(DirectionRow::default());
+                }
             }
         }
     }
@@ -400,6 +485,9 @@ pub fn create_child_sprite(
         entity_commands.insert(AnimatedLayer {});
     }
 
+    if spritesheet_config.directions.is_some() {
+        entity_commands.insert(DirectionRow::default());
+    }
     let sprite = entity_commands.id();
 
     // Le parent a pu mourir et être détruit avant l'application différée des
@@ -469,5 +557,176 @@ mod freeze_tests {
         freeze.tick += 1;
         freeze.freeze_for(1);
         assert_eq!(freeze.until_tick, 6);
+    }
+}
+
+/// X-4a (§89) : la ligne de direction se pose sur l'index d'atlas sans perdre l'image d'animation.
+#[cfg(test)]
+mod direction_row_tests {
+    use super::*;
+
+    const COLUMNS: u32 = 4;
+
+    fn sheet(directions: Option<SheetDirections>, rows: u32) -> SpriteSheetConfig {
+        SpriteSheetConfig {
+            path: "x.png".into(),
+            tile_size: (8, 8),
+            columns: COLUMNS,
+            rows,
+            name: "body".into(),
+            scale: 1.0,
+            offset_x: 0.0,
+            offset_y: 0.0,
+            offset_z: 0.0,
+            animated: true,
+            anchor: ConfigurableAnchor::Center,
+            own_colors: false,
+            directions,
+        }
+    }
+
+    struct Rig {
+        app: App,
+        parent: Entity,
+        layer: Entity,
+    }
+
+    fn rig(sheet: SpriteSheetConfig) -> Rig {
+        let mut app = App::new();
+        app.insert_resource(Assets::<SpriteSheetConfig>::default());
+        app.insert_resource(Assets::<AnimationMapConfig>::default());
+        app.insert_resource(Time::<()>::default());
+        app.init_resource::<AnimationFreeze>();
+        let sheet_handle = app
+            .world_mut()
+            .resource_mut::<Assets<SpriteSheetConfig>>()
+            .add(sheet);
+        let anim_handle = app
+            .world_mut()
+            .resource_mut::<Assets<AnimationMapConfig>>()
+            .add(AnimationMapConfig {
+                frame_duration: 1000,
+                animations: [(
+                    "Idle".to_string(),
+                    AnimationIndices::Direct { start: 0, end: 3 },
+                )]
+                .into_iter()
+                .collect(),
+                columns: None,
+            });
+        let mut sprite = Sprite::default();
+        sprite.texture_atlas = Some(TextureAtlas {
+            layout: Handle::default(),
+            index: 2,
+        });
+        let layer = app
+            .world_mut()
+            .spawn((
+                sprite,
+                LayerName {
+                    name: "body".into(),
+                },
+                AnimatedLayer {},
+            ))
+            .id();
+        let parent = app
+            .world_mut()
+            .spawn((
+                FacingDirection::Right,
+                AnimationState("Idle".into()),
+                AnimationVisualsBundle::new(
+                    [("body".to_string(), sheet_handle)].into_iter().collect(),
+                    anim_handle,
+                    0,
+                ),
+            ))
+            .add_child(layer)
+            .id();
+        app.add_systems(Update, (set_sprite_flip, animate_sprite_system).chain());
+        Rig { app, parent, layer }
+    }
+
+    impl Rig {
+        fn face(&mut self, facing: FacingDirection) {
+            *self
+                .app
+                .world_mut()
+                .get_mut::<FacingDirection>(self.parent)
+                .unwrap() = facing;
+        }
+
+        /// Une mise à jour, le temps avançant d'une seconde (le timer d'animation sonne à chaque fois).
+        fn tick(&mut self) {
+            self.app
+                .world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_secs(1));
+            self.app.update();
+        }
+
+        /// Une mise à jour sans temps écoulé : le timer d'animation ne sonne pas.
+        fn settle(&mut self) {
+            self.app
+                .world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::ZERO);
+            self.app.update();
+        }
+
+        fn state(&self) -> (usize, bool, Option<usize>) {
+            let sprite = self.app.world().get::<Sprite>(self.layer).unwrap();
+            (
+                sprite.texture_atlas.as_ref().unwrap().index,
+                sprite.flip_x,
+                self.app
+                    .world()
+                    .get::<DirectionRow>(self.layer)
+                    .map(|r| r.row),
+            )
+        }
+    }
+
+    #[test]
+    fn a_sheet_without_directions_keeps_the_mirror_and_row_zero() {
+        let mut rig = rig(sheet(None, 1));
+        rig.face(FacingDirection::UpLeft);
+        rig.tick();
+        // Pas de ligne posée ; seule l'animation avance (2 → 3), retournée pour la gauche.
+        assert_eq!(rig.state(), (3, true, None));
+        rig.face(FacingDirection::Up);
+        rig.tick();
+        assert_eq!(rig.state(), (0, false, None));
+    }
+
+    #[test]
+    fn eight_rows_follow_the_facing_and_keep_the_animation_frame() {
+        let mut rig = rig(sheet(Some(SheetDirections::eight()), 8));
+        rig.face(FacingDirection::Up);
+        // 1re mise à jour : le calque reçoit son composant (ligne 0, l'atlas n'a pas bougé hors animation).
+        rig.tick();
+        assert_eq!(rig.state(), (3, false, Some(0)));
+        // 2e : ligne `N` (2) ; l'image d'animation avance (3 → 0), le décalage est de 2 × 4 colonnes.
+        rig.tick();
+        assert_eq!(rig.state(), (2 * COLUMNS as usize, false, Some(2)));
+        // Tourner ne change pas l'image jouée : ligne `W` (4), même colonne ; aucun retournement.
+        rig.face(FacingDirection::Left);
+        rig.settle();
+        assert_eq!(rig.state(), (4 * COLUMNS as usize, false, Some(4)));
+        rig.tick();
+        assert_eq!(rig.state(), (4 * COLUMNS as usize + 1, false, Some(4)));
+    }
+
+    #[test]
+    fn a_mirrored_sheet_flips_the_undrawn_side_on_the_row_it_chose() {
+        let five = SheetDirections {
+            rows: vec![Compass::S, Compass::SE, Compass::E, Compass::NE, Compass::N],
+            mirror: true,
+        };
+        let mut rig = rig(sheet(Some(five), 5));
+        rig.face(FacingDirection::DownLeft);
+        rig.tick();
+        rig.settle();
+        // `SW` = miroir de `SE` (ligne 1), retourné.
+        assert_eq!(rig.state(), (COLUMNS as usize + 3, true, Some(1)));
     }
 }

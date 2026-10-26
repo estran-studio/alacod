@@ -1047,6 +1047,36 @@ fn sprite_sheet_missing_image_fixture_reports_missing_png() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// X-4a (§89) : une direction inconnue dans `directions` est une erreur de lecture.
+#[test]
+fn sprite_sheet_directions_unknown_name_is_a_parse_error() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_directions_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::Parse, "East");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// X-4a : le nombre de lignes de la planche doit être un multiple du nombre de directions.
+#[test]
+fn sprite_sheet_directions_rows_not_a_multiple_is_out_of_range() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_directions_rows")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "12 ligne(s)");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// X-4a : huit directions sur deux blocs de huit lignes : propre.
+#[test]
+fn sprite_sheet_directions_two_blocks_of_eight_is_clean() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_directions_ok")).unwrap();
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("start_map"))
+        .collect();
+    assert!(others.is_empty(), "{others:#?}");
+    assert!(registry.sprite_sheets[&"hero".into()]
+        .directions
+        .contains_key("body"));
+}
+
 /// Surcharge locale (`sprites.local.ron`, pack non redistribuable) : remplace l'entrée de même
 /// id, laisse les autres, et refuse un id sans repli public.
 #[test]

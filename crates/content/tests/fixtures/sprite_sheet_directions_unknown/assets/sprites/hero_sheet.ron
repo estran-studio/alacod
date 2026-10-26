@@ -1,0 +1,15 @@
+// Fixture X-4a : une direction inconnue (`East`) : LintErrorKind::Parse.
+(
+    path: "sprites/hero.png",
+    tile_size: (16, 16),
+    columns: 2,
+    name: "body",
+    scale: 1.0,
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 0.0,
+    animated: true,
+    anchor: Center,
+    rows: 8,
+    directions: Some((rows: [East, NE, N, NW, W, SW, S, SE])),
+)
