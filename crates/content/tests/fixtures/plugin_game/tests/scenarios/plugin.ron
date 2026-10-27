@@ -1,0 +1,33 @@
+// Preuve X-1 (docs/conventions.md §89) : le plugin du jeu agit dans la simulation, jouée par le binaire du jeu.
+// À regarder : le rôdeur, à 200 unités du joueur, fonce droit sur lui (behavior `rush` du plugin, ×3 sa
+// vitesse) et l'atteint avant la frame 199 ; un simple `Chase` (30 u/s) n'aurait fait que 100 unités. À la frame 60
+// la condition `after_frame` devient vraie, `grant_bounty` verse le poids de la caisse `coffre` (3) en Luck au joueur, une seule fois.
+#![enable(implicit_some)]
+Scenario(
+    game: "plugdemo",
+    map: "maps/arena.ldtk",
+    map_seed: 123456,
+    frames: 200,
+    players: [
+        PlayerScript(
+            inputs: [],
+            items: ["prime"],
+        ),
+    ],
+    expect: [
+        EnemyState(entity: Placed(0), behavior: "rush", at_frame: 20),
+        EnemyDistance(entity: Placed(0), target: Player(0), max: 40.0, at_frame: 199),
+        Stat(handle: 0, stat: Luck, value: 0.0, at_frame: 40),
+        Stat(handle: 0, stat: Luck, value: 3.0, at_frame: 199),
+    ],
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "rodeur",
+            x: "624",
+            y: "696",
+            at_frame: 1,
+        ),
+    ],
+    mode: Sandbox,
+)

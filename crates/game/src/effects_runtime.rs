@@ -32,7 +32,7 @@ use combat::downed::Downed;
 use combat::emitter::Emitter;
 use combat::projectile::{resolve_pattern, PatternLibrary};
 use effects::runtime::{
-    conditions_hold, effect_responds, healed, limits_allow, limits_consume, limits_recharge,
+    conditions_hold_with, effect_responds, healed, limits_allow, limits_consume, limits_recharge,
     tick_due, trigger_target, Carrier, Limits, TargetRef, Trigger,
 };
 use effects::{Action, Condition, Effect, On, Recharge};
@@ -130,6 +130,8 @@ pub fn effect_source(carrier: &GgrsNetId, effect: usize) -> ModifierSource {
 pub struct EffectAssets<'w> {
     weapons: Res<'w, WeaponRegistry>,
     library: Option<Res<'w, PatternLibrary>>,
+    /// X-1 : conditions `Custom` du plugin du jeu.
+    custom: Res<'w, crate::extension::CustomVerbs>,
 }
 
 pub(crate) type CarrierQuery<'w, 's> = Query<
@@ -436,7 +438,14 @@ pub(crate) fn run_listed(
                 squad_size: view.squad_size,
                 position: view.position,
             };
-            if !conditions_hold(&effect.r#if, &carrier, trigger) {
+            if !conditions_hold_with(
+                &effect.r#if,
+                &carrier,
+                trigger,
+                &|id, params, carrier, trigger| {
+                    assets.custom.condition(id, params, carrier, trigger)
+                },
+            ) {
                 continue;
             }
             let limited = effect.cooldown.is_some() || effect.charges.is_some();
@@ -472,6 +481,12 @@ pub(crate) fn run_listed(
                     Step::Emit(name) => body.out.push(EffectOut::Emit {
                         carrier: net_id.0,
                         name,
+                    }),
+                    Step::Custom { id, params } => body.out.push(EffectOut::Custom {
+                        carrier: net_id.0,
+                        target,
+                        id,
+                        params,
                     }),
                     Step::Status {
                         to_self,
@@ -1077,9 +1092,10 @@ pub(crate) fn apply_action_sourced(
         // M3-T1 : chance d'`on_hit` de projectile seulement
         | Action::Chance { .. }
         // M3-T2 : `Scaled`, `Emit` et `ApplyStatus*` sont triés par `effects_v3::classify` avant
-        // d'arriver ici (la frise de boss les refuse au lint)
+        // d'arriver ici (la frise de boss les refuse au lint) ; X-1 : `Custom` aussi
         | Action::Scaled { .. }
         | Action::Emit(_)
+        | Action::Custom { .. }
         | Action::ApplyStatusSelf { .. } => {
             warn!(
                 "effet de {} : action {:?} non exécutée en v1 (voir `alacod lint`)",
@@ -1163,6 +1179,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
             .init_resource::<WeaponRegistry>()
+            .init_resource::<crate::extension::CustomVerbs>()
             .insert_resource(FrameCount { frame: 50 })
             .init_resource::<FrameEvents<EffectOut>>()
             .add_systems(Update, apply_effects_system);
@@ -1211,6 +1228,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
             .init_resource::<WeaponRegistry>()
+            .init_resource::<crate::extension::CustomVerbs>()
             .insert_resource(utils::net_id::GgrsNetIdFactory::default())
             .add_systems(Update, run);
         let transform = fixed_math::FixedTransform3D::new(
@@ -1289,6 +1307,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
             .init_resource::<WeaponRegistry>()
+            .init_resource::<crate::extension::CustomVerbs>()
             .insert_resource(FrameCount { frame })
             .init_resource::<FrameEvents<EffectOut>>()
             .insert_resource(run::FloorState {

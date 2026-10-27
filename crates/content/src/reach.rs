@@ -33,6 +33,9 @@ pub enum LintWarningKind {
     /// ordinaire ne rencontre pas, ou un contenu de mécanique M3 (familier, pool, salle spéciale,
     /// curse, accomplissement) qu'aucune partie ordinaire ne porte.
     MechanicUnmet,
+    /// X-1 (§89) : règles de lint du plugin du jeu déclarées dans `game.ron`, que ce binaire (sans le
+    /// code du jeu) n'exécute pas.
+    PluginRulesNotRun,
 }
 
 /// Un avertissement de lint : même forme qu'une [`crate::LintError`], mais n'échoue pas.
@@ -432,7 +435,7 @@ pub(crate) fn stat_uses(registry: &Registry) -> Vec<(String, String, StatId)> {
 /// Avertissements : contenu inatteignable (les stats sans lecteur sont des erreurs, voir
 /// `lint::lint_stat_readers`).
 pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning> {
-    let mut out = Vec::new();
+    let mut out = crate::plugin::warnings(manifest);
     let mut warn = |kind: LintWarningKind, file: String, message: String| {
         out.push(LintWarning {
             kind,

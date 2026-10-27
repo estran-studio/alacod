@@ -28,6 +28,7 @@ sim_core = { path = "../sim_core"}
 stats = { path = "../stats"}
 combat = { path = "../combat"}
 content = { path = "../content"}
+parking_lot = "0.12"
 run = { path = "../run"}
 world = { path = "../world" }
 items = { path = "../items" }

@@ -240,6 +240,8 @@ pub fn move_enemies(
     squad_slots: Res<super::squad::SquadSlots>,
     stats: StatReader,
     grids: Res<crate::collision_grid::CollisionGrids>,
+    // X-1 : déplacement des behaviors `Custom` du plugin du jeu.
+    custom_verbs: Res<crate::extension::CustomVerbs>,
 ) {
     // --- Spatial Grid for Separation (T2.1, chantier B4b) ---
     // Remplace la table de hachage locale (collection non déterministe interdite par
@@ -643,6 +645,7 @@ pub fn move_enemies(
                             nav_key,
                             &body,
                             squad_slots.0.get(&net_id.0),
+                            &custom_verbs,
                         )
                     })
             });

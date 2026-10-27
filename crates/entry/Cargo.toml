@@ -1,0 +1,16 @@
+[package]
+name = "entry"
+description = "Entrée unique d'un jeu (X-1, D-e) : partie, --sandbox, runner de scénarios, lint, avec le plugin Rust du jeu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false }
+game = { path = "../game" }
+content = { path = "../content" }
+map_ldtk = { path = "../map_ldtk" }
+serde_json = "1.0"
+
+# Le runner de scénarios (natif seulement) : le binaire du jeu joue et génère ses scénarios.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+scenario = { path = "../scenario" }

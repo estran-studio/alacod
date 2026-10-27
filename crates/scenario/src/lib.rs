@@ -5,6 +5,7 @@
 //! GPU, et produit une trace d'état comparée à une trace de référence
 //! (`tests/scenarios/<nom>.trace`) pour détecter toute régression.
 
+pub mod cli;
 pub mod events;
 pub mod generate;
 pub mod invariants;

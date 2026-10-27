@@ -317,7 +317,9 @@ pub fn apply_powerup_actions_system(
                 | Action::Scaled { .. }
                 // M3-T2 : effets d objet seulement (refusés par le lint)
                 | Action::Emit(_)
-                | Action::ApplyStatusSelf { .. } => {}
+                | Action::ApplyStatusSelf { .. }
+                // X-1 : `Custom` s'exécute dans un effet (refusée par le lint)
+                | Action::Custom { .. } => {}
                 Action::TimedModifier { .. } | Action::CurrencyMultiplier { .. } => {
                     for (net_id, _player, _dead, mut modifiers, _reserves, _inventory) in
                         order_mut_iter!(players)

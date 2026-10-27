@@ -26,7 +26,8 @@ PENDING=(map_ldtk game)
 # Présentation, outillage, tests : hors frontière. `animation` : feuilles de sprites et animation des
 # calques, sans aucun état de simulation depuis le déménagement de `AnimationState`/`FacingDirection`
 # dans `sim_core::animation_state` (aucun crate SIM n'en dépend : son graphe tirerait `bevy_render`).
-APP=(animation bots scenario telemetry)
+# `entry` (X-1) : entrée unique d'un jeu, au-dessus de `game`/`map_ldtk`/`scenario` : outillage.
+APP=(animation bots scenario telemetry entry)
 
 FORBIDDEN='bevy_render|bevy_winit|bevy_asset|bevy_audio|bevy_ui|bevy_sprite|bevy_text|bevy_pbr|bevy_window|bevy_camera|bevy_gizmos|bevy_picking|bevy_ecs_ldtk|bevy_matchbox|bevy_kira_audio|bevy_common_assets|matchbox_socket|winit|wgpu'
 

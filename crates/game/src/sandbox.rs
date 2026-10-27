@@ -96,6 +96,7 @@ mod tests {
             },
             generate_template: None,
             mechanics: vec![],
+            plugin: Default::default(),
             sandbox: arena.map(|arena| SandboxEntry {
                 arena: arena.to_string(),
             }),

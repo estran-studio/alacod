@@ -1,0 +1,14 @@
+// Passif de la preuve X-1 : à partir de la frame 60 (condition `after_frame` du plugin), une seule
+// fois (`charges`), l'action `grant_bounty` du plugin verse le poids de la caisse `coffre` en Luck.
+(
+    name: "prime",
+    kind: Passive,
+    effects: [
+        (
+            on: Tick(30),
+            if: [Custom(id: "after_frame", params: {"frame": "60"})],
+            charges: Some(1),
+            do: [Custom(id: "grant_bounty", params: {"crate": "coffre"})],
+        ),
+    ],
+)

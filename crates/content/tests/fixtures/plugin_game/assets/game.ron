@@ -1,0 +1,34 @@
+(
+    name: "plugdemo",
+    content_folders: [
+        (path: "ZombieShooter/Sprites/Character/player_config.ron", kind: "Character"),
+        (path: "ZombieShooter/Sprites/Character/weapons.ron", kind: "Weapon"),
+        (path: "weapons/melee/melee_weapons.ron", kind: "MeleeWeapon", generate: false),
+        (path: "characters", kind: "Character"),
+        (path: "maps", kind: "Map"),
+        (path: "ui", kind: "Ui"),
+        (path: "sandbox", kind: "Sandbox"),
+        (path: "camera.ron", kind: "Camera"),
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+        (path: "economy/economy.ron", kind: "Economy"),
+        (path: "objets", kind: "Item"),
+        // X-1 : kind du plugin du jeu (`plugin.kinds`), lu par `src/plugin.rs`.
+        (path: "crates", kind: "Crate"),
+    ],
+    entry: (
+        start_map: "maps/arena.ldtk",
+        default_seed: 123456,
+        mode: Sandbox,
+    ),
+    generate_template: (map: "maps/arena.ldtk", target: "target"),
+    // X-1 (docs/conventions.md §89) : le vocabulaire du plugin Rust du jeu, déclaré en données pour que
+    // `alacod lint` (binaire sans le code du jeu) le connaisse. `src/plugin.rs` doit fournir exactement
+    // ces noms (le lint compare dans les deux sens quand le binaire du jeu le lance).
+    plugin: (
+        kinds: ["Crate"],
+        behaviors: ["rush"],
+        actions: ["grant_bounty"],
+        conditions: ["after_frame"],
+        lint_rules: ["crate_weights"],
+    ),
+)

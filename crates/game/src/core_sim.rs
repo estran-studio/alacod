@@ -140,6 +140,10 @@ impl Plugin for CoreSimPlugin {
 
         use crate::rollback::RollbackTraceApp;
 
+        // X-1 (§89) : les plugins du jeu enregistrent leurs types rollback ici, **avant** les cinq de
+        // clôture ; aucun plugin installé (les clones, `alacod lint`) : rien n'est enregistré.
+        crate::extension::build_plugins(app);
+
         app.rollback_and_trace_copy_resource::<GgrsNetIdFactory>()
             .rollback_and_trace_copy_resource::<FrameCount>()
             .rollback_and_trace::<fixed_math::FixedTransform3D>()

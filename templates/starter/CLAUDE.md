@@ -36,7 +36,27 @@ sous `assets/`, déclarés dans `assets/game.ron`, assemblent des behaviors cod�
 - Simulation déterministe (rollback GGRS) : pas de `f32` ni de `HashMap` dans le code de simulation
   de l'engine. Le contenu RON n'est pas concerné, mais tout nouveau behavior en Rust l'est : voir
   `{{engine}}/CLAUDE.md` et `{{engine}}/docs/conventions.md` §4.
-- Un comportement absent du vocabulaire demande du code dans l'engine, pas dans ce dépôt.
+- Un comportement absent du vocabulaire : d'abord le critère de `{{engine}}/docs/plan-engine.md` §4.8 (contenu d'abord, puis verbes d'engine
+  si deux jeux s'en servent) ; sinon c'est un **plugin Rust de ce jeu** (section suivante), jamais une copie de l'engine.
+
+## Plugin Rust du jeu (mécanique propre à ce jeu)
+
+`src/main.rs` ne fait que `entry::run(GameSpec::new("{{name}}", env!("CARGO_MANIFEST_DIR")))` : l'engine fournit la partie, `--sandbox`, le runner
+de scénarios et le lint. Pour du code propre au jeu, implémenter `game::extension::GamePlugin` et l'ajouter : `.plugin(MonPlugin)`.
+
+- `extension()` déclare le vocabulaire : `content_kind("Caisse")`, `behavior("id", CustomBehaviorImpl { applicable, motion })`,
+  `condition("id", fn)`, `action("id")`, `lint_rule("nom", fn)`. **Chaque nom doit aussi être déclaré dans `assets/game.ron`**
+  (`plugin: (kinds: [..], behaviors: [..], actions: [..], conditions: [..], lint_rules: [..])`) : `alacod lint` ne voit que ça, et le jeu refuse de
+  démarrer si les deux listes diffèrent.
+- `build(app)` pose la **simulation** : composants et ressources rollback (`rollback_and_trace*`, `_neutral` pour un type posé sur de nouvelles
+  entités), systèmes `GgrsSchedule` (placés par `RollbackSystemSet` ; ceux qui exécutent une action `Custom` : `.after(game::effects_v3::effect_status_system)`, dernier de la chaîne d'effets,
+  lecture par `game::extension::custom_actions`). Règles du déterminisme : `{{engine}}/CLAUDE.md` (pas de `f32`, `order_iter!`, `despawn_rollback`, `BTreeMap`).
+- `assemble(app)` pose le reste de la partie jouée (ressources, systèmes `Update`, présentation) ; jamais appelé par les scénarios.
+- Dans le RON : `Custom(id: "rush", params: {"within": "450.0"})` dans `ai.behaviors`, `if: [..]` et `do: [..]` d'un effet d'objet ou de personnage.
+  Les valeurs sont des chaînes (`CustomParams::fixed("within")`, `::uint("n")`). Un kind de plugin charge `.ron` dans `Registry::plugin_content`.
+- **Tout plugin se prouve par un scénario** joué par le binaire du jeu : `cargo run --features native -- scenarios play [fichier.ron] [--bless]`
+  (traces `<scénario>.trace` à côté), `cargo run -- scenarios gen --play` (scénarios générés), `cargo run -- lint` (règles Rust du plugin comprises).
+  Un exemple complet : `{{engine}}/crates/content/tests/fixtures/plugin_game/` et `{{engine}}/docs/conventions.md` §89.
 
 ## Lancer
 

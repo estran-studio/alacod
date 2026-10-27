@@ -235,6 +235,16 @@ pub enum Action {
         #[cfg_attr(feature = "schema", schemars(extend("x-lint" = "> 0")))]
         Fixed,
     ),
+    /// X-1 (`docs/conventions.md` §89) : action **propre à un jeu**, exécutée par son plugin. `id`
+    /// est déclaré dans `plugin.actions` de `game.ron` (le lint refuse un `id` non déclaré),
+    /// `params` sont les paramètres bruts que le plugin décode. Effets seulement (lint) : le moteur
+    /// pose `EffectOut::Custom` dans la frame, le plugin le lit après `apply_effects_system`. Ajoutée
+    /// en fin d'enum : les hashs des variantes d'avant ne bougent pas.
+    Custom {
+        id: String,
+        #[serde(default)]
+        params: sim_core::custom::CustomParams,
+    },
 }
 
 /// Règle pure de multiplication par exemplaire ([`scaled_action`] l'applique à une action).
@@ -369,7 +379,8 @@ impl Action {
             | Action::Scaled { .. }
             | Action::Emit(_)
             | Action::ApplyStatusSelf { .. }
-            | Action::GainSoul(_) => None,
+            | Action::GainSoul(_)
+            | Action::Custom { .. } => None,
         }
     }
 }

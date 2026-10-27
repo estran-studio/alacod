@@ -5,6 +5,7 @@ pub mod files;
 pub mod lint;
 pub mod manifest;
 mod mechanics;
+pub mod plugin;
 pub mod reach;
 pub mod registry;
 pub mod sandbox;
