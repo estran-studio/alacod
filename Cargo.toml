@@ -3,6 +3,7 @@ name = "alacod"
 description = ""
 version = "0.0.1"
 edition = "2021"
+license.workspace = true
 exclude = ["assets/*", "repo/*", "scripts/*"]
 
 [features]
@@ -53,6 +54,11 @@ debug-assertions = false
 
 [workspace]
 members = [ "crates/*", "games/*" ]
+
+# Code de l'engine et des jeux : MIT OR Apache-2.0 (LICENSE-MIT, LICENSE-APACHE). Un jeu qui active
+# l'option `odin` de harmonium (synthé GPLv3) est GPL : il porte alors son propre LICENSE GPLv3.
+[workspace.package]
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 bevy_ecs_tilemap = { version = "0.19.0", default-features = false }

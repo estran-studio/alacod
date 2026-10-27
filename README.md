@@ -58,3 +58,8 @@ simulation/presentation coupling is tracked in [the current status](docs/etat-en
 * [bevy_kira_audio](https://github.com/NiklasEi/bevy_kira_audio)
 * [leafwing-input-manager](https://github.com/Leafwing-Studios/leafwing-input-manager)
 * [bevy_light_2d](https://github.com/jgayfer/bevy_light_2d)
+## License
+
+Alacod's code is licensed under `MIT OR Apache-2.0`, at your option (`LICENSE-MIT`, `LICENSE-APACHE`).
+A game that enables Harmonium's `odin` feature (the GPLv3 `odin2-core` synthesizer) is distributed under GPLv3
+and carries its own `LICENSE`; the engine crates never enable it.
