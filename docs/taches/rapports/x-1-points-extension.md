@@ -41,7 +41,7 @@ Même scénario (synctest, distance 2, rollbacks réels), un type rollback à ha
 ## 4. Preuve de bout en bout (fixture `crates/content/tests/fixtures/plugin_game`, jeu `plugdemo`)
 
 Plugin (`src/plugin.rs`) : behavior `rush` (retenu quand la cible est à moins de `within`, droit sur elle à `speed`×), condition `after_frame`, action `grant_bounty` (un Luck de `weight` points lu dans le kind `Crate`, composant rollback neutre `Bounty`),
-kind de contenu `Crate`, règle de lint `crate_weights`. Contenu : `characters/rodeur.ron` (behavior), `objets/prime.ron` (condition + action), `crates/coffre.ron`. Scénario `tests/scenarios/plugin.ron` (4 attentes).
+kind de contenu `Crate`, règle de lint `crate_weights`. Contenu : `characters/walker.ron` (behavior), `objets/prime.ron` (condition + action), `crates/coffre.ron`. Scénario `tests/scenarios/plugin.ron` (4 attentes).
 
 Tests (`crates/content/tests/cli.rs`) :
 - `alacod_lint_knows_the_plugin_vocabulary_from_game_ron` et `custom_action_is_refused_outside_effects` (rapides, `make test_crates`) : `alacod lint` accepte le jeu, avertit `PluginRulesNotRun`, refuse chacun des trois `Custom` non déclarés, un kind non déclaré, un kind du plugin qui reprend un nom de l'engine, un `Custom` dans un power-up.
@@ -53,7 +53,7 @@ Résultats mesurés (VPS, profil `headless`, `CARGO_TARGET_DIR=…/b6/target`) :
 
 1. **Ambiguïté d'ordre dans `GgrsSchedule`** (le détecteur de bevy est en `Error`) : `grant_bounty_system` n'était ordonné qu'après `apply_triggered_effects_system` ; il entrait en conflit avec `apply_event_effects_system` et `effect_status_system` (`Modifiers`, `FrameEvents<EffectOut>`). Les `Custom` des tours `OnEvent` sont aussi émis par `apply_event_effects_system` : **le lecteur d'`Action::Custom` doit se placer `.after(game::effects_v3::effect_status_system)`** (dernier de la chaîne d'effets). Corrigé dans la fixture, `extension.rs`, `effects_v3.rs`, `CLAUDE.md`, `templates/starter/CLAUDE.md`, conventions §89.
 2. **Longueur de trace** : `state_trace` n'écrit que les frames confirmées, soit `frames - 1` lignes (documenté par `outillage-p2p-stress`) ; deux assertions disaient `frames` (120 et 200). Corrigées (119 et 199).
-3. **Attente de distance mal calibrée** : rôdeur à 400 unités, 200 frames : `rush` ×3 (accélération comprise) n'arrive pas (258 unités restantes à f199). Rôdeur rapproché à 200 unités : `rush` l'atteint, un `Chase` seul (≈ 100 unités à 30 u/s) non : l'attente `EnemyDistance max 40` à f199 est discriminante.
+3. **Attente de distance mal calibrée** : walker à 400 unités, 200 frames : `rush` ×3 (accélération comprise) n'arrive pas (258 unités restantes à f199). Walker rapproché à 200 unités : `rush` l'atteint, un `Chase` seul (≈ 100 unités à 30 u/s) non : l'attente `EnemyDistance max 40` à f199 est discriminante.
 4. `scripts/check-sim-boundary.sh` : le nouveau crate `entry` n'était classé ni SIM, ni PENDING, ni APP (le script échoue pour tout crate non classé) : classé `APP` (outillage au-dessus de `game`/`map_ldtk`/`scenario`).
 5. `plugin_order.rs` : `uninstall()` en tête et en fin (un plugin installé fuirait vers un autre test du même processus).
 

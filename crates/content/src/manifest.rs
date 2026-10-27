@@ -151,7 +151,7 @@ pub struct GameManifest {
     pub plugin: PluginDecl,
 }
 
-/// `plugin: (kinds: ["Caisse"], behaviors: ["rodeur"], actions: [..], conditions: [..], lint_rules: [..])`
+/// `plugin: (kinds: ["Crate"], behaviors: ["rush"], actions: [..], conditions: [..], lint_rules: [..])`
 /// (X-1, §89) : les noms que le plugin du jeu déclare. Le lint refuse un `Custom` dont l'id n'est pas
 /// dans la liste de son espace, un dossier de contenu de kind inconnu qui n'est pas dans `kinds`, et
 /// (binaire du jeu) toute déclaration que le plugin ne fournit pas, ou l'inverse. Les règles de lint

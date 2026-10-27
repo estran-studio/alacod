@@ -13,7 +13,7 @@
         dash_cooldown_frames: 0,
     ),
 
-    asset_name_ref: "rodeur",
+    asset_name_ref: "walker",
 
     collider: (
         shape: Rectangle(
