@@ -61,4 +61,16 @@ livraison (section « Non exécuté »).
   système sans pouvoir l'observer aurait été un no-op déguisé. Les dettes décrivent la conception et la preuve attendue.
 - **Parade de mêlée contre mêlée (D149)** : la règle de contact entre deux hitbox n'est pas fixée par le design.
 - **Repères `ReloadStart` et « coup qui arrive » d'un ennemi (D152)** : le rechargement actif est prouvé sur l'horloge.
-- **Preuve visuelle du renvoi sur Mac** : voir le message de livraison.
+
+## Preuve visuelle (Mac)
+
+`play_scenario tests/scenarios/parade_projectiles.ron --capture <dossier> --every 1` sur le Mac (worktree dédié,
+cible clonée, `CARGO_BUILD_JOBS=4`), 261 images. Les boules de feu ennemies sont rouges ; **celle qui a été renvoyée est
+jaune** (peau de l'équipe `Players`) et repart vers la droite :
+`x-3-verbes-d1-renvoi-f70.png` (f70 : boule jaune à côté de l'arc du coup) et `x-3-verbes-d1-renvoi-f90.png` (f90 :
+la même, plus loin, vers la tourelle).
+
+Cette capture a montré un défaut de **présentation** : la peau d'un projectile n'était posée qu'une fois, donc une balle
+renvoyée gardait sa peau ennemie (rouge). Correctif (`game::world_sprites::reskin_reflected_bullets`, composant
+`SkinnedAs`, présentation seule : les marqueurs de peau et de style sont retirés quand l'équipe change, la taille d'avant
+la peau est rendue, `skin_bullets` et `style_tears` repassent une fois). Aucune simulation ni trace touchée.
