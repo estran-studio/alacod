@@ -48,8 +48,10 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
 - **D-a Dépôt** : nouveau dépôt `estran-studio/1837` (`plan-engine.md:207`), créé par `alacod new 1837` au lot X-5 ; les assets y sont exportés
   depuis `1867_lore` (la bible reste la source). Création du dépôt GitHub : William.
 - **D-b Dépendance** : tag git épinglé (`alacod new` prend le dernier tag par défaut) ; `alacod engine local <chemin>` pose une surcharge locale
-  (patch Cargo hors `Cargo.toml` versionné) pour développer engine et jeu ensemble ; `alacod engine pin <tag>` / `status`. Un tag `v0.1.0` est posé
-  au merge de X-2a (le dernier, `v0.0.2`, précède le bac à sable).
+  (patch Cargo hors `Cargo.toml` versionné) pour développer engine et jeu ensemble ; `alacod engine pin <tag>` / `status`. **Ne pas taguer
+  X-2a seul** : `v0.1.0` est posé après les merges de X-1 **et** X-2a et la preuve qu'un jeu généré compile avec ce tag (le dernier tag
+  `v0.0.2` précède le bac à sable ; le gabarit et le code de l'engine doivent rester compatibles). Pendant les lots, épingler un SHA poussé
+  (`--rev`) ou utiliser `--path` explicitement ; X-2b/X-3/X-4b donneront lieu à un tag ultérieur après vérification.
 - **D-c Sprites (confirmé par William le 2026-10-26)** : 1837 a besoin des **8 directions**, mais l'engine reste **flexible** : une planche déclare
   combien de directions elle dessine (1 avec miroir : le défaut actuel des clones ; 4 ; 5 avec miroir pour l'autre côté ; 8) et l'engine choisit la
   ligne de la direction la plus proche dessinée, en miroir si la planche le permet. Aucune planche existante ne change.
