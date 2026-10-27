@@ -643,6 +643,9 @@ pub struct WeaponEntry {
     /// D63 : `config.test_only: true`, arme de laboratoire ignorée par l'analyse d'atteignabilité ;
     /// sans effet en jeu (`combat::WeaponConfig` ne lit pas ce champ).
     pub test_only: bool,
+    /// Poids de l'arme (X-3) : `move_speed_mult:` du RON, pour la règle « > 0 ».
+    /// `None` : pas de poids.
+    pub move_speed_mult: Option<FixedField>,
 }
 
 /// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
@@ -831,6 +834,17 @@ pub struct MeleeWeaponEntry {
     pub damage: FixedField,
     /// Voir `WeaponEntry::test`.
     pub test: Option<WeaponTestRange>,
+    /// Parade et renvoi (X-3) : `reflect:` du RON, pour les règles « `perfect_damage_mult`
+    /// > 0 ». `None` : pas de parade.
+    pub reflect: Option<MeleeReflectEntry>,
+}
+
+/// Mirroir de `combat::weapons::melee::MeleeReflect` (`content` ne dépend pas de
+/// `combat`) : juste assez pour le lint.
+#[derive(Debug, Clone, Copy)]
+pub struct MeleeReflectEntry {
+    pub perfect_frames: u32,
+    pub perfect_damage_mult: Fixed,
 }
 
 /// Mirroir minimal de `game::weapons::WeaponTest` (`content` ne dépend pas de `game`, voir
@@ -2512,6 +2526,10 @@ struct WeaponConfigSchema {
     /// D63 : voir `WeaponEntry::test_only`.
     #[serde(default)]
     test_only: bool,
+    /// X-3 : poids de l'arme (`combat::weapons::WeaponConfig::move_speed_mult`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    move_speed_mult: Option<FixedField>,
 }
 
 fn zero_spread() -> FixedField {
@@ -2583,6 +2601,17 @@ struct MeleeWeaponConfigSchema {
     #[serde(default, deserialize_with = "de_friendly_fire")]
     #[allow(dead_code)]
     friendly_fire: FriendlyFire,
+    /// X-3 : parade et renvoi (`combat::weapons::melee::MeleeReflect`).
+    #[serde(default)]
+    reflect: Option<MeleeReflectSchema>,
+}
+
+/// Mirroir de `combat::weapons::melee::MeleeReflect` pour le schéma et le lint.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct MeleeReflectSchema {
+    perfect_frames: u32,
+    #[schemars(extend("x-lint" = "> 0"))]
+    perfect_damage_mult: FixedField,
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -3001,6 +3030,7 @@ fn load_weapons(
                     mode_projectiles,
                     projectiles: entry.config.projectiles,
                     test_only: entry.config.test_only,
+                    move_speed_mult: entry.config.move_speed_mult,
                 },
             );
         }
@@ -3055,6 +3085,10 @@ fn load_melee_weapons(
                 continue;
             }
             let test = entry.config.test.as_ref().map(WeaponTestRange::from);
+            let reflect = entry.config.reflect.map(|reflect| MeleeReflectEntry {
+                perfect_frames: reflect.perfect_frames,
+                perfect_damage_mult: reflect.perfect_damage_mult.get(),
+            });
             registry.melee_weapons.insert(
                 id.clone(),
                 MeleeWeaponEntry {
@@ -3062,6 +3096,7 @@ fn load_melee_weapons(
                     file: rel.clone(),
                     damage: entry.config.damage,
                     test,
+                    reflect,
                 },
             );
         }

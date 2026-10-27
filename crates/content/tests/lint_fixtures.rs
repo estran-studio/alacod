@@ -1071,8 +1071,7 @@ fn sprite_sheet_directions_with_spaced_colon_are_still_validated() {
         content_folders: [(path: "sprites/sprites.ron", kind: "SpriteSheet")],
         entry: (start_map: "unused", default_seed: 1),
     )"#;
-    const TABLE: &str =
-        r#"({"hero": (animation: "sprites/hero_animation.ron", layers: {"body": "sprites/hero_sheet.ron"})})"#;
+    const TABLE: &str = r#"({"hero": (animation: "sprites/hero_animation.ron", layers: {"body": "sprites/hero_sheet.ron"})})"#;
     const BAD_NAME: &[(&str, Option<&str>)] = &[
         ("game.ron", Some(MANIFEST)),
         ("sprites/sprites.ron", Some(TABLE)),
@@ -1132,6 +1131,22 @@ fn sprite_sheet_local_overlay_replaces_known_ids_only() {
 fn weapon_spread_out_of_range_fixture_reports_spread() {
     let (_, _, errors) = load_and_lint(&fixture_dir("weapon_spread_out_of_range")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "spread");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// X-3 : `reflect.perfect_damage_mult` doit être > 0.
+#[test]
+fn melee_reflect_mult_zero_fixture_reports_mult() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("melee_reflect_mult_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "perfect_damage_mult");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// X-3 : `move_speed_mult` doit être > 0.
+#[test]
+fn weapon_move_speed_mult_zero_fixture_reports_mult() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_move_speed_mult_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "move_speed_mult");
     assert_only_one_besides_start_map(&errors);
 }
 
@@ -1598,6 +1613,22 @@ fn effect_limits_invalid_fixture_reports_out_of_range() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "cooldown = 0");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "charges = 0");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "recharge sans charges");
+}
+
+/// X-3 : fenêtre de jugement — parfaite plus large que la large, horloge inconnue.
+#[test]
+fn effect_timing_invalid_fixture_reports_window_and_clock() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_timing_invalid")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "perfect_frames = 9 > good_frames = 4",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "événement d'horloge « inconnu »",
+    );
 }
 
 #[test]

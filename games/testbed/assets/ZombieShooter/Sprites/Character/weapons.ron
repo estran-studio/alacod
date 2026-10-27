@@ -1064,4 +1064,40 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // X-3 (testbed) : pistolet lourd — même balistique que `pistol`, mais
+    // `move_speed_mult: "0.5"` (le porteur va deux fois moins vite tant qu'il est
+    // actif). Scénario `arme_lourde`.
+    "pistolet_lourd": (
+        config: (
+            name: "pistolet_lourd",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            move_speed_mult: Some("0.5"),
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Manual(),
+                    spread:  "0.0005",
+                    recoil: "3.0",
+                    bullet_type: Standard(
+                        damage: "15.0",
+                        speed: "400.0",
+                    ),
+                    range: "700.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 6,
+                        mag_limit: 8,
+                    )
+                )
+            }
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
 })

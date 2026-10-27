@@ -18,7 +18,9 @@ pub mod describe;
 pub mod progression;
 pub mod runtime;
 use bevy::prelude::{App, Plugin};
-pub use contracts::{Condition, Effect, GaugeThreshold, On, Recharge};
+pub use contracts::{
+    Condition, Effect, GaugeThreshold, On, Recharge, TimingGradeFilter, TimingReference,
+};
 use sim_core::kinds::{KindDecl, KindRegistry};
 
 pub struct EffectsPlugin;
@@ -54,6 +56,8 @@ impl Plugin for EffectsPlugin {
                     "SquadSize",
                     "TargetInRange",
                     "NotHitFor",
+                    // X-3 : fenêtre de jugement.
+                    "Timing",
                 ][..],
             ),
         ] {
@@ -96,10 +100,11 @@ mod contract_tests {
             "SquadSize",
             "TargetInRange",
             "NotHitFor",
+            "Timing",
         ] {
             assert!(kinds.has("effect_condition", name));
         }
         assert_eq!(kinds.names("effect_trigger").count(), 14);
-        assert_eq!(kinds.names("effect_condition").count(), 7);
+        assert_eq!(kinds.names("effect_condition").count(), 8);
     }
 }

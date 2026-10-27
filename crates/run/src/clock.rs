@@ -196,6 +196,23 @@ pub fn due_events(def: &ClockDef, elapsed: u32, fired: &BTreeSet<String>) -> Vec
     due
 }
 
+/// Temps (en frames de la portée de `def`) de l'occurrence de l'événement `id` la plus
+/// proche de `elapsed` (X-3 : repère d'une fenêtre de jugement, `effects::Condition::Timing`).
+/// Sans `repeat` : l'unique occurrence, à `at`. Avec `repeat` : `at + k × repeat`, `k >= 0`,
+/// le plus proche de `elapsed` (à égalité, l'occurrence **suivante**) ; avant `at`, la
+/// première. `None` si l'horloge n'a pas d'événement `id` (sans suffixe `#n`).
+/// Fonction pure en entiers, saturante : aucune panique.
+pub fn nearest_occurrence(def: &ClockDef, id: &str, elapsed: u32) -> Option<u32> {
+    let event = def.events.iter().find(|event| event.id == id)?;
+    let at = event.at.frames();
+    let repeat = event.repeat.map(ClockTime::frames).unwrap_or(0);
+    if repeat == 0 || elapsed <= at {
+        return Some(at);
+    }
+    let k = (elapsed - at).saturating_add(repeat / 2) / repeat;
+    Some(at.saturating_add(k.saturating_mul(repeat)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,5 +315,44 @@ mod tests {
         assert!(belongs_to("renfort", "renfort"));
         assert!(belongs_to("renfort#3", "renfort"));
         assert!(!belongs_to("renforts", "renfort"));
+    }
+
+    /// X-3 : occurrence la plus proche, sans répétition, avec répétition (arrondi à
+    /// l'occurrence suivante à égalité), avant `at`, événement inconnu et répétition nulle.
+    #[test]
+    fn occurrence_la_plus_proche() {
+        let def = ClockDef {
+            scope: ClockScope::Run,
+            events: vec![
+                ClockEventDef {
+                    id: "pouls".into(),
+                    at: ClockTime::Frames(10),
+                    repeat: Some(ClockTime::Frames(30)),
+                },
+                ClockEventDef {
+                    id: "unique".into(),
+                    at: ClockTime::Frames(50),
+                    repeat: None,
+                },
+                ClockEventDef {
+                    id: "degenere".into(),
+                    at: ClockTime::Frames(5),
+                    repeat: Some(ClockTime::Frames(0)),
+                },
+            ],
+        };
+        // Avant `at`, la première occurrence.
+        assert_eq!(nearest_occurrence(&def, "pouls", 0), Some(10));
+        assert_eq!(nearest_occurrence(&def, "pouls", 10), Some(10));
+        // 10, 40, 70, 100 : 24 est plus près de 10 (14) que de 40 (16).
+        assert_eq!(nearest_occurrence(&def, "pouls", 24), Some(10));
+        // 25 : égalité (15 / 15) → la suivante.
+        assert_eq!(nearest_occurrence(&def, "pouls", 25), Some(40));
+        assert_eq!(nearest_occurrence(&def, "pouls", 69), Some(70));
+        assert_eq!(nearest_occurrence(&def, "unique", 9999), Some(50));
+        assert_eq!(nearest_occurrence(&def, "degenere", 9999), Some(5));
+        assert_eq!(nearest_occurrence(&def, "absent", 3), None);
+        // Pas de panique aux extrêmes.
+        assert!(nearest_occurrence(&def, "pouls", u32::MAX).is_some());
     }
 }

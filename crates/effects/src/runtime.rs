@@ -5,7 +5,7 @@
 use bevy_fixed::fixed_math::Fixed;
 use sim_core::tag::{Tag, Tags};
 
-use crate::{Condition, Effect, GaugeThreshold, On};
+use crate::{Condition, Effect, GaugeThreshold, On, TimingGradeFilter, TimingReference};
 
 /// Déclencheurs exécutés (v1 + M2-T3 : `OnRoomClear`, `OnDodge`, `OnReload`, `OnPickup`,
 /// `OnFloorStart`, `OnBlank` + M3-T2 : `OnHit`, `OnEvent`). Seul `OnUse` hors objet actif reste un
@@ -41,7 +41,68 @@ pub fn condition_supported(condition: &Condition) -> bool {
             | Condition::Carrying(_)
             | Condition::SquadSize(_)
             | Condition::TargetInRange(_)
+            | Condition::Timing { .. }
     )
+}
+
+/// Repères temporels du porteur (X-3, `Condition::Timing`), calculés par l'application à
+/// chaque évaluation : début du dash et du coup de mêlée en cours (`None` hors action) et
+/// occurrence la plus proche d'un événement d'horloge (`beat`, `None` : horloge ou événement
+/// inconnu). Tout en frames absolues de simulation.
+#[derive(Clone, Copy, Default)]
+pub struct TimingRefs<'a> {
+    pub dash_start: Option<u32>,
+    pub melee_start: Option<u32>,
+    pub beat: Option<&'a dyn Fn(&str) -> Option<u32>>,
+}
+
+impl std::fmt::Debug for TimingRefs<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TimingRefs")
+            .field("dash_start", &self.dash_start)
+            .field("melee_start", &self.melee_start)
+            .field("beat", &self.beat.map(|_| "<fn>"))
+            .finish()
+    }
+}
+
+impl TimingRefs<'_> {
+    /// Frame de `reference` (avant `offset`), `None` si inconnue.
+    pub fn frame_of(&self, reference: &TimingReference) -> Option<u32> {
+        match reference {
+            TimingReference::Clock(id) => self.beat.and_then(|beat| beat(id)),
+            TimingReference::DashStart => self.dash_start,
+            TimingReference::MeleeStart => self.melee_start,
+        }
+    }
+}
+
+/// `Condition::Timing` : la frame `now` tombe-t-elle dans la note `grade` autour de
+/// `repère + offset` ? Repère inconnu : faux (jamais de panique, aucune note inventée).
+pub fn timing_holds(
+    refs: &TimingRefs,
+    now: u32,
+    reference: &TimingReference,
+    offset: u32,
+    perfect_frames: u32,
+    good_frames: u32,
+    grade: TimingGradeFilter,
+) -> bool {
+    use sim_core::timing::{grade_timing, TimingGrade};
+    let Some(base) = refs.frame_of(reference) else {
+        return false;
+    };
+    let noted = grade_timing(
+        now,
+        base.saturating_add(offset),
+        perfect_frames,
+        good_frames,
+    );
+    match grade {
+        TimingGradeFilter::Perfect => noted == TimingGrade::Perfect,
+        TimingGradeFilter::AtLeastGood => noted != TimingGrade::Miss,
+        TimingGradeFilter::Miss => noted == TimingGrade::Miss,
+    }
 }
 
 /// La cible d'un déclencheur (`OnHit`, `OnKill`, `OnDamageTaken`) : son `GgrsNetId` et sa position
@@ -110,6 +171,9 @@ pub struct Carrier<'a> {
     pub squad_size: u32,
     /// M3-T2 : position monde du porteur, pour `TargetInRange` (`None` : inconnue, condition fausse).
     pub position: Option<(Fixed, Fixed)>,
+    /// X-3 : repères temporels du porteur, pour `Timing` (`TimingRefs::default()` : tous
+    /// inconnus, la condition est fausse).
+    pub timing: TimingRefs<'a>,
 }
 
 /// L'effet répond-il à ce déclencheur : [`responds_to`] et, pour `OnPickup`, son filtre `item`
@@ -180,7 +244,21 @@ pub fn conditions_hold(
         Condition::TargetInRange(range) => {
             target_in_range(carrier.position, target_position(trigger), *range)
         }
-        _ => false,
+        Condition::Timing {
+            reference,
+            offset,
+            perfect_frames,
+            good_frames,
+            grade,
+        } => timing_holds(
+            &carrier.timing,
+            carrier.frame,
+            reference,
+            *offset,
+            *perfect_frames,
+            *good_frames,
+            *grade,
+        ),
     })
 }
 
@@ -312,6 +390,7 @@ mod tests {
             carried: &["fiole"],
             squad_size: 2,
             position: Some((fx(0.0), fx(0.0))),
+            timing: TimingRefs::default(),
         }
     }
 
@@ -571,5 +650,63 @@ mod tests {
         ));
         assert_eq!(trigger_target(Some(&hit)).map(|t| t.id), Some(7));
         assert_eq!(trigger_target(Some(&Trigger::Reload)), None);
+    }
+
+    /// X-3 : `Condition::Timing` — bornes des fenêtres, décalage, filtres de note, repère
+    /// inconnu (faux, jamais de panique) et repères de dash, de coup et d'horloge.
+    #[test]
+    fn fenetre_de_jugement() {
+        use crate::{TimingGradeFilter as G, TimingReference as R};
+        let tags = Tags::new();
+        let beat = |id: &str| (id == "pouls").then_some(196);
+        let refs = TimingRefs {
+            dash_start: Some(190),
+            melee_start: None,
+            beat: Some(&beat),
+        };
+        let carrier = Carrier {
+            timing: refs,
+            ..carrier(&tags, 100.0, None)
+        };
+        // frame du porteur : 200
+        let t = |reference: R, offset, perfect, good, grade| Condition::Timing {
+            reference,
+            offset,
+            perfect_frames: perfect,
+            good_frames: good,
+            grade,
+        };
+        let holds = |c: Condition| conditions_hold(&[c], &carrier, None);
+        // Horloge : repère 196, écart 4 → parfait avec perfect = 4, bien avec perfect = 3
+        assert!(holds(t(R::Clock("pouls".into()), 0, 4, 7, G::Perfect)));
+        assert!(!holds(t(R::Clock("pouls".into()), 0, 3, 7, G::Perfect)));
+        assert!(holds(t(R::Clock("pouls".into()), 0, 3, 7, G::AtLeastGood)));
+        // Hors de la fenêtre large : « raté »
+        assert!(holds(t(R::Clock("pouls".into()), 0, 1, 3, G::Miss)));
+        assert!(!holds(t(R::Clock("pouls".into()), 0, 1, 4, G::Miss)));
+        // Décalage : début du dash 190 + 10 = 200 : écart 0
+        assert!(holds(t(R::DashStart, 10, 0, 0, G::Perfect)));
+        assert!(!holds(t(R::DashStart, 9, 0, 0, G::Perfect)));
+        // Repères inconnus : toutes les notes sont fausses, `Miss` comprise
+        assert!(!holds(t(R::MeleeStart, 0, 9, 9, G::Perfect)));
+        assert!(!holds(t(R::MeleeStart, 0, 9, 9, G::Miss)));
+        assert!(!holds(t(
+            R::Clock("inconnu".into()),
+            0,
+            9,
+            9,
+            G::AtLeastGood
+        )));
+        // Sans repères du tout
+        let nu = Carrier {
+            timing: TimingRefs::default(),
+            ..carrier
+        };
+        assert!(!conditions_hold(
+            &[t(R::DashStart, 0, 9, 9, G::AtLeastGood)],
+            &nu,
+            None
+        ));
+        assert!(condition_supported(&t(R::DashStart, 0, 1, 2, G::Perfect)));
     }
 }

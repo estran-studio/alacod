@@ -1,0 +1,25 @@
+// X-3 (testbed) : poids des armes. Le joueur 0, armé du seul `pistolet_lourd`
+// (`move_speed_mult: "0.5"`), marche vers la droite de f10 à f70 : `sync_carry_weight_system`
+// pose un modificateur `MoveSpeed`/`Mul` 0,5 (source `weapon_weight:pistolet_lourd`), donc sa
+// stat vaut 75 au lieu de 150 et il avance deux fois moins loin que le témoin
+// `arme_lourde_temoin` (même marche, `pistol`, sans poids). Aucun code de mouvement ajouté :
+// les modificateurs existants suffisent.
+//
+// À regarder : le joueur avance lentement vers la droite, sans tirer (68 unités en 60 frames
+// contre 135 pour le témoin).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 80,
+    players: [
+        (weapon: "pistolet_lourd", inputs: [
+            (from: 10, to: 70, buttons: [Right]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: MoveSpeed, value: 75.0, at_frame: 20),
+        PlayerAlive(handle: 0, at_frame: 80),
+        PlayerPosition(handle: 0, x: 492.3, y: 696.0, tolerance: 1.0, at_frame: 70),
+    ],
+)

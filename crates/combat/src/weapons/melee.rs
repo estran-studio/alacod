@@ -37,8 +37,23 @@ pub enum MeleeAttackPattern {
     Combo { strikes_in_combo: u32 },
 }
 
+/// Parade et renvoi de projectiles (X-3, verbes D1) : paramètres du verbe, en frames
+/// entières et `Fixed`, jamais de `f32`.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
+pub struct MeleeReflect {
+    /// Fenêtre parfaite : un projectile touché au plus `perfect_frames` après le début
+    /// du coup (`MeleeAttackState::attack_started_frame`, celle-ci comprise) est
+    /// `Perfect`, sinon `Good` (`sim_core::timing::grade_timing`, repère = début du
+    /// coup, `good` = toute la durée de la hitbox). `0` : seul un contact à la frame
+    /// du départ est parfait.
+    pub perfect_frames: u32,
+    /// Multiplicateur des dégâts du projectile renvoyé sur un `Perfect` (`1` : dégâts
+    /// conservés comme sur un `Good`).
+    pub perfect_damage_mult: fixed_math::Fixed,
+}
+
 // MELEE WEAPON CONFIG
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub struct MeleeWeaponConfig {
     pub name: String,
     pub damage: fixed_math::Fixed,
@@ -55,10 +70,18 @@ pub struct MeleeWeaponConfig {
     /// doc) : jamais dans le hash (impl manuelle ci-dessous), pure métadonnée d'outillage.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub test: Option<super::WeaponTest>,
+    /// Parade et renvoi (X-3, verbes D1) : la hitbox de mêlée renvoie les projectiles
+    /// hostiles qu'elle touche (changement d'équipe, direction du regard, dégâts
+    /// conservés, ou multipliés par `perfect_damage_mult` dans la fenêtre parfaite).
+    /// `None` (défaut) : pas de parade, comportement d'avant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reflect: Option<MeleeReflect>,
 }
 
 /// Hash manuel : voir `WeaponConfig::hash` (même raison, même méthode) — reprend l'ordre des
 /// champs que dérivait `MeleeWeaponConfig` avant l'ajout de `test`, en l'excluant.
+/// X-3 : `reflect` n'est haché que s'il est présent (`None`, tout le contenu d'avant :
+/// hash inchangé, aucune trace ne bouge).
 impl std::hash::Hash for MeleeWeaponConfig {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
@@ -70,6 +93,31 @@ impl std::hash::Hash for MeleeWeaponConfig {
         self.knockback_force.hash(state);
         self.stamina_cost.hash(state);
         self.friendly_fire.hash(state);
+        if let Some(reflect) = &self.reflect {
+            reflect.hash(state);
+        }
+    }
+}
+
+/// Debug manuel : identique au `derive(Debug)` d'avant X-3 tant que `reflect` est absent
+/// (même ligne dans la trace détaillée) ; `reflect` n'est écrit que s'il est présent.
+impl std::fmt::Debug for MeleeWeaponConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("MeleeWeaponConfig");
+        d.field("name", &self.name)
+            .field("damage", &self.damage)
+            .field("range", &self.range)
+            .field("attack_pattern", &self.attack_pattern)
+            .field("attack_duration_frames", &self.attack_duration_frames)
+            .field("cooldown_frames", &self.cooldown_frames)
+            .field("knockback_force", &self.knockback_force)
+            .field("stamina_cost", &self.stamina_cost)
+            .field("friendly_fire", &self.friendly_fire)
+            .field("test", &self.test);
+        if let Some(reflect) = &self.reflect {
+            d.field("reflect", reflect);
+        }
+        d.finish()
     }
 }
 
@@ -759,5 +807,215 @@ pub fn enemy_melee_attack_system(
                 }
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Parade et renvoi de projectiles (X-3, verbes D1)
+// ---------------------------------------------------------------------------------------
+
+use std::collections::BTreeSet;
+
+use sim_core::timing::{grade_timing, TimingGrade};
+
+/// Projectile renvoyé par une hitbox de mêlée, émis pour la preuve (moments clés,
+/// scénarios) et la composition (un système peut lire la note). File **neutre**
+/// (`add_frame_events_neutral`) : vide dans tout le contenu d'avant, aucune trace ne bouge.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ProjectileReflected {
+    /// `GgrsNetId` de la balle renvoyée.
+    pub bullet: GgrsNetId,
+    /// `GgrsNetId` du pareur (nouveau tireur).
+    pub owner: GgrsNetId,
+    /// Note de la fenêtre de jugement (`sim_core::timing`, repère = début du coup).
+    pub grade: TimingGrade,
+    pub frame: u32,
+}
+
+/// Direction de regard en vecteur `Fixed` unitaire (ou nul, jamais : les huit
+/// directions sont non nulles). Pure, déterministe, sans `f32`.
+pub fn facing_to_fixed(direction: FacingDirection) -> fixed_math::FixedVec2 {
+    let (x, y) = match direction {
+        FacingDirection::Right => (1, 0),
+        FacingDirection::UpRight => (1, 1),
+        FacingDirection::Up => (0, 1),
+        FacingDirection::UpLeft => (-1, 1),
+        FacingDirection::Left => (-1, 0),
+        FacingDirection::DownLeft => (-1, -1),
+        FacingDirection::Down => (0, -1),
+        FacingDirection::DownRight => (1, -1),
+    };
+    fixed_math::FixedVec2::new(
+        fixed_math::Fixed::from_num(x),
+        fixed_math::Fixed::from_num(y),
+    )
+    .normalize_or_zero()
+}
+
+/// Renvoi des projectiles par les hitbox de mêlée dont l'arme porte `reflect`.
+///
+/// Pour chaque hitbox active (ordre `GgrsNetId`), si l'arme du porteur déclare `reflect` :
+/// tout projectile hostile au porteur (même filtre que s'il allait le toucher :
+/// `team_allows_hit`, jamais sa propre équipe) en contact géométrique avec la hitbox
+/// est renvoyé : `source`/`source_team` deviennent le pareur et son équipe (la balle
+/// touche désormais ses anciens alliés), la vitesse garde son module et prend la
+/// direction du regard, les personnages déjà traversés sont oubliés (le projectile peut
+/// toucher son ancien camp). Note (`Perfect`/`Good`, `sim_core::timing`) mesurée depuis
+/// le début du coup ; sur `Perfect`, les dégâts sont multipliés par
+/// `perfect_damage_mult`. Une balle n'est renvoyée qu'une fois par frame (la hitbox de
+/// plus petit `GgrsNetId` l'emporte) ; une balle terminée (`Projectile::ended`) ne l'est jamais.
+///
+/// Placement (`RollbackSystemSet::Weapon`, après le déplacement des balles et avant leurs
+/// collisions) : la balle renvoyée ne touche pas le pareur la même frame, et une balle
+/// ordinaire comme composable suit ensuite son chemin normal — vers son ancien camp.
+/// Ordre `GgrsNetId` partout (hitbox, balles, porteurs) ; aucun RNG, aucun `f32`.
+#[allow(clippy::too_many_arguments)]
+pub fn melee_reflect_system(
+    frame: Res<FrameCount>,
+    mut reflected_events: ResMut<FrameEvents<ProjectileReflected>>,
+    hitbox_query: Query<
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            &MeleeHitbox,
+            &Collider,
+        ),
+        With<Rollback>,
+    >,
+    mut bullet_query: Query<
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            &mut super::Bullet,
+            Option<&mut crate::projectile::Projectile>,
+            &Collider,
+        ),
+        With<Rollback>,
+    >,
+    owner_query: Query<
+        (
+            &GgrsNetId,
+            &FacingDirection,
+            &MeleeAttackState,
+            Option<&Player>,
+            &Team,
+            &Children,
+        ),
+        With<Rollback>,
+    >,
+    weapon_query: Query<&MeleeWeapon>,
+) {
+    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "melee_reflect");
+    let _enter = system_span.enter();
+    let now = frame.frame;
+    let mut reflected_this_frame: BTreeSet<usize> = BTreeSet::new();
+
+    for (_hitbox_id, hitbox_transform, hitbox, hitbox_collider) in order_iter!(hitbox_query) {
+        let mut owner_data = None;
+        for (owner_net_id, facing, attack_state, player, team, children) in order_iter!(owner_query)
+        {
+            if owner_net_id == &hitbox.owner_net_id {
+                owner_data = Some((owner_net_id, facing, attack_state, player, team, children));
+                break;
+            }
+        }
+        let Some((owner_net_id, facing, attack_state, player, owner_team, children)) = owner_data
+        else {
+            continue;
+        };
+        let mut reflect = None;
+        for child in children.iter() {
+            if let Ok(weapon) = weapon_query.get(child) {
+                reflect = weapon.config.reflect.clone();
+                break;
+            }
+        }
+        let Some(reflect) = reflect else {
+            continue;
+        };
+        let Some(started) = attack_state.attack_started_frame else {
+            continue;
+        };
+        let direction = facing_to_fixed(*facing);
+
+        for (bullet_id, bullet_transform, mut bullet, mut projectile, bullet_collider) in
+            order_mut_iter!(bullet_query)
+        {
+            if !reflected_this_frame.insert(bullet_id.0) {
+                continue;
+            }
+            // Faux positif du `insert` ci-dessus : on retire aussitôt si la balle n'est
+            // finalement pas renvoyée par cette hitbox (elle reste candidate pour les suivantes).
+            let mut renvoie = false;
+            if bullet.source_team != *owner_team
+                && team_allows_hit(
+                    bullet.source_team,
+                    *owner_team,
+                    bullet.friendly_fire,
+                    &bullet.tags,
+                )
+                && projectile.as_ref().is_none_or(|p| !p.ended)
+                && is_colliding(
+                    &hitbox_transform.translation,
+                    hitbox_collider,
+                    &bullet_transform.translation,
+                    bullet_collider,
+                )
+            {
+                renvoie = true;
+            }
+            if !renvoie {
+                reflected_this_frame.remove(&bullet_id.0);
+                continue;
+            }
+            let grade = grade_timing(now, started, reflect.perfect_frames, u32::MAX);
+            let (speed, _) = bullet.velocity.length_and_direction();
+            bullet.velocity = fixed_math::FixedVec2::new(
+                direction.x.saturating_mul(speed),
+                direction.y.saturating_mul(speed),
+            );
+            bullet.source = owner_net_id.clone();
+            bullet.source_team = *owner_team;
+            if let Some(player) = player {
+                bullet.player_handle = player.handle;
+            }
+            if grade == TimingGrade::Perfect {
+                bullet.damage = bullet.damage.saturating_mul(reflect.perfect_damage_mult);
+            }
+            if let Some(projectile) = projectile.as_deref_mut() {
+                projectile.hits.clear();
+            }
+            info!(
+                "ggrs{{f={} reflect bullet={} owner={} grade={:?}}}",
+                now, bullet_id, owner_net_id, grade
+            );
+            reflected_events.send(ProjectileReflected {
+                bullet: bullet_id.clone(),
+                owner: owner_net_id.clone(),
+                grade,
+                frame: now,
+            });
+        }
+    }
+}
+
+#[cfg(test)]
+mod reflect_tests {
+    use super::*;
+
+    #[test]
+    fn regard_donne_un_vecteur_unitaire_fixe() {
+        let right = facing_to_fixed(FacingDirection::Right);
+        assert_eq!(right.x, fixed_math::Fixed::from_num(1));
+        assert_eq!(right.y, fixed_math::Fixed::ZERO);
+        let up = facing_to_fixed(FacingDirection::Up);
+        assert_eq!(up.x, fixed_math::Fixed::ZERO);
+        assert_eq!(up.y, fixed_math::Fixed::from_num(1));
+        let left = facing_to_fixed(FacingDirection::Left);
+        assert_eq!(left.x, fixed_math::Fixed::from_num(-1));
+        // Diagonale : symétrique, de module 1 au bit près du CORDIC.
+        let diag = facing_to_fixed(FacingDirection::UpRight);
+        assert_eq!(diag.x, diag.y);
+        assert!(diag.x > fixed_math::Fixed::ZERO);
     }
 }

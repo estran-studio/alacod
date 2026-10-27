@@ -1,0 +1,11 @@
+// X-3 : `reflect.perfect_damage_mult` nul (0 annulerait les dégâts renvoyés) :
+// LintErrorKind::OutOfRange (`lint::lint_melee_weapons`).
+({
+    "parade": (config: (
+        damage: "5.0",
+        reflect: Some((
+            perfect_frames: 6,
+            perfect_damage_mult: "0.0",
+        )),
+    )),
+})

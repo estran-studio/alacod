@@ -95,6 +95,36 @@ pub fn describe_condition(condition: &Condition) -> String {
         Condition::Carrying(item) => format!("en portant {item}"),
         Condition::SquadSize(n) => format!("à {n} joueurs ou plus"),
         Condition::TargetInRange(range) => format!("cible à moins de {}", number(*range)),
+        Condition::Timing {
+            reference,
+            offset,
+            perfect_frames,
+            good_frames,
+            grade,
+        } => {
+            let repere = match reference {
+                crate::TimingReference::Clock(id) => format!("le temps « {id} »"),
+                crate::TimingReference::DashStart => "le début de l'esquive".to_string(),
+                crate::TimingReference::MeleeStart => "le début du coup".to_string(),
+            };
+            let decalage = if *offset > 0 {
+                format!(" + {} s", seconds(*offset))
+            } else {
+                String::new()
+            };
+            let note = match grade {
+                crate::TimingGradeFilter::Perfect => {
+                    format!("à {} s près", seconds(*perfect_frames))
+                }
+                crate::TimingGradeFilter::AtLeastGood => {
+                    format!("à {} s près", seconds(*good_frames))
+                }
+                crate::TimingGradeFilter::Miss => {
+                    format!("à plus de {} s", seconds(*good_frames))
+                }
+            };
+            format!("{note} de {repere}{decalage}")
+        }
     }
 }
 

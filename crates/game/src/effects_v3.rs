@@ -174,6 +174,7 @@ pub fn apply_event_effects_system(
     table: Option<Res<ItemTable>>,
     synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
+    timing: crate::effects_runtime::TimingSource,
 ) {
     let mut queue: BTreeMap<usize, Vec<String>> = BTreeMap::new();
     for event in outbox.iter() {
@@ -266,7 +267,7 @@ pub fn apply_event_effects_system(
                 out: &mut out,
             };
             run_listed(
-                &listed, &triggers, false, frame, net_id, &view, state, &mut body, &assets,
+                &listed, &triggers, false, frame, net_id, &view, state, &mut body, &assets, &timing,
             );
             split_outputs(out, &mut next, &mut produced);
         }

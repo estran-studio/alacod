@@ -1,0 +1,10 @@
+// X-3 (testbed, docs/conventions.md §90) : horloge de laboratoire pour les fenêtres de jugement
+// (`effects::Condition::Timing`). Portée `Run`, un événement `pouls` à 40 frames puis toutes les
+// 40 frames (f40, f80, f120…). Valeurs arbitraires : aucune cadence de jeu. Scénarios
+// `fenetre_esquive`, `fenetre_rechargement`.
+(
+    scope: Run,
+    events: [
+        (id: "pouls", at: Frames(40), repeat: Some(Frames(40))),
+    ],
+)

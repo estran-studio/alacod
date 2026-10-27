@@ -1,0 +1,29 @@
+// X-3 (testbed) : fenêtre de jugement sur le début d'une esquive. L'horloge `pouls` bat à f40, f80,
+// f120… ; le passif `chronomètre` note chaque début de dash contre le battement le plus proche
+// (parfaite 3 frames, large 8) : parfait +1 de dégâts, « bien » +10, raté +100. Les inputs d'un
+// scénario agissent 5 frames plus tard (délai d'input de GGRS, `ALACOD_INPUT_DELAY`).
+//
+// À regarder : trois dashs à droite. Appui f35, dash f40 pile sur le battement : parfait (dégâts
+// 1 → 2). Appui f81, dash f86, six frames après le battement de f80 : « bien » (2 → 12). Appui f130,
+// dash f135, quinze frames après le battement de f120 : raté (12 → 112). Aucun dash n'est refusé
+// (le temps de recharge est de 24 frames).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    clocks: Some(["pouls"]),
+    frames: 180,
+    players: [
+        (items: ["chronometre"], inputs: [
+            (from: 35, to: 36, buttons: [Right, Dash]),
+            (from: 81, to: 82, buttons: [Right, Dash]),
+            (from: 130, to: 131, buttons: [Right, Dash]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 38),
+        Stat(handle: 0, stat: Damage, value: 2.0, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 12.0, at_frame: 110),
+        Stat(handle: 0, stat: Damage, value: 112.0, at_frame: 170),
+    ],
+)

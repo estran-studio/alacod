@@ -1,0 +1,33 @@
+// X-3 (testbed) : même verbe sur un rechargement actif. Le joueur tire une fois (appui f5, tir f10)
+// puis recharge (appui f25, début f30 ; la mitrailleuse du joueur met 90 frames à recharger) : le rechargement se
+// termine sur le battement de f120 de l'horloge `pouls` (parfaite 3 frames) et `chronomètre`
+// ajoute 1000 de dégâts (`OnReload`). Un second rechargement (tir f135, début f145) finit vers
+// f235, cinq frames avant le battement de f240 : « bien » seulement, l'effet exige « parfait »,
+// rien n'est ajouté. Les inputs agissent 5 frames après leur frame (délai GGRS).
+//
+// À regarder : le chargeur se remplit à f120 : dégâts 1 → 1001 ; au second rechargement, le
+// chargeur se remplit encore mais les dégâts restent à 1001.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    clocks: Some(["pouls"]),
+    frames: 260,
+    players: [
+        (items: ["chronometre"], inputs: [
+            (from: 5, to: 6, buttons: [Fire], pan: (100, 0)),
+            (from: 25, to: 26, buttons: [Reload]),
+            (from: 130, to: 131, buttons: [Fire], pan: (100, 0)),
+            (from: 140, to: 141, buttons: [Reload]),
+        ]),
+    ],
+    expect: [
+        Ammo(handle: 0, ammo: 29, at_frame: 60),
+        Stat(handle: 0, stat: Damage, value: 1.0, at_frame: 110),
+        Ammo(handle: 0, ammo: 30, at_frame: 130),
+        Stat(handle: 0, stat: Damage, value: 1001.0, at_frame: 130),
+        Ammo(handle: 0, ammo: 29, at_frame: 200),
+        Ammo(handle: 0, ammo: 30, at_frame: 250),
+        Stat(handle: 0, stat: Damage, value: 1001.0, at_frame: 250),
+    ],
+)

@@ -1,0 +1,20 @@
+// X-3 (testbed) : témoin de `arme_lourde` — même marche avec `pistol` (sans poids) : stat
+// `MoveSpeed` 150, 135 unités en 60 frames.
+//
+// À regarder : le joueur avance deux fois plus vite que dans `arme_lourde`.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 80,
+    players: [
+        (weapon: "pistol", inputs: [
+            (from: 10, to: 70, buttons: [Right]),
+        ]),
+    ],
+    expect: [
+        Stat(handle: 0, stat: MoveSpeed, value: 150.0, at_frame: 20),
+        PlayerAlive(handle: 0, at_frame: 80),
+        PlayerPosition(handle: 0, x: 559.0, y: 696.0, tolerance: 1.0, at_frame: 70),
+    ],
+)

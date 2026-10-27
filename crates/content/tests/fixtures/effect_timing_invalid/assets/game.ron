@@ -1,0 +1,12 @@
+// Fixture X-3 (`lint::lint_effect`) : fenêtre de jugement `Timing` — fenêtre parfaite plus large
+// que la large, et repère d'horloge inconnu (le jeu ne déclare aucune horloge).
+(
+    name: "fixture-effect_timing_invalid",
+    content_folders: [
+        (path: "characters/hero.ron", kind: "Character"),
+    ],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+)
