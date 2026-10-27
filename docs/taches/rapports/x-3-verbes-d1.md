@@ -48,11 +48,27 @@ facultatif), `run::clock::occurrence_la_plus_proche`, `combat::weapons::tests::l
 `combat::melee::reflect_tests`. Lint : fixtures `melee_reflect_mult_zero`, `weapon_move_speed_mult_zero`,
 `effect_timing_invalid` ; `zombies_and_testbed_lint_without_error` reste vert.
 
-Vérifications exécutées sur cette machine (VPS) : `cargo check` de `sim_core`, `combat`, `content`, `game`, `scenario` ;
-`cargo test -p sim_core -p effects -p run`, `cargo test -p combat --lib` (121), `cargo test -p content --test
-lint_fixtures` (178) ; les six scénarios ci-dessus (synctest compris) ; `alacod-gen` sur le testbed sans `--bless`.
-Le statut de `make test_scenarios` complet, de `make schedule_order_diff` et de la capture Mac est dans le message de
-livraison (section « Non exécuté »).
+Vérifications exécutées (VPS, sauf mention) :
+
+- `cargo check` de `sim_core`, `combat`, `content`, `game`, `scenario` ; `cargo test -p sim_core -p effects -p run`,
+  `cargo test -p combat --lib` (121), `cargo test -p content --test lint_fixtures` (178) ; `cargo fmt --check`,
+  `scripts/check-forbidden.sh` et `scripts/check-rollback-registration.sh` verts.
+- **Suite de scénarios complète, sans `BLESS`, en quatre tranches** (`ALACOD_SCENARIO_SLICE=k/4`, profil `headless`,
+  synctest compris) : 4 tranches sur 4 vertes, **aucune trace existante modifiée** (`git status` propre, seuls les
+  `.trace` des scénarios nouveaux sont ajoutés). Les deux derniers changements (enregistrement de
+  `FrameEvents<ProjectileReflected>` déplacé dans `CoreSimPlugin`, peau des projectiles renvoyés) sont postérieurs aux
+  tranches 0 et 1 ; ils ont été revérifiés par un rejeu de quatorze scénarios (les six nouveaux, `enemy_ring`,
+  `aim_four_way`, `clock_events`, `effect_on_dodge`, `effect_on_reload`, `movement_melee`, `familiar_mirror_items`,
+  `generated/testbed/weapon_pistolet_lourd`), verts.
+- **Ordre de la simulation** (Mac, `crates/scenario/tests/schedule_order.rs`, deux cibles séparées : `make
+  schedule_order_diff` partage le sien entre base et tête et compilait de mélange, D133) : la liste des **types
+  rollback** gagne exactement une ligne par jeu, `FrameEvents<ProjectileReflected>`, juste avant les cinq de clôture
+  (`GgrsNetIdFactory`, `FrameCount`, `FixedTransform3D`, `GgrsNetId`, `RngStreams`) ; la liste des systèmes gagne
+  `sync_carry_weight_system`, `melee_reflect_system`, `clear_frame_events<ProjectileReflected>`, et
+  `familiar_block_bullets_system` passe après la parade. Le reste du diff des schedules est du renumérotage de
+  systèmes sans arête entre eux (le tri topologique de bevy ne suit pas l'ordre d'insertion, `CLAUDE.md`) : ce sont les
+  seuls systèmes ajoutés, ordre nouveau justifié.
+- **Preuve visuelle** : voir plus bas (Mac).
 
 ## Non livré, et pourquoi (pas de substitut factice)
 
