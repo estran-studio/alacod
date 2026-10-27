@@ -77,7 +77,10 @@ pub fn game_args(options: &RunOptions) -> Vec<String> {
     }
     if let Some(players) = options.players {
         args.push("--players".into());
-        args.extend(std::iter::repeat_n("localhost".to_string(), players as usize));
+        args.extend(std::iter::repeat_n(
+            "localhost".to_string(),
+            players as usize,
+        ));
     }
     args.extend(options.passthrough.iter().cloned());
     args
@@ -89,7 +92,8 @@ pub fn run(game_dir: &Path, options: &RunOptions) -> Result<i32, String> {
         return Err("--players : au moins 1 joueur".into());
     }
     let mut cmd = Command::new("cargo");
-    cmd.current_dir(game_dir).args(cargo_args(game_dir, options));
+    cmd.current_dir(game_dir)
+        .args(cargo_args(game_dir, options));
     if options.headless {
         cmd.env("ALACOD_HEADLESS", "1");
     }
@@ -112,7 +116,15 @@ mod tests {
         };
         assert_eq!(
             game_args(&options),
-            ["--sandbox", "lourd", "--seed=-3", "--players", "localhost", "localhost", "--debug-ai"]
+            [
+                "--sandbox",
+                "lourd",
+                "--seed=-3",
+                "--players",
+                "localhost",
+                "localhost",
+                "--debug-ai"
+            ]
         );
         assert!(game_args(&RunOptions::default()).is_empty());
     }
@@ -121,9 +133,22 @@ mod tests {
     fn headless_builds_without_render_features_and_uses_the_headless_profile() {
         let dir = std::env::temp_dir().join(format!("alacod-run-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("Cargo.toml"), "[features]\ndefault = []\nnative = [\"x\"]\n").unwrap();
-        let args = cargo_args(&dir, &RunOptions { headless: true, ..Default::default() });
-        assert_eq!(&args[..4], ["run", "--no-default-features", "--features", "native"]);
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            "[features]\ndefault = []\nnative = [\"x\"]\n",
+        )
+        .unwrap();
+        let args = cargo_args(
+            &dir,
+            &RunOptions {
+                headless: true,
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            &args[..4],
+            ["run", "--no-default-features", "--features", "native"]
+        );
         assert!(args.contains(&"headless".to_string()));
         assert_eq!(args.last().map(String::as_str), Some("--"));
         std::fs::write(dir.join("Cargo.toml"), "[features]\ndefault = []\n").unwrap();

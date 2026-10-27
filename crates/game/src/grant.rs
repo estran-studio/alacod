@@ -17,6 +17,7 @@
 //! `GgrsSchedule` : sûr en synctest et en p2p.
 
 use bevy::prelude::*;
+use bevy_ggrs::RollbackDespawnCommandExtension;
 use combat::inventory::AmmoReserves;
 use items::{ActiveSlot, Inventory, ItemKind, ItemTable};
 use run::currency::Currency;
@@ -311,7 +312,7 @@ fn give_weapon(
                         .active_weapon_index
                         .min(inventory.weapons.len() - 1);
                     let (old, weapon) = inventory.weapons.remove(index);
-                    commands.entity(old).despawn();
+                    commands.entity(old).despawn_rollback();
                     report.weapon_replaced = Some(weapon.config.name.clone());
                 }
                 equip_weapon(
@@ -329,7 +330,7 @@ fn give_weapon(
         } else {
             // Mêlée : le joueur n'en tient qu'une (`bare_hands` par défaut), la nouvelle remplace l'ancienne.
             for (child, name) in &held_melee {
-                commands.entity(*child).despawn();
+                commands.entity(*child).despawn_rollback();
                 report.weapon_replaced = Some(name.clone());
             }
             equip_weapon(

@@ -167,7 +167,16 @@ fn main() -> ExitCode {
             rev,
             url,
             path,
-        } => match new_game(&name, engine, NewSource { tag, rev, url, path }) {
+        } => match new_game(
+            &name,
+            engine,
+            NewSource {
+                tag,
+                rev,
+                url,
+                path,
+            },
+        ) {
             Ok((dir, description)) => {
                 println!("{} créé ({description}).", dir.display());
                 println!("  cd {name} && alacod lint && alacod describe");
@@ -208,11 +217,15 @@ fn main() -> ExitCode {
             let result = remote::port_from(port)
                 .and_then(|port| remote::run(&remote::Client::new(port), command));
             match result {
-                Ok(text) => {
-                    if !text.is_empty() {
-                        println!("{text}");
+                Ok(reply) => {
+                    if !reply.text.is_empty() {
+                        println!("{}", reply.text);
                     }
-                    ExitCode::SUCCESS
+                    if reply.failed {
+                        ExitCode::FAILURE
+                    } else {
+                        ExitCode::SUCCESS
+                    }
                 }
                 Err(e) => fail(&e),
             }

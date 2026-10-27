@@ -52,7 +52,13 @@ fn recorded() -> Scenario {
         AT,
     );
     let mut scenario = recorder.to_scenario(None);
-    // `to_scenario` ne porte que les inputs et les réglages : la carte et la durée sont celles du test.
+    // Aucune frame d'input n'est enregistrée ici (`to_scenario` déduit les joueurs des inputs) : on
+    // rétablit les joueurs, la carte et la durée du scénario de base, sinon rien ne joue.
+    scenario.players = base().players;
+    assert!(
+        !scenario.players.is_empty(),
+        "le scénario de base a un joueur"
+    );
     scenario.map = base().map;
     scenario.frames = 60;
     scenario

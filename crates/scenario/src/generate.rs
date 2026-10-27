@@ -1698,6 +1698,7 @@ fn base_scenario(
         invariants: Invariants::default(),
         powerups: vec![],
         items: vec![],
+        gifts: vec![],
         profile: false,
         profile_setup: None,
         hub: None,

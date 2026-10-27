@@ -23,11 +23,19 @@ Journal de reprise : `journaux/b2-20261026-192250.md` (travail interrompu sans r
 
 ## Vérifications
 
-- `cargo check -p content --bin alacod` : vert sur cette reprise (2,6 s, cache chaud ; seuls des avertissements préexistants : `effects::runtime` pattern unreachable, champs de schémas non lus). Inclut le correctif de reprise : `cargo metadata` tourne dans le dossier du jeu (sinon le patch `.cargo/config.toml` d'`engine local` n'est pas chargé quand le jeu est passé en argument depuis ailleurs) et le manifeste est canonicalisé.
-- `cargo test -p content --test cli` : **18 passés, 2 ignorés** (6,08 s, sur cette reprise). Couvre `new` par tag, `--tag`/`--rev`/`--url`, refus sans tag, `engine pin`/`local`/`status`, racine par `cargo metadata`, `run` contre un faux `cargo`, `remote` contre un faux serveur BRP.
-- `cargo test -p scenario --test gifts` : **non exécuté sur cette reprise** (compilation du paquet `scenario` > 3 600 s sur le VPS partagé, délai dépassé ; relancé, pas de résultat). Le fichier `crates/scenario/tests/gifts.rs` est livré ; la preuve synctest du rejeu D130 reste à rejouer par la vérification standard au merge.
+- `cargo check -p content --bin alacod` : vert (avertissements préexistants seuls). `cargo metadata` tourne dans le dossier du jeu (sinon le patch `.cargo/config.toml` d'`engine local` n'est pas chargé quand le jeu est passé en argument depuis ailleurs) et le manifeste est canonicalisé.
+- `cargo test -p content --bin alacod --test cli` (second passage, après la revue) : **12 tests unitaires + 20 tests CLI passés, 2 ignorés** (`#[ignore]` : `alacod test` et le smoke complet).
+- `cargo test -p scenario --no-default-features --test gifts` : **2 passés** (mode headless : sans `--no-default-features` le test sort tout de suite sur `RENDER_ENABLED`). Il a aussi révélé que la première livraison **ne compilait pas** `scenario` (`Scenario` sans `gifts` dans `generate.rs`) : corrigé. `cargo check -p scenario --no-default-features --tests` vert.
+- `cargo test -p game --no-default-features --lib -- grant:: recording:: replay::` : **7 passés**.
+- e2e `new_game_runs_its_sandbox_and_answers_remote_through_alacod_alone` : **passé sur le Mac b0** (1 254 s) sur `a854ec4` (relevé de Main) ; non rejoué sur ce VPS.
 - Aucune trace de scénario existante n'a été bénie ni réécrite (`BLESS` jamais passé).
-- Smoke coûteux non rejoué ici (`new` + `engine local` + `run --sandbox --headless` + `remote` + `engine pin` via `make test_alacod_cli` / test ignoré dédié, ~10 min à froid) : listé comme non vérifié, aucun résultat non observé revendiqué.
+
+## Corrections de la revue indépendante (bloquants)
+
+1. `grant.rs` : le rejeu d'un don tourne dans `GgrsSchedule` ; les deux destructions d'arme (emplacement plein, mêlée remplacée) passent par `despawn_rollback()` (import `RollbackDespawnCommandExtension`), plus par `despawn()`.
+2. `gifts.rs::recorded()` : `to_scenario` déduit les joueurs des inputs enregistrés (aucun ici) et rendait `players: []` : le test rétablit les joueurs du scénario de base (assertion non vide) et l'exécute réellement (headless).
+3. `alacod engine` lit et réécrit `Cargo.toml` par `toml_edit` (nouvelle dépendance de `content`, déjà dans `Cargo.lock` en 0.25.15) : `[dependencies.content]`, table en ligne multiligne (TOML 1.1) ou tableau `features` multiligne, `dev-/build-dependencies`, `[target.'cfg()'.dependencies]` ; commentaires et ordre des clés conservés quand tag→tag ou rev→rev. Tests : `every_valid_toml_form_of_the_dependency_is_understood`, `a_table_form_dependency_can_switch_from_tag_to_revision`, `a_missing_or_malformed_dependency_is_reported`, `the_local_override_path_is_read_back_from_the_config_block` (unitaires) et `engine_commands_accept_table_form_and_multiline_dependencies` (CLI).
+4. `alacod remote reload` : le JSON va sur stdout et la commande sort en code 1 si `errors` n'est pas vide, comme `scripts/alacod-remote` (tests `remote_speaks_the_alacod_methods_of_the_game` et `remote_reload_succeeds_with_the_json_on_stdout_when_the_content_is_valid`).
 
 ## Risques connus
 

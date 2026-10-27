@@ -40,9 +40,13 @@ pub enum RemoteCommand {
     Pause,
     Resume,
     /// Capture d'écran (rendu seulement).
-    Screenshot { path: String },
+    Screenshot {
+        path: String,
+    },
     /// Écrit la session enregistrée en scénario rejouable.
-    Save { path: String },
+    Save {
+        path: String,
+    },
     /// Méthodes du remote (`rpc.discover`) et leurs paramètres.
     Discover,
     /// Relance la partie (mode éditeur ou bac à sable).
@@ -81,7 +85,9 @@ pub enum RemoteCommand {
     /// Relit le registre de contenu (appliqué au prochain `restart`).
     Reload,
     /// Bac à sable : sans id, liste les profils ; avec un id, charge ce profil (puis restart).
-    Profile { id: Option<String> },
+    Profile {
+        id: Option<String>,
+    },
     /// Donne une arme, un objet ou de l'argent au joueur (`--currency` ajoute, négatif retire).
     Give {
         #[arg(long)]
@@ -154,7 +160,8 @@ impl Client {
 
     /// Un appel BRP. `Err` : jeu injoignable, réponse illisible ou erreur JSON-RPC.
     pub fn call(&self, method: &str, params: Option<Value>) -> Result<Value, String> {
-        let body = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string();
+        let body =
+            json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string();
         let answer = self.post(&body)?;
         let answer: Value = serde_json::from_str(&answer)
             .map_err(|e| format!("{method} : réponse illisible ({e}) : {answer}"))?;
@@ -177,8 +184,12 @@ impl Client {
             )
         };
         let mut stream = TcpStream::connect_timeout(&addr, REQUEST_TIMEOUT).map_err(unreachable)?;
-        stream.set_read_timeout(Some(REQUEST_TIMEOUT)).map_err(|e| e.to_string())?;
-        stream.set_write_timeout(Some(REQUEST_TIMEOUT)).map_err(|e| e.to_string())?;
+        stream
+            .set_read_timeout(Some(REQUEST_TIMEOUT))
+            .map_err(|e| e.to_string())?;
+        stream
+            .set_write_timeout(Some(REQUEST_TIMEOUT))
+            .map_err(|e| e.to_string())?;
         let request = format!(
             "POST / HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
             self.port,
@@ -200,21 +211,36 @@ fn parse_response(raw: &[u8]) -> Result<String, String> {
     let head = String::from_utf8_lossy(&raw[..split]).to_string();
     let body = &raw[split + 4..];
     let status = head.lines().next().unwrap_or_default();
-    if !status.split_whitespace().nth(1).is_some_and(|code| code.starts_with('2')) {
+    if !status
+        .split_whitespace()
+        .nth(1)
+        .is_some_and(|code| code.starts_with('2'))
+    {
         return Err(format!("réponse HTTP : {status}"));
     }
-    let chunked = head
-        .lines()
-        .any(|l| l.to_ascii_lowercase().starts_with("transfer-encoding:") && l.to_ascii_lowercase().contains("chunked"));
+    let chunked = head.lines().any(|l| {
+        l.to_ascii_lowercase().starts_with("transfer-encoding:")
+            && l.to_ascii_lowercase().contains("chunked")
+    });
     if !chunked {
         return Ok(String::from_utf8_lossy(body).into_owned());
     }
     let mut out = Vec::new();
     let mut rest = body;
     loop {
-        let eol = rest.windows(2).position(|w| w == b"\r\n").ok_or("corps chunked tronqué")?;
-        let size = usize::from_str_radix(String::from_utf8_lossy(&rest[..eol]).split(';').next().unwrap_or("").trim(), 16)
-            .map_err(|_| "taille de chunk illisible")?;
+        let eol = rest
+            .windows(2)
+            .position(|w| w == b"\r\n")
+            .ok_or("corps chunked tronqué")?;
+        let size = usize::from_str_radix(
+            String::from_utf8_lossy(&rest[..eol])
+                .split(';')
+                .next()
+                .unwrap_or("")
+                .trim(),
+            16,
+        )
+        .map_err(|_| "taille de chunk illisible")?;
         rest = &rest[eol + 2..];
         if size == 0 {
             break;
@@ -249,7 +275,10 @@ fn num(value: &Value) -> f64 {
 pub fn brief(state: &Value) -> String {
     let mut lines = Vec::new();
     if let Some(editor) = state.get("editor") {
-        let step = state.pointer("/run/step").map(plain).unwrap_or_else(|| "None".into());
+        let step = state
+            .pointer("/run/step")
+            .map(plain)
+            .unwrap_or_else(|| "None".into());
         let sandbox = state.pointer("/sandbox/profile").and_then(Value::as_str);
         lines.push(format!(
             "editor={} online={} check_distance={} run.step={} jeu={} carte={} graine={}{}",
@@ -282,7 +311,11 @@ pub fn brief(state: &Value) -> String {
             plain(&weapon["name"]),
             plain(&weapon["ammo"]),
             plain(&weapon["reserve"]),
-            if weapon["reloading"].as_bool() == Some(true) { " recharge" } else { "" }
+            if weapon["reloading"].as_bool() == Some(true) {
+                " recharge"
+            } else {
+                ""
+            }
         ));
         let (px, py) = (num(&player["x"]), num(&player["y"]));
         let mut near: Vec<&Value> = enemies.iter().collect();
@@ -309,7 +342,11 @@ pub fn brief(state: &Value) -> String {
         .flatten()
         .map(|w| plain(&w["health"]))
         .collect();
-    lines.push(format!("ennemis {}, fenêtres [{}]", enemies.len(), windows.join(", ")));
+    lines.push(format!(
+        "ennemis {}, fenêtres [{}]",
+        enemies.len(),
+        windows.join(", ")
+    ));
     if let Some(commands) = state["commands"].as_array().filter(|c| !c.is_empty()) {
         let list: Vec<String> = commands
             .iter()
@@ -325,7 +362,11 @@ pub fn profiles(result: &Value) -> String {
     let active = result.get("active").and_then(Value::as_str);
     let mut lines = Vec::new();
     for entry in result["profiles"].as_array().into_iter().flatten() {
-        let mark = if entry["id"].as_str() == active && active.is_some() { "*" } else { " " };
+        let mark = if entry["id"].as_str() == active && active.is_some() {
+            "*"
+        } else {
+            " "
+        };
         let players: Vec<String> = entry["players"]
             .as_array()
             .into_iter()
@@ -341,7 +382,12 @@ pub fn profiles(result: &Value) -> String {
                     .join(" ")
             })
             .collect();
-        let placed: Vec<String> = entry["characters"].as_array().into_iter().flatten().map(plain).collect();
+        let placed: Vec<String> = entry["characters"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(plain)
+            .collect();
         lines.push(format!(
             "{mark} {}  carte={}  joueurs=[{}]  posés=[{}]",
             plain(&entry["id"]),
@@ -366,19 +412,30 @@ pub fn discover(doc: &Value) -> String {
             .as_str()
             .or_else(|| method["description"].as_str())
             .unwrap_or("");
-        lines.push(format!("{}  {summary}", plain(&method["name"])).trim_end().to_string());
+        lines.push(
+            format!("{}  {summary}", plain(&method["name"]))
+                .trim_end()
+                .to_string(),
+        );
         for param in method["params"].as_array().into_iter().flatten() {
             let schema = &param["schema"];
-            let kind = schema["type"].as_str().map(str::to_string).unwrap_or_else(|| {
-                schema["$ref"]
-                    .as_str()
-                    .unwrap_or("")
-                    .rsplit('/')
-                    .next()
-                    .unwrap_or("")
-                    .to_string()
-            });
-            let optional = if param["required"].as_bool() == Some(true) { "" } else { " (optionnel)" };
+            let kind = schema["type"]
+                .as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| {
+                    schema["$ref"]
+                        .as_str()
+                        .unwrap_or("")
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or("")
+                        .to_string()
+                });
+            let optional = if param["required"].as_bool() == Some(true) {
+                ""
+            } else {
+                " (optionnel)"
+            };
             lines.push(format!("    {}: {kind}{optional}", plain(&param["name"])));
         }
     }
@@ -403,7 +460,11 @@ fn resolve_position(client: &Client, at: &Position) -> Result<(f64, f64), String
         (Some(_), Some(_)) | (None, None) => Err("donner --at X,Y ou --ahead [PX]".into()),
         (Some(at), None) => {
             let (x, y) = at.split_once(',').ok_or("--at attend X,Y")?;
-            let parse = |v: &str| v.trim().parse::<f64>().map_err(|_| format!("--at : « {v} » n'est pas un nombre"));
+            let parse = |v: &str| {
+                v.trim()
+                    .parse::<f64>()
+                    .map_err(|_| format!("--at : « {v} » n'est pas un nombre"))
+            };
             Ok((parse(x)?, parse(y)?))
         }
         (None, Some(distance)) => {
@@ -416,7 +477,10 @@ fn resolve_position(client: &Client, at: &Position) -> Result<(f64, f64), String
                 .ok_or_else(|| format!("joueur {} absent", at.handle))?;
             let (dx, dy) = facing(player["facing"].as_str().unwrap_or("Right"));
             let norm = dx.hypot(dy);
-            Ok((num(&player["x"]) + distance * dx / norm, num(&player["y"]) + distance * dy / norm))
+            Ok((
+                num(&player["x"]) + distance * dx / norm,
+                num(&player["y"]) + distance * dy / norm,
+            ))
         }
     }
 }
@@ -426,7 +490,9 @@ fn absolute(path: &str) -> Result<String, String> {
     let full = if path.is_absolute() {
         path.to_path_buf()
     } else {
-        std::env::current_dir().map_err(|e| e.to_string())?.join(path)
+        std::env::current_dir()
+            .map_err(|e| e.to_string())?
+            .join(path)
     };
     Ok(full.to_string_lossy().into_owned())
 }
@@ -437,22 +503,57 @@ fn insert<T: Into<Value>>(map: &mut Map<String, Value>, key: &str, value: Option
     }
 }
 
+/// Résultat d'une commande : le texte à afficher sur stdout, et si la commande a **échoué** malgré une
+/// réponse du jeu (code de sortie 1 ; le texte reste sur stdout, comme `scripts/alacod-remote`).
+pub struct Reply {
+    pub text: String,
+    pub failed: bool,
+}
+
+/// `alacod/reload_content` : le JSON du jeu va sur stdout, erreurs de contenu comprises, et la commande échoue
+/// s'il y en a (même contrat que `scripts/alacod-remote reload`).
+fn reload(client: &Client) -> Result<(String, bool), String> {
+    let result = client.call("alacod/reload_content", None)?;
+    let failed = result["errors"].as_array().is_some_and(|e| !e.is_empty());
+    Ok((result.to_string(), failed))
+}
+
+/// Exécute une commande. `Err` : message pour stderr (code de sortie 1).
+pub fn run(client: &Client, command: RemoteCommand) -> Result<Reply, String> {
+    if matches!(command, RemoteCommand::Reload) {
+        return reload(client).map(|(text, failed)| Reply { text, failed });
+    }
+    execute(client, command).map(|text| Reply {
+        text,
+        failed: false,
+    })
+}
+
 /// Exécute une commande et rend le texte à afficher. `Err` : message pour stderr (code de sortie 1).
-pub fn run(client: &Client, command: RemoteCommand) -> Result<String, String> {
+fn execute(client: &Client, command: RemoteCommand) -> Result<String, String> {
     match command {
-        RemoteCommand::State => Ok(serde_json::to_string_pretty(&client.call("alacod/state", None)?).unwrap()),
+        RemoteCommand::State => {
+            Ok(serde_json::to_string_pretty(&client.call("alacod/state", None)?).unwrap())
+        }
         RemoteCommand::Brief => Ok(brief(&client.call("alacod/state", None)?)),
-        RemoteCommand::Input { buttons, pan, handle } => {
+        RemoteCommand::Input {
+            buttons,
+            pan,
+            handle,
+        } => {
             let list: Vec<&str> = buttons.split(',').filter(|b| !b.is_empty()).collect();
             let mut params = json!({"handle": handle, "buttons": list});
             if let Some(pan) = pan {
-                let parts: Result<Vec<i64>, _> = pan.split(',').map(|v| v.trim().parse::<i64>()).collect();
-                params["pan"] = json!(parts.map_err(|_| format!("--pan attend dx,dy entiers : « {pan} »"))?);
+                let parts: Result<Vec<i64>, _> =
+                    pan.split(',').map(|v| v.trim().parse::<i64>()).collect();
+                params["pan"] =
+                    json!(parts.map_err(|_| format!("--pan attend dx,dy entiers : « {pan} »"))?);
             }
             Ok(plain(&client.call("alacod/input", Some(params))?))
         }
         RemoteCommand::Step { frames, no_wait } => {
-            let target = client.call("alacod/step", Some(json!({"frames": frames})))?["target_frame"]
+            let target = client.call("alacod/step", Some(json!({"frames": frames})))?
+                ["target_frame"]
                 .as_u64()
                 .ok_or("alacod/step : target_frame absent")?;
             if no_wait {
@@ -472,17 +573,28 @@ pub fn run(client: &Client, command: RemoteCommand) -> Result<String, String> {
         RemoteCommand::Screenshot { path } => Ok(plain(
             &client.call("alacod/screenshot", Some(json!({"path": absolute(&path)?})))?,
         )),
-        RemoteCommand::Save { path } => Ok(plain(
-            &client.call("alacod/save_recording", Some(json!({"path": absolute(&path)?})))?,
-        )),
+        RemoteCommand::Save { path } => Ok(plain(&client.call(
+            "alacod/save_recording",
+            Some(json!({"path": absolute(&path)?})),
+        )?)),
         RemoteCommand::Discover => Ok(discover(&client.call("rpc.discover", None)?)),
         RemoteCommand::Restart { kind, seed } => {
             let mut params = Map::new();
             insert(&mut params, "kind", kind);
             insert(&mut params, "seed", seed);
-            Ok(client.call("alacod/restart", Some(Value::Object(params)))?.to_string())
+            Ok(client
+                .call("alacod/restart", Some(Value::Object(params)))?
+                .to_string())
         }
-        RemoteCommand::Modifier { stat, op, value, handle, net_id, until, source } => {
+        RemoteCommand::Modifier {
+            stat,
+            op,
+            value,
+            handle,
+            net_id,
+            until,
+            source,
+        } => {
             let mut params = Map::new();
             params.insert("stat".into(), stat.into());
             params.insert("op".into(), op.into());
@@ -491,27 +603,39 @@ pub fn run(client: &Client, command: RemoteCommand) -> Result<String, String> {
             insert(&mut params, "handle", handle);
             insert(&mut params, "net_id", net_id);
             insert(&mut params, "until_frames", until);
-            Ok(client.call("alacod/set_modifier", Some(Value::Object(params)))?.to_string())
+            Ok(client
+                .call("alacod/set_modifier", Some(Value::Object(params)))?
+                .to_string())
         }
-        RemoteCommand::Unmodify { handle, net_id, source } => {
+        RemoteCommand::Unmodify {
+            handle,
+            net_id,
+            source,
+        } => {
             let mut params = Map::new();
             params.insert("source".into(), source.into());
             insert(&mut params, "handle", handle);
             insert(&mut params, "net_id", net_id);
-            Ok(client.call("alacod/clear_modifiers", Some(Value::Object(params)))?.to_string())
+            Ok(client
+                .call("alacod/clear_modifiers", Some(Value::Object(params)))?
+                .to_string())
         }
-        RemoteCommand::Reload => {
-            let result = client.call("alacod/reload_content", None)?;
-            if result["errors"].as_array().is_some_and(|e| !e.is_empty()) {
-                return Err(result.to_string());
-            }
-            Ok(result.to_string())
-        }
+        RemoteCommand::Reload => reload(client).map(|(text, _)| text),
         RemoteCommand::Profile { id } => match id {
-            Some(id) => Ok(client.call("alacod/sandbox_profile", Some(json!({"id": id})))?.to_string()),
-            None => Ok(profiles(&client.call("alacod/sandbox_profile", Some(json!({})))?)),
+            Some(id) => Ok(client
+                .call("alacod/sandbox_profile", Some(json!({"id": id})))?
+                .to_string()),
+            None => Ok(profiles(
+                &client.call("alacod/sandbox_profile", Some(json!({})))?,
+            )),
         },
-        RemoteCommand::Give { handle, weapon, item, currency, set_currency } => {
+        RemoteCommand::Give {
+            handle,
+            weapon,
+            item,
+            currency,
+            set_currency,
+        } => {
             if weapon.is_none() && item.is_none() && currency.is_none() && set_currency.is_none() {
                 return Err("donner --weapon, --item, --currency ou --set-currency".into());
             }
@@ -521,9 +645,16 @@ pub fn run(client: &Client, command: RemoteCommand) -> Result<String, String> {
             insert(&mut params, "item", item);
             insert(&mut params, "currency", currency);
             insert(&mut params, "set_currency", set_currency);
-            Ok(client.call("alacod/give", Some(Value::Object(params)))?.to_string())
+            Ok(client
+                .call("alacod/give", Some(Value::Object(params)))?
+                .to_string())
         }
-        RemoteCommand::Spawn { character, at, team, variant } => {
+        RemoteCommand::Spawn {
+            character,
+            at,
+            team,
+            variant,
+        } => {
             let (x, y) = resolve_position(client, &at)?;
             let mut params = Map::new();
             params.insert("x".into(), x.into());
@@ -531,14 +662,23 @@ pub fn run(client: &Client, command: RemoteCommand) -> Result<String, String> {
             params.insert("character".into(), character.into());
             insert(&mut params, "team", team);
             insert(&mut params, "variant", variant);
-            Ok(client.call("alacod/spawn_character", Some(Value::Object(params)))?.to_string())
+            Ok(client
+                .call("alacod/spawn_character", Some(Value::Object(params)))?
+                .to_string())
         }
-        RemoteCommand::SpawnPowerup { id, at } => spawn_pickup(client, "alacod/spawn_powerup", id, &at),
+        RemoteCommand::SpawnPowerup { id, at } => {
+            spawn_pickup(client, "alacod/spawn_powerup", id, &at)
+        }
         RemoteCommand::SpawnItem { id, at } => spawn_pickup(client, "alacod/spawn_item", id, &at),
     }
 }
 
-fn spawn_pickup(client: &Client, method: &str, id: String, at: &Position) -> Result<String, String> {
+fn spawn_pickup(
+    client: &Client,
+    method: &str,
+    id: String,
+    at: &Position,
+) -> Result<String, String> {
     let (x, y) = resolve_position(client, at)?;
     Ok(client
         .call(method, Some(json!({"x": x, "y": y, "id": id})))?
@@ -573,7 +713,10 @@ mod tests {
         let text = brief(&state);
         let lines: Vec<&str> = text.lines().collect();
         assert_eq!(lines[0], "frame 12  pause=false  vague=None");
-        assert_eq!(lines[1], "joueur 0 (0.0,0.0) pv 5/10 arme pistol 3x9 recharge");
+        assert_eq!(
+            lines[1],
+            "joueur 0 (0.0,0.0) pv 5/10 arme pistol 3x9 recharge"
+        );
         assert_eq!(lines[2], "  ennemi 1 near dx=3 dy=4 dist=5 pv 2 Idle");
         assert!(lines[3].starts_with("  ennemi 2 far"));
         assert_eq!(lines[4], "ennemis 2, fenêtres [7]");
