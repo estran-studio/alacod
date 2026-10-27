@@ -35,6 +35,33 @@ pub enum On {
     OnBlank,
 }
 
+/// Repère d'une fenêtre de jugement (X-3, verbes D1, `Condition::Timing`) : l'instant de
+/// référence auquel on compare la frame courante. Tout en frames entières.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
+pub enum TimingReference {
+    /// Occurrence la plus proche de l'événement `id` d'une horloge active (kind `Clock`,
+    /// `run::clock::nearest_occurrence` ; à égalité, la suivante). Faux sans horloge active
+    /// ou si aucune horloge ne porte l'événement.
+    Clock(String),
+    /// Début du dash en cours du porteur. Faux hors dash.
+    DashStart,
+    /// Début du coup de mêlée en cours du porteur. Faux hors coup.
+    MeleeStart,
+}
+
+/// Note exigée par `Condition::Timing` (`sim_core::timing::grade_timing`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
+pub enum TimingGradeFilter {
+    /// Dans la fenêtre parfaite seulement.
+    Perfect,
+    /// Parfait **ou** bien (dans la fenêtre large).
+    AtLeastGood,
+    /// Hors de la fenêtre large (« raté »).
+    Miss,
+}
+
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
 pub enum Condition {
@@ -49,6 +76,21 @@ pub enum Condition {
         #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
     ),
     NotHitFor(u32),
+    /// X-3 (verbes D1) : **fenêtre de jugement**. Vraie si la frame du déclencheur (`OnHit`,
+    /// `OnDodge`, `OnReload`…) tombe, par rapport à `reference` décalé de `offset` frames,
+    /// dans la note `grade` : `écart = |frame − (repère + offset)|`, `Perfect` si
+    /// `écart <= perfect_frames`, `Good` si `écart <= good_frames`, sinon `Miss`.
+    /// Durées en frames entières à 60 Hz (60 ms ≈ 4 frames, 120 ms ≈ 7 : l'arrondi est le
+    /// choix du contenu). Lint : `perfect_frames <= good_frames`. Ajoutée **en fin d'enum** :
+    /// le hash des variantes d'avant ne bouge pas.
+    Timing {
+        reference: TimingReference,
+        #[serde(default)]
+        offset: u32,
+        perfect_frames: u32,
+        good_frames: u32,
+        grade: TimingGradeFilter,
+    },
 }
 
 /// Quand les charges d'un effet reviennent (M2-T3, `Effect::charges`).
@@ -165,10 +207,42 @@ mod tests {
             Condition::SquadSize(3),
             Condition::TargetInRange(Fixed::from_num(250)),
             Condition::NotHitFor(180),
+            Condition::Timing {
+                reference: TimingReference::Clock("pouls".into()),
+                offset: 3,
+                perfect_frames: 4,
+                good_frames: 7,
+                grade: TimingGradeFilter::AtLeastGood,
+            },
+            Condition::Timing {
+                reference: TimingReference::DashStart,
+                offset: 0,
+                perfect_frames: 2,
+                good_frames: 5,
+                grade: TimingGradeFilter::Miss,
+            },
         ];
         assert_eq!(
             ron::from_str::<Vec<Condition>>(&ron::to_string(&values).unwrap()).unwrap(),
             values
+        );
+    }
+    /// `offset` est facultatif en RON (0 par défaut).
+    #[test]
+    fn timing_offset_est_facultatif() {
+        let c: Condition = ron::from_str(
+            "Timing(reference: MeleeStart, perfect_frames: 1, good_frames: 2, grade: Perfect)",
+        )
+        .unwrap();
+        assert_eq!(
+            c,
+            Condition::Timing {
+                reference: TimingReference::MeleeStart,
+                offset: 0,
+                perfect_frames: 1,
+                good_frames: 2,
+                grade: TimingGradeFilter::Perfect,
+            }
         );
     }
     #[test]

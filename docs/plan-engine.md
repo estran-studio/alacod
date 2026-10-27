@@ -46,7 +46,7 @@ plan), **H** Hades, **Z** CoD Zombies, **1837**.
 |---|---|---|---|---|---|---|---|---|
 | Tir joueur : modes, chargeurs, rechargement, dispersion | ● | | ● | ● | | ● | ● | ✅ `weapons` |
 | Corps à corps : patterns, hitbox, recul | ● | | ● | | ● | ● | ● | ✅ `weapons/melee` |
-| Parade et renvoi de projectiles | | | | | ● | | ● | ❌ |
+| Parade et renvoi de projectiles | | | | | ● | | ● | ✅ X-3 (`reflect`, `conventions.md` §90) |
 | Esquive avec invulnérabilité, variantes par classe | ● | | | | ● | | ● | 🟡 dash à i-frames, course nerveuse (movement-feel, `docs/conventions.md` §34) ; charges et variantes en données à faire (B6) |
 | Projectiles composables (rebond, perce, guidé, division, orbite, taille, durée) | ● | ● | ● | | ● | | ● | 🟡 trois types fixes |
 | Patterns de tir ennemis (anneau, spirale, visé, salve, séquence) | ● | ● | ● | ● | ● | | ● | ❌ les ennemis n'ont que la mêlée |
@@ -343,7 +343,7 @@ alors avec un langage entier-seulement et sans état propre.
 | Bénit, maudit, neutre | tags d'objet + effet `OnEquip: GaugeFloor(sacre, +x)` ; dégâts typés Benit et Maudit | B1, C1 |
 | Pacte de la chasse-galerie, statut « Damné » | statut permanent + modificateurs + `OnGauge(sacre, Full) → Lose` | B3, C1, F1 |
 | Délivrer le loup-garou, réchauffer le jenu, épargner le réfractaire | `resolutions` d'ennemi : condition → devenir allié, partir, se transformer ; récompense ; codex | D3 |
-| Renvoyer une balle à la hache | parade au corps à corps : fenêtre parfaite, le projectile change d'équipe | B5 |
+| Renvoyer une balle à la hache | parade au corps à corps : fenêtre parfaite, le projectile change d'équipe | B5 ✅ X-3 (`MeleeWeaponConfig::reflect`, `conventions.md` §90 ; mêlée contre mêlée : D149) |
 | Salve en ligne des fantassins, ronde des sorciers | formations + patterns `Sequence([Telegraph, Aimed])` | D1, B5 |
 | Feu follet : traversé par les balles, imite une lumière, trois contres | immunité par tag, behavior `Lure`, résolutions (croix d'objets, aiguille, énigme) | B1, D1, D3 |
 | Horloges de nuit, de marée, d'aube, de minuit | horloges d'étage avec événements planifiés | F2 |
@@ -361,7 +361,7 @@ alors avec un langage entier-seulement et sans état propre.
 | Loge, âmes, services, grades | hub par drapeaux de profil ; déblocages qui ouvrent services, classes et pools | G1 à G4 |
 | Carte du Bas-Canada, régions libérées, route par partie | graphe de campagne persistant, mode `Campaign` | F3 |
 | Jos Violon, répliques en joual, veillée | barks événementiels ; codex à deux voix | H1, G3 |
-| Le Diable beau danseur, violon ensorcelé | horloge de tempo, fenêtres « sur le temps », phases de boss | H2, D4 |
+| Le Diable beau danseur, violon ensorcelé | horloge de tempo, fenêtres « sur le temps », phases de boss | H2, D4 ; fenêtres : ✅ X-3 (`Condition::Timing`, §90) ; musique calée : D151 |
 | Le mort revient en feu follet | état fantôme : entité contrôlée aux capacités réduites, réanimation | B6 |
 | Civils masqués, foule de la place d'Armes | équipe neutre qui bloque les tirs ; `OnHit(Neutral) → Gauge(faim, +)` | B1, D5 |
 | La grave qui résonne, la Hère à l'oreille, surdité | événement `Noise`, perception par l'ouïe, statut sourd qui coupe les sons | E8, B3 |

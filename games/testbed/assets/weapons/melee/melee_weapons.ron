@@ -105,4 +105,30 @@
             weapon_offset: (x: "0.0", y: "0.0"),
         ),
     ),
+    // X-3 (testbed) : arme de parade — mêmes caractéristiques que `sword`, plus
+    // `reflect` (renvoi des projectiles hostiles vers le regard, dégâts doublés dans
+    // les 6 premières frames du coup). Scénario `parade_projectiles`.
+    "parade": (
+        config: (
+            name: "Parade",
+            damage: "5.0",
+            range: "50.0",
+            attack_pattern: Sweep(
+                arc_angle: "1.57",
+            ),
+            attack_duration_frames: 12,
+            cooldown_frames: 40,
+            knockback_force: "20.0",
+            stamina_cost: "15.0",
+            reflect: Some((
+                perfect_frames: 6,
+                perfect_damage_mult: "2.0",
+            )),
+        ),
+        sprite_config: (
+            name: "sword",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
 })

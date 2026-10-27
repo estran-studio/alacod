@@ -29,6 +29,7 @@ use sim_core::{
     frame_events::{FrameEvents, FrameEventsAppExt},
     interaction::{Interactable, InteractionType},
     kinds::{KindDecl, KindRegistry},
+    modifier::{Modifier, ModifierOp, ModifierSource, Modifiers},
     stats::StatId,
     system_set::RollbackSystemSet,
     tag::{Tag, Tags},
@@ -234,6 +235,13 @@ pub struct WeaponConfig {
     /// `FiringModeConfig`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub projectiles: ProjectileTable,
+    /// Poids de l'arme (X-3, verbes D1) : multiplicateur de `MoveSpeed` tant que l'arme
+    /// est active (`sync_carry_weight_system`, modificateur `Mul` de source
+    /// `weapon_weight:<nom>`). L'architecture de modificateurs existante suffit à
+    /// l'exprimer (`StatReader` lit déjà `MoveSpeed` dans les inputs) : ce champ n'est
+    /// que le verbe qui la pilote depuis le contenu. `None` (défaut) : aucun effet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub move_speed_mult: Option<fixed_math::Fixed>,
 }
 
 /// M3-T0a : `ammo_type` d'une arme qui n'en déclare pas (munitions `Infinite`) :
@@ -260,6 +268,11 @@ impl std::hash::Hash for WeaponConfig {
         if !self.projectiles.is_empty() {
             self.projectiles.hash(state);
         }
+        // X-3 : `move_speed_mult` haché seulement s'il est présent (`None`, tout le
+        // contenu d'avant : hash inchangé, aucune trace ne bouge).
+        if let Some(mult) = &self.move_speed_mult {
+            mult.hash(state);
+        }
     }
 }
 
@@ -276,6 +289,10 @@ impl fmt::Debug for WeaponConfig {
             .field("test", &self.test);
         if !self.projectiles.is_empty() {
             d.field("projectiles", &self.projectiles);
+        }
+        // X-3 : même règle que le hash (absent : même ligne qu'avant).
+        if let Some(mult) = &self.move_speed_mult {
+            d.field("move_speed_mult", mult);
         }
         d.finish()
     }
@@ -2036,6 +2053,81 @@ pub fn bullet_rollback_collision_system(
     }
 }
 
+/// Préfixe des sources de modificateurs posées par le poids des armes (X-3) :
+/// `weapon_weight:<nom de l'arme>`. Un seul modificateur de ce préfixe à la fois par
+/// porteur (celui de l'arme active).
+pub const WEAPON_WEIGHT_SOURCE_PREFIX: &str = "weapon_weight:";
+
+/// Source du modificateur de poids de l'arme `name`.
+pub fn weapon_weight_source(name: &str) -> ModifierSource {
+    ModifierSource::Named(format!("{WEAPON_WEIGHT_SOURCE_PREFIX}{name}"))
+}
+
+/// Poids de l'arme active (X-3, verbes D1) : si `WeaponConfig::move_speed_mult` de
+/// l'arme active est présent et différent de 1, le porteur reçoit un modificateur
+/// `MoveSpeed`/`Mul` permanent de cette valeur (source `weapon_weight:<nom>`) ; sinon
+/// aucun (un changement ou un lâcher d'arme retire l'ancien). L'architecture de
+/// modificateurs existante fait le reste (`StatReader` lit `MoveSpeed` dans les inputs,
+/// `expire_modifiers_system` ignore les permanents) : ce système ne fait que poser et
+/// retirer, sans allocation tant que l'arme active ne change pas (comparaison par
+/// préfixe, allocation seulement à la pose).
+///
+/// Tête du set `Weapon` : les tirs de la frame voient déjà le poids de l'arme qui les
+/// tire (et le mouvement de la frame suivante, lu dans `Input`, aussi).
+pub fn sync_carry_weight_system(
+    mut query: Query<(&WeaponInventory, &mut Modifiers), With<Rollback>>,
+) {
+    // Itération sans ordre `GgrsNetId` : chaque porteur n'écrit que ses propres
+    // modificateurs, l'ordre entre porteurs est sans effet (CLAUDE.md, règle 2).
+    for (inventory, mut modifiers) in query.iter_mut() {
+        let wanted: Option<(&str, fixed_math::Fixed)> = inventory
+            .weapons
+            .get(inventory.active_weapon_index)
+            .map(|(_, weapon)| (weapon.config.name.as_str(), weapon.config.move_speed_mult))
+            .and_then(|(name, mult)| {
+                mult.filter(|mult| *mult != fixed_math::FIXED_ONE)
+                    .map(|mult| (name, mult))
+            });
+        let is_weight = |source: &ModifierSource| matches!(source, ModifierSource::Named(name) if name.starts_with(WEAPON_WEIGHT_SOURCE_PREFIX));
+        let current_ok = match &wanted {
+            Some((name, value)) => {
+                let mut seen = 0;
+                let mut ok = false;
+                for modifier in modifiers.iter() {
+                    let ModifierSource::Named(source) = &modifier.source else {
+                        continue;
+                    };
+                    if source.strip_prefix(WEAPON_WEIGHT_SOURCE_PREFIX) == Some(*name)
+                        && modifier.stat == StatId::MoveSpeed
+                        && modifier.op == ModifierOp::Mul
+                        && modifier.value == *value
+                    {
+                        seen += 1;
+                        ok = true;
+                    } else if is_weight(&modifier.source) {
+                        seen += 1;
+                    }
+                }
+                ok && seen == 1
+            }
+            None => !modifiers.iter().any(|modifier| is_weight(&modifier.source)),
+        };
+        if current_ok {
+            continue;
+        }
+        modifiers.0.retain(|modifier| !is_weight(&modifier.source));
+        if let Some((name, value)) = wanted {
+            modifiers.push(Modifier {
+                stat: StatId::MoveSpeed,
+                op: ModifierOp::Mul,
+                value,
+                source: weapon_weight_source(name),
+                until: None,
+            });
+        }
+    }
+}
+
 pub struct BaseWeaponGamePlugin {}
 
 impl Plugin for BaseWeaponGamePlugin {
@@ -2082,6 +2174,9 @@ impl Plugin for BaseWeaponGamePlugin {
         // M3-T6 : tir réellement parti (transitoire : émis par `weapon_rollback_system`, lu la même
         // frame par `MirrorShot`).
         app.add_frame_events_transient::<sim_core::triggers::WeaponFired>();
+        // X-3 : projectile renvoyé par une parade (file neutre : vide dans tout le contenu
+        // d'avant, aucune trace ne bouge).
+        app.add_frame_events_neutral::<melee::ProjectileReflected>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()
@@ -2099,14 +2194,20 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_systems(
             GgrsSchedule,
             (
-                // Ranged weapon systems. `weapon_drop_system` avant tout le reste (T2.2) :
-                // un lâcher cette frame doit être vu par `system_weapon_position`/
-                // `weapon_rollback_system` (inventaire déjà à jour, arme déjà despawn).
-                weapon_drop_system,
+                // Ranged weapon systems. `sync_carry_weight_system` en tête (X-3) : le poids
+                // de l'arme active est posé avant tout tir de la frame. `weapon_drop_system`
+                // avant tout le reste (T2.2) : un lâcher cette frame doit être vu par
+                // `system_weapon_position`/`weapon_rollback_system` (inventaire déjà à jour,
+                // arme déjà despawn).
+                sync_carry_weight_system,
+                weapon_drop_system.after(sync_carry_weight_system),
                 system_weapon_position.after(weapon_drop_system),
                 weapon_rollback_system.after(system_weapon_position),
                 bullet_rollback_system.after(weapon_rollback_system),
-                bullet_rollback_collision_system.after(bullet_rollback_system),
+                // X-3 : parade avant les collisions (la balle renvoyée ne touche pas le
+                // pareur la même frame).
+                melee::melee_reflect_system.after(bullet_rollback_system),
+                bullet_rollback_collision_system.after(melee::melee_reflect_system),
                 // Melee weapon systems
                 melee::player_melee_attack_system.after(bullet_rollback_collision_system),
                 melee::enemy_melee_attack_system.after(melee::player_melee_attack_system),
@@ -2217,6 +2318,88 @@ mod tests {
         assert!(
             (angle + 0.075).abs() < 2e-3,
             "tirage 0 : −spread/2, obtenu {angle}"
+        );
+    }
+
+    /// X-3 : le poids de l'arme active pose un modificateur `MoveSpeed`/`Mul`
+    /// (`weapon_weight:<nom>`), retiré au changement d'arme ou à la valeur 1 ; sans
+    /// allocation quand rien ne change (deux `update` d'affilée : un seul modificateur).
+    #[test]
+    fn le_poids_de_l_arme_active_pose_et_retire_le_modificateur() {
+        use bevy_ggrs::Rollback;
+        use sim_core::modifier::resolve;
+
+        fn weapon(name: &str, mult: Option<Fixed>) -> Weapon {
+            Weapon {
+                config: WeaponConfig {
+                    name: name.into(),
+                    default_firing_mode: "default".into(),
+                    firing_modes: BTreeMap::new(),
+                    friendly_fire: FriendlyFire::Never,
+                    ammo_type: no_ammo_type(),
+                    test: None,
+                    projectiles: BTreeMap::new(),
+                    move_speed_mult: mult,
+                },
+                sprite_config: WeaponSpriteConfig {
+                    name: name.into(),
+                    index: 0,
+                    weapon_offset: FixedVec2::ZERO,
+                    bullet_offset_left: FixedVec2::ZERO,
+                    bullet_offset_right: FixedVec2::ZERO,
+                },
+            }
+        }
+
+        let mut app = App::new();
+        // Le composant `Rollback` exige la ressource d'ordre de bevy_ggrs.
+        app.init_resource::<bevy_ggrs::RollbackOrdered>();
+        app.add_systems(Update, sync_carry_weight_system);
+        let dummy = app.world_mut().spawn_empty().id();
+        let carrier = app
+            .world_mut()
+            .spawn((
+                WeaponInventory {
+                    active_weapon_index: 0,
+                    weapons: vec![
+                        (dummy, weapon("lourde", Some(fx(0.5)))),
+                        (dummy, weapon("legere", None)),
+                    ],
+                    ..Default::default()
+                },
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id();
+        app.update();
+        let modifiers = app.world().get::<Modifiers>(carrier).unwrap();
+        assert_eq!(modifiers.0.len(), 1, "un seul modificateur de poids");
+        let modifier = &modifiers.0[0];
+        assert_eq!(modifier.stat, StatId::MoveSpeed);
+        assert_eq!(modifier.op, ModifierOp::Mul);
+        assert_eq!(modifier.value, fx(0.5));
+        assert_eq!(
+            modifier.source,
+            ModifierSource::Named("weapon_weight:lourde".into())
+        );
+        // Résolution : la base est bien divisée par deux.
+        assert_eq!(
+            resolve(fx(100.0), modifiers.iter(), 0),
+            fx(50.0),
+            "MoveSpeed × 0.5"
+        );
+        // Deuxième frame sans changement : toujours un seul modificateur.
+        app.update();
+        assert_eq!(app.world().get::<Modifiers>(carrier).unwrap().0.len(), 1);
+        // Changement d'arme : l'ancien disparaît.
+        app.world_mut()
+            .get_mut::<WeaponInventory>(carrier)
+            .unwrap()
+            .active_weapon_index = 1;
+        app.update();
+        assert!(
+            app.world().get::<Modifiers>(carrier).unwrap().0.is_empty(),
+            "arme sans poids : modificateur retiré"
         );
     }
 }

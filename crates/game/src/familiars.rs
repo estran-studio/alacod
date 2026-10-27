@@ -698,8 +698,11 @@ impl Plugin for FamiliarsPlugin {
                 familiar_mirror_shot_system
                     .after(familiar_motion_system)
                     .before(bullet_rollback_system),
+                // X-3 : la parade de mêlée passe avant le blocage par un familier (une balle
+                // renvoyée change d'équipe : elle n'est plus hostile au porteur).
                 familiar_block_bullets_system
                     .after(bullet_rollback_system)
+                    .after(combat::weapons::melee::melee_reflect_system)
                     .before(bullet_rollback_collision_system),
             )
                 .in_set(RollbackSystemSet::Weapon),

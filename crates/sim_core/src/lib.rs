@@ -47,6 +47,7 @@ pub mod stats;
 pub mod system_set;
 pub mod tag;
 pub mod team;
+pub mod timing;
 pub mod triggers;
 
 pub mod interaction;

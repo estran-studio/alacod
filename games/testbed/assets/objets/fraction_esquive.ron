@@ -1,0 +1,15 @@
+// X-3 (testbed, docs/conventions.md §90) : passif d'essai du repère `DashStart` de la fenêtre de
+// jugement : à **chaque** frame (`Tick(1)`), si la frame courante est exactement le début du dash
+// en cours + 5 frames (fenêtre parfaite de 0 frame), +1 de dégâts. Un instant d'une action, choisi
+// par le contenu, sans code propre à une arme ni à un jeu. Scénario `fenetre_fraction_esquive`.
+(
+    name: "Fraction d'esquive",
+    kind: Passive,
+    effects: [
+        (
+            on: Tick(1),
+            if: [Timing(reference: DashStart, offset: 5, perfect_frames: 0, good_frames: 0, grade: Perfect)],
+            do: [Modifier(stat: Damage, op: Add, value: "1")],
+        ),
+    ],
+)

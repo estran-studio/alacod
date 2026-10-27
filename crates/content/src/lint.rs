@@ -192,6 +192,36 @@ pub(crate) fn lint_effect(
                 format!("{at} : condition {condition:?} : pas encore exécutée (v2)"),
             );
         }
+        // X-3 (§90) : fenêtre de jugement : `perfect_frames <= good_frames` ; un repère
+        // d'horloge désigne un événement déclaré par une horloge du jeu.
+        if let effects::Condition::Timing {
+            reference,
+            perfect_frames,
+            good_frames,
+            ..
+        } = condition
+        {
+            if perfect_frames > good_frames {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "{at} : Timing : perfect_frames = {perfect_frames} > good_frames = {good_frames} : la fenêtre parfaite doit tenir dans la large"
+                    ),
+                );
+            }
+            if let effects::TimingReference::Clock(id) = reference {
+                let known = registry
+                    .clocks
+                    .values()
+                    .any(|clock| clock.events.iter().any(|event| &event.id == id));
+                if !known {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at} : Timing : événement d'horloge « {id} » inconnu (aucune horloge du jeu ne le déclare)"),
+                    );
+                }
+            }
+        }
     }
     for outer in &effect.r#do {
         // M3-T0b : `Scaled` n'est qu'une enveloppe ; l'action intérieure est validée comme une
@@ -732,6 +762,21 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                     message: format!(
                         "arme « {} » : champ sprite_config.name = « {sprite} » : feuille de sprites inconnue (kind SpriteSheet)",
                         weapon.id
+                    ),
+                });
+            }
+        }
+        // X-3 : poids de l'arme (`move_speed_mult:`) : > 0 (0 figerait le porteur, une
+        // valeur négative inverserait ses déplacements). `1` : aucun effet, mais valide.
+        if let Some(mult) = &weapon.move_speed_mult {
+            if mult.get() <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : champ move_speed_mult = {} : doit être > 0",
+                        weapon.id,
+                        mult.get()
                     ),
                 });
             }
@@ -1759,6 +1804,20 @@ fn lint_melee_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                     weapon.damage.get()
                 ),
             });
+        }
+        // X-3 : parade et renvoi (`reflect:`) : le multiplicateur parfait doit être > 0
+        // (0 annulerait les dégâts renvoyés, une valeur négative les inverserait).
+        if let Some(reflect) = &weapon.reflect {
+            if reflect.perfect_damage_mult <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme de corps à corps « {} » : champ reflect.perfect_damage_mult = {} : doit être > 0",
+                        weapon.id, reflect.perfect_damage_mult
+                    ),
+                });
+            }
         }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
     }

@@ -28,12 +28,14 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed, FixedVec2};
 use bevy_ggrs::Rollback;
+use combat::actors::DashState;
 use combat::downed::Downed;
 use combat::emitter::Emitter;
 use combat::projectile::{resolve_pattern, PatternLibrary};
+use combat::weapons::melee::MeleeAttackState;
 use effects::runtime::{
     conditions_hold, effect_responds, healed, limits_allow, limits_consume, limits_recharge,
-    tick_due, trigger_target, Carrier, Limits, TargetRef, Trigger,
+    tick_due, trigger_target, Carrier, Limits, TargetRef, TimingRefs, Trigger,
 };
 use effects::{Action, Condition, Effect, On, Recharge};
 use items::{BlankUsed, Inventory, ItemPicked, ItemTable, SynergyTable};
@@ -130,6 +132,82 @@ pub fn effect_source(carrier: &GgrsNetId, effect: usize) -> ModifierSource {
 pub struct EffectAssets<'w> {
     weapons: Res<'w, WeaponRegistry>,
     library: Option<Res<'w, PatternLibrary>>,
+}
+
+/// Sources des repères temporels d'une fenêtre de jugement (X-3, `effects::Condition::Timing`,
+/// `docs/conventions.md` §90) : début du dash et du coup de mêlée en cours du porteur, horloges
+/// actives. **Lecture seule**, dérivée de l'état rollback à chaque évaluation : aucun état
+/// caché, rien à restaurer après un rollback. Construite seulement pour un porteur dont un
+/// effet porte une condition `Timing` ([`has_timing`]) : sans elle, aucun calcul de plus.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct TimingSource<'w, 's> {
+    clock: Res<'w, run::Clock>,
+    schedule: Option<Res<'w, crate::clock::ClockSchedule>>,
+    actors: Query<
+        'w,
+        's,
+        (
+            Option<&'static DashState>,
+            Option<&'static MeleeAttackState>,
+        ),
+        With<Rollback>,
+    >,
+}
+
+impl TimingSource<'_, '_> {
+    /// Début du dash en cours : le pas du dash est joué à la frame même du lancement
+    /// (`DashState::take_step`), donc `frames jouées - 1` frames plus tôt. `None` hors dash.
+    pub fn dash_start(&self, entity: Entity, now: u32) -> Option<u32> {
+        let (dash, _) = self.actors.get(entity).ok()?;
+        let dash = dash?;
+        if !dash.is_dashing {
+            return None;
+        }
+        let played = dash
+            .dash_duration
+            .saturating_sub(dash.dash_frames_remaining);
+        Some(now.saturating_sub(played.saturating_sub(1)))
+    }
+
+    /// Début du coup de mêlée en cours (`MeleeAttackState::attack_started_frame`), `None` hors coup.
+    pub fn melee_start(&self, entity: Entity) -> Option<u32> {
+        let (_, melee) = self.actors.get(entity).ok()?;
+        let melee = melee?;
+        melee
+            .is_attacking
+            .then_some(melee.attack_started_frame)
+            .flatten()
+    }
+
+    /// Frame absolue de l'occurrence la plus proche de l'événement `id` de la première horloge
+    /// active (ordre des ids) qui le porte (`run::clock::nearest_occurrence`). `None` sans
+    /// horloge activée ou événement inconnu.
+    pub fn beat(&self, id: &str, now: u32) -> Option<u32> {
+        let schedule = self.schedule.as_ref()?;
+        for (_name, def) in &schedule.clocks {
+            let elapsed = self.clock.scope_frames(def.scope, now);
+            if let Some(at) = run::clock::nearest_occurrence(def, id, elapsed) {
+                // frame absolue = maintenant + (occurrence − temps écoulé), bornée à 0
+                return Some(if at >= elapsed {
+                    now.saturating_add(at - elapsed)
+                } else {
+                    now.saturating_sub(elapsed - at)
+                });
+            }
+        }
+        None
+    }
+}
+
+/// Un effet de `listed` porte-t-il une condition `Timing` ? (Sinon, aucun repère à calculer.)
+pub(crate) fn has_timing(listed: &[Listed]) -> bool {
+    listed.iter().any(|entry| {
+        entry
+            .effect
+            .r#if
+            .iter()
+            .any(|condition| matches!(condition, Condition::Timing { .. }))
+    })
 }
 
 pub(crate) type CarrierQuery<'w, 's> = Query<
@@ -399,7 +477,25 @@ pub(crate) fn run_listed(
     state: &mut EffectState,
     body: &mut Body,
     assets: &EffectAssets,
+    timing: &TimingSource,
 ) {
+    // X-3 : repères de `Condition::Timing`, calculés une fois par appel et seulement si un effet
+    // en porte une.
+    let timed = has_timing(listed);
+    let (dash_start, melee_start) = if timed {
+        (
+            timing.dash_start(body.entity, frame),
+            timing.melee_start(body.entity),
+        )
+    } else {
+        (None, None)
+    };
+    let beat = |id: &str| timing.beat(id, frame);
+    let refs = TimingRefs {
+        dash_start,
+        melee_start,
+        beat: if timed { Some(&beat) } else { None },
+    };
     for trigger in triggers {
         let recharge = match trigger {
             Trigger::RoomCleared => Recharge::PerRoom,
@@ -435,6 +531,7 @@ pub(crate) fn run_listed(
                 carried: view.carried,
                 squad_size: view.squad_size,
                 position: view.position,
+                timing: refs,
             };
             if !conditions_hold(&effect.r#if, &carrier, trigger) {
                 continue;
@@ -517,6 +614,7 @@ pub fn apply_effects_system(
     table: Option<Res<ItemTable>>,
     synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
+    timing: TimingSource,
 ) {
     if carriers.is_empty() {
         return;
@@ -661,7 +759,7 @@ pub fn apply_effects_system(
             out: &mut out,
         };
         run_listed(
-            &listed, &triggers, true, frame, net_id, &view, state, &mut body, &assets,
+            &listed, &triggers, true, frame, net_id, &view, state, &mut body, &assets, &timing,
         );
         for event in out {
             outbox.send(event);
@@ -704,6 +802,7 @@ pub fn apply_triggered_effects_system(
     table: Option<Res<ItemTable>>,
     synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
+    timing: TimingSource,
 ) {
     if carriers.is_empty() {
         return;
@@ -844,7 +943,7 @@ pub fn apply_triggered_effects_system(
                 out: &mut out,
             };
             run_listed(
-                &listed, &triggers, false, frame, net_id, &view, state, &mut body, &assets,
+                &listed, &triggers, false, frame, net_id, &view, state, &mut body, &assets, &timing,
             );
             for event in out {
                 outbox.send(event);
