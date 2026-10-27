@@ -46,6 +46,7 @@ impl Plugin for WorldSpritePlugin {
             (
                 attach_world_sprites,
                 sync_world_sprites,
+                reskin_reflected_bullets.before(skin_bullets),
                 skin_bullets,
                 attach_door_sprites,
                 sync_door_sprites.after(attach_door_sprites),
@@ -74,6 +75,32 @@ pub struct MapHeld(pub Entity);
 /// Marque un projectile dont l'image est posée.
 #[derive(Component)]
 pub struct BulletSkinned;
+
+/// Équipe dont l'image d'un projectile porte la peau (X-3), et la taille du carré avant la peau :
+/// un projectile **renvoyé** (`combat::weapons::melee::melee_reflect_system`) change d'équipe,
+/// [`reskin_reflected_bullets`] lui rend alors sa taille et le fait reskinner. Présentation seule.
+#[derive(Component)]
+pub struct SkinnedAs {
+    team: Team,
+    base_size: Option<Vec2>,
+}
+
+/// Un projectile dont l'équipe a changé depuis sa peau (renvoi) reprend la peau de sa nouvelle
+/// équipe : on retire les marqueurs de peau et de style, `skin_bullets` et `style_tears` repassent
+/// (une seule fois par changement). Lecture seule de la simulation.
+fn reskin_reflected_bullets(
+    mut commands: Commands,
+    mut bullets: Query<(Entity, &Bullet, &SkinnedAs, &mut Sprite)>,
+) {
+    for (entity, bullet, skinned, mut sprite) in &mut bullets {
+        if bullet.source_team != skinned.team {
+            sprite.custom_size = skinned.base_size;
+            commands
+                .entity(entity)
+                .remove::<(BulletSkinned, TearStyled, SkinnedAs)>();
+        }
+    }
+}
 
 /// Accès à la table des feuilles de sprites du jeu (`sprites.ron`) : feuille et case d'un id.
 #[derive(SystemParam)]
@@ -521,9 +548,13 @@ fn skin_bullets(
             Team::Enemies => "bullet_enemy",
             _ => "bullet_player",
         };
+        let skinned = SkinnedAs {
+            team: bullet.source_team,
+            base_size: sprite.custom_size,
+        };
         let Some(sheet) = table.sheet(id) else {
             // Pas d'entrée (autre jeu) : le carré d'origine reste, on ne retente pas.
-            commands.entity(entity).insert(BulletSkinned);
+            commands.entity(entity).insert((BulletSkinned, skinned));
             continue;
         };
         sprite.image = asset_server.load(&sheet.path);
@@ -542,7 +573,7 @@ fn skin_bullets(
                 sprite.custom_size = Some(size * 2.0);
             }
         }
-        commands.entity(entity).insert(BulletSkinned);
+        commands.entity(entity).insert((BulletSkinned, skinned));
     }
 }
 
