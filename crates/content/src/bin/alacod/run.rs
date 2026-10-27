@@ -17,7 +17,8 @@ pub const HEADLESS_PROFILE_CONFIG: [&str; 8] = [
     "--config",
     "profile.headless.debug=\"line-tables-only\"",
 ];
-const HEADLESS_DEPS_CONFIG: [&str; 2] = ["--config", "profile.headless.package.\"*\".opt-level=3"];
+pub const HEADLESS_DEPS_CONFIG: [&str; 2] =
+    ["--config", "profile.headless.package.\"*\".opt-level=3"];
 
 #[derive(Debug, Default)]
 pub struct RunOptions {

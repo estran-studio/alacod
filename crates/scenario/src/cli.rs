@@ -321,14 +321,19 @@ fn scenario_files(path: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// `<jeu> scenarios play [chemin…] [--bless] [--json]` (X-1, §91) : joue les scénarios écrits à la
-/// main (fichiers `.ron` ou dossiers ; sans chemin, `<jeu>/tests/scenarios`), vérifie leurs attentes
-/// et compare chaque trace d'état à `<scénario>.trace` (`--bless` : l'écrit). Le plugin du jeu est celui
-/// que l'appelant a installé (`game::extension::install`). Code de sortie 1 si une attente échoue, si une
-/// trace diffère ou manque.
+/// `<jeu> scenarios play [chemin…] [--bless] [--json] [--only id[,id]] [--list]` (X-1, §91 ; X-2b :
+/// `--list` et `--only`) : joue les scénarios écrits à la main (fichiers `.ron` ou dossiers ; sans
+/// chemin, `<jeu>/tests/scenarios`), vérifie leurs attentes et compare chaque trace d'état à
+/// `<scénario>.trace` (`--bless` : l'écrit). Le plugin du jeu est celui que l'appelant a installé
+/// (`game::extension::install`). `--list` liste les scénarios sans les jouer (`<nom>\t<chemin>`,
+/// comme `gen --list`) ; `--only` ne joue que ceux-là (nom de fichier sans `.ron`). Code de sortie 1
+/// si une attente échoue, si une trace diffère ou manque ; 2 si aucun scénario ne correspond.
 pub fn run_play(game_dir: &Path, args: &[String]) -> i32 {
     let bless = args.iter().any(|a| a == "--bless");
     let json = args.iter().any(|a| a == "--json");
+    let list = args.iter().any(|a| a == "--list");
+    let only: Option<Vec<String>> =
+        option_value(args, "--only").map(|v| v.split(',').map(str::to_string).collect());
     let (manifest, _) = match declare_game(game_dir) {
         Ok(declared) => declared,
         Err(e) => {
@@ -337,12 +342,52 @@ pub fn run_play(game_dir: &Path, args: &[String]) -> i32 {
         }
     };
     let mut files = Vec::new();
-    let explicit: Vec<&String> = args.iter().filter(|a| !a.starts_with("--")).collect();
+    let explicit: Vec<&String> = args
+        .iter()
+        .enumerate()
+        .filter(|(i, a)| {
+            !a.starts_with("--") && !(*i > 0 && matches!(args[*i - 1].as_str(), "--only"))
+        })
+        .map(|(_, a)| a)
+        .collect();
     if explicit.is_empty() {
         scenario_files(&game_dir.join("tests").join("scenarios"), &mut files);
     }
     for path in explicit {
         scenario_files(Path::new(path), &mut files);
+    }
+    if let Some(only) = &only {
+        let known: Vec<String> = files
+            .iter()
+            .map(|f| {
+                f.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or_default()
+                    .to_string()
+            })
+            .collect();
+        files.retain(|f| {
+            let stem = f.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+            only.iter().any(|o| *o == stem)
+        });
+        if files.is_empty() {
+            eprintln!(
+                "scenarios play : aucun scénario « {} » (disponibles : {})",
+                only.join(", "),
+                known.join(", ")
+            );
+            return 2;
+        }
+    }
+    if list {
+        for file in &files {
+            let name = file
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default();
+            println!("{name}\t{}", file.display());
+        }
+        return 0;
     }
     if files.is_empty() {
         eprintln!("scenarios play : aucun scénario .ron trouvé");

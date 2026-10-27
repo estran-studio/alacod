@@ -72,7 +72,9 @@ Tout est la commande **`alacod`** ; `alacod --help` liste les commandes (une lig
 | `alacod new-content [jeu] <Kind> <id>` | crée une entrée à partir d'un modèle | §2.2 |
 | `alacod new-arena [jeu]` | écrit l'arène vide du bac à sable | §2.3 |
 | `alacod new <nom>` | crée un jeu hors de l'engine | `docs/conventions.md` §88 |
-| `alacod test [jeu] [id…]` | joue les scénarios générés d'un jeu | `docs/conventions.md` §54 |
+| `alacod test [jeu] [id…]` | joue les scénarios d'un jeu par son binaire (générés + écrits à la main, plugin compris) | `docs/conventions.md` §93 |
+| `alacod video [jeu] <scénario>` | rend un scénario en vidéo côté jeu (GPU + ffmpeg) | `docs/conventions.md` §93 |
+| `alacod build [jeu] [--release] [--web]` | construit le jeu avec sa version (`APP_VERSION`) | `docs/conventions.md` §93 |
 
 Installer la commande : `cargo install --path crates/content --bin alacod --locked` (depuis la racine de l'engine ; installe dans `~/.cargo/bin`, à mettre dans le `PATH`). Mettre à jour : relancer la même commande après chaque pull de l'engine (§1).
 Sans installation, `cargo build -p content --bin alacod` puis `target/debug/alacod`.

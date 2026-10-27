@@ -104,14 +104,17 @@ enum Command {
         #[arg(last = true)]
         game_args: Vec<String>,
     },
-    /// Joue les scénarios générés d'un jeu (armes, personnages, objets, salles, boss).
+    /// Joue les scénarios d'un jeu **par son propre binaire** (plugin Rust compris) : générés
+    /// (`scenarios gen --play`, écrits dans `<jeu>/tests/generated`) **et** écrits à la main
+    /// (`scenarios play`, `<jeu>/tests/scenarios`), avec leurs traces (`<scénario>.trace` comparée,
+    /// `--bless` pour l'écrire). Rien n'est écrit hors du jeu.
     ///
-    /// `alacod test [jeu] [id…] [--list]`. Sans id, tous ; avec un id (`amulette` ou `item_amulette`), seulement
-    /// celui-là. Les traces de référence sont ignorées sauf `--bless`.
+    /// `alacod test [jeu] [id…] [--list]`. Sans id, tous ; avec un id (`amulette`, `item_amulette`
+    /// ou le nom d'un scénario écrit à la main), seulement ceux-là.
     Test {
         /// `[dossier du jeu] [id…]` : le premier argument est pris pour un dossier s'il existe.
         args: Vec<String>,
-        /// Liste les sujets testables au lieu de les jouer.
+        /// Liste les scénarios testables (générés puis écrits à la main) au lieu de les jouer.
         #[arg(long)]
         list: bool,
         /// Écrit les traces de référence (changement de gameplay voulu).
@@ -120,7 +123,8 @@ enum Command {
         /// Sortie JSON (tableau de résultats) sur stdout.
         #[arg(long)]
         json: bool,
-        /// Racine de l'engine ; sinon celle que le jeu compile réellement (`cargo metadata`).
+        /// Compatibilité X-2a, sans effet : le jeu compile l'engine qu'il épingle
+        /// (`alacod engine status`), jamais celui d'`--engine`.
         #[arg(long)]
         engine: Option<PathBuf>,
     },
@@ -288,6 +292,44 @@ enum Command {
     },
     /// Dit en une ligne si le binaire `alacod` installé est plus ancien que le fichier le plus récent de
     /// `crates/content/src` et `crates/game/src` de l'engine dont il a été compilé (code 1 : périmé, à réinstaller).
+    /// Rend un scénario du jeu en vidéo **par son propre binaire** (plugin compris) : capture
+    /// (`scenarios capture`, images + `events.json`) puis encodage ffmpeg, le tout côté jeu
+    /// (défaut : `<jeu>/target/videos/<scénario>.mp4`). Demande un GPU (Mac : Metal ; Linux :
+    /// Vulkan) et `ffmpeg` ; sans eux, échec expliqué, rien d'inventé.
+    ///
+    /// `alacod video [jeu] <scénario> [--out <dossier>] [--every 2] [--follow <handle>] [--size 960x540]`.
+    /// `<scénario>` : nom d'un scénario écrit à la main (`tests/scenarios`) ou généré
+    /// (`tests/generated`), ou chemin d'un `.ron` du jeu.
+    Video {
+        /// `[dossier du jeu] <scénario>`.
+        args: Vec<String>,
+        /// Dossier des vidéos (défaut : `<jeu>/target/videos`).
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Une image toutes les N frames de simulation (défaut 2 → 30 images/s).
+        #[arg(long, default_value_t = 2)]
+        every: u32,
+        /// Force la caméra à suivre le joueur avec ce handle GGRS.
+        #[arg(long)]
+        follow: Option<usize>,
+        /// Taille des images `<largeur>x<hauteur>` (défaut 960x540).
+        #[arg(long)]
+        size: Option<String>,
+    },
+    /// Construit le jeu (`cargo build` dans son dossier) avec sa version (`APP_VERSION`) : binaire
+    /// natif, `--release` pour l'optimisé, `--web` pour le wasm (`wasm32-unknown-unknown`,
+    /// `wasm-bindgen`, assets copiés, `build.json`, comme `scripts/build-web-games.mjs` mais côté
+    /// jeu : `<jeu>/target/web/<version>/<jeu>/`). Artefacts seulement dans le jeu.
+    Build {
+        /// Dossier du jeu (défaut : le jeu qui contient le dossier courant).
+        game_dir: Option<PathBuf>,
+        /// Profil `release` (natif et web).
+        #[arg(long)]
+        release: bool,
+        /// Build web au lieu du binaire natif.
+        #[arg(long)]
+        web: bool,
+    },
     SelfCheck,
 }
 
@@ -477,6 +519,33 @@ fn main() -> ExitCode {
             port,
             command,
         } => ExitCode::from(content::remote::run_cli(&command, json, port)),
+        Command::Video {
+            args,
+            out,
+            every,
+            follow,
+            size,
+        } => {
+            let (dir_arg, scenario) = match args.as_slice() {
+                [one] => (None, one.clone()),
+                [dir, name] if PathBuf::from(dir).is_dir() => {
+                    (Some(PathBuf::from(dir)), name.clone())
+                }
+                _ => return fail("usage : alacod video [jeu] <scénario> [--out <dossier>]"),
+            };
+            match resolve_game_dir(dir_arg) {
+                Ok(dir) => run_video(&dir, &scenario, out, every, follow, size.as_deref()),
+                Err(e) => fail(&e),
+            }
+        }
+        Command::Build {
+            game_dir,
+            release,
+            web,
+        } => match resolve_game_dir(game_dir) {
+            Ok(dir) => run_build(&dir, release, web),
+            Err(e) => fail(&e),
+        },
         Command::SelfCheck => self_check(),
     }
 }
@@ -915,22 +984,10 @@ fn engine_command(game_dir: &std::path::Path, action: EngineAction) -> ExitCode 
     }
 }
 
-/// Racine de l'engine pour un jeu : `--engine`, sinon celle que le jeu compile réellement, lue par
-/// `cargo metadata` (checkout git du tag épinglé, surcharge `alacod engine local`, ou dépendance par chemin).
-fn engine_root_for(
-    game_dir: &std::path::Path,
-    explicit: Option<PathBuf>,
-) -> Result<PathBuf, String> {
-    match explicit {
-        Some(root) => root
-            .canonicalize()
-            .map_err(|e| format!("engine introuvable ({}) : {e}", root.display())),
-        None => engine::resolve_root(game_dir),
-    }
-}
-
-/// `alacod test` : délègue à `alacod-gen` de l'engine (le crate `scenario` dépend de `content`,
-/// pas l'inverse), en ignorant les traces sauf `--bless`.
+/// `alacod test` (X-2b) : joue les scénarios du jeu **par son propre binaire** (plugin Rust compris),
+/// générés (`scenarios gen --play`, écrits dans `<jeu>/tests/generated`) **et** écrits à la main
+/// (`scenarios play`, `<jeu>/tests/scenarios`), avec leurs traces (`<scénario>.trace` comparée,
+/// `--bless` pour l'écrire). Tout s'écrit dans le jeu : jamais dans l'engine.
 fn run_tests(
     game_dir: &std::path::Path,
     ids: &[String],
@@ -939,104 +996,86 @@ fn run_tests(
     json: bool,
     engine: Option<PathBuf>,
 ) -> ExitCode {
-    let engine = match engine_root_for(game_dir, engine) {
-        Ok(root) => root,
-        Err(e) => return fail(&e),
-    };
+    if let Some(root) = engine {
+        if let Err(e) = root.canonicalize() {
+            return fail(&format!("--engine inutilisé ({}) : {e}", root.display()));
+        }
+        eprintln!(
+            "avertissement : --engine est sans effet, le jeu compile l'engine qu'il épingle (`alacod engine status`)"
+        );
+    }
     let game = match game_dir.canonicalize() {
         Ok(g) => g,
         Err(e) => return fail(&e.to_string()),
     };
-    let mut cmd = std::process::Command::new("cargo");
-    cmd.args([
-        "run",
-        "-q",
-        "-p",
-        "scenario",
-        "--bin",
-        "alacod-gen",
-        "--profile",
-        "headless",
-    ])
-    .arg("--manifest-path")
-    .arg(engine.join("Cargo.toml"));
-    // Engine épinglé par un tag : son checkout est dans le cache git de cargo, on n'y écrit pas de `target/`.
-    if engine::is_cargo_checkout(&engine) {
-        cmd.arg("--target-dir")
-            .arg(game.join("target").join("alacod-engine"));
-    }
-    cmd.arg("--").arg(&game);
+    let version = app_version(&game, false);
     if list {
-        cmd.arg("--list");
-    } else {
-        cmd.arg("--play").arg("--json");
-        if bless {
-            cmd.arg("--bless");
-        } else {
-            cmd.arg("--no-trace");
-        }
-        if !ids.is_empty() {
-            cmd.arg("--only").arg(ids.join(","));
-        }
+        return list_tests(&game, &version);
     }
-    let output = match cmd.output() {
-        Ok(o) => o,
-        Err(e) => return fail(&format!("cargo : {e}")),
+    let only = (!ids.is_empty()).then(|| ids.join(","));
+    let mut gen_args = vec!["scenarios", "gen", "--play", "--json"];
+    if bless {
+        gen_args.push("--bless");
+    }
+    if let Some(only) = &only {
+        gen_args.extend(["--only", only]);
+    }
+    let gen = match game_tool(&game, &version, &gen_args, true) {
+        Ok(out) => out,
+        Err(e) => return fail(&e),
     };
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    // stderr de cargo (avertissements de compilation de l'engine) : seulement si ça a échoué.
-    let show_stderr = |output: &std::process::Output| {
-        let text = String::from_utf8_lossy(&output.stderr);
-        // Les messages d'`alacod-gen` d'abord ; sinon la fin de la sortie de cargo.
-        let own: Vec<&str> = text
-            .lines()
-            .filter(|l| l.starts_with("alacod-gen"))
-            .collect();
-        let lines: Vec<&str> = text.lines().collect();
-        let start = lines.len().saturating_sub(25);
-        eprintln!(
-            "{}",
-            if own.is_empty() {
-                lines[start..].join("\n")
-            } else {
-                own.join("\n")
+    let mut play_args = vec!["scenarios", "play", "--json"];
+    if bless {
+        play_args.push("--bless");
+    }
+    if let Some(only) = &only {
+        play_args.extend(["--only", only]);
+    }
+    let play = match game_tool(&game, &version, &play_args, true) {
+        Ok(out) => out,
+        Err(e) => return fail(&e),
+    };
+    // Un côté qui ne connaît pas ces ids (code 2) laisse l'autre trancher.
+    let mut results = Vec::new();
+    let mut tool_failed = false;
+    for (out, unknown) in [(&gen, "aucun sujet"), (&play, "aucun scénario")] {
+        if !out.ok && out.code == Some(2) && out.stderr.contains(unknown) {
+            continue;
+        }
+        match tool_results(out) {
+            Some(mut r) => results.append(&mut r),
+            None => {
+                show_tool_stderr(out);
+                return fail("alacod test : aucun résultat (voir ci-dessus)");
             }
-        );
-    };
-
-    if list {
-        // Les journaux du jeu partagent stdout : seules les lignes `scénario<TAB>sujet` comptent.
-        for line in stdout.lines().filter(|l| l.contains('\t')) {
-            println!("{}", line.replace('\t', "  "));
         }
-        return if output.status.success() {
-            ExitCode::SUCCESS
-        } else {
-            ExitCode::FAILURE
-        };
+        tool_failed |= !out.ok;
     }
-
-    // Le tableau JSON est la dernière ligne qui commence par `[`.
-    let Some(results) = stdout
-        .lines()
-        .rev()
-        .find(|l| l.starts_with('['))
-        .and_then(|l| serde_json::from_str::<Vec<serde_json::Value>>(l).ok())
-    else {
-        show_stderr(&output);
-        return fail("alacod test : aucun résultat (voir ci-dessus)");
-    };
+    if results.is_empty() {
+        show_tool_stderr(&gen);
+        show_tool_stderr(&play);
+        return fail(&if ids.is_empty() {
+            "alacod test : aucun scénario dans ce jeu (ni généré ni tests/scenarios)".to_string()
+        } else {
+            format!("alacod test : aucun scénario « {} »", ids.join(", "))
+        });
+    }
     if json {
         println!("{}", serde_json::Value::Array(results.clone()));
     } else {
         for r in &results {
-            let ok = r["expectations_ok"].as_bool().unwrap_or(false);
+            let ok = !result_failed(r);
+            let hits = r
+                .get("hits")
+                .and_then(|h| h.as_u64())
+                .map(|h| format!(", {h:>3} coups"))
+                .unwrap_or_default();
             println!(
-                "{} {:<28} {:>5} frames, {:>3} coups",
+                "{} {:<28} {:>5} frames{hits}, trace {}",
                 if ok { "ok    " } else { "ÉCHEC " },
                 r["scenario"].as_str().unwrap_or("?"),
                 r["frames"],
-                r["hits"],
+                r.get("trace").and_then(|t| t.as_str()).unwrap_or("?"),
             );
             for f in r["failures"].as_array().into_iter().flatten() {
                 println!("        {}", f.as_str().unwrap_or("?"));
@@ -1046,18 +1085,661 @@ fn run_tests(
             }
         }
     }
-    let failed = results
-        .iter()
-        .filter(|r| r["expectations_ok"] != true)
-        .count();
+    let failed = results.iter().filter(|r| result_failed(r)).count();
     if !json {
         println!("{} scénario(s), {} échec(s)", results.len(), failed);
     }
-    if failed == 0 && output.status.success() {
+    if failed == 0 && !tool_failed {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
     }
+}
+
+/// Un résultat est-il un échec ? Attentes rouges, ou trace ni `ok` ni `blessée` (les traces se
+/// comparent par défaut, `--bless` les écrit ; `ignorée` : `--no-trace` passé au binaire à la main).
+fn result_failed(r: &serde_json::Value) -> bool {
+    if r["expectations_ok"] != true {
+        return true;
+    }
+    !matches!(
+        r.get("trace").and_then(|t| t.as_str()),
+        Some("ok" | "blessée" | "ignorée")
+    )
+}
+
+/// `alacod test --list` : sujets générés puis scénarios écrits à la main, sans rien jouer.
+fn list_tests(game_dir: &std::path::Path, app_version: &str) -> ExitCode {
+    let gen = match game_tool(game_dir, app_version, &["scenarios", "gen", "--list"], true) {
+        Ok(out) => out,
+        Err(e) => return fail(&e),
+    };
+    let play = match game_tool(
+        game_dir,
+        app_version,
+        &["scenarios", "play", "--list"],
+        true,
+    ) {
+        Ok(out) => out,
+        Err(e) => return fail(&e),
+    };
+    if !gen.ok {
+        show_tool_stderr(&gen);
+        return ExitCode::FAILURE;
+    }
+    if !play.ok {
+        show_tool_stderr(&play);
+        return ExitCode::FAILURE;
+    }
+    // Les journaux du jeu partagent stdout : seules les lignes `nom<TAB>…` comptent.
+    for line in gen
+        .stdout
+        .lines()
+        .chain(play.stdout.lines())
+        .filter(|l| l.contains('\t'))
+    {
+        println!("{}", line.replace('\t', "  "));
+    }
+    ExitCode::SUCCESS
+}
+
+/// Sortie d'un outillage du jeu (`cargo run -q -- …` dans son dossier).
+struct ToolOut {
+    ok: bool,
+    code: Option<i32>,
+    stdout: String,
+    stderr: String,
+}
+
+/// `cargo run -q -- <args…>` dans le dossier du jeu, avec sa version (`APP_VERSION`).
+/// `headless` : sans rendu (`--no-default-features`, profil `headless` redéclaré : le jeu est son
+/// propre workspace, voir `run::HEADLESS_PROFILE_CONFIG`). Le `target/` est celui du jeu (défaut de
+/// cargo) : rien n'est compilé ni écrit dans l'engine.
+fn game_tool(
+    game_dir: &std::path::Path,
+    app_version: &str,
+    tool_args: &[&str],
+    headless: bool,
+) -> Result<ToolOut, String> {
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.current_dir(game_dir)
+        .env("APP_VERSION", app_version)
+        .arg("run")
+        .arg("-q");
+    if headless {
+        cmd.arg("--no-default-features");
+        cmd.args(run::HEADLESS_PROFILE_CONFIG.iter());
+        cmd.args(run::HEADLESS_DEPS_CONFIG.iter());
+    }
+    cmd.arg("--").args(tool_args);
+    let output = cmd.output().map_err(|e| format!("cargo : {e}"))?;
+    Ok(ToolOut {
+        ok: output.status.success(),
+        code: output.status.code(),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    })
+}
+
+/// Fin de la stderr d'un outillage (les lignes du jeu d'abord, sinon celles de cargo).
+fn show_tool_stderr(out: &ToolOut) {
+    let own: Vec<&str> = out
+        .stderr
+        .lines()
+        .filter(|l| {
+            l.starts_with("alacod-gen")
+                || l.starts_with("scenarios play")
+                || l.starts_with("scenarios capture")
+        })
+        .collect();
+    let lines: Vec<&str> = out.stderr.lines().collect();
+    let start = lines.len().saturating_sub(25);
+    eprintln!(
+        "{}",
+        if own.is_empty() {
+            lines[start..].join("\n")
+        } else {
+            own.join("\n")
+        }
+    );
+}
+
+/// Le tableau JSON d'un outillage : la dernière ligne de stdout qui commence par `[`.
+fn tool_results(out: &ToolOut) -> Option<Vec<serde_json::Value>> {
+    out.stdout
+        .lines()
+        .rev()
+        .find(|l| l.starts_with('['))
+        .and_then(|l| serde_json::from_str(l).ok())
+}
+
+/// `.ron` d'un scénario du jeu : chemin existant (relatif au jeu ou absolu), sinon
+/// `tests/scenarios/<nom>.ron`, sinon `tests/generated/<nom>.ron`. Ambigu (les deux existent) :
+/// erreur qui liste les deux chemins.
+fn resolve_scenario_file(game_dir: &std::path::Path, scenario: &str) -> Result<PathBuf, String> {
+    let direct = game_dir.join(scenario);
+    if direct.is_file() {
+        return Ok(direct);
+    }
+    let direct = PathBuf::from(scenario);
+    if direct.is_file() {
+        return Ok(direct);
+    }
+    let name = scenario.trim_end_matches(".ron");
+    let hand = game_dir
+        .join("tests")
+        .join("scenarios")
+        .join(format!("{name}.ron"));
+    let gen = game_dir
+        .join("tests")
+        .join("generated")
+        .join(format!("{name}.ron"));
+    match (hand.is_file(), gen.is_file()) {
+        (true, true) => Err(format!(
+            "scénario ambigu : « {name} » existe en écrit à la main ({}) et en généré ({}) : donner le chemin",
+            hand.display(),
+            gen.display()
+        )),
+        (true, false) => Ok(hand),
+        (false, true) => Ok(gen),
+        (false, false) => Err(format!(
+            "scénario inconnu : « {scenario} » (ni {}, ni {})",
+            hand.display(),
+            gen.display()
+        )),
+    }
+}
+
+/// `alacod video [jeu] <scénario>` (X-2b) : capture par le binaire du jeu (avec son plugin et le
+/// rendu : `scenarios capture`), puis encodage ffmpeg, le tout écrit côté jeu (défaut :
+/// `<jeu>/target/videos/<scénario>.mp4` + `.events.json`).
+fn run_video(
+    game_dir: &std::path::Path,
+    scenario: &str,
+    out: Option<PathBuf>,
+    every: u32,
+    follow: Option<usize>,
+    size: Option<&str>,
+) -> ExitCode {
+    let game = match game_dir.canonicalize() {
+        Ok(g) => g,
+        Err(e) => return fail(&e.to_string()),
+    };
+    let ron = match resolve_scenario_file(&game, scenario) {
+        Ok(p) => p,
+        Err(e) => return fail(&e),
+    };
+    let stem = ron
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("scenario")
+        .to_string();
+    if every == 0 {
+        return fail("alacod video : --every : au moins 1");
+    }
+    if let Some(size) = size {
+        let ok = size.split_once('x').is_some_and(|(w, h)| {
+            w.parse::<u32>().is_ok_and(|w| w > 0) && h.parse::<u32>().is_ok_and(|h| h > 0)
+        });
+        if !ok {
+            return fail(&format!(
+                "alacod video : --size : <largeur>x<hauteur> attendu, pas « {size} »"
+            ));
+        }
+    }
+    let version = app_version(&game, false);
+    let frames = std::env::temp_dir().join(format!("alacod-video-{}-{stem}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&frames);
+    let mut args = vec![
+        "scenarios".to_string(),
+        "capture".to_string(),
+        ron.to_string_lossy().into_owned(),
+        "--dir".to_string(),
+        frames.to_string_lossy().into_owned(),
+        "--every".to_string(),
+        every.to_string(),
+    ];
+    if let Some(f) = follow {
+        args.push("--follow".to_string());
+        args.push(f.to_string());
+    }
+    if let Some(s) = size {
+        args.push("--size".to_string());
+        args.push(s.to_string());
+    }
+    // Avec le rendu : features par défaut du jeu (le binaire `scenarios capture` dessine).
+    let capture = match game_tool(
+        &game,
+        &version,
+        &args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+        false,
+    ) {
+        Ok(out) => out,
+        Err(e) => return fail(&e),
+    };
+    if !capture.ok {
+        show_tool_stderr(&capture);
+        let log = capture.stderr.to_lowercase();
+        if ["vulkan", "wgpu", "adapter", "no suitable", "metal", "glx"]
+            .iter()
+            .any(|h| log.contains(h))
+        {
+            eprintln!(
+                "cause probable : GPU absent ou inutilisable ; rendre sur un poste avec GPU (Mac : Metal)."
+            );
+        }
+        eprintln!("images partielles conservées dans {}", frames.display());
+        return fail("alacod video : la capture a échoué (voir ci-dessus)");
+    }
+    let out_dir = match out {
+        Some(d) => d,
+        None => game.join("target").join("videos"),
+    };
+    if let Err(e) = std::fs::create_dir_all(&out_dir) {
+        return fail(&format!("{} : {e}", out_dir.display()));
+    }
+    let mp4 = out_dir.join(format!("{stem}.mp4"));
+    if let Err(e) = encode_video(&frames, &mp4, &format!("{stem} {version}"), every) {
+        eprintln!("images conservées dans {}", frames.display());
+        return fail(&e);
+    }
+    let events = out_dir.join(format!("{stem}.events.json"));
+    if std::fs::copy(frames.join("events.json"), &events).is_ok() {
+        println!("moments clés : {}", events.display());
+    }
+    let _ = std::fs::remove_dir_all(&frames);
+    println!("vidéo : {}", mp4.display());
+    ExitCode::SUCCESS
+}
+
+/// Assemble les `frame_*.png` en mp4 (`scripts/scenario-video`, mêmes réglages : 60/`every`
+/// images/s, x264) ; étiquette `drawtext` si ffmpeg la connaît et qu'une police monospace existe.
+fn encode_video(
+    frames: &std::path::Path,
+    mp4: &std::path::Path,
+    label: &str,
+    every: u32,
+) -> Result<(), String> {
+    let ffmpeg = |args: &[&str]| {
+        std::process::Command::new("ffmpeg")
+            .args(args)
+            .output()
+            .map_err(|_| "ffmpeg introuvable (https://ffmpeg.org) : installer ffmpeg puis relancer `alacod video`".to_string())
+    };
+    let version = ffmpeg(&["-hide_banner", "-version"])?;
+    if !version.status.success() {
+        return Err("ffmpeg ne répond pas".to_string());
+    }
+    let filters = ffmpeg(&["-hide_banner", "-filters"])
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default();
+    let mut cmd = std::process::Command::new("ffmpeg");
+    cmd.args(["-hide_banner", "-loglevel", "error", "-y", "-framerate"])
+        .arg((60 / every.max(1)).to_string())
+        .args(["-pattern_type", "glob", "-i"])
+        .arg(frames.join("frame_*.png").to_string_lossy().into_owned());
+    if filters.contains(" drawtext ") {
+        if let Some(font) = monospace_font() {
+            let label = label.replace([':', '\''], " ");
+            cmd.arg("-vf").arg(format!(
+                "drawtext=fontfile={font}:fontsize=20:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=6:x=10:y=10:text='{label}  frame %{{eif\\:n*{every}\\:d}}'"
+            ));
+        } else {
+            eprintln!("avertissement : aucune police monospace (fc-match), vidéo sans étiquette");
+        }
+    } else {
+        eprintln!("avertissement : ffmpeg sans drawtext, vidéo sans étiquette");
+    }
+    cmd.args([
+        "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+    ])
+    .arg(mp4);
+    let out = cmd
+        .output()
+        .map_err(|_| "ffmpeg ne se lance pas".to_string())?;
+    if !out.status.success() {
+        return Err(format!(
+            "ffmpeg a échoué : {}",
+            String::from_utf8_lossy(&out.stderr)
+                .lines()
+                .last()
+                .unwrap_or("voir la sortie")
+        ));
+    }
+    Ok(())
+}
+
+/// Police monospace pour l'étiquette ffmpeg (`scripts/scenario-video` : `fc-match`) ; `None` sans
+/// fontconfig (Mac sans `fc-match`) : la vidéo est alors encodée sans étiquette.
+fn monospace_font() -> Option<String> {
+    std::process::Command::new("fc-match")
+        .args(["-f", "%{file}", "monospace"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// `alacod build` : `cargo build` dans le dossier du jeu avec sa version (`APP_VERSION`, lue par
+/// `game::build.rs`), natif ou `--web`. Artefacts seulement dans le jeu (`target/…`).
+fn run_build(game_dir: &std::path::Path, release: bool, web: bool) -> ExitCode {
+    let game = match game_dir.canonicalize() {
+        Ok(g) => g,
+        Err(e) => return fail(&e.to_string()),
+    };
+    let (name, version) = match package_id(&game) {
+        Ok(id) => id,
+        Err(e) => return fail(&e),
+    };
+    let build_id = app_version(&game, true);
+    if web {
+        return build_web(&game, &name, &build_id, release, &version);
+    }
+    let _ = version;
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.current_dir(&game)
+        .env("APP_VERSION", &build_id)
+        .arg("build");
+    if release {
+        cmd.arg("--release");
+    }
+    match cmd.status() {
+        Ok(status) if status.success() => {}
+        Ok(_) => return fail("alacod build : cargo build a échoué (voir ci-dessus)"),
+        Err(e) => return fail(&format!("cargo : {e}")),
+    }
+    let bin = target_dir_for(&game)
+        .join(if release { "release" } else { "debug" })
+        .join(bin_name(&name));
+    println!("construit : {} (APP_VERSION={build_id})", bin.display());
+    ExitCode::SUCCESS
+}
+
+/// Nom du binaire d'un paquet (`name`, `.exe` sur Windows).
+fn bin_name(name: &str) -> String {
+    if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_string()
+    }
+}
+
+/// Nom et version du paquet du jeu (son `Cargo.toml`), pour nommer le binaire et `APP_VERSION`.
+fn package_id(game_dir: &std::path::Path) -> Result<(String, String), String> {
+    let manifest = game_dir.join("Cargo.toml");
+    let text =
+        std::fs::read_to_string(&manifest).map_err(|e| format!("{} : {e}", manifest.display()))?;
+    let doc: toml_edit::DocumentMut = text
+        .parse()
+        .map_err(|e| format!("{} : TOML invalide : {e}", manifest.display()))?;
+    let name = doc
+        .get("package")
+        .and_then(|p| p.get("name"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| format!("{} : [package] name manque", manifest.display()))?;
+    let version = doc
+        .get("package")
+        .and_then(|p| p.get("version"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| format!("{} : [package] version manque", manifest.display()))?;
+    Ok((name.to_string(), version.to_string()))
+}
+
+/// Version compilée dans le jeu (`APP_VERSION`, lue par `game::build.rs` et servie par `entry::run`
+/// sur le web sous `/builds/<version>/<jeu>/assets`) : `APP_VERSION` (ou `WEB_BUILD_ID`) si posée,
+/// sinon `v<version du Cargo.toml du jeu>`, stable d'un build à l'autre. `unique` (`alacod build`)
+/// ajoute la révision git courte du jeu (`-local` hors git) : chaque version est un dossier immuable
+/// (`<jeu>/target/web/<version>/`), comme `scripts/build-web-games.mjs`.
+fn app_version(game_dir: &std::path::Path, unique: bool) -> String {
+    for key in ["APP_VERSION", "WEB_BUILD_ID"] {
+        if let Ok(v) = std::env::var(key) {
+            if !v.trim().is_empty() {
+                return v.trim().to_string();
+            }
+        }
+    }
+    let base = package_id(game_dir)
+        .map(|(_, v)| format!("v{v}"))
+        .unwrap_or_else(|_| "v0.0.0".into());
+    if !unique {
+        return base;
+    }
+    match git_short_sha(game_dir) {
+        Some(sha) => format!("{base}-{sha}"),
+        None => format!("{base}-local"),
+    }
+}
+
+/// Révision git courte du dossier (git local, hors ligne) ; `None` hors dépôt ou sans git.
+fn git_short_sha(dir: &std::path::Path) -> Option<String> {
+    std::process::Command::new("git")
+        .current_dir(dir)
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
+/// Dossier `target` d'un build lancé dans le jeu : `CARGO_TARGET_DIR` (absolu, ou relatif au dossier
+/// courant comme cargo) sinon `<jeu>/target`.
+fn target_dir_for(game_dir: &std::path::Path) -> PathBuf {
+    match std::env::var_os("CARGO_TARGET_DIR") {
+        Some(dir) => {
+            let dir = PathBuf::from(dir);
+            if dir.is_absolute() {
+                dir
+            } else {
+                std::env::current_dir()
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join(dir)
+            }
+        }
+        None => game_dir.join("target"),
+    }
+}
+
+/// `alacod build --web` : wasm du jeu (`wasm32-unknown-unknown`, rendu seul, `APP_VERSION` posée),
+/// `wasm-bindgen` (même version que le `Cargo.lock` du jeu), assets copiés et `build.json`, dans
+/// `<jeu>/target/web/<version>/<jeu>/` (immuable : refuse si le dossier existe déjà).
+fn build_web(
+    game_dir: &std::path::Path,
+    name: &str,
+    build_id: &str,
+    release: bool,
+    _cargo_version: &str,
+) -> ExitCode {
+    if build_id.is_empty()
+        || !build_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+    {
+        return fail(&format!(
+            "alacod build --web : version « {build_id} » invalide ([A-Za-z0-9._-], APP_VERSION/WEB_BUILD_ID pour la forcer)"
+        ));
+    }
+    let web_dir = target_dir_for(game_dir).join("web");
+    let out = web_dir.join(build_id).join(name);
+    if out.exists() {
+        return fail(&format!(
+            "alacod build --web : {} existe déjà (build immuable : changer de version)",
+            out.display()
+        ));
+    }
+    let staging = web_dir.join(format!(".partial-{build_id}-{name}-{}", std::process::id()));
+    let profile = if release { "release" } else { "dev" };
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.current_dir(game_dir)
+        .env("APP_VERSION", build_id)
+        .env("RUSTFLAGS", "--cfg=web_sys_unstable_apis")
+        .args([
+            "build",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--no-default-features",
+            "--features",
+            "render",
+        ]);
+    if release {
+        cmd.arg("--release");
+    }
+    match cmd.status() {
+        Ok(status) if status.success() => {}
+        Ok(_) => {
+            return fail(
+                "alacod build --web : cargo build a échoué (cible installée ? `rustup target add wasm32-unknown-unknown`)",
+            );
+        }
+        Err(e) => return fail(&format!("cargo : {e}")),
+    }
+    let wasm = target_dir_for(game_dir)
+        .join("wasm32-unknown-unknown")
+        .join(profile)
+        .join(format!("{name}.wasm"));
+    if !wasm.is_file() {
+        return fail(&format!(
+            "alacod build --web : {} absent après le build",
+            wasm.display()
+        ));
+    }
+    let bindgen_bin = std::env::var("WASM_BINDGEN").unwrap_or_else(|_| "wasm-bindgen".to_string());
+    let found = std::process::Command::new(&bindgen_bin)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+    match (
+        found.strip_prefix("wasm-bindgen "),
+        wasm_bindgen_crate_version(game_dir),
+    ) {
+        (Some(have), Some(want)) if have == want => {}
+        (Some(have), Some(want)) => {
+            return fail(&format!(
+                "alacod build --web : {bindgen_bin} {have}, le jeu demande {want} (`cargo install wasm-bindgen-cli --version {want}`)"
+            ));
+        }
+        _ => {
+            return fail(
+                "alacod build --web : wasm-bindgen introuvable (même version que le Cargo.lock du jeu)",
+            );
+        }
+    }
+    if let Err(e) = std::fs::create_dir_all(&staging) {
+        return fail(&format!("{} : {e}", staging.display()));
+    }
+    let built = (|| -> Result<(), String> {
+        let status = std::process::Command::new(&bindgen_bin)
+            .arg("--out-dir")
+            .arg(&staging)
+            .args(["--out-name", "wasm", "--target", "web"])
+            .arg(&wasm)
+            .status()
+            .map_err(|e| format!("{bindgen_bin} : {e}"))?;
+        if !status.success() {
+            return Err(format!("{bindgen_bin} a échoué"));
+        }
+        if std::env::var("WEB_OPTIMIZE").as_deref() != Ok("0") {
+            let opt = std::env::var("WASM_OPT").unwrap_or_else(|_| "wasm-opt".to_string());
+            match std::process::Command::new(&opt)
+                .arg(staging.join("wasm_bg.wasm"))
+                .args(["--strip-debug", "--strip-dwarf", "-O2", "-o"])
+                .arg(staging.join("wasm_bg.optimized.wasm"))
+                .status()
+            {
+                Ok(s) if s.success() => {
+                    std::fs::rename(
+                        staging.join("wasm_bg.optimized.wasm"),
+                        staging.join("wasm_bg.wasm"),
+                    )
+                    .map_err(|e| e.to_string())?;
+                }
+                _ => eprintln!("avertissement : wasm-opt absent ou en échec, wasm non optimisé"),
+            }
+        }
+        copy_dir(&game_dir.join("assets"), &staging.join("assets"))?;
+        let generated_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let manifest = serde_json::json!({
+            "schemaVersion": 1,
+            "gameId": name,
+            "buildId": build_id,
+            "module": format!("/builds/{build_id}/{name}/wasm.js"),
+            "wasm": format!("/builds/{build_id}/{name}/wasm_bg.wasm"),
+            "assets": format!("/builds/{build_id}/{name}/assets"),
+            "generatedAt": generated_at,
+        });
+        std::fs::write(
+            staging.join("build.json"),
+            serde_json::to_string_pretty(&manifest).unwrap() + "\n",
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    })();
+    if let Err(e) = built {
+        let _ = std::fs::remove_dir_all(&staging);
+        return fail(&format!("alacod build --web : {e}"));
+    }
+    if let Some(parent) = out.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            let _ = std::fs::remove_dir_all(&staging);
+            return fail(&format!("{} : {e}", parent.display()));
+        }
+    }
+    if std::fs::rename(&staging, &out).is_err() {
+        let _ = std::fs::remove_dir_all(&staging);
+        return fail(&format!(
+            "alacod build --web : {} existe déjà (build immuable)",
+            out.display()
+        ));
+    }
+    println!("web : {} (APP_VERSION={build_id})", out.display());
+    ExitCode::SUCCESS
+}
+
+/// Version de la crate `wasm-bindgen` dans le `Cargo.lock` du jeu (le binaire `wasm-bindgen` doit
+/// être la même, voir `scripts/build-web-games.mjs`).
+fn wasm_bindgen_crate_version(game_dir: &std::path::Path) -> Option<String> {
+    let lock = std::fs::read_to_string(game_dir.join("Cargo.lock")).ok()?;
+    let mut lines = lock.lines();
+    while let Some(line) = lines.next() {
+        if line.trim() == "name = \"wasm-bindgen\"" {
+            for next in lines.by_ref() {
+                let next = next.trim();
+                if let Some(v) = next
+                    .strip_prefix("version = \"")
+                    .and_then(|v| v.strip_suffix('"'))
+                {
+                    return Some(v.to_string());
+                }
+                if next.is_empty() || next == "[[package]]" {
+                    break;
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Copie récursive (assets du jeu vers un build web).
+fn copy_dir(from: &std::path::Path, to: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(to).map_err(|e| format!("{} : {e}", to.display()))?;
+    for entry in std::fs::read_dir(from).map_err(|e| format!("{} : {e}", from.display()))? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let target = to.join(entry.file_name());
+        if entry.file_type().map_err(|e| e.to_string())?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target)
+                .map_err(|e| format!("{} : {e}", target.display()))?;
+        }
+    }
+    Ok(())
 }
 
 fn new_content(game_dir: &std::path::Path, kind: &str, id: &str, from: Option<&str>) -> ExitCode {

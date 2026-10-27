@@ -4,6 +4,7 @@
 //! - la **partie** (`<jeu>`, `--sandbox [profil]`, `--players`, p2p…) ;
 //! - le **runner de scénarios** : `<jeu> scenarios gen|play …` joue et génère les scénarios du jeu,
 //!   plugin compris, avec leurs traces (`scenario::cli`, le code d'`alacod-gen`) ;
+//!   `<jeu> scenarios capture …` rend un scénario en images (X-2b, `alacod video`) ;
 //! - le **lint** du jeu : `<jeu> lint [--json]`, règles Rust du plugin comprises ;
 //! - les bots (`BotsPlugin` du runner) : ils jouent le jeu qui porte le plugin.
 //!

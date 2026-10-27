@@ -313,12 +313,6 @@ pub fn root_from_metadata(metadata: &serde_json::Value) -> Option<PathBuf> {
     })
 }
 
-/// Une racine est-elle dans le cache git de cargo ? On n'y compile pas : les cibles iraient dans le cache.
-pub fn is_cargo_checkout(root: &Path) -> bool {
-    root.components().any(|c| c.as_os_str() == "checkouts")
-        && root.components().any(|c| c.as_os_str() == "git")
-}
-
 // ---------------------------------------------------------------------------------------
 // Dépôt git de l'engine : url, tags
 // ---------------------------------------------------------------------------------------

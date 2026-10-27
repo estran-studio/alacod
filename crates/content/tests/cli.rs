@@ -1,9 +1,9 @@
-//! Tests de bout en bout de la CLI `alacod` (lint --json, describe, new, new-content, test) et du
-//! gabarit `templates/starter`. Chaque test travaille dans un dossier temporaire : jamais dans
-//! l'engine.
+//! Tests de bout en bout de la CLI `alacod` (lint --json, describe, new, new-content, test, video,
+//! build) et du gabarit `templates/starter`. Chaque test travaille dans un dossier temporaire :
+//! jamais dans l'engine.
 //!
-//! Rapides (joués par `make test_crates`) : tout sauf `alacod test`, qui compile et lance
-//! l'engine (`#[ignore]`, `make test_alacod_cli`).
+//! Rapides (joués par `make test_crates`) : tout sauf `alacod test` / `video` / le flux plugin, qui
+//! compilent et lancent l'engine ou un jeu (`#[ignore]`, `make test_alacod_cli`).
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -991,11 +991,11 @@ fn new_content_refuses_bad_requests_without_touching_files() {
 }
 
 // ---------------------------------------------------------------------------------------
-// test (lent : compile et lance l'engine) — `make test_alacod_cli`
+// test (lent : compile et lance le jeu) — `make test_alacod_cli`
 // ---------------------------------------------------------------------------------------
 
 #[test]
-#[ignore = "compile l'engine en profil headless : make test_alacod_cli"]
+#[ignore = "compile le jeu en profil headless : make test_alacod_cli"]
 fn test_command_plays_generated_scenarios_of_a_game_outside_the_engine() {
     let tmp = Tmp::new("test-cmd");
     let game = game_with_content(&tmp);
@@ -1005,13 +1005,43 @@ fn test_command_plays_generated_scenarios_of_a_game_outside_the_engine() {
         .args(["new-content", "Weapon", "super_gun", "--from", "pistol"]);
     assert!(run(cmd).status.success());
 
-    // Liste : l'arme nouvelle est testable.
+    // Liste : l'arme nouvelle est testable (générés, joués par le binaire du jeu).
     let mut cmd = alacod();
     cmd.current_dir(&game).args(["test", "--list"]);
     let listed = text(&run(cmd).stdout);
     assert!(listed.contains("weapon_super_gun"), "{listed}");
 
-    // Verdict vert, en JSON : une attente, jouée sur la carte du jeu, rien écrit dans l'engine.
+    // Sans trace de référence, le verdict est rouge : les traces se comparent par défaut.
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["test", "super_gun", "--json"]);
+    let out = run(cmd);
+    assert!(
+        !out.status.success(),
+        "sans trace, le test doit échouer : {}",
+        text(&out.stdout)
+    );
+
+    // `--bless` écrit le scénario généré et sa trace, seulement dans le jeu.
+    let mut cmd = alacod();
+    cmd.current_dir(&game)
+        .args(["test", "super_gun", "--bless", "--json"]);
+    let out = run(cmd);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    assert!(game.join("tests/generated/weapon_super_gun.ron").exists());
+    assert!(game.join("tests/generated/weapon_super_gun.trace").exists());
+    assert!(
+        !engine_root()
+            .join("tests/scenarios/generated/demo")
+            .exists(),
+        "rien du jeu ne doit s'écrire dans l'engine"
+    );
+
+    // Verdict vert, en JSON : une attente, jouée sur la carte du jeu, trace `ok`.
     let mut cmd = alacod();
     cmd.current_dir(&game).args(["test", "super_gun", "--json"]);
     let out = run(cmd);
@@ -1031,8 +1061,8 @@ fn test_command_plays_generated_scenarios_of_a_game_outside_the_engine() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0]["expectations_ok"], true);
     assert_eq!(results[0]["expectations"], 1);
+    assert_eq!(results[0]["trace"], "ok");
     assert!(results[0]["hits"].as_u64().unwrap() >= 1);
-    assert!(game.join("tests/generated/weapon_super_gun.ron").exists());
 
     // Une arme qui ne fait aucun dégât échoue, avec un code de sortie non nul.
     let weapons = game.join("assets/ZombieShooter/Sprites/Character/weapons.ron");
@@ -1047,12 +1077,12 @@ fn test_command_plays_generated_scenarios_of_a_game_outside_the_engine() {
     assert!(!out.status.success(), "{}", text(&out.stdout));
     assert!(text(&out.stdout).contains("ÉCHEC"));
 
-    // Sujet inconnu : message qui liste les sujets, code de sortie non nul.
+    // Sujet inconnu : message qui nomme le sujet, code de sortie non nul.
     let mut cmd = alacod();
     cmd.current_dir(&game).args(["test", "n_existe_pas"]);
     let out = run(cmd);
     assert!(!out.status.success());
-    assert!(text(&out.stderr).contains("aucun sujet"));
+    assert!(text(&out.stderr).contains("n_existe_pas"));
 }
 
 /// Remplace la première valeur de `damage: "…"` de `text` par `"0.0"`.
@@ -1687,4 +1717,242 @@ fn plugin_game_runs_its_scenario_with_its_own_binary() {
     // Et la partie refuse de démarrer sur ce contenu.
     let out = play(&["--sandbox"]);
     assert!(!out.status.success());
+}
+
+// ---------------------------------------------------------------------------------------
+// Flux X-2b de bout en bout (`make test_alacod_cli`)
+// ---------------------------------------------------------------------------------------
+
+/// Dernier tag de l'engine (tri de version) : `engine pin` hors ligne dessus.
+fn engine_latest_tag() -> String {
+    let out = Command::new("git")
+        .current_dir(engine_root())
+        .args(["tag", "--sort=-v:refname"])
+        .output()
+        .expect("git tag");
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    text(&out.stdout)
+        .lines()
+        .next()
+        .expect("l'engine n'a aucun tag")
+        .to_string()
+}
+
+/// Flux X-2b complet sur un jeu créé par `alacod new` (plugin Rust du jeu compris) : `new-content`
+/// (kind du plugin), lint, `test` (générés + écrit à la main, trace blessée puis relue, rien dans
+/// l'engine), bac à sable headless piloté par `alacod run` + `remote`, `build --release`, et le
+/// contrat tag/local/pin hors ligne. Compile le jeu plusieurs fois : `make test_alacod_cli`.
+#[test]
+#[ignore = "compile un jeu créé hors de l'engine (profils headless et release) : make test_alacod_cli"]
+fn plugin_game_full_cli_flow() {
+    let tmp = Tmp::new("x2b-e2e");
+    let game = plugin_game(&tmp);
+    let target = game_target_dir(&game);
+    let mut cli = |args: &[&str]| {
+        let mut cmd = alacod();
+        cmd.current_dir(&game)
+            .args(args)
+            .env("CARGO_TARGET_DIR", &target);
+        run(cmd)
+    };
+
+    // `new-content` sur le kind du plugin, à partir de son modèle : le lint reste vert.
+    let out = cli(&["new-content", "Crate", "reserve", "--from", "coffre"]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    assert!(game.join("assets/crates/reserve.ron").exists());
+    let (ok, json) = lint_json(&game);
+    assert!(ok, "{json}");
+
+    // `test --list` voit les générés et l'écrit à la main, joués par le binaire du jeu.
+    let listed = text(&cli(&["test", "--list"]).stdout);
+    assert!(listed.contains("weapon_pistol"), "{listed}");
+    assert!(listed.contains("plugin"), "{listed}");
+
+    // `test --bless` écrit scénarios générés et traces, seulement dans le jeu.
+    let out = cli(&["test", "--bless", "--json"]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    assert!(game.join("tests/generated/weapon_pistol.ron").exists());
+    assert!(game.join("tests/generated/weapon_pistol.trace").exists());
+    let trace = std::fs::read_to_string(game.join("tests/scenarios/plugin.trace")).unwrap();
+    assert_eq!(
+        trace.lines().count(),
+        199,
+        "une ligne par frame confirmée (frames - 1)"
+    );
+    assert!(
+        !engine_root()
+            .join("tests/scenarios/generated/plugdemo")
+            .exists(),
+        "rien du jeu ne doit s'écrire dans l'engine"
+    );
+
+    // `test` relit tout au vert : le scénario du plugin (4 attentes, plugin agissant) et les générés.
+    let out = cli(&["test", "--json"]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    let results: Vec<serde_json::Value> = serde_json::from_str(
+        text(&out.stdout)
+            .lines()
+            .rev()
+            .find(|l| l.starts_with('['))
+            .expect("tableau JSON")
+            .as_bytes(),
+    )
+    .unwrap();
+    let plugin = results
+        .iter()
+        .find(|r| r["scenario"] == "plugin")
+        .expect("le scénario écrit à la main est joué");
+    assert_eq!(plugin["expectations_ok"], true, "{plugin}");
+    assert_eq!(plugin["expectations"], 4);
+    assert_eq!(plugin["trace"], "ok");
+
+    // Bac à sable headless par `alacod run`, piloté par `alacod remote` : le jeu est celui du plugin.
+    let port = free_port();
+    let trace_file = tmp.0.join("sandbox-trace.txt");
+    let mut game_proc = {
+        use std::os::unix::process::CommandExt;
+        let mut cmd = alacod();
+        cmd.current_dir(&game)
+            .args(["run", "--sandbox", "--headless"])
+            .env("ALACOD_REMOTE_PORT", port.to_string())
+            .env("ALACOD_STATE_TRACE", &trace_file)
+            .env("ALACOD_EXIT_AT_FRAME", "600")
+            .env("CARGO_TARGET_DIR", &target)
+            .process_group(0)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        Game(cmd.spawn().expect("alacod run se lance"))
+    };
+    let ready_deadline = Instant::now() + Duration::from_secs(1800);
+    let state: serde_json::Value = loop {
+        if let Some(status) = game_proc.0.try_wait().unwrap() {
+            panic!("alacod run s'est arrêté trop tôt : {status}");
+        }
+        assert!(
+            Instant::now() < ready_deadline,
+            "aucune frame jouée en 30 min"
+        );
+        let out = remote(port, &["state"], ready_deadline).unwrap();
+        if out.status.success() {
+            if let Ok(seen) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
+                if seen["frame"].as_u64().unwrap_or(0) >= 60 {
+                    break seen;
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    };
+    assert_eq!(state["game"], "plugdemo", "{state}");
+    assert!(
+        state["players"].as_array().is_some_and(|p| !p.is_empty()),
+        "{state}"
+    );
+    drop(game_proc);
+
+    // `build --release` : binaire optimisé du jeu, avec sa version.
+    let out = cli(&["build", "--release"]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    assert!(
+        text(&out.stdout).contains("APP_VERSION=v0.0.1"),
+        "{}",
+        text(&out.stdout)
+    );
+    assert!(target.join("release/plugdemo").exists());
+
+    // Contrat tag/local/pin, hors ligne : `local` refuse une dépendance par chemin, donc `pin`
+    // d'abord (tag reconnu par `git ls-remote` sur le chemin local, sans réseau), puis `local`
+    // (patch hors `Cargo.toml`), puis retour au tag.
+    let tag = engine_latest_tag();
+    let out = cli(&["engine", "pin", &tag]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(!game.join(".cargo").exists());
+    let pinned = std::fs::read_to_string(game.join("Cargo.toml")).unwrap();
+    assert!(pinned.contains(&format!("tag = \"{tag}\"")), "{pinned}");
+    let engine_str = engine_root().to_string_lossy().into_owned();
+    let out = cli(&["engine", "local", &engine_str]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert_eq!(
+        std::fs::read(game.join("Cargo.toml")).unwrap(),
+        pinned.as_bytes()
+    );
+    let status = text(&cli(&["engine", "status"]).stdout);
+    assert!(
+        status.contains(&format!("racine compilée : {}", engine_root().display())),
+        "{status}"
+    );
+    let out = cli(&["engine", "pin", &tag]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(!game.join(".cargo").exists());
+}
+
+/// `alacod video` rend le scénario du jeu plugin en mp4 + moments clés, côté jeu, par le binaire du
+/// jeu (plugin compris). Sans ffmpeg ou sans GPU, le test réussit en disant ce qui manque (limite
+/// exacte : aucune fausse preuve visuelle).
+#[test]
+#[ignore = "compile le jeu avec le rendu et capture : make test_alacod_cli"]
+fn video_renders_a_game_scenario_when_a_gpu_is_present() {
+    let ffmpeg_ok = std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .is_ok_and(|o| o.status.success());
+    if !ffmpeg_ok {
+        eprintln!("limite : ffmpeg absent, encodage non prouvé");
+        return;
+    }
+    #[cfg(target_os = "macos")]
+    let gpu = true;
+    #[cfg(not(target_os = "macos"))]
+    let gpu = std::process::Command::new("vulkaninfo")
+        .arg("--summary")
+        .output()
+        .is_ok_and(|o| o.status.success())
+        || std::fs::read_dir("/usr/share/vulkan/icd.d").is_ok_and(|mut d| d.any(|e| e.is_ok()))
+        || std::fs::read_dir("/etc/vulkan/icd.d").is_ok_and(|mut d| d.any(|e| e.is_ok()));
+    if !gpu {
+        eprintln!("limite : aucun GPU (ni vulkaninfo ni ICD), capture non prouvée ici");
+        return;
+    }
+    let tmp = Tmp::new("x2b-video");
+    let game = plugin_game(&tmp);
+    let target = game_target_dir(&game);
+    let out_dir = tmp.0.join("videos");
+    let mut cmd = alacod();
+    cmd.current_dir(&game)
+        .args(["video", "plugin", "--every", "30"])
+        .arg("--out")
+        .arg(&out_dir)
+        .env("CARGO_TARGET_DIR", &target);
+    let out = run(cmd);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    assert!(out_dir.join("plugin.mp4").exists());
+    assert!(out_dir.join("plugin.events.json").exists());
+    assert!(
+        std::fs::metadata(out_dir.join("plugin.mp4")).unwrap().len() > 0,
+        "mp4 vide"
+    );
 }

@@ -11,9 +11,11 @@ sous `assets/`, déclarés dans `assets/game.ron`, assemblent des behaviors cod�
    le lint (fichier du kind, ou entrée de table pour `Weapon`…). Puis l'adapter.
 3. Éditer le RON. Un hook relance `alacod lint` après chaque édition ; corriger jusqu'à zéro erreur
    (`alacod lint --json` pour une sortie structurée).
-4. `alacod test <id>` : joue le scénario généré de l'entrée (arme : tir sur la cible ; objet, salle,
-   boss, personnage : leur `test:`). `alacod test` seul les joue tous, `--list` les liste. Un test
-   « ok » sans attente ne prouve rien : renseigner `test:` dans l'entrée.
+4. `alacod test <id>` : joue les scénarios du jeu **par son binaire** (plugin compris) : généré de
+   l'entrée (arme : tir sur la cible ; objet, salle, boss, personnage : leur `test:`) et écrits à la
+   main (`tests/scenarios`, avec leurs traces `<scénario>.trace` comparées, `--bless` pour les
+   écrire). `alacod test` seul joue tout, `--list` liste. Un test « ok » sans attente ne prouve
+   rien : renseigner `test:` dans l'entrée.
 
 ## Bac à sable : essayer le jeu sans le code
 
@@ -54,13 +56,14 @@ de scénarios et le lint. Pour du code propre au jeu, implémenter `game::extens
 - `assemble(app)` pose le reste de la partie jouée (ressources, systèmes `Update`, présentation) ; jamais appelé par les scénarios.
 - Dans le RON : `Custom(id: "rush", params: {"within": "450.0"})` dans `ai.behaviors`, `if: [..]` et `do: [..]` d'un effet d'objet ou de personnage.
   Les valeurs sont des chaînes (`CustomParams::fixed("within")`, `::uint("n")`). Un kind de plugin charge `.ron` dans `Registry::plugin_content`.
-- **Tout plugin se prouve par un scénario** joué par le binaire du jeu : `cargo run --features native -- scenarios play [fichier.ron] [--bless]`
+- **Tout plugin se prouve par un scénario** joué par le binaire du jeu : `alacod test` (générés +
+  écrits à la main, `--bless` pour les traces), ou directement `cargo run -- scenarios play [fichier.ron] [--bless]`
   (traces `<scénario>.trace` à côté), `cargo run -- scenarios gen --play` (scénarios générés), `cargo run -- lint` (règles Rust du plugin comprises).
   Un exemple complet : `{{engine}}/crates/content/tests/fixtures/plugin_game/` et `{{engine}}/docs/conventions.md` §91.
 
 ## Lancer
 
-`alacod run` (jeu complet), `alacod sandbox` (arène vide et rechargement à chaud), `alacod run --sandbox [profil]` (même mode), `alacod run --headless` (sans fenêtre ; `--seed N`, `--players N`, `-- args du jeu`). `cargo run --features native` reste possible ; la CLI ne demande ni Makefile ni script du moteur.
+`alacod run` (jeu complet), `alacod sandbox` (arène vide et rechargement à chaud), `alacod run --sandbox [profil]` (même mode), `alacod run --headless` (sans fenêtre ; `--seed N`, `--players N`, `-- args du jeu`). `alacod video <scénario>` rend un scénario en mp4 (`target/videos/`, GPU + ffmpeg), `alacod build [--release] [--web]` construit le jeu avec sa version (`APP_VERSION`). `cargo run --features native` reste possible ; la CLI ne demande ni Makefile ni script du moteur.
 
 ## Version d'engine
 
