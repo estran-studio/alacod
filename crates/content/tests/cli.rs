@@ -967,6 +967,62 @@ fn plugin_game_runs_its_scenario_with_its_own_binary() {
     );
     assert!(game.join("tests/generated/weapon_pistol.ron").exists());
 
+    // `--sandbox` démarre pour de bon avec le plugin : le profil `arene` du jeu donne l'objet `prime` au joueur ; sa condition
+    // `after_frame` (plugin) devient vraie puis l'action `grant_bounty` (plugin) s'exécute, ce que prouve sa ligne de trace
+    // `ggrs{f=… grant_bounty carrier=… weight=3}` ; le jeu s'arrête de lui-même (`ALACOD_EXIT_AT_FRAME`) avec le code 0.
+    let port = free_port();
+    let sandbox_log = game.join("sandbox.log");
+    let mut sandbox = Game(
+        Command::new(&bin)
+            .current_dir(&game)
+            .arg("--sandbox")
+            .env("ALACOD_HEADLESS", "1")
+            .env("ALACOD_MUTE", "1")
+            .env("ALACOD_REMOTE_PORT", port.to_string())
+            .env("ALACOD_STATE_TRACE", game.join("sandbox-trace.txt"))
+            .env("ALACOD_EXIT_AT_FRAME", "300")
+            .stdout(std::fs::File::create(&sandbox_log).unwrap())
+            .stderr(Stdio::from(
+                std::fs::OpenOptions::new()
+                    .append(true)
+                    .open(&sandbox_log)
+                    .unwrap(),
+            ))
+            .spawn()
+            .expect("le jeu se lance en bac à sable"),
+    );
+    let deadline = Instant::now() + Duration::from_secs(180);
+    let status = loop {
+        if let Some(status) = sandbox.0.try_wait().unwrap() {
+            break status;
+        }
+        assert!(Instant::now() < deadline, "le bac à sable ne s'arrête pas en 180 s");
+        std::thread::sleep(Duration::from_millis(500));
+    };
+    let log = std::fs::read_to_string(&sandbox_log).unwrap_or_default();
+    assert!(
+        status.success(),
+        "bac à sable : {status}\n{}",
+        log.lines().rev().take(20).collect::<Vec<_>>().join("\n")
+    );
+    assert!(
+        log.lines()
+            .any(|l| l.contains("grant_bounty carrier=") && l.contains("weight=3}")),
+        "l'action Custom du plugin ne s'est pas exécutée en bac à sable"
+    );
+
+    // Un poids hors d'un `Fixed` (32768 > 32767) est refusé par la règle Rust (il ferait déborder `Fixed::from_num`).
+    std::fs::write(game.join("assets/crates/coffre.ron"), "(weight: 32768)").unwrap();
+    let out = play(&["lint"]);
+    assert!(!out.status.success());
+    assert!(
+        text(&out.stderr).contains("tenir dans un Fixed"),
+        "{}",
+        text(&out.stderr)
+    );
+    let out = play(&["--sandbox"]);
+    assert!(!out.status.success(), "la partie démarre sur un poids hors Fixed");
+
     // Sa règle de lint (Rust) refuse un contenu que `alacod lint` accepte.
     std::fs::write(game.join("assets/crates/coffre.ron"), "(weight: 0)").unwrap();
     let (ok, _) = lint_json(&game);

@@ -47,7 +47,7 @@ Tests (`crates/content/tests/cli.rs`) :
 - `alacod_lint_knows_the_plugin_vocabulary_from_game_ron` et `custom_action_is_refused_outside_effects` (rapides, `make test_crates`) : `alacod lint` accepte le jeu, avertit `PluginRulesNotRun`, refuse chacun des trois `Custom` non déclarés, un kind non déclaré, un kind du plugin qui reprend un nom de l'engine, un `Custom` dans un power-up.
 - `plugin_game_runs_its_scenario_with_its_own_binary` (`#[ignore]`, `make test_alacod_cli`) : compile le jeu hors de l'engine ; **son binaire** lint (règle Rust exécutée), joue son scénario (`scenarios play --bless`, 4 attentes vertes, trace de 199 lignes) puis le rejoue contre la trace (`"trace":"ok"`), joue les scénarios générés de l'engine (`scenarios gen --play --only pistol`), et refuse un contenu que sa règle Rust rejette (alors que `alacod lint` l'accepte) ainsi que de démarrer dessus (`--sandbox`).
 
-Résultats mesurés (VPS, profil `headless`, `CARGO_TARGET_DIR=…/b6/target`) : e2e `1 passed … finished in 22.66s` (compilation du jeu déjà en cache) ; `plugin_order` `1 passed` ; `alacod_lint_knows_…` + `custom_action_is_refused_…` `2 passed`.
+Résultats mesurés (VPS, profil `headless`, `CARGO_TARGET_DIR=…/b6/target`) : e2e `1 passed` (rejoué après les correctifs de revue, VPS, cible b6 rebâtie : `finished in 803.00s`, dont la compilation à froid du jeu) ; `plugin_order` `1 passed` ; `alacod_lint_knows_…` + `custom_action_is_refused_…` `2 passed`.
 
 ## 5. Défauts trouvés par les preuves, corrigés
 
@@ -56,6 +56,10 @@ Résultats mesurés (VPS, profil `headless`, `CARGO_TARGET_DIR=…/b6/target`) :
 3. **Attente de distance mal calibrée** : walker à 400 unités, 200 frames : `rush` ×3 (accélération comprise) n'arrive pas (258 unités restantes à f199). Walker rapproché à 200 unités : `rush` l'atteint, un `Chase` seul (≈ 100 unités à 30 u/s) non : l'attente `EnemyDistance max 40` à f199 est discriminante.
 4. `scripts/check-sim-boundary.sh` : le nouveau crate `entry` n'était classé ni SIM, ni PENDING, ni APP (le script échoue pour tout crate non classé) : classé `APP` (outillage au-dessus de `game`/`map_ldtk`/`scenario`).
 5. `plugin_order.rs` : `uninstall()` en tête et en fin (un plugin installé fuirait vers un autre test du même processus).
+
+6. **Revue indépendante (bloquant)** : la règle de lint de la fixture acceptait `weight: 32768` alors que `Fixed::from_num(32768)` déborde (Fixed = `FixedI32<U16>`, max 32767) : panique à la frame 60. La règle exige maintenant `Fixed::checked_from_num(weight).is_some()` (message « tenir dans un Fixed (<= 32767) ») et le système utilise `checked_from_num` (jamais de panique en simulation). Test négatif dans l'e2e : `(weight: 32768)` refusé par `<jeu> lint` et par `--sandbox` (alors que `alacod lint` l'accepte).
+7. **Revue (lacune de preuve)** : l'e2e ne prouvait que le refus de démarrer. Il lance maintenant `plugdemo --sandbox` **pour de bon** (headless, `ALACOD_EXIT_AT_FRAME=300`, code de sortie 0) avec le profil `assets/sandbox/arene.ron` de la fixture (le joueur porte `prime`, un `walker` est posé) et exige dans le journal la ligne `ggrs{f=… grant_bounty carrier=… weight=3}` : la condition `Custom` et l'action `Custom` du plugin se sont exécutées dans le bac à sable, pas seulement dans le runner de scénarios.
+8. **Conformité** : le personnage de la fixture s'appelait `rodeur` (nom exclu de l'engine) : renommé `walker` partout.
 
 ## 6. Dettes et limites
 
@@ -71,7 +75,7 @@ Résultats mesurés (VPS, profil `headless`, `CARGO_TARGET_DIR=…/b6/target`) :
 |---|---|
 | `make schedule_order_diff BASE=25af5b5f` (D133, **un seul appel**, base et tête en targets séparés) | `OK : ordre des systèmes et des types rollback identiques (4550 lignes de schedules, 645 types)`, exit 0 (≈ 14 min la première fois, base compilée à part) |
 | `make test_scenarios_par SHARDS=3 BLESS=` | 809 scénarios, 3 tranches `ok`, 2 127 s, **aucune trace modifiée** (`git status` : aucun `.trace`) |
-| `cargo test -p content --test cli -- --ignored plugin_game_runs_its_scenario_with_its_own_binary` | `1 passed` (22,7 s, jeu déjà compilé ; la compilation à froid a pris 515 s et 756 s lors des deux essais rouges du §5) |
+| `cargo test -p content --test cli -- --ignored plugin_game_runs_its_scenario_with_its_own_binary` (version finale : sandbox fonctionnel + poids hors `Fixed`) | `1 passed … finished in 803.00s` ; `alacod_lint_knows_…`, `custom_action_is_refused_…`, `starter_template_*` verts dans la même invocation |
 | `plugin_order` | `1 passed` (trace identique, listes de types différentes) |
 | `cargo test` par paquet (un à la fois, `-- --exact --skip scenarios`) | sim_core 47, effects 38, behaviors 17, content 108 + 13 + 2 + 171 + 6 + 5 (3 `#[ignore]` : `make test_alacod_cli`), game 298, scenario (hors suite) 6 + 1 + 1, map_ldtk 15, entry 0, bots 99 : 0 échec |
 | Build headless des cinq jeux (`zombies gungeon isaac throne testbed`) | exit 0 |

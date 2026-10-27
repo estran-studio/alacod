@@ -13,6 +13,7 @@ use game::system_set::RollbackSystemSet;
 use serde::Deserialize;
 use sim_core::modifier::{Modifier, ModifierOp, ModifierSource, Modifiers};
 use sim_core::stats::StatId;
+use utils::frame::FrameCount;
 use utils::net_id::GgrsNetId;
 use utils::order_mut_iter;
 use utils::rollback::RollbackTraceApp;
@@ -84,6 +85,7 @@ fn crate_weight(registry: &content::Registry, id: &str) -> Option<u32> {
 /// `grant_bounty(crate)` : un Luck de `weight` points (modificateur permanent) et une prime de plus.
 fn grant_bounty_system(
     mut commands: Commands,
+    frame: Res<FrameCount>,
     outbox: Res<FrameEvents<game::effects_v3::EffectOut>>,
     registry: Res<content::Registry>,
     mut carriers: Query<(&GgrsNetId, Entity, &mut Modifiers, Option<&mut Bounty>), With<Player>>,
@@ -96,14 +98,22 @@ fn grant_bounty_system(
         else {
             continue;
         };
+        // Le lint refuse un poids hors d'un `Fixed` ; la conversion reste vérifiée (jamais de panique en simulation).
+        let Some(value) = Fixed::checked_from_num(weight) else {
+            continue;
+        };
         for (net_id, entity, mut modifiers, bounty) in order_mut_iter!(carriers) {
             if net_id.0 != call.carrier {
                 continue;
             }
+            info!(
+                "ggrs{{f={} grant_bounty carrier={} weight={}}}",
+                frame.frame, net_id.0, weight
+            );
             modifiers.push(Modifier {
                 stat: StatId::Luck,
                 op: ModifierOp::Add,
-                value: Fixed::from_num(weight),
+                value,
                 source: ModifierSource::Named(format!("bounty:{}", net_id.0)),
                 until: None,
             });
@@ -125,10 +135,14 @@ fn crate_weights(
 ) {
     for (id, entry) in registry.plugin_content.get("Crate").into_iter().flatten() {
         match ron::from_str::<CrateDef>(&entry.text) {
-            Ok(def) if def.weight >= 1 => {}
-            Ok(_) => errors.push(content::plugin::rule_error(
+            Ok(def) if def.weight >= 1 && Fixed::checked_from_num(def.weight).is_some() => {}
+            Ok(def) => errors.push(content::plugin::rule_error(
                 entry.file.display().to_string(),
-                format!("Crate « {id} » : weight doit être >= 1"),
+                format!(
+                    "Crate « {id} » : weight doit être >= 1 et tenir dans un Fixed (<= {}), lu {}",
+                    Fixed::MAX.to_num::<u32>(),
+                    def.weight
+                ),
             )),
             Err(e) => errors.push(content::plugin::rule_error(
                 entry.file.display().to_string(),
