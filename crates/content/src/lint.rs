@@ -1819,6 +1819,19 @@ fn lint_melee_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+        // X-3 : parade de mêlée (`parry:`) : un recul négatif attirerait l'attaquant.
+        if let Some(parry) = &weapon.parry {
+            if parry.perfect_knockback < Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme de corps à corps « {} » : champ parry.perfect_knockback = {} : doit être >= 0",
+                        weapon.id, parry.perfect_knockback
+                    ),
+                });
+            }
+        }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
     }
 }
@@ -2246,6 +2259,57 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                     file: file.clone(),
                     message: format!("feedback : by_weapon « {weapon} » : arme inconnue du jeu"),
                 });
+            }
+        }
+        // X-3 : musique calée sur une horloge — piste présente, horloge et événement connus,
+        // `repeat` non nul (la boucle de la piste est `loop_events × repeat`).
+        if let Some(music) = &settings.music {
+            if !registry.asset_exists(&music.track) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "feedback : champ music.track = « {} » : fichier absent de assets/",
+                        music.track
+                    ),
+                });
+            }
+            match registry
+                .clocks
+                .get(&registry::ClockId::from(music.clock.as_str()))
+            {
+                None => errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "feedback : champ music.clock = « {} » : horloge inconnue (clocks/)",
+                        music.clock
+                    ),
+                }),
+                Some(clock) => {
+                    match clock.events.iter().find(|event| event.id == music.event) {
+                        None => errors.push(LintError {
+                            kind: LintErrorKind::BrokenReference,
+                            file: file.clone(),
+                            message: format!(
+                                "feedback : champ music.event = « {} » : événement absent de l'horloge « {} »",
+                                music.event, music.clock
+                            ),
+                        }),
+                        Some(event) => {
+                            if event.repeat.is_none_or(|repeat| repeat.frames() == 0) {
+                                errors.push(LintError {
+                                    kind: LintErrorKind::OutOfRange,
+                                    file: file.clone(),
+                                    message: format!(
+                                        "feedback : champ music.event = « {} » : l'événement doit se répéter (`repeat` > 0) pour fixer la boucle de la piste",
+                                        music.event
+                                    ),
+                                });
+                            }
+                        }
+                    }
+                }
             }
         }
         for key in settings.volumes.keys() {

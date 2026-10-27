@@ -76,24 +76,32 @@ pub struct MapHeld(pub Entity);
 #[derive(Component)]
 pub struct BulletSkinned;
 
-/// Équipe dont l'image d'un projectile porte la peau (X-3), et la taille du carré avant la peau :
-/// un projectile **renvoyé** (`combat::weapons::melee::melee_reflect_system`) change d'équipe,
-/// [`reskin_reflected_bullets`] lui rend alors sa taille et le fait reskinner. Présentation seule.
+/// Équipe dont l'image d'un projectile porte la peau (X-3) et son **état d'avant la peau** (image,
+/// couleur et côté du carré posé par [`attach_bullet_visuals`]) : un projectile **renvoyé**
+/// (`combat::weapons::melee::melee_reflect_system`) change d'équipe, [`reskin_reflected_bullets`]
+/// lui rend alors cet état avant que `skin_bullets` le reskine. Sans cela, une peau d'équipe
+/// absente de `sprites.ron` (jeu sans `bullet_player`) laissait l'image et la couleur de l'ancien
+/// camp. Présentation seule.
 #[derive(Component)]
 pub struct SkinnedAs {
     team: Team,
+    base_image: Handle<Image>,
+    base_color: Color,
     base_size: Option<Vec2>,
 }
 
-/// Un projectile dont l'équipe a changé depuis sa peau (renvoi) reprend la peau de sa nouvelle
-/// équipe : on retire les marqueurs de peau et de style, `skin_bullets` et `style_tears` repassent
-/// (une seule fois par changement). Lecture seule de la simulation.
+/// Un projectile dont l'équipe a changé depuis sa peau (renvoi) retrouve son état d'avant la peau
+/// et perd les marqueurs de peau et de style : `skin_bullets` et `style_tears` repassent (une seule
+/// fois par changement) et posent la peau de la nouvelle équipe si elle existe, sinon le carré
+/// d'origine reste. Lecture seule de la simulation.
 fn reskin_reflected_bullets(
     mut commands: Commands,
     mut bullets: Query<(Entity, &Bullet, &SkinnedAs, &mut Sprite)>,
 ) {
     for (entity, bullet, skinned, mut sprite) in &mut bullets {
         if bullet.source_team != skinned.team {
+            sprite.image = skinned.base_image.clone();
+            sprite.color = skinned.base_color;
             sprite.custom_size = skinned.base_size;
             commands
                 .entity(entity)
@@ -550,6 +558,8 @@ fn skin_bullets(
         };
         let skinned = SkinnedAs {
             team: bullet.source_team,
+            base_image: sprite.image.clone(),
+            base_color: sprite.color,
             base_size: sprite.custom_size,
         };
         let Some(sheet) = table.sheet(id) else {
@@ -774,6 +784,58 @@ mod tests {
             Color::srgb(1.0, 0.0, 0.0)
         );
         assert_eq!(world.get::<Sprite>(explosive).unwrap().color, Color::WHITE);
+    }
+
+    /// X-3 : un projectile renvoyé (équipe changée) retrouve l'état d'avant sa peau — image,
+    /// couleur, côté — même si la nouvelle équipe n'a aucune peau dans `sprites.ron` (un jeu sans
+    /// `bullet_player` gardait l'orbe de l'ancien camp) ; sans changement d'équipe, rien ne bouge.
+    #[test]
+    fn un_projectile_renvoye_retrouve_son_etat_d_avant_la_peau() {
+        use combat::weapons::BulletType::Standard;
+        let fx = fixed_math::new;
+        let base_image = Handle::<Image>::default();
+        let skin = Handle::<Image>::weak_from_u128(0x5eed);
+        assert_ne!(base_image, skin);
+        let mut world = World::new();
+        let mut bullet = bullet_of(Standard {
+            damage: fx(1.0),
+            speed: fx(1.0),
+        });
+        bullet.source_team = Team::Enemies;
+        let skinned_sprite = Sprite {
+            image: skin.clone(),
+            color: Color::srgb(1.0, 0.35, 0.3),
+            custom_size: Some(Vec2::splat(9.0)),
+            ..default()
+        };
+        let entity = world
+            .spawn((
+                bullet,
+                skinned_sprite.clone(),
+                BulletSkinned,
+                TearStyled,
+                SkinnedAs {
+                    team: Team::Enemies,
+                    base_image: base_image.clone(),
+                    base_color: Color::BLACK,
+                    base_size: Some(Vec2::splat(3.5)),
+                },
+            ))
+            .id();
+        // Même équipe : rien ne bouge.
+        world.run_system_once(reskin_reflected_bullets).unwrap();
+        assert_eq!(world.get::<Sprite>(entity).unwrap().image, skin);
+        assert!(world.get::<BulletSkinned>(entity).is_some());
+        // Renvoyé : l'équipe change, l'état d'avant la peau revient, les marqueurs tombent.
+        world.get_mut::<Bullet>(entity).unwrap().source_team = Team::Players;
+        world.run_system_once(reskin_reflected_bullets).unwrap();
+        let sprite = world.get::<Sprite>(entity).unwrap();
+        assert_eq!(sprite.image, base_image);
+        assert_eq!(sprite.color, Color::BLACK);
+        assert_eq!(sprite.custom_size, Some(Vec2::splat(3.5)));
+        assert!(world.get::<BulletSkinned>(entity).is_none());
+        assert!(world.get::<TearStyled>(entity).is_none());
+        assert!(world.get::<SkinnedAs>(entity).is_none());
     }
 
     #[test]

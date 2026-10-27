@@ -22,7 +22,8 @@ use utils::{frame::FrameCount, net_id::GgrsNetId};
 
 pub use content::feedback::{
     BlankFlashConfig, BossEndConfig, ExplosionFxConfig, FeedbackOverride, FeedbackSettings,
-    HitFlashConfig, PatternTelegraphConfig, ResolvedFeedback, ShakeConfig, TelegraphConfig,
+    HitFlashConfig, HitStopScope, PatternTelegraphConfig, ResolvedFeedback, ShakeConfig,
+    TelegraphConfig,
 };
 
 use crate::character::enemy::ai::state::{BehaviorRuntime, ChargePhase, EnemyAiConfig};
@@ -49,7 +50,8 @@ pub enum FeedbackKind {
     Flash,
     /// Secousse de caméra, cible = joueur local (`value` : frames, `extra` : amplitude).
     Shake,
-    /// Hit stop, source ou cible = joueur local (`value` : frames de rendu).
+    /// Hit stop, source ou cible = joueur local (`value` : frames de rendu, `extra` : 1 pour un
+    /// gel de la **cible seule** — `hit_stop_scope: Target`, X-3 —, 0 pour le gel global).
     HitStop,
     /// Début d'un télégraphe au sol (`value` : frames restantes, `extra` : rayon).
     Telegraph,
@@ -498,7 +500,7 @@ fn record_feedback_cues(
         // Une secousse et un hit stop par frame au plus (le plus fort), même quand plusieurs
         // coups tombent ensemble (éclats d'une grenade) : (cible, position, frames, amplitude).
         let mut shake: Option<(usize, Vec2, u32, f32)> = None;
-        let mut hit_stop: Option<(usize, Vec2, u32)> = None;
+        let mut hit_stop: Option<(usize, Vec2, u32, HitStopScope)> = None;
         for event in damages.iter() {
             let target = event.target.0;
             let source = by_net_id.get(&event.source.0);
@@ -541,11 +543,19 @@ fn record_feedback_cues(
                     resolved.shake.amplitude,
                 ));
             }
+            // Gel de la cible seule : jamais le joueur local (un coup qu'il reçoit ne fige personne).
+            let target_only = resolved.hit_stop_scope == HitStopScope::Target;
             if resolved.hit_stop_frames > 0
                 && (local_hit || local_shooter)
-                && hit_stop.is_none_or(|(_, _, frames)| resolved.hit_stop_frames > frames)
+                && !(target_only && local_hit)
+                && hit_stop.is_none_or(|(_, _, frames, _)| resolved.hit_stop_frames > frames)
             {
-                hit_stop = Some((target, position, resolved.hit_stop_frames));
+                hit_stop = Some((
+                    target,
+                    position,
+                    resolved.hit_stop_frames,
+                    resolved.hit_stop_scope,
+                ));
             }
         }
         if let Some((net_id, position, frames, amplitude)) = shake {
@@ -561,14 +571,18 @@ fn record_feedback_cues(
                 note: None,
             });
         }
-        if let Some((net_id, position, frames)) = hit_stop {
+        if let Some((net_id, position, frames, scope)) = hit_stop {
             log.push(FeedbackCue {
                 kind: FeedbackKind::HitStop,
                 frame: now,
                 net_id,
                 position,
                 value: frames as f32,
-                extra: 0.0,
+                extra: if scope == HitStopScope::Target {
+                    1.0
+                } else {
+                    0.0
+                },
                 color: (1.0, 1.0, 1.0),
                 pattern: None,
                 note: None,

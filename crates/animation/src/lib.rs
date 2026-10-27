@@ -187,6 +187,31 @@ impl AnimationFreeze {
     pub fn is_frozen(&self) -> bool {
         self.tick < self.until_tick
     }
+
+    /// Gel d'**une seule entité** pour les `frames` prochains ticks de rendu (hit stop « cible
+    /// seule », X-3) : à poser sur l'entité animée ; `previous` (son gel en cours) n'est jamais
+    /// raccourci. Même compte que [`Self::freeze_for`].
+    pub fn hold_for(&self, frames: u32, previous: Option<&AnimationHold>) -> AnimationHold {
+        let until_tick = self.tick + 1 + u64::from(frames);
+        AnimationHold {
+            until_tick: previous.map_or(until_tick, |hold| hold.until_tick.max(until_tick)),
+        }
+    }
+}
+
+/// Gel de présentation d'une entité animée (hit stop « cible seule », X-3, `docs/conventions.md`
+/// §90) : tant qu'il court, `animate_sprite_system` n'avance ni son timer ni ses images ; le reste
+/// du monde et la caméra continuent. Compté comme [`AnimationFreeze`] en ticks de rendu ; posé
+/// par `game::feedback`, jamais par la simulation.
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct AnimationHold {
+    until_tick: u64,
+}
+
+impl AnimationHold {
+    pub fn is_active(&self, freeze: &AnimationFreeze) -> bool {
+        freeze.tick < self.until_tick
+    }
 }
 
 fn advance_animation_freeze(mut freeze: ResMut<AnimationFreeze>) {
@@ -204,13 +229,18 @@ fn animate_sprite_system(
         &CharacterAnimationHandles,
         &mut AnimationTimer,
         &AnimationState,
+        Option<&AnimationHold>,
     )>,
     mut query_sprites: Query<(&mut Sprite, &LayerName, Option<&DirectionRow>), With<AnimatedLayer>>,
 ) {
     if freeze.is_frozen() {
         return;
     }
-    for (childs, config_handles, mut timer, state) in query.iter_mut() {
+    for (childs, config_handles, mut timer, state, hold) in query.iter_mut() {
+        // Hit stop « cible seule » : cette entité reste figée, les autres avancent.
+        if hold.is_some_and(|hold| hold.is_active(&freeze)) {
+            continue;
+        }
         if let Some(anim_config) = animation_configs.get(&config_handles.animations) {
             // Try to get columns count from animation config or first spritesheet
             let columns = anim_config

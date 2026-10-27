@@ -1,0 +1,11 @@
+// X-3 : `parry.perfect_knockback` négatif (attirerait l'attaquant au lieu de le repousser) :
+// LintErrorKind::OutOfRange (`lint::lint_melee_weapons`).
+({
+    "parade": (config: (
+        damage: "5.0",
+        parry: Some((
+            perfect_frames: 4,
+            perfect_knockback: "-60.0",
+        )),
+    )),
+})

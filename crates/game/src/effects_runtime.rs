@@ -141,8 +141,13 @@ pub struct EffectAssets<'w> {
 /// effet porte une condition `Timing` ([`has_timing`]) : sans elle, aucun calcul de plus.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TimingSource<'w, 's> {
-    clock: Res<'w, run::Clock>,
+    // Absentes d'une application de test qui ne monte ni horloge ni étages : le repère
+    // `Clock(..)` est alors inconnu (condition fausse), jamais une panique de paramètre.
+    clock: Option<Res<'w, run::Clock>>,
+    floor: Option<Res<'w, run::FloorState>>,
     schedule: Option<Res<'w, crate::clock::ClockSchedule>>,
+    // Notes des fenêtres de jugement (`TimingJudged`) ; absente d'une application sans le plugin du jeu.
+    judged: Option<ResMut<'w, FrameEvents<TimingJudged>>>,
     actors: Query<
         'w,
         's,
@@ -155,6 +160,18 @@ pub struct TimingSource<'w, 's> {
 }
 
 impl TimingSource<'_, '_> {
+    /// Envoie les notes d'un tour dans la file (sans file : elles sont ignorées).
+    pub(crate) fn flush(&mut self, judged: &mut Vec<TimingJudged>) {
+        match self.judged.as_mut() {
+            Some(queue) => {
+                for note in judged.drain(..) {
+                    queue.send(note);
+                }
+            }
+            None => judged.clear(),
+        }
+    }
+
     /// Début du dash en cours : le pas du dash est joué à la frame même du lancement
     /// (`DashState::take_step`), donc `frames jouées - 1` frames plus tôt. `None` hors dash.
     pub fn dash_start(&self, entity: Entity, now: u32) -> Option<u32> {
@@ -181,11 +198,25 @@ impl TimingSource<'_, '_> {
 
     /// Frame absolue de l'occurrence la plus proche de l'événement `id` de la première horloge
     /// active (ordre des ids) qui le porte (`run::clock::nearest_occurrence`). `None` sans
-    /// horloge activée ou événement inconnu.
+    /// horloge activée, sans `Clock` ou événement inconnu.
+    ///
+    /// Une horloge de portée `Floor` est remise à zéro par `clock_system` (set `FrameCounter`),
+    /// **après** les effets de la frame du passage d'étage (`apply_triggered_effects_system`,
+    /// `OnFloorStart`) : si `FloorState` a déjà changé d'index, le temps d'étage vaut 0 ici
+    /// comme il vaudra 0 dans `clock_system` à la même frame (aucun état caché).
     pub fn beat(&self, id: &str, now: u32) -> Option<u32> {
         let schedule = self.schedule.as_ref()?;
+        let clock = self.clock.as_ref()?;
+        let floor_entered = self
+            .floor
+            .as_ref()
+            .is_some_and(|floor| floor.index != clock.floor_index);
         for (_name, def) in &schedule.clocks {
-            let elapsed = self.clock.scope_frames(def.scope, now);
+            let elapsed = if floor_entered && def.scope == run::clock::ClockScope::Floor {
+                0
+            } else {
+                clock.scope_frames(def.scope, now)
+            };
             if let Some(at) = run::clock::nearest_occurrence(def, id, elapsed) {
                 // frame absolue = maintenant + (occurrence − temps écoulé), bornée à 0
                 return Some(if at >= elapsed {
@@ -197,6 +228,27 @@ impl TimingSource<'_, '_> {
         }
         None
     }
+}
+
+/// Note d'une fenêtre de jugement (X-3), émise à chaque déclencheur d'événement (`OnDodge`,
+/// `OnReload`, `OnHit`…) qui répond à un effet portant une condition `Timing` dont le repère est
+/// connu, **quelle que soit la note** (`Perfect`, `Good` ou `Miss`) et que les autres conditions
+/// de l'effet tiennent ou non : c'est la note de l'instant, lisible par un autre système, une
+/// attente de scénario ou la présentation (« Parfait ! »). Une note par fenêtre distincte
+/// (`reference`, `offset`, `perfect_frames`, `good_frames`) et par déclencheur, quel que soit le
+/// nombre d'effets et d'exemplaires de l'objet qui la partagent. Jamais émise pour un `Tick`
+/// (évalué à chaque frame : ce n'est pas un instant d'action). File **neutre**
+/// (`add_frame_events_neutral`) : vide dans tout le contenu d'avant, aucune trace ne bouge.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct TimingJudged {
+    /// Porteur dont l'action est notée.
+    pub carrier: GgrsNetId,
+    pub reference: effects::TimingReference,
+    pub offset: u32,
+    pub perfect_frames: u32,
+    pub good_frames: u32,
+    pub grade: sim_core::timing::TimingGrade,
+    pub frame: u32,
 }
 
 /// Un effet de `listed` porte-t-il une condition `Timing` ? (Sinon, aucun repère à calculer.)
@@ -452,6 +504,9 @@ pub(crate) struct Body<'a, 'w, 's> {
     pub(crate) commands: &'a mut Commands<'w, 's>,
     /// M3-T2 : sorties hors du porteur (`Emit`, statuts à poser), vidées par l'appelant.
     pub(crate) out: &'a mut Vec<EffectOut>,
+    /// X-3 : notes des fenêtres de jugement de ce tour, vidées par l'appelant
+    /// ([`flush_judged`]).
+    pub(crate) judged: &'a mut Vec<TimingJudged>,
 }
 
 /// Lecture seule du porteur pour les conditions.
@@ -461,6 +516,64 @@ pub(crate) struct CarrierView<'a> {
     pub(crate) squad_size: u32,
     /// Position monde du porteur (`TargetInRange`).
     pub(crate) position: Option<(Fixed, Fixed)>,
+}
+
+/// Note chaque fenêtre `Timing` de `effect` pas encore notée pour ce déclencheur (X-3) : une note
+/// par (déclencheur, repère, décalage, fenêtres). Repère inconnu : aucune note.
+fn judge_windows<'a>(
+    effect: &'a Effect,
+    trigger_index: usize,
+    carrier: &Carrier,
+    net_id: &GgrsNetId,
+    seen: &mut Vec<(usize, &'a effects::TimingReference, u32, u32, u32)>,
+    out: &mut Vec<TimingJudged>,
+) {
+    for condition in &effect.r#if {
+        let Condition::Timing {
+            reference,
+            offset,
+            perfect_frames,
+            good_frames,
+            ..
+        } = condition
+        else {
+            continue;
+        };
+        let key = (
+            trigger_index,
+            reference,
+            *offset,
+            *perfect_frames,
+            *good_frames,
+        );
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.push(key);
+        let Some(grade) = effects::runtime::timing_grade(
+            &carrier.timing,
+            carrier.frame,
+            reference,
+            *offset,
+            *perfect_frames,
+            *good_frames,
+        ) else {
+            continue;
+        };
+        info!(
+            "ggrs{{f={} timing carrier={} reference={:?} offset={} grade={:?}}}",
+            carrier.frame, net_id, reference, offset, grade
+        );
+        out.push(TimingJudged {
+            carrier: net_id.clone(),
+            reference: reference.clone(),
+            offset: *offset,
+            perfect_frames: *perfect_frames,
+            good_frames: *good_frames,
+            grade,
+            frame: carrier.frame,
+        });
+    }
 }
 
 /// Exécute les effets de `listed` qui répondent à `triggers` (et, si `tick`, à leur `Tick`).
@@ -511,17 +624,20 @@ pub(crate) fn run_listed(
             }
         }
     }
+    // X-3 : fenêtres déjà notées ce tour (déclencheur, fenêtre), pour une note par fenêtre.
+    let mut judged_keys: Vec<(usize, &effects::TimingReference, u32, u32, u32)> = Vec::new();
     for entry in listed {
         let effect = entry.effect;
-        let mut firings: Vec<Option<&Trigger>> = triggers
+        let mut firings: Vec<(usize, Option<&Trigger>)> = triggers
             .iter()
-            .filter(|t| effect_responds(effect, t))
-            .map(Some)
+            .enumerate()
+            .filter(|(_, t)| effect_responds(effect, t))
+            .map(|(index, t)| (index, Some(t)))
             .collect();
         if tick && tick_due(&effect.on, entry.posed, frame) {
-            firings.push(None);
+            firings.push((usize::MAX, None));
         }
-        for trigger in firings {
+        for (trigger_index, trigger) in firings {
             let carrier = Carrier {
                 tags: view.tags,
                 health: body.health.current,
@@ -533,6 +649,16 @@ pub(crate) fn run_listed(
                 position: view.position,
                 timing: refs,
             };
+            if timed && trigger.is_some() {
+                judge_windows(
+                    effect,
+                    trigger_index,
+                    &carrier,
+                    net_id,
+                    &mut judged_keys,
+                    body.judged,
+                );
+            }
             if !conditions_hold(&effect.r#if, &carrier, trigger) {
                 continue;
             }
@@ -614,7 +740,7 @@ pub fn apply_effects_system(
     table: Option<Res<ItemTable>>,
     synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
-    timing: TimingSource,
+    mut timing: TimingSource,
 ) {
     if carriers.is_empty() {
         return;
@@ -749,6 +875,7 @@ pub fn apply_effects_system(
             position: transform.map(|t| (t.translation.x, t.translation.y)),
         };
         let mut out: Vec<EffectOut> = Vec::new();
+        let mut judged: Vec<TimingJudged> = Vec::new();
         let mut body = Body {
             entity,
             has_emitter,
@@ -757,6 +884,7 @@ pub fn apply_effects_system(
             gauges: gauges.as_deref_mut(),
             commands: &mut commands,
             out: &mut out,
+            judged: &mut judged,
         };
         run_listed(
             &listed, &triggers, true, frame, net_id, &view, state, &mut body, &assets, &timing,
@@ -764,6 +892,7 @@ pub fn apply_effects_system(
         for event in out {
             outbox.send(event);
         }
+        timing.flush(&mut judged);
         if !had_state && local != EffectState::default() {
             commands.entity(entity).insert(local);
         }
@@ -802,7 +931,7 @@ pub fn apply_triggered_effects_system(
     table: Option<Res<ItemTable>>,
     synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
-    timing: TimingSource,
+    mut timing: TimingSource,
 ) {
     if carriers.is_empty() {
         return;
@@ -933,6 +1062,7 @@ pub fn apply_triggered_effects_system(
                 position: transform.map(|t| (t.translation.x, t.translation.y)),
             };
             let mut out: Vec<EffectOut> = Vec::new();
+            let mut judged: Vec<TimingJudged> = Vec::new();
             let mut body = Body {
                 entity,
                 has_emitter,
@@ -941,6 +1071,7 @@ pub fn apply_triggered_effects_system(
                 gauges: gauges.as_deref_mut(),
                 commands: &mut commands,
                 out: &mut out,
+                judged: &mut judged,
             };
             run_listed(
                 &listed, &triggers, false, frame, net_id, &view, state, &mut body, &assets, &timing,
@@ -948,6 +1079,7 @@ pub fn apply_triggered_effects_system(
             for event in out {
                 outbox.send(event);
             }
+            timing.flush(&mut judged);
         }
         if !had_state && local != EffectState::default() {
             commands.entity(entity).insert(local);
@@ -1474,6 +1606,165 @@ mod tests {
         app.world_mut().resource_mut::<run::FloorState>().index = 1;
         app.update();
         assert_eq!(health(&app), fx(60.0), "charge rendue à l'étage 1");
+    }
+
+    fn timing_clock_effect(grade: effects::TimingGradeFilter) -> Effect {
+        Effect::new(
+            On::OnFloorStart,
+            vec![Condition::Timing {
+                reference: effects::TimingReference::Clock("debut".into()),
+                offset: 0,
+                perfect_frames: 2,
+                good_frames: 6,
+                grade,
+            }],
+            vec![Action::Heal(fx(5.0))],
+        )
+    }
+
+    /// X-3 (revue, P1) : `TimingSource` ne exige ni `Clock` ni `ClockSchedule` ni `FloorState` — une
+    /// application de test qui ne monte pas les horloges évalue un effet à `Timing` sans panique de
+    /// paramètre, et les repères inconnus rendent la condition fausse (aucune note inventée).
+    #[test]
+    fn une_fenetre_de_jugement_sans_horloge_montee_ne_declenche_rien_et_ne_panique_pas() {
+        let mut app = App::new();
+        app.init_resource::<bevy_ggrs::RollbackOrdered>()
+            .init_resource::<WeaponRegistry>()
+            .insert_resource(FrameCount { frame: 0 })
+            .init_resource::<FrameEvents<EffectOut>>()
+            .add_systems(Update, apply_triggered_effects_system);
+        let on_clock = floor_carrier(
+            &mut app,
+            timing_clock_effect(effects::TimingGradeFilter::Perfect),
+        );
+        let miss = floor_carrier_with(
+            &mut app,
+            2,
+            timing_clock_effect(effects::TimingGradeFilter::Miss),
+        );
+        app.update();
+        for carrier in [on_clock, miss] {
+            assert_eq!(
+                app.world().get::<Health>(carrier).unwrap().current,
+                fx(50.0),
+                "repère d'horloge inconnu : toutes les notes sont fausses, `Miss` comprise"
+            );
+        }
+    }
+
+    fn floor_carrier_with(app: &mut App, id: usize, effect: Effect) -> Entity {
+        app.world_mut()
+            .spawn((
+                GgrsNetId(id, "pilote".into()),
+                Effects(vec![effect]),
+                EffectState::default(),
+                Health {
+                    current: fx(50.0),
+                    max: fx(100.0),
+                    invulnerable_until_frame: None,
+                },
+                Modifiers::default(),
+                Rollback,
+            ))
+            .id()
+    }
+
+    /// Application avec une horloge d'étage `debut` (événement à 0, tous les 100 frames), l'étage
+    /// de l'horloge à 0 depuis la frame 0 et le monde déjà à l'étage 1 à la frame 150 : le passage
+    /// d'étage vient d'avoir lieu (`Run`), `clock_system` (set `FrameCounter`) n'a pas encore remis
+    /// l'horloge à zéro quand `OnFloorStart` est évalué.
+    fn floor_clock_app() -> App {
+        let mut app = floor_app(150, 1);
+        app.insert_resource(run::Clock::default())
+            .init_resource::<FrameEvents<TimingJudged>>()
+            .insert_resource(crate::clock::ClockSchedule {
+                clocks: vec![(
+                    "etage".into(),
+                    run::clock::ClockDef {
+                        scope: run::clock::ClockScope::Floor,
+                        events: vec![run::clock::ClockEventDef {
+                            id: "debut".into(),
+                            at: run::clock::ClockTime::Frames(0),
+                            repeat: Some(run::clock::ClockTime::Frames(100)),
+                        }],
+                    },
+                )],
+            });
+        app
+    }
+
+    /// X-3 (revue, P2) : le repère d'une horloge de portée `Floor` à la frame du passage d'étage est
+    /// le temps d'étage **déjà remis à zéro** — comme `clock_system` le fera à la même frame — pas
+    /// celui de l'étage quitté. Sans cela `OnFloorStart` ratait toujours « le début d'étage » :
+    /// 150 frames écoulées dans l'étage d'avant donnaient un repère à 50 frames de la frame courante.
+    #[test]
+    fn l_horloge_d_etage_est_deja_remise_a_zero_pour_debut_d_etage() {
+        let mut app = floor_clock_app();
+        let perfect = floor_carrier(
+            &mut app,
+            timing_clock_effect(effects::TimingGradeFilter::Perfect),
+        );
+        let miss = floor_carrier_with(
+            &mut app,
+            2,
+            timing_clock_effect(effects::TimingGradeFilter::Miss),
+        );
+        app.update();
+        assert_eq!(
+            app.world().get::<Health>(perfect).unwrap().current,
+            fx(55.0),
+            "début d'étage : écart nul avec l'événement `at: 0` de l'étage"
+        );
+        assert_eq!(
+            app.world().get::<Health>(miss).unwrap().current,
+            fx(50.0),
+            "pas « raté »"
+        );
+        // La note est émise, une seule par porteur (fenêtre partagée par les deux effets).
+        let judged: Vec<_> = app
+            .world()
+            .resource::<FrameEvents<TimingJudged>>()
+            .iter()
+            .map(|note| (note.carrier.0, note.grade))
+            .collect();
+        assert_eq!(
+            judged,
+            [
+                (1, sim_core::timing::TimingGrade::Perfect),
+                (2, sim_core::timing::TimingGrade::Perfect)
+            ]
+        );
+    }
+
+    /// X-3 : une horloge de portée `Run` n'est pas touchée par le passage d'étage, et la note de
+    /// « raté » existe aussi (un repère connu, une frame hors des deux fenêtres).
+    #[test]
+    fn une_horloge_de_run_garde_son_temps_au_passage_d_etage_et_note_le_rate() {
+        let mut app = floor_clock_app();
+        app.world_mut()
+            .resource_mut::<crate::clock::ClockSchedule>()
+            .clocks[0]
+            .1
+            .scope = run::clock::ClockScope::Run;
+        // frame 150 sur une horloge de run : occurrence la plus proche = 200 (égalité → la suivante)
+        let carrier = floor_carrier(
+            &mut app,
+            timing_clock_effect(effects::TimingGradeFilter::Miss),
+        );
+        app.update();
+        assert_eq!(
+            app.world().get::<Health>(carrier).unwrap().current,
+            fx(55.0)
+        );
+        let note = app
+            .world()
+            .resource::<FrameEvents<TimingJudged>>()
+            .iter()
+            .next()
+            .cloned()
+            .expect("une note");
+        assert_eq!(note.grade, sim_core::timing::TimingGrade::Miss);
+        assert_eq!(note.frame, 150);
     }
 
     /// Clés de limites (M3-T2, Q16) : `Shared` (défaut) → une seule clé pour tous les exemplaires ;

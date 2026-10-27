@@ -2201,15 +2201,18 @@ impl Plugin for BaseWeaponGamePlugin {
                 system_weapon_position.after(weapon_drop_system),
                 weapon_rollback_system.after(system_weapon_position),
                 bullet_rollback_system.after(weapon_rollback_system),
-                // X-3 : parade avant les collisions (la balle renvoyée ne touche pas le
-                // pareur la même frame).
-                melee::melee_reflect_system.after(bullet_rollback_system),
-                bullet_rollback_collision_system.after(melee::melee_reflect_system),
-                // Melee weapon systems
-                melee::player_melee_attack_system.after(bullet_rollback_collision_system),
+                // Melee weapon systems. X-3 : la création des hitbox (joueur, ennemi) et leur
+                // expiration passent **avant** la parade de mêlée, le renvoi de projectiles et les
+                // collisions de balles : la parade voit les hitbox de la frame (un coup lancé cette
+                // frame pare dès la frame 0, une hitbox arrivée au bout de sa durée ne pare plus),
+                // et une balle renvoyée ou un coup annulé ne blesse pas dans la même frame.
+                melee::player_melee_attack_system.after(bullet_rollback_system),
                 melee::enemy_melee_attack_system.after(melee::player_melee_attack_system),
                 melee::update_melee_hitboxes.after(melee::enemy_melee_attack_system),
-                melee::melee_hitbox_collision_system.after(melee::update_melee_hitboxes),
+                melee::melee_parry_system.after(melee::update_melee_hitboxes),
+                melee::melee_reflect_system.after(melee::melee_parry_system),
+                bullet_rollback_collision_system.after(melee::melee_reflect_system),
+                melee::melee_hitbox_collision_system.after(bullet_rollback_collision_system),
                 // Émetteurs (T1.2) : après tout tir de joueur et de mêlée de la frame (flux
                 // RNG et `GgrsNetId` alloués dans un ordre total).
                 crate::emitter::emitter_system.after(melee::melee_hitbox_collision_system),

@@ -24,6 +24,15 @@ pub struct FeedbackSettings {
     /// la simulation.
     #[serde(default)]
     pub hit_stop_frames: u32,
+    /// Qui le hit stop fige (X-3) : `Global` (défaut, comportement d'avant : toutes les
+    /// animations et le suivi de caméra) ou `Target` (seule l'entité touchée, jamais le joueur
+    /// local ni la caméra). Surchargeable par `by_kind` / `by_weapon`.
+    #[serde(default)]
+    pub hit_stop_scope: HitStopScope,
+    /// Musique calée sur une horloge de simulation (X-3, présentation seule), absente par
+    /// défaut : aucune musique.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub music: Option<MusicSyncConfig>,
     /// Chiffres de dégâts flottants au-dessus de la cible (T1.17).
     #[serde(default)]
     pub damage_numbers: bool,
@@ -193,6 +202,54 @@ impl Default for BossEndConfig {
     }
 }
 
+/// Qui un hit stop fige (X-3, présentation seule, `docs/conventions.md` §90).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum HitStopScope {
+    /// Toutes les animations et le suivi de caméra (comportement de T1.17).
+    #[default]
+    Global,
+    /// Seule l'entité touchée : ses calques n'avancent plus d'image pendant le gel. Le joueur
+    /// local, les autres entités et la caméra restent vifs ; un coup reçu par le joueur local ne
+    /// fige personne.
+    Target,
+}
+
+/// Musique calée sur l'horloge de simulation (X-3, présentation seule, `docs/conventions.md` §90) :
+/// la piste boucle sur `loop_events` occurrences de l'événement `event` de l'horloge `clock`
+/// (kind `Clock`, `repeat` obligatoire) et sa position 0 tombe sur une occurrence de cet
+/// événement. La position jouée suit le temps de **simulation** (pause, relance, rollback) : un
+/// écart supérieur à `max_drift_ms` est rattrapé par un déplacement dans la piste.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MusicSyncConfig {
+    /// Fichier audio (`ogg`), relatif à `assets/`.
+    pub track: String,
+    /// Id de l'horloge (nom du fichier de `clocks/`).
+    pub clock: String,
+    /// Id de l'événement de l'horloge sur lequel la piste est calée.
+    pub event: String,
+    /// Nombre d'occurrences de l'événement que dure une boucle de la piste (>= 1).
+    #[serde(default = "default_loop_events")]
+    pub loop_events: u32,
+    /// Écart toléré entre la position jouée et celle de l'horloge, en millisecondes.
+    #[serde(default = "default_max_drift_ms")]
+    pub max_drift_ms: u32,
+    /// Volume de la piste, en décibels ([`SOUND_VOLUME_DB_RANGE`]).
+    #[serde(default)]
+    pub volume_db: f32,
+}
+
+fn default_loop_events() -> u32 {
+    1
+}
+
+fn default_max_drift_ms() -> u32 {
+    60
+}
+
+/// Bornes de `music.max_drift_ms` (lint) : en deçà de 5 ms le rattrapage se déclencherait à chaque
+/// image rendue, au-delà d'une seconde la musique n'est plus calée.
+pub const MUSIC_DRIFT_RANGE_MS: std::ops::RangeInclusive<u32> = 5..=1000;
+
 /// Bornes du zoom de fin de boss (lint).
 pub const BOSS_ZOOM_RANGE: (f32, f32) = (1.0, 4.0);
 /// Plafond des gels et durées de présentation (lint) : au-delà, le jeu paraît planté.
@@ -203,6 +260,9 @@ pub const MAX_PRESENTATION_FRAMES: u32 = 600;
 pub struct FeedbackOverride {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hit_stop_frames: Option<u32>,
+    /// Qui le hit stop fige pour ce genre ou cette arme (X-3) ; absent : le niveau suivant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hit_stop_scope: Option<HitStopScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hit_flash: Option<HitFlashConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -213,6 +273,7 @@ pub struct FeedbackOverride {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ResolvedFeedback {
     pub hit_stop_frames: u32,
+    pub hit_stop_scope: HitStopScope,
     pub hit_flash: HitFlashConfig,
     pub shake: ShakeConfig,
     /// La secousse vient d'une surcharge (`by_weapon` ou `by_kind`) : elle s'applique aussi
@@ -245,6 +306,9 @@ impl FeedbackSettings {
             hit_stop_frames: levels()
                 .find_map(|entry| entry.hit_stop_frames)
                 .unwrap_or(self.hit_stop_frames),
+            hit_stop_scope: levels()
+                .find_map(|entry| entry.hit_stop_scope)
+                .unwrap_or(self.hit_stop_scope),
             hit_flash: levels()
                 .find_map(|entry| entry.hit_flash)
                 .unwrap_or(self.hit_flash),
@@ -271,6 +335,36 @@ impl FeedbackSettings {
             }
         }
         self.blank_and_boss_problems(&mut problems);
+        if let Some(music) = &self.music {
+            if music.loop_events == 0 {
+                problems.push(FeedbackProblem {
+                    field: "music.loop_events".into(),
+                    message: "0 : doit être >= 1".into(),
+                });
+            }
+            if !MUSIC_DRIFT_RANGE_MS.contains(&music.max_drift_ms) {
+                problems.push(FeedbackProblem {
+                    field: "music.max_drift_ms".into(),
+                    message: format!(
+                        "{} ms : doit être dans [{}, {}]",
+                        music.max_drift_ms,
+                        MUSIC_DRIFT_RANGE_MS.start(),
+                        MUSIC_DRIFT_RANGE_MS.end()
+                    ),
+                });
+            }
+            if !SOUND_VOLUME_DB_RANGE.contains(&music.volume_db) {
+                problems.push(FeedbackProblem {
+                    field: "music.volume_db".into(),
+                    message: format!(
+                        "{} dB : doit être dans [{}, {}]",
+                        music.volume_db,
+                        SOUND_VOLUME_DB_RANGE.start(),
+                        SOUND_VOLUME_DB_RANGE.end()
+                    ),
+                });
+            }
+        }
         for (key, db) in &self.volumes {
             if !SOUND_VOLUME_DB_RANGE.contains(db) {
                 problems.push(FeedbackProblem {
@@ -509,6 +603,60 @@ mod tests {
         assert!(!defaut.shake_overridden);
         // Arme inconnue : ignorée.
         assert_eq!(s.resolve(&DamageKind::Physical, Some("autre")), defaut);
+    }
+
+    /// X-3 : `hit_stop_scope` se résout comme les autres champs (arme, genre, défaut), `Global` sans
+    /// réglage ; `music` est absente par défaut et ses bornes sont vérifiées.
+    #[test]
+    fn portee_du_hit_stop_et_musique() {
+        let s: FeedbackSettings = ron::from_str(
+            r#"(
+                hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+                shake: (frames: 8, amplitude: 12.0),
+                hit_stop_frames: 3,
+                hit_stop_scope: Target,
+                by_kind: { Explosion: (hit_stop_scope: Some(Global)) },
+                by_weapon: { "fusil": (hit_stop_frames: Some(5)) },
+            )"#,
+        )
+        .unwrap();
+        assert_eq!(
+            s.resolve(&DamageKind::Physical, None).hit_stop_scope,
+            HitStopScope::Target
+        );
+        assert_eq!(
+            s.resolve(&DamageKind::Explosion, None).hit_stop_scope,
+            HitStopScope::Global
+        );
+        // Un champ absent d'une entrée laisse passer le niveau suivant : l'arme ne règle que la durée.
+        let fusil = s.resolve(&DamageKind::Physical, Some("fusil"));
+        assert_eq!(
+            (fusil.hit_stop_frames, fusil.hit_stop_scope),
+            (5, HitStopScope::Target)
+        );
+        assert!(s.music.is_none());
+        assert_eq!(
+            settings()
+                .resolve(&DamageKind::Physical, None)
+                .hit_stop_scope,
+            HitStopScope::Global
+        );
+
+        let mut with_music = s.clone();
+        with_music.music =
+            ron::from_str(r#"Some((track: "sounds/boucle.ogg", clock: "pouls", event: "pouls"))"#)
+                .unwrap();
+        let music = with_music.music.clone().unwrap();
+        assert_eq!((music.loop_events, music.max_drift_ms), (1, 60));
+        assert!(with_music.problems().is_empty());
+        with_music.music.as_mut().unwrap().loop_events = 0;
+        with_music.music.as_mut().unwrap().max_drift_ms = 1;
+        with_music.music.as_mut().unwrap().volume_db = 40.0;
+        let fields: Vec<_> = with_music.problems().into_iter().map(|p| p.field).collect();
+        assert_eq!(
+            fields,
+            ["music.loop_events", "music.max_drift_ms", "music.volume_db"]
+        );
     }
 
     #[test]

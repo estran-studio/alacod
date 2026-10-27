@@ -2,8 +2,8 @@
 // (`effects::Condition::Timing`) sur l'horloge `pouls` (un événement toutes les 40 frames). Fenêtres
 // arbitraires : parfaite 3 frames, large 8.
 // - début d'une esquive (`OnDodge`) : parfait → +1 de dégâts ; « bien » (hors parfaite, dans la
-//   large) → +10 ; raté (hors large) → +100. Les conditions d'un effet sont un ET : « bien » est
-//   `AtLeastGood` ET `Miss` sur la fenêtre parfaite.
+//   large) → +10 (filtre `Good`) ; raté (hors large) → +100. Les trois effets partagent la même
+//   fenêtre : une seule note (`FrameEvents<TimingJudged>`) par esquive.
 // - fin d'un rechargement (`OnReload`) : parfait → +1000 (rechargement actif).
 // Scénarios `fenetre_esquive` et `fenetre_rechargement`.
 (
@@ -17,10 +17,7 @@
         ),
         (
             on: OnDodge,
-            if: [
-                Timing(reference: Clock("pouls"), perfect_frames: 3, good_frames: 8, grade: AtLeastGood),
-                Timing(reference: Clock("pouls"), perfect_frames: 3, good_frames: 3, grade: Miss),
-            ],
+            if: [Timing(reference: Clock("pouls"), perfect_frames: 3, good_frames: 8, grade: Good)],
             do: [Modifier(stat: Damage, op: Add, value: "10")],
         ),
         (

@@ -1,0 +1,36 @@
+// X-3 (testbed, revue indépendante P2) : une hitbox arrivée au bout de sa durée ne renvoie plus
+// rien. Deux coups de `parade` (hitbox de 12 frames, cooldown 40) : le premier part à f40 (appui
+// f35) et renvoie la boule de la première couronne (dans sa zone depuis f41 : « parfait ») ; le
+// second part à f82 (appui f77), sa hitbox vit de f82 à f93 et `update_melee_hitboxes` la détruit à
+// f94, juste avant que la boule de la deuxième couronne (f61) n'entre dans sa zone (~f98). Avant le
+// correctif la parade tournait avant `update_melee_hitboxes` : elle voyait encore la hitbox expirée
+// et renvoyait la deuxième boule.
+//
+// À regarder : la première boule repart à droite et touche la tourelle (× 2) ; la deuxième boule
+// continue tout droit et touche le joueur.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_tir.ldtk",
+    frames: 160,
+    players: [
+        (weapon: "parade", inputs: [
+            (from: 35, to: 38, buttons: [Melee], pan: (100, 0)),
+            (from: 77, to: 80, buttons: [Melee], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        // Premier coup (f40) : renvoi « parfait » de la boule de la couronne f1...
+        Event(kind: "reflect", label_contains: Some("parfait"), by_frame: 60),
+        BulletCount(count: 1, projectile: Some("fireball"), team: Some(Players), at_frame: 60),
+        // ... qui touche la tourelle pour 16 (8 × 2, 500 → 484 à f66)
+        EntityHealth(net_id: 24, min: 484.0, max: 484.0, at_frame: 100),
+        // Deuxième coup (f82, hitbox détruite à f94) : la boule de la couronne f61 n'est jamais
+        // renvoyée — la tourelle ne prend plus rien (484 intacts : avec l'ancien ordre la boule
+        // était renvoyée et la tourelle tombait à 476), aucune boule du joueur ne survit...
+        EntityHealth(net_id: 24, min: 484.0, max: 484.0, at_frame: 160),
+        BulletCount(count: 0, projectile: Some("fireball"), team: Some(Players), at_frame: 160),
+        // ... et c'est le joueur qui l'encaisse (flèches de l'archer en plus : il survit)
+        PlayerAlive(handle: 0, at_frame: 160),
+    ],
+)

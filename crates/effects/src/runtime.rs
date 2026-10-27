@@ -77,6 +77,26 @@ impl TimingRefs<'_> {
     }
 }
 
+/// Note de la frame `now` autour de `repère + offset` (X-3) : `None` si le repère est inconnu
+/// (jamais de panique, aucune note inventée), sinon `Perfect`, `Good` ou `Miss`
+/// (`sim_core::timing::grade_timing`).
+pub fn timing_grade(
+    refs: &TimingRefs,
+    now: u32,
+    reference: &TimingReference,
+    offset: u32,
+    perfect_frames: u32,
+    good_frames: u32,
+) -> Option<sim_core::timing::TimingGrade> {
+    let base = refs.frame_of(reference)?;
+    Some(sim_core::timing::grade_timing(
+        now,
+        base.saturating_add(offset),
+        perfect_frames,
+        good_frames,
+    ))
+}
+
 /// `Condition::Timing` : la frame `now` tombe-t-elle dans la note `grade` autour de
 /// `repère + offset` ? Repère inconnu : faux (jamais de panique, aucune note inventée).
 pub fn timing_holds(
@@ -88,20 +108,16 @@ pub fn timing_holds(
     good_frames: u32,
     grade: TimingGradeFilter,
 ) -> bool {
-    use sim_core::timing::{grade_timing, TimingGrade};
-    let Some(base) = refs.frame_of(reference) else {
+    use sim_core::timing::TimingGrade;
+    let Some(noted) = timing_grade(refs, now, reference, offset, perfect_frames, good_frames)
+    else {
         return false;
     };
-    let noted = grade_timing(
-        now,
-        base.saturating_add(offset),
-        perfect_frames,
-        good_frames,
-    );
     match grade {
         TimingGradeFilter::Perfect => noted == TimingGrade::Perfect,
         TimingGradeFilter::AtLeastGood => noted != TimingGrade::Miss,
         TimingGradeFilter::Miss => noted == TimingGrade::Miss,
+        TimingGradeFilter::Good => noted == TimingGrade::Good,
     }
 }
 
@@ -684,6 +700,11 @@ mod tests {
         // Hors de la fenêtre large : « raté »
         assert!(holds(t(R::Clock("pouls".into()), 0, 1, 3, G::Miss)));
         assert!(!holds(t(R::Clock("pouls".into()), 0, 1, 4, G::Miss)));
+        // « Bien » seulement : hors de la parfaite, dans la large (écart 4)
+        assert!(holds(t(R::Clock("pouls".into()), 0, 3, 7, G::Good)));
+        assert!(!holds(t(R::Clock("pouls".into()), 0, 4, 7, G::Good)));
+        assert!(!holds(t(R::Clock("pouls".into()), 0, 1, 3, G::Good)));
+        assert!(!holds(t(R::MeleeStart, 0, 9, 9, G::Good)));
         // Décalage : début du dash 190 + 10 = 200 : écart 0
         assert!(holds(t(R::DashStart, 10, 0, 0, G::Perfect)));
         assert!(!holds(t(R::DashStart, 9, 0, 0, G::Perfect)));

@@ -837,6 +837,16 @@ pub struct MeleeWeaponEntry {
     /// Parade et renvoi (X-3) : `reflect:` du RON, pour les règles « `perfect_damage_mult`
     /// > 0 ». `None` : pas de parade.
     pub reflect: Option<MeleeReflectEntry>,
+    /// Parade de mêlée (X-3) : `parry:` du RON, pour la règle « `perfect_knockback` >= 0 ».
+    pub parry: Option<MeleeParryEntry>,
+}
+
+/// Mirroir de `combat::weapons::melee::MeleeParry` (`content` ne dépend pas de `combat`) :
+/// juste assez pour le lint.
+#[derive(Debug, Clone, Copy)]
+pub struct MeleeParryEntry {
+    pub perfect_frames: u32,
+    pub perfect_knockback: Fixed,
 }
 
 /// Mirroir de `combat::weapons::melee::MeleeReflect` (`content` ne dépend pas de
@@ -2604,6 +2614,17 @@ struct MeleeWeaponConfigSchema {
     /// X-3 : parade et renvoi (`combat::weapons::melee::MeleeReflect`).
     #[serde(default)]
     reflect: Option<MeleeReflectSchema>,
+    /// X-3 : parade de mêlée (`combat::weapons::melee::MeleeParry`).
+    #[serde(default)]
+    parry: Option<MeleeParrySchema>,
+}
+
+/// Mirroir de `combat::weapons::melee::MeleeParry` pour le schéma et le lint.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct MeleeParrySchema {
+    perfect_frames: u32,
+    #[schemars(extend("x-lint" = ">= 0"))]
+    perfect_knockback: FixedField,
 }
 
 /// Mirroir de `combat::weapons::melee::MeleeReflect` pour le schéma et le lint.
@@ -3089,6 +3110,10 @@ fn load_melee_weapons(
                 perfect_frames: reflect.perfect_frames,
                 perfect_damage_mult: reflect.perfect_damage_mult.get(),
             });
+            let parry = entry.config.parry.map(|parry| MeleeParryEntry {
+                perfect_frames: parry.perfect_frames,
+                perfect_knockback: parry.perfect_knockback.get(),
+            });
             registry.melee_weapons.insert(
                 id.clone(),
                 MeleeWeaponEntry {
@@ -3097,6 +3122,7 @@ fn load_melee_weapons(
                     damage: entry.config.damage,
                     test,
                     reflect,
+                    parry,
                 },
             );
         }

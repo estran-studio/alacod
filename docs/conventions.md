@@ -7906,9 +7906,8 @@ grade }` d'un effet (`effects::Condition`, ajoutée en fin d'enum). Elle note la
 déclencheur** contre un repère : `écart = |frame − (repère + offset)|` ; `Perfect` si
 `écart <= perfect_frames`, `Good` si `écart <= good_frames`, sinon `Miss`
 (`sim_core::timing::grade_timing`, entiers, saturante, symétrique avant/après). `grade` filtre :
-`Perfect`, `AtLeastGood` (parfait ou bien) ou `Miss` ; « bien seulement » = `AtLeastGood` **ET**
-`Miss` sur la fenêtre parfaite (les conditions d'un effet sont un ET). Repères
-(`effects::TimingReference`) :
+`Perfect`, `AtLeastGood` (parfait ou bien), `Good` (« bien » seulement, sans le ET d'avant) ou
+`Miss`. Repères (`effects::TimingReference`) :
 
 | Repère | Valeur | Faux quand |
 |---|---|---|
@@ -7932,23 +7931,42 @@ good_frames` (`OutOfRange`), événement d'horloge inconnu (`BrokenReference`) ;
 raté du début d'une esquive), `fenetre_rechargement` (rechargement actif sur le temps, puis hors
 fenêtre), `fenetre_fraction_esquive` (instant à `DashStart + 5`).
 
-**2. Parade et renvoi de projectiles** : champ `reflect: Some((perfect_frames, perfect_damage_mult))`
-d'une arme de mêlée (`combat::weapons::melee::MeleeReflect`, hors hash et hors `Debug` quand il est
-absent). Système `melee_reflect_system` (`RollbackSystemSet::Weapon`, **après** le déplacement des
-balles et **avant** leurs collisions ; le blocage par un familier passe après, `familiars.rs`) : pour
-chaque hitbox active (ordre `GgrsNetId`), tout projectile (balle ordinaire ou composable) **hostile**
-au porteur (`team_allows_hit`, jamais son équipe) en contact géométrique avec elle est renvoyé : `source`,
-`source_team` et `player_handle` deviennent ceux du pareur, la vitesse garde son module et prend la
-**direction du regard** (huit directions, `facing_to_fixed`), les cibles déjà traversées sont
-oubliées (la balle peut toucher son ancien camp). Note `Perfect` (contact au plus `perfect_frames`
-après le début du coup, `sim_core::timing`, repère `MeleeStart`) : dégâts × `perfect_damage_mult` ;
-sinon les dégâts sont conservés. **Départage déterministe** : une balle n'est renvoyée qu'une fois
-par frame (la hitbox de plus petit `GgrsNetId` l'emporte), une balle déjà terminée ne l'est jamais.
-`FrameEvents<ProjectileReflected { bullet, owner, grade, frame }>` (file **neutre**) donne la note
-(`ggrs{f=… reflect bullet=… owner=… grade=…}` en trace). Lint : `perfect_damage_mult > 0`
-(fixture `melee_reflect_mult_zero`). Scénario `parade_projectiles` (testbed : `parade`, la tourelle
-de `arena_tir`) : la boule de feu change d'équipe (`BulletCount` côté `Players`) et blesse la
-tourelle de 16 (parfait, 8 × 2) puis 8 (bien).
+**2. Parade de mêlée et renvoi de projectiles** : champs `reflect: Some((perfect_frames,
+perfect_damage_mult))` et `parry: Some((perfect_frames, perfect_knockback))` d'une arme de mêlée
+(`combat::weapons::melee::{MeleeReflect, MeleeParry}`, hors hash et hors `Debug` quand ils sont
+absents). Ordre (`RollbackSystemSet::Weapon`) : création des hitbox (joueur, ennemi), expiration
+(`update_melee_hitboxes`), parade de mêlée, renvoi, collisions de balles, collisions de mêlée. La
+parade voit donc les hitbox de la frame (un coup lancé cette frame pare dès la frame 0, note
+`Perfect` à `perfect_frames = 0`) et plus celles qui expirent (le blocage par un familier passe
+après, `familiars.rs`).
+
+Renvoi (`melee_reflect_system`) : pour chaque hitbox active (ordre `GgrsNetId`), tout projectile
+(balle ordinaire ou composable) **hostile** au porteur (`team_allows_hit`, jamais son équipe) en
+contact géométrique avec elle est renvoyé : `source`, `source_team` et `player_handle` deviennent
+ceux du pareur, la vitesse garde son module et prend la **direction du regard** (huit directions,
+`facing_to_fixed`), les cibles déjà traversées sont oubliées (la balle peut toucher son ancien
+camp). Note `Perfect` (contact au plus `perfect_frames` après la création de la hitbox, repère =
+début du coup, `sim_core::timing`) : dégâts × `perfect_damage_mult` ; sinon dégâts conservés.
+**Départage déterministe** : une balle n'est renvoyée qu'une fois par frame (la hitbox de plus
+petit `GgrsNetId` l'emporte), une balle déjà terminée ne l'est jamais.
+`FrameEvents<ProjectileReflected { bullet, owner, grade, frame }>` (file **neutre**, moment clé
+`reflect`). Lint : `perfect_damage_mult > 0` (fixture `melee_reflect_mult_zero`).
+
+Parade de mêlée (`melee_parry_system`, D149) : pour chaque hitbox active dont l'arme porte `parry`,
+toute hitbox de mêlée **hostile** à son porteur qui la touche géométriquement est **annulée**
+(`despawn_rollback`) avant de pouvoir blesser. Les contacts sont décidés sur le même état puis
+appliqués : deux armes qui se parent mutuellement s'annulent toutes les deux ; une hitbox touchée
+par plusieurs pareurs est créditée au plus petit `GgrsNetId`. Note `Perfect` (même repère) :
+l'attaquant reçoit en plus `perfect_knockback` (velocité, axe pareur → attaquant,
+`Velocity::knockback`) ; sinon annulation seule. `FrameEvents<MeleeParried { parrier, attacker,
+hitbox, grade, frame }>` (file **neutre**, moment clé `parry`). Lint : `perfect_knockback >= 0`
+(fixture `melee_parry_knockback_negative`). Scénarios `parade_projectiles` (testbed : `parade`,
+tourelle d'`arena_tir` : boule renvoyée équipe `Players`, tourelle −16 parfait puis −8 bien),
+`parade_projectiles_instantanee` (`parade_instant`, `perfect_frames: 0` : contact à la frame du coup
+= parfait × 2), `parade_projectiles_expiree` (deux coups : le premier renvoie, le second expire
+avant l'arrivée de la boule — la tourelle reste à 484, preuve que l'expiration passe avant la
+parade), `parade_melee` (`parade_melee` contre le `frappeur` : parfait repoussé à f46, bien au
+contact à f104, seul le troisième coup passe).
 
 **3. Poids des armes** : l'architecture de modificateurs **suffisait** (`MoveSpeed` est lu par les
 inputs via `StatReader`) ; le plus petit verbe ajouté est le champ d'arme `move_speed_mult:
@@ -7958,6 +7976,17 @@ l'arme est active, retiré au changement ou au lâcher (rien d'écrit si rien ne
 (fixture `weapon_move_speed_mult_zero`). Scénarios `arme_lourde` (stat 75, 68 unités en 60 frames) et
 son témoin `arme_lourde_temoin` (150, 135 unités).
 
-**Présentation.** Le **hit stop « cible seule »** et la **musique calée sur l'horloge de simulation**
-ne sont **pas** livrés : voir D150 et D151 (`docs/taches/dettes.md`) et le rapport
-`docs/taches/rapports/x-3-verbes-d1.md` pour le blocage exact. Rien n'est simulé à vide.
+**Présentation.** Hit stop « cible seule » et musique calée sur l'horloge (D150, D151, livrés) :
+`FeedbackSettings::hit_stop_scope` (`Global` par défaut, `Target` surchargeable par `by_kind` /
+`by_weapon`) — en `Target`, seule l'entité touchée fige son animation (`animation::AnimationHold`,
+ticks de rendu ; jamais le joueur local ni la caméra) ; `music: Some((track, clock, event,
+loop_events, max_drift_ms, volume_db))` (`ogg` sous `assets/`, horloge kind `Clock` à `repeat` non
+nul, `loop_events × repeat` frames par boucle, départ sur une occurrence) — `game::music_sync` ne
+lit que `FrameCount`, `Clock` et `ClockSchedule` : pause quand la simulation s'arrête, rattrapage
+au-delà de `max_drift_ms` (défaut 60), `music f… position=… expected=… drift_ms=…` au journal
+(`ALACOD_MUTE=1` : rien n'est joué). Lint : boucle (`repeat` > 0), piste, horloge et événement
+existants, `loop_events >= 1`, dérive et volume bornés. Testbed : `hit_stop_scope: Target` pour
+l'arme `parade_melee`, `music` sur l'horloge `pouls` (piste `metronome.ogg`, deux battements de 40
+frames synthétisés par `scripts/generer-son-metronome.sh`, CC0). Fonctions pures testées
+(`loop_position_frames`, `wrapped_drift`, `decide`) ; preuve à l'écran et mesure de dérive sur
+périphérique réel : voir le rapport (limites Mac).

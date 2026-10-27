@@ -1142,6 +1142,14 @@ fn melee_reflect_mult_zero_fixture_reports_mult() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// X-3 : `parry.perfect_knockback` doit être >= 0.
+#[test]
+fn melee_parry_knockback_negative_fixture_reports_knockback() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("melee_parry_knockback_negative")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "perfect_knockback");
+    assert_only_one_besides_start_map(&errors);
+}
+
 /// X-3 : `move_speed_mult` doit être > 0.
 #[test]
 fn weapon_move_speed_mult_zero_fixture_reports_mult() {

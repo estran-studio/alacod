@@ -122,6 +122,11 @@ pub fn describe_condition(condition: &Condition) -> String {
                 crate::TimingGradeFilter::Miss => {
                     format!("à plus de {} s", seconds(*good_frames))
                 }
+                crate::TimingGradeFilter::Good => format!(
+                    "entre {} s et {} s",
+                    seconds(perfect_frames.saturating_add(1)),
+                    seconds(*good_frames)
+                ),
             };
             format!("{note} de {repere}{decalage}")
         }

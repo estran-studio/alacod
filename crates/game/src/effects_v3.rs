@@ -174,7 +174,7 @@ pub fn apply_event_effects_system(
     table: Option<Res<ItemTable>>,
     synergies: Option<Res<SynergyTable>>,
     assets: EffectAssets,
-    timing: crate::effects_runtime::TimingSource,
+    mut timing: crate::effects_runtime::TimingSource,
 ) {
     let mut queue: BTreeMap<usize, Vec<String>> = BTreeMap::new();
     for event in outbox.iter() {
@@ -257,6 +257,7 @@ pub fn apply_event_effects_system(
                 position: transform.map(|t| (t.translation.x, t.translation.y)),
             };
             let mut out: Vec<EffectOut> = Vec::new();
+            let mut judged: Vec<crate::effects_runtime::TimingJudged> = Vec::new();
             let mut body = Body {
                 entity,
                 has_emitter,
@@ -265,11 +266,13 @@ pub fn apply_event_effects_system(
                 gauges: gauges.as_deref_mut(),
                 commands: &mut commands,
                 out: &mut out,
+                judged: &mut judged,
             };
             run_listed(
                 &listed, &triggers, false, frame, net_id, &view, state, &mut body, &assets, &timing,
             );
             split_outputs(out, &mut next, &mut produced);
+            timing.flush(&mut judged);
         }
         queue = next;
         if round + 1 == MAX_EVENT_ROUNDS && !queue.is_empty() {

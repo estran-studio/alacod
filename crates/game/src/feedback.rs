@@ -170,6 +170,8 @@ impl Plugin for FeedbackPlugin {
         app.init_resource::<FeedbackFx>();
         app.add_systems(Startup, spawn_screen_flash);
         app.add_systems(Update, (tint_champions, tint_transformations));
+        // X-3 : musique calée sur l'horloge de simulation (lecture seule de la simulation).
+        app.add_systems(Update, crate::music_sync::sync_music);
         // Retire le zoom du tick précédent avant que le suivi de caméra ne relise la caméra.
         app.add_systems(
             Update,
@@ -227,6 +229,7 @@ fn apply_feedback_cues(
     targets: Query<(Entity, &GgrsNetId)>,
     mut cameras: Query<(Entity, Option<&mut CameraShake>), With<crate::camera::GameCamera>>,
     mut freeze: ResMut<animation::AnimationFreeze>,
+    holds: Query<&animation::AnimationHold>,
     config: Option<Res<FeedbackConfigLoaded>>,
     mut fx: ResMut<FeedbackFx>,
 ) {
@@ -267,6 +270,14 @@ fn apply_feedback_cues(
                     cue.value as u32,
                     cue.extra,
                 );
+            }
+            // `extra` : 1 = hit stop de la cible seule (X-3) : seule son animation s'arrête, la
+            // caméra et le reste du monde continuent ; 0 = gel global (T1.17).
+            FeedbackKind::HitStop if cue.extra >= 1.0 => {
+                if let Some(entity) = entity_of.get(&cue.net_id) {
+                    let hold = freeze.hold_for(cue.value as u32, holds.get(*entity).ok());
+                    commands.entity(*entity).insert(hold);
+                }
             }
             FeedbackKind::HitStop => freeze.freeze_for(cue.value as u32),
             FeedbackKind::Number => {
@@ -1170,7 +1181,7 @@ impl FeedbackSounds<'_> {
 }
 
 /// `ALACOD_MUTE=1` coupe tous les sons de feedback (présentation seule).
-fn muted() -> bool {
+pub(crate) fn muted() -> bool {
     std::env::var("ALACOD_MUTE")
         .map(|v| v == "1")
         .unwrap_or(false)

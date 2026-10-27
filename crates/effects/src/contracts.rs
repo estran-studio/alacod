@@ -60,6 +60,9 @@ pub enum TimingGradeFilter {
     AtLeastGood,
     /// Hors de la fenêtre large (« raté »).
     Miss,
+    /// « Bien » seulement : hors de la fenêtre parfaite, dans la large. Ajoutée en fin d'enum
+    /// (le hash des variantes d'avant ne bouge pas).
+    Good,
 }
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
