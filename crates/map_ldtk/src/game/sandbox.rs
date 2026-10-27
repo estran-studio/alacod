@@ -258,6 +258,7 @@ mod tests {
             },
             generate_template: None,
             mechanics: vec![],
+            plugin: Default::default(),
             sandbox: Some(SandboxEntry {
                 arena: arena.to_string(),
             }),

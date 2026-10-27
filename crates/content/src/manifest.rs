@@ -144,6 +144,46 @@ pub struct GameManifest {
     /// l'arène est `generate_template.map`. Un jeu qui a un dossier `Sandbox` doit avoir une arène.
     #[serde(default)]
     pub sandbox: Option<SandboxEntry>,
+    /// X-1 (`docs/conventions.md` §91) : vocabulaire que le **plugin Rust** du jeu apporte, déclaré
+    /// en données pour que `alacod lint` (binaire sans le code du jeu) le connaisse. Absent : le jeu
+    /// n'a pas de plugin, aucun `Custom` n'est accepté.
+    #[serde(default)]
+    pub plugin: PluginDecl,
+}
+
+/// `plugin: (kinds: ["Crate"], behaviors: ["rush"], actions: [..], conditions: [..], lint_rules: [..])`
+/// (X-1, §91) : les noms que le plugin du jeu déclare. Le lint refuse un `Custom` dont l'id n'est pas
+/// dans la liste de son espace, un dossier de contenu de kind inconnu qui n'est pas dans `kinds`, et
+/// (binaire du jeu) toute déclaration que le plugin ne fournit pas, ou l'inverse. Les règles de lint
+/// (`lint_rules`) sont du Rust : seul le binaire du jeu les exécute.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct PluginDecl {
+    /// Kinds de contenu (`content_folders[].kind`) : fichiers RON, id = nom du fichier, lus par le plugin.
+    #[serde(default)]
+    pub kinds: Vec<String>,
+    /// Ids des `Behavior::Custom`.
+    #[serde(default)]
+    pub behaviors: Vec<String>,
+    /// Ids des `Action::Custom`.
+    #[serde(default)]
+    pub actions: Vec<String>,
+    /// Ids des `Condition::Custom`.
+    #[serde(default)]
+    pub conditions: Vec<String>,
+    /// Noms des règles de lint écrites en Rust par le plugin.
+    #[serde(default)]
+    pub lint_rules: Vec<String>,
+}
+
+impl PluginDecl {
+    /// Le jeu ne déclare rien.
+    pub fn is_empty(&self) -> bool {
+        self.kinds.is_empty()
+            && self.behaviors.is_empty()
+            && self.actions.is_empty()
+            && self.conditions.is_empty()
+            && self.lint_rules.is_empty()
+    }
 }
 
 /// `hub: Some((map: "maps/hub.ldtk"))` (M2-T13, §57) : la carte LDtk du hub, relative à

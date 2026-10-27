@@ -19,6 +19,7 @@ utils = { path = "../../crates/utils" }
 content = { path = "../../crates/content" }
 map = { path = "../../crates/map" }
 game = { path = "../../crates/game" }
+entry = { path = "../../crates/entry" }
 map_ldtk = { path = "../../crates/map_ldtk" }
 bevy_fixed = { path = "../../crates/bevy_fixed" }
 animation = { path = "../../crates/animation" }

@@ -31,6 +31,7 @@ use effects::actions::Scale;
 use effects::runtime::Trigger;
 use effects::Action;
 use items::{ItemTable, SynergyTable};
+use sim_core::custom::CustomParams;
 use sim_core::frame_events::{FrameEvents, FrameEventsAppExt};
 use sim_core::modifier::{Modifier, ModifierOp, ModifierSource, Modifiers};
 use sim_core::stats::StatId;
@@ -71,6 +72,15 @@ pub enum EffectOut {
         status: String,
         stacks: u32,
     },
+    /// X-1 (§91) : `Action::Custom` du porteur `carrier`, à exécuter par le plugin du jeu (qui lit
+    /// la file après `effect_status_system`, dernier système de la chaîne d'effets, voir
+    /// `crate::extension::custom_actions`). `target` : la cible du déclencheur, s'il en a une.
+    Custom {
+        carrier: usize,
+        target: Option<usize>,
+        id: String,
+        params: CustomParams,
+    },
 }
 
 /// Ce qu'une action d'effet devient une fois `Scaled` appliqué.
@@ -87,6 +97,8 @@ pub enum Step<'a> {
         status: String,
         stacks: u32,
     },
+    /// X-1 : `Action::Custom`, exécutée par le plugin du jeu (`EffectOut::Custom`).
+    Custom { id: String, params: CustomParams },
     /// Rien à faire (`PerCopy` d'un exemplaire qui n'est pas le premier, action non multipliable,
     /// zéro exemplaire).
     Skip,
@@ -106,6 +118,7 @@ impl Step<'_> {
                 status,
                 stacks,
             },
+            Step::Custom { id, params } => Step::Custom { id, params },
             Step::Skip => Step::Skip,
         }
     }
@@ -117,6 +130,10 @@ impl Step<'_> {
 pub fn classify(action: &Action, copy_rank: u32, copies: u32) -> Step<'_> {
     match action {
         Action::Emit(name) => Step::Emit(name.clone()),
+        Action::Custom { id, params } => Step::Custom {
+            id: id.clone(),
+            params: params.clone(),
+        },
         Action::ApplyStatus { status, stacks } => Step::Status {
             to_self: false,
             status: status.clone(),
@@ -555,6 +572,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<bevy_ggrs::RollbackOrdered>()
             .init_resource::<WeaponRegistry>()
+            .init_resource::<crate::extension::CustomVerbs>()
             .insert_resource(FrameCount { frame: 10 })
             .init_resource::<FrameEvents<EffectOut>>()
             .init_resource::<FrameEvents<HitLanded>>();

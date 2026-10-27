@@ -18,6 +18,7 @@ use bevy::prelude::{App, Component, Plugin};
 use bevy_fixed::fixed_math::Fixed;
 use serde::{Deserialize, Serialize};
 use sim_core::{
+    custom::CustomParams,
     kinds::{KindDecl, KindRegistry},
     tag::Tag,
 };
@@ -82,6 +83,15 @@ pub enum Behavior {
     /// M3-T0d : une balle hostile qui touche le familier est détruite (comme le blank) ; le
     /// familier est immunisé.
     BlockBullets,
+    /// X-1 (`docs/conventions.md` §91) : behavior **propre à un jeu**, exécuté par son plugin
+    /// (`id` déclaré dans `plugin.behaviors` de `game.ron`, `params` bruts décodés par le plugin).
+    /// Sa règle est retenue quand le plugin le déclare applicable ([`select_with`]) ; son
+    /// déplacement vient de lui (`game::extension::CustomBehaviorImpl`). Variante en fin d'enum.
+    Custom {
+        id: String,
+        #[serde(default)]
+        params: CustomParams,
+    },
 }
 
 /// Familier lié à son porteur (M3-T0d, §63). Composant rollback **neutre** : sans porteur de ce
@@ -116,8 +126,8 @@ pub enum FormationShape {
 }
 
 impl Behavior {
-    /// Nom de la variante (attente `EnemyState`, logs).
-    pub fn name(&self) -> &'static str {
+    /// Nom de la variante (attente `EnemyState`, logs) ; l'`id` d'un `Custom`.
+    pub fn name(&self) -> &str {
         match self {
             Behavior::Chase { .. } => "Chase",
             Behavior::KeepDistance { .. } => "KeepDistance",
@@ -132,6 +142,7 @@ impl Behavior {
             Behavior::Orbit { .. } => "Orbit",
             Behavior::MirrorShot { .. } => "MirrorShot",
             Behavior::BlockBullets => "BlockBullets",
+            Behavior::Custom { id, .. } => id,
         }
     }
 }
@@ -167,8 +178,22 @@ pub struct SelectionContext {
 /// `CHARGE_REACH × attack_range`.
 pub const CHARGE_REACH: i32 = 3;
 
-/// Applicabilité implicite d'une règle (`index` dans la liste, pour l'hystérésis).
+/// Applicabilité implicite d'une règle (`index` dans la liste, pour l'hystérésis). Un `Custom` n'est
+/// jamais applicable ici : voir [`applicable_with`].
 pub fn applicable(index: usize, behavior: &Behavior, ctx: &SelectionContext) -> bool {
+    applicable_with(index, behavior, ctx, &|_, _| false)
+}
+
+/// Décide si un behavior `Custom { id, params }` est applicable (fourni par le plugin du jeu).
+pub type CustomApplicable<'a> = dyn Fn(&str, &CustomParams) -> bool + 'a;
+
+/// Comme [`applicable`], un `Custom { id, params }` étant tranché par `custom` (X-1).
+pub fn applicable_with(
+    index: usize,
+    behavior: &Behavior,
+    ctx: &SelectionContext,
+    custom: &CustomApplicable,
+) -> bool {
     let distance = ctx.target_distance;
     match behavior {
         Behavior::Melee(_) => ctx.melee_in_reach,
@@ -201,15 +226,25 @@ pub fn applicable(index: usize, behavior: &Behavior, ctx: &SelectionContext) -> 
         | Behavior::Orbit { .. }
         | Behavior::MirrorShot { .. }
         | Behavior::BlockBullets => false,
+        Behavior::Custom { id, params } => custom(id, params),
     }
 }
 
 /// Sélection par priorité : index de la première règle applicable, `None` si aucune.
 pub fn select(rules: &[Behavior], ctx: &SelectionContext) -> Option<usize> {
+    select_with(rules, ctx, &|_, _| false)
+}
+
+/// Comme [`select`], avec l'applicabilité des `Custom` fournie par le plugin du jeu.
+pub fn select_with(
+    rules: &[Behavior],
+    ctx: &SelectionContext,
+    custom: &CustomApplicable,
+) -> Option<usize> {
     rules
         .iter()
         .enumerate()
-        .find(|(index, behavior)| applicable(*index, behavior, ctx))
+        .find(|(index, behavior)| applicable_with(*index, behavior, ctx, custom))
         .map(|(index, _)| index)
 }
 

@@ -1,0 +1,10 @@
+// Profil `arene` de la preuve X-1 : le joueur porte l'objet `prime` (condition et action `Custom` du plugin) et
+// un `walker` (behavior `rush` du plugin) est posé à 200 unités. Remplace celui du gabarit.
+(
+    players: [
+        (currency: 1000, items: ["prime"]),
+    ],
+    characters: [
+        (character: "walker", x: "624", y: "696", at_frame: 1),
+    ],
+)

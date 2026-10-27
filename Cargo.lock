@@ -4436,6 +4436,7 @@ dependencies = [
  "effects",
  "items",
  "meta",
+ "parking_lot",
  "ron 0.12.2",
  "run",
  "schemars",
@@ -5344,6 +5345,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "entry"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.19.1",
+ "content",
+ "game",
+ "map_ldtk",
+ "scenario",
+ "serde_json",
+]
+
+[[package]]
 name = "enum-as-inner"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5896,6 +5909,7 @@ dependencies = [
  "matchbox_protocol",
  "meta",
  "once_cell",
+ "parking_lot",
  "pathfinding",
  "ron 0.12.2",
  "run",
@@ -6555,6 +6569,7 @@ dependencies = [
  "bevy_fixed",
  "bevy_ggrs",
  "content",
+ "entry",
  "game",
  "map",
  "map_ldtk",
@@ -7202,6 +7217,7 @@ dependencies = [
  "bevy_fixed",
  "bevy_ggrs",
  "content",
+ "entry",
  "game",
  "map",
  "map_ldtk",
@@ -11096,6 +11112,7 @@ dependencies = [
  "bevy_fixed",
  "bevy_ggrs",
  "content",
+ "entry",
  "game",
  "map",
  "map_ldtk",
@@ -11181,6 +11198,7 @@ dependencies = [
  "bevy_fixed",
  "bevy_ggrs",
  "content",
+ "entry",
  "game",
  "map",
  "map_ldtk",
@@ -13738,6 +13756,7 @@ dependencies = [
  "bevy_fixed",
  "bevy_ggrs",
  "content",
+ "entry",
  "game",
  "getrandom 0.2.17",
  "map",

@@ -49,4 +49,5 @@ pub mod tag;
 pub mod team;
 pub mod triggers;
 
+pub mod custom;
 pub mod interaction;

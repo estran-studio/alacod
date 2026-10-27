@@ -3,6 +3,7 @@
 //! [`Carrier`] de chaque porteur, puis applique les actions des effets qui se déclenchent.
 
 use bevy_fixed::fixed_math::Fixed;
+use sim_core::custom::CustomParams;
 use sim_core::tag::{Tag, Tags};
 
 use crate::{Condition, Effect, GaugeThreshold, On};
@@ -41,6 +42,8 @@ pub fn condition_supported(condition: &Condition) -> bool {
             | Condition::Carrying(_)
             | Condition::SquadSize(_)
             | Condition::TargetInRange(_)
+            // X-1 : exécutée par le plugin du jeu (`game::extension`) ; le lint exige l'id déclaré.
+            | Condition::Custom { .. }
     )
 }
 
@@ -160,11 +163,26 @@ pub fn tick_due(on: &On, posed_frame: u32, frame: u32) -> bool {
 }
 
 /// Toutes les conditions (ET). `TargetTag` lit la cible d'`OnKill` ou la source
-/// d'`OnDamageTaken` (faux sans cible). Une condition non supportée est fausse.
+/// d'`OnDamageTaken` (faux sans cible). Une condition non supportée est fausse, et toute
+/// condition `Custom` aussi : voir [`conditions_hold_with`] pour les évaluer.
 pub fn conditions_hold(
     conditions: &[Condition],
     carrier: &Carrier,
     trigger: Option<&Trigger>,
+) -> bool {
+    conditions_hold_with(conditions, carrier, trigger, &|_, _, _, _| false)
+}
+
+/// Évaluateur d'une condition `Custom` : `(id, paramètres, porteur, déclencheur)` (X-1, fourni par
+/// le plugin du jeu, `game::extension::CustomVerbs`).
+pub type CustomCondition<'a> = dyn Fn(&str, &CustomParams, &Carrier, Option<&Trigger>) -> bool + 'a;
+
+/// Comme [`conditions_hold`], une condition `Custom { id, params }` étant évaluée par `custom`.
+pub fn conditions_hold_with(
+    conditions: &[Condition],
+    carrier: &Carrier,
+    trigger: Option<&Trigger>,
+    custom: &CustomCondition,
 ) -> bool {
     conditions.iter().all(|condition| match condition {
         Condition::HpBelow(fraction) => {
@@ -180,7 +198,7 @@ pub fn conditions_hold(
         Condition::TargetInRange(range) => {
             target_in_range(carrier.position, target_position(trigger), *range)
         }
-        _ => false,
+        Condition::Custom { id, params } => custom(id, params, carrier, trigger),
     })
 }
 

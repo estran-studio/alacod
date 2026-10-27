@@ -12,7 +12,7 @@
 //! (checksum neutre), mis à jour par [`behavior_select_system`] ; leur déplacement est
 //! appliqué par `move_enemies` via [`behavior_motion`].
 
-use behaviors::{select, Behavior, BossState, SelectionContext};
+use behaviors::{select_with, Behavior, BossState, SelectionContext};
 use bevy::prelude::*;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use combat::{actors::Health, downed::Downed, emitter::Emitter};
@@ -106,14 +106,14 @@ pub const HEARING_FRAMES: u32 = 120;
 /// Règle retenue d'un ennemi, nom de variante (attente `EnemyState`) : celle de
 /// [`BehaviorRuntime`] s'il en porte une, sinon dérivée de l'état des règles d'origine
 /// (séquence de tir en cours : `Shoot` ; `Attacking` : `Melee` ; cible connue : `Chase`).
-pub fn current_rule(
-    rules: &EnemyBehaviors,
+pub fn current_rule<'a>(
+    rules: &'a EnemyBehaviors,
     runtime: Option<&BehaviorRuntime>,
     state: &MonsterState,
     target: &EnemyTarget,
     shooting: bool,
     phase: u32,
-) -> Option<&'static str> {
+) -> Option<&'a str> {
     if let Some(runtime) = runtime {
         return runtime
             .selected
@@ -171,6 +171,8 @@ pub fn behavior_select_system(
     bullet_query: Query<(&GgrsNetId, &Bullet, &fixed_math::FixedTransform3D)>,
     // M2-T8 : tour de tir d'un membre d'escouade (dérivé, voir `squad`).
     squad_slots: Res<super::squad::SquadSlots>,
+    // X-1 : applicabilité des behaviors `Custom` du plugin du jeu.
+    custom: Res<crate::extension::CustomVerbs>,
 ) {
     let now = frame.frame;
     for (
@@ -262,7 +264,10 @@ pub fn behavior_select_system(
         let selected = if combat::status::incapacitated(statuses) || charmed {
             None
         } else {
-            select(phase_rules, &ctx).map(|index| index as u32)
+            select_with(phase_rules, &ctx, &|id, params| {
+                custom.behavior_applicable(id, params, &ctx)
+            })
+            .map(|index| index as u32)
         };
         if selected != runtime.selected {
             runtime.since_frame = now;
@@ -398,6 +403,8 @@ pub fn behavior_motion(
     body: &AgentBody,
     // M2-T8 : place de l'ennemi dans son escouade (`Formation`).
     slot: Option<&super::squad::SquadSlot>,
+    // X-1 : déplacement des behaviors `Custom` du plugin du jeu.
+    custom: &crate::extension::CustomVerbs,
 ) -> Option<BehaviorMotion> {
     let rule = runtime
         .selected
@@ -466,6 +473,16 @@ pub fn behavior_motion(
             },
             _ => still(),
         }),
+        Behavior::Custom { id, params } => custom.behavior_motion(
+            id,
+            params,
+            &crate::extension::CustomMotionView {
+                now,
+                since_frame: runtime.since_frame,
+                position,
+                target,
+            },
+        ),
         _ => None,
     }
 }
@@ -584,6 +601,7 @@ mod tests {
                 down: fixed_math::new(16.0),
             },
             None,
+            &crate::extension::CustomVerbs::default(),
         )
         .unwrap();
         let second = behavior_motion(
@@ -601,6 +619,7 @@ mod tests {
                 down: fixed_math::new(16.0),
             },
             None,
+            &crate::extension::CustomVerbs::default(),
         )
         .unwrap();
         // Perpendiculaire à la cible (axe x) : le long de y, sens opposés.
@@ -638,6 +657,7 @@ mod tests {
                 down: fixed_math::new(16.0),
             },
             None,
+            &crate::extension::CustomVerbs::default(),
         )
         .unwrap();
         assert_eq!(telegraph.speed_mult, fixed_math::FIXED_ZERO);
@@ -660,6 +680,7 @@ mod tests {
                 down: fixed_math::new(16.0),
             },
             None,
+            &crate::extension::CustomVerbs::default(),
         )
         .unwrap();
         assert_eq!(rush.speed_mult, fixed_math::Fixed::from_num(3));

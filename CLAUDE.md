@@ -342,6 +342,31 @@ vitesse de repli, défauts de santé, arme inconnue ignorée par un `warn!`) mas
 plus d'`OnlineState` ni de `GggrsSessionConfiguration` dans la simulation. Une surcharge de scénario vise l'**enveloppe** (avant la résolution), jamais `ResolvedBalance`.
 Une table vide est masquée par les replis des lecteurs (`let Some(..) else return`) : tester les ressources (`crates/scenario/tests/balance_tables.rs`).
 
+### Entrée unique d'un jeu et plugin Rust (X-1, `docs/conventions.md` §91)
+
+Le `main.rs` d'un jeu (clones de `games/*` et gabarit `templates/starter`) ne fait que déclarer son nom, son dossier et ses plugins :
+`entry::run(GameSpec::new("jeu", env!("CARGO_MANIFEST_DIR")).plugin(MonPlugin))` (crate `crates/entry`, web : `GameSpec::embedded`). C'est
+**le** point d'entrée : la partie, `--sandbox`, le runner de scénarios (`<jeu> scenarios gen [--play] …` / `<jeu> scenarios play [chemin] [--bless]`,
+le code d'`alacod-gen` dans `scenario::cli`) et le lint (`<jeu> lint`, règles Rust du plugin comprises) passent par lui, donc voient tous le
+plugin. Aucun jeu n'assemble lui-même `CoreSetupPlugin`/`LdtkLocalGamePlugin` ; un comportement propre à un jeu (graine de zombies) est un
+`GamePlugin::assemble`.
+
+**Contrats d'un plugin de jeu** (`game::extension`, `docs/plan-engine.md` §4.8) :
+- **Vocabulaire déclaré deux fois, comparé dans les deux sens** : en données dans `game.ron` (`plugin: (kinds, behaviors, actions, conditions,
+  lint_rules)`) pour que `alacod lint` (binaire sans le code du jeu) le connaisse, et en Rust (`GamePlugin::extension`). Un `Custom` d'un id
+  non déclaré, un kind inconnu, un nom déclaré mais non fourni (ou l'inverse) sont des erreurs de lint. Les règles de lint Rust ne tournent
+  que dans le binaire du jeu (`alacod lint` l'annonce en avertissement `PluginRulesNotRun`).
+- **Rollback** : `GamePlugin::build` est appelé par `CoreSimPlugin` **avant** les cinq enregistrements de clôture, dans toute application
+  (partie, runner, bots) : mêmes règles que la checklist ci-dessous (`rollback_and_trace*`, `_neutral` pour un type posé sur de nouvelles
+  entités, `FrameEvents`, `order_iter!`, `despawn_rollback`). Ses systèmes `GgrsSchedule` se placent par `RollbackSystemSet` ; ceux qui lisent
+  des `Action::Custom` se placent `.after(game::effects_v3::effect_status_system)` (dernier système de la chaîne d'effets, qui voit aussi les `Custom` des tours `OnEvent` ; `custom_actions`).
+- **`Custom`** : `Behavior::Custom`, `Condition::Custom`, `Action::Custom` portent `id` + `params` (table texte → texte, `Fixed` en chaîne,
+  `CustomParams::fixed/uint`) ; behavior et condition s'exécutent par les fonctions de `Extension` (jamais de `f32`), l'action par un système
+  qui lit `FrameEvents<EffectOut>`. Un `Custom` n'est admis que dans un effet de personnage ou d'objet.
+- **Contenu** : un kind de plugin (`plugin.kinds`) charge des `.ron` dans `Registry::plugin_content` (syntaxe et ids vérifiés, le plugin
+  décode) ; sa règle de lint (`content::plugin::rule_error`) vérifie le sens et les références.
+- **Preuve** : un plugin se prouve par des scénarios joués **par le binaire du jeu** (`<jeu> scenarios play`), avec leur trace.
+
 ## Headless, trace d'état et déterminisme
 
 Variables d'environnement (natif) :

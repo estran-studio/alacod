@@ -1679,10 +1679,10 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             entity, behavior, ..
         } => match enemy_rule(world, entity) {
             Err(reason) => Err(reason),
-            Ok(Some(found)) if found == behavior => Ok(()),
+            Ok(Some(found)) if found == *behavior => Ok(()),
             Ok(found) => Err(format!(
                 "behavior retenu {}, {behavior} attendu",
-                found.unwrap_or("aucun")
+                found.as_deref().unwrap_or("aucun")
             )),
         },
         Expectation::SquadSize {
@@ -3140,7 +3140,7 @@ fn resolve_entity(world: &mut World, entity: &game::replay::EntityRef) -> Option
 fn enemy_rule(
     world: &mut World,
     entity: &game::replay::EntityRef,
-) -> Result<Option<&'static str>, String> {
+) -> Result<Option<String>, String> {
     use game::character::enemy::ai::rules::current_rule;
     use game::character::enemy::ai::state::{
         BehaviorRuntime, EnemyBehaviors, EnemyTarget, MonsterState, RangedAttackState,
@@ -3167,7 +3167,8 @@ fn enemy_rule(
         target,
         shooting,
         boss.map_or(0, |b| b.phase),
-    ))
+    )
+    .map(str::to_string))
 }
 
 /// `EnemyVariant` (T1.5) : variante du personnage (`None` sans composant `Variant`).

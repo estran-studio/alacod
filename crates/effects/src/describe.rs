@@ -95,6 +95,7 @@ pub fn describe_condition(condition: &Condition) -> String {
         Condition::Carrying(item) => format!("en portant {item}"),
         Condition::SquadSize(n) => format!("à {n} joueurs ou plus"),
         Condition::TargetInRange(range) => format!("cible à moins de {}", number(*range)),
+        Condition::Custom { id, .. } => format!("si {id}"),
     }
 }
 
@@ -183,6 +184,7 @@ pub fn describe_action(action: &Action) -> String {
         }
         Action::ApplyStatusSelf { status, .. } => format!("vous subissez {status}"),
         Action::GainSoul(n) => format!("gagnez {} point(s) de vie d'âme", number(*n)),
+        Action::Custom { id, .. } => id.clone(),
     }
 }
 

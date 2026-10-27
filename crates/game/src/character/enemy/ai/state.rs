@@ -632,6 +632,8 @@ impl EnemyBehaviors {
                         | Behavior::Flee
                         | Behavior::Wander
                         | Behavior::Formation { .. }
+                        // X-1 : l'état du `Custom` (règle retenue) vit dans `BehaviorRuntime`
+                        | Behavior::Custom { .. }
                 )
             })
     }

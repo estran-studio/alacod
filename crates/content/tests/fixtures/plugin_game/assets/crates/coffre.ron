@@ -1,0 +1,2 @@
+// Kind `Crate` du plugin du jeu : une caisse qui pèse 3 (lue par `grant_bounty`).
+(weight: 3)

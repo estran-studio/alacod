@@ -477,6 +477,13 @@ pub enum BehaviorEntry {
         every: u32,
     },
     BlockBullets,
+    /// X-1 (§91) : mirroir de `behaviors::Behavior::Custom` ; l'id est validé par le lint contre
+    /// `plugin.behaviors`, les paramètres par la règle de lint du plugin.
+    Custom {
+        id: String,
+        #[serde(default)]
+        params: sim_core::custom::CustomParams,
+    },
 }
 
 /// M2-T8 : mirroir de `behaviors::FormationShape`.
@@ -1714,6 +1721,11 @@ pub struct Registry {
     pub clocks: BTreeMap<ClockId, ClockEntry>,
     /// SB-1 : profils de bac à sable (kind `Sandbox`, `sandbox/<id>.ron`), par id.
     pub sandbox_profiles: BTreeMap<String, SandboxProfileEntry>,
+    /// X-1 (§91) : vocabulaire déclaré par le plugin du jeu (`plugin` de `game.ron`), lu par le lint.
+    pub plugin: crate::manifest::PluginDecl,
+    /// X-1 (§91) : contenu des kinds déclarés par le plugin (`plugin.kinds`), par kind puis par id
+    /// (nom du fichier). Le RON est **vérifié** (syntaxe, ids uniques) mais pas typé : le plugin le décode.
+    pub plugin_content: BTreeMap<String, BTreeMap<String, PluginContentEntry>>,
     /// T1.9 : difficulté (kind `Difficulty`, un fichier ; le dernier chargé gagne).
     pub difficulty: Option<DifficultyEntry>,
     /// T2.3, chantier C5 v1.
@@ -1846,21 +1858,35 @@ impl Registry {
         let mut registry = Registry {
             game_dir: game_dir.to_path_buf(),
             embedded_files,
+            plugin: manifest.plugin.clone(),
             ..Default::default()
         };
         let mut errors = Vec::new();
         let kinds = known_content_kinds();
 
         for decl in &manifest.content_folders {
+            // X-1 : un kind déclaré par le plugin du jeu (`plugin.kinds`) ; un nom que l'engine connaît
+            // déjà est refusé par le lint (`lint_plugin`), jamais ici (l'engine gagne).
+            if !kinds.has("content_folder", &decl.kind)
+                && manifest.plugin.kinds.contains(&decl.kind)
+            {
+                load_plugin_kind(&assets_dir, decl, &mut registry, &mut errors);
+                continue;
+            }
             if !kinds.has("content_folder", &decl.kind) {
                 errors.push(LintError {
                     kind: LintErrorKind::UnknownKind,
                     file: MANIFEST_FILE_NAME.to_string(),
                     message: format!(
-                        "content_folders : kind « {} » inconnu pour le dossier « {} » (connus : {})",
+                        "content_folders : kind « {} » inconnu pour le dossier « {} » (connus : {}{})",
                         decl.kind,
                         decl.path,
-                        KNOWN_KIND_NAMES.join(", ")
+                        KNOWN_KIND_NAMES.join(", "),
+                        if manifest.plugin.kinds.is_empty() {
+                            String::new()
+                        } else {
+                            format!(" ; du plugin : {}", manifest.plugin.kinds.join(", "))
+                        }
                     ),
                 });
                 continue;
@@ -3262,6 +3288,78 @@ fn load_sandbox_profiles(
                 id,
                 file: rel,
                 profile,
+            },
+        );
+    }
+}
+
+/// X-1 (§91) : entrée d'un kind de contenu déclaré par le plugin du jeu. `text` est le RON du
+/// fichier, tel quel : le plugin le décode dans ses propres types.
+#[derive(Debug, Clone)]
+pub struct PluginContentEntry {
+    pub id: String,
+    pub file: PathBuf,
+    pub text: String,
+}
+
+/// X-1 (§91) : charge un kind du plugin (`.ron`, id = nom du fichier). Vérifie que le RON se lit
+/// (syntaxe) et que les ids sont uniques ; le sens des valeurs est le travail du plugin (sa règle de lint).
+fn load_plugin_kind(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+    let entries = registry
+        .plugin_content
+        .entry(decl.kind.clone())
+        .or_default();
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        if let Err(e) = ron::from_str::<ron::Value>(&text) {
+            errors.push(LintError {
+                kind: LintErrorKind::Parse,
+                file: rel.display().to_string(),
+                message: format!("erreur RON : {e}"),
+            });
+            continue;
+        }
+        let id = rel
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_string();
+        if let Some(existing) = entries.get(&id) {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "id {} « {id} » déjà défini dans {}",
+                    decl.kind,
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        entries.insert(
+            id.clone(),
+            PluginContentEntry {
+                id,
+                file: rel,
+                text,
             },
         );
     }

@@ -66,9 +66,7 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
   `character/enemy/ai/navigation.rs:30`, alignées sur les tuiles LDtk) ; un jeu à grands sprites garde donc des unités de monde « à la taille des
   cases » et réduit ses planches par `scale` (X-4a le documente, X-4b le propose à l'import). Pivot : aux pieds (design de 1837), à vérifier sur une
   planche réelle en X-4b (le manifeste le place à mi-hauteur).
-- **Ennemis de D1 (ex-Q-2, tranché par William le 2026-10-26)** : **petit rôdeur** (charge en zigzag, recul) et **tireur qui recule** (tir annoncé,
-  couvert pendant le rechargement), inspirés des adversaires de Gungeon (`1867_lore/design/archetypes-ennemis.md`). Sprites : `fantassin-de-ligne`
-  ou `volontaire-loyaliste` pour le tireur ; `loup-hiver-1837` provisoire pour le rôdeur.
+- **Ennemis de D1 (décision révisée par William le 2026-10-26)** : deux fantassins pour le cœur 30 s, dans le **dépôt externe de 1837**. Le choix initial d'un petit rôdeur et d'un tireur qui recule est remplacé ; aucun de ces archétypes ni leurs sprites ne devient du contenu de l'engine. Les règles de comportement composables restent génériques.
 
 À trancher par William (bloque seulement le lot indiqué) :
 - **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md`.
@@ -83,7 +81,7 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
 | **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | — (verbes natifs de l'engine ; conflits possibles avec les `Custom` de X-1 dans les mêmes enums, résolus au merge) | C (Mac) | high |
 | **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | D (Mac) | medium |
 | **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a, X-2a (`alacod.rs`) | D | medium |
-| **X-5 Création de 1837 et palier D1** | `alacod new 1837`, assets du kit Frontière importés, une pièce, rôdeur et tireur qui recule, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; échelle réglée en jouant ; tout par `alacod` | X-1 à X-4, D-a | A ou B | medium |
+| **X-5 Création de 1837 et palier D1** | `alacod new 1837`, assets du kit Frontière importés, une pièce, deux fantassins, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; échelle réglée en jouant ; tout par `alacod` | X-1 à X-4, D-a | A ou B | medium |
 | **X-6 Paliers D2 à D5** | verbes `Lure`/`Grab`, contrainte de branche de la clé du boss (`map::generation::grid`), graine de la sauvegarde (`meta::Profile`), extérieur dessiné → intérieur généré ; contenu des paliers | X-5, Q-3 | — | à planifier |
 
 Chemin critique : X-1 → X-2b → X-5. Quatre voies depuis le 2026-10-26 (Mac disponible) : A = X-1 puis X-2b (VPS), B = X-2a (VPS),

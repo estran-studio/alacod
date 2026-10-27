@@ -699,3 +699,363 @@ fn new_game_opens_its_sandbox_without_any_added_code() {
     assert!(status.success(), "{status}");
     assert!(trace.exists());
 }
+
+// ---------------------------------------------------------------------------------------
+// plugin Rust d'un jeu externe (X-1, docs/conventions.md §91)
+// ---------------------------------------------------------------------------------------
+
+/// Jeu de la preuve : `alacod new plugdemo`, puis le plugin, le contenu et le scénario de
+/// `tests/fixtures/plugin_game` posés par-dessus (le gabarit fournit le reste : carte, armes, sprites).
+fn plugin_game(tmp: &Tmp) -> PathBuf {
+    let out = new_game(tmp, "plugdemo", &[]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    let game = tmp.0.join("plugdemo");
+    fn copy_over(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap() {
+            let entry = entry.unwrap();
+            let target = to.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_over(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+    copy_over(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/plugin_game"),
+        &game,
+    );
+    game
+}
+
+fn error_kinds(json: &serde_json::Value) -> Vec<(String, String)> {
+    json["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["kind"].as_str().unwrap().to_string(),
+                e["message"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+/// `alacod lint` (binaire sans le code du jeu) connaît le vocabulaire du plugin par `game.ron` : le jeu
+/// qui l'utilise passe, tout `Custom` ou kind non déclaré est une erreur, et les règles Rust du plugin,
+/// que seul son binaire exécute, sont signalées en avertissement.
+#[test]
+fn alacod_lint_knows_the_plugin_vocabulary_from_game_ron() {
+    let tmp = Tmp::new("plugin-lint");
+    let game = plugin_game(&tmp);
+
+    let (ok, json) = lint_json(&game);
+    assert!(ok, "{json}");
+    assert_eq!(json["errors"], serde_json::json!([]));
+    let warnings = json["warnings"].to_string();
+    assert!(
+        warnings.contains("PluginRulesNotRun") && warnings.contains("crate_weights"),
+        "{warnings}"
+    );
+
+    // Un id retiré de la déclaration : chacun des trois verbes est refusé, nommé.
+    let manifest = game.join("assets/game.ron");
+    let original = std::fs::read_to_string(&manifest).unwrap();
+    for (declared, name, what) in [
+        ("behaviors: [\"rush\"]", "rush", "behavior Custom"),
+        (
+            "actions: [\"grant_bounty\"]",
+            "grant_bounty",
+            "action Custom",
+        ),
+        (
+            "conditions: [\"after_frame\"]",
+            "after_frame",
+            "condition Custom",
+        ),
+    ] {
+        let key = declared.split(':').next().unwrap();
+        std::fs::write(&manifest, original.replace(declared, &format!("{key}: []"))).unwrap();
+        let (ok, json) = lint_json(&game);
+        assert!(!ok, "{what} non déclaré accepté");
+        assert!(
+            error_kinds(&json).iter().any(|(kind, message)| {
+                kind == "UndeclaredCustom" && message.contains(name) && message.contains(what)
+            }),
+            "{what} : {json}"
+        );
+    }
+
+    // Un kind de contenu que ni l'engine ni le plugin ne déclarent.
+    std::fs::write(
+        &manifest,
+        original.replace("kinds: [\"Crate\"]", "kinds: []"),
+    )
+    .unwrap();
+    let (ok, json) = lint_json(&game);
+    assert!(!ok);
+    assert!(
+        error_kinds(&json)
+            .iter()
+            .any(|(kind, message)| kind == "UnknownKind" && message.contains("Crate")),
+        "{json}"
+    );
+
+    // Un kind du plugin qui reprend le nom d'un kind de l'engine.
+    std::fs::write(
+        &manifest,
+        original.replace("kinds: [\"Crate\"]", "kinds: [\"Crate\", \"Item\"]"),
+    )
+    .unwrap();
+    let (ok, json) = lint_json(&game);
+    assert!(!ok);
+    assert!(
+        error_kinds(&json)
+            .iter()
+            .any(|(kind, message)| kind == "PluginMismatch" && message.contains("Item")),
+        "{json}"
+    );
+}
+
+/// Un `Custom` hors d'un effet (power-up, frise de boss) est refusé : seuls les effets de personnage et
+/// d'objet le portent (le plugin lit `EffectOut::Custom`).
+#[test]
+fn custom_action_is_refused_outside_effects() {
+    let tmp = Tmp::new("plugin-power-up");
+    let game = plugin_game(&tmp);
+    let powerups = game.join("assets/economy/powerups.ron");
+    std::fs::write(
+        &powerups,
+        r#"(
+    drop_chance: "0.0",
+    powerups: {
+        "bounty": (
+            name: "Prime",
+            weight: 1,
+            pickup_range: "30.0",
+            lifetime_frames: 60,
+            actions: [Custom(id: "grant_bounty", params: {"crate": "coffre"})],
+        ),
+    },
+)
+"#,
+    )
+    .unwrap();
+    let manifest = game.join("assets/game.ron");
+    let text_ron = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(
+        &manifest,
+        text_ron.replace(
+            "(path: \"crates\", kind: \"Crate\"),",
+            "(path: \"crates\", kind: \"Crate\"),\n        (path: \"economy/powerups.ron\", kind: \"PowerUp\"),",
+        ),
+    )
+    .unwrap();
+    let (ok, json) = lint_json(&game);
+    assert!(!ok, "{json}");
+    assert!(
+        error_kinds(&json)
+            .iter()
+            .any(|(_, message)| message.contains("Custom réservée aux effets")),
+        "{json}"
+    );
+}
+
+/// Le jeu de la preuve de bout en bout : son binaire (plugin compris) lint le contenu avec la règle du
+/// plugin, génère ses scénarios, joue son scénario écrit à la main avec sa trace, et refuse un contenu
+/// que sa règle de lint rejette. Compile l'engine et le jeu (≈ 10 min à froid).
+#[test]
+#[ignore = "compile un jeu créé hors de l'engine (≈ 10 min à froid) : make test_alacod_cli"]
+fn plugin_game_runs_its_scenario_with_its_own_binary() {
+    let tmp = Tmp::new("plugin-e2e");
+    let game = plugin_game(&tmp);
+
+    let target = game_target_dir(&game);
+    let build = Command::new("cargo")
+        .current_dir(&game)
+        .env("CARGO_TARGET_DIR", &target)
+        .args([
+            "build",
+            "--no-default-features",
+            "--features",
+            "native",
+            "--profile",
+            "headless",
+            "--config",
+            "profile.headless.inherits=\"dev\"",
+            "--config",
+            "profile.headless.opt-level=1",
+            "--config",
+            "profile.headless.debug=\"line-tables-only\"",
+            "--config",
+            "profile.headless.package.\"*\".opt-level=3",
+        ])
+        .output()
+        .expect("cargo se lance");
+    assert!(build.status.success(), "{}", text(&build.stderr));
+    let bin = target.join("headless/plugdemo");
+    let play = |args: &[&str]| {
+        Command::new(&bin)
+            .current_dir(&game)
+            .env("ALACOD_HEADLESS", "1")
+            .args(args)
+            .output()
+            .expect("le jeu se lance")
+    };
+
+    // Lint par le binaire du jeu : la règle du plugin s'exécute (plus d'avertissement « non exécutées »).
+    let out = play(&["lint", "--json"]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["errors"], serde_json::json!([]));
+    assert!(
+        !json["warnings"].to_string().contains("PluginRulesNotRun"),
+        "{json}"
+    );
+
+    // Le scénario du jeu, joué par son binaire : attentes vertes (le plugin agit), trace écrite puis relue.
+    let out = play(&["scenarios", "play", "--bless", "--json"]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    let results: serde_json::Value = serde_json::from_slice(
+        text(&out.stdout)
+            .lines()
+            .rev()
+            .find(|l| l.starts_with('['))
+            .expect("tableau JSON")
+            .as_bytes(),
+    )
+    .unwrap();
+    assert_eq!(results[0]["scenario"], "plugin");
+    assert_eq!(results[0]["expectations_ok"], true, "{results}");
+    assert_eq!(results[0]["expectations"], 4);
+    let trace = std::fs::read_to_string(game.join("tests/scenarios/plugin.trace")).unwrap();
+    assert_eq!(
+        trace.lines().count(),
+        199,
+        "une ligne par frame confirmée (frames - 1)"
+    );
+    let out = play(&["scenarios", "play", "--json"]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    assert!(text(&out.stdout).contains("\"trace\":\"ok\""));
+
+    // Les scénarios générés de l'engine passent par le même binaire (`gen`), plugin compris.
+    let out = play(&[
+        "scenarios",
+        "gen",
+        "--play",
+        "--no-trace",
+        "--only",
+        "pistol",
+    ]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    assert!(
+        text(&out.stdout).contains("weapon_pistol"),
+        "{}",
+        text(&out.stdout)
+    );
+    assert!(game.join("tests/generated/weapon_pistol.ron").exists());
+
+    // `--sandbox` démarre pour de bon avec le plugin : le profil `arene` du jeu donne l'objet `prime` au joueur ; sa condition
+    // `after_frame` (plugin) devient vraie puis l'action `grant_bounty` (plugin) s'exécute, ce que prouve sa ligne de trace
+    // `ggrs{f=… grant_bounty carrier=… weight=3}` ; le jeu s'arrête de lui-même (`ALACOD_EXIT_AT_FRAME`) avec le code 0.
+    let port = free_port();
+    let sandbox_log = game.join("sandbox.log");
+    let mut sandbox = Game(
+        Command::new(&bin)
+            .current_dir(&game)
+            .arg("--sandbox")
+            .env("ALACOD_HEADLESS", "1")
+            .env("ALACOD_MUTE", "1")
+            .env("ALACOD_REMOTE_PORT", port.to_string())
+            .env("ALACOD_STATE_TRACE", game.join("sandbox-trace.txt"))
+            .env("ALACOD_EXIT_AT_FRAME", "300")
+            .stdout(std::fs::File::create(&sandbox_log).unwrap())
+            .stderr(Stdio::from(
+                std::fs::OpenOptions::new()
+                    .append(true)
+                    .open(&sandbox_log)
+                    .unwrap(),
+            ))
+            .spawn()
+            .expect("le jeu se lance en bac à sable"),
+    );
+    let deadline = Instant::now() + Duration::from_secs(180);
+    let status = loop {
+        if let Some(status) = sandbox.0.try_wait().unwrap() {
+            break status;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "le bac à sable ne s'arrête pas en 180 s"
+        );
+        std::thread::sleep(Duration::from_millis(500));
+    };
+    let log = std::fs::read_to_string(&sandbox_log).unwrap_or_default();
+    assert!(
+        status.success(),
+        "bac à sable : {status}\n{}",
+        log.lines().rev().take(20).collect::<Vec<_>>().join("\n")
+    );
+    assert!(
+        log.lines()
+            .any(|l| l.contains("grant_bounty carrier=") && l.contains("weight=3}")),
+        "l'action Custom du plugin ne s'est pas exécutée en bac à sable"
+    );
+
+    // Un poids hors d'un `Fixed` (32768 > 32767) est refusé par la règle Rust (il ferait déborder `Fixed::from_num`).
+    std::fs::write(game.join("assets/crates/coffre.ron"), "(weight: 32768)").unwrap();
+    let out = play(&["lint"]);
+    assert!(!out.status.success());
+    assert!(
+        text(&out.stderr).contains("tenir dans un Fixed"),
+        "{}",
+        text(&out.stderr)
+    );
+    let out = play(&["--sandbox"]);
+    assert!(
+        !out.status.success(),
+        "la partie démarre sur un poids hors Fixed"
+    );
+
+    // Sa règle de lint (Rust) refuse un contenu que `alacod lint` accepte.
+    std::fs::write(game.join("assets/crates/coffre.ron"), "(weight: 0)").unwrap();
+    let (ok, _) = lint_json(&game);
+    assert!(ok, "alacod lint ne connaît pas la règle Rust du plugin");
+    let out = play(&["lint"]);
+    assert!(!out.status.success());
+    assert!(
+        text(&out.stderr).contains("weight doit être >= 1"),
+        "{}",
+        text(&out.stderr)
+    );
+    // Et la partie refuse de démarrer sur ce contenu.
+    let out = play(&["--sandbox"]);
+    assert!(!out.status.success());
+}

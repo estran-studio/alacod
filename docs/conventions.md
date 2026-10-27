@@ -7940,3 +7940,73 @@ la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `
   de `scripts/lint-edited-game.sh` et du `Makefile` gardent `cargo run` (elles n'exigent pas l'installation).
 - **Tests** : `crates/content/tests/edit.rs` (jeu de travail = copie du gabarit dans un dépôt git temporaire : formatage conservé, types, chemins inconnus/ambigus, lint rouge restauré, erreurs préexistantes, commit du seul fichier, undo), `crates/content/tests/remote_script.rs` (faux jeu JSON-RPC :
   codes de sortie, `--json`, scripts, `step`), unitaires de `edit.rs` et `script.rs`.
+
+## 91. Points d'extension d'un plugin de jeu (X-1, 2026-10-26)
+
+Un jeu externe peut porter une mécanique indécoupable en verbes génériques dans un plugin Rust,
+sans que l'engine connaisse son contenu. Son `src/main.rs` est une entrée unique :
+`entry::run(GameSpec::new("jeu", env!("CARGO_MANIFEST_DIR")).plugin(MonPlugin))`. Cette entrée
+sert la partie, `--sandbox`, les bots, le lint du jeu et le runner de scénarios ; le même binaire
+joue donc ses scénarios avec son plugin installé (`jeu scenarios play|gen`).
+
+### Contrat du plugin
+
+`game::extension::GamePlugin` expose trois points :
+
+- `extension()` déclare les kinds de contenu, les ids `Behavior::Custom`, `Action::Custom` et
+  `Condition::Custom`, ainsi que les règles de lint Rust ;
+- `build(app)` pose uniquement la simulation : composants et ressources rollback enregistrés avec
+  `RollbackTraceApp`, systèmes `GgrsSchedule` et `FrameEvents`. Il est appelé dans
+  `CoreSimPlugin`, avant les cinq enregistrements de clôture (`GgrsNetIdFactory`, `FrameCount`,
+  `FixedTransform3D`, `GgrsNetId`, `RngStreams`) ;
+- `assemble(app)` pose uniquement la partie jouée (`Update`, présentation, ressources d'application)
+  et n'est jamais appelé par le runner de scénarios.
+
+Le plugin doit suivre toute la checklist GGRS : `GgrsNetId` en tête des queries ordonnées,
+`order_iter!`/`order_mut_iter!`, fixed-point sans `f32`/`f64`, collections ordonnées, RNG de
+rollback, `despawn_rollback()` et traces `ggrs{f=…}`. Un événement de simulation passe par
+`FrameEvents`, jamais par un `Message` Bevy.
+
+### Déclaration des données et exécution
+
+Le manifeste porte une section `plugin` :
+
+```ron
+plugin: (
+    kinds: ["Crate"],
+    behaviors: ["rush"],
+    actions: ["grant_bounty"],
+    conditions: ["after_frame"],
+    lint_rules: ["crate_weights"],
+)
+```
+
+`alacod lint`, qui ne charge pas le code Rust du jeu, connaît ainsi les noms et refuse un kind ou
+un `Custom` non déclaré. Il vérifie le RON des kinds du plugin et conserve chaque fichier dans
+`Registry::plugin_content`; le plugin le décode dans ses propres types et ses règles Rust
+complètent le lint. Un binaire de jeu compare ensuite la déclaration à `extension()` et exécute
+les règles déclarées. Un `Custom` inconnu est une erreur, jamais un repli silencieux.
+Les paramètres sont des `CustomParams` (`BTreeMap<String, String>`) : les nombres fixed et les
+entiers restent des chaînes RON.
+
+`Action::Custom` est émis dans `EffectOut` et lu par le plugin via `custom_actions` dans l'ordre
+déterministe des porteurs et des effets. **Le système qui le lit se place `.after(game::effects_v3::effect_status_system)`** :
+c'est le dernier de la chaîne d'effets, et les `Custom` des tours `OnEvent` sortent de `apply_event_effects_system`, pas seulement de
+`apply_triggered_effects_system` ; ordonné moins tard, `GgrsSchedule` refuse l'ambiguïté (`ambiguity_detection: Error`) dès qu'il écrit
+`Modifiers`. `Behavior::Custom` et `Condition::Custom` sont évalués par les tables immuables (`CustomVerbs`) installées avant le chargement
+du contenu. Un `Custom` n'est admis que dans un effet de personnage ou d'objet (refusé au lint dans un power-up et une frise de boss).
+
+**Mesure de l'ordre d'enregistrement** (`crates/scenario/tests/plugin_order.rs`) : le même type rollback à hash actif, enregistré avant la
+clôture (`GamePlugin::build`) ou après `CoreSetupPlugin`, donne une **trace d'état identique** à chaque frame (synctest, rollbacks réels :
+les parts du checksum se combinent par XOR) et une **liste de types différente** (`len - 6` contre `len - 1`) : seul ce que compare
+`make schedule_order_diff` change, d'où la règle de clôture. Dette D139 : les règles de lint Rust ne tournent que dans le binaire du jeu.
+
+### Preuve et ordre
+
+`crates/content/tests/fixtures/plugin_game` est un jeu de preuve : son plugin ajoute un behavior,
+une condition, une action, le kind `Crate`, une règle de lint et un composant rollback ; le scénario
+`tests/scenarios/plugin.ron` les exerce. Le binaire du jeu le lint et le joue avec sa trace.
+`make schedule_order_diff` compile la base et la tête dans des targets séparés ; le plugin est
+inséré avant la clôture et ne déplace donc pas l'ordre des clones. L'ordre a un effet mesurable
+sur la liste des types si un plugin est ajouté après la clôture (test `plugin_order`), mais pas sur
+le checksum lui-même ; cette position après la clôture est déconseillée pour un plugin de jeu (elle déplace la liste de référence).

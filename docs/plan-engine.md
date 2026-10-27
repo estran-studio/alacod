@@ -393,11 +393,12 @@ questions, dans l'ordre :
 
 **Contrats d'un plugin de jeu** (ce qui rend la promotion mécanique) : la checklist GGRS de `CLAUDE.md`, vocabulaire
 déclaré par `KindRegistry`, état en composants et ressources rollback, événements en `FrameEvents`, valeurs en RON
-validées par le lint, comportement prouvé par des scénarios joués **avec** le plugin. Au 2026-10-26, ces contrats ne
-sont pas tenables par un jeu externe (`docs/taches/plan-1837-cli.md` §2) : le runner de scénarios (`alacod test`)
-est un binaire de l'engine sans le code du jeu, les kinds de contenu sont une liste fermée (`KNOWN_KIND_NAMES`),
-`Behavior`/`Action`/`Condition` sont des enums fermés, et l'ordre des enregistrements rollback est fixé par
-`CoreSimPlugin`. Le lot X-1 de ce plan les ouvre.
+validées par le lint, comportement prouvé par des scénarios joués **avec** le plugin. Ces contrats sont tenables par un jeu externe depuis le lot X-1
+(2026-10-26, `docs/taches/plan-1837-cli.md`, `docs/conventions.md` §89) : le binaire du jeu est l'entrée unique de l'engine (`entry::run`) et joue lui-même
+ses scénarios (`<jeu> scenarios play|gen`) et son lint (`<jeu> lint`), plugin installé ; les kinds de contenu et les ids `Custom` d'un plugin se déclarent
+dans `game.ron` (`plugin`), que `alacod lint` lit sans le code du jeu ; `Behavior`, `Condition` et `Action` ont leur variante `Custom` exécutée par le plugin
+(`game::extension`) ; ses enregistrements rollback se posent avant la clôture de `CoreSimPlugin`. Reste hors du lot : les règles de lint **Rust** du plugin ne
+tournent que dans le binaire du jeu (dette D139 : `alacod lint` les signale sans les exécuter).
 
 **Exemple, la gigue rythmée de 1837** : le tempo est une `Clock` à événement répété (existe, §23 des conventions :
 120 bpm = 30 frames à 60 Hz) ; la **fenêtre de jugement** (parfait / bien / raté, mesurée par rapport à un repère :

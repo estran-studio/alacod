@@ -49,6 +49,13 @@ pub enum Condition {
         #[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::FixedString"))] Fixed,
     ),
     NotHitFor(u32),
+    /// X-1 (`docs/conventions.md` §91) : condition **propre à un jeu**, évaluée par son plugin
+    /// (`id` déclaré dans `plugin.conditions` de `game.ron`). Ajoutée en fin d'enum.
+    Custom {
+        id: String,
+        #[serde(default)]
+        params: sim_core::custom::CustomParams,
+    },
 }
 
 /// Quand les charges d'un effet reviennent (M2-T3, `Effect::charges`).

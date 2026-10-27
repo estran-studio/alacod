@@ -39,6 +39,14 @@ pub enum LintErrorKind {
     /// M2-T15 : modificateur sur une stat qu'aucun système ne lit
     /// (`sim_core::stats::stat_reader`).
     UnreadStat,
+    /// X-1 (§91) : un `Custom` (behavior, action, condition) dont l'id n'est pas déclaré dans
+    /// `plugin` de `game.ron`, ou un kind de plugin non déclaré.
+    UndeclaredCustom,
+    /// X-1 (§91) : `plugin` de `game.ron` incohérent (nom vide, en double, kind déjà connu de l'engine) ou
+    /// différent de ce que le code du plugin fournit.
+    PluginMismatch,
+    /// X-1 (§91) : erreur d'une règle de lint écrite en Rust par le plugin du jeu.
+    PluginRule,
 }
 
 /// Une erreur de lint : `file` et `message` forment le texte affiché par `alacod lint`
@@ -104,6 +112,9 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_generate_template(registry, manifest, &mut errors);
     lint_sandbox(registry, manifest, &mut errors);
     lint_stat_readers(registry, &mut errors);
+    // X-1 : déclaration du plugin, puis ses règles (binaire du jeu seulement).
+    crate::plugin::lint_declaration(manifest, &mut errors);
+    crate::plugin::lint(registry, manifest, &mut errors);
 
     errors
 }
@@ -191,6 +202,15 @@ pub(crate) fn lint_effect(
                 LintErrorKind::Unsupported,
                 format!("{at} : condition {condition:?} : pas encore exécutée (v2)"),
             );
+        }
+        // X-1 (§91) : `Custom` exécuté par le plugin du jeu, id déclaré dans `plugin.conditions`
+        if let effects::Condition::Custom { id, .. } = condition {
+            if !registry.plugin.conditions.contains(id) {
+                push(
+                    LintErrorKind::UndeclaredCustom,
+                    format!("{at} : condition Custom « {id} » non déclarée (`plugin.conditions` de game.ron)"),
+                );
+            }
         }
     }
     for outer in &effect.r#do {
@@ -307,6 +327,11 @@ pub(crate) fn lint_effect(
                     );
                 }
             }
+            // X-1 (§91) : exécutée par le plugin du jeu, id déclaré dans `plugin.actions`
+            effects::Action::Custom { id, .. } if !registry.plugin.actions.contains(id) => push(
+                LintErrorKind::UndeclaredCustom,
+                format!("{at} : action Custom « {id} » non déclarée (`plugin.actions` de game.ron)"),
+            ),
             // M3-T2 : événement nommé, lu par les `OnEvent` du même porteur
             effects::Action::Emit(name) if name.is_empty() => push(
                 LintErrorKind::OutOfRange,
@@ -2133,6 +2158,11 @@ fn lint_powerups(registry: &Registry, errors: &mut Vec<LintError>) {
                     "power-up « {} » : actions[{index}] : Scaled réservée aux effets d'objet (§61)",
                     powerup.id
                 )),
+                // X-1 : `Custom` s'exécute dans un effet (le plugin lit `EffectOut::Custom`)
+                effects::Action::Custom { .. } => push(format!(
+                    "power-up « {} » : actions[{index}] : Custom réservée aux effets (§89)",
+                    powerup.id
+                )),
                 _ => {}
             }
         }
@@ -3076,7 +3106,9 @@ fn lint_boss(
                 | effects::Action::GaugeAdd(..)
                 | effects::Action::CurrencyMultiplier { .. }
                 // M3-T0d : mort d'un champion (§63), pas une frise de boss
-                | effects::Action::SpawnCharacters { .. } => push(
+                | effects::Action::SpawnCharacters { .. }
+                // X-1 : `Custom` s'exécute dans un effet de personnage ou d'objet (§91)
+                | effects::Action::Custom { .. } => push(
                     LintErrorKind::Unsupported,
                     format!("{at} : action {action:?} : pas exécutée par un boss (effets v2)"),
                 ),
@@ -3246,6 +3278,17 @@ fn lint_rules(
                 }
             }
             BehaviorEntry::BlockBullets => {}
+            // X-1 (§91) : exécuté par le plugin du jeu, id déclaré dans `plugin.behaviors`
+            BehaviorEntry::Custom { id, .. } => {
+                if !registry.plugin.behaviors.contains(id) {
+                    push(
+                        LintErrorKind::UndeclaredCustom,
+                        format!(
+                            "behavior Custom « {id} » non déclaré (`plugin.behaviors` de game.ron)"
+                        ),
+                    );
+                }
+            }
         }
     }
 }
