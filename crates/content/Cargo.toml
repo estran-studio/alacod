@@ -19,6 +19,7 @@ ron = "0.12"
 serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 parking_lot = "0.12"
+toml_edit = "0.25"
 
 schemars = "1"
 
@@ -26,7 +27,7 @@ schemars = "1"
 
 [[bin]]
 name = "alacod"
-path = "src/bin/alacod.rs"
+path = "src/bin/alacod/main.rs"
 
 [[bin]]
 name = "alacod-profile"

@@ -9,9 +9,7 @@ use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use game::{
     character::{
-        config::CharacterConfigs,
-        enemy::create::spawn_enemy,
-        player::create::{create_player, DEFAULT_PLAYER_CHARACTER},
+        config::CharacterConfigs, enemy::create::spawn_enemy, player::create::create_player,
     },
     collider::CollisionSettings,
     economy::PerkMachine,
@@ -169,7 +167,14 @@ fn spawn_players_when_map_loaded(
     slots: FloorSlots,
     // D126 : personnage du joueur choisi par le profil (`PlayerProfile::character`), sinon le défaut.
     profile: Option<Res<super::profile::PlayerOverrides>>,
+    // D131 : personnage du joueur sans profil (`entry.player`), sinon `player`.
+    manifest: Option<Res<content::GameManifest>>,
 ) {
+    let default_character = manifest
+        .as_deref()
+        .map_or(content::manifest::DEFAULT_PLAYER_CHARACTER, |m| {
+            m.player_character()
+        });
     // T1.8 : seuls les points de départ du premier niveau (emplacement 0 ; la carte unique
     // hors mode `Floors`).
     let spawns: std::collections::BTreeMap<usize, Vec3> = player_spawn
@@ -195,7 +200,7 @@ fn spawn_players_when_map_loaded(
         let character = profile
             .as_deref()
             .and_then(|profile| profile.character_of(handle))
-            .unwrap_or(DEFAULT_PLAYER_CHARACTER);
+            .unwrap_or(default_character);
         // F5 (chantier m0-v11) : santé max résolue au lancement (`game::balance`).
         let health_max = balance
             .health_max_by_character

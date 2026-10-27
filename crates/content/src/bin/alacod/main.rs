@@ -5,11 +5,15 @@
 //! `sandbox`/`editor`/`remote` lancent et pilotent la partie. Code de sortie 1 et messages sur stderr en cas
 //! d'erreur, 0 sinon (`remote` : 2 usage, 3 jeu injoignable, 4 assertion fausse).
 
+mod engine;
+mod run;
+
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use content::load_and_lint;
+use engine::{GitRef, Source};
 
 #[derive(Parser)]
 #[command(
@@ -47,23 +51,58 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Crée un nouveau jeu hors de l'engine.
-    ///
-    /// `alacod new mon-jeu [--engine ~/alacod]`.
+    /// Crée un nouveau jeu hors de l'engine : `alacod new mon-jeu`. Le jeu dépend de l'engine par un **tag
+    /// git** (le dernier de l'engine, `--tag`/`--rev` pour un autre) ; `alacod engine local <chemin>`
+    /// développe ensuite engine et jeu ensemble.
     New {
         /// Nom du jeu (minuscules, chiffres, `-` et `_`) ; crée le dossier `./<nom>`.
         name: String,
-        /// Racine de l'engine (contient `crates/` et `templates/starter`). Par défaut : celle
-        /// d'où ce binaire a été compilé.
+        /// Dépôt de l'engine qui fournit le gabarit, les tags et le `Cargo.lock` (contient `crates/` et
+        /// `templates/starter`). Par défaut : celui d'où ce binaire a été compilé.
         #[arg(long)]
         engine: Option<PathBuf>,
-        /// Dépendre de l'engine par git (URL de `origin` de l'engine, révision = `--rev` ou
-        /// le HEAD de l'engine, qui doit être poussé) au lieu d'un chemin local.
-        #[arg(long)]
-        git: bool,
-        /// Révision git de l'engine (implique `--git`).
-        #[arg(long)]
+        /// Tag de l'engine à épingler (défaut : le dernier tag du dépôt de l'engine).
+        #[arg(long, conflicts_with_all = ["rev", "path"])]
+        tag: Option<String>,
+        /// Révision git de l'engine à épingler (à la place d'un tag).
+        #[arg(long, conflicts_with = "path")]
         rev: Option<String>,
+        /// URL git de l'engine écrite dans le jeu (défaut : `origin` du dépôt de l'engine).
+        #[arg(long, conflicts_with = "path")]
+        url: Option<String>,
+        /// Dépendance par **chemin** vers le dépôt de l'engine au lieu d'un tag git (hors ligne : tests,
+        /// poste sans réseau). Le chemin absolu est écrit dans le `Cargo.toml` versionné.
+        #[arg(long)]
+        path: bool,
+    },
+    /// Version d'engine d'un jeu : `alacod engine status | pin <tag|rev> | local <chemin>`.
+    Engine {
+        #[command(subcommand)]
+        action: EngineAction,
+        /// Dossier du jeu (défaut : le jeu qui contient le dossier courant).
+        #[arg(long, global = true)]
+        game: Option<PathBuf>,
+    },
+    /// Lance le jeu : `alacod run [dossier] [--sandbox [profil]] [--headless] [--seed N] [--players N] [-- args…]`.
+    /// `cargo run` dans le dossier du jeu ; sans fenêtre avec `--headless` (`ALACOD_HEADLESS=1`, sans rendu).
+    Run {
+        /// Dossier du jeu (défaut : le jeu qui contient le dossier courant). À donner **avant** les options.
+        game_dir: Option<PathBuf>,
+        /// Bac à sable : l'arène du jeu et le profil `sandbox/<profil>.ron` (`arene` sans profil), mode éditeur.
+        #[arg(long, value_name = "PROFIL", num_args = 0..=1, default_missing_value = content::sandbox::DEFAULT_PROFILE)]
+        sandbox: Option<String>,
+        /// Sans fenêtre ni GPU, compilé sans le rendu (une frame par update).
+        #[arg(long)]
+        headless: bool,
+        /// Graine de la carte.
+        #[arg(long, allow_hyphen_values = true)]
+        seed: Option<i32>,
+        /// Nombre de joueurs locaux (un par défaut).
+        #[arg(long)]
+        players: Option<u32>,
+        /// Arguments passés tels quels au jeu (`ALACOD_*` : variables d'environnement, héritées).
+        #[arg(last = true)]
+        game_args: Vec<String>,
     },
     /// Joue les scénarios générés d'un jeu (armes, personnages, objets, salles, boss).
     ///
@@ -81,7 +120,7 @@ enum Command {
         /// Sortie JSON (tableau de résultats) sur stdout.
         #[arg(long)]
         json: bool,
-        /// Racine de l'engine ; sinon celle du jeu (dépendance `Cargo.toml`) ou de ce binaire.
+        /// Racine de l'engine ; sinon celle que le jeu compile réellement (`cargo metadata`).
         #[arg(long)]
         engine: Option<PathBuf>,
     },
@@ -180,6 +219,9 @@ enum Command {
         /// Sortie JSON sur stdout : `{"ok": true, "result": …}` ou `{"ok": false, "error": …, "code": N}`.
         #[arg(long, global = true)]
         json: bool,
+        /// Port du jeu (défaut : `ALACOD_REMOTE_PORT`, sinon 15702).
+        #[arg(long, global = true)]
+        port: Option<u16>,
         #[command(subcommand)]
         command: content::remote::RemoteCommand,
     },
@@ -249,6 +291,25 @@ enum Command {
     SelfCheck,
 }
 
+#[derive(Subcommand)]
+enum EngineAction {
+    /// Dépendance déclarée, surcharge locale éventuelle, racine réellement compilée.
+    Status,
+    /// Épingle l'engine sur un tag ou une révision git et retire la surcharge locale.
+    Pin {
+        /// Tag (`v0.1.0`) ou révision (7 à 40 chiffres hexadécimaux).
+        reference: String,
+        /// URL git de l'engine (défaut : celle de la dépendance actuelle).
+        #[arg(long)]
+        url: Option<String>,
+    },
+    /// Compile l'engine d'un dépôt local (surcharge hors du `Cargo.toml` versionné : `.cargo/config.toml`).
+    Local {
+        /// Racine de l'engine (contient `crates/` et `templates/starter`).
+        path: PathBuf,
+    },
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
@@ -261,15 +322,54 @@ fn main() -> ExitCode {
         Command::New {
             name,
             engine,
-            git,
+            tag,
             rev,
-        } => match new_game(&name, engine, git || rev.is_some(), rev) {
-            Ok(dir) => {
-                println!("{} créé.", dir.display());
+            url,
+            path,
+        } => match new_game(
+            &name,
+            engine,
+            NewSource {
+                tag,
+                rev,
+                url,
+                path,
+            },
+        ) {
+            Ok((dir, description)) => {
+                println!("{} créé ({description}).", dir.display());
                 println!("  cd {name} && alacod lint && alacod describe");
-                println!("  cargo run   # premier build long (bevy)");
+                println!("  alacod run --sandbox   # premier build long (bevy)");
                 ExitCode::SUCCESS
             }
+            Err(e) => fail(&e),
+        },
+        Command::Engine { action, game } => match resolve_game_dir(game) {
+            Ok(dir) => engine_command(&dir, action),
+            Err(e) => fail(&e),
+        },
+        Command::Run {
+            game_dir,
+            sandbox,
+            headless,
+            seed,
+            players,
+            game_args,
+        } => match resolve_game_dir(game_dir) {
+            Ok(dir) => match run::run(
+                &dir,
+                &run::RunOptions {
+                    sandbox,
+                    headless,
+                    seed,
+                    players,
+                    passthrough: game_args,
+                },
+            ) {
+                Ok(0) => ExitCode::SUCCESS,
+                Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(1)),
+                Err(e) => fail(&e),
+            },
             Err(e) => fail(&e),
         },
         Command::NewContent { args, from } => {
@@ -372,9 +472,11 @@ fn main() -> ExitCode {
             wait_secs: wait,
             game_args,
         }),
-        Command::Remote { json, command } => {
-            ExitCode::from(content::remote::run_cli(&command, json))
-        }
+        Command::Remote {
+            json,
+            port,
+            command,
+        } => ExitCode::from(content::remote::run_cli(&command, json, port)),
         Command::SelfCheck => self_check(),
     }
 }
@@ -593,9 +695,18 @@ fn describe(game_dir: &PathBuf, kind: Option<&str>, json: bool) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// Racine de l'engine par défaut : deux niveaux au-dessus de `crates/content`, capturée à la
-/// compilation de `alacod`.
-const BUILT_FROM_ENGINE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
+/// Dépôt de l'engine d'où `alacod` a été compilé : source du gabarit de `alacod new` quand `--engine` n'est
+/// pas donné. Les outils d'un jeu existant (`test`, `run`…) ne s'en servent **pas** : leur racine est celle
+/// que le jeu compile (`engine::resolve_root`).
+const TEMPLATE_ENGINE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
+
+/// Comment `alacod new` écrit la dépendance : tag git (défaut), révision, ou chemin.
+struct NewSource {
+    tag: Option<String>,
+    rev: Option<String>,
+    url: Option<String>,
+    path: bool,
+}
 
 /// Le fichier le plus récent sous `dir` (récursif) : sa date de modification et son chemin.
 fn newest_file(dir: &std::path::Path) -> Option<(std::time::SystemTime, PathBuf)> {
@@ -621,7 +732,7 @@ fn newest_file(dir: &std::path::Path) -> Option<(std::time::SystemTime, PathBuf)
 }
 
 /// `alacod self-check` : binaire installé (date de `current_exe`) contre les sources de `crates/content/src` et
-/// `crates/game/src` de l'engine de compilation (`BUILT_FROM_ENGINE`) ; code 1 si le binaire est plus ancien.
+/// `crates/game/src` du dépôt qui a fourni le gabarit (`TEMPLATE_ENGINE`) ; code 1 si le binaire est plus ancien.
 fn self_check() -> ExitCode {
     let reinstall = "env -u CI cargo install --path crates/content --bin alacod --locked";
     let exe = match std::env::current_exe() {
@@ -632,8 +743,8 @@ fn self_check() -> ExitCode {
         Ok(t) => t,
         Err(e) => return fail(&format!("self-check : {} : {e}", exe.display())),
     };
-    let root = std::fs::canonicalize(BUILT_FROM_ENGINE)
-        .unwrap_or_else(|_| PathBuf::from(BUILT_FROM_ENGINE));
+    let root =
+        std::fs::canonicalize(TEMPLATE_ENGINE).unwrap_or_else(|_| PathBuf::from(TEMPLATE_ENGINE));
     let newest = ["crates/content/src", "crates/game/src"]
         .iter()
         .filter_map(|rel| newest_file(&root.join(rel)))
@@ -675,13 +786,12 @@ fn self_check() -> ExitCode {
 
 /// `alacod new` : copie `<engine>/templates/starter` dans `./<name>` en remplaçant `{{name}}`
 /// et `{{engine}}` dans les fichiers texte, et reprend le `Cargo.lock` de l'engine (mêmes
-/// versions de dépendances que l'engine, qui compile).
+/// versions de dépendances que l'engine, qui compile). Rend le dossier et la dépendance écrite.
 fn new_game(
     name: &str,
     engine: Option<PathBuf>,
-    git: bool,
-    rev: Option<String>,
-) -> Result<PathBuf, String> {
+    how: NewSource,
+) -> Result<(PathBuf, String), String> {
     let valid = name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
         && name
             .chars()
@@ -691,7 +801,7 @@ fn new_game(
             "nom de jeu « {name} » invalide : minuscules, chiffres, `-` et `_`, première lettre minuscule"
         ));
     }
-    let engine = engine.unwrap_or_else(|| PathBuf::from(BUILT_FROM_ENGINE));
+    let engine = engine.unwrap_or_else(|| PathBuf::from(TEMPLATE_ENGINE));
     let engine = engine
         .canonicalize()
         .map_err(|e| format!("engine introuvable ({}) : {e}", engine.display()))?;
@@ -709,57 +819,46 @@ fn new_game(
         return Err(format!("{} existe déjà", target.display()));
     }
     let engine_str = engine.to_string_lossy().into_owned();
-    let source = if git {
-        EngineSource::Git {
-            url: git_output(&engine, &["remote", "get-url", "origin"])?,
-            rev: match rev {
-                Some(rev) => rev,
-                None => git_output(&engine, &["rev-parse", "HEAD"])?,
-            },
-        }
+    let source = if how.path {
+        Source::Path(engine_str.clone())
     } else {
-        EngineSource::Path(engine_str.clone())
+        let url = match how.url {
+            Some(url) => url,
+            None => engine::git_output(&engine, &["remote", "get-url", "origin"])?,
+        };
+        let reference = match (how.rev, how.tag) {
+            (Some(rev), _) => GitRef::Rev(rev),
+            (None, Some(tag)) => GitRef::Tag(tag),
+            (None, None) => GitRef::Tag(engine::latest_tag(&engine)?),
+        };
+        // Le gabarit vient du dépôt de l'engine tel qu'il est : s'il a avancé depuis le tag, le jeu créé
+        // peut demander à l'engine épinglé des choses qu'il n'a pas encore.
+        if let GitRef::Tag(tag) = &reference {
+            let tagged = engine::git_output(&engine, &["rev-list", "-n", "1", tag]).ok();
+            let head = engine::git_output(&engine, &["rev-parse", "HEAD"]).ok();
+            if tagged.is_some() && tagged != head {
+                eprintln!(
+                    "attention : le gabarit vient de {} (HEAD), plus récent que le tag {tag} épinglé ; \
+                     `alacod engine local {}` pour développer sur cette version",
+                    engine.display(),
+                    engine.display()
+                );
+            }
+        }
+        Source::Git { url, reference }
+    };
+    let description = match &source {
+        Source::Path(root) => format!("dépendance par chemin {root}"),
+        Source::Git { url, reference } => {
+            format!("engine {url} {} {}", reference.key(), reference.value())
+        }
     };
     copy_template(&template, &target, name, &engine_str, &source).map_err(|e| e.to_string())?;
     let lock = engine.join("Cargo.lock");
     if lock.is_file() {
         std::fs::copy(&lock, target.join("Cargo.lock")).map_err(|e| e.to_string())?;
     }
-    Ok(target)
-}
-
-/// Comment le jeu référence les crates de l'engine dans son `Cargo.toml`.
-enum EngineSource {
-    Path(String),
-    Git { url: String, rev: String },
-}
-
-impl EngineSource {
-    /// Spécification de dépendance (`{{engine:<crate>}}` du gabarit).
-    fn dependency(&self, krate: &str) -> String {
-        match self {
-            Self::Path(root) => format!("path = \"{root}/crates/{krate}\""),
-            Self::Git { url, rev } => format!("git = \"{url}\", rev = \"{rev}\""),
-        }
-    }
-}
-
-fn git_output(dir: &std::path::Path, args: &[&str]) -> Result<String, String> {
-    let out = std::process::Command::new("git")
-        .arg("-C")
-        .arg(dir)
-        .args(args)
-        .output()
-        .map_err(|e| format!("git : {e}"))?;
-    if !out.status.success() {
-        return Err(format!(
-            "git {} a échoué dans {} : {}",
-            args.join(" "),
-            dir.display(),
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    Ok((target, description))
 }
 
 fn copy_template(
@@ -767,7 +866,7 @@ fn copy_template(
     to: &std::path::Path,
     name: &str,
     engine: &str,
-    source: &EngineSource,
+    source: &Source,
 ) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
@@ -800,52 +899,34 @@ fn copy_template(
     Ok(())
 }
 
-/// Racine de l'engine pour un jeu : `--engine`, sinon l'ancêtre du jeu qui contient
-/// `crates/scenario` (jeu de `games/`), sinon la dépendance `crates/content` de son
-/// `Cargo.toml` (jeu créé par `alacod new`), sinon celle d'où `alacod` a été compilé.
+/// `alacod engine …` : affiche le résultat, code de sortie 1 sur erreur.
+fn engine_command(game_dir: &std::path::Path, action: EngineAction) -> ExitCode {
+    let result = match action {
+        EngineAction::Status => engine::status(game_dir).map(|lines| lines.join("\n")),
+        EngineAction::Pin { reference, url } => engine::pin(game_dir, &reference, url),
+        EngineAction::Local { path } => engine::local(game_dir, &path),
+    };
+    match result {
+        Ok(text) => {
+            println!("{text}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(&e),
+    }
+}
+
+/// Racine de l'engine pour un jeu : `--engine`, sinon celle que le jeu compile réellement, lue par
+/// `cargo metadata` (checkout git du tag épinglé, surcharge `alacod engine local`, ou dépendance par chemin).
 fn engine_root_for(
     game_dir: &std::path::Path,
     explicit: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
-    let is_engine = |p: &std::path::Path| {
-        p.join("crates")
-            .join("scenario")
-            .join("Cargo.toml")
-            .is_file()
-    };
-    if let Some(root) = explicit {
-        return root
+    match explicit {
+        Some(root) => root
             .canonicalize()
-            .map_err(|e| format!("engine introuvable ({}) : {e}", root.display()));
+            .map_err(|e| format!("engine introuvable ({}) : {e}", root.display())),
+        None => engine::resolve_root(game_dir),
     }
-    let game = game_dir.canonicalize().map_err(|e| e.to_string())?;
-    if let Some(root) = game.ancestors().skip(1).find(|p| is_engine(p)) {
-        return Ok(root.to_path_buf());
-    }
-    if let Ok(cargo) = std::fs::read_to_string(game.join("Cargo.toml")) {
-        for line in cargo.lines() {
-            let Some(rest) = line.trim().strip_prefix("content") else {
-                continue;
-            };
-            if let Some(start) = rest.find("path = \"") {
-                let path = &rest[start + 8..];
-                if let Some(end) = path.find('"') {
-                    let root = std::path::Path::new(&path[..end]).join("..").join("..");
-                    if let Ok(root) = root.canonicalize() {
-                        if is_engine(&root) {
-                            return Ok(root);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    let built = PathBuf::from(BUILT_FROM_ENGINE);
-    built
-        .canonicalize()
-        .ok()
-        .filter(|r| is_engine(r))
-        .ok_or_else(|| "engine introuvable : passer --engine <racine>".to_string())
 }
 
 /// `alacod test` : délègue à `alacod-gen` de l'engine (le crate `scenario` dépend de `content`,
@@ -878,9 +959,13 @@ fn run_tests(
         "headless",
     ])
     .arg("--manifest-path")
-    .arg(engine.join("Cargo.toml"))
-    .arg("--")
-    .arg(&game);
+    .arg(engine.join("Cargo.toml"));
+    // Engine épinglé par un tag : son checkout est dans le cache git de cargo, on n'y écrit pas de `target/`.
+    if engine::is_cargo_checkout(&engine) {
+        cmd.arg("--target-dir")
+            .arg(game.join("target").join("alacod-engine"));
+    }
+    cmd.arg("--").arg(&game);
     if list {
         cmd.arg("--list");
     } else {

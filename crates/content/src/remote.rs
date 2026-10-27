@@ -614,6 +614,8 @@ pub(crate) const ASSERT_MARK: &str = "assertion fausse";
 pub struct Failure {
     pub code: u8,
     pub message: String,
+    /// Réponse structurée du jeu à conserver sur stdout même quand la commande échoue.
+    pub reply: Option<Value>,
 }
 
 impl From<String> for Failure {
@@ -625,7 +627,11 @@ impl From<String> for Failure {
         } else {
             1
         };
-        Failure { code, message }
+        Failure {
+            code,
+            message,
+            reply: None,
+        }
     }
 }
 
@@ -645,8 +651,8 @@ fn plain(value: Value) -> Output {
 /// `alacod remote <commande>` de bout en bout : affiche (texte, ou une enveloppe JSON `{"ok", "result" | "error",
 /// "code"}` avec `--json`) et rend le code de sortie du processus : 0 réussi, 1 erreur du jeu ou de la commande,
 /// 3 jeu injoignable, 4 assertion fausse (`expect`, `wait`) ; 2 est l'usage (`clap`).
-pub fn run_cli(command: &RemoteCommand, json: bool) -> u8 {
-    let port = port();
+pub fn run_cli(command: &RemoteCommand, json: bool, port_override: Option<u16>) -> u8 {
+    let port = port_override.unwrap_or_else(port);
     if let RemoteCommand::Run {
         file,
         keep_going,
@@ -668,8 +674,10 @@ pub fn run_cli(command: &RemoteCommand, json: bool) -> u8 {
             if json {
                 println!(
                     "{}",
-                    json!({"ok": false, "error": failure.message, "code": failure.code})
+                    json!({"ok": false, "error": failure.reply.unwrap_or(Value::String(failure.message)), "code": failure.code})
                 );
+            } else if let Some(reply) = failure.reply {
+                println!("{reply}");
             } else {
                 eprintln!("{}", failure.message);
             }
@@ -813,8 +821,11 @@ pub fn execute(port: u16, command: &RemoteCommand) -> Result<Output, Failure> {
             let result = call("alacod/reload_content", None)?;
             let failed = result["errors"].as_array().is_some_and(|e| !e.is_empty());
             if failed {
-                // Le détail des erreurs doit se lire : stderr, code 1.
-                return Err(result.to_string().into());
+                return Err(Failure {
+                    code: 1,
+                    message: "alacod/reload_content : erreurs de lint".into(),
+                    reply: Some(result),
+                });
             }
             Ok(plain(result))
         }

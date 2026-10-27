@@ -488,6 +488,7 @@ fn gather_labels(
     sources: &LabelSources,
     config: Option<&HudConfig>,
     items: Option<&ItemTable>,
+    player_character: &str,
 ) -> Vec<LabelWish> {
     let name_of = |id: &str, fallback: &str| -> String {
         config
@@ -521,7 +522,7 @@ fn gather_labels(
         out.push(LabelWish {
             target,
             position: at(t, 26.0),
-            text: format!("{} {}", name_of("player", "J"), player.handle + 1),
+            text: format!("{} {}", name_of(player_character, "J"), player.handle + 1),
             color: Color::WHITE,
         });
     }
@@ -635,6 +636,7 @@ fn sync_labels(
     handle: Res<HudConfigHandle>,
     configs: Res<Assets<HudConfig>>,
     items: Option<Res<ItemTable>>,
+    manifest: Option<Res<content::GameManifest>>,
     asset_server: Res<AssetServer>,
     mut labels: Query<(Entity, &mut Label, &mut Transform, &mut Visibility)>,
     mut texts: Query<(&mut Text2d, &mut TextColor, &ChildOf), Without<LabelBackground>>,
@@ -657,7 +659,16 @@ fn sync_labels(
             .and_then(|c| c.font.as_ref())
             .map(|path| asset_server.load(path));
     }
-    let mut wishes = gather_labels(&sources, config, items.as_deref());
+    let mut wishes = gather_labels(
+        &sources,
+        config,
+        items.as_deref(),
+        manifest
+            .as_deref()
+            .map_or(content::manifest::DEFAULT_PLAYER_CHARACTER, |m| {
+                m.player_character()
+            }),
+    );
     declutter(&mut wishes);
     let mut seen = std::collections::BTreeSet::new();
     for wish in &wishes {

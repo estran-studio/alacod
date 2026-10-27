@@ -677,7 +677,9 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
     // à quatre directions a ses scénarios (`aim_four_way*`, les bots d'`isaac`).
     let four_way_player = registry
         .characters
-        .get(&content::CharacterId::from("player".to_string()))
+        .get(&content::CharacterId::from(
+            manifest.player_character().to_string(),
+        ))
         .is_some_and(|player| player.aim != sim_core::aim::AimMode::Free);
     if four_way_player {
         for generated in &mut out {
@@ -1333,6 +1335,7 @@ pub fn build_enemy_scenario(
         invariants: Invariants::default(),
         powerups: vec![],
         items: vec![],
+        gifts: vec![],
         chests: vec![],
         room_reward_chance_override: None,
         shop: Default::default(),
@@ -1697,6 +1700,7 @@ fn base_scenario(
         invariants: Invariants::default(),
         powerups: vec![],
         items: vec![],
+        gifts: vec![],
         profile: false,
         profile_setup: None,
         hub: None,
@@ -1898,6 +1902,7 @@ pub fn build_weapon_scenario(
         // Isoler les essais d'armes des drops : ils ont leur propre scénario de preuve.
         powerups: vec![],
         items: vec![],
+        gifts: vec![],
         chests: vec![],
         room_reward_chance_override: None,
         shop: Default::default(),

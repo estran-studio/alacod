@@ -53,7 +53,7 @@ Dans les deux cas la partie tourne dès le départ, les étiquettes F6 (nom, pri
 | Un autre profil | `alacod sandbox games/isaac --profile lourd` (`make sandbox GAME=isaac PROFIL=lourd`) |
 | Une autre graine d'arène | `alacod sandbox games/zombies --seed 42` (sans `--seed`, toujours la graine 123456 : l'arène est la même à chaque lancement) |
 | Sans fenêtre (VPS, CI) | `alacod sandbox games/zombies --headless` |
-| Un jeu créé par `alacod new demo` | `cd demo && alacod sandbox` (profil `assets/sandbox/arene.ron` ; un autre : `alacod new-content Sandbox lourd`, puis `alacod sandbox --profile lourd`) |
+| Un jeu créé par `alacod new demo` | `cd demo && alacod sandbox` ou `alacod run --sandbox` (`--headless` sans fenêtre, `--players 2` à deux ; profil `assets/sandbox/arene.ron` ; un autre : `alacod new-content Sandbox lourd`, puis `alacod sandbox --profile lourd`) |
 | Une autre arène vide (taille, joueurs) | `alacod new-arena games/zombies --name grande --size 40x30 --use` |
 | Le remplaçant de `make character_tester` | `make character_tester` (alias de `make sandbox GAME=zombies`) |
 
@@ -71,7 +71,7 @@ alacod remote restart                       # « reset » : joueur recréé, pro
 ```
 
 `restart` rejoue le profil actif : ce que tu as donné (`give`, `modifier`) ou fait apparaître (`spawn`) disparaît. Modifie le RON d'un profil, puis `alacod remote reload && alacod remote restart`.
-Limites : local seulement (une session en ligne est refusée au lancement), `give` n'est pas enregistré dans un scénario (`save`).
+Limites : local seulement (une session en ligne est refusée au lancement) ; `give` est enregistré par `save` et rejoué (`gifts`), pas `modifier` (D144).
 
 ## En ligne à deux
 
@@ -146,3 +146,14 @@ Nord = interagir, Ouest = recharger, Est = mêlée.
 - `ALACOD_MUTE=1` : aucun son.
 
 Où regarder les parties automatiques (vidéos des bots, page de revue) : `docs/taches/rapports/m2-salles-murs-gungeon.md`, §4.
+
+### Un jeu créé par `alacod new` : tout par `alacod`
+
+```bash
+alacod new mon-jeu && cd mon-jeu     # dépendance git au dernier tag de l'engine
+alacod run --sandbox                 # arène + profil arene ; --headless sans fenêtre, --players 2, --seed 7
+alacod remote brief                  # dans un autre terminal : step 30, give --weapon x, spawn zombie --ahead…
+alacod engine status                 # version d'engine, surcharge locale, racine compilée
+alacod engine local ~/alacod         # développer engine et jeu ensemble (patch hors du Cargo.toml versionné)
+alacod engine pin v0.2.0             # revenir à un tag (retire la surcharge)
+```

@@ -68,7 +68,7 @@ pub struct LintError {
 pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     let mut errors = Vec::new();
 
-    lint_characters(registry, &mut errors);
+    lint_characters(registry, manifest, &mut errors);
     lint_weapons(registry, &mut errors);
     lint_melee_weapons(registry, &mut errors);
     lint_waves(registry, &mut errors);
@@ -95,7 +95,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_items(registry, &mut errors);
     lint_map_layers(registry, &mut errors);
     lint_synergies(registry, &mut errors);
-    lint_loot(registry, &mut errors);
+    lint_loot(registry, manifest, &mut errors);
     lint_unlocks(registry, &mut errors);
     lint_curses(registry, &mut errors);
     lint_achievements(registry, &mut errors);
@@ -396,7 +396,21 @@ fn lint_dash(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) 
     }
 }
 
-fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
+fn lint_characters(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
+    let player_character = manifest.player_character();
+    // D131 : un `entry.player` doit désigner un personnage du jeu.
+    if let Some(id) = &manifest.entry.player {
+        if !registry
+            .characters
+            .contains_key(&registry::CharacterId::from(id.clone()))
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+                message: format!("champ entry.player = « {id} » : aucun personnage avec cet id"),
+            });
+        }
+    }
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
 
@@ -505,15 +519,15 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         // D78 : le personnage joueur (`player`) porte le skin "1" pour le handle 0 et "2" pour
         // tous les autres (`game::character::player::create`) : sans "2", le second joueur en
         // ligne n'a pas de skin.
-        if character.id.as_str() == "player" {
+        if character.id.as_str() == player_character {
             for skin in ["1", "2"] {
                 if !character.skins.contains(skin) {
                     errors.push(LintError {
                         kind: LintErrorKind::BrokenReference,
                         file: file.clone(),
                         message: format!(
-                            "personnage « player » : skin « {skin} » absent de skins ({:?}) : le joueur de handle {} n'aurait pas de skin",
-                            character.skins,
+                            "personnage « {player_character} » : skin « {skin} » absent de skins ({:?}) : le joueur de handle {} n'aurait pas de skin",
+character.skins,
                             if skin == "1" { "0" } else { "1 et plus" }
                         ),
                     });
@@ -4920,7 +4934,7 @@ fn lint_achievements(registry: &Registry, errors: &mut Vec<LintError>) {
 /// M2-T5 (`docs/conventions.md` §48) : pools de butin, coffres des types de salle et pools par
 /// étage. Pool vide, poids ≤ 0, objet ou rareté sans objet, chances hors de 0..=1, pool ou clé
 /// inconnus.
-fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
+fn lint_loot(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<LintError>) {
     let zero = bevy_fixed::fixed_math::Fixed::ZERO;
     let one = bevy_fixed::fixed_math::Fixed::ONE;
     for table in registry.loot_tables.values() {
@@ -5165,7 +5179,7 @@ fn lint_loot(registry: &Registry, errors: &mut Vec<LintError>) {
             let player_max = registry
                 .characters
                 .values()
-                .find(|character| character.id.as_str() == "player")
+                .find(|character| character.id.as_str() == manifest.player_character())
                 .and_then(|character| character.base_health_max.literal())
                 .unwrap_or(bevy_fixed::fixed_math::Fixed::MAX);
             if let items::Price::Consumable(id, _) = cost {
@@ -5729,7 +5743,7 @@ fn lint_sandbox(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<L
                 let player_max = registry
                     .characters
                     .values()
-                    .find(|character| character.id.as_str() == "player")
+                    .find(|character| character.id.as_str() == manifest.player_character())
                     .and_then(|character| character.base_health_max.literal())
                     .unwrap_or(Fixed::MAX);
                 for problem in cost.problems(|_| true, player_max) {

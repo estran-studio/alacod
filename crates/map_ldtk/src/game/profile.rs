@@ -44,8 +44,8 @@ use game::{
     effects_runtime::{EffectState, Effects},
     progression::{Mutations, ProgressionTable},
     replay::{
-        CharacterPlacement, ChestPlacement, ItemPlacement, ModifierSpec, PlayerScript,
-        PowerUpPlacement, Scenario, ShelfPlacement,
+        CharacterPlacement, ChestPlacement, GiftPlacement, ItemPlacement, ModifierSpec,
+        PlayerScript, PowerUpPlacement, Scenario, ShelfPlacement,
     },
     system_set::RollbackSystemSet,
     weapons::{melee::MeleeWeapon, Weapon, WeaponInventory, WeaponRegistry},
@@ -179,6 +179,8 @@ pub struct Profile {
     pub characters: Vec<CharacterPlacement>,
     pub powerups: Vec<PowerUpPlacement>,
     pub items: Vec<ItemPlacement>,
+    /// Dons scriptés (D130, `Scenario::gifts`) ; vide pour un profil de bac à sable.
+    pub gifts: Vec<GiftPlacement>,
     pub chests: Vec<ChestPlacement>,
     pub shelves: Vec<ShelfPlacement>,
 }
@@ -196,6 +198,7 @@ impl Profile {
             characters: scenario.characters.clone(),
             powerups: scenario.powerups.clone(),
             items: scenario.items.clone(),
+            gifts: scenario.gifts.clone(),
             chests: scenario.chests.clone(),
             shelves: scenario.shop.shelves.clone(),
         }
@@ -214,6 +217,7 @@ impl Profile {
             characters: profile.characters.clone(),
             powerups: Vec::new(),
             items: profile.items.clone(),
+            gifts: Vec::new(),
             chests: profile.chests.clone(),
             shelves: profile.shop.shelves.clone(),
         }
@@ -226,6 +230,7 @@ impl Profile {
     pub fn install(&self, world: &mut World) {
         world.insert_resource(ScenarioPowerUpPlacements(self.powerups.clone()));
         world.insert_resource(ScenarioItemPlacements(self.items.clone()));
+        world.insert_resource(ScenarioGiftPlacements(self.gifts.clone()));
         world.insert_resource(ScenarioChestPlacements(self.chests.clone()));
         world.insert_resource(ScenarioShelfPlacements(self.shelves.clone()));
         world.insert_resource(ScenarioCharacterPlacements(self.characters.clone()));
@@ -247,6 +252,10 @@ pub struct ScenarioPowerUpPlacements(pub Vec<PowerUpPlacement>);
 /// Placements d'objets (M2-T0b, `Scenario::items`).
 #[derive(Resource)]
 pub struct ScenarioItemPlacements(pub Vec<ItemPlacement>);
+
+/// Dons scriptés (D130, `Scenario::gifts`).
+#[derive(Resource)]
+pub struct ScenarioGiftPlacements(pub Vec<GiftPlacement>);
 
 /// Placements de coffres (M2-T5, `Scenario::chests`).
 #[derive(Resource)]
@@ -493,10 +502,16 @@ pub fn apply_scenario_powerup_placements(
 pub fn apply_scenario_item_placements(
     frame: Res<FrameCount>,
     placements: Res<ScenarioItemPlacements>,
+    gifts: Res<ScenarioGiftPlacements>,
     table: Res<items::ItemTable>,
     mut commands: Commands,
     mut id_factory: ResMut<GgrsNetIdFactory>,
 ) {
+    // D130 : les dons enregistrés se rejouent ici (pas de système de plus dans `GgrsSchedule`) ; ils
+    // s'appliquent au prochain point de synchronisation, dans la même frame, après les objets posés.
+    for gift in gifts.0.iter().filter(|gift| gift.at_frame == frame.frame) {
+        game::grant::queue_gift(&mut commands, gift);
+    }
     for placement in &placements.0 {
         if frame.frame != placement.at_frame {
             continue;

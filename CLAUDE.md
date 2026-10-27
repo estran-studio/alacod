@@ -385,7 +385,7 @@ Variables d'environnement (natif) :
   méthodes `alacod/sandbox_profile` et `alacod/give`. Remplace `character_tester` (retiré). **La commande `alacod` est le point d'entrée unique** (§90) : `alacod sandbox|editor <jeu>` lancent le jeu, `alacod remote …` le pilote
   (`brief`, `give`, `spawn`, `restart`, `reload`, `modifier`, `screenshot`…), `alacod new-arena` écrit l'arène vide, `alacod lint|describe|new-content|test|new` ; aucun `make` ni script requis.
   Un jeu créé par `alacod new` l'a **sans code** (`templates/starter` : profil `arene`, `main.rs` inchangé) ; preuve de bout en bout
-  `make test_alacod_cli` (`new_game_opens_its_sandbox_without_any_added_code`, §88). `ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`.
+  `make test_alacod_cli` (`new_game_runs_its_sandbox_and_answers_remote_through_alacod_alone`, §88, §89). `ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`.
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
   de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
 - `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` et `ALACOD_P2P_CHANNEL=unreliable` (natif, mesures D87) : remplacent le délai de
@@ -600,6 +600,11 @@ Deux scénarios de validation à quatre joueurs locaux en synctest (session mult
   ensemble (frame 285), et les balles restent dans la salle (`BulletsInside`).
 
 Rejouer avec `make play_scenario SCENARIO=<nom>` (avec rendu). Pour regénérer les traces après un changement intentionnel de gameplay : `BLESS=1 SCENARIO=<nom> make test_scenarios`.
+
+### CLI `alacod` : jeu externe (X-2a, `docs/conventions.md` §92)
+
+Un jeu créé par `alacod new` se mène **par `alacod` seul**, sans Makefile ni script de l'engine : `alacod new` (dépendance git au **dernier tag** de l'engine ; `--path` hors ligne), `alacod engine status | pin <tag|rev> | local <chemin>`
+(`local` = patch Cargo dans `.cargo/config.toml`, hors du `Cargo.toml` versionné), `alacod run [--sandbox [profil]] [--headless] [--seed N] [--players N] [-- args]`, `alacod remote <commande>` (le même client BRP `content::remote` que pour les jeux de l'engine, avec `--json`, scripts et codes de sortie). La racine de l'engine des outils (`alacod test`) est celle que le jeu **compile réellement** (`cargo metadata`), jamais celle d'où `alacod` a été compilé. `entry.player` (`game.ron`) : le personnage joueur par défaut (D131). Un don à chaud (`alacod/give`) est enregistré par `save` et rejoué par `Scenario::gifts` (D130). Le code est dans `crates/content/src/bin/alacod/`.
 
 ### Jouer et enregistrer
 - **Contrôle remote** (`game::remote`, `ALACOD_REMOTE=1`) : `make remote` (ou `make remote HEADLESS=1`)

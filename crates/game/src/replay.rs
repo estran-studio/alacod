@@ -31,7 +31,8 @@ pub use combat::weapons::expectations::{
     DistanceTarget, EntityKind, EntityRef, Expectation, RunStepExpectation,
 };
 pub use content::sandbox::{
-    CharacterPlacement, ChestPlacement, ItemPlacement, ModifierSpec, ShelfPlacement, ShopSetup,
+    CharacterPlacement, ChestPlacement, GiftPlacement, ItemPlacement, ModifierSpec, ShelfPlacement,
+    ShopSetup,
 };
 use serde::{Deserialize, Serialize};
 use sim_core::ammo::AmmoType;
@@ -76,6 +77,10 @@ pub struct Scenario {
     /// `powerups`, pour les objets de `items/*.ron` ([`ItemPlacement`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<ItemPlacement>,
+    /// Dons scriptés (D130, `docs/conventions.md` §92) : ce que `alacod/give` a donné pendant une session
+    /// enregistrée, rejoué à la frame `at_frame` ([`GiftPlacement`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gifts: Vec<GiftPlacement>,
     /// Placements scriptés de coffres (M2-T5, `docs/conventions.md` §48) : même principe que
     /// `items`, pour les coffres ([`ChestPlacement`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

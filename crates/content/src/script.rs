@@ -474,6 +474,7 @@ fn run_expect(port: u16, expect: &Expectation, default: Duration) -> Result<Outp
                     expect.op.symbol(),
                     expect.value
                 ),
+                reply: None,
             });
         }
         std::thread::sleep(Duration::from_millis(50));
@@ -521,6 +522,7 @@ fn run_wait(port: u16, frames: i64) -> Result<Output, Failure> {
                 message: format!(
                     "attente expirée : {frames} frames non écoulées (jeu en pause ou arrêté ?), {elapsed} vues"
                 ),
+                reply: None,
             });
         }
     }
@@ -623,6 +625,7 @@ pub fn run_file(
     let usage = |message: String| Failure {
         code: EXIT_USAGE,
         message,
+        reply: None,
     };
     let source = std::fs::read_to_string(file).map_err(|e| usage(format!("{file} : {e}")))?;
     let lines = parse_script(&source).map_err(|e| usage(format!("{file}, {e}")))?;
@@ -643,6 +646,7 @@ pub fn run_file(
                     l.error.clone().unwrap_or_default()
                 )
             }),
+            reply: None,
         })
     }
 }

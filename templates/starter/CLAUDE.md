@@ -60,4 +60,9 @@ de scénarios et le lint. Pour du code propre au jeu, implémenter `game::extens
 
 ## Lancer
 
-`cargo run` (rendu), `alacod sandbox` (bac à sable, rechargement à chaud ; `cargo run --features native -- --sandbox`) ou `ALACOD_HEADLESS=1 cargo run --no-default-features --features native`.
+`alacod run` (jeu complet), `alacod sandbox` (arène vide et rechargement à chaud), `alacod run --sandbox [profil]` (même mode), `alacod run --headless` (sans fenêtre ; `--seed N`, `--players N`, `-- args du jeu`). `cargo run --features native` reste possible ; la CLI ne demande ni Makefile ni script du moteur.
+
+## Version d'engine
+
+Le jeu dépend de l'engine par un **tag git** (`Cargo.toml`). `alacod engine status` dit lequel et quelle racine est compilée ; `alacod engine pin <tag|rev>` change de version ;
+`alacod engine local <chemin-de-l-engine>` compile une copie locale à la place (patch dans `.cargo/config.toml`, ignoré par git : ne jamais le committer) pour développer engine et jeu ensemble, `pin` le retire.
