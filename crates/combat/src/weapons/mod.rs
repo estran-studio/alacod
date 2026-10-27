@@ -2174,9 +2174,6 @@ impl Plugin for BaseWeaponGamePlugin {
         // M3-T6 : tir réellement parti (transitoire : émis par `weapon_rollback_system`, lu la même
         // frame par `MirrorShot`).
         app.add_frame_events_transient::<sim_core::triggers::WeaponFired>();
-        // X-3 : projectile renvoyé par une parade (file neutre : vide dans tout le contenu
-        // d'avant, aucune trace ne bouge).
-        app.add_frame_events_neutral::<melee::ProjectileReflected>();
 
         // Rollback components for melee weapons
         app.rollback_and_trace::<melee::MeleeWeapon>()

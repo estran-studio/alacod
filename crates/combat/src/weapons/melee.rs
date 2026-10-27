@@ -872,7 +872,8 @@ pub fn facing_to_fixed(direction: FacingDirection) -> fixed_math::FixedVec2 {
 #[allow(clippy::too_many_arguments)]
 pub fn melee_reflect_system(
     frame: Res<FrameCount>,
-    mut reflected_events: ResMut<FrameEvents<ProjectileReflected>>,
+    // Absente hors jeu complet (enregistrée par `game::core_sim`) : la parade agit, sans événement.
+    mut reflected_events: Option<ResMut<FrameEvents<ProjectileReflected>>>,
     hitbox_query: Query<
         (
             &GgrsNetId,
@@ -989,12 +990,14 @@ pub fn melee_reflect_system(
                 "ggrs{{f={} reflect bullet={} owner={} grade={:?}}}",
                 now, bullet_id, owner_net_id, grade
             );
-            reflected_events.send(ProjectileReflected {
-                bullet: bullet_id.clone(),
-                owner: owner_net_id.clone(),
-                grade,
-                frame: now,
-            });
+            if let Some(events) = reflected_events.as_mut() {
+                events.send(ProjectileReflected {
+                    bullet: bullet_id.clone(),
+                    owner: owner_net_id.clone(),
+                    grade,
+                    frame: now,
+                });
+            }
         }
     }
 }

@@ -123,6 +123,13 @@ impl Plugin for CoreSimPlugin {
         // État de run (T2.4, chantier F1) : condition de victoire, résumé, relance sans
         // relancer le binaire (`RunRequest`). Voir `crate::run_state`.
         app.add_plugins(crate::run_state::RunStatePlugin);
+        // X-3 : projectile renvoyé par une parade (file neutre : vide dans tout le contenu d'avant,
+        // aucune trace ne bouge). Enregistrée **ici**, après tous les plugins et avant les cinq
+        // enregistrements de clôture : un type inséré plus tôt renumérote tous les suivants.
+        {
+            use sim_core::frame_events::FrameEventsAppExt;
+            app.add_frame_events_neutral::<combat::weapons::melee::ProjectileReflected>();
+        }
 
         app.init_resource::<GggrsSessionConfigurationState>();
         app.init_resource::<crate::game_commands::GameCommands>();
