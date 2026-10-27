@@ -1002,7 +1002,7 @@ Suite de la séance de réglage de `zombies` (2026-10-24 au 26) : mesurer, compa
 tout jeu alacod, par la seule commande `alacod`. Lots AT-0 (consolidation de la séance) à AT-9 (séance de William), ≈ 10 j : commandes de
 confort, `DevMetrics` (rollback sans checksum, insérée sur demande), widgets HUD `dev_*`, surimpressions, ralenti, banc `alacod bench --vs`,
 fiches `alacod table`, séance → scénario. Fiche : `docs/taches/plan-atelier-reglage.md`.
-**État au 2026-10-26 : AT-0 livré (`at-0-consolidation`, fusionné dans `main`, rapport `rapports/at-0-consolidation.md`) ; AT-1, AT-2, AT-4, AT-5 et AT-7 peuvent partir.**
+**État au 2026-10-26 (soir) : chantier arrêté sur décision de William (recentrage sur le cœur 30 s de 1837). AT-0 livré (`at-0-consolidation`, fusionné dans `main`, rapport `rapports/at-0-consolidation.md`) ; AT-1, AT-2, AT-7 non lancés : arrêtés avant tout code le 2026-10-26, recentrage sur le cœur 30 s de 1837.**
 
 ## 9. Suivi
 
@@ -1719,3 +1719,4 @@ LIVRÉ sb-4-jeu-externe-docs : bac à sable d'un jeu créé par `alacod new` pro
 | 2026-10-26 | at-0-consolidation « consolidation de la séance de réglage » (commits séparés SB-6, SB-7, correctif de sprite, docs ; `remote screenshot --wait`, `set` relatif, `self-check` ; BLESS de 51 traces `zombies` pour `89b2679b` (dispersion de la mitraillette 0,15 → 0,12, changement voulu), attentes de `clone_quad` (vagues 3/4 à f2383/f3623, soldes 1570/1380/1360) et `la_fonderie_demo` (victoire f6 378, `frames` 6800) réécrites ; risque 6 du plan) | `at-0-consolidation` | Claude | `cargo test -p content` 413, `schedule_order_diff` identique, suite 809 : 758 identiques + 51 BLESS (rejoués verts) ; rapport `rapports/at-0-consolidation.md` |
 
 LIVRÉ at-0-consolidation : séance de réglage commitée et prouvée ; 51 traces `zombies` réécrites pour `89b2679b`, deux attentes revues avec William
+| 2026-10-26 | arrêt de l'atelier de réglage (décision de William, soir) : recentrage complet sur le cœur 30 s de 1837 (une pièce, bouger/viser/tirer/hache/gigue, deux fantassins) dans un dépôt 1837 créé par `alacod new` ; AT-1, AT-2, AT-7 non lancés : arrêtés avant tout code (workers Orca arrêtés sur consigne, `worker_done --outcome failed`, worktrees remis propres sans commit puis supprimés, branches `wquintal/at-1-confort`, `wquintal/at-2-dev-metrics`, `wquintal/at-7-fiches` conservées au niveau de `main`) ; AT-0 reste livré ; prochain jalon M4 := prologue de 1837 (`docs/etat-engine.md`) | `main` | Claude (orch) | docs seules, aucune trace |

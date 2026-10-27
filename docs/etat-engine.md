@@ -164,6 +164,10 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 
 ## Ordre recommandé après cette branche
 
+0. **Prochain jalon (décision de William du 2026-10-26, soir) : M4 := le prologue de 1837** (feuille de route de `1867_lore` du 2026-10-20),
+   en commençant par le cœur 30 s (une pièce, bouger/viser/tirer/hache/gigue, deux fantassins) ; « La coupe » est abandonnée ; le dépôt
+   1837 est créé par William via `alacod new`. L'atelier de réglage (K7) s'arrête : AT-0 livré, AT-1, AT-2, AT-7 non lancés
+   (`docs/taches/plan-atelier-reglage.md`).
 1. Revue et intégration du durcissement P2P/CI ; exécuter le transport réel sur le poste
    d’orchestration (Docker opérationnel) puis entre machines.
 2. D59 : choix explicite de la séquence d’étages dans le manifeste et grammaire par défaut de

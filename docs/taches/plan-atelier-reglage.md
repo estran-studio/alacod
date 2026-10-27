@@ -1,17 +1,17 @@
 # Plan de l'atelier de réglage (chantier K7, lots AT) — rédigé le 2026-10-26
 
-**État au 2026-10-26 : AT-0 livré (`at-0-consolidation`, fusionné dans `main`, rapport `rapports/at-0-consolidation.md`) ; AT-1, AT-2, AT-4, AT-5 et AT-7 peuvent partir.**
+**État au 2026-10-26 (soir) : chantier arrêté sur décision de William (recentrage sur le cœur 30 s de 1837). AT-0 livré (`at-0-consolidation`, fusionné dans `main`, rapport `rapports/at-0-consolidation.md`) ; AT-1, AT-2 et AT-7 non lancés : arrêtés avant tout code le 2026-10-26, recentrage sur le cœur 30 s de 1837 ; les autres lots attendent. On repartira de cette fiche quand 1837 en aura besoin.**
 
 | Lot | Contenu court | Prérequis | Estimation |
 |---|---|---|---|
 | AT-0 | Consolidation de la séance : commit, revue, suite complète, binaire `alacod` installé, petits défauts relevés — **livré** (`at-0-consolidation`) | — | 0,5 j |
-| AT-1 | Commandes de confort : `list`, triches de dev, spawn en formation, gel des ennemis, vues de debug par la CLI | AT-0 | 1 j |
-| AT-2 | Mesures dans la simulation : `DevMetrics`, fenêtres de mesure, `alacod remote metrics` | AT-0 | 1,5 j |
+| AT-1 | Commandes de confort : `list`, triches de dev, spawn en formation, gel des ennemis, vues de debug par la CLI — **non lancé : arrêté avant tout code le 2026-10-26, recentrage sur le cœur 30 s de 1837** | AT-0 | 1 j |
+| AT-2 | Mesures dans la simulation : `DevMetrics`, fenêtres de mesure, `alacod remote metrics` — **non lancé : arrêté avant tout code le 2026-10-26, recentrage sur le cœur 30 s de 1837** | AT-0 | 1,5 j |
 | AT-3 | Widgets de dev à l'écran (sources HUD `dev_*`, F8, `alacod remote widget`) | AT-2 | 1,5 j |
 | AT-4 | Surimpressions de réglage : cône de dispersion, portée, traînée et dash, marqueurs de coups | AT-0 | 1 j |
 | AT-5 | Ralenti : `alacod remote speed 0.25` | AT-0 | 0,5 j |
 | AT-6 | Banc d'essai sans fenêtre : `alacod bench weapon|enemy|move [--vs REF]` | AT-2 | 2 j |
-| AT-7 | Fiches statiques : `alacod table Weapon|Character [--diff REF]` (DPS théorique, TTK calculé) | AT-0 | 0,5 j |
+| AT-7 | Fiches statiques : `alacod table Weapon|Character [--diff REF]` (DPS théorique, TTK calculé) — **non lancé : arrêté avant tout code le 2026-10-26, recentrage sur le cœur 30 s de 1837** | AT-0 | 0,5 j |
 | AT-8 | De la séance au test : `remote save --metrics`, `alacod log` des réglages | AT-2, AT-6 | 1 j |
 | AT-9 | Séance de William (voix) : armes, ennemis, déplacement | AT-1 à AT-5 | 0,5 j + William |
 
