@@ -97,14 +97,70 @@ impl AnimationIndices {
     }
 }
 
-#[derive(Asset, TypePath, Deserialize, Debug, Clone)]
-pub struct AnimationMapConfig {
-    pub frame_duration: u64,
-    pub animations: HashMap<String, AnimationIndices>,
-    // Optional: Store columns count if needed for row-based animations
-    // This can be provided or inferred from the associated sprite sheet
+/// Métadonnée par animation d'une `AnimationMapConfig` (X-4b, générique) : le pipeline
+/// d'import (`content::sprite_import`) écrit un FPS et une boucle par clip, là où le
+/// schéma historique ne connaît qu'un `frame_duration` global et boucle toujours. Tout est
+/// facultatif : absente, une animation garde le comportement d'avant (`frame_duration`
+/// global, boucle). Les cartes écrites à la main sans `clips` se chargent à l'identique.
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct AnimationClipMeta {
+    /// Millisecondes par image pour ce clip (`None` : `frame_duration` global).
     #[serde(default)]
-    pub columns: Option<u32>,
+    pub frame_duration: Option<u64>,
+    /// `false` : le clip s'arrête sur sa dernière image au lieu de boucler (`None` : boucle).
+    #[serde(default)]
+    pub looping: Option<bool>,
+}
+
+ #[derive(Asset, TypePath, Deserialize, Debug, Clone)]
+ pub struct AnimationMapConfig {
+     pub frame_duration: u64,
+     pub animations: HashMap<String, AnimationIndices>,
+     // Optional: Store columns count if needed for row-based animations
+     // This can be provided or inferred from the associated sprite sheet
+     #[serde(default)]
+     pub columns: Option<u32>,
+    /// Métadonnées par animation (X-4b) : clé = nom dans `animations` (ou `"Idle"`, le repli
+    /// du runtime quand l'état courant manque). Vide par défaut : rien ne change.
+    #[serde(default)]
+    pub clips: HashMap<String, AnimationClipMeta>,
+}
+
+impl AnimationMapConfig {
+    /// Clé du clip actif pour un état : l'état lui-même s'il est déclaré, sinon `"Idle"`
+    /// (le repli historique de l'avance ci-dessous).
+    pub fn clip_key(&self, state: &str) -> &str {
+        if self.animations.contains_key(state) {
+            state
+        } else {
+            "Idle"
+        }
+    }
+
+    /// Rythme du clip actif : millisecondes par image et boucle, avec les replis globaux
+    /// (`frame_duration`, boucle) quand `clips` ne dit rien. Sans `clips` : l'ancien
+    /// comportement exactement.
+    pub fn clip_timing(&self, state: &str) -> (u64, bool) {
+        let clip = self.clips.get(self.clip_key(state));
+        let ms = clip
+            .and_then(|c| c.frame_duration)
+            .unwrap_or(self.frame_duration)
+            .max(1);
+        (ms, clip.and_then(|c| c.looping).unwrap_or(true))
+    }
+}
+
+/// Avance d'une image dans `[start, end]` (inclusif) depuis `local` (déjà hors fenêtre :
+/// on repart à `start`). Un clip bouclé tourne, un clip non bouclé reste sur `end`.
+/// Pure pour les tests ; `animate_sprite_system` l'applique à chaque calque.
+pub fn advance_frame(start: usize, end: usize, local: usize, looping: bool) -> usize {
+    if local < start || local > end {
+        start
+    } else if !looping && local >= end {
+        end
+    } else {
+        (local + 1 - start) % (end - start + 1) + start
+    }
 }
 
 // COMPONENT
@@ -226,6 +282,13 @@ fn animate_sprite_system(
                 })
                 .unwrap_or(1); // Default to 1 if we can't determine
 
+            // X-4b : le clip actif (état courant, repli `"Idle"`) peut imposer sa durée
+            // d'image et sa boucle ; sinon le global d'avant.
+            let (frame_ms, looping) = anim_config.clip_timing(&state.0);
+            if timer.frame_timer.duration() != Duration::from_millis(frame_ms) {
+                timer.frame_timer.set_duration(Duration::from_millis(frame_ms));
+                timer.frame_timer.reset();
+            }
             timer.frame_timer.tick(time.delta());
             if timer.frame_timer.just_finished() {
                 for child in childs.iter() {
@@ -245,12 +308,7 @@ fn animate_sprite_system(
                             let local = atlas.index.saturating_sub(row_offset);
                             let next = if let Some(indices) = anim_config.animations.get(&state.0) {
                                 let (start_index, end_index) = indices.to_absolute(columns);
-                                if local < start_index || local > end_index {
-                                    start_index
-                                } else {
-                                    (local + 1 - start_index) % (end_index - start_index + 1)
-                                        + start_index
-                                }
+                                advance_frame(start_index, end_index, local, looping)
                             } else {
                                 anim_config.animations.get("Idle").map_or(0, |idx| {
                                     let (start, _) = idx.to_absolute(columns);
@@ -728,5 +786,69 @@ mod direction_row_tests {
         rig.settle();
         // `SW` = miroir de `SE` (ligne 1), retourné.
         assert_eq!(rig.state(), (COLUMNS as usize + 3, true, Some(1)));
+    }
+}
+
+/// X-4b : rythme par clip (`clips`) et avance bouclée ou non (`advance_frame`).
+#[cfg(test)]
+mod clip_timing_tests {
+    use super::*;
+
+    fn config() -> AnimationMapConfig {
+        AnimationMapConfig {
+            frame_duration: 100,
+            animations: [
+                ("Idle".to_string(), AnimationIndices::Row { row: 0, end: 3 }),
+                ("Shot".to_string(), AnimationIndices::Row { row: 1, end: 1 }),
+            ]
+            .into_iter()
+            .collect(),
+            columns: Some(4),
+            clips: [
+                (
+                    "Shot".to_string(),
+                    AnimationClipMeta {
+                        frame_duration: Some(50),
+                        looping: Some(false),
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        }
+    }
+
+    #[test]
+    fn legacy_map_keeps_global_timing_and_loops() {
+        let plain = AnimationMapConfig {
+            frame_duration: 100,
+            animations: [("Idle".to_string(), AnimationIndices::Row { row: 0, end: 3 })]
+                .into_iter()
+                .collect(),
+            columns: Some(4),
+            clips: HashMap::default(),
+        };
+        assert_eq!(plain.clip_key("Run"), "Idle");
+        assert_eq!(plain.clip_timing("Run"), (100, true));
+        assert_eq!(plain.clip_timing("Idle"), (100, true));
+    }
+
+    #[test]
+    fn clip_meta_overrides_duration_and_loop() {
+        let config = config();
+        assert_eq!(config.clip_key("Shot"), "Shot");
+        assert_eq!(config.clip_timing("Shot"), (50, false));
+        assert_eq!(config.clip_timing("Idle"), (100, true));
+        assert_eq!(config.clip_timing("Missing"), (100, true));
+    }
+
+    #[test]
+    fn looping_advance_wraps_and_clamps() {
+        assert_eq!(advance_frame(0, 3, 3, true), 0);
+        assert_eq!(advance_frame(0, 3, 1, true), 2);
+        assert_eq!(advance_frame(0, 3, 3, false), 3);
+        assert_eq!(advance_frame(0, 3, 1, false), 2);
+        assert_eq!(advance_frame(0, 3, 9, false), 0);
+        assert_eq!(advance_frame(4, 7, 7, false), 7);
     }
 }

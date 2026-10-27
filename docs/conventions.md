@@ -8038,3 +8038,52 @@ Un jeu créé par `alacod new` se développe, se lance et se pilote **par `alaco
   Preuves : `crates/scenario/tests/gifts.rs` (enregistrement, rejeu à la frame exacte, synctest sans mismatch).
 - **Preuves** : `crates/content/tests/cli.rs` (rapide : `new` par tag, `--tag`/`--rev`/`--url`, refus sans tag, `engine pin`/`local`/`status`, racine par `cargo metadata`, `run` contre un faux `cargo`, `remote` contre un faux serveur BRP) et `new_game_runs_its_sandbox_and_answers_remote_through_alacod_alone`
   (`#[ignore]`, `make test_alacod_cli`) : `new` à une révision, `engine local`, `run --sandbox --headless`, `remote`, `engine pin`, le tout par `alacod`.
+
+## 93. Import d'un manifeste pipeline `*.sprite.json` (X-4b, voie D)
+
+**But.** Un outil externe de production de sprites décrit un personnage par un manifeste JSON
+(`cell`, `directions`, et par animation `sheet`/`columns`/`rows`/`fps`/`loop`) ; `content::sprite_import`
+le convertit en contenu engine générique (feuilles, cartes d'animation, entrées `sprites.ron`, PNG
+copiés), sans nom, réglage ni équilibrage d'un jeu particulier en dur. La CLI (`alacod import-sprite`,
+câblée par X-2b, qui possède `crates/content/src/bin/alacod/main.rs`) n'est qu'une coquille autour de
+`content::sprite_import::{import_sprite, SpriteImportOptions, SpriteImportResult, SpriteImportError}`.
+
+**Format d'entrée.** `{ "name": "…", "cell": [l, h], "directions": ["E", "NE", …] | null,
+  "animations": { "<clip>": { "sheet": "<fichier>.png", "columns": n, "rows": m, "fps": f,
+  "loop": bool } } }`. Seuls ces champs sont lus : `pivot`, `ppm`, `rendu`, palettes et autres
+métadonnées du pipeline sont **ignorés** (jamais inférés comme échelle ou ancrage). `directions`
+absent = planche sans déclaration (retournement historique) ; présent = 1 nom ou plus parmi
+`E, NE, N, NW, W, SW, S, SE`, sans doublon. Chaque clip exige `rows` égal au nombre de directions
+(une ligne par direction) quand elles sont déclarées ; les planches multi-blocs se découpent avant
+l'import (refus net, pas d'import partiel).
+
+**Sortie (aucune animation abandonnée).** Le schéma de présentation a un PNG par `SpriteSheetConfig` :
+chaque clip garde donc sa feuille. Pour un sprite `id` : `assets/sprites/<id>/<id>_<clip>_sheet.ron`
+(case, grille, directions du manifeste, `scale`/`anchor`/`offset` des options),
+`assets/sprites/<id>/<id>_<clip>_animation.ron` (animation du clip sur toute la ligne :
+`(row: 0, end: columns − 1)` sous le nom du clip **et** `"Idle"`, le repli du runtime ;
+`frame_duration` déduit du FPS ; table `clips` avec FPS et boucle par animation), PNG copiés dans
+`assets/sprites/<id>/`, et une entrée `<id>_<clip>` par clip dans la table `SpriteSheet` du jeu
+(ajout ou remplacement ciblé, commentaires et autres entrées préservés ; table créée si `game.ron`
+la déclare sans fichier).
+
+**Rythme par clip (extension générique).** `AnimationMapConfig` gagne `clips: { "<nom>":
+(frame_duration: Option<ms>, looping: Option<bool>) }` (`animation::AnimationClipMeta`, tout
+facultatif : sans `clips`, durée globale et boucle comme avant, fichiers existants inchangés).
+Le runtime applique la durée du clip actif (état courant, repli `"Idle"`) et fige un clip non
+bouclé sur sa dernière image (`advance_frame`, pur et testé). Présentation seule : aucune trace
+ne bouge. Les ancres/mains composables de `design/sprites-composables.md` restent une proposition :
+l'import n'écrit que `scale`, `anchor` (les neuf `ConfigurableAnchor`) et `offset`, en options
+explicites (`--scale`, `--anchor`, `--offset`, défauts `1.0`, `Center`, `(0, 0, 1)`).
+
+**Échecs.** Manifeste illisible/invalide, direction inconnue ou répétée, `rows ≠ directions`,
+FPS non fini ou ≤ 0, PNG absent/illisible/non-PNG ou de dimensions différentes de
+`columns × cell` / `rows × cell`, table `SpriteSheet` non déclarée dans `game.ron`, conflit sans
+`--overwrite` : tout est validé **avant** d'écrire ; une erreur ne crée ni ne modifie rien, et une
+écriture interrompue retire les fichiers créés (`sprites.ron` est écrit en dernier).
+
+**Preuves.** `crates/content/tests/sprite_import.rs` (PNG synthétiques neutres, mini-encodeur local
+sans dépendance : aucune image d'un jeu réel dans le dépôt) : manifests 1/4/5/8 directions, mapping
+`ligne × columns + image` (`frame_index`), lignes incohérentes, PNG incompatibles, fusion de
+`sprites.ron`, `load_and_lint` du jeu généré sans erreur ; `content::sprite_import::tests` (table,
+FPS→ms, PNG) et `animation::clip_timing_tests` (replis, boucle). Aucune trace existante réécrite.

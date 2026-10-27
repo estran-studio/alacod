@@ -16,6 +16,8 @@ pub mod sandbox;
 pub mod scaffold;
 pub mod schema;
 pub mod script;
+/// Import d'un manifeste pipeline `*.sprite.json` (X-4b) : voir le module.
+pub mod sprite_import;
 pub mod ui;
 pub mod value;
 
