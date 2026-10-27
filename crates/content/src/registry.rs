@@ -800,6 +800,18 @@ pub struct SpriteSheetEntry {
     /// que l'image existe. Une feuille illisible n'a pas d'entrée ici (le lint rapporte déjà
     /// la feuille elle-même).
     pub images: BTreeMap<String, String>,
+    /// Calque -> déclaration `directions` de sa feuille (X-4a, `docs/conventions.md` §89), pour les
+    /// feuilles lisibles qui en ont une : le lint vérifie les noms et le nombre de lignes.
+    pub directions: BTreeMap<String, SheetDirectionsDecl>,
+}
+
+/// `directions` d'une feuille et `rows` de sa grille, tels que le lint les lit.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SheetDirectionsDecl {
+    /// `rows` de la grille de la feuille (`None` si absent ou illisible).
+    pub sheet_rows: Option<u32>,
+    /// La déclaration, ou le message de l'erreur RON (nom de direction inconnu, champ inconnu).
+    pub parsed: Result<sim_core::sprite_directions::SheetDirections, String>,
 }
 
 /// Un chemin de son lu dans le contenu (T2.8) : `field` est le chemin du champ RON
@@ -2432,10 +2444,25 @@ struct SpriteSheetEntrySchema {
     layers: BTreeMap<String, String>,
 }
 
-/// D3 : le seul champ d'une feuille (`animation::SpriteSheetConfig`) que le lint lit.
+/// X-4a : directions et nombre de lignes de la feuille (`animation::SpriteSheetConfig`).
+#[derive(schemars::JsonSchema, Deserialize)]
+struct SheetDirectionsSchema {
+    #[serde(default)]
+    rows: u32,
+    #[serde(default)]
+    directions: Option<sim_core::sprite_directions::SheetDirections>,
+}
+
+/// D3 : le chemin de l'image reste lisible même quand `directions` contient un nom inconnu.
 #[derive(Deserialize)]
-struct SheetImageSchema {
+struct SheetPathSchema {
     path: String,
+}
+
+/// Schéma des métadonnées directionnelles d'une feuille référencée par `sprites.ron`.
+/// Le schéma du kind `SpriteSheet` décrit la table d'ids ; celui-ci décrit la feuille cible.
+pub(crate) fn sprite_sheet_direction_schema() -> schemars::Schema {
+    schemars::schema_for!(SheetDirectionsSchema)
 }
 
 #[derive(schemars::JsonSchema, Deserialize, Default)]
@@ -4291,21 +4318,48 @@ fn sprite_sheet_entry(
     rel: &Path,
     entry: SpriteSheetEntrySchema,
 ) -> SpriteSheetEntry {
-    let images = entry
-        .layers
-        .iter()
-        .filter_map(|(layer, sheet)| {
-            let text = assets_dir.read(Path::new(sheet)).ok()?;
-            let sheet: SheetImageSchema = ron::from_str(&text).ok()?;
-            Some((layer.clone(), sheet.path))
-        })
-        .collect();
+    let mut images = BTreeMap::new();
+    let mut directions = BTreeMap::new();
+    for (layer, path) in &entry.layers {
+        let Some(text) = assets_dir.read(Path::new(path)).ok() else {
+            continue;
+        };
+        // La désérialisation détecte `directions` indépendamment de l'espacement RON.
+        // Une feuille sans `path` lisible reste hors de ce contrôle, comme auparavant.
+        let Ok(sheet) = ron::from_str::<SheetPathSchema>(&text) else {
+            continue;
+        };
+        images.insert(layer.clone(), sheet.path);
+        match ron::from_str::<SheetDirectionsSchema>(&text) {
+            Ok(sheet) => {
+                if let Some(parsed) = sheet.directions {
+                    directions.insert(
+                        layer.clone(),
+                        SheetDirectionsDecl {
+                            sheet_rows: Some(sheet.rows),
+                            parsed: Ok(parsed),
+                        },
+                    );
+                }
+            }
+            Err(error) => {
+                directions.insert(
+                    layer.clone(),
+                    SheetDirectionsDecl {
+                        sheet_rows: None,
+                        parsed: Err(error.to_string()),
+                    },
+                );
+            }
+        }
+    }
     SpriteSheetEntry {
         id,
         file: rel.to_path_buf(),
         animation: entry.animation,
         layers: entry.layers,
         images,
+        directions,
     }
 }
 

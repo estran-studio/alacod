@@ -269,13 +269,21 @@ déplacé que les sprites.
 - `scale` : facteur appliqué au rendu.
 - `animated` : `true` si la planche a plusieurs frames ; `false` sinon.
 - `name` : nom interne du calque (exemple : `"body"`, `"shadow"`).
+- `directions` (X-4a, facultatif) : `Some((rows: [E, NE, N, NW, W, SW, S, SE], mirror: false))` ;
+  direction dessinée par ligne, dans l'ordre de la planche. Absent : une seule ligne tournée à droite,
+  miroir pour la gauche, comme avant. Voir §89.
 
 `AnimationMapConfig` (même dossier que la planche) :
 - `frame_duration` : millisecondes par frame.
 - `animations` : table `{ "nom": { start: 0, end: 6 } }` ou `{ "nom": { row: 0, end: 7 } }`. Format direct (indices absolus) ou basé sur les lignes (spécifier la ligne et le nombre de frames).
 - `columns` : optionnel, dérivé de `SpriteSheetConfig` sinon.
 
-**8 directions, 2 dessinées** : l'engine suit 8 directions par `FacingDirection` (`crates/sim_core/src/animation_state.rs`, état rollback ; déménagé d'`animation` par D69) mais dessine seulement 2 (gauche/droite, obtenues par retournement automatique). La planche n'a pas besoin de 8 orientations : elle est dessinée tournée vers la droite, et le rendu la retourne pour la gauche (`set_sprite_flip`).
+**8 directions, de 1 à 8 dessinées (X-4a)** : `FacingDirection` conserve ses huit valeurs dans la
+simulation (rollback inchangé). Une planche sans `directions` dessine une orientation tournée à droite,
+retournée pour la gauche (`set_sprite_flip`, comportement historique). Une planche qui déclare
+`directions` sélectionne en présentation la ligne dessinée angulairement la plus proche, éventuellement
+retournée si `mirror: true`. Les calques déclarent chacun leurs propres lignes ; §89 donne le format,
+les règles d'égalité, le lint et le cas des grandes planches.
 
 **Calques (skins)** : un personnage peut avoir plusieurs calques animés (`body`, `shadow`, `effect`). Chaque calque est une `SpriteSheetConfig` et une `AnimationMapConfig` ; ils sont composés dans `CharacterConfig` (`crates/game/src/character/config.rs`).
 
@@ -591,6 +599,7 @@ Le registre `CharacterConfigs` suit le même événement (`AssetEvent::Modified`
 
 Exemple : ajouter un nouveau type d'ennemi, un effet, ou un statut. Suivre ce flux avant le code (plan §9.7). Chaque point est une décision qui touche l'architecture ; les valider avant d'écrire.
 
+0. **Engine, contenu ou plugin de jeu ?** Appliquer le critère de `docs/plan-engine.md` §4.8 avant tout : une mécanique faisable en assemblant l'existant est du contenu ; une mécanique qui se découpe en verbes génériques (déclencheur, condition, action, horloge, jauge, behavior) utiles à deux jeux ou à un genre entre dans l'engine **sous forme de verbes**, jamais comme un système d'un seul bloc ; le reste va dans le plugin du jeu, écrit avec les mêmes contrats (points 1 à 9) pour pouvoir remonter dans l'engine plus tard.
 1. **Écrire le test (scénario)** : créer `tests/scenarios/<nom>.ron` avec attentes (`expect: [Expectation]`), invariants de frame, et commentaire « À regarder » décrivant ce qu'on doit observer à l'écran (quelles frames, quel comportement). Le scénario est le cahier des charges ; le code le réalise.
 2. **Déclarer le kind** : enum Rust sérialisable en RON dans la crate de vocabulaire (`crates/combat`, `crates/behaviors` ou `crates/effects`). Un vocabulaire déclaré par un plugin s'enregistre auprès de `KindRegistry` (trait de `sim_core`, T0.2) ; un **kind de contenu** (dossier de `game.ron`) s'ajoute à `content::registry::KNOWN_KIND_NAMES` et au `match` de `Registry::build`.
 3. **Composants et état** : déclarer tous les composants Bevy qui portent l'état. **Pas de HashMap, HashSet**, uniquement BTreeMap/BTreeSet pour l'ordre déterministe. Consulter `CLAUDE.md` Règles critiques du déterminisme.
@@ -7740,7 +7749,7 @@ Aucun système, aucun type rollback, rien dans `GgrsSchedule` : aucune trace ne 
 - **Profil par défaut** : `arene` (`content::sandbox::DEFAULT_PROFILE`), celui de `--sandbox` sans argument. Livrés : `arene` + `lourd` pour zombies, gungeon, isaac, throne, testbed ; `arene` dans `templates/starter`.
   Le personnage du joueur est le champ `players[].character` (D126, fermée par SB-3 : §87).
 - **Arène** (D2) : `SandboxProfile::map`, sinon `sandbox: (arena: "…")` du manifeste (champ facultatif, `SandboxEntry`), sinon `generate_template.map` (`content::sandbox::manifest_arena`, `SandboxProfile::arena`).
-  Une désignation est une carte LDtk, `cave:<id>` ou `floor:<id>` (comme `entry.start_map`). **Depuis SB-6 (§89)** les cinq jeux et le gabarit déclarent tous `sandbox: (arena: "…/arene_vide.ldtk")` : l'**arène vide** écrite par
+  Une désignation est une carte LDtk, `cave:<id>` ou `floor:<id>` (comme `entry.start_map`). **Depuis SB-6 (§90)** les cinq jeux et le gabarit déclarent tous `sandbox: (arena: "…/arene_vide.ldtk")` : l'**arène vide** écrite par
   `alacod new-arena` (zombies, gungeon, isaac, `maps/arene_vide.ldtk` ; throne `arene_vide.ldtk` ; testbed `testbed/arene_vide.ldtk` ; gabarit `maps/arene_vide.ldtk`) ; le repli `generate_template.map` ne sert plus qu'à un jeu qui n'a pas écrit la sienne.
   Le joueur 0 y apparaît à (424, 696) : un ennemi posé à (624, 696) est à 200 unités à sa droite (même point que les scénarios générés).
 - **Lint** (`lint_sandbox`) : un jeu à dossier `Sandbox` a une arène (`sandbox.arena` ou `generate_template`) **et** un profil `arene` ; `sandbox.arena` connue (même sans dossier) ; par profil : `map` connue, `weapon`
@@ -7754,7 +7763,7 @@ Aucun système, aucun type rollback, rien dans `GgrsSchedule` : aucune trace ne 
 `cargo run -p <jeu> -- --sandbox [profil]` ouvre l'**arène** du jeu avec le profil `sandbox/<profil>.ron` (`arene` sans argument), **sans vagues ni étages**, en **mode éditeur** (remote BRP `alacod/*`,
 rechargement à chaud, `check_distance` 0, clavier ou manette). Aucune ligne dans le `main.rs` d'un jeu : `args::cli::Opt::sandbox` → `GameArgs::sandbox` → ressource `game::sandbox::SandboxRequest` (posée par
 `GameArgsPlugin`, donc `BaseArgsPlugin`) → `CoreSetupPlugin` allume le mode éditeur (comme `ALACOD_EDITOR=1`, `play_check_distance_from_env(sandbox)` donne 0) et `LdtkLocalGamePlugin` **ajoute
-`map_ldtk::game::sandbox::SandboxPlugin` quand la ressource existe** (un jeu créé par `alacod new` a ce `main.rs`, donc le mode). `alacod sandbox <jeu> [--profile lourd] [--seed n] [--headless] [--detach]` (§89 ; `make sandbox GAME=<jeu> [PROFIL=lourd] [SEED=n] [HEADLESS=1]` en est l'alias) ;
+`map_ldtk::game::sandbox::SandboxPlugin` quand la ressource existe** (un jeu créé par `alacod new` a ce `main.rs`, donc le mode). `alacod sandbox <jeu> [--profile lourd] [--seed n] [--headless] [--detach]` (§90 ; `make sandbox GAME=<jeu> [PROFIL=lourd] [SEED=n] [HEADLESS=1]` en est l'alias) ;
 `make character_tester` = `make sandbox GAME=zombies`. Un jeu sans dossier `Sandbox`, un profil inconnu (les profils du jeu sont listés), une arène absente ou une session en ligne : message sur la sortie d'erreur et code 1.
 
 - **Au lancement** (`SandboxPlugin`, `Startup`) : arène du profil dans `LdtkGameMap` (D2 : `map` du profil > `sandbox.arena` > `generate_template.map`), graine `ARENA_SEED` (123456, celle de `Scenario::map_seed` : une arène
@@ -7797,9 +7806,9 @@ rechargement à chaud, `check_distance` 0, clavier ou manette). Aucune ligne dan
 
 Un jeu créé par `alacod new demo` (gabarit `templates/starter`) ouvre son bac à sable **sans une ligne de code ajoutée** : `src/main.rs` du gabarit pose `BaseArgsPlugin` (qui lit `--sandbox`), `CoreSetupPlugin` et
 `LdtkLocalGamePlugin` (qui pose `SandboxPlugin` quand `SandboxRequest` existe, §87) ; le gabarit livre le kind `Sandbox` (`(path: "sandbox", kind: "Sandbox")` de `game.ron`), le profil `assets/sandbox/arene.ron` (solde 1 000,
-aucun ennemi) et son arène vide (`sandbox: (arena: "maps/arene_vide.ldtk")`, écrite par `alacod new-arena`, §89 ; l'ancienne carte `maps/arena.ldtk`, avec ses cinq `CharacterSpawn`, ne sert plus qu'aux scénarios générés : `generate_template`).
+aucun ennemi) et son arène vide (`sandbox: (arena: "maps/arene_vide.ldtk")`, écrite par `alacod new-arena`, §90 ; l'ancienne carte `maps/arena.ldtk`, avec ses cinq `CharacterSpawn`, ne sert plus qu'aux scénarios générés : `generate_template`).
 
-- **Lancer** (dans le dossier du jeu) : `alacod sandbox [--profile P]` (§89 : `cargo run --features native -- --sandbox [profil]` ; **`native` = `bevy/file_watcher`** : sans lui, pas de rechargement à chaud des armes et des personnages ; `--local-port 0` et un joueur local sont les défauts, prouvés par le test) ; sans fenêtre : `alacod sandbox --headless` (`ALACOD_HEADLESS=1 cargo run --no-default-features --features native -- --sandbox`).
+- **Lancer** (dans le dossier du jeu) : `alacod sandbox [--profile P]` (§90 : `cargo run --features native -- --sandbox [profil]` ; **`native` = `bevy/file_watcher`** : sans lui, pas de rechargement à chaud des armes et des personnages ; `--local-port 0` et un joueur local sont les défauts, prouvés par le test) ; sans fenêtre : `alacod sandbox --headless` (`ALACOD_HEADLESS=1 cargo run --no-default-features --features native -- --sandbox`).
   Un second profil : `alacod new-content Sandbox lourd` (copie de `arene`), puis `alacod sandbox --profile lourd`. Le pilotage est celui des cinq jeux (`alacod remote profile|give|spawn|modifier|reload|restart`, `docs/editeur-vocal.md` §2.2) ;
   `ALACOD_REMOTE_PORT` change le port 15702. `templates/starter/CLAUDE.md` le dit à l'agent qui travaille dans le jeu créé.
 - **Preuve** : `crates/content/tests/cli.rs::new_game_opens_its_sandbox_without_any_added_code` (`#[ignore]`, **`make test_alacod_cli`**, comme le test de `alacod test`) : dossier temporaire, `alacod new demo --engine <engine>`, **un seul fichier Rust**
@@ -7814,7 +7823,77 @@ aucun ennemi) et son arène vide (`sandbox: (arena: "maps/arene_vide.ldtk")`, é
 - **Docs** : `docs/editeur-vocal.md` §1 (apps de test : le bac à sable d'abord, jeu créé), §2.1/§2.2 (phrases → commandes exactes), §4 (bloc « prêt à coller » : mode bac à sable), §8 ; `docs/jouer.md` (« Bac à sable », ligne du jeu créé) ; `CLAUDE.md` (variables et commandes) ;
   protocole de l'essai William : `docs/taches/rapports/sb-5-essai-vocal.md`.
 
-## 89. L'arène vide, `alacod new-arena` et la commande `alacod` comme point d'entrée unique (SB-6)
+## 89. Sprites directionnels et échelle par jeu (X-4a, voie D)
+
+**Format.** Chaque `SpriteSheetConfig` peut déclarer `directions: Some((rows: [E, NE, N, NW, W,
+SW, S, SE], mirror: false))`. `rows[i]` donne la direction **dessinée** de la ligne `i` du bloc ;
+les noms sont les huit points du compas (est = droite, nord = haut), dans n'importe quel ordre
+connu. Une feuille à huit directions en ordre angulaire a `rows: 8` dans la grille et les indices
+de ligne `E=0, NE=1, N=2, NW=3, W=4, SW=5, S=6, SE=7` (angle / 45°), colonnes = images de
+l'animation. Exemple : 12 colonnes × 8 lignes avec cellules de 376×364 ; `AnimationMapConfig`
+déclare les indices des images de la **première** ligne (`Idle: (start: 0, end: 11)`), et le rendu
+ajoute `ligne × columns`. Pour plusieurs animations dans la même feuille, chaque animation occupe
+un bloc de `directions.rows.len()` lignes ; la grille a un multiple de ce nombre de lignes,
+et les indices de la carte d'animation pointent vers la première ligne du bloc concerné.
+
+| Dessin | `directions.rows` | `mirror` |
+|---|---|---|
+| 1 orientation vers la droite, miroir à gauche (défaut quand `directions` est absent) | `[E]` | `true` |
+| 4 directions | `[E, N, W, S]` | `false` |
+| 5 directions, l'autre côté au miroir | `[S, SE, E, NE, N]` | `true` |
+| 8 directions | `[E, NE, N, NW, W, SW, S, SE]` | `false` |
+
+**Choix de ligne.** `sim_core::sprite_directions::SheetDirections::choose` compare la direction
+`FacingDirection` aux lignes dessinées et, si `mirror`, à leurs reflets horizontaux (`E↔W`,
+`NE↔NW`, `SE↔SW`, `N`/`S` fixes). Distance angulaire minimale en pas de 45° ; à égalité,
+la ligne non retournée gagne, puis la première ligne dans l'ordre déclaré. Le nombre de lignes
+peut donc être différent de 1, 4, 5 ou 8, sans changer la simulation. Sans `directions`, le
+retournement reste **exactement** `FacingDirection::should_flip_x()` (les haut/bas ne sont pas
+retournés). Le calque qui déclare `directions` suit sa propre feuille et ses propres colonnes ;
+le calque qui n'en déclare pas garde le comportement précédent (ombre, arme, etc.). Les sprites
+attachés à un personnage portent `DirectionRow` (présentation seule) : un changement de direction
+déplace l'index d'atlas de `(nouvelle ligne − ancienne ligne) × columns` **sans perdre la colonne
+de l'image courante** ; l'animation retire ce décalage avant d'avancer l'image. Le rechargement
+à chaud réinitialise la ligne et l'index d'atlas. `face_stationary_enemies` et `orient_familiars`
+ne réécrivent pas le miroir de ces calques, pour ne pas contredire la ligne choisie ; voir D153
+pour leur orientation visuelle supplémentaire quand la ligne devrait suivre la cible ou l'orbite.
+
+**Lint.** `content::lint::lint_sprite_sheets` lit la déclaration des feuilles référencées par
+`sprites.ron` : nom inconnu ou champ inconnu = `Parse`, liste vide, direction répétée, moins de
+lignes que de directions ou `rows` de la grille non multiple du nombre déclaré = `OutOfRange`.
+La planche sans champ `directions` n'est pas soumise à ce nouveau lint. La fixture de lint
+`sprite_sheet_directions_*` vérifie les noms et les multiples ; `sim_core::sprite_directions::tests`
+et `animation::direction_row_tests` couvrent 1/4/5/8 directions, miroir et animation.
+
+`alacod describe SpriteSheet` montre aussi le schéma des métadonnées de la feuille cible
+(`rows`, `directions`, `mirror` et les noms possibles), distinct du schéma de la table
+`sprites.ron` qui ne porte que les chemins.
+
+**Échelle, décision du jeu.** Une case du monde vaut 16 unités
+(`world::grid::CELL_SIZE`, `crates/world/src/grid.rs:9`) ; le champ de flux de l'IA utilise aussi
+16 unités (`game::character::enemy::ai::navigation::GRID_CELL_SIZE`,
+`crates/game/src/character/enemy/ai/navigation.rs:30`). Ces deux constantes ne fixent **pas**
+la taille d'une image : `SpriteSheetConfig::tile_size` est en pixels source, `scale` réduit
+ou agrandit le calque en unités monde, `offset_x/y` et `anchor` le placent sur l'entité, et
+`camera.ron` règle le cadrage (`default_player_zoom`, `min_zoom`, `max_zoom_out`). Exemple dans
+le testbed : planche originale de 160×160 px, `scale: 0.2` → 32×32 unités monde (deux cases),
+ancre `Center`, `offset_z: 1` ; le collider reste à 20×20 unités et la caméra du jeu reste à
+`default_player_zoom: 1`. `ImagePlugin::default_nearest()` échantillonne les sprites au plus
+proche (pixel art net, sans interpolation) ; à 0,2 les détails sous cinq pixels source se
+perdent, donc dessiner les formes à cette échelle et vérifier la capture dans le jeu. Modifier
+`CharacterConfig::scale` change l'échelle logique du personnage/collider ; pour **seulement**
+réduire l'image, utiliser le `scale` de la feuille. Un jeu qui veut changer la taille **en unités
+monde** de la grille et du champ de flux, et non la taille des images, se heurte aux deux
+constantes 16 : dette D154, ne pas les modifier pour X-4a.
+
+**Preuve de rendu.** Testbed `boussole` (`games/testbed/assets/sprites/characters/boussole/`,
+source `scripts/generer-sprites-directions.py`, CC0 dans `assets.yaml`) : quatre images par
+ligne, huit lignes colorées et fléchées. `tests/scenarios/sprite_directions_eight.ron` fait
+tourner le joueur par la visée `E, NE, N, NW, W, SW, S, SE` sans mouvement ; la capture
+`play_scenario --capture` et la mosaïque sont dans
+`docs/taches/rapports/x-4a-sprites-directions.md`. Aucun sprite ni personnage d'un jeu externe
+n'entre dans ce dépôt ; aucune trace existante n'est réécrite.
+## 90. L'arène vide, `alacod new-arena` et la commande `alacod` comme point d'entrée unique (SB-6)
 
 Décision de William (2026-10-26) : le bac à sable s'ouvre sur **une salle de murs avec le joueur, rien d'autre** (ni fenêtre, porte, arme murale, soda, `ZombieSpawn`, ni personnage), pour **tout** jeu, et tout se pilote par
 la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `exemples/test_map.ldtk` (une carte de jeu complète : fenêtres, portes, points d'apparition) et celle des autres jeux leur carte gabarit

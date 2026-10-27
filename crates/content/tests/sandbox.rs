@@ -48,7 +48,7 @@ fn l_arene_du_profil_l_emporte_puis_le_manifeste_puis_generate_template() {
     .unwrap();
     assert!(without.sandbox.is_none());
     assert_eq!(manifest_arena(&without), Some("maps/gabarit_armes.ldtk"));
-    // Les jeux livrés déclarent leur arène vide (`alacod new-arena`, §89).
+    // Les jeux livrés déclarent leur arène vide (`alacod new-arena`, §90).
     for (game, arena) in [
         ("games/zombies", "maps/arene_vide.ldtk"),
         ("games/gungeon", "maps/arene_vide.ldtk"),

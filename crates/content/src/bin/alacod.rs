@@ -1,5 +1,5 @@
 //! CLI `alacod` : le point d'entrée unique de l'engine pour un humain, un script ou un agent IA
-//! (`alacod --help` liste tout ; guide : `docs/editeur-vocal.md`, `docs/conventions.md` §89).
+//! (`alacod --help` liste tout ; guide : `docs/editeur-vocal.md`, `docs/conventions.md` §90).
 //! `alacod lint <dossier-du-jeu>` valide le contenu d'un jeu (manifeste, registre, références, plages, kinds)
 //! sans lancer le moteur (`docs/plan-engine.md` §4.2, carte T1.5) ; `get`/`set`/`undo` lisent et règlent le RON ;
 //! `sandbox`/`editor`/`remote` lancent et pilotent la partie. Code de sortie 1 et messages sur stderr en cas

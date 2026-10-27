@@ -20,6 +20,9 @@ sont synthétisés dans `docs/etat-engine.md` ; les matrices du plan décrivent 
 - **Code = Behaviors/Systems** : L'engine fournit des behaviors réutilisables
 - **RON = Configuration/Assembly** : Les designers assemblent les behaviors sans coder
 - **Plugins = Extensions** : Nouveaux behaviors peuvent être ajoutés via plugins
+- **Jeux externes (1837 et les jeux créés par `alacod new`)** : leur contenu (personnages, ennemis, armes, sprites, cartes, réglages, noms)
+  vit dans **leur** dépôt ; `alacod` ne reçoit que des blocs de logique génériques (verbes, behaviors, composants, outillage), testés avec le
+  contenu générique du testbed et des noms neutres (William, 2026-10-26). Engine, contenu ou plugin de jeu : `docs/plan-engine.md` §4.8.
 
 ### Pattern Actuel (Armes)
 
@@ -352,9 +355,9 @@ Variables d'environnement (natif) :
   la partie **n'est pas en pause**, le clavier reste la source d'input (un `alacod/input` prend la main par handle, un `input` vide la rend) et
   `check_distance` vaut **0** (même avec `ALACOD_STATE_TRACE` ; un `ALACOD_CHECK_DISTANCE` explicite reste prioritaire). Les commandes qui écrivent
   hors `GgrsSchedule` (`alacod/restart`, `set_modifier`, `clear_modifiers`, `reload_content`) sont refusées en ligne ou à `check_distance > 0`.
-- `--sandbox [profil]` (natif, tout jeu, `docs/conventions.md` §87 et §89, `alacod sandbox <jeu> [--profile P] [--detach]`, alias `make sandbox GAME=<jeu> [PROFIL=]`) : bac à sable, l'**arène vide** du jeu (`sandbox.arena` du manifeste : murs et joueur, rien d'autre, écrite par `alacod new-arena` ; repli `generate_template.map`), `RunMode::Sandbox`,
+- `--sandbox [profil]` (natif, tout jeu, `docs/conventions.md` §87 et §90, `alacod sandbox <jeu> [--profile P] [--detach]`, alias `make sandbox GAME=<jeu> [PROFIL=]`) : bac à sable, l'**arène vide** du jeu (`sandbox.arena` du manifeste : murs et joueur, rien d'autre, écrite par `alacod new-arena` ; repli `generate_template.map`), `RunMode::Sandbox`,
   sans vagues, profil `sandbox/<profil>.ron` (`arene` par défaut) posé par `map_ldtk::game::profile` à chaque entrée en `GameLoading` (donc rejoué par `restart`), mode éditeur et remote allumés, `check_distance` 0 ;
-  méthodes `alacod/sandbox_profile` et `alacod/give`. Remplace `character_tester` (retiré). **La commande `alacod` est le point d'entrée unique** (§89) : `alacod sandbox|editor <jeu>` lancent le jeu, `alacod remote …` le pilote
+  méthodes `alacod/sandbox_profile` et `alacod/give`. Remplace `character_tester` (retiré). **La commande `alacod` est le point d'entrée unique** (§90) : `alacod sandbox|editor <jeu>` lancent le jeu, `alacod remote …` le pilote
   (`brief`, `give`, `spawn`, `restart`, `reload`, `modifier`, `screenshot`…), `alacod new-arena` écrit l'arène vide, `alacod lint|describe|new-content|test|new` ; aucun `make` ni script requis.
   Un jeu créé par `alacod new` l'a **sans code** (`templates/starter` : profil `arene`, `main.rs` inchangé) ; preuve de bout en bout
   `make test_alacod_cli` (`new_game_opens_its_sandbox_without_any_added_code`, §88). `ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`.

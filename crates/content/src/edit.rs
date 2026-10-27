@@ -1,5 +1,5 @@
 //! `alacod get` / `alacod set` / `alacod undo` : lire et régler **une** valeur d'un fichier RON de contenu
-//! (`docs/editeur-vocal.md` §2 et §4, `docs/conventions.md` §89).
+//! (`docs/editeur-vocal.md` §2 et §4, `docs/conventions.md` §90).
 //!
 //! L'édition est **textuelle** : le fichier est lu par un parseur RON à positions (`Node`, un parcours lexical
 //! qui garde l'étendue de chaque valeur), la valeur visée est remplacée octet pour octet et le reste du fichier

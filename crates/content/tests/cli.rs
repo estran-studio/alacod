@@ -534,7 +534,7 @@ impl Drop for Game {
 }
 
 /// `alacod new demo`, compilation, `--sandbox` headless : le profil `arene` du gabarit ouvre l'arène vide
-/// (`maps/arene_vide.ldtk`, §89) et pose le joueur **sans une ligne de code ajoutée** au jeu créé ; `alacod
+/// (`maps/arene_vide.ldtk`, §90) et pose le joueur **sans une ligne de code ajoutée** au jeu créé ; `alacod
 /// remote` le pilote. Commande équivalente à la main : voir `docs/conventions.md` §88.
 #[test]
 #[ignore = "compile un jeu créé hors de l'engine (≈ 10 min à froid) : make test_alacod_cli"]

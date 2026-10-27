@@ -1,4 +1,4 @@
-//! `alacod new-arena` : l'arène vide du bac à sable (`docs/conventions.md` §89).
+//! `alacod new-arena` : l'arène vide du bac à sable (`docs/conventions.md` §90).
 //!
 //! Une carte LDtk à **un seul niveau** : une couronne de murs (couche IntGrid `Walls`, avec ses tuiles
 //! d'auto-règles pour qu'ils se voient), un à quatre `PlayerSpawn`, **rien d'autre** (ni fenêtre, ni porte,
@@ -800,7 +800,7 @@ fn with_sandbox_arena(text: &str, map: &str) -> Option<String> {
         format!("{head}\n")
     };
     Some(format!(
-        "{head}    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`) : une salle vide (murs et points de départ, rien d'autre),\n    // écrite par `alacod new-arena` (`docs/conventions.md` §89) ; un profil la remplace par son champ `map`.\n    sandbox: (arena: \"{map}\"),\n{}",
+        "{head}    // SB-1 (D2) : l'arène du bac à sable (`--sandbox`) : une salle vide (murs et points de départ, rien d'autre),\n    // écrite par `alacod new-arena` (`docs/conventions.md` §90) ; un profil la remplace par son champ `map`.\n    sandbox: (arena: \"{map}\"),\n{}",
         &text[end..]
     ))
 }

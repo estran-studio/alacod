@@ -30,6 +30,7 @@
 //! - [`aim`] : mode de visée d'un personnage, libre ou à quatre directions (suivi Q17).
 //! - [`animation_state`] : orientation, animation et calques d'un personnage (rollback ; déménagé de
 //!   `animation`, dette D69) et `AnimationStatePlugin` qui les enregistre.
+//! - [`sprite_directions`] : directions dessinées d'une planche et choix de la ligne (X-4a, présentation seule).
 
 pub mod aim;
 pub mod ammo;
@@ -41,6 +42,7 @@ pub mod gauge;
 pub mod kinds;
 pub mod modifier;
 pub mod players;
+pub mod sprite_directions;
 pub mod stats;
 pub mod system_set;
 pub mod tag;

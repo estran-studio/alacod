@@ -1,5 +1,5 @@
 //! `alacod sandbox <jeu>` et `alacod editor <jeu>` : construisent et lancent le binaire d'un jeu en bac à sable
-//! (arène vide) ou en mode éditeur (le jeu complet) (`docs/conventions.md` §89). Remplacent les recettes
+//! (arène vide) ou en mode éditeur (le jeu complet) (`docs/conventions.md` §90). Remplacent les recettes
 //! `make sandbox` et `make editor` (qui n'en sont plus que des alias).
 //!
 //! Même commande cargo que la recette d'origine : `cargo run [-p <paquet>] --features native

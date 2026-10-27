@@ -1,4 +1,4 @@
-//! `alacod new-arena` (`docs/conventions.md` §89) : l'arène vide du bac à sable, générée à partir des
+//! `alacod new-arena` (`docs/conventions.md` §90) : l'arène vide du bac à sable, générée à partir des
 //! cartes du jeu lui-même. Murs et `PlayerSpawn`, rien d'autre ; lint vert ; sortie déterministe.
 
 use content::arena::auto_layer_tiles;

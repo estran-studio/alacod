@@ -1330,6 +1330,31 @@ fn lint_sprite_sheets(registry: &Registry, errors: &mut Vec<LintError>) {
         for (layer, image) in &sheet.images {
             check(format!("layers.{layer} (path de la feuille)"), image);
         }
+        // X-4a (§89) : `directions` d'une feuille : noms connus, pas de doublon, lignes de la grille
+        // multiples du nombre de directions.
+        for (layer, decl) in &sheet.directions {
+            let problems = match &decl.parsed {
+                Ok(directions) => directions
+                    .problems(decl.sheet_rows)
+                    .into_iter()
+                    .map(|p| (LintErrorKind::OutOfRange, p))
+                    .collect(),
+                Err(e) => vec![(
+                    LintErrorKind::Parse,
+                    format!("`directions` illisible : {e}"),
+                )],
+            };
+            for (kind, problem) in problems {
+                errors.push(LintError {
+                    kind,
+                    file: file.clone(),
+                    message: format!(
+                        "feuille de sprites « {} » : calque {layer} : {problem}",
+                        sheet.id
+                    ),
+                });
+            }
+        }
     }
 }
 

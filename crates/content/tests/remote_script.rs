@@ -1,6 +1,6 @@
 //! `alacod remote` : codes de sortie stables, `--json`, et `alacod remote run <fichier>` (scripts de commandes
 //! avec `wait` et `expect`), contre un faux jeu qui parle JSON-RPC sur HTTP (`docs/editeur-vocal.md` §2.5,
-//! `docs/conventions.md` §89). Aucun jeu n'est lancé.
+//! `docs/conventions.md` §90). Aucun jeu n'est lancé.
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};

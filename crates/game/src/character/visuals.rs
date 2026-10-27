@@ -337,7 +337,8 @@ pub fn face_stationary_enemies(
         ),
         With<combat::actors::Enemy>,
     >,
-    mut sprites: Query<&mut Sprite>,
+    // Un calque à `directions` (X-4a) choisit sa ligne par `FacingDirection` : jamais retourné ici (D153).
+    mut sprites: Query<&mut Sprite, Without<animation::DirectionRow>>,
 ) {
     for (transform, ai, emitter, path, children) in &enemies {
         if !ai.stationary {
@@ -379,7 +380,11 @@ pub fn orient_familiars(
         ),
         Without<behaviors::FamiliarOf>,
     >,
-    mut sprites: Query<(&mut Sprite, &mut Transform)>,
+    mut sprites: Query<(
+        &mut Sprite,
+        &mut Transform,
+        Option<&animation::DirectionRow>,
+    )>,
     mut owner_x: Local<std::collections::BTreeMap<usize, f32>>,
 ) {
     let positions: std::collections::BTreeMap<usize, Vec2> = owners
@@ -421,13 +426,13 @@ pub fn orient_familiars(
             _ => None,
         };
         for child in children.iter() {
-            let Ok((mut sprite, mut layer)) = sprites.get_mut(child) else {
+            let Ok((mut sprite, mut layer, directional)) = sprites.get_mut(child) else {
                 continue;
             };
             if sprite.texture_atlas.is_none() {
                 continue;
             }
-            if let Some(left) = faces_left {
+            if let (Some(left), None) = (faces_left, directional) {
                 sprite.flip_x = left;
             }
             if let Some(angle) = angle {

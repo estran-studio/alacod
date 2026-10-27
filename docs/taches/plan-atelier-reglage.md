@@ -36,7 +36,7 @@ Ce que la séance de réglage de `zombies` a montré, et où chaque point est tr
 
 | # | Constat | Cause | État | Lot |
 |---|---|---|---|---|
-| 1 | Le jeu « se fermait tout seul » à chaque lancement | process lancé par l'outil supervisé de l'agent, tué en fin de tour ; aucun code du jeu en cause | réglé : `alacod sandbox --detach` (SB-6, §89) | — |
+| 1 | Le jeu « se fermait tout seul » à chaque lancement | process lancé par l'outil supervisé de l'agent, tué en fin de tour ; aucun code du jeu en cause | réglé : `alacod sandbox --detach` (SB-6, §90) | — |
 | 2 | Le bac à sable ouvrait la carte roguelike (fenêtres, portes, armes murales) | `sandbox.arena` de `zombies` = `exemples/test_map.ldtk` | réglé : `alacod new-arena`, `arene_vide.ldtk` dans les cinq jeux et le gabarit | — |
 | 3 | Un ennemi posé par `remote spawn` était invisible (barre de vie seule) | personnage à `z = 0`, sous les couches de tuiles LDtk | réglé : `lift_characters_to_entity_layer` (`map_ldtk/src/plugins.rs`) ; objets et power-ups posés à `z = 0` vérifiés visibles (AT-0) : l'image d'un objet au sol (`sheet_monde`, `offset_z` 3,4 dans `gungeon` et `isaac`) passe au-dessus de la couche `Entities` (z = 3), un power-up est un repère gizmo et une étiquette à z = 50 ; pas de remontée à ajouter | AT-0 |
 | 4 | La partie « gelait » après un coup de zombie | un agent avait fait `step` sans `resume` ; rien à l'écran ne disait « pause » | réglé côté client (`step` rend l'état d'avant) ; **pas d'indicateur de pause à l'écran** | AT-1 |
@@ -124,7 +124,7 @@ Ce que la séance de réglage de `zombies` a montré, et où chaque point est tr
 ### D8 — Rien de tout ça ne déplace une trace
 - **Décision** : toute addition est inerte sans `DevMetrics`, sans commande ou sans vue ouverte. Chaque lot qui touche la simulation joue la
   suite complète sans `BLESS` et `make schedule_order_diff` ; l'enregistrement de `DevMetrics` apparaît dans la liste des types rollback :
-  attendu, écrit au rapport et au §90 de `docs/conventions.md`.
+  attendu, écrit au rapport et au §91 de `docs/conventions.md`.
 
 ## 5. Besoins par famille (ce que William doit pouvoir dire)
 
@@ -246,7 +246,7 @@ Ce que la séance de réglage de `zombies` a montré, et où chaque point est tr
 
 ## 7. Règles du chantier
 
-- CLAUDE.md en entier, checklist « Nouveau système GGRS » pour AT-1, AT-2 et AT-5 ; `docs/conventions.md` §90 « Atelier de réglage » ouvert par
+- CLAUDE.md en entier, checklist « Nouveau système GGRS » pour AT-1, AT-2 et AT-5 ; `docs/conventions.md` §91 « Atelier de réglage » ouvert par
   le premier lot qui touche la simulation.
 - **Tout par `alacod`** : aucun lot n'ajoute de cible `make` nécessaire ni de script dans `scripts/` ; une cible `make` peut rester un alias.
 - **Preuves d'agent** : partie jetable sur un autre port (`ALACOD_REMOTE_PORT`), jamais `--commit` dans le dépôt de William, jamais `kill` de

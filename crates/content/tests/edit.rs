@@ -1,4 +1,4 @@
-//! `alacod get` / `set` / `undo` (`docs/editeur-vocal.md` §2, `docs/conventions.md` §89) : un jeu de travail
+//! `alacod get` / `set` / `undo` (`docs/editeur-vocal.md` §2, `docs/conventions.md` §90) : un jeu de travail
 //! (copie du gabarit `templates/starter`, qui passe le lint) dans un dépôt git temporaire. Jamais l'engine.
 
 use std::path::{Path, PathBuf};

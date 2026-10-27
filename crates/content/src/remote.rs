@@ -1,5 +1,5 @@
 //! `alacod remote …` : client du contrôle remote d'un jeu lancé en mode éditeur ou en bac à sable
-//! (`docs/editeur-vocal.md`, `docs/conventions.md` §89). Port de l'ancien `scripts/alacod-remote` (Python,
+//! (`docs/editeur-vocal.md`, `docs/conventions.md` §90). Port de l'ancien `scripts/alacod-remote` (Python,
 //! supprimé) : JSON-RPC sur HTTP vers `127.0.0.1:<port>` (`ALACOD_REMOTE_PORT`, 15702 par défaut), sans
 //! dépendance (un `TcpStream`), pour que la commande `alacod` soit le seul point d'entrée.
 //!

@@ -1,4 +1,4 @@
-//! `alacod remote run <fichier>` : un monde de test écrit en texte (`docs/editeur-vocal.md` §2.5, `docs/conventions.md` §89).
+//! `alacod remote run <fichier>` : un monde de test écrit en texte (`docs/editeur-vocal.md` §2.5, `docs/conventions.md` §90).
 //!
 //! Un fichier de commandes, **une par ligne**, dans la syntaxe de `alacod remote` (sans le préfixe, toléré s'il est
 //! là) plus trois verbes de script :
