@@ -129,6 +129,10 @@ impl Plugin for CoreSimPlugin {
         {
             use sim_core::frame_events::FrameEventsAppExt;
             app.add_frame_events_neutral::<combat::weapons::melee::ProjectileReflected>();
+            // X-3 : coup de mêlée adverse annulé par une parade de mêlée, même règle.
+            app.add_frame_events_neutral::<combat::weapons::melee::MeleeParried>();
+            // X-3 : note d'une fenêtre de jugement (`effects::Condition::Timing`), même règle.
+            app.add_frame_events_neutral::<crate::effects_runtime::TimingJudged>();
         }
 
         app.init_resource::<GggrsSessionConfigurationState>();

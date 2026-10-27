@@ -1,0 +1,34 @@
+// X-3 (testbed, D149) : parade de mêlée contre mêlée. Le `frappeur` (poursuivant à griffes,
+// placé à 85 unités du joueur) fond sur le joueur 0 armé de `parade_melee` (`parry:
+// perfect_frames 4, perfect_knockback 300`). Quand les deux hitbox se touchent, le coup adverse
+// est annulé avant de blesser : le joueur ne prend rien. Un contact dans les 4 premières frames
+// du coup du pareur est « parfait » (le `frappeur` est en plus repoussé), sinon « bien ».
+//
+// À regarder : premier coup de griffe annulé à f46 (« parfait », le `frappeur` est projeté en
+// arrière puis revient) ; deuxième annulé à f104 (« bien », il reste au contact) ; le troisième
+// (f161) passe et ne coûte que 2,5 PV.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 200,
+    characters: [(character: "frappeur", x: "611.0", y: "-200.0", at_frame: 1)],
+    players: [
+        (weapon: "parade_melee", inputs: [
+            (from: 37, to: 40, buttons: [Melee], pan: (100, 0)),
+            (from: 91, to: 94, buttons: [Melee], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        // Les deux coups de griffe sont annulés, avec leurs notes
+        Event(kind: "parry", label_contains: Some("parfait"), by_frame: 60),
+        Event(kind: "parry", label_contains: Some("bien"), by_frame: 160),
+        // « Parfait » : le `frappeur` est repoussé (55 unités à f55) ; « bien » : il reste au
+        // contact (32 à f110)
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(52.0), at_frame: 55),
+        EnemyDistance(entity: Placed(0), target: Player(0), max: Some(40.0), at_frame: 110),
+        // Seul le troisième coup (f161) passe : 100 − 2,5
+        Health(handle: 0, min: 97.5, max: 97.5, at_frame: 200),
+        PlayerAlive(handle: 0, at_frame: 200),
+    ],
+)

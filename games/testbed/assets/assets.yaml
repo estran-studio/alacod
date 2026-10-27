@@ -110,3 +110,14 @@
   licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
   modifications: sans objet (original)
   statut: planche de test (flèche, étiquette du compas et numéro d'image par cellule ; huit directions)
+
+- id: sound-metronome-x3-projet
+  fichiers:
+    - sounds/metronome.ogg
+  source: synthétisée pour le projet par scripts/generer-son-metronome.sh (X-3, docs/conventions.md §90) ;
+    aucune source tierce
+  auteur: projet alacod
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
+  modifications: sans objet (original)
+  statut: piste de laboratoire (deux battements de 40 frames, 1,3333 s = 80 frames à 60 Hz, aigu
+    puis grave) pour la musique calée sur l'horloge `pouls`

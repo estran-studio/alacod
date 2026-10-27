@@ -1,0 +1,43 @@
+// Personnage de laboratoire X-3 (testbed, docs/conventions.md §90) : poursuivant qui frappe au corps à
+// corps (`Melee("zombie_claws")` à portée, sinon `Chase`), sans fuite. Cible du scénario
+// `parade_melee` : son coup est annulé par la parade de mêlée du joueur, puis il subit un coup du joueur.
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "60.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "frappeur",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "40.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("30.0"),
+        behaviors: Some([Melee("zombie_claws"), Chase(profile: "Ground")]),
+    )),
+)

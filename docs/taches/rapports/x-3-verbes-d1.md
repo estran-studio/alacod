@@ -90,3 +90,78 @@ Cette capture a montré un défaut de **présentation** : la peau d'un projectil
 renvoyée gardait sa peau ennemie (rouge). Correctif (`game::world_sprites::reskin_reflected_bullets`, composant
 `SkinnedAs`, présentation seule : les marqueurs de peau et de style sont retirés quand l'équipe change, la taille d'avant
 la peau est rendue, `skin_bullets` et `style_tears` repassent une fois). Aucune simulation ni trace touchée.
+
+## Suite : revue indépendante et pièces manquantes (2026-10-27, même branche)
+
+La revue indépendante a relevé quatre bloqueurs (P1, trois P2), tous corrigés ; les trois dettes
+restantes (D149, D150, D151) sont livrées, D152 reste ouverte et rétrécie.
+
+### Correctifs de revue
+
+- **P1 — `TimingSource` exigeait `Clock`** : `clock: Res<run::Clock>` paniquait dans une application
+  de test qui monte les effets sans horloge. `clock`, `floor` et `schedule` sont `Option` : sans
+  eux le repère `Clock(..)` est inconnu (condition fausse). Test
+  `une_fenetre_de_jugement_sans_horloge_montee_ne_declenche_rien_et_ne_panique_pas`.
+- **P2 — la parade tournait avant la création/expiration des hitbox** : un contact à la frame du
+  coup ne pouvait pas être parfait, une hitbox expirée renvoyait encore. Ordre du set `Weapon` :
+  création (joueur, ennemi), expiration, parade de mêlée, renvoi, collisions de balles, collisions
+  de mêlée ; le repère de note est `MeleeHitbox::created_frame` (plus de `MeleeAttackState` lu par
+  le renvoi). Scénarios `parade_projectiles_instantanee` (contact f64 = parfait × 2, impossible
+  avant) et `parade_projectiles_expiree` (le second coup expire à f94 avant l'arrivée de la boule :
+  tourelle à 484, inchangée — avec l'ancien ordre elle tombait à 476). Tests unitaires
+  `un_contact_a_la_frame_du_coup_est_renvoye_parfait` et `une_hitbox_expiree_ne_renvoie_plus_rien`
+  (`update` puis `reflect` enchaînés).
+- **P2 — horloge `Floor` lue avant sa remise à zéro le jour du passage** : `TimingSource::beat`
+  vaut 0 pour le temps d'étage quand `FloorState` a déjà changé d'index (comme `clock_system` à la
+  même frame). Tests `l_horloge_d_etage_est_deja_remise_a_zero_pour_debut_d_etage` et Run associé ;
+  scénario `fenetre_etage` (deux entrées, 8 puis 15 de dégâts, jamais +70).
+- **P2 — reskin d'une balle renvoyée sans peau du joueur** : `SkinnedAs` garde l'état d'avant la
+  peau (image, couleur, côté) et le rend avant reskin ; test
+  `un_projectile_renvoye_retrouve_son_etat_d_avant_la_peau`.
+
+### Livré en plus
+
+- **D149 — parade de mêlée contre mêlée** : `MeleeWeaponConfig::parry` (`perfect_frames`,
+  `perfect_knockback`), `melee_parry_system` (annulation avant blessure, contacts décidés puis
+  appliqués, mutuelle symétrique, recul parfait sur l'axe), `FrameEvents<MeleeParried>` (neutre,
+  moment clé `parry`), lint `perfect_knockback >= 0` (fixture
+  `melee_parry_knockback_negative`), schéma, §90. Scénario `parade_melee` (parfait repoussé f46,
+  bien au contact f104, seul le troisième coup passe : 97,5 PV). D149 fermée.
+- **D150 — hit stop « cible seule »** : `hit_stop_scope` (`Global`/`Target`, global par défaut,
+  surchargeable), `animation::AnimationHold` (gel par entité, ticks de rendu), jamais le joueur
+  local ni la caméra ; indice `extra: 1` dans le journal, moment `feedback` « cible seule ».
+  Testbed : `parade_melee` en `Target`. D150 fermée.
+- **D151 — musique calée sur l'horloge** : `music` dans `feedback.ron` (piste, horloge à `repeat`,
+  événement, `loop_events`, `max_drift_ms`, volume), `game::music_sync` (lecture seule de la
+  simulation, pause/reprise/recalage, journal `music f… position=… expected=… drift_ms=…`),
+  lint (boucle, références, bornes), piste `metronome.ogg` (CC0,
+  `scripts/generer-son-metronome.sh`), testbed branché sur `pouls`. Fonctions pures testées.
+  D151 fermée.
+- **Notes de jugement en `FrameEvents`** : `TimingJudged` (neutre, moment clé `timing`), filtre
+  `Good` (« bien » seulement, le ET d'avant disparaît de `chronometre`), `TimingReference` et
+  `Condition::Timing` inchangés pour le contenu d'avant (`Good` ajouté en fin d'enum).
+
+### Reste ouvert
+
+- **D152 (rétrécie)** : pas de repères `ReloadStart` ni de « coup qui arrive » ennemi. Les actions
+  D1 documentées (`design/game-feel.md` : gigue sur le temps, renvoi au timing, rechargement
+  lisible) n'en exigent aucun : la gigue se juge sur l'horloge, le renvoi sur le début du coup, le
+  rechargement actif sur l'horloge (`fenetre_rechargement`).
+- **Preuve Mac** : captures du gel « cible seule » et mesure de dérive audio sur périphérique réel,
+  voir § suivant. Si indisponible, la limite exacte est écrite ici, sans preuve factice.
+
+### Vérifications (VPS)
+
+- Unitaires (profil `headless`, `--no-default-features`) : `combat` (dont 5 tests X-3 suite),
+  `effects`, `content` (dont fixture `melee_parry_knockback_negative`), `sim_core`, `run`,
+  `animation`, `game` (dont `TimingSource` sans horloge, horloge d'étage, `music_sync`,
+  reskin) : À REMPLIR.
+- Scénarios nouveaux (10) : verts, traces écrites une fois : `parade_projectiles_instantanee`,
+  `parade_projectiles_expiree`, `parade_melee`, `fenetre_etage` (+ 6 de X-3).
+- Suite complète : À REMPLIR (aucune trace existante réécrite).
+- `cargo fmt --check`, `scripts/check-forbidden.sh`,
+  `scripts/check-rollback-registration.sh` : À REMPLIR.
+- Types rollback nouveaux (neutres, après `ProjectileReflected`, avant les cinq de clôture) :
+  `FrameEvents<TimingJudged>`, `FrameEvents<MeleeParried>`. Systèmes ajoutés : `melee_parry_system`,
+  ordre du set `Weapon` réordonné (voir §90) : le diff `schedule_order_diff` gagne ces lignes, rien
+  d'autre.

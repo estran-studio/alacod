@@ -131,4 +131,54 @@
             weapon_offset: (x: "0.0", y: "0.0"),
         ),
     ),
+    // X-3 (testbed) : arme de parade de mêlée — `parry` annule les coups de mêlée adverses que sa
+    // hitbox touche ; un contact dans les 4 premières frames du coup est « parfait » (l'attaquant
+    // reçoit en plus un recul de 60). Scénario `parade_melee`.
+    "parade_melee": (
+        config: (
+            name: "Parade de mêlée",
+            damage: "5.0",
+            range: "50.0",
+            attack_pattern: SingleStrike,
+            attack_duration_frames: 14,
+            cooldown_frames: 40,
+            knockback_force: "20.0",
+            stamina_cost: "15.0",
+            parry: Some((
+                perfect_frames: 4,
+                perfect_knockback: "300.0",
+            )),
+        ),
+        sprite_config: (
+            name: "sword",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    // X-3 (testbed) : comme `parade` mais la fenêtre parfaite ne dure que la frame du départ du
+    // coup (`perfect_frames: 0`) : un projectile touché à la frame même où le coup est lancé est
+    // parfait, une frame plus tard il est « bien ». Scénario `parade_projectiles_instantanee`.
+    "parade_instant": (
+        config: (
+            name: "Parade instantanée",
+            damage: "5.0",
+            range: "50.0",
+            attack_pattern: Sweep(
+                arc_angle: "1.57",
+            ),
+            attack_duration_frames: 12,
+            cooldown_frames: 40,
+            knockback_force: "20.0",
+            stamina_cost: "15.0",
+            reflect: Some((
+                perfect_frames: 0,
+                perfect_damage_mult: "2.0",
+            )),
+        ),
+        sprite_config: (
+            name: "sword",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
 })

@@ -18,7 +18,21 @@
     // joueur local touche (secousse de surcharge).
     by_weapon: {
         "grenade": (hit_stop_frames: Some(6), shake: Some((frames: 16, amplitude: 20.0))),
+        // X-3 : hit stop « cible seule » (docs/conventions.md §90) : la cible touchée par la parade de
+        // mêlée garde son animation figée 6 frames de rendu ; le joueur, les autres et la caméra restent vifs.
+        "parade_melee": (hit_stop_frames: Some(6), hit_stop_scope: Some(Target)),
     },
+    // X-3 : musique calée sur l'horloge de simulation `pouls` (clocks/pouls.ron : un événement toutes les
+    // 40 frames). La piste (deux battements, 80 frames) boucle sur deux occurrences et son départ tombe
+    // sur un battement ; elle ne joue que si un scénario ou une partie active l'horloge.
+    music: Some((
+        track: "sounds/metronome.ogg",
+        clock: "pouls",
+        event: "pouls",
+        loop_events: 2,
+        max_drift_ms: 60,
+        volume_db: -12.0,
+    )),
     sounds: {
         // Sons de base. Tir : clé de la famille du mode de tir actif (Manual : shot_pistol,
         // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot". Une arme

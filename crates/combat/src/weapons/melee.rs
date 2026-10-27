@@ -42,7 +42,7 @@ pub enum MeleeAttackPattern {
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
 pub struct MeleeReflect {
     /// Fenêtre parfaite : un projectile touché au plus `perfect_frames` après le début
-    /// du coup (`MeleeAttackState::attack_started_frame`, celle-ci comprise) est
+    /// du coup (création de la hitbox, `MeleeHitbox::created_frame`, celle-ci comprise) est
     /// `Perfect`, sinon `Good` (`sim_core::timing::grade_timing`, repère = début du
     /// coup, `good` = toute la durée de la hitbox). `0` : seul un contact à la frame
     /// du départ est parfait.
@@ -50,6 +50,21 @@ pub struct MeleeReflect {
     /// Multiplicateur des dégâts du projectile renvoyé sur un `Perfect` (`1` : dégâts
     /// conservés comme sur un `Good`).
     pub perfect_damage_mult: fixed_math::Fixed,
+}
+
+/// Parade de mêlée contre mêlée (X-3, verbes D1) : la hitbox d'un coup adverse qui touche la
+/// hitbox de cette arme est **annulée** (aucun dégât, aucun recul de sa part). Même fenêtre de
+/// jugement que le renvoi : un contact au plus `perfect_frames` après le début du coup du pareur
+/// est `Perfect`, sinon `Good` (`sim_core::timing`, repère = frame de création de la hitbox).
+/// Frames entières et `Fixed`, jamais de `f32`.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
+pub struct MeleeParry {
+    /// Fenêtre parfaite, en frames depuis le début du coup du pareur (`0` : seul un contact à la
+    /// frame du départ est parfait).
+    pub perfect_frames: u32,
+    /// Recul infligé à l'attaquant sur un `Perfect`, le long de l'axe pareur → attaquant
+    /// (`Velocity::knockback`, comme le recul d'un coup). `0` : aucun recul.
+    pub perfect_knockback: fixed_math::Fixed,
 }
 
 // MELEE WEAPON CONFIG
@@ -76,6 +91,10 @@ pub struct MeleeWeaponConfig {
     /// `None` (défaut) : pas de parade, comportement d'avant.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reflect: Option<MeleeReflect>,
+    /// Parade de mêlée (X-3) : annule les coups de mêlée adverses que la hitbox de l'arme
+    /// touche (`melee_parry_system`). `None` (défaut) : pas de parade de mêlée.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parry: Option<MeleeParry>,
 }
 
 /// Hash manuel : voir `WeaponConfig::hash` (même raison, même méthode) — reprend l'ordre des
@@ -95,6 +114,10 @@ impl std::hash::Hash for MeleeWeaponConfig {
         self.friendly_fire.hash(state);
         if let Some(reflect) = &self.reflect {
             reflect.hash(state);
+        }
+        // `parry` suit la même règle (absent : rien d'écrit).
+        if let Some(parry) = &self.parry {
+            parry.hash(state);
         }
     }
 }
@@ -116,6 +139,9 @@ impl std::fmt::Debug for MeleeWeaponConfig {
             .field("test", &self.test);
         if let Some(reflect) = &self.reflect {
             d.field("reflect", reflect);
+        }
+        if let Some(parry) = &self.parry {
+            d.field("parry", parry);
         }
         d.finish()
     }
@@ -814,7 +840,7 @@ pub fn enemy_melee_attack_system(
 // Parade et renvoi de projectiles (X-3, verbes D1)
 // ---------------------------------------------------------------------------------------
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use sim_core::timing::{grade_timing, TimingGrade};
 
@@ -828,6 +854,21 @@ pub struct ProjectileReflected {
     /// `GgrsNetId` du pareur (nouveau tireur).
     pub owner: GgrsNetId,
     /// Note de la fenêtre de jugement (`sim_core::timing`, repère = début du coup).
+    pub grade: TimingGrade,
+    pub frame: u32,
+}
+
+/// Coup de mêlée adverse annulé par une parade (`melee_parry_system`). Même règle que
+/// [`ProjectileReflected`] : file **neutre**, vide dans tout le contenu d'avant.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct MeleeParried {
+    /// `GgrsNetId` du porteur de l'arme qui pare.
+    pub parrier: GgrsNetId,
+    /// `GgrsNetId` de l'attaquant dont le coup est annulé.
+    pub attacker: GgrsNetId,
+    /// `GgrsNetId` de la hitbox annulée.
+    pub hitbox: GgrsNetId,
+    /// Note de la fenêtre de jugement (repère = création de la hitbox du pareur).
     pub grade: TimingGrade,
     pub frame: u32,
 }
@@ -852,6 +893,166 @@ pub fn facing_to_fixed(direction: FacingDirection) -> fixed_math::FixedVec2 {
     .normalize_or_zero()
 }
 
+/// Arme de mêlée du porteur (`MeleeWeapon` enfant), la première des enfants.
+fn melee_weapon_of<'a>(
+    children: &Children,
+    weapon_query: &'a Query<&MeleeWeapon>,
+) -> Option<&'a MeleeWeapon> {
+    children
+        .iter()
+        .find_map(|child| weapon_query.get(child).ok())
+}
+
+/// Parade de mêlée contre mêlée (X-3, verbes D1, D149).
+///
+/// Pour chaque hitbox active dont l'arme porte `parry` (ordre `GgrsNetId`), toute hitbox de
+/// mêlée **hostile** à son porteur (`team_allows_hit` : jamais sa propre équipe ni un allié
+/// protégé du tir ami) qui la touche géométriquement est **annulée** (`despawn_rollback`) avant
+/// de pouvoir blesser. Les contacts sont tous décidés sur le même état (une copie triée des
+/// hitbox actives de la frame), puis appliqués : deux armes qui se parent mutuellement
+/// s'annulent toutes les deux, quel que soit l'ordre ; une hitbox touchée par plusieurs pareurs
+/// est créditée au plus petit `GgrsNetId`. Note `Perfect` (contact au plus `perfect_frames`
+/// après la création de la hitbox du pareur) : l'attaquant reçoit en plus
+/// `perfect_knockback` (axe pareur → attaquant, `Velocity::knockback`). Émet
+/// `FrameEvents<MeleeParried>`.
+///
+/// Placement : après la création des hitbox de la frame et l'expiration des anciennes
+/// (`update_melee_hitboxes`), **avant** le renvoi de projectiles (une hitbox annulée ne renvoie
+/// plus rien) et leurs collisions (`melee_hitbox_collision_system`, qui blesse : une hitbox
+/// annulée n'y est plus vue).
+pub fn melee_parry_system(
+    mut commands: Commands,
+    frame: Res<FrameCount>,
+    // Absente hors jeu complet (enregistrée par `game::core_sim`) : la parade agit, sans événement.
+    mut parried_events: Option<ResMut<FrameEvents<MeleeParried>>>,
+    hitbox_query: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &fixed_math::FixedTransform3D,
+            &MeleeHitbox,
+            &Collider,
+        ),
+        With<Rollback>,
+    >,
+    owner_query: Query<(&GgrsNetId, &Children), With<Rollback>>,
+    weapon_query: Query<&MeleeWeapon>,
+    mut character_query: Query<
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            Option<&mut Velocity>,
+        ),
+        (With<Rollback>, Without<MeleeHitbox>),
+    >,
+) {
+    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "melee_parry");
+    let _enter = system_span.enter();
+    let now = frame.frame;
+
+    // Arme de parade par porteur (une seule fois par porteur), seulement si une hitbox est active.
+    let mut parry_of: BTreeMap<usize, Option<MeleeParry>> = BTreeMap::new();
+    let hitboxes = order_iter!(hitbox_query);
+    if hitboxes.len() < 2 {
+        return;
+    }
+    for (_, _, _, hitbox, _) in &hitboxes {
+        parry_of.entry(hitbox.owner_net_id.0).or_insert_with(|| {
+            owner_query
+                .iter()
+                .find(|(id, _)| id.0 == hitbox.owner_net_id.0)
+                .and_then(|(_, children)| melee_weapon_of(children, &weapon_query))
+                .and_then(|weapon| weapon.config.parry.clone())
+        });
+    }
+    if parry_of.values().all(Option::is_none) {
+        return;
+    }
+
+    // Contacts décidés sur l'état de la frame : hitbox annulée (indice) -> pareur (indice).
+    let mut cancelled: BTreeMap<usize, usize> = BTreeMap::new();
+    for (i, (_, _, parrier_transform, parrier, parrier_collider)) in hitboxes.iter().enumerate() {
+        if parry_of
+            .get(&parrier.owner_net_id.0)
+            .is_none_or(Option::is_none)
+        {
+            continue;
+        }
+        for (j, (_, _, other_transform, other, other_collider)) in hitboxes.iter().enumerate() {
+            if i == j || other.owner_net_id.0 == parrier.owner_net_id.0 {
+                continue;
+            }
+            if cancelled.contains_key(&j) {
+                continue;
+            }
+            if !team_allows_hit(
+                other.owner_team,
+                parrier.owner_team,
+                other.friendly_fire,
+                &other.tags,
+            ) {
+                continue;
+            }
+            if is_colliding(
+                &parrier_transform.translation,
+                parrier_collider,
+                &other_transform.translation,
+                other_collider,
+            ) {
+                cancelled.insert(j, i);
+            }
+        }
+    }
+    if cancelled.is_empty() {
+        return;
+    }
+
+    let positions: BTreeMap<usize, fixed_math::FixedVec2> = character_query
+        .iter()
+        .map(|(id, transform, _)| (id.0, transform.translation.truncate()))
+        .collect();
+    use bevy_ggrs::RollbackDespawnCommandExtension;
+    for (j, i) in cancelled {
+        let (hitbox_id, hitbox_entity, _, other, _) = &hitboxes[j];
+        let (_, _, _, parrier, _) = &hitboxes[i];
+        let Some(Some(parry)) = parry_of.get(&parrier.owner_net_id.0) else {
+            continue;
+        };
+        let grade = grade_timing(now, parrier.created_frame, parry.perfect_frames, u32::MAX);
+        commands.entity(*hitbox_entity).despawn_rollback();
+        if grade == TimingGrade::Perfect && parry.perfect_knockback > fixed_math::Fixed::ZERO {
+            if let (Some(from), Some(to)) = (
+                positions.get(&parrier.owner_net_id.0),
+                positions.get(&other.owner_net_id.0),
+            ) {
+                let direction = (*to - *from).normalize_or_zero();
+                let push = direction * parry.perfect_knockback;
+                for (id, _, velocity) in character_query.iter_mut() {
+                    if id.0 == other.owner_net_id.0 {
+                        if let Some(mut velocity) = velocity {
+                            velocity.knockback = velocity.knockback + push;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        info!(
+            "ggrs{{f={} parry hitbox={} parrier={} attacker={} grade={:?}}}",
+            now, hitbox_id, parrier.owner_net_id, other.owner_net_id, grade
+        );
+        if let Some(events) = parried_events.as_mut() {
+            events.send(MeleeParried {
+                parrier: parrier.owner_net_id.clone(),
+                attacker: other.owner_net_id.clone(),
+                hitbox: (*hitbox_id).clone(),
+                grade,
+                frame: now,
+            });
+        }
+    }
+}
+
 /// Renvoi des projectiles par les hitbox de mêlée dont l'arme porte `reflect`.
 ///
 /// Pour chaque hitbox active (ordre `GgrsNetId`), si l'arme du porteur déclare `reflect` :
@@ -860,15 +1061,19 @@ pub fn facing_to_fixed(direction: FacingDirection) -> fixed_math::FixedVec2 {
 /// est renvoyé : `source`/`source_team` deviennent le pareur et son équipe (la balle
 /// touche désormais ses anciens alliés), la vitesse garde son module et prend la
 /// direction du regard, les personnages déjà traversés sont oubliés (le projectile peut
-/// toucher son ancien camp). Note (`Perfect`/`Good`, `sim_core::timing`) mesurée depuis
-/// le début du coup ; sur `Perfect`, les dégâts sont multipliés par
+/// toucher son ancien camp). Note (`Perfect`/`Good`, `sim_core::timing`) mesurée depuis la
+/// création de la hitbox (le début du coup) ; sur `Perfect`, les dégâts sont multipliés par
 /// `perfect_damage_mult`. Une balle n'est renvoyée qu'une fois par frame (la hitbox de
 /// plus petit `GgrsNetId` l'emporte) ; une balle terminée (`Projectile::ended`) ne l'est jamais.
 ///
-/// Placement (`RollbackSystemSet::Weapon`, après le déplacement des balles et avant leurs
-/// collisions) : la balle renvoyée ne touche pas le pareur la même frame, et une balle
-/// ordinaire comme composable suit ensuite son chemin normal — vers son ancien camp.
-/// Ordre `GgrsNetId` partout (hitbox, balles, porteurs) ; aucun RNG, aucun `f32`.
+/// Placement (`RollbackSystemSet::Weapon`) : **après** la création des hitbox de la frame
+/// (`player_melee_attack_system`, `enemy_melee_attack_system` : un coup lancé cette frame
+/// pare dès la frame 0, note `Perfect` à `perfect_frames = 0`) et leur expiration
+/// (`update_melee_hitboxes` : une hitbox arrivée au bout de sa durée ne renvoie plus rien),
+/// après la parade de mêlée, et **avant** les collisions de balles (la balle renvoyée ne
+/// touche pas le pareur la même frame) : une balle ordinaire comme composable suit ensuite son
+/// chemin normal, vers son ancien camp. Ordre `GgrsNetId` partout (hitbox, balles, porteurs) ;
+/// aucun RNG, aucun `f32`.
 #[allow(clippy::too_many_arguments)]
 pub fn melee_reflect_system(
     frame: Res<FrameCount>,
@@ -897,7 +1102,6 @@ pub fn melee_reflect_system(
         (
             &GgrsNetId,
             &FacingDirection,
-            &MeleeAttackState,
             Option<&Player>,
             &Team,
             &Children,
@@ -913,62 +1117,47 @@ pub fn melee_reflect_system(
 
     for (_hitbox_id, hitbox_transform, hitbox, hitbox_collider) in order_iter!(hitbox_query) {
         let mut owner_data = None;
-        for (owner_net_id, facing, attack_state, player, team, children) in order_iter!(owner_query)
-        {
+        for (owner_net_id, facing, player, team, children) in order_iter!(owner_query) {
             if owner_net_id == &hitbox.owner_net_id {
-                owner_data = Some((owner_net_id, facing, attack_state, player, team, children));
+                owner_data = Some((owner_net_id, facing, player, team, children));
                 break;
             }
         }
-        let Some((owner_net_id, facing, attack_state, player, owner_team, children)) = owner_data
+        let Some((owner_net_id, facing, player, owner_team, children)) = owner_data else {
+            continue;
+        };
+        let Some(reflect) = melee_weapon_of(children, &weapon_query)
+            .and_then(|weapon| weapon.config.reflect.clone())
         else {
             continue;
         };
-        let mut reflect = None;
-        for child in children.iter() {
-            if let Ok(weapon) = weapon_query.get(child) {
-                reflect = weapon.config.reflect.clone();
-                break;
-            }
-        }
-        let Some(reflect) = reflect else {
-            continue;
-        };
-        let Some(started) = attack_state.attack_started_frame else {
-            continue;
-        };
+        let started = hitbox.created_frame;
         let direction = facing_to_fixed(*facing);
 
         for (bullet_id, bullet_transform, mut bullet, mut projectile, bullet_collider) in
             order_mut_iter!(bullet_query)
         {
-            if !reflected_this_frame.insert(bullet_id.0) {
+            if reflected_this_frame.contains(&bullet_id.0) {
                 continue;
             }
-            // Faux positif du `insert` ci-dessus : on retire aussitôt si la balle n'est
-            // finalement pas renvoyée par cette hitbox (elle reste candidate pour les suivantes).
-            let mut renvoie = false;
-            if bullet.source_team != *owner_team
-                && team_allows_hit(
+            if bullet.source_team == *owner_team
+                || !team_allows_hit(
                     bullet.source_team,
                     *owner_team,
                     bullet.friendly_fire,
                     &bullet.tags,
                 )
-                && projectile.as_ref().is_none_or(|p| !p.ended)
-                && is_colliding(
+                || !projectile.as_ref().is_none_or(|p| !p.ended)
+                || !is_colliding(
                     &hitbox_transform.translation,
                     hitbox_collider,
                     &bullet_transform.translation,
                     bullet_collider,
                 )
             {
-                renvoie = true;
-            }
-            if !renvoie {
-                reflected_this_frame.remove(&bullet_id.0);
                 continue;
             }
+            reflected_this_frame.insert(bullet_id.0);
             let grade = grade_timing(now, started, reflect.perfect_frames, u32::MAX);
             let (speed, _) = bullet.velocity.length_and_direction();
             bullet.velocity = fixed_math::FixedVec2::new(
@@ -999,6 +1188,402 @@ pub fn melee_reflect_system(
                 });
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod system_tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce;
+
+    const FRAME: u32 = 100;
+
+    /// Monde d'essai : le crochet d'ajout de `Rollback` exige la ressource `RollbackOrdered`.
+    fn test_world() -> World {
+        let mut world = World::new();
+        world.init_resource::<bevy_ggrs::RollbackOrdered>();
+        world.insert_resource(FrameCount { frame: FRAME });
+        world
+    }
+
+    fn at(x: f32, y: f32) -> fixed_math::FixedTransform3D {
+        fixed_math::FixedTransform3D::new(
+            fixed_math::FixedVec3::new(
+                fixed_math::Fixed::from_num(x),
+                fixed_math::Fixed::from_num(y),
+                fixed_math::Fixed::ZERO,
+            ),
+            fixed_math::FixedMat3::IDENTITY,
+            fixed_math::FixedVec3::ONE,
+        )
+    }
+
+    fn circle(radius: f32) -> Collider {
+        Collider {
+            shape: ColliderShape::Circle {
+                radius: fixed_math::Fixed::from_num(radius),
+            },
+            offset: fixed_math::FixedVec3::ZERO,
+        }
+    }
+
+    fn melee_weapon(reflect: Option<MeleeReflect>, parry: Option<MeleeParry>) -> MeleeWeapon {
+        MeleeWeapon {
+            config: MeleeWeaponConfig {
+                name: "essai".into(),
+                damage: fixed_math::Fixed::from_num(5.0),
+                range: fixed_math::Fixed::from_num(50.0),
+                attack_pattern: MeleeAttackPattern::SingleStrike,
+                attack_duration_frames: 12,
+                cooldown_frames: 40,
+                knockback_force: fixed_math::Fixed::from_num(20.0),
+                stamina_cost: fixed_math::Fixed::ZERO,
+                friendly_fire: FriendlyFire::Never,
+                test: None,
+                reflect,
+                parry,
+            },
+            sprite_config: MeleeWeaponSpriteConfig {
+                name: "epee".into(),
+                index: 0,
+                weapon_offset: fixed_math::FixedVec2::ZERO,
+            },
+        }
+    }
+
+    fn reflect_config() -> MeleeReflect {
+        MeleeReflect {
+            perfect_frames: 0,
+            perfect_damage_mult: fixed_math::Fixed::from_num(2.0),
+        }
+    }
+
+    fn parry_config() -> MeleeParry {
+        MeleeParry {
+            perfect_frames: 4,
+            perfect_knockback: fixed_math::Fixed::from_num(300.0),
+        }
+    }
+
+    /// Porteur d'une arme de mêlée (X-3) : l'arme en enfant, l'équipe et le regard donnés.
+    fn owner(
+        world: &mut World,
+        id: usize,
+        team: Team,
+        facing: FacingDirection,
+        weapon: MeleeWeapon,
+    ) -> Entity {
+        let weapon = world.spawn(weapon).id();
+        let owner = world
+            .spawn((GgrsNetId(id, "essai".into()), facing, team, Rollback))
+            .id();
+        world.entity_mut(owner).add_child(weapon);
+        owner
+    }
+
+    fn hitbox(
+        world: &mut World,
+        id: usize,
+        owner_entity: Entity,
+        owner_net_id: usize,
+        team: Team,
+        created_frame: u32,
+        x: f32,
+    ) -> Entity {
+        world
+            .spawn((
+                GgrsNetId(id, "essai".into()),
+                MeleeHitbox {
+                    damage: fixed_math::Fixed::from_num(5.0),
+                    knockback_force: fixed_math::Fixed::from_num(20.0),
+                    owner_entity,
+                    owner_net_id: GgrsNetId(owner_net_id, "essai".into()),
+                    owner_handle: None,
+                    created_frame,
+                    duration_frames: 12,
+                    facing: FacingDirection::Right,
+                    owner_team: team,
+                    tags: Tags::default(),
+                    friendly_fire: FriendlyFire::Never,
+                },
+                circle(30.0),
+                at(x, 0.0),
+                Rollback,
+            ))
+            .id()
+    }
+
+    fn bullet(world: &mut World, id: usize, x: f32, speed: f32) -> Entity {
+        world
+            .spawn((
+                GgrsNetId(id, "essai".into()),
+                super::super::Bullet {
+                    velocity: fixed_math::FixedVec2::new(
+                        fixed_math::Fixed::from_num(speed),
+                        fixed_math::Fixed::ZERO,
+                    ),
+                    bullet_type: super::super::BulletType::Standard {
+                        damage: fixed_math::Fixed::from_num(8.0),
+                        speed: fixed_math::Fixed::from_num(1.0),
+                    },
+                    damage: fixed_math::Fixed::from_num(8.0),
+                    range: fixed_math::Fixed::from_num(1000.0),
+                    distance_traveled: fixed_math::Fixed::ZERO,
+                    player_handle: 0,
+                    created_at: 0,
+                    source: GgrsNetId(40, "tourelle".into()),
+                    source_team: Team::Enemies,
+                    tags: Tags::default(),
+                    friendly_fire: FriendlyFire::Never,
+                },
+                circle(4.0),
+                at(x, 0.0),
+                Rollback,
+            ))
+            .id()
+    }
+
+    /// X-3 (revue, P2) : un projectile qui touche la hitbox **à la frame de sa création**
+    /// est renvoyé avec la note `Perfect` (fenêtre parfaite nulle) : la parade passe après
+    /// la création des hitbox de la frame.
+    #[test]
+    fn un_contact_a_la_frame_du_coup_est_renvoye_parfait() {
+        let mut world = test_world();
+        world.init_resource::<FrameEvents<ProjectileReflected>>();
+        let pareur = owner(
+            &mut world,
+            7,
+            Team::Players,
+            FacingDirection::Right,
+            melee_weapon(Some(reflect_config()), None),
+        );
+        hitbox(&mut world, 20, pareur, 7, Team::Players, FRAME, 25.0);
+        let balle = bullet(&mut world, 29, 25.0, -1.0);
+        world.run_system_once(melee_reflect_system).unwrap();
+        let balle = world.get::<super::super::Bullet>(balle).unwrap();
+        assert_eq!(balle.source_team, Team::Players);
+        assert_eq!(balle.source, GgrsNetId(7, "essai".into()));
+        assert!(
+            balle.velocity.x > fixed_math::Fixed::ZERO,
+            "repart vers la droite"
+        );
+        assert_eq!(
+            balle.damage,
+            fixed_math::Fixed::from_num(16.0),
+            "parfait : dégâts doublés"
+        );
+        let notes: Vec<_> = world
+            .resource::<FrameEvents<ProjectileReflected>>()
+            .iter()
+            .collect();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].grade, TimingGrade::Perfect);
+        assert_eq!(notes[0].frame, FRAME);
+    }
+
+    /// X-3 (revue, P2) : une hitbox arrivée au bout de sa durée (`update_melee_hitboxes`
+    /// passe avant la parade) est détruite avant la parade : le projectile qui la touche
+    /// n'est pas renvoyé.
+    #[test]
+    fn une_hitbox_expiree_ne_renvoie_plus_rien() {
+        let mut world = test_world();
+        world.init_resource::<FrameEvents<ProjectileReflected>>();
+        let pareur = owner(
+            &mut world,
+            7,
+            Team::Players,
+            FacingDirection::Right,
+            melee_weapon(Some(reflect_config()), None),
+        );
+        let boite = hitbox(&mut world, 20, pareur, 7, Team::Players, FRAME - 12, 25.0);
+        let balle = bullet(&mut world, 29, 25.0, -1.0);
+        world.run_system_once(update_melee_hitboxes).unwrap();
+        assert!(
+            world.get::<MeleeHitbox>(boite).is_none(),
+            "hitbox expirée détruite avant la parade"
+        );
+        world.run_system_once(melee_reflect_system).unwrap();
+        let balle = world.get::<super::super::Bullet>(balle).unwrap();
+        assert_eq!(balle.source_team, Team::Enemies, "équipe inchangée");
+        assert_eq!(
+            balle.damage,
+            fixed_math::Fixed::from_num(8.0),
+            "dégâts inchangés"
+        );
+        assert_eq!(
+            world
+                .resource::<FrameEvents<ProjectileReflected>>()
+                .iter()
+                .count(),
+            0,
+            "aucune note"
+        );
+    }
+
+    /// Personnage pour une parade de mêlée (X-3) : position et vitesse, sans hitbox.
+    fn character(world: &mut World, id: usize, team: Team, x: f32) -> Entity {
+        world
+            .spawn((
+                GgrsNetId(id, "essai".into()),
+                team,
+                crate::actors::Velocity {
+                    main: fixed_math::FixedVec2::ZERO,
+                    knockback: fixed_math::FixedVec2::ZERO,
+                },
+                at(x, 0.0),
+                Rollback,
+            ))
+            .id()
+    }
+
+    fn parry_world() -> (World, Entity, Entity) {
+        let mut world = test_world();
+        world.init_resource::<FrameEvents<MeleeParried>>();
+        let pareur = owner(
+            &mut world,
+            7,
+            Team::Players,
+            FacingDirection::Right,
+            melee_weapon(None, Some(parry_config())),
+        );
+        let attaquant = owner(
+            &mut world,
+            14,
+            Team::Enemies,
+            FacingDirection::Left,
+            melee_weapon(None, None),
+        );
+        character(&mut world, 7, Team::Players, 0.0);
+        character(&mut world, 14, Team::Enemies, -40.0);
+        (world, pareur, attaquant)
+    }
+
+    /// X-3 (D149) : la hitbox adverse qui touche celle du pareur est annulée avant de blesser ;
+    /// contact dans la fenêtre parfaite : l'attaquant est repoussé et la note est émise.
+    #[test]
+    fn un_coup_adverse_est_annule_et_l_attaquant_recule_sur_parfait() {
+        let (mut world, pareur, attaquant) = parry_world();
+        let garde = hitbox(&mut world, 20, pareur, 7, Team::Players, FRAME - 2, 25.0);
+        let coup = hitbox(
+            &mut world,
+            21,
+            attaquant,
+            14,
+            Team::Enemies,
+            FRAME - 6,
+            -15.0,
+        );
+        world.run_system_once(melee_parry_system).unwrap();
+        assert!(
+            world.get::<MeleeHitbox>(coup).is_none(),
+            "le coup adverse est annulé"
+        );
+        assert!(
+            world.get::<MeleeHitbox>(garde).is_some(),
+            "la hitbox du pareur survit"
+        );
+        let notes: Vec<_> = world
+            .resource::<FrameEvents<MeleeParried>>()
+            .iter()
+            .collect();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].grade, TimingGrade::Perfect);
+        assert_eq!(notes[0].parrier, GgrsNetId(7, "essai".into()));
+        assert_eq!(notes[0].attacker, GgrsNetId(14, "essai".into()));
+        let mut vus = 0;
+        for (id, _, velocity) in world
+            .query::<(
+                &GgrsNetId,
+                &fixed_math::FixedTransform3D,
+                Option<&crate::actors::Velocity>,
+            )>()
+            .iter(&world)
+        {
+            if id.0 == 14 {
+                let recul = velocity.unwrap().knockback;
+                assert!(
+                    recul.x < fixed_math::Fixed::ZERO,
+                    "repoussé loin du pareur, reçu {recul:?}"
+                );
+                vus += 1;
+            }
+        }
+        assert_eq!(vus, 1);
+    }
+
+    /// X-3 (D149) : hors de la fenêtre parfaite, le coup est annulé sans recul (« bien ») ;
+    /// deux pareurs mutuels s'annulent tous les deux, quel que soit l'ordre.
+    #[test]
+    fn un_coup_bien_pare_est_annule_sans_recul_et_mutuellement() {
+        let (mut world, pareur, attaquant) = parry_world();
+        hitbox(&mut world, 20, pareur, 7, Team::Players, FRAME - 8, 25.0);
+        let coup = hitbox(
+            &mut world,
+            21,
+            attaquant,
+            14,
+            Team::Enemies,
+            FRAME - 6,
+            -15.0,
+        );
+        world.run_system_once(melee_parry_system).unwrap();
+        assert!(world.get::<MeleeHitbox>(coup).is_none());
+        let notes: Vec<_> = world
+            .resource::<FrameEvents<MeleeParried>>()
+            .iter()
+            .collect();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].grade, TimingGrade::Good);
+        for (id, _, velocity) in world
+            .query::<(
+                &GgrsNetId,
+                &fixed_math::FixedTransform3D,
+                Option<&crate::actors::Velocity>,
+            )>()
+            .iter(&world)
+        {
+            if id.0 == 14 {
+                assert_eq!(
+                    velocity.unwrap().knockback,
+                    fixed_math::FixedVec2::ZERO,
+                    "aucun recul sur « bien »"
+                );
+            }
+        }
+        // Parade mutuelle : les deux armes parent, les deux coups tombent.
+        let (mut world, pareur, attaquant) = parry_world();
+        let coup_pareur = hitbox(&mut world, 20, pareur, 7, Team::Players, FRAME - 2, 25.0);
+        let coup_attaquant = hitbox(
+            &mut world,
+            21,
+            attaquant,
+            14,
+            Team::Enemies,
+            FRAME - 6,
+            -15.0,
+        );
+        // L'attaquant pare aussi : on lui donne la parade après coup.
+        let enfants: Vec<Entity> = world
+            .query::<(&GgrsNetId, &Children)>()
+            .iter(&world)
+            .flat_map(|(_, children)| children.iter())
+            .collect();
+        for child in enfants {
+            if let Some(mut arme) = world.get_mut::<MeleeWeapon>(child) {
+                if arme.config.parry.is_none() {
+                    arme.config.parry = Some(parry_config());
+                }
+            }
+        }
+        let _ = coup_pareur;
+        world.run_system_once(melee_parry_system).unwrap();
+        assert!(world.get::<MeleeHitbox>(coup_pareur).is_none());
+        assert!(world.get::<MeleeHitbox>(coup_attaquant).is_none());
+        assert_eq!(
+            world.resource::<FrameEvents<MeleeParried>>().iter().count(),
+            2,
+            "un événement par coup annulé"
+        );
     }
 }
 

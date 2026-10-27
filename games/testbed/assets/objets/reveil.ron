@@ -1,0 +1,21 @@
+// X-3 (testbed, docs/conventions.md §90) : passif d'essai du repère d'horloge de portée `Floor`
+// à l'entrée d'un étage (`OnFloorStart`). Si la frame d'entrée tombe à 2 frames près de
+// l'événement `debut` de l'horloge `debut_etage` (temps d'étage 0 à l'entrée : écart nul), +7 de
+// dégâts ; si elle est « ratée », +70 (ne doit jamais arriver : l'entrée EST le début d'étage).
+// Scénario `fenetre_etage` (deux entrées : étage 0 puis étage 1 → 1 + 7 + 7 = 15).
+(
+    name: "Réveil",
+    kind: Passive,
+    effects: [
+        (
+            on: OnFloorStart,
+            if: [Timing(reference: Clock("debut"), perfect_frames: 2, good_frames: 6, grade: Perfect)],
+            do: [Modifier(stat: Damage, op: Add, value: "7")],
+        ),
+        (
+            on: OnFloorStart,
+            if: [Timing(reference: Clock("debut"), perfect_frames: 2, good_frames: 6, grade: Miss)],
+            do: [Modifier(stat: Damage, op: Add, value: "70")],
+        ),
+    ],
+)

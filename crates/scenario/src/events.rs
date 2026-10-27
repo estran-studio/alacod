@@ -171,8 +171,74 @@ impl Plugin for GameEventsPlugin {
                     unlock_events.after(detect_events).after(hub_events),
                     lock_events.after(detect_events),
                     curse_events.after(detect_events),
+                    verb_events.after(detect_events),
                 ),
             );
+    }
+}
+
+/// Moments clés des verbes D1 (X-3, `docs/conventions.md` §90) : `reflect` (projectile renvoyé,
+/// `combat::weapons::melee::ProjectileReflected`), `parry` (coup de mêlée annulé,
+/// `MeleeParried`) et `timing` (note d'une fenêtre de jugement,
+/// `game::effects_runtime::TimingJudged`), relus des files neutres de la frame (bornées à leur
+/// frame d'émission comme `CurrencyEvent`). Le libellé porte la note (« parfait », « bien »,
+/// « raté ») et la frame : `Event(kind: "timing", label_contains: Some("parfait"))`.
+fn verb_events(
+    reflected: Option<Res<FrameEvents<combat::weapons::melee::ProjectileReflected>>>,
+    parried: Option<Res<FrameEvents<combat::weapons::melee::MeleeParried>>>,
+    judged: Option<Res<FrameEvents<game::effects_runtime::TimingJudged>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    use sim_core::timing::TimingGrade;
+    let grade = |grade: TimingGrade| match grade {
+        TimingGrade::Perfect => "parfait",
+        TimingGrade::Good => "bien",
+        TimingGrade::Miss => "raté",
+    };
+    if let Some(reflected) = reflected {
+        for event in reflected.iter() {
+            events.events.push(GameEvent {
+                frame: event.frame,
+                kind: "reflect",
+                label: format!(
+                    "projectile {} renvoyé par {} ({}, f{})",
+                    event.bullet.0,
+                    event.owner.0,
+                    grade(event.grade),
+                    event.frame
+                ),
+            });
+        }
+    }
+    if let Some(parried) = parried {
+        for event in parried.iter() {
+            events.events.push(GameEvent {
+                frame: event.frame,
+                kind: "parry",
+                label: format!(
+                    "coup de {} annulé par {} ({}, f{})",
+                    event.attacker.0,
+                    event.parrier.0,
+                    grade(event.grade),
+                    event.frame
+                ),
+            });
+        }
+    }
+    if let Some(judged) = judged {
+        for event in judged.iter() {
+            events.events.push(GameEvent {
+                frame: event.frame,
+                kind: "timing",
+                label: format!(
+                    "porteur {} : {} ({:?}, f{})",
+                    event.carrier.0,
+                    grade(event.grade),
+                    event.reference,
+                    event.frame
+                ),
+            });
+        }
     }
 }
 
@@ -222,6 +288,13 @@ fn feedback_events(
                 cue.net_id,
                 cue.value,
                 cue.extra
+            ),
+            // X-3 : un hit stop « cible seule » le dit (`extra` : 1).
+            FeedbackKind::HitStop if cue.extra >= 1.0 => format!(
+                "{} {} ({} frames, cible seule)",
+                cue.kind.label(),
+                cue.net_id,
+                cue.value
             ),
             FeedbackKind::HitStop | FeedbackKind::Shake => {
                 format!("{} {} ({} frames)", cue.kind.label(), cue.net_id, cue.value)

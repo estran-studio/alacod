@@ -1,0 +1,9 @@
+// X-3 (testbed, docs/conventions.md §90) : horloge de laboratoire pour le repère d'horloge de
+// portée `Floor` d'une fenêtre de jugement à l'entrée d'un étage. Un événement `debut` à 0 (tiré
+// à chaque entrée d'étage, temps d'étage remis à zéro), sans répétition. Scénario `fenetre_etage`.
+(
+    scope: Floor,
+    events: [
+        (id: "debut", at: Frames(0)),
+    ],
+)
