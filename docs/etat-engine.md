@@ -164,24 +164,27 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 
 ## Ordre recommandé après cette branche
 
-0. **Prochain jalon (décision de William du 2026-10-26, soir) : M4 := le prologue de 1837** (feuille de route de `1867_lore` du 2026-10-20),
+0. **X-4b d'abord (décision de William du 2026-10-27, ordre jeu-d'abord)** : import des planches `*.sprite.json`, depuis `main`
+   (X-4a livré). Puis X-5 dès que 1837 existe (`alacod new`, 9 nov), puis X-3, puis X-6. X-1, X-2a et X-2b sont gelés faute de besoin
+   daté : branches conservées, ni fusion ni tag `v0.1.0` (`docs/taches/plan-1837-cli.md` §3, notes `docs/taches/rapports/x-*-arret.md`).
+1. **Prochain jalon (décision de William du 2026-10-26, soir) : M4 := le prologue de 1837** (feuille de route de `1867_lore` du 2026-10-20),
    en commençant par le cœur 30 s (une pièce, bouger/viser/tirer/hache/gigue, deux fantassins) ; « La coupe » est abandonnée ; le dépôt
    1837 est créé par William via `alacod new`. L'atelier de réglage (K7) s'arrête : AT-0 livré, AT-1, AT-2, AT-7 non lancés
    (`docs/taches/plan-atelier-reglage.md`).
-1. Revue et intégration du durcissement P2P/CI ; exécuter le transport réel sur le poste
+2. Revue et intégration du durcissement P2P/CI ; exécuter le transport réel sur le poste
    d’orchestration (Docker opérationnel) puis entre machines.
-2. D59 : choix explicite de la séquence d’étages dans le manifeste et grammaire par défaut de
+3. D59 : choix explicite de la séquence d’étages dans le manifeste et grammaire par défaut de
    gungeon, avec transition en P2P. Garder la décision et la fiche existantes comme autorité.
-3. M2-T5/T6/T14 : brancher les sources de butin et l’économie ; fermer D62, puis refaire une
+4. M2-T5/T6/T14 : brancher les sources de butin et l’économie ; fermer D62, puis refaire une
    campagne sur le boss actuel et la boucle ordinaire. Terminer les autres livrables de M2.
-4. Calibrer une référence de performance reproductible, profiler le coût dominant et corriger
+5. Calibrer une référence de performance reproductible, profiler le coût dominant et corriger
    selon les mesures. Ne pas relever artificiellement les seuils de `tests/budgets.ron`.
-5. Réduire progressivement les dépendances de présentation dans les modules de simulation :
+6. Réduire progressivement les dépendances de présentation dans les modules de simulation :
    `combat` et `map` sont maintenant des crates `SIM` (D69, étape 1) ; reste `game` (simulation et
    présentation dans le même crate) et `map_ldtk` (D69, étape 2). Le headless actuel évite
    fenêtre/GPU à l’exécution ; la compilation ECS seule est prouvée pour 13 crates, pas encore pour
    `game`, donc pas encore un portage console.
-6. Faire assembler un petit jeu par une autre personne : une arme, un ennemi, un objet et une salle.
+7. Faire assembler un petit jeu par une autre personne : une arme, un ennemi, un objet et une salle.
    Consigner le Rust nécessaire, les erreurs de contenu et les difficultés rencontrées.
 
 ## Outils de consolidation

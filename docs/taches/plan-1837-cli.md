@@ -66,28 +66,31 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
   `character/enemy/ai/navigation.rs:30`, alignées sur les tuiles LDtk) ; un jeu à grands sprites garde donc des unités de monde « à la taille des
   cases » et réduit ses planches par `scale` (X-4a le documente, X-4b le propose à l'import). Pivot : aux pieds (design de 1837), à vérifier sur une
   planche réelle en X-4b (le manifeste le place à mi-hauteur).
-- **Ennemis de D1 (ex-Q-2, tranché par William le 2026-10-26)** : **petit rôdeur** (charge en zigzag, recul) et **tireur qui recule** (tir annoncé,
-  couvert pendant le rechargement), inspirés des adversaires de Gungeon (`1867_lore/design/archetypes-ennemis.md`). Sprites : `fantassin-de-ligne`
-  ou `volontaire-loyaliste` pour le tireur ; `loup-hiver-1837` provisoire pour le rôdeur.
+- **Ennemis de D1 (tranché par William le 2026-10-26, soir)** : **deux fantassins** pour le cœur 30 s, dans le dépôt de 1837 ; le petit rôdeur et le
+  tireur qui recule envisagés plus tôt le même jour sont remplacés. Aucun de ces contenus n'entre dans l'engine.
+
+Décision de William (2026-10-27) : ordre jeu-d'abord X-4b → X-5 (9 nov) → X-3 → X-6 ; X-1 et X-2 gelés faute de besoin daté ; chemin critique X-4b → X-5.
+Aucune fusion ni tag `v0.1.0` pour X-1/X-2 ; X-4b part de `main` (X-4a livré) sans attendre X-2a (`alacod.rs` de `main` suffit, `rapports/x-4b-arret.md`).
+Notes d'arrêt : `rapports/x-1-arret.md`, `x-2a-arret.md`, `x-2b-arret.md`, `x-3-arret.md`, `x-4b-arret.md`.
 
 À trancher par William (bloque seulement le lot indiqué) :
 - **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md`.
 
-## 4. Lots (quatre voies au plus en parallèle depuis le 2026-10-26)
+## 4. Lots (état au 2026-10-27 : ordre jeu-d'abord)
 
-| Lot | Contenu | Prérequis | Voie | Effort |
+| Lot | Contenu | Prérequis | État (2026-10-27) | Effort |
 |---|---|---|---|---|
-| **X-1 Points d'extension** | entrée unique (D-e) ; runner de scénarios appelable depuis le binaire du jeu ; point d'insertion des enregistrements rollback d'un plugin ; variantes `Custom` ouvertes ; kinds de contenu et règles de lint déclarés par un plugin ; D133 | — | A | high |
-| **X-2a CLI : dépendance et lancement** | D-b (`new` par tag, `engine local/pin/status`), racine engine par `cargo metadata` au lieu de `BUILT_FROM_ENGINE` ; `alacod run [--sandbox [profil]] [--headless] [--seed] [--players]` ; `alacod remote …` (remplace `scripts/alacod-remote` pour un jeu externe) ; D126, D130, D131 | — | B | medium |
-| **X-2b CLI : test, vidéo, build** | `alacod test` joue les scénarios par le binaire du jeu (plugin compris) et écrit dans le jeu ; `alacod video` (rendu, Mac) ; `alacod build --release` et `--web` (version du jeu dans `APP_VERSION`) ; test de bout en bout du §1.1 | X-1, X-2a | B | medium |
-| **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | — (verbes natifs de l'engine ; conflits possibles avec les `Custom` de X-1 dans les mêmes enums, résolus au merge) | C (Mac) | high |
-| **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | D (Mac) | medium |
-| **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a, X-2a (`alacod.rs`) | D | medium |
-| **X-5 Création de 1837 et palier D1** | `alacod new 1837`, assets du kit Frontière importés, une pièce, rôdeur et tireur qui recule, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; échelle réglée en jouant ; tout par `alacod` | X-1 à X-4, D-a | A ou B | medium |
-| **X-6 Paliers D2 à D5** | verbes `Lure`/`Grab`, contrainte de branche de la clé du boss (`map::generation::grid`), graine de la sauvegarde (`meta::Profile`), extérieur dessiné → intérieur généré ; contenu des paliers | X-5, Q-3 | — | à planifier |
+| **X-1 Points d'extension** | entrée unique (D-e) ; runner de scénarios appelable depuis le binaire du jeu ; point d'insertion des enregistrements rollback d'un plugin ; variantes `Custom` ouvertes ; kinds de contenu et règles de lint déclarés par un plugin ; D133 | — | **gelé**, branche conservée (`x-1-points-extension`, `integration-1837`) | high |
+| **X-2a CLI : dépendance et lancement** | D-b (`new` par tag, `engine local/pin/status`), racine engine par `cargo metadata` au lieu de `BUILT_FROM_ENGINE` ; `alacod run [--sandbox [profil]] [--headless] [--seed] [--players]` ; `alacod remote …` (remplace `scripts/alacod-remote` pour un jeu externe) ; D126, D130, D131 | — | **gelé**, branche conservée (`x-2a-cli-dependance-lancement`, `integration-x2a`) | medium |
+| **X-2b CLI : test, vidéo, build** | `alacod test` joue les scénarios par le binaire du jeu (plugin compris) et écrit dans le jeu ; `alacod video` (rendu, Mac) ; `alacod build --release` et `--web` (version du jeu dans `APP_VERSION`) ; test de bout en bout du §1.1 | X-1, X-2a | **gelé**, brouillon conservé (`x-2b-brouillon-sur-x2a`) | medium |
+| **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | X-5 (besoins montrés par 1837) | **reporté après X-5**, branche conservée (`x-3-verbes-d1`) | high |
+| **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | **livré** | medium |
+| **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a (depuis `main`) | **prochain**, brief séparé (brouillon `x-4b-brouillon-sur-x2a`, non vérifié) | medium |
+| **X-5 Création de 1837 et palier D1** | `alacod new 1837` (9 nov), assets du kit Frontière importés, une pièce, deux fantassins, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; échelle réglée en jouant ; tout par `alacod` | X-4b, D-a | après X-4b | medium |
+| **X-6 Paliers D2 à D5** | verbes `Lure`/`Grab`, contrainte de branche de la clé du boss (`map::generation::grid`), graine de la sauvegarde (`meta::Profile`), extérieur dessiné → intérieur généré ; contenu des paliers | X-5, X-3, Q-3 | après X-3 | à planifier |
 
-Chemin critique : X-1 → X-2b → X-5. Quatre voies depuis le 2026-10-26 (Mac disponible) : A = X-1 puis X-2b (VPS), B = X-2a (VPS),
-C = X-3 (Mac), D = X-4a puis X-4b (Mac ; le rendu y est possible).
+Chemin critique (2026-10-27) : X-4b → X-5. Ensuite X-3, puis X-6. X-1, X-2a et X-2b sont gelés jusqu'à un besoin daté (aucune fusion, aucun tag).
+Avant le 2026-10-27 : X-1 → X-2b → X-5, sur quatre voies.
 
 ### Espace de solution par lot
 
