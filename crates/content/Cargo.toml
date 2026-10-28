@@ -18,6 +18,8 @@ thiserror = "2"
 ron = "0.12"
 serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
+# X-4b : décodage et encodage PNG de l'import de sprites (png seul, pas de features par défaut).
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 schemars = "1"
 
