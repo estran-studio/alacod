@@ -120,6 +120,10 @@ enum Command {
         /// Côté maximal de l'atlas en pixels.
         #[arg(long, default_value_t = 4096)]
         max_side: u32,
+        /// Où se pose le pivot du manifeste (pieds, point de contact au sol), en unités monde locales à l'entité :
+        /// `X,Y` (défaut `0,0` : l'origine de l'entité). Le collider d'un personnage a son bas à `-16` dans le testbed.
+        #[arg(long, value_name = "X,Y", allow_hyphen_values = true)]
+        pivot_at: Option<String>,
         /// Hauteur imposée de la cellule réduite (sinon le plus grand facteur qui tient).
         #[arg(long)]
         cell_height: Option<u32>,
@@ -365,9 +369,20 @@ fn main() -> ExitCode {
             scale,
             states,
             max_side,
+            pivot_at,
             cell_height,
             overwrite,
         } => {
+            let pivot_at = match pivot_at.as_deref() {
+                None => (0.0, 0.0),
+                Some(raw) => match raw
+                    .split_once(',')
+                    .map(|(x, y)| (x.trim().parse(), y.trim().parse()))
+                {
+                    Some((Ok(x), Ok(y))) => (x, y),
+                    _ => return fail(&format!("--pivot-at {raw} : forme attendue X,Y (nombres)")),
+                },
+            };
             let scale = match (units_per_meter, scale) {
                 (Some(u), None) => content::sprite_import::ScaleSpec::UnitsPerMeter(u),
                 (None, Some(s)) => content::sprite_import::ScaleSpec::Scale(s),
@@ -395,6 +410,7 @@ fn main() -> ExitCode {
                         sprite_id: id,
                         states: parsed,
                         max_side,
+                        pivot_at,
                         cell_height,
                         overwrite,
                         ..content::sprite_import::SpriteImportOptions::new(scale)
@@ -952,8 +968,8 @@ fn import_sprite_cmd(
                 r.clips.len()
             );
             println!(
-                "échelle {} ; pivot à mi-hauteur (pas aux pieds) : offset ({}, {}) unités",
-                r.scale, r.offset.0, r.offset.1
+                "échelle {} ; pivot aux pieds (point de contact au sol) posé en ({}, {}) unités locales (--pivot-at) : offset ({}, {}) unités",
+                r.scale, r.pivot_at.0, r.pivot_at.1, r.offset.0, r.offset.1
             );
             println!(
                 "silhouette de « {} » : {} px source, {:.1} px d'atlas, {:.1} unités affichées (réglez --units-per-meter)",

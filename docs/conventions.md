@@ -7958,7 +7958,7 @@ La réduction se fait cellule par cellule en **alpha prémultiplié**, filtre La
 **Fichiers** : `<id>.png`, `<id>_sheet.ron` (une `SpriteSheetConfig` calque `body` : `tile_size` = cellule réduite, `columns`/`rows` =
 grille de l'atlas, `directions: rows: [ordre du manifeste]`, `mirror` vrai sauf à huit directions), `<id>_animation.ron`
 (`AnimationMapConfig`) et **une** entrée `<id>` dans la table `SpriteSheet` du jeu (`sprites.ron`, commentaires conservés ; un
-réimport sans `--overwrite` est refusé). Rien n'est écrit si une validation échoue (direction inconnue, PNG absent ou de taille ≠
+réimport sans `--overwrite` est refusé). L'écriture est **transactionnelle** : fichiers temporaires du même dossier puis renommages (`sprites.ron` en dernier), l'état d'avant revient octet pour octet si un pas échoue ; la table est lue par un analyseur qui ignore commentaires et chaînes, la déclaration `SpriteSheet` par `GameManifest`, chaque clé est échappée, et les textes RON produits sont relus avant écriture. Rien n'est écrit si une validation échoue (direction inconnue, PNG absent ou de taille ≠
 colonnes × cellule, manifeste mal formé, atlas impossible sous `--max-side`).
 
 **Correspondance atlas/ligne.** Chaque clip est en `Direct { start, end }` sur la **première ligne de son bloc** :
@@ -7981,12 +7981,13 @@ pose `"Shoot"` quand l'arme active a tiré depuis moins de `SHOOT_POSE_FRAMES` (
 **Échelle et pivot : lus, reportés, jamais implicites.** `--units-per-meter U` : `U / ppm` unités monde par pixel source, donc
 `scale = (U / ppm) / facteur` ; `--scale` est accepté à la place, un des deux est exigé. Le `pivot` (pixels de la cellule source,
 origine en haut à gauche) devient `anchor: Center` plus `offset_x` / `offset_y` en unités monde (`ConfigurableAnchor` n'a pas de
-`Custom`) : le pivot tombe sur l'origine du personnage. **Ce pivot est à mi-hauteur de la silhouette, pas aux pieds** : à régler en jouant
-(`offset_y`). La sortie donne la hauteur réelle de la silhouette (boîte alpha d'`idle`, alpha ≥ 32) en pixels source, pixels d'atlas
+`Custom`) : `offset = (centre − pivot) × échelle + pivot_at`. **Le pivot du manifeste est aux pieds (point de contact au sol)**, mesuré sur un vrai
+manifeste (le pixel opaque le plus bas est 6 à 18 px sous le pivot, le plus haut 118 à 125 px au-dessus). `--pivot-at X,Y` (unités monde locales à l'entité, défaut `0,0` : l'origine
+de l'entité) dit où ce pivot se pose ; dans le testbed le bas du collider (20×20, `offset_y` −6) est à −16, d'où `--pivot-at 0,-13` pour que les bottes y arrivent. La sortie
+rappelle `pivot_at` et l'offset écrit ; elle donne aussi donne la hauteur réelle de la silhouette (boîte alpha d'`idle`, alpha ≥ 32) en pixels source, pixels d'atlas
 et unités affichées, pour choisir U (import d'essai : 143 px source, U = 20,4 → 32 unités, comme la boussole §89).
 
 **Preuve sur un vrai manifeste.** Aucune règle ci-dessus ne dépend d'un jeu ou d'un personnage : les tests de l'outil (`crates/content/tests/sprite_import.rs`)
-tournent sur des PNG synthétiques neutres. Un import d'essai d'un vrai personnage (huit directions, dix clips) vit dans **un seul commit de tête de la branche X-4b,
-retirable** (dossier `sprites/` du personnage, entrée `sprites.ron`, personnage, `assets.yaml`, scénario `sprite_import_fantassin` et sa trace) ; sa licence est « à confirmer par William ».
+tournent sur des PNG synthétiques neutres. Un import d'essai d'un vrai personnage (huit directions, dix clips) vit dans **deux commits de la branche X-4b qui ne touchent que lui, retirables par `git revert`** (dossier `sprites/` du personnage, entrée `sprites.ron`, personnage, `assets.yaml`, scénario `sprite_import_fantassin` et sa trace) ; sa licence est « à confirmer par William ».
 Rapport et transcript : `docs/taches/rapports/x-4b-import-sprite.md`. Tests : `sprite_import.rs` (intégration et unitaires), `animation` (`clip_timing_tests`, `presentation_clip_tests`),
 `game` (`shoot_pose_tests`). Dettes D156 (mains et ancres) et D157 (clips sans état).

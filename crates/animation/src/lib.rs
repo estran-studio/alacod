@@ -196,6 +196,9 @@ pub struct CharacterAnimationHandles {
 #[derive(Component)]
 struct AnimationTimer {
     frame_timer: Timer,
+    /// Vrai une fois la durée posée depuis la configuration (marqueur d'initialisation : la durée
+    /// d'une seconde du timer par défaut ne peut pas servir de marqueur, un clip à 1 fps la porte aussi).
+    configured: bool,
 }
 
 /// Partie visuelle de l'animation (handles et timer), ajoutée par la présentation
@@ -221,6 +224,7 @@ impl AnimationVisualsBundle {
             },
             timer: AnimationTimer {
                 frame_timer: Timer::from_seconds(1., TimerMode::Repeating),
+                configured: false,
             },
             presented: PresentationClip::default(),
         }
@@ -299,6 +303,7 @@ fn animate_sprite_system(
                     .frame_timer
                     .set_duration(Duration::from_millis(frame_ms));
                 timer.frame_timer.reset();
+                timer.configured = true;
             }
             timer.frame_timer.tick(time.delta());
             if timer.frame_timer.just_finished() {
@@ -363,9 +368,10 @@ fn check_animation_config_reload_system(
                 .frame_timer
                 .set_duration(Duration::from_millis(*new_duration));
             anim_timer.frame_timer.reset();
+            anim_timer.configured = true;
         }
         // Apply initial duration after startup load (if needed)
-        else if anim_timer.frame_timer.duration().as_secs_f32() == 1.0 {
+        else if !anim_timer.configured {
             // Check default
             if asset_server
                 .load_state(&config_handles.animations)
@@ -376,6 +382,7 @@ fn check_animation_config_reload_system(
                         .frame_timer
                         .set_duration(Duration::from_millis(config.frame_duration));
                     anim_timer.frame_timer.reset();
+                    anim_timer.configured = true;
                 }
             }
         }
@@ -987,5 +994,98 @@ mod presentation_clip_tests {
         present(&mut app, parent, Some("Shoot"));
         let frames: Vec<usize> = (0..3).map(|_| step(&mut app, layer)).collect();
         assert_eq!(frames, [1, 0, 1]);
+    }
+}
+
+/// Revue X-4b : un clip à 1000 ms (1 fps) avance, avec les **deux** systèmes de l'extension (animation et
+/// rechargement de la configuration). La durée d'une seconde du timer par défaut ne doit pas passer pour
+/// « non initialisé » : le rechargement remettait la durée globale à chaque mise à jour.
+#[cfg(test)]
+mod one_second_clip_tests {
+    use super::*;
+    use bevy::asset::AssetPlugin;
+    use bevy::time::TimeUpdateStrategy;
+
+    #[test]
+    fn a_one_second_clip_advances_with_both_systems() {
+        let dir = std::env::temp_dir().join(format!("alacod-anim-1s-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("anim.ron"),
+            r#"(frame_duration: 250, columns: Some(4),
+                animations: { "Idle": (start: 0, end: 3) },
+                clips: { "Idle": (frame_duration: Some(1000), looping: Some(true)) })"#,
+        )
+        .unwrap();
+
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            AssetPlugin {
+                file_path: dir.display().to_string(),
+                ..default()
+            },
+            RonAssetPlugin::<AnimationMapConfig>::new(&["ron"]),
+        ));
+        app.init_asset::<SpriteSheetConfig>();
+        app.init_resource::<AnimationFreeze>();
+        // 600 ms par mise à jour : la durée de 250 ms ne laisse jamais passer un clip à 1000 ms.
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(
+            600,
+        )));
+        app.add_systems(
+            Update,
+            (
+                animate_sprite_system,
+                check_animation_config_reload_system.after(animate_sprite_system),
+            ),
+        );
+        let handle: Handle<AnimationMapConfig> =
+            app.world().resource::<AssetServer>().load("anim.ron");
+        let mut sprite = Sprite::default();
+        sprite.texture_atlas = Some(TextureAtlas {
+            layout: Handle::default(),
+            index: 0,
+        });
+        let layer = app
+            .world_mut()
+            .spawn((
+                sprite,
+                LayerName {
+                    name: "body".into(),
+                },
+                AnimatedLayer {},
+            ))
+            .id();
+        app.world_mut()
+            .spawn((
+                AnimationState("Idle".into()),
+                AnimationVisualsBundle::new(HashMap::default(), handle, 0),
+            ))
+            .add_child(layer);
+
+        let index = |app: &App| {
+            app.world()
+                .get::<Sprite>(layer)
+                .unwrap()
+                .texture_atlas
+                .as_ref()
+                .unwrap()
+                .index
+        };
+        let mut seen = std::collections::BTreeSet::new();
+        for _ in 0..400 {
+            app.update();
+            seen.insert(index(&app));
+            if seen.len() > 1 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            seen.len() > 1,
+            "le clip à 1000 ms n'a jamais avancé : images vues {seen:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -562,3 +562,224 @@ fn second_import_conflicts_unless_overwrite() {
     );
     assert!(after.contains("// gardé"), "{after}");
 }
+
+// ---- Revue indépendante (2026-10-28) : un test par constat, écrit pour échouer avant le correctif ----
+
+/// Contenu (octets) de tous les fichiers sous `dir`, triés : l'état à comparer avant et après un échec.
+fn snapshot(dir: &Path) -> Vec<(String, Vec<u8>)> {
+    fn walk(base: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                walk(base, &path, out);
+            } else {
+                let rel = path.strip_prefix(base).unwrap().display().to_string();
+                out.push((rel, std::fs::read(&path).unwrap()));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(dir, dir, &mut out);
+    out.sort();
+    out
+}
+
+#[test]
+fn failed_overwrite_leaves_the_previous_import_intact_byte_for_byte() {
+    let dir = scratch("transaction");
+    let manifest = eight_direction_hero(&dir);
+    let game = dir.join("jeu");
+    make_game(&game, "// gardé\n({\n})\n");
+    import_sprite(&manifest, &game, options()).unwrap();
+    let before = snapshot(&game);
+    // Panne au dernier fichier (`sprites.ron`), puis à chacun des autres pas, avec `--overwrite` et
+    // d'autres réglages : les fichiers déjà remplacés doivent revenir.
+    for step in 0..4 {
+        let mut opts = SpriteImportOptions::new(ScaleSpec::UnitsPerMeter(40.0));
+        opts.overwrite = true;
+        opts.fail_at_commit_step = Some(step);
+        let err = import_sprite(&manifest, &game, opts).unwrap_err();
+        assert!(
+            matches!(err, SpriteImportError::WriteFailed { .. }),
+            "{err:?}"
+        );
+        assert_eq!(
+            snapshot(&game),
+            before,
+            "pas {step} : l'état d'avant doit revenir intact"
+        );
+    }
+    // Le même import réussit ensuite (aucun reste bloquant).
+    let mut ok = options();
+    ok.overwrite = true;
+    import_sprite(&manifest, &game, ok).unwrap();
+}
+
+#[test]
+fn failed_first_import_leaves_no_file_and_no_directory() {
+    let dir = scratch("transaction-first");
+    let manifest = eight_direction_hero(&dir);
+    let game = dir.join("jeu");
+    make_game(&game, "({\n})\n");
+    let before = snapshot(&game);
+    let dirs_before: Vec<_> = std::fs::read_dir(game.join("assets/sprites"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    let mut opts = options();
+    opts.fail_at_commit_step = Some(3);
+    import_sprite(&manifest, &game, opts).unwrap_err();
+    assert_eq!(snapshot(&game), before);
+    let dirs_after: Vec<_> = std::fs::read_dir(game.join("assets/sprites"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(dirs_after, dirs_before, "le dossier du sprite est retiré");
+}
+
+#[cfg(unix)]
+#[test]
+fn unwritable_table_directory_fails_before_touching_anything() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = scratch("transaction-readonly");
+    let manifest = eight_direction_hero(&dir);
+    let game = dir.join("jeu");
+    make_game(&game, "// gardé\n({\n})\n");
+    import_sprite(&manifest, &game, options()).unwrap();
+    let before = snapshot(&game);
+    let sprites = game.join("assets/sprites");
+    std::fs::set_permissions(&sprites, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let writable = std::fs::write(sprites.join(".probe"), b"x").is_ok();
+    let mut opts = SpriteImportOptions::new(ScaleSpec::UnitsPerMeter(40.0));
+    opts.overwrite = true;
+    let result = import_sprite(&manifest, &game, opts);
+    std::fs::set_permissions(&sprites, std::fs::Permissions::from_mode(0o755)).unwrap();
+    if writable {
+        return; // exécuté en administrateur : les permissions ne protègent rien, rien à prouver
+    }
+    assert!(result.is_err());
+    assert_eq!(
+        snapshot(&game),
+        before,
+        "la table ne se crée pas : rien n'a bougé"
+    );
+}
+
+#[test]
+fn commented_entries_are_not_mistaken_for_real_ones() {
+    let dir = scratch("commentaire");
+    let manifest = eight_direction_hero(&dir);
+    let game = dir.join("jeu");
+    let table = "// ancien : \"hero\": (animation: \"a\", layers: {}),\n/* \"hero\": (x) */\n({\n    // \"hero\": (animation: \"b\"),\n    \"keep\": (animation: \"k\", layers: {}),\n})\n";
+    make_game(&game, table);
+    // Sans `--overwrite` : il n'y a pas d'entrée `hero`, seulement des commentaires.
+    let r = import_sprite(&manifest, &game, options()).unwrap();
+    let out = std::fs::read_to_string(game.join("assets").join(&r.table)).unwrap();
+    assert!(
+        out.contains("// ancien : \"hero\": (animation: \"a\", layers: {}),"),
+        "{out}"
+    );
+    assert!(out.contains("// \"hero\": (animation: \"b\"),"), "{out}");
+    assert!(out.contains("\"keep\""), "{out}");
+    assert_eq!(out.matches("hero_sheet.ron").count(), 1, "{out}");
+    // Réimport avec `--overwrite` : seule l'entrée réelle est remplacée, les commentaires restent.
+    let mut over = options();
+    over.overwrite = true;
+    import_sprite(&manifest, &game, over).unwrap();
+    let again = std::fs::read_to_string(game.join("assets").join(&r.table)).unwrap();
+    assert!(
+        again.contains("// \"hero\": (animation: \"b\"),"),
+        "{again}"
+    );
+    assert_eq!(again.matches("hero_sheet.ron").count(), 1, "{again}");
+}
+
+#[test]
+fn sprite_sheet_declaration_is_read_by_the_manifest_parser() {
+    let dir = scratch("manifeste");
+    let manifest = eight_direction_hero(&dir);
+    let game = dir.join("jeu");
+    let assets = game.join("assets");
+    std::fs::create_dir_all(assets.join("autre")).unwrap();
+    // Champs dans l'ordre inverse, une autre déclaration avant, des accents avant la déclaration.
+    std::fs::write(
+        assets.join("game.ron"),
+        "// Équipe « é » — déclarations éàü ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé\n(\n    name: \"t\",\n    content_folders: [\n        (path: \"autre/table.ron\", kind: \"Other\"),\n        (kind: \"SpriteSheet\", path: \"sprites/sprites.ron\"),\n    ],\n    entry: (start_map: \"unused\", default_seed: 1),\n)\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(assets.join("sprites")).unwrap();
+    std::fs::write(assets.join("sprites/sprites.ron"), "({\n})\n").unwrap();
+    let r = import_sprite(&manifest, &game, options()).unwrap();
+    assert_eq!(r.table, "sprites/sprites.ron");
+    let table = std::fs::read_to_string(assets.join("sprites/sprites.ron")).unwrap();
+    assert!(table.contains("\"hero\""), "{table}");
+    assert!(!assets.join("autre/table.ron").exists());
+}
+
+#[test]
+fn backslash_in_clip_and_state_names_is_escaped_in_ron() {
+    let dir = scratch("echappees");
+    write_sheet(&dir.join("x.png"), 0, 2, 1, 8);
+    // Nom de clip `a\b` (le JSON écrit `a\\b`), état `Idle` et état `Cou\rt`.
+    let manifest = manifest_json(
+        "x",
+        8,
+        Some(&["E"]),
+        &[clip_json("a\\\\b", "x.png", 2, 1, "6.0", true)],
+    );
+    let path = dir.join("x.sprite.json");
+    std::fs::write(&path, manifest).unwrap();
+    let game = dir.join("jeu");
+    make_game(&game, "({\n})\n");
+    let mut opts = options();
+    opts.states = vec![
+        ("Idle".into(), "a\\b".into()),
+        ("Cou\\rt".into(), "a\\b".into()),
+    ];
+    let r = import_sprite(&path, &game, opts).unwrap();
+    let anim = std::fs::read_to_string(game.join("assets").join(&r.animation)).unwrap();
+    #[derive(serde::Deserialize)]
+    struct Anim {
+        animations: std::collections::BTreeMap<String, ron::Value>,
+    }
+    let parsed: Anim = ron::from_str(&anim).unwrap();
+    let animations = &parsed.animations;
+    for key in ["a\\b", "Cou\\rt", "Idle"] {
+        assert!(animations.contains_key(key), "clé {key:?} absente : {anim}");
+    }
+    assert_eq!(animations.len(), 3, "{anim}");
+}
+
+#[test]
+fn pivot_at_shifts_the_offset_by_the_given_amount_and_sign() {
+    let dir = scratch("pivot-at");
+    let manifest = eight_direction_hero(&dir);
+    let game = dir.join("jeu");
+    make_game(&game, "({\n})\n");
+    let base = import_sprite(&manifest, &game, options()).unwrap();
+    assert_eq!(base.pivot_at, (0.0, 0.0), "défaut : le pivot sur l'origine");
+    // Pivot posé 13 unités sous l'origine (bas du collider) et 2,5 à droite : l'offset suit, signes compris.
+    let mut shifted = options();
+    shifted.overwrite = true;
+    shifted.pivot_at = (2.5, -13.0);
+    let moved = import_sprite(&manifest, &game, shifted).unwrap();
+    assert_eq!(moved.pivot_at, (2.5, -13.0));
+    assert_eq!(moved.offset, (base.offset.0 + 2.5, base.offset.1 - 13.0));
+    assert_eq!(moved.scale, base.scale, "l'échelle ne bouge pas");
+    let sheet = std::fs::read_to_string(game.join("assets").join(&moved.sheet)).unwrap();
+    assert!(
+        sheet.contains(&format!("offset_y: {:?}", moved.offset.1)),
+        "{sheet}"
+    );
+    assert!(sheet.contains("aux pieds"), "{sheet}");
+    // Valeur non finie : refusée avant toute écriture.
+    let mut bad = options();
+    bad.overwrite = true;
+    bad.pivot_at = (f32::NAN, 0.0);
+    let before = snapshot(&game);
+    assert!(matches!(
+        import_sprite(&manifest, &game, bad).unwrap_err(),
+        SpriteImportError::InvalidOption { .. }
+    ));
+    assert_eq!(snapshot(&game), before);
+}

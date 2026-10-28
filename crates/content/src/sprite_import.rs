@@ -44,8 +44,9 @@
 //! pixel source, donc `scale = (U / ppm) / facteur` ; `scale` direct est accepté à la place. Le
 //! `pivot` (pixels de la cellule source, origine en haut à gauche) devient `anchor: Center` plus
 //! `offset_x` / `offset_y` en unités monde (`ConfigurableAnchor` n'a pas de `Custom`) : le pivot
-//! tombe sur l'origine du personnage. **Le pivot d'un manifeste est souvent à mi-hauteur, pas aux
-//! pieds** : à régler en jouant. La hauteur réelle de la silhouette (boîte alpha des images d'`idle`)
+//! tombe sur l'origine du personnage, ou sur `pivot_at` (`--pivot-at X,Y`, unités locales de l'entité, `0,0` par défaut :
+//! `offset = (centre − pivot) × échelle + pivot_at`). **Le pivot d'un manifeste est aux pieds (point de contact au sol)** : les
+//! personnages du testbed ont les leurs au bas du collider, d'où `--pivot-at`. La hauteur réelle de la silhouette (boîte alpha des images d'`idle`)
 //! est mesurée et reportée pour choisir U.
 //!
 //! # Échecs nets, jamais d'artefacts partiels
@@ -85,8 +86,15 @@ pub struct SpriteImportOptions {
     pub cell_height: Option<u32>,
     /// `Some(b)` : valeur de `mirror` ; `None` : vrai sauf pour huit directions.
     pub mirror: Option<bool>,
+    /// Où se pose le pivot (pieds, point de contact au sol), en unités monde locales à l'entité :
+    /// `(0, 0)` = l'origine de l'entité (comportement par défaut) ; `offset = (centre − pivot) × échelle + pivot_at`.
+    pub pivot_at: (f32, f32),
     /// Écraser les fichiers et l'entrée déjà présents (jamais les autres entrées de `sprites.ron`).
     pub overwrite: bool,
+    /// Tests seulement : simule une panne d'écriture au pas de remplacement donné (0 = image,
+    /// 3 = `sprites.ron`) pour prouver que l'état d'avant est rétabli octet pour octet.
+    #[doc(hidden)]
+    pub fail_at_commit_step: Option<usize>,
 }
 
 impl SpriteImportOptions {
@@ -99,6 +107,8 @@ impl SpriteImportOptions {
             cell_height: None,
             mirror: None,
             overwrite: false,
+            pivot_at: (0.0, 0.0),
+            fail_at_commit_step: None,
         }
     }
 }
@@ -144,6 +154,8 @@ pub struct SpriteImportResult {
     /// `scale` écrit, décalage de pivot écrit (unités monde).
     pub scale: f32,
     pub offset: (f32, f32),
+    /// Où le pivot (pieds) est posé, en unités monde locales (`--pivot-at`).
+    pub pivot_at: (f32, f32),
     /// Hauteur de la silhouette mesurée sur l'`idle` : pixels source, pixels de l'atlas, unités monde
     /// (affichée, pour choisir `units_per_meter`).
     pub silhouette_source_px: u32,
@@ -485,137 +497,313 @@ fn encode_png(image: &RgbaImage) -> Result<Vec<u8>, String> {
 // Table `sprites.ron` : insertion ou remplacement ciblé, commentaires conservés
 // ---------------------------------------------------------------------------------------------
 
-/// Lit le chemin de la table `SpriteSheet` dans `assets/game.ron` (`content_folders`).
-fn sprites_table_rel(game_ron: &str) -> Option<String> {
-    let mut search = 0;
-    while let Some(found) = game_ron[search..].find("\"SpriteSheet\"") {
-        let pos = search + found;
-        let window_start = pos.saturating_sub(400);
-        let window = &game_ron[window_start..pos];
-        if let Some(p) = window.rfind("path:") {
-            let after = window[p + 5..].trim_start();
-            if let Some(rest) = after.strip_prefix('"') {
-                if let Some(end) = rest.find('"') {
-                    return Some(rest[..end].to_string());
-                }
-            }
-        }
-        search = pos + 1;
-    }
-    None
+/// Chemin de la table `SpriteSheet` d'un jeu : la première déclaration `kind: "SpriteSheet"` des
+/// `content_folders` de `assets/game.ron`, lue par le parseur du manifeste (`GameManifest`), donc
+/// indépendante de l'ordre des champs, des commentaires et de l'UTF-8.
+fn sprites_table_rel(game_ron: &str, path: &Path) -> Result<Option<String>, String> {
+    let manifest = crate::manifest::GameManifest::parse(game_ron, path.to_path_buf())
+        .map_err(|e| e.to_string())?;
+    Ok(manifest
+        .content_folders
+        .into_iter()
+        .find(|decl| decl.kind == "SpriteSheet")
+        .map(|decl| decl.path))
 }
 
-/// Insère ou remplace une entrée `"id": (...)` dans une table RON, commentaires et autres entrées
-/// préservés. `body` inclut ses parenthèses.
-fn upsert_table_entry(table: &str, entry_id: &str, body: &str) -> Result<String, String> {
-    let key = format!("\"{entry_id}\"");
-    if let Some(span) = entry_span(table, &key) {
-        let mut out = table.to_string();
-        out.replace_range(span, &format!("{key}: {body}"));
-        return Ok(out);
-    }
-    insert_table_entry(table, &key, body)
+/// Clé RON d'une table ou d'une carte : chaîne entre guillemets, échappée par la sérialisation RON
+/// (une barre oblique inverse ou un guillemet ne produisent ni échappée invalide ni autre clé).
+fn ron_key(key: &str) -> String {
+    ron::to_string(key).unwrap_or_else(|_| format!("{key:?}"))
 }
 
-fn entry_span(table: &str, key: &str) -> Option<std::ops::Range<usize>> {
-    let bytes = table.as_bytes();
-    let mut i = 0;
-    while let Some(found) = table[i..].find(key) {
-        let k = i + found;
-        let mut j = k + key.len();
-        while j < bytes.len() && bytes[j].is_ascii_whitespace() {
-            j += 1;
-        }
-        if bytes.get(j) != Some(&b':') {
-            i = k + key.len();
-            continue;
-        }
-        j += 1;
-        while j < bytes.len() && bytes[j].is_ascii_whitespace() {
-            j += 1;
-        }
-        if bytes.get(j) != Some(&b'(') {
-            i = k + key.len();
-            continue;
-        }
-        let end = match_paren(table, j).ok()?;
-        return Some(k..end);
-    }
-    None
+/// Refuse un texte RON qui ne se relit pas (jamais d'écriture d'un fichier que l'engine ne lirait pas).
+fn verify_ron(text: &str, what: &str) -> Result<(), String> {
+    ron::from_str::<ron::Value>(text)
+        .map(|_| ())
+        .map_err(|e| format!("{what} produit illisible, rien n'est écrit : {e}"))
 }
 
-/// Fin (exclue) de la parenthèse équilibrée ouvrant en `open`, chaînes et commentaires sautés.
-fn match_paren(text: &str, open: usize) -> Result<usize, String> {
-    let b = text.as_bytes();
-    let mut depth = 0usize;
-    let mut i = open;
-    while i < b.len() {
-        match b[i] {
-            b'"' => {
-                i += 1;
-                while i < b.len() && b[i] != b'"' {
-                    if b[i] == b'\\' {
-                        i += 1;
-                    }
-                    i += 1;
-                }
-                i += 1;
-            }
-            b'/' if b.get(i + 1) == Some(&b'/') => {
+/// Table relue après modification : une table de chaînes vers des entrées, avec l'entrée `id`.
+fn verify_table(text: &str, id: &str) -> Result<(), String> {
+    #[derive(serde::Deserialize)]
+    struct Table(BTreeMap<String, serde::de::IgnoredAny>);
+    let table: Table = ron::from_str(text)
+        .map_err(|e| format!("table produite illisible, rien n'est écrit : {e}"))?;
+    if table.0.contains_key(id) {
+        Ok(())
+    } else {
+        Err(format!(
+            "entrée « {id} » absente de la table produite, rien n'est écrit"
+        ))
+    }
+}
+
+/// Entrée de premier niveau d'une table : clé lue, étendue de `"clé": (valeur)` et position juste après
+/// la virgule qui la suit (s'il y en a une).
+#[derive(Debug)]
+struct TableEntry {
+    key: String,
+    start: usize,
+    end: usize,
+    after_comma: Option<usize>,
+}
+
+#[derive(Debug)]
+struct TableScan {
+    entries: Vec<TableEntry>,
+    /// Position juste après le `{` de la table.
+    open: usize,
+}
+
+/// Saute espaces et commentaires (`//` et `/* */`).
+fn skip_trivia(b: &[u8], mut i: usize) -> usize {
+    loop {
+        match b.get(i) {
+            Some(c) if c.is_ascii_whitespace() => i += 1,
+            Some(b'/') if b.get(i + 1) == Some(&b'/') => {
                 while i < b.len() && b[i] != b'\n' {
                     i += 1;
                 }
             }
-            b'/' if b.get(i + 1) == Some(&b'*') => {
+            Some(b'/') if b.get(i + 1) == Some(&b'*') => {
                 i += 2;
                 while i + 1 < b.len() && !(b[i] == b'*' && b[i + 1] == b'/') {
                     i += 1;
                 }
-                i += 2;
+                i = (i + 2).min(b.len());
             }
-            b'(' => {
+            _ => return i,
+        }
+    }
+}
+
+/// Chaîne RON ouvrant en `i` (`"`) : contenu décodé (échappées simples) et position après le `"` final.
+fn parse_string(b: &[u8], i: usize) -> Result<(String, usize), String> {
+    let mut out = Vec::new();
+    let mut j = i + 1;
+    while j < b.len() {
+        match b[j] {
+            b'"' => return Ok((String::from_utf8_lossy(&out).into_owned(), j + 1)),
+            b'\\' => {
+                j += 1;
+                match b.get(j) {
+                    Some(b'n') => out.push(b'\n'),
+                    Some(b't') => out.push(b'\t'),
+                    Some(b'r') => out.push(b'\r'),
+                    Some(c) => out.push(*c),
+                    None => break,
+                }
+                j += 1;
+            }
+            c => {
+                out.push(c);
+                j += 1;
+            }
+        }
+    }
+    Err("chaîne non fermée".to_string())
+}
+
+/// Fin d'une valeur : position du `,` ou du `}` de niveau 0 qui la termine, chaînes et commentaires sautés.
+fn skip_value(b: &[u8], mut i: usize) -> Result<usize, String> {
+    let mut depth = 0usize;
+    while i < b.len() {
+        match b[i] {
+            b'"' => i = parse_string(b, i)?.1,
+            b'/' if matches!(b.get(i + 1), Some(b'/') | Some(b'*')) => i = skip_trivia(b, i),
+            b'(' | b'[' | b'{' => {
                 depth += 1;
                 i += 1;
             }
-            b')' => {
-                depth -= 1;
-                i += 1;
-                if depth == 0 {
-                    return Ok(i);
+            b')' | b']' | b'}' if depth == 0 => {
+                return if b[i] == b'}' {
+                    Ok(i)
+                } else {
+                    Err("parenthèse fermante inattendue".to_string())
                 }
             }
+            b')' | b']' | b'}' => {
+                depth -= 1;
+                i += 1;
+            }
+            b',' if depth == 0 => return Ok(i),
             _ => i += 1,
         }
     }
-    Err("parenthèse non fermée".to_string())
+    Err("valeur non terminée".to_string())
 }
 
-fn insert_table_entry(table: &str, key: &str, body: &str) -> Result<String, String> {
-    // Une table est `({ "id": (...), ... })` : un `)` enveloppant, puis `}`.
-    let trimmed_end = table.trim_end();
-    let Some(without_close) = trimmed_end.strip_suffix("})") else {
+/// Entrées de premier niveau de `({ "id": (…), … })`, sans jamais regarder dans un commentaire, une
+/// chaîne ou une valeur imbriquée.
+fn scan_table(text: &str) -> Result<TableScan, String> {
+    let b = text.as_bytes();
+    let mut i = skip_trivia(b, 0);
+    if b.get(i) != Some(&b'(') {
         return Err(
-            "table qui ne finit pas par `})` : refuse de modifier un fichier inattendu".to_string(),
+            "table qui ne commence pas par `({` : refuse de modifier un fichier inattendu".into(),
         );
-    };
-    let inner = without_close.trim_end();
-    let trailing_nl = if table.ends_with('\n') { "\n" } else { "" };
-    let last_line = inner.lines().last().unwrap_or("").trim();
-    let needs_comma = !inner.ends_with(',')
-        && !inner.ends_with('{')
-        && !inner.ends_with('(')
-        && !last_line.starts_with("//");
-    let mut out = inner.to_string();
-    if needs_comma {
-        out.push(',');
     }
-    out.push_str("\n    ");
-    out.push_str(key);
-    out.push_str(": ");
-    out.push_str(body);
-    out.push_str(",\n})");
-    out.push_str(trailing_nl);
+    i = skip_trivia(b, i + 1);
+    if b.get(i) != Some(&b'{') {
+        return Err(
+            "table qui ne commence pas par `({` : refuse de modifier un fichier inattendu".into(),
+        );
+    }
+    let open = i + 1;
+    i = open;
+    let mut entries = Vec::new();
+    loop {
+        i = skip_trivia(b, i);
+        match b.get(i) {
+            Some(b'}') => break,
+            Some(b'"') => {}
+            _ => return Err("entrée de table inattendue (clé entre guillemets attendue)".into()),
+        }
+        let start = i;
+        let (key, after_key) = parse_string(b, i)?;
+        i = skip_trivia(b, after_key);
+        if b.get(i) != Some(&b':') {
+            return Err(format!("« {key} » : `:` attendu"));
+        }
+        i = skip_trivia(b, i + 1);
+        let terminator = skip_value(b, i)?;
+        let mut end = terminator;
+        while end > i && b[end - 1].is_ascii_whitespace() {
+            end -= 1;
+        }
+        let after_comma = (b[terminator] == b',').then_some(terminator + 1);
+        entries.push(TableEntry {
+            key,
+            start,
+            end,
+            after_comma,
+        });
+        i = after_comma.unwrap_or(terminator);
+    }
+    Ok(TableScan { entries, open })
+}
+
+/// Insère ou remplace l'entrée `"id": body` d'une table RON, commentaires et autres entrées préservés.
+/// `body` inclut ses parenthèses.
+fn upsert_table_entry(table: &str, entry_id: &str, body: &str) -> Result<String, String> {
+    let scan = scan_table(table)?;
+    let new = format!("{}: {body}", ron_key(entry_id));
+    let mut out = table.to_string();
+    if let Some(e) = scan.entries.iter().find(|e| e.key == entry_id) {
+        out.replace_range(e.start..e.end, &new);
+    } else {
+        match scan.entries.last() {
+            None => out.insert_str(scan.open, &format!("\n    {new},")),
+            Some(last) => match last.after_comma {
+                Some(at) => out.insert_str(at, &format!("\n    {new},")),
+                None => out.insert_str(last.end, &format!(",\n    {new},")),
+            },
+        }
+    }
     Ok(out)
+}
+
+/// Écriture transactionnelle : tout est d'abord écrit dans des fichiers temporaires du même dossier,
+/// puis renommé ; l'ancien fichier est mis de côté avant d'être remplacé. En cas d'échec à n'importe
+/// quel point, les anciens fichiers reviennent octet pour octet, les nouveaux et les dossiers créés
+/// disparaissent. `fail_at` (tests) simule une panne d'E/S au pas de renommage donné.
+fn commit_files(
+    targets: &[(PathBuf, Vec<u8>)],
+    fail_at: Option<usize>,
+) -> Result<(), SpriteImportError> {
+    let write_failed = |path: &Path, message: String| SpriteImportError::WriteFailed {
+        path: path.display().to_string(),
+        message,
+    };
+    let sidecar = |path: &Path, suffix: &str| {
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("fichier");
+        path.with_file_name(format!(".{name}.{}.{suffix}", std::process::id()))
+    };
+    let mut new_dirs: Vec<PathBuf> = Vec::new();
+    let mut temps: Vec<PathBuf> = Vec::new();
+    let abort = |new_dirs: &[PathBuf], temps: &[PathBuf]| {
+        for t in temps {
+            let _ = std::fs::remove_file(t);
+        }
+        for d in new_dirs {
+            let _ = std::fs::remove_dir_all(d);
+        }
+    };
+
+    for (path, _) in targets {
+        if let Some(parent) = path.parent() {
+            // Premier ancêtre absent : le seul dossier à retirer si l'import échoue.
+            let missing = parent
+                .ancestors()
+                .take_while(|a| !a.as_os_str().is_empty() && !a.exists())
+                .last()
+                .map(Path::to_path_buf);
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                abort(&new_dirs, &temps);
+                return Err(write_failed(path, format!("dossier impossible : {e}")));
+            }
+            if let Some(m) = missing {
+                new_dirs.push(m);
+            }
+        }
+    }
+    let mut staged: Vec<PathBuf> = Vec::new();
+    for (path, bytes) in targets {
+        let tmp = sidecar(path, "x4b-tmp");
+        temps.push(tmp.clone());
+        if let Err(e) = std::fs::write(&tmp, bytes) {
+            abort(&new_dirs, &temps);
+            return Err(write_failed(path, format!("écriture impossible : {e}")));
+        }
+        staged.push(tmp);
+    }
+
+    // Remplacement : (destination, sauvegarde de l'ancien fichier s'il existait).
+    let mut done: Vec<(PathBuf, Option<PathBuf>)> = Vec::new();
+    let mut failure: Option<(PathBuf, String)> = None;
+    for (step, ((path, _), tmp)) in targets.iter().zip(&staged).enumerate() {
+        if fail_at == Some(step) {
+            failure = Some((path.clone(), "panne simulée".to_string()));
+            break;
+        }
+        let backup = path.exists().then(|| sidecar(path, "x4b-bak"));
+        if let Some(bak) = &backup {
+            if let Err(e) = std::fs::rename(path, bak) {
+                failure = Some((
+                    path.clone(),
+                    format!("sauvegarde de l'ancien fichier : {e}"),
+                ));
+                break;
+            }
+        }
+        done.push((path.clone(), backup));
+        if let Err(e) = std::fs::rename(tmp, path) {
+            failure = Some((path.clone(), format!("remplacement : {e}")));
+            break;
+        }
+    }
+    if let Some((path, message)) = failure {
+        for (dest, backup) in done.iter().rev() {
+            let _ = std::fs::remove_file(dest);
+            if let Some(bak) = backup {
+                let _ = std::fs::rename(bak, dest);
+            }
+        }
+        abort(&new_dirs, &temps);
+        return Err(write_failed(
+            &path,
+            format!("{message} ; état d'avant rétabli"),
+        ));
+    }
+    for (_, backup) in &done {
+        if let Some(bak) = backup {
+            let _ = std::fs::remove_file(bak);
+        }
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -664,6 +852,12 @@ pub fn import_sprite(
             return Err(bad_option(format!("--scale = {s} : nombre fini > 0")))
         }
         _ => {}
+    }
+    if !options.pivot_at.0.is_finite() || !options.pivot_at.1.is_finite() {
+        return Err(bad_option(format!(
+            "--pivot-at = {:?} : deux nombres finis",
+            options.pivot_at
+        )));
     }
     if options.max_side == 0 {
         return Err(bad_option("--max-side = 0 : nombre > 0".to_string()));
@@ -962,19 +1156,22 @@ pub fn import_sprite(
         ScaleSpec::UnitsPerMeter(_) => (units_per_source_px / layout.factor) as f32,
     };
     // Pivot en pixels source (origine en haut à gauche) → décalage depuis le centre de la case,
-    // en unités monde (y vers le haut) : le pivot tombe sur l'origine du personnage.
+    // en unités monde (y vers le haut) : le pivot tombe sur `pivot_at` (l'origine du personnage par défaut).
+    let (pivot_x, pivot_y) = options.pivot_at;
     let offset = match manifest.pivot {
         Some([px, py]) if px.is_finite() && py.is_finite() => {
             let dx = px - cell_w as f64 / 2.0;
             let dy_down = py - cell_h as f64 / 2.0;
             (
-                (-dx * units_per_source_px) as f32,
-                (dy_down * units_per_source_px) as f32,
+                (-dx * units_per_source_px) as f32 + pivot_x,
+                (dy_down * units_per_source_px) as f32 + pivot_y,
             )
         }
         _ => {
-            warnings.push("pas de `pivot` dans le manifeste : sprite centré (offset 0, 0)".into());
-            (0.0, 0.0)
+            warnings.push(
+                "pas de `pivot` dans le manifeste : sprite centré (offset = --pivot-at)".into(),
+            );
+            (pivot_x, pivot_y)
         }
     };
     let mirror = options.mirror.unwrap_or(match &directions {
@@ -990,15 +1187,17 @@ pub fn import_sprite(
             "assets/game.ron illisible (dossier du jeu = celui qui contient assets/) : {e}"
         ))
     })?;
-    let table_rel = sprites_table_rel(&game_ron).ok_or_else(|| {
-        game_invalid(
-            "aucun `(path: …, kind: \"SpriteSheet\")` dans content_folders : déclarez la table \
-             des sprites avant d'importer"
-                .to_string(),
-        )
-    })?;
+    let table_rel = sprites_table_rel(&game_ron, &game_ron_path)
+        .map_err(|message| game_invalid(format!("assets/game.ron illisible : {message}")))?
+        .ok_or_else(|| {
+            game_invalid(
+                "aucun `(path: …, kind: \"SpriteSheet\")` dans content_folders : déclarez la table \
+                 des sprites avant d'importer"
+                    .to_string(),
+            )
+        })?;
     let table_path = assets_dir.join(&table_rel);
-    let table_exists = table_path.exists();
+    let table_exists = table_path.is_file();
     let table_text = match std::fs::read_to_string(&table_path) {
         Ok(t) => t,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => "({\n})\n".to_string(),
@@ -1017,7 +1216,9 @@ pub fn import_sprite(
     let files = [&image_rel, &sheet_rel, &anim_rel];
     // Conflits d'abord : aucune écriture n'a encore eu lieu.
     if !options.overwrite {
-        if entry_span(&table_text, &format!("\"{sprite_id}\"")).is_some() {
+        let scan = scan_table(&table_text)
+            .map_err(|message| game_invalid(format!("{table_rel} : {message}")))?;
+        if scan.entries.iter().any(|e| e.key == sprite_id) {
             return Err(SpriteImportError::Conflict {
                 message: format!(
                     "entrée « {sprite_id} » déjà dans {table_rel} : --overwrite pour la remplacer"
@@ -1044,7 +1245,7 @@ pub fn import_sprite(
     let sheet_ron = format!(
         "// Généré par `alacod import-sprite` (X-4b, docs/conventions.md §91) : atlas réduit de {atlas_w}×{atlas_h} px,\n\
          // {blocks_x}×{blocks_y} blocs de {block_cols}×{block_rows} cases de {cw}×{ch} px (facteur {factor:.4}).\n\
-         // Le pivot du manifeste est à mi-hauteur de la silhouette, pas aux pieds : voir offset_y.\n\
+         // Le pivot du manifeste est aux pieds (point de contact au sol) ; il est posé à ({px}, {py}) unités locales de l'entité (--pivot-at) : voir offset_y.\n\
          (\n    path: \"{image_rel}\",\n    tile_size: ({cw}, {ch}),\n    columns: {atlas_columns},\n    rows: {atlas_rows},\n    animated: true,\n    name: \"body\",\n    scale: {scale},\n    anchor: Center,\n    offset_x: {ox},\n    offset_y: {oy},\n    offset_z: 1.0,{dirs_ron}\n)\n",
         blocks_x = layout.blocks_x,
         blocks_y = layout.blocks_y,
@@ -1054,6 +1255,8 @@ pub fn import_sprite(
         scale = fmt_f32(scale),
         ox = fmt_f32(offset.0),
         oy = fmt_f32(offset.1),
+        px = fmt_f32(options.pivot_at.0),
+        py = fmt_f32(options.pivot_at.1),
     );
     // Animations : états puis clips, ordre alphabétique (BTreeMap).
     let mut indices: BTreeMap<String, (usize, usize, u64, bool)> = BTreeMap::new();
@@ -1080,13 +1283,15 @@ pub fn import_sprite(
     );
     for (key, (start, end, _, _)) in &indices {
         anim_ron.push_str(&format!(
-            "        \"{key}\": (start: {start}, end: {end}),\n"
+            "        {}: (start: {start}, end: {end}),\n",
+            ron_key(key)
         ));
     }
     anim_ron.push_str("    },\n    clips: {\n");
     for (key, (_, _, ms, looping)) in &indices {
         anim_ron.push_str(&format!(
-            "        \"{key}\": (frame_duration: Some({ms}), looping: Some({looping})),\n"
+            "        {}: (frame_duration: Some({ms}), looping: Some({looping})),\n",
+            ron_key(key)
         ));
     }
     anim_ron.push_str("    },\n)\n");
@@ -1096,36 +1301,6 @@ pub fn import_sprite(
     );
     let new_table = upsert_table_entry(&table_text, &sprite_id, &entry_body)
         .map_err(|message| game_invalid(format!("{table_rel} : {message}")))?;
-
-    // Écritures : fichiers, puis `sprites.ron` en dernier.
-    let mut created: Vec<PathBuf> = Vec::new();
-    let cleanup = |created: &[PathBuf]| {
-        for p in created {
-            let _ = std::fs::remove_file(p);
-        }
-    };
-    let write_one = |rel: &str, bytes: &[u8], created: &mut Vec<PathBuf>| {
-        let path = assets_dir.join(rel);
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| SpriteImportError::WriteFailed {
-                path: path.display().to_string(),
-                message: format!("dossier impossible : {e}"),
-            })?;
-        }
-        std::fs::write(&path, bytes).map_err(|e| SpriteImportError::WriteFailed {
-            path: path.display().to_string(),
-            message: format!("écriture impossible : {e}"),
-        })?;
-        created.push(path);
-        Ok::<(), SpriteImportError>(())
-    };
-    let written = write_one(&image_rel, &png, &mut created)
-        .and_then(|_| write_one(&sheet_rel, sheet_ron.as_bytes(), &mut created))
-        .and_then(|_| write_one(&anim_rel, anim_ron.as_bytes(), &mut created));
-    if let Err(e) = written {
-        cleanup(&created);
-        return Err(e);
-    }
     let table_text_out = if table_exists {
         new_table
     } else {
@@ -1133,16 +1308,22 @@ pub fn import_sprite(
             "// Table des feuilles de sprites : une entrée par sprite importé ou écrit à la main.\n{new_table}"
         )
     };
-    if let Some(parent) = table_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    if let Err(e) = std::fs::write(&table_path, table_text_out.as_bytes()) {
-        cleanup(&created);
-        return Err(SpriteImportError::WriteFailed {
-            path: table_path.display().to_string(),
-            message: format!("table non mise à jour, fichiers créés retirés : {e}"),
-        });
-    }
+    // Tout se relit avant la moindre écriture : un texte que l'engine ne lirait pas est refusé.
+    let verify = |r: Result<(), String>| r.map_err(|message| game_invalid(message));
+    verify(verify_ron(&sheet_ron, "feuille"))?;
+    verify(verify_ron(&anim_ron, "animation"))?;
+    verify(verify_table(&table_text_out, &sprite_id).map_err(|m| format!("{table_rel} : {m}")))?;
+
+    // Écriture transactionnelle : `sprites.ron` en dernier, tout ou rien.
+    commit_files(
+        &[
+            (assets_dir.join(&image_rel), png),
+            (assets_dir.join(&sheet_rel), sheet_ron.into_bytes()),
+            (assets_dir.join(&anim_rel), anim_ron.into_bytes()),
+            (table_path.clone(), table_text_out.into_bytes()),
+        ],
+        options.fail_at_commit_step,
+    )?;
 
     let silhouette_atlas = silhouette_source as f64 * layout.factor;
     Ok(SpriteImportResult {
@@ -1160,6 +1341,7 @@ pub fn import_sprite(
         blocks: (layout.blocks_x, layout.blocks_y),
         scale,
         offset,
+        pivot_at: options.pivot_at,
         silhouette_source_px: silhouette_source,
         silhouette_atlas_px: silhouette_atlas,
         silhouette_units: silhouette_source as f64 * units_per_source_px,
