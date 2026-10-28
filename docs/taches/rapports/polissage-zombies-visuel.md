@@ -136,7 +136,7 @@ Sources : `tests/scenarios/{clone_solo,clone_duo,clone_quad,four_players_shootin
 
 | Reste | Estimation |
 |---|---|
-| Distributeurs de perks : 1–2 candidates CC0 / CC BY avec lien, licence, capture (décision de William en fin de semaine) | 0,5 j |
+| Distributeurs de perks : 1–2 candidates CC0 / CC BY avec lien, licence, capture (décision de William en fin de semaine). **Aucune candidate vérifiée** à ce jour : le pack TheLazyStone (1 800 images), `UPDATE 2_ZombiePack.zip` (159 fichiers, listés) et `Zombie Apocalypse Tileset.zip` n'ont aucun distributeur ; à ouvrir : Kenney « Roguelike Modern City » (CC0, 16 × 16, plus de 1 000 tuiles urbaines, https://kenney.nl/assets/roguelike-modern-city : **présence d'un distributeur `[À CONFIRMER]`**, l'archive n'a pas été ouverte), les packs « top down 16x16 CC0 » d'OpenGameArt (https://opengameart.org/content/top-down-16x16-cc0, aucun distributeur mentionné sur la page) | 0,5 j |
 | Images pour `insta_kill`, `double_points`, `nuke` et pour `slash` (aucune dans le pack) | 0,5 j une fois choisies |
 | Vidéo de 60 s zombies, repli public et surcharge locale (J5 du plan) | 0,5 j |
 | D161 : exclure la surcharge locale des trois copies d'assets d'un build web (`build-web-games.mjs`, `embed-game-content.rs`, `Makefile`) ; **à faire avant tout build web** d'un poste qui a le pack | 0,25 j |
