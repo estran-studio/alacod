@@ -1,18 +1,25 @@
 // X-4b (docs/conventions.md §91) : le fantassin importé par `alacod import-sprite` (atlas réduit de dix clips, huit
-// directions, `sprites/fantassin-de-ligne/`) joue ses trois poses dans les huit directions, trente frames chacune,
-// dans l'ordre de la planche (E, NE, N, NW, W, SW, S, SE). Présentation seule : la simulation n'a pas de planche, la
-// trace ne dépend que des inputs ; lot 2 (Mac) : `BLESS=1 SCENARIO=sprite_import_fantassin make test_scenarios`.
+// directions, `sprites/fantassin-de-ligne/`, pivot aux pieds posé au bas du collider par `--pivot-at 0,-13`) joue ses trois poses dans les
+// huit directions, dans l'ordre de la planche (E, NE, N, NW, W, SW, S, SE). Présentation seule : la simulation n'a pas de planche, la
+// trace ne dépend que des inputs. La mitrailleuse reçoit un grand chargeur (`weapon_overrides`) : onze tirs par direction, sans rechargement.
 //
-// À regarder : trois temps de 240 frames, le sprite (32 unités de haut, boucle `idle` à 4 images/s) regarde la visée.
-// f10-250 `Idle` : le fantassin immobile tourne sur place, E f40, NE f70, N f100, NW f130, W f160, SW f190, S f220, SE f250.
+// À regarder : trois temps, le sprite (32 unités de haut, les bottes au bas du collider) regarde la visée.
+// f10-250 `Idle` : le fantassin immobile tourne sur place (boucle `idle`, 4 images/s), 30 frames par direction, E f40, NE f70, N f100,
+//   NW f130, W f160, SW f190, S f220, SE f250.
 // f250-490 `Run` : il marche dans la direction visée (boucle `marche`, 8 images/s), jambes animées, même ordre, fins f280…f490.
-// f490-730 `Shoot` : Fire tenu 24 frames par direction (mitrailleuse), le clip `epauler` se joue une fois puis garde sa
-// dernière image jusqu'au retour à `Idle` (fins de tir f514, f544…f724) ; une pose par direction, sans retournement.
+// f490-1498 `Shoot` : 126 frames par direction, débuts f490, f616, f742, f868, f994, f1120, f1246, f1372. Fire tenu 66 frames (un tir toutes
+//   les 6 frames) : le clip `epauler` (8 images à 8 images/s, 60 frames) se joue en entier une fois, dès le premier tir, puis garde sa dernière
+//   image (vue à début + 62) jusqu'au dernier tir (fins de tir f556, f682, f808, f934, f1060, f1186, f1312, f1438). Puis 60 frames sans tir :
+//   la pose retombe 21 frames après le dernier tir et la première image d'`Idle` suit au tick suivant (15 frames) ; `Idle` revient donc visible
+//   de fin de tir + 36 à fin de tir + 60 : f592-616, f718-742, f844-868, f970-994, f1096-1120, f1222-1246, f1348-1372, f1474-1498.
 Scenario(
     game: "testbed",
     map: "testbed/floor_vide_a.ldtk",
-    frames: 740,
+    frames: 1510,
     powerup_drop_chance_override: "0",
+    weapon_overrides: [
+        (weapon: "machine_gun", mag_size: 120, mag_limit: 2, ammo_type: Balle),
+    ],
     players: [
         (
             character: "fantassin-de-ligne",
@@ -33,26 +40,26 @@ Scenario(
                 (from: 400, to: 430, buttons: [Left, Down], pan: (-100, -100)),
                 (from: 430, to: 460, buttons: [Down], pan: (0, -100)),
                 (from: 460, to: 490, buttons: [Right, Down], pan: (100, -100)),
-                (from: 490, to: 514, buttons: [Fire], pan: (100, 0)),
-                (from: 514, to: 520, buttons: [], pan: (100, 0)),
-                (from: 520, to: 544, buttons: [Fire], pan: (100, 100)),
-                (from: 544, to: 550, buttons: [], pan: (100, 100)),
-                (from: 550, to: 574, buttons: [Fire], pan: (0, 100)),
-                (from: 574, to: 580, buttons: [], pan: (0, 100)),
-                (from: 580, to: 604, buttons: [Fire], pan: (-100, 100)),
-                (from: 604, to: 610, buttons: [], pan: (-100, 100)),
-                (from: 610, to: 634, buttons: [Fire], pan: (-100, 0)),
-                (from: 634, to: 640, buttons: [], pan: (-100, 0)),
-                (from: 640, to: 664, buttons: [Fire], pan: (-100, -100)),
-                (from: 664, to: 670, buttons: [], pan: (-100, -100)),
-                (from: 670, to: 694, buttons: [Fire], pan: (0, -100)),
-                (from: 694, to: 700, buttons: [], pan: (0, -100)),
-                (from: 700, to: 724, buttons: [Fire], pan: (100, -100)),
-                (from: 724, to: 730, buttons: [], pan: (100, -100)),
+                (from: 490, to: 556, buttons: [Fire], pan: (100, 0)),
+                (from: 556, to: 616, buttons: [], pan: (100, 0)),
+                (from: 616, to: 682, buttons: [Fire], pan: (100, 100)),
+                (from: 682, to: 742, buttons: [], pan: (100, 100)),
+                (from: 742, to: 808, buttons: [Fire], pan: (0, 100)),
+                (from: 808, to: 868, buttons: [], pan: (0, 100)),
+                (from: 868, to: 934, buttons: [Fire], pan: (-100, 100)),
+                (from: 934, to: 994, buttons: [], pan: (-100, 100)),
+                (from: 994, to: 1060, buttons: [Fire], pan: (-100, 0)),
+                (from: 1060, to: 1120, buttons: [], pan: (-100, 0)),
+                (from: 1120, to: 1186, buttons: [Fire], pan: (-100, -100)),
+                (from: 1186, to: 1246, buttons: [], pan: (-100, -100)),
+                (from: 1246, to: 1312, buttons: [Fire], pan: (0, -100)),
+                (from: 1312, to: 1372, buttons: [], pan: (0, -100)),
+                (from: 1372, to: 1438, buttons: [Fire], pan: (100, -100)),
+                (from: 1438, to: 1498, buttons: [], pan: (100, -100)),
             ],
         ),
     ],
     expect: [
-        PlayerAlive(handle: 0, at_frame: 735),
+        PlayerAlive(handle: 0, at_frame: 1505),
     ],
 )
