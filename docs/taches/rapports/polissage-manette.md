@@ -4,7 +4,9 @@ Fiche : `docs/taches/polissage-manette.md`. Périmètre réduit au 2026-10-27 : 
 gardées si elles ne coûtent rien, ni preuve ni essai). Machine : Mac, Chrome 156 (vrai Google Chrome, piloté par CDP).
 
 > **Réserve de lecture, en tête.** Aucune manette physique n'était branchée sur la machine de la voie. Toute la preuve « dans
-> Chrome » ci-dessous est faite avec une manette **simulée** : une page de test remplace `navigator.getGamepads()` par un objet à la
+> Chrome » ci-dessous est faite avec une manette **simulée** ; **William a ensuite essayé une manette physique pendant deux
+> minutes (2026-10-28, build `e4-manette` de zombies) : « ça marche assez bien »**, deux notes non bloquantes (§9). Le reste de
+> cette réserve vaut pour tout ce que cet essai court n'a pas couvert (§9) ; la preuve simulée : une page de test remplace `navigator.getGamepads()` par un objet à la
 > disposition standard (17 boutons, 4 axes, valeurs analogiques), que le jeu lit **par le vrai chemin** `bevy_gilrs` (`gilrs-core`
 > wasm) → Bevy → leafwing → `collect_device_inputs` → GGRS. Elle prouve la chaîne logicielle ; elle ne prouve ni le matériel, ni le
 > comportement de Chrome face à une vraie manette (premier appui, mapping non standard, reconnexion physique). Ces points sont la
@@ -20,7 +22,7 @@ gardées si elles ne coûtent rien, ni preuve ni essai). Machine : Mac, Chrome 1
 | 4 | Menus à la manette : pause, inventaire, fin de partie, choix de mutation | pause, inventaire, fin de partie, salon local **faits et vus** ; mutation **par tests, pas vue dans le navigateur** | §4, §5 |
 | 5 | Écran d'aide lu dans la table, filtré par clone | **fait** | captures, tests `ui::screens::help::tests`, scénario `ui_pause_menu` |
 | 6 | `docs/jouer.md` : section manette (navigateur compris) | **fait** | `docs/jouer.md` § Manette |
-| 7 | Essai E4 avec William, dans le navigateur | **à faire ven 30** : build, serveur, protocole et enregistreuse prêts (§7) | — |
+| 7 | Essai E4 avec William, dans le navigateur | **essai physique de 2 min fait le 28 (zombies : « ça marche assez bien »)** ; essai complet (throne, mutation, fin de partie, enregistrements) **à faire ven 30** : build, serveur, protocole prêts (§7) | `plan-polissage-notes.md`, §9 |
 | — | Traces inchangées, bits d'input inchangés | **fait** | §6 |
 
 ## 2. Ce qui marche en wasm (manette simulée)
@@ -130,7 +132,14 @@ essai scripté sans manette physique. À voir à l'E4.
   A valide la mutation sans bombe), `ui::screens::help::tests` (3), `ui::screens::model::tests` (pause « Touches », Retour),
   `ui::game_over::tests` (délai de la manette). Scénario `tests/scenarios/ui_pause_menu.ron` étendu (« Touches » validé, ligne
   « Tirer … RT » lue dans la table).
-- `make check`, décomposé (`test_tools` échoue pour la raison du §5.6 et arrête la cible entière) : voir §8 pour les transcripts.
+- `make check`, décomposé (`test_tools` échoue pour la raison du §5.6 et arrête la cible entière), `CARGO_TARGET_DIR` partagé, commit `cce1eb1f` :
+  - `make format check_forbidden check_rollback_registration check_sim_boundary lint` : **RC 0** (`OK: aucun nouveau motif interdit ; 51
+    occurrences auditées`, `games/isaac : aucune erreur (24 personnages …)`, les quatre jeux sans erreur de lint) ;
+  - `make test_crates` (workspace, `--profile headless`) : **RC 0**, 93 blocs `test result: ok`, aucun échec ;
+  - `make test_scenarios_par` **sans `BLESS`** : **RC 0**, 810 scénarios, quatre tranches `ok` (`suite en 4 tranches : 306 s`), donc
+    **aucune trace ne bouge** ; `ui_pause_menu` (étendu) inclus ;
+  - `cargo test -p game --features ui_hui --lib -- game_over screens:: lobby` : 28 passés (les tests `hui` ne tournent qu'avec `ui_hui`) ;
+  - `make test_tools` : **3 échecs** `test_claude_say` (hors S1-1, §5.6) ; `make check` entier n'est donc pas vert sur ce Mac.
 - Bits d'input : aucun fichier de `character/player/input.rs`, `combat/src/actors.rs` ni `replay.rs` modifié (`git diff --stat`).
 
 ## 7. Protocole E4 avec William (vendredi 30, ~20 min, dans Chrome)
@@ -160,3 +169,17 @@ port 8777 de ce Mac (lancé par la voie ; `cd website/static && python3 -m http.
 - Dettes ouvertes (`docs/taches/dettes.md`) : **D158** la pause ne fige pas la partie, **D159** une manette pilote tous les joueurs
   locaux, **D160** liaisons sans usage prouvé (`Modifier`, sprint sur L3, bombe/blank/actif).
 - Estimation de la fiche : 3 j, tenue (J1-J2 faits en un jour et demi ; reste E4 et son retour).
+
+## 9. Essai physique de William (2026-10-28, 2 min, zombies, Chrome)
+
+Page de diagnostic préalable : `website/static/gamepad-test.html` (lit `navigator.getGamepads()` : manette vue, `mapping`, boutons,
+gâchettes de 0 à 1, axes ; `http://127.0.0.1:8777/gamepad-test.html`). Puis `loader.html?game=zombies&build=e4-manette`.
+
+- Verdict : « ça marche assez bien » : **`bevy_gilrs` lit une manette physique dans Chrome**, le premier appui l'expose, sticks, RT,
+  boutons et pause répondent. C'est le point 1 de la fiche prouvé sur le matériel pour **une** manette (modèle non noté).
+- (a) « un peu trop rigide » → **entrée de S1-6** (feel par clone), rien touché ici : aucun seuil ni accélération modifié. Piste pour
+  S1-6 : le déplacement au stick est à huit directions et vitesse constante faute de déplacement analogique dans `BoxInput`.
+- (b) icônes de boutons dans les menus et l'aide quand une manette est branchée → `propositions.md` (racine), pas une dette.
+- Notes recopiées dans `docs/taches/rapports/plan-polissage-notes.md`.
+- Pas couvert par cet essai (à l'E4 de ven 30) : throne et mutation, fin de partie et retour au salon, débranchement/rebranchement
+  physique, L3 pour le sprint, enregistrements d'écran.
