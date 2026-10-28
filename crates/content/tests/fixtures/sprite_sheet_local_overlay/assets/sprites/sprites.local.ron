@@ -1,5 +1,5 @@
-// Fixture : surcharge locale. `hero` est remplacé ; `ghost` n'a pas de repli public :
-// LintErrorKind::BrokenReference.
+// Fixture : surcharge locale. `hero` est remplacé ; `ghost` n'a pas d'entrée publique : il est ajouté
+// (l'absence d'entrée est son repli).
 ({
     "hero": (
         animation: "sprites/hero_animation.ron",

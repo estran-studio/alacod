@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 /// Nom du fichier du HUD dans un dossier `Ui`.
 pub const HUD_FILE_NAME: &str = "hud.ron";
 
+/// Surcharge locale du HUD (gitignorée, pack d'images non redistribuable), à côté de [`HUD_FILE_NAME`] :
+/// `game::ui::hud::HudOverlay`.
+pub const HUD_LOCAL_FILE_NAME: &str = "hud.local.ron";
+
 /// Sources que le HUD sait lire (liste fermée). T2.12 : `perks`, `downed`, `powerups`,
 /// `prompt` ; T1.18 (§32) : `rads`, `level`, `ammo_by_type`, `statuses`, `floor` ; M3-T16 (§81) :
 /// `hearts`, `coins`, `item_banner`.
@@ -48,6 +52,12 @@ pub const HUD_SOURCES: &[&str] = &[
     "item_banner",
 ];
 
+/// Options RON de lecture du HUD, celles du chargeur du jeu (`game::ui::hud::HudConfigLoader`, `Some` implicite :
+/// `tile: 16` vaut `tile: Some(16)`) : le lint lit exactement ce que le jeu lit.
+pub fn hud_ron_options() -> ron::Options {
+    ron::Options::default().with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+}
+
 /// Ce que le lint lit de `ui/hud.ron` : la source de chaque widget.
 #[derive(Debug, Clone, Deserialize)]
 pub struct HudFileSchema {
@@ -59,6 +69,26 @@ pub struct HudFileSchema {
     /// Dessin des murs (`game::ui::hud::WallArt`, §83) : le lint vérifie que la feuille existe.
     #[serde(default)]
     pub wall_art: Option<WallArtSchema>,
+    /// Icônes (`HudIcon`) : le lint vérifie que l'`image` d'une icône existe.
+    #[serde(default)]
+    pub icons: std::collections::BTreeMap<String, IconSchema>,
+}
+
+/// Ce que le lint lit de `ui/hud.local.ron` (`game::ui::hud::HudOverlay`) : mêmes champs que le `hud.ron`
+/// public, tous optionnels.
+#[derive(Debug, Clone, Deserialize)]
+pub struct HudOverlaySchema {
+    #[serde(default)]
+    pub wall_art: Option<WallArtSchema>,
+    #[serde(default)]
+    pub icons: std::collections::BTreeMap<String, IconSchema>,
+}
+
+/// Image d'une icône du HUD (`HudIcon::image`), chemin relatif à `assets/`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct IconSchema {
+    #[serde(default)]
+    pub image: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -17,7 +17,12 @@ struct PowerUpLabel(Entity);
 
 fn sync_powerup_visuals(
     mut commands: Commands,
-    pickups: Query<(Entity, &PowerUpPickup, &FixedTransform3D)>,
+    pickups: Query<(
+        Entity,
+        &PowerUpPickup,
+        &FixedTransform3D,
+        Has<crate::world_sprites::WorldSprite>,
+    )>,
     mut labels: Query<(Entity, &PowerUpLabel, &mut Transform, &mut Visibility)>,
     table: Res<PowerUpsTable>,
     assets: Res<AssetServer>,
@@ -27,7 +32,7 @@ fn sync_powerup_visuals(
     // Les entités visuelles sont indépendantes des entités rollback : un retrait,
     // une expiration ou une résurrection se reflète au prochain Update.
     for (entity, label, mut transform, mut visibility) in &mut labels {
-        if let Ok((_, _, position)) = pickups.get(label.0) {
+        if let Ok((_, _, position, _)) = pickups.get(label.0) {
             let pos = position.to_bevy_transform().translation;
             transform.translation = Vec3::new(pos.x, pos.y + 16.0, 50.0);
             *visibility = Visibility::Inherited;
@@ -35,12 +40,15 @@ fn sync_powerup_visuals(
             commands.entity(entity).despawn();
         }
     }
-    for (entity, pickup, position) in &pickups {
+    for (entity, pickup, position, has_sprite) in &pickups {
         let pos = position.to_bevy_transform().translation.truncate();
         let color = Color::srgb(0.3, 1.0, 0.65);
-        gizmos.circle_2d(pos, 10.0, color);
-        gizmos.line_2d(pos - Vec2::X * 5.0, pos + Vec2::X * 5.0, color);
-        gizmos.line_2d(pos - Vec2::Y * 5.0, pos + Vec2::Y * 5.0, color);
+        // Un power-up qui a son image (`powerup/<id>`, `world_sprites`) n'a plus le repère en gizmo.
+        if !has_sprite {
+            gizmos.circle_2d(pos, 10.0, color);
+            gizmos.line_2d(pos - Vec2::X * 5.0, pos + Vec2::X * 5.0, color);
+            gizmos.line_2d(pos - Vec2::Y * 5.0, pos + Vec2::Y * 5.0, color);
+        }
         if labels.iter().any(|(_, label, _, _)| label.0 == entity) {
             continue;
         }

@@ -13,6 +13,10 @@
 //! de couleur, remplacé par l'image `bullet_player` (balles des joueurs et alliés) ou
 //! `bullet_enemy` quand l'entrée existe ; la taille suit le dégât.
 //!
+//! Un power-up au sol cherche `powerup/<id>` puis `powerup` (S1-8) ; une fenêtre porte une image d'état
+//! (`window_h` 16 x 32, `window_v` 32 x 16 ; cases `Idle`, `Damaged`, `Critical`, `Broken` d'après sa
+//! santé), comme une porte (`door_v`, `door_h`).
+//!
 //! Rien ici ne lit ni n'écrit la simulation : l'enfant est détruit avec son parent, une entité
 //! ressuscitée par un rollback le reçoit de nouveau.
 use animation::{create_child_sprite, AnimationMapConfig, SpriteSheetConfig};
@@ -24,12 +28,14 @@ use combat::status::StatusLibrary;
 use combat::weapons::{Bullet, BulletLook, BulletType, WeaponPickup};
 use items::{Chest, ItemKind, ItemPickup, ItemTable, Shelf, ShellPickup};
 use map::game::entity::map::door::DoorComponent;
+use map::game::entity::map::window::WindowHealth;
 use map::game::entity::MapRollbackItem;
 use sim_core::team::Team;
 
 use crate::collider::Collider;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::Interactable;
+use crate::powerups::PowerUpPickup;
 use crate::visual_requests::{SecretDoor, SpriteRequest};
 
 pub struct WorldSpritePlugin;
@@ -49,6 +55,8 @@ impl Plugin for WorldSpritePlugin {
                 skin_bullets,
                 attach_door_sprites,
                 sync_door_sprites.after(attach_door_sprites),
+                attach_window_sprites,
+                sync_window_sprites.after(attach_window_sprites),
                 hide_replaced_map_tiles,
                 reap_held_sprites,
                 // M3-T17 : après `skin_bullets` (qui pose l'image et la taille de l'équipe).
@@ -158,6 +166,11 @@ pub(crate) fn weapon_candidates(weapon_id: &str) -> Vec<String> {
     vec![format!("weapon/{weapon_id}"), "weapon".to_string()]
 }
 
+/// Ids candidats d'un power-up au sol : `powerup/<id>`, `powerup`.
+pub(crate) fn powerup_candidates(powerup_id: &str) -> Vec<String> {
+    vec![format!("powerup/{powerup_id}"), "powerup".to_string()]
+}
+
 #[allow(clippy::type_complexity)]
 fn attach_world_sprites(
     mut commands: Commands,
@@ -180,6 +193,7 @@ fn attach_world_sprites(
             Option<&SpriteRequest>,
             Option<Mut<Sprite>>,
             Option<&MapRollbackItem>,
+            Option<&PowerUpPickup>,
         ),
         (
             Without<WorldSprite>,
@@ -194,6 +208,7 @@ fn attach_world_sprites(
                 With<world::Bomb>,
                 With<world::Rock>,
                 With<SpriteRequest>,
+                With<PowerUpPickup>,
             )>,
         ),
     >,
@@ -212,6 +227,7 @@ fn attach_world_sprites(
         request,
         own,
         map_item,
+        powerup,
     ) in &mut entities
     {
         let candidates: Vec<String> = if chest.is_some() {
@@ -237,6 +253,8 @@ fn attach_world_sprites(
             } else {
                 vec!["rock".into()]
             }
+        } else if let Some(powerup) = powerup {
+            powerup_candidates(&powerup.id)
         } else if let Some(request) = request {
             vec![request.0.clone()]
         } else {
@@ -388,12 +406,104 @@ fn attach_door_sprites(
     }
 }
 
+/// Fenêtre dont l'image d'état est posée ; `child` est son sprite, `id` l'entrée (`window_h` : 16 x 32,
+/// `window_v` : 32 x 16, comme les entités LDtk `WindowHorizontal` et `WindowVertical`).
+#[derive(Component)]
+pub struct WindowSprite {
+    id: &'static str,
+    child: Entity,
+}
+
+/// Taille de la tuile d'une entité LDtk de carte (case de l'atlas, sinon taille personnalisée).
+fn map_tile_size(tile: &Sprite, layouts: &Assets<TextureAtlasLayout>) -> Option<UVec2> {
+    tile.texture_atlas
+        .as_ref()
+        .and_then(|atlas| layouts.get(&atlas.layout)?.textures.get(atlas.index))
+        .map(|rect| rect.size())
+        .or_else(|| tile.custom_size.map(|s| s.as_uvec2()))
+}
+
+/// Pose sur chaque fenêtre une image d'état ; l'orientation vient de la taille de la tuile de l'entité LDtk
+/// d'origine (plus large que haute : `window_v`). Sans entrée `window_h`/`window_v` (autre jeu, ou zombies sans
+/// la surcharge locale du pack), la fenêtre garde son rendu d'avant : la tuile de la carte.
+fn attach_window_sprites(
+    mut commands: Commands,
+    table: SpriteTable,
+    asset_server: Res<AssetServer>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    windows: Query<(Entity, &MapRollbackItem), (With<WindowHealth>, Without<WindowSprite>)>,
+    tiles: Query<&Sprite>,
+) {
+    for (entity, item) in &windows {
+        let size = tiles
+            .get(item.parent)
+            .ok()
+            .and_then(|tile| map_tile_size(tile, &layouts));
+        let id = match size {
+            Some(size) if size.x > size.y => "window_v",
+            _ => "window_h",
+        };
+        let (Some(sheet), Some(frame)) = (table.sheet(id), table.frame(id, "Idle")) else {
+            continue;
+        };
+        let child = create_child_sprite(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            item.parent,
+            sheet,
+            frame,
+        );
+        commands.entity(entity).insert(WindowSprite { id, child });
+        commands.entity(child).insert(MapHeld(entity));
+    }
+}
+
+/// Nom de la case d'une fenêtre d'après sa santé : `Idle` (intacte), `Damaged`, `Critical` (une planche),
+/// `Broken` (0). Une feuille sans l'une de ces cases garde la précédente (repli sur `Idle` dans [`sync_window_sprites`]).
+pub(crate) fn window_state(current: u8, max: u8) -> &'static str {
+    if current >= max {
+        "Idle"
+    } else if current == 0 {
+        "Broken"
+    } else if current.saturating_mul(2) > max {
+        "Damaged"
+    } else {
+        "Critical"
+    }
+}
+
+/// État visuel de la fenêtre : dérivé de `WindowHealth`, donc juste après un rollback (l'état d'une frame
+/// rejouée n'est jamais mémorisé ici).
+fn sync_window_sprites(
+    table: SpriteTable,
+    windows: Query<(&WindowSprite, &WindowHealth)>,
+    mut sprites: Query<&mut Sprite>,
+) {
+    for (window, health) in &windows {
+        let name = window_state(health.current, health.max);
+        let Some(frame) = table
+            .frame(window.id, name)
+            .or_else(|| table.frame(window.id, "Idle"))
+        else {
+            continue;
+        };
+        if let Ok(mut sprite) = sprites.get_mut(window.child) {
+            if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                if atlas.index != frame {
+                    atlas.index = frame;
+                }
+            }
+        }
+    }
+}
+
 /// Cache l'image d'une table, d'un baril ou d'une porte dont l'entité rollback a disparu (explosion, table
 /// brisée, changement d'étage, création annulée par un rollback : l'entité LDtk qui porte l'image survit) ;
 /// la montre si un rollback la ressuscite. Règle dérivée de l'état, `Inherited` sinon : le monde caché d'un
 /// étage quitté cache aussi ses images.
 fn reap_held_sprites(
-    owners: Query<(), Or<(With<WorldSprite>, With<DoorSprite>)>>,
+    owners: Query<(), Or<(With<WorldSprite>, With<DoorSprite>, With<WindowSprite>)>>,
     mut held: Query<(&MapHeld, &mut Visibility)>,
 ) {
     for (held, mut visibility) in &mut held {
@@ -409,7 +519,7 @@ fn reap_held_sprites(
 /// L'image du monde remplace la tuile de la carte : la tuile de l'entité LDtk d'origine (porte, table,
 /// baril) devient transparente dès que son entité rollback porte son propre sprite.
 fn hide_replaced_map_tiles(
-    items: Query<&MapRollbackItem, Or<(With<DoorSprite>, With<WorldSprite>)>>,
+    items: Query<&MapRollbackItem, Or<(With<DoorSprite>, With<WorldSprite>, With<WindowSprite>)>>,
     mut tiles: Query<&mut Sprite>,
 ) {
     for item in &items {
@@ -752,6 +862,26 @@ mod tests {
         assert!(bullet_display_size(30.0) < bullet_display_size(100.0));
         assert_eq!(bullet_display_size(1.0e6), 22.0);
         assert_eq!(bullet_display_size(-5.0), 8.0);
+    }
+
+    /// La case d'une fenêtre suit sa santé, de l'intacte à la brisée, pour la santé maximale du jeu (3)
+    /// comme pour une autre.
+    #[test]
+    fn l_etat_visuel_d_une_fenetre_suit_sa_sante() {
+        let states: Vec<_> = (0..=3).rev().map(|hp| window_state(hp, 3)).collect();
+        assert_eq!(states, ["Idle", "Damaged", "Critical", "Broken"]);
+        assert_eq!(window_state(1, 1), "Idle");
+        assert_eq!(window_state(0, 1), "Broken");
+        assert_eq!(window_state(3, 5), "Damaged");
+        assert_eq!(window_state(2, 5), "Critical");
+    }
+
+    #[test]
+    fn un_power_up_cherche_son_id_puis_le_generique() {
+        assert_eq!(
+            powerup_candidates("max_ammo"),
+            ["powerup/max_ammo", "powerup"]
+        );
     }
 
     #[test]

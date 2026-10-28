@@ -37,12 +37,22 @@
 - id: zombie-shooter-source-inconnue
   fichiers:
     - sprites/effects/slash/Slash_strip3.png
-    - sprites/enemies/zombie/Zombie2.png
-  source: inconnue (ajoutés après coup, absents du pack blackHUNTERdev ; aucune page
+  source: inconnue (ajouté après coup, absent du pack blackHUNTERdev ; aucune page
     source identifiée de façon fiable au 2026-10-02)
   auteur: inconnu
-  licence: inconnue — à identifier ou remplacer (dette de la voie V6)
+  licence: inconnue — à identifier ou remplacer (dette de la voie V6) ; le pack TheLazyStone
+    (entrée ci-dessous) n'a aucun effet de coup, `slash` reste ce placeholder
   modifications: inconnues
+  note: "Zombie2.png (même entrée jusqu'à S1-8) est retiré le 2026-10-28, zombie_full et boss_zombie retombent sur la feuille ZombieHard.png (licence connue) sans la surcharge locale"
+
+- id: halo-lisibilite-gungeon
+  fichiers:
+    - sprites/effects/halo/halo.png
+  source: scripts/generer-sprites-gungeon.py (fonction halo : disque doux dessiné par primitives dans le
+    script, sans source tierce) ; copie de la tuile 0 de games/gungeon/assets/sprites/lisible/atlas_monde.png
+  auteur: projet alacod (William Quintal et agents)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+  modifications: tuile 32 x 32 extraite de l'atlas, sans autre changement
 
 - id: sunnyland-ansimuz
   fichiers:
@@ -201,6 +211,9 @@
 
 - id: thelazystone-postapocalypse
   fichiers:
+    # Aucun n'est dans le dépôt : tout est généré par scripts/repack-postapocalypse.py depuis
+    # l'archive du pack, dans des chemins gitignorés (sprites/postapo/, sprites/sprites.local.ron,
+    # ui/hud.local.ron).
     - sprites/postapo/player.png
     - sprites/postapo/zombie_small.png
     - sprites/postapo/zombie_axe.png
@@ -208,16 +221,20 @@
     - sprites/postapo/weapon_pistol.png
     - sprites/postapo/weapon_machine_gun.png
     - sprites/postapo/weapon_shotgun.png
-  source: https://thelazystone.itch.io/post-apocalypse-pixel-art-asset-pack
-    (PostApocalypse_AssetPack_v1.1.2.zip ; page et licence lues le 2026-10-15)
+    - "sprites/postapo/*.png"  # S1-8 : portes, fenêtres, icônes d'armes et de power-ups, projectiles, atlas de murs et de sol
+    - "sprites/postapo/hud/*.png"  # icônes du HUD
+  source: https://thelazystone.itch.io/post-apocalyptic-pixel-art-asset-pack
+    (PostApocalypse_AssetPack_v1.1.2.zip ; LICENSE.txt de l'archive lu le 2026-10-28)
   auteur: TheLazyStone
-  licence: licence propre de l'auteur — gratuit pour usage non commercial,
-    usage commercial contre paiement (2 $ ou plus) ; redistribution interdite,
-    sous forme originale ou modifiée. Fichiers NON commites (dossier
-    sprites/postapo/ et sprites/sprites.local.ron gitignores) : surcharge locale
-    de sprites/sprites.ron, sprites publics ailleurs (docs/conventions.md §2).
-  modifications: feuilles de profil (side) redécoupees et réalignées en cellules
-    uniformes (Idle|Run|Dying_1|Attack, pieds centrés) par
-    scripts/repack-postapocalypse.py ; une frame des calques mains+arme
-    recadrée pour les visuels d'armes rotatifs.
-  statut: overlay privé (throne + zombies), pas un placeholder
+  licence: licence propre de l'auteur (LICENSE.txt de l'archive) — gratuit pour usage non
+    commercial ; usage commercial contre paiement (2 $ ou plus), **licence commerciale achetée par William
+    Quintal le 2026-10-28 (2 $)** ; **redistribution interdite**, sous
+    forme originale ou modifiée ; crédit facultatif (lien de la page ou « TheLazyStone »). Fichiers NON
+    commités (dépôt public), surcharge locale de sprites/sprites.ron et de ui/hud.ron, sprites publics
+    ailleurs (docs/conventions.md §2). Un build web public qui embarquerait ces images attend la
+    confirmation écrite de l'auteur (plan-polissage § 0.3, décision 1).
+  modifications: feuilles de profil (side) redécoupées et réalignées en cellules uniformes
+    (Idle|Run|Dying_1|Attack, pieds centrés) ; images assemblées par recadrage, collage, miroir et mise
+    à l'échelle entière de tuiles et de sprites du pack (portes, fenêtres, atlas de murs et de sol,
+    icônes) par scripts/repack-postapocalypse.py ; aucun pixel dessiné.
+  statut: overlay privé (zombies + throne), pas un placeholder

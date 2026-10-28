@@ -46,21 +46,29 @@
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
     ),
+    // `zombie_full` et le boss de la salle finale (l'id personnage vaut l'`asset_name_ref`) : repli public = la
+    // feuille du zombie « hard » (licence connue). La feuille `Zombie2.png`, de source inconnue, est retirée
+    // (S1-8) ; le pack de la surcharge locale donne à chacun sa feuille (zombie Big, boss agrandi).
     "zombie_full": (
-        animation: "sprites/enemies/zombie/zombie_full_animation.ron",
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
         layers: {
-            "body": "sprites/enemies/zombie/zombie_full_sheet.ron",
+            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
     ),
-    // Boss de la salle finale de La Fonderie : même feuille que `zombie_full`, id distinct
-    // (l'id personnage vaut l'`asset_name_ref`).
     "boss_zombie": (
-        animation: "sprites/enemies/zombie/zombie_full_animation.ron",
+        animation: "sprites/enemies/zombie/zombie_animation.ron",
         layers: {
-            "body": "sprites/enemies/zombie/zombie_full_sheet.ron",
+            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
+    ),
+    // Halo pulsant des ramassables (S1-8, `game::legibility`) : disque doux blanc, teinté par catégorie. C'est
+    // la tuile 0 de `games/gungeon/assets/sprites/lisible/atlas_monde.png` (CC0, générée par
+    // `scripts/generer-sprites-gungeon.py`), reprise telle quelle.
+    "halo": (
+        animation: "sprites/effects/halo/halo_animation.ron",
+        layers: { "body": "sprites/effects/halo/halo_sheet.ron" },
     ),
     "slash": (
         animation: "sprites/effects/slash/slash_animation.ron",

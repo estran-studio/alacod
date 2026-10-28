@@ -1,0 +1,7 @@
+// S1-8 : surcharge locale du HUD : la feuille de murs et l'image d'icône sont absentes → deux BrokenReference.
+(
+    wall_art: Some((layer: "Walls", atlas: "sprites/postapo/murs_absents.png", floor: Some((tiles: [36]))),),
+    icons: {
+        "juggernog": (color: "#c0392b", label: "J", image: Some("sprites/postapo/hud/absente.png")),
+    },
+)

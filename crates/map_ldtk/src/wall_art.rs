@@ -78,6 +78,36 @@ pub fn value_cells(csv: &[i32], w: i32, h: i32, value: i32) -> Vec<(i32, i32)> {
         .collect()
 }
 
+/// Tuile de sol d'une case : une des `tiles`, choisie par une fonction entière de la position (aucun
+/// aléa : la même case a la même tuile à chaque chargement et sur chaque machine). `tiles` vide : aucune.
+pub fn floor_tile(x: i32, y: i32, tiles: &[u32]) -> Option<u32> {
+    if tiles.is_empty() {
+        return None;
+    }
+    let hash = (x as u32).wrapping_mul(0x9E37_79B1) ^ (y as u32).wrapping_mul(0x85EB_CA6B);
+    let hash = (hash ^ (hash >> 15)).wrapping_mul(0x2C1B_3C6D);
+    Some(tiles[(hash >> 8) as usize % tiles.len()])
+}
+
+/// Cases `(colonne, ligne)` qui ne sont **pas** des murs de `csv` (largeur `w`, hauteur `h`) avec leur tuile de
+/// sol : le sol posé sous les cases vides de la couche des murs (`WallArt::floor`).
+pub fn floor_cells(csv: &[i32], w: i32, h: i32, tiles: &[u32]) -> Vec<((i32, i32), u32)> {
+    if w <= 0 || h <= 0 || csv.len() != (w as usize) * (h as usize) {
+        return Vec::new();
+    }
+    let mut cells = Vec::new();
+    for y in 0..h {
+        for x in 0..w {
+            if csv[(y * w + x) as usize] == 0 {
+                if let Some(tile) = floor_tile(x, y, tiles) {
+                    cells.push(((x, y), tile));
+                }
+            }
+        }
+    }
+    cells
+}
+
 /// Image et découpage de la feuille, chargés une fois par chemin.
 #[derive(Default)]
 pub struct WallSheet {
@@ -125,10 +155,22 @@ pub fn draw_walls(
         if sheet.atlas != art.atlas {
             sheet.atlas = art.atlas.clone();
             sheet.image = server.load(art.atlas.clone());
+            // Les tuiles annexes (cases, sol) prolongent la feuille au-delà des 36 tuiles de murs.
+            let used = art
+                .cells
+                .iter()
+                .map(|cell| cell.tile)
+                .chain(
+                    art.floor
+                        .iter()
+                        .flat_map(|floor| floor.tiles.iter().copied()),
+                )
+                .map(|tile| tile + 1)
+                .fold(WALL_TILES, u32::max);
             sheet.layout = layouts.add(TextureAtlasLayout::from_grid(
                 UVec2::splat(art.tile),
                 art.columns.max(1),
-                WALL_TILES.div_ceil(art.columns.max(1)),
+                used.div_ceil(art.columns.max(1)),
                 None,
                 None,
             ));
@@ -147,6 +189,13 @@ pub fn draw_walls(
             if layer.identifier == art.layer {
                 for ((x, y), tile) in wall_cells(&layer.int_grid_csv, layer.c_wid, layer.c_hei) {
                     cells.push((tile, place(x, y, art.z), size));
+                }
+                if let Some(floor) = &art.floor {
+                    for ((x, y), tile) in
+                        floor_cells(&layer.int_grid_csv, layer.c_wid, layer.c_hei, &floor.tiles)
+                    {
+                        cells.push((tile, place(x, y, floor.z), size));
+                    }
                 }
             }
             for cell_art in art.cells.iter().filter(|c| c.layer == layer.identifier) {
@@ -281,6 +330,32 @@ mod tests {
         assert_eq!(cells.len(), 8);
         // Toutes les tuiles sont dans la feuille.
         assert!(cells.iter().all(|(_, t)| *t < WALL_TILES));
+    }
+
+    #[test]
+    fn le_sol_couvre_les_cases_vides_et_seulement_elles() {
+        let (csv, w, h) = grid(ROOM);
+        let floor = floor_cells(&csv, w, h, &[36, 37, 38, 39]);
+        let walls = wall_cells(&csv, w, h);
+        assert_eq!(floor.len() + walls.len(), (w * h) as usize);
+        assert!(floor.iter().all(|(_, t)| (36..40).contains(t)));
+        assert!(floor.iter().all(|(p, _)| walls.iter().all(|(q, _)| p != q)));
+        // Une seule variante : toutes les cases la prennent ; aucune variante : pas de sol.
+        assert!(floor_cells(&csv, w, h, &[7]).iter().all(|(_, t)| *t == 7));
+        assert!(floor_cells(&csv, w, h, &[]).is_empty());
+        assert!(floor_cells(&[1, 0], 3, 1, &[7]).is_empty());
+    }
+
+    #[test]
+    fn la_tuile_de_sol_ne_depend_que_de_la_position() {
+        let tiles = [36, 37, 38, 39];
+        assert_eq!(floor_tile(5, 9, &tiles), floor_tile(5, 9, &tiles));
+        // Les quatre variantes servent toutes sur une petite pièce (pas de damier dégénéré).
+        let used: std::collections::BTreeSet<u32> = (0..12)
+            .flat_map(|x| (0..8).map(move |y| (x, y)))
+            .filter_map(|(x, y)| floor_tile(x, y, &tiles))
+            .collect();
+        assert_eq!(used.len(), 4);
     }
 
     #[test]

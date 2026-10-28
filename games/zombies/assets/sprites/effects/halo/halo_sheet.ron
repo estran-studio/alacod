@@ -1,17 +1,13 @@
 (
-    path: "sprites/enemies/zombie/Zombie2.png",
+    path: "sprites/effects/halo/halo.png",
     tile_size: (32, 32),
-    columns: 9,
-    rows: 12,
-
-    animated: true,
+    columns: 1,
+    rows: 1,
+    animated: false,
     name: "body",
-
     scale: 1.0,
-
     anchor: Center,
-
     offset_x: 0.0,
     offset_y: 0.0,
-    offset_z: 1.0,
+    offset_z: 3.4,
 )

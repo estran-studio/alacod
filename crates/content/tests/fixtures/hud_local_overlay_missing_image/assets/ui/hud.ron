@@ -1,0 +1,10 @@
+// S1-8 : le `hud.ron` public est propre ; seule la surcharge locale (`hud.local.ron`) cite des images.
+(
+    widgets: [
+        (kind: Text(source: "health", prefix: None), anchor: TopLeft, offset: (0.0, 0.0), size: None,
+         color: None, font_size: None),
+    ],
+    icons: {
+        "juggernog": (color: "#c0392b", label: "J"),
+    },
+)

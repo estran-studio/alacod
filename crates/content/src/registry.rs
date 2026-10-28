@@ -1741,6 +1741,8 @@ pub struct Registry {
     pub hud_legend_sprites: Vec<(PathBuf, Vec<String>)>,
     /// Feuille des murs (`wall_art`) de chaque `ui/hud.ron` qui en déclare une (m2-salles-murs-gungeon).
     pub hud_wall_art: Vec<HudWallArt>,
+    /// Images d'icônes du HUD (`icons[id].image` de `ui/hud.ron` et de `ui/hud.local.ron`) : fichier, id, chemin.
+    pub hud_icon_images: Vec<(PathBuf, String, String)>,
     pub camera_files: Vec<PathBuf>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
@@ -4216,9 +4218,11 @@ fn load_perks(
 ///
 /// Surcharge locale : à côté de chaque fichier `x.ron`, un `x.local.ron` (même format, hors
 /// dépôt : gitignoré) remplace les entrées de même id, pour un pack d'images non redistribuable
-/// installé sur une seule machine (`scripts/repack-postapocalypse.py`). Une surcharge d'un id
-/// absent du fichier public est un `BrokenReference` : chaque entrée garde ainsi un repli public.
-/// Sans le fichier local, rien ne change (CI, autres postes).
+/// installé sur une seule machine (`scripts/repack-postapocalypse.py`), et **peut ajouter** des ids
+/// que le fichier public n'a pas (S1-8 : `door_v`, `window_h`, `weapon/pistol`, `powerup/max_ammo`…) :
+/// pour ces classes, l'absence d'entrée publique est elle-même le repli (le moteur garde le rendu
+/// d'avant : tuile de la carte, gizmo, balle de couleur). Les fichiers d'une entrée ajoutée sont
+/// vérifiés comme les autres. Sans le fichier local, rien ne change (CI, autres postes).
 fn load_sprite_sheets(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
@@ -4263,17 +4267,6 @@ fn load_sprite_sheets(
         };
         for (name, entry) in parsed.0 .0 {
             let id = SpriteSheetId::from(name);
-            if !registry.sprite_sheets.contains_key(&id) {
-                errors.push(LintError {
-                    kind: LintErrorKind::BrokenReference,
-                    file: local.display().to_string(),
-                    message: format!(
-                        "surcharge locale de « {id} » : id absent de {} (chaque entrée garde un repli public)",
-                        rel.display()
-                    ),
-                });
-                continue;
-            }
             let entry = sprite_sheet_entry(assets_dir, id.clone(), &local, entry);
             registry.sprite_sheets.insert(id, entry);
         }
@@ -4528,7 +4521,30 @@ fn load_ui(
             registry.ui_files.push(rel);
             continue;
         }
-        let parsed = if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
+        let parsed = if rel.file_name().and_then(|name| name.to_str())
+            == Some(crate::ui::HUD_LOCAL_FILE_NAME)
+        {
+            // Surcharge locale du HUD : mêmes vérifications que le `hud.ron` public (feuille de murs, images).
+            crate::ui::hud_ron_options()
+                .from_str::<crate::ui::HudOverlaySchema>(&text)
+                .map(|hud| {
+                    registry
+                        .hud_icon_images
+                        .extend(hud.icons.iter().filter_map(|(id, icon)| {
+                            Some((rel.clone(), id.clone(), icon.image.clone()?))
+                        }));
+                    if let Some(art) = &hud.wall_art {
+                        registry.hud_wall_art.push(HudWallArt {
+                            file: rel.clone(),
+                            layer: art.layer.clone(),
+                            atlas: art.atlas.clone(),
+                            tile: art.tile,
+                            columns: art.columns,
+                            cell_layers: art.cells.iter().map(|cell| cell.layer.clone()).collect(),
+                        });
+                    }
+                })
+        } else if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
             ron::from_str::<crate::feedback::FeedbackSettings>(&text).map(|settings| {
                 registry.feedback.push(FeedbackEntry {
                     file: rel.clone(),
@@ -4536,31 +4552,38 @@ fn load_ui(
                 });
             })
         } else if rel.file_name().and_then(|name| name.to_str()) == Some(crate::ui::HUD_FILE_NAME) {
-            ron::from_str::<crate::ui::HudFileSchema>(&text).map(|hud| {
-                let sources = hud
-                    .widgets
-                    .iter()
-                    .map(|w| w.kind.source().to_string())
-                    .collect();
-                registry.hud_sources.push((rel.clone(), sources));
-                let sprites = hud
-                    .legend
-                    .iter()
-                    .flat_map(|group| group.entries.iter())
-                    .filter_map(|entry| entry.sprite.clone())
-                    .collect();
-                registry.hud_legend_sprites.push((rel.clone(), sprites));
-                if let Some(art) = &hud.wall_art {
-                    registry.hud_wall_art.push(HudWallArt {
-                        file: rel.clone(),
-                        layer: art.layer.clone(),
-                        atlas: art.atlas.clone(),
-                        tile: art.tile,
-                        columns: art.columns,
-                        cell_layers: art.cells.iter().map(|cell| cell.layer.clone()).collect(),
-                    });
-                }
-            })
+            crate::ui::hud_ron_options()
+                .from_str::<crate::ui::HudFileSchema>(&text)
+                .map(|hud| {
+                    let sources = hud
+                        .widgets
+                        .iter()
+                        .map(|w| w.kind.source().to_string())
+                        .collect();
+                    registry.hud_sources.push((rel.clone(), sources));
+                    let sprites = hud
+                        .legend
+                        .iter()
+                        .flat_map(|group| group.entries.iter())
+                        .filter_map(|entry| entry.sprite.clone())
+                        .collect();
+                    registry.hud_legend_sprites.push((rel.clone(), sprites));
+                    registry
+                        .hud_icon_images
+                        .extend(hud.icons.iter().filter_map(|(id, icon)| {
+                            Some((rel.clone(), id.clone(), icon.image.clone()?))
+                        }));
+                    if let Some(art) = &hud.wall_art {
+                        registry.hud_wall_art.push(HudWallArt {
+                            file: rel.clone(),
+                            layer: art.layer.clone(),
+                            atlas: art.atlas.clone(),
+                            tile: art.tile,
+                            columns: art.columns,
+                            cell_layers: art.cells.iter().map(|cell| cell.layer.clone()).collect(),
+                        });
+                    }
+                })
         } else {
             ron::from_str::<ron::Value>(&text).map(|_| ())
         };
