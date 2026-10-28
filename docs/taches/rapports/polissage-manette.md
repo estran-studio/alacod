@@ -183,3 +183,11 @@ gâchettes de 0 à 1, axes ; `http://127.0.0.1:8777/gamepad-test.html`). Puis `l
 - Notes recopiées dans `docs/taches/rapports/plan-polissage-notes.md`.
 - Pas couvert par cet essai (à l'E4 de ven 30) : throne et mutation, fin de partie et retour au salon, débranchement/rebranchement
   physique, L3 pour le sprint, enregistrements d'écran.
+
+## 10. Processus laissé actif pour l'E4
+
+Serveur statique (python `http.server`, port 8777, lié à 127.0.0.1, dossier `website/static` du worktree b0), **PID 22332** au 2026-10-28.
+- Page de diagnostic de la manette : `http://127.0.0.1:8777/gamepad-test.html`
+- zombies : `http://127.0.0.1:8777/loader.html?game=zombies&build=e4-manette` ; throne : `…?game=throne&build=e4-manette`
+- Arrêt : `kill 22332` (ou `pkill -f "http.server 8777"`). Relance : `cd ~/orca/workspaces/alacod/b0/website/static && python3 -m http.server 8777 --bind 127.0.0.1`.
+- Les builds `website/static/builds/` sont ignorés par git (`/website/static/builds/`) ; reconstruction : `WEB_BUILD_ID=e4-manette WEB_OPTIMIZE=0 WEB_ENABLE_SOLO=1 WASM_BINDGEN=<wasm-bindgen 0.2.129> node scripts/build-web-games.mjs zombies throne` puis `git checkout website/static/releases.json`.
