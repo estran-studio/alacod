@@ -40,6 +40,11 @@
 
     tags: ["zombie"],
 
+    // S1-8 : le boss se distingue du `zombie_full` par une teinte chaude et une taille une fois et demie plus grande
+    // (marqueur visuel D66, présentation seule : ni état de simulation ni trace) ; même rendu avec ou sans la
+    // surcharge locale du pack.
+    marker: Some((tint: Some((1.0, 0.62, 0.58)), scale: Some(1.5))),
+
     // Boss de la salle finale de La Fonderie : lent, très résistant, griffe lourde.
     // Même IA que `zombie_full` (poursuite flow field, casse les fenêtres).
     ai: Some((

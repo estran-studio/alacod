@@ -798,6 +798,10 @@ dessinés par `interaction_view::display_interaction_prompts` ; le texte du prom
 L'écran de fin (`ui/game_over.rs`) affiche le résumé de la run et deux boutons : « Rejouer (R) »
 (`RunRequest::Restart`) et « Lobby » (`RunRequest::ToLobby`, T2.12).
 
+#### Surcharge locale du HUD (S1-8)
+
+`games/<jeu>/assets/ui/hud.local.ron` (gitignoré, `docs/conventions.md` §91) remplace `wall_art` et ajoute des `icons` (avec `image`) sur `hud.ron`, pour un pack d'images non redistribuable ; sans lui, le HUD public est lu tel quel.
+
 #### Rechargement à chaud
 
 Quand le fichier `games/zombies/assets/ui/hud.ron` est modifié (feature `native`, file_watcher bevy activé),

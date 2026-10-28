@@ -248,10 +248,11 @@ personnage, `sprite_config.name` d'une arme à distance, `slash` pour l'effet de
 ```
 **Surcharge locale** (pack d'images non redistribuable) : un `sprites/sprites.local.ron` à côté de la
 table, même format, **gitignoré** (`games/*/assets/sprites/*.local.ron`), remplace les entrées de même
-id ; un id absent de la table publique est refusé (`BrokenReference` : chaque entrée garde un repli
-public). Sans lui (CI, autres postes, amis), les sprites publics. Seul usage : le pack post-apo
-TheLazyStone de zombies et throne, écrit avec ses PNG (`sprites/postapo/`, gitignoré) par
-`scripts/repack-postapocalypse.py` ; fixture `sprite_sheet_local_overlay`.
+id et **peut en ajouter** (S1-8, §91 : `door_v`, `window_h`, `powerup/max_ammo`… : pour ces classes, l'absence
+d'entrée publique est elle-même le repli, le moteur garde le rendu d'avant). Sans lui (CI, autres postes,
+amis), les sprites publics. Seul usage : le pack post-apo TheLazyStone de zombies et throne, écrit avec ses
+PNG (`sprites/postapo/`, gitignoré) par `scripts/repack-postapocalypse.py` ; fixture
+`sprite_sheet_local_overlay`. Le HUD a la même surcharge (`ui/hud.local.ron`, §91).
 Feuilles, animations et images sont rangées par entité sous `sprites/` : `characters/` (joueur,
 ombre), `weapons/`, `enemies/`, `effects/`. Un personnage sans entrée n'a pas de sprite (les
 personnages de laboratoire du testbed). Lint : fichiers d'une entrée présents (animation,
@@ -7940,3 +7941,50 @@ la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `
   de `scripts/lint-edited-game.sh` et du `Makefile` gardent `cargo run` (elles n'exigent pas l'installation).
 - **Tests** : `crates/content/tests/edit.rs` (jeu de travail = copie du gabarit dans un dépôt git temporaire : formatage conservé, types, chemins inconnus/ambigus, lint rouge restauré, erreurs préexistantes, commit du seul fichier, undo), `crates/content/tests/remote_script.rs` (faux jeu JSON-RPC :
   codes de sortie, `--json`, scripts, `step`), unitaires de `edit.rs` et `script.rs`.
+
+## 91. Zombies visuel complet : surcharge locale étendue, sol de `wall_art`, états de fenêtre, lisibilité coop (S1-8)
+
+Lot `polissage-zombies-visuel` (`docs/taches/polissage-zombies-visuel.md`, rapport `docs/taches/rapports/polissage-zombies-visuel.md` : audit classe × état
+avant/après). **Présentation seule** : rien dans `GgrsSchedule`, aucun état rollback, aucune trace ne bouge. Le dépôt est public et le pack TheLazyStone « Post-Apocalypse »
+(licence commerciale payée le 2026-10-28, **« No Redistribution »**) n'y entre jamais : toutes ses images passent par la **surcharge locale gitignorée**.
+
+### Arborescence de la surcharge (stable : c'est elle que le dépôt privé d'assets reprendra)
+
+Sous `games/zombies/assets/` (chemins relatifs aux assets), tout est écrit par `python3 scripts/repack-postapocalypse.py <dossier du pack> zombies` :
+
+| Chemin (gitignoré) | Contenu |
+|---|---|
+| `sprites/postapo/*.png`, `*_sheet.ron`, `*_animation.ron` | feuilles de sprites (joueur, armes, zombies, portes, fenêtres, icônes d'armes et de power-ups, projectiles) et `atlas_murs.png` (murs et sol) |
+| `sprites/postapo/hud/*.png` | icônes du HUD (perks, cœurs, munitions) |
+| `sprites/sprites.local.ron` | table des feuilles : **remplace** les ids publics (`player`, `zombie_1`…) et **ajoute** les ids sans entrée publique |
+| `ui/hud.local.ron` | surcharge **partielle** du HUD : `wall_art` (en bloc) et `icons` (id par id, avec `image`) |
+
+Sans ces fichiers (CI, amis, build web public), le jeu lit les fichiers commités : c'est le **repli public** (état d'avant, sauf `halo`, `player_colors`, `legend`).
+
+### Moteur (générique, activé par donnée ; les autres jeux ne changent pas)
+
+- **`HudIcon.image`** (`game::ui::hud`) : chemin d'image relatif à `assets/`, optionnel ; remplace le carré de couleur et l'étiquette dans `Icons` (perks, objet actif), `Counter` et `Hearts`
+  (`heart`, `heart_half`, `soul_heart`, `soul_heart_half`, `heart_empty` : un cœur n'a d'image que si tous les états qu'il dessine en ont, sinon carrés de couleur). Le lint vérifie que l'image existe
+  (`hud : icône « id » : image « … » absente`, fixture `hud_local_overlay_missing_image`).
+- **`ui/hud.local.ron`** (`HudOverlay`, lu par `HudConfigLoader`, qui remplace `RonAssetPlugin<HudConfig>`) : natif seulement (le web ne cherche pas un fichier absent du site) ; absence silencieuse ; présence enregistrée comme
+  dépendance (rechargement à chaud). Le lint lit les deux fichiers avec les options RON du chargeur (`Some` implicite, `content::ui::hud_ron_options`).
+- **`wall_art.floor`** (`FloorArt { tiles, z }`, `map_ldtk::wall_art::floor_cells`) : une tuile de la feuille de `wall_art` sous chaque case **non murée** de la couche `Walls`, choisie par une fonction entière de la case
+  (`floor_tile`, aucun aléa) ; `z` 0,05 (sous les halos et les objets du monde). Les tuiles annexes prolongent la feuille au-delà des 36 de murs (`36..` : sol).
+  `hide_layers` cache aussi les couches de tuiles de LDtk que l'art remplace (`Walls`, `Sol`, `Mobilier` pour la fonderie).
+- **Fenêtres** (`world_sprites::attach_window_sprites`, `sync_window_sprites`, `window_state`) : une fenêtre a une image d'état `window_h` (tuile 16 × 32, entité `WindowHorizontal`) ou `window_v` (32 × 16), cases `Idle` (intacte),
+  `Damaged`, `Critical`, `Broken` d'après `WindowHealth` (dérivé à chaque `Update`, donc juste après un rollback). Sans entrée, la fenêtre garde sa tuile et sa barre de vie (comme avant).
+- **Power-ups** : un power-up au sol cherche `powerup/<id>` puis `powerup` (`powerup_candidates`) ; avec une image, plus de gizmo (le texte reste). Les trois sans image du pack (`insta_kill`, `double_points`, `nuke`) gardent le gizmo.
+- **Portes** (`door_v` 16 × 32, `door_h` 32 × 16, `Idle`/`Open`/`Locked`), **armes** (`weapon/<id>`, `weapon`) et **balles** (`bullet_player`, `bullet_enemy`, `own_colors: true`) : mécanismes de §83, ids déclarés par la surcharge.
+
+### Données publiques de zombies (`ui/hud.ron`, `sprites/sprites.ron`)
+
+`player_colors` (bleu, vert, jaune, violet par handle), `hide_markers`, `names` (étiquettes F6), `legend` (F7, ids publics seulement : `player` ×4 teintes, `zombie_1`/`zombie_2`/`zombie_full`/`boss_zombie`, `halo`
+teinté) et widget `Legend`. `halo` = tuile 0 de l'atlas de gungeon (CC0, `sprites/effects/halo/`, `assets.yaml`). Le boss se distingue par une **donnée** (`marker` de `boss_zombie_config.ron`, D66 : teinte chaude, échelle 1,5), pas par une feuille.
+`Zombie2.png` (licence inconnue) est retiré : `zombie_full` et `boss_zombie` retombent sur `ZombieHard.png` sans la surcharge.
+
+### Limites assumées
+
+Distributeurs de perks : tuile Dungeon (potion) de l'éditeur LDtk, aucune image dans le pack (décision de William en attente) ; `slash` et `insta_kill`/`double_points`/`nuke` sans image ; pas d'animation d'attaque (le moteur n'a pas d'état `Attack`) ;
+angles rentrants du dessus de mur approchés (le pack n'a pas d'angle concave) ; portes = barricades de bois (le pack n'a pas de porte vue de dessus). **Un build web qui copie `games/zombies/assets/` en entier embarquerait la surcharge locale d'un poste** (D161) :
+ne publier que depuis une copie propre.
+

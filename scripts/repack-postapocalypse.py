@@ -11,7 +11,7 @@ rotating weapon-visual sheet (4 identical rows: weapon sprite_config indexes
 0..3 must stay valid).
 
 For `zombies` only it also writes (all under games/zombies/assets, all gitignored): the boss sheet
-(`zombie_boss`), doors and windows (`door_h/v`, `window_h/v`), weapon and power-up ground icons,
+(`zombie_boss`, same sheet as `zombie_big`), doors and windows (`door_h/v`, `window_h/v`), weapon and power-up ground icons,
 player/enemy projectiles, the wall + floor atlas (`sprites/postapo/atlas_murs.png`, 40 tiles of
 16 px, layout of `map_ldtk::wall_art::wall_tile`), HUD icons (`sprites/postapo/hud/`) and the
 local HUD overlay `ui/hud.local.ron`. Only pack pixels are used (crop, paste, flip, rotate by 90
@@ -198,8 +198,10 @@ def write_overlay(game: str, path: Path, extra=()) -> None:
 # dessiné. Les cases du pack introuvables restent transparentes (voir les notes de l'appelant).
 # ---------------------------------------------------------------------------------------------
 
-# Le boss reprend la feuille de zombie_big, en plus grand (zombie_full garde l'échelle 1.4).
-ZOMBIES_ONLY_ENTITIES = {"zombie_boss": (2.0, ENTITIES["zombie_big"][1])}
+# Le boss reprend la feuille de zombie_big à la même échelle : son agrandissement et sa teinte viennent de
+# la donnée (`marker` de `ZombieShooter/Sprites/Zombie/boss_zombie_config.ron`, D66), donc les mêmes avec ou
+# sans le pack.
+ZOMBIES_ONLY_ENTITIES = {"zombie_boss": (1.4, ENTITIES["zombie_big"][1])}
 
 # Atlas des murs : bloc rouge de Roof_TileSet (colonnes 8..10, lignes 0..4) pour le dessus, face de
 # Brick-Wall_TileSet (tuiles 15 = bout gauche, 16 = milieu, 17 = bout droit) pour la face.

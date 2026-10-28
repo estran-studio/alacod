@@ -244,14 +244,15 @@ pub struct WallArt {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FloorArt {
     pub tiles: Vec<u32>,
-    /// Profondeur locale au niveau (sous les objets et les personnages, au-dessus du fond).
+    /// Profondeur locale au niveau : au-dessus du fond (0) et sous tout ce qui se pose au sol, halos des
+    /// ramassables compris (leur `z` est celui de leur porteur + 0,1).
     #[serde(default = "FloorArt::default_z")]
     pub z: f32,
 }
 
 impl FloorArt {
     fn default_z() -> f32 {
-        0.2
+        0.05
     }
 }
 
@@ -2309,7 +2310,7 @@ mod tests {
         let art = config.wall_art.as_ref().expect("wall_art posé");
         assert_eq!((art.tile, art.columns), (16, 8));
         let floor = art.floor.as_ref().expect("sol");
-        assert_eq!((floor.tiles.as_slice(), floor.z), (&[36, 37][..], 0.2));
+        assert_eq!((floor.tiles.as_slice(), floor.z), (&[36, 37][..], 0.05));
         assert_eq!(
             config.icons["juggernog"].image.as_deref(),
             Some("sprites/postapo/hud/juggernog.png")

@@ -71,10 +71,80 @@ Décisions à prendre (défaut entre parenthèses) : distributeurs de perks abse
 « emprunté » au tableau final / aucune image)  ; boss (Big agrandi et teinté par donnée / rien) ; build web public avec
 les images du pack (attend la confirmation écrite de l'auteur, décision 1 du § 0.3).
 
-### 1.4 Réestimation
+### 1.4 Réestimation (J1)
 
 Fiche : 2 j ; plan : 3 j. Après audit : **≈ 4 j** (J1 audit 0,5 · J2 surcharge étendue + `HudIcon.image` + intégration
 personnages/armes 1,25 · J3 fenêtres/portes/power-ups/halos/légende 1 · J4 atlas de murs + sol + captures + rapport 1,25).
 Risque : l'atlas de murs (36 tuiles dans un ordre fixe) à composer **à partir de tuiles du pack seulement**.
 
-(Les sections 2 « Après » et 3 « Preuves » sont ajoutées au fil des jalons.)
+## 2. Tableau après (J2–J3, 2026-10-28)
+
+Deux états sont mesurés, chacun avec ses captures (voir §4) : **surcharge locale** (le pack TheLazyStone installé par `scripts/repack-postapocalypse.py … zombies`, hors dépôt) et **repli public**
+(ce que voient la CI, les amis, un build web public : seulement les fichiers commités).
+
+| # | Classe | Avant | Après, avec le pack | Après, repli public | Preuve (captures) |
+|---|---|---|---|---|---|
+| 1 | Joueur | emprunté | **propre** : Character/Main (I 6, M 6, D 6 images), teinté par numéro de joueur | emprunté (blackHUNTERdev, partagé) + couleur par numéro | `4j_f00700`, `2j_f00200` |
+| 2 | Ombre | emprunté | emprunté (secondaire : le pack n'en a pas) | emprunté | — |
+| 3 | Armes portées | emprunté | **propre** : Pistol, Gun, Shotgun (mains + arme) ; `rifle` reste sur le fusil à pompe | emprunté | `4j_tir_f00120` |
+| 4 | Zombie, zombie coriace | emprunté | **propre** : Zombie_Small, Zombie_Axe (I 6, M 6–8, D 6, A non jouée) | emprunté | `4j_f00700`, `1j_f00650` |
+| 5 | Zombie brute | emprunté, licence inconnue | **propre** : Zombie_Big | `ZombieHard.png` (licence connue ; `Zombie2.png` retiré) | `1j_f00650` |
+| 6 | Boss | emprunté | **propre, dérivé du pack** : Zombie_Big, teinte chaude et échelle 1,5 **par donnée** (`marker`, `boss_zombie_config.ron`) | `ZombieHard.png` + même `marker` | — (non capturé : salle finale hors des scénarios joués) |
+| 7 | Projectiles | absent | **propre** : balle du joueur (Guns/Bullets ×3), crachat ennemi (Enemies/Shot ×2) | absent (carré teinté d'équipe, comme avant) | `4j_tir_f00120` |
+| 8 | Coup de mêlée (`slash`) | emprunté, licence inconnue | **inchangé** (le pack n'en a pas) : D162 | inchangé | — |
+| 9 | Armes murales / lâchées | emprunté | **propre** : icône Pistol / Gun / Shotgun + halo orange | emprunté + halo | `1j_f00100`, `4j_f00060` |
+| 10 | Power-ups | absent | 2 sur 5 **propres** (`max_ammo` ← caisse de munitions, `carpenter` ← mur de bois), halo vert ; `insta_kill`, `double_points`, `nuke` **absents** (gizmo, D162) | absent ×5 + halo | scénario jeté `/tmp` (captures hors dépôt) |
+| 11 | Distributeurs de perks | emprunté | **inchangé** (aucune image dans le pack) : D162, candidates à proposer à William | emprunté | `1j_f00200` |
+| 12 | Portes | emprunté | **propre** : barricades de bois à deux battants, `Idle` / `Open` / `Locked` (cadenas) | emprunté (tuile Dungeon, une seule image) | `4j_f00700`, `2j_f00200` |
+| 13 | Fenêtres | emprunté | **propre**, 4 états d'après les PV (`Idle`, `Damaged`, `Critical`, `Broken`) | emprunté + barre verte (comme avant) | `window_repair` (captures hors dépôt) |
+| 14 | Barricades | sans objet | sans objet | sans objet | — |
+| 15 | Murs | emprunté | **propre** : toit rouge (Roof_TileSet) + face de brique (Brick-Wall_TileSet), `wall_art` sur la couche `Walls` de **toutes** les cartes de zombies | emprunté (Dungeon / SunnyLand) | `4j_f00130`, `1j_f00100` |
+| 16 | Sol | emprunté / absent | **propre** : 4 tuiles de Background_Bleak-Yellow posées sous chaque case non murée | emprunté / fond uni (comme avant) | idem |
+| 17 | Mobilier de la fonderie | emprunté | **remplacé** : la couche de tuiles `Mobilier` (brique de mur Dungeon) est cachée, `wall_art` dessine les murs | emprunté | idem |
+| 18 | Props table/baril, portail | sans objet | sans objet | sans objet | — |
+| 19 | Repères d'auteur | visibles pour `CharacterSpawn` | **cachés** (`hide_markers`) | cachés | — |
+| 20 | HUD | absent (icônes) | **propre** : 4 icônes de perks (First-Aid-Kit, Canned-soup, Bullet-box, Canned-food) via `HudIcon.image` ; barre de vie inchangée | carrés de couleur + lettre (comme avant) | `1j_f00200` |
+| 21 | Lisibilité coop | absent | **fait** : `player_colors`, légende F7, halos, noms F6, `hide_markers` | **fait** (même données publiques) | `4j_legende_f00040`, `4j_f00700` |
+
+Classes principales avec le pack (joueur, zombies, boss, armes, projectiles, portes, fenêtres, murs, sol, HUD) : **aucune case « emprunté »**. Restent hors du pack, dites telles : ombre (secondaire), `slash`, distributeurs de perks,
+trois power-ups (D162) ; le moteur ne joue pas d'animation d'attaque (pas d'état `Attack`, ligne « A » du §1 vide par construction).
+Repli public : les classes 1–6, 9, 12, 13, 15–17 restent **empruntées** (l'état d'avant, avec `Zombie2.png` en moins), mais la lisibilité coop (21) et le halo (9, 10) sont aussi acquis sans le pack.
+
+## 3. Par point de la fiche
+
+| Point | Issue | Preuve |
+|---|---|---|
+| 1. Audit chiffré | fait (J1, relu par le coordinateur) | §1, commit `199ce4ac` |
+| 2. Sol et murs propres : `wall_art`, fenêtres, portes | fait avec la surcharge locale ; repli public inchangé | `wall_art.floor` + `hide_layers` (§91), tests `le_sol_couvre_les_cases_vides_et_seulement_elles`, `la_tuile_de_sol_ne_depend_que_de_la_position`, `l_etat_visuel_d_une_fenetre_suit_sa_sante` ; captures §4 |
+| 3. Joueur et ennemis propres, animés | fait avec la surcharge locale (I/M/D ; **A non jouée** : le moteur n'a pas d'état d'attaque) ; boss dérivé par donnée | captures §4 |
+| 4. Lisibilité coop : `player_colors`, `legend`, halos | fait, public | `repli-public_4j_legende_f00040`, `repli-public_4j_f00700` |
+| 5. Captures 1/2/4 joueurs | faites : `clone_solo`, `clone_duo`, `clone_quad`, `four_players_shooting`, `four_players_idle` ; **vidéo non faite** (J5 du plan : « captures et vidéo 60 s zombies ») | §4 |
+| `HudIcon` image (`Icons`, `Hearts`, `Counter`) | fait ; `Icons` vu en jeu (icône du Juggernog), `Hearts` et `Counter` non vus en jeu (zombies n'en a pas) mais testés (`a_heart_image_needs_every_state_it_draws`) | tests `crates/game/src/ui/hud.rs` |
+| Surcharge locale étendue (`hud.local.ron`, ids ajoutés) | fait ; lint vert avec et sans | fixtures `hud_local_overlay_missing_image`, `sprite_sheet_local_overlay` |
+
+## 4. Captures
+
+Sources : `tests/scenarios/{clone_solo,clone_duo,clone_quad,four_players_shooting,four_players_idle}.ron`, `play_scenario --capture … --at … --follow 0`, `ALACOD_MUTE=1`, binaire `.target-mac/debug/play_scenario`.
+
+- **Repli public** (commité) : `docs/captures/polissage-zombies-visuel/repli-public_<n>j_f<frame>.png` (1 joueur : f100, f200, f650 ; 2 : f60, f200, f600 ; 4 : f60, f130, f700 ; tir à 4 : f120 ; légende F7 à 4 : f40) et
+  `avant-origin-main_4j_idle_f00590.png` (état de `origin/main` avant le lot).
+- **Surcharge locale** (hors dépôt, décision de William du 2026-10-28 : rien de payant dans le dépôt public, même en capture) : `~/orca/workspaces/alacod/captures/polissage-zombies-visuel/surcharge-locale_<n>j_f<frame>.png`
+  (mêmes scénarios et frames) et `avant-surcharge-locale-ancienne_4j_idle_f00590.png` (l'ancienne surcharge de `main`, sans murs ni sol). Elles iront dans le dépôt privé d'assets quand il existera.
+- Captures d'états rares (fenêtre `window_repair` f300–545, power-ups d'un scénario jeté dérivé de `clone_solo`) : `/tmp/b1/after/` (non conservées).
+
+## 5. Ce qui reste (estimation)
+
+| Reste | Estimation |
+|---|---|
+| Distributeurs de perks : 1–2 candidates CC0 / CC BY avec lien, licence, capture (décision de William en fin de semaine) | 0,5 j |
+| Images pour `insta_kill`, `double_points`, `nuke` et pour `slash` (aucune dans le pack) | 0,5 j une fois choisies |
+| Vidéo de 60 s zombies, repli public et surcharge locale (J5 du plan) | 0,5 j |
+| D161 : exclure la surcharge locale des trois copies d'assets d'un build web (`build-web-games.mjs`, `embed-game-content.rs`, `Makefile`) ; **à faire avant tout build web** d'un poste qui a le pack | 0,25 j |
+| Portes vues de dessus, fenêtre d'un mur vertical, troisième planche, sol varié (D163) : sans pack mieux adapté, rien | — |
+| Boss : capture dans la salle finale (marqueur D66 vu seulement dans le code) | 0,25 j |
+| Dépôt privé d'assets : reprendre l'arborescence du §91 de `docs/conventions.md` | à faire par le coordinateur |
+
+## 6. Preuves d'exécution
+
+(Transcripts des commandes de vérification : voir le bas de ce fichier.)
+
