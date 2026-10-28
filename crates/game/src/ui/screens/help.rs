@@ -1,4 +1,4 @@
-//! Écran d'aide des touches, ouvert depuis la pause (« Touches ») : S1-1, `docs/conventions.md` §91.
+//! Écran d'aide des touches, ouvert depuis la pause (« Touches ») : S1-1, `docs/conventions.md` §93.
 //!
 //! Le texte est **lu dans la table des liaisons** (`character::control::get_input_map`, clavier,
 //! souris et manette) et dans les tables de navigation des écrans (`screens::input`) : une liaison

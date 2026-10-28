@@ -7941,7 +7941,7 @@ la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `
 - **Tests** : `crates/content/tests/edit.rs` (jeu de travail = copie du gabarit dans un dépôt git temporaire : formatage conservé, types, chemins inconnus/ambigus, lint rouge restauré, erreurs préexistantes, commit du seul fichier, undo), `crates/content/tests/remote_script.rs` (faux jeu JSON-RPC :
   codes de sortie, `--json`, scripts, `step`), unitaires de `edit.rs` et `script.rs`.
 
-## 91. Manette jouable, menus et aide des touches (S1-1, `docs/taches/polissage-manette.md`, voie b0)
+## 93. Manette jouable, menus et aide des touches (S1-1, `docs/taches/polissage-manette.md`, voie b0)
 
 Présentation et lecture des périphériques seulement : **aucun bit d'input ne change** (`INPUT_*`), **aucune trace ne bouge**
 (`make test_scenarios` sans `BLESS`). La table des liaisons est **unique** : `character::control::get_input_map`.
