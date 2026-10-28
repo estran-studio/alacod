@@ -244,6 +244,11 @@ pub struct WallArt {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FloorArt {
     pub tiles: Vec<u32>,
+    /// Couche de la carte qui dit où est le sol : seules les cases où elle a une tuile (couche de tuiles ou
+    /// d'auto-tuiles) ou une valeur non nulle (IntGrid) reçoivent le sol, ce qui laisse le hors-salle vide
+    /// (`Sol` pour la fonderie). Absente d'un niveau, ou non déclarée : toute case non murée reçoit le sol.
+    #[serde(default)]
+    pub mask_layer: Option<String>,
     /// Profondeur locale au niveau : au-dessus du fond (0) et sous tout ce qui se pose au sol, halos des
     /// ramassables compris (leur `z` est celui de leur porteur + 0,1).
     #[serde(default = "FloorArt::default_z")]

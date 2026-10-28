@@ -489,7 +489,7 @@ def hud_icons(pack: Path, assets: Path) -> None:
         "// scripts/repack-postapocalypse.py, gitignoré. Images dans sprites/postapo/.",
         "(",
         '    wall_art: Some((layer: "Walls", atlas: "sprites/postapo/atlas_murs.png", tile: 16, columns: 8, '
-        'hide_layers: ["LevelConnection", "Walls", "Sol", "Mobilier"], floor: Some((tiles: [36, 37, 38, 39])))),',
+        'hide_layers: ["LevelConnection", "Walls", "Sol", "Mobilier"], floor: Some((tiles: [36, 37, 38, 39], mask_layer: Some("Sol"))))),',
         "    icons: {",
     ]
     for key, (_, color, label) in HUD_ICONS.items():

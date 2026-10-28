@@ -19,6 +19,8 @@
 //! | `32..36` | face : `32 + (ouest non mur) + 2 × (est non mur)` |
 //! | `36..` | tuiles annexes (`wall_art.cells` : une tuile fixe par valeur d'une autre couche IntGrid ; `isaac` : `36` = piques de `Surfaces`) |
 
+use std::collections::BTreeSet;
+
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 use game::ui::hud::{HudConfig, HudConfigHandle, WallArt};
@@ -90,20 +92,51 @@ pub fn floor_tile(x: i32, y: i32, tiles: &[u32]) -> Option<u32> {
 }
 
 /// Cases `(colonne, ligne)` qui ne sont **pas** des murs de `csv` (largeur `w`, hauteur `h`) avec leur tuile de
-/// sol : le sol posé sous les cases vides de la couche des murs (`WallArt::floor`).
-pub fn floor_cells(csv: &[i32], w: i32, h: i32, tiles: &[u32]) -> Vec<((i32, i32), u32)> {
+/// sol : le sol posé sous les cases vides de la couche des murs (`WallArt::floor`). `mask` : seules ces cases
+/// reçoivent le sol (`FloorArt::mask_layer`, le sol que la carte a peint) ; `None` : toutes les cases vides.
+pub fn floor_cells(
+    csv: &[i32],
+    w: i32,
+    h: i32,
+    tiles: &[u32],
+    mask: Option<&BTreeSet<(i32, i32)>>,
+) -> Vec<((i32, i32), u32)> {
     if w <= 0 || h <= 0 || csv.len() != (w as usize) * (h as usize) {
         return Vec::new();
     }
     let mut cells = Vec::new();
     for y in 0..h {
         for x in 0..w {
-            if csv[(y * w + x) as usize] == 0 {
+            if csv[(y * w + x) as usize] == 0 && mask.is_none_or(|mask| mask.contains(&(x, y))) {
                 if let Some(tile) = floor_tile(x, y, tiles) {
                     cells.push(((x, y), tile));
                 }
             }
         }
+    }
+    cells
+}
+
+/// Cases `(colonne, ligne)` que couvre une couche : tuiles (`px` en pixels depuis le coin haut gauche de la
+/// couche, cases de `grid` pixels) ou, pour un IntGrid (`csv` de `w × h` cases), valeurs non nulles.
+pub fn layer_cells(
+    tiles: impl IntoIterator<Item = (i32, i32)>,
+    grid: i32,
+    csv: &[i32],
+    w: i32,
+) -> BTreeSet<(i32, i32)> {
+    let grid = grid.max(1);
+    let mut cells: BTreeSet<(i32, i32)> = tiles
+        .into_iter()
+        .map(|(x, y)| (x.div_euclid(grid), y.div_euclid(grid)))
+        .collect();
+    if w > 0 {
+        cells.extend(
+            csv.iter()
+                .enumerate()
+                .filter(|(_, v)| **v != 0)
+                .map(|(i, _)| ((i as i32) % w, (i as i32) / w)),
+        );
     }
     cells
 }
@@ -176,6 +209,30 @@ pub fn draw_walls(
             ));
         }
         let mut cells = Vec::new();
+        // Sol peint par la carte (`FloorArt::mask_layer`) : lu avant la boucle, la couche peut suivre `Walls`.
+        let floor_mask = art
+            .floor
+            .as_ref()
+            .and_then(|floor| floor.mask_layer.as_deref())
+            .and_then(|name| {
+                level
+                    .layer_instances
+                    .iter()
+                    .flatten()
+                    .find(|layer| layer.identifier == name)
+            })
+            .map(|layer| {
+                layer_cells(
+                    layer
+                        .grid_tiles
+                        .iter()
+                        .chain(&layer.auto_layer_tiles)
+                        .map(|tile| (tile.px.x, tile.px.y)),
+                    layer.grid_size,
+                    &layer.int_grid_csv,
+                    layer.c_wid,
+                )
+            });
         for layer in level.layer_instances.iter().flatten() {
             let size = layer.grid_size as f32;
             // Origine du niveau en bas à gauche, y vers le haut : la ligne 0 de l'IntGrid est en haut.
@@ -191,9 +248,13 @@ pub fn draw_walls(
                     cells.push((tile, place(x, y, art.z), size));
                 }
                 if let Some(floor) = &art.floor {
-                    for ((x, y), tile) in
-                        floor_cells(&layer.int_grid_csv, layer.c_wid, layer.c_hei, &floor.tiles)
-                    {
+                    for ((x, y), tile) in floor_cells(
+                        &layer.int_grid_csv,
+                        layer.c_wid,
+                        layer.c_hei,
+                        &floor.tiles,
+                        floor_mask.as_ref(),
+                    ) {
                         cells.push((tile, place(x, y, floor.z), size));
                     }
                 }
@@ -335,15 +396,39 @@ mod tests {
     #[test]
     fn le_sol_couvre_les_cases_vides_et_seulement_elles() {
         let (csv, w, h) = grid(ROOM);
-        let floor = floor_cells(&csv, w, h, &[36, 37, 38, 39]);
+        let floor = floor_cells(&csv, w, h, &[36, 37, 38, 39], None);
         let walls = wall_cells(&csv, w, h);
         assert_eq!(floor.len() + walls.len(), (w * h) as usize);
         assert!(floor.iter().all(|(_, t)| (36..40).contains(t)));
         assert!(floor.iter().all(|(p, _)| walls.iter().all(|(q, _)| p != q)));
         // Une seule variante : toutes les cases la prennent ; aucune variante : pas de sol.
-        assert!(floor_cells(&csv, w, h, &[7]).iter().all(|(_, t)| *t == 7));
-        assert!(floor_cells(&csv, w, h, &[]).is_empty());
-        assert!(floor_cells(&[1, 0], 3, 1, &[7]).is_empty());
+        assert!(floor_cells(&csv, w, h, &[7], None)
+            .iter()
+            .all(|(_, t)| *t == 7));
+        assert!(floor_cells(&csv, w, h, &[], None).is_empty());
+        assert!(floor_cells(&[1, 0], 3, 1, &[7], None).is_empty());
+    }
+
+    /// Le hors-salle (cases vides que la couche de sol de la carte n'a pas peintes) n'a pas de sol.
+    #[test]
+    fn le_sol_peint_par_la_carte_laisse_le_hors_salle_vide() {
+        // Salle 3 x 3 de sol dans une grille 6 x 3 : les trois colonnes de droite sont du vide.
+        let (csv, w, h) = (vec![0; 18], 6, 3);
+        // Couche de tuiles de 16 px : tuiles aux cases (0..3, 0..3).
+        let painted = (0..3).flat_map(|x| (0..3).map(move |y| (x * 16, y * 16)));
+        let mask = layer_cells(painted, 16, &[], 0);
+        let floor = floor_cells(&csv, w, h, &[36], Some(&mask));
+        assert_eq!(floor.len(), 9);
+        assert!(floor.iter().all(|((x, _), _)| *x < 3));
+        // Un mur dans la zone peinte reste sans sol ; un IntGrid non nul vaut une case peinte.
+        let mut with_wall = csv.clone();
+        with_wall[0] = 1;
+        assert_eq!(floor_cells(&with_wall, w, h, &[36], Some(&mask)).len(), 8);
+        let int_mask = layer_cells([], 16, &[0, 2, 0, 0, 0, 5], 3);
+        assert_eq!(
+            int_mask.into_iter().collect::<Vec<_>>(),
+            vec![(1, 0), (2, 1)]
+        );
     }
 
     #[test]

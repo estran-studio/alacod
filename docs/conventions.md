@@ -248,11 +248,11 @@ personnage, `sprite_config.name` d'une arme à distance, `slash` pour l'effet de
 ```
 **Surcharge locale** (pack d'images non redistribuable) : un `sprites/sprites.local.ron` à côté de la
 table, même format, **gitignoré** (`games/*/assets/sprites/*.local.ron`), remplace les entrées de même
-id et **peut en ajouter** (S1-8, §91 : `door_v`, `window_h`, `powerup/max_ammo`… : pour ces classes, l'absence
+id et **peut en ajouter** (S1-8, §92 : `door_v`, `window_h`, `powerup/max_ammo`… : pour ces classes, l'absence
 d'entrée publique est elle-même le repli, le moteur garde le rendu d'avant). Sans lui (CI, autres postes,
 amis), les sprites publics. Seul usage : le pack post-apo TheLazyStone de zombies et throne, écrit avec ses
 PNG (`sprites/postapo/`, gitignoré) par `scripts/repack-postapocalypse.py` ; fixture
-`sprite_sheet_local_overlay`. Le HUD a la même surcharge (`ui/hud.local.ron`, §91).
+`sprite_sheet_local_overlay`. Le HUD a la même surcharge (`ui/hud.local.ron`, §92).
 Feuilles, animations et images sont rangées par entité sous `sprites/` : `characters/` (joueur,
 ombre), `weapons/`, `enemies/`, `effects/`. Un personnage sans entrée n'a pas de sprite (les
 personnages de laboratoire du testbed). Lint : fichiers d'une entrée présents (animation,
@@ -7942,7 +7942,7 @@ la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `
 - **Tests** : `crates/content/tests/edit.rs` (jeu de travail = copie du gabarit dans un dépôt git temporaire : formatage conservé, types, chemins inconnus/ambigus, lint rouge restauré, erreurs préexistantes, commit du seul fichier, undo), `crates/content/tests/remote_script.rs` (faux jeu JSON-RPC :
   codes de sortie, `--json`, scripts, `step`), unitaires de `edit.rs` et `script.rs`.
 
-## 91. Zombies visuel complet : surcharge locale étendue, sol de `wall_art`, états de fenêtre, lisibilité coop (S1-8)
+## 92. Zombies visuel complet : surcharge locale étendue, sol de `wall_art`, états de fenêtre, lisibilité coop (S1-8)
 
 Lot `polissage-zombies-visuel` (`docs/taches/polissage-zombies-visuel.md`, rapport `docs/taches/rapports/polissage-zombies-visuel.md` : audit classe × état
 avant/après). **Présentation seule** : rien dans `GgrsSchedule`, aucun état rollback, aucune trace ne bouge. Le dépôt est public et le pack TheLazyStone « Post-Apocalypse »
@@ -7968,8 +7968,11 @@ Sans ces fichiers (CI, amis, build web public), le jeu lit les fichiers commité
   (`hud : icône « id » : image « … » absente`, fixture `hud_local_overlay_missing_image`).
 - **`ui/hud.local.ron`** (`HudOverlay`, lu par `HudConfigLoader`, qui remplace `RonAssetPlugin<HudConfig>`) : natif seulement (le web ne cherche pas un fichier absent du site) ; absence silencieuse ; présence enregistrée comme
   dépendance (rechargement à chaud). Le lint lit les deux fichiers avec les options RON du chargeur (`Some` implicite, `content::ui::hud_ron_options`).
-- **`wall_art.floor`** (`FloorArt { tiles, z }`, `map_ldtk::wall_art::floor_cells`) : une tuile de la feuille de `wall_art` sous chaque case **non murée** de la couche `Walls`, choisie par une fonction entière de la case
+- **`wall_art.floor`** (`FloorArt { tiles, mask_layer, z }`, `map_ldtk::wall_art::floor_cells`) : une tuile de la feuille de `wall_art` sous chaque case **non murée** de la couche `Walls`, choisie par une fonction entière de la case
   (`floor_tile`, aucun aléa) ; `z` 0,05 (sous les halos et les objets du monde). Les tuiles annexes prolongent la feuille au-delà des 36 de murs (`36..` : sol).
+  **`mask_layer`** (`Some("Sol")` pour zombies) : seules les cases que cette couche de la carte couvre (tuile, auto-tuile ou IntGrid non nul, `layer_cells`) reçoivent le sol, donc le **hors-salle** des gabarits de la fonderie
+  (cases vides que `Sol` n'a pas peintes : l'extérieur des murs) reste sans sol, comme avant. Un niveau qui n'a pas cette couche (`test_map`, `avant_poste`, `arene_vide`) reçoit le sol sur toute case non murée : ces cases
+  sont franchissables (seuls les murs de `Walls` ont un collider), un joueur peut y marcher, et le fond du niveau y serait le seul sol.
   `hide_layers` cache aussi les couches de tuiles de LDtk que l'art remplace (`Walls`, `Sol`, `Mobilier` pour la fonderie).
 - **Fenêtres** (`world_sprites::attach_window_sprites`, `sync_window_sprites`, `window_state`) : une fenêtre a une image d'état `window_h` (tuile 16 × 32, entité `WindowHorizontal`) ou `window_v` (32 × 16), cases `Idle` (intacte),
   `Damaged`, `Critical`, `Broken` d'après `WindowHealth` (dérivé à chaque `Update`, donc juste après un rollback). Sans entrée, la fenêtre garde sa tuile et sa barre de vie (comme avant).

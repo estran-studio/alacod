@@ -99,7 +99,7 @@ Deux états sont mesurés, chacun avec ses captures (voir §4) : **surcharge loc
 | 13 | Fenêtres | emprunté | **propre**, 4 états d'après les PV (`Idle`, `Damaged`, `Critical`, `Broken`) | emprunté + barre verte (comme avant) | `window_repair` (captures hors dépôt) |
 | 14 | Barricades | sans objet | sans objet | sans objet | — |
 | 15 | Murs | emprunté | **propre** : toit rouge (Roof_TileSet) + face de brique (Brick-Wall_TileSet), `wall_art` sur la couche `Walls` de **toutes** les cartes de zombies | emprunté (Dungeon / SunnyLand) | `4j_f00130`, `1j_f00100` |
-| 16 | Sol | emprunté / absent | **propre** : 4 tuiles de Background_Bleak-Yellow posées sous chaque case non murée | emprunté / fond uni (comme avant) | idem |
+| 16 | Sol | emprunté / absent | **propre** : 4 tuiles de Background_Bleak-Yellow posées sous le sol que la carte peint (`mask_layer: Sol` ; toute case non murée pour les cartes sans couche `Sol`, voir « Limite du sol » ci-dessous) | emprunté / fond uni (comme avant) | idem |
 | 17 | Mobilier de la fonderie | emprunté | **remplacé** : la couche de tuiles `Mobilier` (brique de mur Dungeon) est cachée, `wall_art` dessine les murs | emprunté | idem |
 | 18 | Props table/baril, portail | sans objet | sans objet | sans objet | — |
 | 19 | Repères d'auteur | visibles pour `CharacterSpawn` | **cachés** (`hide_markers`) | cachés | — |
@@ -110,12 +110,22 @@ Classes principales avec le pack (joueur, zombies, boss, armes, projectiles, por
 trois power-ups (D162) ; le moteur ne joue pas d'animation d'attaque (pas d'état `Attack`, ligne « A » du §1 vide par construction).
 Repli public : les classes 1–6, 9, 12, 13, 15–17 restent **empruntées** (l'état d'avant, avec `Zombie2.png` en moins), mais la lisibilité coop (21) et le halo (9, 10) sont aussi acquis sans le pack.
 
+### Limite du sol (retouche de relecture, 2026-10-28)
+
+Constat du coordinateur : avec la surcharge, le sol couvrait aussi le hors-salle (`surcharge-locale_4j_f00700.png`, dallage jusqu'aux bords de l'écran). Deux cas, mesurés (`DBG` jetable dans `draw_walls`, retiré) :
+
+- **`la_fonderie`** (le jeu : `start_map: floor:la_fonderie`) : les niveaux assemblés gardent leur couche `Sol` (441 à 1 067 tuiles par niveau) ; `FloorArt::mask_layer: Some("Sol")` limite le sol aux cases qu'elle peint. Capture
+  `surcharge-locale_1j_fonderie_bot_f00300.png` (`la_fonderie_demo`) : sol dans les salles, **extérieur resté sombre**. Test `le_sol_peint_par_la_carte_laisse_le_hors_salle_vide`.
+- **`test_map`** (scénarios `clone_*`, `four_players_*`, dont la capture citée), `avant_poste`, `arene_vide` : aucune couche `Sol` (le niveau n'a que `Entities`, `LevelConnection`, `Walls`). Le « hors-salle » n'y est pas distinguable d'une salle : la grille de `test_map` est ouverte
+  (lignes entières sans mur) et **ces cases sont franchissables** (seuls les murs de `Walls` ont un collider) ; le sol reste donc sous toute case non murée, sinon un joueur marcherait sur le fond du niveau. **Voulu** : c'est la carte de test, pas celle du jeu.
+  Le dallage étendu de la capture citée est donc conservé pour ces cartes ; les captures `*_4j_f00700`, `*_1j_*`, `*_2j_*` y sont identiques (octet pour octet, sauf `1j_f00650`, zombies non déterministes à l'image).
+
 ## 3. Par point de la fiche
 
 | Point | Issue | Preuve |
 |---|---|---|
 | 1. Audit chiffré | fait (J1, relu par le coordinateur) | §1, commit `199ce4ac` |
-| 2. Sol et murs propres : `wall_art`, fenêtres, portes | fait avec la surcharge locale ; repli public inchangé | `wall_art.floor` + `hide_layers` (§91), tests `le_sol_couvre_les_cases_vides_et_seulement_elles`, `la_tuile_de_sol_ne_depend_que_de_la_position`, `l_etat_visuel_d_une_fenetre_suit_sa_sante` ; captures §4 |
+| 2. Sol et murs propres : `wall_art`, fenêtres, portes | fait avec la surcharge locale ; repli public inchangé | `wall_art.floor` + `hide_layers` (§92), tests `le_sol_couvre_les_cases_vides_et_seulement_elles`, `la_tuile_de_sol_ne_depend_que_de_la_position`, `l_etat_visuel_d_une_fenetre_suit_sa_sante` ; captures §4 |
 | 3. Joueur et ennemis propres, animés | fait avec la surcharge locale (I/M/D ; **A non jouée** : le moteur n'a pas d'état d'attaque) ; boss dérivé par donnée | captures §4 |
 | 4. Lisibilité coop : `player_colors`, `legend`, halos | fait, public | `repli-public_4j_legende_f00040`, `repli-public_4j_f00700` |
 | 5. Captures 1/2/4 joueurs | faites : `clone_solo`, `clone_duo`, `clone_quad`, `four_players_shooting`, `four_players_idle` ; **vidéo non faite** (J5 du plan : « captures et vidéo 60 s zombies ») | §4 |
@@ -128,7 +138,7 @@ Sources : `tests/scenarios/{clone_solo,clone_duo,clone_quad,four_players_shootin
 
 - **Repli public** (commité) : `docs/captures/polissage-zombies-visuel/repli-public_<n>j_f<frame>.png` (1 joueur : f100, f200, f650 ; 2 : f60, f200, f600 ; 4 : f60, f130, f700 ; tir à 4 : f120 ; légende F7 à 4 : f40) et
   `avant-origin-main_4j_idle_f00590.png` (état de `origin/main` avant le lot).
-- **Surcharge locale** (hors dépôt, décision de William du 2026-10-28 : rien de payant dans le dépôt public, même en capture) : `~/orca/workspaces/alacod/captures/polissage-zombies-visuel/surcharge-locale_<n>j_f<frame>.png`
+- **Surcharge locale** (hors dépôt ; refaites après la retouche du sol : les 11 de `clone_*`/`four_players_*`, identiques sauf `1j_f00650` ; **nouvelles** : `surcharge-locale_1j_fonderie_bot_f00150/f00300/f00900.png`, le seul changement visible), décision de William du 2026-10-28 : rien de payant dans le dépôt public, même en capture) : `~/orca/workspaces/alacod/captures/polissage-zombies-visuel/surcharge-locale_<n>j_f<frame>.png`
   (mêmes scénarios et frames) et `avant-surcharge-locale-ancienne_4j_idle_f00590.png` (l'ancienne surcharge de `main`, sans murs ni sol). Elles iront dans le dépôt privé d'assets quand il existera.
 - Captures d'états rares (fenêtre `window_repair` f300–545, power-ups d'un scénario jeté dérivé de `clone_solo`) : `/tmp/b1/after/` (non conservées).
 
@@ -142,7 +152,7 @@ Sources : `tests/scenarios/{clone_solo,clone_duo,clone_quad,four_players_shootin
 | D161 : exclure la surcharge locale des trois copies d'assets d'un build web (`build-web-games.mjs`, `embed-game-content.rs`, `Makefile`) ; **à faire avant tout build web** d'un poste qui a le pack | 0,25 j |
 | Portes vues de dessus, fenêtre d'un mur vertical, troisième planche, sol varié (D163) : sans pack mieux adapté, rien | — |
 | Boss : capture dans la salle finale (marqueur D66 vu seulement dans le code) | 0,25 j |
-| Dépôt privé d'assets : reprendre l'arborescence du §91 de `docs/conventions.md` | à faire par le coordinateur |
+| Dépôt privé d'assets : reprendre l'arborescence du §92 de `docs/conventions.md` | à faire par le coordinateur |
 
 ## 6. Preuves d'exécution
 

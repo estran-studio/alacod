@@ -800,7 +800,7 @@ L'écran de fin (`ui/game_over.rs`) affiche le résumé de la run et deux bouton
 
 #### Surcharge locale du HUD (S1-8)
 
-`games/<jeu>/assets/ui/hud.local.ron` (gitignoré, `docs/conventions.md` §91) remplace `wall_art` et ajoute des `icons` (avec `image`) sur `hud.ron`, pour un pack d'images non redistribuable ; sans lui, le HUD public est lu tel quel.
+`games/<jeu>/assets/ui/hud.local.ron` (gitignoré, `docs/conventions.md` §92) remplace `wall_art` et ajoute des `icons` (avec `image`) sur `hud.ron`, pour un pack d'images non redistribuable ; sans lui, le HUD public est lu tel quel.
 
 #### Rechargement à chaud
 
