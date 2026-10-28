@@ -1,0 +1,45 @@
+// X-4b (docs/conventions.md §91) : personnage joueur de l'atlas importé `fantassin-de-ligne`
+// (`sprites/fantassin-de-ligne/`, `alacod import-sprite`, huit directions, dix clips réduits en un PNG).
+// Copie de `boussole` (mêmes déplacements) avec une arme qui tire : la pose `Shoot` (clip `epauler`)
+// s'affiche quand elle tire. Utilisé par le scénario `sprite_import_fantassin` ; aucun autre n'y touche.
+(
+    movement: (
+        acceleration: "3000.0",
+        max_speed: "150.0",
+        deceleration: "3000.0",
+        sprint_multiplier: "2.0",
+        sprint_acceleration_per_frame: "0.1",
+        sprint_deceleration_per_frame: "0.2",
+
+        dash_distance: "64.0",
+        dash_duration_frames: 8,
+        dash_cooldown_frames: 24,
+        dash_iframes: 6,
+        dash_buffer_frames: 8,
+    ),
+
+    asset_name_ref: "fantassin-de-ligne",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "100.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: { "body": "" }),
+        "2": (layers: { "body": "" }),
+    },
+
+    weapon_slots: 1,
+    starting_weapons: ["machine_gun"],
+)

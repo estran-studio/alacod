@@ -1,0 +1,64 @@
+// X-4b (docs/conventions.md §91) : le fantassin importé par `alacod import-sprite` (atlas réduit de dix clips, huit
+// directions, `sprites/fantassin-de-ligne/`) joue ses trois poses dans les huit directions, dans l'ordre de la planche
+// (E, NE, N, NW, W, SW, S, SE). Présentation seule : la simulation n'a pas de planche, la trace ne dépend que des inputs.
+// La mitrailleuse reçoit un grand chargeur (`weapon_overrides`) : onze tirs par direction, sans rechargement.
+//
+// À regarder : trois temps, le sprite (32 unités de haut) regarde la visée.
+// f10-250 `Idle` : le fantassin immobile tourne sur place (boucle `idle`, 4 images/s), 30 frames par direction, E f40, NE f70, N f100,
+//   NW f130, W f160, SW f190, S f220, SE f250.
+// f250-490 `Run` : il marche dans la direction visée (boucle `marche`, 8 images/s), jambes animées, même ordre, fins f280…f490.
+// f490-1258 `Shoot` : 96 frames par direction. Fire tenu 66 frames (un tir toutes les 6 frames) : le clip `epauler` (8 images à
+//   8 images/s, 60 frames) se joue en entier une fois, dès le premier tir, puis garde sa dernière image jusqu'au dernier tir ;
+//   la pause de 30 frames relâche la pose (20 frames après le dernier tir) : le fantassin revient à `Idle` une dizaine de frames avant la
+//   direction suivante. Débuts de tir f490, f586, f682, f778, f874, f970, f1066, f1162 ; fins de tir f556, f652, f748, f844, f940, f1036, f1132, f1228.
+Scenario(
+    game: "testbed",
+    map: "testbed/floor_vide_a.ldtk",
+    frames: 1270,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [
+        (weapon: "machine_gun", mag_size: 120, mag_limit: 2, ammo_type: Balle),
+    ],
+    players: [
+        (
+            character: "fantassin-de-ligne",
+            inputs: [
+                (from: 10, to: 40, buttons: [], pan: (100, 0)),
+                (from: 40, to: 70, buttons: [], pan: (100, 100)),
+                (from: 70, to: 100, buttons: [], pan: (0, 100)),
+                (from: 100, to: 130, buttons: [], pan: (-100, 100)),
+                (from: 130, to: 160, buttons: [], pan: (-100, 0)),
+                (from: 160, to: 190, buttons: [], pan: (-100, -100)),
+                (from: 190, to: 220, buttons: [], pan: (0, -100)),
+                (from: 220, to: 250, buttons: [], pan: (100, -100)),
+                (from: 250, to: 280, buttons: [Right], pan: (100, 0)),
+                (from: 280, to: 310, buttons: [Right, Up], pan: (100, 100)),
+                (from: 310, to: 340, buttons: [Up], pan: (0, 100)),
+                (from: 340, to: 370, buttons: [Left, Up], pan: (-100, 100)),
+                (from: 370, to: 400, buttons: [Left], pan: (-100, 0)),
+                (from: 400, to: 430, buttons: [Left, Down], pan: (-100, -100)),
+                (from: 430, to: 460, buttons: [Down], pan: (0, -100)),
+                (from: 460, to: 490, buttons: [Right, Down], pan: (100, -100)),
+                (from: 490, to: 556, buttons: [Fire], pan: (100, 0)),
+                (from: 556, to: 586, buttons: [], pan: (100, 0)),
+                (from: 586, to: 652, buttons: [Fire], pan: (100, 100)),
+                (from: 652, to: 682, buttons: [], pan: (100, 100)),
+                (from: 682, to: 748, buttons: [Fire], pan: (0, 100)),
+                (from: 748, to: 778, buttons: [], pan: (0, 100)),
+                (from: 778, to: 844, buttons: [Fire], pan: (-100, 100)),
+                (from: 844, to: 874, buttons: [], pan: (-100, 100)),
+                (from: 874, to: 940, buttons: [Fire], pan: (-100, 0)),
+                (from: 940, to: 970, buttons: [], pan: (-100, 0)),
+                (from: 970, to: 1036, buttons: [Fire], pan: (-100, -100)),
+                (from: 1036, to: 1066, buttons: [], pan: (-100, -100)),
+                (from: 1066, to: 1132, buttons: [Fire], pan: (0, -100)),
+                (from: 1132, to: 1162, buttons: [], pan: (0, -100)),
+                (from: 1162, to: 1228, buttons: [Fire], pan: (100, -100)),
+                (from: 1228, to: 1258, buttons: [], pan: (100, -100)),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 1265),
+    ],
+)
