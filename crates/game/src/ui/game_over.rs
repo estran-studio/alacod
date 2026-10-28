@@ -117,9 +117,34 @@ fn run_summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
     }
 }
 
+/// Secondes pendant lesquelles la manette n'agit pas sur l'écran de fin : A et B y valident, mais
+/// ils servent aussi à jouer (bombe, mêlée) et la partie peut finir pendant qu'on les tient.
+const GAMEPAD_GRACE_SECONDS: f32 = 0.8;
+
+/// La demande posée par la manette sur l'écran de fin : A (Sud) rejoue, B (Est) retourne au salon,
+/// une fois le délai passé ; A l'emporte si les deux sont pressés ensemble.
+fn gamepad_request(
+    replay: RunRequest,
+    south_pressed: bool,
+    east_pressed: bool,
+    shown_for: f32,
+) -> Option<RunRequest> {
+    if shown_for < GAMEPAD_GRACE_SECONDS {
+        return None;
+    }
+    if south_pressed {
+        Some(replay)
+    } else if east_pressed {
+        Some(RunRequest::ToLobby)
+    } else {
+        None
+    }
+}
+
 /// Bouton et touche `R` : les deux posent `RunRequest::Restart` (en p2p, redirigé vers le
 /// lobby par `apply_run_request_system` — voir sa doc et celle de `RunRequest::Restart`).
-/// Bouton « Lobby » (T2.12) : `RunRequest::ToLobby`.
+/// Bouton « Lobby » (T2.12) : `RunRequest::ToLobby`. Manette : A rejoue, B va au lobby
+/// ([`gamepad_request`]).
 /// La touche `R` ne compte que si l'écran de fin est affiché : c'est aussi la touche de
 /// rechargement, et ce système tourne pendant toute la partie (`InGame`) — avant la revue
 /// M0 (R5), recharger abandonnait la partie et la relançait.
@@ -129,6 +154,9 @@ fn run_summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
 fn button_system(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
+    time: Option<Res<Time<Real>>>,
+    mut shown_for: Local<f32>,
     screen: Query<(), With<GameOverUiRoot>>,
     interaction_query: Query<(&Interaction, &UiId), Changed<Interaction>>,
     hub: Option<Res<crate::hub::HubSession>>,
@@ -139,8 +167,24 @@ fn button_system(
     } else {
         RunRequest::Restart
     };
+    if screen.is_empty() {
+        *shown_for = 0.0;
+    } else {
+        *shown_for += time.map_or(0.0, |time| time.delta_secs());
+    }
     if keyboard.just_pressed(KeyCode::KeyR) && !screen.is_empty() {
         commands.insert_resource(replay);
+    }
+    let pressed = |button| gamepads.iter().any(|gamepad| gamepad.just_pressed(button));
+    if !screen.is_empty() {
+        if let Some(request) = gamepad_request(
+            replay,
+            pressed(GamepadButton::South),
+            pressed(GamepadButton::East),
+            *shown_for,
+        ) {
+            commands.insert_resource(request);
+        }
     }
 
     for (interaction, id) in &interaction_query {
@@ -196,5 +240,25 @@ mod tests {
     fn r_ne_relance_que_sur_l_ecran_de_fin() {
         assert_eq!(press_r(false), None);
         assert_eq!(press_r(true), Some(RunRequest::Restart));
+    }
+
+    /// A rejoue, B retourne au salon, mais pas dans la seconde où l'écran apparaît : un joueur qui
+    /// tient B (mêlée) ou A (bombe) quand la partie finit ne quitte pas sans le vouloir.
+    #[test]
+    fn la_manette_attend_avant_de_valider_la_fin() {
+        let replay = RunRequest::Restart;
+        assert_eq!(gamepad_request(replay, true, false, 0.2), None);
+        assert_eq!(gamepad_request(replay, false, true, 0.2), None);
+        assert_eq!(gamepad_request(replay, true, false, 1.0), Some(replay));
+        assert_eq!(
+            gamepad_request(replay, false, true, 1.0),
+            Some(RunRequest::ToLobby)
+        );
+        assert_eq!(gamepad_request(replay, true, true, 1.0), Some(replay));
+        assert_eq!(gamepad_request(replay, false, false, 1.0), None);
+        assert_eq!(
+            gamepad_request(RunRequest::ToHub, true, false, 1.0),
+            Some(RunRequest::ToHub)
+        );
     }
 }

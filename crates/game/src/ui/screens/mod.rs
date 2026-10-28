@@ -9,6 +9,7 @@
 //! nommées de la vue. Présentation seule : la simulation continue pendant qu'un écran est ouvert,
 //! les entrées de jeu continuent d'être envoyées, et aucune trace ne change.
 
+pub mod help;
 #[cfg(feature = "ui_hui")]
 pub mod hui;
 pub mod input;
@@ -18,12 +19,15 @@ use bevy::prelude::*;
 use combat::inventory::AmmoReserves;
 use items::{Inventory, ItemKind, ItemTable};
 use model::{
-    inventory_focus_len, inventory_view, merchant_lines, merchant_view, pause_view, reduce,
-    ActiveLine, InventoryInput, ScreenCommand, ScreenId, ScreenScript, ScreenView, ScreensState,
-    UiAction, WeaponLine,
+    inventory_focus_len, inventory_view, merchant_lines, merchant_view, pause_view_with_help,
+    reduce, ActiveLine, InventoryInput, ScreenCommand, ScreenId, ScreenScript, ScreenView,
+    ScreensState, UiAction, WeaponLine,
 };
 use utils::frame::FrameCount;
 
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
+use crate::character::control::get_input_map;
+use crate::progression::ProgressionTable;
 use crate::run_state::RunRequest;
 use crate::session::AppState;
 use crate::ui::hud_model::HudPlayer;
@@ -180,6 +184,41 @@ impl MerchantSource<'_> {
     }
 }
 
+/// Ce que l'aide des touches lit pour filtrer ses lignes par clone (`help::HelpContext`).
+#[derive(bevy::ecs::system::SystemParam)]
+struct HelpSource<'w, 's> {
+    configs: Option<Res<'w, CharacterConfigs>>,
+    keys: Query<'w, 's, &'static CharacterConfigKey>,
+    items: Option<Res<'w, ItemTable>>,
+    progression: Option<Res<'w, ProgressionTable>>,
+}
+
+impl HelpSource<'_, '_> {
+    fn context(&self, player: Option<Entity>) -> help::HelpContext {
+        let config = player
+            .and_then(|player| self.keys.get(player).ok())
+            .and_then(|key| self.configs.as_deref()?.get(&key.0));
+        let items = self.items.as_deref().map(|table| &table.0);
+        help::HelpContext {
+            dash: config.is_some_and(|config| {
+                config.dash.is_some()
+                    || config.movement.dash_distance > bevy_fixed::fixed_math::Fixed::ZERO
+            }),
+            active: items.is_some_and(|items| {
+                items
+                    .values()
+                    .any(|def| matches!(def.kind, ItemKind::Active(_)))
+            }),
+            blank: items.is_some_and(|items| items.values().any(|def| def.blank.is_some())),
+            bomb: config.is_some_and(|config| config.bomb.is_some()),
+            mutations: self
+                .progression
+                .as_deref()
+                .is_some_and(|table| table.active.is_some()),
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn update_screens(
     mut commands: Commands,
@@ -190,6 +229,7 @@ pub(crate) fn update_screens(
     hud_player: HudPlayer,
     source: InventorySource,
     mut merchant: MerchantSource,
+    help: HelpSource,
 ) {
     let mut actions: Vec<UiAction> = queue.0.drain(..).collect();
     if let Some(mut script) = script {
@@ -246,7 +286,14 @@ pub(crate) fn update_screens(
         }
     }
     let view = state.open.map(|screen| match screen {
-        ScreenId::Pause => pause_view(&state),
+        ScreenId::Pause => {
+            let help_text = if state.help_shown {
+                help::help_text(&get_input_map(), &help.context(hud_player.entity()))
+            } else {
+                String::new()
+            };
+            pause_view_with_help(&state, &help_text)
+        }
         ScreenId::Inventory => inventory_view(&inventory, &state),
         ScreenId::Merchant => {
             let profile = merchant.profile(handle.unwrap_or(0));

@@ -5,8 +5,10 @@
 // À regarder : f10 le menu s'ouvre, « Reprendre » surligné ; f20 et f21 le focus descend sur
 // « Recommencer » puis « Lobby », f22 sur « Réglages » ; f30 « Réglages » validé affiche « Aucun
 // réglage pour l'instant » ; f40 le focus remonte sur « Lobby » (le message disparaît) ; f50 Retour
-// ferme le menu ; f60 rouvert, f62 ↑ boucle sur « Réglages », f64 ↓ revient sur « Reprendre » ;
-// f70 valider « Reprendre » ferme le menu.
+// ferme le menu ; f60 rouvert, f62 ↑ boucle sur « Touches », f64 ↓ revient sur « Reprendre » ;
+// f70 valider « Reprendre » ferme le menu ; f75 rouvert, f76 ↑ sur « Touches », f77 validé : l'aide
+// des touches (clavier et manette, lue dans la table des liaisons) remplace le détail, f80 Retour
+// la referme sur le menu, f82 Retour ferme le menu.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -28,6 +30,11 @@ Scenario(
         (at_frame: 62, action: Up),
         (at_frame: 64, action: Down),
         (at_frame: 70, action: Confirm),
+        (at_frame: 75, action: Toggle(Pause)),
+        (at_frame: 76, action: Up),
+        (at_frame: 77, action: Confirm),
+        (at_frame: 80, action: Back),
+        (at_frame: 82, action: Back),
     ],
     expect: [
         PlayerAlive(handle: 0, at_frame: 89),
@@ -42,8 +49,12 @@ Scenario(
         ScreenText(screen: "pause", section: "entries", contains: "> Lobby", at_frame: 41),
         ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 51),
         ScreenText(screen: "pause", section: "entries", contains: "> Reprendre", at_frame: 61),
-        ScreenText(screen: "pause", section: "entries", contains: "> Réglages", at_frame: 63),
+        ScreenText(screen: "pause", section: "entries", contains: "> Touches", at_frame: 63),
         ScreenText(screen: "pause", section: "entries", contains: "> Reprendre", at_frame: 65),
         ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 71),
+        ScreenText(screen: "pause", section: "detail", contains: "Clavier / souris", at_frame: 78),
+        ScreenText(screen: "pause", section: "detail", contains: "Tirer            Clic gauche         RT", at_frame: 78),
+        ScreenText(screen: "pause", section: "entries", contains: "> Touches", at_frame: 81),
+        ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 83),
     ],
 )

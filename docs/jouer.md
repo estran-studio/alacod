@@ -135,8 +135,37 @@ et la touche « Q » (blank) est la touche A.
 | Légende des silhouettes et couleurs | **F7** |
 | Débogage : champ de flux / profil / états des ennemis | **F3** / **F4** / **F5** |
 
-Manette (non testée : pas de manette sur la machine d'essai) : croix directionnelle = déplacement, stick gauche = visée,
-Nord = interagir, Ouest = recharger, Est = mêlée.
+### Manette
+
+Disposition Xbox (une manette PlayStation donne : Croix = A, Rond = B, Carré = X, Triangle = Y, L1/R1 = LB/RB, L2/R2 =
+LT/RT). Le schéma est celui accepté par William le 2026-10-22 ; la table du code est `character/control.rs`
+(`get_input_map`), et **l'écran « Touches » de la pause** l'affiche en jeu, filtré par jeu (une bombe ou une esquive que le
+personnage n'a pas n'y figure pas).
+
+| Action | Manette |
+|---|---|
+| Se déplacer | **stick gauche** (huit directions, seuil 0,4 par axe) |
+| Viser | **stick droit** (la dernière direction est gardée au repos ; la souris reprend la main dès qu'elle bouge) |
+| Tirer | **RT** (analogique : tire à mi-course, relâche sous le tiers de la course ; LT, l'objet actif, de même) |
+| Recharger / Interagir / Mêlée | **X** / **Y** / **B** |
+| Arme suivante / mode de l'arme | **RB** / **R3** (stick droit enfoncé) |
+| Esquive / sprint | **LB** / **L3** (stick gauche enfoncé) |
+| Objet actif | **LT** |
+| Lâcher l'arme / blank | croix **↓** / croix **↑** |
+| Bombe | **A** (sur un écran ouvert ou un choix de mutation, A valide : la bombe ne part pas) |
+| Choix de mutation | croix **← →** pour surligner, **A** pour valider |
+| Pause / inventaire | **Start** / **Select** |
+| Dans un menu | croix **↑ ↓** choisir, **A** valider, **B** retour (« Touches » dans la pause) |
+| Écran de fin | **A** rejouer, **B** retour au lobby (après 0,8 s, pour ne pas valider d'un geste de jeu) |
+
+La croix ne déplace plus le personnage. Sous un écran ouvert (pause, inventaire), la manette ne donne que le déplacement et le
+sprint à la partie : A, B, la croix y naviguent sans lâcher de bombe ni donner de coup, et un bouton tenu pendant l'écran reste
+muet jusqu'à son relâchement.
+
+Dans le navigateur (Chrome), la manette n'est visible qu'**après un premier appui** sur l'un de ses boutons, page au premier
+plan : c'est la règle de l'API Gamepad, pas du jeu. Elle est lue par `bevy_gilrs` (`gilrs` en wasm), sans code propre au
+site. Débrancher puis rebrancher en cours de partie est reconnu au premier appui suivant. Preuve et limites :
+`docs/taches/rapports/polissage-manette.md`.
 
 ## Variables utiles
 
