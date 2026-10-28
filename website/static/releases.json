@@ -5,13 +5,13 @@
       "buildId": "rtc-fix-20261009",
       "manifest": "/builds/rtc-fix-20261009/zombies/build.json",
       "solo": true,
-      "online": true
+      "online": false
     },
     "throne": {
       "buildId": "rtc-fix-20261009",
       "manifest": "/builds/rtc-fix-20261009/throne/build.json",
       "solo": true,
-      "online": true
+      "online": false
     }
   }
 }

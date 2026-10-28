@@ -1071,8 +1071,7 @@ fn sprite_sheet_directions_with_spaced_colon_are_still_validated() {
         content_folders: [(path: "sprites/sprites.ron", kind: "SpriteSheet")],
         entry: (start_map: "unused", default_seed: 1),
     )"#;
-    const TABLE: &str =
-        r#"({"hero": (animation: "sprites/hero_animation.ron", layers: {"body": "sprites/hero_sheet.ron"})})"#;
+    const TABLE: &str = r#"({"hero": (animation: "sprites/hero_animation.ron", layers: {"body": "sprites/hero_sheet.ron"})})"#;
     const BAD_NAME: &[(&str, Option<&str>)] = &[
         ("game.ron", Some(MANIFEST)),
         ("sprites/sprites.ron", Some(TABLE)),
