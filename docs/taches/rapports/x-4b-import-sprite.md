@@ -66,14 +66,14 @@ $ alacod import-sprite fantassin-de-ligne.sprite.json games/testbed --id fantass
 
 ## Scénario du lot 2 (Mac)
 
-`tests/scenarios/sprite_import_fantassin.ron` : `Idle` (visée seule), `Run` (déplacement + visée) puis `Shoot` (Fire tenu 66 frames, pause de 30) dans les huit directions, 740 frames, commentaire `// À regarder :` avec les frames. Le runner **exige** une trace de référence (« pas de trace de référence »), donc la seule trace neuve,
+`tests/scenarios/sprite_import_fantassin.ron` : `Idle` (visée seule), `Run` (déplacement + visée) puis `Shoot` (Fire tenu 66 frames, pause de 60) dans les huit directions, 1510 frames, commentaire `// À regarder :` avec les frames. Le runner **exige** une trace de référence (« pas de trace de référence »), donc la seule trace neuve,
 `tests/scenarios/sprite_import_fantassin.trace`, est écrite ici, sur le VPS, par le seul BLESS permis :
 
 ```sh
 BLESS=1 SCENARIO=sprite_import_fantassin make test_scenarios
 ```
 
-(740 frames, joueur vivant, invariants tenus). Les traces étant identiques entre x86-64 et arm64 (§57), le Mac la relit sans la réécrire ; `git status` ne montre que ce fichier de trace nouveau.
+(1510 frames, joueur vivant, invariants tenus). Les traces étant identiques entre x86-64 et arm64 (§57), le Mac la relit sans la réécrire ; `git status` ne montre que ce fichier de trace nouveau.
 
 Capture réelle (une image par direction et par pose : idle f35…245, run f275…485, shoot f552…1434 : `epauler` joué en entier et tenu, 62 frames après le début du tir de chaque direction ; frames du retour à `Idle` : section « Revue indépendante ») :
 
@@ -108,7 +108,7 @@ distinctes, `marche` jambes animées, `epauler` joué une fois puis tenu.
 
 Base `a878966c` (arm64, macOS, écran déverrouillé ; aucun code ni donnée touchés, aucun BLESS).
 
-- **Trace** : `env -u CI CARGO_BUILD_JOBS=4 SCENARIO=sprite_import_fantassin make test_scenarios` (sans BLESS) : `sprite_import_fantassin` vert, 740 frames, joueur vivant ; `git status` sans aucune trace modifiée (la trace x86-64 du VPS est relue à l'identique sur arm64).
+- **Trace** : `env -u CI CARGO_BUILD_JOBS=4 SCENARIO=sprite_import_fantassin make test_scenarios` (sans BLESS) : `sprite_import_fantassin` vert, 1510 frames, joueur vivant ; `git status` sans aucune trace modifiée (la trace x86-64 du VPS est relue à l'identique sur arm64).
 - **Capture** (24 images 960×540, luminance moyenne 70–87 sur chacune, sprite visible sur toutes, aucune image noire) :
 
 ```sh
@@ -157,3 +157,11 @@ d'`Idle` n'apparaît qu'au tick suivant du clip `idle` (250 ms = 15 frames) : **
 Fins de tir : f556, f682, f808, f934, f1060, f1186, f1312, f1438 ; `Idle` visible de f592 à f616, f718 à f742, f844 à f868, f970 à f994, f1096 à f1120, f1222 à f1246, f1348 à f1372,
 f1474 à f1498. `epauler` joué en entier et tenu : `début + 62` (f552, f678, f804, f930, f1056, f1182, f1308, f1434). Capture conseillée :
 `--at 35,65,95,125,155,185,215,245,275,305,335,365,395,425,455,485,552,678,804,930,1056,1182,1308,1434` (mosaïque idle, run, shoot), plus `--at 604,730,856,982,1108,1234,1360,1486` pour le retour à `Idle`.
+
+## Décision de William (2026-10-28)
+
+Q-X4b-1 : **exception, pour tester**. Le fantassin-de-ligne reste dans `games/testbed` jusqu'à la création du dépôt 1837 (X-5, 9 nov). Son retrait à X-5 = revert de `a878966c`, `7b5d9d20` et du commit d'auteur et licence ; il n'y a plus rien à retirer au merge. Tout ce qui le concerne reste séparé de l'outil.
+
+## Incident de push
+
+J'ai force-poussé `39f2168c` sur `wquintal/x-4b-import-sprite` avant d'avoir lu la consigne « pas de force-push », écrasant `23337437` et `d74cb17e`. Le coordinateur a restauré la branche ; le travail a été refait en A (`d7d1a44c`) et B (`7b5d9d20`) par push en avance rapide.
