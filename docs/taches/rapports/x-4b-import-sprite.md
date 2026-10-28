@@ -97,3 +97,27 @@ distinctes, `marche` jambes animées, `epauler` joué une fois puis tenu.
 - `make check` : vert (`cargo fmt` a aussi remis sur une ligne une constante de `crates/content/tests/lint_fixtures.rs`, dérive de format déjà présente sur `main` depuis X-4a).
 - `make check_sim_boundary` (dans `make check`) : vert, `content` reste `SIM` (la crate `image` n'est prise qu'avec la feature `png`).
 - **Sans le fantassin** (avant-dernier commit, même arbre de travail sans le commit de tête, un seul cargo) : `alacod lint games/testbed` sans erreur (40 personnages) et `cargo test -p content --test sprite_import` : 15 verts.
+
+## Lot 2 — capture Mac
+
+Base `a878966c` (arm64, macOS, écran déverrouillé ; aucun code ni donnée touchés, aucun BLESS).
+
+- **Trace** : `env -u CI CARGO_BUILD_JOBS=4 SCENARIO=sprite_import_fantassin make test_scenarios` (sans BLESS) : `sprite_import_fantassin` vert, 740 frames, joueur vivant ; `git status` sans aucune trace modifiée (la trace x86-64 du VPS est relue à l'identique sur arm64).
+- **Capture** (24 images 960×540, luminance moyenne 70–87 sur chacune, sprite visible sur toutes, aucune image noire) :
+
+```sh
+env -u CI CARGO_BUILD_JOBS=4 ALACOD_MUTE=1 cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/sprite_import_fantassin.ron \
+  --capture target/videos/x-4b-import-sprite --at 35,65,95,125,155,185,215,245,275,305,335,365,395,425,455,485,504,534,564,594,624,654,684,714 --size 960x540
+ffmpeg -y -pattern_type glob -i 'target/videos/x-4b-import-sprite/frame_*.png' -vf "scale=480:-1,tile=8x3" -frames:v 1 docs/taches/rapports/x-4b-import-sprite.png
+```
+
+Mosaïque : `docs/taches/rapports/x-4b-import-sprite.png` (8×3, lignes idle, run, shoot ; colonnes E, NE, N, NW, W, SW, S, SE). Pour juger le temps (marche, `epauler`), 20 images de plus ont été prises à part
+(`--at 435…463` et `490…560`, non versées) : mêmes commande et scénario.
+
+Constat (échelle mesurée : salle de 416 unités = 693 px, soit 1,667 px/unité, une case de 16 unités = 26,7 px) :
+
+1. **Hauteur** : bonnet à poil au bas des bottes ≈ 52 px, soit ≈ 31 unités ≈ 1,95 case : conforme aux ≈ 2 cases (32 unités). Le sprite est plus étroit que haut (≈ 19 unités de large de face).
+2. **Pieds / pivot** : le pivot **n'est pas** à mi-hauteur du dessin autour du centre du joueur. Le centre du joueur (case de départ `[160,80]`, centre à l'écran (480,270)) est ≈ 12,5 unités **sous** le milieu du sprite : le haut du bonnet est ≈ 28 unités au-dessus du centre, les bottes ≈ 3 unités sous le centre, donc **dans** la case (≈ 5 unités au-dessus de son bord bas), pas « un peu sous la case ». Les pieds restent ≈ 13 unités au-dessus du bas du collider (20×20, `offset_y` −6). Aucun `offset_y` n'a été touché.
+3. **Huit directions** : huit images distinctes à l'idle, au pas et au tir ; de dos au N, de face au S, profils E/W, trois-quarts aux diagonales, NE/NW et SE/SW bien différents. Écart : l'arme (sprite d'arme du jeu, pas de l'atlas) est dessinée à part, **détachée sous les pieds** (horizontale à l'E/W, verticale au N/S, diagonale ailleurs) et jamais dans les mains du fantassin.
+4. **Marche** : `marche` est animée (S, f435 → f463 : jambes qui s'alternent, buste qui bouge, pied avant puis arrière) ; à chaque direction du run la pose diffère de l'idle (jambes écartées contre jambes jointes).
+5. **`epauler`** : joué une fois puis tenu. À l'E, f490 course, f498-506 le bras se lève, f510-522 trois images identiques (pose tenue, plus de mouvement) ; même chose aux autres directions (f534, f564… bras tendu). Écart : la pose reste tenue au moins 8 frames après la fin du Fire (f514 → f522 encore tenue) ; le retour à `Idle` n'a pas été observé image par image (aux directions S et SE, f684/f714, la pose se confond avec l'idle à cette échelle, sans bras visible).
