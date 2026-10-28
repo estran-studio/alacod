@@ -146,5 +146,25 @@ Sources : `tests/scenarios/{clone_solo,clone_duo,clone_quad,four_players_shootin
 
 ## 6. Preuves d'exécution
 
-(Transcripts des commandes de vérification : voir le bas de ce fichier.)
+Commit de tête de la vérification : `28660d93` (Mac arm64, `CARGO_TARGET_DIR=~/orca/workspaces/alacod/.target-mac`, `env -u CI`).
+
+```
+$ make format check_forbidden check_rollback_registration check_sim_boundary test_crates test_scenarios_par lint     (EXIT=0, 22 min)
+OK: aucun nouveau motif interdit ; 51 occurrences auditées dans determinism-allowlist.json
+OK: aucun appel direct à rollback_component_with*/rollback_resource_with* hors de crates/utils/src/rollback.rs
+OK : frontière simulation/présentation respectée par 13 crates ; 2 en dette D69
+cargo test -q --workspace --profile headless --no-default-features --no-fail-fast -- --exact --skip scenarios   (93 « test result: ok », 0 failed ;
+  content/lint_fixtures : 176 passed, dont hud_local_overlay_fixture_reports_missing_atlas_and_icon_image et sprite_sheet_local_overlay_replaces_and_adds_ids)
+tranche 0/4 : ok   tranche 1/4 : ok   tranche 2/4 : ok   tranche 3/4 : ok
+métriques : 810 scénarios fusionnés ; suite en 4 tranches : 438 s        (sans BLESS : aucune trace n'a bougé)
+games/zombies : aucune erreur (6 personnages, 4 armes, 6 armes de corps à corps, 1 vagues, 6 cartes)    + testbed, throne, gungeon, isaac : aucune erreur
+$ alacod lint games/zombies   avec puis sans sprites.local.ron / hud.local.ron : « aucune erreur » dans les deux cas ; lint_fixtures sans surcharge : 176 passed
+```
+
+`make check` complet n'est **pas** vert sur ce Mac pour une raison d'environnement sans rapport avec le lot : `make test_tools` échoue sur 3 tests de `scripts/tests/test_claude_say.py` (le test fige `/usr/bin/python3`, qui est le
+Python 3.9.6 du système ici, et `scripts/claude-say.sh` exige 3.10 ; fichiers non touchés). Les 35 autres tests Python passent. Le reste de `make check` (liste ci-dessus) est vert ; `test_scenarios_par` remplace `test_scenarios` (même suite, 4 tranches,
+recommandé par le `Makefile`).
+
+Unitaires ajoutés : `wall_art::{le_sol_couvre_les_cases_vides_et_seulement_elles, la_tuile_de_sol_ne_depend_que_de_la_position}`, `world_sprites::{l_etat_visuel_d_une_fenetre_suit_sa_sante, un_power_up_cherche_son_id_puis_le_generique}`,
+`hud::{the_local_overlay_replaces_wall_art_and_merges_icons_by_id, a_heart_image_needs_every_state_it_draws}`, fixture de lint `hud_local_overlay_missing_image`.
 
