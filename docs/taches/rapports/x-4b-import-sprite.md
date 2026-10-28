@@ -59,8 +59,7 @@ mitrailleuse du testbed (tir tenu). `assets.yaml` : licence et auteur « **à co
 
 ## Scénario du lot 2 (Mac)
 
-`tests/scenarios/sprite_import_fantassin.ron` : `Idle` (visée seule), `Run` (déplacement + visée) puis `Shoot` (Fire tenu 24 frames) dans les huit directions, trente
-frames chacune, 740 frames, commentaire `// À regarder :` avec les frames. Le runner **exige** une trace de référence (« pas de trace de référence »), donc la seule trace neuve,
+`tests/scenarios/sprite_import_fantassin.ron` : `Idle` (visée seule), `Run` (déplacement + visée) puis `Shoot` (Fire tenu 66 frames, pause de 30) dans les huit directions, 740 frames, commentaire `// À regarder :` avec les frames. Le runner **exige** une trace de référence (« pas de trace de référence »), donc la seule trace neuve,
 `tests/scenarios/sprite_import_fantassin.trace`, est écrite ici, sur le VPS, par le seul BLESS permis :
 
 ```sh
@@ -69,11 +68,11 @@ BLESS=1 SCENARIO=sprite_import_fantassin make test_scenarios
 
 (740 frames, joueur vivant, invariants tenus). Les traces étant identiques entre x86-64 et arm64 (§57), le Mac la relit sans la réécrire ; `git status` ne montre que ce fichier de trace nouveau.
 
-Capture réelle (une image par direction et par pose : idle f35…245, run f275…485, shoot f504…714) :
+Capture réelle (une image par direction et par pose : idle f35…245, run f275…485, shoot f552…1224 : `epauler` joué en entier et tenu, 62 frames après le début du tir de chaque direction) :
 
 ```sh
 CARGO_BUILD_JOBS=4 cargo run -p scenario --features render --bin play_scenario -- tests/scenarios/sprite_import_fantassin.ron \
-  --capture target/videos/x-4b-import-sprite --at 35,65,95,125,155,185,215,245,275,305,335,365,395,425,455,485,504,534,564,594,624,654,684,714 --size 960x540
+  --capture target/videos/x-4b-import-sprite --at 35,65,95,125,155,185,215,245,275,305,335,365,395,425,455,485,552,648,744,840,936,1032,1128,1224 --size 960x540
 # mosaïque 8 colonnes × 3 lignes (idle, run, shoot) ; ajuster le motif aux noms d'images produits
 ffmpeg -y -pattern_type glob -i 'target/videos/x-4b-import-sprite/*.png' -vf "scale=480:-1,tile=8x3" -frames:v 1 docs/taches/rapports/x-4b-import-sprite.png
 ```
@@ -97,3 +96,19 @@ distinctes, `marche` jambes animées, `epauler` joué une fois puis tenu.
 - `make check` : vert (`cargo fmt` a aussi remis sur une ligne une constante de `crates/content/tests/lint_fixtures.rs`, dérive de format déjà présente sur `main` depuis X-4a).
 - `make check_sim_boundary` (dans `make check`) : vert, `content` reste `SIM` (la crate `image` n'est prise qu'avec la feature `png`).
 - **Sans le fantassin** (avant-dernier commit, même arbre de travail sans le commit de tête, un seul cargo) : `alacod lint games/testbed` sans erreur (40 personnages) et `cargo test -p content --test sprite_import` : 15 verts.
+
+## Revue indépendante (2026-10-28)
+
+Commits revus : `f7f04e58` (outil, présentation, tests, doc) et `a878966c` (fantassin, retirable). Six constats, tous corrigés ; chacun a un test, vérifié **en échec sur
+l'ancien code** (les cinq tests de `content` et celui d'`animation` ont été rejoués contre le code d'avant). Nouveaux commits : « X-4b revue : import transactionnel, table et
+manifeste analysés, clés échappées, durée d'une seconde » (sous le fantassin) puis le commit de tête du fantassin, réécrit pour le correctif 6 ; leurs SHA dépendent de ce
+rapport et sont donnés dans le message de fin de tâche et par `git log`. Aucune dette nouvelle (rien n'est reporté).
+
+| # | Constat | Correctif | Test |
+|---|---|---|---|
+| 1 P1 | `std::fs::write` tronquait les destinations ; un échec avec `--overwrite` supprimait d'anciens fichiers au lieu de les restaurer, `sprites.ron` pouvait rester tronqué | `commit_files` : tout est écrit en fichiers temporaires du même dossier, l'ancien fichier est mis de côté puis le nouveau renommé (`sprites.ron` en dernier) ; échec = renommages inverses, temporaires et dossiers créés retirés, état d'avant intact octet pour octet | `failed_overwrite_leaves_the_previous_import_intact_byte_for_byte` (panne simulée à chacun des 4 pas, comparaison des octets), `failed_first_import_leaves_no_file_and_no_directory`, `unwritable_table_directory_fails_before_touching_anything` (dossier en lecture seule réel) |
+| 2 P2 | `check_animation_config_reload_system` prenait toute durée d'une seconde pour « non initialisé » : un clip à 1 fps était remis à la durée globale à chaque mise à jour et n'avançait jamais | vrai marqueur `AnimationTimer::configured`, posé par le rechargement et par `animate_sprite_system` quand il écrit la durée du clip | `a_one_second_clip_advances_with_both_systems` (les deux systèmes, configuration chargée par l'`AssetServer`, 600 ms par mise à jour) |
+| 3 P2 | `entry_span` trouvait `"id": (` dans un commentaire | analyse de la table (`scan_table`) : commentaires, chaînes et valeurs imbriquées sautés, premier niveau seulement ; la table produite est relue (`verify_table`) avant écriture | `commented_entries_are_not_mistaken_for_real_ones` |
+| 4 P2 | la table `SpriteSheet` était cherchée par `path:` dans les 400 octets avant `"SpriteSheet"` (ordre des champs, coupure UTF-8) | `GameManifest::parse` : première déclaration `kind: "SpriteSheet"` des `content_folders` | `sprite_sheet_declaration_is_read_by_the_manifest_parser` (`(kind, path)` inversés, déclaration avant, accents) |
+| 5 P2 | une barre oblique inverse dans un nom de clip ou d'état donnait une échappée invalide ou une autre clé | chaque clé écrite passe par la sérialisation RON (`ron_key`) ; feuille, animation et table sont relues avant écriture (refus sinon) | `backslash_in_clip_and_state_names_is_escaped_in_ron` |
+| 6 P2 | le scénario ne laissait jamais retomber la pose `Shoot` (24 frames de tir, 6 de pause, pose tenue 20 frames, `epauler` = 60 frames) | 66 frames de tir par direction (`epauler` joué en entier puis tenu), 30 frames de pause qui relâchent la pose, grand chargeur par `weapon_overrides` ; en-tête `À regarder`, frames `--at` et trace refaits (le seul BLESS : `sprite_import_fantassin`) | le scénario lui-même (1270 frames, joueur vivant) |

@@ -7958,7 +7958,7 @@ La réduction se fait cellule par cellule en **alpha prémultiplié**, filtre La
 **Fichiers** : `<id>.png`, `<id>_sheet.ron` (une `SpriteSheetConfig` calque `body` : `tile_size` = cellule réduite, `columns`/`rows` =
 grille de l'atlas, `directions: rows: [ordre du manifeste]`, `mirror` vrai sauf à huit directions), `<id>_animation.ron`
 (`AnimationMapConfig`) et **une** entrée `<id>` dans la table `SpriteSheet` du jeu (`sprites.ron`, commentaires conservés ; un
-réimport sans `--overwrite` est refusé). Rien n'est écrit si une validation échoue (direction inconnue, PNG absent ou de taille ≠
+réimport sans `--overwrite` est refusé). L'écriture est **transactionnelle** : fichiers temporaires du même dossier puis renommages (`sprites.ron` en dernier), l'état d'avant revient octet pour octet si un pas échoue ; la table est lue par un analyseur qui ignore commentaires et chaînes, la déclaration `SpriteSheet` par `GameManifest`, chaque clé est échappée, et les textes RON produits sont relus avant écriture. Rien n'est écrit si une validation échoue (direction inconnue, PNG absent ou de taille ≠
 colonnes × cellule, manifeste mal formé, atlas impossible sous `--max-side`).
 
 **Correspondance atlas/ligne.** Chaque clip est en `Direct { start, end }` sur la **première ligne de son bloc** :
