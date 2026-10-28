@@ -1,0 +1,58 @@
+// X-4b (docs/conventions.md §91) : le fantassin importé par `alacod import-sprite` (atlas réduit de dix clips, huit
+// directions, `sprites/fantassin-de-ligne/`) joue ses trois poses dans les huit directions, trente frames chacune,
+// dans l'ordre de la planche (E, NE, N, NW, W, SW, S, SE). Présentation seule : la simulation n'a pas de planche, la
+// trace ne dépend que des inputs ; lot 2 (Mac) : `BLESS=1 SCENARIO=sprite_import_fantassin make test_scenarios`.
+//
+// À regarder : trois temps de 240 frames, le sprite (32 unités de haut, boucle `idle` à 4 images/s) regarde la visée.
+// f10-250 `Idle` : le fantassin immobile tourne sur place, E f40, NE f70, N f100, NW f130, W f160, SW f190, S f220, SE f250.
+// f250-490 `Run` : il marche dans la direction visée (boucle `marche`, 8 images/s), jambes animées, même ordre, fins f280…f490.
+// f490-730 `Shoot` : Fire tenu 24 frames par direction (mitrailleuse), le clip `epauler` se joue une fois puis garde sa
+// dernière image jusqu'au retour à `Idle` (fins de tir f514, f544…f724) ; une pose par direction, sans retournement.
+Scenario(
+    game: "testbed",
+    map: "testbed/floor_vide_a.ldtk",
+    frames: 740,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            character: "fantassin-de-ligne",
+            inputs: [
+                (from: 10, to: 40, buttons: [], pan: (100, 0)),
+                (from: 40, to: 70, buttons: [], pan: (100, 100)),
+                (from: 70, to: 100, buttons: [], pan: (0, 100)),
+                (from: 100, to: 130, buttons: [], pan: (-100, 100)),
+                (from: 130, to: 160, buttons: [], pan: (-100, 0)),
+                (from: 160, to: 190, buttons: [], pan: (-100, -100)),
+                (from: 190, to: 220, buttons: [], pan: (0, -100)),
+                (from: 220, to: 250, buttons: [], pan: (100, -100)),
+                (from: 250, to: 280, buttons: [Right], pan: (100, 0)),
+                (from: 280, to: 310, buttons: [Right, Up], pan: (100, 100)),
+                (from: 310, to: 340, buttons: [Up], pan: (0, 100)),
+                (from: 340, to: 370, buttons: [Left, Up], pan: (-100, 100)),
+                (from: 370, to: 400, buttons: [Left], pan: (-100, 0)),
+                (from: 400, to: 430, buttons: [Left, Down], pan: (-100, -100)),
+                (from: 430, to: 460, buttons: [Down], pan: (0, -100)),
+                (from: 460, to: 490, buttons: [Right, Down], pan: (100, -100)),
+                (from: 490, to: 514, buttons: [Fire], pan: (100, 0)),
+                (from: 514, to: 520, buttons: [], pan: (100, 0)),
+                (from: 520, to: 544, buttons: [Fire], pan: (100, 100)),
+                (from: 544, to: 550, buttons: [], pan: (100, 100)),
+                (from: 550, to: 574, buttons: [Fire], pan: (0, 100)),
+                (from: 574, to: 580, buttons: [], pan: (0, 100)),
+                (from: 580, to: 604, buttons: [Fire], pan: (-100, 100)),
+                (from: 604, to: 610, buttons: [], pan: (-100, 100)),
+                (from: 610, to: 634, buttons: [Fire], pan: (-100, 0)),
+                (from: 634, to: 640, buttons: [], pan: (-100, 0)),
+                (from: 640, to: 664, buttons: [Fire], pan: (-100, -100)),
+                (from: 664, to: 670, buttons: [], pan: (-100, -100)),
+                (from: 670, to: 694, buttons: [Fire], pan: (0, -100)),
+                (from: 694, to: 700, buttons: [], pan: (0, -100)),
+                (from: 700, to: 724, buttons: [Fire], pan: (100, -100)),
+                (from: 724, to: 730, buttons: [], pan: (100, -100)),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 735),
+    ],
+)

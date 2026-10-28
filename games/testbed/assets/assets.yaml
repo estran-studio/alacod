@@ -110,3 +110,13 @@
   licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
   modifications: sans objet (original)
   statut: planche de test (flèche, étiquette du compas et numéro d'image par cellule ; huit directions)
+
+- id: sprites-fantassin-de-ligne
+  fichiers:
+    - sprites/fantassin-de-ligne/fantassin-de-ligne.png
+  source: atlas composé et réduit par `alacod import-sprite` (X-4b, docs/conventions.md §91) à partir de dix
+    planches du manifeste `fantassin-de-ligne.sprite.json` (dépôt du jeu 1837, révision 9cc19d7)
+  auteur: à confirmer par William
+  licence: à confirmer par William
+  modifications: réduction (facteur 0,344, Lanczos3, alpha prémultiplié) et composition en un atlas ; aucune retouche du dessin
+  statut: image de démonstration de l'import (X-4b) ; licence et droits de redistribution à confirmer avant toute publication du testbed
