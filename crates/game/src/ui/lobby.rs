@@ -82,7 +82,10 @@ fn spawn_local_hold_ui(
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new(local_hold_text(hold.summary)),
+                Text::new(format!(
+                    "{}\nA (manette) : nouvelle partie",
+                    local_hold_text(hold.summary)
+                )),
                 TextFont {
                     font: font.clone().into(),
                     font_size: FontSize::Px(32.0),
@@ -121,12 +124,13 @@ fn despawn_local_hold_ui(mut commands: Commands, roots: Query<Entity, With<Local
     }
 }
 
-/// Entrée ou « Nouvelle partie » : retire `LocalLobbyHold`, `setup_ggrs_local` relance la
+/// Entrée, A (manette) ou « Nouvelle partie » : retire `LocalLobbyHold`, `setup_ggrs_local` relance la
 /// même configuration à la frame suivante (l'écran disparaît en quittant `LobbyLocal`).
 fn release_local_hold(
     mut commands: Commands,
     hold: Option<Res<LocalLobbyHold>>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
+    gamepads: Query<&Gamepad>,
     buttons: Query<&Interaction, (Changed<Interaction>, With<NewGameButton>)>,
 ) {
     if hold.is_none() {
@@ -135,8 +139,11 @@ fn release_local_hold(
     let key = keys.is_some_and(|keys| {
         keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter)
     });
+    let pad = gamepads
+        .iter()
+        .any(|gamepad| gamepad.just_pressed(GamepadButton::South));
     let clicked = buttons.iter().any(|i| *i == Interaction::Pressed);
-    if key || clicked {
+    if key || pad || clicked {
         commands.remove_resource::<LocalLobbyHold>();
     }
 }

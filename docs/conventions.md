@@ -7940,3 +7940,48 @@ la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `
   de `scripts/lint-edited-game.sh` et du `Makefile` gardent `cargo run` (elles n'exigent pas l'installation).
 - **Tests** : `crates/content/tests/edit.rs` (jeu de travail = copie du gabarit dans un dépôt git temporaire : formatage conservé, types, chemins inconnus/ambigus, lint rouge restauré, erreurs préexistantes, commit du seul fichier, undo), `crates/content/tests/remote_script.rs` (faux jeu JSON-RPC :
   codes de sortie, `--json`, scripts, `step`), unitaires de `edit.rs` et `script.rs`.
+
+## 91. Manette jouable, menus et aide des touches (S1-1, `docs/taches/polissage-manette.md`, voie b0)
+
+Présentation et lecture des périphériques seulement : **aucun bit d'input ne change** (`INPUT_*`), **aucune trace ne bouge**
+(`make test_scenarios` sans `BLESS`). La table des liaisons est **unique** : `character::control::get_input_map`.
+
+- **Schéma** (accepté par William le 2026-10-22, disposition Xbox ; tableau complet dans `docs/jouer.md` § Manette) : stick gauche
+  déplacement (`GamepadControlDirection::LEFT_*` à seuil `STICK_MOVE_THRESHOLD` = 0,4 **par axe** : quatre boutons de direction,
+  donc huit directions, comme les touches ; `BoxInput` n'a pas de déplacement analogique), stick droit visée, RT tir, LT objet actif,
+  RB arme, LB esquive, L3 sprint, R3 mode d'arme, X recharger, Y interagir, B mêlée, A confirmer et bombe, croix haut blank / bas
+  lâcher / gauche-droite choix de mutation, Start pause, Select inventaire. **La croix ne déplace plus** (la fiche se contredisait,
+  « doublon » et « ne sert plus à se déplacer » : la ligne précise l'emporte). `Modifier` (dash arrière) n'a pas de liaison manette.
+- **Visée au stick** (`input_devices::resolve_aim`, application, hors rollback) : `PlayerAction::Pan` était liée au stick gauche mais
+  **jamais lue**, `pan_x`/`pan_y` ne venaient que du curseur. Désormais : stick droit au-delà de `STICK_AIM_THRESHOLD` (0,3) = `pan`
+  = vecteur normalisé × 127 (l'échelle des bots ; la simulation ne lit que la direction) ; au repos la **dernière direction est
+  gardée** ; un curseur qui bouge de plus de 3 px rend la visée à la souris (le premier curseur vu après le stick est une position
+  de départ, pas un mouvement : le navigateur envoie un `mousemove` à la prise de focus). La visée est recalculée à chaque frame,
+  avant tout retour anticipé : la simulation ne lit que l'input, comme avec la souris.
+- **Gâchettes** : leafwing 0.21 presse une action analogique **dès 0,02 de course** (`ActionState::set_button_value`), RT aurait tiré
+  à l'effleurement (constaté en wasm, valeur 0,2 → `fire`). `trigger_pressed` lit `button_value` : presse à 0,5, relâche à 0,35
+  (hystérésis ; souris et clavier valent 1). Vaut pour RT (tir) et LT (objet actif).
+- **Écrans ouverts** : la simulation continue sous la pause, et A, B, la croix y naviguent. `collect_device_inputs` ne laisse alors
+  passer que le déplacement et le sprint (`SCREEN_OPEN_KEEPS`), et un bouton tenu pendant l'écran reste **muet jusqu'à son
+  relâchement** (B qui ferme la pause ne donne pas de coup de mêlée). Pendant un choix de mutation, A valide la carte surlignée
+  (`confirm_input`) sans poser de bombe. Dans les tests de scénario (`InputSource::Scripted`), rien de tout cela ne s'applique.
+- **Écran « Touches »** (`ui::screens::help`, entrée « Touches » de la pause) : le texte est **lu dans `get_input_map`** et dans les
+  tables `screens::input::{KEYBOARD_NAV, GAMEPAD_NAV}` (Échap/Start, I/Select), pas recopié ; une ligne par action utile **au
+  clone** (`HelpContext` : esquive si `dash` ou `dash_distance` > 0, objet actif / blank si l'`ItemTable` en a, bombe si
+  `CharacterConfig::bomb`, mutation si `ProgressionTable::active`). Test `chaque_bouton_de_manette_a_sa_ligne` : une liaison sans
+  ligne d'aide fait échouer. Scénario `ui_pause_menu` (gungeon) : « Touches » validé, ligne « Tirer … RT » lue.
+- **Gabarits HTML de zombies et throne** : `ui/pause_screen.html`, `ui/inventory_screen.html` et `ui/hui_row.html` (copies de ceux de
+  gungeon ; pause plus large, 640 px, pour l'aide). Avant S1-1 **aucun des deux jeux n'avait de menu de pause ni d'inventaire
+  visible** (Échap ne montrait rien : `HuiHandles::pause` restait vide). Fichiers nouveaux dans les dossiers des voies b1/b3.
+- **Fin de partie** (`ui::game_over::gamepad_request`) : A rejoue (`RunRequest::Restart`, ou `ToHub`), B retourne au salon
+  (`ToLobby`), pas avant 0,8 s d'affichage (A et B servent aussi à jouer : une partie qui finit pendant qu'on les tient ne doit rien
+  valider). L'écran d'attente du lobby local (`ui::lobby::release_local_hold`) se valide aussi par A ; sa ligne d'aide manette est
+  ajoutée au texte à l'affichage, `local_hold_text` (texte de la voie b2) est inchangé.
+- **Navigateur** : `bevy_gilrs` 0.19 / `gilrs` 0.11 sont déjà dans l'arbre wasm (feature par défaut de `bevy` via `game`) et lisent
+  `navigator.getGamepads()` à chaque frame ; **aucun changement de `loader.js` ni de `Cargo.toml`**. Chrome n'expose la manette
+  qu'après un premier appui sur l'un de ses boutons (page au premier plan) ; les gâchettes arrivent par `gilrs-core` comme des axes
+  puis redeviennent des boutons analogiques ; l'axe Y d'un stick arrive dans le sens de Bevy (haut positif). Preuve et limites :
+  `docs/taches/rapports/polissage-manette.md`.
+- **Tests** : `character::control::tests` (le chemin leafwing réel : sticks, seuils, croix, épaules, course des gâchettes),
+  `character::input_devices::tests` (visée gardée, curseur, seuil des gâchettes, écran ouvert, Sud bombe ou validation),
+  `ui::screens::help::tests`, `ui::screens::model::tests` (entrée « Touches », Retour), `ui::game_over::tests`.
