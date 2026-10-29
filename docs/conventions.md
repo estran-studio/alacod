@@ -8009,6 +8009,8 @@ Sous `games/zombies/assets/` (chemins relatifs aux assets), tout est écrit par 
 | `sprites/postapo/hud/*.png` | icônes du HUD (perks, cœurs, munitions) |
 | `sprites/sprites.local.ron` | table des feuilles : **remplace** les ids publics (`player`, `zombie_1`…) et **ajoute** les ids sans entrée publique |
 | `ui/hud.local.ron` | surcharge **partielle** du HUD : `wall_art` (en bloc) et `icons` (id par id, avec `image`) |
+| `ui/feedback.local.ron` | surcharge **partielle** des sons : `sounds` et `volumes`, clé par clé (S1-9 étape 2, § 98) |
+| `sounds/sonniss/*.ogg` | extraits Sonniss (pas de redistribution) que `feedback.local.ron` branche (§ 98) |
 
 Sans ces fichiers (CI, amis, build web public), le jeu lit les fichiers commités : c'est le **repli public** (état d'avant, sauf `halo`, `player_colors`, `legend`).
 
@@ -8196,3 +8198,32 @@ Présentation seule : **aucun système dans `GgrsSchedule`**, aucune ressource r
   défaite ; à injecter avant le chargement). Protocole, chiffres et limites : `docs/taches/rapports/polissage-perf-web.md`.
 - **Lumière** : les builds web (`scripts/build-web-games.mjs`, `--no-default-features --features render`) n'activent déjà pas la
   feature `lighting` (`bevy_light_2d` absent du graphe wasm) : la « première dégradation » de la fiche est en place d'office.
+
+## 98. Sons par surcharge locale : `ui/feedback.local.ron` (S1-9 étape 2, `docs/taches/polissage-zombies-sons.md`, voie b1)
+
+**Règle** (décision de William, 2026-10-29) : les extraits **Sonniss** (licence : pas de redistribution) ne sont **jamais** dans le dépôt
+public ni sur une branche poussée ; ils vont au dépôt privé `estran-studio/alacod-assets` (S-0b), avec les images payantes, et le jeu les
+lit par une surcharge locale gitignorée, **même principe que `hud.local.ron`** (§ 92). Le **repli public** est Kenney (CC0) ou Snake's.
+`git ls-files | grep -i sonniss` doit rester vide.
+
+- **Fichier** : `games/<jeu>/assets/ui/feedback.local.ron` (gitignoré par `games/*/assets/ui/*.local.ron`), à côté de `ui/feedback.ron`.
+  `content::feedback::FeedbackOverlay` : `sounds` et `volumes` seulement (`deny_unknown_fields` : un autre champ est une erreur de lecture).
+  Fusion `FeedbackSettings::apply_overlay` : clé par clé, la surcharge **ajoute ou remplace** ; une clé du fichier public qu'elle ne cite pas est
+  gardée ; une surcharge vide est l'identité. Le chemin d'un son est relatif à `assets/` (`sounds/sonniss/death_zombie_1.ogg`).
+- **Chargeur** (présentation, `game::feedback::FeedbackConfigLoader`, qui remplace `RonAssetPlugin<FeedbackConfig>`) : lit `ui/feedback.ron`,
+  puis `ui/feedback.local.ron` s'il existe (natif seulement : le web ne cherche pas un fichier absent du site) ; absence silencieuse, présence
+  enregistrée comme dépendance (rechargement à chaud), surcharge illisible = `warn!` et fichier public seul. Les consommateurs
+  (`FeedbackConfigLoaded`, `feedback_sounds`) ne voient que le résultat fusionné : rien dans `GgrsSchedule`, aucune trace ne bouge.
+  Conséquence en headless : la ligne `feedback … sound <clé> <chemin>` d'un scénario porte le chemin **fusionné**, donc celui du fichier Sonniss sur
+  un poste qui a la surcharge ; aucun test ne lit ce chemin, et les traces n'y sont pas.
+- **Lint** (`alacod lint games/<jeu>`, avec **et** sans le fichier) : la surcharge est lue comme le fichier public pour ses propres entrées : clé inconnue
+  du moteur (`SOUND_KEYS`, `death_<id>`) = `OutOfRange`, volume hors [-60, 12] dB = `OutOfRange`, fichier absent de `assets/` = `BrokenReference`,
+  `death_<id>` d'un personnage inconnu = `BrokenReference`, clé de `volumes` absente des `sounds` **fusionnés** = `BrokenReference`. Un fichier de la
+  surcharge absent n'est donc une erreur que sur un poste qui a la surcharge (CI et amis : rien à vérifier). Fixtures `feedback_local_overlay_ok` et
+  `feedback_local_overlay_bad` ; tests unitaires de la fusion dans `content::feedback`.
+- **Fabrication** : `scripts/repack-zombies-sons.py` extrait un fichier à la fois des archives (jamais un bundle entier), le traite (mono 44,1 kHz, rognage,
+  fondu, gain pour une RMS cible, crête ≤ -1 dBFS, ogg vorbis q5), écrit Snake's et Kenney sous `sounds/` (commités) et Sonniss sous `sounds/sonniss/`.
+  Licences dans `assets.yaml` **avant** l'import (entrée `sound-sonniss-gdc-2026` : usage commercial sans attribution, interdit de vendre les sons
+  tels quels, de s'en attribuer la paternité, de s'en servir pour entraîner une IA).
+- **Écoute** : aucun son sur le Mac sans demande de William (`ALACOD_MUTE=1` partout, Chrome muet). Les replis publics ont été choisis sur le nom et la
+  durée des fichiers, **sans écoute** : le protocole d'écoute est dans `docs/taches/rapports/polissage-zombies-sons.md`.

@@ -1,0 +1,7 @@
+// Fixture S1-9 étape 2 : feedback.ron public propre.
+(
+    hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+    shake: (frames: 8, amplitude: 0.0),
+    sounds: {"hit": "sounds/present.ogg"},
+    volumes: {"hit": -12.0},
+)

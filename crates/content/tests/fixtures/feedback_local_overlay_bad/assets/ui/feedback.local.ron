@@ -1,0 +1,5 @@
+// Fixture S1-9 étape 2 : fichier de la surcharge absent, clé inconnue du moteur, volume sans son, volume hors plage.
+(
+    sounds: {"purchase": "sounds/local/absent.ogg", "vague": "sounds/present.ogg"},
+    volumes: {"pickup": -8.0, "hit": 30.0},
+)

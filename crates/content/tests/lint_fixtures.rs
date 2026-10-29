@@ -2426,3 +2426,42 @@ fn champion_death_infinite_pattern_named_fixture_follows_the_chain() {
         "chaîne vers every: 0 acceptée : {errors:#?}"
     );
 }
+
+/// S1-9 étape 2 : la surcharge locale des sons (`ui/feedback.local.ron`) est vérifiée comme le fichier
+/// public : fichier absent, clé inconnue du moteur, volume sans son, volume hors plage.
+#[test]
+fn feedback_local_overlay_fixture_reports_missing_file_unknown_key_and_volumes() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("feedback_local_overlay_bad")).unwrap();
+    assert_eq!(registry.feedback_overlays.len(), 1);
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "sounds/local/absent.ogg",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "sounds.vague");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "volumes.pickup : clé absente de sounds",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "volumes.hit");
+    // Le `volumes.hit` valide du fichier public n'est pas reproché à la surcharge, ni `sounds.hit` public.
+    assert!(!errors
+        .iter()
+        .any(|e| e.message.contains("volumes.hit : clé absente")));
+    // Seule la carte de départ factice (`game.ron`, commune aux fixtures d'interface) s'ajoute aux quatre.
+    let own = errors.iter().filter(|e| e.file != "game.ron").count();
+    assert_eq!(own, 4, "{errors:#?}");
+}
+
+/// Une surcharge correcte ne produit aucune erreur ; le même jeu sans le fichier (CI, amis) non plus : ce qui
+/// manque à la surcharge n'est une erreur que lorsqu'elle est présente.
+#[test]
+fn feedback_local_overlay_fixture_is_clean_with_and_without_the_overlay() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("feedback_local_overlay_ok")).unwrap();
+    assert_eq!(registry.feedback_overlays.len(), 1);
+    let own: Vec<_> = errors.iter().filter(|e| e.file != "game.ron").collect();
+    assert!(own.is_empty(), "{own:#?}");
+    let (registry, _, _) = load_and_lint(&fixture_dir("feedback_missing_sound")).unwrap();
+    assert!(registry.feedback_overlays.is_empty());
+}

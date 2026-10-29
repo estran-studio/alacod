@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/repack-zombies-sons.py (S1-9). Usage : python3 scripts/repack-zombies-sons.py [nom ...]
 Dépend de sox, oggenc et des archives de ~/Downloads (Snake's, Kenney, Sonniss) ; les extraits vont sous
-~/orca/workspaces/alacod/packs/. Les .ogg de Snake's et Kenney sont commités ; ceux de Sonniss vont sous sounds/sonniss/ (gitignoré, en attente de la décision de William : dépôt public ou dépôt privé d'assets). Licences dans games/zombies/assets/assets.yaml.
+~/orca/workspaces/alacod/packs/. Les .ogg de Snake's et Kenney (dont les replis publics des clés Sonniss) sont commités ; ceux de Sonniss vont sous sounds/sonniss/ (gitignoré, jamais publiés : surcharge locale ui/feedback.local.ron, dépôt privé d'assets). Licences dans games/zombies/assets/assets.yaml.
 S1-9 : extrait UN fichier à la fois des packs (sous ~/orca/workspaces/alacod/packs/), puis le traite
 (mono 44,1 kHz, rognage, fondu de sortie, niveau RMS cible avec crête <= -1 dBFS, ogg vorbis q5) vers games/zombies/assets/sounds/."""
 import subprocess, sys, tempfile, zipfile
@@ -23,6 +23,19 @@ ITEMS=[
  ("reload_rifle",S1, "Snake's Authentic Gun Sounds/Reloads, Cycling & More/WAV/308 Magazine Full WAV.wav","snake",2.2,0.15),
  ("window_break",K,  "Audio/impactPlank_medium_000.ogg","kenney-impact",1.2,0.1),
  ("window_repair",K, "Audio/impactWood_light_000.ogg","kenney-impact",0.8,0.1),
+ # Replis publics (CC0) des clés que la surcharge locale remplit avec du Sonniss (S1-9 étape 2) ; choisis sur le nom et la durée,
+ # sans écoute (aucun son sur le Mac) : à juger à l'oreille par William, remplaçables un par un.
+ ("death_player",K, "Audio/impactSoft_heavy_003.ogg","kenney-impact",0.55,0.2),
+ ("wave_start",  K, "Audio/impactBell_heavy_000.ogg","kenney-impact",1.5,0.3),
+ ("wave_end",    K, "Audio/impactBell_heavy_003.ogg","kenney-impact",0.7,0.15),
+ ("room_cleared",K, "Audio/impactBell_heavy_004.ogg","kenney-impact",0.35,0.1),
+ ("purchase",    K, "Audio/impactMetal_light_003.ogg","kenney-impact",0.5,0.12),
+ ("pickup",      K, "Audio/impactGlass_light_002.ogg","kenney-impact",0.22,0.06),
+ ("boss_spawn",  K, "Audio/impactMetal_heavy_001.ogg","kenney-impact",0.4,0.1),
+ ("boss_death",  K, "Audio/impactPlate_heavy_004.ogg","kenney-impact",0.6,0.15),
+ ("menu_navigate",K,"Audio/impactGeneric_light_001.ogg","kenney-impact",0.12,0.03),
+ ("menu_confirm",K, "Audio/impactTin_medium_003.ogg","kenney-impact",0.22,0.06),
+ ("menu_back",   K, "Audio/impactPlate_light_002.ogg","kenney-impact",0.3,0.1),
 ]
 SONNISS=[
  ("death_zombie_1",2,"Epic Stock Media - Humanoid Creatures Vol 4 - Monstrous and Undead Creature Vocalization Sound Sets/VOXReac_Construction Kit Male Flutter Death Vocal Stuttered Long 05_ESM_HC4.wav",1.6,0.5),
