@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scripts/repack-zombies-sons.py (S1-9). Usage : python3 scripts/repack-zombies-sons.py [nom ...]
+"""scripts/repack-zombies-sons.py (S1-9). Importé aussi par scripts/repack-throne-sons.py (S2-11) : `process` (options `pitch`, en centièmes de ton, et `skip`, secondes de silence initial à couper), `extract`, `TARGET`, `OUT` y sont réutilisés. Usage : python3 scripts/repack-zombies-sons.py [nom ...]
 Dépend de sox, oggenc et des archives de ~/Downloads (Snake's, Kenney, Sonniss) ; les extraits vont sous
 ~/orca/workspaces/alacod/packs/. Les .ogg de Snake's et Kenney (dont les replis publics des clés Sonniss) sont commités ; ceux de Sonniss vont sous sounds/sonniss/ (gitignoré, jamais publiés : surcharge locale ui/feedback.local.ron, dépôt privé d'assets). Licences dans games/zombies/assets/assets.yaml.
 S1-9 : extrait UN fichier à la fois des packs (sous ~/orca/workspaces/alacod/packs/), puis le traite
@@ -61,14 +61,14 @@ def extract(zippath, member, pack):
 TARGET={"reload_pistol":-27,"reload_smg":-27,"reload_shotgun":-27,"reload_rifle":-27,
         "death_zombie_1":-21,"death_zombie_2":-21,"death_zombie_full":-21,"boss_spawn":-18,"boss_death":-18,
         "wave_start":-20,"window_break":-24,"window_repair":-24}
-def process(src, name, dur, fade, out=None):
+def process(src, name, dur, fade, out=None, pitch=0, skip=0):
     import wave, array, math
     out = out or OUT
     out.mkdir(parents=True,exist_ok=True)
     tmp=TMP/f"{name}.wav"; raw=TMP/f"{name}.raw.wav"
     src_len=float(subprocess.run(["soxi","-D",str(src)],capture_output=True,text=True).stdout)
     dur=min(dur,src_len); fade=min(fade,dur/2)
-    subprocess.run(["sox",str(src),"-c","1","-r","44100","-b","16",str(raw),"trim","0",str(dur),"fade","t","0",str(dur),str(fade)],check=True)
+    subprocess.run(["sox",str(src),"-c","1","-r","44100","-b","16",str(raw)]+(["pitch",str(pitch)] if pitch else [])+["trim",str(skip),str(dur),"fade","t","0",str(dur),str(fade)],check=True)
     w=wave.open(str(raw)); a=array.array('h',w.readframes(w.getnframes()))
     rms=20*math.log10(math.sqrt(sum(v*v for v in a)/len(a))/32768+1e-9); peak=20*math.log10(max(map(abs,a))/32768+1e-9)
     gain=min(TARGET.get(name,-22)-rms, -1.0-peak)
@@ -79,10 +79,11 @@ def process(src, name, dur, fade, out=None):
     r2=20*math.log10(math.sqrt(sum(v*v for v in a)/len(a))/32768+1e-9)
     return f"{len(a)/sr:.2f}s lead={lead*1000:.0f}ms rms={r2:.1f} peak={20*math.log10(max(map(abs,a))/32768+1e-9):.1f} gain={gain:+.1f}"
 
-only=set(sys.argv[1:])
-for name,zp,member,pack,dur,fade in ITEMS:
-    if only and name not in only: continue
-    print(name, process(extract(zp,member,pack),name,dur,fade),"s", member.split('/')[-1])
-for name,n,member,dur,fade in SONNISS:
-    if only and name not in only: continue
-    print(name, process(extract(SB(n),member,"sonniss"),name,dur,fade,OUT/"sonniss"),"s", member.split('/')[-1][:70])
+if __name__ == "__main__":
+    only=set(sys.argv[1:])
+    for name,zp,member,pack,dur,fade in ITEMS:
+        if only and name not in only: continue
+        print(name, process(extract(zp,member,pack),name,dur,fade),"s", member.split('/')[-1])
+    for name,n,member,dur,fade in SONNISS:
+        if only and name not in only: continue
+        print(name, process(extract(SB(n),member,"sonniss"),name,dur,fade,OUT/"sonniss"),"s", member.split('/')[-1][:70])

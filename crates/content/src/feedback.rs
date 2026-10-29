@@ -319,6 +319,8 @@ pub const SOUND_KEYS: &[&str] = &[
     // Objets, argent, explosifs.
     "purchase",
     "pickup",
+    // Choix de mutation pris (throne, progression).
+    "mutation",
     "explosion",
     "bomb",
     // Menus.
@@ -329,6 +331,31 @@ pub const SOUND_KEYS: &[&str] = &[
 
 /// Préfixe des clés de mort par personnage (`death_zombie_runner`).
 pub const DEATH_KEY_PREFIX: &str = "death_";
+
+/// Préfixes des clés propres à une arme (S2-11) : `shot_<arme>` (tir) et `reload_<arme>` (rechargement), `<arme>` étant
+/// une arme à distance du jeu (le lint refuse une arme inconnue). Elles passent **avant** l'`audio_config` de
+/// `weapons.ron`, puis la famille du mode de tir (`shot_pistol`, `shot_shotgun`, `shot_smg`, `shot`) ou `reload` : une
+/// surcharge locale peut ainsi porter le son d'une arme, ce que `audio_config` (fichier public) ne permet pas.
+pub const SHOT_KEY_PREFIX: &str = "shot_";
+pub const RELOAD_KEY_PREFIX: &str = "reload_";
+
+/// Clé propre à l'arme `weapon` sous `prefix` ([`SHOT_KEY_PREFIX`] ou [`RELOAD_KEY_PREFIX`]). `None` quand elle
+/// coïnciderait avec une clé fixe (`shot_pistol`, `shot_shotgun`, `shot_smg` : une arme nommée ainsi garde la clé de sa
+/// famille) ou quand le nom est vide.
+pub fn weapon_sound_key(prefix: &str, weapon: &str) -> Option<String> {
+    let key = format!("{prefix}{weapon}");
+    (!weapon.is_empty() && !SOUND_KEYS.contains(&key.as_str())).then_some(key)
+}
+
+/// Nom d'arme d'une clé `shot_<arme>` ou `reload_<arme>` qui n'est pas une clé fixe (le lint vérifie que l'arme existe).
+pub fn weapon_of_sound_key(key: &str) -> Option<&str> {
+    if SOUND_KEYS.contains(&key) {
+        return None;
+    }
+    key.strip_prefix(SHOT_KEY_PREFIX)
+        .or_else(|| key.strip_prefix(RELOAD_KEY_PREFIX))
+        .filter(|weapon| !weapon.is_empty())
+}
 
 /// Clé de `sounds` jouée à la mort du personnage `character` : `death_<character>` si le jeu la
 /// déclare, sinon `death`, sinon rien. Renvoie la clé et son chemin.
@@ -597,7 +624,8 @@ fn sound_key_problem(key: &str) -> Option<FeedbackProblem> {
     let known = SOUND_KEYS.contains(&key)
         || key
             .strip_prefix(DEATH_KEY_PREFIX)
-            .is_some_and(|id| !id.is_empty());
+            .is_some_and(|id| !id.is_empty())
+        || weapon_of_sound_key(key).is_some();
     (!known).then(|| FeedbackProblem {
         field: format!("sounds.{key}"),
         message: "clé de son inconnue du moteur (voir SOUND_KEYS)".into(),
@@ -980,5 +1008,41 @@ mod tests {
         assert_eq!(fields, ["sounds.vague", "volumes.hit"]);
         // Un champ qui n'est pas un son (ici le flash) est une erreur de lecture, pas une valeur ignorée.
         assert!(ron::from_str::<FeedbackOverlay>(r#"(hit_stop_frames: 3)"#).is_err());
+    }
+
+    #[test]
+    fn cles_propres_a_une_arme() {
+        // `shot_<arme>` et `reload_<arme>` sont des clés valides (le lint vérifie que l'arme existe), `mutation` aussi.
+        let mut s = settings();
+        s.sounds.insert("shot_laser".into(), "a.ogg".into());
+        s.sounds.insert("reload_laser".into(), "b.ogg".into());
+        s.sounds.insert("mutation".into(), "c.ogg".into());
+        assert!(s.problems().is_empty(), "{:?}", s.problems());
+        // Un préfixe seul n'est pas une clé.
+        s.sounds.insert("shot_".into(), "d.ogg".into());
+        s.sounds.insert("reload_".into(), "e.ogg".into());
+        let fields: Vec<_> = s.problems().into_iter().map(|p| p.field).collect();
+        assert_eq!(fields, ["sounds.reload_", "sounds.shot_"]);
+        // Les clés fixes ne sont jamais prises pour une arme : une arme nommée `pistol` garde `shot_pistol` (sa famille).
+        assert_eq!(weapon_of_sound_key("shot_laser"), Some("laser"));
+        assert_eq!(weapon_of_sound_key("reload_laser"), Some("laser"));
+        for fixed in ["shot", "shot_pistol", "shot_shotgun", "shot_smg", "reload"] {
+            assert_eq!(weapon_of_sound_key(fixed), None, "{fixed}");
+        }
+        assert_eq!(
+            weapon_sound_key(SHOT_KEY_PREFIX, "laser").as_deref(),
+            Some("shot_laser")
+        );
+        assert_eq!(
+            weapon_sound_key(RELOAD_KEY_PREFIX, "laser").as_deref(),
+            Some("reload_laser")
+        );
+        assert_eq!(weapon_sound_key(SHOT_KEY_PREFIX, "pistol"), None);
+        assert_eq!(weapon_sound_key(SHOT_KEY_PREFIX, ""), None);
+        // Une arme nommée `pistol` n'a pas de clé de rechargement propre à fixer : `reload_pistol` est libre.
+        assert_eq!(
+            weapon_sound_key(RELOAD_KEY_PREFIX, "pistol").as_deref(),
+            Some("reload_pistol")
+        );
     }
 }

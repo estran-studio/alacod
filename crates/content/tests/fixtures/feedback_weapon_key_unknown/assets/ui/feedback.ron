@@ -1,0 +1,6 @@
+// Fixture S2-11 : `shot_<arme>` et `reload_<arme>` visent une arme absente du jeu (aucune arme déclarée).
+(
+    hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+    shake: (frames: 8, amplitude: 0.0),
+    sounds: {"shot_laser": "sounds/present.ogg", "reload_laser": "sounds/present.ogg", "shot": "sounds/present.ogg", "mutation": "sounds/present.ogg"},
+)

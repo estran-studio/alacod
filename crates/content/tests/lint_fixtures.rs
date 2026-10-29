@@ -2465,3 +2465,21 @@ fn feedback_local_overlay_fixture_is_clean_with_and_without_the_overlay() {
     let (registry, _, _) = load_and_lint(&fixture_dir("feedback_missing_sound")).unwrap();
     assert!(registry.feedback_overlays.is_empty());
 }
+
+/// S2-11 : `shot_<arme>` et `reload_<arme>` doivent viser une arme du jeu ; `shot` (clé fixe) et `mutation` n'en demandent aucune.
+#[test]
+fn feedback_weapon_key_fixture_reports_unknown_weapon_only_for_prefixed_keys() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_weapon_key_unknown")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "sounds.shot_laser : arme « laser » inconnue du jeu",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "sounds.reload_laser : arme « laser » inconnue du jeu",
+    );
+    let own: Vec<_> = errors.iter().filter(|e| e.file != "game.ron").collect();
+    assert_eq!(own.len(), 2, "{own:#?}");
+}

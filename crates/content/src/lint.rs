@@ -2226,6 +2226,22 @@ fn lint_feedback_sounds(
             });
         }
     }
+    // `shot_<arme>` et `reload_<arme>` : l'arme doit être une arme à distance du jeu.
+    for key in sounds.keys() {
+        let Some(weapon) = crate::feedback::weapon_of_sound_key(key) else {
+            continue;
+        };
+        if !registry
+            .weapons
+            .contains_key(&registry::WeaponId::from(weapon))
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.to_string(),
+                message: format!("feedback : sounds.{key} : arme « {weapon} » inconnue du jeu"),
+            });
+        }
+    }
 }
 
 /// Surcharge locale des sons (`ui/feedback.local.ron`, `docs/conventions.md` §98) : mêmes règles que le

@@ -48,7 +48,7 @@ pub enum FeedbackLoadError {
 
 /// Chargeur de `ui/feedback.ron` : comme `RonAssetPlugin<FeedbackConfig>`, plus la surcharge locale des sons
 /// `ui/feedback.local.ron` quand elle existe (S1-9 étape 2, `docs/conventions.md` §98 ; même principe que
-/// `HudConfigLoader`). Natif seulement : le web ne cherche pas un fichier absent du site, il lirait un 404.
+/// `HudConfigLoader`). Web : seulement dans un build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1` (S-0b, D169, `ui::hud::hud_overlay_wanted`), le site contenant alors le fichier ; sinon il lirait un 404.
 /// L'absence du fichier est silencieuse ; sa présence l'enregistre comme dépendance (rechargement à chaud).
 /// Sans le fichier, la configuration est celle du `feedback.ron` public, octet pour octet.
 #[derive(TypePath, Default)]
@@ -67,10 +67,11 @@ impl bevy::asset::AssetLoader for FeedbackConfigLoader {
     ) -> Result<FeedbackConfig, FeedbackLoadError> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        #[allow(unused_mut)]
         let mut config: FeedbackConfig = ron::de::from_bytes(&bytes)?;
-        #[cfg(not(target_arch = "wasm32"))]
-        {
+        if crate::ui::hud::hud_overlay_wanted(
+            cfg!(target_arch = "wasm32"),
+            option_env!("ALACOD_WEB_PRIVATE_ASSETS"),
+        ) {
             let local = load_context.path().path().with_extension("local.ron");
             if let Ok(local_bytes) = load_context.read_asset_bytes(local).await {
                 match ron::de::from_bytes::<content::feedback::FeedbackOverlay>(&local_bytes) {
@@ -79,8 +80,6 @@ impl bevy::asset::AssetLoader for FeedbackConfigLoader {
                 }
             }
         }
-        #[cfg(target_arch = "wasm32")]
-        let _ = load_context;
         Ok(config)
     }
 
@@ -970,37 +969,85 @@ fn shot_sound_key(mode: &crate::weapons::FiringMode) -> &'static str {
     }
 }
 
-/// Son de tir : `firing` du mode actif dans l'`audio_config` de l'arme (`weapons.ron`), sinon
-/// la clé de la famille du mode dans `sounds`, sinon `shot`, sinon aucun son. Renvoie le
-/// chemin et la clé de `sounds` dont il prend le volume (`volumes`) : celle de la famille,
-/// même quand l'arme la remplace.
+/// Son d'une arme choisi dans `sounds` : fichier, clé affichée au journal et clé de repli du volume.
+#[derive(Debug, PartialEq, Eq)]
+struct WeaponSound<'a> {
+    path: &'a str,
+    /// Clé jouée (`shot_<arme>` si l'arme a la sienne, sinon la famille ou `reload`).
+    key: String,
+    /// Clé de volume quand `volumes` ne règle pas `key` : la famille du mode de tir, `shot` ou `reload`.
+    volume_fallback: &'static str,
+}
+
+/// Son de tir, par ordre de priorité : la clé propre à l'arme `shot_<arme>` de `sounds` (S2-11 : une surcharge
+/// locale peut la poser, `weapons.ron` est public), puis `firing` du mode actif dans l'`audio_config` de l'arme,
+/// puis la clé de la famille du mode dans `sounds`, puis `shot`, sinon aucun son. Le volume est celui de la clé
+/// propre à l'arme si `volumes` la règle, sinon celui de la famille, même quand l'arme remplace son fichier.
 fn shot_sound<'a>(
     sounds: &'a BTreeMap<String, String>,
+    weapon: Option<&str>,
     weapon_audio: Option<&'a crate::weapons::WeaponModeAudio>,
     mode: Option<&crate::weapons::FiringMode>,
-) -> Option<(&'a str, &'static str)> {
+) -> Option<WeaponSound<'a>> {
     let family = mode.map(shot_sound_key);
+    let volume_fallback = family.unwrap_or("shot");
+    let own_key = weapon.and_then(|name| {
+        content::feedback::weapon_sound_key(content::feedback::SHOT_KEY_PREFIX, name)
+    });
+    if let Some((key, path)) = own_key.and_then(|key| sounds.get(&key).map(|path| (key, path))) {
+        return Some(WeaponSound {
+            path,
+            key,
+            volume_fallback,
+        });
+    }
     if let Some(path) = weapon_audio
         .map(|audio| audio.firing.as_str())
         .filter(|path| !path.is_empty())
     {
-        return Some((path, family.unwrap_or("shot")));
+        return Some(WeaponSound {
+            path,
+            key: volume_fallback.to_string(),
+            volume_fallback,
+        });
     }
     family
         .and_then(|key| sounds.get(key).map(|path| (path.as_str(), key)))
         .or_else(|| sounds.get("shot").map(|path| (path.as_str(), "shot")))
+        .map(|(path, key)| WeaponSound {
+            path,
+            key: key.to_string(),
+            volume_fallback: key,
+        })
 }
 
-/// Son de rechargement : `reloading` du mode actif dans l'`audio_config` de l'arme, sinon
-/// `reload`, sinon aucun son (volume : celui de `reload`).
+/// Son de rechargement, par ordre de priorité : `reload_<arme>` de `sounds`, puis `reloading` du mode actif dans
+/// l'`audio_config` de l'arme, puis `reload`, sinon aucun son (volume : celui de `reload_<arme>` s'il est réglé, sinon
+/// celui de `reload`).
 fn reload_sound<'a>(
     sounds: &'a BTreeMap<String, String>,
+    weapon: Option<&str>,
     weapon_audio: Option<&'a crate::weapons::WeaponModeAudio>,
-) -> Option<&'a str> {
+) -> Option<WeaponSound<'a>> {
+    let own_key = weapon.and_then(|name| {
+        content::feedback::weapon_sound_key(content::feedback::RELOAD_KEY_PREFIX, name)
+    });
+    if let Some((key, path)) = own_key.and_then(|key| sounds.get(&key).map(|path| (key, path))) {
+        return Some(WeaponSound {
+            path,
+            key,
+            volume_fallback: "reload",
+        });
+    }
     weapon_audio
         .map(|audio| audio.reloading.as_str())
         .filter(|path| !path.is_empty())
         .or_else(|| sounds.get("reload").map(String::as_str))
+        .map(|path| WeaponSound {
+            path,
+            key: "reload".to_string(),
+            volume_fallback: "reload",
+        })
 }
 
 /// Arme active d'un inventaire, vue par les sons : nom, mode actif (nom et genre de tir).
@@ -1087,8 +1134,9 @@ fn play_shot_sound_for_new_bullets(
             .as_ref()
             .and_then(|weapon| weapon.mode)
             .map(|(_, m)| m);
-        if let Some((path, key)) = shot_sound(&cfg.0.sounds, own, mode) {
-            sounds.play_path(path, key);
+        let weapon = active.as_ref().map(|weapon| weapon.name);
+        if let Some(sound) = shot_sound(&cfg.0.sounds, weapon, own, mode) {
+            sounds.play_weapon_sound(&sound);
         }
     }
 }
@@ -1097,6 +1145,18 @@ fn play_shot_sound_for_new_bullets(
 mod shot_sound_tests {
     use super::*;
     use crate::weapons::{FiringMode, WeaponModeAudio};
+
+    fn sound<'a>(
+        path: &'a str,
+        key: &str,
+        volume_fallback: &'static str,
+    ) -> Option<WeaponSound<'a>> {
+        Some(WeaponSound {
+            path,
+            key: key.to_string(),
+            volume_fallback,
+        })
+    }
 
     #[test]
     fn arme_puis_famille_puis_repli() {
@@ -1121,27 +1181,100 @@ mod shot_sound_tests {
         let silent = WeaponModeAudio::default();
         // Le son du mode de l'arme l'emporte, avec le volume de la famille qu'il remplace.
         assert_eq!(
-            shot_sound(&sounds, Some(&own), Some(&automatic)),
-            Some(("pistolet.ogg", "shot_smg"))
+            shot_sound(&sounds, None, Some(&own), Some(&automatic)),
+            sound("pistolet.ogg", "shot_smg", "shot_smg")
         );
-        assert_eq!(reload_sound(&sounds, Some(&own)), Some("chargeur.ogg"));
+        assert_eq!(
+            reload_sound(&sounds, None, Some(&own)),
+            sound("chargeur.ogg", "reload", "reload")
+        );
         // Champs vides : la famille du mode et `reload`.
         assert_eq!(
-            shot_sound(&sounds, Some(&silent), Some(&shotgun)),
-            Some(("pompe.ogg", "shot_shotgun"))
+            shot_sound(&sounds, None, Some(&silent), Some(&shotgun)),
+            sound("pompe.ogg", "shot_shotgun", "shot_shotgun")
         );
-        assert_eq!(reload_sound(&sounds, Some(&silent)), Some("recharge.ogg"));
+        assert_eq!(
+            reload_sound(&sounds, None, Some(&silent)),
+            sound("recharge.ogg", "reload", "reload")
+        );
         // Famille absente de `sounds`, ou mode inconnu : repli sur `shot`.
         sounds.remove("shot_smg");
         assert_eq!(
-            shot_sound(&sounds, None, Some(&automatic)),
-            Some(("repli.ogg", "shot"))
+            shot_sound(&sounds, None, None, Some(&automatic)),
+            sound("repli.ogg", "shot", "shot")
         );
-        assert_eq!(shot_sound(&sounds, None, None), Some(("repli.ogg", "shot")));
+        assert_eq!(
+            shot_sound(&sounds, None, None, None),
+            sound("repli.ogg", "shot", "shot")
+        );
         // Rien de déclaré : aucun son.
         sounds.clear();
-        assert_eq!(shot_sound(&sounds, None, Some(&shotgun)), None);
-        assert_eq!(reload_sound(&sounds, None), None);
+        assert_eq!(shot_sound(&sounds, None, None, Some(&shotgun)), None);
+        assert_eq!(reload_sound(&sounds, None, None), None);
+    }
+
+    #[test]
+    fn cle_propre_a_l_arme_avant_audio_config_et_famille() {
+        let automatic = FiringMode::Automatic {};
+        let sounds: BTreeMap<String, String> = [
+            ("shot_smg", "smg.ogg"),
+            ("shot_laser", "laser_local.ogg"),
+            ("reload", "recharge.ogg"),
+            ("reload_laser", "laser_charge.ogg"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        let own = WeaponModeAudio {
+            firing: "laser_public.ogg".into(),
+            reloading: "charge_public.ogg".into(),
+        };
+        // La clé propre à l'arme (posée par la surcharge locale) l'emporte sur `audio_config` public ; son volume
+        // retombe sur celui de la famille (`shot_smg`) ou de `reload` tant que `volumes` ne la règle pas.
+        assert_eq!(
+            shot_sound(&sounds, Some("laser"), Some(&own), Some(&automatic)),
+            sound("laser_local.ogg", "shot_laser", "shot_smg")
+        );
+        assert_eq!(
+            reload_sound(&sounds, Some("laser"), Some(&own)),
+            sound("laser_charge.ogg", "reload_laser", "reload")
+        );
+        // Une autre arme, ou une arme sans clé propre : `audio_config`, puis la famille.
+        assert_eq!(
+            shot_sound(&sounds, Some("plasma"), Some(&own), Some(&automatic)),
+            sound("laser_public.ogg", "shot_smg", "shot_smg")
+        );
+        assert_eq!(
+            shot_sound(&sounds, Some("plasma"), None, Some(&automatic)),
+            sound("smg.ogg", "shot_smg", "shot_smg")
+        );
+        assert_eq!(
+            reload_sound(&sounds, Some("plasma"), None),
+            sound("recharge.ogg", "reload", "reload")
+        );
+    }
+
+    #[test]
+    fn une_arme_nommee_comme_une_famille_garde_la_cle_de_sa_famille() {
+        // `shot_pistol` est la clé de la famille manuelle, pas celle d'une arme nommée « pistol » : l'`audio_config`
+        // de l'arme garde la priorité sur elle, comme avant.
+        let manual = FiringMode::Manual {};
+        let sounds: BTreeMap<String, String> = [("shot_pistol", "famille.ogg")]
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        let own = WeaponModeAudio {
+            firing: "arme.ogg".into(),
+            reloading: String::new(),
+        };
+        assert_eq!(
+            shot_sound(&sounds, Some("pistol"), Some(&own), Some(&manual)),
+            sound("arme.ogg", "shot_pistol", "shot_pistol")
+        );
+        assert_eq!(
+            shot_sound(&sounds, Some("pistol"), None, Some(&manual)),
+            sound("famille.ogg", "shot_pistol", "shot_pistol")
+        );
     }
 }
 
@@ -1175,8 +1308,9 @@ fn play_reload_sound_for_reload_events(
     {
         let active = active_weapon_sound(inventory, &weapon_states);
         let own = active.as_ref().and_then(|weapon| weapon_audio.mode(weapon));
-        if let Some(path) = reload_sound(&cfg.0.sounds, own) {
-            sounds.play_path(path, "reload");
+        let weapon = active.as_ref().map(|weapon| weapon.name);
+        if let Some(sound) = reload_sound(&cfg.0.sounds, weapon, own) {
+            sounds.play_weapon_sound(&sound);
         }
     }
 }
@@ -1206,14 +1340,30 @@ impl FeedbackSounds<'_> {
         self.play_path(path, key);
     }
 
+    /// Joue le son d'une arme ([`shot_sound`], [`reload_sound`]) au volume de sa clé, sinon de son repli.
+    fn play_weapon_sound(&self, sound: &WeaponSound) {
+        self.play_path_with_fallback(sound.path, &sound.key, Some(sound.volume_fallback));
+    }
+
     /// Joue le fichier `path` au volume de la clé `key` (0 dB si `volumes` ne la règle pas).
     /// `ALACOD_MUTE=1` : rien n'est joué (captures, `play_scenario`, tests sur un poste de
     /// travail) ; le journal garde la ligne `sound`, les moments clés restent détectés.
     fn play_path(&self, path: &str, key: &str) {
+        self.play_path_with_fallback(path, key, None);
+    }
+
+    /// Comme [`Self::play_path`] ; `fallback` : clé dont le volume s'applique quand `volumes` ne règle pas `key`.
+    fn play_path_with_fallback(&self, path: &str, key: &str, fallback: Option<&str>) {
         let volume_db = self
             .config
             .as_ref()
-            .and_then(|cfg| cfg.0.volumes.get(key).copied())
+            .and_then(|cfg| {
+                let volumes = &cfg.0.volumes;
+                volumes
+                    .get(key)
+                    .or_else(|| fallback.and_then(|fallback| volumes.get(fallback)))
+                    .copied()
+            })
             .unwrap_or(0.0);
         info!("feedback f{} sound {} {}", self.frame.frame, key, path);
         if muted() {
