@@ -9,7 +9,7 @@
 //! traces ; les décisions sont des fonctions pures testées ci-dessous.
 
 use bevy::prelude::*;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use utils::net_id::GgrsNetId;
 
 use crate::character::player::LocalPlayer;
@@ -25,6 +25,7 @@ pub(crate) fn add_event_sounds(app: &mut App) {
         Update,
         (
             play_wave_sounds,
+            play_window_sounds,
             play_room_cleared_sound,
             play_floor_sound,
             play_boss_sounds,
@@ -75,6 +76,48 @@ fn play_wave_sounds(
     }
     if let Some(key) = wave_sound(*previous, now) {
         sounds.play(key);
+    }
+    *previous = Some(now);
+}
+
+// --- Fenêtres --------------------------------------------------------------------------------
+
+/// `(brisée, réparée)` entre deux images : une fenêtre dont les PV passent à 0 est brisée ; une
+/// fenêtre dont les PV montent (et restent connus des deux images) est réparée d'un cran.
+/// Une fenêtre apparue entre les deux images n'est ni l'un ni l'autre.
+fn window_changes(before: &BTreeMap<usize, u8>, now: &BTreeMap<usize, u8>) -> (bool, bool) {
+    let mut broken = false;
+    let mut repaired = false;
+    for (net_id, hp) in now {
+        let Some(old) = before.get(net_id) else {
+            continue;
+        };
+        broken |= *hp == 0 && *old > 0;
+        repaired |= *hp > *old;
+    }
+    (broken, repaired)
+}
+
+/// `window_break` et `window_repair`, dérivés des PV des fenêtres (`WindowHealth`, rollback) d'une
+/// image rendue à l'autre. Un retour de frame (nouvelle partie) réarme sans jouer.
+fn play_window_sounds(
+    sounds: FeedbackSounds,
+    windows: Query<(&GgrsNetId, &map::game::entity::map::window::WindowHealth)>,
+    mut previous: Local<Option<BTreeMap<usize, u8>>>,
+    mut last_frame: Local<Option<u32>>,
+) {
+    let now: BTreeMap<usize, u8> = windows.iter().map(|(n, h)| (n.0, h.current)).collect();
+    let frame = sounds.frame.frame;
+    let restarted = last_frame.is_some_and(|last| frame < last);
+    *last_frame = Some(frame);
+    if let (Some(before), false) = (previous.as_ref(), restarted) {
+        let (broken, repaired) = window_changes(before, &now);
+        if broken {
+            sounds.play("window_break");
+        }
+        if repaired {
+            sounds.play("window_repair");
+        }
     }
     *previous = Some(now);
 }
@@ -258,6 +301,31 @@ mod tests {
             Some("wave_end")
         );
         assert_eq!(wave_sound(Some((2, WaveComplete)), (2, WaveComplete)), None);
+    }
+
+    #[test]
+    fn fenetres_brisee_et_reparee() {
+        let m = |v: &[(usize, u8)]| v.iter().copied().collect::<BTreeMap<_, _>>();
+        let before = m(&[(1, 3), (2, 1)]);
+        assert_eq!(
+            window_changes(&before, &m(&[(1, 3), (2, 1)])),
+            (false, false)
+        );
+        assert_eq!(
+            window_changes(&before, &m(&[(1, 3), (2, 0)])),
+            (true, false)
+        );
+        assert_eq!(
+            window_changes(&before, &m(&[(1, 3), (2, 2)])),
+            (false, true)
+        );
+        // Dégâts sans bris, fenêtre nouvelle : rien.
+        assert_eq!(
+            window_changes(&before, &m(&[(1, 2), (2, 1), (3, 0)])),
+            (false, false)
+        );
+        // Les deux dans la même image.
+        assert_eq!(window_changes(&before, &m(&[(1, 0), (2, 2)])), (true, true));
     }
 
     #[test]

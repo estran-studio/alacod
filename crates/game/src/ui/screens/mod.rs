@@ -19,9 +19,9 @@ use bevy::prelude::*;
 use combat::inventory::AmmoReserves;
 use items::{Inventory, ItemKind, ItemTable};
 use model::{
-    inventory_focus_len, inventory_view, merchant_lines, merchant_view, pause_view_full,
-    reduce, ActiveLine, InventoryInput, ScreenCommand, ScreenId, ScreenScript, ScreenView,
-    ScreensState, UiAction, WeaponLine,
+    inventory_focus_len, inventory_view, merchant_lines, merchant_view, pause_view_full, reduce,
+    ActiveLine, InventoryInput, ScreenCommand, ScreenId, ScreenScript, ScreenView, ScreensState,
+    UiAction, WeaponLine,
 };
 use utils::frame::FrameCount;
 

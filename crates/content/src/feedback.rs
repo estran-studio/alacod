@@ -243,6 +243,9 @@ pub const SOUND_KEYS: &[&str] = &[
     "dash",
     "blank",
     "door",
+    // Fenêtres (zombies) : brisée, réparée d'un cran.
+    "window_break",
+    "window_repair",
     // Rythme de la partie.
     "wave_start",
     "wave_end",
