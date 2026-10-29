@@ -40,3 +40,14 @@ Le JSON ne donne pas de cause de mort plus fine que l'étage : la cause se lit a
 **Verdict** : aucun étage sous 20 % ; l'étage 1 à 100 % est l'introduction, pas un mur de difficulté ; le palier le plus dur est
 l'étage 3 en solo (41 %). Pas de réglage de contenu, donc pas de campagne « après », aucune trace bougée (seuils de travail, William tranche).
 Point à décider par William : les soft-locks (10–13 %) sont un défaut du bot ou de la carte, pas de l'équilibrage ; non traités ici.
+
+## make check
+
+Vert (code 0, `env -u CI make check`). Un écart de formatage déjà sur main (`crates/content/tests/lint_fixtures.rs`, format seul) corrigé au passage. Dernières lignes :
+
+```
+     |     ^^^^^^^^^^^
+games/isaac : aucune erreur (24 personnages, 3 armes, 2 armes de corps à corps, 0 vagues, 3 cartes)
+✓ All checks passed
+exit=0
+```
