@@ -7940,3 +7940,54 @@ la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `
   de `scripts/lint-edited-game.sh` et du `Makefile` gardent `cargo run` (elles n'exigent pas l'installation).
 - **Tests** : `crates/content/tests/edit.rs` (jeu de travail = copie du gabarit dans un dépôt git temporaire : formatage conservé, types, chemins inconnus/ambigus, lint rouge restauré, erreurs préexistantes, commit du seul fichier, undo), `crates/content/tests/remote_script.rs` (faux jeu JSON-RPC :
   codes de sortie, `--json`, scripts, `step`), unitaires de `edit.rs` et `script.rs`.
+
+## 91. Importer un personnage `*.sprite.json` : atlas réduit, une entrée par personnage (X-4b, D-X4b-1)
+
+`alacod import-sprite <manifeste.sprite.json> [jeu] [--id I] (--units-per-meter U | --scale S) [--state Etat=clip]…
+[--max-side N] [--cell-height N] [--overwrite]` (`content::sprite_import`, aucun nom de jeu dans le code). Un manifeste
+décrit, par clip, une planche PNG (colonnes = images, lignes = directions), son `fps`, sa boucle ; plus `cell`, `pivot`, `ppm`
+et `directions`. L'import ne lit **pas** les `*_mains_*.png` ni `ancres.json` (`design/sprites-composables.md` n'est pas tranché).
+
+**Un seul PNG réduit.** Dix planches HD donneraient dix textures (≈ 360 Mo de mémoire vidéo par personnage) et un personnage
+n'a qu'un `asset_name_ref` : l'import réduit chaque cellule, puis place chaque clip comme un **bloc** (colonnes du clip × une
+ligne par direction) dans `assets/sprites/<id>/<id>.png`. Les blocs sont côte à côte et les uns sous les autres, l'atlas reste
+sous `--max-side` (4096) de côté, les cases inutilisées sont transparentes. Facteur = le plus grand qui tient (jamais d'agrandissement),
+ou `--cell-height` ; entre deux grilles de blocs, la plus grande cellule, puis le moins de blocs, puis l'atlas le plus carré.
+La réduction se fait cellule par cellule en **alpha prémultiplié**, filtre Lanczos3, somme à ordre fixe : même import, même PNG à l'octet près.
+
+**Fichiers** : `<id>.png`, `<id>_sheet.ron` (une `SpriteSheetConfig` calque `body` : `tile_size` = cellule réduite, `columns`/`rows` =
+grille de l'atlas, `directions: rows: [ordre du manifeste]`, `mirror` vrai sauf à huit directions), `<id>_animation.ron`
+(`AnimationMapConfig`) et **une** entrée `<id>` dans la table `SpriteSheet` du jeu (`sprites.ron`, commentaires conservés ; un
+réimport sans `--overwrite` est refusé). L'écriture est **transactionnelle** : fichiers temporaires du même dossier puis renommages (`sprites.ron` en dernier), l'état d'avant revient octet pour octet si un pas échoue ; la table est lue par un analyseur qui ignore commentaires et chaînes, la déclaration `SpriteSheet` par `GameManifest`, chaque clé est échappée, et les textes RON produits sont relus avant écriture. Rien n'est écrit si une validation échoue (direction inconnue, PNG absent ou de taille ≠
+colonnes × cellule, manifeste mal formé, atlas impossible sous `--max-side`).
+
+**Correspondance atlas/ligne.** Chaque clip est en `Direct { start, end }` sur la **première ligne de son bloc** :
+`start = ligne_du_bloc × colonnes_atlas + colonne_du_bloc`. `DirectionRow` ajoute `ligne de direction × colonnes_atlas` (0 à
+`directions − 1`) : l'index retombe sur la ligne de la direction **dans le bloc**, même hors de la colonne 0 (test
+`atlas_cells_land_in_their_block_even_off_column_zero`). `--state Idle=idle --state Run=marche --state Shoot=epauler` : la clé d'état reçoit
+les indices du clip ; **tout clip reste sous son propre nom** (rien n'est abandonné). Sans `Idle`, un avertissement dit que le runtime
+retombe sur la première image.
+
+**Durée et boucle par clip** (`animation::AnimationClipMeta`, facultatif et rétrocompatible) : `AnimationMapConfig.clips` donne,
+par clé d'animation, `frame_duration` (ms, de `fps`) et `looping` (de `loop`). Absent, rien ne change (aucune carte existante n'a
+`clips`, et `animate_sprite_system` n'écrit pas le timer sans `clips`). Un clip sans boucle reste sur sa dernière image tant
+que l'état ne change pas (`animation::advance_frame`).
+
+**`Shoot` est un état de présentation, pas un état rollback.** `animation::PresentationClip` (composant d'`Update`, jamais rollback) remplace
+`AnimationState` pour choisir l'animation jouée **si** la carte définit la clé ; `game::character::visuals::present_shooting` y
+pose `"Shoot"` quand l'arme active a tiré depuis moins de `SHOOT_POSE_FRAMES` (20) frames, lu dans `WeaponState::last_fire_frame` et
+`FrameCount` (existants), jamais dans l'input. `AnimationState` (checksum) est intouché ; sans clé `Shoot`, rien ne change.
+
+**Échelle et pivot : lus, reportés, jamais implicites.** `--units-per-meter U` : `U / ppm` unités monde par pixel source, donc
+`scale = (U / ppm) / facteur` ; `--scale` est accepté à la place, un des deux est exigé. Le `pivot` (pixels de la cellule source,
+origine en haut à gauche) devient `anchor: Center` plus `offset_x` / `offset_y` en unités monde (`ConfigurableAnchor` n'a pas de
+`Custom`) : `offset = (centre − pivot) × échelle + pivot_at`. **Le pivot du manifeste est aux pieds (point de contact au sol)**, mesuré sur un vrai
+manifeste (le pixel opaque le plus bas est 6 à 18 px sous le pivot, le plus haut 118 à 125 px au-dessus). `--pivot-at X,Y` (unités monde locales à l'entité, défaut `0,0` : l'origine
+de l'entité) dit où ce pivot se pose ; dans le testbed le bas du collider (20×20, `offset_y` −6) est à −16, d'où `--pivot-at 0,-13` pour que les bottes y arrivent. La sortie
+rappelle `pivot_at` et l'offset écrit ; elle donne aussi donne la hauteur réelle de la silhouette (boîte alpha d'`idle`, alpha ≥ 32) en pixels source, pixels d'atlas
+et unités affichées, pour choisir U (import d'essai : 143 px source, U = 20,4 → 32 unités, comme la boussole §89).
+
+**Preuve sur un vrai manifeste.** Aucune règle ci-dessus ne dépend d'un jeu ou d'un personnage : les tests de l'outil (`crates/content/tests/sprite_import.rs`)
+tournent sur des PNG synthétiques neutres. Un import d'essai d'un vrai personnage (huit directions, dix clips) vit dans **deux commits de la branche X-4b qui ne touchent que lui, retirables par `git revert`** (dossier `sprites/` du personnage, entrée `sprites.ron`, personnage, `assets.yaml`, scénario `sprite_import_fantassin` et sa trace) ; sa licence est « à confirmer par William ».
+Rapport et transcript : `docs/taches/rapports/x-4b-import-sprite.md`. Tests : `sprite_import.rs` (intégration et unitaires), `animation` (`clip_timing_tests`, `presentation_clip_tests`),
+`game` (`shoot_pose_tests`). Dettes D156 (mains et ancres) et D157 (clips sans état).

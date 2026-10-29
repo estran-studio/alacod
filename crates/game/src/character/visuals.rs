@@ -7,7 +7,8 @@
 use std::collections::BTreeMap;
 
 use animation::{
-    create_child_sprite, AnimationMapConfig, AnimationVisualsBundle, SpriteSheetConfig,
+    create_child_sprite, AnimationMapConfig, AnimationVisualsBundle, PresentationClip,
+    SpriteSheetConfig,
 };
 use bevy::prelude::*;
 use utils::{frame::FrameCount, net_id::GgrsNetId};
@@ -473,5 +474,103 @@ mod tests {
             "ennemi revenu : fantôme supprimé"
         );
         assert!(app.world().get_entity(g2).is_ok(), "autre fantôme intact");
+    }
+}
+
+/// Frames de simulation pendant lesquelles un tir reste « en cours » pour la pose de présentation
+/// (un tiers de seconde à 60 Hz : couvre la cadence des armes courantes sans coller après le tir).
+pub const SHOOT_POSE_FRAMES: u32 = 20;
+
+/// Vrai si un tir a eu lieu depuis moins de [`SHOOT_POSE_FRAMES`] frames (`last_fire_frame` à 0 :
+/// aucun tir encore). Pure, pour les tests.
+pub fn shot_recently(frame: u32, last_fire_frame: u32) -> bool {
+    last_fire_frame > 0 && frame >= last_fire_frame && frame - last_fire_frame <= SHOOT_POSE_FRAMES
+}
+
+/// Pose de tir (X-4b, présentation, `Update`) : quand l'arme active du personnage vient de tirer,
+/// la clé `"Shoot"` est proposée à l'animation, qui l'applique **si** sa carte la définit (sinon
+/// rien ne change). Lit l'état rollback existant de l'arme (`WeaponState::last_fire_frame`) et la
+/// frame courante ; jamais l'input, rien n'est écrit dans la simulation ni dans `AnimationState`.
+pub fn present_shooting(
+    frame: Res<FrameCount>,
+    mut shooters: Query<(&combat::weapons::WeaponInventory, &mut PresentationClip)>,
+    weapons: Query<&combat::weapons::WeaponState>,
+) {
+    for (inventory, mut clip) in shooters.iter_mut() {
+        let shooting = inventory
+            .weapons
+            .get(inventory.active_weapon_index)
+            .and_then(|(entity, _)| weapons.get(*entity).ok())
+            .is_some_and(|state| shot_recently(frame.frame, state.last_fire_frame));
+        let wanted = shooting.then(|| "Shoot".to_string());
+        if clip.0 != wanted {
+            clip.0 = wanted;
+        }
+    }
+}
+
+#[cfg(test)]
+mod shoot_pose_tests {
+    use super::*;
+    use combat::weapons::{Weapon, WeaponInventory, WeaponState};
+
+    /// Une arme du testbed (`weapons.ron`), pour remplir un `WeaponInventory`.
+    fn some_weapon() -> Weapon {
+        #[derive(serde::Deserialize)]
+        struct Table(BTreeMap<String, crate::weapons::WeaponAsset>);
+        let table = ron::from_str::<Table>(include_str!(
+            "../../../../games/testbed/assets/ZombieShooter/Sprites/Character/weapons.ron"
+        ))
+        .unwrap()
+        .0;
+        Weapon::from(table.get("pistol").unwrap().clone())
+    }
+
+    #[test]
+    fn a_shot_keeps_the_pose_for_a_short_window_only() {
+        assert!(!shot_recently(100, 0), "jamais tiré");
+        assert!(shot_recently(100, 100));
+        assert!(shot_recently(100 + SHOOT_POSE_FRAMES, 100));
+        assert!(!shot_recently(101 + SHOOT_POSE_FRAMES, 100));
+        assert!(!shot_recently(50, 100), "rollback avant le tir");
+    }
+
+    #[test]
+    fn the_active_weapon_state_drives_the_presented_key() {
+        let mut app = App::new();
+        app.insert_resource(FrameCount { frame: 120 });
+        app.add_systems(Update, present_shooting);
+        let weapon = app
+            .world_mut()
+            .spawn(WeaponState {
+                last_fire_frame: 115,
+                ..default()
+            })
+            .id();
+        let shooter = app
+            .world_mut()
+            .spawn((
+                WeaponInventory {
+                    weapons: vec![(weapon, some_weapon())],
+                    ..default()
+                },
+                PresentationClip::default(),
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<PresentationClip>(shooter)
+                .unwrap()
+                .0
+                .as_deref(),
+            Some("Shoot")
+        );
+        app.world_mut().resource_mut::<FrameCount>().frame = 200;
+        app.update();
+        assert_eq!(
+            app.world().get::<PresentationClip>(shooter).unwrap().0,
+            None
+        );
     }
 }
