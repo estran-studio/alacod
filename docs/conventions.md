@@ -4308,7 +4308,7 @@ de vue remplit à nouveau les listes ; un rechargement HTML recrée leurs lignes
 construire une ligne déjà détruite lorsque l'inventaire change.
 
 - Pause : Reprendre, Recommencer (`RunRequest::Restart`), Lobby (`RunRequest::ToLobby`),
-  Réglages (« Aucun réglage pour l'instant. »).
+  Réglages (S1-7 : curseur « Volume : 100 % », ← → par pas de 10 ; avant : « Aucun réglage pour l'instant. »).
 - Inventaire : armes et munitions, actif et charge, passifs, consommables. Joueur affiché :
   celui de `HudPlayer` (caméra forcée, sinon local de plus petit handle).
 - Navigation : Échap / Start, I / Select ; ↑ ↓ / D-pad ; Entrée ou Espace / A ;
@@ -7942,6 +7942,57 @@ la commande `alacod` : ni `make`, ni script. Avant, l'arène de zombies était `
 - **Tests** : `crates/content/tests/edit.rs` (jeu de travail = copie du gabarit dans un dépôt git temporaire : formatage conservé, types, chemins inconnus/ambigus, lint rouge restauré, erreurs préexistantes, commit du seul fichier, undo), `crates/content/tests/remote_script.rs` (faux jeu JSON-RPC :
   codes de sortie, `--json`, scripts, `step`), unitaires de `edit.rs` et `script.rs`.
 
+## 91. Importer un personnage `*.sprite.json` : atlas réduit, une entrée par personnage (X-4b, D-X4b-1)
+
+`alacod import-sprite <manifeste.sprite.json> [jeu] [--id I] (--units-per-meter U | --scale S) [--state Etat=clip]…
+[--max-side N] [--cell-height N] [--overwrite]` (`content::sprite_import`, aucun nom de jeu dans le code). Un manifeste
+décrit, par clip, une planche PNG (colonnes = images, lignes = directions), son `fps`, sa boucle ; plus `cell`, `pivot`, `ppm`
+et `directions`. L'import ne lit **pas** les `*_mains_*.png` ni `ancres.json` (`design/sprites-composables.md` n'est pas tranché).
+
+**Un seul PNG réduit.** Dix planches HD donneraient dix textures (≈ 360 Mo de mémoire vidéo par personnage) et un personnage
+n'a qu'un `asset_name_ref` : l'import réduit chaque cellule, puis place chaque clip comme un **bloc** (colonnes du clip × une
+ligne par direction) dans `assets/sprites/<id>/<id>.png`. Les blocs sont côte à côte et les uns sous les autres, l'atlas reste
+sous `--max-side` (4096) de côté, les cases inutilisées sont transparentes. Facteur = le plus grand qui tient (jamais d'agrandissement),
+ou `--cell-height` ; entre deux grilles de blocs, la plus grande cellule, puis le moins de blocs, puis l'atlas le plus carré.
+La réduction se fait cellule par cellule en **alpha prémultiplié**, filtre Lanczos3, somme à ordre fixe : même import, même PNG à l'octet près.
+
+**Fichiers** : `<id>.png`, `<id>_sheet.ron` (une `SpriteSheetConfig` calque `body` : `tile_size` = cellule réduite, `columns`/`rows` =
+grille de l'atlas, `directions: rows: [ordre du manifeste]`, `mirror` vrai sauf à huit directions), `<id>_animation.ron`
+(`AnimationMapConfig`) et **une** entrée `<id>` dans la table `SpriteSheet` du jeu (`sprites.ron`, commentaires conservés ; un
+réimport sans `--overwrite` est refusé). L'écriture est **transactionnelle** : fichiers temporaires du même dossier puis renommages (`sprites.ron` en dernier), l'état d'avant revient octet pour octet si un pas échoue ; la table est lue par un analyseur qui ignore commentaires et chaînes, la déclaration `SpriteSheet` par `GameManifest`, chaque clé est échappée, et les textes RON produits sont relus avant écriture. Rien n'est écrit si une validation échoue (direction inconnue, PNG absent ou de taille ≠
+colonnes × cellule, manifeste mal formé, atlas impossible sous `--max-side`).
+
+**Correspondance atlas/ligne.** Chaque clip est en `Direct { start, end }` sur la **première ligne de son bloc** :
+`start = ligne_du_bloc × colonnes_atlas + colonne_du_bloc`. `DirectionRow` ajoute `ligne de direction × colonnes_atlas` (0 à
+`directions − 1`) : l'index retombe sur la ligne de la direction **dans le bloc**, même hors de la colonne 0 (test
+`atlas_cells_land_in_their_block_even_off_column_zero`). `--state Idle=idle --state Run=marche --state Shoot=epauler` : la clé d'état reçoit
+les indices du clip ; **tout clip reste sous son propre nom** (rien n'est abandonné). Sans `Idle`, un avertissement dit que le runtime
+retombe sur la première image.
+
+**Durée et boucle par clip** (`animation::AnimationClipMeta`, facultatif et rétrocompatible) : `AnimationMapConfig.clips` donne,
+par clé d'animation, `frame_duration` (ms, de `fps`) et `looping` (de `loop`). Absent, rien ne change (aucune carte existante n'a
+`clips`, et `animate_sprite_system` n'écrit pas le timer sans `clips`). Un clip sans boucle reste sur sa dernière image tant
+que l'état ne change pas (`animation::advance_frame`).
+
+**`Shoot` est un état de présentation, pas un état rollback.** `animation::PresentationClip` (composant d'`Update`, jamais rollback) remplace
+`AnimationState` pour choisir l'animation jouée **si** la carte définit la clé ; `game::character::visuals::present_shooting` y
+pose `"Shoot"` quand l'arme active a tiré depuis moins de `SHOOT_POSE_FRAMES` (20) frames, lu dans `WeaponState::last_fire_frame` et
+`FrameCount` (existants), jamais dans l'input. `AnimationState` (checksum) est intouché ; sans clé `Shoot`, rien ne change.
+
+**Échelle et pivot : lus, reportés, jamais implicites.** `--units-per-meter U` : `U / ppm` unités monde par pixel source, donc
+`scale = (U / ppm) / facteur` ; `--scale` est accepté à la place, un des deux est exigé. Le `pivot` (pixels de la cellule source,
+origine en haut à gauche) devient `anchor: Center` plus `offset_x` / `offset_y` en unités monde (`ConfigurableAnchor` n'a pas de
+`Custom`) : `offset = (centre − pivot) × échelle + pivot_at`. **Le pivot du manifeste est aux pieds (point de contact au sol)**, mesuré sur un vrai
+manifeste (le pixel opaque le plus bas est 6 à 18 px sous le pivot, le plus haut 118 à 125 px au-dessus). `--pivot-at X,Y` (unités monde locales à l'entité, défaut `0,0` : l'origine
+de l'entité) dit où ce pivot se pose ; dans le testbed le bas du collider (20×20, `offset_y` −6) est à −16, d'où `--pivot-at 0,-13` pour que les bottes y arrivent. La sortie
+rappelle `pivot_at` et l'offset écrit ; elle donne aussi donne la hauteur réelle de la silhouette (boîte alpha d'`idle`, alpha ≥ 32) en pixels source, pixels d'atlas
+et unités affichées, pour choisir U (import d'essai : 143 px source, U = 20,4 → 32 unités, comme la boussole §89).
+
+**Preuve sur un vrai manifeste.** Aucune règle ci-dessus ne dépend d'un jeu ou d'un personnage : les tests de l'outil (`crates/content/tests/sprite_import.rs`)
+tournent sur des PNG synthétiques neutres. Un import d'essai d'un vrai personnage (huit directions, dix clips) vit dans **deux commits de la branche X-4b qui ne touchent que lui, retirables par `git revert`** (dossier `sprites/` du personnage, entrée `sprites.ron`, personnage, `assets.yaml`, scénario `sprite_import_fantassin` et sa trace) ; sa licence est « à confirmer par William ».
+Rapport et transcript : `docs/taches/rapports/x-4b-import-sprite.md`. Tests : `sprite_import.rs` (intégration et unitaires), `animation` (`clip_timing_tests`, `presentation_clip_tests`),
+`game` (`shoot_pose_tests`). Dettes D156 (mains et ancres) et D157 (clips sans état).
+
 ## 92. Zombies visuel complet : surcharge locale étendue, sol de `wall_art`, états de fenêtre, lisibilité coop (S1-8)
 
 Lot `polissage-zombies-visuel` (`docs/taches/polissage-zombies-visuel.md`, rapport `docs/taches/rapports/polissage-zombies-visuel.md` : audit classe × état
@@ -7998,3 +8049,47 @@ Distributeurs de perks : tuile Dungeon (potion) de l'éditeur LDtk, aucune image
 angles rentrants du dessus de mur approchés (le pack n'a pas d'angle concave) ; portes = barricades de bois (le pack n'a pas de porte vue de dessus). **Un build web qui copie `games/zombies/assets/` en entier embarquerait la surcharge locale d'un poste** (D161) :
 ne publier que depuis une copie propre.
 
+## 93. Manette jouable, menus et aide des touches (S1-1, `docs/taches/polissage-manette.md`, voie b0)
+
+Présentation et lecture des périphériques seulement : **aucun bit d'input ne change** (`INPUT_*`), **aucune trace ne bouge**
+(`make test_scenarios` sans `BLESS`). La table des liaisons est **unique** : `character::control::get_input_map`.
+
+- **Schéma** (accepté par William le 2026-10-22, disposition Xbox ; tableau complet dans `docs/jouer.md` § Manette) : stick gauche
+  déplacement (`GamepadControlDirection::LEFT_*` à seuil `STICK_MOVE_THRESHOLD` = 0,4 **par axe** : quatre boutons de direction,
+  donc huit directions, comme les touches ; `BoxInput` n'a pas de déplacement analogique), stick droit visée, RT tir, LT objet actif,
+  RB arme, LB esquive, L3 sprint, R3 mode d'arme, X recharger, Y interagir, B mêlée, A confirmer et bombe, croix haut blank / bas
+  lâcher / gauche-droite choix de mutation, Start pause, Select inventaire. **La croix ne déplace plus** (la fiche se contredisait,
+  « doublon » et « ne sert plus à se déplacer » : la ligne précise l'emporte). `Modifier` (dash arrière) n'a pas de liaison manette.
+- **Visée au stick** (`input_devices::resolve_aim`, application, hors rollback) : `PlayerAction::Pan` était liée au stick gauche mais
+  **jamais lue**, `pan_x`/`pan_y` ne venaient que du curseur. Désormais : stick droit au-delà de `STICK_AIM_THRESHOLD` (0,3) = `pan`
+  = vecteur normalisé × 127 (l'échelle des bots ; la simulation ne lit que la direction) ; au repos la **dernière direction est
+  gardée** ; un curseur qui bouge de plus de 3 px rend la visée à la souris (le premier curseur vu après le stick est une position
+  de départ, pas un mouvement : le navigateur envoie un `mousemove` à la prise de focus). La visée est recalculée à chaque frame,
+  avant tout retour anticipé : la simulation ne lit que l'input, comme avec la souris.
+- **Gâchettes** : leafwing 0.21 presse une action analogique **dès 0,02 de course** (`ActionState::set_button_value`), RT aurait tiré
+  à l'effleurement (constaté en wasm, valeur 0,2 → `fire`). `trigger_pressed` lit `button_value` : presse à 0,5, relâche à 0,35
+  (hystérésis ; souris et clavier valent 1). Vaut pour RT (tir) et LT (objet actif).
+- **Écrans ouverts** : la simulation continue sous la pause, et A, B, la croix y naviguent. `collect_device_inputs` ne laisse alors
+  passer que le déplacement et le sprint (`SCREEN_OPEN_KEEPS`), et un bouton tenu pendant l'écran reste **muet jusqu'à son
+  relâchement** (B qui ferme la pause ne donne pas de coup de mêlée). Pendant un choix de mutation, A valide la carte surlignée
+  (`confirm_input`) sans poser de bombe. Dans les tests de scénario (`InputSource::Scripted`), rien de tout cela ne s'applique.
+- **Écran « Touches »** (`ui::screens::help`, entrée « Touches » de la pause) : le texte est **lu dans `get_input_map`** et dans les
+  tables `screens::input::{KEYBOARD_NAV, GAMEPAD_NAV}` (Échap/Start, I/Select), pas recopié ; une ligne par action utile **au
+  clone** (`HelpContext` : esquive si `dash` ou `dash_distance` > 0, objet actif / blank si l'`ItemTable` en a, bombe si
+  `CharacterConfig::bomb`, mutation si `ProgressionTable::active`). Test `chaque_bouton_de_manette_a_sa_ligne` : une liaison sans
+  ligne d'aide fait échouer. Scénario `ui_pause_menu` (gungeon) : « Touches » validé, ligne « Tirer … RT » lue.
+- **Gabarits HTML de zombies et throne** : `ui/pause_screen.html`, `ui/inventory_screen.html` et `ui/hui_row.html` (copies de ceux de
+  gungeon ; pause plus large, 640 px, pour l'aide). Avant S1-1 **aucun des deux jeux n'avait de menu de pause ni d'inventaire
+  visible** (Échap ne montrait rien : `HuiHandles::pause` restait vide). Fichiers nouveaux dans les dossiers des voies b1/b3.
+- **Fin de partie** (`ui::game_over::gamepad_request`) : A rejoue (`RunRequest::Restart`, ou `ToHub`), B retourne au salon
+  (`ToLobby`), pas avant 0,8 s d'affichage (A et B servent aussi à jouer : une partie qui finit pendant qu'on les tient ne doit rien
+  valider). L'écran d'attente du lobby local (`ui::lobby::release_local_hold`) se valide aussi par A ; sa ligne d'aide manette est
+  ajoutée au texte à l'affichage, `local_hold_text` (texte de la voie b2) est inchangé.
+- **Navigateur** : `bevy_gilrs` 0.19 / `gilrs` 0.11 sont déjà dans l'arbre wasm (feature par défaut de `bevy` via `game`) et lisent
+  `navigator.getGamepads()` à chaque frame ; **aucun changement de `loader.js` ni de `Cargo.toml`**. Chrome n'expose la manette
+  qu'après un premier appui sur l'un de ses boutons (page au premier plan) ; les gâchettes arrivent par `gilrs-core` comme des axes
+  puis redeviennent des boutons analogiques ; l'axe Y d'un stick arrive dans le sens de Bevy (haut positif). Preuve et limites :
+  `docs/taches/rapports/polissage-manette.md`.
+- **Tests** : `character::control::tests` (le chemin leafwing réel : sticks, seuils, croix, épaules, course des gâchettes),
+  `character::input_devices::tests` (visée gardée, curseur, seuil des gâchettes, écran ouvert, Sud bombe ou validation),
+  `ui::screens::help::tests`, `ui::screens::model::tests` (entrée « Touches », Retour), `ui::game_over::tests`.

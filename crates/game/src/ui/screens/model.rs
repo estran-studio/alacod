@@ -34,6 +34,9 @@ pub enum UiAction {
     Toggle(ScreenId),
     Up,
     Down,
+    /// Gauche / droite : règle le volume global dans « Réglages » de la pause.
+    Left,
+    Right,
     Confirm,
     /// Ferme l'écran ouvert.
     Back,
@@ -62,13 +65,16 @@ pub enum PauseEntry {
     Restart,
     Lobby,
     Settings,
+    /// Écran d'aide des touches (S1-1, `screens::help`).
+    Help,
 }
 
-pub const PAUSE_ENTRIES: [PauseEntry; 4] = [
+pub const PAUSE_ENTRIES: [PauseEntry; 5] = [
     PauseEntry::Resume,
     PauseEntry::Restart,
     PauseEntry::Lobby,
     PauseEntry::Settings,
+    PauseEntry::Help,
 ];
 
 impl PauseEntry {
@@ -78,6 +84,7 @@ impl PauseEntry {
             Self::Restart => "Recommencer",
             Self::Lobby => "Lobby",
             Self::Settings => "Réglages",
+            Self::Help => "Touches",
         }
     }
 }
@@ -89,6 +96,8 @@ pub enum ScreenCommand {
     ToLobby,
     /// Acheter la ligne `n` du marchand (M2-T13), hors simulation.
     Buy(usize),
+    /// Décale le volume global de `n` crans (S1-7).
+    Volume(i8),
 }
 
 /// État local des écrans (présentation, hors rollback).
@@ -100,6 +109,8 @@ pub struct ScreensState {
     pub merchant_focus: usize,
     /// « Réglages » validé : l'écran des réglages est vide, on l'affiche.
     pub settings_shown: bool,
+    /// « Touches » validé : l'aide des touches remplace le détail de la pause.
+    pub help_shown: bool,
 }
 
 /// Déplace le focus de `step` (−1 / +1), en boucle sur `len` entrées.
@@ -130,6 +141,11 @@ pub fn reduce(
             None
         }
         UiAction::Back => {
+            // L'aide des touches se referme d'abord sur le menu de pause, qui se ferme au retour suivant.
+            if state.open == Some(ScreenId::Pause) && state.help_shown {
+                state.help_shown = false;
+                return None;
+            }
             state.open = None;
             state.settings_shown = false;
             None
@@ -139,6 +155,7 @@ pub fn reduce(
             match state.open {
                 Some(ScreenId::Pause) => {
                     state.settings_shown = false;
+                    state.help_shown = false;
                     state.pause_focus = focus_step(state.pause_focus, PAUSE_ENTRIES.len(), step);
                 }
                 Some(ScreenId::Inventory) => {
@@ -150,6 +167,17 @@ pub fn reduce(
                 None => {}
             }
             None
+        }
+        UiAction::Left | UiAction::Right => {
+            if state.open == Some(ScreenId::Pause) && state.settings_shown {
+                Some(ScreenCommand::Volume(if action == UiAction::Left {
+                    -1
+                } else {
+                    1
+                }))
+            } else {
+                None
+            }
         }
         UiAction::Confirm => match state.open {
             Some(ScreenId::Pause) => match PAUSE_ENTRIES[state.pause_focus % PAUSE_ENTRIES.len()] {
@@ -167,6 +195,12 @@ pub fn reduce(
                 }
                 PauseEntry::Settings => {
                     state.settings_shown = true;
+                    state.help_shown = false;
+                    None
+                }
+                PauseEntry::Help => {
+                    state.help_shown = true;
+                    state.settings_shown = false;
                     None
                 }
             },
@@ -233,8 +267,29 @@ fn text(value: impl Into<String>) -> Section {
     Section::Text(value.into())
 }
 
-/// Vue du menu de pause (pure).
+/// Vue du menu de pause (pure), sans texte d'aide : « Touches » n'y montre rien.
 pub fn pause_view(state: &ScreensState) -> ScreenView {
+    pause_view_with_help(state, "")
+}
+
+/// Vue du menu de pause (pure). `help` : le texte de l'aide des touches, montré à la place du
+/// détail quand « Touches » est validé (`screens::help::help_text`).
+pub fn pause_view_with_help(state: &ScreensState, help: &str) -> ScreenView {
+    pause_view_full(state, help, 100)
+}
+
+/// Texte du curseur de volume global : « Volume : 70 %  [#######---] (← → pour régler) ».
+pub fn volume_text(percent: u8) -> String {
+    let filled = usize::from(percent.min(100)) / 10;
+    format!(
+        "Volume : {percent} %  [{}{}]  (← → pour régler)",
+        "#".repeat(filled),
+        "-".repeat(10 - filled)
+    )
+}
+
+/// Vue du menu de pause au volume global `volume_percent` (S1-7) et au texte d'aide `help`.
+pub fn pause_view_full(state: &ScreensState, help: &str, volume_percent: u8) -> ScreenView {
     let focus = state.pause_focus % PAUSE_ENTRIES.len();
     let entries = PAUSE_ENTRIES
         .iter()
@@ -250,10 +305,12 @@ pub fn pause_view(state: &ScreensState) -> ScreenView {
     sections.insert("entries".into(), Section::List(entries));
     sections.insert(
         "detail".into(),
-        text(if state.settings_shown {
-            "Aucun réglage pour l'instant."
+        text(if state.help_shown {
+            help.to_string()
+        } else if state.settings_shown {
+            volume_text(volume_percent)
         } else {
-            ""
+            String::new()
         }),
     );
     sections.insert(
@@ -532,6 +589,8 @@ pub enum NavKey {
     Confirm,
     /// Retour arrière / B.
     Back,
+    Left,
+    Right,
 }
 
 /// Les actions déclenchées par les touches pressées cette frame (pur, ordre de `NavKey`).
@@ -549,6 +608,8 @@ pub fn actions_from_keys(open: Option<ScreenId>, pressed: &[NavKey]) -> Vec<UiAc
             NavKey::Inventory => UiAction::Toggle(ScreenId::Inventory),
             NavKey::Up => UiAction::Up,
             NavKey::Down => UiAction::Down,
+            NavKey::Left => UiAction::Left,
+            NavKey::Right => UiAction::Right,
             NavKey::Confirm => UiAction::Confirm,
             NavKey::Back => UiAction::Back,
         })
@@ -678,7 +739,7 @@ mod tests {
         assert_eq!(state.open, Some(ScreenId::Pause));
         assert_eq!(
             pause_view(&state).section_text("entries"),
-            "> Reprendre\n  Recommencer\n  Lobby\n  Réglages"
+            "> Reprendre\n  Recommencer\n  Lobby\n  Réglages\n  Touches"
         );
         reduce(&mut state, UiAction::Down, 0);
         assert_eq!(
@@ -688,11 +749,25 @@ mod tests {
         assert_eq!(state.open, None);
 
         reduce(&mut state, UiAction::Toggle(ScreenId::Pause), 0);
-        reduce(&mut state, UiAction::Up, 0); // boucle sur « Réglages »
+        reduce(&mut state, UiAction::Up, 0); // boucle sur « Touches »
+        assert_eq!(state.pause_focus, 4);
+        assert_eq!(reduce(&mut state, UiAction::Confirm, 0), None);
+        assert!(state.help_shown);
+        assert_eq!(
+            pause_view_with_help(&state, "aide").section_text("detail"),
+            "aide"
+        );
+        // Retour : l'aide se referme sur la pause, le retour suivant ferme la pause.
+        reduce(&mut state, UiAction::Back, 0);
+        assert!(!state.help_shown);
+        assert_eq!(state.open, Some(ScreenId::Pause));
+        reduce(&mut state, UiAction::Up, 0); // « Réglages »
         assert_eq!(state.pause_focus, 3);
         assert_eq!(reduce(&mut state, UiAction::Confirm, 0), None);
         assert!(state.settings_shown);
-        assert!(pause_view(&state).section_text("detail").contains("Aucun"));
+        assert!(pause_view(&state)
+            .section_text("detail")
+            .contains("Volume : 100 %"));
         reduce(&mut state, UiAction::Up, 0);
         assert!(!state.settings_shown);
         assert_eq!(

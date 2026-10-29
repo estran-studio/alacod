@@ -775,6 +775,21 @@ fn feedback_missing_sound_fixture_reports_error() {
         .any(|e| e.message.contains("sounds/present.ogg")));
 }
 
+/// S1-7 : une clé de son inconnue du moteur et un `death_<id>` dont le personnage n'existe pas.
+#[test]
+fn feedback_sound_key_fixture_reports_unknown_key_and_character() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("feedback_sound_key_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "sounds.vague_debut");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "personnage « fantome »",
+    );
+    assert!(!errors
+        .iter()
+        .any(|e| e.message.contains("sounds.wave_start")));
+}
+
 #[test]
 fn feedback_t1_17_fixtures_report_their_field() {
     let (_, _, errors) = load_and_lint(&fixture_dir("feedback_by_weapon_unknown")).unwrap();

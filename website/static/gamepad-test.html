@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Alacod — test de la manette</title>
+		<style>
+			body { font: 16px/1.4 ui-monospace, Menlo, monospace; background: #14161c; color: #eee; margin: 24px; }
+			h1 { font-size: 20px; color: #f1c40f; }
+			.pad { border: 1px solid #ffffff44; padding: 12px 16px; margin: 12px 0; max-width: 720px; }
+			.row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+			.b { width: 78px; padding: 4px; text-align: center; background: #262e3b; border-radius: 3px; }
+			.b.on { background: #2ecc71; color: #000; }
+			.bar { width: 110px; height: 10px; background: #262e3b; margin-top: 3px; }
+			.bar i { display: block; height: 10px; background: #f1c40f; }
+			.ok { color: #2ecc71; } .ko { color: #e74c3c; }
+			#log { white-space: pre; color: #aaa; }
+		</style>
+	</head>
+	<body>
+		<h1>Test de la manette (API Gamepad du navigateur)</h1>
+		<p id="state" class="ko">Aucune manette vue. Appuie sur un bouton de la manette (page au premier plan).</p>
+		<div id="pads"></div>
+		<p>Attendu pour le jeu : <b>mapping = standard</b>. Sticks : haut = valeur négative (le jeu l'inverse). Gâchettes : valeur de 0 à 1.</p>
+		<div id="log"></div>
+		<script>
+			const NAMES = ['A (Sud)','B (Est)','X (Ouest)','Y (Nord)','LB','RB','LT','RT','Select','Start','L3','R3','Croix ↑','Croix ↓','Croix ←','Croix →','Home'];
+			const AXES = ['Stick G X','Stick G Y','Stick D X','Stick D Y'];
+			const events = [];
+			const log = (t) => { events.unshift(new Date().toLocaleTimeString() + '  ' + t); events.length = Math.min(events.length, 8); document.getElementById('log').textContent = events.join('\n'); };
+			window.addEventListener('gamepadconnected', (e) => log('BRANCHÉE : ' + e.gamepad.id + ' (mapping « ' + e.gamepad.mapping + ' »)'));
+			window.addEventListener('gamepaddisconnected', (e) => log('DÉBRANCHÉE : ' + e.gamepad.id));
+			function frame() {
+				const pads = [...navigator.getGamepads()].filter(Boolean);
+				const state = document.getElementById('state');
+				state.className = pads.length ? 'ok' : 'ko';
+				state.textContent = pads.length ? pads.length + ' manette(s) vue(s).' : 'Aucune manette vue. Appuie sur un bouton de la manette (page au premier plan).';
+				document.getElementById('pads').innerHTML = pads.map((p) => {
+					const buttons = p.buttons.map((b, i) => `<div class="b ${b.pressed ? 'on' : ''}">${NAMES[i] || 'bouton ' + i}<div class="bar"><i style="width:${Math.round(b.value * 100)}%"></i></div>${b.value.toFixed(2)}</div>`).join('');
+					const axes = p.axes.map((a, i) => `<div class="b">${AXES[i] || 'axe ' + i}<div class="bar"><i style="width:${Math.round((a + 1) * 50)}%"></i></div>${a.toFixed(2)}</div>`).join('');
+					return `<div class="pad"><b>${p.id}</b><br>mapping : <b class="${p.mapping === 'standard' ? 'ok' : 'ko'}">${p.mapping || '(aucun : non standard)'}</b> · index ${p.index} · connectée : ${p.connected}<div class="row">${buttons}</div><div class="row">${axes}</div></div>`;
+				}).join('');
+				requestAnimationFrame(frame);
+			}
+			frame();
+		</script>
+	</body>
+</html>

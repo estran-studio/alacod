@@ -3,10 +3,12 @@
 // Entrée / A ; la simulation continue (joueur immobile) et la trace est celle d'un joueur immobile.
 //
 // À regarder : f10 le menu s'ouvre, « Reprendre » surligné ; f20 et f21 le focus descend sur
-// « Recommencer » puis « Lobby », f22 sur « Réglages » ; f30 « Réglages » validé affiche « Aucun
-// réglage pour l'instant » ; f40 le focus remonte sur « Lobby » (le message disparaît) ; f50 Retour
-// ferme le menu ; f60 rouvert, f62 ↑ boucle sur « Réglages », f64 ↓ revient sur « Reprendre » ;
-// f70 valider « Reprendre » ferme le menu.
+// « Recommencer » puis « Lobby », f22 sur « Réglages » ; f30 « Réglages » validé affiche le curseur
+// « Volume : 100 % » ; f32 et f33 ← baissent à 80 %, f34 → remonte à 90 % (S1-7, volume global) ; f40 le focus remonte sur « Lobby » (le message disparaît) ; f50 Retour
+// ferme le menu ; f60 rouvert, f62 ↑ boucle sur « Touches », f64 ↓ revient sur « Reprendre » ;
+// f70 valider « Reprendre » ferme le menu ; f75 rouvert, f76 ↑ sur « Touches », f77 validé : l'aide
+// des touches (clavier et manette, lue dans la table des liaisons) remplace le détail, f80 Retour
+// la referme sur le menu, f82 Retour ferme le menu.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "gungeon",
@@ -22,12 +24,20 @@ Scenario(
         (at_frame: 21, action: Down),
         (at_frame: 22, action: Down),
         (at_frame: 30, action: Confirm),
+        (at_frame: 32, action: Left),
+        (at_frame: 33, action: Left),
+        (at_frame: 34, action: Right),
         (at_frame: 40, action: Up),
         (at_frame: 50, action: Back),
         (at_frame: 60, action: Toggle(Pause)),
         (at_frame: 62, action: Up),
         (at_frame: 64, action: Down),
         (at_frame: 70, action: Confirm),
+        (at_frame: 75, action: Toggle(Pause)),
+        (at_frame: 76, action: Up),
+        (at_frame: 77, action: Confirm),
+        (at_frame: 80, action: Back),
+        (at_frame: 82, action: Back),
     ],
     expect: [
         PlayerAlive(handle: 0, at_frame: 89),
@@ -37,13 +47,19 @@ Scenario(
         ScreenText(screen: "pause", section: "entries", contains: "  Reprendre\n> Recommencer\n  Lobby", at_frame: 20),
         ScreenText(screen: "pause", section: "entries", contains: "  Recommencer\n> Lobby", at_frame: 21),
         ScreenText(screen: "pause", section: "entries", contains: "> Réglages", at_frame: 22),
-        ScreenText(screen: "pause", section: "detail", contains: "Aucun réglage", at_frame: 31),
+        ScreenText(screen: "pause", section: "detail", contains: "Volume : 100 %", at_frame: 31),
+        ScreenText(screen: "pause", section: "detail", contains: "Volume : 80 %", at_frame: 33),
+        ScreenText(screen: "pause", section: "detail", contains: "Volume : 90 %", at_frame: 35),
         ScreenText(screen: "pause", section: "entries", contains: "> Réglages", at_frame: 31),
         ScreenText(screen: "pause", section: "entries", contains: "> Lobby", at_frame: 41),
         ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 51),
         ScreenText(screen: "pause", section: "entries", contains: "> Reprendre", at_frame: 61),
-        ScreenText(screen: "pause", section: "entries", contains: "> Réglages", at_frame: 63),
+        ScreenText(screen: "pause", section: "entries", contains: "> Touches", at_frame: 63),
         ScreenText(screen: "pause", section: "entries", contains: "> Reprendre", at_frame: 65),
         ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 71),
+        ScreenText(screen: "pause", section: "detail", contains: "Clavier / souris", at_frame: 78),
+        ScreenText(screen: "pause", section: "detail", contains: "Tirer            Clic gauche         RT", at_frame: 78),
+        ScreenText(screen: "pause", section: "entries", contains: "> Touches", at_frame: 81),
+        ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 83),
     ],
 )

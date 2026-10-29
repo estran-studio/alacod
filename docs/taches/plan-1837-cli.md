@@ -64,8 +64,8 @@ Par défaut (prises le 2026-10-26 en l'absence de réponse ; William peut les re
   décision d'engine. 1837 la règle en jouant D1 (`scale` des planches, `camera.ron`). Ce que l'engine doit garantir : qu'un jeu choisisse librement son
   nombre d'unités par mètre. Contrainte actuelle : les cases du monde et du champ de flux font 16 unités en dur (`world/src/grid.rs:9`,
   `character/enemy/ai/navigation.rs:30`, alignées sur les tuiles LDtk) ; un jeu à grands sprites garde donc des unités de monde « à la taille des
-  cases » et réduit ses planches par `scale` (X-4a le documente, X-4b le propose à l'import). Pivot : aux pieds (design de 1837), à vérifier sur une
-  planche réelle en X-4b (le manifeste le place à mi-hauteur).
+  cases » et réduit ses planches par `scale` (X-4a le documente, X-4b le propose à l'import). Pivot : aux pieds (design de 1837) ; **vérifié en X-4b le 2026-10-28** :
+  le pivot du manifeste est au point de contact au sol, pas à mi-hauteur, et `alacod import-sprite --pivot-at X,Y` le pose sur l'entité (rapport `x-4b-import-sprite`).
 - **Ennemis de D1 (tranché par William le 2026-10-26, soir)** : **deux fantassins** pour le cœur 30 s, dans le dépôt de 1837 ; le petit rôdeur et le
   tireur qui recule envisagés plus tôt le même jour sont remplacés. Aucun de ces contenus n'entre dans l'engine.
 
@@ -85,11 +85,11 @@ Notes d'arrêt : `rapports/x-1-arret.md`, `x-2a-arret.md`, `x-2b-arret.md`, `x-3
 | **X-2b CLI : test, vidéo, build** | `alacod test` joue les scénarios par le binaire du jeu (plugin compris) et écrit dans le jeu ; `alacod video` (rendu, Mac) ; `alacod build --release` et `--web` (version du jeu dans `APP_VERSION`) ; test de bout en bout du §1.1 | X-1, X-2a | **gelé**, brouillon conservé (`x-2b-brouillon-sur-x2a`) | medium |
 | **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | X-5 (besoins montrés par 1837) | **reporté après X-5**, branche conservée (`x-3-verbes-d1`) | high |
 | **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | **livré** | medium |
-| **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a (depuis `main`) | **prochain**, brief séparé (brouillon `x-4b-brouillon-sur-x2a`, non vérifié) | medium |
+| **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a (depuis `main`) | **livré** le 2026-10-29 (`wquintal/x-4b-import-sprite`, rapport `x-4b-import-sprite.md`) ; mains et ancres : D156, plus tard | medium |
 | **X-5 Création de 1837 et palier D1** | `alacod new 1837` (9 nov), assets du kit Frontière importés, une pièce, deux fantassins, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; échelle réglée en jouant ; tout par `alacod` | X-4b, D-a | après X-4b | medium |
 | **X-6 Paliers D2 à D5** | verbes `Lure`/`Grab`, contrainte de branche de la clé du boss (`map::generation::grid`), graine de la sauvegarde (`meta::Profile`), extérieur dessiné → intérieur généré ; contenu des paliers | X-5, X-3, Q-3 | après X-3 | à planifier |
 
-Chemin critique (2026-10-27) : X-4b → X-5. Ensuite X-3, puis X-6. X-1, X-2a et X-2b sont gelés jusqu'à un besoin daté (aucune fusion, aucun tag).
+Chemin critique (2026-10-27) : X-4b → X-5. X-4b livré le 2026-10-29 ; suivent X-5 (9 nov), puis X-3, puis X-6. X-1, X-2a et X-2b sont gelés jusqu'à un besoin daté (aucune fusion, aucun tag).
 Avant le 2026-10-27 : X-1 → X-2b → X-5, sur quatre voies.
 
 ### Espace de solution par lot
@@ -113,6 +113,10 @@ Avant le 2026-10-27 : X-1 → X-2b → X-5, sur quatre voies.
   composants, outillage). Aucun personnage, ennemi, arme, sprite, carte, valeur de réglage ni nom de 1837 (pas de « gigue », « rôdeur », « loge »,
   120 bpm…) dans le code, le contenu, les fixtures ou les scénarios de l'engine ; ceux-ci utilisent le contenu générique du testbed et des noms
   neutres (`dash`, `parade`, `renvoi`). Le contenu de 1837 (ennemis de D1, sprites, réglages) vit dans son dépôt, créé au lot X-5.
+  - **Exception datée (décision de William du 2026-10-28, Q-X4b-1)** : la planche `fantassin-de-ligne` (pipeline `1867_lore`), son personnage d'essai et le scénario
+    `sprite_import_fantassin` entrent dans `games/testbed` et `tests/scenarios` **pour tester X-4b**, jusqu'à la création du dépôt 1837 (X-5, 9 nov). Ils sont retirés à ce
+    moment par revert de `a878966c`, `7b5d9d20` et `a81523fe`, qui ne touchent que ces fichiers. Licence : « © 2026 estran-studio, tous droits réservés ; preuve X-4b, retiré au 9 nov »
+    (`assets.yaml`). Aucune autre exception : l'outil, les tests synthétiques et la doc restent neutres.
 - `CLAUDE.md` (déterminisme, frontière simulation/présentation), `docs/conventions.md` §4 (point 0 compris).
 - Aucun nom de jeu dans le code de l'engine ; aucune trace de clone ne bouge (`BLESS` interdit) ; `make schedule_order_diff` vide pour X-1 et X-3.
 - VPS : `make test_crates` un paquet à la fois, `scripts/target-sweep.sh` sous 30 Go libres.

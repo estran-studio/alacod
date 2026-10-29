@@ -212,6 +212,7 @@ impl Plugin for FeedbackPlugin {
                 play_door_sound,
             ),
         );
+        crate::feedback_sounds::add_event_sounds(app);
     }
 }
 
@@ -1134,16 +1135,18 @@ fn play_reload_sound_for_reload_events(
 
 /// Lecteur des sons de `ui/feedback.ron`, au volume de leur clé (`volumes`, en dB).
 #[derive(bevy::ecs::system::SystemParam)]
-struct FeedbackSounds<'w> {
+pub(crate) struct FeedbackSounds<'w> {
     audio: Res<'w, Audio>,
     asset_server: Res<'w, AssetServer>,
     config: Option<Res<'w, FeedbackConfigLoaded>>,
-    frame: Res<'w, FrameCount>,
+    pub(crate) frame: Res<'w, FrameCount>,
+    /// Volume global de la pause (S1-7), appliqué en plus de `volumes`.
+    master: Option<Res<'w, crate::audio::MasterVolume>>,
 }
 
 impl FeedbackSounds<'_> {
     /// Joue le son `key` (rien si la config n'est pas chargée ou si la clé manque).
-    fn play(&self, key: &str) {
+    pub(crate) fn play(&self, key: &str) {
         let Some(path) = self.config.as_ref().and_then(|cfg| cfg.0.sounds.get(key)) else {
             return;
         };
@@ -1163,6 +1166,12 @@ impl FeedbackSounds<'_> {
         if muted() {
             return;
         }
+        // Volume global (curseur de la pause) : 0 % ne joue rien.
+        let master = self.master.as_ref().map_or(100, |m| m.0);
+        let Some(master_db) = content::feedback::master_volume_db(master) else {
+            return;
+        };
+        let volume_db = volume_db + master_db;
         self.audio
             .play(self.asset_server.load(path.to_string()))
             .with_volume(volume_db);
@@ -1286,11 +1295,20 @@ fn play_melee_taken_sound(
 /// partie) réarme l'ensemble sans jouer : les disparitions y sont des déchargements.
 fn play_death_sound(
     sounds: FeedbackSounds,
-    enemies: Query<&GgrsNetId, With<crate::character::enemy::Enemy>>,
-    mut previous: Local<BTreeSet<usize>>,
+    enemies: Query<
+        (
+            &GgrsNetId,
+            Option<&crate::character::config::CharacterConfigKey>,
+        ),
+        With<crate::character::enemy::Enemy>,
+    >,
+    mut previous: Local<BTreeMap<usize, Option<String>>>,
     mut last_frame: Local<Option<u32>>,
 ) {
-    let now: BTreeSet<usize> = enemies.iter().map(|n| n.0).collect();
+    let now: BTreeMap<usize, Option<String>> = enemies
+        .iter()
+        .map(|(n, key)| (n.0, key.map(|k| k.0.clone())))
+        .collect();
     let frame = sounds.frame.frame;
     if last_frame.is_some_and(|last| frame < last) {
         *previous = now;
@@ -1298,10 +1316,19 @@ fn play_death_sound(
         return;
     }
     *last_frame = Some(frame);
-    let died = previous.difference(&now).next().is_some();
+    // Le mort de plus petit `GgrsNetId` donne le son (déterministe, un son par image).
+    let died = previous
+        .iter()
+        .find(|(net_id, _)| !now.contains_key(net_id))
+        .map(|(_, character)| character.clone());
     *previous = now;
-    if died {
-        sounds.play("death");
+    if let Some(character) = died {
+        let resolved = sounds.config.as_ref().and_then(|cfg| {
+            content::feedback::death_sound_key(&cfg.0.sounds, character.as_deref())
+        });
+        if let Some((key, path)) = resolved {
+            sounds.play_path(path, &key);
+        }
     }
 }
 

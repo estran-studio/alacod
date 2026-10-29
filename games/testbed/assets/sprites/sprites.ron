@@ -86,4 +86,8 @@
         animation: "sprites/effects/slash/slash_animation.ron",
         layers: { "body": "sprites/effects/slash/slash_sheet.ron" },
     ),
+    "fantassin-de-ligne": (
+        animation: "sprites/fantassin-de-ligne/fantassin-de-ligne_animation.ron",
+        layers: { "body": "sprites/fantassin-de-ligne/fantassin-de-ligne_sheet.ron" },
+    ),
 })

@@ -15,6 +15,7 @@ pub mod sandbox;
 pub mod scaffold;
 pub mod schema;
 pub mod script;
+pub mod sprite_import;
 pub mod ui;
 pub mod value;
 

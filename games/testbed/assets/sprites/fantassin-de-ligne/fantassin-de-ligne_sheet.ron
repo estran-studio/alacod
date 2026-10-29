@@ -1,0 +1,20 @@
+// Généré par `alacod import-sprite` (X-4b, docs/conventions.md §91) : atlas réduit de 3096×4096 px,
+// 3×4 blocs de 8×8 cases de 129×128 px (facteur 0.3441).
+// Le pivot du manifeste est aux pieds (point de contact au sol) ; il est posé à (0.0, -13.0) unités locales de l'entité (--pivot-at) : voir offset_y.
+(
+    path: "sprites/fantassin-de-ligne/fantassin-de-ligne.png",
+    tile_size: (129, 128),
+    columns: 24,
+    rows: 32,
+    animated: true,
+    name: "body",
+    scale: 0.65151095,
+    anchor: Center,
+    offset_x: 0.28694504,
+    offset_y: -10.682022,
+    offset_z: 1.0,
+    directions: Some((
+        rows: [E, NE, N, NW, W, SW, S, SE],
+        mirror: false,
+    )),
+)

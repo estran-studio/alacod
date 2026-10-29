@@ -97,6 +97,20 @@ impl AnimationIndices {
     }
 }
 
+/// Métadonnée par animation d'une `AnimationMapConfig` (X-4b, générique) : l'import de sprites
+/// (`content::sprite_import`) écrit un rythme et une boucle par clip, là où le schéma historique ne
+/// connaît qu'un `frame_duration` global et boucle toujours. Tout est facultatif : absente, une
+/// animation garde le comportement d'avant (`frame_duration` global, boucle).
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct AnimationClipMeta {
+    /// Millisecondes par image pour ce clip (`None` : `frame_duration` global).
+    #[serde(default)]
+    pub frame_duration: Option<u64>,
+    /// `false` : le clip reste sur sa dernière image au lieu de boucler (`None` : boucle).
+    #[serde(default)]
+    pub looping: Option<bool>,
+}
+
 #[derive(Asset, TypePath, Deserialize, Debug, Clone)]
 pub struct AnimationMapConfig {
     pub frame_duration: u64,
@@ -105,11 +119,26 @@ pub struct AnimationMapConfig {
     // This can be provided or inferred from the associated sprite sheet
     #[serde(default)]
     pub columns: Option<u32>,
+    /// Métadonnées par animation (X-4b) : clé = nom dans `animations`. Vide par défaut : rien ne
+    /// change pour une carte écrite à la main.
+    #[serde(default)]
+    pub clips: HashMap<String, AnimationClipMeta>,
 }
 
 impl AnimationMapConfig {
-    /// Clé de l'animation jouée : la clé de présentation `presented` si la carte la définit (sinon elle est
-    /// ignorée : « Attack » sans clé « Attack » ne change rien), l'état sinon.
+    /// Rythme du clip `key` : millisecondes par image et boucle, avec les replis globaux quand
+    /// `clips` ne dit rien (ancien comportement exactement).
+    pub fn clip_timing(&self, key: &str) -> (u64, bool) {
+        let clip = self.clips.get(key);
+        let ms = clip
+            .and_then(|c| c.frame_duration)
+            .unwrap_or(self.frame_duration)
+            .max(1);
+        (ms, clip.and_then(|c| c.looping).unwrap_or(true))
+    }
+
+    /// Clé de l'animation jouée : la clé de présentation `presented` si la carte la définit
+    /// (sinon elle est ignorée : « Shoot » ou « Attack » sans clé correspondante ne change rien), l'état sinon.
     pub fn playing_key<'a>(&self, state: &'a str, presented: Option<&'a str>) -> &'a str {
         presented
             .filter(|key| self.animations.contains_key(*key))
@@ -117,11 +146,23 @@ impl AnimationMapConfig {
     }
 }
 
-/// Clé d'animation de **présentation** (S1-8, `Update`, jamais rollback ni lue par la simulation) : posée et
-/// définie par la carte d'animation, elle remplace `AnimationState` pour choisir l'animation jouée (ex. `"Attack"`
-/// d'un zombie qui frappe). Posée par `game` à partir de l'état rollback existant ; sans clé correspondante dans
-/// la carte, elle n'a aucun effet (les feuilles publiques de zombies n'ont pas d'`Attack`). Même type que celui
-/// de X-4b (branche `wquintal/x-4b-import-sprite`, `"Shoot"`), pour un merge sans second mécanisme.
+/// Avance d'une image dans `[start, end]` (inclusif) depuis `local` (hors fenêtre : on repart à
+/// `start`). Un clip bouclé tourne, un clip non bouclé reste sur `end`.
+pub fn advance_frame(start: usize, end: usize, local: usize, looping: bool) -> usize {
+    if local < start || local > end {
+        start
+    } else if !looping && local >= end {
+        end
+    } else {
+        (local + 1 - start) % (end - start + 1) + start
+    }
+}
+
+/// Clé d'animation de **présentation** (X-4b et S1-8, `Update`, jamais rollback ni lue par la simulation) :
+/// quand elle est posée et que la carte d'animation la définit, elle remplace `AnimationState` pour
+/// choisir l'animation jouée (`"Shoot"` quand l'arme d'un joueur tire, `"Attack"` quand un ennemi frappe).
+/// Posée par `game`, à partir de l'état rollback existant ; sans clé correspondante dans la carte, elle n'a
+/// aucun effet (les feuilles publiques de zombies n'ont pas d'`Attack`).
 #[derive(Component, Debug, Default, Clone, PartialEq, Eq)]
 pub struct PresentationClip(pub Option<String>);
 
@@ -156,6 +197,9 @@ pub struct CharacterAnimationHandles {
 #[derive(Component)]
 struct AnimationTimer {
     frame_timer: Timer,
+    /// Vrai une fois la durée posée depuis la configuration (marqueur d'initialisation : la durée
+    /// d'une seconde du timer par défaut ne peut pas servir de marqueur, un clip à 1 fps la porte aussi).
+    configured: bool,
 }
 
 /// Partie visuelle de l'animation (handles et timer), ajoutée par la présentation
@@ -181,6 +225,7 @@ impl AnimationVisualsBundle {
             },
             timer: AnimationTimer {
                 frame_timer: Timer::from_seconds(1., TimerMode::Repeating),
+                configured: false,
             },
             presented: PresentationClip::default(),
         }
@@ -224,7 +269,7 @@ fn animate_sprite_system(
         &CharacterAnimationHandles,
         &mut AnimationTimer,
         &AnimationState,
-        &PresentationClip,
+        Option<&PresentationClip>,
     )>,
     mut query_sprites: Query<(&mut Sprite, &LayerName, Option<&DirectionRow>), With<AnimatedLayer>>,
 ) {
@@ -247,8 +292,20 @@ fn animate_sprite_system(
                 })
                 .unwrap_or(1); // Default to 1 if we can't determine
 
-            // Animation jouée : la clé de présentation si la carte la définit, l'état sinon.
-            let key = anim_config.playing_key(&state.0, presented.0.as_deref());
+            // X-4b : l'animation jouée (clé de présentation, sinon état) peut imposer sa durée
+            // d'image et sa boucle ; sans `clips`, le global d'avant.
+            let key = anim_config.playing_key(&state.0, presented.and_then(|p| p.0.as_deref()));
+            let (frame_ms, looping) = anim_config.clip_timing(key);
+            // Sans `clips` : aucune écriture du timer (comportement exact d'avant X-4b).
+            if !anim_config.clips.is_empty()
+                && timer.frame_timer.duration() != Duration::from_millis(frame_ms)
+            {
+                timer
+                    .frame_timer
+                    .set_duration(Duration::from_millis(frame_ms));
+                timer.frame_timer.reset();
+                timer.configured = true;
+            }
             timer.frame_timer.tick(time.delta());
             if timer.frame_timer.just_finished() {
                 for child in childs.iter() {
@@ -268,12 +325,7 @@ fn animate_sprite_system(
                             let local = atlas.index.saturating_sub(row_offset);
                             let next = if let Some(indices) = anim_config.animations.get(key) {
                                 let (start_index, end_index) = indices.to_absolute(columns);
-                                if local < start_index || local > end_index {
-                                    start_index
-                                } else {
-                                    (local + 1 - start_index) % (end_index - start_index + 1)
-                                        + start_index
-                                }
+                                advance_frame(start_index, end_index, local, looping)
                             } else {
                                 anim_config.animations.get("Idle").map_or(0, |idx| {
                                     let (start, _) = idx.to_absolute(columns);
@@ -317,9 +369,10 @@ fn check_animation_config_reload_system(
                 .frame_timer
                 .set_duration(Duration::from_millis(*new_duration));
             anim_timer.frame_timer.reset();
+            anim_timer.configured = true;
         }
         // Apply initial duration after startup load (if needed)
-        else if anim_timer.frame_timer.duration().as_secs_f32() == 1.0 {
+        else if !anim_timer.configured {
             // Check default
             if asset_server
                 .load_state(&config_handles.animations)
@@ -330,6 +383,7 @@ fn check_animation_config_reload_system(
                         .frame_timer
                         .set_duration(Duration::from_millis(config.frame_duration));
                     anim_timer.frame_timer.reset();
+                    anim_timer.configured = true;
                 }
             }
         }
@@ -636,6 +690,7 @@ mod direction_row_tests {
                 .into_iter()
                 .collect(),
                 columns: None,
+                clips: HashMap::default(),
             });
         let mut sprite = Sprite::default();
         sprite.texture_atlas = Some(TextureAtlas {
@@ -751,5 +806,287 @@ mod direction_row_tests {
         rig.settle();
         // `SW` = miroir de `SE` (ligne 1), retourné.
         assert_eq!(rig.state(), (COLUMNS as usize + 3, true, Some(1)));
+    }
+}
+
+/// X-4b : rythme par clip (`clips`), avance bouclée ou non (`advance_frame`) et clé de présentation.
+#[cfg(test)]
+mod clip_timing_tests {
+    use super::*;
+
+    fn map(clips: &[(&str, Option<u64>, Option<bool>)]) -> AnimationMapConfig {
+        AnimationMapConfig {
+            frame_duration: 100,
+            animations: [
+                (
+                    "Idle".to_string(),
+                    AnimationIndices::Direct { start: 0, end: 3 },
+                ),
+                (
+                    "Shoot".to_string(),
+                    AnimationIndices::Direct { start: 4, end: 7 },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            columns: Some(8),
+            clips: clips
+                .iter()
+                .map(|(k, ms, looping)| {
+                    (
+                        k.to_string(),
+                        AnimationClipMeta {
+                            frame_duration: *ms,
+                            looping: *looping,
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn map_without_clips_deserializes_and_keeps_global_timing() {
+        let ron = r#"(frame_duration: 120, animations: { "Idle": (start: 0, end: 3) })"#;
+        let config: AnimationMapConfig = ron::from_str(ron).expect("carte sans `clips`");
+        assert!(config.clips.is_empty());
+        assert_eq!(config.clip_timing("Idle"), (120, true));
+        assert_eq!(config.clip_timing("Absent"), (120, true));
+    }
+
+    #[test]
+    fn clip_meta_overrides_duration_and_loop() {
+        let config = map(&[("Shoot", Some(50), Some(false)), ("Idle", None, None)]);
+        assert_eq!(config.clip_timing("Shoot"), (50, false));
+        assert_eq!(config.clip_timing("Idle"), (100, true));
+    }
+
+    #[test]
+    fn advance_wraps_when_looping_and_holds_last_frame_otherwise() {
+        assert_eq!(advance_frame(0, 3, 3, true), 0);
+        assert_eq!(advance_frame(0, 3, 1, true), 2);
+        assert_eq!(advance_frame(0, 3, 3, false), 3);
+        assert_eq!(advance_frame(0, 3, 1, false), 2);
+        assert_eq!(advance_frame(4, 7, 9, false), 4);
+        assert_eq!(advance_frame(4, 7, 7, false), 7);
+    }
+
+    #[test]
+    fn presented_key_wins_only_when_the_map_defines_it() {
+        let config = map(&[]);
+        assert_eq!(config.playing_key("Idle", Some("Shoot")), "Shoot");
+        assert_eq!(config.playing_key("Idle", Some("Absent")), "Idle");
+        assert_eq!(config.playing_key("Idle", None), "Idle");
+    }
+}
+
+/// X-4b : `PresentationClip` choisit l'animation jouée (« Shoot ») sans toucher à `AnimationState`.
+#[cfg(test)]
+mod presentation_clip_tests {
+    use super::*;
+
+    fn rig(with_shoot: bool) -> (App, Entity, Entity) {
+        let mut app = App::new();
+        app.insert_resource(Assets::<SpriteSheetConfig>::default());
+        app.insert_resource(Assets::<AnimationMapConfig>::default());
+        app.insert_resource(Time::<()>::default());
+        app.init_resource::<AnimationFreeze>();
+        let mut animations: HashMap<String, AnimationIndices> = [(
+            "Idle".to_string(),
+            AnimationIndices::Direct { start: 0, end: 1 },
+        )]
+        .into_iter()
+        .collect();
+        let mut clips = HashMap::default();
+        if with_shoot {
+            animations.insert(
+                "Shoot".into(),
+                AnimationIndices::Direct { start: 2, end: 3 },
+            );
+            clips.insert(
+                "Shoot".to_string(),
+                AnimationClipMeta {
+                    frame_duration: Some(1000),
+                    looping: Some(false),
+                },
+            );
+        }
+        let anim_handle = app
+            .world_mut()
+            .resource_mut::<Assets<AnimationMapConfig>>()
+            .add(AnimationMapConfig {
+                frame_duration: 1000,
+                animations,
+                columns: Some(4),
+                clips,
+            });
+        let mut sprite = Sprite::default();
+        sprite.texture_atlas = Some(TextureAtlas {
+            layout: Handle::default(),
+            index: 0,
+        });
+        let layer = app
+            .world_mut()
+            .spawn((
+                sprite,
+                LayerName {
+                    name: "body".into(),
+                },
+                AnimatedLayer {},
+            ))
+            .id();
+        let parent = app
+            .world_mut()
+            .spawn((
+                AnimationState("Idle".into()),
+                AnimationVisualsBundle::new(HashMap::default(), anim_handle, 0),
+            ))
+            .add_child(layer)
+            .id();
+        app.add_systems(Update, animate_sprite_system);
+        (app, parent, layer)
+    }
+
+    fn step(app: &mut App, layer: Entity) -> usize {
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs(1));
+        app.update();
+        app.world()
+            .get::<Sprite>(layer)
+            .unwrap()
+            .texture_atlas
+            .as_ref()
+            .unwrap()
+            .index
+    }
+
+    fn present(app: &mut App, parent: Entity, key: Option<&str>) {
+        app.world_mut()
+            .get_mut::<PresentationClip>(parent)
+            .unwrap()
+            .0 = key.map(String::from);
+    }
+
+    #[test]
+    fn shoot_plays_once_holds_its_last_frame_then_yields_to_the_state() {
+        let (mut app, parent, layer) = rig(true);
+        assert_eq!(step(&mut app, layer), 1);
+        present(&mut app, parent, Some("Shoot"));
+        let frames: Vec<usize> = (0..4).map(|_| step(&mut app, layer)).collect();
+        assert_eq!(
+            frames,
+            [2, 3, 3, 3],
+            "une fois, puis la dernière image tenue"
+        );
+        // L'état rollback n'a jamais bougé.
+        assert_eq!(app.world().get::<AnimationState>(parent).unwrap().0, "Idle");
+        present(&mut app, parent, None);
+        assert_eq!(
+            step(&mut app, layer),
+            0,
+            "l'état reprend, depuis sa première image"
+        );
+    }
+
+    #[test]
+    fn without_a_shoot_key_the_presentation_changes_nothing() {
+        let (mut app, parent, layer) = rig(false);
+        present(&mut app, parent, Some("Shoot"));
+        let frames: Vec<usize> = (0..3).map(|_| step(&mut app, layer)).collect();
+        assert_eq!(frames, [1, 0, 1]);
+    }
+}
+
+/// Revue X-4b : un clip à 1000 ms (1 fps) avance, avec les **deux** systèmes de l'extension (animation et
+/// rechargement de la configuration). La durée d'une seconde du timer par défaut ne doit pas passer pour
+/// « non initialisé » : le rechargement remettait la durée globale à chaque mise à jour.
+#[cfg(test)]
+mod one_second_clip_tests {
+    use super::*;
+    use bevy::asset::AssetPlugin;
+    use bevy::time::TimeUpdateStrategy;
+
+    #[test]
+    fn a_one_second_clip_advances_with_both_systems() {
+        let dir = std::env::temp_dir().join(format!("alacod-anim-1s-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("anim.ron"),
+            r#"(frame_duration: 250, columns: Some(4),
+                animations: { "Idle": (start: 0, end: 3) },
+                clips: { "Idle": (frame_duration: Some(1000), looping: Some(true)) })"#,
+        )
+        .unwrap();
+
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            AssetPlugin {
+                file_path: dir.display().to_string(),
+                ..default()
+            },
+            RonAssetPlugin::<AnimationMapConfig>::new(&["ron"]),
+        ));
+        app.init_asset::<SpriteSheetConfig>();
+        app.init_resource::<AnimationFreeze>();
+        // 600 ms par mise à jour : la durée de 250 ms ne laisse jamais passer un clip à 1000 ms.
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(
+            600,
+        )));
+        app.add_systems(
+            Update,
+            (
+                animate_sprite_system,
+                check_animation_config_reload_system.after(animate_sprite_system),
+            ),
+        );
+        let handle: Handle<AnimationMapConfig> =
+            app.world().resource::<AssetServer>().load("anim.ron");
+        let mut sprite = Sprite::default();
+        sprite.texture_atlas = Some(TextureAtlas {
+            layout: Handle::default(),
+            index: 0,
+        });
+        let layer = app
+            .world_mut()
+            .spawn((
+                sprite,
+                LayerName {
+                    name: "body".into(),
+                },
+                AnimatedLayer {},
+            ))
+            .id();
+        app.world_mut()
+            .spawn((
+                AnimationState("Idle".into()),
+                AnimationVisualsBundle::new(HashMap::default(), handle, 0),
+            ))
+            .add_child(layer);
+
+        let index = |app: &App| {
+            app.world()
+                .get::<Sprite>(layer)
+                .unwrap()
+                .texture_atlas
+                .as_ref()
+                .unwrap()
+                .index
+        };
+        let mut seen = std::collections::BTreeSet::new();
+        for _ in 0..400 {
+            app.update();
+            seen.insert(index(&app));
+            if seen.len() > 1 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            seen.len() > 1,
+            "le clip à 1000 ms n'a jamais avancé : images vues {seen:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -95,6 +95,42 @@ enum Command {
         #[arg(long)]
         from: Option<String>,
     },
+    /// Importe un manifeste `*.sprite.json` (planches par clip) dans un jeu : atlas réduit, feuille, animation, `sprites.ron`.
+    ///
+    /// `alacod import-sprite <manifeste.sprite.json> [jeu] --units-per-meter 40 --state Idle=idle --state Run=marche`.
+    /// Un seul PNG réduit (≤ `--max-side`), une entrée `sprites.ron` par personnage, aucun clip abandonné ;
+    /// pas d'échelle implicite (`--units-per-meter` ou `--scale`). `docs/conventions.md` §91.
+    ImportSprite {
+        /// Manifeste du pipeline de sprites (`<nom>.sprite.json`, PNG à côté).
+        manifest: PathBuf,
+        /// Dossier du jeu (contient `assets/game.ron`) ; sans chemin : le jeu du dossier courant.
+        game_dir: Option<PathBuf>,
+        /// Id du sprite (dossier, fichiers et entrée `sprites.ron`) ; défaut : le nom du manifeste.
+        #[arg(long)]
+        id: Option<String>,
+        /// Taille affichée : U unités monde par mètre du manifeste (`scale = (U / ppm) / facteur`).
+        #[arg(long, conflicts_with = "scale")]
+        units_per_meter: Option<f32>,
+        /// `scale` posé tel quel sur la feuille réduite, à la place de `--units-per-meter`.
+        #[arg(long)]
+        scale: Option<f32>,
+        /// Association état → clip (`Idle=idle`, répétable) : la clé d'état reçoit les indices du clip.
+        #[arg(long = "state", value_name = "ETAT=CLIP")]
+        states: Vec<String>,
+        /// Côté maximal de l'atlas en pixels.
+        #[arg(long, default_value_t = 4096)]
+        max_side: u32,
+        /// Où se pose le pivot du manifeste (pieds, point de contact au sol), en unités monde locales à l'entité :
+        /// `X,Y` (défaut `0,0` : l'origine de l'entité). Le collider d'un personnage a son bas à `-16` dans le testbed.
+        #[arg(long, value_name = "X,Y", allow_hyphen_values = true)]
+        pivot_at: Option<String>,
+        /// Hauteur imposée de la cellule réduite (sinon le plus grand facteur qui tient).
+        #[arg(long)]
+        cell_height: Option<u32>,
+        /// Remplace les fichiers et l'entrée déjà présents.
+        #[arg(long)]
+        overwrite: bool,
+    },
     /// Écrit l'arène vide du bac à sable (murs + joueurs, rien d'autre).
     ///
     /// `alacod new-arena [jeu] [--name arene_vide] [--size 26x19] [--players 4] [--use]`, à partir des cartes du jeu.
@@ -325,6 +361,64 @@ fn main() -> ExitCode {
             json,
         } => set_cmd(args, raw, commit, json),
         Command::Undo { game_dir, json } => undo_cmd(game_dir, json),
+        Command::ImportSprite {
+            manifest,
+            game_dir,
+            id,
+            units_per_meter,
+            scale,
+            states,
+            max_side,
+            pivot_at,
+            cell_height,
+            overwrite,
+        } => {
+            let pivot_at = match pivot_at.as_deref() {
+                None => (0.0, 0.0),
+                Some(raw) => match raw
+                    .split_once(',')
+                    .map(|(x, y)| (x.trim().parse(), y.trim().parse()))
+                {
+                    Some((Ok(x), Ok(y))) => (x, y),
+                    _ => return fail(&format!("--pivot-at {raw} : forme attendue X,Y (nombres)")),
+                },
+            };
+            let scale = match (units_per_meter, scale) {
+                (Some(u), None) => content::sprite_import::ScaleSpec::UnitsPerMeter(u),
+                (None, Some(s)) => content::sprite_import::ScaleSpec::Scale(s),
+                _ => {
+                    return fail(
+                        "donnez la taille affichée : --units-per-meter <U> (ou --scale <S>) ; \
+                         pas d'échelle implicite",
+                    )
+                }
+            };
+            let mut parsed = Vec::new();
+            for raw in &states {
+                match raw.split_once('=') {
+                    Some((state, clip)) if !state.is_empty() && !clip.is_empty() => {
+                        parsed.push((state.to_string(), clip.to_string()))
+                    }
+                    _ => return fail(&format!("--state {raw} : forme attendue ETAT=CLIP")),
+                }
+            }
+            match resolve_game_dir(game_dir) {
+                Ok(dir) => import_sprite_cmd(
+                    &manifest,
+                    &dir,
+                    content::sprite_import::SpriteImportOptions {
+                        sprite_id: id,
+                        states: parsed,
+                        max_side,
+                        pivot_at,
+                        cell_height,
+                        overwrite,
+                        ..content::sprite_import::SpriteImportOptions::new(scale)
+                    },
+                ),
+                Err(e) => fail(&e),
+            }
+        }
         Command::NewArena {
             game_dir,
             name,
@@ -850,6 +944,65 @@ fn engine_root_for(
 
 /// `alacod test` : délègue à `alacod-gen` de l'engine (le crate `scenario` dépend de `content`,
 /// pas l'inverse), en ignorant les traces sauf `--bless`.
+/// `alacod import-sprite` : importe, puis dit le facteur, la cellule, l'atlas, l'échelle, la hauteur
+/// mesurée de la silhouette et les fichiers écrits.
+fn import_sprite_cmd(
+    manifest: &std::path::Path,
+    game_dir: &std::path::Path,
+    options: content::sprite_import::SpriteImportOptions,
+) -> ExitCode {
+    match content::sprite_import::import_sprite(manifest, game_dir, options) {
+        Ok(r) => {
+            println!(
+                "import {} : facteur {:.4}, cellule {}×{} px (source {}×{})",
+                r.sprite_id, r.factor, r.cell.0, r.cell.1, r.source_cell.0, r.source_cell.1
+            );
+            println!(
+                "atlas {}×{} px : {}×{} blocs, {} colonnes × {} lignes de cases, {} clips",
+                r.atlas_size.0,
+                r.atlas_size.1,
+                r.blocks.0,
+                r.blocks.1,
+                r.columns,
+                r.rows,
+                r.clips.len()
+            );
+            println!(
+                "échelle {} ; pivot aux pieds (point de contact au sol) posé en ({}, {}) unités locales (--pivot-at) : offset ({}, {}) unités",
+                r.scale, r.pivot_at.0, r.pivot_at.1, r.offset.0, r.offset.1
+            );
+            println!(
+                "silhouette de « {} » : {} px source, {:.1} px d'atlas, {:.1} unités affichées (réglez --units-per-meter)",
+                r.silhouette_clip, r.silhouette_source_px, r.silhouette_atlas_px, r.silhouette_units
+            );
+            for c in &r.clips {
+                let states = if c.states.is_empty() {
+                    String::new()
+                } else {
+                    format!(" [état {}]", c.states.join(", "))
+                };
+                println!(
+                    "  clip {} : images {}..={}, {} ms, {}{states}",
+                    c.clip,
+                    c.start,
+                    c.end,
+                    c.frame_duration_ms,
+                    if c.looping { "boucle" } else { "une fois" }
+                );
+            }
+            for w in &r.warnings {
+                eprintln!("avertissement : {w}");
+            }
+            println!(
+                "écrit : assets/{}, assets/{}, assets/{}, assets/{} (entrée « {} »)",
+                r.image, r.sheet, r.animation, r.table, r.sprite_id
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(&e.to_string()),
+    }
+}
+
 fn run_tests(
     game_dir: &std::path::Path,
     ids: &[String],

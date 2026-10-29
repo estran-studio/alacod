@@ -23,6 +23,34 @@ impl Plugin for ScreensInputPlugin {
     }
 }
 
+/// Touches du clavier qui naviguent dans les écrans. Publique : l'écran d'aide (`screens::help`)
+/// lit ces tables, il ne recopie rien.
+pub const KEYBOARD_NAV: [(KeyCode, NavKey); 9] = [
+    (KeyCode::Escape, NavKey::Menu),
+    (KeyCode::KeyI, NavKey::Inventory),
+    (KeyCode::ArrowUp, NavKey::Up),
+    (KeyCode::ArrowDown, NavKey::Down),
+    (KeyCode::ArrowLeft, NavKey::Left),
+    (KeyCode::ArrowRight, NavKey::Right),
+    (KeyCode::Enter, NavKey::Confirm),
+    (KeyCode::Space, NavKey::Confirm),
+    (KeyCode::Backspace, NavKey::Back),
+];
+
+/// Boutons de la manette qui naviguent dans les écrans (Start pause, Select inventaire, croix
+/// haut/bas, A valide, B retour). Pendant un écran, `collect_device_inputs` retire ces boutons de
+/// l'input de jeu.
+pub const GAMEPAD_NAV: [(GamepadButton, NavKey); 8] = [
+    (GamepadButton::Start, NavKey::Menu),
+    (GamepadButton::Select, NavKey::Inventory),
+    (GamepadButton::DPadUp, NavKey::Up),
+    (GamepadButton::DPadDown, NavKey::Down),
+    (GamepadButton::DPadLeft, NavKey::Left),
+    (GamepadButton::DPadRight, NavKey::Right),
+    (GamepadButton::South, NavKey::Confirm),
+    (GamepadButton::East, NavKey::Back),
+];
+
 /// Touches pressées cette frame, clavier et manette (rien en headless ni avec
 /// `ALACOD_INPUT=neutral`).
 fn read_nav_keys(
@@ -36,29 +64,14 @@ fn read_nav_keys(
     }
     let mut pressed = Vec::new();
     if let Some(keyboard) = keyboard {
-        for (key, nav) in [
-            (KeyCode::Escape, NavKey::Menu),
-            (KeyCode::KeyI, NavKey::Inventory),
-            (KeyCode::ArrowUp, NavKey::Up),
-            (KeyCode::ArrowDown, NavKey::Down),
-            (KeyCode::Enter, NavKey::Confirm),
-            (KeyCode::Space, NavKey::Confirm),
-            (KeyCode::Backspace, NavKey::Back),
-        ] {
+        for (key, nav) in KEYBOARD_NAV {
             if keyboard.just_pressed(key) {
                 pressed.push(nav);
             }
         }
     }
     for gamepad in &gamepads {
-        for (button, nav) in [
-            (GamepadButton::Start, NavKey::Menu),
-            (GamepadButton::Select, NavKey::Inventory),
-            (GamepadButton::DPadUp, NavKey::Up),
-            (GamepadButton::DPadDown, NavKey::Down),
-            (GamepadButton::South, NavKey::Confirm),
-            (GamepadButton::East, NavKey::Back),
-        ] {
+        for (button, nav) in GAMEPAD_NAV {
             if gamepad.just_pressed(button) {
                 pressed.push(nav);
             }

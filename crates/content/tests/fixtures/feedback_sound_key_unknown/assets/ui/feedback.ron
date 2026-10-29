@@ -1,0 +1,9 @@
+(
+    hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+    shake: (frames: 8, amplitude: 0.0),
+    sounds: {
+        "wave_start": "sounds/present.ogg",
+        "vague_debut": "sounds/present.ogg",
+        "death_fantome": "sounds/present.ogg",
+    },
+)
