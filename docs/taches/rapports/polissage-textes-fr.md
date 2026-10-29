@@ -51,4 +51,7 @@ Toujours `ALACOD_MUTE=1`, cible `CARGO_TARGET_DIR=$HOME/orca/workspaces/alacod/.
 
 ## Preuves
 
-Voir la fin du rapport (tests `game`, `make test_scenarios`, `make check`).
+- Tests `game` (texts, p2p_socket, screens, lobby, disconnected, game_over, jjrs) : `37 passed; 0 failed`.
+- `make check` : `✓ All checks passed`, sortie 0.
+- `make test_scenarios` sans `BLESS` : `test result: ok. 5 passed; 0 failed; 12 ignored` (9177 s), sortie 0 : `ui_pause_menu` vert avec « Salon », aucune trace ne bouge.
+- Grep des chaînes anglaises de la fiche dans les écrans : 0 (hors journaux et diagnostics listés plus haut).
