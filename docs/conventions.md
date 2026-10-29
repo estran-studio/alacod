@@ -8127,3 +8127,34 @@ rollback, rien dans un hash ; `make test_scenarios` sans `BLESS` et `make schedu
 - **Ce que l'interpolation ne règle pas** : le stick gauche reste numérisé en huit directions à vitesse constante (seuil 0,4 par
   axe, `character::control`) ; un déplacement analogique change `BoxInput` (format réseau) et se décide à part
   (`docs/taches/rapports/polissage-feel.md` § Diagnostic).
+
+## 95. Throne : lisibilité coop (couleur par joueur, légende F7, halos, pointeur) et revue D66/D67 (S2-8, `docs/taches/polissage-lisibilite-coop.md`)
+
+Lot `polissage-lisibilite-coop` (rapport `docs/taches/rapports/polissage-lisibilite-coop.md`). **Données seulement** : aucun code Rust, aucun état rollback, aucune trace ne bouge.
+`game::legibility` (§83) ne connaît aucune classe de jeu (des ids de `sprites.ron`, `hud.ron`, des composants génériques `Enemy`, `PowerUpPickup`, `WeaponPickup`…) : il n'a **pas** été modifié, donc gungeon, zombies et isaac gardent leur rendu à l'octet près (pas de captures avant/après : rien à comparer).
+Un jeu active la lisibilité en ajoutant l'entrée, un jeu qui ne l'ajoute pas garde son rendu.
+
+### Ce que throne a déclaré (`games/throne/assets/`)
+
+- **`ui/hud.ron`** : `player_colors` (bleu, vert, jaune, violet par handle, les mêmes que gungeon et zombies), `hide_markers: true`, `names` (étiquettes F6 : `player` « J », `franc_tireur`, `roi_rat`, noms français des douze armes de `weapons.ron`), `legend` (F7) et widget `Legend(source: "legend")`.
+  La légende liste : les quatre joueurs (teinte = handle) et le pointeur rouge ; les ennemis qui marchent (rat/chien/rôdeur/pillard, brute/buffle, ROI RAT) ; les ennemis qui tirent (cracheur/franc-tireur/arroseur, tourelle teintée `#8cbfff` comme son `marker`) ; les ramassables (halo orange = arme lâchée, halo vert = power-up : munitions, rage, vitesse).
+  Les ennemis partagent encore les feuilles zombie provisoires : la légende dit **ce qui les distingue** (pointeur, teinte de la tourelle, étiquette), pas une silhouette propre (D168, S2-10).
+- **`sprites/sprites.ron`** : `halo` (disque doux blanc) et `aim` (chevron blanc), sans quoi `attach_halos` et `attach_aim_pointers` ne font rien. Ce sont les tuiles 0 et 1 de `games/gungeon/assets/sprites/lisible/atlas_monde.png` (CC0, `scripts/generer-sprites-gungeon.py`), reprises telles quelles
+  sous `sprites/effects/halo/` et `sprites/effects/aim/` (`halo.png` identique octet pour octet à celui de zombies, S1-8) ; déclarées dans `assets.yaml` (`lisibilite-coop-gungeon`). **Pas de nouveau sprite** : le pack throne est pour S2-10.
+- **Halos de throne** : armes lâchées par les ennemis (`WeaponPickup`, `weapon_drop_chance` 0,08 de `progression/run.ron`) et power-ups (`PowerUpPickup`). Throne n'a ni coffre, ni présentoir, ni objet, ni douille ; les rads sont une jauge, pas un ramassable : aucune catégorie à ajouter.
+- **Pointeur de visée** (`aim`) : tous les ennemis le portent (marcheurs compris), dirigé vers leur cible ; il dit « il m'a vu et il me vise », il ne distingue pas à lui seul un tireur d'un marcheur. Ce qui distingue : la tourelle (teinte bleu acier, échelle 1,25, immobile, `marker` de `tourelle.ron`), les rayons de salve (D67) et l'étiquette F6.
+
+### Revue D66/D67 (vidéo du Mac)
+
+`throne_enemy_tourelle_still.mp4`, `…_tourelle_moving.mp4` (contre `…_rat_moving.mp4`), `…_roi_rat_still.mp4` dans `docs/captures/polissage-lisibilite-coop/` : D66 et D67 fermées (verdict et limites dans `dettes.md` et le rapport). Le cercle plein qui reste sur le `roi_rat`
+est le télégraphe de sa **charge** (`Charge(telegraph: 30)`, rayon borné, centré sur le point d'impact), une vraie zone de dégâts.
+
+### Captures
+
+Scénarios de **capture seulement** `docs/captures/polissage-lisibilite-coop/scenarios/throne_coop_2.ron` et `throne_coop_4.ron` (hors de `tests/scenarios/` : la suite ne les joue pas, aucune trace) : un ennemi par classe de la légende, deux power-ups, les joueurs qui s'écartent de l'apparition.
+`play_scenario <scénario> --capture <dossier> --at 20,70,150 [--follow <handle>] [--legend]`. Les captures de la partie réelle viennent de `tests/scenarios/throne_quad.ron` (ex. `--at 2000` : halo d'arme, halo de power-up, rayons du `roi_rat`).
+
+### Limites
+
+Étiquettes `J 1`… blanches (la teinte par handle est sur le sprite) ; le sprite teinté multiplie la couleur du handle sur le sprite sombre du joueur : les quatre héros se distinguent (bleu, vert, orange/jaune, violet) mais le jaune tire sur l'orange ;
+quatre bots qui apparaissent ensemble se superposent aux premières frames (captures prises une fois écartés) ; `make videos` ne tourne pas sur le Mac sans contournement (D167).

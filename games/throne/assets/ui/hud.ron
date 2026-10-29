@@ -42,5 +42,57 @@
          offset: (0.0, -170.0), size: Some((320.0, 60.0)),
          color: Some("#e57878"), font_size: Some(24.0),
          background: Some("#10151bd9")),
+        // S2-8 : légende des silhouettes et couleurs (F7), fermée par défaut.
+        (kind: Legend(source: "legend"), anchor: TopCenter,
+         offset: (0.0, 100.0), size: Some((780.0, 0.0)),
+         color: None, font_size: Some(11.0),
+         background: Some("#05080df4")),
+    ],
+    // S2-8 (lisibilité coop, même langage que gungeon et zombies, `docs/conventions.md` §83, §92 et §95) : couleur par handle
+    // de joueur (0 bleu, 1 vert, 2 jaune, 3 violet) appliquée à leurs calques, repères d'apparition de la carte cachés (tuiles
+    // d'éditeur), noms des étiquettes (F6) et légende (F7). Le halo des ramassables (armes lâchées, power-ups) et le pointeur
+    // de visée des ennemis viennent des entrées `halo` et `aim` de `sprites/sprites.ron`.
+    player_colors: ["#4aa3ff", "#4cd964", "#ffd60a", "#b266ff"],
+    hide_markers: true,
+    names: {
+        "player": "J",
+        "franc_tireur": "Franc-tireur",
+        "roi_rat": "ROI RAT",
+        "revolver": "revolver",
+        "mitraillette": "mitraillette",
+        "fusil_a_pompe": "fusil à pompe",
+        "canon_ricochet": "canon à ricochets",
+        "lance_lames": "lance-lames",
+        "disque": "disque",
+        "laser": "laser",
+        "plasma": "plasma",
+        "traqueur": "traqueur",
+        "lance_grenades": "lance-grenades",
+        "roquette": "roquette",
+        "mortier": "mortier",
+    },
+    // Lignes du jeu seulement (les ids de `sprites.ron`). Les ennemis partagent encore les feuilles zombie provisoires :
+    // la légende dit ce qui les distingue (pointeur rouge, teinte de la tourelle), pas une silhouette propre (S2-10).
+    legend: [
+        (title: "Joueurs (couleur = numéro)", column: 0, entries: [
+            (label: "Joueur 1", sprite: Some("player"), tint: Some("#4aa3ff")),
+            (label: "Joueur 2", sprite: Some("player"), tint: Some("#4cd964")),
+            (label: "Joueur 3", sprite: Some("player"), tint: Some("#ffd60a")),
+            (label: "Joueur 4", sprite: Some("player"), tint: Some("#b266ff")),
+            (label: "Pointeur rouge : cible de l'ennemi", sprite: Some("aim"), tint: Some("#ff5a4d")),
+        ]),
+        (title: "Ennemis qui marchent (au contact)", column: 1, entries: [
+            (label: "Rat, chien, rôdeur, pillard", sprite: Some("rat")),
+            (label: "Brute, buffle : lourds", sprite: Some("brute")),
+            (label: "ROI RAT (boss)", sprite: Some("roi_rat")),
+        ]),
+        (title: "Ennemis qui tirent", column: 1, entries: [
+            (label: "Cracheur, franc-tireur, arroseur", sprite: Some("cracheur")),
+            (label: "Tourelle : immobile, bleutée, rayons", sprite: Some("tourelle"), tint: Some("#8cbfff")),
+        ]),
+        (title: "Ramassables (halo qui pulse)", column: 2, entries: [
+            (label: "Arme lâchée : halo orange", sprite: Some("halo"), tint: Some("#ff9933")),
+            (label: "Munitions, rage, vitesse : vert", sprite: Some("halo"), tint: Some("#4dff8c")),
+        ]),
     ],
 )

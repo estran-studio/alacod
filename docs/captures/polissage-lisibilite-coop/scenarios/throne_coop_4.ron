@@ -1,0 +1,50 @@
+// S2-8 (lisibilité coop de throne, `docs/taches/rapports/polissage-lisibilite-coop.md`) : scénario de **capture seulement** (hors de
+// `tests/scenarios/` : la suite ne le joue pas, aucune trace). Quatre joueurs qui s'écartent de l'apparition.
+// Commande : `play_scenario docs/captures/polissage-lisibilite-coop/scenarios/throne_coop_4.ron --capture <dossier> --at 20,70,150 [--follow <handle>] [--legend]`.
+// À regarder : chaque héros a la couleur de son numéro (bleu, vert, jaune, violet) ; la tourelle (bleutée, plus grande) et les tireurs ont un
+// pointeur rouge et leur salve en rayons ; le halo vert des power-ups pulse.
+#![enable(implicit_some)]
+Scenario(
+    game: "throne",
+    map: "gabarit_armes.ldtk",
+    map_seed: 123456,
+    frames: 200,
+    players: [
+        PlayerScript(
+            inputs: [
+                Segment(from: 5, to: 45, buttons: [Right], pan: (0, 0)),
+            ],
+        ),
+        PlayerScript(
+            inputs: [
+                Segment(from: 5, to: 45, buttons: [Down], pan: (0, 0)),
+            ],
+        ),
+        PlayerScript(
+            inputs: [
+                Segment(from: 5, to: 45, buttons: [Up], pan: (0, 0)),
+            ],
+        ),
+        PlayerScript(
+            inputs: [
+                Segment(from: 5, to: 45, buttons: [Left], pan: (0, 0)),
+            ],
+        ),
+    ],
+    expect: [],
+    powerup_drop_chance_override: "0",
+    characters: [
+        // Un ennemi par classe de la légende : la tourelle (immobile, tire en couronne), un cracheur et un franc-tireur (tirent),
+        // un rat et une brute (marchent vers le joueur).
+        CharacterPlacement(character: "tourelle", x: "624", y: "696", at_frame: 1),
+        CharacterPlacement(character: "cracheur", x: "624", y: "620", at_frame: 1),
+        CharacterPlacement(character: "franc_tireur", x: "420", y: "560", at_frame: 1),
+        CharacterPlacement(character: "rat", x: "300", y: "760", at_frame: 1),
+        CharacterPlacement(character: "brute", x: "300", y: "620", at_frame: 1),
+    ],
+    powerups: [
+        PowerUpPlacement(id: "vitesse", x: "520", y: "740", at_frame: 1),
+        PowerUpPlacement(id: "munitions_balles", x: "380", y: "740", at_frame: 1),
+    ],
+    mode: Sandbox,
+)

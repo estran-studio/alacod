@@ -43,6 +43,18 @@
   modifications: inconnues
   statut: placeholder (copie du testbed/zombies) — à remplacer par la voie V6
 
+- id: lisibilite-coop-gungeon
+  fichiers:
+    - sprites/effects/halo/halo.png
+    - sprites/effects/aim/aim.png
+  source: scripts/generer-sprites-gungeon.py (fonctions halo et aim : disque doux et chevron dessinés par primitives
+    dans le script, sans source tierce) ; copie des tuiles 0 (halo) et 1 (aim) de
+    games/gungeon/assets/sprites/lisible/atlas_monde.png (halo.png identique octet pour octet à celui de zombies)
+  auteur: projet alacod (William Quintal et agents)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+  modifications: tuiles 32 x 32 extraites de l'atlas, sans autre changement
+  statut: définitif pour la lisibilité (S2-8), pas un placeholder
+
 - id: sunnyland-ansimuz
   fichiers:
     - atlas/SunnyLand_by_Ansimuz-extended.png
