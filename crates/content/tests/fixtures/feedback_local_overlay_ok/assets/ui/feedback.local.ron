@@ -1,0 +1,5 @@
+// Fixture S1-9 étape 2 : surcharge locale correcte (clé nouvelle, clé remplacée, volume d'une clé du fichier public).
+(
+    sounds: {"purchase": "sounds/local/purchase.ogg", "hit": "sounds/local/purchase.ogg"},
+    volumes: {"purchase": -8.0, "hit": -6.0},
+)

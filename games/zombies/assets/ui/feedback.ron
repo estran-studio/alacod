@@ -31,9 +31,28 @@
         "death": "sounds/death.ogg",
         "dash": "sounds/dash.ogg",
         "door": "sounds/door.ogg",
+        // S1-7/S1-9 étape 2 : événements de la partie. Fenêtres : Kenney impact (CC0). Le reste est un **repli
+        // public** (Kenney impact, CC0, choisi sans écoute) de ce que la surcharge locale `ui/feedback.local.ron`
+        // remplace par des sons Sonniss (licence : pas de redistribution, jamais dans le dépôt). Sans repli
+        // public : `death_zombie_*` (la clé `death`, le gémissement, joue à leur place).
+        "death_player": "sounds/death_player.ogg",
+        "window_break": "sounds/window_break.ogg",
+        "window_repair": "sounds/window_repair.ogg",
+        "wave_start": "sounds/wave_start.ogg",
+        "wave_end": "sounds/wave_end.ogg",
+        "room_cleared": "sounds/room_cleared.ogg",
+        "boss_spawn": "sounds/boss_spawn.ogg",
+        "boss_death": "sounds/boss_death.ogg",
+        "purchase": "sounds/purchase.ogg",
+        "pickup": "sounds/pickup.ogg",
+        "menu_navigate": "sounds/menu_navigate.ogg",
+        "menu_confirm": "sounds/menu_confirm.ogg",
+        "menu_back": "sounds/menu_back.ogg",
     },
     // Volume par clé de `sounds`, en dB (0 : inchangé ; plage -60 à +12), ex. {"hit": -3.0}.
     // -12 dB partout (2026-10-16, retour de William : tout trop fort par défaut ;
     // les fichiers des lots A/B sont normalisés à -3 dBFS crête).
-    volumes: {"shot_pistol": -12.0, "shot_shotgun": -12.0, "shot_smg": -12.0, "reload": -12.0, "hit": -12.0, "melee": -9.0, "hurt": -12.0, "death": -6.0, "dash": -12.0, "door": -12.0},
+    // S1-9 étape 2 (départ, RMS cible de `scripts/repack-zombies-sons.py`) : fenêtres -6, mort du joueur -9, boss -6, vague -6/-9, salle -9,
+    // achat et ramassage -8, menus -11.
+    volumes: {"shot_pistol": -12.0, "shot_shotgun": -12.0, "shot_smg": -12.0, "reload": -12.0, "hit": -12.0, "melee": -9.0, "hurt": -12.0, "death": -6.0, "dash": -12.0, "door": -12.0, "window_break": -6.0, "window_repair": -6.0, "wave_start": -6.0, "wave_end": -9.0, "room_cleared": -9.0, "boss_spawn": -6.0, "boss_death": -6.0, "death_player": -9.0, "purchase": -8.0, "pickup": -8.0, "menu_navigate": -11.0, "menu_confirm": -11.0, "menu_back": -11.0},
 )

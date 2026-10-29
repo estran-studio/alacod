@@ -2156,35 +2156,7 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
     for feedback in &registry.feedback {
         let file = feedback.file.display().to_string();
         let settings = &feedback.settings;
-        for (key, path) in &settings.sounds {
-            if !registry.asset_exists(path) {
-                errors.push(LintError {
-                    kind: LintErrorKind::BrokenReference,
-                    file: file.clone(),
-                    message: format!(
-                        "feedback : champ sounds.{key} = « {path} » : fichier absent de assets/"
-                    ),
-                });
-            }
-        }
-        for key in settings.sounds.keys() {
-            let Some(id) = key.strip_prefix(crate::feedback::DEATH_KEY_PREFIX) else {
-                continue;
-            };
-            if !id.is_empty()
-                && !registry
-                    .characters
-                    .contains_key(&registry::CharacterId::from(id))
-            {
-                errors.push(LintError {
-                    kind: LintErrorKind::BrokenReference,
-                    file: file.clone(),
-                    message: format!(
-                        "feedback : sounds.{key} : personnage « {id} » inconnu du jeu"
-                    ),
-                });
-            }
-        }
+        lint_feedback_sounds(registry, &file, &settings.sounds, errors);
         for problem in settings.problems() {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
@@ -2209,6 +2181,77 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         for key in settings.volumes.keys() {
             if !settings.sounds.contains_key(key) {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!("feedback : volumes.{key} : clé absente de sounds"),
+                });
+            }
+        }
+    }
+    lint_feedback_overlays(registry, errors);
+}
+
+/// Chemins de `sounds` présents sous `assets/`, et personnages des clés `death_<id>` connus du jeu.
+fn lint_feedback_sounds(
+    registry: &Registry,
+    file: &str,
+    sounds: &std::collections::BTreeMap<String, String>,
+    errors: &mut Vec<LintError>,
+) {
+    for (key, path) in sounds {
+        if !registry.asset_exists(path) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.to_string(),
+                message: format!(
+                    "feedback : champ sounds.{key} = « {path} » : fichier absent de assets/"
+                ),
+            });
+        }
+    }
+    for key in sounds.keys() {
+        let Some(id) = key.strip_prefix(crate::feedback::DEATH_KEY_PREFIX) else {
+            continue;
+        };
+        if !id.is_empty()
+            && !registry
+                .characters
+                .contains_key(&registry::CharacterId::from(id))
+        {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.to_string(),
+                message: format!("feedback : sounds.{key} : personnage « {id} » inconnu du jeu"),
+            });
+        }
+    }
+}
+
+/// Surcharge locale des sons (`ui/feedback.local.ron`, `docs/conventions.md` §98) : mêmes règles que le
+/// `feedback.ron` public pour ses propres entrées (clé connue du moteur, fichier présent, volume dans la
+/// plage, personnage connu), et chaque clé de `volumes` doit exister dans `sounds` **après** la fusion avec
+/// le fichier public voisin. Sans surcharge sur le poste (CI, amis), rien à vérifier : un fichier de la
+/// surcharge absent n'est donc une erreur que lorsque la surcharge est là.
+fn lint_feedback_overlays(registry: &Registry, errors: &mut Vec<LintError>) {
+    for entry in &registry.feedback_overlays {
+        let file = entry.file.display().to_string();
+        lint_feedback_sounds(registry, &file, &entry.overlay.sounds, errors);
+        for problem in entry.overlay.problems() {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!("feedback : champ {} = {}", problem.field, problem.message),
+            });
+        }
+        let public = registry
+            .feedback
+            .iter()
+            .find(|public| public.file == entry.file.with_file_name("feedback.ron"));
+        for key in entry.overlay.volumes.keys() {
+            let declared = entry.overlay.sounds.contains_key(key)
+                || public.is_some_and(|public| public.settings.sounds.contains_key(key));
+            if !declared {
                 errors.push(LintError {
                     kind: LintErrorKind::BrokenReference,
                     file: file.clone(),

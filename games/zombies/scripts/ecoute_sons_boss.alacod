@@ -1,0 +1,11 @@
+# Écoute du boss de zombies (S1-9 étape 2, docs/taches/rapports/polissage-zombies-sons.md §4) : `boss_spawn` à l'apparition,
+# `boss_death` à sa mort. Bac à sable `lourd` allumé, puis :  alacod remote run games/zombies/scripts/ecoute_sons_boss.alacod
+# (tire avec la souris pour le tuer ; `give --weapon rifle` ou `shotgun` change d'arme).
+
+restart
+wait 30 frames
+give --set-currency 5000
+give --weapon rifle
+spawn boss_zombie --ahead 220
+wait 5 frames
+brief

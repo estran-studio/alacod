@@ -1661,6 +1661,14 @@ pub struct FeedbackEntry {
     pub settings: crate::feedback::FeedbackSettings,
 }
 
+/// Surcharge locale des sons (`ui/feedback.local.ron`, S1-9 étape 2, `docs/conventions.md` §98) : présente
+/// seulement sur le poste qui l'a, lue par le lint comme le fichier public.
+#[derive(Debug, Clone)]
+pub struct FeedbackOverlayEntry {
+    pub file: PathBuf,
+    pub overlay: crate::feedback::FeedbackOverlay,
+}
+
 /// Registre de contenu d'un jeu, chargé depuis son manifeste (`GameManifest`). Voir le
 /// module pour les garanties (BTreeMap partout, chargement "best effort").
 #[derive(Resource, Debug, Clone, Default)]
@@ -1735,6 +1743,8 @@ pub struct Registry {
     pub ui_files: Vec<PathBuf>,
     /// Réglages typés du feedback (T3.4) parmi les fichiers Ui.
     pub feedback: Vec<FeedbackEntry>,
+    /// Surcharges locales des sons (`ui/feedback.local.ron`), absentes sur un poste sans le pack privé.
+    pub feedback_overlays: Vec<FeedbackOverlayEntry>,
     /// T1.18 : sources des widgets de chaque `ui/hud.ron`.
     pub hud_sources: Vec<(PathBuf, Vec<String>)>,
     /// Sprites cités par la légende (`legend`) de chaque `ui/hud.ron` (fiche m2-lisibilite-gungeon).
@@ -4544,6 +4554,15 @@ fn load_ui(
                         });
                     }
                 })
+        } else if rel.file_name().and_then(|name| name.to_str())
+            == Some(crate::feedback::FEEDBACK_LOCAL_FILE_NAME)
+        {
+            ron::from_str::<crate::feedback::FeedbackOverlay>(&text).map(|overlay| {
+                registry.feedback_overlays.push(FeedbackOverlayEntry {
+                    file: rel.clone(),
+                    overlay,
+                });
+            })
         } else if rel.file_name().and_then(|name| name.to_str()) == Some("feedback.ron") {
             ron::from_str::<crate::feedback::FeedbackSettings>(&text).map(|settings| {
                 registry.feedback.push(FeedbackEntry {

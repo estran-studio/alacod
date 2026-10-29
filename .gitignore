@@ -26,7 +26,9 @@ rustc-ice-*.txt
 # de la table des sprites, par scripts/repack-postapocalypse.py, jamais commités.
 games/*/assets/sprites/postapo/
 games/*/assets/sprites/*.local.ron
-# Surcharge locale du HUD (S1-8) : `ui/hud.local.ron` (images du pack dans sprites/postapo/, fusionnée sur `ui/hud.ron`).
+# Surcharges locales de `ui/` : `hud.local.ron` (S1-8, images du pack dans sprites/postapo/, fusionnée sur `ui/hud.ron`),
+# `feedback.local.ron` (S1-9 étape 2, sons Sonniss, fusionnée sur `ui/feedback.ron`).
 games/*/assets/ui/*.local.ron
-# Sons Sonniss GDC (licence : pas de revente ni de redistribution « tels quels ») : en attente de la décision de William (S1-9).
+# Sons Sonniss GDC (licence : pas de redistribution) : jamais dans le dépôt public (décision du 2026-10-29), branchés par
+# `ui/feedback.local.ron` (S1-9 étape 2, docs/conventions.md §98) ; destination : dépôt privé estran-studio/alacod-assets.
 games/*/assets/sounds/sonniss/

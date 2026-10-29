@@ -114,6 +114,17 @@
     - sounds/melee.ogg
     - sounds/window_break.ogg
     - sounds/window_repair.ogg
+    - sounds/death_player.ogg
+    - sounds/wave_start.ogg
+    - sounds/wave_end.ogg
+    - sounds/room_cleared.ogg
+    - sounds/boss_spawn.ogg
+    - sounds/boss_death.ogg
+    - sounds/purchase.ogg
+    - sounds/pickup.ogg
+    - sounds/menu_navigate.ogg
+    - sounds/menu_confirm.ogg
+    - sounds/menu_back.ogg
   source: https://kenney.nl/assets/impact-sounds (archive kenney_impact-sounds.zip, fichiers
     impactSoft_medium_000.ogg → hit, impactPunch_heavy_000.ogg → hurt,
     impactSoft_heavy_000.ogg → death ; page lue le 2026-10-14, lot B de docs/plan-assets.md.
@@ -121,6 +132,11 @@
     death.ogg a quitté cette entrée le 2026-10-16 (voir sound-zombie-groan-gustavo-silveira).
     (2026-10-28, S1-9) impactPlank_medium_000.ogg → window_break, impactWood_light_000.ogg →
     window_repair ; archive ~/Downloads/kenney_impact-sounds.zip, License.txt lu le 2026-10-28 (CC0).
+    (2026-10-29, S1-9 étape 2) **replis publics** des clés que la surcharge locale remplit avec du Sonniss :
+    impactSoft_heavy_003 → death_player, impactBell_heavy_000 → wave_start, impactBell_heavy_003 → wave_end, impactBell_heavy_004 → room_cleared,
+    impactMetal_light_003 → purchase, impactGlass_light_002 → pickup, impactMetal_heavy_001 → boss_spawn,
+    impactPlate_heavy_004 → boss_death, impactGeneric_light_001 → menu_navigate, impactTin_medium_003 →
+    menu_confirm, impactPlate_light_002 → menu_back (choisis sur le nom et la durée, sans écoute).
   auteur: Kenney (www.kenney.nl)
   licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page
     (« License Creative Commons CC0 ») et dans le License.txt de l'archive
@@ -258,7 +274,7 @@
     - sounds/sonniss/menu_back.ogg
   source: "Sonniss #GameAudioGDC Bundle 2026 (Sonniss.com-GDC2026-GameAudioBundle{1..5}of5.zip, jamais extraits en entier : un fichier à la fois ; License - GDC Game Audio.pdf et Readme.txt lus le 2026-10-28). death_zombie_1 ← Epic Stock Media Humanoid Creatures Vol 4 (VOXReac Flutter Death Vocal Stuttered Long 05) ; death_zombie_2 ← SoundBits Vox Bestiae (CREAEthr Ethereal Entity Grim Pain Long 4) ; death_zombie_full ← Epic Stock Media Humanoid Creatures Vol 4 (CREAMnstr Sea Beast Creature Pain Intense Yell Long 04) ; death_player ← Epic Stock Media AAA Game Character British Female Detective (Pain Vocal Dying High Grunt Breath) ; boss_spawn ← 344 Audio Dinosaurs Vol. 1 (T Rex) ; boss_death ← Epic Stock Media Halloween Game (Creature Werewolf Growl Menacing Monstrous 06) ; wave_start ← Jake Fielding Cinematic Horn Braams (Huge-32) ; wave_end ← Cinematic Sound Design User Interface (Button Arp Twinkle) ; room_cleared ← idem (Interface Plucks Happy) ; purchase ← Cinematic Sound Design UI Interaction Elements (Ting Coins) ; pickup ← Cinematic Sound Design Hybrid Game & UI Elements (Game Entry Happy Short) ; menu_navigate ← Cinematic Sound Design Interface & Infographics (Interface Percussion Snap) ; menu_confirm ← UI Interaction Elements (Accept Boing Crunch) ; menu_back ← UI Interaction Elements (Deny Muted)."
   auteur: "Sonniss et ses fournisseurs (Epic Stock Media, SoundBits, 344 Audio, Jake Fielding, Cinematic Sound Design)"
-  licence: "Sonniss GDC Bundle Licensing Agreement (PDF de l'archive) : royalty-free, mondiale, non exclusive ; usage personnel et commercial **sans attribution**, modification autorisée ; **interdit** de vendre les sons tels quels (vendus incorporés au projet : permis), de s'en attribuer la paternité, et **de les utiliser pour entraîner une IA**. Les fichiers sont rognés et incorporés au jeu ; le dépôt est public : la publication des extraits dans le dépôt public n'est PAS faite (règle des images payantes, docs/conventions.md §92) tant que William n'a pas tranché."
+  licence: "Sonniss GDC Bundle Licensing Agreement (PDF de l'archive) : royalty-free, mondiale, non exclusive ; usage personnel et commercial **sans attribution**, modification autorisée ; **interdit** de vendre les sons tels quels (vendus incorporés au projet : permis), de s'en attribuer la paternité, et **de les utiliser pour entraîner une IA**. Les fichiers sont rognés et incorporés au jeu ; le dépôt est public : les extraits n'y sont JAMAIS publiés (décision de William du 2026-10-29, règle des images payantes, docs/conventions.md §92 et §98) ; ils vont au dépôt privé estran-studio/alacod-assets (lot S-0b)."
   modifications: un fichier extrait à la fois sous ~/orca/workspaces/alacod/packs/sonniss/, rogné (0,3 à 3 s), fondu de sortie, mono 44,1 kHz, niveau réglé sur une RMS cible (−18 à −22 dBFS, crête ≤ −1 dBFS), ré-encodé en ogg vorbis (oggenc -q 5).
-  statut: "surcharge locale gitignorée (sounds/sonniss/, .gitignore) EN ATTENTE de la décision de William : dépôt public ou dépôt privé d'assets (lot S-0b), la licence interdisant de vendre les sons tels quels ; aucun fichier Sonniss n'est commité ; clés wave_start, wave_end, room_cleared, purchase, pickup, menu_*, boss_*, death_<id> branchées après le merge de S1-7 (S1-9 étape 2)"
+  statut: "surcharge locale gitignorée : fichiers sous sounds/sonniss/ (.gitignore), branchés par ui/feedback.local.ron (§98) ; aucun fichier Sonniss n'est commité ; repli public : Kenney (entrée sound-impact-kenney) ; pour death_zombie_* la clé death"
 

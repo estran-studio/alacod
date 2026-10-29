@@ -17,9 +17,9 @@ Build local `e4-manette` (zombies), Chrome, manette physique, page `http://127.0
 - Non couvert par cet essai de 2 min (à voir à l'E4 de vendredi 30) : mutation de throne, fin de partie et retour au salon,
   débranchement/rebranchement, L3 pour le sprint, pause qui ne fige pas la partie (D158).
 
-## S1-9 — écoute des sons de zombies (protocole : `polissage-zombies-sons.md` §4)
+## S1-9 — écoute des sons de zombies (protocoles n° 1 et n° 2 : `docs/taches/rapports/polissage-zombies-sons.md` § 4)
 
-À remplir par William, une ligne par son : « trop fort / ni trop fort ni muet / trop faible ».
+À remplir par William, une ligne par son : « trop fort / ni trop fort ni muet / trop faible ». Pour les sons de l'étape 2, dire aussi si le **repli public** (Kenney, sans écoute de ma part) est acceptable ou à remplacer.
 
 | Son | Verdict |
 |---|---|
@@ -31,3 +31,10 @@ Build local `e4-manette` (zombies), Chrome, manette physique, page `http://127.0
 | coup porté (hit) | |
 | mort d'un zombie | |
 | dégâts reçus (hurt) | |
+| début / fin de vague (`wave_start`, `wave_end`) : surcharge Sonniss, puis repli Kenney | |
+| achat (`purchase`), ramassage (`pickup`) : surcharge, puis repli | |
+| fenêtre cassée / réparée (`window_*`, Kenney) | |
+| mort par famille de zombie (`death_zombie_*` ; repli public = `death`) | |
+| mort du joueur (`death_player`) : surcharge, puis repli | |
+| boss : apparition, mort (`boss_spawn`, `boss_death`) : surcharge, puis repli | |
+| menus : naviguer, confirmer, retour (`menu_*`) : surcharge, puis repli | |
