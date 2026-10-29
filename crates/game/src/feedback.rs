@@ -13,7 +13,6 @@
 //!   secousse, hit stop, chiffres), dessine les télégraphes et joue les sons.
 
 use bevy::prelude::*;
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D};
 use bevy_kira_audio::prelude::*;
 use combat::emitter::Emitter;
@@ -39,6 +38,57 @@ use crate::session::is_headless;
 #[serde(transparent)]
 pub struct FeedbackConfig(pub FeedbackSettings);
 
+#[derive(Debug, thiserror::Error)]
+pub enum FeedbackLoadError {
+    #[error("lecture du feedback : {0}")]
+    Io(#[from] std::io::Error),
+    #[error("RON du feedback : {0}")]
+    Ron(#[from] ron::error::SpannedError),
+}
+
+/// Chargeur de `ui/feedback.ron` : comme `RonAssetPlugin<FeedbackConfig>`, plus la surcharge locale des sons
+/// `ui/feedback.local.ron` quand elle existe (S1-9 étape 2, `docs/conventions.md` §98 ; même principe que
+/// `HudConfigLoader`). Natif seulement : le web ne cherche pas un fichier absent du site, il lirait un 404.
+/// L'absence du fichier est silencieuse ; sa présence l'enregistre comme dépendance (rechargement à chaud).
+/// Sans le fichier, la configuration est celle du `feedback.ron` public, octet pour octet.
+#[derive(TypePath, Default)]
+pub struct FeedbackConfigLoader;
+
+impl bevy::asset::AssetLoader for FeedbackConfigLoader {
+    type Asset = FeedbackConfig;
+    type Settings = ();
+    type Error = FeedbackLoadError;
+
+    async fn load(
+        &self,
+        reader: &mut dyn bevy::asset::io::Reader,
+        _settings: &(),
+        load_context: &mut bevy::asset::LoadContext<'_>,
+    ) -> Result<FeedbackConfig, FeedbackLoadError> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        #[allow(unused_mut)]
+        let mut config: FeedbackConfig = ron::de::from_bytes(&bytes)?;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let local = load_context.path().path().with_extension("local.ron");
+            if let Ok(local_bytes) = load_context.read_asset_bytes(local).await {
+                match ron::de::from_bytes::<content::feedback::FeedbackOverlay>(&local_bytes) {
+                    Ok(overlay) => config.0.apply_overlay(overlay),
+                    Err(error) => warn!("ui/feedback.local.ron ignoré : {error}"),
+                }
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = load_context;
+        Ok(config)
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["ron"]
+    }
+}
+
 /// Plugin de chargement de `ui/feedback.ron` (application, headless compris) : l'enveloppe `Asset`
 /// [`FeedbackConfig`], son chargeur RON, et la publication de [`FeedbackConfigLoaded`] que lit
 /// [`crate::feedback_log::FeedbackLogPlugin`] (simulation, sans asset).
@@ -46,7 +96,8 @@ pub struct FeedbackAssetsPlugin;
 
 impl Plugin for FeedbackAssetsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<FeedbackConfig>::new(&["ron"]));
+        app.init_asset::<FeedbackConfig>()
+            .register_asset_loader(FeedbackConfigLoader);
         // Charger la config au démarrage
         app.add_systems(Startup, load_feedback_config);
         // Publie `FeedbackConfigLoaded` une fois l'asset chargé (et à chaque modification) :

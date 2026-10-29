@@ -420,16 +420,7 @@ impl FeedbackSettings {
         }
         self.blank_and_boss_problems(&mut problems);
         for key in self.sounds.keys() {
-            let known = SOUND_KEYS.contains(&key.as_str())
-                || key
-                    .strip_prefix(DEATH_KEY_PREFIX)
-                    .is_some_and(|id| !id.is_empty());
-            if !known {
-                problems.push(FeedbackProblem {
-                    field: format!("sounds.{key}"),
-                    message: "clé de son inconnue du moteur (voir SOUND_KEYS)".into(),
-                });
-            }
+            problems.extend(sound_key_problem(key));
         }
         check_shot(
             "",
@@ -441,16 +432,7 @@ impl FeedbackSettings {
             check_death(&self.death, &mut problems);
         }
         for (key, db) in &self.volumes {
-            if !SOUND_VOLUME_DB_RANGE.contains(db) {
-                problems.push(FeedbackProblem {
-                    field: format!("volumes.{key}"),
-                    message: format!(
-                        "{db} dB : doit être dans [{}, {}]",
-                        SOUND_VOLUME_DB_RANGE.start(),
-                        SOUND_VOLUME_DB_RANGE.end()
-                    ),
-                });
-            }
+            problems.extend(volume_problem(key, *db));
         }
         let overrides = self
             .by_kind
@@ -566,6 +548,72 @@ fn check_death(death: &DeathFxConfig, problems: &mut Vec<FeedbackProblem>) {
     }
 }
 
+/// Nom du fichier de surcharge locale des sons, à côté de `ui/feedback.ron` (S1-9 étape 2,
+/// `docs/conventions.md` §98). Gitignoré (`games/*/assets/ui/*.local.ron`) : il porte les sons dont la licence
+/// interdit la redistribution (Sonniss), jamais publiés.
+pub const FEEDBACK_LOCAL_FILE_NAME: &str = "feedback.local.ron";
+
+/// Surcharge locale de `ui/feedback.ron` : `ui/feedback.local.ron`. Elle ajoute ou remplace des entrées de
+/// `sounds` et de `volumes`, clé par clé ; une clé du fichier public absente de la surcharge est gardée. Tout
+/// autre champ est refusé (`deny_unknown_fields`) : la surcharge ne règle que des sons.
+/// Sans fichier (CI, amis, build web public), le `feedback.ron` public est lu tel quel.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FeedbackOverlay {
+    #[serde(default)]
+    pub sounds: BTreeMap<String, String>,
+    #[serde(default)]
+    pub volumes: BTreeMap<String, f32>,
+}
+
+impl FeedbackOverlay {
+    /// Clé de son inconnue du moteur, volume hors plage : mêmes règles et mêmes champs que le fichier public.
+    /// Les chemins et les clés de `volumes` absentes de `sounds` sont vérifiés par le lint, qui voit le résultat
+    /// de la fusion.
+    pub fn problems(&self) -> Vec<FeedbackProblem> {
+        let mut problems: Vec<_> = self
+            .sounds
+            .keys()
+            .filter_map(|key| sound_key_problem(key))
+            .collect();
+        problems.extend(
+            self.volumes
+                .iter()
+                .filter_map(|(key, db)| volume_problem(key, *db)),
+        );
+        problems
+    }
+}
+
+impl FeedbackSettings {
+    /// Pose la surcharge locale : ses `sounds` et `volumes` remplacent ou complètent ceux du fichier public.
+    pub fn apply_overlay(&mut self, overlay: FeedbackOverlay) {
+        self.sounds.extend(overlay.sounds);
+        self.volumes.extend(overlay.volumes);
+    }
+}
+
+fn sound_key_problem(key: &str) -> Option<FeedbackProblem> {
+    let known = SOUND_KEYS.contains(&key)
+        || key
+            .strip_prefix(DEATH_KEY_PREFIX)
+            .is_some_and(|id| !id.is_empty());
+    (!known).then(|| FeedbackProblem {
+        field: format!("sounds.{key}"),
+        message: "clé de son inconnue du moteur (voir SOUND_KEYS)".into(),
+    })
+}
+
+fn volume_problem(key: &str, db: f32) -> Option<FeedbackProblem> {
+    (!SOUND_VOLUME_DB_RANGE.contains(&db)).then(|| FeedbackProblem {
+        field: format!("volumes.{key}"),
+        message: format!(
+            "{db} dB : doit être dans [{}, {}]",
+            SOUND_VOLUME_DB_RANGE.start(),
+            SOUND_VOLUME_DB_RANGE.end()
+        ),
+    })
+}
 impl FeedbackSettings {
     /// M2-T19 : durées > 0 et bornées, opacités dans `[0, 1]`, zoom dans [`BOSS_ZOOM_RANGE`],
     /// couleurs du télégraphe de forme dans `[0, 1]`.
@@ -887,5 +935,50 @@ mod tests {
         let half = master_volume_db(50).unwrap();
         assert!((half + 6.02).abs() < 0.01, "{half}");
         assert_eq!(master_volume_db(200), Some(0.0));
+    }
+
+    #[test]
+    fn surcharge_locale_remplace_ajoute_et_garde() {
+        let mut s = settings();
+        s.sounds.insert("hit".into(), "sounds/hit.ogg".into());
+        s.sounds
+            .insert("purchase".into(), "sounds/purchase.ogg".into());
+        s.volumes.insert("hit".into(), -12.0);
+        s.volumes.insert("purchase".into(), -4.0);
+        let overlay: FeedbackOverlay = ron::from_str(
+            r#"(
+                sounds: {"purchase": "sounds/sonniss/purchase.ogg", "wave_start": "sounds/sonniss/wave_start.ogg"},
+                volumes: {"purchase": -8.0, "wave_start": -6.0},
+            )"#,
+        )
+        .unwrap();
+        assert!(overlay.problems().is_empty());
+        let public = s.clone();
+        s.apply_overlay(overlay);
+        // Remplacé, ajouté, gardé.
+        assert_eq!(s.sounds["purchase"], "sounds/sonniss/purchase.ogg");
+        assert_eq!(s.sounds["wave_start"], "sounds/sonniss/wave_start.ogg");
+        assert_eq!(s.sounds["hit"], "sounds/hit.ogg");
+        assert_eq!(s.volumes["purchase"], -8.0);
+        assert_eq!(s.volumes["wave_start"], -6.0);
+        assert_eq!(s.volumes["hit"], -12.0);
+        // Le reste du fichier public n'est pas touché ; une surcharge vide est l'identité.
+        assert_eq!(s.hit_flash, public.hit_flash);
+        assert_eq!(s.by_weapon, public.by_weapon);
+        let mut same = public.clone();
+        same.apply_overlay(FeedbackOverlay::default());
+        assert_eq!(same, public);
+    }
+
+    #[test]
+    fn surcharge_locale_refuse_cle_inconnue_volume_hors_plage_et_autre_champ() {
+        let overlay: FeedbackOverlay = ron::from_str(
+            r#"(sounds: {"vague": "a.ogg", "death_zombie_1": "b.ogg"}, volumes: {"hit": 20.0})"#,
+        )
+        .unwrap();
+        let fields: Vec<_> = overlay.problems().into_iter().map(|p| p.field).collect();
+        assert_eq!(fields, ["sounds.vague", "volumes.hit"]);
+        // Un champ qui n'est pas un son (ici le flash) est une erreur de lecture, pas une valeur ignorée.
+        assert!(ron::from_str::<FeedbackOverlay>(r#"(hit_stop_frames: 3)"#).is_err());
     }
 }
