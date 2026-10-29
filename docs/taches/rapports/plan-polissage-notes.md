@@ -16,3 +16,18 @@ Build local `e4-manette` (zombies), Chrome, manette physique, page `http://127.0
   consignée dans `propositions.md` (racine du dépôt).
 - Non couvert par cet essai de 2 min (à voir à l'E4 de vendredi 30) : mutation de throne, fin de partie et retour au salon,
   débranchement/rebranchement, L3 pour le sprint, pause qui ne fige pas la partie (D158).
+
+## S1-9 — écoute des sons de zombies (protocole : `polissage-zombies-sons.md` §4)
+
+À remplir par William, une ligne par son : « trop fort / ni trop fort ni muet / trop faible ».
+
+| Son | Verdict |
+|---|---|
+| tir mitrailleuse | |
+| tir pistolet | |
+| tir fusil à pompe | |
+| tir fusil | |
+| recharge | |
+| coup porté (hit) | |
+| mort d'un zombie | |
+| dégâts reçus (hurt) | |
