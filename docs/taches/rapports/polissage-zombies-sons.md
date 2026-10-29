@@ -57,7 +57,7 @@ Volumes de départ (`ui/feedback.ron`, dB, **inchangés** pour les clés existan
 1. `cargo run -q -p content --bin alacod --profile headless -- sandbox games/zombies --profile lourd` : la fenêtre s'ouvre (mitrailleuse, trois zombies à droite). Volume du Mac à son niveau d'habitude.
 2. Mitrailleuse : tirer 5 s (clic maintenu), recharger (R). Zombies : les tuer (coup + mort), en laisser un te toucher (dégâts reçus).
 3. Second terminal : `… alacod remote give --weapon shotgun`, puis `--weapon rifle`, `--weapon pistol` (ou `alacod remote run games/zombies/scripts/ecoute_sons.alacod` pour reposer le décor) : un tir et une recharge par arme.
-4. Noter une ligne par arme dans `docs/taches/rapports/plan-polissage-notes.md` (§ S1-9) : « trop fort / ni trop fort ni muet / trop faible », et la même chose pour hit, mort, hurt. Je règle les `volumes` d'après tes notes (pas besoin de recompiler : `ui/feedback.ron` se relit au `alacod remote reload` puis `restart`).
+4. Noter une ligne par arme dans `docs/taches/rapports/plan-polissage-notes.md` (§ S1-9) : « trop fort / ni trop fort ni muet / trop faible », et la même chose pour hit, mort, hurt. Je règle les `volumes` d'après tes notes (pas besoin de recompiler : le jeu natif recharge `ui/feedback.ron` à chaud, sinon relancer le bac à sable).
 Les sons de vague, d'achat, de ramassage, de menu et de mort par famille s'écoutent **après** S1-7 et la décision Sonniss (deuxième écoute, une minute).
 
 ## 5. Captures et vidéos de 60 s
