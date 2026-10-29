@@ -81,3 +81,9 @@ Chrome normal (son de ton poste : volume à ta main, **rien n'est lancé par la 
 
 Point (10) : si William répond oui, **rien n'est codé**. Estimation de l'entrée analogique : ≈ 1 j (`BoxInput` n'a pas de déplacement
 analogique : huit directions à vitesse constante, `polissage-manette.md` § 9 ; tâche à part, dite au coordinateur).
+
+Build `e4-sons` (zombies et throne, `website/static/builds/e4-sons/`, ignoré par git, tête `polissage-e4` sur `origin/polissage-integration` `4cea5046`,
+repli public : aucune surcharge privée copiée, `ALACOD_WEB_PRIVATE_ASSETS` absent) : `CARGO_TARGET_DIR=target_wasm WEB_BUILD_ID=e4-sons WEB_OPTIMIZE=0
+WEB_ENABLE_SOLO=1 WASM_BINDGEN=/private/tmp/wbg/wasm-bindgen-0.2.129-aarch64-apple-darwin/wasm-bindgen node scripts/build-web-games.mjs zombies throne`, puis
+`git checkout website/static/releases.json` ; servi par le serveur du 8777 (`build.json` et `wasm_bg.wasm` répondent 200 : 250 Mo zombies, 243 Mo throne, build de développement).
+Aucun son lancé par la voie (`ALACOD_MUTE=1`, pas de navigateur ouvert) : le son se vérifie seulement chez William.
