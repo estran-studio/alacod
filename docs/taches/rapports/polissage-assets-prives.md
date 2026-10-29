@@ -6,7 +6,7 @@ Branche `polissage-assets-prives` (depuis `origin/polissage-integration` `a892c9
 ## Verdict
 
 Fait : dépôt privé rempli et poussé, `scripts/assets-prives.sh` (clone/pull, copie idempotente, `--ci`), étape de CI dans `release.yaml` **et** `main.yaml`, drapeau `ALACOD_WEB_PRIVATE_ASSETS=1` (D161 fermée),
-HUD de surcharge lu par le web sous le drapeau (D167, ouverte puis fermée dans le lot, accord du coordinateur), `assets.yaml`, § 99. Prouvé : builds web avec et sans drapeau, CI avec et sans secret (run GitHub), lint avec et sans surcharge.
+HUD de surcharge lu par le web sous le drapeau (D169, ouverte puis fermée dans le lot, accord du coordinateur), `assets.yaml`, § 99. Prouvé : builds web avec et sans drapeau, CI avec et sans secret (run GitHub), lint avec et sans surcharge.
 **Non prouvé** : un run des vrais jobs `release.yaml` / `main.yaml` (runner auto-hébergé hors ligne), l'affichage dans Chrome d'un site publié avec la surcharge (aucun navigateur ni son sur le Mac pour ce lot).
 
 ## Points de la spec
@@ -21,7 +21,7 @@ HUD de surcharge lu par le web sous le drapeau (D167, ouverte puis fermée dans 
 | D161 : inclusion explicite de la surcharge | fait | transcript B ; D161 fermée dans `dettes.md` |
 | Doc § 99 | fait | `docs/conventions.md` § 99 (et § 92 mis à jour) |
 | Aucune image payante ni extrait Sonniss dans le dépôt public | fait | transcript C |
-| D167 (demandée par le coordinateur) : HUD de surcharge lu sur le web sous le drapeau | fait, sans vérification visuelle | `hud::hud_overlay_wanted` + test ; compile wasm avec le drapeau |
+| D169 (demandée par le coordinateur) : HUD de surcharge lu sur le web sous le drapeau | fait, sans vérification visuelle | `hud::hud_overlay_wanted` + test ; compile wasm avec le drapeau |
 
 ### Transcript A : `scripts/assets-prives.sh`
 
@@ -82,7 +82,7 @@ crates/content/tests/fixtures/sprite_sheet_local_overlay/assets/sprites/sprites.
 1. Remettre le runner `vps-alacod-builder` en ligne ; vérifier qu'il a un client `ssh` et sort en 22 vers github.com (`ssh -V`, `ssh -T git@github.com` avec n'importe quelle clé : « Permission denied (publickey) » suffit).
 2. Après le merge de `polissage-assets-prives` dans `main` : Actions > **Build & Deploy** > Run workflow (déploie le site réel).
 3. Dans le journal du job `Build WASM & Deploy` : l'étape « Assets privés (alacod-assets) » doit afficher `168 fichiers copiés` (puis `0 copiés, 168 déjà à jour` si le workspace n'a pas été nettoyé) et « ALACOD_WEB_PRIVATE_ASSETS=1 posé » ; l'étape « Build WASM in container » doit finir par `zombies : surcharge privée incluse (79 fichiers)`.
-4. Sur le site : zombies en solo dans Chrome (muet) : sprites du pack, murs et sol (D167), icônes du HUD. Sans secret (run d'un fork) : l'étape écrit « étape sautée » et le repli public est publié.
+4. Sur le site : zombies en solo dans Chrome (muet) : sprites du pack, murs et sol (D169), icônes du HUD. Sans secret (run d'un fork) : l'étape écrit « étape sautée » et le repli public est publié.
 5. Avant de publier un build public avec la surcharge : confirmation de TheLazyStone (plan-polissage § 0.3, décision 1) ; l'image Docker `ghcr.io/bascanada/alacod` de `release.yaml` contiendrait aussi les images.
 
 ## Lint, `make check`
@@ -90,7 +90,7 @@ crates/content/tests/fixtures/sprite_sheet_local_overlay/assets/sprites/sprites.
 - **Lint de contenu, avec et sans surcharge** (`alacod lint games/<jeu>`, surcharge présente puis supprimée) : zombies « aucune erreur (6 personnages, 4 armes, 6 armes de corps à corps, 1 vagues, 6 cartes) » et throne « aucune erreur (14 personnages, 13 armes, 4 armes de corps à corps, 0 vagues, 2 cartes) » dans les deux états ;
   la surcharge est ensuite restaurée par `scripts/assets-prives.sh` (168 copiés).
 - `make test_tools` sur le Mac : 48 tests, **3 échecs préexistants** de `test_claude_say.py` (le faux `say` ; les mêmes trois échecs sur la base, `git stash`) ; les 10 nouveaux tests passent.
-- Test unitaire D167 : `cargo test -p game --no-default-features --lib the_local_overlay` : 2 passed (`the_local_overlay_is_looked_up_on_the_web_only_in_a_private_assets_build`, `the_local_overlay_replaces_wall_art_and_merges_icons_by_id`). Compile wasm de `zombies` avec `ALACOD_WEB_PRIVATE_ASSETS=1` : `Finished`.
+- Test unitaire D169 : `cargo test -p game --no-default-features --lib the_local_overlay` : 2 passed (`the_local_overlay_is_looked_up_on_the_web_only_in_a_private_assets_build`, `the_local_overlay_replaces_wall_art_and_merges_icons_by_id`). Compile wasm de `zombies` avec `ALACOD_WEB_PRIVATE_ASSETS=1` : `Finished`.
 - **`make check`** (profil `headless`, `CARGO_TARGET_DIR=.target-mac`, `ALACOD_MUTE=1`, commit `6ef58211`) : `make -k format check_forbidden check_rollback_registration check_sim_boundary test_crates lint` → code 0 (fmt propre ; « OK: aucun nouveau motif interdit ; 51 occurrences auditées » ; « OK : aucun appel direct à rollback_component_with* » ; « OK : frontière simulation/présentation respectée par 13 crates ; 2 en dette D69 » ; tous les `test result: ok` de `test_crates` ; lint de zombies, testbed, throne, gungeon et isaac sans erreur) ; **`make test_tools` : 3 échecs préexistants de `test_claude_say.py` sur le Mac** (écart annoncé : le faux `say`), les 48 − 3 autres tests dont mes 10 passent ; le `make check` d'un seul tenant s'arrête donc à `test_tools` sur le Mac, d'où les cibles lancées une à une.
 - **Scénarios, aucune trace ne bouge** : `make test_scenarios_par SHARDS=3` (la suite de `test_scenarios` en tranches, sans `BLESS`) : `tranche 0/3 : ok`, `1/3 : ok`, `2/3 : ok`, `métriques : 811 scénarios fusionnés`, `suite en 3 tranches : 761 s`, code 0 ; `git status` sans fichier `.trace` modifié ; la surcharge privée était présente sur le disque pendant la suite.
 

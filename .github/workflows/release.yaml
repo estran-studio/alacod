@@ -19,13 +19,20 @@ jobs:
           fetch-depth: 0
 
       # S-0b (docs/conventions.md § 99) : surcharge privée (images payantes, extraits Sonniss) depuis le dépôt privé
-      # estran-studio/alacod-assets, AVANT le build. Sans le secret (fork, pull request) l'étape saute et le repli public
-      # se construit ; avec le secret, elle pose ALACOD_WEB_PRIVATE_ASSETS=1 (D161 : sans cette variable, aucun build web
-      # n'embarque la surcharge, même présente sur le disque).
+      # estran-studio/alacod-assets, AVANT le build. Double garde : la variable de dépôt ALACOD_WEB_PRIVATE_ASSETS doit valoir 1
+      # (geste explicite de William, non posée par défaut : pas de confirmation de TheLazyStone pour un build web public) ET le
+      # secret doit exister. Sans la variable l'étape saute même avec le secret ; sans le secret (fork, pull request) le script
+      # saute aussi : le repli public se construit. Avec les deux, elle pose ALACOD_WEB_PRIVATE_ASSETS=1 (D161 : sans cette
+      # variable d'environnement, aucun build web n'embarque la surcharge, même présente sur le disque).
       - name: Assets privés (alacod-assets)
+        if: vars.ALACOD_WEB_PRIVATE_ASSETS == '1'
         env:
           ALACOD_ASSETS_DEPLOY_KEY: ${{ secrets.ALACOD_ASSETS_DEPLOY_KEY }}
         run: scripts/assets-prives.sh --ci
+
+      - name: Assets privés désactivés (variable ALACOD_WEB_PRIVATE_ASSETS absente)
+        if: vars.ALACOD_WEB_PRIVATE_ASSETS != '1'
+        run: echo "::notice title=assets privés::variable de dépôt ALACOD_WEB_PRIVATE_ASSETS absente ou différente de 1 - surcharge privée sautée, le repli public est construit."
 
       - name: Login docker
         run: docker login https://ghcr.io -u wquintal -p $GITHUB_ACCESS_TOKEN

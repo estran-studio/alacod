@@ -7,6 +7,9 @@ name: Assets privés
 #    le clone doit réussir et la surcharge être copiée ; sans (pull request d'un fork) l'étape saute et rien n'est copié.
 #  - `sans-secret` : la clé est forcée à vide ; l'étape doit sauter (code 0), rien ne doit être copié, et le build web
 #    (copie des assets) ne doit contenir aucun fichier de la surcharge.
+#  - `variable-absente` : la condition `vars.ALACOD_WEB_PRIVATE_ASSETS == '1'` des étapes de `release.yaml` et `main.yaml` ; sans la
+#    variable de dépôt (non posée par défaut) l'étape doit être sautée même avec le secret.
+# `avec-secret` et `sans-secret` gardent le secret seul : ce workflow ne déploie rien.
 
 on:
   push:
@@ -94,3 +97,34 @@ jobs:
           [ -f "$out/zombies/game.ron" ] || { echo "le repli public est incomplet"; exit 1; }
           ALACOD_WEB_PRIVATE_ASSETS=1 node scripts/web-assets.mjs zombies "$out/avec"
           [ -f "$out/avec/sprites/postapo/test.png" ] && [ -f "$out/avec/sounds/sonniss/test.ogg" ] || { echo "le drapeau n'inclut pas la surcharge"; exit 1; }
+
+  # Garde par variable de dépôt (release.yaml et main.yaml) : la même condition `if` que sur l'étape du site, le secret en plus.
+  # Tant que William n'a pas posé la variable ALACOD_WEB_PRIVATE_ASSETS=1, l'étape doit être SAUTÉE même avec le secret. Les deux
+  # autres jobs de ce fichier gardent le secret seul : ils ne déploient rien (aucun build, aucune publication).
+  variable-absente:
+    name: Étape gardée par la variable de dépôt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assets privés (alacod-assets), même condition que le site
+        id: prives
+        if: vars.ALACOD_WEB_PRIVATE_ASSETS == '1'
+        env:
+          ALACOD_ASSETS_DEPLOY_KEY: ${{ secrets.ALACOD_ASSETS_DEPLOY_KEY }}
+        run: scripts/assets-prives.sh --ci
+
+      - name: Résultat attendu
+        env:
+          OUTCOME: ${{ steps.prives.outcome }}
+          VARIABLE: ${{ vars.ALACOD_WEB_PRIVATE_ASSETS }}
+        run: |
+          echo "variable ALACOD_WEB_PRIVATE_ASSETS='${VARIABLE}' ; étape : ${OUTCOME}"
+          if [ "$VARIABLE" = 1 ]; then expected=success; else expected=skipped; fi
+          [ "$OUTCOME" = "$expected" ] || { echo "attendu : ${expected}"; exit 1; }
+          if [ "$VARIABLE" != 1 ]; then
+            [ "$(git ls-files --others --ignored --exclude-standard games | wc -l)" -eq 0 ] || { echo "surcharge présente sans la variable"; exit 1; }
+            [ -z "${ALACOD_WEB_PRIVATE_ASSETS:-}" ] || { echo "drapeau posé sans la variable"; exit 1; }
+            echo "variable absente : étape sautée même avec le secret, rien copié, repli public."
+          fi

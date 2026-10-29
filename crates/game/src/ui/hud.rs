@@ -378,7 +378,7 @@ pub enum HudLoadError {
 }
 
 /// Une `ui/hud.local.ron` est-elle à chercher ? Natif : toujours (absence silencieuse). Web : seulement dans un
-/// build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1` (D167, `docs/conventions.md` § 99), le site contenant alors le
+/// build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1` (D169, `docs/conventions.md` § 99), le site contenant alors le
 /// fichier ; un build public ne le cherche pas (un fichier absent du site donnerait un 404 à chaque démarrage).
 fn hud_overlay_wanted(wasm: bool, web_private_assets: Option<&str>) -> bool {
     !wasm || web_private_assets == Some("1")
@@ -2309,7 +2309,7 @@ mod tests {
         assert_eq!(parse_color("pas une couleur"), Color::WHITE);
     }
 
-    /// D167 : la surcharge du HUD n'est cherchée sur le web que dans un build fait avec le drapeau de surcharge privée.
+    /// D169 : la surcharge du HUD n'est cherchée sur le web que dans un build fait avec le drapeau de surcharge privée.
     #[test]
     fn the_local_overlay_is_looked_up_on_the_web_only_in_a_private_assets_build() {
         // Natif : toujours cherchée, quel que soit le drapeau de build.

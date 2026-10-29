@@ -8017,7 +8017,7 @@ Sans ces fichiers (CI, amis, build web public), le jeu lit les fichiers commité
 - **`HudIcon.image`** (`game::ui::hud`) : chemin d'image relatif à `assets/`, optionnel ; remplace le carré de couleur et l'étiquette dans `Icons` (perks, objet actif), `Counter` et `Hearts`
   (`heart`, `heart_half`, `soul_heart`, `soul_heart_half`, `heart_empty` : un cœur n'a d'image que si tous les états qu'il dessine en ont, sinon carrés de couleur). Le lint vérifie que l'image existe
   (`hud : icône « id » : image « … » absente`, fixture `hud_local_overlay_missing_image`).
-- **`ui/hud.local.ron`** (`HudOverlay`, lu par `HudConfigLoader`, qui remplace `RonAssetPlugin<HudConfig>`) : natif, et web **seulement dans un build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1`** (`hud_overlay_wanted`, § 99, D167 : un build web public ne cherche pas un fichier absent du site) ; absence silencieuse ; présence enregistrée comme
+- **`ui/hud.local.ron`** (`HudOverlay`, lu par `HudConfigLoader`, qui remplace `RonAssetPlugin<HudConfig>`) : natif, et web **seulement dans un build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1`** (`hud_overlay_wanted`, § 99, D169 : un build web public ne cherche pas un fichier absent du site) ; absence silencieuse ; présence enregistrée comme
   dépendance (rechargement à chaud). Le lint lit les deux fichiers avec les options RON du chargeur (`Some` implicite, `content::ui::hud_ron_options`).
 - **`wall_art.floor`** (`FloorArt { tiles, mask_layer, z }`, `map_ldtk::wall_art::floor_cells`) : une tuile de la feuille de `wall_art` sous chaque case **non murée** de la couche `Walls`, choisie par une fonction entière de la case
   (`floor_tile`, aucun aléa) ; `z` 0,05 (sous les halos et les objets du monde). Les tuiles annexes prolongent la feuille au-delà des 36 de murs (`36..` : sol).
@@ -8129,8 +8129,12 @@ contenu (`alacod lint games/<jeu>`) lit le disque : il passe avec et sans surcha
   `ALACOD_ASSETS_DEPLOY_KEY` (clé de déploiement **en lecture seule** « ci-alacod-site », secret du dépôt `estran-studio/alacod`), clone en SSH, copie, puis `ALACOD_WEB_PRIVATE_ASSETS=1` pour les étapes suivantes
   (le `docker run` du build le transmet par `-e`). **Sans le secret** (fork, pull request) : message `::notice::`, code 0, rien n'est écrit, le repli public se construit. **Avec le secret et un clone qui échoue** : l'étape échoue
   (la clé n'est jamais journalisée, `set +x`, fichier 0600 supprimé à la sortie). Les fichiers sont retirés du workspace en fin de job (`git clean -ffdX -- games`).
+  **Garde par variable de dépôt** : l'étape ne tourne que si la variable GitHub `ALACOD_WEB_PRIVATE_ASSETS` vaut `1` (`if: vars.ALACOD_WEB_PRIVATE_ASSETS == '1'`), **en plus** du secret. La variable n'est pas posée par défaut : sans elle l'étape est sautée
+  (une étape « Assets privés désactivés » le dit dans le journal) et le repli public est publié, **même avec le secret**, nightly de `main.yaml` compris. Raison : la confirmation de TheLazyStone pour un build web public n'est pas obtenue ;
+  poser la variable est un geste de William (`gh variable set ALACOD_WEB_PRIVATE_ASSETS --body 1 -R estran-studio/alacod`, la retirer : `gh variable delete ALACOD_WEB_PRIVATE_ASSETS -R estran-studio/alacod`).
 - **`assets-prives.yaml`** (runner GitHub, sur push des fichiers concernés, pull request et dispatch) : lance le vrai script avec le secret du dépôt puis avec une clé vide, et vérifie les deux copies d'assets de build web
   (sans le drapeau : aucun fichier de surcharge ; avec : présents). Les deux jobs du site tournent sur le runner auto-hébergé `alacod-builder`, hors de portée de ce workflow.
+  Le job `variable-absente` de ce workflow rejoue la même condition `if` et vérifie l'étape **sautée** sans la variable ; les deux autres jobs gardent le secret seul (ils ne déploient rien).
 
 ### Ajouter un asset privé
 
@@ -8141,4 +8145,4 @@ le pack dans `games/<jeu>/assets/assets.yaml` (`statut: dépôt privé alacod-as
 
 Publier un build avec le drapeau **diffuse** ces images et ces sons sur le site public : c'est la décision de William du 2026-10-28 (dépôt privé cloné par la CI), mais la confirmation écrite de TheLazyStone pour un build web
 public n'est toujours pas obtenue (plan-polissage § 0.3, décision 1) ; l'image Docker `ghcr.io/bascanada/alacod` de `release.yaml` les contiendrait aussi. Le HUD de surcharge (`ui/hud.local.ron` : murs, sol, icônes à image) est lu par le web
-dans un build fait avec le drapeau (D167 fermée : `hud::hud_overlay_wanted`, `option_env!`) ; l'affichage dans Chrome n'est pas vérifié par ce lot (aucune écoute ni session de navigateur sur le Mac, rapport).
+dans un build fait avec le drapeau (D169 fermée : `hud::hud_overlay_wanted`, `option_env!`) ; l'affichage dans Chrome n'est pas vérifié par ce lot (aucune écoute ni session de navigateur sur le Mac, rapport).
