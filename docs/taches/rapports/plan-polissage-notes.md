@@ -38,3 +38,18 @@ Build local `e4-manette` (zombies), Chrome, manette physique, page `http://127.0
 | mort du joueur (`death_player`) : surcharge, puis repli | |
 | boss : apparition, mort (`boss_spawn`, `boss_death`) : surcharge, puis repli | |
 | menus : naviguer, confirmer, retour (`menu_*`) : surcharge, puis repli | |
+
+## S2-11 — écoute des sons de throne (protocole : `docs/taches/rapports/polissage-throne-sons.md` § 4)
+
+À remplir par William, une ligne par famille : « trop fort / ni trop fort ni muet / trop faible » ; dire si le **repli public** est acceptable ou à remplacer (tout est choisi sans écoute de ma part).
+
+| Son | Verdict |
+|---|---|
+| armes à balles (revolver, fusil à pompe) | |
+| lanceurs (lance-grenades, mortier) : tirs de fusil plus graves | |
+| énergie (laser, plasma) : tirs de .22 changés de hauteur | |
+| lames (lance-lames, disque) : impacts Kenney | |
+| recharges (revolver, lanceur, énergie, lames) | |
+| morts par famille (rongeurs, bêtes, humains, machines) : surcharge, puis repli | |
+| étage / portail, ramassage | |
+

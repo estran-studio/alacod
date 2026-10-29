@@ -37,6 +37,7 @@
             bullet_offset_left: ( x: "0.0", y: "-2.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_revolver.ogg", reloading: "sounds/reload_revolver.ogg")}),
     ),
     // Balles : automatique, dispersion large.
     "mitraillette": (
@@ -68,6 +69,7 @@
             bullet_offset_left: ( x: "12.0", y: "-0.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_mitraillette.ogg", reloading: "sounds/reload_mitraillette.ogg")}),
     ),
     // Obus : huit plombs en éventail.
     "fusil_a_pompe": (
@@ -99,6 +101,7 @@
             bullet_offset_left: ( x: "10.0", y: "0" ),
             weapon_offset: ( x: "0.0", y: "-5." )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_fusil_a_pompe.ogg", reloading: "sounds/reload_fusil_a_pompe.ogg")}),
     ),
     // Obus : balle lourde qui rebondit trois fois sur les murs (`Bounce`).
     "canon_ricochet": (
@@ -131,6 +134,7 @@
             bullet_offset_left: ( x: "10.0", y: "0" ),
             weapon_offset: ( x: "0.0", y: "-5." )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_canon_ricochet.ogg", reloading: "sounds/reload_canon.ogg")}),
     ),
     // Explosifs : grenade qui rebondit, roule à travers les personnages et explose à la fin de sa vie en huit éclats (`on_expire: Spawn`).
     "lance_grenades": (
@@ -175,6 +179,7 @@
             bullet_offset_left: ( x: "0.0", y: "-2.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_lance_grenades.ogg", reloading: "sounds/reload_lanceur.ogg")}),
     ),
     // Explosifs : roquette rapide qui explose au contact ou au bout de 40 frames (`Lifetime`, `on_expire: Spawn`).
     "roquette": (
@@ -217,6 +222,7 @@
             bullet_offset_left: ( x: "12.0", y: "-0.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_roquette.ogg", reloading: "sounds/reload_lanceur.ogg")}),
     ),
     // Explosifs : obus en cloche (`Gravity`) qui éclate en éventail de cinq fragments à la fin
     // de sa vie (40 frames).
@@ -255,6 +261,7 @@
             bullet_offset_left: ( x: "0.0", y: "-2.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_mortier.ogg", reloading: "sounds/reload_lanceur.ogg")}),
     ),
     // Énergie : rayon rapide qui traverse quatre personnages (`Pierce`).
     "laser": (
@@ -287,6 +294,7 @@
             bullet_offset_left: ( x: "12.0", y: "-0.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_laser.ogg", reloading: "sounds/reload_energie.ogg")}),
     ),
     // Énergie : boule lente et large (`Size`), courte vie (`Lifetime`).
     "plasma": (
@@ -319,6 +327,7 @@
             bullet_offset_left: ( x: "0.0", y: "-2.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_plasma.ogg", reloading: "sounds/reload_energie.ogg")}),
     ),
     // Énergie : projectile à tête chercheuse (`Homing`).
     "traqueur": (
@@ -362,6 +371,7 @@
             bullet_offset_left: ( x: "0.0", y: "-2.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_traqueur.ogg", reloading: "sounds/reload_energie.ogg")}),
     ),
     // Lames : lame qui ricoche deux fois et traverse un personnage.
     "lance_lames": (
@@ -394,6 +404,7 @@
             bullet_offset_left: ( x: "0.0", y: "-2.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_lance_lames.ogg", reloading: "sounds/reload_lames.ogg")}),
     ),
     // Lames : disque en rafale de trois, traverse trois personnages, vit 90 frames.
     "disque": (
@@ -426,6 +437,7 @@
             bullet_offset_left: ( x: "12.0", y: "-0.0" ),
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
+        audio_config: (modes: {"default": (firing: "sounds/shot_disque.ogg", reloading: "sounds/reload_lames.ogg")}),
     ),
     // Arsenal des ennemis (pas une arme du joueur, aucun ennemi ne la lâche) : sa table
     // `projectiles` fournit les projectiles des patterns de tir (`patterns/`, règle `Shoot`).

@@ -240,3 +240,83 @@
     (image 2) centré sur 16 × 16 pour le projectile ennemi ; épouvantail et canette (première image)
     agrandis ×2 ; scripts/repack-throne.py ; aucun pixel dessiné.
   statut: overlay privé (throne), pas un placeholder
+
+# S2-11 (2026-10-29, docs/conventions.md § 98) : sons d'armes et d'événements de throne. Licences copiées avant l'import ; script
+# scripts/repack-throne-sons.py (un fichier extrait à la fois, jamais un bundle entier).
+- id: sound-snake-authentic-gun-sounds-throne
+  fichiers:
+    - sounds/shot_revolver.ogg
+    - sounds/shot_mitraillette.ogg
+    - sounds/shot_fusil_a_pompe.ogg
+    - sounds/shot_canon_ricochet.ogg
+    - sounds/shot_lance_grenades.ogg
+    - sounds/shot_roquette.ogg
+    - sounds/shot_mortier.ogg
+    - sounds/shot_laser.ogg
+    - sounds/shot_plasma.ogg
+    - sounds/shot_traqueur.ogg
+    - sounds/explosion.ogg
+    - sounds/reload_revolver.ogg
+    - sounds/reload_mitraillette.ogg
+    - sounds/reload_canon.ogg
+    - sounds/reload_fusil_a_pompe.ogg
+    - sounds/reload_lanceur.ogg
+    - sounds/reload_energie.ogg
+    - sounds/reload_lames.ogg
+  source: "https://f8studios.itch.io/snakes-authentic-gun-sounds et https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack (pages lues le 2026-10-28 ; archives Snake's Authentic Gun Sounds And More.zip et Snake's SECOND Authentic Gun Sounds.zip). Tirs (coups uniques, jamais l'échantillon soutenu, D32) : shot_revolver ← 9mm Single (pack 2, −3 demi-tons), shot_mitraillette ← 556 Single (pack 1), shot_fusil_a_pompe ← 20 Gauge Single (pack 2), shot_canon_ricochet ← 762x39 Single (pack 1), shot_lance_grenades ← 20 Gauge Single (−8 demi-tons), shot_roquette ← 762x54r Single (pack 1, −5 demi-tons), shot_mortier ← 762x54r Single (−11 demi-tons), shot_laser ← 22LR Single (pack 1, +10 demi-tons), shot_plasma ← 22LR Single (−4 demi-tons), shot_traqueur ← 22LR Double Tap (+4 demi-tons), explosion ← 762x54r Single (−12 demi-tons). Rechargements : reload_revolver ← 44 Magnum Single Load (pack 2), reload_mitraillette ← AR Reload Full, reload_canon ← AK Reload Full, reload_fusil_a_pompe ← Pump Reload Full Fast, reload_lanceur ← Single Shot Reload Full, reload_energie ← AR Charging Handle, reload_lames ← Lever Reload (pack 1)."
+  auteur: SnakeF8 (F8 Studios)
+  licence: "licence propre de l'auteur, lue sur les deux pages : « All sounds can be used commercially, and credit is not needed (I would appreciate it a lot though!) » ; l'auteur répond « It's public domain! » à la question de licence en commentaire de la page du second pack (pas de texte de licence dans les archives). Aucune clause d'interdiction de redistribution lue : fichiers commités ; crédit gardé ici (même entrée que `sound-snake-authentic-gun-sounds` de zombies)."
+  attribution: "Gun sounds by SnakeF8 (F8 Studios), Snake's Authentic Gun Sounds"
+  modifications: "rogné (0,38 à 2,4 s), fondu de sortie, hauteur changée pour les lanceurs, l'énergie, le revolver et l'explosion (`sox pitch`, valeurs ci-dessus : armes sans son libre dédié, repli public choisi sans écoute), stéréo mixée en mono, 44,1 kHz, niveau réglé sur une RMS cible (tirs −19 à −24 dBFS, rechargements −27, explosion −18 ; crête ≤ −1 dBFS), ré-encodé en ogg vorbis (oggenc -q 5) par scripts/repack-throne-sons.py."
+  statut: repli public (armes de lanceur et d'énergie : à juger à l'oreille par William)
+
+- id: sound-impact-kenney-throne
+  fichiers:
+    - sounds/shot_lance_lames.ogg
+    - sounds/shot_disque.ogg
+    - sounds/death_machine.ogg
+    - sounds/death_player.ogg
+    - sounds/boss_spawn.ogg
+    - sounds/boss_phase.ogg
+    - sounds/boss_death.ogg
+    - sounds/floor.ogg
+    - sounds/room_cleared.ogg
+    - sounds/bomb.ogg
+    - sounds/blank.ogg
+    - sounds/purchase.ogg
+    - sounds/pickup.ogg
+    - sounds/menu_navigate.ogg
+    - sounds/menu_confirm.ogg
+    - sounds/menu_back.ogg
+  source: "https://kenney.nl/assets/impact-sounds (archive kenney_impact-sounds.zip, License.txt lu le 2026-10-28 : CC0). shot_lance_lames ← impactMetal_light_001, shot_disque ← impactPlate_light_003, death_machine ← impactMetal_heavy_003, death_player ← impactSoft_heavy_003, boss_spawn ← impactMetal_heavy_001, boss_phase ← impactMining_001, boss_death ← impactPlate_heavy_004, floor ← impactPlate_medium_003, room_cleared ← impactBell_heavy_004, bomb ← impactTin_medium_001, blank ← impactGlass_heavy_000, purchase ← impactMetal_light_003, pickup ← impactGlass_light_002, menu_navigate ← impactGeneric_light_001, menu_confirm ← impactTin_medium_003, menu_back ← impactPlate_light_002 (choisis sur le nom et la durée, sans écoute)."
+  auteur: Kenney (www.kenney.nl)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page et dans le License.txt de l'archive
+  modifications: "rogné (0,12 à 0,7 s), fondu de sortie, stéréo mixée en mono, 44,1 kHz, niveau réglé sur une RMS cible (−20 à −24 dBFS, crête ≤ −1 dBFS), ré-encodé en ogg vorbis (oggenc -q 5) par scripts/repack-throne-sons.py."
+  statut: repli public des clés que la surcharge locale remplit par du Sonniss
+
+- id: sound-sonniss-gdc-2026-throne
+  fichiers:
+    - sounds/sonniss/death_rongeur.ogg
+    - sounds/sonniss/death_bete.ogg
+    - sounds/sonniss/death_humain.ogg
+    - sounds/sonniss/death_brute.ogg
+    - sounds/sonniss/death_machine.ogg
+    - sounds/sonniss/death_player.ogg
+    - sounds/sonniss/boss_spawn.ogg
+    - sounds/sonniss/boss_phase.ogg
+    - sounds/sonniss/boss_death.ogg
+    - sounds/sonniss/floor.ogg
+    - sounds/sonniss/room_cleared.ogg
+    - sounds/sonniss/explosion.ogg
+    - sounds/sonniss/bomb.ogg
+    - sounds/sonniss/blank.ogg
+    - sounds/sonniss/purchase.ogg
+    - sounds/sonniss/pickup.ogg
+    - sounds/sonniss/menu_navigate.ogg
+    - sounds/sonniss/menu_confirm.ogg
+    - sounds/sonniss/menu_back.ogg
+  source: "Sonniss #GameAudioGDC Bundle 2026 (Sonniss.com-GDC2026-GameAudioBundle{1..5}of5.zip, un fichier à la fois ; License - GDC Game Audio.pdf lu le 2026-10-28). death_rongeur ← 344 Audio Dinosaurs Vol. 1 (Hatchling Calling Out) ; death_bete ← 344 Audio Dinosaurs Vol. 2 (Large Herbivore Roar 01) ; death_humain ← Epic Stock Media Humanoid Creatures Vol 4 (Flutter Death Vocal Stuttered Long 05) ; death_brute ← Epic Stock Media Humanoid Creatures Vol 4 (Designed Orc Male Attack Long Heavy Hit Charged Up 03) ; death_machine ← Epic Stock Media Tower Defense Game (Tower Deploy Hitech Robot Motor Dark Thump Servo Whine 04) ; death_player ← Epic Stock Media AAA Game Character British Female Detective (Pain Vocal Dying) ; boss_spawn ← 344 Audio Dinosaurs Vol. 1 (T Rex) ; boss_phase ← Epic Stock Media Halloween Game (Jumpscare Vocal Aggressive Whisper Harsh Distortion 02) ; boss_death ← Epic Stock Media Halloween Game (Werewolf Growl Menacing) ; floor ← Cinematic Sound Design Ultra Transitions & Impacts (Transition Braam Slow Dark Creepy) ; explosion ← Epic Stock Media Anime Game (Explosion Small Blast Enemy Death Crunchy Boom) ; bomb ← Cinematic Sound Design (Interface Pop High Short) ; blank ← InMotionAudio Arc (ArcPowerUpDesign04) ; room_cleared, purchase, pickup, menu_* ← Cinematic Sound Design (mêmes fichiers qu'à zombies)."
+  auteur: "Sonniss et ses fournisseurs (344 Audio, Epic Stock Media, Cinematic Sound Design, InMotionAudio)"
+  licence: "Sonniss GDC Bundle Licensing Agreement (PDF de l'archive) : royalty-free, mondiale, non exclusive ; usage personnel et commercial **sans attribution**, modification autorisée ; **interdit** de vendre les sons tels quels (vendus incorporés au projet : permis), de s'en attribuer la paternité, et **de les utiliser pour entraîner une IA**. Le dépôt est public : les extraits n'y sont JAMAIS publiés (décision de William du 2026-10-29, docs/conventions.md §92 et §98) ; ils vont au dépôt privé estran-studio/alacod-assets (lot S-0b)."
+  modifications: "un fichier extrait à la fois sous ~/orca/workspaces/alacod/packs/sonniss/, rogné (0,3 à 2,6 s), fondu de sortie, mono 44,1 kHz, niveau réglé sur une RMS cible (−18 à −22 dBFS, crête ≤ −1 dBFS), ré-encodé en ogg vorbis (oggenc -q 5) par scripts/repack-throne-sons.py."
+  statut: "surcharge locale gitignorée (sounds/sonniss/, .gitignore), branchée par ui/feedback.local.ron (§ 98) ; aucun fichier Sonniss n'est commité ; repli public : Kenney (entrée sound-impact-kenney-throne) ou la clé death"

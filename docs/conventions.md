@@ -8227,3 +8227,9 @@ lit par une surcharge locale gitignorée, **même principe que `hud.local.ron`**
   tels quels, de s'en attribuer la paternité, de s'en servir pour entraîner une IA).
 - **Écoute** : aucun son sur le Mac sans demande de William (`ALACOD_MUTE=1` partout, Chrome muet). Les replis publics ont été choisis sur le nom et la
   durée des fichiers, **sans écoute** : le protocole d'écoute est dans `docs/taches/rapports/polissage-zombies-sons.md`.
+- **Throne (S2-11)** : même mécanique, `games/throne/assets/ui/feedback.local.ron` + `sounds/sonniss/` (19 extraits) ; script frère `scripts/repack-throne-sons.py`
+  (importe `process`, `extract`, `TARGET`, `OUT` de `repack-zombies-sons.py` ; option `pitch` en centièmes de ton, pour les armes sans son libre
+  dédié : un tir Snake's changé de hauteur). **Les armes ne passent pas par la surcharge** : `audio_config` (un tir par arme, un rechargement par
+  famille) est dans `weapons.ron`, public ; les 12 armes de throne ont donc des sons publics seulement (D170 : clé `shot_<arme>` à demander à b2). Le
+  lint de throne vérifie aussi chaque fichier d'un `audio_config`. Sans clé `mutation` ni `BossState` sur `roi_rat`, le choix de mutation ne sonne pas
+  et `boss_*` ne part pas (`docs/taches/rapports/polissage-throne-sons.md` § 2).

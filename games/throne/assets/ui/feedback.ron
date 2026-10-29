@@ -47,9 +47,34 @@
         "death": "sounds/death.ogg",
         "dash": "sounds/dash.ogg",
         "door": "sounds/door.ogg",
+        // S2-11 : événements de la run. **Repli public** (Kenney impact, CC0 ; Snake's pour `explosion`), choisi sans écoute, de ce que la
+        // surcharge locale `ui/feedback.local.ron` remplace par des sons Sonniss (pas de redistribution, jamais dans le dépôt). Morts :
+        // seules les machines ont un repli propre ; rongeurs, bêtes, humains et brute retombent sur `death`. Armes : `audio_config` de
+        // `weapons.ron` (un tir par arme, un rechargement par famille).
+        "death_player": "sounds/death_player.ogg",
+        "death_tourelle": "sounds/death_machine.ogg",
+        "death_arroseur": "sounds/death_machine.ogg",
+        "death_mannequin": "sounds/death_machine.ogg",
+        "death_cible": "sounds/death_machine.ogg",
+        "boss_spawn": "sounds/boss_spawn.ogg",
+        "boss_phase": "sounds/boss_phase.ogg",
+        "boss_death": "sounds/boss_death.ogg",
+        "floor": "sounds/floor.ogg",
+        "room_cleared": "sounds/room_cleared.ogg",
+        "explosion": "sounds/explosion.ogg",
+        "bomb": "sounds/bomb.ogg",
+        "blank": "sounds/blank.ogg",
+        "purchase": "sounds/purchase.ogg",
+        "pickup": "sounds/pickup.ogg",
+        "menu_navigate": "sounds/menu_navigate.ogg",
+        "menu_confirm": "sounds/menu_confirm.ogg",
+        "menu_back": "sounds/menu_back.ogg",
     },
     // Volume par clé de `sounds`, en dB (0 : inchangé ; plage -60 à +12), ex. {"hit": -3.0}.
     // -12 dB partout (2026-10-16, retour de William : tout trop fort par défaut ;
     // les fichiers des lots A/B sont normalisés à -3 dBFS crête).
-    volumes: {"shot_pistol": -12.0, "shot_shotgun": -12.0, "shot_smg": -12.0, "reload": -12.0, "hit": -12.0, "melee": -9.0, "hurt": -12.0, "death": -6.0, "dash": -12.0, "door": -12.0},
+    // S2-11 (départ, RMS cible de `scripts/repack-throne-sons.py`) : morts de machines -6, mort du joueur -9, boss -6, étage -8, explosion -6,
+    // bombe -10, blank -9, salle -9, achat et ramassage -8, menus -11. Un tir prend le volume de la clé de sa famille (`shot_pistol` pour
+    // toute arme à tir manuel) : les lanceurs sont donc normalisés 2 dB plus fort, l'énergie 2 dB plus bas.
+    volumes: {"shot_pistol": -12.0, "shot_shotgun": -12.0, "shot_smg": -12.0, "reload": -12.0, "hit": -12.0, "melee": -9.0, "hurt": -12.0, "death": -6.0, "dash": -12.0, "door": -12.0, "death_player": -9.0, "death_tourelle": -6.0, "death_arroseur": -6.0, "death_mannequin": -6.0, "death_cible": -6.0, "boss_spawn": -6.0, "boss_phase": -6.0, "boss_death": -6.0, "floor": -8.0, "room_cleared": -9.0, "explosion": -6.0, "bomb": -10.0, "blank": -9.0, "purchase": -8.0, "pickup": -8.0, "menu_navigate": -11.0, "menu_confirm": -11.0, "menu_back": -11.0},
 )
