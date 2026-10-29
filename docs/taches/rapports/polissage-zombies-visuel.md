@@ -94,7 +94,7 @@ Deux états sont mesurés, chacun avec ses captures (voir §4) : **surcharge loc
 | 8 | Coup de mêlée (`slash`) | emprunté, licence inconnue | **inchangé** (le pack n'en a pas) : D162 | inchangé | — |
 | 9 | Armes murales / lâchées | emprunté | **propre** : icône Pistol / Gun / Shotgun + halo orange | emprunté + halo | `1j_f00100`, `4j_f00060` |
 | 10 | Power-ups | absent | 2 sur 5 **propres** (`max_ammo` ← caisse de munitions, `carpenter` ← mur de bois), halo vert ; `insta_kill`, `double_points`, `nuke` **absents** (gizmo, D162) | absent ×5 + halo | scénario jeté `/tmp` (captures hors dépôt) |
-| 11 | Distributeurs de perks | emprunté | **inchangé** (aucune image dans le pack) : D162, candidates à proposer à William | emprunté | `1j_f00200` |
+| 11 | Distributeurs de perks | emprunté | **propre, CC0** : machines de karsiori, une par perk, repli public **et** surcharge (§ 7) | **propre** (même image) | `1j_f00200` |
 | 12 | Portes | emprunté | **propre** : barricades de bois, `Idle` / `Open` / `Locked` (cadenas) ; **une paire collée = une porte double** (battants symétriques, une étiquette, rangée d'images pour les portes de 64) | emprunté (tuile Dungeon) ; une seule étiquette par paire (`double_doors`) | `4j_f00700`, `2j_f00200` |
 | 13 | Fenêtres | emprunté | **propre**, 4 états d'après les PV (`Idle`, `Damaged`, `Critical`, `Broken`) : image du pack ×2 entier (30 × 30) + teinte d'état ; la barre de 2 px reste, secondaire | emprunté + barre verte (comme avant) | `surcharge-locale_fenetre_4_etats_…` (hors dépôt) |
 | 14 | Barricades | sans objet | sans objet | sans objet | — |
@@ -168,7 +168,7 @@ Sources : `tests/scenarios/{clone_solo,clone_duo,clone_quad,four_players_shootin
 
 | Reste | Estimation |
 |---|---|
-| Distributeurs de perks : 1–2 candidates CC0 / CC BY avec lien, licence, capture (décision de William en fin de semaine). **Aucune candidate vérifiée** à ce jour : le pack TheLazyStone (1 800 images), `UPDATE 2_ZombiePack.zip` (159 fichiers, listés) et `Zombie Apocalypse Tileset.zip` n'ont aucun distributeur ; à ouvrir : Kenney « Roguelike Modern City » (CC0, 16 × 16, plus de 1 000 tuiles urbaines, https://kenney.nl/assets/roguelike-modern-city : **présence d'un distributeur `[À CONFIRMER]`**, l'archive n'a pas été ouverte), les packs « top down 16x16 CC0 » d'OpenGameArt (https://opengameart.org/content/top-down-16x16-cc0, aucun distributeur mentionné sur la page) | 0,5 j |
+| ~~Distributeurs de perks~~ : **faits** (interlude du 2026-10-29, § 7) | — |
 | Images pour `insta_kill`, `double_points`, `nuke` et pour `slash` (aucune dans le pack) | 0,5 j une fois choisies |
 | Vidéo de 60 s zombies, repli public et surcharge locale (J5 du plan) | 0,5 j |
 | D161 : exclure la surcharge locale des trois copies d'assets d'un build web (`build-web-games.mjs`, `embed-game-content.rs`, `Makefile`) ; **à faire avant tout build web** d'un poste qui a le pack | 0,25 j |
@@ -213,3 +213,26 @@ $ schedule_order_diff (base origin/main, tête = arbre de travail ; base et têt
 `make test_tools` reste en échec sur ce Mac pour les 3 tests de `test_claude_say.py` (`/usr/bin/python3` = 3.9.6, le script exige 3.10), sans rapport avec le lot. `make schedule_order_diff` tel quel échoue à la tête (D133 : artefacts de la base plus récents) ; contourné comme ci-dessus.
 Unitaires ajoutés : `world_sprites::{deux_portes_collees_qui_se_designent_forment_une_porte_double, chaque_etat_de_fenetre_a_sa_teinte}`, `visuals::attack_pose_tests::{un_coup_reste_en_cours_la_duree_de_la_pose, la_pose_d_attaque_derive_de_l_etat_d_attaque}`.
 
+## 7. Interlude : distributeurs de perks en CC0 (2026-10-29, branche `polissage-zombies-distributeurs`)
+
+Décision de William (29 oct) : les distributeurs prennent une source CC0, commitable (repli public **et** surcharge).
+
+**Candidates**
+
+| | Source | Licence (lue) | Contenu | Échelle |
+|---|---|---|---|---|
+| **1 (retenue)** | « Pixel Art Vending Machines », karsiori, https://karsiori.itch.io/pixel-art-vending-machines (archive de 130 ko téléchargée et ouverte le 2026-10-29) | **CC0**, page itch (section « License info »), usage commercial libre ; l'archive n'a pas de fichier de licence | 6 machines, 45 variantes, vitre / sans vitre, vue de face, 45 × 94 à 50 × 89 px | réduite à 48 px de haut (Lanczos), 1 case = 16 px, joueur 20–32 px |
+| 2 | Kenney « Roguelike Modern City », https://kenney.nl/assets/roguelike-modern-city | CC0 (page relue) | 1 036 tuiles urbaines 16 × 16 | **non retenue** : l'aperçu ne montre aucun distributeur reconnaissable, archive non ouverte (téléchargement refusé sans navigateur) |
+
+**Choix** : candidate 1, quatre variantes de la couleur de l'icône du perk (Juggernog rouge = 3.1, Speed Cola vert = 3.2,
+Double Tap orange = 1.1, Stamin-Up jaune-olive = 3.3). Script `scripts/repack-distributeurs.py` (réduction seule, aucun pixel
+dessiné), images `games/zombies/assets/sprites/props/perk_machine_<perk>.png` **commitées**, entrées `perk_machine/<perk>` de
+`sprites/sprites.ron`, entrée `vending-machines-karsiori` d'`assets.yaml` avant l'import.
+
+**Moteur** (présentation seule) : `world_sprites::attach_world_sprites` pose sur l'entité `PerkMachine` l'image
+`perk_machine/<perk>` puis `perk_machine` (`perk_machine_candidates`, test) ; `hide_soda_tiles` rend transparente la tuile de
+l'entité LDtk `SodaLocation` quand l'une de ces images existe (sans image : la tuile reste, comme avant).
+
+**Avant / après** : « emprunté » (tuile Dungeon de l'éditeur) → « propre, CC0 » ; captures `docs/captures/polissage-zombies-distributeurs/repli-public_1j_f00200.png`
+(commitée), surcharge dans `~/orca/workspaces/alacod/captures/polissage-zombies-distributeurs/`. Ferme la partie « distributeurs » de D162 ;
+restent `slash` et trois power-ups.

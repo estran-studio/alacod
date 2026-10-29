@@ -1,0 +1,18 @@
+(
+    path: "sprites/props/perk_machine_double_tap.png",
+    tile_size: (23, 48),
+    columns: 1,
+    rows: 1,
+
+    animated: false,
+    name: "body",
+
+    scale: 1.0,
+
+    anchor: Center,
+
+    offset_x: 0.0,
+    offset_y: 16.0,
+    offset_z: 0.5,
+
+)

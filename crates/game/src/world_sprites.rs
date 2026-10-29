@@ -13,7 +13,8 @@
 //! de couleur, remplacé par l'image `bullet_player` (balles des joueurs et alliés) ou
 //! `bullet_enemy` quand l'entrée existe ; la taille suit le dégât.
 //!
-//! Un power-up au sol cherche `powerup/<id>` puis `powerup` (S1-8) ; une fenêtre porte une image d'état
+//! Un power-up au sol cherche `powerup/<id>` puis `powerup` (S1-8), une machine à perk `perk_machine/<perk>` puis
+//! `perk_machine` (la tuile de l'entité LDtk `SodaLocation` devient transparente : `hide_soda_tiles`) ; une fenêtre porte une image d'état
 //! (`window_h` 16 x 32, `window_v` 32 x 16 ; cases `Idle`, `Damaged`, `Critical`, `Broken` d'après sa
 //! santé), comme une porte (`door_v`, `door_h`).
 //!
@@ -28,11 +29,13 @@ use combat::status::StatusLibrary;
 use combat::weapons::{Bullet, BulletLook, BulletType, WeaponPickup};
 use items::{Chest, ItemKind, ItemPickup, ItemTable, Shelf, ShellPickup};
 use map::game::entity::map::door::{DoorComponent, DoorGridPosition};
+use map::game::entity::map::soda_location::SodaLocationComponent;
 use map::game::entity::map::window::WindowHealth;
 use map::game::entity::MapRollbackItem;
 use sim_core::team::Team;
 
 use crate::collider::Collider;
+use crate::economy::PerkMachine;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::Interactable;
 use crate::powerups::PowerUpPickup;
@@ -63,6 +66,7 @@ impl Plugin for WorldSpritePlugin {
                 attach_window_sprites,
                 sync_window_sprites.after(attach_window_sprites),
                 hide_replaced_map_tiles,
+                hide_soda_tiles,
                 reap_held_sprites,
                 // M3-T17 : après `skin_bullets` (qui pose l'image et la taille de l'équipe).
                 style_tears.after(skin_bullets),
@@ -176,6 +180,14 @@ pub(crate) fn powerup_candidates(powerup_id: &str) -> Vec<String> {
     vec![format!("powerup/{powerup_id}"), "powerup".to_string()]
 }
 
+/// Ids candidats d'une machine à perk : `perk_machine/<perk>`, `perk_machine`.
+pub(crate) fn perk_machine_candidates(perk_id: &str) -> Vec<String> {
+    vec![
+        format!("perk_machine/{perk_id}"),
+        "perk_machine".to_string(),
+    ]
+}
+
 #[allow(clippy::type_complexity)]
 fn attach_world_sprites(
     mut commands: Commands,
@@ -199,6 +211,7 @@ fn attach_world_sprites(
             Option<Mut<Sprite>>,
             Option<&MapRollbackItem>,
             Option<&PowerUpPickup>,
+            Option<&PerkMachine>,
         ),
         (
             Without<WorldSprite>,
@@ -214,6 +227,7 @@ fn attach_world_sprites(
                 With<world::Rock>,
                 With<SpriteRequest>,
                 With<PowerUpPickup>,
+                With<PerkMachine>,
             )>,
         ),
     >,
@@ -233,6 +247,7 @@ fn attach_world_sprites(
         own,
         map_item,
         powerup,
+        perk_machine,
     ) in &mut entities
     {
         let candidates: Vec<String> = if chest.is_some() {
@@ -260,6 +275,8 @@ fn attach_world_sprites(
             }
         } else if let Some(powerup) = powerup {
             powerup_candidates(&powerup.id)
+        } else if let Some(machine) = perk_machine {
+            perk_machine_candidates(&machine.perk_id)
         } else if let Some(request) = request {
             vec![request.0.clone()]
         } else {
@@ -730,6 +747,21 @@ fn hide_replaced_map_tiles(
     }
 }
 
+/// La tuile de l'entité LDtk `SodaLocation` (machine à perk) devient transparente quand la feuille du jeu a une
+/// image pour sa machine (`perk_machine/<perk>` ou `perk_machine`) : l'image de la machine, posée sur l'entité
+/// rollback `PerkMachine` (même position), la remplace. Sans image, la tuile de la carte reste.
+fn hide_soda_tiles(table: SpriteTable, mut tiles: Query<(&SodaLocationComponent, &mut Sprite)>) {
+    for (location, mut tile) in &mut tiles {
+        if tile.color.alpha() != 0.0
+            && table
+                .find(&perk_machine_candidates(&location.perk), "Idle")
+                .is_some()
+        {
+            tile.color.set_alpha(0.0);
+        }
+    }
+}
+
 /// État de la porte : sans collider = ouverte (`Open`) ; avec collider et interaction = à ouvrir
 /// (clé ou achat, `Locked`) ; avec collider seul = fermée par sa salle (`Idle`), ou **mur fissuré** (`Secret`) si la
 /// porte est celle d'une salle secrète (`SecretDoor`) : sans image `Secret` dans la feuille, elle reste `Idle`.
@@ -1126,6 +1158,14 @@ mod tests {
         assert_eq!(
             powerup_candidates("max_ammo"),
             ["powerup/max_ammo", "powerup"]
+        );
+    }
+
+    #[test]
+    fn une_machine_a_perk_cherche_son_perk_puis_le_generique() {
+        assert_eq!(
+            perk_machine_candidates("juggernog"),
+            ["perk_machine/juggernog", "perk_machine"]
         );
     }
 
