@@ -224,6 +224,75 @@ pub struct ResolvedFeedback {
 /// Couleur de flash au-delà de laquelle le lint refuse (multiplicateur linéaire).
 pub const MAX_FLASH_COLOR: f32 = 4.0;
 
+/// Clés de `sounds` connues du moteur (S1-7, `docs/taches/polissage-sons-evenements.md`), toutes
+/// optionnelles : un jeu qui n'en déclare pas garde son rendu d'avant. Un son se joue quand
+/// l'état (ou le journal de feedback) de la présentation change, jamais depuis `GgrsSchedule`.
+/// `death_<id du personnage>` s'ajoute à cette liste (voir [`death_sound_key`]).
+pub const SOUND_KEYS: &[&str] = &[
+    // Armes.
+    "shot",
+    "shot_pistol",
+    "shot_shotgun",
+    "shot_smg",
+    "reload",
+    // Combat et déplacement.
+    "hit",
+    "melee",
+    "hurt",
+    "death",
+    "dash",
+    "blank",
+    "door",
+    // Rythme de la partie.
+    "wave_start",
+    "wave_end",
+    "room_cleared",
+    "floor",
+    // Boss.
+    "boss_spawn",
+    "boss_phase",
+    "boss_death",
+    // Objets, argent, explosifs.
+    "purchase",
+    "pickup",
+    "explosion",
+    "bomb",
+    // Menus.
+    "menu_navigate",
+    "menu_confirm",
+    "menu_back",
+];
+
+/// Préfixe des clés de mort par personnage (`death_zombie_runner`).
+pub const DEATH_KEY_PREFIX: &str = "death_";
+
+/// Clé de `sounds` jouée à la mort du personnage `character` : `death_<character>` si le jeu la
+/// déclare, sinon `death`, sinon rien. Renvoie la clé et son chemin.
+pub fn death_sound_key<'a>(
+    sounds: &'a BTreeMap<String, String>,
+    character: Option<&str>,
+) -> Option<(String, &'a str)> {
+    character
+        .map(|id| format!("{DEATH_KEY_PREFIX}{id}"))
+        .and_then(|key| sounds.get(&key).map(|path| (key, path.as_str())))
+        .or_else(|| {
+            sounds
+                .get("death")
+                .map(|path| ("death".to_string(), path.as_str()))
+        })
+}
+
+/// Volume global (pause) : pas du curseur, en pourcentage.
+pub const MASTER_VOLUME_STEP: u8 = 10;
+
+/// Gain en décibels d'un volume global en pourcentage (100 : 0 dB ; 0 : `None`, muet).
+pub fn master_volume_db(percent: u8) -> Option<f32> {
+    match percent {
+        0 => None,
+        p => Some(20.0 * (f32::from(p.min(100)) / 100.0).log10()),
+    }
+}
+
 /// Volumes acceptés pour `volumes`, en décibels : de quasi muet à +12 dB (au-delà, un
 /// échantillon normalisé à -3 dBFS sature).
 pub const SOUND_VOLUME_DB_RANGE: std::ops::RangeInclusive<f32> = -60.0..=12.0;
@@ -271,6 +340,18 @@ impl FeedbackSettings {
             }
         }
         self.blank_and_boss_problems(&mut problems);
+        for key in self.sounds.keys() {
+            let known = SOUND_KEYS.contains(&key.as_str())
+                || key
+                    .strip_prefix(DEATH_KEY_PREFIX)
+                    .is_some_and(|id| !id.is_empty());
+            if !known {
+                problems.push(FeedbackProblem {
+                    field: format!("sounds.{key}"),
+                    message: "clé de son inconnue du moteur (voir SOUND_KEYS)".into(),
+                });
+            }
+        }
         for (key, db) in &self.volumes {
             if !SOUND_VOLUME_DB_RANGE.contains(db) {
                 problems.push(FeedbackProblem {
@@ -584,5 +665,46 @@ mod tests {
         s.volumes.insert("dash".into(), -80.0);
         let fields: Vec<_> = s.problems().into_iter().map(|p| p.field).collect();
         assert_eq!(fields, ["volumes.dash", "volumes.hurt"]);
+    }
+
+    #[test]
+    fn cles_de_sons_inconnues_signalees() {
+        let mut s = settings();
+        s.sounds.insert("wave_start".into(), "a.ogg".into());
+        s.sounds.insert("death_zombie".into(), "b.ogg".into());
+        s.sounds.insert("menu_confirm".into(), "c.ogg".into());
+        assert!(s.problems().is_empty(), "{:?}", s.problems());
+        s.sounds.insert("vague".into(), "d.ogg".into());
+        s.sounds.insert("death_".into(), "e.ogg".into());
+        let fields: Vec<_> = s.problems().into_iter().map(|p| p.field).collect();
+        assert_eq!(fields, ["sounds.death_", "sounds.vague"]);
+    }
+
+    #[test]
+    fn mort_par_personnage_avec_repli() {
+        let mut sounds = BTreeMap::new();
+        assert_eq!(death_sound_key(&sounds, Some("zombie")), None);
+        sounds.insert("death".to_string(), "d.ogg".to_string());
+        assert_eq!(
+            death_sound_key(&sounds, Some("zombie")),
+            Some(("death".to_string(), "d.ogg"))
+        );
+        sounds.insert("death_zombie".to_string(), "z.ogg".to_string());
+        assert_eq!(
+            death_sound_key(&sounds, Some("zombie")),
+            Some(("death_zombie".to_string(), "z.ogg"))
+        );
+        // Autre personnage ou personnage inconnu : repli.
+        assert_eq!(death_sound_key(&sounds, Some("boss")).unwrap().0, "death");
+        assert_eq!(death_sound_key(&sounds, None).unwrap().0, "death");
+    }
+
+    #[test]
+    fn volume_global_en_decibels() {
+        assert_eq!(master_volume_db(100), Some(0.0));
+        assert_eq!(master_volume_db(0), None);
+        let half = master_volume_db(50).unwrap();
+        assert!((half + 6.02).abs() < 0.01, "{half}");
+        assert_eq!(master_volume_db(200), Some(0.0));
     }
 }

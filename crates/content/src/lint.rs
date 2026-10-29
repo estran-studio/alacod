@@ -2167,6 +2167,24 @@ fn lint_feedback(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+        for key in settings.sounds.keys() {
+            let Some(id) = key.strip_prefix(crate::feedback::DEATH_KEY_PREFIX) else {
+                continue;
+            };
+            if !id.is_empty()
+                && !registry
+                    .characters
+                    .contains_key(&registry::CharacterId::from(id))
+            {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: file.clone(),
+                    message: format!(
+                        "feedback : sounds.{key} : personnage « {id} » inconnu du jeu"
+                    ),
+                });
+            }
+        }
         for problem in settings.problems() {
             errors.push(LintError {
                 kind: LintErrorKind::OutOfRange,
