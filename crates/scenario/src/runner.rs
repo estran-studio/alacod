@@ -2982,7 +2982,9 @@ pub fn capture(scenario: &Scenario, config: CaptureConfig) -> AppExit {
     app.insert_resource(game::legibility::LabelsEnabled(
         !config.legend && std::env::var("ALACOD_LABELS").map_or(true, |v| v != "0"),
     ))
-    .insert_resource(game::legibility::LegendOpen(config.legend));
+    .insert_resource(game::legibility::LegendOpen(config.legend))
+    // Une image par frame simulée (l'image `n` montre la frame `n`) : rien à interpoler (§94).
+    .insert_resource(game::display_interpolation::DisplayInterpolationOff);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_nanos(1_000_000_000 / game::session::SIM_FPS),
     ))

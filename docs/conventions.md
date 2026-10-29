@@ -8093,3 +8093,36 @@ Présentation et lecture des périphériques seulement : **aucun bit d'input ne 
 - **Tests** : `character::control::tests` (le chemin leafwing réel : sticks, seuils, croix, épaules, course des gâchettes),
   `character::input_devices::tests` (visée gardée, curseur, seuil des gâchettes, écran ouvert, Sud bombe ou validation),
   `ui::screens::help::tests`, `ui::screens::model::tests` (entrée « Touches », Retour), `ui::game_over::tests`.
+
+## 94. Feel : interpolation d'affichage, flash de bouche, recul, éclats de mort (S1-6, `docs/taches/polissage-feel.md`, voie b0)
+
+Tout ce qui suit est de la **présentation** (`PresentationPlugin`, absent en headless) : rien dans `GgrsSchedule`, rien de
+rollback, rien dans un hash ; `make test_scenarios` sans `BLESS` et `make schedule_order_diff` vide le prouvent.
+
+- **Interpolation d'affichage** (`game::display_interpolation`) : après la recopie `FixedTransform3D` → `Transform`
+  (`sync_bevy_transforms_from_fixed`, `PostUpdate`), `interpolate_transforms` place x/y de chaque entité simulée entre ses deux
+  derniers états vus (`DisplayedMotion`, composant non rollback) au prorata d'`alpha` ; le rendu a au plus une frame de retard
+  (10 ms en moyenne mesurés). `InterpolationClock` recopie l'accumulateur privé de `bevy_ggrs` (même `Time`, un pas retiré par
+  frame simulée observée, borné à `[0, pas]`) puis **lisse** : la boucle principale du Mac tourne à 11-23 ms par image pour un
+  écran à 16,7 ms, un `alpha` tiré du temps brut faisait varier le pas affiché de 1,6 à 3,5 px pour 2,5 px par frame. Rotation et
+  échelle ne sont pas interpolées (la visée tourne par frame simulée).
+- **Coupures** : téléport (écart d'une frame à l'autre > `snap_distance`, 48 px par défaut : transition d'étage, entité ramenée),
+  retour en arrière de la frame (nouvelle partie), rollback **en ligne** (`note_rollback` dans `LoadWorld`, posé par ce plugin
+  seulement, donc absent de `schedule_order_diff` ; le synctest restaure à l'identique, il ne coupe pas), et capture de
+  `play_scenario` (`DisplayInterpolationOff` : l'image `n` montre la frame `n`). Plusieurs frames simulées pendant une image :
+  l'état d'avant la dernière est estimé sur la droite des deux états vus (la vitesse affichée ne double pas).
+- **Réglage par jeu** : `camera.ron`, champ `interpolation: (enabled: true, snap_distance: 48.0)` (défaut si absent : activée).
+  `ALACOD_INTERPOLATION=0` la coupe sans toucher au fichier (mesure avant/après).
+- **Mesure** : `ALACOD_PERF_CSV=<fichier>` écrit maintenant, par image, la position **rendue** du joueur local et de la caméra et
+  l'`alpha` ; `scripts/frame-pacing.py <csv>…` en tire la fréquence de rendu, les frames simulées par image, les images figées et
+  les à-coups pendant la course. Scénario de mesure et de vidéo : `feel_zombies` (60 s, course, dash, trois armes, 17 zombies).
+- **Flash de bouche, recul, éclats** (`game::feedback_shots`, `ui/feedback.ron`) : `muzzle_flash: Some((frames, size, color))`,
+  `recoil: Some((distance, frames))` et leurs surcharges `by_weapon` (`FeedbackSettings::resolve_shot` : l'arme l'emporte sur la
+  valeur globale, champ par champ ; absents : rien) ; `death: (enabled, count, size, color)`. Un flash et un recul par
+  (tireur, frame de création) : les plombs d'un fusil à pompe n'en font qu'un, une balle recréée par un rollback n'en refait pas.
+  Le recul ne décale que le `Transform` du sprite de l'arme, réécrit à chaque image par la recopie : la trajectoire ne bouge pas.
+  Les éclats suivent la règle du son `death` (un ennemi présent à l'image précédente et absent à celle-ci, rien au retour de frame).
+  Lint : durées dans `[1, MAX_PRESENTATION_FRAMES]`, recul dans `[0, MAX_RECOIL_DISTANCE]` (16 px), couleurs dans `[0, 1]`.
+- **Ce que l'interpolation ne règle pas** : le stick gauche reste numérisé en huit directions à vitesse constante (seuil 0,4 par
+  axe, `character::control`) ; un déplacement analogique change `BoxInput` (format réseau) et se décide à part
+  (`docs/taches/rapports/polissage-feel.md` § Diagnostic).

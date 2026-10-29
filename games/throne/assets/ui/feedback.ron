@@ -14,13 +14,22 @@
     hit_stop_frames: 2,
     damage_numbers: true,
     telegraph: (color: (1.0, 0.3, 0.2, 0.8)),
+    // S1-6 (polissage-feel, docs/conventions.md §94) : flash de bouche, recul visuel de l'arme (le sprite
+    // seul, la balle part droit) et éclats de mort. Présentation seule. Throne : armes variées et plus
+    // lourdes que celles de zombies, flash plus gros et recul plus marqué ; explosifs et fusil à pompe au maximum.
+    muzzle_flash: Some((frames: 3, size: 12.0, color: (1.0, 0.8, 0.35, 0.95))),
+    recoil: Some((distance: 3.0, frames: 6)),
     // Surcharges par arme (prioritaires sur `by_kind`) : les explosifs secouent aussi quand le
     // joueur local touche (secousse de surcharge).
     by_weapon: {
-        "lance_grenades": (hit_stop_frames: Some(6), shake: Some((frames: 16, amplitude: 20.0))),
-        "roquette": (hit_stop_frames: Some(6), shake: Some((frames: 16, amplitude: 20.0))),
-        "fusil_a_pompe": (hit_stop_frames: Some(4)),
+        "lance_grenades": (hit_stop_frames: Some(6), shake: Some((frames: 16, amplitude: 20.0)), muzzle_flash: Some((frames: 5, size: 18.0, color: (1.0, 0.7, 0.3, 1.0))), recoil: Some((distance: 6.0, frames: 12))),
+        "roquette": (hit_stop_frames: Some(6), shake: Some((frames: 16, amplitude: 20.0)), muzzle_flash: Some((frames: 5, size: 18.0, color: (1.0, 0.7, 0.3, 1.0))), recoil: Some((distance: 6.0, frames: 12))),
+        "fusil_a_pompe": (hit_stop_frames: Some(4), muzzle_flash: Some((frames: 4, size: 18.0, color: (1.0, 0.8, 0.35, 1.0))), recoil: Some((distance: 5.0, frames: 10))),
+        "mitraillette": (muzzle_flash: Some((frames: 2, size: 9.0, color: (1.0, 0.8, 0.35, 0.9))), recoil: Some((distance: 1.5, frames: 4))),
+        "laser": (muzzle_flash: Some((frames: 3, size: 12.0, color: (0.5, 0.9, 1.0, 0.95))), recoil: Some((distance: 1.0, frames: 4))),
+        "plasma": (muzzle_flash: Some((frames: 4, size: 14.0, color: (0.6, 1.0, 0.5, 0.95))), recoil: Some((distance: 4.0, frames: 8))),
     },
+    death: (enabled: true, count: 10, size: 3.0, color: (0.35, 0.55, 0.12, 1.0)),
     sounds: {
         // Sons de base. Tir : clé de la famille du mode de tir actif (Manual : shot_pistol,
         // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot". Une arme

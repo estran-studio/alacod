@@ -300,6 +300,7 @@ impl Plugin for PresentationPlugin {
             app.add_plugins(FrameDebugUIPlugin);
         }
         app.add_plugins(CameraControlPlugin);
+        app.add_plugins(crate::display_interpolation::DisplayInterpolationPlugin);
         app.add_plugins(DebugColliderGamePlugin);
         app.add_plugins(crate::character::app_plugin::CharacterPresentationPlugin);
         app.add_plugins(crate::ui::weapon_visuals::WeaponPresentationPlugin);
