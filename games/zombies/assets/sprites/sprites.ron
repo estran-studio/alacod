@@ -74,4 +74,23 @@
         animation: "sprites/effects/slash/slash_animation.ron",
         layers: { "body": "sprites/effects/slash/slash_sheet.ron" },
     ),
+    // Machines à perk (S1-8 suite) : « Pixel Art Vending Machines » de karsiori (CC0, commité), une par perk, de la
+    // couleur de l'icône du perk ; `world_sprites::perk_machine_candidates` (`perk_machine/<perk>`, puis `perk_machine`).
+    // Écrites par `scripts/repack-distributeurs.py`. Sans ces entrées, la tuile de la carte reste.
+    "perk_machine/juggernog": (
+        animation: "sprites/props/perk_machine_animation.ron",
+        layers: { "body": "sprites/props/perk_machine_juggernog_sheet.ron" },
+    ),
+    "perk_machine/speed_cola": (
+        animation: "sprites/props/perk_machine_animation.ron",
+        layers: { "body": "sprites/props/perk_machine_speed_cola_sheet.ron" },
+    ),
+    "perk_machine/double_tap": (
+        animation: "sprites/props/perk_machine_animation.ron",
+        layers: { "body": "sprites/props/perk_machine_double_tap_sheet.ron" },
+    ),
+    "perk_machine/stamin_up": (
+        animation: "sprites/props/perk_machine_animation.ron",
+        layers: { "body": "sprites/props/perk_machine_stamin_up_sheet.ron" },
+    ),
 })

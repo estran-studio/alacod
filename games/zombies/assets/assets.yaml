@@ -262,3 +262,18 @@
   modifications: un fichier extrait à la fois sous ~/orca/workspaces/alacod/packs/sonniss/, rogné (0,3 à 3 s), fondu de sortie, mono 44,1 kHz, niveau réglé sur une RMS cible (−18 à −22 dBFS, crête ≤ −1 dBFS), ré-encodé en ogg vorbis (oggenc -q 5).
   statut: "surcharge locale gitignorée (sounds/sonniss/, .gitignore) EN ATTENTE de la décision de William : dépôt public ou dépôt privé d'assets (lot S-0b), la licence interdisant de vendre les sons tels quels ; aucun fichier Sonniss n'est commité ; clés wave_start, wave_end, room_cleared, purchase, pickup, menu_*, boss_*, death_<id> branchées après le merge de S1-7 (S1-9 étape 2)"
 
+- id: vending-machines-karsiori
+  fichiers:
+    - sprites/props/perk_machine_juggernog.png
+    - sprites/props/perk_machine_speed_cola.png
+    - sprites/props/perk_machine_double_tap.png
+    - sprites/props/perk_machine_stamin_up.png
+  source: https://karsiori.itch.io/pixel-art-vending-machines (« Pixel Art Vending Machines Pack.zip »,
+    130 ko, téléchargé et ouvert le 2026-10-29 ; page relue le même jour)
+  auteur: karsiori
+  licence: CC0 1.0 — « CC0, you can use this asset pack however you want, in your commercial or
+    non-commercial projects » (section « License info » de la page itch ; l'archive n'a pas de fichier de
+    licence, seulement la liste des machines) ; crédit facultatif, gardé ici
+  modifications: machines 3.1, 3.2, 3.3 et 1.1 (variantes avec vitre) réduites à 48 px de haut par filtre
+    Lanczos (scripts/repack-distributeurs.py) ; aucun pixel dessiné
+  statut: commité, public (CC0), pas un placeholder ; remplace la tuile de la carte pour les machines à perk
