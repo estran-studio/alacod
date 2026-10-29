@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Alacod — mesure de performance (deux onglets)</title>
+		<style>
+			html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+			#bevy-canvas { width: 100%; height: 100%; display: block; }
+		</style>
+	</head>
+	<body>
+		<canvas id="bevy-canvas" tabindex="0"></canvas>
+		<script type="module">
+			// Outil de mesure S1-5 (docs/taches/rapports/polissage-perf-web.md), pas une page du site : lance un build
+			// de la liste (`?game=zombies&build=<id>`) sans l'hôte ni Allumette, à plusieurs joueurs :
+			// - en ligne, sur un serveur de signalisation local (`matchbox_server 127.0.0.1:3536`), DEUX onglets, un par joueur :
+			//     perf-duo.html?game=zombies&build=perf-a&role=0&lobby=x   puis   …&role=1&lobby=x
+			// - `&mode=local` : deux joueurs locaux dans la même page (session synctest, une seule instance wasm).
+			// Paramètres : matchbox (défaut ws://127.0.0.1:3536), lobby (défaut perf), perf (défaut 1), players (défaut 2),
+			// stun (garde le STUN public ; sinon aucun serveur ICE).
+			const params = new URLSearchParams(location.search);
+			const game = params.get('game');
+			const build = params.get('build');
+			const role = params.get('role') || '0';
+			const local = params.get('mode') === 'local';
+			const players = Number(params.get('players') || 2);
+			if (!['zombies', 'throne'].includes(game) || !/^[a-zA-Z0-9._-]+$/.test(build || '')) throw new Error('game et build requis');
+			const canvas = document.getElementById('bevy-canvas');
+			canvas.setAttribute('data-number-player', String(players));
+			if (!local) {
+				canvas.setAttribute('data-matchbox', params.get('matchbox') || 'ws://127.0.0.1:3536');
+				canvas.setAttribute('data-lobby', params.get('lobby') || 'perf');
+			}
+			canvas.setAttribute('data-telemetry', 'false');
+			canvas.setAttribute('data-perf', params.get('perf') || '1');
+			canvas.setAttribute(
+				'data-players',
+				JSON.stringify(
+					Array.from({ length: players }, (_, i) =>
+						local
+							? { pubkey: 'local', name: `Joueur ${i + 1}`, is_local: true }
+							: { pubkey: `perf-${i}`, name: `Joueur ${i + 1}`, is_local: String(i) === role }
+					)
+				)
+			);
+			const started = performance.now();
+			// Les deux onglets sont sur la même machine : candidats locaux seulement. Avec le STUN public du jeu
+			// (`stun.l.google.com`), la collecte ICE attend ses délais (≈ 30 s) avant d'envoyer l'offre ; `?stun=1` le garde.
+			window.__rtc = [];
+			const NativePeerConnection = window.RTCPeerConnection;
+			window.RTCPeerConnection = class extends NativePeerConnection {
+				constructor(config) {
+					super(params.has('stun') ? config : { ...config, iceServers: [] });
+					const log = (what) => window.__rtc.push(`${Math.round(performance.now())} ${what} ${this.connectionState}/${this.iceConnectionState}/${this.iceGatheringState}`);
+					for (const name of ['connectionstatechange', 'iceconnectionstatechange', 'icegatheringstatechange']) this.addEventListener(name, () => log(name));
+					log('new');
+				}
+			};
+			window.__perf = { started, wasmReady: null };
+			const module = await import(`/builds/${build}/${game}/wasm.js`);
+			await module.default();
+			window.__perf.wasmReady = performance.now() - started;
+			canvas.focus();
+			canvas.addEventListener('pointerdown', () => canvas.focus());
+		</script>
+	</body>
+</html>

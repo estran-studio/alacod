@@ -216,6 +216,12 @@
     "reason": "Capture de cadence native (ALACOD_PERF_CSV, revue M1) : mesure de temps réel écrite dans un CSV, jamais lue par la simulation."
   },
   {
+    "path": "crates/game/src/fps_counter.rs",
+    "code": "counter.step_started = Some(Instant::now());",
+    "count": 1,
+    "reason": "Compteur de FPS (S1-5, conventions § 97) : chrono d'une frame simulée posé aux bornes du schedule bevy_ggrs AdvanceWorld (hors GgrsSchedule), écrit dans la console et un attribut du canvas, jamais lu par la simulation ni par un hash ; absent sans ?perf= / ALACOD_FPS."
+  },
+  {
     "path": "crates/game/src/jjrs/p2p_socket.rs",
     "code": ".and_then(|s| s.waited(&peer, bevy::platform::time::Instant::now()));",
     "count": 1,

@@ -5,6 +5,16 @@ const send = (type, message) => window.parent.postMessage({ source: 'alacod-load
 const params = new URLSearchParams(window.location.search);
 const game = params.get('game');
 const build = params.get('build');
+// S1-5 : compteur FPS (`?perf=1` surcouche + console, `?perf=console` console seule), dans l'URL du
+// chargeur ou, dans l'iframe de /play et /online (même origine), dans celle de la page hôte.
+let perf = params.get('perf');
+if (!perf) {
+	try {
+		perf = new URLSearchParams(window.parent.location.search).get('perf');
+	} catch {
+		perf = null;
+	}
+}
 
 window.download_log_file_js = (filename, content) => {
 	const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
@@ -99,6 +109,7 @@ async function launch() {
 		canvas.setAttribute('data-number-player', '1');
 	}
 	canvas.setAttribute('data-telemetry', 'false');
+	if (perf) canvas.setAttribute('data-perf', perf);
 	const module = await import(`/builds/${build}/${game}/wasm.js`);
 	await module.default();
 	canvas.focus();
