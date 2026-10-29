@@ -8158,3 +8158,18 @@ Scénarios de **capture seulement** `docs/captures/polissage-lisibilite-coop/sce
 
 Étiquettes `J 1`… blanches (la teinte par handle est sur le sprite) ; le sprite teinté multiplie la couleur du handle sur le sprite sombre du joueur : les quatre héros se distinguent (bleu, vert, orange/jaune, violet) mais le jaune tire sur l'orange ;
 quatre bots qui apparaissent ensemble se superposent aux premières frames (captures prises une fois écartés) ; `make videos` ne tourne pas sur le Mac sans contournement (D167).
+
+## 96. Throne visuel : surcharge locale Aymen B + Ittai Manero (S2-10)
+
+Même mécanisme que § 92 (aucun mécanisme nouveau, aucun code du moteur touché) : `games/throne/assets/sprites/sprites.local.ron` (remplace ou ajoute des ids), `ui/hud.local.ron`
+(`wall_art` avec `floor`, sans `mask_layer` : les cavernes n'ont pas de couche de sol), images sous `sprites/postapo/`, le tout gitignoré. Écrit par `scripts/repack-throne.py`
+à partir des **archives** (`UPDATE 2_ZombiePack.zip`, `Zombie Apocalypse Tileset.zip`, lues membre par membre, jamais extraites en bloc) ; aucun pixel dessiné : recadrage, collage, miroir, mise à l'échelle entière.
+Licences dans `games/throne/assets/assets.yaml` (`aymen-b-zombiepack`, `ittai-zombie-apocalypse`) : redistribution interdite, donc rien dans le dépôt ni dans un build web public.
+
+- **Personnages** : une feuille par peau (Aymen : joueur, bandit, zombies 1 à 4), cellule recadrée à la boîte commune, `Idle` 6 | `Run` 8 | `Dying_1` 8 ; une entrée `sprites.local.ron` par personnage de throne (id = `asset_name_ref`) avec sa **propre échelle de présentation** (`char_<id>_sheet.ron`) : c'est la seule différence entre deux ennemis qui partagent une peau. L'échelle de collision vient du personnage (`scale` de `characters/*.ron`), jamais de l'image. Aucun `Attack` : les feuilles d'Aymen n'en ont pas, la pose de présentation (§ 92) n'a rien à jouer.
+- **Tourelle** : zombie tourelle d'Ittai, `Idle` (12 images) et `Run` (même plage, personnage immobile), sans `Dying` (le moteur ne pose alors pas de corps).
+- **Armes** : trois `sprite_config` seulement dans `weapons.ron` (`pistol`, `machine_gun`, `shotgun`), donc trois images en main pour 13 armes ; `weapon/<id>` pour 6 armes au sol, `weapon` générique pour les 7 autres.
+- **Projectiles** : `bullet_player` (lueur orange d'Aymen) et `bullet_enemy` (crachat de la tourelle d'Ittai), `own_colors`, une image par équipe.
+- **Murs et sol** : atlas `atlas_murs.png` de 40 tuiles (32 dessus, 4 faces, 4 sols) dans l'ordre de `wall_art::wall_tile`, découpé en quarts de 16 px dans l'intérieur d'Aymen (toit pâle + mur sombre) et le sable de Wasteland ; le sol est quatre quarts de l'intérieur d'**une même** tuile (des tuiles voisines laissent des coutures visibles).
+- **Limites** (dites au rapport `polissage-throne-visuel.md`) : peau unique pour 4 joueurs (`player_colors` n'est pas porté par la surcharge du HUD), neuf ennemis sur cinq peaux, sept armes au sol sur treize en image générique, pas de sprite de boss ni de portail dans les deux packs.
+- **Preuve** : les 13 scénarios `throne_*` et `tourelle_couronne_telegraphe` passent **avec la surcharge présente** sans `BLESS` (aucune trace ne bouge) ; lint de throne vert avec et sans surcharge.

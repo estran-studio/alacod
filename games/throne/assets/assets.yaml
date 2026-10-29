@@ -188,3 +188,55 @@
     scripts/repack-postapocalypse.py ; une frame des calques mains+arme
     recadrée pour les visuels d'armes rotatifs.
   statut: overlay privé (throne + zombies), pas un placeholder
+
+- id: aymen-b-zombiepack
+  fichiers:
+    - sprites/postapo/char_player.png
+    - sprites/postapo/char_bandit.png
+    - sprites/postapo/char_zombie1.png
+    - sprites/postapo/char_zombie2.png
+    - sprites/postapo/char_zombie3.png
+    - sprites/postapo/char_zombie4.png
+    - sprites/postapo/weapon_pistol.png
+    - sprites/postapo/weapon_machine_gun.png
+    - sprites/postapo/weapon_shotgun.png
+    - sprites/postapo/icon_*.png
+    - sprites/postapo/bullet_player.png
+    - sprites/postapo/powerup_*.png
+    - sprites/postapo/chest.png
+    - sprites/postapo/atlas_murs.png
+  source: https://pixelrogueknight.itch.io/zombie-apocalypse-assetpack (« UPDATE 2_ZombiePack.zip »,
+    159 fichiers ; LICENSE.txt de l'archive lu le 2026-10-29)
+  auteur: Aymen B (@PixRogueKnight)
+  licence: licence propre de l'auteur (LICENSE.txt) — usage personnel et commercial, modification
+    libre, crédit apprécié mais non requis ; **redistribution interdite** (« You cannot redistribute,
+    resell, or repackage assets as a game asset even if modified ; you may only sell them as part of a
+    larger project »), ni NFT ni générateurs d'images par IA. Pack acheté par William Quintal. Fichiers
+    NON commités (dépôt public) : dossier sprites/postapo/, sprites/sprites.local.ron et
+    ui/hud.local.ron gitignorés ; surcharge locale, sprites publics ailleurs (docs/conventions.md § 92).
+    Un build web public qui embarquerait ces images attend la confirmation écrite de l'auteur.
+  modifications: cases de personnages recadrées à la boîte englobante commune (pieds alignés), mises
+    en rangée Idle 6 | Run 8 | Dying_1 8 ; arme recadrée (première image) et répétée sur 4 lignes ;
+    objets de 16 px agrandis ×2 ; coffre fermé + dernière image d'ouverture ; atlas de murs et de sol
+    assemblé par recadrage de quarts de tuiles de l'intérieur et de Wasteland ; échelle de
+    présentation par personnage ; scripts/repack-throne.py ; aucun pixel dessiné.
+  statut: overlay privé (throne), pas un placeholder
+
+- id: ittai-zombie-apocalypse
+  fichiers:
+    - sprites/postapo/char_tourelle.png
+    - sprites/postapo/char_mannequin.png
+    - sprites/postapo/char_cible.png
+    - sprites/postapo/bullet_enemy.png
+  source: https://ittaimanero.itch.io/zombie-apocalypse-tileset (« Zombie Apocalypse Tileset.zip »,
+    dossier « Organized separated sprites » ; page et licence lues le 2026-10-29)
+  auteur: Ittai Manero
+  licence: licence propre de l'auteur (page itch) — « may be used in both personal and commercial
+    projects ; you may edit and add to them ; credit is highly appreciated ; you may not redistribute or
+    re-sell these assets, with or without modifications ». Pack gratuit. Fichiers NON commités (dépôt
+    public), mêmes dossiers gitignorés que ci-dessus. Crédit à afficher dans le jeu publié
+    (« Ittai Manero »).
+  modifications: zombie tourelle (12 images) recadré à la boîte commune et mis en rangée ; crachat
+    (image 2) centré sur 16 × 16 pour le projectile ennemi ; épouvantail et canette (première image)
+    agrandis ×2 ; scripts/repack-throne.py ; aucun pixel dessiné.
+  statut: overlay privé (throne), pas un placeholder
