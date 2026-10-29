@@ -133,6 +133,7 @@ et la touche « Q » (blank) est la touche A.
 | Choix de mutation | **1 / 2 / 3** |
 | Étiquettes au-dessus des entités (nom, prix, état) | **F6** |
 | Légende des silhouettes et couleurs | **F7** |
+| Compteur de FPS (si la page est ouverte avec `?perf=1`) | **F8** |
 | Débogage : champ de flux / profil / états des ennemis | **F3** / **F4** / **F5** |
 
 ### Manette

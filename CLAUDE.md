@@ -996,6 +996,8 @@ crates/game/src/character/enemy/
   dans `play_scenario --capture` et les vidéos) — langage visuel de `docs/conventions.md` §83
   (avec le flow field actif (F3), F6 bascule aussi sa source IntGrid)
 - **F7** : légende des silhouettes et couleurs (widget `Legend` de `hud.ron`)
+- **F8** : surcouche du compteur FPS d'affichage et de simulation (S1-5, `crates/game/src/fps_counter.rs`, `docs/conventions.md` § 97) ;
+  n'existe que si le compteur est demandé (`?perf=1` dans l'URL du chargeur web, `ALACOD_FPS=1|console` en natif)
 
 ## Collision Layers
 
