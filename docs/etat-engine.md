@@ -164,9 +164,9 @@ plateformes, options de build et limites. Un point non exécuté reste « non v�
 
 ## Ordre recommandé après cette branche
 
-0. **X-4b d'abord (décision de William du 2026-10-27, ordre jeu-d'abord)** : import des planches `*.sprite.json`, depuis `main`
-   (X-4a livré). Puis X-5 dès que 1837 existe (`alacod new`, 9 nov), puis X-3, puis X-6. X-1, X-2a et X-2b sont gelés faute de besoin
-   daté : branches conservées, ni fusion ni tag `v0.1.0` (`docs/taches/plan-1837-cli.md` §3, notes `docs/taches/rapports/x-*-arret.md`).
+0. **Ordre jeu-d'abord (décision de William du 2026-10-27)** : X-4b (import des planches `*.sprite.json`) est **livré le 2026-10-29**. Ensuite X-5 dès que 1837
+   existe (`alacod new`, 9 nov), puis X-3, puis X-6. X-1, X-2a et X-2b sont gelés faute de besoin daté : branches conservées, ni fusion ni tag `v0.1.0`
+   (`docs/taches/plan-1837-cli.md` §3, notes `docs/taches/rapports/x-*-arret.md`).
 1. **Prochain jalon (décision de William du 2026-10-26, soir) : M4 := le prologue de 1837** (feuille de route de `1867_lore` du 2026-10-20),
    en commençant par le cœur 30 s (une pièce, bouger/viser/tirer/hache/gigue, deux fantassins) ; « La coupe » est abandonnée ; le dépôt
    1837 est créé par William via `alacod new`. L'atelier de réglage (K7) s'arrête : AT-0 livré, AT-1, AT-2, AT-7 non lancés

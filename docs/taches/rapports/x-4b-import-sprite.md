@@ -108,7 +108,7 @@ distinctes, `marche` jambes animées, `epauler` joué une fois puis tenu.
 
 Base `a878966c` (arm64, macOS, écran déverrouillé ; aucun code ni donnée touchés, aucun BLESS).
 
-- **Trace** : `env -u CI CARGO_BUILD_JOBS=4 SCENARIO=sprite_import_fantassin make test_scenarios` (sans BLESS) : `sprite_import_fantassin` vert, 1510 frames, joueur vivant ; `git status` sans aucune trace modifiée (la trace x86-64 du VPS est relue à l'identique sur arm64).
+- **Trace** : `env -u CI CARGO_BUILD_JOBS=4 SCENARIO=sprite_import_fantassin make test_scenarios` (sans BLESS) : `sprite_import_fantassin` vert, 740 frames (scénario de `a878966c`), joueur vivant ; `git status` sans aucune trace modifiée (la trace x86-64 du VPS est relue à l'identique sur arm64).
 - **Capture** (24 images 960×540, luminance moyenne 70–87 sur chacune, sprite visible sur toutes, aucune image noire) :
 
 ```sh
@@ -165,3 +165,15 @@ Q-X4b-1 : **exception, pour tester**. Le fantassin-de-ligne reste dans `games/te
 ## Incident de push
 
 J'ai force-poussé `39f2168c` sur `wquintal/x-4b-import-sprite` avant d'avoir lu la consigne « pas de force-push », écrasant `23337437` et `d74cb17e`. Le coordinateur a restauré la branche ; le travail a été refait en A (`d7d1a44c`) et B (`7b5d9d20`) par push en avance rapide.
+
+## Clôture (coordinateur, 2026-10-29)
+
+- **Fusion** dans `main` par le coordinateur, après deux revues indépendantes en lecture seule : la première, « à corriger », portait sur `f7f04e58` + `a878966c` ;
+  la seconde, « prêt », sur `d74cb17e..7b5d9d20`. Feu vert du studio le 2026-10-29. Branche fusionnée : `wquintal/x-4b-import-sprite` @ `8eb41e1a`, au-dessus de `main` `00dc83ce`.
+  L'arbre fusionné est identique à `8eb41e1a`. `make check` « All checks passed », `sprite_import` 22 verts, lint du testbed, `make test_tools` et
+  `sprite_import_fantassin` sans BLESS sont lus dans le message de fin du worker sur `8eb41e1a`. Le coordinateur ne les a pas rejoués : disque du VPS à 97 %.
+- **Lot 2** : la mosaïque versée (`x-4b-import-sprite.png`) est la capture de `a878966c`, **avant** `--pivot-at` : on y voit les bottes environ 13 unités trop haut.
+  La capture de `7b5d9d20` n'est pas versée. William a vu le fantassin bouger sur le Mac, dans le jeu-test de la branche, le 2026-10-28. Son verdict :
+  « la sprite marche bien ; pas le sprite de notre arme, qui n'est pas fait du tout pour ça ; c'est bien overall, on s'attaquera à ça plus tard ». Échelle et
+  directions acceptées ; l'arme détachée sous les pieds relève de D156 (mains et ancres non importées), plus tard, hors X-4b.
+- La ligne « Trace » du lot 2 est rétablie à 740 frames : c'est la mesure du Mac sur `a878966c`, que le commit `8eb41e1a` avait changée en 1510 par erreur.
