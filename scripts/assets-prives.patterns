@@ -1,0 +1,11 @@
+# Chemins de la surcharge privée (images payantes, extraits Sonniss), relatifs à `games/<jeu>/assets/`.
+# Source unique, lue par :
+#   - scripts/web-assets.mjs (copie des assets d'un build web, Makefile `cp_asset` compris) ;
+#   - scripts/embed-game-content.rs (inventaire embarqué dans le wasm) ;
+#   - scripts/assets-prives.sh (n'écrit que des chemins couverts ici, et gitignorés).
+# Sans `ALACOD_WEB_PRIVATE_ASSETS=1`, aucun build web n'embarque un fichier qui correspond (docs/conventions.md § 99).
+# Format : une règle par ligne. `dossier/` = tout ce qui est sous ce dossier ; `*suffixe` = tout fichier dont le nom finit
+# par ce suffixe, à n'importe quelle profondeur ; les lignes vides et celles qui commencent par `#` sont ignorées.
+sprites/postapo/
+sounds/sonniss/
+*.local.ron

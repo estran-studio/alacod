@@ -221,7 +221,7 @@
     (Idle|Run|Dying_1|Attack, pieds centrés) ; images assemblées par recadrage, collage, miroir et mise
     à l'échelle entière de tuiles et de sprites du pack (portes, fenêtres, atlas de murs et de sol,
     icônes) par scripts/repack-postapocalypse.py ; aucun pixel dessiné.
-  statut: overlay privé (zombies + throne), pas un placeholder
+  statut: dépôt privé alacod-assets (zombies/sprites/postapo/, zombies/sprites/sprites.local.ron, zombies/ui/hud.local.ron ; copiés par scripts/assets-prives.sh ; jamais dans le dépôt public, docs/conventions.md § 99), pas un placeholder
 
 - id: sound-snake-authentic-gun-sounds
   fichiers:
@@ -260,7 +260,7 @@
   auteur: "Sonniss et ses fournisseurs (Epic Stock Media, SoundBits, 344 Audio, Jake Fielding, Cinematic Sound Design)"
   licence: "Sonniss GDC Bundle Licensing Agreement (PDF de l'archive) : royalty-free, mondiale, non exclusive ; usage personnel et commercial **sans attribution**, modification autorisée ; **interdit** de vendre les sons tels quels (vendus incorporés au projet : permis), de s'en attribuer la paternité, et **de les utiliser pour entraîner une IA**. Les fichiers sont rognés et incorporés au jeu ; le dépôt est public : la publication des extraits dans le dépôt public n'est PAS faite (règle des images payantes, docs/conventions.md §92) tant que William n'a pas tranché."
   modifications: un fichier extrait à la fois sous ~/orca/workspaces/alacod/packs/sonniss/, rogné (0,3 à 3 s), fondu de sortie, mono 44,1 kHz, niveau réglé sur une RMS cible (−18 à −22 dBFS, crête ≤ −1 dBFS), ré-encodé en ogg vorbis (oggenc -q 5).
-  statut: "surcharge locale gitignorée (sounds/sonniss/, .gitignore) EN ATTENTE de la décision de William : dépôt public ou dépôt privé d'assets (lot S-0b), la licence interdisant de vendre les sons tels quels ; aucun fichier Sonniss n'est commité ; clés wave_start, wave_end, room_cleared, purchase, pickup, menu_*, boss_*, death_<id> branchées après le merge de S1-7 (S1-9 étape 2)"
+  statut: "dépôt privé alacod-assets (zombies/sounds/sonniss/, docs/conventions.md § 99 ; décision de William du 2026-10-29 : jamais dans le dépôt public) ; aucun fichier Sonniss n'est commité ; clés wave_start, wave_end, room_cleared, purchase, pickup, menu_*, boss_*, death_<id> branchées par S1-9 étape 2 (ui/feedback.local.ron)"
 
 - id: vending-machines-karsiori
   fichiers:

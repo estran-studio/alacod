@@ -187,7 +187,7 @@
     uniformes (Idle|Run|Dying_1|Attack, pieds centrés) par
     scripts/repack-postapocalypse.py ; une frame des calques mains+arme
     recadrée pour les visuels d'armes rotatifs.
-  statut: overlay privé (throne + zombies), pas un placeholder
+  statut: dépôt privé alacod-assets pour le pack de zombies (rien de ce pack pour throne dans le dépôt privé ; la surcharge de throne est Aymen B + Ittai Manero, docs/conventions.md § 96 et § 99), pas un placeholder
 
 - id: aymen-b-zombiepack
   fichiers:
@@ -220,7 +220,7 @@
     objets de 16 px agrandis ×2 ; coffre fermé + dernière image d'ouverture ; atlas de murs et de sol
     assemblé par recadrage de quarts de tuiles de l'intérieur et de Wasteland ; échelle de
     présentation par personnage ; scripts/repack-throne.py ; aucun pixel dessiné.
-  statut: overlay privé (throne), pas un placeholder
+  statut: dépôt privé alacod-assets (throne/…, docs/conventions.md § 96 et § 99), pas un placeholder
 
 - id: ittai-zombie-apocalypse
   fichiers:
@@ -239,4 +239,4 @@
   modifications: zombie tourelle (12 images) recadré à la boîte commune et mis en rangée ; crachat
     (image 2) centré sur 16 × 16 pour le projectile ennemi ; épouvantail et canette (première image)
     agrandis ×2 ; scripts/repack-throne.py ; aucun pixel dessiné.
-  statut: overlay privé (throne), pas un placeholder
+  statut: dépôt privé alacod-assets (throne/…, docs/conventions.md § 96 et § 99), pas un placeholder

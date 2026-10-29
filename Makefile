@@ -369,9 +369,9 @@ gungeon_matchbox:
 host_website:
 	cd website && APP_VERSION=$(VERSION) npm run dev
 
+# D161 : la surcharge privée (scripts/assets-prives.patterns) n'est copiée que sous ALACOD_WEB_PRIVATE_ASSETS=1 (conventions § 99).
 cp_asset:
-	mkdir -p ./website/static/$(VERSION)/assets/
-	cp -r ./games/zombies/assets/* ./website/static/$(VERSION)/assets/
+	node scripts/web-assets.mjs zombies ./website/static/$(VERSION)/assets/
 
 build_map_preview_web:
 	APP_VERSION=$(VERSION) cargo build --example map_preview --target wasm32-unknown-unknown --no-default-features --features render,bevy_ecs_tilemap/atlas $(RELEASE)
@@ -388,6 +388,8 @@ ifeq ($(PROFILE), prod)
 endif
 
 
+# Build web de zombies et throne. Repli public par défaut ; `ALACOD_WEB_PRIVATE_ASSETS=1` (posé par l'étape de CI qui
+# clone alacod-assets, ou à la main après scripts/assets-prives.sh) y ajoute la surcharge privée (conventions § 99).
 build_wasm_apps:
 	WEB_BUILD_ID=$(VERSION) WEB_PROFILE=$(if $(filter prod,$(PROFILE)),release,dev) node scripts/build-web-games.mjs zombies throne
 
