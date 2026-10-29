@@ -46,8 +46,12 @@
         "two_players_shooting": (min_sim_fps: 37.0),
         "weapons_workout": (min_sim_fps: 38.0),
         "window_repair": (min_sim_fps: 36.0),
-        "four_players_idle": (min_sim_fps: 33.0),
-        "four_players_shooting": (min_sim_fps: 33.0),
+        // S2-9 (2026-10-29) : plafonds PROVISOIRES de zombies et throne, au double (arrondi au-dessus) du pire rollback d'UN seul relevé
+        // VPS partagé (`latest.json` du commit 0d2c1b61, 2026-10-20, rapport plan-polissage.inventaire.md §7), pas de la pire de trois
+        // relevés au calme : 13,5 / 13,2 ms pour les deux scénarios à quatre joueurs. Planchers inchangés. À remesurer par la
+        // règle ci-dessus (docs/taches/rapports/polissage-perf-budgets.md §4).
+        "four_players_idle": (min_sim_fps: 33.0, max_rollback_ms: 28.0),
+        "four_players_shooting": (min_sim_fps: 33.0, max_rollback_ms: 27.0),
         // T2.9, testbed.
         "testbed_ally_safe": (min_sim_fps: 44.0),
         "testbed_arena_idle": (min_sim_fps: 48.0),
@@ -65,9 +69,10 @@
         "bench_bullets_room": (min_sim_fps: 31.0, max_rollback_ms: 36.0),
         "bench_horde": (min_sim_fps: 26.0, max_rollback_ms: 61.0),
         "bench_cave": (min_sim_fps: 44.0, max_rollback_ms: 24.0),
-        // Throne les plus lourds.
-        "throne_quad": (min_sim_fps: 23.0),
-        "throne_three_floors": (min_sim_fps: 27.0),
+        // Throne les plus lourds. S2-9 : plafonds provisoires de `throne_quad` et `throne_three_floors` (29,0 / 23,9 ms au pire rollback
+        // du même relevé VPS unique, doublés et arrondis au-dessus) ; `throne_softlock_recul` n'a pas de relevé VPS : sans plafond.
+        "throne_quad": (min_sim_fps: 23.0, max_rollback_ms: 59.0),
+        "throne_three_floors": (min_sim_fps: 27.0, max_rollback_ms: 48.0),
         "throne_softlock_recul": (min_sim_fps: 29.0),
         // M3-T15 (docs/conventions.md §80) : larmes, familiers, étage isaac. Remesurés sur l'arbre fusionné avec main 8ca55686
         // (D97 : optimisation des larmes ; T11d1/T11d2 : contenu isaac), trois passes ciblées, VPS Debian 8 cœurs, 2026-10-18/19,

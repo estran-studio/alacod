@@ -1,0 +1,116 @@
+clone;scenario;frames;joueurs;entites_max;fps_p1;fps_p2;fps_p3;fps_p4;rollback_ms_p1;rollback_ms_p2;rollback_ms_p3;rollback_ms_p4;budget
+zombies;ammo_burst;900;1;102;1256.6;684.5;563.7;855.2;0.64;1.22;1.43;0.93;min_sim_fps: 38.0
+zombies;ammo_shared_reserve;700;1;97;1535.3;585.1;604.8;887.8;0.54;1.32;1.33;0.89;défaut 40 fps
+zombies;avant_poste_demo;3400;1;128;1322.5;424.3;666.3;905.9;0.74;2.13;1.35;1.01;défaut 40 fps
+zombies;bench_bullets;600;4;338;874.3;293.2;486.2;668.2;1.15;3.28;1.90;1.42;min_sim_fps: 41.0, max_rollback_ms: 24.0
+zombies;bench_horde;900;4;255;464.9;239.7;232.3;486.1;4.17;7.11;7.19;4.09;min_sim_fps: 26.0, max_rollback_ms: 61.0
+zombies;bots_four_mixed;900;4;118;713.7;567.7;370.3;985.3;1.54;1.94;2.85;1.22;défaut 40 fps
+zombies;bots_two_fonceurs;900;2;104;972.8;528.4;317.0;1303.0;1.07;1.94;2.98;0.89;défaut 40 fps
+zombies;bullets_walls;400;1;100;1208.8;719.9;706.5;1698.1;0.64;1.07;1.11;0.49;min_sim_fps: 41.0
+zombies;buy_door;220;1;84;814.2;649.5;640.8;1505.7;1.19;1.56;1.52;0.78;défaut 40 fps
+zombies;buy_perk;160;1;82;1016.0;777.9;646.5;1637.5;0.90;1.22;1.39;0.64;défaut 40 fps
+zombies;buy_wall_weapon;160;1;80;949.8;734.6;832.9;1448.2;1.00;1.34;1.31;0.76;défaut 40 fps
+zombies;clone_duo;4668;2;99;1537.5;632.6;711.0;1616.7;0.51;1.22;1.04;0.49;défaut 40 fps
+zombies;clone_quad;4674;4;124;1174.3;498.7;362.4;1194.9;0.98;2.05;2.74;0.97;défaut 40 fps
+zombies;clone_solo;3047;1;102;1587.9;523.7;594.3;1714.8;0.50;1.50;1.27;0.47;défaut 40 fps
+zombies;dash_aim_change;120;1;91;1565.3;380.9;530.9;1440.4;0.72;2.42;1.80;0.80;défaut 40 fps
+zombies;dash_iframes;120;2;96;1446.8;525.5;566.8;1544.1;0.73;1.84;1.66;0.69;défaut 40 fps
+zombies;dash_wall;320;1;92;1644.1;455.3;577.2;1306.6;0.56;1.89;1.45;0.68;min_sim_fps: 40.0
+zombies;door_open;330;1;92;1335.1;339.5;478.6;1425.0;0.86;2.76;2.14;0.86;min_sim_fps: 32.0
+zombies;downed_all_lose;1700;2;110;1231.1;454.8;515.4;1411.2;0.76;1.92;1.71;0.69;défaut 40 fps
+zombies;downed_bleedout;1100;2;104;1453.1;464.2;653.7;1517.1;0.58;1.78;1.22;0.57;défaut 40 fps
+zombies;downed_revive;500;2;99;1419.5;424.7;888.3;1390.7;0.60;1.96;0.92;0.61;défaut 40 fps
+zombies;drop_pickup_swap;300;1;90;1413.5;480.3;789.2;1542.5;0.70;1.97;1.09;0.65;défaut 40 fps
+zombies;equilibrage_joueurs_duo;220;2;45;1271.9;524.9;949.8;1704.7;0.60;1.70;0.84;0.51;défaut 40 fps
+zombies;equilibrage_joueurs_quad;220;4;52;972.4;344.8;694.6;1916.6;0.79;2.23;1.13;0.47;défaut 40 fps
+zombies;feel_zombies;3600;1;31;2164.7;809.5;1171.4;2553.4;0.41;1.03;0.70;0.37;défaut 40 fps
+zombies;four_players_idle;600;4;112;1077.9;735.4;501.0;1416.2;0.72;1.07;1.52;0.59;min_sim_fps: 33.0, max_rollback_ms: 28.0
+zombies;four_players_shooting;300;4;143;1112.8;678.8;722.5;1433.2;0.73;1.17;1.12;0.59;min_sim_fps: 33.0, max_rollback_ms: 27.0
+zombies;friendly_fire_cursed;150;2;94;1333.1;714.6;685.7;1505.2;0.64;1.16;1.24;0.58;défaut 40 fps
+zombies;friendly_fire_never;150;2;96;657.3;833.3;783.4;1521.0;1.16;0.99;1.05;0.59;défaut 40 fps
+zombies;generated/zombies/enemy_zombie_1_moving;600;1;91;618.7;398.3;432.6;1269.2;1.69;2.65;2.24;0.96;défaut 40 fps
+zombies;generated/zombies/enemy_zombie_1_still;600;1;91;776.3;565.8;705.2;1601.8;0.99;1.40;1.10;0.51;défaut 40 fps
+zombies;generated/zombies/enemy_zombie_2_moving;600;1;91;585.3;360.5;567.5;1324.3;1.74;3.01;1.85;0.91;défaut 40 fps
+zombies;generated/zombies/enemy_zombie_2_still;600;1;91;901.5;453.4;761.5;1558.2;0.86;1.80;1.00;0.52;défaut 40 fps
+zombies;generated/zombies/enemy_zombie_full_moving;600;1;91;584.4;375.5;557.0;1382.8;1.78;2.88;1.83;0.88;défaut 40 fps
+zombies;generated/zombies/enemy_zombie_full_still;600;1;91;777.1;462.4;909.1;1460.8;1.03;1.77;0.84;0.55;défaut 40 fps
+zombies;generated/zombies/weapon_axe;400;1;29;1009.4;480.9;1135.9;2098.2;0.86;1.88;0.80;0.47;défaut 40 fps
+zombies;generated/zombies/weapon_bare_hands;400;1;29;913.2;645.2;1268.7;2114.3;0.94;1.38;0.70;0.48;défaut 40 fps
+zombies;generated/zombies/weapon_club;400;1;29;767.6;639.1;1196.4;2133.2;1.21;1.40;0.74;0.47;défaut 40 fps
+zombies;generated/zombies/weapon_knife;400;1;29;978.3;574.1;907.2;2198.7;0.93;1.55;1.01;0.46;défaut 40 fps
+zombies;generated/zombies/weapon_machine_gun;600;1;32;919.8;502.8;1219.9;2280.1;0.92;1.73;0.71;0.41;défaut 40 fps
+zombies;generated/zombies/weapon_pistol;600;1;29;1063.0;573.0;1367.0;2222.2;0.79;1.51;0.63;0.42;défaut 40 fps
+zombies;generated/zombies/weapon_rifle;600;1;29;816.8;658.0;1216.6;2110.4;1.00;1.29;0.67;0.43;défaut 40 fps
+zombies;generated/zombies/weapon_shotgun;600;1;39;927.5;487.2;1464.0;2123.1;0.88;1.75;0.58;0.43;défaut 40 fps
+zombies;generated/zombies/weapon_sword;400;1;29;921.7;669.9;1583.8;2349.6;1.01;1.40;0.60;0.44;défaut 40 fps
+zombies;generated/zombies/weapon_zombie_claws;400;1;29;1081.6;592.1;1802.3;2051.7;0.79;1.52;0.53;0.49;défaut 40 fps
+zombies;idle;1500;1;106;1332.2;525.1;740.9;1516.0;0.64;1.64;1.07;0.58;min_sim_fps: 59.0, max_rollback_ms: 17.0
+zombies;immune_tag;150;2;94;1178.3;303.1;722.7;1602.6;0.70;2.65;1.14;0.58;défaut 40 fps
+zombies;la_fonderie_demo;6800;1;309;184.5;118.7;197.3;276.6;7.89;12.69;7.92;6.03;défaut 40 fps
+zombies;movement_melee;900;1;98;1051.1;594.7;896.6;1439.1;0.81;1.43;0.93;0.64;min_sim_fps: 36.0
+zombies;p2p_smoke;600;4;121;342.6;257.8;447.8;672.6;4.12;6.10;3.47;2.67;défaut 40 fps
+zombies;points_on_kill;600;1;103;718.6;682.5;910.8;1461.6;1.13;1.22;0.90;0.59;défaut 40 fps
+zombies;profile_run_end;60;1;88;706.3;619.6;976.1;1661.6;1.35;1.71;1.00;0.67;défaut 40 fps
+zombies;remote_first_fight;600;1;103;537.9;475.2;623.4;1599.2;1.40;1.76;1.34;0.55;min_sim_fps: 44.0
+zombies;revue_murs_avant_poste;1200;1;67;577.1;427.7;746.7;1682.1;1.58;2.24;1.29;0.65;défaut 40 fps
+zombies;run_lose_summary;1700;2;110;663.9;488.3;723.7;1359.1;1.32;1.80;1.21;0.69;défaut 40 fps
+zombies;shoot_around;1500;1;108;679.1;503.5;660.1;1554.5;1.18;1.62;1.19;0.55;min_sim_fps: 39.0
+zombies;shop_tour;300;1;88;852.2;580.4;688.6;1741.3;1.02;1.60;1.19;0.57;défaut 40 fps
+zombies;stat_move_speed;150;2;93;594.5;494.2;636.4;1236.7;1.62;2.18;1.62;0.94;défaut 40 fps
+zombies;test_map_fenetre_graine_100;600;1;91;897.7;642.4;1073.8;1724.8;0.84;1.23;0.74;0.47;défaut 40 fps
+zombies;two_players_idle;1500;2;110;549.8;388.3;1054.2;1469.2;1.58;2.34;0.85;0.65;min_sim_fps: 37.0
+zombies;two_players_shooting;300;2;105;619.1;565.3;1065.0;1415.9;1.29;1.43;0.75;0.58;min_sim_fps: 37.0
+zombies;weapons_workout;950;1;102;1061.1;573.2;1086.9;1611.1;0.77;1.42;0.74;0.53;min_sim_fps: 38.0
+zombies;window_repair;1100;1;104;818.9;592.1;1146.7;1538.6;1.06;1.44;0.76;0.60;min_sim_fps: 36.0
+throne;generated/throne/enemy_arroseur_moving;600;1;42;816.4;601.7;1469.1;1493.0;1.19;1.61;0.73;0.73;défaut 40 fps
+throne;generated/throne/enemy_arroseur_still;600;1;41;924.1;656.5;1331.3;1938.2;0.92;1.36;0.66;0.49;défaut 40 fps
+throne;generated/throne/enemy_brute_moving;600;1;34;841.0;569.6;1311.3;1689.8;1.14;1.78;0.79;0.66;défaut 40 fps
+throne;generated/throne/enemy_brute_still;600;1;34;951.6;613.3;1696.3;1447.6;0.90;1.48;0.55;0.61;défaut 40 fps
+throne;generated/throne/enemy_buffle_moving;600;1;32;951.8;524.6;1462.2;1451.0;1.05;2.09;0.73;0.75;défaut 40 fps
+throne;generated/throne/enemy_buffle_still;600;1;32;1015.6;628.1;1544.0;1807.6;0.84;1.48;0.59;0.51;défaut 40 fps
+throne;generated/throne/enemy_chien_moving;600;1;34;713.4;265.0;1182.2;1258.5;1.34;3.39;0.87;0.81;défaut 40 fps
+throne;generated/throne/enemy_chien_still;600;1;34;853.0;577.3;1774.3;1788.0;1.01;1.49;0.52;0.52;défaut 40 fps
+throne;generated/throne/enemy_cracheur_moving;600;1;35;763.2;469.0;1074.4;989.0;1.29;2.06;0.92;0.99;défaut 40 fps
+throne;generated/throne/enemy_cracheur_still;600;1;35;1044.1;609.7;1641.5;1537.6;0.82;1.41;0.55;0.57;défaut 40 fps
+throne;generated/throne/enemy_franc_tireur_moving;600;1;35;689.8;648.7;1459.8;1488.7;1.44;1.57;0.73;0.73;défaut 40 fps
+throne;generated/throne/enemy_franc_tireur_still;600;1;35;1161.3;646.2;1687.2;2031.6;0.75;1.35;0.54;0.47;défaut 40 fps
+throne;generated/throne/enemy_pillard_moving;600;1;34;1049.0;699.3;1341.2;1454.7;0.95;1.45;0.77;0.71;défaut 40 fps
+throne;generated/throne/enemy_pillard_still;600;1;34;1015.6;585.7;1675.6;1704.6;0.85;1.51;0.55;0.54;défaut 40 fps
+throne;generated/throne/enemy_rat_moving;600;1;34;877.5;517.4;1604.2;1706.7;1.10;1.97;0.68;0.65;défaut 40 fps
+throne;generated/throne/enemy_rat_still;600;1;34;890.2;619.6;1557.5;1973.9;1.00;1.42;0.57;0.49;défaut 40 fps
+throne;generated/throne/enemy_rodeur_moving;600;1;34;917.7;531.9;1463.2;1851.0;1.07;1.89;0.72;0.62;défaut 40 fps
+throne;generated/throne/enemy_rodeur_still;600;1;34;1033.0;696.9;1358.8;1862.2;0.84;1.29;0.64;0.52;défaut 40 fps
+throne;generated/throne/enemy_roi_rat_moving;600;1;43;849.4;462.0;964.3;1442.0;1.19;2.21;1.05;0.79;défaut 40 fps
+throne;generated/throne/enemy_roi_rat_still;600;1;44;942.9;506.8;1154.7;1971.3;0.92;1.76;0.75;0.49;défaut 40 fps
+throne;generated/throne/enemy_tourelle_moving;600;1;43;791.0;473.2;871.7;1781.8;1.22;2.15;1.15;0.63;défaut 40 fps
+throne;generated/throne/enemy_tourelle_still;600;1;43;897.9;447.2;1120.9;1901.1;0.95;1.92;0.79;0.49;défaut 40 fps
+throne;generated/throne/weapon_arsenal;200;1;30;968.2;613.7;1004.5;2098.6;0.93;1.49;0.95;0.50;défaut 40 fps
+throne;generated/throne/weapon_bare_hands;400;1;29;1314.2;640.2;905.8;2272.2;0.70;1.38;1.00;0.46;défaut 40 fps
+throne;generated/throne/weapon_canon_ricochet;200;1;29;1134.5;771.5;1125.3;1965.7;0.81;1.20;0.83;0.52;défaut 40 fps
+throne;generated/throne/weapon_crocs;400;1;29;1197.5;978.6;1301.0;2113.9;0.75;0.95;0.74;0.50;défaut 40 fps
+throne;generated/throne/weapon_disque;200;1;31;953.0;972.4;1238.3;2322.1;0.95;0.99;0.75;0.46;défaut 40 fps
+throne;generated/throne/weapon_fusil_a_pompe;200;1;36;1041.2;815.0;869.6;1960.2;0.86;1.10;1.04;0.52;défaut 40 fps
+throne;generated/throne/weapon_griffes;400;1;29;1500.7;860.5;929.2;2073.6;0.62;1.07;0.97;0.49;défaut 40 fps
+throne;generated/throne/weapon_lance_grenades;600;1;36;1224.8;934.2;874.9;2010.5;0.70;0.93;0.97;0.47;défaut 40 fps
+throne;generated/throne/weapon_lance_lames;200;1;33;1174.8;872.0;497.6;2134.1;0.78;1.06;1.75;0.50;défaut 40 fps
+throne;generated/throne/weapon_laser;200;1;30;1009.4;836.4;576.4;2024.9;0.91;1.13;1.56;0.52;défaut 40 fps
+throne;generated/throne/weapon_massue;400;1;29;1046.8;1046.5;814.3;1887.3;0.83;0.89;1.11;0.53;défaut 40 fps
+throne;generated/throne/weapon_mitraillette;200;1;32;1165.4;866.5;932.6;1738.4;0.83;1.12;1.13;0.58;défaut 40 fps
+throne;generated/throne/weapon_mortier;400;1;33;793.8;963.5;381.1;1709.4;1.09;0.92;1.63;0.52;défaut 40 fps
+throne;generated/throne/weapon_plasma;200;1;29;1014.0;869.1;214.8;2052.8;0.90;1.09;2.65;0.50;défaut 40 fps
+throne;generated/throne/weapon_revolver;200;1;29;1089.7;840.9;231.9;1134.3;0.84;1.09;2.47;0.79;défaut 40 fps
+throne;generated/throne/weapon_roquette;300;1;29;1171.2;649.9;441.0;1664.5;0.75;1.45;2.14;0.55;défaut 40 fps
+throne;generated/throne/weapon_traqueur;200;1;30;949.7;635.3;677.5;2028.1;0.96;1.50;1.25;0.51;défaut 40 fps
+throne;throne_ammo_pickup;240;1;33;1426.8;803.9;1164.0;2223.6;0.63;1.17;0.77;0.47;défaut 40 fps
+throne;throne_duo_defaite;1000;2;94;1058.5;423.9;906.1;1357.9;0.90;2.25;1.05;0.74;défaut 40 fps
+throne;throne_floor_1;1150;1;109;1075.4;403.0;744.0;1166.8;1.02;2.58;1.39;0.95;défaut 40 fps
+throne;throne_mutation_choice;950;1;107;854.7;529.6;707.8;1425.6;1.21;1.97;1.47;0.81;défaut 40 fps
+throne;throne_progression;4410;1;153;504.7;358.7;795.1;920.7;2.08;3.06;1.44;1.29;défaut 40 fps
+throne;throne_quad;3400;4;200;314.0;206.6;410.8;477.0;3.96;6.14;3.22;2.86;min_sim_fps: 23.0, max_rollback_ms: 59.0
+throne;throne_rodeur_vue_graine_4;520;1;81;809.3;550.2;774.4;1505.9;1.17;1.70;1.09;0.70;défaut 40 fps
+throne;throne_softlock_recul;2200;2;152;473.6;312.2;411.6;912.5;2.35;3.77;2.70;1.43;min_sim_fps: 29.0
+throne;throne_solo;4410;1;153;510.9;333.2;518.0;995.7;2.06;3.31;2.15;1.22;défaut 40 fps
+throne;throne_three_floors;5000;2;168;484.1;272.5;510.9;715.4;2.66;4.62;2.51;1.96;min_sim_fps: 27.0, max_rollback_ms: 48.0
+throne;throne_vue_coupee;1200;1;131;686.0;420.3;1030.2;1360.8;1.28;2.05;0.86;0.69;défaut 40 fps
+throne;throne_vue_directe;1200;1;132;558.0;387.1;1108.6;1268.6;1.55;2.31;0.80;0.73;défaut 40 fps
+throne;tourelle_couronne_telegraphe;300;1;43;903.0;450.2;1370.1;1952.5;0.95;1.82;0.65;0.50;défaut 40 fps
