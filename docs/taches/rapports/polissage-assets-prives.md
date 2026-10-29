@@ -8,6 +8,7 @@ Branche `polissage-assets-prives` (depuis `origin/polissage-integration` `a892c9
 Fait : dépôt privé rempli et poussé, `scripts/assets-prives.sh` (clone/pull, copie idempotente, `--ci`), étape de CI dans `release.yaml` **et** `main.yaml`, drapeau `ALACOD_WEB_PRIVATE_ASSETS=1` (D161 fermée),
 HUD de surcharge lu par le web sous le drapeau (D169, ouverte puis fermée dans le lot, accord du coordinateur), `assets.yaml`, § 99. Prouvé : builds web avec et sans drapeau, CI avec et sans secret (run GitHub), lint avec et sans surcharge.
 **Non prouvé** : un run des vrais jobs `release.yaml` / `main.yaml` (runner auto-hébergé hors ligne), l'affichage dans Chrome d'un site publié avec la surcharge (aucun navigateur ni son sur le Mac pour ce lot).
+**Retouche avant merge** : l'étape de CI ne tourne que si la variable de dépôt `ALACOD_WEB_PRIVATE_ASSETS` vaut `1` (non posée : repli public même avec le secret, nightly compris) ; commande d'activation dans le « Protocole pour William » ; la dette « hud.local.ron non lu sur le web » est **D169** (D167 et D168 sont celles de S2-8).
 
 ## Points de la spec
 
@@ -77,11 +78,23 @@ crates/content/tests/fixtures/sprite_sheet_local_overlay/assets/sprites/sprites.
   `vps-alacod-builder` **offline**. Aucun tag (consigne). Lancer `main.yaml` depuis ma branche aurait déployé en production : écarté.
   - `main.yaml` ajouté (accord du coordinateur) : le tag n'est que l'ancien chemin ; sans l'étape dans `main.yaml`, le site déployé la nuit resterait en repli public.
 
+- **Retouche avant merge : garde par variable de dépôt.** L'étape « Assets privés » de `release.yaml` et `main.yaml` porte `if: vars.ALACOD_WEB_PRIVATE_ASSETS == '1'` **en plus** du secret ; la variable n'est **pas posée** (`gh variable list -R estran-studio/alacod` : vide, 2026-10-29), donc le nightly de `main.yaml`
+  publierait le repli public au retour du runner, même avec le secret (pas de confirmation de TheLazyStone pour un build web public). Une étape « Assets privés désactivés » écrit un `::notice::` dans le journal à la place. Preuve (cinq lignes, run https://github.com/estran-studio/alacod/actions/runs/40922436192, job `Étape gardée par la variable de dépôt`, commit `a76e15d7`) :
+  ```
+  Assets privés (alacod-assets), même condition que le site    skipped      (condition : vars.ALACOD_WEB_PRIVATE_ASSETS == '1', secret ALACOD_ASSETS_DEPLOY_KEY présent dans l'env de l'étape)
+  variable ALACOD_WEB_PRIVATE_ASSETS='' ; étape : skipped
+  variable absente : étape sautée même avec le secret, rien copié, repli public.
+  Résultat attendu                                             success      (aucun fichier de surcharge sur le disque, ALACOD_WEB_PRIVATE_ASSETS absent)
+  run : success (3 jobs : gardée, sans secret, avec secret)
+  ```
+  Limite : ce job rejoue la **même condition** sur un runner GitHub ; les étapes des deux workflows du site, sur le runner auto-hébergé hors ligne, ne sont pas exécutées. `assets-prives.yaml` garde le secret seul pour ses deux autres jobs (clone avec et sans clé) : il ne déploie ni ne publie rien.
+
 ### Protocole pour William (vrai job, un geste)
 
+0. **Activer l'étape** (aujourd'hui sautée) : `gh variable set ALACOD_WEB_PRIVATE_ASSETS --body 1 -R estran-studio/alacod` (Settings > Secrets and variables > Actions > Variables fait la même chose). **Ce que ça change** : à partir du run suivant de `main.yaml` (dispatch **ou nightly 00:30 UTC**) et de tout tag `v*`, l'étape clone `alacod-assets` avec le secret, copie les 168 fichiers, pose `ALACOD_WEB_PRIVATE_ASSETS=1`, et le build publie les images TheLazyStone, Aymen B et Ittai et les 14 extraits Sonniss sur le site public (Cloudflare Pages, R2, image ghcr). Pour défaire : `gh variable delete ALACOD_WEB_PRIVATE_ASSETS -R estran-studio/alacod` ; les builds déjà publiés restent à retirer à la main (les buildId sont immuables). Ne la poser qu'après la confirmation de TheLazyStone (point 5).
 1. Remettre le runner `vps-alacod-builder` en ligne ; vérifier qu'il a un client `ssh` et sort en 22 vers github.com (`ssh -V`, `ssh -T git@github.com` avec n'importe quelle clé : « Permission denied (publickey) » suffit).
-2. Après le merge de `polissage-assets-prives` dans `main` : Actions > **Build & Deploy** > Run workflow (déploie le site réel).
-3. Dans le journal du job `Build WASM & Deploy` : l'étape « Assets privés (alacod-assets) » doit afficher `168 fichiers copiés` (puis `0 copiés, 168 déjà à jour` si le workspace n'a pas été nettoyé) et « ALACOD_WEB_PRIVATE_ASSETS=1 posé » ; l'étape « Build WASM in container » doit finir par `zombies : surcharge privée incluse (79 fichiers)`.
+2. Après le merge de `polissage-assets-prives` dans `main` : Actions > **Build & Deploy** > Run workflow (déploie le site réel). Sans la variable, le journal montre « Assets privés désactivés (variable ALACOD_WEB_PRIVATE_ASSETS absente) » et le repli public est publié.
+3. Avec la variable, dans le journal du job `Build WASM & Deploy` : l'étape « Assets privés (alacod-assets) » doit afficher `168 fichiers copiés` (puis `0 copiés, 168 déjà à jour` si le workspace n'a pas été nettoyé) et « ALACOD_WEB_PRIVATE_ASSETS=1 posé » ; l'étape « Build WASM in container » doit finir par `zombies : surcharge privée incluse (79 fichiers)`.
 4. Sur le site : zombies en solo dans Chrome (muet) : sprites du pack, murs et sol (D169), icônes du HUD. Sans secret (run d'un fork) : l'étape écrit « étape sautée » et le repli public est publié.
 5. Avant de publier un build public avec la surcharge : confirmation de TheLazyStone (plan-polissage § 0.3, décision 1) ; l'image Docker `ghcr.io/bascanada/alacod` de `release.yaml` contiendrait aussi les images.
 
@@ -89,6 +102,7 @@ crates/content/tests/fixtures/sprite_sheet_local_overlay/assets/sprites/sprites.
 
 - **Lint de contenu, avec et sans surcharge** (`alacod lint games/<jeu>`, surcharge présente puis supprimée) : zombies « aucune erreur (6 personnages, 4 armes, 6 armes de corps à corps, 1 vagues, 6 cartes) » et throne « aucune erreur (14 personnages, 13 armes, 4 armes de corps à corps, 0 vagues, 2 cartes) » dans les deux états ;
   la surcharge est ensuite restaurée par `scripts/assets-prives.sh` (168 copiés).
+- Retouche : `make format check_forbidden lint` verts (rc 0, commit de retouche) ; seuls des commentaires de `hud.rs` (D167→D169) et des fichiers YAML/docs changent, pas de `make test`.
 - `make test_tools` sur le Mac : 48 tests, **3 échecs préexistants** de `test_claude_say.py` (le faux `say` ; les mêmes trois échecs sur la base, `git stash`) ; les 10 nouveaux tests passent.
 - Test unitaire D169 : `cargo test -p game --no-default-features --lib the_local_overlay` : 2 passed (`the_local_overlay_is_looked_up_on_the_web_only_in_a_private_assets_build`, `the_local_overlay_replaces_wall_art_and_merges_icons_by_id`). Compile wasm de `zombies` avec `ALACOD_WEB_PRIVATE_ASSETS=1` : `Finished`.
 - **`make check`** (profil `headless`, `CARGO_TARGET_DIR=.target-mac`, `ALACOD_MUTE=1`, commit `6ef58211`) : `make -k format check_forbidden check_rollback_registration check_sim_boundary test_crates lint` → code 0 (fmt propre ; « OK: aucun nouveau motif interdit ; 51 occurrences auditées » ; « OK : aucun appel direct à rollback_component_with* » ; « OK : frontière simulation/présentation respectée par 13 crates ; 2 en dette D69 » ; tous les `test result: ok` de `test_crates` ; lint de zombies, testbed, throne, gungeon et isaac sans erreur) ; **`make test_tools` : 3 échecs préexistants de `test_claude_say.py` sur le Mac** (écart annoncé : le faux `say`), les 48 − 3 autres tests dont mes 10 passent ; le `make check` d'un seul tenant s'arrête donc à `test_tools` sur le Mac, d'où les cibles lancées une à une.
