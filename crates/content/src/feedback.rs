@@ -42,6 +42,16 @@ pub struct FeedbackSettings {
     /// Anneau et secousse d'une explosion de bombe, de baril ou de champion (M3-T17, §82).
     #[serde(default)]
     pub explosion: ExplosionFxConfig,
+    /// Flash de bouche de chaque tir (S1-6, §94) ; absent : aucun. Surchargé par arme (`by_weapon`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub muzzle_flash: Option<MuzzleFlashConfig>,
+    /// Recul visuel de l'arme à chaque tir (S1-6, §94) ; absent : aucun. Surchargé par arme
+    /// (`by_weapon`). Ne touche que le sprite de l'arme : la trajectoire ne change pas.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recoil: Option<RecoilConfig>,
+    /// Éclats à la mort d'un ennemi (S1-6, §94).
+    #[serde(default)]
+    pub death: DeathFxConfig,
     /// Surcharges par genre de dégât (`DamageKind`, ex. `Explosion`, `Custom("acide")`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub by_kind: BTreeMap<DamageKind, FeedbackOverride>,
@@ -193,6 +203,52 @@ impl Default for BossEndConfig {
     }
 }
 
+/// Flash de bouche (S1-6, §94) : un éclat allongé dans le sens du tir, à la sortie du canon, qui
+/// s'estompe en `frames` frames de simulation.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct MuzzleFlashConfig {
+    /// Durée, en frames de simulation.
+    pub frames: u32,
+    /// Longueur de l'éclat (px monde) ; sa largeur en est les deux tiers.
+    pub size: f32,
+    /// Couleur RGBA.
+    pub color: (f32, f32, f32, f32),
+}
+
+/// Recul visuel (S1-6, §94) : le sprite de l'arme recule de `distance` px à l'opposé du tir, puis
+/// revient en `frames` frames de simulation.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct RecoilConfig {
+    pub distance: f32,
+    pub frames: u32,
+}
+
+/// Plafond du recul visuel (lint, px) : au-delà, l'arme quitte la main du personnage.
+pub const MAX_RECOIL_DISTANCE: f32 = 16.0;
+
+/// Mort d'un ennemi (S1-6, §94) : `count` éclats de côté `size` projetés autour de sa dernière
+/// position, qui s'estompent (même mouvement que les débris d'un rocher, `game::feedback_v3`).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DeathFxConfig {
+    pub enabled: bool,
+    pub count: u32,
+    pub size: f32,
+    /// Couleur RGBA des éclats.
+    pub color: (f32, f32, f32, f32),
+}
+
+impl Default for DeathFxConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            count: 8,
+            size: 3.0,
+            color: (0.55, 0.1, 0.1, 1.0),
+        }
+    }
+}
+
 /// Bornes du zoom de fin de boss (lint).
 pub const BOSS_ZOOM_RANGE: (f32, f32) = (1.0, 4.0);
 /// Plafond des gels et durées de présentation (lint) : au-delà, le jeu paraît planté.
@@ -207,6 +263,11 @@ pub struct FeedbackOverride {
     pub hit_flash: Option<HitFlashConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shake: Option<ShakeConfig>,
+    /// S1-6 (§94), `by_weapon` seulement : flash de bouche et recul visuel de l'arme.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub muzzle_flash: Option<MuzzleFlashConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recoil: Option<RecoilConfig>,
 }
 
 /// Réglages effectifs d'un coup, après résolution.
@@ -253,6 +314,21 @@ impl FeedbackSettings {
         }
     }
 
+    /// Flash de bouche et recul d'un tir de l'arme `weapon` (S1-6, §94) : l'entrée `by_weapon` de
+    /// l'arme l'emporte sur la valeur globale, champ par champ.
+    pub fn resolve_shot(
+        &self,
+        weapon: Option<&str>,
+    ) -> (Option<MuzzleFlashConfig>, Option<RecoilConfig>) {
+        let entry = weapon.and_then(|name| self.by_weapon.get(name));
+        (
+            entry
+                .and_then(|entry| entry.muzzle_flash)
+                .or(self.muzzle_flash),
+            entry.and_then(|entry| entry.recoil).or(self.recoil),
+        )
+    }
+
     /// Valeurs hors plage (le lint les rapporte en `OutOfRange`) : `frames > 0` pour le flash
     /// et la secousse, `amplitude >= 0`, composantes de couleur dans `[0, MAX_FLASH_COLOR]`,
     /// alpha du télégraphe dans `[0, 1]`. Les noms d'armes de `by_weapon` sont vérifiés par
@@ -271,6 +347,15 @@ impl FeedbackSettings {
             }
         }
         self.blank_and_boss_problems(&mut problems);
+        check_shot(
+            "",
+            self.muzzle_flash.as_ref(),
+            self.recoil.as_ref(),
+            &mut problems,
+        );
+        if self.death.enabled {
+            check_death(&self.death, &mut problems);
+        }
         for (key, db) in &self.volumes {
             if !SOUND_VOLUME_DB_RANGE.contains(db) {
                 problems.push(FeedbackProblem {
@@ -299,8 +384,101 @@ impl FeedbackSettings {
             if let Some(shake) = &entry.shake {
                 check_shake(&format!("{prefix}.shake"), shake, &mut problems);
             }
+            check_shot(
+                &format!("{prefix}."),
+                entry.muzzle_flash.as_ref(),
+                entry.recoil.as_ref(),
+                &mut problems,
+            );
         }
         problems
+    }
+}
+
+/// S1-6 (§94) : flash de bouche (durée dans `[1, MAX_PRESENTATION_FRAMES]`, longueur > 0, couleur dans
+/// `[0, 1]`) et recul (distance dans `[0, MAX_RECOIL_DISTANCE]`, durée dans `[1, MAX_PRESENTATION_FRAMES]`).
+fn check_shot(
+    prefix: &str,
+    flash: Option<&MuzzleFlashConfig>,
+    recoil: Option<&RecoilConfig>,
+    problems: &mut Vec<FeedbackProblem>,
+) {
+    let mut bad =
+        |field: String, message: String| problems.push(FeedbackProblem { field, message });
+    let frames = 1..=MAX_PRESENTATION_FRAMES;
+    if let Some(flash) = flash {
+        if !frames.contains(&flash.frames) {
+            bad(
+                format!("{prefix}muzzle_flash.frames"),
+                format!(
+                    "{} : doit être dans [1, {MAX_PRESENTATION_FRAMES}]",
+                    flash.frames
+                ),
+            );
+        }
+        if flash.size <= 0.0 {
+            bad(
+                format!("{prefix}muzzle_flash.size"),
+                format!("{} : doit être > 0", flash.size),
+            );
+        }
+        let (r, g, b, a) = flash.color;
+        for (c, v) in [("r", r), ("g", g), ("b", b), ("a", a)] {
+            if !(0.0..=1.0).contains(&v) {
+                bad(
+                    format!("{prefix}muzzle_flash.color.{c}"),
+                    format!("{v} : doit être dans [0, 1]"),
+                );
+            }
+        }
+    }
+    if let Some(recoil) = recoil {
+        if !(0.0..=MAX_RECOIL_DISTANCE).contains(&recoil.distance) {
+            bad(
+                format!("{prefix}recoil.distance"),
+                format!(
+                    "{} : doit être dans [0, {MAX_RECOIL_DISTANCE}]",
+                    recoil.distance
+                ),
+            );
+        }
+        if !frames.contains(&recoil.frames) {
+            bad(
+                format!("{prefix}recoil.frames"),
+                format!(
+                    "{} : doit être dans [1, {MAX_PRESENTATION_FRAMES}]",
+                    recoil.frames
+                ),
+            );
+        }
+    }
+}
+
+/// S1-6 (§94) : éclats de mort (au moins un, côté > 0, couleur dans `[0, 1]`).
+fn check_death(death: &DeathFxConfig, problems: &mut Vec<FeedbackProblem>) {
+    let mut bad = |field: &str, message: String| {
+        problems.push(FeedbackProblem {
+            field: field.into(),
+            message,
+        })
+    };
+    if death.count == 0 || death.count > 64 {
+        bad(
+            "death.count",
+            format!("{} : doit être dans [1, 64]", death.count),
+        );
+    }
+    if death.size <= 0.0 {
+        bad("death.size", format!("{} : doit être > 0", death.size));
+    }
+    let (r, g, b, a) = death.color;
+    for (c, v) in [("r", r), ("g", g), ("b", b), ("a", a)] {
+        if !(0.0..=1.0).contains(&v) {
+            bad(
+                &format!("death.color.{c}"),
+                format!("{v} : doit être dans [0, 1]"),
+            );
+        }
     }
 }
 

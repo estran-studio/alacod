@@ -14,6 +14,16 @@
     hit_stop_frames: 2,
     damage_numbers: true,
     telegraph: (color: (1.0, 0.3, 0.2, 0.8)),
+    // S1-6 (polissage-feel, docs/conventions.md §94) : flash de bouche, recul visuel de l'arme (le sprite
+    // seul, la balle part droit) et éclats à la mort d'un zombie. Présentation seule. Zombies : tir sec et
+    // lisible, peu de recul (on mitraille longtemps) ; le fusil à pompe cogne plus fort.
+    muzzle_flash: Some((frames: 3, size: 10.0, color: (1.0, 0.75, 0.25, 0.95))),
+    recoil: Some((distance: 2.0, frames: 6)),
+    by_weapon: {
+        "machine_gun": (muzzle_flash: Some((frames: 2, size: 9.0, color: (1.0, 0.75, 0.25, 0.9))), recoil: Some((distance: 1.5, frames: 4))),
+        "shotgun": (muzzle_flash: Some((frames: 4, size: 16.0, color: (1.0, 0.7, 0.2, 1.0))), recoil: Some((distance: 4.0, frames: 10))),
+    },
+    death: (enabled: true, count: 8, size: 3.0, color: (0.45, 0.07, 0.07, 1.0)),
     sounds: {
         // Sons de base. Tir : clé de la famille du mode de tir actif (Manual : shot_pistol,
         // Shotgun : shot_shotgun, Automatic/Burst : shot_smg), repli sur "shot". Une arme

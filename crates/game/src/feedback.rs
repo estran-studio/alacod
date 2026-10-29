@@ -170,6 +170,8 @@ impl Plugin for FeedbackPlugin {
         app.init_resource::<FeedbackFx>();
         app.add_systems(Startup, spawn_screen_flash);
         app.add_systems(Update, (tint_champions, tint_transformations));
+        // S1-6 (§94) : flash de bouche, recul de l'arme, éclats de mort (`feedback_shots`).
+        app.add_plugins(crate::feedback_shots::ShotFeedbackPlugin);
         // Retire le zoom du tick précédent avant que le suivi de caméra ne relise la caméra.
         app.add_systems(
             Update,
@@ -794,7 +796,7 @@ pub struct Debris {
 }
 
 /// Fait naître `count` éclats autour de `origin`, de côté `size`.
-fn spawn_debris(
+pub(crate) fn spawn_debris(
     commands: &mut Commands,
     frame: u32,
     origin: Vec2,

@@ -79,6 +79,10 @@ pub struct CameraSettings {
     /// petite que l'écran, suivi borné aux murs d'une salle plus grande. Défaut : non (autres jeux inchangés).
     #[serde(default)]
     pub room_frame: bool,
+    /// S1-6 (§94) : interpolation d'affichage entre deux frames simulées (`display_interpolation`). Défaut : oui,
+    /// coupée au-delà de 48 px d'écart d'une frame à l'autre.
+    #[serde(default)]
+    pub interpolation: crate::display_interpolation::DisplayInterpolationSettings,
 }
 
 /// Boîtes des salles de l'étage courant (monde), publiées par `map_ldtk::game::rooms::publish_camera_rooms` : présentation
@@ -154,6 +158,7 @@ impl Default for CameraSettings {
             floor_fade_seconds: default_floor_fade_seconds(),
             floor_recenter: true,
             room_frame: false,
+            interpolation: Default::default(),
         }
     }
 }

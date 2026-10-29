@@ -31,7 +31,7 @@ impl Plugin for PerformanceCapturePlugin {
         let mut output = BufWriter::new(File::create(&self.0).expect("create ALACOD_PERF_CSV"));
         writeln!(
             output,
-            "frame,interval_ms,main_cpu_ms,simulation_ms,simulation_steps,bullets"
+            "frame,interval_ms,main_cpu_ms,simulation_ms,simulation_steps,bullets,player_x,player_y,camera_x,camera_y,alpha"
         )
         .unwrap();
         let now = Instant::now();
@@ -79,20 +79,40 @@ fn end_simulation(mut capture: ResMut<Capture>) {
     capture.simulation_steps += 1;
 }
 
+/// Une ligne par image. Colonnes d'affichage (S1-6, §94) : position **rendue** du joueur local de plus
+/// petit handle et de la caméra de jeu (après interpolation et suivi), et l'`alpha` de l'interpolation ;
+/// vides hors partie. `scripts/frame-pacing.py` en tire la régularité du mouvement à l'écran.
 fn record_frame(
     mut capture: ResMut<Capture>,
     frame: Res<FrameCount>,
     bullets: Query<(), With<Bullet>>,
+    players: Query<
+        (&crate::character::player::Player, &GlobalTransform),
+        With<crate::character::player::LocalPlayer>,
+    >,
+    cameras: Query<&GlobalTransform, With<crate::camera::GameCamera>>,
+    clock: Option<Res<crate::display_interpolation::InterpolationClock>>,
 ) {
     let cpu = capture.start.elapsed().as_secs_f64() * 1000.0;
     let interval = capture.interval_ms;
     let simulation = capture.simulation.as_secs_f64() * 1000.0;
     let steps = capture.simulation_steps;
+    let player = players
+        .iter()
+        .min_by_key(|(player, _)| player.handle)
+        .map(|(_, transform)| transform.translation());
+    let camera = cameras.iter().next().map(GlobalTransform::translation);
+    let xy = |position: Option<Vec3>| {
+        position.map_or(",".to_string(), |p| format!("{:.4},{:.4}", p.x, p.y))
+    };
+    let alpha = clock.map_or(String::new(), |clock| format!("{:.4}", clock.alpha));
     writeln!(
         capture.output,
-        "{},{interval:.4},{cpu:.4},{simulation:.4},{steps},{}",
+        "{},{interval:.4},{cpu:.4},{simulation:.4},{steps},{},{},{},{alpha}",
         frame.frame,
-        bullets.iter().len()
+        bullets.iter().len(),
+        xy(player),
+        xy(camera),
     )
     .unwrap();
     capture.rows += 1;
