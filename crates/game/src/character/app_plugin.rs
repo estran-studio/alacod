@@ -82,6 +82,7 @@ impl Plugin for CharacterPresentationPlugin {
                 visuals::animate_death_ghosts,
                 visuals::present_attacking,
                 set_sprite_flip,
+                visuals::present_shooting,
                 visuals::face_stationary_enemies.after(set_sprite_flip),
                 visuals::orient_familiars.after(set_sprite_flip),
                 update_health_bars,

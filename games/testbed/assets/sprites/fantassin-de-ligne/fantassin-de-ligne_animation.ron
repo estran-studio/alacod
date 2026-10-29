@@ -1,0 +1,36 @@
+// Généré par `alacod import-sprite` (X-4b) : indices d'atlas de la première ligne de direction de chaque bloc ;
+// le rendu y ajoute `ligne de direction × columns`. `clips` : durée d'image (ms) et boucle de chaque clip.
+(
+    frame_duration: 250,
+    columns: Some(24),
+    animations: {
+        "Idle": (start: 16, end: 23),
+        "Run": (start: 200, end: 207),
+        "Shoot": (start: 8, end: 15),
+        "baionnette": (start: 0, end: 7),
+        "epauler": (start: 8, end: 15),
+        "idle": (start: 16, end: 23),
+        "idle2": (start: 192, end: 199),
+        "marche": (start: 200, end: 207),
+        "mort": (start: 208, end: 215),
+        "rechargement": (start: 384, end: 391),
+        "roulade": (start: 392, end: 399),
+        "touche": (start: 400, end: 407),
+        "victoire": (start: 576, end: 583),
+    },
+    clips: {
+        "Idle": (frame_duration: Some(250), looping: Some(true)),
+        "Run": (frame_duration: Some(125), looping: Some(true)),
+        "Shoot": (frame_duration: Some(125), looping: Some(false)),
+        "baionnette": (frame_duration: Some(104), looping: Some(false)),
+        "epauler": (frame_duration: Some(125), looping: Some(false)),
+        "idle": (frame_duration: Some(250), looping: Some(true)),
+        "idle2": (frame_duration: Some(250), looping: Some(true)),
+        "marche": (frame_duration: Some(125), looping: Some(true)),
+        "mort": (frame_duration: Some(208), looping: Some(false)),
+        "rechargement": (frame_duration: Some(151), looping: Some(false)),
+        "roulade": (frame_duration: Some(136), looping: Some(false)),
+        "touche": (frame_duration: Some(63), looping: Some(false)),
+        "victoire": (frame_duration: Some(136), looping: Some(false)),
+    },
+)

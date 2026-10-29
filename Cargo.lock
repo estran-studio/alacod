@@ -315,6 +315,7 @@ version = "0.2.0"
 dependencies = [
  "bevy 0.19.1",
  "bevy_common_assets",
+ "ron 0.12.2",
  "serde",
  "sim_core",
 ]
@@ -4434,6 +4435,7 @@ dependencies = [
  "bevy_fixed",
  "clap 4.6.7",
  "effects",
+ "image",
  "items",
  "meta",
  "ron 0.12.2",
