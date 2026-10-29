@@ -83,3 +83,59 @@ Animations : sans pack, l'ennemi n'a que I(4) M(4) D(2), un joueur n'a pas d'att
 
 Estimation initiale : 3 jours. Reste : persos, ennemis et tourelle (1 j), armes et projectiles (0,75 j), murs, sol, objets, coffres et icônes (1 j), captures 1/2/4 joueurs et lint avec et sans surcharge (0,5 j),
 rapport et vérifications (0,5 j) : **3,5 à 4 jours** (au lieu de 3), plus l'étape 2 de S1-9 et l'interlude des distributeurs (fait).
+
+## 2. Tableau après (2026-10-29)
+
+Deux états mesurés : **surcharge locale** (`scripts/repack-throne.py`, packs Aymen B et Ittai lus dans leurs archives, rien commité) et **repli public**
+(fichiers commités : inchangés, c'est l'état « avant » du § 1 ; captures commitées dans `docs/captures/polissage-throne-visuel/`).
+
+| # | Classe | Avant | Après, avec les packs | Après, repli public | Preuve (captures) |
+|---|---|---|---|---|---|
+| 1 | Pilote | emprunté | **propre** : Aymen Player (I 6, M 8, D 8), côté gauche par miroir | emprunté | `1j_f01500`, `4j_f01500` |
+| 2 | Ombre | emprunté (secondaire) | emprunté (secondaire : aucune ombre dans les packs) | emprunté | — |
+| 3 | Armes portées | emprunté | **propre** pour les trois `sprite_config` : pistolet, fusil d'assaut (`machine_gun`), pompe (`shotgun`) d'Aymen ; **les 13 armes tiennent sur ces 3 images** (roquette, laser, plasma… portent l'une des trois, dit tel quel) | emprunté | `1j_f01500`, `4j_f03000` |
+| 4 | Rat, chien, rôdeur, pillard, cracheur, franc-tireur, arroseur, brute, buffle | emprunté | **propre** : Aymen Zombie 1–4 et Bandit, I 6 M 8 D 8 ; **9 ennemis sur 5 peaux**, séparés par l'échelle de présentation (rat 0,65, chien 0,8, buffle 1,2…) ; pas d'attaque (aucune dans le pack) | emprunté (une feuille) | `1j_f01500`, `2j_f00200` |
+| 6 | Tourelle | emprunté | **propre** : zombie tourelle d'Ittai (idle 12 images, ×2), dernier remède de D66 ; pas de mort, pas d'attaque (le crachat n'est pas une pose du corps) | emprunté + teinte | `1j_f04300` |
+| 7 | Roi rat | emprunté | **propre, dérivé du pack** : Zombie 4 à l'échelle 1,4 de `roi_rat.ron` ; pas de sprite de boss dans les packs | emprunté | `1j_f03600` |
+| 8 | Cible, mannequin | absent | **propre** : canette et épouvantail d'Ittai (×2, statiques) ; **non capturés** (cabine d'essai hors des scénarios jouées) | absent | — |
+| 9 | Projectiles | absent | **propre** : balle du joueur (lueur orange d'Aymen), crachat de la tourelle d'Ittai pour l'ennemi ; **une image par équipe**, pas par arme (limite moteur) | carré noir | `1j_f01500`, `4j_f03000` |
+| 10 | Effet de mêlée `slash` | emprunté | inchangé (hors du périmètre, throne n'en montre pas dans les scénarios) | emprunté | — |
+| 11 | Armes au sol | emprunté | **propre** pour 6 armes sur 13 (revolver, mitraillette, fusil à pompe, canon ricochet, roquette, lance-lames) ; les 7 autres (mortier, lance-grenades, laser, plasma, traqueur, disque, arsenal) prennent l'image générique `weapon` (revolver) : **emprunté par défaut, dit tel quel** | emprunté | `1j_f03600` |
+| 12 | Power-ups (7) | absent | **propre** : caisses de munitions, grenades, dynamite, batterie, crâne, bidon d'Aymen, ×2 ; le texte et le gizmo restent | absent | `1j_f03600` |
+| 13 | Coffres | absent | **propre** (coffre rouge : fermé, ouvert) ; non vu dans les scénarios joués | absent | — |
+| 14 | Objets et douilles au sol | absent | **absent** (aucune carte de throne n'en pose dans les scénarios ; pas d'image dédiée) | absent | — |
+| 15 | Portail | absent | **absent** : aucun portail dans les packs, le carré violet reste | absent | — |
+| 16 | Murs de caverne | emprunté | **propre** : toit et mur d'intérieur d'Aymen en auto-tuile de `wall_art` (`ui/hud.local.ron`) | emprunté (aplat brun) | toutes |
+| 17 | Sol | absent | **propre** : sable de Wasteland d'Aymen (quatre quarts d'une même tuile : aucune couture) | fond uni | toutes |
+| 18 | Portes, fenêtres, props | sans objet | sans objet | sans objet | — |
+| 19 | Repères d'auteur | invisibles | invisibles | invisibles | — |
+| 20 | HUD | icônes absentes | inchangé : `hud.ron` est à b3 (S2-8) ; la surcharge ne porte que `wall_art` et `icons` | inchangé | — |
+| 21 | Rads | texte + barre | inchangé | inchangé | — |
+| 22 | Mutations | texte | inchangé | inchangé | — |
+
+**Classes principales avec les packs** (pilote, ennemis, tourelle, roi rat, armes portées, projectiles, murs, sol) : **aucune case « emprunté »**.
+Restent dites telles : ombre, `slash`, **7 armes au sol sur 13**, les **13 armes en main sur 3 images**, portail, objets et douilles, 4 joueurs à la **même peau**
+(`player_colors` n'est pas une option de la surcharge de `hud.ron` et le fichier est à b3), **9 ennemis sur 5 peaux**, chaque Aymen sans animation d'attaque,
+tourelle sans mort ni attaque, deux carrés vert et noir de projectile **non identifiés** (présents avant les packs, hors périmètre de cette tâche).
+
+**Mélange de styles** : Aymen (contour noir, 32 px) et Ittai (aplats sans contour, 12 à 16 px) se côtoient seulement pour la tourelle, le crachat et deux
+mannequins ; sur la capture `1j_f04300` la tourelle reste lisible à côté d'un zombie Aymen. Murs et sol viennent tous deux d'Aymen (mur d'intérieur de labo sur sable : cohérent avec
+les personnages, moins avec une « caverne »).
+
+## 3. Par point de la fiche
+
+| Point | Résultat |
+|---|---|
+| Audit classe × état × animations | § 1 |
+| Personnages et ennemis animés (Idle, Run, Dying ; Attack si la feuille l'a) | fait ; **aucune Attack** (aucune feuille Aymen n'en a) |
+| Tourelle avec un sprite propre | fait (Ittai) |
+| Boss | dérivé du pack (Zombie 4 ×1,4), pas de sprite propre : limite des deux packs |
+| `wall_art` et sol | fait (`hud.local.ron`, `hud.ron` intact) |
+| Repli public commité inchangé | oui : aucun fichier public modifié, hors `assets.yaml` |
+| Captures 1 / 2 / 4 joueurs | `docs/captures/polissage-throne-visuel/` (repli public) et `~/orca/workspaces/alacod/captures/polissage-throne-visuel/` (surcharge) |
+| Licences avant l'import | `assets.yaml` : `aymen-b-zombiepack`, `ittai-zombie-apocalypse` |
+
+## 4. Captures
+
+Repli public (commité) et surcharge (hors dépôt), mêmes frames : `1j` = `throne_solo` (f200, f1500, f3600 roi rat, f4300 tourelle), `2j` = `throne_duo_defaite` (f200, f600),
+`4j` = `throne_quad` (f300, f1500, f3000). Avant : `throne_solo`, `throne_quad`, `throne_duo_defaite` du 2026-10-29 (§ 1) ; les captures de repli public sont identiques à l'état « avant ».
