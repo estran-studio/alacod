@@ -8042,3 +8042,26 @@ Présentation et lecture des périphériques seulement : **aucun bit d'input ne 
 - **Tests** : `character::control::tests` (le chemin leafwing réel : sticks, seuils, croix, épaules, course des gâchettes),
   `character::input_devices::tests` (visée gardée, curseur, seuil des gâchettes, écran ouvert, Sud bombe ou validation),
   `ui::screens::help::tests`, `ui::screens::model::tests` (entrée « Touches », Retour), `ui::game_over::tests`.
+
+## 97. Compteur de FPS d'affichage et de simulation, mesures dans le navigateur (S1-5, `docs/taches/polissage-perf-web.md`, voie b0)
+
+Présentation seule : **aucun système dans `GgrsSchedule`**, aucune ressource rollback, rien dans un hash ni une trace
+(`make test_scenarios` sans `BLESS`). Code : `crates/game/src/fps_counter.rs`, installé par `PresentationPlugin` (absent en headless).
+
+- **Demande** : `?perf=1` (surcouche + console) ou `?perf=console` (console seule) dans l'URL du chargeur (`loader.html`, ou la page
+  hôte `/play` : `loader.js` relit `window.parent.location.search`, même origine) ; `loader.js` le pose en attribut `data-perf` du
+  canvas avant le chargement du wasm. Natif : `ALACOD_FPS=1|console`. **Sans demande, le plugin n'est pas installé** : coût nul.
+  **F8** montre/cache la surcouche quand le plugin existe (touche libre : F3–F7 sont pris, § 83).
+- **Mesure** : une fenêtre d'une seconde réelle (`Time<Real>`), une ligne dans la console : `perf fps_display=… fps_sim=… steps=…
+  rollbacks=… advance_avg_ms=… advance_max_ms=… frame_max_ms=… frame=… entities=…`. `fps_display` = passages de `Last` ; `fps_sim` =
+  **progression nette** de `FrameCount` par seconde (60 = temps réel ; les resimulations n'y comptent pas) ; `steps` = passages de
+  `bevy_ggrs::AdvanceWorld` (resimulations comprises), `rollbacks` = passages de `LoadWorld`, `advance_*_ms` = durée d'une frame
+  simulée. Les chronos sont posés aux bornes des schedules de bevy_ggrs (comme `utils::snapshot_profile`), avec l'horloge de bevy
+  (`bevy::platform::time::Instant`, valable en wasm ; `std::time::Instant` y panique). Dans le navigateur, le dernier échantillon
+  est aussi écrit en JSON dans `data-perf-sample` du canvas.
+- **Outils de mesure** (pas des pages du site) : `website/static/perf-duo.html` (`?game=&build=&mode=local` : deux joueurs locaux
+  dans une page ; sans `mode=local` : en ligne par un `matchbox_server` local, un onglet par joueur, sans serveur ICE) et
+  `scripts/perf-web/gamepad-bot.js` (manette standard simulée qui bouge, tire par rafales, recharge, esquive et relance après la
+  défaite ; à injecter avant le chargement). Protocole, chiffres et limites : `docs/taches/rapports/polissage-perf-web.md`.
+- **Lumière** : les builds web (`scripts/build-web-games.mjs`, `--no-default-features --features render`) n'activent déjà pas la
+  feature `lighting` (`bevy_light_2d` absent du graphe wasm) : la « première dégradation » de la fiche est en place d'office.
