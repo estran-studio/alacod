@@ -8017,7 +8017,7 @@ Sans ces fichiers (CI, amis, build web public), le jeu lit les fichiers commité
 - **`HudIcon.image`** (`game::ui::hud`) : chemin d'image relatif à `assets/`, optionnel ; remplace le carré de couleur et l'étiquette dans `Icons` (perks, objet actif), `Counter` et `Hearts`
   (`heart`, `heart_half`, `soul_heart`, `soul_heart_half`, `heart_empty` : un cœur n'a d'image que si tous les états qu'il dessine en ont, sinon carrés de couleur). Le lint vérifie que l'image existe
   (`hud : icône « id » : image « … » absente`, fixture `hud_local_overlay_missing_image`).
-- **`ui/hud.local.ron`** (`HudOverlay`, lu par `HudConfigLoader`, qui remplace `RonAssetPlugin<HudConfig>`) : natif seulement (le web ne cherche pas un fichier absent du site) ; absence silencieuse ; présence enregistrée comme
+- **`ui/hud.local.ron`** (`HudOverlay`, lu par `HudConfigLoader`, qui remplace `RonAssetPlugin<HudConfig>`) : natif, et web **seulement dans un build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1`** (`hud_overlay_wanted`, § 99, D167 : un build web public ne cherche pas un fichier absent du site) ; absence silencieuse ; présence enregistrée comme
   dépendance (rechargement à chaud). Le lint lit les deux fichiers avec les options RON du chargeur (`Some` implicite, `content::ui::hud_ron_options`).
 - **`wall_art.floor`** (`FloorArt { tiles, mask_layer, z }`, `map_ldtk::wall_art::floor_cells`) : une tuile de la feuille de `wall_art` sous chaque case **non murée** de la couche `Walls`, choisie par une fonction entière de la case
   (`floor_tile`, aucun aléa) ; `z` 0,05 (sous les halos et les objets du monde). Les tuiles annexes prolongent la feuille au-delà des 36 de murs (`36..` : sol).
@@ -8139,5 +8139,6 @@ le pack dans `games/<jeu>/assets/assets.yaml` (`statut: dépôt privé alacod-as
 
 ### Limites assumées
 
-Le HUD de surcharge (`ui/hud.local.ron` : murs, sol, icônes à image) n'est pas lu par le build web, drapeau ou non (D167). Publier un build avec le drapeau **diffuse** ces images et ces sons sur le site public : c'est la
-décision de William du 2026-10-28 (dépôt privé cloné par la CI), mais la confirmation écrite de TheLazyStone pour un build web public n'est toujours pas obtenue (plan-polissage § 0.3, décision 1).
+Publier un build avec le drapeau **diffuse** ces images et ces sons sur le site public : c'est la décision de William du 2026-10-28 (dépôt privé cloné par la CI), mais la confirmation écrite de TheLazyStone pour un build web
+public n'est toujours pas obtenue (plan-polissage § 0.3, décision 1) ; l'image Docker `ghcr.io/bascanada/alacod` de `release.yaml` les contiendrait aussi. Le HUD de surcharge (`ui/hud.local.ron` : murs, sol, icônes à image) est lu par le web
+dans un build fait avec le drapeau (D167 fermée : `hud::hud_overlay_wanted`, `option_env!`) ; l'affichage dans Chrome n'est pas vérifié par ce lot (aucune écoute ni session de navigateur sur le Mac, rapport).

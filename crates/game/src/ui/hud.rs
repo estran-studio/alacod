@@ -344,7 +344,7 @@ pub struct HudConfig {
 /// Surcharge locale du HUD (S1-8) : `ui/hud.local.ron`, à côté de `ui/hud.ron`, **gitignorée** comme
 /// `sprites.local.ron` (pack d'images non redistribuable ; `docs/conventions.md` §2). Partielle : seuls les
 /// champs qu'elle porte remplacent ceux du `hud.ron` public (`wall_art` en bloc, `icons` id par id, un id
-/// du fichier public absent de la surcharge est gardé). Sans fichier (CI, autres postes, amis, wasm) le HUD
+/// du fichier public absent de la surcharge est gardé). Sans fichier (CI, autres postes, amis, build web public) le HUD
 /// public est lu tel quel : le repli est le `hud.ron` commité.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct HudOverlay {
@@ -377,10 +377,16 @@ pub enum HudLoadError {
     Ron(#[from] ron::error::SpannedError),
 }
 
+/// Une `ui/hud.local.ron` est-elle à chercher ? Natif : toujours (absence silencieuse). Web : seulement dans un
+/// build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1` (D167, `docs/conventions.md` § 99), le site contenant alors le
+/// fichier ; un build public ne le cherche pas (un fichier absent du site donnerait un 404 à chaque démarrage).
+fn hud_overlay_wanted(wasm: bool, web_private_assets: Option<&str>) -> bool {
+    !wasm || web_private_assets == Some("1")
+}
+
 /// Chargeur de `ui/hud.ron` : comme `RonAssetPlugin<HudConfig>`, plus la surcharge locale
-/// `ui/hud.local.ron` quand elle existe (natif seulement : le web ne cherche pas un fichier absent du
-/// site, il lirait un 404). L'absence du fichier est silencieuse ; sa présence l'enregistre comme
-/// dépendance (rechargement à chaud).
+/// `ui/hud.local.ron` quand elle existe (voir [`hud_overlay_wanted`]). L'absence du fichier est silencieuse ;
+/// sa présence l'enregistre comme dépendance (rechargement à chaud).
 #[derive(TypePath, Default)]
 pub struct HudConfigLoader;
 
@@ -398,8 +404,10 @@ impl bevy::asset::AssetLoader for HudConfigLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let mut config: HudConfig = hud_ron_options().from_bytes(&bytes)?;
-        #[cfg(not(target_arch = "wasm32"))]
-        {
+        if hud_overlay_wanted(
+            cfg!(target_arch = "wasm32"),
+            option_env!("ALACOD_WEB_PRIVATE_ASSETS"),
+        ) {
             let local = load_context.path().path().with_extension("local.ron");
             if let Ok(local_bytes) = load_context.read_asset_bytes(local).await {
                 match hud_ron_options().from_bytes::<HudOverlay>(&local_bytes) {
@@ -408,8 +416,6 @@ impl bevy::asset::AssetLoader for HudConfigLoader {
                 }
             }
         }
-        #[cfg(target_arch = "wasm32")]
-        let _ = load_context;
         Ok(config)
     }
 
@@ -2301,6 +2307,20 @@ mod tests {
             Color::srgba(0.0, 0.0, 0.0, 128.0 / 255.0)
         );
         assert_eq!(parse_color("pas une couleur"), Color::WHITE);
+    }
+
+    /// D167 : la surcharge du HUD n'est cherchée sur le web que dans un build fait avec le drapeau de surcharge privée.
+    #[test]
+    fn the_local_overlay_is_looked_up_on_the_web_only_in_a_private_assets_build() {
+        // Natif : toujours cherchée, quel que soit le drapeau de build.
+        assert!(hud_overlay_wanted(false, None));
+        assert!(hud_overlay_wanted(false, Some("0")));
+        // Web : le build public (drapeau absent ou autre que « 1 ») ne demande pas un fichier absent du site.
+        assert!(!hud_overlay_wanted(true, None));
+        assert!(!hud_overlay_wanted(true, Some("")));
+        assert!(!hud_overlay_wanted(true, Some("true")));
+        // Web, build fait avec ALACOD_WEB_PRIVATE_ASSETS=1 : le site contient la surcharge.
+        assert!(hud_overlay_wanted(true, Some("1")));
     }
 
     /// La surcharge locale remplace `wall_art` en bloc, ajoute ou remplace les icônes par id et garde les autres.
