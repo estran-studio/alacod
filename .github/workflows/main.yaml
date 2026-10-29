@@ -45,6 +45,21 @@ jobs:
           fetch-depth: 0
           clean: true
 
+      # S-0b (docs/conventions.md § 99) : surcharge privée de alacod-assets (images payantes, extraits Sonniss) AVANT le build.
+      # Double garde : la variable de dépôt ALACOD_WEB_PRIVATE_ASSETS doit valoir 1 (geste explicite de William, non posée par
+      # défaut : la licence TheLazyStone n'a pas de confirmation de l'auteur pour un build web public) ET le secret doit exister.
+      # Sans la variable, l'étape saute même avec le secret et le repli public est publié (le nightly compris).
+      # Avec la variable mais sans le secret (fork), le script saute aussi. Si les deux : ALACOD_WEB_PRIVATE_ASSETS=1 (D161).
+      - name: Assets privés (alacod-assets)
+        if: vars.ALACOD_WEB_PRIVATE_ASSETS == '1'
+        env:
+          ALACOD_ASSETS_DEPLOY_KEY: ${{ secrets.ALACOD_ASSETS_DEPLOY_KEY }}
+        run: scripts/assets-prives.sh --ci
+
+      - name: Assets privés désactivés (variable ALACOD_WEB_PRIVATE_ASSETS absente)
+        if: vars.ALACOD_WEB_PRIVATE_ASSETS != '1'
+        run: echo "::notice title=assets privés::variable de dépôt ALACOD_WEB_PRIVATE_ASSETS absente ou différente de 1 - surcharge privée sautée, le repli public est construit."
+
       - name: Build local builder image
         run: docker build --platform linux/amd64 -f Dockerfile.builder -t alacod-builder:ci .
       - name: Fix host cache permissions
@@ -82,6 +97,7 @@ jobs:
             -w /workspace \
             -e RUSTC_WRAPPER=sccache \
             -e CARGO_INCREMENTAL=0 \
+            -e ALACOD_WEB_PRIVATE_ASSETS \
             alacod-builder:ci \
             bash -c "cargo vendor && WEB_ENABLE_SOLO=1 WEB_ENABLE_ONLINE=1 make build_docker_website TARGET=web PROFILE=prod"
 
@@ -147,4 +163,5 @@ jobs:
           chmod -R u+w "${{ github.workspace }}/target_wasm_prod" 2>/dev/null || true
           rm -rf "${{ github.workspace }}/target_wasm_prod" || true
           rm -rf "${{ github.workspace }}/build" || true
+          git clean -ffdX -- games || true
         continue-on-error: true

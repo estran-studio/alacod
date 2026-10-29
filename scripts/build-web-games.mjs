@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, cpSync, statSync, existsSync, readdirSync, renameSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, statSync, existsSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { copyGameAssets, privateAssetsEnabled } from './web-assets.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const games = process.argv.slice(2);
 if (!games.length) games.push('zombies', 'throne');
@@ -38,7 +39,9 @@ for (const game of games) {
       run(process.env.WASM_OPT || 'wasm-opt', [join(staging, 'wasm_bg.wasm'), '--strip-debug', '--strip-dwarf', '-O2', '-o', join(staging, 'wasm_bg.optimized.wasm')]);
       renameSync(join(staging, 'wasm_bg.optimized.wasm'), join(staging, 'wasm_bg.wasm'));
     }
-    cpSync(join(root, 'games', game, 'assets'), join(staging, 'assets'), { recursive: true });
+    // D161 : la surcharge privée (scripts/assets-prives.patterns) n'entre dans le build que sur ALACOD_WEB_PRIVATE_ASSETS=1.
+    const copied = copyGameAssets(game, join(staging, 'assets'));
+    console.log(`${game} : surcharge privée ${privateAssetsEnabled() ? `incluse (${copied.privateIncluded} fichiers)` : `exclue (${copied.privateFound} fichiers présents sur le poste, non copiés)`}.`);
     const base = `/builds/${buildId}/${game}`;
     const manifest = { schemaVersion: 1, gameId: game, buildId, engineCommit: commit, module: `${base}/wasm.js`, wasm: `${base}/wasm_bg.wasm`, assets: `${base}/assets`, generatedAt: new Date().toISOString() };
     writeFileSync(join(staging, 'build.json'), JSON.stringify(manifest, null, 2) + '\n');

@@ -614,7 +614,6 @@ fn volume_problem(key: &str, db: f32) -> Option<FeedbackProblem> {
         ),
     })
 }
-
 impl FeedbackSettings {
     /// M2-T19 : durées > 0 et bornées, opacités dans `[0, 1]`, zoom dans [`BOSS_ZOOM_RANGE`],
     /// couleurs du télégraphe de forme dans `[0, 1]`.

@@ -8019,7 +8019,7 @@ Sans ces fichiers (CI, amis, build web public), le jeu lit les fichiers commité
 - **`HudIcon.image`** (`game::ui::hud`) : chemin d'image relatif à `assets/`, optionnel ; remplace le carré de couleur et l'étiquette dans `Icons` (perks, objet actif), `Counter` et `Hearts`
   (`heart`, `heart_half`, `soul_heart`, `soul_heart_half`, `heart_empty` : un cœur n'a d'image que si tous les états qu'il dessine en ont, sinon carrés de couleur). Le lint vérifie que l'image existe
   (`hud : icône « id » : image « … » absente`, fixture `hud_local_overlay_missing_image`).
-- **`ui/hud.local.ron`** (`HudOverlay`, lu par `HudConfigLoader`, qui remplace `RonAssetPlugin<HudConfig>`) : natif seulement (le web ne cherche pas un fichier absent du site) ; absence silencieuse ; présence enregistrée comme
+- **`ui/hud.local.ron`** (`HudOverlay`, lu par `HudConfigLoader`, qui remplace `RonAssetPlugin<HudConfig>`) : natif, et web **seulement dans un build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1`** (`hud_overlay_wanted`, § 99, D169 : un build web public ne cherche pas un fichier absent du site) ; absence silencieuse ; présence enregistrée comme
   dépendance (rechargement à chaud). Le lint lit les deux fichiers avec les options RON du chargeur (`Some` implicite, `content::ui::hud_ron_options`).
 - **`wall_art.floor`** (`FloorArt { tiles, mask_layer, z }`, `map_ldtk::wall_art::floor_cells`) : une tuile de la feuille de `wall_art` sous chaque case **non murée** de la couche `Walls`, choisie par une fonction entière de la case
   (`floor_tile`, aucun aléa) ; `z` 0,05 (sous les halos et les objets du monde). Les tuiles annexes prolongent la feuille au-delà des 36 de murs (`36..` : sol).
@@ -8049,8 +8049,8 @@ teinté) et widget `Legend`. `halo` = tuile 0 de l'atlas de gungeon (CC0, `sprit
 ### Limites assumées
 
 Distributeurs de perks : tuile Dungeon (potion) de l'éditeur LDtk, aucune image dans le pack (décision de William en attente) ; `slash` et `insta_kill`/`double_points`/`nuke` sans image ; pas d'animation d'attaque (le moteur n'a pas d'état `Attack`) ;
-angles rentrants du dessus de mur approchés (le pack n'a pas d'angle concave) ; portes = barricades de bois (le pack n'a pas de porte vue de dessus). **Un build web qui copie `games/zombies/assets/` en entier embarquerait la surcharge locale d'un poste** (D161) :
-ne publier que depuis une copie propre.
+angles rentrants du dessus de mur approchés (le pack n'a pas d'angle concave) ; portes = barricades de bois (le pack n'a pas de porte vue de dessus). **La surcharge n'entre dans un build web que sous `ALACOD_WEB_PRIVATE_ASSETS=1`** (D161 fermée, § 99) :
+sans le drapeau, un poste qui l'a installée publie quand même le repli public.
 
 ## 93. Manette jouable, menus et aide des touches (S1-1, `docs/taches/polissage-manette.md`, voie b0)
 
@@ -8198,6 +8198,59 @@ Présentation seule : **aucun système dans `GgrsSchedule`**, aucune ressource r
   défaite ; à injecter avant le chargement). Protocole, chiffres et limites : `docs/taches/rapports/polissage-perf-web.md`.
 - **Lumière** : les builds web (`scripts/build-web-games.mjs`, `--no-default-features --features render`) n'activent déjà pas la
   feature `lighting` (`bevy_light_2d` absent du graphe wasm) : la « première dégradation » de la fiche est en place d'office.
+
+## 99. Dépôt privé d'assets `alacod-assets`, `scripts/assets-prives.sh` et drapeau de build web (S-0b, D161)
+
+Lot `polissage-assets-prives` (rapport `docs/taches/rapports/polissage-assets-prives.md`). Outillage seulement : aucun code de simulation, aucune trace ne bouge. Les images payantes (TheLazyStone, Aymen B,
+Ittai Manero) et les extraits Sonniss GDC 2026 (licence : pas de revente « tels quels ») n'entrent **jamais** dans `estran-studio/alacod` (public) : ils vivent dans le dépôt **privé**
+`estran-studio/alacod-assets` (branche `main`), cloné par la CI du site et par `scripts/assets-prives.sh` sur les postes.
+
+### Le dépôt privé
+
+`<jeu>/…` reprend **exactement** les chemins de `games/<jeu>/assets/…` de la surcharge locale (§ 92, § 96) : `zombies/sprites/postapo/`, `zombies/sprites/sprites.local.ron`, `zombies/ui/hud.local.ron`,
+`zombies/sounds/sonniss/` (14 extraits) ; `throne/sprites/postapo/`, `throne/sprites/sprites.local.ron`, `throne/ui/hud.local.ron` (Aymen B + Ittai) ; `throne/sounds/sonniss/` à venir (S2-11).
+`licences/<pack>/` : texte de licence lu dans l'archive et fiche `LICENCE.md` (source, auteur, achat). Le `README` du dépôt dit comment tout régénérer (`repack-postapocalypse.py`, `repack-throne.py`, `repack-zombies-sons.py`).
+
+### Trois outils, une seule liste de chemins
+
+`scripts/assets-prives.patterns` (chemins relatifs à `assets/` : `sprites/postapo/`, `sounds/sonniss/`, `*.local.ron`) est la **source unique** de ce qui est « surcharge privée » :
+
+| Outil | Rôle |
+|---|---|
+| `scripts/assets-prives.sh [--source D] [--ci] [jeu…]` | clone ou met à jour (`pull --ff-only`) `alacod-assets` dans `~/orca/workspaces/alacod/packs/alacod-assets` (`ALACOD_ASSETS_DIR`), copie dans `games/<jeu>/assets/`. **Idempotent** (fichiers identiques non réécrits). Refuse (code 1) un chemin non couvert par les règles, ou non gitignoré, ou déjà suivi par git. Sans accès au dépôt : message et code 1, jamais d'échec silencieux. `--ci` : voir plus bas |
+| `scripts/web-assets.mjs <jeu> <destination>` | copie des assets d'un build web (`build-web-games.mjs`, `make cp_asset`) sans les chemins de la liste, sauf sous le drapeau |
+| `scripts/embed-game-content.rs` | inventaire et contenu RON embarqués dans le wasm (`EMBEDDED_CONTENT`, dont `sprites.local.ron`) : sans le drapeau, les chemins de la liste n'y sont pas |
+
+### D161 : le drapeau `ALACOD_WEB_PRIVATE_ASSETS=1`
+
+Sans lui, **aucun** build web (`make build_wasm_apps`, `make build_web_games`, `make cp_asset`) n'embarque un fichier de la surcharge, même présent sur le disque du poste : le repli public. Avec lui, tout ce
+qui est sous les chemins de la liste est copié et embarqué. Il est posé par l'étape de CI quand le clone a réussi (`$GITHUB_ENV`), ou à la main après `scripts/assets-prives.sh` :
+`ALACOD_WEB_PRIVATE_ASSETS=1 make build_wasm_apps TARGET=web`. `build-web-games.mjs` écrit « surcharge privée incluse (N fichiers) » ou « exclue (N fichiers présents sur le poste, non copiés) ». Le lint de
+contenu (`alacod lint games/<jeu>`) lit le disque : il passe avec et sans surcharge, le drapeau ne concerne que ce qui est publié.
+
+### CI
+
+- **Étape « Assets privés (alacod-assets) »** de `release.yaml` (tag) et de `main.yaml` (Build & Deploy, le déploiement réel du site : dispatch et nuit), **avant** `make build_docker_website` : `scripts/assets-prives.sh --ci` avec
+  `ALACOD_ASSETS_DEPLOY_KEY` (clé de déploiement **en lecture seule** « ci-alacod-site », secret du dépôt `estran-studio/alacod`), clone en SSH, copie, puis `ALACOD_WEB_PRIVATE_ASSETS=1` pour les étapes suivantes
+  (le `docker run` du build le transmet par `-e`). **Sans le secret** (fork, pull request) : message `::notice::`, code 0, rien n'est écrit, le repli public se construit. **Avec le secret et un clone qui échoue** : l'étape échoue
+  (la clé n'est jamais journalisée, `set +x`, fichier 0600 supprimé à la sortie). Les fichiers sont retirés du workspace en fin de job (`git clean -ffdX -- games`).
+  **Garde par variable de dépôt** : l'étape ne tourne que si la variable GitHub `ALACOD_WEB_PRIVATE_ASSETS` vaut `1` (`if: vars.ALACOD_WEB_PRIVATE_ASSETS == '1'`), **en plus** du secret. La variable n'est pas posée par défaut : sans elle l'étape est sautée
+  (une étape « Assets privés désactivés » le dit dans le journal) et le repli public est publié, **même avec le secret**, nightly de `main.yaml` compris. Raison : la confirmation de TheLazyStone pour un build web public n'est pas obtenue ;
+  poser la variable est un geste de William (`gh variable set ALACOD_WEB_PRIVATE_ASSETS --body 1 -R estran-studio/alacod`, la retirer : `gh variable delete ALACOD_WEB_PRIVATE_ASSETS -R estran-studio/alacod`).
+- **`assets-prives.yaml`** (runner GitHub, sur push des fichiers concernés, pull request et dispatch) : lance le vrai script avec le secret du dépôt puis avec une clé vide, et vérifie les deux copies d'assets de build web
+  (sans le drapeau : aucun fichier de surcharge ; avec : présents). Les deux jobs du site tournent sur le runner auto-hébergé `alacod-builder`, hors de portée de ce workflow.
+  Le job `variable-absente` de ce workflow rejoue la même condition `if` et vérifie l'étape **sautée** sans la variable ; les deux autres jobs gardent le secret seul (ils ne déploient rien).
+
+### Ajouter un asset privé
+
+Le chemin doit être couvert par `scripts/assets-prives.patterns` **et** par `.gitignore`, sinon `assets-prives.sh` refuse de le copier. L'ajouter dans `alacod-assets` (mêmes chemins relatifs à `games/<jeu>/assets/`), puis déclarer
+le pack dans `games/<jeu>/assets/assets.yaml` (`statut: dépôt privé alacod-assets`) avant tout import (règle V6).
+
+### Limites assumées
+
+Publier un build avec le drapeau **diffuse** ces images et ces sons sur le site public : c'est la décision de William du 2026-10-28 (dépôt privé cloné par la CI), mais la confirmation écrite de TheLazyStone pour un build web
+public n'est toujours pas obtenue (plan-polissage § 0.3, décision 1) ; l'image Docker `ghcr.io/bascanada/alacod` de `release.yaml` les contiendrait aussi. Le HUD de surcharge (`ui/hud.local.ron` : murs, sol, icônes à image) est lu par le web
+dans un build fait avec le drapeau (D169 fermée : `hud::hud_overlay_wanted`, `option_env!`) ; l'affichage dans Chrome n'est pas vérifié par ce lot (aucune écoute ni session de navigateur sur le Mac, rapport).
 
 ## 98. Sons par surcharge locale : `ui/feedback.local.ron` (S1-9 étape 2, `docs/taches/polissage-zombies-sons.md`, voie b1)
 

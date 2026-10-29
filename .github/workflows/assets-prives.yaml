@@ -1,0 +1,130 @@
+name: Assets privés
+
+# S-0b (docs/conventions.md § 99) : preuve, sur un runner GitHub (pas le runner auto-hébergé du site), de l'étape qui clone
+# le dépôt privé estran-studio/alacod-assets et du drapeau D161. Lance le vrai `scripts/assets-prives.sh --ci` et
+# `scripts/web-assets.mjs`, sans compiler ni déployer quoi que ce soit.
+#  - `avec-secret` : ALACOD_ASSETS_DEPLOY_KEY est passé tel que le dépôt le fournit. Avec la clé (push de ce dépôt, dispatch)
+#    le clone doit réussir et la surcharge être copiée ; sans (pull request d'un fork) l'étape saute et rien n'est copié.
+#  - `sans-secret` : la clé est forcée à vide ; l'étape doit sauter (code 0), rien ne doit être copié, et le build web
+#    (copie des assets) ne doit contenir aucun fichier de la surcharge.
+#  - `variable-absente` : la condition `vars.ALACOD_WEB_PRIVATE_ASSETS == '1'` des étapes de `release.yaml` et `main.yaml` ; sans la
+#    variable de dépôt (non posée par défaut) l'étape doit être sautée même avec le secret.
+# `avec-secret` et `sans-secret` gardent le secret seul : ce workflow ne déploie rien.
+
+on:
+  push:
+    paths:
+      - scripts/assets-prives.sh
+      - scripts/assets-prives.patterns
+      - scripts/web-assets.mjs
+      - .github/workflows/assets-prives.yaml
+  pull_request:
+    paths:
+      - scripts/assets-prives.sh
+      - scripts/assets-prives.patterns
+      - scripts/web-assets.mjs
+      - .github/workflows/assets-prives.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  avec-secret:
+    name: Étape de clone (secret du dépôt)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assets privés (alacod-assets)
+        id: clone
+        env:
+          ALACOD_ASSETS_DEPLOY_KEY: ${{ secrets.ALACOD_ASSETS_DEPLOY_KEY }}
+          HAS_KEY: ${{ secrets.ALACOD_ASSETS_DEPLOY_KEY != '' }}
+        run: |
+          set -o pipefail
+          scripts/assets-prives.sh --ci | tee /tmp/assets-prives.log
+          echo "has_key=$HAS_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Vérifier la copie et le drapeau
+        env:
+          HAS_KEY: ${{ steps.clone.outputs.has_key }}
+        run: |
+          private_files=$(git ls-files --others --ignored --exclude-standard games | wc -l)
+          echo "fichiers de surcharge sur le disque : $private_files ; ALACOD_WEB_PRIVATE_ASSETS=${ALACOD_WEB_PRIVATE_ASSETS:-<absent>}"
+          if [ "$HAS_KEY" = true ]; then
+            [ "$private_files" -gt 0 ] || { echo "clé présente mais rien copié"; exit 1; }
+            [ "${ALACOD_WEB_PRIVATE_ASSETS:-}" = 1 ] || { echo "clé présente mais ALACOD_WEB_PRIVATE_ASSETS absent"; exit 1; }
+            out=$(mktemp -d)
+            node scripts/web-assets.mjs zombies "$out/zombies"
+            node scripts/web-assets.mjs throne "$out/throne"
+            [ -f "$out/zombies/sprites/sprites.local.ron" ] && [ -d "$out/throne/sprites/postapo" ] || { echo "surcharge absente du build avec drapeau"; exit 1; }
+          else
+            [ "$private_files" -eq 0 ] || { echo "pas de clé mais des fichiers de surcharge présents"; exit 1; }
+            [ -z "${ALACOD_WEB_PRIVATE_ASSETS:-}" ] || { echo "pas de clé mais le drapeau est posé"; exit 1; }
+            echo "pas de clé (fork ou pull request) : étape sautée, repli public, comme attendu."
+          fi
+          [ "$(git ls-files games | grep -c postapo || true)" -eq 0 ] || { echo "image de surcharge suivie par git"; exit 1; }
+
+  sans-secret:
+    name: Étape de clone sans le secret
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assets privés (alacod-assets), clé vide
+        env:
+          ALACOD_ASSETS_DEPLOY_KEY: ""
+        run: scripts/assets-prives.sh --ci
+
+      - name: Rien copié, drapeau absent, build web sans surcharge
+        run: |
+          [ "$(git ls-files --others --ignored --exclude-standard games | wc -l)" -eq 0 ] || { echo "fichiers de surcharge présents"; exit 1; }
+          [ -z "${ALACOD_WEB_PRIVATE_ASSETS:-}" ] || { echo "drapeau posé sans clé"; exit 1; }
+          # Poste qui aurait une surcharge sur le disque : le build sans drapeau ne l'embarque pas.
+          mkdir -p games/zombies/assets/sprites/postapo games/zombies/assets/sounds/sonniss
+          echo x > games/zombies/assets/sprites/postapo/test.png
+          echo x > games/zombies/assets/sounds/sonniss/test.ogg
+          echo "()" > games/zombies/assets/sprites/sprites.local.ron
+          echo "()" > games/zombies/assets/ui/hud.local.ron
+          out=$(mktemp -d)
+          node scripts/web-assets.mjs zombies "$out/zombies"
+          leaked=$(find "$out" -path '*postapo*' -o -path '*sonniss*' -o -name '*.local.ron' | wc -l)
+          echo "fichiers de surcharge dans le build sans drapeau : $leaked"
+          [ "$leaked" -eq 0 ] || { find "$out" -path '*postapo*' -o -path '*sonniss*' -o -name '*.local.ron'; exit 1; }
+          [ -f "$out/zombies/game.ron" ] || { echo "le repli public est incomplet"; exit 1; }
+          ALACOD_WEB_PRIVATE_ASSETS=1 node scripts/web-assets.mjs zombies "$out/avec"
+          [ -f "$out/avec/sprites/postapo/test.png" ] && [ -f "$out/avec/sounds/sonniss/test.ogg" ] || { echo "le drapeau n'inclut pas la surcharge"; exit 1; }
+
+  # Garde par variable de dépôt (release.yaml et main.yaml) : la même condition `if` que sur l'étape du site, le secret en plus.
+  # Tant que William n'a pas posé la variable ALACOD_WEB_PRIVATE_ASSETS=1, l'étape doit être SAUTÉE même avec le secret. Les deux
+  # autres jobs de ce fichier gardent le secret seul : ils ne déploient rien (aucun build, aucune publication).
+  variable-absente:
+    name: Étape gardée par la variable de dépôt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assets privés (alacod-assets), même condition que le site
+        id: prives
+        if: vars.ALACOD_WEB_PRIVATE_ASSETS == '1'
+        env:
+          ALACOD_ASSETS_DEPLOY_KEY: ${{ secrets.ALACOD_ASSETS_DEPLOY_KEY }}
+        run: scripts/assets-prives.sh --ci
+
+      - name: Résultat attendu
+        env:
+          OUTCOME: ${{ steps.prives.outcome }}
+          VARIABLE: ${{ vars.ALACOD_WEB_PRIVATE_ASSETS }}
+        run: |
+          echo "variable ALACOD_WEB_PRIVATE_ASSETS='${VARIABLE}' ; étape : ${OUTCOME}"
+          if [ "$VARIABLE" = 1 ]; then expected=success; else expected=skipped; fi
+          [ "$OUTCOME" = "$expected" ] || { echo "attendu : ${expected}"; exit 1; }
+          if [ "$VARIABLE" != 1 ]; then
+            [ "$(git ls-files --others --ignored --exclude-standard games | wc -l)" -eq 0 ] || { echo "surcharge présente sans la variable"; exit 1; }
+            [ -z "${ALACOD_WEB_PRIVATE_ASSETS:-}" ] || { echo "drapeau posé sans la variable"; exit 1; }
+            echo "variable absente : étape sautée même avec le secret, rien copié, repli public."
+          fi
