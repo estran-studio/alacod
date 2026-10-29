@@ -130,6 +130,9 @@
     // d'éditeur) ; légende (F7) ; noms des étiquettes (F6).
     player_colors: ["#4aa3ff", "#4cd964", "#ffd60a", "#b266ff"],
     hide_markers: true,
+    // S1-8 (suite) : une porte et sa jumelle collée (de l'autre côté du mur) ne font qu'une porte double à l'écran :
+    // battants symétriques, une seule étiquette F6 ; une porte plus longue que son image est une rangée d'images.
+    double_doors: true,
     // T2.12 : icônes des perks (`economy/perks.ron`) : carré de couleur + étiquette.
     icons: {
         "juggernog": (color: "#c0392b", label: "J"),

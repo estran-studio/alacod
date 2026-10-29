@@ -21,6 +21,43 @@ use super::{appearance::CharacterAppearance, config::CharacterConfigs, health_ba
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct MarkerTint(pub Color);
 
+/// Frames de simulation pendant lesquelles un coup reste « en cours » pour la pose d'attaque de présentation :
+/// un peu plus que le délai entre deux coups d'un zombie (`attack_cooldown_frames` : 45 pour le zombie et le
+/// boss), pour que des coups enchaînés ne retombent pas en `Run` entre deux frappes.
+pub const ATTACK_POSE_FRAMES: u32 = 48;
+
+/// Vrai si le coup `last_attack_frame` date de moins de [`ATTACK_POSE_FRAMES`] frames. Pure, pour les tests.
+pub fn struck_recently(frame: u32, last_attack_frame: u32) -> bool {
+    frame >= last_attack_frame && frame - last_attack_frame <= ATTACK_POSE_FRAMES
+}
+
+/// Pose d'attaque (S1-8, présentation, `Update`) : tant qu'un ennemi est en `MonsterState::Attacking` et que son
+/// dernier coup est récent, la clé `"Attack"` est proposée à l'animation, qui l'applique **si** sa carte la définit
+/// (les feuilles publiques n'en ont pas : rien ne change). Lit l'état rollback existant et la frame courante ;
+/// n'écrit ni dans la simulation ni dans `AnimationState`. Même clé de présentation que la pose `Shoot` de X-4b
+/// (`PresentationClip`) : au merge des deux branches, les deux systèmes alimentent le même composant (un
+/// zombie n'a pas d'arme à distance, un tireur n'a pas `MonsterState` : ils ne se disputent aucune entité).
+pub fn present_attacking(
+    frame: Res<FrameCount>,
+    mut enemies: Query<(
+        &crate::character::enemy::ai::state::MonsterState,
+        &mut animation::PresentationClip,
+    )>,
+) {
+    use crate::character::enemy::ai::state::MonsterState;
+    for (state, mut clip) in &mut enemies {
+        let attacking = matches!(
+            state,
+            MonsterState::Attacking { last_attack_frame, .. }
+                if struck_recently(frame.frame, *last_attack_frame)
+        );
+        let wanted = attacking.then(|| "Attack".to_string());
+        if clip.0 != wanted {
+            clip.0 = wanted;
+        }
+    }
+}
+
 /// Marque une entité dont les visuels ont été créés (hors rollback).
 #[derive(Component)]
 pub struct VisualsAttached;
@@ -473,5 +510,72 @@ mod tests {
             "ennemi revenu : fantôme supprimé"
         );
         assert!(app.world().get_entity(g2).is_ok(), "autre fantôme intact");
+    }
+}
+
+#[cfg(test)]
+mod attack_pose_tests {
+    use super::*;
+    use crate::character::enemy::ai::state::{AttackTarget, MonsterState};
+    use bevy::ecs::system::RunSystemOnce;
+
+    #[test]
+    fn un_coup_reste_en_cours_la_duree_de_la_pose() {
+        assert!(struck_recently(100, 100));
+        assert!(struck_recently(100 + ATTACK_POSE_FRAMES, 100));
+        assert!(!struck_recently(101 + ATTACK_POSE_FRAMES, 100));
+        // Un coup « dans le futur » (rollback vers une frame plus ancienne) ne pose rien.
+        assert!(!struck_recently(99, 100));
+    }
+
+    fn world_at(frame: u32) -> World {
+        let mut world = World::new();
+        world.insert_resource(FrameCount { frame });
+        world
+    }
+
+    fn attacking(last: u32) -> MonsterState {
+        MonsterState::Attacking {
+            target: AttackTarget::Obstacle {
+                net_id: GgrsNetId(7, "window".into()),
+            },
+            last_attack_frame: last,
+        }
+    }
+
+    /// La pose suit l'état d'attaque et n'écrit rien d'autre : un zombie qui frappe propose `Attack`, un
+    /// zombie qui poursuit ou dont le dernier coup est ancien repasse à `None` (donc `Run`).
+    #[test]
+    fn la_pose_d_attaque_derive_de_l_etat_d_attaque() {
+        let mut world = world_at(200);
+        let striking = world
+            .spawn((attacking(180), animation::PresentationClip::default()))
+            .id();
+        let stale = world
+            .spawn((attacking(100), animation::PresentationClip::default()))
+            .id();
+        let chasing = world
+            .spawn((
+                MonsterState::Chasing,
+                animation::PresentationClip::default(),
+            ))
+            .id();
+        world.run_system_once(present_attacking).unwrap();
+        let clip = |world: &World, e| {
+            world
+                .get::<animation::PresentationClip>(e)
+                .unwrap()
+                .0
+                .clone()
+        };
+        assert_eq!(clip(&world, striking).as_deref(), Some("Attack"));
+        assert_eq!(clip(&world, stale), None);
+        assert_eq!(clip(&world, chasing), None);
+        // Le coup suivant à la frame courante : toujours en pose ; le temps passe : la pose retombe.
+        world.insert_resource(FrameCount {
+            frame: 180 + ATTACK_POSE_FRAMES + 1,
+        });
+        world.run_system_once(present_attacking).unwrap();
+        assert_eq!(clip(&world, striking), None);
     }
 }

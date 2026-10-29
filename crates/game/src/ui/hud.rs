@@ -333,6 +333,12 @@ pub struct HudConfig {
     /// sont pas dessinés (autres jeux inchangés).
     #[serde(default)]
     pub wall_art: Option<WallArt>,
+    /// Portes doubles (S1-8, `docs/conventions.md` §92) : une porte et sa jumelle collée (`paired_door`) ne font
+    /// qu'**une** porte à l'écran (battants symétriques, une étiquette F6), et une porte plus longue que son image
+    /// est faite d'une rangée d'images (`world_sprites::DoorPair`). Faux par défaut : gungeon et les autres
+    /// jeux gardent leurs portes et leurs étiquettes.
+    #[serde(default)]
+    pub double_doors: bool,
 }
 
 /// Surcharge locale du HUD (S1-8) : `ui/hud.local.ron`, à côté de `ui/hud.ron`, **gitignorée** comme
@@ -991,6 +997,7 @@ fn update_hud_v1_values(
         hide_markers: false,
         room_icons: BTreeMap::new(),
         wall_art: None,
+        double_doors: false,
     };
     let config = config_handle
         .0
@@ -1426,6 +1433,7 @@ fn update_hud_hearts(
                 hide_markers: false,
                 room_icons: BTreeMap::new(),
                 wall_art: None,
+                double_doors: false,
             };
             &default_config
         }
@@ -2359,6 +2367,7 @@ mod tests {
             hide_markers: false,
             room_icons: BTreeMap::new(),
             wall_art: None,
+            double_doors: false,
         };
         config.icons.insert(
             "juggernog".into(),

@@ -27,7 +27,7 @@ use combat::projectile::{Projectile, BASE_SPRITE};
 use combat::status::StatusLibrary;
 use combat::weapons::{Bullet, BulletLook, BulletType, WeaponPickup};
 use items::{Chest, ItemKind, ItemPickup, ItemTable, Shelf, ShellPickup};
-use map::game::entity::map::door::DoorComponent;
+use map::game::entity::map::door::{DoorComponent, DoorGridPosition};
 use map::game::entity::map::window::WindowHealth;
 use map::game::entity::MapRollbackItem;
 use sim_core::team::Team;
@@ -36,6 +36,7 @@ use crate::collider::Collider;
 use crate::global_asset::GlobalAsset;
 use crate::interaction::Interactable;
 use crate::powerups::PowerUpPickup;
+use crate::ui::hud::{HudConfig, HudConfigHandle};
 use crate::visual_requests::{SecretDoor, SpriteRequest};
 
 pub struct WorldSpritePlugin;
@@ -53,7 +54,11 @@ impl Plugin for WorldSpritePlugin {
                 attach_world_sprites,
                 sync_world_sprites,
                 skin_bullets,
-                attach_door_sprites,
+                pair_doors,
+                attach_door_sprites.after(pair_doors),
+                mirror_door_pairs
+                    .after(attach_door_sprites)
+                    .after(pair_doors),
                 sync_door_sprites.after(attach_door_sprites),
                 attach_window_sprites,
                 sync_window_sprites.after(attach_window_sprites),
@@ -358,33 +363,148 @@ fn sync_world_sprites(
     }
 }
 
-/// Porte dont l'image d'état est posée ; `child` est son sprite, `id` l'entrée (`door_v` : 16 x 32,
-/// `door_h` : 32 x 16).
+/// Porte dont l'image d'état est posée ; `children` sont ses sprites (un seul, ou une rangée pour une porte plus
+/// longue que l'image avec `double_doors`), `id` l'entrée (`door_v` : 16 x 32, `door_h` : 32 x 16).
 #[derive(Component)]
 pub struct DoorSprite {
     id: &'static str,
-    child: Entity,
+    children: Vec<Entity>,
+}
+
+/// Porte double (S1-8, `double_doors` de `hud.ron`) : cette porte et sa jumelle (`DoorConfig::paired_door`, la
+/// porte de la salle voisine, collée contre elle de l'autre côté du mur) forment **une** porte. La simulation en a
+/// deux (deux entités, deux colliders, deux prix : celle qu'on actionne se paie et ouvre l'autre, voir
+/// `interaction::handle_door_interaction`) ; la présentation n'en fait qu'une : les deux battants sont
+/// **symétriques** (le second est retourné) et il n'y a qu'une étiquette (`first`, au `center`). Chaque battant
+/// montre l'état de **sa** porte, donc l'image ne ment jamais si les deux états diffèrent. Composant de
+/// présentation sur une entité rollback, hors checksum et hors snapshot (comme [`DoorSprite`]).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct DoorPair {
+    pub partner: Entity,
+    /// Le battant qui porte l'étiquette : celui de plus petit `GgrsNetId`.
+    pub first: bool,
+    /// Milieu des deux portes (unités monde).
+    pub center: Vec2,
+    /// Les deux portes sont côte à côte sur l'axe x (portes verticales) : le second battant est retourné en x ;
+    /// sinon sur l'axe y (portes horizontales) : retourné en y.
+    pub along_x: bool,
+}
+
+/// Distance maximale entre les centres de deux portes jumelles collées (unités monde) : deux cases.
+const DOOR_PAIR_MAX_DISTANCE: f32 = 40.0;
+
+/// Ce que `pair_doors` sait d'une porte : sa case, la case qu'elle désigne (`paired_door`) et sa position.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct DoorFact {
+    pub level: String,
+    pub grid: (i32, i32),
+    pub paired: Option<(String, (i32, i32))>,
+    pub pos: Vec2,
+}
+
+/// Couples `(a, b)` (`a < b`, indices dans `doors`) de portes jumelles : chacune désigne l'autre par `paired_door`
+/// (niveau et case) **et** leurs centres sont à moins de [`DOOR_PAIR_MAX_DISTANCE`]. Pure, pour les tests.
+pub(crate) fn door_pairs(doors: &[DoorFact]) -> Vec<(usize, usize)> {
+    let points_at = |a: &DoorFact, b: &DoorFact| {
+        a.paired
+            .as_ref()
+            .is_some_and(|(level, grid)| level == &b.level && *grid == b.grid)
+    };
+    let mut pairs = Vec::new();
+    for (i, a) in doors.iter().enumerate() {
+        for (j, b) in doors.iter().enumerate().skip(i + 1) {
+            if points_at(a, b) && points_at(b, a) && a.pos.distance(b.pos) <= DOOR_PAIR_MAX_DISTANCE
+            {
+                pairs.push((i, j));
+            }
+        }
+    }
+    pairs
+}
+
+/// Construit les [`DoorPair`] (voir [`door_pairs`]). Une porte jumelée à une porte éloignée (cartes de test) ou
+/// sans jumelle reste seule. Sans `double_doors`, rien ne change.
+#[allow(clippy::type_complexity)]
+fn pair_doors(
+    mut commands: Commands,
+    hud: Res<HudConfigHandle>,
+    configs: Res<Assets<HudConfig>>,
+    doors: Query<
+        (
+            Entity,
+            &utils::net_id::GgrsNetId,
+            &DoorComponent,
+            &DoorGridPosition,
+            &fixed_math::FixedTransform3D,
+        ),
+        Without<DoorPair>,
+    >,
+) {
+    if !hud.get(&configs).is_some_and(|c| c.double_doors) {
+        return;
+    }
+    // `level_iid` est rempli après la création (`populate_door_level_iids`) : une porte sans niveau attend.
+    let all: Vec<_> = doors.iter().filter(|d| !d.3.level_iid.is_empty()).collect();
+    let facts: Vec<DoorFact> = all
+        .iter()
+        .map(|(_, _, door, grid, t)| DoorFact {
+            level: grid.level_iid.clone(),
+            grid: (grid.grid_x, grid.grid_y),
+            paired: door.config.paired_door.clone(),
+            pos: Vec2::new(
+                t.translation.x.to_num::<f32>(),
+                t.translation.y.to_num::<f32>(),
+            ),
+        })
+        .collect();
+    for (a, b) in door_pairs(&facts) {
+        let a_first = all[a].1 .0 < all[b].1 .0;
+        let pa = facts[a].pos;
+        let pb = facts[b].pos;
+        let along_x = (pa.x - pb.x).abs() > (pa.y - pb.y).abs();
+        let center = (pa + pb) / 2.0;
+        commands.entity(all[a].0).insert(DoorPair {
+            partner: all[b].0,
+            first: a_first,
+            center,
+            along_x,
+        });
+        commands.entity(all[b].0).insert(DoorPair {
+            partner: all[a].0,
+            first: !a_first,
+            center,
+            along_x,
+        });
+    }
 }
 
 /// Pose sur chaque porte (entité rollback d'une porte de carte) une image d'état ; l'orientation vient
 /// de la taille de la tuile de l'entité LDtk d'origine (`MapRollbackItem::parent`). Sans entrée
 /// `door_v`/`door_h` (autre jeu), la porte garde le rendu d'avant.
+///
+/// Avec `double_doors` : une porte plus longue que l'image (collider de 64 pour une image de 32, la fonderie)
+/// reçoit une rangée d'images contiguës (le second battant d'une [`DoorPair`] est retourné par
+/// [`mirror_door_pairs`]).
+#[allow(clippy::type_complexity)]
 fn attach_door_sprites(
     mut commands: Commands,
     table: SpriteTable,
+    hud: Res<HudConfigHandle>,
+    configs: Res<Assets<HudConfig>>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    doors: Query<(Entity, &MapRollbackItem), (With<DoorComponent>, Without<DoorSprite>)>,
+    doors: Query<
+        (Entity, &MapRollbackItem, Option<&Collider>),
+        (With<DoorComponent>, Without<DoorSprite>),
+    >,
     tiles: Query<&Sprite>,
 ) {
-    for (entity, item) in &doors {
-        let size = tiles.get(item.parent).ok().and_then(|tile| {
-            tile.texture_atlas
-                .as_ref()
-                .and_then(|atlas| layouts.get(&atlas.layout)?.textures.get(atlas.index))
-                .map(|rect| rect.size())
-                .or_else(|| tile.custom_size.map(|s| s.as_uvec2()))
-        });
+    let double_doors = hud.get(&configs).is_some_and(|c| c.double_doors);
+    for (entity, item, collider) in &doors {
+        let size = tiles
+            .get(item.parent)
+            .ok()
+            .and_then(|tile| map_tile_size(tile, &layouts));
         let id = match size {
             Some(size) if size.x > size.y => "door_h",
             _ => "door_v",
@@ -392,19 +512,82 @@ fn attach_door_sprites(
         let (Some(sheet), Some(frame)) = (table.sheet(id), table.frame(id, "Idle")) else {
             continue;
         };
+        // Nombre d'images : la longueur du collider (axe long) sur celle de l'image.
+        let vertical = id == "door_v";
+        let cell = if vertical {
+            sheet.tile_size.1 as f32 * sheet.scale
+        } else {
+            sheet.tile_size.0 as f32 * sheet.scale
+        };
+        let long = collider.and_then(|c| match &c.shape {
+            crate::collider::ColliderShape::Rectangle { width, height } => Some(if vertical {
+                height.to_num::<f32>()
+            } else {
+                width.to_num::<f32>()
+            }),
+            _ => None,
+        });
+        let count = match long {
+            Some(long) if double_doors && cell > 0.0 => ((long / cell).round() as usize).max(1),
+            _ => 1,
+        };
         // L'entité rollback de la porte n'a pas de `Transform` : l'image se pose sur l'entité LDtk.
-        let child = create_child_sprite(
-            &mut commands,
-            &asset_server,
-            &mut layouts,
-            item.parent,
-            sheet,
-            frame,
-        );
-        commands.entity(entity).insert(DoorSprite { id, child });
-        commands.entity(child).insert(MapHeld(entity));
+        let mut children = Vec::with_capacity(count);
+        for k in 0..count {
+            let child = create_child_sprite(
+                &mut commands,
+                &asset_server,
+                &mut layouts,
+                item.parent,
+                sheet,
+                frame,
+            );
+            let along = (k as f32 - (count as f32 - 1.0) / 2.0) * cell;
+            let offset = if vertical {
+                Vec3::new(0.0, along, 0.0)
+            } else {
+                Vec3::new(along, 0.0, 0.0)
+            };
+            commands.queue(move |world: &mut World| {
+                if let Ok(mut child) = world.get_entity_mut(child) {
+                    if let Some(mut transform) = child.get_mut::<Transform>() {
+                        transform.translation += offset;
+                    }
+                }
+            });
+            commands.entity(child).insert(MapHeld(entity));
+            children.push(child);
+        }
+        commands.entity(entity).insert(DoorSprite { id, children });
     }
 }
+
+/// Le second battant d'une [`DoorPair`] est retourné (deux battants symétriques d'une même porte). Fait une fois par
+/// battant (`MirroredDoor`), dès que la paire et les images existent, quel que soit l'ordre de leur création.
+fn mirror_door_pairs(
+    mut commands: Commands,
+    doors: Query<(Entity, &DoorPair, &DoorSprite), Without<MirroredDoor>>,
+    mut sprites: Query<&mut Sprite>,
+) {
+    for (entity, pair, door) in &doors {
+        if !pair.first {
+            for child in &door.children {
+                if let Ok(mut sprite) = sprites.get_mut(*child) {
+                    if pair.along_x {
+                        sprite.flip_x = true;
+                    } else {
+                        sprite.flip_y = true;
+                    }
+                }
+            }
+        }
+        commands.entity(entity).insert(MirroredDoor);
+    }
+}
+
+/// Le battant a été retourné s'il le fallait (`mirror_door_pairs`).
+#[derive(Component)]
+struct MirroredDoor;
 
 /// Fenêtre dont l'image d'état est posée ; `child` est son sprite, `id` l'entrée (`window_h` : 16 x 32,
 /// `window_v` : 32 x 16, comme les entités LDtk `WindowHorizontal` et `WindowVertical`).
@@ -473,6 +656,16 @@ pub(crate) fn window_state(current: u8, max: u8) -> &'static str {
     }
 }
 
+/// Teinte d'une case de fenêtre (`window_state`) : blanc intact, puis de plus en plus rouge, sombre une fois brisée.
+pub(crate) fn window_tint(state: &str) -> Color {
+    match state {
+        "Damaged" => Color::srgb(1.0, 0.88, 0.78),
+        "Critical" => Color::srgb(1.0, 0.66, 0.58),
+        "Broken" => Color::srgb(0.62, 0.58, 0.68),
+        _ => Color::WHITE,
+    }
+}
+
 /// État visuel de la fenêtre : dérivé de `WindowHealth`, donc juste après un rollback (l'état d'une frame
 /// rejouée n'est jamais mémorisé ici).
 fn sync_window_sprites(
@@ -493,6 +686,12 @@ fn sync_window_sprites(
                 if atlas.index != frame {
                     atlas.index = frame;
                 }
+            }
+            // Teinte d'état : le rouge monte avec les dégâts, la fenêtre brisée s'assombrit. Un renfort de lecture à
+            // l'échelle du jeu (les planches de 15 px y tiennent en un ou deux pixels), pas une autre image.
+            let tint = window_tint(name);
+            if sprite.color != tint {
+                sprite.color = tint;
             }
         }
     }
@@ -557,10 +756,12 @@ fn sync_door_sprites(
         else {
             continue;
         };
-        if let Ok(mut sprite) = sprites.get_mut(door.child) {
-            if let Some(atlas) = sprite.texture_atlas.as_mut() {
-                if atlas.index != frame {
-                    atlas.index = frame;
+        for child in &door.children {
+            if let Ok(mut sprite) = sprites.get_mut(*child) {
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    if atlas.index != frame {
+                        atlas.index = frame;
+                    }
                 }
             }
         }
@@ -742,7 +943,7 @@ mod tests {
         // Porte posée (marqueur `DoorSprite`) : l'image reste héritée.
         world.entity_mut(door).insert(DoorSprite {
             id: "door_v",
-            child,
+            children: vec![child],
         });
         world.run_system_once(reap_held_sprites).unwrap();
         assert_eq!(world.get::<Visibility>(child), Some(&Visibility::Inherited));
@@ -753,7 +954,7 @@ mod tests {
         // Un rollback la ressuscite : l'image revient.
         world.entity_mut(door).insert(DoorSprite {
             id: "door_v",
-            child,
+            children: vec![child],
         });
         world.run_system_once(reap_held_sprites).unwrap();
         assert_eq!(world.get::<Visibility>(child), Some(&Visibility::Inherited));
@@ -874,6 +1075,50 @@ mod tests {
         assert_eq!(window_state(0, 1), "Broken");
         assert_eq!(window_state(3, 5), "Damaged");
         assert_eq!(window_state(2, 5), "Critical");
+    }
+
+    fn fact(
+        level: &str,
+        grid: (i32, i32),
+        paired: (&str, (i32, i32)),
+        pos: (f32, f32),
+    ) -> DoorFact {
+        DoorFact {
+            level: level.into(),
+            grid,
+            paired: Some((paired.0.into(), paired.1)),
+            pos: Vec2::new(pos.0, pos.1),
+        }
+    }
+
+    /// Deux portes qui se désignent l'une l'autre et sont collées forment une paire ; une porte jumelée à une
+    /// porte éloignée, ou qui ne désigne pas en retour, reste seule (cartes de test : jumelles à l'autre bout).
+    #[test]
+    fn deux_portes_collees_qui_se_designent_forment_une_porte_double() {
+        let doors = [
+            fact("a", (25, 5), ("b", (0, 5)), (-136.0, 160.0)),
+            fact("b", (0, 5), ("a", (25, 5)), (-120.0, 160.0)),
+            // Jumelles désignées mais à 300 unités l'une de l'autre.
+            fact("c", (1, 1), ("d", (2, 2)), (0.0, 0.0)),
+            fact("d", (2, 2), ("c", (1, 1)), (300.0, 0.0)),
+            // Collées, mais la seconde désigne une autre porte.
+            fact("e", (3, 3), ("f", (4, 4)), (500.0, 0.0)),
+            fact("f", (4, 4), ("g", (9, 9)), (516.0, 0.0)),
+        ];
+        assert_eq!(door_pairs(&doors), vec![(0, 1)]);
+        assert!(door_pairs(&[]).is_empty());
+    }
+
+    #[test]
+    fn chaque_etat_de_fenetre_a_sa_teinte() {
+        let tints: Vec<_> = ["Idle", "Damaged", "Critical", "Broken"]
+            .map(|state| window_tint(state))
+            .into();
+        assert_eq!(tints[0], Color::WHITE);
+        assert!(tints
+            .iter()
+            .enumerate()
+            .all(|(i, a)| tints.iter().enumerate().all(|(j, b)| i == j || a != b)));
     }
 
     #[test]

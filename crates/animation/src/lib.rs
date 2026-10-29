@@ -107,6 +107,24 @@ pub struct AnimationMapConfig {
     pub columns: Option<u32>,
 }
 
+impl AnimationMapConfig {
+    /// Clé de l'animation jouée : la clé de présentation `presented` si la carte la définit (sinon elle est
+    /// ignorée : « Attack » sans clé « Attack » ne change rien), l'état sinon.
+    pub fn playing_key<'a>(&self, state: &'a str, presented: Option<&'a str>) -> &'a str {
+        presented
+            .filter(|key| self.animations.contains_key(*key))
+            .unwrap_or(state)
+    }
+}
+
+/// Clé d'animation de **présentation** (S1-8, `Update`, jamais rollback ni lue par la simulation) : posée et
+/// définie par la carte d'animation, elle remplace `AnimationState` pour choisir l'animation jouée (ex. `"Attack"`
+/// d'un zombie qui frappe). Posée par `game` à partir de l'état rollback existant ; sans clé correspondante dans
+/// la carte, elle n'a aucun effet (les feuilles publiques de zombies n'ont pas d'`Attack`). Même type que celui
+/// de X-4b (branche `wquintal/x-4b-import-sprite`, `"Shoot"`), pour un merge sans second mécanisme.
+#[derive(Component, Debug, Default, Clone, PartialEq, Eq)]
+pub struct PresentationClip(pub Option<String>);
+
 // COMPONENT
 #[derive(Component, Default, Clone, Debug)]
 pub struct LayerName {
@@ -146,6 +164,7 @@ struct AnimationTimer {
 pub struct AnimationVisualsBundle {
     handles: CharacterAnimationHandles,
     timer: AnimationTimer,
+    presented: PresentationClip,
 }
 
 impl AnimationVisualsBundle {
@@ -163,6 +182,7 @@ impl AnimationVisualsBundle {
             timer: AnimationTimer {
                 frame_timer: Timer::from_seconds(1., TimerMode::Repeating),
             },
+            presented: PresentationClip::default(),
         }
     }
 }
@@ -204,13 +224,14 @@ fn animate_sprite_system(
         &CharacterAnimationHandles,
         &mut AnimationTimer,
         &AnimationState,
+        &PresentationClip,
     )>,
     mut query_sprites: Query<(&mut Sprite, &LayerName, Option<&DirectionRow>), With<AnimatedLayer>>,
 ) {
     if freeze.is_frozen() {
         return;
     }
-    for (childs, config_handles, mut timer, state) in query.iter_mut() {
+    for (childs, config_handles, mut timer, state, presented) in query.iter_mut() {
         if let Some(anim_config) = animation_configs.get(&config_handles.animations) {
             // Try to get columns count from animation config or first spritesheet
             let columns = anim_config
@@ -226,6 +247,8 @@ fn animate_sprite_system(
                 })
                 .unwrap_or(1); // Default to 1 if we can't determine
 
+            // Animation jouée : la clé de présentation si la carte la définit, l'état sinon.
+            let key = anim_config.playing_key(&state.0, presented.0.as_deref());
             timer.frame_timer.tick(time.delta());
             if timer.frame_timer.just_finished() {
                 for child in childs.iter() {
@@ -243,7 +266,7 @@ fn animate_sprite_system(
                         });
                         if let Some(atlas) = &mut sprite.texture_atlas {
                             let local = atlas.index.saturating_sub(row_offset);
-                            let next = if let Some(indices) = anim_config.animations.get(&state.0) {
+                            let next = if let Some(indices) = anim_config.animations.get(key) {
                                 let (start_index, end_index) = indices.to_absolute(columns);
                                 if local < start_index || local > end_index {
                                     start_index

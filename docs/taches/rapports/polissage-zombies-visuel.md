@@ -87,16 +87,16 @@ Deux états sont mesurés, chacun avec ses captures (voir §4) : **surcharge loc
 | 1 | Joueur | emprunté | **propre** : Character/Main (I 6, M 6, D 6 images), teinté par numéro de joueur | emprunté (blackHUNTERdev, partagé) + couleur par numéro | `4j_f00700`, `2j_f00200` |
 | 2 | Ombre | emprunté | emprunté (secondaire : le pack n'en a pas) | emprunté | — |
 | 3 | Armes portées | emprunté | **propre** : Pistol, Gun, Shotgun (mains + arme) ; `rifle` reste sur le fusil à pompe | emprunté | `4j_tir_f00120` |
-| 4 | Zombie, zombie coriace | emprunté | **propre** : Zombie_Small, Zombie_Axe (I 6, M 6–8, D 6, A non jouée) | emprunté | `4j_f00700`, `1j_f00650` |
-| 5 | Zombie brute | emprunté, licence inconnue | **propre** : Zombie_Big | `ZombieHard.png` (licence connue ; `Zombie2.png` retiré) | `1j_f00650` |
+| 4 | Zombie, zombie coriace | emprunté | **propre** : Zombie_Small, Zombie_Axe (I 6, M 6–8, D 6, **A 4–7 jouée**, pose d'attaque de présentation) | emprunté | `4j_f00700`, `1j_f00650` |
+| 5 | Zombie brute | emprunté, licence inconnue | **propre** : Zombie_Big (**A 8 jouée**) | `ZombieHard.png` (licence connue ; `Zombie2.png` retiré) | `1j_f00650` |
 | 6 | Boss | emprunté | **propre, dérivé du pack** : Zombie_Big, teinte chaude et échelle 1,5 **par donnée** (`marker`, `boss_zombie_config.ron`) | `ZombieHard.png` + même `marker` | — (non capturé : salle finale hors des scénarios joués) |
 | 7 | Projectiles | absent | **propre** : balle du joueur (Guns/Bullets ×3), crachat ennemi (Enemies/Shot ×2) | absent (carré teinté d'équipe, comme avant) | `4j_tir_f00120` |
 | 8 | Coup de mêlée (`slash`) | emprunté, licence inconnue | **inchangé** (le pack n'en a pas) : D162 | inchangé | — |
 | 9 | Armes murales / lâchées | emprunté | **propre** : icône Pistol / Gun / Shotgun + halo orange | emprunté + halo | `1j_f00100`, `4j_f00060` |
 | 10 | Power-ups | absent | 2 sur 5 **propres** (`max_ammo` ← caisse de munitions, `carpenter` ← mur de bois), halo vert ; `insta_kill`, `double_points`, `nuke` **absents** (gizmo, D162) | absent ×5 + halo | scénario jeté `/tmp` (captures hors dépôt) |
 | 11 | Distributeurs de perks | emprunté | **inchangé** (aucune image dans le pack) : D162, candidates à proposer à William | emprunté | `1j_f00200` |
-| 12 | Portes | emprunté | **propre** : barricades de bois à deux battants, `Idle` / `Open` / `Locked` (cadenas) | emprunté (tuile Dungeon, une seule image) | `4j_f00700`, `2j_f00200` |
-| 13 | Fenêtres | emprunté | **propre**, 4 états d'après les PV (`Idle`, `Damaged`, `Critical`, `Broken`) | emprunté + barre verte (comme avant) | `window_repair` (captures hors dépôt) |
+| 12 | Portes | emprunté | **propre** : barricades de bois, `Idle` / `Open` / `Locked` (cadenas) ; **une paire collée = une porte double** (battants symétriques, une étiquette, rangée d'images pour les portes de 64) | emprunté (tuile Dungeon) ; une seule étiquette par paire (`double_doors`) | `4j_f00700`, `2j_f00200` |
+| 13 | Fenêtres | emprunté | **propre**, 4 états d'après les PV (`Idle`, `Damaged`, `Critical`, `Broken`) : image du pack ×2 entier (30 × 30) + teinte d'état ; la barre de 2 px reste, secondaire | emprunté + barre verte (comme avant) | `surcharge-locale_fenetre_4_etats_…` (hors dépôt) |
 | 14 | Barricades | sans objet | sans objet | sans objet | — |
 | 15 | Murs | emprunté | **propre** : toit rouge (Roof_TileSet) + face de brique (Brick-Wall_TileSet), `wall_art` sur la couche `Walls` de **toutes** les cartes de zombies | emprunté (Dungeon / SunnyLand) | `4j_f00130`, `1j_f00100` |
 | 16 | Sol | emprunté / absent | **propre** : 4 tuiles de Background_Bleak-Yellow posées sous le sol que la carte peint (`mask_layer: Sol` ; toute case non murée pour les cartes sans couche `Sol`, voir « Limite du sol » ci-dessous) | emprunté / fond uni (comme avant) | idem |
@@ -107,8 +107,30 @@ Deux états sont mesurés, chacun avec ses captures (voir §4) : **surcharge loc
 | 21 | Lisibilité coop | absent | **fait** : `player_colors`, légende F7, halos, noms F6, `hide_markers` | **fait** (même données publiques) | `4j_legende_f00040`, `4j_f00700` |
 
 Classes principales avec le pack (joueur, zombies, boss, armes, projectiles, portes, fenêtres, murs, sol, HUD) : **aucune case « emprunté »**. Restent hors du pack, dites telles : ombre (secondaire), `slash`, distributeurs de perks,
-trois power-ups (D162) ; le moteur ne joue pas d'animation d'attaque (pas d'état `Attack`, ligne « A » du §1 vide par construction).
+trois power-ups (D162) ; l'animation d'attaque, absente du moteur au §1, est jouée par une **pose de présentation** (§ 2 bis) ; la ligne « A » du §1 est donc pleine avec le pack, vide en repli public.
 Repli public : les classes 1–6, 9, 12, 13, 15–17 restent **empruntées** (l'état d'avant, avec `Zombie2.png` en moins), mais la lisibilité coop (21) et le halo (9, 10) sont aussi acquis sans le pack.
+
+### 2 bis. Suite de S1-8 (portes doubles, fenêtres, zombie qui frappe ; 2026-10-28)
+
+**Portes (audit).** Dans les `.ldtk` bruts aucune porte n'est collée à une autre (chacune est au bord de sa salle) ; la paire naît à l'assemblage. Sondage de présentation jeté (`DOORPROBE` dans `world_sprites`, retiré) sur les cartes assemblées :
+`avant_poste` **8 paires** (ids 1-2, 3-4, 5-6, 7-8, 9-10, 11-14, 12-15, 13-16 ; collider 16 × 32), `la_fonderie` **12 paires** (collider 16 × 64 ou 64 × 16), `buy_door` (`test_map_shop`) 1. Toutes les paires sont **jumelles** (`paired_door` mutuel), à 16 unités l'une de l'autre, avec des prix
+différents (750 / 1000, 1000 / 1250…). **Simulation** : deux entités rollback, deux colliders, deux `Interactable`, deux prix ; `handle_door_interaction` fait payer la porte actionnée seule et retire `Collider` / `CollisionLayer` / `Interactable` aux deux dans la même frame (`paired_door`) : elles s'ouvrent toujours ensemble.
+**Conclusion : ni carte ni simulation à changer** (aucun `ask`, aucune trace, aucun `BLESS`).
+**Remède en présentation** (`hud.ron` `double_doors: true`, faux par défaut : gungeon inchangé) : `DoorPair` (composant de présentation, hors rollback) posé par `pair_doors` d'après `door_pairs` (pure, testée : désignation mutuelle **et** centres à moins de 40 unités), le second battant retourné (`mirror_door_pairs`), une étiquette F6 au milieu de la paire
+(`legibility`), une rangée d'images pour une porte plus longue que son image (les portes de la fonderie : 64 pour une image de 32 ; avant, la moitié de l'ouverture n'avait pas d'image). **État affiché** : chaque battant suit l'état de sa porte (`Idle` / `Locked` / `Open`) : si les deux états diffèrent un jour, l'image le montre ; en jeu ils sont toujours égaux.
+Captures (hors dépôt) : `surcharge-locale_porte_double_fermee_f00140.png`, `…_ouverte_f00200.png` (`buy_door`), `surcharge-locale_1j_fonderie_portes_f00900.png` (portes de 64, deux rangées).
+
+**Fenêtres.** Les quatre états existaient mais l'image de 15 px les rendait indiscernables au jeu (≈ 2,4 px par unité à 960 × 540 : planches d'un pixel). Corrigé : même image de 32 × 32 pour `window_h` et `window_v` (fenêtre du pack ×2 entier, 30 × 30, sans pixel dessiné) et **teinte d'état**
+(`window_tint` : blanc, chaud, rouge, sombre). Orientation vérifiée : une entité plus large que haute prend `window_v`, l'autre `window_h` ; les deux ont la même image, donc rien à tourner. Capture des quatre états, fenêtre `window_repair` à f300 (intacte), f372 (abîmée), f392 (critique), f450 (brisée) :
+`surcharge-locale_fenetre_4_etats_Idle-Damaged-Critical-Broken_f300-372-392-450.png`. **Barre de vie** : conservée (2 px, secondaire) ; le sprite porte l'état, la barre la valeur exacte. **Repli public** : inchangé (tuile de la carte + barre).
+Limite : la fenêtre d'un mur qui court en largeur (la seule vue dans les scénarios) montre sa face ; le pack n'a pas de fenêtre vue de côté, `window_h` en mur vertical reste approximée (D163).
+
+**Pose d'attaque.** `animation::PresentationClip` (clé de clip de présentation, hors rollback, même type que le `Shoot` de X-4b) ; `character::visuals::present_attacking` (`Update`) la pose à `"Attack"` tant que `MonsterState::Attacking { last_attack_frame }` date de moins de `ATTACK_POSE_FRAMES` = 48 frames (le délai entre deux coups du zombie est de 45),
+sinon `None` ; `animate_sprite_system` joue cette clé **si** la carte d'animation la définit (`AnimationMapConfig::playing_key`) : la surcharge du pack oui (`Attack` de `zombie_small` 4 images, `zombie_axe` 7, `zombie_big` 8), les feuilles publiques non (rien ne change). Elle couvre l'attaque d'une fenêtre **et** d'un joueur (même état).
+Tests : `un_coup_reste_en_cours_la_duree_de_la_pose`, `la_pose_d_attaque_derive_de_l_etat_d_attaque` ; vu en jeu (sondage jeté : `Attack` posé à f317, retiré à f365 sur `window_repair`).
+**Où ça rejoint X-4b** : la branche `wquintal/x-4b-import-sprite` définit le même `PresentationClip` et `playing_key` dans `crates/animation/src/lib.rs` et une pose `Shoot` dans `character/visuals.rs` (`present_shooting`, `SHOOT_POSE_FRAMES`). Conflit attendu à ces deux endroits : **garder une seule définition** de `PresentationClip` / `playing_key` (la leur gère aussi `clips`, durée et boucle par clip), ajouter `present_attacking` à côté de `present_shooting` ; ils ne se disputent aucune entité (un zombie n'a pas d'arme à distance).
+**Le reste de la séquence** (la fenêtre cède, le zombie entre) est déjà de la simulation, inchangée. **Vidéo** (hors dépôt, 14 s à demi-vitesse, 420 images, étiquettes coupées) : `~/orca/workspaces/alacod/captures/polissage-zombies-visuel/surcharge-locale_fenetre_zombie_frappe_brise_entre_demi-vitesse.mp4` (scénario jeté dérivé de `window_repair` sans réparation, joueur immobile :
+le zombie frappe la fenêtre avec la hache levée, la brise, entre et attaque le joueur).
 
 ### Limite du sol (retouche de relecture, 2026-10-28)
 
@@ -177,4 +199,17 @@ recommandé par le `Makefile`).
 
 Unitaires ajoutés : `wall_art::{le_sol_couvre_les_cases_vides_et_seulement_elles, la_tuile_de_sol_ne_depend_que_de_la_position}`, `world_sprites::{l_etat_visuel_d_une_fenetre_suit_sa_sante, un_power_up_cherche_son_id_puis_le_generique}`,
 `hud::{the_local_overlay_replaces_wall_art_and_merges_icons_by_id, a_heart_image_needs_every_state_it_draws}`, fixture de lint `hud_local_overlay_missing_image`.
+
+### Suite de S1-8 (portes doubles, fenêtres, pose d'attaque)
+
+```
+$ make format check_forbidden check_rollback_registration check_sim_boundary test_crates test_scenarios_par lint     (EXIT=0)
+OK: aucun nouveau motif interdit ; OK : aucun appel direct à rollback_*_with* ; OK : frontière simulation/présentation respectée par 13 crates
+93 « test result: ok » (test_crates), 0 failed ; tranche 0/4 … 3/4 : ok ; suite en 4 tranches : 333 s (sans BLESS : aucune trace n'a bougé)
+games/{zombies,testbed,throne,gungeon,isaac} : aucune erreur ; lint zombies avec et sans sprites.local.ron / hud.local.ron : « aucune erreur »
+$ schedule_order_diff (base origin/main, tête = arbre de travail ; base et tête construites l'une après l'autre avec un `touch` entre les deux, D133) : diff -r base head → IDENTIQUE (5 jeux : schedules et types rollback)
+```
+
+`make test_tools` reste en échec sur ce Mac pour les 3 tests de `test_claude_say.py` (`/usr/bin/python3` = 3.9.6, le script exige 3.10), sans rapport avec le lot. `make schedule_order_diff` tel quel échoue à la tête (D133 : artefacts de la base plus récents) ; contourné comme ci-dessus.
+Unitaires ajoutés : `world_sprites::{deux_portes_collees_qui_se_designent_forment_une_porte_double, chaque_etat_de_fenetre_a_sa_teinte}`, `visuals::attack_pose_tests::{un_coup_reste_en_cours_la_duree_de_la_pose, la_pose_d_attaque_derive_de_l_etat_d_attaque}`.
 

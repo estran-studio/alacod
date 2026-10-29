@@ -425,22 +425,19 @@ def window_states(pack: Path) -> list[Image.Image]:
 
 
 def windows(pack: Path, out_dir: Path, atlas: list[Image.Image]) -> None:
+    """Fenêtres `window_h` (entité 16 × 32) et `window_v` (32 × 16) : même image, **32 × 32**, la fenêtre du pack
+    agrandie d'un facteur entier (×2, 30 × 30) et centrée : à l'échelle du jeu (≈ 2,4 px par unité) une fenêtre
+    de 15 px laissait les planches à un pixel et les quatre états indiscernables. L'image dépasse de l'entité
+    (les cases voisines sont des murs), comme un zombie de 32 dépasse son collider de 20."""
     states = window_states(pack)
     anims = {"Idle": (0, 0), "Damaged": (1, 1), "Critical": (2, 2), "Broken": (3, 3)}
-    h_frames, v_frames = [], []
+    frames = []
     for st in states:
-        t = blank(16, 32)   # fenêtre d'un mur horizontal : dessus (rebord nord) puis face
-        put(t, atlas[1], 0, 0)
-        put(t, atlas[32], 0, 16)
-        put(t, st, 0, 16)
-        h_frames.append(t)
-        v = blank(32, 16)   # fenêtre d'un mur vertical : dessus (rebord ouest | rebord est)
-        put(v, atlas[4], 0, 0)
-        put(v, atlas[2], 16, 0)
-        put(v, st, 8, 0)
-        v_frames.append(v)
-    write_sheet(out_dir, "window_h", h_frames, anims)
-    write_sheet(out_dir, "window_v", v_frames, anims)
+        t = blank(32, 32)
+        put(t, st.resize((st.width * 2, st.height * 2), Image.NEAREST), 1, 1)
+        frames.append(t)
+    write_sheet(out_dir, "window_h", frames, anims)
+    write_sheet(out_dir, "window_v", frames, anims)
 
 
 # --- icônes de sol, projectiles ---------------------------------------------------------------
