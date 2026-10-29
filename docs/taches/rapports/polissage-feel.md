@@ -11,15 +11,15 @@ William rejuge la rigidité à la manette avec l'interpolation pendant l'E4 de v
 
 | # | Point | Issue | Preuve |
 |---|---|---|---|
-| 1 | Audit chiffré, vidéo « avant » | fait | § 2 (diagnostic), § 3 (tableau par clone) ; `target/videos/polissage-feel/feel_zombies.avant.mp4` |
+| 1 | Audit chiffré, vidéo « avant » | fait | § 2 (diagnostic), § 3 (tableau par clone) ; `feel_zombies.avant.mp4` |
 | 2 | Interpolation d'affichage (`PostUpdate`, `Transform` seulement, coupée au téléport, à l'étage, au rollback) | fait ; mesurée à 60 Hz (la fenêtre native du Mac présente à 60 Hz, mesuré) ; 120 Hz : test unitaire, et à voir dans Chrome à l'E4 | § 4 ; `make test_scenarios_par` 811 scénarios verts sans `BLESS` ; `make schedule_order_diff` identique |
 | 3 | Réglages par clone en données | fait pour la présentation (`feedback.ron`, `camera.ron`) ; `movement` inchangé (décision ci-dessus) | § 3, § 5 |
-| 4 | Flash de bouche, recul visuel, effet de mort, par arme (`by_weapon`) | fait | § 5 ; captures `target/videos/polissage-feel/` |
+| 4 | Flash de bouche, recul visuel, effet de mort, par arme (`by_weapon`) | fait | § 5 ; `zombies_flash_eclats_f990-f1900.png`, `throne_flash_f14-f300.png` |
 | 5 | Vidéo « après », jugement de William (course, dash, tir) | vidéo faite ; **jugement : non vérifié** (E4 de vendredi 30) | `feel_zombies.apres.mp4`, `feel_zombies.avant-apres.mp4` |
 
-Vidéos (60 s, 60 images/s, une image par frame simulée, rendu hors écran 960×540, sons coupés), dans le worktree b0 (ignoré par git) :
-`~/orca/workspaces/alacod/b0/target/videos/polissage-feel/feel_zombies.avant.mp4` (binaire de `ebab067a`),
-`feel_zombies.apres.mp4` (branche), `feel_zombies.avant-apres.mp4` (côte à côte, avant à gauche). Elles montrent le flash, le recul et
+Preuves hors dépôt (sprites du jeu, vidéos lourdes), sur le Mac : **`~/orca/workspaces/alacod/captures/polissage-feel/`**. Vidéos
+(60 s, 60 images/s, une image par frame simulée, rendu hors écran 960×540, sons coupés) : `feel_zombies.avant.mp4` (binaire de
+`ebab067a`), `feel_zombies.apres.mp4` (branche), `feel_zombies.avant-apres.mp4` (côte à côte, avant à gauche). Elles montrent le flash, le recul et
 les éclats ; **pas l'interpolation** : une capture à une image par frame simulée n'a rien à interpoler (elle est coupée en capture, § 4).
 L'interpolation se prouve par la mesure (§ 4) et se juge à la main (E4).
 
@@ -44,7 +44,7 @@ l'interpolation ; `scripts/frame-pacing.py` en tire la régularité du mouvement
 
 « Figées » : le joueur ne bouge pas à l'écran pendant une image alors qu'il court. « À-coups » : le pas affiché s'écarte de plus de
 0,5 px de la moyenne des deux images de part et d'autre (un pas de 0 ou de 5 px au milieu de pas de 2,5 px). Fichiers :
-`target/videos/polissage-feel/pacing/{pacing_off,pacing_on,pacing_on2,final_off,final_on}.csv`.
+`~/orca/workspaces/alacod/captures/polissage-feel/pacing/{pacing_off,pacing_on,pacing_on2,final_off,final_on}.csv`.
 
 Ce que ça dit :
 1. **Affichage (la cause mesurée)** : la simulation avance à 60 Hz par un accumulateur de temps réel (`bevy_ggrs`) et l'écran présente
