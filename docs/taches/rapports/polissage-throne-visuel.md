@@ -139,3 +139,21 @@ les personnages, moins avec une « caverne »).
 
 Repli public (commité) et surcharge (hors dépôt), mêmes frames : `1j` = `throne_solo` (f200, f1500, f3600 roi rat, f4300 tourelle), `2j` = `throne_duo_defaite` (f200, f600),
 `4j` = `throne_quad` (f300, f1500, f3000). Avant : `throne_solo`, `throne_quad`, `throne_duo_defaite` du 2026-10-29 (§ 1) ; les captures de repli public sont identiques à l'état « avant ».
+
+## 5. Preuves d'exécution
+
+- Aucun fichier Rust modifié sur la branche (`git diff --stat origin/polissage-integration` : docs, `assets.yaml`, `scripts/repack-throne.py`, captures) : `schedule_order_diff` n'a rien à comparer ; `test_crates` et la suite complète des 810 scénarios **non relancés** (le Mac est passé sur batterie en cours de tâche).
+- Scénarios throne **avec la surcharge présente**, sans `BLESS` : `throne_ammo_pickup`, `throne_duo_defaite`, `throne_floor_1`, `throne_mutation_choice`, `throne_progression`, `throne_quad`, `throne_rodeur_vue_graine_4`, `throne_softlock_recul`, `throne_solo`, `throne_three_floors`, `throne_vue_coupee`, `throne_vue_directe`, `tourelle_couronne_telegraphe` : verts (5 tests, dont `recording_replays_identically`).
+- `alacod lint games/throne` : « aucune erreur » avec la surcharge, puis avec `sprites.local.ron` et `hud.local.ron` écartés.
+- `check_forbidden`, `check_rollback_registration` : OK. `make test_tools` : 3 échecs d'environnement connus (`test_claude_say.py`, Python 3.9.6 du Mac), non relancé.
+- Captures : repli public identique à l'état « avant » ; surcharge : `~/orca/workspaces/alacod/captures/polissage-throne-visuel/`. Deux frames de la surcharge (`1j_f03600`, `1j_f04300`) viennent d'un second passage de la même commande : le premier lot du script s'est arrêté après `1j_f01500` sans erreur visible.
+
+## 6. Ce qui reste (estimation)
+
+| Reste | Estimation |
+|---|---|
+| `player_colors` pour 4 peaux distinctes : `hud.ron` de throne (b3, S2-8), ou option moteur `player_colors` dans `HudOverlay` | 0,25 j |
+| Attaque des ennemis d'Aymen (aucune feuille) : inchangé, pas de remède dans les packs | — |
+| Boss propre, portail, 7 armes au sol, 13 armes en main sur 3 images (une image par `sprite_config` : 10 noms de plus dans `weapons.ron` public) | 1 j si William veut des dessins ou un autre pack |
+| Identifier les deux carrés vert et noir de projectile (présents avant) | 0,25 j |
+| `make test_crates` et suite complète des scénarios au merge | 0,5 j machine |
