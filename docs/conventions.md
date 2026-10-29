@@ -4308,7 +4308,7 @@ de vue remplit à nouveau les listes ; un rechargement HTML recrée leurs lignes
 construire une ligne déjà détruite lorsque l'inventaire change.
 
 - Pause : Reprendre, Recommencer (`RunRequest::Restart`), Lobby (`RunRequest::ToLobby`),
-  Réglages (« Aucun réglage pour l'instant. »).
+  Réglages (S1-7 : curseur « Volume : 100 % », ← → par pas de 10 ; avant : « Aucun réglage pour l'instant. »).
 - Inventaire : armes et munitions, actif et charge, passifs, consommables. Joueur affiché :
   celui de `HudPlayer` (caméra forcée, sinon local de plus petit handle).
 - Navigation : Échap / Start, I / Select ; ↑ ↓ / D-pad ; Entrée ou Espace / A ;

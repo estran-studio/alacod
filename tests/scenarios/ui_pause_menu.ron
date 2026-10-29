@@ -3,8 +3,8 @@
 // Entrée / A ; la simulation continue (joueur immobile) et la trace est celle d'un joueur immobile.
 //
 // À regarder : f10 le menu s'ouvre, « Reprendre » surligné ; f20 et f21 le focus descend sur
-// « Recommencer » puis « Lobby », f22 sur « Réglages » ; f30 « Réglages » validé affiche « Aucun
-// réglage pour l'instant » ; f40 le focus remonte sur « Lobby » (le message disparaît) ; f50 Retour
+// « Recommencer » puis « Lobby », f22 sur « Réglages » ; f30 « Réglages » validé affiche le curseur
+// « Volume : 100 % » ; f32 et f33 ← baissent à 80 %, f34 → remonte à 90 % (S1-7, volume global) ; f40 le focus remonte sur « Lobby » (le message disparaît) ; f50 Retour
 // ferme le menu ; f60 rouvert, f62 ↑ boucle sur « Touches », f64 ↓ revient sur « Reprendre » ;
 // f70 valider « Reprendre » ferme le menu ; f75 rouvert, f76 ↑ sur « Touches », f77 validé : l'aide
 // des touches (clavier et manette, lue dans la table des liaisons) remplace le détail, f80 Retour
@@ -24,6 +24,9 @@ Scenario(
         (at_frame: 21, action: Down),
         (at_frame: 22, action: Down),
         (at_frame: 30, action: Confirm),
+        (at_frame: 32, action: Left),
+        (at_frame: 33, action: Left),
+        (at_frame: 34, action: Right),
         (at_frame: 40, action: Up),
         (at_frame: 50, action: Back),
         (at_frame: 60, action: Toggle(Pause)),
@@ -44,7 +47,9 @@ Scenario(
         ScreenText(screen: "pause", section: "entries", contains: "  Reprendre\n> Recommencer\n  Lobby", at_frame: 20),
         ScreenText(screen: "pause", section: "entries", contains: "  Recommencer\n> Lobby", at_frame: 21),
         ScreenText(screen: "pause", section: "entries", contains: "> Réglages", at_frame: 22),
-        ScreenText(screen: "pause", section: "detail", contains: "Aucun réglage", at_frame: 31),
+        ScreenText(screen: "pause", section: "detail", contains: "Volume : 100 %", at_frame: 31),
+        ScreenText(screen: "pause", section: "detail", contains: "Volume : 80 %", at_frame: 33),
+        ScreenText(screen: "pause", section: "detail", contains: "Volume : 90 %", at_frame: 35),
         ScreenText(screen: "pause", section: "entries", contains: "> Réglages", at_frame: 31),
         ScreenText(screen: "pause", section: "entries", contains: "> Lobby", at_frame: 41),
         ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 51),

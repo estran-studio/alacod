@@ -19,9 +19,9 @@ use bevy::prelude::*;
 use combat::inventory::AmmoReserves;
 use items::{Inventory, ItemKind, ItemTable};
 use model::{
-    inventory_focus_len, inventory_view, merchant_lines, merchant_view, pause_view_with_help,
-    reduce, ActiveLine, InventoryInput, ScreenCommand, ScreenId, ScreenScript, ScreenView,
-    ScreensState, UiAction, WeaponLine,
+    inventory_focus_len, inventory_view, merchant_lines, merchant_view, pause_view_full, reduce,
+    ActiveLine, InventoryInput, ScreenCommand, ScreenId, ScreenScript, ScreenView, ScreensState,
+    UiAction, WeaponLine,
 };
 use utils::frame::FrameCount;
 
@@ -57,6 +57,7 @@ pub struct ScreensPlugin;
 impl Plugin for ScreensPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Screens>()
+            .init_resource::<crate::audio::MasterVolume>()
             .init_resource::<UiActionQueue>()
             .add_systems(Update, update_screens.run_if(in_state(AppState::InGame)))
             .add_systems(OnExit(AppState::InGame), |mut screens: ResMut<Screens>| {
@@ -230,6 +231,7 @@ pub(crate) fn update_screens(
     source: InventorySource,
     mut merchant: MerchantSource,
     help: HelpSource,
+    mut master: ResMut<crate::audio::MasterVolume>,
 ) {
     let mut actions: Vec<UiAction> = queue.0.drain(..).collect();
     if let Some(mut script) = script {
@@ -274,6 +276,9 @@ pub(crate) fn update_screens(
             Some(ScreenCommand::ToLobby) => {
                 commands.insert_resource(RunRequest::ToLobby);
             }
+            Some(ScreenCommand::Volume(steps)) => {
+                *master = master.stepped(steps);
+            }
             Some(ScreenCommand::Buy(index)) => {
                 if let (Some(handle), Some((id, def))) = (handle, unlocks.get(index)) {
                     message = match merchant.buy(handle, id, def) {
@@ -292,7 +297,7 @@ pub(crate) fn update_screens(
             } else {
                 String::new()
             };
-            pause_view_with_help(&state, &help_text)
+            pause_view_full(&state, &help_text, master.0)
         }
         ScreenId::Inventory => inventory_view(&inventory, &state),
         ScreenId::Merchant => {
