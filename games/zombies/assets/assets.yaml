@@ -237,4 +237,4 @@
     (Idle|Run|Dying_1|Attack, pieds centrés) ; images assemblées par recadrage, collage, miroir et mise
     à l'échelle entière de tuiles et de sprites du pack (portes, fenêtres, atlas de murs et de sol,
     icônes) par scripts/repack-postapocalypse.py ; aucun pixel dessiné.
-  statut: overlay privé (zombies + throne), pas un placeholder
+  statut: dépôt privé alacod-assets (zombies/sprites/postapo/, zombies/sprites/sprites.local.ron, zombies/ui/hud.local.ron ; copiés par scripts/assets-prives.sh ; jamais dans le dépôt public, docs/conventions.md § 99), pas un placeholder

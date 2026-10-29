@@ -18,6 +18,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      # S-0b (docs/conventions.md § 99) : surcharge privée (images payantes, extraits Sonniss) depuis le dépôt privé
+      # estran-studio/alacod-assets, AVANT le build. Sans le secret (fork, pull request) l'étape saute et le repli public
+      # se construit ; avec le secret, elle pose ALACOD_WEB_PRIVATE_ASSETS=1 (D161 : sans cette variable, aucun build web
+      # n'embarque la surcharge, même présente sur le disque).
+      - name: Assets privés (alacod-assets)
+        env:
+          ALACOD_ASSETS_DEPLOY_KEY: ${{ secrets.ALACOD_ASSETS_DEPLOY_KEY }}
+        run: scripts/assets-prives.sh --ci
+
       - name: Login docker
         run: docker login https://ghcr.io -u wquintal -p $GITHUB_ACCESS_TOKEN
         env:
@@ -36,6 +45,7 @@ jobs:
             -w /workspace \
             -e RUSTC_WRAPPER=sccache \
             -e CARGO_INCREMENTAL=0 \
+            -e ALACOD_WEB_PRIVATE_ASSETS \
             ghcr.io/bascanada/alacod-builder:1.0.0 \
             bash -c "cargo vendor && make build_docker_website TARGET=web PROFILE=prod"
 
@@ -69,3 +79,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         with:
           generate_release_notes: true
+
+      - name: Retirer les assets privés du workspace
+        if: always()
+        run: git clean -ffdX -- games || true

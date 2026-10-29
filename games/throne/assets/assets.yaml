@@ -175,4 +175,4 @@
     uniformes (Idle|Run|Dying_1|Attack, pieds centrés) par
     scripts/repack-postapocalypse.py ; une frame des calques mains+arme
     recadrée pour les visuels d'armes rotatifs.
-  statut: overlay privé (throne + zombies), pas un placeholder
+  statut: dépôt privé alacod-assets pour le pack de zombies (rien de ce pack pour throne dans le dépôt privé ; la surcharge de throne est Aymen B + Ittai Manero, docs/conventions.md § 96 et § 99), pas un placeholder

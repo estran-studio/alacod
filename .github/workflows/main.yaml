@@ -45,6 +45,13 @@ jobs:
           fetch-depth: 0
           clean: true
 
+      # S-0b (docs/conventions.md § 99) : même étape que release.yaml. Sans le secret, repli public ; avec le secret,
+      # surcharge privée de alacod-assets et ALACOD_WEB_PRIVATE_ASSETS=1 (D161).
+      - name: Assets privés (alacod-assets)
+        env:
+          ALACOD_ASSETS_DEPLOY_KEY: ${{ secrets.ALACOD_ASSETS_DEPLOY_KEY }}
+        run: scripts/assets-prives.sh --ci
+
       - name: Build local builder image
         run: docker build --platform linux/amd64 -f Dockerfile.builder -t alacod-builder:ci .
       - name: Fix host cache permissions
@@ -82,6 +89,7 @@ jobs:
             -w /workspace \
             -e RUSTC_WRAPPER=sccache \
             -e CARGO_INCREMENTAL=0 \
+            -e ALACOD_WEB_PRIVATE_ASSETS \
             alacod-builder:ci \
             bash -c "cargo vendor && WEB_ENABLE_SOLO=1 WEB_ENABLE_ONLINE=1 make build_docker_website TARGET=web PROFILE=prod"
 
@@ -147,4 +155,5 @@ jobs:
           chmod -R u+w "${{ github.workspace }}/target_wasm_prod" 2>/dev/null || true
           rm -rf "${{ github.workspace }}/target_wasm_prod" || true
           rm -rf "${{ github.workspace }}/build" || true
+          git clean -ffdX -- games || true
         continue-on-error: true

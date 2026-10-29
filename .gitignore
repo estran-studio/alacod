@@ -28,3 +28,5 @@ games/*/assets/sprites/postapo/
 games/*/assets/sprites/*.local.ron
 # Surcharge locale du HUD (S1-8) : `ui/hud.local.ron` (images du pack dans sprites/postapo/, fusionnée sur `ui/hud.ron`).
 games/*/assets/ui/*.local.ron
+# Sons Sonniss GDC (licence : pas de revente ni de redistribution « tels quels ») : en attente de la décision de William (S1-9).
+games/*/assets/sounds/sonniss/
