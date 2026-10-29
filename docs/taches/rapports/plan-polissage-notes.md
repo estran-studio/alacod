@@ -79,6 +79,5 @@ Chrome normal (son de ton poste : volume à ta main, **rien n'est lancé par la 
 | (9) repli public Kenney acceptable ? (tableau S1-9 rempli ci-dessus) | |
 | (10) « encore rigide ? » (stick, e4-feel contre e4-manette) | |
 
-Point (10) : si William répond oui, **rien n'est codé**. Estimation de l'entrée analogique : ≈ 1 j (`BoxInput` n'a que huit directions à
-vitesse constante ; il faudrait un déplacement proportionnel à l'inclinaison du stick, quantifié en entier et rollbacké dans `BoxInput`, une
-nouvelle valeur de trace par frame, scénarios de manette et de `fuzz_inputs` à ajouter) ; la tâche est dite au coordinateur.
+Point (10) : si William répond oui, **rien n'est codé**. Estimation de l'entrée analogique : ≈ 1 j (`BoxInput` n'a pas de déplacement
+analogique : huit directions à vitesse constante, `polissage-manette.md` § 9 ; tâche à part, dite au coordinateur).
