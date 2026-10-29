@@ -2261,6 +2261,16 @@ fn lint_hud_sources(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
     }
+    // Icônes : l'image d'une icône (`icons[id].image`) existe.
+    for (rel, id, image) in &registry.hud_icon_images {
+        if !files.contains(image) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: rel.display().to_string(),
+                message: format!("hud : icône « {id} » : image « {image} » absente"),
+            });
+        }
+    }
     // Légende : chaque sprite cité existe dans la table des feuilles (si le jeu en déclare une).
     if registry.sprite_sheets.is_empty() {
         return;

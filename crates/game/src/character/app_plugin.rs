@@ -80,6 +80,7 @@ impl Plugin for CharacterPresentationPlugin {
                 visuals::remove_revived_death_ghosts.before(visuals::spawn_death_ghosts),
                 visuals::spawn_death_ghosts.after(visuals::attach_character_visuals),
                 visuals::animate_death_ghosts,
+                visuals::present_attacking,
                 set_sprite_flip,
                 visuals::face_stationary_enemies.after(set_sprite_flip),
                 visuals::orient_familiars.after(set_sprite_flip),

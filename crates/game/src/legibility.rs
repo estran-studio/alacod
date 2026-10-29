@@ -474,6 +474,7 @@ struct LabelSources<'w, 's> {
             &'static FixedTransform3D,
             Has<Collider>,
             Has<Interactable>,
+            Option<&'static crate::world_sprites::DoorPair>,
         ),
         With<DoorComponent>,
     >,
@@ -602,16 +603,26 @@ fn gather_labels(
             color: world_color,
         });
     }
-    for (target, t, closed, interactable) in &sources.doors {
+    let double_doors = config.is_some_and(|c| c.double_doors);
+    for (target, t, closed, interactable, pair) in &sources.doors {
         // Une porte ouverte est un passage : pas d'étiquette (il y en a des dizaines par étage).
         let (key, fallback) = match (closed, interactable) {
             (false, _) => continue,
             (true, true) => ("door_locked", "Porte verrouillée"),
             (true, false) => ("door_closed", "Porte fermée"),
         };
+        // Porte double (`double_doors`) : une seule étiquette pour la paire, posée à son milieu ; la jumelle
+        // n'en a pas. Sans la clé, l'étiquette de chaque porte comme avant.
+        let (position, skip) = match pair.filter(|_| double_doors) {
+            Some(pair) => (pair.center + Vec2::Y * 22.0, !pair.first),
+            None => (at(t, 22.0), false),
+        };
+        if skip {
+            continue;
+        }
         out.push(LabelWish {
             target,
-            position: at(t, 22.0),
+            position,
             text: name_of(key, fallback),
             color: world_color,
         });

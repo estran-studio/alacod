@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::ui::UiSystems;
-use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use combat::downed::{Downed, Reviving};
@@ -170,13 +169,18 @@ pub struct HudWidget {
     pub compact: bool,
 }
 
-/// Icône d'un id de contenu (T2.12, perks) : pas de sprite, un carré de couleur et une
-/// courte étiquette (l'initiale). Un id absent de [`HudConfig::icons`] prend un carré gris
-/// et la première lettre de son id en majuscule (voir [`icon_for`]).
+/// Icône d'un id de contenu (T2.12, perks) : un carré de couleur et une courte étiquette
+/// (l'initiale), ou, depuis S1-8, l'`image` d'un pack (chemin relatif à `assets/`) : l'image remplace
+/// le carré et l'étiquette. Un id absent de [`HudConfig::icons`] prend un carré gris et la première
+/// lettre de son id en majuscule (voir [`icon_for`]). Une image n'est jamais posée par le `hud.ron`
+/// public d'un jeu dont le pack n'est pas redistribuable : elle vient de la surcharge locale
+/// (`ui/hud.local.ron`, [`HudOverlay`]).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HudIcon {
     pub color: String,
     pub label: String,
+    #[serde(default)]
+    pub image: Option<String>,
 }
 
 /// Groupe de la légende (`HudConfig::legend`) : un titre et des lignes, rangés dans la colonne
@@ -228,6 +232,33 @@ pub struct WallArt {
     /// couche `Surfaces` valeur 5, tuile 36). La couche d'origine se cache par `hide_layers`.
     #[serde(default)]
     pub cells: Vec<CellArt>,
+    /// Sol : une tuile de la feuille posée sous chaque case qui n'est pas un mur (S1-8, zombies). Absent :
+    /// le sol reste celui de la carte (couleur de fond du niveau ou couches de tuiles de LDtk).
+    #[serde(default)]
+    pub floor: Option<FloorArt>,
+}
+
+/// Remplissage de sol de [`WallArt`] : une tuile par case non murée, choisie parmi `tiles` (indices de la
+/// feuille de `WallArt`) par une fonction de la position de la case, donc la même sur tous les clients et
+/// à chaque rechargement du niveau.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FloorArt {
+    pub tiles: Vec<u32>,
+    /// Couche de la carte qui dit où est le sol : seules les cases où elle a une tuile (couche de tuiles ou
+    /// d'auto-tuiles) ou une valeur non nulle (IntGrid) reçoivent le sol, ce qui laisse le hors-salle vide
+    /// (`Sol` pour la fonderie). Absente d'un niveau, ou non déclarée : toute case non murée reçoit le sol.
+    #[serde(default)]
+    pub mask_layer: Option<String>,
+    /// Profondeur locale au niveau : au-dessus du fond (0) et sous tout ce qui se pose au sol, halos des
+    /// ramassables compris (leur `z` est celui de leur porteur + 0,1).
+    #[serde(default = "FloorArt::default_z")]
+    pub z: f32,
+}
+
+impl FloorArt {
+    fn default_z() -> f32 {
+        0.05
+    }
 }
 
 /// Une case d'IntGrid dessinée par une tuile de la feuille de `WallArt` (`WallArt::cells`).
@@ -302,13 +333,97 @@ pub struct HudConfig {
     /// sont pas dessinés (autres jeux inchangés).
     #[serde(default)]
     pub wall_art: Option<WallArt>,
+    /// Portes doubles (S1-8, `docs/conventions.md` §92) : une porte et sa jumelle collée (`paired_door`) ne font
+    /// qu'**une** porte à l'écran (battants symétriques, une étiquette F6), et une porte plus longue que son image
+    /// est faite d'une rangée d'images (`world_sprites::DoorPair`). Faux par défaut : gungeon et les autres
+    /// jeux gardent leurs portes et leurs étiquettes.
+    #[serde(default)]
+    pub double_doors: bool,
+}
+
+/// Surcharge locale du HUD (S1-8) : `ui/hud.local.ron`, à côté de `ui/hud.ron`, **gitignorée** comme
+/// `sprites.local.ron` (pack d'images non redistribuable ; `docs/conventions.md` §2). Partielle : seuls les
+/// champs qu'elle porte remplacent ceux du `hud.ron` public (`wall_art` en bloc, `icons` id par id, un id
+/// du fichier public absent de la surcharge est gardé). Sans fichier (CI, autres postes, amis, wasm) le HUD
+/// public est lu tel quel : le repli est le `hud.ron` commité.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct HudOverlay {
+    #[serde(default)]
+    pub wall_art: Option<WallArt>,
+    #[serde(default)]
+    pub icons: BTreeMap<String, HudIcon>,
+}
+
+impl HudConfig {
+    /// Pose la surcharge locale sur la configuration publique.
+    pub fn apply_overlay(&mut self, overlay: HudOverlay) {
+        if overlay.wall_art.is_some() {
+            self.wall_art = overlay.wall_art;
+        }
+        self.icons.extend(overlay.icons);
+    }
+}
+
+/// Options RON du HUD : celles de `RonAssetPlugin` (`Some` implicite), pour que les fichiers lus ne changent pas.
+fn hud_ron_options() -> ron::Options {
+    ron::Options::default().with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum HudLoadError {
+    #[error("lecture du hud : {0}")]
+    Io(#[from] std::io::Error),
+    #[error("RON du hud : {0}")]
+    Ron(#[from] ron::error::SpannedError),
+}
+
+/// Chargeur de `ui/hud.ron` : comme `RonAssetPlugin<HudConfig>`, plus la surcharge locale
+/// `ui/hud.local.ron` quand elle existe (natif seulement : le web ne cherche pas un fichier absent du
+/// site, il lirait un 404). L'absence du fichier est silencieuse ; sa présence l'enregistre comme
+/// dépendance (rechargement à chaud).
+#[derive(TypePath, Default)]
+pub struct HudConfigLoader;
+
+impl bevy::asset::AssetLoader for HudConfigLoader {
+    type Asset = HudConfig;
+    type Settings = ();
+    type Error = HudLoadError;
+
+    async fn load(
+        &self,
+        reader: &mut dyn bevy::asset::io::Reader,
+        _settings: &(),
+        load_context: &mut bevy::asset::LoadContext<'_>,
+    ) -> Result<HudConfig, HudLoadError> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let mut config: HudConfig = hud_ron_options().from_bytes(&bytes)?;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let local = load_context.path().path().with_extension("local.ron");
+            if let Ok(local_bytes) = load_context.read_asset_bytes(local).await {
+                match hud_ron_options().from_bytes::<HudOverlay>(&local_bytes) {
+                    Ok(overlay) => config.apply_overlay(overlay),
+                    Err(error) => warn!("ui/hud.local.ron ignoré : {error}"),
+                }
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = load_context;
+        Ok(config)
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["ron"]
+    }
 }
 
 pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<HudConfig>::new(&["ron"]))
+        app.init_asset::<HudConfig>()
+            .register_asset_loader(HudConfigLoader)
             .init_resource::<HudConfigHandle>()
             .add_systems(OnEnter(AppState::InGame), load_hud_config)
             .add_systems(
@@ -430,7 +545,7 @@ fn spawn_hud_when_ready(
                     ))
                     .id();
                 let font = config.font.as_ref().map(|path| asset_server.load(path));
-                spawn_hud_widgets(&mut commands, entity, config, font);
+                spawn_hud_widgets(&mut commands, &asset_server, entity, config, font);
             }
         }
     }
@@ -511,6 +626,7 @@ pub(crate) fn hud_text_font(font: &Option<Handle<Font>>, size: f32) -> TextFont 
 
 fn spawn_hud_widgets(
     commands: &mut Commands,
+    asset_server: &AssetServer,
     entity: Entity,
     config: &HudConfig,
     font: Option<Handle<Font>>,
@@ -598,6 +714,11 @@ fn spawn_hud_widgets(
                         .map_or((Color::srgb(0.5, 0.5, 0.5), String::new()), |icon| {
                             (parse_color(&icon.color), icon.label.clone())
                         });
+                    let icon_image = config
+                        .icons
+                        .get(source)
+                        .and_then(|icon| icon.image.as_deref())
+                        .map(|path| load_icon(asset_server, path));
                     let mut node = node;
                     node.flex_direction = FlexDirection::Row;
                     node.align_items = AlignItems::Center;
@@ -611,25 +732,37 @@ fn spawn_hud_widgets(
                             },
                         ))
                         .with_children(|row| {
-                            row.spawn((
-                                Node {
-                                    width: Val::Px(size.1),
-                                    height: Val::Px(size.1),
-                                    justify_content: JustifyContent::Center,
-                                    align_items: AlignItems::Center,
-                                    border: UiRect::all(Val::Px(1.0)),
-                                    ..default()
-                                },
-                                BackgroundColor(icon_color),
-                                BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.8)),
-                            ))
-                            .with_children(|icon| {
-                                icon.spawn((
-                                    Text::new(label),
-                                    hud_text_font(&font, size.1 * 0.6),
-                                    TextColor(Color::WHITE),
+                            if let Some(image) = icon_image {
+                                // Image du pack (surcharge locale) : remplace le carré et l'étiquette.
+                                row.spawn((
+                                    Node {
+                                        width: Val::Px(size.1),
+                                        height: Val::Px(size.1),
+                                        ..default()
+                                    },
+                                    ImageNode::new(image),
                                 ));
-                            });
+                            } else {
+                                row.spawn((
+                                    Node {
+                                        width: Val::Px(size.1),
+                                        height: Val::Px(size.1),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        border: UiRect::all(Val::Px(1.0)),
+                                        ..default()
+                                    },
+                                    BackgroundColor(icon_color),
+                                    BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.8)),
+                                ))
+                                .with_children(|icon| {
+                                    icon.spawn((
+                                        Text::new(label),
+                                        hud_text_font(&font, size.1 * 0.6),
+                                        TextColor(Color::WHITE),
+                                    ));
+                                });
+                            }
                             row.spawn((
                                 Text::new(""),
                                 hud_text_font(&font, font_size),
@@ -841,6 +974,7 @@ struct HudInteractables<'w, 's> {
 
 fn update_hud_v1_values(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     frame: Res<FrameCount>,
     hud_player: HudPlayer,
     snapshot: Res<HudSnapshot>,
@@ -863,6 +997,7 @@ fn update_hud_v1_values(
         hide_markers: false,
         room_icons: BTreeMap::new(),
         wall_art: None,
+        double_doors: false,
     };
     let config = config_handle
         .0
@@ -1007,6 +1142,18 @@ fn update_hud_v1_values(
             .despawn_related::<Children>()
             .with_children(|row| {
                 for id in ids {
+                    if let Some(path) = config.icons.get(id).and_then(|icon| icon.image.as_deref())
+                    {
+                        row.spawn((
+                            Node {
+                                width: Val::Px(size),
+                                height: Val::Px(size),
+                                ..default()
+                            },
+                            ImageNode::new(load_icon(&asset_server, path)),
+                        ));
+                        continue;
+                    }
                     let (color, label) = icon_for(config, id);
                     row.spawn((
                         Node {
@@ -1242,9 +1389,29 @@ fn heart_colors(config: &HudConfig) -> (Color, Color, Color) {
     )
 }
 
+/// Image d'une icône (chemin relatif à `assets/`).
+fn load_icon(asset_server: &AssetServer, path: &str) -> Handle<Image> {
+    asset_server.load(path.to_owned())
+}
+
+/// Image d'un cœur (surcharge locale d'un pack) : `heart` / `heart_half` / `soul_heart` /
+/// `soul_heart_half` / `heart_empty` de `icons`, selon le type et le remplissage (en demi-cœurs).
+/// `None` : un des ids n'a pas d'image, le cœur garde ses carrés de couleur.
+fn heart_image(config: &HudConfig, kind: HeartKind, fill: u8) -> Option<&str> {
+    let id = match (kind, fill) {
+        (_, 0) => "heart_empty",
+        (HeartKind::Red, 1) => "heart_half",
+        (HeartKind::Soul, 1) => "soul_heart_half",
+        (HeartKind::Red, _) => "heart",
+        (HeartKind::Soul, _) => "soul_heart",
+    };
+    config.icons.get(id)?.image.as_deref()
+}
+
 /// Cœurs de la source `hearts`, dérivés du snapshot : reconstruits seulement quand ils changent.
 fn update_hud_hearts(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     snapshot: Res<HudSnapshot>,
     config_handle: Res<HudConfigHandle>,
     configs: Res<Assets<HudConfig>>,
@@ -1266,6 +1433,7 @@ fn update_hud_hearts(
                 hide_markers: false,
                 room_icons: BTreeMap::new(),
                 wall_art: None,
+                double_doors: false,
             };
             &default_config
         }
@@ -1282,6 +1450,17 @@ fn update_hud_hearts(
             .despawn_related::<Children>()
             .with_children(|row| {
                 for slot in slots.iter().flatten() {
+                    if let Some(path) = heart_image(config, slot.kind, slot.fill) {
+                        row.spawn((
+                            Node {
+                                width: Val::Px(size),
+                                height: Val::Px(size),
+                                ..default()
+                            },
+                            ImageNode::new(load_icon(&asset_server, path)),
+                        ));
+                        continue;
+                    }
                     let fill = match slot.kind {
                         HeartKind::Red => red,
                         HeartKind::Soul => soul,
@@ -2124,6 +2303,57 @@ mod tests {
         assert_eq!(parse_color("pas une couleur"), Color::WHITE);
     }
 
+    /// La surcharge locale remplace `wall_art` en bloc, ajoute ou remplace les icônes par id et garde les autres.
+    #[test]
+    fn the_local_overlay_replaces_wall_art_and_merges_icons_by_id() {
+        let base = r##"(
+            widgets: [],
+            icons: {
+                "juggernog": (color: "#c0392b", label: "J"),
+                "speed_cola": (color: "#27ae60", label: "S"),
+            },
+        )"##;
+        let overlay = r##"(
+            wall_art: Some((layer: "Walls", atlas: "sprites/postapo/atlas_murs.png", floor: Some((tiles: [36, 37])))),
+            icons: { "juggernog": (color: "#c0392b", label: "J", image: Some("sprites/postapo/hud/juggernog.png")) },
+        )"##;
+        let mut config: HudConfig = hud_ron_options().from_str(base).expect("hud public");
+        assert!(config.wall_art.is_none());
+        config.apply_overlay(hud_ron_options().from_str(overlay).expect("surcharge"));
+        let art = config.wall_art.as_ref().expect("wall_art posé");
+        assert_eq!((art.tile, art.columns), (16, 8));
+        let floor = art.floor.as_ref().expect("sol");
+        assert_eq!((floor.tiles.as_slice(), floor.z), (&[36, 37][..], 0.05));
+        assert_eq!(
+            config.icons["juggernog"].image.as_deref(),
+            Some("sprites/postapo/hud/juggernog.png")
+        );
+        // Un id absent de la surcharge garde son carré de couleur.
+        assert!(config.icons["speed_cola"].image.is_none());
+        // Une surcharge vide ne change rien.
+        config.apply_overlay(HudOverlay::default());
+        assert!(config.wall_art.is_some() && config.icons.len() == 2);
+    }
+
+    /// Un cœur n'a d'image que si son type et son remplissage en ont une : sinon les carrés de couleur.
+    #[test]
+    fn a_heart_image_needs_every_state_it_draws() {
+        let mut config: HudConfig = hud_ron_options()
+            .from_str("(widgets: [])")
+            .expect("hud vide");
+        let icon = |path: &str| HudIcon {
+            color: "#ffffff".into(),
+            label: String::new(),
+            image: Some(path.into()),
+        };
+        config.icons.insert("heart".into(), icon("h.png"));
+        config.icons.insert("heart_half".into(), icon("hh.png"));
+        assert_eq!(heart_image(&config, HeartKind::Red, 2), Some("h.png"));
+        assert_eq!(heart_image(&config, HeartKind::Red, 1), Some("hh.png"));
+        assert_eq!(heart_image(&config, HeartKind::Red, 0), None);
+        assert_eq!(heart_image(&config, HeartKind::Soul, 2), None);
+    }
+
     #[test]
     fn icon_falls_back_to_grey_initial() {
         let mut config = HudConfig {
@@ -2137,12 +2367,14 @@ mod tests {
             hide_markers: false,
             room_icons: BTreeMap::new(),
             wall_art: None,
+            double_doors: false,
         };
         config.icons.insert(
             "juggernog".into(),
             HudIcon {
                 color: "#c0392b".into(),
                 label: "J".into(),
+                image: None,
             },
         );
         assert_eq!(icon_for(&config, "juggernog").1, "J");

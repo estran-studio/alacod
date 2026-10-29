@@ -1114,16 +1114,34 @@ fn sprite_sheet_directions_two_blocks_of_eight_is_clean() {
 }
 
 /// Surcharge locale (`sprites.local.ron`, pack non redistribuable) : remplace l'entrée de même
-/// id, laisse les autres, et refuse un id sans repli public.
+/// id, laisse les autres, et peut ajouter un id sans entrée publique (S1-8 : l'absence d'entrée est
+/// le repli du moteur).
 #[test]
-fn sprite_sheet_local_overlay_replaces_known_ids_only() {
+fn sprite_sheet_local_overlay_replaces_and_adds_ids() {
     let (registry, _, errors) = load_and_lint(&fixture_dir("sprite_sheet_local_overlay")).unwrap();
-    assert_has_error(&errors, LintErrorKind::BrokenReference, "ghost");
-    assert_only_one_besides_start_map(&errors);
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("start_map"))
+        .collect();
+    assert!(others.is_empty(), "{others:#?}");
     let body = |id: &str| registry.sprite_sheets[&id.into()].layers["body"].clone();
     assert_eq!(body("hero"), "sprites/hero_local_sheet.ron");
     assert_eq!(body("villain"), "sprites/villain_sheet.ron");
-    assert!(!registry.sprite_sheets.contains_key(&"ghost".into()));
+    assert_eq!(body("ghost"), "sprites/hero_local_sheet.ron");
+}
+
+/// S1-8 : la surcharge locale du HUD (`ui/hud.local.ron`) est vérifiée comme le `hud.ron` public :
+/// feuille de murs et image d'icône présentes.
+#[test]
+fn hud_local_overlay_fixture_reports_missing_atlas_and_icon_image() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hud_local_overlay_missing_image")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "murs_absents.png");
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "absente.png");
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("start_map"))
+        .collect();
+    assert_eq!(others.len(), 2, "{errors:#?}");
 }
 
 /// D51 : `spread` doit rester dans [0, π] radians.

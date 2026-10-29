@@ -104,6 +104,16 @@
             font_size: Some(16.0),
             background: Some("#000000a0"),
         ),
+        // S1-8 : légende des silhouettes et couleurs (F7), fermée par défaut.
+        (
+            kind: Legend(source: "legend"),
+            anchor: TopCenter,
+            offset: (0.0, 110.0),
+            size: Some((760.0, 0.0)),
+            color: None,
+            font_size: Some(11.0),
+            background: Some("#05080df4"),
+        ),
         // T2.12 : prompt d'interaction (« Acheter … — $500 »), en bas au centre.
         (
             kind: Text(source: "prompt", prefix: Some("[H] ")),
@@ -115,6 +125,14 @@
             background: Some("#000000a0"),
         ),
     ],
+    // S1-8 (lisibilité coop, même langage que gungeon, `docs/conventions.md` §83) : couleur par handle de joueur
+    // (bleu, vert, jaune, violet) appliquée à leurs calques ; repères d'apparition de la carte cachés (tuiles
+    // d'éditeur) ; légende (F7) ; noms des étiquettes (F6).
+    player_colors: ["#4aa3ff", "#4cd964", "#ffd60a", "#b266ff"],
+    hide_markers: true,
+    // S1-8 (suite) : une porte et sa jumelle collée (de l'autre côté du mur) ne font qu'une porte double à l'écran :
+    // battants symétriques, une seule étiquette F6 ; une porte plus longue que son image est une rangée d'images.
+    double_doors: true,
     // T2.12 : icônes des perks (`economy/perks.ron`) : carré de couleur + étiquette.
     icons: {
         "juggernog": (color: "#c0392b", label: "J"),
@@ -122,11 +140,37 @@
         "double_tap": (color: "#e67e22", label: "D"),
         "stamin_up": (color: "#f1c40f", label: "T"),
     },
-    // T2.12 : noms affichés des armes (`weapons.ron`) dans le prompt.
+    // T2.12 : noms affichés des armes (`weapons.ron`) dans le prompt ; S1-8 : noms des étiquettes (F6) des joueurs,
+    // des zombies et des ramassables.
     names: {
         "pistol": "pistolet",
         "machine_gun": "mitrailleuse",
         "shotgun": "fusil à pompe",
         "rifle": "fusil",
+        "player": "J",
+        "zombie_1": "Zombie",
+        "zombie_2": "Zombie coriace",
+        "zombie_full": "Zombie brute",
+        "boss_zombie": "BOSS",
     },
+    // S1-8 : légende (F7), lignes du jeu seulement (les ids de `sprites.ron` ; sans la surcharge locale, les sprites
+    // publics). Les couleurs des joueurs sont celles de `player_colors`.
+    legend: [
+        (title: "Joueurs (couleur = numéro)", column: 0, entries: [
+            (label: "Joueur 1", sprite: Some("player"), tint: Some("#4aa3ff")),
+            (label: "Joueur 2", sprite: Some("player"), tint: Some("#4cd964")),
+            (label: "Joueur 3", sprite: Some("player"), tint: Some("#ffd60a")),
+            (label: "Joueur 4", sprite: Some("player"), tint: Some("#b266ff")),
+        ]),
+        (title: "Zombies", column: 1, entries: [
+            (label: "Zombie : fonce sur le plus proche", sprite: Some("zombie_1")),
+            (label: "Zombie coriace", sprite: Some("zombie_2")),
+            (label: "Zombie brute", sprite: Some("zombie_full")),
+            (label: "BOSS (salle finale)", sprite: Some("boss_zombie")),
+        ]),
+        (title: "Ramassables (halo qui pulse)", column: 2, entries: [
+            (label: "Arme au mur ou au sol : halo orange", sprite: Some("halo"), tint: Some("#ff9933")),
+            (label: "Power-up (30 s au sol) : halo vert", sprite: Some("halo"), tint: Some("#4dff8c")),
+        ]),
+    ],
 )
