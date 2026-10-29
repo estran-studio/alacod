@@ -3,6 +3,14 @@
 (
     font: Some("fonts/FiraMono-Medium.ttf"),
     reference_size: Some((800.0, 540.0)),
+    // S1-4 : noms affichés des armes (`weapons/weapons.ron`) dans le prompt « Ramasser … ».
+    names: {
+        "fusil_a_pompe": "fusil à pompe",
+        "canon_ricochet": "canon à ricochets",
+        "lance_grenades": "lance-grenades",
+        "lance_lames": "lance-lames",
+        "roquette": "lance-roquettes",
+    },
     widgets: [
         (kind: Text(source: "floor", prefix: None), anchor: TopLeft,
          offset: (16.0, 16.0), size: Some((180.0, 24.0)),

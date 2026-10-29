@@ -179,8 +179,8 @@ pub fn log_ggrs_events(
                 );
                 error!("Player '{}' disconnected", who);
                 lost.push(SessionLostEvent {
-                    title: "GAME DISCONNECTED",
-                    message: format!("{who} disconnected"),
+                    title: crate::ui::texts::SESSION_LOST_TITLE,
+                    message: crate::ui::texts::peer_disconnected(&who),
                 });
             }
             GgrsEvent::DesyncDetected {
@@ -211,8 +211,8 @@ pub fn log_ggrs_events(
                 // (les deux pairs continueraient sinon chacun leur jeu, en silence).
                 desync = true;
                 lost.push(SessionLostEvent {
-                    title: "DESYNC",
-                    message: format!("Frame {frame}: état différent de {who}"),
+                    title: crate::ui::texts::DESYNC_TITLE,
+                    message: crate::ui::texts::desync_message(frame, &who),
                 });
             }
             _ => (),

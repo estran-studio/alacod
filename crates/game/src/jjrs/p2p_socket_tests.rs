@@ -31,17 +31,17 @@ fn lobby_status_line_reports_slow_peers_and_abandoned_attempts() {
     );
     assert_eq!(
         text(Some(7.4), None, None).as_deref(),
-        Some("Connecting to peer... 7 s")
+        Some("Connexion au pair… 7 s")
     );
     let retry = Some((ConnectNotice::Retrying { attempt: 2, of: 2 }, 1.0));
     assert_eq!(
         text(Some(7.4), None, retry).as_deref(),
-        Some("Peer connection failed: new attempt (2/2)")
+        Some("Connexion au pair échouée : nouvelle tentative (2/2)")
     );
     let back = Some((ConnectNotice::BackToLobby { attempts: 2 }, 1.0));
     assert_eq!(
         text(None, None, back).as_deref(),
-        Some("Peer connection failed after 2 attempt(s): back to the lobby")
+        Some("Connexion au pair échouée après 2 tentatives : retour au salon")
     );
     // L'avis expire : retour à l'attente.
     let stale = Some((
@@ -51,12 +51,12 @@ fn lobby_status_line_reports_slow_peers_and_abandoned_attempts() {
     assert_eq!(text(None, None, stale), None);
     assert_eq!(
         text(Some(7.4), Some((3, 2)), None).as_deref(),
-        Some("Room full (3 peers for 2 places): waiting for a free place")
+        Some("Salle pleine (3 pairs pour 2 places) : en attente d'une place")
     );
     let full = Some((ConnectNotice::RoomFull { peers: 3, max: 2 }, 1.0));
     assert_eq!(
         text(None, Some((3, 2)), full).as_deref(),
-        Some("Room full (3 peers for 2 places): back to the lobby")
+        Some("Salle pleine (3 pairs pour 2 places) : retour au salon")
     );
 }
 
