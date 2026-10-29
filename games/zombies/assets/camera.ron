@@ -11,4 +11,7 @@
     use_edge_detection: true,
     // En ligne, mode de suivi : LocalPlayer (défaut, suit mon joueur) ou AllPlayers (cadre tout le monde)
     online_follow: LocalPlayer,
+    // S1-6 (§94) : interpolation d'affichage entre deux frames simulées (présentation ; coupée au-delà de
+    // `snap_distance` px d'écart d'une frame à l'autre : téléport, étage). `ALACOD_INTERPOLATION=0` la coupe.
+    interpolation: (enabled: true, snap_distance: 48.0),
 ))

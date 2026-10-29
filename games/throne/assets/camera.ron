@@ -14,4 +14,7 @@
     // T1.16 (§30) : fondu au noir (secondes) et recentrage de la caméra à chaque niveau.
     floor_fade_seconds: 0.4,
     floor_recenter: true,
+    // S1-6 (§94) : interpolation d'affichage entre deux frames simulées (présentation ; coupée au-delà de
+    // `snap_distance` px d'écart d'une frame à l'autre : téléport, étage). `ALACOD_INTERPOLATION=0` la coupe.
+    interpolation: (enabled: true, snap_distance: 48.0),
 ))
