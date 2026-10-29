@@ -8280,9 +8280,18 @@ lit par une surcharge locale gitignorée, **même principe que `hud.local.ron`**
   tels quels, de s'en attribuer la paternité, de s'en servir pour entraîner une IA).
 - **Écoute** : aucun son sur le Mac sans demande de William (`ALACOD_MUTE=1` partout, Chrome muet). Les replis publics ont été choisis sur le nom et la
   durée des fichiers, **sans écoute** : le protocole d'écoute est dans `docs/taches/rapports/polissage-zombies-sons.md`.
-- **Throne (S2-11)** : même mécanique, `games/throne/assets/ui/feedback.local.ron` + `sounds/sonniss/` (19 extraits) ; script frère `scripts/repack-throne-sons.py`
-  (importe `process`, `extract`, `TARGET`, `OUT` de `repack-zombies-sons.py` ; option `pitch` en centièmes de ton, pour les armes sans son libre
-  dédié : un tir Snake's changé de hauteur). **Les armes ne passent pas par la surcharge** : `audio_config` (un tir par arme, un rechargement par
-  famille) est dans `weapons.ron`, public ; les 12 armes de throne ont donc des sons publics seulement (D170 : clé `shot_<arme>` à demander à b2). Le
-  lint de throne vérifie aussi chaque fichier d'un `audio_config`. Sans clé `mutation` ni `BossState` sur `roi_rat`, le choix de mutation ne sonne pas
-  et `boss_*` ne part pas (`docs/taches/rapports/polissage-throne-sons.md` § 2).
+- **Clés propres à une arme et clé `mutation`** (S2-11, avec l'accord du coordinateur du 2026-10-29 ; fichiers de b2 touchés : `content::feedback`, `game::feedback_sounds`, `game::feedback`) :
+  `shot_<arme>` (tir) et `reload_<arme>` (rechargement) sont résolues **avant** l'`audio_config` de `weapons.ron`, puis la famille du mode de tir (`shot_pistol`,
+  `shot_shotgun`, `shot_smg`, `shot`) ou `reload` ; c'est ce qui permet à la surcharge locale de porter le son d'une arme (`audio_config` est dans un fichier public).
+  Même modèle que `death_<id>` : préfixe accepté par `SOUND_KEYS` (`weapon_of_sound_key`), le lint refuse une **arme à distance inconnue** du jeu
+  (`feedback : sounds.shot_laser : arme « laser » inconnue du jeu`, fixture `feedback_weapon_key_unknown`) ; une clé qui coïncide avec une clé fixe
+  (`shot_pistol`, `shot_shotgun`, `shot_smg`) reste celle de la famille (une arme nommée `pistol` garde son `audio_config`, `weapon_sound_key` renvoie `None`). Volume :
+  celui de la clé propre à l'arme si `volumes` la règle, sinon celui de la famille (`WeaponSound::volume_fallback`). `mutation` : un son par image rendue quand la liste
+  `Mutations` d'un joueur local s'allonge (`play_mutation_sound`, `Update`, dérivé de l'état rollback, aucune écriture ; les mutations imposées au départ et un retour en
+  arrière ne sonnent pas). Aucune trace ne bouge.
+- **Web** (S-0b, § 99) : le chargeur de `feedback.local.ron` suit celui de `hud.local.ron` (`ui::hud::hud_overlay_wanted`) : natif = fichier présent sur le disque ; wasm = seulement
+  dans un build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1` (le site contient alors `ui/feedback.local.ron` et `sounds/sonniss/`, `scripts/assets-prives.patterns`).
+- **Throne (S2-11)** : même mécanique, `games/throne/assets/ui/feedback.local.ron` + `sounds/sonniss/` (28 extraits) ; script frère `scripts/repack-throne-sons.py`
+  (importe `process`, `extract`, `TARGET`, `OUT` de `repack-zombies-sons.py` ; options `pitch` et `skip`). Armes : `audio_config` public (Snake's ; lanceurs et énergie = tir
+  changé de hauteur, D171) **et** clés `shot_<arme>` Sonniss dans la surcharge pour l'énergie, les lanceurs et les lames. Le lint vérifie aussi chaque fichier d'un `audio_config`.
+  Le `roi_rat` n'a pas de `BossState` (D170) : `boss_*` ne part pas à throne (`docs/taches/rapports/polissage-throne-sons.md` § 2).

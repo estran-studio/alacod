@@ -31,6 +31,7 @@ pub(crate) fn add_event_sounds(app: &mut App) {
             play_boss_sounds,
             play_log_sounds,
             play_purchase_and_pickup_sounds,
+            play_mutation_sound,
             play_menu_sounds,
         ),
     );
@@ -282,10 +283,51 @@ fn play_menu_sounds(
     *previous = Some(now);
 }
 
+// --- Mutations -------------------------------------------------------------------------------
+
+/// `mutation` : un joueur local prend une mutation (`Mutations` s'allonge d'une image rendue à l'autre). `before` :
+/// nombre de mutations vu à l'image d'avant pour ce joueur ; `None` à la première image où on le voit (une mutation
+/// imposée au départ ne sonne pas).
+fn mutation_taken(before: Option<usize>, now: usize) -> bool {
+    before.is_some_and(|before| now > before)
+}
+
+/// `mutation` : un son par image rendue, quel que soit le nombre de joueurs locaux qui choisissent. Dérivé de
+/// l'état (`Mutations`, rollback), jamais d'un événement de la simulation.
+fn play_mutation_sound(
+    sounds: FeedbackSounds,
+    players: Query<(&GgrsNetId, &crate::progression::Mutations), With<LocalPlayer>>,
+    mut seen: Local<BTreeMap<usize, usize>>,
+) {
+    let now: BTreeMap<usize, usize> = players
+        .iter()
+        .map(|(net_id, mutations)| (net_id.0, mutations.0.len()))
+        .collect();
+    let taken = now
+        .iter()
+        .any(|(net_id, len)| mutation_taken(seen.get(net_id).copied(), *len));
+    *seen = now;
+    if taken {
+        sounds.play("mutation");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::ui::screens::model::ScreenId;
+
+    #[test]
+    fn mutation_prise_seulement_quand_la_liste_s_allonge() {
+        // Première image vue (mutations imposées au départ) : rien.
+        assert!(!mutation_taken(None, 2));
+        assert!(!mutation_taken(Some(0), 0));
+        assert!(mutation_taken(Some(0), 1));
+        // Une pile de plus d'une mutation déjà prise sonne aussi.
+        assert!(mutation_taken(Some(2), 3));
+        // Un retour en arrière (nouvelle partie, rollback) ne sonne pas.
+        assert!(!mutation_taken(Some(3), 1));
+    }
 
     #[test]
     fn vague_debut_et_fin() {

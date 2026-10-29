@@ -60,6 +60,7 @@
         "boss_phase": "sounds/boss_phase.ogg",
         "boss_death": "sounds/boss_death.ogg",
         "floor": "sounds/floor.ogg",
+        "mutation": "sounds/mutation.ogg",
         "room_cleared": "sounds/room_cleared.ogg",
         "explosion": "sounds/explosion.ogg",
         "bomb": "sounds/bomb.ogg",
@@ -73,8 +74,8 @@
     // Volume par clé de `sounds`, en dB (0 : inchangé ; plage -60 à +12), ex. {"hit": -3.0}.
     // -12 dB partout (2026-10-16, retour de William : tout trop fort par défaut ;
     // les fichiers des lots A/B sont normalisés à -3 dBFS crête).
-    // S2-11 (départ, RMS cible de `scripts/repack-throne-sons.py`) : morts de machines -6, mort du joueur -9, boss -6, étage -8, explosion -6,
+    // S2-11 (départ, RMS cible de `scripts/repack-throne-sons.py`) : morts de machines -6, mort du joueur -9, boss -6, étage -8, mutation -8, explosion -6,
     // bombe -10, blank -9, salle -9, achat et ramassage -8, menus -11. Un tir prend le volume de la clé de sa famille (`shot_pistol` pour
     // toute arme à tir manuel) : les lanceurs sont donc normalisés 2 dB plus fort, l'énergie 2 dB plus bas.
-    volumes: {"shot_pistol": -12.0, "shot_shotgun": -12.0, "shot_smg": -12.0, "reload": -12.0, "hit": -12.0, "melee": -9.0, "hurt": -12.0, "death": -6.0, "dash": -12.0, "door": -12.0, "death_player": -9.0, "death_tourelle": -6.0, "death_arroseur": -6.0, "death_mannequin": -6.0, "death_cible": -6.0, "boss_spawn": -6.0, "boss_phase": -6.0, "boss_death": -6.0, "floor": -8.0, "room_cleared": -9.0, "explosion": -6.0, "bomb": -10.0, "blank": -9.0, "purchase": -8.0, "pickup": -8.0, "menu_navigate": -11.0, "menu_confirm": -11.0, "menu_back": -11.0},
+    volumes: {"shot_pistol": -12.0, "shot_shotgun": -12.0, "shot_smg": -12.0, "reload": -12.0, "hit": -12.0, "melee": -9.0, "hurt": -12.0, "death": -6.0, "dash": -12.0, "door": -12.0, "death_player": -9.0, "death_tourelle": -6.0, "death_arroseur": -6.0, "death_mannequin": -6.0, "death_cible": -6.0, "boss_spawn": -6.0, "boss_phase": -6.0, "boss_death": -6.0, "floor": -8.0, "mutation": -8.0, "room_cleared": -9.0, "explosion": -6.0, "bomb": -10.0, "blank": -9.0, "purchase": -8.0, "pickup": -8.0, "menu_navigate": -11.0, "menu_confirm": -11.0, "menu_back": -11.0},
 )

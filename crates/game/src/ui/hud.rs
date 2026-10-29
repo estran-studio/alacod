@@ -377,10 +377,10 @@ pub enum HudLoadError {
     Ron(#[from] ron::error::SpannedError),
 }
 
-/// Une `ui/hud.local.ron` est-elle à chercher ? Natif : toujours (absence silencieuse). Web : seulement dans un
+/// Une surcharge locale (`ui/hud.local.ron`, et `ui/feedback.local.ron` pour les sons, `docs/conventions.md` § 98) est-elle à chercher ? Natif : toujours (absence silencieuse). Web : seulement dans un
 /// build fait avec `ALACOD_WEB_PRIVATE_ASSETS=1` (D169, `docs/conventions.md` § 99), le site contenant alors le
 /// fichier ; un build public ne le cherche pas (un fichier absent du site donnerait un 404 à chaque démarrage).
-fn hud_overlay_wanted(wasm: bool, web_private_assets: Option<&str>) -> bool {
+pub(crate) fn hud_overlay_wanted(wasm: bool, web_private_assets: Option<&str>) -> bool {
     !wasm || web_private_assets == Some("1")
 }
 

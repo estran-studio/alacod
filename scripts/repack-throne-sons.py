@@ -56,11 +56,12 @@ KENNEY = [
     ("floor", "Audio/impactPlate_medium_003.ogg", 0.65, 0.2),
     ("bomb", "Audio/impactTin_medium_001.ogg", 0.18, 0.05),
     ("blank", "Audio/impactGlass_heavy_000.ogg", 0.25, 0.08),
+    ("mutation", "Audio/impactBell_heavy_002.ogg", 0.7, 0.2),
 ]
 # Mêmes événements qu'à zombies (même fichier, même traitement) : repris de scripts/repack-zombies-sons.py.
 SHARED_PUBLIC = ["death_player", "boss_spawn", "boss_death", "room_cleared", "purchase", "pickup", "menu_navigate", "menu_confirm", "menu_back"]
 SHARED_SONNISS = ["death_player", "room_cleared", "purchase", "pickup", "menu_navigate", "menu_confirm", "menu_back"]
-# Sonniss propres à throne : (nom, bundle, membre, durée, fondu).
+# Sonniss propres à throne : (nom, bundle, membre, durée, fondu[, secondes de silence initial coupées]).
 SONNISS = [
     ("boss_spawn", 1, "344 Audio - Dinosaurs Vol. 1/ANMLRept_T Rex_344 Audio_Dinosaurs.wav", 2.6, 0.5),
     ("boss_death", 2, "Epic Stock Media - Halloween Game - Haunted House and Horror Audio Scare Kit/CREABeast_Creature Werewolf Growl Menacing Monstrous 06_ESM_HALG.wav", 2.4, 0.6),
@@ -69,6 +70,16 @@ SONNISS = [
     ("explosion", 2, "Epic Stock Media - Anime Game/EXPLDsgn_Explosion Small Blast Enemy Death Crunchy Boom Cartoon Noisy Crash Impact Delay 03_ESM_AG.wav", 1.4, 0.4),
     ("bomb", 2, "Cinematic Sound Design - Interface & Infographics/Interface Pop High Short.wav", 0.3, 0.08),
     ("blank", 3, "InMotionAudio - Arc/ELECArc_ArcPowerUpDesign04_InMotionAudio_Arc.wav", 1.0, 0.3),
+    ("mutation", 2, "Epic Stock Media - Fantasy Game 2 - Sound Kit for Enchanted Realms/MAGAngl_Magic Light Spell Enchantment Potion Effect Tonal Bright 03_ESM_FG2.wav", 1.6, 0.5),
+    # Armes (clés `shot_<arme>` de la surcharge locale, S2-11 : elles passent avant `audio_config`) : énergie, lanceurs, lames.
+    ("shot_laser", 3, "InMotionAudio - Arc/ELECArc_ArcDesign15_InMotionAudio_Arc.wav", 0.5, 0.15),
+    ("shot_plasma", 2, "Epic Stock Media - Elemental Mutation Whooshes and Impacts/ELECMisc_Impact Electric Tonal Deep Movement Motion Hiss Glitch 01_ESM_EMWI.wav", 0.7, 0.2),
+    ("shot_traqueur", 2, "Epic Stock Media - Fantasy Game 2 - Sound Kit for Enchanted Realms/UIAlert_Collect Scifi Futuristic Electronic Bass Burst Sweep Heavy 04_ESM_FG2.wav", 0.6, 0.15),
+    ("shot_lance_grenades", 2, "Federico Soler - Effective Trailer Booms Vol. 2/EffectiveTrailer_Booms_Vol2_011.wav", 0.8, 0.25, 0.25),
+    ("shot_roquette", 2, "Federico Soler - Effective Trailer Booms Vol. 2/EffectiveTrailer_Booms_Vol2_075.wav", 1.0, 0.3, 0.25),
+    ("shot_mortier", 2, "Federico Soler - Effective Trailer Booms Vol. 2/EffectiveTrailer_Booms_Vol2_214.wav", 1.3, 0.4, 0.25),
+    ("shot_lance_lames", 2, "David Dumais Audio - Melee Weapons Sound Effects Pack 2/METLFric_SWING SCRAPE Swift Melee Weapon Swing With A Long Blade 14_DDUMAIS_MWP2.wav", 0.5, 0.15),
+    ("shot_disque", 2, "Epic Stock Media - Tower Defense Game/DSGNStngr_Action Deploy Units Sword Slice Special Move Layered Swish 04_ESM_TDG.wav", 0.6, 0.15, 0.15),
     # Mort par famille : rongeurs (rat, roi_rat), bêtes (chien, buffle), humains (pillard, franc_tireur, rodeur, cracheur), brute, machines.
     ("death_rongeur", 1, "344 Audio - Dinosaurs Vol. 1/ANMLRept_Hatchling Calling Out_344 Audio_Dinosaurs.wav", 1.0, 0.3),
     ("death_bete", 1, "344 Audio - Dinosaurs Vol. 2/ANMLRept_Large Herbivore Roar 01_344 Audio_Dinosaurs Vol 2.wav", 1.6, 0.5),
@@ -83,7 +94,7 @@ z.TARGET.update({
     "reload_revolver": -27, "reload_mitraillette": -27, "reload_canon": -27, "reload_fusil_a_pompe": -27,
     "reload_lanceur": -27, "reload_energie": -27, "reload_lames": -27,
     "death_rongeur": -21, "death_bete": -21, "death_humain": -21, "death_brute": -21, "death_machine": -22,
-    "boss_phase": -20, "floor": -20, "blank": -22,
+    "boss_phase": -20, "floor": -20, "blank": -22, "mutation": -22,
 })
 
 if __name__ == "__main__":
@@ -102,6 +113,6 @@ if __name__ == "__main__":
     for name, bundle, member, dur, fade in z.SONNISS:
         if name in SHARED_SONNISS and (not only or name in only):
             print(name, z.process(z.extract(SB(bundle), member, "sonniss"), name, dur, fade, z.OUT / "sonniss"), "s", member.split("/")[-1][:70])
-    for name, bundle, member, dur, fade in SONNISS:
+    for name, bundle, member, dur, fade, *skip in SONNISS:
         if not only or name in only:
-            print(name, z.process(z.extract(SB(bundle), member, "sonniss"), name, dur, fade, z.OUT / "sonniss"), "s", member.split("/")[-1][:70])
+            print(name, z.process(z.extract(SB(bundle), member, "sonniss"), name, dur, fade, z.OUT / "sonniss", skip=skip[0] if skip else 0), "s", member.split("/")[-1][:70])
