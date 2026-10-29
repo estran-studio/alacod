@@ -103,7 +103,12 @@ games/zombies : 2 erreur(s) de contenu
 $ git ls-files | grep -i sonniss                 (vide)
 ```
 Tests : `cargo test -p content --lib feedback` (10 dont 2 de fusion), `cargo test -p content --test lint_fixtures feedback` (7 dont 2 de la surcharge).
-`make test_scenarios_par` sans `BLESS` : voir le bloc final ci-dessous ; aucune trace n'a bougé. Le journal `feedback … sound` d'un scénario porte le chemin **fusionné** (Sonniss sur un poste qui a la surcharge) ; aucun test ne le lit et les traces n'y sont pas.
+```
+$ make format check_forbidden check_rollback_registration check_sim_boundary test_crates test_scenarios_par lint     (EXIT=0, ALACOD_MUTE=1)
+test_crates : tous « test result: ok », 0 failed ; test_scenarios_par : tranches 0/4 … 3/4 ok, 608 s, sans BLESS (aucune trace n'a bougé)
+lint : zombies, testbed, throne, gungeon, isaac : aucune erreur
+```
+`make test_tools` : 3 échecs d'environnement sur le Mac (`test_claude_say.py` : `test_reads_last_assistant_and_cleans_markdown`, `test_say_ignores_unlisted_voice`, `test_say_uses_system_voice_when_name_absent`), sans rapport avec ce lot ; le reste de `make check` est vert. Le journal `feedback … sound` d'un scénario porte le chemin **fusionné** (Sonniss sur un poste qui a la surcharge) ; aucun test ne le lit et les traces n'y sont pas.
 
 ## 7. Ce qui reste
 
