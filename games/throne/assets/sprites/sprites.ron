@@ -31,6 +31,17 @@
         animation: "sprites/characters/player/player_animation.ron",
         layers: { "body": "sprites/weapons/machine_gun_sheet.ron" },
     ),
+    // Lisibilité coop (S2-8, `game::legibility`, `docs/conventions.md` §83 et §95) : halo pulsant des ramassables (disque doux
+    // blanc, teinté par catégorie) et pointeur de visée des ennemis (chevron blanc, teinté en rouge par le moteur). Tuiles 0 et 1
+    // de `games/gungeon/assets/sprites/lisible/atlas_monde.png` (CC0, générées par `scripts/generer-sprites-gungeon.py`), reprises telles quelles.
+    "halo": (
+        animation: "sprites/effects/halo/halo_animation.ron",
+        layers: { "body": "sprites/effects/halo/halo_sheet.ron" },
+    ),
+    "aim": (
+        animation: "sprites/effects/aim/aim_animation.ron",
+        layers: { "body": "sprites/effects/aim/aim_sheet.ron" },
+    ),
     "slash": (
         animation: "sprites/effects/slash/slash_animation.ron",
         layers: { "body": "sprites/effects/slash/slash_sheet.ron" },

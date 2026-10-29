@@ -28,3 +28,8 @@ affichage ; **pas de VPS** (captures).
 - Présentation seule : aucune trace ne bouge (`make test_scenarios` sans `BLESS`).
 - Les captures dans `docs/captures/polissage-lisibilite-coop/`, rapport `docs/taches/rapports/polissage-lisibilite-coop.md`
   avec les limites restantes (D123).
+
+## Réalisation (S2-8, 2026-10-29, voie b3, throne seulement)
+
+Fait : vidéo de recette D66/D67 (fermées), `player_colors`, `legend` (F7), `names`, halos (`halo`, `aim`) dans les données de throne, captures à 2 et 4 joueurs. `legibility.rs` n'a pas bougé (déjà générique), donc pas de captures avant/après de gungeon et zombies.
+Isaac est hors du périmètre (plan § 0). Rapport : `docs/taches/rapports/polissage-lisibilite-coop.md` ; conventions § 95 ; captures : `docs/captures/polissage-lisibilite-coop/`.
