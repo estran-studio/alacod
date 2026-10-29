@@ -1,0 +1,15 @@
+# Écoute des sons de zombies (S1-9, docs/taches/rapports/polissage-zombies-sons.md §4), deux minutes.
+# Le bac à sable doit tourner avec le profil `lourd` (mitrailleuse, trois zombies à droite) :
+#   alacod sandbox games/zombies --profile lourd
+# puis, dans un autre terminal :  alacod remote run games/zombies/scripts/ecoute_sons.alacod
+# Chaque tour de script repose le décor ; les armes se changent avec `alacod remote give --weapon <id>`.
+
+restart
+wait 30 frames
+give --set-currency 5000
+give --weapon shotgun
+spawn zombie_1 --ahead 160
+spawn zombie_2 --ahead 200
+spawn zombie_full --ahead 240
+wait 5 frames
+brief

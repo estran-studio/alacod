@@ -44,7 +44,7 @@
         audio_config: (
             modes: {
                 "default": (
-                    reloading: "sounds/reload.ogg",
+                    reloading: "sounds/reload_pistol.ogg",
                     firing: "sounds/shot_pistol.ogg"
                 )
             }
@@ -105,7 +105,7 @@
         audio_config: (
             modes: {
                 "default": (
-                    reloading: "sounds/reload.ogg",
+                    reloading: "sounds/reload_smg.ogg",
                     firing: "sounds/shot_smg.ogg"
                 )
             }
@@ -176,7 +176,7 @@
         audio_config: (
             modes: {
                 "default": (
-                    reloading: "sounds/reload.ogg",
+                    reloading: "sounds/reload_shotgun.ogg",
                     firing: "sounds/shot_shotgun.ogg"
                 )
             }
@@ -228,8 +228,8 @@
         audio_config: (
             modes: {
                 "default": (
-                    reloading: "sounds/reload.ogg",
-                    firing: "sounds/shot_pistol.ogg"
+                    reloading: "sounds/reload_rifle.ogg",
+                    firing: "sounds/shot_rifle.ogg"
                 )
             }
         )
