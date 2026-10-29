@@ -70,3 +70,9 @@ clés, donc aucun changement.
 - Le texte « Aucun réglage pour l'instant. » est remplacé par le curseur (mis à jour dans `docs/conventions.md`).
 - Non persisté : le volume revient à 100 % à chaque lancement (dette possible ; estimation 0,25 j avec `localStorage` côté web).
 - Reste : vérification audio navigateur par le coordinateur (0,25 j côté Mac).
+
+## Preuves (VPS, `CARGO_BUILD_JOBS=4`)
+
+- `make check` : `games/isaac : aucune erreur (…)` puis `✓ All checks passed`, sortie 0.
+- `make test_scenarios` (sans `BLESS`) : `test scenarios ... ok`, `test result: ok. 5 passed; 0 failed; 12 ignored`, 6957 s, sortie 0 : aucune trace ni attente (dont `ui_pause_menu` avec le curseur de volume) n'a bougé.
+- Journal `feedback … sound` : non comparé ligne à ligne (le rendu des sons est absent en headless) ; aucune ligne de scénario n'a donc pu changer.
