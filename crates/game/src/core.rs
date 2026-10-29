@@ -294,6 +294,10 @@ impl Plugin for PresentationPlugin {
         if let Some(path) = std::env::var_os("ALACOD_PERF_CSV") {
             app.add_plugins(crate::performance::PerformanceCapturePlugin(path.into()));
         }
+        // S1-5 : `?perf=1` (navigateur) ou `ALACOD_FPS=1` ; rien n'est installé sans demande.
+        if let Some(request) = crate::fps_counter::FpsRequest::requested() {
+            app.add_plugins(crate::fps_counter::FpsCounterPlugin(request));
+        }
         app.add_plugins(ZLightPlugin);
         app.add_plugins(ZAudioPlugin);
         if debug_ui_enabled() {

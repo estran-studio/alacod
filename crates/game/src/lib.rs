@@ -24,6 +24,7 @@ pub mod familiars;
 pub mod feedback;
 pub mod feedback_log;
 pub mod feedback_v3;
+pub mod fps_counter;
 pub mod frame;
 pub mod frame_counter;
 pub mod frame_events;
