@@ -98,6 +98,8 @@ crates/content/tests/fixtures/sprite_sheet_local_overlay/assets/sprites/sprites.
 4. Sur le site : zombies en solo dans Chrome (muet) : sprites du pack, murs et sol (D169), icônes du HUD. Sans secret (run d'un fork) : l'étape écrit « étape sautée » et le repli public est publié.
 5. Avant de publier un build public avec la surcharge : confirmation de TheLazyStone (plan-polissage § 0.3, décision 1) ; l'image Docker `ghcr.io/bascanada/alacod` de `release.yaml` contiendrait aussi les images.
 
+**`ui/feedback.local.ron` de zombies (S1-9 étape 2, demande du coordinateur)** : ajouté à `alacod-assets` (`1beb8f5`, avec `death_player.ogg` mis à jour d'après b1 `522ebdc5`) ; le dépôt compte maintenant 169 fichiers (zombies 80, throne 89 : les « 168 » et « 79 » ci-dessus sont les chiffres du premier push `d3d89c6`). `assets-prives.patterns` n'a rien à changer (`*.local.ron` le couvre, donc le drapeau le suit au build web) et `.gitignore` l'ignore déjà (`ui/*.local.ron`) : `scripts/assets-prives.sh` l'a copié sans refus (« 2 copiés, 167 déjà à jour »). `throne/ui/feedback.local.ron` et `throne/sounds/sonniss/` (S2-11) suivront le même chemin sans changement d'outil.
+
 ## Lint, `make check`
 
 - **Lint de contenu, avec et sans surcharge** (`alacod lint games/<jeu>`, surcharge présente puis supprimée) : zombies « aucune erreur (6 personnages, 4 armes, 6 armes de corps à corps, 1 vagues, 6 cartes) » et throne « aucune erreur (14 personnages, 13 armes, 4 armes de corps à corps, 0 vagues, 2 cartes) » dans les deux états ;
