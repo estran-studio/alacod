@@ -143,6 +143,21 @@
 			await invite();
 		});
 	}
+	// S1-3 : un contexte frais (ticket de signaling neuf, 60 s) à chaque demande du chargeur, l'ancien en repli.
+	async function answerSession() {
+		const current = session,
+			id = lobby?.id;
+		if (!current || !id) return;
+		let fresh = current;
+		try {
+			const c = await client.getSessionContext(id, controller.signal);
+			if (c.session_id === current.session_id) fresh = c;
+		} catch {
+			// Repli : le contexte déjà reçu.
+		}
+		if (session?.session_id === current.session_id)
+			frame?.contentWindow?.postMessage({ source: 'alacod-host', type: 'session', session: $state.snapshot(fresh) }, location.origin);
+	}
 	async function returnToLobby() {
 		const id = lobby?.id;
 		if (session) rejectedSession = session.session_id;
@@ -179,8 +194,7 @@
 			});
 		const receive = (event: MessageEvent) => {
 			if (event.origin !== location.origin || event.source !== frame?.contentWindow || event.data?.source !== 'alacod-loader') return;
-			if (event.data.type === 'session-request' && session)
-				frame?.contentWindow?.postMessage({ source: 'alacod-host', type: 'session', session: $state.snapshot(session) }, location.origin);
+			if (event.data.type === 'session-request' && session) void answerSession();
 			if (event.data.type === 'ready') status = 'Jeu chargé · Connexion aux autres joueurs…';
 			if (event.data.type === 'connected') status = 'Connexion établie · Clique dans le jeu pour jouer.';
 			if (event.data.type === 'return-lobby') void returnToLobby();

@@ -27,6 +27,7 @@ window.download_log_file_js = (filename, content) => {
 
 window.alacod_return_to_lobby = () => send('return-lobby');
 let onlineSession;
+let connected = false;
 async function sessionFromHost() {
 	return new Promise((resolve, reject) => {
 		const timeout = setTimeout(() => {
@@ -86,7 +87,10 @@ async function launch() {
 					...(onlineSession.ice_transport_policy === 'relay' ? { iceTransportPolicy: 'relay' } : {})
 				});
 				this.addEventListener('connectionstatechange', () => {
-					if (this.connectionState === 'connected') send('connected');
+					if (this.connectionState === 'connected') {
+						connected = true;
+						send('connected');
+					}
 					if (this.connectionState === 'failed') send('error', 'La connexion WebRTC a échoué. Réessaie depuis le salon.');
 				});
 			}
@@ -107,6 +111,19 @@ async function launch() {
 		);
 	} else {
 		canvas.setAttribute('data-number-player', '1');
+	}
+	// S1-3 : le ticket de signaling vit 60 s et le jeu n'ouvre son socket qu'après le chargement du wasm et des
+	// assets ; un ticket frais est posé toutes les 30 s jusqu'à la connexion (le jeu relit `data-session`).
+	if (onlineSession) {
+		const refresh = setInterval(() => {
+			if (connected) return clearInterval(refresh);
+			sessionFromHost()
+				.then((fresh) => {
+					if (!connected && fresh.session_id === onlineSession.session_id)
+						canvas.setAttribute('data-session', JSON.stringify({ signaling_url: fresh.signaling_url }));
+				})
+				.catch(() => {});
+		}, 30000);
 	}
 	canvas.setAttribute('data-telemetry', 'false');
 	if (perf) canvas.setAttribute('data-perf', perf);

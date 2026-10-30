@@ -336,11 +336,13 @@ pub fn start_matchbox_socket(
             default_ice_server(),
         ),
     };
+    // S1-3 : le ticket de signaling vit 60 s ; le chargeur le rafraîchit dans `data-session` pendant le
+    // chargement, relu ici à l'ouverture du socket (la ressource du démarrage en repli).
     #[cfg(target_arch = "wasm32")]
     let (url, ice_server) = (
-        browser_session
-            .as_ref()
-            .map(|s| s.signaling_url.clone())
+        crate::jjrs::browser::session()
+            .map(|s| s.signaling_url)
+            .or_else(|| browser_session.as_ref().map(|s| s.signaling_url.clone()))
             .unwrap_or_else(|| format!("{}/{}", ggrs_config.matchbox_url, room)),
         default_ice_server(),
     );
