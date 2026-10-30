@@ -398,3 +398,30 @@ Correctif préparé, **non appliqué** (branche `polissage-reseau-amis-ticket`, 
 Les trois sont nécessaires : un build de jeu ancien ignore le rafraîchissement (il a lu l'attribut au démarrage).
 Vérifié : `svelte-check` 0 erreur, `node --check` du chargeur ; `cargo check` wasm du jeu (§ 2.6). Non vérifié dans un
 navigateur (D94). À appliquer pour le **prochain tag** si samedi montre un chronomètre au-delà de 60 s ou un refus.
+
+### 2.5 Protocole de samedi et documentation
+
+- `docs/jouer.md` : section « En ligne depuis le site (Allumette, deux réseaux) » (protocole en dix lignes, repris du § 1.7,
+  durée de session, conduite à tenir si le ticket expire) ; le point 3 de « En ligne à deux » (ancienne ligne 103 : « le
+  serveur public ne marche pas ») dit maintenant qu'il marche depuis le site seulement et pourquoi la ligne de commande est
+  refusée ; textes du salon cités en français (S1-4).
+- `docs/contrat-lancement-web.md` : section « Service en production » (URL, opérateur, version, redéployer, redémarrer,
+  journaux, durées, fin de session, ticket, natif) ; passages périmés corrigés (« sans push », boutons online).
+- Dette nouvelle **D165** (client natif sans TURN) ; D164 laissée à S1-4 (perks) ; D166 non utilisée.
+
+### 2.6 Vérifications de J3
+
+| Commande | Résultat |
+|---|---|
+| `cargo test -p game --lib -- p2p_socket` (headless) | 4 passés |
+| `cargo check -p game --target wasm32-unknown-unknown` (branche et branche ticket) | 0 erreur |
+| `npm ci && npm run check` (website, branche ticket) | `svelte-check` 0 erreur, 0 avertissement |
+| `node --check` du chargeur (branche ticket) | OK |
+| `make check` | § 4 (dimanche) |
+
+`releases.json` du dépôt : déjà `online: false` (`rtc-fix-20261009`) ; il passera à `v0.0.2-4630291a` avec `online: true` pour
+les seuls clones recettés samedi (§ 3).
+
+## 3. Samedi 31 (J4) — recette à deux réseaux avec William
+
+(à remplir)
