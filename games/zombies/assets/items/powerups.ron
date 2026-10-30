@@ -11,7 +11,7 @@
         // Insta-Kill : tout tir tue en un coup pendant 30 s (multiplicateur de dégâts
         // énorme, appliqué à tous les joueurs).
         "insta_kill": (
-            name: "Insta-Kill",
+            name: "Mort instantanée",
             weight: 15,
             pickup_range: "30.0",
             lifetime_frames: 1800,
@@ -21,7 +21,7 @@
         ),
         // Double Points : points doublés pendant 30 s (kill/coup/réparation), tous joueurs.
         "double_points": (
-            name: "Double Points",
+            name: "Points doublés",
             weight: 20,
             pickup_range: "30.0",
             lifetime_frames: 1800,
@@ -31,7 +31,7 @@
         ),
         // Max Ammo : chargeurs et réserves de munitions remplis, pour tous les joueurs.
         "max_ammo": (
-            name: "Max Ammo",
+            name: "Munitions max",
             weight: 20,
             pickup_range: "30.0",
             lifetime_frames: 1800,
@@ -41,7 +41,7 @@
         ),
         // Carpenter : toutes les fenêtres de la carte réparées à santé maximale.
         "carpenter": (
-            name: "Carpenter",
+            name: "Charpentier",
             weight: 15,
             pickup_range: "30.0",
             lifetime_frames: 1800,
@@ -51,7 +51,7 @@
         ),
         // Nuke : tous les ennemis actuellement en vie meurent instantanément.
         "nuke": (
-            name: "Nuke",
+            name: "Bombe atomique",
             weight: 10,
             pickup_range: "30.0",
             lifetime_frames: 1800,

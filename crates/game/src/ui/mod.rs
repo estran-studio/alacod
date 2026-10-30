@@ -10,6 +10,7 @@ pub mod mutation_hui;
 pub mod mutation_input;
 pub mod mutation_screen;
 pub mod screens;
+pub mod texts;
 
 /// Lobby et écran de déconnexion de l'application. Hors `PresentationPlugin` : ils tournent aussi
 /// en headless p2p (`LobbyOnline`).

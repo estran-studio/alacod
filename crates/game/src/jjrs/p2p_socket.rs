@@ -218,30 +218,22 @@ pub fn connect_status_text(
 ) -> Option<String> {
     match notice {
         Some((ConnectNotice::Retrying { attempt, of }, age)) if age < CONNECT_NOTICE_SECS => {
-            return Some(format!(
-                "Peer connection failed: new attempt ({attempt}/{of})"
-            ))
+            return Some(crate::ui::texts::peer_retry(attempt, of))
         }
         Some((ConnectNotice::BackToLobby { attempts }, age)) if age < CONNECT_NOTICE_SECS => {
-            return Some(format!(
-                "Peer connection failed after {attempts} attempt(s): back to the lobby"
-            ))
+            return Some(crate::ui::texts::peer_failed_back_to_lobby(attempts))
         }
         Some((ConnectNotice::RoomFull { peers, max }, age)) if age < CONNECT_NOTICE_SECS => {
-            return Some(format!(
-                "Room full ({peers} peers for {max} places): back to the lobby"
-            ))
+            return Some(crate::ui::texts::room_full_back_to_lobby(peers, max))
         }
         _ => {}
     }
     if let Some((peers, max)) = room_full {
-        return Some(format!(
-            "Room full ({peers} peers for {max} places): waiting for a free place"
-        ));
+        return Some(crate::ui::texts::room_full_waiting(peers, max));
     }
     pending_secs
         .filter(|secs| *secs >= CONNECT_SLOW_SECS)
-        .map(|secs| format!("Connecting to peer... {secs:.0} s"))
+        .map(|secs| crate::ui::texts::peer_connecting(secs))
 }
 
 /// Socket matchbox sur `url`. En natif, son signaller note dans `watch.sightings` les pairs que

@@ -43,9 +43,9 @@ fn local_hold_text(summary: Option<RunSummary>) -> String {
     let last = match summary {
         Some(summary) => {
             let what = match summary.outcome {
-                RunEnd::Defeat => "Défaite",
-                RunEnd::Victory => "Victoire",
-                RunEnd::Abandon => "Partie abandonnée",
+                RunEnd::Defeat => crate::ui::texts::OUTCOME_DEFEAT,
+                RunEnd::Victory => crate::ui::texts::OUTCOME_VICTORY,
+                RunEnd::Abandon => crate::ui::texts::OUTCOME_ABANDON,
             };
             format!(
                 "{what} : vague {} - {} kills - {} points\n",
@@ -83,8 +83,9 @@ fn spawn_local_hold_ui(
         .with_children(|parent| {
             parent.spawn((
                 Text::new(format!(
-                    "{}\nA (manette) : nouvelle partie",
-                    local_hold_text(hold.summary)
+                    "{}\n{}",
+                    local_hold_text(hold.summary),
+                    crate::ui::texts::NEW_GAME_PAD_HINT
                 )),
                 TextFont {
                     font: font.clone().into(),
@@ -106,7 +107,7 @@ fn spawn_local_hold_ui(
                 ))
                 .with_children(|button| {
                     button.spawn((
-                        Text::new("Nouvelle partie"),
+                        Text::new(crate::ui::texts::NEW_GAME),
                         TextFont {
                             font: font.into(),
                             font_size: FontSize::Px(28.0),
@@ -184,7 +185,7 @@ fn spawn_lobby_ui(mut commands: Commands) {
         .with_children(|parent| {
             // Title
             parent.spawn((
-                Text::new("Waiting for Players..."),
+                Text::new(crate::ui::texts::LOBBY_WAITING_FOR_PLAYERS),
                 TextFont {
                     font_size: FontSize::Px(40.0),
                     ..default()
@@ -290,10 +291,10 @@ fn update_lobby_ui(
                         .iter()
                         .any(|p| matches!(p, PlayerType::Local));
                     if is_connected {
-                        status_text = "Ready".to_string();
+                        status_text = crate::ui::texts::PLAYER_READY.to_string();
                         status_color = Color::srgb(0.2, 0.8, 0.2); // Green
                     } else {
-                        status_text = "Connecting...".to_string();
+                        status_text = crate::ui::texts::PLAYER_CONNECTING.to_string();
                         status_color = Color::srgb(0.8, 0.5, 0.2); // Orange
                     }
                 } else {
@@ -305,10 +306,10 @@ fn update_lobby_ui(
                     let expected_remotes = player_configs.iter().filter(|p| !p.is_local).count();
 
                     if remote_count >= expected_remotes {
-                        status_text = "Connected".to_string();
+                        status_text = crate::ui::texts::PLAYER_CONNECTED.to_string();
                         status_color = Color::srgb(0.2, 0.8, 0.2); // Green
                     } else {
-                        status_text = "Waiting...".to_string();
+                        status_text = crate::ui::texts::PLAYER_WAITING.to_string();
                         status_color = Color::srgb(0.8, 0.5, 0.2); // Orange
                     }
                 }
