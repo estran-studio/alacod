@@ -407,7 +407,7 @@ navigateur (D94). À appliquer pour le **prochain tag** si samedi montre un chro
   refusée ; textes du salon cités en français (S1-4).
 - `docs/contrat-lancement-web.md` : section « Service en production » (URL, opérateur, version, redéployer, redémarrer,
   journaux, durées, fin de session, ticket, natif) ; passages périmés corrigés (« sans push », boutons online).
-- Dette nouvelle **D165** (client natif sans TURN) ; D164 laissée à S1-4 (perks) ; D166 non utilisée.
+- Dette nouvelle **D165** (client natif sans TURN) ; D164 laissée à S1-4 (perks) ; D166 prise le soir même (§ 2.7).
 
 ### 2.6 Vérifications de J3
 
@@ -422,6 +422,45 @@ navigateur (D94). À appliquer pour le **prochain tag** si samedi montre un chro
 
 `releases.json` du dépôt : déjà `online: false` (`rtc-fix-20261009`) ; il passera à `v0.0.2-4630291a` avec `online: true` pour
 les seuls clones recettés samedi (§ 3).
+
+### 2.7 Vérification dans Chrome sur le Mac (ven 30, 18 h 30–18 h 51 UTC) — ticket, retour au salon
+
+Accord du coordinateur (18 h 22 UTC). Banc local, rien en production : allumette `23524d8` cloné dans `/tmp` (seul écart :
+`SESSION_TTL` lu dans `S13_SESSION_TTL` pour raccourcir la session, défaut inchangé ; jamais poussé), `127.0.0.1:3637`, sans TURN
+(STUN Google par défaut) ; site `npm run dev` du worktree ; zombies en wasm `dev` (112 Mo, `scripts/build-web-games.mjs`) :
+**avant** = `da5377be` (prod + § 2.3), **après** = `2a5573b1` (correctif du ticket). Deux Chrome sans tête séparés (deux profils
+`/tmp`, deux origines `127.0.0.1` / `localhost` : deux invités), `--mute-audio`, `AudioContext.resume` neutralisé, aucun clic
+dans le jeu. B « cache vidé et liaison lente » : cache coupé et débit limité à 10 Mbit/s par CDP. Journal relevé par un crochet
+de console et de `WebSocket` (tickets masqués). Builds, profils et `releases.json` remis en état après.
+
+| Essai | Build | Condition | Résultat |
+|---|---|---|---|
+| R1 | avant | session 240 s | connexion à +42 s, `Synchronized`, 60 images/s ; à +240,7 s les deux iframes retirées à 4 ms d'écart, salon « 2 / 2 · En attente » |
+| R2 | avant | B à 10 Mbit/s, session 300 s | B chargé à +93 s, ticket expiré à +60 s → socket refusé 3 fois (code 1006, 3 s d'écart) → `lobby_socket_lost` → `return-lobby` à +100 s ; A (socket fermé par le serveur, 1005) idem au même instant ; **pas d'écran figé** (en prod : attente jusqu'à `connect_until`, 120 s) |
+| R3 | après | B à 10 Mbit/s, session 300 s | ticket reposé toutes les 30 s (`session-request` à +30, +60, +90 s) ; B chargé à +93 s, socket **ouvert** (ticket de +90 s) ; connexion à +134 s, `Synchronized` ; serveur arrêté en partie → `ws close 1006` → `return-lobby` en 7 ms sur les deux |
+| R4 | après | session 25 s | session expirée avant la connexion WebRTC → les deux au salon à +25 s |
+| R5 | après | session 90 s | `getStats` chaque 1,5 s : A crée sa connexion à +2 s, B ne la reçoit qu'à +41 s ; connectés à +42,3 s, paire `host`/UDP des deux côtés |
+| R6 | après | session 62 s | en partie (vague 1, `f=886` identique sur A et B, joueur 77/100) ; à +62 s `ws close 1005` → `return-lobby` en 7 ms sur les deux, salon « 2 / 2 · En attente » |
+
+```
+R3 B 18:42:08.083 jeu<-page session ticket_exp=18:43:08
+R3 B 18:43:38.130 jeu<-page session ticket_exp=18:44:38
+R3 B 18:43:40.797 jeu ws open-request ws://127.0.0.1:3637/<ticket>   18:43:40.845 jeu ws open
+R2 B 18:39:51.689 jeu WARN game::jjrs::p2p_socket: ggrs{f=0 lobby_socket_lost} socket de signaling fermé avant la partie
+R6 A 18:50:52.310 jeu ws close code=1005   18:50:52.317 page<-jeu return-lobby
+```
+
+Verdict : **correctif du ticket vérifié** (un chargement de 93 s passe, il échoue sans lui) ; **retour au salon vérifié** à
+l'expiration en partie (R6), avant la connexion (R4), à l'arrêt du serveur (R3) et sur ticket périmé (R2, correction du § 2.3) ;
+aucun `DESYNC` dans les journaux. Le correctif reste non appliqué (décision du 29) ; la mesure de samedi tranche.
+
+Trouvé en passant, **D166** : la connexion WebRTC prend 40–41 s après l'ouverture du socket dans les essais mesurés (R3, R5,
+R6 ; paire `host`/UDP, R5). Le fork matchbox attend la fin de la collecte ICE avant l'offre (`wasm.rs:156`, `:292`) et ce
+Mac sort par `utun5` (VPN) : STUN UDP de Google et de `turn.estran.studio:3478` sans réponse, TCP 3478 joignable. Cause
+déduite, non isolée. Conséquence pour samedi : VPN coupé sur les deux machines (`docs/jouer.md`, protocole) ; un chronomètre
+du point 2 vers 40 s signale ce cas, pas le ticket.
+
+Non vérifié ici : deux réseaux, TURN (`relay`), throne, la prod.
 
 ## 3. Samedi 31 (J4) — recette à deux réseaux avec William
 

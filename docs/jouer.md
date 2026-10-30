@@ -119,7 +119,7 @@ opéré par William (dépôt `estran-studio/allumette`, redéploiement par un pu
 `docs/contrat-lancement-web.md`, « Service en production »). Une session dure **30 min** au plus (`SESSION_TTL`) : à
 l'expiration, la page revient au salon, la partie est perdue ; jouer des parties de moins de 30 min, retour au salon entre
 deux. Protocole de la recette S1-3 (deux machines avec Chrome, A sur la maison, B sur le partage de connexion d'un
-téléphone ; 45 min) :
+téléphone ; **VPN coupé** sur les deux : derrière un VPN qui bloque l'UDP, la connexion prend ≈ 40 s de plus, D166 ; 45 min) :
 
 1. A : ouvrir `https://alacod.estran.studio/online`, un pseudo, créer un salon **zombies**, copier le lien d'invitation.
 2. B (cache vidé) : ouvrir le lien (moins de 15 min), rejoindre ; chronométrer de « Lancer » à « Connexion établie ».
