@@ -10,24 +10,29 @@
 // victoire à f6 378 (vague 4, 29 kills) au lieu de f5 740 : `frames` 6200 -> 6800, fin de run
 // vérifiée à f6800.
 //
-// À regarder : le hall à deux sorties (f~150), les premières fenêtres cassées (f~300), une porte
-// de boucle achetée qui retombe dans une salle déjà ouverte, puis l'entrée du boss et la victoire
-// à f6 378. Les zombies apparaissent dans la section occupée (courettes derrière les
-// fenêtres), jamais derrière une porte encore payante.
+// 2026-10-30 (D176, polissage-nav-fenetres) : les zombies ne gèlent plus devant le point visé de
+// leur case suivante (graine 4 : zombie 296 figé de f319 à f421) ; la graine 4 ne gagne plus en
+// 20 000 frames (vague 9, 89 kills). Graine 1 : victoire à f7 131 (vague 5) ; `KillsAtLeast` à
+// f5750 (24 kills à f5700, 26 à f5732), fin de run vérifiée à f7600. `alacod-sim` 10 graines,
+// 1 `acheteur` : 7 victoires, 3 morts (avant : 9 victoires, 1 plafond).
+//
+// À regarder : la première fenêtre cassée (f310), les portes achetées (f659, f2 567, f4 085,
+// f5 755), puis l'entrée du boss et la victoire à f7 131. Les zombies apparaissent dans la
+// section occupée (courettes derrière les fenêtres), jamais derrière une porte encore payante.
 Scenario(
     game: "zombies",
     map: "floor:la_fonderie",
-    map_seed: 4,
-    frames: 6800,
+    map_seed: 1,
+    frames: 7600,
     players: [
         (bot: acheteur),
     ],
     expect: [
         PlayerAlive(handle: 0, at_frame: 5700),
         WaveAtLeast(wave: 2, at_frame: 4000),
-        KillsAtLeast(kills: 25, at_frame: 5700),
+        KillsAtLeast(kills: 25, at_frame: 5750),
         DoorsOpenAtLeast(doors: 4, at_frame: 5700),
-        RunState(step: Ended(Victory), at_frame: 6800),
-        RunSummary(wave_reached_min: 4, kills_min: 25, at_frame: 6800),
+        RunState(step: Ended(Victory), at_frame: 7600),
+        RunSummary(wave_reached_min: 4, kills_min: 25, at_frame: 7600),
     ],
 )

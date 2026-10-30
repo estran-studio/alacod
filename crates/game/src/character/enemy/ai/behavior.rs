@@ -62,6 +62,8 @@ pub fn enemy_target_selection(
             // Suivi Q12 : `Charm` (§19) : l'ennemi charmé cible l'ennemi hostile le plus proche.
             Option<&combat::status::Statuses>,
             &Team,
+            // D176 : corps de l'ennemi, pour savoir s'il bute sur une fenêtre au point visé.
+            Option<&crate::collider::Collider>,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -85,16 +87,17 @@ pub fn enemy_target_selection(
     players.sort_by_key(|(net_id, _)| net_id.0);
 
     // Intact breakable obstacles and the cells they cover, by net_id
-    let breakables: Vec<_> = utils::order_iter!(obstacle_query)
+    let breakables: Vec<Breakable> = utils::order_iter!(obstacle_query)
         .into_iter()
         .filter(|(_, _, obstacle, _)| obstacle.blocks_movement && obstacle.breakable)
-        .map(|(net_id, transform, _, collider)| {
-            let pos = transform.translation.truncate();
-            (
-                net_id.clone(),
-                pos,
-                super::navigation::get_collider_cells(pos, collider),
-            )
+        .map(|(net_id, transform, _, collider)| Breakable {
+            net_id: net_id.clone(),
+            translation: transform.translation,
+            cells: super::navigation::get_collider_cells(
+                transform.translation.truncate(),
+                collider,
+            ),
+            collider: collider.clone(),
         })
         .collect();
 
@@ -106,7 +109,7 @@ pub fn enemy_target_selection(
     let hostile_enemies: Vec<(GgrsNetId, fixed_math::FixedVec2)> = if any_charmed {
         enemy_query
             .iter()
-            .filter(|(_, _, _, _, state, _, statuses, team)| {
+            .filter(|(_, _, _, _, state, _, statuses, team, _)| {
                 **state != MonsterState::Dead
                     && !combat::status::charmed(*statuses)
                     && **team == Team::Enemies
@@ -126,6 +129,7 @@ pub fn enemy_target_selection(
         enemy_behaviors,
         statuses,
         _team,
+        enemy_collider,
     ) in order_mut_iter!(enemy_query)
     {
         let enemy_pos = enemy_transform.translation.truncate();
@@ -257,14 +261,19 @@ pub fn enemy_target_selection(
                 here,
                 3,
             ));
-            let blocking = breakables.iter().find(|(_, pos, cells)| {
-                enemy_pos.distance(pos) < ai_config.attack_range
-                    && ahead.iter().any(|cell| cells.contains(cell))
-            });
-            if let Some((obstacle_id, obstacle_pos, _)) = blocking {
-                target.target = Some(obstacle_id.clone());
+            let blocking = window_on_the_way(
+                &flow_field_cache,
+                enemy_transform.translation,
+                enemy_collider,
+                ai_config.nav_profile(),
+                ai_config.attack_range,
+                &ahead,
+                &breakables,
+            );
+            if let Some(window) = blocking {
+                target.target = Some(window.net_id.clone());
                 target.target_type = TargetType::Obstacle;
-                target.last_known_position = Some(*obstacle_pos);
+                target.last_known_position = Some(window.translation.truncate());
                 *state = MonsterState::Chasing;
                 continue;
             }
@@ -282,6 +291,54 @@ pub fn enemy_target_selection(
             *state = MonsterState::Idle;
         }
     }
+}
+
+/// Obstacle intact et cassable (fenêtre) vu par [`enemy_target_selection`].
+struct Breakable {
+    net_id: GgrsNetId,
+    translation: fixed_math::FixedVec3,
+    /// Cases couvertes par son collider.
+    cells: Vec<super::navigation::GridPos>,
+    collider: crate::collider::Collider,
+}
+
+/// Fenêtre intacte à casser avant de passer (premier `GgrsNetId` d'abord), à moins de
+/// `attack_range` : l'une des cases de `ahead` (case de l'ennemi puis celles du chemin) est sous
+/// son collider, ou, D176, le corps de l'ennemi posé au point visé de sa case suivante
+/// ([`FlowFieldCache::steering_point`]) la chevauche. Le second cas est celui d'une ouverture plus
+/// large que la fenêtre : le chemin longe la fenêtre par une case libre, trop étroite pour le corps
+/// tant que la fenêtre tient ; sans lui, l'ennemi poussait contre son bord sans jamais la frapper.
+fn window_on_the_way<'a>(
+    cache: &FlowFieldCache,
+    enemy_translation: fixed_math::FixedVec3,
+    enemy_collider: Option<&crate::collider::Collider>,
+    profile: super::navigation::NavProfile,
+    attack_range: fixed_math::Fixed,
+    ahead: &[super::navigation::GridPos],
+    breakables: &'a [Breakable],
+) -> Option<&'a Breakable> {
+    let enemy_pos = enemy_translation.truncate();
+    let in_range = |window: &&Breakable| {
+        enemy_pos.distance(&window.translation.truncate()) < attack_range
+    };
+    breakables
+        .iter()
+        .filter(in_range)
+        .find(|window| ahead.iter().any(|cell| window.cells.contains(cell)))
+        .or_else(|| {
+            let (next, enemy_collider) = (ahead.get(1)?, enemy_collider?);
+            let body = super::navigation::AgentBody::from_collider(enemy_collider);
+            let point = cache.steering_point(*next, profile, &body);
+            let at_point = fixed_math::FixedVec3::new(point.x, point.y, enemy_translation.z);
+            breakables.iter().filter(in_range).find(|window| {
+                crate::collider::is_colliding(
+                    &at_point,
+                    enemy_collider,
+                    &window.translation,
+                    &window.collider,
+                )
+            })
+        })
 }
 
 /// Suivi Q12 : attaque d'un ennemi charmé. Une salve commencée contre un joueur est interrompue ;
@@ -1021,5 +1078,83 @@ mod tests {
         assert_eq!(state, MonsterState::Dead);
         assert_eq!(target.target, None);
         assert_eq!(target.target_type, TargetType::None);
+    }
+
+    fn rect(width: f32, height: f32, offset_y: f32) -> crate::collider::Collider {
+        crate::collider::Collider {
+            shape: crate::collider::ColliderShape::Rectangle {
+                width: fixed_math::new(width),
+                height: fixed_math::new(height),
+            },
+            offset: fixed_math::FixedVec3::new(
+                fixed_math::FIXED_ZERO,
+                fixed_math::new(offset_y),
+                fixed_math::FIXED_ZERO,
+            ),
+        }
+    }
+
+    /// D176, cas de la fenêtre intacte (contrefactuel de b2 sur `avant_poste`, ouverture élargie à
+    /// quatre cases x112..176 sur y48..64, fenêtre 32 × 16 en (144, 56) sur les cases (8,3) et (9,3)) :
+    /// le chemin d'un `zombie_1` en (160, 44) passe par la case libre (10,3), dont le point visé
+    /// (160, 56) met son corps (20 × 20, décalage y −6) sur le bord de la fenêtre. Aucune case du
+    /// chemin n'est sous la fenêtre : avant D176 il poussait contre elle sans la frapper. Plus loin
+    /// de l'ouverture, le même chemin ne vise aucune fenêtre.
+    #[test]
+    fn fenetre_au_bord_du_point_vise_est_a_casser() {
+        use super::super::navigation::{GridPos, NavProfile};
+        use crate::character::enemy::ai::ObstacleType;
+        let mut cache = FlowFieldCache::default();
+        for x in (0..7).chain(11..16) {
+            cache.wall_cells.insert(GridPos::new(x, 3));
+        }
+        let window = Breakable {
+            net_id: id(54),
+            translation: at(144.0, 56.0).extend(),
+            cells: vec![GridPos::new(8, 3), GridPos::new(9, 3)],
+            collider: rect(32.0, 16.0, 0.0),
+        };
+        cache
+            .blocked_cells
+            .entry(ObstacleType::Window)
+            .or_default()
+            .extend(window.cells.iter().copied());
+        let zombie = rect(20.0, 20.0, -6.0);
+        let breakables = [window];
+        let ahead = [GridPos::new(10, 2), GridPos::new(10, 3), GridPos::new(10, 4)];
+        let found = window_on_the_way(
+            &cache,
+            at(160.0, 44.0).extend(),
+            Some(&zombie),
+            NavProfile::GroundBreaker,
+            fixed_math::new(40.0),
+            &ahead,
+            &breakables,
+        );
+        assert_eq!(found.map(|w| w.net_id.0), Some(54));
+        // Sans corps connu, seul le critère des cases compte : rien à casser sur ce chemin.
+        let without_body = window_on_the_way(
+            &cache,
+            at(160.0, 44.0).extend(),
+            None,
+            NavProfile::GroundBreaker,
+            fixed_math::new(40.0),
+            &ahead,
+            &breakables,
+        );
+        assert!(without_body.is_none());
+        // Un zombie qui longe le mur sous l'ouverture (case suivante (11,2), point visé loin de la
+        // fenêtre) ne la vise pas.
+        let along = [GridPos::new(10, 2), GridPos::new(11, 2), GridPos::new(12, 2)];
+        let passing = window_on_the_way(
+            &cache,
+            at(160.0, 40.0).extend(),
+            Some(&zombie),
+            NavProfile::GroundBreaker,
+            fixed_math::new(40.0),
+            &along,
+            &breakables,
+        );
+        assert!(passing.is_none());
     }
 }
