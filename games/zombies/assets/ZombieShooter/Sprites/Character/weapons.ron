@@ -11,18 +11,18 @@
             ammo_type: Plomb,
             firing_modes: {
                 "default": (
-                    firing_rate: "2.0",
+                    firing_rate: "3.0",
                     firing_mode: Manual(),
                     spread:  "0.0005",
                     recoil: "3.0",
                     bullet_type: Standard(
-                        damage: "15.0",
+                        damage: "22.0",
                         speed: "400.0",
                     ),
                     range: "700.0",
                     reload_time_seconds: "1.0",
                     mag: Mag(
-                        mag_size: 6,
+                        mag_size: 9,
                         mag_limit: 8,
                     )
                 )
@@ -60,10 +60,10 @@
                 "default": (
                     firing_rate: "10.0",
                     firing_mode: Automatic(),
-                    spread: "0.12",
+                    spread: "0.07",
                     recoil: "1.5",
                     bullet_type: Standard(
-                        damage: "8.0",
+                        damage: "7.0",
                         speed: "300.0",
                     ),
                     range: "900.0",
@@ -79,7 +79,7 @@
                     spread: "1",
                     recoil: "1.5",
                     bullet_type: Standard(
-                        damage: "8.0",
+                        damage: "7.0",
                         speed: "400.0",
                     ),
                     range: "900.0",
@@ -131,10 +131,10 @@
                     recoil: "8.0",
                     mag_size: 5000,
                     bullet_type: Standard(
-                        damage: "30.0",
+                        damage: "20.0",
                         speed: "200.0",
                     ),
-                    range: "400.0",
+                    range: "320.0",
                     reload_time_seconds: "0.8",
                     mag: Magless(
                         bullet_limit: 64,
@@ -154,7 +154,7 @@
                         speed: "700.0",
                         penetration: 1,
                     ),
-                    range: "400.0",
+                    range: "320.0",
                     reload_time_seconds: "3.0",
                     mag: Magless(
                         bullet_limit: 64,
@@ -195,18 +195,18 @@
             ammo_type: Balle,
             firing_modes: {
                 "default": (
-                    firing_rate: "4.0",
+                    firing_rate: "3.0",
                     firing_mode: Manual(),
                     spread: "0.01",
                     recoil: "4.0",
                     bullet_type: Standard(
-                        damage: "35.0",
+                        damage: "55.0",
                         speed: "600.0",
                     ),
                     range: "1000.0",
                     reload_time_seconds: "1.2",
                     mag: Mag(
-                        mag_size: 10,
+                        mag_size: 8,
                         mag_limit: 6,
                     )
                 )
