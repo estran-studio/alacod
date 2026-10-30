@@ -110,9 +110,8 @@ pub fn admission_waits(
     excess_for: Option<std::time::Duration>,
     enough_for: std::time::Duration,
 ) -> bool {
-    let recent = |d: Option<std::time::Duration>| {
-        d.is_some_and(|d| d.as_secs_f32() < ADMISSION_SETTLE_SECS)
-    };
+    let recent =
+        |d: Option<std::time::Duration>| d.is_some_and(|d| d.as_secs_f32() < ADMISSION_SETTLE_SECS);
     (recent(youngest_pending) || recent(excess_for))
         && enough_for.as_secs_f32() < ADMISSION_MAX_SECS
 }
