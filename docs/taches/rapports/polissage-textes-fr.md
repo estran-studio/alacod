@@ -92,9 +92,21 @@ Serveur de signaling : `wss://allumette.estran.studio` a répondu en HTTP mais l
 
 Les cases vides sont le seul défaut qui rend un texte français illisible ; à traiter par S1-3 ou une dette (D161–D163, voie b1, numéros réservés ; non créée ici).
 
+## Suite : correctifs des constats des captures (2026-10-30, branche `polissage-textes-fr-suite`)
+
+| Constat | Cause (une ligne) | Correctif | Capture après (repli public, `ALACOD_MUTE=1`) |
+|---|---|---|---|
+| Cases vides sur « Prêt », « En attente… », « déconnecté » | Le salon en ligne et l'écran de perte de session posaient un `TextFont` sans `font` : police par défaut de Bevy, sans accents ni « … » (seul l'écran d'attente local posait `LOBBY_FONT`) | `texts::UI_FONT` posée sur tous les textes de `ui/lobby.rs` et `ui/disconnected.rs` ; valable pour tous les jeux (même fichier `fonts/FiraMono-Medium.ttf` dans chacun et dans `templates/starter`) | `salon-en-ligne-alice-attente-pair-apres.png`, `partie-interrompue-alice-apres-depart-de-bob-apres.png` |
+| « Retour au salon » sur deux lignes | Bouton de largeur fixe 200 px, texte de 15 caractères à 30 px | `min_width` 200 px + marge intérieure, la largeur suit le texte | `partie-interrompue-alice-apres-depart-de-bob-apres.png` |
+| « kills » / « frames » | Littéraux dans `ui/game_over.rs` et `ui/lobby.rs` | `texts::run_summary_waves` (« vague 1 · 0 éliminés · 500 points ») et `texts::run_duration` (« 0:23 », comme le mode `Floors`) | `fin-de-partie-zombies-defaite-apres.png`, `fin-de-partie-throne-defaite-apres.png` |
+| « machine_gun » dans le HUD de `zombies` | `update_hud_values` écrivait l'id de l'arme ; `names` n'était lu que par le prompt et les étiquettes | le widget `weapon` lit `hud.ron` `names` (id si absent) : « mitrailleuse » | `fin-de-partie-zombies-defaite-apres.png` (coin bas droit) |
+
+Les captures de pause et d'inventaire sont rejouées à l'identique (`pause-*-apres.png`, `inventaire-*-apres.png`) : mêmes textes qu'avant. `gungeon` (« Blank(s) », « Bullet kin ») reste hors périmètre. Points 4 et 5 rejoués sur un `matchbox_server` local (signaling public inutilisable, voir plus haut).
+
 ## Preuves
 
 - Tests `game` (texts, p2p_socket, screens, lobby, disconnected, game_over, jjrs) : `37 passed; 0 failed`.
 - `make check` : `✓ All checks passed`, sortie 0.
 - `make test_scenarios` sans `BLESS` : `test result: ok. 5 passed; 0 failed; 12 ignored` (9177 s), sortie 0 : `ui_pause_menu` vert avec « Salon », aucune trace ne bouge.
 - Grep des chaînes anglaises de la fiche dans les écrans : 0 (hors journaux et diagnostics listés plus haut).
+- Suite (2026-10-30, Mac) : `cargo test -p game --lib ui::` `56 passed; 0 failed` ; `make format check_forbidden check_rollback_registration check_sim_boundary test_crates lint` sortie 0 (`test_tools` non joué : Mac) ; `make test_scenarios` sans `BLESS` en quatre tranches (`ALACOD_SCENARIO_SLICE=0/4` à `3/4`, `ALACOD_MUTE=1`) : `5 passed; 0 failed` chacune, aucune trace ne bouge, surcharges locales déplacées pendant les tests.

@@ -8312,4 +8312,10 @@ lit par une surcharge locale gitignorée, **même principe que `hud.local.ron`**
   l'objet de S1-3). Aucune trace ne bouge (présentation seule).
 - **Contenu des clones** : noms des power-ups de `zombies` (`items/powerups.ron`), noms des armes de `throne` dans le prompt (`ui/hud.ron`
   `names`). Les perks de `zombies` (Juggernog, Speed Cola, Double Tap, Stamin-Up) restent des noms propres.
+- **Police** (suite de S1-4, captures du Mac) : tout `TextFont` d'un écran de l'UI Bevy hors HUD pose `font: texts::UI_FONT`
+  (`fonts/FiraMono-Medium.ttf`, présente dans `assets/fonts/` de chaque jeu et du gabarit `alacod new`). Sans `font`, Bevy prend sa police par
+  défaut, qui n'a ni accents ni « … » : le salon en ligne et « PARTIE INTERROMPUE » affichaient des cases vides à la place de « ê », « é » et « … ».
+  Le HUD lit la sienne dans `hud.ron` (`font`). Résumé de fin de partie : `texts::run_summary_waves` (« vague 1 · 0 éliminés · 500 points ») et
+  `texts::run_duration` (« 0:23 », plus de « kills » ni de « frames »). Le widget `weapon` du HUD affiche le nom de `hud.ron` `names` (id sinon),
+  comme le prompt et les étiquettes F6 ; l'attente `HudText(source: "weapon")` lit toujours l'id (snapshot sans configuration).
 - **Tests** : `ui::texts::tests` (dont `pas_d_anglais_dans_les_ecrans`), `jjrs::p2p_socket_tests` (ligne d'état), `ui_pause_menu` (« Salon »).

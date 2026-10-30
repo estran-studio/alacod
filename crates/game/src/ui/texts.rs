@@ -42,6 +42,24 @@ pub const OUTCOME_DEFEAT: &str = "Défaite";
 pub const OUTCOME_VICTORY: &str = "Victoire";
 pub const OUTCOME_ABANDON: &str = "Partie abandonnée";
 
+/// Résumé de la partie en mode vagues : « vague 3 · 12 éliminés · 1300 points ».
+pub fn run_summary_waves(wave: u32, kills: u32, points: u32) -> String {
+    format!("vague {wave} · {kills} éliminés · {points} points")
+}
+
+/// Durée d'une partie, « minutes:secondes », depuis ses images simulées (`fps` images par seconde).
+pub fn run_duration(frames: u32, fps: u32) -> String {
+    format!("{}:{:02}", frames / (fps * 60), frames / fps % 60)
+}
+
+// --- Police ---------------------------------------------------------------------------------
+
+/// Police de tout texte posé en UI Bevy hors HUD (salon, perte de session, attente locale). La
+/// police par défaut de Bevy n'a ni accents ni « … » : un `TextFont` sans `font` les affiche en cases
+/// vides (constaté sur le salon et « PARTIE INTERROMPUE », S1-4). Fichier présent dans `assets/fonts/`
+/// de chaque jeu et du gabarit `alacod new`.
+pub const UI_FONT: &str = "fonts/FiraMono-Medium.ttf";
+
 // --- États réseau du salon (ligne d'état, `jjrs::p2p_socket::connect_status_text`) -----------
 
 /// Un pair se fait attendre (`secs` secondes).
@@ -149,6 +167,16 @@ mod tests {
         assert!(message.contains("Joueur 2") && message.contains("120"));
         assert_eq!(player_name(1), "Joueur 1");
         assert_eq!(spectator_name(2), "Spectateur 2");
+    }
+
+    #[test]
+    fn resume_de_partie() {
+        assert_eq!(
+            run_summary_waves(1, 0, 500),
+            "vague 1 · 0 éliminés · 500 points"
+        );
+        assert_eq!(run_duration(1402, 60), "0:23");
+        assert_eq!(run_duration(60 * 61, 60), "1:01");
     }
 
     /// Aucun mot anglais des écrans d'avant ne doit revenir dans les constantes.
