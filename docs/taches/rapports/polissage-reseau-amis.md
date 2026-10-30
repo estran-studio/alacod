@@ -417,7 +417,8 @@ navigateur (D94). À appliquer pour le **prochain tag** si samedi montre un chro
 | `cargo check -p game --target wasm32-unknown-unknown` (branche et branche ticket) | 0 erreur |
 | `npm ci && npm run check` (website, branche ticket) | `svelte-check` 0 erreur, 0 avertissement |
 | `node --check` du chargeur (branche ticket) | OK |
-| `make check` | § 4 (dimanche) |
+| `make check` (2026-10-30, tête de J3 `f1429d74`) | `✓ All checks passed` |
+| `make test_scenarios` sans `BLESS` | `test result: ok. 5 passed; 0 failed; 12 ignored` (7 395 s), aucune trace modifiée (`git status` propre) |
 
 `releases.json` du dépôt : déjà `online: false` (`rtc-fix-20261009`) ; il passera à `v0.0.2-4630291a` avec `online: true` pour
 les seuls clones recettés samedi (§ 3).
