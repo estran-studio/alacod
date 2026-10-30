@@ -181,7 +181,11 @@ pub fn pair_session_players(
                     (config.name.clone(), config.pubkey.clone(), true)
                 } else {
                     // Fallback if players array is empty
-                    (format!("Player {}", i + 1), "local".to_string(), true)
+                    (
+                        crate::ui::texts::player_name(i + 1),
+                        "local".to_string(),
+                        true,
+                    )
                 }
             }
             PlayerType::Remote(_) => {
@@ -190,14 +194,14 @@ pub fn pair_session_players(
                 match config {
                     Some(c) => (c.name.clone(), c.pubkey.clone(), false),
                     None => (
-                        format!("Player {}", i + 1),
+                        crate::ui::texts::player_name(i + 1),
                         format!("player_{}", i + 1),
                         false,
                     ),
                 }
             }
             PlayerType::Spectator(_) => (
-                format!("Spectator {}", i + 1),
+                crate::ui::texts::spectator_name(i + 1),
                 format!("spectator_{}", i + 1),
                 false,
             ),

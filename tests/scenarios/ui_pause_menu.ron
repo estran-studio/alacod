@@ -3,8 +3,8 @@
 // Entrée / A ; la simulation continue (joueur immobile) et la trace est celle d'un joueur immobile.
 //
 // À regarder : f10 le menu s'ouvre, « Reprendre » surligné ; f20 et f21 le focus descend sur
-// « Recommencer » puis « Lobby », f22 sur « Réglages » ; f30 « Réglages » validé affiche le curseur
-// « Volume : 100 % » ; f32 et f33 ← baissent à 80 %, f34 → remonte à 90 % (S1-7, volume global) ; f40 le focus remonte sur « Lobby » (le message disparaît) ; f50 Retour
+// « Recommencer » puis « Salon », f22 sur « Réglages » ; f30 « Réglages » validé affiche le curseur
+// « Volume : 100 % » ; f32 et f33 ← baissent à 80 %, f34 → remonte à 90 % (S1-7, volume global) ; f40 le focus remonte sur « Salon » (le message disparaît) ; f50 Retour
 // ferme le menu ; f60 rouvert, f62 ↑ boucle sur « Touches », f64 ↓ revient sur « Reprendre » ;
 // f70 valider « Reprendre » ferme le menu ; f75 rouvert, f76 ↑ sur « Touches », f77 validé : l'aide
 // des touches (clavier et manette, lue dans la table des liaisons) remplace le détail, f80 Retour
@@ -43,15 +43,15 @@ Scenario(
         PlayerAlive(handle: 0, at_frame: 89),
         ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 9),
         ScreenText(screen: "pause", section: "title", contains: "Pause", at_frame: 10),
-        ScreenText(screen: "pause", section: "entries", contains: "> Reprendre\n  Recommencer\n  Lobby\n  Réglages", at_frame: 12),
-        ScreenText(screen: "pause", section: "entries", contains: "  Reprendre\n> Recommencer\n  Lobby", at_frame: 20),
-        ScreenText(screen: "pause", section: "entries", contains: "  Recommencer\n> Lobby", at_frame: 21),
+        ScreenText(screen: "pause", section: "entries", contains: "> Reprendre\n  Recommencer\n  Salon\n  Réglages", at_frame: 12),
+        ScreenText(screen: "pause", section: "entries", contains: "  Reprendre\n> Recommencer\n  Salon", at_frame: 20),
+        ScreenText(screen: "pause", section: "entries", contains: "  Recommencer\n> Salon", at_frame: 21),
         ScreenText(screen: "pause", section: "entries", contains: "> Réglages", at_frame: 22),
         ScreenText(screen: "pause", section: "detail", contains: "Volume : 100 %", at_frame: 31),
         ScreenText(screen: "pause", section: "detail", contains: "Volume : 80 %", at_frame: 33),
         ScreenText(screen: "pause", section: "detail", contains: "Volume : 90 %", at_frame: 35),
         ScreenText(screen: "pause", section: "entries", contains: "> Réglages", at_frame: 31),
-        ScreenText(screen: "pause", section: "entries", contains: "> Lobby", at_frame: 41),
+        ScreenText(screen: "pause", section: "entries", contains: "> Salon", at_frame: 41),
         ScreenText(screen: "pause", section: "entries", contains: "", closed: true, at_frame: 51),
         ScreenText(screen: "pause", section: "entries", contains: "> Reprendre", at_frame: 61),
         ScreenText(screen: "pause", section: "entries", contains: "> Touches", at_frame: 63),

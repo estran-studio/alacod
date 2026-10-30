@@ -8295,3 +8295,21 @@ lit par une surcharge locale gitignorée, **même principe que `hud.local.ron`**
   (importe `process`, `extract`, `TARGET`, `OUT` de `repack-zombies-sons.py` ; options `pitch` et `skip`). Armes : `audio_config` public (Snake's ; lanceurs et énergie = tir
   changé de hauteur, D171) **et** clés `shot_<arme>` Sonniss dans la surcharge pour l'énergie, les lanceurs et les lames. Le lint vérifie aussi chaque fichier d'un `audio_config`.
   Le `roi_rat` n'a pas de `BossState` (D170) : `boss_*` ne part pas à throne (`docs/taches/rapports/polissage-throne-sons.md` § 2).
+
+## 100. Textes du moteur en français : un module de constantes (S1-4, `docs/taches/polissage-textes-fr.md`, voie b2)
+
+- **Où** : `crates/game/src/ui/texts.rs`. Tous les mots affichés par les écrans communs à tous les jeux y sont des constantes ou de petites
+  fonctions : lobby (`LOBBY_WAITING_FOR_PLAYERS`, `NEW_GAME`, `PLAYER_READY/CONNECTING/CONNECTED/WAITING`, `player_name`, `spectator_name`),
+  états réseau de la ligne d'état du salon (`peer_connecting`, `peer_retry`, `peer_failed_back_to_lobby`, `room_full_*`), perte de session
+  (`SESSION_LOST_TITLE`, `DESYNC_TITLE`, `BACK_TO_LOBBY`, `peer_disconnected`, `desync_message`), pause, inventaire et marchand (titres, aides,
+  entrées). Pas de système d'i18n : un nouvel écran ajoute ses constantes ici, jamais un littéral dans `ui/` ou `jjrs/`.
+- **Vocabulaire** : *salon* (lobby), *pair* (autre joueur en ligne), *partie commune* (simulation partagée), *tentative*. Le mot « Lobby » n'est
+  plus affiché ; les gabarits `game_over_screen.html` des jeux disent « Salon (B) ». Le titre de DESYNC devient « PARTIE COMMUNE PERDUE » avec la
+  phrase « La partie commune est perdue : l'état de jeu diffère de celui de … (image N). » et l'action « Retour au salon ».
+- **Ce qui reste en anglais, exprès** : les journaux (`info!`, `error!` : « Desync detected … », « Player '…' disconnected » ; les scripts p2p les
+  grep), le niveau de télémétrie `DESYNC`, les diagnostics `ALACOD_DEBUG_UI=1` (compteur de frames, vague, caméra, arme) et les ids de contenu.
+- **Comportement inchangé** : seuls les mots changent ; l'écran de perte de session garde son bouton et son action (le retour au salon est
+  l'objet de S1-3). Aucune trace ne bouge (présentation seule).
+- **Contenu des clones** : noms des power-ups de `zombies` (`items/powerups.ron`), noms des armes de `throne` dans le prompt (`ui/hud.ron`
+  `names`). Les perks de `zombies` (Juggernog, Speed Cola, Double Tap, Stamin-Up) restent des noms propres.
+- **Tests** : `ui::texts::tests` (dont `pas_d_anglais_dans_les_ecrans`), `jjrs::p2p_socket_tests` (ligne d'état), `ui_pause_menu` (« Salon »).

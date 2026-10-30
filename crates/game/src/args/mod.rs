@@ -120,7 +120,7 @@ pub fn get_args() -> GameArgs {
                 } else {
                     remote_index += 1;
                     PlayerConfig {
-                        name: format!("Player {}", remote_index + 1),
+                        name: crate::ui::texts::player_name(remote_index + 1),
                         pubkey: player_str, // Use the address/identifier as pubkey
                         is_local: false,
                     }
@@ -187,7 +187,7 @@ pub fn get_args() -> GameArgs {
             .unwrap_or_else(|| {
                 // Default: single local player
                 vec![PlayerConfig {
-                    name: "Player 1".to_string(),
+                    name: crate::ui::texts::player_name(1),
                     pubkey: "local".to_string(),
                     is_local: true,
                 }]

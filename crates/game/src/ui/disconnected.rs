@@ -103,7 +103,7 @@ fn spawn_disconnect_ui(commands: &mut Commands, title: &'static str, message: St
                 ))
                 .with_children(|parent| {
                     parent.spawn((
-                        Text::new("Back to Menu"),
+                        Text::new(crate::ui::texts::BACK_TO_LOBBY),
                         TextFont {
                             font_size: FontSize::Px(30.0),
                             ..default()

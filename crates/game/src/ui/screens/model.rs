@@ -80,11 +80,11 @@ pub const PAUSE_ENTRIES: [PauseEntry; 5] = [
 impl PauseEntry {
     pub fn label(self) -> &'static str {
         match self {
-            Self::Resume => "Reprendre",
-            Self::Restart => "Recommencer",
-            Self::Lobby => "Lobby",
-            Self::Settings => "Réglages",
-            Self::Help => "Touches",
+            Self::Resume => crate::ui::texts::PAUSE_RESUME,
+            Self::Restart => crate::ui::texts::PAUSE_RESTART,
+            Self::Lobby => crate::ui::texts::PAUSE_LOBBY,
+            Self::Settings => crate::ui::texts::PAUSE_SETTINGS,
+            Self::Help => crate::ui::texts::PAUSE_KEYS,
         }
     }
 }
@@ -301,7 +301,7 @@ pub fn pause_view_full(state: &ScreensState, help: &str, volume_percent: u8) -> 
         })
         .collect();
     let mut sections = BTreeMap::new();
-    sections.insert("title".into(), text("Pause"));
+    sections.insert("title".into(), text(crate::ui::texts::PAUSE_TITLE));
     sections.insert("entries".into(), Section::List(entries));
     sections.insert(
         "detail".into(),
@@ -313,10 +313,7 @@ pub fn pause_view_full(state: &ScreensState, help: &str, volume_percent: u8) -> 
             String::new()
         }),
     );
-    sections.insert(
-        "hint".into(),
-        text("↑ ↓ choisir · Entrée / A valider · Échap / B reprendre"),
-    );
+    sections.insert("hint".into(), text(crate::ui::texts::PAUSE_HINT));
     ScreenView {
         screen: ScreenId::Pause,
         sections,
@@ -464,13 +461,13 @@ pub fn inventory_view(input: &InventoryInput, state: &ScreensState) -> ScreenVie
         ),
     };
     let mut sections = BTreeMap::new();
-    sections.insert("title".into(), text("Inventaire"));
+    sections.insert("title".into(), text(crate::ui::texts::INVENTORY_TITLE));
     sections.insert("weapons".into(), Section::List(weapons));
     sections.insert("active".into(), Section::List(active_items));
     sections.insert("charge".into(), charge);
     sections.insert("passives".into(), Section::List(passives));
     sections.insert("consumables".into(), Section::List(consumables));
-    sections.insert("hint".into(), text("↑ ↓ parcourir · I / Échap / B fermer"));
+    sections.insert("hint".into(), text(crate::ui::texts::INVENTORY_HINT));
     ScreenView {
         screen: ScreenId::Inventory,
         sections,
@@ -561,15 +558,12 @@ pub fn merchant_view(
         _ => String::new(),
     };
     let mut sections = BTreeMap::new();
-    sections.insert("title".into(), text("Marchand"));
+    sections.insert("title".into(), text(crate::ui::texts::MERCHANT_TITLE));
     sections.insert("essence".into(), text(format!("Essence : {essence}")));
     sections.insert("entries".into(), Section::List(entries));
     sections.insert("detail".into(), text(detail));
     sections.insert("message".into(), text(message));
-    sections.insert(
-        "hint".into(),
-        text("↑ ↓ choisir · Entrée / A acheter · Échap / B fermer"),
-    );
+    sections.insert("hint".into(), text(crate::ui::texts::MERCHANT_HINT));
     ScreenView {
         screen: ScreenId::Merchant,
         sections,
@@ -739,7 +733,7 @@ mod tests {
         assert_eq!(state.open, Some(ScreenId::Pause));
         assert_eq!(
             pause_view(&state).section_text("entries"),
-            "> Reprendre\n  Recommencer\n  Lobby\n  Réglages\n  Touches"
+            "> Reprendre\n  Recommencer\n  Salon\n  Réglages\n  Touches"
         );
         reduce(&mut state, UiAction::Down, 0);
         assert_eq!(
