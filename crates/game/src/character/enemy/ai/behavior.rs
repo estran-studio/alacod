@@ -318,9 +318,8 @@ fn window_on_the_way<'a>(
     breakables: &'a [Breakable],
 ) -> Option<&'a Breakable> {
     let enemy_pos = enemy_translation.truncate();
-    let in_range = |window: &&Breakable| {
-        enemy_pos.distance(&window.translation.truncate()) < attack_range
-    };
+    let in_range =
+        |window: &&Breakable| enemy_pos.distance(&window.translation.truncate()) < attack_range;
     breakables
         .iter()
         .filter(in_range)
@@ -1121,7 +1120,11 @@ mod tests {
             .extend(window.cells.iter().copied());
         let zombie = rect(20.0, 20.0, -6.0);
         let breakables = [window];
-        let ahead = [GridPos::new(10, 2), GridPos::new(10, 3), GridPos::new(10, 4)];
+        let ahead = [
+            GridPos::new(10, 2),
+            GridPos::new(10, 3),
+            GridPos::new(10, 4),
+        ];
         let found = window_on_the_way(
             &cache,
             at(160.0, 44.0).extend(),
@@ -1145,7 +1148,11 @@ mod tests {
         assert!(without_body.is_none());
         // Un zombie qui longe le mur sous l'ouverture (case suivante (11,2), point visé loin de la
         // fenêtre) ne la vise pas.
-        let along = [GridPos::new(10, 2), GridPos::new(11, 2), GridPos::new(12, 2)];
+        let along = [
+            GridPos::new(10, 2),
+            GridPos::new(11, 2),
+            GridPos::new(12, 2),
+        ];
         let passing = window_on_the_way(
             &cache,
             at(160.0, 40.0).extend(),

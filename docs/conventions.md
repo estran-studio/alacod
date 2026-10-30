@@ -8319,3 +8319,21 @@ lit par une surcharge locale gitignorée, **même principe que `hud.local.ron`**
   `texts::run_duration` (« 0:23 », plus de « kills » ni de « frames »). Le widget `weapon` du HUD affiche le nom de `hud.ron` `names` (id sinon),
   comme le prompt et les étiquettes F6 ; l'attente `HudText(source: "weapon")` lit toujours l'id (snapshot sans configuration).
 - **Tests** : `ui::texts::tests` (dont `pas_d_anglais_dans_les_ecrans`), `jjrs::p2p_socket_tests` (ligne d'état), `ui_pause_menu` (« Salon »).
+
+## 103. Guidage autour des fenêtres : point visé atteint, fenêtre au bord du chemin (D176, `docs/taches/rapports/polissage-nav-fenetres.md`, voie b4)
+
+- **Point visé « atteint »** (`FlowFieldCache::flow_direction`) : la direction vers le `steering_point` de la case suivante est
+  `normalize_or_zero(point - pos)`, qui rend **zéro** sous 1/16 d'unité d'écart (`len² ≤ 2⁻⁸`). Une direction nulle compte comme le point
+  exact : l'agent vise le point de la case d'après. Avant, l'écart non nul passait le test `length_squared() > 0` et la direction nulle
+  était rendue telle quelle : un zombie arrêté à 0,004 px d'un point poussé au coin de sa case suivante (diagonale vers une ouverture de
+  deux cases, coin de mur en diagonale) n'entrait jamais dans la case et restait figé (566 frames dans `movement_melee`, toute la partie
+  sur `avant_poste` graines 2, 3, 45, 76). Seul ce cas change : un écart plus grand garde la direction d'avant au bit près.
+- **Fenêtre au bord du chemin** (`behavior::window_on_the_way`, appelé par `enemy_target_selection`) : une fenêtre intacte à portée
+  d'attaque est à casser si une case du chemin (case de l'ennemi et trois suivantes) est sous son collider (règle d'avant, essayée d'abord,
+  même ordre `GgrsNetId`) **ou** si le collider de l'ennemi, posé au point visé de sa case suivante, la chevauche. Le second cas est une
+  ouverture plus large que la fenêtre : le champ (`GroundBreaker`) passe par la case libre d'à côté, trop étroite pour le corps tant que
+  la fenêtre tient. Aucune carte livrée n'a une telle ouverture (toutes les fenêtres couvrent exactement leur trou) : la règle ne change
+  aucune trace ; test `fenetre_au_bord_du_point_vise_est_a_casser`. Le ciblage reste soumis à un joueur perçu (`aggro_range`, D66).
+- **Preuve** : scénario `avant_poste_fenetre_coin` (zombie posé au point figé de la graine 2, fenêtre 17 de `Depart` ; avant : 171 px du
+  joueur jusqu'à f600) ; diagnostic d'un zombie figé dans une campagne : JSON d'`alacod-sim` (`softlock`, `steering_point` à moins d'une
+  unité de `position`).
