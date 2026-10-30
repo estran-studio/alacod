@@ -283,3 +283,118 @@ Les scripts du 28 oct sont dans le scratchpad du worker, qui n'est pas commité.
   `NONCE`. Renvoyer `Allocate` avec `USERNAME`, `REALM`, `NONCE` et `MESSAGE-INTEGRITY` (HMAC-SHA1, clé
   `MD5(user:realm:pass)`), puis `Refresh` avec `LIFETIME=0` pour libérer le relais. Le faire en UDP, puis en TCP
   (trame STUN sans préfixe, RFC 5766).
+
+## 2. Vendredi 30 (J3, VPS, sans navigateur)
+
+Branche `polissage-reseau-amis` rebasée sur `origin/polissage-integration` (`a9c41166`, S1-4 compris). Aucune trace ne bouge :
+le code touché est le salon en ligne (horloge murale, hors `GgrsSchedule`).
+
+| # | Point | Issue | Preuve |
+|---|---|---|---|
+| 1 | Sondes de l'annexe A | **fait, rien n'a bougé** | § 2.1 |
+| 2 | D116 | **fait, fermée** (attente d'admission bornée, test) | § 2.2, `p2p_socket_tests.rs` |
+| 3 | Fin de session à 30 min | **établi par lecture : retour au salon, pas d'écran figé** ; un écran figé trouvé **avant** la partie, corrigé | § 2.3 |
+| 4 | Ticket de 60 s | **établi par lecture : le socket s'ouvre après le chargement des assets** ; correctif préparé sur une branche à part | § 2.4 |
+| 5 | Protocole de samedi, `docs/jouer.md:103`, contrat | **fait** | § 2.5 |
+
+### 2.1 Sondes rejouées (2026-10-30, 02 h 52 UTC) — identiques au 28
+
+Scripts de l'annexe A recréés (scratchpad, non commités). Résultats, secrets masqués :
+
+```
+DNS allumette/turn.estran.studio 158.69.192.54 ; certificat Let's Encrypt YE2, 9 oct → 7 janv. 2027
+/health 200 · / 400 (upgrade) · /lobbies 200 [] · /ice-servers, /browser/v1/… 401 Invalid token · id non UUID 400 · /auth/challenge 200
+ports 80 443 3478 22 ouverts ; 3536 5349 fermés ; CORS alacod.estran.studio 200, localhost:5173 sans Access-Control-Allow-Origin
+login invité 200 ; ice-servers 200 [stun:turn…:3478, turn:…?transport=udp|tcp + identifiants] ; browser/v1/lobbies 200 [] ; lobbies 200 []
+STUN udp 0x0101 SOFTWARE=Coturn-4.6.3 'Gorst'
+[udp] Allocate sans auth 401 → authentifié SUCCÈS relais 158.69.192.54:49233, 600 s → Refresh 0 → 0x0104
+[tcp] Allocate sans auth 401 → authentifié SUCCÈS relais 158.69.192.54:49236, 600 s → Refresh 0 → 0x0104
+prod releases.json : v0.0.2-4630291a, online: true (zombies, throne) ; loader.js de prod md5 aa5bc59c… (inchangé)
+allumette : dernier déploiement run 38068410753 (23524d8, 2026-10-10), pushed_at 2026-10-10T16:37:18Z
+```
+
+Seul écart : le `loader.js` **du dépôt** a changé depuis le 28 (S1-5, compteur FPS `?perf=1`, `c5dab98f`) ; celui de la prod
+non. Sans effet sur la recette (prod).
+
+### 2.2 D116 — attente d'admission bornée, fermée
+
+Ce qui restait non borné (lecture de `wait_for_players`, `p2p_socket.rs`) : quand la salle a assez de joueurs, l'admission
+attend 3 s (`ADMISSION_SETTLE_SECS`) après l'apparition **la plus récente** d'un pair vu par le signaling ou d'un excédent
+connecté. Cette fenêtre repart à chaque apparition : un pair en trop qui clignote (fantôme qui se reconnecte, client relancé
+en boucle, excédent qui part et revient) plus vite que toutes les 3 s retenait l'admission **sans fin**. Les autres attentes
+étaient déjà bornées : salle pleine (le local ignoré) 15 s puis salon ; pair manquant 15 s par essai ; session non
+synchronisée 30 s.
+
+Correctif : `ADMISSION_MAX_SECS` = 10 s, borne **cumulée** comptée depuis que la salle a assez de joueurs connectés (remise à
+zéro quand il en manque un ou à chaque socket neuf), dans une fonction pure `admission_waits(youngest_pending, excess_for,
+enough_for)` ; journal unique `ggrs{f=0 lobby_admission_capped peers=… max=… waited_secs=…}` quand la borne coupe. Passé 10 s,
+les admis du moment démarrent ; deux clients en désaccord sur l'ensemble finissent comme une arrivée tardive (abandon de la
+session, 30 s, jamais un desync).
+
+Test `admission_wait_is_bounded_when_extra_peers_keep_appearing` (`jjrs/p2p_socket_tests.rs`) : cas limites de la fenêtre et
+de la borne, puis un fantôme qui réapparaît toutes les 2 s, une décision toutes les 100 ms pendant 60 s : **sans la borne,
+aucune admission ; avec, admission à 10,0 s.**
+
+```
+$ env -u CI cargo test -q -p game --profile headless --no-default-features --lib -- p2p_socket
+running 4 tests
+....
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 339 filtered out
+```
+
+Chemins : `--matchbox` et `--allumette` natif. Le chemin navigateur est protégé par le serveur : Allumette fige les participants
+au `start`, n'admet sur le signaling que ces membres et une connexion par joueur (`already_connected`, `session_expired`,
+`allumette/src/browser.rs:155-176`) ; l'excédent et l'arrivée tardive n'y existent pas. Le point « arrivée tardive » de D116
+(abandon borné, natif seulement) n'est pas reconduit en dette : aucun chemin produit ne le rencontre.
+
+### 2.3 Fin de session à 30 min — lecture du code
+
+Chaîne lue (allumette `23524d8`, fork matchbox `593f900c`, alacod) :
+
+1. **Serveur** : une tâche toutes les **5 s** (`allumette/src/lib.rs:103-107`) appelle `BrowserState::prune`
+   (`src/browser.rs:118`) : une session expirée (`expires_at`, 30 min) ou non connectée à temps (`connect_until`, 120 s) est
+   effacée (`lobby.reset()`), ses connexions passent dans `closing` et reçoivent un `Close` WebSocket.
+2. **Client matchbox (wasm)** : le flux du WebSocket se termine (`wasm.rs:84-87`, `None` → `StreamExhausted`) ; la boucle de
+   signaling sort, `run_socket` aussi (`socket.rs:768-773`, `StreamExhausted` → `Ok`) et emporte la boucle de messages : ses
+   récepteurs des canaux sortants sont détruits, donc `WebRtcChannel::is_closed()` (`socket.rs:309`, `tx.is_closed()`)
+   devient vrai **même si la connexion WebRTC entre pairs tenait encore**.
+3. **Jeu, en partie** : `BrowserChannel::closed()` (`jjrs/browser.rs:57-66`, présent dans `4630291a`) cesse d'envoyer et de
+   recevoir et appelle **une fois** `alacod_return_to_lobby()` → `loader.js:28` poste `return-lobby` → la page
+   (`+page.svelte`, `returnToLobby`) oublie la session (l'iframe disparaît) et rafraîchit le salon.
+4. **Page, filet indépendant** : `refresh()` sonde le salon chaque seconde ; une session effacée par le serveur
+   (`!lobby.session_id`) remet `session = null`, ce qui retire l'iframe même sans message du jeu.
+
+Verdict : à 30 min, les deux joueurs reviennent au salon en ≤ 5 s + 1 s, la partie en cours est perdue, **pas d'écran figé**.
+`endSession` peut alors répondre une erreur (session déjà effacée) : le salon affiche un message, sans autre effet. Le
+protocole de samedi garde des parties de moins de 30 min (décision du 29).
+
+**Écran figé trouvé avant la partie, corrigé.** Dans le salon du jeu (`AppState::LobbyOnline`), un socket refusé ou fermé
+(ticket périmé, `connect_until` dépassé) rendait `try_update_peers()` en erreur à chaque frame : `wait_for_players` journalisait
+`socket dropped` et revenait, **sans fin** ; l'écran « En attente des joueurs » restait jusqu'à ce que le serveur efface la
+session (≤ 120 s), puis la page retirait le jeu. Correctif (`p2p_socket.rs`, `wait_for_players`) : sur le web, retour
+immédiat au salon du site (`alacod_return_to_lobby`), journal unique `ggrs{f=0 lobby_socket_lost}` au lieu d'un `warn!` par
+frame ; en natif, l'écran reste (chemins d'essai `--matchbox`, inchangés). Pas dans la prod de samedi (aucun tag).
+
+### 2.4 Ticket de 60 s — lecture du code, correctif préparé
+
+- Le ticket naît au premier `getSessionContext` de la page (≤ 1 s après « Lancer », `+page.svelte`, `refresh`) ; chaque appel en
+  frappe un neuf (`exp = now + 60`, borné par la fin de session : `allumette/src/browser.rs:521-526`).
+- La page le passe tel quel au chargeur à son `session-request`, **avant** le téléchargement du wasm (`loader.js`, `launch`).
+- Le jeu le lit **au démarrage** du wasm (`args/mod.rs:227`, ressource `BrowserSession`) et n'ouvre le socket qu'à
+  `OnEnter(AppState::LobbyOnline)` (`core.rs:130`), atteint **après le chargement des assets** (`global_asset.rs:324`).
+- Donc le ticket doit survivre au téléchargement du wasm, à sa compilation, au démarrage et au chargement des assets.
+  Tailles de la prod (`v0.0.2-4630291a/zombies`) : `wasm_bg.wasm` 43,8 Mo, **10,7 Mo en brotli** (Chrome) ; assets ≈ 8,5 Mo
+  (dossier source). Au premier chargement, ≈ 19 Mo : ≈ 15 s à 10 Mbit/s, ≈ 50 s à 3 Mbit/s, plus la compilation. Risque réel
+  seulement sur une liaison lente ; la mesure du point 2 du protocole tranche.
+- Sur la prod, un ticket périmé donne : socket refusé → écran d'attente jusqu'à `connect_until` (120 s) → la page revient
+  au salon ; relancer (cache chaud) suffit. Avec le correctif du § 2.3 : retour immédiat.
+
+Correctif préparé, **non appliqué** (branche `polissage-reseau-amis-ticket`, commit à part, poussée) :
+
+- page : chaque `session-request` reçoit un contexte frais (`getSessionContext`), l'ancien en repli ;
+- chargeur : `data-session` reposé toutes les 30 s avec un ticket frais, jusqu'à `connected` ;
+- jeu (wasm) : `start_matchbox_socket` relit `data-session` à l'ouverture du socket (la ressource du démarrage en repli).
+
+Les trois sont nécessaires : un build de jeu ancien ignore le rafraîchissement (il a lu l'attribut au démarrage).
+Vérifié : `svelte-check` 0 erreur, `node --check` du chargeur ; `cargo check` wasm du jeu (§ 2.6). Non vérifié dans un
+navigateur (D94). À appliquer pour le **prochain tag** si samedi montre un chronomètre au-delà de 60 s ou un refus.

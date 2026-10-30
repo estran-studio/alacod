@@ -77,3 +77,40 @@ fn only_a_departing_current_session_peer_abandons_the_session() {
     assert!(!session_peer_left(&[(peer(1), Disconnected)], &current));
     assert!(!session_peer_left(&[], &current));
 }
+
+/// D116 : l'attente d'admission suit la dernière apparition (pair vu, excédent) pendant 3 s, mais jamais plus
+/// de `ADMISSION_MAX_SECS` depuis que la salle a assez de joueurs : un pair qui clignote ne la retient pas.
+#[test]
+fn admission_wait_is_bounded_when_extra_peers_keep_appearing() {
+    use super::{admission_waits as waits, ADMISSION_MAX_SECS, ADMISSION_SETTLE_SECS};
+    use std::time::Duration;
+    let ms = Duration::from_millis;
+    // Rien de récent : on n'attend pas.
+    assert!(!waits(None, None, ms(0)));
+    assert!(!waits(Some(ms(3_000)), Some(ms(3_000)), ms(500)));
+    // Un pair vu ou un excédent apparu depuis moins de 3 s : on attend.
+    assert!(waits(Some(ms(2_900)), None, ms(2_900)));
+    assert!(waits(None, Some(ms(100)), ms(100)));
+    // Borne cumulée : même un pair apparu à l'instant ne retient plus l'admission.
+    assert!(waits(Some(ms(0)), Some(ms(0)), ms(9_999)));
+    assert!(!waits(Some(ms(0)), Some(ms(0)), ms(10_000)));
+    assert!(ADMISSION_SETTLE_SECS < ADMISSION_MAX_SECS);
+    assert!(ADMISSION_MAX_SECS < super::CONNECT_TIMEOUT_SECS);
+
+    // Fantôme qui réapparaît toutes les 2 s (une nouvelle apparition au signaling, puis un excédent qui part et
+    // revient), salle à deux joueurs connectés dès t = 0 ; une décision tous les 100 ms, 60 s.
+    let admitted_at = |bounded: bool| {
+        (0..=600u64).map(|tick| ms(tick * 100)).find(|now| {
+            let since_ghost = ms(now.as_millis() as u64 % 2_000);
+            let excess = (since_ghost < ms(1_000)).then_some(since_ghost);
+            let enough_for = if bounded { *now } else { Duration::ZERO };
+            !waits(Some(since_ghost), excess, enough_for)
+        })
+    };
+    assert_eq!(
+        admitted_at(false),
+        None,
+        "sans la borne cumulée, le fantôme retient l'admission sans fin"
+    );
+    assert_eq!(admitted_at(true), Some(ms(10_000)));
+}

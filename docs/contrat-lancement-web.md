@@ -42,12 +42,14 @@ Tests de parité des registres natifs/embarqués sur les deux clones; typecheck/
 chargement navigateur et assets sans 404; solo sans Allumette; défaite/relance.
 Pour online : isolation serveur multijeu, compatibilité/refus, handles cohérents, duo sur
 réseaux différents, TURN relay forcé, EOF SSE et deuxième session. Les boutons online restent
-désactivés jusqu'à ce que le contrat et cette recette soient réalisés.
+désactivés jusqu'à ce que le contrat et cette recette soient réalisés. (État au 2026-10-30 : la prod
+`v0.0.2-4630291a` publie `online: true` sans cette recette ; elle est jouée le 2026-10-31, section
+« Service en production ».)
 
 ## Intégration réalisée après le commit de base
 
-Commits de reprise : Alacod `6af4e60`, Allumette `e7e9f06`, tous deux sur `main`,
-sans push. Les modifications suivantes restent un lot d’intégration local.
+Commits de reprise : Alacod `6af4e60`, Allumette `e7e9f06`, tous deux sur `main`
+(poussés depuis : Allumette déployé le 2026-10-10 en `23524d8`, Alacod publié en `v0.0.2-4630291a`).
 
 - Allumette expose `/browser/v1/lobbies`, invitations, join, ready, start et session.
   Les salons sont privés, capacity 2 ou 4, compatibility_id opaque et membres figés
@@ -98,3 +100,31 @@ Cette preuve utilise deux contextes sur le même hôte Linux. Le Mac de recette
 passe par un tunnel et échoue même sans engine; la comparaison hors VPN et
 la preuve sur deux réseaux restent ouvertes. Le catalogue online publié reste
 soumis à cette recette; seuls les builds locaux de test sont activés.
+
+## Service en production (S1-3, 2026-10-30)
+
+Rapport : `docs/taches/rapports/polissage-reseau-amis.md` (§ 1 état des lieux du 28 oct, sondes rejouées le 30).
+
+- **URL** : API et signaling `https://allumette.estran.studio` / `wss://allumette.estran.studio` (Caddy, Let's Encrypt),
+  STUN/TURN `turn.estran.studio:3478` UDP et TCP (coturn 4.6.3, identifiants temporaires servis par `/ice-servers` ;
+  TURNS 5349 fermé). Site : `https://alacod.estran.studio` (Cloudflare Pages) ; CORS : ce domaine et `alacod.pages.dev`,
+  **pas** `localhost` (un site lancé en local doit parler à un allumette local).
+- **Opérateur** : William. Dépôt `estran-studio/allumette` (gelé), image `ghcr.io/estran-studio/allumette-server:<sha>`,
+  hôte alumette (`/opt/allumette/compose.yaml` et `.env`, hors dépôt). Version en service : `23524d8` (2026-10-10),
+  protocole Matchbox 0.13.0, filaire identique au client 0.15 du fork.
+- **Redéployer** : un push sur `main` d'allumette (workflow « Allumette CI and Deploy »), ou
+  `gh run rerun 38068410753 -R estran-studio/allumette`. **Redémarrer** : sur alumette, `cd /opt/allumette && sudo docker
+  compose restart allumette`. Salons et sessions vivent en mémoire : jamais pendant une partie. Journaux :
+  `sudo docker compose logs --since 1h` dans `/opt/allumette`.
+- **Durées** : invitation 15 min ; connexion 120 s après « Lancer » ; **session 30 min** (`SESSION_TTL`, décision de
+  William du 2026-10-29 : gardé) ; ticket de signaling 60 s. À l'expiration de la session, le serveur ferme le socket
+  (tâche de 5 s) : le canal du jeu se ferme, `BrowserChannel` demande le retour au salon et la page, qui voit la session
+  effacée à son prochain sondage (1 s), retire le jeu ; la partie en cours est perdue, sans écran figé.
+- **Ticket de 60 s** : le site le reçoit au « Lancer », le jeu le lit au démarrage du wasm et ouvre le socket après le
+  chargement des assets (`OnEnter(LobbyOnline)`). Un premier chargement lent (≈ 11 Mo de wasm compressé, ≈ 8 Mo
+  d'assets) peut le périmer : socket refusé, retour au salon (correctif du 2026-10-30) ou, sur le build de prod, écran
+  d'attente jusqu'à l'effacement de la session (120 s). Correctif du site préparé (rapport, § 2.4), appliqué si la
+  recette le montre.
+- **Recette** : protocole en dix lignes dans `docs/jouer.md` (« En ligne depuis le site »).
+- **Natif** : `--allumette` parle l'ancienne API `/lobbies`, ne garde que la première entrée ICE (le STUN, donc jamais
+  TURN : D165) ; hors de la sortie (site, Chrome).

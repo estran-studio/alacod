@@ -100,15 +100,41 @@ l'autre ; même réseau local, ou adresse joignable).
    (`localhost` = le héros de cette machine, `remote` = l'autre.) Quand les deux se voient, la partie démarre ; chacun
    joue son héros avec **sa** souris et **son** clavier. Pour une run précise : ajouter à chaque ligne
    `ALACOD_SKIP_HUB=1` devant la commande et `--seed 10` à la fin, **identiques des deux côtés**.
-3. Le serveur public `wss://allumette.estran.studio` **ne marche pas** depuis la ligne de commande (« socket dropped » ;
-   `--allumette` exige l'identifiant d'un salon créé par le site) : utiliser le `docker compose` ci-dessus.
+3. Le serveur public `wss://allumette.estran.studio` **marche, mais seulement depuis le site** (section suivante) : en
+   ligne de commande, `--matchbox wss://allumette.estran.studio` est refusé (le signaling exige un ticket de session) et
+   `--allumette` parle l'ancienne API de salons, pas celle du site ; il n'utilise pas non plus TURN (D165). Entre deux
+   binaires natifs, utiliser le `docker compose` ci-dessus.
 
 Si un pair est annoncé par le serveur mais que la connexion ne s'établit pas (réseau qui perd des paquets : environ 1 démarrage sur 25
-à 3 % de perte), l'écran du lobby le dit (« Connecting to peer... »), puis, au bout de 15 s, rouvre une connexion (« new attempt
-(2/2) ») ; si elle échoue aussi, il revient au lobby (« back to the lobby »). Rien à faire : les deux joueurs se retrouvent.
+à 3 % de perte), l'écran du lobby le dit (« Connexion au pair… »), puis, au bout de 15 s, rouvre une connexion (« nouvelle tentative
+(2/2) ») ; si elle échoue aussi, il revient au salon (« retour au salon »). Rien à faire : les deux joueurs se retrouvent.
 
 Si les deux parties divergent, un écran « DESYNC » s'affiche (la partie commune est perdue) : notez la graine et les
 frames, c'est un défaut du moteur.
+
+## En ligne depuis le site (Allumette, deux réseaux)
+
+Le site `https://alacod.estran.studio/online` passe par Allumette (`allumette.estran.studio`, TURN `turn.estran.studio:3478`),
+opéré par William (dépôt `estran-studio/allumette`, redéploiement par un push sur `main` ; état et procédure :
+`docs/contrat-lancement-web.md`, « Service en production »). Une session dure **30 min** au plus (`SESSION_TTL`) : à
+l'expiration, la page revient au salon, la partie est perdue ; jouer des parties de moins de 30 min, retour au salon entre
+deux. Protocole de la recette S1-3 (deux machines avec Chrome, A sur la maison, B sur le partage de connexion d'un
+téléphone ; 45 min) :
+
+1. A : ouvrir `https://alacod.estran.studio/online`, un pseudo, créer un salon **zombies**, copier le lien d'invitation.
+2. B (cache vidé) : ouvrir le lien (moins de 15 min), rejoindre ; chronométrer de « Lancer » à « Connexion établie ».
+3. Les deux cliquent « Je suis prêt », A lance ; sur A, ouvrir `chrome://webrtc-internals` dans un autre onglet.
+4. Noter le type du candidat retenu (`host`, `srflx` ou `relay`) ; derrière le partage d'un téléphone, `relay` est attendu.
+5. Jouer 5 min : déplacement, tir, une mort ; noter tout écran « DESYNC », gel ou retour au salon imprévu (avec l'heure).
+6. Fin de partie, bouton « Lobby » : les deux pages reviennent au salon.
+7. Relancer une seconde partie dans le même salon (nouvelle session, nouveau ticket).
+8. Refaire 1 à 7 avec **throne**.
+9. B ouvre une invitation depuis `https://alacod.pages.dev` ou une prévisualisation d'un autre build : attendu « Cette
+   invitation utilise une autre version du jeu. »
+10. Envoyer les heures, les captures de `webrtc-internals` et la console (F12) de chaque machine en cas d'erreur.
+
+Si le chronomètre du point 2 dépasse 60 s, le ticket de signaling a expiré avant l'ouverture du socket : la page revient
+au salon (ou l'écran d'attente reste jusqu'à 2 min sur le build de prod) ; relancer depuis le salon, le cache est chaud.
 
 ## Touches
 

@@ -95,6 +95,28 @@ pub const CONNECT_SLOW_SECS: f32 = 3.0;
 /// négociation WebRTC normale (< 1 s sur la boucle locale), pas celui d'une connexion qui ne finit pas.
 pub const ADMISSION_SETTLE_SECS: f32 = 3.0;
 
+/// D116 : borne **cumulée** de l'attente d'admission, comptée depuis que la salle a assez de joueurs connectés.
+/// [`ADMISSION_SETTLE_SECS`] repart à chaque apparition (pair vu, excédent qui revient) : un pair qui clignote
+/// (fantôme qui se reconnecte, client relancé en boucle) plus vite que 3 s retiendrait l'admission sans fin.
+/// Passé ce délai, les admis du moment démarrent ; un désaccord entre clients sur l'ensemble des pairs finit,
+/// comme une arrivée tardive, par l'abandon de la session (`SYNC_TIMEOUT_SECS`). Sous le délai de D109 (15 s).
+pub const ADMISSION_MAX_SECS: f32 = 10.0;
+
+/// D116 : l'admission attend-elle encore ? Oui pendant [`ADMISSION_SETTLE_SECS`] après l'apparition du pair en
+/// attente le plus récent (`youngest_pending`) ou de l'excédent courant (`excess_for`), **dans la limite** de
+/// [`ADMISSION_MAX_SECS`] depuis que la salle a assez de joueurs (`enough_for`).
+pub fn admission_waits(
+    youngest_pending: Option<std::time::Duration>,
+    excess_for: Option<std::time::Duration>,
+    enough_for: std::time::Duration,
+) -> bool {
+    let recent = |d: Option<std::time::Duration>| {
+        d.is_some_and(|d| d.as_secs_f32() < ADMISSION_SETTLE_SECS)
+    };
+    (recent(youngest_pending) || recent(excess_for))
+        && enough_for.as_secs_f32() < ADMISSION_MAX_SECS
+}
+
 /// Durée (secondes, murale) pendant laquelle l'écran du lobby garde l'avis d'une tentative
 /// abandonnée.
 pub const CONNECT_NOTICE_SECS: f32 = 20.0;
@@ -147,6 +169,13 @@ pub struct LobbyConnectWatch {
     /// D116 : depuis quand la salle compte plus de pairs connectés que de places (horloge murale), pour
     /// l'attente bornée de l'excédent avant l'admission.
     excess_since: Option<bevy::platform::time::Instant>,
+    /// D116 : depuis quand la salle compte au moins `max_player` joueurs connectés (horloge murale), pour la
+    /// borne cumulée [`ADMISSION_MAX_SECS`] ; remis à zéro quand il en manque un ou à chaque socket neuf.
+    enough_since: Option<bevy::platform::time::Instant>,
+    /// La borne [`ADMISSION_MAX_SECS`] a coupé l'attente : déjà journalisé pour ce socket.
+    admission_capped_logged: bool,
+    /// Le socket courant est fermé (signaling refusé ou fermé avant la partie) : déjà signalé.
+    socket_lost: bool,
     /// D116 : le joueur local est **ignoré** (salle pleine, [`admit_players`]) depuis `since`.
     pub room_full: Option<RoomFull>,
 }
@@ -163,6 +192,9 @@ impl Default for LobbyConnectWatch {
             notice: None,
             announced: false,
             excess_since: None,
+            enough_since: None,
+            admission_capped_logged: false,
+            socket_lost: false,
             room_full: None,
         }
     }
@@ -186,6 +218,9 @@ impl LobbyConnectWatch {
         self.announced = false;
         self.room_full = None;
         self.excess_since = None;
+        self.enough_since = None;
+        self.admission_capped_logged = false;
+        self.socket_lost = false;
     }
 }
 
@@ -389,7 +424,18 @@ pub fn wait_for_players(
 
     // regularly call update_peers to update the list of connected peers
     let Ok(peer_changes) = socket.try_update_peers() else {
-        warn!("socket dropped");
+        // Signaling refusé ou fermé avant la partie (ticket de 60 s périmé, session Allumette expirée ou
+        // effacée : S1-3). Sur le web, le salon du site reprend la main tout de suite au lieu de laisser
+        // l'écran d'attente figé jusqu'à ce que le serveur efface la session (120 s) ; en natif, l'écran
+        // reste (chemins d'essai), signalé une fois.
+        if !watch.socket_lost {
+            watch.socket_lost = true;
+            warn!("ggrs{{f=0 lobby_socket_lost}} socket de signaling fermé avant la partie");
+            #[cfg(target_arch = "wasm32")]
+            if crate::jjrs::browser::session().is_some() {
+                crate::jjrs::browser::alacod_return_to_lobby();
+            }
+        }
         return;
     };
 
@@ -449,18 +495,36 @@ pub fn wait_for_players(
     } else {
         watch.excess_since = None;
     }
-    let excess_settling = watch.excess_since.is_some_and(|since| {
-        now.saturating_duration_since(since).as_secs_f32() < ADMISSION_SETTLE_SECS
-    });
+    if players.len() >= num_players {
+        watch.enough_since.get_or_insert(now);
+    } else {
+        watch.enough_since = None;
+    }
+    let enough_for = watch
+        .enough_since
+        .map_or(std::time::Duration::ZERO, |since| {
+            now.saturating_duration_since(since)
+        });
+    let excess_for = watch
+        .excess_since
+        .map(|since| now.saturating_duration_since(since));
     // Log the current state of player connections. D116 : un pair vu mais pas encore connecté peut
     // changer les admis (identifiant plus bas) : on ne s'engage pas avant de l'avoir connecté, sinon deux
     // clients qui ne voient pas le même ensemble ne choisiraient pas les mêmes joueurs. Cette attente
     // dure au plus `ADMISSION_SETTLE_SECS` **après la dernière apparition** (le pair en attente le plus
     // récent, pas le plus ancien : un fantôme à moitié connecté, D109, ne doit pas annuler l'attente d'un
     // pair qui arrive après lui) ; le délai de D109 reste la borne des attentes à moins de `max_player`
-    // joueurs.
-    let settling = youngest.is_some_and(|waited| waited.as_secs_f32() < ADMISSION_SETTLE_SECS)
-        || excess_settling;
+    // joueurs, `ADMISSION_MAX_SECS` celle de l'attente d'admission (pairs qui clignotent).
+    let settling = admission_waits(youngest, excess_for, enough_for);
+    let capped = !settling && admission_waits(youngest, excess_for, std::time::Duration::ZERO);
+    if players.len() >= num_players && capped && !watch.admission_capped_logged {
+        watch.admission_capped_logged = true;
+        warn!(
+            "ggrs{{f=0 lobby_admission_capped peers={} max={num_players} waited_secs={:.1}}} des pairs apparaissent encore : admission sans attendre davantage",
+            players.len(),
+            enough_for.as_secs_f32()
+        );
+    }
     if players.len() < num_players || settling {
         info!(
             "Waiting for players: {}/{} connected",
