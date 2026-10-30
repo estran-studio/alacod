@@ -850,6 +850,8 @@ fn spawn_hud_widgets(
 /// aussi en headless), `wave`/`enemies`/`players` depuis l'ECS.
 fn update_hud_values(
     snapshot: Res<HudSnapshot>,
+    config_handle: Res<HudConfigHandle>,
+    configs: Res<Assets<HudConfig>>,
     hud_player: HudPlayer,
     inventories: Query<&WeaponInventory>,
     all_players: Query<(), With<Player>>,
@@ -895,6 +897,7 @@ fn update_hud_values(
         };
     }
 
+    let names = config_handle.get(&configs).map(|config| &config.names);
     for (text_widget, mut text, mut background) in text_widgets.iter_mut() {
         let prefix_text = text_widget.prefix.clone();
         let mut new_text = match text_widget.source.as_str() {
@@ -907,6 +910,15 @@ fn update_hud_values(
                 None => continue,
             },
         };
+        // `names` (hud.ron) : nom affiché de l'arme, comme au prompt et aux étiquettes ; l'id sinon.
+        if text_widget.source == "weapon" {
+            if let Some(name) = names
+                .zip(snapshot.values.weapon.as_ref())
+                .and_then(|(names, (id, _, _))| names.get(id))
+            {
+                new_text = format!("{prefix_text}{name}");
+            }
+        }
         if text_widget.compact
             && text_widget.source == "weapon"
             && reloading

@@ -738,6 +738,11 @@ impl FlowFieldCache {
 
     /// Direction to follow the flow field from `pos`, aiming at the next cell's steering
     /// point (see [`Self::steering_point`]). `None` outside the field.
+    ///
+    /// D176 : un point visé plus proche que ce que `normalize_or_zero` résout (écart de moins
+    /// de 1/16 d'unité, direction nulle) compte comme atteint : sinon l'agent arrêté à 0,004 px
+    /// du coin de sa case suivante (point poussé par les murs d'une ouverture) n'y entre jamais
+    /// et reste immobile. Il vise alors la case d'après, comme sur le point exact.
     pub fn flow_direction(
         &self,
         key: NavKey,
@@ -747,9 +752,9 @@ impl FlowFieldCache {
         let field = self.get_flow_field(key)?;
         let profile = key.profile;
         let next = field.get_direction(GridPos::from_fixed(pos))?;
-        let direction = self.steering_point(next, profile, body) - pos;
-        if direction.length_squared() > fixed_math::FixedWide::ZERO {
-            return Some(direction.normalize_or_zero());
+        let direction = (self.steering_point(next, profile, body) - pos).normalize_or_zero();
+        if direction != fixed_math::FixedVec2::ZERO {
+            return Some(direction);
         }
         // Already on the steering point: aim at the following cell
         let further = field.get_direction(next)?;

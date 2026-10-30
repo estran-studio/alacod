@@ -103,15 +103,19 @@ fn run_summary_text(outcome: RunEnd, run: Option<&Run>) -> String {
     match run.and_then(|run| run.summary) {
         // T1.8 : en mode `Floors`, le niveau atteint (affiché à partir de 1) remplace la vague.
         Some(summary) if floors => format!(
-            "{title}\n\nÉtage {}  ·  {} éliminés\n{}:{:02}",
+            "{title}\n\nÉtage {}  ·  {} éliminés\n{}",
             summary.floor_reached + 1,
             summary.kills,
-            summary.frames / (crate::session::SIM_FPS as u32 * 60),
-            summary.frames / crate::session::SIM_FPS as u32 % 60
+            crate::ui::texts::run_duration(summary.frames, crate::session::SIM_FPS as u32)
         ),
         Some(summary) => format!(
-            "{title}\n\nvague {} - {} kills - {} points\n{} frames",
-            summary.wave_reached, summary.kills, summary.points_total, summary.frames
+            "{title}\n\n{}\n{}",
+            crate::ui::texts::run_summary_waves(
+                summary.wave_reached,
+                summary.kills,
+                summary.points_total
+            ),
+            crate::ui::texts::run_duration(summary.frames, crate::session::SIM_FPS as u32)
         ),
         None => title.to_string(),
     }
