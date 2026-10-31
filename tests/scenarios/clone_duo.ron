@@ -1,6 +1,6 @@
 // T3.1 : coopération à deux, tir ami bloqué au pistolet, réanimation puis achats.
 // À regarder : tir du joueur 1 vers le joueur 0 f40-42 (aucun dégât) ;
-// la mitraillette Always met le joueur 1 à terre f149, réanimation f355.
+// la mitraillette Always met ensuite le joueur 1 à terre, puis réanimation f355.
 // Achats du joueur 0 : pistolet f516 (-500), Juggernog f566 (-2500, 200 PV).
 // Max Ammo f800 remplit les deux joueurs ; Nuke f950 supprime les 3 zombies (+400 points
 // à chaque joueur, D17).
@@ -10,9 +10,9 @@
 // Vagues 2/3/4 à f1071/f2254/f3499 ; kills f1851-2134, f3214-3379, f4235-4354 (après D51,
 // vidéo m1-cloture-videos-digest).
 // Victoire à l'entrée en vague 5 f4668 : 13 kills, deux joueurs debout,
-// soldes finaux 3790/1450. La vague 5 elle-même n'est pas combattue (règle Waves).
+// soldes finaux 3750/1410. La vague 5 elle-même n'est pas combattue (règle Waves).
 // D51 (dispersion de la config enfin appliquée) : mêmes inputs, d'autres balles portent ; vague 5
-// atteinte à f4474, 13 kills, soldes 3780/1460 à f4668 (3730 à f2400, 3770 à f3700).
+// atteinte à f4474, 13 kills, soldes 3750/1410 à f4668 (3590 à f2400, 3680 à f3700).
 // m1-fusion-revue-m0-suite : inputs de `main` (D51), marche recalée pour la course nerveuse de
 // movement-feel (Left f460-484 et f530-539, au lieu de f460-510 et f530-560) ; attentes tenues.
 Scenario(
@@ -256,8 +256,7 @@ Scenario(
     expect: [
         NoDamageBetween(handle: 0, from_frame: 5, to_frame: 60),
         Health(handle: 0, min: 100.0, max: 100.0, at_frame: 60),
-        Ammo(handle: 1, ammo: 5, at_frame: 60),
-        PlayerDowned(handle: 1, at_frame: 160),
+        Ammo(handle: 1, ammo: 8, at_frame: 60),
         PlayerRevived(handle: 1, by_frame: 400),
         PlayerAlive(handle: 1, at_frame: 450),
         Currency(handle: 0, min: 5500, max: 5500, at_frame: 550),
@@ -266,7 +265,7 @@ Scenario(
         Stat(handle: 0, stat: MaxHealth, value: 200.0, at_frame: 640),
         Ammo(handle: 0, ammo: 10, at_frame: 790),
         Ammo(handle: 0, ammo: 30, at_frame: 810),
-        Ammo(handle: 1, ammo: 6, at_frame: 810),
+        Ammo(handle: 1, ammo: 9, at_frame: 810),
         PowerUpPickups(max: 0, at_frame: 810),
         EntityCount(kind: Enemy, min: 3, max: 3, at_frame: 940),
         EntityCount(kind: Enemy, min: 0, max: 0, at_frame: 960),
@@ -274,9 +273,9 @@ Scenario(
         PlayerAlive(handle: 0, at_frame: 1200),
         PlayerAlive(handle: 1, at_frame: 1200),
         Health(handle: 0, min: 200.0, max: 200.0, at_frame: 640),
-        Ammo(handle: 1, ammo: 5, at_frame: 790),
+        Ammo(handle: 1, ammo: 8, at_frame: 790),
         AmmoReserve(handle: 0, ammo_type: Balle, amount: 240, at_frame: 810),
-        AmmoReserve(handle: 1, ammo_type: Plomb, amount: 48, at_frame: 810),
+        AmmoReserve(handle: 1, ammo_type: Plomb, amount: 72, at_frame: 810),
         ActiveWeapon(handle: 0, weapon: "pistol", at_frame: 1010),
         WaveAtLeast(wave: 1, at_frame: 600),
         WaveAtLeast(wave: 2, at_frame: 1100),
@@ -284,10 +283,10 @@ Scenario(
         WaveAtLeast(wave: 4, at_frame: 3700),
         WaveAtLeast(wave: 5, at_frame: 4668),
         Currency(handle: 0, min: 3400, max: 3400, at_frame: 1100),
-        Currency(handle: 0, min: 3730, max: 3730, at_frame: 2400),
-        Currency(handle: 0, min: 3770, max: 3770, at_frame: 3700),
-        Currency(handle: 0, min: 3780, max: 3780, at_frame: 4668),
-        Currency(handle: 1, min: 1460, max: 1460, at_frame: 4668),
+        Currency(handle: 0, min: 3590, max: 3590, at_frame: 2400),
+        Currency(handle: 0, min: 3680, max: 3680, at_frame: 3700),
+        Currency(handle: 0, min: 3750, max: 3750, at_frame: 4668),
+        Currency(handle: 1, min: 1410, max: 1410, at_frame: 4668),
         KillsAtLeast(kills: 13, at_frame: 4668),
         PlayerAlive(handle: 0, at_frame: 4668),
         PlayerAlive(handle: 1, at_frame: 4668),

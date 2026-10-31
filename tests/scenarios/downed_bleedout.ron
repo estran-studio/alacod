@@ -4,8 +4,8 @@
 // `player_config.ron`) sans avoir été retouché entre-temps (`Health` gelée pendant qu'il est à
 // terre, voir la doc de `combat::downed::Downed`).
 //
-// À regarder : rafale du joueur 0 (f10-100), le joueur 1 tombe à terre (f89) puis meurt de
-// saignement à f989 (89 + 900), sans autre coup porté.
+// À regarder : rafale du joueur 0 (f10-160), le joueur 1 tombe à terre avant f150 puis meurt de
+// saignement avant f1100 (900 frames après sa chute), sans autre coup porté.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -13,7 +13,7 @@ Scenario(
     players: [
         (
             inputs: [
-                (from: 10, to: 100, buttons: [Fire], pan: (0, -100)),
+                (from: 10, to: 160, buttons: [Fire], pan: (0, -100)),
             ],
         ),
         (),
@@ -22,7 +22,8 @@ Scenario(
         (weapon: "machine_gun", friendly_fire: Always),
     ],
     expect: [
-        PlayerDowned(handle: 1, at_frame: 100),
-        PlayerDead(handle: 1, at_frame: 1050),
+        // La cadence/dégât actuels demandent une rafale un peu plus longue qu'avant.
+        PlayerDowned(handle: 1, at_frame: 150),
+        PlayerDead(handle: 1, at_frame: 1100),
     ],
 )

@@ -1,14 +1,16 @@
 // polissage-feel (S1-6, `docs/taches/polissage-feel.md`, `docs/conventions.md` §94) : 60 s du feel de zombies,
 // vidéo avant/après. Arène vide du bac à sable (`maps/arene_vide.ldtk`), vagues repoussées au-delà de la fin
-// (grâce 4000) : 17 zombies posés par le scénario, sur la ligne du joueur (y 486), qui viennent de la droite.
+// (grâce 4000) : 11 zombies posés par le scénario, sur la ligne du joueur (y 486), qui viennent de la droite.
 // À regarder :
 // - course, f20-f560 : droite 80 frames, arrêt, gauche (demi-tour), arrêt, bas, haut, puis deux diagonales ;
 // - dash, f560-f860 : un dash dans chaque direction pendant la course (64 px en 8 frames, départs f581, f661, f736, f796) ;
-// - mitraillette, f960-f1760 : tir continu vers la droite, puis en se déplaçant de haut en bas ; zombies
-//   tués f1016, f1072, f1127, f1265, f1586, f1601, f1679 ; joueur touché f1553 ;
-// - fusil à pompe (f1836), un coup toutes les 40 frames : tués f2004, f2092, f2180, f2267 ;
-// - esquive, f2380-f2600 : au centre, tir, dash en arrière (f2530), tir : tué f2495 ;
-// - pistolet (f2656), coup par coup en se déplaçant : tués f2826, f3015, f3356, f3428 ; touché f3007.
+// - mitraillette, f960-f1760 : tir continu vers la droite, puis en se déplaçant de haut en bas ;
+//   les premiers kills restent visibles dès f1016 ; joueur touché f1553 ;
+// - fusil à pompe (f1836), un coup toutes les 40 frames : la cadence de la séquence reste lisible ;
+// - esquive, f2380-f2600 : reprise à la mitraillette et dash vers le bas au milieu des tirs ;
+// - pistolet (f2676) : tirs espacés et esquives. Onze cibles au lieu de dix-sept : la mitraillette
+//   inflige 7 dégâts (8 avant S1-10), le fusil à pompe 20 par plomb (30 avant) ; le rythme
+//   conserve trois armes visibles et la survie du joueur pendant les 60 secondes.
 // Présentation (ne bouge pas la trace) : flash de bouche et recul de l'arme à chaque tir, éclats à chaque
 // zombie tué (`ui/feedback.ron`).
 Scenario(
@@ -69,18 +71,17 @@ Scenario(
                 (from: 2220, to: 2222, buttons: [Fire], pan: (200, -15)),
                 (from: 2260, to: 2262, buttons: [Fire], pan: (200, -15)),
                 (from: 2300, to: 2302, buttons: [Fire], pan: (200, -15)),
-                // Esquive : au centre, tir, dash en arrière, tir
-                (from: 2380, to: 2419, buttons: [Right]),
-                (from: 2470, to: 2472, buttons: [Fire], pan: (200, -15)),
-                (from: 2500, to: 2502, buttons: [Fire], pan: (200, -15)),
-                (from: 2520, to: 2529, buttons: [Left]),
-                (from: 2530, to: 2531, buttons: [Left, Dash]),
-                (from: 2532, to: 2545, buttons: [Left]),
-                (from: 2550, to: 2552, buttons: [Fire], pan: (200, -15)),
-                (from: 2580, to: 2582, buttons: [Fire], pan: (200, -15)),
-                // Pistolet (fusil à pompe -> mitraillette -> pistolet), coup par coup, en se déplaçant
-                (from: 2620, to: 2621, buttons: [SwitchWeapon]),
-                (from: 2650, to: 2651, buttons: [SwitchWeapon]),
+                // Esquive : la mitraillette reprend les ennemis que le fusil à pompe n'a pas
+                // abattus, puis dash vers le bas sans interrompre le tir.
+                (from: 2360, to: 2361, buttons: [SwitchWeapon]),
+                (from: 2380, to: 2419, buttons: [Right, Fire], pan: (200, -15)),
+                (from: 2420, to: 2519, buttons: [Fire], pan: (200, -15)),
+                (from: 2520, to: 2529, buttons: [Fire], pan: (200, -15)),
+                (from: 2530, to: 2531, buttons: [Down, Fire, Dash], pan: (200, -15)),
+                (from: 2532, to: 2545, buttons: [Fire], pan: (200, -15)),
+                (from: 2546, to: 2600, buttons: [Fire], pan: (200, -15)),
+                // Pistolet : coup par coup, en se déplaçant.
+                (from: 2670, to: 2671, buttons: [SwitchWeapon]),
                 (from: 2700, to: 2701, buttons: [Fire], pan: (200, -15)),
                 (from: 2718, to: 2719, buttons: [Fire], pan: (200, -15)),
                 (from: 2736, to: 2737, buttons: [Fire], pan: (200, -15)),
@@ -92,8 +93,7 @@ Scenario(
                 (from: 2844, to: 2845, buttons: [Fire], pan: (200, -15)),
                 (from: 2862, to: 2863, buttons: [Fire], pan: (200, -15)),
                 (from: 2880, to: 2881, buttons: [Fire], pan: (200, -15)),
-                (from: 2898, to: 2899, buttons: [Fire], pan: (200, -15)),
-                (from: 2916, to: 2917, buttons: [Fire], pan: (200, -15)),
+                (from: 2900, to: 2915, buttons: [Down]),
                 (from: 2934, to: 2935, buttons: [Fire], pan: (200, -15)),
                 (from: 2952, to: 2953, buttons: [Fire], pan: (200, -15)),
                 (from: 2970, to: 2971, buttons: [Fire], pan: (200, -15)),
@@ -101,37 +101,29 @@ Scenario(
                 (from: 3006, to: 3007, buttons: [Fire], pan: (200, -15)),
                 (from: 3024, to: 3025, buttons: [Fire], pan: (200, -15)),
                 (from: 3042, to: 3043, buttons: [Fire], pan: (200, -15)),
-                (from: 3060, to: 3061, buttons: [Fire], pan: (200, -15)),
-                (from: 3078, to: 3079, buttons: [Fire], pan: (200, -15)),
+                (from: 3078, to: 3079, buttons: [Down, Fire, Dash], pan: (200, -15)),
                 (from: 3096, to: 3097, buttons: [Fire], pan: (200, -15)),
-                (from: 3114, to: 3115, buttons: [Fire], pan: (200, -15)),
+                (from: 3100, to: 3115, buttons: [Down]),
                 (from: 3132, to: 3133, buttons: [Fire], pan: (200, -15)),
                 (from: 3150, to: 3151, buttons: [Fire], pan: (200, -15)),
                 (from: 3168, to: 3169, buttons: [Fire], pan: (200, -15)),
                 (from: 3186, to: 3187, buttons: [Fire], pan: (200, -15)),
                 (from: 3204, to: 3205, buttons: [Fire], pan: (200, -15)),
                 (from: 3222, to: 3223, buttons: [Fire], pan: (200, -15)),
-                (from: 3240, to: 3241, buttons: [Fire], pan: (200, -15)),
-                (from: 3258, to: 3259, buttons: [Fire], pan: (200, -15)),
+                (from: 3258, to: 3259, buttons: [Down, Fire, Dash], pan: (200, -15)),
                 (from: 3276, to: 3277, buttons: [Fire], pan: (200, -15)),
-                (from: 3294, to: 3295, buttons: [Fire], pan: (200, -15)),
+                (from: 3300, to: 3311, buttons: [Down]),
                 (from: 3312, to: 3313, buttons: [Fire], pan: (200, -15)),
                 (from: 3330, to: 3331, buttons: [Fire], pan: (200, -15)),
                 (from: 3348, to: 3349, buttons: [Fire], pan: (200, -15)),
                 (from: 3366, to: 3367, buttons: [Fire], pan: (200, -15)),
                 (from: 3384, to: 3385, buttons: [Fire], pan: (200, -15)),
-                (from: 3402, to: 3403, buttons: [Fire], pan: (200, -15)),
-                (from: 3420, to: 3421, buttons: [Fire], pan: (200, -15)),
-                (from: 3438, to: 3439, buttons: [Fire], pan: (200, -15)),
+                (from: 3438, to: 3439, buttons: [Left, Fire, Dash], pan: (200, -15)),
                 (from: 3456, to: 3457, buttons: [Fire], pan: (200, -15)),
-                (from: 3474, to: 3475, buttons: [Fire], pan: (200, -15)),
                 (from: 3492, to: 3493, buttons: [Fire], pan: (200, -15)),
                 (from: 3510, to: 3511, buttons: [Fire], pan: (200, -15)),
                 (from: 3528, to: 3529, buttons: [Fire], pan: (200, -15)),
                 (from: 3546, to: 3547, buttons: [Fire], pan: (200, -15)),
-                (from: 2900, to: 2915, buttons: [Down]),
-                (from: 3100, to: 3115, buttons: [Up]),
-                (from: 3300, to: 3315, buttons: [Down]),
             ],
         ),
     ],
@@ -146,20 +138,14 @@ Scenario(
         CharacterPlacement(character: "zombie_1", x: "50", y: "486", at_frame: 1880),
         CharacterPlacement(character: "zombie_1", x: "50", y: "486", at_frame: 1980),
         CharacterPlacement(character: "zombie_1", x: "50", y: "486", at_frame: 2080),
-        CharacterPlacement(character: "zombie_1", x: "50", y: "486", at_frame: 2180),
-        CharacterPlacement(character: "zombie_1", x: "50", y: "486", at_frame: 2420),
         CharacterPlacement(character: "zombie_1", x: "50", y: "486", at_frame: 2700),
-        CharacterPlacement(character: "zombie_1", x: "50", y: "470", at_frame: 2850),
-        CharacterPlacement(character: "zombie_1", x: "50", y: "486", at_frame: 3000),
-        CharacterPlacement(character: "zombie_1", x: "50", y: "470", at_frame: 3150),
-        CharacterPlacement(character: "zombie_1", x: "50", y: "486", at_frame: 3300),
     ],
     expect: [
         PlayerAlive(handle: 0, at_frame: 3599),
         // Zombies posés : pas de kills de vague, les morts se lisent aux points gagnés.
         Event(kind: "points", label_contains: Some("(kill)"), by_frame: 1020),
-        EventAfter(kind: "points", label_contains: Some("(kill)"), after_frame: 3400, by_frame: 3430),
-        // 16 des 17 zombies tués (le dernier, posé f3300, est encore debout).
+        EventAfter(kind: "points", label_contains: Some("(kill)"), after_frame: 2600, by_frame: 3000),
+        // Les tirs espacés du pistolet laissent au plus un poursuivant.
         EntityCount(kind: Enemy, max: Some(1), at_frame: 3599),
     ],
 )

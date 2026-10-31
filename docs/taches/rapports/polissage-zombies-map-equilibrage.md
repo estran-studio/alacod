@@ -1,9 +1,9 @@
-# polissage-zombies-map-equilibrage (S1-10) — rapport, points 1 et 2 (b3, préparation)
+# polissage-zombies-map-equilibrage (S1-10) — audit, cartes, armes, campagnes
 
-Branche `polissage-zombies-map-equilibrage` (depuis `origin/polissage-integration`), clone `zombies`, fiche
-`docs/taches/polissage-zombies-map-equilibrage.md`. **Points 1 et 2 seulement** (audit et campagne « avant ») : le réglage des
-cartes et des armes, la campagne « après » et les `BLESS` sont à b2 (S1-10, lun 2 nov). Aucune carte, arme, scénario ni trace
-modifiés, aucun `BLESS`. Commit de référence de la campagne : celui de `origin/polissage-integration` au départ (`facb7c92`).
+Branche `polissage-zombies-map-equilibrage` (travail b2 sur `s1-10-local`), clone `zombies`, fiche
+`docs/taches/polissage-zombies-map-equilibrage.md`. Les § 1–2 sont la campagne « avant » de b3
+(`facb7c92`) ; les § 3–5 portent les changements et mesures de b2 (`c84ef0f1`).
+Les campagnes utilisent le binaire headless et ne remplacent pas un essai humain des armes.
 
 ## 1. Audit des cartes (`avant_poste`, `la_fonderie`)
 
@@ -189,20 +189,101 @@ graines 80 à 100 relancées dans deux autres processus (80..100, coupé à 89 ;
 avec la **même issue** à chaque fois (vague, frames, kills identiques ligne à ligne : une preuve gratuite de reproductibilité).
 Pour cette ligne, seuls les journaux couvrent 1..100 ; le JSON complet n'existe que pour les graines 90 à 100.
 
-## 3. Dettes (D173–D175)
+## 3. Cartes et armes (point 3)
 
-Ajoutées à `docs/taches/dettes.md` (D173–D175 ; D167–D169 sont pris par ailleurs).
+`games/zombies/assets/maps/avant_poste.ldtk` : les sept salles initialement sans spawner et
+fenêtre en reçoivent chacune (Couloir 2/1 ; Cuisine 3/2 ; Chambre 3/2 ; Jug 3/2 ;
+Armurerie 3/2 ; Cave 3/2 ; Cellier 3/2), soit **29 spawners / 19 fenêtres** sur neuf
+salles contre **5 / 6** avant (recomptage des entités LDtk avec `jq`). `Poste` gardait
+ses quatre fenêtres et reçoit quatre spawners ; `Depart` reste à 5/2. Les nouveaux spawners
+ont des zones `active_x/y/width/height` qui empêchent les vagues de sélectionner des
+points derrière une porte fermée. `la_fonderie` n'est pas modifiée : chaque gabarit avait
+déjà 2 à 4 spawners et ses six cases étroites ne figuraient pas parmi les blocages observés.
 
-## 4. Reste à faire
+`games/zombies/assets/ZombieShooter/Sprites/Character/weapons.ron` : pistolet
+précis de secours (`15 → 22` dégâts, `2 → 3` tirs/s, chargeur `6 → 9`) ;
+mitraillette automatique pour le milieu de portée (`spread 0,12 → 0,07`, `8 → 7`
+dégâts) ; fusil à pompe de proximité (`30 → 20` dégâts par plomb,
+`400 → 320` de portée, huit plombs) ; fusil semi-auto longue portée
+(`35 → 55` dégâts, `4 → 3` tirs/s, chargeur `10 → 8`). Le prix du fusil
+est **inchangé dans la carte** ; son achat dépend du trajet du bot, pas d'un
+changement de mécanique. Aucun nouveau type d'arme, d'effet ou de son.
 
-- Point 3 (placer des spawners et des fenêtres dans les 8 autres salles d'`avant_poste`, régler les armes), point 4 (campagne « après », `BLESS` avec
-  preuve §5) : b2, lun 2 nov, sur la même branche.
-- Cible pour b2 : les `plafond` à faible vague (§ 2.3), la mitraillette de départ qui écrase les autres armes, le fusil jamais acheté.
-- William : 15 minutes de jeu et notes sur les armes (hors de ce lot).
+**Diagnostic sur la première campagne après** : graine 2 solo, `nav_probe` sur
+le scénario enregistré à f5 000 : zombie 385 à `(144,32)`, vitesse nulle,
+`next_cell (9,2)` mais `steering_point (144,32)` confondu avec sa position ;
+fenêtre 54 de `Depart` cassée à `(144,56)` entre les murs
+`x32..128` et `x160..272` (`y48..64`). Le zombie est à 107 unités du joueur,
+hors ligne de vue, et la vague 3 reste bloquée jusqu'à f20 000. Le goulet
+de deux cases était **préexistant** dans `Depart` ; les nouveaux spawners
+changent le trajet et font ressortir ce blocage. Expérience carte non retenue :
+élargir les 19 fenêtres de 2 à 4 cases (murs et tuiles cohérents) maintient
+le blocage sur les quatre graines 2, 3, 45, 76 ; à f20 000, graine 2 a
+quatre ennemis vers `(160,44)` qui visent `(160,56)` sur le bord de la fenêtre
+intacte `(144,56)`. Carte restaurée avant validation ; cette reproduction
+est couverte par D176, fermée par le correctif moteur de b4 (`79538914`).
 
-## 5. Vérifications
+## 4. Campagne « après » (point 4)
 
-`env -u CI make format check_forbidden lint` : code 0 (`cargo fmt --check` propre, `check-forbidden.sh` sans occurrence nouvelle, `alacod lint`
-des quatre jeux sans erreur ; seul avertissement : `AiSchema::sight_range` jamais lu, déjà présent sur `origin/polissage-integration`).
-Aucun fichier de carte, d'arme, de scénario ni de trace modifié (`git status` : rapport, `docs/taches.md`, `docs/taches/dettes.md`).
-`make check` non lancé (rien de code), comme demandé.
+Mêmes quatre commandes que § 2.1 (`ALACOD_CHECK_DISTANCE=0`, `acheteur`,
+graines `1..100`, vague 10, plafond 20 000 frames, même `--map` pour
+`avant_poste`), mêmes quatre lignes de 100 parties. Résultats conservés dans
+`target/metrics/polissage-zombies-map-equilibrage/apres-{avant_poste,la_fonderie}-{1,2}bot.json`
+et `.log` ; scénarios rejouables sous `apres-*-scen/seed_N.ron`.
+La colonne « plafond » n'est **pas** un compte de soft-locks confirmés.
+
+| Carte | Bots | Vague médiane avant → après | Vague 10 avant → après | Victoires avant → après | Morts avant → après | Plafonds avant → après | Frames médianes avant → après | Kills médians avant → après | Desync après |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| avant_poste | 1 | 9 → 9 | 2 → 0 | 0 → 0 | 31 → 6 | 67 → 94 | 20 000 → 20 000 | 90 → 99 | 0 |
+| avant_poste | 2 | 9 → 9 | 37 → 46 | 0 → 0 | 1 → 0 | 62 → 54 | 20 000 → 20 000 | 107 → 107 | 0 |
+| la_fonderie | 1 | 6 → 7 | 2 → 2 | 67 → 74 | 19 → 11 | 12 → 13 | 10 656 → 12 829 | 47 → 60 | 0 |
+| la_fonderie | 2 | 6 → 7 | 7 → 7 | 88 → 87 | 0 → 0 | 5 → 6 | 10 662 → 11 364 | 53 → 54 | 0 |
+
+**Verdict mesuré** : moins de morts, mais `avant_poste` solo finit moins
+souvent à la vague 10 (2 → 0). Parmi ses 94 plafonds après, 54 ont encore
+des ennemis à générer et 16 ont passé plus de 4 000 frames sur la dernière
+vague ; en duo, 7 plafonds gardent des ennemis à générer et 7 dépassent
+4 000 frames. Parmi les 16 plafonds solo prolongés, 14 sont `InProgress`
+avec exactement un ennemi, 1 `Spawning` et 1 `WaveComplete`. Les autres
+plafonds peuvent être des parties simplement longues, dont 20 en phase `WaveComplete`
+en solo. Les nouveaux spawners ne suffisent donc pas à supprimer la dette
+D174 (activation conditionnée à la salle, bot et guidage ennemis à examiner
+séparément). `la_fonderie` gagne sept victoires solo, en perd une en duo ;
+les changements d'armes s'y appliquent également. Les 400 JSON de la
+campagne après donnent `desync: false` ; la campagne à distance 0 n'exerce
+**pas** la vérification de rollback.
+
+### William : quinze minutes sans écoute (à faire sur le Mac)
+
+Depuis la branche intégrée : `ALACOD_MUTE=1 make zombies GARGS="--seed 42"`.
+Jouer une partie entière, sans lancement sonore ; 5 min pistolet contre
+mitraillette (précision à mi-portée), 5 min fusil à pompe (puissance et
+portée), 5 min fusil (prix, accès et cadence face à la mitraillette).
+Noter par arme « utile ou non », portée ressentie, dégâts/cadence, prix
+acceptable et à quelle vague elle a été achetée ; noter toute salle où
+un ennemi reste introuvable ou une vague ne se termine pas. **Verdict humain
+en attente**, aucune note attribuée à William sans cet essai.
+
+## 5. Traces et vérifications
+
+`make gen GAME=zombies` (sans `GEN_BLESS`) a reproduit les six écarts
+ci-dessous ; `GEN_BLESS=1` a réécrit **uniquement** leurs traces de zombies.
+Comparaison avec les références d'avant la régénération (`git diff -U0`) :
+
+| Trace `generated/zombies/…` | Première frame divergente | Cause |
+|---|---:|---|
+| `enemy_zombie_1_still` | 0 | Joueur initialisé avec les trois armes configurées dans `player_config.ron` ; `WeaponInventory` hache les `firing_modes` changés dans `weapons.ron`. |
+| `enemy_zombie_1_moving` | 0 | Même inventaire initial ; le déplacement du zombie ne commence qu'après f0. |
+| `enemy_zombie_2_still` | 0 | Même inventaire initial ; gabarit de zombie différent mais hors cause à f0. |
+| `enemy_zombie_2_moving` | 0 | Même inventaire initial ; déplacement du zombie postérieur à f0. |
+| `enemy_zombie_full_still` | 0 | Même inventaire initial ; gabarit différent mais hors cause à f0. |
+| `enemy_zombie_full_moving` | 0 | Même inventaire initial ; déplacement du zombie postérieur à f0. |
+
+Preuve de l'état **à f0** : `player_config.ron` pose
+`["machine_gun", "pistol", "shotgun"]`; le `WeaponInventory` rollback
+parcourt ses `Weapon` dans son `Hash` (`crates/combat/src/weapons/mod.rs:515-528`),
+et `WeaponConfig::hash` y inclut `firing_modes` (lignes 254-260).
+Le hash de chaque trace ci-dessus passe de `0 …b94ae909dd7dde32 88`
+à `0 …7b922f98295159c6 88` avec les mêmes 88 porteurs : les dégâts,
+cadences, chargeurs ou dispersions des armes sont visibles **avant
+le premier tir**.
