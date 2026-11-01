@@ -473,8 +473,38 @@ Non vérifié ici : deux réseaux, TURN (`relay`), throne, la prod.
 | `format`, `check_forbidden`, `check_rollback_registration`, `check_sim_boundary`, `test`, `lint` | vertes (`exit=0`, 1 548 tests passés, 0 échec ; lint des cinq jeux « aucune erreur ») |
 | `test_tools` | **3 échecs hors lot** : `test_claude_say` (k5-0, `f630903f`) ; `scripts/claude-say.sh:40` ne se lit pas dans le bash 3.2 de macOS (« unexpected EOF while looking for matching » accent grave : le bloc Python dans `$(…)` contient des accents graves), bash 5.2 du VPS correct ; déjà rouge avant mes changements (`git stash`, ven 30) |
 
-## 3. Recette à deux réseaux avec William — à replanifier
+## 3. Recette à deux réseaux avec William — non tenue
 
-Samedi 31, 18 h UTC : **non tenue** (William retenu). Nouvelle heure demandée par le coordinateur à William.
+Samedi 31, 18 h UTC : **non tenue** (William retenu) ; dimanche 1er : pas d'heure de William. Session zombies à 2 non jouée.
 
-(à remplir)
+## 4. État au 1er nov : préparé, non recetté
+
+Consigne de William (dim 1) : on termine ce qui est en cours ; S1-3 se clôt **préparé, non recetté**.
+
+| Point | Issue | Preuve |
+|---|---|---|
+| Sondes d'Allumette et de coturn (annexe A) | **fait** : identiques du 28 au 30 | § 2.1 |
+| D116 (attente d'admission non bornée) | **fermée** : `ADMISSION_MAX_SECS` 10 s, fonction pure `admission_waits`, test `admission_wait_is_bounded_when_extra_peers_keep_appearing` | § 2.2, `jjrs/p2p_socket_tests.rs` |
+| Fin de session à 30 min | **fait** : retour au salon établi par lecture (§ 2.3), **vérifié dans Chrome** (R6 : expiration en partie, `return-lobby` 7 ms après le `Close`) | § 2.3, § 2.7 |
+| Écran figé avant la partie (socket refusé) | **corrigé** : `lobby_socket_lost` → retour au salon du site, vérifié dans Chrome (R2) | § 2.3, § 2.7 |
+| Ticket de 60 s | **correctif vérifié dans Chrome** (R2 échoue, R3 passe avec 93 s de chargement), **non appliqué** (branche `polissage-reseau-amis-ticket` `2a5573b1`) | § 2.4, § 2.7 |
+| Protocole de la recette | **fait** : dix lignes, `docs/jouer.md` § « En ligne depuis le site (Allumette, deux réseaux) » (VPN coupé) ; contrat « Service en production » | § 2.5 |
+| Dettes | **D165** (client natif sans TURN), **D166** (collecte ICE attendue en entier : +40 s derrière un VPN qui bloque l'UDP), ouvertes | `docs/taches/dettes.md` |
+| `make check` | vert sur le Mac sauf `test_tools` (3 `test_claude_say`, bash 3.2 de macOS, hors lot) | § 2.6, § 2.8 |
+| `releases.json` du dépôt | **inchangé** : `rtc-fix-20261009`, `online: false` pour zombies et throne (aucun clone recetté) | `website/static/releases.json` |
+| Partie à 2 entre deux réseaux, zombies et throne, 0 `DESYNC` | **non vérifié** | — |
+| Session zombies à 2 (30 min) avec William | **non vérifié** | — |
+| TURN forcé (`relay`), 4 joueurs, journaux d'allumette/coturn de la plage du test | **non vérifié** (accès alumette non configuré) | — |
+
+**Reprise** (≈ 1 h avec William, plus 1 h de rapport) : William, deux machines avec Chrome, l'une sur le partage de connexion
+d'un téléphone, **VPN coupé**, 45 min, sur la prod `https://alacod.estran.studio/online` (`v0.0.2-4630291a`, `online: true` en
+prod). Côté worker, dans le worktree `~/orca/workspaces/alacod/b2-allumette-mac` :
+
+```
+git fetch && git switch polissage-reseau-amis && git merge origin/polissage-integration
+# protocole : docs/jouer.md § « En ligne depuis le site (Allumette, deux réseaux) », points 1 à 10 ; heures et verdicts → § 3
+ssh ovh-inner 'ssh debian@vps-eda50ee1.vps.ovh.ca "cd /opt/allumette && sudo docker compose logs --since 2h"'   # une fois la clé autorisée
+```
+
+Puis : `releases.json` passé à `v0.0.2-4630291a` avec `online: true` pour les seuls clones recettés ; si le chronomètre du point 2
+dépasse 60 s, appliquer le correctif du ticket (`git cherry-pick 2a5573b1` : `p2p_socket.rs`, `+page.svelte`, `loader.js`) pour le prochain tag ; journal `LIVRÉ`.
