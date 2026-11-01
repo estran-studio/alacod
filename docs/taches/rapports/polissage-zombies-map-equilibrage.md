@@ -2,7 +2,7 @@
 
 Branche `polissage-zombies-map-equilibrage` (travail b2 sur `s1-10-local`), clone `zombies`, fiche
 `docs/taches/polissage-zombies-map-equilibrage.md`. Les § 1–2 sont la campagne « avant » de b3
-(`facb7c92`) ; les § 3–5 portent les changements et mesures de b2 (`c84ef0f1`).
+(`facb7c92`) ; les § 3–5 portent les changements et mesures de b2 (`c84ef0f1`, `88041423`, puis la reprise du 1er novembre sur le Mac).
 Les campagnes utilisent le binaire headless et ne remplacent pas un essai humain des armes.
 
 ## 1. Audit des cartes (`avant_poste`, `la_fonderie`)
@@ -191,99 +191,310 @@ Pour cette ligne, seuls les journaux couvrent 1..100 ; le JSON complet n'existe 
 
 ## 3. Cartes et armes (point 3)
 
-`games/zombies/assets/maps/avant_poste.ldtk` : les sept salles initialement sans spawner et
-fenêtre en reçoivent chacune (Couloir 2/1 ; Cuisine 3/2 ; Chambre 3/2 ; Jug 3/2 ;
-Armurerie 3/2 ; Cave 3/2 ; Cellier 3/2), soit **29 spawners / 19 fenêtres** sur neuf
-salles contre **5 / 6** avant (recomptage des entités LDtk avec `jq`). `Poste` gardait
-ses quatre fenêtres et reçoit quatre spawners ; `Depart` reste à 5/2. Les nouveaux spawners
-ont des zones `active_x/y/width/height` qui empêchent les vagues de sélectionner des
-points derrière une porte fermée. `la_fonderie` n'est pas modifiée : chaque gabarit avait
-déjà 2 à 4 spawners et ses six cases étroites ne figuraient pas parmi les blocages observés.
+Branche `polissage-zombies-map-equilibrage` (travail b2 sur `s1-10-local`). Aucune arme, effet, mécanique ni son nouveaux :
+une carte LDtk et des valeurs de `weapons.ron`.
 
-`games/zombies/assets/ZombieShooter/Sprites/Character/weapons.ron` : pistolet
-précis de secours (`15 → 22` dégâts, `2 → 3` tirs/s, chargeur `6 → 9`) ;
-mitraillette automatique pour le milieu de portée (`spread 0,12 → 0,07`, `8 → 7`
-dégâts) ; fusil à pompe de proximité (`30 → 20` dégâts par plomb,
-`400 → 320` de portée, huit plombs) ; fusil semi-auto longue portée
-(`35 → 55` dégâts, `4 → 3` tirs/s, chargeur `10 → 8`). Le prix du fusil
-est **inchangé dans la carte** ; son achat dépend du trajet du bot, pas d'un
-changement de mécanique. Aucun nouveau type d'arme, d'effet ou de son.
+### 3.1 `avant_poste` : spawners et fenêtres dans toutes les salles
 
-**Diagnostic sur la première campagne après** : graine 2 solo, `nav_probe` sur
-le scénario enregistré à f5 000 : zombie 385 à `(144,32)`, vitesse nulle,
-`next_cell (9,2)` mais `steering_point (144,32)` confondu avec sa position ;
-fenêtre 54 de `Depart` cassée à `(144,56)` entre les murs
-`x32..128` et `x160..272` (`y48..64`). Le zombie est à 107 unités du joueur,
-hors ligne de vue, et la vague 3 reste bloquée jusqu'à f20 000. Le goulet
-de deux cases était **préexistant** dans `Depart` ; les nouveaux spawners
-changent le trajet et font ressortir ce blocage. Expérience carte non retenue :
-élargir les 19 fenêtres de 2 à 4 cases (murs et tuiles cohérents) maintient
-le blocage sur les quatre graines 2, 3, 45, 76 ; à f20 000, graine 2 a
-quatre ennemis vers `(160,44)` qui visent `(160,56)` sur le bord de la fenêtre
-intacte `(144,56)`. Carte restaurée avant validation ; cette reproduction
-est couverte par D176, fermée par le correctif moteur de b4 (`79538914`).
+`games/zombies/assets/maps/avant_poste.ldtk`, recomptage des entités de chaque niveau (`ZombieSpawn`, `WindowHorizontal` +
+`WindowVertical`, script jetable sur le JSON LDtk) :
+
+| Salle | Spawners avant → après | Fenêtres avant → après |
+|---|---:|---:|
+| Depart | 5 → 5 | 2 → 2 |
+| Couloir | 0 → **2** | 0 → **1** |
+| Cuisine | 0 → **3** | 0 → **2** |
+| Chambre | 0 → **3** | 0 → **2** |
+| Poste | 0 → **4** | 4 → 4 |
+| Jug | 0 → **3** | 0 → **2** |
+| Armurerie | 0 → **3** | 0 → **2** |
+| Cave | 0 → **3** | 0 → **2** |
+| Cellier | 0 → **3** | 0 → **2** |
+| **Total** | **5 → 29** | **6 → 19** |
+
+Chaque nouveau spawner porte une zone d'activation (`active_x/y/width/height`, commit `c84ef0f1`) : les vagues choisissent le point
+d'apparition par distance sans regarder la salle ; sans zone, des zombies naissaient dans des salles encore fermées par une porte.
+Un spawner ne joue que si un joueur est dans la même salle (`enemy_spawn_from_spawners_system`, § 1.1) : avec 29 spawners répartis, les
+vagues continuent d'apparaître quand les joueurs quittent `Depart`.
+
+**Blocages du § 2.3.** La campagne a montré que la cause n'était **pas la carte** : un goulet de deux cases dans `Depart` (fenêtre 54,
+`(144,56)`, murs `x32..128` et `x160..272`) existait déjà, les nouveaux spawners changent le trajet et le font ressortir. Contrefactuel
+mesuré par b2 (carte restaurée ensuite) : élargir les 19 fenêtres de 2 à 4 cases laisse le blocage sur les graines 2, 3, 45 et 76. Cause
+réelle : le moteur (`flow_direction` : direction nulle quand le point visé est confondu avec la case, zombie figé ; `enemy_target_selection` :
+fenêtre intacte non frappée), corrigé par b4 (D176, `79538914`, mergé dans cette branche). Pas de changement de carte pour cela. Ce
+qui reste de plafonds est un défaut de rythme du bot et des vagues (§ 4.3), D174.
+
+`la_fonderie` n'est pas modifiée : 2 à 4 spawners par gabarit, ratio fenêtres/spawners de 1:1, six cases étroites isolées qui ne figurent
+dans aucun blocage observé (§ 1.2).
+
+### 3.2 Armes (`games/zombies/assets/ZombieShooter/Sprites/Character/weapons.ron`)
+
+Mesure de départ (§ 2.4) : la mitraillette de départ est l'arme la plus vidée (140 chargeurs vides en 12 graines solo), le pistolet sert de
+secours, le fusil à pompe est à peine vidé (2) et le fusil jamais acheté. Rôle visé par arme : **pistolet** = précis, secours ;
+**mitraillette** = cadence, milieu de portée, sans rendement exagéré ; **fusil à pompe** = proximité, puissant mais court ;
+**fusil** = longue portée, coup lourd, cadence basse.
+
+| Arme (prix du mur) | Paramètre | Avant | Après | Dégâts par seconde, une cible (avant → après) |
+|---|---|---:|---:|---:|
+| Pistolet (500) | dégâts / cadence / chargeur | 15 / 2 par s / 6 | **22 / 3 par s / 9** | 30 → 66 |
+| Mitraillette (1 500, arme de départ) | dispersion / dégâts (deux modes) | 0,12 / 8 | **0,07 / 7** | 80 → 70, plus précise |
+| Fusil à pompe (1 000) | dégâts par plomb (8 plombs) / portée (modes `default` et `piercing`) | 30 / 400 | **20 / 320** | 240 → 160 à bout portant |
+| Fusil (2 000) | dégâts / cadence / chargeur | 35 / 4 par s / 10 | **55 / 3 par s / 8** | 140 → 165 |
+
+Les prix des armes murales (carte) sont **inchangés** : le fusil (2 000, `Armurerie`, derrière une porte à 1 250) n'est jamais acheté par le bot
+`acheteur`, avant comme après (§ 4.4) ; cause non établie (trajet du bot ou prix), à juger par William (§ 4.5) plutôt que par un prix posé à l'aveugle.
+Le pistolet change de rôle (secours précis à 66 par seconde, deux fois plus de coups par chargeur) ; la mitraillette perd de la puissance
+brute (−12 %) contre de la précision ; le fusil à pompe perd un tiers de sa puissance et de la portée (constat de William : « super fort »).
+
+`make gen GAME=zombies` : les six scénarios générés (`enemy_zombie_*`) dépendent du hash des armes (§ 5).
 
 ## 4. Campagne « après » (point 4)
 
-Mêmes quatre commandes que § 2.1 (`ALACOD_CHECK_DISTANCE=0`, `acheteur`,
-graines `1..100`, vague 10, plafond 20 000 frames, même `--map` pour
-`avant_poste`), mêmes quatre lignes de 100 parties. Résultats conservés dans
-`target/metrics/polissage-zombies-map-equilibrage/apres-{avant_poste,la_fonderie}-{1,2}bot.json`
-et `.log` ; scénarios rejouables sous `apres-*-scen/seed_N.ron`.
-La colonne « plafond » n'est **pas** un compte de soft-locks confirmés.
+### 4.1 Commandes
 
-| Carte | Bots | Vague médiane avant → après | Vague 10 avant → après | Victoires avant → après | Morts avant → après | Plafonds avant → après | Frames médianes avant → après | Kills médians avant → après | Desync après |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| avant_poste | 1 | 9 → 9 | 2 → 0 | 0 → 0 | 31 → 6 | 67 → 94 | 20 000 → 20 000 | 90 → 99 | 0 |
-| avant_poste | 2 | 9 → 9 | 37 → 46 | 0 → 0 | 1 → 0 | 62 → 54 | 20 000 → 20 000 | 107 → 107 | 0 |
-| la_fonderie | 1 | 6 → 7 | 2 → 2 | 67 → 74 | 19 → 11 | 12 → 13 | 10 656 → 12 829 | 47 → 60 | 0 |
-| la_fonderie | 2 | 6 → 7 | 7 → 7 | 88 → 87 | 0 → 0 | 5 → 6 | 10 662 → 11 364 | 53 → 54 | 0 |
+Mêmes quatre commandes et mêmes réglages que le § 2.1 (`ALACOD_CHECK_DISTANCE=0`, profil `acheteur`, graines `1..100`, `--until-wave 10`,
+`--max-frames 20000`, `--map maps/avant_poste.ldtk` pour `avant_poste`, `start_map` du jeu pour `la_fonderie`), binaire
+`alacod-sim` sans dev-dylib. Deux séries sous `target/metrics/polissage-zombies-map-equilibrage/` (VPS, dossier ignoré par git) :
 
-**Verdict mesuré** : moins de morts, mais `avant_poste` solo finit moins
-souvent à la vague 10 (2 → 0). Parmi ses 94 plafonds après, 54 ont encore
-des ennemis à générer et 16 ont passé plus de 4 000 frames sur la dernière
-vague ; en duo, 7 plafonds gardent des ennemis à générer et 7 dépassent
-4 000 frames. Parmi les 16 plafonds solo prolongés, 14 sont `InProgress`
-avec exactement un ennemi, 1 `Spawning` et 1 `WaveComplete`. Les autres
-plafonds peuvent être des parties simplement longues, dont 20 en phase `WaveComplete`
-en solo. Les nouveaux spawners ne suffisent donc pas à supprimer la dette
-D174 (activation conditionnée à la salle, bot et guidage ennemis à examiner
-séparément). `la_fonderie` gagne sept victoires solo, en perd une en duo ;
-les changements d'armes s'y appliquent également. Les 400 JSON de la
-campagne après donnent `desync: false` ; la campagne à distance 0 n'exerce
-**pas** la vérification de rollback.
+- `apres-<carte>-<n>bot.{json,log}` : cartes et armes de `c84ef0f1`, **sans** la correction D176 (première campagne après) ;
+- `apres-d176-<carte>-<n>bot.{json,log}` : même contenu **avec** la correction D176 de b4 (tête `905b38ea`, mergée), 01:39–01:54 UTC le 31.
+  C'est la série finale ; les scénarios rejouables sont dans `apres-d176-*-scen/seed_N.ron`.
 
-### William : quinze minutes sans écoute (à faire sur le Mac)
+L'avant (§ 2.2) a été joué au commit `facb7c92`, avant D176 : la colonne du milieu isole donc l'effet des cartes et des armes, la
+dernière y ajoute le moteur. Chaque ligne est la même série de 100 graines.
 
-Depuis la branche intégrée : `ALACOD_MUTE=1 make zombies GARGS="--seed 42"`.
-Jouer une partie entière, sans lancement sonore ; 5 min pistolet contre
-mitraillette (précision à mi-portée), 5 min fusil à pompe (puissance et
-portée), 5 min fusil (prix, accès et cadence face à la mitraillette).
-Noter par arme « utile ou non », portée ressentie, dégâts/cadence, prix
-acceptable et à quelle vague elle a été achetée ; noter toute salle où
-un ennemi reste introuvable ou une vague ne se termine pas. **Verdict humain
-en attente**, aucune note attribuée à William sans cet essai.
+### 4.2 Tableau comparé (100 graines par ligne)
+
+| Carte | Bots | Indicateur | Avant (`facb7c92`) | Après, cartes + armes (sans D176) | **Après final** (avec D176) |
+|---|---:|---|---:|---:|---:|
+| avant_poste | 1 | Vague médiane (p10–p90) | 9 (5–9) | 9 (7–9) | **9 (9–9)** |
+|  |  | Vague 10 atteinte | 2 | 0 | **2** |
+|  |  | Boss tué (`Victoire`) | 0 | 0 | **0** |
+|  |  | Équipe morte | 31 | 6 | **5** |
+|  |  | Plafond 20 000 f | 67 | 94 | **93** |
+|  |  | dont bloquées (> 4 000 f sur la dernière vague) | 14 | 15 | **1** |
+|  |  | Frames médianes | 20 000 | 20 000 | **20 000** |
+|  |  | Kills médians | 90 | 98,5 | **101** |
+|  |  | Dégâts subis médians (équipe) | 103,5 | 53 | **59,5** |
+|  |  | Portes ouvertes médianes | 10 | 14 | **14** |
+|  |  | Desync | 0 | 0 | **0** |
+| avant_poste | 2 | Vague médiane (p10–p90) | 9 (9–10) | 9 (9–10) | **9 (9–10)** |
+|  |  | Vague 10 atteinte | 37 | 46 | **41** |
+|  |  | Boss tué (`Victoire`) | 0 | 0 | **0** |
+|  |  | Équipe morte | 1 | 0 | **0** |
+|  |  | Plafond 20 000 f | 62 | 54 | **59** |
+|  |  | dont bloquées (> 4 000 f sur la dernière vague) | 5 | 7 | **0** |
+|  |  | Frames médianes | 20 000 | 20 000 | **20 000** |
+|  |  | Kills médians | 107 | 107 | **108** |
+|  |  | Dégâts subis médians (équipe) | 29,5 | 12 | **11,5** |
+|  |  | Portes ouvertes médianes | 14 | 14 | **14** |
+|  |  | Desync | 0 | 0 | **0** |
+| la_fonderie | 1 | Vague médiane (p10–p90) | 6 (3–9) | 7 (3–9) | **7 (3–9)** |
+|  |  | Vague 10 atteinte | 2 | 2 | **0** |
+|  |  | Boss tué (`Victoire`) | 67 | 74 | **79** |
+|  |  | Équipe morte | 19 | 11 | **8** |
+|  |  | Plafond 20 000 f | 12 | 13 | **13** |
+|  |  | dont bloquées (> 4 000 f sur la dernière vague) | 0 | 0 | **0** |
+|  |  | Frames médianes | 10 656 | 12 802 | **12 890** |
+|  |  | Kills médians | 47 | 60 | **60,5** |
+|  |  | Dégâts subis médians (équipe) | 44,5 | 8,5 | **4,5** |
+|  |  | Portes ouvertes médianes | 12 | 14 | **14** |
+|  |  | Desync | 0 | 0 | **0** |
+| la_fonderie | 2 | Vague médiane (p10–p90) | 6 (2–9) | 7 (2–9) | **6 (2–9)** |
+|  |  | Vague 10 atteinte | 7 | 7 | **8** |
+|  |  | Boss tué (`Victoire`) | 88 | 87 | **87** |
+|  |  | Équipe morte | 0 | 0 | **0** |
+|  |  | Plafond 20 000 f | 5 | 6 | **5** |
+|  |  | dont bloquées (> 4 000 f sur la dernière vague) | 0 | 0 | **0** |
+|  |  | Frames médianes | 10 662 | 11 354 | **10 216** |
+|  |  | Kills médians | 53 | 54 | **51** |
+|  |  | Dégâts subis médians (équipe) | 0* | 0 | **0** |
+|  |  | Portes ouvertes médianes | 14 | 16 | **14** |
+|  |  | Desync | 0 | 0 | **0** |
+
+### 4.3 Lecture
+
+Lecture (colonne finale contre l'avant ; « bloquée » = plafond avec plus de 4 000 frames passées sur la dernière vague, définition du § 2.3) :
+
+- **Parties bloquées : 14 → 1 en solo et 5 → 0 en duo sur `avant_poste`** (`la_fonderie` : 0 avant et après). La première campagne après (colonne du
+  milieu, sans D176) en gardait 15 et 7 : les spawners et fenêtres ajoutés ne corrigent pas les blocages, ils les révèlent (§ 3.1) ; la
+  correction moteur D176 (zombie figé devant une fenêtre) les supprime. L'unique partie restante (solo, graine 29, vague 8, 4 468 frames)
+  a ses trois zombies en `Chasing`, `next_cell` et `steering_point` distincts de leur case : lente, pas figée.
+- **Morts : 31 → 5** (`avant_poste`, 1 bot), 19 → 8 (`la_fonderie`, 1 bot) ; dégâts subis médians 103,5 → 59,5 et 44,5 → 4,5. Les cinq morts
+  d'`avant_poste` tombent aux vagues 8 et 9 (graines 4, 27, 37, 89, 91), contre les vagues 5 à 9 avant. Le gain se partage entre les armes
+  (pistolet à 66 par seconde au lieu de 30, pompe moins sûre) et les spawners répartis ; la campagne ne les sépare pas.
+- **Victoires de `la_fonderie` en solo : 67 → 79**, duo 88 → 87 (stable). `avant_poste` n'a pas de boss.
+- **Vague atteinte : inchangée** (médiane 9 sur `avant_poste`, 6 à 7 sur `la_fonderie`), vague 10 toujours rare (2 → 2 en solo, 37 → 41 en duo).
+  Une vague prend environ 2 500 frames aux vagues 7 à 9 pour un plafond de 20 000 : le plafond tronque la partie, il ne mesure plus un blocage
+  (70 des 93 plafonds solo sont dans la phase `Spawning` de la vague 9, zombies en route). Durée médiane d'une vague (frames, `avant_poste`) :
+  solo v1 701, v5 1 664, v9 2 597 (avant 692, 1 785, 2 462) ; duo v1 652, v5 1 637, v9 2 590 (avant 652, 1 604, 2 544). **Les vagues ne sont pas plus courtes.**
+- **« Les vagues viennent de partout » n'est pas mesuré** : `alacod-sim` ne journalise pas la salle d'apparition. Les 29 spawners et leurs
+  zones d'activation (§ 3.1) en sont la seule preuve ; D174 (rythme du bot) et D173 (cause de mort) restent ouvertes.
+
+### 4.4 Armes utilisées (échantillon de 12 graines par ligne, `--events`, même méthode que le § 2.4)
+
+Commande : celle du § 2.1 avec `--seeds 1..12 --events <dossier> --json <fichier>` (Mac, binaire `alacod-sim` du commit de tête, `ALACOD_CHECK_DISTANCE=0`).
+Chargeurs vides = moments clés `weapon` « chargeur vide (arme) » ; achats = `paie N (door | wall_weapon_refill | perk:juggernog)` ; prises = « prend arme ».
+
+| Ligne | Chargeurs vides mitraillette / pistolet / pompe (avant → après) | Achats portes / recharges murales / Juggernog (avant → après) | Armes prises pistolet / pompe / mitraillette (avant → après) | Fusil |
+|---|---|---|---|---|
+| avant_poste, 1 bot | 140 / 104 / 2 → **136 / 156 / 0** | 66 / 13 / 6 → **82 / 15 / 7** | 11 / 8 / 2 → **12 / 9 / 0** | jamais → jamais |
+| avant_poste, 2 bots | 298 / 234 / 0 → **359 / 140 / 0** | 86 / 22 / 17 → **83 / 19 / 11** | 18 / 14 / 0 → **15 / 6 / 0** | jamais → jamais |
+| la_fonderie, 1 bot | 133 / 71 / 0 → **114 / 104 / 0** | 74 / 13 / 2 → **77 / 14 / 2** | 11 / 6 / 0 → **11 / 5 / 0** | jamais → jamais |
+| la_fonderie, 2 bots | 209 / 108 / 0 → **215 / 66 / 0** | 80 / 18 / 2 → **82 / 13 / 4** | 12 / 10 / 0 → **12 / 4 / 0** | jamais → jamais |
+
+Issues de l'échantillon : avant_poste 1 bot plafond 11 / mort 1 ; 2 bots plafond 7 / objectif 5 ; la_fonderie 1 bot victoire 9 / plafond 2 / mort 1 ;
+2 bots victoire 10 / plafond 1 / objectif 1. Verdict : la mitraillette reste l'arme la plus vidée en duo (359 et 215) ; en solo le pistolet la rattrape
+(104 → 156 sur `avant_poste`, 71 → 104 sur `la_fonderie`), ce qui va dans le sens de « pistolet utile » ; la pompe est prise 4 à 9 fois mais jamais vidée (arme sans chargeur) ; **le fusil n'est toujours pas acheté** (aucun
+moment « prend rifle » ni « paie … rifle », dans les deux séries). Un bot ne juge pas un rôle d'arme : le verdict « distinct et utile » est celui de William (§ 4.5).
+
+### 4.5 Protocole des 15 minutes de William (à faire sur le Mac, sans écoute)
+
+Prérequis : branche `polissage-zombies-map-equilibrage` (tête citée par la ligne `LIVRÉ`) dans un worktree, `ALACOD_MUTE=1` partout (aucun son).
+1. `la_fonderie` (carte par défaut, 3 armes + fenêtres partout) : `ALACOD_MUTE=1 make zombies GARGS="--seed 42"` ; jouer une partie entière.
+2. `avant_poste` (la carte aux 29 spawners) : changer pour la durée de l'essai `start_map: "floor:la_fonderie"` en `start_map: "maps/avant_poste.ldtk"` dans
+   `games/zombies/assets/game.ron` (ne pas commiter), puis la même commande. **Non vérifié** : le lancement natif avec rendu n'a pas été exécuté ici (la carte l'est par `alacod-sim --map`).
+3. 5 min pistolet contre mitraillette (précision à mi-portée) ; 5 min fusil à pompe (puissance et portée) ; 5 min fusil (prix 2 000, accès, cadence face à la mitraillette).
+4. Noter par arme : utile ou non, portée ressentie, dégâts/cadence, prix acceptable, vague à laquelle elle a été achetée ; noter toute salle où un
+   zombie reste introuvable ou une vague ne se termine pas (c'est le cas de blocage D176/D174).
+
+**Verdict humain en attente** : aucune note n'est attribuée à William sans cet essai.
+
+### 4.6 Desync
+
+0 desync : les 400 JSON de la série finale (`apres-d176-*`) ont `desync: false` à `ALACOD_CHECK_DISTANCE=0`, qui n'exerce pas la vérification de rollback.
+Preuve séparée à la distance par défaut du runner (2), mêmes 20 graines et vague 4 que le § 2.5 (`--until-wave 4 --max-frames 8000`, pas de `ALACOD_CHECK_DISTANCE`) :
+
+| Ligne (20 graines) | desync | issues |
+|---|---:|---|
+| avant_poste, 1 bot (VPS, `apres-d176-desync-avant_poste-1bot.json`) | 0 | objectif 20 |
+| avant_poste, 2 bots (VPS) | 0 | objectif 20 |
+| la_fonderie, 1 bot (Mac, `captures/s1-10-metrics/mac/apres-desync-la_fonderie-1bot.json`) | 0 | objectif 17, victoire 3 |
+| la_fonderie, 2 bots (Mac) | 0 | objectif 17, victoire 3 |
+
+**0 desync sur 80 parties au synctest de distance 2.** Limite inchangée : les vagues 5 à 10 n'ont pas de preuve de rollback dans ce lot.
+
+Les journaux et JSON de ces séries : VPS `b2/target/metrics/polissage-zombies-map-equilibrage/`, copie `~/orca/workspaces/alacod/captures/s1-10-metrics/` (Mac) ;
+événements et desync `la_fonderie` du Mac : `captures/s1-10-metrics/mac/`.
+
+
 
 ## 5. Traces et vérifications
 
-`make gen GAME=zombies` (sans `GEN_BLESS`) a reproduit les six écarts
-ci-dessous ; `GEN_BLESS=1` a réécrit **uniquement** leurs traces de zombies.
-Comparaison avec les références d'avant la régénération (`git diff -U0`) :
+### 5.1 Méthode de la preuve § 5 (`docs/conventions.md` §5, `scripts/trace-diff.py`)
 
-| Trace `generated/zombies/…` | Première frame divergente | Cause |
-|---|---:|---|
-| `enemy_zombie_1_still` | 0 | Joueur initialisé avec les trois armes configurées dans `player_config.ron` ; `WeaponInventory` hache les `firing_modes` changés dans `weapons.ron`. |
-| `enemy_zombie_1_moving` | 0 | Même inventaire initial ; le déplacement du zombie ne commence qu'après f0. |
-| `enemy_zombie_2_still` | 0 | Même inventaire initial ; gabarit de zombie différent mais hors cause à f0. |
-| `enemy_zombie_2_moving` | 0 | Même inventaire initial ; déplacement du zombie postérieur à f0. |
-| `enemy_zombie_full_still` | 0 | Même inventaire initial ; gabarit différent mais hors cause à f0. |
-| `enemy_zombie_full_moving` | 0 | Même inventaire initial ; déplacement du zombie postérieur à f0. |
+Ce lot est autorisé à `BLESS` les traces de zombies seulement. Le commit `88041423` (reprise du coordinateur) a réécrit **54 traces** : 48 scénarios
+`game: "zombies"` de `tests/scenarios/` et les 6 `generated/zombies/enemy_zombie_*`. Aucune trace d'un autre jeu n'a bougé :
+`git diff --name-only origin/polissage-integration HEAD -- tests` liste 64 fichiers, soit ces 54 traces et 10 scénarios `.ron` (§ 5.3), et rien d'autre
+sous `tests/` (les 328 autres traces, throne, gungeon, isaac, testbed et le reste de zombies, sont identiques).
 
-Preuve de l'état **à f0** : `player_config.ron` pose
-`["machine_gun", "pistol", "shotgun"]`; le `WeaponInventory` rollback
-parcourt ses `Weapon` dans son `Hash` (`crates/combat/src/weapons/mod.rs:515-528`),
-et `WeaponConfig::hash` y inclut `firing_modes` (lignes 254-260).
-Le hash de chaque trace ci-dessus passe de `0 …b94ae909dd7dde32 88`
-à `0 …7b922f98295159c6 88` avec les mêmes 88 porteurs : les dégâts,
-cadences, chargeurs ou dispersions des armes sont visibles **avant
-le premier tir**.
+Deux contrôles d'attribution, rejoués sur le Mac le 1er novembre (les 54 scénarios, **références et `.ron` d'avant** (`origin/polissage-integration`), `ALACOD_SCENARIO=<liste>`
+sans `BLESS` ; le message d'échec donne la ligne de la première différence, ligne n = frame n−1) :
+
+- **Contrôle B : armes nouvelles seules** (carte d'avant, `weapons.ron` nouveau) : **54 traces sur 54 diffèrent à la ligne 1 (frame 0)**, aucune ne tient.
+- **Contrôle A : carte nouvelle seule** (`weapons.ron` d'avant, `avant_poste.ldtk` nouvelle) : seules **3 traces** diffèrent, à la ligne 1 :
+  `avant_poste_demo`, `avant_poste_fenetre_coin`, `revue_murs_avant_poste` (les trois jouent `avant_poste`) ; **les 51 autres sont identiques au bit près
+  à leur référence d'avant**, y compris les 10 scénarios dont les `.ron` ont changé (joués ici avec leurs `.ron` d'avant). La carte n'explique donc rien en dehors
+  de ces trois, et les armes expliquent tout le reste. Journal : `captures/s1-10-metrics/mac/ctlA.log`, `ctlA.txt` (A), `ctlB.txt` (B).
+
+Cause nommée par `scripts/trace-diff.py` sur les dumps complets (`ALACOD_DUMP_TRACE`, trois états : S0 = `origin/polissage-integration`, S1 = carte nouvelle +
+armes d'avant, S2 = tête) :
+
+- `idle`, S0 → S2 : première frame qui diffère **0**. Seules les lignes de `WeaponInventory` du joueur (net id 76) et des entités d'arme (`machine_gun`, `pistol`, `shotgun`,
+  `weapon_pickup_*`) changent : mitraillette `spread 0.12 → 0.07` et `damage 8 → 7`, pistolet `firing_rate 2 → 3`, `damage 15 → 22`, `mag_size 6 → 9` (`mag_ammo: 6 → 9`),
+  pompe `damage 30 → 20` et `range 400 → 320`, fusil `damage 35 → 55`, `firing_rate 4 → 3`, `mag_size 10 → 8`. `WeaponConfig::hash` inclut `firing_modes`
+  (`crates/combat/src/weapons/mod.rs`, lignes 254–260) et `WeaponInventory` hache ses `Weapon` (lignes 515–528) : la valeur de départ des armes est dans le checksum avant le premier tir.
+- `avant_poste_demo`, S0 → S1 (carte seule) : première frame **0**. Apparaissent les spawners ajoutés (`EnemySpawnerComponent` avec `activation_area`), leurs `GgrsNetId`, le
+  compteur `GgrsNetIdFactory` (118 → 175), le net id du joueur (107 → 164), le `FlowFieldCache` (cases des nouvelles salles) et le nombre d'entités rollback (114 → 171).
+- `avant_poste_demo`, S1 → S2 (armes seules) : première frame **0**, mêmes lignes d'armes que pour `idle`.
+
+### 5.2 Une ligne par trace
+
+Toutes les lignes ont la même première frame (0) ; la colonne « Cause » dit ce qui l'explique, la dernière dit si le `.ron` du scénario a dû changer (§ 5.3).
+
+| Trace | 1re frame qui bouge (réf. d'avant → réf. nouvelle) | Cause | `.ron` modifié |
+|---|---:|---|---|
+| `ammo_burst` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | attentes de réserve (pistolet 9 coups : 2 puis 5 au lieu de 6 puis 0) |
+| `ammo_shared_reserve` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `avant_poste_demo` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) **et** carte `avant_poste` (29 spawners au lieu de 5 : `GgrsNetIdFactory`, ids des joueurs, `FlowFieldCache`) | — |
+| `avant_poste_fenetre_coin` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) **et** carte `avant_poste` (29 spawners au lieu de 5 : `GgrsNetIdFactory`, ids des joueurs, `FlowFieldCache`) | — |
+| `bench_bullets` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `bench_horde` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `bots_four_mixed` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `bots_two_fonceurs` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `bullets_walls` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `buy_door` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `buy_perk` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `buy_wall_weapon` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `clone_duo` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | soldes et munitions recalés ; chute du joueur 1 f149 → f161 (attente `PlayerDowned` f165) |
+| `clone_quad` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | `frames` 4674 → 6500 : la vague 5 arrive plus tard (mitraillette 7 dégâts) ; vagues 3/4/5 recalées à f3623/f4674/f6500 ; soldes remesurés |
+| `clone_solo` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | soldes recalés (3960/4380/4690) |
+| `dash_aim_change` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `dash_iframes` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | PV du joueur 1 recalés (balles de 7 : 65/58/30 au lieu de 60/52/20) |
+| `dash_wall` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `door_open` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `downed_all_lose` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `downed_bleedout` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | rafale f10–100 → f10–160, chute avant f150, mort avant f1100 (7 dégâts) |
+| `downed_revive` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | rafale f10–160, interaction f160–430, chute à f101 (f89 avant) |
+| `drop_pickup_swap` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `equilibrage_joueurs_duo` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `equilibrage_joueurs_quad` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `feel_zombies` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | 17 → 11 zombies posés et séquence d'inputs réécrite (esquive, pistolet) : la mitraillette (7) et la pompe (20 par plomb) tuent moins vite |
+| `four_players_idle` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `four_players_shooting` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `friendly_fire_cursed` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `friendly_fire_never` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `generated/zombies/enemy_zombie_1_moving` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `generated/zombies/enemy_zombie_1_still` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `generated/zombies/enemy_zombie_2_moving` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `generated/zombies/enemy_zombie_2_still` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `generated/zombies/enemy_zombie_full_moving` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `generated/zombies/enemy_zombie_full_still` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `idle` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `immune_tag` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `la_fonderie_demo` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | `frames` 7600 → 14500 : la victoire de la graine 1 arrive vers f14 300 avec les nouvelles armes |
+| `movement_melee` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `p2p_smoke` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `points_on_kill` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `profile_run_end` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `remote_first_fight` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `revue_murs_avant_poste` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) **et** carte `avant_poste` (29 spawners au lieu de 5 : `GgrsNetIdFactory`, ids des joueurs, `FlowFieldCache`) | — |
+| `run_lose_summary` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `shoot_around` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `shop_tour` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `stat_move_speed` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `test_map_fenetre_graine_100` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `two_players_idle` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `two_players_shooting` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+| `weapons_workout` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | attentes de munitions et d'arme active recalées (pistolet à chargeur de 9) |
+| `window_repair` | 0 | f0 : `WeaponInventory` (hash des `firing_modes` de `weapons.ron`) | — |
+
+### 5.3 Scénarios `.ron` modifiés (10) et tests recalés (2)
+
+Un `.ron` ne change que si une attente ne tenait plus après les armes (valeurs d'arme, pas mécanique). Les attentes ne sont pas retirées : elles sont recalées sur la
+valeur mesurée, sauf les cas suivants à lire en revue : `feel_zombies` (17 → 11 zombies posés et séquence d'inputs réécrite pour garder trois armes visibles en 60 s),
+`clone_quad` (`frames` 4 674 → 6 500, vagues 3/4/5 à f3623/f4674/f6500 : la mitraillette à 7 dégâts retarde la vague 5 de 1 800 frames) et `la_fonderie_demo` (`frames`
+7 600 → 14 500, victoire de la graine 1 vers f14 300 au lieu de f7 131). `clone_duo` : l'attente `PlayerDowned` avait été retirée par la reprise ; elle est **rétablie** à f165
+(chute du joueur 1 mesurée à f161, `ALACOD_EVENTS=1`, f149 avant).
+
+Tests Rust recalés (`crates/scenario/tests/expectations.rs`, nombre d'arme, une ligne chacun) :
+- `ammo_reserve_matches_starting_weapons_at_creation` : réserve de Plomb 48 → **72** (pistolet : `mag_size 9 × mag_limit 8`, `6 × 8` avant).
+- `player_downed_true_once_fallen` : frame 100 → **101** (mitraillette à 7 dégâts au lieu de 8 : le joueur 1 tombe à f101, f89 avant ; mesuré par `ALACOD_EVENTS=1 ALACOD_SCENARIO=downed_revive`).
+
+### 5.4 Vérifications
+
+- `make test_scenarios` sans `BLESS` (Mac, `.target-mac`, `ALACOD_MUTE=1`) : exit 0, `5 passed`, 1 133 s.
+- `crates/scenario/tests/expectations.rs` : 50 passed.
+- `make gen GAME=zombies` : voir les 6 traces `generated/zombies/enemy_zombie_*` (ligne 0, § 5.2).
+- `make check` : sur le Mac, `make -k check` (`make check` s'arrête à `test_tools`) : format, `check_forbidden` (52 occurrences auditées), `check_rollback_registration`,
+  `check_sim_boundary`, `test_crates`, `test_scenarios` (5 passed, 1 248 s) et `lint` des cinq jeux **verts** ; `test_tools` rouge sur le Mac seulement : 3 échecs de
+  `test_claude_say` (hook vocal macOS, code de sortie 2), reproduits **sans** mes changements (`git stash`, même échec) donc étrangers au lot. Sur le VPS (`make check` du 31,
+  `captures/s1-10-metrics/make-check-final.log`) `test_tools` passait (48 tests OK) puis `test_crates` échouait sur les deux tests recalés au § 5.3, depuis corrigés. Pas de `make check` unique
+  entièrement vert d'un seul tenant : preuve en deux machines, à relire.
+- Dettes : D173 (cause de mort absente d'`alacod-sim`), D174 (rythme du bot, plafonds), D176 (fermée par b4) — `docs/taches/dettes.md`.
+
+### 5.5 Non vérifié
+
+- Le lancement natif avec rendu d'`avant_poste` par William (§ 4.5, point 2) ; son verdict sur les armes.
+- Les vagues 5 à 10 au synctest de distance 2 (§ 4.6).
+- La répartition réelle des apparitions par salle (§ 4.3).

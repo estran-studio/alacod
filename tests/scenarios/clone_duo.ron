@@ -1,6 +1,6 @@
 // T3.1 : coopération à deux, tir ami bloqué au pistolet, réanimation puis achats.
 // À regarder : tir du joueur 1 vers le joueur 0 f40-42 (aucun dégât) ;
-// la mitraillette Always met ensuite le joueur 1 à terre, puis réanimation f355.
+// la mitraillette Always met ensuite le joueur 1 à terre (f161), puis réanimation f355.
 // Achats du joueur 0 : pistolet f516 (-500), Juggernog f566 (-2500, 200 PV).
 // Max Ammo f800 remplit les deux joueurs ; Nuke f950 supprime les 3 zombies (+400 points
 // à chaque joueur, D17).
@@ -257,6 +257,7 @@ Scenario(
         NoDamageBetween(handle: 0, from_frame: 5, to_frame: 60),
         Health(handle: 0, min: 100.0, max: 100.0, at_frame: 60),
         Ammo(handle: 1, ammo: 8, at_frame: 60),
+        PlayerDowned(handle: 1, at_frame: 165),
         PlayerRevived(handle: 1, by_frame: 400),
         PlayerAlive(handle: 1, at_frame: 450),
         Currency(handle: 0, min: 5500, max: 5500, at_frame: 550),
