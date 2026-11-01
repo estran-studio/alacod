@@ -462,6 +462,19 @@ du point 2 vers 40 s signale ce cas, pas le ticket.
 
 Non vérifié ici : deux réseaux, TURN (`relay`), throne, la prod.
 
-## 3. Samedi 31 (J4) — recette à deux réseaux avec William
+### 2.8 Fusion d'`origin/polissage-integration` (dim 1, 04 h UTC)
+
+`79538914` fusionné dans la branche (merge, pas de rebase, consigne du coordinateur) ; un conflit additif dans
+`docs/taches/dettes.md` (D165–D166 de cette branche, D176 d'intégration : les deux lignes gardées). `make check` sur le Mac
+(`CARGO_TARGET_DIR` partagé, `ALACOD_MUTE=1`) :
+
+| Cible | Résultat |
+|---|---|
+| `format`, `check_forbidden`, `check_rollback_registration`, `check_sim_boundary`, `test`, `lint` | vertes (`exit=0`, 1 548 tests passés, 0 échec ; lint des cinq jeux « aucune erreur ») |
+| `test_tools` | **3 échecs hors lot** : `test_claude_say` (k5-0, `f630903f`) ; `scripts/claude-say.sh:40` ne se lit pas dans le bash 3.2 de macOS (« unexpected EOF while looking for matching » accent grave : le bloc Python dans `$(…)` contient des accents graves), bash 5.2 du VPS correct ; déjà rouge avant mes changements (`git stash`, ven 30) |
+
+## 3. Recette à deux réseaux avec William — à replanifier
+
+Samedi 31, 18 h UTC : **non tenue** (William retenu). Nouvelle heure demandée par le coordinateur à William.
 
 (à remplir)
