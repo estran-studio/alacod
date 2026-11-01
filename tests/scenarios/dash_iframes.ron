@@ -6,10 +6,10 @@
 // (appui f60, dash à f66, événement `move`) : il ne bouge pas, ce n'est donc pas le déplacement
 // qui esquive.
 //
-// À regarder : cinq balles touchent le joueur 1 (f57-f65, 100 -> 60 PV) ; pendant les i-frames
+// À regarder : cinq balles touchent le joueur 1 (f57-f65, 100 -> 65 PV) ; pendant les i-frames
 // (f66-f71) les balles le traversent sans dégâts ; celle qui est encore dans son collider le
 // touche dès la fin des i-frames (f72), puis quatre autres (f73-f79) : 10 coups sur 12 tirs,
-// 20 PV à la fin (les balles tirées à f66 et f68 l'ont traversé).
+// 30 PV à la fin.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -33,14 +33,14 @@ Scenario(
         PlayerPosition(handle: 0, x: 424, y: 641, tolerance: 0.5, at_frame: 50),
         PlayerPosition(handle: 1, x: 424, y: 608.2, tolerance: 0.1, at_frame: 50),
         // Cinq balles touchent avant le dash (f57, f59, f61, f63, f65)
-        Health(handle: 1, min: 60.0, max: 60.0, at_frame: 65),
+        Health(handle: 1, min: 65.0, max: 65.0, at_frame: 65),
         // I-frames : les 6 frames à partir de celle du dash (f66-f71), aucun dégât
         NoDamageBetween(handle: 1, from_frame: 65, to_frame: 71),
         // Le dash contre le mur ne l'a pas déplacé : c'est l'invulnérabilité qui esquive
         PlayerPosition(handle: 1, x: 424, y: 608.2, tolerance: 0.1, at_frame: 71),
         // Fin des i-frames : la balle encore dans son collider le touche aussitôt
-        Health(handle: 1, min: 52.0, max: 52.0, at_frame: 72),
-        // 10 coups sur 12 tirs (sans les i-frames : 12, 4 PV)
-        Health(handle: 1, min: 20.0, max: 20.0, at_frame: 119),
+        Health(handle: 1, min: 58.0, max: 58.0, at_frame: 72),
+        // 10 coups sur 12 tirs (sans les i-frames), avec les 7 dégâts actuels.
+        Health(handle: 1, min: 30.0, max: 30.0, at_frame: 119),
     ],
 )

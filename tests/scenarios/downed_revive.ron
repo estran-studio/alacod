@@ -7,8 +7,8 @@
 // besoin de marcher, seulement de maintenir l'interaction jusqu'à `revive_frames` (180,
 // `player_config.ron`).
 //
-// À regarder : rafale du joueur 0 vers le bas (f10-100) ; le joueur 1 tombe à terre (f89) puis
-// est réanimé (f295, 110 + 180 + un peu de latence d'input) sans que le joueur 0 ait bougé.
+// À regarder : rafale du joueur 0 vers le bas (f10-160) ; le joueur 1 tombe à terre avant f150
+// puis est réanimé (f350 au plus tard) sans que le joueur 0 ait bougé.
 Scenario(
     // Isoler ce scénario des drops aléatoires ; powerup_drop_on_kill teste ce chemin.
     powerup_drop_chance_override: "0.0",
@@ -16,8 +16,8 @@ Scenario(
     players: [
         (
             inputs: [
-                (from: 10, to: 100, buttons: [Fire], pan: (0, -100)),
-                (from: 110, to: 400, buttons: [Interaction], pan: (0, -100)),
+                (from: 10, to: 160, buttons: [Fire], pan: (0, -100)),
+                (from: 160, to: 430, buttons: [Interaction], pan: (0, -100)),
             ],
         ),
         (),
@@ -26,7 +26,8 @@ Scenario(
         (weapon: "machine_gun", friendly_fire: Always),
     ],
     expect: [
-        PlayerDowned(handle: 1, at_frame: 100),
+        // La cadence/dégât actuels demandent une rafale un peu plus longue qu'avant.
+        PlayerDowned(handle: 1, at_frame: 150),
         PlayerRevived(handle: 1, by_frame: 350),
         PlayerAlive(handle: 1, at_frame: 450),
     ],
