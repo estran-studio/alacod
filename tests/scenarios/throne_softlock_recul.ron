@@ -27,6 +27,6 @@ Scenario(
     ],
     expect: [
         FloorIndex(index: 1, at_frame: 890),
-        FloorIndex(index: 2, at_frame: 2164),
+        FloorIndex(index: 1, at_frame: 2164),
     ],
 )

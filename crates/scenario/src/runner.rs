@@ -794,12 +794,17 @@ pub struct FloorsProgress {
     /// M3-T14 : empreinte de l'inventaire et du solde des joueurs (0 si [`StopEarly::pickups_are_progress`]
     /// est faux) ; tout changement est une progression.
     pub stock: u64,
+    /// S2-12 (D177) : un joueur a un choix de mutation ouvert. Les bots ne pressent jamais `ChoiceA/B/C` : en
+    /// `BetweenFloors` le portail attend la prise d'office (`choice_frames`) de chaque choix empilé, ce n'est pas
+    /// un blocage. Tant qu'un choix est ouvert, la fenêtre de [`FLOORS_SOFTLOCK_FRAMES`] repart.
+    pub choice_open: bool,
 }
 
 impl FloorsProgress {
     /// `true` si `now` marque une progression par rapport à `self` (voir le type).
     pub fn progressed(&self, now: &FloorsProgress) -> bool {
         now.floor != self.floor
+            || now.choice_open
             || now.explored > self.explored
             || now.enemies < self.enemies
             || now.enemy_health < self.enemy_health
@@ -929,6 +934,9 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut q_player_state = app
         .world_mut()
         .query::<(&Player, Has<combat::downed::Downed>)>();
+    let mut q_choices = app
+        .world_mut()
+        .query::<&game::progression::MutationChoice>();
     let mut q_player_stock =
         app.world_mut()
             .query::<(&Player, Option<&items::Inventory>, Option<&run::Currency>)>();
@@ -1111,6 +1119,7 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
                                 sum.saturating_add(h.current)
                             }),
                         players,
+                        choice_open: q_choices.iter(world).next().is_some(),
                         stock: if stop.pickups_are_progress {
                             // Empreinte déterministe (joueurs triés par handle) de l'inventaire et du solde.
                             let mut held: Vec<(usize, u64)> = q_player_stock
@@ -3297,6 +3306,7 @@ mod floors_progress_tests {
             enemy_health: fixed_math::new(health),
             players: players.to_vec(),
             stock: 0,
+            choice_open: false,
         }
     }
 
@@ -3326,6 +3336,19 @@ mod floors_progress_tests {
         };
         assert!(base.progressed(&explorer));
         assert!(!explorer.progressed(&explorer.clone()));
+    }
+
+    /// S2-12 (D177) : un choix de mutation ouvert (les bots ne le prennent qu'à l'expiration) n'est pas un blocage.
+    #[test]
+    fn un_choix_de_mutation_ouvert_est_une_progression() {
+        let base = state(0, 0.0, &[(0, false)]);
+        let waiting = FloorsProgress {
+            choice_open: true,
+            ..base.clone()
+        };
+        assert!(base.progressed(&waiting));
+        assert!(waiting.progressed(&waiting.clone()));
+        assert!(!base.progressed(&base.clone()));
     }
 
     /// M3-T14 : l'empreinte de l'inventaire et du solde (`stock`) compte ; à 0 des deux côtés (détecteur

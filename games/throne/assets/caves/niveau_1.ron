@@ -3,7 +3,7 @@
 (
     width: 48,
     height: 32,
-    fill_ratio: "0.42",
+    fill_ratio: "0.38",
     iterations: 4,
     birth: 5,
     survive: 4,

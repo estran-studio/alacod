@@ -1421,7 +1421,7 @@ fn hud_text_sur_throne_progression() {
             hud("level", "Niv. 1", 499),
             hud("level", "Niv. 3", 1880),
             // D50 : l'étage 3 est atteint à f3483 (f2804 avant `drop_chance` 0,40 de throne) ; D88 : f3086.
-            hud("floor", "Étage 3", 2460),
+            hud("floor", "Étage 3", 3370),
         ],
         &[
             (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),

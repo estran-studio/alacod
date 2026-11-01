@@ -1,4 +1,4 @@
-// S2-12 (polissage-throne-map, 2026-11-01) : cavernes de throne plus variées (`fill_ratio` 0,42 / 0,40 / 0,40) et `choice_frames` 600 -> 300 : portail ouvert à f577, choix pris d'office à f877 (300 frames), étage 2 à f878.
+// S2-12 (polissage-throne-map, 2026-11-01) : cavernes de throne plus variées (`fill_ratio` 0,42 / 0,40 / 0,40) : portail ouvert à f577, choix pris d'office à f1177 (600 frames), étage 2 à f1178 ; 1150 → 1200 frames.
 // D88 (2026-10-17, dette-d88-tirage-variantes) : le tirage des variantes (champions/élites) change pour tous les jeux (`variant_seed`) : repères re-mesurés, portail ouvert à f516 (f530 avant), étage 1 à f1117 (f1131 avant) ; mêmes attentes, frames décalées de 14 (1121/1141 -> 1107/1127).
 // D66 (2026-10-16, dette-d66-vue-directe) : le `rodeur` de la première caverne voit désormais un joueur en ligne de vue dégagée jusqu'à 900 unités (`sight_range`, conventions §22) au lieu d'errer hors de son `Sight(300)` : il fonce sur le bot, la trace entière bouge dès f1 et les repères de temps se décalent ; portail ouvert à f530 (avant ~f510), étage 1 à f1131 (avant ~f1111) ; `frames` 1120 -> 1150.
 // Revue M1 2026-10-10 : choix reportés après nettoyage ; attentes de timing
@@ -20,13 +20,13 @@ Scenario(
     game: "throne",
     floors: Some("run"),
     map_seed: 123456,
-    frames: 1150,
+    frames: 1200,
     players: [
         (bot: prudent),
     ],
     expect: [
-        FloorIndex(index: 0, at_frame: 870),
-        FloorIndex(index: 1, at_frame: 890),
-        PlayerAlive(handle: 0, at_frame: 1149),
+        FloorIndex(index: 0, at_frame: 1170),
+        FloorIndex(index: 1, at_frame: 1190),
+        PlayerAlive(handle: 0, at_frame: 1199),
     ],
 )
