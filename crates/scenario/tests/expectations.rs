@@ -1419,9 +1419,9 @@ fn hud_text_sur_throne_progression() {
             hud("level", "Niv. 0", 60),
             hud("rads", "rads", 60),
             hud("level", "Niv. 1", 499),
-            hud("level", "Niv. 2", 1880),
+            hud("level", "Niv. 3", 1880),
             // D50 : l'étage 3 est atteint à f3483 (f2804 avant `drop_chance` 0,40 de throne) ; D88 : f3086.
-            hud("floor", "Étage 3", 3096),
+            hud("floor", "Étage 3", 2460),
         ],
         &[
             (hud("level", "Niv. 2", 540), "attendu « Niv. 2 »"),
@@ -1758,6 +1758,16 @@ fn throne_recorded_pillard_leaves_the_wall_corner() {
             .get_mut(&content::registry::ProgressionId::from("run".to_string()))
             .unwrap()
             .choice_timing = content::registry::MutationTiming::Immediate;
+        // S2-12 : le monde enregistré est celui des cavernes d'avant (`fill_ratio` 0,38) ; les cavernes de
+        // throne ont changé, on les remet pour ce test (l'attente porte sur la navigation du pillard).
+        for cave in app
+            .world_mut()
+            .resource_mut::<content::registry::Registry>()
+            .caves
+            .values_mut()
+        {
+            cave.config.fill_ratio = Fixed::from_num(0.38);
+        }
         // D66 : la vue directe du rodeur est retirée des fiches chargées, avant le premier spawn
         // (les fiches ne sont prêtes qu'à la fin du chargement, qui précède `OnEnter`). D88 : les
         // variantes aussi (le tirage de §25 hache `variants:<graine>:<net id>` : sur ce monde
@@ -1860,7 +1870,7 @@ fn throne_deferred_choice_trace_starts_at_the_earned_level() {
             .iter()
             .zip(&deferred.trace)
             .position(|(a, b)| a != b),
-        Some(489),
+        Some(469),
         "choice deferral must not change combat before the first earned level"
     );
     if let Some(dir) = proof {
