@@ -420,9 +420,10 @@ fn player_downed_true_once_fallen() {
         return;
     }
     let mut scenario = load_scenario("downed_revive");
+    // Tombe à f101 (f89 avant S1-10 : la mitraillette inflige 7 dégâts au lieu de 8, il faut plus de balles).
     scenario.expect = vec![Expectation::PlayerDowned {
         handle: 1,
-        at_frame: 100,
+        at_frame: 101,
     }];
     let outcome = run(&scenario);
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
@@ -508,11 +509,11 @@ fn ammo_reserve_matches_starting_weapons_at_creation() {
 
     let mut scenario = load_scenario("idle");
 
-    // Pistolet (Plomb) : mag_size 6 x mag_limit 8 (voir weapons.ron).
+    // Pistolet (Plomb) : mag_size 9 x mag_limit 8 (voir weapons.ron ; 6 x 8 = 48 avant S1-10).
     scenario.expect = vec![Expectation::AmmoReserve {
         handle: 0,
         ammo_type: AmmoType::Plomb,
-        amount: 48,
+        amount: 72,
         at_frame: 1,
     }];
     let outcome = run(&scenario);
