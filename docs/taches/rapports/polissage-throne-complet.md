@@ -69,3 +69,12 @@ cavernes seules : 9/9 divergent à la ligne 0 ; `choice_frames` seul : 6 diverge
 - **Non vérifié** : le ressenti (variété à l'écran) — VPS sans rendu (D94). **Vidéo de 60 s à faire sur le Mac** : `ALACOD_MUTE=1 make videos SCENARIO=throne_three_floors,throne_progression`.
 - Dettes : D177 (bots/détecteur, remède moteur ou bots), D178 (outil d'audit de caverne), D179 (scénarios liés à la géométrie).
 - 18 des 23 soft-locks non rejoués un par un (même signature dans le JSON, absents après correction).
+
+## 7. make check
+
+Vert (`env -u CI make check`, après recalage de trois tests Rust de `crates/scenario/tests/expectations.rs` : f469, `Niv. 3` à f1880, `Étage 3` à f2460, caverne du pillard enregistré remise à 0,38). Dernières lignes :
+
+```
+games/isaac : aucune erreur (24 personnages, 3 armes, 2 armes de corps à corps, 0 vagues, 3 cartes)
+✓ All checks passed
+```
