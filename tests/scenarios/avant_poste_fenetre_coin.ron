@@ -1,0 +1,38 @@
+// D176 (b4, polissage-nav-fenetres) : zombie figé au coin de la case suivante, devant la fenêtre
+// cassée de `Depart` (54, (144, 56), ouverture de 2 cases x128..160 sur y48..64). Un `zombie_1` est
+// placé là où celui de la graine 2 d'`avant_poste` (alacod-sim, 1 bot `acheteur`, zombie 385) restait
+// immobile de f5000 à f20 000 : (143,99646 ; 31,99878), case (8, 1). Il casse la fenêtre, puis sa
+// case suivante est la diagonale (9, 2), dont le point visé (`steering_point`) est son coin (144, 32),
+// à 0,004 px de lui : `normalize_or_zero` d'un écart aussi court rend zéro, `flow_direction` le
+// renvoyait tel quel (au lieu de viser la case d'après) et le zombie restait sur place.
+//
+// À regarder : le zombie, au sud de la fenêtre, la frappe jusqu'à la casser, puis la franchit et
+// monte vers le joueur (au nord, salle de départ) ; avant le correctif il restait collé sous la
+// fenêtre cassée jusqu'à la fin.
+Scenario(
+    game: "zombies",
+    map: "maps/avant_poste.ldtk",
+    frames: 600,
+    players: [
+        (inputs: []),
+    ],
+    wave_overrides: WaveOverride(
+        grace_period_frames: 601,
+    ),
+    powerup_drop_chance_override: "0",
+    characters: [
+        CharacterPlacement(
+            character: "zombie_1",
+            x: "527.99646",
+            y: "559.99878",
+            at_frame: 1,
+        ),
+    ],
+    expect: [
+        Event(kind: "window", label_contains: Some("cassée"), by_frame: 200),
+        // Il franchit l'ouverture et rejoint le joueur (171 px au départ ; avant le correctif,
+        // 171 px jusqu'à f600, sans un pas après la fenêtre cassée).
+        EnemyDistance(entity: Placed(0), target: Player(0), max: 60.0, at_frame: 300),
+        Event(kind: "hit", label_contains: Some("joueur 0 touché"), by_frame: 300),
+    ],
+)

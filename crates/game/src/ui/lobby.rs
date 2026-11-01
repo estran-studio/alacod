@@ -27,10 +27,6 @@ impl Plugin for LobbyUiPlugin {
     }
 }
 
-/// Police de l'écran d'attente : celle de l'écran de fin (la police par défaut de Bevy n'a
-/// pas les accents).
-const LOBBY_FONT: &str = "fonts/FiraMono-Medium.ttf";
-
 #[derive(Component)]
 struct LocalHoldUiRoot;
 
@@ -48,8 +44,12 @@ fn local_hold_text(summary: Option<RunSummary>) -> String {
                 RunEnd::Abandon => crate::ui::texts::OUTCOME_ABANDON,
             };
             format!(
-                "{what} : vague {} - {} kills - {} points\n",
-                summary.wave_reached, summary.kills, summary.points_total
+                "{what} : {}\n",
+                crate::ui::texts::run_summary_waves(
+                    summary.wave_reached,
+                    summary.kills,
+                    summary.points_total
+                )
             )
         }
         None => String::new(),
@@ -65,7 +65,7 @@ fn spawn_local_hold_ui(
     let Some(hold) = hold else {
         return;
     };
-    let font: Handle<Font> = asset_server.load(LOBBY_FONT);
+    let font: Handle<Font> = asset_server.load(crate::ui::texts::UI_FONT);
     commands
         .spawn((
             Node {
@@ -166,7 +166,8 @@ fn despawn_lobby_ui(mut commands: Commands, q_root: Query<Entity, With<LobbyUiRo
     }
 }
 
-fn spawn_lobby_ui(mut commands: Commands) {
+fn spawn_lobby_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font: Handle<Font> = asset_server.load(crate::ui::texts::UI_FONT);
     // Root node
     commands
         .spawn((
@@ -187,6 +188,7 @@ fn spawn_lobby_ui(mut commands: Commands) {
             parent.spawn((
                 Text::new(crate::ui::texts::LOBBY_WAITING_FOR_PLAYERS),
                 TextFont {
+                    font: font.clone().into(),
                     font_size: FontSize::Px(40.0),
                     ..default()
                 },
@@ -207,6 +209,7 @@ fn spawn_lobby_ui(mut commands: Commands) {
             parent.spawn((
                 Text::new(""),
                 TextFont {
+                    font: font.clone().into(),
                     font_size: FontSize::Px(24.0),
                     ..default()
                 },
@@ -247,8 +250,10 @@ fn update_lobby_ui(
     q_container: Query<Entity, With<PlayerListContainer>>,
     q_children: Query<&Children>,
     previous: Res<crate::jjrs::p2p::PreviousSessionPeers>,
+    asset_server: Res<AssetServer>,
 ) {
     let Some(mut socket) = socket else { return };
+    let font: Handle<Font> = asset_server.load(crate::ui::texts::UI_FONT);
 
     // Only update if the socket has changed.
     // Since MatchboxSocket update is handled in another system (wait_for_players),
@@ -325,6 +330,7 @@ fn update_lobby_ui(
                         row.spawn((
                             Text::new(format!("{}: ", player_config.name)),
                             TextFont {
+                                font: font.clone().into(),
                                 font_size: FontSize::Px(24.0),
                                 ..default()
                             },
@@ -333,6 +339,7 @@ fn update_lobby_ui(
                         row.spawn((
                             Text::new(status_text),
                             TextFont {
+                                font: font.clone().into(),
                                 font_size: FontSize::Px(24.0),
                                 ..default()
                             },
@@ -361,7 +368,7 @@ mod tests {
         };
         assert_eq!(
             local_hold_text(Some(summary)),
-            "Partie abandonnée : vague 2 - 9 kills - 1300 points\nEntrée : nouvelle partie"
+            "Partie abandonnée : vague 2 · 9 éliminés · 1300 points\nEntrée : nouvelle partie"
         );
     }
 }

@@ -27,6 +27,7 @@ fn handle_disconnect_event(
     mut events: MessageReader<SessionLostEvent>,
     q_existing_ui: Query<Entity, With<DisconnectedUiRoot>>,
     run: Option<Res<run::Run>>,
+    asset_server: Res<AssetServer>,
 ) {
     // Check if UI is already visible to avoid duplicates if multiple events fire
     if !q_existing_ui.is_empty() {
@@ -42,12 +43,18 @@ fn handle_disconnect_event(
         return;
     }
 
+    let font: Handle<Font> = asset_server.load(crate::ui::texts::UI_FONT);
     for event in events.read() {
-        spawn_disconnect_ui(&mut commands, event.title, event.message.clone());
+        spawn_disconnect_ui(&mut commands, &font, event.title, event.message.clone());
     }
 }
 
-fn spawn_disconnect_ui(commands: &mut Commands, title: &'static str, message: String) {
+fn spawn_disconnect_ui(
+    commands: &mut Commands,
+    font: &Handle<Font>,
+    title: &'static str,
+    message: String,
+) {
     commands
         .spawn((
             Node {
@@ -67,6 +74,7 @@ fn spawn_disconnect_ui(commands: &mut Commands, title: &'static str, message: St
             parent.spawn((
                 Text::new(title),
                 TextFont {
+                    font: font.clone().into(),
                     font_size: FontSize::Px(50.0),
                     ..default()
                 },
@@ -76,6 +84,7 @@ fn spawn_disconnect_ui(commands: &mut Commands, title: &'static str, message: St
             parent.spawn((
                 Text::new(message),
                 TextFont {
+                    font: font.clone().into(),
                     font_size: FontSize::Px(30.0),
                     ..default()
                 },
@@ -91,8 +100,9 @@ fn spawn_disconnect_ui(commands: &mut Commands, title: &'static str, message: St
                 .spawn((
                     Button,
                     Node {
-                        width: Val::Px(200.0),
-                        height: Val::Px(65.0),
+                        min_width: Val::Px(200.0),
+                        min_height: Val::Px(65.0),
+                        padding: UiRect::axes(Val::Px(28.0), Val::Px(12.0)),
                         margin: UiRect::top(Val::Px(40.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
@@ -105,6 +115,7 @@ fn spawn_disconnect_ui(commands: &mut Commands, title: &'static str, message: St
                     parent.spawn((
                         Text::new(crate::ui::texts::BACK_TO_LOBBY),
                         TextFont {
+                            font: font.clone().into(),
                             font_size: FontSize::Px(30.0),
                             ..default()
                         },

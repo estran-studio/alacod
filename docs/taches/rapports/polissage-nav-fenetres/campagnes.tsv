@@ -1,0 +1,29 @@
+carte	version	graine	issue	vague	kills	morts	frames	dernier_kill	observation
+avant_poste(b2 c84ef0f1)	avant	2	plafond	3	18	0	20000	3989	restant : zombie_1 #385 case (8, 1), 55.0003 PV, joueur 0 le plus proche à 106.92346 (hors de vue) | aucun kill entre les frames 19400 et 20000
+avant_poste(b2 c84ef0f1)	avant	3	plafond	2	10	0	20000	2280	restant : zombie_full #288 case (26, 26), 52.50015 PV, joueur 0 le plus proche à 108.69487 (hors de vue) | aucun kill entre les frames 19400 et 20000
+avant_poste(b2 c84ef0f1)	avant	45	plafond	3	17	0	20000	4159	restant : zombie_full #368 case (-45, -8), 55.0003 PV, joueur 0 le plus proche à 94.86021 (hors de vue) | aucun kill entre les frames 19400 et 20000
+avant_poste(b2 c84ef0f1)	avant	76	plafond	2	11	0	20000	2322	restant : zombie_full #223 case (-8, 33), 52.50015 PV, joueur 0 le plus proche à 96.87054 (hors de vue) | aucun kill entre les frames 19400 et 20000
+la_fonderie	avant	1	victoire	8	79	0	16021		
+la_fonderie	avant	2	victoire	6	54	0	11095		
+la_fonderie	avant	3	victoire	8	89	0	17769		
+la_fonderie	avant	4	victoire	4	29	0	6378		
+la_fonderie	avant	5	victoire	8	83	0	17249		
+la_fonderie	avant	6	victoire	6	51	0	10991		
+la_fonderie	avant	7	victoire	9	93	0	17893		
+la_fonderie	avant	8	plafond	9	105	0	20000		
+la_fonderie	avant	9	victoire	6	54	0	12069		
+la_fonderie	avant	10	victoire	6	46	0	9866		
+avant_poste(b2 c84ef0f1)	apres	2	plafond	9	100	0	20000	19830	restant : zombie_full #1028 case (8, 1), 70.00122 PV, joueur 0 le plus proche à 128.57825 (hors de vue) | restant : zombie_1 #1031 case (8, 2), 70.00122 PV, jou
+avant_poste(b2 c84ef0f1)	apres	3	plafond	9	97	0	20000	19981	restant : zombie_full #1174 case (40, 47), 50.00122 PV, joueur 0 le plus proche à 100.9585 (en vue) | restant : zombie_full #1210 case (37, 32), 70.00122 PV, jo
+avant_poste(b2 c84ef0f1)	apres	45	plafond	9	87	0	20000	19362	aucun kill entre les frames 19400 et 20000
+avant_poste(b2 c84ef0f1)	apres	76	plafond	9	107	0	20000	19671	
+la_fonderie	apres	1	victoire	5	32	0	7131		
+la_fonderie	apres	2	mort	6	50	1	10617		
+la_fonderie	apres	3	victoire	9	90	0	18149		
+la_fonderie	apres	4	victoire	6	50	0	12188		
+la_fonderie	apres	5	victoire	8	77	0	16102		
+la_fonderie	apres	6	victoire	6	51	0	10244		
+la_fonderie	apres	7	mort	6	52	1	10950		
+la_fonderie	apres	8	mort	5	35	1	8184		
+la_fonderie	apres	9	victoire	6	54	0	12069		
+la_fonderie	apres	10	victoire	6	46	0	9866		
