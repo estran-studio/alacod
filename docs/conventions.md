@@ -8337,3 +8337,23 @@ lit par une surcharge locale gitignorée, **même principe que `hud.local.ron`**
 - **Preuve** : scénario `avant_poste_fenetre_coin` (zombie posé au point figé de la graine 2, fenêtre 17 de `Depart` ; avant : 171 px du
   joueur jusqu'à f600) ; diagnostic d'un zombie figé dans une campagne : JSON d'`alacod-sim` (`softlock`, `steering_point` à moins d'une
   unité de `position`).
+
+## 104. Cavernes de throne : variété, choix de mutation, preuve des traces (S2-12, `docs/taches/rapports/polissage-throne-complet.md`, voie b3)
+
+Contenu seulement (`games/throne/assets/**`), aucune mécanique.
+
+- **Cavernes** : `fill_ratio` 0,42 (`niveau_1`), 0,40 (`niveau_2`, `niveau_3`), au lieu de 0,38. Une caverne à 0,38 est une grande salle ouverte
+  (sol 70-76 %, une seule chambre de 5×5 cases dominante, les 9 `ZombieSpawn` du niveau 3 dans la même chambre). Au-delà de 0,42 les
+  `ZombieSpawn` ne sont plus tous placés (0,45 : 1 point sur certaines graines) : 0,42 est la limite de `niveau_1`, 0,40 celle de `niveau_2/3`
+  (le boss exige 9 points ou 8 sans tourelle, voir l'en-tête de `niveau_3.ron`).
+- **Choix de mutation** : `progression/run.ron` `choice_frames` 600 → 300. Deux niveaux gagnés avant le portail (`BetweenFloors`) ouvrent
+  deux choix à la suite ; les bots n'appuient jamais sur `ChoiceA/B/C` (D177) et le portail attend la fin des choix : 2 × 600 = 1 200 frames
+  = `FLOORS_SOFTLOCK_FRAMES`, un faux soft-lock. À 300, trois niveaux empilés (900) tiennent sous le seuil.
+- **Preuve des traces (§ 10 adapté, contenu)** : le dump complet n'a pas de sens quand la carte change ; la preuve est un **A/B par levier** sur les
+  9 traces de throne (`throne_duo_defaite`, `_floor_1`, `_mutation_choice`, `_progression`, `_quad`, `_rodeur_vue_graine_4`, `_softlock_recul`, `_solo`,
+  `_three_floors`) : avec les seules cavernes changées, les 9 divergent dès la ligne 0 (la carte est autre) ; avec le seul `choice_frames`, 6 divergent
+  au premier choix de mutation (lignes 573 à 1120) et 3 (`duo_defaite`, `mutation_choice`, `rodeur_vue_graine_4`) ne bougent pas. Aucune trace d'un
+  autre jeu ni aucun scénario généré ne bouge (`make test_scenarios` complet, seules ces 9 lignes en échec).
+- **Scénarios** : `throne_mutation_choice` est réenregistré (`alacod-sim --save-scenario`, `ChoiceB` de f600 à f604) ; `throne_rodeur_vue_graine_4`
+  vise le `NetId` 91 (le `rodeur`, à 366 unités du joueur, comme le 367 d'origine) ; les autres ont des repères recalés (D179).
+
