@@ -60,7 +60,7 @@ window.addEventListener('message', (event) => {
 		canvas.setAttribute('data-participants', JSON.stringify(event.data.participants));
 });
 async function launch() {
-	if (!['zombies', 'throne'].includes(game) || !build || !/^[a-zA-Z0-9._-]+$/.test(build)) throw new Error('Version ou jeu invalide.');
+	if (!['zombies', 'throne', 'isaac'].includes(game) || !build || !/^[a-zA-Z0-9._-]+$/.test(build)) throw new Error('Version ou jeu invalide.');
 	canvas.tabIndex = 0;
 	if (params.get('mode') === 'online') {
 		onlineSession = await sessionFromHost();

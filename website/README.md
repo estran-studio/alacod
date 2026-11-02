@@ -23,7 +23,7 @@ Installer la cible `wasm32-unknown-unknown`, **wasm-bindgen-cli 0.2.129** (même
 Cargo.lock) et Binaryen/wasm-opt. La version locale vérifiée de wasm-opt est 124.
 
 ```sh
-WEB_ENABLE_SOLO=1 node scripts/build-web-games.mjs zombies throne
+WEB_ENABLE_SOLO=1 node scripts/build-web-games.mjs zombies throne isaac
 ```
 
 Le script lint le contenu natif, compile, exécute wasm-bindgen/wasm-opt, copie les assets par

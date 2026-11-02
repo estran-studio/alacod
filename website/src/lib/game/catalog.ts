@@ -18,6 +18,16 @@ export const games = [
 		features: ['Cavernes et étages', 'Armes et projectiles composables', 'Progression et mutations'],
 		accent: 'sage',
 		image: ''
+	},
+	{
+		id: 'isaac',
+		name: 'Isaac',
+		milestone: 'M3',
+		genre: 'Roguelike · Salles',
+		description: 'Explorer des salles verrouillées, tirer des larmes, poser des bombes et assembler des objets jusqu’au boss de l’étage.',
+		features: ['Étages en grille de salles', 'Larmes, bombes et objets actifs', 'Boss, clés et boutique'],
+		accent: 'ember',
+		image: ''
 	}
 ] as const;
 

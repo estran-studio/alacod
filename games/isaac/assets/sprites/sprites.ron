@@ -197,6 +197,8 @@
     "item/vengeance": (animation: "sprites/lisible/anim/item__vengeance.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
     "item/venin": (animation: "sprites/lisible/anim/item__venin.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
     "item/vent_arriere": (animation: "sprites/lisible/anim/item__vent_arriere.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "halo": (animation: "sprites/lisible/anim/halo.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
+    "aim": (animation: "sprites/lisible/anim/aim.ron", layers: { "body": "sprites/lisible/sheet_monde.ron" }),
     "portal": (animation: "sprites/lisible/anim/portal.ron", layers: { "body": "sprites/lisible/sheet_portail.ron" }),
     "door_v": (animation: "sprites/lisible/anim/door_v.ron", layers: { "body": "sprites/lisible/sheet_porte_v.ron" }),
     "door_h": (animation: "sprites/lisible/anim/door_h.ron", layers: { "body": "sprites/lisible/sheet_porte_h.ron" }),

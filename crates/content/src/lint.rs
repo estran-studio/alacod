@@ -2226,6 +2226,19 @@ fn lint_feedback_sounds(
             });
         }
     }
+    // `pickup_<objet>` (S2-5) : l'objet doit exister dans le jeu.
+    for key in sounds.keys() {
+        let Some(item) = crate::feedback::item_of_sound_key(key) else {
+            continue;
+        };
+        if !registry.items.contains_key(item) {
+            errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: file.to_string(),
+                message: format!("feedback : sounds.{key} : objet « {item} » inconnu du jeu"),
+            });
+        }
+    }
     // `shot_<arme>` et `reload_<arme>` : l'arme doit être une arme à distance du jeu.
     for key in sounds.keys() {
         let Some(weapon) = crate::feedback::weapon_of_sound_key(key) else {

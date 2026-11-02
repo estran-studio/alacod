@@ -319,6 +319,9 @@ pub const SOUND_KEYS: &[&str] = &[
     // Objets, argent, explosifs.
     "purchase",
     "pickup",
+    // Sous ramassés au sol (isaac, S2-5) ; objet actif utilisé (sa charge retombe à 0).
+    "shell",
+    "active",
     // Choix de mutation pris (throne, progression).
     "mutation",
     "explosion",
@@ -331,6 +334,19 @@ pub const SOUND_KEYS: &[&str] = &[
 
 /// Préfixe des clés de mort par personnage (`death_zombie_runner`).
 pub const DEATH_KEY_PREFIX: &str = "death_";
+
+/// Préfixe des clés de ramassage par objet (S2-5) : `pickup_<id de l'objet>` (`pickup_key`, `pickup_bomb`…), le lint vérifie que
+/// l'objet existe. Un objet ramassé joue sa clé propre si le jeu la déclare, sinon `pickup`.
+pub const PICKUP_KEY_PREFIX: &str = "pickup_";
+
+/// Identifiant d'objet d'une clé `pickup_<id>` (jamais une clé fixe).
+pub fn item_of_sound_key(key: &str) -> Option<&str> {
+    if SOUND_KEYS.contains(&key) {
+        return None;
+    }
+    key.strip_prefix(PICKUP_KEY_PREFIX)
+        .filter(|item| !item.is_empty())
+}
 
 /// Préfixes des clés propres à une arme (S2-11) : `shot_<arme>` (tir) et `reload_<arme>` (rechargement), `<arme>` étant
 /// une arme à distance du jeu (le lint refuse une arme inconnue). Elles passent **avant** l'`audio_config` de
@@ -625,7 +641,8 @@ fn sound_key_problem(key: &str) -> Option<FeedbackProblem> {
         || key
             .strip_prefix(DEATH_KEY_PREFIX)
             .is_some_and(|id| !id.is_empty())
-        || weapon_of_sound_key(key).is_some();
+        || weapon_of_sound_key(key).is_some()
+        || item_of_sound_key(key).is_some();
     (!known).then(|| FeedbackProblem {
         field: format!("sounds.{key}"),
         message: "clé de son inconnue du moteur (voir SOUND_KEYS)".into(),
@@ -1008,6 +1025,22 @@ mod tests {
         assert_eq!(fields, ["sounds.vague", "volumes.hit"]);
         // Un champ qui n'est pas un son (ici le flash) est une erreur de lecture, pas une valeur ignorée.
         assert!(ron::from_str::<FeedbackOverlay>(r#"(hit_stop_frames: 3)"#).is_err());
+    }
+
+    #[test]
+    fn cles_de_ramassage_par_objet_et_sons_de_sous_et_d_actif() {
+        let mut s = settings();
+        s.sounds.insert("pickup_key".into(), "a.ogg".into());
+        s.sounds.insert("pickup_bomb".into(), "b.ogg".into());
+        s.sounds.insert("shell".into(), "c.ogg".into());
+        s.sounds.insert("active".into(), "d.ogg".into());
+        assert!(s.problems().is_empty(), "{:?}", s.problems());
+        // Un préfixe seul n'est pas une clé ; `pickup` reste la clé fixe.
+        s.sounds.insert("pickup_".into(), "e.ogg".into());
+        let fields: Vec<_> = s.problems().into_iter().map(|p| p.field).collect();
+        assert_eq!(fields, ["sounds.pickup_"]);
+        assert_eq!(item_of_sound_key("pickup_key"), Some("key"));
+        assert_eq!(item_of_sound_key("pickup"), None);
     }
 
     #[test]

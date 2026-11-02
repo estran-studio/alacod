@@ -24,7 +24,7 @@
 			const role = params.get('role') || '0';
 			const local = params.get('mode') === 'local';
 			const players = Number(params.get('players') || 2);
-			if (!['zombies', 'throne'].includes(game) || !/^[a-zA-Z0-9._-]+$/.test(build || '')) throw new Error('game et build requis');
+			if (!['zombies', 'throne', 'isaac'].includes(game) || !/^[a-zA-Z0-9._-]+$/.test(build || '')) throw new Error('game et build requis');
 			const canvas = document.getElementById('bevy-canvas');
 			canvas.setAttribute('data-number-player', String(players));
 			if (!local) {

@@ -8354,3 +8354,26 @@ CC0, `letargicdev-portals` CC0, `redshrike-rat-king` CC BY 4.0). Aucun pixel des
 - **Captures** : scénarios jetables `docs/captures/polissage-throne-vitrine/scenarios/armes_{a,b,c,d}.ron` (hors `tests/scenarios`, jamais joués par la suite) ; `play_scenario --capture … --at 19,110`.
 - **Limites** : D180 (attribution CC BY sans écran de crédits), D181 (portail fixe, vert), D182 (une image par arme, deux styles selon la surcharge).
 - **Preuve** : aucune trace ne bouge (aucun `BLESS`) ; voir le rapport.
+
+## 106. Isaac : build web, visuel du pack, sons (S2-4, S2-5, voie i, `docs/taches/rapports/polissage-isaac-complet.md`)
+
+Présentation et données seulement : **aucune trace ne bouge**, aucun `BLESS`.
+
+- **Build web** : `isaac` est dans les listes blanches de `scripts/build-web-games.mjs`, `prepare-cloudflare.mjs`, `web-assets.mjs`,
+  `website/functions/builds/[[path]].js` et `website/static/loader.js`, et dans `website/src/lib/game/catalog.ts` (carte du catalogue ;
+  page « Jouer » : E bombe, Espace objet actif, Q blank). Un build local garde `releases.json` en `solo: true` `online: false` (un seul
+  joueur, hors lobby). La surcharge privée entre dans le build avec `ALACOD_WEB_PRIVATE_ASSETS=1` (§ 99), comme throne.
+- **Visuel public** (`scripts/generer-sprites-isaac.py`, originaux du projet, CC0) : sol de terre (tuiles 37 à 40 de `atlas_murs.png`, bords
+  de la couleur de fond `#7B6A5F` : aucune couture, `wall_art.floor` de `ui/hud.ron`, plate quatre fois sur neuf), halo des ramassables
+  (`halo`) et pointeur de visée des ennemis (`aim`) dans `sprites.ron` ; `player_colors` (couleur par joueur) et `legend` (F7) dans
+  `hud.ron`, mêmes valeurs que gungeon, zombies et throne (§ 83). Le langage visuel est piloté par ces entrées (`legibility.rs`) : rien de
+  codé pour isaac.
+- **Visuel privé** (`scripts/repack-isaac.py`, comme `repack-throne.py`) : héros, six peaux de zombies d'Aymen B et neuf figures d'Ittai Manero
+  remplacent les tuiles Kenney de gungeon pour le joueur, les ennemis, les deux boss et les cibles. Sortie gitignorée
+  (`sprites/postapo/`, `sprites/sprites.local.ron`), copie dans le dépôt privé `alacod-assets/isaac/` ; sans elle, les tuiles Kenney restent
+  le repli public. Licences : `assets.yaml` (`aymen-b-zombiepack-isaac`, `ittai-zombie-apocalypse-isaac`).
+- **Sons** (`scripts/repack-isaac-sons.py`, comme `repack-throne-sons.py`) : clés nouvelles du moteur `shell` (sous ramassés au sol,
+  `CurrencyEvent` positif de motif `pickup`), `active` (objet actif utilisé : sa charge retombe à 0) et préfixe `pickup_<objet>` (le lint
+  vérifie l'objet ; un objet sans clé propre joue `pickup`). Public : `feedback.ron` (Kenney CC0 et un tir Snake's pour `explosion`) ;
+  privé : `ui/feedback.local.ron` + `sounds/sonniss/` (§ 98). Les clés `death_<id>` sont posées dans la surcharge privée seulement (le
+  repli public est `death`). Tout choix de fichier est fait sur le nom et la durée, **sans écoute**.
