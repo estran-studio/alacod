@@ -152,7 +152,7 @@ fn destruction_creuse_et_reconstruit_les_murs_en_synctest() {
     let destroyed = world::destroy_terrain(
         &mut after,
         center,
-        bevy_fixed::fixed_math::Fixed::from_num(40),
+        bevy_fixed::bevy_fixed::fixed_math::Fixed::from_num(40),
     );
     assert!(destroyed.len() > 1);
 
@@ -190,7 +190,7 @@ fn destruction_creuse_et_reconstruit_les_murs_en_synctest() {
                 if frame.frame == AT {
                     requests.send(DestroyTerrainRequest::new(
                         center,
-                        bevy_fixed::fixed_math::Fixed::from_num(40),
+                        bevy_fixed::bevy_fixed::fixed_math::Fixed::from_num(40),
                     ));
                 }
             })
@@ -385,4 +385,219 @@ fn foreuse_creuse_au_contact() {
     ];
     let outcome = run(&scenario);
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
+}
+
+/// S2-12 (D178, `docs/conventions.md` § 104) : audit des cavernes d'un jeu, sans simulation. Pour chaque caverne
+/// du registre (config **calculée** par le registre : `spawn_clearance`, `nav_large`) et chaque graine, mesure le sol,
+/// les **chambres** (composantes 4-connexes des cases dont le carré 5×5 est du sol, `is_open_within` à 2 ; on ne
+/// compte que celles de 12 cases ou plus), les cases de couloir (sol hors `is_open`), les impasses (sol à un voisin
+/// de sol ou moins), les `ZombieSpawn` placés et leur répartition par chambre (chambre d'un point = celle de la case de
+/// chambre la plus proche par le sol). Diagnostic, rien n'est vérifié :
+///
+/// `ALACOD_CAVE_AUDIT=throne[:1..100] cargo test -p scenario --profile headless --no-default-features --test cave cave_audit -- --ignored --nocapture`
+///
+/// `ALACOD_CAVE_AUDIT_SET="niveau_3.fill_ratio=0.42,niveau_3.width=72"` essaie des réglages sans toucher aux fichiers
+/// (champs `fill_ratio`, `width`, `height`, `iterations`, `birth`, `survive`, `min_floor_ratio`, `enemy_spawns`).
+#[test]
+#[ignore]
+fn cave_audit() {
+    use std::collections::VecDeque;
+    let spec = std::env::var("ALACOD_CAVE_AUDIT").unwrap_or_else(|_| "throne".into());
+    let (game, seeds) = match spec.split_once(':') {
+        Some((game, range)) => {
+            let (a, b) = range.split_once("..").expect("graines a..b");
+            (game.to_string(), a.parse::<u64>().unwrap()..=b.parse::<u64>().unwrap())
+        }
+        None => (spec, 1..=100),
+    };
+    let (registry, _, _) =
+        content::load_and_lint(&scenario::runner::game_dir(&game)).expect("manifeste");
+    let overrides = std::env::var("ALACOD_CAVE_AUDIT_SET").unwrap_or_default();
+
+    fn median(values: &mut [f64]) -> f64 {
+        values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        values[values.len() / 2]
+    }
+    fn stats(name: &str, mut values: Vec<f64>) {
+        let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
+        let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let med = median(&mut values);
+        println!("  {name:<44} médiane {med:>8.2}   min {min:>8.2}   max {max:>8.2}");
+    }
+
+    for cave in registry.caves.values() {
+        let id = cave.id.to_string();
+        let mut config = cave.config.clone();
+        for item in overrides.split(',').filter(|s| !s.is_empty()) {
+            let (key, value) = item.split_once('=').expect("champ=valeur");
+            let Some((cave_id, field)) = key.split_once('.') else {
+                panic!("réglage « {item} » : <caverne>.<champ>=<valeur>")
+            };
+            if cave_id != id {
+                continue;
+            }
+            match field {
+                "fill_ratio" => config.fill_ratio = value.parse::<f64>().map(bevy_fixed::fixed_math::Fixed::from_num).unwrap(),
+                "min_floor_ratio" => {
+                    config.min_floor_ratio = value.parse::<f64>().map(bevy_fixed::fixed_math::Fixed::from_num).unwrap()
+                }
+                "width" => config.width = value.parse().unwrap(),
+                "height" => config.height = value.parse().unwrap(),
+                "iterations" => config.iterations = value.parse().unwrap(),
+                "birth" => config.birth = value.parse().unwrap(),
+                "survive" => config.survive = value.parse().unwrap(),
+                "enemy_spawns" => config.enemy_spawns = value.parse().unwrap(),
+                other => panic!("champ inconnu « {other} »"),
+            }
+        }
+        if config.enemy_spawns == 0 {
+            continue;
+        }
+        let (mut floor, mut chambers, mut largest, mut corridors, mut dead_ends) =
+            (vec![], vec![], vec![], vec![], vec![]);
+        let (mut placed, mut occupied, mut in_largest, mut same_pairs, mut dist_min, mut dist_max) =
+            (vec![], vec![], vec![], vec![], vec![], vec![]);
+        let mut short = Vec::new();
+        for seed in seeds.clone() {
+            let grid = world::generate(seed, &config);
+            let (w, h) = (grid.width, grid.height);
+            let is_floor = |x: i32, y: i32| grid.get(x, y) == Some(CellKind::Floor);
+            let cells: Vec<(u32, u32)> =
+                (0..h).flat_map(|y| (0..w).map(move |x| (x, y))).collect();
+            let floor_cells = cells.iter().filter(|&&(x, y)| is_floor(x as i32, y as i32)).count();
+            floor.push(floor_cells as f64 / (w * h) as f64);
+            corridors.push(
+                cells
+                    .iter()
+                    .filter(|&&(x, y)| is_floor(x as i32, y as i32) && !world::cave::is_open(&grid, x, y))
+                    .count() as f64,
+            );
+            dead_ends.push(
+                cells
+                    .iter()
+                    .filter(|&&(x, y)| {
+                        is_floor(x as i32, y as i32)
+                            && [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                                .iter()
+                                .filter(|(dx, dy)| is_floor(x as i32 + dx, y as i32 + dy))
+                                .count()
+                                <= 1
+                    })
+                    .count() as f64,
+            );
+            // Chambres : composantes de cases à carré 5×5 de sol.
+            let mut chamber = vec![usize::MAX; (w * h) as usize];
+            let mut sizes: Vec<usize> = Vec::new();
+            for &(x, y) in &cells {
+                let i = (y * w + x) as usize;
+                if chamber[i] != usize::MAX || !world::is_open_within(&grid, x, y, 2) {
+                    continue;
+                }
+                let label = sizes.len();
+                let mut size = 0;
+                let mut queue = VecDeque::from([(x, y)]);
+                chamber[i] = label;
+                while let Some((cx, cy)) = queue.pop_front() {
+                    size += 1;
+                    for (dx, dy) in [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)] {
+                        let (nx, ny) = (cx as i32 + dx, cy as i32 + dy);
+                        if !grid.in_bounds(nx, ny) {
+                            continue;
+                        }
+                        let j = (ny as u32 * w + nx as u32) as usize;
+                        if chamber[j] == usize::MAX && world::is_open_within(&grid, nx as u32, ny as u32, 2) {
+                            chamber[j] = label;
+                            queue.push_back((nx as u32, ny as u32));
+                        }
+                    }
+                }
+                sizes.push(size);
+            }
+            let big: Vec<usize> = (0..sizes.len()).filter(|&c| sizes[c] >= 12).collect();
+            chambers.push(big.len() as f64);
+            let biggest = (0..sizes.len()).max_by_key(|&c| (sizes[c], std::cmp::Reverse(c)));
+            largest.push(biggest.map_or(0, |c| sizes[c]) as f64);
+            let points = world::points_of_interest(
+                &grid,
+                4,
+                config.enemy_spawns,
+                config.spawn_clearance,
+                config.nav_large,
+            );
+            placed.push(points.zombie_spawns.len() as f64);
+            if (points.zombie_spawns.len() as u32) < config.enemy_spawns {
+                short.push(seed);
+            }
+            // Chambre d'un point : celle de la première case de chambre atteinte par le sol (BFS).
+            let chamber_of = |start: (u32, u32)| -> Option<usize> {
+                let mut seen = vec![false; (w * h) as usize];
+                let mut queue = VecDeque::from([start]);
+                seen[(start.1 * w + start.0) as usize] = true;
+                while let Some((cx, cy)) = queue.pop_front() {
+                    let label = chamber[(cy * w + cx) as usize];
+                    if label != usize::MAX {
+                        return Some(label);
+                    }
+                    for (dx, dy) in [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)] {
+                        let (nx, ny) = (cx as i32 + dx, cy as i32 + dy);
+                        if is_floor(nx, ny) && !seen[(ny as u32 * w + nx as u32) as usize] {
+                            seen[(ny as u32 * w + nx as u32) as usize] = true;
+                            queue.push_back((nx as u32, ny as u32));
+                        }
+                    }
+                }
+                None
+            };
+            let labels: Vec<Option<usize>> = points.zombie_spawns.iter().map(|&p| chamber_of(p)).collect();
+            let mut distinct: Vec<usize> = labels.iter().flatten().copied().collect();
+            distinct.sort_unstable();
+            distinct.dedup();
+            occupied.push(distinct.len() as f64);
+            in_largest.push(labels.iter().filter(|l| **l == biggest && l.is_some()).count() as f64);
+            let mut pairs = 0;
+            for a in 0..labels.len() {
+                for b in a + 1..labels.len() {
+                    if labels[a].is_some() && labels[a] == labels[b] {
+                        pairs += 1;
+                    }
+                }
+            }
+            same_pairs.push(pairs as f64);
+            if let Some(&origin) = points.player_spawns.first() {
+                let dist = world::cave::floor_distances(&grid, origin);
+                let d: Vec<f64> = points
+                    .zombie_spawns
+                    .iter()
+                    .map(|&(x, y)| dist[(y * w + x) as usize] as f64)
+                    .collect();
+                if !d.is_empty() {
+                    dist_min.push(d.iter().cloned().fold(f64::INFINITY, f64::min));
+                    dist_max.push(d.iter().cloned().fold(0.0, f64::max));
+                }
+            }
+        }
+        println!(
+            "caverne {id} ({}×{}, fill_ratio {}, iterations {}, spawns {}, dégagement {}, gabarit {}) sur {} graines",
+            config.width,
+            config.height,
+            config.fill_ratio,
+            config.iterations,
+            config.enemy_spawns,
+            config.spawn_clearance,
+            if config.nav_large { "grand" } else { "petit" },
+            floor.len()
+        );
+        stats("ratio de sol", floor);
+        stats("chambres (5×5, ≥ 12 cases)", chambers);
+        stats("plus grande chambre (cases)", largest);
+        stats("cases de couloir (sol hors is_open)", corridors);
+        stats("impasses (sol à ≤ 1 voisin)", dead_ends);
+        stats("ZombieSpawn placés", placed);
+        stats("chambres distinctes occupées par les spawns", occupied);
+        stats("spawns dans la plus grande chambre", in_largest);
+        stats("paires de spawns dans la même chambre", same_pairs);
+        stats("distance joueur → spawn le plus proche", dist_min);
+        stats("distance joueur → spawn le plus loin", dist_max);
+        println!("  graines à spawns manquants : {short:?}");
+    }
 }

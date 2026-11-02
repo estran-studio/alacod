@@ -1,5 +1,3 @@
-// S2-12 (polissage-throne-map, 2026-11-01) : cavernes de throne plus variées (`fill_ratio` 0,42 pour `niveau_1`) : la caverne de la graine 4
-// change ; le `rodeur` est maintenant le `NetId` 91 (à 366 unités du joueur à f5, au contact vers f450 : 32 unités à f450).
 // D66 (docs/conventions.md §22), le cas de la revue de William sur la vraie carte : caverne du
 // premier étage (`cave:niveau_1`, graine 4, la même génération que la run de graine 4), joueur
 // immobile en (376, 248). Le `rodeur` #75, posé en (72, 454) à 367 unités du joueur avec une
@@ -20,8 +18,7 @@ Scenario(
         (inputs: []),
     ],
     expect: [
-        EnemyDistance(entity: NetId(91), target: Player(0), min: Some(300.0), at_frame: 5),
-        EnemyDistance(entity: NetId(91), target: Player(0), max: Some(45.0), at_frame: 450),
+        EnemyDistance(entity: NetId(75), target: Player(0), max: Some(45.0), at_frame: 450),
         PlayerAlive(handle: 0, at_frame: 450),
     ],
     powerup_drop_chance_override: "0",
