@@ -46,6 +46,8 @@ Cibles de `make check` lancées une à une (cible partagée `.target-mac`, `env 
 
 Premier passage de `make test` : 4 échecs de `content` (chemins `…/alacod/i1/…` compilés dans un binaire laissé par une autre voie dans la cible partagée) ; `touch crates/content/src/lib.rs` a recompilé le crate, puis vert.
 
+Repassé sur l'arbre **fusionné** avec `origin/polissage-integration` `29ac7620` (voie i, consigne du coordinateur) : `format`, `check_forbidden`, `check_rollback_registration`, `check_sim_boundary`, `lint`, `test` exit 0 (1 290 s) ; `test_tools` non relancé (même état Mac).
+
 ## 5. Ce qui reste
 
 | Reste | Estimation |
