@@ -4,7 +4,8 @@
 Même générateur que `scripts/generer-sprites-gungeon.py` (importé : primitives de dessin, encodeur PNG, atlas, murs auto-tuilés, objets du monde) ;
 ne change que la **palette** (« sous-sol » : briques brun-rouge, sol de terre claire, distincte du pourpre de gungeon) et ce que isaac pose :
 portes de 4 cases (16 x 64 et 64 x 16, états `Idle`, `Open`, `Locked`, `Secret` : le mur fissuré d'une salle secrète), rochers (et rocher à butin),
-piques (tuile de 16 px de l'atlas des murs, indice 36), sous, coffre, présentoir, bombe posée, objets au sol (`item/<id>`, d'après `objets/*.ron`),
+piques (tuile de 16 px de l'atlas des murs, indice 36), sol de terre (quatre tuiles, indices 37 à 40, S2-4), halo des ramassables et
+pointeur de visée des ennemis (`halo`, `aim`, S2-4), sous, coffre, présentoir, bombe posée, objets au sol (`item/<id>`, d'après `objets/*.ron`),
 portail. Images **originales du projet** (primitives, aucune source tierce), CC0, déterministes. Les personnages gardent leurs sprites Kenney.
 
     python3 scripts/generer-sprites-isaac.py            # réécrit PNG, feuilles, animations et le bloc `// >>> généré` de sprites.ron
@@ -12,7 +13,7 @@ portail. Images **originales du projet** (primitives, aucune source tierce), CC0
     python3 scripts/generer-sprites-isaac.py --preview /tmp/apercu.png   # planche de contrôle (x2)
 
 Sorties, sous `games/isaac/assets/sprites/lisible/` : atlas_monde.png (32 px), atlas_portail.png (64 px), atlas_porte_v.png (16 x 64),
-atlas_porte_h.png (64 x 16), atlas_murs.png (tuiles de 16 px : 36 de mur + 1 de piques), feuilles `sheet_*.ron` et `anim/<id>.ron`.
+atlas_porte_h.png (64 x 16), atlas_murs.png (tuiles de 16 px : 36 de mur + 1 de piques + 4 de sol), feuilles `sheet_*.ron` et `anim/<id>.ron`.
 """
 import importlib.util
 import os
@@ -47,6 +48,8 @@ BLACK, GOLD, CLEAR = g.BLACK, g.GOLD, g.CLEAR
 OPENING = 4                      # cases d'une ouverture (64 px)
 DOOR_LEN = OPENING * 16
 SPIKES_TILE = 36                 # indice des piques dans `atlas_murs.png` (après les 36 tuiles de mur)
+FLOOR_TILES = (37, 38, 39, 40)   # sol de terre (S2-4) : `wall_art.floor.tiles` de `ui/hud.ron`
+FLOOR_BASE = "#7B6A5F"           # couleur de fond des niveaux (inchangée) : le sol s'y fond sans couture
 HEADER = "scripts/generer-sprites-isaac.py"
 
 
@@ -68,13 +71,46 @@ def spikes_tile():
     return im
 
 
+def floor_tiles():
+    """Quatre tuiles de sol de terre (16 px), de la couleur de fond des niveaux : bords unis (aucune couture entre tuiles voisines,
+    quelle que soit la variante tirée), grain, cailloux et fissure à l'intérieur seulement. Rien d'aléatoire : points fixes."""
+    base = rgb(FLOOR_BASE)
+    dark, light, deep = shade(base, 0.9), shade(base, 1.09), shade(base, 0.78)
+    tiles = []
+    for variant in range(4):
+        im = Img(16)
+        im.rect(0, 0, 16, 16, base)
+        if variant == 0:    # plate : quelques grains
+            for x, y in ((4, 5), (11, 3), (8, 11), (3, 12)):
+                im.set(x, y, dark)
+            im.set(12, 9, light)
+        elif variant == 1:  # grains clairs et sombres
+            for x, y in ((5, 3), (10, 7), (3, 10), (12, 12)):
+                im.set(x, y, light)
+            for x, y in ((8, 4), (6, 12), (13, 5)):
+                im.set(x, y, dark)
+        elif variant == 2:  # un caillou et son ombre
+            im.rect(6, 6, 9, 8, shade(base, 1.18))
+            im.rect(6, 8, 10, 9, deep)
+            im.set(5, 8, dark)
+            im.set(12, 3, dark)
+        else:               # fissure en zigzag
+            for x, y in ((3, 4), (4, 4), (5, 5), (6, 5), (7, 6), (7, 7), (8, 8), (9, 8), (10, 9), (11, 9)):
+                im.set(x, y, shade(base, 0.84))
+            im.set(4, 5, dark)
+            im.set(9, 7, light)
+        tiles.append(im)
+    return tiles
+
+
 def wall_atlas():
     tiles = [g.wall_cap(i % 8, i // 8) for i in range(32)]
     tiles += [g.wall_face(bool(i & 1), bool(i & 2)) for i in range(4)]
     assert len(tiles) == SPIKES_TILE == g.WALL_TILES
     tiles.append(spikes_tile())
-    rows = (len(tiles) + g.WALL_COLUMNS - 1) // g.WALL_COLUMNS
-    assert rows == (g.WALL_TILES + g.WALL_COLUMNS - 1) // g.WALL_COLUMNS, "la feuille déborde les lignes que lit `wall_art`"
+    tiles += floor_tiles()
+    assert len(tiles) == FLOOR_TILES[-1] + 1 and FLOOR_TILES[0] == SPIKES_TILE + 1
+    rows = (len(tiles) + g.WALL_COLUMNS - 1) // g.WALL_COLUMNS  # `wall_art` prolonge sa feuille jusqu'à la dernière tuile annexe ou de sol
     im = Img(g.WALL_COLUMNS * g.WALL_TILE, rows * g.WALL_TILE)
     for i, tile in enumerate(tiles):
         im.blit(tile, (i % g.WALL_COLUMNS) * g.WALL_TILE, (i // g.WALL_COLUMNS) * g.WALL_TILE)
@@ -195,6 +231,10 @@ def world_sprites():
             out.append(("item/" + iid, {"Idle": g.potion(letter, base)}))
         else:
             out.append(("item/" + iid, {"Idle": g.card(letter, base, border)}))
+    # S2-4 (§106, langage visuel de §83) : halo pulsant des ramassables (sous, objets, coffres, présentoirs) et pointeur de visée des
+    # ennemis ; en fin de liste pour que les indices des autres sprites ne bougent pas.
+    out.append(("halo", {"Idle": g.halo()}))
+    out.append(("aim", {"Idle": g.aim()}))
     return out
 
 

@@ -93,7 +93,7 @@
 					<span><kbd>W A S D</kbd> Déplacement</span><span><kbd>Souris</kbd> Visée · clic pour tirer</span><span
 						><kbd>R</kbd> Recharger</span
 					><span><kbd>H</kbd> Interagir</span><span><kbd>Tab</kbd> Changer d’arme</span><span><kbd>C</kbd> Dash</span
-					>{#if game.id === 'throne'}<span><kbd>1 2 3</kbd> Mutation</span>{/if}{#if game.id === 'isaac'}<span><kbd>E</kbd> Bombe</span><span><kbd>Espace</kbd> Objet actif</span>{/if}
+					>{#if game.id === 'throne'}<span><kbd>1 2 3</kbd> Mutation</span>{/if}{#if game.id === 'isaac'}<span><kbd>E</kbd> Bombe</span><span><kbd>Espace</kbd> Objet actif</span><span><kbd>Q</kbd> Blank</span>{/if}
 				</div>
 				<button class="button primary" onclick={start}>Lancer la partie ↗</button>
 			</div>

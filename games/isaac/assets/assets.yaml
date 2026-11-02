@@ -220,4 +220,118 @@
   modifications: sans objet (originaux)
   statut: placeholder généré, à remplacer par la voie V6 — murs (36 tuiles de 16 px auto-tuilées +
     piques), portes de quatre cases (fermée, ouverte, à clé, mur fissuré), rochers, coffre, présentoir,
-    sous, bombe, portail et objets au sol (`item/<id>`) ; les personnages restent les tuiles Kenney
+    sous, bombe, portail, objets au sol (`item/<id>`), sol de terre (S2-4, tuiles 37 à 40 de `atlas_murs.png`),
+    halo des ramassables et pointeur de visée (`halo`, `aim`, S2-4) ; les personnages restent les tuiles Kenney
+
+- id: aymen-b-zombiepack-isaac
+  fichiers:
+    - sprites/postapo/char_player.png
+    - sprites/postapo/char_bandit.png
+    - sprites/postapo/char_zombie1.png
+    - sprites/postapo/char_zombie2.png
+    - sprites/postapo/char_zombie3.png
+    - sprites/postapo/char_zombie4.png
+  source: https://pixelrogueknight.itch.io/zombie-apocalypse-assetpack (« UPDATE 2_ZombiePack.zip »,
+    LICENSE.txt de l'archive lu le 2026-10-29 ; même pack que `aymen-b-zombiepack` de throne)
+  auteur: Aymen B (@PixRogueKnight)
+  licence: licence propre de l'auteur (LICENSE.txt) — usage personnel et commercial, modification
+    libre, crédit apprécié mais non requis ; **redistribution interdite**, ni NFT ni générateurs
+    d'images par IA. Pack acheté par William Quintal (2026-10-28). Fichiers NON commités (dépôt public),
+    dossier sprites/postapo/ et sprites/sprites.local.ron gitignorés ; surcharge locale (docs/conventions.md
+    § 106), repli public = tuiles Kenney. Un build web public qui embarquerait ces images attend la
+    confirmation écrite de l'auteur.
+  modifications: cases de personnages recadrées à la boîte englobante commune, mises en rangée Idle 6 |
+    Run 8 | Dying_1 8 ; échelle de présentation par personnage (héros, suiveur, rampant, cracheur, bourdon,
+    spectre, boss gardien) ; scripts/repack-isaac.py ; aucun pixel dessiné.
+  statut: dépôt privé alacod-assets (isaac/…), pas un placeholder
+
+- id: ittai-zombie-apocalypse-isaac
+  fichiers:
+    - sprites/postapo/char_araignee.png
+    - sprites/postapo/char_mouche.png
+    - sprites/postapo/char_follet.png
+    - sprites/postapo/char_arroseur.png
+    - sprites/postapo/char_tourelle_croix.png
+    - sprites/postapo/char_colosse.png
+    - sprites/postapo/char_cible_mordante.png
+    - sprites/postapo/char_cible_fragile.png
+    - sprites/postapo/char_cible.png
+  source: https://ittaimanero.itch.io/zombie-apocalypse-tileset (« Zombie Apocalypse Tileset.zip »,
+    dossier « Organized separated sprites » ; même pack que `ittai-zombie-apocalypse` de throne)
+  auteur: Ittai Manero
+  licence: licence propre de l'auteur (page itch) — « may be used in both personal and commercial
+    projects ; you may edit and add to them ; credit is highly appreciated ; you may not redistribute or
+    re-sell these assets, with or without modifications ». Pack gratuit. Fichiers NON commités (dépôt
+    public), mêmes dossiers gitignorés que ci-dessus. Crédit à afficher dans le jeu publié
+    (« Ittai Manero »).
+  modifications: zombie enfant, oiseau (mouche, follet), zombie assis, zombie tourelle, gros zombie
+    (colosse), zombie maigre, épouvantail, canette, images recadrées et collées en rangée, pieds ou centre
+    alignés ; échelle de présentation entière ou à demi ; scripts/repack-isaac.py ; aucun pixel dessiné.
+  statut: dépôt privé alacod-assets (isaac/…), pas un placeholder
+
+# S2-5 (2026-11-02, docs/conventions.md § 106) : sons de bombe, ramassages, objet actif, boss, étage, salle, achat, mort du joueur et menus d'isaac.
+# Licences copiées avant l'import ; script scripts/repack-isaac-sons.py (un fichier extrait à la fois, jamais un bundle entier ; choix sur le nom
+# et la durée, sans écoute : à juger à l'oreille par William).
+- id: sound-snake-authentic-gun-sounds-isaac
+  fichiers:
+    - sounds/explosion.ogg
+  source: "https://f8studios.itch.io/snakes-authentic-gun-sounds (page lue le 2026-10-28 ; archive Snake's Authentic Gun Sounds And More.zip). explosion ← 762x54r Single (pack 1, −12 demi-tons), même fichier et même traitement que `sound-snake-authentic-gun-sounds-throne`."
+  auteur: SnakeF8 (F8 Studios)
+  licence: "licence propre de l'auteur : « All sounds can be used commercially, and credit is not needed (I would appreciate it a lot though!) » ; l'auteur répond « It's public domain! » en commentaire de la page du second pack. Aucune clause d'interdiction de redistribution lue : fichier commité ; crédit gardé ici."
+  attribution: "Gun sounds by SnakeF8 (F8 Studios), Snake's Authentic Gun Sounds"
+  modifications: "rogné (1,1 s), fondu de sortie, hauteur changée (`sox pitch -1200`), mono 44,1 kHz, RMS cible −18 dBFS (crête ≤ −1 dBFS), ogg vorbis (oggenc -q 5) par scripts/repack-isaac-sons.py."
+  statut: repli public (à juger à l'oreille par William)
+
+- id: sound-impact-kenney-isaac
+  fichiers:
+    - sounds/bomb.ogg
+    - sounds/shell.ogg
+    - sounds/active.ogg
+    - sounds/pickup.ogg
+    - sounds/pickup_key.ogg
+    - sounds/pickup_bomb.ogg
+    - sounds/pickup_coeur.ogg
+    - sounds/pickup_coeur_ame.ogg
+    - sounds/purchase.ogg
+    - sounds/boss_spawn.ogg
+    - sounds/boss_phase.ogg
+    - sounds/boss_death.ogg
+    - sounds/floor.ogg
+    - sounds/room_cleared.ogg
+    - sounds/death_player.ogg
+    - sounds/menu_navigate.ogg
+    - sounds/menu_confirm.ogg
+    - sounds/menu_back.ogg
+  source: "https://kenney.nl/assets/impact-sounds (archive kenney_impact-sounds.zip, License.txt lu le 2026-10-28 : CC0). bomb ← impactTin_medium_001, shell ← impactMetal_light_000, active ← impactBell_heavy_002, pickup ← impactGlass_light_002, pickup_key ← impactMetal_medium_000, pickup_bomb ← impactMetal_heavy_000, pickup_coeur ← impactSoft_medium_000, pickup_coeur_ame ← impactGlass_light_000, purchase ← impactMetal_light_003, boss_spawn ← impactMetal_heavy_001, boss_phase ← impactMining_001, boss_death ← impactPlate_heavy_004, floor ← impactPlate_medium_003, room_cleared ← impactBell_heavy_004, death_player ← impactSoft_heavy_003, menu_navigate ← impactGeneric_light_001, menu_confirm ← impactTin_medium_003, menu_back ← impactPlate_light_002 (choisis sur le nom et la durée, sans écoute)."
+  auteur: Kenney (www.kenney.nl)
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — affichée sur la page et dans le License.txt de l'archive
+  modifications: "rogné (0,12 à 0,7 s), fondu de sortie, stéréo mixée en mono, 44,1 kHz, RMS cible −20 à −24 dBFS (crête ≤ −1 dBFS), ogg vorbis (oggenc -q 5) par scripts/repack-isaac-sons.py."
+  statut: repli public des clés que la surcharge locale remplit par du Sonniss ; seul son pour pickup_key, pickup_bomb, pickup_coeur, pickup_coeur_ame
+
+- id: sound-sonniss-gdc-2026-isaac
+  fichiers:
+    - sounds/sonniss/death_bete.ogg
+    - sounds/sonniss/death_humain.ogg
+    - sounds/sonniss/death_spectre.ogg
+    - sounds/sonniss/death_brute.ogg
+    - sounds/sonniss/death_machine.ogg
+    - sounds/sonniss/death_player.ogg
+    - sounds/sonniss/boss_spawn.ogg
+    - sounds/sonniss/boss_phase.ogg
+    - sounds/sonniss/boss_death.ogg
+    - sounds/sonniss/floor.ogg
+    - sounds/sonniss/room_cleared.ogg
+    - sounds/sonniss/explosion.ogg
+    - sounds/sonniss/bomb.ogg
+    - sounds/sonniss/shell.ogg
+    - sounds/sonniss/active.ogg
+    - sounds/sonniss/purchase.ogg
+    - sounds/sonniss/pickup.ogg
+    - sounds/sonniss/menu_navigate.ogg
+    - sounds/sonniss/menu_confirm.ogg
+    - sounds/sonniss/menu_back.ogg
+  source: "Sonniss #GameAudioGDC Bundle 2026 (Sonniss.com-GDC2026-GameAudioBundle{1..5}of5.zip, un fichier à la fois ; License - GDC Game Audio.pdf lu le 2026-10-28). Mêmes fichiers que `sound-sonniss-gdc-2026-throne` pour boss_*, floor, explosion, bomb, death_bete/humain/brute/machine, room_cleared, purchase, pickup, menu_* ; propres à isaac : shell ← Cinematic Sound Design Hybrid Game & UI Elements (Foley Coin Flip Single Fast), active ← Epic Stock Media Anime Game (Power Up Bright Positive Successful 05), death_spectre ← SoundBits Vox Bestiae (Ethereal Entity Grim Pain Long 4)."
+  auteur: "Sonniss et ses fournisseurs (344 Audio, Epic Stock Media, Cinematic Sound Design, SoundBits)"
+  licence: "Sonniss GDC Bundle Licensing Agreement (PDF de l'archive) : royalty-free, mondiale, non exclusive ; usage personnel et commercial **sans attribution**, modification autorisée ; **interdit** de vendre les sons tels quels, de s'en attribuer la paternité, et **de les utiliser pour entraîner une IA**. Le dépôt est public : les extraits n'y sont JAMAIS publiés (décision de William du 2026-10-29, docs/conventions.md §92 et §98) ; ils vont au dépôt privé estran-studio/alacod-assets (`isaac/`)."
+  modifications: "un fichier extrait à la fois sous ~/orca/workspaces/alacod/packs/sonniss/, rogné (0,3 à 2,6 s), fondu de sortie, mono 44,1 kHz, RMS cible −18 à −22 dBFS (crête ≤ −1 dBFS), ogg vorbis (oggenc -q 5) par scripts/repack-isaac-sons.py."
+  statut: "surcharge locale gitignorée (sounds/sonniss/, .gitignore), branchée par ui/feedback.local.ron (§ 98) ; aucun fichier Sonniss n'est commité ; repli public : Kenney (entrée sound-impact-kenney-isaac) ou la clé death"

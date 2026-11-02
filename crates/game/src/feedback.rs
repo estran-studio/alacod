@@ -1340,6 +1340,19 @@ impl FeedbackSounds<'_> {
         self.play_path(path, key);
     }
 
+    /// Joue le premier son de `keys` que le jeu déclare (`pickup_key` puis `pickup`) ; rien si aucun ne l'est.
+    pub(crate) fn play_first(&self, keys: &[&str]) {
+        let Some(cfg) = self.config.as_ref() else {
+            return;
+        };
+        if let Some((key, path)) = keys
+            .iter()
+            .find_map(|key| cfg.0.sounds.get(*key).map(|path| (*key, path)))
+        {
+            self.play_path(path, key);
+        }
+    }
+
     /// Joue le son d'une arme ([`shot_sound`], [`reload_sound`]) au volume de sa clé, sinon de son repli.
     fn play_weapon_sound(&self, sound: &WeaponSound) {
         self.play_path_with_fallback(sound.path, &sound.key, Some(sound.volume_fallback));
