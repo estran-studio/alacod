@@ -117,11 +117,36 @@
             "shadow": "sprites/characters/shadow/shadow_sheet.ron",
         },
     ),
-    "roi_rat": (
-        animation: "sprites/enemies/zombie/zombie_animation.ron",
-        layers: {
-            "body": "sprites/enemies/zombie/zombie_hard_sheet.ron",
-            "shadow": "sprites/characters/shadow/shadow_sheet.ron",
-        },
-    ),
+    // Voie t (polissage-throne-vitrine, docs/conventions.md § 105) : images publiques, scripts/repack-throne-cc0.py, licences dans assets.yaml.
+    // Roi rat : Redshrike, OpenGameArt, CC BY 4.0 (« Art by Redshrike, for OpenGameArt.org »).
+    "roi_rat": (animation: "sprites/vitrine/roi_rat_animation.ron", layers: { "body": "sprites/vitrine/roi_rat_sheet.ron", "shadow": "sprites/characters/shadow/shadow_sheet.ron" }),
+    // Portail de l'étage : LetargicDev, OpenGameArt, CC0.
+    "portal": (animation: "sprites/vitrine/portail_animation.ron", layers: { "body": "sprites/vitrine/portail_sheet.ron" }),
+    // Armes : knekko, OpenGameArt, CC0. `weapon/<id>` au sol, `held/<id>` en main (cherché avant `sprite_config.name`, ui::weapon_visuals).
+    "weapon/revolver": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_revolver_sol_sheet.ron" }),
+    "held/revolver": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_revolver_main_sheet.ron" }),
+    "weapon/mitraillette": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_mitraillette_sol_sheet.ron" }),
+    "held/mitraillette": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_mitraillette_main_sheet.ron" }),
+    "weapon/fusil_a_pompe": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_fusil_a_pompe_sol_sheet.ron" }),
+    "held/fusil_a_pompe": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_fusil_a_pompe_main_sheet.ron" }),
+    "weapon/canon_ricochet": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_canon_ricochet_sol_sheet.ron" }),
+    "held/canon_ricochet": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_canon_ricochet_main_sheet.ron" }),
+    "weapon/lance_grenades": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_lance_grenades_sol_sheet.ron" }),
+    "held/lance_grenades": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_lance_grenades_main_sheet.ron" }),
+    "weapon/roquette": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_roquette_sol_sheet.ron" }),
+    "held/roquette": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_roquette_main_sheet.ron" }),
+    "weapon/mortier": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_mortier_sol_sheet.ron" }),
+    "held/mortier": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_mortier_main_sheet.ron" }),
+    "weapon/laser": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_laser_sol_sheet.ron" }),
+    "held/laser": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_laser_main_sheet.ron" }),
+    "weapon/plasma": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_plasma_sol_sheet.ron" }),
+    "held/plasma": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_plasma_main_sheet.ron" }),
+    "weapon/traqueur": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_traqueur_sol_sheet.ron" }),
+    "held/traqueur": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_traqueur_main_sheet.ron" }),
+    "weapon/lance_lames": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_lance_lames_sol_sheet.ron" }),
+    "held/lance_lames": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_lance_lames_main_sheet.ron" }),
+    "weapon/disque": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_disque_sol_sheet.ron" }),
+    "held/disque": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_disque_main_sheet.ron" }),
+    "weapon/arsenal": (animation: "sprites/vitrine/arme_animation.ron", layers: { "body": "sprites/vitrine/arme_arsenal_sol_sheet.ron" }),
+    "held/arsenal": (animation: "sprites/characters/player/player_animation.ron", layers: { "body": "sprites/vitrine/arme_arsenal_main_sheet.ron" }),
 })

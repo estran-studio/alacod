@@ -1,0 +1,18 @@
+(
+    path: "sprites/vitrine/portail.png",
+    tile_size: (32, 32),
+    columns: 5,
+    rows: 1,
+
+    animated: false,
+    name: "body",
+
+    scale: 2.0,
+
+    anchor: Center,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 5.0,
+
+)

@@ -241,6 +241,38 @@
     agrandis ×2 ; scripts/repack-throne.py ; aucun pixel dessiné.
   statut: dépôt privé alacod-assets (throne/…, docs/conventions.md § 96 et § 99), pas un placeholder
 
+# Voie t, polissage-throne-vitrine (2026-11-02, docs/conventions.md § 105) : images publiques, licences relues sur la page de chaque
+# contribution OpenGameArt avant l'import ; scripts/repack-throne-cc0.py (découpe, réduction par moyenne, aucun pixel dessiné).
+- id: knekko-futuristic-guns
+  fichiers:
+    - sprites/vitrine/arme_*.png
+  source: https://opengameart.org/content/futuristic-guns-weapons-and-items (pistols, shotguns_3, machine_guns, military, sniper_0, neonpunk, melee_0 ; page lue le 2026-11-02)
+  auteur: knekko
+  licence: CC0 1.0 (« Released into public domain. Attribution not required, but appreciated. »)
+  modifications: une arme découpée par feuille, réduite par moyenne (BOX) à 14-34 px de long puis alpha binaire,
+    répétée sur 4 lignes (`sprite_config.index` 0, 1 ou 3) ; scripts/repack-throne-cc0.py ; aucun pixel dessiné.
+  statut: commité (CC0)
+
+- id: letargicdev-portals
+  fichiers:
+    - sprites/vitrine/portail.png
+  source: https://opengameart.org/content/portals (portalRings2.png, page lue le 2026-11-02)
+  auteur: LetargicDev
+  licence: CC0 1.0
+  modifications: aucune (bande de 5 cases de 32 x 32 reprise telle quelle, la case 2 est affichée, ×2) ; scripts/repack-throne-cc0.py.
+  statut: commité (CC0)
+
+- id: redshrike-rat-king
+  fichiers:
+    - sprites/vitrine/roi_rat.png
+  source: https://opengameart.org/content/rat-and-rat-king-overworld-antifarea-style (rats.png, page lue le 2026-11-02)
+  auteur: Redshrike (Art by Redshrike, for OpenGameArt.org, http://opengameart.org)
+  licence: CC BY 4.0 (page : CC-BY 4.0, CC-BY 3.0, OGA-BY 3.0) ; attribution requise : « Art by Redshrike, for OpenGameArt.org »,
+    lien http://opengameart.org (à afficher dans les crédits du jeu publié)
+  modifications: trois cases de face (Idle) et trois cases de côté (Run) du roi rat, fond vert (0,128,0) rendu transparent,
+    mises en rangée de 16 x 18 ; ×2 à l'affichage ; scripts/repack-throne-cc0.py ; aucun pixel dessiné.
+  statut: commité (CC BY 4.0)
+
 # S2-11 (2026-10-29, docs/conventions.md § 98) : sons d'armes et d'événements de throne. Licences copiées avant l'import ; script
 # scripts/repack-throne-sons.py (un fichier extrait à la fois, jamais un bundle entier).
 - id: sound-snake-authentic-gun-sounds-throne

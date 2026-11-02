@@ -1,0 +1,33 @@
+// Capture seulement (polissage-throne-vitrine, jamais rejoué par `make test_scenarios` : hors de tests/scenarios) :
+// chaque joueur porte une seule arme de throne (« lance_grenades, roquette, mortier, laser »), la lâche à f25 puis s'éloigne.
+// À regarder : f15 l'arme dans la main (`held/<id>`), f110 l'arme au sol (`weapon/<id>`).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "throne",
+    map: "gabarit_armes.ldtk",
+    mode: Some(Sandbox),
+    frames: 120,
+    players: [
+        (weapon: "lance_grenades", inputs: [
+            (from: 10, to: 20, buttons: [], pan: (-64, 0)),
+            (from: 25, to: 28, buttons: [DropWeapon]),
+            (from: 40, to: 70, buttons: [Left]),
+        ]),
+        (weapon: "roquette", inputs: [
+            (from: 10, to: 20, buttons: [], pan: (64, 0)),
+            (from: 25, to: 28, buttons: [DropWeapon]),
+            (from: 40, to: 70, buttons: [Right]),
+        ]),
+        (weapon: "mortier", inputs: [
+            (from: 10, to: 20, buttons: [], pan: (-64, 0)),
+            (from: 25, to: 28, buttons: [DropWeapon]),
+            (from: 40, to: 70, buttons: [Left]),
+        ]),
+        (weapon: "laser", inputs: [
+            (from: 10, to: 20, buttons: [], pan: (64, 0)),
+            (from: 25, to: 28, buttons: [DropWeapon]),
+            (from: 40, to: 70, buttons: [Right]),
+        ]),
+    ],
+    expect: [],
+)

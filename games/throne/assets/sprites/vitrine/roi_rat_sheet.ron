@@ -1,0 +1,18 @@
+(
+    path: "sprites/vitrine/roi_rat.png",
+    tile_size: (16, 18),
+    columns: 6,
+    rows: 1,
+
+    animated: true,
+    name: "body",
+
+    scale: 2.0,
+
+    anchor: Center,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 1.0,
+
+)
