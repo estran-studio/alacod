@@ -28,7 +28,7 @@ cpSync(source, output, {
 const uploads = [];
 for (const [game, release] of Object.entries(releases.games)) {
   if (
-    !["zombies", "throne"].includes(game) ||
+    !["zombies", "throne", "isaac"].includes(game) ||
     !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(release.buildId)
   )
     throw new Error("Invalid release");

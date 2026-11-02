@@ -46,7 +46,7 @@ export function copyGameAssets(game, destination, includePrivate = privateAssets
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [game, destination] = process.argv.slice(2);
-  if (!['zombies', 'throne'].includes(game) || !destination) throw new Error('Usage : node scripts/web-assets.mjs <zombies|throne> <destination>');
+  if (!['zombies', 'throne', 'isaac'].includes(game) || !destination) throw new Error('Usage : node scripts/web-assets.mjs <zombies|throne|isaac> <destination>');
   const result = copyGameAssets(game, resolve(destination));
   console.log(`Assets de ${game} copiés vers ${destination} : surcharge privée ${privateAssetsEnabled() ? `incluse (${result.privateIncluded} fichiers)` : `exclue (${result.privateFound} fichiers présents sur le poste, non copiés)`}.`);
 }

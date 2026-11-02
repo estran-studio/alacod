@@ -6,7 +6,7 @@ export async function onRequest({ request, env }) {
 		return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
 	}
 	const key = new URL(request.url).pathname.slice(1);
-	if (!/^builds\/[a-zA-Z0-9][a-zA-Z0-9._-]*\/(zombies|throne)\/wasm_bg\.wasm$/.test(key)) return missing();
+	if (!/^builds\/[a-zA-Z0-9][a-zA-Z0-9._-]*\/(zombies|throne|isaac)\/wasm_bg\.wasm$/.test(key)) return missing();
 	if (!env.GAME_BUILDS) return new Response('Stockage indisponible.', { status: 503, headers: { 'Cache-Control': 'no-store' } });
 	const metadata = await env.GAME_BUILDS.head(key);
 	if (!metadata) return missing();
