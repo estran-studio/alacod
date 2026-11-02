@@ -8337,3 +8337,20 @@ lit par une surcharge locale gitignorée, **même principe que `hud.local.ron`**
 - **Preuve** : scénario `avant_poste_fenetre_coin` (zombie posé au point figé de la graine 2, fenêtre 17 de `Depart` ; avant : 171 px du
   joueur jusqu'à f600) ; diagnostic d'un zombie figé dans une campagne : JSON d'`alacod-sim` (`softlock`, `steering_point` à moins d'une
   unité de `position`).
+
+## 105. Throne visuel public : portail, roi rat, armes au sol et en main (voie t, `docs/taches/rapports/polissage-throne-vitrine.md`)
+
+Images **publiques** (CC0 et CC BY), commitées sous `games/throne/assets/sprites/vitrine/`, générées par `scripts/repack-throne-cc0.py` à partir de feuilles d'OpenGameArt
+(téléchargées dans `~/orca/workspaces/alacod/packs/oga-*`, licence relue sur la page de chaque contribution et copiée dans `assets.yaml` avant l'import : `knekko-futuristic-guns`
+CC0, `letargicdev-portals` CC0, `redshrike-rat-king` CC BY 4.0). Aucun pixel dessiné : découpe, réduction par moyenne puis alpha binaire, collage, retrait du fond vert de la feuille du rat.
+
+- **Portail** : id `portal` (déjà demandé par `floor_portal_visual_system` ; le carré violet reste le repli), une case de `portalRings2.png` ×2.
+- **Roi rat** : `roi_rat` (id = `asset_name_ref` du personnage), Idle 3 images de face, Run 3 images de côté ; l'échelle de collision (1,4) reste celle de `characters/roi_rat.ron`.
+- **Armes** : une image par arme (13) : `weapon/<id>` au sol (cherché par `weapon_candidates`) et `held/<id>` en main. **Seul changement de code** (présentation, `ui::weapon_visuals::attach_weapon_visuals`) :
+  si `held/<id de l'arme>` existe dans `GlobalAsset`, il l'emporte sur `sprite_config.name` (la feuille de famille `pistol`/`machine_gun`/`shotgun`, qui entre dans le checksum et ne change pas) ;
+  sans entrée `held/…`, le comportement d'avant est inchangé (zombies, gungeon, isaac).
+- **Surcharge locale** (§ 96) : `scripts/repack-throne.py` écrit en plus `held/<id>` pour les six armes d'Aymen (revolver, mitraillette, fusil à pompe, canon ricochet, roquette, lance-lames) ;
+  `sprites.local.ron` l'emporte alors sur les images publiques pour ces six armes. Copie dans le dépôt privé `alacod-assets` (`throne/sprites/…`, § 99).
+- **Captures** : scénarios jetables `docs/captures/polissage-throne-vitrine/scenarios/armes_{a,b,c,d}.ron` (hors `tests/scenarios`, jamais joués par la suite) ; `play_scenario --capture … --at 19,110`.
+- **Limites** : D180 (attribution CC BY sans écran de crédits), D181 (portail fixe, vert), D182 (une image par arme, deux styles selon la surcharge).
+- **Preuve** : aucune trace ne bouge (aucun `BLESS`) ; voir le rapport.
