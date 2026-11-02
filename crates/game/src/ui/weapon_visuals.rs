@@ -19,7 +19,14 @@ pub fn attach_weapon_visuals(
     weapons: Query<(Entity, &Weapon), Without<VisualsAttached>>,
 ) {
     for (entity, weapon) in weapons.iter() {
-        let name = &weapon.sprite_config.name;
+        // `held/<id de l'arme>` (une image portée par arme, comme `weapon/<id>` au sol) l'emporte sur
+        // `sprite_config.name` (feuille de famille, qui entre dans le checksum : on ne la change pas).
+        let held = format!("held/{}", weapon.config.name);
+        let name = if global_assets.spritesheets.contains_key(&held) {
+            &held
+        } else {
+            &weapon.sprite_config.name
+        };
         let (Some(map_layers), Some(animation_handle)) = (
             global_assets.spritesheets.get(name),
             global_assets.animations.get(name),

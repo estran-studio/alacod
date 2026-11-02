@@ -1,0 +1,18 @@
+(
+    path: "sprites/vitrine/arme_arsenal.png",
+    tile_size: (32, 10),
+    columns: 1,
+    rows: 4,
+
+    animated: false,
+    name: "body",
+
+    scale: 1.5,
+
+    anchor: Center,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 0.5,
+
+)

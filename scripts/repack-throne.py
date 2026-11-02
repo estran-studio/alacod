@@ -143,7 +143,7 @@ CHARACTERS = {
     "arroseur": ("zombie1", 1.0),
     "brute": ("zombie4", 1.0),
     "buffle": ("zombie4", 1.2),
-    "roi_rat": ("zombie4", 1.0),  # l'échelle 1,4 vient de `characters/roi_rat.ron`
+    # `roi_rat` : image publique (Redshrike, CC BY, scripts/repack-throne-cc0.py), pas de surcharge ici.
 }
 
 
@@ -245,6 +245,18 @@ def weapons(aymen: Pack) -> list[str]:
         (OUT / f"icon_{wid}_sheet.ron").write_text(
             write_sheet_ron(f"icon_{wid}", g.size, 1, 1, scale=1.0, animated=False, z=0.5))
         lines.append(entry(f"weapon/{wid}", f"icon_{wid}", f"icon_{wid}"))
+    # En main : `held/<id>` (cherché avant `sprite_config.name`) l'emporte sur les images publiques de Knekko pour ces armes d'Aymen.
+    for wid in icons:
+        g = gun(aymen, GROUND[wid])
+        sheet = blank(g.width, g.height * 4)
+        for r in range(4):
+            sheet.alpha_composite(g, (0, r * g.height))
+        sheet.save(OUT / f"held_{wid}.png")
+        (OUT / f"held_{wid}_sheet.ron").write_text(
+            write_sheet_ron(f"held_{wid}", (g.width, g.height), 1, 4, scale=1.0, animated=False,
+                            anchor="CenterLeft", z=2.0))
+        lines.append(f'    "held/{wid}": (animation: "sprites/characters/player/player_animation.ron", '
+                     f'layers: {{ "body": "sprites/postapo/held_{wid}_sheet.ron" }}),')
     # Image générique des armes au sol sans dessin dans le pack : le pistolet (dite telle quelle au rapport).
     lines.append(entry("weapon", "icon_revolver", "icon_revolver"))
     return lines

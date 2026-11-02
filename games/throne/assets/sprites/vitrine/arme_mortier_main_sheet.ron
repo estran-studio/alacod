@@ -1,0 +1,18 @@
+(
+    path: "sprites/vitrine/arme_mortier.png",
+    tile_size: (34, 11),
+    columns: 1,
+    rows: 4,
+
+    animated: false,
+    name: "body",
+
+    scale: 1.0,
+
+    anchor: CenterLeft,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 2.0,
+
+)

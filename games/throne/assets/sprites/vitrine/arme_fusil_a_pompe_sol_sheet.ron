@@ -1,0 +1,18 @@
+(
+    path: "sprites/vitrine/arme_fusil_a_pompe.png",
+    tile_size: (28, 7),
+    columns: 1,
+    rows: 4,
+
+    animated: false,
+    name: "body",
+
+    scale: 1.5,
+
+    anchor: Center,
+
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 0.5,
+
+)
