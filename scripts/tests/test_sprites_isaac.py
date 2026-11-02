@@ -52,6 +52,23 @@ class SpritesIsaacTests(unittest.TestCase):
         wa = gen.wall_atlas()
         self.assertGreaterEqual((wa.w // 16) * (wa.h // 16), tile + 1)
 
+    def test_le_sol_est_dans_la_feuille_et_dans_le_hud(self):
+        # S2-4 : `wall_art.floor.tiles` ne pointe que des tuiles de sol de la feuille (37 à 40), et chacune porte la couleur de fond du niveau
+        # sur ses bords (aucune couture entre deux variantes voisines).
+        hud = (ASSETS / "ui" / "hud.ron").read_text(encoding="utf-8")
+        tiles = {int(t) for t in re.search(r"floor: Some\(\(tiles: \[([\d, ]+)\]", hud).group(1).replace(" ", "").split(",")}
+        self.assertEqual(tiles, set(gen.FLOOR_TILES))
+        wa = gen.wall_atlas()
+        self.assertGreaterEqual((wa.w // 16) * (wa.h // 16), max(gen.FLOOR_TILES) + 1)
+        base = gen.rgb(gen.FLOOR_BASE)
+        for tile in gen.floor_tiles():
+            edge = [tile.get(i, 0) for i in range(16)] + [tile.get(i, 15) for i in range(16)] + [tile.get(0, i) for i in range(16)] + [tile.get(15, i) for i in range(16)]
+            self.assertTrue(all(px == base for px in edge))
+
+    def test_halo_et_pointeur_sont_declares(self):
+        ids = set(re.findall(r'^    "([^"]+)": \(animation:', (ASSETS / "sprites" / "sprites.ron").read_text(encoding="utf-8"), re.M))
+        self.assertTrue({"halo", "aim"} <= ids)
+
     def test_les_portes_couvrent_l_ouverture_de_quatre_cases_dans_tous_les_etats(self):
         _, atlases = gen.build()
         for name, size in (("atlas_porte_v", (16, 64)), ("atlas_porte_h", (64, 16))):

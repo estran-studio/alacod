@@ -6,7 +6,7 @@ import { copyGameAssets, privateAssetsEnabled } from './web-assets.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const games = process.argv.slice(2);
 if (!games.length) games.push('zombies', 'throne');
-if (games.some(game => !['zombies', 'throne'].includes(game))) throw new Error('Only zombies and throne can be built.');
+if (games.some(game => !['zombies', 'throne', 'isaac'].includes(game))) throw new Error('Only zombies, throne and isaac can be built.');
 const commit = run('git', ['rev-parse', '--short=12', 'HEAD'], {}, true).trim();
 const buildId = process.env.WEB_BUILD_ID || `${commit}-local-${Date.now()}`;
 if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(buildId)) throw new Error('Invalid WEB_BUILD_ID');

@@ -9,9 +9,18 @@
         atlas: "sprites/lisible/atlas_murs.png",
         hide_layers: ["LevelConnection", "Rocks", "Surfaces"],
         cells: [(layer: "Surfaces", value: 5, tile: 36)],
+        // S2-4 (§106) : sol de terre sous chaque case qui n'est pas un mur ; tuiles 37 à 40 de l'atlas (plate, grains, caillou, fissure),
+        // la plate quatre fois sur neuf pour que cailloux et fissures restent rares. Même couleur de base que le fond du niveau.
+        floor: Some((tiles: [37, 37, 37, 37, 38, 38, 38, 39, 40], mask_layer: None)),
     )),
+    // S2-4 (§83, §106) : couleur des joueurs par handle (0 bleu, 1 vert, 2 jaune, 3 violet), mêmes valeurs que gungeon, zombies et throne.
+    player_colors: ["#4aa3ff", "#4cd964", "#ffd60a", "#b266ff"],
     hide_markers: true, // tuiles d'apparition des ennemis : repères d'auteur, pas des objets
     names: {
+        "player": "J",
+        "gardien": "BOSS Gardien",
+        "colosse": "BOSS Colosse",
+        "cible": "Cible",
         "shell": "Sous",
         "chest": "Coffre",
         "chest_open": "Coffre vide",
@@ -45,7 +54,62 @@
         "secrete": (color: "#85c1e9", label: "?"),
         "diable": (color: "#e74c3c", label: "D"),
     },
+    // S2-4 (§83, §106) : légende (F7, source `legend`) ; les ids sont ceux de `sprites/sprites.ron`, donc la silhouette montrée est celle de la
+    // surcharge locale quand elle est présente (§106), sinon celle du repli public.
+    legend: [
+        (title: "Joueurs (couleur = numéro)", column: 0, entries: [
+            (label: "Joueur 1", sprite: Some("player"), tint: Some("#4aa3ff")),
+            (label: "Joueur 2", sprite: Some("player"), tint: Some("#4cd964")),
+            (label: "Joueur 3", sprite: Some("player"), tint: Some("#ffd60a")),
+            (label: "Joueur 4", sprite: Some("player"), tint: Some("#b266ff")),
+            (label: "Pointeur rouge : cible de l'ennemi", sprite: Some("aim"), tint: Some("#ff5a4d")),
+        ]),
+        (title: "Tirs et bombe", column: 0, entries: [
+            (label: "Larme ennemie", sprite: Some("bullet_enemy")),
+            (label: "Larme alliée", sprite: Some("bullet_player")),
+            (label: "Bombe posée : mèche", sprite: Some("bomb")),
+        ]),
+        (title: "Ennemis (pointeur rouge)", column: 1, entries: [
+            (label: "Suiveur : poursuit", sprite: Some("suiveur")),
+            (label: "Araignée : rapide, fragile", sprite: Some("araignee")),
+            (label: "Rampant : charge", sprite: Some("rampant")),
+            (label: "Cracheur : tire", sprite: Some("cracheur")),
+            (label: "Arroseur : éventail lent", sprite: Some("arroseur")),
+            (label: "Tourelle : immobile", sprite: Some("tourelle_croix")),
+            (label: "Mouche : vole", sprite: Some("mouche")),
+            (label: "Follet : vole et charge", sprite: Some("follet")),
+            (label: "Bourdon : vole et tire", sprite: Some("bourdon")),
+            (label: "Spectre : traverse", sprite: Some("spectre")),
+            (label: "BOSS Gardien", sprite: Some("gardien")),
+            (label: "BOSS Colosse", sprite: Some("colosse")),
+        ]),
+        (title: "Ramassables (halo qui pulse)", column: 2, entries: [
+            (label: "Sou (monnaie)", sprite: Some("shell")),
+            (label: "Clé", sprite: Some("item/key")),
+            (label: "Bombe", sprite: Some("item/bomb")),
+            (label: "Cœur", sprite: Some("item/coeur")),
+            (label: "Blank", sprite: Some("item/blank")),
+            (label: "Objet passif (initiale)", sprite: Some("item/passive")),
+            (label: "Objet actif (hexagone)", sprite: Some("item/active")),
+            (label: "Consommable (fiole)", sprite: Some("item/consumable")),
+            (label: "Coffre", sprite: Some("chest")),
+            (label: "Présentoir : prix", sprite: Some("shelf")),
+        ]),
+        (title: "Monde", column: 3, entries: [
+            (label: "Rocher : bombe", sprite: Some("rock")),
+            (label: "Rocher à butin", sprite: Some("rock_loot")),
+            (label: "Porte fermée (salle)", sprite: Some("door_v")),
+            (label: "Porte ouverte", sprite: Some("door_v"), anim: Some("Open")),
+            (label: "Porte à clé", sprite: Some("door_v"), anim: Some("Locked")),
+            (label: "Mur fissuré : bombe", sprite: Some("door_v"), anim: Some("Secret")),
+            (label: "Portail : étage suivant", sprite: Some("portal")),
+        ]),
+    ],
     widgets: [
+        // Légende (F7) : fermée par défaut.
+        (kind: Legend(source: "legend"), anchor: TopCenter,
+         offset: (0.0, 110.0), size: Some((936.0, 0.0)),
+         color: None, font_size: Some(11.0), background: Some("#05080df4")),
         (kind: Text(source: "floor", prefix: None), anchor: TopLeft,
          offset: (16.0, 12.0), size: Some((180.0, 24.0)),
          color: Some("#ffffff"), font_size: Some(20.0)),

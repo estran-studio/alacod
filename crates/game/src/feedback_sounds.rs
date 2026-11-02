@@ -31,6 +31,7 @@ pub(crate) fn add_event_sounds(app: &mut App) {
             play_boss_sounds,
             play_log_sounds,
             play_purchase_and_pickup_sounds,
+            play_active_sound,
             play_mutation_sound,
             play_menu_sounds,
         ),
@@ -208,7 +209,9 @@ fn play_log_sounds(sounds: FeedbackSounds, log: Res<FeedbackLog>) {
 // --- Achat, ramassage ------------------------------------------------------------------------
 
 /// `purchase` : un joueur local dépense (`CurrencyEvent` négatif) ; `pickup` : un joueur local
-/// ramasse un objet (`ItemPicked`) ou un power-up (`PowerUpPickedUp`). Un son par clé et frame.
+/// ramasse un objet (`ItemPicked`) ou un power-up (`PowerUpPickedUp`) ; `shell` : il ramasse des sous
+/// au sol (`CurrencyEvent` positif de motif `pickup`, isaac, S2-5). Un objet joue `pickup_<id>` si le
+/// jeu la déclare (clé, bombe, cœur…), sinon `pickup`. Un son par clé et par frame.
 fn play_purchase_and_pickup_sounds(
     sounds: FeedbackSounds,
     currency: Option<Res<FrameEvents<run::currency::CurrencyEvent>>>,
@@ -219,18 +222,86 @@ fn play_purchase_and_pickup_sounds(
 ) {
     let handles: BTreeSet<usize> = local_players.iter().map(|(_, p)| p.handle).collect();
     let ids: BTreeSet<usize> = local_players.iter().map(|(n, _)| n.0).collect();
-    let purchase =
-        currency.is_some_and(|c| c.iter().any(|e| e.delta < 0 && handles.contains(&e.handle)));
-    let pickup = items.is_some_and(|i| i.iter().any(|e| handles.contains(&e.player_handle)))
-        || powerups.is_some_and(|p| p.iter().any(|e| ids.contains(&e.picked_up_by.0)));
-    if !(purchase || pickup) || !first_look(&mut last_frame, sounds.frame.frame) {
+    let purchase = currency
+        .as_deref()
+        .is_some_and(|c| c.iter().any(|e| e.delta < 0 && handles.contains(&e.handle)));
+    let shell = currency.as_deref().is_some_and(|c| {
+        c.iter()
+            .any(|e| e.delta > 0 && e.reason == "pickup" && handles.contains(&e.handle))
+    });
+    let picked: BTreeSet<&str> = items
+        .as_deref()
+        .into_iter()
+        .flat_map(|i| i.iter())
+        .filter(|e| handles.contains(&e.player_handle))
+        .map(|e| e.item_id.as_str())
+        .collect();
+    let powerup = powerups
+        .as_deref()
+        .is_some_and(|p| p.iter().any(|e| ids.contains(&e.picked_up_by.0)));
+    if !(purchase || shell || powerup || !picked.is_empty())
+        || !first_look(&mut last_frame, sounds.frame.frame)
+    {
         return;
     }
     if purchase {
         sounds.play("purchase");
     }
-    if pickup {
+    if shell {
+        sounds.play("shell");
+    }
+    let mut played: BTreeSet<String> = BTreeSet::new();
+    for id in &picked {
+        let own = format!("{}{id}", content::feedback::PICKUP_KEY_PREFIX);
+        if played.insert(own.clone()) {
+            sounds.play_first(&[own.as_str(), "pickup"]);
+        }
+    }
+    if powerup {
         sounds.play("pickup");
+    }
+}
+
+// --- Objet actif -----------------------------------------------------------------------------
+
+/// `active` : l'objet actif d'un joueur local vient d'être utilisé, c'est-à-dire que le même objet
+/// est passé d'une charge non nulle à 0 (`item_use_active_system` est le seul à la remettre à 0 ;
+/// un autre objet actif ramassé, ou un premier vu, ne sonne pas).
+fn active_used(before: Option<(&str, u32)>, now: Option<(&str, u32)>) -> bool {
+    match (before, now) {
+        (Some((a, charge)), Some((b, 0))) => a == b && charge > 0,
+        _ => false,
+    }
+}
+
+/// `active`, dérivé de `Inventory::active` (rollback) d'une image rendue à l'autre. Un retour en
+/// arrière du compteur de frames (nouvelle partie, rollback) réarme sans jouer.
+fn play_active_sound(
+    sounds: FeedbackSounds,
+    players: Query<(&GgrsNetId, &items::Inventory), With<LocalPlayer>>,
+    mut seen: Local<BTreeMap<usize, (String, u32)>>,
+    mut last_frame: Local<Option<u32>>,
+) {
+    let frame = sounds.frame.frame;
+    let restarted = last_frame.is_some_and(|last| frame < last);
+    *last_frame = Some(frame);
+    let now: BTreeMap<usize, (String, u32)> = players
+        .iter()
+        .filter_map(|(net_id, inventory)| {
+            let slot = inventory.active.as_ref()?;
+            Some((net_id.0, (slot.item.clone(), slot.charge)))
+        })
+        .collect();
+    let used = !restarted
+        && now.iter().any(|(net_id, (item, charge))| {
+            active_used(
+                seen.get(net_id).map(|(i, c)| (i.as_str(), *c)),
+                Some((item.as_str(), *charge)),
+            )
+        });
+    *seen = now;
+    if used {
+        sounds.play("active");
     }
 }
 
@@ -377,6 +448,17 @@ mod tests {
         assert_eq!(log_sound_key(&FeedbackKind::BombFuse), Some("bomb"));
         assert_eq!(log_sound_key(&FeedbackKind::Flash), None);
         assert_eq!(log_sound_key(&FeedbackKind::Number), None);
+    }
+
+    #[test]
+    fn objet_actif_utilise_quand_sa_charge_retombe_a_zero() {
+        assert!(active_used(Some(("bol", 4)), Some(("bol", 0))));
+        // Déjà vide, en train de se charger, premier vu ou autre objet : rien.
+        assert!(!active_used(Some(("bol", 0)), Some(("bol", 0))));
+        assert!(!active_used(Some(("bol", 2)), Some(("bol", 3))));
+        assert!(!active_used(None, Some(("bol", 0))));
+        assert!(!active_used(Some(("bol", 4)), Some(("autre", 0))));
+        assert!(!active_used(Some(("bol", 4)), None));
     }
 
     #[test]
