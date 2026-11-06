@@ -84,8 +84,11 @@ pub struct SpriteImportOptions {
     pub max_side: u32,
     /// Impose la hauteur de la cellule réduite (sinon le plus grand facteur qui tient).
     pub cell_height: Option<u32>,
-    /// `Some(b)` : valeur de `mirror` ; `None` : vrai sauf pour huit directions.
+    /// `Some(b)` : valeur de `mirror` ; `None` : vrai sauf pour huit directions, et faux avec `direction`.
     pub mirror: Option<bool>,
+    /// `Some("S")` : ne garde que la ligne de cette direction du manifeste (un décor figé dans une
+    /// orientation : l'atlas n'a plus qu'une ligne par clip, la direction demandée ne change plus rien).
+    pub direction: Option<String>,
     /// Où se pose le pivot (pieds, point de contact au sol), en unités monde locales à l'entité :
     /// `(0, 0)` = l'origine de l'entité (comportement par défaut) ; `offset = (centre − pivot) × échelle + pivot_at`.
     pub pivot_at: (f32, f32),
@@ -106,6 +109,7 @@ impl SpriteImportOptions {
             max_side: 4096,
             cell_height: None,
             mirror: None,
+            direction: None,
             overwrite: false,
             pivot_at: (0.0, 0.0),
             fail_at_commit_step: None,
@@ -245,6 +249,10 @@ fn sanitize_id(raw: &str) -> Option<String> {
 fn fmt_f32(v: f32) -> String {
     format!("{v:?}")
 }
+
+/// Durée d'image (ms) écrite pour un clip fixe (`fps = 0`, une seule image) : sans effet visible, la
+/// carte d'animation en demande une.
+const STATIC_CLIP_MS: u64 = 1000;
 
 fn fps_to_ms(fps: f64) -> Option<u64> {
     if !fps.is_finite() || fps <= 0.0 {
@@ -960,12 +968,22 @@ pub fn import_sprite(
                 )));
             }
         }
-        let ms = fps_to_ms(clip.fps).ok_or_else(|| {
-            invalid(format!(
-                "clip « {clip_name} » : fps = {} : nombre fini > 0",
-                clip.fps
-            ))
-        })?;
+        // `fps = 0` : un clip fixe (décor), une seule image ; plusieurs images sans rythme n'ont pas de sens.
+        let ms = if clip.fps == 0.0 && clip.columns == 1 {
+            STATIC_CLIP_MS
+        } else if clip.fps == 0.0 {
+            return Err(invalid(format!(
+                "clip « {clip_name} » : fps = 0 avec {} colonnes : un clip fixe n'a qu'une colonne",
+                clip.columns
+            )));
+        } else {
+            fps_to_ms(clip.fps).ok_or_else(|| {
+                invalid(format!(
+                    "clip « {clip_name} » : fps = {} : nombre fini ≥ 0 (0 : clip fixe d'une colonne)",
+                    clip.fps
+                ))
+            })?
+        };
         let path = manifest_dir.join(&clip.sheet);
         let mismatch = |message: String| SpriteImportError::ImageMismatch {
             clip: clip_name.clone(),
@@ -998,8 +1016,35 @@ pub fn import_sprite(
     }
     // `animations` est un BTreeMap : ordre alphabétique, donc blocs et sorties déterministes.
 
-    let block_rows = clips[0].rows;
-    if clips.iter().any(|c| c.rows != block_rows) {
+    // `--direction` : une seule ligne par clip (celle de la direction demandée), `directions` ne déclare qu'elle.
+    let source_row: Option<u32> = match &options.direction {
+        None => None,
+        Some(wanted) => {
+            let Some(dirs) = &directions else {
+                return Err(bad_option(format!(
+                    "--direction {wanted} : le manifeste ne déclare pas `directions`"
+                )));
+            };
+            let row = dirs.iter().position(|d| d == wanted).ok_or_else(|| {
+                bad_option(format!(
+                    "--direction {wanted} : absente du manifeste (directions : {})",
+                    dirs.join(", ")
+                ))
+            })?;
+            Some(row as u32)
+        }
+    };
+    let directions: Option<Vec<String>> = match (&options.direction, directions) {
+        (Some(wanted), Some(_)) => Some(vec![wanted.clone()]),
+        (_, other) => other,
+    };
+
+    let block_rows = if source_row.is_some() {
+        1
+    } else {
+        clips[0].rows
+    };
+    if clips.iter().any(|c| c.rows != clips[0].rows) {
         return Err(invalid(
             "les clips n'ont pas tous le même nombre de lignes : un bloc a une hauteur unique"
                 .to_string(),
@@ -1082,6 +1127,11 @@ pub fn import_sprite(
             return Err(mismatch("dimensions changées pendant l'import".to_string()));
         }
         for row in 0..clip.rows {
+            if source_row.is_some_and(|wanted| wanted != row) {
+                continue;
+            }
+            // Ligne de l'atlas : celle du clip, ou 0 quand une seule direction est gardée.
+            let dest_row = if source_row.is_some() { 0 } else { row };
             for col in 0..clip.columns {
                 let mut cell = Vec::with_capacity((cell_w * cell_h * 4) as usize);
                 for y in 0..cell_h {
@@ -1101,7 +1151,7 @@ pub fn import_sprite(
                     layout.cell_h as usize,
                 );
                 let x0 = (block_column + col) * layout.cell_w;
-                let y0 = (block_row + row) * layout.cell_h;
+                let y0 = (block_row + dest_row) * layout.cell_h;
                 for y in 0..layout.cell_h {
                     for x in 0..layout.cell_w {
                         let o = ((y * layout.cell_w + x) * 4) as usize;
@@ -1175,6 +1225,7 @@ pub fn import_sprite(
         }
     };
     let mirror = options.mirror.unwrap_or(match &directions {
+        _ if options.direction.is_some() => false,
         Some(dirs) => dirs.len() != 8,
         None => true,
     });
