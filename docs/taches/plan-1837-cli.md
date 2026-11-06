@@ -79,7 +79,7 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
   sergent en deux phases, fin. Porte du **dim 22 nov** : William valide le cœur de 30 s ; sinon l'alpha se limite au cœur et à l'extérieur.
 - Décision de William (2026-11-06) : **coop de première classe** : chaque palier se joue à deux en ligne dès D1, rien n'est d'abord solo. Repères : `1867_lore/design/jeu.md`
   265-273 (tranche à deux), 248 (feu follet à la mort), 225-233 (fenêtre de rythme élargie en coop).
-- Décision de William (2026-11-06) : **planches 2D en 8 directions**, pas de 3D en direct.
+- ~~Décision de William (2026-11-06) : planches 2D en 8 directions, pas de 3D en direct.~~ **Remplacée** le 6 nov au soir par la décision « rendu 3D façon sprite » ci-dessous.
 - Décision de William (2026-11-06) : **harmonium dans le jeu**. `harmonium_bevy` est déjà en Bevy =0.19.1 ; la feature `harmonium` de `crates/game` est coupée (commentaire
   périmé « encore sur bevy 0.17 »). Le coordinateur harmonium prépare le plugin natif et wasm (rapport attendu d'ici le 13 nov :
   `harmonium/specs/013-moteur-dans-le-jeu/pret-pour-1837.md`) ; l'engine réactive la feature après ce rapport (M-8). Pas de port vers Bevy 0.20 avant Noël. Le principe II
@@ -95,6 +95,16 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
   (`make test_scenarios_par` sur `origin/main`, plus la suite de 1837) par le timer `alacod-nuit` du VPS (04:00 UTC), résultat dans `~/orca/runs/nuit/<date>.md` et sur la
   carte avant 8 h NST ; **le matin**, tri de chaque trace qui a bougé : voulu → `BLESS` avec une ligne d'explication ; bug → lot de correction, le premier du jour. `main`
   peut être cassé temporairement. Garde : une partie rouge deux nuits de suite → aucun nouveau merge sur cette partie. Remplace « une trace qui bouge : stop et rapport ».
+
+**Décisions de William (6 nov 2026, soir, après avoir joué X-5 sur le Mac : « 1000× pire que les démos du labo »)** (brief `runs/x-5/brief-parite-rendu.md`) :
+- Décision de William (2026-11-06, soir) : **rendu 3D en direct « façon sprite » pour ce qui bouge** (personnages et créatures), exactement comme les bancs gigue, armes et
+  loup (`1867_lore/design/rendu-facon-sprite.md`, `tools/site/facon-sprite.js`) ; décor, props, bâtiments et effets restent en sprites ; l'arme est attachée à la main dans
+  le modèle, les gestes se fondent, la visée est libre. Remplace la décision « planches 2D en 8 directions ». Lot R-1 (§ 6).
+- Décision de William (2026-11-06, soir) : **même comportement que le labo** : règles et nombres des bancs `site/labo/gigue/` et `site/labo/armes/` (`gigue.js`, `armes.js`,
+  `allures.js`) et de `design/game-feel.md`, à l'identique ; les réglages exportés par William (`~/orca/runs/reglages-labo/{gigue,armes}.json` sur le Mac) priment sur les
+  `DEFAUTS`. Lot P-1 (§ 6).
+- Décision de William (2026-11-06, soir) : **4 agents en parallèle**, avec tout son usage ; Opus (`anthropic/claude-opus-5-5`) pour la simulation, le réseau et le rendu,
+  Sonnet (`anthropic/claude-sonnet-5-5`) pour le contenu ; tout en omp. Remplace « deux voies ». Le coordinateur alacod reste le seul à merger dans alacod (R-1 compris).
 
 À trancher par William (bloque seulement le lot indiqué) :
 - **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md` ; William l'écrit lui-même (décision du 6 nov), question posée une semaine avant le palier.
@@ -158,10 +168,12 @@ scénarios passe la nuit et se trie le matin (§ 3). Les dates sont celles où l
 |---|---|---|---|
 | **M-1 Web d'un jeu externe** | le build Chrome du dépôt 1837 : une commande qui produit le wasm et les assets d'un jeu hors de `games/` (aujourd'hui `scripts/build-web-games.mjs` et le `Makefile` ne connaissent que les jeux de l'engine), servie par URL ; version dans `APP_VERSION` | transcript de la commande sur un jeu créé par `alacod new` dans un dossier temporaire (wasm et assets produits, `cargo check --target wasm32-unknown-unknown` vert) ; partie du soir de William sur le build de 1837 par URL (aucun Chrome automatisé) | mer 11 nov |
 | **M-2 À deux en ligne dans Chrome** | relevé de l'état (matchbox et lobby existent sur le web ; allumette absent du web, `crates/game/src/args/mod.rs:203` ; `polissage-reseau-amis` @ `8297b2ea`, S1-3 préparé, non recetté, non fusionné) puis le minimum pour que deux Chrome sur deux réseaux jouent 1837 à deux : fusion de `polissage-reseau-amis` si sa recette passe, allumette sur le web seulement si le lobby matchbox ne suffit pas | relevé en dix lignes (fichier:ligne) avant tout code ; `make check` ; protocole de recette en dix lignes pour William (deux machines, URL, lobby), la partie du soir fait foi ; aucun desync à l'écran | ven 13 nov |
-| **M-3 Horloge, jugement, gigue, renvoi** | reprise de `x-3-verbes-d1` (`0e57f6f3`, `x-3-arret.md`) : vérifier puis rebaser sur `main` ; horloge de rythme dans la sim, condition `Timing` et notes `TimingJudged` en `FrameEvents`, dash calé (gigue), fenêtre de rythme réglable en données et élargie en coop ; renvoi des balles par une hitbox de mêlée **sur la seule fenêtre `frappe`** (changement d'équipe, visée) ; on ne garde que ce que D1 utilise | unitaires `combat`, `effects`, `content`, `game` ; scénarios neutres du testbed (renvoi dans la fenêtre et hors fenêtre, note parfait/bien/raté, fenêtre coop plus large) avec traces neuves seulement ; `make schedule_order_diff` (seuls les types neufs, neutres, avant la clôture) ; aucune trace existante modifiée ; revue indépendante (un P1 et trois P2 de `35d94c5e` fermés) | dim 15 nov |
-| **M-4 Une bouche de canon par direction** | le point de sortie des balles par direction (8) lu dans les ancres du manifeste (`ancres.json`, part de D156) par `alacod import-sprite`, posé sur la feuille, lu par le tir | test d'import sur un manifeste synthétique (8 bouches) ; scénario neutre : position de naissance de la balle par direction ; capture (Xvfb + lavapipe sur le VPS) d'un tir dans les 8 directions | dim 15 nov |
+| **M-3** | **absorbé par P-1** (6 nov, soir) | — | — |
+| **M-4** | **remplacé par R-1** (6 nov, soir) : le canon est un point du modèle 3D | — | — |
 | **M-5 Le cœur à deux : PV, feu follet, relève** | mort d'un joueur en coop → état « feu follet » (ne frappe pas, se déplace, attire les ennemis) ; relève par le coéquipier ou au point de reprise (`jeu.md` 248) ; PV et munitions lus par le HUD | scénarios neutres à deux joueurs (mort → feu follet → relève ; les deux tombés → défaite) ; trace neuve seulement ; HUD par `HudText` | jeu 19 nov |
-| **M-6 Tri en y et `moments` du manifeste** | ordre d'affichage par y (présentation, `PostUpdate`) ; lecture des `moments` du manifeste (images-clés : `frappe`, tir) par `import-sprite`, exposés aux verbes qui en ont besoin (fenêtre `frappe` de M-3) | test d'import (moments) ; capture de deux personnages qui se croisent ; aucune trace modifiée | ven 20 nov |
+| **M-6 `moments` du manifeste** | lecture des `moments` d'`anime.json` (fenêtres `frappe` et autres), exposés aux verbes qui en ont besoin (P-1) ; le tri en y entre corps 3D et décor sprite passe dans R-1 | test d'import (moments) ; aucune trace modifiée | ven 20 nov |
+| **P-1 Parité des règles des bancs gigue et armes** (Opus, VPS, absorbe M-3) | **étape 1, avant tout code** : tableau de parité dans `1837/docs/parite-labo.md`, une ligne par règle (règle ; valeur du banc avec `fichier:ligne` ; ce que l'engine ou 1837 fait aujourd'hui ; écart) : déplacement et allures, gigue, visée, fusil, Brown Bess si elle est au banc, hache et renvoi, fantassins (machine d'état, cône, salves), hitstop, grâce ; **étape 2** : les verbes de l'engine (reprise de `x-3-verbes-d1` @ `0e57f6f3` où elle sert), puis les RON de 1837. Branche engine mergée par le coordinateur alacod ; branche 1837 par le coordinateur 1837 | le tableau, toutes les lignes « identique » ou écart accepté par William ; scénarios neutres du testbed (traces neuves seulement), `make schedule_order_diff` (types neufs neutres, avant la clôture) ; `make check_rapide` ; partie du soir de William à côté du banc | dim 15 nov |
+| **R-1 Rendu façon sprite** (Opus, **Mac**, sous le coordinateur 1837) | chargement d'`anime.glb` et `anime.json` (étape `banc` de la pipeline) ; squelette animé et mélange des gestes (marche avec tir, épauler, rechargement) ; matériau porté de `facon-sprite.js` (sRGB × rampe 0,66 → 1,12, lumière fixe en haut à gauche, normales lissées, contour d'un pixel de sprite en passe d'écran, ombre portée sur le décor) ; caméra orthographique à 45° calée sur le monde 2D (1 m de profondeur = 64/91 m de largeur) ; tri par y entre corps 3D et décor sprite ; armes à l'os de la main, balles depuis la bouche du canon ; présentation pure (aucune trace ne bouge) ; natif et wasm32 dans Chrome | capture du Frère dans 1837 à côté du banc `/labo/armes/`, même pose et même direction ; `make check_rapide WASM=1` par le coordinateur alacod, qui merge ; partie du soir de William | dim 15 nov |
 | **M-7 Feature `harmonium`** | réactiver la feature de `crates/game` après le rapport du coordinateur harmonium (`pret-pour-1837.md`, attendu d'ici le 13 nov), natif et wasm, Bevy =0.19.1 ; musique de la salle (présentation, hors simulation) | `cargo check -p game --features harmonium` natif et `wasm32-unknown-unknown` ; aucune trace modifiée ; écoute de William (geste humain, carte) | ven 20 nov |
 | **X-6 (23 nov → 13 déc)** | portes et clé portée par un ennemi ; couverts qui arrêtent les balles ; grille 3×3 par graine de sauvegarde ; `Lure` et `Grab` ; boss en deux phases | preuves écrites ici avant le départ de chaque lot, d'après la définition du niveau de William | 29 nov, 6 déc, 13 déc |
 
@@ -169,16 +181,18 @@ scénarios passe la nuit et se trie le matin (§ 3). Les dates sont celles où l
 - X-5 → S0, **dim 8** : « la commande pour lancer le jeu, plus une capture » (cible sam 7 : kit importé).
 - M-1 → S1, **dim 15**, cible mer 11 : « 1837 jouable dans Chrome par URL ».
 - M-2 → S1, **dim 15**, cible ven 13 : « 1837 à deux en ligne dans Chrome ».
-- M-3 → S1, **dim 15** : « la gigue au tempo ; la hache qui renvoie les balles ».
-- M-4 → S1, **dim 15** : « une bouche de canon par direction ».
+- M-3 → absorbé par P-1. M-4 → remplacé par R-1.
+- P-1 → S1, **dim 15** : « la gigue au tempo ; la hache qui renvoie les balles » et cible jeu 12 « 4 fantassins… cône… rechargent 3 s » (machine d'état des fantassins).
+- R-1 → S1, **dim 15** : « une bouche de canon par direction » (devenue un point du modèle) ; et la planche du Frère jugée par William (lun 9, porte art) dans son rendu définitif.
 - M-5 → S2, **dim 22 (la porte)**, cible jeu 19 : « le joueur mort devient un feu follet et son coéquipier peut le relever » ; et lun 16 « la vie, les dégâts, les munitions et leur affichage ».
-- M-6 → S2, **dim 22**, cible ven 20 : « le tri en profondeur » ; les `moments` servent la fenêtre `frappe` de M-3 (dim 15), en données provisoires d'ici là.
+- M-6 → S2, **dim 22**, cible ven 20 : les `moments` ; ils servent la fenêtre `frappe` de P-1 (dim 15), en données provisoires d'ici là. Le tri en profondeur passe dans R-1.
 - M-7 → S2, **dim 22**, cible ven 20 : « la musique de la salle par harmonium ».
 - X-6 → S3 **dim 29** (portes, clé portée par un ennemi, couverts qui arrêtent les balles), S4 **dim 6 déc** (grille 3×3 par graine ; lutins qui s'agrippent : `Grab`),
   S5 **dim 13 déc** (clé du boss dans une autre branche, sergent en deux phases) ; `Lure` selon la définition de William. Le plan par jour la fait **commencer lun 16** (« la génération des portes, de la clé et
-  de l'intérieur de la loge commence ») : à lancer dès que M-1 à M-4 sont mergés, sans attendre le 23.
-- S1 jeu 12 (« 4 fantassins… un cône au sol annonce le tir 1 s avant… rechargent 3 s ») : contenu de la voie j, pas un lot d'engine : l'engine a `Pattern::Telegraph(n)`
-  et le dessin de cône `pattern_telegraph` (`crates/combat/src/emitter.rs:18`, `crates/game/src/feedback.rs:557`) ; à confirmer par la voie j, sinon proposition.
+  de l'intérieur de la loge commence ») : à lancer dès qu'un agent se libère après M-1/M-2 ou P-1, sans attendre le 23.
+- S1 jeu 12 (« 4 fantassins… un cône au sol annonce le tir 1 s avant… rechargent 3 s ») : machine d'état des fantassins dans P-1 (l'engine a `Pattern::Telegraph(n)`
+  et le dessin de cône `pattern_telegraph`, `crates/combat/src/emitter.rs:18`, `crates/game/src/feedback.rs:557` ; P-1 dit s'ils suffisent).
+- Numéros (6 nov, soir) : dettes M-1/M-2 D190–D193, P-1 D194–D197, R-1 D198–D199 ; `docs/conventions.md` § 108 (M-1), § 109 (M-2), § 110 (P-1), § 111 (R-1).
 
 **Règles de William (2026-11-06) pour ce plan** : (1) les jalons du dimanche sont l'engagement ; les jours sont des cibles ; on vise l'avance : un lot fini tôt lance le
 suivant sans attendre sa date, toujours dans l'ordre ; (2) chaque lot cite le jalon qu'il sert ; (3) à chaque point de contrôle, le coordinateur vérifie que les tâches en
