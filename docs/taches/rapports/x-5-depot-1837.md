@@ -54,3 +54,12 @@ INFO map_ldtk::game::local: Map is loaded with 55 character spawns   (puis la pa
 ## Journal
 
 `docs/taches.md` § 10 : ligne `LIVRÉ wquintal/x-5-depot-1837` ci-dessous.
+
+## Clôture (coordinateur, 2026-11-06)
+
+- Partie E mergée : `main` `0e7c8d58` (merge de `51d87e0a`), puis `748deacb` (cible `check_rapide`). Vérification avant merge : **contrôle rapide** (décision de William du
+  6 nov) sur `51d87e0a`, vert : format 3 s, test_tools 5 s, check_forbidden 1 s, check_rollback_registration 1 s, check_sim_boundary 8 s, lint 70 s, test_crates 434 s
+  (522 s, cible chaude ; journal `~/orca/runs/x-5/logs/check-rapide-51d87e0a.log`). La suite de scénarios passe la nuit (timer `alacod-nuit`, première nuit le 7 nov).
+- 1837 réépinglé sur `0e7c8d58` (un `main` poussé) : `estran-studio/1837` `07a2084` (build release `--locked`), puis `0ac2f5b` (tranche : règles de vérification et du plan).
+  Les mentions de `6617cde1` ci-dessus datent d'avant ce réépinglage.
+- Preuve du dim 8 : `./jouer.sh` (README du dépôt 1837) et `docs/preuves/x-5-cour.png` (rendu Xvfb + lavapipe, VPS). Non vu sur le Mac : la partie du soir de William fait foi.
