@@ -1,6 +1,6 @@
 # Plan : préparer l'engine pour 1837, premier jeu externe géré par la CLI (lots X) — rédigé le 2026-10-26
 
-**État au 2026-10-26 : plan écrit, rien lancé.**
+**État au 2026-11-06 : X-4a et X-4b livrés ; X-5 avancé au 6 nov (preuve dim 8) ; voie m découpée (§ 6). Objectif studio : O3, alpha coop du prologue, dim 20 déc.**
 
 Demande de William (2026-10-26) : « préparer le engine pour 1837 et la création du premier jeu externe avec la CLI, qui serait 100 % managé via
 notre CLI ». Règle de découpage validée le même jour : `docs/plan-engine.md` §4.8 (engine, contenu ou plugin de jeu) et `docs/conventions.md` §4
@@ -73,24 +73,42 @@ Décision de William (2026-10-27) : ordre jeu-d'abord X-4b → X-5 (9 nov) → X
 Aucune fusion ni tag `v0.1.0` pour X-1/X-2 ; X-4b part de `main` (X-4a livré) sans attendre X-2a (`alacod.rs` de `main` suffit, `rapports/x-4b-arret.md`).
 Notes d'arrêt : `rapports/x-1-arret.md`, `x-2a-arret.md`, `x-2b-arret.md`, `x-3-arret.md`, `x-4b-arret.md`.
 
+**Décisions de William (5 et 6 nov 2026, brief du studio `runs/x-5/brief-studio.md`) : O3, alpha coop du prologue complet de 1837, dans Chrome à la manette, à deux en ligne, dim 20 déc.**
+Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engine, sans aucun lot (décision du 5 nov) ; le run du polissage est fermé. Ce plan (O2) sert O3.
+- Décision de William (2026-11-06) : **prologue complet** : extérieur, poste de garde et clé, hall et grille 3×3 par graine de sauvegarde, clé du boss dans une autre branche,
+  sergent en deux phases, fin. Porte du **dim 22 nov** : William valide le cœur de 30 s ; sinon l'alpha se limite au cœur et à l'extérieur.
+- Décision de William (2026-11-06) : **coop de première classe** : chaque palier se joue à deux en ligne dès D1, rien n'est d'abord solo. Repères : `1867_lore/design/jeu.md`
+  265-273 (tranche à deux), 248 (feu follet à la mort), 225-233 (fenêtre de rythme élargie en coop).
+- Décision de William (2026-11-06) : **planches 2D en 8 directions**, pas de 3D en direct.
+- Décision de William (2026-11-06) : **harmonium dans le jeu**. `harmonium_bevy` est déjà en Bevy =0.19.1 ; la feature `harmonium` de `crates/game` est coupée (commentaire
+  périmé « encore sur bevy 0.17 »). Le coordinateur harmonium prépare le plugin natif et wasm (rapport attendu d'ici le 13 nov :
+  `harmonium/specs/013-moteur-dans-le-jeu/pret-pour-1837.md`) ; l'engine réactive la feature après ce rapport (M-8). Pas de port vers Bevy 0.20 avant Noël. Le principe II
+  (plan de temps partagé, `horloge-etude.md` § 10) reste une décision de William.
+- Décision de William (2026-11-06) : **Chrome** : le build de 1837 se joue par URL.
+- Décision de William (2026-11-06) : **dépôt `estran-studio/1837` privé** (remplace « création du dépôt GitHub : William » de D-a : le coordinateur le crée au lot X-5).
+- Décision de William (2026-11-06) : **William écrit lui-même la définition du niveau** dans `1867_lore` (`design/prologue-loge.md`, les six « À fermer ») ; les agents la
+  lisent et ne l'écrivent jamais. Si la définition d'un palier manque, la question va à William une semaine avant, par la carte `--unread`, sans bloquer le reste.
+- Économie (inchangée) : workers en Sonnet, deux voies validées par William (m : engine, VPS ; j : dépôt 1837, coordinateur sur le Mac) ; ni Chrome automatisé ni
+  campagne de bots ; `make check` seul avant merge ; une trace qui bouge : stop et rapport ; la partie du soir de William fait foi.
+
 À trancher par William (bloque seulement le lot indiqué) :
-- **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md`.
+- **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md` ; William l'écrit lui-même (décision du 6 nov), question posée une semaine avant le palier.
 
-## 4. Lots (état au 2026-10-27 : ordre jeu-d'abord)
+## 4. Lots (état au 2026-11-06)
 
-| Lot | Contenu | Prérequis | État (2026-10-27) | Effort |
+| Lot | Contenu | Prérequis | État (2026-11-06) | Effort |
 |---|---|---|---|---|
 | **X-1 Points d'extension** | entrée unique (D-e) ; runner de scénarios appelable depuis le binaire du jeu ; point d'insertion des enregistrements rollback d'un plugin ; variantes `Custom` ouvertes ; kinds de contenu et règles de lint déclarés par un plugin ; D133 | — | **gelé**, branche conservée (`x-1-points-extension`, `integration-1837`) | high |
 | **X-2a CLI : dépendance et lancement** | D-b (`new` par tag, `engine local/pin/status`), racine engine par `cargo metadata` au lieu de `BUILT_FROM_ENGINE` ; `alacod run [--sandbox [profil]] [--headless] [--seed] [--players]` ; `alacod remote …` (remplace `scripts/alacod-remote` pour un jeu externe) ; D126, D130, D131 | — | **gelé**, branche conservée (`x-2a-cli-dependance-lancement`, `integration-x2a`) | medium |
 | **X-2b CLI : test, vidéo, build** | `alacod test` joue les scénarios par le binaire du jeu (plugin compris) et écrit dans le jeu ; `alacod video` (rendu, Mac) ; `alacod build --release` et `--web` (version du jeu dans `APP_VERSION`) ; test de bout en bout du §1.1 | X-1, X-2a | **gelé**, brouillon conservé (`x-2b-brouillon-sur-x2a`) | medium |
-| **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | X-5 (besoins montrés par 1837) | **reporté après X-5**, branche conservée (`x-3-verbes-d1`) | high |
+| **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | X-5 (besoins montrés par 1837) | **repris par la voie m** (M-3, § 6), branche conservée (`x-3-verbes-d1` @ `0e57f6f3`) | high |
 | **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | **livré** | medium |
 | **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a (depuis `main`) | **livré** le 2026-10-29 (`wquintal/x-4b-import-sprite`, rapport `x-4b-import-sprite.md`) ; mains et ancres : D156, plus tard | medium |
-| **X-5 Création de 1837 et palier D1** | `alacod new 1837` (9 nov), assets du kit Frontière importés, une pièce, deux fantassins, hache, fusil, gigue rythmée, scénarios et traces dans le dépôt du jeu ; échelle réglée en jouant ; tout par `alacod` | X-4b, D-a | après X-4b | medium |
-| **X-6 Paliers D2 à D5** | verbes `Lure`/`Grab`, contrainte de branche de la clé du boss (`map::generation::grid`), graine de la sauvegarde (`meta::Profile`), extérieur dessiné → intérieur généré ; contenu des paliers | X-5, X-3, Q-3 | après X-3 | à planifier |
+| **X-5 Création de 1837 et kit de la cour** | dépôt privé `estran-studio/1837` par `alacod new 1837 --git --rev <main poussé>` ; kit importé par `alacod import-sprite` depuis `1867_lore/assets/sprites/` (le Frère avec hache et fusil, le fantassin, la loge, le décor de la cour) ; retrait de l'exception fantassin du testbed (§ 5) ; `1837/docs/tranche.md` ; commande du build du soir (natif) ; preuve dim 8 : la commande + une capture du Frère et du fantassin dans la cour, à l'échelle du jeu | X-4b, décision du 6 nov | **en cours** (avancé au 6 nov) | medium |
+| **X-6 Paliers D2 à D5** | portes et clé portée par un ennemi, couverts qui arrêtent les balles, grille 3×3 par graine, `Lure`/`Grab`, boss en deux phases (§ 6, 23 nov → 13 déc) | X-5, M-3, Q-3 | voie m, lots écrits avant leur départ | à planifier |
 
-Chemin critique (2026-10-27) : X-4b → X-5. X-4b livré le 2026-10-29 ; suivent X-5 (9 nov), puis X-3, puis X-6. X-1, X-2a et X-2b sont gelés jusqu'à un besoin daté (aucune fusion, aucun tag).
-Avant le 2026-10-27 : X-1 → X-2b → X-5, sur quatre voies.
+Chemin critique (2026-11-06) : X-5 (6 → 8 nov), puis la voie m dans l'ordre du calendrier de `1837/docs/tranche.md` (§ 6). X-1, X-2a et X-2b restent gelés (aucune fusion, aucun tag).
+Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27 : X-1 → X-2b → X-5, sur quatre voies.
 
 ### Espace de solution par lot
 
@@ -116,11 +134,31 @@ Avant le 2026-10-27 : X-1 → X-2b → X-5, sur quatre voies.
   - **Exception datée (décision de William du 2026-10-28, Q-X4b-1)** : la planche `fantassin-de-ligne` (pipeline `1867_lore`), son personnage d'essai et le scénario
     `sprite_import_fantassin` entrent dans `games/testbed` et `tests/scenarios` **pour tester X-4b**, jusqu'à la création du dépôt 1837 (X-5, 9 nov). Ils sont retirés à ce
     moment par revert de `a878966c`, `7b5d9d20` et `a81523fe`, qui ne touchent que ces fichiers. Licence : « © 2026 estran-studio, tous droits réservés ; preuve X-4b, retiré au 9 nov »
-    (`assets.yaml`). Aucune autre exception : l'outil, les tests synthétiques et la doc restent neutres.
+    (`assets.yaml`). Aucune autre exception : l'outil, les tests synthétiques et la doc restent neutres. **Retrait au lot X-5 (avancé au 6 nov).**
 - `CLAUDE.md` (déterminisme, frontière simulation/présentation), `docs/conventions.md` §4 (point 0 compris).
 - Aucun nom de jeu dans le code de l'engine ; aucune trace de clone ne bouge (`BLESS` interdit) ; `make schedule_order_diff` vide pour X-1 et X-3.
 - VPS : `make test_crates` un paquet à la fois, `scripts/target-sweep.sh` sous 30 Go libres.
-- Dettes : **D139 à D155** réservées à ce plan (D134–D138 : polissage) : X-1 D139–D143, X-2a D144–D148, X-3 D149–D152, X-4a D153–D155 ;
-  annoncer le numéro pris dans le journal.
+- Dettes : **D139 à D155** réservées à ce plan (D134–D138 : polissage) : X-1 D139–D143, X-2a D144–D148, X-3 D149–D152, X-4a D153–D155 ; X-4b D156–D157 ; X-5 **D186–D189**,
+  voie m **D190–D219** (dix par semaine du calendrier : 9 → 15 nov D190–D199, 16 → 22 nov D200–D209, X-6 D210–D219). Sections de `docs/conventions.md` : X-5 § 107,
+  voie m § 108 et suivants, une par lot, demandées au coordinateur. Annoncer le numéro pris dans le journal.
 - Docs au merge : `docs/conventions.md` (un § par lot), `docs/jouer.md`, `templates/starter/CLAUDE.md`, `CLAUDE.md` (CLI et entrée unique).
 - Chaque lot finit par `LIVRÉ <branche>` dans le journal (`docs/taches.md` §10) et un rapport dans `docs/taches/rapports/x-<n>-*.md`.
+
+## 6. Voie m (engine, VPS) : lots et preuves (écrits le 2026-11-06, avant leur départ)
+
+Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837 passe par l'engine (X-1 gelé), avec le contenu générique du testbed et des noms neutres (§ 5).
+`make check` prend 1 à 3 h par merge : les lots d'engine passent avant le contenu, et un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker Sonnet,
+`make check` vert avant le merge (par le coordinateur), aucune trace des clones qui bouge sans stop et rapport. Les dates sont celles où l'engine fournit le bloc à la voie j.
+
+| Lot | Contenu | Preuve (avant le merge) | Fourni à la voie j |
+|---|---|---|---|
+| **M-1 Web d'un jeu externe** | le build Chrome du dépôt 1837 : une commande qui produit le wasm et les assets d'un jeu hors de `games/` (aujourd'hui `scripts/build-web-games.mjs` et le `Makefile` ne connaissent que les jeux de l'engine), servie par URL ; version dans `APP_VERSION` | transcript de la commande sur un jeu créé par `alacod new` dans un dossier temporaire (wasm et assets produits, `cargo check --target wasm32-unknown-unknown` vert) ; partie du soir de William sur le build de 1837 par URL (aucun Chrome automatisé) | mer 11 nov |
+| **M-2 À deux en ligne dans Chrome** | relevé de l'état (matchbox et lobby existent sur le web ; allumette absent du web, `crates/game/src/args/mod.rs:203` ; `polissage-reseau-amis` @ `8297b2ea`, S1-3 préparé, non recetté, non fusionné) puis le minimum pour que deux Chrome sur deux réseaux jouent 1837 à deux : fusion de `polissage-reseau-amis` si sa recette passe, allumette sur le web seulement si le lobby matchbox ne suffit pas | relevé en dix lignes (fichier:ligne) avant tout code ; `make check` ; protocole de recette en dix lignes pour William (deux machines, URL, lobby), la partie du soir fait foi ; aucun desync à l'écran | ven 13 nov |
+| **M-3 Horloge, jugement, gigue, renvoi** | reprise de `x-3-verbes-d1` (`0e57f6f3`, `x-3-arret.md`) : vérifier puis rebaser sur `main` ; horloge de rythme dans la sim, condition `Timing` et notes `TimingJudged` en `FrameEvents`, dash calé (gigue), fenêtre de rythme réglable en données et élargie en coop ; renvoi des balles par une hitbox de mêlée **sur la seule fenêtre `frappe`** (changement d'équipe, visée) ; on ne garde que ce que D1 utilise | unitaires `combat`, `effects`, `content`, `game` ; scénarios neutres du testbed (renvoi dans la fenêtre et hors fenêtre, note parfait/bien/raté, fenêtre coop plus large) avec traces neuves seulement ; `make schedule_order_diff` (seuls les types neufs, neutres, avant la clôture) ; aucune trace existante modifiée ; revue indépendante (un P1 et trois P2 de `35d94c5e` fermés) | dim 15 nov |
+| **M-4 Une bouche de canon par direction** | le point de sortie des balles par direction (8) lu dans les ancres du manifeste (`ancres.json`, part de D156) par `alacod import-sprite`, posé sur la feuille, lu par le tir | test d'import sur un manifeste synthétique (8 bouches) ; scénario neutre : position de naissance de la balle par direction ; capture (Xvfb + lavapipe sur le VPS) d'un tir dans les 8 directions | dim 15 nov |
+| **M-5 Le cœur à deux : PV, feu follet, relève** | mort d'un joueur en coop → état « feu follet » (ne frappe pas, se déplace, attire les ennemis) ; relève par le coéquipier ou au point de reprise (`jeu.md` 248) ; PV et munitions lus par le HUD | scénarios neutres à deux joueurs (mort → feu follet → relève ; les deux tombés → défaite) ; trace neuve seulement ; HUD par `HudText` | jeu 19 nov |
+| **M-6 Tri en y et `moments` du manifeste** | ordre d'affichage par y (présentation, `PostUpdate`) ; lecture des `moments` du manifeste (images-clés : `frappe`, tir) par `import-sprite`, exposés aux verbes qui en ont besoin (fenêtre `frappe` de M-3) | test d'import (moments) ; capture de deux personnages qui se croisent ; aucune trace modifiée | ven 20 nov |
+| **M-7 Feature `harmonium`** | réactiver la feature de `crates/game` après le rapport du coordinateur harmonium (`pret-pour-1837.md`, attendu d'ici le 13 nov), natif et wasm, Bevy =0.19.1 ; musique de la salle (présentation, hors simulation) | `cargo check -p game --features harmonium` natif et `wasm32-unknown-unknown` ; aucune trace modifiée ; écoute de William (geste humain, carte) | ven 20 nov |
+| **X-6 (23 nov → 13 déc)** | portes et clé portée par un ennemi ; couverts qui arrêtent les balles ; grille 3×3 par graine de sauvegarde ; `Lure` et `Grab` ; boss en deux phases | preuves écrites ici avant le départ de chaque lot, d'après la définition du niveau de William | 29 nov, 6 déc, 13 déc |
+
+Coupes si ça glisse (ordre du studio) : la grille tirée devient une disposition fixe ; puis le lutin sort de l'alpha.
