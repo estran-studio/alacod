@@ -41,3 +41,5 @@ sous `assets/`, déclarés dans `assets/game.ron`, assemblent des behaviors cod�
 ## Lancer
 
 `cargo run` (rendu), `alacod sandbox` (bac à sable, rechargement à chaud ; `cargo run --features native -- --sandbox`) ou `ALACOD_HEADLESS=1 cargo run --no-default-features --features native`.
+
+Nom du paquet cargo : `{{package}}` (celui du jeu, sauf s'il commence par un chiffre : Cargo l'exige commençant par une lettre, `alacod new` préfixe alors `jeu-`). Le binaire est `target/<profil>/{{package}}` ; le dossier, `game.ron` et le titre de la fenêtre gardent `{{name}}`.

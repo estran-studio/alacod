@@ -131,10 +131,9 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
   composants, outillage). Aucun personnage, ennemi, arme, sprite, carte, valeur de réglage ni nom de 1837 (pas de « gigue », « rôdeur », « loge »,
   120 bpm…) dans le code, le contenu, les fixtures ou les scénarios de l'engine ; ceux-ci utilisent le contenu générique du testbed et des noms
   neutres (`dash`, `parade`, `renvoi`). Le contenu de 1837 (ennemis de D1, sprites, réglages) vit dans son dépôt, créé au lot X-5.
-  - **Exception datée (décision de William du 2026-10-28, Q-X4b-1)** : la planche `fantassin-de-ligne` (pipeline `1867_lore`), son personnage d'essai et le scénario
-    `sprite_import_fantassin` entrent dans `games/testbed` et `tests/scenarios` **pour tester X-4b**, jusqu'à la création du dépôt 1837 (X-5, 9 nov). Ils sont retirés à ce
-    moment par revert de `a878966c`, `7b5d9d20` et `a81523fe`, qui ne touchent que ces fichiers. Licence : « © 2026 estran-studio, tous droits réservés ; preuve X-4b, retiré au 9 nov »
-    (`assets.yaml`). Aucune autre exception : l'outil, les tests synthétiques et la doc restent neutres. **Retrait au lot X-5 (avancé au 6 nov).**
+  - **Exception datée (décision de William du 2026-10-28, Q-X4b-1), levée au lot X-5** : la planche `fantassin-de-ligne` (pipeline `1867_lore`), son personnage d'essai et le scénario
+    `sprite_import_fantassin` étaient dans `games/testbed` et `tests/scenarios` pour tester X-4b. Ils sont **retirés** (revert de `a878966c`, `7b5d9d20` et `a81523fe`,
+    `docs/conventions.md` § 107) ; le dépôt de 1837 importe la planche lui-même. Aucune autre exception : l'outil, les tests synthétiques et la doc restent neutres.
 - `CLAUDE.md` (déterminisme, frontière simulation/présentation), `docs/conventions.md` §4 (point 0 compris).
 - Aucun nom de jeu dans le code de l'engine ; aucune trace de clone ne bouge (`BLESS` interdit) ; `make schedule_order_diff` vide pour X-1 et X-3.
 - VPS : `make test_crates` un paquet à la fois, `scripts/target-sweep.sh` sous 30 Go libres.

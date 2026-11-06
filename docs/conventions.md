@@ -576,7 +576,7 @@ ses scénarios sont écrits sous `<jeu>/tests/generated`. Les armes se jouent su
 pas).
 
 **Jeu hors de l'engine** : `cargo install --path crates/content --bin alacod`, puis
-`alacod new mon-jeu [--engine <racine>] [--git [--rev <sha>]]` copie `templates/starter/` (contenu minimal qui passe le
+`alacod new mon-jeu [--engine <racine>] [--git [--rev <sha>]]` (le nom peut commencer par un chiffre : § 107) copie `templates/starter/` (contenu minimal qui passe le
 lint : joueur, quatre armes, une arène) dans `./mon-jeu`, avec un `Cargo.toml` à dépendances par
 chemin vers l'engine (ou par git avec `--git` : URL de `origin` et révision, qui doit être poussée) (+ `[workspace]` et `[patch.crates-io]` `bevy_ecs_ldtk`, que cargo n'applique
 qu'à la racine), le `Cargo.lock` de l'engine, un `CLAUDE.md` et un hook de lint. `lint` et
@@ -7989,7 +7989,8 @@ rappelle `pivot_at` et l'offset écrit ; elle donne aussi donne la hauteur réel
 et unités affichées, pour choisir U (import d'essai : 143 px source, U = 20,4 → 32 unités, comme la boussole §89).
 
 **Preuve sur un vrai manifeste.** Aucune règle ci-dessus ne dépend d'un jeu ou d'un personnage : les tests de l'outil (`crates/content/tests/sprite_import.rs`)
-tournent sur des PNG synthétiques neutres. Un import d'essai d'un vrai personnage (huit directions, dix clips) vit dans **deux commits de la branche X-4b qui ne touchent que lui, retirables par `git revert`** (dossier `sprites/` du personnage, entrée `sprites.ron`, personnage, `assets.yaml`, scénario `sprite_import_fantassin` et sa trace) ; sa licence est « à confirmer par William ».
+tournent sur des PNG synthétiques neutres. L'import d'essai d'un vrai personnage (huit directions, dix clips) a servi à X-4b dans le testbed puis **vit maintenant dans le dépôt du
+jeu qui l'a demandé** (retiré de l'engine au lot X-5 par revert de ses trois commits, § 107) ; sa licence est celle de ce dépôt.
 Rapport et transcript : `docs/taches/rapports/x-4b-import-sprite.md`. Tests : `sprite_import.rs` (intégration et unitaires), `animation` (`clip_timing_tests`, `presentation_clip_tests`),
 `game` (`shoot_pose_tests`). Dettes D156 (mains et ancres) et D157 (clips sans état).
 
@@ -8377,3 +8378,27 @@ Présentation et données seulement : **aucune trace ne bouge**, aucun `BLESS`.
   vérifie l'objet ; un objet sans clé propre joue `pickup`). Public : `feedback.ron` (Kenney CC0 et un tir Snake's pour `explosion`) ;
   privé : `ui/feedback.local.ron` + `sounds/sonniss/` (§ 98). Les clés `death_<id>` sont posées dans la surcharge privée seulement (le
   repli public est `death`). Tout choix de fichier est fait sur le nom et la durée, **sans écoute**.
+
+## 107. Un jeu au nom numérique, import de décor (X-5, `docs/taches/rapports/x-5-depot-1837.md`)
+
+Outillage et documentation seulement : **aucune trace ne bouge** (seule la trace de `sprite_import_fantassin` disparaît avec le revert), aucun `BLESS`.
+
+- **Retrait de l'exception du testbed** (`plan-1837-cli.md` § 5) : `git revert` de `a878966c`, `7b5d9d20` et `a81523fe`. Le personnage d'essai d'X-4b, sa feuille,
+  son scénario et son entrée `assets.yaml` ne sont plus dans l'engine ; le dépôt du jeu qui l'a demandé les importe lui-même par `alacod import-sprite`. Le rapport
+  `x-4b-import-sprite.md` reste tel quel (historique).
+- **`alacod new 2048`** : le nom d'un jeu est `[a-z0-9][a-z0-9_-]*` (première lettre minuscule **ou chiffre**). Le **dossier**, le `name` de `game.ron`, le titre de la fenêtre
+  (`CoreSetupConfig::from_env`) et les messages du `main.rs` gardent le nom donné ; le **paquet et le binaire cargo** reçoivent un nom valide pour Cargo, qui refuse un
+  nom commençant par un chiffre : `cargo_package_name` (`crates/content/src/bin/alacod.rs`) préfixe `jeu-` si le nom commence par un chiffre (`2048` → `jeu-2048`),
+  sinon le nom tel quel. Le gabarit a un second marqueur, `{{package}}`, **seulement** dans `templates/starter/Cargo.toml` (`name = "{{package}}"`) ; `{{name}}` reste le nom
+  du jeu partout ailleurs. `alacod sandbox`/`editor` lisent le paquet dans le `Cargo.toml` (`content::launch::package_name`) : rien d'autre à changer. Binaire :
+  `target/release/jeu-2048`. Test : `crates/content/tests/cli.rs::new_accepts_a_numeric_game_name_with_a_valid_cargo_package` (nom neutre `2048`, `cargo metadata --no-deps`, lint).
+- **Import d'un décor** (`alacod import-sprite`, § 91) : un manifeste de décor (`"type": "prop"`, un clip `static` d'une colonne, 4 ou 8 directions) était refusé
+  (`fps = 0 : nombre fini > 0`). Deux compléments génériques, aucun vocabulaire de contenu nouveau :
+  - **`fps = 0` = clip fixe** : accepté avec **une seule colonne** (durée d'image écrite 1000 ms, sans effet) ; zéro fps avec plusieurs colonnes, négatif ou non fini restent refusés.
+  - **`--direction <DIR>`** : ne garde que la ligne de cette direction du manifeste (atlas à une ligne par clip, `directions: rows: [<DIR>]`, `mirror: false`) : un décor qui ne se
+    tourne pas avec l'entité qui le porte. Un même manifeste s'importe sous deux ids (`--id mur-h --direction S`, `--id mur-v --direction E`). Refusé sans écriture si le manifeste
+    n'a pas `directions` ou pas cette direction.
+  Le décor importé est une entrée `sprites.ron` : **un personnage du jeu** (kind `Character`, `asset_name_ref` = l'id, comme la cible `target` du gabarit : immobile, sans behavior)
+  le pose par une entité `CharacterSpawn` de carte ou un `characters[]` de profil de bac à sable. Tests : `sprite_import.rs` (`static_clip_with_zero_fps_imports_as_one_image`,
+  `zero_fps_with_several_columns_or_a_negative_fps_fails_without_artifacts`, `direction_keeps_only_that_row_of_every_clip`).
+- Dettes **D186** à **D189** : `docs/taches/dettes.md`.

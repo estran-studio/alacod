@@ -783,3 +783,129 @@ fn pivot_at_shifts_the_offset_by_the_given_amount_and_sign() {
     ));
     assert_eq!(snapshot(&game), before);
 }
+
+/// Décor : un clip fixe (`fps = 0`, une colonne) est importé ; le jeu généré passe le lint.
+#[test]
+fn static_clip_with_zero_fps_imports_as_one_image() {
+    let dir = scratch("static");
+    write_sheet(&dir.join("decor.png"), 0, 1, 4, 8);
+    let manifest = manifest_json(
+        "decor",
+        8,
+        Some(&["E", "N", "W", "S"]),
+        &[clip_json("static", "decor.png", 1, 4, "0", true)],
+    );
+    let path = dir.join("decor.sprite.json");
+    std::fs::write(&path, manifest).unwrap();
+    let game = dir.join("jeu");
+    make_game(&game, "({\n})\n");
+
+    let mut opts = options();
+    opts.states = vec![("Idle".into(), "static".into())];
+    let r = import_sprite(&path, &game, opts).unwrap();
+    assert_eq!(r.clips.len(), 1);
+    assert_eq!((r.clips[0].start, r.clips[0].end), (0, 0), "une image");
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+    let anim = std::fs::read_to_string(game.join("assets").join(&r.animation)).unwrap();
+    assert!(anim.contains("\"Idle\": (start: 0, end: 0)"), "{anim}");
+    let (_, _, errors) = content::load_and_lint(&game).unwrap();
+    assert_eq!(non_start_map_errors(&errors), Vec::<String>::new());
+}
+
+/// Zéro fps n'est un clip fixe qu'avec une seule colonne ; un fps négatif ou non fini reste refusé.
+#[test]
+fn zero_fps_with_several_columns_or_a_negative_fps_fails_without_artifacts() {
+    let dir = scratch("static-bad");
+    write_sheet(&dir.join("x.png"), 0, 3, 1, 8);
+    let game = dir.join("jeu");
+    make_game(&game, "({\n})\n");
+    for (fps, needle) in [("0", "fps = 0 avec 3 colonnes"), ("-2", "fps = -2")] {
+        let manifest = manifest_json(
+            "x",
+            8,
+            Some(&["S"]),
+            &[clip_json("static", "x.png", 3, 1, fps, true)],
+        );
+        let path = dir.join("x.sprite.json");
+        std::fs::write(&path, manifest).unwrap();
+        let err = import_sprite(&path, &game, options()).unwrap_err();
+        assert!(err.to_string().contains(needle), "{err}");
+        assert!(!game.join("assets/sprites/x").exists());
+    }
+}
+
+/// `direction` : un seul rang par clip (celui de la direction demandée), `directions` ne déclare que lui,
+/// sans miroir ; une direction absente du manifeste est refusée sans rien écrire.
+#[test]
+fn direction_keeps_only_that_row_of_every_clip() {
+    let dir = scratch("one-direction");
+    write_sheet(&dir.join("decor.png"), 0, 1, 4, 8);
+    let manifest = manifest_json(
+        "decor",
+        8,
+        Some(&["E", "N", "W", "S"]),
+        &[clip_json("static", "decor.png", 1, 4, "0", true)],
+    );
+    let path = dir.join("decor.sprite.json");
+    std::fs::write(&path, manifest).unwrap();
+    let game = dir.join("jeu");
+    make_game(&game, "({\n})\n");
+
+    let mut opts = options();
+    opts.sprite_id = Some("decor-s".into());
+    opts.direction = Some("S".into());
+    let r = import_sprite(&path, &game, opts).unwrap();
+    assert_eq!(r.rows, 1, "un rang par clip");
+    let sheet = std::fs::read_to_string(game.join("assets").join(&r.sheet)).unwrap();
+    assert!(sheet.contains("rows: [S]") && sheet.contains("mirror: false"), "{sheet}");
+    let atlas = image::open(game.join("assets").join(&r.image))
+        .unwrap()
+        .to_rgba8();
+    let (cw, ch) = r.cell;
+    // Ligne 3 du manifeste (S) : c'est la seule qui reste, à la ligne 0 de l'atlas.
+    assert_eq!(
+        atlas.get_pixel(cw / 2, ch / 2).0,
+        cell_color(0, 3, 0),
+        "l'image gardée est celle de S"
+    );
+    let (_, _, errors) = content::load_and_lint(&game).unwrap();
+    assert_eq!(non_start_map_errors(&errors), Vec::<String>::new());
+
+    // Une autre direction du même manifeste sous un autre id : deux orientations figées.
+    let mut east = options();
+    east.sprite_id = Some("decor-e".into());
+    east.direction = Some("E".into());
+    let r = import_sprite(&path, &game, east).unwrap();
+    let atlas = image::open(game.join("assets").join(&r.image))
+        .unwrap()
+        .to_rgba8();
+    assert_eq!(atlas.get_pixel(cw / 2, ch / 2).0, cell_color(0, 0, 0));
+
+    let before = snapshot(&game);
+    for (direction, needle) in [("NE", "absente du manifeste")] {
+        let mut bad = options();
+        bad.sprite_id = Some("decor-ne".into());
+        bad.direction = Some(direction.into());
+        let err = import_sprite(&path, &game, bad).unwrap_err();
+        assert!(matches!(err, SpriteImportError::InvalidOption { .. }), "{err}");
+        assert!(err.to_string().contains(needle), "{err}");
+    }
+    assert_eq!(snapshot(&game), before);
+
+    // Sans `directions` dans le manifeste, `direction` n'a rien à choisir.
+    write_sheet(&dir.join("nodir.png"), 0, 1, 1, 8);
+    let manifest = manifest_json(
+        "nodir",
+        8,
+        None,
+        &[clip_json("static", "nodir.png", 1, 1, "0", true)],
+    );
+    let path = dir.join("nodir.sprite.json");
+    std::fs::write(&path, manifest).unwrap();
+    let mut bad = options();
+    bad.direction = Some("S".into());
+    assert!(matches!(
+        import_sprite(&path, &game, bad).unwrap_err(),
+        SpriteImportError::InvalidOption { .. }
+    ));
+}

@@ -51,7 +51,8 @@ enum Command {
     ///
     /// `alacod new mon-jeu [--engine ~/alacod]`.
     New {
-        /// Nom du jeu (minuscules, chiffres, `-` et `_`) ; crée le dossier `./<nom>`.
+        /// Nom du jeu (minuscules, chiffres, `-` et `_`, première lettre minuscule ou chiffre) ; crée le dossier
+        /// `./<nom>`. Un nom qui commence par un chiffre donne un paquet cargo `jeu-<nom>` (Cargo refuse l'autre).
         name: String,
         /// Racine de l'engine (contient `crates/` et `templates/starter`). Par défaut : celle
         /// d'où ce binaire a été compilé.
@@ -127,6 +128,10 @@ enum Command {
         /// Hauteur imposée de la cellule réduite (sinon le plus grand facteur qui tient).
         #[arg(long)]
         cell_height: Option<u32>,
+        /// Ne garde que la ligne de cette direction du manifeste (`E`, `NE`, `N`, `NW`, `W`, `SW`, `S`, `SE`) : un décor
+        /// figé dans une orientation, quel que soit le côté où regarde l'entité (sans miroir).
+        #[arg(long, value_name = "DIR")]
+        direction: Option<String>,
         /// Remplace les fichiers et l'entrée déjà présents.
         #[arg(long)]
         overwrite: bool,
@@ -302,6 +307,10 @@ fn main() -> ExitCode {
         } => match new_game(&name, engine, git || rev.is_some(), rev) {
             Ok(dir) => {
                 println!("{} créé.", dir.display());
+                let package = cargo_package_name(&name);
+                if package != name {
+                    println!("  paquet et binaire cargo : {package} (Cargo refuse un nom qui commence par un chiffre)");
+                }
                 println!("  cd {name} && alacod lint && alacod describe");
                 println!("  cargo run   # premier build long (bevy)");
                 ExitCode::SUCCESS
@@ -371,6 +380,7 @@ fn main() -> ExitCode {
             max_side,
             pivot_at,
             cell_height,
+            direction,
             overwrite,
         } => {
             let pivot_at = match pivot_at.as_deref() {
@@ -412,6 +422,7 @@ fn main() -> ExitCode {
                         max_side,
                         pivot_at,
                         cell_height,
+                        direction,
                         overwrite,
                         ..content::sprite_import::SpriteImportOptions::new(scale)
                     },
@@ -767,22 +778,37 @@ fn self_check() -> ExitCode {
     }
 }
 
+/// Nom du paquet Cargo (et du binaire) d'un jeu de nom `name`. Cargo refuse un nom de paquet qui commence
+/// par un chiffre : un nom de jeu numérique reçoit le préfixe `jeu-` (`2048` → `jeu-2048`) ; tout autre nom
+/// est repris tel quel. Le dossier, `game.ron` (`name`) et le titre de la fenêtre gardent le nom donné.
+fn cargo_package_name(name: &str) -> String {
+    if name.starts_with(|c: char| c.is_ascii_digit()) {
+        format!("jeu-{name}")
+    } else {
+        name.to_string()
+    }
+}
+
 /// `alacod new` : copie `<engine>/templates/starter` dans `./<name>` en remplaçant `{{name}}`
-/// et `{{engine}}` dans les fichiers texte, et reprend le `Cargo.lock` de l'engine (mêmes
-/// versions de dépendances que l'engine, qui compile).
+/// (nom du jeu), `{{package}}` (nom du paquet Cargo, voir `cargo_package_name`) et `{{engine}}`
+/// dans les fichiers texte, et reprend le `Cargo.lock` de l'engine (mêmes versions de dépendances
+/// que l'engine, qui compile).
 fn new_game(
     name: &str,
     engine: Option<PathBuf>,
     git: bool,
     rev: Option<String>,
 ) -> Result<PathBuf, String> {
-    let valid = name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+    let valid = name
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
         && name
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_');
     if !valid {
         return Err(format!(
-            "nom de jeu « {name} » invalide : minuscules, chiffres, `-` et `_`, première lettre minuscule"
+            "nom de jeu « {name} » invalide : minuscules, chiffres, `-` et `_`, première lettre minuscule ou chiffre"
         ));
     }
     let engine = engine.unwrap_or_else(|| PathBuf::from(BUILT_FROM_ENGINE));
@@ -814,7 +840,9 @@ fn new_game(
     } else {
         EngineSource::Path(engine_str.clone())
     };
-    copy_template(&template, &target, name, &engine_str, &source).map_err(|e| e.to_string())?;
+    let package = cargo_package_name(name);
+    copy_template(&template, &target, name, &package, &engine_str, &source)
+        .map_err(|e| e.to_string())?;
     let lock = engine.join("Cargo.lock");
     if lock.is_file() {
         std::fs::copy(&lock, target.join("Cargo.lock")).map_err(|e| e.to_string())?;
@@ -860,6 +888,7 @@ fn copy_template(
     from: &std::path::Path,
     to: &std::path::Path,
     name: &str,
+    package: &str,
     engine: &str,
     source: &EngineSource,
 ) -> std::io::Result<()> {
@@ -872,12 +901,15 @@ fn copy_template(
             continue;
         }
         if src.is_dir() {
-            copy_template(&src, &dst, name, engine, source)?;
+            copy_template(&src, &dst, name, package, engine, source)?;
             continue;
         }
         match std::fs::read_to_string(&src) {
             Ok(mut text) => {
-                text = text.replace("{{name}}", name).replace("{{engine}}", engine);
+                text = text
+                    .replace("{{name}}", name)
+                    .replace("{{package}}", package)
+                    .replace("{{engine}}", engine);
                 while let Some(start) = text.find("{{engine:") {
                     let end = start + text[start..].find("}}").unwrap_or(0) + 2;
                     let krate = text[start + "{{engine:".len()..end - 2].to_string();

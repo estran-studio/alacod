@@ -242,10 +242,52 @@ fn new_creates_a_lint_clean_game_with_agent_config() {
     assert!(ok, "{json}");
 }
 
+/// Un nom de jeu qui commence par un chiffre : le dossier et `game.ron` gardent le nom, le paquet et le
+/// binaire cargo reçoivent `jeu-<nom>` (Cargo refuse un nom de paquet qui commence par un chiffre).
+#[test]
+fn new_accepts_a_numeric_game_name_with_a_valid_cargo_package() {
+    let tmp = Tmp::new("new-numeric");
+    let out = new_game(&tmp, "2048", &[]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let game = tmp.0.join("2048");
+
+    let cargo = std::fs::read_to_string(game.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("name = \"jeu-2048\""), "{cargo}");
+    assert!(!cargo.contains("{{"), "placeholder non remplacé :\n{cargo}");
+    assert_eq!(
+        content::launch::package_name(&cargo).as_deref(),
+        Some("jeu-2048"),
+        "`alacod sandbox` lance le paquet du Cargo.toml"
+    );
+    // Cargo lui-même accepte le manifeste (pas de résolution : `--no-deps`).
+    let metadata = Command::new("cargo")
+        .args(["metadata", "--no-deps", "--offline", "--format-version", "1"])
+        .arg("--manifest-path")
+        .arg(game.join("Cargo.toml"))
+        .output()
+        .unwrap();
+    assert!(metadata.status.success(), "{}", text(&metadata.stderr));
+    assert!(text(&metadata.stdout).contains("\"name\":\"jeu-2048\""));
+
+    let manifest = std::fs::read_to_string(game.join("assets/game.ron")).unwrap();
+    assert!(manifest.contains("name: \"2048\""));
+    let main = std::fs::read_to_string(game.join("src/main.rs")).unwrap();
+    assert!(main.contains("from_env(\"2048\")"), "titre = nom du jeu");
+    assert!(!main.contains("{{"));
+
+    let (ok, json) = lint_json(&game);
+    assert!(ok, "{json}");
+
+    // Un nom de jeu valide pour Cargo garde son nom de paquet.
+    assert!(new_game(&tmp, "demo", &[]).status.success());
+    let cargo = std::fs::read_to_string(tmp.0.join("demo/Cargo.toml")).unwrap();
+    assert!(cargo.contains("name = \"demo\""));
+}
+
 #[test]
 fn new_rejects_bad_names_and_existing_folders() {
     let tmp = Tmp::new("new-bad");
-    for bad in ["Mon_Jeu", "1jeu", "a b", ""] {
+    for bad in ["Mon_Jeu", "-jeu", "_jeu", "a b", "2Jeu", ""] {
         let out = new_game(&tmp, bad, &[]);
         assert!(!out.status.success(), "« {bad} » aurait dû être refusé");
     }
