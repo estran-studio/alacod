@@ -88,8 +88,13 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
 - Décision de William (2026-11-06) : **dépôt `estran-studio/1837` privé** (remplace « création du dépôt GitHub : William » de D-a : le coordinateur le crée au lot X-5).
 - Décision de William (2026-11-06) : **William écrit lui-même la définition du niveau** dans `1867_lore` (`design/prologue-loge.md`, les six « À fermer ») ; les agents la
   lisent et ne l'écrivent jamais. Si la définition d'un palier manque, la question va à William une semaine avant, par la carte `--unread`, sans bloquer le reste.
-- Économie (inchangée) : workers en Sonnet, deux voies validées par William (m : engine, VPS ; j : dépôt 1837, coordinateur sur le Mac) ; ni Chrome automatisé ni
-  campagne de bots ; `make check` seul avant merge ; une trace qui bouge : stop et rapport ; la partie du soir de William fait foi.
+- Économie : workers en **omp** sur Sonnet (`anthropic/claude-sonnet-5-5`, jamais Claude Code, décision du 6 nov), deux voies validées par William (m : engine, VPS ;
+  j : dépôt 1837, coordinateur sur le Mac) ; ni Chrome automatisé ni campagne de bots ; la partie du soir de William fait foi.
+- Décision de William (2026-11-06), alacod et 1837, dès le merge de X-5 : **avant merge, seulement le contrôle rapide** (`make check_rapide` : tout `make check` sauf la
+  suite de scénarios ; `WASM=1` quand le lot touche le web ; 522 s mesurées dont `test_crates` 434 s, sous le plafond de 15 min) ; **la nuit**, la suite complète
+  (`make test_scenarios_par` sur `origin/main`, plus la suite de 1837) par le timer `alacod-nuit` du VPS (04:00 UTC), résultat dans `~/orca/runs/nuit/<date>.md` et sur la
+  carte avant 8 h NST ; **le matin**, tri de chaque trace qui a bougé : voulu → `BLESS` avec une ligne d'explication ; bug → lot de correction, le premier du jour. `main`
+  peut être cassé temporairement. Garde : une partie rouge deux nuits de suite → aucun nouveau merge sur cette partie. Remplace « une trace qui bouge : stop et rapport ».
 
 À trancher par William (bloque seulement le lot indiqué) :
 - **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md` ; William l'écrit lui-même (décision du 6 nov), question posée une semaine avant le palier.
@@ -146,8 +151,8 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
 ## 6. Voie m (engine, VPS) : lots et preuves (écrits le 2026-11-06, avant leur départ)
 
 Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837 passe par l'engine (X-1 gelé), avec le contenu générique du testbed et des noms neutres (§ 5).
-`make check` prend 1 à 3 h par merge : les lots d'engine passent avant le contenu, et un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker Sonnet,
-`make check` vert avant le merge (par le coordinateur), aucune trace des clones qui bouge sans stop et rapport. Les dates sont celles où l'engine fournit le bloc à la voie j.
+Un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker omp Sonnet, `make check_rapide` vert avant le merge (par le coordinateur) ; la suite de
+scénarios passe la nuit et se trie le matin (§ 3). Les dates sont celles où l'engine fournit le bloc à la voie j.
 
 | Lot | Contenu | Preuve (avant le merge) | Fourni à la voie j |
 |---|---|---|---|
