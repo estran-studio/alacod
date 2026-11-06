@@ -857,7 +857,10 @@ fn direction_keeps_only_that_row_of_every_clip() {
     let r = import_sprite(&path, &game, opts).unwrap();
     assert_eq!(r.rows, 1, "un rang par clip");
     let sheet = std::fs::read_to_string(game.join("assets").join(&r.sheet)).unwrap();
-    assert!(sheet.contains("rows: [S]") && sheet.contains("mirror: false"), "{sheet}");
+    assert!(
+        sheet.contains("rows: [S]") && sheet.contains("mirror: false"),
+        "{sheet}"
+    );
     let atlas = image::open(game.join("assets").join(&r.image))
         .unwrap()
         .to_rgba8();
@@ -887,7 +890,10 @@ fn direction_keeps_only_that_row_of_every_clip() {
         bad.sprite_id = Some("decor-ne".into());
         bad.direction = Some(direction.into());
         let err = import_sprite(&path, &game, bad).unwrap_err();
-        assert!(matches!(err, SpriteImportError::InvalidOption { .. }), "{err}");
+        assert!(
+            matches!(err, SpriteImportError::InvalidOption { .. }),
+            "{err}"
+        );
         assert!(err.to_string().contains(needle), "{err}");
     }
     assert_eq!(snapshot(&game), before);

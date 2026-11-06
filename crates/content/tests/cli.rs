@@ -261,7 +261,13 @@ fn new_accepts_a_numeric_game_name_with_a_valid_cargo_package() {
     );
     // Cargo lui-même accepte le manifeste (pas de résolution : `--no-deps`).
     let metadata = Command::new("cargo")
-        .args(["metadata", "--no-deps", "--offline", "--format-version", "1"])
+        .args([
+            "metadata",
+            "--no-deps",
+            "--offline",
+            "--format-version",
+            "1",
+        ])
         .arg("--manifest-path")
         .arg(game.join("Cargo.toml"))
         .output()

@@ -1039,7 +1039,11 @@ pub fn import_sprite(
         (_, other) => other,
     };
 
-    let block_rows = if source_row.is_some() { 1 } else { clips[0].rows };
+    let block_rows = if source_row.is_some() {
+        1
+    } else {
+        clips[0].rows
+    };
     if clips.iter().any(|c| c.rows != clips[0].rows) {
         return Err(invalid(
             "les clips n'ont pas tous le même nombre de lignes : un bloc a une hauteur unique"
