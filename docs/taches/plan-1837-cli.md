@@ -161,4 +161,23 @@ Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837
 | **M-7 Feature `harmonium`** | réactiver la feature de `crates/game` après le rapport du coordinateur harmonium (`pret-pour-1837.md`, attendu d'ici le 13 nov), natif et wasm, Bevy =0.19.1 ; musique de la salle (présentation, hors simulation) | `cargo check -p game --features harmonium` natif et `wasm32-unknown-unknown` ; aucune trace modifiée ; écoute de William (geste humain, carte) | ven 20 nov |
 | **X-6 (23 nov → 13 déc)** | portes et clé portée par un ennemi ; couverts qui arrêtent les balles ; grille 3×3 par graine de sauvegarde ; `Lure` et `Grab` ; boss en deux phases | preuves écrites ici avant le départ de chaque lot, d'après la définition du niveau de William | 29 nov, 6 déc, 13 déc |
 
+**Jalon servi par chaque lot** (plan par jour validé par William le 6 nov : `1837/docs/tranche.md`, copie `runs/x-5/plan-jour.md`) :
+- X-5 → S0, **dim 8** : « la commande pour lancer le jeu, plus une capture » (cible sam 7 : kit importé).
+- M-1 → S1, **dim 15**, cible mer 11 : « 1837 jouable dans Chrome par URL ».
+- M-2 → S1, **dim 15**, cible ven 13 : « 1837 à deux en ligne dans Chrome ».
+- M-3 → S1, **dim 15** : « la gigue au tempo ; la hache qui renvoie les balles ».
+- M-4 → S1, **dim 15** : « une bouche de canon par direction ».
+- M-5 → S2, **dim 22 (la porte)**, cible jeu 19 : « le joueur mort devient un feu follet et son coéquipier peut le relever » ; et lun 16 « la vie, les dégâts, les munitions et leur affichage ».
+- M-6 → S2, **dim 22**, cible ven 20 : « le tri en profondeur » ; les `moments` servent la fenêtre `frappe` de M-3 (dim 15), en données provisoires d'ici là.
+- M-7 → S2, **dim 22**, cible ven 20 : « la musique de la salle par harmonium ».
+- X-6 → S3 **dim 29** (portes, clé portée par un ennemi, couverts qui arrêtent les balles), S4 **dim 6 déc** (grille 3×3 par graine ; lutins qui s'agrippent : `Grab`),
+  S5 **dim 13 déc** (clé du boss dans une autre branche, sergent en deux phases) ; `Lure` selon la définition de William. Le plan par jour la fait **commencer lun 16** (« la génération des portes, de la clé et
+  de l'intérieur de la loge commence ») : à lancer dès que M-1 à M-4 sont mergés, sans attendre le 23.
+- S1 jeu 12 (« 4 fantassins… un cône au sol annonce le tir 1 s avant… rechargent 3 s ») : contenu de la voie j, pas un lot d'engine : l'engine a `Pattern::Telegraph(n)`
+  et le dessin de cône `pattern_telegraph` (`crates/combat/src/emitter.rs:18`, `crates/game/src/feedback.rs:557`) ; à confirmer par la voie j, sinon proposition.
+
+**Règles de William (2026-11-06) pour ce plan** : (1) les jalons du dimanche sont l'engagement ; les jours sont des cibles ; on vise l'avance : un lot fini tôt lance le
+suivant sans attendre sa date, toujours dans l'ordre ; (2) chaque lot cite le jalon qu'il sert ; (3) à chaque point de contrôle, le coordinateur vérifie que les tâches en
+cours servent le jalon de la semaine : une tâche qui n'en sert aucun ne part pas et va dans `propositions.md` (racine du dépôt).
+
 Coupes si ça glisse (ordre du studio) : la grille tirée devient une disposition fixe ; puis le lutin sort de l'alpha.
