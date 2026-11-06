@@ -8398,7 +8398,9 @@ Outillage et documentation seulement : **aucune trace ne bouge** (seule la trace
   - **`--direction <DIR>`** : ne garde que la ligne de cette direction du manifeste (atlas à une ligne par clip, `directions: rows: [<DIR>]`, `mirror: false`) : un décor qui ne se
     tourne pas avec l'entité qui le porte. Un même manifeste s'importe sous deux ids (`--id mur-h --direction S`, `--id mur-v --direction E`). Refusé sans écriture si le manifeste
     n'a pas `directions` ou pas cette direction.
-  Le décor importé est une entrée `sprites.ron` : **un personnage du jeu** (kind `Character`, `asset_name_ref` = l'id, comme la cible `target` du gabarit : immobile, sans behavior)
-  le pose par une entité `CharacterSpawn` de carte ou un `characters[]` de profil de bac à sable. Tests : `sprite_import.rs` (`static_clip_with_zero_fps_imports_as_one_image`,
+  Le décor importé est une entrée `sprites.ron` : **un personnage du jeu** (kind `Character`, `asset_name_ref` = l'id de l'import ; `team: Some(Neutral)`, `ai.stationary`, comme `civilian` du gabarit :
+  immobile, arrête les balles sans perdre de vie) le pose par une entité `CharacterSpawn` de carte (**arrondie à la case de 16 unités**, `entity.grid`, jamais au pixel ; le `tileRect` de la définition
+  dessine une pastille sous chaque entité, à retirer de la définition pour un décor) ou un `characters[]` de profil de bac à sable (position exacte). Un jeu a un seul personnage `player`
+  (`DEFAULT_PLAYER_CHARACTER`) : hors bac à sable, donc en ligne (`--sandbox` refuse `--matchbox`), c'est le seul que prend un joueur ; un jeu dont le héros a un autre nom importe sa planche `--id player`. Tests : `sprite_import.rs` (`static_clip_with_zero_fps_imports_as_one_image`,
   `zero_fps_with_several_columns_or_a_negative_fps_fails_without_artifacts`, `direction_keeps_only_that_row_of_every_clip`).
 - Dettes **D186** à **D189** : `docs/taches/dettes.md`.
