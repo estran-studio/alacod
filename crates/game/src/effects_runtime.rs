@@ -1694,6 +1694,19 @@ mod tests {
         app
     }
 
+    /// Porteurs déjà vus à l'étage 0 (P-1, reprise des tests X-3) : à la frame 150 de
+    /// `floor_clock_app`, un porteur sans étage vu enregistre l'étage sans déclencher
+    /// `OnFloorStart` (seul l'étage de départ compte, frame <= 1) ; vu à l'étage 0, le passage
+    /// à l'étage 1 le déclenche, comme en jeu.
+    fn seen_floor_zero(app: &mut App, carriers: &[Entity]) {
+        for carrier in carriers {
+            app.world_mut()
+                .get_mut::<EffectState>(*carrier)
+                .unwrap()
+                .floor_seen = Some(0);
+        }
+    }
+
     /// X-3 (revue, P2) : le repère d'une horloge de portée `Floor` à la frame du passage d'étage est
     /// le temps d'étage **déjà remis à zéro** — comme `clock_system` le fera à la même frame — pas
     /// celui de l'étage quitté. Sans cela `OnFloorStart` ratait toujours « le début d'étage » :
@@ -1710,6 +1723,7 @@ mod tests {
             2,
             timing_clock_effect(effects::TimingGradeFilter::Miss),
         );
+        seen_floor_zero(&mut app, &[perfect, miss]);
         app.update();
         assert_eq!(
             app.world().get::<Health>(perfect).unwrap().current,
@@ -1752,6 +1766,7 @@ mod tests {
             &mut app,
             timing_clock_effect(effects::TimingGradeFilter::Miss),
         );
+        seen_floor_zero(&mut app, &[carrier]);
         app.update();
         assert_eq!(
             app.world().get::<Health>(carrier).unwrap().current,
