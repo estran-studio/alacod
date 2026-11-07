@@ -22,7 +22,6 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Cible compilée par cargo.
 const WASM_TARGET: &str = "wasm32-unknown-unknown";
@@ -70,13 +69,6 @@ pub fn valid_version(version: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
-fn now_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
 fn command_output(cmd: &mut Command) -> Option<String> {
     let out = cmd.output().ok()?;
     out.status
@@ -84,8 +76,9 @@ fn command_output(cmd: &mut Command) -> Option<String> {
         .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
-/// `APP_VERSION` de l'environnement, sinon le SHA git court du jeu (`-dirty<secondes>` si des fichiers suivis
-/// ont changé : chaque build du poste de travail a sa propre version), sinon `local-<secondes>`.
+/// `APP_VERSION` de l'environnement, sinon le SHA git court du jeu (`-dirty` si des fichiers suivis ont
+/// changé), sinon `local`. La version reste **stable** d'un build à l'autre : elle entre dans le wasm par
+/// `APP_VERSION`, et une version qui change à chaque appel recompilerait `game` et `map_ldtk` à chaque fois.
 pub fn default_version(game_dir: &Path) -> String {
     if let Ok(version) = std::env::var("APP_VERSION") {
         if !version.is_empty() {
@@ -97,9 +90,24 @@ pub fn default_version(game_dir: &Path) -> String {
     match git(&["rev-parse", "--short=12", "HEAD"]) {
         Some(sha) => match git(&["status", "--porcelain", "--untracked-files=no"]) {
             Some(status) if status.is_empty() => sha,
-            _ => format!("{sha}-dirty{}", now_secs()),
+            _ => format!("{sha}-dirty"),
         },
-        None => format!("local-{}", now_secs()),
+        None => "local".into(),
+    }
+}
+
+/// Supprime `builds/<autre version>/<jeu>` (et la version si elle devient vide) : un seul build par jeu dans `<out>`.
+fn prune_other_versions(builds: &Path, keep: &str, game: &str) {
+    let Ok(entries) = std::fs::read_dir(builds) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if entry.file_name() == keep || !entry.path().is_dir() {
+            continue;
+        }
+        let _ = std::fs::remove_dir_all(entry.path().join(game));
+        // `remove_dir` échoue (sans effet) si un autre jeu occupe encore cette version.
+        let _ = std::fs::remove_dir(entry.path());
     }
 }
 
@@ -426,7 +434,9 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
         ])
         .arg(features.join(","))
         .env("APP_VERSION", &version)
-        .env("RUSTFLAGS", rustflags);
+        .env("RUSTFLAGS", rustflags)
+        // Prioritaire sur `RUSTFLAGS` pour cargo : sans cela le `--cfg` ci-dessus serait perdu.
+        .env_remove("CARGO_ENCODED_RUSTFLAGS");
     if options.release {
         cargo.arg("--release");
     }
@@ -526,6 +536,9 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
             return Err(e);
         }
     };
+    // Les builds d'autres versions de ce jeu pèsent des centaines de Mo chacun et ne servent plus à rien :
+    // la page ouvre toujours la version qu'on vient d'écrire. Les autres jeux du même `<out>` restent.
+    prune_other_versions(&out_dir.join("builds"), &version, &game);
     let _ = std::fs::remove_dir_all(&build_dir);
     std::fs::rename(&staging, &build_dir).map_err(|e| e.to_string())?;
     std::fs::write(out_dir.join("index.html"), index_html(&game, &version))
@@ -719,6 +732,27 @@ mod tests {
         assert!(!valid_version("-x"));
         assert!(!valid_version("a/b"));
         assert!(!valid_version("v 1"));
+    }
+
+    #[test]
+    fn a_new_build_replaces_older_versions_of_its_game_only() {
+        let dir = std::env::temp_dir().join(format!("alacod-web-prune-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for path in ["old/jeu", "old/autre", "alone/jeu", "new/jeu"] {
+            std::fs::create_dir_all(dir.join(path)).unwrap();
+        }
+        prune_other_versions(&dir, "new", "jeu");
+        assert!(
+            !dir.join("old/jeu").exists(),
+            "ancienne version du jeu supprimée"
+        );
+        assert!(
+            dir.join("old/autre").is_dir(),
+            "un autre jeu de la même version reste"
+        );
+        assert!(!dir.join("alone").exists(), "version vide supprimée");
+        assert!(dir.join("new/jeu").is_dir(), "la version écrite reste");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

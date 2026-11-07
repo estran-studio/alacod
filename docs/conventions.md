@@ -8416,12 +8416,13 @@ Outillage et gabarit seulement : **aucune trace ne bouge**, aucun `BLESS`. Jalon
   `rustup target add wasm32-unknown-unknown` (idempotent) → `cargo build --target wasm32-unknown-unknown --no-default-features --features render` (`APP_VERSION` = version du build,
   `RUSTFLAGS` + `--cfg=web_sys_unstable_apis`) → `wasm-bindgen --target web --out-name wasm` → `wasm-opt --strip-debug --strip-dwarf -O2` (**release seulement**, et s'il est installé ;
   `WASM_OPT=<chemin>` ; sinon message et wasm non optimisé) → copie de `assets/` → `build.json` et `index.html`. `--features` remplace `render` (un jeu dont la feature de rendu a un autre nom) ;
-  `lighting` et `native` ne sont pas compilés pour le web, comme `zombies`.
+  `lighting` et `native` ne sont pas compilés pour le web, comme `zombies`. `RUSTFLAGS` de l'environnement est repris et complété de `--cfg=web_sys_unstable_apis` ; `CARGO_ENCODED_RUSTFLAGS` est retiré
+  (il l'emporterait) et les `rustflags` du `.cargo/config.toml` d'un jeu sont **ignorés** (cargo : la variable `RUSTFLAGS` les remplace) : un jeu qui en a besoin pour le web les met dans `RUSTFLAGS`.
 - **`wasm-bindgen`** : la version est lue dans le `Cargo.lock` de l'espace de travail du jeu (`name = "wasm-bindgen"`) ; l'outil cherche `WASM_BINDGEN`, le `PATH`, puis
   `<target>/alacod-tools/bin/wasm-bindgen`, et sinon lance **une fois** `cargo install --locked wasm-bindgen-cli --version <v> --root <target>/alacod-tools` (aucune installation
   globale). Une `WASM_BINDGEN` de mauvaise version est une erreur, pas une installation.
-- **Version** : `--version`, sinon `APP_VERSION` de l'environnement, sinon le SHA git court du jeu (`-dirty<secondes>` si des fichiers suivis ont changé, `local-<secondes>` hors git).
-  `crates/game/build.rs` relit maintenant `APP_VERSION` (`cargo:rerun-if-env-changed`) : sans cela, la crate `game` gardait la version de sa première compilation.
+- **Version** : `--version`, sinon `APP_VERSION` de l'environnement, sinon le SHA git court du jeu (`-dirty` si des fichiers suivis ont changé, `local` hors git) : la version est **stable** d'un build à l'autre (une version qui change à chaque appel recompilerait `game` et `map_ldtk` à chaque fois), et un build écrit remplace les autres versions du même jeu dans `<out>/builds/` (des centaines de Mo chacune).
+  `crates/game/build.rs` relit maintenant `APP_VERSION` (`cargo:rerun-if-env-changed`) : sans cela, la crate `game` gardait la version de sa première compilation. Conséquence au `Makefile` : « absente » et « `v0.0.0` » sont deux états pour cargo, donc toute cible qui compile `game` en natif passe `APP_VERSION=$(TEST_VERSION)` (`test_crates`, `gen`, `sim`, `sandbox`, `test_alacod_*`, `perf_generation`) pour garder un seul build.
 - **Sortie** (défaut `<target cargo du jeu>/web`) : `index.html` + `builds/<version>/<jeu>/{wasm.js, wasm_bg.wasm, build.json, assets/…}`, la disposition des builds du site
   (`/builds/<version>/<jeu>/`). `<jeu>` est le `name` de `game.ron`. Le build est refait en place pour une même version.
 - **Contrat avec le `main.rs` du jeu** (gabarit `templates/starter/src/main.rs`, même forme que `games/zombies`) : sous `cfg(target_arch = "wasm32")`, le contenu vient de

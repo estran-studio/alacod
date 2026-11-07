@@ -753,7 +753,7 @@ fn new_game_opens_its_sandbox_without_any_added_code() {
 /// (le build refuse un wasm qui ne cherche pas ses assets là), puis le serveur local sert le `.wasm` avec son type
 /// MIME. Aucun navigateur : l'ouverture dans Chrome est la recette humaine (`docs/conventions.md` § 108).
 #[test]
-#[ignore = "compile un jeu créé hors de l'engine en wasm32 (≈ 20 min à froid) : make test_alacod_cli"]
+#[ignore = "compile un jeu créé hors de l'engine en wasm32 (≈ 20 min à froid) : make test_alacod_web"]
 fn new_game_builds_for_the_web_without_any_added_code() {
     use std::io::{Read, Write};
 

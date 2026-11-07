@@ -74,5 +74,16 @@ http://127.0.0.1:8187/   (Ctrl-C pour arrêter)
 ## Reste
 
 - Réépingler le `rev` de 1837 sur le SHA de `main` après le merge (le coordinateur alacod l'envoie) ; vérifier que `./jouer.sh --web` repart.
-- `cargo check` natif de 1837 (chemin `cfg(not(wasm32))` identique à `templates/starter`, déjà couvert par `new_game_opens_its_sandbox_without_any_added_code`) : voir la fin du message de `worker_done`.
+- `cargo check --locked` natif de 1837 (chemin `cfg(not(wasm32))` du gabarit) : **vert** (8 min, `Finished dev`), fait sur `104afd3f`.
 - Manette dans Chrome, première ouverture sur le poste de William : partie du soir.
+
+## Revue du coordinateur (sur `4f7c61df`) et suites
+
+- **P2-1** `crates/game/build.rs` : `rerun-if-env-changed=APP_VERSION` **gardé** (le build script pose `APP_VERSION` par `cargo:rustc-env` : sans la ligne, `game` garde la version de sa première compilation, faux pour
+  un jeu externe). Le partage de build est rétabli côté `Makefile` : `APP_VERSION=$(TEST_VERSION)` sur `test_crates`, `gen`, `sim`, `sandbox`, `test_alacod_cli`, `test_alacod_web` et `perf_generation` (« absente » et `v0.0.0` sont
+  deux états pour cargo) ; commentaire de `Makefile` et § 108 mis à jour.
+- **P2-2** `web_build.rs` : version par défaut stable (`<sha>-dirty`, `local` hors git, plus de secondes) ; `prune_other_versions` supprime `builds/<autre version>/<jeu>` avant de poser le nouveau build (les autres jeux de
+  `<out>` restent) ; test `a_new_build_replaces_older_versions_of_its_game_only`.
+- **P2-3** rapport, ligne `LIVRÉ`, passation supprimée : faits.
+- **P3** message `#[ignore]` du test (`make test_alacod_web`) ; `cargo:rerun-if-changed=build.rs` dans `templates/starter/build.rs` (et le `build.rs` de 1837) ; `CARGO_ENCODED_RUSTFLAGS` retiré du `cargo build` wasm et les `rustflags` de
+  `.cargo/config.toml` d'un jeu **documentés comme ignorés** (§ 108) ; `CLAUDE.md` (liste des commandes d'`alacod`).

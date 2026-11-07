@@ -34,9 +34,12 @@ endif
 # `env!("APP_VERSION")`, affichage et chemin des assets wasm seulement). Elle doit être STABLE :
 # avec `$(VERSION)` (tag + sha), chaque commit rebâtissait `game` et tout ce qui en dépend (le
 # binaire de test de `scenario`, 14 Go) et laissait une génération de plus dans le target.
-# `v0.0.0` = la valeur par défaut de build.rs : `make gen`, `cargo test` nu et `make
-# test_scenarios` partagent ainsi un seul build. Les cibles de jeu (`make zombies`, `make
-# release`) gardent `$(VERSION)`.
+# `v0.0.0` = la valeur par défaut de build.rs. `crates/game/build.rs` relit `APP_VERSION`
+# (`rerun-if-env-changed`, M-1 : sans cela `game` garde la version de sa première compilation, faux pour
+# un jeu externe) : « variable absente » et « v0.0.0 » sont deux états distincts pour cargo. Toute cible
+# qui compile `game` en natif passe donc `APP_VERSION=$(TEST_VERSION)` (`test_crates`, `gen`, `sim`,
+# `test_scenarios`, `test_alacod_*`, `sandbox`), et elles partagent un seul build. Les cibles de jeu
+# (`make zombies`, `make release`) gardent `$(VERSION)`.
 TEST_VERSION ?= v0.0.0
 
 
@@ -134,7 +137,7 @@ test: test_crates test_scenarios
 # que test_scenarios : un seul build de Bevy. Le test `scenarios` (la suite complète, 1 à 3 h sur
 # orca) est sauté : `make test_scenarios` le joue déjà ; `--exact` ne saute que ce nom-là.
 test_crates:
-	cargo test -q --workspace --profile headless --no-default-features --no-fail-fast $(DEV_FEATURES) -- --exact --skip scenarios
+	APP_VERSION=$(TEST_VERSION) cargo test -q --workspace --profile headless --no-default-features --no-fail-fast $(DEV_FEATURES) -- --exact --skip scenarios
 
 # Contrôles Python sans build ni dépendance externe (Python >= 3.10).
 test_tools:
@@ -151,18 +154,18 @@ perf_review:
 # Rapport de temps des étages en grille contre gungeon (D117) : chronométré, donc hors de `test_crates` ;
 # à lancer sur une machine au repos (la garde déterministe, elle, est dans `test_crates`).
 perf_generation:
-	cargo test -q -p map_ldtk --profile headless --no-default-features --lib $(DEV_FEATURES) -- --ignored --nocapture isaac_grille_de_12_a_15_salles_sous_trois_fois
+	APP_VERSION=$(TEST_VERSION) cargo test -q -p map_ldtk --profile headless --no-default-features --lib $(DEV_FEATURES) -- --ignored --nocapture isaac_grille_de_12_a_15_salles_sous_trois_fois
 
 # `alacod test` de bout en bout (crée un jeu hors de l'engine, joue ses scénarios générés) :
 # compile l'engine en profil headless, d'où `#[ignore]` hors de test_crates.
 test_alacod_cli:
-	cargo test -p content --test cli --profile headless -- --ignored --nocapture --skip new_game_builds_for_the_web
+	APP_VERSION=$(TEST_VERSION) cargo test -p content --test cli --profile headless -- --ignored --nocapture --skip new_game_builds_for_the_web
 
 # `alacod build --web` de bout en bout (M-1, conventions § 108) : crée un jeu hors de l'engine, le compile en
 # wasm32 (cible `wasm32-unknown-unknown`, `wasm-bindgen` du Cargo.lock installé au besoin dans le target du jeu),
 # vérifie wasm, JS, assets, page et serveur local. Aucun navigateur. ≈ 20 min à froid.
 test_alacod_web:
-	cargo test -p content --test cli --profile headless -- --ignored --nocapture new_game_builds_for_the_web
+	APP_VERSION=$(TEST_VERSION) cargo test -p content --test cli --profile headless -- --ignored --nocapture new_game_builds_for_the_web
 
 .PHONY: test_crates test_tools test_alacod_cli test_alacod_web perf_review perf_generation sweep
 
@@ -223,7 +226,7 @@ lint:
 # les comparer : make gen GAME=zombies GEN_BLESS=1.
 GAME ?= zombies
 gen:
-	cargo run -q -p scenario --bin alacod-gen --profile headless $(DEV_FEATURES) -- games/$(GAME) --play $(if $(filter 1,$(GEN_BLESS)),--bless)
+	APP_VERSION=$(TEST_VERSION) cargo run -q -p scenario --bin alacod-gen --profile headless $(DEV_FEATURES) -- games/$(GAME) --play $(if $(filter 1,$(GEN_BLESS)),--bless)
 
 .PHONY: gen
 
@@ -254,7 +257,7 @@ WAVE ?= 3
 MAX_FRAMES ?= 20000
 sim:
 	mkdir -p $(CARGO_TARGET_DIR)/metrics
-	cargo run -q -p scenario --bin alacod-sim --profile headless $(DEV_FEATURES) -- --game zombies --bots $(BOTS) --profiles $(PROFILES) --seeds $(SEEDS) --until-wave $(WAVE) --max-frames $(MAX_FRAMES) --json $(CARGO_TARGET_DIR)/metrics/sim-$$(git rev-parse --short HEAD).json
+	APP_VERSION=$(TEST_VERSION) cargo run -q -p scenario --bin alacod-sim --profile headless $(DEV_FEATURES) -- --game zombies --bots $(BOTS) --profiles $(PROFILES) --seeds $(SEEDS) --until-wave $(WAVE) --max-frames $(MAX_FRAMES) --json $(CARGO_TARGET_DIR)/metrics/sim-$$(git rev-parse --short HEAD).json
 	./scripts/scenario-metrics.py
 
 # Vidéos des scénarios (target/videos/<commit>/) : une par scénario + montage en grille.
@@ -305,7 +308,7 @@ endif
 # jeu créé par `alacod new`.
 # make sandbox GAME=zombies [PROFIL=lourd] [SEED=42] [HEADLESS=1]
 sandbox:
-	cargo run -q -p content --bin alacod --profile headless -- sandbox $(if $(wildcard games/$(GAME)),games/$(GAME),$(GAME)) $(if $(PROFIL),--profile $(PROFIL)) $(if $(SEED),--seed $(SEED)) $(if $(filter 1,$(HEADLESS)),--headless) $(if $(GARGS),-- $(GARGS))
+	APP_VERSION=$(TEST_VERSION) cargo run -q -p content --bin alacod --profile headless -- sandbox $(if $(wildcard games/$(GAME)),games/$(GAME),$(GAME)) $(if $(PROFIL),--profile $(PROFIL)) $(if $(SEED),--seed $(SEED)) $(if $(filter 1,$(HEADLESS)),--headless) $(if $(GARGS),-- $(GARGS))
 
 # Joue au clavier et enregistre la session en scénario : make record_session NAME=ma_session
 # (écrit tests/scenarios/<NAME>.ron à la fermeture ; puis make test_scenarios SCENARIO=<NAME> BLESS=1)
