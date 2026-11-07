@@ -2585,6 +2585,7 @@ mod tests {
                     test: None,
                     projectiles: BTreeMap::new(),
                     move_speed_mult: mult,
+                    gesture: None,
                 },
                 sprite_config: WeaponSpriteConfig {
                     name: name.into(),
