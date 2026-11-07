@@ -747,3 +747,76 @@ fn new_game_opens_its_sandbox_without_any_added_code() {
     assert!(status.success(), "{status}");
     assert!(trace.exists());
 }
+
+/// `alacod new demo` puis `alacod build --web` **sans retouche** au gabarit : wasm (`wasm32-unknown-unknown`),
+/// glue JS, assets copiés et page `index.html` sous `<out>/builds/<version>/demo/`, la version dans `APP_VERSION`
+/// (le build refuse un wasm qui ne cherche pas ses assets là), puis le serveur local sert le `.wasm` avec son type
+/// MIME. Aucun navigateur : l'ouverture dans Chrome est la recette humaine (`docs/conventions.md` § 108).
+#[test]
+#[ignore = "compile un jeu créé hors de l'engine en wasm32 (≈ 20 min à froid) : make test_alacod_cli"]
+fn new_game_builds_for_the_web_without_any_added_code() {
+    use std::io::{Read, Write};
+
+    let tmp = Tmp::new("web-e2e");
+    let out = new_game(&tmp, "demo", &[]);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    let game = tmp.0.join("demo");
+    let site = tmp.0.join("site");
+
+    let mut cmd = alacod();
+    cmd.current_dir(&game)
+        .env("CARGO_TARGET_DIR", game_target_dir(&game))
+        .args(["build", "--web", "--version", "webtest1", "--out"])
+        .arg(&site);
+    let built = run(cmd);
+    assert!(
+        built.status.success(),
+        "{}{}",
+        text(&built.stdout),
+        text(&built.stderr)
+    );
+    let summary = text(&built.stdout);
+    assert!(summary.starts_with("web : demo webtest1 (dev)"), "{summary}");
+
+    let dir = site.join("builds/webtest1/demo");
+    let wasm = std::fs::read(dir.join("wasm_bg.wasm")).unwrap();
+    assert_eq!(&wasm[..4], b"\0asm");
+    assert!(std::fs::read_to_string(dir.join("wasm.js"))
+        .unwrap()
+        .contains("export default"));
+    let assets = dir.join("assets");
+    assert_eq!(
+        std::fs::read(assets.join("game.ron")).unwrap(),
+        std::fs::read(game.join("assets/game.ron")).unwrap()
+    );
+    assert!(assets.join("sprites/characters/player/Body/Body.png").is_file());
+    let index = std::fs::read_to_string(site.join("index.html")).unwrap();
+    assert!(index.contains("./builds/webtest1/demo/wasm.js"), "{index}");
+    let info: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("build.json")).unwrap()).unwrap();
+    assert_eq!(info["buildId"], "webtest1");
+    assert_eq!(info["assets"], "/builds/webtest1/demo/assets");
+
+    // Le serveur local sert le wasm avec le bon type MIME, octet pour octet.
+    let server = content::web_build::Server::bind(&site, 0).unwrap();
+    let port = server.port();
+    std::thread::spawn(move || server.run());
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+    write!(
+        stream,
+        "GET /builds/webtest1/demo/wasm_bg.wasm HTTP/1.1\r\nHost: x\r\n\r\n"
+    )
+    .unwrap();
+    let mut raw = Vec::new();
+    stream.read_to_end(&mut raw).unwrap();
+    let split = raw.windows(4).position(|w| w == b"\r\n\r\n").unwrap();
+    let head = String::from_utf8_lossy(&raw[..split]);
+    assert!(head.starts_with("HTTP/1.1 200 OK"), "{head}");
+    assert!(head.contains("Content-Type: application/wasm"), "{head}");
+    assert_eq!(&raw[split + 4..], &wasm[..]);
+}

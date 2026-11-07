@@ -212,6 +212,39 @@ enum Command {
         #[arg(last = true)]
         game_args: Vec<String>,
     },
+    /// Construit la version web (Chrome) d'un jeu hors de `games/` : wasm, assets, `index.html`.
+    ///
+    /// `alacod build --web [jeu] [--out <dossier>] [--release] [--serve [--port 8080]]`. Lint, `cargo build --target
+    /// wasm32-unknown-unknown --no-default-features --features render` (`APP_VERSION` = SHA git du jeu, ou `--version`),
+    /// `wasm-bindgen` (version du `Cargo.lock` du jeu, installé au besoin dans `<target>/alacod-tools`), `wasm-opt`
+    /// (release, s'il est installé), copie de `assets/`. Sortie : `<out>/index.html` et
+    /// `<out>/builds/<version>/<jeu>/{wasm.js,wasm_bg.wasm,assets/}` (`--out` défaut : `<target>/web`). `--serve` sert
+    /// ensuite `<out>` sur `http://127.0.0.1:<port>/`. `docs/conventions.md` §108.
+    Build {
+        /// Cible web (la seule aujourd'hui).
+        #[arg(long)]
+        web: bool,
+        /// Dossier du jeu (a un `Cargo.toml`) ; sans chemin : le jeu du dossier courant.
+        game_dir: Option<PathBuf>,
+        /// Dossier de sortie (défaut : `<target cargo du jeu>/web`).
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Profil release de cargo (et `wasm-opt` s'il est installé) ; sinon dev.
+        #[arg(long)]
+        release: bool,
+        /// Features cargo du jeu, séparées par des virgules (défaut : `render`, avec `--no-default-features`).
+        #[arg(long, value_delimiter = ',')]
+        features: Vec<String>,
+        /// `APP_VERSION` du build (défaut : `APP_VERSION` de l'environnement, sinon le SHA git du jeu).
+        #[arg(long)]
+        version: Option<String>,
+        /// Sert le résultat en local après le build (Ctrl-C pour arrêter).
+        #[arg(long)]
+        serve: bool,
+        /// Avec `--serve` : port (0 : un port libre).
+        #[arg(long, default_value_t = 8080)]
+        port: u16,
+    },
     /// Pilote le jeu en cours (bac à sable ou éditeur) : état, spawn, give, step, restart, script.
     ///
     /// Le remote BRP écoute sur 127.0.0.1:15702 (`ALACOD_REMOTE_PORT`) : `alacod remote
@@ -480,6 +513,33 @@ fn main() -> ExitCode {
         Command::Remote { json, command } => {
             ExitCode::from(content::remote::run_cli(&command, json))
         }
+        Command::Build {
+            web,
+            game_dir,
+            out,
+            release,
+            features,
+            version,
+            serve,
+            port,
+        } => {
+            if !web {
+                return fail("usage : alacod build --web [jeu] (la cible web est la seule)");
+            }
+            match resolve_game_dir(game_dir) {
+                Ok(dir) => build_web(
+                    content::web_build::WebBuild {
+                        game_dir: dir,
+                        out,
+                        release,
+                        features,
+                        version,
+                    },
+                    serve.then_some(port),
+                ),
+                Err(e) => fail(&e),
+            }
+        }
         Command::SelfCheck => self_check(),
     }
 }
@@ -487,6 +547,45 @@ fn main() -> ExitCode {
 fn fail(message: &str) -> ExitCode {
     eprintln!("{message}");
     ExitCode::FAILURE
+}
+
+/// `alacod build --web` : construit, dit en cinq lignes ce qui est produit, puis sert si `--serve`.
+fn build_web(options: content::web_build::WebBuild, serve: Option<u16>) -> ExitCode {
+    let output = match content::web_build::build(&options) {
+        Ok(output) => output,
+        Err(e) => return fail(&format!("build web : {e}")),
+    };
+    let mode = if options.release { "release" } else { "dev" };
+    println!(
+        "web : {} {} ({mode}) → {}",
+        output.game,
+        output.version,
+        output.out_dir.display()
+    );
+    println!(
+        "  wasm : {} ({:.1} Mo{})",
+        output.wasm.display(),
+        output.wasm_bytes as f64 / (1024.0 * 1024.0),
+        if output.optimized { ", wasm-opt" } else { ", sans wasm-opt" }
+    );
+    println!(
+        "  assets : {} fichiers → {}",
+        output.asset_files,
+        output.build_dir.join("assets").display()
+    );
+    println!("  page : {}", output.out_dir.join("index.html").display());
+    let Some(port) = serve else {
+        println!("  servir : alacod build --web --serve (ou tout serveur statique sur {})", output.out_dir.display());
+        return ExitCode::SUCCESS;
+    };
+    match content::web_build::Server::bind(&output.out_dir, port) {
+        Ok(server) => {
+            println!("http://127.0.0.1:{}/   (Ctrl-C pour arrêter)", server.port());
+            server.run();
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(&e),
+    }
 }
 
 /// `alacod sandbox` et `alacod editor` : le dossier du jeu est celui d'`assets/game.ron` (argument vide : le

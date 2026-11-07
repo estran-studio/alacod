@@ -18,6 +18,7 @@ pub mod script;
 pub mod sprite_import;
 pub mod ui;
 pub mod value;
+pub mod web_build;
 
 pub use expr::{BoolExpr, Context, Expr, Kind, NumExpr, ParseError, Value};
 pub use lint::{LintError, LintErrorKind};

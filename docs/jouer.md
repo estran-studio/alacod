@@ -168,6 +168,13 @@ plan : c'est la règle de l'API Gamepad, pas du jeu. Elle est lue par `bevy_gilr
 site. Débrancher puis rebrancher en cours de partie est reconnu au premier appui suivant. Preuve et limites :
 `docs/taches/rapports/polissage-manette.md`.
 
+## Jouer dans Chrome à un jeu qui n'est pas dans l'engine (M-1)
+
+Dans le dossier du jeu (créé par `alacod new`, ou `1837`) : `alacod build --web --release --serve` construit le wasm (`wasm32-unknown-unknown`), copie les
+assets, écrit `index.html` et sert le tout sur **http://127.0.0.1:8080/** (`--port` pour un autre) ; sans `--serve`, la sortie est un dossier statique
+(`<target>/web`, `--out`). Première compilation longue (Bevy en wasm : 15 à 25 min), `wasm-bindgen` s'installe tout seul dans `<target>/alacod-tools`,
+`wasm-opt` (binaryen : `brew install binaryen`) est pris s'il est présent. Détail, contrat avec le `main.rs` du jeu et limites : `docs/conventions.md` § 108.
+
 ## Variables utiles
 
 - `ALACOD_SKIP_HUB=1` : démarrer directement dans la run.

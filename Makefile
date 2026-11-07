@@ -156,9 +156,15 @@ perf_generation:
 # `alacod test` de bout en bout (crée un jeu hors de l'engine, joue ses scénarios générés) :
 # compile l'engine en profil headless, d'où `#[ignore]` hors de test_crates.
 test_alacod_cli:
-	cargo test -p content --test cli --profile headless -- --ignored --nocapture
+	cargo test -p content --test cli --profile headless -- --ignored --nocapture --skip new_game_builds_for_the_web
 
-.PHONY: test_crates test_tools test_alacod_cli perf_review perf_generation sweep
+# `alacod build --web` de bout en bout (M-1, conventions § 108) : crée un jeu hors de l'engine, le compile en
+# wasm32 (cible `wasm32-unknown-unknown`, `wasm-bindgen` du Cargo.lock installé au besoin dans le target du jeu),
+# vérifie wasm, JS, assets, page et serveur local. Aucun navigateur. ≈ 20 min à froid.
+test_alacod_web:
+	cargo test -p content --test cli --profile headless -- --ignored --nocapture new_game_builds_for_the_web
+
+.PHONY: test_crates test_tools test_alacod_cli test_alacod_web perf_review perf_generation sweep
 
 # Purge du target (scripts/target-sweep.sh) : incremental/ et générations périmées des crates du
 # workspace. À lancer entre deux commandes cargo. SWEEP=1 sur test_scenarios la lance à la fin.
