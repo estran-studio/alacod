@@ -538,6 +538,23 @@ mod tests {
         assert!(!m.knows("fi") && !m.knows("missing"));
     }
 
+    #[test]
+    fn get_requires_a_readable_manifest() {
+        let mut t = table(&format!(
+            r#"(units_per_meter: 24.0, elevation_deg: 45.0, {LOOK}, models: {{
+                "ok": (glb: "a.glb", manifest: "a.json", frame_m: (3.0, 3.0), pivot: (0.5, 0.2), height_m: 1.8, poses: ()),
+                "broken": (glb: "b.glb", manifest: "b.json", frame_m: (3.0, 3.0), pivot: (0.5, 0.2), height_m: 1.8, poses: ()),
+            }})"#
+        ));
+        t.manifests.insert("broken".into(), Err("illisible".into()));
+        assert!(t.get("ok").is_some());
+        assert!(
+            t.get("broken").is_none(),
+            "manifeste illisible : pas de modèle"
+        );
+        assert!(t.get("absent").is_none());
+    }
+
     fn table(models_ron: &str) -> ModelsTable {
         let def: ModelsFile = ron::from_str(models_ron).unwrap();
         let manifests = def
