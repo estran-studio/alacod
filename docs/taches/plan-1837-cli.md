@@ -101,8 +101,8 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
   loup (`1867_lore/design/rendu-facon-sprite.md`, `tools/site/facon-sprite.js`) ; décor, props, bâtiments et effets restent en sprites ; l'arme est attachée à la main dans
   le modèle, les gestes se fondent, la visée est libre. Remplace la décision « planches 2D en 8 directions ». Lot R-1 (§ 6).
 - Décision de William (2026-11-06, soir) : **même comportement que le labo** : règles et nombres des bancs `site/labo/gigue/` et `site/labo/armes/` (`gigue.js`, `armes.js`,
-  `allures.js`) et de `design/game-feel.md`, à l'identique ; les réglages exportés par William (`~/orca/runs/reglages-labo/{gigue,armes}.json` sur le Mac) priment sur les
-  `DEFAUTS`. Lot P-1 (§ 6).
+  `allures.js`) et de `design/game-feel.md`, à l'identique. **Précision de William (2026-11-07)** : la référence, ce sont les `DEFAUTS` de `gigue.js`, `armes.js` et
+  `allures.js` ; il n'exporte pas de réglages du navigateur. Lot P-1 (§ 6).
 - Décision de William (2026-11-06, soir) : **4 agents en parallèle**, avec tout son usage ; Opus (`anthropic/claude-opus-5-5`) pour la simulation, le réseau et le rendu,
   Sonnet (`anthropic/claude-sonnet-5-5`) pour le contenu ; tout en omp. Remplace « deux voies ». Le coordinateur alacod reste le seul à merger dans alacod (R-1 compris).
 
