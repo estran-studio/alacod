@@ -1,6 +1,7 @@
-# Passation P-1 « parité des règles des bancs gigue et armes » (2026-11-07, après-midi, Mac)
+# Passation P-1 « parité des règles des bancs gigue et armes » (2026-11-07, fin d'après-midi, Mac — bascule de modèle)
 
-Remplace la note du déménagement. Engine : `wquintal/p-1-parite-labo` @ `453bc8f4` (poussée) ; 1837 : `p-1-parite` @ `09a7d99` (poussée).
+Engine : `wquintal/p-1-parite-labo` @ la tête poussée avec cette note (tête de code `453bc8f4` + merge de `origin/main` `b6bbe24d` en `f80b7c8a`
++ traces neuves de la tranche 3) ; 1837 : `p-1-parite` @ `09a7d99` (poussée, rien de neuf).
 Référence : les `DEFAUTS` de `gigue.js`, `armes.js`, `allures.js` (`1867_lore` @ `d5a27d9`, aucun écart avec `e02965e`, vérifié par `git diff`).
 Les 7 écarts du § 10 du tableau : défauts appliqués, en attente de William. Jalon : S1 dim 15 (tranches 1 et 2), cible jeu 12 (tranche 3).
 
@@ -29,23 +30,30 @@ Les 7 écarts du § 10 du tableau : défauts appliqués, en attente de William. 
 - Les deux tests d'horloge d'étage de X-3 sont réparés (`50428e8c`) ; `effects_runtime::tests` passe.
 - **Retrait de la parade mêlée contre mêlée et de `music_sync`** : commit séparé `f5bc688e`, à revert si William les veut (D149, D151, § 110).
   Les tests qui citaient le banc sont renommés, la fixture `hache` devient `coup_long`.
+- **Merge de `origin/main` (`b6bbe24d`, M-1) dans la branche** : `f80b7c8a`, sans rebase. Trois conflits de docs seules résolus en gardant les
+  deux côtés : `docs/conventions.md` (§ 108 de M-1 placé avant notre § 110), `docs/taches.md` (lignes X-3 puis `LIVRÉ` de M-1),
+  `docs/taches/dettes.md` (D149–D152 puis D190–D191). Aucun code en conflit.
+- **Traces de la tranche 3 bénies** sur `f80b7c8a` (commit qui suit le merge) : `tireur_poste_cycle`, `tireur_poste_suit`,
+  `tireur_poste_fige_temoin`, `tireur_poste_touche` (« trace de référence écrite », `test scenarios ... ok`).
 
 ## Fait, non vérifié
 - `f5bc688e` et `453bc8f4` n'ont pas tourné en entier. La partie jeu a compilé et les scénarios `tireur_poste_*` sont passés, mais ni les
   tests unitaires (`combat` sans les tests de parade, `content` sans la musique) ni `check_rapide` n'ont tourné.
 - **Tranche 3, tireur posté** (`453bc8f4`, WIP) : `ai.ranged_cycle` (`character::enemy::ai::cycle`, `RangedCycle` neutre, enregistré avant la
   clôture). Il couvre la visée et le regard qui suivent, l'attente tirée (flux `ranged_cycle`), le départ décalé par rang, la salve perdue sur
-  un coup reçu, le recul et le retour au poste. Les attentes des quatre scénarios neufs passent (`tireur_poste_cycle`, `tireur_poste_suit`,
-  `tireur_poste_fige_temoin`, `tireur_poste_touche`), mais **aucune trace n'est encore bénie**.
+  un coup reçu, le recul et le retour au poste. Les quatre traces sont bénies (voir plus haut) ; le rejeu sans BLESS (étape 1) n'a pas
+  encore tourné.
 - 1837 `09a7d99` : les RON aux nombres du tableau (Frère, horloge `gigue`, hache, poids du fusil, fantassin, salve, arme
   `brown_bess_fantassin`, quatre fantassins dans `cour.ldtk` et `sandbox/cour.ron`). `alacod lint` n'a pas tourné. Le `rev` de `Cargo.toml`
   est encore `0e7c8d58` : il faut le passer sur l'engine P-1, et `Cargo.lock` avec.
 
 ## Prochaine étape exacte
-1. Bénir les traces neuves de la tranche 3, puis rejouer le lot, sans BLESS :
-   `env -u CI CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 ALACOD_MUTE=1 make test_scenarios BLESS=1 SCENARIO=tireur_poste_cycle,tireur_poste_suit,tireur_poste_fige_temoin,tireur_poste_touche`
-   puis, toujours sans BLESS : `make test_scenarios SCENARIO=dash_au_tempo,dash_au_tempo_coop,dash_coupe_sur_place,renvoi_secteur,renvoi_secteur_visee,coup_en_file,arme_lourde,arme_lourde_temoin,fenetre_esquive,fenetre_etage,fenetre_fraction_esquive,fenetre_rechargement,parade_projectiles,parade_projectiles_expiree,parade_projectiles_instantanee,generated/testbed/weapon_pistolet_lourd,dash_in_place,dash_jump_bullets,dash_shove,dash_aim_change,clock_events,effect_on_dodge,movement_melee,idle,bench_horde`
-   (même préfixe `env`).
+1. Rejouer le lot et ses voisins, **sans BLESS** (le premier essai est tombé sur un nom inconnu, `explosive_bullet_basic` : rien n'a joué ;
+   les vrais noms sont `explosive_bullet_composed`, `explosive_bullet_hit`, `explosive_bullet_range`) :
+   `env -u CI CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 ALACOD_MUTE=1 make test_scenarios SCENARIO=tireur_poste_cycle,tireur_poste_suit,tireur_poste_fige_temoin,tireur_poste_touche,dash_au_tempo,dash_au_tempo_coop,dash_coupe_sur_place,renvoi_secteur,renvoi_secteur_visee,coup_en_file,arme_lourde,arme_lourde_temoin,fenetre_esquive,fenetre_etage,fenetre_fraction_esquive,fenetre_rechargement,parade_projectiles,parade_projectiles_expiree,parade_projectiles_instantanee,generated/testbed/weapon_pistolet_lourd,dash_in_place,dash_jump_bullets,dash_shove,dash_aim_change,clock_events,effect_on_dodge,movement_melee,idle,bench_horde,bomb_breaks_rock,bomb_chain_barrel,bomb_digs_cave,bomb_hurts_owner,bomb_pickup_cap,bomb_place_explode,explode_effect,explode_wall,isaac_bomb_rock,isaac_bombe_fiole,enemy_flee,status_charm_contact,generated/isaac/champion_suiveur_explosif,generated/isaac/item_bombe_fiole,generated/testbed/champion_elite_explosif_salve,generated/testbed/champion_elite_explosif_nu,generated/testbed/champion_elite_explosif_explosif,generated/testbed/weapon_balle_explosive,generated/testbed/weapon_balle_explosive_composee,explosive_bullet_composed,explosive_bullet_hit,explosive_bullet_range`
+   (les `bomb_*`, `explode_*`, `isaac_bomb*`, `enemy_flee`, `status_charm_contact` et explosifs servent aussi la preuve P2 du point 2).
+   Consigne du coordinateur : « E prêt <sha> » dès que les tranches 1 à 3 sont vertes avec `check_rapide` (journal
+   `~/orca/runs/alpha/logs/p-1-parite-labo-check-rapide-<sha>.log`) ; `schedule_order_diff` contre `origin/main` **à jour** (`b6bbe24d` ou plus).
 2. **Revue du coordinateur sur `1016b3e1`, encore ouverte** :
    - **P2** : l'ordre du set `Weapon` (`bullet_rollback_collision_system` après la mêlée). Le prouver par `make schedule_order_diff BASE=origin/main`
      (`scripts/schedule-order-diff.sh` construit la base dans son propre target, un build à froid de ~20 min et ~7 Go) et par les scénarios
@@ -71,3 +79,6 @@ Les 7 écarts du § 10 du tableau : défauts appliqués, en attente de William. 
 - `arena.ldtk` : la rangée 11 a un mur à x 312–408, y ≈ 600. Un personnage posé dessus ne peut plus revenir à son poste.
 - Scénarios : les inputs agissent 5 frames plus tard, et une position lue à la frame N n'inclut pas le pas du dash lancé à N.
 - Pas de `pkill` par motif ; arrêter un job par son PID ou par `proc://<job>/kill`.
+- `make test_scenarios SCENARIO=…` refuse la liste entière (panic `scenarios.rs:198`, « scénario inconnu ») si **un** nom n'existe pas :
+  vérifier les noms par `ls tests/scenarios` avant une longue liste.
+- Disque : 41 Go libres le 7 nov au soir (`target/headless` = 17 Go) ; `scripts/target-sweep.sh target` avant `schedule_order_diff`.
