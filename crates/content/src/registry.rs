@@ -850,6 +850,11 @@ pub struct MeleeWeaponEntry {
     pub reflect: Option<MeleeReflectEntry>,
     /// Parade de mêlée (X-3) : `parry:` du RON, pour la règle « `perfect_knockback` >= 0 ».
     pub parry: Option<MeleeParryEntry>,
+    /// P-1 : durée du coup et fenêtre de frappe, pour la règle « `strike_frames` dans le coup ».
+    pub attack_duration_frames: u32,
+    pub strike_frames: Option<(u32, u32)>,
+    /// P-1 : vitesse de marche pendant le coup, pour la règle « > 0 ».
+    pub move_speed_mult: Option<Fixed>,
 }
 
 /// Mirroir de `combat::weapons::melee::MeleeParry` (`content` ne dépend pas de `combat`) :
@@ -861,11 +866,15 @@ pub struct MeleeParryEntry {
 }
 
 /// Mirroir de `combat::weapons::melee::MeleeReflect` (`content` ne dépend pas de
-/// `combat`) : juste assez pour le lint.
+/// `combat`) : juste assez pour le lint. P-1 : les multiplicateurs de vitesse et le secteur
+/// (`(rayon, arc)`), pour les règles « > 0 ».
 #[derive(Debug, Clone, Copy)]
 pub struct MeleeReflectEntry {
     pub perfect_frames: u32,
     pub perfect_damage_mult: Fixed,
+    pub speed_mult: Option<Fixed>,
+    pub perfect_speed_mult: Option<Fixed>,
+    pub sector: Option<(Fixed, Fixed)>,
 }
 
 /// Mirroir minimal de `game::weapons::WeaponTest` (`content` ne dépend pas de `game`, voir
@@ -2688,6 +2697,20 @@ struct MeleeWeaponConfigSchema {
     /// X-3 : parade de mêlée (`combat::weapons::melee::MeleeParry`).
     #[serde(default)]
     parry: Option<MeleeParrySchema>,
+    /// P-1 : durée du coup, pour la règle « fenêtre de frappe dans le coup ».
+    #[serde(default)]
+    attack_duration_frames: u32,
+    /// P-1 : fenêtre de frappe (`MeleeWeaponConfig::strike_frames`).
+    #[serde(default)]
+    strike_frames: Option<(u32, u32)>,
+    /// P-1 : `MeleeWeaponConfig::queue` (forme seulement).
+    #[serde(default)]
+    #[allow(dead_code)]
+    queue: bool,
+    /// P-1 : vitesse de marche pendant le coup (`MeleeWeaponConfig::move_speed_mult`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    move_speed_mult: Option<FixedField>,
 }
 
 /// Mirroir de `combat::weapons::melee::MeleeParry` pour le schéma et le lint.
@@ -2702,8 +2725,49 @@ struct MeleeParrySchema {
 #[derive(schemars::JsonSchema, Deserialize)]
 struct MeleeReflectSchema {
     perfect_frames: u32,
+    /// Absent : 1 (P-1).
+    #[serde(default = "fixed_field_one")]
     #[schemars(extend("x-lint" = "> 0"))]
     perfect_damage_mult: FixedField,
+    /// P-1 : zone du renvoi autour du porteur.
+    #[serde(default)]
+    sector: Option<ReflectSectorSchema>,
+    /// P-1 : `Facing` (défaut) ou `Aim(min_distance: "…")`.
+    #[serde(default)]
+    #[allow(dead_code)]
+    direction: ReflectDirectionSchema,
+    /// P-1 : vitesse du projectile renvoyé.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    speed_mult: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    perfect_speed_mult: Option<FixedField>,
+}
+
+/// Mirroir de `combat::weapons::melee::ReflectSector` (P-1).
+#[derive(schemars::JsonSchema, Deserialize)]
+struct ReflectSectorSchema {
+    #[schemars(extend("x-lint" = "> 0"))]
+    radius: FixedField,
+    #[schemars(extend("x-lint" = "> 0"))]
+    arc: FixedField,
+}
+
+/// Mirroir de `combat::weapons::melee::ReflectDirection` (P-1).
+#[derive(schemars::JsonSchema, Deserialize, Default)]
+#[allow(dead_code)]
+enum ReflectDirectionSchema {
+    #[default]
+    Facing,
+    Aim {
+        #[schemars(extend("x-lint" = ">= 0"))]
+        min_distance: FixedField,
+    },
+}
+
+fn fixed_field_one() -> FixedField {
+    FixedField(Fixed::ONE)
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -3180,6 +3244,11 @@ fn load_melee_weapons(
             let reflect = entry.config.reflect.map(|reflect| MeleeReflectEntry {
                 perfect_frames: reflect.perfect_frames,
                 perfect_damage_mult: reflect.perfect_damage_mult.get(),
+                speed_mult: reflect.speed_mult.map(|mult| mult.get()),
+                perfect_speed_mult: reflect.perfect_speed_mult.map(|mult| mult.get()),
+                sector: reflect
+                    .sector
+                    .map(|sector| (sector.radius.get(), sector.arc.get())),
             });
             let parry = entry.config.parry.map(|parry| MeleeParryEntry {
                 perfect_frames: parry.perfect_frames,
@@ -3194,6 +3263,9 @@ fn load_melee_weapons(
                     test,
                     reflect,
                     parry,
+                    attack_duration_frames: entry.config.attack_duration_frames,
+                    strike_frames: entry.config.strike_frames,
+                    move_speed_mult: entry.config.move_speed_mult.map(|mult| mult.get()),
                 },
             );
         }

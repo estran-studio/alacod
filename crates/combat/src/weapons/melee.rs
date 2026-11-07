@@ -39,7 +39,12 @@ pub enum MeleeAttackPattern {
 
 /// Parade et renvoi de projectiles (X-3, verbes D1) : paramètres du verbe, en frames
 /// entières et `Fixed`, jamais de `f32`.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
+///
+/// P-1 (`docs/conventions.md` §110) : `sector`, `direction`, `speed_mult` et
+/// `perfect_speed_mult`, tous optionnels ; absents, le renvoi est celui de X-3 (contact de la
+/// hitbox, direction du regard, vitesse conservée). `Hash`/`Debug` manuels : un champ P-1 n'est
+/// écrit que s'il est posé.
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub struct MeleeReflect {
     /// Fenêtre parfaite : un projectile touché au plus `perfect_frames` après le début
     /// du coup (création de la hitbox, `MeleeHitbox::created_frame`, celle-ci comprise) est
@@ -48,8 +53,97 @@ pub struct MeleeReflect {
     /// du départ est parfait.
     pub perfect_frames: u32,
     /// Multiplicateur des dégâts du projectile renvoyé sur un `Perfect` (`1` : dégâts
-    /// conservés comme sur un `Good`).
+    /// conservés comme sur un `Good`). Absent du RON : 1.
+    #[serde(default = "fixed_one")]
     pub perfect_damage_mult: fixed_math::Fixed,
+    /// P-1 : zone du renvoi, centrée sur le **porteur** (pas la hitbox) : un projectile dont le
+    /// centre est à au plus `radius` du centre du porteur et dans l'arc `arc` (radians, largeur
+    /// totale) autour de son regard est renvoyé. Absent : contact géométrique avec la hitbox.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sector: Option<ReflectSector>,
+    /// P-1 : direction du projectile renvoyé (défaut : le regard, X-3).
+    #[serde(default, skip_serializing_if = "ReflectDirection::is_facing")]
+    pub direction: ReflectDirection,
+    /// P-1 : multiplicateur de la vitesse du projectile renvoyé (absent : 1, vitesse conservée).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed_mult: Option<fixed_math::Fixed>,
+    /// P-1 : multiplicateur de vitesse **de plus** sur un `Perfect` (absent : 1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perfect_speed_mult: Option<fixed_math::Fixed>,
+}
+
+fn fixed_one() -> fixed_math::Fixed {
+    fixed_math::FIXED_ONE
+}
+
+/// Zone de renvoi centrée sur le porteur (P-1, §110).
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq)]
+pub struct ReflectSector {
+    /// Distance maximale (px) du centre du porteur au centre du projectile.
+    pub radius: fixed_math::Fixed,
+    /// Largeur totale de l'arc (radians), centré sur le regard du porteur ; `>= 2π` : tout autour.
+    pub arc: fixed_math::Fixed,
+}
+
+/// Direction d'un projectile renvoyé (P-1, §110).
+#[derive(Debug, Clone, Default, Hash, Serialize, Deserialize, PartialEq)]
+pub enum ReflectDirection {
+    /// Le regard du porteur (8 directions, X-3).
+    #[default]
+    Facing,
+    /// Vers le point visé par le joueur porteur (sa position + la visée `pan` de son input), depuis
+    /// le projectile ; à moins de `min_distance` px du point visé, la direction de la visée
+    /// elle-même ; sans visée (ou porteur qui n'est pas un joueur), le regard.
+    Aim { min_distance: fixed_math::Fixed },
+}
+
+impl ReflectDirection {
+    fn is_facing(&self) -> bool {
+        matches!(self, ReflectDirection::Facing)
+    }
+}
+
+/// Hash manuel : les deux champs de X-3 dans leur ordre, puis chaque champ P-1 seulement s'il est
+/// posé (contenu de X-3 : hash inchangé).
+impl std::hash::Hash for MeleeReflect {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.perfect_frames.hash(state);
+        self.perfect_damage_mult.hash(state);
+        if let Some(sector) = &self.sector {
+            sector.hash(state);
+        }
+        if !self.direction.is_facing() {
+            self.direction.hash(state);
+        }
+        if let Some(mult) = &self.speed_mult {
+            mult.hash(state);
+        }
+        if let Some(mult) = &self.perfect_speed_mult {
+            mult.hash(state);
+        }
+    }
+}
+
+/// Debug manuel : identique au `derive` de X-3 tant qu'aucun champ P-1 n'est posé.
+impl std::fmt::Debug for MeleeReflect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("MeleeReflect");
+        d.field("perfect_frames", &self.perfect_frames)
+            .field("perfect_damage_mult", &self.perfect_damage_mult);
+        if let Some(sector) = &self.sector {
+            d.field("sector", sector);
+        }
+        if !self.direction.is_facing() {
+            d.field("direction", &self.direction);
+        }
+        if let Some(mult) = &self.speed_mult {
+            d.field("speed_mult", mult);
+        }
+        if let Some(mult) = &self.perfect_speed_mult {
+            d.field("perfect_speed_mult", mult);
+        }
+        d.finish()
+    }
 }
 
 /// Parade de mêlée contre mêlée (X-3, verbes D1) : la hitbox d'un coup adverse qui touche la
@@ -95,6 +189,21 @@ pub struct MeleeWeaponConfig {
     /// touche (`melee_parry_system`). `None` (défaut) : pas de parade de mêlée.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parry: Option<MeleeParry>,
+    /// P-1 (`docs/conventions.md` §110) : fenêtre de frappe, en frames du coup (0 = la frame du
+    /// départ), bornes comprises : la hitbox ne blesse et ne renvoie qu'à ces frames (elle vit
+    /// toujours `attack_duration_frames`). `None` (défaut) : toute la durée du coup.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strike_frames: Option<(u32, u32)>,
+    /// P-1 : un coup par **appui** (tenir le bouton ne relance rien) ; un appui pendant le coup
+    /// est mis en file et part dès la fin du coup (et du `cooldown_frames`). Faux (défaut) :
+    /// bouton tenu, comportement d'avant. Joueurs seulement.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub queue: bool,
+    /// P-1 : multiplicateur de la vitesse de marche du porteur **pendant le coup** ; il remplace
+    /// celui du poids de l'arme active (`WeaponConfig::move_speed_mult`) le temps du coup. `None`
+    /// (défaut) : aucun effet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub move_speed_mult: Option<fixed_math::Fixed>,
 }
 
 /// Hash manuel : voir `WeaponConfig::hash` (même raison, même méthode) — reprend l'ordre des
@@ -119,6 +228,16 @@ impl std::hash::Hash for MeleeWeaponConfig {
         if let Some(parry) = &self.parry {
             parry.hash(state);
         }
+        // P-1 : même règle pour les champs suivants (absents : rien d'écrit).
+        if let Some(strike) = &self.strike_frames {
+            strike.hash(state);
+        }
+        if self.queue {
+            self.queue.hash(state);
+        }
+        if let Some(mult) = &self.move_speed_mult {
+            mult.hash(state);
+        }
     }
 }
 
@@ -142,6 +261,15 @@ impl std::fmt::Debug for MeleeWeaponConfig {
         }
         if let Some(parry) = &self.parry {
             d.field("parry", parry);
+        }
+        if let Some(strike) = &self.strike_frames {
+            d.field("strike_frames", strike);
+        }
+        if self.queue {
+            d.field("queue", &self.queue);
+        }
+        if let Some(mult) = &self.move_speed_mult {
+            d.field("move_speed_mult", mult);
         }
         d.finish()
     }
@@ -238,7 +366,7 @@ impl MeleeAttackState {
 }
 
 // MELEE ATTACK HITBOX
-#[derive(Component, Clone, Debug, Serialize, Deserialize)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 pub struct MeleeHitbox {
     pub damage: fixed_math::Fixed,
     pub knockback_force: fixed_math::Fixed,
@@ -256,10 +384,26 @@ pub struct MeleeHitbox {
     pub tags: Tags,
     /// Politique de tir ami de l'arme au moment du coup (`MeleeWeaponConfig::friendly_fire`).
     pub friendly_fire: FriendlyFire,
+    /// P-1 (§110) : fenêtre de frappe de l'arme (`MeleeWeaponConfig::strike_frames`), en frames
+    /// depuis `created_frame`, bornes comprises. `None` : toute la vie de la hitbox.
+    #[serde(default)]
+    pub strike: Option<(u32, u32)>,
+}
+
+impl MeleeHitbox {
+    /// La hitbox frappe-t-elle à la frame `now` (blesse et renvoie) ? Toujours vrai sans fenêtre
+    /// de frappe.
+    pub fn striking(&self, now: u32) -> bool {
+        self.strike.is_none_or(|(from, to)| {
+            let played = now.saturating_sub(self.created_frame);
+            (from..=to).contains(&played)
+        })
+    }
 }
 
 /// Hash manuel : exclut `owner_entity` (`Entity`, différent d'un client à l'autre) au
-/// profit de `owner_net_id`, déjà présent sur le composant.
+/// profit de `owner_net_id`, déjà présent sur le composant. P-1 : `strike` n'est haché que s'il
+/// est posé (hitbox d'avant : hash inchangé).
 impl std::hash::Hash for MeleeHitbox {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.damage.hash(state);
@@ -272,7 +416,42 @@ impl std::hash::Hash for MeleeHitbox {
         self.owner_team.hash(state);
         self.tags.hash(state);
         self.friendly_fire.hash(state);
+        if let Some(strike) = &self.strike {
+            strike.hash(state);
+        }
     }
+}
+
+/// Debug manuel : la sortie du `derive` d'avant P-1, `strike` seulement s'il est posé.
+impl std::fmt::Debug for MeleeHitbox {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("MeleeHitbox");
+        d.field("damage", &self.damage)
+            .field("knockback_force", &self.knockback_force)
+            .field("owner_entity", &self.owner_entity)
+            .field("owner_net_id", &self.owner_net_id)
+            .field("owner_handle", &self.owner_handle)
+            .field("created_frame", &self.created_frame)
+            .field("duration_frames", &self.duration_frames)
+            .field("facing", &self.facing)
+            .field("owner_team", &self.owner_team)
+            .field("tags", &self.tags)
+            .field("friendly_fire", &self.friendly_fire);
+        if let Some(strike) = &self.strike {
+            d.field("strike", strike);
+        }
+        d.finish()
+    }
+}
+
+/// File du coup de mêlée d'un joueur (P-1, §110, `MeleeWeaponConfig::queue`) : bouton tenu à la
+/// frame précédente (front montant) et appui en attente pendant un coup. Composant rollback
+/// **neutre**, posé sur le porteur seulement par une arme à `queue` : aucun autre personnage ni sa
+/// trace ne le voit.
+#[derive(Component, Default, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct MeleeQueue {
+    pub held: bool,
+    pub pending: bool,
 }
 
 // SPAWN MELEE WEAPON
@@ -304,6 +483,12 @@ pub fn spawn_melee_weapon_for_character(
         .id();
 
     commands.entity(character_entity).add_child(entity);
+    // P-1 (§110) : la file du coup, seulement pour une arme qui la demande (composant neutre).
+    if weapon_component.config.queue {
+        commands
+            .entity(character_entity)
+            .insert(MeleeQueue::default());
+    }
 
     entity
 }
@@ -402,6 +587,7 @@ pub fn spawn_melee_hitbox(
                 owner_team,
                 tags,
                 friendly_fire: config.friendly_fire,
+                strike: config.strike_frames,
             },
             hitbox_collider,
             CollisionLayer(layer),
@@ -495,6 +681,10 @@ pub fn melee_hitbox_collision_system(
     let _enter = system_span.enter();
 
     for (hitbox_g_id, hitbox_transform, hitbox, hitbox_collider) in order_iter!(hitbox_query) {
+        // P-1 (§110) : hors de sa fenêtre de frappe, la hitbox ne blesse pas.
+        if !hitbox.striking(frame.frame) {
+            continue;
+        }
         // Find the attacker by their GgrsNetId
         let mut attacker_data = None;
         for (attacker_net_id, attack_state, attacker_transform) in order_mut_iter!(attacker_query) {
@@ -623,6 +813,8 @@ pub fn player_melee_attack_system(
             Has<Downed>,
             // T1.3 : `Stun`/`Freeze` (§19) : pas de mêlée.
             Option<&crate::status::Statuses>,
+            // P-1 (§110) : file du coup (`MeleeWeaponConfig::queue`).
+            Option<&mut MeleeQueue>,
         ),
         With<Rollback>,
     >,
@@ -648,15 +840,15 @@ pub fn player_melee_attack_system(
         opt_tags,
         is_downed,
         statuses,
+        mut queue,
     ) in order_mut_iter!(player_query)
     {
         let (input, _status) = inputs[player.handle];
 
         // Check if melee attack button is pressed — à terre (T1.3) : pas de mêlée ; étourdi
         // ou gelé (statuts, T1.3 aussi) : pas de mêlée.
-        let wants_melee_attack = !is_downed
-            && !crate::status::incapacitated(statuses)
-            && (input.buttons & INPUT_MELEE_ATTACK != 0);
+        let allowed = !is_downed && !crate::status::incapacitated(statuses);
+        let held = input.buttons & INPUT_MELEE_ATTACK != 0;
 
         // Find melee weapon in children
         let mut melee_weapon_opt: Option<&MeleeWeapon> = None;
@@ -669,19 +861,44 @@ pub fn player_melee_attack_system(
 
         if let Some(melee_weapon) = melee_weapon_opt {
             let config = &melee_weapon.config;
+            // P-1 (§110) : file du coup, seulement si l'arme en main la demande. Front montant du
+            // bouton ; un appui pendant le coup attend sa fin ; à terre ou étourdi, il est perdu.
+            let mut queue = queue.as_deref_mut().filter(|_| config.queue);
+            if let Some(queue) = queue.as_deref_mut() {
+                let pressed = held && !queue.held;
+                queue.held = held;
+                if !allowed {
+                    queue.pending = false;
+                } else if pressed {
+                    queue.pending = true;
+                }
+            }
 
             // Update attack state
+            let mut ended_now = false;
             if attack_state.is_attacking {
                 // Check if attack duration has expired
                 if let Some(start_frame) = attack_state.attack_started_frame {
                     let frames_since_start = frame.frame - start_frame;
                     if frames_since_start >= config.attack_duration_frames {
                         attack_state.end_attack(frame.frame);
+                        ended_now = true;
                     }
                 }
-            } else if wants_melee_attack
+            }
+            // Sans file : bouton tenu, jamais la frame où le coup précédent finit (comportement
+            // d'avant). Avec file : l'appui gardé part dès la fin du coup, cette frame comprise.
+            let wants_melee_attack = match queue.as_deref() {
+                Some(queue) => queue.pending,
+                None => allowed && held && !ended_now,
+            };
+            if !attack_state.is_attacking
+                && wants_melee_attack
                 && attack_state.can_attack(frame.frame, config.cooldown_frames)
             {
+                if let Some(queue) = queue.as_deref_mut() {
+                    queue.pending = false;
+                }
                 // Start new attack
                 attack_state.start_attack(frame.frame);
 
@@ -1079,6 +1296,8 @@ pub fn melee_reflect_system(
     frame: Res<FrameCount>,
     // Absente hors jeu complet (enregistrée par `game::core_sim`) : la parade agit, sans événement.
     mut reflected_events: Option<ResMut<FrameEvents<ProjectileReflected>>>,
+    // P-1 : visée du joueur porteur (`ReflectDirection::Aim`) ; absente hors session : le regard.
+    inputs: Option<Res<bevy_ggrs::PlayerInputs<PeerConfig>>>,
     hitbox_query: Query<
         (
             &GgrsNetId,
@@ -1096,7 +1315,7 @@ pub fn melee_reflect_system(
             Option<&mut crate::projectile::Projectile>,
             &Collider,
         ),
-        With<Rollback>,
+        (With<Rollback>, Without<MeleeHitbox>),
     >,
     owner_query: Query<
         (
@@ -1105,8 +1324,9 @@ pub fn melee_reflect_system(
             Option<&Player>,
             &Team,
             &Children,
+            Option<&fixed_math::FixedTransform3D>,
         ),
-        With<Rollback>,
+        (With<Rollback>, Without<super::Bullet>, Without<MeleeHitbox>),
     >,
     weapon_query: Query<&MeleeWeapon>,
 ) {
@@ -1116,14 +1336,29 @@ pub fn melee_reflect_system(
     let mut reflected_this_frame: BTreeSet<usize> = BTreeSet::new();
 
     for (_hitbox_id, hitbox_transform, hitbox, hitbox_collider) in order_iter!(hitbox_query) {
+        // P-1 (§110) : hors de sa fenêtre de frappe, la hitbox ne renvoie rien.
+        if !hitbox.striking(now) {
+            continue;
+        }
         let mut owner_data = None;
-        for (owner_net_id, facing, player, team, children) in order_iter!(owner_query) {
+        for (owner_net_id, facing, player, team, children, owner_transform) in
+            order_iter!(owner_query)
+        {
             if owner_net_id == &hitbox.owner_net_id {
-                owner_data = Some((owner_net_id, facing, player, team, children));
+                owner_data = Some((
+                    owner_net_id,
+                    facing,
+                    player,
+                    team,
+                    children,
+                    owner_transform,
+                ));
                 break;
             }
         }
-        let Some((owner_net_id, facing, player, owner_team, children)) = owner_data else {
+        let Some((owner_net_id, facing, player, owner_team, children, owner_transform)) =
+            owner_data
+        else {
             continue;
         };
         let Some(reflect) = melee_weapon_of(children, &weapon_query)
@@ -1132,7 +1367,30 @@ pub fn melee_reflect_system(
             continue;
         };
         let started = hitbox.created_frame;
-        let direction = facing_to_fixed(*facing);
+        let facing_dir = facing_to_fixed(*facing);
+        // Centre du porteur (un porteur a toujours une position en jeu ; à défaut, la hitbox).
+        let owner_pos = owner_transform
+            .unwrap_or(hitbox_transform)
+            .translation
+            .truncate();
+        // P-1 : demi-arc du secteur en cosinus (une fois par hitbox) ; `None` : tout autour.
+        let sector = reflect.sector.as_ref().map(|sector| {
+            let min_cos = (sector.arc < fixed_math::FIXED_TAU)
+                .then(|| fixed_math::cos_fixed(sector.arc / fixed_math::Fixed::from_num(2)));
+            (sector.radius, min_cos)
+        });
+        // P-1 : visée du joueur porteur (`pan` de son input), pour `ReflectDirection::Aim`.
+        let pan = match (&reflect.direction, player, inputs.as_ref()) {
+            (ReflectDirection::Aim { .. }, Some(player), Some(inputs)) => {
+                let (input, _) = inputs[player.handle];
+                Some(fixed_math::FixedVec2::new(
+                    fixed_math::Fixed::from_num(input.pan_x),
+                    fixed_math::Fixed::from_num(input.pan_y),
+                ))
+                .filter(|pan| *pan != fixed_math::FixedVec2::ZERO)
+            }
+            _ => None,
+        };
 
         for (bullet_id, bullet_transform, mut bullet, mut projectile, bullet_collider) in
             order_mut_iter!(bullet_query)
@@ -1148,18 +1406,50 @@ pub fn melee_reflect_system(
                     &bullet.tags,
                 )
                 || !projectile.as_ref().is_none_or(|p| !p.ended)
-                || !is_colliding(
+            {
+                continue;
+            }
+            let bullet_pos = bullet_transform.translation.truncate();
+            let in_zone = match sector {
+                Some((radius, min_cos)) => {
+                    let offset = bullet_pos - owner_pos;
+                    let (distance, toward) = offset.length_and_direction();
+                    distance <= radius
+                        && min_cos.is_none_or(|min_cos| {
+                            distance == fixed_math::Fixed::ZERO
+                                || toward.dot(&facing_dir) >= min_cos
+                        })
+                }
+                None => is_colliding(
                     &hitbox_transform.translation,
                     hitbox_collider,
                     &bullet_transform.translation,
                     bullet_collider,
-                )
-            {
+                ),
+            };
+            if !in_zone {
                 continue;
             }
             reflected_this_frame.insert(bullet_id.0);
             let grade = grade_timing(now, started, reflect.perfect_frames, u32::MAX);
-            let (speed, _) = bullet.velocity.length_and_direction();
+            let (mut speed, _) = bullet.velocity.length_and_direction();
+            if let Some(mult) = reflect.speed_mult {
+                speed = speed.saturating_mul(mult);
+            }
+            if let (TimingGrade::Perfect, Some(mult)) = (grade, reflect.perfect_speed_mult) {
+                speed = speed.saturating_mul(mult);
+            }
+            let direction = match (&reflect.direction, pan) {
+                (ReflectDirection::Aim { min_distance }, Some(pan)) => {
+                    let (to_target, toward) = (owner_pos + pan - bullet_pos).length_and_direction();
+                    if to_target > *min_distance {
+                        toward
+                    } else {
+                        pan.normalize_or_zero()
+                    }
+                }
+                _ => facing_dir,
+            };
             bullet.velocity = fixed_math::FixedVec2::new(
                 direction.x.saturating_mul(speed),
                 direction.y.saturating_mul(speed),
@@ -1174,6 +1464,10 @@ pub fn melee_reflect_system(
             }
             if let Some(projectile) = projectile.as_deref_mut() {
                 projectile.hits.clear();
+                // Revue P-1 (P2) : un projectile en orbite renvoyé repart en ligne droite au lieu
+                // de tourner autour du pareur (`projectile_steering_system` centre l'orbite sur
+                // `Bullet::source`, devenu le pareur).
+                projectile.orbit = None;
             }
             info!(
                 "ggrs{{f={} reflect bullet={} owner={} grade={:?}}}",
@@ -1242,6 +1536,9 @@ mod system_tests {
                 test: None,
                 reflect,
                 parry,
+                strike_frames: None,
+                queue: false,
+                move_speed_mult: None,
             },
             sprite_config: MeleeWeaponSpriteConfig {
                 name: "epee".into(),
@@ -1255,6 +1552,10 @@ mod system_tests {
         MeleeReflect {
             perfect_frames: 0,
             perfect_damage_mult: fixed_math::Fixed::from_num(2.0),
+            sector: None,
+            direction: ReflectDirection::Facing,
+            speed_mult: None,
+            perfect_speed_mult: None,
         }
     }
 
@@ -1305,6 +1606,7 @@ mod system_tests {
                     owner_team: team,
                     tags: Tags::default(),
                     friendly_fire: FriendlyFire::Never,
+                    strike: None,
                 },
                 circle(30.0),
                 at(x, 0.0),
@@ -1418,6 +1720,78 @@ mod system_tests {
             0,
             "aucune note"
         );
+    }
+
+    /// P-1 (§110) : la hache du banc armes. Renvoi seulement pendant la fenêtre de frappe
+    /// (frames 10 à 13 du coup), dans le secteur centré sur le porteur (31,2 px, 160° autour du
+    /// regard), vitesse × 1,5 puis × 1,4 sur un parfait (fenêtre parfaite : 14 frames).
+    #[test]
+    fn hache_du_banc_fenetre_de_frappe_secteur_et_vitesse() {
+        let hache = || {
+            let mut weapon = melee_weapon(
+                Some(MeleeReflect {
+                    perfect_frames: 14,
+                    perfect_damage_mult: fixed_math::FIXED_ONE,
+                    sector: Some(ReflectSector {
+                        radius: fixed_math::new(31.2),
+                        arc: fixed_math::new(2.7925),
+                    }),
+                    direction: ReflectDirection::Facing,
+                    speed_mult: Some(fixed_math::new(1.5)),
+                    perfect_speed_mult: Some(fixed_math::new(1.4)),
+                }),
+                None,
+            );
+            weapon.config.strike_frames = Some((10, 13));
+            weapon
+        };
+        // (frames jouées du coup, position de la balle) -> renvoyée ?
+        let cases = [
+            (5, 20.0, false),   // avant la frappe
+            (11, 20.0, true),   // dans la frappe, devant, à portée
+            (14, 20.0, false),  // après la frappe
+            (11, -20.0, false), // derrière (hors de l'arc de 160°)
+            (11, 35.0, false),  // trop loin
+        ];
+        for (played, x, expected) in cases {
+            let mut world = test_world();
+            world.init_resource::<FrameEvents<ProjectileReflected>>();
+            let pareur = owner(
+                &mut world,
+                7,
+                Team::Players,
+                FacingDirection::Right,
+                hache(),
+            );
+            world.entity_mut(pareur).insert(at(0.0, 0.0));
+            let boite = hitbox(
+                &mut world,
+                20,
+                pareur,
+                7,
+                Team::Players,
+                FRAME - played,
+                15.0,
+            );
+            world.get_mut::<MeleeHitbox>(boite).unwrap().strike = Some((10, 13));
+            let balle = bullet(&mut world, 29, x, -100.0);
+            world.run_system_once(melee_reflect_system).unwrap();
+            let balle = world.get::<super::super::Bullet>(balle).unwrap();
+            assert_eq!(
+                balle.source_team == Team::Players,
+                expected,
+                "coup à {played} frames, balle à x = {x}"
+            );
+            if expected {
+                // 100 × 1,5 × 1,4 = 210, vers le regard (droite)
+                let (speed, _) = balle.velocity.length_and_direction();
+                assert!(
+                    (speed - fixed_math::new(210.0)).abs() < fixed_math::new(0.01),
+                    "vitesse {speed}"
+                );
+                assert!(balle.velocity.x > fixed_math::Fixed::ZERO);
+            }
+        }
     }
 
     /// Personnage pour une parade de mêlée (X-3) : position et vitesse, sans hitbox.

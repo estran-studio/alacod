@@ -1,0 +1,28 @@
+// P-1 (testbed, docs/conventions.md §110) : renvoi par secteur pendant la fenêtre de frappe. Le joueur 0, armé de
+// `renvoi_secteur` (coup de 21 frames qui ne frappe qu'aux frames 10 à 13 ; secteur de 31,2 px et 160° autour du
+// regard ; vitesse × 1,5, × 1,4 de plus sur un parfait), est visé par la tourelle de `testbed/arena_tir.ldtk`
+// (couronne de boules de feu de 8 dégâts, comme `parade_projectiles`). Les inputs agissent 5 frames plus tard.
+//
+// À regarder : appui f60, coup f65 : la boule de feu entre dans le secteur avant la frappe mais n'est renvoyée qu'à
+// f75, la première frame de la frappe (« parfait »), vers le point visé (droite) ; à × 2,1 elle touche la tourelle
+// pour 8.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_tir.ldtk",
+    frames: 200,
+    players: [
+        (weapon: "renvoi_secteur", inputs: [
+            (from: 60, to: 61, buttons: [Melee], pan: (100, 0)),
+            (from: 61, to: 200, buttons: [], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("fireball"), team: Some(Players), at_frame: 74),
+        BulletCount(count: 1, projectile: Some("fireball"), team: Some(Players), at_frame: 76),
+        // × 2,1 vers la tourelle : 8 de dégâts entre f104 et f106
+        EntityHealth(net_id: 24, min: 500.0, max: 500.0, at_frame: 104),
+        EntityHealth(net_id: 24, min: 492.0, max: 492.0, at_frame: 106),
+        PlayerAlive(handle: 0, at_frame: 200),
+    ],
+)

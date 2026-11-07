@@ -1,0 +1,39 @@
+// P-1 (testbed, docs/conventions.md §110) : coup de mêlée en file et fenêtre de frappe (`renvoi_secteur` : coup de
+// 21 frames, frappe aux frames 10 à 13, `queue`, marche à 60 % pendant le coup). Une `target` 20 px à droite du joueur.
+// Les inputs agissent 5 frames plus tard.
+//
+// À regarder : appui bref f10 (coup f15) ; second appui bref f20, pendant le coup : gardé, il part à la fin du premier
+// (f36), sans délai. La cible n'est touchée qu'à la frappe de chaque coup (f25 et f46 : 10 frames après le départ),
+// jamais à leur départ. Appui f100 vers le bas avec un coup : 1,5 px par frame pendant le coup (60 % des 2,5 de la
+// course), la course reprend à sa fin (f126).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [(character: "target", x: "444.0", y: "696.0", at_frame: 1)],
+    players: [
+        (weapon: "renvoi_secteur", inputs: [
+            (from: 0, to: 10, buttons: [], pan: (100, 0)),
+            (from: 10, to: 11, buttons: [Melee], pan: (100, 0)),
+            (from: 11, to: 20, buttons: [], pan: (100, 0)),
+            (from: 20, to: 21, buttons: [Melee], pan: (100, 0)),
+            (from: 21, to: 100, buttons: [], pan: (100, 0)),
+            (from: 100, to: 101, buttons: [Down, Melee], pan: (0, -100)),
+            (from: 101, to: 140, buttons: [Down], pan: (0, -100)),
+        ]),
+    ],
+    expect: [
+        // Frappe du premier coup (départ f15) : f25, compteur lu à f26
+        EntityHits(net_id: 33, min: 0, max: Some(0), at_frame: 25),
+        EntityHits(net_id: 33, min: 1, max: Some(1), at_frame: 26),
+        // Le second appui (f25, pendant le coup) part à f36 : frappe à f46
+        EntityHits(net_id: 33, min: 1, max: Some(1), at_frame: 46),
+        EntityHits(net_id: 33, min: 2, max: Some(2), at_frame: 47),
+        EntityHits(net_id: 33, min: 2, max: Some(2), at_frame: 100),
+        // Marche pendant le coup de f105 : 1,5 px par frame (sans coup : 2,5)
+        PlayerPosition(handle: 0, x: 424, y: 689.2, tolerance: 0.1, at_frame: 110),
+        PlayerPosition(handle: 0, x: 424, y: 666.7, tolerance: 0.1, at_frame: 125),
+        PlayerPosition(handle: 0, x: 424, y: 618.9, tolerance: 0.1, at_frame: 145),
+    ],
+)

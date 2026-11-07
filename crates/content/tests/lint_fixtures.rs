@@ -1175,6 +1175,14 @@ fn melee_reflect_mult_zero_fixture_reports_mult() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// P-1 : `strike_frames` doit tenir dans le coup (`début <= fin < attack_duration_frames`).
+#[test]
+fn melee_strike_outside_attack_fixture_reports_strike() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("melee_strike_outside_attack")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "strike_frames");
+    assert_only_one_besides_start_map(&errors);
+}
+
 /// X-3 : `parry.perfect_knockback` doit être >= 0.
 #[test]
 fn melee_parry_knockback_negative_fixture_reports_knockback() {

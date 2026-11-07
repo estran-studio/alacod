@@ -1894,6 +1894,49 @@ fn lint_melee_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+        // P-1 (§110) : fenêtre de frappe dans le coup (`début <= fin < attack_duration_frames`).
+        if let Some((from, to)) = weapon.strike_frames {
+            if from > to || to >= weapon.attack_duration_frames {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme de corps à corps « {} » : champ strike_frames = ({from}, {to}) : il faut début <= fin < attack_duration_frames ({})",
+                        weapon.id, weapon.attack_duration_frames
+                    ),
+                });
+            }
+        }
+        // P-1 : multiplicateurs (marche pendant le coup, vitesse du renvoi) et secteur > 0.
+        let reflect = weapon.reflect.as_ref();
+        let positives = [
+            ("move_speed_mult", weapon.move_speed_mult),
+            ("reflect.speed_mult", reflect.and_then(|r| r.speed_mult)),
+            (
+                "reflect.perfect_speed_mult",
+                reflect.and_then(|r| r.perfect_speed_mult),
+            ),
+            (
+                "reflect.sector.radius",
+                reflect.and_then(|r| r.sector).map(|s| s.0),
+            ),
+            (
+                "reflect.sector.arc",
+                reflect.and_then(|r| r.sector).map(|s| s.1),
+            ),
+        ];
+        for (field, value) in positives {
+            if let Some(value) = value.filter(|value| *value <= Fixed::ZERO) {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme de corps à corps « {} » : champ {field} = {value} : doit être > 0",
+                        weapon.id
+                    ),
+                });
+            }
+        }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
     }
 }

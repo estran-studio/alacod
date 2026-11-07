@@ -1,0 +1,9 @@
+// P-1 : fenêtre de frappe qui sort du coup (frame 21 d'un coup de 21 frames, numérotées 0 à 20) :
+// LintErrorKind::OutOfRange (`lint::lint_melee_weapons`).
+({
+    "hache": (config: (
+        damage: "5.0",
+        attack_duration_frames: 21,
+        strike_frames: Some((10, 21)),
+    )),
+})

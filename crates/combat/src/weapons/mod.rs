@@ -2072,22 +2072,52 @@ pub fn weapon_weight_source(name: &str) -> ModifierSource {
 /// retirer, sans allocation tant que l'arme active ne change pas (comparaison par
 /// préfixe, allocation seulement à la pose).
 ///
-/// Tête du set `Weapon` : les tirs de la frame voient déjà le poids de l'arme qui les
-/// tire (et le mouvement de la frame suivante, lu dans `Input`, aussi).
+/// Dans le set `Weapon`, après le changement et le lâcher d'arme et le départ du coup de mêlée
+/// de la frame (revue P-1) : le mouvement de la frame suivante (set `Input`) voit le poids de
+/// l'arme en main et le ralenti du coup dès leur première frame.
+///
+/// P-1 (`docs/conventions.md` §110) : pendant un coup de mêlée dont l'arme porte
+/// `MeleeWeaponConfig::move_speed_mult`, c'est **ce** multiplicateur qui est posé (même préfixe
+/// de source, au nom de l'arme de mêlée), à la place du poids de l'arme active ; le poids revient
+/// à la fin du coup.
 pub fn sync_carry_weight_system(
-    mut query: Query<(&WeaponInventory, &mut Modifiers), With<Rollback>>,
+    mut query: Query<
+        (
+            &WeaponInventory,
+            &mut Modifiers,
+            Option<&melee::MeleeAttackState>,
+            Option<&Children>,
+        ),
+        With<Rollback>,
+    >,
+    melee_weapons: Query<&melee::MeleeWeapon>,
 ) {
     // Itération sans ordre `GgrsNetId` : chaque porteur n'écrit que ses propres
     // modificateurs, l'ordre entre porteurs est sans effet (CLAUDE.md, règle 2).
-    for (inventory, mut modifiers) in query.iter_mut() {
-        let wanted: Option<(&str, fixed_math::Fixed)> = inventory
-            .weapons
-            .get(inventory.active_weapon_index)
-            .map(|(_, weapon)| (weapon.config.name.as_str(), weapon.config.move_speed_mult))
-            .and_then(|(name, mult)| {
-                mult.filter(|mult| *mult != fixed_math::FIXED_ONE)
-                    .map(|mult| (name, mult))
+    for (inventory, mut modifiers, attack, children) in query.iter_mut() {
+        let striking: Option<(&str, fixed_math::Fixed)> = attack
+            .filter(|attack| attack.is_attacking)
+            .and(children)
+            .and_then(|children| {
+                children
+                    .iter()
+                    .find_map(|child| melee_weapons.get(child).ok())
+            })
+            .and_then(|weapon| {
+                weapon
+                    .config
+                    .move_speed_mult
+                    .map(|mult| (weapon.config.name.as_str(), mult))
             });
+        let wanted: Option<(&str, fixed_math::Fixed)> = striking
+            .or_else(|| {
+                inventory
+                    .weapons
+                    .get(inventory.active_weapon_index)
+                    .map(|(_, weapon)| (weapon.config.name.as_str(), weapon.config.move_speed_mult))
+                    .and_then(|(name, mult)| mult.map(|mult| (name, mult)))
+            })
+            .filter(|(_, mult)| *mult != fixed_math::FIXED_ONE);
         let is_weight = |source: &ModifierSource| matches!(source, ModifierSource::Named(name) if name.starts_with(WEAPON_WEIGHT_SOURCE_PREFIX));
         let current_ok = match &wanted {
             Some((name, value)) => {
@@ -2191,13 +2221,10 @@ impl Plugin for BaseWeaponGamePlugin {
         app.add_systems(
             GgrsSchedule,
             (
-                // Ranged weapon systems. `sync_carry_weight_system` en tête (X-3) : le poids
-                // de l'arme active est posé avant tout tir de la frame. `weapon_drop_system`
-                // avant tout le reste (T2.2) : un lâcher cette frame doit être vu par
-                // `system_weapon_position`/`weapon_rollback_system` (inventaire déjà à jour,
-                // arme déjà despawn).
-                sync_carry_weight_system,
-                weapon_drop_system.after(sync_carry_weight_system),
+                // Ranged weapon systems. `weapon_drop_system` avant tout le reste (T2.2) : un
+                // lâcher cette frame doit être vu par `system_weapon_position`/
+                // `weapon_rollback_system` (inventaire déjà à jour, arme déjà despawn).
+                weapon_drop_system,
                 system_weapon_position.after(weapon_drop_system),
                 weapon_rollback_system.after(system_weapon_position),
                 bullet_rollback_system.after(weapon_rollback_system),
@@ -2207,7 +2234,11 @@ impl Plugin for BaseWeaponGamePlugin {
                 // frame pare dès la frame 0, une hitbox arrivée au bout de sa durée ne pare plus),
                 // et une balle renvoyée ou un coup annulé ne blesse pas dans la même frame.
                 melee::player_melee_attack_system.after(bullet_rollback_system),
-                melee::enemy_melee_attack_system.after(melee::player_melee_attack_system),
+                // Poids de l'arme active (X-3) et marche pendant un coup (P-1) : après le
+                // changement, le lâcher d'arme et le départ du coup de la frame (revue P-1, P2) ;
+                // le mouvement de la frame suivante (set `Input`) les voit.
+                sync_carry_weight_system.after(melee::player_melee_attack_system),
+                melee::enemy_melee_attack_system.after(sync_carry_weight_system),
                 melee::update_melee_hitboxes.after(melee::enemy_melee_attack_system),
                 melee::melee_parry_system.after(melee::update_melee_hitboxes),
                 melee::melee_reflect_system.after(melee::melee_parry_system),
