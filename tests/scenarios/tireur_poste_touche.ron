@@ -1,0 +1,30 @@
+// P-1 (testbed, docs/conventions.md §110) : un coup reçu interrompt la salve d'un tireur posté (`ranged_cycle.stagger_frames`).
+// Un `tireur_poste` 80 px sous le joueur pose sa salve vers f22 (télégraphe f33 à f62) ; le joueur lui tire dessus une fois
+// (appui f28, balle au contact vers f43). Les inputs agissent 5 frames plus tard.
+//
+// À regarder : touché pendant le télégraphe, le tireur perd sa salve (aucune flèche vers f63) et reste sonné 30 frames ;
+// après une attente tirée de 10 à 20 frames il repart et tire vers f125 ; le joueur n'est touché qu'alors.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 170,
+    characters: [(character: "tireur_poste", x: "424.0", y: "616.0", at_frame: 1)],
+    players: [
+        (inputs: [
+            (from: 28, to: 29, buttons: [Fire], pan: (0, -100)),
+            (from: 29, to: 170, buttons: [], pan: (0, -100)),
+        ]),
+    ],
+    expect: [
+        // Salve perdue : aucune flèche à l'heure de la première salve, ni pendant la stupeur
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 65),
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 110),
+        // Salve suivante après sonné (30) + attente tirée
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 130),
+        Health(handle: 0, min: Some(100.0), at_frame: 120),
+        // Le tireur ne recule qu'à ce tir-là
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(79.9), max: Some(80.1), at_frame: 120),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(87.9), max: Some(88.1), at_frame: 140),
+    ],
+)

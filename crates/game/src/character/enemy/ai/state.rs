@@ -117,6 +117,11 @@ pub struct EnemyAiConfig {
     /// `stationary` : exclu du `Hash`.
     #[serde(default)]
     pub sight_range: Option<fixed_math::Fixed>,
+    /// Cycle d'un tireur posté (P-1, `docs/conventions.md` §110, [`super::cycle`]) : visée qui
+    /// suit la cible, attente tirée, coup reçu, recul, retour au poste. `None` (tout le contenu
+    /// d'avant P-1) : aucun effet. Statique, comme `stationary` : exclu du `Hash`.
+    #[serde(default)]
+    pub ranged_cycle: Option<super::cycle::RangedCycleConfig>,
 }
 
 /// Tir à distance d'un ennemi (T1.2) : à moins de `range` de sa cible `Player` et
@@ -196,6 +201,9 @@ impl std::fmt::Debug for EnemyAiConfig {
         if let Some(range) = &self.sight_range {
             debug.field("sight_range", range);
         }
+        if let Some(cycle) = &self.ranged_cycle {
+            debug.field("ranged_cycle", cycle);
+        }
         debug.finish()
     }
 }
@@ -217,6 +225,7 @@ impl Default for EnemyAiConfig {
             stationary: false,
             ranged: None,
             sight_range: None,
+            ranged_cycle: None,
         }
     }
 }
@@ -269,6 +278,7 @@ impl EnemyAiConfig {
             stationary: false,
             ranged: None,
             sight_range: None,
+            ranged_cycle: None,
         }
     }
 
@@ -289,6 +299,7 @@ impl EnemyAiConfig {
             stationary: false,
             ranged: None,
             sight_range: None,
+            ranged_cycle: None,
         }
     }
 
@@ -319,6 +330,7 @@ impl EnemyAiConfig {
             stationary: false,
             ranged: None,
             sight_range: None,
+            ranged_cycle: None,
         }
     }
 
@@ -343,6 +355,7 @@ impl EnemyAiConfig {
             stationary: false,
             ranged: None,
             sight_range: None,
+            ranged_cycle: None,
         }
     }
 }
@@ -382,6 +395,9 @@ pub struct EnemyAiConfigRon {
     /// M2-T8 (§49) : escouade du personnage (`Some((id, role))`), lue par la règle `Formation`.
     #[serde(default)]
     pub squad: Option<SquadRon>,
+    /// P-1 (§110) : cycle d'un tireur posté, voir [`EnemyAiConfig::ranged_cycle`].
+    #[serde(default)]
+    pub ranged_cycle: Option<super::cycle::RangedCycleConfig>,
 }
 
 /// M2-T8 : appartenance à une escouade. Les membres vivants d'un même `id` forment l'escouade
@@ -481,6 +497,7 @@ impl From<&EnemyAiConfigRon> for EnemyAiConfig {
             }
         }
 
+        config.ranged_cycle = ron.ranged_cycle.clone();
         config
     }
 }

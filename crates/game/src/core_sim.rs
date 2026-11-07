@@ -139,6 +139,8 @@ impl Plugin for CoreSimPlugin {
             app.rollback_and_trace_neutral::<combat::actors::DashCadence>();
             // P-1 : file du coup de mêlée (`MeleeWeaponConfig::queue`), même règle.
             app.rollback_and_trace_neutral::<combat::weapons::melee::MeleeQueue>();
+            // P-1 : cycle d'un tireur posté (`ai.ranged_cycle`), même règle.
+            app.rollback_and_trace_neutral::<crate::character::enemy::ai::cycle::RangedCycle>();
         }
 
         app.init_resource::<GggrsSessionConfigurationState>();

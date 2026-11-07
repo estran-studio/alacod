@@ -1555,13 +1555,7 @@ mod system_tests {
         for (played, x, expected) in cases {
             let mut world = test_world();
             world.init_resource::<FrameEvents<ProjectileReflected>>();
-            let pareur = owner(
-                &mut world,
-                7,
-                Team::Players,
-                FacingDirection::Right,
-                arme(),
-            );
+            let pareur = owner(&mut world, 7, Team::Players, FacingDirection::Right, arme());
             world.entity_mut(pareur).insert(at(0.0, 0.0));
             let boite = hitbox(
                 &mut world,

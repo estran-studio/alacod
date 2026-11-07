@@ -8490,7 +8490,7 @@ mêlée).
 **4. Parité avec les bancs du labo (P-1, `1837/docs/parite-labo.md`, `docs/taches/rapports/p-1-parite-labo.md`).** La référence
 est les `DEFAUTS` des bancs `gigue.js`, `armes.js`, `allures.js` de `1867_lore` ; le testbed prouve chaque verbe avec des valeurs
 neutres, 1837 pose les nombres du banc dans ses RON. Tout champ neuf est optionnel et n'entre dans le `Hash`/`Debug` que posé ; les
-types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la clôture (`DashCadence`, `MeleeQueue`).
+types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la clôture (`DashCadence`, `MeleeQueue`, `RangedCycle`).
 
 - **Horloge à tempo** : `ClockDef::tempo: Some(bpm)` (kind `Clock`). Le temps `k` tombe à `k × 3600 / bpm` frames de la portée,
   rationnel (aucune dérive : 129 temps/min = 27,907 frames par temps) ; aucun événement (rien n'entre dans `Clock::fired`).
@@ -8522,3 +8522,16 @@ types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la 
   poids de l'arme active (même source `weapon_weight:<arme de mêlée>`). Scénarios `renvoi_secteur` (dans le secteur avant la
   frappe, renvoyé à sa première frame, × 2,1, touche la tourelle), `renvoi_secteur_visee` (regard à droite, renvoi vers le point
   visé : passe au-dessus), `coup_en_file` (frappes 10 frames après chaque départ, second coup en file sans délai, 60 % de marche).
+- **Tireur posté** (`ai.ranged_cycle`, `character::enemy::ai::cycle`, autour d'une règle `Shoot` ; état `RangedCycle` neutre,
+  posé seulement si `ranged_cycle` et un tir sont configurés ; configuration statique hors `Hash`) : `track_target` (la visée de
+  l'émetteur suit la cible à chaque frame : le télégraphe pivote, le tir part vers la position courante), `face_target` (regard
+  8 directions vers la cible, sauf sonné), `wait_frames: Some((min, max))` (attente tirée, flux `ranged_cycle`, ajoutée au
+  `cooldown_frames` après chaque salve et après un coup reçu), `first_wait: Some((base, pas))` (première salve au plus tôt
+  `base + pas × rang`, rang par `GgrsNetId` parmi les tireurs à cycle), `stagger_frames` (un `DamageEvent` visant le tireur
+  interrompt la salve : émetteur fini, télégraphe caché, tir perdu ; sonné ce nombre de frames), `recoil: Some((distance, frames))`
+  (au tir, recul à l'opposé du regard, courbe `1 − (1 − v)³`, arrêté par les murs), `return_speed` (hors salve et recharge finie,
+  retour au poste — sa position à sa première frame — à cette vitesse). Le geste avant l'annonce et celui du tir sont des `Wait`
+  du pattern (`Sequence([Wait(n), Telegraph(n), Aimed(..), Wait(n)])`). Système `ranged_cycle_system` (`EnemyAI`, après
+  `move_enemies`, avant `enemy_attack_system`, sans commande). Scénarios `tireur_poste_cycle` (départ décalé, recul, retour),
+  `tireur_poste_suit` et son témoin `tireur_poste_fige_temoin` (visée qui suit : touché ; visée figée : manqué),
+  `tireur_poste_touche` (salve perdue, stupeur, salve suivante).

@@ -1,0 +1,8 @@
+// P-1 (testbed, docs/conventions.md §110) : salve d'un tireur posté (`characters/tireur_poste.ron`) : geste avant
+// l'annonce (`Wait(10)`), télégraphe (30 frames), une flèche visée, geste du tir (`Wait(20)`). Valeurs d'essai neutres.
+Sequence([
+    Wait(10),
+    Telegraph(30),
+    Aimed(count: 1, spread: "0.0", projectile: "arrow"),
+    Wait(20),
+])

@@ -262,7 +262,11 @@ impl Plugin for BaseCharacterGamePlugin {
                         .after(enemy::ai::squad::formation_system),
                     update_enemy_targets.after(enemy::ai::rules::behavior_select_system),
                     move_enemies.after(update_enemy_targets),
-                    enemy_attack_system.after(move_enemies),
+                    // P-1 (§110) : cycle des tireurs postés, avant la décision de tir de la frame.
+                    enemy::ai::cycle::ranged_cycle_system.after(move_enemies),
+                    enemy_attack_system
+                        .after(move_enemies)
+                        .after(enemy::ai::cycle::ranged_cycle_system),
                     // D38 : pas d'attaque au corps à corps en fuyant (lu à la frame suivante).
                     enemy::ai::rules::melee_hold_system.after(enemy_attack_system),
                 )

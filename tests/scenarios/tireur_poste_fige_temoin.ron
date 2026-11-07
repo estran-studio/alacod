@@ -1,0 +1,22 @@
+// P-1 (testbed, docs/conventions.md §110) : témoin de `tireur_poste_suit` avec `tireur_poste_fige` (`track_target: false`) :
+// même partie, la visée de la salve est figée à sa pose (vers f22, le joueur encore à son départ). Un tireur
+// 80 px sous le joueur ; le joueur part à droite pendant le télégraphe (f30 à f55) ; la flèche part vers f63.
+//
+// À regarder : la flèche part vers l’ancienne position du joueur et le manque ; il est intact jusqu’à la salve suivante.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [(character: "tireur_poste_fige", x: "424.0", y: "616.0", at_frame: 1)],
+    players: [
+        (inputs: [(from: 25, to: 50, buttons: [Right])]),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 486.5, y: 696, tolerance: 0.1, at_frame: 60),
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 65),
+        // La flèche le manque : santé intacte
+        Health(handle: 0, min: Some(100.0), at_frame: 100),
+        Health(handle: 0, min: Some(100.0), at_frame: 150),
+    ],
+)
