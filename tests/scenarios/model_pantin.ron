@@ -6,8 +6,8 @@
 // jambes dans la direction de la marche (f30-90) ; tir à l'arrêt vers la droite, la balle sort de la bouche du
 // canon (f90) ; en joue, détente tenue (f100-130) ; marche vers la droite en joue, visée vers le bas
 // (f140-200) ; rechargement en marchant vers le bas puis à l'arrêt (f205-290) ; coup de mêlée (f300) ;
-// roulade vers le haut (f330) ; tir vers le bas (f380). Le pantin passe devant et derrière le mannequin
-// (tri en y), avec son contour et son ombre.
+// roulade vers le haut (f330) ; tir vers le bas (f380). Le pantin a son contour d'un pixel et son ombre portée
+// (le testbed garde `y_sort: false` : ordre de dessin historique).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",

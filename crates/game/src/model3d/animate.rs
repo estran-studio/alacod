@@ -109,6 +109,15 @@ pub fn held_side<'a>(manifest: &'a AnimeManifest, weapon: &str, clip: &str) -> O
     })
 }
 
+/// Un objet porté (la clé à la ceinture) : aucun de ses côtés n'est la main ni l'os de l'arme.
+pub fn is_worn(weapon: &content::models::ManifestWeapon) -> bool {
+    !weapon.objects.is_empty()
+        && weapon
+            .objects
+            .keys()
+            .all(|side| side != HAND_SIDE && side != WEAPON_SIDE)
+}
+
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn animate_models(
     time: Res<Time>,
@@ -262,17 +271,19 @@ pub fn animate_models(
             apply(state, &mut player);
         }
 
-        // L'arme du manifeste dans la main, du côté de la prise du clip en cours.
+        // L'arme du manifeste dans la main, du côté de la prise du clip en cours ; un objet porté (ni à la
+        // main ni à l'os de l'arme : la clé à la ceinture) se montre dans les clips qui le nomment.
         let clip = state.current.as_ref().map(|t| t.clip.as_str()).unwrap_or("");
         let object = choice.as_ref().and_then(|c| c.object.as_deref());
         for (id, weapon) in &manifest.weapons {
             let side = (Some(id.as_str()) == object)
                 .then(|| held_side(manifest, id, clip))
                 .flatten();
+            let worn = is_worn(weapon) && weapon.animations.iter().any(|a| a == clip);
             for (object_side, node) in &weapon.objects {
                 if let Some(mut v) = ready.nodes.get(node).and_then(|e| visibility.get_mut(*e).ok())
                 {
-                    let wanted = if Some(object_side.as_str()) == side {
+                    let wanted = if worn || Some(object_side.as_str()) == side {
                         Visibility::Inherited
                     } else {
                         Visibility::Hidden

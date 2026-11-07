@@ -250,6 +250,9 @@ impl Plugin for LdtkRoguePlugin {
                 PostUpdate,
                 lift_characters_to_entity_layer
                     .after(bevy_fixed::fixed_math::sync_bevy_transforms_from_fixed)
+                    .after(game::display_interpolation::interpolate_transforms)
+                    // R-1 (§111) : le tri en y retire `y` du `z` relevé ici.
+                    .before(game::model3d::placement::y_sort)
                     .before(bevy::transform::TransformSystems::Propagate),
             )
             // m2-salles-murs-gungeon (§83) : murs dessinés d'après la couche IntGrid, si `hud.ron` le demande.

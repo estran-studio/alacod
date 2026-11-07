@@ -28,8 +28,11 @@ pub struct ModelBulletOffset {
     born: u32,
 }
 
-/// Le plus bas à l'écran devant (`y_sort` du fichier `Model`) : `z` de la simulation moins `y` ×
-/// [`Y_SORT_PER_UNIT`], pour les personnages (corps 3D et décor en sprites) et les balles (à leur pied).
+/// Le plus bas à l'écran devant (`y_sort` du fichier `Model`) : le `z` affiché (celui de la simulation, ou
+/// de la couche des entités pour un personnage posé à `z = 0`, `map_ldtk::plugins::lift_characters_to_entity_layer`,
+/// ordonné avant) moins `y` × [`Y_SORT_PER_UNIT`], pour les personnages (corps 3D et décor en sprites) et les
+/// balles (à leur pied). Le `Transform` est réécrit depuis la simulation à chaque image : le retrait ne
+/// s'accumule pas.
 pub fn y_sort(
     registry: Option<Res<Registry>>,
     mut sorted: Query<
@@ -45,11 +48,7 @@ pub fn y_sort(
         return;
     }
     for (fixed, mut transform) in &mut sorted {
-        let z = fixed.translation.z.to_num::<f32>()
-            - fixed.translation.y.to_num::<f32>() * Y_SORT_PER_UNIT;
-        if transform.translation.z != z {
-            transform.translation.z = z;
-        }
+        transform.translation.z -= fixed.translation.y.to_num::<f32>() * Y_SORT_PER_UNIT;
     }
 }
 
