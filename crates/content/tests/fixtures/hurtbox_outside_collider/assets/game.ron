@@ -1,0 +1,5 @@
+(
+    name: "fixture-hurtbox_outside_collider",
+    content_folders: [(path: "characters/grunt.ron", kind: "Character")],
+    entry: (start_map: "unused", default_seed: 1),
+)

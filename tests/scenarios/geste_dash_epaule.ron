@@ -1,0 +1,30 @@
+// P-1 (docs/conventions.md §110, testbed) : un dash pendant l'épaulé l'annule (« le reste du geste
+// en cours est perdu »). Appui effectif f20, dash effectif f24 (4 frames après, avant le départ de
+// f29) : aucune balle ne part, le chargeur reste plein. Un second appui, f80, tire normalement.
+//
+// À regarder : le joueur esquive aussitôt après avoir pressé la détente : pas de coup ; le suivant part.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    players: [
+        (weapon: "arme_a_gestes", inputs: [
+            (from: 15, to: 16, buttons: [Fire], pan: (100, 0)),
+            (from: 16, to: 19, buttons: [], pan: (100, 0)),
+            (from: 19, to: 20, buttons: [Up, Dash], pan: (100, 0)),
+            (from: 20, to: 75, buttons: [], pan: (100, 0)),
+            (from: 75, to: 76, buttons: [Fire], pan: (100, 0)),
+            (from: 76, to: 160, buttons: [], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        BulletCount(count: 0, team: Some(Players), at_frame: 40),
+        Ammo(handle: 0, ammo: 1, at_frame: 60),
+        // Le second appui (effectif f80) tire à f89 : balle visible f90.
+        BulletCount(count: 0, team: Some(Players), at_frame: 89),
+        BulletCount(count: 1, team: Some(Players), at_frame: 90),
+        Ammo(handle: 0, ammo: 0, at_frame: 91),
+        PlayerAlive(handle: 0, at_frame: 160),
+    ],
+)

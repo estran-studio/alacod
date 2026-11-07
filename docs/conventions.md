@@ -8571,6 +8571,33 @@ types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la 
   `move_enemies`, avant `enemy_attack_system`, sans commande). Scénarios `tireur_poste_cycle` (départ décalé, recul, retour),
   `tireur_poste_suit` et son témoin `tireur_poste_fige_temoin` (visée qui suit : touché ; visée figée : manqué),
   `tireur_poste_touche` (salve perdue, stupeur, salve suivante).
+- **Gestes d'une arme à feu** (`WeaponConfig::gesture: Some(WeaponGesture)`, hors hash et hors Debug tant qu'absent ; `WeaponState`
+  gagne `raise_ends` et `gesture_ends`, hachés seulement s'ils sont actifs) : un coup est un **geste**, pas un instant. `raise_frames` :
+  un appui accepté lance l'épaulé, la balle part à sa fin (un `Burst` l'ignore) ; `fire_frames` : le geste qui suit le départ, aucun
+  autre tir ni rechargement ; `auto_reload` : le rechargement part de lui-même à la fin du geste quand le chargeur est vide
+  (durée `reload_time_seconds`, **prêt `raise + fire + reload` frames après l'appui** : 99 au fusil du banc) ; `aim_speed_mult` /
+  `reload_speed_mult` : multiplicateurs de `MoveSpeed` pendant l'épaulé et le geste, puis pendant le rechargement, composés avec le
+  poids `move_speed_mult` dans le même modificateur `weapon_weight:<arme>` (`sync_carry_weight_system`) ; `reload_through_dash` : le
+  rechargement se termine pendant un dash ou une course (sinon il attend). Un appui pendant le geste ou le rechargement est
+  **perdu** (`is_firing` tient la détente : il faut relâcher), un dash, une course ou un coup de mêlée **annulent** l'épaulé.
+  Un check à la frame N voit la simulation jusqu'à N − 1 (balle visible N + 1 après son départ). Lint : `aim_speed_mult` et
+  `reload_speed_mult` > 0. Scénarios `geste_epaule_tir` (balle 9 frames après l'appui, chargeur vide, rechargement f47 à f119,
+  marche 112,5 → 56,25 → 28,125), `geste_dash_recharge` (dash sur la fin du rechargement : plein à la même frame),
+  `geste_dash_epaule` (le dash annule le coup), `geste_clic_perdu` (détente tenue : un seul coup), généré `weapon_arme_a_gestes`.
+  La pose `shoulder` de la présentation suit `raise_ends` (D199 fermée).
+- **Zone touchée** (`CharacterConfig::hurtbox: Some(ColliderConfig)`, composant statique `combat::collider::Hurtbox`, non rollback comme
+  `Tags`) : la forme que les **balles** (`bullet_rollback_collision_system`, `projectile_collision_system`) et les **coups de mêlée**
+  (`melee_hitbox_collision_system`) testent à la place de `Collider`, qui reste celle des murs, des poussées et du pas. Doit tenir
+  dans le collider (les grilles spatiales indexent le collider : lint `hurtbox`). Absente : comportement d'avant. Scénarios
+  `zone_touchee_bord` (la balle de 10 px de large qui passe à 14 px du centre traverse un cercle de 7,2 px), `zone_touchee_centre`
+  (à 8 px : touchée), `zone_touchee_temoin` (même position, rectangle seul : touchée). Non couvert : les explosions et les rayons
+  (leur propre rayon d'effet), la mêlée des ennemis contre le joueur par `enemy_attack_system` (portée, pas de hitbox).
+- **Bouche du canon** : aucun code. `bullet_offset_{right,left}` est déjà un décalage dans le repère de l'arme, qui tourne avec la
+  visée (`system_weapon_position`) : avec `weapon_offset` à zéro, `(14.4, 0)` est un décalage fixe de 0,6 m dans l'axe de la visée.
+  La simulation ne lit pas le modèle 3D (la bouche réelle du banc est un os) : `docs/parite-labo.md` § 10 point 7, défaut en attente.
+- Miroirs de lint corrigés (ils refusaient la forme réelle du RON) : `dash.profile` et les bonus `on_beat.distance_bonus` /
+  `iframes_bonus` sont **sans `Some`**, comme `sim_core::dash::DashConfig`. Fixture `dash_on_beat_unknown_clock`.
+- Dettes **D194** à **D197** : `docs/taches/dettes.md`.
 
 ## 111. Rendu 3D « façon sprite » de ce qui bouge (R-1, `docs/taches/rapports/r-1-rendu-facon-sprite.md`)
 

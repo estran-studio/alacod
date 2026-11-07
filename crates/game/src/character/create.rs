@@ -135,21 +135,29 @@ pub fn create_character(
         ))
         .id();
 
-    // Apply character scale to collider dimensions
-    let mut collider: Collider = (&config.collider).into();
-    match &mut collider.shape {
-        crate::collider::ColliderShape::Circle { radius } => {
-            *radius = radius.saturating_mul(config.scale);
+    // Apply character scale to collider dimensions (et à la zone touchée, P-1)
+    let scaled = |config_collider: &crate::collider::ColliderConfig| -> Collider {
+        let mut collider: Collider = config_collider.into();
+        match &mut collider.shape {
+            crate::collider::ColliderShape::Circle { radius } => {
+                *radius = radius.saturating_mul(config.scale);
+            }
+            crate::collider::ColliderShape::Rectangle { width, height } => {
+                *width = width.saturating_mul(config.scale);
+                *height = height.saturating_mul(config.scale);
+            }
         }
-        crate::collider::ColliderShape::Rectangle { width, height } => {
-            *width = width.saturating_mul(config.scale);
-            *height = height.saturating_mul(config.scale);
-        }
-    }
-    // Also scale the collider offset
-    collider.offset.x = collider.offset.x.saturating_mul(config.scale);
-    collider.offset.y = collider.offset.y.saturating_mul(config.scale);
-    collider.offset.z = collider.offset.z.saturating_mul(config.scale);
+        // Also scale the collider offset
+        collider.offset.x = collider.offset.x.saturating_mul(config.scale);
+        collider.offset.y = collider.offset.y.saturating_mul(config.scale);
+        collider.offset.z = collider.offset.z.saturating_mul(config.scale);
+        collider
+    };
+    let collider = scaled(&config.collider);
+    let hurtbox = config
+        .hurtbox
+        .as_ref()
+        .map(|hurtbox| combat::collider::Hurtbox(scaled(hurtbox)));
 
     let health = new_health(health_max);
 
@@ -193,6 +201,11 @@ pub fn create_character(
         Modifiers::default(),
         net_id.unwrap_or_else(|| id_factory.next(config_name)),
     ));
+
+    // P-1 (§110) : zone touchée, composant statique (comme `Tags`) posé seulement si déclaré.
+    if let Some(hurtbox) = hurtbox {
+        commands.entity(entity).insert(hurtbox);
+    }
 
     // T2.9 (testbed) : compteur de coups, seulement pour les personnages qui le déclarent
     // (`CharacterConfig::counts_hits`, faux par défaut : aucun personnage zombie/joueur

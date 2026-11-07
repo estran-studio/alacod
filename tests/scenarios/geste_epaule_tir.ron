@@ -1,0 +1,40 @@
+// P-1 (docs/conventions.md §110, testbed) : les gestes d'une arme à feu (`gesture` de
+// `arme_a_gestes` : épaulé 9 frames, geste de tir 18, rechargement automatique 72). Un seul appui :
+// la balle ne part pas à l'appui mais 9 frames plus tard, le chargeur se vide à ce moment, le
+// rechargement part à la fin du geste de tir (frame du coup + 18) et dure 72 frames : prêt 99
+// frames après l'appui. Les inputs agissent 5 frames plus tard (délai d'input de GGRS).
+//
+// À regarder : un coup, le joueur tient la détente une frame et la balle part vers la droite après
+// un court délai ; il recharge sans rien presser ; le coup suivant, appui f200, part de la même façon.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 260,
+    players: [
+        (weapon: "arme_a_gestes", inputs: [
+            (from: 15, to: 16, buttons: [Fire], pan: (100, 0)),
+            (from: 16, to: 195, buttons: [], pan: (100, 0)),
+            (from: 195, to: 196, buttons: [Fire], pan: (100, 0)),
+            (from: 196, to: 260, buttons: [], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        Ammo(handle: 0, ammo: 1, at_frame: 19),
+        BulletCount(count: 0, team: Some(Players), at_frame: 28),
+        BulletCount(count: 1, team: Some(Players), at_frame: 30),
+        Ammo(handle: 0, ammo: 0, at_frame: 31),
+        Ammo(handle: 0, ammo: 0, at_frame: 118),
+        Ammo(handle: 0, ammo: 1, at_frame: 120),
+        // Marche (une vérification à la frame N voit la simulation jusqu'à N − 1) : poids 0,75
+        // (112,5 sur 150), × 0,5 de l'appui (frame 20) à la fin du geste de tir (frame 47 incluse),
+        // × 0,25 pendant le rechargement (frames 47 à 118), le poids seul ensuite (frame 119).
+        Stat(handle: 0, stat: MoveSpeed, value: 112.5, at_frame: 20),
+        Stat(handle: 0, stat: MoveSpeed, value: 56.25, at_frame: 21),
+        Stat(handle: 0, stat: MoveSpeed, value: 56.25, at_frame: 47),
+        Stat(handle: 0, stat: MoveSpeed, value: 28.125, at_frame: 48),
+        Stat(handle: 0, stat: MoveSpeed, value: 28.125, at_frame: 119),
+        Stat(handle: 0, stat: MoveSpeed, value: 112.5, at_frame: 120),
+        PlayerAlive(handle: 0, at_frame: 260),
+    ],
+)

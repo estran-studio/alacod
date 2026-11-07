@@ -1736,7 +1736,19 @@ fn dash_duration_zero_fixture_reports_out_of_range() {
 #[test]
 fn dash_on_beat_unknown_clock_fixture_reports_clock_only() {
     let (_, _, errors) = load_and_lint(&fixture_dir("dash_on_beat_unknown_clock")).unwrap();
-    assert_has_error(&errors, LintErrorKind::BrokenReference, "horloge inconnue « absente »");
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "horloge inconnue « absente »",
+    );
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// P-1 : la zone touchée d'un personnage tient dans son collider.
+#[test]
+fn hurtbox_outside_collider_fixture_reports_hurtbox() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hurtbox_outside_collider")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "hurtbox");
     assert_only_one_besides_start_map(&errors);
 }
 

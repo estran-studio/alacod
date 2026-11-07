@@ -1,0 +1,21 @@
+// P-1 (docs/conventions.md §110, testbed) : la zone touchée (`hurtbox`) des personnages. Une balle qui frôle le coin du rectangle passe à côté du cercle.
+// La balle d'`arme_a_gestes` (appui f25, départ f39) vole sur la ligne y = 692 ; le collider des cibles
+// (20 × 20) est centré 6 px sous leur point de pose. `cible_zone` (cercle de 7,2 px) posée 14 px au-dessus de la ligne : le rectangle touche (la balle fait 10 px de large : seuil à 15), le cercle non (seuil à 12,2).
+//
+// À regarder : la balle traverse la cible sans la toucher, aucun coup compté.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    characters: [(character: "cible_zone", x: "560.0", y: "712.0", at_frame: 1)],
+    players: [
+        (weapon: "arme_a_gestes", inputs: [
+            (from: 25, to: 26, buttons: [Fire], pan: (100, 0)),
+            (from: 26, to: 120, buttons: [], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        EntityHits(net_id: 33, min: 0, max: Some(0), at_frame: 120),
+    ],
+)
