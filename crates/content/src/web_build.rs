@@ -92,7 +92,8 @@ pub fn default_version(game_dir: &Path) -> String {
             return version;
         }
     }
-    let git = |args: &[&str]| command_output(Command::new("git").arg("-C").arg(game_dir).args(args));
+    let git =
+        |args: &[&str]| command_output(Command::new("git").arg("-C").arg(game_dir).args(args));
     match git(&["rev-parse", "--short=12", "HEAD"]) {
         Some(sha) => match git(&["status", "--porcelain", "--untracked-files=no"]) {
             Some(status) if status.is_empty() => sha,
@@ -106,7 +107,13 @@ fn cargo_info(game_dir: &Path) -> Result<CargoInfo, String> {
     let manifest = game_dir.join("Cargo.toml");
     let out = Command::new("cargo")
         .current_dir(game_dir)
-        .args(["metadata", "--format-version", "1", "--no-deps", "--manifest-path"])
+        .args([
+            "metadata",
+            "--format-version",
+            "1",
+            "--no-deps",
+            "--manifest-path",
+        ])
         .arg(&manifest)
         .output()
         .map_err(|e| format!("cargo metadata : {e}"))?;
@@ -135,7 +142,11 @@ fn cargo_info(game_dir: &Path) -> Result<CargoInfo, String> {
         .as_array()
         .into_iter()
         .flatten()
-        .filter(|t| t["kind"].as_array().is_some_and(|k| k.iter().any(|k| k == "bin")))
+        .filter(|t| {
+            t["kind"]
+                .as_array()
+                .is_some_and(|k| k.iter().any(|k| k == "bin"))
+        })
         .filter_map(|t| t["name"].as_str())
         .collect();
     let bin = bins
@@ -164,7 +175,8 @@ pub fn locked_bindgen_version(lock: &str) -> Option<String> {
 
 fn bindgen_version(binary: &Path) -> Option<String> {
     let out = command_output(&mut Command::new(binary).arg("--version"))?;
-    out.strip_prefix("wasm-bindgen ").map(|v| v.trim().to_string())
+    out.strip_prefix("wasm-bindgen ")
+        .map(|v| v.trim().to_string())
 }
 
 /// Un `wasm-bindgen` de la version attendue : `WASM_BINDGEN`, le `PATH`, puis `<target>/alacod-tools/bin` ;
@@ -187,15 +199,27 @@ fn resolve_bindgen(expected: &str, tools: &Path, game_dir: &Path) -> Result<Path
             return Ok(candidate);
         }
     }
-    eprintln!("wasm-bindgen {expected} absent : cargo install wasm-bindgen-cli (une fois, dans {})", tools.display());
+    eprintln!(
+        "wasm-bindgen {expected} absent : cargo install wasm-bindgen-cli (une fois, dans {})",
+        tools.display()
+    );
     let status = Command::new("cargo")
         .current_dir(game_dir)
-        .args(["install", "--locked", "wasm-bindgen-cli", "--version", expected, "--root"])
+        .args([
+            "install",
+            "--locked",
+            "wasm-bindgen-cli",
+            "--version",
+            expected,
+            "--root",
+        ])
         .arg(tools)
         .status()
         .map_err(|e| format!("cargo install : {e}"))?;
     if !status.success() || bindgen_version(&cached).as_deref() != Some(expected) {
-        return Err(format!("l'installation de wasm-bindgen-cli {expected} a échoué"));
+        return Err(format!(
+            "l'installation de wasm-bindgen-cli {expected} a échoué"
+        ));
     }
     Ok(cached)
 }
@@ -252,7 +276,10 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
 }
 
 fn html_escape(text: &str) -> String {
-    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 /// La page qui lance le jeu : le canvas `#bevy-canvas` que cherche `CoreAppPlugin`, le module wasm-bindgen,
@@ -318,7 +345,10 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
         .canonicalize()
         .map_err(|e| format!("{} : {e}", options.game_dir.display()))?;
     if !game_dir.join("Cargo.toml").is_file() {
-        return Err(format!("{} n'a pas de Cargo.toml (dossier d'un jeu)", game_dir.display()));
+        return Err(format!(
+            "{} n'a pas de Cargo.toml (dossier d'un jeu)",
+            game_dir.display()
+        ));
     }
 
     // Le même contrôle que le démarrage du jeu : un contenu invalide ne part pas en ligne.
@@ -327,22 +357,40 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
         for error in &errors {
             eprintln!("{error}");
         }
-        return Err(format!("{} erreur(s) de contenu (voir `alacod lint`)", errors.len()));
+        return Err(format!(
+            "{} erreur(s) de contenu (voir `alacod lint`)",
+            errors.len()
+        ));
     }
     let game = manifest.name;
-    if !game.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') || game.is_empty() {
-        return Err(format!("nom de jeu « {game} » inutilisable dans une URL (lettres, chiffres, `-`, `_`)"));
+    if !game
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        || game.is_empty()
+    {
+        return Err(format!(
+            "nom de jeu « {game} » inutilisable dans une URL (lettres, chiffres, `-`, `_`)"
+        ));
     }
-    let version = options.version.clone().unwrap_or_else(|| default_version(&game_dir));
+    let version = options
+        .version
+        .clone()
+        .unwrap_or_else(|| default_version(&game_dir));
     if !valid_version(&version) {
-        return Err(format!("version « {version} » invalide (lettres, chiffres, `.`, `_`, `-`)"));
+        return Err(format!(
+            "version « {version} » invalide (lettres, chiffres, `.`, `_`, `-`)"
+        ));
     }
 
     let info = cargo_info(&game_dir)?;
     let profile_dir = if options.release { "release" } else { "debug" };
     let tools = info.target_dir.join("alacod-tools");
     let lock_path = info.workspace_root.join("Cargo.lock");
-    let lock_version = |path: &Path| std::fs::read_to_string(path).ok().and_then(|l| locked_bindgen_version(&l));
+    let lock_version = |path: &Path| {
+        std::fs::read_to_string(path)
+            .ok()
+            .and_then(|l| locked_bindgen_version(&l))
+    };
     // Avant la compilation (longue) quand le verrou existe déjà : un outil manquant échoue tout de suite.
     let mut bindgen = match lock_version(&lock_path) {
         Some(expected) => Some(resolve_bindgen(&expected, &tools, &game_dir)?),
@@ -370,7 +418,12 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
         .current_dir(&game_dir)
         .args(["build", "--manifest-path"])
         .arg(game_dir.join("Cargo.toml"))
-        .args(["--target", WASM_TARGET, "--no-default-features", "--features"])
+        .args([
+            "--target",
+            WASM_TARGET,
+            "--no-default-features",
+            "--features",
+        ])
         .arg(features.join(","))
         .env("APP_VERSION", &version)
         .env("RUSTFLAGS", rustflags);
@@ -391,10 +444,16 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
         .join(profile_dir)
         .join(format!("{}.wasm", info.bin));
     if !built.is_file() {
-        return Err(format!("{} introuvable après la compilation", built.display()));
+        return Err(format!(
+            "{} introuvable après la compilation",
+            built.display()
+        ));
     }
 
-    let out_dir = options.out.clone().unwrap_or_else(|| info.target_dir.join("web"));
+    let out_dir = options
+        .out
+        .clone()
+        .unwrap_or_else(|| info.target_dir.join("web"));
     std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
     let out_dir = out_dir.canonicalize().map_err(|e| e.to_string())?;
     let versions = out_dir.join("builds").join(&version);
@@ -412,7 +471,9 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
             "wasm-bindgen",
         )?;
         let wasm = staging.join("wasm_bg.wasm");
-        let optimizer = std::env::var_os("WASM_OPT").map(PathBuf::from).or_else(|| which("wasm-opt"));
+        let optimizer = std::env::var_os("WASM_OPT")
+            .map(PathBuf::from)
+            .or_else(|| which("wasm-opt"));
         let mut optimized = false;
         if options.release {
             match optimizer {
@@ -428,7 +489,9 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
                     std::fs::rename(&tmp, &wasm).map_err(|e| e.to_string())?;
                     optimized = true;
                 }
-                None => eprintln!("wasm-opt absent : wasm non optimisé (binaryen, ou WASM_OPT=<chemin>)"),
+                None => eprintln!(
+                    "wasm-opt absent : wasm non optimisé (binaryen, ou WASM_OPT=<chemin>)"
+                ),
             }
         }
         // `main.rs` du jeu doit chercher ses assets où on les pose ; sinon la page s'ouvre sur du noir et 404.
@@ -441,15 +504,19 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
                  sous `cfg(target_arch = \"wasm32\")` (gabarit `templates/starter/src/main.rs`)"
             ));
         }
-        let files = copy_assets(&game_dir.join("assets"), &staging.join("assets")).map_err(|e| e.to_string())?;
+        let files = copy_assets(&game_dir.join("assets"), &staging.join("assets"))
+            .map_err(|e| e.to_string())?;
         let base = format!("/builds/{version}/{game}");
         let manifest = serde_json::json!({
             "schemaVersion": 1, "gameId": game, "buildId": version,
             "module": format!("{base}/wasm.js"), "wasm": format!("{base}/wasm_bg.wasm"),
             "assets": format!("{base}/assets"),
         });
-        std::fs::write(staging.join("build.json"), serde_json::to_string_pretty(&manifest).unwrap() + "\n")
-            .map_err(|e| e.to_string())?;
+        std::fs::write(
+            staging.join("build.json"),
+            serde_json::to_string_pretty(&manifest).unwrap() + "\n",
+        )
+        .map_err(|e| e.to_string())?;
         Ok((optimized, files))
     })();
     let (optimized, asset_files) = match result {
@@ -461,10 +528,22 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
     };
     let _ = std::fs::remove_dir_all(&build_dir);
     std::fs::rename(&staging, &build_dir).map_err(|e| e.to_string())?;
-    std::fs::write(out_dir.join("index.html"), index_html(&game, &version)).map_err(|e| e.to_string())?;
+    std::fs::write(out_dir.join("index.html"), index_html(&game, &version))
+        .map_err(|e| e.to_string())?;
     let wasm = build_dir.join("wasm_bg.wasm");
-    let wasm_bytes = std::fs::metadata(&wasm).map(|m| m.len()).map_err(|e| e.to_string())?;
-    Ok(WebOutput { game, version, out_dir, build_dir, wasm, wasm_bytes, optimized, asset_files })
+    let wasm_bytes = std::fs::metadata(&wasm)
+        .map(|m| m.len())
+        .map_err(|e| e.to_string())?;
+    Ok(WebOutput {
+        game,
+        version,
+        out_dir,
+        build_dir,
+        wasm,
+        wasm_bytes,
+        optimized,
+        asset_files,
+    })
 }
 
 // ---------------------------------------------------------------------------------------
@@ -483,7 +562,10 @@ impl Server {
     pub fn bind(root: &Path, port: u16) -> Result<Self, String> {
         let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port)))
             .map_err(|e| format!("127.0.0.1:{port} : {e} (autre port : --port <n>)"))?;
-        Ok(Self { listener, root: root.to_path_buf() })
+        Ok(Self {
+            listener,
+            root: root.to_path_buf(),
+        })
     }
 
     pub fn port(&self) -> u16 {
@@ -502,7 +584,11 @@ impl Server {
 }
 
 fn content_type(path: &Path) -> &'static str {
-    match path.extension().and_then(|e| e.to_str()).unwrap_or_default() {
+    match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+    {
         "html" => "text/html; charset=utf-8",
         "js" | "mjs" => "text/javascript; charset=utf-8",
         "wasm" => "application/wasm",
@@ -541,7 +627,9 @@ fn resolve(root: &Path, target: &str) -> Option<PathBuf> {
     let mut file = root.to_path_buf();
     for part in Path::new(path.trim_start_matches('/')).components() {
         match part {
-            Component::Normal(name) if !name.to_string_lossy().contains(['\\', '\0']) => file.push(name),
+            Component::Normal(name) if !name.to_string_lossy().contains(['\\', '\0']) => {
+                file.push(name)
+            }
             Component::CurDir => {}
             _ => return None,
         }
@@ -566,7 +654,11 @@ fn handle(mut stream: TcpStream, root: &Path) -> std::io::Result<()> {
     let text = String::from_utf8_lossy(&head);
     let mut line = text.lines().next().unwrap_or_default().split_whitespace();
     let (method, target) = (line.next().unwrap_or_default(), line.next().unwrap_or("/"));
-    let respond = |stream: &mut TcpStream, status: &str, kind: &str, body: &[u8], with_body: bool| {
+    let respond = |stream: &mut TcpStream,
+                   status: &str,
+                   kind: &str,
+                   body: &[u8],
+                   with_body: bool| {
         write!(
             stream,
             "HTTP/1.1 {status}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
@@ -578,11 +670,30 @@ fn handle(mut stream: TcpStream, root: &Path) -> std::io::Result<()> {
         stream.flush()
     };
     if method != "GET" && method != "HEAD" {
-        return respond(&mut stream, "405 Method Not Allowed", "text/plain", b"GET seulement", true);
+        return respond(
+            &mut stream,
+            "405 Method Not Allowed",
+            "text/plain",
+            b"GET seulement",
+            true,
+        );
     }
-    match resolve(root, target).and_then(|file| std::fs::read(&file).ok().map(|body| (file, body))) {
-        Some((file, body)) => respond(&mut stream, "200 OK", content_type(&file), &body, method == "GET"),
-        None => respond(&mut stream, "404 Not Found", "text/plain", b"introuvable", method == "GET"),
+    match resolve(root, target).and_then(|file| std::fs::read(&file).ok().map(|body| (file, body)))
+    {
+        Some((file, body)) => respond(
+            &mut stream,
+            "200 OK",
+            content_type(&file),
+            &body,
+            method == "GET",
+        ),
+        None => respond(
+            &mut stream,
+            "404 Not Found",
+            "text/plain",
+            b"introuvable",
+            method == "GET",
+        ),
     }
 }
 
@@ -594,7 +705,10 @@ mod tests {
     fn bindgen_version_is_read_from_the_lock_not_from_a_sibling_crate() {
         let lock = "[[package]]\nname = \"wasm-bindgen-futures\"\nversion = \"0.4.1\"\n\n[[package]]\nname = \"wasm-bindgen\"\nversion = \"0.2.129\"\n";
         assert_eq!(locked_bindgen_version(lock).as_deref(), Some("0.2.129"));
-        assert_eq!(locked_bindgen_version("[[package]]\nname = \"bevy\"\nversion = \"1\"\n"), None);
+        assert_eq!(
+            locked_bindgen_version("[[package]]\nname = \"bevy\"\nversion = \"1\"\n"),
+            None
+        );
     }
 
     #[test]

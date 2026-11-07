@@ -566,7 +566,11 @@ fn build_web(options: content::web_build::WebBuild, serve: Option<u16>) -> ExitC
         "  wasm : {} ({:.1} Mo{})",
         output.wasm.display(),
         output.wasm_bytes as f64 / (1024.0 * 1024.0),
-        if output.optimized { ", wasm-opt" } else { ", sans wasm-opt" }
+        if output.optimized {
+            ", wasm-opt"
+        } else {
+            ", sans wasm-opt"
+        }
     );
     println!(
         "  assets : {} fichiers → {}",
@@ -575,12 +579,18 @@ fn build_web(options: content::web_build::WebBuild, serve: Option<u16>) -> ExitC
     );
     println!("  page : {}", output.out_dir.join("index.html").display());
     let Some(port) = serve else {
-        println!("  servir : alacod build --web --serve (ou tout serveur statique sur {})", output.out_dir.display());
+        println!(
+            "  servir : alacod build --web --serve (ou tout serveur statique sur {})",
+            output.out_dir.display()
+        );
         return ExitCode::SUCCESS;
     };
     match content::web_build::Server::bind(&output.out_dir, port) {
         Ok(server) => {
-            println!("http://127.0.0.1:{}/   (Ctrl-C pour arrêter)", server.port());
+            println!(
+                "http://127.0.0.1:{}/   (Ctrl-C pour arrêter)",
+                server.port()
+            );
             server.run();
             ExitCode::SUCCESS
         }

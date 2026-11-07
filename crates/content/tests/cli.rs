@@ -781,20 +781,26 @@ fn new_game_builds_for_the_web_without_any_added_code() {
         text(&built.stderr)
     );
     let summary = text(&built.stdout);
-    assert!(summary.starts_with("web : demo webtest1 (dev)"), "{summary}");
+    assert!(
+        summary.starts_with("web : demo webtest1 (dev)"),
+        "{summary}"
+    );
 
     let dir = site.join("builds/webtest1/demo");
     let wasm = std::fs::read(dir.join("wasm_bg.wasm")).unwrap();
     assert_eq!(&wasm[..4], b"\0asm");
+    // `wasm-bindgen --target web` exporte l'initialiseur par défaut (`export { initSync, __wbg_init as default }`).
     assert!(std::fs::read_to_string(dir.join("wasm.js"))
         .unwrap()
-        .contains("export default"));
+        .contains("as default"));
     let assets = dir.join("assets");
     assert_eq!(
         std::fs::read(assets.join("game.ron")).unwrap(),
         std::fs::read(game.join("assets/game.ron")).unwrap()
     );
-    assert!(assets.join("sprites/characters/player/Body/Body.png").is_file());
+    assert!(assets
+        .join("sprites/characters/player/Body/Body.png")
+        .is_file());
     let index = std::fs::read_to_string(site.join("index.html")).unwrap();
     assert!(index.contains("./builds/webtest1/demo/wasm.js"), "{index}");
     let info: serde_json::Value =
