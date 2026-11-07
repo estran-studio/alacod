@@ -1,3 +1,6 @@
+// `AsBindGroup` (matériaux de `model3d`) dépasse la limite par défaut de l'évaluation des traits.
+#![recursion_limit = "256"]
+
 pub mod args;
 pub mod audio;
 pub mod balance;

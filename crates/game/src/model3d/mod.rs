@@ -374,8 +374,8 @@ fn finish_rigs(
                 continue;
             };
             if prepared.meshes.insert(mesh.0.id()) {
-                if let Some(mesh) = meshes.get_mut(&mesh.0) {
-                    smooth_normals(mesh);
+                if let Some(mut mesh) = meshes.get_mut(&mesh.0) {
+                    smooth_normals(&mut mesh);
                 }
             }
             let cel = prepared
@@ -491,10 +491,10 @@ fn resize_rigs(
         };
         rig.px_per_unit = px_per_unit;
         let size = image_size(table, model.frame_m, px_per_unit);
-        if let Some(image) = images.get_mut(&rig.image) {
+        if let Some(mut image) = images.get_mut(&rig.image) {
             *image = target_image(size);
         }
-        if let Some(material) = pose_materials.get_mut(&rig.pose_material) {
+        if let Some(mut material) = pose_materials.get_mut(&rig.pose_material) {
             (material.params, material.extra) = pose_params(table, size, px_per_unit);
         }
     }

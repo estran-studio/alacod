@@ -6,8 +6,9 @@
     // 1 m = 28 unités : le pantin (1,8 m, vu à 45°) fait ~36 unités de haut, la taille des sprites du testbed.
     units_per_meter: 28.0,
     elevation_deg: 45.0,
-    // Le plus bas à l'écran devant : personnages (modèles et sprites) et balles.
-    y_sort: true,
+    // Tri en y (le plus bas à l'écran devant) : coupé dans le testbed, dont les vidéos gardent l'ordre de dessin
+    // historique (décision du 7 nov) ; un jeu qui l'allume trie personnages (modèles et sprites) et balles.
+    y_sort: false,
     look: (
         shade: 0.6,
         highlight: 1.1,
