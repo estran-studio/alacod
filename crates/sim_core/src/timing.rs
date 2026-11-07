@@ -40,6 +40,24 @@ pub fn grade_timing(
     }
 }
 
+/// Note un écart **rationnel** de `gap_num / gap_den` frames (signé : avance ou retard) contre des
+/// fenêtres en millisecondes (P-1, `docs/conventions.md` §110 : un repère de tempo tombe entre deux
+/// frames, une fenêtre de 60 ms fait 3,6 frames). `|écart| × 1000 / 60 <= perfect_ms` ⇔
+/// `|gap_num| × 50 <= perfect_ms × 3 × gap_den`, en entiers 128 bits : aucun arrondi, aucune
+/// panique. Un `gap_den` nul est traité comme 1.
+pub fn grade_gap_ms(gap_num: i64, gap_den: u32, perfect_ms: u32, good_ms: u32) -> TimingGrade {
+    let gap = i128::from(gap_num).unsigned_abs() * 50;
+    let den = u128::from(gap_den.max(1)) * 3;
+    let within = |ms: u32| gap <= u128::from(ms) * den;
+    if within(perfect_ms.min(good_ms)) {
+        TimingGrade::Perfect
+    } else if within(good_ms) {
+        TimingGrade::Good
+    } else {
+        TimingGrade::Miss
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,5 +92,19 @@ mod tests {
     fn sature_sans_panique() {
         assert_eq!(grade_timing(u32::MAX, 0, 4, 7), TimingGrade::Miss);
         assert_eq!(grade_timing(0, u32::MAX, 4, 7), TimingGrade::Miss);
+    }
+
+    /// P-1 : 60 ms = 3,6 frames, 120 ms = 7,2 frames ; écarts en 129es de frame (tempo 129).
+    #[test]
+    fn fenetres_en_millisecondes_sur_un_ecart_rationnel() {
+        // 3,6 frames pile : parfait (borne incluse).
+        assert_eq!(grade_gap_ms(36, 10, 60, 120), TimingGrade::Perfect);
+        assert_eq!(grade_gap_ms(-37, 10, 60, 120), TimingGrade::Good);
+        assert_eq!(grade_gap_ms(72, 10, 60, 120), TimingGrade::Good);
+        assert_eq!(grade_gap_ms(73, 10, 60, 120), TimingGrade::Miss);
+        // 12/129 de frame : parfait.
+        assert_eq!(grade_gap_ms(12, 129, 60, 120), TimingGrade::Perfect);
+        assert_eq!(grade_gap_ms(i64::MIN, 1, 60, 120), TimingGrade::Miss);
+        assert_eq!(grade_gap_ms(0, 0, 0, 0), TimingGrade::Perfect);
     }
 }

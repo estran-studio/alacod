@@ -216,6 +216,9 @@ pub struct DashLint {
     pub in_place: bool,
     /// Le personnage déclare `dash` ou `dash_charges` (sinon le dash v1 n'est pas relu).
     pub declared: bool,
+    /// P-1 (§110) : coupe et jugement au tempo, relus par le lint.
+    pub cut_from: Option<u32>,
+    pub on_beat: Option<DashOnBeatSchema>,
 }
 
 impl DashLint {
@@ -233,6 +236,8 @@ impl DashLint {
                 .unwrap_or(movement.dash_recharge_frames),
             declared: dash.is_some() || movement.dash_charges.is_some(),
             in_place: dash.is_some_and(|d| d.effect == Some(DashEffectSchema::InPlace)),
+            cut_from: dash.and_then(|d| d.cut_from),
+            on_beat: dash.and_then(|d| d.on_beat.clone()),
         }
     }
 }
@@ -546,6 +551,8 @@ pub struct ClockEntry {
     pub file: PathBuf,
     pub scope: ClockScopeEntry,
     pub events: Vec<ClockEventEntry>,
+    /// P-1 (§110) : tempo en temps par minute (`run::clock::ClockDef::tempo`).
+    pub tempo: Option<u32>,
 }
 
 /// T1.9 : mirroir de `run::clock::ClockFileSchema`.
@@ -553,6 +560,10 @@ pub struct ClockEntry {
 struct ClockFileSchema {
     scope: ClockScopeEntry,
     events: Vec<ClockEventEntry>,
+    /// P-1 (§110) : tempo en temps par minute, repère des verbes qui jugent un instant (le temps
+    /// `k` tombe à `k × 3600 / tempo` frames ; aucun événement déclenché). Absent : sans tempo.
+    #[serde(default)]
+    tempo: Option<u32>,
 }
 
 /// T1.9 : mirroir de `run::clock::ClockScope`.
@@ -2436,6 +2447,54 @@ struct DashSchema {
     charges: Option<u32>,
     #[serde(default)]
     recharge_frames: Option<u32>,
+    /// P-1 (§110) : profil de vitesse (`Linear`, `EaseOut`). Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    profile: Option<DashProfileSchema>,
+    /// P-1 : sans direction tenue, dash sur place. Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    in_place_without_direction: bool,
+    /// P-1 : frames jouées après lesquelles un appui coupe le dash en cours.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 et < durée"))]
+    cut_from: Option<u32>,
+    /// P-1 : fenêtre d'enchaînement après la fin d'un dash (frames). Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    chain_window_frames: Option<u32>,
+    /// P-1 : jugement de l'appui contre le tempo d'une horloge.
+    #[serde(default)]
+    on_beat: Option<DashOnBeatSchema>,
+}
+
+/// P-1 : miroir de `sim_core::dash::DashProfile`.
+#[derive(schemars::JsonSchema, Deserialize, PartialEq)]
+enum DashProfileSchema {
+    Linear,
+    EaseOut,
+}
+
+/// P-1 : miroir de `sim_core::dash::DashOnBeat`.
+#[derive(schemars::JsonSchema, Deserialize, Clone, Debug)]
+pub struct DashOnBeatSchema {
+    /// Horloge (kind `Clock`) qui porte un `tempo`.
+    pub clock: String,
+    #[schemars(extend("x-lint" = "<= good_ms"))]
+    pub perfect_ms: u32,
+    pub good_ms: u32,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    pub coop_window_mult: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    pub distance_bonus: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    pub iframes_bonus: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "dans ]0, 1]"))]
+    pub iframes_cap: Option<FixedField>,
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -3268,6 +3327,7 @@ fn load_clocks(
                 file: rel,
                 scope: parsed.scope,
                 events: parsed.events,
+                tempo: parsed.tempo,
             },
         );
     }

@@ -63,6 +63,13 @@ pub struct ClockEventDef {
 pub struct ClockDef {
     pub scope: ClockScope,
     pub events: Vec<ClockEventDef>,
+    /// P-1 (`docs/conventions.md` §110) : tempo de l'horloge, en temps par minute. Le temps `k`
+    /// tombe à `k × 3600 / tempo` frames de la portée (rationnel : aucune dérive, même quand un
+    /// temps ne fait pas un nombre entier de frames). Aucun événement n'est déclenché par les
+    /// temps (rien n'entre dans `Clock::fired`) : c'est un repère lu par les verbes qui jugent un
+    /// instant ([`beat_gap`]). `None` : horloge sans tempo.
+    #[serde(default)]
+    pub tempo: Option<u32>,
 }
 
 /// Un événement d'horloge déclenché cette frame (`FrameEvents`, checksum neutre).
@@ -213,6 +220,19 @@ pub fn nearest_occurrence(def: &ClockDef, id: &str, elapsed: u32) -> Option<u32>
     Some(at.saturating_add(k.saturating_mul(repeat)))
 }
 
+/// Écart signé entre `elapsed` (frames de la portée de `def`) et le temps le plus proche du
+/// tempo de `def`, en **fractions de frame** : `(numérateur, dénominateur)`, l'écart en frames
+/// valant `numérateur / dénominateur` (négatif : en avance, positif : en retard). Le temps `k`
+/// tombe à `k × 3600 / tempo` frames ; à égalité entre deux temps, le **suivant** (écart négatif).
+/// `None` sans tempo (ou tempo nul, refusé par le lint). Entiers seulement, sans panique.
+pub fn beat_gap(def: &ClockDef, elapsed: u32) -> Option<(i64, u32)> {
+    let tempo = def.tempo.filter(|&tempo| tempo > 0)?;
+    let period = i64::from(FRAMES_PER_SECOND) * 60; // frames × tempo par temps
+    let scaled = i64::from(elapsed) * i64::from(tempo);
+    let k = (scaled + period / 2) / period;
+    Some((scaled - k * period, tempo))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -237,6 +257,7 @@ mod tests {
                     repeat: Some(ClockTime::Seconds(Fixed::from_num(2))),
                 },
             ],
+            tempo: None,
         }
     }
 
@@ -340,6 +361,7 @@ mod tests {
                     repeat: Some(ClockTime::Frames(0)),
                 },
             ],
+            tempo: None,
         };
         // Avant `at`, la première occurrence.
         assert_eq!(nearest_occurrence(&def, "pouls", 0), Some(10));
@@ -354,5 +376,33 @@ mod tests {
         assert_eq!(nearest_occurrence(&def, "absent", 3), None);
         // Pas de panique aux extrêmes.
         assert!(nearest_occurrence(&def, "pouls", u32::MAX).is_some());
+    }
+
+    /// P-1 : temps d'un tempo qui ne tombe pas sur une frame entière (129 temps/min : 27,907
+    /// frames par temps), écart rationnel exact, aucune dérive au bout de mille temps.
+    #[test]
+    fn ecart_au_temps_d_un_tempo() {
+        let def = ClockDef {
+            scope: ClockScope::Floor,
+            events: vec![],
+            tempo: Some(129),
+        };
+        // Frame 0 : sur le temps.
+        assert_eq!(beat_gap(&def, 0), Some((0, 129)));
+        // Frame 28 : 28 × 129 − 3600 = 12 → 12/129 de frame en retard sur le temps 1.
+        assert_eq!(beat_gap(&def, 28), Some((12, 129)));
+        // Frame 27 : 3483 − 3600 = −117 → en avance.
+        assert_eq!(beat_gap(&def, 27), Some((-117, 129)));
+        // Temps 1000 à 27 906,98 frames : la frame 27 907 est à 3/129 de frame.
+        assert_eq!(beat_gap(&def, 27_907), Some((3, 129)));
+        // Entre deux temps : 14 × 129 = 1806 > 1800 → plus près du temps 1 (en avance).
+        assert_eq!(beat_gap(&def, 14), Some((1806 - 3600, 129)));
+        let sans = ClockDef {
+            scope: ClockScope::Run,
+            events: vec![],
+            tempo: None,
+        };
+        assert_eq!(beat_gap(&sans, 10), None);
+        assert!(beat_gap(&def, u32::MAX).is_some());
     }
 }

@@ -1137,7 +1137,7 @@ mod tests {
         use combat::weapons::BulletType::Standard;
         let fx = fixed_math::new;
         let base_image = Handle::<Image>::default();
-        let skin = Handle::<Image>::weak_from_u128(0x5eed);
+        let skin: Handle<Image> = bevy::asset::uuid_handle!("00000000-0000-0000-0000-000000005eed");
         assert_ne!(base_image, skin);
         let mut world = World::new();
         let mut bullet = bullet_of(Standard {

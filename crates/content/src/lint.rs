@@ -369,7 +369,7 @@ pub(crate) fn lint_effect(
 
 /// M2-T2 (§43) : règles du dash. Un personnage sans `dash_charges` ni `dash` garde les réglages
 /// v1 : les mêmes bornes ne le concernent que s'il déclare des charges ou un dash.
-fn lint_dash(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+fn lint_dash(registry: &Registry, character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
     let dash = &character.dash;
     if !dash.declared {
         return;
@@ -399,6 +399,64 @@ fn lint_dash(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) 
             dash.iframes, dash.duration_frames
         ));
     }
+    // P-1 (§110) : coupe dans le dash, fenêtres et bonus du jugement au tempo, horloge à tempo.
+    if let Some(cut_from) = dash.cut_from {
+        if cut_from == 0 || cut_from >= dash.duration_frames.max(1) {
+            refuse(format!(
+                "dash : cut_from ({cut_from}) doit être dans [1, durée − 1] (durée {})",
+                dash.duration_frames
+            ));
+        }
+    }
+    if let Some(on_beat) = &dash.on_beat {
+        if on_beat.perfect_ms > on_beat.good_ms {
+            refuse(format!(
+                "dash.on_beat : perfect_ms ({}) > good_ms ({})",
+                on_beat.perfect_ms, on_beat.good_ms
+            ));
+        }
+        let zero = bevy_fixed::fixed_math::FIXED_ZERO;
+        let one = bevy_fixed::fixed_math::FIXED_ONE;
+        if on_beat.coop_window_mult.is_some_and(|m| m.get() <= zero) {
+            refuse("dash.on_beat : coop_window_mult doit être > 0".into());
+        }
+        for (name, value) in [
+            ("distance_bonus", on_beat.distance_bonus),
+            ("iframes_bonus", on_beat.iframes_bonus),
+        ] {
+            if value.is_some_and(|v| v.get() < zero) {
+                refuse(format!("dash.on_beat : {name} doit être >= 0"));
+            }
+        }
+        if on_beat
+            .iframes_cap
+            .is_some_and(|cap| cap.get() <= zero || cap.get() > one)
+        {
+            refuse("dash.on_beat : iframes_cap doit être dans ]0, 1]".into());
+        }
+        match registry
+            .clocks
+            .get(&registry::ClockId::from(on_beat.clock.clone()))
+        {
+            None => errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: character.file.display().to_string(),
+                message: format!(
+                    "personnage « {} » : dash.on_beat : horloge inconnue « {} » (kind Clock)",
+                    character.id, on_beat.clock
+                ),
+            }),
+            Some(clock) if clock.tempo.is_none() => errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: character.file.display().to_string(),
+                message: format!(
+                    "personnage « {} » : dash.on_beat : l'horloge « {} » n'a pas de tempo",
+                    character.id, on_beat.clock
+                ),
+            }),
+            Some(_) => {}
+        }
+    }
 }
 
 fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
@@ -418,7 +476,7 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         }
 
         // M2-T2 : dash (charges, recharge, durée, i-frames).
-        lint_dash(character, errors);
+        lint_dash(registry, character, errors);
         // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
         lint_behaviors(registry, character, errors);
         // M2-T8 : formations.
@@ -2726,6 +2784,16 @@ fn lint_clocks(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<Li
                 push(
                     LintErrorKind::OutOfRange,
                     format!("événement « {} » : repeat = 0 : doit être > 0", event.id),
+                );
+            }
+        }
+        // P-1 (§110) : un tempo nul n'a pas de temps ; au-delà de 600 temps/min, un temps dure
+        // moins de 6 frames.
+        if let Some(tempo) = clock.tempo {
+            if !(1..=600).contains(&tempo) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("tempo {tempo} : doit être dans [1, 600] temps par minute"),
                 );
             }
         }

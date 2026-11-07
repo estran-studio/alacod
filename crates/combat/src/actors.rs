@@ -120,17 +120,39 @@ impl DashState {
 
     /// Pas (px) du dash pour cette frame, `None` hors dash ou une fois ses frames jouées.
     pub fn take_step(&mut self) -> Option<fixed_math::Fixed> {
+        self.take_step_with(sim_core::dash::DashProfile::Linear)
+    }
+
+    /// Pas du dash selon son profil de vitesse (P-1, §110).
+    pub fn take_step_with(
+        &mut self,
+        profile: sim_core::dash::DashProfile,
+    ) -> Option<fixed_math::Fixed> {
         if !self.is_dashing || self.dash_frames_remaining == 0 {
             return None;
         }
         let k = self.dash_duration - self.dash_frames_remaining;
         self.dash_frames_remaining -= 1;
-        Some(dash_step(
-            self.dash_distance,
-            self.dash_duration,
-            self.dash_end_step,
-            k,
-        ))
+        Some(match profile {
+            sim_core::dash::DashProfile::Linear => dash_step(
+                self.dash_distance,
+                self.dash_duration,
+                self.dash_end_step,
+                k,
+            ),
+            sim_core::dash::DashProfile::EaseOut => {
+                dash_step_ease_out(self.dash_distance, self.dash_duration, k)
+            }
+        })
+    }
+
+    /// Frames du dash en cours déjà jouées (0 hors dash).
+    pub fn played(&self) -> u32 {
+        if self.is_dashing {
+            self.dash_duration.saturating_sub(self.dash_frames_remaining)
+        } else {
+            0
+        }
     }
 }
 
@@ -194,6 +216,58 @@ impl DashExtra {
         }
         self.charges = self.charges.saturating_sub(1);
     }
+}
+
+/// Cadence du dash (P-1, `docs/conventions.md` §110) : enchaînement et jugement des appuis contre
+/// un tempo. Composant **séparé**, enregistré en variante neutre et posé seulement sur un
+/// personnage dont le dash le demande (`sim_core::dash::DashConfig::needs_cadence`) : les autres
+/// personnages et leurs traces ne voient rien.
+#[derive(Component, Default, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct DashCadence {
+    /// Dashs enchaînés, le dash en cours compris (1 : premier pas d'une série ; 0 : aucun).
+    pub chain: u32,
+    /// Dashs d'affilée jugés « parfait » ou « bien » (repart à 0 sur un appui hors du temps ou
+    /// une série cassée).
+    pub streak: u32,
+    /// Frame où le dernier dash lancé se termine (première frame sans lui), pour garder
+    /// l'enchaînement.
+    pub end_frame: u32,
+    /// Note de l'appui en attente (jugé à sa frame), consommée par le dash qu'il lance.
+    pub pending: Option<sim_core::timing::TimingGrade>,
+    /// Dernière note donnée et sa frame (lues par la présentation : « Parfait ! »).
+    pub last_grade: Option<(sim_core::timing::TimingGrade, u32)>,
+}
+
+impl DashCadence {
+    /// Lancement d'un dash à `now` de `duration` frames : l'enchaînement continue si un dash est
+    /// en cours (coupé) ou s'est terminé depuis au plus `window` frames, sinon il repart à 1.
+    /// `on_time` : l'appui était sur le temps (« parfait » ou « bien »).
+    pub fn launch(&mut self, now: u32, duration: u32, dashing: bool, window: Option<u32>, on_time: bool) {
+        let chained = self.chain > 0
+            && (dashing || window.is_some_and(|window| now.saturating_sub(self.end_frame) <= window));
+        if chained {
+            self.chain = self.chain.saturating_add(1);
+        } else {
+            self.chain = 1;
+            self.streak = 0;
+        }
+        self.streak = if on_time { self.streak.saturating_add(1) } else { 0 };
+        self.end_frame = now.saturating_add(duration.max(1));
+    }
+}
+
+/// Pas (px) de la frame `k` d'un dash « élan puis freinage » (`DashProfile::EaseOut`) de
+/// `distance` px en `frames` frames : la part `u` couvre `1 − (1 − u)²`, donc le pas `k` vaut
+/// `distance × (2·frames − 2k − 1) / frames²` (somme exacte : `distance`).
+pub fn dash_step_ease_out(distance: fixed_math::Fixed, frames: u32, k: u32) -> fixed_math::Fixed {
+    if frames <= 1 {
+        return distance;
+    }
+    let k = k.min(frames - 1);
+    let weight = 2 * frames - 2 * k - 1;
+    distance.saturating_mul(fixed_math::Fixed::from_num(weight))
+        / fixed_math::Fixed::from_num(frames)
+        / fixed_math::Fixed::from_num(frames)
 }
 
 /// Pas (px) de la frame `k` (de 0 à `frames - 1`) d'un dash de `distance` px en `frames`
@@ -391,6 +465,41 @@ mod dash_tests {
             steps.windows(2).all(|w| w[1] < w[0]),
             "décroissant : {steps:?}"
         );
+    }
+
+    /// P-1 : « élan puis freinage » : la moitié des frames couvre les trois quarts de la distance,
+    /// pas décroissants jusqu'à presque zéro, somme exacte.
+    #[test]
+    fn profil_elan_puis_freinage() {
+        let steps: Vec<Fixed> = (0..24).map(|k| dash_step_ease_out(px(72.0), 24, k)).collect();
+        let total: Fixed = steps.iter().copied().sum();
+        assert!((total - px(72.0)).abs() < px(0.01), "total {total}");
+        let half: Fixed = steps[..12].iter().copied().sum();
+        assert!((half - px(54.0)).abs() < px(0.01), "moitié {half}");
+        assert!(steps.windows(2).all(|w| w[1] < w[0]), "décroissant : {steps:?}");
+        assert_eq!(dash_step_ease_out(px(0.0), 24, 3), px(0.0));
+        assert_eq!(dash_step_ease_out(px(10.0), 1, 0), px(10.0));
+    }
+
+    /// P-1 : l'enchaînement continue pendant un dash (coupe) ou dans la fenêtre après sa fin, sinon
+    /// repart à 1 ; la série « sur le temps » casse sur un appui hors du temps ou une série cassée.
+    #[test]
+    fn enchainement_et_serie_sur_le_temps() {
+        let mut cadence = DashCadence::default();
+        cadence.launch(100, 28, false, Some(21), true);
+        assert_eq!((cadence.chain, cadence.streak, cadence.end_frame), (1, 1, 128));
+        // Coupé pendant le pas : enchaîné.
+        cadence.launch(118, 28, true, Some(21), true);
+        assert_eq!((cadence.chain, cadence.streak), (2, 2));
+        // 21 frames après la fin (146) : encore enchaîné ; hors du temps : série à 0.
+        cadence.launch(167, 28, false, Some(21), false);
+        assert_eq!((cadence.chain, cadence.streak), (3, 0));
+        // 22 frames après la fin (195) : série cassée.
+        cadence.launch(217, 28, false, Some(21), true);
+        assert_eq!((cadence.chain, cadence.streak), (1, 1));
+        // Sans fenêtre : seul un dash coupé enchaîne.
+        cadence.launch(245, 28, false, None, true);
+        assert_eq!(cadence.chain, 1);
     }
 
     #[test]

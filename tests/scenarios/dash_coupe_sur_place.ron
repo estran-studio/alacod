@@ -1,0 +1,38 @@
+// P-1 (docs/conventions.md §110) : dash sur place sans direction (`in_place_without_direction`) et
+// coupe d'un dash par le suivant (`cut_from: 15`). Dash de 24 frames, 48 px, profil linéaire du
+// testbed, sans temps de recharge. Les inputs agissent 5 frames plus tard (délai d'input de GGRS).
+//
+// À regarder : appui effectif f40 sans direction : le joueur reste sur place (424) pendant tout le
+// pas. Appui effectif f50 à droite (droite tenue jusqu'à f65), au milieu du pas sur place (10 frames
+// jouées) : gardé, il part dès la 15e frame jouée (f55), pas à la fin du pas (f64) ; à f63, 9 frames
+// du dash à droite sont jouées (2 px par frame) ; à f90, le dash entier : 472.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 100,
+    players: [
+        (
+            dash: Some((
+                distance: Some("48.0"),
+                duration_frames: Some(24),
+                iframes: Some(12),
+                cooldown_frames: Some(0),
+                in_place_without_direction: true,
+                cut_from: Some(15),
+                chain_window_frames: Some(21),
+            )),
+            inputs: [
+                (from: 35, to: 36, buttons: [Dash]),
+                (from: 45, to: 46, buttons: [Right, Dash]),
+                (from: 46, to: 60, buttons: [Right]),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 424, y: 696, tolerance: 0.1, at_frame: 54),
+        // Coupé à f55 : déjà en route à f63 (sans coupe : il partirait à f64)
+        PlayerPosition(handle: 0, x: 442, y: 696, tolerance: 0.5, at_frame: 63),
+        PlayerPosition(handle: 0, x: 472, y: 696, tolerance: 0.5, at_frame: 90),
+    ],
+)

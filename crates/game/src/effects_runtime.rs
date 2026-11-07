@@ -1687,6 +1687,7 @@ mod tests {
                             at: run::clock::ClockTime::Frames(0),
                             repeat: Some(run::clock::ClockTime::Frames(100)),
                         }],
+                        tempo: None,
                     },
                 )],
             });

@@ -1,0 +1,52 @@
+// P-1 (docs/conventions.md §110) : dash jugé au tempo (`dash.on_beat`, horloge `tempo_essai`,
+// 100 temps/min : un temps toutes les 36 frames). Fenêtres 60 ms (3,6 frames) et 120 ms (7,2) ;
+// « parfait » : +50 % de distance et +25 % de la durée en i-frames, « bien » : la moitié ; hors du
+// temps : le dash normal (48 px en 24 frames, 12 i-frames). Profil « élan puis freinage »
+// (`EaseOut` : la moitié du dash couvre les trois quarts de la distance). Les inputs agissent
+// 5 frames plus tard (délai d'input de GGRS).
+//
+// À regarder : trois dashs. Appui effectif f72, pile sur le temps : parfait, 72 px à droite (424 →
+// 496), dont 54 px en 12 frames (f83 : 478). Appui effectif f113, 5 frames (83 ms) après le temps
+// de f108 : bien, 60 px à gauche (496 → 436). Appui effectif f162, 18 frames d'un temps : hors du
+// temps, 48 px à droite (436 → 484).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    clocks: Some(["tempo_essai"]),
+    frames: 200,
+    players: [
+        (
+            dash: Some((
+                distance: Some("48.0"),
+                duration_frames: Some(24),
+                iframes: Some(12),
+                cooldown_frames: Some(0),
+                profile: EaseOut,
+                on_beat: Some((
+                    clock: "tempo_essai",
+                    perfect_ms: 60,
+                    good_ms: 120,
+                    distance_bonus: "0.5",
+                    iframes_bonus: "0.25",
+                    iframes_cap: Some("0.95"),
+                )),
+            )),
+            inputs: [
+                (from: 67, to: 68, buttons: [Right, Dash]),
+                (from: 108, to: 109, buttons: [Left, Dash]),
+                (from: 157, to: 158, buttons: [Right, Dash]),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 424, y: 696, tolerance: 0.1, at_frame: 70),
+        // Parfait : 12 frames sur 24 couvrent 1 − (1/2)² = 3/4 de 72 px
+        PlayerPosition(handle: 0, x: 478, y: 696, tolerance: 0.5, at_frame: 83),
+        PlayerPosition(handle: 0, x: 496, y: 696, tolerance: 0.5, at_frame: 100),
+        // Bien : 48 × 1,25 = 60 px
+        PlayerPosition(handle: 0, x: 436, y: 696, tolerance: 0.5, at_frame: 145),
+        // Hors du temps : 48 px
+        PlayerPosition(handle: 0, x: 484, y: 696, tolerance: 0.5, at_frame: 195),
+    ],
+)

@@ -134,6 +134,12 @@ impl Plugin for CoreSimPlugin {
             // X-3 : note d'une fenêtre de jugement (`effects::Condition::Timing`), même règle.
             app.add_frame_events_neutral::<crate::effects_runtime::TimingJudged>();
         }
+        // P-1 (`docs/conventions.md` §110) : cadence du dash (enchaînement, note au tempo),
+        // composant neutre posé seulement par un dash qui la demande ; même règle de place.
+        {
+            use crate::rollback::RollbackTraceApp;
+            app.rollback_and_trace_neutral::<combat::actors::DashCadence>();
+        }
 
         app.init_resource::<GggrsSessionConfigurationState>();
         app.init_resource::<crate::game_commands::GameCommands>();

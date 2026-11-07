@@ -223,6 +223,13 @@ pub fn create_character(
                 dash.charges.unwrap_or(0),
             ));
     }
+    // P-1 (§110) : cadence du dash (enchaînement, jugement au tempo), composant neutre posé
+    // seulement si le dash la demande.
+    if config.dash.as_ref().is_some_and(|dash| dash.needs_cadence()) {
+        commands
+            .entity(entity)
+            .insert(combat::actors::DashCadence::default());
+    }
 
     // T1.10 : effets du personnage (composants neutres, absents sans effet)
     if !config.effects.is_empty() {

@@ -307,6 +307,65 @@ fn dash_direction(input: &BoxInput, facing: FacingDirection) -> fixed_math::Fixe
     }
 }
 
+/// Note d'un appui de dash à `now` contre le tempo de `on_beat.clock` (P-1, §110), fenêtres
+/// élargies de `coop_window_mult` à deux joueurs et plus. `None` sans horloge active à tempo.
+fn judge_on_beat(
+    on_beat: &crate::character::movement::DashOnBeat,
+    tempo: &crate::clock::TempoReader,
+    now: u32,
+) -> Option<sim_core::timing::TimingGrade> {
+    let (gap, den) = tempo.beat_gap(&on_beat.clock, now)?;
+    let widen = |ms: u32| -> u32 {
+        match on_beat.coop_window_mult {
+            Some(mult) if tempo.coop() => fixed_math::Fixed::from_num(ms)
+                .saturating_mul(mult)
+                .max(fixed_math::FIXED_ZERO)
+                .to_num::<u32>(),
+            _ => ms,
+        }
+    };
+    Some(sim_core::timing::grade_gap_ms(
+        gap,
+        den,
+        widen(on_beat.perfect_ms),
+        widen(on_beat.good_ms),
+    ))
+}
+
+/// Poids du bonus d'un appui sur le temps (P-1) : 1 pour « parfait », ½ pour « bien », 0 sinon.
+fn beat_bonus(grade: Option<sim_core::timing::TimingGrade>) -> fixed_math::Fixed {
+    match grade {
+        Some(sim_core::timing::TimingGrade::Perfect) => fixed_math::FIXED_ONE,
+        Some(sim_core::timing::TimingGrade::Good) => fixed_math::new(0.5),
+        _ => fixed_math::FIXED_ZERO,
+    }
+}
+
+/// I-frames d'un dash jugé (P-1) : celles du dash plus `ceil(iframes_bonus × bonus × durée)`,
+/// plafonnées à `ceil(iframes_cap × durée)` (la durée entière sans plafond).
+fn beat_iframes(
+    iframes: u32,
+    duration: u32,
+    on_beat: &crate::character::movement::DashOnBeat,
+    bonus: fixed_math::Fixed,
+) -> u32 {
+    let frames = fixed_math::Fixed::from_num(duration);
+    let extra = on_beat
+        .iframes_bonus
+        .saturating_mul(bonus)
+        .saturating_mul(frames)
+        .max(fixed_math::FIXED_ZERO)
+        .ceil()
+        .to_num::<u32>();
+    let cap = on_beat.iframes_cap.map_or(duration, |cap| {
+        cap.saturating_mul(frames)
+            .max(fixed_math::FIXED_ZERO)
+            .ceil()
+            .to_num::<u32>()
+    });
+    iframes.saturating_add(extra).min(cap.max(iframes))
+}
+
 /// Composantes -1/0/1 d'une direction de regard (non normalisée, comme les touches).
 fn facing_vector(facing: FacingDirection) -> fixed_math::FixedVec2 {
     let (x, y) = match facing {
@@ -332,6 +391,7 @@ pub fn apply_inputs(
     character_configs: Res<CharacterConfigs>,
     stats: StatReader,
     mut dash_started: Option<ResMut<FrameEvents<sim_core::triggers::DashStarted>>>,
+    tempo: crate::clock::TempoReader,
     mut query: Query<
         (
             &GgrsNetId,
@@ -349,8 +409,12 @@ pub fn apply_inputs(
             // lecture des inputs : un rejeu `Scripted` doit rester identique).
             Option<&combat::status::Statuses>,
             Option<&mut Health>,
-            Option<&mut combat::actors::DashExtra>,
-            Option<&crate::character::dash::DashOverride>,
+            // Dash v2 et P-1 (§43, §110) : n-uplet imbriqué (quinze éléments au plus par niveau).
+            (
+                Option<&mut combat::actors::DashExtra>,
+                Option<&crate::character::dash::DashOverride>,
+                Option<&mut combat::actors::DashCadence>,
+            ),
         ),
         With<Rollback>,
     >,
@@ -370,8 +434,7 @@ pub fn apply_inputs(
         is_downed,
         statuses,
         health,
-        mut dash_extra,
-        dash_override,
+        (mut dash_extra, dash_override, mut cadence),
     ) in order_mut_iter!(query)
     {
         let Some(config) = character_configs.get(&config_key.0) else {
@@ -413,25 +476,79 @@ pub fn apply_inputs(
         // cette frame et sort à la vitesse de course. À terre ou étourdi (T1.3) : pas de dash,
         // même d'un appui gardé d'avant le statut.
         dash_state.begin_frame();
-        let dash = movement.resolve_dash(dash_override.map(|o| &o.0).or(config.dash.as_ref()));
+        let dash_config = dash_override.map(|o| &o.0).or(config.dash.as_ref());
+        let dash = movement.resolve_dash(dash_config);
         if let Some(extra) = dash_extra.as_deref_mut() {
             extra.tick_recharge(dash.recharge_frames);
         }
-        let requested =
-            dash_state.read_button(input.buttons & INPUT_DASH != 0, movement.dash_buffer_frames);
+        let dash_held = input.buttons & INPUT_DASH != 0;
+        let pressed_now = dash_held && !dash_state.dash_held;
+        let requested = dash_state.read_button(dash_held, movement.dash_buffer_frames);
+        // P-1 (§110) : l'appui est jugé à sa frame contre le tempo, même s'il attend la coupe
+        // du dash en cours ; la note est consommée par le dash qu'il lance.
+        if let (true, Some(cadence), Some(on_beat)) = (
+            pressed_now,
+            cadence.as_deref_mut(),
+            dash_config.and_then(|c| c.on_beat.as_ref()),
+        ) {
+            if let Some(grade) = judge_on_beat(on_beat, &tempo, frame.frame) {
+                cadence.pending = Some(grade);
+                cadence.last_grade = Some((grade, frame.frame));
+            }
+        }
         // Charges (M2-T2) : sans `DashExtra`/charges, le cooldown seul règle le rythme (v1)
         let has_charge = match (dash.charges, dash_extra.as_deref()) {
             (Some(_), Some(extra)) => extra.charges > 0,
             _ => true,
         };
-        if requested && !is_downed && !incapacitated && dash_state.can_dash() && has_charge {
+        // P-1 : coupe — un appui pendant le dash en relance un dès `cut_from` frames jouées.
+        let cut = dash
+            .cut_from
+            .is_some_and(|from| dash_state.is_dashing && dash_state.played() >= from);
+        if requested
+            && !is_downed
+            && !incapacitated
+            && (dash_state.can_dash() || cut)
+            && has_charge
+        {
+            let was_dashing = dash_state.is_dashing;
+            // P-1 : sur place sans direction tenue (i-frames et durée, aucune distance).
+            let in_place = dash.in_place_without_direction
+                && movement_direction(&input) == fixed_math::FixedVec2::ZERO;
+            let grade = cadence.as_deref_mut().and_then(|c| c.pending.take());
+            let bonus = beat_bonus(grade);
+            let on_beat = dash_config.and_then(|c| c.on_beat.as_ref());
+            let duration = dash.duration_frames.max(1);
+            let distance = if in_place {
+                fixed_math::FIXED_ZERO
+            } else {
+                match on_beat {
+                    Some(on_beat) if bonus > fixed_math::FIXED_ZERO => dash.distance.saturating_mul(
+                        fixed_math::FIXED_ONE + on_beat.distance_bonus.saturating_mul(bonus),
+                    ),
+                    _ => dash.distance,
+                }
+            };
+            let iframes = match on_beat {
+                Some(on_beat) => beat_iframes(dash.iframes, duration, on_beat, bonus),
+                None => dash.iframes,
+            };
             dash_state.start_dash(
                 dash_direction(&input, *facing_direction),
-                dash.distance,
+                distance,
                 dash.duration_frames,
                 move_speed * dt,
                 dash.cooldown_frames,
             );
+            if let Some(cadence) = cadence.as_deref_mut() {
+                cadence.launch(
+                    frame.frame,
+                    duration,
+                    was_dashing,
+                    dash.chain_window_frames,
+                    bonus > fixed_math::FIXED_ZERO,
+                );
+            }
             if let Some(events) = dash_started.as_mut() {
                 events.send(sim_core::triggers::DashStarted {
                     frame: frame.frame,
@@ -451,8 +568,8 @@ pub fn apply_inputs(
             // Invulnérable les `iframes` premières frames, celle-ci comprise
             // (`rollback_resolve_damage_events` compare la frame du coup à cette borne) ;
             // `Projectiles` : état à part, lu seulement par la collision des balles.
-            if dash.iframes > 0 {
-                let until = frame.frame + dash.iframes - 1;
+            if iframes > 0 {
+                let until = frame.frame + iframes - 1;
                 match (dash.iframes_kind, dash_extra.as_deref_mut(), health) {
                     (IframesKind::Projectiles, Some(extra), _) => {
                         extra.projectile_iframes_until = Some(
@@ -487,7 +604,7 @@ pub fn apply_inputs(
         }
         // Pendant le dash, son pas est une vitesse appliquée par move_characters, qui gère
         // les collisions (un dash s'arrête aux murs au lieu de les traverser)
-        if let Some(step) = dash_state.take_step() {
+        if let Some(step) = dash_state.take_step_with(dash.profile) {
             velocity.main = dash_state.dash_direction * (step / dt);
             continue;
         }
