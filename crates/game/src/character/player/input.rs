@@ -966,10 +966,10 @@ mod scripted_tracks_tests {
 mod on_beat_tests {
     use super::*;
 
-    /// P-1 : i-frames d'un pas jugé, nombres du banc gigue (pas de 28 frames, 14 i-frames,
-    /// +25 % × k, plafond 95 %) : parfait 21, bien 18, hors du temps 14.
+    /// P-1 : i-frames d'un pas jugé (pas de 28 frames, 14 i-frames, +25 % × k, plafond 95 %) :
+    /// parfait 21, bien 18, hors du temps 14.
     #[test]
-    fn iframes_du_pas_au_tempo_comme_au_banc() {
+    fn iframes_du_pas_au_tempo_parfait_bien_hors_temps() {
         let on_beat = crate::character::movement::DashOnBeat {
             clock: "tempo".into(),
             perfect_ms: 60,

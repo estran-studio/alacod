@@ -46,7 +46,6 @@ pub mod light;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod logs;
 pub mod loot;
-pub mod music_sync;
 pub mod patterns;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod performance;

@@ -8443,14 +8443,15 @@ good_frames` (`OutOfRange`), événement d'horloge inconnu (`BrokenReference`) ;
 raté du début d'une esquive), `fenetre_rechargement` (rechargement actif sur le temps, puis hors
 fenêtre), `fenetre_fraction_esquive` (instant à `DashStart + 5`).
 
-**2. Parade de mêlée et renvoi de projectiles** : champs `reflect: Some((perfect_frames,
-perfect_damage_mult))` et `parry: Some((perfect_frames, perfect_knockback))` d'une arme de mêlée
-(`combat::weapons::melee::{MeleeReflect, MeleeParry}`, hors hash et hors `Debug` quand ils sont
-absents). Ordre (`RollbackSystemSet::Weapon`) : création des hitbox (joueur, ennemi), expiration
-(`update_melee_hitboxes`), parade de mêlée, renvoi, collisions de balles, collisions de mêlée. La
-parade voit donc les hitbox de la frame (un coup lancé cette frame pare dès la frame 0, note
-`Perfect` à `perfect_frames = 0`) et plus celles qui expirent (le blocage par un familier passe
-après, `familiars.rs`).
+**2. Renvoi de projectiles** : champ `reflect: Some((perfect_frames, perfect_damage_mult))` d'une arme
+de mêlée (`combat::weapons::melee::MeleeReflect`, hors hash et hors `Debug` quand il est absent). Ordre
+(`RollbackSystemSet::Weapon`) : création des hitbox (joueur, ennemi), expiration
+(`update_melee_hitboxes`), renvoi, collisions de balles, collisions de mêlée. Le renvoi voit donc les
+hitbox de la frame (un coup lancé cette frame renvoie dès la frame 0, note `Perfect` à
+`perfect_frames = 0`) et plus celles qui expirent (le blocage par un familier passe après,
+`familiars.rs`). La parade de mêlée contre mêlée de X-3 (`parry`, `MeleeParried`, D149) est
+**retirée** par P-1 (décision du coordinateur, défaut posé à William : « un verbe par besoin », le
+banc n'en a pas) ; un retour éventuel se reprend du commit de retrait.
 
 Renvoi (`melee_reflect_system`) : pour chaque hitbox active (ordre `GgrsNetId`), tout projectile
 (balle ordinaire ou composable) **hostile** au porteur (`team_allows_hit`, jamais son équipe) en
@@ -8464,21 +8465,11 @@ petit `GgrsNetId` l'emporte), une balle déjà terminée ne l'est jamais.
 `FrameEvents<ProjectileReflected { bullet, owner, grade, frame }>` (file **neutre**, moment clé
 `reflect`). Lint : `perfect_damage_mult > 0` (fixture `melee_reflect_mult_zero`).
 
-Parade de mêlée (`melee_parry_system`, D149) : pour chaque hitbox active dont l'arme porte `parry`,
-toute hitbox de mêlée **hostile** à son porteur qui la touche géométriquement est **annulée**
-(`despawn_rollback`) avant de pouvoir blesser. Les contacts sont décidés sur le même état puis
-appliqués : deux armes qui se parent mutuellement s'annulent toutes les deux ; une hitbox touchée
-par plusieurs pareurs est créditée au plus petit `GgrsNetId`. Note `Perfect` (même repère) :
-l'attaquant reçoit en plus `perfect_knockback` (velocité, axe pareur → attaquant,
-`Velocity::knockback`) ; sinon annulation seule. `FrameEvents<MeleeParried { parrier, attacker,
-hitbox, grade, frame }>` (file **neutre**, moment clé `parry`). Lint : `perfect_knockback >= 0`
-(fixture `melee_parry_knockback_negative`). Scénarios `parade_projectiles` (testbed : `parade`,
-tourelle d'`arena_tir` : boule renvoyée équipe `Players`, tourelle −16 parfait puis −8 bien),
-`parade_projectiles_instantanee` (`parade_instant`, `perfect_frames: 0` : contact à la frame du coup
-= parfait × 2), `parade_projectiles_expiree` (deux coups : le premier renvoie, le second expire
-avant l'arrivée de la boule — la tourelle reste à 484, preuve que l'expiration passe avant la
-parade), `parade_melee` (`parade_melee` contre le `frappeur` : parfait repoussé à f46, bien au
-contact à f104, seul le troisième coup passe).
+Scénarios `parade_projectiles` (testbed : `parade`, tourelle d'`arena_tir` : boule renvoyée équipe
+`Players`, tourelle −16 parfait puis −8 bien), `parade_projectiles_instantanee` (`parade_instant`,
+`perfect_frames: 0` : contact à la frame du coup = parfait × 2), `parade_projectiles_expiree` (deux
+coups : le premier renvoie, le second expire avant l'arrivée de la boule — la tourelle reste à 484,
+preuve que l'expiration passe avant le renvoi).
 
 **3. Poids des armes** : l'architecture de modificateurs **suffisait** (`MoveSpeed` est lu par les
 inputs via `StatReader`) ; le plus petit verbe ajouté est le champ d'arme `move_speed_mult:
@@ -8489,20 +8480,12 @@ l'arme est active, retiré au changement ou au lâcher (rien d'écrit si rien ne
 (fixture `weapon_move_speed_mult_zero`). Scénarios `arme_lourde` (stat 75, 68 unités en 60 frames) et
 son témoin `arme_lourde_temoin` (150, 135 unités).
 
-**Présentation.** Hit stop « cible seule » et musique calée sur l'horloge (D150, D151, livrés) :
-`FeedbackSettings::hit_stop_scope` (`Global` par défaut, `Target` surchargeable par `by_kind` /
-`by_weapon`) — en `Target`, seule l'entité touchée fige son animation (`animation::AnimationHold`,
-ticks de rendu ; jamais le joueur local ni la caméra) ; `music: Some((track, clock, event,
-loop_events, max_drift_ms, volume_db))` (`ogg` sous `assets/`, horloge kind `Clock` à `repeat` non
-nul, `loop_events × repeat` frames par boucle, départ sur une occurrence) — `game::music_sync` ne
-lit que `FrameCount`, `Clock` et `ClockSchedule` : pause quand la simulation s'arrête, rattrapage
-au-delà de `max_drift_ms` (défaut 60), `music f… position=… expected=… drift_ms=…` au journal
-(`ALACOD_MUTE=1` : rien n'est joué). Lint : boucle (`repeat` > 0), piste, horloge et événement
-existants, `loop_events >= 1`, dérive et volume bornés. Testbed : `hit_stop_scope: Target` pour
-l'arme `parade_melee`, `music` sur l'horloge `pouls` (piste `metronome.ogg`, deux battements de 40
-frames synthétisés par `scripts/generer-son-metronome.sh`, CC0). Fonctions pures testées
-(`loop_position_frames`, `wrapped_drift`, `decide`) ; preuve à l'écran et mesure de dérive sur
-périphérique réel : voir le rapport (limites Mac).
+**Présentation.** Hit stop « cible seule » (D150, livré) : `FeedbackSettings::hit_stop_scope`
+(`Global` par défaut, `Target` surchargeable par `by_kind` / `by_weapon`) — en `Target`, seule
+l'entité touchée fige son animation (`animation::AnimationHold`, ticks de rendu ; jamais le joueur
+local ni la caméra). Testbed : `hit_stop_scope: Target` pour l'arme `parade`. La musique calée sur
+l'horloge de X-3 (`game::music_sync`, D151) est **retirée** par P-1 (même décision que la parade de
+mêlée).
 
 **4. Parité avec les bancs du labo (P-1, `1837/docs/parite-labo.md`, `docs/taches/rapports/p-1-parite-labo.md`).** La référence
 est les `DEFAUTS` des bancs `gigue.js`, `armes.js`, `allures.js` de `1867_lore` ; le testbed prouve chaque verbe avec des valeurs

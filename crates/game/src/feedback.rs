@@ -222,8 +222,6 @@ impl Plugin for FeedbackPlugin {
         app.add_systems(Update, (tint_champions, tint_transformations));
         // S1-6 (§94) : flash de bouche, recul de l'arme, éclats de mort (`feedback_shots`).
         app.add_plugins(crate::feedback_shots::ShotFeedbackPlugin);
-        // X-3 : musique calée sur l'horloge de simulation (lecture seule de la simulation).
-        app.add_systems(Update, crate::music_sync::sync_music);
         // Retire le zoom du tick précédent avant que le suivi de caméra ne relise la caméra.
         app.add_systems(
             Update,
