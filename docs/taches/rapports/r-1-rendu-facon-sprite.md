@@ -26,7 +26,7 @@ la seule présence de l'entrée : un manifeste illisible (le lint le signale) la
 | 5. Tri en y | fait | `placement::y_sort` (opt-in `y_sort`), ordonné après `lift_characters_to_entity_layer` ; `offset_z` de l'image d'un modèle (1,0 comme `alacod import-sprite`). Deux défauts trouvés en capture et corrigés : le fantassin posé par scénario passait sous les tuiles (tri qui écrasait la remontée de couche), le décor couvrait le Frère (image à `z` 0 contre 1,0 pour les planches). Test `le_pied_le_plus_bas_passe_devant` ; preuve `tri_y` de 1837. |
 | 6. Arme à la main, balles depuis la bouche | fait | objet du manifeste montré du côté de la prise du clip, objets portés (clé à la ceinture) ; **bouche = présentation** (`offset_model_bullets` décale le dessin de la balle : écart latéral résorbé en 8 frames, hauteur du canon gardée) : le repère vient du modèle animé en `f32` du rendu, il ne peut pas entrer dans la simulation ; aucune trace ne bouge. |
 | 7. Présentation pure | fait | `PresentationPlugin` seulement ; traces : `two_players_shooting`, `four_players_idle`, `dash_aim_change` inchangées (`make test_scenarios SCENARIO=…`, 5 tests OK) ; `make check_sim_boundary` dans le contrôle rapide. |
-| 8. Natif et wasm32 dans Chrome | fait (pantin), recette 1837 en cours | natif (Metal, M4 Max) ; essai Chrome muet du pantin dans `zombies` (changement temporaire jeté) : ombrage, contour, ombre en **WebGL2** (`ANGLE Metal Renderer: Apple M4 Max`), aucune erreur de shader. Contrôle rapide WASM et essai du jeu externe : résultats ajoutés ci-dessous après exécution. |
+| 8. Natif et wasm32 dans Chrome | fait (pantin) ; 1837 en wasm non vérifié | natif (Metal, M4 Max) ; essai Chrome muet du pantin dans `zombies` (changement temporaire jeté) : ombrage, contour, ombre en **WebGL2** (`ANGLE Metal Renderer: Apple M4 Max`), aucune erreur de shader. `make check_rapide WASM=1` vert sur `8b3993e1` (`check_wasm` : `cargo check -p zombies --target wasm32-unknown-unknown`, journal ci-dessous). Le jeu 1837 lui-même en wasm dans Chrome (`alacod build --web`) n'a pas été essayé : le coordinateur a mergé `r-1-rendu` dans 1837 (7 nov) et la recette revient à la partie du soir. |
 | 9. Testbed et 1837 | fait | pantin synthétique (`scripts/gen-pantin.py`, 40 clips) et scénario `model_pantin` (trace neuve, `BLESS` de ce seul scénario) ; testbed `y_sort: false` (décision du 7 nov). 1837 : le Frère et le fantassin (partie 1837 ci-dessous). |
 | 10. § 111, D198–D199 | fait | `docs/conventions.md` § 111 ; `docs/taches/dettes.md` D198 (mort, coup reçu, victoire non joués ; tenue en salle pleine non mesurée), D199 (épauler sans phase dans la simulation). D157 se ferme pour ce qui est câblé (esquive, mêlée, tir, en joue, rechargement, allures). |
 
@@ -71,5 +71,18 @@ se voit pas en 1837 (D199 : le fusil tire à l'appui et recharge aussitôt). Éc
 ## Ce qui reste
 
 - D198 (mort, coup reçu, victoire ; mesure en salle pleine, Steam Deck), D199 (épaulé dans la simulation, P-1).
-- M-1 a été mergé dans l'engine et dans `r-1-rendu` de 1837 ; l'essai wasm de **1837** par `alacod build --web` est la dernière recette de plateforme.
+- L'essai wasm de **1837** lui-même dans Chrome (`alacod build --web`, `./jouer.sh --web`) : **non vérifié** (voir point 8).
 - La partie du soir de William (natif) fait foi pour le jeu en mouvement.
+
+## Contrôle rapide
+
+`env -u CI CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 ALACOD_MUTE=1 make check_rapide WASM=1` sur `8b3993e1` (code de la tête ; seul ce rapport change ensuite) :
+journal `~/orca/runs/alpha/logs/r-1-rendu-facon-sprite-check-rapide-8b3993e1.log`, sortie 0, dernières lignes :
+
+```
+    Checking zombies v0.0.1 (…/r-1-rendu-facon-sprite/games/zombies)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 1m 08s
+✓ Contrôle rapide passé (suite de scénarios : la nuit)
+```
+
+Un premier lancement avait été interrompu par mon délai de 3000 s (machine chargée par d'autres builds pendant `schedule_order`), sans échec de test ; relancé sans délai.
