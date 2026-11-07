@@ -258,13 +258,48 @@ impl AnimeManifest {
         Some(((end - start) / self.fps.max(1.0)).max(1.0 / self.fps.max(1.0)))
     }
 
-    /// Les variantes de direction d'une base de marche : `base` et `base-*` dont le moment déclare
-    /// une direction. Triées par nom.
+    /// Les variantes de direction d'une base de marche : `base` et `base-<direction>` dont le
+    /// moment déclare une direction. Les suffixes de la pipeline sont français, anglais ou abrégés
+    /// (`gauche`, `left`, `l`…). Un autre geste (`fire-walk` pour `fire`) n'est pas une direction.
+    /// Triées par nom ; la base peut être absente si seules ses variantes ont été exportées.
     pub fn directional(&self, base: &str) -> Vec<(&str, f32)> {
-        let prefix = format!("{base}-");
         self.clips
             .keys()
-            .filter(|name| name.as_str() == base || name.starts_with(&prefix))
+            .filter(|name| {
+                name.as_str() == base
+                    || name
+                        .strip_prefix(base)
+                        .and_then(|suffix| suffix.strip_prefix('-'))
+                        .is_some_and(|suffix| {
+                            matches!(
+                                suffix,
+                                "avant"
+                                    | "avant-gauche"
+                                    | "avant-droite"
+                                    | "arriere"
+                                    | "arriere-gauche"
+                                    | "arriere-droite"
+                                    | "gauche"
+                                    | "droite"
+                                    | "front"
+                                    | "front-left"
+                                    | "front-right"
+                                    | "back"
+                                    | "back-left"
+                                    | "back-right"
+                                    | "left"
+                                    | "right"
+                                    | "f"
+                                    | "fl"
+                                    | "fr"
+                                    | "b"
+                                    | "bl"
+                                    | "br"
+                                    | "l"
+                                    | "r"
+                            )
+                        })
+            })
             .filter_map(|name| {
                 let dir = self.moments.get(name)?.direction?;
                 Some((name.as_str(), dir))
@@ -477,6 +512,30 @@ mod tests {
         assert!(m.directional("idle").is_empty());
         assert!(m.knows("walk") && m.knows("idle") && !m.knows("run"));
         assert_eq!(m.duration("shoot"), Some(7.0 / 24.0));
+    }
+
+    #[test]
+    fn directional_families_do_not_include_other_gestures() {
+        let m: AnimeManifest = serde_json::from_str(
+            r#"{"fps": 24,
+                "actions": {"fire": [1, 8], "fire-walk": [1, 9], "fire-walk-l": [1, 9],
+                    "fire-walk-arriere-droite": [1, 9], "run-left": [1, 9]},
+                "moments": {"fire-walk": {"direction": 0}, "fire-walk-l": {"direction": 90},
+                    "fire-walk-arriere-droite": {"direction": -135}, "run-left": {"direction": 90}}}"#,
+        )
+        .unwrap();
+        assert!(m.directional("fire").is_empty());
+        assert_eq!(
+            m.directional("fire-walk"),
+            vec![
+                ("fire-walk", 0.0),
+                ("fire-walk-arriere-droite", -135.0),
+                ("fire-walk-l", 90.0),
+            ]
+        );
+        assert_eq!(m.directional("run"), vec![("run-left", 90.0)]);
+        assert!(m.knows("fire") && m.knows("run"));
+        assert!(!m.knows("fi") && !m.knows("missing"));
     }
 
     fn table(models_ron: &str) -> ModelsTable {

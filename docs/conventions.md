@@ -8470,6 +8470,9 @@ comme aux bancs du Labo (`1867_lore/design/rendu-facon-sprite.md`) ; le décor, 
   une allure, 0,05 s vers un geste. Les gestes sont lus **à la position que donne l'état** (avancement du coup, du rechargement, temps depuis le tir) : un rollback qui
   corrige l'état corrige la pose à l'image suivante. Le corps suit la visée (rotation de l'arme active), l'esquive, la marche ou `FacingDirection` : visée libre, sans crans.
   Le banc n'a pas de masque haut/bas du corps : « marcher en tirant » est un clip cuit par direction (`tir-marche-*`), le mélange est le fondu entre clips.
+  Les variantes sont `base` ou `base-<direction>` avec un moment `direction` : suffixes français (`avant`, `arriere`, `gauche`, `droite` et diagonales),
+  anglais (`front`, `back`, `left`, `right` et diagonales), ou abrégés (`f`, `fl`, `fr`, `b`, `bl`, `br`, `l`, `r`). Une autre famille de gestes
+  (`fire-walk` sous `fire`) n'est pas une variante ; une base sans clip reste admise si ses variantes existent.
 - **Armes** : l'objet de l'arme du manifeste (`poses.object`, ou `object` d'un geste : la hache du coup) est montré du côté que donne la prise du clip (`prises` :
   `deux-mains` → os de l'arme, sinon la main), les autres cachés ; un **objet porté** (aucun côté `main` ni `arme` : la clé à la ceinture) se montre dans les clips qui le
   nomment. **La balle part de la bouche du canon** (`poses.muzzle`, repère du manifeste) : décision **présentation** — la position du repère vient du modèle animé
