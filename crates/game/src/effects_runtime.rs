@@ -135,7 +135,7 @@ pub struct EffectAssets<'w> {
 }
 
 /// Sources des repères temporels d'une fenêtre de jugement (X-3, `effects::Condition::Timing`,
-/// `docs/conventions.md` §90) : début du dash et du coup de mêlée en cours du porteur, horloges
+/// `docs/conventions.md` §110) : début du dash et du coup de mêlée en cours du porteur, horloges
 /// actives. **Lecture seule**, dérivée de l'état rollback à chaque évaluation : aucun état
 /// caché, rien à restaurer après un rollback. Construite seulement pour un porteur dont un
 /// effet porte une condition `Timing` ([`has_timing`]) : sans elle, aucun calcul de plus.

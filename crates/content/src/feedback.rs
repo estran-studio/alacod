@@ -258,7 +258,7 @@ impl Default for DeathFxConfig {
     }
 }
 
-/// Qui un hit stop fige (X-3, présentation seule, `docs/conventions.md` §90).
+/// Qui un hit stop fige (X-3, présentation seule, `docs/conventions.md` §110).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum HitStopScope {
     /// Toutes les animations et le suivi de caméra (comportement de T1.17).
@@ -270,7 +270,7 @@ pub enum HitStopScope {
     Target,
 }
 
-/// Musique calée sur l'horloge de simulation (X-3, présentation seule, `docs/conventions.md` §90) :
+/// Musique calée sur l'horloge de simulation (X-3, présentation seule, `docs/conventions.md` §110) :
 /// la piste boucle sur `loop_events` occurrences de l'événement `event` de l'horloge `clock`
 /// (kind `Clock`, `repeat` obligatoire) et sa position 0 tombe sur une occurrence de cet
 /// événement. La position jouée suit le temps de **simulation** (pause, relance, rollback) : un

@@ -1,4 +1,4 @@
-// Personnage de laboratoire X-3 (testbed, docs/conventions.md §90) : poursuivant qui frappe au corps à
+// Personnage de laboratoire X-3 (testbed, docs/conventions.md §110) : poursuivant qui frappe au corps à
 // corps (`Melee("zombie_claws")` à portée, sinon `Chase`), sans fuite. Cible du scénario
 // `parade_melee` : son coup est annulé par la parade de mêlée du joueur, puis il subit un coup du joueur.
 (

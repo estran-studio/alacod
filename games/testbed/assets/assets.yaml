@@ -114,7 +114,7 @@
 - id: sound-metronome-x3-projet
   fichiers:
     - sounds/metronome.ogg
-  source: synthétisée pour le projet par scripts/generer-son-metronome.sh (X-3, docs/conventions.md §90) ;
+  source: synthétisée pour le projet par scripts/generer-son-metronome.sh (X-3, docs/conventions.md §110) ;
     aucune source tierce
   auteur: projet alacod
   licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet

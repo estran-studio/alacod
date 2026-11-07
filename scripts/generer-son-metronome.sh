@@ -1,5 +1,5 @@
 #!/bin/sh
-# Piste de laboratoire de la musique calée sur une horloge (X-3, docs/conventions.md §90) :
+# Piste de laboratoire de la musique calée sur une horloge (X-3, docs/conventions.md §110) :
 # deux battements de 2/3 s (40 frames à 60 Hz), un aigu (880 Hz) puis un grave (440 Hz), 4/3 s au
 # total (80 frames) : la boucle de l'horloge `pouls` de `games/testbed` (`repeat: Frames(40)`,
 # `loop_events: 2`). Dépend de ffmpeg (libvorbis). Usage : scripts/generer-son-metronome.sh [sortie.ogg]

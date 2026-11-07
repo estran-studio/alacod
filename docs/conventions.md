@@ -8405,7 +8405,7 @@ Outillage et documentation seulement : **aucune trace ne bouge** (seule la trace
   `zero_fps_with_several_columns_or_a_negative_fps_fails_without_artifacts`, `direction_keeps_only_that_row_of_every_clip`).
 - Dettes **D186** à **D189** : `docs/taches/dettes.md`.
 
-## 90. Verbes D1 : fenêtre de jugement, parade et renvoi, poids des armes (X-3, voie C)
+## 110. Verbes D1 et parité avec les bancs du labo (X-3, repris par P-1, voie m)
 
 Trois verbes génériques de l'engine, composables par le contenu (RON) ; **aucune valeur, aucun nom
 et aucun personnage d'un jeu** n'y entre (`plan-1837-cli.md` §5). Le testbed les prouve avec des
@@ -8482,7 +8482,8 @@ contact à f104, seul le troisième coup passe).
 
 **3. Poids des armes** : l'architecture de modificateurs **suffisait** (`MoveSpeed` est lu par les
 inputs via `StatReader`) ; le plus petit verbe ajouté est le champ d'arme `move_speed_mult:
-Some("0.5")` (`WeaponConfig`, hors hash absent) et `sync_carry_weight_system` (tête du set `Weapon`) : le
+Some("0.5")` (`WeaponConfig`, hors hash absent) et `sync_carry_weight_system` (set `Weapon`, après le changement et le
+lâcher d'arme et le départ du coup de mêlée de la frame : revue P-1) : le
 porteur reçoit un modificateur `MoveSpeed`/`Mul` permanent de source `weapon_weight:<arme>` tant que
 l'arme est active, retiré au changement ou au lâcher (rien d'écrit si rien ne change). Lint : `> 0`
 (fixture `weapon_move_speed_mult_zero`). Scénarios `arme_lourde` (stat 75, 68 unités en 60 frames) et
@@ -8502,3 +8503,39 @@ l'arme `parade_melee`, `music` sur l'horloge `pouls` (piste `metronome.ogg`, deu
 frames synthétisés par `scripts/generer-son-metronome.sh`, CC0). Fonctions pures testées
 (`loop_position_frames`, `wrapped_drift`, `decide`) ; preuve à l'écran et mesure de dérive sur
 périphérique réel : voir le rapport (limites Mac).
+
+**4. Parité avec les bancs du labo (P-1, `1837/docs/parite-labo.md`, `docs/taches/rapports/p-1-parite-labo.md`).** La référence
+est les `DEFAUTS` des bancs `gigue.js`, `armes.js`, `allures.js` de `1867_lore` ; le testbed prouve chaque verbe avec des valeurs
+neutres, 1837 pose les nombres du banc dans ses RON. Tout champ neuf est optionnel et n'entre dans le `Hash`/`Debug` que posé ; les
+types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la clôture (`DashCadence`, `MeleeQueue`).
+
+- **Horloge à tempo** : `ClockDef::tempo: Some(bpm)` (kind `Clock`). Le temps `k` tombe à `k × 3600 / bpm` frames de la portée,
+  rationnel (aucune dérive : 129 temps/min = 27,907 frames par temps) ; aucun événement (rien n'entre dans `Clock::fired`).
+  `run::clock::beat_gap` rend l'écart signé au temps le plus proche en fractions de frame (`(num, bpm)`, à égalité le suivant) ;
+  `game::clock::TempoReader` (lecture seule) l'expose aux verbes, même règle qu'une horloge `Floor` au passage d'étage.
+- **Jugement en millisecondes** : `sim_core::timing::grade_gap_ms(num, den, perfect_ms, good_ms)` (entiers 128 bits, bornes
+  comprises, aucun arrondi à la frame : 60 ms = 3,6 frames).
+- **Pas au tempo** (`DashConfig`, `sim_core::dash`) : `on_beat: Some((clock, perfect_ms, good_ms, coop_window_mult, distance_bonus,
+  iframes_bonus, iframes_cap))` juge l'**appui** à sa frame (même gardé jusqu'à la coupe) ; « parfait » × 1, « bien » × ½ :
+  distance × (1 + `distance_bonus` × k), i-frames + `ceil(iframes_bonus × k × durée)` plafonnées à `ceil(iframes_cap × durée)` ;
+  hors du temps, le pas normal (jamais de pénalité). `coop_window_mult` élargit les deux fenêtres quand `SessionPlayers >= 2`.
+  `profile: EaseOut` : la part `u` du pas couvre `1 − (1 − u)²` (pas `k` = `d × (2n − 2k − 1) / n²`, somme exacte).
+  `in_place_without_direction` : sans direction tenue à la frame du départ, le pas se fait sur place (i-frames et durée).
+  `cut_from: Some(n)` : un appui pendant un pas en relance un dès `n` frames jouées (le reste est coupé ; tampon
+  `dash_buffer_frames` à régler sur la durée du pas). `chain_window_frames` : compteur d'enchaînement (`DashCadence::chain`,
+  continue pendant un pas ou au plus `n` frames après sa fin) ; `DashCadence::streak` (appuis sur le temps d'affilée) et
+  `last_grade` (note et frame) sont lus par la présentation. Lint `lint_dash` : horloge connue et à tempo, `perfect_ms <= good_ms`.
+  Scénarios `dash_au_tempo` (parfait 72 px, bien 60, hors du temps 48), `dash_au_tempo_coop` (83 ms : bien seul, parfait à deux),
+  `dash_coupe_sur_place`.
+- **Hache qui renvoie** (`MeleeWeaponConfig`, `MeleeReflect`) : `strike_frames: Some((début, fin))`, frames du coup bornes comprises :
+  la hitbox (`MeleeHitbox::strike`, `striking`) ne blesse et ne renvoie qu'alors (lint : `début <= fin < attack_duration_frames`,
+  fixture `melee_strike_outside_attack`). `reflect.sector: Some((radius, arc))` : zone centrée sur le **porteur** (centre du
+  projectile à `radius` au plus, dans `arc` radians autour du regard, cosinus du demi-arc comparé au produit scalaire, `Fixed`) à
+  la place du contact avec la hitbox. `reflect.direction: Aim(min_distance)` : vers le point visé (porteur + `pan` de l'input)
+  depuis le projectile, la visée elle-même à moins de `min_distance`, le regard sans visée. `speed_mult`, `perfect_speed_mult` :
+  vitesse du renvoyé (× les deux sur un parfait) ; `perfect_damage_mult` devient facultatif (1). Un projectile en orbite renvoyé
+  perd son orbite. `queue: true` : un coup par appui (front montant, `MeleeQueue`), un appui pendant le coup part à sa fin (et
+  du `cooldown_frames`, compté depuis la fin du coup). `move_speed_mult: Some(m)` : pendant le coup, ce multiplicateur remplace le
+  poids de l'arme active (même source `weapon_weight:<arme de mêlée>`). Scénarios `renvoi_secteur` (dans le secteur avant la
+  frappe, renvoyé à sa première frame, × 2,1, touche la tourelle), `renvoi_secteur_visee` (regard à droite, renvoi vers le point
+  visé : passe au-dessus), `coup_en_file` (frappes 10 frames après chaque départ, second coup en file sans délai, 60 % de marche).

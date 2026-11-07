@@ -1,4 +1,4 @@
-// X-3 (testbed, docs/conventions.md §90) : passif d'essai du repère d'horloge de portée `Floor`
+// X-3 (testbed, docs/conventions.md §110) : passif d'essai du repère d'horloge de portée `Floor`
 // à l'entrée d'un étage (`OnFloorStart`). Si la frame d'entrée tombe à 2 frames près de
 // l'événement `debut` de l'horloge `debut_etage` (temps d'étage 0 à l'entrée : écart nul), +7 de
 // dégâts ; si elle est « ratée », +70 (ne doit jamais arriver : l'entrée EST le début d'étage).

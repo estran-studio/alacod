@@ -1,7 +1,7 @@
 # X-3 « Verbes D1 » : rapport (voie C)
 
 Branche `x-3-verbes-d1` (base `origin/main` `be732707`). Fiche : `docs/taches/plan-1837-cli.md` §4 (ligne X-3) et §5 ;
-critère : `docs/plan-engine.md` §4.8. Section de conventions : **§90** (`docs/conventions.md`). Dettes : D149 à D152.
+critère : `docs/plan-engine.md` §4.8. Section de conventions : **§110** (`docs/conventions.md`). Dettes : D149 à D152.
 
 **Règle respectée** : rien d'un jeu externe dans l'engine (aucun nom, personnage, arme, sprite, valeur de réglage ni
 « 120 bpm »). Le testbed prouve les verbes avec des noms neutres (`pouls`, `chronometre`, `parade`…) et des valeurs
@@ -15,7 +15,7 @@ arbitraires (battement de 40 frames, fenêtres 3 et 8, multiplicateurs 0,5 et 2)
 | Parade et renvoi | `combat::weapons::melee` (`MeleeReflect`, `melee_reflect_system`, `ProjectileReflected`) | changement d'équipe, de tireur et de direction (regard), dégâts × bonus sur « parfait », départage par `GgrsNetId` |
 | Poids des armes | `combat::weapons` (`WeaponConfig::move_speed_mult`, `sync_carry_weight_system`) | l'architecture de modificateurs suffisait : un `Mul` sur `MoveSpeed`, source `weapon_weight:<arme>` |
 
-Détails de conception, d'ordre et de lint : `docs/conventions.md` §90.
+Détails de conception, d'ordre et de lint : `docs/conventions.md` §110.
 
 ## Déterminisme et traces
 
@@ -125,7 +125,7 @@ restantes (D149, D150, D151) sont livrées, D152 reste ouverte et rétrécie.
   `perfect_knockback`), `melee_parry_system` (annulation avant blessure, contacts décidés puis
   appliqués, mutuelle symétrique, recul parfait sur l'axe), `FrameEvents<MeleeParried>` (neutre,
   moment clé `parry`), lint `perfect_knockback >= 0` (fixture
-  `melee_parry_knockback_negative`), schéma, §90. Scénario `parade_melee` (parfait repoussé f46,
+  `melee_parry_knockback_negative`), schéma, §110. Scénario `parade_melee` (parfait repoussé f46,
   bien au contact f104, seul le troisième coup passe : 97,5 PV). D149 fermée.
 - **D150 — hit stop « cible seule »** : `hit_stop_scope` (`Global`/`Target`, global par défaut,
   surchargeable), `animation::AnimationHold` (gel par entité, ticks de rendu), jamais le joueur
@@ -163,5 +163,5 @@ restantes (D149, D150, D151) sont livrées, D152 reste ouverte et rétrécie.
   `scripts/check-rollback-registration.sh` : À REMPLIR.
 - Types rollback nouveaux (neutres, après `ProjectileReflected`, avant les cinq de clôture) :
   `FrameEvents<TimingJudged>`, `FrameEvents<MeleeParried>`. Systèmes ajoutés : `melee_parry_system`,
-  ordre du set `Weapon` réordonné (voir §90) : le diff `schedule_order_diff` gagne ces lignes, rien
+  ordre du set `Weapon` réordonné (voir §110) : le diff `schedule_order_diff` gagne ces lignes, rien
   d'autre.

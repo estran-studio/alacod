@@ -1,4 +1,4 @@
-//! Musique calée sur l'horloge de simulation (X-3, présentation seule, `docs/conventions.md` §90).
+//! Musique calée sur l'horloge de simulation (X-3, présentation seule, `docs/conventions.md` §110).
 //!
 //! `ui/feedback.ron` peut déclarer `music: Some((track, clock, event, loop_events, max_drift_ms,
 //! volume_db))` : une piste (`ogg`) qui boucle sur `loop_events` occurrences de l'événement

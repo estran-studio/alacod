@@ -177,7 +177,7 @@ impl Plugin for GameEventsPlugin {
     }
 }
 
-/// Moments clés des verbes D1 (X-3, `docs/conventions.md` §90) : `reflect` (projectile renvoyé,
+/// Moments clés des verbes D1 (X-3, `docs/conventions.md` §110) : `reflect` (projectile renvoyé,
 /// `combat::weapons::melee::ProjectileReflected`), `parry` (coup de mêlée annulé,
 /// `MeleeParried`) et `timing` (note d'une fenêtre de jugement,
 /// `game::effects_runtime::TimingJudged`), relus des files neutres de la frame (bornées à leur

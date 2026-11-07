@@ -192,7 +192,7 @@ pub(crate) fn lint_effect(
                 format!("{at} : condition {condition:?} : pas encore exécutée (v2)"),
             );
         }
-        // X-3 (§90) : fenêtre de jugement : `perfect_frames <= good_frames` ; un repère
+        // X-3 (§110) : fenêtre de jugement : `perfect_frames <= good_frames` ; un repère
         // d'horloge désigne un événement déclaré par une horloge du jeu.
         if let effects::Condition::Timing {
             reference,

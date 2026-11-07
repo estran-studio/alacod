@@ -1,4 +1,4 @@
-// X-3 (testbed, docs/conventions.md §90) : passif d'essai des fenêtres de jugement
+// X-3 (testbed, docs/conventions.md §110) : passif d'essai des fenêtres de jugement
 // (`effects::Condition::Timing`) sur l'horloge `pouls` (un événement toutes les 40 frames). Fenêtres
 // arbitraires : parfaite 3 frames, large 8.
 // - début d'une esquive (`OnDodge`) : parfait → +1 de dégâts ; « bien » (hors parfaite, dans la

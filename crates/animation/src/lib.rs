@@ -265,7 +265,7 @@ impl AnimationFreeze {
 }
 
 /// Gel de présentation d'une entité animée (hit stop « cible seule », X-3, `docs/conventions.md`
-/// §90) : tant qu'il court, `animate_sprite_system` n'avance ni son timer ni ses images ; le reste
+/// §110) : tant qu'il court, `animate_sprite_system` n'avance ni son timer ni ses images ; le reste
 /// du monde et la caméra continuent. Compté comme [`AnimationFreeze`] en ticks de rendu ; posé
 /// par `game::feedback`, jamais par la simulation.
 #[derive(Component, Debug, Clone, PartialEq, Eq)]
