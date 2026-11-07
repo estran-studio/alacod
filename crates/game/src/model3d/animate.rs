@@ -7,7 +7,9 @@
 //! position que donne l'état de la simulation (avancement du coup, du rechargement, temps depuis le
 //! tir) : un rollback qui corrige l'état corrige la pose à l'image suivante.
 
-use bevy::{platform::collections::HashMap, prelude::*};
+use std::collections::BTreeMap;
+
+use bevy::prelude::*;
 use bevy_fixed::fixed_math::FixedTransform3D;
 use combat::{
     actors::DashState,
@@ -325,7 +327,7 @@ pub fn animate_models(
 fn step(
     state: &mut RigState,
     choice: &PoseChoice,
-    clips: &HashMap<String, (AnimationNodeIndex, f32)>,
+    clips: &BTreeMap<String, (AnimationNodeIndex, f32)>,
     dt: f32,
 ) {
     let Some(&(node, duration)) = clips.get(&choice.clip) else {

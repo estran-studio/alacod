@@ -25,7 +25,7 @@ pub mod materials;
 pub mod placement;
 pub mod pose;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -36,7 +36,6 @@ use bevy::{
     core_pipeline::tonemapping::{DebandDither, Tonemapping},
     gltf::{Gltf, GltfAssetLabel},
     mesh::{Indices, VertexAttributeValues},
-    platform::collections::{HashMap, HashSet},
     prelude::*,
     render::{render_resource::TextureFormat, view::Msaa},
     world_serialization::WorldAssetRoot,
@@ -108,9 +107,9 @@ pub struct ModelRig {
 pub struct RigReady {
     pub player: Entity,
     /// Clip -> (nœud du graphe, durée en s).
-    pub clips: HashMap<String, (AnimationNodeIndex, f32)>,
+    pub clips: BTreeMap<String, (AnimationNodeIndex, f32)>,
     /// Nœuds nommés du modèle (objets et repères des armes du manifeste).
-    pub nodes: HashMap<String, Entity>,
+    pub nodes: BTreeMap<String, Entity>,
 }
 
 /// Lien d'une entité du banc (caméra, racine du modèle) vers son personnage ; la caméra porte le
@@ -136,8 +135,8 @@ impl ModelLayers {
 /// Maillages déjà lissés et matériaux déjà convertis (partagés par les instances d'un modèle).
 #[derive(Resource, Default)]
 struct PreparedAssets {
-    meshes: HashSet<AssetId<Mesh>>,
-    materials: HashMap<AssetId<StandardMaterial>, Handle<FaconSpriteMaterial>>,
+    meshes: BTreeSet<AssetId<Mesh>>,
+    materials: BTreeMap<AssetId<StandardMaterial>, Handle<FaconSpriteMaterial>>,
     shadow: Option<(Vec3, Handle<ModelShadowMaterial>)>,
 }
 
@@ -341,7 +340,7 @@ fn finish_rigs(
 
         // Graphe : un nœud par clip nommé (le nom après un éventuel « Armature| »).
         let mut graph = AnimationGraph::new();
-        let mut clip_nodes = HashMap::default();
+        let mut clip_nodes = BTreeMap::new();
         for (name, handle) in &gltf.named_animations {
             let name = name.rsplit('|').next().unwrap_or(name).to_string();
             let duration = clips.get(handle).map_or(1.0, |c| c.duration()).max(1e-3);
@@ -366,7 +365,7 @@ fn finish_rigs(
             }
         });
 
-        let mut nodes = HashMap::default();
+        let mut nodes = BTreeMap::new();
         for entity in children.iter_descendants(rig.root).collect::<Vec<_>>() {
             if let Ok(name) = names.get(entity) {
                 nodes.insert(name.as_str().to_string(), entity);
