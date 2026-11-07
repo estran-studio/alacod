@@ -30,6 +30,12 @@ sous `assets/`, déclarés dans `assets/game.ron`, assemblent des behaviors cod�
 - Modifier le RON d'un profil, puis `reload` et `restart` ; `alacod lint` valide les ids (personnages, armes, objets).
 - Guide complet : `{{engine}}/docs/editeur-vocal.md` §2.2–2.3 et `{{engine}}/docs/conventions.md` §87–89.
 
+## Chrome : la version web du jeu
+
+`alacod build --web --release --serve` (dans le dossier du jeu) construit le wasm, copie `assets/`, écrit `index.html` et sert sur `http://127.0.0.1:8080/` ; sans `--serve`, le dossier statique est
+`<target>/web`. `build.rs` et le chemin `cfg(target_arch = "wasm32")` de `src/main.rs` (contenu embarqué, racine d'assets `/builds/<version>/{{name}}/assets`) en sont le contrat : ne pas les retirer.
+Détail : `{{engine}}/docs/conventions.md` §108.
+
 ## Règles qui piègent
 
 - Les valeurs `Fixed` s'écrivent en **chaînes** RON : `"1.5"`, jamais `1.5`.

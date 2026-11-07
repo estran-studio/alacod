@@ -8405,6 +8405,42 @@ Outillage et documentation seulement : **aucune trace ne bouge** (seule la trace
   `zero_fps_with_several_columns_or_a_negative_fps_fails_without_artifacts`, `direction_keeps_only_that_row_of_every_clip`).
 - Dettes **D186** à **D189** : `docs/taches/dettes.md`.
 
+## 108. Web d'un jeu externe : `alacod build --web` (M-1, `docs/taches/rapports/m-1-web-externe.md`)
+
+Outillage et gabarit seulement : **aucune trace ne bouge**, aucun `BLESS`. Jalon servi : S1 dim 15, « 1837 jouable dans Chrome par URL » (cible mer 11).
+
+- **Forme** : sous-commande d'`alacod` (`crates/content/src/web_build.rs`), pas un script. Trois raisons : un jeu créé par `alacod new` n'a ni `scripts/` ni `node` ; `alacod` est déjà
+  l'outil unique (§ 90) et lit le manifeste (nom du jeu), le lint et le `Cargo.lock` du jeu (qui épingle `wasm-bindgen`) ; elle se teste dans le processus de test. Les jeux de `games/`
+  gardent `scripts/build-web-games.mjs` et `make build_web_games` (aucun changement pour eux).
+- **Commande** : `alacod build --web [jeu] [--out <dossier>] [--release] [--features a,b] [--version V] [--serve [--port 8080]]`. Chaîne : `load_and_lint` (un contenu rouge ne part pas) →
+  `rustup target add wasm32-unknown-unknown` (idempotent) → `cargo build --target wasm32-unknown-unknown --no-default-features --features render` (`APP_VERSION` = version du build,
+  `RUSTFLAGS` + `--cfg=web_sys_unstable_apis`) → `wasm-bindgen --target web --out-name wasm` → `wasm-opt --strip-debug --strip-dwarf -O2` (**release seulement**, et s'il est installé ;
+  `WASM_OPT=<chemin>` ; sinon message et wasm non optimisé) → copie de `assets/` → `build.json` et `index.html`. `--features` remplace `render` (un jeu dont la feature de rendu a un autre nom) ;
+  `lighting` et `native` ne sont pas compilés pour le web, comme `zombies`. `RUSTFLAGS` de l'environnement est repris et complété de `--cfg=web_sys_unstable_apis` ; `CARGO_ENCODED_RUSTFLAGS` est retiré
+  (il l'emporterait) et les `rustflags` du `.cargo/config.toml` d'un jeu sont **ignorés** (cargo : la variable `RUSTFLAGS` les remplace) : un jeu qui en a besoin pour le web les met dans `RUSTFLAGS`.
+- **`wasm-bindgen`** : la version est lue dans le `Cargo.lock` de l'espace de travail du jeu (`name = "wasm-bindgen"`) ; l'outil cherche `WASM_BINDGEN`, le `PATH`, puis
+  `<target>/alacod-tools/bin/wasm-bindgen`, et sinon lance **une fois** `cargo install --locked wasm-bindgen-cli --version <v> --root <target>/alacod-tools` (aucune installation
+  globale). Une `WASM_BINDGEN` de mauvaise version est une erreur, pas une installation.
+- **Version** : `--version`, sinon `APP_VERSION` de l'environnement, sinon le SHA git court du jeu (`-dirty` si des fichiers suivis ont changé, `local` hors git) : la version est **stable** d'un build à l'autre (une version qui change à chaque appel recompilerait `game` et `map_ldtk` à chaque fois), et un build écrit remplace les autres versions du même jeu dans `<out>/builds/` (des centaines de Mo chacune).
+  `crates/game/build.rs` relit maintenant `APP_VERSION` (`cargo:rerun-if-env-changed`) : sans cela, la crate `game` gardait la version de sa première compilation. Conséquence au `Makefile` : « absente » et « `v0.0.0` » sont deux états pour cargo, donc toute cible qui compile `game` en natif passe `APP_VERSION=$(TEST_VERSION)` (`test_crates`, `gen`, `sim`, `sandbox`, `test_alacod_*`, `perf_generation`) pour garder un seul build.
+- **Sortie** (défaut `<target cargo du jeu>/web`) : `index.html` + `builds/<version>/<jeu>/{wasm.js, wasm_bg.wasm, build.json, assets/…}`, la disposition des builds du site
+  (`/builds/<version>/<jeu>/`). `<jeu>` est le `name` de `game.ron`. Le build est refait en place pour une même version.
+- **Contrat avec le `main.rs` du jeu** (gabarit `templates/starter/src/main.rs`, même forme que `games/zombies`) : sous `cfg(target_arch = "wasm32")`, le contenu vient de
+  `content::load_embedded(EMBEDDED_CONTENT)` (le `build.rs` du jeu, copie de `scripts/embed-game-content.rs` sans la surcharge privée, embarque RON, LDtk, JSON, HTML) et la racine d'assets est
+  `concat!("/builds/", env!("APP_VERSION"), "/<nom du jeu>/assets")` (**un seul littéral** : `concat!`, pas `format!`). La commande **cherche cette chaîne dans le wasm** et échoue
+  sinon, avec la ligne à écrire : une page noire (assets en 404) devient une erreur de build. Le gabarit déclare aussi `getrandom = { version = "0.2", features = ["js"] }`.
+  Un jeu créé avant M-1 reprend ces trois points (D191).
+- **Serveur** (`--serve`, `web_build::Server`) : HTTP statique minimal sur `127.0.0.1:<port>` (GET et HEAD, `application/wasm`, `text/javascript`, `Cache-Control: no-store`, rien hors de `<out>`).
+  La racine d'assets étant **absolue** (`/builds/…`), la page doit être servie à la racine d'une origine : un sous-chemin public (`https://hôte/jeu/`) casse les assets (D190, pour M-2).
+- **Page** : `index.html` (canvas `#bevy-canvas`, `data-number-player="1"`, `?perf=1` → `data-perf`, `download_log_file_js`, message visible si le module ne démarre pas). Solo seulement : le
+  lobby en ligne (`data-matchbox`, `data-lobby`) est le lot M-2.
+- **Tests** : `web_build::tests` (version de `wasm-bindgen` lue du verrou, versions d'URL, page, serveur : MIME, `..` refusé) ; `crates/content/tests/cli.rs::new_game_builds_for_the_web_without_any_added_code`
+  (`#[ignore]`, **`make test_alacod_web`**, ≈ 20 min à froid : `alacod new demo` dans un dossier temporaire, `alacod build --web`, wasm, JS, assets, page, `build.json` et serveur). Aucun Chrome
+  automatisé : l'ouverture dans le navigateur est la recette humaine. Le jeu d'essai compile dans son propre `target/` (jeté avec le dossier temporaire : 21-26 min à chaque fois) sauf si `CARGO_TARGET_DIR` est posé :
+  `CARGO_TARGET_DIR=$PWD/target make test_alacod_web` réutilise celui du worktree (21 min la première fois, ensuite les dépendances wasm32 sont en cache). Preuve de 1837 au Mac (7 nov) : `.wasm` release + `wasm-opt`
+  de 80,4 Mo, la cour affichée dans Chrome (`1837/docs/preuves/m-1-web-cour.png`).
+- Dettes **D190** et **D191** : `docs/taches/dettes.md`.
+
 ## 110. Verbes D1 et parité avec les bancs du labo (X-3, repris par P-1, voie m)
 
 Trois verbes génériques de l'engine, composables par le contenu (RON) ; **aucune valeur, aucun nom

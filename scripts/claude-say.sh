@@ -17,7 +17,9 @@ transcript=$(printf '%s' "$payload" | python3 -c 'import json,sys
 try: print(json.load(sys.stdin).get("transcript_path", ""))
 except Exception: print("")')
 [[ -r "$transcript" ]] || exit 0
-text=$(python3 - "$transcript" <<'PY'
+# Le programme est lu dans une variable (hors `$( )`) : `/bin/bash` 3.2 de macOS ne sait pas lire un « ` » dans un
+# here-doc imbriqué dans `$( )`.
+read -r -d '' program <<'PY'
 import json, sys, re
 path = sys.argv[1]
 last = ""
@@ -52,7 +54,7 @@ if len(last) > limit:
     last = cut[:end + 1] if end >= limit // 2 else cut.rstrip() + "…"
 print(last)
 PY
-)
+text=$(python3 -c "$program" "$transcript")
 [[ -n "$text" ]] || exit 0
 
 if command -v say >/dev/null 2>&1; then
