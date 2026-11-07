@@ -1,7 +1,7 @@
 # M-1 « Web d'un jeu externe » — rapport
 
 Voie m, lot M-1 (reprise sur le Mac de William, 7 nov 2026). **Jalon servi : S1 dim 15, cible mer 11 « 1837 jouable dans Chrome par URL »** (plan § 6, ligne M-1).
-Branche engine `wquintal/m-1-web-externe`, tête de code `930124e5` (rapport en commit « docs seules » au-dessus) ; branche 1837 `m-1-web` `104afd3f` (le `rev` y vaut `930124e5…`, à réépingler sur `main`).
+Branche engine `wquintal/m-1-web-externe`, tête de code **`94f3352e`** (revue du coordinateur appliquée ; ce rapport est un commit « docs seules » au-dessus) ; branche 1837 `m-1-web` `d8516cc5` (le `rev` y vaut `930124e5…`, à réépingler sur `main`).
 Aucune trace de scénario ne bouge (outillage et gabarit seulement, aucun `BLESS`, la simulation n'est pas touchée : pas de `schedule_order_diff`).
 
 ## Points du lot
@@ -10,9 +10,9 @@ Aucune trace de scénario ne bouge (outillage et gabarit seulement, aucun `BLESS
 |---|---|---|---|
 | 1 | `alacod build --web [jeu] [--out] [--release] [--features] [--version] [--serve --port]` (jeu hors de `games/`) | **fait** | `crates/content/src/web_build.rs`, `bin/alacod.rs` ; `docs/conventions.md` § 108 |
 | 2 | Gabarit `templates/starter` : passe la commande sans retouche | **fait** | `make test_alacod_web` vert (ci-dessous) |
-| 3 | Test e2e `#[ignore]` + cible `make` | **fait** | `new_game_builds_for_the_web_without_any_added_code`, `make test_alacod_web` (exit 0, 1261 s avec le target du worktree) |
+| 3 | Test e2e `#[ignore]` + cible `make` | **fait** | `new_game_builds_for_the_web_without_any_added_code`, `make test_alacod_web` : exit 0 (1261 s à froid avec le target du worktree ; 431 s à chaud après la revue, `~/orca/runs/alpha/logs/m-1-web-externe-e2e-3.log`) |
 | 4 | `cargo fmt` | **fait** | commit `4f7c61df` |
-| 5 | `make check_rapide WASM=1` | **fait, vert** | `~/orca/runs/alpha/logs/m-1-web-externe-check-rapide-930124e5.log` : dernière ligne « ✓ Contrôle rapide passé (suite de scénarios : la nuit) » (`check_wasm` compris) |
+| 5 | `make check_rapide WASM=1` | **fait, vert** | `~/orca/runs/alpha/logs/m-1-web-externe-check-rapide-94f3352e.log` : dernière ligne « ✓ Contrôle rapide passé (suite de scénarios : la nuit) » (`check_wasm` compris) ; un premier passage sur `930124e5` était vert aussi (base, avant la revue) |
 | 6 | 1837 : `./jouer.sh --web` | **fait** | transcript ci-dessous ; journal `~/orca/runs/alpha/logs/m-1-web-externe-1837-jouer-web.log` |
 | 7 | `cargo check --target wasm32-unknown-unknown` / compilation wasm | **fait** | le build release de 1837 et celui du jeu temporaire compilent en wasm32 ; `check_wasm` dans le contrôle rapide |
 | 8 | Taille du `.wasm` | **mesurée** | 1837 release + `wasm-opt` : **84 339 230 octets (80,4 Mo)** ; jeu temporaire, dev sans `wasm-opt` (debuginfo) : 203,5 Mo |
