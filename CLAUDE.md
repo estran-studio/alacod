@@ -358,7 +358,7 @@ Variables d'environnement (natif) :
 - `--sandbox [profil]` (natif, tout jeu, `docs/conventions.md` §87 et §90, `alacod sandbox <jeu> [--profile P] [--detach]`, alias `make sandbox GAME=<jeu> [PROFIL=]`) : bac à sable, l'**arène vide** du jeu (`sandbox.arena` du manifeste : murs et joueur, rien d'autre, écrite par `alacod new-arena` ; repli `generate_template.map`), `RunMode::Sandbox`,
   sans vagues, profil `sandbox/<profil>.ron` (`arene` par défaut) posé par `map_ldtk::game::profile` à chaque entrée en `GameLoading` (donc rejoué par `restart`), mode éditeur et remote allumés, `check_distance` 0 ;
   méthodes `alacod/sandbox_profile` et `alacod/give`. Remplace `character_tester` (retiré). **La commande `alacod` est le point d'entrée unique** (§90) : `alacod sandbox|editor <jeu>` lancent le jeu, `alacod remote …` le pilote
-  (`brief`, `give`, `spawn`, `restart`, `reload`, `modifier`, `screenshot`…), `alacod new-arena` écrit l'arène vide, `alacod lint|describe|new-content|test|new` ; aucun `make` ni script requis.
+  (`brief`, `give`, `spawn`, `restart`, `reload`, `modifier`, `screenshot`…), `alacod new-arena` écrit l'arène vide, `alacod lint|describe|new-content|test|new` ; `alacod build --web [--serve]` construit la version web d'un jeu (M-1, `docs/conventions.md` §108) ; aucun `make` ni script requis.
   Un jeu créé par `alacod new` l'a **sans code** (`templates/starter` : profil `arene`, `main.rs` inchangé) ; preuve de bout en bout
   `make test_alacod_cli` (`new_game_opens_its_sandbox_without_any_added_code`, §88). `ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`.
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste

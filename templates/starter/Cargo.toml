@@ -11,6 +11,8 @@ bevy_ecs_tilemap = { version = "0.19.0", default-features = false }
 bevy_ecs_ldtk = { version = "0.15", default-features = false, features = ["derive", "internal_levels"] }
 bevy_ggrs = "0.22.0"
 serde_json = "1.0"
+# wasm32 (`alacod build --web`) : getrandom a besoin de son backend navigateur.
+getrandom = { version = "0.2", features = ["js"] }
 
 utils = { {{engine:utils}} }
 content = { {{engine:content}} }
