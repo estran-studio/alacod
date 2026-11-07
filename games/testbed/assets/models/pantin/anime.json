@@ -1,0 +1,376 @@
+{
+ "fps": 24,
+ "actions": {
+  "idle": [
+   1.0,
+   49.0
+  ],
+  "gun-idle": [
+   1.0,
+   49.0
+  ],
+  "aim": [
+   1.0,
+   49.0
+  ],
+  "shoot": [
+   1.0,
+   8.2
+  ],
+  "shoulder": [
+   1.0,
+   4.6
+  ],
+  "reload": [
+   1.0,
+   29.799999999999997
+  ],
+  "strike": [
+   1.0,
+   9.399999999999999
+  ],
+  "roll": [
+   1.0,
+   10.600000000000001
+  ],
+  "walk": [
+   1.0,
+   20.200000000000003
+  ],
+  "gun-walk": [
+   1.0,
+   20.200000000000003
+  ],
+  "aim-walk": [
+   1.0,
+   20.200000000000003
+  ],
+  "reload-walk": [
+   1.0,
+   20.200000000000003
+  ],
+  "walk-fl": [
+   1.0,
+   20.200000000000003
+  ],
+  "gun-walk-fl": [
+   1.0,
+   20.200000000000003
+  ],
+  "aim-walk-fl": [
+   1.0,
+   20.200000000000003
+  ],
+  "reload-walk-fl": [
+   1.0,
+   20.200000000000003
+  ],
+  "walk-l": [
+   1.0,
+   20.200000000000003
+  ],
+  "gun-walk-l": [
+   1.0,
+   20.200000000000003
+  ],
+  "aim-walk-l": [
+   1.0,
+   20.200000000000003
+  ],
+  "reload-walk-l": [
+   1.0,
+   20.200000000000003
+  ],
+  "walk-bl": [
+   1.0,
+   20.200000000000003
+  ],
+  "gun-walk-bl": [
+   1.0,
+   20.200000000000003
+  ],
+  "aim-walk-bl": [
+   1.0,
+   20.200000000000003
+  ],
+  "reload-walk-bl": [
+   1.0,
+   20.200000000000003
+  ],
+  "shoot-walk": [
+   1.0,
+   8.2
+  ],
+  "strike-walk": [
+   1.0,
+   9.399999999999999
+  ],
+  "shoot-walk-fl": [
+   1.0,
+   8.2
+  ],
+  "strike-walk-fl": [
+   1.0,
+   9.399999999999999
+  ],
+  "shoot-walk-l": [
+   1.0,
+   8.2
+  ],
+  "strike-walk-l": [
+   1.0,
+   9.399999999999999
+  ],
+  "shoot-walk-bl": [
+   1.0,
+   8.2
+  ],
+  "strike-walk-bl": [
+   1.0,
+   9.399999999999999
+  ],
+  "shoot-walk-b": [
+   1.0,
+   8.2
+  ],
+  "strike-walk-b": [
+   1.0,
+   9.399999999999999
+  ],
+  "shoot-walk-br": [
+   1.0,
+   8.2
+  ],
+  "strike-walk-br": [
+   1.0,
+   9.399999999999999
+  ],
+  "shoot-walk-r": [
+   1.0,
+   8.2
+  ],
+  "strike-walk-r": [
+   1.0,
+   9.399999999999999
+  ],
+  "shoot-walk-fr": [
+   1.0,
+   8.2
+  ],
+  "strike-walk-fr": [
+   1.0,
+   9.399999999999999
+  ]
+ },
+ "armes": {
+  "gun": {
+   "objets": {
+    "main": "gun_hand"
+   },
+   "animations": [
+    "gun-idle",
+    "aim",
+    "shoot",
+    "shoulder",
+    "reload",
+    "gun-walk",
+    "aim-walk",
+    "reload-walk",
+    "gun-walk-fl",
+    "aim-walk-fl",
+    "reload-walk-fl",
+    "gun-walk-l",
+    "aim-walk-l",
+    "reload-walk-l",
+    "gun-walk-bl",
+    "aim-walk-bl",
+    "reload-walk-bl",
+    "shoot-walk",
+    "shoot-walk-fl",
+    "shoot-walk-l",
+    "shoot-walk-bl",
+    "shoot-walk-b",
+    "shoot-walk-br",
+    "shoot-walk-r",
+    "shoot-walk-fr"
+   ],
+   "reperes": {
+    "main": {
+     "muzzle": "gun_muzzle"
+    }
+   }
+  }
+ },
+ "prises": {
+  "idle": "une-main",
+  "gun-idle": "une-main",
+  "aim": "une-main",
+  "shoot": "une-main",
+  "shoulder": "une-main",
+  "reload": "une-main",
+  "strike": "une-main",
+  "roll": "une-main",
+  "walk": "une-main",
+  "gun-walk": "une-main",
+  "aim-walk": "une-main",
+  "reload-walk": "une-main",
+  "walk-fl": "une-main",
+  "gun-walk-fl": "une-main",
+  "aim-walk-fl": "une-main",
+  "reload-walk-fl": "une-main",
+  "walk-l": "une-main",
+  "gun-walk-l": "une-main",
+  "aim-walk-l": "une-main",
+  "reload-walk-l": "une-main",
+  "walk-bl": "une-main",
+  "gun-walk-bl": "une-main",
+  "aim-walk-bl": "une-main",
+  "reload-walk-bl": "une-main",
+  "shoot-walk": "une-main",
+  "strike-walk": "une-main",
+  "shoot-walk-fl": "une-main",
+  "strike-walk-fl": "une-main",
+  "shoot-walk-l": "une-main",
+  "strike-walk-l": "une-main",
+  "shoot-walk-bl": "une-main",
+  "strike-walk-bl": "une-main",
+  "shoot-walk-b": "une-main",
+  "strike-walk-b": "une-main",
+  "shoot-walk-br": "une-main",
+  "strike-walk-br": "une-main",
+  "shoot-walk-r": "une-main",
+  "strike-walk-r": "une-main",
+  "shoot-walk-fr": "une-main",
+  "strike-walk-fr": "une-main"
+ },
+ "moments": {
+  "walk": {
+   "vitesse": 2.175,
+   "direction": 0
+  },
+  "gun-walk": {
+   "vitesse": 2.175,
+   "direction": 0
+  },
+  "aim-walk": {
+   "vitesse": 2.175,
+   "direction": 0
+  },
+  "reload-walk": {
+   "vitesse": 2.175,
+   "direction": 0
+  },
+  "walk-fl": {
+   "vitesse": 2.175,
+   "direction": 45
+  },
+  "gun-walk-fl": {
+   "vitesse": 2.175,
+   "direction": 45
+  },
+  "aim-walk-fl": {
+   "vitesse": 2.175,
+   "direction": 45
+  },
+  "reload-walk-fl": {
+   "vitesse": 2.175,
+   "direction": 45
+  },
+  "walk-l": {
+   "vitesse": 2.175,
+   "direction": 90
+  },
+  "gun-walk-l": {
+   "vitesse": 2.175,
+   "direction": 90
+  },
+  "aim-walk-l": {
+   "vitesse": 2.175,
+   "direction": 90
+  },
+  "reload-walk-l": {
+   "vitesse": 2.175,
+   "direction": 90
+  },
+  "walk-bl": {
+   "vitesse": 2.175,
+   "direction": 135
+  },
+  "gun-walk-bl": {
+   "vitesse": 2.175,
+   "direction": 135
+  },
+  "aim-walk-bl": {
+   "vitesse": 2.175,
+   "direction": 135
+  },
+  "reload-walk-bl": {
+   "vitesse": 2.175,
+   "direction": 135
+  },
+  "shoot-walk": {
+   "vitesse": 2.175,
+   "direction": 0
+  },
+  "strike-walk": {
+   "vitesse": 2.175,
+   "direction": 0
+  },
+  "shoot-walk-fl": {
+   "vitesse": 2.175,
+   "direction": 45
+  },
+  "strike-walk-fl": {
+   "vitesse": 2.175,
+   "direction": 45
+  },
+  "shoot-walk-l": {
+   "vitesse": 2.175,
+   "direction": 90
+  },
+  "strike-walk-l": {
+   "vitesse": 2.175,
+   "direction": 90
+  },
+  "shoot-walk-bl": {
+   "vitesse": 2.175,
+   "direction": 135
+  },
+  "strike-walk-bl": {
+   "vitesse": 2.175,
+   "direction": 135
+  },
+  "shoot-walk-b": {
+   "vitesse": 2.175,
+   "direction": 180
+  },
+  "strike-walk-b": {
+   "vitesse": 2.175,
+   "direction": 180
+  },
+  "shoot-walk-br": {
+   "vitesse": 2.175,
+   "direction": -135
+  },
+  "strike-walk-br": {
+   "vitesse": 2.175,
+   "direction": -135
+  },
+  "shoot-walk-r": {
+   "vitesse": 2.175,
+   "direction": -90
+  },
+  "strike-walk-r": {
+   "vitesse": 2.175,
+   "direction": -90
+  },
+  "shoot-walk-fr": {
+   "vitesse": 2.175,
+   "direction": -45
+  },
+  "strike-walk-fr": {
+   "vitesse": 2.175,
+   "direction": -45
+  }
+ }
+}

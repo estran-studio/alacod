@@ -8571,3 +8571,55 @@ types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la 
   `move_enemies`, avant `enemy_attack_system`, sans commande). Scénarios `tireur_poste_cycle` (départ décalé, recul, retour),
   `tireur_poste_suit` et son témoin `tireur_poste_fige_temoin` (visée qui suit : touché ; visée figée : manqué),
   `tireur_poste_touche` (salve perdue, stupeur, salve suivante).
+
+## 111. Rendu 3D « façon sprite » de ce qui bouge (R-1, `docs/taches/rapports/r-1-rendu-facon-sprite.md`)
+
+Présentation pure : **aucune trace ne bouge**, rien de nouveau dans les crates `SIM` (`make check_sim_boundary`) ; tout est dans `game::model3d`, branché par
+`PresentationPlugin` (absent en headless), en `Update`/`PostUpdate`. Décision de William du 6 nov : ce qui bouge (personnages, créatures) est rendu en 3D en direct,
+comme aux bancs du Labo (`1867_lore/design/rendu-facon-sprite.md`) ; le décor, les props et les effets restent en sprites.
+
+- **Kind `Model`** (`crates/content/src/models.rs`, un fichier par jeu, `models/models.ron`, fichier de présentation comme `Ui`/`Camera`) : `units_per_meter`,
+  `elevation_deg`, `y_sort`, `look` (`shade`, `highlight`, `light`, `outline`, `outline_px_per_m`, `shadow: Some((direction, opacity))`) et `models` par
+  **`asset_name_ref`** de personnage : `glb`, `manifest`, `frame_m` (cadre de l'image, m), `pivot` (le pied dans le cadre), `height_m` (barre de vie), `run_above_m_s`,
+  `poses`, `weapons` (poses par id d'arme de la simulation, champ par champ sur `poses`), `dash` (clips joués à tour de rôle). Aucune valeur par défaut dans l'engine :
+  la charte d'un jeu est dans son RON (1837 : 0,66 / 1,12 / 0,75 / 91 px/m, U = 24, 45°). Le manifeste `anime.json` (étape `banc` de la pipeline : `fps`, `actions`,
+  `armes` avec `objets`/`animations`/`reperes`, `prises`, `moments` avec `vitesse`/`direction`) est lu par le registre (embarqué en web comme le RON) ; le lint vérifie
+  fichiers, plages, clips (seuls ou bases de variantes de direction), objets, repères et ids d'arme. Un personnage à modèle n'a ni calque de sprite, ni fantôme de mort
+  (D198), ni sprite d'arme portée (`ui::weapon_visuals`).
+- **Un banc par personnage** (`model3d/mod.rs`) : l'instance du glTF est posée à l'origine d'un monde 3D vu par sa seule caméra (calque de rendu propre, `ModelLayers`),
+  orthographique, à `elevation_deg` sous l'horizontale, sans lacet, cadrée sur `frame_m` ; elle dessine dans une image `Rgba8UnormSrgb` au fond transparent,
+  sur-échantillonnée ×2 (`SUPERSAMPLE`), qui suit le zoom au quart d'octave. Le **calage** sur le monde 2D : 1 m de profondeur au sol = `sin(élévation)` m de largeur
+  à l'écran (45° ≈ 64/91) ; la vitesse et les directions de la simulation sont ramenées au sol par cette règle (`animate::ground`, `yaw_from_screen`).
+- **Matériaux** (`model3d/materials.rs`, shaders embarqués) : `FaconSpriteMaterial` porte `facon-sprite.js` (couleur de la texture lue en sRGB × rampe `shade` → `highlight`
+  selon `0,5 + 0,5 × N·L`, lumière fixe dans le repère de la vue, normale tournée vers la caméra, normales **lissées par position** au chargement, `smooth_normals`, sans
+  culling) ; `ModelShadowMaterial` projette le maillage (squelette compris) au sol le long de `shadow.direction`, en noir d'alpha 0,5 ; `ModelPoseMaterial` (`Material2d`,
+  un quad enfant du personnage, donc trié avec le décor) moyenne les texels, pose l'ombre à `opacity` et l'**anneau du contour** : pixels vides à moins d'un pixel de sprite
+  (`1 / outline_px_per_m` m, borné d'un à trois pixels de l'écran) de la silhouette, teinte moyenne des voisins × `outline` sur les valeurs sRGB.
+- **Animation** (`model3d/pose.rs`, pur et testé ; `model3d/animate.rs`) : l'état de la simulation déjà là choisit le clip, dans l'ordre esquive (`DashState`), coup de
+  mêlée (`MeleeAttackState`), tir récent (`WeaponState::last_fire_frame`), en joue (`is_firing`, avec `shoulder` au début), rechargement (`reloading_ending_frame`),
+  allure (vitesse : `idle`, `walk`, `run`). En marchant, un geste prend la variante de la direction de la marche par rapport au corps (`moments.<clip>.direction`), une
+  allure la plus proche ou l'opposée jouée à l'envers, à la vitesse où les pieds ne glissent pas (`moments.<clip>.vitesse`, bornée à [0,3 ; 3]). Fondus du banc : 0,1 s vers
+  une allure, 0,05 s vers un geste. Les gestes sont lus **à la position que donne l'état** (avancement du coup, du rechargement, temps depuis le tir) : un rollback qui
+  corrige l'état corrige la pose à l'image suivante. Le corps suit la visée (rotation de l'arme active), l'esquive, la marche ou `FacingDirection` : visée libre, sans crans.
+  Le banc n'a pas de masque haut/bas du corps : « marcher en tirant » est un clip cuit par direction (`tir-marche-*`), le mélange est le fondu entre clips.
+  Les variantes sont `base` ou `base-<direction>` avec un moment `direction` : suffixes français (`avant`, `arriere`, `gauche`, `droite` et diagonales),
+  anglais (`front`, `back`, `left`, `right` et diagonales), ou abrégés (`f`, `fl`, `fr`, `b`, `bl`, `br`, `l`, `r`). Une autre famille de gestes
+  (`fire-walk` sous `fire`) n'est pas une variante ; une base sans clip reste admise si ses variantes existent.
+- **Armes** : l'objet de l'arme du manifeste (`poses.object`, ou `object` d'un geste : la hache du coup) est montré du côté que donne la prise du clip (`prises` :
+  `deux-mains` → os de l'arme, sinon la main), les autres cachés ; un **objet porté** (aucun côté `main` ni `arme` : la clé à la ceinture) se montre dans les clips qui le
+  nomment. **La balle part de la bouche du canon** (`poses.muzzle`, repère du manifeste) : décision **présentation** — la position du repère vient du modèle animé
+  (`f32` du rendu, différente selon le zoom et l'image), elle ne peut pas entrer dans la simulation. `placement::offset_model_bullets` décale le **dessin** de la balle :
+  l'écart latéral entre la bouche dessinée et le point de tir simulé se résorbe en 8 frames (`MUZZLE_BLEND_FRAMES`), la hauteur de la bouche reste (la balle vole à hauteur
+  du canon, sa position simulée est son ombre au sol). Les collisions restent celles de la simulation.
+- **Tri en y** (`y_sort: true`, opt-in, `placement::y_sort`) : personnages (corps 3D et décor importé en personnage, D186) et balles retirent `y × 1e-4` de leur `z`
+  affiché (le pied le plus bas à l'écran devant ; sur 5 000 unités l'écart reste sous 0,5, sous l'écart entre deux couches de la carte), **après**
+  `map_ldtk::plugins::lift_characters_to_entity_layer` (un personnage posé à `z = 0` par un scénario ou un profil remonte d'abord à la couche des entités ; sans cet
+  ordre, le fantassin posé par un scénario passait sous les tuiles). L'image d'un modèle est à `offset_z` (comme les feuilles de sprites : 1,0 pour
+  `alacod import-sprite` ; à 0, le décor importé la couvrait) et sa barre de vie juste devant. Le testbed le garde coupé (décision du 7 nov : ses vidéos gardent l'ordre
+  de dessin historique) ; 1837 l'allume. Test : `placement::tests::le_pied_le_plus_bas_passe_devant` ; preuve : `docs/preuves/r-1/tri_y.ron` de 1837.
+- **Testbed** : le pantin (`games/testbed/assets/models/pantin/`, synthétique, `scripts/gen-pantin.py`, corps de boîtes, 40 clips), personnage `pantin`, scénario
+  `model_pantin` (trace neuve : celle d'un joueur ordinaire). Voir : `make play_scenario SCENARIO=model_pantin` (ou `--capture <dossier>`).
+- **Jeu externe** : la capture hors écran de l'engine joue aussi un scénario d'un jeu hors de `games/` : `ALACOD_GAME_NAME=<nom> ALACOD_GAME_DIR=<dossier>
+  ALACOD_LABELS=0 target/debug/play_scenario <scénario.ron> --capture <dossier> --every 5` (1837 : `docs/preuves/r-1/` de son dépôt).
+- **Web** : le `glb` est chargé par HTTP comme les images (`assets/` du build), le manifeste est embarqué ; les shaders sont des `embedded_asset!` (WebGL2).
+- Dettes **D198** (mort, coup reçu et victoire non joués en 3D) et **D199** (épauler sans phase dans la simulation) : `docs/taches/dettes.md`.

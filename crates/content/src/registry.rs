@@ -1791,6 +1791,9 @@ pub struct Registry {
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
     pub sprite_sheets: BTreeMap<SpriteSheetId, SpriteSheetEntry>,
+    /// R-1 (§111) : modèles 3D animés (kind `Model`, un fichier par jeu), lus par
+    /// `game::model3d` à la place des feuilles des personnages qu'ils nomment.
+    pub models: Option<crate::models::ModelsTable>,
 }
 
 /// Les "kinds" de dossier de contenu que cette version de `content` sait charger. Exposé
@@ -1829,6 +1832,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "HubService",
     "Prop",
     "Sandbox",
+    "Model",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -1949,6 +1953,7 @@ impl Registry {
                 "Clock" => load_clocks(&assets_dir, decl, &mut registry, &mut errors),
                 "Difficulty" => load_difficulty(&assets_dir, decl, &mut registry, &mut errors),
                 "Sandbox" => load_sandbox_profiles(&assets_dir, decl, &mut registry, &mut errors),
+                "Model" => load_models(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -4450,6 +4455,72 @@ fn load_sprite_sheets(
     }
 }
 
+/// R-1 (§111) : le fichier `Model` (un seul par jeu) et le manifeste `anime.json` de chaque
+/// modèle, lu ici pour que le lint et la présentation (`game::model3d`) partagent la même lecture
+/// (le manifeste est un texte embarqué dans les builds web, comme le RON).
+fn load_models(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let def: crate::models::ModelsFile = match ron::from_str(&text) {
+            Ok(def) => def,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        if let Some(existing) = &registry.models {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "un seul fichier Model par jeu (déjà : {})",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        let manifests = def
+            .models
+            .iter()
+            .filter(|(_, model)| assets_dir.contains(&model.manifest))
+            .map(|(id, model)| {
+                let parsed = assets_dir
+                    .read(Path::new(&model.manifest))
+                    .map_err(|e| e.to_string())
+                    .and_then(|text| serde_json::from_str(&text).map_err(|e| e.to_string()));
+                (id.clone(), parsed)
+            })
+            .collect();
+        registry.models = Some(crate::models::ModelsTable {
+            file: rel,
+            def,
+            manifests,
+        });
+    }
+}
+
 /// Un fichier `*.local.ron` : surcharge locale d'une table, jamais une table à part.
 fn is_local_overlay(rel: &Path) -> bool {
     rel.file_name()
@@ -5079,6 +5150,7 @@ pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
         "Pattern" => schemars::schema_for!(PatternEntry),
         "Wave" => schemars::schema_for!(WaveConfigFileSchema),
         "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
+        "Model" => schemars::schema_for!(crate::models::ModelsFile),
         "Unlock" => schemars::schema_for!(items::UnlockDef),
         "Curse" => schemars::schema_for!(run::CurseDef),
         "Achievement" => schemars::schema_for!(meta::AchievementDef),
