@@ -1731,6 +1731,15 @@ fn dash_duration_zero_fixture_reports_out_of_range() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "durée 0 hors InPlace");
 }
 
+/// P-1 : la forme réelle de `dash` (profil et bonus d'un appui au tempo sans `Some`) passe le
+/// lint ; seule l'horloge inconnue est refusée.
+#[test]
+fn dash_on_beat_unknown_clock_fixture_reports_clock_only() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("dash_on_beat_unknown_clock")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "horloge inconnue « absente »");
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn dash_iframes_over_duration_fixture_reports_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("dash_iframes_over_duration")).unwrap();

@@ -429,7 +429,7 @@ fn lint_dash(
             ("distance_bonus", on_beat.distance_bonus),
             ("iframes_bonus", on_beat.iframes_bonus),
         ] {
-            if value.is_some_and(|v| v.get() < zero) {
+            if value.get() < zero {
                 refuse(format!("dash.on_beat : {name} doit être >= 0"));
             }
         }

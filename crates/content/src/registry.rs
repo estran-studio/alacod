@@ -2454,7 +2454,7 @@ struct DashSchema {
     /// P-1 (§110) : profil de vitesse (`Linear`, `EaseOut`). Validé ici, lu par le jeu.
     #[serde(default)]
     #[allow(dead_code)]
-    profile: Option<DashProfileSchema>,
+    profile: DashProfileSchema,
     /// P-1 : sans direction tenue, dash sur place. Validé ici, lu par le jeu.
     #[serde(default)]
     #[allow(dead_code)]
@@ -2473,8 +2473,9 @@ struct DashSchema {
 }
 
 /// P-1 : miroir de `sim_core::dash::DashProfile`.
-#[derive(schemars::JsonSchema, Deserialize, PartialEq)]
+#[derive(schemars::JsonSchema, Deserialize, PartialEq, Default)]
 enum DashProfileSchema {
+    #[default]
     Linear,
     EaseOut,
 }
@@ -2490,15 +2491,20 @@ pub struct DashOnBeatSchema {
     #[serde(default)]
     #[schemars(extend("x-lint" = "> 0"))]
     pub coop_window_mult: Option<FixedField>,
-    #[serde(default)]
+    #[serde(default = "zero_field")]
     #[schemars(extend("x-lint" = ">= 0"))]
-    pub distance_bonus: Option<FixedField>,
-    #[serde(default)]
+    pub distance_bonus: FixedField,
+    #[serde(default = "zero_field")]
     #[schemars(extend("x-lint" = ">= 0"))]
-    pub iframes_bonus: Option<FixedField>,
+    pub iframes_bonus: FixedField,
     #[serde(default)]
     #[schemars(extend("x-lint" = "dans ]0, 1]"))]
     pub iframes_cap: Option<FixedField>,
+}
+
+/// Défaut `0` des bonus de `DashOnBeatSchema` (non optionnels comme dans `sim_core::dash::DashOnBeat`).
+fn zero_field() -> FixedField {
+    FixedField(bevy_fixed::fixed_math::FIXED_ZERO)
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]

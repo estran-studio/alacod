@@ -1,0 +1,33 @@
+// P-1 : dash jugé contre une horloge qui n'existe pas. Le reste est écrit dans la forme réelle de
+// `sim_core::dash::DashConfig` (profil et bonus sans `Some`) : seule l'horloge doit être refusée.
+(
+    movement: (
+        max_speed: "60.0",
+    ),
+    dash: Some((
+        duration_frames: Some(28),
+        iframes: Some(14),
+        profile: EaseOut,
+        in_place_without_direction: true,
+        cut_from: Some(18),
+        chain_window_frames: Some(21),
+        on_beat: Some((
+            clock: "absente",
+            perfect_ms: 60,
+            good_ms: 120,
+            coop_window_mult: Some("1.5"),
+            distance_bonus: "0.3",
+            iframes_bonus: "0.25",
+            iframes_cap: Some("0.95"),
+        )),
+    )),
+    asset_name_ref: "grunt",
+    scale: "1.0",
+    base_health: (
+        max: "60.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+)
