@@ -369,7 +369,11 @@ pub(crate) fn lint_effect(
 
 /// M2-T2 (§43) : règles du dash. Un personnage sans `dash_charges` ni `dash` garde les réglages
 /// v1 : les mêmes bornes ne le concernent que s'il déclare des charges ou un dash.
-fn lint_dash(registry: &Registry, character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+fn lint_dash(
+    registry: &Registry,
+    character: &registry::CharacterEntry,
+    errors: &mut Vec<LintError>,
+) {
     let dash = &character.dash;
     if !dash.declared {
         return;

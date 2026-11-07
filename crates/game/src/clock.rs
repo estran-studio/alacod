@@ -210,7 +210,7 @@ pub struct TempoReader<'w> {
     clock: Option<Res<'w, Clock>>,
     floor: Option<Res<'w, FloorState>>,
     schedule: Option<Res<'w, ClockSchedule>>,
-    players: Option<Res<'w, PlayersCount>>,
+    players: Option<Res<'w, SessionPlayers>>,
 }
 
 impl TempoReader<'_> {

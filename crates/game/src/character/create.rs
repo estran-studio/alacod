@@ -225,7 +225,11 @@ pub fn create_character(
     }
     // P-1 (§110) : cadence du dash (enchaînement, jugement au tempo), composant neutre posé
     // seulement si le dash la demande.
-    if config.dash.as_ref().is_some_and(|dash| dash.needs_cadence()) {
+    if config
+        .dash
+        .as_ref()
+        .is_some_and(|dash| dash.needs_cadence())
+    {
         commands
             .entity(entity)
             .insert(combat::actors::DashCadence::default());

@@ -149,7 +149,8 @@ impl DashState {
     /// Frames du dash en cours déjà jouées (0 hors dash).
     pub fn played(&self) -> u32 {
         if self.is_dashing {
-            self.dash_duration.saturating_sub(self.dash_frames_remaining)
+            self.dash_duration
+                .saturating_sub(self.dash_frames_remaining)
         } else {
             0
         }
@@ -242,16 +243,28 @@ impl DashCadence {
     /// Lancement d'un dash à `now` de `duration` frames : l'enchaînement continue si un dash est
     /// en cours (coupé) ou s'est terminé depuis au plus `window` frames, sinon il repart à 1.
     /// `on_time` : l'appui était sur le temps (« parfait » ou « bien »).
-    pub fn launch(&mut self, now: u32, duration: u32, dashing: bool, window: Option<u32>, on_time: bool) {
+    pub fn launch(
+        &mut self,
+        now: u32,
+        duration: u32,
+        dashing: bool,
+        window: Option<u32>,
+        on_time: bool,
+    ) {
         let chained = self.chain > 0
-            && (dashing || window.is_some_and(|window| now.saturating_sub(self.end_frame) <= window));
+            && (dashing
+                || window.is_some_and(|window| now.saturating_sub(self.end_frame) <= window));
         if chained {
             self.chain = self.chain.saturating_add(1);
         } else {
             self.chain = 1;
             self.streak = 0;
         }
-        self.streak = if on_time { self.streak.saturating_add(1) } else { 0 };
+        self.streak = if on_time {
+            self.streak.saturating_add(1)
+        } else {
+            0
+        };
         self.end_frame = now.saturating_add(duration.max(1));
     }
 }
@@ -471,12 +484,17 @@ mod dash_tests {
     /// pas décroissants jusqu'à presque zéro, somme exacte.
     #[test]
     fn profil_elan_puis_freinage() {
-        let steps: Vec<Fixed> = (0..24).map(|k| dash_step_ease_out(px(72.0), 24, k)).collect();
+        let steps: Vec<Fixed> = (0..24)
+            .map(|k| dash_step_ease_out(px(72.0), 24, k))
+            .collect();
         let total: Fixed = steps.iter().copied().sum();
         assert!((total - px(72.0)).abs() < px(0.01), "total {total}");
         let half: Fixed = steps[..12].iter().copied().sum();
         assert!((half - px(54.0)).abs() < px(0.01), "moitié {half}");
-        assert!(steps.windows(2).all(|w| w[1] < w[0]), "décroissant : {steps:?}");
+        assert!(
+            steps.windows(2).all(|w| w[1] < w[0]),
+            "décroissant : {steps:?}"
+        );
         assert_eq!(dash_step_ease_out(px(0.0), 24, 3), px(0.0));
         assert_eq!(dash_step_ease_out(px(10.0), 1, 0), px(10.0));
     }
@@ -487,7 +505,10 @@ mod dash_tests {
     fn enchainement_et_serie_sur_le_temps() {
         let mut cadence = DashCadence::default();
         cadence.launch(100, 28, false, Some(21), true);
-        assert_eq!((cadence.chain, cadence.streak, cadence.end_frame), (1, 1, 128));
+        assert_eq!(
+            (cadence.chain, cadence.streak, cadence.end_frame),
+            (1, 1, 128)
+        );
         // Coupé pendant le pas : enchaîné.
         cadence.launch(118, 28, true, Some(21), true);
         assert_eq!((cadence.chain, cadence.streak), (2, 2));

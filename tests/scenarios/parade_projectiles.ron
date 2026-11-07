@@ -7,11 +7,12 @@
 //
 // Les inputs d'un scénario agissent 5 frames plus tard (délai d'input de GGRS).
 //
-// À regarder : appui f58, coup f63 : la boule de feu qui arrive à f64 (1 frame après le début du
-// coup : « parfait ») repart vers la droite, équipe du joueur, et touche la tourelle à f114
-// pour 16 (8 × 2). Appui f134, coup f139 : la boule n'arrive qu'en fin de coup (plus de 6 frames
-// après son début : « bien »), elle est renvoyée sans bonus et touche pour 8 (f160). Le joueur 0
-// survit.
+// À regarder : appui f58, coup f63 : la boule de feu au contact dès f63 (la frame du coup : la
+// hitbox renvoie dès sa création, correctif P2 de X-3 ; « parfait ») repart vers la droite, équipe
+// du joueur, et touche la tourelle à f112 pour 16 (8 × 2). Appui f134, coup f139 : cinq boules de
+// la couronne de f121 sont renvoyées à f139 (« parfait »), vers la droite, loin de la tourelle ; la
+// boule renvoyée à f147 (plus de 6 frames après le début du coup : « bien ») touche pour 8 (f160).
+// Le joueur 0 survit.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -26,11 +27,11 @@ Scenario(
     expect: [
         // Avant le coup : aucune boule de feu du côté du joueur
         BulletCount(count: 0, projectile: Some("fireball"), team: Some(Players), at_frame: 56),
-        // f64 : une boule renvoyée (équipe Players, plus d'ennemi derrière elle)
+        // f63 : une boule renvoyée (équipe Players, plus d'ennemi derrière elle)
         BulletCount(count: 1, projectile: Some("fireball"), team: Some(Players), at_frame: 65),
-        // Note « parfait » : 8 × 2 = 16 de dégâts sur la tourelle (500 → 484 à f114)
-        EntityHealth(net_id: 24, min: 500.0, max: 500.0, at_frame: 113),
-        EntityHealth(net_id: 24, min: 484.0, max: 484.0, at_frame: 114),
+        // Note « parfait » : 8 × 2 = 16 de dégâts sur la tourelle (500 → 484 à f112)
+        EntityHealth(net_id: 24, min: 500.0, max: 500.0, at_frame: 111),
+        EntityHealth(net_id: 24, min: 484.0, max: 484.0, at_frame: 112),
         // Note « bien » (coup de f134) : 8 de dégâts, sans bonus (484 → 476 à f160)
         EntityHealth(net_id: 24, min: 484.0, max: 484.0, at_frame: 159),
         EntityHealth(net_id: 24, min: 476.0, max: 476.0, at_frame: 160),

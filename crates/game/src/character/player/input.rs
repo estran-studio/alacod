@@ -505,11 +505,7 @@ pub fn apply_inputs(
         let cut = dash
             .cut_from
             .is_some_and(|from| dash_state.is_dashing && dash_state.played() >= from);
-        if requested
-            && !is_downed
-            && !incapacitated
-            && (dash_state.can_dash() || cut)
-            && has_charge
+        if requested && !is_downed && !incapacitated && (dash_state.can_dash() || cut) && has_charge
         {
             let was_dashing = dash_state.is_dashing;
             // P-1 : sur place sans direction tenue (i-frames et durée, aucune distance).
@@ -523,9 +519,11 @@ pub fn apply_inputs(
                 fixed_math::FIXED_ZERO
             } else {
                 match on_beat {
-                    Some(on_beat) if bonus > fixed_math::FIXED_ZERO => dash.distance.saturating_mul(
-                        fixed_math::FIXED_ONE + on_beat.distance_bonus.saturating_mul(bonus),
-                    ),
+                    Some(on_beat) if bonus > fixed_math::FIXED_ZERO => {
+                        dash.distance.saturating_mul(
+                            fixed_math::FIXED_ONE + on_beat.distance_bonus.saturating_mul(bonus),
+                        )
+                    }
                     _ => dash.distance,
                 }
             };
@@ -961,5 +959,34 @@ mod scripted_tracks_tests {
         assert_eq!(at(scripted_tracks(&run, Some(&hub), false)), INPUT_UP);
         // Scénario sans piste de hub : la run joue aussi au hub (comportement d'avant).
         assert_eq!(at(scripted_tracks(&run, None, true)), INPUT_UP);
+    }
+}
+
+#[cfg(test)]
+mod on_beat_tests {
+    use super::*;
+
+    /// P-1 : i-frames d'un pas jugé, nombres du banc gigue (pas de 28 frames, 14 i-frames,
+    /// +25 % × k, plafond 95 %) : parfait 21, bien 18, hors du temps 14.
+    #[test]
+    fn iframes_du_pas_au_tempo_comme_au_banc() {
+        let on_beat = crate::character::movement::DashOnBeat {
+            clock: "tempo".into(),
+            perfect_ms: 60,
+            good_ms: 120,
+            coop_window_mult: None,
+            distance_bonus: fixed_math::new(0.3),
+            iframes_bonus: fixed_math::new(0.25),
+            iframes_cap: Some(fixed_math::new(0.95)),
+        };
+        let perfect = beat_bonus(Some(sim_core::timing::TimingGrade::Perfect));
+        let good = beat_bonus(Some(sim_core::timing::TimingGrade::Good));
+        let miss = beat_bonus(Some(sim_core::timing::TimingGrade::Miss));
+        assert_eq!(beat_iframes(14, 28, &on_beat, perfect), 21);
+        assert_eq!(beat_iframes(14, 28, &on_beat, good), 18);
+        assert_eq!(beat_iframes(14, 28, &on_beat, miss), 14);
+        // Plafond : jamais plus de 95 % du pas (27 frames sur 28), jamais moins que la base.
+        assert_eq!(beat_iframes(26, 28, &on_beat, perfect), 27);
+        assert_eq!(beat_iframes(28, 28, &on_beat, perfect), 28);
     }
 }

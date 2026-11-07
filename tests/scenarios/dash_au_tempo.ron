@@ -6,7 +6,7 @@
 // 5 frames plus tard (délai d'input de GGRS).
 //
 // À regarder : trois dashs. Appui effectif f72, pile sur le temps : parfait, 72 px à droite (424 →
-// 496), dont 54 px en 12 frames (f83 : 478). Appui effectif f113, 5 frames (83 ms) après le temps
+// 496), dont 54 px en 12 frames (premier pas visible à f73 ; f84 : 478). Appui effectif f113, 5 frames (83 ms) après le temps
 // de f108 : bien, 60 px à gauche (496 → 436). Appui effectif f162, 18 frames d'un temps : hors du
 // temps, 48 px à droite (436 → 484).
 Scenario(
@@ -41,8 +41,8 @@ Scenario(
     ],
     expect: [
         PlayerPosition(handle: 0, x: 424, y: 696, tolerance: 0.1, at_frame: 70),
-        // Parfait : 12 frames sur 24 couvrent 1 − (1/2)² = 3/4 de 72 px
-        PlayerPosition(handle: 0, x: 478, y: 696, tolerance: 0.5, at_frame: 83),
+        // Parfait : 12 pas sur 24 couvrent 1 − (1/2)² = 3/4 de 72 px
+        PlayerPosition(handle: 0, x: 478, y: 696, tolerance: 0.1, at_frame: 84),
         PlayerPosition(handle: 0, x: 496, y: 696, tolerance: 0.5, at_frame: 100),
         // Bien : 48 × 1,25 = 60 px
         PlayerPosition(handle: 0, x: 436, y: 696, tolerance: 0.5, at_frame: 145),
