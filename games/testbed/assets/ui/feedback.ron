@@ -18,6 +18,9 @@
     // joueur local touche (secousse de surcharge).
     by_weapon: {
         "grenade": (hit_stop_frames: Some(6), shake: Some((frames: 16, amplitude: 20.0))),
+        // X-3 : hit stop « cible seule » (docs/conventions.md §110) : la cible touchée par l'arme de
+        // parade garde son animation figée 6 frames de rendu ; le joueur, les autres et la caméra restent vifs.
+        "parade": (hit_stop_frames: Some(6), hit_stop_scope: Some(Target)),
     },
     sounds: {
         // Sons de base. Tir : clé de la famille du mode de tir actif (Manual : shot_pistol,

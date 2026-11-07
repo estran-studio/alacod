@@ -1,0 +1,24 @@
+// P-1 (testbed, docs/conventions.md §110) : la visée d'un tireur posté suit sa cible pendant le télégraphe
+// (`ranged_cycle.track_target`). Un `tireur_poste` 80 px sous le joueur pose sa salve vers f22 ; le joueur part à droite
+// pendant le télégraphe (f30 à f55) et s'arrête 62 px plus loin ; la flèche part vers f63. Témoin à visée figée :
+// `tireur_poste_fige_temoin`.
+//
+// À regarder : la flèche part vers la nouvelle position du joueur et le touche (−5) ; avec le témoin, elle part vers
+// l'ancienne et le manque.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 150,
+    characters: [(character: "tireur_poste", x: "424.0", y: "616.0", at_frame: 1)],
+    players: [
+        (inputs: [(from: 25, to: 50, buttons: [Right])]),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 486.5, y: 696, tolerance: 0.1, at_frame: 60),
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 65),
+        // Touché par la flèche (5 de dégâts) vers f104
+        Health(handle: 0, min: Some(100.0), at_frame: 100),
+        Health(handle: 0, max: Some(95.0), at_frame: 110),
+    ],
+)

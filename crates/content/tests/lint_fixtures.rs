@@ -1167,6 +1167,30 @@ fn weapon_spread_out_of_range_fixture_reports_spread() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// X-3 : `reflect.perfect_damage_mult` doit être > 0.
+#[test]
+fn melee_reflect_mult_zero_fixture_reports_mult() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("melee_reflect_mult_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "perfect_damage_mult");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// P-1 : `strike_frames` doit tenir dans le coup (`début <= fin < attack_duration_frames`).
+#[test]
+fn melee_strike_outside_attack_fixture_reports_strike() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("melee_strike_outside_attack")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "strike_frames");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// X-3 : `move_speed_mult` doit être > 0.
+#[test]
+fn weapon_move_speed_mult_zero_fixture_reports_mult() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_move_speed_mult_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "move_speed_mult");
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn weapon_sprite_unknown_fixture_reports_unknown_sheet() {
     let (_, _, errors) = load_and_lint(&fixture_dir("weapon_sprite_unknown")).unwrap();
@@ -1630,6 +1654,22 @@ fn effect_limits_invalid_fixture_reports_out_of_range() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "cooldown = 0");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "charges = 0");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "recharge sans charges");
+}
+
+/// X-3 : fenêtre de jugement — parfaite plus large que la large, horloge inconnue.
+#[test]
+fn effect_timing_invalid_fixture_reports_window_and_clock() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_timing_invalid")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "perfect_frames = 9 > good_frames = 4",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "événement d'horloge « inconnu »",
+    );
 }
 
 #[test]

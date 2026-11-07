@@ -43,7 +43,7 @@ pub struct MovementConfig {
     pub dash_recharge_frames: u32,
 }
 
-pub use sim_core::dash::{DashConfig, DashEffect, IframesKind};
+pub use sim_core::dash::{DashConfig, DashEffect, DashOnBeat, DashProfile, IframesKind};
 
 /// Dash résolu d'un personnage : `MovementConfig` v1 surchargé par son `DashConfig`.
 #[derive(Debug, Clone, Copy)]
@@ -57,6 +57,11 @@ pub struct ResolvedDash {
     pub shove_force: fixed_math::Fixed,
     pub charges: Option<u32>,
     pub recharge_frames: u32,
+    /// P-1 (§110) : profil de vitesse, sur place sans direction, coupe, fenêtre d'enchaînement.
+    pub profile: DashProfile,
+    pub in_place_without_direction: bool,
+    pub cut_from: Option<u32>,
+    pub chain_window_frames: Option<u32>,
 }
 
 impl MovementConfig {
@@ -79,6 +84,10 @@ impl MovementConfig {
             shove_force: dash.shove_force,
             charges: dash.charges.or(self.dash_charges),
             recharge_frames: dash.recharge_frames.unwrap_or(self.dash_recharge_frames),
+            profile: dash.profile,
+            in_place_without_direction: dash.in_place_without_direction,
+            cut_from: dash.cut_from,
+            chain_window_frames: dash.chain_window_frames,
         }
     }
 }

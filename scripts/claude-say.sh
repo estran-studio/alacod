@@ -37,9 +37,10 @@ try:
                             if isinstance(block, dict) and block.get("type") == "text")
 except Exception:
     pass
-# Remplacer les blocs de code avant les autres marqueurs Markdown.
-last = re.sub(r"```[\s\S]*?```", " bloc de code ", last)
-last = re.sub(r"`[^`]*`", " ", last)
+# Remplacer les blocs de code avant les autres marqueurs Markdown. L'accent grave s'écrit \x60 : le
+# bash 3.2 de macOS refuse un accent grave dans un heredoc pris dans une substitution de commande.
+last = re.sub(r"\x60\x60\x60[\s\S]*?\x60\x60\x60", " bloc de code ", last)
+last = re.sub(r"\x60[^\x60]*\x60", " ", last)
 last = re.sub(r"!?\[([^\]]+)\]\([^)]*\)", r"\1", last)
 last = re.sub(r"[#*]", "", last)
 last = re.sub(r"\s+", " ", last).strip()

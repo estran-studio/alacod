@@ -216,6 +216,9 @@ pub struct DashLint {
     pub in_place: bool,
     /// Le personnage déclare `dash` ou `dash_charges` (sinon le dash v1 n'est pas relu).
     pub declared: bool,
+    /// P-1 (§110) : coupe et jugement au tempo, relus par le lint.
+    pub cut_from: Option<u32>,
+    pub on_beat: Option<DashOnBeatSchema>,
 }
 
 impl DashLint {
@@ -233,6 +236,8 @@ impl DashLint {
                 .unwrap_or(movement.dash_recharge_frames),
             declared: dash.is_some() || movement.dash_charges.is_some(),
             in_place: dash.is_some_and(|d| d.effect == Some(DashEffectSchema::InPlace)),
+            cut_from: dash.and_then(|d| d.cut_from),
+            on_beat: dash.and_then(|d| d.on_beat.clone()),
         }
     }
 }
@@ -546,6 +551,8 @@ pub struct ClockEntry {
     pub file: PathBuf,
     pub scope: ClockScopeEntry,
     pub events: Vec<ClockEventEntry>,
+    /// P-1 (§110) : tempo en temps par minute (`run::clock::ClockDef::tempo`).
+    pub tempo: Option<u32>,
 }
 
 /// T1.9 : mirroir de `run::clock::ClockFileSchema`.
@@ -553,6 +560,10 @@ pub struct ClockEntry {
 struct ClockFileSchema {
     scope: ClockScopeEntry,
     events: Vec<ClockEventEntry>,
+    /// P-1 (§110) : tempo en temps par minute, repère des verbes qui jugent un instant (le temps
+    /// `k` tombe à `k × 3600 / tempo` frames ; aucun événement déclenché). Absent : sans tempo.
+    #[serde(default)]
+    tempo: Option<u32>,
 }
 
 /// T1.9 : mirroir de `run::clock::ClockScope`.
@@ -643,6 +654,9 @@ pub struct WeaponEntry {
     /// D63 : `config.test_only: true`, arme de laboratoire ignorée par l'analyse d'atteignabilité ;
     /// sans effet en jeu (`combat::WeaponConfig` ne lit pas ce champ).
     pub test_only: bool,
+    /// Poids de l'arme (X-3) : `move_speed_mult:` du RON, pour la règle « > 0 ».
+    /// `None` : pas de poids.
+    pub move_speed_mult: Option<FixedField>,
 }
 
 /// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
@@ -831,6 +845,26 @@ pub struct MeleeWeaponEntry {
     pub damage: FixedField,
     /// Voir `WeaponEntry::test`.
     pub test: Option<WeaponTestRange>,
+    /// Parade et renvoi (X-3) : `reflect:` du RON, pour les règles « `perfect_damage_mult`
+    /// > 0 ». `None` : pas de parade.
+    pub reflect: Option<MeleeReflectEntry>,
+    /// P-1 : durée du coup et fenêtre de frappe, pour la règle « `strike_frames` dans le coup ».
+    pub attack_duration_frames: u32,
+    pub strike_frames: Option<(u32, u32)>,
+    /// P-1 : vitesse de marche pendant le coup, pour la règle « > 0 ».
+    pub move_speed_mult: Option<Fixed>,
+}
+
+/// Mirroir de `combat::weapons::melee::MeleeReflect` (`content` ne dépend pas de
+/// `combat`) : juste assez pour le lint. P-1 : les multiplicateurs de vitesse et le secteur
+/// (`(rayon, arc)`), pour les règles « > 0 ».
+#[derive(Debug, Clone, Copy)]
+pub struct MeleeReflectEntry {
+    pub perfect_frames: u32,
+    pub perfect_damage_mult: Fixed,
+    pub speed_mult: Option<Fixed>,
+    pub perfect_speed_mult: Option<Fixed>,
+    pub sector: Option<(Fixed, Fixed)>,
 }
 
 /// Mirroir minimal de `game::weapons::WeaponTest` (`content` ne dépend pas de `game`, voir
@@ -2417,6 +2451,54 @@ struct DashSchema {
     charges: Option<u32>,
     #[serde(default)]
     recharge_frames: Option<u32>,
+    /// P-1 (§110) : profil de vitesse (`Linear`, `EaseOut`). Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    profile: Option<DashProfileSchema>,
+    /// P-1 : sans direction tenue, dash sur place. Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    in_place_without_direction: bool,
+    /// P-1 : frames jouées après lesquelles un appui coupe le dash en cours.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 et < durée"))]
+    cut_from: Option<u32>,
+    /// P-1 : fenêtre d'enchaînement après la fin d'un dash (frames). Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    chain_window_frames: Option<u32>,
+    /// P-1 : jugement de l'appui contre le tempo d'une horloge.
+    #[serde(default)]
+    on_beat: Option<DashOnBeatSchema>,
+}
+
+/// P-1 : miroir de `sim_core::dash::DashProfile`.
+#[derive(schemars::JsonSchema, Deserialize, PartialEq)]
+enum DashProfileSchema {
+    Linear,
+    EaseOut,
+}
+
+/// P-1 : miroir de `sim_core::dash::DashOnBeat`.
+#[derive(schemars::JsonSchema, Deserialize, Clone, Debug)]
+pub struct DashOnBeatSchema {
+    /// Horloge (kind `Clock`) qui porte un `tempo`.
+    pub clock: String,
+    #[schemars(extend("x-lint" = "<= good_ms"))]
+    pub perfect_ms: u32,
+    pub good_ms: u32,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    pub coop_window_mult: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    pub distance_bonus: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    pub iframes_bonus: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "dans ]0, 1]"))]
+    pub iframes_cap: Option<FixedField>,
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -2529,6 +2611,10 @@ struct WeaponConfigSchema {
     /// D63 : voir `WeaponEntry::test_only`.
     #[serde(default)]
     test_only: bool,
+    /// X-3 : poids de l'arme (`combat::weapons::WeaponConfig::move_speed_mult`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    move_speed_mult: Option<FixedField>,
 }
 
 fn zero_spread() -> FixedField {
@@ -2600,6 +2686,72 @@ struct MeleeWeaponConfigSchema {
     #[serde(default, deserialize_with = "de_friendly_fire")]
     #[allow(dead_code)]
     friendly_fire: FriendlyFire,
+    /// X-3 : parade et renvoi (`combat::weapons::melee::MeleeReflect`).
+    #[serde(default)]
+    reflect: Option<MeleeReflectSchema>,
+    /// P-1 : durée du coup, pour la règle « fenêtre de frappe dans le coup ».
+    #[serde(default)]
+    attack_duration_frames: u32,
+    /// P-1 : fenêtre de frappe (`MeleeWeaponConfig::strike_frames`).
+    #[serde(default)]
+    strike_frames: Option<(u32, u32)>,
+    /// P-1 : `MeleeWeaponConfig::queue` (forme seulement).
+    #[serde(default)]
+    #[allow(dead_code)]
+    queue: bool,
+    /// P-1 : vitesse de marche pendant le coup (`MeleeWeaponConfig::move_speed_mult`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    move_speed_mult: Option<FixedField>,
+}
+
+/// Mirroir de `combat::weapons::melee::MeleeReflect` pour le schéma et le lint.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct MeleeReflectSchema {
+    perfect_frames: u32,
+    /// Absent : 1 (P-1).
+    #[serde(default = "fixed_field_one")]
+    #[schemars(extend("x-lint" = "> 0"))]
+    perfect_damage_mult: FixedField,
+    /// P-1 : zone du renvoi autour du porteur.
+    #[serde(default)]
+    sector: Option<ReflectSectorSchema>,
+    /// P-1 : `Facing` (défaut) ou `Aim(min_distance: "…")`.
+    #[serde(default)]
+    #[allow(dead_code)]
+    direction: ReflectDirectionSchema,
+    /// P-1 : vitesse du projectile renvoyé.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    speed_mult: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    perfect_speed_mult: Option<FixedField>,
+}
+
+/// Mirroir de `combat::weapons::melee::ReflectSector` (P-1).
+#[derive(schemars::JsonSchema, Deserialize)]
+struct ReflectSectorSchema {
+    #[schemars(extend("x-lint" = "> 0"))]
+    radius: FixedField,
+    #[schemars(extend("x-lint" = "> 0"))]
+    arc: FixedField,
+}
+
+/// Mirroir de `combat::weapons::melee::ReflectDirection` (P-1).
+#[derive(schemars::JsonSchema, Deserialize, Default)]
+#[allow(dead_code)]
+enum ReflectDirectionSchema {
+    #[default]
+    Facing,
+    Aim {
+        #[schemars(extend("x-lint" = ">= 0"))]
+        min_distance: FixedField,
+    },
+}
+
+fn fixed_field_one() -> FixedField {
+    FixedField(Fixed::ONE)
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -3018,6 +3170,7 @@ fn load_weapons(
                     mode_projectiles,
                     projectiles: entry.config.projectiles,
                     test_only: entry.config.test_only,
+                    move_speed_mult: entry.config.move_speed_mult,
                 },
             );
         }
@@ -3072,6 +3225,15 @@ fn load_melee_weapons(
                 continue;
             }
             let test = entry.config.test.as_ref().map(WeaponTestRange::from);
+            let reflect = entry.config.reflect.map(|reflect| MeleeReflectEntry {
+                perfect_frames: reflect.perfect_frames,
+                perfect_damage_mult: reflect.perfect_damage_mult.get(),
+                speed_mult: reflect.speed_mult.map(|mult| mult.get()),
+                perfect_speed_mult: reflect.perfect_speed_mult.map(|mult| mult.get()),
+                sector: reflect
+                    .sector
+                    .map(|sector| (sector.radius.get(), sector.arc.get())),
+            });
             registry.melee_weapons.insert(
                 id.clone(),
                 MeleeWeaponEntry {
@@ -3079,6 +3241,10 @@ fn load_melee_weapons(
                     file: rel.clone(),
                     damage: entry.config.damage,
                     test,
+                    reflect,
+                    attack_duration_frames: entry.config.attack_duration_frames,
+                    strike_frames: entry.config.strike_frames,
+                    move_speed_mult: entry.config.move_speed_mult.map(|mult| mult.get()),
                 },
             );
         }
@@ -3212,6 +3378,7 @@ fn load_clocks(
                 file: rel,
                 scope: parsed.scope,
                 events: parsed.events,
+                tempo: parsed.tempo,
             },
         );
     }

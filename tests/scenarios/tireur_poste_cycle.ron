@@ -1,0 +1,39 @@
+// P-1 (testbed, docs/conventions.md §110) : cycle de deux tireurs postés (`tireur_poste`, `ai.ranged_cycle`) posés à la
+// frame 1 de part et d'autre du joueur immobile. Salve `salve_postee` : 10 frames de geste, télégraphe de 30, une flèche
+// visée, 20 frames de geste ; recharge de 60 frames puis attente tirée de 10 à 20 ; première salve au plus tôt
+// 20 + 40 × rang frames après la première frame du tireur ; recul de 12 px en 10 frames au tir ; retour au poste à
+// 60 px/s une fois la recharge finie.
+//
+// À regarder : le tireur de gauche (rang 0) tire vers f63 et recule de 12 px (85 → 97 du joueur) ; celui de droite
+// (rang 1) tire 40 frames plus tard (f103) ; pendant la recharge le tireur de gauche reste reculé, puis revient à son
+// poste (85) avant sa salve suivante (vers f195).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 220,
+    characters: [
+        (character: "tireur_poste", x: "360.0", y: "640.0", at_frame: 1),
+        (character: "tireur_poste", x: "488.0", y: "640.0", at_frame: 1),
+    ],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        // Première flèche : le tireur de rang 0, pas avant
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 62),
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 65),
+        // Départ décalé : le tireur de rang 1 tire 40 frames plus tard
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 100),
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 105),
+        // Recul de 12 px au tir, gardé pendant la recharge, puis retour au poste
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(84.9), max: Some(85.1), at_frame: 60),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(96.9), max: Some(97.1), at_frame: 80),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(95.9), max: Some(97.1), at_frame: 140),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(84.9), max: Some(85.1), at_frame: 160),
+        EnemyDistance(entity: Placed(1), target: Player(0), min: Some(84.9), max: Some(85.1), at_frame: 100),
+        EnemyDistance(entity: Placed(1), target: Player(0), min: Some(96.9), max: Some(97.1), at_frame: 120),
+        // Seconde salve du tireur de rang 0 (recharge 60 + attente 10 à 20 après la fin de la première)
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 198),
+    ],
+)

@@ -4,6 +4,8 @@ pub mod pathing;
 // New generic AI system
 pub mod behavior;
 pub mod charm;
+// P-1 (§110) : cycle d'un tireur posté (visée qui suit, attente tirée, coup reçu, recul, retour).
+pub mod cycle;
 pub mod navigation;
 pub mod obstacle;
 mod retreat;
