@@ -1,3 +1,6 @@
+// `AsBindGroup` (matériaux de `model3d`) dépasse la limite par défaut de l'évaluation des traits.
+#![recursion_limit = "256"]
+
 pub mod args;
 pub mod audio;
 pub mod balance;
@@ -46,6 +49,7 @@ pub mod light;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod logs;
 pub mod loot;
+pub mod model3d;
 pub mod patterns;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod performance;

@@ -53,14 +53,14 @@ pub fn new_content(
     })?;
     if matches!(
         info.kind.as_str(),
-        "Map" | "Ui" | "Camera" | "Economy" | "Difficulty"
+        "Map" | "Ui" | "Camera" | "Economy" | "Difficulty" | "Model"
     ) {
         return Err(format!(
             "{} : pas de création par modèle ({}). Éditer le fichier existant, ou les cartes dans LDtk.",
             info.kind,
             match info.kind.as_str() {
                 "Map" => "cartes LDtk",
-                "Ui" | "Camera" => "fichiers de présentation, un par jeu",
+                "Ui" | "Camera" | "Model" => "fichiers de présentation, un par jeu",
                 _ => "un seul fichier par jeu",
             }
         ));

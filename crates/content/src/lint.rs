@@ -71,6 +71,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_hud_sources(registry, &mut errors);
     lint_html_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
+    lint_models(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
     lint_floor_grammars(registry, &mut errors);
@@ -1303,6 +1304,26 @@ fn lint_expire_pattern(
             LintErrorKind::BrokenReference,
             format!("{at} : on_expire : projectile « {projectile} » absent de la table projectiles de l'arme"),
         );
+    }
+}
+
+/// R-1 (§111) : fichier `Model` (fichiers, manifestes, plages, clips, objets, repères, armes).
+fn lint_models(registry: &Registry, errors: &mut Vec<LintError>) {
+    let Some(table) = &registry.models else {
+        return;
+    };
+    let file = table.file.display().to_string();
+    let problems = crate::models::lint(table, &|path| registry.asset_exists(path), &|weapon| {
+        registry
+            .weapons
+            .contains_key(&registry::WeaponId::from(weapon))
+    });
+    for (kind, message) in problems {
+        errors.push(LintError {
+            kind,
+            file: file.clone(),
+            message,
+        });
     }
 }
 

@@ -1,0 +1,45 @@
+// R-1 (docs/conventions.md § 111) : le pantin du testbed, personnage dessiné par un modèle 3D « façon sprite »
+// (`models/models.ron`), joue chaque pose tirée de l'état de la simulation. Présentation seule : la
+// trace est celle d'un joueur ordinaire (le modèle n'entre pas dans la simulation).
+//
+// À regarder (`make play_scenario SCENARIO=model_pantin`) : repos (f0-30) ; marche vers le haut à gauche, les
+// jambes dans la direction de la marche (f30-90) ; tir à l'arrêt vers la droite, la balle sort de la bouche du
+// canon (f90) ; en joue, détente tenue (f100-130) ; marche vers la droite en joue, visée vers le bas
+// (f140-200) ; rechargement en marchant vers le bas puis à l'arrêt (f205-290) ; coup de mêlée (f300) ;
+// roulade vers le haut (f330) ; tir vers le bas (f380). Le pantin a son contour d'un pixel et son ombre portée
+// (le testbed garde `y_sort: false` : ordre de dessin historique).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 420,
+    players: [
+        (
+            character: "pantin",
+            inputs: [
+                (from: 0, to: 30, buttons: [], pan: (0, -64)),
+                (from: 30, to: 90, buttons: [Left, Up], pan: (-64, 64)),
+                (from: 90, to: 92, buttons: [Fire], pan: (64, 0)),
+                (from: 92, to: 100, buttons: [], pan: (64, 0)),
+                (from: 100, to: 130, buttons: [Fire], pan: (64, -32)),
+                (from: 130, to: 140, buttons: [], pan: (0, -64)),
+                (from: 140, to: 200, buttons: [Right, Fire], pan: (0, -64)),
+                (from: 200, to: 205, buttons: [], pan: (0, -64)),
+                (from: 205, to: 206, buttons: [Reload], pan: (0, -64)),
+                (from: 206, to: 260, buttons: [Down], pan: (0, -64)),
+                (from: 260, to: 300, buttons: [], pan: (-64, -16)),
+                (from: 300, to: 301, buttons: [Melee], pan: (-64, 0)),
+                (from: 301, to: 320, buttons: [], pan: (-64, 0)),
+                (from: 320, to: 330, buttons: [Up], pan: (0, 64)),
+                (from: 330, to: 331, buttons: [Up, Dash], pan: (0, 64)),
+                (from: 331, to: 360, buttons: [Up], pan: (0, 64)),
+                (from: 360, to: 380, buttons: [], pan: (0, -64)),
+                (from: 380, to: 382, buttons: [Fire], pan: (0, -64)),
+                (from: 382, to: 420, buttons: [], pan: (0, -64)),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 419),
+    ],
+)

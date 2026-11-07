@@ -68,6 +68,8 @@
         // (`clocks`, `difficulty`) : le mode du testbed n'en active aucune.
         (path: "clocks", kind: "Clock"),
         (path: "difficulty.ron", kind: "Difficulty"),
+        // R-1 : modèles 3D « façon sprite » (le pantin, docs/conventions.md §111).
+        (path: "models/models.ron", kind: "Model"),
     ],
     entry: (
         start_map: "testbed/arena.ldtk",
