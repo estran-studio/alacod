@@ -84,6 +84,26 @@ pub fn spawn_enemy(
     variant_context: crate::character::variant::VariantContext,
 ) -> Entity {
     let character_config = character_configs.get(&enemy_type_name);
+    // M-1b (§112) : un prop est un personnage sans `Enemy` ni IA. Chemin séparé, pour que celui des
+    // ennemis (traces) ne bouge pas d'une ligne : collider, santé, équipe et couche d'ennemi comme
+    // un personnage neutre immobile, rien de plus (variantes, armes, behaviors ignorés).
+    if character_config.is_some_and(|config| config.prop) {
+        let entity = create_character(
+            commands,
+            character_configs,
+            enemy_type_name,
+            None,
+            (LinearRgba::RED).into(),
+            position,
+            CollisionLayer(collision_settings.enemy_layer),
+            id_factory,
+            &[],
+            health_max,
+            None,
+        );
+        commands.entity(entity).insert(team);
+        return entity;
+    }
     let ai_ron = character_config.and_then(|config| config.ai.as_ref());
     let mut ai_config = ai_ron
         .map(EnemyAiConfig::from)

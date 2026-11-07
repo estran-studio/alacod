@@ -155,6 +155,11 @@ pub fn attach_character_visuals(
                 .try_insert(MarkerTint(Color::srgb(r, g, b)));
         }
 
+        // M-1b (§112) : un prop est une image seule, pas de barre de vie.
+        if config.prop {
+            continue;
+        }
+
         // Même course que ci-dessus : attache silencieuse si le personnage est
         // déjà détruit à l'application différée (orphelin détruit, pas de panique).
         let health_bar = commands

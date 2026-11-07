@@ -151,6 +151,15 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub counts_hits: bool,
 
+    /// Personnage « prop » (M-1b, `docs/conventions.md` §112) : image inerte posée dans le monde
+    /// (mur, caisse, arbre, bâtiment). `spawn_enemy` ne lui pose ni `Enemy` ni l'IA (hors
+    /// `max_enemies`, HUD `enemies`, fin de vague, ciblage), la présentation ne lui dessine pas
+    /// de barre de vie. Collider, santé, équipe et dégâts comme un personnage neutre. Champ
+    /// statique lu au spawn : faux par défaut, aucun contenu existant ne change. Lint : refusé
+    /// avec `counts_hits`, `starting_weapons` ou `boss`.
+    #[serde(default)]
+    pub prop: bool,
+
     /// I-frames après un coup subi (M3-T0b, §61). Absent : comportement historique ; le
     /// résolveur ne pose aucune invulnérabilité supplémentaire.
     #[serde(default)]
