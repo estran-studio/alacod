@@ -283,7 +283,15 @@ fn spawn_rigs(
                 ),
             ))
             .id();
-        commands.entity(character).add_child(quad);
+        // Rattachement différé et silencieux (motif de `attach_health_bar`) : le personnage a pu être
+        // détruit avant l'application des commandes ; le quad orphelin est alors détruit.
+        commands.queue_silenced(move |world: &mut World| {
+            if let Ok(mut parent) = world.get_entity_mut(character) {
+                parent.add_child(quad);
+            } else if let Ok(orphan) = world.get_entity_mut(quad) {
+                orphan.despawn();
+            }
+        });
         commands.entity(character).try_insert(ModelRig {
             model: id.clone(),
             layer,

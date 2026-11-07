@@ -5,19 +5,28 @@ Frère jugée par William dans son rendu définitif). Branche engine `wquintal/r
 sur le Mac le 7 nov) ; branche 1837 `r-1-rendu`. Convention : `docs/conventions.md` § 111 ; dettes D198–D199. **Présentation pure** : aucune trace existante ne bouge,
 rien de nouveau dans le graphe des crates `SIM` : `content` (SIM) reçoit seulement la donnée du kind `Model` (types `serde`, aucune dépendance nouvelle, lue par la seule
 présentation, comme `Ui` et `Camera`) ; le rendu est dans `game` (PENDING D69, `PresentationPlugin`) et un ordre de système dans `map_ldtk`. Seule trace neuve : `model_pantin`.
+La reprise Codex est limitée au manifeste de présentation `crates/content/src/models.rs`, explicitement autorisé par le coordinateur (7 nov) malgré le classement
+SIM de `content` ; aucun système, état rollback ni lecteur de simulation n'est modifié. `directional` distingue désormais les suffixes de direction des familles
+de gestes (`fire-walk` ne doit pas remplacer `fire`) ; un test couvre aussi les bases exportées uniquement par leurs variantes.
+
+**Suivi de revue (7 nov, après merge de `b3b9c250` dans `main` = `edce94cc`)** : P2 `model3d::spawn_rigs` rattache le quad du personnage par `queue_silenced`
+(motif d'`attach_health_bar`) : un personnage détruit avant l'application des commandes ne panique plus, le quad orphelin est détruit ; P3 `attach_character_visuals`,
+le fantôme de mort (`visuals.rs`) et `attach_weapon_visuals` décident « personnage à modèle » par `ModelsTable::get` (manifeste lisible) et non par
+la seule présence de l'entrée : un manifeste illisible (le lint le signale) laisse le personnage en sprites au lieu de l'invisibiliser ; test
+`content::models::get_requires_a_readable_manifest` ; P3 commentaire de mort en 3D : D198 (et non D199).
 
 ## Engine (générique, aucun nom de 1837)
 
 | Point | Issue | Preuve |
 |---|---|---|
-| 1. Chargement `anime.glb` + `anime.json` | fait | kind `Model` (`crates/content/src/models.rs`, `models/models.ron`), manifeste lu par le registre (embarqué en web), lint (fichiers, plages, clips, objets, repères, armes), schéma ; `cargo test -p content models` : 4 tests verts. `alacod lint` de 1837 : « aucune erreur ». |
+| 1. Chargement `anime.glb` + `anime.json` | fait | kind `Model` (`crates/content/src/models.rs`, `models/models.ron`), manifeste lu par le registre (embarqué en web), lint (fichiers, plages, clips, objets, repères, armes), schéma ; tests `content models` et `game --lib model3d` (séparation des familles de gestes). `alacod lint` de 1837 : « aucune erreur ». |
 | 2. Animation et mélange des gestes | fait (D198, D199) | `model3d/pose.rs` (pur, testé) + `animate.rs` : esquive, coup, tir, épaulé/en joue, rechargement, allures ; variantes de direction de la marche, vitesse des pieds (`moments.vitesse`), fondus 0,1 s / 0,05 s. Le banc n'a pas de masque haut/bas : marcher en tirant = clips cuits par direction. Planche ci-dessous. |
 | 3. Matériau, contour, ombre | fait | `facon_sprite.wgsl` (sRGB × rampe, lumière dans le repère de la vue, normales lissées par position), `model_pose.wgsl` (contour d'un pixel de sprite, teinte × `outline` sur les valeurs sRGB), `model_shadow.wgsl` (maillage projeté au sol). Valeurs dans le RON du jeu (1837 : 0,66 / 1,12 / 0,75 / 91). |
 | 4. Caméra ortho 45°, calage | fait | un banc par personnage (Camera3d orthographique à `elevation_deg`, image ×2) ; 1 m de profondeur = `sin e` m de largeur (45° ≈ 64/91). Comparaison au banc : même pose, même direction (image ci-dessous). |
 | 5. Tri en y | fait | `placement::y_sort` (opt-in `y_sort`), ordonné après `lift_characters_to_entity_layer` ; `offset_z` de l'image d'un modèle (1,0 comme `alacod import-sprite`). Deux défauts trouvés en capture et corrigés : le fantassin posé par scénario passait sous les tuiles (tri qui écrasait la remontée de couche), le décor couvrait le Frère (image à `z` 0 contre 1,0 pour les planches). Test `le_pied_le_plus_bas_passe_devant` ; preuve `tri_y` de 1837. |
 | 6. Arme à la main, balles depuis la bouche | fait | objet du manifeste montré du côté de la prise du clip, objets portés (clé à la ceinture) ; **bouche = présentation** (`offset_model_bullets` décale le dessin de la balle : écart latéral résorbé en 8 frames, hauteur du canon gardée) : le repère vient du modèle animé en `f32` du rendu, il ne peut pas entrer dans la simulation ; aucune trace ne bouge. |
 | 7. Présentation pure | fait | `PresentationPlugin` seulement ; traces : `two_players_shooting`, `four_players_idle`, `dash_aim_change` inchangées (`make test_scenarios SCENARIO=…`, 5 tests OK) ; `make check_sim_boundary` dans le contrôle rapide. |
-| 8. Natif et wasm32 dans Chrome | fait | natif (Metal, M4 Max) ; **essai Chrome** (une session, muette) : build wasm de `zombies` dont le joueur était, le temps de l'essai, dessiné par le pantin (changement jeté, non commité) : le pantin s'affiche, ombré, contour et ombre, en **WebGL2** (`ANGLE Metal Renderer: Apple M4 Max`), aucune erreur de shader dans la console. `make check_rapide WASM=1` vert (bas de page). |
+| 8. Natif et wasm32 dans Chrome | fait (pantin), recette 1837 en cours | natif (Metal, M4 Max) ; essai Chrome muet du pantin dans `zombies` (changement temporaire jeté) : ombrage, contour, ombre en **WebGL2** (`ANGLE Metal Renderer: Apple M4 Max`), aucune erreur de shader. Contrôle rapide WASM et essai du jeu externe : résultats ajoutés ci-dessous après exécution. |
 | 9. Testbed et 1837 | fait | pantin synthétique (`scripts/gen-pantin.py`, 40 clips) et scénario `model_pantin` (trace neuve, `BLESS` de ce seul scénario) ; testbed `y_sort: false` (décision du 7 nov). 1837 : le Frère et le fantassin (partie 1837 ci-dessous). |
 | 10. § 111, D198–D199 | fait | `docs/conventions.md` § 111 ; `docs/taches/dettes.md` D198 (mort, coup reçu, victoire non joués ; tenue en salle pleine non mesurée), D199 (épauler sans phase dans la simulation). D157 se ferme pour ce qui est câblé (esquive, mêlée, tir, en joue, rechargement, allures). |
 
@@ -62,5 +71,5 @@ se voit pas en 1837 (D199 : le fusil tire à l'appui et recharge aussitôt). Éc
 ## Ce qui reste
 
 - D198 (mort, coup reçu, victoire ; mesure en salle pleine, Steam Deck), D199 (épaulé dans la simulation, P-1).
-- L'essai wasm de **1837** lui-même attend `alacod build --web` (M-1, pas encore mergé) : rebaser sur `main` après son merge et refaire l'essai dans Chrome.
+- M-1 a été mergé dans l'engine et dans `r-1-rendu` de 1837 ; l'essai wasm de **1837** par `alacod build --web` est la dernière recette de plateforme.
 - La partie du soir de William (natif) fait foi pour le jeu en mouvement.

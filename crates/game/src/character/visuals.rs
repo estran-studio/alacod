@@ -80,12 +80,9 @@ pub fn attach_character_visuals(
         };
         // R-1 (§111) : un personnage à modèle est dessiné par `model3d` (pas de calque de sprite) ; la
         // barre de vie se pose au-dessus de sa tête.
-        if let Some((table, model)) = models.and_then(|t| {
-            t.def
-                .models
-                .get(&config.asset_name_ref)
-                .map(|model| (t, model))
-        }) {
+        if let Some((table, model)) =
+            models.and_then(|t| t.get(&config.asset_name_ref).map(|(model, _)| (t, model)))
+        {
             commands.entity(entity).try_insert((
                 crate::model3d::CharacterModel(config.asset_name_ref.clone()),
                 VisualsAttached,
@@ -306,8 +303,8 @@ pub fn spawn_death_ghosts(
         let Some(config) = character_configs.get(config_name) else {
             continue;
         };
-        // R-1 (§111) : un modèle n'a pas de planche `Dying_*` (dette D199 : clip de mort en 3D).
-        if models.is_some_and(|m| m.def.models.contains_key(&config.asset_name_ref)) {
+        // R-1 (§111) : un modèle n'a pas de planche `Dying_*` (dette D198 : clip de mort en 3D).
+        if models.is_some_and(|m| m.get(&config.asset_name_ref).is_some()) {
             continue;
         }
         let (Some(map_layers), Some(animation_handle)) = (
