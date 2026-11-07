@@ -30,9 +30,9 @@ pub struct ModelBulletOffset {
 
 /// Le plus bas à l'écran devant (`y_sort` du fichier `Model`) : le `z` affiché (celui de la simulation, ou
 /// de la couche des entités pour un personnage posé à `z = 0`, `map_ldtk::plugins::lift_characters_to_entity_layer`,
-/// ordonné avant) moins `y` × [`Y_SORT_PER_UNIT`], pour les personnages (corps 3D et décor en sprites) et les
-/// balles (à leur pied). Le `Transform` est réécrit depuis la simulation à chaque image : le retrait ne
-/// s'accumule pas.
+/// ordonné avant) moins `y` × [`Y_SORT_PER_UNIT`], pour les personnages (corps 3D et décor importé en
+/// personnage) et les balles (à leur pied). Le `Transform` est réécrit depuis la simulation à chaque image :
+/// le retrait ne s'accumule pas.
 pub fn y_sort(
     registry: Option<Res<Registry>>,
     mut sorted: Query<
@@ -115,5 +115,82 @@ pub fn offset_model_bullets(
         let shift = offset.lateral * blend + Vec2::Y * offset.height;
         transform.translation.x += shift.x;
         transform.translation.y += shift.y;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_fixed::fixed_math::{Fixed, FixedMat3, FixedVec3};
+    use content::models::{ModelsFile, ModelsTable};
+
+    fn registry(y_sort: bool) -> Registry {
+        let def: ModelsFile = ron::from_str(&format!(
+            "(units_per_meter: 24.0, elevation_deg: 45.0, y_sort: {y_sort}, look: (shade: 0.66, highlight: 1.12, \
+             light: (-0.5, 0.75, 0.45), outline: 0.75, outline_px_per_m: 91.0), models: {{}})"
+        ))
+        .unwrap();
+        Registry {
+            models: Some(ModelsTable {
+                file: "models/models.ron".into(),
+                def,
+                manifests: Default::default(),
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// Un personnage en `(y, z)` : `z` est celui de sa couche (recopié de la simulation).
+    fn character(app: &mut App, y: f32, z: f32) -> Entity {
+        app.world_mut()
+            .spawn((
+                CharacterAppearance {
+                    config_name: "c".into(),
+                    skin: None,
+                    health_bar_color: Color::WHITE,
+                },
+                FixedTransform3D::new(
+                    FixedVec3::new(Fixed::ZERO, Fixed::from_num(y), Fixed::from_num(z)),
+                    FixedMat3::IDENTITY,
+                    FixedVec3::ONE,
+                ),
+                Transform::from_xyz(0.0, y, z),
+            ))
+            .id()
+    }
+
+    fn z(app: &App, e: Entity) -> f32 {
+        app.world().get::<Transform>(e).unwrap().translation.z
+    }
+
+    /// À couche égale, le pied le plus bas à l'écran passe devant (le poteau devant le joueur qui monte
+    /// derrière lui), sans quitter la couche (écart sous 0,1 : la barre de vie, à +0,1, reste devant son
+    /// porteur). Sans `y_sort`, rien ne bouge.
+    #[test]
+    fn le_pied_le_plus_bas_passe_devant() {
+        let mut app = App::new();
+        app.insert_resource(registry(true))
+            .add_systems(Update, y_sort);
+        let player = character(&mut app, -472.0, 3.0);
+        let pole = character(&mut app, -488.0, 3.0);
+        let behind = character(&mut app, -400.0, 3.0);
+        app.update();
+        assert!(
+            z(&app, pole) > z(&app, player),
+            "le poteau (plus bas) devant le joueur"
+        );
+        assert!(
+            z(&app, player) > z(&app, behind),
+            "le joueur devant le décor plus haut"
+        );
+        assert!((z(&app, pole) - z(&app, behind)).abs() < 0.1);
+
+        let mut off = App::new();
+        off.insert_resource(registry(false))
+            .add_systems(Update, y_sort);
+        let player = character(&mut off, -472.0, 3.0);
+        let pole = character(&mut off, -488.0, 3.0);
+        off.update();
+        assert_eq!((z(&off, player), z(&off, pole)), (3.0, 3.0));
     }
 }

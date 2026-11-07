@@ -93,7 +93,13 @@ pub fn attach_character_visuals(
             ));
             let (cos_e, _) = crate::model3d::elevation(table);
             let head = model.height_m * cos_e * table.def.units_per_meter;
-            attach_health_bar(&mut commands, entity, appearance, head);
+            attach_health_bar(
+                &mut commands,
+                entity,
+                appearance,
+                head,
+                model.offset_z + 0.1,
+            );
             continue;
         }
         let (Some(map_layers), Some(animation_handle)) = (
@@ -175,16 +181,17 @@ pub fn attach_character_visuals(
                 .try_insert(MarkerTint(Color::srgb(r, g, b)));
         }
 
-        attach_health_bar(&mut commands, entity, appearance, sprite_top);
+        attach_health_bar(&mut commands, entity, appearance, sprite_top, 0.1);
     }
 }
 
-/// Barre de vie au-dessus de la tête (`top` : haut du personnage, unités du monde).
+/// Barre de vie au-dessus de la tête (`top` : haut du personnage, unités du monde ; `z` local).
 fn attach_health_bar(
     commands: &mut Commands,
     entity: Entity,
     appearance: &CharacterAppearance,
     top: f32,
+    z: f32,
 ) {
     // Même course que l'attache des visuels : attache silencieuse si le personnage est
     // déjà détruit à l'application différée (orphelin détruit, pas de panique).
@@ -196,7 +203,7 @@ fn attach_health_bar(
                 custom_size: Some(Vec2::new(30.0, 3.0)),
                 ..default()
             },
-            Transform::from_translation(Vec3::new(0.0, top + 4.0, 0.1)),
+            Transform::from_translation(Vec3::new(0.0, top + 4.0, z)),
         ))
         .id();
     commands.queue_silenced(move |world: &mut World| {

@@ -174,8 +174,7 @@ fn image_size(table: &ModelsTable, frame_m: (f32, f32), px_per_unit: f32) -> UVe
 
 fn pose_params(table: &ModelsTable, size: UVec2, px_per_unit: f32) -> (Vec4, Vec4) {
     let look = &table.def.look;
-    let radius =
-        (px_per_unit * table.def.units_per_meter / look.outline_px_per_m).clamp(1.0, 3.0);
+    let radius = (px_per_unit * table.def.units_per_meter / look.outline_px_per_m).clamp(1.0, 3.0);
     let shadow = look.shadow.as_ref().map_or(0.0, |s| s.opacity);
     (
         Vec4::new(size.x as f32, size.y as f32, radius, look.outline),
@@ -278,7 +277,11 @@ fn spawn_rigs(
             .spawn((
                 Mesh2d(meshes.add(Rectangle::new(w, h))),
                 MeshMaterial2d(pose_material.clone()),
-                Transform::from_xyz((0.5 - model.pivot.0) * w, (0.5 - model.pivot.1) * h, 0.0),
+                Transform::from_xyz(
+                    (0.5 - model.pivot.0) * w,
+                    (0.5 - model.pivot.1) * h,
+                    model.offset_z,
+                ),
             ))
             .id();
         commands.entity(character).add_child(quad);

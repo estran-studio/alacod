@@ -220,7 +220,8 @@ pub fn variant(
             let better = match best {
                 None => true,
                 Some((_, best_rev, best_gap)) => {
-                    gap < best_gap - 1e-3 || ((gap - best_gap).abs() <= 1e-3 && best_rev && !reversed)
+                    gap < best_gap - 1e-3
+                        || ((gap - best_gap).abs() <= 1e-3 && best_rev && !reversed)
                 }
             };
             if better {
@@ -280,7 +281,9 @@ mod tests {
             ("fire-walk-r", -90),
         ] {
             clips.push_str(&format!("\"{name}\": [1, 9],"));
-            moments.push_str(&format!("\"{name}\": {{\"vitesse\": 3.0, \"direction\": {dir}}},"));
+            moments.push_str(&format!(
+                "\"{name}\": {{\"vitesse\": 3.0, \"direction\": {dir}}},"
+            ));
         }
         serde_json::from_str(&format!(
             r#"{{"fps": 24, "actions": {{{clips} "idle": [1, 49], "fire": [1, 8], "reload": [1, 48], "roll": [1, 13]}},
@@ -312,25 +315,57 @@ mod tests {
         let m = manifest();
         let deg = |d: f32| d.to_radians();
         assert_eq!(variant(&m, "walk", 0.0, true), Some(("walk".into(), false)));
-        assert_eq!(variant(&m, "walk", deg(80.0), true), Some(("walk-l".into(), false)));
+        assert_eq!(
+            variant(&m, "walk", deg(80.0), true),
+            Some(("walk-l".into(), false))
+        );
         // Vers la droite : la marche vers la gauche à l'envers ; à reculons : l'avant à l'envers.
-        assert_eq!(variant(&m, "walk", deg(-90.0), true), Some(("walk-l".into(), true)));
-        assert_eq!(variant(&m, "walk", deg(180.0), true), Some(("walk".into(), true)));
-        assert_eq!(variant(&m, "walk", deg(-135.0), true), Some(("walk-fl".into(), true)));
+        assert_eq!(
+            variant(&m, "walk", deg(-90.0), true),
+            Some(("walk-l".into(), true))
+        );
+        assert_eq!(
+            variant(&m, "walk", deg(180.0), true),
+            Some(("walk".into(), true))
+        );
+        assert_eq!(
+            variant(&m, "walk", deg(-135.0), true),
+            Some(("walk-fl".into(), true))
+        );
         // Un geste ne se lit jamais à l'envers : la direction cuite la plus proche.
-        assert_eq!(variant(&m, "fire-walk", deg(-100.0), false), Some(("fire-walk-r".into(), false)));
-        assert_eq!(variant(&m, "fire", 0.3, false), Some(("fire".into(), false)));
+        assert_eq!(
+            variant(&m, "fire-walk", deg(-100.0), false),
+            Some(("fire-walk-r".into(), false))
+        );
+        assert_eq!(
+            variant(&m, "fire", 0.3, false),
+            Some(("fire".into(), false))
+        );
         assert_eq!(variant(&m, "nothing", 0.3, false), None);
     }
 
     #[test]
     fn a_gait_plays_at_the_ground_speed_over_the_clip_speed() {
-        let walking = pick(PoseInput { speed: 1.5, ..default() });
+        let walking = pick(PoseInput {
+            speed: 1.5,
+            ..default()
+        });
         assert_eq!(walking.clip, "walk");
         assert_eq!(walking.timing, Timing::Loop(0.5));
-        let backwards = pick(PoseInput { speed: 30.0, rel: std::f32::consts::PI, ..default() });
+        let backwards = pick(PoseInput {
+            speed: 30.0,
+            rel: std::f32::consts::PI,
+            ..default()
+        });
         assert_eq!(backwards.timing, Timing::Loop(-3.0));
-        assert_eq!(pick(PoseInput { speed: 0.1, ..default() }).clip, "idle");
+        assert_eq!(
+            pick(PoseInput {
+                speed: 0.1,
+                ..default()
+            })
+            .clip,
+            "idle"
+        );
     }
 
     #[test]
@@ -345,14 +380,35 @@ mod tests {
         };
         assert_eq!(pick(all.clone()).clip, "roll");
         assert_eq!(pick(all.clone()).timing, Timing::At(0.5));
-        let shot = pick(PoseInput { dash: None, ..all.clone() });
-        assert_eq!((shot.clip.as_str(), shot.timing), ("fire-walk-l", Timing::At(0.5)));
+        let shot = pick(PoseInput {
+            dash: None,
+            ..all.clone()
+        });
+        assert_eq!(
+            (shot.clip.as_str(), shot.timing),
+            ("fire-walk-l", Timing::At(0.5))
+        );
         // Tir fini : le rechargement en marchant boucle à la vitesse de la marche.
-        let reload = pick(PoseInput { dash: None, since_shot: Some(0.4), ..all.clone() });
-        assert_eq!((reload.clip.as_str(), reload.timing), ("walk-l", Timing::Loop(1.0)));
+        let reload = pick(PoseInput {
+            dash: None,
+            since_shot: Some(0.4),
+            ..all.clone()
+        });
+        assert_eq!(
+            (reload.clip.as_str(), reload.timing),
+            ("walk-l", Timing::Loop(1.0))
+        );
         // À l'arrêt, le rechargement suit son avancement.
-        let still = pick(PoseInput { speed: 0.0, dash: None, since_shot: None, ..all });
-        assert_eq!((still.clip.as_str(), still.timing), ("reload", Timing::At(0.25)));
+        let still = pick(PoseInput {
+            speed: 0.0,
+            dash: None,
+            since_shot: None,
+            ..all
+        });
+        assert_eq!(
+            (still.clip.as_str(), still.timing),
+            ("reload", Timing::At(0.25))
+        );
     }
 
     fn default() -> PoseInput {

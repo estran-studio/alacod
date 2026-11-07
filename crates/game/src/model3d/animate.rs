@@ -273,7 +273,11 @@ pub fn animate_models(
 
         // L'arme du manifeste dans la main, du côté de la prise du clip en cours ; un objet porté (ni à la
         // main ni à l'os de l'arme : la clé à la ceinture) se montre dans les clips qui le nomment.
-        let clip = state.current.as_ref().map(|t| t.clip.as_str()).unwrap_or("");
+        let clip = state
+            .current
+            .as_ref()
+            .map(|t| t.clip.as_str())
+            .unwrap_or("");
         let object = choice.as_ref().and_then(|c| c.object.as_deref());
         for (id, weapon) in &manifest.weapons {
             let side = (Some(id.as_str()) == object)
@@ -281,7 +285,10 @@ pub fn animate_models(
                 .flatten();
             let worn = is_worn(weapon) && weapon.animations.iter().any(|a| a == clip);
             for (object_side, node) in &weapon.objects {
-                if let Some(mut v) = ready.nodes.get(node).and_then(|e| visibility.get_mut(*e).ok())
+                if let Some(mut v) = ready
+                    .nodes
+                    .get(node)
+                    .and_then(|e| visibility.get_mut(*e).ok())
                 {
                     let wanted = if worn || Some(object_side.as_str()) == side {
                         Visibility::Inherited
@@ -298,7 +305,12 @@ pub fn animate_models(
             .zip(poses.muzzle.as_deref())
             .and_then(|(object, marker)| {
                 let side = held_side(manifest, object, clip)?;
-                let node = manifest.weapons.get(object)?.markers.get(side)?.get(marker)?;
+                let node = manifest
+                    .weapons
+                    .get(object)?
+                    .markers
+                    .get(side)?
+                    .get(marker)?;
                 let p = globals.get(*ready.nodes.get(node)?).ok()?.translation();
                 Some(Muzzle {
                     screen: Vec2::new(p.x, p.y * cos_e - p.z * sin_e) * u,
@@ -391,8 +403,14 @@ mod tests {
         let s = std::f32::consts::FRAC_1_SQRT_2;
         // Vers le bas de l'écran : face à la caméra ; vers le haut : de dos ; à droite : +X.
         assert!(yaw_from_screen(Vec2::new(0.0, -1.0), s).unwrap().abs() < 1e-6);
-        assert!((yaw_from_screen(Vec2::new(0.0, 1.0), s).unwrap().abs() - std::f32::consts::PI).abs() < 1e-6);
-        assert!((yaw_from_screen(Vec2::new(1.0, 0.0), s).unwrap() - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
+        assert!(
+            (yaw_from_screen(Vec2::new(0.0, 1.0), s).unwrap().abs() - std::f32::consts::PI).abs()
+                < 1e-6
+        );
+        assert!(
+            (yaw_from_screen(Vec2::new(1.0, 0.0), s).unwrap() - std::f32::consts::FRAC_PI_2).abs()
+                < 1e-6
+        );
         // Une diagonale de l'écran est plus profonde au sol : le cap s'ouvre vers la profondeur.
         let diag = yaw_from_screen(Vec2::new(1.0, -1.0), s).unwrap();
         assert!((diag - (1.0f32).atan2(1.0 / s)).abs() < 1e-6);

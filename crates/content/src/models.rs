@@ -89,6 +89,11 @@ pub struct ModelDef {
     pub frame_m: (f32, f32),
     /// Le pied (origine du modèle) dans le cadre, en fractions depuis le coin bas-gauche.
     pub pivot: (f32, f32),
+    /// `z` local de l'image du personnage, comme `offset_z` des feuilles de sprites : à égalité avec
+    /// celles des planches du jeu (1,0 pour `alacod import-sprite`), le tri en y ordonne les corps 3D et le
+    /// décor sprite par leur seul pied. La barre de vie se pose juste devant.
+    #[serde(default)]
+    pub offset_z: f32,
     /// Hauteur du personnage (m) : la barre de vie se pose au-dessus.
     #[schemars(extend("x-lint" = "> 0"))]
     pub height_m: f32,
@@ -305,7 +310,10 @@ pub fn lint(
         out.push((OutOfRange, "units_per_meter doit être > 0".to_string()));
     }
     if !(def.elevation_deg > 0.0 && def.elevation_deg < 90.0) {
-        out.push((OutOfRange, "elevation_deg doit être dans ]0, 90[".to_string()));
+        out.push((
+            OutOfRange,
+            "elevation_deg doit être dans ]0, 90[".to_string(),
+        ));
     }
     let look = &def.look;
     if look.shade < 0.0 || look.highlight < 0.0 || look.outline < 0.0 {
@@ -315,7 +323,10 @@ pub fn lint(
         ));
     }
     if look.outline_px_per_m <= 0.0 {
-        out.push((OutOfRange, "look.outline_px_per_m doit être > 0".to_string()));
+        out.push((
+            OutOfRange,
+            "look.outline_px_per_m doit être > 0".to_string(),
+        ));
     }
     if look.light == (0.0, 0.0, 0.0) {
         out.push((OutOfRange, "look.light ne peut pas être nulle".to_string()));
@@ -459,7 +470,10 @@ mod tests {
     #[test]
     fn directional_variants_need_a_declared_direction() {
         let m = manifest();
-        assert_eq!(m.directional("walk"), vec![("walk", 0.0), ("walk-left", 90.0)]);
+        assert_eq!(
+            m.directional("walk"),
+            vec![("walk", 0.0), ("walk-left", 90.0)]
+        );
         assert!(m.directional("idle").is_empty());
         assert!(m.knows("walk") && m.knows("idle") && !m.knows("run"));
         assert_eq!(m.duration("shoot"), Some(7.0 / 24.0));
@@ -495,8 +509,17 @@ mod tests {
         let errors = lint(&t, &|_| true, &|w| w == "pistol");
         let text: Vec<_> = errors.iter().map(|(_, m)| m.as_str()).collect();
         assert_eq!(errors.len(), 5, "{text:#?}");
-        for wanted in ["« sprint »", "« shoot-moving »", "« roll »", "« muzzle »", "weapons.rifle"] {
-            assert!(text.iter().any(|m| m.contains(wanted)), "{wanted} : {text:#?}");
+        for wanted in [
+            "« sprint »",
+            "« shoot-moving »",
+            "« roll »",
+            "« muzzle »",
+            "weapons.rifle",
+        ] {
+            assert!(
+                text.iter().any(|m| m.contains(wanted)),
+                "{wanted} : {text:#?}"
+            );
         }
     }
 
