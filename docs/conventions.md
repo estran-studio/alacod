@@ -8435,5 +8435,7 @@ Outillage et gabarit seulement : **aucune trace ne bouge**, aucun `BLESS`. Jalon
   lobby en ligne (`data-matchbox`, `data-lobby`) est le lot M-2.
 - **Tests** : `web_build::tests` (version de `wasm-bindgen` lue du verrou, versions d'URL, page, serveur : MIME, `..` refusé) ; `crates/content/tests/cli.rs::new_game_builds_for_the_web_without_any_added_code`
   (`#[ignore]`, **`make test_alacod_web`**, ≈ 20 min à froid : `alacod new demo` dans un dossier temporaire, `alacod build --web`, wasm, JS, assets, page, `build.json` et serveur). Aucun Chrome
-  automatisé : l'ouverture dans le navigateur est la recette humaine.
+  automatisé : l'ouverture dans le navigateur est la recette humaine. Le jeu d'essai compile dans son propre `target/` (jeté avec le dossier temporaire : 21-26 min à chaque fois) sauf si `CARGO_TARGET_DIR` est posé :
+  `CARGO_TARGET_DIR=$PWD/target make test_alacod_web` réutilise celui du worktree (21 min la première fois, ensuite les dépendances wasm32 sont en cache). Preuve de 1837 au Mac (7 nov) : `.wasm` release + `wasm-opt`
+  de 80,4 Mo, la cour affichée dans Chrome (`1837/docs/preuves/m-1-web-cour.png`).
 - Dettes **D190** et **D191** : `docs/taches/dettes.md`.
