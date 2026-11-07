@@ -71,11 +71,31 @@ pub fn attach_character_visuals(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     characters: Query<(Entity, &CharacterAppearance), Without<VisualsAttached>>,
+    registry: Option<Res<content::Registry>>,
 ) {
+    let models = registry.as_ref().and_then(|r| r.models.as_ref());
     for (entity, appearance) in characters.iter() {
         let Some(config) = character_configs.get(&appearance.config_name) else {
             continue;
         };
+        // R-1 (§111) : un personnage à modèle est dessiné par `model3d` (pas de calque de sprite) ; la
+        // barre de vie se pose au-dessus de sa tête.
+        if let Some((table, model)) = models.and_then(|t| {
+            t.def
+                .models
+                .get(&config.asset_name_ref)
+                .map(|model| (t, model))
+        }) {
+            commands.entity(entity).try_insert((
+                crate::model3d::CharacterModel(config.asset_name_ref.clone()),
+                VisualsAttached,
+                Visibility::default(),
+            ));
+            let (cos_e, _) = crate::model3d::elevation(table);
+            let head = model.height_m * cos_e * table.def.units_per_meter;
+            attach_health_bar(&mut commands, entity, appearance, head);
+            continue;
+        }
         let (Some(map_layers), Some(animation_handle)) = (
             global_assets.spritesheets.get(&config.asset_name_ref),
             global_assets.animations.get(&config.asset_name_ref),
@@ -155,27 +175,37 @@ pub fn attach_character_visuals(
                 .try_insert(MarkerTint(Color::srgb(r, g, b)));
         }
 
-        // Même course que ci-dessus : attache silencieuse si le personnage est
-        // déjà détruit à l'application différée (orphelin détruit, pas de panique).
-        let health_bar = commands
-            .spawn((
-                HealthBar,
-                Sprite {
-                    color: appearance.health_bar_color,
-                    custom_size: Some(Vec2::new(30.0, 3.0)),
-                    ..default()
-                },
-                Transform::from_translation(Vec3::new(0.0, sprite_top + 4.0, 0.1)),
-            ))
-            .id();
-        commands.queue_silenced(move |world: &mut World| {
-            if let Ok(mut parent) = world.get_entity_mut(entity) {
-                parent.add_child(health_bar);
-            } else if let Ok(mut orphan) = world.get_entity_mut(health_bar) {
-                orphan.despawn();
-            }
-        });
+        attach_health_bar(&mut commands, entity, appearance, sprite_top);
     }
+}
+
+/// Barre de vie au-dessus de la tête (`top` : haut du personnage, unités du monde).
+fn attach_health_bar(
+    commands: &mut Commands,
+    entity: Entity,
+    appearance: &CharacterAppearance,
+    top: f32,
+) {
+    // Même course que l'attache des visuels : attache silencieuse si le personnage est
+    // déjà détruit à l'application différée (orphelin détruit, pas de panique).
+    let health_bar = commands
+        .spawn((
+            HealthBar,
+            Sprite {
+                color: appearance.health_bar_color,
+                custom_size: Some(Vec2::new(30.0, 3.0)),
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(0.0, top + 4.0, 0.1)),
+        ))
+        .id();
+    commands.queue_silenced(move |world: &mut World| {
+        if let Ok(mut parent) = world.get_entity_mut(entity) {
+            parent.add_child(health_bar);
+        } else if let Ok(mut orphan) = world.get_entity_mut(health_bar) {
+            orphan.despawn();
+        }
+    });
 }
 
 /// Fantôme de mort (présentation seule) : un ennemi qui disparaît laisse un sprite
@@ -239,7 +269,9 @@ pub fn spawn_death_ghosts(
     mut previous: Local<EnemySnapshot>,
     ghosts: Query<&DeathGhost>,
     mut last_frame: Local<Option<u32>>,
+    registry: Option<Res<content::Registry>>,
 ) {
+    let models = registry.as_ref().and_then(|r| r.models.as_ref());
     // Nouvelle partie : les disparitions sont des déchargements, pas des morts.
     if last_frame.is_some_and(|last| frame.frame < last) {
         previous.clear();
@@ -267,6 +299,10 @@ pub fn spawn_death_ghosts(
         let Some(config) = character_configs.get(config_name) else {
             continue;
         };
+        // R-1 (§111) : un modèle n'a pas de planche `Dying_*` (dette D199 : clip de mort en 3D).
+        if models.is_some_and(|m| m.def.models.contains_key(&config.asset_name_ref)) {
+            continue;
+        }
         let (Some(map_layers), Some(animation_handle)) = (
             global_assets.spritesheets.get(&config.asset_name_ref),
             global_assets.animations.get(&config.asset_name_ref),

@@ -8,6 +8,7 @@ pub mod launch;
 pub mod lint;
 pub mod manifest;
 mod mechanics;
+pub mod models;
 pub mod reach;
 pub mod registry;
 pub mod remote;

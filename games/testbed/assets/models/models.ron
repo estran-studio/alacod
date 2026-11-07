@@ -1,0 +1,46 @@
+// R-1 (docs/conventions.md § 111) : ce qui bouge rendu en 3D « façon sprite ». Un personnage dont
+// l'`asset_name_ref` a une entrée dans `models` est dessiné par son modèle animé (`anime.glb` +
+// `anime.json`, format de l'étape `banc` de la pipeline d'assets) au lieu de sa planche.
+// Le pantin est synthétique (`scripts/gen-pantin.py`) ; les valeurs du rendu sont celles du testbed.
+(
+    // 1 m = 28 unités : le pantin (1,8 m, vu à 45°) fait ~36 unités de haut, la taille des sprites du testbed.
+    units_per_meter: 28.0,
+    elevation_deg: 45.0,
+    // Le plus bas à l'écran devant : personnages (modèles et sprites) et balles.
+    y_sort: true,
+    look: (
+        shade: 0.6,
+        highlight: 1.1,
+        light: (-0.4, 0.8, 0.45),
+        outline: 0.7,
+        outline_px_per_m: 64.0,
+        shadow: Some((direction: (-2.0, 8.0, 3.0), opacity: 0.5)),
+    ),
+    models: {
+        "pantin": (
+            glb: "models/pantin/anime.glb",
+            manifest: "models/pantin/anime.json",
+            frame_m: (2.8, 2.8),
+            pivot: (0.5, 0.2),
+            height_m: 1.8,
+            poses: (
+                idle: Some("idle"),
+                walk: Some("walk"),
+                melee: Some((still: Some("strike"), moving: Some("strike-walk"))),
+            ),
+            weapons: {
+                "pistol": (
+                    object: Some("gun"),
+                    muzzle: Some("muzzle"),
+                    idle: Some("gun-idle"),
+                    walk: Some("gun-walk"),
+                    shoot: Some((still: Some("shoot"), moving: Some("shoot-walk"))),
+                    shoulder: Some((still: Some("shoulder"))),
+                    aim: Some((still: Some("aim"), moving: Some("aim-walk"))),
+                    reload: Some((still: Some("reload"), moving: Some("reload-walk"))),
+                ),
+            },
+            dash: ["roll"],
+        ),
+    },
+)
