@@ -1,0 +1,27 @@
+// M-1b suivi P3a (docs/conventions.md §112) : un prop repousse les ennemis comme le décor-`Enemy` d'avant. Carte
+// `testbed/rocks_static.ldtk` (couloir nu) ; le joueur 0 est immobile (x 168), un `follower` (ennemi qui poursuit, vitesse 60) part
+// de x 420 et croise quatre `prop-test` (x 300, 312, 324, 336) ; la séparation de `move_enemies` (force 2, portée 80) le ralentit
+// un peu : distance au joueur 145,746 à f150 et 96,695 à f199, contre 145,629 et 96,641 sans aucun obstacle. Témoin :
+// `prop_repels_enemy_dummy` (quatre `dummy`, des `Enemy`, mêmes attentes aux mêmes frames).
+//
+// À regarder : le `follower` traverse la rangée de caisses et avance de la même façon qu'avec les `dummy` ; sans la correction,
+// les props ne comptent pas dans la grille de séparation et la distance retombe à celle d'un couloir vide.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 200,
+    characters: [
+        (character: "follower", x: "420.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "300.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "312.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "324.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "336.0", y: "696.0", at_frame: 5),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 145.72, max: 145.77, at_frame: 150),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 96.68, max: 96.71, at_frame: 199),
+    ],
+)

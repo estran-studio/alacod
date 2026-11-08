@@ -338,3 +338,167 @@ pub fn enemy_spawn_from_spawners_system(
         state.last_spawn_frame = frame.frame;
     }
 }
+
+/// M-1b suivi P3c (`docs/conventions.md` §112) : le spawner de vagues ne tourne jamais en scénario
+/// (`WaveModeEnabled(true)` forcé), donc ces tests font tourner `enemy_spawn_from_spawners_system` lui-même.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::character::config::CharacterConfig;
+    use bevy::ecs::system::RunSystemOnce;
+    use bevy_fixed::fixed_math::{FixedMat3, FixedTransform3D, FixedVec3};
+    use sim_core::players::PlayersCount;
+
+    /// Plafond global de `enemy_spawn_from_spawners_system` (littéral `global_max_enemies`, dette D200).
+    const GLOBAL_CAP: usize = 10;
+
+    /// RON minimal d'un personnage immobile ; `prop` règle le champ (même fichier pour l'ennemi et le prop).
+    fn config(name: &str, prop: bool) -> CharacterConfig {
+        ron::de::from_str(&format!(
+            r#"(
+                movement: (acceleration: "0.0", max_speed: "0.0", sprint_multiplier: "1.0",
+                    sprint_acceleration_per_frame: "0.0", sprint_deceleration_per_frame: "0.0",
+                    dash_distance: "0.0", dash_duration_frames: 0, dash_cooldown_frames: 0),
+                asset_name_ref: "{name}",
+                collider: (shape: Rectangle(width: "20.", height: "20."), offset: (x: "0.0", y: "0.0", z: "0.0")),
+                scale: "1.0",
+                base_health: (max: "200.0"),
+                starting_skin: "1",
+                skins: {{"1": (layers: {{}})}},
+                prop: {prop},
+            )"#
+        ))
+        .expect("RON de personnage minimal")
+    }
+
+    fn transform(x: f32, y: f32) -> FixedTransform3D {
+        FixedTransform3D::new(
+            FixedVec3::new(
+                fixed_math::new(x),
+                fixed_math::new(y),
+                fixed_math::FIXED_ZERO,
+            ),
+            FixedMat3::IDENTITY,
+            FixedVec3::ONE,
+        )
+    }
+
+    /// Une salle, un joueur, un spawner prêt à servir (aucun délai, ni rayon, ni distance minimale) qui
+    /// fait apparaître `grunt` (un `Enemy` ordinaire), puis `already` personnages de type `placed`
+    /// posés par `spawn_enemy` (le chemin de contenu : un prop si `placed` est `prop`).
+    fn app_with(placed: &str, already: usize) -> App {
+        let mut configs = CharacterConfigs::default();
+        configs.0.insert("grunt".into(), config("grunt", false));
+        configs.0.insert("prop".into(), config("prop", true));
+        let ids = ["grunt".to_string(), "prop".to_string()];
+        let balance = crate::balance::resolve_balance(1, None, None, None, &configs, ids.iter());
+        let mut app = App::new();
+        app.insert_resource(configs)
+            .insert_resource(balance)
+            .insert_resource(FrameCount::default())
+            .insert_resource(RngStreams::new(1))
+            .insert_resource(CollisionSettings::default())
+            .insert_resource(WeaponRegistry::default())
+            .insert_resource(GgrsNetIdFactory::default())
+            .insert_resource(run::clock::Clock::default())
+            .insert_resource(PlayersCount(1))
+            // Le crochet d'ajout de `Rollback` (posé par `create_character`) exige cette ressource.
+            .init_resource::<bevy_ggrs::RollbackOrdered>()
+            .add_systems(Update, enemy_spawn_from_spawners_system);
+        let world = app.world_mut();
+        world.spawn((
+            RoomBounds {
+                position: fixed_math::FixedVec2::new(
+                    fixed_math::new(-500.0),
+                    fixed_math::new(-500.0),
+                ),
+                size: fixed_math::FixedVec2::new(fixed_math::new(1000.0), fixed_math::new(1000.0)),
+            },
+            LevelId("salle".into()),
+        ));
+        world.spawn((
+            GgrsNetId(1, "joueur".into()),
+            Player::default(),
+            transform(0.0, 0.0),
+        ));
+        world.spawn((
+            GgrsNetId(2, "spawner".into()),
+            EnemySpawnerComponent {
+                spawn_radius: fixed_math::FIXED_ZERO,
+                min_spawn_distance: fixed_math::FIXED_ZERO,
+                max_cooldown: 0,
+                enemy_types: vec!["grunt".to_string()],
+                ..default()
+            },
+            EnemySpawnerState::default(),
+            transform(200.0, 0.0),
+            LevelId("salle".into()),
+        ));
+        let placed = placed.to_string();
+        world
+            .run_system_once(
+                move |mut commands: Commands,
+                      weapons: Res<WeaponRegistry>,
+                      configs: Res<CharacterConfigs>,
+                      settings: Res<CollisionSettings>,
+                      mut factory: ResMut<GgrsNetIdFactory>| {
+                    for index in 0..already {
+                        let _ = spawn_enemy(
+                            placed.clone(),
+                            FixedVec3::new(
+                                fixed_math::new(100.0 + 30.0 * index as f32),
+                                fixed_math::new(100.0),
+                                fixed_math::FIXED_ZERO,
+                            ),
+                            &mut commands,
+                            &weapons,
+                            &configs,
+                            &settings,
+                            &mut factory,
+                            Team::Enemies,
+                            fixed_math::new(200.0),
+                            1,
+                            None,
+                            Default::default(),
+                        );
+                    }
+                },
+            )
+            .expect("pose des personnages");
+        app
+    }
+
+    fn enemies(app: &mut App) -> usize {
+        let world = app.world_mut();
+        world
+            .query_filtered::<(), With<Enemy>>()
+            .iter(world)
+            .count()
+    }
+
+    /// Onze props (plus que le plafond de dix) ne bloquent pas le spawner : il fait apparaître un `grunt` par frame.
+    #[test]
+    fn props_beyond_the_cap_do_not_stop_the_spawner() {
+        let mut app = app_with("prop", GLOBAL_CAP + 1);
+        assert_eq!(enemies(&mut app), 0, "un prop n'est pas un `Enemy`");
+        for expected in 1..=3 {
+            app.update();
+            assert_eq!(enemies(&mut app), expected, "un `grunt` par frame");
+        }
+    }
+
+    /// Témoin : onze personnages ordinaires (des `Enemy`) au même endroit atteignent le plafond, le spawner se tait.
+    #[test]
+    fn the_same_count_of_ordinary_enemies_stops_the_spawner() {
+        let mut app = app_with("grunt", GLOBAL_CAP + 1);
+        assert_eq!(enemies(&mut app), GLOBAL_CAP + 1);
+        for _ in 0..3 {
+            app.update();
+        }
+        assert_eq!(
+            enemies(&mut app),
+            GLOBAL_CAP + 1,
+            "plafond atteint : aucun ennemi de plus"
+        );
+    }
+}
