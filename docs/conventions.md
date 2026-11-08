@@ -8621,6 +8621,20 @@ types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la 
   marche 112,5 → 56,25 → 28,125), `geste_dash_recharge` (dash sur la fin du rechargement : plein à la même frame),
   `geste_dash_epaule` (le dash annule le coup), `geste_etourdi_epaule` (l'étourdissement aussi), `geste_clic_perdu` (détente tenue : un seul coup), généré `weapon_arme_a_gestes`.
   La pose `shoulder` de la présentation suit `raise_ends` (D199 fermée).
+- **Tir d'une arme à geste sans visée** (P-1b, `docs/taches/rapports/p-1b-tir-geste.md`) : une balle d'arme à geste (`gesture: Some`) ne part
+  **jamais** à direction nulle. Direction au départ : la visée de la frame du départ si elle n'est pas nulle ; sinon la **dernière visée
+  non nulle vue pendant l'épaulé** (`WeaponState::raise_aim`, `(pan_x, pan_y)`, posée au début de l'épaulé et rafraîchie à chaque frame
+  d'épaulé visée, prise par la balle puis effacée ; effacée aussi quand un dash, une course, une mêlée, un étourdissement, un gel ou la
+  mise à terre annulent l'épaulé) ; sinon le **regard** du porteur (`facing_to_fixed`, huit directions : sans visée ni touche, la droite).
+  Le banc (`armes.js`, `partir()`) tire vers le point visé par la souris à l'instant du départ et, si ce point est à moins de 0,6 m de la
+  bouche, vers `J.visee`, le dernier cap visé : la visée ne se « relâche » pas au banc, la sienne est toujours la dernière, d'où la
+  dernière visée de l'épaulé plutôt que celle de son premier instant. Dans ce repli, la rotation de l'arme (déduite du `pan` nul de la
+  frame par `system_weapon_position`, donc sans sens) est remplacée par celle de la balle, pour la bouche du canon et le côté du regard
+  (`FacingDirection::from_fixed_vector`). Une arme sans `gesture:` ne change pas. `raise_aim` est **haché** (`3u8`, `x`, `y`) et affiché
+  seulement s'il est posé : un état sans lui garde son hash d'avant (test `raise_aim_absent_ne_change_ni_hash_ni_debug`) ; mais il est
+  posé à chaque épaulé visé : les traces des scénarios à geste bougent sur les neuf frames d'épaulé (et là seulement), **rebénies** (neuf
+  fichiers, motif dans le commit, aucune autre trace). Scénarios `geste_visee_relachee` (visée à gauche relâchée avant la fin : la balle
+  part à gauche et touche) et `geste_sans_visee_regard` (jamais de visée : la balle part à droite et touche), traces neuves.
 - **Zone touchée** (`CharacterConfig::hurtbox: Some(ColliderConfig)`, composant statique `combat::collider::Hurtbox`, non rollback comme
   `Tags`) : la forme que les **balles** (`bullet_rollback_collision_system`, `projectile_collision_system`) et les **coups de mêlée**
   (`melee_hitbox_collision_system`) testent à la place de `Collider`, qui reste celle des murs, des poussées et du pas. Doit tenir

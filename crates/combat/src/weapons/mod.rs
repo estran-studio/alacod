@@ -635,6 +635,10 @@ pub struct WeaponState {
     /// P-1 (`WeaponGesture::fire_frames`) : frame où finit le geste de tir lancé par la dernière
     /// balle ; le rechargement automatique part à cette frame. `None` : pas de geste en cours.
     pub gesture_ends: Option<u32>,
+    /// P-1b (§110) : dernière visée non nulle (`pan_x`, `pan_y`) vue pendant l'épaulé, retenue pour
+    /// la balle qui part à sa fin si l'input de cette frame n'a plus de visée. `None` : aucune
+    /// visée pendant l'épaulé, ou pas d'épaulé en cours.
+    pub raise_aim: Option<(i16, i16)>,
 }
 
 /// Hash et Debug manuels (P-1) : les champs de geste n'y entrent que s'ils sont actifs, donc une
@@ -652,6 +656,11 @@ impl std::hash::Hash for WeaponState {
             2u8.hash(state);
             frame.hash(state);
         }
+        if let Some((x, y)) = self.raise_aim {
+            3u8.hash(state);
+            x.hash(state);
+            y.hash(state);
+        }
     }
 }
 
@@ -667,6 +676,9 @@ impl fmt::Debug for WeaponState {
         if self.gesture_ends.is_some() {
             d.field("gesture_ends", &self.gesture_ends);
         }
+        if self.raise_aim.is_some() {
+            d.field("raise_aim", &self.raise_aim);
+        }
         d.finish()
     }
 }
@@ -676,6 +688,20 @@ impl WeaponState {
     pub fn in_gesture(&self) -> bool {
         self.raise_ends.is_some() || self.gesture_ends.is_some()
     }
+}
+
+/// P-1b (§110) : direction d'une balle d'arme à geste dont l'input, à la frame du départ, n'a plus de
+/// visée. Dans l'ordre : la visée retenue au début de l'épaulé, puis le regard du porteur (huit
+/// directions, jamais nul). Pure, en `Fixed` : la balle ne part jamais à vitesse nulle.
+fn gesture_fallback_aim(
+    mode: AimMode,
+    retained: Option<(i16, i16)>,
+    facing: FacingDirection,
+) -> fixed_math::FixedVec2 {
+    retained
+        .map(|(x, y)| aim_direction(mode, x, y))
+        .filter(|dir| *dir != fixed_math::FixedVec2::ZERO)
+        .unwrap_or_else(|| melee::facing_to_fixed(facing))
 }
 
 #[derive(Event)]
@@ -1507,6 +1533,7 @@ pub fn weapon_rollback_system(
         {
             if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
                 weapon_state.raise_ends = None;
+                weapon_state.raise_aim = None;
             }
         }
 
@@ -1634,6 +1661,11 @@ pub fn weapon_rollback_system(
                 let busy = weapon_state.gesture_ends.is_some()
                     || weapon_state.raise_ends.is_some_and(|end| frame.frame < end);
                 if busy {
+                    // P-1b : la visée retenue suit la dernière visée non nulle de l'épaulé (le
+                    // banc garde le dernier point visé quand la visée se relâche).
+                    if weapon_state.raise_ends.is_some() && (input.pan_x != 0 || input.pan_y != 0) {
+                        weapon_state.raise_aim = Some((input.pan_x, input.pan_y));
+                    }
                     if input.fire {
                         weapon_state.is_firing = true;
                     }
@@ -1776,6 +1808,7 @@ pub fn weapon_rollback_system(
                 // P-1 : épaulé (`WeaponGesture::raise_frames`). Un appui accepté lance l'épaulé sans
                 // tirer ; le garde plus haut ne laisse passer que la frame où il finit : la balle part.
                 let mut can_fire = can_fire;
+                let mut retained_aim = None;
                 let raise = gesture.filter(|g| {
                     g.raise_frames > 0
                         && !matches!(weapon_config.firing_mode, FiringMode::Burst { .. })
@@ -1783,8 +1816,11 @@ pub fn weapon_rollback_system(
                 if let Some(g) = raise {
                     if weapon_state.raise_ends.take().is_some() {
                         can_fire = true;
+                        retained_aim = weapon_state.raise_aim.take();
                     } else if can_fire {
                         weapon_state.raise_ends = Some(frame.frame + g.raise_frames);
+                        weapon_state.raise_aim = (input.pan_x != 0 || input.pan_y != 0)
+                            .then_some((input.pan_x, input.pan_y));
                         can_fire = false;
                     }
                 }
@@ -1811,11 +1847,28 @@ pub fn weapon_rollback_system(
                             speed: stats.get(shooter, &StatId::ShotSpeed, fixed_math::FIXED_ONE),
                             size: stats.get(shooter, &StatId::ShotSize, fixed_math::FIXED_ONE),
                         };
-                        let aim_dir = aim_direction(
-                            aim_mode.copied().unwrap_or_default(),
-                            input.pan_x,
-                            input.pan_y,
-                        );
+                        let aim_mode = aim_mode.copied().unwrap_or_default();
+                        let mut aim_dir = aim_direction(aim_mode, input.pan_x, input.pan_y);
+                        // P-1b : une balle d'arme à geste ne part jamais à direction nulle (visée
+                        // relâchée ou absente à la frame du départ) : dernière visée retenue
+                        // pendant l'épaulé, sinon direction du regard. La rotation de l'arme
+                        // (déduite du `pan` nul de cette frame, donc sans sens) cède alors la
+                        // place à celle de la balle, pour la bouche du canon et le côté du regard.
+                        let fallback_aim =
+                            gesture.is_some() && aim_dir == fixed_math::FixedVec2::ZERO;
+                        let fallback_pose;
+                        let (weapon_transform, facing_direction) = if fallback_aim {
+                            aim_dir =
+                                gesture_fallback_aim(aim_mode, retained_aim, *facing_direction);
+                            let mut muzzle = weapon_transform.clone();
+                            muzzle.rotation = fixed_math::FixedMat3::from_rotation_z(
+                                fixed_math::atan2_fixed(aim_dir.y, aim_dir.x),
+                            );
+                            fallback_pose = (muzzle, FacingDirection::from_fixed_vector(aim_dir));
+                            (&fallback_pose.0, &fallback_pose.1)
+                        } else {
+                            (weapon_transform, facing_direction)
+                        };
                         // Projectile composable du mode de tir (T1.1), cloné par balle. M3-T1
                         // (§66) : les `projectile` des objets et synergies du tireur s'y
                         // composent ; sans objet qui ajoute quelque chose, chemin d'origine.
@@ -2681,5 +2734,83 @@ mod tear_tests {
         let (fast, strong) = tear_motion(&standard(), east, shot(2.0), fx(1.5));
         assert_eq!(fast.x, velocity.x * fixed_math::Fixed::from_num(2));
         assert_eq!(strong, fx(15.0));
+    }
+}
+
+#[cfg(test)]
+mod gesture_aim_tests {
+    use super::*;
+    use bevy_fixed::fixed_math::{new as fx, FixedVec2};
+
+    /// La visée retenue passe avant le regard ; sans elle (ou si elle est trop faible pour donner une
+    /// direction), le regard ; jamais une direction nulle.
+    #[test]
+    fn repli_visee_retenue_puis_regard() {
+        let north = FixedVec2::new(fx(0.0), fx(1.0));
+        assert_eq!(
+            gesture_fallback_aim(AimMode::Free, Some((0, 127)), FacingDirection::Left),
+            north
+        );
+        assert_eq!(
+            gesture_fallback_aim(AimMode::Free, None, FacingDirection::Left),
+            FixedVec2::new(fx(-1.0), fx(0.0))
+        );
+        for facing in [
+            FacingDirection::Right,
+            FacingDirection::UpRight,
+            FacingDirection::Up,
+            FacingDirection::UpLeft,
+            FacingDirection::Left,
+            FacingDirection::DownLeft,
+            FacingDirection::Down,
+            FacingDirection::DownRight,
+        ] {
+            assert_ne!(
+                gesture_fallback_aim(AimMode::Free, Some((0, 0)), facing),
+                FixedVec2::ZERO,
+                "{facing:?}"
+            );
+        }
+    }
+
+    /// La visée retenue suit le mode de visée du porteur (quatre directions : l'axe dominant).
+    #[test]
+    fn repli_respecte_le_mode_de_visee() {
+        assert_eq!(
+            gesture_fallback_aim(AimMode::FourWay, Some((40, -90)), FacingDirection::Left),
+            FixedVec2::new(fx(0.0), fx(-1.0))
+        );
+    }
+
+    /// L'état d'arme ne hache et n'affiche `raise_aim` que s'il est posé : un état sans lui garde le
+    /// hash et le `Debug` d'avant (aucune trace existante ne bouge).
+    #[test]
+    fn raise_aim_absent_ne_change_ni_hash_ni_debug() {
+        use std::hash::{Hash, Hasher};
+        fn hash_of(state: &WeaponState) -> u64 {
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            state.hash(&mut h);
+            h.finish()
+        }
+        let base = WeaponState {
+            last_fire_frame: 7,
+            raise_ends: Some(12),
+            ..default()
+        };
+        let mut manual = std::collections::hash_map::DefaultHasher::new();
+        base.last_fire_frame.hash(&mut manual);
+        base.is_firing.hash(&mut manual);
+        base.active_mode.hash(&mut manual);
+        1u8.hash(&mut manual);
+        12u32.hash(&mut manual);
+        assert_eq!(hash_of(&base), manual.finish());
+        assert!(!format!("{base:?}").contains("raise_aim"));
+
+        let aimed = WeaponState {
+            raise_aim: Some((0, 100)),
+            ..base.clone()
+        };
+        assert_ne!(hash_of(&aimed), hash_of(&base));
+        assert!(format!("{aimed:?}").contains("raise_aim: Some((0, 100))"));
     }
 }

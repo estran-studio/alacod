@@ -1,0 +1,23 @@
+// P-1b (docs/conventions.md §110, testbed) : une balle d'arme à geste ne part jamais à direction nulle. Épaulé visé
+// vers la gauche (appui f25), visée relâchée (pan nul) avant la fin de l'épaulé : la balle part (f34) vers la
+// dernière visée retenue, pas vers le regard (la droite, sans visée) ni à vitesse nulle, et touche la cible de gauche.
+// Témoin `geste_sans_visee_regard` : jamais de visée, la balle part vers le regard.
+//
+// À regarder : le joueur épaule vers la gauche, relâche la visée, la balle part quand même vers la gauche et touche.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    characters: [(character: "cible_zone", x: "330.0", y: "706.0", at_frame: 1)],
+    players: [
+        (weapon: "arme_a_gestes", inputs: [
+            (from: 25, to: 26, buttons: [Fire], pan: (-100, 0)),
+            (from: 26, to: 28, buttons: [], pan: (-100, 0)),
+            (from: 28, to: 120, buttons: [], pan: (0, 0)),
+        ]),
+    ],
+    expect: [
+        EntityHits(net_id: 33, min: 1, max: Some(1), at_frame: 120),
+    ],
+)
