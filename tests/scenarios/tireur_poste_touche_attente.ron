@@ -1,0 +1,27 @@
+// P-1 (testbed, docs/conventions.md §110, revue du coordinateur P2) : un coup reçu pendant le départ décalé ne le raccourcit pas.
+// `tireur_poste_attente` (`first_wait` 200 : première salve vers f201) est touché vers f43 (appui f28) ; sa stupeur (20 frames) et son
+// attente tirée (5) finissent vers f70 : si le coup remplaçait l'attente due, il tirerait dès f70 + le télégraphe (une flèche vers f110) ;
+// il garde l'attente de 200 frames : aucune flèche avant f200.
+//
+// À regarder : le joueur tire une fois sur le tireur 80 px plus bas ; le tireur ne tire plus avant f200 environ.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    characters: [(character: "tireur_poste_attente", x: "424.0", y: "616.0", at_frame: 1)],
+    players: [
+        (inputs: [
+            (from: 28, to: 29, buttons: [Fire], pan: (0, -100)),
+            (from: 29, to: 200, buttons: [], pan: (0, -100)),
+        ]),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 80),
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 100),
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 110),
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 120),
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 150),
+        Health(handle: 0, min: Some(100.0), at_frame: 190),
+    ],
+)

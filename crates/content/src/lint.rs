@@ -468,6 +468,46 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
 
+        // P-1 (§110) : cycle du tireur posté (`ai.ranged_cycle`).
+        if let Some(cycle) = &character.ranged_cycle {
+            let mut refuse = |kind, message: String| {
+                errors.push(LintError {
+                    kind,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : ai.ranged_cycle : {message}",
+                        character.id
+                    ),
+                });
+            };
+            if let Some((min, max)) = cycle.wait_frames {
+                if min > max {
+                    refuse(
+                        LintErrorKind::OutOfRange,
+                        format!("wait_frames = ({min}, {max}) : il faut min <= max"),
+                    );
+                }
+            }
+            if cycle.recoil_frames == Some(0) {
+                refuse(
+                    LintErrorKind::OutOfRange,
+                    "recoil.frames = 0 : doit être > 0".into(),
+                );
+            }
+            // Le cycle règle les séquences d'une règle `Shoot` : sans elle il ne fait rien.
+            let has_shoot = character.behaviors.as_ref().is_some_and(|behaviors| {
+                behaviors
+                    .iter()
+                    .any(|behavior| matches!(behavior, registry::BehaviorEntry::Shoot { .. }))
+            });
+            if !has_shoot {
+                refuse(
+                    LintErrorKind::BrokenReference,
+                    "aucune règle Shoot dans ai.behaviors : le cycle n'a rien à régler".into(),
+                );
+            }
+        }
+
         // P-1 (§110) : la zone touchée tient dans le collider.
         if character.hurtbox_outside_collider {
             errors.push(LintError {
