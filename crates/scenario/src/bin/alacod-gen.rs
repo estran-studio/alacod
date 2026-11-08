@@ -14,6 +14,8 @@
 //! - `--only <id>[,<id>]` : ne génère et ne joue que ces sujets (`amulette` ou `item_amulette`) ;
 //!   rien n'est supprimé. `--list` : liste les sujets sans rien écrire.
 //! - `--no-trace` : ne compare ni n'écrit aucune trace (seules les attentes comptent).
+//! - `--written` : inclut aussi `<jeu>/tests/scenarios/*.ron` (T-1, `alacod test`).
+//!   Leurs traces sont obligatoires, même avec `--no-trace` (réservé aux générés).
 //! - `--out <dossier>` : où écrire scénarios et traces (défaut : `tests/scenarios/generated/<jeu>`
 //!   de l'engine ; pour un jeu hors de l'engine, `<jeu>/tests/generated`).
 //! - `--json` : un tableau JSON des résultats sur stdout au lieu du tableau texte.
@@ -41,6 +43,7 @@ fn main() {
     let bless = args.iter().any(|a| a == "--bless");
     let no_trace = args.iter().any(|a| a == "--no-trace");
     let json = args.iter().any(|a| a == "--json");
+    let include_written = args.iter().any(|a| a == "--written");
     let list = args.iter().any(|a| a == "--list");
     let only: Option<Vec<String>> =
         option_value(&args, "--only").map(|v| v.split(',').map(str::to_string).collect());
@@ -89,13 +92,44 @@ fn main() {
         std::env::set_var("ALACOD_GAME_DIR", absolute);
     }
 
-    let mut generated = generate::generate_game(&game_dir).unwrap_or_else(|e| {
-        panic!("alacod-gen : {} : {e}", game_dir.display());
+    let mut written = if include_written {
+        written_scenarios(&game_dir).unwrap_or_else(|error| {
+            eprintln!("alacod-gen : {error}");
+            std::process::exit(1);
+        })
+    } else {
+        Vec::new()
+    };
+    // L'id qualifié d'un scénario écrit ne dépend pas de la génération du contenu.
+    let only_written = only.as_ref().is_some_and(|ids| {
+        ids.iter()
+            .all(|id| written.iter().any(|path| id == &written_id(path)))
     });
+    let mut generation_ok = true;
+    let mut generated = if only_written {
+        Vec::new()
+    } else {
+        match generate::generate_game(&game_dir) {
+            Ok(generated) => generated,
+            Err(error) if include_written => {
+                eprintln!("alacod-gen : {} : {error}", game_dir.display());
+                generation_ok = false;
+                Vec::new()
+            }
+            Err(error) => panic!("alacod-gen : {} : {error}", game_dir.display()),
+        }
+    };
 
     if list {
         for g in &generated {
             println!("{}\t{}", g.file_name.trim_end_matches(".ron"), g.subject_id);
+        }
+        for path in &written {
+            let id = written_id(path);
+            println!("{id}\t{id}");
+        }
+        if !generation_ok {
+            std::process::exit(1);
         }
         return;
     }
@@ -103,9 +137,15 @@ fn main() {
         let stem = |g: &GeneratedScenario| g.file_name.trim_end_matches(".ron").to_string();
         let wanted =
             |g: &GeneratedScenario| only.iter().any(|o| *o == stem(g) || *o == g.subject_id);
-        let known: Vec<String> = generated.iter().map(stem).collect();
+        let mut known: Vec<String> = generated.iter().map(stem).collect();
+        known.extend(written.iter().map(|path| written_id(path)));
         generated.retain(|g| wanted(g));
-        if generated.is_empty() {
+        written.retain(|path| {
+            let id = written_id(path);
+            only.iter()
+                .any(|o| o == &id || Some(o.as_str()) == path.file_stem().and_then(|s| s.to_str()))
+        });
+        if generated.is_empty() && written.is_empty() {
             eprintln!(
                 "alacod-gen : aucun sujet « {} » (disponibles : {})",
                 only.join(", "),
@@ -139,7 +179,7 @@ fn main() {
             .unwrap_or_else(|e| panic!("alacod-gen : écriture de {} : {e}", path.display()));
         keep.insert(g.file_name.clone());
     }
-    if only.is_none() {
+    if only.is_none() && generation_ok {
         remove_stale(&out_dir, &keep);
     }
 
@@ -177,22 +217,81 @@ fn main() {
         return;
     }
 
-    let all_ok = run_and_report(&generated, &out_dir, bless, no_trace, json);
-    if !all_ok {
+    let written: Vec<_> = written
+        .into_iter()
+        .map(|path| {
+            let source = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+                eprintln!("alacod-gen : {} : {error}", path.display());
+                std::process::exit(1);
+            });
+            let scenario = scenario::Scenario::from_ron(&source).unwrap_or_else(|error| {
+                eprintln!("alacod-gen : {} : RON invalide : {error}", path.display());
+                std::process::exit(1);
+            });
+            (path, scenario)
+        })
+        .collect();
+    let cases = generated
+        .iter()
+        .map(|g| RunCase {
+            id: g.file_name.trim_end_matches(".ron").to_string(),
+            subject: &g.subject_id,
+            scenario: &g.scenario,
+            trace_path: out_dir.join(&g.file_name).with_extension("trace"),
+            compare_trace: !no_trace,
+        })
+        .chain(written.iter().map(|(path, scenario)| RunCase {
+            id: written_id(path),
+            subject: path.file_stem().and_then(|s| s.to_str()).expect("nom RON"),
+            scenario,
+            trace_path: path.with_extension("trace"),
+            compare_trace: true,
+        }));
+    let all_ok = run_and_report(cases, bless, json);
+    if !all_ok || !generation_ok {
         std::process::exit(1);
     }
 }
 
-/// Joue chaque scénario généré, affiche le tableau de résultats, blesse ou compare la trace.
-/// Retourne `true` si tout est vert (aucune attente échouée, aucune trace différente/absente
-/// hors `--bless`).
-fn run_and_report(
-    generated: &[GeneratedScenario],
-    out_dir: &Path,
-    bless: bool,
-    no_trace: bool,
-    json: bool,
-) -> bool {
+/// Scénarios écrits uniquement à la racine du dossier dédié ; jamais réécrits ou supprimés
+/// par la génération. Le RON n'est lu qu'après sélection par id.
+fn written_scenarios(game_dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let dir = game_dir.join("tests/scenarios");
+    let entries = match std::fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(format!("{} : {error}", dir.display())),
+    };
+    let mut paths = Vec::new();
+    for entry in entries {
+        let path = entry
+            .map_err(|error| format!("{} : {error}", dir.display()))?
+            .path();
+        if path.extension().is_some_and(|ext| ext == "ron") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+    Ok(paths)
+}
+
+fn written_id(path: &Path) -> String {
+    format!(
+        "scenarios/{}",
+        path.file_stem().expect("nom RON").to_string_lossy()
+    )
+}
+
+struct RunCase<'a> {
+    id: String,
+    subject: &'a str,
+    scenario: &'a scenario::Scenario,
+    trace_path: PathBuf,
+    compare_trace: bool,
+}
+
+/// Même `scenario::run` que le harnais de l'engine : attentes, invariants, fin atteinte.
+fn run_and_report<'a>(cases: impl Iterator<Item = RunCase<'a>>, bless: bool, json: bool) -> bool {
     let mut results: Vec<serde_json::Value> = Vec::new();
     if !json {
         println!(
@@ -201,14 +300,14 @@ fn run_and_report(
         );
     }
     let mut all_ok = true;
-    for g in generated {
-        let outcome = scenario::run(&g.scenario);
+    for case in cases {
+        let outcome = scenario::run(case.scenario);
         let expect_ok = outcome.failures.is_empty();
         all_ok &= expect_ok;
 
-        let trace_path = out_dir.join(&g.file_name).with_extension("trace");
+        let trace_path = &case.trace_path;
         let trace_text = outcome.trace.join("\n") + "\n";
-        let trace_status = if no_trace {
+        let trace_status = if !case.compare_trace {
             "ignorée"
         } else if bless {
             std::fs::write(&trace_path, &trace_text).unwrap_or_else(|e| {
@@ -231,11 +330,13 @@ fn run_and_report(
 
         if json {
             results.push(serde_json::json!({
-                "scenario": g.file_name.trim_end_matches(".ron"),
-                "subject": g.subject_id,
+                "scenario": case.id,
+                "subject": case.subject,
+                "ok": expect_ok && matches!(trace_status, "ok" | "blessée" | "ignorée"),
+                "trace_compared": matches!(trace_status, "ok" | "différente"),
                 "frames": outcome.metrics.frames,
                 "hits": outcome.entity_hits.values().sum::<u32>(),
-                "expectations": g.scenario.expect.len(),
+                "expectations": case.scenario.expect.len(),
                 "expectations_ok": expect_ok,
                 "failures": outcome.failures.iter().map(|f| f.to_string()).collect::<Vec<_>>(),
                 "trace": trace_status,
@@ -244,7 +345,7 @@ fn run_and_report(
         }
         println!(
             "{:<20} {:>7} {:>7}  {:<8}  {}",
-            g.file_name.trim_end_matches(".ron"),
+            case.id,
             outcome.metrics.frames,
             outcome.entity_hits.values().sum::<u32>(),
             if expect_ok { "ok" } else { "échec" },

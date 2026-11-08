@@ -498,6 +498,133 @@ fn test_command_plays_generated_scenarios_of_a_game_outside_the_engine() {
     assert!(text(&out.stderr).contains("aucun sujet"));
 }
 
+#[test]
+#[ignore = "joue un jeu externe à deux : make test_alacod_external"]
+fn test_command_compares_written_external_two_player_scenarios() {
+    let tmp = Tmp::new("written");
+    assert!(new_game(&tmp, "demo", &[]).status.success());
+    let game = tmp.0.join("demo");
+    let scenarios = game.join("tests/scenarios");
+    std::fs::create_dir_all(&scenarios).unwrap();
+    let path = scenarios.join("duo.ron");
+    let source = r#"Scenario(
+        game: "demo",
+        map: "maps/arena.ldtk",
+        frames: 90,
+        players: [
+            (inputs: [(from: 1, to: 30, buttons: [], pan: (100, 0))]),
+            (inputs: [(from: 1, to: 30, buttons: [], pan: (-100, 0))]),
+        ],
+        expect: [
+            PlayerAlive(handle: 0, at_frame: 60),
+            PlayerAlive(handle: 1, at_frame: 60),
+        ],
+    )"#;
+    std::fs::write(&path, source).unwrap();
+    let play = |extra: &[&str]| {
+        let mut cmd = alacod();
+        cmd.args(["test"])
+            .arg(&game)
+            .args(["scenarios/duo"])
+            .args(extra);
+        let out = run(cmd);
+        eprintln!(
+            "alacod test scenarios/duo {extra:?} => {}\n{}{}",
+            out.status,
+            text(&out.stdout),
+            text(&out.stderr)
+        );
+        out
+    };
+    let missing = play(&[]);
+    assert_eq!(missing.status.code(), Some(1));
+    assert!(
+        text(&missing.stdout).contains("trace manquante"),
+        "{}",
+        text(&missing.stdout)
+    );
+    let blessed = play(&["--bless"]);
+    assert!(blessed.status.success(), "{}", text(&blessed.stderr));
+    let trace = path.with_extension("trace");
+    let golden = std::fs::read_to_string(&trace).unwrap();
+    let replay = play(&[]);
+    assert!(replay.status.success(), "{}", text(&replay.stdout));
+    assert!(
+        text(&replay.stdout).contains("1 scénario(s) joué(s), 1 trace(s) comparée(s), 0 échec(s)")
+    );
+    let mut cmd = alacod();
+    cmd.args(["test"]).arg(&game).arg("--json");
+    let all = run(cmd);
+    assert!(
+        all.status.success(),
+        "{}{}",
+        text(&all.stdout),
+        text(&all.stderr)
+    );
+    let results: Vec<serde_json::Value> = serde_json::from_slice(&all.stdout).unwrap();
+    let authored = results
+        .iter()
+        .find(|r| r["scenario"] == "scenarios/duo")
+        .unwrap();
+    assert_eq!(authored["expectations"], 2);
+    assert_eq!(authored["expectations_ok"], true);
+    assert_eq!(authored["trace"], "ok");
+    assert_eq!(authored["trace_compared"], true);
+    assert!(results
+        .iter()
+        .filter(|r| r["scenario"] != "scenarios/duo")
+        .all(|r| r["trace"] == "ignorée"));
+    std::fs::write(&trace, "trace altérée\n").unwrap();
+    let different = play(&[]);
+    assert_eq!(different.status.code(), Some(1));
+    assert!(text(&different.stdout).contains("trace différente"));
+    // Une trace correcte ne cache pas une attente échouée ; --bless n'est pas un passe-droit.
+    std::fs::write(&trace, &golden).unwrap();
+    std::fs::write(
+        &path,
+        source.replace("PlayerAlive(handle: 1", "PlayerDead(handle: 1"),
+    )
+    .unwrap();
+    let failed = play(&["--bless"]);
+    assert_eq!(failed.status.code(), Some(1));
+    assert!(text(&failed.stdout).contains("PlayerDead"));
+    // Un générateur sans cible ne doit ni bloquer un id écrit, ni effacer les générés.
+    std::fs::write(&path, source).unwrap();
+    let generated_id = results
+        .iter()
+        .find(|r| r["scenario"] != "scenarios/duo")
+        .unwrap()["scenario"]
+        .as_str()
+        .unwrap();
+    let generated_path = game
+        .join("tests/generated")
+        .join(format!("{generated_id}.ron"));
+    let generated_source = std::fs::read_to_string(&generated_path).unwrap();
+    let manifest = game.join("assets/game.ron");
+    let manifest_source = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(
+        &manifest,
+        manifest_source.replace(
+            "generate_template: (map: \"maps/arena.ldtk\"",
+            "generate_template: (map: \"maps/arene_vide.ldtk\"",
+        ),
+    )
+    .unwrap();
+    assert!(play(&["--bless"]).status.success());
+    let mut cmd = alacod();
+    cmd.args(["test"]).arg(&game);
+    let generation_failed = run(cmd);
+    assert_eq!(generation_failed.status.code(), Some(1));
+    assert!(text(&generation_failed.stdout).contains("trace ok"));
+    assert!(text(&generation_failed.stdout)
+        .contains("1 scénario(s) joué(s), 1 trace(s) comparée(s), 1 échec(s)"));
+    assert!(text(&generation_failed.stderr).contains("alacod-gen"));
+    assert_eq!(
+        std::fs::read_to_string(generated_path).unwrap(),
+        generated_source
+    );
+}
+
 /// Remplace la première valeur de `damage: "…"` de `text` par `"0.0"`.
 fn regex_free_replace_damage(text: &str) -> String {
     let key = "damage: \"";

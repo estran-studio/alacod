@@ -161,13 +161,20 @@ perf_generation:
 test_alacod_cli:
 	APP_VERSION=$(TEST_VERSION) cargo test -p content --test cli --profile headless -- --ignored --nocapture --skip new_game_builds_for_the_web
 
+# T-1 : preuve ciblée des scénarios écrits d'un jeu externe, sans construire son rendu.
+# Lance le harnais directement après compilation : aucun cargo parent pendant `alacod test`.
+test_alacod_external:
+	@set -eo pipefail; test=$$(APP_VERSION=$(TEST_VERSION) cargo test -p content --test cli --profile headless --no-run --message-format=json | \
+		python3 -c 'import json,sys; artifacts=[json.loads(line) for line in sys.stdin]; paths=[a["executable"] for a in artifacts if a.get("reason") == "compiler-artifact" and a.get("executable") and a["target"]["name"] == "cli"]; assert len(paths) == 1, paths; print(paths[0])'); \
+		APP_VERSION=$(TEST_VERSION) "$$test" --ignored --nocapture --exact test_command_compares_written_external_two_player_scenarios
+
 # `alacod build --web` de bout en bout (M-1, conventions § 108) : crée un jeu hors de l'engine, le compile en
 # wasm32 (cible `wasm32-unknown-unknown`, `wasm-bindgen` du Cargo.lock installé au besoin dans le target du jeu),
 # vérifie wasm, JS, assets, page et serveur local. Aucun navigateur. ≈ 20 min à froid.
 test_alacod_web:
 	APP_VERSION=$(TEST_VERSION) cargo test -p content --test cli --profile headless -- --ignored --nocapture new_game_builds_for_the_web
 
-.PHONY: test_crates test_tools test_alacod_cli test_alacod_web perf_review perf_generation sweep
+.PHONY: test_crates test_tools test_alacod_cli test_alacod_external test_alacod_web perf_review perf_generation sweep
 
 # Purge du target (scripts/target-sweep.sh) : incremental/ et générations périmées des crates du
 # workspace. À lancer entre deux commandes cargo. SWEEP=1 sur test_scenarios la lance à la fin.

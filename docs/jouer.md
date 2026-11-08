@@ -73,6 +73,24 @@ alacod remote restart                       # « reset » : joueur recréé, pro
 `restart` rejoue le profil actif : ce que tu as donné (`give`, `modifier`) ou fait apparaître (`spawn`) disparaît. Modifie le RON d'un profil, puis `alacod remote reload && alacod remote restart`.
 Limites : local seulement (une session en ligne est refusée au lancement), `give` n'est pas enregistré dans un scénario (`save`).
 
+## Tester les scénarios écrits d'un jeu externe
+
+```bash
+alacod test /chemin/mon-jeu --engine /chemin/alacod
+alacod test /chemin/mon-jeu scenarios/duo --engine /chemin/alacod
+# Seulement pour créer une référence ou accepter un changement voulu :
+alacod test /chemin/mon-jeu scenarios/duo --bless --engine /chemin/alacod
+```
+
+Placer le scénario dans `mon-jeu/tests/scenarios/duo.ron` (`game` = nom du manifeste,
+`map` relatif aux assets, un script par joueur dans `players`). Le runner vérifie les
+attentes et compare `duo.trace` à côté : trace manquante/différente, attente échouée ou
+fin non atteinte donnent **code 1**. Le résultat distingue attentes et trace ; le résumé
+compte scénarios joués et traces comparées. Sans filtre, les générés sont joués aussi
+(leurs traces restent ignorées par défaut). `--list` donne les ids ; `--json` donne les
+verdicts structurés. Un id écrit qualifié (`scenarios/duo`) ne dépend pas du générateur.
+Preuve outillage : `make test_alacod_external` ; détails : conventions §114.
+
 ## En ligne à deux
 
 Il faut Docker (ou OrbStack) sur **une** des deux machines, appelée A ci-dessous (celle dont l'adresse IP est connue de
