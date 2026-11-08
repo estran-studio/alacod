@@ -688,3 +688,79 @@ mod shoot_pose_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use crate::character::config::CharacterConfig;
+    use animation::SpriteSheetConfig;
+
+    /// RON minimal d'un personnage immobile ; `prop` le règle (le même fichier sert au prop et au témoin).
+    fn config(prop: bool) -> CharacterConfig {
+        ron::de::from_str(&format!(
+            r#"(
+                movement: (acceleration: "0.0", max_speed: "0.0", sprint_multiplier: "1.0",
+                    sprint_acceleration_per_frame: "0.0", sprint_deceleration_per_frame: "0.0",
+                    dash_distance: "0.0", dash_duration_frames: 0, dash_cooldown_frames: 0),
+                asset_name_ref: "neutre",
+                collider: (shape: Rectangle(width: "20.", height: "20."), offset: (x: "0.0", y: "0.0", z: "0.0")),
+                scale: "1.0",
+                base_health: (max: "200.0"),
+                starting_skin: "1",
+                skins: {{"1": (layers: {{}})}},
+                prop: {prop},
+            )"#
+        ))
+        .expect("RON de personnage minimal")
+    }
+
+    /// M-1b (§112) : la présentation ne dessine aucune barre de vie à un prop, et en dessine une à son témoin
+    /// (même fichier, `prop` seul diffère) : la barre dépend du champ, pas d'un oubli de sprite.
+    #[test]
+    fn a_prop_gets_no_health_bar_but_its_twin_does() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<SpriteSheetConfig>()
+            .init_asset::<AnimationMapConfig>()
+            .init_asset::<TextureAtlasLayout>();
+        let mut configs = CharacterConfigs::default();
+        configs.0.insert("prop".into(), config(true));
+        configs.0.insert("twin".into(), config(false));
+        let mut spritesheets = bevy::platform::collections::hash_map::HashMap::default();
+        let mut animations = bevy::platform::collections::hash_map::HashMap::default();
+        spritesheets.insert("neutre".to_string(), Default::default());
+        animations.insert("neutre".to_string(), Handle::default());
+        app.insert_resource(configs).insert_resource(GlobalAsset {
+            spritesheets,
+            animations,
+            slash_effect_spritesheet: None,
+            slash_effect_animation: None,
+            character_configs: Default::default(),
+            weapons: Handle::default(),
+            melee_weapons: Handle::default(),
+            wave_config: None,
+            economy_config: None,
+            perks_config: None,
+            powerups_config: None,
+        });
+        app.add_systems(Update, attach_character_visuals);
+        let appearance = |name: &str| CharacterAppearance {
+            config_name: name.into(),
+            skin: None,
+            health_bar_color: Color::WHITE,
+        };
+        let prop = app.world_mut().spawn(appearance("prop")).id();
+        let twin = app.world_mut().spawn(appearance("twin")).id();
+        app.update();
+        app.update();
+        let world = app.world_mut();
+        assert!(world.get::<VisualsAttached>(prop).is_some(), "visuels du prop attachés");
+        assert!(world.get::<VisualsAttached>(twin).is_some(), "visuels du témoin attachés");
+        let bar_parents: Vec<Entity> = world
+            .query_filtered::<&ChildOf, With<HealthBar>>()
+            .iter(world)
+            .map(|parent| parent.parent())
+            .collect();
+        assert_eq!(bar_parents, vec![twin], "seul le témoin a une barre de vie");
+    }
+}

@@ -1,0 +1,35 @@
+// M-1b (docs/conventions.md §112) : un `Character` à `prop: true` n'est pas un ennemi. Carte `testbed/rocks_static.ldtk` (couloir nu) ;
+// cinq props neutres (`prop-test` ×3, `wall-test` ×2) et un `dummy` (ennemi ordinaire) placés à f5, le joueur 0 immobile.
+//
+// À regarder : rien ne bouge ; six personnages au sol dont un seul compte comme ennemi (`EntityCount(kind: Enemy)` = 1, le
+// `dummy`) : les cinq props sont hors du compte qui nourrit `max_enemies` du spawner, le HUD `enemies` et la fin de vague.
+// Ils gardent leur santé (200) et leur collider.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 60,
+    characters: [
+        (character: "prop-test", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "270.0", y: "696.0", at_frame: 5),
+        (character: "wall-test", x: "300.0", y: "696.0", at_frame: 5),
+        (character: "wall-test", x: "340.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "370.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "420.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 3),
+        EntityCount(kind: Enemy, min: 1, max: Some(1), at_frame: 20),
+        EntityCount(kind: Enemy, min: 1, max: Some(1), at_frame: 59),
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 59),
+        EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 59),
+        EntityHealth(net_id: 18, min: 200, max: 200, at_frame: 59),
+        EntityHealth(net_id: 19, min: 200, max: 200, at_frame: 59),
+        EntityHealth(net_id: 20, min: 200, max: 200, at_frame: 59),
+        EntityHealth(net_id: 21, min: 200, max: 200, at_frame: 59),
+    ],
+)

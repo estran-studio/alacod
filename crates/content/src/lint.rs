@@ -408,6 +408,30 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
 
+        // M-1b (§112) : un prop est une image inerte, il ne tire pas et n'est pas une cible de scénario.
+        if character.prop {
+            let mut incompatibles = Vec::new();
+            if character.counts_hits {
+                incompatibles.push("counts_hits");
+            }
+            if !character.starting_weapons.is_empty() {
+                incompatibles.push("starting_weapons");
+            }
+            if character.boss.is_some() {
+                incompatibles.push("boss");
+            }
+            for field in incompatibles {
+                errors.push(LintError {
+                    kind: LintErrorKind::Unsupported,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : `prop: true` est incompatible avec `{field}`",
+                        character.id
+                    ),
+                });
+            }
+        }
+
         // Référence : starting_weapons -> WeaponId (T1.5 : les joueurs ne reçoivent plus
         // tout `weapons.ron`, seulement les armes déclarées ici).
         for weapon_id in &character.starting_weapons {
