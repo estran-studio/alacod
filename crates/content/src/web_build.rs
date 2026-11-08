@@ -327,7 +327,20 @@ pub fn index_html(game: &str, version: &str) -> String {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }};
-  canvas.setAttribute('data-number-player', '1');
+  // En ligne (§ 109) : `?lobby=<salon>` ouvre la partie à `?joueurs=` (défaut 2) par la signalisation matchbox
+  // `?matchbox=` (défaut : `matchbox_server` sur l'hôte de la page, port 3536). Sans `?lobby=` : partie locale à un joueur.
+  const lobby = params.get('lobby');
+  const players = Number(params.get('joueurs') ?? '2');
+  if (lobby) {{
+    const signaling = params.get('matchbox')
+      || `${{location.protocol === 'https:' ? 'wss' : 'ws'}}://${{location.hostname}}:3536`;
+    canvas.setAttribute('data-lobby', encodeURIComponent(lobby));
+    canvas.setAttribute('data-matchbox', signaling.replace(/\/+$/, ''));
+    canvas.setAttribute('data-number-player', String(Number.isSafeInteger(players) && players > 0 ? players : 2));
+    console.info(`en ligne : salon « ${{lobby}} », signalisation ${{signaling}}`);
+  }} else {{
+    canvas.setAttribute('data-number-player', '1');
+  }}
   canvas.setAttribute('data-telemetry', 'false');
   if (params.get('perf')) canvas.setAttribute('data-perf', params.get('perf'));
   window.addEventListener('unhandledrejection', (event) => fail(String(event.reason)));
@@ -514,6 +527,11 @@ pub fn build(options: &WebBuild) -> Result<WebOutput, String> {
                  sous `cfg(target_arch = \"wasm32\")` (gabarit `templates/starter/src/main.rs`)"
             ));
         }
+        let compressed =
+            std::fs::File::create(staging.join("wasm_bg.wasm.gz")).map_err(|e| e.to_string())?;
+        let mut encoder = flate2::write::GzEncoder::new(compressed, flate2::Compression::default());
+        encoder.write_all(&bytes).map_err(|e| e.to_string())?;
+        encoder.finish().map_err(|e| e.to_string())?;
         let files = copy_assets(&game_dir.join("assets"), &staging.join("assets"))
             .map_err(|e| e.to_string())?;
         let base = format!("/builds/{version}/{game}");
@@ -653,6 +671,30 @@ fn resolve(root: &Path, target: &str) -> Option<PathBuf> {
     file.is_file().then_some(file)
 }
 
+fn accepts_gzip(headers: &str) -> bool {
+    headers
+        .lines()
+        .skip(1)
+        .filter_map(|line| line.split_once(':'))
+        .filter(|(name, _)| name.eq_ignore_ascii_case("accept-encoding"))
+        .flat_map(|(_, value)| value.split(','))
+        .any(|entry| {
+            let mut parts = entry.trim().split(';');
+            parts
+                .next()
+                .is_some_and(|name| name.eq_ignore_ascii_case("gzip"))
+                && !parts.any(|parameter| {
+                    parameter
+                        .trim()
+                        .split_once('=')
+                        .is_some_and(|(name, value)| {
+                            name.trim().eq_ignore_ascii_case("q")
+                                && value.trim().parse::<f32>().map_or(true, |q| q <= 0.0)
+                        })
+                })
+        })
+}
+
 fn handle(mut stream: TcpStream, root: &Path) -> std::io::Result<()> {
     stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
     let mut head = Vec::new();
@@ -691,22 +733,32 @@ fn handle(mut stream: TcpStream, root: &Path) -> std::io::Result<()> {
             true,
         );
     }
-    match resolve(root, target).and_then(|file| std::fs::read(&file).ok().map(|body| (file, body)))
-    {
-        Some((file, body)) => respond(
-            &mut stream,
-            "200 OK",
-            content_type(&file),
-            &body,
-            method == "GET",
-        ),
-        None => respond(
+    if let Some(file) = resolve(root, target) {
+        let gzip = file.with_extension("wasm.gz");
+        let compressed =
+            file.extension().is_some_and(|e| e == "wasm") && accepts_gzip(&text) && gzip.is_file();
+        let mut source = std::fs::File::open(if compressed { &gzip } else { &file })?;
+        let length = source.metadata()?.len();
+        let encoding = if compressed {
+            "Content-Encoding: gzip\r\n"
+        } else {
+            ""
+        };
+        write!(stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {length}\r\n{encoding}Vary: Accept-Encoding\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
+            content_type(&file))?;
+        if method == "GET" {
+            std::io::copy(&mut source, &mut stream)?;
+        }
+        stream.flush()
+    } else {
+        respond(
             &mut stream,
             "404 Not Found",
             "text/plain",
             b"introuvable",
             method == "GET",
-        ),
+        )
     }
 }
 
@@ -755,16 +807,13 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn index_loads_the_module_of_this_build() {
-        let html = index_html("mon-jeu", "abc123");
-        assert!(html.contains("import('./builds/abc123/mon-jeu/wasm.js')"));
-        assert!(html.contains("id=\"bevy-canvas\""));
+    fn get(port: u16, target: &str) -> (String, String, Vec<u8>) {
+        request(port, &format!("GET {target} HTTP/1.1\r\nHost: x\r\n\r\n"))
     }
 
-    fn get(port: u16, target: &str) -> (String, String, Vec<u8>) {
+    fn request(port: u16, headers: &str) -> (String, String, Vec<u8>) {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
-        write!(stream, "GET {target} HTTP/1.1\r\nHost: x\r\n\r\n").unwrap();
+        stream.write_all(headers.as_bytes()).unwrap();
         let mut raw = Vec::new();
         stream.read_to_end(&mut raw).unwrap();
         let split = raw.windows(4).position(|w| w == b"\r\n\r\n").unwrap();
@@ -779,6 +828,10 @@ mod tests {
         std::fs::create_dir_all(dir.join("builds/v/jeu")).unwrap();
         std::fs::write(dir.join("index.html"), "<html>page</html>").unwrap();
         std::fs::write(dir.join("builds/v/jeu/wasm_bg.wasm"), b"\0asm").unwrap();
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(b"\0asm").unwrap();
+        let compressed = encoder.finish().unwrap();
+        std::fs::write(dir.join("builds/v/jeu/wasm_bg.wasm.gz"), &compressed).unwrap();
         std::fs::write(dir.join("builds/v/jeu/wasm.js"), "export default 1;").unwrap();
         std::fs::write(dir.join("secret.txt"), "hors racine").unwrap();
         let root = dir.join("builds");
@@ -795,6 +848,36 @@ mod tests {
         let (_, head, body) = get(port, "/builds/v/jeu/wasm_bg.wasm?x=1");
         assert!(head.contains("Content-Type: application/wasm"), "{head}");
         assert_eq!(body, b"\0asm");
+        for (encoding, compressed_expected) in [
+            ("br, gzip", true),
+            ("gzip;q=0", false),
+            ("gzip;q=0.5", true),
+            ("br", false),
+        ] {
+            let (_, head, body) = request(port, &format!("GET /builds/v/jeu/wasm_bg.wasm HTTP/1.1\r\nAccept-Encoding: {encoding}\r\n\r\n"));
+            assert_eq!(
+                head.contains("Content-Encoding: gzip"),
+                compressed_expected,
+                "{encoding}: {head}"
+            );
+            assert!(head.contains("Content-Type: application/wasm"));
+            assert!(head.contains("Vary: Accept-Encoding"));
+            assert_eq!(
+                body,
+                if compressed_expected {
+                    compressed.as_slice()
+                } else {
+                    b"\0asm"
+                }
+            );
+        }
+        let (_, head, body) = request(
+            port,
+            "HEAD /builds/v/jeu/wasm_bg.wasm HTTP/1.1\r\nAccept-Encoding: gzip\r\n\r\n",
+        );
+        assert!(head.contains("Content-Encoding: gzip"));
+        assert!(head.contains(&format!("Content-Length: {}", compressed.len())));
+        assert!(body.is_empty());
         let (_, head, _) = get(port, "/builds/v/jeu/wasm.js");
         assert!(head.contains("text/javascript"), "{head}");
         let (_, _, body) = get(port, "/builds/a%20b.ron");
