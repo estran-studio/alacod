@@ -1,9 +1,9 @@
 // M-1b (docs/conventions.md §112) : un prop arrête les balles comme un personnage neutre de même collider. Carte
-// `testbed/rocks_static.ldtk` (couloir nu) ; le joueur 0 (immobile) tire une larme (3,5) vers l'est (f10). Un `prop-test` (net id 16,
+// `testbed/rocks_static.ldtk` (couloir nu) ; le joueur 0 (immobile) tire une balle de `machine_gun` (8) vers l'est (f10). Un `prop-test` (net id 16,
 // x 240) sur la trajectoire, un `dummy` (17, x 262) derrière lui. Témoin : `prop_stops_bullet_dummy` (un `dummy` à la place du
 // prop, mêmes attentes aux mêmes frames : même point d'impact).
 //
-// À regarder : la larme s'arrête contre le prop (200 → 196,5), le `dummy` derrière reste à 200 ; pas de barre de vie sur le prop.
+// À regarder : la balle s'arrête contre le prop (200 → 192, une balle de 8), le `dummy` derrière reste à 200 ; pas de barre de vie sur le prop.
 
 Scenario(
     powerup_drop_chance_override: "0.0",
@@ -16,7 +16,7 @@ Scenario(
     ],
     players: [
         (
-            weapon: "larme",
+            weapon: "machine_gun",
             inputs: [
                 (from: 10, to: 11, buttons: [Fire], pan: (128, 0)),
             ],
@@ -24,7 +24,7 @@ Scenario(
     ],
     expect: [
         EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 14),
-        EntityHealth(net_id: 16, min: 196.5, max: 196.5, at_frame: 99),
+        EntityHealth(net_id: 16, min: 192, max: 192, at_frame: 99),
         EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 99),
         EntityCount(kind: Bullet, max: Some(0), at_frame: 99),
     ],

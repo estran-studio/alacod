@@ -2573,7 +2573,7 @@ fn feedback_weapon_key_fixture_reports_unknown_weapon_only_for_prefixed_keys() {
 #[test]
 fn prop_fixture_refuses_counts_hits_weapons_and_boss_but_not_a_bare_prop() {
     let (registry, _, errors) = load_and_lint(&fixture_dir("prop_incompatible")).unwrap();
-    assert!(registry.characters["prop_ok"].prop);
+    assert!(registry.characters[&content::registry::CharacterId::from("prop_ok")].prop);
     assert_has_error(&errors, LintErrorKind::Unsupported, "« prop_counts_hits » : `prop: true` est incompatible avec `counts_hits`");
     assert_has_error(&errors, LintErrorKind::Unsupported, "« prop_armed » : `prop: true` est incompatible avec `starting_weapons`");
     assert_has_error(&errors, LintErrorKind::Unsupported, "« prop_boss » : `prop: true` est incompatible avec `boss`");

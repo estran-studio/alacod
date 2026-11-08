@@ -25,11 +25,11 @@ Scenario(
         EntityCount(kind: Enemy, max: Some(0), at_frame: 3),
         EntityCount(kind: Enemy, min: 1, max: Some(1), at_frame: 20),
         EntityCount(kind: Enemy, min: 1, max: Some(1), at_frame: 59),
+        EntityHealth(net_id: 15, min: 200, max: 200, at_frame: 59),
         EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 59),
         EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 59),
         EntityHealth(net_id: 18, min: 200, max: 200, at_frame: 59),
         EntityHealth(net_id: 19, min: 200, max: 200, at_frame: 59),
         EntityHealth(net_id: 20, min: 200, max: 200, at_frame: 59),
-        EntityHealth(net_id: 21, min: 200, max: 200, at_frame: 59),
     ],
 )
