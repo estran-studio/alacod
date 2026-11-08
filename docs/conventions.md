@@ -8876,7 +8876,7 @@ aucune trace existante ne bouge** (`make check_sim_boundary` : rien de neuf dans
 - **Lint** : erreurs `OutOfRange` pour `frappe` / `depart` / `deplacement` hors `[0, 1]` ou à début > fin, `distance` non finie, et pour une fenêtre **dérivée**
   qui sort du coup (`fin >= attack_duration_frames`, même règle que §110 sur la fenêtre du RON) ; `BrokenReference` pour un clip ou une arme inconnue.
   **Avertissements** (`content::warnings`, `LintWarningKind::MomentMismatch`, n'échouent pas `alacod lint`) : le RON donne une fenêtre que le clip ne confirme pas
-  (le message cite les deux et « le RON prime »), ou ni le RON ni le clip n'en donnent (l'arme frappe pendant tout son coup).
+  (le message cite les deux et « le RON prime »), ou ni le RON ni **aucun** clip lié (de tous les modèles) n'en donnent (l'arme frappe pendant tout son coup).
 - **`depart` et `deplacement` : lus, résolus en images, exposés** (`ClipMoments::start`, `::movement`, lint de plage), **non câblés** à la simulation : dette **D206**.
 - **Testbed** : le clip `strike` du pantin porte `moments.strike.frappe = [0.45, 0.65]` (`scripts/gen-pantin.py`, le `.glb` est inchangé octet pour octet) ;
   l'arme `frappe_modele` (`melee_weapons.ron`, sans `strike_frames`, coup de 21 images) y est liée par `melee_clips` dans `models/models.ron`. Scénario

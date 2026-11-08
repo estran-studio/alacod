@@ -498,6 +498,7 @@ pub fn strike_warnings(
     ron_strike: &BTreeMap<String, Option<(u32, u32)>>,
 ) -> Vec<String> {
     let mut out = Vec::new();
+    let windows = table.strike_windows();
     for binding in table.melee_bindings() {
         let Some(ron) = ron_strike.get(&binding.weapon) else {
             continue;
@@ -512,7 +513,7 @@ pub fn strike_warnings(
             (Some(ron), Some(derived)) if ron != derived => out.push(format!(
                 "arme de corps à corps « {weapon} » : strike_frames = {ron:?} du RON, mais moments.frappe du clip « {clip} » du modèle « {model} » donne {derived:?} : le RON prime"
             )),
-            (None, None) => out.push(format!(
+            (None, None) if !windows.contains_key(weapon) => out.push(format!(
                 "arme de corps à corps « {weapon} » : liée au clip « {clip} » du modèle « {model} » qui n'a pas de moments.frappe, et sans strike_frames : elle frappe pendant tout son coup"
             )),
             _ => {}
@@ -1065,10 +1066,13 @@ mod tests {
                 && warned[0].contains("le RON prime"),
             "{warned:#?}"
         );
-        // Ni le RON ni le clip (modèle « b ») ne donnent de fenêtre : avertissement.
-        let none = strike_warnings(&t, &ron(None, None));
-        assert_eq!(none.len(), 1, "{none:#?}");
-        assert!(none[0].contains("modèle « b »") && none[0].contains("pas de moments.frappe"));
+        // Un autre modèle donne la fenêtre de l'arme (modèle « a ») : le second sans frappe ne dit rien.
+        assert!(strike_warnings(&t, &ron(None, None)).is_empty());
+        // Ni le RON ni aucun clip lié ne donnent de fenêtre : un avertissement par lien.
+        let bare = moment_table("{}", "{}");
+        let none = strike_warnings(&bare, &ron(None, None));
+        assert_eq!(none.len(), 3, "{none:#?}");
+        assert!(none.iter().all(|w| w.contains("pas de moments.frappe")));
         // Une arme inconnue du RON n'est pas jugée ici (le lint de référence la refuse).
         assert!(strike_warnings(&t, &BTreeMap::new()).is_empty());
     }
