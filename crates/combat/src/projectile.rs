@@ -1131,6 +1131,8 @@ type TargetQuery<'w, 's> = Query<
         &'static Team,
         &'static Health,
         Option<&'static crate::actors::DashExtra>,
+        // P-1 : zone touchée (§110), testée à la place de `Collider`.
+        Option<&'static crate::collider::Hurtbox>,
     ),
     (Without<Bullet>, With<Rollback>),
 >;
@@ -1211,6 +1213,7 @@ pub fn projectile_collision_system(
                 target_team,
                 target_health,
                 target_dash,
+                target_hurtbox,
             )) = target_query.get(entry.entity)
             else {
                 continue;
@@ -1233,7 +1236,7 @@ pub fn projectile_collision_system(
                 &transform.translation,
                 collider,
                 &target_transform.translation,
-                target_collider,
+                crate::collider::Hurtbox::of(target_hurtbox, target_collider),
             ) {
                 characters.push(target_id.clone());
             }
@@ -1433,7 +1436,7 @@ pub fn projectile_expire_system(
                                 &projectile,
                                 target_query
                                     .iter()
-                                    .map(|(id, t, _, team, _, _)| (id, t, team)),
+                                    .map(|(id, t, _, team, _, _, _)| (id, t, team)),
                             ),
                         )
                     });
@@ -1470,7 +1473,7 @@ type SteeringTarget<'a> = (&'a GgrsNetId, &'a fixed_math::FixedTransform3D, &'a 
 fn gather_targets<'a>(query: &'a TargetQuery) -> Vec<SteeringTarget<'a>> {
     query
         .iter()
-        .map(|(id, transform, _, team, _, _)| (id, transform, team))
+        .map(|(id, transform, _, team, _, _, _)| (id, transform, team))
         .collect()
 }
 

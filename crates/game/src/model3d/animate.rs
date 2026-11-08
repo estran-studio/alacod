@@ -233,8 +233,11 @@ pub fn animate_models(
             if weapon_state.last_fire_frame > 0 && f >= weapon_state.last_fire_frame {
                 input.since_shot = Some((f - weapon_state.last_fire_frame) as f32 / SIM_HZ);
             }
-            input.trigger = weapon_state.is_firing;
-            if weapon_state.is_firing {
+            // P-1 (D199) : l'épaulé de la simulation (`WeaponGesture::raise_frames`) joue la pose
+            // `shoulder` même si la détente est déjà relâchée.
+            let held = weapon_state.is_firing || weapon_state.raise_ends.is_some();
+            input.trigger = held;
+            if held {
                 let from = *state.trigger_from.get_or_insert(f);
                 input.trigger_for = f.saturating_sub(from) as f32 / SIM_HZ;
             } else {

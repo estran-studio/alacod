@@ -429,7 +429,7 @@ fn lint_dash(
             ("distance_bonus", on_beat.distance_bonus),
             ("iframes_bonus", on_beat.iframes_bonus),
         ] {
-            if value.is_some_and(|v| v.get() < zero) {
+            if value.get() < zero {
                 refuse(format!("dash.on_beat : {name} doit être >= 0"));
             }
         }
@@ -467,6 +467,18 @@ fn lint_dash(
 fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
+
+        // P-1 (§110) : la zone touchée tient dans le collider.
+        if character.hurtbox_outside_collider {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : champ hurtbox : la zone touchée doit tenir dans le collider",
+                    character.id
+                ),
+            });
+        }
 
         // T1.10 : effets v1
         for (index, effect) in character.effects.iter().enumerate() {
@@ -831,13 +843,18 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         // X-3 : poids de l'arme (`move_speed_mult:`) : > 0 (0 figerait le porteur, une
         // valeur négative inverserait ses déplacements). `1` : aucun effet, mais valide.
-        if let Some(mult) = &weapon.move_speed_mult {
+        let speed_mults = weapon
+            .move_speed_mult
+            .iter()
+            .map(|mult| ("move_speed_mult", *mult))
+            .chain(weapon.gesture_speed_mults.iter().copied());
+        for (name, mult) in speed_mults {
             if mult.get() <= Fixed::ZERO {
                 errors.push(LintError {
                     kind: LintErrorKind::OutOfRange,
                     file: weapon.file.display().to_string(),
                     message: format!(
-                        "arme « {} » : champ move_speed_mult = {} : doit être > 0",
+                        "arme « {} » : champ {name} = {} : doit être > 0",
                         weapon.id,
                         mult.get()
                     ),

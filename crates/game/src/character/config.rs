@@ -73,6 +73,12 @@ pub struct CharacterConfig {
 
     pub collider: ColliderConfig,
 
+    /// Zone touchée (P-1, `docs/conventions.md` §110) : la forme que les balles et les coups de
+    /// mêlée testent à la place de `collider` (qui reste celle des murs, des poussées et du pas).
+    /// Doit tenir dans `collider`. Absent (défaut) : les coups testent `collider`, comme avant.
+    #[serde(default)]
+    pub hurtbox: Option<ColliderConfig>,
+
     pub scale: fixed_math::Fixed,
 
     pub starting_skin: String,

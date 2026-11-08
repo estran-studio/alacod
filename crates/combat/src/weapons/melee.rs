@@ -639,6 +639,8 @@ pub fn melee_hitbox_collision_system(
             &Team,
             Option<&mut Velocity>,
             Option<&Health>,
+            // P-1 : zone touchée (§110), testée à la place de `Collider`.
+            Option<&crate::collider::Hurtbox>,
         ),
         (Without<MeleeHitbox>, With<Rollback>),
     >,
@@ -688,6 +690,7 @@ pub fn melee_hitbox_collision_system(
                 target_team,
                 opt_velocity_mut,
                 opt_health,
+                opt_hurtbox,
             )) = target_query.get_mut(target_entry.entity)
             else {
                 continue;
@@ -724,7 +727,7 @@ pub fn melee_hitbox_collision_system(
                 &hitbox_transform.translation,
                 hitbox_collider,
                 &target_transform.translation,
-                target_collider,
+                crate::collider::Hurtbox::of(opt_hurtbox, target_collider),
             ) {
                 info!(
                     "Melee hitbox {} hit target {} for {} damage",

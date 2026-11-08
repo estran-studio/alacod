@@ -35,6 +35,22 @@ pub struct Collider {
     pub offset: fixed_math::FixedVec3, // Offset from entity transform
 }
 
+/// Zone touchée d'un personnage (P-1, `docs/conventions.md` §110, `CharacterConfig::hurtbox`) :
+/// la forme que les **balles et les coups de mêlée** testent, à la place de `Collider` (qui reste
+/// celle des murs, des poussées et du pas). Absente : les coups testent `Collider`, comme avant.
+/// Doit tenir dans `Collider` (les grilles spatiales indexent les `Collider`, un sur-ensemble sûr
+/// de la zone touchée). Composant statique posé à la création, non rollback (comme `Tags`).
+#[derive(Component, Clone, Debug)]
+pub struct Hurtbox(pub Collider);
+
+impl Hurtbox {
+    /// La forme que les coups testent : la zone touchée si le personnage en a une, sinon son
+    /// collider.
+    pub fn of<'a>(hurtbox: Option<&'a Hurtbox>, collider: &'a Collider) -> &'a Collider {
+        hurtbox.map_or(collider, |hurtbox| &hurtbox.0)
+    }
+}
+
 #[derive(Component, Clone, Debug, Hash)]
 pub struct Wall;
 

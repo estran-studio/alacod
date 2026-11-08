@@ -155,12 +155,12 @@ restantes (D149, D150, D151) sont livrées, D152 reste ouverte et rétrécie.
 - Unitaires (profil `headless`, `--no-default-features`) : `combat` (dont 5 tests X-3 suite),
   `effects`, `content` (dont fixture `melee_parry_knockback_negative`), `sim_core`, `run`,
   `animation`, `game` (dont `TimingSource` sans horloge, horloge d'étage, `music_sync`,
-  reskin) : À REMPLIR.
+  reskin) : **voir `docs/taches/rapports/p-1-parite-labo.md`** (P-1 a repris X-3 sur le Mac le 7 nov ; `make check_rapide` vert, journal cité là).
 - Scénarios nouveaux (10) : verts, traces écrites une fois : `parade_projectiles_instantanee`,
   `parade_projectiles_expiree`, `parade_melee`, `fenetre_etage` (+ 6 de X-3).
-- Suite complète : À REMPLIR (aucune trace existante réécrite).
+- Suite complète : **voir le rapport P-1** (scénarios de X-3 et voisins rejoués sans BLESS ; trois traces de X-3 rebénies car antérieures à ses propres correctifs, détail au rapport P-1 ; `MeleeParried` et `music_sync` retirés par P-1, D149/D151).
 - `cargo fmt --check`, `scripts/check-forbidden.sh`,
-  `scripts/check-rollback-registration.sh` : À REMPLIR.
+  `scripts/check-rollback-registration.sh` : **voir le rapport P-1** (`make check_rapide` les enchaîne).
 - Types rollback nouveaux (neutres, après `ProjectileReflected`, avant les cinq de clôture) :
   `FrameEvents<TimingJudged>`, `FrameEvents<MeleeParried>`. Systèmes ajoutés : `melee_parry_system`,
   ordre du set `Weapon` réordonné (voir §110) : le diff `schedule_order_diff` gagne ces lignes, rien

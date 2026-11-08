@@ -242,6 +242,48 @@ pub struct WeaponConfig {
     /// que le verbe qui la pilote depuis le contenu. `None` (défaut) : aucun effet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub move_speed_mult: Option<fixed_math::Fixed>,
+    /// Gestes de l'arme (P-1, `docs/conventions.md` §110) : épaulé avant le départ, geste de tir,
+    /// vitesse de marche pendant ces gestes et pendant le rechargement, rechargement automatique
+    /// à la fin du geste, rechargement qui continue pendant le dash. `None` (défaut) : l'arme tire
+    /// à l'appui, comme avant. Hors hash et hors Debug tant qu'absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gesture: Option<WeaponGesture>,
+}
+
+/// Gestes d'une arme à feu (P-1, `docs/conventions.md` §110) : un tir est un **geste** qui a une
+/// durée, pas un instant. Durées en frames entières à 60 Hz (l'arrondi est écrit par le contenu).
+/// Chaque champ absent ou nul laisse le comportement d'avant : `WeaponGesture::default()` ne
+/// change rien.
+///
+/// Séquence d'un coup au clic (`FiringMode::Manual`, `Automatic` et `Shotgun` ; l'épaulé est
+/// ignoré en `Burst`, dont la salve a déjà son propre rythme) : appui → épaulé (`raise_frames`, balle au bout) → geste de tir (`fire_frames`,
+/// aucun autre tir, aucun rechargement) → rechargement automatique (`auto_reload`, durée
+/// `reload_time_seconds` de l'arme, chargeur vide seulement). Un appui pendant le geste ou le
+/// rechargement est perdu (il faut relâcher puis appuyer), un dash, une course ou un coup de mêlée
+/// pendant l'épaulé l'annulent.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Hash)]
+pub struct WeaponGesture {
+    /// Frames entre l'appui et le départ de la balle. 0 : la balle part à l'appui.
+    #[serde(default)]
+    pub raise_frames: u32,
+    /// Frames du geste qui suit le départ de la balle. 0 : pas de geste.
+    #[serde(default)]
+    pub fire_frames: u32,
+    /// Multiplicateur de `MoveSpeed` (modificateur `Mul`, source `weapon_weight:<nom>`, composé
+    /// avec `move_speed_mult`) pendant l'épaulé et le geste de tir. Absent : aucun.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aim_speed_mult: Option<fixed_math::Fixed>,
+    /// Multiplicateur de `MoveSpeed` pendant le rechargement. Absent : aucun.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reload_speed_mult: Option<fixed_math::Fixed>,
+    /// Le rechargement part de lui-même à la fin du geste de tir quand le chargeur est vide
+    /// (sinon il part à l'appui suivant, comme avant).
+    #[serde(default)]
+    pub auto_reload: bool,
+    /// Le rechargement en cours continue et se termine pendant un dash ou une course (sinon le
+    /// tir et le rechargement attendent la fin du dash).
+    #[serde(default)]
+    pub reload_through_dash: bool,
 }
 
 /// M3-T0a : `ammo_type` d'une arme qui n'en déclare pas (munitions `Infinite`) :
@@ -273,6 +315,9 @@ impl std::hash::Hash for WeaponConfig {
         if let Some(mult) = &self.move_speed_mult {
             mult.hash(state);
         }
+        if let Some(gesture) = &self.gesture {
+            gesture.hash(state);
+        }
     }
 }
 
@@ -293,6 +338,9 @@ impl fmt::Debug for WeaponConfig {
         // X-3 : même règle que le hash (absent : même ligne qu'avant).
         if let Some(mult) = &self.move_speed_mult {
             d.field("move_speed_mult", mult);
+        }
+        if let Some(gesture) = &self.gesture {
+            d.field("gesture", gesture);
         }
         d.finish()
     }
@@ -576,11 +624,58 @@ pub struct WeaponModesState {
 }
 
 // Component to track rollbackable state for weapons
-#[derive(Component, Reflect, Default, Clone, Debug, Hash)]
+#[derive(Component, Reflect, Default, Clone)]
 pub struct WeaponState {
     pub last_fire_frame: u32,
     pub is_firing: bool,
     pub active_mode: String,
+    /// P-1 (§110, `WeaponGesture::raise_frames`) : frame où la balle part, tant que l'arme
+    /// s'épaule. `None` : pas d'épaulé en cours.
+    pub raise_ends: Option<u32>,
+    /// P-1 (`WeaponGesture::fire_frames`) : frame où finit le geste de tir lancé par la dernière
+    /// balle ; le rechargement automatique part à cette frame. `None` : pas de geste en cours.
+    pub gesture_ends: Option<u32>,
+}
+
+/// Hash et Debug manuels (P-1) : les champs de geste n'y entrent que s'ils sont actifs, donc une
+/// arme sans `gesture:` garde le checksum et la ligne de trace détaillée d'avant.
+impl std::hash::Hash for WeaponState {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.last_fire_frame.hash(state);
+        self.is_firing.hash(state);
+        self.active_mode.hash(state);
+        if let Some(frame) = self.raise_ends {
+            1u8.hash(state);
+            frame.hash(state);
+        }
+        if let Some(frame) = self.gesture_ends {
+            2u8.hash(state);
+            frame.hash(state);
+        }
+    }
+}
+
+impl fmt::Debug for WeaponState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_struct("WeaponState");
+        d.field("last_fire_frame", &self.last_fire_frame)
+            .field("is_firing", &self.is_firing)
+            .field("active_mode", &self.active_mode);
+        if self.raise_ends.is_some() {
+            d.field("raise_ends", &self.raise_ends);
+        }
+        if self.gesture_ends.is_some() {
+            d.field("gesture_ends", &self.gesture_ends);
+        }
+        d.finish()
+    }
+}
+
+impl WeaponState {
+    /// L'arme est dans un geste (épaulé ou tir) : la marche suit `WeaponGesture::aim_speed_mult`.
+    pub fn in_gesture(&self) -> bool {
+        self.raise_ends.is_some() || self.gesture_ends.is_some()
+    }
 }
 
 #[derive(Event)]
@@ -1407,15 +1502,38 @@ pub fn weapon_rollback_system(
             }
         }
 
+        // Gestes de l'arme active (P-1) : copie, aucun emprunt gardé.
+        let (active_weapon, active_gesture) = {
+            let (entity, weapon) = &inventory.weapons[inventory.active_weapon_index];
+            (*entity, weapon.config.gesture)
+        };
+
         // Don't allow weapon firing during melee attacks
         if melee_attack_state.is_attacking {
+            // Un coup de mêlée annule l'épaulé en cours (le geste en cours est perdu, comme au banc).
+            if active_gesture.is_some() {
+                if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
+                    weapon_state.raise_ends = None;
+                }
+            }
             continue;
         }
 
         // Pas de tir pendant un dash ; le bouton de dash tenu, lui, ne bloque rien (le dash
-        // part sur l'appui, voir `DashState`)
-        if sprint_state.is_sprinting || dash_state.is_dashing || input.buttons & INPUT_SPRINT != 0 {
-            continue;
+        // part sur l'appui, voir `DashState`). Une arme à gestes dont le rechargement continue
+        // pendant le dash (`reload_through_dash`) passe quand même jusqu'à la fin du rechargement.
+        let move_blocked =
+            sprint_state.is_sprinting || dash_state.is_dashing || input.buttons & INPUT_SPRINT != 0;
+        if move_blocked {
+            // Le dash et la course annulent l'épaulé en cours.
+            if active_gesture.is_some() {
+                if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
+                    weapon_state.raise_ends = None;
+                }
+            }
+            if !active_gesture.is_some_and(|g| g.reload_through_dash) {
+                continue;
+            }
         }
 
         // Nothing to do for weapon if we are sprinting
@@ -1441,6 +1559,31 @@ pub fn weapon_rollback_system(
             let reload_time_seconds = weapon_config
                 .reload_time_seconds
                 .saturating_mul(reload_speed_mult);
+
+            // P-1 : fin du geste de tir : le rechargement automatique part à cette frame.
+            let gesture = weapon.config.gesture;
+            if let Some(g) = gesture {
+                if weapon_state
+                    .gesture_ends
+                    .is_some_and(|end| frame.frame >= end)
+                {
+                    weapon_state.gesture_ends = None;
+                    if g.auto_reload {
+                        let reserve = ammo_reserves.get(&weapon.config.ammo_type);
+                        let needs_reload =
+                            weapon_modes_state
+                                .modes
+                                .get(&active_mode)
+                                .is_some_and(|mode| {
+                                    mode.mag_ammo == 0
+                                        && mode.can_reload(&weapon_config.mag, reserve)
+                                });
+                        if needs_reload {
+                            inventory.start_reload(frame.frame, reload_time_seconds);
+                        }
+                    }
+                }
+            }
 
             // A reload in progress completes on the mode it was started for: switching mode
             // (like switching weapon) is not possible until it is over
@@ -1472,6 +1615,28 @@ pub fn weapon_rollback_system(
                     }
                     inventory.clear_reloading();
                 } else {
+                    // Un appui pendant le rechargement est perdu : relâcher puis appuyer.
+                    if gesture.is_some() && input.fire {
+                        weapon_state.is_firing = true;
+                    }
+                    continue;
+                }
+            }
+
+            // P-1 : tir, rechargement et dash des armes à gestes (`WeaponGesture`). Le rechargement
+            // a pu finir pendant un dash (`reload_through_dash`) ; le reste attend sa fin.
+            if move_blocked {
+                continue;
+            }
+            // Un geste de tir en cours, ou un épaulé qui n'est pas fini, occupe le corps : un appui
+            // est perdu (il faudra relâcher puis appuyer), comme un appui pendant le rechargement.
+            if gesture.is_some() {
+                let busy = weapon_state.gesture_ends.is_some()
+                    || weapon_state.raise_ends.is_some_and(|end| frame.frame < end);
+                if busy {
+                    if input.fire {
+                        weapon_state.is_firing = true;
+                    }
                     continue;
                 }
             }
@@ -1527,7 +1692,7 @@ pub fn weapon_rollback_system(
             let burst_in_progress = matches!(weapon_config.firing_mode, FiringMode::Burst { .. })
                 && weapon_mode_state.burst_shots_left > 0;
 
-            if input.fire || burst_in_progress {
+            if input.fire || burst_in_progress || weapon_state.raise_ends.is_some() {
                 // Calculate fire rate in frames (60 FPS assumed) , need to be configure via ressource instead
                 let firing_rate = weapon_config.firing_rate.saturating_mul(fire_rate_mult);
                 let frame_per_shot =
@@ -1607,6 +1772,22 @@ pub fn weapon_rollback_system(
                 }
 
                 weapon_state.is_firing = input.fire;
+
+                // P-1 : épaulé (`WeaponGesture::raise_frames`). Un appui accepté lance l'épaulé sans
+                // tirer ; le garde plus haut ne laisse passer que la frame où il finit : la balle part.
+                let mut can_fire = can_fire;
+                let raise = gesture.filter(|g| {
+                    g.raise_frames > 0
+                        && !matches!(weapon_config.firing_mode, FiringMode::Burst { .. })
+                });
+                if let Some(g) = raise {
+                    if weapon_state.raise_ends.take().is_some() {
+                        can_fire = true;
+                    } else if can_fire {
+                        weapon_state.raise_ends = Some(frame.frame + g.raise_frames);
+                        can_fire = false;
+                    }
+                }
 
                 if can_fire {
                     if let Ok((
@@ -1752,6 +1933,13 @@ pub fn weapon_rollback_system(
                             }
                         }
                         weapon_state.last_fire_frame = frame.frame;
+                        // P-1 : le geste de tir commence au départ de la balle ; le rechargement
+                        // automatique part à sa fin (`WeaponGesture::fire_frames`).
+                        if let Some(g) = gesture {
+                            if g.fire_frames > 0 || g.auto_reload {
+                                weapon_state.gesture_ends = Some(frame.frame + g.fire_frames);
+                            }
+                        }
                         if let Some(events) = weapon_fired.as_mut() {
                             events.send(sim_core::triggers::WeaponFired {
                                 frame: frame.frame,
@@ -1881,6 +2069,8 @@ pub fn bullet_rollback_collision_system(
             &Team,
             &Health,
             Option<&crate::actors::DashExtra>,
+            // P-1 : zone touchée (§110), testée à la place de `Collider`.
+            Option<&crate::collider::Hurtbox>,
         ),
         (Without<Bullet>, With<Rollback>),
     >,
@@ -1950,6 +2140,7 @@ pub fn bullet_rollback_collision_system(
                 target_team,
                 target_health,
                 target_dash,
+                target_hurtbox,
             )) = target_query.get(char_entry.entity)
             else {
                 continue;
@@ -1971,7 +2162,7 @@ pub fn bullet_rollback_collision_system(
                 &bullet_transform.translation,
                 bullet_collider,
                 &target_transform.translation,
-                target_collider,
+                crate::collider::Hurtbox::of(target_hurtbox, target_collider),
             ) {
                 candidates.push((target_net_id.clone(), BulletTarget::Character));
             }
@@ -2091,6 +2282,7 @@ pub fn sync_carry_weight_system(
         With<Rollback>,
     >,
     melee_weapons: Query<&melee::MeleeWeapon>,
+    weapon_states: Query<&WeaponState>,
 ) {
     // Itération sans ordre `GgrsNetId` : chaque porteur n'écrit que ses propres
     // modificateurs, l'ordre entre porteurs est sans effet (CLAUDE.md, règle 2).
@@ -2114,7 +2306,30 @@ pub fn sync_carry_weight_system(
                 inventory
                     .weapons
                     .get(inventory.active_weapon_index)
-                    .map(|(_, weapon)| (weapon.config.name.as_str(), weapon.config.move_speed_mult))
+                    .map(|(entity, weapon)| {
+                        // P-1 : pendant l'épaulé et le geste de tir, puis pendant le rechargement,
+                        // la marche suit en plus `WeaponGesture::{aim,reload}_speed_mult` (produit
+                        // avec le poids de l'arme).
+                        let mut mult = weapon.config.move_speed_mult;
+                        if let Some(gesture) = &weapon.config.gesture {
+                            let in_gesture = weapon_states
+                                .get(*entity)
+                                .is_ok_and(|state| state.in_gesture());
+                            let phase = if in_gesture {
+                                gesture.aim_speed_mult
+                            } else if inventory.is_reloading() {
+                                gesture.reload_speed_mult
+                            } else {
+                                None
+                            };
+                            if let Some(phase) = phase {
+                                mult = Some(
+                                    mult.unwrap_or(fixed_math::FIXED_ONE).saturating_mul(phase),
+                                );
+                            }
+                        }
+                        (weapon.config.name.as_str(), mult)
+                    })
                     .and_then(|(name, mult)| mult.map(|mult| (name, mult)))
             })
             .filter(|(_, mult)| *mult != fixed_math::FIXED_ONE);
@@ -2370,6 +2585,7 @@ mod tests {
                     test: None,
                     projectiles: BTreeMap::new(),
                     move_speed_mult: mult,
+                    gesture: None,
                 },
                 sprite_config: WeaponSpriteConfig {
                     name: name.into(),

@@ -307,6 +307,8 @@ pub struct CharacterEntry {
     /// D48 : corps en jeu de plus de 20 px de large ou de haut, le gabarit `Large` de la
     /// navigation (`game::…::navigation::AgentSize::of`, `SMALL_AGENT_MAX`).
     pub body_large: bool,
+    /// P-1 (§110) : la zone touchée (`hurtbox`) déborde du `collider` (faux sans `hurtbox`).
+    pub hurtbox_outside_collider: bool,
 }
 
 /// T1.13 : mirroir de `game::character::config::CharacterTest` (attentes comptées).
@@ -657,6 +659,9 @@ pub struct WeaponEntry {
     /// Poids de l'arme (X-3) : `move_speed_mult:` du RON, pour la règle « > 0 ».
     /// `None` : pas de poids.
     pub move_speed_mult: Option<FixedField>,
+    /// P-1 : vitesses de marche des gestes (`gesture.aim_speed_mult`, `gesture.reload_speed_mult`),
+    /// pour la règle « > 0 ». `None` : absentes.
+    pub gesture_speed_mults: Vec<(&'static str, FixedField)>,
 }
 
 /// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
@@ -2113,6 +2118,11 @@ struct CharacterFileSchema {
     /// dans les RON de personnages (`collider: (...)`, comme `CharacterConfig`).
     #[serde(default, deserialize_with = "present")]
     collider: Option<ColliderSchema>,
+    /// P-1 (§110) : zone touchée (`CharacterConfig::hurtbox`), testée à la place de `collider`
+    /// par les balles et les coups de mêlée ; doit tenir dans `collider`. Optionnelle comme le
+    /// champ réel (`hurtbox: Some((...))`).
+    #[serde(default)]
+    hurtbox: Option<ColliderSchema>,
     /// D79 : obligatoire, comme `CharacterConfig.scale` (sans défaut côté jeu : un personnage
     /// sans `scale` ne doit pas passer le lint pour échouer ensuite au chargement).
     scale: FixedField,
@@ -2166,6 +2176,30 @@ impl Default for OffsetSchema {
 }
 
 impl ColliderSchema {
+    /// Boîte englobante `(x min, x max, y min, y max)`, offset compris, à l'échelle 1.
+    fn bounds(&self) -> (Fixed, Fixed, Fixed, Fixed) {
+        let (half_w, half_h) = match &self.shape {
+            ColliderShapeSchema::Rectangle { width, height } => {
+                (width.0 / Fixed::from_num(2), height.0 / Fixed::from_num(2))
+            }
+            ColliderShapeSchema::Circle { radius } => (radius.0, radius.0),
+        };
+        (
+            self.offset.x.0 - half_w,
+            self.offset.x.0 + half_w,
+            self.offset.y.0 - half_h,
+            self.offset.y.0 + half_h,
+        )
+    }
+
+    /// P-1 : la boîte englobante de `other` tient dans celle de `self` (les grilles spatiales
+    /// indexent le collider : une zone touchée qui en sortirait ne serait jamais testée là).
+    fn contains(&self, other: &ColliderSchema) -> bool {
+        let (ax0, ax1, ay0, ay1) = self.bounds();
+        let (bx0, bx1, by0, by1) = other.bounds();
+        bx0 >= ax0 && bx1 <= ax1 && by0 >= ay0 && by1 <= ay1
+    }
+
     /// Plus grande distance du centre à un bord, offset compris, à l'échelle `scale`.
     fn extent(&self, scale: Fixed) -> Fixed {
         let (half_w, half_h) = match &self.shape {
@@ -2454,7 +2488,7 @@ struct DashSchema {
     /// P-1 (§110) : profil de vitesse (`Linear`, `EaseOut`). Validé ici, lu par le jeu.
     #[serde(default)]
     #[allow(dead_code)]
-    profile: Option<DashProfileSchema>,
+    profile: DashProfileSchema,
     /// P-1 : sans direction tenue, dash sur place. Validé ici, lu par le jeu.
     #[serde(default)]
     #[allow(dead_code)]
@@ -2473,8 +2507,9 @@ struct DashSchema {
 }
 
 /// P-1 : miroir de `sim_core::dash::DashProfile`.
-#[derive(schemars::JsonSchema, Deserialize, PartialEq)]
+#[derive(schemars::JsonSchema, Deserialize, PartialEq, Default)]
 enum DashProfileSchema {
+    #[default]
     Linear,
     EaseOut,
 }
@@ -2490,15 +2525,20 @@ pub struct DashOnBeatSchema {
     #[serde(default)]
     #[schemars(extend("x-lint" = "> 0"))]
     pub coop_window_mult: Option<FixedField>,
-    #[serde(default)]
+    #[serde(default = "zero_field")]
     #[schemars(extend("x-lint" = ">= 0"))]
-    pub distance_bonus: Option<FixedField>,
-    #[serde(default)]
+    pub distance_bonus: FixedField,
+    #[serde(default = "zero_field")]
     #[schemars(extend("x-lint" = ">= 0"))]
-    pub iframes_bonus: Option<FixedField>,
+    pub iframes_bonus: FixedField,
     #[serde(default)]
     #[schemars(extend("x-lint" = "dans ]0, 1]"))]
     pub iframes_cap: Option<FixedField>,
+}
+
+/// Défaut `0` des bonus de `DashOnBeatSchema` (non optionnels comme dans `sim_core::dash::DashOnBeat`).
+fn zero_field() -> FixedField {
+    FixedField(bevy_fixed::fixed_math::FIXED_ZERO)
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -2615,6 +2655,38 @@ struct WeaponConfigSchema {
     #[serde(default)]
     #[schemars(extend("x-lint" = "> 0"))]
     move_speed_mult: Option<FixedField>,
+    /// P-1 : gestes de l'arme (`combat::weapons::WeaponGesture`).
+    #[serde(default)]
+    gesture: Option<WeaponGestureSchema>,
+}
+
+/// P-1 : miroir de `combat::weapons::WeaponGesture`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct WeaponGestureSchema {
+    /// Frames entre l'appui et le départ de la balle.
+    #[serde(default)]
+    #[allow(dead_code)]
+    raise_frames: u32,
+    /// Frames du geste de tir qui suit le départ.
+    #[serde(default)]
+    #[allow(dead_code)]
+    fire_frames: u32,
+    /// Multiplicateur de marche pendant l'épaulé et le geste de tir.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    aim_speed_mult: Option<FixedField>,
+    /// Multiplicateur de marche pendant le rechargement.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    reload_speed_mult: Option<FixedField>,
+    /// Rechargement automatique à la fin du geste de tir.
+    #[serde(default)]
+    #[allow(dead_code)]
+    auto_reload: bool,
+    /// Le rechargement continue pendant un dash.
+    #[serde(default)]
+    #[allow(dead_code)]
+    reload_through_dash: bool,
 }
 
 fn zero_spread() -> FixedField {
@@ -3078,6 +3150,11 @@ fn load_characters(
                     .collider
                     .as_ref()
                     .is_some_and(|collider| collider.is_large(parsed.scale.0)),
+                hurtbox_outside_collider: match (&parsed.hurtbox, &parsed.collider) {
+                    (Some(hurtbox), Some(collider)) => !collider.contains(hurtbox),
+                    // une zone touchée sans collider n'a rien dont elle puisse sortir
+                    _ => false,
+                },
             },
         );
     }
@@ -3171,6 +3248,18 @@ fn load_weapons(
                     projectiles: entry.config.projectiles,
                     test_only: entry.config.test_only,
                     move_speed_mult: entry.config.move_speed_mult,
+                    gesture_speed_mults: entry
+                        .config
+                        .gesture
+                        .iter()
+                        .flat_map(|gesture| {
+                            [
+                                ("gesture.aim_speed_mult", gesture.aim_speed_mult),
+                                ("gesture.reload_speed_mult", gesture.reload_speed_mult),
+                            ]
+                        })
+                        .filter_map(|(name, mult)| mult.map(|mult| (name, mult)))
+                        .collect(),
                 },
             );
         }
