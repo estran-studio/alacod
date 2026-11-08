@@ -1,0 +1,8 @@
+// Fixture M-1b : prop_incompatible
+(
+    name: "fixture-prop_incompatible",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

@@ -50,6 +50,15 @@
         animation: "sprites/feedback/anim_still.ron",
         layers: { "body": "sprites/feedback/rock_sheet.ron" },
     ),
+    // M-1b (§112) : images des personnages `prop` du testbed (`prop-test`, `wall-test`), feuilles de feedback réutilisées.
+    "prop-test": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/rock_sheet.ron" },
+    ),
+    "wall-test": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/bomb_sheet.ron" },
+    ),
     "compagnon": (
         animation: "sprites/feedback/anim_still.ron",
         layers: { "body": "sprites/feedback/companion_sheet.ron" },

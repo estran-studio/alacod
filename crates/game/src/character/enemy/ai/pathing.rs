@@ -242,6 +242,16 @@ pub fn move_enemies(
     squad_slots: Res<super::squad::SquadSlots>,
     stats: StatReader,
     grids: Res<crate::collision_grid::CollisionGrids>,
+    // M-1b (§112) : les personnages ni `Enemy` ni `Player` (les props sont ceux dont `prop` est vrai).
+    prop_query: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &fixed_math::FixedTransform3D,
+            &CharacterConfigKey,
+        ),
+        (With<Rollback>, Without<Enemy>, Without<Player>),
+    >,
 ) {
     // --- Spatial Grid for Separation (T2.1, chantier B4b) ---
     // Remplace la table de hachage locale (collection non déterministe interdite par
@@ -275,6 +285,23 @@ pub fn move_enemies(
                 max: *pos,
             },
         );
+    }
+    // M-1b (§112) : un prop (`prop: true`) n'est pas `Enemy` mais repousse les ennemis comme le faisait
+    // le décor-`Enemy` d'avant (« mêmes collisions qu'aujourd'hui : bloque les corps »). Même grille, même
+    // formule ; la requête de la grille trie par `net_id`, l'ordre d'insertion ne change rien. Sans prop
+    // (tous les scénarios existants), rien n'est inséré : aucune trace ne bouge.
+    for (net_id, entity, transform, key) in order_iter!(prop_query) {
+        if character_configs
+            .get(&key.0)
+            .is_some_and(|config| config.prop)
+        {
+            let pos = transform.translation.truncate();
+            separation_grid.insert(
+                net_id.clone(),
+                entity,
+                combat::grid::Aabb { min: pos, max: pos },
+            );
+        }
     }
 
     // Obstacle avoidance constants

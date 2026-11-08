@@ -2568,3 +2568,44 @@ fn feedback_weapon_key_fixture_reports_unknown_weapon_only_for_prefixed_keys() {
     let own: Vec<_> = errors.iter().filter(|e| e.file != "game.ron").collect();
     assert_eq!(own.len(), 2, "{own:#?}");
 }
+
+/// M-1b (§112) : `prop: true` est refusé avec `counts_hits`, `starting_weapons`, `boss`, `variants` ou `ai.behaviors` ; un prop sans `ai` passe.
+#[test]
+fn prop_fixture_refuses_counts_hits_weapons_boss_variants_and_behaviors_but_not_a_bare_prop() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("prop_incompatible")).unwrap();
+    assert!(registry.characters[&content::registry::CharacterId::from("prop_ok")].prop);
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "« prop_counts_hits » : `prop: true` est incompatible avec `counts_hits`",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "« prop_armed » : `prop: true` est incompatible avec `starting_weapons`",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "« prop_boss » : `prop: true` est incompatible avec `boss`",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "« prop_variants » : `prop: true` est incompatible avec `variants`",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "« prop_behaviors » : `prop: true` est incompatible avec `ai.behaviors`",
+    );
+    let unsupported = errors
+        .iter()
+        .filter(|e| e.kind == LintErrorKind::Unsupported && e.message.contains("prop: true"))
+        .count();
+    assert_eq!(unsupported, 5, "{errors:#?}");
+    assert!(
+        !errors.iter().any(|e| e.message.contains("prop_ok")),
+        "{errors:#?}"
+    );
+}

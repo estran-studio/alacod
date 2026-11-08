@@ -1,0 +1,35 @@
+// M-1b (docs/conventions.md §112) : onze props et un `dummy` : le plafond global d'ennemis du spawner (dix, `spawning.rs`)
+// serait atteint si les props comptaient. Même carte que `prop_no_enemy` (couloir nu), onze props à f5 tous les 30 px, un `dummy`
+// au bout. Le spawner de vagues ne tourne pas en scénario : la preuve est le compte `Enemy` (le marqueur que le plafond lit).
+//
+// À regarder : douze personnages au sol, un seul ennemi (`EntityCount(kind: Enemy)` = 1 < 10) ; les onze props gardent 200 PV.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 60,
+    characters: [
+        (character: "prop-test", x: "200.0", y: "696.0", at_frame: 5),
+        (character: "wall-test", x: "230.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "260.0", y: "696.0", at_frame: 5),
+        (character: "wall-test", x: "290.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "320.0", y: "696.0", at_frame: 5),
+        (character: "wall-test", x: "350.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "380.0", y: "696.0", at_frame: 5),
+        (character: "wall-test", x: "410.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "440.0", y: "696.0", at_frame: 5),
+        (character: "wall-test", x: "470.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "500.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "560.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: 1, max: Some(1), at_frame: 20),
+        EntityCount(kind: Enemy, min: 1, max: Some(1), at_frame: 59),
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 59),
+        EntityHealth(net_id: 26, min: 200, max: 200, at_frame: 59),
+    ],
+)

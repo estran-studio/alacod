@@ -66,10 +66,10 @@ enum Command {
         #[arg(long)]
         rev: Option<String>,
     },
-    /// Joue les scénarios générés d'un jeu (armes, personnages, objets, salles, boss).
+    /// Joue les scénarios écrits et générés d'un jeu ; vérifie attentes et traces.
     ///
-    /// `alacod test [jeu] [id…] [--list]`. Sans id, tous ; avec un id (`amulette` ou `item_amulette`), seulement
-    /// celui-là. Les traces de référence sont ignorées sauf `--bless`.
+    /// `alacod test [jeu] [id…] [--list]` joue les générés et `tests/scenarios/*.ron`.
+    /// Les scénarios écrits exigent leur trace sœur ; `--bless` l'écrit.
     Test {
         /// `[dossier du jeu] [id…]` : le premier argument est pris pour un dossier s'il existe.
         args: Vec<String>,
@@ -1083,8 +1083,6 @@ fn engine_root_for(
         .ok_or_else(|| "engine introuvable : passer --engine <racine>".to_string())
 }
 
-/// `alacod test` : délègue à `alacod-gen` de l'engine (le crate `scenario` dépend de `content`,
-/// pas l'inverse), en ignorant les traces sauf `--bless`.
 /// `alacod import-sprite` : importe, puis dit le facteur, la cellule, l'atlas, l'échelle, la hauteur
 /// mesurée de la silhouette et les fichiers écrits.
 fn import_sprite_cmd(
@@ -1144,6 +1142,8 @@ fn import_sprite_cmd(
     }
 }
 
+/// Délègue au même runner que le harnais de l'engine ; les générés ignorent les traces
+/// sauf `--bless`, les scénarios écrits les exigent toujours.
 fn run_tests(
     game_dir: &std::path::Path,
     ids: &[String],
@@ -1174,7 +1174,8 @@ fn run_tests(
     .arg("--manifest-path")
     .arg(engine.join("Cargo.toml"))
     .arg("--")
-    .arg(&game);
+    .arg(&game)
+    .arg("--written");
     if list {
         cmd.arg("--list");
     } else {
@@ -1221,6 +1222,7 @@ fn run_tests(
         return if output.status.success() {
             ExitCode::SUCCESS
         } else {
+            show_stderr(&output);
             ExitCode::FAILURE
         };
     }
@@ -1239,13 +1241,24 @@ fn run_tests(
         println!("{}", serde_json::Value::Array(results.clone()));
     } else {
         for r in &results {
-            let ok = r["expectations_ok"].as_bool().unwrap_or(false);
+            let ok = r["ok"].as_bool().unwrap_or(false);
+            let trace = match r["trace"].as_str().unwrap_or("?") {
+                "absente" => "manquante",
+                status => status,
+            };
             println!(
-                "{} {:<28} {:>5} frames, {:>3} coups",
+                "{} {:<28} {:>5} frames, {:>3} coups, attentes {} / {}, trace {}",
                 if ok { "ok    " } else { "ÉCHEC " },
                 r["scenario"].as_str().unwrap_or("?"),
                 r["frames"],
                 r["hits"],
+                if r["expectations_ok"] == true {
+                    "ok"
+                } else {
+                    "ÉCHEC"
+                },
+                r["expectations"],
+                trace,
             );
             for f in r["failures"].as_array().into_iter().flatten() {
                 println!("        {}", f.as_str().unwrap_or("?"));
@@ -1255,12 +1268,27 @@ fn run_tests(
             }
         }
     }
-    let failed = results
-        .iter()
-        .filter(|r| r["expectations_ok"] != true)
-        .count();
+    let failed = results.iter().filter(|r| r["ok"] != true).count();
+    // Une génération impossible reste un échec, même si les scénarios écrits sont verts.
+    let failed = failed + usize::from(!output.status.success() && failed == 0);
+    if !output.status.success()
+        && String::from_utf8_lossy(&output.stderr)
+            .lines()
+            .any(|line| line.starts_with("alacod-gen"))
+    {
+        show_stderr(&output);
+    }
     if !json {
-        println!("{} scénario(s), {} échec(s)", results.len(), failed);
+        let compared = results
+            .iter()
+            .filter(|r| r["trace_compared"] == true)
+            .count();
+        println!(
+            "{} scénario(s) joué(s), {} trace(s) comparée(s), {} échec(s)",
+            results.iter().filter(|r| r["played"] == true).count(),
+            compared,
+            failed
+        );
     }
     if failed == 0 && output.status.success() {
         ExitCode::SUCCESS

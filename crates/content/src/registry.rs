@@ -314,6 +314,8 @@ pub struct CharacterEntry {
     pub test: Option<CharacterTestEntry>,
     /// T1.13 : `counts_hits`, pour la cible de `generate_template`.
     pub counts_hits: bool,
+    /// M-1b (§112) : `prop: true`, image inerte sans `Enemy` ni barre de vie.
+    pub prop: bool,
     /// M3-T0b (§61) : i-frames après un dégât réel.
     pub hit_iframes: Option<u32>,
     /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
@@ -2129,6 +2131,9 @@ struct CharacterFileSchema {
     /// T1.13 : cible de `generate_template` (règle « `counts_hits` »).
     #[serde(default)]
     counts_hits: bool,
+    /// M-1b (§112) : personnage « prop » (image inerte : ni `Enemy`, ni barre de vie). Défaut faux.
+    #[serde(default)]
+    prop: bool,
     /// M3-T0b (§61) : i-frames après un dégât réel.
     #[serde(default)]
     #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
@@ -3218,6 +3223,7 @@ fn load_characters(
                         .collect(),
                 }),
                 counts_hits: parsed.counts_hits,
+                prop: parsed.prop,
                 hit_iframes: parsed.hit_iframes,
                 body_extent: parsed
                     .collider

@@ -90,13 +90,16 @@ pub fn attach_character_visuals(
             ));
             let (cos_e, _) = crate::model3d::elevation(table);
             let head = model.height_m * cos_e * table.def.units_per_meter;
-            attach_health_bar(
-                &mut commands,
-                entity,
-                appearance,
-                head,
-                model.offset_z + 0.1,
-            );
+            // M-1b (§112) : un prop à modèle n'a pas de barre non plus.
+            if !config.prop {
+                attach_health_bar(
+                    &mut commands,
+                    entity,
+                    appearance,
+                    head,
+                    model.offset_z + 0.1,
+                );
+            }
             continue;
         }
         let (Some(map_layers), Some(animation_handle)) = (
@@ -178,7 +181,10 @@ pub fn attach_character_visuals(
                 .try_insert(MarkerTint(Color::srgb(r, g, b)));
         }
 
-        attach_health_bar(&mut commands, entity, appearance, sprite_top, 0.1);
+        // M-1b (§112) : un prop est une image seule, pas de barre de vie.
+        if !config.prop {
+            attach_health_bar(&mut commands, entity, appearance, sprite_top, 0.1);
+        }
     }
 }
 
@@ -721,5 +727,87 @@ mod shoot_pose_tests {
             app.world().get::<PresentationClip>(shooter).unwrap().0,
             None
         );
+    }
+}
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use crate::character::config::CharacterConfig;
+    use animation::SpriteSheetConfig;
+
+    /// RON minimal d'un personnage immobile ; `prop` le règle (le même fichier sert au prop et au témoin).
+    fn config(prop: bool) -> CharacterConfig {
+        ron::de::from_str(&format!(
+            r#"(
+                movement: (acceleration: "0.0", max_speed: "0.0", sprint_multiplier: "1.0",
+                    sprint_acceleration_per_frame: "0.0", sprint_deceleration_per_frame: "0.0",
+                    dash_distance: "0.0", dash_duration_frames: 0, dash_cooldown_frames: 0),
+                asset_name_ref: "neutre",
+                collider: (shape: Rectangle(width: "20.", height: "20."), offset: (x: "0.0", y: "0.0", z: "0.0")),
+                scale: "1.0",
+                base_health: (max: "200.0"),
+                starting_skin: "1",
+                skins: {{"1": (layers: {{}})}},
+                prop: {prop},
+            )"#
+        ))
+        .expect("RON de personnage minimal")
+    }
+
+    /// M-1b (§112) : la présentation ne dessine aucune barre de vie à un prop, et en dessine une à son témoin
+    /// (même fichier, `prop` seul diffère) : la barre dépend du champ, pas d'un oubli de sprite.
+    #[test]
+    fn a_prop_gets_no_health_bar_but_its_twin_does() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<SpriteSheetConfig>()
+            .init_asset::<AnimationMapConfig>()
+            .init_asset::<TextureAtlasLayout>();
+        let mut configs = CharacterConfigs::default();
+        configs.0.insert("prop".into(), config(true));
+        configs.0.insert("twin".into(), config(false));
+        app.insert_resource(configs).insert_resource(GlobalAsset {
+            spritesheets: [("neutre".to_string(), Default::default())]
+                .into_iter()
+                .collect(),
+            animations: [("neutre".to_string(), Handle::default())]
+                .into_iter()
+                .collect(),
+            slash_effect_spritesheet: None,
+            slash_effect_animation: None,
+            character_configs: Default::default(),
+            weapons: Handle::default(),
+            melee_weapons: Handle::default(),
+            wave_config: None,
+            economy_config: None,
+            perks_config: None,
+            powerups_config: None,
+        });
+        app.add_systems(Update, attach_character_visuals);
+        let appearance = |name: &str| CharacterAppearance {
+            config_name: name.into(),
+            skin: None,
+            health_bar_color: Color::WHITE,
+        };
+        let prop = app.world_mut().spawn(appearance("prop")).id();
+        let twin = app.world_mut().spawn(appearance("twin")).id();
+        app.update();
+        app.update();
+        let world = app.world_mut();
+        assert!(
+            world.get::<VisualsAttached>(prop).is_some(),
+            "visuels du prop attachés"
+        );
+        assert!(
+            world.get::<VisualsAttached>(twin).is_some(),
+            "visuels du témoin attachés"
+        );
+        let bar_parents: Vec<Entity> = world
+            .query_filtered::<&ChildOf, With<HealthBar>>()
+            .iter(world)
+            .map(|parent| parent.parent())
+            .collect();
+        assert_eq!(bar_parents, vec![twin], "seul le témoin a une barre de vie");
     }
 }

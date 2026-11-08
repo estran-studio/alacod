@@ -566,12 +566,14 @@ porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::Fixed
 (`crates/content/src/scaffold.rs`) copie un modèle du jeu (fichier `<dossier>/<id>.ron`, ou entrée
 dupliquée à la fin d'une table comme `weapons.ron`), réécrit l'id et le nom, relance le lint. Pas
 pour `Map`, `Ui`, `Camera`, `Economy`, `Difficulty`. `alacod test [jeu] [id…] [--list] [--bless]
-[--json]` joue les scénarios générés (§28, §54) par `alacod-gen --only` (le crate `scenario`
-dépend de `content`, donc `alacod` appelle `cargo run -p scenario` dans l'engine : celui du jeu
-(`Cargo.toml`), de `--engine`, ou d'où `alacod` a été compilé). Traces ignorées sauf `--bless` ;
-sortie JSON : `scenario`, `frames`, `hits`, `expectations`, `expectations_ok`, `failures`. Un jeu
-hors de l'engine est retrouvé par `ALACOD_GAME_NAME`/`ALACOD_GAME_DIR` (posés par `alacod-gen`) ;
-ses scénarios sont écrits sous `<jeu>/tests/generated`. Les armes se jouent sur la
+[--json]` joue les scénarios générés (§28, §54) et les scénarios écrits (`tests/scenarios/*.ron`,
+§114) par `alacod-gen --written --only` (le crate `scenario` dépend de `content`, donc `alacod`
+appelle `cargo run -p scenario` dans l'engine : celui du jeu (`Cargo.toml`), de `--engine`, ou
+d'où `alacod` a été compilé). Les traces des générés sont ignorées sauf `--bless` ; celles des
+scénarios écrits sont obligatoires. Sortie JSON : `scenario`, `subject`, `frames`, `hits`,
+`expectations`, `expectations_ok`, `failures`, `trace`, `trace_compared`, `ok`. Un jeu hors de
+l'engine est retrouvé par `ALACOD_GAME_NAME`/`ALACOD_GAME_DIR` (posés par `alacod-gen`) ;
+ses scénarios générés sont écrits sous `<jeu>/tests/generated`. Les armes se jouent sur la
 `generate_template` du manifeste (sinon dans le testbed de l'engine, où une arme nouvelle n'existe
 pas).
 
@@ -8685,6 +8687,42 @@ comme aux bancs du Labo (`1867_lore/design/rendu-facon-sprite.md`) ; le décor, 
 - **Web** : le `glb` est chargé par HTTP comme les images (`assets/` du build), le manifeste est embarqué ; les shaders sont des `embedded_asset!` (WebGL2).
 - Dettes **D198** (mort, coup reçu et victoire non joués en 3D) et **D199** (épauler sans phase dans la simulation) : `docs/taches/dettes.md`.
 
+## 112. Le personnage « prop » : une image inerte, sans barre de vie ni statut d'ennemi (M-1b, `docs/taches/rapports/m-1b-prop.md`)
+
+Un contenu pose dans une carte des images qui arrêtent les balles et les corps (murs, barrières, caisses, arbres, bâtiments). Avant, l'unique moyen était un `Character` neutre immobile, qui affichait une barre de vie rouge
+(`character/visuals.rs`) et recevait `Enemy` (`enemy/create.rs`) : il comptait dans le plafond d'ennemis du spawner, le HUD `enemies` et les règles de fin de vague. Aucun nom de jeu dans l'engine : testbed (`prop-test`, `wall-test`).
+
+- **Champ de contenu `prop: bool`** (défaut `false`, `CharacterConfig::prop`, `#[serde(default)]`) sur le kind `Character`. Forme RON : `prop: true,` à la racine du personnage ; `alacod describe Character` le liste. Un seul champ plutôt que
+  `health_bar` + `counts_as_enemy` : les deux effets vont toujours ensemble pour une image (une barre sans `Enemy` ou l'inverse n'a pas de cas d'emploi) ; deux champs se lisent aussi mal à côté du kind `Prop` (barils, tables, `lint_props`), dont le nom
+  se rapproche mais qui est un autre objet (surface, `Obstacle`). Si un besoin sépare un jour les deux effets, `prop` reste le raccourci des deux.
+- **Spawn** (`spawn_enemy`, `crates/game/src/character/enemy/create.rs`) : un prop prend un **chemin séparé**, avant tout le reste : `create_character` (collider, santé `base_health`, skin, `GgrsNetId`, couche `enemy_layer`) puis l'équipe, et rien de plus : ni `Enemy`,
+  ni `EnemyPath`/`MonsterState`/`EnemyAiConfig`/`EnemyBehaviors`, ni arme, ni variante. Le chemin des ennemis n'est pas touché d'une ligne. `ai` n'est pas requis (le lint ne le réclamait déjà pas). L'équipe est celle que pose l'appelant, comme pour
+  un personnage ordinaire (`team` du `CharacterSpawn` ou du scénario) ; un prop reste ciblable par les balles (`prop_stops_bullet`, placé sans `team`).
+- **Présentation** (`attach_character_visuals`, `character/visuals.rs`) : pas de barre de vie ni au repos ni après un dégât (aucun `HealthBar` enfant), sprites et skin attachés comme avant. Test : `visuals::prop_tests` (un prop et son jumeau à `prop: false`, même fichier : seul le jumeau a la barre).
+- **Aucun composant rollback neuf** : le champ est statique, lu au spawn (et par la présentation). Un prop n'a ni plus ni moins de composants rollback qu'un `Character` sans `Enemy` ; **champ absent ou `false` : aucune trace existante ne bouge**
+  (preuve : `explosive_bullet_hit`, `testbed_window`, `four_players_idle`, `rock_flow_field`, `rock_loot` rejoués sans `BLESS`, traces identiques).
+- **Lint** (`lint_characters`, `crates/content/src/lint.rs`, `LintErrorKind::Unsupported`) : `prop: true` est refusé avec `counts_hits`, `starting_weapons` non vide, `boss`, `variants` ou `ai.behaviors` (le spawn d'un prop ignore ces champs ; « personnage « X » : `prop: true` est incompatible avec `<champ>` ») ; un prop nu passe.
+  Fixtures `crates/content/tests/fixtures/prop_incompatible` (cinq refus, un prop accepté, `lint_fixtures.rs`). `alacod new-content Character <id> --from <prop>` copie le champ (`cli.rs::describe_lists_prop_and_new_content_accepts_a_prop_model`).
+- **Ce qu'un prop n'est plus** (lecteurs de `With<Enemy>`, lus dans le code ; seul le compte `Enemy` est prouvé par un scénario) : sorti du compte du plafond du spawner, du HUD `enemies`, des vagues et de la fin de vague, des salles (`rooms.rs` : un prop ne bloque plus « tous les ennemis morts »), du ciblage
+  (`enemy_target_selection`, charme), des bots (`hunter`, `explorer`),
+  de `remote brief`, des étiquettes de lisibilité, des fantômes et du son de mort. **Inchangés** : les collisions du joueur (par couche `enemy_layer`, pas par `Enemy`), les balles (requête `Team` + `Health` + `Collider`), les dégâts, la mort à santé épuisée
+  (un contenu qui veut un prop indestructible garde une grosse `base_health`).
+- **Un prop repousse les ennemis** (suivi P3a de la revue) : la séparation de `move_enemies` (`pathing.rs`, force 2, portée 80, la seule collision entre ennemis) ne portait que sur les `Enemy` ; un prop sans `Enemy` aurait été traversé, alors que le décor-`Enemy` d'avant
+  repoussait. Les personnages ni `Enemy` ni `Player` dont `CharacterConfig::prop` est vrai entrent donc dans la grille de séparation (même formule ; la grille trie par `net_id`, l'ordre d'insertion ne compte pas) : sans prop, rien n'est inséré, aucune trace ne bouge.
+  `prop_repels_enemy` : un `follower` (poursuite, vitesse 60) croise quatre `prop-test` ; distance au joueur 145,746 à f150 et 96,695 à f199, **les mêmes** qu'avec quatre `dummy` (témoin) et différentes de celles d'un couloir vide (145,629 et 96,641) : sans la
+  correction le scénario échoue (145,62872 < 145,72 à f150, 96,64091 < 96,68 à f199). L'effet est faible par construction (répulsion bornée à 2 contre une vitesse de 60), d'où des fenêtres de ±0,03. Les murs et fenêtres restent `Wall`/`Window` (collision dure, inchangée).
+- **Preuves** (traces neuves, `tests/scenarios/`) : `prop_no_enemy` (5 props, `prop-test` ×3 et `wall-test` ×2, et 1 `dummy` : `EntityCount(kind: Enemy)` = 0 avant la pose, 1 ensuite), `prop_no_enemy_cap` (11 props et 1 `dummy` : ennemis = 1 < 10),
+  `prop_stops_bullet` et son témoin `prop_stops_bullet_dummy` (un `dummy` à la place du prop : même impact, 200 → 192, la cible derrière reste à 200), `prop_repels_enemy` et son témoin `prop_repels_enemy_dummy` (voir ci-dessus).
+  **Le spawner de vagues ne tourne pas en scénario** (`WaveModeEnabled(true)` forcé) : `prop_no_enemy_cap` prouve le compte `Enemy`, le marqueur que le plafond lit (`spawning.rs`) ; le spawner **lui-même** est joué par les tests unitaires
+  `spawning::tests::props_beyond_the_cap_do_not_stop_the_spawner` (onze props posés par `spawn_enemy`, plus que le plafond : un `grunt` apparaît à chaque frame) et son témoin `the_same_count_of_ordinary_enemies_stops_the_spawner` (onze `Enemy` : plafond atteint,
+  plus d'apparition). Le plafond y est une **constante** (10) et non le champ `max_enemies` du spawner : dette **D200**.
+- **Équipe d'un prop et projectiles ennemis** (constat du suivi, non corrigé) : sans `team` (ni dans le RON du personnage, ni dans le `CharacterSpawn`/le placement), un prop reçoit `Team::Enemies` (repli de `map_ldtk::game::local`) : les balles du joueur
+  s'y arrêtent et le blessent, mais les projectiles **ennemis** (même camp, tir ami `Never` par défaut) le **traversent** sans le toucher. Mesuré (testbed, `arena.ldtk`, un `tireur_poste` à y 616, le joueur à y 696, un `prop-test` entre eux à y 656) : le joueur
+  perd 5 PV à f150 et 10 à f299 avec ou sans prop (les flèches passent) ; avec `team: Some(Neutral)` sur le prop il garde ses 100 PV (les flèches s'arrêtent, le prop n'est jamais blessé : `Team::Neutral` arrête sans blesser). Acceptable pour du décor que seuls
+  les tirs du joueur doivent arrêter ; un décor qui doit aussi arrêter les tirs ennemis garde `team: Some(Neutral)` dans son RON (ne pas le retirer en passant à `prop: true`).
+- Capture : `docs/taches/rapports/m-1b-prop.png` (image 95 de `ALACOD_LABELS=0 target/debug/play_scenario tests/scenarios/prop_stops_bullet.ron --capture <dossier> --every 5` : le prop touché, l'image seule, sans barre rouge ; le HUD affiche « Ennemis 1 », le `dummy`).
+  `alacod sandbox games/testbed --detach` + `alacod remote spawn prop-test --ahead` a bien posé le prop (`brief` : un seul ennemi, le `dummy`), mais `alacod remote screenshot` a rendu une image **noire** (1600×1200, tous les pixels à 0), à deux reprises : cause non cherchée.
+
 ## 113. Le cœur à deux : feu follet, point de reprise, relève (M-5, `docs/taches/rapports/m-5-coeur-a-deux.md`)
 
 Jalon **S2, dim 22** (cible jeu 19 nov : « le joueur mort devient un feu follet et son coéquipier peut le relever » ; lun 16 : « la vie, les dégâts, les munitions et
@@ -8740,3 +8778,46 @@ jeu** : tout vient du RON du personnage.
   `crates/content/tests/m5_wisp_fixtures.rs` (lint).
 - Dettes **D201** (le point de reprise est un personnage, pas une entité de carte), **D202** (un ennemi se fige près d'un joueur à terre), **D203** (portée du leurre en coût de chemin, retard
   du champ partagé), **D204** (présentation minimale ; pas de relève par un objet) : `docs/taches/dettes.md`.
+
+## 114. Scénarios écrits d'un jeu externe : `alacod test` (T-1)
+
+Jalon servi : **S1 dim 15 novembre et suite de nuit** (`plan-1837-cli.md` §6).
+Outillage seulement : aucune simulation, aucun type rollback, aucune trace de l'engine modifiés.
+
+- `alacod test <jeu> [--engine <engine>]` joue les générés **et** les fichiers
+  `<jeu>/tests/scenarios/*.ron` (un niveau, triés). Les écrits ne sont jamais régénérés ni supprimés.
+  Leur `game` désigne le nom du manifeste ; `map` reste un chemin relatif aux assets du jeu.
+  Les `players` gardent chacun leur script d'inputs, y compris en coop locale synctest.
+- Même appel **`scenario::run` que `crates/scenario/tests/scenarios.rs`** : attentes, invariants,
+  synchronisation et dernière frame atteinte. Ce n'est pas `play_scenario`, qui sert à regarder.
+  Chaque ligne affiche le verdict des attentes et leur total, puis le verdict de trace.
+- Pour un écrit `duo.ron`, la référence obligatoire est `duo.trace`, à côté du RON :
+  comparaison exacte de la trace complète (y compris sa longueur). Référence manquante,
+  illisible ou différente : **code 1** ; attente/invariant échoué ou fin non atteinte : **code 1**,
+  même sous `--bless`. `alacod test <jeu> scenarios/duo --bless` écrit sa référence **seulement
+  si les attentes passent** ; sinon statut « non bénie », référence conservée et code 1.
+  Ne bénir qu'un changement voulu et relire les attentes.
+- Filtre : `scenarios/duo` (id qualifié, sans extension), ou `duo` (nom court).
+  Les ids/sujets générés restent acceptés comme avant ; `--list` inclut les ids écrits.
+  Un id écrit, qualifié ou court, s'exécute sans appeler le générateur. Sans filtre, une erreur de
+  génération reste un échec mais les écrits sont quand même joués ; les anciens générés ne
+  sont pas effacés sur cette erreur.
+- Générés inchangés : `tests/generated` pour un jeu externe, traces ignorées par défaut,
+  écrites sous `--bless`. `alacod-gen` sans `--written` garde son usage précédent.
+  Son `--no-trace` ne désactive jamais les traces des écrits inclus par `--written`.
+- Résumé texte : nombre de **scénarios joués**, de **traces comparées** (présentes, égales ou
+  différentes) et d'échecs. Une trace absente ou bénie n'est pas une comparaison.
+  `--json` garde le tableau, ajoute `ok` (verdict complet) et `trace_compared` par scénario ;
+  `played` distingue un scénario joué d'un fichier illisible ou d'un RON invalide : ces erreurs
+  donnent un résultat `ok: false` avec leur diagnostic, sans arrêter les fichiers suivants.
+  Elles ne comptent pas dans les scénarios joués. `expectations_ok` est indépendant du verdict
+  de trace. Les erreurs de génération sont sur stderr.
+- Preuve : **`make test_alacod_external`**, test ignoré
+  `test_command_compares_written_external_two_player_scenarios` dans `crates/content/tests/cli.rs` :
+  jeu temporaire créé par `alacod new`, deux scripts, référence absente → code 1,
+  bless → référence écrite, rejeu → vert, référence altérée → code 1, attente fausse → code 1.
+  Inclusion sans filtre/JSON et isolement d'un générateur sans cible également couverts.
+  Le Makefile compile le harnais puis lance son exécutable annoncé par Cargo JSON :
+  aucun Cargo parent ne reste actif pendant les appels `alacod test`.
+  Rapport : `docs/taches/rapports/t-1-test-jeu-externe.md`, D205 : cœur livré, reste le
+  libellé d'erreur du générateur d'armes d'un jeu externe sans `generate_template`.

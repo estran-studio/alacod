@@ -355,6 +355,47 @@ fn new_content_copies_a_file_for_per_file_kinds() {
     assert!(ok, "{json}");
 }
 
+/// M-1b (§112) : `describe Character` liste `prop` (avec son défaut) et `new-content --from` accepte un prop comme modèle
+/// (le champ est copié, le lint reste vert).
+#[test]
+fn describe_lists_prop_and_new_content_accepts_a_prop_model() {
+    let tmp = Tmp::new("nc-prop");
+    let game = game_with_content(&tmp);
+
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["describe", "Character"]);
+    let schema = text(&run(cmd).stdout);
+    assert!(schema.contains("prop"), "{schema}");
+
+    let dummy = std::fs::read_to_string(game.join("assets/characters/dummy.ron")).unwrap();
+    let model = dummy
+        .replacen("asset_name_ref: \"dummy\"", "asset_name_ref: \"caisse\"", 1)
+        .replacen("\n(\n", "\n(\n    prop: true,\n", 1);
+    assert!(
+        model.contains("prop: true,"),
+        "le modèle doit porter `prop: true`"
+    );
+    std::fs::write(game.join("assets/characters/caisse.ron"), model).unwrap();
+    let (ok, json) = lint_json(&game);
+    assert!(ok, "le modèle prop doit passer le lint : {json}");
+
+    let mut cmd = alacod();
+    cmd.current_dir(&game)
+        .args(["new-content", "Character", "malle", "--from", "caisse"]);
+    let out = run(cmd);
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
+    let created = std::fs::read_to_string(game.join("assets/characters/malle.ron")).unwrap();
+    assert!(created.contains("prop: true,"), "{created}");
+    assert!(created.contains("asset_name_ref: \"malle\""), "{created}");
+    let (ok, json) = lint_json(&game);
+    assert!(ok, "{json}");
+}
+
 #[test]
 fn new_content_adds_an_entry_to_a_table_kind() {
     let tmp = Tmp::new("nc-table");
@@ -496,6 +537,177 @@ fn test_command_plays_generated_scenarios_of_a_game_outside_the_engine() {
     let out = run(cmd);
     assert!(!out.status.success());
     assert!(text(&out.stderr).contains("aucun sujet"));
+}
+
+#[test]
+#[ignore = "joue un jeu externe à deux : make test_alacod_external"]
+fn test_command_compares_written_external_two_player_scenarios() {
+    let tmp = Tmp::new("written");
+    assert!(new_game(&tmp, "demo", &[]).status.success());
+    let game = tmp.0.join("demo");
+    let scenarios = game.join("tests/scenarios");
+    std::fs::create_dir_all(&scenarios).unwrap();
+    let path = scenarios.join("duo.ron");
+    let source = r#"Scenario(
+        game: "demo",
+        map: "maps/arena.ldtk",
+        frames: 90,
+        players: [
+            (inputs: [(from: 1, to: 30, buttons: [], pan: (100, 0))]),
+            (inputs: [(from: 1, to: 30, buttons: [], pan: (-100, 0))]),
+        ],
+        expect: [
+            PlayerAlive(handle: 0, at_frame: 60),
+            PlayerAlive(handle: 1, at_frame: 60),
+        ],
+    )"#;
+    std::fs::write(&path, source).unwrap();
+    let play = |extra: &[&str]| {
+        let mut cmd = alacod();
+        cmd.args(["test"])
+            .arg(&game)
+            .args(["scenarios/duo"])
+            .args(extra);
+        let out = run(cmd);
+        eprintln!(
+            "alacod test scenarios/duo {extra:?} => {}\n{}{}",
+            out.status,
+            text(&out.stdout),
+            text(&out.stderr)
+        );
+        out
+    };
+    let missing = play(&[]);
+    assert_eq!(missing.status.code(), Some(1));
+    assert!(
+        text(&missing.stdout).contains("trace manquante"),
+        "{}",
+        text(&missing.stdout)
+    );
+    let blessed = play(&["--bless"]);
+    assert!(blessed.status.success(), "{}", text(&blessed.stderr));
+    let trace = path.with_extension("trace");
+    let golden = std::fs::read_to_string(&trace).unwrap();
+    let replay = play(&[]);
+    assert!(replay.status.success(), "{}", text(&replay.stdout));
+    assert!(
+        text(&replay.stdout).contains("1 scénario(s) joué(s), 1 trace(s) comparée(s), 0 échec(s)")
+    );
+    let mut cmd = alacod();
+    cmd.args(["test"]).arg(&game).arg("--json");
+    let all = run(cmd);
+    assert!(
+        all.status.success(),
+        "{}{}",
+        text(&all.stdout),
+        text(&all.stderr)
+    );
+    let results: Vec<serde_json::Value> = serde_json::from_slice(&all.stdout).unwrap();
+    let authored = results
+        .iter()
+        .find(|r| r["scenario"] == "scenarios/duo")
+        .unwrap();
+    assert_eq!(authored["expectations"], 2);
+    assert_eq!(authored["expectations_ok"], true);
+    assert_eq!(authored["trace"], "ok");
+    assert_eq!(authored["trace_compared"], true);
+    assert!(results
+        .iter()
+        .filter(|r| r["scenario"] != "scenarios/duo")
+        .all(|r| r["trace"] == "ignorée"));
+    std::fs::write(&trace, "trace altérée\n").unwrap();
+    let different = play(&[]);
+    assert_eq!(different.status.code(), Some(1));
+    assert!(text(&different.stdout).contains("trace différente"));
+    // Une trace correcte ne cache pas une attente échouée ; --bless n'est pas un passe-droit.
+    std::fs::write(&trace, &golden).unwrap();
+    std::fs::write(
+        &path,
+        source.replace("PlayerAlive(handle: 1", "PlayerDead(handle: 1"),
+    )
+    .unwrap();
+    let failed = play(&["--bless"]);
+    assert_eq!(failed.status.code(), Some(1));
+    assert!(text(&failed.stdout).contains("PlayerDead"));
+    assert!(text(&failed.stdout).contains("trace non bénie"));
+    assert_eq!(std::fs::read_to_string(&trace).unwrap(), golden);
+    // Un écrit invalide avant duo dans le tri reste un résultat faux, pas un arrêt du lot.
+    std::fs::write(&path, source).unwrap();
+    let invalid = scenarios.join("aaa_invalide.ron");
+    std::fs::write(&invalid, "Scenario(").unwrap();
+    let mut cmd = alacod();
+    cmd.args(["test"])
+        .arg(&game)
+        .args(["aaa_invalide", "duo", "--json"]);
+    let malformed = run(cmd);
+    assert_eq!(malformed.status.code(), Some(1));
+    let malformed_results: Vec<serde_json::Value> =
+        serde_json::from_slice(&malformed.stdout).unwrap();
+    let invalid_result = malformed_results
+        .iter()
+        .find(|r| r["scenario"] == "scenarios/aaa_invalide")
+        .unwrap();
+    assert_eq!(invalid_result["ok"], false);
+    assert_eq!(invalid_result["played"], false);
+    assert!(invalid_result["failures"][0]
+        .as_str()
+        .unwrap()
+        .contains("RON invalide"));
+    assert!(malformed_results
+        .iter()
+        .any(|r| r["scenario"] == "scenarios/duo" && r["ok"] == true));
+    std::fs::write(&invalid, [0xff]).unwrap();
+    let mut cmd = alacod();
+    cmd.args(["test"]).arg(&game).args(["aaa_invalide", "duo"]);
+    let unreadable = run(cmd);
+    assert_eq!(unreadable.status.code(), Some(1));
+    assert!(text(&unreadable.stdout)
+        .contains("1 scénario(s) joué(s), 1 trace(s) comparée(s), 1 échec(s)"));
+    std::fs::remove_file(invalid).unwrap();
+    // Un générateur sans cible ne doit ni bloquer un id écrit, ni effacer les générés.
+    std::fs::write(&path, source).unwrap();
+    let generated_id = results
+        .iter()
+        .find(|r| r["scenario"] != "scenarios/duo")
+        .unwrap()["scenario"]
+        .as_str()
+        .unwrap();
+    let generated_path = game
+        .join("tests/generated")
+        .join(format!("{generated_id}.ron"));
+    let generated_source = std::fs::read_to_string(&generated_path).unwrap();
+    let manifest = game.join("assets/game.ron");
+    let manifest_source = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(
+        &manifest,
+        manifest_source.replace(
+            "generate_template: (map: \"maps/arena.ldtk\"",
+            "generate_template: (map: \"maps/arene_vide.ldtk\"",
+        ),
+    )
+    .unwrap();
+    assert!(play(&["--bless"]).status.success());
+    let mut cmd = alacod();
+    cmd.args(["test"]).arg(&game).arg("duo");
+    let short_id = run(cmd);
+    assert!(
+        short_id.status.success(),
+        "{}{}",
+        text(&short_id.stdout),
+        text(&short_id.stderr)
+    );
+    let mut cmd = alacod();
+    cmd.args(["test"]).arg(&game);
+    let generation_failed = run(cmd);
+    assert_eq!(generation_failed.status.code(), Some(1));
+    assert!(text(&generation_failed.stdout).contains("trace ok"));
+    assert!(text(&generation_failed.stdout)
+        .contains("1 scénario(s) joué(s), 1 trace(s) comparée(s), 1 échec(s)"));
+    assert!(text(&generation_failed.stderr).contains("alacod-gen"));
+    assert_eq!(
+        std::fs::read_to_string(generated_path).unwrap(),
+        generated_source
+    );
 }
 
 /// Remplace la première valeur de `damage: "…"` de `text` par `"0.0"`.
