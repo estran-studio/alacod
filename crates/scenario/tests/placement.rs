@@ -288,7 +288,8 @@ fn gabarits_generate_template_en_sandbox() {
         map: "maps/gabarit_armes.ldtk".into(),
         mode: Some(content::EntryMode::Sandbox),
     };
-    let scenario = generate::build_weapon_scenario(&template, "epee", WeaponKind::Melee, None, 0);
+    let scenario =
+        generate::build_weapon_scenario(&template, "epee", WeaponKind::Melee, None, 0, None);
     assert_eq!(scenario.mode, Some(content::EntryMode::Sandbox));
     assert!(scenario.to_ron().contains("mode: Sandbox"));
     // Testbed (pas de `generate_template`) : pas de champ, fichiers générés inchangés.
