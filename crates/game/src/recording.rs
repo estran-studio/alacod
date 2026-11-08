@@ -52,8 +52,6 @@ pub struct RecordedSettings {
     pub difficulty: Option<bool>,
     /// T1.13 : placements scriptés de personnages (`Scenario::characters`).
     pub characters: Vec<CharacterPlacement>,
-    /// M-5 : points de reprise du feu follet (`Scenario::respawn_points`).
-    pub respawn_points: Vec<crate::replay::RespawnPlacement>,
     /// Mode de run imposé (`Scenario::mode`).
     pub mode: Option<content::EntryMode>,
     /// T1.10 : progression imposée (`Scenario::progression`).
@@ -84,7 +82,6 @@ impl Default for RecordedSettings {
             clocks: None,
             difficulty: None,
             characters: vec![],
-            respawn_points: vec![],
             mode: None,
             progression: None,
             players: vec![],
@@ -110,7 +107,6 @@ impl RecordedSettings {
             clocks: scenario.clocks.clone(),
             difficulty: scenario.difficulty,
             characters: scenario.characters.clone(),
-            respawn_points: scenario.respawn_points.clone(),
             mode: scenario.mode,
             progression: scenario.progression.clone(),
             players: scenario
@@ -261,7 +257,6 @@ impl InputRecorder {
             clocks: settings.clocks,
             difficulty: settings.difficulty,
             characters: settings.characters,
-            respawn_points: settings.respawn_points,
             mode: settings.mode,
             ui: Vec::new(),
         };
@@ -502,7 +497,6 @@ mod tests {
             clocks: None,
             difficulty: None,
             characters: vec![],
-            respawn_points: vec![],
             mode: None,
             progression: Some("base".into()),
             players: vec![PlayerScript {

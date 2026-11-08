@@ -8709,9 +8709,10 @@ jeu** : tout vient du RON du personnage.
   les joueurs se départagent comme avant (un décalage commun ne change pas leur ordre). Sans feu follet à leurre : `reach` vide, la sortie est celle d'avant. Le ciblage
   (`enemy_target_selection`, `update_enemy_targets`) range un feu follet à leurre parmi les cibles (`combat::downed::is_decoy`) ; l'attaque filtre toujours `Downed` :
   les ennemis égarés se massent sur la lumière sans la frapper.
-- **Reprise à un point** : `combat::downed::RespawnPoint { range }`, entité rollback immobile. Posée par l'entité LDtk `RespawnPoint` (portée = champ flottant `range`,
-  sinon la moitié du plus grand côté de l'entité dessinée ; premier niveau seulement, D201) ou par un placement de contenu `respawn_points: [(x, y, range, at_frame)]`
-  d'un scénario (`Scenario::respawn_points`) ou d'un profil de bac à sable (`SandboxProfile::respawn_points`, `content::sandbox::RespawnPlacement`, lint `range > 0`).
+- **Reprise à un point** : `combat::downed::RespawnPoint { range }`, composant rollback neutre porté par un **personnage** : un personnage qui déclare `respawn_range: Some("48.0")` (`CharacterConfig`,
+  unités monde, lint `> 0`) reçoit `RespawnPoint` à sa création (`enemy::create::spawn_enemy`), donc par l'entité LDtk `CharacterSpawn` de la carte, un placement `characters` d'un scénario ou d'un
+  profil de bac à sable, sans chemin nouveau (D201 : pas d'entité LDtk dédiée, la génération de carte ne recopie que les types qu'elle connaît). Un personnage neutre immobile (`Team::Neutral`) ne perd jamais
+  de vie : le point ne meurt pas.
   `character::health::rollback_wisp_respawn` (`DeathManagement`, après le saignement, avant la régénération et `rollback_check_defeat`) compte les frames **consécutives**
   d'un feu follet dans la portée (`Wisp::respawn_progress`, retombe à 0 hors portée) et, à `respawn_frames`, retire `Downed`/`Wisp`/`Reviving`/`Interactable` et le
   modificateur de vitesse, `Health = max × respawn_health`.
@@ -8720,18 +8721,18 @@ jeu** : tout vient du RON du personnage.
   `Downed`, défaite de même.
 - **Rollback** (checklist de `CLAUDE.md`) : `Wisp` et `RespawnPoint` en variante **neutre** (`rollback_and_trace_neutral`, `game::character`, avant la clôture), `GgrsNetId` en
   premier dans toutes les requêtes, `order_iter!`/`order_mut_iter!`, `Fixed` partout, aucun RNG, aucun événement nouveau, logs `ggrs{…}` par `GgrsNetId`. Aucune trace existante
-  ne bouge (19 scénarios `downed_*`, `four_players_*`, `two_players_*`, `idle`, vagues rejoués identiques) ; `make schedule_order_diff` : une ligne de système
-  (`rollback_wisp_respawn`, `DeathManagement`), une de placement (`apply_scenario_respawn_placements`, `Effects`), deux types rollback neutres en fin de liste, rien d'autre.
+  ne bouge (la suite complète, 851 scénarios en quatre tranches, rejouée sans `BLESS` : identique) ; `make schedule_order_diff` (dumps à cibles séparées, voir le rapport) : une ligne de système
+  (`rollback_wisp_respawn`, `DeathManagement`) et deux types rollback neutres avant la clôture, rien d'autre.
 - **HUD** (présentation, `hud_model`, aussi en headless) : source `wisp` (liste fermée `content::ui::HUD_SOURCES`, `PLAYER_SOURCES`) : « FEU FOLLET » + « Relève 40 % » (par un
   coéquipier) + « Reprise 40 % » (à un point) pour le joueur affiché tombé ; « Feu follet allié » (+ « Relève 40 % » que **lui** mène) pour son coéquipier debout. La source
   `downed` (« À TERRE 12 s ») ne montre plus de compte à rebours pour un feu follet sans saignement. `health` (« 0/100 » tombé, « 30/100 » relevé) et `ammo` sont lues telles
   quelles par `HudText`. Dessin : `wisp_visuals` (gizmos, `Update`, absent en headless) : trois cercles chauds qui pulsent à la place du corps, un arc bleu pour la relève, un arc
   chaud pour la reprise, un anneau + foyer pour chaque point de reprise ; rien à ressusciter après un rollback.
-- **Testbed** : personnages `wisp_plain`, `wisp_attract`, `wisp_attract_short`, `wisp_mislead` (copie du joueur du testbed, `revive_frames: 60`) ; scénarios `wisp_revive_by_mate`
-  (mort → feu follet → relève, HUD, santé 30 %), `wisp_respawn_point` (le feu follet marche jusqu'au point, 90 frames, relevé à 50 %, sans coéquipier), `wisp_both_down_defeat`,
+- **Testbed** : personnages `wisp_plain`, `wisp_attract`, `wisp_attract_short`, `wisp_mislead` (copie du joueur du testbed, `revive_frames: 60`) et `respawn_beacon` (balise neutre, `respawn_range: 24`) ; scénarios
+  `wisp_revive_by_mate` (mort → feu follet → relève, HUD, santé 30 %), `wisp_respawn_point` (le feu follet marche jusqu'à la balise, 90 frames, relevé à 50 %, sans coéquipier), `wisp_both_down_defeat`,
   `wisp_solo_unchanged` (un joueur : la mort reste la mort, aucun feu follet), `wisp_plain_ignored`, `wisp_attract_pulls`, `wisp_attract_out_of_range`, `wisp_mislead_diverts`.
   Carte `testbed/arene_vide.ldtk` : joueur 0 en (424, 696), joueur 1 en (488, 696). Traces neuves seulement.
 - **Tests** : `sim_core::wisp::tests`, `navigation::wisp_reach_tests` (portée, `Attract`, `Mislead`, décalage neutre), `hud_model::tests::wisp_source_texts`,
   `crates/content/tests/m5_wisp_fixtures.rs` (lint).
-- Dettes **D201** (points de reprise du premier niveau seulement), **D202** (un ennemi se fige près d'un joueur à terre), **D203** (portée du leurre en coût de chemin, retard
+- Dettes **D201** (le point de reprise est un personnage, pas une entité de carte), **D202** (un ennemi se fige près d'un joueur à terre), **D203** (portée du leurre en coût de chemin, retard
   du champ partagé), **D204** (présentation minimale ; pas de relève par un objet) : `docs/taches/dettes.md`.

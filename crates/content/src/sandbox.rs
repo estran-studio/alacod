@@ -50,9 +50,6 @@ pub struct SandboxProfile {
     /// Présentoirs posés.
     #[serde(default, skip_serializing_if = "ShopSetup::is_empty")]
     pub shop: ShopSetup,
-    /// Points de reprise posés (feu follet, M-5) : `at_frame` relatif au début de la session.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub respawn_points: Vec<RespawnPlacement>,
 }
 
 /// État de départ d'un joueur : les champs de `game::replay::PlayerScript` **sauf** `inputs` et `bot`
@@ -126,23 +123,6 @@ pub struct ItemPlacement {
     pub x: Fixed,
     #[schemars(with = "bevy_fixed::schema::FixedString")]
     pub y: Fixed,
-    pub at_frame: u32,
-}
-
-/// Placement d'un point de reprise (M-5, `docs/conventions.md` §113) : un `combat::downed::RespawnPoint`
-/// de portée `range` en `(x, y)`, à la frame `at_frame` (0 : dès l'ouverture). Un feu follet qui y
-/// reste `WispDef::respawn_frames` frames se relève. Le jeu peut aussi le poser par l'entité LDtk
-/// `RespawnPoint` de sa carte.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct RespawnPlacement {
-    #[schemars(with = "bevy_fixed::schema::FixedString")]
-    pub x: Fixed,
-    #[schemars(with = "bevy_fixed::schema::FixedString")]
-    pub y: Fixed,
-    /// Portée (unités monde), `> 0`.
-    #[schemars(with = "bevy_fixed::schema::FixedString")]
-    pub range: Fixed,
-    #[serde(default)]
     pub at_frame: u32,
 }
 

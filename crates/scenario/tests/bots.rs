@@ -45,7 +45,6 @@ fn two_fonceurs(frames: u32) -> Scenario {
         clocks: None,
         difficulty: None,
         characters: vec![],
-        respawn_points: vec![],
         mode: None,
         ui: Vec::new(),
     }

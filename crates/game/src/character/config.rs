@@ -209,6 +209,13 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub wisp: Option<sim_core::wisp::WispDef>,
 
+    /// Point de reprise du feu follet (M-5, `docs/conventions.md` §113) : un personnage qui porte `respawn_range`
+    /// est, une fois posé (carte `CharacterSpawn`, placement de scénario ou de profil), un
+    /// `combat::downed::RespawnPoint` de cette portée (unités monde, `> 0`) : un feu follet qui y reste
+    /// `WispDef::respawn_frames` frames se relève. `None` (défaut) : un personnage ordinaire.
+    #[serde(default)]
+    pub respawn_range: Option<fixed_math::Fixed>,
+
     /// Emplacements d'armes à distance (T2.2, chantier B7 « Munitions typées et inventaire
     /// d'armes ») : au-delà, ramasser une arme remplace l'arme active plutôt que
     /// l'ajouter — voir `interaction::handle_weapon_pickup_interaction`. Défaut 2. Le

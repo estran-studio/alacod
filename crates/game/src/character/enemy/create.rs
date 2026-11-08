@@ -273,6 +273,13 @@ pub fn spawn_enemy(
             .entity(entity)
             .insert((crate::boss::BossPlan(boss), behaviors::BossState::default()));
     }
+    // M-5 (§113) : un personnage qui est un point de reprise du feu follet (rollback neutre, posé
+    // seulement par ce contenu : aucune trace existante ne bouge).
+    if let Some(range) = character_config.and_then(|config| config.respawn_range) {
+        commands
+            .entity(entity)
+            .insert(combat::downed::RespawnPoint { range });
+    }
 
     #[cfg(feature = "harmonium")]
     commands

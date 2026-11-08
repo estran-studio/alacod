@@ -4,7 +4,6 @@ pub mod enemy_spawn;
 pub mod hub_station;
 pub mod player_spawn;
 pub mod prop;
-pub mod respawn_point;
 pub mod soda_location;
 pub mod weapon_location;
 pub mod window;

@@ -31,6 +31,7 @@ fn out_of_range_wisp_numbers_are_reported() {
         ("wisp_respawn_zero", "wisp.respawn_frames = 0"),
         ("wisp_lure_range_zero", "wisp.lure.range = 0"),
         ("wisp_speed_too_high", "wisp.speed_mult = 5"),
+        ("wisp_respawn_range_zero", "respawn_range = 0"),
     ] {
         let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
         assert!(

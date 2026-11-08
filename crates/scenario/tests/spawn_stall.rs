@@ -53,7 +53,6 @@ fn empty_distance_range_spawns_after_deadline_without_desync() {
         clocks: None,
         difficulty: None,
         characters: vec![],
-        respawn_points: vec![],
         mode: None,
         ui: Vec::new(),
     };

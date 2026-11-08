@@ -782,6 +782,21 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
 
+        // Point de reprise (M-5, §113) : une portée nulle ou négative ne couvrirait aucun feu follet.
+        if let Some(range) = &character.respawn_range {
+            if range.get() <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ respawn_range = {} : doit être > 0",
+                        character.id,
+                        range.get()
+                    ),
+                });
+            }
+        }
+
         // Hors plage (T2.2, chantier B7) : zéro emplacement bloquerait tout ramassage
         // d'arme (voir `interaction::handle_weapon_pickup_interaction`).
         if character.weapon_slots == 0 {
@@ -6036,17 +6051,6 @@ fn lint_sandbox(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<L
                 push(
                     LintErrorKind::BrokenReference,
                     format!("items : objet « {} » inconnu", placed.id),
-                );
-            }
-        }
-        for (index, point) in profile.respawn_points.iter().enumerate() {
-            if point.range <= Fixed::ZERO {
-                push(
-                    LintErrorKind::OutOfRange,
-                    format!(
-                        "respawn_points[{index}] : range = {} : doit être > 0",
-                        point.range
-                    ),
                 );
             }
         }

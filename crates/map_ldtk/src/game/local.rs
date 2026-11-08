@@ -31,7 +31,6 @@ use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
 
 use super::entity::hub_station::HubStationRef;
-use super::entity::respawn_point::RespawnPointRange;
 use super::floors::{FloorPlan, FloorSlots};
 use super::plugin::{LdtkMapLoadingEvent, MapNetIdAssignment};
 
@@ -88,8 +87,6 @@ impl Plugin for LdtkLocalGamePlugin {
                     spawn_soda_locations_when_map_loaded,
                     // M2-T13 : stations du hub.
                     spawn_hub_stations_when_map_loaded,
-                    // M-5 : points de reprise du feu follet.
-                    spawn_respawn_points_when_map_loaded,
                 )
                     .chain()
                     .run_if(on_message::<LdtkMapLoadingEvent>)
@@ -624,67 +621,6 @@ fn spawn_hub_stations_when_map_loaded(
             id_provider.next(format!("hub_{}", station.0)),
             Rollback,
         ));
-    }
-}
-
-/// Pose un point de reprise du feu follet (M-5, §113) : entité rollback `combat::downed::RespawnPoint`
-/// immobile (rollback neutre, comme `HubStation`). Partagé par l'entité LDtk `RespawnPoint` et les
-/// placements de contenu (`profile::apply_scenario_respawn_placements`).
-pub fn spawn_respawn_point(
-    commands: &mut Commands,
-    id_provider: &mut ResMut<GgrsNetIdFactory>,
-    position: fixed_math::FixedVec3,
-    range: fixed_math::Fixed,
-) -> Entity {
-    let ggrs_transform = fixed_math::FixedTransform3D::new(
-        position,
-        fixed_math::FixedMat3::IDENTITY,
-        fixed_math::FixedVec3::ONE,
-    );
-    commands
-        .spawn((
-            ggrs_transform.to_bevy_transform(),
-            ggrs_transform,
-            Visibility::default(),
-            combat::downed::RespawnPoint { range },
-            id_provider.next("respawn_point".to_string()),
-            Rollback,
-        ))
-        .id()
-}
-
-/// Entités LDtk `RespawnPoint` : une entité rollback par point, triées par position (`GgrsNetId`
-/// indépendants de l'ordre de chargement). Premier niveau seulement (`FloorSlots`, comme `HubStation`).
-fn spawn_respawn_points_when_map_loaded(
-    mut commands: Commands,
-    mut id_provider: ResMut<GgrsNetIdFactory>,
-    points: Query<(Entity, &GlobalTransform, &RespawnPointRange)>,
-    slots: FloorSlots,
-) {
-    let mut spawns: Vec<(&GlobalTransform, &RespawnPointRange)> = points
-        .iter()
-        .filter(|(entity, _, _)| slots.slot_of(*entity) == 0)
-        .map(|(_, transform, range)| (transform, range))
-        .collect();
-    if spawns.is_empty() {
-        return;
-    }
-    spawns.sort_by(|(a_transform, _), (b_transform, _)| {
-        let a_pos = a_transform.translation();
-        let b_pos = b_transform.translation();
-        a_pos
-            .x
-            .total_cmp(&b_pos.x)
-            .then_with(|| a_pos.y.total_cmp(&b_pos.y))
-    });
-    info!("Map is loaded with {} respawn points", spawns.len());
-    for (transform, range) in spawns {
-        spawn_respawn_point(
-            &mut commands,
-            &mut id_provider,
-            fixed_math::vec3_to_fixed(transform.translation()),
-            fixed_math::new(range.0),
-        );
     }
 }
 

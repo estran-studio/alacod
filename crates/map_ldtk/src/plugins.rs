@@ -12,7 +12,6 @@ use super::{
             hub_station::HubStationBundle,
             player_spawn::PlayerSpawnBundle,
             prop::{BarrelBundle, TableBundle},
-            respawn_point::RespawnPointBundle,
             soda_location::SodaLocationBundle,
             weapon_location::WeaponLocationBundle,
             window::WindowBundle,
@@ -40,7 +39,6 @@ impl Plugin for EntityPlugin {
         .register_ldtk_entity::<WeaponLocationBundle>(map_const::ENTITY_WEAPON_LOCATION)
         .register_ldtk_entity::<SodaLocationBundle>(map_const::ENTITY_SODA_LOCATION)
         .register_ldtk_entity::<HubStationBundle>(map_const::ENTITY_HUB_STATION)
-        .register_ldtk_entity::<RespawnPointBundle>(map_const::ENTITY_RESPAWN_POINT)
         .register_ldtk_entity::<TableBundle>(map_const::ENTITY_TABLE)
         .register_ldtk_entity::<BarrelBundle>(map_const::ENTITY_BARREL);
     }
