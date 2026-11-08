@@ -566,12 +566,14 @@ porte `#[cfg_attr(feature = "schema", schemars(with = "bevy_fixed::schema::Fixed
 (`crates/content/src/scaffold.rs`) copie un modèle du jeu (fichier `<dossier>/<id>.ron`, ou entrée
 dupliquée à la fin d'une table comme `weapons.ron`), réécrit l'id et le nom, relance le lint. Pas
 pour `Map`, `Ui`, `Camera`, `Economy`, `Difficulty`. `alacod test [jeu] [id…] [--list] [--bless]
-[--json]` joue les scénarios générés (§28, §54) par `alacod-gen --only` (le crate `scenario`
-dépend de `content`, donc `alacod` appelle `cargo run -p scenario` dans l'engine : celui du jeu
-(`Cargo.toml`), de `--engine`, ou d'où `alacod` a été compilé). Traces ignorées sauf `--bless` ;
-sortie JSON : `scenario`, `frames`, `hits`, `expectations`, `expectations_ok`, `failures`. Un jeu
-hors de l'engine est retrouvé par `ALACOD_GAME_NAME`/`ALACOD_GAME_DIR` (posés par `alacod-gen`) ;
-ses scénarios sont écrits sous `<jeu>/tests/generated`. Les armes se jouent sur la
+[--json]` joue les scénarios générés (§28, §54) et les scénarios écrits (`tests/scenarios/*.ron`,
+§114) par `alacod-gen --written --only` (le crate `scenario` dépend de `content`, donc `alacod`
+appelle `cargo run -p scenario` dans l'engine : celui du jeu (`Cargo.toml`), de `--engine`, ou
+d'où `alacod` a été compilé). Les traces des générés sont ignorées sauf `--bless` ; celles des
+scénarios écrits sont obligatoires. Sortie JSON : `scenario`, `subject`, `frames`, `hits`,
+`expectations`, `expectations_ok`, `failures`, `trace`, `trace_compared`, `ok`. Un jeu hors de
+l'engine est retrouvé par `ALACOD_GAME_NAME`/`ALACOD_GAME_DIR` (posés par `alacod-gen`) ;
+ses scénarios générés sont écrits sous `<jeu>/tests/generated`. Les armes se jouent sur la
 `generate_template` du manifeste (sinon dans le testbed de l'engine, où une arme nouvelle n'existe
 pas).
 
@@ -8720,3 +8722,46 @@ Un contenu pose dans une carte des images qui arrêtent les balles et les corps 
   les tirs du joueur doivent arrêter ; un décor qui doit aussi arrêter les tirs ennemis garde `team: Some(Neutral)` dans son RON (ne pas le retirer en passant à `prop: true`).
 - Capture : `docs/taches/rapports/m-1b-prop.png` (image 95 de `ALACOD_LABELS=0 target/debug/play_scenario tests/scenarios/prop_stops_bullet.ron --capture <dossier> --every 5` : le prop touché, l'image seule, sans barre rouge ; le HUD affiche « Ennemis 1 », le `dummy`).
   `alacod sandbox games/testbed --detach` + `alacod remote spawn prop-test --ahead` a bien posé le prop (`brief` : un seul ennemi, le `dummy`), mais `alacod remote screenshot` a rendu une image **noire** (1600×1200, tous les pixels à 0), à deux reprises : cause non cherchée.
+
+## 114. Scénarios écrits d'un jeu externe : `alacod test` (T-1)
+
+Jalon servi : **S1 dim 15 novembre et suite de nuit** (`plan-1837-cli.md` §6).
+Outillage seulement : aucune simulation, aucun type rollback, aucune trace de l'engine modifiés.
+
+- `alacod test <jeu> [--engine <engine>]` joue les générés **et** les fichiers
+  `<jeu>/tests/scenarios/*.ron` (un niveau, triés). Les écrits ne sont jamais régénérés ni supprimés.
+  Leur `game` désigne le nom du manifeste ; `map` reste un chemin relatif aux assets du jeu.
+  Les `players` gardent chacun leur script d'inputs, y compris en coop locale synctest.
+- Même appel **`scenario::run` que `crates/scenario/tests/scenarios.rs`** : attentes, invariants,
+  synchronisation et dernière frame atteinte. Ce n'est pas `play_scenario`, qui sert à regarder.
+  Chaque ligne affiche le verdict des attentes et leur total, puis le verdict de trace.
+- Pour un écrit `duo.ron`, la référence obligatoire est `duo.trace`, à côté du RON :
+  comparaison exacte de la trace complète (y compris sa longueur). Référence manquante,
+  illisible ou différente : **code 1** ; attente/invariant échoué ou fin non atteinte : **code 1**,
+  même sous `--bless`. `alacod test <jeu> scenarios/duo --bless` écrit sa référence **seulement
+  si les attentes passent** ; sinon statut « non bénie », référence conservée et code 1.
+  Ne bénir qu'un changement voulu et relire les attentes.
+- Filtre : `scenarios/duo` (id qualifié, sans extension), ou `duo` (nom court).
+  Les ids/sujets générés restent acceptés comme avant ; `--list` inclut les ids écrits.
+  Un id écrit, qualifié ou court, s'exécute sans appeler le générateur. Sans filtre, une erreur de
+  génération reste un échec mais les écrits sont quand même joués ; les anciens générés ne
+  sont pas effacés sur cette erreur.
+- Générés inchangés : `tests/generated` pour un jeu externe, traces ignorées par défaut,
+  écrites sous `--bless`. `alacod-gen` sans `--written` garde son usage précédent.
+  Son `--no-trace` ne désactive jamais les traces des écrits inclus par `--written`.
+- Résumé texte : nombre de **scénarios joués**, de **traces comparées** (présentes, égales ou
+  différentes) et d'échecs. Une trace absente ou bénie n'est pas une comparaison.
+  `--json` garde le tableau, ajoute `ok` (verdict complet) et `trace_compared` par scénario ;
+  `played` distingue un scénario joué d'un fichier illisible ou d'un RON invalide : ces erreurs
+  donnent un résultat `ok: false` avec leur diagnostic, sans arrêter les fichiers suivants.
+  Elles ne comptent pas dans les scénarios joués. `expectations_ok` est indépendant du verdict
+  de trace. Les erreurs de génération sont sur stderr.
+- Preuve : **`make test_alacod_external`**, test ignoré
+  `test_command_compares_written_external_two_player_scenarios` dans `crates/content/tests/cli.rs` :
+  jeu temporaire créé par `alacod new`, deux scripts, référence absente → code 1,
+  bless → référence écrite, rejeu → vert, référence altérée → code 1, attente fausse → code 1.
+  Inclusion sans filtre/JSON et isolement d'un générateur sans cible également couverts.
+  Le Makefile compile le harnais puis lance son exécutable annoncé par Cargo JSON :
+  aucun Cargo parent ne reste actif pendant les appels `alacod test`.
+  Rapport : `docs/taches/rapports/t-1-test-jeu-externe.md`, D205 : cœur livré, reste le
+  libellé d'erreur du générateur d'armes d'un jeu externe sans `generate_template`.
