@@ -18,7 +18,7 @@ rend `ZERO` et la balle partait à vitesse nulle (0 impact ; preuve 1837 J-2). R
 | Scénario neutre, trace neuve | Fait | `tests/scenarios/geste_visee_relachee.ron` (visée à gauche, relâchée avant la fin : la balle part à gauche, `cible_zone` touchée) et `geste_sans_visee_regard.ron` (jamais de visée : part à droite, touche) ; traces `.trace` neuves ; sans le correctif : « 0 coups reçus < min 1 » |
 | `geste_*` et `weapon_arme_a_gestes` sans BLESS | **Pas tenu, décision du coordinateur** | voir ci-dessous |
 | `make schedule_order_diff` | Non joué | aucun système ajouté, déplacé ni réordonné, aucun type rollback ajouté (un champ de `WeaponState`) |
-| `make check_rapide` | Fait | sur `d47e8f90` : `~/orca/runs/alpha/logs/p-1b-tir-geste-check-rapide-d47e8f90.log`, 1604 tests ; **sur la tête de code `29b61238`** (P-1b + P-1c, après fusion de `cc6ec15e`) : `~/orca/runs/alpha/logs/p-1b-tir-geste-check-rapide-29b61238.log`, sortie 0, **1614 tests** passent, 0 échec, sweep joué |
+| `make check_rapide` | Fait | sur `d47e8f90` : `~/orca/runs/alpha/logs/p-1b-tir-geste-check-rapide-d47e8f90.log`, 1604 tests ; sur `29b61238` (P-1b + P-1c, après `cc6ec15e`) : `…-29b61238.log`, 1614 tests ; **sur la tête de code `bcc77d8d`** (après fusion de `58714a54` : P-1b déjà mergé, M-6) : `~/orca/runs/alpha/logs/p-1b-tir-geste-check-rapide-bcc77d8d.log`, sortie 0, **1628 tests** passent, 0 échec, sweep joué |
 | § 110 | Fait | `docs/conventions.md` § 110, puce « Tir d'une arme à geste sans visée » |
 
 ## Ce que fait le banc (`1867_lore/site/labo/armes/armes.js`, lecture seule)
@@ -69,4 +69,4 @@ est identique à l'octet, nombre d'entités compris. Aucun autre scénario ne po
 
 ## Reste
 
-Rien dans le périmètre. Gabarit généré : T-2 (déjà livré). Rien de 1837 dans l'engine. Le « E prêt 0b1e8610 » envoyé plus tôt est remplacé par celui de la tête finale (la demande P-1c est arrivée juste après).
+Rien dans le périmètre. Gabarit généré : T-2 (déjà livré). Rien de 1837 dans l'engine. P-1b a été mergé par le coordinateur (`58714a54`) pendant le travail sur P-1c ; cette branche porte P-1c seul en plus.
