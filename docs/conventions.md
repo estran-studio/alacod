@@ -8583,11 +8583,11 @@ types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la 
   `reload_speed_mult` : multiplicateurs de `MoveSpeed` pendant l'épaulé et le geste, puis pendant le rechargement, composés avec le
   poids `move_speed_mult` dans le même modificateur `weapon_weight:<arme>` (`sync_carry_weight_system`) ; `reload_through_dash` : le
   rechargement se termine pendant un dash ou une course (sinon il attend). Un appui pendant le geste ou le rechargement est
-  **perdu** (`is_firing` tient la détente : il faut relâcher), un dash, une course ou un coup de mêlée **annulent** l'épaulé.
+  **perdu** (`is_firing` tient la détente : il faut relâcher), un dash, une course, un coup de mêlée, un étourdissement ou un gel et la mise à terre **annulent** l'épaulé (sinon `raise_ends` resterait posé et la balle partirait sans appui à la reprise : scénario `geste_etourdi_epaule`, chargeur vide dès f93 sans l'annulation).
   Un check à la frame N voit la simulation jusqu'à N − 1 (balle visible N + 1 après son départ). Lint : `aim_speed_mult` et
   `reload_speed_mult` > 0. Scénarios `geste_epaule_tir` (balle 9 frames après l'appui, chargeur vide, rechargement f47 à f119,
   marche 112,5 → 56,25 → 28,125), `geste_dash_recharge` (dash sur la fin du rechargement : plein à la même frame),
-  `geste_dash_epaule` (le dash annule le coup), `geste_clic_perdu` (détente tenue : un seul coup), généré `weapon_arme_a_gestes`.
+  `geste_dash_epaule` (le dash annule le coup), `geste_etourdi_epaule` (l'étourdissement aussi), `geste_clic_perdu` (détente tenue : un seul coup), généré `weapon_arme_a_gestes`.
   La pose `shoulder` de la présentation suit `raise_ends` (D199 fermée).
 - **Zone touchée** (`CharacterConfig::hurtbox: Some(ColliderConfig)`, composant statique `combat::collider::Hurtbox`, non rollback comme
   `Tags`) : la forme que les **balles** (`bullet_rollback_collision_system`, `projectile_collision_system`) et les **coups de mêlée**

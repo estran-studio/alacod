@@ -1478,13 +1478,39 @@ pub fn weapon_rollback_system(
     ) in players
     {
         let (input, _input_status) = inputs[player.handle];
-        // T1.3 : étourdi ou gelé : comme à terre, pas de tir
-        if crate::status::incapacitated(statuses) {
-            continue;
-        }
 
         // Do nothing if no weapons
         if inventory.weapons.is_empty() {
+            continue;
+        }
+
+        // Gestes de l'arme active (P-1) : copie, aucun emprunt gardé.
+        let (active_weapon, active_gesture) = {
+            let (entity, weapon) = &inventory.weapons[inventory.active_weapon_index];
+            (*entity, weapon.config.gesture)
+        };
+
+        // T1.3 : étourdi ou gelé : comme à terre, pas de tir
+        let incapacitated = crate::status::incapacitated(statuses);
+        // Pas de tir pendant un dash ; le bouton de dash tenu, lui, ne bloque rien (le dash
+        // part sur l'appui, voir `DashState`). Une arme à gestes dont le rechargement continue
+        // pendant le dash (`reload_through_dash`) passe quand même jusqu'à la fin du rechargement.
+        let move_blocked =
+            sprint_state.is_sprinting || dash_state.is_dashing || input.buttons & INPUT_SPRINT != 0;
+
+        // P-1 : tout ce qui occupe le corps annule l'épaulé en cours (le geste en cours est perdu,
+        // comme au banc) : étourdissement, gel, mise à terre, coup de mêlée, dash et course. Sans
+        // cela `raise_ends` resterait posé et la balle partirait sans appui à la reprise (revue du
+        // coordinateur, P2).
+        if active_gesture.is_some()
+            && (incapacitated || is_downed || melee_attack_state.is_attacking || move_blocked)
+        {
+            if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
+                weapon_state.raise_ends = None;
+            }
+        }
+
+        if incapacitated {
             continue;
         }
 
@@ -1496,44 +1522,18 @@ pub fn weapon_rollback_system(
         // A released trigger is always registered, even while reloading, switching, sprinting
         // or in melee: semi-automatic weapons need a new press after it
         if !input.fire {
-            let (active_weapon, _) = inventory.weapons[inventory.active_weapon_index];
             if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
                 weapon_state.is_firing = false;
             }
         }
 
-        // Gestes de l'arme active (P-1) : copie, aucun emprunt gardé.
-        let (active_weapon, active_gesture) = {
-            let (entity, weapon) = &inventory.weapons[inventory.active_weapon_index];
-            (*entity, weapon.config.gesture)
-        };
-
         // Don't allow weapon firing during melee attacks
         if melee_attack_state.is_attacking {
-            // Un coup de mêlée annule l'épaulé en cours (le geste en cours est perdu, comme au banc).
-            if active_gesture.is_some() {
-                if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
-                    weapon_state.raise_ends = None;
-                }
-            }
             continue;
         }
 
-        // Pas de tir pendant un dash ; le bouton de dash tenu, lui, ne bloque rien (le dash
-        // part sur l'appui, voir `DashState`). Une arme à gestes dont le rechargement continue
-        // pendant le dash (`reload_through_dash`) passe quand même jusqu'à la fin du rechargement.
-        let move_blocked =
-            sprint_state.is_sprinting || dash_state.is_dashing || input.buttons & INPUT_SPRINT != 0;
-        if move_blocked {
-            // Le dash et la course annulent l'épaulé en cours.
-            if active_gesture.is_some() {
-                if let Ok((_, mut weapon_state, ..)) = weapon_query.get_mut(active_weapon) {
-                    weapon_state.raise_ends = None;
-                }
-            }
-            if !active_gesture.is_some_and(|g| g.reload_through_dash) {
-                continue;
-            }
+        if move_blocked && !active_gesture.is_some_and(|g| g.reload_through_dash) {
+            continue;
         }
 
         // Nothing to do for weapon if we are sprinting

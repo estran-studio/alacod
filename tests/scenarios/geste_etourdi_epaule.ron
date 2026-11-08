@@ -1,0 +1,31 @@
+// P-1 (docs/conventions.md §110, testbed, revue du coordinateur P2) : un étourdissement pendant l'épaulé l'annule. Le joueur 0
+// (`arme_a_gestes`) presse la détente (effectif f30, balle prévue f39) ; le joueur 1 (`status_stun`, tir ami `Always`, appui
+// effectif f31, 32 px au sud) l'étourdit d'une balle avant le départ (étourdi jusque vers f92). Sans l'annulation, `raise_ends` resterait posé
+// et la balle partirait sans appui dès la fin de l'étourdissement (chargeur vide dès f93 : échec mesuré en retirant le correctif) ; avec
+// elle, le chargeur reste plein.
+//
+// À regarder : le joueur 0 est touché pendant qu'il épaule, ne tire pas, et son chargeur est toujours plein à f130.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 130,
+    players: [
+        (weapon: "arme_a_gestes", inputs: [
+            (from: 25, to: 26, buttons: [Fire], pan: (100, 0)),
+            (from: 26, to: 130, buttons: [], pan: (100, 0)),
+        ]),
+        (weapon: "status_stun", inputs: [
+            (from: 26, to: 27, buttons: [Fire], pan: (0, 100)),
+            (from: 27, to: 130, buttons: [], pan: (0, 100)),
+        ]),
+    ],
+    weapon_overrides: [
+        (weapon: "status_stun", friendly_fire: Always),
+    ],
+    expect: [
+        HasStatus(entity: NetId(22), status: "etourdi", at_frame: 40),
+        Ammo(handle: 0, ammo: 1, at_frame: 100),
+        Ammo(handle: 0, ammo: 1, at_frame: 130),
+    ],
+)
