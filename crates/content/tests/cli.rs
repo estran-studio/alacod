@@ -371,7 +371,10 @@ fn describe_lists_prop_and_new_content_accepts_a_prop_model() {
     let model = dummy
         .replacen("asset_name_ref: \"dummy\"", "asset_name_ref: \"caisse\"", 1)
         .replacen("\n(\n", "\n(\n    prop: true,\n", 1);
-    assert!(model.contains("prop: true,"), "le modèle doit porter `prop: true`");
+    assert!(
+        model.contains("prop: true,"),
+        "le modèle doit porter `prop: true`"
+    );
     std::fs::write(game.join("assets/characters/caisse.ron"), model).unwrap();
     let (ok, json) = lint_json(&game);
     assert!(ok, "le modèle prop doit passer le lint : {json}");
@@ -380,7 +383,12 @@ fn describe_lists_prop_and_new_content_accepts_a_prop_model() {
     cmd.current_dir(&game)
         .args(["new-content", "Character", "malle", "--from", "caisse"]);
     let out = run(cmd);
-    assert!(out.status.success(), "{}{}", text(&out.stdout), text(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}{}",
+        text(&out.stdout),
+        text(&out.stderr)
+    );
     let created = std::fs::read_to_string(game.join("assets/characters/malle.ron")).unwrap();
     assert!(created.contains("prop: true,"), "{created}");
     assert!(created.contains("asset_name_ref: \"malle\""), "{created}");

@@ -795,8 +795,14 @@ mod prop_tests {
         app.update();
         app.update();
         let world = app.world_mut();
-        assert!(world.get::<VisualsAttached>(prop).is_some(), "visuels du prop attachés");
-        assert!(world.get::<VisualsAttached>(twin).is_some(), "visuels du témoin attachés");
+        assert!(
+            world.get::<VisualsAttached>(prop).is_some(),
+            "visuels du prop attachés"
+        );
+        assert!(
+            world.get::<VisualsAttached>(twin).is_some(),
+            "visuels du témoin attachés"
+        );
         let bar_parents: Vec<Entity> = world
             .query_filtered::<&ChildOf, With<HealthBar>>()
             .iter(world)
