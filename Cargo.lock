@@ -4435,6 +4435,7 @@ dependencies = [
  "bevy_fixed",
  "clap 4.6.7",
  "effects",
+ "flate2",
  "image",
  "items",
  "meta",
