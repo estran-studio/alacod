@@ -100,10 +100,10 @@ fn main() {
     } else {
         Vec::new()
     };
-    // L'id qualifié d'un scénario écrit ne dépend pas de la génération du contenu.
+    // Un id écrit, qualifié ou court, ne dépend pas de la génération du contenu.
     let only_written = only.as_ref().is_some_and(|ids| {
         ids.iter()
-            .all(|id| written.iter().any(|path| id == &written_id(path)))
+            .all(|id| written.iter().any(|path| matches_written(path, id)))
     });
     let mut generation_ok = true;
     let mut generated = if only_written {
@@ -140,11 +140,7 @@ fn main() {
         let mut known: Vec<String> = generated.iter().map(stem).collect();
         known.extend(written.iter().map(|path| written_id(path)));
         generated.retain(|g| wanted(g));
-        written.retain(|path| {
-            let id = written_id(path);
-            only.iter()
-                .any(|o| o == &id || Some(o.as_str()) == path.file_stem().and_then(|s| s.to_str()))
-        });
+        written.retain(|path| only.iter().any(|id| matches_written(path, id)));
         if generated.is_empty() && written.is_empty() {
             eprintln!(
                 "alacod-gen : aucun sujet « {} » (disponibles : {})",
@@ -220,14 +216,12 @@ fn main() {
     let written: Vec<_> = written
         .into_iter()
         .map(|path| {
-            let source = std::fs::read_to_string(&path).unwrap_or_else(|error| {
-                eprintln!("alacod-gen : {} : {error}", path.display());
-                std::process::exit(1);
-            });
-            let scenario = scenario::Scenario::from_ron(&source).unwrap_or_else(|error| {
-                eprintln!("alacod-gen : {} : RON invalide : {error}", path.display());
-                std::process::exit(1);
-            });
+            let scenario = std::fs::read_to_string(&path)
+                .map_err(|error| format!("{} : {error}", path.display()))
+                .and_then(|source| {
+                    scenario::Scenario::from_ron(&source)
+                        .map_err(|error| format!("{} : RON invalide : {error}", path.display()))
+                });
             (path, scenario)
         })
         .collect();
@@ -236,16 +230,18 @@ fn main() {
         .map(|g| RunCase {
             id: g.file_name.trim_end_matches(".ron").to_string(),
             subject: &g.subject_id,
-            scenario: &g.scenario,
+            scenario: Ok(&g.scenario),
             trace_path: out_dir.join(&g.file_name).with_extension("trace"),
             compare_trace: !no_trace,
+            written: false,
         })
         .chain(written.iter().map(|(path, scenario)| RunCase {
             id: written_id(path),
             subject: path.file_stem().and_then(|s| s.to_str()).expect("nom RON"),
-            scenario,
+            scenario: scenario.as_ref().map_err(String::as_str),
             trace_path: path.with_extension("trace"),
             compare_trace: true,
+            written: true,
         }));
     let all_ok = run_and_report(cases, bless, json);
     if !all_ok || !generation_ok {
@@ -282,12 +278,17 @@ fn written_id(path: &Path) -> String {
     )
 }
 
+fn matches_written(path: &Path, id: &str) -> bool {
+    id == written_id(path) || path.file_stem().is_some_and(|stem| stem == id)
+}
+
 struct RunCase<'a> {
     id: String,
     subject: &'a str,
-    scenario: &'a scenario::Scenario,
+    scenario: Result<&'a scenario::Scenario, &'a str>,
     trace_path: PathBuf,
     compare_trace: bool,
+    written: bool,
 }
 
 /// Même `scenario::run` que le harnais de l'engine : attentes, invariants, fin atteinte.
@@ -301,7 +302,31 @@ fn run_and_report<'a>(cases: impl Iterator<Item = RunCase<'a>>, bless: bool, jso
     }
     let mut all_ok = true;
     for case in cases {
-        let outcome = scenario::run(case.scenario);
+        let scenario = match case.scenario {
+            Ok(scenario) => scenario,
+            Err(error) => {
+                all_ok = false;
+                if json {
+                    results.push(serde_json::json!({
+                        "scenario": case.id,
+                        "subject": case.subject,
+                        "ok": false,
+                        "played": false,
+                        "trace_compared": false,
+                        "frames": 0,
+                        "hits": 0,
+                        "expectations": 0,
+                        "expectations_ok": false,
+                        "failures": [error],
+                        "trace": "non jouée",
+                    }));
+                } else {
+                    println!("{}: {error}", case.id);
+                }
+                continue;
+            }
+        };
+        let outcome = scenario::run(scenario);
         let expect_ok = outcome.failures.is_empty();
         all_ok &= expect_ok;
 
@@ -309,6 +334,8 @@ fn run_and_report<'a>(cases: impl Iterator<Item = RunCase<'a>>, bless: bool, jso
         let trace_text = outcome.trace.join("\n") + "\n";
         let trace_status = if !case.compare_trace {
             "ignorée"
+        } else if bless && case.written && !expect_ok {
+            "non bénie"
         } else if bless {
             std::fs::write(&trace_path, &trace_text).unwrap_or_else(|e| {
                 panic!("alacod-gen : écriture de {} : {e}", trace_path.display())
@@ -333,10 +360,11 @@ fn run_and_report<'a>(cases: impl Iterator<Item = RunCase<'a>>, bless: bool, jso
                 "scenario": case.id,
                 "subject": case.subject,
                 "ok": expect_ok && matches!(trace_status, "ok" | "blessée" | "ignorée"),
+                "played": true,
                 "trace_compared": matches!(trace_status, "ok" | "différente"),
                 "frames": outcome.metrics.frames,
                 "hits": outcome.entity_hits.values().sum::<u32>(),
-                "expectations": case.scenario.expect.len(),
+                "expectations": scenario.expect.len(),
                 "expectations_ok": expect_ok,
                 "failures": outcome.failures.iter().map(|f| f.to_string()).collect::<Vec<_>>(),
                 "trace": trace_status,

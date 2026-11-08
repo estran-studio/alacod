@@ -8702,11 +8702,12 @@ Outillage seulement : aucune simulation, aucun type rollback, aucune trace de l'
 - Pour un écrit `duo.ron`, la référence obligatoire est `duo.trace`, à côté du RON :
   comparaison exacte de la trace complète (y compris sa longueur). Référence manquante,
   illisible ou différente : **code 1** ; attente/invariant échoué ou fin non atteinte : **code 1**,
-  même sous `--bless`. `alacod test <jeu> scenarios/duo --bless` écrit sa référence.
+  même sous `--bless`. `alacod test <jeu> scenarios/duo --bless` écrit sa référence **seulement
+  si les attentes passent** ; sinon statut « non bénie », référence conservée et code 1.
   Ne bénir qu'un changement voulu et relire les attentes.
 - Filtre : `scenarios/duo` (id qualifié, sans extension), ou `duo` (nom court).
   Les ids/sujets générés restent acceptés comme avant ; `--list` inclut les ids écrits.
-  Un id qualifié écrit s'exécute sans appeler le générateur. Sans filtre, une erreur de
+  Un id écrit, qualifié ou court, s'exécute sans appeler le générateur. Sans filtre, une erreur de
   génération reste un échec mais les écrits sont quand même joués ; les anciens générés ne
   sont pas effacés sur cette erreur.
 - Générés inchangés : `tests/generated` pour un jeu externe, traces ignorées par défaut,
@@ -8715,7 +8716,10 @@ Outillage seulement : aucune simulation, aucun type rollback, aucune trace de l'
 - Résumé texte : nombre de **scénarios joués**, de **traces comparées** (présentes, égales ou
   différentes) et d'échecs. Une trace absente ou bénie n'est pas une comparaison.
   `--json` garde le tableau, ajoute `ok` (verdict complet) et `trace_compared` par scénario ;
-  `expectations_ok` est indépendant du verdict de trace. Les erreurs de génération sont sur stderr.
+  `played` distingue un scénario joué d'un fichier illisible ou d'un RON invalide : ces erreurs
+  donnent un résultat `ok: false` avec leur diagnostic, sans arrêter les fichiers suivants.
+  Elles ne comptent pas dans les scénarios joués. `expectations_ok` est indépendant du verdict
+  de trace. Les erreurs de génération sont sur stderr.
 - Preuve : **`make test_alacod_external`**, test ignoré
   `test_command_compares_written_external_two_player_scenarios` dans `crates/content/tests/cli.rs` :
   jeu temporaire créé par `alacod new`, deux scripts, référence absente → code 1,
@@ -8723,4 +8727,5 @@ Outillage seulement : aucune simulation, aucun type rollback, aucune trace de l'
   Inclusion sans filtre/JSON et isolement d'un générateur sans cible également couverts.
   Le Makefile compile le harnais puis lance son exécutable annoncé par Cargo JSON :
   aucun Cargo parent ne reste actif pendant les appels `alacod test`.
-  Rapport : `docs/taches/rapports/t-1-test-jeu-externe.md`, dette D205 fermée.
+  Rapport : `docs/taches/rapports/t-1-test-jeu-externe.md`, D205 : cœur livré, reste le
+  libellé d'erreur du générateur d'armes d'un jeu externe sans `generate_template`.

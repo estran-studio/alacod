@@ -1285,7 +1285,7 @@ fn run_tests(
             .count();
         println!(
             "{} scénario(s) joué(s), {} trace(s) comparée(s), {} échec(s)",
-            results.len(),
+            results.iter().filter(|r| r["played"] == true).count(),
             compared,
             failed
         );

@@ -588,6 +588,41 @@ fn test_command_compares_written_external_two_player_scenarios() {
     let failed = play(&["--bless"]);
     assert_eq!(failed.status.code(), Some(1));
     assert!(text(&failed.stdout).contains("PlayerDead"));
+    assert!(text(&failed.stdout).contains("trace non bénie"));
+    assert_eq!(std::fs::read_to_string(&trace).unwrap(), golden);
+    // Un écrit invalide avant duo dans le tri reste un résultat faux, pas un arrêt du lot.
+    std::fs::write(&path, source).unwrap();
+    let invalid = scenarios.join("aaa_invalide.ron");
+    std::fs::write(&invalid, "Scenario(").unwrap();
+    let mut cmd = alacod();
+    cmd.args(["test"])
+        .arg(&game)
+        .args(["aaa_invalide", "duo", "--json"]);
+    let malformed = run(cmd);
+    assert_eq!(malformed.status.code(), Some(1));
+    let malformed_results: Vec<serde_json::Value> =
+        serde_json::from_slice(&malformed.stdout).unwrap();
+    let invalid_result = malformed_results
+        .iter()
+        .find(|r| r["scenario"] == "scenarios/aaa_invalide")
+        .unwrap();
+    assert_eq!(invalid_result["ok"], false);
+    assert_eq!(invalid_result["played"], false);
+    assert!(invalid_result["failures"][0]
+        .as_str()
+        .unwrap()
+        .contains("RON invalide"));
+    assert!(malformed_results
+        .iter()
+        .any(|r| r["scenario"] == "scenarios/duo" && r["ok"] == true));
+    std::fs::write(&invalid, [0xff]).unwrap();
+    let mut cmd = alacod();
+    cmd.args(["test"]).arg(&game).args(["aaa_invalide", "duo"]);
+    let unreadable = run(cmd);
+    assert_eq!(unreadable.status.code(), Some(1));
+    assert!(text(&unreadable.stdout)
+        .contains("1 scénario(s) joué(s), 1 trace(s) comparée(s), 1 échec(s)"));
+    std::fs::remove_file(invalid).unwrap();
     // Un générateur sans cible ne doit ni bloquer un id écrit, ni effacer les générés.
     std::fs::write(&path, source).unwrap();
     let generated_id = results
@@ -611,6 +646,15 @@ fn test_command_compares_written_external_two_player_scenarios() {
     )
     .unwrap();
     assert!(play(&["--bless"]).status.success());
+    let mut cmd = alacod();
+    cmd.args(["test"]).arg(&game).arg("duo");
+    let short_id = run(cmd);
+    assert!(
+        short_id.status.success(),
+        "{}{}",
+        text(&short_id.stdout),
+        text(&short_id.stderr)
+    );
     let mut cmd = alacod();
     cmd.args(["test"]).arg(&game);
     let generation_failed = run(cmd);

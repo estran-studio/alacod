@@ -88,7 +88,9 @@ attentes et compare `duo.trace` à côté : trace manquante/différente, attente
 fin non atteinte donnent **code 1**. Le résultat distingue attentes et trace ; le résumé
 compte scénarios joués et traces comparées. Sans filtre, les générés sont joués aussi
 (leurs traces restent ignorées par défaut). `--list` donne les ids ; `--json` donne les
-verdicts structurés. Un id écrit qualifié (`scenarios/duo`) ne dépend pas du générateur.
+verdicts structurés. Un id écrit (`scenarios/duo` ou `duo`) ne dépend pas du générateur.
+Sous `--bless`, une attente échouée conserve la référence (« non bénie »). Un RON invalide
+ou illisible donne un résultat en échec mais n'empêche pas de jouer les autres fichiers.
 Preuve outillage : `make test_alacod_external` ; détails : conventions §114.
 
 ## En ligne à deux
