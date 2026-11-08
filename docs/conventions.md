@@ -8765,3 +8765,31 @@ Outillage seulement : aucune simulation, aucun type rollback, aucune trace de l'
   aucun Cargo parent ne reste actif pendant les appels `alacod test`.
   Rapport : `docs/taches/rapports/t-1-test-jeu-externe.md`, D205 : cœur livré, reste le
   libellé d'erreur du générateur d'armes d'un jeu externe sans `generate_template`.
+
+## 115. Gabarit d'arme à geste : visée continue et clics cadencés (T-2)
+
+Jalon servi : **S1 dim 15 novembre et suite de nuit** (`plan-1837-cli.md` §6).
+Outillage uniquement (`scenario::generate`), sans changement de simulation ou de type rollback.
+
+- Pour `WeaponOnTarget`, `generate_game` transmet le `WeaponGesture` lu dans la configuration
+  de l'arme à distance à `build_weapon_scenario`. `None` garde exactement les anciens inputs ;
+  la mêlée, les gabarits d'objets, larmes, familiers et champions restent inchangés.
+- Avec `gesture: Some`, `fire_gesture_pulses` conserve `AIM_AT_TARGET` **sur chaque frame** du
+  scénario, y compris avant le premier clic et sur les segments détente relâchée. La balle
+  retardée par l'épaulé lit donc encore la visée de la cible à son départ.
+- Un clic dure une frame ; le prochain est espacé de
+  `max(2, raise_frames + fire_frames + 1)` frames (additions saturantes). Le segment relâché
+  couvre le reste de la période : aucun nouveau clic pendant l'épaulé ou le geste de tir.
+  Le rechargement et la cadence propre de l'arme restent gérés par la simulation existante ;
+  le gabarit ne les réimplémente pas. Le dernier segment est borné à `Scenario::frames`.
+- Exemple neutre : `testbed/arme_a_gestes`, épaulé 9 + geste 18 → période de 28 frames ;
+  clics aux sources 10, 38, 66, 94, 122, 150 et 178, visée `(128, 48)` aussi entre les clics.
+  Son `test: Some((frames: 200, min_hits: 2))` est la régression permanente : **2 impacts**
+  observés après correction, contre **0** avec les anciens inputs.
+- **Seule référence régénérée volontairement** : `generated/testbed/weapon_arme_a_gestes.trace`,
+  avec son RON généré (nouveaux inputs et attente `EntityHits`). Autorisation du coordinateur
+  du 8 novembre ; aucun autre RON ni aucune autre trace générée ne change.
+- Preuves : `make gen GAME=testbed` vert (106 scénarios, attentes et traces comparées) ;
+  régénération des quatre autres jeux avec RON inchangés ; `alacod test <1837> fusil_chasse
+  --engine <engine-T-2>` vert sur le worktree jetable de la branche 1837 J-2 (2 impacts).
+  Rapport et journaux : `docs/taches/rapports/t-2-gabarit-geste.md`.

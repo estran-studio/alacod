@@ -52,7 +52,7 @@ use game::replay::{
 };
 use game::weapon_assets::{MeleeWeaponsConfig, WeaponsConfig};
 use game::weapons::melee::MeleeWeaponAsset;
-use game::weapons::{WeaponAsset, WeaponTest};
+use game::weapons::{WeaponAsset, WeaponGesture, WeaponTest};
 use sim_core::modifier::resolve;
 use sim_core::stats::Stats;
 use utils::net_id::GgrsNetId;
@@ -325,9 +325,14 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
     let mut weapons_cache: BTreeMap<PathBuf, WeaponsConfig> = BTreeMap::new();
     let mut melee_cache: BTreeMap<PathBuf, MeleeWeaponsConfig> = BTreeMap::new();
 
-    // (id, kind, test) dans l'ordre déterministe voulu : toutes les armes à distance
-    // (ordre du registre), puis toutes les armes de corps à corps (ordre du registre).
-    let mut drafts: Vec<(String, WeaponKind, Option<WeaponTest>)> = Vec::new();
+    // (id, kind, test, gesture) : seules les armes à distance déclarent un geste.
+    // L'ordre reste celui du registre, armes à distance puis mêlée.
+    let mut drafts: Vec<(
+        String,
+        WeaponKind,
+        Option<WeaponTest>,
+        Option<WeaponGesture>,
+    )> = Vec::new();
 
     for (id, entry) in &registry.weapons {
         if !generated(&entry.file) {
@@ -342,6 +347,7 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
             id.as_str().to_string(),
             WeaponKind::Ranged,
             asset.config.test,
+            asset.config.gesture,
         ));
     }
     for (id, entry) in &registry.melee_weapons {
@@ -357,6 +363,7 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
             id.as_str().to_string(),
             WeaponKind::Melee,
             asset.config.test,
+            None,
         ));
     }
 
@@ -371,17 +378,23 @@ pub fn generate_game(game_dir: &Path) -> Result<Vec<GeneratedScenario>, Generate
     };
 
     let mut out = Vec::with_capacity(drafts.len());
-    for (id, kind, test) in drafts {
+    for (id, kind, test, gesture) in drafts {
         // Sonde (test: None, net_id 0 non utilisé) : seule l'arme équipée influence le
         // nombre d'entités créées avant `target`, jamais `test`/`frames` (voir la doc du
         // module et de `discover_target_net_id`).
-        let probe = build_weapon_scenario(&weapon_arena, &id, kind, None, 0);
+        let probe = build_weapon_scenario(&weapon_arena, &id, kind, None, 0, gesture);
         let target_net_id =
             discover_target_net_id(&probe).ok_or_else(|| GenerateError::MissingTarget {
                 weapon_id: id.clone(),
             })?;
-        let scenario =
-            build_weapon_scenario(&weapon_arena, &id, kind, test.as_ref(), target_net_id);
+        let scenario = build_weapon_scenario(
+            &weapon_arena,
+            &id,
+            kind,
+            test.as_ref(),
+            target_net_id,
+            gesture,
+        );
         out.push(GeneratedScenario {
             file_name: format!("weapon_{id}.ron"),
             subject_id: id,
@@ -1784,6 +1797,7 @@ pub fn build_scenario(
         kind,
         test,
         target_net_id,
+        None,
     )
 }
 
@@ -1811,13 +1825,14 @@ impl WeaponArena {
     }
 }
 
-/// [`build_scenario`] dans une arène donnée.
+/// [`build_scenario`] dans une arène donnée, avec les gestes éventuels de l'arme à distance.
 pub fn build_weapon_scenario(
     arena: &WeaponArena,
     weapon_id: &str,
     kind: WeaponKind,
     test: Option<&WeaponTest>,
     target_net_id: usize,
+    gesture: Option<WeaponGesture>,
 ) -> Scenario {
     let default_frames = match kind {
         WeaponKind::Ranged => RANGED_DEFAULT_FRAMES,
@@ -1826,7 +1841,10 @@ pub fn build_weapon_scenario(
     let frames = test.map(|t| t.frames).unwrap_or(default_frames);
 
     let inputs = match kind {
-        WeaponKind::Ranged => fire_pulses(INPUT_START_FRAME, frames),
+        WeaponKind::Ranged => match gesture {
+            Some(gesture) => fire_gesture_pulses(INPUT_START_FRAME, frames, gesture),
+            None => fire_pulses(INPUT_START_FRAME, frames),
+        },
         WeaponKind::Melee => {
             let x_end = INPUT_START_FRAME + WALK_X_FRAMES;
             let y_start = x_end + WALK_PAUSE_FRAMES;
@@ -1941,6 +1959,46 @@ fn fire_pulses_aimed(from: u32, to: u32, pan: (i16, i16)) -> Vec<Segment> {
             pan,
         });
         frame += 2;
+    }
+    segments
+}
+
+/// Un clic pendant l'épaulé ou le geste est perdu : attendre leur fin et une frame
+/// relâchée avant le clic suivant. La visée reste présente, même détente relâchée,
+/// puisque la balle part à la fin de l'épaulé et non à la frame du clic.
+fn fire_gesture_pulses(from: u32, to: u32, gesture: WeaponGesture) -> Vec<Segment> {
+    let period = gesture
+        .raise_frames
+        .saturating_add(gesture.fire_frames)
+        .saturating_add(1)
+        .max(2);
+    let mut segments = Vec::new();
+    let mut frame = from.min(to);
+    if frame > 0 {
+        segments.push(Segment {
+            from: 0,
+            to: frame,
+            buttons: vec![],
+            pan: AIM_AT_TARGET,
+        });
+    }
+    while frame < to {
+        segments.push(Segment {
+            from: frame,
+            to: frame + 1,
+            buttons: vec![Button::Fire],
+            pan: AIM_AT_TARGET,
+        });
+        let next = frame.saturating_add(period).min(to);
+        if frame + 1 < next {
+            segments.push(Segment {
+                from: frame + 1,
+                to: next,
+                buttons: vec![],
+                pan: AIM_AT_TARGET,
+            });
+        }
+        frame = next;
     }
     segments
 }

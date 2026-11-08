@@ -1119,6 +1119,7 @@
                 auto_reload: true,
                 reload_through_dash: true,
             )),
+            test: Some((frames: 200, min_hits: 2)),
             firing_modes: {
                 "default": (
                     firing_rate: "3.3",
