@@ -225,8 +225,13 @@ pub fn ranged_cycle_system(
             let wait = draw_wait(&mut rng, config.wait_frames);
             ranged_state.target = None;
             cycle.staggered_until = now.saturating_add(stagger);
-            cycle.idle_from = cycle.staggered_until;
-            ranged_state.ready_at = cycle.staggered_until.saturating_add(wait);
+            // Un coup reçu ne raccourcit jamais ce qui est déjà dû (revue du coordinateur, P2) :
+            // recharge en cours ou départ décalé (`first_wait`) restent, la stupeur et l'attente
+            // tirée s'y ajoutent seulement si elles vont plus loin.
+            cycle.idle_from = cycle.idle_from.max(cycle.staggered_until);
+            ranged_state.ready_at = ranged_state
+                .ready_at
+                .max(cycle.staggered_until.saturating_add(wait));
             cycle.recoil = None;
             cycle.was_firing = false;
             *state = MonsterState::Chasing;

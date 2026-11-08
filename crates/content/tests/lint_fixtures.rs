@@ -1752,6 +1752,30 @@ fn hurtbox_outside_collider_fixture_reports_hurtbox() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// P-1 : règles de `ai.ranged_cycle` (attente `min <= max`, recul sur au moins une frame, règle
+/// `Shoot` présente).
+#[test]
+fn ranged_cycle_wait_inverted_fixture_reports_wait() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cycle_wait_inverted")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "wait_frames = (30, 10)");
+}
+
+#[test]
+fn ranged_cycle_recoil_zero_fixture_reports_recoil() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cycle_recoil_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "recoil.frames = 0");
+}
+
+#[test]
+fn ranged_cycle_without_shoot_fixture_reports_missing_rule() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cycle_without_shoot")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "aucune règle Shoot",
+    );
+}
+
 #[test]
 fn dash_iframes_over_duration_fixture_reports_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("dash_iframes_over_duration")).unwrap();

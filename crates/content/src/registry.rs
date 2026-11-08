@@ -242,6 +242,15 @@ impl DashLint {
     }
 }
 
+/// P-1 : valeurs de `ai.ranged_cycle` relues par le lint.
+#[derive(Debug, Clone, Default)]
+pub struct RangedCycleLint {
+    /// `wait_frames: Some((min, max))`.
+    pub wait_frames: Option<(u32, u32)>,
+    /// `recoil.frames`.
+    pub recoil_frames: Option<u32>,
+}
+
 #[derive(Debug, Clone)]
 pub struct CharacterEntry {
     pub id: CharacterId,
@@ -273,6 +282,8 @@ pub struct CharacterEntry {
     pub dash: DashLint,
     /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
     pub effects: Vec<effects::Effect>,
+    /// P-1 (§110) : `ai.ranged_cycle` du tireur posté, pour ses règles de lint.
+    pub ranged_cycle: Option<RangedCycleLint>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
     pub behaviors: Option<Vec<BehaviorEntry>>,
     /// M2-T8 : id d'escouade (`ai.squad`).
@@ -2432,6 +2443,52 @@ struct AiSchema {
     #[serde(default)]
     #[schemars(extend("x-lint" = ">= 0"))]
     sight_range: Option<FixedField>,
+    /// P-1 (§110) : cycle du tireur posté (`game::...::cycle::RangedCycleConfig`).
+    #[serde(default)]
+    ranged_cycle: Option<RangedCycleSchema>,
+}
+
+/// P-1 : miroir de `game::character::enemy::ai::cycle::RangedCycleConfig`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct RangedCycleSchema {
+    /// La visée de l'émetteur suit la cible à chaque frame.
+    #[serde(default)]
+    #[allow(dead_code)]
+    track_target: bool,
+    /// Le regard suit la cible.
+    #[serde(default)]
+    #[allow(dead_code)]
+    face_target: bool,
+    /// Attente tirée `(min, max)` en frames, bornes comprises.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "min <= max"))]
+    wait_frames: Option<(u32, u32)>,
+    /// Première séquence au plus tôt `base + pas × rang` frames après la première frame.
+    #[serde(default)]
+    #[allow(dead_code)]
+    first_wait: Option<(u32, u32)>,
+    /// Frames de stupeur après un coup reçu (la séquence est perdue).
+    #[serde(default)]
+    #[allow(dead_code)]
+    stagger_frames: Option<u32>,
+    /// Recul au tir.
+    #[serde(default)]
+    recoil: Option<RangedRecoilSchema>,
+    /// Vitesse de retour au poste (px/s).
+    #[serde(default)]
+    #[allow(dead_code)]
+    return_speed: Option<FixedField>,
+}
+
+/// P-1 : miroir de `RangedRecoil`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct RangedRecoilSchema {
+    /// Distance totale (px), à l'opposé du regard.
+    #[allow(dead_code)]
+    distance: FixedField,
+    /// Durée en frames.
+    #[schemars(extend("x-lint" = "> 0"))]
+    frames: u32,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -3112,6 +3169,14 @@ fn load_characters(
                     .as_ref()
                     .and_then(|ai| ai.squad.as_ref())
                     .map(|squad| squad.0.clone()),
+                ranged_cycle: parsed
+                    .ai
+                    .as_ref()
+                    .and_then(|ai| ai.ranged_cycle.as_ref())
+                    .map(|cycle| RangedCycleLint {
+                        wait_frames: cycle.wait_frames,
+                        recoil_frames: cycle.recoil.as_ref().map(|recoil| recoil.frames),
+                    }),
                 behaviors: parsed.ai.and_then(|ai| ai.behaviors),
                 tags: parsed.tags,
                 variants: parsed.variants.map(|variants| VariantsEntry {

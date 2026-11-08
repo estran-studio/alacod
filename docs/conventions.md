@@ -8570,7 +8570,11 @@ types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la 
   du pattern (`Sequence([Wait(n), Telegraph(n), Aimed(..), Wait(n)])`). Système `ranged_cycle_system` (`EnemyAI`, après
   `move_enemies`, avant `enemy_attack_system`, sans commande). Scénarios `tireur_poste_cycle` (départ décalé, recul, retour),
   `tireur_poste_suit` et son témoin `tireur_poste_fige_temoin` (visée qui suit : touché ; visée figée : manqué),
-  `tireur_poste_touche` (salve perdue, stupeur, salve suivante).
+  `tireur_poste_touche` (salve perdue, stupeur, salve suivante). Un coup reçu **ne raccourcit jamais** ce qui est déjà dû
+  (`ready_at` et `idle_from` prennent le max : recharge en cours ou `first_wait` restent), scénario `tireur_poste_touche_attente`
+  (échoue avec l'ancien remplacement : flèche dès f110 au lieu de f200). Lint : `wait_frames` `min <= max`, `recoil.frames > 0`,
+  une règle `Shoot` dans `ai.behaviors` (fixtures `ranged_cycle_wait_inverted`, `ranged_cycle_recoil_zero`,
+  `ranged_cycle_without_shoot`).
 - **Gestes d'une arme à feu** (`WeaponConfig::gesture: Some(WeaponGesture)`, hors hash et hors Debug tant qu'absent ; `WeaponState`
   gagne `raise_ends` et `gesture_ends`, hachés seulement s'ils sont actifs) : un coup est un **geste**, pas un instant. `raise_frames` :
   un appui accepté lance l'épaulé, la balle part à sa fin (un `Burst` l'ignore) ; `fire_frames` : le geste qui suit le départ, aucun
