@@ -1,0 +1,7 @@
+// M-6 : pas de strike_frames ; la fenêtre dérivée du clip (9, 14) sort d'un coup de 10 frames : LintErrorKind::OutOfRange.
+({
+    "coup_long": (config: (
+        damage: "5.0",
+        attack_duration_frames: 10,
+    )),
+})

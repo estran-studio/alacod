@@ -48,6 +48,8 @@ struct FirstTick {
     pistol_registry: Option<u32>,
     pistol_asset: Option<u32>,
     pistol_carried: Vec<u32>,
+    /// `strike_frames` de chaque arme de mêlée du registre (M-6).
+    strikes: Vec<(String, Option<(u32, u32)>)>,
 }
 
 /// Joue `ron` en relevant, **à la première exécution de `GgrsSchedule`**, le registre, les tables
@@ -83,6 +85,11 @@ fn first_tick(ron: &str, frames: u32) -> FirstTick {
                     .map(|(_, weapon)| weapon.config.name.clone())
                     .collect();
                 probe.melee = melee_weapons.iter().count();
+                probe.strikes = registry
+                    .melee
+                    .iter()
+                    .map(|(id, weapon)| (id.clone(), weapon.config.strike_frames))
+                    .collect();
                 probe.pistol_registry = registry
                     .weapons
                     .get("pistol")
@@ -334,4 +341,26 @@ fn asset_modification_refreshes_registry_but_overrides_survive() {
         Some(OVERRIDE),
         "et la précédente voyait encore la surcharge"
     );
+}
+
+/// M-6 (§ 116) : le registre lu par la simulation porte la fenêtre de frappe dérivée du clip lié
+/// (`frappe_modele` : `moments.frappe` [0,45 ; 0,65] × 21 images = (9, 14)), dès le premier tick ; une
+/// arme dont le RON donne la fenêtre garde la sienne, une arme non liée n'en reçoit pas.
+#[test]
+fn moment_strike_window_reaches_the_registry() {
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let probe = first_tick("frappe_moment", 30);
+    let strike = |id: &str| {
+        probe
+            .strikes
+            .iter()
+            .find(|(weapon, _)| weapon == id)
+            .unwrap_or_else(|| panic!("arme de mêlée « {id} » absente du registre"))
+            .1
+    };
+    assert_eq!(strike("frappe_modele"), Some((9, 14)), "dérivée du clip");
+    assert_eq!(strike("renvoi_secteur"), Some((10, 13)), "le RON prime");
+    assert_eq!(strike("axe"), None, "arme non liée : rien de dérivé");
 }

@@ -8849,3 +8849,42 @@ Outillage uniquement (`scenario::generate`), sans changement de simulation ou de
   régénération des quatre autres jeux avec RON inchangés ; `alacod test <1837> fusil_chasse
   --engine <engine-T-2>` vert sur le worktree jetable de la branche 1837 J-2 (2 impacts).
   Rapport et journaux : `docs/taches/rapports/t-2-gabarit-geste.md`.
+
+## 116. Les `moments` du manifeste : la fenêtre de frappe vient du clip (M-6, `docs/taches/rapports/m-6-moments.md`)
+
+Jalon servi : **S2, dimanche 22 novembre** (`plan-1837-cli.md` §6, cible vendredi 20) ; elle sert la fenêtre `frappe` de P-1 (§110),
+jusque-là recopiée à la main en frames dans le RON. Contenu seulement : **aucun type rollback, aucun système de `GgrsSchedule`,
+aucune trace existante ne bouge** (`make check_sim_boundary` : rien de neuf dans un crate `SIM`). Aucun nom ni valeur de jeu dans l'engine.
+
+- **Lecture** (`content::models`, `AnimeManifest`) : `moments.<clip>` du manifeste `anime.json` lit, en plus de `vitesse` et `direction` (§111),
+  `frappe: [début, fin]`, `depart: f` et `deplacement: {distance, debut, fin}` ; **fractions de la durée du clip** (`[0, 1]`), `distance` en mètres.
+- **Résolution en images entières, au chargement** (`AnimeManifest::clip_moments`) : durée du clip = `(fin − début) / fps` (le `fps` du
+  manifeste ; au moins une image de clip) × **60 images de simulation par seconde** (`SIM_FRAMES_PER_SECOND`) ; chaque fraction × cette durée,
+  **arrondie à l'image la plus proche, la demi-image vers le haut** (9,5 → 10), puis bornée à la **dernière image du clip** (`frappe: [0.9, 1.0]`
+  sur 21 images → `(19, 20)`). Les nombres du manifeste sont lus **en décimal** (0,35 reste 0,35 : le `f32` binaire n'entre pas dans l'arrondi, `1e-9` d'indulgence
+  sur le produit). Un repère absent ou hors plage donne `None` : rien n'est inventé (le lint refuse l'hors-plage). `ClipMoments` est la seule forme qui
+  sort : des `u32` (et `distance_m` pour `deplacement`, donnée de contenu non lue). **Aucun `f32` ne passe dans la simulation.**
+  Exemple (testbed) : `strike` = 8,4 images à 24/s = 0,35 s = 21 images ; `frappe: [0.45, 0.65]` → 9,45 → 9 et 13,65 → 14 : fenêtre `(9, 14)`.
+- **Lien arme de mêlée → clip** : champ de modèle `melee_clips: { "<arme de melee_weapons.ron>": "<clip>" }` (kind `Model`, `alacod describe Model`).
+  La présentation ne connaît pas l'id d'une arme de mêlée (`MeleeWeapon::config.name` est un nom d'affichage) : le lien est donc explicite, pas déduit de
+  `poses.melee`. Une arme non liée n'est jamais touchée. Le clip doit exister dans `actions` (`BrokenReference`) et l'arme dans `melee_weapons.ron`.
+- **Dérivation** (`ModelsTable::strike_windows`, posée par `game::weapon_assets::apply_moment_strikes` dans `sync_weapon_registry`, à chaque copie de la table
+  de mêlée : chargement et rechargement à chaud de l'asset) : une arme liée **sans `strike_frames` dans son RON** reçoit `strike_frames: Some(fenêtre du clip)`.
+  **Le RON prime** : un `strike_frames` du RON n'est jamais remplacé. La simulation lit `WeaponRegistry::melee` comme avant (`MeleeHitbox::strike`) ; sans lien
+  ou sans `frappe`, `strike_frames` reste `None` : mêmes hitbox, mêmes traces. Deux modèles qui lient une arme à des fenêtres différentes : erreur de lint (le
+  premier modèle par id donne la donnée).
+- **Lint** : erreurs `OutOfRange` pour `frappe` / `depart` / `deplacement` hors `[0, 1]` ou à début > fin, `distance` non finie, et pour une fenêtre **dérivée**
+  qui sort du coup (`fin >= attack_duration_frames`, même règle que §110 sur la fenêtre du RON) ; `BrokenReference` pour un clip ou une arme inconnue.
+  **Avertissements** (`content::warnings`, `LintWarningKind::MomentMismatch`, n'échouent pas `alacod lint`) : le RON donne une fenêtre que le clip ne confirme pas
+  (le message cite les deux et « le RON prime »), ou ni le RON ni le clip n'en donnent (l'arme frappe pendant tout son coup).
+- **`depart` et `deplacement` : lus, résolus en images, exposés** (`ClipMoments::start`, `::movement`, lint de plage), **non câblés** à la simulation : dette **D206**.
+- **Testbed** : le clip `strike` du pantin porte `moments.strike.frappe = [0.45, 0.65]` (`scripts/gen-pantin.py`, le `.glb` est inchangé octet pour octet) ;
+  l'arme `frappe_modele` (`melee_weapons.ron`, sans `strike_frames`, coup de 21 images) y est liée par `melee_clips` dans `models/models.ron`. Scénario
+  `frappe_moment` (trace neuve) : le pantin frappe à l'image 15, la cible n'est touchée qu'à l'image 24 (début de la fenêtre dérivée), jamais avant ; sans fenêtre le
+  coup toucherait dès son départ. Tests : `content::models::tests` (fractions → images, arrondis aux demi-images, clip inconnu, hors plage, deux modèles),
+  `crates/content/tests/lint_fixtures.rs` (`moments_ron_differs`, `moments_derived_outside_attack`, `moments_clip_unknown`, testbed), `game::weapon_assets::tests`
+  (le RON prime) et `crates/scenario/tests/weapon_registry.rs` (`moment_strike_window_reaches_the_registry` : le registre lu par la simulation porte `(9, 14)`).
+- **Limites** : la fenêtre est en temps de **clip** ; elle suppose un coup joué sur la durée du clip (la présentation lit le geste à `duration_s` ou à la durée du clip,
+  §111) : si `attack_duration_frames` diffère de la durée du clip, la fenêtre reste celle du clip (le lint vérifie seulement qu'elle tient dans le coup). La
+  dérivation suit `WeaponRegistry` : un `alacod/reload_content` qui ne touche que `models.ron` ou `anime.json` n'est lu qu'au rechargement suivant de `melee_weapons.ron` (ou à la
+  relance), comme les autres tables dérivées (`docs/editeur-vocal.md`).

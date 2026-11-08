@@ -29,6 +29,8 @@
                 walk: Some("walk"),
                 melee: Some((still: Some("strike"), moving: Some("strike-walk"))),
             ),
+            // M-6 (§ 116) : la fenêtre de frappe de l'arme de mêlée `frappe_modele` vient de `moments.frappe` du clip.
+            melee_clips: {"frappe_modele": "strike"},
             weapons: {
                 "pistol": (
                     object: Some("gun"),

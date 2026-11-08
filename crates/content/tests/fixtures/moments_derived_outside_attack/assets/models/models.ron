@@ -1,0 +1,16 @@
+(
+    units_per_meter: 24.0,
+    elevation_deg: 45.0,
+    look: (shade: 0.66, highlight: 1.12, light: (-0.5, 0.75, 0.45), outline: 0.75, outline_px_per_m: 91.0),
+    models: {
+        "modele": (
+            glb: "models/a.glb",
+            manifest: "models/a.json",
+            frame_m: (3.0, 3.0),
+            pivot: (0.5, 0.2),
+            height_m: 1.8,
+            poses: (),
+            melee_clips: {"coup_long": "coup"},
+        ),
+    },
+)
