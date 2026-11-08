@@ -1,0 +1,33 @@
+// P-1c (docs/conventions.md § 113) : le point de reprise du feu follet peut être un **prop** (`prop: true`, M-1b). Même mise en place que
+// `wisp_respawn_point` (le joueur 1 abat le joueur 0 jusqu'à f110, le feu follet marche vers l'ouest f115-140) avec la balise `respawn_prop`
+// (prop qui porte `respawn_range` 24) à la place de `respawn_beacon` : sans `RespawnPoint` sur la branche prop de `spawn_enemy`, le feu follet
+// n'est jamais repris (`PlayerRevived` manque).
+//
+// À regarder : comme `wisp_respawn_point` : un arc se referme autour du feu follet à la balise (90 frames, « Reprise … % »), il se relève à moitié de vie.
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 320,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    characters: [(character: "respawn_prop", x: "355.0", y: "696.0", at_frame: 1)],
+    players: [
+        (
+            character: "wisp_plain",
+            inputs: [(from: 115, to: 140, buttons: [Left])],
+        ),
+        (
+            character: "wisp_plain",
+            inputs: [(from: 10, to: 110, buttons: [Fire], pan: (-100, 0))],
+        ),
+    ],
+    expect: [
+        PlayerDowned(handle: 0, at_frame: 115),
+        PlayerPosition(handle: 0, x: 361.0, y: 696.0, tolerance: 20.0, at_frame: 150),
+        HudText(source: "wisp", contains: "Reprise", at_frame: 200),
+        PlayerRevived(handle: 0, by_frame: 280),
+        PlayerAlive(handle: 0, at_frame: 319),
+        HudText(source: "wisp", empty: true, at_frame: 319),
+        HudText(source: "health", contains: "50/100", at_frame: 319),
+    ],
+)
