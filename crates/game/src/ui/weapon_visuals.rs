@@ -29,7 +29,7 @@ pub fn attach_weapon_visuals(
             .and_then(|p| carriers.get(p.parent()).ok())
             .and_then(|a| character_configs.get(&a.config_name))
             .zip(models)
-            .is_some_and(|(config, models)| models.def.models.contains_key(&config.asset_name_ref));
+            .is_some_and(|(config, models)| models.get(&config.asset_name_ref).is_some());
         if carried_by_model {
             commands.entity(entity).try_insert(VisualsAttached);
             continue;
