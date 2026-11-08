@@ -19,7 +19,7 @@ Jalon servi : **S3 dim 29 nov** (l'extérieur du prologue : « apprendre à boug
 
 ## Choix et pourquoi
 
-- **Marquage explicite, pas une règle « tout prop »** : une règle générale aurait fait arrêter les balles ennemies par tous les props existants (testbed `prop-test`, décors de 1837) et déplacé leurs traces (la brief le demande en dernier recours). Un champ `cover` absent ne change rien.
+- **Marquage explicite, pas une règle « tout prop »** : une règle générale aurait fait arrêter les balles ennemies par tous les props existants (testbed `prop-test`, décors de 1837) et déplacé leurs traces (le brief le demande en dernier recours). Un champ `cover` absent ne change rien.
 - **`cover` sur un personnage `prop: true`**, pas sur le kind `Prop` (barils, tables) ni une entité LDtk : c'est le chemin que 1837 utilise déjà pour ses décors (M-1b). Un couvert de carte reste possible par `CharacterSpawn` + personnage ; l'entité dédiée est notée en D213 (comme D201).
 - **Deux valeurs (`Indestructible`, `Destructible`) plutôt qu'un booléen** : sans elles, « indestructible » n'existe que par une grosse `base_health` (§ 112) ou `team: Neutral`, et `Neutral` ne dit pas « toutes équipes la blessent ».
 - **Dégâts : `resolve_defenses`**, extraction pure de la fin de `resolve_damage` (même résultat pour tout le reste, prouvé par la suite complète) : un `DamageEvent` visant un couvert destructible ignore la règle d'équipe (sinon la balle ennemie s'arrête sans le blesser) mais pas les défenses de la cible.
