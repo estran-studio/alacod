@@ -355,6 +355,39 @@ fn new_content_copies_a_file_for_per_file_kinds() {
     assert!(ok, "{json}");
 }
 
+/// M-1b (§112) : `describe Character` liste `prop` (avec son défaut) et `new-content --from` accepte un prop comme modèle
+/// (le champ est copié, le lint reste vert).
+#[test]
+fn describe_lists_prop_and_new_content_accepts_a_prop_model() {
+    let tmp = Tmp::new("nc-prop");
+    let game = game_with_content(&tmp);
+
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["describe", "Character"]);
+    let schema = text(&run(cmd).stdout);
+    assert!(schema.contains("prop"), "{schema}");
+
+    let dummy = std::fs::read_to_string(game.join("assets/characters/dummy.ron")).unwrap();
+    let model = dummy
+        .replacen("asset_name_ref: \"dummy\"", "asset_name_ref: \"caisse\"", 1)
+        .replacen("\n(\n", "\n(\n    prop: true,\n", 1);
+    assert!(model.contains("prop: true,"), "le modèle doit porter `prop: true`");
+    std::fs::write(game.join("assets/characters/caisse.ron"), model).unwrap();
+    let (ok, json) = lint_json(&game);
+    assert!(ok, "le modèle prop doit passer le lint : {json}");
+
+    let mut cmd = alacod();
+    cmd.current_dir(&game)
+        .args(["new-content", "Character", "malle", "--from", "caisse"]);
+    let out = run(cmd);
+    assert!(out.status.success(), "{}{}", text(&out.stdout), text(&out.stderr));
+    let created = std::fs::read_to_string(game.join("assets/characters/malle.ron")).unwrap();
+    assert!(created.contains("prop: true,"), "{created}");
+    assert!(created.contains("asset_name_ref: \"malle\""), "{created}");
+    let (ok, json) = lint_json(&game);
+    assert!(ok, "{json}");
+}
+
 #[test]
 fn new_content_adds_an_entry_to_a_table_kind() {
     let tmp = Tmp::new("nc-table");
