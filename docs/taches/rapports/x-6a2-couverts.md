@@ -28,6 +28,7 @@ Jalon servi : **S3 dim 29 nov** (l'extérieur du prologue : « apprendre à boug
 
 - Suite complète de scénarios sans `BLESS` : verte, traces existantes identiques. Les neuf `couvert_*` rejoués sans `BLESS` après écriture des traces : `5 passed` (le filtre compte les tests du binaire, pas les scénarios).
 - Témoins : sans `cover`, mêmes positions, les flèches traversent le prop (joueur 100 → 90 après deux flèches, `couvert_temoin_prop`) et les perforantes touchent le `dummy` derrière (`couvert_arrete_*_temoin`) : les scénarios à couvert **ne sont pas creux**.
+- Rollback (demande du coordinateur) : les neuf `couvert_*` rejoués en synctest à `ALACOD_CHECK_DISTANCE=6` (le défaut est 2 ; 8 est refusé par GGRS, `start_synctest_session` panique) : `5 passed`, mêmes traces, aucun `synctest mismatch`. `couvert_fragile` détruit le couvert à f37 (`despawn_rollback`) puis les balles suivantes le traversent : la résurrection par rollback garde `Cover` (le composant vit sur l'entité désactivée, pas dans l'instantané).
 - `make check_rapide` vert sur `72eb3a98` : 1630 tests passés, 0 échec ; journal `~/orca/runs/alpha/logs/x-6a2-couverts-check-rapide-72eb3a98.log`. Dernières lignes : `test result: ok. 0 passed; 0 failed …` puis `✓ Contrôle rapide passé (suite de scénarios : la nuit)`, `exit=0`. Sweep de `target` joué après le contrôle (18 Go).
 
 ## Non fait / non vérifié
