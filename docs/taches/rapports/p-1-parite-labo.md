@@ -1,7 +1,7 @@
 # P-1 — Parité des règles des bancs gigue et armes (Mac de William)
 
 Jalon servi : **S1, dim 15** (plan `docs/taches/plan-1837-cli.md` § 6, ligne P-1 : « la gigue au tempo ; la hache qui renvoie les balles ») et la cible jeu 12
-(« 4 fantassins… un cône au sol annonce le tir 1 s avant… rechargent 3 s »). Branche engine `wquintal/p-1-parite-labo` (tête de code `5d2ed156`), branche 1837 `p-1-parite`
+(« 4 fantassins… un cône au sol annonce le tir 1 s avant… rechargent 3 s »). Branche engine `wquintal/p-1-parite-labo` (tête de code `19860c54`), branche 1837 `p-1-parite`
 (`72a9acb`). Convention : `docs/conventions.md` § 110 ; dettes D194–D197, D199 fermée. Référence : les `DEFAUTS` de `gigue.js`, `armes.js`, `allures.js` (`1867_lore` @ `d5a27d9`,
 aucun réglage exporté). Tableau de parité : `1837/docs/parite-labo.md` (§ 12 = état final) ; protocole du soir : `1837/docs/protocole-soir-p-1.md`.
 Les sept écarts du § 10 du tableau sont aux **défauts**, marqués « en attente de William » (D194). `game::music_sync` et `MeleeParried` restent retirés (commit `f5bc688e`, D149 et D151,
@@ -30,12 +30,12 @@ Corrections de miroirs de lint trouvées au premier `alacod lint` de 1837 : `das
 |---|---|---|
 | Tableau de parité, une ligne par règle | fait | `docs/parite-labo.md` (étape 1 poussée le 6 nov ; § 12 : état de chaque ligne avec son scénario) |
 | RON : Frère (gigue 28 f, EaseOut, coupe 18, enchaînement 21, `on_beat` 129 temps/min ±60/±120 ms, sans inertie, `hit_iframes` 36), horloge `clocks/gigue.ron`, hache (frappe 10–13, secteur 31,2 u / 160°, × 1,5 / × 1,4, coup en file, 60 %), fusil (poids 0,88, `gesture` 9/18/72, × 0,6 / × 0,5, bouche 14,4 u), fantassin (salve, `ranged_cycle`, `stagger_frames` 37, brown_bess 144 u/s), zones touchées 7,2 / 8,4 u, quatre fantassins dans la cour | fait | `alacod lint` : aucune erreur (20 personnages, 6 armes, 6 armes de corps à corps), avec les nouvelles règles `ranged_cycle` et `hurtbox` |
-| Le jeu tourne sur l'engine P-1 | fait | `cargo run --no-default-features` avec `ALACOD_HEADLESS=1 ALACOD_INPUT=neutral ALACOD_STATE_TRACE=… ALACOD_EXIT_AT_FRAME=900` sur le `rev` `5d2ed156` : 900 frames, synctest, aucune erreur ni desync (`rollbacks n=898`) |
+| Le jeu tourne sur l'engine P-1 | fait | `cargo run --no-default-features` avec `ALACOD_HEADLESS=1 ALACOD_INPUT=neutral ALACOD_STATE_TRACE=… ALACOD_EXIT_AT_FRAME=900` sur le `rev` `19860c54` : 900 frames, synctest, aucune erreur ni desync (`rollbacks n=898`) |
 | Jeu à côté du banc | **non vérifié** (la partie du soir de William) | protocole en dix lignes : `docs/protocole-soir-p-1.md` |
 
 ## Preuve engine
 
-- **`make check_rapide` vert sur `5d2ed156`** : `~/orca/runs/alpha/logs/p-1-parite-labo-check-rapide-5d2ed156.log` (1597 tests, 0 échec ; format, tools, forbidden, rollback registration, sim boundary, lint, test_crates) ; tranche 4 seule : `…-c408da3b.log` (1593) ; tranches 1 à 3 : `…-e198f742.log`. Dernières lignes : `✓ Contrôle rapide passé (suite de scénarios : la nuit)`.
+- **`make check_rapide` vert sur `19860c54`** : `~/orca/runs/alpha/logs/p-1-parite-labo-check-rapide-19860c54.log` (1597 tests, 0 échec ; format, tools, forbidden, rollback registration, sim boundary, lint, test_crates) ; aussi `…-5d2ed156.log` (suivi P2/P3 de la tranche 3), `…-c408da3b.log` (tranche 4), `…-e198f742.log` (tranches 1 à 3). Dernières lignes : `✓ Contrôle rapide passé (suite de scénarios : la nuit)`.
 - **Scénarios** : 52 scénarios du lot et voisins (dash au tempo, renvoi, tireur posté, X-3, `bomb_*`, `explode_*`, `isaac_bomb*`, explosifs, `idle`, `bench_horde`, `two/four_players_shooting`) rejoués **sans BLESS** après chaque tranche : verts, aucune trace existante ne bouge.
   Traces **neuves** bénies : `dash_au_tempo{,_coop}`, `dash_coupe_sur_place`, `renvoi_secteur{,_visee}`, `coup_en_file`, `tireur_poste_{cycle,suit,fige_temoin,touche,touche_attente}`, `geste_{epaule_tir,dash_recharge,dash_epaule,etourdi_epaule,clic_perdu}`,
   `zone_touchee_{bord,centre,temoin}`, `generated/testbed/weapon_arme_a_gestes`. Traces de X-3 **rebénies** (pas des traces de `main` : elles dataient d'avant les correctifs de X-3 lui-même, `0e57f6f3`, même échec avec le travail P-1 retiré) :
