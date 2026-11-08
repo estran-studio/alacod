@@ -817,9 +817,18 @@ pub fn room_lock_system(
                 key_lock_cost(&table, kind, floor_index).is_some() && door_near(bounds, p)
             })
     };
+    // X-6a1 (§117) : une porte de carte à serrure (`DoorConfig::lock`) ne s'ouvre que par `handle_door_interaction`
+    // (avec la clé d'équipe) : ni l'ouverture d'office, ni la fin ou le verrouillage d'une salle voisine n'y
+    // touchent (elle garde son collider et son `Interactable { Door }` ; ouverte, elle n'est jamais refermée).
+    let map_locked = |entity: Entity| {
+        door_configs
+            .get(entity)
+            .is_ok_and(|(door, _)| door.config.lock.is_some())
+    };
     // Porte dont l'état (ouverte ou fermée) est du seul ressort de son système : ni l'ouverture
     // d'office, ni le verrouillage ou la fin d'une salle voisine n'y touchent.
-    let sealed_door = |entity: Entity, p: FixedVec2| secret_door(p) || key_door(entity, p);
+    let sealed_door =
+        |entity: Entity, p: FixedVec2| map_locked(entity) || secret_door(p) || key_door(entity, p);
 
     // Hors Waves, toutes les salles typées s'ouvrent comme avant. En Waves, les portes
     // économiques restent fermées ; seules celles des salles de combat s'ouvrent par défaut.
@@ -834,7 +843,9 @@ pub fn room_lock_system(
                     (!waves || table.locks(&kind.0)) && door_near(bounds, p)
                 })
             {
-                if secret_door(p) {
+                if map_locked(entity) {
+                    // Porte à serrure : fermée tant que la clé n'a pas servi, rien à poser.
+                } else if secret_door(p) {
                     // M3-T4 : porte d'une salle secrète (et sa jumelle) : un mur plein, qu'aucune
                     // Interaction n'ouvre ; seule une explosion `destroys` l'ouvre.
                     commands.entity(entity).remove::<Interactable>();

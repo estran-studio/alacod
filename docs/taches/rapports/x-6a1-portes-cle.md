@@ -22,7 +22,7 @@ Branche : `wquintal/x-6a1-portes-cle`, partie d'`origin/main` `58126c8a`. Tête 
 | Ramassée par l'un ou l'autre joueur vers un **état partagé d'équipe** (ressource rollback, `BTreeMap`) | Fait | `run::TeamKeys(BTreeMap<String, u32>)` ; `key_carrier_coop` : le **joueur 2** (handle 1) la ramasse, le **joueur 1** (handle 0) ouvre avec |
 | **Un seul** ramasse quand deux joueurs touchent la même frame | Fait | `key_single_pickup` (`TeamKeys` 1, jamais 2, `key_pickup` du joueur 0 seulement) + test `un_seul_joueur_ramasse_la_cle_le_plus_petit_net_id` (plus petit `GgrsNetId`, indépendant de l'ordre des `Entity`) |
 | Source HUD des clés tenues | Fait | `team_keys` (`HUD_SOURCES`, `PLAYER_SOURCES`) ; `HudText(source: "team_keys")` vide / `cle_test` dans `key_carrier_coop` et `door_key_kept` ; widget dans le HUD du testbed |
-| GGRS : types rollback neufs en variante **neutre**, `GgrsNetId` déterministes, aucune trace existante ne bouge | Fait | `TeamKeys` (`rollback_and_trace_resource_neutral`), `KeyPickup` (`rollback_and_trace_neutral`), `FrameEvents<KeyEvent>` (`add_frame_events_neutral`) dans `core_sim` avant les cinq de clôture ; `check_rollback_registration` vert ; suite complète rejouée sans `BLESS` : **867 scénarios, 0 trace existante modifiée** (4 tranches, 447 s) |
+| GGRS : types rollback neufs en variante **neutre**, `GgrsNetId` déterministes, aucune trace existante ne bouge | Fait | `KeyPickup` (`rollback_and_trace_neutral`), puis `TeamKeys` (`rollback_and_trace_resource_neutral`), puis `FrameEvents<KeyEvent>` (`add_frame_events_neutral`), **dans cet ordre**, dans `core_sim` après `RangedCycle` et **avant les cinq enregistrements de clôture** ; `check_rollback_registration` vert ; suite complète rejouée sans `BLESS` : **867 scénarios, 0 trace existante modifiée** (4 tranches, 447 s) |
 | `make schedule_order_diff` | Fait, diff **jugé** | voir ci-dessous (ajouts seulement, aucun conflit) |
 | Scénarios **neutres** du testbed, **traces neuves seulement** | Fait | 5 traces neuves : `door_state_closed_open`, `door_state_locked_no_key`, `key_carrier_coop`, `key_single_pickup`, `door_key_kept` (`ALACOD_BLESS=1` limité à ces cinq noms) |
 | Lint et `describe` des nouveaux champs | Fait | `carries_key` dans le schéma de personnage (`alacod describe Character` : règle « non vide »), erreur `OutOfRange` pour `Some("")` ; avertissement `UnobtainableKey` (`lock_key` sans porteur) ; fixtures `door_lock_unobtainable`, `door_lock_carried`, `carries_key_empty` (`crates/content/tests/x_6a1_door_lock_fixtures.rs`) ; testbed sans avertissement de ce genre |
@@ -43,7 +43,7 @@ Hors lot (non fait, comme demandé) : génération de l'intérieur, passage d'un
 
 ## `make schedule_order_diff` (base `58126c8a`, sorties gardées sous `/tmp/x6a1-sched`)
 
-Sortie 2 (le script refuse tout écart), **jugé un par un** : `rollback.txt` des cinq jeux = **trois ajouts en fin de liste** (`TeamKeys`, `KeyPickup`, `FrameEvents<KeyEvent>`), aucun type déplacé. `GgrsSchedule` : 225 → 229 entrées = **quatre ajouts**
+Sortie 2 (le script refuse tout écart), **jugé un par un** : `rollback.txt` des cinq jeux = **trois ajouts** insérés entre `RangedCycle` et les cinq de clôture, dans l'ordre réel `KeyPickup`, `TeamKeys`, `FrameEvents<KeyEvent>` (les cinq de clôture, `GgrsNetIdFactory` à `RngStreams`, passent de 131-135 à 134-138 sans changer d'ordre relatif ; aucun autre type déplacé). `GgrsSchedule` : 225 → 229 entrées = **quatre ajouts**
 (`key_drop_on_death_system`, `key_pickup_system`, `clear_frame_events<KeyEvent>`, un `apply_deferred`) ; les seules paires existantes retournées sont **(`shelf_interaction_system`, `table_flip_system`), (`hub_station_system`, `table_flip_system`),
 (`key_door_system`, `table_flip_system`), (`blank_system`, `shell_pickup_system`)** et les `clear_frame_events<…>` entre eux : des systèmes sans donnée commune (`ambiguity_detection: Error` ne les aurait pas laissés non ordonnés sinon, et `schedule_order` les construit tous) que le tri topologique de
 bevy a permutés en insérant les nouveaux ; `SaveWorld` / `LoadWorld` : mêmes ajouts et permutations de plugins de snapshot indépendants (le XOR du checksum est commutatif). Preuve de comportement : les 867 traces identiques.
@@ -58,6 +58,25 @@ Un premier passage sur `d2f476d1` avait échoué sur **mes deux tests** de `game
 
 Suite complète de scénarios (`make test_scenarios_par SHARDS=4`, sans `BLESS`) jouée sur la tête de simulation `1d401d7f` : **867 scénarios verts, 0 trace existante modifiée** (447 s). Les commits suivants ne touchent que `content`
 (avertissement de lint, fixtures), un module de tests et les docs : aucun code de simulation. Les cinq traces neuves ont été écrites par `ALACOD_BLESS=1 ALACOD_SCENARIO=<les cinq noms>` (aucune autre trace réécrite : `git status` ne montre que les cinq `.trace` neufs).
+
+## Suivi de revue (même branche, après la fusion d'`origin/main` `16573cd5`, X-6a2)
+
+Fusion : conflits de fin de fichier seulement (`docs/conventions.md` §117 / §118, `docs/taches.md`, `docs/taches/dettes.md` D210–D212 / D213, `CLAUDE.md`), **les deux côtés gardés**.
+
+- **P2, porte à `lock_key` ouverte sans clé sur une carte à salles typées** : confirmé. `room_lock_system` n'excluait que `sealed_door` (mur secret, salle à clé d'`isaac`) ; à la première frame hors `Waves` il
+  retirait `Collider` / `CollisionLayer` / `Interactable` des portes fermées voisines d'une salle typée, et la salle vidée (`Locked → Cleared`, arène tenue) rouvrait les siennes. Correctif (`map_ldtk::game::rooms`) :
+  `DoorConfig::lock.is_some()` fait de la porte une porte **scellée** (`map_locked` dans `sealed_door`, et branche explicite « rien à poser » à l'ouverture d'office) : elle garde son collider **et** son `Interactable { Door }`,
+  seul `handle_door_interaction` l'ouvre, et ouverte elle n'est jamais refermée par une salle voisine. Scénario neutre **`key_door_rooms`** (carte `testbed/portes_cle_salles.ldtk`, graine 1, générée par script depuis
+  `salles_cle_combat.ldtk` : départ, combat avec un seul ennemi `porteur_cle`, salle finale ; porte combat ↔ finale à `lock_key`) : `Locked` aux frames 1, 2, 100 (salle verrouillée), 160 (salle `Cleared`) et 415, puis `Open` avec la clé
+  consommée (`key_door`). **Sans le correctif il échoue** (sortie obtenue : porte 2 et 3 `Open` aux frames 1, 2, 160 et 415, clé jamais consommée : `TeamKeys` 1 au lieu de 0 à f500). Aucune trace existante ne bouge (suite complète rejouée).
+- **P3, deux interactions de la même frame consomment deux clés** : confirmé. `handle_door_interaction` voit la porte fermée tant que les commandes différées ne sont pas appliquées. Correctif : `BTreeSet` des `GgrsNetId` de portes
+  ouvertes dans la frame (**jumelle comprise**), événement ignoré s'il y figure (patron `handled` de `shelf_interaction_system`). Scénario **`key_door_same_frame`** (deux joueurs, deux porteurs tués, `TeamKeys` 2, Interaction **à la même
+  frame**, f150, les deux événements `key_door` visent la porte) : `TeamKeys` 1 après l'ouverture. **Sans le correctif il échoue** (journal : deux `key_door` à f156, `TeamKeys` 0). Un premier jet du scénario (Interaction pressée
+  pendant la marche) ne prouvait rien (un joueur arrivait une frame avant l'autre) : les joueurs sont maintenant butés contre la porte avant d'appuyer. Le correctif vaut aussi pour le prix d'une porte payante (un seul débit).
+- **Non traité (D211)** : `secret_wall_system` et `key_door_system` retirent encore le collider de toutes les portes jumelles proches de leur salle, serrure comprise.
+- **Doc** : ordre réel des enregistrements **`KeyPickup`, puis `TeamKeys`, puis `FrameEvents<KeyEvent>`**, entre `RangedCycle` et les cinq de clôture (ici et § 117 ; la phrase « en fin de liste » est retirée) ; § 117 (portes scellées sur carte typée, une
+  ouverture par porte et par frame, deux scénarios) ; D211.
+- **Traces** : deux traces neuves (`key_door_rooms`, `key_door_same_frame`), aucun `BLESS` d'une trace existante.
 
 ## Protocole de la partie du soir (dix lignes au plus)
 
