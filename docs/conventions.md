@@ -8703,12 +8703,14 @@ jeu** : tout vient du RON du personnage.
   (`]0, 1]`, défaut 0,5, fraction de `Health.max` rendue à la reprise). La **relève par un coéquipier** garde `revive_frames` du personnage (interaction tenue, portée
   `revive_range`, santé `revive_health_fraction`) : `handle_revive_interaction` retire aussi `Wisp`. Lint : `wisp.*` hors plage = `OutOfRange` ; `alacod describe` montre
   le champ (`CharacterFileSchema::wisp`).
-- **Leurre** : la portée est un **coût de chemin** du champ de flux (une case de 16 unités coûte 10, `range_to_cost`). `Attract` : le feu follet est une source du
-  Dijkstra multi-source de `update_flow_field_system` comme un joueur debout, mais ne s'étend que sur sa portée (`SourceReach::max`) ; chaque ennemi va vers la source la plus
-  proche par le chemin. `Mislead` : en plus, les joueurs debout partent de `portée + 1` (`SourceReach::start`) : dans la portée du feu follet il gagne **toujours**, hors d'elle
-  les joueurs se départagent comme avant (un décalage commun ne change pas leur ordre). Sans feu follet à leurre : `reach` vide, la sortie est celle d'avant. Le ciblage
-  (`enemy_target_selection`, `update_enemy_targets`) range un feu follet à leurre parmi les cibles (`combat::downed::is_decoy`) ; l'attaque filtre toujours `Downed` :
-  les ennemis égarés se massent sur la lumière sans la frapper.
+- **Leurre** : la portée est un **coût de chemin** du champ de flux (une case de 16 unités coûte 10, `range_to_cost`). Le champ des joueurs debout est calculé **seul**, exactement comme sans feu
+  follet (les cases derrière un feu follet restent atteintes : une première version mêlait les sources et la zone d'un feu follet dans un couloir coupait le champ, revue du coordinateur) ; la zone de
+  chaque feu follet à leurre (Dijkstra borné à `SourceReach::max`) est ensuite **superposée** : une case lui revient si son coût depuis lui est plus bas que celui du joueur debout. `Attract` : le feu
+  follet est une cible comme un joueur debout, chaque ennemi va vers la plus proche par le chemin. `Mislead` : le coût du joueur debout est décalé de `portée + 1` (`SourceReach::start`) : dans la
+  portée il gagne **toujours**, hors d'elle les joueurs se départagent comme avant. La portée de chaque source est mémorisée (`FlowFieldCache::target_reach`, vide sans feu follet, **hachée seulement
+  si non vide**) : un joueur qui devient feu follet, ou est relevé, sans changer de case reconstruit le champ (scénario `wisp_mislead_still`). Sans feu follet à leurre (ou sans joueur debout) : `reach`
+  vide, sortie et hash d'avant. Le ciblage (`enemy_target_selection`, `update_enemy_targets`) range un feu follet à leurre parmi les cibles (`combat::downed::is_decoy`) ; l'attaque filtre toujours
+  `Downed` : les ennemis égarés se massent sur la lumière sans la frapper.
 - **Reprise à un point** : `combat::downed::RespawnPoint { range }`, composant rollback neutre porté par un **personnage** : un personnage qui déclare `respawn_range: Some("48.0")` (`CharacterConfig`,
   unités monde, lint `> 0`) reçoit `RespawnPoint` à sa création (`enemy::create::spawn_enemy`), donc par l'entité LDtk `CharacterSpawn` de la carte, un placement `characters` d'un scénario ou d'un
   profil de bac à sable, sans chemin nouveau (D201 : pas d'entité LDtk dédiée, la génération de carte ne recopie que les types qu'elle connaît). Un personnage neutre immobile (`Team::Neutral`) ne perd jamais
@@ -8730,9 +8732,11 @@ jeu** : tout vient du RON du personnage.
   chaud pour la reprise, un anneau + foyer pour chaque point de reprise ; rien à ressusciter après un rollback.
 - **Testbed** : personnages `wisp_plain`, `wisp_attract`, `wisp_attract_short`, `wisp_mislead` (copie du joueur du testbed, `revive_frames: 60`) et `respawn_beacon` (balise neutre, `respawn_range: 24`) ; scénarios
   `wisp_revive_by_mate` (mort → feu follet → relève, HUD, santé 30 %), `wisp_respawn_point` (le feu follet marche jusqu'à la balise, 90 frames, relevé à 50 %, sans coéquipier), `wisp_both_down_defeat`,
-  `wisp_solo_unchanged` (un joueur : la mort reste la mort, aucun feu follet), `wisp_plain_ignored`, `wisp_attract_pulls`, `wisp_attract_out_of_range`, `wisp_mislead_diverts`.
+  `wisp_solo_unchanged` (un joueur : la mort reste la mort, aucun feu follet), `wisp_plain_ignored`, `wisp_attract_pulls`, `wisp_attract_out_of_range`, `wisp_mislead_diverts`, `wisp_mislead_still`
+  (personne ne change de case : le leurre prend effet dès la chute).
   Carte `testbed/arene_vide.ldtk` : joueur 0 en (424, 696), joueur 1 en (488, 696). Traces neuves seulement.
-- **Tests** : `sim_core::wisp::tests`, `navigation::wisp_reach_tests` (portée, `Attract`, `Mislead`, décalage neutre), `hud_model::tests::wisp_source_texts`,
+- **Tests** : `sim_core::wisp::tests`, `navigation::wisp_reach_tests` (portée, `Attract`, `Mislead`, décalage neutre, **couloir** : le feu follet ne coupe pas le champ du joueur debout, échoue sur
+  l'ancien algorithme ; hash vide), `hud_model::tests::wisp_source_texts`,
   `crates/content/tests/m5_wisp_fixtures.rs` (lint).
 - Dettes **D201** (le point de reprise est un personnage, pas une entité de carte), **D202** (un ennemi se fige près d'un joueur à terre), **D203** (portée du leurre en coût de chemin, retard
   du champ partagé), **D204** (présentation minimale ; pas de relève par un objet) : `docs/taches/dettes.md`.
