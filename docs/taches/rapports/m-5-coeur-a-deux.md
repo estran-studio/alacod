@@ -3,9 +3,9 @@
 **Jalon servi** : S2, **dim 22 (la porte)** ; cible jeu **19 nov** (« le joueur mort devient un feu follet et son coéquipier peut le relever ») et **lun 16** (« la vie, les dégâts, les
 munitions et leur affichage »). Plan : `docs/taches/plan-1837-cli.md` § 6, ligne M-5 (sa preuve fait foi). Design : `1867_lore/design/jeu.md` § 11. Conventions : `docs/conventions.md` **§ 113**.
 
-- Engine : branche `wquintal/m-5-coeur-a-deux` (partie d'`origin/main` `0b484d15`), **code `a7c19e14`** ; la tête de la branche ajoute ce rapport, la ligne LIVRÉ et rien d'autre (docs seules).
+- Engine : branche `wquintal/m-5-coeur-a-deux` (partie d'`origin/main` `0b484d15`), **code `cce86ac0`** (inclut le merge d'`origin/main` `30f9d1e6`, conflits de docs seulement) ; la tête de la branche ajoute ce rapport mis à jour et rien d'autre (docs seules).
 - 1837 : branche `m-5-coeur` (partie d'`origin/main` `61563bf`), tête `89dc3719` (RON, scénarios de preuve, protocole du soir).
-- Journal du contrôle rapide : `~/orca/runs/alpha/logs/m-5-coeur-a-deux-check-rapide-a7c19e14.log` (`make check_rapide` vert, exit 0).
+- Journal du contrôle rapide : `~/orca/runs/alpha/logs/m-5-coeur-a-deux-check-rapide-cce86ac0.log` (`make check_rapide` vert, exit 0).
 
 ## Ce qui est livré, point par point
 
@@ -42,15 +42,15 @@ Un personnage qui déclare `wisp: Some((speed_mult, lure, bleedout_frames, respa
 | `wisp_respawn_point` | le feu follet **marche** (position à f150) jusqu'à la balise, « Reprise », se relève seul à 50 PV, sans coéquipier | 2 |
 | `wisp_both_down_defeat` | le second joueur, seul debout après la chute du premier, meurt : `Defeat` | 2 |
 | `wisp_solo_unchanged` | un seul joueur à mode feu follet : la mort reste la mort (`PlayerDead`, `Defeat`, HUD vide) | 1 |
-| `wisp_plain_ignored`, `wisp_attract_pulls`, `wisp_attract_out_of_range`, `wisp_mislead_diverts` | un suiveur : sans leurre il va au joueur debout ; `Attract` le tire vers la lumière (la plus proche gagne) ; la **portée est une donnée** (40 unités : ignoré) ; `Mislead` le détourne même plus près du joueur debout | 2 |
+| `wisp_plain_ignored`, `wisp_attract_pulls`, `wisp_attract_out_of_range`, `wisp_mislead_diverts`, `wisp_mislead_still` | un suiveur : sans leurre il va au joueur debout ; `Attract` le tire vers la lumière (la plus proche gagne) ; la **portée est une donnée** (40 unités : ignoré) ; `Mislead` le détourne même plus près du joueur debout | 2 |
 
 Traces : **huit neuves**, aucune autre. 1837 : `docs/preuves/m-5/releve.ron` et `reprise.ron` (le vrai contenu : les salves des fantassins font tomber le Frère à 40 PV ; le partenaire porte une armure d'essai) rejoués
 **sans échec** par le runner de l'engine (`PlayerDowned`, `HudText wisp`, `PlayerRevived`, santé rendue 12 PV et 20 PV).
 
 ### Traces existantes et ordre de la simulation
 
-- **Aucune trace existante ne bouge** : la suite complète (851 scénarios, `tests/scenarios/**`, quatre tranches `ALACOD_SCENARIO_SLICE=k/4`, binaire `scenarios` du profil `headless` sans `BLESS`) est verte sur le code
-  `a7c19e14` (la même suite était verte, sauf `wisp_respawn_point` alors différent, sur `b2d74aa1`). Les `downed_*`, `four_players_*`, `two_players_*` y sont.
+- **Aucune trace existante ne bouge** : la suite complète (tous les scénarios de `tests/scenarios/**`, quatre tranches `ALACOD_SCENARIO_SLICE=k/4`, binaire `scenarios` du profil `headless` sans `BLESS`) est verte sur le code
+  `cce86ac0`. Les `downed_*`, `four_players_*`, `two_players_*` y sont.
 - **`make schedule_order_diff`** : fait **à la main avec deux builds**, base `0b484d15` et tête, dumps `schedule_order` (`--no-default-features`, comme `test_crates`) : le script du dépôt n'a pas été utilisé tel quel (il compile
   la base dans un target à part, 20 Go de plus alors que le disque du studio était à 32 Go libres ; et un target **partagé** entre base et tête fait passer la base compilée pour la tête, D133, que j'ai rencontré et
   corrigé en nettoyant les crates du workspace). Sorties : `~/orca/runs/alpha/logs/m-5-coeur-a-deux-schedule-order/{base,head}`. Les fichiers diffèrent par du **renumérotage** (le tri topologique de bevy ne
@@ -62,6 +62,18 @@ Traces : **huit neuves**, aucune autre. 1837 : `docs/preuves/m-5/releve.ron` et 
 `docs/taches/rapports/m-5-coeur-a-deux/` (testbed : `revive-f125-feu-follet`, `revive-f170-releve`, `revive-f299-releve-fini`, `respawn-f140-marche`, `respawn-f200-reprise`, `respawn-f319-releve`) et, dans 1837,
 `docs/preuves/m-5/` (`releve-f270-feu-follet`, `releve-f350-relevee-a-30`, `releve-f520-debout`, `reprise-f330-marche`, `reprise-f430-au-feu`, `reprise-f560-debout`). On y voit la lumière chaude qui pulse, l'arc bleu de la relève,
 l'anneau et l'arc doré de la reprise, « FEU FOLLET / Relève 30 % » et « FEU FOLLET / Reprise 72 % », la barre de vie (`0/40`, puis `12/40`) et les munitions (`1 | 12`). Le corps du Frère reste dessiné sous la lumière (D204).
+
+## Revue du coordinateur (b2d74aa1) : corrigée
+
+- **P1** (le feu follet coupait le passage du champ des joueurs debout) : le champ des sources debout est calculé **seul**, puis la zone de chaque feu follet (Dijkstra borné à sa portée) est superposée ; une case lui
+  revient seulement si son coût depuis lui (décalage `Mislead` compris) est plus bas. Test `wisp_reach_tests::un_feu_follet_ne_coupe_pas_le_passage_vers_le_joueur_debout` (couloir de trois cases, un couloir d'une case est
+  infranchissable pour un corps de 20 px) : **échoue sur l'ancien algorithme** (« case 2 sans direction », vérifié en rejouant le test sur `a7c19e14`), passe maintenant. Un scénario équivalent n'a pas été retenu : une carte à
+  cloison jouée en scénario menait au même point d'arrivée (le feu follet bloque physiquement le passage) avec l'ancien et le nouveau code, donc ne prouvait rien.
+- **P2** (sortie anticipée sans comparer la portée) : `FlowFieldCache::target_reach`, comparé, haché seulement s'il n'est pas vide (`TargetReach`, test de hash vide) ; scénario `wisp_mislead_still` (personne ne change de case :
+  **échoue sans le correctif**, vu avant correction, passe après). Les traces `wisp_attract_*`/`wisp_mislead_diverts` (neuves) ont été rebénies ; aucune trace existante ne bouge.
+- **P3** : sans objet, l'entité LDtk et son tri n'existent plus (D201).
+- Le diff de l'ordre est refait **contre `origin/main` `30f9d1e6`** (dumps à cibles nettoyées entre la base et la tête, `.../m-5-coeur-a-deux-schedule-order/{base,head}`) : mêmes ajouts qu'avant (types `Wisp`, `RespawnPoint` à la place 61-62, avant les cinq de clôture ; système
+  `rollback_wisp_respawn` ; un `apply_deferred` ; plomberie d'instantané), rien d'autre. Suite complète (quatre tranches) et `make check_rapide` rejoués sur `cce86ac0` : verts.
 
 ## Écarts et décisions à connaître
 
@@ -79,7 +91,7 @@ l'anneau et l'arc doré de la reprise, « FEU FOLLET / Relève 30 % » et « FEU
 - **D203** : la portée du leurre est un coût de chemin du champ partagé (reconstruit toutes les 30 frames : retard jusqu'à 0,5 s) ; le champ « legacy » ignore les feux follets.
 - **D204** : présentation minimale (gizmos, le corps reste sous la lumière, pas de son) ; pas de relève immédiate par un objet (« goutte d'eau de Pâques »).
 
-## Dernières lignes de `make check_rapide` (`~/orca/runs/alpha/logs/m-5-coeur-a-deux-check-rapide-a7c19e14.log`)
+## Dernières lignes de `make check_rapide` (`~/orca/runs/alpha/logs/m-5-coeur-a-deux-check-rapide-cce86ac0.log`)
 
 ```
 games/zombies : aucune erreur (6 personnages, 4 armes, 6 armes de corps à corps, 1 vagues, 6 cartes)
