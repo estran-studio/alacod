@@ -2,7 +2,7 @@
 
 Jalon servi : **S1, dim 15** (plan `docs/taches/plan-1837-cli.md` § 6, ligne P-1 : « la gigue au tempo ; la hache qui renvoie les balles ») et la cible jeu 12
 (« 4 fantassins… un cône au sol annonce le tir 1 s avant… rechargent 3 s »). Branche engine `wquintal/p-1-parite-labo` (tête de code `19860c54`), branche 1837 `p-1-parite`
-(`72a9acb`). Convention : `docs/conventions.md` § 110 ; dettes D194–D197, D199 fermée. Référence : les `DEFAUTS` de `gigue.js`, `armes.js`, `allures.js` (`1867_lore` @ `d5a27d9`,
+(`f997417`). Convention : `docs/conventions.md` § 110 ; dettes D194–D197, D199 fermée. Référence : les `DEFAUTS` de `gigue.js`, `armes.js`, `allures.js` (`1867_lore` @ `d5a27d9`,
 aucun réglage exporté). Tableau de parité : `1837/docs/parite-labo.md` (§ 12 = état final) ; protocole du soir : `1837/docs/protocole-soir-p-1.md`.
 Les sept écarts du § 10 du tableau sont aux **défauts**, marqués « en attente de William » (D194). `game::music_sync` et `MeleeParried` restent retirés (commit `f5bc688e`, D149 et D151,
 à revert si William les veut). Reprise de X-3 (`x-3-verbes-d1.md`, `x-3-arret.md`) : le P1 et les trois P2 de sa revue sont fermés ; les « À REMPLIR » de son rapport renvoient ici.
