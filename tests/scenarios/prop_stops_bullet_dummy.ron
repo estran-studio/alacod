@@ -1,0 +1,28 @@
+// M-1b (docs/conventions.md §112) : témoin de `prop_stops_bullet` : un `dummy` (personnage neutre ordinaire) à la place du prop.
+//
+// À regarder : même trajectoire, même impact que `prop_stops_bullet` (le premier `dummy` 200 → 192, le second reste à 200).
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 100,
+    characters: [
+        (character: "dummy", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "262.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 10, to: 11, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 14),
+        EntityHealth(net_id: 16, min: 192, max: 192, at_frame: 99),
+        EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 99),
+        EntityCount(kind: Bullet, max: Some(0), at_frame: 99),
+    ],
+)

@@ -8684,3 +8684,30 @@ comme aux bancs du Labo (`1867_lore/design/rendu-facon-sprite.md`) ; le décor, 
   ALACOD_LABELS=0 target/debug/play_scenario <scénario.ron> --capture <dossier> --every 5` (1837 : `docs/preuves/r-1/` de son dépôt).
 - **Web** : le `glb` est chargé par HTTP comme les images (`assets/` du build), le manifeste est embarqué ; les shaders sont des `embedded_asset!` (WebGL2).
 - Dettes **D198** (mort, coup reçu et victoire non joués en 3D) et **D199** (épauler sans phase dans la simulation) : `docs/taches/dettes.md`.
+
+## 112. Le personnage « prop » : une image inerte, sans barre de vie ni statut d'ennemi (M-1b, `docs/taches/rapports/m-1b-prop.md`)
+
+Un contenu pose dans une carte des images qui arrêtent les balles et les corps (murs, barrières, caisses, arbres, bâtiments). Avant, l'unique moyen était un `Character` neutre immobile, qui affichait une barre de vie rouge
+(`character/visuals.rs`) et recevait `Enemy` (`enemy/create.rs`) : il comptait dans le plafond d'ennemis du spawner, le HUD `enemies` et les règles de fin de vague. Aucun nom de jeu dans l'engine : testbed (`prop-test`, `wall-test`).
+
+- **Champ de contenu `prop: bool`** (défaut `false`, `CharacterConfig::prop`, `#[serde(default)]`) sur le kind `Character`. Forme RON : `prop: true,` à la racine du personnage ; `alacod describe Character` le liste. Un seul champ plutôt que
+  `health_bar` + `counts_as_enemy` : les deux effets vont toujours ensemble pour une image (une barre sans `Enemy` ou l'inverse n'a pas de cas d'emploi) ; deux champs se lisent aussi mal à côté du kind `Prop` (barils, tables, `lint_props`), dont le nom
+  se rapproche mais qui est un autre objet (surface, `Obstacle`). Si un besoin sépare un jour les deux effets, `prop` reste le raccourci des deux.
+- **Spawn** (`spawn_enemy`, `crates/game/src/character/enemy/create.rs`) : un prop prend un **chemin séparé**, avant tout le reste : `create_character` (collider, santé `base_health`, skin, `GgrsNetId`, couche `enemy_layer`) puis l'équipe, et rien de plus : ni `Enemy`,
+  ni `EnemyPath`/`MonsterState`/`EnemyAiConfig`/`EnemyBehaviors`, ni arme, ni variante. Le chemin des ennemis n'est pas touché d'une ligne. `ai` n'est pas requis (le lint ne le réclamait déjà pas). L'équipe est celle que pose l'appelant, comme pour
+  un personnage ordinaire (`team` du `CharacterSpawn` ou du scénario) ; un prop reste ciblable par les balles (`prop_stops_bullet`, placé sans `team`).
+- **Présentation** (`attach_character_visuals`, `character/visuals.rs`) : pas de barre de vie ni au repos ni après un dégât (aucun `HealthBar` enfant), sprites et skin attachés comme avant. Test : `visuals::prop_tests` (un prop et son jumeau à `prop: false`, même fichier : seul le jumeau a la barre).
+- **Aucun composant rollback neuf** : le champ est statique, lu au spawn (et par la présentation). Un prop n'a ni plus ni moins de composants rollback qu'un `Character` sans `Enemy` ; **champ absent ou `false` : aucune trace existante ne bouge**
+  (preuve : `explosive_bullet_hit`, `testbed_window`, `four_players_idle`, `rock_flow_field`, `rock_loot` rejoués sans `BLESS`, traces identiques).
+- **Lint** (`lint_characters`, `crates/content/src/lint.rs`, `LintErrorKind::Unsupported`) : `prop: true` est refusé avec `counts_hits`, `starting_weapons` non vide ou `boss` (« personnage « X » : `prop: true` est incompatible avec `<champ>` ») ; un prop nu passe.
+  Fixtures `crates/content/tests/fixtures/prop_incompatible` (trois refus, un prop accepté, `lint_fixtures.rs`). `alacod new-content Character <id> --from <prop>` copie le champ (`cli.rs::describe_lists_prop_and_new_content_accepts_a_prop_model`).
+- **Ce qu'un prop n'est plus** (lecteurs de `With<Enemy>`, lus dans le code ; seul le compte `Enemy` est prouvé par un scénario) : sorti du compte du plafond du spawner, du HUD `enemies`, des vagues et de la fin de vague, des salles (`rooms.rs` : un prop ne bloque plus « tous les ennemis morts »), du ciblage
+  (`enemy_target_selection`, charme), de la séparation ennemi-ennemi de `move_enemies` (seule collision **molle** entre ennemis : un prop ne repousse plus un ennemi voisin ; murs et fenêtres restent des `Wall`/`Window`), des bots (`hunter`, `explorer`),
+  de `remote brief`, des étiquettes de lisibilité, des fantômes et du son de mort. **Inchangés** : les collisions du joueur (par couche `enemy_layer`, pas par `Enemy`), les balles (requête `Team` + `Health` + `Collider`), les dégâts, la mort à santé épuisée
+  (un contenu qui veut un prop indestructible garde une grosse `base_health`).
+- **Preuves** (traces neuves, `tests/scenarios/`) : `prop_no_enemy` (5 props, `prop-test` ×3 et `wall-test` ×2, et 1 `dummy` : `EntityCount(kind: Enemy)` = 0 avant la pose, 1 ensuite), `prop_no_enemy_cap` (11 props et 1 `dummy` : le plafond de dix ennemis serait atteint si les props
+  comptaient ; ennemis = 1), `prop_stops_bullet` et son témoin `prop_stops_bullet_dummy` (un `dummy` à la place du prop : même impact, 200 → 192, la cible derrière reste à 200).
+  **Le spawner de vagues ne tourne pas en scénario** (`WaveModeEnabled(true)` forcé) : la preuve « le spawner continue » est le compte `Enemy`, le marqueur que le plafond lit (`spawning.rs`), pas un spawner joué. Le plafond y est une **constante** (10) et
+  non le champ `max_enemies` du spawner : dette **D200**.
+- Capture : `docs/taches/rapports/m-1b-prop.png` (image 95 de `ALACOD_LABELS=0 target/debug/play_scenario tests/scenarios/prop_stops_bullet.ron --capture <dossier> --every 5` : le prop touché, l'image seule, sans barre rouge ; le HUD affiche « Ennemis 1 », le `dummy`).
+  `alacod sandbox games/testbed --detach` + `alacod remote spawn prop-test --ahead` a bien posé le prop (`brief` : un seul ennemi, le `dummy`), mais `alacod remote screenshot` a rendu une image **noire** (1600×1200, tous les pixels à 0), à deux reprises : cause non cherchée.
