@@ -767,13 +767,13 @@ mod prop_tests {
         let mut configs = CharacterConfigs::default();
         configs.0.insert("prop".into(), config(true));
         configs.0.insert("twin".into(), config(false));
-        let mut spritesheets = bevy::platform::collections::hash_map::HashMap::default();
-        let mut animations = bevy::platform::collections::hash_map::HashMap::default();
-        spritesheets.insert("neutre".to_string(), Default::default());
-        animations.insert("neutre".to_string(), Handle::default());
         app.insert_resource(configs).insert_resource(GlobalAsset {
-            spritesheets,
-            animations,
+            spritesheets: [("neutre".to_string(), Default::default())]
+                .into_iter()
+                .collect(),
+            animations: [("neutre".to_string(), Handle::default())]
+                .into_iter()
+                .collect(),
             slash_effect_spritesheet: None,
             slash_effect_animation: None,
             character_configs: Default::default(),
