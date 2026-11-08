@@ -1,0 +1,23 @@
+// M-1b suivi P3a (docs/conventions.md §112) : témoin de `prop_repels_enemy` : quatre `dummy` (des `Enemy`, l'ancienne façon de
+// poser du décor) à la place des `prop-test`, mêmes attentes aux mêmes frames.
+//
+// À regarder : même trajectoire du `follower` que `prop_repels_enemy`.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 200,
+    characters: [
+        (character: "follower", x: "420.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "300.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "312.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "324.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "336.0", y: "696.0", at_frame: 5),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 145.72, max: 145.77, at_frame: 150),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 96.68, max: 96.71, at_frame: 199),
+    ],
+)

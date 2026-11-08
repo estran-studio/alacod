@@ -565,6 +565,13 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             if character.boss.is_some() {
                 incompatibles.push("boss");
             }
+            // Le spawn d'un prop ignore ces champs : un contenu qui les pose croirait à un effet qui n'a pas lieu.
+            if character.variants.is_some() {
+                incompatibles.push("variants");
+            }
+            if character.behaviors.is_some() {
+                incompatibles.push("ai.behaviors");
+            }
             for field in incompatibles {
                 errors.push(LintError {
                     kind: LintErrorKind::Unsupported,
