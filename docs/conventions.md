@@ -8432,9 +8432,9 @@ Outillage et gabarit seulement : **aucune trace ne bouge**, aucun `BLESS`. Jalon
   Un jeu créé avant M-1 reprend ces trois points (D191).
 - **Serveur** (`--serve`, `web_build::Server`) : HTTP statique minimal sur `127.0.0.1:<port>` (GET et HEAD, `application/wasm`, `text/javascript`, `Cache-Control: no-store`, rien hors de `<out>`).
   La racine d'assets étant **absolue** (`/builds/…`), la page doit être servie à la racine d'une origine : un sous-chemin public (`https://hôte/jeu/`) casse les assets (D190, pour M-2).
-- **Page** : `index.html` (canvas `#bevy-canvas`, `data-number-player="1"`, `?perf=1` → `data-perf`, `download_log_file_js`, message visible si le module ne démarre pas). Solo seulement : le
-  lobby en ligne (`data-matchbox`, `data-lobby`) est le lot M-2.
-- **Tests** : `web_build::tests` (version de `wasm-bindgen` lue du verrou, versions d'URL, page, serveur : MIME, `..` refusé) ; `crates/content/tests/cli.rs::new_game_builds_for_the_web_without_any_added_code`
+- **Page** : `index.html` (canvas `#bevy-canvas`, un joueur par défaut sans salon, `?perf=1` → `data-perf`, `download_log_file_js`, message visible si le module ne démarre pas).
+  M-2 ajoute le salon par `?lobby=`, `?matchbox=`, `?joueurs=` et gzip : voir §109.
+- **Tests** : `web_build::tests` (version de `wasm-bindgen` lue du verrou, versions d'URL, serveur : MIME, gzip/HEAD, `..` refusé) ; `crates/content/tests/cli.rs::new_game_builds_for_the_web_without_any_added_code`
   (`#[ignore]`, **`make test_alacod_web`**, ≈ 20 min à froid : `alacod new demo` dans un dossier temporaire, `alacod build --web`, wasm, JS, assets, page, `build.json` et serveur). Aucun Chrome
   automatisé : l'ouverture dans le navigateur est la recette humaine. Le jeu d'essai compile dans son propre `target/` (jeté avec le dossier temporaire : 21-26 min à chaque fois) sauf si `CARGO_TARGET_DIR` est posé :
   `CARGO_TARGET_DIR=$PWD/target make test_alacod_web` réutilise celui du worktree (21 min la première fois, ensuite les dépendances wasm32 sont en cache). Preuve de 1837 au Mac (7 nov) : `.wasm` release + `wasm-opt`
