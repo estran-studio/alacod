@@ -8770,6 +8770,10 @@ jeu** : tout vient du RON du personnage.
   `character::health::rollback_wisp_respawn` (`DeathManagement`, après le saignement, avant la régénération et `rollback_check_defeat`) compte les frames **consécutives**
   d'un feu follet dans la portée (`Wisp::respawn_progress`, retombe à 0 hors portée) et, à `respawn_frames`, retire `Downed`/`Wisp`/`Reviving`/`Interactable` et le
   modificateur de vitesse, `Health = max × respawn_health`.
+  **Un prop (`prop: true`, § 112) qui porte `respawn_range` est aussi un point de reprise** (P-1c) : la branche prop de `spawn_enemy`, qui sortait avant la pose,
+  appelle la même `insert_respawn_point` ; le lint l'accepte (il ne refuse que `counts_hits`, `starting_weapons`, `boss`, `variants`, `ai.behaviors` sur un prop). Testbed :
+  `respawn_prop` (copie de `respawn_beacon` avec `prop: true`), scénario `wisp_respawn_prop` (celui de `wisp_respawn_point` avec le prop : repris, il échoue sans le correctif :
+  HUD « FEU FOLLET » au lieu de « Reprise », jamais relevé), `prop_*` et `wisp_*` rejoués sans BLESS.
 - **Défaite à deux** : la règle existante (`rollback_check_defeat` : tout joueur `Downed` ou `Death`). Le premier tombe en feu follet ; si l'autre tombe alors, plus personne
   n'est debout, il meurt au lieu de tomber, `Run` passe en `Defeat` (scénario `wisp_both_down_defeat`). Deux tombés la même frame : chacun voit l'autre debout, les deux sont
   `Downed`, défaite de même.

@@ -1,0 +1,43 @@
+// P-1c (docs/conventions.md § 113) : balise de reprise du feu follet portée par un **prop** (testbed) : comme `respawn_beacon` (neutre immobile, `respawn_range` 24 unités)
+// mais `prop: true` (M-1b, § 112) : ni `Enemy` ni IA. Le chemin de création d'un prop posait tout sauf `RespawnPoint` : un prop qui porte `respawn_range` n'était plus un point de
+// reprise. Posée par `Scenario::characters` (scénario `wisp_respawn_prop`).
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "respawn_prop",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "40.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    team: Some(Neutral),
+
+    respawn_range: Some("24.0"),
+
+    prop: true,
+)

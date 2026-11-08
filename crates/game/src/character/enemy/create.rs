@@ -86,7 +86,8 @@ pub fn spawn_enemy(
     let character_config = character_configs.get(&enemy_type_name);
     // M-1b (§112) : un prop est un personnage sans `Enemy` ni IA. Chemin séparé, pour que celui des
     // ennemis (traces) ne bouge pas d'une ligne : collider, santé, équipe et couche d'ennemi comme
-    // un personnage neutre immobile, rien de plus (variantes, armes, behaviors ignorés).
+    // un personnage neutre immobile, plus `RespawnPoint` s'il déclare `respawn_range` (P-1c) ; rien de
+    // plus (variantes, armes, behaviors ignorés).
     if character_config.is_some_and(|config| config.prop) {
         let entity = create_character(
             commands,
@@ -102,6 +103,11 @@ pub fn spawn_enemy(
             None,
         );
         commands.entity(entity).insert(team);
+        insert_respawn_point(
+            commands,
+            entity,
+            character_config.and_then(|config| config.respawn_range),
+        );
         return entity;
     }
     let ai_ron = character_config.and_then(|config| config.ai.as_ref());
@@ -295,11 +301,11 @@ pub fn spawn_enemy(
     }
     // M-5 (§113) : un personnage qui est un point de reprise du feu follet (rollback neutre, posé
     // seulement par ce contenu : aucune trace existante ne bouge).
-    if let Some(range) = character_config.and_then(|config| config.respawn_range) {
-        commands
-            .entity(entity)
-            .insert(combat::downed::RespawnPoint { range });
-    }
+    insert_respawn_point(
+        commands,
+        entity,
+        character_config.and_then(|config| config.respawn_range),
+    );
 
     #[cfg(feature = "harmonium")]
     commands
@@ -307,4 +313,14 @@ pub fn spawn_enemy(
         .insert(HarmoniumTag::new(&["danger", "combat", "monster"], 1.0));
 
     entity
+}
+
+/// M-5 (§113) : pose `RespawnPoint` sur un personnage qui déclare `respawn_range`. Partagée par la branche des
+/// ennemis et celle des props (P-1c : la branche prop sortait avant et un prop n'était jamais un point de reprise).
+fn insert_respawn_point(commands: &mut Commands, entity: Entity, range: Option<fixed_math::Fixed>) {
+    if let Some(range) = range {
+        commands
+            .entity(entity)
+            .insert(combat::downed::RespawnPoint { range });
+    }
 }
