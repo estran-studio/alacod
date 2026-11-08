@@ -8441,6 +8441,36 @@ Outillage et gabarit seulement : **aucune trace ne bouge**, aucun `BLESS`. Jalon
   de 80,4 Mo, la cour affichée dans Chrome (`1837/docs/preuves/m-1-web-cour.png`).
 - Dettes **D190** et **D191** : `docs/taches/dettes.md`.
 
+## 109. Salon web par URL et signalisation publique (M-2)
+
+Jalon servi : S1 dim 15, « à deux en ligne dans Chrome », cible ven 13. Page et serveur seulement :
+aucune simulation, aucun type rollback et aucun code réseau du jeu modifiés ; aucun `BLESS`.
+
+- `alacod build --web` écrit une page qui lit `?lobby=<salon>`, `?matchbox=<ws(s)://hôte>` et
+  `?joueurs=<nombre>` **avant** d'importer le wasm. Avec un salon non vide, le canvas reçoit
+  `data-lobby` (segment encodé par `encodeURIComponent`), `data-matchbox` (sans `/` final) et
+  `data-number-player` (entier strictement positif, défaut 2). Sans salon, la page reste solo.
+- Sans `matchbox`, la signalisation vise l'hôte de la page sur le port 3536, `ws` en HTTP,
+  `wss` en HTTPS. Une page HTTPS doit utiliser une signalisation **WSS**, pas WS.
+  Le port 3536 n'est pas exposé automatiquement par un hébergement de page : fournir une URL
+  de signalisation publique explicite si nécessaire.
+- Le chemin Matchbox existant joint `<matchbox>/<lobby>` ; il n'exige ni compte ni ticket.
+  Allumette est un autre contrat (JWT/session) : son URL publique ne remplace pas un Matchbox nu.
+  `polissage-reseau-amis` n'est pas fusionnée par ce lot.
+- Le build produit `wasm_bg.wasm.gz` à côté du wasm brut. `Server` négocie `Accept-Encoding: gzip`
+  (respecte `q=0`), garde `application/wasm`, pose `Content-Encoding: gzip` et
+  `Vary: Accept-Encoding`. GET et HEAD ont la même taille et les mêmes en-têtes ; HEAD n'envoie
+  pas le corps. Sans gzip accepté ou sans fichier compressé, le wasm brut reste servi.
+  Le serveur transfère le fichier en flux, sans charger le wasm entier par connexion.
+- Un jeu externe peut héberger page et Matchbox localement, puis ouvrir deux tunnels temporaires :
+  HTTPS pour la page, WSS pour la signalisation (URL passée par `matchbox`). Servir à la racine
+  d'une origine reste obligatoire (D190). Les tunnels ne transportent **pas** les données de jeu :
+  WebRTC reste pair-à-pair avec le STUN existant, sans TURN ajouté (**D192**).
+- Ce mode dépend de la machine hôte et de ses processus (**D193**). Ne pas présenter l'URL comme
+  un hébergement permanent ni comme une invitation authentifiée ; ne la partager qu'avec les joueurs.
+  Le protocole humain à deux réseaux et les preuves ponctuelles sont dans
+  `docs/taches/rapports/m-2-deux-en-ligne.md`.
+
 ## 110. Verbes D1 et parité avec les bancs du labo (X-3, repris par P-1, voie m)
 
 Trois verbes génériques de l'engine, composables par le contenu (RON) ; **aucune valeur, aucun nom
