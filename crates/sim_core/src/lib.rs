@@ -30,12 +30,14 @@
 //! - [`aim`] : mode de visée d'un personnage, libre ou à quatre directions (suivi Q17).
 //! - [`animation_state`] : orientation, animation et calques d'un personnage (rollback ; déménagé de
 //!   `animation`, dette D69) et `AnimationStatePlugin` qui les enregistre.
+//! - [`cover`] : couvert, prop qui arrête les balles de toutes les équipes (X-6a2, §118).
 //! - [`wisp`] : contrat de donnée du mode « feu follet » d'un joueur tombé (M-5, §113).
 //! - [`sprite_directions`] : directions dessinées d'une planche et choix de la ligne (X-4a, présentation seule).
 
 pub mod aim;
 pub mod ammo;
 pub mod animation_state;
+pub mod cover;
 pub mod damage;
 pub mod dash;
 pub mod frame_events;

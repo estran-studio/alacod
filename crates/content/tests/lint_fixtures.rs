@@ -2673,3 +2673,23 @@ fn prop_fixture_refuses_counts_hits_weapons_boss_variants_and_behaviors_but_not_
         "{errors:#?}"
     );
 }
+
+/// X-6a2 (§118) : `cover` exige `prop: true` (le chemin de spawn d'un prop pose le composant) ; un couvert sur un prop passe.
+#[test]
+fn cover_fixture_refuses_a_cover_that_is_not_a_prop() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("cover_requires_prop")).unwrap();
+    assert_eq!(
+        registry.characters[&content::registry::CharacterId::from("cover_ok")].cover,
+        Some(sim_core::cover::Cover::Destructible)
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "« cover_not_a_prop » : `cover` exige `prop: true`",
+    );
+    let unsupported = errors
+        .iter()
+        .filter(|e| e.kind == LintErrorKind::Unsupported && e.message.contains("`cover`"))
+        .count();
+    assert_eq!(unsupported, 1, "{errors:#?}");
+}

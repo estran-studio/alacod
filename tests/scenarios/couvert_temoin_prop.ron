@@ -1,0 +1,29 @@
+// X-6a2 (docs/conventions.md §118), témoin de `couvert_toutes_equipes` : mêmes positions, mêmes tirs, mais un `prop-test` (M-1b,
+// sans `cover`, équipe de repli `Enemies`) à la place du couvert. La rafale du joueur l'arrête (et le blesse) ; les flèches du
+// tireur (même équipe, tir ami `Never`) le **traversent** : le joueur est touché. C'est l'écart que `cover` ferme.
+//
+// À regarder : le prop (net id 16) perd 40 PV sous la rafale (200 → 160, cinq balles de 8), le joueur perd 10 PV sous deux flèches (100 → 90) : les flèches ont traversé le prop.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 300,
+    characters: [
+        (character: "prop-test", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "tireur_poste", x: "300.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 10, to: 40, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        Health(handle: 0, min: Some(90.0), max: Some(90.0), at_frame: 299),
+        EntityHealth(net_id: 16, min: 160, max: 160, at_frame: 299),
+        EntityHealth(net_id: 17, min: 500, max: 500, at_frame: 299),
+    ],
+)

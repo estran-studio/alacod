@@ -508,6 +508,8 @@ ou d'un crate à l'autre, avec les traces de scénario.
     - X-6a1 portes à états et clé d'équipe (§117) : `MapDoor(nth, state: Closed | Locked | Open)` (porte de **carte**, triée par `GgrsNetId`),
       `TeamKeys(key, count)` (`run::TeamKeys`), `KeyPiles(count)` (clés au sol, `items::KeyPickup`) ; moments clés `key_pickup`, `key_door`
       (clé consommée), `key_door_open` (clé gardée) et `key_refused` ; `HudText(source: "team_keys")` lit les clés tenues ; personnage `carries_key`.
+    - X-6a2 couverts (§118) : `EntityCount(kind: Cover, min, max, at_frame)` (couverts non détruits, `sim_core::cover::Cover`) ; `Health`, `EntityHealth`, `BulletCount`
+      (filtre `projectile: Some("arrow")`, `team`) couvrent les neuf scénarios `couvert_*` (témoins `couvert_temoin_prop`, `couvert_arrete_*_temoin`).
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
       clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :

@@ -5,7 +5,7 @@ use bevy::{
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use combat::actors::{ExtraHealth, Shield, SHIELD_IFRAMES};
-use combat::damage::{apply_layers, resolve_damage, Defenses, Layered};
+use combat::damage::{apply_layers, resolve_damage, resolve_defenses, Defenses, Layered};
 use combat::downed::{downed_modifier_source, Downed, RespawnPoint, Reviving, Wisp};
 use ggrs::PlayerHandle;
 use run::{Run, RunEnd, RunStep};
@@ -156,6 +156,8 @@ pub fn rollback_resolve_damage_events(
             Option<&mut HitCount>,
             Option<&mut Shield>,
             Option<&mut ExtraHealth>,
+            // X-6a2 (§118) : un couvert est blessé par toutes les équipes (ou jamais).
+            Option<&sim_core::cover::Cover>,
         ),
         With<Rollback>,
     >,
@@ -201,6 +203,7 @@ pub fn rollback_resolve_damage_events(
             opt_hit_count,
             mut opt_shield,
             mut opt_extra,
+            opt_cover,
         )) = target_query.get_mut(entity)
         else {
             continue;
@@ -228,22 +231,36 @@ pub fn rollback_resolve_damage_events(
             .is_some_and(|h| h.is_invulnerable_at(event.frame));
         let defenses = opt_defenses.unwrap_or(&default_defenses);
 
-        let Some(amount) = resolve_damage(
-            event.source_team,
-            *target_team,
-            event.friendly_fire,
-            &event.tags,
-            defenses,
-            event.kind.clone(),
+        let scaled_amount = if event.source_team == Team::Enemies {
             // T1.9 : un seul point pour tous les dégâts d'ennemis (griffes, coups directs,
             // charges, projectiles d'émetteurs) : ceux dont le tireur est de l'équipe Enemies.
-            if event.source_team == Team::Enemies {
-                crate::clock::scale(event.amount, clock.difficulty)
-            } else {
-                event.amount
-            },
-            invulnerable,
-        ) else {
+            crate::clock::scale(event.amount, clock.difficulty)
+        } else {
+            event.amount
+        };
+        let resolved = match opt_cover {
+            // X-6a2 (§118) : un couvert ignore la règle d'équipe (il arrête déjà les balles de
+            // tous les camps) ; `Indestructible` ne perd jamais de santé.
+            Some(cover) if !cover.takes_damage() => None,
+            Some(_) => resolve_defenses(
+                &event.tags,
+                defenses,
+                event.kind.clone(),
+                scaled_amount,
+                invulnerable,
+            ),
+            None => resolve_damage(
+                event.source_team,
+                *target_team,
+                event.friendly_fire,
+                &event.tags,
+                defenses,
+                event.kind.clone(),
+                scaled_amount,
+                invulnerable,
+            ),
+        };
+        let Some(amount) = resolved else {
             continue;
         };
 

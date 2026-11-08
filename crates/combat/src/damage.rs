@@ -62,7 +62,26 @@ pub fn resolve_damage(
     if target_team == Team::Neutral {
         return None;
     }
+    resolve_defenses(
+        source_tags,
+        target_defenses,
+        kind,
+        amount,
+        target_invulnerable,
+    )
+}
 
+/// Défenses d'une cible, **sans** la règle d'équipe de [`resolve_damage`] : `DamageKind::True` les
+/// ignore, sinon invulnérabilité et immunité par tag bloquent tout, puis les résistances réduisent le
+/// montant. `None` si rien n'est appliqué (montant final `<= 0`). Sert aussi à un couvert
+/// destructible (X-6a2, `sim_core::cover::Cover`), blessé par les balles de toutes les équipes.
+pub fn resolve_defenses(
+    source_tags: &Tags,
+    target_defenses: &Defenses,
+    kind: DamageKind,
+    amount: Fixed,
+    target_invulnerable: bool,
+) -> Option<Fixed> {
     let true_damage = kind == DamageKind::True;
 
     if !true_damage {
@@ -542,5 +561,52 @@ mod tests {
             false,
         );
         assert_eq!(meleed, Some(TEN));
+    }
+
+    /// X-6a2 : un couvert destructible est blessé par un tir du même bord (`Never`) que `resolve_damage` refuse ;
+    /// les défenses (immunité par tag, invulnérabilité) s'appliquent toujours.
+    #[test]
+    fn resolve_defenses_skips_the_team_rule_but_keeps_the_defenses() {
+        let same_side = resolve_damage(
+            Team::Enemies,
+            Team::Enemies,
+            FriendlyFire::Never,
+            &tags(&["bullet"]),
+            &Defenses::default(),
+            DamageKind::Physical,
+            TEN,
+            false,
+        );
+        assert_eq!(same_side, None);
+        assert_eq!(
+            resolve_defenses(
+                &tags(&["bullet"]),
+                &Defenses::default(),
+                DamageKind::Physical,
+                TEN,
+                false
+            ),
+            Some(TEN)
+        );
+        assert_eq!(
+            resolve_defenses(
+                &tags(&["bullet"]),
+                &defenses(&["bullet"], &[]),
+                DamageKind::Physical,
+                TEN,
+                false
+            ),
+            None
+        );
+        assert_eq!(
+            resolve_defenses(
+                &tags(&["bullet"]),
+                &Defenses::default(),
+                DamageKind::Physical,
+                TEN,
+                true
+            ),
+            None
+        );
     }
 }

@@ -584,6 +584,19 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
 
+        // X-6a2 (§118) : un couvert est posé par le chemin de spawn d'un prop ; sur un autre
+        // personnage le champ serait ignoré, et le contenu croirait à un effet qui n'a pas lieu.
+        if character.cover.is_some() && !character.prop {
+            errors.push(LintError {
+                kind: LintErrorKind::Unsupported,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : `cover` exige `prop: true`",
+                    character.id
+                ),
+            });
+        }
+
         // Référence : starting_weapons -> WeaponId (T1.5 : les joueurs ne reçoivent plus
         // tout `weapons.ron`, seulement les armes déclarées ici).
         for weapon_id in &character.starting_weapons {
