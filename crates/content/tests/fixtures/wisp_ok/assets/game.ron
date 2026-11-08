@@ -1,0 +1,8 @@
+// Fixture M-5 (§113) : wisp_ok
+(
+    name: "fixture-wisp_ok",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

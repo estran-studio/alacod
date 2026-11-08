@@ -6,7 +6,7 @@ use crate::collider::{is_colliding, Collider, Wall, Window};
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use combat::downed::Downed;
+use combat::downed::{is_decoy, Downed, Wisp};
 use serde::{Deserialize, Serialize};
 use sim_core::animation_state::FacingDirection;
 use sim_core::stats::StatId;
@@ -98,6 +98,7 @@ pub fn update_enemy_targets(
         &fixed_math::FixedTransform3D,
         &Player,
         Has<Downed>,
+        Option<&Wisp>,
     )>,
     mut enemy_query: Query<
         (
@@ -115,11 +116,12 @@ pub fn update_enemy_targets(
     // GGRS CRITICAL: Sort by net_id for deterministic tie-breaking when multiple players at equal distance
     let mut player_positions: Vec<(GgrsNetId, fixed_math::FixedVec2, bool)> = player_query
         .iter()
-        .map(|(net_id, fixed_transform, _, downed)| {
+        .map(|(net_id, fixed_transform, _, downed, wisp)| {
             (
                 net_id.clone(),
                 fixed_transform.translation.truncate(),
-                downed,
+                // Un feu follet à leurre (M-5, §113) reste une cible : compté comme debout.
+                downed && !is_decoy(wisp),
             )
         })
         .collect();

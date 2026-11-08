@@ -1,0 +1,8 @@
+// Fixture M-5 (§113) : wisp_respawn_zero
+(
+    name: "fixture-wisp_respawn_zero",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

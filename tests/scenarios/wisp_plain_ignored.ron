@@ -1,0 +1,29 @@
+// M-5 (docs/conventions.md § 113) : un feu follet sans leurre est ignoré des ennemis. Carte vide `testbed/arene_vide.ldtk` (le joueur 0
+// en (424, 696), le joueur 1 64 unités à l'est) : le joueur 0 abat le joueur 1 (`wisp_plain`) par tir ami (f10-110) puis s'éloigne vers
+// l'ouest (f110-150, vers x ≈ 324). Un `follower` (poursuite sans attaque) apparaît à f120 au sud-est, **plus près du feu follet**
+// (190 unités) que du joueur 0 (294). Sans leurre il va vers le joueur debout.
+//
+// À regarder : la lumière du joueur 1 immobile ; le suiveur passe au large et rejoint le joueur 0.
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 520,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    characters: [(character: "follower", x: "560.0", y: "520.0", at_frame: 120)],
+    players: [
+        (
+            character: "wisp_plain",
+            inputs: [
+                (from: 10, to: 110, buttons: [Fire], pan: (100, 0)),
+                (from: 110, to: 150, buttons: [Left]),
+            ],
+        ),
+        (character: "wisp_plain"),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 130),
+        EnemyDistance(entity: Placed(0), target: Player(0), max: Some(50.0), at_frame: 510),
+        EnemyDistance(entity: Placed(0), target: Player(1), min: Some(120.0), at_frame: 510),
+    ],
+)

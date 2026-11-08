@@ -1,0 +1,30 @@
+// M-5 (docs/conventions.md § 113) : les deux joueurs tombés, c'est la défaite. Le joueur 1 abat le joueur 0 (feu follet,
+// f≈105) puis se pose une bombe aux pieds (f150, `Always` : elle blesse son poseur) : à 0 PV, plus personne n'est debout
+// pour le relever, il meurt (`Death`) au lieu de tomber, et `Run` passe en défaite.
+//
+// À regarder : la lumière du joueur 0 ; l'explosion au pied du joueur 1 (f170) ; l'écran de défaite juste après.
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 260,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    players: [
+        (character: "wisp_plain"),
+        (
+            character: "wisp_plain",
+            bomb: (fuse_frames: 20, radius: "20.0", damage: "150.0", friendly_fire: Always),
+            items: ["bomb"],
+            inputs: [
+                (from: 10, to: 110, buttons: [Fire], pan: (-100, 0)),
+                (from: 150, to: 151, buttons: [Bomb]),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerDowned(handle: 0, at_frame: 130),
+        PlayerAlive(handle: 1, at_frame: 160),
+        PlayerDead(handle: 1, at_frame: 200),
+        Defeat(by_frame: 200),
+    ],
+)

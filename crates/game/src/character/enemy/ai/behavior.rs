@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use combat::downed::Downed;
+use combat::downed::{is_decoy, Downed, Wisp};
 use sim_core::damage::{DamageEvent, DamageKind};
 use sim_core::tag::{Tag, Tags};
 use sim_core::team::Team;
@@ -69,7 +69,12 @@ pub fn enemy_target_selection(
         (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<
-        (&GgrsNetId, &fixed_math::FixedTransform3D, Has<Downed>),
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            Has<Downed>,
+            Option<&Wisp>,
+        ),
         (With<Player>, Without<Enemy>),
     >,
     player_tags: Query<(&GgrsNetId, Option<&Tags>), With<Player>>,
@@ -78,12 +83,13 @@ pub fn enemy_target_selection(
     let mut players: Vec<_> = player_query.iter().collect();
     // À terre (T1.3, chantier B6) : même règle que `update_flow_field_system`/
     // `update_enemy_targets` — ignorer les joueurs à terre tant qu'un autre est encore
-    // debout (voir la doc de `combat::downed::Downed`).
-    let any_standing = players.iter().any(|(_, _, downed)| !downed);
+    // debout (voir la doc de `combat::downed::Downed`) ; un feu follet à leurre (M-5, §113)
+    // reste une cible.
+    let any_standing = players.iter().any(|(_, _, downed, _)| !downed);
     if any_standing {
-        players.retain(|(_, _, downed)| !downed);
+        players.retain(|(_, _, downed, wisp)| !downed || is_decoy(*wisp));
     }
-    let mut players: Vec<_> = players.into_iter().map(|(id, t, _)| (id, t)).collect();
+    let mut players: Vec<_> = players.into_iter().map(|(id, t, ..)| (id, t)).collect();
     players.sort_by_key(|(net_id, _)| net_id.0);
 
     // Intact breakable obstacles and the cells they cover, by net_id

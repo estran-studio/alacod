@@ -77,6 +77,7 @@ pub mod waves;
 pub mod weapon_assets;
 pub mod weapons;
 pub mod web;
+mod wisp_visuals;
 pub mod world_sprites;
 
 use lazy_static::lazy_static;
