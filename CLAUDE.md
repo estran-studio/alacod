@@ -505,6 +505,8 @@ ou d'un crate à l'autre, avec les traces de scénario.
     - M-5 cœur à deux (§113) : aucune attente nouvelle (`PlayerDowned`, `PlayerRevived`, `PlayerAlive`, `PlayerDead`, `PlayerPosition`, `Defeat`, `EnemyDistance`, `Health`
       et `HudText` couvrent les huit scénarios `wisp_*`) ; `HudText(source: "wisp")` lit « FEU FOLLET » / « Reprise 40 % » / « Feu follet allié » ; champ de scénario
       un personnage à `respawn_range` (balise `respawn_beacon`, posée par `characters`) est un point de reprise du feu follet, `character: "wisp_*"` par joueur ; la mort en solo reste la mort.
+    - X-6a2 couverts (§118) : `EntityCount(kind: Cover, min, max, at_frame)` (couverts non détruits, `sim_core::cover::Cover`) ; `Health`, `EntityHealth`, `BulletCount`
+      (filtre `projectile: Some("arrow")`, `team`) couvrent les neuf scénarios `couvert_*` (témoins `couvert_temoin_prop`, `couvert_arrete_*_temoin`).
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
       clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :

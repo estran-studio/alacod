@@ -35,6 +35,8 @@ pub enum EntityKind {
     Table,
     /// Rochers de salle pas encore détruits (M3-T0c, `docs/conventions.md` §62).
     Rock,
+    /// Couverts (X-6a2, `docs/conventions.md` §118) pas encore détruits : personnages `sim_core::cover::Cover`.
+    Cover,
 }
 
 /// Étape de `Run` attendue (T2.4, chantier F1, `Expectation::RunState`) : miroir minimal de

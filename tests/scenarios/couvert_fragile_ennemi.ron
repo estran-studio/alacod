@@ -1,0 +1,26 @@
+// X-6a2 (docs/conventions.md §118) : un couvert destructible est aussi blessé par les balles **ennemies** (équipe `Enemies`, comme son
+// repli d'équipe : sans `cover`, ces flèches le traverseraient). Carte `testbed/rocks_static.ldtk` (y 696) ; le joueur 0 (immobile, à l'ouest)
+// ne tire pas ; le couvert `couvert_fragile` (24 PV, net id 16, x 240) est entre lui et un `tireur_poste` (net id 17, x 300) dont les flèches
+// font 5.
+//
+// À regarder : la première flèche s'arrête dans le couvert (24 → 19), la deuxième (vers f195) aussi (19 → 14) ; le joueur garde ses 100 PV.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 300,
+    characters: [
+        (character: "couvert_fragile", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "tireur_poste", x: "300.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (weapon: "machine_gun", inputs: []),
+    ],
+    expect: [
+        EntityHealth(net_id: 16, min: 24, max: 24, at_frame: 60),
+        EntityHealth(net_id: 16, min: 19, max: 19, at_frame: 150),
+        EntityHealth(net_id: 16, min: 14, max: 14, at_frame: 299),
+        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 299),
+    ],
+)

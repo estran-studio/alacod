@@ -366,6 +366,7 @@ fn describe_lists_prop_and_new_content_accepts_a_prop_model() {
     cmd.current_dir(&game).args(["describe", "Character"]);
     let schema = text(&run(cmd).stdout);
     assert!(schema.contains("prop"), "{schema}");
+    assert!(schema.contains("cover"), "{schema}");
 
     let dummy = std::fs::read_to_string(game.join("assets/characters/dummy.ron")).unwrap();
     let model = dummy

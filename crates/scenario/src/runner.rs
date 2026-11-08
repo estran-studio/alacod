@@ -1766,6 +1766,10 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                     .query_filtered::<(), With<world::Rock>>()
                     .iter(world)
                     .count() as u32,
+                game::replay::EntityKind::Cover => world
+                    .query_filtered::<(), With<sim_core::cover::Cover>>()
+                    .iter(world)
+                    .count() as u32,
             };
 
             if let Some(min_val) = min {

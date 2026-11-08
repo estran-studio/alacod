@@ -1133,6 +1133,8 @@ type TargetQuery<'w, 's> = Query<
         Option<&'static crate::actors::DashExtra>,
         // P-1 : zone touchée (§110), testée à la place de `Collider`.
         Option<&'static crate::collider::Hurtbox>,
+        // X-6a2 (§118) : un couvert arrête le projectile de toutes les équipes.
+        Option<&'static sim_core::cover::Cover>,
     ),
     (Without<Bullet>, With<Rollback>),
 >;
@@ -1204,7 +1206,7 @@ pub fn projectile_collision_system(
         );
 
         // Personnages : tous les candidats en contact, par GgrsNetId.
-        let mut characters: Vec<GgrsNetId> = Vec::new();
+        let mut characters: Vec<(GgrsNetId, bool)> = Vec::new();
         for entry in grids.targets.iter_overlapping(&swept) {
             let Ok((
                 target_id,
@@ -1214,22 +1216,27 @@ pub fn projectile_collision_system(
                 target_health,
                 target_dash,
                 target_hurtbox,
+                target_cover,
             )) = target_query.get(entry.entity)
             else {
                 continue;
             };
             // D54 : le tir ami (`Always`, `Cursed`) ne touche jamais son propre tireur.
-            if target_id.0 == bullet.source.0
-                || !team_allows_hit(
+            // X-6a2 : un couvert ne passe ni par la règle d'équipe ni par l'invulnérabilité ;
+            // `Spectral` le traverse comme un mur.
+            let blocked = if target_cover.is_some() {
+                projectile.spectral || !projectile.can_hit(target_id)
+            } else {
+                !team_allows_hit(
                     bullet.source_team,
                     *target_team,
                     bullet.friendly_fire,
                     &bullet.tags,
-                )
-                || !projectile.can_hit(target_id)
-                || target_health.is_invulnerable_at(frame.frame)
-                || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
-            {
+                ) || !projectile.can_hit(target_id)
+                    || target_health.is_invulnerable_at(frame.frame)
+                    || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
+            };
+            if target_id.0 == bullet.source.0 || blocked {
                 continue;
             }
             if is_colliding(
@@ -1238,13 +1245,13 @@ pub fn projectile_collision_system(
                 &target_transform.translation,
                 crate::collider::Hurtbox::of(target_hurtbox, target_collider),
             ) {
-                characters.push(target_id.clone());
+                characters.push((target_id.clone(), target_cover.is_some()));
             }
         }
-        characters.sort_unstable_by_key(|id| id.0);
-        characters.dedup_by_key(|id| id.0);
+        characters.sort_unstable_by_key(|(id, _)| id.0);
+        characters.dedup_by_key(|(id, _)| id.0);
 
-        for target in characters {
+        for (target, is_cover) in characters {
             info!("projectile {} hits {}", net_id, target);
             damage_events.send(DamageEvent {
                 source: bullet.source.clone(),
@@ -1266,7 +1273,12 @@ pub fn projectile_collision_system(
                     frame: frame.frame,
                 });
             }
-            let ended = projectile.register_hit(target);
+            // X-6a2 : un couvert met fin au projectile quelles que soient ses perforations.
+            let mut ended = projectile.register_hit(target);
+            if is_cover {
+                projectile.ended = true;
+                ended = true;
+            }
             // M3-T1 : `Split` à l'impact (après `register_hit` : l'enfant hérite de la cible
             // touchée et des perforations restantes).
             if let Some(split) = projectile.split.clone() {
@@ -1436,7 +1448,8 @@ pub fn projectile_expire_system(
                                 &projectile,
                                 target_query
                                     .iter()
-                                    .map(|(id, t, _, team, _, _, _)| (id, t, team)),
+                                    .filter(|(_, _, _, _, _, _, _, cover)| cover.is_none())
+                                    .map(|(id, t, _, team, _, _, _, _)| (id, t, team)),
                             ),
                         )
                     });
@@ -1473,7 +1486,8 @@ type SteeringTarget<'a> = (&'a GgrsNetId, &'a fixed_math::FixedTransform3D, &'a 
 fn gather_targets<'a>(query: &'a TargetQuery) -> Vec<SteeringTarget<'a>> {
     query
         .iter()
-        .map(|(id, transform, _, team, _, _, _)| (id, transform, team))
+        .filter(|(_, _, _, _, _, _, _, cover)| cover.is_none())
+        .map(|(id, transform, _, team, _, _, _, _)| (id, transform, team))
         .collect()
 }
 

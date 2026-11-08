@@ -1,0 +1,29 @@
+// X-6a2 (docs/conventions.md §118) : une balle **perforante** (`bullet_type: Piercing`, mode `piercing` du `shotgun` : huit plombs) traverse les personnages mais pas un couvert : elle s'arrête sur lui comme sur un mur. Témoin : `couvert_arrete_perforante_temoin`.
+// Carte `testbed/rocks_static.ldtk` (y 696) ; le joueur 0 (immobile) tire une fois vers l'est (`shotgun`, mode `piercing`) ; couvert (net id 16, x 240) sur la trajectoire, un
+// `dummy` (net id 17, x 262) juste derrière.
+//
+// À regarder : les plombs perforants s'arrêtent contre le couvert (200 PV, indestructible) ; le `dummy` derrière n'est pas touché.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 160,
+    characters: [
+        (character: "couvert", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "262.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "shotgun",
+            inputs: [
+                (from: 40, to: 43, buttons: [SwitchWeaponMode]),
+                (from: 60, to: 61, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 159),
+        EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 159),
+    ],
+)

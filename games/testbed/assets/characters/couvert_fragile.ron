@@ -1,0 +1,42 @@
+// X-6a2 (docs/conventions.md §118) : couvert destructible du testbed, caisse de 20 × 20. `prop: true` (M-1b : ni `Enemy`
+// ni barre de vie, bloque les corps) et `cover: Some(Destructible)` : arrête les balles de **toutes** les équipes (la balle
+// ennemie comme celle du joueur) et perd de la santé à chaque impact : 24 PV, il cède au troisième coup d'un `machine_gun` (8). Pas de `team` : le repli (`Enemies`) est celui qui laissait
+// passer les balles ennemies sans le marquage ; le témoin `prop-test` (même collider, sans `cover`) les laisse passer.
+// Scénarios `couvert_*`.
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "couvert_fragile",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "24.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    prop: true,
+    cover: Some(Destructible),
+)

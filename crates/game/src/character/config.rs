@@ -166,6 +166,14 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub prop: bool,
 
+    /// Couvert (X-6a2, `docs/conventions.md` §118) : ce prop arrête les balles de **toutes** les
+    /// équipes, quelle que soit son `team` (sinon les balles du même camp le traversent), et
+    /// `Destructible` le blesse à chaque impact (santé `base_health`). Exige `prop: true` (lint) :
+    /// le chemin de spawn d'un prop pose le composant `sim_core::cover::Cover`. Champ statique lu au
+    /// spawn : absent par défaut, aucun contenu existant ne change.
+    #[serde(default)]
+    pub cover: Option<sim_core::cover::Cover>,
+
     /// I-frames après un coup subi (M3-T0b, §61). Absent : comportement historique ; le
     /// résolveur ne pose aucune invulnérabilité supplémentaire.
     #[serde(default)]
