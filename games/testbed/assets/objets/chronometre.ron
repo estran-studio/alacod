@@ -1,0 +1,34 @@
+// X-3 (testbed, docs/conventions.md §110) : passif d'essai des fenêtres de jugement
+// (`effects::Condition::Timing`) sur l'horloge `pouls` (un événement toutes les 40 frames). Fenêtres
+// arbitraires : parfaite 3 frames, large 8.
+// - début d'une esquive (`OnDodge`) : parfait → +1 de dégâts ; « bien » (hors parfaite, dans la
+//   large) → +10 (filtre `Good`) ; raté (hors large) → +100. Les trois effets partagent la même
+//   fenêtre : une seule note (`FrameEvents<TimingJudged>`) par esquive.
+// - fin d'un rechargement (`OnReload`) : parfait → +1000 (rechargement actif).
+// Scénarios `fenetre_esquive` et `fenetre_rechargement`.
+(
+    name: "Chronomètre",
+    kind: Passive,
+    effects: [
+        (
+            on: OnDodge,
+            if: [Timing(reference: Clock("pouls"), perfect_frames: 3, good_frames: 8, grade: Perfect)],
+            do: [Modifier(stat: Damage, op: Add, value: "1")],
+        ),
+        (
+            on: OnDodge,
+            if: [Timing(reference: Clock("pouls"), perfect_frames: 3, good_frames: 8, grade: Good)],
+            do: [Modifier(stat: Damage, op: Add, value: "10")],
+        ),
+        (
+            on: OnDodge,
+            if: [Timing(reference: Clock("pouls"), perfect_frames: 3, good_frames: 8, grade: Miss)],
+            do: [Modifier(stat: Damage, op: Add, value: "100")],
+        ),
+        (
+            on: OnReload,
+            if: [Timing(reference: Clock("pouls"), perfect_frames: 3, good_frames: 8, grade: Perfect)],
+            do: [Modifier(stat: Damage, op: Add, value: "1000")],
+        ),
+    ],
+)

@@ -1,0 +1,28 @@
+// X-3 (testbed, revue indépendante P2) : un projectile touché **à la frame même du coup** est
+// renvoyé et noté `Perfect` (arme `parade_instant` : `reflect.perfect_frames: 0`, dégâts × 2). La
+// parade passe après la création de la hitbox de la frame (`player_melee_attack_system`) : avant le
+// correctif elle tournait avant, ne voyait la hitbox qu'à la frame suivante et la même boule de feu
+// n'était renvoyée qu'avec la note « bien » (dégâts × 1).
+//
+// Mêmes tourelle et couronne que `parade_projectiles` (boule de feu de 8 dégâts qui atteint le
+// joueur à f64 ; l'appui de f59 lance le coup à f64, 5 frames de délai d'input de GGRS).
+//
+// À regarder : le coup part à f64, pile quand la boule de feu entre dans sa hitbox ; elle repart à
+// droite, équipe du joueur, et touche la tourelle pour 16 (8 × 2).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena_tir.ldtk",
+    frames: 140,
+    players: [
+        (weapon: "parade_instant", inputs: [
+            (from: 59, to: 62, buttons: [Melee], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        BulletCount(count: 0, projectile: Some("fireball"), team: Some(Players), at_frame: 62),
+        BulletCount(count: 1, projectile: Some("fireball"), team: Some(Players), at_frame: 65),
+        Event(kind: "reflect", label_contains: Some("parfait, f64"), by_frame: 140),
+        PlayerAlive(handle: 0, at_frame: 140),
+    ],
+)

@@ -255,6 +255,8 @@ pub fn spawn_enemy(
         }
     }
 
+    // P-1 (§110) : état du cycle d'un tireur posté, seulement s'il est configuré (composant neutre).
+    let ranged_cycle = ranged && ai_config.ranged_cycle.is_some();
     commands.entity(entity).insert((
         inventory,
         EnemyPath::default(),
@@ -272,6 +274,11 @@ pub fn spawn_enemy(
         commands
             .entity(entity)
             .insert(super::ai::state::RangedAttackState::default());
+    }
+    if ranged_cycle {
+        commands
+            .entity(entity)
+            .insert(super::ai::cycle::RangedCycle::default());
     }
     // T1.4 : état des behaviors nouveaux, seulement s'ils sont listés (checksum neutre) ;
     // les règles elles-mêmes sont statiques, hors rollback (comme `Team`).

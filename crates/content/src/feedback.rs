@@ -24,6 +24,11 @@ pub struct FeedbackSettings {
     /// la simulation.
     #[serde(default)]
     pub hit_stop_frames: u32,
+    /// Qui le hit stop fige (X-3) : `Global` (défaut, comportement d'avant : toutes les
+    /// animations et le suivi de caméra) ou `Target` (seule l'entité touchée, jamais le joueur
+    /// local ni la caméra). Surchargeable par `by_kind` / `by_weapon`.
+    #[serde(default)]
+    pub hit_stop_scope: HitStopScope,
     /// Chiffres de dégâts flottants au-dessus de la cible (T1.17).
     #[serde(default)]
     pub damage_numbers: bool,
@@ -249,6 +254,18 @@ impl Default for DeathFxConfig {
     }
 }
 
+/// Qui un hit stop fige (X-3, présentation seule, `docs/conventions.md` §110).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum HitStopScope {
+    /// Toutes les animations et le suivi de caméra (comportement de T1.17).
+    #[default]
+    Global,
+    /// Seule l'entité touchée : ses calques n'avancent plus d'image pendant le gel. Le joueur
+    /// local, les autres entités et la caméra restent vifs ; un coup reçu par le joueur local ne
+    /// fige personne.
+    Target,
+}
+
 /// Bornes du zoom de fin de boss (lint).
 pub const BOSS_ZOOM_RANGE: (f32, f32) = (1.0, 4.0);
 /// Plafond des gels et durées de présentation (lint) : au-delà, le jeu paraît planté.
@@ -259,6 +276,9 @@ pub const MAX_PRESENTATION_FRAMES: u32 = 600;
 pub struct FeedbackOverride {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hit_stop_frames: Option<u32>,
+    /// Qui le hit stop fige pour ce genre ou cette arme (X-3) ; absent : le niveau suivant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hit_stop_scope: Option<HitStopScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hit_flash: Option<HitFlashConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -274,6 +294,7 @@ pub struct FeedbackOverride {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ResolvedFeedback {
     pub hit_stop_frames: u32,
+    pub hit_stop_scope: HitStopScope,
     pub hit_flash: HitFlashConfig,
     pub shake: ShakeConfig,
     /// La secousse vient d'une surcharge (`by_weapon` ou `by_kind`) : elle s'applique aussi
@@ -421,6 +442,9 @@ impl FeedbackSettings {
             hit_stop_frames: levels()
                 .find_map(|entry| entry.hit_stop_frames)
                 .unwrap_or(self.hit_stop_frames),
+            hit_stop_scope: levels()
+                .find_map(|entry| entry.hit_stop_scope)
+                .unwrap_or(self.hit_stop_scope),
             hit_flash: levels()
                 .find_map(|entry| entry.hit_flash)
                 .unwrap_or(self.hit_flash),
@@ -864,6 +888,43 @@ mod tests {
         assert!(!defaut.shake_overridden);
         // Arme inconnue : ignorée.
         assert_eq!(s.resolve(&DamageKind::Physical, Some("autre")), defaut);
+    }
+
+    /// X-3 : `hit_stop_scope` se résout comme les autres champs (arme, genre, défaut), `Global` sans
+    /// réglage.
+    #[test]
+    fn portee_du_hit_stop() {
+        let s: FeedbackSettings = ron::from_str(
+            r#"(
+                hit_flash: (frames: 4, color: (1.0, 1.0, 1.0)),
+                shake: (frames: 8, amplitude: 12.0),
+                hit_stop_frames: 3,
+                hit_stop_scope: Target,
+                by_kind: { Explosion: (hit_stop_scope: Some(Global)) },
+                by_weapon: { "fusil": (hit_stop_frames: Some(5)) },
+            )"#,
+        )
+        .unwrap();
+        assert_eq!(
+            s.resolve(&DamageKind::Physical, None).hit_stop_scope,
+            HitStopScope::Target
+        );
+        assert_eq!(
+            s.resolve(&DamageKind::Explosion, None).hit_stop_scope,
+            HitStopScope::Global
+        );
+        // Un champ absent d'une entrée laisse passer le niveau suivant : l'arme ne règle que la durée.
+        let fusil = s.resolve(&DamageKind::Physical, Some("fusil"));
+        assert_eq!(
+            (fusil.hit_stop_frames, fusil.hit_stop_scope),
+            (5, HitStopScope::Target)
+        );
+        assert_eq!(
+            settings()
+                .resolve(&DamageKind::Physical, None)
+                .hit_stop_scope,
+            HitStopScope::Global
+        );
     }
 
     #[test]

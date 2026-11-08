@@ -708,6 +708,11 @@ pub fn apply_player_profile(
             game::character::dash::DashOverride(dash.clone()),
             combat::actors::DashExtra::with_charges(dash.charges.unwrap_or(0)),
         ));
+        if dash.needs_cadence() {
+            commands
+                .entity(entity)
+                .insert(combat::actors::DashCadence::default());
+        }
     }
     if let Some(def) = profile.bomb {
         commands.entity(entity).insert(world::BombCarrier::new(def));

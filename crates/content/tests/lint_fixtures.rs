@@ -1167,6 +1167,30 @@ fn weapon_spread_out_of_range_fixture_reports_spread() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// X-3 : `reflect.perfect_damage_mult` doit être > 0.
+#[test]
+fn melee_reflect_mult_zero_fixture_reports_mult() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("melee_reflect_mult_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "perfect_damage_mult");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// P-1 : `strike_frames` doit tenir dans le coup (`début <= fin < attack_duration_frames`).
+#[test]
+fn melee_strike_outside_attack_fixture_reports_strike() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("melee_strike_outside_attack")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "strike_frames");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// X-3 : `move_speed_mult` doit être > 0.
+#[test]
+fn weapon_move_speed_mult_zero_fixture_reports_mult() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("weapon_move_speed_mult_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "move_speed_mult");
+    assert_only_one_besides_start_map(&errors);
+}
+
 #[test]
 fn weapon_sprite_unknown_fixture_reports_unknown_sheet() {
     let (_, _, errors) = load_and_lint(&fixture_dir("weapon_sprite_unknown")).unwrap();
@@ -1632,6 +1656,22 @@ fn effect_limits_invalid_fixture_reports_out_of_range() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "recharge sans charges");
 }
 
+/// X-3 : fenêtre de jugement — parfaite plus large que la large, horloge inconnue.
+#[test]
+fn effect_timing_invalid_fixture_reports_window_and_clock() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("effect_timing_invalid")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "perfect_frames = 9 > good_frames = 4",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "événement d'horloge « inconnu »",
+    );
+}
+
 #[test]
 fn item_unknown_stat_fixture_reports_parse_error() {
     let (_, _, errors) = load_and_lint(&fixture_dir("item_unknown_stat")).unwrap();
@@ -1689,6 +1729,51 @@ fn dash_recharge_zero_fixture_reports_out_of_range() {
 fn dash_duration_zero_fixture_reports_out_of_range() {
     let (_, _, errors) = load_and_lint(&fixture_dir("dash_duration_zero")).unwrap();
     assert_has_error(&errors, LintErrorKind::OutOfRange, "durée 0 hors InPlace");
+}
+
+/// P-1 : la forme réelle de `dash` (profil et bonus d'un appui au tempo sans `Some`) passe le
+/// lint ; seule l'horloge inconnue est refusée.
+#[test]
+fn dash_on_beat_unknown_clock_fixture_reports_clock_only() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("dash_on_beat_unknown_clock")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "horloge inconnue « absente »",
+    );
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// P-1 : la zone touchée d'un personnage tient dans son collider.
+#[test]
+fn hurtbox_outside_collider_fixture_reports_hurtbox() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("hurtbox_outside_collider")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "hurtbox");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// P-1 : règles de `ai.ranged_cycle` (attente `min <= max`, recul sur au moins une frame, règle
+/// `Shoot` présente).
+#[test]
+fn ranged_cycle_wait_inverted_fixture_reports_wait() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cycle_wait_inverted")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "wait_frames = (30, 10)");
+}
+
+#[test]
+fn ranged_cycle_recoil_zero_fixture_reports_recoil() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cycle_recoil_zero")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "recoil.frames = 0");
+}
+
+#[test]
+fn ranged_cycle_without_shoot_fixture_reports_missing_rule() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("ranged_cycle_without_shoot")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::BrokenReference,
+        "aucune règle Shoot",
+    );
 }
 
 #[test]

@@ -1,0 +1,10 @@
+// P-1 (testbed, docs/conventions.md §110) : horloge de laboratoire à tempo, repère des appuis jugés
+// (`dash.on_beat`). 100 temps par minute : un temps toutes les 36 frames (f0, f36, f72, f108…).
+// Valeur arbitraire, choisie pour tomber sur des frames entières et se lire dans un scénario ; un
+// tempo qui tombe entre deux frames est couvert par `run::clock::tests`. Aucun événement :
+// `Clock::fired` ne grossit pas. Scénarios `dash_au_tempo`, `dash_coupe_sur_place`.
+(
+    scope: Run,
+    events: [],
+    tempo: Some(100),
+)

@@ -1,0 +1,62 @@
+// P-1 (testbed, docs/conventions.md §110) : témoin de `tireur_poste` à visée figée au départ de la salve (`track_target: false`) ;
+// le reste du cycle est identique (voir `tireur_poste.ron`).
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "tireur_poste_fige",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "500.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("600.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: Some(true),
+        behaviors: Some([
+            Shoot(weapon: "fireball_gun", pattern: "salve_postee", range: "600.0", cooldown_frames: 60),
+        ]),
+        ranged_cycle: Some((
+            track_target: false,
+            face_target: true,
+            wait_frames: Some((10, 20)),
+            first_wait: Some((20, 40)),
+            stagger_frames: Some(30),
+            recoil: Some((distance: "12.0", frames: 10)),
+            return_speed: Some("60.0"),
+        )),
+    )),
+)

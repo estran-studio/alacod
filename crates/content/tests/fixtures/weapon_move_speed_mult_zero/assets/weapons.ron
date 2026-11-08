@@ -1,0 +1,15 @@
+// X-3 : `move_speed_mult` nul (0 figerait le porteur) :
+// LintErrorKind::OutOfRange (`lint::lint_weapons`).
+({
+    "pistolet_lourd": (
+        config: (
+            name: "pistolet_lourd",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            move_speed_mult: Some("0.0"),
+            firing_modes: {
+                "default": (firing_rate: "2.0", spread: "0.0"),
+            },
+        ),
+    ),
+})

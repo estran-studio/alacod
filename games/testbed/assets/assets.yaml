@@ -110,3 +110,13 @@
   licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
   modifications: sans objet (original)
   statut: planche de test (flèche, étiquette du compas et numéro d'image par cellule ; huit directions)
+
+- id: modele-pantin-r1-projet
+  fichiers:
+    - models/pantin/anime.glb
+  source: généré pour le projet par scripts/gen-pantin.py (R-1, docs/conventions.md §111) : corps de boîtes,
+    squelette et clips calculés, palette en aplats ; aucune source tierce
+  auteur: projet alacod
+  licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — œuvre originale du projet
+  modifications: sans objet (original)
+  statut: modèle de test du rendu « façon sprite » (allures en quatre directions, gestes en huit, arme et bouche)

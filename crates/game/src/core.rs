@@ -314,6 +314,8 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::waves::debug::WaveDebugPlugin);
         app.add_plugins(crate::powerup_visuals::PowerUpVisualPlugin);
         app.add_plugins(crate::world_sprites::WorldSpritePlugin);
+        // R-1 (§111) : ce qui bouge rendu en 3D « façon sprite » (jeux qui déclarent un fichier `Model`).
+        app.add_plugins(crate::model3d::ModelRenderPlugin);
         app.add_plugins(crate::legibility::LegibilityPlugin);
         app.add_plugins(crate::ui::hud::HudPlugin);
         #[cfg(feature = "ui_hui")]

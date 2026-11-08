@@ -1,0 +1,27 @@
+// P-1 (docs/conventions.md §110, testbed) : un appui pendant le geste de tir ou le rechargement est
+// perdu. Le joueur garde la détente **tenue** de f15 à f200 : un seul coup part (f29), et pas un
+// second à la fin du rechargement (f119) : il faut relâcher puis appuyer (appui effectif f205 :
+// second coup à f214).
+//
+// À regarder : détente tenue, un seul coup, puis le tir recommence quand le joueur relâche et rappuie.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 260,
+    players: [
+        (weapon: "arme_a_gestes", inputs: [
+            (from: 15, to: 200, buttons: [Fire], pan: (100, 0)),
+            (from: 200, to: 201, buttons: [], pan: (100, 0)),
+            (from: 201, to: 202, buttons: [Fire], pan: (100, 0)),
+            (from: 202, to: 260, buttons: [], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        BulletCount(count: 1, team: Some(Players), at_frame: 30),
+        Ammo(handle: 0, ammo: 1, at_frame: 130),
+        BulletCount(count: 0, team: Some(Players), at_frame: 170),
+        Ammo(handle: 0, ammo: 1, at_frame: 190),
+        PlayerAlive(handle: 0, at_frame: 260),
+    ],
+)

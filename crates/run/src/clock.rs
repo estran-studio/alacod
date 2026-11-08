@@ -63,6 +63,13 @@ pub struct ClockEventDef {
 pub struct ClockDef {
     pub scope: ClockScope,
     pub events: Vec<ClockEventDef>,
+    /// P-1 (`docs/conventions.md` §110) : tempo de l'horloge, en temps par minute. Le temps `k`
+    /// tombe à `k × 3600 / tempo` frames de la portée (rationnel : aucune dérive, même quand un
+    /// temps ne fait pas un nombre entier de frames). Aucun événement n'est déclenché par les
+    /// temps (rien n'entre dans `Clock::fired`) : c'est un repère lu par les verbes qui jugent un
+    /// instant ([`beat_gap`]). `None` : horloge sans tempo.
+    #[serde(default)]
+    pub tempo: Option<u32>,
 }
 
 /// Un événement d'horloge déclenché cette frame (`FrameEvents`, checksum neutre).
@@ -196,6 +203,36 @@ pub fn due_events(def: &ClockDef, elapsed: u32, fired: &BTreeSet<String>) -> Vec
     due
 }
 
+/// Temps (en frames de la portée de `def`) de l'occurrence de l'événement `id` la plus
+/// proche de `elapsed` (X-3 : repère d'une fenêtre de jugement, `effects::Condition::Timing`).
+/// Sans `repeat` : l'unique occurrence, à `at`. Avec `repeat` : `at + k × repeat`, `k >= 0`,
+/// le plus proche de `elapsed` (à égalité, l'occurrence **suivante**) ; avant `at`, la
+/// première. `None` si l'horloge n'a pas d'événement `id` (sans suffixe `#n`).
+/// Fonction pure en entiers, saturante : aucune panique.
+pub fn nearest_occurrence(def: &ClockDef, id: &str, elapsed: u32) -> Option<u32> {
+    let event = def.events.iter().find(|event| event.id == id)?;
+    let at = event.at.frames();
+    let repeat = event.repeat.map(ClockTime::frames).unwrap_or(0);
+    if repeat == 0 || elapsed <= at {
+        return Some(at);
+    }
+    let k = (elapsed - at).saturating_add(repeat / 2) / repeat;
+    Some(at.saturating_add(k.saturating_mul(repeat)))
+}
+
+/// Écart signé entre `elapsed` (frames de la portée de `def`) et le temps le plus proche du
+/// tempo de `def`, en **fractions de frame** : `(numérateur, dénominateur)`, l'écart en frames
+/// valant `numérateur / dénominateur` (négatif : en avance, positif : en retard). Le temps `k`
+/// tombe à `k × 3600 / tempo` frames ; à égalité entre deux temps, le **suivant** (écart négatif).
+/// `None` sans tempo (ou tempo nul, refusé par le lint). Entiers seulement, sans panique.
+pub fn beat_gap(def: &ClockDef, elapsed: u32) -> Option<(i64, u32)> {
+    let tempo = def.tempo.filter(|&tempo| tempo > 0)?;
+    let period = i64::from(FRAMES_PER_SECOND) * 60; // frames × tempo par temps
+    let scaled = i64::from(elapsed) * i64::from(tempo);
+    let k = (scaled + period / 2) / period;
+    Some((scaled - k * period, tempo))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,6 +257,7 @@ mod tests {
                     repeat: Some(ClockTime::Seconds(Fixed::from_num(2))),
                 },
             ],
+            tempo: None,
         }
     }
 
@@ -298,5 +336,73 @@ mod tests {
         assert!(belongs_to("renfort", "renfort"));
         assert!(belongs_to("renfort#3", "renfort"));
         assert!(!belongs_to("renforts", "renfort"));
+    }
+
+    /// X-3 : occurrence la plus proche, sans répétition, avec répétition (arrondi à
+    /// l'occurrence suivante à égalité), avant `at`, événement inconnu et répétition nulle.
+    #[test]
+    fn occurrence_la_plus_proche() {
+        let def = ClockDef {
+            scope: ClockScope::Run,
+            events: vec![
+                ClockEventDef {
+                    id: "pouls".into(),
+                    at: ClockTime::Frames(10),
+                    repeat: Some(ClockTime::Frames(30)),
+                },
+                ClockEventDef {
+                    id: "unique".into(),
+                    at: ClockTime::Frames(50),
+                    repeat: None,
+                },
+                ClockEventDef {
+                    id: "degenere".into(),
+                    at: ClockTime::Frames(5),
+                    repeat: Some(ClockTime::Frames(0)),
+                },
+            ],
+            tempo: None,
+        };
+        // Avant `at`, la première occurrence.
+        assert_eq!(nearest_occurrence(&def, "pouls", 0), Some(10));
+        assert_eq!(nearest_occurrence(&def, "pouls", 10), Some(10));
+        // 10, 40, 70, 100 : 24 est plus près de 10 (14) que de 40 (16).
+        assert_eq!(nearest_occurrence(&def, "pouls", 24), Some(10));
+        // 25 : égalité (15 / 15) → la suivante.
+        assert_eq!(nearest_occurrence(&def, "pouls", 25), Some(40));
+        assert_eq!(nearest_occurrence(&def, "pouls", 69), Some(70));
+        assert_eq!(nearest_occurrence(&def, "unique", 9999), Some(50));
+        assert_eq!(nearest_occurrence(&def, "degenere", 9999), Some(5));
+        assert_eq!(nearest_occurrence(&def, "absent", 3), None);
+        // Pas de panique aux extrêmes.
+        assert!(nearest_occurrence(&def, "pouls", u32::MAX).is_some());
+    }
+
+    /// P-1 : temps d'un tempo qui ne tombe pas sur une frame entière (129 temps/min : 27,907
+    /// frames par temps), écart rationnel exact, aucune dérive au bout de mille temps.
+    #[test]
+    fn ecart_au_temps_d_un_tempo() {
+        let def = ClockDef {
+            scope: ClockScope::Floor,
+            events: vec![],
+            tempo: Some(129),
+        };
+        // Frame 0 : sur le temps.
+        assert_eq!(beat_gap(&def, 0), Some((0, 129)));
+        // Frame 28 : 28 × 129 − 3600 = 12 → 12/129 de frame en retard sur le temps 1.
+        assert_eq!(beat_gap(&def, 28), Some((12, 129)));
+        // Frame 27 : 3483 − 3600 = −117 → en avance.
+        assert_eq!(beat_gap(&def, 27), Some((-117, 129)));
+        // Temps 1000 à 27 906,98 frames : la frame 27 907 est à 3/129 de frame.
+        assert_eq!(beat_gap(&def, 27_907), Some((3, 129)));
+        // Entre deux temps : 14 × 129 = 1806 > 1800 → plus près du temps 1 (en avance).
+        assert_eq!(beat_gap(&def, 14), Some((1806 - 3600, 129)));
+        let sans = ClockDef {
+            scope: ClockScope::Run,
+            events: vec![],
+            tempo: None,
+        };
+        assert_eq!(beat_gap(&sans, 10), None);
+        assert!(beat_gap(&def, u32::MAX).is_some());
     }
 }

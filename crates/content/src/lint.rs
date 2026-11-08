@@ -71,6 +71,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_hud_sources(registry, &mut errors);
     lint_html_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
+    lint_models(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
     lint_floor_grammars(registry, &mut errors);
@@ -191,6 +192,36 @@ pub(crate) fn lint_effect(
                 LintErrorKind::Unsupported,
                 format!("{at} : condition {condition:?} : pas encore exécutée (v2)"),
             );
+        }
+        // X-3 (§110) : fenêtre de jugement : `perfect_frames <= good_frames` ; un repère
+        // d'horloge désigne un événement déclaré par une horloge du jeu.
+        if let effects::Condition::Timing {
+            reference,
+            perfect_frames,
+            good_frames,
+            ..
+        } = condition
+        {
+            if perfect_frames > good_frames {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!(
+                        "{at} : Timing : perfect_frames = {perfect_frames} > good_frames = {good_frames} : la fenêtre parfaite doit tenir dans la large"
+                    ),
+                );
+            }
+            if let effects::TimingReference::Clock(id) = reference {
+                let known = registry
+                    .clocks
+                    .values()
+                    .any(|clock| clock.events.iter().any(|event| &event.id == id));
+                if !known {
+                    push(
+                        LintErrorKind::BrokenReference,
+                        format!("{at} : Timing : événement d'horloge « {id} » inconnu (aucune horloge du jeu ne le déclare)"),
+                    );
+                }
+            }
         }
     }
     for outer in &effect.r#do {
@@ -339,7 +370,11 @@ pub(crate) fn lint_effect(
 
 /// M2-T2 (§43) : règles du dash. Un personnage sans `dash_charges` ni `dash` garde les réglages
 /// v1 : les mêmes bornes ne le concernent que s'il déclare des charges ou un dash.
-fn lint_dash(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
+fn lint_dash(
+    registry: &Registry,
+    character: &registry::CharacterEntry,
+    errors: &mut Vec<LintError>,
+) {
     let dash = &character.dash;
     if !dash.declared {
         return;
@@ -369,11 +404,121 @@ fn lint_dash(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) 
             dash.iframes, dash.duration_frames
         ));
     }
+    // P-1 (§110) : coupe dans le dash, fenêtres et bonus du jugement au tempo, horloge à tempo.
+    if let Some(cut_from) = dash.cut_from {
+        if cut_from == 0 || cut_from >= dash.duration_frames.max(1) {
+            refuse(format!(
+                "dash : cut_from ({cut_from}) doit être dans [1, durée − 1] (durée {})",
+                dash.duration_frames
+            ));
+        }
+    }
+    if let Some(on_beat) = &dash.on_beat {
+        if on_beat.perfect_ms > on_beat.good_ms {
+            refuse(format!(
+                "dash.on_beat : perfect_ms ({}) > good_ms ({})",
+                on_beat.perfect_ms, on_beat.good_ms
+            ));
+        }
+        let zero = bevy_fixed::fixed_math::FIXED_ZERO;
+        let one = bevy_fixed::fixed_math::FIXED_ONE;
+        if on_beat.coop_window_mult.is_some_and(|m| m.get() <= zero) {
+            refuse("dash.on_beat : coop_window_mult doit être > 0".into());
+        }
+        for (name, value) in [
+            ("distance_bonus", on_beat.distance_bonus),
+            ("iframes_bonus", on_beat.iframes_bonus),
+        ] {
+            if value.get() < zero {
+                refuse(format!("dash.on_beat : {name} doit être >= 0"));
+            }
+        }
+        if on_beat
+            .iframes_cap
+            .is_some_and(|cap| cap.get() <= zero || cap.get() > one)
+        {
+            refuse("dash.on_beat : iframes_cap doit être dans ]0, 1]".into());
+        }
+        match registry
+            .clocks
+            .get(&registry::ClockId::from(on_beat.clock.clone()))
+        {
+            None => errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: character.file.display().to_string(),
+                message: format!(
+                    "personnage « {} » : dash.on_beat : horloge inconnue « {} » (kind Clock)",
+                    character.id, on_beat.clock
+                ),
+            }),
+            Some(clock) if clock.tempo.is_none() => errors.push(LintError {
+                kind: LintErrorKind::BrokenReference,
+                file: character.file.display().to_string(),
+                message: format!(
+                    "personnage « {} » : dash.on_beat : l'horloge « {} » n'a pas de tempo",
+                    character.id, on_beat.clock
+                ),
+            }),
+            Some(_) => {}
+        }
+    }
 }
 
 fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
     for character in registry.characters.values() {
         let file = character.file.display().to_string();
+
+        // P-1 (§110) : cycle du tireur posté (`ai.ranged_cycle`).
+        if let Some(cycle) = &character.ranged_cycle {
+            let mut refuse = |kind, message: String| {
+                errors.push(LintError {
+                    kind,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : ai.ranged_cycle : {message}",
+                        character.id
+                    ),
+                });
+            };
+            if let Some((min, max)) = cycle.wait_frames {
+                if min > max {
+                    refuse(
+                        LintErrorKind::OutOfRange,
+                        format!("wait_frames = ({min}, {max}) : il faut min <= max"),
+                    );
+                }
+            }
+            if cycle.recoil_frames == Some(0) {
+                refuse(
+                    LintErrorKind::OutOfRange,
+                    "recoil.frames = 0 : doit être > 0".into(),
+                );
+            }
+            // Le cycle règle les séquences d'une règle `Shoot` : sans elle il ne fait rien.
+            let has_shoot = character.behaviors.as_ref().is_some_and(|behaviors| {
+                behaviors
+                    .iter()
+                    .any(|behavior| matches!(behavior, registry::BehaviorEntry::Shoot { .. }))
+            });
+            if !has_shoot {
+                refuse(
+                    LintErrorKind::BrokenReference,
+                    "aucune règle Shoot dans ai.behaviors : le cycle n'a rien à régler".into(),
+                );
+            }
+        }
+
+        // P-1 (§110) : la zone touchée tient dans le collider.
+        if character.hurtbox_outside_collider {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : champ hurtbox : la zone touchée doit tenir dans le collider",
+                    character.id
+                ),
+            });
+        }
 
         // T1.10 : effets v1
         for (index, effect) in character.effects.iter().enumerate() {
@@ -388,7 +533,7 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
         }
 
         // M2-T2 : dash (charges, recharge, durée, i-frames).
-        lint_dash(character, errors);
+        lint_dash(registry, character, errors);
         // T1.4 : règles de comportement (`ai.behaviors`) et ciblage.
         lint_behaviors(registry, character, errors);
         // M2-T8 : formations.
@@ -756,6 +901,26 @@ fn lint_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                     message: format!(
                         "arme « {} » : champ sprite_config.name = « {sprite} » : feuille de sprites inconnue (kind SpriteSheet)",
                         weapon.id
+                    ),
+                });
+            }
+        }
+        // X-3 : poids de l'arme (`move_speed_mult:`) : > 0 (0 figerait le porteur, une
+        // valeur négative inverserait ses déplacements). `1` : aucun effet, mais valide.
+        let speed_mults = weapon
+            .move_speed_mult
+            .iter()
+            .map(|mult| ("move_speed_mult", *mult))
+            .chain(weapon.gesture_speed_mults.iter().copied());
+        for (name, mult) in speed_mults {
+            if mult.get() <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme « {} » : champ {name} = {} : doit être > 0",
+                        weapon.id,
+                        mult.get()
                     ),
                 });
             }
@@ -1330,6 +1495,26 @@ fn lint_expire_pattern(
     }
 }
 
+/// R-1 (§111) : fichier `Model` (fichiers, manifestes, plages, clips, objets, repères, armes).
+fn lint_models(registry: &Registry, errors: &mut Vec<LintError>) {
+    let Some(table) = &registry.models else {
+        return;
+    };
+    let file = table.file.display().to_string();
+    let problems = crate::models::lint(table, &|path| registry.asset_exists(path), &|weapon| {
+        registry
+            .weapons
+            .contains_key(&registry::WeaponId::from(weapon))
+    });
+    for (kind, message) in problems {
+        errors.push(LintError {
+            kind,
+            file: file.clone(),
+            message,
+        });
+    }
+}
+
 /// D3 : chaque fichier d'une entrée `SpriteSheet` (animation, feuille de chaque calque,
 /// image de chaque feuille) doit exister sous `assets/`.
 fn lint_sprite_sheets(registry: &Registry, errors: &mut Vec<LintError>) {
@@ -1783,6 +1968,63 @@ fn lint_melee_weapons(registry: &Registry, errors: &mut Vec<LintError>) {
                     weapon.damage.get()
                 ),
             });
+        }
+        // X-3 : parade et renvoi (`reflect:`) : le multiplicateur parfait doit être > 0
+        // (0 annulerait les dégâts renvoyés, une valeur négative les inverserait).
+        if let Some(reflect) = &weapon.reflect {
+            if reflect.perfect_damage_mult <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme de corps à corps « {} » : champ reflect.perfect_damage_mult = {} : doit être > 0",
+                        weapon.id, reflect.perfect_damage_mult
+                    ),
+                });
+            }
+        }
+        // P-1 (§110) : fenêtre de frappe dans le coup (`début <= fin < attack_duration_frames`).
+        if let Some((from, to)) = weapon.strike_frames {
+            if from > to || to >= weapon.attack_duration_frames {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme de corps à corps « {} » : champ strike_frames = ({from}, {to}) : il faut début <= fin < attack_duration_frames ({})",
+                        weapon.id, weapon.attack_duration_frames
+                    ),
+                });
+            }
+        }
+        // P-1 : multiplicateurs (marche pendant le coup, vitesse du renvoi) et secteur > 0.
+        let reflect = weapon.reflect.as_ref();
+        let positives = [
+            ("move_speed_mult", weapon.move_speed_mult),
+            ("reflect.speed_mult", reflect.and_then(|r| r.speed_mult)),
+            (
+                "reflect.perfect_speed_mult",
+                reflect.and_then(|r| r.perfect_speed_mult),
+            ),
+            (
+                "reflect.sector.radius",
+                reflect.and_then(|r| r.sector).map(|s| s.0),
+            ),
+            (
+                "reflect.sector.arc",
+                reflect.and_then(|r| r.sector).map(|s| s.1),
+            ),
+        ];
+        for (field, value) in positives {
+            if let Some(value) = value.filter(|value| *value <= Fixed::ZERO) {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: weapon.file.display().to_string(),
+                    message: format!(
+                        "arme de corps à corps « {} » : champ {field} = {value} : doit être > 0",
+                        weapon.id
+                    ),
+                });
+            }
         }
         lint_weapon_test(&weapon.id, &weapon.file, weapon.test.as_ref(), errors);
     }
@@ -2627,6 +2869,16 @@ fn lint_clocks(registry: &Registry, manifest: &GameManifest, errors: &mut Vec<Li
                 push(
                     LintErrorKind::OutOfRange,
                     format!("événement « {} » : repeat = 0 : doit être > 0", event.id),
+                );
+            }
+        }
+        // P-1 (§110) : un tempo nul n'a pas de temps ; au-delà de 600 temps/min, un temps dure
+        // moins de 6 frames.
+        if let Some(tempo) = clock.tempo {
+            if !(1..=600).contains(&tempo) {
+                push(
+                    LintErrorKind::OutOfRange,
+                    format!("tempo {tempo} : doit être dans [1, 600] temps par minute"),
                 );
             }
         }

@@ -127,6 +127,7 @@ pub fn resolve_clocks_system(
                             repeat: event.repeat.map(clock_time),
                         })
                         .collect(),
+                    tempo: entry.tempo,
                 };
                 (id.clone(), def)
             })
@@ -197,6 +198,46 @@ impl DifficultyReader<'_> {
     /// Difficulté pour l'étage courant de l'horloge.
     pub fn current(&self) -> Fixed {
         self.at_floor(self.clock.floor_index)
+    }
+}
+
+/// Lecture du tempo des horloges actives (P-1, `docs/conventions.md` §110), pour juger un instant
+/// (`sim_core::timing::grade_gap_ms`). **Lecture seule**, dérivée de l'état rollback ([`Clock`])
+/// et des horloges actives : aucun état caché. Absentes (application de test sans horloge) :
+/// aucun tempo, aucun jugement, jamais une panique.
+#[derive(SystemParam)]
+pub struct TempoReader<'w> {
+    clock: Option<Res<'w, Clock>>,
+    floor: Option<Res<'w, FloorState>>,
+    schedule: Option<Res<'w, ClockSchedule>>,
+    players: Option<Res<'w, SessionPlayers>>,
+}
+
+impl TempoReader<'_> {
+    /// Écart rationnel `(numérateur, dénominateur)` de la frame `now` au temps le plus proche de
+    /// l'horloge active `clock_id` (`run::clock::beat_gap`). `None` si l'horloge n'est pas active
+    /// ou n'a pas de tempo. Comme `effects_runtime::TimingSource::beat` : à la frame d'un passage
+    /// d'étage, une horloge de portée `Floor` est déjà à 0 (`clock_system` la remet à zéro plus
+    /// tard dans la même frame).
+    pub fn beat_gap(&self, clock_id: &str, now: u32) -> Option<(i64, u32)> {
+        let schedule = self.schedule.as_ref()?;
+        let clock = self.clock.as_ref()?;
+        let (_, def) = schedule.clocks.iter().find(|(id, _)| id == clock_id)?;
+        let floor_entered = self
+            .floor
+            .as_ref()
+            .is_some_and(|floor| floor.index != clock.floor_index);
+        let elapsed = if floor_entered && def.scope == ClockScope::Floor {
+            0
+        } else {
+            clock.scope_frames(def.scope, now)
+        };
+        run::clock::beat_gap(def, elapsed)
+    }
+
+    /// La session compte-t-elle au moins deux joueurs (fenêtre élargie en coop) ?
+    pub fn coop(&self) -> bool {
+        self.players.as_ref().is_some_and(|players| players.0 >= 2)
     }
 }
 
@@ -335,6 +376,7 @@ mod tests {
                             at: ClockTime::Frames(60),
                             repeat: Some(ClockTime::Frames(60)),
                         }],
+                        tempo: None,
                     },
                 ),
                 (
@@ -346,6 +388,7 @@ mod tests {
                             at: ClockTime::Frames(600),
                             repeat: None,
                         }],
+                        tempo: None,
                     },
                 ),
             ],

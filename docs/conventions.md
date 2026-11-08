@@ -8440,3 +8440,217 @@ Outillage et gabarit seulement : **aucune trace ne bouge**, aucun `BLESS`. Jalon
   `CARGO_TARGET_DIR=$PWD/target make test_alacod_web` réutilise celui du worktree (21 min la première fois, ensuite les dépendances wasm32 sont en cache). Preuve de 1837 au Mac (7 nov) : `.wasm` release + `wasm-opt`
   de 80,4 Mo, la cour affichée dans Chrome (`1837/docs/preuves/m-1-web-cour.png`).
 - Dettes **D190** et **D191** : `docs/taches/dettes.md`.
+
+## 110. Verbes D1 et parité avec les bancs du labo (X-3, repris par P-1, voie m)
+
+Trois verbes génériques de l'engine, composables par le contenu (RON) ; **aucune valeur, aucun nom
+et aucun personnage d'un jeu** n'y entre (`plan-1837-cli.md` §5). Le testbed les prouve avec des
+valeurs arbitraires. Aucune trace existante ne bouge (types nouveaux en variante neutre, champs
+nouveaux hors hash tant qu'ils sont absents). Un jeu qui voudrait plus (un « système de rythme »)
+l'assemble avec ces verbes, les horloges (§23) et les effets (§27).
+
+**1. Fenêtre de jugement** : condition `Timing { reference, offset, perfect_frames, good_frames,
+grade }` d'un effet (`effects::Condition`, ajoutée en fin d'enum). Elle note la **frame du
+déclencheur** contre un repère : `écart = |frame − (repère + offset)|` ; `Perfect` si
+`écart <= perfect_frames`, `Good` si `écart <= good_frames`, sinon `Miss`
+(`sim_core::timing::grade_timing`, entiers, saturante, symétrique avant/après). `grade` filtre :
+`Perfect`, `AtLeastGood` (parfait ou bien), `Good` (« bien » seulement, sans le ET d'avant) ou
+`Miss`. Repères (`effects::TimingReference`) :
+
+| Repère | Valeur | Faux quand |
+|---|---|---|
+| `Clock("id")` | occurrence la plus proche de l'événement `id` d'une horloge **activée** (`run::clock::nearest_occurrence` : `at + k × repeat`, `k >= 0` ; à égalité la suivante ; avant `at` la première) | aucune horloge activée ou aucune ne porte l'événement |
+| `DashStart` | frame de lancement du dash en cours (`DashState` : `maintenant − (jouées − 1)`) | hors dash |
+| `MeleeStart` | `MeleeAttackState::attack_started_frame` du coup en cours | hors coup |
+
+Un repère inconnu rend **toutes** les notes fausses (`Miss` comprise : aucune note inventée). Les
+déclencheurs existants servent de « coup qui arrive » : `OnDodge` (début d'esquive), `OnReload` (fin
+de rechargement : **rechargement actif**), `OnHit`, `Tick(1)` (un instant choisi dans une action :
+`DashStart` + `offset`, ex. un coup compté à une fraction du dash). `offset` est facultatif (0).
+**Durées en frames entières à 60 Hz** : 60 ms ≈ 4 frames (3,6), 120 ms ≈ 7 (7,2) ; l'arrondi est
+le choix du contenu, le moteur ne convertit jamais de millisecondes. **Les inputs d'un scénario agissent
+5 frames après leur frame** (délai d'input GGRS, `ALACOD_INPUT_DELAY`) : à régler dans les `from:`.
+Exécution : `game::effects_runtime::TimingSource` (`SystemParam` en **lecture seule**, dérivée de
+l'état rollback à chaque évaluation, aucun état caché ; construite seulement pour un porteur dont un
+effet porte un `Timing` : sans lui, aucun calcul de plus). Lint (`lint_effect`) : `perfect_frames <=
+good_frames` (`OutOfRange`), événement d'horloge inconnu (`BrokenReference`) ; fixture
+`effect_timing_invalid`. Schéma : `alacod describe Item` / `Character`. Scénarios (testbed, horloge
+`clocks/pouls.ron`, passifs `chronometre` et `fraction_esquive`) : `fenetre_esquive` (parfait / bien /
+raté du début d'une esquive), `fenetre_rechargement` (rechargement actif sur le temps, puis hors
+fenêtre), `fenetre_fraction_esquive` (instant à `DashStart + 5`).
+
+**2. Renvoi de projectiles** : champ `reflect: Some((perfect_frames, perfect_damage_mult))` d'une arme
+de mêlée (`combat::weapons::melee::MeleeReflect`, hors hash et hors `Debug` quand il est absent). Ordre
+(`RollbackSystemSet::Weapon`) : création des hitbox (joueur, ennemi), expiration
+(`update_melee_hitboxes`), renvoi, collisions de balles, collisions de mêlée. Le renvoi voit donc les
+hitbox de la frame (un coup lancé cette frame renvoie dès la frame 0, note `Perfect` à
+`perfect_frames = 0`) et plus celles qui expirent (le blocage par un familier passe après,
+`familiars.rs`). La parade de mêlée contre mêlée de X-3 (`parry`, `MeleeParried`, D149) est
+**retirée** par P-1 (décision du coordinateur, défaut posé à William : « un verbe par besoin », le
+banc n'en a pas) ; un retour éventuel se reprend du commit de retrait.
+
+Renvoi (`melee_reflect_system`) : pour chaque hitbox active (ordre `GgrsNetId`), tout projectile
+(balle ordinaire ou composable) **hostile** au porteur (`team_allows_hit`, jamais son équipe) en
+contact géométrique avec elle est renvoyé : `source`, `source_team` et `player_handle` deviennent
+ceux du pareur, la vitesse garde son module et prend la **direction du regard** (huit directions,
+`facing_to_fixed`), les cibles déjà traversées sont oubliées (la balle peut toucher son ancien
+camp). Note `Perfect` (contact au plus `perfect_frames` après la création de la hitbox, repère =
+début du coup, `sim_core::timing`) : dégâts × `perfect_damage_mult` ; sinon dégâts conservés.
+**Départage déterministe** : une balle n'est renvoyée qu'une fois par frame (la hitbox de plus
+petit `GgrsNetId` l'emporte), une balle déjà terminée ne l'est jamais.
+`FrameEvents<ProjectileReflected { bullet, owner, grade, frame }>` (file **neutre**, moment clé
+`reflect`). Lint : `perfect_damage_mult > 0` (fixture `melee_reflect_mult_zero`).
+
+Scénarios `parade_projectiles` (testbed : `parade`, tourelle d'`arena_tir` : boule renvoyée équipe
+`Players`, tourelle −16 parfait puis −8 bien), `parade_projectiles_instantanee` (`parade_instant`,
+`perfect_frames: 0` : contact à la frame du coup = parfait × 2), `parade_projectiles_expiree` (deux
+coups : le premier renvoie, le second expire avant l'arrivée de la boule — la tourelle reste à 484,
+preuve que l'expiration passe avant le renvoi).
+
+**3. Poids des armes** : l'architecture de modificateurs **suffisait** (`MoveSpeed` est lu par les
+inputs via `StatReader`) ; le plus petit verbe ajouté est le champ d'arme `move_speed_mult:
+Some("0.5")` (`WeaponConfig`, hors hash absent) et `sync_carry_weight_system` (set `Weapon`, après le changement et le
+lâcher d'arme et le départ du coup de mêlée de la frame : revue P-1) : le
+porteur reçoit un modificateur `MoveSpeed`/`Mul` permanent de source `weapon_weight:<arme>` tant que
+l'arme est active, retiré au changement ou au lâcher (rien d'écrit si rien ne change). Lint : `> 0`
+(fixture `weapon_move_speed_mult_zero`). Scénarios `arme_lourde` (stat 75, 68 unités en 60 frames) et
+son témoin `arme_lourde_temoin` (150, 135 unités).
+
+**Présentation.** Hit stop « cible seule » (D150, livré) : `FeedbackSettings::hit_stop_scope`
+(`Global` par défaut, `Target` surchargeable par `by_kind` / `by_weapon`) — en `Target`, seule
+l'entité touchée fige son animation (`animation::AnimationHold`, ticks de rendu ; jamais le joueur
+local ni la caméra). Testbed : `hit_stop_scope: Target` pour l'arme `parade`. La musique calée sur
+l'horloge de X-3 (`game::music_sync`, D151) est **retirée** par P-1 (même décision que la parade de
+mêlée).
+
+**4. Parité avec les bancs du labo (P-1, `1837/docs/parite-labo.md`, `docs/taches/rapports/p-1-parite-labo.md`).** La référence
+est les `DEFAUTS` des bancs `gigue.js`, `armes.js`, `allures.js` de `1867_lore` ; le testbed prouve chaque verbe avec des valeurs
+neutres, 1837 pose les nombres du banc dans ses RON. Tout champ neuf est optionnel et n'entre dans le `Hash`/`Debug` que posé ; les
+types rollback neufs sont neutres et enregistrés dans `CoreSimPlugin` avant la clôture (`DashCadence`, `MeleeQueue`, `RangedCycle`).
+
+- **Horloge à tempo** : `ClockDef::tempo: Some(bpm)` (kind `Clock`). Le temps `k` tombe à `k × 3600 / bpm` frames de la portée,
+  rationnel (aucune dérive : 129 temps/min = 27,907 frames par temps) ; aucun événement (rien n'entre dans `Clock::fired`).
+  `run::clock::beat_gap` rend l'écart signé au temps le plus proche en fractions de frame (`(num, bpm)`, à égalité le suivant) ;
+  `game::clock::TempoReader` (lecture seule) l'expose aux verbes, même règle qu'une horloge `Floor` au passage d'étage.
+- **Jugement en millisecondes** : `sim_core::timing::grade_gap_ms(num, den, perfect_ms, good_ms)` (entiers 128 bits, bornes
+  comprises, aucun arrondi à la frame : 60 ms = 3,6 frames).
+- **Pas au tempo** (`DashConfig`, `sim_core::dash`) : `on_beat: Some((clock, perfect_ms, good_ms, coop_window_mult, distance_bonus,
+  iframes_bonus, iframes_cap))` juge l'**appui** à sa frame (même gardé jusqu'à la coupe) ; « parfait » × 1, « bien » × ½ :
+  distance × (1 + `distance_bonus` × k), i-frames + `ceil(iframes_bonus × k × durée)` plafonnées à `ceil(iframes_cap × durée)` ;
+  hors du temps, le pas normal (jamais de pénalité). `coop_window_mult` élargit les deux fenêtres quand `SessionPlayers >= 2`.
+  `profile: EaseOut` : la part `u` du pas couvre `1 − (1 − u)²` (pas `k` = `d × (2n − 2k − 1) / n²`, somme exacte).
+  `in_place_without_direction` : sans direction tenue à la frame du départ, le pas se fait sur place (i-frames et durée).
+  `cut_from: Some(n)` : un appui pendant un pas en relance un dès `n` frames jouées (le reste est coupé ; tampon
+  `dash_buffer_frames` à régler sur la durée du pas). `chain_window_frames` : compteur d'enchaînement (`DashCadence::chain`,
+  continue pendant un pas ou au plus `n` frames après sa fin) ; `DashCadence::streak` (appuis sur le temps d'affilée) et
+  `last_grade` (note et frame) sont lus par la présentation. Lint `lint_dash` : horloge connue et à tempo, `perfect_ms <= good_ms`.
+  Scénarios `dash_au_tempo` (parfait 72 px, bien 60, hors du temps 48), `dash_au_tempo_coop` (83 ms : bien seul, parfait à deux),
+  `dash_coupe_sur_place`.
+- **Hache qui renvoie** (`MeleeWeaponConfig`, `MeleeReflect`) : `strike_frames: Some((début, fin))`, frames du coup bornes comprises :
+  la hitbox (`MeleeHitbox::strike`, `striking`) ne blesse et ne renvoie qu'alors (lint : `début <= fin < attack_duration_frames`,
+  fixture `melee_strike_outside_attack`). `reflect.sector: Some((radius, arc))` : zone centrée sur le **porteur** (centre du
+  projectile à `radius` au plus, dans `arc` radians autour du regard, cosinus du demi-arc comparé au produit scalaire, `Fixed`) à
+  la place du contact avec la hitbox. `reflect.direction: Aim(min_distance)` : vers le point visé (porteur + `pan` de l'input)
+  depuis le projectile, la visée elle-même à moins de `min_distance`, le regard sans visée. `speed_mult`, `perfect_speed_mult` :
+  vitesse du renvoyé (× les deux sur un parfait) ; `perfect_damage_mult` devient facultatif (1). Un projectile en orbite renvoyé
+  perd son orbite. `queue: true` : un coup par appui (front montant, `MeleeQueue`), un appui pendant le coup part à sa fin (et
+  du `cooldown_frames`, compté depuis la fin du coup). `move_speed_mult: Some(m)` : pendant le coup, ce multiplicateur remplace le
+  poids de l'arme active (même source `weapon_weight:<arme de mêlée>`). Scénarios `renvoi_secteur` (dans le secteur avant la
+  frappe, renvoyé à sa première frame, × 2,1, touche la tourelle), `renvoi_secteur_visee` (regard à droite, renvoi vers le point
+  visé : passe au-dessus), `coup_en_file` (frappes 10 frames après chaque départ, second coup en file sans délai, 60 % de marche).
+- **Tireur posté** (`ai.ranged_cycle`, `character::enemy::ai::cycle`, autour d'une règle `Shoot` ; état `RangedCycle` neutre,
+  posé seulement si `ranged_cycle` et un tir sont configurés ; configuration statique hors `Hash`) : `track_target` (la visée de
+  l'émetteur suit la cible à chaque frame : le télégraphe pivote, le tir part vers la position courante), `face_target` (regard
+  8 directions vers la cible, sauf sonné), `wait_frames: Some((min, max))` (attente tirée, flux `ranged_cycle`, ajoutée au
+  `cooldown_frames` après chaque salve et après un coup reçu), `first_wait: Some((base, pas))` (première salve au plus tôt
+  `base + pas × rang`, rang par `GgrsNetId` parmi les tireurs à cycle), `stagger_frames` (un `DamageEvent` visant le tireur
+  interrompt la salve : émetteur fini, télégraphe caché, tir perdu ; sonné ce nombre de frames), `recoil: Some((distance, frames))`
+  (au tir, recul à l'opposé du regard, courbe `1 − (1 − v)³`, arrêté par les murs), `return_speed` (hors salve et recharge finie,
+  retour au poste — sa position à sa première frame — à cette vitesse). Le geste avant l'annonce et celui du tir sont des `Wait`
+  du pattern (`Sequence([Wait(n), Telegraph(n), Aimed(..), Wait(n)])`). Système `ranged_cycle_system` (`EnemyAI`, après
+  `move_enemies`, avant `enemy_attack_system`, sans commande). Scénarios `tireur_poste_cycle` (départ décalé, recul, retour),
+  `tireur_poste_suit` et son témoin `tireur_poste_fige_temoin` (visée qui suit : touché ; visée figée : manqué),
+  `tireur_poste_touche` (salve perdue, stupeur, salve suivante). Un coup reçu **ne raccourcit jamais** ce qui est déjà dû
+  (`ready_at` et `idle_from` prennent le max : recharge en cours ou `first_wait` restent), scénario `tireur_poste_touche_attente`
+  (échoue avec l'ancien remplacement : flèche dès f110 au lieu de f200). Lint : `wait_frames` `min <= max`, `recoil.frames > 0`,
+  une règle `Shoot` dans `ai.behaviors` (fixtures `ranged_cycle_wait_inverted`, `ranged_cycle_recoil_zero`,
+  `ranged_cycle_without_shoot`).
+- **Gestes d'une arme à feu** (`WeaponConfig::gesture: Some(WeaponGesture)`, hors hash et hors Debug tant qu'absent ; `WeaponState`
+  gagne `raise_ends` et `gesture_ends`, hachés seulement s'ils sont actifs) : un coup est un **geste**, pas un instant. `raise_frames` :
+  un appui accepté lance l'épaulé, la balle part à sa fin (un `Burst` l'ignore) ; `fire_frames` : le geste qui suit le départ, aucun
+  autre tir ni rechargement ; `auto_reload` : le rechargement part de lui-même à la fin du geste quand le chargeur est vide
+  (durée `reload_time_seconds`, **prêt `raise + fire + reload` frames après l'appui** : 99 au fusil du banc) ; `aim_speed_mult` /
+  `reload_speed_mult` : multiplicateurs de `MoveSpeed` pendant l'épaulé et le geste, puis pendant le rechargement, composés avec le
+  poids `move_speed_mult` dans le même modificateur `weapon_weight:<arme>` (`sync_carry_weight_system`) ; `reload_through_dash` : le
+  rechargement se termine pendant un dash ou une course (sinon il attend). Un appui pendant le geste ou le rechargement est
+  **perdu** (`is_firing` tient la détente : il faut relâcher), un dash, une course, un coup de mêlée, un étourdissement ou un gel et la mise à terre **annulent** l'épaulé (sinon `raise_ends` resterait posé et la balle partirait sans appui à la reprise : scénario `geste_etourdi_epaule`, chargeur vide dès f93 sans l'annulation).
+  Un check à la frame N voit la simulation jusqu'à N − 1 (balle visible N + 1 après son départ). Lint : `aim_speed_mult` et
+  `reload_speed_mult` > 0. Scénarios `geste_epaule_tir` (balle 9 frames après l'appui, chargeur vide, rechargement f47 à f119,
+  marche 112,5 → 56,25 → 28,125), `geste_dash_recharge` (dash sur la fin du rechargement : plein à la même frame),
+  `geste_dash_epaule` (le dash annule le coup), `geste_etourdi_epaule` (l'étourdissement aussi), `geste_clic_perdu` (détente tenue : un seul coup), généré `weapon_arme_a_gestes`.
+  La pose `shoulder` de la présentation suit `raise_ends` (D199 fermée).
+- **Zone touchée** (`CharacterConfig::hurtbox: Some(ColliderConfig)`, composant statique `combat::collider::Hurtbox`, non rollback comme
+  `Tags`) : la forme que les **balles** (`bullet_rollback_collision_system`, `projectile_collision_system`) et les **coups de mêlée**
+  (`melee_hitbox_collision_system`) testent à la place de `Collider`, qui reste celle des murs, des poussées et du pas. Doit tenir
+  dans le collider (les grilles spatiales indexent le collider : lint `hurtbox`). Absente : comportement d'avant. Scénarios
+  `zone_touchee_bord` (la balle de 10 px de large qui passe à 14 px du centre traverse un cercle de 7,2 px), `zone_touchee_centre`
+  (à 8 px : touchée), `zone_touchee_temoin` (même position, rectangle seul : touchée). Non couvert : les explosions et les rayons
+  (leur propre rayon d'effet), la mêlée des ennemis contre le joueur par `enemy_attack_system` (portée, pas de hitbox).
+- **Bouche du canon** : aucun code. `bullet_offset_{right,left}` est déjà un décalage dans le repère de l'arme, qui tourne avec la
+  visée (`system_weapon_position`) : avec `weapon_offset` à zéro, `(14.4, 0)` est un décalage fixe de 0,6 m dans l'axe de la visée.
+  La simulation ne lit pas le modèle 3D (la bouche réelle du banc est un os) : `docs/parite-labo.md` § 10 point 7, défaut en attente.
+- Miroirs de lint corrigés (ils refusaient la forme réelle du RON) : `dash.profile` et les bonus `on_beat.distance_bonus` /
+  `iframes_bonus` sont **sans `Some`**, comme `sim_core::dash::DashConfig`. Fixture `dash_on_beat_unknown_clock`.
+- Dettes **D194** à **D197** : `docs/taches/dettes.md`.
+
+## 111. Rendu 3D « façon sprite » de ce qui bouge (R-1, `docs/taches/rapports/r-1-rendu-facon-sprite.md`)
+
+Présentation pure : **aucune trace ne bouge**, rien de nouveau dans les crates `SIM` (`make check_sim_boundary`) ; tout est dans `game::model3d`, branché par
+`PresentationPlugin` (absent en headless), en `Update`/`PostUpdate`. Décision de William du 6 nov : ce qui bouge (personnages, créatures) est rendu en 3D en direct,
+comme aux bancs du Labo (`1867_lore/design/rendu-facon-sprite.md`) ; le décor, les props et les effets restent en sprites.
+
+- **Kind `Model`** (`crates/content/src/models.rs`, un fichier par jeu, `models/models.ron`, fichier de présentation comme `Ui`/`Camera`) : `units_per_meter`,
+  `elevation_deg`, `y_sort`, `look` (`shade`, `highlight`, `light`, `outline`, `outline_px_per_m`, `shadow: Some((direction, opacity))`) et `models` par
+  **`asset_name_ref`** de personnage : `glb`, `manifest`, `frame_m` (cadre de l'image, m), `pivot` (le pied dans le cadre), `height_m` (barre de vie), `run_above_m_s`,
+  `poses`, `weapons` (poses par id d'arme de la simulation, champ par champ sur `poses`), `dash` (clips joués à tour de rôle). Aucune valeur par défaut dans l'engine :
+  la charte d'un jeu est dans son RON (1837 : 0,66 / 1,12 / 0,75 / 91 px/m, U = 24, 45°). Le manifeste `anime.json` (étape `banc` de la pipeline : `fps`, `actions`,
+  `armes` avec `objets`/`animations`/`reperes`, `prises`, `moments` avec `vitesse`/`direction`) est lu par le registre (embarqué en web comme le RON) ; le lint vérifie
+  fichiers, plages, clips (seuls ou bases de variantes de direction), objets, repères et ids d'arme. Un personnage à modèle n'a ni calque de sprite, ni fantôme de mort
+  (D198), ni sprite d'arme portée (`ui::weapon_visuals`).
+- **Un banc par personnage** (`model3d/mod.rs`) : l'instance du glTF est posée à l'origine d'un monde 3D vu par sa seule caméra (calque de rendu propre, `ModelLayers`),
+  orthographique, à `elevation_deg` sous l'horizontale, sans lacet, cadrée sur `frame_m` ; elle dessine dans une image `Rgba8UnormSrgb` au fond transparent,
+  sur-échantillonnée ×2 (`SUPERSAMPLE`), qui suit le zoom au quart d'octave. Le **calage** sur le monde 2D : 1 m de profondeur au sol = `sin(élévation)` m de largeur
+  à l'écran (45° ≈ 64/91) ; la vitesse et les directions de la simulation sont ramenées au sol par cette règle (`animate::ground`, `yaw_from_screen`).
+- **Matériaux** (`model3d/materials.rs`, shaders embarqués) : `FaconSpriteMaterial` porte `facon-sprite.js` (couleur de la texture lue en sRGB × rampe `shade` → `highlight`
+  selon `0,5 + 0,5 × N·L`, lumière fixe dans le repère de la vue, normale tournée vers la caméra, normales **lissées par position** au chargement, `smooth_normals`, sans
+  culling) ; `ModelShadowMaterial` projette le maillage (squelette compris) au sol le long de `shadow.direction`, en noir d'alpha 0,5 ; `ModelPoseMaterial` (`Material2d`,
+  un quad enfant du personnage, donc trié avec le décor) moyenne les texels, pose l'ombre à `opacity` et l'**anneau du contour** : pixels vides à moins d'un pixel de sprite
+  (`1 / outline_px_per_m` m, borné d'un à trois pixels de l'écran) de la silhouette, teinte moyenne des voisins × `outline` sur les valeurs sRGB.
+- **Animation** (`model3d/pose.rs`, pur et testé ; `model3d/animate.rs`) : l'état de la simulation déjà là choisit le clip, dans l'ordre esquive (`DashState`), coup de
+  mêlée (`MeleeAttackState`), tir récent (`WeaponState::last_fire_frame`), en joue (`is_firing`, avec `shoulder` au début), rechargement (`reloading_ending_frame`),
+  allure (vitesse : `idle`, `walk`, `run`). En marchant, un geste prend la variante de la direction de la marche par rapport au corps (`moments.<clip>.direction`), une
+  allure la plus proche ou l'opposée jouée à l'envers, à la vitesse où les pieds ne glissent pas (`moments.<clip>.vitesse`, bornée à [0,3 ; 3]). Fondus du banc : 0,1 s vers
+  une allure, 0,05 s vers un geste. Les gestes sont lus **à la position que donne l'état** (avancement du coup, du rechargement, temps depuis le tir) : un rollback qui
+  corrige l'état corrige la pose à l'image suivante. Le corps suit la visée (rotation de l'arme active), l'esquive, la marche ou `FacingDirection` : visée libre, sans crans.
+  Le banc n'a pas de masque haut/bas du corps : « marcher en tirant » est un clip cuit par direction (`tir-marche-*`), le mélange est le fondu entre clips.
+  Les variantes sont `base` ou `base-<direction>` avec un moment `direction` : suffixes français (`avant`, `arriere`, `gauche`, `droite` et diagonales),
+  anglais (`front`, `back`, `left`, `right` et diagonales), ou abrégés (`f`, `fl`, `fr`, `b`, `bl`, `br`, `l`, `r`). Une autre famille de gestes
+  (`fire-walk` sous `fire`) n'est pas une variante ; une base sans clip reste admise si ses variantes existent.
+- **Armes** : l'objet de l'arme du manifeste (`poses.object`, ou `object` d'un geste : la hache du coup) est montré du côté que donne la prise du clip (`prises` :
+  `deux-mains` → os de l'arme, sinon la main), les autres cachés ; un **objet porté** (aucun côté `main` ni `arme` : la clé à la ceinture) se montre dans les clips qui le
+  nomment. **La balle part de la bouche du canon** (`poses.muzzle`, repère du manifeste) : décision **présentation** — la position du repère vient du modèle animé
+  (`f32` du rendu, différente selon le zoom et l'image), elle ne peut pas entrer dans la simulation. `placement::offset_model_bullets` décale le **dessin** de la balle :
+  l'écart latéral entre la bouche dessinée et le point de tir simulé se résorbe en 8 frames (`MUZZLE_BLEND_FRAMES`), la hauteur de la bouche reste (la balle vole à hauteur
+  du canon, sa position simulée est son ombre au sol). Les collisions restent celles de la simulation.
+- **Tri en y** (`y_sort: true`, opt-in, `placement::y_sort`) : personnages (corps 3D et décor importé en personnage, D186) et balles retirent `y × 1e-4` de leur `z`
+  affiché (le pied le plus bas à l'écran devant ; sur 5 000 unités l'écart reste sous 0,5, sous l'écart entre deux couches de la carte), **après**
+  `map_ldtk::plugins::lift_characters_to_entity_layer` (un personnage posé à `z = 0` par un scénario ou un profil remonte d'abord à la couche des entités ; sans cet
+  ordre, le fantassin posé par un scénario passait sous les tuiles). L'image d'un modèle est à `offset_z` (comme les feuilles de sprites : 1,0 pour
+  `alacod import-sprite` ; à 0, le décor importé la couvrait) et sa barre de vie juste devant. Le testbed le garde coupé (décision du 7 nov : ses vidéos gardent l'ordre
+  de dessin historique) ; 1837 l'allume. Test : `placement::tests::le_pied_le_plus_bas_passe_devant` ; preuve : `docs/preuves/r-1/tri_y.ron` de 1837.
+- **Testbed** : le pantin (`games/testbed/assets/models/pantin/`, synthétique, `scripts/gen-pantin.py`, corps de boîtes, 40 clips), personnage `pantin`, scénario
+  `model_pantin` (trace neuve : celle d'un joueur ordinaire). Voir : `make play_scenario SCENARIO=model_pantin` (ou `--capture <dossier>`).
+- **Jeu externe** : la capture hors écran de l'engine joue aussi un scénario d'un jeu hors de `games/` : `ALACOD_GAME_NAME=<nom> ALACOD_GAME_DIR=<dossier>
+  ALACOD_LABELS=0 target/debug/play_scenario <scénario.ron> --capture <dossier> --every 5` (1837 : `docs/preuves/r-1/` de son dépôt).
+- **Web** : le `glb` est chargé par HTTP comme les images (`assets/` du build), le manifeste est embarqué ; les shaders sont des `embedded_asset!` (WebGL2).
+- Dettes **D198** (mort, coup reçu et victoire non joués en 3D) et **D199** (épauler sans phase dans la simulation) : `docs/taches/dettes.md`.

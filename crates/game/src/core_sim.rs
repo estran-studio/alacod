@@ -123,6 +123,25 @@ impl Plugin for CoreSimPlugin {
         // État de run (T2.4, chantier F1) : condition de victoire, résumé, relance sans
         // relancer le binaire (`RunRequest`). Voir `crate::run_state`.
         app.add_plugins(crate::run_state::RunStatePlugin);
+        // X-3 : projectile renvoyé par une parade (file neutre : vide dans tout le contenu d'avant,
+        // aucune trace ne bouge). Enregistrée **ici**, après tous les plugins et avant les cinq
+        // enregistrements de clôture : un type inséré plus tôt renumérote tous les suivants.
+        {
+            use sim_core::frame_events::FrameEventsAppExt;
+            app.add_frame_events_neutral::<combat::weapons::melee::ProjectileReflected>();
+            // X-3 : note d'une fenêtre de jugement (`effects::Condition::Timing`), même règle.
+            app.add_frame_events_neutral::<crate::effects_runtime::TimingJudged>();
+        }
+        // P-1 (`docs/conventions.md` §110) : cadence du dash (enchaînement, note au tempo),
+        // composant neutre posé seulement par un dash qui la demande ; même règle de place.
+        {
+            use crate::rollback::RollbackTraceApp;
+            app.rollback_and_trace_neutral::<combat::actors::DashCadence>();
+            // P-1 : file du coup de mêlée (`MeleeWeaponConfig::queue`), même règle.
+            app.rollback_and_trace_neutral::<combat::weapons::melee::MeleeQueue>();
+            // P-1 : cycle d'un tireur posté (`ai.ranged_cycle`), même règle.
+            app.rollback_and_trace_neutral::<crate::character::enemy::ai::cycle::RangedCycle>();
+        }
 
         app.init_resource::<GggrsSessionConfigurationState>();
         app.init_resource::<crate::game_commands::GameCommands>();

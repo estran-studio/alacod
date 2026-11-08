@@ -16,9 +16,24 @@ pub fn attach_weapon_visuals(
     spritesheet_assets: Res<Assets<SpriteSheetConfig>>,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    weapons: Query<(Entity, &Weapon), Without<VisualsAttached>>,
+    weapons: Query<(Entity, &Weapon, Option<&ChildOf>), Without<VisualsAttached>>,
+    carriers: Query<&crate::character::appearance::CharacterAppearance>,
+    character_configs: Res<crate::character::config::CharacterConfigs>,
+    registry: Option<Res<content::Registry>>,
 ) {
-    for (entity, weapon) in weapons.iter() {
+    let models = registry.as_ref().and_then(|r| r.models.as_ref());
+    for (entity, weapon, parent) in weapons.iter() {
+        // R-1 (§111) : l'arme d'un personnage à modèle est dans le modèle (objet du manifeste tenu par
+        // l'os de la main) : pas de sprite.
+        let carried_by_model = parent
+            .and_then(|p| carriers.get(p.parent()).ok())
+            .and_then(|a| character_configs.get(&a.config_name))
+            .zip(models)
+            .is_some_and(|(config, models)| models.get(&config.asset_name_ref).is_some());
+        if carried_by_model {
+            commands.entity(entity).try_insert(VisualsAttached);
+            continue;
+        }
         // `held/<id de l'arme>` (une image portée par arme, comme `weapon/<id>` au sol) l'emporte sur
         // `sprite_config.name` (feuille de famille, qui entre dans le checksum : on ne la change pas).
         let held = format!("held/{}", weapon.config.name);

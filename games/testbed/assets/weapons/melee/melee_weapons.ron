@@ -105,4 +105,92 @@
             weapon_offset: (x: "0.0", y: "0.0"),
         ),
     ),
+    // X-3 (testbed) : arme de parade — mêmes caractéristiques que `sword`, plus
+    // `reflect` (renvoi des projectiles hostiles vers le regard, dégâts doublés dans
+    // les 6 premières frames du coup). Scénario `parade_projectiles`.
+    "parade": (
+        config: (
+            name: "Parade",
+            damage: "5.0",
+            range: "50.0",
+            attack_pattern: Sweep(
+                arc_angle: "1.57",
+            ),
+            attack_duration_frames: 12,
+            cooldown_frames: 40,
+            knockback_force: "20.0",
+            stamina_cost: "15.0",
+            reflect: Some((
+                perfect_frames: 6,
+                perfect_damage_mult: "2.0",
+            )),
+        ),
+        sprite_config: (
+            name: "sword",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    // X-3 (testbed) : comme `parade` mais la fenêtre parfaite ne dure que la frame du départ du
+    // coup (`perfect_frames: 0`) : un projectile touché à la frame même où le coup est lancé est
+    // parfait, une frame plus tard il est « bien ». Scénario `parade_projectiles_instantanee`.
+    "parade_instant": (
+        config: (
+            name: "Parade instantanée",
+            damage: "5.0",
+            range: "50.0",
+            attack_pattern: Sweep(
+                arc_angle: "1.57",
+            ),
+            attack_duration_frames: 12,
+            cooldown_frames: 40,
+            knockback_force: "20.0",
+            stamina_cost: "15.0",
+            reflect: Some((
+                perfect_frames: 0,
+                perfect_damage_mult: "2.0",
+            )),
+        ),
+        sprite_config: (
+            name: "sword",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
+    // P-1 (testbed, docs/conventions.md §110) : renvoi par secteur pendant une fenêtre de frappe.
+    // Coup de 21 frames qui ne frappe (blesse et renvoie) qu'aux frames 10 à 13 ; renvoie les
+    // projectiles hostiles dont le centre est à 31,2 px au plus du porteur, dans un arc de 160°
+    // autour de son regard, vers le point visé (`Aim`, à moins de 12 px du point : la visée) ;
+    // vitesse × 1,5, et × 1,4 de plus sur un « parfait » (14 frames depuis le début du coup : toute
+    // la fenêtre de frappe) ; un appui pendant le coup part à sa fin (`queue`), marche à 60 %
+    // pendant le coup. Valeurs d'essai neutres. Scénarios `renvoi_secteur*`, `coup_en_file`.
+    "renvoi_secteur": (
+        config: (
+            name: "Renvoi en secteur",
+            damage: "5.0",
+            range: "31.2",
+            attack_pattern: Sweep(
+                arc_angle: "2.7925",
+            ),
+            attack_duration_frames: 21,
+            cooldown_frames: 0,
+            knockback_force: "0.0",
+            stamina_cost: "0.0",
+            strike_frames: Some((10, 13)),
+            queue: true,
+            move_speed_mult: Some("0.6"),
+            reflect: Some((
+                perfect_frames: 14,
+                sector: Some((radius: "31.2", arc: "2.7925")),
+                direction: Aim(min_distance: "12.0"),
+                speed_mult: Some("1.5"),
+                perfect_speed_mult: Some("1.4"),
+            )),
+        ),
+        sprite_config: (
+            name: "sword",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
 })

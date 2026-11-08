@@ -216,6 +216,9 @@ pub struct DashLint {
     pub in_place: bool,
     /// Le personnage déclare `dash` ou `dash_charges` (sinon le dash v1 n'est pas relu).
     pub declared: bool,
+    /// P-1 (§110) : coupe et jugement au tempo, relus par le lint.
+    pub cut_from: Option<u32>,
+    pub on_beat: Option<DashOnBeatSchema>,
 }
 
 impl DashLint {
@@ -233,8 +236,19 @@ impl DashLint {
                 .unwrap_or(movement.dash_recharge_frames),
             declared: dash.is_some() || movement.dash_charges.is_some(),
             in_place: dash.is_some_and(|d| d.effect == Some(DashEffectSchema::InPlace)),
+            cut_from: dash.and_then(|d| d.cut_from),
+            on_beat: dash.and_then(|d| d.on_beat.clone()),
         }
     }
+}
+
+/// P-1 : valeurs de `ai.ranged_cycle` relues par le lint.
+#[derive(Debug, Clone, Default)]
+pub struct RangedCycleLint {
+    /// `wait_frames: Some((min, max))`.
+    pub wait_frames: Option<(u32, u32)>,
+    /// `recoil.frames`.
+    pub recoil_frames: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -268,6 +282,8 @@ pub struct CharacterEntry {
     pub dash: DashLint,
     /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
     pub effects: Vec<effects::Effect>,
+    /// P-1 (§110) : `ai.ranged_cycle` du tireur posté, pour ses règles de lint.
+    pub ranged_cycle: Option<RangedCycleLint>,
     /// T1.4 : règles de comportement (`ai.behaviors`, `None` : liste par défaut).
     pub behaviors: Option<Vec<BehaviorEntry>>,
     /// M2-T8 : id d'escouade (`ai.squad`).
@@ -304,6 +320,8 @@ pub struct CharacterEntry {
     /// D48 : corps en jeu de plus de 20 px de large ou de haut, le gabarit `Large` de la
     /// navigation (`game::…::navigation::AgentSize::of`, `SMALL_AGENT_MAX`).
     pub body_large: bool,
+    /// P-1 (§110) : la zone touchée (`hurtbox`) déborde du `collider` (faux sans `hurtbox`).
+    pub hurtbox_outside_collider: bool,
 }
 
 /// T1.13 : mirroir de `game::character::config::CharacterTest` (attentes comptées).
@@ -548,6 +566,8 @@ pub struct ClockEntry {
     pub file: PathBuf,
     pub scope: ClockScopeEntry,
     pub events: Vec<ClockEventEntry>,
+    /// P-1 (§110) : tempo en temps par minute (`run::clock::ClockDef::tempo`).
+    pub tempo: Option<u32>,
 }
 
 /// T1.9 : mirroir de `run::clock::ClockFileSchema`.
@@ -555,6 +575,10 @@ pub struct ClockEntry {
 struct ClockFileSchema {
     scope: ClockScopeEntry,
     events: Vec<ClockEventEntry>,
+    /// P-1 (§110) : tempo en temps par minute, repère des verbes qui jugent un instant (le temps
+    /// `k` tombe à `k × 3600 / tempo` frames ; aucun événement déclenché). Absent : sans tempo.
+    #[serde(default)]
+    tempo: Option<u32>,
 }
 
 /// T1.9 : mirroir de `run::clock::ClockScope`.
@@ -645,6 +669,12 @@ pub struct WeaponEntry {
     /// D63 : `config.test_only: true`, arme de laboratoire ignorée par l'analyse d'atteignabilité ;
     /// sans effet en jeu (`combat::WeaponConfig` ne lit pas ce champ).
     pub test_only: bool,
+    /// Poids de l'arme (X-3) : `move_speed_mult:` du RON, pour la règle « > 0 ».
+    /// `None` : pas de poids.
+    pub move_speed_mult: Option<FixedField>,
+    /// P-1 : vitesses de marche des gestes (`gesture.aim_speed_mult`, `gesture.reload_speed_mult`),
+    /// pour la règle « > 0 ». `None` : absentes.
+    pub gesture_speed_mults: Vec<(&'static str, FixedField)>,
 }
 
 /// T1.1 (B5 v1) : mirroirs de `combat::projectile` pour le lint (`content` ne dépend pas de
@@ -833,6 +863,26 @@ pub struct MeleeWeaponEntry {
     pub damage: FixedField,
     /// Voir `WeaponEntry::test`.
     pub test: Option<WeaponTestRange>,
+    /// Parade et renvoi (X-3) : `reflect:` du RON, pour les règles « `perfect_damage_mult`
+    /// > 0 ». `None` : pas de parade.
+    pub reflect: Option<MeleeReflectEntry>,
+    /// P-1 : durée du coup et fenêtre de frappe, pour la règle « `strike_frames` dans le coup ».
+    pub attack_duration_frames: u32,
+    pub strike_frames: Option<(u32, u32)>,
+    /// P-1 : vitesse de marche pendant le coup, pour la règle « > 0 ».
+    pub move_speed_mult: Option<Fixed>,
+}
+
+/// Mirroir de `combat::weapons::melee::MeleeReflect` (`content` ne dépend pas de
+/// `combat`) : juste assez pour le lint. P-1 : les multiplicateurs de vitesse et le secteur
+/// (`(rayon, arc)`), pour les règles « > 0 ».
+#[derive(Debug, Clone, Copy)]
+pub struct MeleeReflectEntry {
+    pub perfect_frames: u32,
+    pub perfect_damage_mult: Fixed,
+    pub speed_mult: Option<Fixed>,
+    pub perfect_speed_mult: Option<Fixed>,
+    pub sector: Option<(Fixed, Fixed)>,
 }
 
 /// Mirroir minimal de `game::weapons::WeaponTest` (`content` ne dépend pas de `game`, voir
@@ -1759,6 +1809,9 @@ pub struct Registry {
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
     pub sprite_sheets: BTreeMap<SpriteSheetId, SpriteSheetEntry>,
+    /// R-1 (§111) : modèles 3D animés (kind `Model`, un fichier par jeu), lus par
+    /// `game::model3d` à la place des feuilles des personnages qu'ils nomment.
+    pub models: Option<crate::models::ModelsTable>,
 }
 
 /// Les "kinds" de dossier de contenu que cette version de `content` sait charger. Exposé
@@ -1797,6 +1850,7 @@ pub const KNOWN_KIND_NAMES: &[&str] = &[
     "HubService",
     "Prop",
     "Sandbox",
+    "Model",
 ];
 
 pub fn known_content_kinds() -> Kinds {
@@ -1917,6 +1971,7 @@ impl Registry {
                 "Clock" => load_clocks(&assets_dir, decl, &mut registry, &mut errors),
                 "Difficulty" => load_difficulty(&assets_dir, decl, &mut registry, &mut errors),
                 "Sandbox" => load_sandbox_profiles(&assets_dir, decl, &mut registry, &mut errors),
+                "Model" => load_models(&assets_dir, decl, &mut registry, &mut errors),
                 _ => unreachable!("filtré par `kinds.has` ci-dessus"),
             }
         }
@@ -2079,6 +2134,11 @@ struct CharacterFileSchema {
     /// dans les RON de personnages (`collider: (...)`, comme `CharacterConfig`).
     #[serde(default, deserialize_with = "present")]
     collider: Option<ColliderSchema>,
+    /// P-1 (§110) : zone touchée (`CharacterConfig::hurtbox`), testée à la place de `collider`
+    /// par les balles et les coups de mêlée ; doit tenir dans `collider`. Optionnelle comme le
+    /// champ réel (`hurtbox: Some((...))`).
+    #[serde(default)]
+    hurtbox: Option<ColliderSchema>,
     /// D79 : obligatoire, comme `CharacterConfig.scale` (sans défaut côté jeu : un personnage
     /// sans `scale` ne doit pas passer le lint pour échouer ensuite au chargement).
     scale: FixedField,
@@ -2132,6 +2192,30 @@ impl Default for OffsetSchema {
 }
 
 impl ColliderSchema {
+    /// Boîte englobante `(x min, x max, y min, y max)`, offset compris, à l'échelle 1.
+    fn bounds(&self) -> (Fixed, Fixed, Fixed, Fixed) {
+        let (half_w, half_h) = match &self.shape {
+            ColliderShapeSchema::Rectangle { width, height } => {
+                (width.0 / Fixed::from_num(2), height.0 / Fixed::from_num(2))
+            }
+            ColliderShapeSchema::Circle { radius } => (radius.0, radius.0),
+        };
+        (
+            self.offset.x.0 - half_w,
+            self.offset.x.0 + half_w,
+            self.offset.y.0 - half_h,
+            self.offset.y.0 + half_h,
+        )
+    }
+
+    /// P-1 : la boîte englobante de `other` tient dans celle de `self` (les grilles spatiales
+    /// indexent le collider : une zone touchée qui en sortirait ne serait jamais testée là).
+    fn contains(&self, other: &ColliderSchema) -> bool {
+        let (ax0, ax1, ay0, ay1) = self.bounds();
+        let (bx0, bx1, by0, by1) = other.bounds();
+        bx0 >= ax0 && bx1 <= ax1 && by0 >= ay0 && by1 <= ay1
+    }
+
     /// Plus grande distance du centre à un bord, offset compris, à l'échelle `scale`.
     fn extent(&self, scale: Fixed) -> Fixed {
         let (half_w, half_h) = match &self.shape {
@@ -2364,6 +2448,52 @@ struct AiSchema {
     #[serde(default)]
     #[schemars(extend("x-lint" = ">= 0"))]
     sight_range: Option<FixedField>,
+    /// P-1 (§110) : cycle du tireur posté (`game::...::cycle::RangedCycleConfig`).
+    #[serde(default)]
+    ranged_cycle: Option<RangedCycleSchema>,
+}
+
+/// P-1 : miroir de `game::character::enemy::ai::cycle::RangedCycleConfig`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct RangedCycleSchema {
+    /// La visée de l'émetteur suit la cible à chaque frame.
+    #[serde(default)]
+    #[allow(dead_code)]
+    track_target: bool,
+    /// Le regard suit la cible.
+    #[serde(default)]
+    #[allow(dead_code)]
+    face_target: bool,
+    /// Attente tirée `(min, max)` en frames, bornes comprises.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "min <= max"))]
+    wait_frames: Option<(u32, u32)>,
+    /// Première séquence au plus tôt `base + pas × rang` frames après la première frame.
+    #[serde(default)]
+    #[allow(dead_code)]
+    first_wait: Option<(u32, u32)>,
+    /// Frames de stupeur après un coup reçu (la séquence est perdue).
+    #[serde(default)]
+    #[allow(dead_code)]
+    stagger_frames: Option<u32>,
+    /// Recul au tir.
+    #[serde(default)]
+    recoil: Option<RangedRecoilSchema>,
+    /// Vitesse de retour au poste (px/s).
+    #[serde(default)]
+    #[allow(dead_code)]
+    return_speed: Option<FixedField>,
+}
+
+/// P-1 : miroir de `RangedRecoil`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct RangedRecoilSchema {
+    /// Distance totale (px), à l'opposé du regard.
+    #[allow(dead_code)]
+    distance: FixedField,
+    /// Durée en frames.
+    #[schemars(extend("x-lint" = "> 0"))]
+    frames: u32,
 }
 
 fn default_bleedout_frames() -> u32 {
@@ -2417,6 +2547,60 @@ struct DashSchema {
     charges: Option<u32>,
     #[serde(default)]
     recharge_frames: Option<u32>,
+    /// P-1 (§110) : profil de vitesse (`Linear`, `EaseOut`). Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    profile: DashProfileSchema,
+    /// P-1 : sans direction tenue, dash sur place. Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    in_place_without_direction: bool,
+    /// P-1 : frames jouées après lesquelles un appui coupe le dash en cours.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 et < durée"))]
+    cut_from: Option<u32>,
+    /// P-1 : fenêtre d'enchaînement après la fin d'un dash (frames). Validé ici, lu par le jeu.
+    #[serde(default)]
+    #[allow(dead_code)]
+    chain_window_frames: Option<u32>,
+    /// P-1 : jugement de l'appui contre le tempo d'une horloge.
+    #[serde(default)]
+    on_beat: Option<DashOnBeatSchema>,
+}
+
+/// P-1 : miroir de `sim_core::dash::DashProfile`.
+#[derive(schemars::JsonSchema, Deserialize, PartialEq, Default)]
+enum DashProfileSchema {
+    #[default]
+    Linear,
+    EaseOut,
+}
+
+/// P-1 : miroir de `sim_core::dash::DashOnBeat`.
+#[derive(schemars::JsonSchema, Deserialize, Clone, Debug)]
+pub struct DashOnBeatSchema {
+    /// Horloge (kind `Clock`) qui porte un `tempo`.
+    pub clock: String,
+    #[schemars(extend("x-lint" = "<= good_ms"))]
+    pub perfect_ms: u32,
+    pub good_ms: u32,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    pub coop_window_mult: Option<FixedField>,
+    #[serde(default = "zero_field")]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    pub distance_bonus: FixedField,
+    #[serde(default = "zero_field")]
+    #[schemars(extend("x-lint" = ">= 0"))]
+    pub iframes_bonus: FixedField,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "dans ]0, 1]"))]
+    pub iframes_cap: Option<FixedField>,
+}
+
+/// Défaut `0` des bonus de `DashOnBeatSchema` (non optionnels comme dans `sim_core::dash::DashOnBeat`).
+fn zero_field() -> FixedField {
+    FixedField(bevy_fixed::fixed_math::FIXED_ZERO)
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -2529,6 +2713,42 @@ struct WeaponConfigSchema {
     /// D63 : voir `WeaponEntry::test_only`.
     #[serde(default)]
     test_only: bool,
+    /// X-3 : poids de l'arme (`combat::weapons::WeaponConfig::move_speed_mult`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    move_speed_mult: Option<FixedField>,
+    /// P-1 : gestes de l'arme (`combat::weapons::WeaponGesture`).
+    #[serde(default)]
+    gesture: Option<WeaponGestureSchema>,
+}
+
+/// P-1 : miroir de `combat::weapons::WeaponGesture`.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct WeaponGestureSchema {
+    /// Frames entre l'appui et le départ de la balle.
+    #[serde(default)]
+    #[allow(dead_code)]
+    raise_frames: u32,
+    /// Frames du geste de tir qui suit le départ.
+    #[serde(default)]
+    #[allow(dead_code)]
+    fire_frames: u32,
+    /// Multiplicateur de marche pendant l'épaulé et le geste de tir.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    aim_speed_mult: Option<FixedField>,
+    /// Multiplicateur de marche pendant le rechargement.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    reload_speed_mult: Option<FixedField>,
+    /// Rechargement automatique à la fin du geste de tir.
+    #[serde(default)]
+    #[allow(dead_code)]
+    auto_reload: bool,
+    /// Le rechargement continue pendant un dash.
+    #[serde(default)]
+    #[allow(dead_code)]
+    reload_through_dash: bool,
 }
 
 fn zero_spread() -> FixedField {
@@ -2600,6 +2820,72 @@ struct MeleeWeaponConfigSchema {
     #[serde(default, deserialize_with = "de_friendly_fire")]
     #[allow(dead_code)]
     friendly_fire: FriendlyFire,
+    /// X-3 : parade et renvoi (`combat::weapons::melee::MeleeReflect`).
+    #[serde(default)]
+    reflect: Option<MeleeReflectSchema>,
+    /// P-1 : durée du coup, pour la règle « fenêtre de frappe dans le coup ».
+    #[serde(default)]
+    attack_duration_frames: u32,
+    /// P-1 : fenêtre de frappe (`MeleeWeaponConfig::strike_frames`).
+    #[serde(default)]
+    strike_frames: Option<(u32, u32)>,
+    /// P-1 : `MeleeWeaponConfig::queue` (forme seulement).
+    #[serde(default)]
+    #[allow(dead_code)]
+    queue: bool,
+    /// P-1 : vitesse de marche pendant le coup (`MeleeWeaponConfig::move_speed_mult`).
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    move_speed_mult: Option<FixedField>,
+}
+
+/// Mirroir de `combat::weapons::melee::MeleeReflect` pour le schéma et le lint.
+#[derive(schemars::JsonSchema, Deserialize)]
+struct MeleeReflectSchema {
+    perfect_frames: u32,
+    /// Absent : 1 (P-1).
+    #[serde(default = "fixed_field_one")]
+    #[schemars(extend("x-lint" = "> 0"))]
+    perfect_damage_mult: FixedField,
+    /// P-1 : zone du renvoi autour du porteur.
+    #[serde(default)]
+    sector: Option<ReflectSectorSchema>,
+    /// P-1 : `Facing` (défaut) ou `Aim(min_distance: "…")`.
+    #[serde(default)]
+    #[allow(dead_code)]
+    direction: ReflectDirectionSchema,
+    /// P-1 : vitesse du projectile renvoyé.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    speed_mult: Option<FixedField>,
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    perfect_speed_mult: Option<FixedField>,
+}
+
+/// Mirroir de `combat::weapons::melee::ReflectSector` (P-1).
+#[derive(schemars::JsonSchema, Deserialize)]
+struct ReflectSectorSchema {
+    #[schemars(extend("x-lint" = "> 0"))]
+    radius: FixedField,
+    #[schemars(extend("x-lint" = "> 0"))]
+    arc: FixedField,
+}
+
+/// Mirroir de `combat::weapons::melee::ReflectDirection` (P-1).
+#[derive(schemars::JsonSchema, Deserialize, Default)]
+#[allow(dead_code)]
+enum ReflectDirectionSchema {
+    #[default]
+    Facing,
+    Aim {
+        #[schemars(extend("x-lint" = ">= 0"))]
+        min_distance: FixedField,
+    },
+}
+
+fn fixed_field_one() -> FixedField {
+    FixedField(Fixed::ONE)
 }
 
 #[derive(schemars::JsonSchema, Deserialize)]
@@ -2888,6 +3174,14 @@ fn load_characters(
                     .as_ref()
                     .and_then(|ai| ai.squad.as_ref())
                     .map(|squad| squad.0.clone()),
+                ranged_cycle: parsed
+                    .ai
+                    .as_ref()
+                    .and_then(|ai| ai.ranged_cycle.as_ref())
+                    .map(|cycle| RangedCycleLint {
+                        wait_frames: cycle.wait_frames,
+                        recoil_frames: cycle.recoil.as_ref().map(|recoil| recoil.frames),
+                    }),
                 behaviors: parsed.ai.and_then(|ai| ai.behaviors),
                 tags: parsed.tags,
                 variants: parsed.variants.map(|variants| VariantsEntry {
@@ -2927,6 +3221,11 @@ fn load_characters(
                     .collider
                     .as_ref()
                     .is_some_and(|collider| collider.is_large(parsed.scale.0)),
+                hurtbox_outside_collider: match (&parsed.hurtbox, &parsed.collider) {
+                    (Some(hurtbox), Some(collider)) => !collider.contains(hurtbox),
+                    // une zone touchée sans collider n'a rien dont elle puisse sortir
+                    _ => false,
+                },
             },
         );
     }
@@ -3019,6 +3318,19 @@ fn load_weapons(
                     mode_projectiles,
                     projectiles: entry.config.projectiles,
                     test_only: entry.config.test_only,
+                    move_speed_mult: entry.config.move_speed_mult,
+                    gesture_speed_mults: entry
+                        .config
+                        .gesture
+                        .iter()
+                        .flat_map(|gesture| {
+                            [
+                                ("gesture.aim_speed_mult", gesture.aim_speed_mult),
+                                ("gesture.reload_speed_mult", gesture.reload_speed_mult),
+                            ]
+                        })
+                        .filter_map(|(name, mult)| mult.map(|mult| (name, mult)))
+                        .collect(),
                 },
             );
         }
@@ -3073,6 +3385,15 @@ fn load_melee_weapons(
                 continue;
             }
             let test = entry.config.test.as_ref().map(WeaponTestRange::from);
+            let reflect = entry.config.reflect.map(|reflect| MeleeReflectEntry {
+                perfect_frames: reflect.perfect_frames,
+                perfect_damage_mult: reflect.perfect_damage_mult.get(),
+                speed_mult: reflect.speed_mult.map(|mult| mult.get()),
+                perfect_speed_mult: reflect.perfect_speed_mult.map(|mult| mult.get()),
+                sector: reflect
+                    .sector
+                    .map(|sector| (sector.radius.get(), sector.arc.get())),
+            });
             registry.melee_weapons.insert(
                 id.clone(),
                 MeleeWeaponEntry {
@@ -3080,6 +3401,10 @@ fn load_melee_weapons(
                     file: rel.clone(),
                     damage: entry.config.damage,
                     test,
+                    reflect,
+                    attack_duration_frames: entry.config.attack_duration_frames,
+                    strike_frames: entry.config.strike_frames,
+                    move_speed_mult: entry.config.move_speed_mult.map(|mult| mult.get()),
                 },
             );
         }
@@ -3213,6 +3538,7 @@ fn load_clocks(
                 file: rel,
                 scope: parsed.scope,
                 events: parsed.events,
+                tempo: parsed.tempo,
             },
         );
     }
@@ -4289,6 +4615,72 @@ fn load_sprite_sheets(
     }
 }
 
+/// R-1 (§111) : le fichier `Model` (un seul par jeu) et le manifeste `anime.json` de chaque
+/// modèle, lu ici pour que le lint et la présentation (`game::model3d`) partagent la même lecture
+/// (le manifeste est un texte embarqué dans les builds web, comme le RON).
+fn load_models(
+    assets_dir: &ContentFiles,
+    decl: &ContentFolderDecl,
+    registry: &mut Registry,
+    errors: &mut Vec<LintError>,
+) {
+    let files = match discover_files(assets_dir, decl, "ron") {
+        Ok(f) => f,
+        Err(e) => {
+            errors.push(e);
+            return;
+        }
+    };
+    for rel in files {
+        let text = match read_file(assets_dir, &rel) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        let def: crate::models::ModelsFile = match ron::from_str(&text) {
+            Ok(def) => def,
+            Err(e) => {
+                errors.push(LintError {
+                    kind: LintErrorKind::Parse,
+                    file: rel.display().to_string(),
+                    message: format!("erreur RON : {e}"),
+                });
+                continue;
+            }
+        };
+        if let Some(existing) = &registry.models {
+            errors.push(LintError {
+                kind: LintErrorKind::DuplicateId,
+                file: rel.display().to_string(),
+                message: format!(
+                    "un seul fichier Model par jeu (déjà : {})",
+                    existing.file.display()
+                ),
+            });
+            continue;
+        }
+        let manifests = def
+            .models
+            .iter()
+            .filter(|(_, model)| assets_dir.contains(&model.manifest))
+            .map(|(id, model)| {
+                let parsed = assets_dir
+                    .read(Path::new(&model.manifest))
+                    .map_err(|e| e.to_string())
+                    .and_then(|text| serde_json::from_str(&text).map_err(|e| e.to_string()));
+                (id.clone(), parsed)
+            })
+            .collect();
+        registry.models = Some(crate::models::ModelsTable {
+            file: rel,
+            def,
+            manifests,
+        });
+    }
+}
+
 /// Un fichier `*.local.ron` : surcharge locale d'une table, jamais une table à part.
 fn is_local_overlay(rel: &Path) -> bool {
     rel.file_name()
@@ -4918,6 +5310,7 @@ pub(crate) fn schema_for_kind(kind: &str) -> Option<schemars::Schema> {
         "Pattern" => schemars::schema_for!(PatternEntry),
         "Wave" => schemars::schema_for!(WaveConfigFileSchema),
         "SpriteSheet" => schemars::schema_for!(SpriteSheetsFileSchema),
+        "Model" => schemars::schema_for!(crate::models::ModelsFile),
         "Unlock" => schemars::schema_for!(items::UnlockDef),
         "Curse" => schemars::schema_for!(run::CurseDef),
         "Achievement" => schemars::schema_for!(meta::AchievementDef),

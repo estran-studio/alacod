@@ -1,0 +1,44 @@
+// P-1 (docs/conventions.md §110) : fenêtre de tempo élargie en coop (`on_beat.coop_window_mult`). Même
+// dash et même horloge que `dash_au_tempo` (`tempo_essai`, un temps toutes les 36 frames ; « parfait »
+// 60 ms, « bien » 120 ms), fenêtres × 1,5 à deux joueurs et plus : « parfait » 90 ms (5,4 frames).
+// Les inputs agissent 5 frames plus tard (délai d'input de GGRS).
+//
+// À regarder : deux joueurs ; le joueur 0 dashe à droite, appui effectif f113, 5 frames (83 ms) après
+// le temps de f108 : seul, ce serait « bien » (60 px, `dash_au_tempo`) ; à deux, c'est « parfait » :
+// 72 px (424 → 496). Le joueur 1 ne bouge pas.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    clocks: Some(["tempo_essai"]),
+    frames: 150,
+    players: [
+        (
+            dash: Some((
+                distance: Some("48.0"),
+                duration_frames: Some(24),
+                iframes: Some(12),
+                cooldown_frames: Some(0),
+                profile: EaseOut,
+                on_beat: Some((
+                    clock: "tempo_essai",
+                    perfect_ms: 60,
+                    good_ms: 120,
+                    coop_window_mult: Some("1.5"),
+                    distance_bonus: "0.5",
+                    iframes_bonus: "0.25",
+                    iframes_cap: Some("0.95"),
+                )),
+            )),
+            inputs: [
+                (from: 108, to: 109, buttons: [Right, Dash]),
+            ],
+        ),
+        (inputs: []),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 424, y: 696, tolerance: 0.1, at_frame: 110),
+        // Parfait en coop : 48 × 1,5 = 72 px
+        PlayerPosition(handle: 0, x: 496, y: 696, tolerance: 0.5, at_frame: 145),
+    ],
+)
