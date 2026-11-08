@@ -23,6 +23,8 @@
 //!    profil) ;
 //! 5. [`apply_scenario_character_placements`] : `RollbackSystemSet::EnemySpawning`, après les spawns de
 //!    vague et de spawner, avant `commands::apply_game_commands_spawn`, seulement s'il y a un placement.
+//! 6. [`apply_scenario_respawn_placements`] (M-5, §113) : `Effects`, après (4), avant `item_consumable_pickup_system` et
+//!    `commands::apply_game_commands_pickups`, seulement s'il y a un placement.
 //!
 //! `Update` : [`apply_player_overrides`], une seule fois, quand tous les joueurs du profil existent.
 //!
@@ -45,7 +47,7 @@ use game::{
     progression::{Mutations, ProgressionTable},
     replay::{
         CharacterPlacement, ChestPlacement, ItemPlacement, ModifierSpec, PlayerScript,
-        PowerUpPlacement, Scenario, ShelfPlacement,
+        PowerUpPlacement, RespawnPlacement, Scenario, ShelfPlacement,
     },
     system_set::RollbackSystemSet,
     weapons::{melee::MeleeWeapon, Weapon, WeaponInventory, WeaponRegistry},
@@ -181,6 +183,7 @@ pub struct Profile {
     pub items: Vec<ItemPlacement>,
     pub chests: Vec<ChestPlacement>,
     pub shelves: Vec<ShelfPlacement>,
+    pub respawn_points: Vec<RespawnPlacement>,
 }
 
 impl Profile {
@@ -198,6 +201,7 @@ impl Profile {
             items: scenario.items.clone(),
             chests: scenario.chests.clone(),
             shelves: scenario.shop.shelves.clone(),
+            respawn_points: scenario.respawn_points.clone(),
         }
     }
 
@@ -216,6 +220,7 @@ impl Profile {
             items: profile.items.clone(),
             chests: profile.chests.clone(),
             shelves: profile.shop.shelves.clone(),
+            respawn_points: profile.respawn_points.clone(),
         }
     }
 
@@ -229,6 +234,7 @@ impl Profile {
         world.insert_resource(ScenarioChestPlacements(self.chests.clone()));
         world.insert_resource(ScenarioShelfPlacements(self.shelves.clone()));
         world.insert_resource(ScenarioCharacterPlacements(self.characters.clone()));
+        world.insert_resource(ScenarioRespawnPlacements(self.respawn_points.clone()));
         world.insert_resource(PlayerOverrides(self.players.clone()));
         world.insert_resource(ProfileApplied(false));
         world.init_resource::<PlacementErrors>();
@@ -255,6 +261,10 @@ pub struct ScenarioChestPlacements(pub Vec<ChestPlacement>);
 /// Placements de présentoirs (M2-T6, `Scenario::shop`).
 #[derive(Resource)]
 pub struct ScenarioShelfPlacements(pub Vec<ShelfPlacement>);
+
+/// Placements de points de reprise (M-5, `Scenario::respawn_points`).
+#[derive(Resource)]
+pub struct ScenarioRespawnPlacements(pub Vec<RespawnPlacement>);
 
 /// Réglages des joueurs, indexés par handle ([`apply_player_overrides`]).
 #[derive(Resource)]
@@ -329,6 +339,16 @@ impl Plugin for ProfilePlugin {
                 .after(apply_scenario_chest_placements)
                 .before(game::items::item_consumable_pickup_system)
                 // Commandes d'édition (K5-2) : leurs net ids viennent après ceux des placements du profil.
+                .before(super::commands::apply_game_commands_pickups)
+                .in_set(RollbackSystemSet::Effects),
+        )
+        // M-5 : points de reprise du feu follet (seulement s'il y en a, aucune trace ne bouge sinon).
+        .add_systems(
+            GgrsSchedule,
+            apply_scenario_respawn_placements
+                .run_if(|placements: Res<ScenarioRespawnPlacements>| !placements.0.is_empty())
+                .after(apply_scenario_shelf_placements)
+                .before(game::items::item_consumable_pickup_system)
                 .before(super::commands::apply_game_commands_pickups)
                 .in_set(RollbackSystemSet::Effects),
         )
@@ -513,6 +533,25 @@ pub fn apply_scenario_item_placements(
         {
             warn!("placement d'objet : « {} » inconnu", placement.id);
         }
+    }
+}
+
+/// Placements de points de reprise (M-5, `Scenario::respawn_points`, §113) : à `frame == at_frame`,
+/// crée l'entité rollback `RespawnPoint` (rollback neutre : sans point, aucune trace ne bouge).
+pub fn apply_scenario_respawn_placements(
+    frame: Res<FrameCount>,
+    placements: Res<ScenarioRespawnPlacements>,
+    mut commands: Commands,
+    mut id_factory: ResMut<GgrsNetIdFactory>,
+) {
+    for placement in placements.0.iter().filter(|p| p.at_frame == frame.frame) {
+        let position = fixed_math::FixedVec3::new(placement.x, placement.y, fixed_math::FIXED_ZERO);
+        super::local::spawn_respawn_point(
+            &mut commands,
+            &mut id_factory,
+            position,
+            placement.range,
+        );
     }
 }
 

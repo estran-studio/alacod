@@ -31,7 +31,8 @@ pub use combat::weapons::expectations::{
     DistanceTarget, EntityKind, EntityRef, Expectation, RunStepExpectation,
 };
 pub use content::sandbox::{
-    CharacterPlacement, ChestPlacement, ItemPlacement, ModifierSpec, ShelfPlacement, ShopSetup,
+    CharacterPlacement, ChestPlacement, ItemPlacement, ModifierSpec, RespawnPlacement,
+    ShelfPlacement, ShopSetup,
 };
 use serde::{Deserialize, Serialize};
 use sim_core::ammo::AmmoType;
@@ -137,6 +138,10 @@ pub struct Scenario {
     /// `map_ldtk::game::profile::apply_scenario_character_placements`). Vide (défaut) : rien.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub characters: Vec<CharacterPlacement>,
+    /// Points de reprise posés (M-5, `docs/conventions.md` §113) : voir [`RespawnPlacement`] et
+    /// `map_ldtk::game::profile::apply_scenario_respawn_placements`. Vide (défaut) : rien.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub respawn_points: Vec<RespawnPlacement>,
     /// Mode de run imposé (suite de T1.13, `docs/conventions.md` §28) : l'emporte sur
     /// `entry.mode` du manifeste (le runner le remplace avant de l'insérer). `Floors` exige
     /// `floors`. `None` (défaut) : `entry.mode`, comme avant.

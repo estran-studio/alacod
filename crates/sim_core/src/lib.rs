@@ -30,6 +30,7 @@
 //! - [`aim`] : mode de visée d'un personnage, libre ou à quatre directions (suivi Q17).
 //! - [`animation_state`] : orientation, animation et calques d'un personnage (rollback ; déménagé de
 //!   `animation`, dette D69) et `AnimationStatePlugin` qui les enregistre.
+//! - [`wisp`] : contrat de donnée du mode « feu follet » d'un joueur tombé (M-5, §113).
 //! - [`sprite_directions`] : directions dessinées d'une planche et choix de la ligne (X-4a, présentation seule).
 
 pub mod aim;
@@ -49,5 +50,6 @@ pub mod tag;
 pub mod team;
 pub mod timing;
 pub mod triggers;
+pub mod wisp;
 
 pub mod interaction;

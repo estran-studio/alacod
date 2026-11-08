@@ -18,7 +18,7 @@ pub mod visuals;
 
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, ReadInputs};
-use combat::downed::{Downed, Reviving};
+use combat::downed::{Downed, RespawnPoint, Reviving, Wisp};
 use map::game::entity::map::enemy_spawn::EnemySpawnerComponent;
 use sim_core::kinds::{KindDecl, KindRegistry};
 use stats::{expire_modifiers_system, StatsPlugin};
@@ -47,7 +47,8 @@ use crate::{
         health::{
             rollback_apply_accumulated_damage, rollback_apply_bleedout, rollback_apply_death,
             rollback_check_defeat, rollback_health_regeneration, rollback_resolve_damage_events,
-            sync_health_from_stats, DamageAccumulator, Death, Health, HealthRegen, HitCount,
+            rollback_wisp_respawn, sync_health_from_stats, DamageAccumulator, Death, Health,
+            HealthRegen, HitCount,
         },
         movement::{apply_knockback_damping, KnockbackDampingConfig, SprintState, Velocity},
         player::{
@@ -155,7 +156,11 @@ impl Plugin for BaseCharacterGamePlugin {
             // entité que quand un joueur tombe à terre (jamais en solo, voir la doc de
             // `combat::downed::Downed`).
             .rollback_and_trace::<Downed>()
-            .rollback_and_trace::<Reviving>();
+            .rollback_and_trace::<Reviving>()
+            // Feu follet et point de reprise (M-5, §113) : posés seulement par le contenu qui les
+            // demande (variante neutre : sans porteur, aucune trace ne bouge).
+            .rollback_and_trace_neutral::<Wisp>()
+            .rollback_and_trace_neutral::<RespawnPoint>();
 
         // `run::run::Run` (T2.4, chantier F1, remplace `RunOutcome`) est enregistrée par
         // `run::RunPlugin` (`crate::core::CoreSetupPlugin`), pas ici : elle n'a pas de
@@ -228,6 +233,9 @@ impl Plugin for BaseCharacterGamePlugin {
                 (
                     rollback_apply_accumulated_damage,
                     rollback_apply_bleedout.after(rollback_apply_accumulated_damage),
+                    rollback_wisp_respawn
+                        .after(rollback_apply_bleedout)
+                        .before(rollback_health_regeneration),
                     rollback_health_regeneration.after(rollback_apply_bleedout),
                     rollback_check_defeat.after(rollback_health_regeneration),
                     rollback_apply_death.after(rollback_check_defeat),

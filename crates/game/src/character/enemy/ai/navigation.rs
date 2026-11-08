@@ -14,7 +14,7 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
-use combat::downed::Downed;
+use combat::downed::{is_decoy, Downed, Wisp};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::{Arc, OnceLock};
@@ -873,7 +873,15 @@ impl Default for FlowFieldConfig {
 pub fn update_flow_field_system(
     frame: Res<FrameCount>,
     config: Res<FlowFieldConfig>,
-    player_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, Has<Downed>), With<Player>>,
+    player_query: Query<
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            Has<Downed>,
+            Option<&Wisp>,
+        ),
+        With<Player>,
+    >,
     // Portes fermées : une porte ouverte n'a plus de collider
     door_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
@@ -905,19 +913,21 @@ pub fn update_flow_field_system(
     // À terre (T1.3, chantier B6) : tant qu'au moins un joueur est encore debout, le flow
     // field (et donc le ciblage ennemi qui s'appuie dessus, `enemy_target_selection`,
     // `update_enemy_targets`) ignore les joueurs à terre — voir la doc de
-    // `combat::downed::Downed`. Si personne n'est débout (tous à terre/morts), pas de
-    // filtrage : mieux vaut un flow field qui mène quand même quelque part qu'aucun.
-    let any_standing = players.iter().any(|(_, _, downed)| !downed);
+    // `combat::downed::Downed` — sauf un feu follet à leurre (M-5, §113), qui reste une source.
+    // Si personne n'est débout (tous à terre/morts), pas de filtrage : mieux vaut un flow field
+    // qui mène quand même quelque part qu'aucun.
+    let any_standing = players.iter().any(|(_, _, downed, _)| !downed);
     if any_standing {
-        players.retain(|(_, _, downed)| !downed);
+        players.retain(|(_, _, downed, wisp)| !downed || is_decoy(*wisp));
     }
     players.sort_unstable_by_key(|(net_id, ..)| net_id.0);
     let targets: Vec<GridPos> = players
         .iter()
-        .map(|(_, transform, _)| GridPos::from_fixed(transform.translation.truncate()))
+        .map(|(_, transform, ..)| GridPos::from_fixed(transform.translation.truncate()))
         .collect();
     let target_ids: Vec<usize> = players.iter().map(|(net_id, ..)| net_id.0).collect();
     let target_pos = targets[0];
+    let reach = wisp_reach(&players, &config);
 
     // Rebuild blocked cells first: an opened door or a broken window changes the field
     // even when the target does not move
@@ -971,7 +981,7 @@ pub fn update_flow_field_system(
         .map(|key| {
             (
                 *key,
-                build_flow_field(&targets, *key, &cache, &config).into(),
+                build_flow_field_with_reach(&targets, &reach, *key, &cache, &config).into(),
             )
         })
         .collect();
@@ -1107,11 +1117,83 @@ pub fn get_collider_cells(pos: fixed_math::FixedVec2, collider: &Collider) -> Ve
     cells
 }
 
+/// Ce que coûte une source du champ de flux avant son premier pas (`start`) et jusqu'où elle s'étend
+/// (`max`, coût de chemin depuis elle). Le défaut (0, sans borne) est celui d'un joueur debout ; seuls
+/// les feux follets à leurre en changent (M-5, `docs/conventions.md` §113).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct SourceReach {
+    start: u32,
+    max: Option<u32>,
+}
+
+/// Portée en unités monde → coût de chemin du champ de flux (une case de [`GRID_CELL_SIZE`] coûte
+/// `straight_cost`), arrondi au-dessus.
+fn range_to_cost(range: fixed_math::Fixed, config: &FlowFieldConfig) -> u32 {
+    let units = range.ceil().to_num::<i64>().max(0) as u32;
+    (units * config.straight_cost).div_ceil(GRID_CELL_SIZE as u32)
+}
+
+/// Portée de chaque source, dans l'ordre de `players` (déjà trié par `GgrsNetId`) :
+/// - un feu follet à leurre part de 0 et ne s'étend que sur sa portée ;
+/// - **égare** (`Mislead`) : les autres sources partent de la portée la plus grande + 1, donc dans
+///   cette portée le feu follet gagne toujours, hors d'elle les joueurs debout se départagent comme
+///   avant (un décalage commun ne change pas leur ordre) ;
+/// - **attire** (`Attract`) : les autres sources partent de 0, le feu follet est une cible parmi elles.
+/// Sans feu follet : toutes les sources au défaut, la sortie est celle d'avant M-5.
+fn wisp_reach(
+    players: &[(
+        &GgrsNetId,
+        &fixed_math::FixedTransform3D,
+        bool,
+        Option<&Wisp>,
+    )],
+    config: &FlowFieldConfig,
+) -> Vec<SourceReach> {
+    let decoy =
+        |downed: bool, wisp: Option<&Wisp>| wisp.filter(|_| downed).and_then(|wisp| wisp.lure);
+    let standing_start = players
+        .iter()
+        .filter_map(|(_, _, downed, wisp)| match decoy(*downed, *wisp) {
+            Some(sim_core::wisp::WispLure::Mislead { range }) => {
+                Some(range_to_cost(range, config) + 1)
+            }
+            _ => None,
+        })
+        .max()
+        .unwrap_or(0);
+    players
+        .iter()
+        .map(|(_, _, downed, wisp)| match decoy(*downed, *wisp) {
+            Some(lure) => SourceReach {
+                start: 0,
+                max: Some(range_to_cost(lure.range(), config)),
+            },
+            None => SourceReach {
+                start: standing_start,
+                max: None,
+            },
+        })
+        .collect()
+}
+
 /// Build a flow field with Dijkstra from the target. Step costs favor cells away from
 /// walls (see [`FlowFieldConfig::wall_penalty`]). Deterministic: the heap is ordered by
 /// (cost, cell), and cells are only improved by a strictly lower cost.
+#[cfg(test)]
 fn build_flow_field(
     targets: &[GridPos],
+    key: NavKey,
+    cache: &FlowFieldCache,
+    config: &FlowFieldConfig,
+) -> FlowField {
+    build_flow_field_with_reach(targets, &[], key, cache, config)
+}
+
+/// [`build_flow_field`] avec la portée de chaque source (`reach` parallèle à `targets`, ou vide :
+/// toutes au défaut).
+fn build_flow_field_with_reach(
+    targets: &[GridPos],
+    reach: &[SourceReach],
     key: NavKey,
     cache: &FlowFieldCache,
     config: &FlowFieldConfig,
@@ -1234,21 +1316,30 @@ fn build_flow_field(
     let mut next_cell = vec![0u32; cells];
     let mut owners = vec![0u32; cells];
     let mut heap: BinaryHeap<Reverse<(u32, GridPos)>> = BinaryHeap::new();
+    let reach_of = |owner: usize| reach.get(owner).copied().unwrap_or_default();
     for (owner, target) in targets.iter().enumerate() {
         let i = index(*target);
         if costs[i] != UNSET {
             continue;
         }
-        costs[i] = 0;
+        let start = reach_of(owner).start;
+        costs[i] = start;
         next_cell[i] = i as u32;
         owners[i] = owner as u32;
-        heap.push(Reverse((0, *target)));
+        heap.push(Reverse((start, *target)));
     }
 
     while let Some(Reverse((cost, current))) = heap.pop() {
         let current_index = index(current);
         if cost > costs[current_index] {
             continue; // stale heap entry
+        }
+        // Un feu follet n'étend son influence que sur sa portée (son coût part de 0).
+        if reach_of(owners[current_index] as usize)
+            .max
+            .is_some_and(|max| cost > max)
+        {
+            continue;
         }
 
         // Orthogonal neighbors are the first four entries, in the historical order.
@@ -1961,6 +2052,109 @@ mod optimized_flow_tests {
                     }
                 }
             }
+        }
+    }
+}
+
+/// M-5 (§113) : un feu follet à leurre est une source du champ de flux, bornée à sa portée.
+#[cfg(test)]
+mod wisp_reach_tests {
+    use super::*;
+
+    /// Salle fermée de 40 × 12 cases : murs sur le pourtour.
+    fn room() -> FlowFieldCache {
+        let mut cache = FlowFieldCache::new();
+        for x in 0..=40 {
+            cache.wall_cells.insert(GridPos::new(x, 0));
+            cache.wall_cells.insert(GridPos::new(x, 12));
+        }
+        for y in 0..=12 {
+            cache.wall_cells.insert(GridPos::new(0, y));
+            cache.wall_cells.insert(GridPos::new(40, y));
+        }
+        cache
+    }
+
+    /// Source 0 : le joueur debout en (20, 6). Source 1 : le feu follet en (5, 6).
+    fn owner_at(x: i32, reach: [SourceReach; 2]) -> Option<usize> {
+        let targets = [GridPos::new(20, 6), GridPos::new(5, 6)];
+        let field = build_flow_field_with_reach(
+            &targets,
+            &reach,
+            MOVEMENT_FLOW_KEY,
+            &room(),
+            &FlowFieldConfig::default(),
+        );
+        field.owners.get(&GridPos::new(x, 6)).copied()
+    }
+
+    #[test]
+    fn la_portee_se_convertit_en_cout_de_chemin() {
+        let config = FlowFieldConfig::default();
+        // Une case de 16 unités coûte `straight_cost` (10), arrondi au-dessus.
+        assert_eq!(range_to_cost(fixed_math::new(16.0), &config), 10);
+        assert_eq!(range_to_cost(fixed_math::new(160.0), &config), 100);
+        assert_eq!(range_to_cost(fixed_math::new(17.0), &config), 11);
+    }
+
+    #[test]
+    fn sans_portee_les_sources_se_departagent_par_le_chemin() {
+        let plain = [SourceReach::default(); 2];
+        // Plus près du joueur debout (case 18, à 2 cases) ou du feu follet (case 8, à 3 cases).
+        assert_eq!(owner_at(18, plain), Some(0));
+        assert_eq!(owner_at(8, plain), Some(1));
+    }
+
+    #[test]
+    fn attire_ne_s_etend_que_sur_sa_portee() {
+        // Portée du feu follet : 3 cases (coût 30). Il ne gagne que les cases qu'il touche en 3 pas
+        // (la case qui dépasse la borne lui revient encore, elle n'étend plus rien).
+        let wisp = SourceReach {
+            start: 0,
+            max: Some(30),
+        };
+        let attract = [SourceReach::default(), wisp];
+        assert_eq!(owner_at(7, attract), Some(1));
+        assert_eq!(owner_at(18, attract), Some(0));
+        // La case 10, à 5 cases du feu follet et 10 du joueur, est au feu follet sans borne ; bornée,
+        // elle revient au joueur : la portée est bien une donnée du feu follet.
+        let unbounded = [SourceReach::default(), SourceReach::default()];
+        assert_eq!(owner_at(10, unbounded), Some(1));
+        assert_eq!(owner_at(10, attract), Some(0));
+    }
+
+    #[test]
+    fn egare_l_emporte_dans_sa_portee_meme_quand_un_joueur_est_plus_pres() {
+        // Portée 14 cases (coût 140) : le joueur debout part de 141. La case 16, à 4 cases du joueur
+        // et 11 du feu follet, est au feu follet ; au-delà de sa portée, la case 30 est au joueur.
+        let mislead = [
+            SourceReach {
+                start: 141,
+                max: None,
+            },
+            SourceReach {
+                start: 0,
+                max: Some(140),
+            },
+        ];
+        assert_eq!(owner_at(16, mislead), Some(1));
+        assert_eq!(owner_at(12, mislead), Some(1));
+        // Au-delà de la portée du feu follet, les joueurs debout reprennent la main.
+        assert_eq!(owner_at(30, mislead), Some(0));
+        // Les deux joueurs debout (décalage commun) se départagent comme avant : le décalage est neutre.
+        let shifted = [
+            SourceReach {
+                start: 141,
+                max: None,
+            },
+            SourceReach {
+                start: 141,
+                max: None,
+            },
+        ];
+        let plain = [SourceReach::default(); 2];
+        for x in [3, 8, 12, 18, 25, 35] {
+            assert_eq!(owner_at(x, shifted), owner_at(x, plain), "case {x}");
         }
     }
 }

@@ -16,6 +16,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{Fixed, FixedTransform3D, FixedVec2};
 use combat::actors::ExtraHealth;
+use combat::downed::{Reviving, Wisp};
 use combat::inventory::AmmoReserves;
 use combat::status::Statuses;
 use items::{Inventory, ItemKind, ItemTable, HEART_POINTS};
@@ -23,8 +24,10 @@ use run::floors::FloorState;
 use run::CurseDef;
 use sim_core::ammo::AmmoType;
 use utils::frame::FrameCount;
+use utils::net_id::GgrsNetId;
 use world::{RoomState, RoomStates};
 
+use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::health::Health;
 use crate::character::player::{LocalPlayer, Player};
 use crate::curses::CurseHides;
@@ -57,6 +60,7 @@ pub const PLAYER_SOURCES: &[&str] = &[
     "hearts",
     "coins",
     "item_banner",
+    "wisp",
 ];
 
 /// Durée d'affichage du bandeau d'un objet ramassé (source `item_banner`) : trois secondes.
@@ -339,6 +343,23 @@ pub struct HudPlayerValues {
     /// M3-T9 : ce que cette curse cache (déjà appliqué à `health` et `minimap` ; `item_names` est
     /// lu par le prompt de `ui::hud`).
     pub hides: CurseHides,
+    /// M-5 (§113) : source `wisp`, `None` sans feu follet concerné.
+    pub wisp: Option<HudWisp>,
+}
+
+/// Le feu follet du joueur affiché (M-5, `docs/conventions.md` §113) : lui-même (`own`), ou un coéquipier
+/// (`allies`) que le joueur affiché peut relever. Dérivé de l'état à chaque `Update`, jamais d'un événement.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct HudWisp {
+    /// Le joueur affiché est lui-même un feu follet.
+    pub own: bool,
+    /// Nombre de feux follets parmi les coéquipiers (joueur affiché debout).
+    pub allies: u32,
+    /// Relève par un coéquipier en cours : `(frames tenues, frames nécessaires)` ; pour le feu follet
+    /// affiché, ou pour celui que le joueur affiché relève.
+    pub revive: Option<(u32, u32)>,
+    /// Reprise à un point de reprise en cours : `(frames passées au point, frames nécessaires)`.
+    pub respawn: Option<(u32, u32)>,
 }
 
 /// L'état du joueur affiché, déjà lu dans l'ECS.
@@ -369,6 +390,8 @@ pub struct HudPlayerInput<'a> {
     pub curse: Option<(&'a str, &'a CurseDef)>,
     /// M3-T10 : noms des accomplissements obtenus à la fin de la run par le joueur affiché.
     pub achievements: Vec<String>,
+    /// M-5 (§113) : l'état « feu follet » du joueur affiché, déjà lu dans l'ECS.
+    pub wisp: Option<HudWisp>,
 }
 
 /// Les valeurs du HUD (pure).
@@ -502,6 +525,7 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
             .unwrap_or_default(),
         curse: input.curse.map(|(id, _)| id.to_string()),
         achievements: input.achievements.clone(),
+        wisp: input.wisp,
         hides,
     }
 }
@@ -559,6 +583,28 @@ pub fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) 
             )
         }),
         "item_banner" => values.item_banner.clone(),
+        // M-5 (§113) : « FEU FOLLET » (+ progression de la relève par un coéquipier et de la reprise à
+        // un point), ou, côté coéquipier debout, « Feu follet allié » (+ progression de sa relève).
+        "wisp" => values.wisp.map(|wisp| {
+            let percent = |(progress, total): (u32, u32)| {
+                (progress.saturating_mul(100) / total.max(1)).min(100)
+            };
+            let mut lines = vec![if wisp.own {
+                "FEU FOLLET".to_string()
+            } else {
+                match wisp.allies {
+                    0 | 1 => "Feu follet allié".to_string(),
+                    n => format!("Feux follets alliés : {n}"),
+                }
+            }];
+            if let Some(revive) = wisp.revive {
+                lines.push(format!("Relève {} %", percent(revive)));
+            }
+            if let Some(respawn) = wisp.respawn {
+                lines.push(format!("Reprise {} %", percent(respawn)));
+            }
+            lines.join("\n")
+        }),
         "curses" => values.curse.clone(),
         "achievements" => (!values.achievements.is_empty()).then(|| values.achievements.join("\n")),
         "blanks" => values.consumables.map(|counts| counts[0].to_string()),
@@ -659,6 +705,19 @@ pub(crate) struct HudPlayerState<'w, 's> {
     items: Query<'w, 's, &'static Inventory>,
     positions: Query<'w, 's, &'static FixedTransform3D, With<Player>>,
     item_table: Option<Res<'w, ItemTable>>,
+    /// M-5 (§113) : feux follets et relèves, pour la source `wisp`.
+    wisp_players: Query<
+        'w,
+        's,
+        (
+            &'static GgrsNetId,
+            Option<&'static Wisp>,
+            Option<&'static Reviving>,
+            Option<&'static CharacterConfigKey>,
+        ),
+        With<Player>,
+    >,
+    character_configs: Res<'w, CharacterConfigs>,
     geometry: Res<'w, HudRoomGeometry>,
     room_states: Option<Res<'w, RoomStates>>,
     visits: Res<'w, MinimapVisits>,
@@ -844,6 +903,7 @@ pub(crate) fn update_hud_snapshot(
             .and_then(|e| state.positions.get(e).ok())
             .map(|transform| FixedVec2::new(transform.translation.x, transform.translation.y)),
         frame: frame.frame,
+        wisp: player.and_then(|e| wisp_input(&state, e)),
         achievements: earned
             .as_deref()
             .zip(hud_player.handle())
@@ -862,6 +922,46 @@ pub(crate) fn update_hud_snapshot(
     if *snapshot != next {
         *snapshot = next;
     }
+}
+
+/// L'état « feu follet » du joueur affiché (M-5, §113), dérivé de l'ECS : lui-même feu follet (relève
+/// par un coéquipier, reprise à un point), ou debout avec des coéquipiers feux follets (la relève qu'il
+/// mène). `None` sans feu follet concerné.
+fn wisp_input(state: &HudPlayerState, displayed: Entity) -> Option<HudWisp> {
+    let revive_frames = |key: Option<&CharacterConfigKey>| {
+        key.and_then(|key| state.character_configs.get(&key.0))
+            .map_or(180, |config| config.revive_frames)
+    };
+    let (net_id, wisp, reviving, key) = state.wisp_players.get(displayed).ok()?;
+    if let Some(wisp) = wisp {
+        return Some(HudWisp {
+            own: true,
+            allies: 0,
+            revive: reviving.map(|r| (r.progress_frames, revive_frames(key))),
+            respawn: wisp
+                .respawn_frames
+                .filter(|_| wisp.respawn_progress > 0)
+                .map(|needed| (wisp.respawn_progress, needed)),
+        });
+    }
+    let mut allies = 0;
+    let mut revive: Option<(u32, u32)> = None;
+    for (_, other, other_reviving, other_key) in &state.wisp_players {
+        if other.is_none() {
+            continue;
+        }
+        allies += 1;
+        if let Some(reviving) = other_reviving.filter(|r| r.by == *net_id) {
+            let progress = (reviving.progress_frames, revive_frames(other_key));
+            revive = revive.max(Some(progress));
+        }
+    }
+    (allies > 0).then_some(HudWisp {
+        own: false,
+        allies,
+        revive,
+        respawn: None,
+    })
 }
 
 /// Le snapshot de `values` (pur).
@@ -1484,5 +1584,41 @@ mod tests {
         let other = Entity::from_raw_u32(2).unwrap();
         state.observe(other, &inventory, 40);
         assert_eq!(state.current(40), None);
+    }
+
+    /// M-5 (§113) : la source `wisp` dit « FEU FOLLET » au feu follet (avec la relève par un coéquipier et la
+    /// reprise à un point), « Feu follet allié » à son coéquipier debout, et rien sans feu follet.
+    #[test]
+    fn wisp_source_texts() {
+        let text = |wisp: Option<HudWisp>| {
+            let values = hud_values(&HudPlayerInput { wisp, ..default() });
+            player_source_text("wisp", "", &values).expect("source connue")
+        };
+        assert_eq!(text(None), "");
+        let own = HudWisp {
+            own: true,
+            ..default()
+        };
+        assert_eq!(text(Some(own)), "FEU FOLLET");
+        assert_eq!(
+            text(Some(HudWisp {
+                revive: Some((45, 180)),
+                respawn: Some((90, 90)),
+                ..own
+            })),
+            "FEU FOLLET\nRelève 25 %\nReprise 100 %"
+        );
+        let ally = HudWisp {
+            allies: 1,
+            ..default()
+        };
+        assert_eq!(text(Some(ally)), "Feu follet allié");
+        assert_eq!(
+            text(Some(HudWisp {
+                revive: Some((90, 180)),
+                ..ally
+            })),
+            "Feu follet allié\nRelève 50 %"
+        );
     }
 }

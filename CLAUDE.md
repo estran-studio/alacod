@@ -502,6 +502,9 @@ ou d'un crate à l'autre, avec les traces de scénario.
       graine) et décomptes `champion_tue`, `rocher`, `curse`, `portail` de `mechanics` ; scénarios `isaac_full_run`,
       `isaac_devil_run`, `isaac_curse_run`, `isaac_duo`, `isaac_quad`.
     - M2-T11 surfaces v2 (§46) : `EntityCount(kind: Barrel | Table)`.
+    - M-5 cœur à deux (§113) : aucune attente nouvelle (`PlayerDowned`, `PlayerRevived`, `PlayerAlive`, `PlayerDead`, `PlayerPosition`, `Defeat`, `EnemyDistance`, `Health`
+      et `HudText` couvrent les huit scénarios `wisp_*`) ; `HudText(source: "wisp")` lit « FEU FOLLET » / « Reprise 40 % » / « Feu follet allié » ; champ de scénario
+      `Scenario::respawn_points` (points de reprise du feu follet : `(x, y, range, at_frame)`), `character: "wisp_*"` par joueur ; la mort en solo reste la mort.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
       clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :
@@ -772,6 +775,9 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
 - `achievements` (M3-T10, §75) : accomplissements obtenus **à cette fin de run** par le joueur affiché (nom du contenu, une ligne
   chacun) ; vide en cours de partie. L'écran de fin les liste sous le résumé. Évalués hors simulation à `Ended`, une fois la fin
   confirmée (`game::profile`), jamais dans `GgrsSchedule` ; la simulation n'écrit que `RunHistory` (rollback sans checksum).
+- `wisp` (M-5, §113) : état « feu follet » du joueur affiché : « FEU FOLLET » + « Relève 40 % » (par un coéquipier) + « Reprise 40 % » (à un point de reprise) quand il est
+  tombé en feu follet ; « Feu follet allié » (+ « Relève 40 % » qu'il mène) pour son coéquipier debout ; vide sinon. Mode en données du personnage (`wisp: Some(..)`),
+  jamais un nombre de l'engine.
 - `hearts` (M3-T16, §81) : `Health` + `ExtraHealth` en demi-cœurs (1 PV = ½ cœur, `items::HEART_POINTS`), texte
   « 2,5 / 3 · âme 1 » ; widget `Hearts(source)` (rangée de carrés, demi-cœur à moitié rempli, passe à la ligne,
   couleurs `icons.heart` / `soul_heart` / `heart_empty`) ; vide sous `HideHealth`.

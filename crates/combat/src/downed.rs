@@ -23,6 +23,7 @@ use bevy::prelude::Component;
 use bevy_fixed::fixed_math::{self, Fixed};
 use serde::{Deserialize, Serialize};
 use sim_core::modifier::ModifierSource;
+use sim_core::wisp::{WispDef, WispLure};
 use utils::net_id::GgrsNetId;
 
 /// Un joueur à terre. Posé par `character::health::rollback_apply_accumulated_damage`
@@ -59,6 +60,55 @@ pub struct Reviving {
     /// Frames d'interaction maintenue accumulées. À `CharacterConfig::revive_frames`
     /// (résolu sur le joueur à terre, pas sur celui qui réanime) : réanimation complète.
     pub progress_frames: u32,
+}
+
+/// Feu follet (M-5, `docs/conventions.md` §113) : posé **avec** `Downed` quand le personnage tombé
+/// porte `wisp: Some(..)` (`sim_core::wisp::WispDef`), retiré avec lui. **Aucun champ n'est ajouté à
+/// `Downed`** : son hash, donc les traces de tout jeu sans feu follet, ne bouge pas. Rollback +
+/// trace en variante **neutre** (`RollbackTraceApp::rollback_and_trace_neutral`) : sans porteur,
+/// contribution nulle au checksum.
+///
+/// Copie résolue de la donnée à la chute (un rechargement du contenu en cours de partie ne change
+/// pas un feu follet déjà tombé), pour que les systèmes de ciblage des ennemis n'aient pas besoin
+/// de `CharacterConfigs`.
+#[derive(Component, Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Wisp {
+    /// Leurre des ennemis (`None` : ignoré d'eux).
+    pub lure: Option<WispLure>,
+    /// Frames à passer dans la portée d'un point de reprise pour se relever (`None` : pas de reprise).
+    pub respawn_frames: Option<u32>,
+    /// Fraction de `Health.max` rendue à la reprise.
+    pub respawn_health: Fixed,
+    /// Frames consécutives passées dans la portée d'un point de reprise (retombe à 0 hors portée).
+    pub respawn_progress: u32,
+}
+
+impl Wisp {
+    /// L'état initial d'un feu follet qui vient de tomber.
+    pub fn from_def(def: &WispDef) -> Self {
+        Self {
+            lure: def.lure,
+            respawn_frames: def.respawn_frames,
+            respawn_health: def.respawn_health,
+            respawn_progress: 0,
+        }
+    }
+}
+
+/// Un feu follet leurre-t-il les ennemis ? Prend l'`Option<&Wisp>` d'un joueur (les requêtes des
+/// systèmes de ciblage lisent `Has<Downed>` et `Option<&Wisp>`) ; `false` sans `Wisp`.
+pub fn is_decoy(wisp: Option<&Wisp>) -> bool {
+    wisp.is_some_and(|wisp| wisp.lure.is_some())
+}
+
+/// Point de reprise (M-5, §113) : un feu follet qui y reste `Wisp::respawn_frames` frames se relève
+/// (« le prochain camp, le prochain feu »). Posé par la carte (entité LDtk `RespawnPoint`) ou par un
+/// placement de contenu (`content::sandbox::RespawnPlacement`). Immobile : rollback neutre, comme
+/// les autres entités de carte (`game::hub::HubStation`).
+#[derive(Component, Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RespawnPoint {
+    /// Distance (unités monde) sous laquelle un feu follet « est au point ».
+    pub range: Fixed,
 }
 
 /// Source du modificateur de vitesse posé pendant qu'un joueur est à terre (`StatId::MoveSpeed`,

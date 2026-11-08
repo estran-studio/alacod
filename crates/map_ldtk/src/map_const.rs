@@ -15,6 +15,10 @@ pub const ENTITY_SODA_LOCATION: &str = "SodaLocation";
 /// Station du hub (M2-T13, `docs/conventions.md` §57) ; champ `service` : id de `hub/<id>.ron`.
 pub const ENTITY_HUB_STATION: &str = "HubStation";
 pub const FIELD_SERVICE_NAME: &str = "service";
+/// Point de reprise du feu follet (M-5, `docs/conventions.md` §113) ; champ optionnel `range` (flottant,
+/// unités monde) : sinon la moitié du plus grand côté de l'entité dessinée.
+pub const ENTITY_RESPAWN_POINT: &str = "RespawnPoint";
+pub const FIELD_RANGE_NAME: &str = "range";
 /// Objets de décor (M2-T11, `docs/conventions.md` §46) : table renversable et baril explosif.
 /// Champ optionnel `prop` : id de l'objet (`props/<id>.ron`), par défaut `table` / `barrel`.
 pub const ENTITY_TABLE: &str = "Table";

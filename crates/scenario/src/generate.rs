@@ -1354,6 +1354,7 @@ pub fn build_enemy_scenario(
             variant: None,
             team: None,
         }],
+        respawn_points: vec![],
         mode: arena.mode,
         ui: Vec::new(),
     }
@@ -1708,6 +1709,7 @@ fn base_scenario(
         difficulty: None,
         progression: None,
         characters: vec![],
+        respawn_points: vec![],
         mode: None,
         chests: vec![],
         room_reward_chance_override: None,
@@ -1912,6 +1914,7 @@ pub fn build_weapon_scenario(
         clocks: None,
         difficulty: None,
         characters: vec![],
+        respawn_points: vec![],
         mode: arena.mode,
         ui: Vec::new(),
     }

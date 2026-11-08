@@ -1,0 +1,28 @@
+// M-5 (docs/conventions.md § 113) : la portée du leurre est une donnée. Même partie que `wisp_attract_pulls` avec
+// `wisp_attract_short` (`Attract(range: "40.0")`) : le suiveur est à 190 unités du feu follet, hors de sa portée, et va vers le
+// joueur debout comme sans leurre.
+//
+// À regarder : le suiveur ignore la lumière du joueur 1 et rejoint le joueur 0.
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 520,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    characters: [(character: "follower", x: "560.0", y: "520.0", at_frame: 120)],
+    players: [
+        (
+            character: "wisp_plain",
+            inputs: [
+                (from: 10, to: 110, buttons: [Fire], pan: (100, 0)),
+                (from: 110, to: 150, buttons: [Left]),
+            ],
+        ),
+        (character: "wisp_attract_short"),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 130),
+        EnemyDistance(entity: Placed(0), target: Player(0), max: Some(50.0), at_frame: 510),
+        EnemyDistance(entity: Placed(0), target: Player(1), min: Some(120.0), at_frame: 510),
+    ],
+)

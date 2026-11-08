@@ -6,7 +6,7 @@ use bevy_fixed::fixed_math;
 use bevy_ggrs::Rollback;
 use combat::actors::{ExtraHealth, Shield, SHIELD_IFRAMES};
 use combat::damage::{apply_layers, resolve_damage, Defenses, Layered};
-use combat::downed::{downed_modifier_source, Downed, Reviving};
+use combat::downed::{downed_modifier_source, Downed, RespawnPoint, Reviving, Wisp};
 use ggrs::PlayerHandle;
 use run::{Run, RunEnd, RunStep};
 use serde::{Deserialize, Serialize};
@@ -454,10 +454,22 @@ pub fn rollback_apply_accumulated_damage(
                 if players_count.0 > 1 && other_standing {
                     let player = opt_player.expect("other_standing implique un Player");
                     let config = opt_config_key.and_then(|key| character_configs.get(&key.0));
-                    let bleedout_frames =
-                        config.map_or(FALLBACK_BLEEDOUT_FRAMES, |c| c.bleedout_frames);
-                    let downed_speed_mult =
-                        config.map_or_else(|| fixed_math::new(0.3), |c| c.downed_speed_mult);
+                    // Feu follet (M-5, §113) : la donnée du personnage remplace le saignement et la
+                    // vitesse de l'état à terre ; absente, `Downed` seul, comme avant.
+                    let wisp_def = config.and_then(|c| c.wisp);
+                    let bleedout_frames = match wisp_def {
+                        // Sans saignement : la frame de mort n'arrive jamais.
+                        Some(def) => def.bleedout_frames,
+                        None => {
+                            Some(config.map_or(FALLBACK_BLEEDOUT_FRAMES, |c| c.bleedout_frames))
+                        }
+                    };
+                    let downed_speed_mult = match wisp_def {
+                        Some(def) => def.speed_mult,
+                        None => {
+                            config.map_or_else(|| fixed_math::new(0.3), |c| c.downed_speed_mult)
+                        }
+                    };
 
                     // Gelée à exactement 0 (pas laissée à la valeur négative du
                     // `saturating_sub` ci-dessus) : l'invariant `sante_bornee`
@@ -470,13 +482,17 @@ pub fn rollback_apply_accumulated_damage(
                     commands.entity(entity).insert((
                         Downed {
                             since_frame: frame.frame,
-                            bleedout_at_frame: frame.frame + bleedout_frames,
+                            bleedout_at_frame: bleedout_frames
+                                .map_or(u32::MAX, |frames| frame.frame + frames),
                         },
                         Interactable {
                             interaction_range: combat::downed::revive_range(),
                             interaction_type: InteractionType::Revive,
                         },
                     ));
+                    if let Some(def) = &wisp_def {
+                        commands.entity(entity).insert(Wisp::from_def(def));
+                    }
 
                     if let Some(mut modifiers) = opt_modifiers {
                         modifiers.push_from(
@@ -489,10 +505,11 @@ pub fn rollback_apply_accumulated_damage(
                     }
 
                     info!(
-                        "{} downed (player {}, bleedout at frame {})",
+                        "{} downed (player {}, bleedout at frame {}{})",
                         g_id,
                         player.handle,
-                        frame.frame + bleedout_frames
+                        bleedout_frames.map_or(u32::MAX, |frames| frame.frame + frames),
+                        if wisp_def.is_some() { ", wisp" } else { "" }
                     );
                 } else {
                     // T2.3, chantier C5 v1 : kill (entité qui meurt directement, jamais un
@@ -555,9 +572,84 @@ pub fn rollback_apply_bleedout(
         commands
             .entity(entity)
             .remove::<Downed>()
+            .remove::<Wisp>()
             .remove::<Reviving>()
             .remove::<Interactable>()
             .insert(Death { last_hit_by: None });
+    }
+}
+
+/// Feu follet (M-5, §113) : un feu follet qui reste `Wisp::respawn_frames` frames consécutives dans
+/// la portée d'un point de reprise (`combat::downed::RespawnPoint`) se relève, **sans** coéquipier :
+/// `Downed`, `Wisp`, `Reviving`, `Interactable` et le modificateur de vitesse sont retirés,
+/// `Health.current = max × Wisp::respawn_health`. Hors de portée, la progression retombe à 0.
+/// Sans point ni feu follet la boucle ne fait rien (aucune trace ne bouge).
+///
+/// `RollbackSystemSet::DeathManagement`, après `rollback_apply_bleedout`, avant la régénération et
+/// `rollback_check_defeat` (un feu follet repris cette frame n'est plus à terre : pas de défaite).
+pub fn rollback_wisp_respawn(
+    frame: Res<FrameCount>,
+    mut commands: Commands,
+    points: Query<
+        (&GgrsNetId, &fixed_math::FixedTransform3D, &RespawnPoint),
+        (With<Rollback>, Without<Wisp>),
+    >,
+    mut wisps: Query<
+        (
+            &GgrsNetId,
+            Entity,
+            &fixed_math::FixedTransform3D,
+            &mut Wisp,
+            &mut Health,
+            Option<&mut Modifiers>,
+        ),
+        (With<Rollback>, With<Downed>),
+    >,
+) {
+    if wisps.is_empty() {
+        return;
+    }
+    let system_span = span!(Level::INFO, "ggrs", f = frame.frame, s = "wisp_respawn");
+    let _enter = system_span.enter();
+
+    let points: Vec<(fixed_math::FixedVec2, fixed_math::Fixed)> = order_iter!(points)
+        .into_iter()
+        .map(|(_, transform, point)| (transform.translation.truncate(), point.range))
+        .collect();
+
+    for (g_id, entity, transform, mut wisp, mut health, opt_modifiers) in order_mut_iter!(wisps) {
+        let Some(needed) = wisp.respawn_frames else {
+            continue;
+        };
+        let here = transform.translation.truncate();
+        let at_point = points
+            .iter()
+            .any(|(position, range)| here.distance(position) <= *range);
+        if !at_point {
+            if wisp.respawn_progress != 0 {
+                wisp.respawn_progress = 0;
+            }
+            continue;
+        }
+        wisp.respawn_progress += 1;
+        if wisp.respawn_progress < needed {
+            continue;
+        }
+
+        if let Some(mut modifiers) = opt_modifiers {
+            modifiers.remove_by_source(&downed_modifier_source());
+        }
+        health.current = health.max.saturating_mul(wisp.respawn_health);
+        commands
+            .entity(entity)
+            .remove::<Downed>()
+            .remove::<Wisp>()
+            .remove::<Reviving>()
+            .remove::<Interactable>();
+        info!(
+            "{} respawned at a respawn point (health {})",
+            g_id, health.current
+        );
     }
 }
 

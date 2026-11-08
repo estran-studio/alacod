@@ -1,0 +1,34 @@
+// M-5 (docs/conventions.md § 113) : le feu follet se relève à un point de reprise, sans coéquipier. Même mise en place que
+// `wisp_revive_by_mate` (le joueur 1 abat le joueur 0 jusqu'à f110) mais le joueur 1 ne relève personne. Le feu follet
+// (joueur 0, `wisp_plain` : se déplace à pleine vitesse, reprise après 90 frames dans la portée d'un point de reprise) marche
+// vers l'ouest (f115-140) jusqu'au point posé par `respawn_points` (portée 24).
+//
+// À regarder : la lumière du joueur 0 glisse vers l'anneau du point de reprise (f115-140) ; un arc se referme autour de
+// lui pendant 90 frames (texte « Reprise … % ») ; il se relève avec la moitié de sa vie (`respawn_health` 0,5).
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 320,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    respawn_points: [(x: "355.0", y: "696.0", range: "24.0")],
+    players: [
+        (
+            character: "wisp_plain",
+            inputs: [(from: 115, to: 140, buttons: [Left])],
+        ),
+        (
+            character: "wisp_plain",
+            inputs: [(from: 10, to: 110, buttons: [Fire], pan: (-100, 0))],
+        ),
+    ],
+    expect: [
+        PlayerDowned(handle: 0, at_frame: 115),
+        PlayerPosition(handle: 0, x: 361.0, y: 696.0, tolerance: 20.0, at_frame: 150),
+        HudText(source: "wisp", contains: "Reprise", at_frame: 200),
+        PlayerRevived(handle: 0, by_frame: 280),
+        PlayerAlive(handle: 0, at_frame: 319),
+        HudText(source: "wisp", empty: true, at_frame: 319),
+        HudText(source: "health", contains: "50/100", at_frame: 319),
+    ],
+)

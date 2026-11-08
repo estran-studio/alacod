@@ -313,6 +313,8 @@ impl Plugin for PresentationPlugin {
         app.add_plugins(crate::interaction_view::InteractionPresentationPlugin);
         app.add_plugins(crate::waves::debug::WaveDebugPlugin);
         app.add_plugins(crate::powerup_visuals::PowerUpVisualPlugin);
+        // M-5 (§113) : feu follet et points de reprise, dérivés de l'état.
+        app.add_plugins(crate::wisp_visuals::WispVisualPlugin);
         app.add_plugins(crate::world_sprites::WorldSpritePlugin);
         // R-1 (§111) : ce qui bouge rendu en 3D « façon sprite » (jeux qui déclarent un fichier `Model`).
         app.add_plugins(crate::model3d::ModelRenderPlugin);

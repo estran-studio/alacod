@@ -202,6 +202,13 @@ pub struct CharacterConfig {
     #[serde(default = "default_downed_speed_mult")]
     pub downed_speed_mult: fixed_math::Fixed,
 
+    /// Feu follet (M-5, `docs/conventions.md` §113) : quand ce **joueur** tombe à terre (coop, un
+    /// autre joueur debout), il reste une lumière qui se déplace, leurre les ennemis et se relève
+    /// par un coéquipier ou à un point de reprise (`sim_core::wisp::WispDef`). `None` (défaut) :
+    /// l'état `Downed` ordinaire, inchangé pour tout le contenu existant.
+    #[serde(default)]
+    pub wisp: Option<sim_core::wisp::WispDef>,
+
     /// Emplacements d'armes à distance (T2.2, chantier B7 « Munitions typées et inventaire
     /// d'armes ») : au-delà, ramasser une arme remplace l'arme active plutôt que
     /// l'ajouter — voir `interaction::handle_weapon_pickup_interaction`. Défaut 2. Le

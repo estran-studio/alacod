@@ -1,0 +1,50 @@
+// M-5 (docs/conventions.md § 113) : personnage joueur du testbed pour le mode « feu follet » — feu follet sans leurre (les ennemis l'ignorent), relevé par un coéquipier ou après 90 frames à un point de reprise.
+// Joué par `PlayerScript::character` (scénarios `wisp_*`). Neutre : aucun contenu de jeu. Copie du joueur du
+// testbed (mouvement, santé, collider) sans sprite : les personnages de laboratoire n'en ont pas.
+(
+    movement: (
+        acceleration: "3000.0",
+        max_speed: "150.0",
+        deceleration: "3000.0",
+        sprint_multiplier: "2.0",
+        sprint_acceleration_per_frame: "0.1",
+        sprint_deceleration_per_frame: "0.2",
+        dash_distance: "64.0",
+        dash_duration_frames: 8,
+        dash_cooldown_frames: 24,
+        dash_iframes: 6,
+        dash_buffer_frames: 8,
+    ),
+
+    asset_name_ref: "wisp_plain",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "100.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    weapon_slots: 1,
+    starting_weapons: ["machine_gun"],
+
+    // Relève par un coéquipier : 60 frames d'interaction tenue.
+    revive_frames: 60,
+    wisp: Some((
+        speed_mult: "1.0",
+        respawn_frames: Some(90),
+        respawn_health: "0.5",
+    )),
+)

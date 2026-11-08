@@ -1,0 +1,36 @@
+// M-5 (docs/conventions.md § 113) : un joueur tombé devient un feu follet (il se relève par un coéquipier). Carte vide
+// `testbed/arene_vide.ldtk` : le joueur 0 (à l'ouest) et le joueur 1 (64 unités à l'est) jouent `wisp_plain` (relève :
+// 60 frames d'interaction tenue, pas de saignement). Le joueur 1 tire sur le joueur 0 (tir ami `Always`) jusqu'à le
+// mettre à 0 PV : comme le joueur 1 est debout, le joueur 0 tombe à terre en feu follet au lieu de mourir. Le joueur 1
+// s'approche (f110-125) puis maintient Interaction (f130-220).
+//
+// À regarder : le joueur 0 tombe vers f100 (lumière chaude, texte « FEU FOLLET » du HUD) ; sa relève avance de 0 à 100 %
+// (f130-190) ; il se relève avec 30 % de sa vie et le texte disparaît.
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 300,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    players: [
+        (character: "wisp_plain"),
+        (
+            character: "wisp_plain",
+            inputs: [
+                (from: 10, to: 110, buttons: [Fire], pan: (-100, 0)),
+                (from: 110, to: 125, buttons: [Left]),
+                (from: 130, to: 220, buttons: [Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerDowned(handle: 0, at_frame: 115),
+        HudText(source: "wisp", contains: "FEU FOLLET", at_frame: 120),
+        HudText(source: "health", contains: "0/100", at_frame: 120),
+        HudText(source: "wisp", contains: "Relève", at_frame: 170),
+        PlayerRevived(handle: 0, by_frame: 220),
+        PlayerAlive(handle: 0, at_frame: 299),
+        HudText(source: "wisp", empty: true, at_frame: 299),
+        HudText(source: "health", contains: "30/100", at_frame: 299),
+    ],
+)
