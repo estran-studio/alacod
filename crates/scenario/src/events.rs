@@ -170,6 +170,7 @@ impl Plugin for GameEventsPlugin {
                     chest_events.after(detect_events),
                     unlock_events.after(detect_events).after(hub_events),
                     lock_events.after(detect_events),
+                    key_events.after(detect_events),
                     curse_events.after(detect_events),
                     verb_events.after(detect_events),
                 ),
@@ -635,6 +636,33 @@ fn boss_events(
                 "boss {} : phase {} → {}",
                 change.net_id, change.from, change.to
             ),
+        });
+    }
+}
+
+/// Moments clés des clés d'équipe (X-6a1, `docs/conventions.md` §117) : `key_pickup` (clé ramassée), `key_door`
+/// (porte ouverte, clé consommée), `key_door_open` (porte ouverte, clé gardée) et `key_refused` (porte
+/// verrouillée touchée sans la clé). Relus de la file de la frame (`run::KeyEvent`, bornée à sa frame d'émission
+/// comme `CurrencyEvent`) : le HUD, lui, se dérive de `TeamKeys`.
+fn key_events(
+    frame: Res<FrameCount>,
+    keys: Option<Res<FrameEvents<run::KeyEvent>>>,
+    mut events: ResMut<GameEvents>,
+) {
+    let Some(keys) = keys else {
+        return;
+    };
+    for event in keys.iter() {
+        let (kind, what) = match event.reason.as_str() {
+            "pickup" => ("key_pickup", "ramasse"),
+            "door" => ("key_door", "ouvre une porte (clé consommée)"),
+            "door_open" => ("key_door_open", "ouvre une porte (clé gardée)"),
+            _ => ("key_refused", "touche une porte verrouillée sans clé"),
+        };
+        events.events.push(GameEvent {
+            frame: frame.frame,
+            kind,
+            label: format!("joueur {} {what} : clé {}", event.handle, event.key),
         });
     }
 }

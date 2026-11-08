@@ -1,0 +1,55 @@
+// Personnage de laboratoire X-6a1 (testbed, `docs/conventions.md` §117) : un mannequin immobile (comme `dummy`, 3 PV) qui
+// **porte une clé d'équipe** (`carries_key`) : à sa mort il la lâche au sol (`items::KeyPickup`), que l'un ou l'autre
+// joueur ramasse au contact vers `run::TeamKeys` (état partagé). La clé `cle_test` ouvre la porte des cartes
+// `testbed/portes_cle.ldtk` (clé consommée) et `testbed/portes_cle_gardee.ldtk` (clé gardée). Ni arme, ni poursuite.
+// Peu de vie (`base_health.max`) pour qu'un seul tir de la `larme` (3,5 de dégâts) le tue.
+(
+    movement: (
+        acceleration: "0.0",
+        max_speed: "0.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "porteur_cle",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "3.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    carries_key: Some("cle_test"),
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("0.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: Some(true),
+    )),
+)

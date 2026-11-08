@@ -1,0 +1,35 @@
+// X-6a1 (§117) : la serrure garde la clé quand sa donnée le dit. Carte `testbed/portes_cle_gardee.ldtk` (`lock_consume: false`) : même
+// partie que `key_carrier_coop`, en solo : le joueur tue le porteur, ramasse la clé en marchant vers la porte et l'ouvre. Contrairement à la
+// clé consommée, la clé reste dans l'état d'équipe (`TeamKeys` = 1, moment clé `key_door_open`, pas `key_door`) : une seconde porte du
+// même identifiant s'ouvrirait de même.
+//
+// À regarder : après l'ouverture, le HUD des clés d'équipe affiche encore `cle_test`.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/portes_cle_gardee.ldtk",
+    frames: 420,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "larme",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+                (from: 100, to: 260, buttons: [Right]),
+                (from: 260, to: 400, buttons: [Right, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        MapDoor(nth: 0, state: Locked, at_frame: 60),
+        KeyPiles(count: 1, at_frame: 60),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 160),
+        MapDoor(nth: 0, state: Open, at_frame: 410),
+        MapDoor(nth: 1, state: Open, at_frame: 410),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 410),
+        Event(kind: "key_door_open", label_contains: Some("cle_test"), by_frame: 410),
+        HudText(source: "team_keys", contains: "cle_test", at_frame: 410),
+    ],
+)

@@ -51,6 +51,7 @@ pub const HUD_SOURCES: &[&str] = &[
     "coins",
     "item_banner",
     "wisp",
+    "team_keys",
 ];
 
 /// Options RON de lecture du HUD, celles du chargeur du jeu (`game::ui::hud::HudConfigLoader`, `Some` implicite :

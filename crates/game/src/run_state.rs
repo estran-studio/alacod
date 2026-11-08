@@ -597,6 +597,8 @@ fn cleanup_rollback_world_system(
     commands.insert_resource(world::RoomStates::default());
     commands.insert_resource(world::ArenaClocks::default());
     commands.insert_resource(world::DoorLocks::default());
+    // X-6a1 (§117) : les clés d'équipe valent pour une run.
+    commands.insert_resource(run::TeamKeys::default());
     // T1.9 : horloges et difficulté de la partie suivante repartent de zéro.
     commands.insert_resource(run::Clock::default());
     // M3-T0e (§64) : curses et objets sortis des pools à épuisement valent pour une run.

@@ -828,6 +828,18 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             }
         }
 
+        // Clé portée (X-6a1, §117) : un id vide ne désignerait aucune serrure.
+        if character.carries_key.as_deref() == Some("") {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : champ carries_key = \"\" : doit être non vide",
+                    character.id
+                ),
+            });
+        }
+
         // Hors plage (T2.2, chantier B7) : zéro emplacement bloquerait tout ramassage
         // d'arme (voir `interaction::handle_weapon_pickup_interaction`).
         if character.weapon_slots == 0 {

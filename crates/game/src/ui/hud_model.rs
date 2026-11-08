@@ -61,6 +61,7 @@ pub const PLAYER_SOURCES: &[&str] = &[
     "coins",
     "item_banner",
     "wisp",
+    "team_keys",
 ];
 
 /// Durée d'affichage du bandeau d'un objet ramassé (source `item_banner`) : trois secondes.
@@ -345,6 +346,9 @@ pub struct HudPlayerValues {
     pub hides: CurseHides,
     /// M-5 (§113) : source `wisp`, `None` sans feu follet concerné.
     pub wisp: Option<HudWisp>,
+    /// X-6a1 (§117) : clés tenues par l'équipe (`run::TeamKeys`), `(id, nombre)` dans l'ordre des ids
+    /// (source `team_keys`, une ligne par id) ; vide sans clé.
+    pub team_keys: Vec<(String, u32)>,
 }
 
 /// Le feu follet du joueur affiché (M-5, `docs/conventions.md` §113) : lui-même (`own`), ou un coéquipier
@@ -392,6 +396,8 @@ pub struct HudPlayerInput<'a> {
     pub achievements: Vec<String>,
     /// M-5 (§113) : l'état « feu follet » du joueur affiché, déjà lu dans l'ECS.
     pub wisp: Option<HudWisp>,
+    /// X-6a1 (§117) : clés d'équipe, lues sur la ressource (aucune par joueur).
+    pub team_keys: Option<&'a run::TeamKeys>,
 }
 
 /// Les valeurs du HUD (pure).
@@ -526,6 +532,10 @@ pub fn hud_values(input: &HudPlayerInput) -> HudPlayerValues {
         curse: input.curse.map(|(id, _)| id.to_string()),
         achievements: input.achievements.clone(),
         wisp: input.wisp,
+        team_keys: input
+            .team_keys
+            .map(|keys| keys.0.iter().map(|(id, n)| (id.clone(), *n)).collect())
+            .unwrap_or_default(),
         hides,
     }
 }
@@ -604,6 +614,18 @@ pub fn player_source_text(source: &str, prefix: &str, values: &HudPlayerValues) 
                 lines.push(format!("Reprise {} %", percent(respawn)));
             }
             lines.join("\n")
+        }),
+        // X-6a1 (§117) : « cle_a » (une clé) ou « cle_a ×2 », une ligne par id tenu.
+        "team_keys" => (!values.team_keys.is_empty()).then(|| {
+            values
+                .team_keys
+                .iter()
+                .map(|(id, n)| match n {
+                    0 | 1 => id.clone(),
+                    n => format!("{id} ×{n}"),
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
         }),
         "curses" => values.curse.clone(),
         "achievements" => (!values.achievements.is_empty()).then(|| values.achievements.join("\n")),
@@ -847,6 +869,7 @@ pub(crate) fn update_hud_snapshot(
     curse_table: Option<Res<crate::curses::CurseTable>>,
     earned: Option<Res<crate::profile::AchievementsEarned>>,
     achievements: Option<Res<meta::Achievements>>,
+    team_keys: Res<run::TeamKeys>,
 ) {
     let player = hud_player.entity();
     let weapon =
@@ -904,6 +927,7 @@ pub(crate) fn update_hud_snapshot(
             .map(|transform| FixedVec2::new(transform.translation.x, transform.translation.y)),
         frame: frame.frame,
         wisp: player.and_then(|e| wisp_input(&state, e)),
+        team_keys: Some(&team_keys),
         achievements: earned
             .as_deref()
             .zip(hud_player.handle())

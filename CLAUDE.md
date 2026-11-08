@@ -505,6 +505,9 @@ ou d'un crate à l'autre, avec les traces de scénario.
     - M-5 cœur à deux (§113) : aucune attente nouvelle (`PlayerDowned`, `PlayerRevived`, `PlayerAlive`, `PlayerDead`, `PlayerPosition`, `Defeat`, `EnemyDistance`, `Health`
       et `HudText` couvrent les huit scénarios `wisp_*`) ; `HudText(source: "wisp")` lit « FEU FOLLET » / « Reprise 40 % » / « Feu follet allié » ; champ de scénario
       un personnage à `respawn_range` (balise `respawn_beacon`, posée par `characters`) est un point de reprise du feu follet, `character: "wisp_*"` par joueur ; la mort en solo reste la mort.
+    - X-6a1 portes à états et clé d'équipe (§117) : `MapDoor(nth, state: Closed | Locked | Open)` (porte de **carte**, triée par `GgrsNetId`),
+      `TeamKeys(key, count)` (`run::TeamKeys`), `KeyPiles(count)` (clés au sol, `items::KeyPickup`) ; moments clés `key_pickup`, `key_door`
+      (clé consommée), `key_door_open` (clé gardée) et `key_refused` ; `HudText(source: "team_keys")` lit les clés tenues ; personnage `carries_key`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
       clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :
@@ -778,6 +781,8 @@ Les sources du joueur sont calculées par `game::ui::hud_model` (`hud_values`, p
 - `wisp` (M-5, §113) : état « feu follet » du joueur affiché : « FEU FOLLET » + « Relève 40 % » (par un coéquipier) + « Reprise 40 % » (à un point de reprise) quand il est
   tombé en feu follet ; « Feu follet allié » (+ « Relève 40 % » qu'il mène) pour son coéquipier debout ; vide sinon. Mode en données du personnage (`wisp: Some(..)`),
   jamais un nombre de l'engine.
+- `team_keys` (X-6a1, §117) : clés tenues par **l'équipe** (`run::TeamKeys`, ramassées par n'importe quel joueur), une ligne par id (« cle_a », « cle_a ×2 ») ;
+  vide sans clé. Distincte de `keys` (consommable `key` du joueur affiché, salles d'`isaac`). Prompt d'une porte de carte à serrure : « Fermé — clé » sans la clé, « Ouvrir » avec.
 - `hearts` (M3-T16, §81) : `Health` + `ExtraHealth` en demi-cœurs (1 PV = ½ cœur, `items::HEART_POINTS`), texte
   « 2,5 / 3 · âme 1 » ; widget `Hearts(source)` (rangée de carrés, demi-cœur à moitié rempli, passe à la ligne,
   couleurs `icons.heart` / `soul_heart` / `heart_empty`) ; vide sous `HideHealth`.

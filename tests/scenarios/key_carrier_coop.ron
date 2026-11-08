@@ -1,0 +1,51 @@
+// X-6a1 (§117) : l'ennemi porteur est tué, la clé tombe, le JOUEUR 2 la ramasse, le JOUEUR 1 ouvre la porte (état d'équipe partagé).
+// Carte `testbed/portes_cle.ldtk`, personnage `porteur_cle` (`carries_key: Some("cle_test")`, immobile, 3 PV) placé entre les deux joueurs,
+// en avant. Le joueur 1 (handle 0) le tue d'un tir de `larme` ; à sa mort (`key_drop`) une `KeyPickup` tombe à sa position ; le joueur 2
+// (handle 1) marche dessus (`key_pickup`) : la clé entre dans `TeamKeys`, pas dans l'inventaire d'un joueur. Le joueur 1, qui n'a jamais
+// touché la clé, marche ensuite jusqu'à la porte et l'ouvre : la clé est consommée (`key_door`), la porte et sa jumelle sont `Open`.
+//
+// À regarder : le porteur tombe (f≈30), une clé reste au sol, le joueur 2 la ramasse (f≈90 ; le HUD des clés d'équipe affiche `cle_test`),
+// puis le joueur 1 passe devant la porte et l'ouvre (f≈260) ; le HUD des clés se vide.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/portes_cle.ldtk",
+    frames: 420,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-120", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "larme",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, -63)),
+                (from: 200, to: 260, buttons: [Right]),
+                (from: 260, to: 400, buttons: [Right, Interaction]),
+            ],
+        ),
+        (
+            inputs: [
+                (from: 70, to: 130, buttons: [Right]),
+            ],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 10),
+        KeyPiles(count: 0, at_frame: 10),
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 60),
+        KeyPiles(count: 1, at_frame: 60),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 60),
+        HudText(source: "team_keys", empty: true, at_frame: 60),
+        MapDoor(nth: 0, state: Locked, at_frame: 60),
+        KeyPiles(count: 0, at_frame: 160),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 160),
+        Event(kind: "key_pickup", label_contains: Some("joueur 1"), by_frame: 160),
+        HudText(source: "team_keys", contains: "cle_test", at_frame: 160),
+        MapDoor(nth: 0, state: Locked, at_frame: 160),
+        MapDoor(nth: 0, state: Open, at_frame: 410),
+        MapDoor(nth: 1, state: Open, at_frame: 410),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 410),
+        Event(kind: "key_door", label_contains: Some("joueur 0"), by_frame: 410),
+        HudText(source: "team_keys", empty: true, at_frame: 410),
+    ],
+)

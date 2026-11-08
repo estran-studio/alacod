@@ -285,6 +285,7 @@ mod tests {
             weapons: vec![],
             windows: vec![],
             character_spawns: vec![],
+            door_locks: vec![],
         }
     }
 

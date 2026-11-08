@@ -1,0 +1,31 @@
+// X-6a1 (§117) : la porte à serrure refuse sans clé. Carte `testbed/portes_cle.ldtk` : la porte de la première salle porte
+// `lock_key: "cle_test"` (champ LDtk, traverse la génération) ; sa jumelle, de l'autre salle, en hérite. Le joueur marche jusqu'à la
+// porte et appuie sur Interaction : l'équipe n'a aucune clé, la porte reste `Locked` (un collider, donc bloquante), rien n'est consommé ni
+// payé (une porte à serrure ne coûte pas d'argent), le refus est un moment clé (`key_refused`).
+//
+// À regarder : le joueur bute contre la porte, appuie sur Interaction (f100 à f240) : elle ne s'ouvre pas ; le HUD des clés d'équipe reste vide.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/portes_cle.ldtk",
+    frames: 260,
+    players: [
+        (
+            currency: 1000,
+            inputs: [
+                (from: 10, to: 100, buttons: [Right]),
+                (from: 100, to: 240, buttons: [Right, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        MapDoor(nth: 0, state: Locked, at_frame: 20),
+        MapDoor(nth: 1, state: Locked, at_frame: 20),
+        Event(kind: "key_refused", label_contains: Some("cle_test"), by_frame: 250),
+        MapDoor(nth: 0, state: Locked, at_frame: 250),
+        MapDoor(nth: 1, state: Locked, at_frame: 250),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 250),
+        Currency(handle: 0, max: 1000, at_frame: 250),
+        HudText(source: "team_keys", empty: true, at_frame: 250),
+    ],
+)

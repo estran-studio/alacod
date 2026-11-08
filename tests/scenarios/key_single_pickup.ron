@@ -1,0 +1,37 @@
+// X-6a1 (§117) : deux joueurs à portée de la même clé, un seul la ramasse. Le porteur est tué, la clé tombe entre les deux joueurs (à
+// égale distance, 16 de part et d'autre) ; ils avancent ensemble : à la même frame, les deux sont à portée. La clé n'est ramassée qu'une
+// fois (le joueur de plus petit `GgrsNetId`, le joueur 1 / handle 0, comme les douilles) : `TeamKeys` vaut 1, jamais 2, il ne reste aucune
+// clé au sol.
+//
+// À regarder : une clé tombe entre les deux joueurs, ils avancent, elle disparaît une seule fois (`key_pickup` du joueur 0 seulement).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/portes_cle.ldtk",
+    frames: 200,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-120", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "larme",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, -63)),
+                (from: 100, to: 120, buttons: [Right]),
+            ],
+        ),
+        (
+            inputs: [
+                (from: 100, to: 120, buttons: [Right]),
+            ],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 90),
+        KeyPiles(count: 1, at_frame: 90),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 90),
+        KeyPiles(count: 0, at_frame: 199),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 199),
+        Event(kind: "key_pickup", label_contains: Some("joueur 0"), by_frame: 199),
+    ],
+)

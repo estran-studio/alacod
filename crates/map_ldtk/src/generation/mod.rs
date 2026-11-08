@@ -2,7 +2,7 @@ pub mod cave;
 mod from;
 mod to;
 
-pub use from::from_map;
+pub use from::{door_lock_from_instance, from_map};
 pub use to::{get_new_entity, GeneratedMap, GeneratedRoom};
 
 #[cfg(test)]

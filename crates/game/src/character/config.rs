@@ -246,6 +246,12 @@ pub struct CharacterConfig {
     /// (traces des autres jeux inchangées). Lint : ids d'objets consommables connus.
     #[serde(default)]
     pub starting_consumables: std::collections::BTreeMap<String, u32>,
+
+    /// Clé portée (X-6a1, `docs/conventions.md` §117) : id d'une clé d'équipe (`run::TeamKeys`) que ce
+    /// personnage lâche à sa mort en objet ramassable (`items::KeyPickup`, `game::keys`). `None`
+    /// (défaut) : aucun butin de clé, aucun contenu existant ne change. Lint : id non vide.
+    #[serde(default)]
+    pub carries_key: Option<String>,
 }
 
 fn default_bleedout_frames() -> u32 {

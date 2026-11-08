@@ -46,6 +46,14 @@ pub enum RunStepExpectation {
     Ended(RunEnd),
 }
 
+/// État d'une porte de carte (attente `MapDoor`, X-6a1, `docs/conventions.md` §117).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MapDoorState {
+    Closed,
+    Locked,
+    Open,
+}
+
 /// Vérification faite quand la simulation atteint `at_frame`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expectation {
@@ -659,6 +667,28 @@ pub enum Expectation {
         count: u32,
         at_frame: u32,
     },
+    /// X-6a1 (`docs/conventions.md` §117) : nombre de clés d'équipe au sol (`items::KeyPickup`) à la frame
+    /// exacte `at_frame`.
+    KeyPiles {
+        count: u32,
+        at_frame: u32,
+    },
+    /// X-6a1 (§117) : nombre de clés `key` tenues par l'équipe (`run::TeamKeys`) à la frame exacte
+    /// `at_frame` (0 sans la clé).
+    TeamKeys {
+        key: String,
+        count: u32,
+        at_frame: u32,
+    },
+    /// X-6a1 (§117) : état de la `nth` porte de **carte** (entité `DoorComponent`, triées par `GgrsNetId`) à
+    /// la frame exacte `at_frame` : `Closed` (collider, sans serrure), `Locked` (collider et serrure à clé) ou
+    /// `Open` (sans collider, ouverte par interaction).
+    MapDoor {
+        #[serde(default)]
+        nth: usize,
+        state: MapDoorState,
+        at_frame: u32,
+    },
     /// M3-T0e (`docs/conventions.md` §64) : la curse de l'étage `floor` (`run::RunCurses`, index
     /// d'étage de `FloorIndex`) est `id` (`Some`) ou absente (`None`) à la frame exacte `at_frame`.
     Curse {
@@ -752,6 +782,9 @@ impl Expectation {
             | Self::Shelf { at_frame, .. }
             | Self::ShelfCount { at_frame, .. }
             | Self::ShellPiles { at_frame, .. }
+            | Self::KeyPiles { at_frame, .. }
+            | Self::TeamKeys { at_frame, .. }
+            | Self::MapDoor { at_frame, .. }
             | Self::Curse { at_frame, .. }
             | Self::PoolSeen { at_frame, .. }
             | Self::PoolCount { at_frame, .. }

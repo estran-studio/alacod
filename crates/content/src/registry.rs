@@ -282,6 +282,8 @@ pub struct CharacterEntry {
     pub weapon_slots: u32,
     /// M2-T1 : consommables de départ (`{"blank": 2}`), références vérifiées par le lint.
     pub starting_consumables: BTreeMap<String, u32>,
+    /// X-6a1 (§117) : clé d'équipe portée et lâchée à la mort (`carries_key`), pour la règle « non vide ».
+    pub carries_key: Option<String>,
     /// M2-T2 (§43) : dash résolu (`movement` surchargé par `dash`), pour les règles du lint.
     pub dash: DashLint,
     /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
@@ -2105,6 +2107,10 @@ struct CharacterFileSchema {
     /// M2-T1 : voir `game::character::config::CharacterConfig::starting_consumables`.
     #[serde(default)]
     starting_consumables: BTreeMap<String, u32>,
+    /// X-6a1 (§117) : voir `game::character::config::CharacterConfig::carries_key`.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "non vide"))]
+    carries_key: Option<String>,
     /// T1.4 : seuls `ai.behaviors` et `ai.targeting` sont lus.
     #[serde(default)]
     ai: Option<AiSchema>,
@@ -3170,6 +3176,7 @@ fn load_characters(
                 weapon_slots: parsed.weapon_slots,
                 dash: DashLint::resolve(&parsed.movement, parsed.dash.as_ref()),
                 starting_consumables: parsed.starting_consumables,
+                carries_key: parsed.carries_key,
                 effects: parsed.effects,
                 boss: parsed.boss,
                 bomb: parsed.bomb,

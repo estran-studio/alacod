@@ -1,0 +1,29 @@
+// X-6a1 (docs/conventions.md §117) : la porte de carte fermée s'ouvre par Interaction. Carte `testbed/two_rooms_door.ldtk` (deux salles
+// reliées par une porte payante, 750 : `DoorConfig::cost` calculé par le générateur) : le joueur (solde 1000) marche vers la porte,
+// l'ouvre en interagissant ; la porte et sa jumelle (autre niveau) passent de `Closed` à `Open` ensemble, le solde tombe à 250.
+// Pas de serrure : `Locked` n'apparaît jamais (témoin des portes de zombies, mêmes systèmes).
+//
+// À regarder : le joueur avance vers l'est, bute contre la porte fermée (`Closed`), l'ouvre (f90) : la porte et sa jumelle disparaissent.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/two_rooms_door.ldtk",
+    frames: 260,
+    players: [
+        (
+            currency: 1000,
+            inputs: [
+                (from: 10, to: 90, buttons: [Right]),
+                (from: 90, to: 200, buttons: [Right, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        MapDoor(nth: 0, state: Closed, at_frame: 20),
+        MapDoor(nth: 1, state: Closed, at_frame: 20),
+        Currency(handle: 0, max: 1000, at_frame: 20),
+        MapDoor(nth: 0, state: Open, at_frame: 240),
+        MapDoor(nth: 1, state: Open, at_frame: 240),
+        Currency(handle: 0, max: 250, at_frame: 240),
+    ],
+)
