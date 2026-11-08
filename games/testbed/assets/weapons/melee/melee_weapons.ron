@@ -193,4 +193,26 @@
             weapon_offset: (x: "0.0", y: "0.0"),
         ),
     ),
+    // M-6 (testbed, docs/conventions.md §116) : arme **sans** `strike_frames`, liée par `models/models.ron`
+    // (`melee_clips`) au clip `strike` du pantin, dont `moments.frappe` = [0.45, 0.65] : coup de 21 frames
+    // (0,35 s à 60 Hz), le chargement en tire la fenêtre (9, 14). Scénario `frappe_moment`.
+    "frappe_modele": (
+        config: (
+            name: "Frappe du modèle",
+            damage: "5.0",
+            range: "31.2",
+            attack_pattern: Sweep(
+                arc_angle: "2.7925",
+            ),
+            attack_duration_frames: 21,
+            cooldown_frames: 0,
+            knockback_force: "0.0",
+            stamina_cost: "0.0",
+        ),
+        sprite_config: (
+            name: "sword",
+            index: 0,
+            weapon_offset: (x: "0.0", y: "0.0"),
+        ),
+    ),
 })

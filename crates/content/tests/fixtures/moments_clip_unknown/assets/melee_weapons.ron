@@ -1,0 +1,7 @@
+// M-6 : le modèle lie l'arme à un clip absent du manifeste : LintErrorKind::BrokenReference.
+({
+    "coup_long": (config: (
+        damage: "5.0",
+        attack_duration_frames: 21,
+    )),
+})

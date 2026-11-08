@@ -1183,6 +1183,70 @@ fn melee_strike_outside_attack_fixture_reports_strike() {
     assert_only_one_besides_start_map(&errors);
 }
 
+/// M-6 (§116) : le RON donne `strike_frames: Some((3, 5))`, le clip lié (`moments.frappe` [0,45 ; 0,65] sur 21
+/// images) donne (9, 14) : avertissement `MomentMismatch`, aucune erreur, et c'est le RON qui prime.
+#[test]
+fn moments_ron_differs_fixture_warns_and_the_ron_wins() {
+    let (registry, manifest, errors) = load_and_lint(&fixture_dir("moments_ron_differs")).unwrap();
+    let others: Vec<_> = errors
+        .iter()
+        .filter(|e| !e.message.contains("start_map"))
+        .collect();
+    assert!(others.is_empty(), "aucune erreur attendue :\n{errors:#?}");
+    let warnings = content::warnings(&registry, &manifest);
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == content::LintWarningKind::MomentMismatch
+                && w.message.contains("(3, 5) du RON")
+                && w.message.contains("(9, 14)")
+                && w.message.contains("le RON prime")),
+        "attendu un avertissement MomentMismatch, obtenu :\n{warnings:#?}"
+    );
+    let weapon = &registry.melee_weapons[&content::registry::MeleeWeaponId::from("coup_long")];
+    assert_eq!(
+        weapon.strike_frames,
+        Some((3, 5)),
+        "le registre garde le RON"
+    );
+    let windows = registry.models.as_ref().unwrap().strike_windows();
+    assert_eq!(windows["coup_long"], (9, 14));
+}
+
+/// M-6 : la fenêtre dérivée d'une arme sans `strike_frames` doit tenir dans son coup.
+#[test]
+fn moments_derived_window_outside_attack_fixture_reports_the_window() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("moments_derived_outside_attack")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "(9, 14)");
+    assert_only_one_besides_start_map(&errors);
+}
+
+/// M-6 : un lien vers un clip absent du manifeste est une référence cassée, et rien n'est dérivé.
+#[test]
+fn moments_clip_unknown_fixture_reports_the_clip() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("moments_clip_unknown")).unwrap();
+    assert_has_error(&errors, LintErrorKind::BrokenReference, "« absent »");
+    assert_only_one_besides_start_map(&errors);
+    assert!(registry.models.unwrap().strike_windows().is_empty());
+}
+
+/// M-6 : le testbed lie `frappe_modele` au clip `strike` du pantin : fenêtre (9, 14), aucun avertissement d'écart.
+#[test]
+fn testbed_melee_weapon_takes_its_window_from_the_pantin_clip() {
+    let (registry, manifest, errors) = load_and_lint(&game_dir("testbed")).unwrap();
+    assert!(errors.is_empty(), "{errors:#?}");
+    let windows = registry.models.as_ref().unwrap().strike_windows();
+    assert_eq!(windows.len(), 1, "{windows:?}");
+    assert_eq!(windows["frappe_modele"], (9, 14));
+    let warnings = content::warnings(&registry, &manifest);
+    assert!(
+        warnings
+            .iter()
+            .all(|w| w.kind != content::LintWarningKind::MomentMismatch),
+        "{warnings:#?}"
+    );
+}
+
 /// X-3 : `move_speed_mult` doit être > 0.
 #[test]
 fn weapon_move_speed_mult_zero_fixture_reports_mult() {

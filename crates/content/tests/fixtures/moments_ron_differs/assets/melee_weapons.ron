@@ -1,0 +1,8 @@
+// M-6 : le RON donne (3, 5), le clip « coup » donne (9, 14) : avertissement MomentMismatch, le RON prime (aucune erreur).
+({
+    "coup_long": (config: (
+        damage: "5.0",
+        attack_duration_frames: 21,
+        strike_frames: Some((3, 5)),
+    )),
+})

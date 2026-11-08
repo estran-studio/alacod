@@ -244,6 +244,12 @@
   "strike-walk-fr": "une-main"
  },
  "moments": {
+  "strike": {
+   "frappe": [
+    0.45,
+    0.65
+   ]
+  },
   "walk": {
    "vitesse": 2.175,
    "direction": 0

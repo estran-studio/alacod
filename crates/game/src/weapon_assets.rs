@@ -62,6 +62,21 @@ fn copy_table<T: Clone>(from: &HashMap<String, T>, into: &mut BTreeMap<String, T
     into.extend(from.iter().map(|(id, weapon)| (id.clone(), weapon.clone())));
 }
 
+/// M-6 (`docs/conventions.md` § 116) : pose en `strike_frames` d'une arme de mêlée la fenêtre de
+/// frappe dérivée du `moments.frappe` du clip qu'un modèle lui lie (`content::models::ModelsTable::
+/// strike_windows`, déjà en images de simulation entières), **quand le RON n'en donne pas** : un
+/// `strike_frames` du RON prime toujours. Rien de lié, rien de changé. Idempotent.
+pub fn apply_moment_strikes(
+    melee: &mut BTreeMap<String, MeleeWeaponAsset>,
+    windows: &BTreeMap<String, (u32, u32)>,
+) {
+    for (id, window) in windows {
+        if let Some(weapon) = melee.get_mut(id) {
+            weapon.config.strike_frames.get_or_insert(*window);
+        }
+    }
+}
+
 /// Publie les tables d'armes chargées dans [`WeaponRegistry`] (voir la doc du module).
 pub fn sync_weapon_registry(
     global: Option<Res<GlobalAsset>>,
@@ -70,6 +85,7 @@ pub fn sync_weapon_registry(
     mut weapon_events: MessageReader<AssetEvent<WeaponsConfig>>,
     mut melee_events: MessageReader<AssetEvent<MeleeWeaponsConfig>>,
     mut registry: ResMut<WeaponRegistry>,
+    content: Option<Res<content::Registry>>,
 ) {
     // Toujours vidés, même sans `GlobalAsset` : les curseurs ne prennent pas de retard.
     let weapons_modified: Vec<AssetId<WeaponsConfig>> = weapon_events
@@ -119,6 +135,9 @@ pub fn sync_weapon_registry(
                 );
             }
             copy_table(&asset.0, &mut registry.melee);
+            if let Some(table) = content.as_ref().and_then(|c| c.models.as_ref()) {
+                apply_moment_strikes(&mut registry.melee, &table.strike_windows());
+            }
         }
     }
 }
@@ -196,5 +215,43 @@ pub fn weapons_config_update_system(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn weapon(strike: &str) -> MeleeWeaponAsset {
+        ron::from_str(&format!(
+            r#"(config: (name: "w", damage: "5.0", range: "31.2", attack_pattern: Thrust,
+                         attack_duration_frames: 21, cooldown_frames: 0, knockback_force: "0.0",
+                         stamina_cost: "0.0"{strike}),
+                 sprite_config: (name: "sword", index: 0, weapon_offset: (x: "0.0", y: "0.0")))"#
+        ))
+        .unwrap()
+    }
+
+    /// La fenêtre du clip comble l'absence de `strike_frames`, jamais ne remplace celui du RON ; une
+    /// arme non liée ou inconnue du registre n'est pas touchée.
+    #[test]
+    fn the_ron_strike_window_wins_over_the_clip_window() {
+        let mut melee = BTreeMap::from([
+            ("sans".to_string(), weapon("")),
+            ("avec".to_string(), weapon(", strike_frames: Some((3, 5))")),
+            ("libre".to_string(), weapon("")),
+        ]);
+        let windows = BTreeMap::from([
+            ("sans".to_string(), (9, 14)),
+            ("avec".to_string(), (9, 14)),
+            ("absente".to_string(), (1, 2)),
+        ]);
+        apply_moment_strikes(&mut melee, &windows);
+        apply_moment_strikes(&mut melee, &windows);
+        let strike = |id: &str| melee[id].config.strike_frames;
+        assert_eq!(strike("sans"), Some((9, 14)));
+        assert_eq!(strike("avec"), Some((3, 5)), "le RON prime");
+        assert_eq!(strike("libre"), None);
+        assert!(!melee.contains_key("absente"));
     }
 }

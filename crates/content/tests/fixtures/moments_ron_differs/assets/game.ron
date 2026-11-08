@@ -1,0 +1,5 @@
+(
+    name: "fixture-moments-ron-differs",
+    content_folders: [(path: "melee_weapons.ron", kind: "MeleeWeapon"), (path: "models/models.ron", kind: "Model")],
+    entry: (start_map: "unused", default_seed: 1),
+)

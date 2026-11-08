@@ -1562,22 +1562,51 @@ fn lint_expire_pattern(
 }
 
 /// R-1 (§111) : fichier `Model` (fichiers, manifestes, plages, clips, objets, repères, armes).
+/// M-6 (§116) : moments du manifeste et liens arme de mêlée -> clip ; la fenêtre dérivée d'une arme
+/// sans `strike_frames` doit tenir dans son coup (même règle que `lint_melee_weapons`).
 fn lint_models(registry: &Registry, errors: &mut Vec<LintError>) {
     let Some(table) = &registry.models else {
         return;
     };
     let file = table.file.display().to_string();
-    let problems = crate::models::lint(table, &|path| registry.asset_exists(path), &|weapon| {
-        registry
-            .weapons
-            .contains_key(&registry::WeaponId::from(weapon))
-    });
+    let problems = crate::models::lint(
+        table,
+        &|path| registry.asset_exists(path),
+        &|weapon| {
+            registry
+                .weapons
+                .contains_key(&registry::WeaponId::from(weapon))
+        },
+        &|weapon| {
+            registry
+                .melee_weapons
+                .contains_key(&registry::MeleeWeaponId::from(weapon))
+        },
+    );
     for (kind, message) in problems {
         errors.push(LintError {
             kind,
             file: file.clone(),
             message,
         });
+    }
+    for (weapon, (from, to)) in table.strike_windows() {
+        let Some(entry) = registry
+            .melee_weapons
+            .get(&registry::MeleeWeaponId::from(weapon.as_str()))
+        else {
+            continue;
+        };
+        if entry.strike_frames.is_none() && to >= entry.attack_duration_frames {
+            errors.push(LintError {
+                kind: LintErrorKind::OutOfRange,
+                file: file.clone(),
+                message: format!(
+                    "arme de corps à corps « {weapon} » : la fenêtre de frappe ({from}, {to}) dérivée de son clip sort du coup (attack_duration_frames = {})",
+                    entry.attack_duration_frames
+                ),
+            });
+        }
     }
 }
 
