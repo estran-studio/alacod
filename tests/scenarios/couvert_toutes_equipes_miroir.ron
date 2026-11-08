@@ -1,0 +1,33 @@
+// X-6a2 (docs/conventions.md §118), miroir de `couvert_toutes_equipes` : le même couvert (`couvert`, net id 15, x 374) arrête les mêmes
+// tirs venus de l'**autre côté**, dans l'arène vide (`testbed/arene_vide.ldtk`, y 696) : le joueur 0 (immobile, x 424) tire une rafale de `machine_gun`
+// vers l'**ouest**, un `tireur_poste` (équipe `Enemies`, net id 16, x 324) tire ses flèches vers lui ; le couvert est entre eux.
+//
+// À regarder : la rafale s'arrête contre le couvert (le tireur garde ses 500 PV), les flèches aussi (le joueur garde ses 100 PV),
+// le couvert garde ses 200 PV (indestructible).
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 300,
+    characters: [
+        (character: "couvert", x: "374.0", y: "696.0", at_frame: 5),
+        (character: "tireur_poste", x: "324.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 10, to: 40, buttons: [Fire], pan: (-128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        // Une flèche ennemie est bien en vol vers le joueur (sinon la preuve serait creuse)
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 70),
+        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 299),
+        EntityHealth(net_id: 15, min: 200, max: 200, at_frame: 299),
+        EntityHealth(net_id: 16, min: 500, max: 500, at_frame: 299),
+        EntityCount(kind: Cover, min: Some(1), max: Some(1), at_frame: 299),
+    ],
+)

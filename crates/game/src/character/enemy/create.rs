@@ -103,6 +103,11 @@ pub fn spawn_enemy(
             None,
         );
         commands.entity(entity).insert(team);
+        // X-6a2 (§118) : un couvert arrête les balles de toutes les équipes (composant statique hors
+        // rollback, posé seulement s'il est déclaré : aucune trace existante ne bouge).
+        if let Some(cover) = character_config.and_then(|config| config.cover) {
+            commands.entity(entity).insert(cover);
+        }
         insert_respawn_point(
             commands,
             entity,

@@ -1,0 +1,38 @@
+// X-6a2 (docs/conventions.md §118), suivi de revue P2 : un projectile composable à `Split` (objet `division`) ne se divise **pas** contre un
+// couvert. Même montage que `tears_split` (`props_room`, une larme plein ouest à f20), mais le premier personnage (x 600) est un `couvert`
+// (indestructible, net id 14) : la larme s'y arrête et ne donne aucun enfant ; les trois `target` (net ids 15, 16, 17) placées à 100 unités
+// du point d'impact, dans l'axe de chaque enfant, restent intactes. Sans le correctif, les enfants naissaient dans le couvert (leur liste de
+// cibles l'incluait : ils le sautaient) et touchaient ces cibles. Témoin : `tears_split` (même tir sur une `target` : trois enfants, trois impacts).
+//
+// À regarder : une larme, un impact sur le couvert (200 PV intacts), aucune larme ensuite, aucune cible touchée.
+
+Scenario(
+    game: "testbed",
+    map: "testbed/props_room.ldtk",
+    frames: 140,
+    powerup_drop_chance_override: "0",
+    characters: [
+        (character: "couvert", x: "600.0", y: "-194.0", at_frame: 1),
+        (character: "target", x: "514.5", y: "-164.4", at_frame: 1),
+        (character: "target", x: "514.5", y: "-223.6", at_frame: 1),
+        (character: "target", x: "510.0", y: "-194.0", at_frame: 1),
+    ],
+    players: [
+        (
+            inputs: [(from: 10, to: 30, buttons: [Fire], pan: (-127, 0))],
+            weapon: "larme",
+            items: ["division"],
+        ),
+    ],
+    expect: [
+        ItemCount(handle: 0, id: "division", count: 1, at_frame: 1),
+        // La larme (f20) atteint le couvert vers f45 et s'y arrête : pas d'enfant.
+        BulletCount(count: 0, projectile: Some("larme"), at_frame: 46),
+        BulletCount(count: 0, projectile: Some("larme"), at_frame: 73),
+        EntityHealth(net_id: 14, min: 200, max: 200, at_frame: 139),
+        EntityCount(kind: Cover, min: Some(1), max: Some(1), at_frame: 139),
+        EntityHits(net_id: 15, min: 0, max: Some(0), at_frame: 139),
+        EntityHits(net_id: 16, min: 0, max: Some(0), at_frame: 139),
+        EntityHits(net_id: 17, min: 0, max: Some(0), at_frame: 139),
+    ],
+)

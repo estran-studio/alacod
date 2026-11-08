@@ -1,0 +1,27 @@
+// X-6a2 (docs/conventions.md §118) : témoin de `couvert_arrete_projectile_perforant` : un `prop-test` (sans `cover`) à la place du couvert ; le projectile le traverse (`Pierce`) et touche le `dummy`.
+// Carte `testbed/rocks_static.ldtk` (y 696) ; le joueur 0 (immobile) tire une fois vers l'est (proj_pierce) ; prop-test (net id 16, x 240) sur la trajectoire, un
+// `dummy` (net id 17, x 262) juste derrière.
+//
+// À regarder : le `dummy` derrière le prop perd 10 PV.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 100,
+    characters: [
+        (character: "prop-test", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "262.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "proj_pierce",
+            inputs: [
+                (from: 10, to: 11, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityHealth(net_id: 17, min: 190, max: 190, at_frame: 99),
+    ],
+)

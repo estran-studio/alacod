@@ -1,0 +1,28 @@
+// X-6a2 (docs/conventions.md §118) : un projectile composable à `Pierce(2)` (arme `proj_pierce`) traverse deux personnages mais pas un couvert. Témoin : `couvert_arrete_projectile_perforant_temoin`.
+// Carte `testbed/rocks_static.ldtk` (y 696) ; le joueur 0 (immobile) tire une fois vers l'est (proj_pierce) ; couvert (net id 16, x 240) sur la trajectoire, un
+// `dummy` (net id 17, x 262) juste derrière.
+//
+// À regarder : le projectile s'arrête dans le couvert ; le `dummy` derrière n'est pas touché.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 100,
+    characters: [
+        (character: "couvert", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "262.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "proj_pierce",
+            inputs: [
+                (from: 10, to: 11, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 99),
+        EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 99),
+    ],
+)

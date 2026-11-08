@@ -1,0 +1,35 @@
+// X-6a2 (docs/conventions.md §118) : un couvert destructible (`couvert_fragile`, `cover: Some(Destructible)`, 24 PV, net id 16, x 240)
+// cède après N impacts. Carte `testbed/rocks_static.ldtk` (y 696) ; le joueur 0 (immobile) tire vers l'est une rafale de `machine_gun`
+// (8 par balle, de f10 à f40) ; un `dummy` (net id 17, x 270) est derrière.
+//
+// À regarder : les trois premières balles s'arrêtent contre le couvert (24 → 16 (f30) → 8 (f32) → détruit (f37)), le `dummy` n'est pas touché
+// tant que le couvert tient (200 à f40) ; les balles suivantes passent et touchent le `dummy` (200 → 184).
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 120,
+    characters: [
+        (character: "couvert_fragile", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "270.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 10, to: 40, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Cover, min: Some(1), max: Some(1), at_frame: 20),
+        EntityHealth(net_id: 16, min: 24, max: 24, at_frame: 20),
+        EntityHealth(net_id: 16, min: 16, max: 16, at_frame: 30),
+        EntityHealth(net_id: 16, min: 8, max: 8, at_frame: 34),
+        EntityCount(kind: Cover, min: Some(0), max: Some(0), at_frame: 38),
+        // Le couvert tenait : le dummy derrière n'a rien reçu ; les balles suivantes l'atteignent (8 chacune)
+        EntityHealth(net_id: 17, min: 200, max: 200, at_frame: 40),
+        EntityHealth(net_id: 17, min: 184, max: 184, at_frame: 119),
+    ],
+)

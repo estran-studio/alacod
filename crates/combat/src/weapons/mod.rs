@@ -2067,6 +2067,9 @@ enum BulletTarget {
     /// `layer_matrix` (T1.1). `Team::Neutral` arrive ici aussi (elle bloque le tir sans
     /// jamais être blessée, voir `combat::damage::resolve_damage`).
     Character,
+    /// Couvert (X-6a2, §118) : un personnage `sim_core::cover::Cover` est un candidat pour toute
+    /// balle, sans règle d'équipe ni invulnérabilité ; arrête aussi les balles perforantes.
+    Cover,
 }
 
 /// Collision des balles : qui une balle touche et ce que ça déclenche (T1.1, chantier B1).
@@ -2081,6 +2084,8 @@ enum BulletTarget {
 ///   (elle bloque le tir) ; `combat::damage::resolve_damage` décidera ensuite qu'elle ne
 ///   subit aucun dégât. Un personnage invulnérable (i-frames du dash,
 ///   `Health::is_invulnerable_at`) n'est pas un candidat non plus : la balle le traverse.
+/// - un couvert (`sim_core::cover::Cover`, X-6a2) est toujours candidat, quelle que soit son équipe : ni
+///   `team_allows_hit` ni l'invulnérabilité ne le filtrent, et une balle perforante s'y arrête.
 ///
 /// Émet un `DamageEvent` (résolu par `character::health::rollback_resolve_damage_events`,
 /// `RollbackSystemSet::CollisionDamage`) au lieu d'écrire `DamageAccumulator` directement.
@@ -2124,6 +2129,8 @@ pub fn bullet_rollback_collision_system(
             Option<&crate::actors::DashExtra>,
             // P-1 : zone touchée (§110), testée à la place de `Collider`.
             Option<&crate::collider::Hurtbox>,
+            // X-6a2 (§118) : un couvert arrête la balle de toutes les équipes.
+            Option<&sim_core::cover::Cover>,
         ),
         (Without<Bullet>, With<Rollback>),
     >,
@@ -2194,20 +2201,23 @@ pub fn bullet_rollback_collision_system(
                 target_health,
                 target_dash,
                 target_hurtbox,
+                target_cover,
             )) = target_query.get(char_entry.entity)
             else {
                 continue;
             };
             // D54 : le tir ami (`Always`, `Cursed`) ne touche jamais son propre tireur.
+            // X-6a2 : un couvert ne passe pas par la règle d'équipe ni par l'invulnérabilité.
             if target_net_id.0 == bullet.source.0
-                || !team_allows_hit(
-                    bullet.source_team,
-                    *target_team,
-                    bullet.friendly_fire,
-                    &bullet.tags,
-                )
-                || target_health.is_invulnerable_at(frame.frame)
-                || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
+                || (target_cover.is_none()
+                    && (!team_allows_hit(
+                        bullet.source_team,
+                        *target_team,
+                        bullet.friendly_fire,
+                        &bullet.tags,
+                    ) || target_health.is_invulnerable_at(frame.frame)
+                        || target_dash
+                            .is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))))
             {
                 continue;
             }
@@ -2217,7 +2227,12 @@ pub fn bullet_rollback_collision_system(
                 &target_transform.translation,
                 crate::collider::Hurtbox::of(target_hurtbox, target_collider),
             ) {
-                candidates.push((target_net_id.clone(), BulletTarget::Character));
+                let kind = if target_cover.is_some() {
+                    BulletTarget::Cover
+                } else {
+                    BulletTarget::Character
+                };
+                candidates.push((target_net_id.clone(), kind));
             }
         }
 
@@ -2236,7 +2251,7 @@ pub fn bullet_rollback_collision_system(
 
         let mut should_bullet_despawn_now = false;
         match target_kind {
-            BulletTarget::Character => {
+            BulletTarget::Character | BulletTarget::Cover => {
                 damage_events.send(DamageEvent {
                     source: bullet.source.clone(),
                     target: deterministic_target_g_id.clone(),
@@ -2254,7 +2269,9 @@ pub fn bullet_rollback_collision_system(
                     }
                     BulletType::Piercing { .. } => {
                         // Les balles perforantes continuent à travers les personnages ;
-                        // elles ne s'arrêtent que sur un mur (voir plus bas).
+                        // elles ne s'arrêtent que sur un mur (voir plus bas) ou un couvert
+                        // (X-6a2 : un décor qui arrête les balles de toutes les équipes).
+                        should_bullet_despawn_now = matches!(target_kind, BulletTarget::Cover);
                     }
                 }
             }

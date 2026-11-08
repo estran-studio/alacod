@@ -1,0 +1,29 @@
+// X-6a2 (docs/conventions.md §118) : témoin de `couvert_arrete_perforante` : un `prop-test` (sans `cover`) à la place du couvert ; les plombs perforants le traversent et touchent le `dummy`.
+// Carte `testbed/rocks_static.ldtk` (y 696) ; le joueur 0 (immobile) tire une fois vers l'est (`shotgun`, mode `piercing`) ; prop-test (net id 16, x 240) sur la trajectoire, un
+// `dummy` (net id 17, x 262) juste derrière.
+//
+// À regarder : le prop et le `dummy` derrière lui perdent chacun 20 PV (deux plombs de 10).
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 160,
+    characters: [
+        (character: "prop-test", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "dummy", x: "262.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "shotgun",
+            inputs: [
+                (from: 40, to: 43, buttons: [SwitchWeaponMode]),
+                (from: 60, to: 61, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityHealth(net_id: 16, min: 180, max: 180, at_frame: 159),
+        EntityHealth(net_id: 17, min: 180, max: 180, at_frame: 159),
+    ],
+)

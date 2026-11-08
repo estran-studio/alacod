@@ -1,0 +1,36 @@
+// X-6a2 (docs/conventions.md §118) : un couvert (`couvert`, `cover: Some(Indestructible)`, sans `team` : repli `Enemies`) arrête
+// les balles de **toutes** les équipes, ici des deux côtés d'un même couloir (carte `testbed/rocks_static.ldtk`, y 696) : le joueur 0
+// (immobile, à l'ouest) tire une rafale de `machine_gun` vers l'est, un `tireur_poste` (équipe `Enemies`, à l'est) tire ses flèches
+// (projectiles composables) vers le joueur ; le couvert (net id 16, x 240) est entre eux. Témoin : `couvert_temoin_prop` (un
+// `prop-test` sans `cover` à la place : les flèches le traversent). Miroir : `couvert_toutes_equipes_miroir`.
+//
+// À regarder : la rafale s'arrête contre le couvert (le tireur, net id 17, garde ses 500 PV), les flèches s'y arrêtent aussi (le joueur
+// garde ses 100 PV) ; le couvert garde ses 200 PV (indestructible).
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/rocks_static.ldtk",
+    frames: 300,
+    characters: [
+        (character: "couvert", x: "240.0", y: "696.0", at_frame: 5),
+        (character: "tireur_poste", x: "300.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 10, to: 40, buttons: [Fire], pan: (128, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        // Une flèche ennemie est bien en vol vers le joueur (sinon la preuve serait creuse)
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 70),
+        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 120),
+        Health(handle: 0, min: Some(100.0), max: Some(100.0), at_frame: 299),
+        EntityHealth(net_id: 16, min: 200, max: 200, at_frame: 299),
+        EntityHealth(net_id: 17, min: 500, max: 500, at_frame: 299),
+        EntityCount(kind: Cover, min: Some(1), max: Some(1), at_frame: 299),
+    ],
+)
