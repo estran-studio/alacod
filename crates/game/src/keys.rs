@@ -195,6 +195,7 @@ mod tests {
 
     fn world() -> World {
         let mut world = World::new();
+        world.init_resource::<bevy_ggrs::RollbackOrdered>();
         world.init_resource::<TeamKeys>();
         world.init_resource::<FrameEvents<KeyEvent>>();
         world.init_resource::<FrameCount>();
