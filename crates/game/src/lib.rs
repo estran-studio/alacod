@@ -44,6 +44,7 @@ pub mod interaction_view;
 pub mod items;
 pub mod items_view;
 pub mod jjrs;
+pub mod keys;
 pub mod legibility;
 pub mod light;
 #[cfg(not(target_arch = "wasm32"))]

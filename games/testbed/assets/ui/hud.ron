@@ -85,6 +85,16 @@
             font_size: Some(24.0),
             background: Some("#000000a0"),
         ),
+        // X-6a1 (§117) : clés tenues par l'équipe (`team_keys`, une ligne par clé), vide sans clé.
+        (
+            kind: Text(source: "team_keys", prefix: Some("Clés : ")),
+            anchor: TopLeft,
+            offset: (16.0, 120.0),
+            size: Some((220.0, 60.0)),
+            color: Some("#f1c40f"),
+            font_size: Some(16.0),
+            background: Some("#000000a0"),
+        ),
         // T2.12 : power-ups actifs, une ligne par power-up.
         (
             kind: Text(source: "powerups", prefix: None),

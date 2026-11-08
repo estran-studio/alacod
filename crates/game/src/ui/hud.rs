@@ -988,6 +988,8 @@ struct HudInteractables<'w, 's> {
     // F5 (chantier m0-v11) : prix et perks résolus une fois au lancement (`crate::balance`).
     balance: Res<'w, crate::balance::ResolvedBalance>,
     powerups: Res<'w, PowerUpsTable>,
+    /// X-6a1 (§117) : clés d'équipe, pour l'invite d'une porte à serrure.
+    team_keys: Res<'w, run::TeamKeys>,
 }
 
 fn update_hud_v1_values(
@@ -1617,6 +1619,27 @@ fn closest_interactable(
     closest.map(|(_, net_id)| net_id)
 }
 
+/// Invite d'une porte de carte (X-6a1, §117) : une porte à serrure dont la clé n'est pas tenue par
+/// l'équipe annonce « Fermé — clé » ; avec elle, comme une porte ordinaire (« Ouvrir », prix compris).
+fn door_prompt(
+    config: Option<&map::generation::entity::door::DoorConfig>,
+    team_keys: &run::TeamKeys,
+) -> Prompt {
+    match config {
+        Some(config)
+            if config
+                .lock
+                .as_ref()
+                .is_some_and(|lock| team_keys.count(&lock.key) == 0) =>
+        {
+            Prompt::LockedDoor
+        }
+        _ => Prompt::Door {
+            cost: config.map_or(0, |config| config.cost),
+        },
+    }
+}
+
 fn prompt_for(
     world: &HudInteractables,
     config: &HudConfig,
@@ -1635,9 +1658,7 @@ fn prompt_for(
         return String::new();
     };
     let prompt = match interactable.interaction_type {
-        InteractionType::Door => Prompt::Door {
-            cost: door.map_or(0, |d| d.config.cost),
-        },
+        InteractionType::Door => door_prompt(door.map(|d| &d.config), &world.team_keys),
         InteractionType::Window => Prompt::Window {
             damaged: window.is_some_and(|w| w.current < w.max),
         },
@@ -1752,6 +1773,8 @@ enum Prompt {
     Door {
         cost: i32,
     },
+    /// X-6a1 : porte à serrure dont la clé n'est pas tenue par l'équipe.
+    LockedDoor,
     /// Une fenêtre intacte n'a rien à réparer : pas de prompt.
     Window {
         damaged: bool,
@@ -1825,6 +1848,7 @@ impl Prompt {
         match self {
             Prompt::Door { cost } if *cost > 0 => format!("Ouvrir — ${cost}"),
             Prompt::Door { .. } => "Ouvrir".to_string(),
+            Prompt::LockedDoor => "Fermé — clé".to_string(),
             Prompt::Window { damaged: true } => "Réparer".to_string(),
             Prompt::Window { damaged: false } => String::new(),
             Prompt::Revive => "Réanimer".to_string(),
@@ -2137,6 +2161,34 @@ mod tests {
         // 1810 - 370 + 1 = 1441 frames -> 25 s ; 931 frames -> 16 s.
         assert_eq!(text, "double_points 16 s\nInsta-Kill 25 s");
         assert_eq!(powerups_text(&BTreeMap::new(), 0, |_| None), "");
+    }
+
+    #[test]
+    fn invite_d_une_porte_a_serrure_selon_les_cles_de_l_equipe() {
+        use map::generation::entity::door::{DoorConfig, DoorLockConfig};
+        let locked = DoorConfig {
+            lock: Some(DoorLockConfig {
+                key: "cle".into(),
+                consume: true,
+            }),
+            ..Default::default()
+        };
+        let mut keys = run::TeamKeys::default();
+        assert_eq!(door_prompt(Some(&locked), &keys).text(), "Fermé — clé");
+        // Une autre clé ne l'ouvre pas.
+        keys.add("autre");
+        assert_eq!(door_prompt(Some(&locked), &keys).text(), "Fermé — clé");
+        keys.add("cle");
+        assert_eq!(door_prompt(Some(&locked), &keys).text(), "Ouvrir");
+        // Une porte sans serrure ignore les clés ; son prix reste annoncé.
+        let priced = DoorConfig {
+            cost: 750,
+            ..Default::default()
+        };
+        assert_eq!(
+            door_prompt(Some(&priced), &run::TeamKeys::default()).text(),
+            "Ouvrir — $750"
+        );
     }
 
     #[test]

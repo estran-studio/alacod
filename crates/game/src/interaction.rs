@@ -8,6 +8,7 @@ use combat::downed::{downed_modifier_source, revive_health_fraction, Downed, Rev
 use combat::inventory::AmmoReserves;
 use run::currency::{Currency, CurrencyEvent};
 use run::perks::Perks;
+use run::{KeyEvent, TeamKeys};
 use serde::{Deserialize, Serialize};
 use sim_core::modifier::{resolve, Modifiers};
 use sim_core::stats::StatId;
@@ -289,6 +290,14 @@ pub(crate) fn point_to_collider_surface_distance_sq(
 /// comportement inchangé) est débité du joueur qui interagit avant d'ouvrir ; solde
 /// insuffisant = refus silencieux (la porte reste fermée, `CurrencyEvent { delta: 0, reason:
 /// "door_refused" }` pour le HUD/les scénarios, voir `run::currency`).
+///
+/// Portes à serrure (X-6a1, `docs/conventions.md` §117) : `DoorConfig::lock` (champs LDtk `lock_key` /
+/// `lock_consume`) demande une clé de l'**équipe** (`run::TeamKeys`, ramassée par n'importe quel
+/// joueur : `keys::key_pickup_system`). Sans elle : refus (`KeyEvent { delta: 0, reason:
+/// "door_refused" }`), la porte garde son collider (état « verrouillée », bloquante comme une porte
+/// fermée, champ de flux compris) et rien n'est débité. Avec elle : la clé est vérifiée **avant** le
+/// coût, puis retirée de l'équipe si `lock.consume`, gardée sinon ; la jumelle (qui porte la même
+/// serrure) s'ouvre avec la porte, sans seconde clé. Une porte sans serrure ne lit pas `TeamKeys`.
 pub fn handle_door_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
@@ -310,6 +319,8 @@ pub fn handle_door_interaction(
     >,
     mut wallets: Query<(&Player, &mut Currency), With<Rollback>>,
     mut currency_events: ResMut<FrameEvents<CurrencyEvent>>,
+    mut team_keys: ResMut<TeamKeys>,
+    mut key_events: ResMut<FrameEvents<KeyEvent>>,
 ) {
     let system_span = span!(
         Level::INFO,
@@ -328,6 +339,30 @@ pub fn handle_door_interaction(
         // Verify the interactable entity exists and is a rollback entity
         if let Ok((door_entity, door_component)) = door_query.get(event.interactable) {
             let cost = door_component.config.cost;
+            // X-6a1 (§117) : porte à serrure. La clé est cherchée dans l'état d'**équipe** avant tout
+            // débit : sans elle, la porte reste fermée et rien ne change (refus signalé par `KeyEvent`).
+            let lock = door_component.config.lock.as_ref();
+            if let Some(lock) = lock {
+                let Ok((player, _)) = wallets.get(event.interactor) else {
+                    continue;
+                };
+                if team_keys.count(&lock.key) == 0 {
+                    info!(
+                        "{} door {} locked: interactor {} has no team key {}",
+                        frame.as_ref(),
+                        event.interactable_net_id,
+                        event.interactor_net_id,
+                        lock.key
+                    );
+                    key_events.send(KeyEvent {
+                        handle: player.handle,
+                        key: lock.key.clone(),
+                        delta: 0,
+                        reason: "door_refused".to_string(),
+                    });
+                    continue;
+                }
+            }
             if cost > 0 {
                 let Ok((player, mut wallet)) = wallets.get_mut(event.interactor) else {
                     continue;
@@ -355,6 +390,21 @@ pub fn handle_door_interaction(
                 });
             }
 
+            if let Some(lock) = lock {
+                // Le contrôle ci-dessus garantit la clé ; la serrure ne retire que si sa donnée le dit.
+                let handle = wallets
+                    .get(event.interactor)
+                    .map_or(0, |(player, _)| player.handle);
+                if lock.consume {
+                    team_keys.take(&lock.key);
+                }
+                key_events.send(KeyEvent {
+                    handle,
+                    key: lock.key.clone(),
+                    delta: if lock.consume { -1 } else { 0 },
+                    reason: if lock.consume { "door" } else { "door_open" }.to_string(),
+                });
+            }
             info!(
                 "{} door interaction triggered: interactor {} on door {}",
                 frame.as_ref(),

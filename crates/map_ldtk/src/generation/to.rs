@@ -560,6 +560,18 @@ impl IMapGenerator for GeneratedMap {
                 ));
             }
 
+            // X-6a1 : la serrure d'auteur est réécrite telle quelle (absente : aucun champ, porte ordinaire).
+            if let Some(lock) = &door.lock {
+                fields.push((
+                    map_const::FIELD_LOCK_KEY_NAME,
+                    FieldValue::String(Some(lock.key.clone())),
+                ));
+                fields.push((
+                    map_const::FIELD_LOCK_CONSUME_NAME,
+                    FieldValue::Bool(lock.consume),
+                ));
+            }
+
             self.add_entity_to_level(rng, location, door_type, fields);
         }
 

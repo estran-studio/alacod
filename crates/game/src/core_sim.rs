@@ -101,6 +101,8 @@ impl Plugin for CoreSimPlugin {
         // M3-T9 : tirage des curses à l'entrée de chaque étage et leurs effets (§74).
         app.add_plugins(crate::curses::CursesPlugin);
         app.add_plugins(crate::shop::ShopPlugin);
+        // X-6a1 (§117) : clé portée par un ennemi, lâchée à sa mort, ramassée vers l'état d'équipe.
+        app.add_plugins(crate::keys::KeysPlugin);
         app.add_plugins(crate::hub::HubPlugin);
         // M2-T11 : fosses, tables renversables, barils explosifs (inertes sans eux)
         app.add_plugins(crate::props::PropsPlugin);
@@ -141,6 +143,14 @@ impl Plugin for CoreSimPlugin {
             app.rollback_and_trace_neutral::<combat::weapons::melee::MeleeQueue>();
             // P-1 : cycle d'un tireur posté (`ai.ranged_cycle`), même règle.
             app.rollback_and_trace_neutral::<crate::character::enemy::ai::cycle::RangedCycle>();
+            // X-6a1 (§117) : clé d'équipe au sol, composant neutre posé seulement par la mort d'un porteur ;
+            // état d'équipe et file de variations neutres aussi (valeur par défaut et file vide : 0), même règle.
+            app.rollback_and_trace_neutral::<items::KeyPickup>();
+            app.rollback_and_trace_resource_neutral::<run::TeamKeys>();
+            {
+                use sim_core::frame_events::FrameEventsAppExt;
+                app.add_frame_events_neutral::<run::KeyEvent>();
+            }
         }
 
         app.init_resource::<GggrsSessionConfigurationState>();

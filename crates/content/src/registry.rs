@@ -282,6 +282,8 @@ pub struct CharacterEntry {
     pub weapon_slots: u32,
     /// M2-T1 : consommables de départ (`{"blank": 2}`), références vérifiées par le lint.
     pub starting_consumables: BTreeMap<String, u32>,
+    /// X-6a1 (§117) : clé d'équipe portée et lâchée à la mort (`carries_key`), pour la règle « non vide ».
+    pub carries_key: Option<String>,
     /// M2-T2 (§43) : dash résolu (`movement` surchargé par `dash`), pour les règles du lint.
     pub dash: DashLint,
     /// T1.10 : effets v1 du personnage (`docs/conventions.md` §27).
@@ -1181,6 +1183,38 @@ pub struct MapEntry {
     /// M2-T15 (§53) : par niveau interne, ce qu'il contient (type de salle, personnages
     /// `CharacterSpawn`, armes murales `WeaponLocation`), pour l'atteignabilité statique.
     pub levels: Vec<MapLevelInfo>,
+    /// X-6a1 (§117) : `lock_key` de chaque porte (`DoorHorizontal`/`DoorVertical`) à serrure des niveaux
+    /// internes, pour l'avertissement « clé qu'aucun personnage ne porte ».
+    pub door_locks: Vec<String>,
+}
+
+/// X-6a1 : champ `lock_key` non vide de chaque porte d'un `.ldtk` (niveaux internes), dans l'ordre du
+/// fichier ; vide si la carte est illisible en JSON.
+fn ldtk_door_locks(text: &str) -> Vec<String> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for level in json["levels"].as_array().into_iter().flatten() {
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                if entity["__identifier"] != "DoorHorizontal"
+                    && entity["__identifier"] != "DoorVertical"
+                {
+                    continue;
+                }
+                let key = entity["fieldInstances"]
+                    .as_array()
+                    .and_then(|fields| fields.iter().find(|f| f["__identifier"] == "lock_key"))
+                    .and_then(|f| f["__value"].as_str())
+                    .filter(|key| !key.is_empty());
+                if let Some(key) = key {
+                    out.push(key.to_string());
+                }
+            }
+        }
+    }
+    out
 }
 
 /// M2-T15 : contenu d'un niveau interne d'un `.ldtk` (voir [`MapEntry::levels`]).
@@ -2107,6 +2141,10 @@ struct CharacterFileSchema {
     /// M2-T1 : voir `game::character::config::CharacterConfig::starting_consumables`.
     #[serde(default)]
     starting_consumables: BTreeMap<String, u32>,
+    /// X-6a1 (§117) : voir `game::character::config::CharacterConfig::carries_key`.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "non vide"))]
+    carries_key: Option<String>,
     /// T1.4 : seuls `ai.behaviors` et `ai.targeting` sont lus.
     #[serde(default)]
     ai: Option<AiSchema>,
@@ -3175,6 +3213,7 @@ fn load_characters(
                 weapon_slots: parsed.weapon_slots,
                 dash: DashLint::resolve(&parsed.movement, parsed.dash.as_ref()),
                 starting_consumables: parsed.starting_consumables,
+                carries_key: parsed.carries_key,
                 effects: parsed.effects,
                 boss: parsed.boss,
                 bomb: parsed.bomb,
@@ -4895,6 +4934,7 @@ fn load_maps(
             .unwrap_or_default();
         let room_kinds = text.as_deref().map(ldtk_room_kinds).unwrap_or_default();
         let levels = text.as_deref().map(ldtk_level_infos).unwrap_or_default();
+        let door_locks = text.as_deref().map(ldtk_door_locks).unwrap_or_default();
         registry.maps.insert(
             id.clone(),
             MapEntry {
@@ -4904,6 +4944,7 @@ fn load_maps(
                 spawned_characters,
                 room_kinds,
                 levels,
+                door_locks,
             },
         );
     }

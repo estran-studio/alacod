@@ -28,7 +28,7 @@ use crate::character::player::input::{
 };
 use bevy_fixed::fixed_math::Fixed;
 pub use combat::weapons::expectations::{
-    DistanceTarget, EntityKind, EntityRef, Expectation, RunStepExpectation,
+    DistanceTarget, EntityKind, EntityRef, Expectation, MapDoorState, RunStepExpectation,
 };
 pub use content::sandbox::{
     CharacterPlacement, ChestPlacement, ItemPlacement, ModifierSpec, ShelfPlacement, ShopSetup,

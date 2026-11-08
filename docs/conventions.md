@@ -8907,6 +8907,71 @@ aucune trace existante ne bouge** (`make check_sim_boundary` : rien de neuf dans
   dérivation suit `WeaponRegistry` : un `alacod/reload_content` qui ne touche que `models.ron` ou `anime.json` n'est lu qu'au rechargement suivant de `melee_weapons.ron` (ou à la
   relance), comme les autres tables dérivées (`docs/editeur-vocal.md`).
 
+## 117. Portes de carte à états et clé portée par un ennemi (X-6a1, `docs/taches/rapports/x-6a1-portes-cle.md`)
+
+Jalon servi : **S3, dimanche 29 novembre** (`plan-1837-cli.md` §6, lancé en avance le 8 novembre) ; elle sert un jeu externe dont un ennemi porte la clé d'une porte
+(la porte reste close sans elle). **Mécaniques génériques** : le contrat exact de la clé (retour au poste, porte atteinte avant la clé…)
+est une donnée à fermer par le design (dette **D210**) ; l'engine livre des défauts simples. Rien de 1837 dans l'engine (identifiants neutres : `cle_test`,
+`porteur_cle`). **Aucune trace existante ne bouge** (portes de zombies et salles d'`isaac` inchangées, `make test_scenarios_par`) ; trois types rollback neufs,
+tous en variante **neutre** (règle de parité des types vides de la checklist GGRS de `CLAUDE.md`).
+
+- **États d'une porte de carte** (entité LDtk `DoorHorizontal` / `DoorVertical`, `map_ldtk::game::entity::door`, `DoorComponent`) : **fermée** (un collider et un
+  `Interactable { Door }`), **ouverte** (collider, calque de collision et `Interactable` retirés par `handle_door_interaction` : état déjà existant, déduit des
+  composants, rien de plus à sauvegarder) et **verrouillée** (fermée **et** `DoorConfig::lock` : un collider, donc bloquante comme une porte fermée). Le champ de
+  flux range les cases d'une porte tant qu'elle a un collider (`navigation::rebuild_blocked_cells`) : la porte verrouillée bloque donc le champ sans rien d'ajouté, et
+  ses cases sont rendues à l'ouverture (test `crates/scenario/tests/map_door_keys.rs` : lit `FlowFieldCache::wall_cells`, pas seulement un collider physique).
+- **Serrure en donnée** : `map::generation::entity::door::DoorLockConfig { key, consume }`, champs LDtk de la porte `lock_key` (id de clé d'équipe ; vide ou absent :
+  porte ordinaire) et `lock_consume` (booléen ; **absent : vrai**, la clé est retirée à l'ouverture ; faux : elle reste à l'équipe). `consume` est le seul choix de
+  donnée sur la clé ; une même clé peut ouvrir plusieurs portes si `lock_consume` est faux. Aucun champ de plus pour les portes existantes (`DoorConfig::lock: None`).
+- **La serrure traverse la génération** (les maps LDtk passent toutes par `map_generation`, qui ne gardait que la **position** des portes et recalculait le reste) :
+  `EntityLocations::door_locks` (`map_ldtk::generation::from`, `door_lock_from_instance`) porte la serrure d'auteur à `BasicMapGeneration::get_doors`, qui la remet dans la
+  `DoorConfig`, la **copie sur la jumelle** (les deux battants d'une porte appariée s'ouvrent ensemble : un seul des deux porte le champ dans la carte) et met le coût
+  à **0** (le prix est calculé de la profondeur, pas une valeur d'auteur : une porte à clé s'ouvre avec sa clé, pas avec de l'argent) ; `to.rs` réécrit les deux champs. Test
+  `la_serrure_traverse_la_generation_et_se_partage_avec_la_jumelle` (`map`).
+- **Ouvrir** (`game::interaction::handle_door_interaction`, étendu : pas de second système) : sans serrure, rien ne change (prix des portes de zombies débité comme
+  avant). Avec une serrure, la clé est cherchée dans `run::TeamKeys` **avant** le débit du prix : absente, refus (`KeyEvent { delta: 0, reason: "door_refused" }`, journal
+  `door … locked`), la porte reste `Locked`, rien n'est consommé ni payé ; présente, la porte et sa jumelle s'ouvrent, la clé est retirée si `consume`
+  (`KeyEvent { delta: -1, reason: "door" }`) ou gardée (`delta: 0`, `reason: "door_open"`). N'importe quel joueur ouvre avec la clé de l'équipe.
+- **Prompt** (`game::ui::hud`, `door_prompt`, pure et testée) : « Ouvrir » (+ prix éventuel) ; « **Fermé — clé** » pour une porte à serrure dont la clé n'est pas tenue.
+- **Clé portée par un ennemi** : champ de personnage `carries_key: Option<String>` (`CharacterConfig`, schéma de lint `non vide`, `alacod describe Character`). À la
+  mort du porteur, `game::keys::key_drop_on_death_system` (`DeathManagement`, après `shell_drop_on_death_system` et `champion_death_system`, avant
+  `rollback_apply_death`) pose une `items::KeyPickup { key }` à sa position. Morts vues **triées par `GgrsNetId`** (`order_iter!`), `GgrsNetId` de la clé = `key_<id du
+  mort>` (`GgrsNetIdFactory::next`, comme les douilles) : indépendant du temps et des `Entity`. Aucun tirage, aucune `f32`. `With<Death>`, pas `Added<Death>` (même raison que les
+  douilles, `shop::shell_drop_on_death_system`). Un personnage sans `carries_key` ne change rien.
+- **Ramasser** (`game::keys::key_pickup_system`, `Effects`, après `shell_pickup_system`) : **au contact** (portée 20, la même que les douilles) ; le joueur de plus petit
+  `GgrsNetId` à portée la verse à `TeamKeys` (`KeyEvent { delta: 1, reason: "pickup" }`) et la clé disparaît (`despawn_rollback()`) : deux joueurs à portée à la même frame ne
+  la ramassent **qu'une fois**. Comme pour les douilles, un joueur à terre ramasse aussi.
+- **État d'équipe** : `run::TeamKeys(BTreeMap<String, u32>)` (invariant : aucune entrée à zéro, donc « sans clé » est exactement `Default`), remise à zéro à chaque run
+  (`run_state`, avec `DoorLocks`). Un seul état pour tous les joueurs : celui qui ramasse n'est pas celui qui ouvre. Distinct des consommables `key` par joueur des salles
+  d'`isaac` (`items::Inventory`, `key_door_system`, `InteractionType::KeyDoor`), **inchangés**.
+- **HUD** : source `team_keys` (`content::ui::HUD_SOURCES`, `game::ui::hud_model::PLAYER_SOURCES`) : une ligne par id tenu (« cle_test », « cle_test ×2 »), vide sans clé ;
+  `HudText(source: "team_keys")` la lit en headless. Le testbed l'affiche (`ui/hud.ron`, « Clés : »).
+- **GGRS** (`CLAUDE.md`) : `TeamKeys` (`rollback_and_trace_resource_neutral`), `items::KeyPickup` (`rollback_and_trace_neutral`) et `FrameEvents<run::KeyEvent>`
+  (`add_frame_events_neutral`) sont enregistrés dans `core_sim`, **après** tous les plugins et **avant** les cinq enregistrements de clôture (parité des types vides : une
+  valeur par défaut ou aucun porteur contribue 0, aucune trace ne bouge). `DoorLockConfig` est une donnée statique de l'entité de carte (comme `DoorComponent`, hors
+  rollback). `make schedule_order_diff` : seuls ajouts, `key_drop_on_death_system`, `key_pickup_system`, trois types.
+- **Observation** (`combat::weapons::expectations`) : `MapDoor { nth, state: Closed | Locked | Open }` (portes de carte triées par `GgrsNetId`), `TeamKeys { key, count }`,
+  `KeyPiles { count }` ; moments clés `key_pickup`, `key_door`, `key_door_open`, `key_refused` (`scenario::events::key_events`, relus de `FrameEvents<KeyEvent>`).
+- **Testbed** (cartes `testbed/portes_cle.ldtk` et `portes_cle_gardee.ldtk`, générées par script à partir de `two_rooms_door.ldtk` : une salle de départ 12×8 à deux
+  `PlayerSpawn`, une porte à l'est avec `lock_key: "cle_test"`, une seconde salle ; personnage `porteur_cle` : immobile, 3 PV, `carries_key: Some("cle_test")`) :
+
+| Scénario | Ce qu'il prouve |
+|---|---|
+| `door_state_closed_open` | porte **fermée** (`two_rooms_door`, payante 750) : `Closed` puis `Open` ensemble avec sa jumelle, solde 1000 → 250 |
+| `door_state_locked_no_key` | porte **verrouillée** : sans clé, `Locked` du début à la fin, `key_refused`, aucun débit (solde 1000), `team_keys` vide |
+| `key_carrier_coop` | porteur tué par le joueur 1, la clé tombe (`KeyPiles` 1), le **joueur 2** la ramasse (`key_pickup` joueur 1, `TeamKeys` 1, HUD `cle_test`), le **joueur 1** ouvre (`key_door` joueur 0, clé consommée, `Open` des deux battants) |
+| `key_single_pickup` | deux joueurs à égale distance de la clé : ramassée **une seule fois** (`TeamKeys` 1, aucune clé au sol), par le joueur de plus petit `GgrsNetId` |
+| `door_key_kept` | `lock_consume: false` : la clé reste à l'équipe après l'ouverture (`key_door_open`, `TeamKeys` 1, HUD inchangé) |
+
+  Tests : `run::keys` (invariant de `TeamKeys`), `game::keys` (ramassage : plus petit `GgrsNetId`, hors de portée), `game::ui::hud` (`door_prompt`),
+  `map::generation::imp::basic` (serrure et jumelle), `crates/scenario/tests/map_door_keys.rs` (champ de flux), `crates/content/tests/x_6a1_door_lock_fixtures.rs` (lint).
+  Fichiers LDtk : `python3` à partir de `two_rooms_door.ldtk`, deux champs de plus sur les définitions `DoorHorizontal`/`DoorVertical` (les instances sans champ restent valides).
+- **Lint et `describe`** : `carries_key` est dans le schéma de personnage (`alacod describe Character` : champ `carries_key`, règle `non vide`, erreur `OutOfRange` pour
+  `Some("")`) ; les champs de porte `lock_key` / `lock_consume` se lisent dans la carte (`alacod describe Map` liste les cartes, pas leurs champs d'entité). **Avertissement**
+  `UnobtainableKey` (`content::reach::warnings`, n'échoue pas `alacod lint`) : une porte de carte dont le `lock_key` n'est le `carries_key` d'aucun personnage du jeu ne
+  s'ouvrira jamais (les clés d'équipe n'ont pas d'autre source) ; fixtures `door_lock_unobtainable`, `door_lock_carried`, `carries_key_empty`.
+- **Dettes** : **D210** (contrat de la clé non fermé), **D211** (limites de la serrure), **D212** (présentation) : `docs/taches/dettes.md`.
+
 ## 118. Le couvert : un prop qui arrête les balles de toutes les équipes (X-6a2, `docs/taches/rapports/x-6a2-couverts.md`)
 
 Un décor de 1837 (caisse, souche, barrière) est un prop (M-1b, § 112). Sans équipe il reçoit `Team::Enemies` (repli de `map_ldtk::game::local`, ligne 347) : les balles du joueur s'y arrêtent, les balles **ennemies** (même bord, tir ami `Never`) le **traversent** ;

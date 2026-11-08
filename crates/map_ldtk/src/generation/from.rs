@@ -12,6 +12,7 @@ use map::generation::{
     },
     entity::{
         character_spawn::CharacterSpawnConfig,
+        door::DoorLockConfig,
         enemy_spawn::EnemySpawnConfig,
         location::{EntityLocation, EntityLocations},
         prop::PropConfig,
@@ -108,6 +109,48 @@ fn get_enemy_spawns(
                 },
                 EnemySpawnConfig { activation_area },
             )
+        })
+        .collect()
+}
+
+/// X-6a1 : la serrure d'une entité porte LDtk (`lock_key` non vide ; `lock_consume`, vrai si absent),
+/// partagée par l'extraction de la génération ([`get_door_locks`]) et la lecture de la porte chargée.
+pub fn door_lock_from_instance(entity: &bevy_ecs_ldtk::EntityInstance) -> Option<DoorLockConfig> {
+    let key = entity
+        .get_string_field(map_const::FIELD_LOCK_KEY_NAME)
+        .ok()
+        .filter(|key| !key.is_empty())?
+        .clone();
+    let consume = entity
+        .get_bool_field(map_const::FIELD_LOCK_CONSUME_NAME)
+        .ok()
+        .copied()
+        .unwrap_or(true);
+    Some(DoorLockConfig { key, consume })
+}
+
+/// X-6a1 : serrures d'auteur des portes (`DoorHorizontal`/`DoorVertical` : `lock_key` non vide,
+/// `lock_consume`) : un champ absent donne une porte ordinaire, `lock_consume` absent vaut vrai.
+fn get_door_locks(
+    entities: &[bevy_ecs_ldtk::EntityInstance],
+    tile_size: &(i32, i32),
+) -> Vec<(EntityLocation, DoorLockConfig)> {
+    entities
+        .iter()
+        .filter(|x| {
+            x.identifier == map_const::ENTITY_DOOR_HORIZONTAL_LOCATION
+                || x.identifier == map_const::ENTITY_DOOR_VERTICAL_LOCATION
+        })
+        .filter_map(|x| {
+            let lock = door_lock_from_instance(x)?;
+            Some((
+                EntityLocation {
+                    position: Position(x.grid.x, x.grid.y),
+                    size: (x.width / tile_size.0, x.height / tile_size.1),
+                    level_iid: "".to_string(),
+                },
+                lock,
+            ))
         })
         .collect()
 }
@@ -262,6 +305,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
 
     if let Some(entity_layer) = entity_layer {
         EntityLocations {
+            door_locks: get_door_locks(&entity_layer.entity_instances, tile_size),
             doors: get_entities_multi!(
                 entity_layer.entity_instances,
                 tile_size,
@@ -300,6 +344,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
         }
     } else {
         EntityLocations {
+            door_locks: vec![],
             doors: vec![],
             sodas: vec![],
             props: vec![],

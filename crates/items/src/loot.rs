@@ -677,6 +677,14 @@ pub struct ShellPickup {
     pub amount: u32,
 }
 
+/// Clé d'équipe au sol (X-6a1, `docs/conventions.md` §117) : lâchée à la mort d'un ennemi qui la porte
+/// (`CharacterConfig::carries_key`), ramassée au contact par l'un ou l'autre joueur et versée à
+/// `run::TeamKeys` (rollback, neutre).
+#[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyPickup {
+    pub key: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

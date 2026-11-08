@@ -474,6 +474,16 @@ impl IMapGeneration for BasicMapGeneration {
             let door_cost = base_cost + (room_depth * cost_per_depth) as i32;
 
             for door_location in &room.entity_locations.doors {
+                // X-6a1 : la serrure d'auteur (même position dans la salle) traverse telle quelle.
+                let lock = room
+                    .entity_locations
+                    .door_locks
+                    .iter()
+                    .find(|(at, _)| {
+                        (at.position.0, at.position.1)
+                            == (door_location.position.0, door_location.position.1)
+                    })
+                    .map(|(_, lock)| lock.clone());
                 all_doors.push((
                     room_index,
                     EntityLocation {
@@ -486,6 +496,7 @@ impl IMapGeneration for BasicMapGeneration {
                         electrify: room_depth > 0,
                         interactable: true, // Default to interactable, will update based on connection
                         paired_door: None,
+                        lock,
                     },
                 ));
             }
@@ -578,6 +589,14 @@ impl IMapGeneration for BasicMapGeneration {
                 door_loc.level_iid.clone(),
                 (door_loc.position.0, door_loc.position.1),
             ));
+
+            // X-6a1 : les deux battants d'une porte appariée s'ouvrent ensemble ; ils partagent donc
+            // la serrure (celle qui existe, la première si les deux en portent une).
+            if all_doors[door_index].2.lock.is_none() {
+                all_doors[door_index].2.lock = all_doors[other_door_index].2.lock.clone();
+            } else if all_doors[other_door_index].2.lock.is_none() {
+                all_doors[other_door_index].2.lock = all_doors[door_index].2.lock.clone();
+            }
         }
 
         // Apply non-interactable flags
@@ -590,7 +609,14 @@ impl IMapGeneration for BasicMapGeneration {
             .into_iter()
             .enumerate()
             .filter(|(i, _)| !removed.contains(i))
-            .map(|(_, (_, loc, config))| (loc, config))
+            .map(|(_, (_, loc, mut config))| {
+                // X-6a1 : une porte à serrure s'ouvre avec sa clé, pas avec de l'argent (le coût,
+                // recalculé de la profondeur, n'est pas une valeur d'auteur).
+                if config.lock.is_some() {
+                    config.cost = 0;
+                }
+                (loc, config)
+            })
             .collect()
     }
 
@@ -846,6 +872,7 @@ mod tests {
                 weapons: vec![],
                 windows: vec![],
                 character_spawns: vec![],
+                door_locks: vec![],
             },
             room_kind: None,
         }
@@ -912,6 +939,48 @@ mod tests {
                 .map(|(_, c)| (c.interactable, c.paired_door.is_some()))
                 .collect::<Vec<_>>()
         );
+    }
+
+    /// X-6a1 : la serrure d'auteur d'une porte traverse `get_doors` telle quelle, est partagée par la
+    /// porte appariée (les deux battants s'ouvrent ensemble) et remplace le coût recalculé (une porte à
+    /// clé ne se paie pas) ; une porte sans serrure garde son coût et reste sans serrure.
+    #[test]
+    fn la_serrure_traverse_la_generation_et_se_partage_avec_la_jumelle() {
+        use crate::generation::entity::door::DoorLockConfig;
+        let lock = DoorLockConfig {
+            key: "cle".into(),
+            consume: false,
+        };
+        let mut locked = level("A", &[(Side::E, 4)]);
+        locked.entity_locations.door_locks =
+            vec![(locked.entity_locations.doors[0].clone(), lock.clone())];
+        let mut generator = generator(vec![
+            (locked, Position(0, 0)),
+            (level("B", &[(Side::W, 4)]), Position(160, 0)),
+        ]);
+        assert_eq!(generator.get_links().len(), 1);
+        let doors = generator.get_doors(&mut RollbackRng::new(1));
+        assert_eq!(doors.len(), 2);
+        for (_, config) in &doors {
+            assert_eq!(config.lock.as_ref(), Some(&lock));
+            assert_eq!(config.cost, 0);
+            assert!(config.paired_door.is_some());
+        }
+
+        let mut plain = generator_without_lock();
+        for (_, config) in plain.get_doors(&mut RollbackRng::new(1)) {
+            assert_eq!(config.lock, None);
+            assert_eq!(config.cost, 750);
+        }
+    }
+
+    fn generator_without_lock() -> BasicMapGeneration {
+        let mut generator = generator(vec![
+            (level("A", &[(Side::E, 4)]), Position(0, 0)),
+            (level("B", &[(Side::W, 4)]), Position(160, 0)),
+        ]);
+        generator.get_links();
+        generator
     }
 
     /// Deux pièces posées bord à bord dont les prises libres se font face sont reliées ; une

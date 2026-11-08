@@ -2235,6 +2235,53 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 Err(format!("{actual} tas de douilles (attendu {count})"))
             }
         }
+        // X-6a1 (§117) : clés d'équipe au sol, tenues par l'équipe, état d'une porte de carte.
+        Expectation::KeyPiles { count, .. } => {
+            let actual = world.query::<&items::KeyPickup>().iter(world).count() as u32;
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!("{actual} clé(s) au sol (attendu {count})"))
+            }
+        }
+        Expectation::TeamKeys { key, count, .. } => {
+            let actual = world.resource::<run::TeamKeys>().count(key);
+            if actual == *count {
+                Ok(())
+            } else {
+                Err(format!(
+                    "clé d'équipe « {key} » : {actual} (attendu {count})"
+                ))
+            }
+        }
+        Expectation::MapDoor { nth, state, .. } => {
+            let mut doors: Vec<_> = world
+                .query::<(
+                    &utils::net_id::GgrsNetId,
+                    &map::game::entity::map::door::DoorComponent,
+                    Has<game::collider::Collider>,
+                )>()
+                .iter(world)
+                .map(|(id, door, closed)| (id.0, door.config.lock.is_some(), closed))
+                .collect();
+            doors.sort_unstable();
+            let Some((_, locked, closed)) = doors.get(*nth) else {
+                return Err(format!(
+                    "{} porte(s) de carte (index {nth} demandé)",
+                    doors.len()
+                ));
+            };
+            let actual = match (closed, locked) {
+                (false, _) => game::replay::MapDoorState::Open,
+                (true, true) => game::replay::MapDoorState::Locked,
+                (true, false) => game::replay::MapDoorState::Closed,
+            };
+            if actual == *state {
+                Ok(())
+            } else {
+                Err(format!("porte {nth} : {actual:?} (attendu {state:?})"))
+            }
+        }
         Expectation::ItemCharge { handle, charge, .. } => {
             let inventory = player_inventory(world, *handle)?;
             match inventory.and_then(|i| i.active) {

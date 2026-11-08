@@ -36,6 +36,8 @@ pub enum LintWarningKind {
     /// M-6 (§116) : le `strike_frames` du RON d'une arme de mêlée diffère du `moments.frappe` du clip
     /// auquel un modèle la lie (le RON prime), ou ni l'un ni l'autre ne donnent de fenêtre.
     MomentMismatch,
+    /// X-6a1 (§117) : une porte de carte à `lock_key` dont aucun personnage ne porte la clé.
+    UnobtainableKey,
 }
 
 /// Un avertissement de lint : même forme qu'une [`crate::LintError`], mais n'échoue pas.
@@ -458,6 +460,27 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
                         .map_or_else(String::new, |m| format!(" ; mécanique : {m}"))
                 ),
             );
+        }
+    }
+
+    // X-6a1 (§117) : une porte de carte à serrure dont aucun personnage du jeu ne porte la clé
+    // (`carries_key`) ne s'ouvre jamais dans une partie ordinaire (les clés d'équipe n'ont pas d'autre source).
+    let carried: BTreeSet<&str> = registry
+        .characters
+        .values()
+        .filter_map(|character| character.carries_key.as_deref())
+        .collect();
+    for map in registry.maps.values() {
+        for key in map.door_locks.iter().collect::<BTreeSet<_>>() {
+            if !carried.contains(key.as_str()) {
+                warn(
+                    LintWarningKind::UnobtainableKey,
+                    map.file.display().to_string(),
+                    format!(
+                        "porte à serrure « {key} » : aucun personnage ne porte cette clé (`carries_key`) : la porte ne s'ouvre jamais"
+                    ),
+                );
+            }
         }
     }
 
