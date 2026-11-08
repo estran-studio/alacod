@@ -1,0 +1,25 @@
+// M-5 (docs/conventions.md § 113) : en solo, la mort reste la mort, même pour un personnage qui a un mode feu follet.
+// Un seul joueur (`wisp_attract`) se pose une bombe aux pieds (f20, `Always`) : à 0 PV il n'y a personne pour le relever,
+// il meurt (pas d'état à terre, pas de feu follet) et la défaite suit.
+//
+// À regarder : l'explosion au pied du joueur (f40) ; il disparaît (aucune lumière) ; écran de défaite.
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 120,
+    powerup_drop_chance_override: "0",
+    players: [
+        (
+            character: "wisp_attract",
+            bomb: (fuse_frames: 20, radius: "20.0", damage: "150.0", friendly_fire: Always),
+            items: ["bomb"],
+            inputs: [(from: 20, to: 21, buttons: [Bomb])],
+        ),
+    ],
+    expect: [
+        PlayerAlive(handle: 0, at_frame: 30),
+        PlayerDead(handle: 0, at_frame: 100),
+        Defeat(by_frame: 100),
+        HudText(source: "wisp", empty: true, at_frame: 100),
+    ],
+)

@@ -75,6 +75,16 @@
             font_size: Some(28.0),
             background: Some("#000000a0"),
         ),
+        // M-5 (§113) : « FEU FOLLET » + « Relève 40 % » / « Reprise 40 % » (ou « Feu follet allié »), sous le texte « À TERRE ».
+        (
+            kind: Text(source: "wisp", prefix: None),
+            anchor: Center,
+            offset: (0.0, -80.0),
+            size: Some((360.0, 90.0)),
+            color: Some("#ffd479"),
+            font_size: Some(24.0),
+            background: Some("#000000a0"),
+        ),
         // T2.12 : power-ups actifs, une ligne par power-up.
         (
             kind: Text(source: "powerups", prefix: None),

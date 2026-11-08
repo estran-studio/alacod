@@ -1,0 +1,25 @@
+// M-5 (docs/conventions.md § 113) : le leurre prend effet dès que le joueur devient feu follet, **même si personne ne change de case**. Carte vide `testbed/arene_vide.ldtk` : le joueur 0 reste
+// immobile en (424, 696) et abat le joueur 1 (`wisp_mislead`, 64 unités à l'est) par tir ami (f10-110) ; ni l'un ni l'autre ne change de case ensuite. Un `follower` apparaît à f120 au sud-ouest,
+// **plus près du joueur 0** (99 unités) que du feu follet (130) : il va quand même vers le feu follet. (Le champ de flux ne se reconstruisait que sur un changement de case : il gardait la
+// portée d'avant la chute et menait le suiveur au joueur 0.)
+//
+// À regarder : le suiveur longe le joueur 0 sans s'y arrêter et rejoint la lumière du joueur 1.
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 520,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    characters: [(character: "follower", x: "400.0", y: "600.0", at_frame: 120)],
+    players: [
+        (
+            character: "wisp_plain",
+            inputs: [(from: 10, to: 110, buttons: [Fire], pan: (100, 0))],
+        ),
+        (character: "wisp_mislead"),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 130),
+        EnemyDistance(entity: Placed(0), target: Player(1), max: Some(50.0), at_frame: 450),
+    ],
+)

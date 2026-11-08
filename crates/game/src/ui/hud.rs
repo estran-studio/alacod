@@ -1048,7 +1048,8 @@ fn update_hud_v1_values(
             match downed {
                 Some(downed) => downed_text(
                     frame,
-                    Some(downed.bleedout_at_frame),
+                    // Feu follet sans saignement (`u32::MAX`) : pas de compte à rebours.
+                    Some(downed.bleedout_at_frame).filter(|at| *at != u32::MAX),
                     reviving.map(|r| (r.progress_frames, revive_frames(config_key))),
                 ),
                 // Réanimateur : la progression du joueur qu'il relève.

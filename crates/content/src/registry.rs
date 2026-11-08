@@ -274,6 +274,10 @@ pub struct CharacterEntry {
     pub revive_frames: u32,
     /// À terre (T1.3, chantier B6), pour la règle « 0 < downed_speed_mult <= 1 ».
     pub downed_speed_mult: FixedField,
+    /// M-5 (§113) : mode « feu follet » du joueur tombé, pour les règles du lint ; `None` : `Downed` seul.
+    pub wisp: Option<sim_core::wisp::WispDef>,
+    /// M-5 (§113) : ce personnage est un point de reprise du feu follet (portée en unités), pour la règle « > 0 ».
+    pub respawn_range: Option<FixedField>,
     /// Emplacements d'armes à distance (T2.2, chantier B7), pour la règle « > 0 ».
     pub weapon_slots: u32,
     /// M2-T1 : consommables de départ (`{"blank": 2}`), références vérifiées par le lint.
@@ -2087,6 +2091,13 @@ struct CharacterFileSchema {
     #[serde(default = "default_downed_speed_mult")]
     #[schemars(extend("x-lint" = "]0, 1]"))]
     downed_speed_mult: FixedField,
+    /// M-5 (§113) : voir `game::character::config::CharacterConfig::wisp`.
+    #[serde(default)]
+    wisp: Option<sim_core::wisp::WispDef>,
+    /// M-5 (§113) : voir `game::character::config::CharacterConfig::respawn_range`.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0"))]
+    respawn_range: Option<FixedField>,
     /// T2.2, chantier B7 : voir `game::character::config::CharacterConfig::weapon_slots`.
     #[serde(default = "default_weapon_slots")]
     #[schemars(extend("x-lint" = "> 0"))]
@@ -3154,6 +3165,8 @@ fn load_characters(
                 bleedout_frames: parsed.bleedout_frames,
                 revive_frames: parsed.revive_frames,
                 downed_speed_mult: parsed.downed_speed_mult,
+                wisp: parsed.wisp,
+                respawn_range: parsed.respawn_range,
                 weapon_slots: parsed.weapon_slots,
                 dash: DashLint::resolve(&parsed.movement, parsed.dash.as_ref()),
                 starting_consumables: parsed.starting_consumables,

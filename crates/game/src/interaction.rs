@@ -643,6 +643,7 @@ pub fn handle_revive_interaction(
             commands
                 .entity(entity)
                 .remove::<Downed>()
+                .remove::<combat::downed::Wisp>()
                 .remove::<Reviving>()
                 .remove::<Interactable>();
 

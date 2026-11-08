@@ -1,0 +1,28 @@
+// M-5 (docs/conventions.md § 113) : un feu follet qui **égare** (`lure: Mislead(range: "400.0")`) détourne les ennemis même quand
+// un joueur debout est plus près. Même partie que `wisp_plain_ignored`, mais le suiveur apparaît au nord-ouest, plus près du
+// joueur 0 (99 unités) que du feu follet (168) : il va quand même vers le feu follet.
+//
+// À regarder : le suiveur passe au large du joueur 0 et rejoint la lumière du joueur 1.
+Scenario(
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 520,
+    powerup_drop_chance_override: "0",
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    characters: [(character: "follower", x: "350.0", y: "600.0", at_frame: 120)],
+    players: [
+        (
+            character: "wisp_plain",
+            inputs: [
+                (from: 10, to: 110, buttons: [Fire], pan: (100, 0)),
+                (from: 110, to: 150, buttons: [Left]),
+            ],
+        ),
+        (character: "wisp_mislead"),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 130),
+        EnemyDistance(entity: Placed(0), target: Player(1), max: Some(50.0), at_frame: 450),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(120.0), at_frame: 450),
+    ],
+)

@@ -769,6 +769,65 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
 
+        // Feu follet (M-5, §113) : chaque nombre doit faire avancer l'état (0 figerait le feu
+        // follet, ou le relèverait à la frame de sa chute).
+        if let Some(wisp) = &character.wisp {
+            let mut wisp_error = |field: &str, value: String, rule: &str| {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ wisp.{field} = {value} : doit être {rule}",
+                        character.id
+                    ),
+                });
+            };
+            if wisp.speed_mult <= Fixed::ZERO || wisp.speed_mult > Fixed::from_num(4.0) {
+                wisp_error("speed_mult", wisp.speed_mult.to_string(), "dans ]0, 4]");
+            }
+            if let Some(lure) = &wisp.lure {
+                if lure.range() <= Fixed::ZERO {
+                    wisp_error("lure.range", lure.range().to_string(), "> 0");
+                }
+            }
+            if wisp.bleedout_frames == Some(0) {
+                wisp_error(
+                    "bleedout_frames",
+                    "0".into(),
+                    "> 0 (ou absent : sans saignement)",
+                );
+            }
+            if wisp.respawn_frames == Some(0) {
+                wisp_error(
+                    "respawn_frames",
+                    "0".into(),
+                    "> 0 (ou absent : sans point de reprise)",
+                );
+            }
+            if wisp.respawn_health <= Fixed::ZERO || wisp.respawn_health > Fixed::from_num(1.0) {
+                wisp_error(
+                    "respawn_health",
+                    wisp.respawn_health.to_string(),
+                    "dans ]0, 1]",
+                );
+            }
+        }
+
+        // Point de reprise (M-5, §113) : une portée nulle ou négative ne couvrirait aucun feu follet.
+        if let Some(range) = &character.respawn_range {
+            if range.get() <= Fixed::ZERO {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "personnage « {} » : champ respawn_range = {} : doit être > 0",
+                        character.id,
+                        range.get()
+                    ),
+                });
+            }
+        }
+
         // Hors plage (T2.2, chantier B7) : zéro emplacement bloquerait tout ramassage
         // d'arme (voir `interaction::handle_weapon_pickup_interaction`).
         if character.weapon_slots == 0 {

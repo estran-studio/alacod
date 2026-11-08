@@ -1,0 +1,8 @@
+// Fixture M-5 (§113) : wisp_speed_too_high
+(
+    name: "fixture-wisp_speed_too_high",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
