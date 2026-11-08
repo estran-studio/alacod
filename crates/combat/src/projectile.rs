@@ -1280,8 +1280,9 @@ pub fn projectile_collision_system(
                 ended = true;
             }
             // M3-T1 : `Split` à l'impact (après `register_hit` : l'enfant hérite de la cible
-            // touchée et des perforations restantes).
-            if let Some(split) = projectile.split.clone() {
+            // touchée et des perforations restantes). X-6a2 : jamais contre un couvert (les enfants
+            // naîtraient dans le couvert, dont l'id est dans leurs cibles déjà touchées : ils le sauteraient).
+            if let Some(split) = projectile.split.clone().filter(|_| !is_cover) {
                 let parent = Parent {
                     bullet: &bullet,
                     projectile: &projectile,
