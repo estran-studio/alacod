@@ -2,7 +2,7 @@
 
 Jalon servi : **S3, dimanche 29 novembre 2026** (`plan-1837-cli.md` §6, ligne X-6a1, lancée le 8 novembre en avance ; sa preuve écrite fait foi). Elle sert l'extérieur du prologue d'un jeu externe
 (un ennemi porte la clé d'une porte, la porte reste close sans elle) ; le **contrat exact de la clé reste à fermer par le design** (D210) : l'engine livre des mécaniques génériques et des défauts simples.
-Branche : `wquintal/x-6a1-portes-cle`, partie d'`origin/main` `58126c8a`. Tête de code poussée et vérifiée : voir « Contrôle rapide » plus bas. Aucune note de passation (lot neuf).
+Branche : `wquintal/x-6a1-portes-cle`, partie d'`origin/main` `58126c8a`. Tête de code poussée et vérifiée : **`bec5cf42`** (le commit suivant ne touche que ce rapport et la ligne `LIVRÉ`). Aucune note de passation (lot neuf).
 
 ## Relevé de l'existant (status de dix lignes, avant tout code, envoyé au coordinateur)
 
@@ -50,7 +50,14 @@ bevy a permutés en insérant les nouveaux ; `SaveWorld` / `LoadWorld` : mêmes 
 
 ## Contrôle rapide
 
-CONTROLE_RAPIDE_PLACEHOLDER
+Journal complet : `~/orca/runs/alpha/logs/x-6a1-portes-cle-check-rapide-bec5cf42.log`, **vert**, code de sortie 0, sur la tête poussée `bec5cf42` : `cargo fmt --check`, `test_tools`, `check_forbidden`, `check_rollback_registration`,
+`check_sim_boundary`, `alacod lint` des cinq jeux (zombies, testbed, throne, gungeon, isaac : aucune erreur), `test_crates` (97 blocs `test result`, **1 640 tests passés, 0 échec**). Dernières lignes : `test result: ok. 0 passed; …` (derniers doctests),
+`✓ Contrôle rapide passé (suite de scénarios : la nuit)`, `EXIT 0`. Sweep joué ensuite (`scripts/target-sweep.sh target`, pas de `target_wasm`).
+
+Un premier passage sur `d2f476d1` avait échoué sur **mes deux tests** de `game::keys` (`RollbackOrdered` absente du monde d'essai : un `Rollback` posé dans un `World` nu l'exige, comme dans `powerups.rs`) : corrigé, les tests n'avaient pas été lancés avant ce passage.
+
+Suite complète de scénarios (`make test_scenarios_par SHARDS=4`, sans `BLESS`) jouée sur la tête de simulation `1d401d7f` : **867 scénarios verts, 0 trace existante modifiée** (447 s). Les commits suivants ne touchent que `content`
+(avertissement de lint, fixtures), un module de tests et les docs : aucun code de simulation. Les cinq traces neuves ont été écrites par `ALACOD_BLESS=1 ALACOD_SCENARIO=<les cinq noms>` (aucune autre trace réécrite : `git status` ne montre que les cinq `.trace` neufs).
 
 ## Protocole de la partie du soir (dix lignes au plus)
 
