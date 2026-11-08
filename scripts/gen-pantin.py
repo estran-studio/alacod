@@ -258,7 +258,8 @@ def clips():
     out["shoot"] = (0.3, lambda t: upper_shoot(t / 0.3), {})
     out["shoulder"] = (0.15, lambda t: blend_pose(arms_carry(), arms_aim(), smooth(t / 0.15)), {})
     out["reload"] = (1.2, lambda t: upper_reload(t / 1.2), {})
-    out["strike"] = (0.35, lambda t: upper_strike(t / 0.35), {})
+    # M-6 (§ 116) : la frappe du coup tombe entre 45 % et 65 % du clip (`moments.strike.frappe`, fractions).
+    out["strike"] = (0.35, lambda t: upper_strike(t / 0.35), {"frappe": [0.45, 0.65]})
     out["roll"] = (0.4, lambda t: pose_roll(t / 0.4), {})
     moving = {"vitesse": round(WALK_SPEED, 3)}
     for d, suffix in DIRS4:

@@ -33,6 +33,9 @@ pub enum LintWarningKind {
     /// ordinaire ne rencontre pas, ou un contenu de mécanique M3 (familier, pool, salle spéciale,
     /// curse, accomplissement) qu'aucune partie ordinaire ne porte.
     MechanicUnmet,
+    /// M-6 (§116) : le `strike_frames` du RON d'une arme de mêlée diffère du `moments.frappe` du clip
+    /// auquel un modèle la lie (le RON prime), ou ni l'un ni l'autre ne donnent de fenêtre.
+    MomentMismatch,
 }
 
 /// Un avertissement de lint : même forme qu'une [`crate::LintError`], mais n'échoue pas.
@@ -583,6 +586,21 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
                     "arme « {} » : aucun personnage, règle ennemie, mur ni pool ne la donne",
                     weapon.id
                 ),
+            );
+        }
+    }
+
+    if let Some(table) = &registry.models {
+        let ron_strike = registry
+            .melee_weapons
+            .values()
+            .map(|weapon| (weapon.id.as_str().to_string(), weapon.strike_frames))
+            .collect();
+        for message in crate::models::strike_warnings(table, &ron_strike) {
+            warn(
+                LintWarningKind::MomentMismatch,
+                table.file.display().to_string(),
+                message,
             );
         }
     }

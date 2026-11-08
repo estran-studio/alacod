@@ -1,0 +1,5 @@
+(
+    name: "fixture-moments-derived-outside-attack",
+    content_folders: [(path: "melee_weapons.ron", kind: "MeleeWeapon"), (path: "models/models.ron", kind: "Model")],
+    entry: (start_map: "unused", default_seed: 1),
+)
