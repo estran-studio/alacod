@@ -8964,6 +8964,10 @@ tous en variante **neutre** (règle de parité des types vides de la checklist G
 | `door_key_kept` | `lock_consume: false` : la clé reste à l'équipe après l'ouverture (`key_door_open`, `TeamKeys` 1, HUD inchangé) |
 
   Tests : `run::keys` (invariant de `TeamKeys`), `game::keys` (ramassage : plus petit `GgrsNetId`, hors de portée), `game::ui::hud` (`door_prompt`),
-  `map::generation::imp::basic` (serrure et jumelle), `crates/scenario/tests/map_door_keys.rs` (champ de flux). Fichiers LDtk : `python3` à partir de `two_rooms_door.ldtk`,
-  deux champs de plus sur les définitions `DoorHorizontal`/`DoorVertical` (les instances sans champ restent valides).
+  `map::generation::imp::basic` (serrure et jumelle), `crates/scenario/tests/map_door_keys.rs` (champ de flux), `crates/content/tests/x_6a1_door_lock_fixtures.rs` (lint).
+  Fichiers LDtk : `python3` à partir de `two_rooms_door.ldtk`, deux champs de plus sur les définitions `DoorHorizontal`/`DoorVertical` (les instances sans champ restent valides).
+- **Lint et `describe`** : `carries_key` est dans le schéma de personnage (`alacod describe Character` : champ `carries_key`, règle `non vide`, erreur `OutOfRange` pour
+  `Some("")`) ; les champs de porte `lock_key` / `lock_consume` se lisent dans la carte (`alacod describe Map` liste les cartes, pas leurs champs d'entité). **Avertissement**
+  `UnobtainableKey` (`content::reach::warnings`, n'échoue pas `alacod lint`) : une porte de carte dont le `lock_key` n'est le `carries_key` d'aucun personnage du jeu ne
+  s'ouvrira jamais (les clés d'équipe n'ont pas d'autre source) ; fixtures `door_lock_unobtainable`, `door_lock_carried`, `carries_key_empty`.
 - **Dettes** : **D210** (contrat de la clé non fermé), **D211** (limites de la serrure), **D212** (présentation) : `docs/taches/dettes.md`.

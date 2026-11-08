@@ -1,0 +1,9 @@
+// Fixture X-6a1 (docs/conventions.md §117) : une porte de carte à `lock_key` ("cle_x") ; la clé est-elle portée par un personnage (`carries_key`) ?
+(
+    name: "fixture-carries-key-empty",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

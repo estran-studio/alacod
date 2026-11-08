@@ -1,0 +1,9 @@
+{"levels": [{"layerInstances": [{"entityInstances": [
+  {"__identifier": "DoorVertical", "fieldInstances": [
+    {"__identifier": "lock_key", "__value": "cle_x"},
+    {"__identifier": "lock_consume", "__value": true}
+  ]},
+  {"__identifier": "DoorHorizontal", "fieldInstances": [
+    {"__identifier": "lock_key", "__value": ""}
+  ]}
+]}]}]}

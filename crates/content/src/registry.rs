@@ -1181,6 +1181,38 @@ pub struct MapEntry {
     /// M2-T15 (§53) : par niveau interne, ce qu'il contient (type de salle, personnages
     /// `CharacterSpawn`, armes murales `WeaponLocation`), pour l'atteignabilité statique.
     pub levels: Vec<MapLevelInfo>,
+    /// X-6a1 (§117) : `lock_key` de chaque porte (`DoorHorizontal`/`DoorVertical`) à serrure des niveaux
+    /// internes, pour l'avertissement « clé qu'aucun personnage ne porte ».
+    pub door_locks: Vec<String>,
+}
+
+/// X-6a1 : champ `lock_key` non vide de chaque porte d'un `.ldtk` (niveaux internes), dans l'ordre du
+/// fichier ; vide si la carte est illisible en JSON.
+fn ldtk_door_locks(text: &str) -> Vec<String> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for level in json["levels"].as_array().into_iter().flatten() {
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                if entity["__identifier"] != "DoorHorizontal"
+                    && entity["__identifier"] != "DoorVertical"
+                {
+                    continue;
+                }
+                let key = entity["fieldInstances"]
+                    .as_array()
+                    .and_then(|fields| fields.iter().find(|f| f["__identifier"] == "lock_key"))
+                    .and_then(|f| f["__value"].as_str())
+                    .filter(|key| !key.is_empty());
+                if let Some(key) = key {
+                    out.push(key.to_string());
+                }
+            }
+        }
+    }
+    out
 }
 
 /// M2-T15 : contenu d'un niveau interne d'un `.ldtk` (voir [`MapEntry::levels`]).
@@ -4896,6 +4928,7 @@ fn load_maps(
             .unwrap_or_default();
         let room_kinds = text.as_deref().map(ldtk_room_kinds).unwrap_or_default();
         let levels = text.as_deref().map(ldtk_level_infos).unwrap_or_default();
+        let door_locks = text.as_deref().map(ldtk_door_locks).unwrap_or_default();
         registry.maps.insert(
             id.clone(),
             MapEntry {
@@ -4905,6 +4938,7 @@ fn load_maps(
                 spawned_characters,
                 room_kinds,
                 levels,
+                door_locks,
             },
         );
     }
