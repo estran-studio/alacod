@@ -510,6 +510,9 @@ ou d'un crate à l'autre, avec les traces de scénario.
       (clé consommée), `key_door_open` (clé gardée) et `key_refused` ; `HudText(source: "team_keys")` lit les clés tenues ; personnage `carries_key`.
     - X-6a2 couverts (§118) : `EntityCount(kind: Cover, min, max, at_frame)` (couverts non détruits, `sim_core::cover::Cover`) ; `Health`, `EntityHealth`, `BulletCount`
       (filtre `projectile: Some("arrow")`, `team`) couvrent les neuf scénarios `couvert_*` (témoins `couvert_temoin_prop`, `couvert_arrete_*_temoin`).
+    - X-6b charge en zigzag et retour au point de départ (§119) : `EnemyPosition(entity, x_min, x_max, y_min, y_max, at_frame)` (position de l'ennemi, bornes
+      inclusives par axe : écart latéral d'un zigzag, retour au point d'apparition) ; `EnemyState` (règle `ReturnHome`), `Health` couvrent les quatre scénarios
+      `zigzag_charge_retour`, `zigzag_temoin_droit`, `zigzag_deux_joueurs`, `retour_apres_morsure`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
       clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :
