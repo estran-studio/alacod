@@ -1,0 +1,17 @@
+// Témoin de `rodeur_garde_neutre` (suivi de X-6b, testbed, conventions §119) : `zigzag_charger` (sans `guard`) à la même place, 176 unités à l'est
+// du joueur 0 immobile. Aucune règle ne s'applique hors de 3 × `attack_range` : il retombe sur le champ de flux d'origine et marche vers le joueur
+// (il a quitté son point avant f30), arrive à portée de charge et frappe. Les attentes de `rodeur_garde_neutre` ne sont donc pas creuses.
+//
+// À regarder : le rôdeur s'approche tout seul, puis charge.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    characters: [(character: "zigzag_charger", x: "600.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        EnemyPosition(entity: Placed(0), x_max: Some(584.0), at_frame: 30),
+        EnemyPosition(entity: Placed(0), x_max: Some(520.0), at_frame: 100),
+    ],
+)

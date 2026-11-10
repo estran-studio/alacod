@@ -1446,6 +1446,31 @@ fn behavior_return_home_orphan_fixture_reports_trigger_speed_and_max_frames() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "max_frames = 0");
 }
 
+/// Suivi de X-6b (§119) : amplitude de zigzag au-dessus de 100 et période au-dessus de 3600 frames.
+#[test]
+fn behavior_zigzag_bounds_fixture_reports_amplitude_and_period_ceilings() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_zigzag_bounds")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "zigzag.amplitude = 150");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "zigzag.period = 40000");
+}
+
+/// Suivi de X-6b (§119) : `ReturnHome` derrière `Chase`/`Melee` (toujours applicables) ou derrière
+/// `Charge` n'a jamais la main : erreur, une par personnage.
+#[test]
+fn behavior_return_home_order_fixture_reports_the_rules_that_precede_it() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_return_home_order")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "ReturnHome après Chase, Melee",
+    );
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "ReturnHome après Charge",
+    );
+}
+
 #[test]
 fn behavior_unknown_profile_fixture_reports_chase_profile() {
     let (_, _, errors) = load_and_lint(&fixture_dir("behavior_unknown_profile")).unwrap();

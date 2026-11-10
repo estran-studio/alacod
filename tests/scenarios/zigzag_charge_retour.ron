@@ -3,7 +3,8 @@
 // de f22 à f48 avec un écart latéral de -8 à +9 unités autour de l'axe (y 688 à 705 pour un axe à y = 696 : la direction est recalculée vers
 // la cible à chaque frame, ce qui rabote ~15 % de l'amplitude nominale), contact f48 (joueur 100 → 95), recul face au joueur à 2 unités par
 // frame (x croît de f50 à f88), arrivée à moins de 4 unités du point d'apparition (542, 696) vers f89, attente de 40 frames immobile, puis la
-// charge repart (télégraphe f130-f149, ruée f150, contact f176 : 95 → 90). Aucune poursuite entre les deux.
+// charge repart (télégraphe f130-f149, ruée f150, contact f176 : 95 → 90). Aucune poursuite entre les deux (le joueur reste à portée de charge ;
+// plus loin, sans garde, il s'approcherait : `rodeur_garde_temoin`).
 //
 // À regarder : le rôdeur se tasse, fonce en zigzag, mord, recule à reculons jusqu'à son point, attend, recommence.
 Scenario(

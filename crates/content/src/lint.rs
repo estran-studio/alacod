@@ -3718,6 +3718,25 @@ fn lint_rules(
                             ),
                         );
                     }
+                    // `amplitude × 240 / period` doit tenir dans un `Fixed` (±32768 : amplitude ≤ 100, période ≥ 4 donnent ≤ 6000).
+                    if zigzag.amplitude.get() > Fixed::from_num(100) {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "behaviors : Charge : zigzag.amplitude = {} : doit être <= 100",
+                                zigzag.amplitude.get()
+                            ),
+                        );
+                    }
+                    if zigzag.period > 3600 {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "behaviors : Charge : zigzag.period = {} : doit être <= 3600 frames",
+                                zigzag.period
+                            ),
+                        );
+                    }
                 }
             }
             // X-6b (§119) : le retour ne se déclenche qu'après une charge ou un coup de mêlée.
@@ -3745,6 +3764,31 @@ fn lint_rules(
                         "behaviors : ReturnHome sans Charge ni Melee dans la même liste : rien ne le déclenche"
                             .to_string(),
                     );
+                }
+                // Suivi de X-6b : le retour doit passer **avant** toute règle qui s'applique déjà quand il
+                // doit prendre la main (`Chase`, `Wander` toujours ; `Charge`, `Melee`… tant que la cible
+                // est à portée) ; seul `Flee` peut le précéder.
+                if let Some(first) = rules
+                    .iter()
+                    .position(|rule| matches!(rule, BehaviorEntry::ReturnHome { .. }))
+                {
+                    let before: Vec<String> = rules[..first]
+                        .iter()
+                        .filter(|rule| !matches!(rule, BehaviorEntry::Flee))
+                        .map(|rule| {
+                            let text = format!("{rule:?}");
+                            text.split(['(', ' ', '{']).next().unwrap_or("").to_string()
+                        })
+                        .collect();
+                    if !before.is_empty() {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "behaviors : ReturnHome après {} : une règle qui le précède et s'applique le prive du recul ; le placer en tête de liste (seul Flee peut le précéder)",
+                                before.join(", ")
+                            ),
+                        );
+                    }
                 }
             }
             BehaviorEntry::Strafe | BehaviorEntry::Flee | BehaviorEntry::Wander => {}

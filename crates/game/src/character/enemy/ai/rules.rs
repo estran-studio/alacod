@@ -459,9 +459,9 @@ pub fn behavior_motion(
     // M2-T8 : place de l'ennemi dans son escouade (`Formation`).
     slot: Option<&super::squad::SquadSlot>,
 ) -> Option<BehaviorMotion> {
-    let rule = runtime
-        .selected
-        .and_then(|index| rules.get(index as usize))?;
+    let Some(rule) = runtime.selected.and_then(|index| rules.get(index as usize)) else {
+        return guard_motion(rules, runtime, position);
+    };
     let still = || BehaviorMotion {
         direction: fixed_math::FixedVec2::ZERO,
         speed_mult: fixed_math::FIXED_ZERO,
@@ -544,12 +544,51 @@ pub fn behavior_motion(
     }
 }
 
+/// Vitesse (multiplicateur facultatif) de la garde d'un `ReturnHome { guard: true }` listé, `None`
+/// sans garde.
+fn guard_speed(rules: &[Behavior]) -> Option<Option<fixed_math::Fixed>> {
+    rules.iter().find_map(|rule| match rule {
+        Behavior::ReturnHome {
+            guard: true, speed, ..
+        } => Some(*speed),
+        _ => None,
+    })
+}
+
+/// Garde (suivi de X-6b) : aucune règle retenue et un `ReturnHome { guard: true }` listé : l'ennemi
+/// retourne à son point d'apparition s'il en est écarté, sinon reste immobile ; jamais le champ de
+/// flux d'origine. `None` sans garde (comportement d'avant, au bit près).
+fn guard_motion(
+    rules: &[Behavior],
+    runtime: &BehaviorRuntime,
+    position: fixed_math::FixedVec2,
+) -> Option<BehaviorMotion> {
+    let speed = guard_speed(rules)?;
+    let (x, y) = runtime.home?;
+    let home = fixed_math::FixedVec2::new(x, y);
+    Some(
+        if position.distance(&home) >= fixed_math::Fixed::from_num(RETURN_ARRIVE) {
+            BehaviorMotion {
+                direction: (home - position).normalize_or_zero(),
+                speed_mult: speed.unwrap_or(fixed_math::FIXED_ONE),
+            }
+        } else {
+            BehaviorMotion {
+                direction: fixed_math::FixedVec2::ZERO,
+                speed_mult: fixed_math::FIXED_ZERO,
+            }
+        },
+    )
+}
 /// Compléments de déplacement d'un behavior (X-6b, §119), ajoutés à [`BehaviorMotion`] par
 /// `move_enemies` : `drift` est une vitesse **latérale absolue** (unités/s, ajoutée à la vitesse de
 /// la direction), `face` la direction où regarder (sinon le sens de la vitesse).
 pub struct MotionExtra {
     pub drift: fixed_math::FixedVec2,
     pub face: Option<fixed_math::FixedVec2>,
+    /// Le déplacement est un retour au point de départ (`ReturnHome`, garde comprise) : `move_enemies`
+    /// saute l'évasion par le champ de flux (qui mènerait vers le joueur) quand un mur l'arrête.
+    pub homing: bool,
 }
 
 /// Compléments du behavior retenu ; `None` pour tout ce qui existait avant X-6b (aucune vitesse
@@ -565,9 +604,14 @@ pub fn behavior_extra(
     position: fixed_math::FixedVec2,
     target: Option<fixed_math::FixedVec2>,
 ) -> Option<MotionExtra> {
-    let rule = runtime
-        .selected
-        .and_then(|index| rules.get(index as usize))?;
+    let Some(rule) = runtime.selected.and_then(|index| rules.get(index as usize)) else {
+        // Garde sans règle retenue : il regarde la cible depuis son point (`guard_motion`).
+        return guard_speed(rules).and(runtime.home).map(|_| MotionExtra {
+            drift: fixed_math::FixedVec2::ZERO,
+            face: target.map(|target| target - position),
+            homing: true,
+        });
+    };
     match rule {
         Behavior::Charge {
             zigzag: Some(zigzag),
@@ -587,10 +631,12 @@ pub fn behavior_extra(
             let axis =
                 (fixed_math::FixedVec2::new(frozen.0, frozen.1) - position).normalize_or_zero();
             let perpendicular = fixed_math::FixedVec2::new(-axis.y, axis.x);
-            let speed = zigzag
-                .amplitude
-                .saturating_mul(fixed_math::Fixed::from_num(4 * 60))
-                / fixed_math::Fixed::from_num(zigzag.period);
+            // `FixedWide` : `amplitude × 240` sature un `Fixed` au-delà de ~136 (le lint borne aussi).
+            let speed = fixed_math::Fixed::saturating_from_num(
+                fixed_math::FixedWide::saturating_from_num(zigzag.amplitude)
+                    * fixed_math::FixedWide::from_num(4 * 60)
+                    / fixed_math::FixedWide::saturating_from_num(zigzag.period),
+            );
             Some(MotionExtra {
                 drift: if positive {
                     perpendicular * speed
@@ -598,11 +644,13 @@ pub fn behavior_extra(
                     fixed_math::FixedVec2::ZERO - perpendicular * speed
                 },
                 face: None,
+                homing: false,
             })
         }
         Behavior::ReturnHome { .. } => Some(MotionExtra {
             drift: fixed_math::FixedVec2::ZERO,
             face: target.map(|target| target - position),
+            homing: true,
         }),
         _ => None,
     }
@@ -805,6 +853,136 @@ mod tests {
         .unwrap();
         assert_eq!(rush.speed_mult, fixed_math::Fixed::from_num(3));
         assert!(rush.direction.x > fixed_math::new(0.99));
+    }
+
+    /// Suivi de X-6b : `amplitude × 240` dépasserait un `Fixed` (±32768) dès 136 ; calculé en `FixedWide`,
+    /// la vitesse latérale reste `4 × 60 × amplitude / période` (200 × 240 / 24 = 2000).
+    #[test]
+    fn zigzag_lateral_speed_does_not_saturate() {
+        let charger = rules(vec![Behavior::Charge {
+            telegraph: 30,
+            zigzag: Some(behaviors::Zigzag {
+                amplitude: fixed_math::Fixed::from_num(200),
+                period: 24,
+            }),
+        }]);
+        let runtime = BehaviorRuntime {
+            selected: Some(0),
+            charge: ChargePhase::Rush {
+                until: CHARGE_RUSH_FRAMES,
+                target: (fixed_math::new(50.0), fixed_math::FIXED_ZERO),
+            },
+            ..Default::default()
+        };
+        let extra = behavior_extra(
+            &charger.rules,
+            &runtime,
+            0,
+            fixed_math::FixedVec2::ZERO,
+            None,
+        )
+        .unwrap();
+        assert_eq!(extra.drift.y, fixed_math::Fixed::from_num(2000));
+        assert!(!extra.homing);
+    }
+
+    /// Suivi de X-6b : le regard et le recul (`homing`, pas d'évasion par le champ de flux) valent pour
+    /// `ReturnHome` retenu et pour la garde sans règle retenue ; jamais sans garde ni pour une charge.
+    #[test]
+    fn homing_covers_the_return_and_the_guard_only() {
+        let home = Some((fixed_math::new(10.0), fixed_math::FIXED_ZERO));
+        let target = Some(fixed_math::FixedVec2::new(
+            fixed_math::new(-30.0),
+            fixed_math::FIXED_ZERO,
+        ));
+        let at = fixed_math::FixedVec2::ZERO;
+        let guard = Behavior::ReturnHome {
+            wait: 10,
+            speed: None,
+            max_frames: None,
+            guard: true,
+        };
+        let plain = Behavior::ReturnHome {
+            wait: 10,
+            speed: None,
+            max_frames: None,
+            guard: false,
+        };
+        let charge = Behavior::Charge {
+            telegraph: 10,
+            zigzag: None,
+        };
+        let extra = |list: Vec<Behavior>, selected: Option<u32>| {
+            let runtime = BehaviorRuntime {
+                selected,
+                home,
+                ..Default::default()
+            };
+            behavior_extra(&rules(list).rules, &runtime, 0, at, target)
+        };
+        // Retour retenu : homing, regard vers la cible (ouest).
+        let returning = extra(vec![plain.clone(), charge.clone()], Some(0)).unwrap();
+        assert!(returning.homing);
+        assert!(returning.face.unwrap().x < fixed_math::FIXED_ZERO);
+        // Garde sans règle retenue : homing et regard sur la cible.
+        let guarding = extra(vec![guard, charge.clone()], None).unwrap();
+        assert!(guarding.homing);
+        assert!(guarding.face.unwrap().x < fixed_math::FIXED_ZERO);
+        // Sans garde : rien (comportement d'avant). Charge retenue hors ruée : rien.
+        assert!(extra(vec![plain, charge.clone()], None).is_none());
+        assert!(extra(vec![charge], Some(0)).is_none());
+    }
+
+    /// Suivi de X-6b : la garde ramène l'ennemi écarté à son point (vitesse du `ReturnHome`) puis le
+    /// fige à moins de `RETURN_ARRIVE` ; sans garde listée, `behavior_motion` reste `None` (champ de flux).
+    #[test]
+    fn guard_returns_to_the_spawn_point_then_holds() {
+        let motion = |list: Vec<Behavior>, position: fixed_math::FixedVec2| {
+            let runtime = BehaviorRuntime {
+                selected: None,
+                home: Some((fixed_math::new(100.0), fixed_math::FIXED_ZERO)),
+                ..Default::default()
+            };
+            behavior_motion(
+                &rules(list).rules,
+                &runtime,
+                0,
+                position,
+                None,
+                &FlowFieldCache::default(),
+                crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+                &AgentBody {
+                    left: fixed_math::new(10.0),
+                    right: fixed_math::new(10.0),
+                    up: fixed_math::new(4.0),
+                    down: fixed_math::new(16.0),
+                },
+                None,
+            )
+        };
+        let guard = || {
+            vec![Behavior::ReturnHome {
+                wait: 10,
+                speed: Some(fixed_math::Fixed::from_num(2)),
+                max_frames: None,
+                guard: true,
+            }]
+        };
+        let away = motion(guard(), fixed_math::FixedVec2::ZERO).unwrap();
+        assert!(away.direction.x > fixed_math::new(0.99));
+        assert_eq!(away.speed_mult, fixed_math::Fixed::from_num(2));
+        let home = fixed_math::FixedVec2::new(fixed_math::new(101.0), fixed_math::FIXED_ZERO);
+        assert_eq!(
+            motion(guard(), home).unwrap().speed_mult,
+            fixed_math::FIXED_ZERO
+        );
+        let no_guard = vec![Behavior::ReturnHome {
+            wait: 10,
+            speed: None,
+            max_frames: None,
+            guard: false,
+        }];
+        assert!(motion(no_guard, fixed_math::FixedVec2::ZERO).is_none());
     }
 
     #[test]

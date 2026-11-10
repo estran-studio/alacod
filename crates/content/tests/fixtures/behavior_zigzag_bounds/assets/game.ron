@@ -1,0 +1,7 @@
+(
+    name: "fixture-behavior_zigzag_bounds",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

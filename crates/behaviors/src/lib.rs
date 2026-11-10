@@ -100,6 +100,12 @@ pub enum Behavior {
         /// l'ennemi attend là où il est (un obstacle sur le trajet ne le fige pas).
         #[serde(default)]
         max_frames: Option<u32>,
+        /// **Garde** (suivi de X-6b) : quand aucune règle ne s'applique (hors portée de charge, charge
+        /// pas prête), l'ennemi reste à son point d'apparition (ou y revient) au lieu de retomber sur
+        /// le champ de flux d'origine qui le fait marcher vers le joueur. Absent/`false` : comportement
+        /// d'avant, au bit près.
+        #[serde(default)]
+        guard: bool,
     },
 }
 
@@ -345,6 +351,7 @@ mod tests {
                 wait: 90,
                 speed: Some(Fixed::from_num(2)),
                 max_frames: Some(200),
+                guard: true,
             },
             Behavior::Shoot {
                 weapon: "fireball_gun".into(),
@@ -595,6 +602,13 @@ mod tests {
     /// priorité.
     #[test]
     fn charge_sans_option_et_retour_au_depart() {
+        let guarded: Behavior = ron::from_str("ReturnHome(wait: 5, guard: true)").unwrap();
+        assert!(matches!(guarded, Behavior::ReturnHome { guard: true, .. }));
+        let unguarded: Behavior = ron::from_str("ReturnHome(wait: 5)").unwrap();
+        assert!(matches!(
+            unguarded,
+            Behavior::ReturnHome { guard: false, .. }
+        ));
         let old: Behavior = ron::from_str("Charge(telegraph: 30)").unwrap();
         assert_eq!(
             old,
@@ -607,6 +621,7 @@ mod tests {
             wait: 60,
             speed: None,
             max_frames: None,
+            guard: false,
         };
         assert_eq!(home.name(), "ReturnHome");
         let charge = Behavior::Charge {

@@ -1,0 +1,21 @@
+// Suivi de X-6b (testbed, conventions §119) : `guard_charger` = `zigzag_charger` avec `ReturnHome(guard: true)`, placé à 176 unités à l'est du
+// joueur 0 immobile (424, 696), donc au-delà de 3 × `attack_range` (120) : aucune règle ne s'applique, la charge ne part pas. Scénario neutre :
+// la garde le laisse à son point d'apparition (600, 696) pendant 400 frames (moins d'une case, 16 unités), le joueur reste intact. Il guette
+// depuis son trou, il ne poursuit pas. Témoin : `rodeur_garde_temoin` (même place sans `guard` : il marche vers le joueur).
+//
+// À regarder : le rôdeur ne bouge pas.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 400,
+    characters: [(character: "guard_charger", x: "600.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        EnemyPosition(entity: Placed(0), x_min: Some(584.0), x_max: Some(616.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 30),
+        EnemyPosition(entity: Placed(0), x_min: Some(584.0), x_max: Some(616.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 120),
+        EnemyPosition(entity: Placed(0), x_min: Some(584.0), x_max: Some(616.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 399),
+        Health(handle: 0, min: 99.9, max: 100.1, at_frame: 399),
+        PlayerAlive(handle: 0, at_frame: 399),
+    ],
+)
