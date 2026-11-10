@@ -1,0 +1,25 @@
+// X-6b (testbed, conventions §119) : `biter_returner` = [ReturnHome(wait: 30, speed ×2), Melee("zombie_claws"), Chase], placé à 118 unités à
+// l'est du joueur 0 immobile (424, 696). Il poursuit (`Chase`), mord au corps à corps, puis le coup de mêlée déclenche le retour : il recule face au
+// joueur jusqu'à son point d'apparition (542, 696), attend 30 frames, puis repart à la poursuite.
+//
+// À regarder : le rôdeur approche, mord, recule à reculons, attend, recommence.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 400,
+    characters: [(character: "biter_returner", x: "542.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 20),
+        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 100),
+        EnemyPosition(entity: Placed(0), y_min: Some(9999.0), at_frame: 100),
+        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 150),
+        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 200),
+        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 250),
+        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 300),
+        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 350),
+        Health(handle: 0, min: 9999.0, at_frame: 100),
+        Health(handle: 0, min: 9999.0, at_frame: 399),
+    ],
+)

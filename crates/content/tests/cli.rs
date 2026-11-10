@@ -354,6 +354,18 @@ fn new_content_copies_a_file_for_per_file_kinds() {
     let (ok, json) = lint_json(&game);
     assert!(ok, "{json}");
 }
+/// X-6b (§119) : `describe Character` liste l'option `zigzag` de `Charge` et le behavior `ReturnHome`.
+#[test]
+fn describe_lists_zigzag_and_return_home() {
+    let tmp = Tmp::new("describe-zigzag");
+    let game = game_with_content(&tmp);
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["describe", "Character"]);
+    let schema = text(&run(cmd).stdout);
+    for word in ["zigzag", "amplitude", "period", "ReturnHome", "max_frames"] {
+        assert!(schema.contains(word), "{word} absent : {schema}");
+    }
+}
 
 /// M-1b (§112) : `describe Character` liste `prop` (avec son défaut) et `new-content --from` accepte un prop comme modèle
 /// (le champ est copié, le lint reste vert).
