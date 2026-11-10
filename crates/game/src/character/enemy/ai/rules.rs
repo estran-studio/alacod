@@ -459,9 +459,9 @@ pub fn behavior_motion(
     // M2-T8 : place de l'ennemi dans son escouade (`Formation`).
     slot: Option<&super::squad::SquadSlot>,
 ) -> Option<BehaviorMotion> {
-    let rule = runtime
-        .selected
-        .and_then(|index| rules.get(index as usize))?;
+    let Some(rule) = runtime.selected.and_then(|index| rules.get(index as usize)) else {
+        return guard_motion(rules, runtime, position);
+    };
     let still = || BehaviorMotion {
         direction: fixed_math::FixedVec2::ZERO,
         speed_mult: fixed_math::FIXED_ZERO,
@@ -544,12 +544,51 @@ pub fn behavior_motion(
     }
 }
 
+/// Vitesse (multiplicateur facultatif) de la garde d'un `ReturnHome { guard: true }` listé, `None`
+/// sans garde.
+fn guard_speed(rules: &[Behavior]) -> Option<Option<fixed_math::Fixed>> {
+    rules.iter().find_map(|rule| match rule {
+        Behavior::ReturnHome {
+            guard: true, speed, ..
+        } => Some(*speed),
+        _ => None,
+    })
+}
+
+/// Garde (suivi de X-6b) : aucune règle retenue et un `ReturnHome { guard: true }` listé : l'ennemi
+/// retourne à son point d'apparition s'il en est écarté, sinon reste immobile ; jamais le champ de
+/// flux d'origine. `None` sans garde (comportement d'avant, au bit près).
+fn guard_motion(
+    rules: &[Behavior],
+    runtime: &BehaviorRuntime,
+    position: fixed_math::FixedVec2,
+) -> Option<BehaviorMotion> {
+    let speed = guard_speed(rules)?;
+    let (x, y) = runtime.home?;
+    let home = fixed_math::FixedVec2::new(x, y);
+    Some(
+        if position.distance(&home) >= fixed_math::Fixed::from_num(RETURN_ARRIVE) {
+            BehaviorMotion {
+                direction: (home - position).normalize_or_zero(),
+                speed_mult: speed.unwrap_or(fixed_math::FIXED_ONE),
+            }
+        } else {
+            BehaviorMotion {
+                direction: fixed_math::FixedVec2::ZERO,
+                speed_mult: fixed_math::FIXED_ZERO,
+            }
+        },
+    )
+}
 /// Compléments de déplacement d'un behavior (X-6b, §119), ajoutés à [`BehaviorMotion`] par
 /// `move_enemies` : `drift` est une vitesse **latérale absolue** (unités/s, ajoutée à la vitesse de
 /// la direction), `face` la direction où regarder (sinon le sens de la vitesse).
 pub struct MotionExtra {
     pub drift: fixed_math::FixedVec2,
     pub face: Option<fixed_math::FixedVec2>,
+    /// Le déplacement est un retour au point de départ (`ReturnHome`, garde comprise) : `move_enemies`
+    /// saute l'évasion par le champ de flux (qui mènerait vers le joueur) quand un mur l'arrête.
+    pub homing: bool,
 }
 
 /// Compléments du behavior retenu ; `None` pour tout ce qui existait avant X-6b (aucune vitesse
@@ -565,9 +604,14 @@ pub fn behavior_extra(
     position: fixed_math::FixedVec2,
     target: Option<fixed_math::FixedVec2>,
 ) -> Option<MotionExtra> {
-    let rule = runtime
-        .selected
-        .and_then(|index| rules.get(index as usize))?;
+    let Some(rule) = runtime.selected.and_then(|index| rules.get(index as usize)) else {
+        // Garde sans règle retenue : il regarde la cible depuis son point (`guard_motion`).
+        return guard_speed(rules).and(runtime.home).map(|_| MotionExtra {
+            drift: fixed_math::FixedVec2::ZERO,
+            face: target.map(|target| target - position),
+            homing: true,
+        });
+    };
     match rule {
         Behavior::Charge {
             zigzag: Some(zigzag),
@@ -587,10 +631,12 @@ pub fn behavior_extra(
             let axis =
                 (fixed_math::FixedVec2::new(frozen.0, frozen.1) - position).normalize_or_zero();
             let perpendicular = fixed_math::FixedVec2::new(-axis.y, axis.x);
-            let speed = zigzag
-                .amplitude
-                .saturating_mul(fixed_math::Fixed::from_num(4 * 60))
-                / fixed_math::Fixed::from_num(zigzag.period);
+            // `FixedWide` : `amplitude × 240` sature un `Fixed` au-delà de ~136 (le lint borne aussi).
+            let speed = fixed_math::Fixed::saturating_from_num(
+                fixed_math::FixedWide::saturating_from_num(zigzag.amplitude)
+                    * fixed_math::FixedWide::from_num(4 * 60)
+                    / fixed_math::FixedWide::saturating_from_num(zigzag.period),
+            );
             Some(MotionExtra {
                 drift: if positive {
                     perpendicular * speed
@@ -598,11 +644,13 @@ pub fn behavior_extra(
                     fixed_math::FixedVec2::ZERO - perpendicular * speed
                 },
                 face: None,
+                homing: false,
             })
         }
         Behavior::ReturnHome { .. } => Some(MotionExtra {
             drift: fixed_math::FixedVec2::ZERO,
             face: target.map(|target| target - position),
+            homing: true,
         }),
         _ => None,
     }

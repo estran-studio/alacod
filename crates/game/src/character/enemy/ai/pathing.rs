@@ -210,7 +210,10 @@ pub fn move_enemies(
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
     >,
-    player_query: Query<&fixed_math::FixedTransform3D, (With<Player>, Without<Enemy>)>,
+    player_query: Query<
+        (&GgrsNetId, &fixed_math::FixedTransform3D),
+        (With<Player>, Without<Enemy>),
+    >,
     character_configs: Res<CharacterConfigs>,
     config: Res<PathfindingConfig>,
     collision_settings: Res<crate::collider::CollisionSettings>,
@@ -536,7 +539,7 @@ pub fn move_enemies(
         // Initialize with FixedWide::MAX because distance_squared now returns FixedWide
         let mut min_dist_sq_to_player_fw = fixed_math::FixedWide::MAX;
 
-        for player_fixed_transform in player_query.iter() {
+        for (_, player_fixed_transform) in player_query.iter() {
             let player_pos_v2 = player_fixed_transform.translation.truncate();
             // enemy_pos_v2.distance_squared(&player_pos_v2) returns FixedWide
             let current_dist_sq_fw = enemy_pos_v2.distance_squared(&player_pos_v2);
@@ -682,16 +685,35 @@ pub fn move_enemies(
                 behavior_runtime
                     .zip(enemy_behaviors)
                     .and_then(|(runtime, rules)| {
+                        // Regard sur la position **vivante** du joueur ciblé (`EnemyTarget` est figée pendant
+                        // une attaque : `enemy_target_selection` saute alors l'ennemi) ; repli : la dernière connue.
+                        let live_target = enemy_target_opt
+                            .and_then(|target| {
+                                (target.target_type == super::state::TargetType::Player)
+                                    .then_some(target.target.as_ref())
+                                    .flatten()
+                            })
+                            .and_then(|id| {
+                                player_query
+                                    .iter()
+                                    .find(|(player_id, _)| *player_id == id)
+                                    .map(|(_, transform)| transform.translation.truncate())
+                            })
+                            .or_else(|| {
+                                enemy_target_opt.and_then(|target| target.last_known_position)
+                            });
                         super::rules::behavior_extra(
                             rules.active(boss.map_or(0, |b| b.phase)),
                             runtime,
                             frame.frame,
                             enemy_pos_v2,
-                            enemy_target_opt.and_then(|target| target.last_known_position),
+                            live_target,
                         )
                     })
             })
             .flatten();
+        // Retour au point de départ : un mur n'est pas contourné par le champ de flux (vers le joueur).
+        let homing = extra.as_ref().is_some_and(|extra| extra.homing);
         let mut desired_move_velocity_v2 = match &motion {
             Some(motion) => motion.direction * movement_speed.saturating_mul(motion.speed_mult),
             None => base_velocity_v2 * speed_factor_fixed,
@@ -814,7 +836,7 @@ pub fn move_enemies(
 
                 // If wall-sliding too long, trigger escape logic
                 const MAX_SLIDE_FRAMES: u8 = 10; // ~170ms at 60fps
-                if wall_slide_tracker.consecutive_slide_frames >= MAX_SLIDE_FRAMES {
+                if wall_slide_tracker.consecutive_slide_frames >= MAX_SLIDE_FRAMES && !homing {
                     // Reset tracker
                     wall_slide_tracker.consecutive_slide_frames = 0;
 
@@ -862,7 +884,7 @@ pub fn move_enemies(
 
                 // If completely stuck, check if we're blocked by a window and attack it
                 // This uses the flow field to find the best escape route toward the target
-                if !moved_x && !moved_y {
+                if !moved_x && !moved_y && !homing {
                     // Reset wall slide tracker when completely stuck
                     wall_slide_tracker.consecutive_slide_frames = 0;
 

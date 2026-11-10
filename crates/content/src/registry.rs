@@ -520,6 +520,9 @@ pub enum BehaviorEntry {
         #[serde(default)]
         #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
         max_frames: Option<u32>,
+        /// Garde au point d'apparition quand aucune règle ne s'applique (absent : non).
+        #[serde(default)]
+        guard: bool,
     },
 }
 
