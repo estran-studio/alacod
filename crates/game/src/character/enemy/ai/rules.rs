@@ -855,6 +855,136 @@ mod tests {
         assert!(rush.direction.x > fixed_math::new(0.99));
     }
 
+    /// Suivi de X-6b : `amplitude × 240` dépasserait un `Fixed` (±32768) dès 136 ; calculé en `FixedWide`,
+    /// la vitesse latérale reste `4 × 60 × amplitude / période` (200 × 240 / 24 = 2000).
+    #[test]
+    fn zigzag_lateral_speed_does_not_saturate() {
+        let charger = rules(vec![Behavior::Charge {
+            telegraph: 30,
+            zigzag: Some(behaviors::Zigzag {
+                amplitude: fixed_math::Fixed::from_num(200),
+                period: 24,
+            }),
+        }]);
+        let runtime = BehaviorRuntime {
+            selected: Some(0),
+            charge: ChargePhase::Rush {
+                until: CHARGE_RUSH_FRAMES,
+                target: (fixed_math::new(50.0), fixed_math::FIXED_ZERO),
+            },
+            ..Default::default()
+        };
+        let extra = behavior_extra(
+            &charger.rules,
+            &runtime,
+            0,
+            fixed_math::FixedVec2::ZERO,
+            None,
+        )
+        .unwrap();
+        assert_eq!(extra.drift.y, fixed_math::Fixed::from_num(2000));
+        assert!(!extra.homing);
+    }
+
+    /// Suivi de X-6b : le regard et le recul (`homing`, pas d'évasion par le champ de flux) valent pour
+    /// `ReturnHome` retenu et pour la garde sans règle retenue ; jamais sans garde ni pour une charge.
+    #[test]
+    fn homing_covers_the_return_and_the_guard_only() {
+        let home = Some((fixed_math::new(10.0), fixed_math::FIXED_ZERO));
+        let target = Some(fixed_math::FixedVec2::new(
+            fixed_math::new(-30.0),
+            fixed_math::FIXED_ZERO,
+        ));
+        let at = fixed_math::FixedVec2::ZERO;
+        let guard = Behavior::ReturnHome {
+            wait: 10,
+            speed: None,
+            max_frames: None,
+            guard: true,
+        };
+        let plain = Behavior::ReturnHome {
+            wait: 10,
+            speed: None,
+            max_frames: None,
+            guard: false,
+        };
+        let charge = Behavior::Charge {
+            telegraph: 10,
+            zigzag: None,
+        };
+        let extra = |list: Vec<Behavior>, selected: Option<u32>| {
+            let runtime = BehaviorRuntime {
+                selected,
+                home,
+                ..Default::default()
+            };
+            behavior_extra(&rules(list).rules, &runtime, 0, at, target)
+        };
+        // Retour retenu : homing, regard vers la cible (ouest).
+        let returning = extra(vec![plain.clone(), charge.clone()], Some(0)).unwrap();
+        assert!(returning.homing);
+        assert!(returning.face.unwrap().x < fixed_math::FIXED_ZERO);
+        // Garde sans règle retenue : homing et regard sur la cible.
+        let guarding = extra(vec![guard, charge.clone()], None).unwrap();
+        assert!(guarding.homing);
+        assert!(guarding.face.unwrap().x < fixed_math::FIXED_ZERO);
+        // Sans garde : rien (comportement d'avant). Charge retenue hors ruée : rien.
+        assert!(extra(vec![plain, charge.clone()], None).is_none());
+        assert!(extra(vec![charge], Some(0)).is_none());
+    }
+
+    /// Suivi de X-6b : la garde ramène l'ennemi écarté à son point (vitesse du `ReturnHome`) puis le
+    /// fige à moins de `RETURN_ARRIVE` ; sans garde listée, `behavior_motion` reste `None` (champ de flux).
+    #[test]
+    fn guard_returns_to_the_spawn_point_then_holds() {
+        let motion = |list: Vec<Behavior>, position: fixed_math::FixedVec2| {
+            let runtime = BehaviorRuntime {
+                selected: None,
+                home: Some((fixed_math::new(100.0), fixed_math::FIXED_ZERO)),
+                ..Default::default()
+            };
+            behavior_motion(
+                &rules(list).rules,
+                &runtime,
+                0,
+                position,
+                None,
+                &FlowFieldCache::default(),
+                crate::character::enemy::ai::navigation::MOVEMENT_FLOW_KEY,
+                &AgentBody {
+                    left: fixed_math::new(10.0),
+                    right: fixed_math::new(10.0),
+                    up: fixed_math::new(4.0),
+                    down: fixed_math::new(16.0),
+                },
+                None,
+            )
+        };
+        let guard = || {
+            vec![Behavior::ReturnHome {
+                wait: 10,
+                speed: Some(fixed_math::Fixed::from_num(2)),
+                max_frames: None,
+                guard: true,
+            }]
+        };
+        let away = motion(guard(), fixed_math::FixedVec2::ZERO).unwrap();
+        assert!(away.direction.x > fixed_math::new(0.99));
+        assert_eq!(away.speed_mult, fixed_math::Fixed::from_num(2));
+        let home = fixed_math::FixedVec2::new(fixed_math::new(101.0), fixed_math::FIXED_ZERO);
+        assert_eq!(
+            motion(guard(), home).unwrap().speed_mult,
+            fixed_math::FIXED_ZERO
+        );
+        let no_guard = vec![Behavior::ReturnHome {
+            wait: 10,
+            speed: None,
+            max_frames: None,
+            guard: false,
+        }];
+        assert!(motion(no_guard, fixed_math::FixedVec2::ZERO).is_none());
+    }
+
     #[test]
     fn errance_meme_graine_memes_directions() {
         let draw = |seed: u32| -> Vec<fixed_math::Fixed> {

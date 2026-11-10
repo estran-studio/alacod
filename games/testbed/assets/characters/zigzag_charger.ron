@@ -1,9 +1,11 @@
 // Personnage de laboratoire X-6b (testbed, conventions §119) : charge en zigzag puis retour au point de
-// départ. `[ReturnHome, Charge(zigzag), Melee]` sans `Chase` : il s'approche (champ de flux) jusqu'à
+// départ. `[ReturnHome, Charge(zigzag), Melee]` sans `Chase` ni garde : il s'approche (champ de flux) jusqu'à
 // 3 × `attack_range`, se tasse 20 frames (télégraphe), charge à 3 × sa vitesse en déviant de ±10 unités
 // autour de l'axe (période 24 frames), mord (`attack_damage` au contact), puis recule face au joueur
 // jusqu'à moins d'une case de son point d'apparition (vitesse ×2), y attend 40 frames et recharge.
-// Pas de poursuite continue. Témoin sans zigzag : `straight_charger`. Scénarios `zigzag_*`, `rodeur_*`.
+// Il ne poursuit pas **pendant** le recul et l'attente ; en dehors (aucune règle ne s'applique) il retombe sur le champ de flux
+// et marche vers le joueur de partout : pour qu'il guette depuis son point, `guard_charger` (`guard: true`). Témoin sans zigzag : `straight_charger`.
+// Scénarios `zigzag_*`, `rodeur_*`.
 (
     movement: (
         acceleration: "120.0",
