@@ -1,0 +1,36 @@
+// X-6b (testbed, conventions §119) : `zigzag_charger` = [ReturnHome(wait: 40, speed ×2), Charge(telegraph: 20, zigzag: 10 / 24)], placé
+// à 118 unités à l'est du joueur 0 immobile (424, 696), arène `testbed/arena.ldtk`. Mesuré : télégraphe immobile f2-f21, ruée à 3 × sa vitesse
+// de f22 à f48 avec un écart latéral de -8 à +9 unités autour de l'axe (y 688 à 705 pour un axe à y = 696 : la direction est recalculée vers
+// la cible à chaque frame, ce qui rabote ~15 % de l'amplitude nominale), contact f48 (joueur 100 → 95), recul face au joueur à 2 unités par
+// frame (x croît de f50 à f88), arrivée à moins de 4 unités du point d'apparition (542, 696) vers f89, attente de 40 frames immobile, puis la
+// charge repart (télégraphe f130-f149, ruée f150, contact f176 : 95 → 90). Aucune poursuite entre les deux.
+//
+// À regarder : le rôdeur se tasse, fonce en zigzag, mord, recule à reculons jusqu'à son point, attend, recommence.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [(character: "zigzag_charger", x: "542.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        // Guette : immobile au point d'apparition pendant le télégraphe.
+        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 10),
+        EnemyPosition(entity: Placed(0), x_min: Some(541.9), x_max: Some(542.1), y_min: Some(695.9), y_max: Some(696.1), at_frame: 20),
+        // Ruée en zigzag : l'écart latéral change de signe (y > 700 à f38, y < 690 à f27).
+        EnemyPosition(entity: Placed(0), y_min: Some(700.0), at_frame: 38),
+        EnemyPosition(entity: Placed(0), y_max: Some(690.0), at_frame: 27),
+        EnemyPosition(entity: Placed(0), x_max: Some(495.0), at_frame: 38),
+        // Touche : 100 → 95 au contact (f48).
+        Health(handle: 0, min: 94.9, max: 95.1, at_frame: 60),
+        // Recule jusqu'à moins d'une case (16) de son point d'apparition, puis attend.
+        EnemyState(entity: Placed(0), behavior: "ReturnHome", at_frame: 70),
+        EnemyPosition(entity: Placed(0), x_min: Some(526.0), x_max: Some(558.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 100),
+        EnemyPosition(entity: Placed(0), x_min: Some(526.0), x_max: Some(558.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 120),
+        EnemyState(entity: Placed(0), behavior: "ReturnHome", at_frame: 120),
+        // Recharge après l'attente : télégraphe puis seconde ruée, second contact.
+        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 140),
+        Health(handle: 0, min: 89.9, max: 90.1, at_frame: 200),
+        PlayerAlive(handle: 0, at_frame: 240),
+    ],
+)

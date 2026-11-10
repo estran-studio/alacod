@@ -1,0 +1,26 @@
+// X-6b (testbed, conventions §119) : deux joueurs immobiles (handle 0 en (424, 696), handle 1 en (424, 664)), `zigzag_charger` placé à la
+// même distance exacte des deux (542, 680 : milieu du segment, 118 unités à l'est). La cible est celle du champ de flux multi-sources
+// (`FlowFieldCache::nearest_target`), qui départage une égalité de coût par l'ordre des cases (le tas est trié par coût puis case : ici
+// le joueur 1, à la case de plus petit y) ; le tie-break par `net_id` n'est atteint que par le repli en ligne droite
+// (`enemy_target_selection`). Mesuré : toujours le même joueur, à chaque charge et après chaque rollback (le runner rejoue en synctest) :
+// le joueur 1 est chargé en zigzag et touché (100 → 95 à f48, puis → 90 à f176), le joueur 0 ne perd rien ; le rôdeur recule entre
+// les deux à son point d'apparition (542, 680).
+//
+// À regarder : le rôdeur charge le même joueur à chaque fois (celui du bas), recule à reculons et recommence.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [(character: "zigzag_charger", x: "542.0", y: "680.0", at_frame: 1)],
+    players: [(inputs: []), (inputs: [])],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 118.0, max: 120.0, at_frame: 10),
+        EnemyDistance(entity: Placed(0), target: Player(1), min: 118.0, max: 120.0, at_frame: 10),
+        Health(handle: 1, min: 94.9, max: 95.1, at_frame: 70),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 70),
+        EnemyPosition(entity: Placed(0), x_min: Some(526.0), x_max: Some(558.0), y_min: Some(672.0), y_max: Some(688.0), at_frame: 110),
+        Health(handle: 1, min: 89.9, max: 90.1, at_frame: 210),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 210),
+    ],
+)

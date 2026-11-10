@@ -1,0 +1,19 @@
+// X-6b : zigzag d'amplitude nulle et de période trop courte.
+(
+    movement: (
+        max_speed: "60.0",
+    ),
+    asset_name_ref: "enemy",
+    scale: "1.0",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    tags: ["zombie"],
+    ai: Some((
+        behaviors: Some([Charge(telegraph: 30, zigzag: Some((amplitude: "0.0", period: 2))), Chase(profile: "Ground")]),
+    )),
+)
