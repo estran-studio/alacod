@@ -12,14 +12,14 @@ Scenario(
     players: [(inputs: [])],
     expect: [
         EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 20),
-        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 100),
-        EnemyPosition(entity: Placed(0), y_min: Some(9999.0), at_frame: 100),
-        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 150),
-        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 200),
-        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 250),
-        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 300),
-        EnemyPosition(entity: Placed(0), x_min: Some(9999.0), at_frame: 350),
-        Health(handle: 0, min: 9999.0, at_frame: 100),
-        Health(handle: 0, min: 9999.0, at_frame: 399),
+        // Mordu : le joueur perd des PV (griffe 7,5), puis le rôdeur recule et attend à son point d'apparition (moins d'une case).
+        Health(handle: 0, max: 92.6, at_frame: 100),
+        EnemyState(entity: Placed(0), behavior: "ReturnHome", at_frame: 150),
+        EnemyPosition(entity: Placed(0), x_min: Some(526.0), x_max: Some(558.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 150),
+        // L'attente finie, il repart à la poursuite, mord de nouveau et revient.
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 200),
+        EnemyPosition(entity: Placed(0), x_max: Some(520.0), at_frame: 200),
+        Health(handle: 0, max: 85.1, at_frame: 399),
+        EnemyPosition(entity: Placed(0), x_min: Some(526.0), x_max: Some(558.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 300),
     ],
 )
