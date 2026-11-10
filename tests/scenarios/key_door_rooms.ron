@@ -1,0 +1,51 @@
+// X-6a1 (docs/conventions.md §117) : une porte à serrure d'une carte à **salles typées** reste fermée jusqu'à ce que la clé serve.
+// Carte `testbed/portes_cle_salles.ldtk` (graine 1) : départ, salle de combat (un seul ennemi, le `porteur_cle`), salle finale ; la porte
+// ordinaire départ ↔ combat est une porte de salle, la porte combat ↔ finale porte `lock_key: "cle_test"` (sa jumelle en hérite).
+// `room_lock_system` ouvre d'office les portes de salle à la première frame et rouvre celles d'une salle vidée : il ne doit **jamais**
+// toucher la porte à serrure (qui garde son collider et son `Interactable`). Le joueur entre dans la salle de combat (f30-90 : elle se
+// verrouille), tue le porteur d'un tir (f100-130 : salle nettoyée, la clé tombe), la ramasse en avançant (f140-220), marche vers la
+// porte (f220-420) puis la touche par Interaction (f420-440) : la clé d'équipe est consommée, la porte et sa jumelle s'ouvrent.
+//
+// À regarder : f2 les deux portes ordinaires sont ouvertes, les deux battants à serrure fermés (`Locked`) ; après le nettoyage de la salle
+// (f160) la porte à serrure est toujours fermée, le joueur s'arrête contre elle ; l'Interaction l'ouvre (f≈420). Sans l'exclusion des
+// portes à serrure dans `room_lock_system`, elle s'ouvrait à la première frame sans clé.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/portes_cle_salles.ldtk",
+    map_seed: 1,
+    frames: 520,
+    players: [
+        (
+            weapon: "larme",
+            inputs: [
+                (from: 30, to: 90, buttons: [Right]),
+                (from: 100, to: 130, buttons: [Fire], pan: (100, 0)),
+                (from: 140, to: 220, buttons: [Right]),
+                (from: 220, to: 420, buttons: [Right, Up]),
+                (from: 420, to: 440, buttons: [Right, Up, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        MapDoor(nth: 0, state: Open, at_frame: 2),
+        MapDoor(nth: 1, state: Open, at_frame: 2),
+        MapDoor(nth: 2, state: Locked, at_frame: 1),
+        MapDoor(nth: 3, state: Locked, at_frame: 1),
+        MapDoor(nth: 2, state: Locked, at_frame: 2),
+        MapDoor(nth: 3, state: Locked, at_frame: 2),
+        RoomState(kind: "combat", nth: 0, state: Locked, at_frame: 100),
+        MapDoor(nth: 2, state: Locked, at_frame: 100),
+        RoomState(kind: "combat", nth: 0, state: Cleared, at_frame: 160),
+        KeyPiles(count: 0, at_frame: 160),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 180),
+        MapDoor(nth: 2, state: Locked, at_frame: 160),
+        MapDoor(nth: 3, state: Locked, at_frame: 160),
+        MapDoor(nth: 2, state: Locked, at_frame: 415),
+        PlayerPosition(handle: 0, x: -714, y: -532.6, tolerance: 1, at_frame: 415),
+        MapDoor(nth: 2, state: Open, at_frame: 500),
+        MapDoor(nth: 3, state: Open, at_frame: 500),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 500),
+        Event(kind: "key_door", label_contains: Some("cle_test"), by_frame: 500),
+    ],
+)

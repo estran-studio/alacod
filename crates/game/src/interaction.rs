@@ -12,7 +12,7 @@ use run::{KeyEvent, TeamKeys};
 use serde::{Deserialize, Serialize};
 use sim_core::modifier::{resolve, Modifiers};
 use sim_core::stats::StatId;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{Hash, Hasher};
 use utils::{
     frame::FrameCount,
@@ -298,6 +298,10 @@ pub(crate) fn point_to_collider_surface_distance_sq(
 /// fermée, champ de flux compris) et rien n'est débité. Avec elle : la clé est vérifiée **avant** le
 /// coût, puis retirée de l'équipe si `lock.consume`, gardée sinon ; la jumelle (qui porte la même
 /// serrure) s'ouvre avec la porte, sans seconde clé. Une porte sans serrure ne lit pas `TeamKeys`.
+/// Une porte (jumelle comprise) ouverte dans la frame ignore les interactions suivantes de la même
+/// frame : l'ouverture passe par des commandes différées, la porte paraît encore fermée au second
+/// joueur qui interagit, qui paierait ou consommerait une seconde clé (patron `handled` de
+/// `shop::shelf_interaction_system`).
 pub fn handle_door_interaction(
     frame: Res<FrameCount>,
     events: Res<FrameEvents<InteractionEvent>>,
@@ -329,6 +333,8 @@ pub fn handle_door_interaction(
         s = "handle_door_interaction"
     );
     let _enter = system_span.enter();
+    // Portes (`GgrsNetId`) déjà ouvertes dans cette frame, jumelle comprise.
+    let mut opened: BTreeSet<usize> = BTreeSet::new();
 
     for event in events.iter() {
         // Only handle door interactions
@@ -338,6 +344,9 @@ pub fn handle_door_interaction(
 
         // Verify the interactable entity exists and is a rollback entity
         if let Ok((door_entity, door_component)) = door_query.get(event.interactable) {
+            if opened.contains(&event.interactable_net_id.0) {
+                continue;
+            }
             let cost = door_component.config.cost;
             // X-6a1 (§117) : porte à serrure. La clé est cherchée dans l'état d'**équipe** avant tout
             // débit : sans elle, la porte reste fermée et rien ne change (refus signalé par `KeyEvent`).
@@ -419,6 +428,7 @@ pub fn handle_door_interaction(
                 .remove::<Collider>()
                 .remove::<CollisionLayer>()
                 .remove::<Interactable>();
+            opened.insert(event.interactable_net_id.0);
 
             info!(
                 "{} door {} components removed (Collider, CollisionLayer, Interactable)",
@@ -439,6 +449,7 @@ pub fn handle_door_interaction(
                         && paired_grid_pos.grid_x == *paired_x
                         && paired_grid_pos.grid_y == *paired_y
                     {
+                        opened.insert(paired_net_id.0);
                         info!(
                             "{} opening paired door {} at grid position ({}, {}) in level {}",
                             frame.as_ref(),

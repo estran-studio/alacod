@@ -8932,6 +8932,14 @@ tous en variante **neutre** (règle de parité des types vides de la checklist G
   avant). Avec une serrure, la clé est cherchée dans `run::TeamKeys` **avant** le débit du prix : absente, refus (`KeyEvent { delta: 0, reason: "door_refused" }`, journal
   `door … locked`), la porte reste `Locked`, rien n'est consommé ni payé ; présente, la porte et sa jumelle s'ouvrent, la clé est retirée si `consume`
   (`KeyEvent { delta: -1, reason: "door" }`) ou gardée (`delta: 0`, `reason: "door_open"`). N'importe quel joueur ouvre avec la clé de l'équipe.
+  **Une ouverture par porte et par frame** : l'ouverture passe par des commandes différées, une porte (jumelle comprise) ouverte dans la frame ignore les interactions
+  suivantes de la **même frame** (`BTreeSet` des `GgrsNetId` ouverts, patron `handled` de `shop::shelf_interaction_system`) : deux joueurs qui interagissent ensemble avec
+  deux clés n'en consomment qu'une (scénario `key_door_same_frame`) ; vaut aussi pour le prix d'une porte payante (un seul débit).
+- **Cartes à salles typées** (`map_ldtk::game::rooms::room_lock_system`) : une porte à serrure est **scellée** (`sealed_door`, comme la porte d'une salle secrète ou à clé d'`isaac`) :
+  l'ouverture d'office de la première frame hors `Waves` (qui retirait collider, calque et `Interactable` des portes fermées voisines d'une salle typée), le verrouillage
+  d'une salle voisine et la réouverture d'une salle vidée (`Locked → Cleared`, arène tenue) **ne la touchent jamais** : elle garde son collider et son `Interactable { Door }`,
+  et seul `handle_door_interaction` l'ouvre. Scénario `key_door_rooms` (carte `testbed/portes_cle_salles.ldtk` : départ, combat, finale ; échoue sans le correctif :
+  la porte est ouverte dès la frame 1, sans clé).
 - **Prompt** (`game::ui::hud`, `door_prompt`, pure et testée) : « Ouvrir » (+ prix éventuel) ; « **Fermé — clé** » pour une porte à serrure dont la clé n'est pas tenue.
 - **Clé portée par un ennemi** : champ de personnage `carries_key: Option<String>` (`CharacterConfig`, schéma de lint `non vide`, `alacod describe Character`). À la
   mort du porteur, `game::keys::key_drop_on_death_system` (`DeathManagement`, après `shell_drop_on_death_system` et `champion_death_system`, avant
@@ -8946,10 +8954,11 @@ tous en variante **neutre** (règle de parité des types vides de la checklist G
   d'`isaac` (`items::Inventory`, `key_door_system`, `InteractionType::KeyDoor`), **inchangés**.
 - **HUD** : source `team_keys` (`content::ui::HUD_SOURCES`, `game::ui::hud_model::PLAYER_SOURCES`) : une ligne par id tenu (« cle_test », « cle_test ×2 »), vide sans clé ;
   `HudText(source: "team_keys")` la lit en headless. Le testbed l'affiche (`ui/hud.ron`, « Clés : »).
-- **GGRS** (`CLAUDE.md`) : `TeamKeys` (`rollback_and_trace_resource_neutral`), `items::KeyPickup` (`rollback_and_trace_neutral`) et `FrameEvents<run::KeyEvent>`
-  (`add_frame_events_neutral`) sont enregistrés dans `core_sim`, **après** tous les plugins et **avant** les cinq enregistrements de clôture (parité des types vides : une
-  valeur par défaut ou aucun porteur contribue 0, aucune trace ne bouge). `DoorLockConfig` est une donnée statique de l'entité de carte (comme `DoorComponent`, hors
-  rollback). `make schedule_order_diff` : seuls ajouts, `key_drop_on_death_system`, `key_pickup_system`, trois types.
+- **GGRS** (`CLAUDE.md`) : `items::KeyPickup` (`rollback_and_trace_neutral`), `TeamKeys` (`rollback_and_trace_resource_neutral`) et `FrameEvents<run::KeyEvent>`
+  (`add_frame_events_neutral`) sont enregistrés, **dans cet ordre**, dans `core_sim`, **après** `RangedCycle` (le dernier enregistrement neutre d'avant) et **avant** les cinq
+  enregistrements de clôture (`GgrsNetIdFactory`, `FrameCount`, `FixedTransform3D`, `GgrsNetId`, `RngStreams`, renumérotés de 131-135 à 134-138 : leur ordre relatif ne
+  bouge pas) ; parité des types vides : une valeur par défaut ou aucun porteur contribue 0, aucune trace ne bouge. `DoorLockConfig` est une donnée statique de l'entité de
+  carte (comme `DoorComponent`, hors rollback). `make schedule_order_diff` : seuls ajouts, `key_drop_on_death_system`, `key_pickup_system`, trois types.
 - **Observation** (`combat::weapons::expectations`) : `MapDoor { nth, state: Closed | Locked | Open }` (portes de carte triées par `GgrsNetId`), `TeamKeys { key, count }`,
   `KeyPiles { count }` ; moments clés `key_pickup`, `key_door`, `key_door_open`, `key_refused` (`scenario::events::key_events`, relus de `FrameEvents<KeyEvent>`).
 - **Testbed** (cartes `testbed/portes_cle.ldtk` et `portes_cle_gardee.ldtk`, générées par script à partir de `two_rooms_door.ldtk` : une salle de départ 12×8 à deux
@@ -8962,6 +8971,8 @@ tous en variante **neutre** (règle de parité des types vides de la checklist G
 | `key_carrier_coop` | porteur tué par le joueur 1, la clé tombe (`KeyPiles` 1), le **joueur 2** la ramasse (`key_pickup` joueur 1, `TeamKeys` 1, HUD `cle_test`), le **joueur 1** ouvre (`key_door` joueur 0, clé consommée, `Open` des deux battants) |
 | `key_single_pickup` | deux joueurs à égale distance de la clé : ramassée **une seule fois** (`TeamKeys` 1, aucune clé au sol), par le joueur de plus petit `GgrsNetId` |
 | `door_key_kept` | `lock_consume: false` : la clé reste à l'équipe après l'ouverture (`key_door_open`, `TeamKeys` 1, HUD inchangé) |
+| `key_door_rooms` | carte à **salles typées** (`portes_cle_salles`, graine 1) : la porte à serrure reste `Locked` aux frames 1 et 2, pendant le verrouillage de la salle de combat et après qu'elle est nettoyée (`Cleared`), puis s'ouvre avec la clé du porteur (`key_door`) ; **échoue sans le correctif de `room_lock_system`** |
+| `key_door_same_frame` | deux joueurs, deux clés (`TeamKeys` 2), Interaction à la **même frame** : la porte s'ouvre, **une** clé consommée (`TeamKeys` 1) ; **échoue sans l'ensemble des portes ouvertes dans la frame** (les deux événements consommaient une clé chacun) |
 
   Tests : `run::keys` (invariant de `TeamKeys`), `game::keys` (ramassage : plus petit `GgrsNetId`, hors de portée), `game::ui::hud` (`door_prompt`),
   `map::generation::imp::basic` (serrure et jumelle), `crates/scenario/tests/map_door_keys.rs` (champ de flux), `crates/content/tests/x_6a1_door_lock_fixtures.rs` (lint).
