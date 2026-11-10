@@ -77,6 +77,8 @@ Fusion : conflits de fin de fichier seulement (`docs/conventions.md` §117 / §1
 - **Doc** : ordre réel des enregistrements **`KeyPickup`, puis `TeamKeys`, puis `FrameEvents<KeyEvent>`**, entre `RangedCycle` et les cinq de clôture (ici et § 117 ; la phrase « en fin de liste » est retirée) ; § 117 (portes scellées sur carte typée, une
   ouverture par porte et par frame, deux scénarios) ; D211.
 - **Traces** : deux traces neuves (`key_door_rooms`, `key_door_same_frame`), aucun `BLESS` d'une trace existante.
+- **Contrôle rapide du suivi** : `make check_rapide` **vert** sur la tête fusionnée et corrigée **`f1dbe740`** (fusion d'`origin/main` `16573cd5` + P2 + P3), journal `~/orca/runs/alpha/logs/x-6a1-portes-cle-check-rapide-f1dbe740.log`, `EXIT 0`, 97 blocs `test result`, **1 642 tests passés, 0 échec** ; sweep joué ensuite.
+- **Suite complète de scénarios non rejouée après P2 / P3** (consigne du studio, REGLES § 6 : la suite tourne la nuit sur le VPS, jamais sur le Mac) : une tentative locale a été arrêtée à mi-course (aucun résultat retenu). Preuve locale : `key_door_rooms` et `key_door_same_frame` verts avec le correctif et **rouges sans** ; la suite complète de `1d401d7f` (867 scénarios, 0 trace existante modifiée) précède P2 / P3. **La nuit dira si une trace existante bouge** (salles d'`isaac`, `gungeon`, `throne` pour P2 ; toute porte pour P3, y compris le prix des portes payantes de deux joueurs la même frame).
 
 ## Protocole de la partie du soir (dix lignes au plus)
 
