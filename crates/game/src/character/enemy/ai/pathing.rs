@@ -675,10 +675,30 @@ pub fn move_enemies(
                         )
                     })
             });
-        let desired_move_velocity_v2 = match &motion {
+        // X-6b (§119) : zigzag de `Charge` (vitesse latérale) et orientation de `ReturnHome`, seulement
+        // quand le déplacement vient du behavior retenu ; `None` (tout l'existant) : rien ne change.
+        let extra = (!feared && !combat::status::charmed(statuses))
+            .then(|| {
+                behavior_runtime
+                    .zip(enemy_behaviors)
+                    .and_then(|(runtime, rules)| {
+                        super::rules::behavior_extra(
+                            rules.active(boss.map_or(0, |b| b.phase)),
+                            runtime,
+                            frame.frame,
+                            enemy_pos_v2,
+                            enemy_target_opt.and_then(|target| target.last_known_position),
+                        )
+                    })
+            })
+            .flatten();
+        let mut desired_move_velocity_v2 = match &motion {
             Some(motion) => motion.direction * movement_speed.saturating_mul(motion.speed_mult),
             None => base_velocity_v2 * speed_factor_fixed,
         };
+        if let Some(extra) = &extra {
+            desired_move_velocity_v2 = desired_move_velocity_v2 + extra.drift;
+        }
 
         // Combine movement and separation for AI intent
         let final_movement_v2 = desired_move_velocity_v2 + separation_v2;
@@ -917,9 +937,12 @@ pub fn move_enemies(
                 }
             }
 
-            // Update facing direction based on main velocity (not knockback)
+            // Update facing direction based on main velocity (not knockback) ; `ReturnHome` regarde la
+            // cible même en reculant (X-6b).
             if velocity_component.main.length_squared() > fixed_math::new(0.01) {
-                *facing_direction = FacingDirection::from_fixed_vector(velocity_component.main);
+                let face = extra.as_ref().and_then(|extra| extra.face);
+                *facing_direction =
+                    FacingDirection::from_fixed_vector(face.unwrap_or(velocity_component.main));
             }
         }
     }

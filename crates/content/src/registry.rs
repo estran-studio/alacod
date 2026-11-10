@@ -470,6 +470,9 @@ pub enum BehaviorEntry {
     Charge {
         #[schemars(extend("x-lint" = "> 0"))]
         telegraph: u32,
+        /// X-6b (§119) : zigzag de la ruée, absent = ruée droite.
+        #[serde(default)]
+        zigzag: Option<ZigzagEntry>,
     },
     Shoot {
         weapon: String,
@@ -505,6 +508,28 @@ pub enum BehaviorEntry {
         every: u32,
     },
     BlockBullets,
+    /// X-6b (§119) : mirroir de `behaviors::Behavior::ReturnHome` (recule face à la cible jusqu'au
+    /// point d'apparition, y attend `wait` frames, puis peut recharger).
+    ReturnHome {
+        wait: u32,
+        /// Multiplicateur de la vitesse du recul (absent : 1).
+        #[serde(default)]
+        #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+        speed: Option<FixedField>,
+        /// Durée maximale du recul en frames (absent : 300).
+        #[serde(default)]
+        #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+        max_frames: Option<u32>,
+    },
+}
+
+/// X-6b : mirroir de `behaviors::Zigzag`.
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
+pub struct ZigzagEntry {
+    #[schemars(extend("x-lint" = "> 0"))]
+    pub amplitude: FixedField,
+    #[schemars(extend("x-lint" = "> 0"))]
+    pub period: u32,
 }
 
 /// M2-T8 : mirroir de `behaviors::FormationShape`.

@@ -3691,11 +3691,59 @@ fn lint_rules(
                     );
                 }
             }
-            BehaviorEntry::Charge { telegraph } => {
+            BehaviorEntry::Charge { telegraph, zigzag } => {
                 if *telegraph == 0 {
                     push(
                         LintErrorKind::OutOfRange,
                         "behaviors : Charge : telegraph = 0 : doit être > 0".to_string(),
+                    );
+                }
+                // X-6b (§119) : une période de moins de 4 frames n'a pas de quart de période entier.
+                if let Some(zigzag) = zigzag {
+                    if zigzag.amplitude.get() <= Fixed::ZERO {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "behaviors : Charge : zigzag.amplitude = {} : doit être > 0",
+                                zigzag.amplitude.get()
+                            ),
+                        );
+                    }
+                    if zigzag.period < 4 {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "behaviors : Charge : zigzag.period = {} : doit être >= 4 frames",
+                                zigzag.period
+                            ),
+                        );
+                    }
+                }
+            }
+            // X-6b (§119) : le retour ne se déclenche qu'après une charge ou un coup de mêlée.
+            BehaviorEntry::ReturnHome {
+                speed, max_frames, ..
+            } => {
+                if speed.is_some_and(|speed| speed.get() <= Fixed::ZERO) {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : ReturnHome : speed doit être > 0 (ou absent)".to_string(),
+                    );
+                }
+                if *max_frames == Some(0) {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : ReturnHome : max_frames = 0 : doit être > 0 (ou absent)"
+                            .to_string(),
+                    );
+                }
+                if !rules.iter().any(|rule| {
+                    matches!(rule, BehaviorEntry::Charge { .. } | BehaviorEntry::Melee(_))
+                }) {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : ReturnHome sans Charge ni Melee dans la même liste : rien ne le déclenche"
+                            .to_string(),
                     );
                 }
             }

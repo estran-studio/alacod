@@ -294,9 +294,12 @@ pub fn spawn_enemy(
     // T1.4 : état des behaviors nouveaux, seulement s'ils sont listés (checksum neutre) ;
     // les règles elles-mêmes sont statiques, hors rollback (comme `Team`).
     if behaviors.needs_runtime() {
-        commands
-            .entity(entity)
-            .insert(super::ai::state::BehaviorRuntime::default());
+        let mut runtime = super::ai::state::BehaviorRuntime::default();
+        // X-6b (§119) : le point d'apparition, seulement pour qui liste `ReturnHome`.
+        if behaviors.has_return_home() {
+            runtime.home = Some((position.x, position.y));
+        }
+        commands.entity(entity).insert(runtime);
     }
     commands.entity(entity).insert(behaviors);
     if let Some(boss) = boss {

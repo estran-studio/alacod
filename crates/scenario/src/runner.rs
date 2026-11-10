@@ -1716,6 +1716,33 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        Expectation::EnemyPosition {
+            entity,
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            ..
+        } => {
+            let enemy = resolve_entity(world, entity).ok_or("entité absente")?;
+            let position = entity_position(world, enemy).ok_or("entité sans position")?;
+            for (axis, value, min, max) in [
+                ("x", position.x, x_min, x_max),
+                ("y", position.y, y_min, y_max),
+            ] {
+                if let Some(min) = min {
+                    if value < fixed_math::new(*min) {
+                        return Err(format!("{axis} = {value} < min {min}"));
+                    }
+                }
+                if let Some(max) = max {
+                    if value > fixed_math::new(*max) {
+                        return Err(format!("{axis} = {value} > max {max}"));
+                    }
+                }
+            }
+            Ok(())
+        }
         Expectation::EnemyDistance {
             entity,
             target,
