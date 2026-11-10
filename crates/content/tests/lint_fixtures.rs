@@ -1425,6 +1425,27 @@ fn behavior_charge_zero_fixture_reports_zero_telegraph() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "telegraph = 0");
 }
 
+/// X-6b (§119) : zigzag d'amplitude nulle ou de période de moins de 4 frames.
+#[test]
+fn behavior_zigzag_invalid_fixture_reports_amplitude_and_period() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_zigzag_invalid")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "zigzag.amplitude = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "zigzag.period = 2");
+}
+
+/// X-6b (§119) : `ReturnHome` sans `Charge` ni `Melee`, vitesse nulle, durée maximale nulle.
+#[test]
+fn behavior_return_home_orphan_fixture_reports_trigger_speed_and_max_frames() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_return_home_orphan")).unwrap();
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "ReturnHome sans Charge ni Melee",
+    );
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "ReturnHome : speed");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "max_frames = 0");
+}
+
 #[test]
 fn behavior_unknown_profile_fixture_reports_chase_profile() {
     let (_, _, errors) = load_and_lint(&fixture_dir("behavior_unknown_profile")).unwrap();

@@ -1,0 +1,26 @@
+// X-6b (témoin de `zigzag_charge_retour`) : `straight_charger` = `zigzag_charger` sans l'option `zigzag` (`Charge(telegraph: 20)`), mêmes
+// positions (118 unités à l'est du joueur 0 immobile). La ruée reste sur l'axe : y = 696 exactement à chaque frame (écart latéral nul), le
+// reste est identique (contact f48, recul, attente, seconde ruée) : les attentes de zigzag de `zigzag_charge_retour` ne sont pas creuses.
+//
+// À regarder : le rôdeur fonce en ligne droite, recule, attend, recommence.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [(character: "straight_charger", x: "542.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 10),
+        // Ruée droite : aucun écart latéral, aux frames où le zigzag s'écartait de ±8.
+        EnemyPosition(entity: Placed(0), y_min: Some(695.99), y_max: Some(696.01), at_frame: 27),
+        EnemyPosition(entity: Placed(0), y_min: Some(695.99), y_max: Some(696.01), at_frame: 38),
+        EnemyPosition(entity: Placed(0), y_min: Some(695.99), y_max: Some(696.01), at_frame: 44),
+        EnemyPosition(entity: Placed(0), x_max: Some(495.0), at_frame: 38),
+        Health(handle: 0, min: 94.9, max: 95.1, at_frame: 60),
+        EnemyState(entity: Placed(0), behavior: "ReturnHome", at_frame: 70),
+        EnemyPosition(entity: Placed(0), x_min: Some(526.0), x_max: Some(558.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 100),
+        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 140),
+        Health(handle: 0, min: 89.9, max: 90.1, at_frame: 200),
+    ],
+)

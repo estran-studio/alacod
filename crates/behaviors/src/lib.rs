@@ -33,8 +33,11 @@ pub enum Behavior {
         max: Fixed,
     },
     Strafe,
+    /// `zigzag` (X-6b, §119) : option de la ruée, absente = ruée droite (au bit près).
     Charge {
         telegraph: u32,
+        #[serde(default)]
+        zigzag: Option<Zigzag>,
     },
     /// T1.4 : remplace `ai.ranged` de T1.2 (le contrat T1.0a disait `Shoot(String)`).
     Shoot {
@@ -82,7 +85,35 @@ pub enum Behavior {
     /// M3-T0d : une balle hostile qui touche le familier est détruite (comme le blank) ; le
     /// familier est immunisé.
     BlockBullets,
+    /// X-6b (§119) : **retour au point de départ**. Après une charge terminée (ou un coup de mêlée),
+    /// l'ennemi recule vers son point d'apparition en gardant la cible en face, y attend `wait`
+    /// frames, puis peut de nouveau charger : l'attente remplace le refroidissement de la charge.
+    /// Tant qu'il recule ou attend, la règle est retenue (à sa place dans la priorité) : aucune
+    /// poursuite. Variante en fin d'enum.
+    ReturnHome {
+        /// Frames d'attente au point de départ.
+        wait: u32,
+        /// Multiplicateur de la vitesse du recul (absent : 1).
+        #[serde(default)]
+        speed: Option<Fixed>,
+        /// Durée maximale du recul en frames (absent : [`RETURN_MAX_FRAMES`]) : au-delà,
+        /// l'ennemi attend là où il est (un obstacle sur le trajet ne le fige pas).
+        #[serde(default)]
+        max_frames: Option<u32>,
+    },
 }
+
+/// Option de zigzag de `Charge` (X-6b, §119) : pendant la ruée, déviation latérale autour de
+/// l'axe vers la cible, en onde triangulaire d'écart maximal `amplitude` (unités) et de période
+/// `period` frames. Déterministe (aucun RNG) : l'écart ne dépend que de la frame de la ruée.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
+pub struct Zigzag {
+    pub amplitude: Fixed,
+    pub period: u32,
+}
+
+/// Durée maximale par défaut du recul de [`Behavior::ReturnHome`] (frames).
+pub const RETURN_MAX_FRAMES: u32 = 300;
 
 /// Familier lié à son porteur (M3-T0d, §63). Composant rollback **neutre** : sans porteur de ce
 /// composant (aucun avant M3-T6), il ne contribue pas au checksum.
@@ -132,6 +163,7 @@ impl Behavior {
             Behavior::Orbit { .. } => "Orbit",
             Behavior::MirrorShot { .. } => "MirrorShot",
             Behavior::BlockBullets => "BlockBullets",
+            Behavior::ReturnHome { .. } => "ReturnHome",
         }
     }
 }
@@ -159,6 +191,8 @@ pub struct SelectionContext {
     pub charging: bool,
     /// Refroidissement de charge écoulé.
     pub charge_ready: bool,
+    /// Un recul ou une attente de `ReturnHome` est en cours (X-6b, §119) : la règle reste retenue.
+    pub returning: bool,
     /// Règle retenue à la frame précédente (hystérésis de `KeepDistance`).
     pub previous: Option<usize>,
 }
@@ -195,6 +229,7 @@ pub fn applicable(index: usize, behavior: &Behavior, ctx: &SelectionContext) -> 
         Behavior::Chase { .. } => distance.is_some(),
         Behavior::Formation { .. } => distance.is_some_and(|d| d < ctx.sight),
         Behavior::Wander => true,
+        Behavior::ReturnHome { .. } => ctx.returning,
         // M3-T0d : comportements de familier, exécutés par M3-T6 ; jamais retenus par la sélection
         // des ennemis (un familier n'a pas d'IA de poursuite).
         Behavior::Follow { .. }
@@ -263,6 +298,7 @@ impl Plugin for BehaviorsPlugin {
                     "Orbit",
                     "MirrorShot",
                     "BlockBullets",
+                    "ReturnHome",
                 ][..],
             ),
             ("perception", &["Sight", "Hearing"][..]),
@@ -294,7 +330,22 @@ mod tests {
                 max: Fixed::from_num(200),
             },
             Behavior::Strafe,
-            Behavior::Charge { telegraph: 60 },
+            Behavior::Charge {
+                telegraph: 60,
+                zigzag: None,
+            },
+            Behavior::Charge {
+                telegraph: 25,
+                zigzag: Some(Zigzag {
+                    amplitude: Fixed::from_num(12),
+                    period: 20,
+                }),
+            },
+            Behavior::ReturnHome {
+                wait: 90,
+                speed: Some(Fixed::from_num(2)),
+                max_frames: Some(200),
+            },
             Behavior::Shoot {
                 weapon: "fireball_gun".into(),
                 pattern: "salve".into(),
@@ -330,6 +381,7 @@ mod tests {
             shoot_ready: false,
             charging: false,
             charge_ready: true,
+            returning: false,
             previous: None,
         }
     }
@@ -391,7 +443,13 @@ mod tests {
         let kiter = vec![shoot(), keep(), chase()];
         let coward = vec![Behavior::Flee, Behavior::Melee("c".into()), chase()];
         let drifter = vec![Behavior::Strafe, Behavior::Wander];
-        let charger = vec![Behavior::Charge { telegraph: 30 }, chase()];
+        let charger = vec![
+            Behavior::Charge {
+                telegraph: 30,
+                zigzag: None,
+            },
+            chase(),
+        ];
         let cases: Vec<(&str, &Vec<Behavior>, SelectionContext, Option<usize>)> = vec![
             ("zombie loin : Chase", &zombie, ctx(), Some(1)),
             (
@@ -532,6 +590,38 @@ mod tests {
         }
     }
 
+    /// X-6b (§119) : `Charge(telegraph: 30)` d'avant l'option se lit toujours (sans zigzag) ;
+    /// `ReturnHome` n'est retenu que pendant un recul ou une attente, et garde sa place dans la
+    /// priorité.
+    #[test]
+    fn charge_sans_option_et_retour_au_depart() {
+        let old: Behavior = ron::from_str("Charge(telegraph: 30)").unwrap();
+        assert_eq!(
+            old,
+            Behavior::Charge {
+                telegraph: 30,
+                zigzag: None
+            }
+        );
+        let home = Behavior::ReturnHome {
+            wait: 60,
+            speed: None,
+            max_frames: None,
+        };
+        assert_eq!(home.name(), "ReturnHome");
+        let charge = Behavior::Charge {
+            telegraph: 30,
+            zigzag: None,
+        };
+        let rules = vec![home, charge];
+        assert_eq!(select(&rules, &ctx()), Some(1));
+        let returning = SelectionContext {
+            returning: true,
+            ..ctx()
+        };
+        assert_eq!(select(&rules, &returning), Some(0));
+    }
+
     #[test]
     fn noms_de_variantes() {
         assert_eq!(shoot().name(), "Shoot");
@@ -577,6 +667,7 @@ mod tests {
             "Orbit",
             "MirrorShot",
             "BlockBullets",
+            "ReturnHome",
         ] {
             assert!(kinds.has("behavior", name));
         }
@@ -584,7 +675,7 @@ mod tests {
             assert!(kinds.has("perception", name));
         }
         assert!(kinds.has("targeting", "Nearest"));
-        assert_eq!(kinds.names("behavior").count(), 13);
+        assert_eq!(kinds.names("behavior").count(), 14);
         assert_eq!(kinds.names("perception").count(), 2);
         assert_eq!(kinds.names("targeting").count(), 1);
         let name = std::any::type_name::<BehaviorState>();

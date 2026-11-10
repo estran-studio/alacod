@@ -604,6 +604,14 @@ impl EnemyBehaviors {
         self.rules.iter().any(|rule| rule.name() == name)
     }
 
+    /// X-6b (§119) : une règle `ReturnHome` est listée (règles de base ou d'une phase de boss).
+    pub fn has_return_home(&self) -> bool {
+        self.rules
+            .iter()
+            .chain(self.phase_rules.iter().flatten())
+            .any(|rule| matches!(rule, Behavior::ReturnHome { .. }))
+    }
+
     /// M2-T7 (tir par phase) : table de tir de la première règle `Shoot` des règles **propres**
     /// à la phase `phase` d'un boss ; `None` si la phase n'a pas de règle (ou pas de `Shoot`) :
     /// l'appelant garde alors `EnemyAiConfig::ranged` (comportement d'avant).
@@ -649,6 +657,7 @@ impl EnemyBehaviors {
                         | Behavior::Flee
                         | Behavior::Wander
                         | Behavior::Formation { .. }
+                        | Behavior::ReturnHome { .. }
                 )
             })
     }
@@ -671,10 +680,24 @@ pub enum ChargePhase {
     },
 }
 
+/// Phase de [`Behavior::ReturnHome`] (X-6b, §119).
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq)]
+pub enum ReturnPhase {
+    #[default]
+    Idle,
+    /// Recule vers le point de départ ; au plus jusqu'à la frame `until` (exclue).
+    Retreat { until: u32 },
+    /// Attend au point de départ jusqu'à `until` (exclue), puis la charge peut repartir.
+    Wait { until: u32 },
+}
+
 /// T1.4 : état rollback des behaviors nouveaux (`KeepDistance`, `Strafe`, `Charge`, `Flee`,
-/// `Wander`), posé **seulement** sur les ennemis qui en listent un
+/// `Wander`, `ReturnHome`), posé **seulement** sur les ennemis qui en listent un
 /// ([`EnemyBehaviors::needs_runtime`]) ; checksum neutre (aucun ennemi existant n'en porte).
-#[derive(Component, Clone, Debug, Default, Hash, PartialEq, Eq)]
+///
+/// X-6b (§119) : `home` et `returning` ne comptent dans `Hash` et dans `Debug` que s'ils sont
+/// actifs (un ennemi sans `ReturnHome` garde exactement le hash et le dump d'avant).
+#[derive(Component, Clone, Default, PartialEq, Eq)]
 pub struct BehaviorRuntime {
     /// Règle retenue (index dans [`EnemyBehaviors::rules`]).
     pub selected: Option<u32>,
@@ -690,6 +713,54 @@ pub struct BehaviorRuntime {
     pub wander_next: u32,
     /// Tireur entendu (`Perception::Hearing`) et frame d'oubli.
     pub heard: Option<(GgrsNetId, u32)>,
+    /// X-6b : point d'apparition (posé au spawn par `spawn_enemy` quand l'ennemi liste
+    /// `ReturnHome`), `None` sinon.
+    pub home: Option<(fixed_math::Fixed, fixed_math::Fixed)>,
+    /// X-6b : recul ou attente de `ReturnHome` en cours.
+    pub returning: ReturnPhase,
+}
+
+impl BehaviorRuntime {
+    /// Champs de X-6b actifs : seuls eux entrent dans `Hash` et `Debug`.
+    fn return_active(&self) -> bool {
+        self.home.is_some() || self.returning != ReturnPhase::Idle
+    }
+}
+
+impl std::hash::Hash for BehaviorRuntime {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.selected.hash(state);
+        self.since_frame.hash(state);
+        self.charge.hash(state);
+        self.charge_ready_at.hash(state);
+        self.charge_hit.hash(state);
+        self.wander_dir.hash(state);
+        self.wander_next.hash(state);
+        self.heard.hash(state);
+        if self.return_active() {
+            self.home.hash(state);
+            self.returning.hash(state);
+        }
+    }
+}
+
+impl std::fmt::Debug for BehaviorRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dump = f.debug_struct("BehaviorRuntime");
+        dump.field("selected", &self.selected)
+            .field("since_frame", &self.since_frame)
+            .field("charge", &self.charge)
+            .field("charge_ready_at", &self.charge_ready_at)
+            .field("charge_hit", &self.charge_hit)
+            .field("wander_dir", &self.wander_dir)
+            .field("wander_next", &self.wander_next)
+            .field("heard", &self.heard);
+        if self.return_active() {
+            dump.field("home", &self.home)
+                .field("returning", &self.returning);
+        }
+        dump.finish()
+    }
 }
 
 /// Current target information for an enemy

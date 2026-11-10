@@ -12,7 +12,7 @@
 //! (checksum neutre), mis à jour par [`behavior_select_system`] ; leur déplacement est
 //! appliqué par `move_enemies` via [`behavior_motion`].
 
-use behaviors::{select, Behavior, BossState, SelectionContext};
+use behaviors::{select, Behavior, BossState, SelectionContext, RETURN_MAX_FRAMES};
 use bevy::prelude::*;
 use bevy_fixed::{fixed_math, rng::RngStreams};
 use combat::{actors::Health, downed::Downed, emitter::Emitter};
@@ -27,7 +27,7 @@ use super::{
     navigation::{AgentBody, FlowFieldCache, NavKey},
     state::{
         BehaviorRuntime, ChargePhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget, MonsterState,
-        RangedAttackState, TargetType,
+        RangedAttackState, ReturnPhase, TargetType,
     },
 };
 use crate::{
@@ -100,6 +100,9 @@ pub const STRAFE_PERIOD: u32 = 45;
 /// `Charge` : durée maximale de la ruée, et multiplicateur de vitesse.
 pub const CHARGE_RUSH_FRAMES: u32 = 60;
 pub const CHARGE_SPEED_MULT: i32 = 3;
+/// `ReturnHome` : distance au point de départ en deçà de laquelle l'ennemi est arrivé (X-6b, §119 ;
+/// moins d'une case de 16).
+pub const RETURN_ARRIVE: i32 = 4;
 /// `Perception::Hearing` : un tireur entendu reste connu `HEARING_FRAMES` frames.
 pub const HEARING_FRAMES: u32 = 120;
 
@@ -154,6 +157,8 @@ pub fn behavior_select_system(
             Option<&combat::status::Statuses>,
             // M2-T0c : phase courante d'un boss (règles de la phase).
             Option<&BossState>,
+            // X-6b : un coup de mêlée récent déclenche le retour (`ReturnHome`).
+            &MonsterState,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -185,6 +190,7 @@ pub fn behavior_select_system(
         has_emitter,
         statuses,
         boss,
+        monster_state,
     ) in order_mut_iter!(enemy_query)
     {
         let phase_rules = rules.active(boss.map_or(0, |b| b.phase));
@@ -257,6 +263,7 @@ pub fn behavior_select_system(
                     .is_none_or(|slot| slot.may_fire(now)),
             charging: runtime.charge != ChargePhase::Idle,
             charge_ready: now >= runtime.charge_ready_at,
+            returning: runtime.returning != ReturnPhase::Idle,
             previous: runtime.selected.map(|index| index as usize),
         };
         let selected = if combat::status::incapacitated(statuses) || charmed {
@@ -280,8 +287,16 @@ pub fn behavior_select_system(
         let rule = selected.and_then(|index| phase_rules.get(index as usize));
 
         // Charge : télégraphe, ruée, contact, refroidissement.
+        // Retour au point de départ (X-6b) : règle `ReturnHome` des règles actives, s'il y en a une.
+        let return_home = phase_rules.iter().find_map(|rule| match rule {
+            Behavior::ReturnHome {
+                wait, max_frames, ..
+            } => Some((*wait, max_frames.unwrap_or(RETURN_MAX_FRAMES))),
+            _ => None,
+        });
+        let mut begin_return = false;
         match (rule, runtime.charge.clone()) {
-            (Some(Behavior::Charge { telegraph }), ChargePhase::Idle) => {
+            (Some(Behavior::Charge { telegraph, .. }), ChargePhase::Idle) => {
                 if let Some((_, target_pos)) = &player_target {
                     runtime.charge = ChargePhase::Telegraph {
                         until: now + telegraph,
@@ -319,6 +334,7 @@ pub fn behavior_select_system(
                 if contact.is_some() || reached || now >= until {
                     runtime.charge = ChargePhase::Idle;
                     runtime.charge_ready_at = now + ai_config.attack_cooldown_frames;
+                    begin_return = true;
                 }
             }
             (_, ChargePhase::Idle) => {}
@@ -326,6 +342,50 @@ pub fn behavior_select_system(
             (_, _) => {
                 runtime.charge = ChargePhase::Idle;
                 runtime.charge_ready_at = now + ai_config.attack_cooldown_frames;
+            }
+        }
+        // Un coup de mêlée de cette frame ou de la précédente déclenche aussi le retour.
+        if let MonsterState::Attacking {
+            last_attack_frame, ..
+        } = monster_state
+        {
+            begin_return |= last_attack_frame.saturating_add(1) >= now;
+        }
+        if let Some((wait, max_frames)) = return_home {
+            if begin_return && runtime.returning == ReturnPhase::Idle {
+                // Repli : un ennemi sans point posé au spawn garde l'endroit où il commence à reculer.
+                if runtime.home.is_none() {
+                    runtime.home = Some((position.x, position.y));
+                }
+                runtime.returning = ReturnPhase::Retreat {
+                    until: now + max_frames,
+                };
+                info!("ggrs{{f={} return net_id={} phase=retreat}}", now, net_id);
+            } else if matches!(rule, Some(Behavior::ReturnHome { .. })) {
+                match runtime.returning.clone() {
+                    ReturnPhase::Retreat { until } => {
+                        let arrived = runtime.home.is_none_or(|(x, y)| {
+                            position.distance(&fixed_math::FixedVec2::new(x, y))
+                                < fixed_math::Fixed::from_num(RETURN_ARRIVE)
+                        });
+                        if arrived || now >= until {
+                            // L'attente remplace le refroidissement de la charge.
+                            runtime.returning = ReturnPhase::Wait { until: now + wait };
+                            runtime.charge_ready_at = now + wait;
+                            info!(
+                                "ggrs{{f={} return net_id={} phase=wait arrived={}}}",
+                                now, net_id, arrived
+                            );
+                        }
+                    }
+                    ReturnPhase::Wait { until } => {
+                        if now >= until {
+                            runtime.returning = ReturnPhase::Idle;
+                            info!("ggrs{{f={} return net_id={} phase=done}}", now, net_id);
+                        }
+                    }
+                    ReturnPhase::Idle => {}
+                }
             }
         }
 
@@ -465,6 +525,84 @@ pub fn behavior_motion(
                 speed_mult: fixed_math::Fixed::from_num(CHARGE_SPEED_MULT),
             },
             _ => still(),
+        }),
+        // X-6b : recule droit vers le point de départ (la cible reste en face, voir
+        // `behavior_extra`), immobile à l'arrivée et pendant l'attente.
+        Behavior::ReturnHome { speed, .. } => Some(match (&runtime.returning, runtime.home) {
+            (ReturnPhase::Retreat { .. }, Some((x, y)))
+                if position.distance(&fixed_math::FixedVec2::new(x, y))
+                    >= fixed_math::Fixed::from_num(RETURN_ARRIVE) =>
+            {
+                BehaviorMotion {
+                    direction: (fixed_math::FixedVec2::new(x, y) - position).normalize_or_zero(),
+                    speed_mult: speed.unwrap_or(fixed_math::FIXED_ONE),
+                }
+            }
+            _ => still(),
+        }),
+        _ => None,
+    }
+}
+
+/// Compléments de déplacement d'un behavior (X-6b, §119), ajoutés à [`BehaviorMotion`] par
+/// `move_enemies` : `drift` est une vitesse **latérale absolue** (unités/s, ajoutée à la vitesse de
+/// la direction), `face` la direction où regarder (sinon le sens de la vitesse).
+pub struct MotionExtra {
+    pub drift: fixed_math::FixedVec2,
+    pub face: Option<fixed_math::FixedVec2>,
+}
+
+/// Compléments du behavior retenu ; `None` pour tout ce qui existait avant X-6b (aucune vitesse
+/// ni orientation changées). `Charge` avec `zigzag` : pendant la ruée, onde triangulaire d'écart
+/// maximal `amplitude` et de période `period` frames autour de l'axe vers la cible figée (vitesse
+/// latérale `4 × amplitude / période` par frame, signe `+` sur le premier et le dernier quart de
+/// période, `-` sur les deux quarts du milieu ; fonction de la seule frame de la ruée, sans RNG).
+/// `ReturnHome` : recule ou attend en regardant la cible connue.
+pub fn behavior_extra(
+    rules: &[Behavior],
+    runtime: &BehaviorRuntime,
+    now: u32,
+    position: fixed_math::FixedVec2,
+    target: Option<fixed_math::FixedVec2>,
+) -> Option<MotionExtra> {
+    let rule = runtime
+        .selected
+        .and_then(|index| rules.get(index as usize))?;
+    match rule {
+        Behavior::Charge {
+            zigzag: Some(zigzag),
+            ..
+        } if zigzag.period > 0 => {
+            let ChargePhase::Rush {
+                until,
+                target: frozen,
+            } = &runtime.charge
+            else {
+                return None;
+            };
+            let elapsed = now.saturating_sub(until.saturating_sub(CHARGE_RUSH_FRAMES));
+            let phase = elapsed % zigzag.period;
+            let quarter = phase.saturating_mul(4);
+            let positive = quarter < zigzag.period || quarter >= zigzag.period.saturating_mul(3);
+            let axis =
+                (fixed_math::FixedVec2::new(frozen.0, frozen.1) - position).normalize_or_zero();
+            let perpendicular = fixed_math::FixedVec2::new(-axis.y, axis.x);
+            let speed = zigzag
+                .amplitude
+                .saturating_mul(fixed_math::Fixed::from_num(4 * 60))
+                / fixed_math::Fixed::from_num(zigzag.period);
+            Some(MotionExtra {
+                drift: if positive {
+                    perpendicular * speed
+                } else {
+                    fixed_math::FixedVec2::ZERO - perpendicular * speed
+                },
+                face: None,
+            })
+        }
+        Behavior::ReturnHome { .. } => Some(MotionExtra {
+            drift: fixed_math::FixedVec2::ZERO,
+            face: target.map(|target| target - position),
         }),
         _ => None,
     }
@@ -611,7 +749,10 @@ mod tests {
 
     #[test]
     fn charge_immobile_pendant_le_telegraphe_puis_rapide() {
-        let charger = rules(vec![Behavior::Charge { telegraph: 30 }]);
+        let charger = rules(vec![Behavior::Charge {
+            telegraph: 30,
+            zigzag: None,
+        }]);
         let cache = FlowFieldCache::default();
         let at = fixed_math::FixedVec2::ZERO;
         let frozen = (fixed_math::new(50.0), fixed_math::FIXED_ZERO);

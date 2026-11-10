@@ -721,6 +721,22 @@ pub enum Expectation {
         count: u32,
         at_frame: u32,
     },
+    /// X-6b (§119) : position monde de l'ennemi `entity` à `at_frame`, chaque borne présente
+    /// (inclusive) testée sur son axe (`f32` convertis en `Fixed`) : mesure l'écart latéral d'un
+    /// zigzag (l'axe de la ruée aligné sur x, l'écart est l'écart en y) et le retour au point
+    /// d'apparition (une boîte de moins d'une case autour de lui).
+    EnemyPosition {
+        entity: EntityRef,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        x_min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        x_max: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        y_min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        y_max: Option<f32>,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -762,6 +778,7 @@ impl Expectation {
             | Self::EnemyState { at_frame, .. }
             | Self::SquadSize { at_frame, .. }
             | Self::EnemyDistance { at_frame, .. }
+            | Self::EnemyPosition { at_frame, .. }
             | Self::EnemyVariant { at_frame, .. }
             | Self::Clock { at_frame, .. }
             | Self::RunState { at_frame, .. }

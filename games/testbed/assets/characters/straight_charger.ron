@@ -1,0 +1,46 @@
+// Témoin X-6b (testbed, conventions §119) : `zigzag_charger` sans l'option `zigzag` (ruée droite, écart latéral nul), même retour au point de départ.
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "60.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "straight_charger",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "200.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("40.0"),
+        attack_cooldown_frames: Some(90),
+        attack_damage: Some("5.0"),
+        behaviors: Some([
+            ReturnHome(wait: 40, speed: Some("2.0")),
+            Charge(telegraph: 20),
+        ]),
+    )),
+)
