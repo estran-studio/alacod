@@ -1480,7 +1480,11 @@ fn behavior_take_cover_fixture_reports_trigger_order_and_bounds() {
     assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover : radius");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover : hold = 0");
     assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover : speed");
-    assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover : max_frames = 0");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "TakeCover : max_frames = 0",
+    );
 }
 
 #[test]

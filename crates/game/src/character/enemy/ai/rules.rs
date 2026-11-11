@@ -295,7 +295,11 @@ pub fn behavior_select_system(
                     if arrived || now >= until {
                         let end = now.saturating_add(hold);
                         runtime.cover = CoverPhase::Hold {
-                            until: if reload { end.max(ranged.ready_at) } else { end },
+                            until: if reload {
+                                end.max(ranged.ready_at)
+                            } else {
+                                end
+                            },
                         };
                         info!(
                             "ggrs{{f={} cover net_id={} phase=hold arrived={}}}",
@@ -321,10 +325,7 @@ pub fn behavior_select_system(
                             .into_iter()
                             .map(|(cover_id, cover_transform, cover_collider)| CoverBox {
                                 net_id: cover_id.0,
-                                aabb: collider_aabb(
-                                    &cover_transform.translation,
-                                    cover_collider,
-                                ),
+                                aabb: collider_aabb(&cover_transform.translation, cover_collider),
                             })
                             .collect()
                     });
@@ -333,19 +334,13 @@ pub fn behavior_select_system(
                         (aabb.max.x - aabb.min.x).max(aabb.max.y - aabb.min.y)
                             * fixed_math::FIXED_HALF
                     }) + fixed_math::FIXED_ONE;
-                    let shelter = find_shelter(
-                        position,
-                        *target_pos,
-                        radius,
-                        margin,
-                        boxes,
-                        |from, to| {
+                    let shelter =
+                        find_shelter(position, *target_pos, radius, margin, boxes, |from, to| {
                             flow_field_cache.line_of_sight(from, to)
                                 && !flow_field_cache
                                     .wall_cells
                                     .contains(&super::navigation::GridPos::from_fixed(to))
-                        },
-                    );
+                        });
                     if let Some(shelter) = shelter {
                         runtime.cover = CoverPhase::Moving {
                             until: now.saturating_add(max_frames),
@@ -1191,14 +1186,19 @@ mod tests {
                 guard_until: until,
                 ..Default::default()
             };
-            guard_motion(&list, &runtime, now, stuck).unwrap().speed_mult
+            guard_motion(&list, &runtime, now, stuck)
+                .unwrap()
+                .speed_mult
         };
         assert_ne!(motion(249), fixed_math::FIXED_ZERO);
         assert_eq!(motion(250), fixed_math::FIXED_ZERO);
         // Une règle retenue, ou l'arrivée, remet le délai à zéro (`None`).
         assert_eq!(next_guard_until(max, true, home, stuck, 300, until), None);
         let arrived = fixed_math::FixedVec2::new(fixed_math::new(99.0), fixed_math::FIXED_ZERO);
-        assert_eq!(next_guard_until(max, false, home, arrived, 300, until), None);
+        assert_eq!(
+            next_guard_until(max, false, home, arrived, 300, until),
+            None
+        );
         // Sans garde, rien ne change.
         assert_eq!(next_guard_until(None, false, home, stuck, 300, None), None);
     }
