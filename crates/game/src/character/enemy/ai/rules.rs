@@ -389,6 +389,18 @@ pub fn behavior_select_system(
             }
         }
 
+        // Garde (suivi de X-6b) : sans règle retenue, une garde écartée de son point d'apparition tente d'y
+        // revenir au plus `max_frames` frames (un mur sur le trajet ne la fige pas pour toujours : elle
+        // attend où elle est) ; le délai repart dès qu'une règle est retenue ou qu'elle est arrivée.
+        runtime.guard_until = next_guard_until(
+            guard_max_frames(phase_rules),
+            rule.is_some(),
+            runtime.home,
+            position,
+            now,
+            runtime.guard_until,
+        );
+
         // Errance : nouvelle direction toutes les `WANDER_PERIOD` frames (flux `behaviors`).
         if matches!(rule, Some(Behavior::Wander)) && now >= runtime.wander_next {
             let turn = rng_streams.get_mut(BEHAVIORS_RNG_STREAM).next_fixed();
@@ -460,7 +472,7 @@ pub fn behavior_motion(
     slot: Option<&super::squad::SquadSlot>,
 ) -> Option<BehaviorMotion> {
     let Some(rule) = runtime.selected.and_then(|index| rules.get(index as usize)) else {
-        return guard_motion(rules, runtime, position);
+        return guard_motion(rules, runtime, now, position);
     };
     let still = || BehaviorMotion {
         direction: fixed_math::FixedVec2::ZERO,
@@ -555,19 +567,55 @@ fn guard_speed(rules: &[Behavior]) -> Option<Option<fixed_math::Fixed>> {
     })
 }
 
+/// Durée maximale du retour de la garde d'un `ReturnHome { guard: true }` listé (`max_frames`, repli
+/// [`RETURN_MAX_FRAMES`]), `None` sans garde.
+fn guard_max_frames(rules: &[Behavior]) -> Option<u32> {
+    rules.iter().find_map(|rule| match rule {
+        Behavior::ReturnHome {
+            guard: true,
+            max_frames,
+            ..
+        } => Some(max_frames.unwrap_or(RETURN_MAX_FRAMES)),
+        _ => None,
+    })
+}
+
+/// Frame où la garde renonce à rejoindre son point d'apparition : posée quand, sans règle retenue,
+/// elle est écartée du point de `RETURN_ARRIVE` ou plus (`now + max_frames`), conservée tant que cela
+/// dure, `None` sinon (règle retenue, arrivée, pas de garde ou de point).
+fn next_guard_until(
+    max_frames: Option<u32>,
+    has_rule: bool,
+    home: Option<(fixed_math::Fixed, fixed_math::Fixed)>,
+    position: fixed_math::FixedVec2,
+    now: u32,
+    current: Option<u32>,
+) -> Option<u32> {
+    let max_frames = max_frames.filter(|_| !has_rule)?;
+    let (x, y) = home?;
+    (position.distance(&fixed_math::FixedVec2::new(x, y))
+        >= fixed_math::Fixed::from_num(RETURN_ARRIVE))
+    .then(|| current.unwrap_or(now.saturating_add(max_frames)))
+}
+
 /// Garde (suivi de X-6b) : aucune règle retenue et un `ReturnHome { guard: true }` listé : l'ennemi
 /// retourne à son point d'apparition s'il en est écarté, sinon reste immobile ; jamais le champ de
-/// flux d'origine. `None` sans garde (comportement d'avant, au bit près).
+/// flux d'origine. Le retour dure au plus `max_frames` (`guard_until`, posé par
+/// `behavior_select_system`) : passé ce délai elle reste où elle est. `None` sans garde
+/// (comportement d'avant, au bit près).
 fn guard_motion(
     rules: &[Behavior],
     runtime: &BehaviorRuntime,
+    now: u32,
     position: fixed_math::FixedVec2,
 ) -> Option<BehaviorMotion> {
     let speed = guard_speed(rules)?;
     let (x, y) = runtime.home?;
     let home = fixed_math::FixedVec2::new(x, y);
     Some(
-        if position.distance(&home) >= fixed_math::Fixed::from_num(RETURN_ARRIVE) {
+        if position.distance(&home) >= fixed_math::Fixed::from_num(RETURN_ARRIVE)
+            && runtime.guard_until.is_none_or(|until| now < until)
+        {
             BehaviorMotion {
                 direction: (home - position).normalize_or_zero(),
                 speed_mult: speed.unwrap_or(fixed_math::FIXED_ONE),
@@ -983,6 +1031,42 @@ mod tests {
             guard: false,
         }];
         assert!(motion(no_guard, fixed_math::FixedVec2::ZERO).is_none());
+    }
+
+    /// Suivi de X-6b : une garde que le recul ne peut pas finir (mur sur le trajet) renonce après
+    /// `max_frames` et reste où elle est ; le délai repart quand une règle est retenue ou à l'arrivée.
+    #[test]
+    fn a_blocked_guard_gives_up_after_max_frames() {
+        let home = Some((fixed_math::new(100.0), fixed_math::FIXED_ZERO));
+        let stuck = fixed_math::FixedVec2::ZERO;
+        let list = vec![Behavior::ReturnHome {
+            wait: 10,
+            speed: None,
+            max_frames: Some(50),
+            guard: true,
+        }];
+        let max = guard_max_frames(&list);
+        assert_eq!(max, Some(50));
+        // Première frame écartée, sans règle : le délai est posé, puis conservé.
+        let until = next_guard_until(max, false, home, stuck, 200, None);
+        assert_eq!(until, Some(250));
+        assert_eq!(next_guard_until(max, false, home, stuck, 230, until), until);
+        let motion = |now: u32| {
+            let runtime = BehaviorRuntime {
+                home,
+                guard_until: until,
+                ..Default::default()
+            };
+            guard_motion(&list, &runtime, now, stuck).unwrap().speed_mult
+        };
+        assert_ne!(motion(249), fixed_math::FIXED_ZERO);
+        assert_eq!(motion(250), fixed_math::FIXED_ZERO);
+        // Une règle retenue, ou l'arrivée, remet le délai à zéro (`None`).
+        assert_eq!(next_guard_until(max, true, home, stuck, 300, until), None);
+        let arrived = fixed_math::FixedVec2::new(fixed_math::new(99.0), fixed_math::FIXED_ZERO);
+        assert_eq!(next_guard_until(max, false, home, arrived, 300, until), None);
+        // Sans garde, rien ne change.
+        assert_eq!(next_guard_until(None, false, home, stuck, 300, None), None);
     }
 
     #[test]

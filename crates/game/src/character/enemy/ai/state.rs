@@ -718,6 +718,11 @@ pub struct BehaviorRuntime {
     pub home: Option<(fixed_math::Fixed, fixed_math::Fixed)>,
     /// X-6b : recul ou attente de `ReturnHome` en cours.
     pub returning: ReturnPhase,
+    /// Suivi de X-6b : frame (exclue) à laquelle la **garde** (`ReturnHome { guard: true }`) renonce à
+    /// rejoindre le point d'apparition (même limite que le recul, `max_frames`) ; posée quand elle
+    /// s'en écarte sans règle retenue, retirée à l'arrivée ou dès qu'une règle est retenue. `None` :
+    /// pas de retour de garde en cours.
+    pub guard_until: Option<u32>,
 }
 
 impl BehaviorRuntime {
@@ -740,6 +745,11 @@ impl std::hash::Hash for BehaviorRuntime {
         if self.return_active() {
             self.home.hash(state);
             self.returning.hash(state);
+            // Haché seulement s'il est posé : un ennemi dont la garde n'a jamais été écartée garde
+            // son hash d'avant le suivi.
+            if let Some(until) = self.guard_until {
+                until.hash(state);
+            }
         }
     }
 }
@@ -758,6 +768,9 @@ impl std::fmt::Debug for BehaviorRuntime {
         if self.return_active() {
             dump.field("home", &self.home)
                 .field("returning", &self.returning);
+            if self.guard_until.is_some() {
+                dump.field("guard_until", &self.guard_until);
+            }
         }
         dump.finish()
     }
