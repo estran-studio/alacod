@@ -1751,7 +1751,14 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         } => {
             use game::character::enemy::ai::shelter::{cutting_cover, CoverBox};
             let enemy = resolve_entity(world, entity).ok_or("entité absente")?;
-            let enemy_pos = entity_position(world, enemy).ok_or("entité sans position")?;
+            // Centre du collider de l'ennemi (position + décalage) : là où les balles frappent, et le
+            // point que le behavior met à l'abri.
+            let enemy_pos = entity_position(world, enemy).ok_or("entité sans position")?
+                + world
+                    .get::<combat::collider::Collider>(enemy)
+                    .map_or(fixed_math::FixedVec2::ZERO, |collider| {
+                        collider.offset.truncate()
+                    });
             let player_pos = world
                 .query::<(&Player, &fixed_math::FixedTransform3D)>()
                 .iter(world)

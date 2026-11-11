@@ -29,7 +29,7 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use super::{
     navigation::{AgentBody, FlowFieldCache, NavKey},
-    shelter::{find_shelter, CoverBox},
+    shelter::{find_shelter, Body, CoverBox},
     state::{
         BehaviorRuntime, ChargePhase, CoverPhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget,
         MonsterState, RangedAttackState, ReturnPhase, TargetType,
@@ -315,11 +315,23 @@ pub fn behavior_select_system(
                 }
                 CoverPhase::Idle => {}
             }
-            // Déclenchement : le rechargement d'un tir vient de commencer (une seule fois par tir).
-            if let (CoverPhase::Idle, Some((_, target_pos)), false) =
-                (&runtime.cover, &player_target, shooting || incapacitated)
-            {
-                if now < ranged.ready_at && runtime.cover_done != ranged.ready_at {
+            // Déclenchement : une salve vient de **finir** (front descendant de la séquence de tir ;
+            // ni `first_wait`, ni un recul de coup, ni l'attente tirée de `ranged_cycle` n'en sont).
+            // Le repli reste demandé pendant le rechargement tant qu'aucun point abrité n'est trouvé.
+            if runtime.cover_shooting && !shooting {
+                runtime.cover_pending = true;
+            }
+            runtime.cover_shooting = shooting;
+            if now >= ranged.ready_at {
+                runtime.cover_pending = false;
+            }
+            if let (CoverPhase::Idle, Some((_, target_pos)), false, true) = (
+                &runtime.cover,
+                &player_target,
+                shooting || incapacitated,
+                runtime.cover_pending,
+            ) {
+                {
                     let boxes = cover_boxes.get_or_insert_with(|| {
                         order_iter!(cover_query)
                             .into_iter()
@@ -329,24 +341,46 @@ pub fn behavior_select_system(
                             })
                             .collect()
                     });
-                    let margin = body.map_or(fixed_math::new(10.0), |collider| {
-                        let aabb = collider_aabb(&transform.translation, collider);
-                        (aabb.max.x - aabb.min.x).max(aabb.max.y - aabb.min.y)
-                            * fixed_math::FIXED_HALF
-                    }) + fixed_math::FIXED_ONE;
-                    let shelter =
-                        find_shelter(position, *target_pos, radius, margin, boxes, |from, to| {
-                            flow_field_cache.line_of_sight(from, to)
-                                && !flow_field_cache
-                                    .wall_cells
-                                    .contains(&super::navigation::GridPos::from_fixed(to))
-                        });
+                    // Corps du tireur : demi-étendues et décalage de son collider (par défaut 20 × 20).
+                    let shape = body.map_or(
+                        Body {
+                            half: fixed_math::FixedVec2::new(
+                                fixed_math::new(10.0),
+                                fixed_math::new(10.0),
+                            ),
+                            offset: fixed_math::FixedVec2::ZERO,
+                        },
+                        |collider| {
+                            let aabb = collider_aabb(&fixed_math::FixedVec3::ZERO, collider);
+                            Body {
+                                half: fixed_math::FixedVec2::new(
+                                    (aabb.max.x - aabb.min.x) * fixed_math::FIXED_HALF,
+                                    (aabb.max.y - aabb.min.y) * fixed_math::FIXED_HALF,
+                                ),
+                                offset: fixed_math::FixedVec2::new(
+                                    (aabb.max.x + aabb.min.x) * fixed_math::FIXED_HALF,
+                                    (aabb.max.y + aabb.min.y) * fixed_math::FIXED_HALF,
+                                ),
+                            }
+                        },
+                    );
+                    let shelter = find_shelter(
+                        position,
+                        *target_pos,
+                        radius,
+                        shape,
+                        boxes,
+                        |from, body_box, point| {
+                            flow_field_cache.line_of_sight(from, point)
+                                && body_cells_free(&flow_field_cache, body_box)
+                        },
+                    );
                     if let Some(shelter) = shelter {
                         runtime.cover = CoverPhase::Moving {
                             until: now.saturating_add(max_frames),
                             point: (shelter.point.x, shelter.point.y),
                         };
-                        runtime.cover_done = ranged.ready_at;
+                        runtime.cover_pending = false;
                         info!(
                             "ggrs{{f={} cover net_id={} phase=move cover={} point=({},{})}}",
                             now,
@@ -704,6 +738,22 @@ fn guard_max_frames(rules: &[Behavior]) -> Option<u32> {
             ..
         } => Some(max_frames.unwrap_or(RETURN_MAX_FRAMES)),
         _ => None,
+    })
+}
+
+/// Aucune case de mur sous la boîte (le bord supérieur exact n'ouvre pas la case suivante).
+fn body_cells_free(cache: &FlowFieldCache, body: &combat::grid::Aabb) -> bool {
+    let low = super::navigation::GridPos::from_fixed(body.min);
+    let high = super::navigation::GridPos::from_fixed(fixed_math::FixedVec2::new(
+        body.max.x - fixed_math::Fixed::from_bits(1),
+        body.max.y - fixed_math::Fixed::from_bits(1),
+    ));
+    (low.x..=high.x).all(|x| {
+        (low.y..=high.y).all(|y| {
+            !cache
+                .wall_cells
+                .contains(&super::navigation::GridPos::new(x, y))
+        })
     })
 }
 

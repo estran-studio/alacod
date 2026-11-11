@@ -41,3 +41,17 @@ Jalon servi : **S4 mer 2 déc** (« les volontaires qui se replient derrière le
 ✓ Contrôle rapide passé (suite de scénarios : la nuit)
 exit=0
 ```
+
+## Suivi de revue (branche `wquintal/x-6c-repli-couvert`, partie de `86440e8a`, un P2 et un P3)
+
+Code contrôlé : `bdda38f0` (`make check_rapide` vert : 1666 tests, 0 échec ; journal `~/orca/runs/alpha/logs/x-6c-repli-couvert-check-rapide-bdda38f0.log`, dernière ligne `✓ Contrôle rapide passé (suite de scénarios : la nuit)`).
+
+| # | Constat | Issue | Preuve |
+|---|---|---|---|
+| P2 | Point abrité inatteignable : seule la case du centre était testée contre `wall_cells` ; corps (demi-étendues, décalage du collider) et autres caisses ignorés | **fait** | `shelter::Body`, `find_shelter` (corps à `BODY_GAP` du bord, position = centre du corps − décalage ; rejet si le corps chevauche une caisse ou si le trajet en traverse une), `rules::body_cells_free` (toutes les cases sous le corps) ; ligne de vue vers le **centre du corps** avec tolérance d'arrivée (4 unités) ; `CoverSight` lit le centre du collider. Scénarios `repli_couvert_rang` (échoue sans : `TakeCover` encore retenu à f170) et `repli_couvert_mur` (échoue sans : x = 629,7 contre le mur à f120). Tests unitaires `a_neighbouring_cover_blocks_the_points_it_overlaps`, `the_collider_offset_moves_the_point_not_the_body`, `a_wall_under_the_arrival_body_rejects_the_point` |
+| P3 | Déclencheur sur `now < ready_at` : part aussi sur `first_wait`, recul de coup, attente tirée de `ranged_cycle` | **fait** | déclenchement sur la **fin réelle d'une salve** : `BehaviorRuntime::cover_shooting` (séquence de la frame d'avant) et `cover_pending` (remplacent `cover_done`), hachés seulement actifs. Scénario `repli_couvert_premiere_salve` + `tireur_couvert_cycle` (`first_wait` 40) : échoue sans (`TakeCover` dès f20, `Chase` attendu) |
+
+- **Preuve « échoue sans »** : les trois scénarios neufs rejoués avec l'ancienne logique (corps ignoré, déclencheur sur `ready_at`, retouche temporaire non commitée) échouent comme décrit ci-dessus ; retouche retirée.
+- **Traces** : 42 scénarios à comportements et tir rejoués sans `BLESS`, 0 écart. Les traces `repli_couvert_apres_tir`, `_egalite`, `_egalite_inverse`, `_hors_portee`, `_sans_couvert` (TakeCover) sont **réécrites** (voulu : champs hachés neufs, points d'arrivée décalés par le corps) ; `_temoin` inchangée ; trois traces neuves (`rang`, `mur`, `premiere_salve`).
+- **Constat de scénario** : le tireur avance de quelques unités vers le joueur avant sa volée (règle `Shoot` sans mouvement propre) ; les scénarios d'égalité placent donc le tireur sur l'axe (600, 696) et les caisses en y 666 et 726, sinon l'égalité de distance se rompt (diagnostiqué par un `eprintln` temporaire, retiré).
+- Non fait : `schedule_order_diff` (aucun système ni type rollback ajouté), suite complète (la nuit sur le VPS).
