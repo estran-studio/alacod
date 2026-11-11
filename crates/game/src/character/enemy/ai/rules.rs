@@ -15,8 +15,12 @@
 use behaviors::{select, Behavior, BossState, SelectionContext, RETURN_MAX_FRAMES};
 use bevy::prelude::*;
 use bevy_fixed::{fixed_math, rng::RngStreams};
-use combat::{actors::Health, downed::Downed, emitter::Emitter};
+use combat::{
+    actors::Health, collider::Collider, collision_grid::collider_aabb, downed::Downed,
+    emitter::Emitter,
+};
 use sim_core::{
+    cover::Cover,
     damage::{DamageEvent, DamageKind},
     tag::{Tag, Tags},
     team::Team,
@@ -25,9 +29,10 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use super::{
     navigation::{AgentBody, FlowFieldCache, NavKey},
+    shelter::{find_shelter, CoverBox},
     state::{
-        BehaviorRuntime, ChargePhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget, MonsterState,
-        RangedAttackState, ReturnPhase, TargetType,
+        BehaviorRuntime, ChargePhase, CoverPhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget,
+        MonsterState, RangedAttackState, ReturnPhase, TargetType,
     },
 };
 use crate::{
@@ -159,6 +164,8 @@ pub fn behavior_select_system(
             Option<&BossState>,
             // X-6b : un coup de mêlée récent déclenche le retour (`ReturnHome`).
             &MonsterState,
+            // X-6c : gabarit du corps, pour la marge du point abrité (`TakeCover`).
+            Option<&Collider>,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -176,8 +183,13 @@ pub fn behavior_select_system(
     bullet_query: Query<(&GgrsNetId, &Bullet, &fixed_math::FixedTransform3D)>,
     // M2-T8 : tour de tir d'un membre d'escouade (dérivé, voir `squad`).
     squad_slots: Res<super::squad::SquadSlots>,
+    // X-6c : couverts (`TakeCover`) et terrain (murs) pour le trajet vers le point abrité.
+    cover_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<Cover>>,
+    flow_field_cache: Res<FlowFieldCache>,
 ) {
     let now = frame.frame;
+    // Boîtes des couverts, rassemblées au premier besoin (aucun coût sans `TakeCover`).
+    let mut cover_boxes: Option<Vec<CoverBox>> = None;
     for (
         net_id,
         transform,
@@ -191,6 +203,7 @@ pub fn behavior_select_system(
         statuses,
         boss,
         monster_state,
+        body,
     ) in order_mut_iter!(enemy_query)
     {
         let phase_rules = rules.active(boss.map_or(0, |b| b.phase));
@@ -247,6 +260,110 @@ pub fn behavior_select_system(
             fixed_math::FIXED_ONE
         };
         let shooting = has_emitter || ranged_state.is_some_and(|ranged| ranged.target.is_some());
+        // X-6c : repli derrière un couvert (`TakeCover`).
+        let incapacitated = combat::status::incapacitated(statuses) || charmed;
+        let previous_rule = runtime
+            .selected
+            .and_then(|index| phase_rules.get(index as usize));
+        // Une règle plus prioritaire (ou l'incapacité) a pris la main : le repli est abandonné.
+        if runtime.cover != CoverPhase::Idle
+            && !matches!(previous_rule, Some(Behavior::TakeCover { .. }))
+        {
+            runtime.cover = CoverPhase::Idle;
+        }
+        let take_cover = phase_rules.iter().find_map(|rule| match rule {
+            Behavior::TakeCover {
+                radius,
+                hold,
+                reload,
+                max_frames,
+                ..
+            } => Some((
+                *radius,
+                *hold,
+                *reload,
+                max_frames.unwrap_or(RETURN_MAX_FRAMES),
+            )),
+            _ => None,
+        });
+        if let (Some((radius, hold, reload, max_frames)), Some(ranged)) = (take_cover, ranged_state)
+        {
+            match runtime.cover.clone() {
+                CoverPhase::Moving { until, point } => {
+                    let arrived = position.distance(&fixed_math::FixedVec2::new(point.0, point.1))
+                        < fixed_math::Fixed::from_num(RETURN_ARRIVE);
+                    if arrived || now >= until {
+                        let end = now.saturating_add(hold);
+                        runtime.cover = CoverPhase::Hold {
+                            until: if reload { end.max(ranged.ready_at) } else { end },
+                        };
+                        info!(
+                            "ggrs{{f={} cover net_id={} phase=hold arrived={}}}",
+                            now, net_id, arrived
+                        );
+                    }
+                }
+                CoverPhase::Hold { until } => {
+                    if now >= until {
+                        runtime.cover = CoverPhase::Idle;
+                        info!("ggrs{{f={} cover net_id={} phase=done}}", now, net_id);
+                    }
+                }
+                CoverPhase::Idle => {}
+            }
+            // Déclenchement : le rechargement d'un tir vient de commencer (une seule fois par tir).
+            if let (CoverPhase::Idle, Some((_, target_pos)), false) =
+                (&runtime.cover, &player_target, shooting || incapacitated)
+            {
+                if now < ranged.ready_at && runtime.cover_done != ranged.ready_at {
+                    let boxes = cover_boxes.get_or_insert_with(|| {
+                        order_iter!(cover_query)
+                            .into_iter()
+                            .map(|(cover_id, cover_transform, cover_collider)| CoverBox {
+                                net_id: cover_id.0,
+                                aabb: collider_aabb(
+                                    &cover_transform.translation,
+                                    cover_collider,
+                                ),
+                            })
+                            .collect()
+                    });
+                    let margin = body.map_or(fixed_math::new(10.0), |collider| {
+                        let aabb = collider_aabb(&transform.translation, collider);
+                        (aabb.max.x - aabb.min.x).max(aabb.max.y - aabb.min.y)
+                            * fixed_math::FIXED_HALF
+                    }) + fixed_math::FIXED_ONE;
+                    let shelter = find_shelter(
+                        position,
+                        *target_pos,
+                        radius,
+                        margin,
+                        boxes,
+                        |from, to| {
+                            flow_field_cache.line_of_sight(from, to)
+                                && !flow_field_cache
+                                    .wall_cells
+                                    .contains(&super::navigation::GridPos::from_fixed(to))
+                        },
+                    );
+                    if let Some(shelter) = shelter {
+                        runtime.cover = CoverPhase::Moving {
+                            until: now.saturating_add(max_frames),
+                            point: (shelter.point.x, shelter.point.y),
+                        };
+                        runtime.cover_done = ranged.ready_at;
+                        info!(
+                            "ggrs{{f={} cover net_id={} phase=move cover={} point=({},{})}}",
+                            now,
+                            net_id,
+                            shelter.cover,
+                            shelter.point.x.to_num::<i32>(),
+                            shelter.point.y.to_num::<i32>()
+                        );
+                    }
+                }
+            }
+        }
         let ctx = SelectionContext {
             target_distance,
             sight: ai_config.aggro_range,
@@ -264,9 +381,10 @@ pub fn behavior_select_system(
             charging: runtime.charge != ChargePhase::Idle,
             charge_ready: now >= runtime.charge_ready_at,
             returning: runtime.returning != ReturnPhase::Idle,
+            sheltering: runtime.cover != CoverPhase::Idle,
             previous: runtime.selected.map(|index| index as usize),
         };
-        let selected = if combat::status::incapacitated(statuses) || charmed {
+        let selected = if incapacitated {
             None
         } else {
             select(phase_rules, &ctx).map(|index| index as u32)
@@ -552,6 +670,20 @@ pub fn behavior_motion(
             }
             _ => still(),
         }),
+        // X-6c : trajet droit vers le point abrité choisi au déclenchement, puis immobile à l'abri.
+        Behavior::TakeCover { speed, .. } => Some(match &runtime.cover {
+            CoverPhase::Moving { point, .. }
+                if position.distance(&fixed_math::FixedVec2::new(point.0, point.1))
+                    >= fixed_math::Fixed::from_num(RETURN_ARRIVE) =>
+            {
+                BehaviorMotion {
+                    direction: (fixed_math::FixedVec2::new(point.0, point.1) - position)
+                        .normalize_or_zero(),
+                    speed_mult: speed.unwrap_or(fixed_math::FIXED_ONE),
+                }
+            }
+            _ => still(),
+        }),
         _ => None,
     }
 }
@@ -695,7 +827,9 @@ pub fn behavior_extra(
                 homing: false,
             })
         }
-        Behavior::ReturnHome { .. } => Some(MotionExtra {
+        // `TakeCover` : il garde la cible en face pendant le trajet et à l'abri ; pas d'évasion par le
+        // champ de flux (qui le ramènerait vers le joueur).
+        Behavior::ReturnHome { .. } | Behavior::TakeCover { .. } => Some(MotionExtra {
             drift: fixed_math::FixedVec2::ZERO,
             face: target.map(|target| target - position),
             homing: true,

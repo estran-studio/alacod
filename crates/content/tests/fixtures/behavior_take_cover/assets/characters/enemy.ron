@@ -1,0 +1,19 @@
+// X-6c : TakeCover derrière Chase (toujours applicable), sans Shoot, rayon, attente, vitesse et durée nuls.
+(
+    movement: (
+        max_speed: "60.0",
+    ),
+    asset_name_ref: "enemy",
+    scale: "1.0",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    tags: ["zombie"],
+    ai: Some((
+        behaviors: Some([Chase(profile: "Ground"), TakeCover(radius: "0.0", hold: 0, speed: Some("0.0"), max_frames: Some(0))]),
+    )),
+)

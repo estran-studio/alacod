@@ -658,6 +658,7 @@ impl EnemyBehaviors {
                         | Behavior::Wander
                         | Behavior::Formation { .. }
                         | Behavior::ReturnHome { .. }
+                        | Behavior::TakeCover { .. }
                 )
             })
     }
@@ -689,6 +690,20 @@ pub enum ReturnPhase {
     Retreat { until: u32 },
     /// Attend au point de départ jusqu'à `until` (exclue), puis la charge peut repartir.
     Wait { until: u32 },
+}
+
+/// Phase de [`Behavior::TakeCover`] (X-6c, §120).
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq)]
+pub enum CoverPhase {
+    #[default]
+    Idle,
+    /// Va au point abrité `point` ; au plus jusqu'à la frame `until` (exclue).
+    Moving {
+        until: u32,
+        point: (fixed_math::Fixed, fixed_math::Fixed),
+    },
+    /// À l'abri jusqu'à la frame `until` (exclue).
+    Hold { until: u32 },
 }
 
 /// T1.4 : état rollback des behaviors nouveaux (`KeepDistance`, `Strafe`, `Charge`, `Flee`,
@@ -723,12 +738,22 @@ pub struct BehaviorRuntime {
     /// s'en écarte sans règle retenue, retirée à l'arrivée ou dès qu'une règle est retenue. `None` :
     /// pas de retour de garde en cours.
     pub guard_until: Option<u32>,
+    /// X-6c : repli derrière un couvert en cours (`TakeCover`).
+    pub cover: CoverPhase,
+    /// X-6c : `RangedAttackState::ready_at` du rechargement pour lequel un repli a déjà été décidé
+    /// (0 : aucun), pour ne le déclencher qu'une fois par tir.
+    pub cover_done: u32,
 }
 
 impl BehaviorRuntime {
     /// Champs de X-6b actifs : seuls eux entrent dans `Hash` et `Debug`.
     fn return_active(&self) -> bool {
         self.home.is_some() || self.returning != ReturnPhase::Idle
+    }
+
+    /// Champs de X-6c actifs : seuls eux entrent dans `Hash` et `Debug`.
+    fn cover_active(&self) -> bool {
+        self.cover != CoverPhase::Idle || self.cover_done != 0
     }
 }
 
@@ -751,6 +776,10 @@ impl std::hash::Hash for BehaviorRuntime {
                 until.hash(state);
             }
         }
+        if self.cover_active() {
+            self.cover.hash(state);
+            self.cover_done.hash(state);
+        }
     }
 }
 
@@ -771,6 +800,10 @@ impl std::fmt::Debug for BehaviorRuntime {
             if self.guard_until.is_some() {
                 dump.field("guard_until", &self.guard_until);
             }
+        }
+        if self.cover_active() {
+            dump.field("cover", &self.cover)
+                .field("cover_done", &self.cover_done);
         }
         dump.finish()
     }
