@@ -1,4 +1,4 @@
-// X-6c suivi (testbed, conventions §120) : `tireur_couvert` avec le cycle d'un tireur posté (`ranged_cycle`, P-1 § 110) : première salve au plus tôt 100 frames après son
+// X-6c suivi (testbed, conventions §120) : `tireur_couvert` avec le cycle d'un tireur posté (`ranged_cycle`, P-1 § 110) : première salve au plus tôt 40 frames après son
 // apparition (`first_wait`), attente tirée de 10 à 20 frames après chaque salve. Ces attentes repoussent `ready_at` sans qu'aucune salve ne finisse : `TakeCover` ne doit se
 // déclencher qu'à la **fin d'une salve**, jamais sur elles. Scénario `repli_couvert_premiere_salve`.
 (
@@ -53,7 +53,7 @@
             Chase(profile: "Ground"),
         ]),
         ranged_cycle: Some((
-            first_wait: Some((100, 0)),
+            first_wait: Some((40, 0)),
             wait_frames: Some((10, 20)),
         )),
     )),

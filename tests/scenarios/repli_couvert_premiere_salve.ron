@@ -1,8 +1,8 @@
-// Suivi de revue de X-6c (testbed, conventions §120) : `tireur_couvert_cycle` (`first_wait` 100, attente tirée 10-20) et la caisse (580, 662) à côté de lui. Sa première salve est
-// repoussée à f100 : tant qu'aucune salve n'a fini, `ready_at` est dans le futur mais **rien ne justifie un repli** : il ne s'abrite pas au départ (avant le suivi, `TakeCover` partait
-// dès f1 sur ce `ready_at`). Il tire à f100 (`Shoot`), et c'est la **fin de la salve** (vers f153) qui déclenche le repli.
+// Suivi de revue de X-6c (testbed, conventions §120) : `tireur_couvert_cycle` (`first_wait` 40, attente tirée 10-20) et la caisse (580, 662) à côté de lui. Sa première salve est
+// repoussée à f40 : tant qu'aucune salve n'a fini, `ready_at` est dans le futur mais **rien ne justifie un repli** : il ne s'abrite pas au départ (avant le suivi, `TakeCover` partait
+// dès f1 sur ce `ready_at`, la caisse étant à 40 unités). Il tire à f40 (`Shoot`), et c'est la **fin de la salve** (vers f95) qui déclenche le repli.
 //
-// À regarder : le tireur attend en marchant vers le joueur, tire à f100, puis se met à l'abri derrière la caisse.
+// À regarder : le tireur attend en marchant vers le joueur, tire à f40, puis se met à l'abri derrière la caisse.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
@@ -14,7 +14,15 @@ Scenario(
     ],
     players: [(inputs: [])],
     expect: [
+        // Avant la première salve (f40) : pas de repli, malgré un `ready_at` dans le futur.
         EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 20),
-        CoverSight(entity: Placed(1), handle: 0, blocked: false, at_frame: 40),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 34),
+        CoverSight(entity: Placed(1), handle: 0, blocked: false, at_frame: 34),
+        // La salve (f40 à f95) puis, à sa fin, le repli : à l'abri dès f114, jusqu'à la reprise.
+        EnemyState(entity: Placed(1), behavior: "Shoot", at_frame: 70),
+        EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 106),
+        EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 130),
+        CoverSight(entity: Placed(1), handle: 0, blocked: true, at_frame: 130),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 200),
     ],
 )
