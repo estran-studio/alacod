@@ -10,9 +10,10 @@
 //! Choix du point abrité ([`find_shelter`]) : huit points autour de chaque couvert (les quatre côtés
 //! et les quatre coins, à `margin` du bord, ordre fixe) ; retenus s'ils sont à `radius` de l'ennemi, si
 //! le segment depuis la cible traverse ce couvert, si le trajet de l'ennemi n'en traverse pas la boîte
-//! et si le terrain est libre (`walkable`). Le plus proche l'emporte (distance au seizième d'unité près,
-//! car le tireur dérive de quelques bits) ; égalité : plus petit `GgrsNetId` du couvert, puis plus
-//! petit `x`, puis plus petit `y`. Déjà à l'abri d'un couvert : il
+//! et si le terrain est libre (`walkable`). Le plus proche l'emporte ; sont à égalité tous les points à
+//! moins de `DISTANCE_TOLERANCE` (un seizième d'unité : le tireur dérive de quelques bits) de la plus
+//! courte distance, départagés par le plus petit `GgrsNetId` du couvert, puis le plus petit `x`, puis le
+//! plus petit `y` : le résultat ne dépend pas de l'ordre de `covers`. Déjà à l'abri d'un couvert : il
 //! reste où il est.
 
 use bevy_fixed::fixed_math::{Fixed, FixedVec2, FIXED_HALF};
@@ -25,8 +26,8 @@ pub struct CoverBox {
     pub aabb: Aabb,
 }
 
-/// Les distances au tireur se comparent au seizième d'unité (16 bits de partie fractionnaire − 12).
-const DISTANCE_QUANTUM_SHIFT: u32 = 12;
+/// Deux points sont « à égale distance » du tireur à un seizième d'unité près.
+const DISTANCE_TOLERANCE: Fixed = Fixed::from_bits(1 << 12);
 
 /// Directions des huit points autour d'un couvert (ordre fixe : E, NE, N, NO, O, SO, S, SE).
 const RING: [(i32, i32); 8] = [
@@ -93,41 +94,47 @@ pub fn find_shelter(
             cover,
         });
     }
-    let mut best: Option<(i32, usize, Fixed, Fixed)> = None;
-    for cover in covers {
-        let center = FixedVec2::new(
-            (cover.aabb.min.x + cover.aabb.max.x) * FIXED_HALF,
-            (cover.aabb.min.y + cover.aabb.max.y) * FIXED_HALF,
-        );
-        let half_w = (cover.aabb.max.x - cover.aabb.min.x) * FIXED_HALF + margin;
-        let half_h = (cover.aabb.max.y - cover.aabb.min.y) * FIXED_HALF + margin;
-        for (sx, sy) in RING {
-            let point = FixedVec2::new(
-                center.x + half_w * Fixed::from_num(sx),
-                center.y + half_h * Fixed::from_num(sy),
+    // Deux passes, indépendantes de l'ordre de `covers` : la plus courte distance valide, puis, parmi
+    // les points à moins de `DISTANCE_TOLERANCE` de celle-ci, la plus petite clé (`GgrsNetId`, `x`, `y`).
+    let each_candidate = |visit: &mut dyn FnMut(Fixed, usize, FixedVec2)| {
+        for cover in covers {
+            let center = FixedVec2::new(
+                (cover.aabb.min.x + cover.aabb.max.x) * FIXED_HALF,
+                (cover.aabb.min.y + cover.aabb.max.y) * FIXED_HALF,
             );
-            let distance = position.distance(&point);
-            if distance > radius
-                || !segment_touches_box(target, point, &cover.aabb)
-                || segment_touches_box(position, point, &cover.aabb)
-                || !walkable(position, point)
-            {
-                continue;
+            let half_w = (cover.aabb.max.x - cover.aabb.min.x) * FIXED_HALF + margin;
+            let half_h = (cover.aabb.max.y - cover.aabb.min.y) * FIXED_HALF + margin;
+            for (sx, sy) in RING {
+                let point = FixedVec2::new(
+                    center.x + half_w * Fixed::from_num(sx),
+                    center.y + half_h * Fixed::from_num(sy),
+                );
+                let distance = position.distance(&point);
+                if distance <= radius
+                    && segment_touches_box(target, point, &cover.aabb)
+                    && !segment_touches_box(position, point, &cover.aabb)
+                    && walkable(position, point)
+                {
+                    visit(distance, cover.net_id, point);
+                }
             }
-            // Distances comparées au seizième d'unité (deux couverts symétriques à une dérive de
-            // quelques bits près du tireur restent à égalité : le `GgrsNetId` tranche).
-            let key = (
-                distance.to_bits() >> DISTANCE_QUANTUM_SHIFT,
-                cover.net_id,
-                point.x,
-                point.y,
-            );
+        }
+    };
+    let mut nearest: Option<Fixed> = None;
+    each_candidate(&mut |distance, _, _| {
+        nearest = Some(nearest.map_or(distance, |current| current.min(distance)));
+    });
+    let nearest = nearest?;
+    let mut best: Option<(usize, Fixed, Fixed)> = None;
+    each_candidate(&mut |distance, cover, point| {
+        if distance <= nearest + DISTANCE_TOLERANCE {
+            let key = (cover, point.x, point.y);
             if best.is_none_or(|current| key < current) {
                 best = Some(key);
             }
         }
-    }
-    best.map(|(_, cover, x, y)| Shelter {
+    });
+    best.map(|(cover, x, y)| Shelter {
         point: FixedVec2::new(x, y),
         cover,
     })
