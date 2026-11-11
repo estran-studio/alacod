@@ -39,6 +39,21 @@ pub enum PathStatus {
     Blocked,
 }
 
+/// Compteur de glissement après une frame : un retour au point de départ (`homing`) ne le fait jamais
+/// monter (le glissement y est voulu, l'évasion par le champ de flux y est coupée) ; sinon il monte à
+/// chaque glissement et retombe à zéro quand les deux axes avancent.
+fn slide_frames_after(current: u8, homing: bool, is_wall_sliding: bool, moved_both: bool) -> u8 {
+    if homing {
+        0
+    } else if is_wall_sliding {
+        current.saturating_add(1)
+    } else if moved_both {
+        0
+    } else {
+        current
+    }
+}
+
 /// Tracks consecutive frames of wall-sliding for stuck recovery
 #[derive(Component, Clone, Debug, Hash, Default, Serialize, Deserialize)]
 pub struct WallSlideTracker {
@@ -714,6 +729,12 @@ pub fn move_enemies(
             .flatten();
         // Retour au point de départ : un mur n'est pas contourné par le champ de flux (vers le joueur).
         let homing = extra.as_ref().is_some_and(|extra| extra.homing);
+        // Suivi de X-6b (P3) : pendant un retour (ou une garde) le compteur de glissement ne court pas ;
+        // sinon il monte (jusqu'à 255) et le premier glissement hors retour (début d'une charge) lance
+        // l'évasion par le champ de flux dès la première frame.
+        if homing && wall_slide_tracker.consecutive_slide_frames != 0 {
+            wall_slide_tracker.consecutive_slide_frames = 0;
+        }
         let mut desired_move_velocity_v2 = match &motion {
             Some(motion) => motion.direction * movement_speed.saturating_mul(motion.speed_mult),
             None => base_velocity_v2 * speed_factor_fixed,
@@ -825,14 +846,12 @@ pub fn move_enemies(
                     && delta_y.abs() > fixed_math::FIXED_ZERO;
                 let is_wall_sliding = was_trying_diagonal && (moved_x != moved_y);
 
-                if is_wall_sliding {
-                    wall_slide_tracker.consecutive_slide_frames = wall_slide_tracker
-                        .consecutive_slide_frames
-                        .saturating_add(1);
-                } else if moved_x && moved_y {
-                    // Successfully moved in both axes - reset tracker
-                    wall_slide_tracker.consecutive_slide_frames = 0;
-                }
+                wall_slide_tracker.consecutive_slide_frames = slide_frames_after(
+                    wall_slide_tracker.consecutive_slide_frames,
+                    homing,
+                    is_wall_sliding,
+                    moved_x && moved_y,
+                );
 
                 // If wall-sliding too long, trigger escape logic
                 const MAX_SLIDE_FRAMES: u8 = 10; // ~170ms at 60fps
@@ -1072,6 +1091,25 @@ fn recovery_point(
 mod recovery_tests {
     use super::super::navigation::GridPos;
     use super::*;
+
+    /// Suivi de X-6b : pendant un retour le compteur reste à zéro (avant : il montait à 255 et le
+    /// premier glissement d'une charge lançait l'évasion dès la première frame).
+    #[test]
+    fn slide_counter_does_not_run_while_homing() {
+        let mut frames = 0u8;
+        for _ in 0..40 {
+            frames = slide_frames_after(frames, true, true, false);
+        }
+        assert_eq!(frames, 0);
+        // Hors retour : le premier glissement repart de zéro, l'évasion attend ses 10 frames.
+        frames = slide_frames_after(frames, false, true, false);
+        assert_eq!(frames, 1);
+        // Deux axes libres : retombe ; un glissement seul monte ; un blocage total ne change rien.
+        assert_eq!(slide_frames_after(7, false, false, true), 0);
+        assert_eq!(slide_frames_after(7, false, true, false), 8);
+        assert_eq!(slide_frames_after(7, false, false, false), 7);
+        assert_eq!(slide_frames_after(255, false, true, false), 255);
+    }
 
     #[test]
     fn recovery_deadline_uses_the_latest_progress_and_only_active_waves() {

@@ -3791,6 +3791,77 @@ fn lint_rules(
                     }
                 }
             }
+            // X-6c (§120) : le repli se déclenche au rechargement d'un `Shoot` ; il doit précéder toute règle
+            // qui s'applique déjà quand il doit prendre la main (seul `Flee` peut le précéder).
+            BehaviorEntry::TakeCover {
+                radius,
+                hold,
+                reload,
+                speed,
+                max_frames,
+            } => {
+                if radius.get() <= Fixed::ZERO || radius.get() > Fixed::from_num(1000) {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!(
+                            "behaviors : TakeCover : radius = {} : doit être dans ]0, 1000]",
+                            radius.get()
+                        ),
+                    );
+                }
+                if *hold == 0 && !*reload {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : TakeCover : hold = 0 sans reload : il repartirait dès l'arrivée"
+                            .to_string(),
+                    );
+                }
+                if speed.is_some_and(|speed| speed.get() <= Fixed::ZERO) {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : TakeCover : speed doit être > 0 (ou absent)".to_string(),
+                    );
+                }
+                if *max_frames == Some(0) {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : TakeCover : max_frames = 0 : doit être > 0 (ou absent)"
+                            .to_string(),
+                    );
+                }
+                if !rules
+                    .iter()
+                    .any(|rule| matches!(rule, BehaviorEntry::Shoot { .. }))
+                {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : TakeCover sans Shoot dans la même liste : rien ne le déclenche"
+                            .to_string(),
+                    );
+                }
+                if let Some(first) = rules
+                    .iter()
+                    .position(|rule| matches!(rule, BehaviorEntry::TakeCover { .. }))
+                {
+                    let before: Vec<String> = rules[..first]
+                        .iter()
+                        .filter(|rule| !matches!(rule, BehaviorEntry::Flee))
+                        .map(|rule| {
+                            let text = format!("{rule:?}");
+                            text.split(['(', ' ', '{']).next().unwrap_or("").to_string()
+                        })
+                        .collect();
+                    if !before.is_empty() {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "behaviors : TakeCover après {} : une règle qui le précède et s'applique le prive du repli ; le placer en tête de liste (seul Flee peut le précéder)",
+                                before.join(", ")
+                            ),
+                        );
+                    }
+                }
+            }
             BehaviorEntry::Strafe | BehaviorEntry::Flee | BehaviorEntry::Wander => {}
             // Rayon, ouverture, période : voir `lint_formation` (qui voit aussi le reste de la
             // liste et l'escouade).

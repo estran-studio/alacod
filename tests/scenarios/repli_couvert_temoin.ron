@@ -1,0 +1,28 @@
+// X-6c (testbed, conventions §120) : témoin de `repli_couvert_apres_tir`. Même carte, mêmes positions, mais `tireur_sans_repli` (mêmes règles sans `TakeCover`) :
+// après sa volée il ne se met pas à l'abri, il marche vers le joueur (`Chase`) ; la ligne de vue reste dégagée à f80 et f120, là où le tireur à couvert est
+// caché. Prouve que le repli vient bien du behavior et non de la carte ou du tir.
+//
+// À regarder : le tireur tire puis marche droit vers le joueur, sans toucher à la caisse.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [
+        (character: "couvert", x: "580.0", y: "662.0", at_frame: 1),
+        (character: "tireur_sans_repli", x: "600.0", y: "696.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(1), behavior: "Shoot", at_frame: 20),
+        CoverSight(entity: Placed(1), handle: 0, blocked: false, at_frame: 20),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 60),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 80),
+        CoverSight(entity: Placed(1), handle: 0, blocked: false, at_frame: 80),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 120),
+        CoverSight(entity: Placed(1), handle: 0, blocked: false, at_frame: 120),
+        // Positions de référence du tireur sans repli (reprises par les deux scénarios « sans repli possible »).
+        EnemyPosition(entity: Placed(1), x_min: Some(560.5), x_max: Some(561.5), y_min: Some(695.5), y_max: Some(696.5), at_frame: 90),
+        EnemyPosition(entity: Placed(1), x_min: Some(530.5), x_max: Some(531.5), y_min: Some(695.5), y_max: Some(696.5), at_frame: 120),
+    ],
+)

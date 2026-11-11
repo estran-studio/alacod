@@ -107,6 +107,29 @@ pub enum Behavior {
         #[serde(default)]
         guard: bool,
     },
+    /// X-6c (§120) : **se replier derrière un couvert**. Après un tir (dès que l'ennemi entre dans le
+    /// rechargement de son `Shoot`), il choisit le point abrité le plus proche (à moins de `radius`
+    /// unités de lui) derrière un couvert (`sim_core::cover::Cover`) par rapport à sa cible, c'est-à-dire
+    /// un point d'où le segment vers la cible traverse le collider du couvert ; il s'y rend en ligne
+    /// droite à `speed` × sa vitesse, y reste `hold` frames (au moins jusqu'à la fin du rechargement si
+    /// `reload`), puis reprend ses autres règles. Sans couvert à portée, la règle n'est jamais retenue :
+    /// comportement d'avant. Variante en fin d'enum.
+    TakeCover {
+        /// Rayon de recherche autour de l'ennemi (unités).
+        radius: Fixed,
+        /// Frames passées à l'abri une fois arrivé.
+        hold: u32,
+        /// `true` : il reste à l'abri au moins jusqu'à la fin du rechargement du `Shoot`.
+        #[serde(default)]
+        reload: bool,
+        /// Multiplicateur de la vitesse du repli (absent : 1).
+        #[serde(default)]
+        speed: Option<Fixed>,
+        /// Durée maximale du trajet en frames (absent : [`RETURN_MAX_FRAMES`]) : au-delà il tient
+        /// où il est.
+        #[serde(default)]
+        max_frames: Option<u32>,
+    },
 }
 
 /// Option de zigzag de `Charge` (X-6b, §119) : pendant la ruée, déviation latérale autour de
@@ -170,6 +193,7 @@ impl Behavior {
             Behavior::MirrorShot { .. } => "MirrorShot",
             Behavior::BlockBullets => "BlockBullets",
             Behavior::ReturnHome { .. } => "ReturnHome",
+            Behavior::TakeCover { .. } => "TakeCover",
         }
     }
 }
@@ -199,6 +223,9 @@ pub struct SelectionContext {
     pub charge_ready: bool,
     /// Un recul ou une attente de `ReturnHome` est en cours (X-6b, §119) : la règle reste retenue.
     pub returning: bool,
+    /// Un repli derrière un couvert est en cours (trajet ou attente à l'abri, X-6c, §120) : la règle
+    /// `TakeCover` reste retenue.
+    pub sheltering: bool,
     /// Règle retenue à la frame précédente (hystérésis de `KeepDistance`).
     pub previous: Option<usize>,
 }
@@ -236,6 +263,7 @@ pub fn applicable(index: usize, behavior: &Behavior, ctx: &SelectionContext) -> 
         Behavior::Formation { .. } => distance.is_some_and(|d| d < ctx.sight),
         Behavior::Wander => true,
         Behavior::ReturnHome { .. } => ctx.returning,
+        Behavior::TakeCover { .. } => ctx.sheltering,
         // M3-T0d : comportements de familier, exécutés par M3-T6 ; jamais retenus par la sélection
         // des ennemis (un familier n'a pas d'IA de poursuite).
         Behavior::Follow { .. }
@@ -305,6 +333,7 @@ impl Plugin for BehaviorsPlugin {
                     "MirrorShot",
                     "BlockBullets",
                     "ReturnHome",
+                    "TakeCover",
                 ][..],
             ),
             ("perception", &["Sight", "Hearing"][..]),
@@ -389,6 +418,7 @@ mod tests {
             charging: false,
             charge_ready: true,
             returning: false,
+            sheltering: false,
             previous: None,
         }
     }
@@ -637,6 +667,35 @@ mod tests {
         assert_eq!(select(&rules, &returning), Some(0));
     }
 
+    /// X-6c (§120) : `TakeCover` se lit sans option, n'est retenu que pendant un repli et passe avant
+    /// `Shoot` et `Chase` quand il est en tête.
+    #[test]
+    fn replie_derriere_un_couvert() {
+        let cover: Behavior = ron::from_str("TakeCover(radius: \"120.0\", hold: 30)").unwrap();
+        assert!(matches!(
+            cover,
+            Behavior::TakeCover {
+                reload: false,
+                speed: None,
+                max_frames: None,
+                ..
+            }
+        ));
+        assert_eq!(cover.name(), "TakeCover");
+        let rules = vec![cover, shoot(), chase()];
+        let ready = SelectionContext {
+            shoot_ready: true,
+            ..ctx()
+        };
+        assert_eq!(select(&rules, &ready), Some(1));
+        assert_eq!(select(&rules, &ctx()), Some(2));
+        let sheltering = SelectionContext {
+            sheltering: true,
+            ..ready
+        };
+        assert_eq!(select(&rules, &sheltering), Some(0));
+    }
+
     #[test]
     fn noms_de_variantes() {
         assert_eq!(shoot().name(), "Shoot");
@@ -683,6 +742,7 @@ mod tests {
             "MirrorShot",
             "BlockBullets",
             "ReturnHome",
+            "TakeCover",
         ] {
             assert!(kinds.has("behavior", name));
         }
@@ -690,7 +750,7 @@ mod tests {
             assert!(kinds.has("perception", name));
         }
         assert!(kinds.has("targeting", "Nearest"));
-        assert_eq!(kinds.names("behavior").count(), 14);
+        assert_eq!(kinds.names("behavior").count(), 15);
         assert_eq!(kinds.names("perception").count(), 2);
         assert_eq!(kinds.names("targeting").count(), 1);
         let name = std::any::type_name::<BehaviorState>();

@@ -1,0 +1,3 @@
+({
+    "zombie_claws": (config: (name: "zombie_claws", damage: "2.5", range: "30.0", cooldown_frames: 30)),
+})

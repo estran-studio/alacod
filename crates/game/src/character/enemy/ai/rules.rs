@@ -15,8 +15,12 @@
 use behaviors::{select, Behavior, BossState, SelectionContext, RETURN_MAX_FRAMES};
 use bevy::prelude::*;
 use bevy_fixed::{fixed_math, rng::RngStreams};
-use combat::{actors::Health, downed::Downed, emitter::Emitter};
+use combat::{
+    actors::Health, collider::Collider, collision_grid::collider_aabb, downed::Downed,
+    emitter::Emitter,
+};
 use sim_core::{
+    cover::Cover,
     damage::{DamageEvent, DamageKind},
     tag::{Tag, Tags},
     team::Team,
@@ -25,9 +29,10 @@ use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use super::{
     navigation::{AgentBody, FlowFieldCache, NavKey},
+    shelter::{find_shelter, CoverBox},
     state::{
-        BehaviorRuntime, ChargePhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget, MonsterState,
-        RangedAttackState, ReturnPhase, TargetType,
+        BehaviorRuntime, ChargePhase, CoverPhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget,
+        MonsterState, RangedAttackState, ReturnPhase, TargetType,
     },
 };
 use crate::{
@@ -159,6 +164,8 @@ pub fn behavior_select_system(
             Option<&BossState>,
             // X-6b : un coup de mêlée récent déclenche le retour (`ReturnHome`).
             &MonsterState,
+            // X-6c : gabarit du corps, pour la marge du point abrité (`TakeCover`).
+            Option<&Collider>,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -176,8 +183,13 @@ pub fn behavior_select_system(
     bullet_query: Query<(&GgrsNetId, &Bullet, &fixed_math::FixedTransform3D)>,
     // M2-T8 : tour de tir d'un membre d'escouade (dérivé, voir `squad`).
     squad_slots: Res<super::squad::SquadSlots>,
+    // X-6c : couverts (`TakeCover`) et terrain (murs) pour le trajet vers le point abrité.
+    cover_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<Cover>>,
+    flow_field_cache: Res<FlowFieldCache>,
 ) {
     let now = frame.frame;
+    // Boîtes des couverts, rassemblées au premier besoin (aucun coût sans `TakeCover`).
+    let mut cover_boxes: Option<Vec<CoverBox>> = None;
     for (
         net_id,
         transform,
@@ -191,6 +203,7 @@ pub fn behavior_select_system(
         statuses,
         boss,
         monster_state,
+        body,
     ) in order_mut_iter!(enemy_query)
     {
         let phase_rules = rules.active(boss.map_or(0, |b| b.phase));
@@ -247,6 +260,105 @@ pub fn behavior_select_system(
             fixed_math::FIXED_ONE
         };
         let shooting = has_emitter || ranged_state.is_some_and(|ranged| ranged.target.is_some());
+        // X-6c : repli derrière un couvert (`TakeCover`).
+        let incapacitated = combat::status::incapacitated(statuses) || charmed;
+        let previous_rule = runtime
+            .selected
+            .and_then(|index| phase_rules.get(index as usize));
+        // Une règle plus prioritaire (ou l'incapacité) a pris la main : le repli est abandonné.
+        if runtime.cover != CoverPhase::Idle
+            && !matches!(previous_rule, Some(Behavior::TakeCover { .. }))
+        {
+            runtime.cover = CoverPhase::Idle;
+        }
+        let take_cover = phase_rules.iter().find_map(|rule| match rule {
+            Behavior::TakeCover {
+                radius,
+                hold,
+                reload,
+                max_frames,
+                ..
+            } => Some((
+                *radius,
+                *hold,
+                *reload,
+                max_frames.unwrap_or(RETURN_MAX_FRAMES),
+            )),
+            _ => None,
+        });
+        if let (Some((radius, hold, reload, max_frames)), Some(ranged)) = (take_cover, ranged_state)
+        {
+            match runtime.cover.clone() {
+                CoverPhase::Moving { until, point } => {
+                    let arrived = position.distance(&fixed_math::FixedVec2::new(point.0, point.1))
+                        < fixed_math::Fixed::from_num(RETURN_ARRIVE);
+                    if arrived || now >= until {
+                        let end = now.saturating_add(hold);
+                        runtime.cover = CoverPhase::Hold {
+                            until: if reload {
+                                end.max(ranged.ready_at)
+                            } else {
+                                end
+                            },
+                        };
+                        info!(
+                            "ggrs{{f={} cover net_id={} phase=hold arrived={}}}",
+                            now, net_id, arrived
+                        );
+                    }
+                }
+                CoverPhase::Hold { until } => {
+                    if now >= until {
+                        runtime.cover = CoverPhase::Idle;
+                        info!("ggrs{{f={} cover net_id={} phase=done}}", now, net_id);
+                    }
+                }
+                CoverPhase::Idle => {}
+            }
+            // Déclenchement : le rechargement d'un tir vient de commencer (une seule fois par tir).
+            if let (CoverPhase::Idle, Some((_, target_pos)), false) =
+                (&runtime.cover, &player_target, shooting || incapacitated)
+            {
+                if now < ranged.ready_at && runtime.cover_done != ranged.ready_at {
+                    let boxes = cover_boxes.get_or_insert_with(|| {
+                        order_iter!(cover_query)
+                            .into_iter()
+                            .map(|(cover_id, cover_transform, cover_collider)| CoverBox {
+                                net_id: cover_id.0,
+                                aabb: collider_aabb(&cover_transform.translation, cover_collider),
+                            })
+                            .collect()
+                    });
+                    let margin = body.map_or(fixed_math::new(10.0), |collider| {
+                        let aabb = collider_aabb(&transform.translation, collider);
+                        (aabb.max.x - aabb.min.x).max(aabb.max.y - aabb.min.y)
+                            * fixed_math::FIXED_HALF
+                    }) + fixed_math::FIXED_ONE;
+                    let shelter =
+                        find_shelter(position, *target_pos, radius, margin, boxes, |from, to| {
+                            flow_field_cache.line_of_sight(from, to)
+                                && !flow_field_cache
+                                    .wall_cells
+                                    .contains(&super::navigation::GridPos::from_fixed(to))
+                        });
+                    if let Some(shelter) = shelter {
+                        runtime.cover = CoverPhase::Moving {
+                            until: now.saturating_add(max_frames),
+                            point: (shelter.point.x, shelter.point.y),
+                        };
+                        runtime.cover_done = ranged.ready_at;
+                        info!(
+                            "ggrs{{f={} cover net_id={} phase=move cover={} point=({},{})}}",
+                            now,
+                            net_id,
+                            shelter.cover,
+                            shelter.point.x.to_num::<i32>(),
+                            shelter.point.y.to_num::<i32>()
+                        );
+                    }
+                }
+            }
+        }
         let ctx = SelectionContext {
             target_distance,
             sight: ai_config.aggro_range,
@@ -264,9 +376,10 @@ pub fn behavior_select_system(
             charging: runtime.charge != ChargePhase::Idle,
             charge_ready: now >= runtime.charge_ready_at,
             returning: runtime.returning != ReturnPhase::Idle,
+            sheltering: runtime.cover != CoverPhase::Idle,
             previous: runtime.selected.map(|index| index as usize),
         };
-        let selected = if combat::status::incapacitated(statuses) || charmed {
+        let selected = if incapacitated {
             None
         } else {
             select(phase_rules, &ctx).map(|index| index as u32)
@@ -389,6 +502,18 @@ pub fn behavior_select_system(
             }
         }
 
+        // Garde (suivi de X-6b) : sans règle retenue, une garde écartée de son point d'apparition tente d'y
+        // revenir au plus `max_frames` frames (un mur sur le trajet ne la fige pas pour toujours : elle
+        // attend où elle est) ; le délai repart dès qu'une règle est retenue ou qu'elle est arrivée.
+        runtime.guard_until = next_guard_until(
+            guard_max_frames(phase_rules),
+            rule.is_some(),
+            runtime.home,
+            position,
+            now,
+            runtime.guard_until,
+        );
+
         // Errance : nouvelle direction toutes les `WANDER_PERIOD` frames (flux `behaviors`).
         if matches!(rule, Some(Behavior::Wander)) && now >= runtime.wander_next {
             let turn = rng_streams.get_mut(BEHAVIORS_RNG_STREAM).next_fixed();
@@ -460,7 +585,7 @@ pub fn behavior_motion(
     slot: Option<&super::squad::SquadSlot>,
 ) -> Option<BehaviorMotion> {
     let Some(rule) = runtime.selected.and_then(|index| rules.get(index as usize)) else {
-        return guard_motion(rules, runtime, position);
+        return guard_motion(rules, runtime, now, position);
     };
     let still = || BehaviorMotion {
         direction: fixed_math::FixedVec2::ZERO,
@@ -540,6 +665,20 @@ pub fn behavior_motion(
             }
             _ => still(),
         }),
+        // X-6c : trajet droit vers le point abrité choisi au déclenchement, puis immobile à l'abri.
+        Behavior::TakeCover { speed, .. } => Some(match &runtime.cover {
+            CoverPhase::Moving { point, .. }
+                if position.distance(&fixed_math::FixedVec2::new(point.0, point.1))
+                    >= fixed_math::Fixed::from_num(RETURN_ARRIVE) =>
+            {
+                BehaviorMotion {
+                    direction: (fixed_math::FixedVec2::new(point.0, point.1) - position)
+                        .normalize_or_zero(),
+                    speed_mult: speed.unwrap_or(fixed_math::FIXED_ONE),
+                }
+            }
+            _ => still(),
+        }),
         _ => None,
     }
 }
@@ -555,19 +694,55 @@ fn guard_speed(rules: &[Behavior]) -> Option<Option<fixed_math::Fixed>> {
     })
 }
 
+/// Durée maximale du retour de la garde d'un `ReturnHome { guard: true }` listé (`max_frames`, repli
+/// [`RETURN_MAX_FRAMES`]), `None` sans garde.
+fn guard_max_frames(rules: &[Behavior]) -> Option<u32> {
+    rules.iter().find_map(|rule| match rule {
+        Behavior::ReturnHome {
+            guard: true,
+            max_frames,
+            ..
+        } => Some(max_frames.unwrap_or(RETURN_MAX_FRAMES)),
+        _ => None,
+    })
+}
+
+/// Frame où la garde renonce à rejoindre son point d'apparition : posée quand, sans règle retenue,
+/// elle est écartée du point de `RETURN_ARRIVE` ou plus (`now + max_frames`), conservée tant que cela
+/// dure, `None` sinon (règle retenue, arrivée, pas de garde ou de point).
+fn next_guard_until(
+    max_frames: Option<u32>,
+    has_rule: bool,
+    home: Option<(fixed_math::Fixed, fixed_math::Fixed)>,
+    position: fixed_math::FixedVec2,
+    now: u32,
+    current: Option<u32>,
+) -> Option<u32> {
+    let max_frames = max_frames.filter(|_| !has_rule)?;
+    let (x, y) = home?;
+    (position.distance(&fixed_math::FixedVec2::new(x, y))
+        >= fixed_math::Fixed::from_num(RETURN_ARRIVE))
+    .then(|| current.unwrap_or(now.saturating_add(max_frames)))
+}
+
 /// Garde (suivi de X-6b) : aucune règle retenue et un `ReturnHome { guard: true }` listé : l'ennemi
 /// retourne à son point d'apparition s'il en est écarté, sinon reste immobile ; jamais le champ de
-/// flux d'origine. `None` sans garde (comportement d'avant, au bit près).
+/// flux d'origine. Le retour dure au plus `max_frames` (`guard_until`, posé par
+/// `behavior_select_system`) : passé ce délai elle reste où elle est. `None` sans garde
+/// (comportement d'avant, au bit près).
 fn guard_motion(
     rules: &[Behavior],
     runtime: &BehaviorRuntime,
+    now: u32,
     position: fixed_math::FixedVec2,
 ) -> Option<BehaviorMotion> {
     let speed = guard_speed(rules)?;
     let (x, y) = runtime.home?;
     let home = fixed_math::FixedVec2::new(x, y);
     Some(
-        if position.distance(&home) >= fixed_math::Fixed::from_num(RETURN_ARRIVE) {
+        if position.distance(&home) >= fixed_math::Fixed::from_num(RETURN_ARRIVE)
+            && runtime.guard_until.is_none_or(|until| now < until)
+        {
             BehaviorMotion {
                 direction: (home - position).normalize_or_zero(),
                 speed_mult: speed.unwrap_or(fixed_math::FIXED_ONE),
@@ -647,7 +822,9 @@ pub fn behavior_extra(
                 homing: false,
             })
         }
-        Behavior::ReturnHome { .. } => Some(MotionExtra {
+        // `TakeCover` : il garde la cible en face pendant le trajet et à l'abri ; pas d'évasion par le
+        // champ de flux (qui le ramènerait vers le joueur).
+        Behavior::ReturnHome { .. } | Behavior::TakeCover { .. } => Some(MotionExtra {
             drift: fixed_math::FixedVec2::ZERO,
             face: target.map(|target| target - position),
             homing: true,
@@ -983,6 +1160,47 @@ mod tests {
             guard: false,
         }];
         assert!(motion(no_guard, fixed_math::FixedVec2::ZERO).is_none());
+    }
+
+    /// Suivi de X-6b : une garde que le recul ne peut pas finir (mur sur le trajet) renonce après
+    /// `max_frames` et reste où elle est ; le délai repart quand une règle est retenue ou à l'arrivée.
+    #[test]
+    fn a_blocked_guard_gives_up_after_max_frames() {
+        let home = Some((fixed_math::new(100.0), fixed_math::FIXED_ZERO));
+        let stuck = fixed_math::FixedVec2::ZERO;
+        let list = vec![Behavior::ReturnHome {
+            wait: 10,
+            speed: None,
+            max_frames: Some(50),
+            guard: true,
+        }];
+        let max = guard_max_frames(&list);
+        assert_eq!(max, Some(50));
+        // Première frame écartée, sans règle : le délai est posé, puis conservé.
+        let until = next_guard_until(max, false, home, stuck, 200, None);
+        assert_eq!(until, Some(250));
+        assert_eq!(next_guard_until(max, false, home, stuck, 230, until), until);
+        let motion = |now: u32| {
+            let runtime = BehaviorRuntime {
+                home,
+                guard_until: until,
+                ..Default::default()
+            };
+            guard_motion(&list, &runtime, now, stuck)
+                .unwrap()
+                .speed_mult
+        };
+        assert_ne!(motion(249), fixed_math::FIXED_ZERO);
+        assert_eq!(motion(250), fixed_math::FIXED_ZERO);
+        // Une règle retenue, ou l'arrivée, remet le délai à zéro (`None`).
+        assert_eq!(next_guard_until(max, true, home, stuck, 300, until), None);
+        let arrived = fixed_math::FixedVec2::new(fixed_math::new(99.0), fixed_math::FIXED_ZERO);
+        assert_eq!(
+            next_guard_until(max, false, home, arrived, 300, until),
+            None
+        );
+        // Sans garde, rien ne change.
+        assert_eq!(next_guard_until(None, false, home, stuck, 300, None), None);
     }
 
     #[test]

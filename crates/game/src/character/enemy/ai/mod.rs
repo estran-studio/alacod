@@ -10,6 +10,7 @@ pub mod navigation;
 pub mod obstacle;
 mod retreat;
 pub mod rules;
+pub mod shelter;
 pub mod squad;
 pub mod state;
 

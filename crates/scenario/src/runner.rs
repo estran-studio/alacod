@@ -1743,6 +1743,44 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
             }
             Ok(())
         }
+        Expectation::CoverSight {
+            entity,
+            handle,
+            blocked,
+            ..
+        } => {
+            use game::character::enemy::ai::shelter::{cutting_cover, CoverBox};
+            let enemy = resolve_entity(world, entity).ok_or("entité absente")?;
+            let enemy_pos = entity_position(world, enemy).ok_or("entité sans position")?;
+            let player_pos = world
+                .query::<(&Player, &fixed_math::FixedTransform3D)>()
+                .iter(world)
+                .find(|(player, _)| player.handle == *handle)
+                .map(|(_, transform)| transform.translation.truncate())
+                .ok_or_else(|| format!("joueur {handle} absent"))?;
+            let covers: Vec<CoverBox> = world
+                .query_filtered::<(
+                    &utils::net_id::GgrsNetId,
+                    &fixed_math::FixedTransform3D,
+                    &combat::collider::Collider,
+                ), With<sim_core::cover::Cover>>()
+                .iter(world)
+                .map(|(net_id, transform, collider)| CoverBox {
+                    net_id: net_id.0,
+                    aabb: combat::collision_grid::collider_aabb(&transform.translation, collider),
+                })
+                .collect();
+            let cut = cutting_cover(player_pos, enemy_pos, &covers);
+            match (cut, *blocked) {
+                (Some(_), true) | (None, false) => Ok(()),
+                (Some(cover), false) => Err(format!(
+                    "ligne de vue coupée par le couvert {cover} (joueur {player_pos:?}, ennemi {enemy_pos:?}), dégagée attendue"
+                )),
+                (None, true) => Err(format!(
+                    "ligne de vue dégagée (joueur {player_pos:?}, ennemi {enemy_pos:?}), coupée attendue"
+                )),
+            }
+        }
         Expectation::EnemyDistance {
             entity,
             target,

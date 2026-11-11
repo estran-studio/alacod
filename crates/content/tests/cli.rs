@@ -367,6 +367,19 @@ fn describe_lists_zigzag_and_return_home() {
     }
 }
 
+/// X-6c (§120) : `describe Character` liste le behavior `TakeCover` et ses options.
+#[test]
+fn describe_lists_take_cover() {
+    let tmp = Tmp::new("describe-take-cover");
+    let game = game_with_content(&tmp);
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["describe", "Character"]);
+    let schema = text(&run(cmd).stdout);
+    for word in ["TakeCover", "hold", "reload", "radius"] {
+        assert!(schema.contains(word), "{word} absent : {schema}");
+    }
+}
+
 /// M-1b (§112) : `describe Character` liste `prop` (avec son défaut) et `new-content --from` accepte un prop comme modèle
 /// (le champ est copié, le lint reste vert).
 #[test]

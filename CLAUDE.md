@@ -513,6 +513,8 @@ ou d'un crate à l'autre, avec les traces de scénario.
     - X-6b charge en zigzag et retour au point de départ (§119) : `EnemyPosition(entity, x_min, x_max, y_min, y_max, at_frame)` (position de l'ennemi, bornes
       inclusives par axe : écart latéral d'un zigzag, retour au point d'apparition) ; `EnemyState` (règle `ReturnHome`), `Health` couvrent les quatre scénarios
       `zigzag_charge_retour`, `zigzag_temoin_droit`, `zigzag_deux_joueurs`, `retour_apres_morsure`.
+    - X-6c repli derrière un couvert (§120) : `CoverSight(entity, handle, blocked, at_frame)` (ligne de vue joueur → ennemi coupée par un `Cover`, `blocked: true`, ou dégagée ;
+      même test de segment que le behavior `TakeCover`) ; `EnemyState` (règle `TakeCover`), `EnemyPosition` couvrent les six scénarios `repli_couvert_*` (témoin `repli_couvert_temoin`).
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
       clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :

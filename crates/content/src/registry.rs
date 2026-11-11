@@ -524,6 +524,26 @@ pub enum BehaviorEntry {
         #[serde(default)]
         guard: bool,
     },
+    /// X-6c (§120) : mirroir de `behaviors::Behavior::TakeCover` (se replie derrière un couvert après
+    /// un tir, y reste `hold` frames, puis reprend).
+    TakeCover {
+        /// Rayon de recherche du point abrité (unités).
+        #[schemars(extend("x-lint" = "> 0"))]
+        radius: FixedField,
+        /// Frames à l'abri une fois arrivé.
+        hold: u32,
+        /// Reste à l'abri au moins jusqu'à la fin du rechargement (absent : non).
+        #[serde(default)]
+        reload: bool,
+        /// Multiplicateur de la vitesse du repli (absent : 1).
+        #[serde(default)]
+        #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+        speed: Option<FixedField>,
+        /// Durée maximale du trajet en frames (absent : 300).
+        #[serde(default)]
+        #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+        max_frames: Option<u32>,
+    },
 }
 
 /// X-6b : mirroir de `behaviors::Zigzag`.

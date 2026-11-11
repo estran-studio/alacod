@@ -1471,6 +1471,22 @@ fn behavior_return_home_order_fixture_reports_the_rules_that_precede_it() {
     );
 }
 
+/// X-6c (§120) : `TakeCover` sans `Shoot`, derrière `Chase`, rayon, attente, vitesse et durée nuls.
+#[test]
+fn behavior_take_cover_fixture_reports_trigger_order_and_bounds() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_take_cover")).unwrap();
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover sans Shoot");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover après Chase");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover : radius");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover : hold = 0");
+    assert_has_error(&errors, LintErrorKind::OutOfRange, "TakeCover : speed");
+    assert_has_error(
+        &errors,
+        LintErrorKind::OutOfRange,
+        "TakeCover : max_frames = 0",
+    );
+}
+
 #[test]
 fn behavior_unknown_profile_fixture_reports_chase_profile() {
     let (_, _, errors) = load_and_lint(&fixture_dir("behavior_unknown_profile")).unwrap();
