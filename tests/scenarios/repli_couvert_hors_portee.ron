@@ -1,0 +1,25 @@
+// X-6c (testbed, conventions §120) : un couvert hors de portée ne change rien. `tireur_couvert_court` (`TakeCover(radius: 20)`) à 176 unités du joueur 0, la même
+// caisse que dans `repli_couvert_apres_tir` (580, 662) : le point abrité le plus proche est à 40 unités, au-delà du rayon, la règle n'est jamais retenue.
+// Il tire puis marche vers le joueur exactement comme `tireur_sans_repli` (témoin `repli_couvert_temoin`) : mêmes positions aux mêmes frames
+// (f90 : (561,696), f120 : (531,696) à ±0,5 près).
+//
+// À regarder : le tireur tire puis marche droit vers le joueur, à côté de la caisse, sans s'y abriter.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 125,
+    characters: [
+        (character: "couvert", x: "580.0", y: "662.0", at_frame: 1),
+        (character: "tireur_couvert_court", x: "600.0", y: "696.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(1), behavior: "Shoot", at_frame: 20),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 60),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 90),
+        EnemyPosition(entity: Placed(1), x_min: Some(560.5), x_max: Some(561.5), y_min: Some(695.5), y_max: Some(696.5), at_frame: 90),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 120),
+        EnemyPosition(entity: Placed(1), x_min: Some(530.5), x_max: Some(531.5), y_min: Some(695.5), y_max: Some(696.5), at_frame: 120),
+    ],
+)

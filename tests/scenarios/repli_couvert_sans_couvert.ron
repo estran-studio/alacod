@@ -1,0 +1,21 @@
+// X-6c (testbed, conventions §120) : sans aucun couvert, `TakeCover` ne change rien. `tireur_couvert` (`TakeCover(radius: 120)`) à 176 unités du joueur 0, **pas de caisse** :
+// aucun point abrité n'existe, la règle n'est jamais retenue ; il tire puis marche vers le joueur exactement comme `tireur_sans_repli` (témoin `repli_couvert_temoin` :
+// mêmes positions aux mêmes frames, f90 : (561,696), f120 : (531,696) à ±0,5 près).
+//
+// À regarder : le tireur tire puis marche droit vers le joueur.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 125,
+    characters: [(character: "tireur_couvert", x: "600.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(0), behavior: "Shoot", at_frame: 20),
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 60),
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 90),
+        EnemyPosition(entity: Placed(0), x_min: Some(560.5), x_max: Some(561.5), y_min: Some(695.5), y_max: Some(696.5), at_frame: 90),
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 120),
+        EnemyPosition(entity: Placed(0), x_min: Some(530.5), x_max: Some(531.5), y_min: Some(695.5), y_max: Some(696.5), at_frame: 120),
+    ],
+)

@@ -737,6 +737,16 @@ pub enum Expectation {
         y_max: Option<f32>,
         at_frame: u32,
     },
+    /// X-6c (§120) : la ligne de vue entre le joueur `handle` et l'ennemi `entity` est **coupée** par un
+    /// couvert (`sim_core::cover::Cover`, boîte de son collider) si `blocked`, dégagée sinon, à
+    /// `at_frame` : segment position du joueur → position de l'ennemi contre la boîte de chaque couvert
+    /// (le test exact en entiers de `game::character::enemy::ai::shelter`, celui du behavior `TakeCover`).
+    CoverSight {
+        entity: EntityRef,
+        handle: usize,
+        blocked: bool,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -779,6 +789,7 @@ impl Expectation {
             | Self::SquadSize { at_frame, .. }
             | Self::EnemyDistance { at_frame, .. }
             | Self::EnemyPosition { at_frame, .. }
+            | Self::CoverSight { at_frame, .. }
             | Self::EnemyVariant { at_frame, .. }
             | Self::Clock { at_frame, .. }
             | Self::RunState { at_frame, .. }

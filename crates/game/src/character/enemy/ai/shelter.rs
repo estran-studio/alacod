@@ -10,8 +10,9 @@
 //! Choix du point abrité ([`find_shelter`]) : huit points autour de chaque couvert (les quatre côtés
 //! et les quatre coins, à `margin` du bord, ordre fixe) ; retenus s'ils sont à `radius` de l'ennemi, si
 //! le segment depuis la cible traverse ce couvert, si le trajet de l'ennemi n'en traverse pas la boîte
-//! et si le terrain est libre (`walkable`). Le plus proche l'emporte ; égalité : plus petit
-//! `GgrsNetId` du couvert, puis plus petit `x`, puis plus petit `y`. Déjà à l'abri d'un couvert : il
+//! et si le terrain est libre (`walkable`). Le plus proche l'emporte (distance au seizième d'unité près,
+//! car le tireur dérive de quelques bits) ; égalité : plus petit `GgrsNetId` du couvert, puis plus
+//! petit `x`, puis plus petit `y`. Déjà à l'abri d'un couvert : il
 //! reste où il est.
 
 use bevy_fixed::fixed_math::{Fixed, FixedVec2, FIXED_HALF};
@@ -23,6 +24,9 @@ pub struct CoverBox {
     pub net_id: usize,
     pub aabb: Aabb,
 }
+
+/// Les distances au tireur se comparent au seizième d'unité (16 bits de partie fractionnaire − 12).
+const DISTANCE_QUANTUM_SHIFT: u32 = 12;
 
 /// Directions des huit points autour d'un couvert (ordre fixe : E, NE, N, NO, O, SO, S, SE).
 const RING: [(i32, i32); 8] = [
@@ -89,7 +93,7 @@ pub fn find_shelter(
             cover,
         });
     }
-    let mut best: Option<(Fixed, usize, Fixed, Fixed)> = None;
+    let mut best: Option<(i32, usize, Fixed, Fixed)> = None;
     for cover in covers {
         let center = FixedVec2::new(
             (cover.aabb.min.x + cover.aabb.max.x) * FIXED_HALF,
@@ -110,7 +114,14 @@ pub fn find_shelter(
             {
                 continue;
             }
-            let key = (distance, cover.net_id, point.x, point.y);
+            // Distances comparées au seizième d'unité (deux couverts symétriques à une dérive de
+            // quelques bits près du tireur restent à égalité : le `GgrsNetId` tranche).
+            let key = (
+                distance.to_bits() >> DISTANCE_QUANTUM_SHIFT,
+                cover.net_id,
+                point.x,
+                point.y,
+            );
             if best.is_none_or(|current| key < current) {
                 best = Some(key);
             }
@@ -250,5 +261,16 @@ mod tests {
         let b = pick(&[south, north]);
         assert_eq!(a, b);
         assert_eq!(a.cover, 4);
+        // Le tireur dérive de quelques bits (0,0002 unité) : l'égalité tient, le plus petit id l'emporte.
+        let drifted = find_shelter(
+            v(130.0, 0.0002),
+            target,
+            Fixed::from_num(120),
+            Fixed::from_num(11),
+            &[north, south],
+            open,
+        )
+        .unwrap();
+        assert_eq!(drifted.cover, 4);
     }
 }
