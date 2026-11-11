@@ -740,9 +740,13 @@ pub struct BehaviorRuntime {
     pub guard_until: Option<u32>,
     /// X-6c : repli derrière un couvert en cours (`TakeCover`).
     pub cover: CoverPhase,
-    /// X-6c : `RangedAttackState::ready_at` du rechargement pour lequel un repli a déjà été décidé
-    /// (0 : aucun), pour ne le déclencher qu'une fois par tir.
-    pub cover_done: u32,
+    /// X-6c : une salve vient de finir (ou d'être interrompue) et le repli n'a pas encore eu lieu :
+    /// reste levé pendant le rechargement tant qu'aucun point abrité n'est trouvé.
+    pub cover_pending: bool,
+    /// X-6c : une séquence de tir était en cours à la frame précédente (la fin réelle d'une salve se
+    /// lit sur ce front descendant, jamais sur `ready_at` : `first_wait`, recul de coup et attente
+    /// tirée de `ranged_cycle` le repoussent sans qu'aucune salve ne finisse).
+    pub cover_shooting: bool,
 }
 
 impl BehaviorRuntime {
@@ -753,7 +757,7 @@ impl BehaviorRuntime {
 
     /// Champs de X-6c actifs : seuls eux entrent dans `Hash` et `Debug`.
     fn cover_active(&self) -> bool {
-        self.cover != CoverPhase::Idle || self.cover_done != 0
+        self.cover != CoverPhase::Idle || self.cover_pending || self.cover_shooting
     }
 }
 
@@ -778,7 +782,8 @@ impl std::hash::Hash for BehaviorRuntime {
         }
         if self.cover_active() {
             self.cover.hash(state);
-            self.cover_done.hash(state);
+            self.cover_pending.hash(state);
+            self.cover_shooting.hash(state);
         }
     }
 }
@@ -803,7 +808,8 @@ impl std::fmt::Debug for BehaviorRuntime {
         }
         if self.cover_active() {
             dump.field("cover", &self.cover)
-                .field("cover_done", &self.cover_done);
+                .field("cover_pending", &self.cover_pending)
+                .field("cover_shooting", &self.cover_shooting);
         }
         dump.finish()
     }

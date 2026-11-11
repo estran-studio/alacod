@@ -1,0 +1,60 @@
+// X-6c suivi (testbed, conventions §120) : `tireur_couvert` avec le cycle d'un tireur posté (`ranged_cycle`, P-1 § 110) : première salve au plus tôt 100 frames après son
+// apparition (`first_wait`), attente tirée de 10 à 20 frames après chaque salve. Ces attentes repoussent `ready_at` sans qu'aucune salve ne finisse : `TakeCover` ne doit se
+// déclencher qu'à la **fin d'une salve**, jamais sur elles. Scénario `repli_couvert_premiere_salve`.
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "60.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "tireur_couvert_cycle",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "200.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("500.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: None,
+        behaviors: Some([
+            TakeCover(radius: "120.0", hold: 60, speed: Some("2.0")),
+            Shoot(weapon: "fireball_gun", pattern: "volee", range: "240.0", cooldown_frames: 200),
+            Chase(profile: "Ground"),
+        ]),
+        ranged_cycle: Some((
+            first_wait: Some((100, 0)),
+            wait_frames: Some((10, 20)),
+        )),
+    )),
+)

@@ -1,0 +1,20 @@
+// Suivi de revue de X-6c (testbed, conventions §120) : `tireur_couvert_cycle` (`first_wait` 100, attente tirée 10-20) et la caisse (580, 662) à côté de lui. Sa première salve est
+// repoussée à f100 : tant qu'aucune salve n'a fini, `ready_at` est dans le futur mais **rien ne justifie un repli** : il ne s'abrite pas au départ (avant le suivi, `TakeCover` partait
+// dès f1 sur ce `ready_at`). Il tire à f100 (`Shoot`), et c'est la **fin de la salve** (vers f153) qui déclenche le repli.
+//
+// À regarder : le tireur attend en marchant vers le joueur, tire à f100, puis se met à l'abri derrière la caisse.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 260,
+    characters: [
+        (character: "couvert", x: "580.0", y: "662.0", at_frame: 1),
+        (character: "tireur_couvert_cycle", x: "600.0", y: "696.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 20),
+        CoverSight(entity: Placed(1), handle: 0, blocked: false, at_frame: 40),
+    ],
+)

@@ -1,5 +1,5 @@
 // X-6c (testbed, conventions §120) : deux couverts à égale distance, choix déterministe. `tireur_couvert` à (600, 696), le joueur 0 immobile à (424, 696) ; deux caisses
-// symétriques par rapport à l'axe joueur-tireur, l'une au nord (centre y 666, pos 672), l'autre au sud (centre y 726, pos 732) : leurs points abrités les plus
+// à ±30 de l'axe joueur-tireur (positions y 666 et 726, centres de collider décalés de −6), l'une au nord, l'autre au sud : leurs points abrités les plus
 // proches, (601, 666) et (601, 726), sont à la même distance du tireur (30 unités, comparée au seizième d'unité près : le tireur dérive de quelques bits). Le plus petit `GgrsNetId` du couvert l'emporte : ici la caisse posée en premier (nord)
 // est celle de l'abri, la caisse « nord » est posée en premier dans la liste des personnages. Contre-épreuve : l'ordre inverse (`repli_couvert_egalite_inverse`) envoie le tireur de l'autre côté.
 //
@@ -10,8 +10,8 @@ Scenario(
     map: "testbed/arena.ldtk",
     frames: 110,
     characters: [
-        (character: "couvert", x: "580.0", y: "672.0", at_frame: 1),
-        (character: "couvert", x: "580.0", y: "732.0", at_frame: 1),
+        (character: "couvert", x: "580.0", y: "666.0", at_frame: 1),
+        (character: "couvert", x: "580.0", y: "726.0", at_frame: 1),
         (character: "tireur_couvert", x: "600.0", y: "696.0", at_frame: 1),
     ],
     players: [(inputs: [])],

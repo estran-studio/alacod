@@ -739,7 +739,7 @@ pub enum Expectation {
     },
     /// X-6c (§120) : la ligne de vue entre le joueur `handle` et l'ennemi `entity` est **coupée** par un
     /// couvert (`sim_core::cover::Cover`, boîte de son collider) si `blocked`, dégagée sinon, à
-    /// `at_frame` : segment position du joueur → position de l'ennemi contre la boîte de chaque couvert
+    /// `at_frame` : segment position du joueur → centre du collider de l'ennemi (position + décalage) contre la boîte de chaque couvert
     /// (le test exact en entiers de `game::character::enemy::ai::shelter`, celui du behavior `TakeCover`).
     CoverSight {
         entity: EntityRef,

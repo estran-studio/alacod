@@ -1,0 +1,21 @@
+// Suivi de revue de X-6c (testbed, conventions §120) : une caisse (616, 662) contre le mur est de la salle (x ≥ 640). Son seul point abrité, à l'est, a le centre du corps hors du mur
+// mais le corps (20 de large) dedans : inatteignable. Le corps testé contre les cases de mur, le point est écarté, aucun autre abri n'existe : `TakeCover` n'est pas retenu et le
+// tireur reprend `Chase` après sa volée au lieu de rester bloqué contre le mur jusqu'à `max_frames` (300).
+//
+// À regarder : le tireur tire puis marche vers le joueur, sans aller buter contre le mur.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [
+        (character: "couvert", x: "616.0", y: "662.0", at_frame: 1),
+        (character: "tireur_couvert", x: "600.0", y: "696.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(1), behavior: "Shoot", at_frame: 20),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 90),
+        EnemyPosition(entity: Placed(1), x_max: Some(600.0), at_frame: 120),
+    ],
+)

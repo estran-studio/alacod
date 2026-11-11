@@ -1,0 +1,23 @@
+// Suivi de revue de X-6c (testbed, conventions §120) : deux caisses **en rang** (580, 662) et (600, 662), contiguës (boîtes x 570-590 et 590-610). Le point abrité de la caisse de
+// gauche, à l'est, tomberait dans la caisse de droite : le corps du tireur (20 × 20, décalé de −6) y serait coincé, et l'ennemi resterait en `Moving` sans tirer jusqu'à `max_frames`.
+// Les points dont le corps chevauche une autre caisse sont écartés : il se met à l'abri derrière celle de droite (à l'est du rang), y reste 60 frames et reprend (`Chase`).
+//
+// À regarder : le tireur tire, contourne le rang par l'est, s'abrite contre la caisse de droite, puis repart.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    characters: [
+        (character: "couvert", x: "580.0", y: "662.0", at_frame: 1),
+        (character: "couvert", x: "600.0", y: "662.0", at_frame: 1),
+        (character: "tireur_couvert", x: "600.0", y: "696.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(2), behavior: "Shoot", at_frame: 20),
+        EnemyState(entity: Placed(2), behavior: "TakeCover", at_frame: 90),
+        CoverSight(entity: Placed(2), handle: 0, blocked: true, at_frame: 90),
+        EnemyState(entity: Placed(2), behavior: "Chase", at_frame: 170),
+    ],
+)

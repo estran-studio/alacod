@@ -8,9 +8,10 @@
 //! ici le segment cible → point qui traverse la boîte du collider ([`segment_touches_box`]).
 //!
 //! Choix du point abrité ([`find_shelter`]) : huit points autour de chaque couvert (les quatre côtés
-//! et les quatre coins, à `margin` du bord, ordre fixe) ; retenus s'ils sont à `radius` de l'ennemi, si
-//! le segment depuis la cible traverse ce couvert, si le trajet de l'ennemi n'en traverse pas la boîte
-//! et si le terrain est libre (`walkable`). Le plus proche l'emporte ; sont à égalité tous les points à
+//! et les quatre coins, où le corps du tireur est à `BODY_GAP` du bord, ordre fixe) ; retenus s'ils sont à `radius` de l'ennemi, si
+//! le segment depuis la cible traverse ce couvert, si ni le trajet de l'ennemi ni son **corps** à
+//! l'arrivée (demi-étendues et décalage de son collider, [`Body`]) ne chevauchent un couvert, et si le
+//! terrain est libre (`free` : murs sous le corps). Le plus proche l'emporte ; sont à égalité tous les points à
 //! moins de `DISTANCE_TOLERANCE` (un seizième d'unité : le tireur dérive de quelques bits) de la plus
 //! courte distance, départagés par le plus petit `GgrsNetId` du couvert, puis le plus petit `x`, puis le
 //! plus petit `y` : le résultat ne dépend pas de l'ordre de `covers`. Déjà à l'abri d'un couvert : il
@@ -79,16 +80,44 @@ pub struct Shelter {
     pub cover: usize,
 }
 
-/// Voir le module. `walkable(from, to)` : le terrain est libre sur le segment (murs) et en `to`.
+/// Jeu laissé entre le corps du tireur et le bord du couvert à l'arrivée (unités).
+pub const BODY_GAP: i32 = 1;
+
+/// Corps du tireur : demi-étendues et décalage de son collider par rapport à sa position (le collider
+/// d'un personnage est décalé, ex. `offset.y = -6`).
+#[derive(Clone, Copy, Debug)]
+pub struct Body {
+    pub half: FixedVec2,
+    pub offset: FixedVec2,
+}
+
+impl Body {
+    /// Boîte du corps quand la position du tireur est `point`.
+    pub fn aabb_at(&self, point: FixedVec2) -> Aabb {
+        let center = point + self.offset;
+        Aabb {
+            min: center - self.half,
+            max: center + self.half,
+        }
+    }
+}
+
+/// Les deux boîtes se chevauchent sur une surface (se toucher par un bord ne compte pas).
+pub fn boxes_overlap(a: &Aabb, b: &Aabb) -> bool {
+    a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y && a.max.y > b.min.y
+}
+
+/// Voir le module. `free(from, body, point)` : le terrain est libre sur le segment `from`→`point`
+/// (murs) et sous la boîte `body` du tireur arrivé en `point`.
 pub fn find_shelter(
     position: FixedVec2,
     target: FixedVec2,
     radius: Fixed,
-    margin: Fixed,
+    body: Body,
     covers: &[CoverBox],
-    walkable: impl Fn(FixedVec2, FixedVec2) -> bool,
+    free: impl Fn(FixedVec2, &Aabb, FixedVec2) -> bool,
 ) -> Option<Shelter> {
-    if let Some(cover) = cutting_cover(target, position, covers) {
+    if let Some(cover) = cutting_cover(target, position + body.offset, covers) {
         return Some(Shelter {
             point: position,
             cover,
@@ -102,18 +131,38 @@ pub fn find_shelter(
                 (cover.aabb.min.x + cover.aabb.max.x) * FIXED_HALF,
                 (cover.aabb.min.y + cover.aabb.max.y) * FIXED_HALF,
             );
-            let half_w = (cover.aabb.max.x - cover.aabb.min.x) * FIXED_HALF + margin;
-            let half_h = (cover.aabb.max.y - cover.aabb.min.y) * FIXED_HALF + margin;
+            let gap = Fixed::from_num(BODY_GAP);
+            let half_w = (cover.aabb.max.x - cover.aabb.min.x) * FIXED_HALF + body.half.x + gap;
+            let half_h = (cover.aabb.max.y - cover.aabb.min.y) * FIXED_HALF + body.half.y + gap;
             for (sx, sy) in RING {
+                // Le **corps** (et non la position) touche presque le couvert : on retire le décalage.
                 let point = FixedVec2::new(
                     center.x + half_w * Fixed::from_num(sx),
                     center.y + half_h * Fixed::from_num(sy),
-                );
+                ) - body.offset;
                 let distance = position.distance(&point);
-                if distance <= radius
-                    && segment_touches_box(target, point, &cover.aabb)
-                    && !segment_touches_box(position, point, &cover.aabb)
-                    && walkable(position, point)
+                // Ligne de vue : vers le **centre du corps** (là où les balles frappent), pas vers la
+                // position (décalée de `offset`), et encore coupée si le tireur s'arrête à
+                // `ARRIVAL_SLACK` du point (tolérance d'arrivée de `rules`).
+                let eye = point + body.offset;
+                let slack = Fixed::from_num(super::rules::RETURN_ARRIVE);
+                let hidden = |at: FixedVec2| segment_touches_box(target, at, &cover.aabb);
+                if distance > radius
+                    || !hidden(eye)
+                    || !hidden(eye + FixedVec2::new(slack, Fixed::ZERO))
+                    || !hidden(eye - FixedVec2::new(slack, Fixed::ZERO))
+                    || !hidden(eye + FixedVec2::new(Fixed::ZERO, slack))
+                    || !hidden(eye - FixedVec2::new(Fixed::ZERO, slack))
+                {
+                    continue;
+                }
+                let body_box = body.aabb_at(point);
+                // Ni le trajet ni le corps d'arrivée ne traversent un couvert (la rangée de caisses
+                // voisine du couvert choisi compte), et le terrain est libre.
+                if covers.iter().all(|other| {
+                    !segment_touches_box(position, point, &other.aabb)
+                        && !boxes_overlap(&body_box, &other.aabb)
+                }) && free(position, &body_box, point)
                 {
                     visit(distance, cover.net_id, point);
                 }
@@ -158,8 +207,16 @@ mod tests {
         }
     }
 
-    fn open(_: FixedVec2, _: FixedVec2) -> bool {
+    fn open(_: FixedVec2, _: &Aabb, _: FixedVec2) -> bool {
         true
+    }
+
+    /// Corps de 20 × 20 sans décalage.
+    fn body() -> Body {
+        Body {
+            half: v(10.0, 10.0),
+            offset: v(0.0, 0.0),
+        }
     }
 
     #[test]
@@ -180,15 +237,8 @@ mod tests {
         let cover = crate_at(7, 100.0, 0.0);
         let target = v(0.0, 0.0);
         let shooter = v(130.0, 30.0);
-        let found = find_shelter(
-            shooter,
-            target,
-            Fixed::from_num(80),
-            Fixed::from_num(11),
-            &[cover],
-            open,
-        )
-        .unwrap();
+        let found =
+            find_shelter(shooter, target, Fixed::from_num(80), body(), &[cover], open).unwrap();
         assert_eq!(found.cover, 7);
         assert!(segment_touches_box(target, found.point, &cover.aabb));
         assert!(!segment_touches_box(shooter, found.point, &cover.aabb));
@@ -202,7 +252,7 @@ mod tests {
             v(130.0, 30.0),
             v(0.0, 0.0),
             Fixed::from_num(5),
-            Fixed::from_num(11),
+            body(),
             &[cover],
             open,
         )
@@ -211,7 +261,7 @@ mod tests {
             v(130.0, 30.0),
             v(0.0, 0.0),
             Fixed::from_num(80),
-            Fixed::from_num(11),
+            body(),
             &[],
             open,
         )
@@ -221,9 +271,9 @@ mod tests {
             v(130.0, 30.0),
             v(0.0, 0.0),
             Fixed::from_num(80),
-            Fixed::from_num(11),
+            body(),
             &[cover],
-            |_, _| false,
+            |_, _, _| false,
         )
         .is_none());
     }
@@ -236,7 +286,7 @@ mod tests {
             hidden,
             v(0.0, 0.0),
             Fixed::from_num(80),
-            Fixed::from_num(11),
+            body(),
             &[cover],
             open,
         )
@@ -254,15 +304,7 @@ mod tests {
         let north = crate_at(9, 100.0, 40.0);
         let south = crate_at(4, 100.0, -40.0);
         let pick = |covers: &[CoverBox]| {
-            find_shelter(
-                shooter,
-                target,
-                Fixed::from_num(120),
-                Fixed::from_num(11),
-                covers,
-                open,
-            )
-            .unwrap()
+            find_shelter(shooter, target, Fixed::from_num(120), body(), covers, open).unwrap()
         };
         let a = pick(&[north, south]);
         let b = pick(&[south, north]);
@@ -273,11 +315,78 @@ mod tests {
             v(130.0, 0.0002),
             target,
             Fixed::from_num(120),
-            Fixed::from_num(11),
+            body(),
             &[north, south],
             open,
         )
         .unwrap();
         assert_eq!(drifted.cover, 4);
+    }
+
+    /// Un point abrité dont le corps chevauche une caisse voisine (rangée) est écarté ; seul celui du
+    /// bout de la rangée reste.
+    #[test]
+    fn a_neighbouring_cover_blocks_the_points_it_overlaps() {
+        let target = v(0.0, 0.0);
+        let shooter = v(100.0, 36.0);
+        let near = crate_at(1, 80.0, 0.0);
+        let row_end = crate_at(2, 100.0, 0.0);
+        let found = find_shelter(
+            shooter,
+            target,
+            Fixed::from_num(80),
+            body(),
+            &[near, row_end],
+            open,
+        )
+        .unwrap();
+        for cover in [near, row_end] {
+            assert!(!boxes_overlap(&body().aabb_at(found.point), &cover.aabb));
+        }
+        assert_eq!(found.cover, 2);
+        assert!(found.point.x > Fixed::from_num(110));
+    }
+
+    /// Le décalage du collider compte : avec `offset.y = -6` la position est 6 unités plus bas que le
+    /// centre du corps, et le corps (non la position) touche le couvert à `BODY_GAP`.
+    #[test]
+    fn the_collider_offset_moves_the_point_not_the_body() {
+        let cover = crate_at(5, 100.0, 0.0);
+        let shifted = Body {
+            half: v(10.0, 10.0),
+            offset: v(0.0, -6.0),
+        };
+        let found = find_shelter(
+            v(130.0, 30.0),
+            v(0.0, 0.0),
+            Fixed::from_num(80),
+            shifted,
+            &[cover],
+            open,
+        )
+        .unwrap();
+        let body_box = shifted.aabb_at(found.point);
+        // Corps collé au bord est du couvert (x = 110) à un jeu de 1, centré en y sur le couvert.
+        assert_eq!(body_box.min.x, Fixed::from_num(111));
+        assert_eq!((body_box.min.y + body_box.max.y) * FIXED_HALF, Fixed::ZERO);
+        assert_eq!(found.point.y, Fixed::from_num(6));
+    }
+
+    /// Un mur sous le corps d'arrivée (pas seulement sous la position) écarte le point.
+    #[test]
+    fn a_wall_under_the_arrival_body_rejects_the_point() {
+        let cover = crate_at(5, 100.0, 0.0);
+        // Mur plein à partir de x = 115 : le point est à x = 121 (corps 111..131) → rejeté ;
+        // même si la position (121) est elle-même hors du mur à x < 125 d'une case de 16.
+        let wall_from = Fixed::from_num(115);
+        let found = find_shelter(
+            v(130.0, 30.0),
+            v(0.0, 0.0),
+            Fixed::from_num(80),
+            body(),
+            &[cover],
+            |_, body_box, _| body_box.max.x <= wall_from,
+        );
+        assert!(found.is_none());
     }
 }

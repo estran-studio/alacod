@@ -1,6 +1,6 @@
 // X-6c (testbed, conventions §120) : `tireur_couvert` (`TakeCover(radius 120, hold 60, vitesse ×2)`, `Shoot` volée de l'archer, `Chase`) placé à 176
 // unités à l'est du joueur 0 immobile (424, 696), un `couvert` (caisse 20 × 20) au nord-est de lui (580, 662), dans l'ombre duquel un point abrité existe à
-// 40 unités. Scénario neutre : la volée finit vers f53, il se replie alors vers le point abrité (601, 656) à vitesse ×2 (arrivée f72), y reste 60
+// 40 unités. Scénario neutre : la volée finit vers f53, il se replie alors vers le point abrité (601, 662) à vitesse ×2 (arrivée f72), y reste 60
 // frames, puis reprend (`Chase`, f133). La ligne de vue joueur → tireur est dégagée avant le tir (f20) et **coupée** par le couvert à l'abri (f80, f120),
 // de nouveau dégagée quand il repart (f150). Témoin sans `TakeCover` :
 // `repli_couvert_temoin` ; sans couvert à portée : `repli_couvert_hors_portee`.
@@ -25,10 +25,10 @@ Scenario(
         EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 60),
         CoverSight(entity: Placed(1), handle: 0, blocked: false, at_frame: 60),
         EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 80),
-        EnemyPosition(entity: Placed(1), x_min: Some(596.0), x_max: Some(606.0), y_min: Some(654.0), y_max: Some(662.0), at_frame: 80),
+        EnemyPosition(entity: Placed(1), x_min: Some(596.0), x_max: Some(606.0), y_min: Some(660.0), y_max: Some(668.0), at_frame: 80),
         CoverSight(entity: Placed(1), handle: 0, blocked: true, at_frame: 80),
         EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 120),
-        EnemyPosition(entity: Placed(1), x_min: Some(596.0), x_max: Some(606.0), y_min: Some(654.0), y_max: Some(662.0), at_frame: 120),
+        EnemyPosition(entity: Placed(1), x_min: Some(596.0), x_max: Some(606.0), y_min: Some(660.0), y_max: Some(668.0), at_frame: 120),
         CoverSight(entity: Placed(1), handle: 0, blocked: true, at_frame: 120),
         // Reprise après l'attente : il marche vers le joueur, la ligne de vue se dégage.
         EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 150),
