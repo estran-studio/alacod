@@ -277,6 +277,11 @@ pub fn animate_models(
             ));
         }
         if let Some((weapon, weapon_state, _)) = active {
+            // Les durées des gestes de la simulation (épaulé, geste du tir) : les clips s'y étirent.
+            if let Some(gesture) = weapon.config.gesture {
+                input.raise_s = (gesture.raise_frames > 0).then(|| gesture.raise_frames as f32 / SIM_HZ);
+                input.shot_s = (gesture.fire_frames > 0).then(|| gesture.fire_frames as f32 / SIM_HZ);
+            }
             if weapon_state.last_fire_frame > 0 && f >= weapon_state.last_fire_frame {
                 input.since_shot = Some((f - weapon_state.last_fire_frame) as f32 / SIM_HZ);
             }

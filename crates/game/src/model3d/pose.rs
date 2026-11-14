@@ -29,6 +29,11 @@ pub struct PoseInput {
     pub trigger_for: f32,
     /// Rechargement en cours : avancement dans [0, 1], durée totale (s).
     pub reload: Option<(f32, f32)>,
+    /// Durée de l'épaulé dans la simulation (s) : le clip est étiré dessus, comme le banc étire `epauler` sur
+    /// `fEpauler` (`armes.js` A:526). Sans elle, la durée du clip.
+    pub raise_s: Option<f32>,
+    /// Durée du geste de tir dans la simulation (s) : le clip `tir` y est étiré (A:413). Sans elle, celle du clip.
+    pub shot_s: Option<f32>,
 }
 
 /// La pose voulue : un clip et comment le lire.
@@ -52,9 +57,15 @@ pub enum Timing {
     At(f32),
 }
 
-/// Fondus du banc (`armes.js`) : vers une allure, vers un geste.
+/// Fondus du banc (`armes.js`, joueur) : vers une allure (A:798), vers le repos (A:810), vers l'esquive (A:433),
+/// l'épaulé (A:526), le tir et le coup (A:413, A:417), la mise en joue et le rechargement en marchant (A:817, A:807).
 pub const FADE_GAIT: f32 = 0.1;
+pub const FADE_IDLE: f32 = 0.12;
 pub const FADE_GESTURE: f32 = 0.05;
+pub const FADE_SHOULDER: f32 = 0.06;
+pub const FADE_STRIKE: f32 = 0.04;
+pub const FADE_AIM: f32 = 0.1;
+pub const FADE_RELOAD_WALK: f32 = 0.12;
 /// Vers le rechargement (`armes.js` : `fondu: 0.1`, le joueur A:806 comme l'ennemi A:696).
 pub const FADE_RELOAD: f32 = 0.1;
 /// En dessous de cette vitesse (m/s), le personnage est à l'arrêt.
@@ -101,33 +112,45 @@ pub fn choose(
         }
     }
     if let Some((elapsed, total)) = input.melee {
-        let total = duration(&poses.melee).unwrap_or(total).max(1e-3);
-        if let Some(choice) = gesture(&poses.melee, elapsed / total, FADE_GESTURE) {
+        // Le clip est étiré sur la durée du coup de la simulation (banc A:417 : `coup` 0,667 s sur `hDuree`
+        // 0,35 s) ; `duration_s` du RON la remplace.
+        let total = poses
+            .melee
+            .as_ref()
+            .and_then(|g| g.duration_s)
+            .unwrap_or(total)
+            .max(1e-3);
+        if let Some(choice) = gesture(&poses.melee, elapsed / total, FADE_STRIKE) {
             return Some(choice);
         }
     }
-    if let (Some(since), Some(total)) = (input.since_shot, duration(&poses.shoot)) {
+    if let (Some(since), Some(total)) = (
+        input.since_shot,
+        input.shot_s.or_else(|| duration(&poses.shoot)),
+    ) {
         if since < total {
-            if let Some(choice) = gesture(&poses.shoot, since / total, FADE_GESTURE) {
+            if let Some(choice) = gesture(&poses.shoot, since / total, FADE_STRIKE) {
                 return Some(choice);
             }
         }
     }
     if input.trigger {
-        if let Some(total) = duration(&poses.shoulder) {
+        if let Some(total) = input.raise_s.or_else(|| duration(&poses.shoulder)) {
             if input.trigger_for < total {
-                if let Some(choice) = gesture(&poses.shoulder, input.trigger_for / total, FADE_GESTURE) {
+                if let Some(choice) =
+                    gesture(&poses.shoulder, input.trigger_for / total, FADE_SHOULDER)
+                {
                     return Some(choice);
                 }
             }
         }
-        if let Some(choice) = looping_gesture(manifest, poses, &poses.aim, input, moving) {
+        if let Some(choice) = looping_gesture(manifest, poses, &poses.aim, input, moving, FADE_AIM) {
             return Some(choice);
         }
     }
     if let Some((u, _total)) = input.reload {
         if moving {
-            if let Some(choice) = looping_gesture(manifest, poses, &poses.reload, input, moving) {
+            if let Some(choice) = looping_gesture(manifest, poses, &poses.reload, input, moving, FADE_RELOAD_WALK) {
                 return Some(choice);
             }
         }
@@ -146,6 +169,7 @@ fn looping_gesture(
     g: &Option<Gesture>,
     input: &PoseInput,
     moving: bool,
+    fade: f32,
 ) -> Option<PoseChoice> {
     let g = g.as_ref()?;
     let object = g.object.clone().or_else(|| poses.object.clone());
@@ -156,7 +180,7 @@ fn looping_gesture(
                     timing: Timing::Loop(playback(manifest, &clip, input.speed, reversed)),
                     clip,
                     object,
-                    fade: FADE_GAIT,
+                    fade,
                 });
             }
         }
@@ -165,7 +189,7 @@ fn looping_gesture(
         clip: g.still.clone()?,
         timing: Timing::Loop(1.0),
         object,
-        fade: FADE_GAIT,
+        fade,
     })
 }
 
@@ -187,18 +211,18 @@ fn gait(
     } else {
         poses.walk.as_deref().or(poses.run.as_deref())
     };
-    let (clip, timing) = match base.and_then(|b| variant(manifest, b, input.rel, true)) {
+    let (clip, timing, fade) = match base.and_then(|b| variant(manifest, b, input.rel, true)) {
         Some((clip, reversed)) => {
             let speed = playback(manifest, &clip, input.speed, reversed);
-            (clip, Timing::Loop(speed))
+            (clip, Timing::Loop(speed), FADE_GAIT)
         }
-        None => (poses.idle.clone()?, Timing::Loop(1.0)),
+        None => (poses.idle.clone()?, Timing::Loop(1.0), FADE_IDLE),
     };
     Some(PoseChoice {
         clip,
         timing,
         object: poses.object.clone(),
-        fade: FADE_GAIT,
+        fade,
     })
 }
 
@@ -427,6 +451,78 @@ mod tests {
             assert_eq!(reload.fade, FADE_RELOAD);
         }
         assert_eq!(FADE_RELOAD, 0.1);
+    }
+
+    /// P-1d : les gestes sont étirés sur la durée de la simulation, comme le banc (`armes.js` A:413-417,
+    /// A:526) : la hache (clip de 0,667 s dans le modèle du banc) joue **tout** son clip pendant les 21
+    /// frames du coup de la simulation, pas la moitié.
+    #[test]
+    fn gestures_are_stretched_over_the_simulation_duration() {
+        // Coup de mêlée : 0,35 s de simulation, `melee` du modèle de test sans `duration_s`.
+        let mut model = model();
+        model.poses.melee = Some(Gesture {
+            still: Some("fire".into()),
+            ..default_gesture()
+        });
+        let at = |input: PoseInput| choose(&model, &model.poses, &manifest(), &input).unwrap();
+        let end = at(PoseInput {
+            melee: Some((0.35 - 0.01, 0.35)),
+            ..default()
+        });
+        assert_eq!(end.clip, "fire");
+        assert!(matches!(end.timing, Timing::At(u) if (u - (0.34 / 0.35)).abs() < 1e-5));
+        assert_eq!(end.fade, FADE_STRIKE);
+        // Geste de tir : le clip (0,3 s déclaré) est étiré sur les 18 frames du geste de la simulation.
+        let shot = at(PoseInput {
+            since_shot: Some(0.15),
+            shot_s: Some(0.6),
+            ..default()
+        });
+        assert!(matches!(shot.timing, Timing::At(u) if (u - 0.25).abs() < 1e-5));
+        // Épaulé : étiré sur `raise_frames`, puis le tir (ici sans clip d'épaulé : la mise en joue).
+        let mut with_shoulder = model.clone();
+        with_shoulder.poses.shoulder = Some(Gesture {
+            still: Some("reload".into()),
+            ..default_gesture()
+        });
+        let raise = choose(
+            &with_shoulder,
+            &with_shoulder.poses,
+            &manifest(),
+            &PoseInput {
+                trigger: true,
+                trigger_for: 0.075,
+                raise_s: Some(0.15),
+                ..default()
+            },
+        )
+        .unwrap();
+        assert!(matches!(raise.timing, Timing::At(u) if (u - 0.5).abs() < 1e-5));
+        assert_eq!(raise.fade, FADE_SHOULDER);
+    }
+
+    /// Fondus du banc : vers le repos 0,12 s, vers une allure 0,1 s.
+    #[test]
+    fn rest_and_gait_fades_are_the_benchs() {
+        assert_eq!(pick(PoseInput::default()).fade, FADE_IDLE);
+        assert_eq!(FADE_IDLE, 0.12);
+        assert_eq!(
+            pick(PoseInput {
+                speed: 1.5,
+                ..default()
+            })
+            .fade,
+            FADE_GAIT
+        );
+    }
+
+    fn default_gesture() -> Gesture {
+        Gesture {
+            still: None,
+            moving: None,
+            duration_s: None,
+            object: None,
+        }
     }
 
     fn default() -> PoseInput {
