@@ -137,7 +137,7 @@ pub fn collect_device_inputs(
     input_source: Res<InputSource>,
     players: Query<(&ActionState<PlayerAction>, &Transform, &Player), With<LocalPlayer>>,
     q_window: Query<&Window, With<PrimaryWindow>>,
-    q_camera: Query<(&Camera, &GlobalTransform)>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<crate::camera::GameCamera>>,
     mutation_screen: Option<Res<crate::ui::mutation_screen::MutationScreenView>>,
     screens: Option<Res<crate::ui::screens::Screens>>,
     mut aims: Local<BTreeMap<usize, GamepadAim>>,
@@ -262,6 +262,10 @@ pub fn collect_device_inputs(
             .single()
             .ok()
             .and_then(|window| window.cursor_position());
+        // La caméra du jeu seule (`GameCamera`) : le curseur est une position de **sa** fenêtre. Les
+        // caméras de présentation (le banc 3D d'un personnage à modèle, `model3d::spawn_rigs`, une
+        // `Camera3d` vers une image) n'ont ni la fenêtre ni la même vue ; avec elles, `single()` d'une
+        // requête sans filtre échouait et la visée restait à zéro (P-1d).
         let mouse = cursor.and_then(|cursor_position| {
             let (camera, camera_transform) = q_camera.single().ok()?;
             let world_position = camera
@@ -552,5 +556,55 @@ mod tests {
         });
         world.run_system(system).unwrap();
         assert_eq!(buttons_of(&world), INPUT_CHOICE_B);
+    }
+    /// P-1d : un personnage à modèle (R-1) ajoute une `Camera3d` vers une image à côté de la caméra
+    /// du jeu ; le curseur doit viser quand même. Le test pose la fenêtre (curseur à droite du centre),
+    /// la caméra du jeu (vue 800 × 600, 1 pixel = 1 unité) et la caméra d'un banc de modèle.
+    #[test]
+    fn le_curseur_vise_meme_avec_la_camera_d_un_banc_de_modele() {
+        use bevy::camera::{ComputedCameraValues, RenderTargetInfo};
+        use bevy::window::PrimaryWindow;
+        let (mut world, _) = world_with_player(ActionState::<PlayerAction>::default());
+        let mut window = Window::default();
+        window.set_cursor_position(Some(Vec2::new(600.0, 300.0)));
+        world.spawn((window, PrimaryWindow));
+        let view = |width: f32, height: f32| Camera {
+            computed: ComputedCameraValues {
+                clip_from_view: Mat4::orthographic_rh(
+                    -width / 2.0,
+                    width / 2.0,
+                    -height / 2.0,
+                    height / 2.0,
+                    -1000.0,
+                    1000.0,
+                ),
+                target_info: Some(RenderTargetInfo {
+                    physical_size: UVec2::new(width as u32, height as u32),
+                    scale_factor: 1.0,
+                }),
+                ..default()
+            },
+            ..default()
+        };
+        world.spawn((
+            Camera2d,
+            view(800.0, 600.0),
+            GlobalTransform::default(),
+            crate::camera::GameCamera::default(),
+        ));
+        // Le banc d'un modèle : une autre caméra, vers une image de 128 × 128, ailleurs dans le monde.
+        world.spawn((
+            Camera3d::default(),
+            view(128.0, 128.0),
+            GlobalTransform::from(Transform::from_xyz(5000.0, 0.0, 10.0)),
+        ));
+        let system = world.register_system(collect_device_inputs);
+        world.run_system(system).unwrap();
+        let input = world.resource::<DeviceInputs>().0[&0];
+        assert_eq!(
+            (input.pan_x, input.pan_y),
+            (200, 0),
+            "curseur à 200 pixels à droite du joueur, à sa hauteur"
+        );
     }
 }
