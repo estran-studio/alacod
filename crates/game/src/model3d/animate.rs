@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::FixedTransform3D;
 use combat::{
-    actors::{CursorPosition, DashState},
+    actors::{CursorPosition, DashCadence, DashState},
     emitter::Emitter,
     weapons::{melee::MeleeAttackState, melee::MeleeWeapon, Weapon, WeaponInventory, WeaponState},
 };
@@ -159,6 +159,8 @@ pub fn animate_models(
         Option<&Children>,
         // Visée du joueur (absente des ennemis : leur regard vient de `FacingDirection`).
         Option<&CursorPosition>,
+        // Enchaînement des pas de la gigue (P-1) : l'ordre des clips repart au premier pas quand il se casse.
+        Option<&DashCadence>,
         // Tireur posté (P-1d) : son geste vient de sa séquence d'émetteur et de son refroidissement.
         (
             Option<&Emitter>,
@@ -182,7 +184,7 @@ pub fn animate_models(
     let u = table.def.units_per_meter;
     let (cos_e, sin_e) = elevation(table);
 
-    for (mut rig, transform, dash, inventory, melee_state, facing, children, cursor, shooter) in
+    for (mut rig, transform, dash, inventory, melee_state, facing, children, cursor, cadence, shooter) in
         &mut rigs
     {
         let rig = &mut *rig;
@@ -259,7 +261,13 @@ pub fn animate_models(
                 }
                 let total = d.dash_duration.max(1) as f32;
                 let done = d.dash_duration.saturating_sub(d.dash_frames_remaining) as f32;
-                input.dash = Some((state.dashes, done / total));
+                // Le premier pas d'une série est le premier clip (banc `gigue.js` G:450-458, `armes.js` A:428 :
+                // `pas` part de −1) ; l'enchaînement de la simulation (`DashCadence::chain`, 1 au premier pas)
+                // le dit quand il existe, sinon le décompte des esquives.
+                let step = cadence
+                    .filter(|c| c.chain > 0)
+                    .map_or(state.dashes.wrapping_sub(1), |c| c.chain - 1);
+                input.dash = Some((step, done / total));
             }
             None => {}
         }
@@ -314,7 +322,9 @@ pub fn animate_models(
         // refroidissement (même entrées que le joueur, `pose::choose` ne distingue pas).
         if let (emitter, Some(ranged), Some(ai), cycle) = shooter {
             if let Some(cooldown) = ai.ranged.as_ref().map(|r| r.cooldown_frames) {
-                let read = shooter::read(f, emitter, ranged, cooldown, cycle);
+                let stagger = ai.ranged_cycle.as_ref().and_then(|c| c.stagger_frames);
+                let read = shooter::read(f, emitter, ranged, cooldown, cycle.map(|c| (c, stagger)));
+                input.hit = read.hit.map(|(done, total)| done as f32 / total as f32);
                 input.trigger = read.raising_for.is_some();
                 input.trigger_for = read.raising_for.map_or(0.0, |n| n as f32 / SIM_HZ);
                 input.since_shot = read.since_shot.map(|n| n as f32 / SIM_HZ);

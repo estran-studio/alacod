@@ -32,6 +32,8 @@ pub struct PoseInput {
     /// Durée de l'épaulé dans la simulation (s) : le clip est étiré dessus, comme le banc étire `epauler` sur
     /// `fEpauler` (`armes.js` A:526). Sans elle, la durée du clip.
     pub raise_s: Option<f32>,
+    /// Coup reçu en cours (tireur posté) : avancement dans [0, 1] de la stupeur.
+    pub hit: Option<f32>,
     /// Durée du geste de tir dans la simulation (s) : le clip `tir` y est étiré (A:413). Sans elle, celle du clip.
     pub shot_s: Option<f32>,
 }
@@ -109,6 +111,11 @@ pub fn choose(
                 object: poses.object.clone(),
                 fade: FADE_GESTURE,
             });
+        }
+    }
+    if let Some(u) = input.hit {
+        if let Some(choice) = gesture(&poses.hit, u, FADE_STRIKE) {
+            return Some(choice);
         }
     }
     if let Some((elapsed, total)) = input.melee {

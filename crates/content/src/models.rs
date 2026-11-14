@@ -187,6 +187,10 @@ pub struct Poses {
     /// Coup de mêlée (`MeleeAttackState::is_attacking`).
     #[serde(default)]
     pub melee: Option<Gesture>,
+    /// Coup reçu par un tireur posté (`ranged_cycle.stagger_frames`) : le clip joue une fois, étiré sur
+    /// la stupeur (P-1d, banc `armes.js` A:744 : `touche`, fondu 0,04 s).
+    #[serde(default)]
+    pub hit: Option<Gesture>,
 }
 
 /// Un geste : son clip à l'arrêt et sa variante en marchant.
@@ -221,16 +225,18 @@ impl Poses {
             shoulder: self.shoulder.clone().or_else(|| base.shoulder.clone()),
             reload: self.reload.clone().or_else(|| base.reload.clone()),
             melee: self.melee.clone().or_else(|| base.melee.clone()),
+            hit: self.hit.clone().or_else(|| base.hit.clone()),
         }
     }
 
-    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 5] {
+    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 6] {
         [
             ("shoot", &self.shoot),
             ("aim", &self.aim),
             ("shoulder", &self.shoulder),
             ("reload", &self.reload),
             ("melee", &self.melee),
+            ("hit", &self.hit),
         ]
     }
 }

@@ -23,6 +23,8 @@ pub struct ShooterRead {
     pub since_shot: Option<u32>,
     /// Rechargement : (frames écoulées, durée totale) ; la durée est le `cooldown_frames` du tireur.
     pub reload: Option<(u32, u32)>,
+    /// Coup reçu : (frames écoulées, durée de la stupeur).
+    pub hit: Option<(u32, u32)>,
 }
 
 /// Durée bloquante d'une étape (`Wait`, `Telegraph`) ; 0 pour une salve.
@@ -34,15 +36,27 @@ fn blocking_frames(step: &Pattern) -> u32 {
 }
 
 /// Lecture des gestes d'un tireur à la frame `frame`. `cooldown_frames` : le rechargement de sa règle
-/// `Shoot` ; `cycle` : son cycle posté (`ranged_cycle`) s'il en a un.
+/// `Shoot` ; `cycle` : son cycle posté (`ranged_cycle`) s'il en a un, avec sa stupeur (`stagger_frames`).
 pub fn read(
     frame: u32,
     emitter: Option<&Emitter>,
     ranged: &RangedAttackState,
     cooldown_frames: u32,
-    cycle: Option<&RangedCycle>,
+    cycle: Option<(&RangedCycle, Option<u32>)>,
 ) -> ShooterRead {
     let mut read = ShooterRead::default();
+    let (cycle, stagger_frames) = match cycle {
+        Some((cycle, stagger)) => (Some(cycle), stagger),
+        None => (None, None),
+    };
+    // Coup reçu : la stupeur est la fenêtre des `stagger_frames` qui finit à `staggered_until`.
+    if let (Some(cycle), Some(total)) = (cycle, stagger_frames) {
+        let left = cycle.staggered_until.saturating_sub(frame);
+        if left > 0 && left <= total {
+            read.hit = Some((total - left, total));
+            return read;
+        }
+    }
     if let Some(emitter) = emitter {
         let elapsed = frame.saturating_sub(emitter.started_at);
         match first_shot_step(emitter) {
@@ -58,7 +72,7 @@ pub fn read(
         }
         return read;
     }
-    // Sonné (coup reçu) : ni geste ni rechargement, la recharge due reprend après.
+    // Sonné (coup reçu) sans clip de stupeur lisible : ni geste ni rechargement, la recharge due reprend après.
     if cycle.is_some_and(|c| frame < c.staggered_until) {
         return read;
     }
@@ -142,19 +156,19 @@ mod tests {
             ..ranged
         };
         assert_eq!(
-            read(200, None, &ranged, 180, Some(&cycle)).reload,
+            read(200, None, &ranged, 180, Some((&cycle, Some(37)))).reload,
             Some((0, 180))
         );
         assert_eq!(
-            read(290, None, &ranged, 180, Some(&cycle)).reload,
+            read(290, None, &ranged, 180, Some((&cycle, Some(37)))).reload,
             Some((90, 180))
         );
         assert_eq!(
-            read(379, None, &ranged, 180, Some(&cycle)).reload,
+            read(379, None, &ranged, 180, Some((&cycle, Some(37)))).reload,
             Some((179, 180))
         );
-        assert_eq!(read(380, None, &ranged, 180, Some(&cycle)).reload, None);
-        assert_eq!(read(399, None, &ranged, 180, Some(&cycle)).reload, None);
+        assert_eq!(read(380, None, &ranged, 180, Some((&cycle, Some(37)))).reload, None);
+        assert_eq!(read(399, None, &ranged, 180, Some((&cycle, Some(37)))).reload, None);
     }
 
     #[test]
@@ -178,6 +192,14 @@ mod tests {
             target: None,
             ready_at: 260,
         };
-        assert_eq!(read(210, None, &ranged, 180, Some(&cycle)).reload, None);
+        let hurt = read(210, None, &ranged, 180, Some((&cycle, Some(37))));
+        assert_eq!(hurt.reload, None);
+        // Frapé à la frame 200 : la stupeur de 37 frames court de 200 à 237.
+        assert_eq!(hurt.hit, Some((10, 37)));
+        assert_eq!(
+            read(200, None, &ranged, 180, Some((&cycle, Some(37)))).hit,
+            Some((0, 37))
+        );
+        assert_eq!(read(237, None, &ranged, 180, Some((&cycle, Some(37)))).hit, None);
     }
 }
