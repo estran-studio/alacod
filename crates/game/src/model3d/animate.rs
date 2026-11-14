@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::FixedTransform3D;
 use combat::{
-    actors::DashState,
+    actors::{CursorPosition, DashState},
     emitter::Emitter,
     weapons::{melee::MeleeAttackState, melee::MeleeWeapon, Weapon, WeaponInventory, WeaponState},
 };
@@ -29,6 +29,7 @@ use super::{
     shooter, ModelRig,
 };
 use crate::character::enemy::ai::{cycle::RangedCycle, state::RangedAttackState, EnemyAiConfig};
+use crate::character::player::input::PAN_FACING_THRESHOLD;
 
 /// Fréquence de la simulation : les frames lues dans l'état deviennent des secondes.
 const SIM_HZ: f32 = 60.0;
@@ -94,6 +95,27 @@ fn facing_vector(facing: &FacingDirection) -> Vec2 {
     Vec2::from_angle(angle.to_radians())
 }
 
+/// Direction (écran) vers laquelle le corps se tourne. Un personnage à curseur (le joueur) : l'esquive, la
+/// visée si le curseur vise, la marche, puis le regard. Un autre (ennemi) : l'esquive, puis le regard de la
+/// simulation (`FacingDirection`, qui suit sa cible), puis la marche : il ne tourne pas le dos à sa cible
+/// quand il recule ou revient à son poste (banc `armes.js` A:686 : `vers` le joueur, hors « touché »).
+pub fn body_heading(
+    dash: Option<Vec2>,
+    aim: Option<Vec2>,
+    velocity: Vec2,
+    facing: Option<Vec2>,
+    has_cursor: bool,
+) -> Option<Vec2> {
+    let usable = |d: &Vec2| d.length_squared() > 1e-8;
+    let walking = (velocity.length() > 1.0).then_some(velocity);
+    let ordered = if has_cursor {
+        [dash, aim, walking, facing]
+    } else {
+        [dash, facing, walking, None]
+    };
+    ordered.into_iter().flatten().find(usable)
+}
+
 fn wrap(a: f32) -> f32 {
     (a + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI
 }
@@ -135,6 +157,8 @@ pub fn animate_models(
         Option<&MeleeAttackState>,
         Option<&FacingDirection>,
         Option<&Children>,
+        // Visée du joueur (absente des ennemis : leur regard vient de `FacingDirection`).
+        Option<&CursorPosition>,
         // Tireur posté (P-1d) : son geste vient de sa séquence d'émetteur et de son refroidissement.
         (
             Option<&Emitter>,
@@ -158,7 +182,9 @@ pub fn animate_models(
     let u = table.def.units_per_meter;
     let (cos_e, sin_e) = elevation(table);
 
-    for (mut rig, transform, dash, inventory, melee_state, facing, children, shooter) in &mut rigs {
+    for (mut rig, transform, dash, inventory, melee_state, facing, children, cursor, shooter) in
+        &mut rigs
+    {
         let rig = &mut *rig;
         let Some(ready) = rig.ready.as_ref() else {
             continue;
@@ -190,18 +216,30 @@ pub fn animate_models(
         let active = inventory
             .and_then(|inv| inv.weapons.get(inv.active_weapon_index))
             .and_then(|(entity, _)| weapons.get(*entity).ok());
-        let aim = active.map(|(_, _, t)| (t.rotation * Vec3::X).truncate());
+        // La visée du joueur : la rotation de l'arme, posée d'après son curseur. Sans curseur (hors de la
+        // fenêtre, manette au repos : `pan` nul) la rotation vaut 0 et ne vise rien.
+        let pointing = cursor.is_some_and(|c| {
+            let min = i32::from(PAN_FACING_THRESHOLD);
+            c.x.abs() > min || c.y.abs() > min
+        });
+        let aim = active
+            .filter(|_| pointing)
+            .map(|(_, _, t)| (t.rotation * Vec3::X).truncate());
 
-        // Cap : l'esquive, la visée, la marche, l'orientation de la simulation.
+        // Cap : l'esquive, la visée, la marche, l'orientation de la simulation ; arrondi aux directions du
+        // corps du modèle (`arrondir` du banc, 8 par défaut).
         let dashing = dash.filter(|d| d.is_dashing);
-        let heading = dashing
-            .map(|d| Vec2::new(d.dash_direction.x.to_num(), d.dash_direction.y.to_num()))
-            .or(aim)
-            .filter(|d| d.length_squared() > 1e-8)
-            .or_else(|| (state.velocity.length() > 1.0).then_some(state.velocity))
-            .or_else(|| facing.map(facing_vector));
+        let dash_heading =
+            dashing.map(|d| Vec2::new(d.dash_direction.x.to_num(), d.dash_direction.y.to_num()));
+        let heading = body_heading(
+            dash_heading,
+            aim,
+            state.velocity,
+            facing.map(facing_vector),
+            cursor.is_some(),
+        );
         if let Some(yaw) = heading.and_then(|d| yaw_from_screen(d, sin_e)) {
-            state.yaw = yaw;
+            state.yaw = model.body_directions.round(yaw);
         }
 
         let walk = ground(state.velocity, u, sin_e);
@@ -424,6 +462,23 @@ fn apply(state: &RigState, player: &mut AnimationPlayer) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// P-1d : un joueur sans curseur qui vise (hors de la fenêtre) ne regarde pas toujours à droite (la
+    /// rotation 0 de l'arme) : il suit sa marche, puis son regard. Un ennemi garde le regard de la
+    /// simulation (sa cible) même s'il recule.
+    #[test]
+    fn the_body_follows_the_cursor_then_the_walk_and_an_enemy_its_target() {
+        let (right, left, up) = (Vec2::X, Vec2::NEG_X, Vec2::Y);
+        // Joueur : l'esquive, la visée, la marche, le regard.
+        assert_eq!(body_heading(Some(up), Some(right), left, Some(left), true), Some(up));
+        assert_eq!(body_heading(None, Some(right), left, Some(left), true), Some(right));
+        assert_eq!(body_heading(None, None, left, Some(up), true), Some(left));
+        assert_eq!(body_heading(None, None, Vec2::ZERO, Some(up), true), Some(up));
+        // Ennemi : le regard (vers sa cible) avant la marche (le recul, le retour au poste).
+        assert_eq!(body_heading(None, None, right, Some(left), false), Some(left));
+        assert_eq!(body_heading(None, None, right, None, false), Some(right));
+        assert_eq!(body_heading(None, None, Vec2::ZERO, None, false), None);
+    }
 
     #[test]
     fn the_screen_heading_maps_to_the_ground_yaw() {
