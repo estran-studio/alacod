@@ -32,3 +32,6 @@ games/*/assets/ui/*.local.ron
 # Sons Sonniss GDC (licence : pas de redistribution) : jamais dans le dépôt public (décision du 2026-10-29), branchés par
 # `ui/feedback.local.ron` (S1-9 étape 2, docs/conventions.md §98) ; destination : dépôt privé estran-studio/alacod-assets.
 games/*/assets/sounds/sonniss/
+
+# Banques SoundFont de la musique générative (M-7, § 121) : téléchargées par scripts/harmonium-banks.sh, jamais commitées.
+games/*/assets/harmonium/

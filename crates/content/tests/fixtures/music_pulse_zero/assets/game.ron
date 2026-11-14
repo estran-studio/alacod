@@ -1,0 +1,9 @@
+(
+    name: "fixture-music_pulse_zero",
+    content_folders: [],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+    music: Some((profile: "gmd_pop", pulse_frames: (num: 3600, den: 0))),
+)

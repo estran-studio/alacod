@@ -144,6 +144,9 @@ pub struct GameManifest {
     /// l'arène est `generate_template.map`. Un jeu qui a un dossier `Sandbox` doit avoir une arène.
     #[serde(default)]
     pub sandbox: Option<SandboxEntry>,
+    /// M-7 (§121) : la musique du jeu (feature `harmonium` de `game`, présentation seule). Absent : pas de musique.
+    #[serde(default)]
+    pub music: Option<MusicEntry>,
 }
 
 /// `hub: Some((map: "maps/hub.ldtk"))` (M2-T13, §57) : la carte LDtk du hub, relative à
@@ -151,6 +154,46 @@ pub struct GameManifest {
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct HubEntry {
     pub map: String,
+}
+
+/// Banque principale par défaut de `music` : GeneralUser-GS compressée (SF3, lue en natif comme sur le web), relative à
+/// `<jeu>/assets/` ; téléchargée par `scripts/harmonium-banks.sh` (jamais commitée).
+pub const DEFAULT_MUSIC_MAIN_BANK: &str = "harmonium/GeneralUser-GS.sf3";
+/// Banque de percussion par défaut de `music`, même dossier et même script.
+pub const DEFAULT_MUSIC_PERCUSSION_BANK: &str = "harmonium/harmonium_trad.sf2";
+
+fn default_main_bank() -> String {
+    DEFAULT_MUSIC_MAIN_BANK.to_string()
+}
+
+fn default_percussion_bank() -> String {
+    DEFAULT_MUSIC_PERCUSSION_BANK.to_string()
+}
+
+/// Durée d'une pulsation dansée en frames de simulation, sous forme de fraction (`num / den`, `3600 / 230` permis).
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+pub struct PulseFrames {
+    pub num: u32,
+    pub den: u32,
+}
+
+/// `music: (profile: "…", pulse_frames: (num: 3600, den: 230))` (M-7, `docs/conventions.md` §121) : le profil
+/// harmonium joué et la période de sa **pulsation dansée** (blanche au reel 2/2, noire pointée en 6/8, noire en
+/// 4/4) en frames de simulation. L'horloge du jeu (`FrameCount`) est la source du temps, la musique la suit
+/// (option a de William, 2026-11-06) ; l'ancrage est la frame d'entrée en partie. Ce crate ne dépend pas
+/// d'harmonium : l'existence du profil et le tempo (40 à 300 BPM à la noire) sont jugés au lancement par `game`,
+/// qui refuse (journal) et ne joue rien. Hors simulation : aucun système de `GgrsSchedule` ne lit ce champ.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct MusicEntry {
+    /// Id d'un profil distribué par harmonium (`reel_quebecois`, `gmd_pop`…).
+    pub profile: String,
+    pub pulse_frames: PulseFrames,
+    /// Banque principale, relative à `<jeu>/assets/` (défaut [`DEFAULT_MUSIC_MAIN_BANK`]).
+    #[serde(default = "default_main_bank")]
+    pub main_bank: String,
+    /// Banque de percussion (défaut [`DEFAULT_MUSIC_PERCUSSION_BANK`]).
+    #[serde(default = "default_percussion_bank")]
+    pub percussion_bank: String,
 }
 
 /// `sandbox: (arena: "maps/arena.ldtk")` (SB-1, D2) : la carte de l'arène du bac à sable, relative à
@@ -309,5 +352,28 @@ mod tests {
     fn missing_manifest_is_not_found() {
         let err = GameManifest::load(Path::new("/does/not/exist")).unwrap_err();
         assert!(matches!(err, ManifestError::NotFound { .. }));
+    }
+
+    /// M-7 : `music` absent = pas de musique ; présent, les banques ont un défaut (SF3 + percussion).
+    #[test]
+    fn parses_music_with_default_banks() {
+        let base = r#"(name: "demo", content_folders: [], entry: (start_map: "carte.ldtk", default_seed: 1)"#;
+        let manifest: GameManifest = ron::from_str(&format!("{base})")).unwrap();
+        assert_eq!(manifest.music, None);
+        let manifest: GameManifest = ron::from_str(&format!(
+            r#"{base}, music: Some((profile: "gmd_pop", pulse_frames: (num: 3600, den: 230))))"#
+        ))
+        .unwrap();
+        let music = manifest.music.expect("music lu");
+        assert_eq!(music.profile, "gmd_pop");
+        assert_eq!(
+            music.pulse_frames,
+            PulseFrames {
+                num: 3600,
+                den: 230
+            }
+        );
+        assert_eq!(music.main_bank, DEFAULT_MUSIC_MAIN_BANK);
+        assert_eq!(music.percussion_bank, DEFAULT_MUSIC_PERCUSSION_BANK);
     }
 }

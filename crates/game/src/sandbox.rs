@@ -99,6 +99,7 @@ mod tests {
             sandbox: arena.map(|arena| SandboxEntry {
                 arena: arena.to_string(),
             }),
+            music: None,
         }
     }
 
