@@ -177,6 +177,7 @@ fn log_music_status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::ecs::system::RunSystemOnce;
     use content::manifest::PulseFrames;
 
     fn entry(profile: &str, num: u32, den: u32) -> MusicEntry {
