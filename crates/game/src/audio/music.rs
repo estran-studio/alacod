@@ -97,8 +97,8 @@ fn music_clock(anchor_frame: u32, pulse: MusicPulse) -> Result<ExternalClock, St
         .map_err(|error| error.to_string())
 }
 
-/// `OnEnter(InGame)` : la mesure 1 commence à la frame courante (`FrameCount` est remis à zéro avant la partie ;
-/// en ligne, les deux clients entrent à la même frame de simulation).
+/// `OnEnter(InGame)` : la mesure 1 commence à la frame courante (`FrameCount` est remis à zéro à la sortie de la partie
+/// précédente : 0 d'ordinaire ; en ligne, les deux clients entrent à la même frame de simulation).
 pub fn anchor_music_clock(
     frame: Res<FrameCount>,
     pulse: Res<MusicPulse>,

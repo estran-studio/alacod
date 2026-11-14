@@ -9052,3 +9052,41 @@ Une brique générique pour un tireur qui « tire, puis recule derrière un couv
   **Traces** : aucune trace existante ne bouge (42 scénarios rejoués) ; les traces des scénarios `repli_couvert_*` de X-6c qui portent un `TakeCover` (`apres_tir`, `egalite`, `egalite_inverse`, `hors_portee`, `sans_couvert`) sont **réécrites** (voulu : nouveaux champs hachés, points d'arrivée décalés par le corps), `repli_couvert_temoin` est inchangée. Les scénarios d'égalité placent désormais le tireur en (600, 696) et les caisses en y 666 et 726 : le tireur avance de quelques unités vers le joueur avant sa volée, un tireur décalé de l'axe cassait l'égalité de distance.
 - **Limites** (dette **D216**) : le trajet est une ligne droite (un mur ou un autre couvert sur le trajet l'arrête, `max_frames` le libère) ; le point est choisi **une fois** (si le joueur bouge pendant le repli, la ligne de vue peut ne plus être coupée à l'arrivée) ; huit points par couvert rectangulaire (un cercle est pris par sa boîte englobante), la ligne de vue vise le centre de la cible ; le réessai à chaque frame du rechargement abrite aussi un tireur qui passe près d'un couvert ;
   après `hold`, `Shoot` reprend même si le joueur est toujours caché derrière le couvert (il tire alors contre la caisse) ; une caisse détruite pendant le trajet ne change pas le point.
+
+## 121. Musique générative : la feature `harmonium` suit l'horloge du jeu (M-7, `docs/taches/rapports/m-7-harmonium.md`)
+
+Jalon servi : **S2, dimanche 22 novembre** (`plan-1837-cli.md` §6, cible vendredi 20) : « la musique de la salle par harmonium ». **Présentation seule** : aucun
+système de `GgrsSchedule`, aucun type rollback, la simulation ne lit jamais `MusicClock` ni `GameClock` (principe II d'harmonium : le jeu lit sa propre horloge, `FrameCount`) ;
+aucun crate `SIM` ne dépend d'harmonium (`make check_sim_boundary`) ; aucune trace ne bouge. Aucun nom ni valeur de jeu dans l'engine.
+
+- **Dépendance** : `crates/game/Cargo.toml`, `harmonium_bevy = { git = "https://github.com/estran-studio/harmonium", rev = "0189c6a5…", optional = true }` (`origin/main` d'harmonium
+  au 2026-11-14, contient J6 : horloge externe) ; feature `game/harmonium`, **coupée par défaut** (`make check_rapide` ne la compile pas ; un jeu l'allume par `--features game/harmonium`).
+  `cargo update -p harmonium_bevy` : l'ancien arbre Bevy 0.17.3 quitte `Cargo.lock`, trois paquets entrent (`harmonium`, `rosc`, `serde_path_to_error`), **aucune version partagée avec
+  l'engine ne change** (comparaison du lock avant/après : seulement des retraits, plus le passage des `oxisynth*`/`soundfont` du registre au fork `estran-studio/OxiSynth` d'harmonium).
+  Sans la feature `odin` d'harmonium, aucun code GPL n'entre dans le jeu.
+- **Donnée du jeu** (`game.ron`, `content::manifest::MusicEntry`, tous les champs lus par `GameManifest`) :
+  ```ron
+  music: (profile: "gmd_pop", pulse_frames: (num: 30, den: 1)),   // main_bank et percussion_bank : défauts ci-dessous
+  ```
+  `profile` : id d'un profil distribué par harmonium ; `pulse_frames` : durée de la **pulsation dansée** du profil (blanche au reel 2/2, noire pointée en 6/8, noire en 4/4) en frames de
+  simulation, **fraction permise** (`3600/230`) ; `main_bank` (défaut `harmonium/GeneralUser-GS.sf3`) et `percussion_bank` (défaut `harmonium/harmonium_trad.sf2`) relatives à `assets/`.
+  **Sans `music`, aucune musique** (le plugin n'est pas installé, même avec la feature). Un profil inconnu ou une période refusée par harmonium (tempo hors 40–300 BPM à la noire pour le
+  mètre du profil) : `warn!` au lancement ou au premier tour (journal d'harmonium), pas de musique, le jeu continue. Le testbed porte un réglage **neutre** (`gmd_pop`, 30 frames = 120 BPM) ;
+  les valeurs d'un jeu (profil, période) restent dans **son** `game.ron`. Le manifeste est lu à l'installation de `ZAudioPlugin` (avant `CoreSetupPlugin` dans tous les jeux) :
+  un rechargement à chaud de `game.ron` ne change pas la musique en cours (relance).
+- **Lint** (`content::lint::lint_music`, `OutOfRange`, fixtures `music_pulse_zero`, `music_profile_empty`, `music_ok` ; `crates/content/tests/m7_music_fixtures.rs`) : profil vide, numérateur ou
+  dénominateur de `pulse_frames` nul, chemin de banque vide. Ce crate de simulation ne voit pas harmonium : l'existence du profil et le tempo sont jugés par `game`. Les banques ne sont **pas** cherchées sur le disque (téléchargées).
+- **Horloge du jeu (option a, décision de William du 2026-11-06)** (`crates/game/src/audio/music.rs`) : `OnEnter(InGame)` : `anchor_music_clock` pose `GameClock.clock = ExternalClock::new(60, FrameCount.frame, num, den)`
+  (`SIM_FPS` = 60 ; l'ancrage est la frame d'entrée en partie : `FrameCount` est remis à zéro à la sortie de la partie précédente, `run_state::cleanup_rollback_world_system`, donc 0 d'ordinaire ; les deux clients entrent à la même frame) ; `Update` : `feed_music_clock` écrit
+  `GameClock.sim_frame = FrameCount.frame` à **chaque frame de présentation**, donc avant `HarmoniumSet` (`PostUpdate`) ; `OnExit(InGame)` : l'horloge est retirée (le tempo revient aux émotions, la partie suivante en pose une
+  neuve). `frame_fraction` reste 0 (le jeu ne l'expose pas). Harmonium règle vitesse et phase de son playback sur cette horloge, sans jamais interpoler la position publiée ; `MusicClock` reste le playhead
+  (ce que le joueur entend), **jamais lu par la simulation**.
+- **Muet** : `ALACOD_MUTE=1` pose `HarmoniumControl.volume = 0` (la musique tourne, muette : l'horloge publiée par le callback audio prouve que la sortie tourne). Aucune écoute n'est jamais revendiquée par un agent.
+  Le curseur de volume de la pause (`MasterVolume`) ne règle pas la musique (hors lot).
+- **Journal** (`music f<frame> … statut_externe=…`, `info!`, présentation) : à chaque changement d'état (`HarmoniumStatus`, `valid`, `playing`, phase du suivi `Waiting`/`Starting`/`Tracking`), puis toutes les 5 s de
+  temps réel ; il porte la mesure, la pulsation, le tempo entendu, l'écart filtré en ms, les décomptes de micro-ajustements et de sauts.
+- **Banques** : jamais commitées (gitignorées `games/*/assets/harmonium/`). `scripts/harmonium-banks.sh [--source D] [JEU …]` les télécharge (`gh release download studio-resources-2 -R estran-studio/harmonium` : `GeneralUser-GS.sf3`
+  7,6 Mo **pour toutes les cibles**, natif compris : oxisynth lit le SF3 partout ; `GeneralUser-GS-LICENSE.txt` ; `harmonium_trad.sf2` 0,15 Mo) dans un cache par poste (`~/orca/workspaces/alacod/packs/harmonium-banks`) puis les copie dans
+  `games/<jeu>/assets/harmonium/`. Un build web les copie avec les assets (`scripts/web-assets.mjs`) ; `WEB_FEATURES=game/harmonium node scripts/build-web-games.mjs <jeu>` ajoute la feature à la ligne cargo du build web
+  (`alacod build --web <dossier> --features render,game/harmonium` pour un jeu hors de `games/`). Banque absente : `HarmoniumStatus::Failed` et une erreur au journal, pas de relance.
+- **Retiré** : `audio/adaptive.rs`, `setup_harmonium_music`, les blocs `HarmoniumTag` (`character/enemy/create.rs`) et `AiDriver` (`character/input_devices.rs`) : l'API qu'ils appelaient n'existe plus.
