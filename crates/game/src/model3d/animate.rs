@@ -13,6 +13,7 @@ use bevy::prelude::*;
 use bevy_fixed::fixed_math::FixedTransform3D;
 use combat::{
     actors::DashState,
+    emitter::Emitter,
     weapons::{melee::MeleeAttackState, melee::MeleeWeapon, Weapon, WeaponInventory, WeaponState},
 };
 use content::{
@@ -25,8 +26,9 @@ use utils::frame::FrameCount;
 use super::{
     elevation,
     pose::{self, PoseChoice, PoseInput, Timing},
-    ModelRig,
+    shooter, ModelRig,
 };
+use crate::character::enemy::ai::{cycle::RangedCycle, state::RangedAttackState, EnemyAiConfig};
 
 /// Fréquence de la simulation : les frames lues dans l'état deviennent des secondes.
 const SIM_HZ: f32 = 60.0;
@@ -133,6 +135,13 @@ pub fn animate_models(
         Option<&MeleeAttackState>,
         Option<&FacingDirection>,
         Option<&Children>,
+        // Tireur posté (P-1d) : son geste vient de sa séquence d'émetteur et de son refroidissement.
+        (
+            Option<&Emitter>,
+            Option<&RangedAttackState>,
+            Option<&EnemyAiConfig>,
+            Option<&RangedCycle>,
+        ),
     )>,
     weapons: Query<(&Weapon, &WeaponState, &Transform)>,
     melee: Query<&MeleeWeapon>,
@@ -149,7 +158,7 @@ pub fn animate_models(
     let u = table.def.units_per_meter;
     let (cos_e, sin_e) = elevation(table);
 
-    for (mut rig, transform, dash, inventory, melee_state, facing, children) in &mut rigs {
+    for (mut rig, transform, dash, inventory, melee_state, facing, children, shooter) in &mut rigs {
         let rig = &mut *rig;
         let Some(ready) = rig.ready.as_ref() else {
             continue;
@@ -257,6 +266,19 @@ pub fn animate_models(
             }
         } else {
             state.trigger_from = None;
+        }
+        // Un tireur posté n'a ni détente ni chargeur : ses gestes se lisent dans sa séquence et son
+        // refroidissement (même entrées que le joueur, `pose::choose` ne distingue pas).
+        if let (emitter, Some(ranged), Some(ai), cycle) = shooter {
+            if let Some(cooldown) = ai.ranged.as_ref().map(|r| r.cooldown_frames) {
+                let read = shooter::read(f, emitter, ranged, cooldown, cycle);
+                input.trigger = read.raising_for.is_some();
+                input.trigger_for = read.raising_for.map_or(0.0, |n| n as f32 / SIM_HZ);
+                input.since_shot = read.since_shot.map(|n| n as f32 / SIM_HZ);
+                input.reload = read
+                    .reload
+                    .map(|(done, total)| (done as f32 / total as f32, total as f32 / SIM_HZ));
+            }
         }
 
         let weapon_poses = active.and_then(|(w, _, _)| model.weapons.get(&w.config.name));

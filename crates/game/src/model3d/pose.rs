@@ -55,6 +55,8 @@ pub enum Timing {
 /// Fondus du banc (`armes.js`) : vers une allure, vers un geste.
 pub const FADE_GAIT: f32 = 0.1;
 pub const FADE_GESTURE: f32 = 0.05;
+/// Vers le rechargement (`armes.js` : `fondu: 0.1`, le joueur A:806 comme l'ennemi A:696).
+pub const FADE_RELOAD: f32 = 0.1;
 /// En dessous de cette vitesse (m/s), le personnage est à l'arrêt.
 pub const STILL_BELOW: f32 = 0.2;
 
@@ -67,7 +69,7 @@ pub fn choose(
     input: &PoseInput,
 ) -> Option<PoseChoice> {
     let moving = input.speed >= STILL_BELOW;
-    let gesture = |g: &Option<Gesture>, u: f32| -> Option<PoseChoice> {
+    let gesture = |g: &Option<Gesture>, u: f32, fade: f32| -> Option<PoseChoice> {
         let g = g.as_ref()?;
         let clip = moving
             .then(|| g.moving.as_deref())
@@ -78,7 +80,7 @@ pub fn choose(
             clip,
             timing: Timing::At(u.clamp(0.0, 1.0)),
             object: g.object.clone().or_else(|| poses.object.clone()),
-            fade: FADE_GESTURE,
+            fade,
         })
     };
     let duration = |g: &Option<Gesture>| -> Option<f32> {
@@ -100,13 +102,13 @@ pub fn choose(
     }
     if let Some((elapsed, total)) = input.melee {
         let total = duration(&poses.melee).unwrap_or(total).max(1e-3);
-        if let Some(choice) = gesture(&poses.melee, elapsed / total) {
+        if let Some(choice) = gesture(&poses.melee, elapsed / total, FADE_GESTURE) {
             return Some(choice);
         }
     }
     if let (Some(since), Some(total)) = (input.since_shot, duration(&poses.shoot)) {
         if since < total {
-            if let Some(choice) = gesture(&poses.shoot, since / total) {
+            if let Some(choice) = gesture(&poses.shoot, since / total, FADE_GESTURE) {
                 return Some(choice);
             }
         }
@@ -114,7 +116,7 @@ pub fn choose(
     if input.trigger {
         if let Some(total) = duration(&poses.shoulder) {
             if input.trigger_for < total {
-                if let Some(choice) = gesture(&poses.shoulder, input.trigger_for / total) {
+                if let Some(choice) = gesture(&poses.shoulder, input.trigger_for / total, FADE_GESTURE) {
                     return Some(choice);
                 }
             }
@@ -129,7 +131,7 @@ pub fn choose(
                 return Some(choice);
             }
         }
-        if let Some(choice) = gesture(&poses.reload, u) {
+        if let Some(choice) = gesture(&poses.reload, u, FADE_RELOAD) {
             return Some(choice);
         }
     }
@@ -409,6 +411,22 @@ mod tests {
             (still.clip.as_str(), still.timing),
             ("reload", Timing::At(0.25))
         );
+    }
+
+    /// P-1d (banc `armes.js` A:695-696) : le rechargement joue le clip **entier une seule fois**, étiré
+    /// sur toute sa durée (la position suit l'avancement de 0 à 1), avec le fondu de 0,1 s.
+    #[test]
+    fn the_reload_plays_the_whole_clip_once_over_its_duration_with_the_bench_fade() {
+        for (done, total) in [(0.0, 3.0), (0.5, 3.0), (0.99, 3.0)] {
+            let reload = pick(PoseInput {
+                reload: Some((done, total)),
+                ..default()
+            });
+            assert_eq!(reload.clip, "reload");
+            assert_eq!(reload.timing, Timing::At(done), "avancement {done}");
+            assert_eq!(reload.fade, FADE_RELOAD);
+        }
+        assert_eq!(FADE_RELOAD, 0.1);
     }
 
     fn default() -> PoseInput {
