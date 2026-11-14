@@ -4,7 +4,7 @@ Jalon servi : **S2, dimanche 22 novembre 2026** (cible vendredi 20 ; `plan-1837-
 Branche : `wquintal/m-7-harmonium`, partie d'`origin/main` `40c1cf82`. Sources lues : `harmonium/specs/013-moteur-dans-le-jeu/pret-pour-1837.md` (§ 3 correctif minimal, § 6 décision de William : option a)
 et `j6-horloge-externe.md`. harmonium épinglé : `0189c6a5f6f10990896723d81ccaaf85ed169326` (`origin/main` d'harmonium, contient J6 `6c3e4c5`).
 
-**État : en cours (reprise après les pauses cargo du 14 nov).** Ce rapport est complété à chaque preuve obtenue ; les lignes « pas fait » sont à jour au dernier commit.
+**État : livré** (commits docs seuls après `aac08438`).
 
 ## Périmètre et résultat
 
@@ -19,7 +19,29 @@ et `j6-horloge-externe.md`. harmonium épinglé : `0189c6a5f6f10990896723d81ccaa
 | Build web avec la feature | Fait | `cargo build --locked -p zombies --target wasm32-unknown-unknown --no-default-features --features render,game/harmonium` (`RUSTFLAGS=--cfg=web_sys_unstable_apis`, `CARGO_TARGET_DIR=target_wasm`, profil dev du Makefile) : fini en 26 min 34 s, `zombies.wasm` 2,4 Go (débogage) ; `wasm-bindgen` 0.2.129 (version du `Cargo.lock`, installé dans `/tmp`, celui du poste est en 0.2.106) : `wasm_bg.wasm` 265 Mo, `wasm.js` ; les chaînes « hôte démarré en pause » (harmonium_bevy) et « musique : profil » (`audio/music.rs`) sont dans le wasm. Le build est celui de la ligne cargo de `scripts/build-web-games.mjs` avec la variable neuve `WEB_FEATURES=game/harmonium` (ajoutée à `render` ; le script lui-même n'a pas été lancé : il commence par un `cargo run` de `alacod lint` en profil dev). **Non joué dans Chrome** : zombies ne déclare pas `music` (inerte), aucun geste ni écoute ; le comportement web du plugin (geste, Worker Blob, CSP `worker-src blob:`) est celui d'harmonium, vérifié par lui dans Chrome le 6 nov (`pret-pour-1837.md` § 1) |
 | `cargo check -p game --features harmonium` en `wasm32-unknown-unknown` | Fait | `APP_VERSION=m7-check RUSTFLAGS=--cfg=web_sys_unstable_apis cargo check -p game --features harmonium --target wasm32-unknown-unknown` (`target_wasm`) : `Finished`, 0 erreur ; natif : `cargo check --profile headless -p game --features harmonium` : 0 erreur |
 | Testbed natif avec la feature, `ALACOD_MUTE=1` : `HarmoniumStatus::Ready`, `MusicClock` valide et `playing`, statut externe qui suit (journal) | Fait (muet, aucune écoute) | `cargo build --profile headless -p testbed --features native,game/harmonium` (13 min 36 s), puis `ALACOD_MUTE=1 ALACOD_INPUT=neutral ALACOD_STATE_TRACE=/tmp/m7-smoke.trace ALACOD_EXIT_AT_FRAME=2700 target/headless/testbed --sandbox --local-port 7000 --players localhost` (fenêtre ouverte 45 s, sortie à la frame 2700, aucun processus laissé). Journal : `musique : profil « gmd_pop », pulsation 30/1 frames, volume 0` ; `Harmonium : ressources chargées (principale=true, percussion=true, presets=0)` ; `hôte démarré en pause` 2 s après le chargement ; `f0 Res(Ready) valid=true playing=true` (mesure 1, 135 BPM, tempo d'émotion avant l'horloge) ; `f1 … horloge_jeu=true statut_externe=Waiting` (horloge posée à l'entrée en partie) ; `f32 Starting sauts=1` ; `f235 Res(Ready) valid=true playing=true mesure=3 bpm=120.0 Tracking` ; ensuite `Tracking` jusqu'à la fin : écart filtré −1,5 ms (f536), +1,3 (f837), −0,2 (f1137), −0,3 (f1437), −0,2 (f1739), −0,4 (f2039), 0,0 (f2340), −1,0 ms (f2641) ; `nudges=0 sauts=2` ; tempo **exactement 120,0 BPM** (période 30 frames) dès la mesure 3 ; une mesure toutes les 2 s (mesure 23 à f2641 = 44 s). Aucun `ERROR` ni `panic` |
-| `make check_rapide`, `make check_sim_boundary`, aucune trace modifiée | **Pas fait** | |
-| § 121, D217, ce rapport, LIVRÉ | § 121 et D217 faits (`docs/conventions.md`, `docs/taches/dettes.md`) ; rapport en cours ; LIVRÉ pas encore | |
+| `make check_rapide` (feature coupée par défaut), `make check_sim_boundary`, aucune trace modifiée | Fait | `make check_rapide` sur **`aac08438`** (tête de code poussée), code de sortie 0, journal `~/orca/runs/alpha/logs/m-7-harmonium-check-rapide-aac08438.log` (format, `check_forbidden`, `check_rollback_registration`, `check_sim_boundary`, `alacod lint` des cinq jeux dont le testbed avec son `music`, `test_crates` : 99 blocs `test result: ok`, aucun échec) ; un premier passage avec `WASM=1` a été arrêté à l'étape facultative `check_wasm` par la consigne disque du coordinateur (journal `…-aac08438-wasm-coupe.log` : tout ce qui précède est vert), le wasm32 est prouvé à part (lignes ci-dessus). Traces : `make test_scenarios SCENARIO=model_pantin,frappe_moment,repli_couvert_temoin,four_players_idle` **sans `BLESS`** : 5 tests verts, `git status` propre, aucune trace modifiée (aucun système de simulation, aucun type rollback, aucun crate `SIM` touché ; journal `…-scenarios.log`) |
+| § 121, D217, ce rapport, LIVRÉ | Fait | `docs/conventions.md` § 121, `docs/taches/dettes.md` D217, ce rapport, ligne `LIVRÉ` de `docs/taches.md` |
 
 Aucun crate `SIM` ne dépend d'harmonium (la dépendance est dans `game`, optionnelle ; `content` ne porte que des données).
+
+## Contrôle rapide (journal `~/orca/runs/alpha/logs/m-7-harmonium-check-rapide-aac08438.log`)
+
+Dernières lignes : `test result: ok. 0 passed; … finished in 0.00s` (derniers doctests), puis `✓ Contrôle rapide passé (suite de scénarios : la nuit)` et `EXIT 0` ; 99 blocs `test result`, tous `ok`.
+Les commits suivants (rapport, `docs/taches.md`) ne touchent que des fichiers de documentation.
+
+## Décisions
+
+- **SF3 partout** : le § 3 du rapport d'harmonium donnait le SF2 en natif et le SF3 sur le web ; oxisynth (fork d'harmonium, feature `sf3`) lit le SF3 sur toutes les cibles et la release `studio-resources-2` ne publie que lui. Une seule banque, un seul chemin par défaut, 7,6 Mo au lieu de 32. Le testbed natif l'a joué (`Ready`, `Tracking`) ; jamais comparé au SF2 à l'oreille (D217).
+- **La donnée du jeu est un champ du manifeste** (`music`, comme `entry.map` et `sandbox`), pas un fichier de plus ni un kind de plus : il n'y a qu'un réglage par jeu, lu à l'installation du plugin (le manifeste est inséré avant `CoreSetupPlugin` par tous les jeux). Banques en champs optionnels à défaut (`harmonium/…`).
+- **Sans réglage, le plugin n'est pas installé** (pas de cpal ouvert, pas d'asset chargé), même avec la feature : un jeu qui compile avec `game/harmonium` sans `music` ne change pas.
+- **Muet = volume 0, musique en marche** (pas `paused`) : l'horloge doit tourner pour prouver le suivi, et sur le web un `paused` au moment du geste empêcherait la reprise de l'`AudioContext`.
+- **Horloge posée à `OnEnter(InGame)`, retirée à `OnExit(InGame)`** : `FrameCount` repart de 0 à chaque partie ; une horloge gardée entre deux parties aurait une frame de simulation inférieure à son ancrage.
+- **Pas de `build-web-games.mjs` joué** : il lance d'abord `cargo run` de `alacod lint` en profil dev (un second build complet) ; la ligne cargo du script a été rejouée à la main avec la variable `WEB_FEATURES` qu'il lit désormais. Ligne `Makefile` `check_wasm` inchangée (feature coupée par défaut).
+- Jeu web de la preuve : `zombies` (le seul jeu de `games/` dont la ligne web existe) ; le testbed n'a pas de build web. La musique en Chrome n'a donc pas été jouée (zombies n'a pas de `music`, pas d'écoute) ; c'est le premier geste de William sur 1837.
+
+## Ce qui reste
+
+- **D217** : réglages du suivi et latence de sortie web à l'oreille (William), `frame_fraction`, horloge reposée par salle, étape de CI/site pour les banques, `MasterVolume`.
+- **1837** (hors engine, dans son dépôt) : déclarer `music: (profile: …, pulse_frames: (num: …, den: …))` dans son `game.ron`, poser les banques par `scripts/harmonium-banks.sh <jeu>` (ou son équivalent), construire le web avec `game/harmonium` (`alacod build --web --features render,game/harmonium`), vérifier la CSP `worker-src blob:` du site, changer le `rev` de l'engine après le merge.
+- Écoute de William (geste humain, carte) : seule preuve que le tempo et le raccord se lisent bien (§ 6, ligne M-7).
+- La suite complète de scénarios n'a pas été rejouée ici (la nuit) ; quatre scénarios l'ont été sans `BLESS`.
