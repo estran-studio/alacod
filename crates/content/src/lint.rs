@@ -39,6 +39,9 @@ pub enum LintErrorKind {
     /// M2-T15 : modificateur sur une stat qu'aucun système ne lit
     /// (`sim_core::stats::stat_reader`).
     UnreadStat,
+    /// P-1d (§ 122) : un état que la simulation peut prendre (tir, épaulé, rechargement, coup reçu, esquive…) n'a
+    /// aucune pose dans le fichier `Model` du personnage.
+    MissingPose,
 }
 
 /// Une erreur de lint : `file` et `message` forment le texte affiché par `alacod lint`
@@ -72,6 +75,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_html_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_models(registry, &mut errors);
+    lint_model_states(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
     lint_floor_grammars(registry, &mut errors);
@@ -1632,6 +1636,112 @@ fn lint_models(registry: &Registry, errors: &mut Vec<LintError>) {
                     entry.attack_duration_frames
                 ),
             });
+        }
+    }
+}
+
+/// Un temps d'une séquence de tir, tel que la présentation le joue (`game::model3d::shooter`).
+enum Beat {
+    Wait(u32),
+    Telegraph(u32),
+    Shot,
+}
+
+fn pattern_beats(pattern: &registry::PatternEntry, patterns: &Patterns, depth: u8, out: &mut Vec<Beat>) {
+    use registry::PatternEntry;
+    match pattern {
+        PatternEntry::Sequence(children) => children
+            .iter()
+            .for_each(|child| pattern_beats(child, patterns, depth, out)),
+        PatternEntry::Named(name) => {
+            if depth < MAX_NAMED_DEPTH {
+                if let Some(entry) = patterns.get(&registry::PatternId::from(name.clone())) {
+                    pattern_beats(&entry.pattern, patterns, depth + 1, out);
+                }
+            }
+        }
+        PatternEntry::Wait(n) => out.push(Beat::Wait(*n)),
+        PatternEntry::Telegraph(n) => out.push(Beat::Telegraph(*n)),
+        _ => out.push(Beat::Shot),
+    }
+}
+
+/// P-1d (§ 122) : pour chaque personnage à modèle, chaque état que sa simulation peut prendre a une pose. Les
+/// poses déclarées sont déjà résolues dans le manifeste par `models::lint` ; ici on exige celles qu'un état réclame :
+/// la règle `Shoot` d'un tireur (épaulé = attente avant le télégraphe, en joue = télégraphe, tir, rechargement =
+/// `cooldown_frames`, coup reçu = `ranged_cycle.stagger_frames`), l'esquive, et l'attente de tout personnage.
+/// Sans cela, un fantassin « sans arme dans la simulation » reste figé sur son attente (verdict du 16 nov).
+fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
+    let Some(table) = &registry.models else {
+        return;
+    };
+    for entry in registry.characters.values() {
+        let Some((model, _)) = table.get(&entry.asset_name_ref) else {
+            continue;
+        };
+        let file = entry.file.display().to_string();
+        let mut missing = |state: &str, field: &str| {
+            errors.push(LintError {
+                kind: LintErrorKind::MissingPose,
+                file: file.clone(),
+                message: format!(
+                    "modèle « {} » : l'état « {state} » du personnage « {} » n'a aucune pose (`poses.{field}` de models.ron)",
+                    entry.asset_name_ref, entry.id
+                ),
+            });
+        };
+        let poses = &model.poses;
+        let idle_everywhere = poses.idle.is_some()
+            || (!model.weapons.is_empty() && model.weapons.values().all(|w| w.idle.is_some()));
+        if !idle_everywhere {
+            missing("attente", "idle");
+        }
+        if entry.dash.declared && entry.dash.duration_frames > 0 && model.dash.is_empty() {
+            missing("esquive", "dash");
+        }
+        let Some(rule) = entry.behaviors.iter().flatten().find_map(|b| match b {
+            registry::BehaviorEntry::Shoot {
+                pattern,
+                cooldown_frames,
+                ..
+            } => Some((pattern, *cooldown_frames)),
+            _ => None,
+        }) else {
+            continue;
+        };
+        let (pattern, cooldown_frames) = rule;
+        let mut beats = Vec::new();
+        if let Some(found) = registry
+            .patterns
+            .get(&registry::PatternId::from(pattern.clone()))
+        {
+            pattern_beats(&found.pattern, &registry.patterns, 0, &mut beats);
+        } else {
+            beats.push(Beat::Shot);
+        }
+        let first_shot = beats.iter().position(|b| matches!(b, Beat::Shot));
+        let before = &beats[..first_shot.unwrap_or(beats.len())];
+        let shoulder = before.iter().any(|b| matches!(b, Beat::Wait(n) if *n > 0));
+        let aim = beats.iter().any(|b| matches!(b, Beat::Telegraph(n) if *n > 0));
+        if shoulder && poses.shoulder.is_none() {
+            missing("épaulé (attente avant le télégraphe de la salve)", "shoulder");
+        }
+        if aim && poses.aim.is_none() {
+            missing("en joue (télégraphe de la salve)", "aim");
+        }
+        if first_shot.is_some() && poses.shoot.is_none() {
+            missing("tir (règle Shoot)", "shoot");
+        }
+        if cooldown_frames > 0 && poses.reload.is_none() {
+            missing("rechargement (cooldown_frames de la règle Shoot)", "reload");
+        }
+        if entry
+            .ranged_cycle
+            .as_ref()
+            .is_some_and(|c| c.stagger_frames.is_some())
+            && poses.hit.is_none()
+        {
+            missing("coup reçu (ranged_cycle.stagger_frames)", "hit");
         }
     }
 }
