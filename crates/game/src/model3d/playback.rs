@@ -96,6 +96,26 @@ impl ModelPlayback {
         }
     }
 
+    /// Une pose imposée (clip, durée et position en s) : pour éprouver l'invariant `animation_vivante` sans jeu ni
+    /// registre ; le jeu, lui, ne passe que par [`decide_poses`].
+    pub fn playing(model: &str, clip: &str, duration: f32, time: f32) -> Self {
+        let mut playback = Self::new(model);
+        playback.current = Some(Track {
+            clip: clip.to_string(),
+            duration,
+            time,
+            weight: 1.0,
+        });
+        playback
+    }
+
+    /// Déplace la position du clip joué (voir [`Self::playing`]).
+    pub fn set_time(&mut self, time: f32) {
+        if let Some(track) = self.current.as_mut() {
+            track.time = time;
+        }
+    }
+
     /// Le clip joué (celui vers lequel le fondu va).
     pub fn clip(&self) -> Option<&str> {
         self.current.as_ref().map(|t| t.clip.as_str())
