@@ -1686,7 +1686,7 @@ fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
                 file: file.clone(),
                 message: format!(
                     "modèle « {} » : l'état « {state} » du personnage « {} » n'a aucune pose (`poses.{field}` de models.ron)",
-                    entry.asset_name_ref, entry.id
+                    entry.asset_name_ref, entry.asset_name_ref
                 ),
             });
         };

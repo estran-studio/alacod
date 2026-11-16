@@ -230,7 +230,7 @@ pub fn decide_poses(
         // Visée du joueur (absente des ennemis : leur regard vient de `FacingDirection`).
         Option<&CursorPosition>,
         // Tireur posté (P-1d) : son geste vient de sa séquence d'émetteur et de son refroidissement.
-        Posted,
+        Posted<'_>,
     )>,
     weapons: Query<(&Weapon, &WeaponState, &Transform)>,
     melee: Query<&MeleeWeapon>,
