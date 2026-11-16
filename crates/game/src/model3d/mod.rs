@@ -17,13 +17,15 @@
 //!    visée, tir, détente, rechargement, coup, esquive), le fond avec le précédent et montre l'arme du
 //!    manifeste dans la main.
 //!
-//! Présentation pure : `PresentationPlugin`, `Update`/`PostUpdate`, absent en headless. Rien n'est écrit
-//! dans la simulation ; aucune trace ne bouge.
+//! Présentation pure : `PresentationPlugin`, `Update`/`PostUpdate`, absent en headless, sauf la **décision** de la pose
+//! ([`playback`], `ModelPlaybackPlugin`) qui n'a besoin ni d'image ni de GPU et tourne aussi en headless (P-1d, § 122). Rien
+//! n'est écrit dans la simulation ; aucune trace ne bouge.
 
 pub mod animate;
 pub mod materials;
 pub mod placement;
 pub mod pose;
+pub mod playback;
 pub mod shooter;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -68,6 +70,7 @@ impl Plugin for ModelRenderPlugin {
             .add_systems(
                 PostUpdate,
                 animate::animate_models
+                    .after(playback::decide_poses)
                     .after(crate::ui::weapon_visuals::aim_enemy_weapons)
                     .after(bevy_fixed::fixed_math::sync_bevy_transforms_from_fixed)
                     .before(bevy::app::AnimationSystems),
@@ -80,6 +83,29 @@ impl Plugin for ModelRenderPlugin {
                     .after(bevy_fixed::fixed_math::sync_bevy_transforms_from_fixed)
                     .before(bevy::transform::TransformSystems::Propagate),
             );
+    }
+}
+
+/// La décision de la pose des personnages à modèle ([`playback`]), hors rendu : dans tout jeu, avec ou sans fenêtre.
+/// `simulated_time` : le temps des clips est la frame simulée (headless) et non l'image dessinée.
+pub struct ModelPlaybackPlugin {
+    pub simulated_time: bool,
+}
+
+impl Plugin for ModelPlaybackPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(if self.simulated_time {
+            playback::PlaybackClock::Simulated
+        } else {
+            playback::PlaybackClock::Display
+        })
+        .add_systems(
+            PostUpdate,
+            (playback::attach_playback, playback::decide_poses)
+                .chain()
+                .after(crate::ui::weapon_visuals::aim_enemy_weapons)
+                .after(bevy_fixed::fixed_math::sync_bevy_transforms_from_fixed),
+        );
     }
 }
 
@@ -101,37 +127,8 @@ pub struct ModelRig {
     /// Pixels de l'écran par unité du monde de l'image actuelle.
     pub px_per_unit: f32,
     pub ready: Option<RigReady>,
-    pub state: animate::RigState,
-}
-
-impl ModelRig {
-    /// Un banc sans image, caméra ni GLB, déjà « prêt » : la pose (`animate_models`) tourne sans rendu sur le
-    /// lecteur `player` (un `AnimationPlayer`) et la racine `root` (un `Transform`), avec les `clips` donnés.
-    /// Pour mesurer en headless, sur un vrai jeu, quel clip est joué à chaque frame (P-1d).
-    pub fn headless(
-        model: &str,
-        root: Entity,
-        player: Entity,
-        clips: BTreeMap<String, (AnimationNodeIndex, f32)>,
-    ) -> Self {
-        Self {
-            model: model.to_string(),
-            layer: 0,
-            camera: Entity::PLACEHOLDER,
-            root,
-            quad: Entity::PLACEHOLDER,
-            image: Handle::default(),
-            pose_material: Handle::default(),
-            gltf: Handle::default(),
-            px_per_unit: 1.0,
-            ready: Some(RigReady {
-                player,
-                clips,
-                nodes: BTreeMap::new(),
-            }),
-            state: animate::RigState::default(),
-        }
-    }
+    /// La bouche du canon à l'écran, mesurée à l'image précédente.
+    pub muzzle: Option<animate::Muzzle>,
 }
 
 /// Ce que l'animation trouve dans l'instance du modèle, une fois chargée.
@@ -334,7 +331,7 @@ fn spawn_rigs(
             gltf: asset_server.load(model.glb.clone()),
             px_per_unit,
             ready: None,
-            state: default(),
+            muzzle: None,
         });
     }
 }

@@ -81,7 +81,7 @@ pub fn offset_model_bullets(
                     .iter()
                     .find(|(id, _, _)| **id == bullet.source)
                     .and_then(|(_, rig, shooter)| {
-                        let muzzle = rig.state.muzzle?;
+                        let muzzle = rig.muzzle?;
                         let foot = Vec2::new(
                             shooter.translation.x.to_num::<f32>(),
                             shooter.translation.y.to_num::<f32>(),

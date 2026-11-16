@@ -88,6 +88,11 @@ impl Plugin for CoreAppPlugin {
         if !self.0.headless {
             app.add_plugins(PresentationPlugin);
         }
+        // P-1d (§ 122) : la décision de la pose des personnages à modèle n'a besoin ni d'image ni de GPU ; elle
+        // tourne aussi en headless (le runner de scénarios y lit le clip joué), au temps de la frame simulée.
+        app.add_plugins(crate::model3d::ModelPlaybackPlugin {
+            simulated_time: self.0.headless,
+        });
 
         app.add_plugins(crate::weapon_assets::WeaponAssetsPlugin);
         // Moitié application du personnage (chargeur des configurations, périphériques, debug de l'IA) :

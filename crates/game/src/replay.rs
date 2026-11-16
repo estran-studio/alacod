@@ -225,6 +225,10 @@ pub struct Invariants {
     /// Aucun joueur ne chevauche un collider de mur.
     #[serde(default = "vrai")]
     pub joueur_hors_mur: bool,
+    /// Tout personnage à modèle dont l'état de la simulation change a un clip résolu, qui n'est pas celui de l'attente
+    /// et dont la position avance (P-1d, `docs/conventions.md` § 122 ; décision lue dans `ModelPlayback`, hors rendu).
+    #[serde(default = "vrai")]
+    pub animation_vivante: bool,
 }
 
 fn vrai() -> bool {
@@ -237,13 +241,14 @@ impl Default for Invariants {
             sante_bornee: true,
             net_ids_uniques: true,
             joueur_hors_mur: true,
+            animation_vivante: true,
         }
     }
 }
 
 impl Invariants {
     pub fn tous_actifs(&self) -> bool {
-        self.sante_bornee && self.net_ids_uniques && self.joueur_hors_mur
+        self.sante_bornee && self.net_ids_uniques && self.joueur_hors_mur && self.animation_vivante
     }
 }
 
