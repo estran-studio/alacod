@@ -104,6 +104,36 @@ pub struct ModelRig {
     pub state: animate::RigState,
 }
 
+impl ModelRig {
+    /// Un banc sans image, caméra ni GLB, déjà « prêt » : la pose (`animate_models`) tourne sans rendu sur le
+    /// lecteur `player` (un `AnimationPlayer`) et la racine `root` (un `Transform`), avec les `clips` donnés.
+    /// Pour mesurer en headless, sur un vrai jeu, quel clip est joué à chaque frame (P-1d).
+    pub fn headless(
+        model: &str,
+        root: Entity,
+        player: Entity,
+        clips: BTreeMap<String, (AnimationNodeIndex, f32)>,
+    ) -> Self {
+        Self {
+            model: model.to_string(),
+            layer: 0,
+            camera: Entity::PLACEHOLDER,
+            root,
+            quad: Entity::PLACEHOLDER,
+            image: Handle::default(),
+            pose_material: Handle::default(),
+            gltf: Handle::default(),
+            px_per_unit: 1.0,
+            ready: Some(RigReady {
+                player,
+                clips,
+                nodes: BTreeMap::new(),
+            }),
+            state: animate::RigState::default(),
+        }
+    }
+}
+
 /// Ce que l'animation trouve dans l'instance du modèle, une fois chargée.
 pub struct RigReady {
     pub player: Entity,

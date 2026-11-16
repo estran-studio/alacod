@@ -30,8 +30,7 @@ pub use combat::actors::{
     INPUT_SPRINT, INPUT_SWITCH_WEAPON_MODE, INPUT_UP, INPUT_USE_ACTIVE,
 };
 
-/// Écart du curseur (pixels, en `pan`) au-delà duquel il oriente le regard (et, en présentation, le corps).
-pub const PAN_FACING_THRESHOLD: i16 = 5;
+const PAN_FACING_THRESHOLD: i16 = 5;
 
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct PointerWorldPosition(pub Vec2);

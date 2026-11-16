@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::FixedTransform3D;
 use combat::{
-    actors::{CursorPosition, DashCadence, DashState},
+    actors::{CursorPosition, DashState},
     emitter::Emitter,
     weapons::{melee::MeleeAttackState, melee::MeleeWeapon, Weapon, WeaponInventory, WeaponState},
 };
@@ -29,7 +29,6 @@ use super::{
     shooter, ModelRig,
 };
 use crate::character::enemy::ai::{cycle::RangedCycle, state::RangedAttackState, EnemyAiConfig};
-use crate::character::player::input::PAN_FACING_THRESHOLD;
 
 /// Fréquence de la simulation : les frames lues dans l'état deviennent des secondes.
 const SIM_HZ: f32 = 60.0;
@@ -159,8 +158,6 @@ pub fn animate_models(
         Option<&Children>,
         // Visée du joueur (absente des ennemis : leur regard vient de `FacingDirection`).
         Option<&CursorPosition>,
-        // Enchaînement des pas de la gigue (P-1) : l'ordre des clips repart au premier pas quand il se casse.
-        Option<&DashCadence>,
         // Tireur posté (P-1d) : son geste vient de sa séquence d'émetteur et de son refroidissement.
         (
             Option<&Emitter>,
@@ -184,8 +181,7 @@ pub fn animate_models(
     let u = table.def.units_per_meter;
     let (cos_e, sin_e) = elevation(table);
 
-    for (mut rig, transform, dash, inventory, melee_state, facing, children, cursor, cadence, shooter) in
-        &mut rigs
+    for (mut rig, transform, dash, inventory, melee_state, facing, children, cursor, posted) in &mut rigs
     {
         let rig = &mut *rig;
         let Some(ready) = rig.ready.as_ref() else {
@@ -218,18 +214,22 @@ pub fn animate_models(
         let active = inventory
             .and_then(|inv| inv.weapons.get(inv.active_weapon_index))
             .and_then(|(entity, _)| weapons.get(*entity).ok());
-        // La visée du joueur : la rotation de l'arme, posée d'après son curseur. Sans curseur (hors de la
-        // fenêtre, manette au repos : `pan` nul) la rotation vaut 0 et ne vise rien.
-        let pointing = cursor.is_some_and(|c| {
-            let min = i32::from(PAN_FACING_THRESHOLD);
-            c.x.abs() > min || c.y.abs() > min
-        });
-        let aim = active
-            .filter(|_| pointing)
-            .map(|(_, _, t)| (t.rotation * Vec3::X).truncate());
+        let aim = active.map(|(_, _, t)| (t.rotation * Vec3::X).truncate());
 
-        // Cap : l'esquive, la visée, la marche, l'orientation de la simulation ; arrondi aux directions du
-        // corps du modèle (`arrondir` du banc, 8 par défaut).
+        // Un tireur posté (fantassin) n'a ni détente ni chargeur : ses gestes se lisent dans sa séquence et
+        // son refroidissement (P-1d, `shooter::read`).
+        let shot = match posted {
+            (emitter, Some(ranged), Some(ai), cycle) => ai.ranged.as_ref().map(|r| {
+                let stagger = ai.ranged_cycle.as_ref().and_then(|c| c.stagger_frames);
+                shooter::read(f, emitter, ranged, r.cooldown_frames, cycle.map(|c| (c, stagger)))
+            }),
+            _ => None,
+        };
+
+        // Cap : l'esquive, la visée, la marche, l'orientation de la simulation. Un personnage sans curseur
+        // (l'ennemi) tourne vers sa cible, sauf sous le coup (banc `armes.js` A:686 : « touché » garde le cap),
+        // arrondi aux directions du corps du modèle (`arrondir`, 8 par défaut) ; le cap du joueur reste exact
+        // tant que sa revue (tranche suivante de P-1d) ne l'a pas observé : le Frère est validé tel quel.
         let dashing = dash.filter(|d| d.is_dashing);
         let dash_heading =
             dashing.map(|d| Vec2::new(d.dash_direction.x.to_num(), d.dash_direction.y.to_num()));
@@ -240,8 +240,13 @@ pub fn animate_models(
             facing.map(facing_vector),
             cursor.is_some(),
         );
+        let stunned = shot.is_some_and(|s| s.hit.is_some());
         if let Some(yaw) = heading.and_then(|d| yaw_from_screen(d, sin_e)) {
-            state.yaw = model.body_directions.round(yaw);
+            if cursor.is_some() {
+                state.yaw = yaw;
+            } else if !stunned {
+                state.yaw = model.body_directions.round(yaw);
+            }
         }
 
         let walk = ground(state.velocity, u, sin_e);
@@ -261,13 +266,7 @@ pub fn animate_models(
                 }
                 let total = d.dash_duration.max(1) as f32;
                 let done = d.dash_duration.saturating_sub(d.dash_frames_remaining) as f32;
-                // Le premier pas d'une série est le premier clip (banc `gigue.js` G:450-458, `armes.js` A:428 :
-                // `pas` part de −1) ; l'enchaînement de la simulation (`DashCadence::chain`, 1 au premier pas)
-                // le dit quand il existe, sinon le décompte des esquives.
-                let step = cadence
-                    .filter(|c| c.chain > 0)
-                    .map_or(state.dashes.wrapping_sub(1), |c| c.chain - 1);
-                input.dash = Some((step, done / total));
+                input.dash = Some((state.dashes, done / total));
             }
             None => {}
         }
@@ -285,11 +284,6 @@ pub fn animate_models(
             ));
         }
         if let Some((weapon, weapon_state, _)) = active {
-            // Les durées des gestes de la simulation (épaulé, geste du tir) : les clips s'y étirent.
-            if let Some(gesture) = weapon.config.gesture {
-                input.raise_s = (gesture.raise_frames > 0).then(|| gesture.raise_frames as f32 / SIM_HZ);
-                input.shot_s = (gesture.fire_frames > 0).then(|| gesture.fire_frames as f32 / SIM_HZ);
-            }
             if weapon_state.last_fire_frame > 0 && f >= weapon_state.last_fire_frame {
                 input.since_shot = Some((f - weapon_state.last_fire_frame) as f32 / SIM_HZ);
             }
@@ -318,20 +312,15 @@ pub fn animate_models(
         } else {
             state.trigger_from = None;
         }
-        // Un tireur posté n'a ni détente ni chargeur : ses gestes se lisent dans sa séquence et son
-        // refroidissement (même entrées que le joueur, `pose::choose` ne distingue pas).
-        if let (emitter, Some(ranged), Some(ai), cycle) = shooter {
-            if let Some(cooldown) = ai.ranged.as_ref().map(|r| r.cooldown_frames) {
-                let stagger = ai.ranged_cycle.as_ref().and_then(|c| c.stagger_frames);
-                let read = shooter::read(f, emitter, ranged, cooldown, cycle.map(|c| (c, stagger)));
-                input.hit = read.hit.map(|(done, total)| done as f32 / total as f32);
-                input.trigger = read.raising_for.is_some();
-                input.trigger_for = read.raising_for.map_or(0.0, |n| n as f32 / SIM_HZ);
-                input.since_shot = read.since_shot.map(|n| n as f32 / SIM_HZ);
-                input.reload = read
-                    .reload
-                    .map(|(done, total)| (done as f32 / total as f32, total as f32 / SIM_HZ));
-            }
+        if let Some(read) = shot {
+            input.fades = pose::Fades::SHOOTER;
+            input.hit = read.hit.map(|(done, total)| done as f32 / total as f32);
+            input.trigger = read.raising_for.is_some();
+            input.trigger_for = read.raising_for.map_or(0.0, |n| n as f32 / SIM_HZ);
+            input.since_shot = read.since_shot.map(|n| n as f32 / SIM_HZ);
+            input.reload = read
+                .reload
+                .map(|(done, total)| (done as f32 / total as f32, total as f32 / SIM_HZ));
         }
 
         let weapon_poses = active.and_then(|(w, _, _)| model.weapons.get(&w.config.name));
