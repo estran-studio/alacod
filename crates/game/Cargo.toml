@@ -37,8 +37,9 @@ behaviors = { path = "../behaviors"}
 map = { path = "../map"}
 animation ={ path = "../animation"}
 telemetry = { path = "../telemetry"}
-# TODO: harmonium_bevy est encore sur bevy 0.17, réactiver la feature `harmonium` après son port
-harmonium_bevy = { git = "https://github.com/bascanada/harmonium", branch = "main", optional = true }
+# Musique générative (feature `harmonium`, présentation seule, `crates/game/src/audio/`) : épinglée par révision
+# (estran-studio/harmonium `origin/main` 0189c6a, contient J6 : horloge externe `GameClock`), jamais par branche.
+harmonium_bevy = { git = "https://github.com/estran-studio/harmonium", rev = "0189c6a5f6f10990896723d81ccaaf85ed169326", optional = true }
 
 thiserror = "2.0.12"
 
@@ -86,7 +87,8 @@ dev-dylib = ["bevy/dynamic_linking"]
 # Seul rendu des écrans, activé par les features de rendu des jeux et de `scenario`.
 # Les exécutables headless ne l'activent pas.
 ui_hui = ["dep:bevy_hui"]
-# Musique générative (harmonium). Désactivée tant que harmonium_bevy n'est pas porté à bevy 0.19
+# Musique générative (harmonium_bevy) : la musique suit l'horloge de la simulation, rien n'entre dans `GgrsSchedule`.
+# Coupée par défaut ; sans réglage `music` dans `game.ron`, un jeu compilé avec elle ne joue rien.
 harmonium = ["dep:harmonium_bevy"]
 
 # Contrôle remote (bevy_remote : JSON-RPC sur HTTP), natif uniquement

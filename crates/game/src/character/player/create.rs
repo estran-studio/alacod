@@ -76,7 +76,7 @@ pub fn create_player(
     // `sim_core::team`) : ne pas l'ajouter à `RollbackTraceApp` sans blesser les traces.
     commands.entity(entity).insert(Team::Players);
 
-    // `ActionState`, `InputMap` (et `AiDriver` sous `harmonium`) sont posés par l'application sur le
+    // `ActionState` et `InputMap` sont posés par l'application sur le
     // joueur local (`character::input_devices::attach_local_player_input`, `Added<LocalPlayer>`).
     if local {
         commands.entity(entity).insert(LocalPlayer {});

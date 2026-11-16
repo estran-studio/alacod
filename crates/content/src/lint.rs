@@ -104,6 +104,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_entry_point(registry, manifest, &mut errors);
     lint_generate_template(registry, manifest, &mut errors);
     lint_sandbox(registry, manifest, &mut errors);
+    lint_music(manifest, &mut errors);
     lint_stat_readers(registry, &mut errors);
 
     errors
@@ -6112,6 +6113,38 @@ fn designation_known(registry: &Registry, designation: &str) -> bool {
         (None, None) => registry
             .maps
             .contains_key(&registry::map_id_from_path(designation)),
+    }
+}
+
+/// M-7 (`docs/conventions.md` §121) : `music` du manifeste. Profil non vide, période de la pulsation (`pulse_frames`)
+/// et chemins de banques non nuls. L'existence du profil et le tempo (40 à 300 BPM à la noire selon le mètre du
+/// profil) relèvent d'harmonium, que ce crate de simulation ne voit pas : `game` les juge au lancement (journal).
+/// Les banques ne sont pas cherchées sur le disque : elles sont téléchargées (`scripts/harmonium-banks.sh`), pas commitées.
+fn lint_music(manifest: &GameManifest, errors: &mut Vec<LintError>) {
+    let Some(music) = &manifest.music else {
+        return;
+    };
+    let mut push = |message: String| {
+        errors.push(LintError {
+            kind: LintErrorKind::OutOfRange,
+            file: crate::manifest::MANIFEST_FILE_NAME.to_string(),
+            message,
+        });
+    };
+    if music.profile.trim().is_empty() {
+        push("champ music.profile : id de profil harmonium vide".to_string());
+    }
+    if music.pulse_frames.num == 0 || music.pulse_frames.den == 0 {
+        push(format!(
+            "champ music.pulse_frames = {}/{} : numérateur et dénominateur doivent être > 0 (durée de la pulsation dansée, en frames)",
+            music.pulse_frames.num, music.pulse_frames.den
+        ));
+    }
+    if music.main_bank.trim().is_empty() {
+        push("champ music.main_bank : chemin vide".to_string());
+    }
+    if music.percussion_bank.trim().is_empty() {
+        push("champ music.percussion_bank : chemin vide".to_string());
     }
 }
 

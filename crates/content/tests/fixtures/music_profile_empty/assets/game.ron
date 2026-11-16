@@ -1,0 +1,9 @@
+(
+    name: "fixture-music_profile_empty",
+    content_folders: [],
+    entry: (
+        start_map: "unused",
+        default_seed: 1,
+    ),
+    music: Some((profile: "", pulse_frames: (num: 30, den: 1))),
+)

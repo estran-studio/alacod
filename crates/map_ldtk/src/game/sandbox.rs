@@ -261,6 +261,7 @@ mod tests {
             sandbox: Some(SandboxEntry {
                 arena: arena.to_string(),
             }),
+            music: None,
         }
     }
 

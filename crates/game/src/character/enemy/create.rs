@@ -1,7 +1,5 @@
 use bevy::prelude::*;
 use bevy_fixed::fixed_math;
-#[cfg(feature = "harmonium")]
-use harmonium_bevy::components::HarmoniumTag;
 use sim_core::stats::StatId;
 use sim_core::team::Team;
 use utils::net_id::GgrsNetIdFactory;
@@ -314,11 +312,6 @@ pub fn spawn_enemy(
         entity,
         character_config.and_then(|config| config.respawn_range),
     );
-
-    #[cfg(feature = "harmonium")]
-    commands
-        .entity(entity)
-        .insert(HarmoniumTag::new(&["danger", "combat", "monster"], 1.0));
 
     entity
 }

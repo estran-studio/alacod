@@ -23,22 +23,13 @@ use crate::character::player::input::{
 use crate::character::player::{LocalPlayer, Player};
 
 /// `PreUpdate`, avant `RunGgrsSystems` : le joueur local (créé par la simulation, sans périphérique) reçoit son
-/// `ActionState` et son `InputMap` (et `AiDriver` sous `harmonium`). D4 : l'`ActionState` arrive au plus
+/// `ActionState` et son `InputMap`. D4 : l'`ActionState` arrive au plus
 /// une frame de rendu après la création du joueur ; sans effet sur les inputs (neutres jusque-là).
 pub fn attach_local_player_input(mut commands: Commands, added: Query<Entity, Added<LocalPlayer>>) {
     for entity in &added {
         commands
             .entity(entity)
             .try_insert((ActionState::<PlayerAction>::default(), get_input_map()));
-
-        #[cfg(feature = "harmonium")]
-        commands
-            .entity(entity)
-            .try_insert(harmonium_bevy::components::AiDriver {
-                ai_influence: 1.0,
-                detection_radius: 300.0,
-                ..default()
-            });
     }
 }
 

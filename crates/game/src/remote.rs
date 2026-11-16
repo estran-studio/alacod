@@ -1020,6 +1020,7 @@ mod tests {
             sandbox: Some(SandboxEntry {
                 arena: "salle.ldtk".to_string(),
             }),
+            music: None,
         });
 
         // La liste marche partout ; charger exige le bac à sable.

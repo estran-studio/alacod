@@ -11,6 +11,9 @@ const commit = run('git', ['rev-parse', '--short=12', 'HEAD'], {}, true).trim();
 const buildId = process.env.WEB_BUILD_ID || `${commit}-local-${Date.now()}`;
 if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(buildId)) throw new Error('Invalid WEB_BUILD_ID');
 const profile = process.env.WEB_PROFILE || 'dev';
+// M-7 : features cargo en plus de `render`, séparées par des virgules (ex. `WEB_FEATURES=game/harmonium` : la musique
+// générative, coupée par défaut ; ses banques sont posées par `scripts/harmonium-banks.sh`, copiées avec les assets).
+const features = ['render', ...(process.env.WEB_FEATURES || '').split(',').map(feature => feature.trim()).filter(Boolean)].join(',');
 if (!['dev', 'release'].includes(profile)) throw new Error('WEB_PROFILE must be dev or release.');
 const targetDir = resolve(root, process.env.CARGO_TARGET_DIR || 'target');
 const bindgen = process.env.WASM_BINDGEN || 'wasm-bindgen';
@@ -30,7 +33,7 @@ for (const game of games) {
   const output = join(root, 'website/static/builds', buildId, game);
   if (existsSync(output)) throw new Error(`Immutable build already exists: ${output}`);
   run('cargo', ['run', '--locked', '-p', 'content', '--bin', 'alacod', '--', 'lint', `games/${game}`]);
-  run('cargo', ['build', ...(process.env.WEB_BUILD_STD === '1' ? ['-Z', 'build-std=std,panic_abort'] : []), '--locked', '-p', game, '--target', 'wasm32-unknown-unknown', '--no-default-features', '--features', 'render', ...(profile === 'release' ? ['--release'] : [])], env);
+  run('cargo', ['build', ...(process.env.WEB_BUILD_STD === '1' ? ['-Z', 'build-std=std,panic_abort'] : []), '--locked', '-p', game, '--target', 'wasm32-unknown-unknown', '--no-default-features', '--features', features, ...(profile === 'release' ? ['--release'] : [])], env);
   const staging = `${output}.partial-${process.pid}`;
   mkdirSync(staging, { recursive: true });
   try {
