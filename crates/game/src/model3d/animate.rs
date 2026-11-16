@@ -467,12 +467,11 @@ fn apply(state: &RigState, player: &mut AnimationPlayer) {
 mod tests {
     use super::*;
 
-    /// P-1d : un joueur sans curseur qui vise (hors de la fenêtre) ne regarde pas toujours à droite (la
-    /// rotation 0 de l'arme) : il suit sa marche, puis son regard. Un ennemi garde le regard de la
-    /// simulation (sa cible) même s'il recule.
+    /// P-1d : le joueur (à curseur) garde l'ordre d'avant, validé : l'esquive, la visée, la marche, le regard. Un
+    /// ennemi garde le regard de la simulation (sa cible) même s'il recule ou revient à son poste.
     #[test]
     fn the_body_follows_the_cursor_then_the_walk_and_an_enemy_its_target() {
-        let (right, left, up) = (Vec2::X, Vec2::NEG_X, Vec2::Y);
+        let (right, left, up) = (Vec2::X * 2.0, Vec2::NEG_X * 2.0, Vec2::Y);
         // Joueur : l'esquive, la visée, la marche, le regard.
         assert_eq!(body_heading(Some(up), Some(right), left, Some(left), true), Some(up));
         assert_eq!(body_heading(None, Some(right), left, Some(left), true), Some(right));

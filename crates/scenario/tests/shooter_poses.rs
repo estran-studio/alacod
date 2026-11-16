@@ -127,14 +127,18 @@ fn rig_new_shooters(
     }
 }
 
-/// Les frames (consécutives) où `clip` est le clip joué, première et dernière.
+/// La première plage de frames consécutives où `clip` est le clip joué : (première, dernière).
 fn span(series: &Series, clip: &str) -> Option<(u32, u32)> {
-    let frames: Vec<u32> = series
-        .iter()
-        .filter(|(_, c, _)| c == clip)
-        .map(|(f, ..)| *f)
-        .collect();
-    Some((*frames.first()?, *frames.last()?))
+    let mut frames = series.iter().filter(|(_, c, _)| c == clip).map(|(f, ..)| *f);
+    let first = frames.next()?;
+    let mut last = first;
+    for frame in frames {
+        if frame != last + 1 {
+            break;
+        }
+        last = frame;
+    }
+    Some((first, last))
 }
 
 #[test]
@@ -182,8 +186,7 @@ fn the_shooters_of_the_real_room_play_their_whole_cycle() {
         );
         let end = series
             .iter()
-            .rev()
-            .find(|(_, c, _)| c == "rechargement")
+            .find(|(f, c, _)| c == "rechargement" && *f == r1)
             .map(|(_, _, seek)| *seek)
             .unwrap();
         assert!(end > 1.85, "{shooter}: le clip finit à {end} s sur 2 s : rechargement incomplet");

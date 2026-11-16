@@ -812,7 +812,9 @@ mod tests {
         assert_eq!(eight.round(20f32.to_radians()), 0.0);
         assert!((eight.round(30f32.to_radians()) - FRAC_PI_4).abs() < 1e-6);
         assert!((eight.round(-100f32.to_radians()) + PI / 2.0).abs() < 1e-6);
-        assert!((BodyDirections::Sixteen.round(30f32.to_radians()) - PI / 8.0 * 2.0).abs() < 1e-6);
+        // Seize directions : 30° tombe sur la plus proche (22,5°), 35° sur la suivante (45°).
+        assert!((BodyDirections::Sixteen.round(30f32.to_radians()) - PI / 8.0).abs() < 1e-6);
+        assert!((BodyDirections::Sixteen.round(35f32.to_radians()) - PI / 4.0).abs() < 1e-6);
         assert_eq!(BodyDirections::Free.round(0.3), 0.3);
         let model: ModelDef = ron::from_str(
             r#"(glb: "m.glb", manifest: "m.json", frame_m: (3.0, 3.0), pivot: (0.5, 0.2), height_m: 1.8,

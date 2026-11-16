@@ -508,7 +508,7 @@ mod tests {
             ..default()
         });
         assert_eq!((raise.clip.as_str(), raise.fade), ("fire", 0.08));
-        assert!(matches!(raise.timing, Timing::At(u) if (u - 0.1 / (8.0 / 24.0)).abs() < 1e-5));
+        assert!(matches!(raise.timing, Timing::At(u) if (u - 0.1 / manifest().duration("fire").unwrap()).abs() < 1e-5));
         let aim = at(PoseInput {
             trigger: true,
             trigger_for: 1.0,
