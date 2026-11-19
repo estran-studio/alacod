@@ -18,7 +18,7 @@ fn violations(frames: u32, clip_of: impl Fn(u32) -> (&'static str, f32)) -> Vec<
     let entity = world
         .spawn((
             ModelPlayback::playing("modele", IDLE, 2.0, 0.0),
-            FixedTransform3D::default(),
+            FixedTransform3D::IDENTITY,
             MeleeAttackState::default(),
         ))
         .id();
