@@ -32,8 +32,12 @@ fn violations(frames: u32, clip_of: impl Fn(u32) -> (&'static str, f32)) -> Vec<
     let mut out = Vec::new();
     for frame in 1..=frames {
         let (clip, time) = clip_of(frame);
-        *world.get_mut::<ModelPlayback>(entity).unwrap() = ModelPlayback::playing("modele", clip, 2.0, time);
-        world.get_mut::<MeleeAttackState>(entity).unwrap().is_attacking = frame >= 10;
+        *world.get_mut::<ModelPlayback>(entity).unwrap() =
+            ModelPlayback::playing("modele", clip, 2.0, time);
+        world
+            .get_mut::<MeleeAttackState>(entity)
+            .unwrap()
+            .is_attacking = frame >= 10;
         out.extend(queries.check(&mut world, &config, frame));
     }
     out
@@ -46,7 +50,13 @@ fn looping(frame: u32) -> f32 {
 
 #[test]
 fn a_character_that_strikes_with_a_strike_clip_that_advances_passes() {
-    let out = violations(60, |f| if f < 10 { (IDLE, looping(f)) } else { (STRIKE, looping(f)) });
+    let out = violations(60, |f| {
+        if f < 10 {
+            (IDLE, looping(f))
+        } else {
+            (STRIKE, looping(f))
+        }
+    });
     assert!(out.is_empty(), "{out:#?}");
 }
 
@@ -56,14 +66,22 @@ fn a_state_change_that_keeps_the_idle_clip_fails() {
     let out = violations(60, |f| (IDLE, looping(f)));
     assert_eq!(out.len(), 1, "{out:#?}");
     assert!(
-        out[0].contains("animation_vivante") && out[0].contains("coup de mêlée") && out[0].contains("celui de l'attente"),
+        out[0].contains("animation_vivante")
+            && out[0].contains("coup de mêlée")
+            && out[0].contains("celui de l'attente"),
         "{out:#?}"
     );
 }
 
 #[test]
 fn a_clip_that_stops_advancing_fails() {
-    let out = violations(80, |f| if f < 10 { (IDLE, looping(f)) } else { (STRIKE, 0.5) });
+    let out = violations(80, |f| {
+        if f < 10 {
+            (IDLE, looping(f))
+        } else {
+            (STRIKE, 0.5)
+        }
+    });
     assert_eq!(out.len(), 1, "{out:#?}");
     assert!(out[0].contains("figé"), "{out:#?}");
 }

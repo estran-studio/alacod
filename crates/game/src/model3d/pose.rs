@@ -172,18 +172,23 @@ pub fn choose(
     if input.trigger {
         if let Some(total) = duration(&poses.shoulder) {
             if input.trigger_for < total {
-                if let Some(choice) = gesture(&poses.shoulder, input.trigger_for / total, fades.shoulder) {
+                if let Some(choice) =
+                    gesture(&poses.shoulder, input.trigger_for / total, fades.shoulder)
+                {
                     return Some(choice);
                 }
             }
         }
-        if let Some(choice) = looping_gesture(manifest, poses, &poses.aim, input, moving, fades.aim) {
+        if let Some(choice) = looping_gesture(manifest, poses, &poses.aim, input, moving, fades.aim)
+        {
             return Some(choice);
         }
     }
     if let Some((u, _total)) = input.reload {
         if moving {
-            if let Some(choice) = looping_gesture(manifest, poses, &poses.reload, input, moving, fades.gait) {
+            if let Some(choice) =
+                looping_gesture(manifest, poses, &poses.reload, input, moving, fades.gait)
+            {
                 return Some(choice);
             }
         }
@@ -508,7 +513,9 @@ mod tests {
             ..default()
         });
         assert_eq!((raise.clip.as_str(), raise.fade), ("fire", 0.08));
-        assert!(matches!(raise.timing, Timing::At(u) if (u - 0.1 / manifest().duration("fire").unwrap()).abs() < 1e-5));
+        assert!(
+            matches!(raise.timing, Timing::At(u) if (u - 0.1 / manifest().duration("fire").unwrap()).abs() < 1e-5)
+        );
         let aim = at(PoseInput {
             trigger: true,
             trigger_for: 1.0,

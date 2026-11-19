@@ -24,7 +24,9 @@ fn a_shooter_with_only_an_idle_pose_misses_every_state_of_its_cycle() {
     let missing = missing_poses("model_poses_missing");
     for field in ["shoulder", "aim", "shoot", "reload", "hit"] {
         assert!(
-            missing.iter().any(|m| m.contains(&format!("poses.{field}`"))),
+            missing
+                .iter()
+                .any(|m| m.contains(&format!("poses.{field}`"))),
             "pose `{field}` non réclamée : {missing:#?}"
         );
     }

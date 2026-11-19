@@ -12,10 +12,11 @@
 //! `ALACOD_P1D_GAME_DIR=/chemin/du/jeu cargo test -p scenario --profile headless --no-default-features \
 //!   --test shooter_poses -- --ignored`. `ALACOD_P1D_SCENARIO` (défaut `salle_deux_joueurs`) choisit le scénario du jeu.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use bevy::prelude::*;
+use game::character::enemy::ai::state::RangedAttackState;
 use game::model3d::playback::ModelPlayback;
 use scenario::Scenario;
 
@@ -27,7 +28,8 @@ fn scenario_of_the_game() -> Scenario {
         panic!("à lancer sans le rendu (--no-default-features)");
     }
     let dir = PathBuf::from(
-        std::env::var("ALACOD_P1D_GAME_DIR").expect("ALACOD_P1D_GAME_DIR : le dossier du jeu à jouer"),
+        std::env::var("ALACOD_P1D_GAME_DIR")
+            .expect("ALACOD_P1D_GAME_DIR : le dossier du jeu à jouer"),
     );
     let name = std::env::var("ALACOD_P1D_SCENARIO").unwrap_or_else(|_| "salle_deux_joueurs".into());
     let text = std::fs::read_to_string(dir.join(format!("tests/scenarios/{name}.ron")))
@@ -45,12 +47,17 @@ fn game_name(scenario: &str) -> String {
     rest.split('"').nth(1).expect("nom du jeu").to_string()
 }
 
-fn play_the_room() -> BTreeMap<Entity, Series> {
+/// Le clip joué par frame de chaque personnage à modèle, et les tireurs (ceux qui portent un `RangedAttackState`).
+fn play_the_room() -> (BTreeMap<Entity, Series>, BTreeSet<Entity>) {
     let scenario = scenario_of_the_game();
     let mut series: BTreeMap<Entity, Series> = BTreeMap::new();
+    let mut shooters = BTreeSet::new();
     scenario::runner::run_visiting(&scenario, scenario.frames, |world, frame| {
-        let mut query = world.query::<(Entity, &ModelPlayback)>();
-        for (entity, playback) in query.iter(world) {
+        let mut query = world.query::<(Entity, &ModelPlayback, Has<RangedAttackState>)>();
+        for (entity, playback, shooter) in query.iter(world) {
+            if shooter {
+                shooters.insert(entity);
+            }
             if let (Some(clip), Some(time)) = (playback.clip(), playback.time()) {
                 series
                     .entry(entity)
@@ -59,12 +66,15 @@ fn play_the_room() -> BTreeMap<Entity, Series> {
             }
         }
     });
-    series
+    (series, shooters)
 }
 
 /// La première plage de frames consécutives où `clip` est le clip joué : (première, dernière).
 fn span(series: &Series, clip: &str) -> Option<(u32, u32)> {
-    let mut frames = series.iter().filter(|(_, c, _)| c == clip).map(|(f, ..)| *f);
+    let mut frames = series
+        .iter()
+        .filter(|(_, c, _)| c == clip)
+        .map(|(f, ..)| *f);
     let first = frames.next()?;
     let mut last = first;
     for frame in frames {
@@ -79,13 +89,16 @@ fn span(series: &Series, clip: &str) -> Option<(u32, u32)> {
 #[test]
 #[ignore = "joue le dépôt d'un jeu externe : ALACOD_P1D_GAME_DIR=<dossier du jeu>"]
 fn the_shooters_of_the_real_room_play_their_whole_cycle() {
-    let series = play_the_room();
-    assert!(!series.is_empty(), "aucun personnage à modèle dans la salle");
-    // Les tireurs de la salle : ceux qui épaulent au moins une fois. Il en faut quatre (les fantassins) : sinon la
-    // simulation les fait tirer sans qu'aucun geste ne soit joué (le verdict du 16 nov).
+    let (series, shooter_ids) = play_the_room();
+    assert!(
+        !series.is_empty(),
+        "aucun personnage à modèle dans la salle"
+    );
+    // Les tireurs postés de la salle (règle `Shoot`) qui épaulent au moins une fois. Il en faut quatre (les
+    // fantassins) : sinon la simulation les fait tirer sans qu'aucun geste ne soit joué (le verdict du 16 nov).
     let shooters: Vec<_> = series
         .iter()
-        .filter(|(_, s)| s.iter().any(|(_, c, _)| c == "epauler"))
+        .filter(|(who, s)| shooter_ids.contains(who) && s.iter().any(|(_, c, _)| c == "epauler"))
         .collect();
     assert!(
         shooters.len() >= 4,
@@ -124,7 +137,10 @@ fn the_shooters_of_the_real_room_play_their_whole_cycle() {
         assert!(a1 - a0 + 1 >= 55, "{who}: en joue {} frames", a1 - a0 + 1);
         let (r0, r1) = span(series, "rechargement").unwrap();
         let len = r1 - r0 + 1;
-        assert!((170..=190).contains(&len), "{who}: rechargement joué {len} frames (180 attendues)");
+        assert!(
+            (170..=190).contains(&len),
+            "{who}: rechargement joué {len} frames (180 attendues)"
+        );
         let middle = series
             .iter()
             .find(|(f, c, _)| c == "rechargement" && *f == r0 + len / 2)
@@ -139,7 +155,10 @@ fn the_shooters_of_the_real_room_play_their_whole_cycle() {
             .find(|(f, c, _)| c == "rechargement" && *f == r1)
             .map(|(_, _, seek)| *seek)
             .unwrap();
-        assert!(end > 1.85, "{who}: le clip finit à {end} s sur 2 s : rechargement incomplet");
+        assert!(
+            end > 1.85,
+            "{who}: le clip finit à {end} s sur 2 s : rechargement incomplet"
+        );
     }
 }
 

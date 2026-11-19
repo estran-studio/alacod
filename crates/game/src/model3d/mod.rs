@@ -24,8 +24,8 @@
 pub mod animate;
 pub mod materials;
 pub mod placement;
-pub mod pose;
 pub mod playback;
+pub mod pose;
 pub mod shooter;
 
 use std::collections::{BTreeMap, BTreeSet};

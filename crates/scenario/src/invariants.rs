@@ -140,6 +140,7 @@ impl InvariantQueries {
             clip: Option<String>,
             time: Option<f32>,
             unresolved: Option<String>,
+            looping: bool,
             position: (f32, f32),
         }
         let seen: Vec<Seen> = self
@@ -151,6 +152,7 @@ impl InvariantQueries {
                 clip: playback.clip().map(str::to_string),
                 time: playback.time(),
                 unresolved: playback.unresolved.clone(),
+                looping: playback.looping(),
                 position: (
                     transform.translation.x.to_num::<f32>(),
                     transform.translation.y.to_num::<f32>(),
@@ -195,7 +197,8 @@ impl InvariantQueries {
             }
             let lasting = frame.saturating_sub(h.label_since) >= ANIMATION_SETTLE_FRAMES;
             match label {
-                None if lasting => {
+                // L'attente boucle : un geste joué une fois et fini au repos (le tir d'une frame) n'en est pas une.
+                None if lasting && s.looping => {
                     h.rest.insert(clip.clone());
                 }
                 Some(label) if lasting && h.rest.contains(&clip) => {

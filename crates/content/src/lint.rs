@@ -1647,7 +1647,12 @@ enum Beat {
     Shot,
 }
 
-fn pattern_beats(pattern: &registry::PatternEntry, patterns: &Patterns, depth: u8, out: &mut Vec<Beat>) {
+fn pattern_beats(
+    pattern: &registry::PatternEntry,
+    patterns: &Patterns,
+    depth: u8,
+    out: &mut Vec<Beat>,
+) {
     use registry::PatternEntry;
     match pattern {
         PatternEntry::Sequence(children) => children
@@ -1722,9 +1727,14 @@ fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
         let first_shot = beats.iter().position(|b| matches!(b, Beat::Shot));
         let before = &beats[..first_shot.unwrap_or(beats.len())];
         let shoulder = before.iter().any(|b| matches!(b, Beat::Wait(n) if *n > 0));
-        let aim = beats.iter().any(|b| matches!(b, Beat::Telegraph(n) if *n > 0));
+        let aim = beats
+            .iter()
+            .any(|b| matches!(b, Beat::Telegraph(n) if *n > 0));
         if shoulder && poses.shoulder.is_none() {
-            missing("épaulé (attente avant le télégraphe de la salve)", "shoulder");
+            missing(
+                "épaulé (attente avant le télégraphe de la salve)",
+                "shoulder",
+            );
         }
         if aim && poses.aim.is_none() {
             missing("en joue (télégraphe de la salve)", "aim");

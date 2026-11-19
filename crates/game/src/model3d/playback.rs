@@ -74,6 +74,8 @@ pub(super) struct Track {
     /// Position dans le clip (s).
     pub(super) time: f32,
     pub(super) weight: f32,
+    /// Clip joué en boucle (attente, allure, en joue) ; un geste joué une fois (`Timing::At`) ne l'est pas.
+    pub(super) looping: bool,
 }
 
 impl ModelPlayback {
@@ -105,6 +107,7 @@ impl ModelPlayback {
             duration,
             time,
             weight: 1.0,
+            looping: true,
         });
         playback
     }
@@ -129,6 +132,11 @@ impl ModelPlayback {
     /// Durée du clip joué (s).
     pub fn duration(&self) -> Option<f32> {
         self.current.as_ref().map(|t| t.duration)
+    }
+
+    /// Le clip joué boucle-t-il (attente, allure, en joue) ? Un geste joué une fois (tir, épaulé, rechargement) : non.
+    pub fn looping(&self) -> bool {
+        self.current.as_ref().is_some_and(|t| t.looping)
     }
 }
 
@@ -294,7 +302,13 @@ pub fn decide_poses(
         let shot = match posted {
             (emitter, Some(ranged), Some(ai), cycle) => ai.ranged.as_ref().map(|r| {
                 let stagger = ai.ranged_cycle.as_ref().and_then(|c| c.stagger_frames);
-                shooter::read(f, emitter, ranged, r.cooldown_frames, cycle.map(|c| (c, stagger)))
+                shooter::read(
+                    f,
+                    emitter,
+                    ranged,
+                    r.cooldown_frames,
+                    cycle.map(|c| (c, stagger)),
+                )
             }),
             _ => None,
         };
@@ -398,6 +412,21 @@ pub fn decide_poses(
             Some(p) => p.over(&model.poses),
             None => model.poses.clone(),
         };
+        // Le geste du tir d'un tireur posté tient sa dernière image tant que sa séquence dure : une attente d'après tir
+        // plus longue que le clip (`Wait(35)` pour un clip de 32,5 frames) ne doit pas montrer l'attente entre le tir et
+        // le rechargement (banc `armes.js` A:694 : `tir` enchaîne sur `recharge`).
+        if let (Some(since), true) = (
+            input.since_shot,
+            shot.is_some_and(|s| s.since_shot.is_some()),
+        ) {
+            let total = poses.shoot.as_ref().and_then(|g| {
+                g.duration_s
+                    .or_else(|| g.still.as_deref().and_then(|c| manifest.duration(c)))
+            });
+            if let Some(total) = total {
+                input.since_shot = Some(since.min(total * 0.999));
+            }
+        }
         let choice = pose::choose(model, &poses, manifest, &input);
         state.object = choice.as_ref().and_then(|c| c.object.clone());
         state.muzzle_marker = poses.muzzle.clone();
@@ -443,6 +472,7 @@ fn step(state: &mut ModelPlayback, choice: &PoseChoice, duration: f32, dt: f32) 
             duration,
             time: 0.0,
             weight: 0.0,
+            looping: false,
         });
         if matches!(choice.timing, Timing::Loop(_)) && track.weight == 0.0 {
             track.time = phase.fract() * duration;
@@ -454,6 +484,7 @@ fn step(state: &mut ModelPlayback, choice: &PoseChoice, duration: f32, dt: f32) 
     }
     let fade = state.fade;
     if let Some(track) = state.current.as_mut() {
+        track.looping = matches!(choice.timing, Timing::Loop(_));
         match choice.timing {
             Timing::Loop(rate) => {
                 track.time = (track.time + dt * rate).rem_euclid(track.duration);
@@ -497,15 +528,16 @@ pub fn sim_activity(world: &World, entity: Entity, frame: u32) -> Option<&'stati
             .get::<EnemyAiConfig>()
             .and_then(|ai| ai.ranged.as_ref())
             .map_or(0, |r| r.cooldown_frames);
-        let until = entity
-            .get::<RangedCycle>()
-            .map_or(ranged.ready_at, |c| c.idle_from);
+        let until = shooter::reload_end(ranged, entity.get::<RangedCycle>());
         if cooldown > 0 && ranged.target.is_none() && frame < until && until - frame <= cooldown {
             return Some("rechargement");
         }
     }
     if let Some(inventory) = entity.get::<WeaponInventory>() {
-        if inventory.reloading_ending_frame.is_some_and(|end| end > frame) {
+        if inventory
+            .reloading_ending_frame
+            .is_some_and(|end| end > frame)
+        {
             return Some("rechargement");
         }
         let held = inventory
@@ -530,12 +562,24 @@ mod tests {
     fn the_body_follows_the_cursor_then_the_walk_and_an_enemy_its_target() {
         let (right, left, up) = (Vec2::X * 2.0, Vec2::NEG_X * 2.0, Vec2::Y);
         // Joueur : l'esquive, la visée, la marche, le regard.
-        assert_eq!(body_heading(Some(up), Some(right), left, Some(left), true), Some(up));
-        assert_eq!(body_heading(None, Some(right), left, Some(left), true), Some(right));
+        assert_eq!(
+            body_heading(Some(up), Some(right), left, Some(left), true),
+            Some(up)
+        );
+        assert_eq!(
+            body_heading(None, Some(right), left, Some(left), true),
+            Some(right)
+        );
         assert_eq!(body_heading(None, None, left, Some(up), true), Some(left));
-        assert_eq!(body_heading(None, None, Vec2::ZERO, Some(up), true), Some(up));
+        assert_eq!(
+            body_heading(None, None, Vec2::ZERO, Some(up), true),
+            Some(up)
+        );
         // Ennemi : le regard (vers sa cible) avant la marche (le recul, le retour au poste).
-        assert_eq!(body_heading(None, None, right, Some(left), false), Some(left));
+        assert_eq!(
+            body_heading(None, None, right, Some(left), false),
+            Some(left)
+        );
         assert_eq!(body_heading(None, None, right, None, false), Some(right));
         assert_eq!(body_heading(None, None, Vec2::ZERO, None, false), None);
     }

@@ -76,14 +76,28 @@ pub fn read(
     if cycle.is_some_and(|c| frame < c.staggered_until) {
         return read;
     }
-    // Fin du rechargement : la première frame où le tireur est de nouveau libre (`idle_from` du cycle,
-    // sinon la fin du refroidissement).
-    let end = cycle.map_or(ranged.ready_at, |c| c.idle_from);
-    if cooldown_frames > 0 && ranged.target.is_none() && frame < end && end - frame <= cooldown_frames
+    // Fin du rechargement : la première frame où le tireur est de nouveau libre.
+    let end = reload_end(ranged, cycle);
+    if cooldown_frames > 0
+        && ranged.target.is_none()
+        && frame < end
+        && end - frame <= cooldown_frames
     {
         read.reload = Some((cooldown_frames - (end - frame), cooldown_frames));
     }
     read
+}
+
+/// La frame où finit le rechargement d'un tireur : `idle_from` de son cycle posté, sinon la fin du refroidissement.
+/// La frame où la séquence finit (`ranged_attack` vient de poser `ready_at`, le cycle n'a pas encore recopié
+/// `idle_from` : `was_firing` sans cible), la fin est déjà `ready_at` : sinon une frame d'attente s'intercale entre le
+/// tir et le rechargement.
+pub fn reload_end(ranged: &RangedAttackState, cycle: Option<&RangedCycle>) -> u32 {
+    match cycle {
+        Some(c) if c.was_firing && ranged.target.is_none() => ranged.ready_at,
+        Some(c) => c.idle_from,
+        None => ranged.ready_at,
+    }
 }
 
 #[cfg(test)]
@@ -167,8 +181,28 @@ mod tests {
             read(379, None, &ranged, 180, Some((&cycle, Some(37)))).reload,
             Some((179, 180))
         );
-        assert_eq!(read(380, None, &ranged, 180, Some((&cycle, Some(37)))).reload, None);
-        assert_eq!(read(399, None, &ranged, 180, Some((&cycle, Some(37)))).reload, None);
+        assert_eq!(
+            read(380, None, &ranged, 180, Some((&cycle, Some(37)))).reload,
+            None
+        );
+        assert_eq!(
+            read(399, None, &ranged, 180, Some((&cycle, Some(37)))).reload,
+            None
+        );
+        // La frame où la séquence finit : `idle_from` est encore celui du cycle d'avant, `ready_at` vient d'être posé.
+        let ending = RangedCycle {
+            idle_from: 10,
+            was_firing: true,
+            ..Default::default()
+        };
+        let ranged = RangedAttackState {
+            target: None,
+            ready_at: 380,
+        };
+        assert_eq!(
+            read(200, None, &ranged, 180, Some((&ending, Some(37)))).reload,
+            Some((0, 180))
+        );
     }
 
     #[test]
@@ -200,6 +234,9 @@ mod tests {
             read(200, None, &ranged, 180, Some((&cycle, Some(37)))).hit,
             Some((0, 37))
         );
-        assert_eq!(read(237, None, &ranged, 180, Some((&cycle, Some(37)))).hit, None);
+        assert_eq!(
+            read(237, None, &ranged, 180, Some((&cycle, Some(37)))).hit,
+            None
+        );
     }
 }
