@@ -33,8 +33,37 @@ fn a_shooter_with_only_an_idle_pose_misses_every_state_of_its_cycle() {
     assert_eq!(missing.len(), 5, "{missing:#?}");
 }
 
+/// Toutes les erreurs du lint, sauf celles qu'un jeu minimal sans carte ni fichier d'armes porte par construction (l'arme
+/// `absente` de la règle `Shoot` et des `weapons` de models.ron est inconnue, `start_map` ne charge rien) : les tests verts
+/// échouent sur **toute** autre erreur, pas seulement sur `MissingPose`.
+fn unexpected_errors(fixture: &str) -> Vec<String> {
+    let (_, _, errors) = load_and_lint(&fixture_dir(fixture)).unwrap();
+    errors
+        .into_iter()
+        .map(|e| e.message)
+        .filter(|m| {
+            !m.contains("arme inconnue « absente »")
+                && !m.contains("weapons.absente : arme inconnue")
+                && !m.contains("entry.start_map")
+        })
+        .collect()
+}
+
 /// Vert : toutes les poses de l'état sont déclarées et résolues dans le manifeste.
 #[test]
 fn a_shooter_with_a_pose_per_state_is_accepted() {
-    assert_eq!(missing_poses("model_poses_complete"), Vec::<String>::new());
+    assert_eq!(
+        unexpected_errors("model_poses_complete"),
+        Vec::<String>::new()
+    );
+}
+
+/// Vert (revue P-1d, 3) : les gestes déclarés sur l'arme de la règle `Shoot` (`weapons` de models.ron) comptent, comme dans
+/// `decide_poses`, qui résout les poses de l'arme par-dessus celles du modèle.
+#[test]
+fn a_shooter_whose_gestures_are_on_its_weapon_is_accepted() {
+    assert_eq!(
+        unexpected_errors("model_poses_on_weapon"),
+        Vec::<String>::new()
+    );
 }

@@ -1695,8 +1695,7 @@ fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
                 ),
             });
         };
-        let poses = &model.poses;
-        let idle_everywhere = poses.idle.is_some()
+        let idle_everywhere = model.poses.idle.is_some()
             || (!model.weapons.is_empty() && model.weapons.values().all(|w| w.idle.is_some()));
         if !idle_everywhere {
             missing("attente", "idle");
@@ -1706,15 +1705,22 @@ fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         let Some(rule) = entry.behaviors.iter().flatten().find_map(|b| match b {
             registry::BehaviorEntry::Shoot {
+                weapon,
                 pattern,
                 cooldown_frames,
                 ..
-            } => Some((pattern, *cooldown_frames)),
+            } => Some((weapon, pattern, *cooldown_frames)),
             _ => None,
         }) else {
             continue;
         };
-        let (pattern, cooldown_frames) = rule;
+        let (weapon, pattern, cooldown_frames) = rule;
+        // Les poses que `decide_poses` résout pour ce tireur : celles de l'arme de sa règle `Shoot` (`models.ron`,
+        // `weapons`) par-dessus celles du modèle.
+        let poses = match model.weapons.get(weapon.as_str()) {
+            Some(on_weapon) => on_weapon.over(&model.poses),
+            None => model.poses.clone(),
+        };
         let mut beats = Vec::new();
         if let Some(found) = registry
             .patterns

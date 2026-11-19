@@ -18,14 +18,11 @@ use utils::net_id::GgrsNetId;
 const ANIMATION_SETTLE_FRAMES: u32 = 6;
 /// Frames sans que la position du clip joué bouge avant de le dire figé.
 const ANIMATION_STUCK_FRAMES: u32 = 30;
-/// Déplacement (unités du monde par frame) au-delà duquel un personnage marche.
-const ANIMATION_MOVING_UNITS: f32 = 0.15;
 
 /// Mémoire de l'invariant `animation_vivante` pour un personnage à modèle.
 #[derive(Default)]
 struct AnimationHistory {
     last_frame: Option<u32>,
-    last_position: Option<(f32, f32)>,
     /// Clips joués au repos (aucune activité de la simulation, à l'arrêt).
     rest: BTreeSet<String>,
     label: Option<&'static str>,
@@ -49,7 +46,7 @@ pub struct InvariantQueries {
         With<Rollback>,
     >,
     murs: QueryState<(&'static FixedTransform3D, &'static Collider), With<Wall>>,
-    animes: QueryState<(Entity, &'static ModelPlayback, &'static FixedTransform3D)>,
+    animes: QueryState<(Entity, &'static ModelPlayback)>,
     historiques: BTreeMap<Entity, AnimationHistory>,
 }
 
@@ -141,22 +138,21 @@ impl InvariantQueries {
             time: Option<f32>,
             unresolved: Option<String>,
             looping: bool,
-            position: (f32, f32),
+            held: bool,
+            moving: bool,
         }
         let seen: Vec<Seen> = self
             .animes
             .iter(world)
-            .map(|(entity, playback, transform)| Seen {
+            .map(|(entity, playback)| Seen {
                 entity,
                 model: playback.model.clone(),
                 clip: playback.clip().map(str::to_string),
                 time: playback.time(),
                 unresolved: playback.unresolved.clone(),
                 looping: playback.looping(),
-                position: (
-                    transform.translation.x.to_num::<f32>(),
-                    transform.translation.y.to_num::<f32>(),
-                ),
+                held: playback.held,
+                moving: playback.moving,
             })
             .collect();
         let alive: BTreeSet<Entity> = seen.iter().map(|s| s.entity).collect();
@@ -186,11 +182,8 @@ impl InvariantQueries {
             let Some(clip) = s.clip.clone() else {
                 continue;
             };
-            let moving = h.last_position.is_some_and(|(x, y)| {
-                (s.position.0 - x).hypot(s.position.1 - y) > ANIMATION_MOVING_UNITS
-            });
-            h.last_position = Some(s.position);
-            let label = activity.or(moving.then_some("déplacement"));
+            // Le déplacement est celui que la pose a lu (`ModelPlayback::moving`, même seuil que le choix de la marche).
+            let label = activity.or(s.moving.then_some("déplacement"));
             if label != h.label {
                 h.label = label;
                 h.label_since = frame;
@@ -210,8 +203,9 @@ impl InvariantQueries {
                 }
                 _ => {}
             }
-            // La position du clip avance tant que le clip joué ne change pas.
-            if h.clip.as_ref() == Some(&clip) && h.last_time == s.time {
+            // La position du clip avance tant que le clip joué ne change pas, sauf la dernière image tenue exprès
+            // (`ModelPlayback::held` : le tir d'un tireur posté jusqu'à la fin de sa séquence).
+            if h.clip.as_ref() == Some(&clip) && h.last_time == s.time && !s.held {
                 h.stuck_for += 1;
                 if h.stuck_for >= ANIMATION_STUCK_FRAMES {
                     let detail = format!(

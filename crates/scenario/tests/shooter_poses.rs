@@ -162,16 +162,12 @@ fn the_shooters_of_the_real_room_play_their_whole_cycle() {
     }
 }
 
-/// Le contrôle générique : aucun invariant du runner (dont `animation_vivante`) ne tombe sur la salle réelle.
+/// Le contrôle générique : la salle réelle passe le runner sans **aucune** failure (invariants dont `animation_vivante`, lint du
+/// contenu, trace) ; les attentes écrites du scénario sont retirées par `scenario_of_the_game`.
 #[test]
 #[ignore = "joue le dépôt d'un jeu externe : ALACOD_P1D_GAME_DIR=<dossier du jeu>"]
 fn the_real_room_passes_the_animation_invariant() {
     let scenario = scenario_of_the_game();
     let outcome = scenario::runner::run(&scenario);
-    let animation: Vec<&String> = outcome
-        .failures
-        .iter()
-        .filter(|f| f.contains("animation_vivante"))
-        .collect();
-    assert!(animation.is_empty(), "{animation:#?}");
+    assert!(outcome.failures.is_empty(), "{:#?}", outcome.failures);
 }

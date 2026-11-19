@@ -65,6 +65,12 @@ pub struct ModelPlayback {
     pub muzzle_marker: Option<String>,
     /// Pourquoi aucun clip ne joue : pose déclarée absente du manifeste, ou aucune pose ne convient.
     pub unresolved: Option<String>,
+    /// La dernière image d'un geste joué une fois est **tenue exprès** tant que l'état de la simulation dure (le tir d'un
+    /// tireur posté jusqu'à la fin de sa séquence) : sa position ne bouge plus, sans que le lecteur soit bloqué.
+    pub held: bool,
+    /// Le personnage marche selon la pose choisie (vitesse au sol ≥ `pose::STILL_BELOW`) : la même mesure que la
+    /// sélection du clip, lue par l'invariant `animation_vivante` au lieu d'un second seuil.
+    pub moving: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -95,6 +101,8 @@ impl ModelPlayback {
             object: None,
             muzzle_marker: None,
             unresolved: None,
+            held: false,
+            moving: false,
         }
     }
 
@@ -346,6 +354,7 @@ pub fn decide_poses(
             },
             ..default()
         };
+        state.moving = input.speed >= pose::STILL_BELOW;
         if let Some(d) = dashing {
             if !state.dashing {
                 state.dashes = state.dashes.wrapping_add(1);
@@ -407,14 +416,21 @@ pub fn decide_poses(
                 .map(|(done, total)| (done as f32 / total as f32, total as f32 / SIM_HZ));
         }
 
-        let weapon_poses = active.and_then(|(w, _, _)| model.weapons.get(&w.config.name));
-        let poses = match weapon_poses {
+        // Les poses de l'arme en main (`models.ron`, `weapons`) : l'arme active d'un joueur, ou l'arme de la règle `Shoot`
+        // d'un tireur posté ; le lint `MissingPose` suit la même résolution.
+        let weapon_name = active.map(|(w, _, _)| w.config.name.as_str()).or_else(|| {
+            shot.and(posted.2)
+                .and_then(|ai| ai.ranged.as_ref())
+                .map(|r| r.weapon.as_str())
+        });
+        let poses = match weapon_name.and_then(|name| model.weapons.get(name)) {
             Some(p) => p.over(&model.poses),
             None => model.poses.clone(),
         };
         // Le geste du tir d'un tireur posté tient sa dernière image tant que sa séquence dure : une attente d'après tir
         // plus longue que le clip (`Wait(35)` pour un clip de 32,5 frames) ne doit pas montrer l'attente entre le tir et
-        // le rechargement (banc `armes.js` A:694 : `tir` enchaîne sur `recharge`).
+        // le rechargement (banc `armes.js` A:694 : `tir` enchaîne sur `recharge`). `held` le dit à l'invariant.
+        state.held = false;
         if let (Some(since), true) = (
             input.since_shot,
             shot.is_some_and(|s| s.since_shot.is_some()),
@@ -424,6 +440,7 @@ pub fn decide_poses(
                     .or_else(|| g.still.as_deref().and_then(|c| manifest.duration(c)))
             });
             if let Some(total) = total {
+                state.held = since >= total * 0.999;
                 input.since_shot = Some(since.min(total * 0.999));
             }
         }
