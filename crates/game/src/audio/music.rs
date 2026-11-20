@@ -26,7 +26,7 @@ use harmonium_bevy::{
     ExternalClock, FollowConfig, GameClock, HarmoniumConfig, HarmoniumControl, HarmoniumPlugin,
     HarmoniumStatus, MusicClock, Phase, StyleProfile,
 };
-use harmonium_core::time_plan::{BarTiming, Swing, Tempo, correction::CorrectionPolicy};
+use harmonium_core::time_plan::{correction::CorrectionPolicy, BarTiming, Swing, Tempo};
 use utils::frame::FrameCount;
 
 use crate::session::{AppState, SIM_FPS};
@@ -496,7 +496,7 @@ mod continuite {
     use super::*;
     use bevy::{app::TaskPoolPlugin, asset::AssetPlugin, state::app::StatesPlugin};
     use content::manifest::PulseFrames;
-    use harmonium::{LiveHost, playback::PlaybackEngine};
+    use harmonium::{playback::PlaybackEngine, LiveHost};
     use std::time::{Duration, Instant};
 
     const RATE: u32 = 48_000;
@@ -558,9 +558,13 @@ mod continuite {
             config.main_bank = None;
             config.percussion_bank = None;
             let mut app = App::new();
-            app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default(), StatesPlugin))
-                .init_state::<AppState>()
-                .insert_resource(FrameCount { frame: 0 });
+            app.add_plugins((
+                TaskPoolPlugin::default(),
+                AssetPlugin::default(),
+                StatesPlugin,
+            ))
+            .init_state::<AppState>()
+            .insert_resource(FrameCount { frame: 0 });
             let t0 = Instant::now();
             app.insert_resource(Time::<Real>::new(t0));
             install(&mut app, control, config, pulse);
@@ -668,7 +672,9 @@ mod continuite {
             if ramps > 0 {
                 println!("continuité : {ramps} tampon(s) audible(s) isolé(s) avant l'ancrage (rampe du gain initial)");
                 if self.pause_stops_output {
-                    out.push(format!("{ramps} tampon(s) audible(s) avant l'ancrage malgré la pause"));
+                    out.push(format!(
+                        "{ramps} tampon(s) audible(s) avant l'ancrage malgré la pause"
+                    ));
                 }
             }
             let first_sound = (0..self.levels.len())
@@ -683,8 +689,10 @@ mod continuite {
                 return (None, out);
             };
             let end = self.wall.saturating_sub(Duration::from_millis(500));
-            let mut hole = |label: &str, runs: &mut Option<Duration>, t: Duration, quiet: bool| {
-                match (quiet, *runs) {
+            let mut hole =
+                |label: &str, runs: &mut Option<Duration>, t: Duration, quiet: bool| match (
+                    quiet, *runs,
+                ) {
                     (true, None) => *runs = Some(t),
                     (false, Some(from)) => {
                         if t - from >= MAX_HOLE {
@@ -698,8 +706,7 @@ mod continuite {
                         *runs = None;
                     }
                     _ => {}
-                }
-            };
+                };
             let mut silent = None;
             if judge_energy {
                 for (t, db) in self.levels.iter().filter(|(t, _)| *t >= start && *t < end) {
@@ -738,8 +745,9 @@ mod continuite {
         } else {
             "pause sans effet (ALSA)"
         };
-        let (main, percussion) =
-            banks.map_or((None, None), |(m, p)| (Some(m.as_slice()), Some(p.as_slice())));
+        let (main, percussion) = banks.map_or((None, None), |(m, p)| {
+            (Some(m.as_slice()), Some(p.as_slice()))
+        });
         let mut banc = Banc::new(main, percussion, pause_stops_output);
         // 0,5 s de chargement (hôte prêt, pas encore de partie), puis la partie : 16 s en tout.
         // À-coups : frame de 300 ms à 4 s et de 450 ms à 8 s (premier son, premier impact), ralenti `run_slow` de 11 à 12 s.
@@ -775,7 +783,8 @@ mod continuite {
                     anchor.as_secs_f64()
                 );
                 if start > anchor + Duration::from_secs(3) {
-                    incidents.push("la musique part plus de 3 s après l'entrée en partie".to_string());
+                    incidents
+                        .push("la musique part plus de 3 s après l'entrée en partie".to_string());
                 }
             }
         }
