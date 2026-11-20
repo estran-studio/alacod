@@ -352,3 +352,65 @@ fn epaule_tir_et_rechargement_depuis_la_manette() {
     let scenario = devices.recorded(&base);
     play("manette, arme à gestes", &scenario);
 }
+
+/// X-6d (§ 126) : un agrippeur s'accroche au pantin immobile (f64) ; le joueur s'en défait depuis l'entrée réelle (secouage au
+/// stick, aux touches, ou coup de mêlée) : décroché, il retombe étourdi (pose `stunned`). Sans geste, il resterait accroché
+/// jusqu'à f244 (`grab_bond_accroche`, `grab_secoue_lent`).
+const AGRIPPEUR: &str = r#"Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 140,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin")],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 95),
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 135),
+        Clip(who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 138),
+    ],
+)"#;
+
+/// Secoue : quatre alternances de direction, une toutes les 4 frames (`press` tient une direction, `release` la lâche).
+fn shake(devices: &mut Devices, mut press: impl FnMut(&mut Devices, i8)) {
+    devices.until(100);
+    for (n, side) in [-1i8, 1, -1, 1, -1].into_iter().enumerate() {
+        press(devices, side);
+        devices.until(104 + 4 * n as u32);
+    }
+    press(devices, 0);
+}
+
+#[test]
+fn agrippeur_secoue_au_stick() {
+    let base = base(AGRIPPEUR);
+    let mut devices = Devices::new(&base);
+    shake(&mut devices, |d, side| {
+        d.axis(GamepadAxis::LeftStickX, side as f32)
+    });
+    let scenario = devices.recorded(&base);
+    play("agrippeur, stick", &scenario);
+}
+
+#[test]
+fn agrippeur_secoue_au_clavier() {
+    let base = base(AGRIPPEUR);
+    let mut devices = Devices::new(&base);
+    shake(&mut devices, |d, side| {
+        d.key(KeyCode::KeyA, side < 0);
+        d.key(KeyCode::KeyD, side > 0);
+    });
+    let scenario = devices.recorded(&base);
+    play("agrippeur, clavier", &scenario);
+}
+
+#[test]
+fn agrippeur_frappe_depuis_la_manette() {
+    let base = base(AGRIPPEUR);
+    let mut devices = Devices::new(&base);
+    devices.until(110);
+    devices.button(GamepadButton::East, 1.0); // coup (B)
+    devices.until(112);
+    devices.button(GamepadButton::East, 0.0);
+    let scenario = devices.recorded(&base);
+    play("agrippeur, coup à la manette", &scenario);
+}
