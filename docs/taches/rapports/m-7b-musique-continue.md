@@ -14,7 +14,7 @@ harmonium n'est pas modifié (lecture seule) : ce qui relève de lui est au § 5
 | Lien avec « le bruit de collision » (demande du coordinateur) | Fait : la première lecture d'un son ne fait pas de frame longue | `logs/m-7b-mesure-premier-son.log` (§ 2.3) |
 | Correction dans l'engine | Fait | `gate_music` (pause **et** volume 0 tant qu'aucune horloge n'est posée), `follow_config` (micro-ajustement 5 % sur 16 pulsations) |
 | Enregistrements de 30 s de la salle de 1837 avec tirs, avant / après | Fait, avec une limite du VPS | `logs/m-7b-audio/` : jeu réel sur le VPS (`vps-avant.wav`, `vps-apres.wav`, `.png`) et banc à 60 Hz avec la musique de 1837 et ses sons de tir (`avant.wav`, `apres.wav`, `.png`) (§ 4) |
-| Contrôle rapide découpé | voir § 6 | `logs/m-7b-musique-check-rapide-4e1b2f3c.log` |
+| Contrôle rapide découpé | Fait, vert | `logs/m-7b-musique-check-rapide-d9c1727d.log` (§ 6) |
 | Aucune trace modifiée, frontière intacte | Fait | seul `crates/game/src/audio/music.rs` change dans le code du jeu (feature coupée par défaut) ; aucun système de `GgrsSchedule` |
 
 ## 2. Cause
@@ -119,7 +119,12 @@ $ banc, musique de 1837 (gigue_quebecoise 3600/129), 32 s : avant 14 incidents (
 ## 6. Contrôle rapide découpé
 
 Feu vert du coordinateur (20 nov, 20:00 UTC), `logs/m-7b-check-rapide-decoupe.sh` et `logs/m-7b-test-crates-decoupe.sh` (repris de M-7 suivi, garde 15 Go),
-cible `target-partage`, sur **`4e1b2f3c`**, journal `logs/m-7b-musique-check-rapide-4e1b2f3c.log`.
+cible `target-partage`, sur **`d9c1727d`** (tête de code ; les commits suivants sont des docs), journal `logs/m-7b-musique-check-rapide-d9c1727d.log` :
+`make format test_tools check_forbidden check_rollback_registration check_sim_boundary lint check_integration` code 0 (684 s) ; `test_crates` découpé code 0 (1 709 s) :
+« binaires joués : 57 / 56 tests d'intégration + lib/bins/doc ; failed : 0, codes non nuls : 0 » ; total 2 395 s ; binaires de tests purgés, `target-partage/release` retiré,
+sweep (15 Go), `/` à 42 Go. Un premier passage sur `2b399790` s'est arrêté à `test_tools` (`logs/m-7b-musique-check-rapide-2b399790-echec-forbidden.log`) :
+`Instant::now()` du banc manquait à `scripts/determinism-allowlist.json` ; exception justifiée ajoutée (`d9c1727d`). `make test_music` (feature `harmonium`,
+hors `check_rapide`) vert sur `4e1b2f3c` (`logs/m-7b-controle-vert-4e1b2f3c.log`, 6 tests) ; `d9c1727d` ne change que l'allowlist.
 
 ## 7. Ce qui reste
 
