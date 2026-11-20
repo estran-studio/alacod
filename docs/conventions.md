@@ -9187,8 +9187,9 @@ rien dans `GgrsSchedule`, aucun type rollback, aucune trace ne bouge ; le code t
   la charge, 1 Go) pour quelques secondes de jeu. Diagnostic : `ALACOD_CONTINUITE_MUSIQUE=profil:num/den`, `ALACOD_CONTINUITE_SECONDES=n`, `ALACOD_CONTINUITE_WAV=<dossier>` rendent la
   musique d'un jeu dans le banc et l'écrivent (`banc-pause.wav`, `banc-alsa.wav`).
 - **Écouter sans carte son** (`scripts/audio-capture.sh <dossier> <commande>`, `tools/alsa-pacer/pacer.c`) : un plugin ALSA « ioplug » chargé **par processus** (`ALSA_CONFIG_PATH`, jamais
-  un `~/.asoundrc`) consomme chaque flux au rythme réel et l'écrit dans son propre WAV (`flux-<pid>-<n>.wav`, flottant 32 bits, sur l'horloge murale depuis l'ouverture : un flux en pause
-  ou arrêté écrit du silence, deux flux d'un processus restent alignés) ; un flux en retard voit un vrai underrun (`-EPIPE`, silence à l'endroit exact) ; le `.log` voisin note format,
-  démarrages, pauses, underruns et, à la fermeture, la marge minimale du tampon et le plus long écart entre deux écritures. Exige gcc et `libasound2-dev`. kira ouvre aussi de courts flux de
-  sondage (fichiers de quelques octets, à ignorer). `scripts/audio-gaps.py <musique.wav> [--effects <effets.wav>]` : début de la musique, trous (défaut : 150 ms sous -60 dBFS), débuts
-  des effets et trous voisins ; code 1 s'il y a un trou.
+  un `~/.asoundrc`) consomme chaque flux au rythme réel et l'écrit dans son propre WAV (`flux-<pid>-<n>.wav`, flottant 32 bits, sur l'horloge murale depuis l'ouverture **de ce flux** :
+  un flux en pause ou arrêté écrit du silence) ; un flux en retard voit un vrai underrun (`-EPIPE`, silence à l'endroit exact) ; le `.log` voisin donne l'origine du fichier
+  (`monotonic=`, première ligne : kira et harmonium n'ouvrent pas au même instant), format, démarrages, pauses, underruns et, à la fermeture, la marge minimale du tampon et le plus long
+  écart entre deux écritures. Exige gcc et `libasound2-dev`. kira ouvre aussi de courts flux de sondage (fichiers de quelques octets, à ignorer). `scripts/audio-gaps.py <musique.wav>
+  [--effects <effets.wav>]` : début de la musique, trous (défaut : 150 ms sous -60 dBFS), débuts des effets **ramenés dans le repère de la musique** par les origines des journaux
+  (`--music-origin` / `--effects-origin` sinon ; origine inconnue : code 2) et trous voisins ; code 1 s'il y a un trou (test `scripts/tests/test_audio_gaps.py`, `make test_tools`).

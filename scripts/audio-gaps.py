@@ -2,22 +2,39 @@
 """Trous de la musique dans un enregistrement (M-7b, docs/conventions.md § 124).
 
 Lit le WAV d'un flux de musique (sortie de tools/alsa-pacer : flottant 32 bits, ou PCM 16 bits) et, en option, celui des
-effets sonores du même processus (même horloge murale), puis :
+effets sonores du même processus, puis :
   - énergie par fenêtre de 10 ms (dBFS) ;
   - début de la musique (première fenêtre au-dessus du seuil) ;
   - trous : au moins --min-gap-ms de fenêtres sous --silence-db après le début (la fin de fichier exclue : --tail-ms) ;
   - début de chaque effet (fenêtre au-dessus du seuil après au moins 100 ms de silence) et trous à moins d'une seconde
     d'un effet.
-Code de sortie : 0 sans trou, 1 avec au moins un trou, 2 fichier illisible ou musique absente.
+Chaque WAV du pacer commence à l'ouverture de **son** flux (kira et harmonium n'ouvrent pas au même instant) : les débuts
+d'effets sont ramenés dans le repère du WAV musical par les origines `monotonic=` des journaux voisins (`<flux>.log`),
+ou par --music-origin / --effects-origin (s, même horloge) quand un journal n'en a pas. Tous les instants affichés sont
+ceux du WAV musical.
+Code de sortie : 0 sans trou, 1 avec au moins un trou, 2 fichier illisible, musique absente ou origine inconnue.
 Sans dépendance (pas de numpy) : bibliothèque standard seule.
 """
 import argparse
 import array
 import math
+import re
 import struct
 import sys
+from pathlib import Path
 
 WINDOW_MS = 10
+
+
+def stream_origin(wav_path):
+    """Instant d'ouverture du flux (`monotonic=` de la première ligne du journal du pacer), `None` sans journal ou sans champ."""
+    log = Path(wav_path).with_suffix(".log")
+    try:
+        first = log.read_text(encoding="utf-8", errors="replace").splitlines()[0]
+    except (OSError, IndexError):
+        return None
+    match = re.search(r"\bmonotonic=([0-9.]+)", first)
+    return float(match.group(1)) if match else None
 
 
 def read_wav(path):
@@ -93,7 +110,9 @@ def onsets(levels, threshold, quiet_windows):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("music")
-    parser.add_argument("--effects", help="WAV des effets sonores du même processus (même horloge)")
+    parser.add_argument("--effects", help="WAV des effets sonores du même processus")
+    parser.add_argument("--music-origin", type=float, help="ouverture du flux de musique (s, horloge monotone) ; défaut : son journal")
+    parser.add_argument("--effects-origin", type=float, help="ouverture du flux d'effets (s, même horloge) ; défaut : son journal")
     parser.add_argument("--silence-db", type=float, default=-60.0)
     parser.add_argument("--min-gap-ms", type=int, default=150)
     parser.add_argument("--tail-ms", type=int, default=500)
@@ -131,8 +150,21 @@ def main():
             print(f"audio-gaps : {error}", file=sys.stderr)
             return 2
         e_levels = window_db(e_rate, e_channels, e_values)
-        effect_onsets = onsets(e_levels, args.silence_db, 100 // WINDOW_MS)
-        print(f"effets : {len(effect_onsets)} débuts : " + ", ".join(f"{i * WINDOW_MS / 1000:.2f}" for i in effect_onsets))
+        music_origin = args.music_origin if args.music_origin is not None else stream_origin(args.music)
+        effects_origin = args.effects_origin if args.effects_origin is not None else stream_origin(args.effects)
+        if music_origin is None or effects_origin is None:
+            print(
+                "audio-gaps : origine d'un flux inconnue (pas de `monotonic=` dans son journal) : --music-origin / --effects-origin",
+                file=sys.stderr,
+            )
+            return 2
+        # Fenêtre i du WAV des effets = fenêtre i + shift du WAV musical.
+        shift = round((effects_origin - music_origin) * 1000 / WINDOW_MS)
+        effect_onsets = [i + shift for i in onsets(e_levels, args.silence_db, 100 // WINDOW_MS)]
+        print(
+            f"effets : origine décalée de {shift * WINDOW_MS / 1000:+.2f} s ; {len(effect_onsets)} débuts (repère de la musique) : "
+            + ", ".join(f"{i * WINDOW_MS / 1000:.2f}" for i in effect_onsets)
+        )
     for a, b in gaps:
         near = [i for i in effect_onsets if a - 100 <= i <= b]
         tag = f" ; effet à {', '.join(f'{i * WINDOW_MS / 1000:.2f}' for i in near)} s" if near else ""

@@ -133,3 +133,17 @@ hors `check_rapide`) vert sur `4e1b2f3c` (`logs/m-7b-controle-vert-4e1b2f3c.log`
 - `make test_music` dans la nuit (`runs/nuit/nuit.sh`, coordinateur).
 - Harmonium (§ 5, D220) ; une frame de plus de ~650 ms fait encore sauter la musique (saut d'harmonium).
 - 1837 : changer le `rev` de l'engine après le merge (coordinateur 1837) ; rien à changer dans ses RON.
+
+## 8. Suivi de revue (P2 sur `160bc9e2`)
+
+`scripts/audio-gaps.py` comparait directement les index de fenêtres des deux WAV ; or le pacer fait commencer chaque WAV à l'ouverture de **son** flux (kira à
+l'ouverture du jeu, harmonium après ses banques) : une même seconde ne désignait pas le même instant. Les débuts d'effets sont maintenant ramenés dans le repère
+du WAV musical par les origines `monotonic=` des journaux voisins (`--music-origin` / `--effects-origin` sinon ; origine inconnue : code 2). Test
+`scripts/tests/test_audio_gaps.py` (deux origines décalées de +1 s et de -1,5 s, options, origine absente) : **rouge** sur l'ancien script (4 échecs,
+`logs/m-7b-audio-gaps-rouge.log`), **vert** après (`make test_tools` : 54 tests OK, `logs/m-7b-audio-gaps-vert.log`). Le commentaire de `pacer.c` et le § 124
+disaient à tort que deux flux d'un processus restaient alignés : corrigés.
+
+Chiffres : **inchangés** (`logs/m-7b-audio-gaps-analyse.log`). Les trous cités (§ 2, § 4) viennent du WAV musical seul ; les extraits VPS de 30 s étaient déjà
+découpés sur une origine commune (alignés par la fin du processus, où tous les flux se ferment), et l'analyse avec origines égales redonne les mêmes trous
+(avant : musique de 1,01 à 1,90 s puis silence ; après : un tampon à 1,29 s puis l'attente) ; les effets du banc sont mixés par ffmpeg aux instants du script.
+Seule la liste des « effets voisins » d'une analyse brute des flux (non citée au rapport) était décalée.

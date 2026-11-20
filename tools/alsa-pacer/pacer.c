@@ -3,12 +3,13 @@
  *
  * Plugin ALSA « ioplug » chargé par processus (ALSA_CONFIG_PATH, voir scripts/audio-capture.sh), jamais par un
  * ~/.asoundrc global. Chaque flux de sortie ouvert par le processus (kira, harmonium : deux flux cpal) devient un fichier
- * WAV à lui, sur l'horloge murale depuis l'ouverture du plugin :
+ * WAV à lui, sur l'horloge murale depuis l'ouverture de **ce flux** :
  *
  *   - la carte consomme les échantillons au rythme réel (CLOCK_MONOTONIC × fréquence), comme une vraie carte : un flux en
  *     retard voit un « underrun » (xrun signalé à l'application, -EPIPE, et silence dans le fichier à l'endroit exact) ;
- *   - un flux arrêté ou en pause écrit du silence (sans compter d'underrun) : les fichiers de deux flux d'un même processus
- *     restent alignés sur la même horloge ;
+ *   - un flux arrêté ou en pause écrit du silence (sans compter d'underrun) : son fichier suit l'horloge murale sans trou ;
+ *     deux flux d'un processus n'ouvrent pas au même instant : la première ligne du journal donne l'origine du fichier
+ *     (`monotonic=`, s), qui ramène les deux dans un même repère (scripts/audio-gaps.py) ;
  *   - à côté du WAV, un journal texte : ouverture, format, démarrages, arrêts, pauses, underruns (instant, durée) et, à la
  *     fermeture, la marge minimale du tampon (frames d'avance de l'application sur la carte) et le plus long écart entre
  *     deux écritures.
