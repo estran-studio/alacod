@@ -47,6 +47,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         characters: vec![],
         mode: None,
         ui: Vec::new(),
+        tags: Vec::new(),
     }
 }
 

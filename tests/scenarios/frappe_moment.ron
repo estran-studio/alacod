@@ -7,6 +7,7 @@
 // À regarder : appui bref f10 (coup f15, pantin qui frappe vers la droite) ; la cible n'est touchée qu'à la frame 24 du
 // jeu (9 frames après le départ, début de la fenêtre dérivée), jamais avant : compteur lu à 0 de f16 à f24, à 1 dès f25.
 Scenario(
+    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",

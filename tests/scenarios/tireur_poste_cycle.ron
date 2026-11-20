@@ -8,6 +8,7 @@
 // (rang 1) tire 40 frames plus tard (f103) ; pendant la recharge le tireur de gauche reste reculé, puis revient à son
 // poste (85) avant sa salve suivante (vers f195).
 Scenario(
+    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",

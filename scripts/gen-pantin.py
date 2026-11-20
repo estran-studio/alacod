@@ -245,6 +245,17 @@ def pose_roll(u):
     }
 
 
+def upper_hit(u):
+    # Coup reçu (T-3b) : le buste part en arrière, la tête suit, puis tout revient.
+    jolt = math.sin(math.pi * smooth(u))
+    return {
+        "chest": swing(180, 18 * jolt),
+        "head": swing(180, 14 * jolt),
+        "upper_arm.L": swing(0, 30 * jolt),
+        "upper_arm.R": swing(0, 30 * jolt),
+    }
+
+
 DIRS4 = [(0, ""), (45, "-fl"), (90, "-l"), (135, "-bl")]
 DIRS8 = DIRS4 + [(180, "-b"), (-135, "-br"), (-90, "-r"), (-45, "-fr")]
 
@@ -261,6 +272,8 @@ def clips():
     # M-6 (§ 116) : la frappe du coup tombe entre 45 % et 65 % du clip (`moments.strike.frappe`, fractions).
     out["strike"] = (0.35, lambda t: upper_strike(t / 0.35), {"frappe": [0.45, 0.65]})
     out["roll"] = (0.4, lambda t: pose_roll(t / 0.4), {})
+    # T-3b (§ 123) : coup reçu d'un tireur posté (pose `hit` du pantin tireur, `characters/tireur_pantin.ron`).
+    out["hit"] = (0.5, lambda t: upper_hit(t / 0.5), {})
     moving = {"vitesse": round(WALK_SPEED, 3)}
     for d, suffix in DIRS4:
         out["walk" + suffix] = (CYCLE_S, lambda t, d=d: {**legs_walk(d, t / CYCLE_S), **arms_swing(t / CYCLE_S)}, {**moving, "direction": d})

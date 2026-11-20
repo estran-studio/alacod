@@ -259,6 +259,7 @@ impl InputRecorder {
             characters: settings.characters,
             mode: settings.mode,
             ui: Vec::new(),
+            tags: Vec::new(),
         };
         if let Some((path, seed)) = &self.initial_map {
             scenario.map = path.clone();

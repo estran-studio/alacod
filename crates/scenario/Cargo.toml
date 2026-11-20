@@ -30,6 +30,10 @@ utils = { path = "../utils" }
 # D49 : `alacod-sim --log` (même version que `utils`, aucune crate nouvelle).
 tracing-subscriber = { version = "0.3.18", features = ["fmt", "env-filter"] }
 
+[dev-dependencies]
+# T-3b (`tests/gestes_entree_reelle.rs`) : le plugin leafwing de l'application, même version que `game`.
+leafwing-input-manager = "0.21.0"
+
 [features]
 # Bevy en bibliothèque partagée (voir `game`) : transmis à `game`.
 dev-dylib = ["game/dev-dylib"]

@@ -1,0 +1,29 @@
+// T-3b (testbed, docs/conventions.md § 123) : le cône annoncé d'un tireur posté suit le joueur, et son corps lui fait face. Un
+// `tireur_pantin` (le `tireur_poste` dessiné par le pantin) 80 px sous le joueur pose sa salve vers f22 (télégraphe f33 à f62) ;
+// le joueur part à droite pendant le télégraphe (f25 à f50) et s'arrête 62 px plus loin. `TelegraphAim` : la visée de
+// l'émetteur pointe vers le joueur à chaque relevé ; `ModelYaw` : le cap du corps (arrondi aux 8 directions du modèle) est
+// celui du joueur. Mêmes entrées que `tireur_poste_suit`.
+//
+// À regarder : le cône pivote avec le joueur, le pantin se tourne vers lui (de face, puis de trois quarts), la flèche le
+// touche vers f104.
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 110,
+    characters: [(character: "tireur_pantin", x: "424.0", y: "616.0", at_frame: 1)],
+    players: [
+        (inputs: [(from: 25, to: 50, buttons: [Right])]),
+    ],
+    expect: [
+        TelegraphAim(entity: Placed(0), handle: 0, max_deg: 1.0, at_frame: 35),
+        TelegraphAim(entity: Placed(0), handle: 0, max_deg: 1.0, at_frame: 45),
+        TelegraphAim(entity: Placed(0), handle: 0, max_deg: 1.0, at_frame: 55),
+        TelegraphAim(entity: Placed(0), handle: 0, max_deg: 1.0, at_frame: 61),
+        ModelYaw(who: Entity(Placed(0)), toward: Player(0), at_frame: 35),
+        ModelYaw(who: Entity(Placed(0)), toward: Player(0), at_frame: 58),
+        Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 45),
+        Health(handle: 0, max: Some(95.0), at_frame: 108),
+    ],
+)

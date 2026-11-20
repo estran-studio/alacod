@@ -28,7 +28,7 @@ use crate::character::player::input::{
 };
 use bevy_fixed::fixed_math::Fixed;
 pub use combat::weapons::expectations::{
-    DistanceTarget, EntityKind, EntityRef, Expectation, MapDoorState, RunStepExpectation,
+    DistanceTarget, EntityKind, EntityRef, Expectation, MapDoorState, RunStepExpectation, YawTarget,
 };
 pub use content::sandbox::{
     CharacterPlacement, ChestPlacement, ItemPlacement, ModifierSpec, ShelfPlacement, ShopSetup,
@@ -147,6 +147,11 @@ pub struct Scenario {
     /// (`game::ui::screens::model::ScreenScript`), jamais dans l'input rollback, aucune trace ne bouge.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ui: Vec<crate::ui::screens::model::UiStep>,
+    /// Étiquettes du scénario (T-3b, `docs/conventions.md` § 123) : `rapide` le range dans le jeu court de
+    /// `make check_integration` (`ALACOD_SCENARIO_TAG=rapide`) et d'`alacod test --tag rapide`. Métadonnée
+    /// du runner : jamais lue par la simulation, aucune trace ne bouge.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
 }
 
 /// Placement scripté d'un power-up (T2.5) : fait apparaître le power-up `id` (clé de

@@ -4,6 +4,7 @@
 //
 // À regarder : le suiveur passe au large du joueur 0 et rejoint la lumière du joueur 1.
 Scenario(
+    tags: ["rapide"],
     game: "testbed",
     map: "testbed/arene_vide.ldtk",
     frames: 520,

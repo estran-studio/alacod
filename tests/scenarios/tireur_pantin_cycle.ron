@@ -1,0 +1,47 @@
+// T-3b (testbed, docs/conventions.md § 123) : le cycle d'un tireur posté dessiné par un modèle, clip par clip (revue observée
+// de P-1d, § 4 : attente, épauler, en joue, tir tenu, rechargement étiré, retour au poste). Un `tireur_pantin` (le
+// `tireur_poste` dessiné par le pantin) posé à la frame 1 en haut à gauche du joueur immobile : salve vers f22 (geste de 10
+// frames, télégraphe de 30, une flèche, 20 frames de geste), recharge de 60 frames (clip `reload` de 1,2 s joué une fois,
+// étiré sur 1 s : vitesse 1,2), recul puis retour au poste en marchant, seconde salve vers f153.
+//
+// À regarder : `gun-idle` (f1-22), `shoulder` (f23-31), `aim` et cône (f32-62), `shoot` dont la dernière image est tenue
+// (f63-82), `reload` de 0 à 1,2 s (f82-141), `gun-walk` vers le poste (f142-153), puis `shoulder` de la salve suivante.
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 165,
+    characters: [
+        (character: "tireur_pantin", x: "360.0", y: "640.0", at_frame: 1),
+    ],
+    players: [
+        (inputs: []),
+    ],
+    expect: [
+        // Attente : la boucle de l'arme, au rythme du manifeste
+        Clip(who: Entity(Placed(0)), clip: "gun-idle", once: false, at_frame: 15),
+        ClipSpeed(who: Entity(Placed(0)), min: 0.99, max: 1.01, at_frame: 15),
+        // Épaulé : l'attente avant le télégraphe, joué une fois
+        Clip(who: Entity(Placed(0)), clip: "shoulder", once: true, at_frame: 26),
+        ClipProgress(who: Entity(Placed(0)), min: 0.4, max: 0.7, at_frame: 26),
+        // En joue : le télégraphe, en boucle, cône vers le joueur, corps tourné vers lui
+        Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 45),
+        TelegraphAim(entity: Placed(0), handle: 0, max_deg: 1.0, at_frame: 45),
+        ModelYaw(who: Entity(Placed(0)), toward: Player(0), at_frame: 45),
+        // Tir : joué une fois, dernière image tenue jusqu'à la fin de la séquence
+        Clip(who: Entity(Placed(0)), clip: "shoot", once: true, at_frame: 70),
+        ClipProgress(who: Entity(Placed(0)), min: 0.3, max: 0.6, at_frame: 70),
+        ClipProgress(who: Entity(Placed(0)), min: 0.99, max: 1.0, at_frame: 81),
+        ClipSpeed(who: Entity(Placed(0)), max: 0.01, at_frame: 81),
+        // Rechargement : le clip de 1,2 s joué une fois, étiré sur les 60 frames de la recharge
+        Clip(who: Entity(Placed(0)), clip: "reload", once: true, at_frame: 100),
+        ClipSpeed(who: Entity(Placed(0)), min: 1.15, max: 1.25, at_frame: 100),
+        ClipProgress(who: Entity(Placed(0)), min: 0.9, max: 1.0, at_frame: 140),
+        // Retour au poste : l'allure de l'arme, face au joueur
+        Clip(who: Entity(Placed(0)), clip: "gun-walk", once: false, at_frame: 148),
+        ModelYaw(who: Entity(Placed(0)), toward: Player(0), at_frame: 148),
+        // Salve suivante
+        Clip(who: Entity(Placed(0)), clip: "shoulder", once: true, at_frame: 158),
+    ],
+)

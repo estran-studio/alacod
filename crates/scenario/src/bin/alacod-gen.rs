@@ -16,6 +16,8 @@
 //! - `--no-trace` : ne compare ni n'écrit aucune trace (seules les attentes comptent).
 //! - `--written` : inclut aussi `<jeu>/tests/scenarios/*.ron` (T-1, `alacod test`).
 //!   Leurs traces sont obligatoires, même avec `--no-trace` (réservé aux générés).
+//! - `--tag <étiquette>` (T-3b, `docs/conventions.md` § 123) : seulement les scénarios écrits dont
+//!   `tags` contient l'étiquette (`rapide` : le jeu court d'`alacod test --tag rapide`), sans génération.
 //! - `--out <dossier>` : où écrire scénarios et traces (défaut : `tests/scenarios/generated/<jeu>`
 //!   de l'engine ; pour un jeu hors de l'engine, `<jeu>/tests/generated`).
 //! - `--json` : un tableau JSON des résultats sur stdout au lieu du tableau texte.
@@ -48,17 +50,18 @@ fn main() {
     let only: Option<Vec<String>> =
         option_value(&args, "--only").map(|v| v.split(',').map(str::to_string).collect());
     let out_override = option_value(&args, "--out").map(PathBuf::from);
+    let tag = option_value(&args, "--tag");
     // Le dossier du jeu est le premier argument positionnel (hors valeurs d'options).
     let game_dir = args
         .iter()
         .enumerate()
         .find(|(i, a)| {
             !a.starts_with("--")
-                && !(*i > 0 && matches!(args[i - 1].as_str(), "--only" | "--out"))
+                && !(*i > 0 && matches!(args[i - 1].as_str(), "--only" | "--out" | "--tag"))
         })
         .map(|(_, a)| PathBuf::from(a))
         .unwrap_or_else(|| {
-            panic!("usage : alacod-gen <games/jeu> [--play] [--bless] [--only id] [--list] [--no-trace] [--out dossier] [--json]")
+            panic!("usage : alacod-gen <games/jeu> [--play] [--bless] [--only id] [--tag étiquette] [--list] [--no-trace] [--out dossier] [--json]")
         });
 
     let game_name = game_dir
@@ -92,7 +95,7 @@ fn main() {
         std::env::set_var("ALACOD_GAME_DIR", absolute);
     }
 
-    let mut written = if include_written {
+    let mut written = if include_written || tag.is_some() {
         written_scenarios(&game_dir).unwrap_or_else(|error| {
             eprintln!("alacod-gen : {error}");
             std::process::exit(1);
@@ -100,11 +103,22 @@ fn main() {
     } else {
         Vec::new()
     };
+    if let Some(tag) = &tag {
+        written.retain(|path| tagged(path, tag));
+        if written.is_empty() {
+            eprintln!(
+                "alacod-gen : aucun scénario de {}/tests/scenarios étiqueté « {tag} »",
+                game_dir.display()
+            );
+            std::process::exit(2);
+        }
+    }
     // Un id écrit, qualifié ou court, ne dépend pas de la génération du contenu.
-    let only_written = only.as_ref().is_some_and(|ids| {
-        ids.iter()
-            .all(|id| written.iter().any(|path| matches_written(path, id)))
-    });
+    let only_written = tag.is_some()
+        || only.as_ref().is_some_and(|ids| {
+            ids.iter()
+                .all(|id| written.iter().any(|path| matches_written(path, id)))
+        });
     let mut generation_ok = true;
     let mut generated = if only_written {
         Vec::new()
@@ -280,6 +294,14 @@ fn written_id(path: &Path) -> String {
 
 fn matches_written(path: &Path, id: &str) -> bool {
     id == written_id(path) || path.file_stem().is_some_and(|stem| stem == id)
+}
+
+/// Le scénario écrit porte-t-il l'étiquette ? Illisible ou invalide : gardé, pour que l'erreur se voie au jeu.
+fn tagged(path: &Path, tag: &str) -> bool {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|source| scenario::Scenario::from_ron(&source).ok())
+        .is_none_or(|scenario| scenario.tags.iter().any(|t| t == tag))
 }
 
 struct RunCase<'a> {

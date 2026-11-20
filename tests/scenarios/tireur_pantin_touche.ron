@@ -1,0 +1,33 @@
+// T-3b (testbed, docs/conventions.md § 123) : touché pendant le télégraphe, un tireur posté dessiné par un modèle joue le coup
+// reçu (`hit`, pose de `ranged_cycle.stagger_frames`) et perd sa salve. Mêmes entrées que `tireur_poste_touche` : un
+// `tireur_pantin` 80 px sous le joueur pose sa salve vers f22 (télégraphe f33) ; le joueur lui tire dessus une fois (appui
+// f28, balle au contact vers f43).
+//
+// À regarder : `aim` puis `hit` dès le contact (f43-72, cap gelé), aucune flèche à l'heure de la salve perdue ; la salve
+// suivante repart (`shoulder` vers f85, `aim`, `shoot` vers f126).
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 140,
+    characters: [(character: "tireur_pantin", x: "424.0", y: "616.0", at_frame: 1)],
+    players: [
+        (inputs: [
+            (from: 28, to: 29, buttons: [Fire], pan: (0, -100)),
+            (from: 29, to: 140, buttons: [], pan: (0, -100)),
+        ]),
+    ],
+    expect: [
+        Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 40),
+        // Coup reçu : joué une fois, sur toute la stupeur
+        Clip(who: Entity(Placed(0)), clip: "hit", once: true, at_frame: 50),
+        ClipProgress(who: Entity(Placed(0)), min: 0.85, max: 1.0, at_frame: 71),
+        // Salve perdue : aucune flèche à l'heure de la salve
+        BulletCount(count: 0, projectile: Some("arrow"), team: Some(Enemies), at_frame: 65),
+        // Puis le cycle reprend
+        Clip(who: Entity(Placed(0)), clip: "shoulder", once: true, at_frame: 89),
+        Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 110),
+        Clip(who: Entity(Placed(0)), clip: "shoot", once: true, at_frame: 133),
+    ],
+)

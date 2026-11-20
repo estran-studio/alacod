@@ -7,6 +7,7 @@
 // À regarder : le porteur tombe (f≈30), une clé reste au sol, le joueur 2 la ramasse (f≈90 ; le HUD des clés d'équipe affiche `cle_test`),
 // puis le joueur 1 passe devant la porte et l'ouvre (f≈260) ; le HUD des clés se vide.
 Scenario(
+    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/portes_cle.ldtk",

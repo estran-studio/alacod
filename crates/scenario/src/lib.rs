@@ -8,6 +8,7 @@
 pub mod events;
 pub mod generate;
 pub mod invariants;
+pub mod model_expect;
 pub mod nav_debug;
 pub mod runner;
 pub mod softlock;

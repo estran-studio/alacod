@@ -5,6 +5,7 @@
 // À regarder : touché pendant le télégraphe, le tireur perd sa salve (aucune flèche vers f63) et reste sonné 30 frames ;
 // après une attente tirée de 10 à 20 frames il repart et tire vers f125 ; le joueur n'est touché qu'alors.
 Scenario(
+    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",

@@ -42,8 +42,47 @@
                     aim: Some((still: Some("aim"), moving: Some("aim-walk"))),
                     reload: Some((still: Some("reload"), moving: Some("reload-walk"))),
                 ),
+                // T-3b (§ 123) : l'arme à gestes (`arme_a_gestes`, épaulé de 9 frames) jouée par le pantin des tests
+                // d'entrée réelle (`crates/scenario/tests/gestes_entree_reelle.rs`) : mêmes clips que le pistolet.
+                "arme_a_gestes": (
+                    object: Some("gun"),
+                    muzzle: Some("muzzle"),
+                    idle: Some("gun-idle"),
+                    walk: Some("gun-walk"),
+                    shoot: Some((still: Some("shoot"), moving: Some("shoot-walk"))),
+                    shoulder: Some((still: Some("shoulder"))),
+                    aim: Some((still: Some("aim"), moving: Some("aim-walk"))),
+                    reload: Some((still: Some("reload"), moving: Some("reload-walk"))),
+                ),
             },
             dash: ["roll"],
+        ),
+        // T-3b (§ 123) : le tireur posté `tireur_pantin` (`characters/tireur_pantin.ron`) dessiné par le même pantin. Les
+        // poses de l'arme de sa règle `Shoot` (`fireball_gun`) passent par-dessus celles du modèle (P-1d, § 122) : épaulé =
+        // attente avant le télégraphe, en joue = télégraphe, tir, rechargement = `cooldown_frames`, coup reçu = `hit`.
+        "tireur_pantin": (
+            glb: "models/pantin/anime.glb",
+            manifest: "models/pantin/anime.json",
+            frame_m: (2.8, 2.8),
+            pivot: (0.5, 0.2),
+            height_m: 1.8,
+            poses: (
+                idle: Some("idle"),
+                walk: Some("walk"),
+                hit: Some((still: Some("hit"))),
+            ),
+            weapons: {
+                "fireball_gun": (
+                    object: Some("gun"),
+                    muzzle: Some("muzzle"),
+                    idle: Some("gun-idle"),
+                    walk: Some("gun-walk"),
+                    shoot: Some((still: Some("shoot"))),
+                    shoulder: Some((still: Some("shoulder"))),
+                    aim: Some((still: Some("aim"))),
+                    reload: Some((still: Some("reload"))),
+                ),
+            },
         ),
     },
 )

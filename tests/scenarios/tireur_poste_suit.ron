@@ -6,6 +6,7 @@
 // À regarder : la flèche part vers la nouvelle position du joueur et le touche (−5) ; avec le témoin, elle part vers
 // l'ancienne et le manque.
 Scenario(
+    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
