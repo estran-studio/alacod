@@ -1,0 +1,30 @@
+// X-6d (testbed, conventions §126) : secoué (comme `grab_secoue_clavier`), l'`agrippeur` retombe étourdi aux pieds du joueur ; le joueur
+// recule vers l'est, se retourne et le frappe deux fois pendant l'étourdissement : il ne bouge ni ne riposte, et perd de la santé.
+//
+// À regarder : l'agrippeur assis et sonné encaisse deux coups sans bouger.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 220,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [
+        (from: 100, to: 104, buttons: [Left]),
+        (from: 104, to: 108, buttons: [Right]),
+        (from: 108, to: 112, buttons: [Left]),
+        (from: 112, to: 116, buttons: [Right]),
+        (from: 116, to: 120, buttons: [Left]),
+        (from: 125, to: 135, buttons: [Right]),
+        (from: 140, to: 141, buttons: [Melee], pan: (-100, 0)),
+        (from: 170, to: 171, buttons: [Melee], pan: (-100, 0)),
+    ])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 130),
+        EntityHealth(net_id: 30, min: 30.0, max: 30.0, at_frame: 130),
+        EnemyPosition(entity: Placed(0), x_min: Some(422.0), x_max: Some(424.0), at_frame: 130),
+        EnemyPosition(entity: Placed(0), x_min: Some(410.0), x_max: Some(424.0), at_frame: 200),
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 200),
+        EntityHealth(net_id: 30, max: 20.0, at_frame: 200),
+        Health(handle: 0, min: 100.0, at_frame: 200),
+    ],
+)

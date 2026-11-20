@@ -67,3 +67,28 @@ fn a_shooter_whose_gestures_are_on_its_weapon_is_accepted() {
         Vec::<String>::new()
     );
 }
+
+/// X-6d (§ 126) rouge : un agrippeur (règle `Grab`) qui n'a que l'attente ; le bond, l'accroche et l'étourdissement réclament
+/// chacun leur pose (`leap`, `ride`, `stunned`).
+#[test]
+fn a_grabber_with_only_an_idle_pose_misses_its_leap_ride_and_daze() {
+    let missing = missing_poses("model_poses_grab_missing");
+    for field in ["leap", "ride", "stunned"] {
+        assert!(
+            missing
+                .iter()
+                .any(|m| m.contains(&format!("poses.{field}`"))),
+            "pose `{field}` non réclamée : {missing:#?}"
+        );
+    }
+    assert_eq!(missing.len(), 3, "{missing:#?}");
+}
+
+/// X-6d (§ 126) vert : les trois poses déclarées et résolues dans le manifeste.
+#[test]
+fn a_grabber_with_a_pose_per_state_is_accepted() {
+    assert_eq!(
+        unexpected_errors("model_poses_grab_complete"),
+        Vec::<String>::new()
+    );
+}

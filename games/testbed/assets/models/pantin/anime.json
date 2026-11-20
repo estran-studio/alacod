@@ -37,6 +37,18 @@
    0.0,
    12.0
   ],
+  "leap": [
+   0.0,
+   14.399999999999999
+  ],
+  "ride": [
+   0.0,
+   19.200000000000003
+  ],
+  "stunned": [
+   0.0,
+   28.799999999999997
+  ],
   "walk": [
    0.0,
    19.200000000000003
@@ -178,6 +190,9 @@
     "shoulder",
     "reload",
     "hit",
+    "leap",
+    "ride",
+    "stunned",
     "gun-walk",
     "aim-walk",
     "reload-walk",
@@ -216,6 +231,9 @@
   "strike": "une-main",
   "roll": "une-main",
   "hit": "une-main",
+  "leap": "une-main",
+  "ride": "une-main",
+  "stunned": "une-main",
   "walk": "une-main",
   "gun-walk": "une-main",
   "aim-walk": "une-main",

@@ -659,6 +659,7 @@ impl EnemyBehaviors {
                         | Behavior::Formation { .. }
                         | Behavior::ReturnHome { .. }
                         | Behavior::TakeCover { .. }
+                        | Behavior::Grab { .. }
                 )
             })
     }
@@ -706,6 +707,25 @@ pub enum CoverPhase {
     Hold { until: u32 },
 }
 
+/// Phase de [`Behavior::Grab`] (X-6d, §126). L'accroche elle-même (porteur, secouage, durée) est le
+/// composant `sim_core::grab::Riding`, posé pendant `Ride`.
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq)]
+pub enum GrabPhase {
+    #[default]
+    Idle,
+    /// Ramassé (immobile) jusqu'à `until` (exclue), puis bond vers la position de la cible à cet instant.
+    Crouch { until: u32 },
+    /// Bond vers `target` jusqu'au contact, au point ou à `until` (exclue).
+    Leap {
+        until: u32,
+        target: (fixed_math::Fixed, fixed_math::Fixed),
+    },
+    /// Accroché à un joueur (`Riding`).
+    Ride,
+    /// Étourdi (immobile, sans attaque) jusqu'à `until` (exclue).
+    Dazed { until: u32 },
+}
+
 /// T1.4 : état rollback des behaviors nouveaux (`KeepDistance`, `Strafe`, `Charge`, `Flee`,
 /// `Wander`, `ReturnHome`), posé **seulement** sur les ennemis qui en listent un
 /// ([`EnemyBehaviors::needs_runtime`]) ; checksum neutre (aucun ennemi existant n'en porte).
@@ -747,6 +767,12 @@ pub struct BehaviorRuntime {
     /// lit sur ce front descendant, jamais sur `ready_at` : `first_wait`, recul de coup et attente
     /// tirée de `ranged_cycle` le repoussent sans qu'aucune salve ne finisse).
     pub cover_shooting: bool,
+    /// X-6d : phase de `Grab`.
+    pub grab: GrabPhase,
+    /// X-6d : première frame où un nouveau bond peut partir.
+    pub grab_ready_at: u32,
+    /// X-6d : frame d'une morsure accrochée et sa cible (dégât émis la frame suivante, `CollisionDamage`).
+    pub grab_bite: Option<(u32, GgrsNetId)>,
 }
 
 impl BehaviorRuntime {
@@ -758,6 +784,11 @@ impl BehaviorRuntime {
     /// Champs de X-6c actifs : seuls eux entrent dans `Hash` et `Debug`.
     fn cover_active(&self) -> bool {
         self.cover != CoverPhase::Idle || self.cover_pending || self.cover_shooting
+    }
+
+    /// Champs de X-6d actifs : seuls eux entrent dans `Hash` et `Debug`.
+    fn grab_active(&self) -> bool {
+        self.grab != GrabPhase::Idle || self.grab_ready_at != 0 || self.grab_bite.is_some()
     }
 }
 
@@ -785,6 +816,11 @@ impl std::hash::Hash for BehaviorRuntime {
             self.cover_pending.hash(state);
             self.cover_shooting.hash(state);
         }
+        if self.grab_active() {
+            self.grab.hash(state);
+            self.grab_ready_at.hash(state);
+            self.grab_bite.hash(state);
+        }
     }
 }
 
@@ -810,6 +846,11 @@ impl std::fmt::Debug for BehaviorRuntime {
             dump.field("cover", &self.cover)
                 .field("cover_pending", &self.cover_pending)
                 .field("cover_shooting", &self.cover_shooting);
+        }
+        if self.grab_active() {
+            dump.field("grab", &self.grab)
+                .field("grab_ready_at", &self.grab_ready_at)
+                .field("grab_bite", &self.grab_bite);
         }
         dump.finish()
     }

@@ -1,0 +1,17 @@
+// X-6d (testbed, conventions §126) : l'`agrippeur` accroché (f64) ralentit le pantin (`MoveSpeed` × 0,5 : 62 → 31) ; le joueur marche
+// vers l'est de f100 à f160. Témoin sans agrippeur : `grab_gene_temoin` (deux fois plus loin) ; avec déviation : `grab_devie`.
+//
+// À regarder : le pantin, l'agrippeur sur les épaules, avance deux fois moins vite que dans le témoin, en ligne droite.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 180,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [(from: 100, to: 160, buttons: [Right])])],
+    expect: [
+        Stat(handle: 0, stat: MoveSpeed, value: 31.0, at_frame: 120),
+        PlayerPosition(handle: 0, x: 455.0, y: 696.0, tolerance: 0.5, at_frame: 175),
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 175),
+    ],
+)

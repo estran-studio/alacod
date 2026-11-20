@@ -6,6 +6,8 @@ pub mod behavior;
 pub mod charm;
 // P-1 (§110) : cycle d'un tireur posté (visée qui suit, attente tirée, coup reçu, recul, retour).
 pub mod cycle;
+// X-6d (§126) : agrippeur (`Grab`).
+pub mod grab;
 pub mod navigation;
 pub mod obstacle;
 mod retreat;

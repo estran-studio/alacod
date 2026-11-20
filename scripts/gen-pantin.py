@@ -256,6 +256,55 @@ def upper_hit(u):
     }
 
 
+def pose_leap(u):
+    # Bond d'un agrippeur (X-6d, § 126) : il se ramasse (40 % du clip), puis s'étend bras en avant, jambes repliées.
+    crouch = smooth(u / 0.4)
+    fly = smooth((u - 0.4) / 0.3)
+    return {
+        "hips_y": 0.95 - 0.35 * crouch * (1 - fly) - 0.1 * fly,
+        "chest": swing(0, 25 * crouch * (1 - fly) + 15 * fly),
+        "thigh.L": swing(0, 70 * crouch * (1 - fly) + 60 * fly),
+        "thigh.R": swing(0, 70 * crouch * (1 - fly) + 60 * fly),
+        "shin.L": swing(0, -100 * crouch * (1 - fly) - 90 * fly),
+        "shin.R": swing(0, -100 * crouch * (1 - fly) - 90 * fly),
+        "upper_arm.L": swing(0, -30 * crouch * (1 - fly) + 150 * fly),
+        "upper_arm.R": swing(0, -30 * crouch * (1 - fly) + 150 * fly),
+    }
+
+
+def pose_ride(t):
+    # Accroché sur les épaules du porteur (X-6d) : assis à califourchon, il s'agrippe et talonne (boucle de 0,8 s).
+    kick = math.sin(2 * math.pi * t / 0.8)
+    return {
+        "hips_y": 0.55,
+        "chest": swing(0, 10 + 5 * kick),
+        "thigh.L": qmul(swing(0, 80), swing(-90, 25)),
+        "thigh.R": qmul(swing(0, 80), swing(90, 25)),
+        "shin.L": swing(0, -70 - 25 * kick),
+        "shin.R": swing(0, -70 + 25 * kick),
+        "upper_arm.L": swing(0, 100 + 10 * kick),
+        "upper_arm.R": swing(0, 100 - 10 * kick),
+        "forearm.L": swing(0, 40),
+        "forearm.R": swing(0, 40),
+    }
+
+
+def pose_stunned(t):
+    # Décroché, assis par terre et sonné (X-6d) : la tête et le buste tournent en rond (boucle de 1,2 s).
+    a = 2 * math.pi * t / 1.2
+    return {
+        "hips_y": 0.3,
+        "thigh.L": swing(-15, 85),
+        "thigh.R": swing(15, 85),
+        "shin.L": swing(0, -15),
+        "shin.R": swing(0, -15),
+        "chest": swing(math.degrees(a), 10),
+        "head": swing(math.degrees(a) + 90, 18),
+        "upper_arm.L": swing(0, 15),
+        "upper_arm.R": swing(0, 15),
+    }
+
+
 DIRS4 = [(0, ""), (45, "-fl"), (90, "-l"), (135, "-bl")]
 DIRS8 = DIRS4 + [(180, "-b"), (-135, "-br"), (-90, "-r"), (-45, "-fr")]
 
@@ -274,6 +323,10 @@ def clips():
     out["roll"] = (0.4, lambda t: pose_roll(t / 0.4), {})
     # T-3b (§ 123) : coup reçu d'un tireur posté (pose `hit` du pantin tireur, `characters/tireur_pantin.ron`).
     out["hit"] = (0.5, lambda t: upper_hit(t / 0.5), {})
+    # X-6d (§ 126) : poses de l'agrippeur du testbed (`leap` joué une fois, `ride` et `stunned` en boucle).
+    out["leap"] = (0.6, lambda t: pose_leap(t / 0.6), {})
+    out["ride"] = (0.8, pose_ride, {})
+    out["stunned"] = (1.2, pose_stunned, {})
     moving = {"vitesse": round(WALK_SPEED, 3)}
     for d, suffix in DIRS4:
         out["walk" + suffix] = (CYCLE_S, lambda t, d=d: {**legs_walk(d, t / CYCLE_S), **arms_swing(t / CYCLE_S)}, {**moving, "direction": d})

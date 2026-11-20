@@ -32,7 +32,7 @@ use super::{
     shelter::{find_shelter, Body, CoverBox},
     state::{
         BehaviorRuntime, ChargePhase, CoverPhase, EnemyAiConfig, EnemyBehaviors, EnemyTarget,
-        MonsterState, RangedAttackState, ReturnPhase, TargetType,
+        GrabPhase, MonsterState, RangedAttackState, ReturnPhase, TargetType,
     },
 };
 use crate::{
@@ -411,6 +411,8 @@ pub fn behavior_select_system(
             charge_ready: now >= runtime.charge_ready_at,
             returning: runtime.returning != ReturnPhase::Idle,
             sheltering: runtime.cover != CoverPhase::Idle,
+            grabbing: runtime.grab != GrabPhase::Idle,
+            grab_ready: now >= runtime.grab_ready_at,
             previous: runtime.selected.map(|index| index as usize),
         };
         let selected = if incapacitated {
@@ -713,6 +715,17 @@ pub fn behavior_motion(
             }
             _ => still(),
         }),
+        // X-6d : immobile ramassé, accroché (`move_enemies` le pose sur son porteur) et étourdi ; bond droit
+        // vers la position figée de la cible.
+        Behavior::Grab { leap_speed, .. } => Some(match &runtime.grab {
+            GrabPhase::Leap { target, .. } => BehaviorMotion {
+                direction: (fixed_math::FixedVec2::new(target.0, target.1) - position)
+                    .normalize_or_zero(),
+                speed_mult: leap_speed
+                    .unwrap_or(fixed_math::Fixed::from_num(behaviors::GRAB_LEAP_SPEED)),
+            },
+            _ => still(),
+        }),
         _ => None,
     }
 }
@@ -883,9 +896,9 @@ pub fn behavior_extra(
     }
 }
 
-/// Dégât de contact d'une ruée (`Charge`), décidée à la frame précédente (comme
-/// `enemy_attack_damage_translate_system` : un `DamageEvent` émis pendant `EnemyAI` serait
-/// perdu). `RollbackSystemSet::CollisionDamage`, avant le résolveur.
+/// Dégât de contact d'une ruée (`Charge`) et morsure d'un agrippeur accroché (`Grab`, X-6d), décidés à la
+/// frame précédente (comme `enemy_attack_damage_translate_system` : un `DamageEvent` émis pendant
+/// `EnemyAI` serait perdu). `RollbackSystemSet::CollisionDamage`, avant le résolveur.
 pub fn charge_damage_translate_system(
     frame: Res<FrameCount>,
     mut damage_events: ResMut<FrameEvents<DamageEvent>>,
@@ -904,25 +917,27 @@ pub fn charge_damage_translate_system(
         return;
     };
     for (net_id, team, tags, ai_config, runtime) in order_iter!(enemy_query) {
-        let Some((hit_frame, target)) = &runtime.charge_hit else {
-            continue;
-        };
-        if *hit_frame != previous_frame {
-            continue;
+        for (hit, kind) in [(&runtime.charge_hit, "charge"), (&runtime.grab_bite, "grab")] {
+            let Some((hit_frame, target)) = hit else {
+                continue;
+            };
+            if *hit_frame != previous_frame {
+                continue;
+            }
+            let mut tags = tags.cloned().unwrap_or_default();
+            tags.insert(Tag::new("melee"));
+            tags.insert(Tag::new(kind));
+            damage_events.send(DamageEvent {
+                source: net_id.clone(),
+                target: target.clone(),
+                kind: DamageKind::Physical,
+                amount: ai_config.attack_damage,
+                frame: frame.frame,
+                tags,
+                source_team: *team,
+                friendly_fire: ai_config.friendly_fire,
+            });
         }
-        let mut tags = tags.cloned().unwrap_or_default();
-        tags.insert(Tag::new("melee"));
-        tags.insert(Tag::new("charge"));
-        damage_events.send(DamageEvent {
-            source: net_id.clone(),
-            target: target.clone(),
-            kind: DamageKind::Physical,
-            amount: ai_config.attack_damage,
-            frame: frame.frame,
-            tags,
-            source_team: *team,
-            friendly_fire: ai_config.friendly_fire,
-        });
     }
 }
 

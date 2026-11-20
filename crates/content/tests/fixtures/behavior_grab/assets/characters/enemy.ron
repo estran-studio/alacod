@@ -1,0 +1,36 @@
+// X-6d : Grab derrière Chase (toujours applicable), données hors bornes : portée nulle, bond de 0 frame, accroche trop longue,
+// gêne nulle, secouage nul, fenêtre nulle, trop d'agrippeurs par porteur, morsure tous les 0 frames, déviation sans vitesse.
+(
+    movement: (
+        max_speed: "60.0",
+    ),
+    asset_name_ref: "enemy",
+    scale: "1.0",
+    base_health: (
+        max: "100.0",
+    ),
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+    tags: ["zombie"],
+    ai: Some((
+        behaviors: Some([
+            Chase(profile: "Ground"),
+            Grab(
+                reach: "0.0",
+                telegraph: 10,
+                leap_frames: 0,
+                hold: 601,
+                slow: "0.0",
+                sway: Some((speed: "0.0", period: 40)),
+                shake: 0,
+                shake_window: Some(0),
+                stun: 60,
+                cooldown: 30,
+                max_riders: 9,
+                bite_every: Some(0),
+            ),
+        ]),
+    )),
+)

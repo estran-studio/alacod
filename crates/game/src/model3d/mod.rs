@@ -77,7 +77,11 @@ impl Plugin for ModelRenderPlugin {
             )
             .add_systems(
                 PostUpdate,
-                (placement::offset_model_bullets, placement::y_sort)
+                (
+                    placement::offset_model_bullets,
+                    placement::ride_on_shoulders,
+                    placement::y_sort,
+                )
                     .chain()
                     .after(crate::display_interpolation::interpolate_transforms)
                     .after(bevy_fixed::fixed_math::sync_bevy_transforms_from_fixed)

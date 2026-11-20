@@ -1,0 +1,24 @@
+// X-6d (testbed, conventions §126) : trois `agrippeur` (deux au plus sur un même porteur) autour du pantin immobile : les deux premiers
+// s'accrochent, leurs gênes se multiplient (`MoveSpeed` 62 × 0,5 × 0,5 = 15,5) ; le troisième bondit sur un porteur déjà plein et
+// retombe sans s'accrocher.
+//
+// À regarder : deux agrippeurs sur les épaules du pantin, le troisième rebondit à côté sans prendre place.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [
+        (character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1),
+        (character: "agrippeur", x: "308.0", y: "696.0", at_frame: 1),
+        (character: "agrippeur", x: "580.0", y: "696.0", at_frame: 1),
+    ],
+    players: [(character: "pantin", inputs: [])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 100),
+        GrabState(entity: Placed(1), phase: Ride, carrier: Some(0), at_frame: 100),
+        GrabState(entity: Placed(2), phase: Leap, at_frame: 100),
+        GrabState(entity: Placed(2), phase: Idle, at_frame: 110),
+        Stat(handle: 0, stat: MoveSpeed, value: 15.5, at_frame: 100),
+    ],
+)

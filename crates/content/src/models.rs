@@ -97,6 +97,11 @@ pub struct ModelDef {
     /// Hauteur du personnage (m) : la barre de vie se pose au-dessus.
     #[schemars(extend("x-lint" = "> 0"))]
     pub height_m: f32,
+    /// Hauteur de l'ancre des épaules (m) : un agrippeur accroché à ce personnage (`Grab`, X-6d, §126) y
+    /// est dessiné. Sans ce champ : 0,8 × `height_m`.
+    #[serde(default)]
+    #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+    pub shoulders_m: Option<f32>,
     /// Au-delà de cette vitesse (m/s, au sol), l'allure `run` remplace `walk`.
     #[serde(default)]
     pub run_above_m_s: Option<f32>,
@@ -191,6 +196,16 @@ pub struct Poses {
     /// la stupeur (P-1d, banc `armes.js` A:744 : `touche`, fondu 0,04 s).
     #[serde(default)]
     pub hit: Option<Gesture>,
+    /// Bond d'un agrippeur (`Grab`, X-6d, §126 : ramassé puis en l'air) : le clip joue une fois, étiré sur le
+    /// télégraphe et le bond.
+    #[serde(default)]
+    pub leap: Option<Gesture>,
+    /// Agrippeur accroché à son porteur (`Grab`) : le clip boucle, dessiné sur l'ancre des épaules du porteur.
+    #[serde(default)]
+    pub ride: Option<Gesture>,
+    /// Agrippeur décroché et étourdi (`Grab`) : le clip boucle.
+    #[serde(default)]
+    pub stunned: Option<Gesture>,
 }
 
 /// Un geste : son clip à l'arrêt et sa variante en marchant.
@@ -226,10 +241,13 @@ impl Poses {
             reload: self.reload.clone().or_else(|| base.reload.clone()),
             melee: self.melee.clone().or_else(|| base.melee.clone()),
             hit: self.hit.clone().or_else(|| base.hit.clone()),
+            leap: self.leap.clone().or_else(|| base.leap.clone()),
+            ride: self.ride.clone().or_else(|| base.ride.clone()),
+            stunned: self.stunned.clone().or_else(|| base.stunned.clone()),
         }
     }
 
-    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 6] {
+    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 9] {
         [
             ("shoot", &self.shoot),
             ("aim", &self.aim),
@@ -237,6 +255,9 @@ impl Poses {
             ("reload", &self.reload),
             ("melee", &self.melee),
             ("hit", &self.hit),
+            ("leap", &self.leap),
+            ("ride", &self.ride),
+            ("stunned", &self.stunned),
         ]
     }
 }

@@ -546,6 +546,58 @@ pub enum BehaviorEntry {
         #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
         max_frames: Option<u32>,
     },
+    /// X-6d (§126) : mirroir de `behaviors::Behavior::Grab` (agrippeur : bond, accroche, gêne,
+    /// décrochage au secouage ou à la mêlée, étourdi).
+    Grab {
+        /// Distance de la cible en deçà de laquelle il se ramasse pour bondir (unités).
+        #[schemars(extend("x-lint" = "> 0"))]
+        reach: FixedField,
+        /// Frames ramassé avant le bond (télégraphe).
+        telegraph: u32,
+        /// Multiplicateur de la vitesse du bond (absent : 3).
+        #[serde(default)]
+        #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+        leap_speed: Option<FixedField>,
+        /// Durée maximale du bond (frames).
+        #[schemars(extend("x-lint" = "> 0"))]
+        leap_frames: u32,
+        /// Durée maximale accroché (frames).
+        #[schemars(extend("x-lint" = "> 0"))]
+        hold: u32,
+        /// Facteur de vitesse du porteur par agrippeur accroché.
+        #[schemars(extend("x-lint" = "]0, 1]"))]
+        slow: FixedField,
+        /// Déviation du porteur (absent : aucune).
+        #[serde(default)]
+        sway: Option<SwayEntry>,
+        /// Alternances de direction qui le décrochent.
+        #[schemars(extend("x-lint" = "> 0"))]
+        shake: u32,
+        /// Frames au plus entre deux alternances (absent : 20).
+        #[serde(default)]
+        #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+        shake_window: Option<u32>,
+        /// Frames étourdi après le décrochage.
+        stun: u32,
+        /// Frames d'attente avant un nouveau bond.
+        cooldown: u32,
+        /// Agrippeurs au plus sur un même porteur.
+        #[schemars(extend("x-lint" = "> 0"))]
+        max_riders: u32,
+        /// Frames entre deux morsures accroché (absent : aucune).
+        #[serde(default)]
+        #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
+        bite_every: Option<u32>,
+    },
+}
+
+/// X-6d : mirroir de `behaviors::Sway`.
+#[derive(schemars::JsonSchema, Debug, Clone, Deserialize)]
+pub struct SwayEntry {
+    #[schemars(extend("x-lint" = "> 0"))]
+    pub speed: FixedField,
+    #[schemars(extend("x-lint" = "> 0"))]
+    pub period: u32,
 }
 
 /// X-6b : mirroir de `behaviors::Zigzag`.

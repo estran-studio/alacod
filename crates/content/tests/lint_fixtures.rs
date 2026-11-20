@@ -1487,6 +1487,34 @@ fn behavior_take_cover_fixture_reports_trigger_order_and_bounds() {
     );
 }
 
+/// X-6d (§126) : `Grab` derrière `Chase` et chaque donnée hors bornes (le joueur ne perd jamais longtemps le contrôle).
+#[test]
+fn behavior_grab_fixture_reports_order_and_bounds() {
+    let (_, _, errors) = load_and_lint(&fixture_dir("behavior_grab")).unwrap();
+    for message in [
+        "Grab après Chase",
+        "Grab : reach = 0",
+        "Grab : leap_frames = 0",
+        "Grab : hold = 601",
+        "Grab : slow = 0",
+        "Grab : sway",
+        "Grab : shake = 0",
+        "Grab : shake_window = 0",
+        "Grab : max_riders = 9",
+        "Grab : bite_every = 0",
+    ] {
+        assert_has_error(&errors, LintErrorKind::OutOfRange, message);
+    }
+    assert_eq!(
+        errors
+            .iter()
+            .filter(|error| error.message.contains("Grab"))
+            .count(),
+        10,
+        "{errors:#?}"
+    );
+}
+
 #[test]
 fn behavior_unknown_profile_fixture_reports_chase_profile() {
     let (_, _, errors) = load_and_lint(&fixture_dir("behavior_unknown_profile")).unwrap();

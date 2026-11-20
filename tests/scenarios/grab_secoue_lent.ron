@@ -1,0 +1,22 @@
+// X-6d (testbed, conventions §126) : témoin de `grab_secoue_clavier` : le joueur alterne gauche et droite toutes les 30 frames (plus
+// que la fenêtre de 20 frames entre deux alternances) : le compte repart à chaque fois, l'agrippeur reste accroché.
+//
+// À regarder : le pantin va et vient lentement, l'agrippeur reste sur ses épaules.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [
+        (from: 100, to: 130, buttons: [Left]),
+        (from: 130, to: 160, buttons: [Right]),
+        (from: 160, to: 190, buttons: [Left]),
+        (from: 190, to: 220, buttons: [Right]),
+        (from: 220, to: 240, buttons: [Left]),
+    ])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 150),
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 238),
+    ],
+)

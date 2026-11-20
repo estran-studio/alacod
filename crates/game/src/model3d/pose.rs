@@ -31,8 +31,21 @@ pub struct PoseInput {
     pub reload: Option<(f32, f32)>,
     /// Coup reçu en cours (tireur posté) : avancement dans [0, 1] de la stupeur.
     pub hit: Option<f32>,
+    /// Agrippeur (`Grab`, X-6d, §126) : bond (avancement du télégraphe et du bond), accroché, étourdi.
+    pub grab: Option<GrabPose>,
     /// Fondus de ce personnage (ceux du joueur par défaut).
     pub fades: Fades,
+}
+
+/// État d'un agrippeur que la pose montre (`poses.leap`, `poses.ride`, `poses.stunned`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum GrabPose {
+    /// Ramassé puis en l'air : avancement dans [0, 1] (les 40 premiers % sont le télégraphe).
+    Leap(f32),
+    /// Accroché à son porteur (boucle).
+    Ride,
+    /// Décroché, étourdi (boucle).
+    Stunned,
 }
 
 /// La pose voulue : un clip et comment le lire.
@@ -149,6 +162,30 @@ pub fn choose(
                 object: poses.object.clone(),
                 fade: fades.dash,
             });
+        }
+    }
+    // X-6d : l'agrippeur en l'air, accroché ou étourdi (aucun autre geste ne peut alors avoir lieu).
+    if let Some(grab) = input.grab {
+        let choice = match grab {
+            GrabPose::Leap(u) => gesture(&poses.leap, u, fades.dash),
+            GrabPose::Ride | GrabPose::Stunned => {
+                let g = if grab == GrabPose::Ride {
+                    &poses.ride
+                } else {
+                    &poses.stunned
+                };
+                g.as_ref().and_then(|g| {
+                    Some(PoseChoice {
+                        clip: g.still.clone()?,
+                        timing: Timing::Loop(1.0),
+                        object: g.object.clone().or_else(|| poses.object.clone()),
+                        fade: fades.hit,
+                    })
+                })
+            }
+        };
+        if let Some(choice) = choice {
+            return Some(choice);
         }
     }
     if let Some(u) = input.hit {

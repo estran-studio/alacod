@@ -1,0 +1,29 @@
+// X-6d (testbed, conventions §126) : l'`agrippeur` accroché (f64) ; le joueur secoue au clavier, gauche et droite toutes les 4 frames
+// de f100 à f120 (4 alternances, la fenêtre est de 20 frames) : l'agrippeur se décroche, retombe étourdi 90 frames, attend 60 frames.
+// Secouage trop lent : `grab_secoue_lent` ; même geste depuis le vrai clavier et la manette : `gestes_entree_reelle`.
+//
+// À regarder : le pantin se tortille, l'agrippeur tombe assis et sonné, puis se relève et court de nouveau vers lui.
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [
+        (from: 100, to: 104, buttons: [Left]),
+        (from: 104, to: 108, buttons: [Right]),
+        (from: 108, to: 112, buttons: [Left]),
+        (from: 112, to: 116, buttons: [Right]),
+        (from: 116, to: 120, buttons: [Left]),
+    ])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 110),
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 130),
+        Stat(handle: 0, stat: MoveSpeed, value: 62.0, at_frame: 130),
+        Clip(who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 150),
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 205),
+        GrabState(entity: Placed(0), phase: Idle, at_frame: 225),
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 225),
+    ],
+)

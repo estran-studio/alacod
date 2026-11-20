@@ -220,13 +220,19 @@ pub fn move_enemies(
                 Option<&combat::status::Statuses>,
                 // M2-T0c : phase courante d'un boss.
                 Option<&behaviors::BossState>,
+                // X-6d (§126) : accroché à un joueur (`Grab`) : posé sur son porteur.
+                Option<&sim_core::grab::Riding>,
             ),
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
     >,
     player_query: Query<
-        (&GgrsNetId, &fixed_math::FixedTransform3D),
+        (
+            &GgrsNetId,
+            &fixed_math::FixedTransform3D,
+            Option<&FacingDirection>,
+        ),
         (With<Player>, Without<Enemy>),
     >,
     character_configs: Res<CharacterConfigs>,
@@ -341,9 +347,26 @@ pub fn move_enemies(
         enemy_target_opt,
         ai_config,
         wave_enemy,
-        (emitting, behavior_runtime, enemy_behaviors, statuses, boss),
+        (emitting, behavior_runtime, enemy_behaviors, statuses, boss, riding),
     ) in order_mut_iter!(enemy_query)
     {
+        // X-6d (§126) : un agrippeur accroché suit son porteur (même position, même regard), sans
+        // collision ni séparation : la frame est déjà jouée pour le joueur (`Movement`).
+        if let Some(riding) = riding {
+            if let Some((_, carrier, carrier_facing)) = player_query
+                .iter()
+                .find(|(player_id, ..)| player_id.0 == riding.carrier.0)
+            {
+                fixed_transform.translation.x = carrier.translation.x;
+                fixed_transform.translation.y = carrier.translation.y;
+                if let Some(carrier_facing) = carrier_facing {
+                    *facing_direction = *carrier_facing;
+                }
+            }
+            velocity_component.main = fixed_math::FixedVec2::ZERO;
+            velocity_component.knockback = fixed_math::FixedVec2::ZERO;
+            continue;
+        }
         // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
         // ignore la flow field et ne bouge jamais, quelle que soit sa cible. `false` par
         // défaut : aucun ennemi zombie existant n'est concerné. T1.2 : idem pendant un tir
@@ -554,7 +577,7 @@ pub fn move_enemies(
         // Initialize with FixedWide::MAX because distance_squared now returns FixedWide
         let mut min_dist_sq_to_player_fw = fixed_math::FixedWide::MAX;
 
-        for (_, player_fixed_transform) in player_query.iter() {
+        for (_, player_fixed_transform, _) in player_query.iter() {
             let player_pos_v2 = player_fixed_transform.translation.truncate();
             // enemy_pos_v2.distance_squared(&player_pos_v2) returns FixedWide
             let current_dist_sq_fw = enemy_pos_v2.distance_squared(&player_pos_v2);
@@ -711,8 +734,8 @@ pub fn move_enemies(
                             .and_then(|id| {
                                 player_query
                                     .iter()
-                                    .find(|(player_id, _)| *player_id == id)
-                                    .map(|(_, transform)| transform.translation.truncate())
+                                    .find(|(player_id, ..)| *player_id == id)
+                                    .map(|(_, transform, _)| transform.translation.truncate())
                             })
                             .or_else(|| {
                                 enemy_target_opt.and_then(|target| target.last_known_position)

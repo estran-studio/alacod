@@ -1,0 +1,9 @@
+// Fixture X-6d (§ 126) : model_poses_grab_complete
+(
+    name: "fixture-model_poses_grab_complete",
+    content_folders: [
+        (path: "characters/grabber.ron", kind: "Character"),
+        (path: "models/models.ron", kind: "Model"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

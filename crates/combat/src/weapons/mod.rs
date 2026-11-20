@@ -2131,6 +2131,8 @@ pub fn bullet_rollback_collision_system(
             Option<&crate::collider::Hurtbox>,
             // X-6a2 (§118) : un couvert arrête la balle de toutes les équipes.
             Option<&sim_core::cover::Cover>,
+            // X-6d (§126) : un agrippeur accroché au tireur n'est pas touché par ses balles.
+            Option<&sim_core::grab::Riding>,
         ),
         (Without<Bullet>, With<Rollback>),
     >,
@@ -2202,6 +2204,7 @@ pub fn bullet_rollback_collision_system(
                 target_dash,
                 target_hurtbox,
                 target_cover,
+                target_riding,
             )) = target_query.get(char_entry.entity)
             else {
                 continue;
@@ -2209,6 +2212,7 @@ pub fn bullet_rollback_collision_system(
             // D54 : le tir ami (`Always`, `Cursed`) ne touche jamais son propre tireur.
             // X-6a2 : un couvert ne passe pas par la règle d'équipe ni par l'invulnérabilité.
             if target_net_id.0 == bullet.source.0
+                || target_riding.is_some_and(|riding| riding.carrier.0 == bullet.source.0)
                 || (target_cover.is_none()
                     && (!team_allows_hit(
                         bullet.source_team,

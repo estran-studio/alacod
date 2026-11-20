@@ -40,6 +40,7 @@ pub mod animation_state;
 pub mod cover;
 pub mod damage;
 pub mod dash;
+pub mod grab;
 pub mod frame_events;
 pub mod gauge;
 pub mod kinds;

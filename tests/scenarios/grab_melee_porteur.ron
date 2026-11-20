@@ -1,0 +1,17 @@
+// X-6d (testbed, conventions §126) : l'`agrippeur` accroché (f64) ; le joueur donne un coup de mêlée (f100) : l'agrippeur se décroche
+// et retombe étourdi.
+//
+// À regarder : le pantin frappe, l'agrippeur tombe assis et sonné.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [(from: 100, to: 101, buttons: [Melee], pan: (-100, 0))])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 104),
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 110),
+        Stat(handle: 0, stat: MoveSpeed, value: 62.0, at_frame: 115),
+    ],
+)

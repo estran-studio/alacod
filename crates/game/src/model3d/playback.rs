@@ -27,7 +27,11 @@ use super::{
     shooter,
 };
 use crate::character::config::{CharacterConfigKey, CharacterConfigs};
-use crate::character::enemy::ai::{cycle::RangedCycle, state::RangedAttackState, EnemyAiConfig};
+use crate::character::enemy::ai::{
+    cycle::RangedCycle,
+    state::{BehaviorRuntime, EnemyBehaviors, GrabPhase, RangedAttackState},
+    EnemyAiConfig,
+};
 
 /// Fréquence de la simulation : les frames lues dans l'état deviennent des secondes.
 pub const SIM_HZ: f32 = 60.0;
@@ -247,6 +251,8 @@ pub fn decide_poses(
         Option<&CursorPosition>,
         // Tireur posté (P-1d) : son geste vient de sa séquence d'émetteur et de son refroidissement.
         Posted<'_>,
+        // X-6d (§126) : phases d'un agrippeur (`Grab`).
+        (Option<&BehaviorRuntime>, Option<&EnemyBehaviors>),
     )>,
     weapons: Query<(&Weapon, &WeaponState, &Transform)>,
     melee: Query<&MeleeWeapon>,
@@ -259,8 +265,18 @@ pub fn decide_poses(
     let u = table.def.units_per_meter;
     let (_, sin_e) = elevation(table);
 
-    for (mut playback, transform, dash, inventory, melee_state, facing, children, cursor, posted) in
-        &mut characters
+    for (
+        mut playback,
+        transform,
+        dash,
+        inventory,
+        melee_state,
+        facing,
+        children,
+        cursor,
+        posted,
+        (runtime, behaviors),
+    ) in &mut characters
     {
         let state = &mut *playback;
         let Some((model, manifest)) = table.get(&state.model) else {
@@ -415,6 +431,7 @@ pub fn decide_poses(
                 .reload
                 .map(|(done, total)| (done as f32 / total as f32, total as f32 / SIM_HZ));
         }
+        input.grab = grab_pose(runtime, behaviors, f);
 
         // Les poses de l'arme en main (`models.ron`, `weapons`) : l'arme active d'un joueur, ou l'arme de la règle `Shoot`
         // d'un tireur posté ; le lint `MissingPose` suit la même résolution.
@@ -467,6 +484,36 @@ pub fn decide_poses(
                 ));
             }
         }
+    }
+}
+
+/// Ce qu'un agrippeur (`Grab`, X-6d, §126) montre à la frame `f` : le bond (les 40 premiers % du clip pendant le
+/// télégraphe, le reste pendant le bond), l'accroche, l'étourdissement ; `None` hors de ces phases.
+pub fn grab_pose(
+    runtime: Option<&BehaviorRuntime>,
+    behaviors: Option<&EnemyBehaviors>,
+    f: u32,
+) -> Option<pose::GrabPose> {
+    let runtime = runtime?;
+    let (telegraph, leap_frames) = behaviors?.rules.iter().find_map(|rule| match rule {
+        behaviors::Behavior::Grab {
+            telegraph,
+            leap_frames,
+            ..
+        } => Some((*telegraph, *leap_frames)),
+        _ => None,
+    })?;
+    let left = |until: u32, total: u32| until.saturating_sub(f) as f32 / total.max(1) as f32;
+    match runtime.grab {
+        GrabPhase::Idle => None,
+        GrabPhase::Crouch { until } => Some(pose::GrabPose::Leap(
+            0.4 * (1.0 - left(until, telegraph)).clamp(0.0, 1.0),
+        )),
+        GrabPhase::Leap { until, .. } => Some(pose::GrabPose::Leap(
+            0.4 + 0.6 * (1.0 - left(until, leap_frames)).clamp(0.0, 1.0),
+        )),
+        GrabPhase::Ride => Some(pose::GrabPose::Ride),
+        GrabPhase::Dazed { .. } => Some(pose::GrabPose::Stunned),
     }
 }
 
@@ -523,6 +570,13 @@ pub fn sim_activity(world: &World, entity: Entity, frame: u32) -> Option<&'stati
     let entity = world.get_entity(entity).ok()?;
     if entity.get::<DashState>().is_some_and(|d| d.is_dashing) {
         return Some("esquive");
+    }
+    // X-6d (§126) : bond (ramassé compris), accroche, étourdissement d'un agrippeur.
+    match entity.get::<BehaviorRuntime>().map(|r| &r.grab) {
+        Some(GrabPhase::Crouch { .. } | GrabPhase::Leap { .. }) => return Some("bond"),
+        Some(GrabPhase::Ride) => return Some("accroché"),
+        Some(GrabPhase::Dazed { .. }) => return Some("étourdi"),
+        _ => {}
     }
     if entity
         .get::<MeleeAttackState>()

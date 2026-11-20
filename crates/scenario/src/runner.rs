@@ -1740,6 +1740,45 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 ))
             }
         }
+        Expectation::GrabState {
+            entity,
+            phase,
+            carrier,
+            ..
+        } => {
+            use combat::weapons::expectations::GrabPhaseName;
+            use game::character::enemy::ai::state::{BehaviorRuntime, GrabPhase};
+            let enemy = resolve_entity(world, entity).ok_or("entité absente")?;
+            let found = match world.get::<BehaviorRuntime>(enemy).map(|r| &r.grab) {
+                None | Some(GrabPhase::Idle) => GrabPhaseName::Idle,
+                Some(GrabPhase::Crouch { .. }) => GrabPhaseName::Crouch,
+                Some(GrabPhase::Leap { .. }) => GrabPhaseName::Leap,
+                Some(GrabPhase::Ride) => GrabPhaseName::Ride,
+                Some(GrabPhase::Dazed { .. }) => GrabPhaseName::Dazed,
+            };
+            if found != *phase {
+                return Err(format!("phase de Grab {found:?}, {phase:?} attendue"));
+            }
+            let Some(handle) = carrier else {
+                return Ok(());
+            };
+            let riding = world
+                .get::<sim_core::grab::Riding>(enemy)
+                .map(|riding| riding.carrier.0)
+                .ok_or_else(|| format!("pas accroché (joueur {handle} attendu)"))?;
+            let carrier_handle = world
+                .query::<(&GgrsNetId, &Player)>()
+                .iter(world)
+                .find(|(id, _)| id.0 == riding)
+                .map(|(_, player)| player.handle);
+            if carrier_handle == Some(*handle) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "accroché au joueur {carrier_handle:?}, joueur {handle} attendu"
+                ))
+            }
+        }
         Expectation::EnemyPosition {
             entity,
             x_min,

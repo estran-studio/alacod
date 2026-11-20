@@ -1703,6 +1703,24 @@ fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
         if entry.dash.declared && entry.dash.duration_frames > 0 && model.dash.is_empty() {
             missing("esquive", "dash");
         }
+        // X-6d (§126) : un agrippeur bondit (ramassé puis en l'air), s'accroche et retombe étourdi ; `decide_poses` lit
+        // ces trois poses dans `poses` du modèle.
+        if entry
+            .behaviors
+            .iter()
+            .flatten()
+            .any(|b| matches!(b, registry::BehaviorEntry::Grab { .. }))
+        {
+            if model.poses.leap.is_none() {
+                missing("bond de l'agrippeur", "leap");
+            }
+            if model.poses.ride.is_none() {
+                missing("agrippeur accroché", "ride");
+            }
+            if model.poses.stunned.is_none() {
+                missing("agrippeur étourdi", "stunned");
+            }
+        }
         let Some(rule) = entry.behaviors.iter().flatten().find_map(|b| match b {
             registry::BehaviorEntry::Shoot {
                 weapon,
@@ -3714,6 +3732,11 @@ fn lint_boss(
     }
 }
 
+/// X-6d (§126) : durée maximale accroché qu'un `Grab` peut déclarer (frames, 10 s à 60 Hz).
+pub const GRAB_MAX_HOLD: u32 = 600;
+/// X-6d (§126) : agrippeurs au plus sur un même porteur qu'un `Grab` peut déclarer.
+pub const GRAB_MAX_RIDERS: u32 = 8;
+
 /// Règles d'une liste de behaviors (personnage ou phase de boss) : références et plages.
 fn lint_rules(
     registry: &Registry,
@@ -3983,6 +4006,91 @@ fn lint_rules(
                             LintErrorKind::OutOfRange,
                             format!(
                                 "behaviors : TakeCover après {} : une règle qui le précède et s'applique le prive du repli ; le placer en tête de liste (seul Flee peut le précéder)",
+                                before.join(", ")
+                            ),
+                        );
+                    }
+                }
+            }
+            // X-6d (§126) : agrippeur. Bornes des données (le joueur ne doit jamais perdre longtemps le
+            // contrôle : accroche bornée à `GRAB_MAX_HOLD`) et ordre (seul `Flee` peut le précéder : derrière
+            // `Chase`/`Wander`/`Melee`… le bond n'aurait jamais la main, ni l'accroche une fois partie).
+            BehaviorEntry::Grab {
+                reach,
+                leap_speed,
+                leap_frames,
+                hold,
+                slow,
+                sway,
+                shake,
+                shake_window,
+                max_riders,
+                bite_every,
+                ..
+            } => {
+                let mut out_of_range = |message: String| {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        format!("behaviors : Grab : {message}"),
+                    )
+                };
+                if reach.get() <= Fixed::ZERO || reach.get() > Fixed::from_num(1000) {
+                    out_of_range(format!("reach = {} : doit être dans ]0, 1000]", reach.get()));
+                }
+                if leap_speed.is_some_and(|speed| speed.get() <= Fixed::ZERO) {
+                    out_of_range("leap_speed doit être > 0 (ou absent)".to_string());
+                }
+                if *leap_frames == 0 {
+                    out_of_range("leap_frames = 0 : doit être > 0".to_string());
+                }
+                if *hold == 0 || *hold > GRAB_MAX_HOLD {
+                    out_of_range(format!(
+                        "hold = {hold} : doit être dans ]0, {GRAB_MAX_HOLD}] (le joueur ne perd jamais longtemps le contrôle)"
+                    ));
+                }
+                if slow.get() <= Fixed::ZERO || slow.get() > Fixed::ONE {
+                    out_of_range(format!("slow = {} : doit être dans ]0, 1]", slow.get()));
+                }
+                if let Some(sway) = sway {
+                    if sway.speed.get() <= Fixed::ZERO || sway.period < 2 {
+                        out_of_range(format!(
+                            "sway : speed = {} et period = {} : doivent être > 0 et ≥ 2",
+                            sway.speed.get(),
+                            sway.period
+                        ));
+                    }
+                }
+                if *shake == 0 {
+                    out_of_range("shake = 0 : il ne se décrocherait qu'à la mêlée ou au bout de hold".to_string());
+                }
+                if *shake_window == Some(0) {
+                    out_of_range("shake_window = 0 : doit être > 0 (ou absent)".to_string());
+                }
+                if *max_riders == 0 || *max_riders > GRAB_MAX_RIDERS {
+                    out_of_range(format!(
+                        "max_riders = {max_riders} : doit être dans [1, {GRAB_MAX_RIDERS}]"
+                    ));
+                }
+                if *bite_every == Some(0) {
+                    out_of_range("bite_every = 0 : doit être > 0 (ou absent)".to_string());
+                }
+                if let Some(first) = rules
+                    .iter()
+                    .position(|rule| matches!(rule, BehaviorEntry::Grab { .. }))
+                {
+                    let before: Vec<String> = rules[..first]
+                        .iter()
+                        .filter(|rule| !matches!(rule, BehaviorEntry::Flee))
+                        .map(|rule| {
+                            let text = format!("{rule:?}");
+                            text.split(['(', ' ', '{']).next().unwrap_or("").to_string()
+                        })
+                        .collect();
+                    if !before.is_empty() {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "behaviors : Grab après {} : une règle qui le précède et s'applique le prive du bond et de l'accroche ; le placer en tête de liste (seul Flee peut le précéder)",
                                 before.join(", ")
                             ),
                         );

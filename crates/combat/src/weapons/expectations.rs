@@ -795,6 +795,26 @@ pub enum Expectation {
         max_deg: f32,
         at_frame: u32,
     },
+    /// X-6d (§126) : phase du behavior `Grab` de l'ennemi `entity` à `at_frame` (`Idle`, `Crouch` : ramassé
+    /// avant le bond, `Leap` : en l'air, `Ride` : accroché, `Dazed` : étourdi). Avec `carrier: Some(n)`, il
+    /// doit en plus être accroché au joueur de handle `n` (composant `sim_core::grab::Riding`).
+    GrabState {
+        entity: EntityRef,
+        phase: GrabPhaseName,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        carrier: Option<usize>,
+        at_frame: u32,
+    },
+}
+
+/// Phase de `Grab` attendue (`GrabState`, X-6d).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GrabPhaseName {
+    Idle,
+    Crouch,
+    Leap,
+    Ride,
+    Dazed,
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -852,6 +872,7 @@ impl Expectation {
             | Self::ClipSpeed { at_frame, .. }
             | Self::ModelYaw { at_frame, .. }
             | Self::TelegraphAim { at_frame, .. }
+            | Self::GrabState { at_frame, .. }
             | Self::EnemyVariant { at_frame, .. }
             | Self::Clock { at_frame, .. }
             | Self::RunState { at_frame, .. }

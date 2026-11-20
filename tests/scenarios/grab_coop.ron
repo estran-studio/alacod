@@ -1,0 +1,22 @@
+// X-6d (testbed, conventions §126) : deux joueurs ; l'`agrippeur` s'accroche au joueur 0 (immobile) ; le joueur 1 vient à côté et frappe
+// l'agrippeur d'un coup de mêlée : il se décroche du joueur 0 et retombe étourdi, le joueur 0 n'est pas blessé.
+//
+// À regarder : le coéquipier frappe l'agrippeur sur les épaules de l'autre, l'agrippeur tombe sonné.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [
+        (character: "pantin", inputs: []),
+        (character: "pantin", inputs: [(from: 120, to: 130, buttons: [Up]), (from: 140, to: 141, buttons: [Melee], pan: (0, 100))]),
+    ],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 120),
+        PlayerPosition(handle: 1, x: 424.0, y: 664.0, tolerance: 0.5, at_frame: 120),
+        PlayerPosition(handle: 1, x: 424.0, y: 674.0, tolerance: 1.0, at_frame: 140),
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 160),
+        Health(handle: 0, min: 99.0, at_frame: 160),
+    ],
+)

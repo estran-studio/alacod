@@ -1135,6 +1135,8 @@ type TargetQuery<'w, 's> = Query<
         Option<&'static crate::collider::Hurtbox>,
         // X-6a2 (§118) : un couvert arrête le projectile de toutes les équipes.
         Option<&'static sim_core::cover::Cover>,
+        // X-6d (§126) : un agrippeur accroché au tireur n'est pas touché par ses projectiles.
+        Option<&'static sim_core::grab::Riding>,
     ),
     (Without<Bullet>, With<Rollback>),
 >;
@@ -1217,6 +1219,7 @@ pub fn projectile_collision_system(
                 target_dash,
                 target_hurtbox,
                 target_cover,
+                target_riding,
             )) = target_query.get(entry.entity)
             else {
                 continue;
@@ -1236,7 +1239,10 @@ pub fn projectile_collision_system(
                     || target_health.is_invulnerable_at(frame.frame)
                     || target_dash.is_some_and(|dash| dash.projectile_invulnerable_at(frame.frame))
             };
-            if target_id.0 == bullet.source.0 || blocked {
+            if target_id.0 == bullet.source.0
+                || target_riding.is_some_and(|riding| riding.carrier.0 == bullet.source.0)
+                || blocked
+            {
                 continue;
             }
             if is_colliding(
@@ -1449,8 +1455,8 @@ pub fn projectile_expire_system(
                                 &projectile,
                                 target_query
                                     .iter()
-                                    .filter(|(_, _, _, _, _, _, _, cover)| cover.is_none())
-                                    .map(|(id, t, _, team, _, _, _, _)| (id, t, team)),
+                                    .filter(|(_, _, _, _, _, _, _, cover, _)| cover.is_none())
+                                    .map(|(id, t, _, team, ..)| (id, t, team)),
                             ),
                         )
                     });
@@ -1487,8 +1493,8 @@ type SteeringTarget<'a> = (&'a GgrsNetId, &'a fixed_math::FixedTransform3D, &'a 
 fn gather_targets<'a>(query: &'a TargetQuery) -> Vec<SteeringTarget<'a>> {
     query
         .iter()
-        .filter(|(_, _, _, _, _, _, _, cover)| cover.is_none())
-        .map(|(id, transform, _, team, _, _, _, _)| (id, transform, team))
+        .filter(|(_, _, _, _, _, _, _, cover, _)| cover.is_none())
+        .map(|(id, transform, _, team, ..)| (id, transform, team))
         .collect()
 }
 

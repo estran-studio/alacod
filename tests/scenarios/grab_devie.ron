@@ -1,0 +1,16 @@
+// X-6d (testbed, conventions §126) : `agrippeur_devie` (même gêne que l'`agrippeur`, plus `sway` : 40 unités/s de côté, sens inversé
+// toutes les 20 frames d'accroche) ; le pantin marche vers l'est de f100 à f160 et serpente. Témoin en ligne droite : `grab_gene_vitesse`.
+//
+// À regarder : le pantin, l'agrippeur sur les épaules, avance lentement en zigzag.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 180,
+    characters: [(character: "agrippeur_devie", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [(from: 100, to: 160, buttons: [Right])])],
+    expect: [
+        Stat(handle: 0, stat: MoveSpeed, value: 31.0, at_frame: 120),
+        PlayerPosition(handle: 0, x: 455.0, y: 702.7, tolerance: 0.2, at_frame: 175),
+    ],
+)

@@ -57,6 +57,38 @@
             },
             dash: ["roll"],
         ),
+        // X-6d (§ 126) : l'agrippeur du testbed (`characters/agrippeur*.ron`), le pantin réduit (`scale: "0.5"` du personnage).
+        // Poses de `Grab` : `leap` (ramassé puis en l'air, joué une fois sur le télégraphe et le bond), `ride` (accroché,
+        // dessiné sur l'ancre des épaules du porteur), `stunned` (décroché, étourdi). Un jeu y met ses propres clips.
+        "agrippeur": (
+            glb: "models/pantin/anime.glb",
+            manifest: "models/pantin/anime.json",
+            frame_m: (2.8, 2.8),
+            pivot: (0.5, 0.2),
+            height_m: 0.9,
+            poses: (
+                idle: Some("idle"),
+                walk: Some("walk"),
+                leap: Some((still: Some("leap"))),
+                ride: Some((still: Some("ride"))),
+                stunned: Some((still: Some("stunned"))),
+            ),
+        ),
+        // X-6d : l'agrippeur qui dévie (`characters/agrippeur_devie.ron`), même dessin.
+        "agrippeur_devie": (
+            glb: "models/pantin/anime.glb",
+            manifest: "models/pantin/anime.json",
+            frame_m: (2.8, 2.8),
+            pivot: (0.5, 0.2),
+            height_m: 0.9,
+            poses: (
+                idle: Some("idle"),
+                walk: Some("walk"),
+                leap: Some((still: Some("leap"))),
+                ride: Some((still: Some("ride"))),
+                stunned: Some((still: Some("stunned"))),
+            ),
+        ),
         // T-3b (§ 123) : le tireur posté `tireur_pantin` (`characters/tireur_pantin.ron`) dessiné par le même pantin. Les
         // poses de l'arme de sa règle `Shoot` (`fireball_gun`) passent par-dessus celles du modèle (P-1d, § 122) : épaulé =
         // attente avant le télégraphe, en joue = télégraphe, tir, rechargement = `cooldown_frames`, coup reçu = `hit`.

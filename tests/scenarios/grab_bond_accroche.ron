@@ -1,0 +1,26 @@
+// X-6d (testbed, conventions §126) : `agrippeur` placé à 116 unités à l'est du joueur 0 (pantin immobile en (424, 696)).
+//
+// À regarder : l'agrippeur court vers le joueur, se ramasse, bondit et s'accroche sur ses épaules.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Idle, at_frame: 20),
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 20),
+        GrabState(entity: Placed(0), phase: Crouch, at_frame: 46),
+        EnemyPosition(entity: Placed(0), x_min: Some(495.6), x_max: Some(495.7), at_frame: 42),
+        EnemyPosition(entity: Placed(0), x_min: Some(495.6), x_max: Some(495.7), at_frame: 52),
+        Clip(who: Entity(Placed(0)), clip: "leap", once: Some(true), at_frame: 50),
+        GrabState(entity: Placed(0), phase: Leap, at_frame: 58),
+        EnemyPosition(entity: Placed(0), x_max: Some(480.0), at_frame: 58),
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 70),
+        EnemyPosition(entity: Placed(0), x_min: Some(423.9), x_max: Some(424.1), y_min: Some(695.9), y_max: Some(696.1), at_frame: 70),
+        Clip(who: Entity(Placed(0)), clip: "ride", once: Some(false), at_frame: 100),
+        Health(handle: 0, min: 100.0, at_frame: 100),
+        EnemyState(entity: Placed(0), behavior: "Grab", at_frame: 119),
+    ],
+)

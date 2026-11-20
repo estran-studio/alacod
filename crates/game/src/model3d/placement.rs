@@ -118,6 +118,45 @@ pub fn offset_model_bullets(
     }
 }
 
+/// Part de la hauteur d'un modèle prise pour ses épaules quand `models.ron` ne déclare pas `shoulders_m`.
+pub const SHOULDERS_OF_HEIGHT: f32 = 0.8;
+
+/// Un agrippeur accroché (`sim_core::grab::Riding`, X-6d, § 126) est dessiné sur l'ancre des épaules de son porteur :
+/// à la position affichée du porteur (interpolation d'affichage comprise), relevée de la hauteur des épaules de son
+/// modèle vue sous l'élévation (`shoulders_m`, repli [`SHOULDERS_OF_HEIGHT`] × `height_m`), juste devant lui. Un porteur
+/// sans modèle ne le relève pas. Présentation : la position simulée de l'agrippeur est celle de son porteur.
+#[allow(clippy::type_complexity)]
+pub fn ride_on_shoulders(
+    registry: Option<Res<Registry>>,
+    mut riders: Query<(&sim_core::grab::Riding, &mut Transform)>,
+    carriers: Query<
+        (&GgrsNetId, &Transform, Option<&super::CharacterModel>),
+        Without<sim_core::grab::Riding>,
+    >,
+) {
+    let table = registry.as_ref().and_then(|r| r.models.as_ref());
+    for (riding, mut transform) in &mut riders {
+        let Some((_, carrier, model)) = carriers.iter().find(|(id, ..)| id.0 == riding.carrier.0)
+        else {
+            continue;
+        };
+        let lift = table
+            .zip(model)
+            .and_then(|(table, model)| {
+                let (def, _) = table.get(&model.0)?;
+                let (cos_e, _) = super::elevation(table);
+                let shoulders = def
+                    .shoulders_m
+                    .unwrap_or(SHOULDERS_OF_HEIGHT * def.height_m);
+                Some(shoulders * cos_e * table.def.units_per_meter)
+            })
+            .unwrap_or(0.0);
+        transform.translation.x = carrier.translation.x;
+        transform.translation.y = carrier.translation.y + lift;
+        transform.translation.z = carrier.translation.z + 0.05;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,0 +1,15 @@
+// X-6d (testbed, conventions §126) : témoin de `grab_gene_vitesse` sans agrippeur : le pantin marche vers l'est de f100 à f160 à
+// pleine vitesse (`MoveSpeed` 62).
+//
+// À regarder : le pantin seul avance deux fois plus loin que dans `grab_gene_vitesse`.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 180,
+    players: [(character: "pantin", inputs: [(from: 100, to: 160, buttons: [Right])])],
+    expect: [
+        Stat(handle: 0, stat: MoveSpeed, value: 62.0, at_frame: 120),
+        PlayerPosition(handle: 0, x: 486.0, y: 696.0, tolerance: 0.5, at_frame: 175),
+    ],
+)

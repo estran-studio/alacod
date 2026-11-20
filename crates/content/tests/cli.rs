@@ -380,6 +380,28 @@ fn describe_lists_take_cover() {
     }
 }
 
+/// X-6d (§126) : `describe Character` liste le behavior `Grab` et ses options.
+#[test]
+fn describe_lists_grab() {
+    let tmp = Tmp::new("describe-grab");
+    let game = game_with_content(&tmp);
+    let mut cmd = alacod();
+    cmd.current_dir(&game).args(["describe", "Character"]);
+    let schema = text(&run(cmd).stdout);
+    for word in [
+        "Grab",
+        "reach",
+        "leap_frames",
+        "slow",
+        "sway",
+        "shake_window",
+        "max_riders",
+        "bite_every",
+    ] {
+        assert!(schema.contains(word), "{word} absent : {schema}");
+    }
+}
+
 /// M-1b (§112) : `describe Character` liste `prop` (avec son défaut) et `new-content --from` accepte un prop comme modèle
 /// (le champ est copié, le lint reste vert).
 #[test]

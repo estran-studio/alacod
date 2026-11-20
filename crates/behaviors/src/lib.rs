@@ -130,7 +130,65 @@ pub enum Behavior {
         #[serde(default)]
         max_frames: Option<u32>,
     },
+    /// X-6d (§126) : **agrippeur**. Quand sa cible est à `reach` unités ou moins (et le bond prêt), il se
+    /// ramasse `telegraph` frames (télégraphe lisible, immobile), puis **bondit** droit vers la position
+    /// figée de la cible à `leap_speed` × sa vitesse, au plus `leap_frames` frames. Au contact
+    /// (`ai.attack_range`) il **s'accroche** au joueur (`sim_core::grab::Riding`) si celui-ci porte moins de
+    /// `max_riders` agrippeurs ; sinon, ou sans contact, il retombe et attend `cooldown` frames. Accroché, il
+    /// suit son porteur, le **ralentit** (`MoveSpeed` × `slow` par agrippeur) et peut le **dévier**
+    /// (`sway`) ; il mord au plus tous les `bite_every` frames (dégât `ai.attack_damage`, absent : jamais).
+    /// Il **se décroche** quand le porteur secoue (`shake` alternances de direction, au plus `shake_window`
+    /// frames entre deux), frappe de mêlée, est frappé de mêlée par n'importe quel joueur, tombe à terre,
+    /// ou après `hold` frames ; il retombe alors **étourdi** `stun` frames (immobile, sans attaque : la
+    /// fenêtre de frappe), puis attend `cooldown` frames avant de rebondir. Toutes les valeurs sont des
+    /// données ; tant qu'une phase est en cours la règle reste retenue. Variante en fin d'enum.
+    Grab {
+        /// Distance de la cible (unités) en deçà de laquelle il se ramasse pour bondir.
+        reach: Fixed,
+        /// Frames ramassé avant le bond.
+        telegraph: u32,
+        /// Multiplicateur de la vitesse du bond (absent : [`GRAB_LEAP_SPEED`]).
+        #[serde(default)]
+        leap_speed: Option<Fixed>,
+        /// Durée maximale du bond (frames).
+        leap_frames: u32,
+        /// Durée maximale accroché (frames).
+        hold: u32,
+        /// Facteur de vitesse du porteur par agrippeur accroché (`]0, 1]`).
+        slow: Fixed,
+        /// Déviation du porteur (absent : aucune).
+        #[serde(default)]
+        sway: Option<Sway>,
+        /// Alternances de direction du porteur qui le décrochent.
+        shake: u32,
+        /// Frames au plus entre deux alternances (absent : [`GRAB_SHAKE_WINDOW`]) ; au-delà le compte repart.
+        #[serde(default)]
+        shake_window: Option<u32>,
+        /// Frames étourdi après le décrochage.
+        stun: u32,
+        /// Frames d'attente avant un nouveau bond (après un bond manqué ou la fin de l'étourdissement).
+        cooldown: u32,
+        /// Agrippeurs au plus sur un même porteur.
+        max_riders: u32,
+        /// Frames entre deux morsures accroché (absent : aucune morsure).
+        #[serde(default)]
+        bite_every: Option<u32>,
+    },
 }
+
+/// Déviation du porteur d'un agrippeur (X-6d, §126) : une vitesse latérale de `speed` unités/s,
+/// perpendiculaire à la direction où il marche, dont le sens s'inverse toutes les `period / 2` frames
+/// d'accroche (déterministe, aucun RNG ; sans déplacement voulu, aucune déviation).
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
+pub struct Sway {
+    pub speed: Fixed,
+    pub period: u32,
+}
+
+/// Multiplicateur par défaut de la vitesse du bond de [`Behavior::Grab`].
+pub const GRAB_LEAP_SPEED: i32 = 3;
+/// Fenêtre par défaut entre deux alternances du secouage de [`Behavior::Grab`] (frames).
+pub const GRAB_SHAKE_WINDOW: u32 = 20;
 
 /// Option de zigzag de `Charge` (X-6b, §119) : pendant la ruée, déviation latérale autour de
 /// l'axe vers la cible, en onde triangulaire d'écart maximal `amplitude` (unités) et de période
@@ -194,6 +252,7 @@ impl Behavior {
             Behavior::BlockBullets => "BlockBullets",
             Behavior::ReturnHome { .. } => "ReturnHome",
             Behavior::TakeCover { .. } => "TakeCover",
+            Behavior::Grab { .. } => "Grab",
         }
     }
 }
@@ -226,6 +285,11 @@ pub struct SelectionContext {
     /// Un repli derrière un couvert est en cours (trajet ou attente à l'abri, X-6c, §120) : la règle
     /// `TakeCover` reste retenue.
     pub sheltering: bool,
+    /// Une phase de `Grab` est en cours (ramassé, bond, accroché, étourdi ; X-6d, §126) : la règle reste
+    /// retenue.
+    pub grabbing: bool,
+    /// Bond de `Grab` prêt (attente écoulée).
+    pub grab_ready: bool,
     /// Règle retenue à la frame précédente (hystérésis de `KeepDistance`).
     pub previous: Option<usize>,
 }
@@ -264,6 +328,9 @@ pub fn applicable(index: usize, behavior: &Behavior, ctx: &SelectionContext) -> 
         Behavior::Wander => true,
         Behavior::ReturnHome { .. } => ctx.returning,
         Behavior::TakeCover { .. } => ctx.sheltering,
+        Behavior::Grab { reach, .. } => {
+            ctx.grabbing || (ctx.grab_ready && distance.is_some_and(|d| d <= *reach))
+        }
         // M3-T0d : comportements de familier, exécutés par M3-T6 ; jamais retenus par la sélection
         // des ennemis (un familier n'a pas d'IA de poursuite).
         Behavior::Follow { .. }
@@ -334,6 +401,7 @@ impl Plugin for BehaviorsPlugin {
                     "BlockBullets",
                     "ReturnHome",
                     "TakeCover",
+                    "Grab",
                 ][..],
             ),
             ("perception", &["Sight", "Hearing"][..]),
@@ -419,6 +487,8 @@ mod tests {
             charge_ready: true,
             returning: false,
             sheltering: false,
+            grabbing: false,
+            grab_ready: true,
             previous: None,
         }
     }
@@ -694,6 +764,44 @@ mod tests {
             ..ready
         };
         assert_eq!(select(&rules, &sheltering), Some(0));
+    }
+
+    /// X-6d : `Grab` se lit avec ses options absentes, se retient à portée de bond (prêt) ou pendant une
+    /// phase, et cède sinon (bond pas prêt, cible trop loin).
+    #[test]
+    fn agrippe_a_portee_de_bond() {
+        let grab: Behavior = ron::from_str(
+            "Grab(reach: \"120.0\", telegraph: 12, leap_frames: 30, hold: 240, slow: \"0.6\", shake: 4, stun: 60, cooldown: 30, max_riders: 2)",
+        )
+        .unwrap();
+        assert!(matches!(
+            grab,
+            Behavior::Grab {
+                leap_speed: None,
+                sway: None,
+                shake_window: None,
+                bite_every: None,
+                ..
+            }
+        ));
+        assert_eq!(grab.name(), "Grab");
+        let rules = vec![grab, chase()];
+        assert_eq!(select(&rules, &ctx()), Some(0));
+        let far = SelectionContext {
+            target_distance: Some(Fixed::from_num(121)),
+            ..ctx()
+        };
+        assert_eq!(select(&rules, &far), Some(1));
+        let not_ready = SelectionContext {
+            grab_ready: false,
+            ..ctx()
+        };
+        assert_eq!(select(&rules, &not_ready), Some(1));
+        let riding = SelectionContext {
+            grabbing: true,
+            ..far
+        };
+        assert_eq!(select(&rules, &riding), Some(0));
     }
 
     #[test]

@@ -10,7 +10,7 @@ use sim_core::animation_state::FacingDirection;
 use sim_core::frame_events::FrameEvents;
 use sim_core::stats::StatId;
 use stats::StatReader;
-use utils::{frame::FrameCount, net_id::GgrsNetId, order_mut_iter};
+use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
 use crate::character::config::{CharacterConfigKey, CharacterConfigs};
 use crate::character::dash::DashState;
@@ -418,10 +418,12 @@ pub fn apply_inputs(
         ),
         With<Rollback>,
     >,
+    // X-6d (§126) : agrippeurs accrochés (déviation du porteur, `Grab { sway }`).
+    riders: Query<(&GgrsNetId, &sim_core::grab::Riding)>,
 ) {
     let dt = fixed_math::new(FIXED_TIMESTEP);
     for (
-        _net_id,
+        net_id,
         entity,
         mut dash_state,
         mut velocity,
@@ -634,8 +636,20 @@ pub fn apply_inputs(
             + (sprint_mult_stat - fixed_math::FIXED_ONE) * sprint_state.sprint_factor;
         let acceleration = stats.get(entity, &StatId::Acceleration, movement.acceleration);
         let deceleration = movement.deceleration() * grip(acceleration, movement.acceleration);
-        let target =
-            movement_direction(&input).normalize_or_zero() * (move_speed * sprint_multiplier);
+        let direction = movement_direction(&input).normalize_or_zero();
+        let mut target = direction * (move_speed * sprint_multiplier);
+        // X-6d : chaque agrippeur accroché dévie la marche voulue (vitesse latérale, sens alterné).
+        if direction != fixed_math::FixedVec2::ZERO {
+            let perpendicular = fixed_math::FixedVec2::new(-direction.y, direction.x);
+            for (_, riding) in order_iter!(riders) {
+                if riding.carrier.0 != net_id.0 {
+                    continue;
+                }
+                if let Some(sway) = riding.sway_at(frame.frame) {
+                    target = target + perpendicular * sway;
+                }
+            }
+        }
         velocity.main = run_velocity(velocity.main, target, acceleration * dt, deceleration * dt);
     }
 }
@@ -660,11 +674,14 @@ pub fn move_characters(
             &fixed_math::FixedTransform3D,
             &Collider,
             &CollisionLayer,
+            // X-6d (§126) : un agrippeur accroché à ce joueur ne le « pousse » pas (sa gêne est celle
+            // de la règle `Grab`, en donnée).
+            Option<&sim_core::grab::Riding>,
         ),
         (With<Collider>, Without<Player>, With<Rollback>),
     >,
 ) {
-    for (_net_id, mut transform, mut velocity, player_collider, collision_layer, dash_state) in
+    for (net_id, mut transform, mut velocity, player_collider, collision_layer, dash_state) in
         order_mut_iter!(query)
     {
         let total_velocity = velocity.main + velocity.knockback;
@@ -685,7 +702,7 @@ pub fn move_characters(
                 .into_iter()
                 .chain(grids.characters.query_aabb(&aabb))
             {
-                let Ok((_target_entity, target_transform, target_collider, target_layer)) =
+                let Ok((_target_entity, target_transform, target_collider, target_layer, _)) =
                     collider_query.get(entry.entity)
                 else {
                     continue;
@@ -716,12 +733,15 @@ pub fn move_characters(
             let aabb = crate::collision_grid::collider_aabb(pos, player_collider);
             let mut count = 0u32;
             for entry in grids.characters.query_aabb(&aabb) {
-                let Ok((_target_entity, target_transform, target_collider, target_layer)) =
+                let Ok((_target_entity, target_transform, target_collider, target_layer, riding)) =
                     collider_query.get(entry.entity)
                 else {
                     continue;
                 };
                 if target_layer.0 != settings.enemy_layer {
+                    continue;
+                }
+                if riding.is_some_and(|riding| riding.carrier.0 == net_id.0) {
                     continue;
                 }
                 if is_colliding(

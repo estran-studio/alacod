@@ -126,6 +126,9 @@ impl Plugin for BaseCharacterGamePlugin {
             // T1.4 : état des behaviors nouveaux (KeepDistance, Strafe, Charge, Flee, Wander),
             // checksum neutre, posé seulement sur les ennemis qui en listent un.
             .rollback_and_trace_neutral::<enemy::ai::state::BehaviorRuntime>()
+            // X-6d (§126) : agrippeur accroché à un joueur, checksum neutre (posé seulement pendant
+            // l'accroche d'un `Grab`).
+            .rollback_and_trace_neutral::<sim_core::grab::Riding>()
             // T1.5 : variante d'un personnage, checksum neutre (posée seulement si une
             // variante est choisie, voir `variant`).
             .rollback_and_trace_neutral::<variant::Variant>()
@@ -268,7 +271,12 @@ impl Plugin for BaseCharacterGamePlugin {
                     enemy::ai::rules::behavior_select_system
                         .after(enemy_target_selection)
                         .after(enemy::ai::squad::formation_system),
-                    update_enemy_targets.after(enemy::ai::rules::behavior_select_system),
+                    // X-6d (§126) : phases de `Grab` (bond, accroche, décrochage), après la sélection
+                    // qui retient la règle, avant le mouvement qui exécute le bond et suit le porteur.
+                    enemy::ai::grab::grab_system.after(enemy::ai::rules::behavior_select_system),
+                    update_enemy_targets
+                        .after(enemy::ai::rules::behavior_select_system)
+                        .after(enemy::ai::grab::grab_system),
                     move_enemies.after(update_enemy_targets),
                     // P-1 (§110) : cycle des tireurs postés, avant la décision de tir de la frame.
                     enemy::ai::cycle::ranged_cycle_system.after(move_enemies),
