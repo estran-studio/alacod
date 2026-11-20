@@ -363,6 +363,9 @@ Variables d'environnement (natif) :
   `make test_alacod_cli` (`new_game_opens_its_sandbox_without_any_added_code`, §88). `ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`.
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
   de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
+- `ALACOD_INPUT_DELAY=<frames>` (P-1e, `docs/conventions.md` § 125) : délai d'entrée de la session GGRS, prioritaire sur tout défaut ; défauts : **0** hors ligne
+  (partie locale : l'appui agit à la frame suivante, comme le banc du labo), 5 en ligne (`args::ONLINE_INPUT_DELAY`), 5 dans les scénarios
+  (`Scenario::input_delay` absent : celui de leurs traces ; un enregistrement du client porte le sien).
 - `ALACOD_DISCONNECT_TIMEOUT_MS=<ms>` et `ALACOD_P2P_CHANNEL=unreliable` (natif, mesures D87) : remplacent le délai de
   déconnexion GGRS (`p2p::DISCONNECT_TIMEOUT` = 5 s, 2 s avant D87) et ouvrent le canal non fiable (le jeu utilise le canal fiable ;
   les deux pairs doivent avoir le même réglage). Matrice : `scripts/p2p-d87.sh`, silences : `scripts/p2p-silences.py`.

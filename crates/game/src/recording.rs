@@ -514,6 +514,7 @@ mod tests {
             mode: None,
             progression: Some("base".into()),
             tags: vec!["rapide".into()],
+            input_delay: Some(0),
             players: vec![PlayerScript {
                 weapon: Some("pistol".into()),
                 mutations: vec!["vampire".into()],
@@ -534,6 +535,8 @@ mod tests {
         assert_eq!(scenario.players[0].weapon.as_deref(), Some("pistol"));
         // T-3b : l'étiquette du jeu court survit au réenregistrement.
         assert_eq!(scenario.tags, ["rapide"]);
+        // P-1e : le délai d'entrée de la session enregistrée est rejoué tel quel.
+        assert_eq!(scenario.input_delay, Some(0));
         assert_eq!(RecordedSettings::from_scenario(&scenario), settings);
 
         // Partie jouée : réglages par défaut, comme avant D19.

@@ -59,8 +59,10 @@ Journaux : `logs/p-1e-controle-rouge-f2ac3bf.log`, `logs/p-1e-controle-vert-9821
 ## 4. Consignes du coordinateur (20 nov, `logs/p-1e-consigne-mesure.md`)
 
 1. **En ligne inchangé et mesuré** : deux clients 1837 release, matchbox local, entrées scriptées, traces d'état des deux clients identiques ; délai 5 : départ 83 ms, glisse 29 cm,
-   demi-tour 83 ms ; la trace en ligne est **identique** avant et après le correctif (`logs/p-1e-p2p/`). Sous RTT 80 ms (netem) : délai 5 → 0/3 rollbacks ; délai 2 → 33 ms,
-   7 cm, 2/0 rollbacks. Proposition « délai en ligne 2 » dans `propositions.md` (dette D221), non appliquée.
+   demi-tour 83 ms ; la trace en ligne est **identique** avant (engine `8f093d2f`) et après (`98211f6c`) le correctif : sha256 `d49719b2…` pour les deux clients des deux runs, et
+   pour le run netem à délai 5 (commandes et sommes : `logs/p-1e-p2p/sommes-traces.txt`, scripts `run.sh`, `netem.sh`, `analyse.py` dans le même dossier). Sous RTT 80 ms (netem
+   `delay 40ms 5ms`, ping mesuré 79,9 et 77,4 ms) : délai 5 → 0/3 rollbacks ; délai 2 (`1100caaa…`, un autre déroulé puisque les inputs agissent plus tôt) → 33 ms, 7 cm, 2/0 rollbacks.
+   Proposition « délai en ligne 2 » dans `propositions.md` (dette D221), non appliquée.
 2. **Priorité de la variable et comportements gardés** : `ALACOD_INPUT_DELAY` passe avant tout défaut, dans le client (`input_delay_override`) comme dans le runner (avant le champ du
    scénario) — prouvé par le rouge de `physique_labo.ron` sous `ALACOD_INPUT_DELAY=5`. Scénarios : défaut 5 et `check_distance` inchangés (`check_distance_from_env`, non touché) ; les
    5 scénarios `rapide` de 1837 rejoués avec traces identiques. Preuve p2p (`scripts/p2p-*.sh`) : toutes en ligne, donc `ONLINE_INPUT_DELAY` 5 ou leur `ALACOD_INPUT_DELAY` explicite
@@ -70,14 +72,15 @@ Journaux : `logs/p-1e-controle-rouge-f2ac3bf.log`, `logs/p-1e-controle-vert-9821
 
 ## 5. Preuve au vrai jeu (après) et capture
 
-`logs/p-1e-tableau.md` : jeu après = banc sur chaque ligne (latence 1 frame, glisse 0, demi-tour 1 frame, balle 10 frames après l'appui). Capture côte à côte banc / jeu (mêmes gestes :
-marche et arrêt, demi-tour, tir à l'arrêt et en marchant, gigue, marche haut/bas, second demi-tour, tir, gigue à gauche ; le Frère n'a pas de recul au banc) : `logs/p-1e-captures/`
-(voir § 7).
+`logs/p-1e-tableau.md` : jeu après = banc sur chaque ligne (latence 1 frame, glisse 0, demi-tour 1 frame, balle 10 frames après l'appui). Capture côte à côte banc / jeu après,
+21 s à 30 i/s, mêmes gestes aux mêmes instants (`p-1e-captures/gestes-capture.json` : marche et arrêt, demi-tour, tir à l'arrêt et en marchant, gigue, marche haut/bas, second
+demi-tour, tir, gigue à gauche ; le Frère n'a pas de recul au banc) : `logs/p-1e-captures/cote-a-cote-banc-jeu-apres-98211f6c.mp4` (images `cote-a-cote-t*.png`). Banc : temps à
+pas fixe 1/60 s, une image toutes les 2 frames (`banc-capture.mjs`) ; jeu : release, Xvfb + lavapipe, `alacod/screenshot` toutes les 2 frames (`jeu-mesure.py`, `P1E_GESTES`).
 
 ## 6. Données de 1837 (au coordinateur 1837, rien de commité)
 
-Aucune valeur de RON à changer pour la physique. À ajouter : `tests/scenarios/physique_labo.ron` et sa trace (copie jetable, contenu dans ce rapport § 3 ; `tags: ["rapide"]`) après le
-réépinglage sur l'engine qui contient P-1e (le champ `input_delay` n'existe pas avant). `run_above_m_s: 4.0` du Frère (banc : `seuilCourse` 3,6) ne change rien à 4,4 m/s.
+Aucune valeur de RON à changer pour la physique. À ajouter après le réépinglage sur l'engine qui contient P-1e (le champ `input_delay` n'existe pas avant) : `tests/scenarios/physique_labo.ron`
+et sa trace (copies : `logs/p-1e-1837/`, `tags: ["rapide"]`, 6 attentes). `run_above_m_s: 4.0` du Frère (banc : `seuilCourse` 3,6) ne change rien à 4,4 m/s.
 
 ## 7. Ce qui reste
 
