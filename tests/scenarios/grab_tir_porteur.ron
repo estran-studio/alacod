@@ -1,0 +1,17 @@
+// X-6d (testbed, conventions §126) : l'`agrippeur` accroché (f64) ; le pantin tire au pistolet vers l'est de f100 à f140 : ses balles
+// partent de sous l'agrippeur et ne le touchent pas (une balle ne touche jamais l'agrippeur que son tireur porte) ; il reste accroché.
+//
+// À regarder : le pantin tire, l'agrippeur sur ses épaules n'est jamais touché.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [(from: 100, to: 140, buttons: [Fire], pan: (100, 0))])],
+    expect: [
+        Ammo(handle: 0, ammo: 5, at_frame: 150),
+        EntityHealth(net_id: 30, min: 30.0, max: 30.0, at_frame: 150),
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 150),
+    ],
+)

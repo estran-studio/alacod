@@ -520,6 +520,9 @@ ou d'un crate à l'autre, avec les traces de scénario.
       `TelegraphAim(entity, handle, max_deg, at_frame)` (le cône d'un `Telegraph` suit le joueur) ; `who` : `Player(n)` ou `Entity(Placed(n))`. Champ `Scenario::tags`
       (`["rapide"]` : jeu court de `make check_integration`, dans `check_rapide`, et d'`alacod test --tag rapide`) ; scénarios `tireur_pantin_*` ; gestes depuis l'entrée réelle :
       `crates/scenario/tests/gestes_entree_reelle.rs`.
+    - X-6d agrippeur (§126) : `GrabState(entity, phase: Idle | Crouch | Leap | Ride | Dazed, carrier: Some(handle), at_frame)` (phase du behavior `Grab`, porteur accroché) ;
+      `Stat(MoveSpeed)`, `PlayerPosition`, `EntityHealth`, `Clip` couvrent les douze scénarios `grab_*` (témoins `grab_gene_temoin`, `grab_secoue_lent`) ; entrée réelle :
+      `agrippeur_*` de `gestes_entree_reelle.rs`.
     - M2-T13 hub (§57) : `HubExit`, `HubVisit` ; `RunUnlocks` (M2-T12, §51).
     - m2-full-run (§57, « Run complète de M2 ») : `EventAfter` (moment clé survenu après une frame) ; moments
       clés `chest`, `arena`, `unlock`, `hub` ; `Scenario::shopping` ; `hub: Some((stay: false, inputs: …))` :
