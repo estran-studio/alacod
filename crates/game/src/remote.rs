@@ -178,6 +178,19 @@ fn round(value: fixed_math::Fixed) -> f32 {
     (fixed_math::to_f32(value) * 10.0).round() / 10.0
 }
 
+/// Le clip joué d'un personnage à modèle (P-1d, `model3d::playback::ModelPlayback`, décidé hors rendu) : `null` sans modèle.
+fn anim(playback: Option<&crate::model3d::playback::ModelPlayback>) -> Value {
+    playback.map_or(Value::Null, |p| {
+        json!({
+            "clip": p.clip(),
+            "time": p.time(),
+            "duration": p.duration(),
+            "looping": p.looping(),
+            "unresolved": &p.unresolved,
+        })
+    })
+}
+
 fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
     let frame = world.resource::<FrameCount>().frame;
     let clock = world.resource::<RemoteClock>();
@@ -201,9 +214,10 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         Option<&WeaponInventory>,
         Option<&combat::inventory::AmmoReserves>,
         Option<&sim_core::animation_state::FacingDirection>,
+        Option<&crate::model3d::playback::ModelPlayback>,
     )>();
     let mut players = Vec::new();
-    for (player, id, transform, health, inventory, ammo_reserves, facing) in
+    for (player, id, transform, health, inventory, ammo_reserves, facing, playback) in
         players_query.iter(world)
     {
         let weapon = inventory.and_then(|inventory| {
@@ -231,6 +245,7 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
             "max_health": round(health.max),
             "weapon": weapon,
             "facing": facing.map(|f| format!("{f:?}")),
+            "anim": anim(playback),
         }));
     }
     players.sort_by_key(|p| p["handle"].as_u64());
@@ -241,10 +256,11 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         &Health,
         Option<&MonsterState>,
         Option<&CharacterConfigKey>,
+        Option<&crate::model3d::playback::ModelPlayback>,
     ), With<Enemy>>();
     let mut enemies: Vec<Value> = enemies_query
         .iter(world)
-        .map(|(id, transform, health, monster, config)| {
+        .map(|(id, transform, health, monster, config, playback)| {
             json!({
                 "id": id.0,
                 "config": config.map(|c| c.0.as_str()),
@@ -252,6 +268,7 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
                 "y": round(transform.translation.y),
                 "health": round(health.current),
                 "state": monster.map(|m| format!("{m:?}")),
+                "anim": anim(playback),
             })
         })
         .collect();

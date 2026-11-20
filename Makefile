@@ -97,8 +97,14 @@ check: format test_tools check_forbidden check_rollback_registration check_sim_b
 # reste dedans : 434 s mesurées sur le VPS (cible chaude, 2026-11-06), sous le plafond de 15 min.
 # Total mesuré : 522 s (format 3, test_tools 5, check_forbidden 1, check_rollback_registration 1,
 # check_sim_boundary 8, lint 70, test_crates 434). `WASM=1` ajoute `check_wasm` quand le lot touche le web.
-check_rapide: format test_tools check_forbidden check_rollback_registration check_sim_boundary lint test_crates $(if $(filter 1,$(WASM)),check_wasm)
+# `check_animation` (P-1d, § 122) joue l'invariant `animation_vivante` sur de vrais scénarios.
+check_rapide: format test_tools check_forbidden check_rollback_registration check_sim_boundary lint test_crates check_animation $(if $(filter 1,$(WASM)),check_wasm)
 	@echo "✓ Contrôle rapide passé (suite de scénarios : la nuit)"
+
+# P-1d (§ 122) : l'invariant `animation_vivante` (actif par défaut) sur les scénarios du testbed dont un personnage a un
+# modèle (`pantin`) ; seul le binaire de test `scenarios`, déjà construit par `test_crates` (mêmes features).
+check_animation:
+	$(MAKE) test_scenarios SCENARIO=model_pantin,frappe_moment
 
 # Compilation wasm32 du jeu web de référence (mêmes features que `build_ldtk_map_explorer_web`), cible à part
 # (`target_wasm`) : 1046 s à froid sur le VPS (2026-11-06, dont l'échec APP_VERSION corrigé), 2 s à chaud.
@@ -106,7 +112,7 @@ check_wasm:
 	APP_VERSION=$(TEST_VERSION) RUSTFLAGS=--cfg=web_sys_unstable_apis ALACOD_TARGET=web CARGO_TARGET_DIR=$(CURDIR)/target_wasm \
 		cargo check -p zombies --target wasm32-unknown-unknown --no-default-features --features render
 
-.PHONY: check check_rapide check_wasm
+.PHONY: check check_rapide check_wasm check_animation
 
 
 # Misc

@@ -1,0 +1,6 @@
+Sequence([
+    Wait(23),
+    Telegraph(60),
+    Aimed(count: 1, spread: "0.0", projectile: "balle"),
+    Wait(35),
+])

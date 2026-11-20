@@ -9090,3 +9090,30 @@ aucun crate `SIM` ne dépend d'harmonium (`make check_sim_boundary`) ; aucune tr
   `games/<jeu>/assets/harmonium/`. Un build web les copie avec les assets (`scripts/web-assets.mjs`) ; `WEB_FEATURES=game/harmonium node scripts/build-web-games.mjs <jeu>` ajoute la feature à la ligne cargo du build web
   (`alacod build --web <dossier> --features render,game/harmonium` pour un jeu hors de `games/`). Banque absente : `HarmoniumStatus::Failed` et une erreur au journal, pas de relance.
 - **Retiré** : `audio/adaptive.rs`, `setup_harmonium_music`, les blocs `HarmoniumTag` (`character/enemy/create.rs`) et `AiDriver` (`character/input_devices.rs`) : l'API qu'ils appelaient n'existe plus.
+
+## 122. Parité observée : la pose se décide hors rendu, un invariant la garde (P-1d, `docs/taches/rapports/p-1d-parite-observee.md`)
+Verdict de William sur 1837 `9e7c6df` : « je n'ai rien vu comme animation sur les fantassins ». Observé au vrai jeu (release, fenêtre, `bevy_remote` sur les `AnimationPlayer`) : les quatre fantassins de la salle
+jouent **un seul clip, `fusil-idle`**, pendant tout le cycle que la simulation exécute (cône, balles, le Frère de 100 à 0 PV) ; seules deux marches de 0,4 s (recul, retour au poste). Cause : `animate_models` ne remplissait
+`PoseInput` (détente, tir, rechargement) qu'à partir de `WeaponInventory` ; un fantassin n'a pas d'arme dans la simulation (`Shoot` + `Emitter` + `RangedAttackState` + `ranged_cycle`). Aucun test ne le voyait : la présentation n'existait pas en headless.
+- **Décision hors rendu** : `model3d::playback` (`ModelPlaybackPlugin`, dans `CoreAppPlugin`, **aussi en headless**). `attach_playback` pose le composant `model3d::playback::ModelPlayback` sur tout personnage dont le `asset_name_ref` est dans la
+  table `Model` ; `decide_poses` (`PostUpdate`) y range le **clip joué, sa position (s), son fondu, le cap du corps, l'objet en main, l'éventuelle cause de non-résolution** (`unresolved`). Le temps des clips est l'image dessinée
+  (`PlaybackClock::Display`) ou la frame simulée à 1/60 s (`Simulated`, headless). `animate_models` (rendu) ne fait plus qu'appliquer ce composant au `AnimationPlayer`, aux objets et à la bouche du canon (`ModelRig::muzzle`).
+  **Nom et module stables pour T-3b** : `game::model3d::playback::ModelPlayback` (`clip()`, `time()`, `duration()`, `looping()`, `held`, `moving`, `unresolved`, `yaw`) et `game::model3d::playback::sim_activity(world, entity, frame)` ;
+  `alacod/state` les expose (`anim` de chaque joueur et ennemi à modèle : `clip`, `time`, `duration`, `looping`, `unresolved`).
+- **Tireur posté** (`model3d::shooter::read`) : l'épaulé est l'attente avant le télégraphe de la salve, l'en joue le télégraphe, le geste du tir les étapes suivantes, le rechargement le `cooldown_frames` de la règle `Shoot`
+  (le clip de 2 s joué **une fois**, étiré sur les 3 s, fondu 0,1 s : banc `armes.js` A:695-696), le coup reçu `ranged_cycle.stagger_frames` (pose `poses.hit`, nouvelle). Fondus du fantassin = ceux du banc (`pose::Fades::SHOOTER`) ;
+  le cap du corps d'un ennemi est le regard de la simulation arrondi aux directions du modèle (`ModelDef::body_directions`, 8 par défaut), gelé sous le coup. Les poses d'un tireur posté sont celles de l'arme de sa règle
+  `Shoot` (`weapons` de `models.ron`) par-dessus celles du modèle, comme l'arme active d'un joueur. Le geste du tir **tient sa dernière image** tant que la séquence de
+  l'émetteur dure (une `Wait` d'après tir plus longue que le clip ne montre pas l'attente ; `ModelPlayback::held` le dit) ; la frame où la séquence finit compte déjà pour le rechargement (`shooter::reload_end` : `ready_at` tant que le cycle n'a pas recopié
+  `idle_from`), lue de la même façon par `sim_activity`.
+  **Le Frère n'a pas changé** (validé par William) : `Fades::default()` = les fondus d'avant, cap exact, esquive et armes inchangées ; ses réglages au banc relèvent de la tranche suivante.
+- **Invariant `animation_vivante`** (runner, `crates/scenario/src/invariants.rs`, actif par défaut, `invariants: (animation_vivante: false)` le coupe) : pour chaque `ModelPlayback`, (1) la pose est **résolue** (clip présent dans le
+  manifeste) ; (2) quand la simulation est dans un état qui dure ≥ 6 frames (`sim_activity` : esquive, coup de mêlée, séquence de tir, rechargement, coup reçu, détente tenue, ou déplacement), le clip joué **n'est pas** un clip que le
+  personnage joue au repos (un clip **qui boucle**, joué ≥ 6 frames sans activité ni déplacement : un geste joué une fois et fini au repos, comme le tir d'une frame du joueur, n'en est pas un). Le déplacement est celui que la pose a
+  lu (`ModelPlayback::moving` : vitesse au sol ≥ `pose::STILL_BELOW`), jamais un second seuil sur la position ; (3) la position du clip **avance** (pas figée 30 frames), sauf une dernière image tenue exprès (`held`).
+  Sans attente écrite à la main : tout personnage à modèle, tout scénario, tout jeu (donc `alacod test`, dont le runner lint aussi le contenu : `MissingPose` y fait échouer chaque scénario). Dans `make check_rapide` :
+  `check_animation` (`test_scenarios SCENARIO=model_pantin,frappe_moment`, binaire `scenarios` seul). Preuve rouge/verte : `crates/scenario/tests/animation_invariant.rs` (monde minimal) ;
+  sur la salle réelle d'un jeu : `crates/scenario/tests/shooter_poses.rs` (ignoré, `ALACOD_P1D_GAME_DIR=<dossier du jeu>`, échoue sur toute failure du runner).
+- **Lint** (`alacod lint`, `LintErrorKind::MissingPose`) : une pose de `models.ron` absente du manifeste était déjà `BrokenReference` ; désormais un **état possible sans pose** est une erreur : l'attente (`idle`), l'esquive déclarée sans `dash`, et pour une règle `Shoot` :
+  `shoulder` (attente avant le télégraphe), `aim` (télégraphe), `shoot`, `reload` (`cooldown_frames` > 0), `hit` (`ranged_cycle.stagger_frames`), lues comme `decide_poses` les résout (poses de l'arme de la règle par-dessus celles du modèle).
+  Fixtures `model_poses_missing` (rouge), `model_poses_complete` et `model_poses_on_weapon` (vertes), `crates/content/tests/p1d_model_poses_fixtures.rs`.

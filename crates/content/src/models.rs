@@ -100,6 +100,11 @@ pub struct ModelDef {
     /// Au-delà de cette vitesse (m/s, au sol), l'allure `run` remplace `walk`.
     #[serde(default)]
     pub run_above_m_s: Option<f32>,
+    /// Directions du corps (banc `armes.js` : `directions: "8"`, `arrondir`) : le cap de la visée, de la
+    /// marche ou de l'esquive est arrondi à la plus proche de ces directions au sol. Sans ce champ : 8,
+    /// comme le banc (P-1d).
+    #[serde(default)]
+    pub body_directions: BodyDirections,
     /// Poses sans arme à distance ou d'une arme absente de `weapons`.
     pub poses: Poses,
     /// Poses par id d'arme de la simulation (clé de `weapons.ron`) : chaque champ présent remplace
@@ -115,6 +120,31 @@ pub struct ModelDef {
     /// (le RON prime ; le lint signale l'écart). Sans lien, rien n'est dérivé.
     #[serde(default)]
     pub melee_clips: BTreeMap<String, String>,
+}
+
+/// Directions du corps d'un modèle (`ModelDef::body_directions`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, schemars::JsonSchema)]
+pub enum BodyDirections {
+    /// Huit directions (les planches de sprites, défaut du banc).
+    #[default]
+    Eight,
+    /// Seize directions.
+    Sixteen,
+    /// Le cap exact, sans crans.
+    Free,
+}
+
+impl BodyDirections {
+    /// `yaw` (radians, cap au sol) arrondi à la plus proche des directions (`arrondir` du banc :
+    /// `round(a / pas) × pas`).
+    pub fn round(self, yaw: f32) -> f32 {
+        let step = match self {
+            Self::Eight => std::f32::consts::FRAC_PI_4,
+            Self::Sixteen => std::f32::consts::FRAC_PI_8,
+            Self::Free => return yaw,
+        };
+        (yaw / step).round() * step
+    }
 }
 
 /// Les clips d'un état de la simulation. Un clip d'allure (`idle`, `walk`, `run`) boucle ; un
@@ -157,6 +187,10 @@ pub struct Poses {
     /// Coup de mêlée (`MeleeAttackState::is_attacking`).
     #[serde(default)]
     pub melee: Option<Gesture>,
+    /// Coup reçu par un tireur posté (`ranged_cycle.stagger_frames`) : le clip joue une fois, étiré sur
+    /// la stupeur (P-1d, banc `armes.js` A:744 : `touche`, fondu 0,04 s).
+    #[serde(default)]
+    pub hit: Option<Gesture>,
 }
 
 /// Un geste : son clip à l'arrêt et sa variante en marchant.
@@ -191,16 +225,18 @@ impl Poses {
             shoulder: self.shoulder.clone().or_else(|| base.shoulder.clone()),
             reload: self.reload.clone().or_else(|| base.reload.clone()),
             melee: self.melee.clone().or_else(|| base.melee.clone()),
+            hit: self.hit.clone().or_else(|| base.hit.clone()),
         }
     }
 
-    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 5] {
+    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 6] {
         [
             ("shoot", &self.shoot),
             ("aim", &self.aim),
             ("shoulder", &self.shoulder),
             ("reload", &self.reload),
             ("melee", &self.melee),
+            ("hit", &self.hit),
         ]
     }
 }
@@ -763,6 +799,29 @@ mod tests {
                 "gigue": []}"#,
         )
         .unwrap()
+    }
+
+    /// P-1d : le corps prend la plus proche des huit directions du sol (banc `arrondir`), sans que le
+    /// RON ait à le dire ; `Free` garde le cap exact.
+    #[test]
+    fn the_body_rounds_to_eight_directions_unless_free() {
+        use std::f32::consts::{FRAC_PI_4, PI};
+        let eight = BodyDirections::default();
+        assert_eq!(eight, BodyDirections::Eight);
+        // 20° vers 0°, 30° vers 45°, un cap négatif vers sa voisine.
+        assert_eq!(eight.round(20f32.to_radians()), 0.0);
+        assert!((eight.round(30f32.to_radians()) - FRAC_PI_4).abs() < 1e-6);
+        assert!((eight.round(-100f32.to_radians()) + PI / 2.0).abs() < 1e-6);
+        // Seize directions : 30° tombe sur la plus proche (22,5°), 35° sur la suivante (45°).
+        assert!((BodyDirections::Sixteen.round(30f32.to_radians()) - PI / 8.0).abs() < 1e-6);
+        assert!((BodyDirections::Sixteen.round(35f32.to_radians()) - PI / 4.0).abs() < 1e-6);
+        assert_eq!(BodyDirections::Free.round(0.3), 0.3);
+        let model: ModelDef = ron::from_str(
+            r#"(glb: "m.glb", manifest: "m.json", frame_m: (3.0, 3.0), pivot: (0.5, 0.2), height_m: 1.8,
+                poses: (idle: Some("idle")))"#,
+        )
+        .unwrap();
+        assert_eq!(model.body_directions, BodyDirections::Eight);
     }
 
     #[test]

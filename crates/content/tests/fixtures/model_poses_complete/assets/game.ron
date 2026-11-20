@@ -1,0 +1,10 @@
+// Fixture P-1d (§ 122) : model_poses_complete
+(
+    name: "fixture-model_poses_complete",
+    content_folders: [
+        (path: "characters/grunt.ron", kind: "Character"),
+        (path: "patterns/salve.ron", kind: "Pattern"),
+        (path: "models/models.ron", kind: "Model"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

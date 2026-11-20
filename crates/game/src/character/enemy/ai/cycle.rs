@@ -89,7 +89,7 @@ pub struct RangedCycle {
 }
 
 /// Index de la première étape qui tire (ni `Wait` ni `Telegraph`) d'un émetteur.
-fn first_shot_step(emitter: &Emitter) -> Option<u32> {
+pub(crate) fn first_shot_step(emitter: &Emitter) -> Option<u32> {
     emitter
         .steps
         .iter()

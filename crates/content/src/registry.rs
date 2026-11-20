@@ -249,6 +249,8 @@ pub struct RangedCycleLint {
     pub wait_frames: Option<(u32, u32)>,
     /// `recoil.frames`.
     pub recoil_frames: Option<u32>,
+    /// `stagger_frames` : la stupeur d'un coup reçu (P-1d : réclame la pose `hit` du modèle).
+    pub stagger_frames: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -3286,6 +3288,7 @@ fn load_characters(
                     .map(|cycle| RangedCycleLint {
                         wait_frames: cycle.wait_frames,
                         recoil_frames: cycle.recoil.as_ref().map(|recoil| recoil.frames),
+                        stagger_frames: cycle.stagger_frames,
                     }),
                 behaviors: parsed.ai.and_then(|ai| ai.behaviors),
                 tags: parsed.tags,
