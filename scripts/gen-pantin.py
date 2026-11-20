@@ -442,7 +442,9 @@ def main():
         samplers.append({"input": t_acc, "output": buf.accessor(hips, "VEC3", 5126, "f"), "interpolation": "LINEAR"})
         channels.append({"sampler": len(samplers) - 1, "target": {"node": INDEX["hips"], "path": "translation"}})
         animations.append({"name": name, "samplers": samplers, "channels": channels})
-        manifest_clips[name] = [1.0, 1.0 + duration * FPS]
+        # Bornes du manifeste = temps des clés × FPS (clés de 0 à `duration`) : la durée d'un clip pour l'engine est le temps de
+        # sa dernière clé, `fin / fps` (P-1d), et `fin − début` (repères de simulation, M-6) reste `duration × FPS`.
+        manifest_clips[name] = [0.0, duration * FPS]
         if moment:
             moments[name] = moment
         if not name.startswith(("idle", "walk", "strike", "roll")):
