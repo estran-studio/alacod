@@ -11,16 +11,22 @@
 //!   `Update`, donc avant `HarmoniumSet` (`PostUpdate`) ;
 //! - à la sortie de partie, [`release_music_clock`] retire l'horloge (le tempo revient aux émotions).
 //!
+//! **Continuité** (M-7b, `docs/conventions.md` §124) : la musique ne joue que pendant qu'une horloge est posée
+//! ([`gate_music_pause`]) : sans elle, l'hôte jouait au tempo des émotions dès ses banques chargées, puis se taisait à
+//! l'ancrage, le temps de se caler (« ça stoppe un peu au début »). Le suivi rattrape au tempo, jusqu'à 5 %
+//! ([`follow_config`]), les écarts que crée une frame longue ou le ralenti `run_slow` de `bevy_ggrs`, au lieu d'un saut
+//! de mesure qui laissait jusqu'à une mesure de silence.
+//!
 //! Sans `music` dans le manifeste du jeu, le plugin n'est pas installé : pas de musique. `ALACOD_MUTE=1` pose le
 //! volume à 0 (la musique tourne, muette : l'horloge prouve la sortie sans écoute).
 
 use bevy::prelude::*;
 use content::manifest::{GameManifest, MusicEntry};
 use harmonium_bevy::{
-    ExternalClock, GameClock, HarmoniumConfig, HarmoniumControl, HarmoniumPlugin, HarmoniumStatus,
-    MusicClock, Phase, StyleProfile,
+    ExternalClock, FollowConfig, GameClock, HarmoniumConfig, HarmoniumControl, HarmoniumPlugin,
+    HarmoniumStatus, MusicClock, Phase, StyleProfile,
 };
-use harmonium_core::time_plan::{BarTiming, Swing, Tempo};
+use harmonium_core::time_plan::{BarTiming, Swing, Tempo, correction::CorrectionPolicy};
 use utils::frame::FrameCount;
 
 use crate::session::{AppState, SIM_FPS};
@@ -62,13 +68,34 @@ pub fn add_music(app: &mut App) {
 }
 
 /// Plugin, cibles et systèmes de la musique ; partagé par [`add_music`] et le contrôle de continuité (tests).
-fn install(app: &mut App, control: HarmoniumControl, config: HarmoniumConfig, pulse: MusicPulse) {
+/// La musique part en pause : [`gate_music_pause`] la lance à l'ancrage de l'horloge.
+fn install(app: &mut App, mut control: HarmoniumControl, config: HarmoniumConfig, pulse: MusicPulse) {
+    control.paused = true;
     app.insert_resource(control)
         .insert_resource(pulse)
         .add_plugins(HarmoniumPlugin::new(config))
         .add_systems(OnEnter(AppState::InGame), anchor_music_clock)
         .add_systems(OnExit(AppState::InGame), release_music_clock)
-        .add_systems(Update, (feed_music_clock, log_music_status));
+        .add_systems(
+            Update,
+            (feed_music_clock, gate_music_pause, log_music_status).chain(),
+        );
+}
+
+/// Réglages du suivi : ceux d'harmonium, sauf le micro-ajustement, porté de 5 ‰ sur 8 pulsations à 5 % (le plafond du
+/// playback, `MAX_NUDGE_PPM`) sur 16. À 5 ‰, le suivi n'absorbe qu'environ 20 ms d'écart (pulsation de 0,5 s) : une frame
+/// de 300 ms (50 ms de simulation perdus, `Time<Virtual>` borné à 250 ms) déclenchait un saut à la mesure suivante, dont
+/// l'attente est silencieuse (jusqu'à une mesure). À 5 % sur 16 pulsations, il absorbe environ 400 ms au tempo (8 s de
+/// rattrapage à cette pulsation), sans silence ; au-delà, le saut d'harmonium reste.
+fn follow_config() -> FollowConfig {
+    FollowConfig {
+        policy: CorrectionPolicy {
+            max_nudge_per_mille: 50,
+            window_pulses: 16,
+            ..default()
+        },
+        ..default()
+    }
 }
 
 /// Cibles et configuration d'harmonium à partir de la donnée du jeu. `muted` : volume 0 (`ALACOD_MUTE=1`).
@@ -104,6 +131,7 @@ fn prepare(
     let config = HarmoniumConfig {
         main_bank: Some(entry.main_bank.clone()),
         percussion_bank: Some(entry.percussion_bank.clone()),
+        follow: follow_config(),
         ..default()
     };
     Ok((control, config, pulse))
@@ -164,6 +192,19 @@ pub fn feed_music_clock(frame: Res<FrameCount>, mut game_clock: ResMut<GameClock
     let sim_frame = u64::from(frame.frame);
     if game_clock.sim_frame != sim_frame {
         game_clock.sim_frame = sim_frame;
+    }
+}
+
+/// `Update`, après [`feed_music_clock`] : la musique en pause tant qu'aucune horloge n'est posée. L'hôte d'harmonium
+/// démarre dès ses banques chargées, avant la partie ; sans cette garde il jouait quelques notes au tempo des émotions
+/// (à plein gain : son gain initial est 1, une commande de volume 0 n'y descend qu'en rampe), puis se taisait à
+/// l'ancrage (attente silencieuse du suivi) avant de repartir sur l'horloge. En pause, le flux de sortie est arrêté :
+/// la première note audible est sur l'horloge. Web : l'`AudioContext` reprend au premier geste après l'ancrage (les
+/// touches de la partie), pas à un geste du lobby.
+pub fn gate_music_pause(game_clock: Res<GameClock>, mut control: ResMut<HarmoniumControl>) {
+    let paused = game_clock.clock.is_none();
+    if control.paused != paused {
+        control.paused = paused;
     }
 }
 
@@ -527,11 +568,21 @@ mod continuite {
         /// Une frame de présentation de `dt` (temps mur) ; `sim_slow` : frames de simulation 10 % plus longues (`run_slow`).
         fn frame(&mut self, dt: Duration, in_game: bool, sim_slow: bool) {
             self.wall += dt;
-            // La carte son : chaque tampon est rendu avant d'être entendu (un tampon d'avance).
+            // La carte son : chaque tampon est rendu avant d'être entendu (un tampon d'avance). Flux en pause (cpal
+            // `pause`, que l'hôte détaché ne fait pas) : pas de callback, la carte rend du silence.
             let buffer_time = Duration::from_nanos(BUFFER as u64 * 1_000_000_000 / u64::from(RATE));
+            let paused = self
+                .app
+                .world()
+                .non_send_resource::<harmonium_bevy::HarmoniumRuntime>()
+                .paused();
             while self.audio_until < self.wall + buffer_time {
                 let audible = self.t0 + self.audio_until;
-                self.playback.process_buffer(&mut self.buffer, 2, audible);
+                if paused {
+                    self.buffer.fill(0.0);
+                } else {
+                    self.playback.process_buffer(&mut self.buffer, 2, audible);
+                }
                 let energy =
                     self.buffer.iter().map(|v| v * v).sum::<f32>() / self.buffer.len() as f32;
                 let db = if energy > 1e-20 {
