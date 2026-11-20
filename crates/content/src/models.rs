@@ -360,14 +360,18 @@ fn fraction_range_ok(from: f32, to: f32) -> bool {
 }
 
 impl AnimeManifest {
-    /// Durée d'un clip (s), d'après sa plage d'images.
+    /// Durée d'un clip (s) telle que le lecteur la joue : le temps de sa **dernière clé**, `fin / fps`. Le `.glb` de la
+    /// pipeline pose l'image n au temps n / fps (la première, image 1, à 1/fps) ; three.js au banc et bevy prennent pour
+    /// durée le temps de la dernière clé et jouent de 0 à cette durée (P-1d : `tir` [1, 14] dure 14/24 = 0,583 s, pas 13/24).
     pub fn duration(&self, clip: &str) -> Option<f32> {
         let (start, end) = self.clips.get(clip)?;
-        Some(((end - start) / self.fps.max(1.0)).max(1.0 / self.fps.max(1.0)))
+        let fps = self.fps.max(1.0);
+        Some((end / fps).max(start / fps).max(1.0 / fps))
     }
 
-    /// Durée d'un clip en images de simulation, **non arrondie** (la même durée que
-    /// [`Self::duration`], calculée en décimal : `(fin − début) / fps × 60`).
+    /// Durée d'un clip en images de simulation, **non arrondie**, pour les repères de la simulation (M-6, § 116) :
+    /// `(fin − début) / fps × 60`, la plage d'images (une image de moins que [`Self::duration`], P-1d : à trancher,
+    /// changer cette conversion déplace les fenêtres de frappe, donc les traces).
     fn exact_frames(&self, clip: &str) -> Option<f64> {
         let (start, end) = self.clips.get(clip)?;
         let fps = decimal(self.fps).max(1.0);
@@ -833,7 +837,8 @@ mod tests {
         );
         assert!(m.directional("idle").is_empty());
         assert!(m.knows("walk") && m.knows("idle") && !m.knows("run"));
-        assert_eq!(m.duration("shoot"), Some(7.0 / 24.0));
+        // Le temps de la dernière clé (image 8 à 8/24 s), comme three.js au banc et bevy : pas la plage 7/24 (P-1d).
+        assert_eq!(m.duration("shoot"), Some(8.0 / 24.0));
     }
 
     #[test]

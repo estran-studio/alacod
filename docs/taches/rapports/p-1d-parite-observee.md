@@ -67,9 +67,12 @@ Journaux : `logs/p-1d-revue-rouge.log`, `logs/p-1d-revue-vert.log`.
 
 1. `assets/models/models.ron` : `hit: Some((still: Some("touche"))),` dans les `poses` de `fantassin-de-ligne` **et** de `garde-cle-poste` (les deux ont
    `ranged_cycle.stagger_frames: Some(37)`) ; sans cette ligne, `alacod lint` et `alacod test` échouent (`MissingPose`) avec l'engine de ce lot.
-2. `assets/patterns/salve_fantassin.ron` : `Wait(35)` après le tir suppose un clip `tir` de 0,583 s (14/24) ; le manifeste donne `tir: [1, 14]`, soit (14 − 1)/24 = 0,542 s
-   = 32,5 frames, et le banc (`dureeClip`, durée du clip three.js) enchaîne le rechargement à 0,542 s. L'engine tient la dernière image du tir pendant les 2,5 frames de trop ;
-   `Wait(33)` alignerait la simulation sur le banc.
+2. ~~`salve_fantassin.ron` `Wait(35)` trop long~~ : **corrigé, c'était un écart d'engine** (relevé par le coordinateur 1837, vérifié dans les `.glb` du banc et de 1837 :
+   les clés du clip `tir` vont de 1/24 à 14/24 s). three.js (banc) et bevy prennent pour durée le temps de la **dernière clé** (`fin / fps` : `tir` 0,583 s = 35 frames,
+   `epauler` 0,375 s = 22,5, `rechargement` 2,0 s, `touche` 0,542 s) ; `AnimeManifest::duration` prenait la plage (`(fin − début) / fps`), une image de moins : le
+   tir finissait 2,5 frames avant la séquence et le rechargement ne montrait jamais sa dernière image (seek max 1,95 s au jeu). `Wait(35)` et `Wait(23)` de 1837 sont justes.
+   Correction : `duration = fin / fps` (§ 5). Reste à trancher : `exact_frames` (repères de simulation, M-6 § 116) garde la plage ; l'aligner déplacerait les fenêtres de
+   frappe et donc des traces (décision à prendre, pas faite ici).
 3. `alacod test` sur 1837 : les scénarios générés `weapon_machine_gun`, `weapon_pistol`, `weapon_rifle`, `weapon_shotgun` échouent sur `animation_vivante` (le Frère recharge
    ces armes en jouant `idle` : `models.ron` n'a de poses d'arme que pour `fusil_chasse`). Ces quatre armes (`ZombieShooter/Sprites/Character/weapons.ron`) ne sont données par
    personne (avertissement du lint) : les retirer des `content_folders`, ou leur déclarer des poses.
