@@ -45,6 +45,9 @@ pub struct GameArgs {
     /// Distance de vérification du synctest GGRS (`ALACOD_CHECK_DISTANCE`) :
     /// nombre de frames rejouées et comparées à chaque frame.
     pub check_distance: usize,
+    /// Délai d'entrée de la session GGRS (frames) : [`input_delay_from_env`] pour le client (0 hors
+    /// ligne, [`ONLINE_INPUT_DELAY`] en ligne), celui du scénario pour le runner.
+    pub input_delay: usize,
 }
 
 /// `ALACOD_CHECK_DISTANCE`, ou 2 (le minimum pour que GGRS compare des checksums).
@@ -78,14 +81,28 @@ fn check_distance_with_default(default: usize) -> usize {
         .unwrap_or(default)
 }
 
-/// `ALACOD_INPUT_DELAY`, ou 5 frames. À 0 sur une boucle locale, les inputs du pair arrivent
-/// après la frame qui en a besoin : chaque changement d'input est prédit puis resimulé, ce qui
-/// fait du smoke p2p (`scripts/nightly.sh`) une vraie épreuve de rollback.
-pub fn input_delay_from_env() -> usize {
+/// Délai d'entrée GGRS par défaut d'une partie **en ligne** (frames). À 0 sur une boucle locale, les
+/// inputs du pair arrivent après la frame qui en a besoin : chaque changement d'input est prédit
+/// puis resimulé, ce qui fait du smoke p2p (`scripts/nightly.sh`) une vraie épreuve de rollback.
+pub const ONLINE_INPUT_DELAY: usize = 5;
+
+/// Délai d'entrée des scénarios sans `Scenario::input_delay` : celui sous lequel les scénarios et
+/// leurs traces de référence ont été écrits (le défaut unique d'avant P-1e, § 125).
+pub const SCENARIO_INPUT_DELAY: usize = 5;
+
+/// `ALACOD_INPUT_DELAY` explicite, prioritaire sur tout défaut.
+pub fn input_delay_override() -> Option<usize> {
     std::env::var("ALACOD_INPUT_DELAY")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(5)
+}
+
+/// Délai d'entrée du client : `ALACOD_INPUT_DELAY`, sinon [`ONLINE_INPUT_DELAY`] en ligne et **0**
+/// hors ligne (P-1e, § 125) : la partie locale applique l'appui à la frame suivante, comme le banc du
+/// labo ; avec 5, chaque départ, arrêt, demi-tour, tir ou pas partait 83 ms plus tard et le joueur
+/// glissait de 8,8 u après chaque relâché.
+pub fn input_delay_from_env(online: bool) -> usize {
+    input_delay_override().unwrap_or(if online { ONLINE_INPUT_DELAY } else { 0 })
 }
 
 pub fn get_args() -> GameArgs {
@@ -152,6 +169,7 @@ pub fn get_args() -> GameArgs {
             cid: args.cid.unwrap_or(generate_random_correlation_id()),
             debug_ai: args.debug_ai,
             check_distance: play_check_distance_from_env(args.sandbox.is_some()),
+            input_delay: input_delay_from_env(!offline),
             sandbox: args.sandbox,
             telemetry: args.telemetry,
             telemetry_url: args.telemetry_url,
@@ -192,14 +210,15 @@ pub fn get_args() -> GameArgs {
                     is_local: true,
                 }]
             });
-
+        let matchbox = canvas_config.matchbox.unwrap_or_default();
         GameArgs {
+            input_delay: input_delay_from_env(!matchbox.is_empty()),
             seed: None,
             local_port: 0,
             number_player: canvas_config.number_player.unwrap_or(1),
             players,
             spectators: vec![],
-            matchbox: canvas_config.matchbox.unwrap_or(String::new()),
+            matchbox,
             allumette: String::new(), // le flux allumette n'existe pas sur le web en v1
             lobby: canvas_config.lobby.unwrap_or(String::new()),
             cid: generate_random_correlation_id(),
@@ -279,7 +298,7 @@ impl Plugin for GameArgsPlugin {
             matchbox_url: args.matchbox,
             allumette_url: args.allumette,
             connection: GggrsConnectionConfiguration {
-                input_delay: input_delay_from_env(),
+                input_delay: args.input_delay,
                 max_player: nbr_player,
                 desync_interval: 10,
                 // UDP seulement s'il y a des joueurs distants : plusieurs joueurs locaux

@@ -40,6 +40,7 @@ fn buyers_finish_the_first_wave_when_awake_zombies_are_inaccessible() {
             mode: None,
             ui: Vec::new(),
             tags: Vec::new(),
+            input_delay: None,
         };
         let outcome = run_with_options(
             &scenario,

@@ -410,6 +410,7 @@ fn main() {
             mode: None,
             ui: Vec::new(),
             tags: Vec::new(),
+            input_delay: None,
         };
         // `ALACOD_SIM_HUB=1` (enregistrement des bots pour le p2p, D85) : la partie passe par le hub
         // du manifeste (le joueur 0 va à la porte, f170) comme une partie en ligne, au lieu de

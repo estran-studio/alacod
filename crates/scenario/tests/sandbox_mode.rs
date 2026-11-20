@@ -79,6 +79,8 @@ fn build_app(dir: &std::path::Path, profile: &str, game_root: bool) -> App {
         telemetry_url: String::new(),
         telemetry_auth: String::new(),
         check_distance: 0,
+        // Comme le client hors ligne (P-1e, § 125).
+        input_delay: game::args::input_delay_from_env(false),
     };
     let mut app = App::new();
     if game_root {

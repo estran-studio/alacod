@@ -152,6 +152,12 @@ pub struct Scenario {
     /// du runner : jamais lue par la simulation, aucune trace ne bouge.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    /// Délai d'entrée GGRS de la session (frames, P-1e, `docs/conventions.md` § 125) : l'input d'une frame est
+    /// appliqué `input_delay` frames plus tard. Absent : `game::args::SCENARIO_INPUT_DELAY` (5), celui sous lequel
+    /// les scénarios et leurs traces ont été écrits ; un enregistrement du client porte le sien (0 hors ligne),
+    /// pour être rejoué à l'identique. `ALACOD_INPUT_DELAY` reste prioritaire.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_delay: Option<usize>,
 }
 
 /// Placement scripté d'un power-up (T2.5) : fait apparaître le power-up `id` (clé de

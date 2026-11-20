@@ -9153,3 +9153,19 @@ inter-personnages » ; « nos tests d'intégration devraient attraper tout probl
 - **Testbed** : `tireur_pantin` (le `tireur_poste` dessiné par le pantin, modèle `tireur_pantin` de `models.ron` : poses de l'arme `fireball_gun` et `hit`, clip `hit` ajouté par `scripts/gen-pantin.py`) ; poses de
   `arme_a_gestes` sur le pantin. Scénarios `tireur_pantin_cycle` (attente, épaulé, en joue et cône, tir tenu, rechargement étiré, retour), `tireur_pantin_suit` (le cône et le corps suivent le joueur), `tireur_pantin_touche`
   (coup reçu, salve perdue). Rouge sur régression provoquée et vert après : rapport § 3. Dette D219.
+
+## 125. Physique du labo : la partie locale applique l'appui à la frame suivante, les gestes d'arme s'étirent sur leur durée (P-1e, `docs/taches/rapports/p-1e-physique-labo.md`)
+Verdict de William (20 nov, 1837 `f2ac3bf`) : « notre physique est juste plus lente et lourde ». Mesuré au vrai jeu et au banc (`logs/p-1e-tableau.md`) : vitesses, accélération, balles, gestes et recul
+de la simulation au chiffre du banc ; l'écart était le **délai d'entrée** de la session GGRS, 5 frames pour tous les modes (`ALACOD_INPUT_DELAY`, défaut posé pour le smoke p2p) : en partie locale, chaque
+départ, arrêt, demi-tour, tir ou pas partait 83 ms après l'appui et le joueur glissait de 8,8 u (37 cm) après chaque relâché. Au banc, l'appui agit à l'image suivante.
+- **Délai d'entrée par mode** (`game::args`) : `input_delay_from_env(online)` = `ALACOD_INPUT_DELAY` explicite (toujours prioritaire), sinon `ONLINE_INPUT_DELAY` (5) **en ligne** (inchangé : coop à deux,
+  mesure et proposition au rapport, dette D221) et **0 hors ligne** (partie locale native et web, bac à sable, éditeur). Porté par `GameArgs::input_delay`, lu par `GameArgsPlugin`.
+- **Scénarios** : `Scenario::input_delay` (absent : `game::args::SCENARIO_INPUT_DELAY` = 5, celui sous lequel les scénarios et leurs traces ont été écrits ; aucune trace ne bouge). Le runner prend
+  `ALACOD_INPUT_DELAY`, sinon le champ, sinon 5. Un enregistrement du client (`ALACOD_RECORD`, `alacod remote save`) écrit le délai de sa session (`RecordedSettings::input_delay`, 0 hors ligne) : rejoué par le
+  runner, chaque input retombe à la frame où il a été appliqué. Un scénario qui veut le comportement de la partie locale pose `input_delay: Some(0)` (1837 : `tests/scenarios/physique_labo.ron`).
+- **Gestes d'arme à l'écran** (`game::model3d::playback`, présentation) : une arme à gestes (`WeaponConfig::gesture`) étire ses poses `shoulder` et `shoot` sur `raise_frames` et `fire_frames` (comme `armes.js`
+  `lancer` : clip lu à `durée du clip / durée du geste`) ; une `duration_s` de `models.ron` reste prioritaire ; le tir tient sa dernière image la frame où le rechargement de la simulation n'est pas encore visible.
+  Avant : le tir du Frère durait 34 frames (clip de 0,583 s) au lieu de 18, le rechargement entrait à 23 % de son clip, l'épaulé n'en montrait que 36 %.
+- **Ordre des esquives** : la première esquive joue `dash[0]` (rang compté depuis 0, `PoseInput::dash`), comme le banc (`J.pas` part de −1) ; avant, le Frère commençait sur `gigue-02`.
+- **Contrôle** : `crates/scenario/tests/physique_labo.rs` (testbed : réaction à la frame qui suit l'input avec la session du client hors ligne, durées des gestes d'arme, ordre des esquives ; salle réelle d'un jeu
+  externe, ignoré : vitesse, réaction, balle contre les nombres de son banc, `ALACOD_P1E_*`). Rouge par mutation de chacun des trois points, vert après (rapport).

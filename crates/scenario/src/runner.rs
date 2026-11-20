@@ -301,7 +301,10 @@ pub fn build_app(scenario: &Scenario, headless: bool, config: &PlayConfig) -> Ap
 
     let mut app = App::new();
     app.add_plugins(core_plugin.get_default_plugin())
-        .add_plugins(GameArgsPlugin(game_args(scenario.players.len())))
+        .add_plugins(GameArgsPlugin(game_args(
+            scenario.players.len(),
+            scenario.input_delay,
+        )))
         .insert_resource(registry)
         // T2.4, chantier F1 : `game::jjrs::{local, p2p}` résout `RunMode` depuis
         // `GameManifest` (`entry.mode`) au démarrage de session — présente ici comme dans
@@ -1385,10 +1388,15 @@ pub fn run(scenario: &Scenario) -> ScenarioOutcome {
     run_with(scenario, |_| {})
 }
 
-fn game_args(player_count: usize) -> GameArgs {
+fn game_args(player_count: usize, input_delay: Option<usize>) -> GameArgs {
     GameArgs {
         seed: None,
         check_distance: game::args::check_distance_from_env(),
+        // `ALACOD_INPUT_DELAY` explicite, sinon celui du scénario, sinon celui sous lequel les
+        // références ont été écrites (P-1e : le client hors ligne joue à 0, le runner garde 5).
+        input_delay: game::args::input_delay_override()
+            .or(input_delay)
+            .unwrap_or(game::args::SCENARIO_INPUT_DELAY),
         local_port: 0,
         number_player: player_count,
         players: (0..player_count)

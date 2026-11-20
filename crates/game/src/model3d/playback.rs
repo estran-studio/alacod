@@ -361,7 +361,9 @@ pub fn decide_poses(
             }
             let total = d.dash_duration.max(1) as f32;
             let done = d.dash_duration.saturating_sub(d.dash_frames_remaining) as f32;
-            input.dash = Some((state.dashes, done / total));
+            // Rang de l'esquive (0 pour la première) : la première joue `dash[0]`, comme le banc
+            // (`armes.js` : `J.pas` part de −1 ; P-1e, § 125 : le Frère commençait sur `gigue-02`).
+            input.dash = Some((state.dashes.wrapping_sub(1), done / total));
         }
         state.dashing = dashing.is_some();
         if let Some(attack) = melee_state.filter(|m| m.is_attacking) {
@@ -423,10 +425,37 @@ pub fn decide_poses(
                 .and_then(|ai| ai.ranged.as_ref())
                 .map(|r| r.weapon.as_str())
         });
-        let poses = match weapon_name.and_then(|name| model.weapons.get(name)) {
+        let mut poses = match weapon_name.and_then(|name| model.weapons.get(name)) {
             Some(p) => p.over(&model.poses),
             None => model.poses.clone(),
         };
+        // P-1e (§ 125) : une arme à gestes (`WeaponConfig::gesture`) étire ses clips d'épaulé et de tir sur la durée de
+        // ses gestes, comme le banc (`armes.js` `lancer` : clip lu à `durée du clip / durée du geste`) ; lus à la durée
+        // du clip, le tir du Frère durait 34 frames au lieu de 18, cachait le début du rechargement (entré à 23 %), et
+        // l'épaulé n'en montrait que 36 %. Une `duration_s` écrite dans `models.ron` reste prioritaire.
+        if let Some(gesture) = active.and_then(|(w, _, _)| w.config.gesture.as_ref()) {
+            for (pose, frames) in [
+                (&mut poses.shoulder, gesture.raise_frames),
+                (&mut poses.shoot, gesture.fire_frames),
+            ] {
+                if let Some(g) = pose
+                    .as_mut()
+                    .filter(|g| g.duration_s.is_none() && frames > 0)
+                {
+                    g.duration_s = Some(frames as f32 / SIM_HZ);
+                }
+            }
+            // La simulation lance le rechargement à la fin du geste de tir, mais il n'est visible ici qu'à la frame
+            // suivante : le tir tient sa dernière image cette frame-là au lieu de montrer l'attente (au banc, `tir`
+            // enchaîne sur `rechargement` sans image entre les deux).
+            let total = gesture.fire_frames as f32 / SIM_HZ;
+            let gap = input
+                .since_shot
+                .is_some_and(|s| s >= total && s < total + 1.5 / SIM_HZ);
+            if gesture.fire_frames > 0 && input.reload.is_none() && gap {
+                input.since_shot = Some(total * 0.999);
+            }
+        }
         // Le geste du tir d'un tireur posté tient sa dernière image tant que sa séquence dure : une attente d'après tir
         // plus longue que le clip (`Wait(35)` pour un clip de 32,5 frames) ne doit pas montrer l'attente entre le tir et
         // le rechargement (banc `armes.js` A:694 : `tir` enchaîne sur `recharge`). `held` le dit à l'invariant.
