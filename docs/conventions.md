@@ -9084,8 +9084,8 @@ aucun crate `SIM` ne dépend d'harmonium (`make check_sim_boundary`) ; aucune tr
   qu'au lancement (D217 (9)). Les banques ne sont **pas** cherchées sur le disque (téléchargées).
 - **Horloge du jeu (option a, décision de William du 2026-11-06)** (`crates/game/src/audio/music.rs`) : `OnEnter(InGame)` : `anchor_music_clock` pose `GameClock.clock = ExternalClock::new(60, FrameCount.frame, num, den)`
   (`SIM_FPS` = 60 ; l'ancrage est la frame d'entrée en partie : `FrameCount` est remis à zéro à la sortie de la partie précédente, `run_state::cleanup_rollback_world_system`, donc 0 d'ordinaire ; les deux clients entrent à la même frame) ; `Update` : `feed_music_clock` écrit
-  `GameClock.sim_frame = FrameCount.frame` à **chaque frame de présentation**, donc avant `HarmoniumSet` (`PostUpdate`) ; `OnExit(InGame)` : l'horloge est retirée (le tempo revient aux émotions, la partie suivante en pose une
-  neuve). `frame_fraction` reste 0 (le jeu ne l'expose pas). Harmonium règle vitesse et phase de son playback sur cette horloge, sans jamais interpoler la position publiée ; `MusicClock` reste le playhead
+  `GameClock.sim_frame = FrameCount.frame` à **chaque frame de présentation**, donc avant `HarmoniumSet` (`PostUpdate`) ; `OnExit(InGame)` : l'horloge est retirée et la musique se met en pause (M-7b, § 124 :
+  elle ne joue que pendant qu'une horloge est posée ; la partie suivante en pose une neuve). `frame_fraction` reste 0 (le jeu ne l'expose pas). Harmonium règle vitesse et phase de son playback sur cette horloge, sans jamais interpoler la position publiée ; `MusicClock` reste le playhead
   (ce que le joueur entend), **jamais lu par la simulation**.
 - **Muet** : `ALACOD_MUTE=1` pose `HarmoniumControl.volume = 0` (la musique tourne, muette : l'horloge publiée par le callback audio prouve que la sortie tourne). Aucune écoute n'est jamais revendiquée par un agent.
   Le curseur de volume de la pause (`MasterVolume`) ne règle pas la musique (hors lot).
@@ -9153,3 +9153,37 @@ inter-personnages » ; « nos tests d'intégration devraient attraper tout probl
 - **Testbed** : `tireur_pantin` (le `tireur_poste` dessiné par le pantin, modèle `tireur_pantin` de `models.ron` : poses de l'arme `fireball_gun` et `hit`, clip `hit` ajouté par `scripts/gen-pantin.py`) ; poses de
   `arme_a_gestes` sur le pantin. Scénarios `tireur_pantin_cycle` (attente, épaulé, en joue et cône, tir tenu, rechargement étiré, retour), `tireur_pantin_suit` (le cône et le corps suivent le joueur), `tireur_pantin_touche`
   (coup reçu, salve perdue). Rouge sur régression provoquée et vert après : rapport § 3. Dette D219.
+
+## 124. La musique ne se tait pas : contrôle de continuité, pause jusqu'à l'ancrage, suivi tolérant (M-7b, `docs/taches/rapports/m-7b-musique-continue.md`)
+
+Jalon servi : **S2, dimanche 22 novembre** (`plan-1837-cli.md` §6, ligne M-7b : « la musique ne se tait plus au démarrage ni sous les bruits de balles »). **Présentation seule** :
+rien dans `GgrsSchedule`, aucun type rollback, aucune trace ne bouge ; le code touché est `crates/game/src/audio/music.rs` (feature `game/harmonium`).
+
+- **Cause mesurée** (sans carte son, salle de 1837 avec tirs, rapport § 2) : ni les voix ni le tampon (trois flux, kira ×2 et harmonium, **0 underrun**, marge minimale 2 801 frames du flux
+  d'harmonium) ; les trous suivent exactement le **suivi de l'horloge du jeu** d'harmonium : (1) l'hôte démarre dès ses banques chargées, au tempo des émotions, puis se tait à l'ancrage
+  (`OnEnter(InGame)` : `set_external_clock` met le playback en attente jusqu'à ce que le suivi se cale) ; (2) en partie, tout écart simulation/mur au-delà de ce que le micro-ajustement
+  absorbe (défaut d'harmonium : zone morte 10 ms + 5 ‰ sur 8 pulsations, environ 20 ms) déclenche un saut à la fin de la mesure en cours, attendu **en silence** jusqu'à une mesure. Un
+  tel écart naît d'une frame de plus de 250 ms (`Time<Virtual>` borné : la simulation perd le reste) ou du ralenti `run_slow` de `bevy_ggrs` en ligne. La première lecture d'un son d'effet
+  ne fait **pas** de frame longue (≤ 1 ms par update, son chargé et décodé en moins d'une frame, `logs/m-7b-mesure-premier-son.log`) : le lien avec « le bruit de collision » est que le
+  silence tombe à la fin de la mesure qui suit l'écart, en plein échange de tirs.
+- **Pause jusqu'à l'ancrage** (`gate_music_pause`, `Update`, après `feed_music_clock`, avant `HarmoniumSet`) : `HarmoniumControl.paused = GameClock.clock.is_none()`. Hors partie la
+  musique ne joue pas (lobby, chargement, après `OnExit(InGame)`) ; la première note est sur l'horloge, une à deux mesures après l'entrée en partie (le suivi attend 30 observations, la
+  garde de départ et le début d'une mesure de l'horloge). Pause plutôt que volume 0 : le gain initial du playback d'harmonium vaut 1 et une commande de volume 0 n'y descend qu'en rampe,
+  les premières notes fuyaient. Web : l'`AudioContext` reprend au premier geste **après** l'ancrage (les touches de la partie), plus à un geste du lobby. `ALACOD_MUTE=1` reste un volume 0.
+- **Suivi tolérant** (`follow_config`, `HarmoniumConfig::follow`) : micro-ajustement jusqu'à **5 %** (le plafond du playback, `MAX_NUDGE_PPM`) sur **16** pulsations, le reste des réglages
+  d'harmonium inchangé : environ 400 ms d'écart rattrapés au tempo (8 s à une pulsation de 0,5 s) au lieu d'un saut silencieux. Au-delà (frame de plus de 650 ms environ), le saut d'harmonium
+  reste (D220, proposition au studio).
+- **Contrôle** (`audio::music::continuite`, `make test_music`) : la **vraie sortie** d'harmonium sans carte son : hôte détaché (`LiveHost::detached`), le banc joue la carte son (chaque tampon
+  rendu par `PlaybackEngine::process_buffer` à son instant ; flux en pause : silence, pas de callback) et le jeu (`FrameCount` par l'accumulateur de `bevy_ggrs`, delta borné à 250 ms ; une
+  frame Bevy avec `HarmoniumPlugin` et les systèmes de [`install`]) sur une horloge murale **simulée** (déterministe, 16 s de jeu en 5 s). Réglage `music` neutre du testbed (`gmd_pop`, 30/1).
+  À-coups : frames de 300 ms et de 450 ms (au moment d'un tir ou d'un impact), 1 s de `run_slow`. Échoue si, après la première note, la musique se tait (tampons sous -60 dBFS ou playback
+  « en attente » au moins 150 ms) ou saute (mesure qui recule ou en saute une), ou si elle ne part pas dans les 3 s qui suivent l'entrée en partie. Banques cherchées dans
+  `$ALACOD_HARMONIUM_BANKS_DIR`, le cache de `scripts/harmonium-banks.sh`, puis `games/testbed/assets/harmonium/` ; sans elles l'énergie n'est pas jugée (le synthé rend du silence), l'attente
+  et les mesures, publiées par le callback, le sont. Rouge sur le code d'avant (silence de 1 973 ms au démarrage, 181 ms après la frame de 450 ms), vert après ; chaque correction retirée
+  seule le rend rouge. **La nuit**, pas `check_rapide` : la feature compile un second binaire de tests de `game` (≈ 4 min, 1 Go) pour 5 s de jeu.
+- **Écouter sans carte son** (`scripts/audio-capture.sh <dossier> <commande>`, `tools/alsa-pacer/pacer.c`) : un plugin ALSA « ioplug » chargé **par processus** (`ALSA_CONFIG_PATH`, jamais
+  un `~/.asoundrc`) consomme chaque flux au rythme réel et l'écrit dans son propre WAV (`flux-<pid>-<n>.wav`, flottant 32 bits, sur l'horloge murale depuis l'ouverture : un flux en pause
+  ou arrêté écrit du silence, deux flux d'un processus restent alignés) ; un flux en retard voit un vrai underrun (`-EPIPE`, silence à l'endroit exact) ; le `.log` voisin note format,
+  démarrages, pauses, underruns et, à la fermeture, la marge minimale du tampon et le plus long écart entre deux écritures. Exige gcc et `libasound2-dev`. kira ouvre aussi de courts flux de
+  sondage (fichiers de quelques octets, à ignorer). `scripts/audio-gaps.py <musique.wav> [--effects <effets.wav>]` : début de la musique, trous (défaut : 150 ms sous -60 dBFS), débuts
+  des effets et trous voisins ; code 1 s'il y a un trou.
