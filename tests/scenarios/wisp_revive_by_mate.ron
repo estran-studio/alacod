@@ -7,6 +7,7 @@
 // À regarder : le joueur 0 tombe vers f100 (lumière chaude, texte « FEU FOLLET » du HUD) ; sa relève avance de 0 à 100 %
 // (f130-190) ; il se relève avec 30 % de sa vie et le texte disparaît.
 Scenario(
+    tags: ["rapide"],
     game: "testbed",
     map: "testbed/arene_vide.ldtk",
     frames: 300,

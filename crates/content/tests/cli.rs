@@ -736,6 +736,67 @@ fn test_command_compares_written_external_two_player_scenarios() {
     );
 }
 
+/// T-3b (§ 123) : `alacod test <jeu> --tag rapide` ne joue que les scénarios écrits étiquetés, et ne touche
+/// **pas** aux scénarios générés du jeu (revue de 071ce9a4 : la génération sautée purgeait `tests/generated`).
+#[test]
+#[ignore = "joue un jeu externe : make test_alacod_external"]
+fn test_tag_plays_only_tagged_written_scenarios_and_keeps_generated_ones() {
+    let tmp = Tmp::new("tag");
+    assert!(new_game(&tmp, "demo", &[]).status.success());
+    let game = tmp.0.join("demo");
+    let scenarios = game.join("tests/scenarios");
+    std::fs::create_dir_all(&scenarios).unwrap();
+    let written = |tags: &str| {
+        format!(
+            r#"Scenario(
+        {tags}
+        game: "demo",
+        map: "maps/arena.ldtk",
+        frames: 30,
+        players: [(inputs: [(from: 1, to: 20, buttons: [], pan: (100, 0))])],
+        expect: [PlayerAlive(handle: 0, at_frame: 20)],
+    )"#
+        )
+    };
+    std::fs::write(scenarios.join("court.ron"), written(r#"tags: ["rapide"],"#)).unwrap();
+    std::fs::write(scenarios.join("long.ron"), written("")).unwrap();
+    // Un scénario généré d'avant (sa trace comprise) doit survivre au jeu court.
+    let generated = game.join("tests/generated");
+    std::fs::create_dir_all(&generated).unwrap();
+    std::fs::write(generated.join("weapon_temoin.ron"), "témoin").unwrap();
+    std::fs::write(generated.join("weapon_temoin.trace"), "témoin").unwrap();
+
+    let play = |extra: &[&str]| {
+        let mut cmd = alacod();
+        cmd.args(["test"])
+            .arg(&game)
+            .args(["--tag", "rapide"])
+            .args(extra);
+        let out = run(cmd);
+        eprintln!(
+            "alacod test --tag rapide {extra:?} => {}\n{}{}",
+            out.status,
+            text(&out.stdout),
+            text(&out.stderr)
+        );
+        out
+    };
+    assert!(play(&["--bless"]).status.success());
+    let out = play(&[]);
+    assert!(out.status.success());
+    let stdout = text(&out.stdout);
+    assert!(stdout.contains("scenarios/court"), "{stdout}");
+    assert!(!stdout.contains("scenarios/long"), "{stdout}");
+    assert!(stdout.contains("1 scénario(s) joué(s), 1 trace(s) comparée(s), 0 échec(s)"));
+    assert!(scenarios.join("court.trace").exists());
+    assert!(!scenarios.join("long.trace").exists());
+    assert_eq!(
+        std::fs::read_to_string(generated.join("weapon_temoin.ron")).unwrap(),
+        "témoin"
+    );
+    assert!(generated.join("weapon_temoin.trace").exists());
+}
+
 /// Remplace la première valeur de `damage: "…"` de `text` par `"0.0"`.
 fn regex_free_replace_damage(text: &str) -> String {
     let key = "damage: \"";

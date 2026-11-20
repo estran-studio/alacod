@@ -895,6 +895,13 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
     let mut invariants = InvariantQueries::new(app.world_mut());
     // Dernière santé vue par attente `NoDamageBetween`, clé (handle, from_frame).
     let mut dernieres_santes: BTreeMap<(usize, u32), fixed_math::Fixed> = BTreeMap::new();
+    // T-3b (§ 123) : clip de chaque personnage à modèle à la frame d'avant, pour `ClipSpeed` (relevé seulement si une
+    // attente le demande).
+    let wants_clip_speed = scenario
+        .expect
+        .iter()
+        .any(|e| matches!(e, Expectation::ClipSpeed { .. }));
+    let mut playback_history = crate::model_expect::PlaybackHistory::default();
 
     // Métriques : le chrono part au premier update simulé (le chargement de la map n'est pas
     // compté) ; les compteurs d'entités sont lus entre deux updates, jamais dans la simulation.
@@ -1065,9 +1072,21 @@ pub fn run_with_options<F: FnOnce(&mut App)>(
         };
         while due.first().is_some_and(|e| e.at_frame() <= frame) {
             let expectation = due.remove(0);
-            if let Err(reason) = check(app.world_mut(), expectation) {
+            let result = match expectation {
+                Expectation::ClipSpeed { .. } => crate::model_expect::clip_speed(
+                    app.world_mut(),
+                    expectation,
+                    &playback_history,
+                    frame,
+                ),
+                _ => check(app.world_mut(), expectation),
+            };
+            if let Err(reason) = result {
                 failures.push(format!("frame {frame}: {expectation:?} : {reason}"));
             }
+        }
+        if wants_clip_speed && frame > 0 {
+            playback_history.record(app.world_mut(), frame);
         }
 
         if frame > 0 {
@@ -1671,10 +1690,15 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         }
         Expectation::NoDamageBetween { .. }
         | Expectation::EnemyContactBefore { .. }
-        | Expectation::EnemyNeverInWall { .. } => {
+        | Expectation::EnemyNeverInWall { .. }
+        | Expectation::ClipSpeed { .. } => {
             // Géré dans la boucle principale, pas dans check()
             Ok(())
         }
+        Expectation::Clip { .. }
+        | Expectation::ClipProgress { .. }
+        | Expectation::ModelYaw { .. }
+        | Expectation::TelegraphAim { .. } => crate::model_expect::check(world, expectation),
         Expectation::EnemyState {
             entity, behavior, ..
         } => match enemy_rule(world, entity) {
@@ -3238,7 +3262,10 @@ fn is_continuous(expectation: &Expectation) -> bool {
 
 /// Entité rollback désignée par un `EntityRef` (`Target` : l'entité qui compte ses coups de
 /// plus petit `GgrsNetId`, comme `HitsAtLeast`).
-fn resolve_entity(world: &mut World, entity: &game::replay::EntityRef) -> Option<Entity> {
+pub(crate) fn resolve_entity(
+    world: &mut World,
+    entity: &game::replay::EntityRef,
+) -> Option<Entity> {
     use bevy_ggrs::Rollback;
     match entity {
         game::replay::EntityRef::NetId(net_id) => world

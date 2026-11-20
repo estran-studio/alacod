@@ -68,7 +68,7 @@ enum Command {
     },
     /// Joue les scénarios écrits et générés d'un jeu ; vérifie attentes et traces.
     ///
-    /// `alacod test [jeu] [id…] [--list]` joue les générés et `tests/scenarios/*.ron`.
+    /// `alacod test [jeu] [id…] [--list] [--tag rapide]` joue les générés et `tests/scenarios/*.ron`.
     /// Les scénarios écrits exigent leur trace sœur ; `--bless` l'écrit.
     Test {
         /// `[dossier du jeu] [id…]` : le premier argument est pris pour un dossier s'il existe.
@@ -85,6 +85,9 @@ enum Command {
         /// Racine de l'engine ; sinon celle du jeu (dépendance `Cargo.toml`) ou de ce binaire.
         #[arg(long)]
         engine: Option<PathBuf>,
+        /// Seulement les scénarios écrits étiquetés (`tags: ["rapide"]` : le jeu court, T-3b), sans génération.
+        #[arg(long)]
+        tag: Option<String>,
     },
     /// Crée une entrée de contenu à partir d'un modèle du jeu.
     ///
@@ -371,6 +374,7 @@ fn main() -> ExitCode {
             bless,
             json,
             engine,
+            tag,
         } => {
             let (dir_arg, ids) = match args.split_first() {
                 Some((first, rest)) if PathBuf::from(first).is_dir() => {
@@ -379,7 +383,7 @@ fn main() -> ExitCode {
                 _ => (None, args.clone()),
             };
             match resolve_game_dir(dir_arg) {
-                Ok(dir) => run_tests(&dir, &ids, list, bless, json, engine),
+                Ok(dir) => run_tests(&dir, &ids, list, bless, json, engine, tag.as_deref()),
                 Err(e) => fail(&e),
             }
         }
@@ -1151,6 +1155,7 @@ fn run_tests(
     bless: bool,
     json: bool,
     engine: Option<PathBuf>,
+    tag: Option<&str>,
 ) -> ExitCode {
     let engine = match engine_root_for(game_dir, engine) {
         Ok(root) => root,
@@ -1176,6 +1181,9 @@ fn run_tests(
     .arg("--")
     .arg(&game)
     .arg("--written");
+    if let Some(tag) = tag {
+        cmd.arg("--tag").arg(tag);
+    }
     if list {
         cmd.arg("--list");
     } else {

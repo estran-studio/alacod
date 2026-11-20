@@ -5,6 +5,7 @@
 //
 // À regarder : le tireur se replie derrière la caisse nord, jamais l'autre.
 Scenario(
+    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",

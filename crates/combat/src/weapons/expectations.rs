@@ -747,6 +747,54 @@ pub enum Expectation {
         blocked: bool,
         at_frame: u32,
     },
+    /// T-3b (§123) : clip joué par le personnage à modèle `who` à `at_frame` (`game::model3d::playback::ModelPlayback::clip`,
+    /// présentation calculée aussi en headless), résolu dans le manifeste. `once: Some(true)` exige un geste joué une fois
+    /// (tir, épaulé, rechargement, coup), `Some(false)` un clip qui boucle (attente, allure, en joue) ; `None` : l'un ou l'autre.
+    Clip {
+        who: DistanceTarget,
+        clip: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        once: Option<bool>,
+        at_frame: u32,
+    },
+    /// T-3b (§123) : progression du clip joué (`time / duration`, de 0 à 1) dans `[min, max]` (bornes inclusives, `None` = pas de
+    /// borne) à `at_frame`.
+    ClipProgress {
+        who: DistanceTarget,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// T-3b (§123) : vitesse de lecture du clip joué, secondes de clip par seconde de jeu, mesurée de `at_frame - 1` à
+    /// `at_frame` (même clip aux deux frames, tour de boucle compris) dans `[min, max]` : 1 au rythme du manifeste, 0,67 pour
+    /// un rechargement de 2 s étiré sur 3 s, 0 pour une image tenue.
+    ClipSpeed {
+        who: DistanceTarget,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+        at_frame: u32,
+    },
+    /// T-3b (§123) : cap du corps du personnage à modèle `who` (`ModelPlayback::yaw`) à moins de `tolerance_deg` (défaut 22,5 :
+    /// la même des 8 directions) du cap de `toward` vu au sol (même projection que la pose, `yaw_from_screen`).
+    ModelYaw {
+        who: DistanceTarget,
+        toward: YawTarget,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tolerance_deg: Option<f32>,
+        at_frame: u32,
+    },
+    /// T-3b (§123) : l'émetteur de l'ennemi `entity` est dans un `Telegraph` (le cône annoncé) et sa visée (`Emitter::aim`)
+    /// pointe vers le joueur `handle` à moins de `max_deg` près à `at_frame` : le cône suit la cible.
+    TelegraphAim {
+        entity: EntityRef,
+        handle: usize,
+        max_deg: f32,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -757,6 +805,15 @@ pub enum DistanceTarget {
     /// M2-T8 : une autre entité (ex. un autre membre d'escouade, `Placed(n)`) : écarts d'une
     /// formation.
     Entity(EntityRef),
+}
+
+/// Vers où le corps doit regarder (`ModelYaw`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum YawTarget {
+    /// Une des 8 directions de l'écran (`Right`, `UpRight`, `Up`… ; y vers le haut).
+    Direction(sim_core::animation_state::FacingDirection),
+    /// Le joueur de handle `n` (depuis la position du personnage).
+    Player(usize),
 }
 
 impl Expectation {
@@ -790,6 +847,11 @@ impl Expectation {
             | Self::EnemyDistance { at_frame, .. }
             | Self::EnemyPosition { at_frame, .. }
             | Self::CoverSight { at_frame, .. }
+            | Self::Clip { at_frame, .. }
+            | Self::ClipProgress { at_frame, .. }
+            | Self::ClipSpeed { at_frame, .. }
+            | Self::ModelYaw { at_frame, .. }
+            | Self::TelegraphAim { at_frame, .. }
             | Self::EnemyVariant { at_frame, .. }
             | Self::Clock { at_frame, .. }
             | Self::RunState { at_frame, .. }

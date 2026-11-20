@@ -9115,8 +9115,33 @@ jouent **un seul clip, `fusil-idle`**, pendant tout le cycle que la simulation e
   personnage joue au repos (un clip **qui boucle**, joué ≥ 6 frames sans activité ni déplacement : un geste joué une fois et fini au repos, comme le tir d'une frame du joueur, n'en est pas un). Le déplacement est celui que la pose a
   lu (`ModelPlayback::moving` : vitesse au sol ≥ `pose::STILL_BELOW`), jamais un second seuil sur la position ; (3) la position du clip **avance** (pas figée 30 frames), sauf une dernière image tenue exprès (`held`).
   Sans attente écrite à la main : tout personnage à modèle, tout scénario, tout jeu (donc `alacod test`, dont le runner lint aussi le contenu : `MissingPose` y fait échouer chaque scénario). Dans `make check_rapide` :
-  `check_animation` (`test_scenarios SCENARIO=model_pantin,frappe_moment`, binaire `scenarios` seul). Preuve rouge/verte : `crates/scenario/tests/animation_invariant.rs` (monde minimal) ;
+  `check_integration` (T-3b, § 123, a remplacé `check_animation` : le jeu court étiqueté `rapide`, dont `model_pantin` et `frappe_moment`). Preuve rouge/verte : `crates/scenario/tests/animation_invariant.rs` (monde minimal) ;
   sur la salle réelle d'un jeu : `crates/scenario/tests/shooter_poses.rs` (ignoré, `ALACOD_P1D_GAME_DIR=<dossier du jeu>`, échoue sur toute failure du runner).
 - **Lint** (`alacod lint`, `LintErrorKind::MissingPose`) : une pose de `models.ron` absente du manifeste était déjà `BrokenReference` ; désormais un **état possible sans pose** est une erreur : l'attente (`idle`), l'esquive déclarée sans `dash`, et pour une règle `Shoot` :
   `shoulder` (attente avant le télégraphe), `aim` (télégraphe), `shoot`, `reload` (`cooldown_frames` > 0), `hit` (`ranged_cycle.stagger_frames`), lues comme `decide_poses` les résout (poses de l'arme de la règle par-dessus celles du modèle).
   Fixtures `model_poses_missing` (rouge), `model_poses_complete` et `model_poses_on_weapon` (vertes), `crates/content/tests/p1d_model_poses_fixtures.rs`.
+
+## 123. Suites d'intégration : le jeu court étiqueté, les attentes fines du modèle, les gestes depuis l'entrée réelle (T-3b, `docs/taches/rapports/t-3-suites-integration.md`)
+Décision de William (14 nov, 16 nov) : « des suites de tests d'intégration qui roulent souvent, qui valident qu'il n'y a pas de régression dans les états d'animation et les autres mécaniques
+inter-personnages » ; « nos tests d'intégration devraient attraper tout problème d'animation qui ne joue pas ». Elles réutilisent le composant de P-1d (`game::model3d::playback::ModelPlayback`, § 122) sans le réécrire.
+- **Jeu court étiqueté** : un scénario porte `tags: ["rapide"]` (`Scenario::tags`, métadonnée du runner, jamais lue par la simulation : aucune trace ne bouge). `ALACOD_SCENARIO_TAG=rapide` (`make test_scenarios TAG=rapide`)
+  ne joue que les scénarios étiquetés ; `ALACOD_SUITE_MAX_FRAMES` borne la somme de leurs `frames` (budget en **temps de jeu**, déterministe ; le temps d'horloge est affiché, jamais bloquant). `make check_integration`
+  (dans `make check_rapide`, à la place de `check_animation`) le joue avec `SUITE_MAX_FRAMES=4800` (80 s de jeu) ; mesuré le 2026-11-20 sur le VPS : 13 scénarios, 2 985 frames (50 s de jeu), 27,6 s d'horloge
+  (binaire déjà construit). `alacod test <jeu> --tag rapide` (`alacod-gen --tag rapide`) est la même option pour un jeu externe : seulement ses `tests/scenarios/*.ron` étiquetés, sans génération, traces exigées.
+  La nuit les rejoue avec toute la suite. Un scénario n'entre dans le jeu court que s'il est court et couvre un état d'animation ou une mécanique entre personnages (liste au rapport).
+- **Attentes fines** (`crates/scenario/src/model_expect.rs`, lues entre deux updates, angles en `f32` hors simulation) ; `who` désigne le personnage à modèle : `Player(handle)` ou `Entity(Placed(n) | NetId(id) | Target)` :
+  - `Clip(who, clip, once: Some(true|false), at_frame)` : clip joué (`ModelPlayback::clip`), résolu (sinon la cause `unresolved`) ; `once: true` = geste joué une fois, `false` = boucle ;
+  - `ClipProgress(who, min, max, at_frame)` : `time / duration` dans `[min, max]` ;
+  - `ClipSpeed(who, min, max, at_frame)` : secondes de clip par seconde de jeu de `at_frame - 1` à `at_frame` (même clip aux deux frames, tour de boucle compris ; le runner relève les clips à chaque frame seulement si
+    une attente `ClipSpeed` existe) : 1 au rythme du manifeste, 1,2 pour un clip de 1,2 s étiré sur 1 s, 0 pour une dernière image tenue (`held`) ;
+  - `ModelYaw(who, toward: Direction(Left) | Player(n), tolerance_deg, at_frame)` : `ModelPlayback::yaw` à moins de `tolerance_deg` (défaut 22,5, la même des 8 directions) du cap de la direction vue au sol
+    (`playback::yaw_from_screen`, l'élévation de `models.ron`) ;
+  - `TelegraphAim(entity, handle, max_deg, at_frame)` : l'émetteur de l'ennemi est dans un `Telegraph` (le cône) et `Emitter::aim` pointe vers le joueur à moins de `max_deg` : le cône suit la cible (`ranged_cycle.track_target`).
+- **Gestes depuis l'entrée réelle** (`crates/scenario/tests/gestes_entree_reelle.rs`, joué par `check_integration` après le jeu court, et par `test_crates`) : visée, tir, épaulé, rechargement, coup de mêlée et pas du pantin, chacun depuis la souris et le clavier
+  (visée par un `CursorMoved` de fenêtre factice) **et** depuis la manette (visée par l'axe du stick droit, gâchettes et boutons en `RawGamepadEvent`). Chemin de l'application : leafwing (`InputManagerPlugin<PlayerAction>`,
+  `get_input_map`), `collect_device_inputs`, `read_local_inputs`, `record_local_inputs`, puis `InputRecorder::to_scenario` (le chemin de `ALACOD_RECORD`) rejoué par le runner, attentes `Clip`/`ClipSpeed`/`ClipProgress`/`ModelYaw`.
+  Jamais `PlayerScript::aim` ni un segment écrit à la main. Le harnais ne joue qu'un rôle de winit : poser la position du curseur de la fenêtre à la lecture d'un `CursorMoved` ; la caméra du jeu est centrée sur le joueur
+  (le curseur à `(400 + dx, 300 − dy)` vise `(dx, dy)`).
+- **Testbed** : `tireur_pantin` (le `tireur_poste` dessiné par le pantin, modèle `tireur_pantin` de `models.ron` : poses de l'arme `fireball_gun` et `hit`, clip `hit` ajouté par `scripts/gen-pantin.py`) ; poses de
+  `arme_a_gestes` sur le pantin. Scénarios `tireur_pantin_cycle` (attente, épaulé, en joue et cône, tir tenu, rechargement étiré, retour), `tireur_pantin_suit` (le cône et le corps suivent le joueur), `tireur_pantin_touche`
+  (coup reçu, salve perdue). Rouge sur régression provoquée et vert après : rapport § 3. Dette D219.

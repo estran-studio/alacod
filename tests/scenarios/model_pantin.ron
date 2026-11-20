@@ -9,6 +9,7 @@
 // roulade vers le haut (f330) ; tir vers le bas (f380). Le pantin a son contour d'un pixel et son ombre portée
 // (le testbed garde `y_sort: false` : ordre de dessin historique).
 Scenario(
+    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",

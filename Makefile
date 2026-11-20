@@ -97,14 +97,20 @@ check: format test_tools check_forbidden check_rollback_registration check_sim_b
 # reste dedans : 434 s mesurées sur le VPS (cible chaude, 2026-11-06), sous le plafond de 15 min.
 # Total mesuré : 522 s (format 3, test_tools 5, check_forbidden 1, check_rollback_registration 1,
 # check_sim_boundary 8, lint 70, test_crates 434). `WASM=1` ajoute `check_wasm` quand le lot touche le web.
-# `check_animation` (P-1d, § 122) joue l'invariant `animation_vivante` sur de vrais scénarios.
-check_rapide: format test_tools check_forbidden check_rollback_registration check_sim_boundary lint test_crates check_animation $(if $(filter 1,$(WASM)),check_wasm)
+# `check_integration` (T-3b, § 123 ; remplace `check_animation` de P-1d, § 122) joue le jeu court étiqueté.
+check_rapide: format test_tools check_forbidden check_rollback_registration check_sim_boundary lint test_crates check_integration $(if $(filter 1,$(WASM)),check_wasm)
 	@echo "✓ Contrôle rapide passé (suite de scénarios : la nuit)"
 
-# P-1d (§ 122) : l'invariant `animation_vivante` (actif par défaut) sur les scénarios du testbed dont un personnage a un
-# modèle (`pantin`) ; seul le binaire de test `scenarios`, déjà construit par `test_crates` (mêmes features).
-check_animation:
-	$(MAKE) test_scenarios SCENARIO=model_pantin,frappe_moment
+# T-3b (§ 123) : le jeu court, les scénarios étiquetés `tags: ["rapide"]` (états d'animation sous l'invariant
+# `animation_vivante` et les attentes `Clip*`/`ModelYaw`, mécaniques entre personnages), puis les gestes depuis l'entrée
+# réelle (`gestes_entree_reelle` : souris, clavier, manette) ; binaires de test `scenarios` et `gestes_entree_reelle`, mêmes
+# options que `test_scenarios`. Budget écrit : SUITE_MAX_FRAMES frames de jeu au plus (somme des `frames` des scénarios
+# étiquetés, déterministe ; 4800 = 80 s de jeu), au-delà le test échoue. La nuit les rejoue avec toute la suite ;
+# `alacod test <jeu> --tag rapide` est la même option pour un jeu externe.
+SUITE_MAX_FRAMES ?= 4800
+check_integration:
+	ALACOD_SUITE_MAX_FRAMES=$(SUITE_MAX_FRAMES) $(MAKE) test_scenarios TAG=rapide
+	APP_VERSION=$(TEST_VERSION) cargo test -p scenario --profile headless $(DEV_FEATURES) --test gestes_entree_reelle
 
 # Compilation wasm32 du jeu web de référence (mêmes features que `build_ldtk_map_explorer_web`), cible à part
 # (`target_wasm`) : 1046 s à froid sur le VPS (2026-11-06, dont l'échec APP_VERSION corrigé), 2 s à chaud.
@@ -112,7 +118,7 @@ check_wasm:
 	APP_VERSION=$(TEST_VERSION) RUSTFLAGS=--cfg=web_sys_unstable_apis ALACOD_TARGET=web CARGO_TARGET_DIR=$(CURDIR)/target_wasm \
 		cargo check -p zombies --target wasm32-unknown-unknown --no-default-features --features render
 
-.PHONY: check check_rapide check_wasm check_animation
+.PHONY: check check_rapide check_wasm check_integration
 
 
 # Misc
@@ -172,7 +178,7 @@ test_alacod_cli:
 test_alacod_external:
 	@set -eo pipefail; test=$$(APP_VERSION=$(TEST_VERSION) cargo test -p content --test cli --profile headless --no-run --message-format=json | \
 		python3 -c 'import json,sys; artifacts=[json.loads(line) for line in sys.stdin]; paths=[a["executable"] for a in artifacts if a.get("reason") == "compiler-artifact" and a.get("executable") and a["target"]["name"] == "cli"]; assert len(paths) == 1, paths; print(paths[0])'); \
-		APP_VERSION=$(TEST_VERSION) "$$test" --ignored --nocapture --exact test_command_compares_written_external_two_player_scenarios
+		APP_VERSION=$(TEST_VERSION) "$$test" --ignored --nocapture --exact test_command_compares_written_external_two_player_scenarios test_tag_plays_only_tagged_written_scenarios_and_keeps_generated_ones
 
 # `alacod build --web` de bout en bout (M-1, conventions § 108) : crée un jeu hors de l'engine, le compile en
 # wasm32 (cible `wasm32-unknown-unknown`, `wasm-bindgen` du Cargo.lock installé au besoin dans le target du jeu),
@@ -246,7 +252,7 @@ gen:
 # Scénarios de jeu headless (tests/scenarios/*.ron), comparés à leur trace de référence.
 # BLESS=1 réécrit les traces de référence ; SCENARIO=<nom> n'en joue qu'un.
 test_scenarios:
-	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) APP_VERSION=$(TEST_VERSION) cargo test -p scenario --profile headless $(DEV_FEATURES) --test scenarios -- --nocapture
+	ALACOD_BLESS=$(BLESS) ALACOD_SCENARIO=$(SCENARIO) ALACOD_SCENARIO_TAG=$(TAG) APP_VERSION=$(TEST_VERSION) cargo test -p scenario --profile headless $(DEV_FEATURES) --test scenarios -- --nocapture
 	$(if $(filter 1,$(SWEEP)),./scripts/target-sweep.sh)
 
 # Même suite en tranches parallèles (scripts/test-scenarios-sharded.sh) : SHARDS processus (défaut 4),

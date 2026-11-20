@@ -34,6 +34,7 @@ fn scenario(frames: u32) -> Scenario {
         characters: vec![],
         mode: None,
         ui: Vec::new(),
+        tags: Vec::new(),
     }
 }
 

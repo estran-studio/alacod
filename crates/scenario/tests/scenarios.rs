@@ -167,6 +167,19 @@ fn scenarios() {
         .ok()
         .filter(|name| !name.is_empty());
     let shard = shard_from_env();
+    // T-3b (§ 123) : `ALACOD_SCENARIO_TAG=rapide` ne joue que les scénarios étiquetés (`tags: ["rapide"]`) ;
+    // `ALACOD_SUITE_MAX_FRAMES` borne la somme de leurs frames (budget écrit du jeu court, en temps de jeu :
+    // déterministe, contrairement au temps d'horloge d'un poste chargé).
+    let tag = std::env::var("ALACOD_SCENARIO_TAG")
+        .ok()
+        .filter(|tag| !tag.is_empty());
+    let max_frames: Option<u64> = std::env::var("ALACOD_SUITE_MAX_FRAMES").ok().map(|v| {
+        v.parse()
+            .expect("ALACOD_SUITE_MAX_FRAMES : nombre de frames")
+    });
+    let mut suite_frames = 0u64;
+    let mut suite_count = 0usize;
+    let suite_started = std::time::Instant::now();
 
     // Load budgets
     let budgets_path = budgets_dir().join("budgets.ron");
@@ -233,6 +246,14 @@ fn scenarios() {
                 continue;
             }
         };
+        if tag
+            .as_ref()
+            .is_some_and(|tag| !scenario.tags.iter().any(|t| t == tag))
+        {
+            continue;
+        }
+        suite_frames += u64::from(scenario.frames);
+        suite_count += 1;
 
         let started = std::time::Instant::now();
         let outcome = run(&scenario);
@@ -359,6 +380,26 @@ fn scenarios() {
 
     // Write metrics to JSON
     write_metrics(&metrics_map, shard);
+    if let Some(tag) = &tag {
+        eprintln!(
+            "jeu court « {tag} » : {suite_count} scénario(s), {suite_frames} frames ({:.0} s de jeu), {:.1?} d'horloge",
+            suite_frames as f64 / 60.0,
+            suite_started.elapsed()
+        );
+        // Une tranche (`ALACOD_SCENARIO_SHARD`, `ALACOD_SCENARIO_SLICE`) peut légitimement n'en contenir aucun.
+        if suite_count == 0 && shard.is_none() && slice.is_none() {
+            failures.push(format!("aucun scénario étiqueté « {tag} »"));
+        }
+    }
+    if let Some(max) = max_frames {
+        if suite_frames > max {
+            failures.push(format!(
+                "budget du jeu court : {suite_frames} frames > {max} ({:.0} s de jeu > {:.0} s)",
+                suite_frames as f64 / 60.0,
+                max as f64 / 60.0
+            ));
+        }
+    }
 
     assert!(failures.is_empty(), "\n{}\n", failures.join("\n"));
 }

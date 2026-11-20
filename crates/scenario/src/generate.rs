@@ -1369,6 +1369,7 @@ pub fn build_enemy_scenario(
         }],
         mode: arena.mode,
         ui: Vec::new(),
+        tags: Vec::new(),
     }
 }
 
@@ -1725,6 +1726,7 @@ fn base_scenario(
         chests: vec![],
         room_reward_chance_override: None,
         ui: Vec::new(),
+        tags: Vec::new(),
         shop: Default::default(),
     }
 }
@@ -1932,6 +1934,7 @@ pub fn build_weapon_scenario(
         characters: vec![],
         mode: arena.mode,
         ui: Vec::new(),
+        tags: Vec::new(),
     }
 }
 
