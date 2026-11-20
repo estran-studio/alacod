@@ -58,6 +58,11 @@ pub fn add_music(app: &mut App) {
         "musique : profil « {} », pulsation {}/{} frames, volume {}",
         entry.profile, pulse.num, pulse.den, control.volume
     );
+    install(app, control, config, pulse);
+}
+
+/// Plugin, cibles et systèmes de la musique ; partagé par [`add_music`] et le contrôle de continuité (tests).
+fn install(app: &mut App, control: HarmoniumControl, config: HarmoniumConfig, pulse: MusicPulse) {
     app.insert_resource(control)
         .insert_resource(pulse)
         .add_plugins(HarmoniumPlugin::new(config))
@@ -412,5 +417,291 @@ mod tests {
 
         world.run_system_once(release_music_clock).unwrap();
         assert_eq!(world.resource::<GameClock>().clock, None);
+    }
+}
+
+/// Contrôle de continuité de la musique (M-7b, `docs/conventions.md` § 124) : la **vraie sortie** d'harmonium, sans carte son.
+///
+/// L'hôte est détaché (`LiveHost::detached`) ; le banc joue le rôle de la carte son et du jeu sur une horloge murale
+/// simulée (déterministe, plus rapide que le temps réel) : il rend chaque tampon audio (`PlaybackEngine::process_buffer`, le
+/// callback cpal) à son instant, fait avancer `FrameCount` comme `bevy_ggrs` (accumulateur, `Time<Virtual>` borné à 250 ms
+/// par frame) et lance une frame Bevy (`HarmoniumPlugin` et les systèmes de la musique, installés par [`install`]).
+///
+/// Les à-coups injectés sont ceux mesurés dans la salle de 1837 (rapport `m-7b-musique-continue.md`) : une frame de rendu
+/// longue (premier chargement d'un son, d'un visuel d'impact) fait perdre du temps à la simulation, et un pair p2p en avance
+/// court au ralenti de 10 % (`run_slow` de `bevy_ggrs`). Le contrôle échoue si, après la première note entendue, la musique
+/// se tait (tampons sous -60 dBFS ou playback « en attente » pendant au moins 150 ms) ou saute (mesure qui recule ou en
+/// saute une), et si elle ne part pas dans les 3 s qui suivent l'entrée en partie.
+///
+/// Banques : `GeneralUser-GS.sf3` et `harmonium_trad.sf2` dans `$ALACOD_HARMONIUM_BANKS_DIR` (défaut : le cache de
+/// `scripts/harmonium-banks.sh`) ou `games/testbed/assets/harmonium/`. Sans elles (CI), l'énergie n'est pas jugée (le synthé
+/// rend du silence) : seuls le playback « en attente » et la suite des mesures, publiés par le callback, le sont.
+#[cfg(test)]
+mod continuite {
+    use super::*;
+    use bevy::{app::TaskPoolPlugin, asset::AssetPlugin, state::app::StatesPlugin};
+    use content::manifest::PulseFrames;
+    use harmonium::{LiveHost, playback::PlaybackEngine};
+    use std::time::{Duration, Instant};
+
+    const RATE: u32 = 48_000;
+    const BUFFER: usize = 512;
+    const SILENCE_DB: f32 = -60.0;
+    const MAX_HOLE: Duration = Duration::from_millis(150);
+    const SIM_FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
+    /// `Time<Virtual>::max_delta` de bevy : au-delà, une frame longue perd du temps de simulation.
+    const MAX_SIM_DELTA: Duration = Duration::from_millis(250);
+
+    fn banks() -> Option<(Vec<u8>, Vec<u8>)> {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut dirs = vec![manifest.join("../../games/testbed/assets/harmonium")];
+        if let Ok(dir) = std::env::var("ALACOD_HARMONIUM_BANKS_DIR") {
+            dirs.insert(0, dir.into());
+        } else if let Ok(home) = std::env::var("HOME") {
+            dirs.insert(
+                0,
+                std::path::Path::new(&home).join("orca/workspaces/alacod/packs/harmonium-banks"),
+            );
+        }
+        dirs.iter().find_map(|dir| {
+            Some((
+                std::fs::read(dir.join("GeneralUser-GS.sf3")).ok()?,
+                std::fs::read(dir.join("harmonium_trad.sf2")).ok()?,
+            ))
+        })
+    }
+
+    /// Ce que le banc a entendu : un tampon audio (instant de début, dBFS) ou une frame (instant, horloge publiée).
+    struct Banc {
+        app: App,
+        playback: PlaybackEngine,
+        t0: Instant,
+        wall: Duration,
+        audio_until: Duration,
+        accumulator: Duration,
+        frame: u32,
+        buffer: Vec<f32>,
+        levels: Vec<(Duration, f32)>,
+        clocks: Vec<(Duration, MusicClock)>,
+        anchor: Option<Duration>,
+    }
+
+    impl Banc {
+        fn new(main: Option<&[u8]>, percussion: Option<&[u8]>) -> Self {
+            // Le réglage `music` neutre du testbed (`games/testbed/assets/game.ron`).
+            let entry = MusicEntry {
+                profile: "gmd_pop".to_string(),
+                pulse_frames: PulseFrames { num: 30, den: 1 },
+                main_bank: "harmonium/GeneralUser-GS.sf3".to_string(),
+                percussion_bank: "harmonium/harmonium_trad.sf2".to_string(),
+            };
+            let (control, mut config, pulse) = prepare(&entry, false).unwrap();
+            // L'hôte est fourni par le banc : rien à charger par l'`AssetServer`.
+            config.main_bank = None;
+            config.percussion_bank = None;
+            let mut app = App::new();
+            app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default(), StatesPlugin))
+                .init_state::<AppState>()
+                .insert_resource(FrameCount { frame: 0 });
+            let t0 = Instant::now();
+            app.insert_resource(Time::<Real>::new(t0));
+            install(&mut app, control, config, pulse);
+            let (host, playback) =
+                LiveHost::detached(main, percussion, &[], f64::from(RATE)).unwrap();
+            app.insert_non_send(harmonium_bevy::HarmoniumRuntime::new(host).unwrap());
+            Self {
+                app,
+                playback,
+                t0,
+                wall: Duration::ZERO,
+                audio_until: Duration::ZERO,
+                accumulator: Duration::ZERO,
+                frame: 0,
+                buffer: vec![0.0; BUFFER * 2],
+                levels: Vec::new(),
+                clocks: Vec::new(),
+                anchor: None,
+            }
+        }
+
+        /// Une frame de présentation de `dt` (temps mur) ; `sim_slow` : frames de simulation 10 % plus longues (`run_slow`).
+        fn frame(&mut self, dt: Duration, in_game: bool, sim_slow: bool) {
+            self.wall += dt;
+            // La carte son : chaque tampon est rendu avant d'être entendu (un tampon d'avance).
+            let buffer_time = Duration::from_nanos(BUFFER as u64 * 1_000_000_000 / u64::from(RATE));
+            while self.audio_until < self.wall + buffer_time {
+                let audible = self.t0 + self.audio_until;
+                self.playback.process_buffer(&mut self.buffer, 2, audible);
+                let energy =
+                    self.buffer.iter().map(|v| v * v).sum::<f32>() / self.buffer.len() as f32;
+                let db = if energy > 1e-20 {
+                    10.0 * energy.log10()
+                } else {
+                    -200.0
+                };
+                self.levels.push((self.audio_until, db));
+                self.audio_until += buffer_time;
+            }
+            // La simulation : accumulateur de `bevy_ggrs`, delta borné comme `Time<Virtual>`.
+            if in_game {
+                let period = if sim_slow {
+                    SIM_FRAME * 11 / 10
+                } else {
+                    SIM_FRAME
+                };
+                self.accumulator += dt.min(MAX_SIM_DELTA);
+                while self.accumulator >= period {
+                    self.accumulator -= period;
+                    self.frame += 1;
+                }
+                self.app.world_mut().resource_mut::<FrameCount>().frame = self.frame;
+                if self.anchor.is_none() {
+                    self.anchor = Some(self.wall);
+                    self.app
+                        .world_mut()
+                        .resource_mut::<NextState<AppState>>()
+                        .set(AppState::InGame);
+                }
+            }
+            self.app
+                .world_mut()
+                .resource_mut::<Time<Real>>()
+                .update_with_instant(self.t0 + self.wall);
+            self.app.update();
+            let clock = *self.app.world().resource::<MusicClock>();
+            self.clocks.push((self.wall, clock));
+        }
+
+        /// Trous et sauts après la première note ; `judge_energy` : seulement avec les banques.
+        fn incidents(&self, judge_energy: bool) -> (Option<Duration>, Vec<String>) {
+            let heard = |db: f32| db >= SILENCE_DB;
+            let first_valid = self
+                .clocks
+                .iter()
+                .find(|(_, c)| c.valid && c.playing)
+                .map(|(t, _)| *t);
+            let first_sound = self
+                .levels
+                .iter()
+                .find(|(_, db)| heard(*db))
+                .map(|(t, _)| *t);
+            let start = if judge_energy {
+                first_sound
+            } else {
+                first_valid
+            };
+            let mut out = Vec::new();
+            let Some(start) = start else {
+                return (None, out);
+            };
+            let end = self.wall.saturating_sub(Duration::from_millis(500));
+            let mut hole = |label: &str, runs: &mut Option<Duration>, t: Duration, quiet: bool| {
+                match (quiet, *runs) {
+                    (true, None) => *runs = Some(t),
+                    (false, Some(from)) => {
+                        if t - from >= MAX_HOLE {
+                            out.push(format!(
+                                "{label} de {:.2} s à {:.2} s ({} ms)",
+                                from.as_secs_f64(),
+                                t.as_secs_f64(),
+                                (t - from).as_millis()
+                            ));
+                        }
+                        *runs = None;
+                    }
+                    _ => {}
+                }
+            };
+            let mut silent = None;
+            if judge_energy {
+                for (t, db) in self.levels.iter().filter(|(t, _)| *t >= start && *t < end) {
+                    hole("silence", &mut silent, *t, !heard(*db));
+                }
+                hole("silence", &mut silent, end, false);
+            }
+            let mut waiting = None;
+            let mut previous: Option<usize> = None;
+            let mut jumps = Vec::new();
+            for (t, clock) in self.clocks.iter().filter(|(t, _)| *t >= start && *t < end) {
+                hole("playback en attente", &mut waiting, *t, !clock.valid);
+                if clock.valid {
+                    if let Some(bar) = previous {
+                        if clock.bar < bar || clock.bar > bar + 1 {
+                            jumps.push(format!(
+                                "saut de la mesure {bar} à la mesure {} à {:.2} s",
+                                clock.bar,
+                                t.as_secs_f64()
+                            ));
+                        }
+                    }
+                    previous = Some(clock.bar);
+                }
+            }
+            hole("playback en attente", &mut waiting, end, false);
+            out.extend(jumps);
+            (Some(start), out)
+        }
+    }
+
+    #[test]
+    fn la_musique_ne_se_tait_pas_au_demarrage_ni_sous_les_a_coups() {
+        let banks = banks();
+        let judge_energy = banks.is_some();
+        println!(
+            "continuité : banques {}",
+            if judge_energy {
+                "trouvées : énergie jugée"
+            } else {
+                "absentes : énergie non jugée (attente et mesures seulement)"
+            }
+        );
+        let (main, percussion) = banks
+            .as_ref()
+            .map_or((None, None), |(m, p)| (Some(m.as_slice()), Some(p.as_slice())));
+        let mut banc = Banc::new(main, percussion);
+        let frame = SIM_FRAME;
+        // 0,5 s de chargement (hôte prêt, pas encore de partie), puis la partie : 16 s en tout.
+        // À-coups : frame de 300 ms à 4 s et de 450 ms à 8 s (premier son, premier impact), ralenti `run_slow` de 11 à 12 s.
+        let mut hitches = [
+            (Duration::from_secs(4), Duration::from_millis(300)),
+            (Duration::from_secs(8), Duration::from_millis(450)),
+        ]
+        .into_iter()
+        .peekable();
+        while banc.wall < Duration::from_secs(16) {
+            let in_game = banc.wall >= Duration::from_millis(500);
+            let dt = match hitches.peek() {
+                Some((at, long)) if banc.wall >= *at => {
+                    let long = *long;
+                    hitches.next();
+                    long
+                }
+                _ => frame,
+            };
+            let slow = (11.0..12.0).contains(&banc.wall.as_secs_f64());
+            banc.frame(dt, in_game, slow);
+        }
+        let follow = banc.app.world().resource::<MusicClock>().follow;
+        println!("continuité : suivi en fin de partie : {follow:?}");
+        let (start, incidents) = banc.incidents(judge_energy);
+        let anchor = banc.anchor.unwrap();
+        let start = start.expect("la musique n'a jamais joué");
+        println!(
+            "continuité : première note à {:.2} s (entrée en partie à {:.2} s) ; incidents : {}",
+            start.as_secs_f64(),
+            anchor.as_secs_f64(),
+            incidents.len()
+        );
+        for incident in &incidents {
+            println!("continuité : {incident}");
+        }
+        assert!(
+            start <= anchor + Duration::from_secs(3),
+            "la musique part plus de 3 s après l'entrée en partie"
+        );
+        assert!(
+            incidents.is_empty(),
+            "la musique se tait ou saute : {incidents:#?}"
+        );
     }
 }
