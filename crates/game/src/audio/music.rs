@@ -196,6 +196,23 @@ mod tests {
         assert!(prepare(&entry("gmd_pop", 30, 0), false).is_err());
     }
 
+    /// La période est jugée en tempo à la noire **sur le mètre du profil** (règle de l'hôte, 40 à 300 BPM) :
+    /// refusée au lancement (erreur claire, pas de musique) au lieu d'un échec de l'hôte à la pose de l'horloge.
+    #[test]
+    fn une_periode_hors_de_40_a_300_bpm_pour_le_profil_est_refusee() {
+        // 4/4 (pulsation = noire) : 12 frames = 300 BPM, 90 frames = 40 BPM, bornes comprises.
+        assert!(prepare(&entry("gmd_pop", 12, 1), false).is_ok());
+        assert!(prepare(&entry("gmd_pop", 90, 1), false).is_ok());
+        let trop_vite = prepare(&entry("gmd_pop", 11, 1), false).err().expect("301 BPM refusé");
+        assert!(trop_vite.contains("40 à 300 BPM"), "{trop_vite}");
+        assert!(prepare(&entry("gmd_pop", 91, 1), false).is_err(), "39,6 BPM");
+        assert!(prepare(&entry("gmd_pop", 3600, 10), false).is_err(), "10 BPM");
+        // 2/2 (pulsation = blanche, deux noires) : la même période de 20 frames vaut 360 BPM à la noire.
+        assert!(prepare(&entry("gmd_pop", 20, 1), false).is_ok());
+        assert!(prepare(&entry("reel_quebecois", 20, 1), false).is_err());
+        assert!(prepare(&entry("reel_quebecois", 30, 1), false).is_ok(), "240 BPM");
+    }
+
     #[test]
     fn le_mute_coupe_le_volume_sans_pauser_la_musique() {
         let (control, config, pulse) = prepare(&entry("gmd_pop", 3600, 230), true).unwrap();
