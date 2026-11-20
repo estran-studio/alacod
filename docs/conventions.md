@@ -9106,7 +9106,10 @@ jouent **un seul clip, `fusil-idle`**, pendant tout le cycle que la simulation e
   `Shoot` (`weapons` de `models.ron`) par-dessus celles du modèle, comme l'arme active d'un joueur. Le geste du tir **tient sa dernière image** tant que la séquence de
   l'émetteur dure (une `Wait` d'après tir plus longue que le clip ne montre pas l'attente ; `ModelPlayback::held` le dit) ; la frame où la séquence finit compte déjà pour le rechargement (`shooter::reload_end` : `ready_at` tant que le cycle n'a pas recopié
   `idle_from`), lue de la même façon par `sim_activity`.
-  **Le Frère n'a pas changé** (validé par William) : `Fades::default()` = les fondus d'avant, cap exact, esquive et armes inchangées ; ses réglages au banc relèvent de la tranche suivante.
+  Durée d'un clip (`AnimeManifest::duration`) = temps de sa **dernière clé**, `fin / fps` (le `.glb` pose l'image n à n / fps ; three.js au banc et bevy jouent de 0 à la dernière clé) ;
+  les repères de simulation (`exact_frames`, M-6 § 116) gardent la plage `(fin − début) / fps` (décision du 2026-11-20 : les aligner déplacerait les traces). Un générateur déclare donc les **temps des clés** × fps (`scripts/gen-pantin.py` : `[0, d × fps]`) ;
+  garde : `crates/content/tests/manifest_clip_keys.rs`.
+  **Les choix de comportement du Frère n'ont pas changé** (validé par William ; ses clips durent une image de plus depuis la durée à la dernière clé, vers le banc) : `Fades::default()` = les fondus d'avant, cap exact, esquive et armes inchangées ; ses réglages au banc relèvent de la tranche suivante.
 - **Invariant `animation_vivante`** (runner, `crates/scenario/src/invariants.rs`, actif par défaut, `invariants: (animation_vivante: false)` le coupe) : pour chaque `ModelPlayback`, (1) la pose est **résolue** (clip présent dans le
   manifeste) ; (2) quand la simulation est dans un état qui dure ≥ 6 frames (`sim_activity` : esquive, coup de mêlée, séquence de tir, rechargement, coup reçu, détente tenue, ou déplacement), le clip joué **n'est pas** un clip que le
   personnage joue au repos (un clip **qui boucle**, joué ≥ 6 frames sans activité ni déplacement : un geste joué une fois et fini au repos, comme le tir d'une frame du joueur, n'en est pas un). Le déplacement est celui que la pose a
