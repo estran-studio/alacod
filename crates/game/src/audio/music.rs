@@ -542,14 +542,25 @@ mod continuite {
         /// La pause arrête-t-elle le flux ? CoreAudio et le web : oui ; ALSA : la pause demandée par l'hôte juste après
         /// l'ouverture échoue (`snd_pcm_pause` avant `RUNNING`, erreur ignorée par cpal) et le callback continue.
         pause_stops_output: bool,
+        /// Sortie rendue, gardée seulement avec `ALACOD_CONTINUITE_WAV` (diagnostic).
+        samples: Option<Vec<f32>>,
     }
 
     impl Banc {
         fn new(main: Option<&[u8]>, percussion: Option<&[u8]>, pause_stops_output: bool) -> Self {
-            // Le réglage `music` neutre du testbed (`games/testbed/assets/game.ron`).
+            // Le réglage `music` neutre du testbed (`games/testbed/assets/game.ron`) ; `ALACOD_CONTINUITE_MUSIQUE=profil:num/den`
+            // en joue un autre (diagnostic : rendre la musique d'un jeu, avec `ALACOD_CONTINUITE_WAV`).
+            let (profile, num, den) = std::env::var("ALACOD_CONTINUITE_MUSIQUE")
+                .ok()
+                .and_then(|value| {
+                    let (profile, pulse) = value.split_once(':')?;
+                    let (num, den) = pulse.split_once('/')?;
+                    Some((profile.to_string(), num.parse().ok()?, den.parse().ok()?))
+                })
+                .unwrap_or_else(|| ("gmd_pop".to_string(), 30, 1));
             let entry = MusicEntry {
-                profile: "gmd_pop".to_string(),
-                pulse_frames: PulseFrames { num: 30, den: 1 },
+                profile,
+                pulse_frames: PulseFrames { num, den },
                 main_bank: "harmonium/GeneralUser-GS.sf3".to_string(),
                 percussion_bank: "harmonium/harmonium_trad.sf2".to_string(),
             };
@@ -584,6 +595,7 @@ mod continuite {
                 clocks: Vec::new(),
                 anchor: None,
                 pause_stops_output,
+                samples: std::env::var_os("ALACOD_CONTINUITE_WAV").map(|_| Vec::new()),
             }
         }
 
@@ -614,6 +626,9 @@ mod continuite {
                     -200.0
                 };
                 self.levels.push((self.audio_until, db));
+                if let Some(samples) = &mut self.samples {
+                    samples.extend_from_slice(&self.buffer);
+                }
                 self.audio_until += buffer_time;
             }
             // La simulation : accumulateur de `bevy_ggrs`, delta borné comme `Time<Virtual>`.
@@ -738,7 +753,8 @@ mod continuite {
         }
     }
 
-    /// 16 s de jeu dans le banc ; la première note et les incidents (texte), préfixés par le mode de pause.
+    /// 16 s de jeu dans le banc (`ALACOD_CONTINUITE_SECONDES` : plus) ; la première note et les incidents (texte), préfixés
+    /// par le mode de pause. `ALACOD_CONTINUITE_WAV=<dossier>` y écrit la sortie rendue (`banc-pause.wav`, `banc-alsa.wav`).
     fn jouer(banks: Option<&(Vec<u8>, Vec<u8>)>, pause_stops_output: bool) -> Vec<String> {
         let mode = if pause_stops_output {
             "pause qui arrête le flux (CoreAudio, web)"
@@ -757,7 +773,11 @@ mod continuite {
         ]
         .into_iter()
         .peekable();
-        while banc.wall < Duration::from_secs(16) {
+        let seconds = std::env::var("ALACOD_CONTINUITE_SECONDES")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(16);
+        while banc.wall < Duration::from_secs(seconds) {
             let in_game = banc.wall >= Duration::from_millis(500);
             let dt = match hitches.peek() {
                 Some((at, long)) if banc.wall >= *at => {
@@ -772,6 +792,38 @@ mod continuite {
         }
         let follow = banc.app.world().resource::<MusicClock>().follow;
         println!("continuité [{mode}] : suivi en fin de partie : {follow:?}");
+        if let (Some(samples), Some(dir)) =
+            (&banc.samples, std::env::var_os("ALACOD_CONTINUITE_WAV"))
+        {
+            let name = if pause_stops_output {
+                "banc-pause.wav"
+            } else {
+                "banc-alsa.wav"
+            };
+            let path = std::path::Path::new(&dir).join(name);
+            let data = (samples.len() * 4) as u32;
+            let mut wav = Vec::with_capacity(44 + samples.len() * 4);
+            wav.extend_from_slice(b"RIFF");
+            wav.extend_from_slice(&(36 + data).to_le_bytes());
+            wav.extend_from_slice(b"WAVEfmt ");
+            wav.extend_from_slice(&16u32.to_le_bytes());
+            wav.extend_from_slice(&3u16.to_le_bytes());
+            wav.extend_from_slice(&2u16.to_le_bytes());
+            wav.extend_from_slice(&RATE.to_le_bytes());
+            wav.extend_from_slice(&(RATE * 8).to_le_bytes());
+            wav.extend_from_slice(&8u16.to_le_bytes());
+            wav.extend_from_slice(&32u16.to_le_bytes());
+            wav.extend_from_slice(b"data");
+            wav.extend_from_slice(&data.to_le_bytes());
+            for sample in samples {
+                wav.extend_from_slice(&sample.to_le_bytes());
+            }
+            std::fs::write(&path, wav).unwrap();
+            println!(
+                "continuité [{mode}] : sortie écrite dans {}",
+                path.display()
+            );
+        }
         let (start, mut incidents) = banc.incidents(banks.is_some());
         let anchor = banc.anchor.unwrap();
         match start {
