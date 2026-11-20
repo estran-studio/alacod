@@ -38,7 +38,7 @@ Deux constructions rouges sur `d8d04277`, régressions temporaires défaites par
 | geste joué une fois au rythme du manifeste, sans étirement (`playback.rs`, `Timing::At` → `time + dt`) | `ClipSpeed` : `tireur_pantin_cycle` f100 « vitesse de `reload` 1.000 < min 1.15 » ; gestes f90 (pistolet) ; `ClipProgress` f140 « progression de `reload` 0.806 < min 0.9 » | `t-3b-rouge-r1.log` |
 | dernière image du tir non tenue (`playback.rs`, `since_shot` non borné) | `ClipProgress` f81 « progression de `gun-idle` 0.961 < min 0.99 » ; `ClipSpeed` f81 « vitesse de `gun-idle` 1.000 > max 0.01 » (et l'invariant `animation_vivante`) | `t-3b-rouge-r1.log` |
 | bouton de mêlée perdu (`input_devices.rs`) | `Clip` gestes f148 « clip joué `gun-idle`, `strike` attendu » (souris et manette) | `t-3b-rouge-r1.log` |
-| coup reçu non lu par la pose (`playback.rs`, `input.hit` effacé) | `Clip` `tireur_pantin_touche` f50 « clip joué `gun-idle`, `hit` attendu » ; `ClipProgress` f71 | `t-3b-rouge-r2.log` |
+| coup reçu non lu par la pose (`playback.rs`, `input.hit` effacé) | `Clip` `tireur_pantin_touche` f50 « clip joué `gun-idle`, `hit` attendu » ; `ClipProgress` f71. Preuve de la **présentation** du coup reçu seulement : l'annulation de la salve en simulation est gardée par `BulletCount` (attente existante de `tireur_poste_touche`, recopiée), pas par une attente nouvelle, et n'a pas été mutée ici | `t-3b-rouge-r2.log` |
 | épaulé lu sur la seule détente (`playback.rs`, sans `raise_ends`, le défaut D199) | `Clip` gestes à l'arme à gestes f40 « clip joué `gun-idle`, `shoulder` attendu » (souris et manette) | `t-3b-rouge-r2.log` |
 | visée au curseur perdue (`input_devices.rs`, conversion écran → monde) | `ModelYaw` souris f40 « cap du corps 180.0°, -90.0° attendu » ; arme à gestes f28 | `t-3b-rouge-r2.log` |
 | visée au stick droit perdue (`input_devices.rs`, stick ignoré) | `ModelYaw` manette f40, arme à gestes f28 | `t-3b-rouge-r2.log` |
@@ -90,7 +90,19 @@ couvert, cycle du fantassin, renvoi à la hache, tir du Frère, relève) — `ex
 Traces : aucune trace existante modifiée (le jeu court rejoue les traces des dix scénarios étiquetés, identiques) ; `schedule_order_diff` non joué : aucun système de simulation ajouté ni déplacé, aucun type
 rollback (le runner et les tests seuls ont changé côté code).
 
-## 7. Ce qui reste
+## 7. Revue de 071ce9a4 (coordinateur, `logs/t-3b-revue-071ce9a4.md`, et revue interne) : corrections
+
+| Point | Correction | Rouge avant / vert après |
+|---|---|---|
+| P1 (bloquant) : `alacod test --tag` sautait la génération mais purgeait `tests/generated` (`remove_stale` avec `keep` vide) | `alacod-gen` : la purge exige une génération réellement faite (`!only_written`) | binaire de `05994d06` sur une copie jetable de 1837 : « suppression de …/weapon_temoin.ron », binaire corrigé : le témoin survit (`logs/t-3b-revue-p1-remove-stale.log`) ; test permanent `test_tag_plays_only_tagged_written_scenarios_and_keeps_generated_ones` (`crates/content/tests/cli.rs`, ignoré, dans `make test_alacod_external`) : rouge garde défaite (`logs/t-3b-revue-corrections-rouge.log`, témoin `NotFound`), vert après (`logs/t-3b-revue-corrections.log`, 1 passed). Le checkout du coordinateur 1837 n'a jamais eu de `tests/generated` et reste propre (`git status` vide) ; seule la copie jetable a perdu le témoin posé pour la preuve |
+| P2 : `InputRecorder::to_scenario` remettait `tags` à vide | `RecordedSettings::tags`, copié par `from_scenario`, reporté par `to_scenario` (vide pour une partie jouée) | `recording::tests::to_scenario_reporte_les_reglages_recus_a_la_construction` (assertion `tags == ["rapide"]`) : rouge sans le report (`left: []`), vert après |
+| Revue interne : une tranche (`ALACOD_SCENARIO_SHARD`/`_SLICE`) sans scénario étiqueté échouait « aucun scénario étiqueté » | l'échec ne vaut plus que sans tranche | correction de lecture, non rejouée en rouge |
+| Mineur 3 : R2 ne mute que la présentation du coup reçu | dit au § 3 ; mutation dédiée boucle ↔ une fois ajoutée (R3 : `looping` inversé dans `step`) | R3 : chaque `Clip … once:` des trois `tireur_pantin_*` échoue (« `shoulder` boucle, joué une fois attendu », « `aim` joué une fois, une boucle attendue »…, `logs/t-3b-revue-corrections.log`) ; vert après |
+
+Fichiers changés par ces corrections : `alacod-gen.rs`, `recording.rs`, `scenarios.rs` (test), `cli.rs` (test), `Makefile` (`test_alacod_external` joue aussi le test `--tag`), rapport. Suivant la consigne du
+coordinateur : tests ciblés + `check_integration`, pas de contrôle découpé complet (aucun fichier de simulation ni d'application hors de ces crates/tests).
+
+## 8. Ce qui reste
 
 - D219 : harnais qui remplace winit pour le curseur, gestes joués sur le pantin seulement, scénarios de 1837 à étiqueter par le coordinateur 1837 (§ 5), écarts (a) et (b) du Frère non épinglés,
   mort d'un personnage à modèle sans attente.

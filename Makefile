@@ -178,7 +178,7 @@ test_alacod_cli:
 test_alacod_external:
 	@set -eo pipefail; test=$$(APP_VERSION=$(TEST_VERSION) cargo test -p content --test cli --profile headless --no-run --message-format=json | \
 		python3 -c 'import json,sys; artifacts=[json.loads(line) for line in sys.stdin]; paths=[a["executable"] for a in artifacts if a.get("reason") == "compiler-artifact" and a.get("executable") and a["target"]["name"] == "cli"]; assert len(paths) == 1, paths; print(paths[0])'); \
-		APP_VERSION=$(TEST_VERSION) "$$test" --ignored --nocapture --exact test_command_compares_written_external_two_player_scenarios
+		APP_VERSION=$(TEST_VERSION) "$$test" --ignored --nocapture --exact test_command_compares_written_external_two_player_scenarios test_tag_plays_only_tagged_written_scenarios_and_keeps_generated_ones
 
 # `alacod build --web` de bout en bout (M-1, conventions § 108) : crée un jeu hors de l'engine, le compile en
 # wasm32 (cible `wasm32-unknown-unknown`, `wasm-bindgen` du Cargo.lock installé au besoin dans le target du jeu),

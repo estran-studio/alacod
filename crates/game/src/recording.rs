@@ -56,6 +56,8 @@ pub struct RecordedSettings {
     pub mode: Option<content::EntryMode>,
     /// T1.10 : progression imposée (`Scenario::progression`).
     pub progression: Option<String>,
+    /// T-3b : étiquettes du scénario d'origine (`Scenario::tags`, ex. `rapide`) ; vides pour une partie jouée.
+    pub tags: Vec<String>,
     /// Réglages de chaque joueur (index = handle) : `PlayerScript` du scénario d'origine, sans
     /// inputs ni bot (arme, tags, immunités, modificateurs, solde, mutations). Audit T1.15 :
     /// sans eux, un scénario réenregistré perdait l'arme imposée (scénarios générés) et les
@@ -84,6 +86,7 @@ impl Default for RecordedSettings {
             characters: vec![],
             mode: None,
             progression: None,
+            tags: vec![],
             players: vec![],
         }
     }
@@ -109,6 +112,7 @@ impl RecordedSettings {
             characters: scenario.characters.clone(),
             mode: scenario.mode,
             progression: scenario.progression.clone(),
+            tags: scenario.tags.clone(),
             players: scenario
                 .players
                 .iter()
@@ -259,7 +263,7 @@ impl InputRecorder {
             characters: settings.characters,
             mode: settings.mode,
             ui: Vec::new(),
-            tags: Vec::new(),
+            tags: settings.tags,
         };
         if let Some((path, seed)) = &self.initial_map {
             scenario.map = path.clone();
@@ -500,6 +504,7 @@ mod tests {
             characters: vec![],
             mode: None,
             progression: Some("base".into()),
+            tags: vec!["rapide".into()],
             players: vec![PlayerScript {
                 weapon: Some("pistol".into()),
                 mutations: vec!["vampire".into()],
@@ -518,6 +523,8 @@ mod tests {
         assert_eq!(scenario.progression.as_deref(), Some("base"));
         assert_eq!(scenario.players[0].mutations, ["vampire"]);
         assert_eq!(scenario.players[0].weapon.as_deref(), Some("pistol"));
+        // T-3b : l'étiquette du jeu court survit au réenregistrement.
+        assert_eq!(scenario.tags, ["rapide"]);
         assert_eq!(RecordedSettings::from_scenario(&scenario), settings);
 
         // Partie jouée : réglages par défaut, comme avant D19.
@@ -526,6 +533,7 @@ mod tests {
         assert!(played.powerups.is_empty() && played.weapon_overrides.is_empty());
         assert_eq!(played.wave_overrides, None);
         assert_eq!(played.powerup_drop_chance_override, None);
+        assert!(played.tags.is_empty());
     }
     #[test]
     fn native_restart_archives_previous_inputs_and_resets_the_frame_range() {

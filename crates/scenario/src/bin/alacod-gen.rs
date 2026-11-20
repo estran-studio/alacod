@@ -189,7 +189,8 @@ fn main() {
             .unwrap_or_else(|e| panic!("alacod-gen : écriture de {} : {e}", path.display()));
         keep.insert(g.file_name.clone());
     }
-    if only.is_none() && generation_ok {
+    // Une génération sautée (`--tag`, ou des ids tous écrits) ne doit rien supprimer : `keep` est vide.
+    if only.is_none() && generation_ok && !only_written {
         remove_stale(&out_dir, &keep);
     }
 

@@ -386,7 +386,8 @@ fn scenarios() {
             suite_frames as f64 / 60.0,
             suite_started.elapsed()
         );
-        if suite_count == 0 {
+        // Une tranche (`ALACOD_SCENARIO_SHARD`, `ALACOD_SCENARIO_SLICE`) peut légitimement n'en contenir aucun.
+        if suite_count == 0 && shard.is_none() && slice.is_none() {
             failures.push(format!("aucun scénario étiqueté « {tag} »"));
         }
     }
