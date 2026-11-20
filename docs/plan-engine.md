@@ -119,7 +119,7 @@ plan), **H** Hades, **Z** CoD Zombies, **1837**.
 | Hub avec services et PNJ (Brèche, maison d'Hadès, loge) | ● | | | | ● | | ● | ❌ |
 | Codex débloqué par événements | | ● | | | ● | | ● | ❌ |
 | Répliques vocales déclenchées par événements (barks) | | | | | ● | | ● | ❌ |
-| Musique adaptative, tempo lisible par la simulation | | | | | | | ● | 🟡 `harmonium` non porté, `audio/adaptive` |
+| Musique adaptative, tempo lisible par la simulation | | | | | | | ● | 🟡 `harmonium` porté (M-7, §121 de `conventions.md`, feature `game/harmonium`) : la musique **suit** l'horloge de la simulation (`FrameCount`, période du manifeste), jamais l'inverse ; tempo de jeu par `ClockDef::tempo` (§110) ; écoute et réglages : D217 |
 | Tutoriel scénarisé (initiation dans le noir) | ● | | | | ● | | ● | ❌ |
 
 ### 2.7 Coop et réseau
@@ -361,7 +361,7 @@ alors avec un langage entier-seulement et sans état propre.
 | Loge, âmes, services, grades | hub par drapeaux de profil ; déblocages qui ouvrent services, classes et pools | G1 à G4 |
 | Carte du Bas-Canada, régions libérées, route par partie | graphe de campagne persistant, mode `Campaign` | F3 |
 | Jos Violon, répliques en joual, veillée | barks événementiels ; codex à deux voix | H1, G3 |
-| Le Diable beau danseur, violon ensorcelé | horloge de tempo, fenêtres « sur le temps », phases de boss | H2, D4 ; fenêtres : ✅ X-3 (`Condition::Timing`, §110) ; musique calée : D151 |
+| Le Diable beau danseur, violon ensorcelé | horloge de tempo, fenêtres « sur le temps », phases de boss | H2, D4 ; fenêtres : ✅ X-3 (`Condition::Timing`, §110) ; musique calée : 🟡 M-7 (§121, la musique suit `FrameCount` ; accord avec une horloge de run : D217) |
 | Le mort revient en feu follet | état fantôme : entité contrôlée aux capacités réduites, réanimation | B6 |
 | Civils masqués, foule de la place d'Armes | équipe neutre qui bloque les tirs ; `OnHit(Neutral) → Gauge(faim, +)` | B1, D5 |
 | La grave qui résonne, la Hère à l'oreille, surdité | événement `Noise`, perception par l'ouïe, statut sourd qui coupe les sons | E8, B3 |
@@ -694,8 +694,8 @@ Recommandation :
   quand ses scénarios passent, pas quand il est beau.
 - **L'UI est toujours sous-estimée.** I1 est un chantier à part entière ; le décider au début de M2
   (§7.1), pas plus tard.
-- **Dépendances forkées** (`bevy_ecs_ldtk`, `matchbox`, `harmonium` non porté) : chaque montée de
-  Bevy coûte ; grouper les montées entre deux jalons.
+- **Dépendances forkées ou épinglées** (`bevy_ecs_ldtk`, `matchbox` ; `harmonium_bevy`, dépôt du studio épinglé par
+  `rev` sur la version de Bevy de l'engine depuis M-7) : chaque montée de Bevy coûte ; grouper les montées entre deux jalons.
 - **Contenu autochtone** : rien dans l'engine ne bloque ; les éléments concernés restent hors des
   clones et de M4 tant que la validation des nations n'a pas eu lieu (bible §15.8).
 

@@ -181,8 +181,9 @@ pub struct PulseFrames {
 /// harmonium joué et la période de sa **pulsation dansée** (blanche au reel 2/2, noire pointée en 6/8, noire en
 /// 4/4) en frames de simulation. L'horloge du jeu (`FrameCount`) est la source du temps, la musique la suit
 /// (option a de William, 2026-11-06) ; l'ancrage est la frame d'entrée en partie. Ce crate ne dépend pas
-/// d'harmonium : l'existence du profil et le tempo (40 à 300 BPM à la noire) sont jugés au lancement par `game`,
-/// qui refuse (journal) et ne joue rien. Hors simulation : aucun système de `GgrsSchedule` ne lit ce champ.
+/// d'harmonium : l'existence du profil et le tempo exact (40 à 300 BPM à la noire pour le mètre du profil) sont
+/// jugés au lancement par `game`, qui refuse (journal) et ne joue rien ; le lint refuse seulement une pulsation
+/// impossible pour tout mètre (hors 20 à 300 par minute). Hors simulation : aucun système de `GgrsSchedule` ne lit ce champ.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct MusicEntry {
     /// Id d'un profil distribué par harmonium (`reel_quebecois`, `gmd_pop`…).
