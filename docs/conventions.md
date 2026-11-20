@@ -9166,21 +9166,26 @@ rien dans `GgrsSchedule`, aucun type rollback, aucune trace ne bouge ; le code t
   tel écart naît d'une frame de plus de 250 ms (`Time<Virtual>` borné : la simulation perd le reste) ou du ralenti `run_slow` de `bevy_ggrs` en ligne. La première lecture d'un son d'effet
   ne fait **pas** de frame longue (≤ 1 ms par update, son chargé et décodé en moins d'une frame, `logs/m-7b-mesure-premier-son.log`) : le lien avec « le bruit de collision » est que le
   silence tombe à la fin de la mesure qui suit l'écart, en plein échange de tirs.
-- **Pause jusqu'à l'ancrage** (`gate_music_pause`, `Update`, après `feed_music_clock`, avant `HarmoniumSet`) : `HarmoniumControl.paused = GameClock.clock.is_none()`. Hors partie la
-  musique ne joue pas (lobby, chargement, après `OnExit(InGame)`) ; la première note est sur l'horloge, une à deux mesures après l'entrée en partie (le suivi attend 30 observations, la
-  garde de départ et le début d'une mesure de l'horloge). Pause plutôt que volume 0 : le gain initial du playback d'harmonium vaut 1 et une commande de volume 0 n'y descend qu'en rampe,
-  les premières notes fuyaient. Web : l'`AudioContext` reprend au premier geste **après** l'ancrage (les touches de la partie), plus à un geste du lobby. `ALACOD_MUTE=1` reste un volume 0.
+- **Pause et volume 0 jusqu'à l'ancrage** (`gate_music`, `Update`, après `feed_music_clock`, avant `HarmoniumSet`) : sans `GameClock`, `HarmoniumControl.paused = true` et `volume = 0` ;
+  avec, le volume d'origine (`MusicVolume`, 0 si `ALACOD_MUTE=1`). Hors partie la musique ne joue pas (lobby, chargement, après `OnExit(InGame)`) ; la première note est sur l'horloge, une à
+  deux mesures après l'entrée en partie (le suivi attend 30 observations, la garde de départ et le début d'une mesure de l'horloge). **Les deux**, aucun ne suffisant seul (mesuré) : sur
+  ALSA la pause demandée par l'hôte juste après l'ouverture du flux échoue en silence (`snd_pcm_pause` avant `RUNNING`, erreur ignorée par cpal : 1,5 s de musique avant l'ancrage avec la
+  pause seule) ; le volume 0 laisse passer la rampe de 10 ms du gain initial (1) du playback d'harmonium, que la pause coupe sur CoreAudio et le web. Web : l'`AudioContext` reprend au
+  premier geste **après** l'ancrage (les touches de la partie), plus à un geste du lobby.
 - **Suivi tolérant** (`follow_config`, `HarmoniumConfig::follow`) : micro-ajustement jusqu'à **5 %** (le plafond du playback, `MAX_NUDGE_PPM`) sur **16** pulsations, le reste des réglages
   d'harmonium inchangé : environ 400 ms d'écart rattrapés au tempo (8 s à une pulsation de 0,5 s) au lieu d'un saut silencieux. Au-delà (frame de plus de 650 ms environ), le saut d'harmonium
   reste (D220, proposition au studio).
 - **Contrôle** (`audio::music::continuite`, `make test_music`) : la **vraie sortie** d'harmonium sans carte son : hôte détaché (`LiveHost::detached`), le banc joue la carte son (chaque tampon
   rendu par `PlaybackEngine::process_buffer` à son instant ; flux en pause : silence, pas de callback) et le jeu (`FrameCount` par l'accumulateur de `bevy_ggrs`, delta borné à 250 ms ; une
-  frame Bevy avec `HarmoniumPlugin` et les systèmes de [`install`]) sur une horloge murale **simulée** (déterministe, 16 s de jeu en 5 s). Réglage `music` neutre du testbed (`gmd_pop`, 30/1).
-  À-coups : frames de 300 ms et de 450 ms (au moment d'un tir ou d'un impact), 1 s de `run_slow`. Échoue si, après la première note, la musique se tait (tampons sous -60 dBFS ou playback
-  « en attente » au moins 150 ms) ou saute (mesure qui recule ou en saute une), ou si elle ne part pas dans les 3 s qui suivent l'entrée en partie. Banques cherchées dans
-  `$ALACOD_HARMONIUM_BANKS_DIR`, le cache de `scripts/harmonium-banks.sh`, puis `games/testbed/assets/harmonium/` ; sans elles l'énergie n'est pas jugée (le synthé rend du silence), l'attente
-  et les mesures, publiées par le callback, le sont. Rouge sur le code d'avant (silence de 1 973 ms au démarrage, 181 ms après la frame de 450 ms), vert après ; chaque correction retirée
-  seule le rend rouge. **La nuit**, pas `check_rapide` : la feature compile un second binaire de tests de `game` (≈ 4 min, 1 Go) pour 5 s de jeu.
+  frame Bevy avec `HarmoniumPlugin` et les systèmes de `install`) sur une horloge murale **simulée** (déterministe, 16 s de jeu en quelques secondes). Réglage `music` neutre du testbed
+  (`gmd_pop`, 30/1). Joué deux fois : pause qui arrête le flux (CoreAudio, web) et pause sans effet (ALSA ; un tampon isolé avant l'ancrage, la rampe du gain initial, y est compté et
+  toléré). À-coups : frames de 300 ms et de 450 ms (au moment d'un tir ou d'un impact), 1 s de `run_slow`. Échoue si, après la première note, la musique se tait (tampons sous -60 dBFS ou
+  playback « en attente » au moins 150 ms) ou saute (mesure qui recule ou en saute une), si elle ne part pas dans les 3 s qui suivent l'entrée en partie, ou (pause efficace) si un tampon
+  sonne avant l'ancrage. Banques cherchées dans `$ALACOD_HARMONIUM_BANKS_DIR`, le cache de `scripts/harmonium-banks.sh`, puis `games/testbed/assets/harmonium/` ; sans elles l'énergie
+  n'est pas jugée (le synthé rend du silence), l'attente et les mesures, publiées par le callback, le sont. Rouge sur le code d'avant (silence de 1 973 ms au démarrage, 181 ms après la
+  frame de 450 ms), vert après ; chaque correction retirée seule le rend rouge. **La nuit**, pas `check_rapide` : la feature compile un second binaire de tests de `game` (4 à 14 min selon
+  la charge, 1 Go) pour quelques secondes de jeu. Diagnostic : `ALACOD_CONTINUITE_MUSIQUE=profil:num/den`, `ALACOD_CONTINUITE_SECONDES=n`, `ALACOD_CONTINUITE_WAV=<dossier>` rendent la
+  musique d'un jeu dans le banc et l'écrivent (`banc-pause.wav`, `banc-alsa.wav`).
 - **Écouter sans carte son** (`scripts/audio-capture.sh <dossier> <commande>`, `tools/alsa-pacer/pacer.c`) : un plugin ALSA « ioplug » chargé **par processus** (`ALSA_CONFIG_PATH`, jamais
   un `~/.asoundrc`) consomme chaque flux au rythme réel et l'écrit dans son propre WAV (`flux-<pid>-<n>.wav`, flottant 32 bits, sur l'horloge murale depuis l'ouverture : un flux en pause
   ou arrêté écrit du silence, deux flux d'un processus restent alignés) ; un flux en retard voit un vrai underrun (`-EPIPE`, silence à l'endroit exact) ; le `.log` voisin note format,
