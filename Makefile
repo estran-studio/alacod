@@ -102,13 +102,15 @@ check_rapide: format test_tools check_forbidden check_rollback_registration chec
 	@echo "✓ Contrôle rapide passé (suite de scénarios : la nuit)"
 
 # T-3b (§ 123) : le jeu court, les scénarios étiquetés `tags: ["rapide"]` (états d'animation sous l'invariant
-# `animation_vivante` et les attentes `Clip*`/`ModelYaw`, mécaniques entre personnages, gestes) ; seul le binaire de test
-# `scenarios`, déjà construit par `test_crates` (mêmes features). Budget écrit : SUITE_MAX_FRAMES frames de jeu au plus
-# (somme des `frames` des scénarios joués, déterministe ; 4800 = 80 s de jeu), au-delà le test échoue. La nuit les rejoue
-# avec toute la suite ; `alacod test <jeu> --tag rapide` est la même option pour un jeu externe.
+# `animation_vivante` et les attentes `Clip*`/`ModelYaw`, mécaniques entre personnages), puis les gestes depuis l'entrée
+# réelle (`gestes_entree_reelle` : souris, clavier, manette) ; binaires de test `scenarios` et `gestes_entree_reelle`, mêmes
+# options que `test_scenarios`. Budget écrit : SUITE_MAX_FRAMES frames de jeu au plus (somme des `frames` des scénarios
+# étiquetés, déterministe ; 4800 = 80 s de jeu), au-delà le test échoue. La nuit les rejoue avec toute la suite ;
+# `alacod test <jeu> --tag rapide` est la même option pour un jeu externe.
 SUITE_MAX_FRAMES ?= 4800
 check_integration:
 	ALACOD_SUITE_MAX_FRAMES=$(SUITE_MAX_FRAMES) $(MAKE) test_scenarios TAG=rapide
+	APP_VERSION=$(TEST_VERSION) cargo test -p scenario --profile headless $(DEV_FEATURES) --test gestes_entree_reelle
 
 # Compilation wasm32 du jeu web de référence (mêmes features que `build_ldtk_map_explorer_web`), cible à part
 # (`target_wasm`) : 1046 s à froid sur le VPS (2026-11-06, dont l'échec APP_VERSION corrigé), 2 s à chaud.
