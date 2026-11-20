@@ -9,7 +9,13 @@
 //!   du profil en fraction de frames (donnée du jeu : `music` de `game.ron`) ;
 //! - à chaque frame de présentation, [`feed_music_clock`] écrit `GameClock::sim_frame` depuis `FrameCount`, en
 //!   `Update`, donc avant `HarmoniumSet` (`PostUpdate`) ;
-//! - à la sortie de partie, [`release_music_clock`] retire l'horloge (le tempo revient aux émotions).
+//! - à la sortie de partie, [`release_music_clock`] retire l'horloge (la musique se met en pause, voir plus bas).
+//!
+//! **Continuité** (M-7b, `docs/conventions.md` §124) : la musique ne joue que pendant qu'une horloge est posée
+//! ([`gate_music`] : pause et volume 0 sinon) : sans elle, l'hôte jouait au tempo des émotions dès ses banques chargées, puis se taisait à
+//! l'ancrage, le temps de se caler (« ça stoppe un peu au début »). Le suivi rattrape au tempo, jusqu'à 5 %
+//! ([`follow_config`]), les écarts que crée une frame longue ou le ralenti `run_slow` de `bevy_ggrs`, au lieu d'un saut
+//! de mesure qui laissait jusqu'à une mesure de silence.
 //!
 //! Sans `music` dans le manifeste du jeu, le plugin n'est pas installé : pas de musique. `ALACOD_MUTE=1` pose le
 //! volume à 0 (la musique tourne, muette : l'horloge prouve la sortie sans écoute).
@@ -17,10 +23,10 @@
 use bevy::prelude::*;
 use content::manifest::{GameManifest, MusicEntry};
 use harmonium_bevy::{
-    ExternalClock, GameClock, HarmoniumConfig, HarmoniumControl, HarmoniumPlugin, HarmoniumStatus,
-    MusicClock, Phase, StyleProfile,
+    ExternalClock, FollowConfig, GameClock, HarmoniumConfig, HarmoniumControl, HarmoniumPlugin,
+    HarmoniumStatus, MusicClock, Phase, StyleProfile,
 };
-use harmonium_core::time_plan::{BarTiming, Swing, Tempo};
+use harmonium_core::time_plan::{correction::CorrectionPolicy, BarTiming, Swing, Tempo};
 use utils::frame::FrameCount;
 
 use crate::session::{AppState, SIM_FPS};
@@ -58,12 +64,38 @@ pub fn add_music(app: &mut App) {
         "musique : profil « {} », pulsation {}/{} frames, volume {}",
         entry.profile, pulse.num, pulse.den, control.volume
     );
-    app.insert_resource(control)
+    install(app, control, config, pulse);
+}
+
+/// Plugin, cibles et systèmes de la musique ; partagé par [`add_music`] et le contrôle de continuité (tests).
+/// [`gate_music`] (`Update`, avant `HarmoniumSet` en `PostUpdate`) tient la musique en pause et muette jusqu'à l'ancrage.
+fn install(app: &mut App, control: HarmoniumControl, config: HarmoniumConfig, pulse: MusicPulse) {
+    app.insert_resource(MusicVolume(control.volume))
+        .insert_resource(control)
         .insert_resource(pulse)
         .add_plugins(HarmoniumPlugin::new(config))
         .add_systems(OnEnter(AppState::InGame), anchor_music_clock)
         .add_systems(OnExit(AppState::InGame), release_music_clock)
-        .add_systems(Update, (feed_music_clock, log_music_status));
+        .add_systems(
+            Update,
+            (feed_music_clock, gate_music, log_music_status).chain(),
+        );
+}
+
+/// Réglages du suivi : ceux d'harmonium, sauf le micro-ajustement, porté de 5 ‰ sur 8 pulsations à 5 % (le plafond du
+/// playback, `MAX_NUDGE_PPM`) sur 16. À 5 ‰, le suivi n'absorbe qu'environ 20 ms d'écart (pulsation de 0,5 s) : une frame
+/// de 300 ms (50 ms de simulation perdus, `Time<Virtual>` borné à 250 ms) déclenchait un saut à la mesure suivante, dont
+/// l'attente est silencieuse (jusqu'à une mesure). À 5 % sur 16 pulsations, il absorbe environ 400 ms au tempo (8 s de
+/// rattrapage à cette pulsation), sans silence ; au-delà, le saut d'harmonium reste.
+fn follow_config() -> FollowConfig {
+    FollowConfig {
+        policy: CorrectionPolicy {
+            max_nudge_per_mille: 50,
+            window_pulses: 16,
+            ..default()
+        },
+        ..default()
+    }
 }
 
 /// Cibles et configuration d'harmonium à partir de la donnée du jeu. `muted` : volume 0 (`ALACOD_MUTE=1`).
@@ -99,6 +131,7 @@ fn prepare(
     let config = HarmoniumConfig {
         main_bank: Some(entry.main_bank.clone()),
         percussion_bank: Some(entry.percussion_bank.clone()),
+        follow: follow_config(),
         ..default()
     };
     Ok((control, config, pulse))
@@ -159,6 +192,33 @@ pub fn feed_music_clock(frame: Res<FrameCount>, mut game_clock: ResMut<GameClock
     let sim_frame = u64::from(frame.frame);
     if game_clock.sim_frame != sim_frame {
         game_clock.sim_frame = sim_frame;
+    }
+}
+
+/// Volume de la musique pendant qu'une horloge est posée (`HarmoniumControl::volume` d'origine, 0 si muette).
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct MusicVolume(pub f32);
+
+/// `Update`, après [`feed_music_clock`] : tant qu'aucune horloge n'est posée, la musique est en pause **et** à volume 0.
+/// L'hôte d'harmonium démarre dès ses banques chargées, avant la partie ; sans cette garde il jouait au tempo des émotions,
+/// puis se taisait à l'ancrage (attente silencieuse du suivi) avant de repartir sur l'horloge (« ça stoppe un peu au
+/// début »). Les deux, parce qu'aucun ne suffit seul : la pause arrête le flux sur CoreAudio et le web, mais sur ALSA
+/// la pause demandée par l'hôte juste après l'ouverture du flux échoue en silence (`snd_pcm_pause` avant `RUNNING`,
+/// erreur ignorée par cpal, mesuré : la musique jouait 1,5 s avant l'ancrage) ; le volume 0 vaut partout, sauf les
+/// 10 ms de rampe depuis le gain initial (1) du playback. Web : l'`AudioContext` reprend au premier geste après
+/// l'ancrage (les touches de la partie), pas à un geste du lobby.
+pub fn gate_music(
+    game_clock: Res<GameClock>,
+    volume: Res<MusicVolume>,
+    mut control: ResMut<HarmoniumControl>,
+) {
+    let anchored = game_clock.clock.is_some();
+    let target = if anchored { volume.0 } else { 0.0 };
+    if control.paused == anchored {
+        control.paused = !anchored;
+    }
+    if control.volume != target {
+        control.volume = target;
     }
 }
 
@@ -412,5 +472,400 @@ mod tests {
 
         world.run_system_once(release_music_clock).unwrap();
         assert_eq!(world.resource::<GameClock>().clock, None);
+    }
+}
+
+/// Contrôle de continuité de la musique (M-7b, `docs/conventions.md` § 124) : la **vraie sortie** d'harmonium, sans carte son.
+///
+/// L'hôte est détaché (`LiveHost::detached`) ; le banc joue le rôle de la carte son et du jeu sur une horloge murale
+/// simulée (déterministe, plus rapide que le temps réel) : il rend chaque tampon audio (`PlaybackEngine::process_buffer`, le
+/// callback cpal) à son instant, fait avancer `FrameCount` comme `bevy_ggrs` (accumulateur, `Time<Virtual>` borné à 250 ms
+/// par frame) et lance une frame Bevy (`HarmoniumPlugin` et les systèmes de la musique, installés par [`install`]).
+///
+/// Les à-coups injectés sont ceux mesurés dans la salle de 1837 (rapport `m-7b-musique-continue.md`) : une frame de rendu
+/// longue (premier chargement d'un son, d'un visuel d'impact) fait perdre du temps à la simulation, et un pair p2p en avance
+/// court au ralenti de 10 % (`run_slow` de `bevy_ggrs`). Le contrôle échoue si, après la première note entendue, la musique
+/// se tait (tampons sous -60 dBFS ou playback « en attente » pendant au moins 150 ms) ou saute (mesure qui recule ou en
+/// saute une), et si elle ne part pas dans les 3 s qui suivent l'entrée en partie.
+///
+/// Banques : `GeneralUser-GS.sf3` et `harmonium_trad.sf2` dans `$ALACOD_HARMONIUM_BANKS_DIR` (défaut : le cache de
+/// `scripts/harmonium-banks.sh`) ou `games/testbed/assets/harmonium/`. Sans elles (CI), l'énergie n'est pas jugée (le synthé
+/// rend du silence) : seuls le playback « en attente » et la suite des mesures, publiés par le callback, le sont.
+#[cfg(test)]
+mod continuite {
+    use super::*;
+    use bevy::{app::TaskPoolPlugin, asset::AssetPlugin, state::app::StatesPlugin};
+    use content::manifest::PulseFrames;
+    use harmonium::{playback::PlaybackEngine, LiveHost};
+    use std::time::{Duration, Instant};
+
+    const RATE: u32 = 48_000;
+    const BUFFER: usize = 512;
+    const SILENCE_DB: f32 = -60.0;
+    const MAX_HOLE: Duration = Duration::from_millis(150);
+    const SIM_FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
+    /// `Time<Virtual>::max_delta` de bevy : au-delà, une frame longue perd du temps de simulation.
+    const MAX_SIM_DELTA: Duration = Duration::from_millis(250);
+
+    fn banks() -> Option<(Vec<u8>, Vec<u8>)> {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut dirs = vec![manifest.join("../../games/testbed/assets/harmonium")];
+        if let Ok(dir) = std::env::var("ALACOD_HARMONIUM_BANKS_DIR") {
+            dirs.insert(0, dir.into());
+        } else if let Ok(home) = std::env::var("HOME") {
+            dirs.insert(
+                0,
+                std::path::Path::new(&home).join("orca/workspaces/alacod/packs/harmonium-banks"),
+            );
+        }
+        dirs.iter().find_map(|dir| {
+            Some((
+                std::fs::read(dir.join("GeneralUser-GS.sf3")).ok()?,
+                std::fs::read(dir.join("harmonium_trad.sf2")).ok()?,
+            ))
+        })
+    }
+
+    /// Ce que le banc a entendu : un tampon audio (instant de début, dBFS) ou une frame (instant, horloge publiée).
+    struct Banc {
+        app: App,
+        playback: PlaybackEngine,
+        t0: Instant,
+        wall: Duration,
+        audio_until: Duration,
+        accumulator: Duration,
+        frame: u32,
+        buffer: Vec<f32>,
+        levels: Vec<(Duration, f32)>,
+        clocks: Vec<(Duration, MusicClock)>,
+        anchor: Option<Duration>,
+        /// La pause arrête-t-elle le flux ? CoreAudio et le web : oui ; ALSA : la pause demandée par l'hôte juste après
+        /// l'ouverture échoue (`snd_pcm_pause` avant `RUNNING`, erreur ignorée par cpal) et le callback continue.
+        pause_stops_output: bool,
+        /// Sortie rendue, gardée seulement avec `ALACOD_CONTINUITE_WAV` (diagnostic).
+        samples: Option<Vec<f32>>,
+    }
+
+    impl Banc {
+        fn new(main: Option<&[u8]>, percussion: Option<&[u8]>, pause_stops_output: bool) -> Self {
+            // Le réglage `music` neutre du testbed (`games/testbed/assets/game.ron`) ; `ALACOD_CONTINUITE_MUSIQUE=profil:num/den`
+            // en joue un autre (diagnostic : rendre la musique d'un jeu, avec `ALACOD_CONTINUITE_WAV`).
+            let (profile, num, den) = std::env::var("ALACOD_CONTINUITE_MUSIQUE")
+                .ok()
+                .and_then(|value| {
+                    let (profile, pulse) = value.split_once(':')?;
+                    let (num, den) = pulse.split_once('/')?;
+                    Some((profile.to_string(), num.parse().ok()?, den.parse().ok()?))
+                })
+                .unwrap_or_else(|| ("gmd_pop".to_string(), 30, 1));
+            let entry = MusicEntry {
+                profile,
+                pulse_frames: PulseFrames { num, den },
+                main_bank: "harmonium/GeneralUser-GS.sf3".to_string(),
+                percussion_bank: "harmonium/harmonium_trad.sf2".to_string(),
+            };
+            let (control, mut config, pulse) = prepare(&entry, false).unwrap();
+            // L'hôte est fourni par le banc : rien à charger par l'`AssetServer`.
+            config.main_bank = None;
+            config.percussion_bank = None;
+            let mut app = App::new();
+            app.add_plugins((
+                TaskPoolPlugin::default(),
+                AssetPlugin::default(),
+                StatesPlugin,
+            ))
+            .init_state::<AppState>()
+            .insert_resource(FrameCount { frame: 0 });
+            let t0 = Instant::now();
+            app.insert_resource(Time::<Real>::new(t0));
+            install(&mut app, control, config, pulse);
+            let (host, playback) =
+                LiveHost::detached(main, percussion, &[], f64::from(RATE)).unwrap();
+            app.insert_non_send(harmonium_bevy::HarmoniumRuntime::new(host).unwrap());
+            Self {
+                app,
+                playback,
+                t0,
+                wall: Duration::ZERO,
+                audio_until: Duration::ZERO,
+                accumulator: Duration::ZERO,
+                frame: 0,
+                buffer: vec![0.0; BUFFER * 2],
+                levels: Vec::new(),
+                clocks: Vec::new(),
+                anchor: None,
+                pause_stops_output,
+                samples: std::env::var_os("ALACOD_CONTINUITE_WAV").map(|_| Vec::new()),
+            }
+        }
+
+        /// Une frame de présentation de `dt` (temps mur) ; `sim_slow` : frames de simulation 10 % plus longues (`run_slow`).
+        fn frame(&mut self, dt: Duration, in_game: bool, sim_slow: bool) {
+            self.wall += dt;
+            // La carte son : chaque tampon est rendu avant d'être entendu (un tampon d'avance). Flux en pause (cpal
+            // `pause`, que l'hôte détaché ne fait pas) : pas de callback, la carte rend du silence.
+            let buffer_time = Duration::from_nanos(BUFFER as u64 * 1_000_000_000 / u64::from(RATE));
+            let paused = self.pause_stops_output
+                && self
+                    .app
+                    .world()
+                    .non_send_resource::<harmonium_bevy::HarmoniumRuntime>()
+                    .paused();
+            while self.audio_until < self.wall + buffer_time {
+                let audible = self.t0 + self.audio_until;
+                if paused {
+                    self.buffer.fill(0.0);
+                } else {
+                    self.playback.process_buffer(&mut self.buffer, 2, audible);
+                }
+                let energy =
+                    self.buffer.iter().map(|v| v * v).sum::<f32>() / self.buffer.len() as f32;
+                let db = if energy > 1e-20 {
+                    10.0 * energy.log10()
+                } else {
+                    -200.0
+                };
+                self.levels.push((self.audio_until, db));
+                if let Some(samples) = &mut self.samples {
+                    samples.extend_from_slice(&self.buffer);
+                }
+                self.audio_until += buffer_time;
+            }
+            // La simulation : accumulateur de `bevy_ggrs`, delta borné comme `Time<Virtual>`.
+            if in_game {
+                let period = if sim_slow {
+                    SIM_FRAME * 11 / 10
+                } else {
+                    SIM_FRAME
+                };
+                self.accumulator += dt.min(MAX_SIM_DELTA);
+                while self.accumulator >= period {
+                    self.accumulator -= period;
+                    self.frame += 1;
+                }
+                self.app.world_mut().resource_mut::<FrameCount>().frame = self.frame;
+                if self.anchor.is_none() {
+                    self.anchor = Some(self.wall);
+                    self.app
+                        .world_mut()
+                        .resource_mut::<NextState<AppState>>()
+                        .set(AppState::InGame);
+                }
+            }
+            self.app
+                .world_mut()
+                .resource_mut::<Time<Real>>()
+                .update_with_instant(self.t0 + self.wall);
+            self.app.update();
+            let mut clock = *self.app.world().resource::<MusicClock>();
+            // Sans banques, l'horloge publiée tient lieu d'oreille : un playback qui tourne à volume 0 ne s'entend pas.
+            if self.app.world().resource::<HarmoniumControl>().volume == 0.0 {
+                clock.valid = false;
+            }
+            self.clocks.push((self.wall, clock));
+        }
+
+        /// Trous et sauts après la première note ; `judge_energy` : seulement avec les banques.
+        fn incidents(&self, judge_energy: bool) -> (Option<Duration>, Vec<String>) {
+            let heard = |db: f32| db >= SILENCE_DB;
+            let first_valid = self
+                .clocks
+                .iter()
+                .find(|(_, c)| c.valid && c.playing)
+                .map(|(t, _)| *t);
+            // Avant l'ancrage, un tampon audible isolé est la rampe de 10 ms du gain initial du playback d'harmonium (1,
+            // jamais 0 : D220 (2)) quand la pause n'arrête pas le flux (ALSA) : compté et affiché, pas pris pour le début
+            // de la musique. Deux tampons de suite (21 ms) ou plus avant l'ancrage sont de la musique. Quand la pause
+            // arrête le flux, rien ne doit sonner avant l'ancrage, pas même ce tampon.
+            let anchor = self.anchor.unwrap_or(Duration::MAX);
+            let audible = |i: usize| self.levels.get(i).is_some_and(|(_, db)| heard(*db));
+            let ramps = (0..self.levels.len())
+                .filter(|&i| audible(i) && self.levels[i].0 < anchor)
+                .filter(|&i| !audible(i + 1) && (i == 0 || !audible(i - 1)))
+                .count();
+            let mut out = Vec::new();
+            if ramps > 0 {
+                println!("continuité : {ramps} tampon(s) audible(s) isolé(s) avant l'ancrage (rampe du gain initial)");
+                if self.pause_stops_output {
+                    out.push(format!(
+                        "{ramps} tampon(s) audible(s) avant l'ancrage malgré la pause"
+                    ));
+                }
+            }
+            let first_sound = (0..self.levels.len())
+                .find(|&i| audible(i) && (self.levels[i].0 >= anchor || audible(i + 1)))
+                .map(|i| self.levels[i].0);
+            let start = if judge_energy {
+                first_sound
+            } else {
+                first_valid
+            };
+            let Some(start) = start else {
+                return (None, out);
+            };
+            let end = self.wall.saturating_sub(Duration::from_millis(500));
+            let mut hole =
+                |label: &str, runs: &mut Option<Duration>, t: Duration, quiet: bool| match (
+                    quiet, *runs,
+                ) {
+                    (true, None) => *runs = Some(t),
+                    (false, Some(from)) => {
+                        if t - from >= MAX_HOLE {
+                            out.push(format!(
+                                "{label} de {:.2} s à {:.2} s ({} ms)",
+                                from.as_secs_f64(),
+                                t.as_secs_f64(),
+                                (t - from).as_millis()
+                            ));
+                        }
+                        *runs = None;
+                    }
+                    _ => {}
+                };
+            let mut silent = None;
+            if judge_energy {
+                for (t, db) in self.levels.iter().filter(|(t, _)| *t >= start && *t < end) {
+                    hole("silence", &mut silent, *t, !heard(*db));
+                }
+                hole("silence", &mut silent, end, false);
+            }
+            let mut waiting = None;
+            let mut previous: Option<usize> = None;
+            let mut jumps = Vec::new();
+            for (t, clock) in self.clocks.iter().filter(|(t, _)| *t >= start && *t < end) {
+                hole("playback en attente", &mut waiting, *t, !clock.valid);
+                if clock.valid {
+                    if let Some(bar) = previous {
+                        if clock.bar < bar || clock.bar > bar + 1 {
+                            jumps.push(format!(
+                                "saut de la mesure {bar} à la mesure {} à {:.2} s",
+                                clock.bar,
+                                t.as_secs_f64()
+                            ));
+                        }
+                    }
+                    previous = Some(clock.bar);
+                }
+            }
+            hole("playback en attente", &mut waiting, end, false);
+            out.extend(jumps);
+            (Some(start), out)
+        }
+    }
+
+    /// 16 s de jeu dans le banc (`ALACOD_CONTINUITE_SECONDES` : plus) ; la première note et les incidents (texte), préfixés
+    /// par le mode de pause. `ALACOD_CONTINUITE_WAV=<dossier>` y écrit la sortie rendue (`banc-pause.wav`, `banc-alsa.wav`).
+    fn jouer(banks: Option<&(Vec<u8>, Vec<u8>)>, pause_stops_output: bool) -> Vec<String> {
+        let mode = if pause_stops_output {
+            "pause qui arrête le flux (CoreAudio, web)"
+        } else {
+            "pause sans effet (ALSA)"
+        };
+        let (main, percussion) = banks.map_or((None, None), |(m, p)| {
+            (Some(m.as_slice()), Some(p.as_slice()))
+        });
+        let mut banc = Banc::new(main, percussion, pause_stops_output);
+        // 0,5 s de chargement (hôte prêt, pas encore de partie), puis la partie : 16 s en tout.
+        // À-coups : frame de 300 ms à 4 s et de 450 ms à 8 s (premier son, premier impact), ralenti `run_slow` de 11 à 12 s.
+        let mut hitches = [
+            (Duration::from_secs(4), Duration::from_millis(300)),
+            (Duration::from_secs(8), Duration::from_millis(450)),
+        ]
+        .into_iter()
+        .peekable();
+        let seconds = std::env::var("ALACOD_CONTINUITE_SECONDES")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(16);
+        while banc.wall < Duration::from_secs(seconds) {
+            let in_game = banc.wall >= Duration::from_millis(500);
+            let dt = match hitches.peek() {
+                Some((at, long)) if banc.wall >= *at => {
+                    let long = *long;
+                    hitches.next();
+                    long
+                }
+                _ => SIM_FRAME,
+            };
+            let slow = (11.0..12.0).contains(&banc.wall.as_secs_f64());
+            banc.frame(dt, in_game, slow);
+        }
+        let follow = banc.app.world().resource::<MusicClock>().follow;
+        println!("continuité [{mode}] : suivi en fin de partie : {follow:?}");
+        if let (Some(samples), Some(dir)) =
+            (&banc.samples, std::env::var_os("ALACOD_CONTINUITE_WAV"))
+        {
+            let name = if pause_stops_output {
+                "banc-pause.wav"
+            } else {
+                "banc-alsa.wav"
+            };
+            let path = std::path::Path::new(&dir).join(name);
+            let data = (samples.len() * 4) as u32;
+            let mut wav = Vec::with_capacity(44 + samples.len() * 4);
+            wav.extend_from_slice(b"RIFF");
+            wav.extend_from_slice(&(36 + data).to_le_bytes());
+            wav.extend_from_slice(b"WAVEfmt ");
+            wav.extend_from_slice(&16u32.to_le_bytes());
+            wav.extend_from_slice(&3u16.to_le_bytes());
+            wav.extend_from_slice(&2u16.to_le_bytes());
+            wav.extend_from_slice(&RATE.to_le_bytes());
+            wav.extend_from_slice(&(RATE * 8).to_le_bytes());
+            wav.extend_from_slice(&8u16.to_le_bytes());
+            wav.extend_from_slice(&32u16.to_le_bytes());
+            wav.extend_from_slice(b"data");
+            wav.extend_from_slice(&data.to_le_bytes());
+            for sample in samples {
+                wav.extend_from_slice(&sample.to_le_bytes());
+            }
+            std::fs::write(&path, wav).unwrap();
+            println!(
+                "continuité [{mode}] : sortie écrite dans {}",
+                path.display()
+            );
+        }
+        let (start, mut incidents) = banc.incidents(banks.is_some());
+        let anchor = banc.anchor.unwrap();
+        match start {
+            None => incidents.push("la musique n'a jamais joué".to_string()),
+            Some(start) => {
+                println!(
+                    "continuité [{mode}] : première note à {:.2} s (entrée en partie à {:.2} s)",
+                    start.as_secs_f64(),
+                    anchor.as_secs_f64()
+                );
+                if start > anchor + Duration::from_secs(3) {
+                    incidents
+                        .push("la musique part plus de 3 s après l'entrée en partie".to_string());
+                }
+            }
+        }
+        incidents
+            .into_iter()
+            .map(|incident| format!("[{mode}] {incident}"))
+            .collect()
+    }
+
+    #[test]
+    fn la_musique_ne_se_tait_pas_au_demarrage_ni_sous_les_a_coups() {
+        let banks = banks();
+        println!(
+            "continuité : banques {}",
+            if banks.is_some() {
+                "trouvées : énergie jugée"
+            } else {
+                "absentes : énergie non jugée (attente et mesures seulement)"
+            }
+        );
+        let mut incidents = jouer(banks.as_ref(), true);
+        incidents.extend(jouer(banks.as_ref(), false));
+        println!("continuité : incidents : {}", incidents.len());
+        for incident in &incidents {
+            println!("continuité : {incident}");
+        }
+        assert!(
+            incidents.is_empty(),
+            "la musique se tait ou saute : {incidents:#?}"
+        );
     }
 }

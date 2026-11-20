@@ -204,6 +204,12 @@
     "reason": "Mesure de durée des tests de génération (D45), du test de performance de l'étage en grille (M3-T5) et de la comparaison isaac/gungeon par phase (M3-T11d1, D107), hors simulation."
   },
   {
+    "path": "crates/game/src/audio/music.rs",
+    "code": "let t0 = Instant::now();",
+    "count": 1,
+    "reason": "Contrôle de continuité de la musique (M-7b, § 124, test sous la feature harmonium) : origine arbitraire de l'horloge murale simulée du banc ; tout instant suivant en est un décalage déterministe, rien n'est lu par la simulation."
+  },
+  {
     "path": "crates/game/src/performance.rs",
     "code": "let now = Instant::now();",
     "count": 2,
