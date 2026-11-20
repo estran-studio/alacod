@@ -370,8 +370,8 @@ impl AnimeManifest {
     }
 
     /// Durée d'un clip en images de simulation, **non arrondie**, pour les repères de la simulation (M-6, § 116) :
-    /// `(fin − début) / fps × 60`, la plage d'images (une image de moins que [`Self::duration`], P-1d : à trancher,
-    /// changer cette conversion déplace les fenêtres de frappe, donc les traces).
+    /// `(fin − début) / fps × 60`, la plage d'images (une image de moins que [`Self::duration`] ; décision du coordinateur du
+    /// 2026-11-20, P-1d : inchangée dans ce lot, l'aligner déplacerait les fenêtres de frappe, donc les traces).
     fn exact_frames(&self, clip: &str) -> Option<f64> {
         let (start, end) = self.clips.get(clip)?;
         let fps = decimal(self.fps).max(1.0);

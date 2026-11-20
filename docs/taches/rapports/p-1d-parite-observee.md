@@ -71,8 +71,8 @@ Journaux : `logs/p-1d-revue-rouge.log`, `logs/p-1d-revue-vert.log`.
    les clés du clip `tir` vont de 1/24 à 14/24 s). three.js (banc) et bevy prennent pour durée le temps de la **dernière clé** (`fin / fps` : `tir` 0,583 s = 35 frames,
    `epauler` 0,375 s = 22,5, `rechargement` 2,0 s, `touche` 0,542 s) ; `AnimeManifest::duration` prenait la plage (`(fin − début) / fps`), une image de moins : le
    tir finissait 2,5 frames avant la séquence et le rechargement ne montrait jamais sa dernière image (seek max 1,95 s au jeu). `Wait(35)` et `Wait(23)` de 1837 sont justes.
-   Correction : `duration = fin / fps` (§ 5). Reste à trancher : `exact_frames` (repères de simulation, M-6 § 116) garde la plage ; l'aligner déplacerait les fenêtres de
-   frappe et donc des traces (décision à prendre, pas faite ici).
+   Correction : `duration = fin / fps` (§ 5). `exact_frames` (repères de simulation, M-6 § 116) garde la plage : décision du coordinateur du 20 nov, inchangé dans ce lot (l'aligner
+   déplacerait les fenêtres de frappe, donc des traces).
 3. `alacod test` sur 1837 : les scénarios générés `weapon_machine_gun`, `weapon_pistol`, `weapon_rifle`, `weapon_shotgun` échouent sur `animation_vivante` (le Frère recharge
    ces armes en jouant `idle` : `models.ron` n'a de poses d'arme que pour `fusil_chasse`). Ces quatre armes (`ZombieShooter/Sprites/Character/weapons.ron`) ne sont données par
    personne (avertissement du lint) : les retirer des `content_folders`, ou leur déclarer des poses.
