@@ -6243,8 +6243,10 @@ fn designation_known(registry: &Registry, designation: &str) -> bool {
 }
 
 /// M-7 (`docs/conventions.md` §121) : `music` du manifeste. Profil non vide, période de la pulsation (`pulse_frames`)
-/// et chemins de banques non nuls. L'existence du profil et le tempo (40 à 300 BPM à la noire selon le mètre du
-/// profil) relèvent d'harmonium, que ce crate de simulation ne voit pas : `game` les juge au lancement (journal).
+/// non nulle et chemins de banques non nuls. L'existence du profil et le tempo exact (40 à 300 BPM à la noire selon le
+/// mètre du profil) relèvent d'harmonium, que ce crate de simulation ne voit pas : `game` les juge au lancement
+/// (`audio::music::prepare`). Le lint refuse seulement la pulsation **impossible pour tout mètre** (suivi M-7) : hors
+/// de [`MUSIC_PULSES_PER_MINUTE`], le tempo à la noire valant une à deux fois le nombre de pulsations par minute.
 /// Les banques ne sont pas cherchées sur le disque : elles sont téléchargées (`scripts/harmonium-banks.sh`), pas commitées.
 fn lint_music(manifest: &GameManifest, errors: &mut Vec<LintError>) {
     let Some(music) = &manifest.music else {
@@ -6260,11 +6262,24 @@ fn lint_music(manifest: &GameManifest, errors: &mut Vec<LintError>) {
     if music.profile.trim().is_empty() {
         push("champ music.profile : id de profil harmonium vide".to_string());
     }
-    if music.pulse_frames.num == 0 || music.pulse_frames.den == 0 {
+    let (num, den) = (music.pulse_frames.num, music.pulse_frames.den);
+    if num == 0 || den == 0 {
         push(format!(
-            "champ music.pulse_frames = {}/{} : numérateur et dénominateur doivent être > 0 (durée de la pulsation dansée, en frames)",
-            music.pulse_frames.num, music.pulse_frames.den
+            "champ music.pulse_frames = {num}/{den} : numérateur et dénominateur doivent être > 0 (durée de la pulsation dansée, en frames)",
         ));
+    } else {
+        // Pulsations par minute = 60 s × 60 frames × den / num ; bornes comparées en entiers, sans arrondi.
+        let (min, max) = MUSIC_PULSES_PER_MINUTE;
+        let scaled = MUSIC_SIM_FRAMES_PER_MINUTE * u64::from(den);
+        if scaled < min * u64::from(num) || scaled > max * u64::from(num) {
+            // Dixièmes de pulsation par minute, arrondis, pour le message (entiers seulement).
+            let tenths = (scaled * 10 + u64::from(num) / 2) / u64::from(num);
+            push(format!(
+                "champ music.pulse_frames = {num}/{den} : {},{} pulsations par minute, hors de {min} à {max} ; aucun mètre ne donne alors un tempo de 40 à 300 BPM à la noire (une noire, une noire pointée ou une blanche par pulsation)",
+                tenths / 10,
+                tenths % 10,
+            ));
+        }
     }
     if music.main_bank.trim().is_empty() {
         push("champ music.main_bank : chemin vide".to_string());
@@ -6273,6 +6288,13 @@ fn lint_music(manifest: &GameManifest, errors: &mut Vec<LintError>) {
         push("champ music.percussion_bank : chemin vide".to_string());
     }
 }
+
+/// Frames de simulation par minute (60 Hz), pour juger `music.pulse_frames` sans dépendre de `game`.
+const MUSIC_SIM_FRAMES_PER_MINUTE: u64 = 60 * 60;
+
+/// Pulsations par minute que le lint accepte pour `music.pulse_frames` (bornes comprises) : 40 BPM à deux noires par
+/// pulsation (2/2) et 300 BPM à une noire par pulsation (4/4). Plus serré, il refuserait un mètre distribué valide.
+const MUSIC_PULSES_PER_MINUTE: (u64, u64) = (20, 300);
 
 /// SB-1 (`docs/conventions.md` §86, `docs/taches/plan-bac-a-sable.md` D1/D2) : le kind `Sandbox`.
 ///

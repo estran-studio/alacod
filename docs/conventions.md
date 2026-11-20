@@ -9070,12 +9070,18 @@ aucun crate `SIM` ne dépend d'harmonium (`make check_sim_boundary`) ; aucune tr
   ```
   `profile` : id d'un profil distribué par harmonium ; `pulse_frames` : durée de la **pulsation dansée** du profil (blanche au reel 2/2, noire pointée en 6/8, noire en 4/4) en frames de
   simulation, **fraction permise** (`3600/230`) ; `main_bank` (défaut `harmonium/GeneralUser-GS.sf3`) et `percussion_bank` (défaut `harmonium/harmonium_trad.sf2`) relatives à `assets/`.
-  **Sans `music`, aucune musique** (le plugin n'est pas installé, même avec la feature). Un profil inconnu ou une période refusée par harmonium (tempo hors 40–300 BPM à la noire pour le
-  mètre du profil) : `warn!` au lancement ou au premier tour (journal d'harmonium), pas de musique, le jeu continue. Le testbed porte un réglage **neutre** (`gmd_pop`, 30 frames = 120 BPM) ;
+  **Sans `music`, aucune musique** (le plugin n'est pas installé, même avec la feature). Un profil inconnu, une période nulle ou un tempo hors 40–300 BPM à la noire **pour le mètre du profil**
+  sont refusés **au lancement** par `audio::music::prepare` (suivi M-7 : `profile_tempo`, même calcul que l'hôte, `ExternalClock::tempo_for` sur le `meter` du profil, `harmonium_core` à la même `rev`) :
+  `warn!("musique : … ; aucune musique")` qui cite la période, le tempo calculé et le mètre, pas de musique, pas de panique, le jeu continue (avant le suivi, un tempo hors bornes passait et l'hôte refusait
+  l'horloge au premier tour). Le testbed porte un réglage **neutre** (`gmd_pop`, 30 frames = 120 BPM) ;
   les valeurs d'un jeu (profil, période) restent dans **son** `game.ron`. Le manifeste est lu à l'installation de `ZAudioPlugin` (avant `CoreSetupPlugin` dans tous les jeux) :
   un rechargement à chaud de `game.ron` ne change pas la musique en cours (relance).
-- **Lint** (`content::lint::lint_music`, `OutOfRange`, fixtures `music_pulse_zero`, `music_profile_empty`, `music_ok` ; `crates/content/tests/m7_music_fixtures.rs`) : profil vide, numérateur ou
-  dénominateur de `pulse_frames` nul, chemin de banque vide. Ce crate de simulation ne voit pas harmonium : l'existence du profil et le tempo sont jugés par `game`. Les banques ne sont **pas** cherchées sur le disque (téléchargées).
+- **Lint** (`content::lint::lint_music`, `OutOfRange`, fixtures `music_pulse_zero`, `music_profile_empty`, `music_pulse_too_fast`, `music_pulse_too_slow` (rouges), `music_ok`, `music_pulse_bounds_ok` (vertes) ;
+  `crates/content/tests/m7_music_fixtures.rs`) : profil vide, numérateur ou dénominateur de `pulse_frames` nul, chemin de banque vide, et (suivi M-7) **pulsation impossible pour tout mètre** :
+  hors de 20 à 300 pulsations par minute (`3600 × den / num`, à 60 Hz ; les mètres distribués comptent une noire (4/4), une noire pointée (6/8, 12/8) ou une blanche (2/2) par pulsation, donc
+  le tempo à la noire vaut une à deux fois ce nombre). Ce crate de simulation ne voit pas harmonium (décision du coordinateur : aucune dépendance de plus dans `content`) : **écart assumé** entre
+  les deux règles, une période verte au lint peut être refusée au lancement pour son profil (20 frames : 180 BPM en 4/4, accepté ; 360 en 2/2, refusé), et l'existence du profil n'est jugée
+  qu'au lancement (D217 (9)). Les banques ne sont **pas** cherchées sur le disque (téléchargées).
 - **Horloge du jeu (option a, décision de William du 2026-11-06)** (`crates/game/src/audio/music.rs`) : `OnEnter(InGame)` : `anchor_music_clock` pose `GameClock.clock = ExternalClock::new(60, FrameCount.frame, num, den)`
   (`SIM_FPS` = 60 ; l'ancrage est la frame d'entrée en partie : `FrameCount` est remis à zéro à la sortie de la partie précédente, `run_state::cleanup_rollback_world_system`, donc 0 d'ordinaire ; les deux clients entrent à la même frame) ; `Update` : `feed_music_clock` écrit
   `GameClock.sim_frame = FrameCount.frame` à **chaque frame de présentation**, donc avant `HarmoniumSet` (`PostUpdate`) ; `OnExit(InGame)` : l'horloge est retirée (le tempo revient aux émotions, la partie suivante en pose une
@@ -9084,7 +9090,9 @@ aucun crate `SIM` ne dépend d'harmonium (`make check_sim_boundary`) ; aucune tr
 - **Muet** : `ALACOD_MUTE=1` pose `HarmoniumControl.volume = 0` (la musique tourne, muette : l'horloge publiée par le callback audio prouve que la sortie tourne). Aucune écoute n'est jamais revendiquée par un agent.
   Le curseur de volume de la pause (`MasterVolume`) ne règle pas la musique (hors lot).
 - **Journal** (`music f<frame> … statut_externe=…`, `info!`, présentation) : à chaque changement d'état (`HarmoniumStatus`, `valid`, `playing`, phase du suivi `Waiting`/`Starting`/`Tracking`), puis toutes les 5 s de
-  temps réel ; il porte la mesure, la pulsation, le tempo entendu, l'écart filtré en ms, les décomptes de micro-ajustements et de sauts.
+  temps réel ; il porte la mesure, la pulsation, le tempo entendu, l'écart filtré en ms, les décomptes de micro-ajustements et de sauts. Suivi M-7 : l'état est comparé par une clé `Copy`
+  (`MusicLogKey`), la ligne n'est formatée que quand elle est due : **aucune allocation** par frame entre deux lignes (avant : 6 allocations par frame avec suivi, 3 sans ; test `le_journal_n_alloue_qu_au_changement`
+  sous la garde temps réel d'harmonium, `harmonium_audio::realtime::rt_check`, active en `debug_assertions` donc au profil `headless` : toute allocation panique).
 - **Banques** : jamais commitées (gitignorées `games/*/assets/harmonium/`). `scripts/harmonium-banks.sh [--source D] [JEU …]` les télécharge (`gh release download studio-resources-2 -R estran-studio/harmonium` : `GeneralUser-GS.sf3`
   7,6 Mo **pour toutes les cibles**, natif compris : oxisynth lit le SF3 partout ; `GeneralUser-GS-LICENSE.txt` ; `harmonium_trad.sf2` 0,15 Mo) dans un cache par poste (`~/orca/workspaces/alacod/packs/harmonium-banks`) puis les copie dans
   `games/<jeu>/assets/harmonium/`. Un build web les copie avec les assets (`scripts/web-assets.mjs`) ; `WEB_FEATURES=game/harmonium node scripts/build-web-games.mjs <jeu>` ajoute la feature à la ligne cargo du build web
