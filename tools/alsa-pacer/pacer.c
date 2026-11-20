@@ -326,7 +326,9 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pacer)
 	p->t_open = now_s();
 	p->boundary = 1UL << 30;
 	p->min_margin = -1;
-	fprintf(p->log, "open pid=%d stream=%d name=%s\n", (int)getpid(), index, name ? name : "?");
+	/* monotonic : instant d'ouverture (CLOCK_MONOTONIC, s), pour aligner les WAV de plusieurs flux d'un processus. */
+	fprintf(p->log, "open pid=%d stream=%d name=%s monotonic=%.4f\n", (int)getpid(), index, name ? name : "?",
+		p->t_open);
 
 	int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
 	struct itimerspec spec = {{0, 1000000}, {0, 1000000}}; /* 1 ms */
