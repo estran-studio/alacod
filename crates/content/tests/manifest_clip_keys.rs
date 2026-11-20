@@ -1,12 +1,12 @@
 //! P-1d (`docs/conventions.md` § 122) : la durée d'un clip lue dans le manifeste (`AnimeManifest::duration`, `fin / fps`) est le
-//! temps de la **dernière clé** du clip dans son `.glb`, ce que three.js (banc) et bevy jouent. Garde sur le modèle du testbed
-//! (`games/testbed/assets/models/pantin`, écrit par `scripts/gen-pantin.py`) : un générateur qui déclarerait `[1, 1 + d × fps]`
-//! pour des clés de 0 à `d` allongerait chaque clip d'une image.
+//! temps de la **dernière clé** du clip dans son `.glb`, ce que three.js (banc) et bevy jouent. Garde sur chaque modèle déclaré par
+//! `models.ron` du testbed (champs `glb` et `manifest`) : un générateur qui déclarerait `[1, 1 + d × fps]` pour des clés de 0 à `d`
+//! (`scripts/gen-pantin.py` avant P-1d) allongerait chaque clip d'une image.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use content::models::AnimeManifest;
+use content::models::{AnimeManifest, ModelsFile};
 
 /// Le temps de la dernière clé de chaque animation d'un `.glb` (maximum des entrées de ses échantillonneurs).
 fn last_key_times(glb: &[u8]) -> BTreeMap<String, f64> {
@@ -35,24 +35,37 @@ fn last_key_times(glb: &[u8]) -> BTreeMap<String, f64> {
 }
 
 #[test]
-fn the_testbed_model_declares_each_clip_up_to_its_last_key() {
-    let dir = PathBuf::from(concat!(
+fn each_testbed_model_declares_its_clips_up_to_their_last_key() {
+    let assets = PathBuf::from(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../games/testbed/assets/models/pantin"
+        "/../../games/testbed/assets"
     ));
-    let manifest: AnimeManifest =
-        serde_json::from_str(&std::fs::read_to_string(dir.join("anime.json")).unwrap()).unwrap();
-    let keys = last_key_times(&std::fs::read(dir.join("anime.glb")).unwrap());
-    assert!(!keys.is_empty());
+    let table: ModelsFile =
+        ron::from_str(&std::fs::read_to_string(assets.join("models/models.ron")).unwrap()).unwrap();
+    assert!(
+        !table.models.is_empty(),
+        "aucun modèle dans models.ron du testbed"
+    );
     let mut wrong = Vec::new();
-    for (clip, last) in &keys {
-        let duration = manifest
-            .duration(clip)
-            .unwrap_or_else(|| panic!("clip `{clip}` absent du manifeste"));
-        if (f64::from(duration) - last).abs() > 1e-4 {
-            wrong.push(format!(
-                "{clip} : manifeste {duration} s, dernière clé {last} s"
-            ));
+    for (id, model) in &table.models {
+        let manifest: AnimeManifest =
+            serde_json::from_str(&std::fs::read_to_string(assets.join(&model.manifest)).unwrap())
+                .unwrap();
+        let keys = last_key_times(&std::fs::read(assets.join(&model.glb)).unwrap());
+        assert!(
+            !keys.is_empty(),
+            "{id} : aucune animation dans {}",
+            model.glb
+        );
+        for (clip, last) in &keys {
+            let duration = manifest
+                .duration(clip)
+                .unwrap_or_else(|| panic!("{id} : clip `{clip}` absent du manifeste"));
+            if (f64::from(duration) - last).abs() > 1e-4 {
+                wrong.push(format!(
+                    "{id}/{clip} : manifeste {duration} s, dernière clé {last} s"
+                ));
+            }
         }
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
