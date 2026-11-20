@@ -151,6 +151,14 @@ test: test_crates test_scenarios
 test_crates:
 	APP_VERSION=$(TEST_VERSION) cargo test -q --workspace --profile headless --no-default-features --no-fail-fast $(DEV_FEATURES) -- --exact --skip scenarios
 
+# Tests de la musique générative (feature `harmonium`, coupée dans `test_crates`), dont le contrôle de continuité
+# (M-7b, § 124 : la vraie sortie d'harmonium sans carte son, à-coups mesurés, échoue si la musique se tait ou saute).
+# La nuit, pas `check_rapide` : la feature compile un second binaire de tests de `game` (≈ 4 min, 1 Go, mesuré sur le
+# VPS le 2026-11-20) pour 5 s de jeu. Banques (`scripts/harmonium-banks.sh`) : énergie jugée ; sans elles (CI) : attente
+# du playback et suite des mesures seulement.
+test_music:
+	APP_VERSION=$(TEST_VERSION) cargo test -p game --lib --profile headless --no-default-features --features harmonium audio::music
+
 # Contrôles Python sans build ni dépendance externe (Python >= 3.10).
 test_tools:
 	python3 -m unittest discover -s scripts/tests -v

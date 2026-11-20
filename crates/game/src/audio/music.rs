@@ -68,9 +68,8 @@ pub fn add_music(app: &mut App) {
 }
 
 /// Plugin, cibles et systèmes de la musique ; partagé par [`add_music`] et le contrôle de continuité (tests).
-/// La musique part en pause : [`gate_music_pause`] la lance à l'ancrage de l'horloge.
-fn install(app: &mut App, mut control: HarmoniumControl, config: HarmoniumConfig, pulse: MusicPulse) {
-    control.paused = true;
+/// [`gate_music_pause`] (`Update`, avant `HarmoniumSet` en `PostUpdate`) tient la musique en pause jusqu'à l'ancrage.
+fn install(app: &mut App, control: HarmoniumControl, config: HarmoniumConfig, pulse: MusicPulse) {
     app.insert_resource(control)
         .insert_resource(pulse)
         .add_plugins(HarmoniumPlugin::new(config))
