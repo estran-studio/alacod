@@ -1,6 +1,6 @@
 # Plan : préparer l'engine pour 1837, premier jeu externe géré par la CLI (lots X) — rédigé le 2026-10-26
 
-**État au 2026-11-06 : X-4a et X-4b livrés ; X-5 avancé au 6 nov (preuve dim 8) ; voie m découpée (§ 6). Objectif studio : O3, alpha coop du prologue, dim 20 déc.**
+**État au 2026-11-21 : lots de la voie m livrés jusqu'à P-1e (`721b1a52`, statut au § 6) ; X-6d et X-6e garés ; l'engine prend ses lots un à un : X-6f (changement de niveau) en cours, puis X-6g (intérieur par graine). Objectif studio : O2 au service d'O3, l'alpha du prologue de 1837, dim 20 déc, qui devient la démo gratuite.**
 
 Demande de William (2026-10-26) : « préparer le engine pour 1837 et la création du premier jeu externe avec la CLI, qui serait 100 % managé via
 notre CLI ». Règle de découpage validée le même jour : `docs/plan-engine.md` §4.8 (engine, contenu ou plugin de jeu) et `docs/conventions.md` §4
@@ -22,7 +22,7 @@ l'engine n'est nécessaire.
 2. Le jeu dépend de l'engine par un tag git ; `alacod engine local <chemin>` bascule sur une copie locale et `alacod engine pin <tag>` revient.
    Le même jeu marche sur le Mac et le VPS sans retouche.
 3. Les verbes D1 (fenêtre de jugement, renvoi de projectiles, poids des armes) existent dans l'engine, avec lint, schéma, scénarios et §
-   de conventions ; les planches à 8 directions de la pipeline de `1867_lore` s'affichent.
+   de conventions ; ce qui bouge est rendu en 3D « façon sprite » (R-1, décision du 6 nov au soir, qui remplace les planches à 8 directions ; décor en sprites).
 4. Aucune trace de scénario des clones ne bouge (`BLESS` interdit), `make schedule_order_diff` vide.
 5. Le dépôt 1837 existe et joue le palier D1 du prologue (une pièce, deux ennemis, hache, fusil, gigue) **en contenu seulement**.
 
@@ -41,6 +41,10 @@ l'engine n'est nécessaire.
 | Sprites | l'engine lit une orientation et la retourne (`flip_x`) ; la pipeline de `1867_lore` sort **8 lignes** (une par direction), un manifeste `.sprite.json`, des planches `_mains_` et `ancres.json` | `crates/animation/src/lib.rs:221-233,342-353`, `1867_lore/tools/assetgen/README.md` |
 | Prologue en contenu | salles verrouillées, grille, clé et porte à clé, boss à phases, surfaces, archétypes de tir/charge/mêlée, formation en arc : **existent** | `docs/conventions.md` §35, §37, §48, §70, §26 ; `crates/behaviors/src/lib.rs:31-115` |
 | Prologue, manques | parade et renvoi, fenêtre de jugement (gigue), poids des armes (D1) ; `Lure`/`Grab` (D2) ; clé du boss dans une autre branche (D3) ; graine de la sauvegarde (D3) ; extérieur dessiné → intérieur généré (D2, à vérifier) | relevé `EcartPrologue` du 2026-10-26 |
+
+Relevé historique du 2026-10-26, gardé tel quel. Ce qui a changé depuis : `run`, `sandbox`, `remote`, `build --web`, `test` d'un jeu externe sont dans `alacod`
+(§ 90, M-1, T-1) ; les planches 2D en 8 directions sont remplacées par le rendu 3D façon sprite (R-1) ; parade, renvoi, fenêtre de jugement et poids des armes
+par P-1 ; portes et clé par X-6a1. Manques restants du prologue : le changement de niveau par la porte (X-6f) et l'intérieur par graine (X-6g).
 
 ## 3. Décisions
 
@@ -120,7 +124,23 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
 - **Q-3** (X-6) : la liste « À fermer pour le code » de `prologue-loge.md` ; William l'écrit lui-même (décision du 6 nov), question posée une semaine avant le palier ;
   pour l'intérieur de la loge, définition attendue le 30 nov (décision du 7 nov).
 
-## 4. Lots (état au 2026-11-06)
+**Décisions de William (2026-11-21), reprise sur son MacBook** (`studio/JOURNAL.md`, deux entrées du 21 nov) :
+- Décision de William (2026-11-21) : X-6d (lutin, `wquintal/x-6d-agrippeur` @ `daef5af8`) et X-6e (sergent, `wquintal/x-6e-chef` @ `dae6c685`) sont **gardés sur leurs
+  branches et garés** : aucun travail dessus tant que William ne le dit pas (« il fallait réparer les physiques et le game feel avant de commencer à trop en ajouter »).
+- Décision de William (2026-11-21) : l'engine prend ses lots **un à un**, dans cet ordre : (1) **changement de niveau** : passer la porte principale de l'extérieur, clé en
+  main, charge le niveau intérieur (X-6f) ; (2) **génération de l'intérieur par graine** avec `BasicMapGeneration` : hall au centre à trois sorties ; réunion, cuisine,
+  réserve, salle de la clé et salle du chef garanties ; clé et chef dans deux branches différentes ; une graine par défaut, rechargée à chaque relance, pas de sauvegarde
+  pour l'instant (X-6g). La suite (caméra fixe par pièce et portes fermées pendant le combat comme Isaac, puis X-6e, puis X-6d) est un **ordre proposé, non validé** :
+  aucun lot ne part au-delà de X-6g sans décision.
+- Décision de William (2026-11-21) : la clé de la porte principale se trouve dans une **bâtisse en ruine, dehors, après un combat qui apprend les bases** (contenu de 1837).
+- Décision de William (2026-11-21) : la coop reste de première classe, mais William joue et valide **à un joueur, en natif**. Chaque lot livre ses scénarios **à un et à
+  deux joueurs** ; le test à deux instances sur le Mac est mené par le coordinateur 1837, l'engine répond à ses demandes d'outillage.
+- Décision de William (2026-11-21) : **natif pour le développement** ; Chrome à la manette pour la version des amis (premier essai dim 13 déc) : `WASM=1` au contrôle
+  rapide seulement si un lot touche le web.
+- Décision de William (2026-11-21) : William dessine lui-même deux cartes LDtk (extérieur, intérieur) ; d'ici là, le jeu se teste sur les cartes provisoires de 1837.
+- Décision de William (2026-11-21) : tout tourne sur son MacBook (8 cœurs, 16 Go) ; le VPS (`ssh ovh`) ne garde que la suite de nuit. Un seul worker d'engine à la fois.
+
+## 4. Lots (état au 2026-11-06 ; statut à jour des lots mergés : § 6, « Statut au 2026-11-21 »)
 
 | Lot | Contenu | Prérequis | État (2026-11-06) | Effort |
 |---|---|---|---|---|
@@ -130,8 +150,8 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
 | **X-3 Verbes D1** | fenêtre de jugement (repère : temps d'horloge, début d'action, coup qui arrive ; notes parfait/bien/raté en `FrameEvents`) ; action de renvoi de projectiles (changement d'équipe, visée) et parade de mêlée ; poids des armes (vitesse en portant, si l'existant ne suffit pas) ; hit stop « cible seule » (présentation) ; musique calée sur l'horloge (présentation) | X-5 (besoins montrés par 1837) | **repris par la voie m** (M-3, § 6), branche conservée (`x-3-verbes-d1` @ `0e57f6f3`) | high |
 | **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | **livré** | medium |
 | **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a (depuis `main`) | **livré** le 2026-10-29 (`wquintal/x-4b-import-sprite`, rapport `x-4b-import-sprite.md`) ; mains et ancres : D156, plus tard | medium |
-| **X-5 Création de 1837 et kit de la cour** | dépôt privé `estran-studio/1837` par `alacod new 1837 --git --rev <main poussé>` ; kit importé par `alacod import-sprite` depuis `1867_lore/assets/sprites/` (le Frère avec hache et fusil, le fantassin, la loge, le décor de la cour) ; retrait de l'exception fantassin du testbed (§ 5) ; `1837/docs/tranche.md` ; commande du build du soir (natif) ; preuve dim 8 : la commande + une capture du Frère et du fantassin dans la cour, à l'échelle du jeu | X-4b, décision du 6 nov | **en cours** (avancé au 6 nov) | medium |
-| **X-6 Paliers D2 à D5** | portes et clé portée par un ennemi, couverts qui arrêtent les balles, intérieur de la loge généré par `BasicMapGeneration` + grammaire du § 40 (extensions génériques : hall central à trois sorties, fonctions garanties, clé du boss dans une autre branche que le boss, longueurs minimales, graine de la sauvegarde ; « grille 3×3 » = contrainte d'emprise ; pas le planificateur de grille du § 70 ; décision du 7 nov, § 3), `Lure`/`Grab`, boss en deux phases (§ 6, 23 nov → 13 déc) | X-5, M-3, Q-3 | voie m, lots écrits avant leur départ ; génération de l'intérieur : semaine du 30 nov | à planifier |
+| **X-5 Création de 1837 et kit de la cour** | dépôt privé `estran-studio/1837` par `alacod new 1837 --git --rev <main poussé>` ; kit importé par `alacod import-sprite` depuis `1867_lore/assets/sprites/` (le Frère avec hache et fusil, le fantassin, la loge, le décor de la cour) ; retrait de l'exception fantassin du testbed (§ 5) ; `1837/docs/tranche.md` ; commande du build du soir (natif) ; preuve dim 8 : la commande + une capture du Frère et du fantassin dans la cour, à l'échelle du jeu | X-4b, décision du 6 nov | **livré** le 2026-11-06 (`0e7c8d58`) | medium |
+| **X-6 Paliers D2 à D5** | portes et clé portée par un ennemi, couverts qui arrêtent les balles, intérieur de la loge généré par `BasicMapGeneration` + grammaire du § 40, `Lure`/`Grab`, boss en deux phases | X-5, M-3, Q-3 | découpé en lots au § 6 : X-6a1, X-6a2, X-6b, X-6c **livrés** ; X-6d, X-6e **garés** (William, 21 nov) ; X-6f en cours, X-6g ensuite | — |
 
 Chemin critique (2026-11-06) : X-5 (6 → 8 nov), puis la voie m dans l'ordre du calendrier de `1837/docs/tranche.md` (§ 6). X-1, X-2a et X-2b restent gelés (aucune fusion, aucun tag).
 Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27 : X-1 → X-2b → X-5, sur quatre voies.
@@ -162,18 +182,49 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
     `docs/conventions.md` § 107) ; le dépôt de 1837 importe la planche lui-même. Aucune autre exception : l'outil, les tests synthétiques et la doc restent neutres.
 - `CLAUDE.md` (déterminisme, frontière simulation/présentation), `docs/conventions.md` §4 (point 0 compris).
 - Aucun nom de jeu dans le code de l'engine ; aucune trace de clone ne bouge (`BLESS` interdit) ; `make schedule_order_diff` vide pour X-1 et X-3.
-- VPS : `make test_crates` un paquet à la fois, `scripts/target-sweep.sh` sous 30 Go libres.
+- Mac de William (21 nov) : un seul worker d'engine à la fois, un seul `cargo` par worker, `env -u CI`, jamais de profil debug ; contrôle rapide découpé
+  (`docs/taches/specs-coordinateur/scripts/`) et `scripts/target-sweep.sh` après chaque contrôle ; plancher 30 Go libres.
 - Dettes : **D139 à D155** réservées à ce plan (D134–D138 : polissage) : X-1 D139–D143, X-2a D144–D148, X-3 D149–D152, X-4a D153–D155 ; X-4b D156–D157 ; X-5 **D186–D189**,
   voie m **D190–D219** (dix par semaine du calendrier : 9 → 15 nov D190–D199, 16 → 22 nov D200–D209, X-6 D210–D219). Sections de `docs/conventions.md` : X-5 § 107,
   voie m § 108 et suivants, une par lot, demandées au coordinateur. Annoncer le numéro pris dans le journal.
 - Docs au merge : `docs/conventions.md` (un § par lot), `docs/jouer.md`, `templates/starter/CLAUDE.md`, `CLAUDE.md` (CLI et entrée unique).
 - Chaque lot finit par `LIVRÉ <branche>` dans le journal (`docs/taches.md` §10) et un rapport dans `docs/taches/rapports/x-<n>-*.md`.
 
-## 6. Voie m (engine, VPS) : lots et preuves (écrits le 2026-11-06, avant leur départ)
+## 6. Voie m (engine) : lots et preuves (écrits le 2026-11-06 et après, chacun avant son départ)
+
+**Statut au 2026-11-21** (SHA des merges dans `main`) :
+
+| Lot | Statut | Merge(s) |
+|---|---|---|
+| X-5 | livré 6 nov | `0e7c8d58` |
+| M-1 web d'un jeu externe | livré 7 nov | `b6bbe24d` |
+| M-2 à deux dans Chrome | mergé 7 nov ; recette à deux Chrome jamais prouvée (décision en attente) | `e6b5ce68` |
+| R-1 rendu façon sprite | livré 7 nov | `edce94cc`, `b8feaa70` |
+| P-1 parité des bancs | livré 7 nov | `145185c2`, `83bc663a`, `7324c32c` |
+| M-1b personnage prop | livré 8 nov | `643c4c4e`, `3027d385` |
+| T-1 `alacod test` d'un jeu externe | livré 8 nov | `30f9d1e6` |
+| T-2 gabarit d'arme à geste | livré 8 nov | `dac9c528` |
+| M-5 le cœur à deux | livré 8 nov | `8ca3cbe8` |
+| P-1b, P-1c | livrés 8 nov | `58714a54`, `f917dca5`, `45643fca` |
+| M-6 `moments` | livré 8 nov | `6f30728a`, `03830ffb` |
+| X-6a2 couverts | livré 8 nov | `16573cd5` |
+| X-6a1 portes et clé | livré 10 nov | `5ecda0f8`, `b913bc49` |
+| X-6b zigzag et retour | livré 10 nov | `b9444b7f`, `9e937158` |
+| X-6c repli derrière un couvert | livré 11 nov | `86440e8a`, `e054e0a9` |
+| M-7 harmonium | livré 14 nov (suivi 20 nov) | `00fc97f1`, `b77ab040` |
+| P-1d et T-3 | livrés 20 nov (fantassins validés par William le 20) | `85c86745`, `0c197b5a`, `86af8f61` |
+| T-3b suites d'intégration | livré 20 nov | `36ab2386` |
+| M-7b musique continue | livré 20 nov | `f9d7c7e8` |
+| P-1e physique du labo | livré 21 nov | `721b1a52` |
+| X-6d agrippeur `Grab` | **garé** (William, 21 nov), non mergé | branche `wquintal/x-6d-agrippeur` @ `daef5af8` |
+| X-6e chef en deux phases | **garé** (William, 21 nov), non mergé | branche `wquintal/x-6e-chef` @ `dae6c685` |
+| X-6f changement de niveau | **en cours** (lancé le 21 nov) | — |
+| X-6g intérieur par graine | écrit, part après le merge de X-6f | — |
 
 Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837 passe par l'engine (X-1 gelé), avec le contenu générique du testbed et des noms neutres (§ 5).
 Un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker omp Sonnet, `make check_rapide` vert avant le merge (par le coordinateur) ; la suite de
-scénarios passe la nuit et se trie le matin (§ 3). Les dates sont celles où l'engine fournit le bloc à la voie j.
+scénarios passe la nuit et se trie le matin (§ 3). Les dates sont celles où l'engine fournit le bloc à la voie j. Depuis le 21 nov : un worker omp sur Antigravity (REGLES § 7),
+un seul lot d'engine à la fois, scénarios à un **et** à deux joueurs, capture de 20 à 60 s du vrai jeu natif faite par l'agent.
 
 | Lot | Contenu | Preuve (avant le merge) | Fourni à la voie j |
 |---|---|---|---|
@@ -203,6 +254,8 @@ scénarios passe la nuit et se trie le matin (§ 3). Les dates sont celles où l
 | **M-7b Musique qui se tait** (verdict de William du 20 nov sur 1837 `f2ac3bf`, joué en natif sur son Mac : « animation ennemie est bonne » — fantassins validés — ; musique : « fonctionne mais stoppe un peu au début, et parfois ça l'a arrêtée pendant le bruit de collision de balle » ; présentation, audio temps réel, Opus ou Sonnet ; règle du 16 nov : le test d'abord, aucune question de diagnostic à William ; preuve écrite avant départ, le 20 nov) | (1) **contrôle d'abord** : un test sans carte son (sortie audio dans un fichier ou tampon) qui **échoue** quand la musique se tait ou saute pendant que des effets sonores jouent (tirs, collisions de balles) et quand elle bégaie au démarrage ; générique (testbed, noms neutres), dans `check_rapide` ou à défaut la nuit ; (2) **cause établie par l'observation**, sans la supposer : pistes à vérifier (voix ou canaux partagés entre effets et musique, sous-alimentation du tampon au chargement des banques, horloge au premier ancrage) ; (3) correction dans l'engine ; si la cause est dans `harmonium` : rien dans ce dépôt-là, rapport et proposition au coordinateur | journal **rouge puis vert** du contrôle ; **enregistrement audio de 30 s** de la salle de 1837 avec tirs (sortie fichier, sans carte son) avant/après ; contrôle rapide ; aucune trace modifiée ; rapport `docs/taches/rapports/m-7b-musique-continue.md`, § 124, D220 | **dim 22 nov (S2)** |
 | **P-1e Physique du labo** (verdict de William du 20 nov sur 1837 `f2ac3bf` : « on est assez proche du labo, notre physique est juste plus lente et lourde » ; écart de parité, décision du 6 nov : même comportement que le labo, les défauts des bancs font foi ; après M-7b, même worker si le disque l'impose ; simulation, Opus ou Sonnet ; méthode du § 6 sans question à William ; preuve écrite avant départ, le 20 nov) | (1) **mesure d'abord** : tableau chiffré banc / jeu des grandeurs du déplacement du Frère et des projectiles (vitesse de marche et de course, accélération, freinage, temps pour atteindre la vitesse, demi-tour, vitesse des balles, recul), mesurées au **vrai jeu par entrées réelles** et au **banc** (`1867_lore/site/labo`) ; le pas fixe et l'échelle mètre/unité sont **vérifiés**, pas supposés ; (2) **contrôle** (scénarios/attentes) qui tient ces nombres et échoue sur l'écart actuel ; (3) **correction** : données de 1837 (décrites au coordinateur 1837) ou engine selon la cause ; (4) les deux écarts du Frère relevés par P-1d (geste du tir à la durée du clip au lieu de `fTir` ; premier pas de gigue sur `gigue-02`) entrent dans le même tableau et sont **alignés sur le banc** par défaut (William ne les a pas remarqués ni tranchés, décision du 6 nov, sauf contre-ordre) ; `exact_frames` reste dans `propositions.md`, non tranché | **tableau avant/après** (banc, jeu avant, jeu après, écart) ; contrôle rouge sur `f2ac3bf` puis vert ; **capture côte à côte banc / jeu de 20 à 40 s** ; aucune trace existante modifiée sans BLESS justifié (une correction d'engine qui change la physique du testbed le dit) ; contrôle rapide ; rapport `docs/taches/rapports/p-1e-physique-labo.md`, § 125, D221 | **dim 22 nov (S2)**, après M-7b |
 | **X-6 (23 nov → 13 déc)** | portes et clé portée par un ennemi ; couverts qui arrêtent les balles ; **intérieur de la loge** (décision du 7 nov, § 3) : cartes en LDtk, généré par `BasicMapGeneration` (un niveau LDtk = une salle, prises `LevelConnection`, graine de la sauvegarde) et la grammaire d'étage du § 40, étendus en blocs génériques à noms neutres (hall central à trois sorties, fonctions garanties, clé du boss au bout d'une autre branche que le boss, longueurs minimales) ; la « grille 3×3 » de `prologue-loge.md` = contrainte d'emprise ; **pas** le planificateur de grille d'isaac (§ 70, `grid.rs`) ; `Lure` et `Grab` ; boss en deux phases | preuves écrites ici avant le départ de chaque lot, d'après la définition du niveau de William (intérieur : attendue le 30 nov) | 29 nov, 6 déc, 13 déc |
+| **X-6f Changement de niveau par une porte** (Décision de William du 2026-11-21, lot (1) ; preuve écrite le 21 nov avant départ ; jalon **D2 dim 29 nov** « la porte s'ouvre », D3 s'y enchaîne ; simulation, Antigravity Opus ; § 128, D224–D225) | bloc générique à nom neutre, à partir de l'existant (porte de carte à états et clé d'équipe X-6a1 § 117 ; séquence `Floors` et `floor_transition_system` § 17 ; étages assemblés § 40 « Étapes 2 ») : une porte de carte peut être marquée **en donnée** (champ de porte LDtk) comme **sortie vers le niveau suivant** ; une fois ouverte (clé d'équipe en main, consommée ou non selon la donnée), un joueur debout qui la franchit fait passer **toute l'équipe** au niveau suivant de la séquence (règles du passage du § 17 : entités du niveau quitté détruites par `despawn_rollback`, joueurs sur les `PlayerSpawn` du niveau suivant, santé, armes, munitions, clés d'équipe et modificateurs gardés, numérotation continue), sans attendre que le niveau soit vide ; une séquence (ou un niveau) qui sort par porte n'ouvre pas le portail « niveau vidé » (donnée ; le défaut ne change rien aux séquences existantes) ; le niveau suivant peut être une carte assemblée par graine ; relance = retour au premier niveau, même graine ; lint (porte de sortie sur le dernier niveau, niveau à sortie par porte sans porte de sortie) ; prompt de la porte de sortie ouverte. **Hors périmètre** (dans `propositions.md`) : carte dessinée posée à la position LDtk (`layout: Drawn`) et image propre d'une porte, demandes de 1837 (`docs/demandes/carte-dessinee.md`, branche `wquintal/cartes-prologue`) | (a) relevé (fichier:ligne) du passage de niveau, de la porte de carte et de `TeamKeys` avant tout code ; (b) scénarios **neutres du testbed**, traces neuves seulement, **à un joueur** : clé ramassée → porte ouverte → franchie → `FloorIndex(1)`, joueur sur le départ du niveau suivant, santé, arme et munitions gardées ; témoin sans clé (porte refusée, `FloorIndex(0)`) ; témoin niveau vidé sans franchir (aucun passage) ; niveau suivant assemblé par graine ; **à deux joueurs** : l'un franchit, les deux arrivent, un coéquipier à terre ou en feu follet suit dans son état ; relance : retour au niveau 0 ; (c) capture de 20 à 60 s du **vrai jeu** (binaire natif release du testbed, fenêtre sur le Mac, joué par l'agent par `alacod remote` ou entrées scriptées ; pas seulement une vidéo de scénario) : la clé, la porte, l'arrivée au niveau suivant ; (d) tableau des traces avant/après des familles touchées (`Floors`, étages `floor:`, `key_door*`, portes de carte, `wisp_*`) : existantes inchangées sauf BLESS justifié d'une ligne ; `make schedule_order_diff` ; (e) contrôle rapide découpé vert sur la tête poussée ; revue d'un relecteur | D2 dim 29 nov (cible jeu 26) |
+| **X-6g Intérieur par graine** (Décision de William du 2026-11-21, lot (2) ; preuve écrite le 21 nov avant départ ; part **après le merge de X-6f** ; jalon **D3 dim 6 déc** ; simulation, Antigravity Opus ou Sonnet ; § 129, D226–D227) | génération par `BasicMapGeneration` (un niveau LDtk = une salle, prises `LevelConnection`) et la grammaire du § 40, étendus en blocs génériques à noms neutres, en partant de l'existant (`FloorMapGeneration` pose déjà le départ au centre, des salles requises et le boss en cul-de-sac : relever ce qui sert avant d'écrire ; pas le planificateur de grille du § 70) : (1) **salle centrale** posée au centre de l'emprise, jamais tirée au bord, avec un nombre exact de sorties en donnée (3 pour 1837) ; (2) **types garantis** : chaque type requis présent exactement le nombre demandé (1837 : réunion, cuisine, réserve, salle de la clé, salle du chef) ; plan refusé et retiré sinon, jamais une carte incomplète, échec explicite après N tentatives ; (3) **branches distinctes** : deux types désignés en donnée (clé, chef) au bout de deux branches différentes partant de la salle centrale ; porte du chef verrouillable par la clé (X-6a1, en donnée) ; (4) **graine** : une graine par défaut du jeu (donnée), la même à chaque relance, pas de sauvegarde ; une graine explicite (`--seed`, scénario) la remplace ; (5) l'intérieur s'enchaîne après l'extérieur par la porte de X-6f. Défauts relevés par 1837 sur `36ab2386` (`docs/tranche.md`, branche `wquintal/cartes-prologue`) : une seule salle du chef en six graines (5 sur 6 le 10 nov), une graine à 4 salles (hall tiré au bord haut, prises du nord murées) : cause établie et couverte par un test | (a) relevé avant code (`BasicMapGeneration`, § 40, cause des deux défauts de 1837) ; (b) campagne `alacod-map` sur **200 graines** d'une carte neutre du testbed : 200/200 avec salle centrale au centre à 3 sorties, chaque type garanti exactement une fois, clé et chef dans deux branches distinctes, nouvelles tentatives et temps max chiffrés ; même campagne en lecture sur `loge_interieur.ldtk` de 1837 (preuve hors dépôt, aucun contenu de 1837 dans l'engine) ; (c) scénarios neutres **à un et à deux joueurs** : extérieur → porte → intérieur généré ; graine par défaut identique après relance ; graine explicite différente ; porte du chef refusée sans la clé ; (d) capture de 20 à 60 s du vrai jeu natif : arrivée dans la salle centrale, deux branches visitées ; rendu PNG de six graines ; (e) tableau des traces avant/après (cartes `Basic` des clones et étages `floor:` inchangés : extension opt-in) ; contrôle rapide découpé ; revue d'un relecteur | D3 dim 6 déc (cible mer 2) |
 
 **Jalon servi par chaque lot** (plan par jour validé par William le 6 nov : `1837/docs/tranche.md`, copie `runs/x-5/plan-jour.md`) :
 - X-5 → S0, **dim 8** : « la commande pour lancer le jeu, plus une capture » (cible sam 7 : kit importé).
@@ -220,6 +273,9 @@ scénarios passe la nuit et se trie le matin (§ 3). Les dates sont celles où l
   la contrainte d'emprise « 3×3 » ; lutins qui s'agrippent : `Grab`), S5 **dim 13 déc** (clé du boss dans une autre branche, sergent en deux phases) ; `Lure` selon la
   définition de William. Le plan par jour fait **commencer lun 16** « la génération des portes, de la clé et de l'intérieur de la loge » : portes et clé peuvent partir dès
   qu'un agent se libère après M-1/M-2 ou P-1 ; **la génération de l'intérieur ne part que la semaine du 30 nov**, après la définition de William (décision du 7 nov).
+- X-6f → **D2 dim 29 nov** (Décision de William du 2026-11-21, lot (1)) : « la porte s'ouvre » et mène à l'intérieur. X-6g → **D3 dim 6 déc** (lot (2)) : hall et pièces
+  par graine. X-6d (lutin, D4/D5) et X-6e (sergent, D5) : garés. La suite proposée (caméra fixe par pièce et portes de combat comme Isaac, puis X-6e, puis X-6d) attend
+  la décision de William.
 - S1 jeu 12 (« 4 fantassins… un cône au sol annonce le tir 1 s avant… rechargent 3 s ») : machine d'état des fantassins dans P-1 (l'engine a `Pattern::Telegraph(n)`
   et le dessin de cône `pattern_telegraph`, `crates/combat/src/emitter.rs:18`, `crates/game/src/feedback.rs:557` ; P-1 dit s'ils suffisent).
 - Numéros (6 nov, soir) : dettes M-1/M-2 D190–D193, P-1 D194–D197, R-1 D198–D199 ; `docs/conventions.md` § 108 (M-1), § 109 (M-2), § 110 (P-1), § 111 (R-1).
@@ -231,4 +287,4 @@ scénarios passe la nuit et se trie le matin (§ 3). Les dates sont celles où l
 suivant sans attendre sa date, toujours dans l'ordre ; (2) chaque lot cite le jalon qu'il sert ; (3) à chaque point de contrôle, le coordinateur vérifie que les tâches en
 cours servent le jalon de la semaine : une tâche qui n'en sert aucun ne part pas et va dans `propositions.md` (racine du dépôt).
 
-Coupes si ça glisse (ordre du studio) : la grille tirée devient une disposition fixe ; puis le lutin sort de l'alpha.
+Coupes si ça glisse (`studio/ROADMAP.md`, 21 nov) : le lutin sort de l'alpha. La disposition fixe n'est plus une coupe : la grille reste par graine (William, 21 nov).
