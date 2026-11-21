@@ -1107,7 +1107,8 @@ mod tests {
                 1,
                 &(16, 16),
             );
-            let neighbour = Room::create(&mut rng, room.level_def.clone(), north, Default::default());
+            let neighbour =
+                Room::create(&mut rng, room.level_def.clone(), north, Default::default());
             if neighbour.is_outside(&generator.context.config) {
                 at_edge += 1;
             } else {
@@ -1115,6 +1116,9 @@ mod tests {
             }
         }
         assert!(at_edge > 0, "aucune graine ne pose le départ au bord haut");
-        assert!(centered > 0, "toutes les graines posent la voisine hors de la carte");
+        assert!(
+            centered > 0,
+            "toutes les graines posent la voisine hors de la carte"
+        );
     }
 }

@@ -336,7 +336,10 @@ fn room_layout(app: &mut App) -> BTreeSet<(i32, i32, i32, i32)> {
 }
 
 fn interieur_scenario(file: &str, map_seed: Option<i32>) -> Scenario {
-    let path = format!("{}/../../tests/scenarios/{file}", env!("CARGO_MANIFEST_DIR"));
+    let path = format!(
+        "{}/../../tests/scenarios/{file}",
+        env!("CARGO_MANIFEST_DIR")
+    );
     let mut scenario =
         Scenario::from_ron(&std::fs::read_to_string(&path).expect(file)).expect("scénario valide");
     if let Some(seed) = map_seed {
@@ -405,5 +408,9 @@ fn la_graine_par_defaut_rejoue_le_meme_interieur_et_une_graine_explicite_un_autr
 
     // Une graine explicite en pose un autre.
     let mut other = play(&interieur_scenario("interieur_graine_3.ron", None));
-    assert_ne!(room_layout(&mut other), before, "la graine 3 pose le même intérieur que la graine par défaut");
+    assert_ne!(
+        room_layout(&mut other),
+        before,
+        "la graine 3 pose le même intérieur que la graine par défaut"
+    );
 }

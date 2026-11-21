@@ -1064,8 +1064,11 @@ mod tests {
             micros_total += elapsed;
             micros_max = micros_max.max(elapsed);
             let rooms = &generator.generated_rooms;
-            let index: BTreeMap<&str, usize> =
-                rooms.iter().enumerate().map(|(i, r)| (r.iid(), i)).collect();
+            let index: BTreeMap<&str, usize> = rooms
+                .iter()
+                .enumerate()
+                .map(|(i, r)| (r.iid(), i))
+                .collect();
             let adjacency: Vec<Vec<usize>> = rooms
                 .iter()
                 .map(|r| {
@@ -1143,7 +1146,11 @@ mod tests {
             println!("  ✗ {failure}");
         }
         if !lecture {
-            assert!(failures.is_empty(), "{} graine(s) non conformes", failures.len());
+            assert!(
+                failures.is_empty(),
+                "{} graine(s) non conformes",
+                failures.len()
+            );
         }
     }
 }

@@ -422,10 +422,7 @@ fn try_attempt(
         let open = start_open(&attempt.placed);
         let mut candidates =
             attempt.candidates(&grammar.filler, false, &|_, p| open || p.depth > 0);
-        if grammar.start_exits.is_some()
-            && open
-            && candidates.iter().any(|c| c.parent == 0)
-        {
+        if grammar.start_exits.is_some() && open && candidates.iter().any(|c| c.parent == 0) {
             candidates.retain(|c| c.parent == 0);
         }
         if grammar.loops > 0
@@ -488,10 +485,7 @@ fn try_attempt(
                     && (open || p.depth > 0)
                     && avoid.is_none_or(|b| p.depth == 0 || branches[index] != Some(b))
             });
-            if grammar.start_exits.is_some()
-                && open
-                && candidates.iter().any(|c| c.parent == 0)
-            {
+            if grammar.start_exits.is_some() && open && candidates.iter().any(|c| c.parent == 0) {
                 candidates.retain(|c| c.parent == 0);
             }
             if !attempt.place(kind, candidates) {
