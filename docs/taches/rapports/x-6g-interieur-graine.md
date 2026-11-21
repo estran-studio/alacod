@@ -31,4 +31,30 @@ Branche `wquintal/x-6g-interieur-graine`. Décision de William (2026-11-21), lot
 - *Graine 5 à 4 salles, hall au bord haut* : **cause confirmée** = `get_spawning_room` tire y ∈ [−1000, 1000 − 224] ; la graine 5 pose le hall à y = −928 (case −58) ; la salle suivante au nord
   serait à y = −1152 < −1000 → `is_outside` → prise `OutSide` murée (`n@8+3 (murée)` sur le hall et sa voisine), et l'arbre se coupe (4 salles). Test : voir (b).
 
-(le reste du rapport est complété au fil des points)
+
+## Choix
+Extension de la **grammaire d'étage § 40** (le départ y est déjà au centre ; `Basic` ne connaît pas les types), trois champs optionnels de `world::FloorGrammar` : `start_exits`, `exact`, `apart` (`docs/conventions.md` § 129).
+Défaut inchangé : `Basic` n'est pas touché (dette D227, cause établie et couverte par le test `le_depart_de_basic_est_tire_jusqu_au_bord_donc_sa_voisine_peut_sortir_de_la_carte`).
+
+## (b) Campagne (test ignoré `campagne_interieur`, `crates/map_ldtk/src/generation/mod.rs`, jugé sur les salles réellement générées)
+| Contenu | Graines | Conformes | Tentatives moy / max | Plan moy / max |
+|---|---|---|---|---|
+| testbed `floor:interieur` | 200 | **200/200** | 8,12 / 46 | 0,25 ms / 1,2 ms |
+| testbed | 1 000 | 1 000/1 000 | 8,12 / 53 | 0,25 ms / 1,4 ms |
+| 1837 `loge_interieur.ldtk` (`36ab2386`), `room_kind` d'origine, types `recompense` + `chef` | 200 | 200/200 | 1,54 / 6 | 0,8 ms / 3,2 ms |
+| 1837, `Reunion`/`Cuisine_*`/`Reserve_*` rangés en `reunion`/`cuisine`/`reserve` | 200 | 200/200 | 15,4 / 86 | 2,7 ms / 14 ms |
+
+**Pour 1837** : tout est `combat` sauf hall, clé (`recompense`) et chef ; la garantie « réunion, cuisine, réserve exactement une fois » n'est possible que si ces trois gabarits portent chacun leur propre `room_kind`
+(`reunion`, `cuisine`, `reserve`, avec un fichier `rooms/<type>.ron` chacun) ; grammaire : `rooms: (8, 10)`, `required` des cinq types, `boss: "chef"`, `min_boss_distance: 2`, `start_exits: Some(3)`, `exact: true`,
+`apart: Some(("recompense", "chef"))`, `max_attempts: 256`. Leur hall a quatre prises (une est murée). Les gabarits `Passage`/`Angle`/`Commune` restent `combat`.
+
+## (c) Scénarios (traces neuves, un et deux joueurs) : `interieur_arrivee[_duo]`, `interieur_parcours[_duo]`, `interieur_porte_sans_cle[_duo]`, `interieur_graine_3[_duo]` ; test `la_graine_par_defaut_rejoue_le_meme_interieur_et_une_graine_explicite_un_autre` (relance).
+
+## (d) Capture du vrai jeu (testbed release natif, `alacod remote`, `game.ron` temporaire `Floors`/`interieur_seul`, rétabli) : `preuves/x-6g/interieur_reel.mp4` (33 s, 330 images, 123 Ko) :
+hall au centre, branche nord (salle de la clé), retour, branche est jusqu'à la porte verrouillée de la finale (graine 123456). Images fixes `reel_*.png`. Rendus PNG de six graines : `preuves/x-6g/interieur_graine_{1..6}.png` (`alacod-map`).
+`target/release` supprimé.
+
+## (e) Traces : 36 scénarios des familles touchées (gungeon, grid/isaac, throne, zombies, testbed, `key_door_*`, `sortie_porte_*`) rejoués : **aucune trace modifiée, aucun BLESS** (hors 8 traces neuves).
+Aucun système ni type rollback ajouté (donnée de génération et scénarios seulement) ; `scenario/schedule_order` non touché.
+
+## (f) Contrôle rapide découpé : voir ci-dessous.
