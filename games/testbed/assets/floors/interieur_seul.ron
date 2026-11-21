@@ -1,0 +1,7 @@
+// X-6g (§129) : l'intérieur assemblé par graine **seul** (premier et dernier niveau : la graine de la partie est celle de l'intérieur, sans l'extérieur qui,
+// lui, est une carte `Basic` dont la position dépend de la graine). Scénarios `interieur_graine_*`.
+(
+    levels: [
+        "floor:interieur",
+    ],
+)

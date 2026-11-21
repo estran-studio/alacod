@@ -1,0 +1,51 @@
+// X-6g (§129) : le parcours de l'intérieur par la graine par défaut. Hall au centre ; **branche de la clé** à l'est puis au sud (salle de la clé, où le `porteur_cle` est abattu à
+// f450-f470, sa clé ramassée au contact) ; retour par le hall ; **branche de la salle finale** à l'ouest, au nord puis à l'ouest (deux salles de combat vides), jusqu'à la porte
+// verrouillée, qui s'ouvre avec la clé (Interaction, f1100-1110) et que le joueur franchit. Les deux branches ne partagent que le hall.
+//
+// À regarder : le joueur traverse le hall vers l'est, descend dans la salle de la clé, tire sur le porteur, ramasse la clé, remonte, traverse le hall vers l'ouest, monte, et pousse
+// la porte de la salle finale : elle s'ouvre (clé consommée, les deux battants) et il entre.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie_interieur"),
+    frames: 1200,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+                (from: 100, to: 260, buttons: [Right]),
+                (from: 260, to: 267, buttons: [Right, Interaction]),
+                (from: 300, to: 376, buttons: [Right]),
+                (from: 420, to: 450, buttons: [Down]),
+                (from: 450, to: 458, buttons: [Down, Fire], pan: (0, 127)),
+                (from: 458, to: 462, buttons: [Down]),
+                (from: 462, to: 470, buttons: [Down, Fire], pan: (0, -127)),
+                (from: 470, to: 520, buttons: [Down]),
+                (from: 540, to: 620, buttons: [Up]),
+                (from: 660, to: 806, buttons: [Left]),
+                (from: 860, to: 924, buttons: [Up]),
+                (from: 960, to: 1060, buttons: [Left]),
+                (from: 1100, to: 1110, buttons: [Left, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        FloorIndex(index: 1, at_frame: 275),
+        PlayerPosition(handle: 0, x: 192, y: 8, tolerance: 1, at_frame: 419),
+        Event(kind: "key_pickup", by_frame: 540),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 540),
+        MapDoor(nth: 1, state: Locked, at_frame: 1000),
+        MapDoor(nth: 3, state: Locked, at_frame: 1000),
+        PlayerPosition(handle: 0, x: -198, y: 165.5, tolerance: 2, at_frame: 959),
+        Event(kind: "key_door", by_frame: 1130),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 1130),
+        MapDoor(nth: 1, state: Open, at_frame: 1130),
+        MapDoor(nth: 3, state: Open, at_frame: 1130),
+        PlayerPosition(handle: 0, x: -286, y: 165.5, tolerance: 4, at_frame: 1130),
+        PlayerAlive(handle: 0, at_frame: 1199),
+    ],
+)

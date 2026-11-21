@@ -454,4 +454,25 @@ mod tests {
             assert!(g.problems().iter().any(|p| p.contains("bounds")), "{bad:?}");
         }
     }
+
+    /// X-6g : `start_exits` et `apart` sont refusés incohérents ; absents (tout le contenu existant), rien ne change.
+    #[test]
+    fn sorties_et_branches_incoherentes_sont_refusees() {
+        let mut g = grid("secrete", None);
+        g.layout = None;
+        let has = |g: &FloorGrammar, needle: &str| g.problems().iter().any(|p| p.contains(needle));
+        assert!(!has(&g, "start_exits") && !has(&g, "apart"));
+        g.start_exits = Some(0);
+        assert!(has(&g, "start_exits = 0"));
+        g.start_exits = Some(12);
+        assert!(has(&g, "impossible avec au plus"));
+        g.start_exits = Some(3);
+        assert!(!has(&g, "start_exits"));
+        g.apart = Some(("boss".into(), "boss".into()));
+        assert!(has(&g, "deux fois"));
+        g.apart = Some(("boss".into(), "inconnu".into()));
+        assert!(has(&g, "« inconnu » doit être dans required"));
+        g.apart = Some(("boss".into(), "tresor".into()));
+        assert!(!has(&g, "apart"));
+    }
 }
