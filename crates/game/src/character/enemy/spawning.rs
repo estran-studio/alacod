@@ -114,7 +114,9 @@ pub fn enemy_spawn_from_spawners_system(
     if current_enemies_count >= global_max_enemies {
         trace!(
             "ggrs{{f={} spawner_skip reason=max_enemies count={} max={}}}",
-            frame.frame, current_enemies_count, global_max_enemies
+            frame.frame,
+            current_enemies_count,
+            global_max_enemies
         );
         return;
     }
