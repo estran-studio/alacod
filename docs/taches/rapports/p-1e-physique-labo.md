@@ -86,3 +86,11 @@ et sa trace (copies : `logs/p-1e-1837/`, `tags: ["rapide"]`, 6 attentes). `run_a
 
 - D221 : le délai en ligne (5 frames, 83 ms) ; proposition à 2 écrite, à décider par William avec une nuit p2p à 2.
 - La gigue du banc armes (0,36 s) n'est pas reprise : 1837 suit le banc gigue (un temps, 28 f), choix de `parite-labo.md` § 2.
+
+## 8. Contrôle rapide (découpé, feu vert du coordinateur)
+
+`logs/p-1e-physique-check-rapide-d28d0ef0.log` (scripts `logs/p-1e-check-rapide-decoupe.sh`, `p-1e-test-crates-decoupe.sh`, garde disque 15 Go) : `make format test_tools check_forbidden
+check_rollback_registration check_sim_boundary lint check_integration` code 0 (1485 s ; jeu court `rapide` et `gestes_entree_reelle` verts, traces identiques) ; `test_crates` découpé :
+`--lib --bins` 1166 passed, `--doc` 0, 57 tests d'intégration un par un (dont `physique_labo` 3/3, `schedule_order` 1/1, `sandbox_mode`), 0 échec, codes non nuls 0 (2196 s) ;
+binaires de tests supprimés après chacun, sweep (target 12 → 10 Go), fin 00:03 UTC, `/` 30 Go libres. Revue de `9135a98b` (P1 : `input_delay` manquant dans le littéral de test de
+`recording`, E0063) corrigée dans `d28d0ef0`, avant ce contrôle.
