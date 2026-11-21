@@ -1,0 +1,33 @@
+// X-6h (§130) : règle coop des portes de combat (Isaac : personne n'est laissé derrière la porte), coéquipier **à terre**. Carte `testbed/salles.ldtk` (graine 1).
+// Le joueur 0 abat le joueur 1 dans le départ (tir ami `Always`, f10-120 : il tombe à terre), puis entre dans la salle de combat (f130-190) : au verrouillage le joueur 1, **à terre**, est
+// ramené à l'entrée avec les quatre portes fermées, toujours à terre (il ne déclenche rien : seul un joueur debout verrouille). Le joueur 0 tire, la salle est vidée, les portes rouvertes.
+//
+// À regarder : le joueur 1 s'effondre au départ ; quand les battants se ferment il apparaît à terre devant la porte d'entrée, à côté du joueur 0 ; combat ; les portes se rouvrent.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 850,
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 10, to: 120, buttons: [Fire], pan: (0, -100)),
+                (from: 130, to: 190, buttons: [Right]),
+                (from: 190, to: 700, buttons: [Fire], pan: (64, 0)),
+            ],
+        ),
+        (weapon: "machine_gun"),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 125),
+        RoomState(kind: "combat", state: Dormant, at_frame: 125),
+        RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 230),
+        PlayerDowned(handle: 1, at_frame: 230),
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 780),
+        PlayerDowned(handle: 1, at_frame: 780),
+        PlayerAlive(handle: 0, at_frame: 849),
+    ],
+)

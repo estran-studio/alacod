@@ -1,0 +1,4 @@
+// X-6h (docs/conventions.md §130) : comme `combat` (verrouille, ses ennemis dorment jusqu'à l'entrée), mais un joueur resté dehors n'est pas
+// ramené à l'entrée quand la salle se verrouille : il attend derrière la porte fermée jusqu'à la fin du combat. Carte
+// `testbed/salles_combat_sans_rappel.ldtk` (scénario `combat_coop_sans_rappel`).
+(locks: true, no_rally: true)

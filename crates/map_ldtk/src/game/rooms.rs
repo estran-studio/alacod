@@ -818,17 +818,25 @@ pub fn room_lock_system(
             })
     };
     // X-6a1 (§117) : une porte de carte à serrure (`DoorConfig::lock`) ne s'ouvre que par `handle_door_interaction`
-    // (avec la clé d'équipe) : ni l'ouverture d'office, ni la fin ou le verrouillage d'une salle voisine n'y
-    // touchent (elle garde son collider et son `Interactable { Door }` ; ouverte, elle n'est jamais refermée).
+    // (avec la clé d'équipe) : ni l'ouverture d'office, ni la fin ou le verrouillage d'une salle voisine n'ouvrent
+    // une porte restée fermée (elle garde son collider et son `Interactable { Door }`).
     let map_locked = |entity: Entity| {
         door_configs
             .get(entity)
             .is_ok_and(|(door, _)| door.config.lock.is_some())
     };
-    // Porte dont l'état (ouverte ou fermée) est du seul ressort de son système : ni l'ouverture
-    // d'office, ni le verrouillage ou la fin d'une salle voisine n'y touchent.
-    let sealed_door =
-        |entity: Entity, p: FixedVec2| map_locked(entity) || secret_door(p) || key_door(entity, p);
+    // X-6h (§130) : une porte à serrure **déjà ouverte** (la clé a servi, plus d'`Interactable`) est une porte de salle comme une
+    // autre pour un combat : elle se referme derrière le joueur, et la fin du combat la rouvre. Une porte à serrure restée fermée
+    // (`Interactable` encore là) n'est jamais rouverte par la fin d'un combat.
+    let still_keyed = |entity: Entity| {
+        door_configs
+            .get(entity)
+            .is_ok_and(|(door, interactable)| door.config.lock.is_some() && interactable.is_some())
+    };
+    // Porte que ni le verrouillage ni la fin d'une salle voisine ne referment : mur secret, porte de salle à clé (§70).
+    let sealed_door = |entity: Entity, p: FixedVec2| secret_door(p) || key_door(entity, p);
+    // Porte que la fin d'un combat ne rouvre pas : la précédente, et une porte à serrure encore fermée à clé.
+    let kept_closed = |entity: Entity, p: FixedVec2| sealed_door(entity, p) || still_keyed(entity);
 
     // Hors Waves, toutes les salles typées s'ouvrent comme avant. En Waves, les portes
     // économiques restent fermées ; seules celles des salles de combat s'ouvrent par défaut.
@@ -964,9 +972,12 @@ pub fn room_lock_system(
                 }
 
                 // Coop : les joueurs absents sont téléportés à l'entrée (la porte la plus
-                // proche du joueur qui a verrouillé), côte à côte.
+                // proche du joueur qui a verrouillé), côte à côte. X-6h : `no_rally` du type
+                // les laisse dehors jusqu'à la fin du combat.
+                let rally = table.rallies(&kind.0);
                 let entrance = to_close
                     .iter()
+                    .filter(|_| rally)
                     .map(|(id, _, t, _, _)| {
                         let p = t.translation.truncate();
                         (p.distance_squared(&trigger), id.0, p)
@@ -1053,7 +1064,7 @@ pub fn room_lock_system(
                 }
                 for (_, entity, t, _, closed) in order_iter!(doors) {
                     let p = t.translation.truncate();
-                    if closed && door_near(bounds, p) && !sealed_door(entity, p) {
+                    if closed && door_near(bounds, p) && !kept_closed(entity, p) {
                         commands
                             .entity(entity)
                             .remove::<(Collider, CollisionLayer)>();
@@ -1076,7 +1087,7 @@ pub fn room_lock_system(
             RoomState::Locked if enemies_inside == 0 => {
                 for (_, entity, t, _, closed) in order_iter!(doors) {
                     let p = t.translation.truncate();
-                    if closed && door_near(bounds, p) && !sealed_door(entity, p) {
+                    if closed && door_near(bounds, p) && !kept_closed(entity, p) {
                         commands
                             .entity(entity)
                             .remove::<(Collider, CollisionLayer)>();
