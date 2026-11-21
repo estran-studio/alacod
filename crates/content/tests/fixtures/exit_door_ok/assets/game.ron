@@ -1,0 +1,9 @@
+// Fixture X-6f (docs/conventions.md §128) : séquence `Floors` `exit_by_door` sur deux cartes à ou sans porte de sortie (`exit_next_level`).
+(
+    name: "fixture-exit-door",
+    content_folders: [
+        (path: "maps", kind: "Map"),
+        (path: "floors", kind: "Floors"),
+    ],
+    entry: (start_map: "maps/premier.ldtk", default_seed: 1),
+)

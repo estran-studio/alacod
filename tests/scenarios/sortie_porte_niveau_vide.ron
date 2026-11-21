@@ -1,0 +1,29 @@
+// X-6f (docs/conventions.md §128) : témoin « niveau vidé sans franchir ». Même carte que `sortie_porte_solo` (`porte_sortie`, `exit_by_door`), mais le joueur
+// tue le porteur **et** reste sur place : le niveau 0 n'a plus d'ennemi (aucun breacher), le portail « niveau vidé » des séquences ordinaires s'ouvrirait, ici
+// il ne s'ouvre pas (donnée : la séquence sort par la porte). Aucun passage de niveau, aucun événement `portal`.
+//
+// À regarder : le porteur tombe (f28), la clé tombe puis reste au sol, rien d'autre ne se passe jusqu'à la fin ; pas de carré violet de portail.
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie"),
+    frames: 400,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 100),
+        KeyPiles(count: 1, at_frame: 100),
+        FloorIndex(index: 0, at_frame: 399),
+        KeyPiles(count: 1, at_frame: 399),
+    ],
+)

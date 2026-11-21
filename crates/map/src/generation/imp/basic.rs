@@ -484,6 +484,11 @@ impl IMapGeneration for BasicMapGeneration {
                             == (door_location.position.0, door_location.position.1)
                     })
                     .map(|(_, lock)| lock.clone());
+                // X-6f : la sortie d'auteur (même position dans la salle) traverse aussi telle quelle.
+                let exit = room.entity_locations.door_exits.iter().any(|at| {
+                    (at.position.0, at.position.1)
+                        == (door_location.position.0, door_location.position.1)
+                });
                 all_doors.push((
                     room_index,
                     EntityLocation {
@@ -497,6 +502,7 @@ impl IMapGeneration for BasicMapGeneration {
                         interactable: true, // Default to interactable, will update based on connection
                         paired_door: None,
                         lock,
+                        exit,
                     },
                 ));
             }
@@ -597,6 +603,10 @@ impl IMapGeneration for BasicMapGeneration {
             } else if all_doors[other_door_index].2.lock.is_none() {
                 all_doors[other_door_index].2.lock = all_doors[door_index].2.lock.clone();
             }
+            // X-6f : une sortie marque aussi sa jumelle (les deux battants forment une seule porte).
+            let exit = all_doors[door_index].2.exit || all_doors[other_door_index].2.exit;
+            all_doors[door_index].2.exit = exit;
+            all_doors[other_door_index].2.exit = exit;
         }
 
         // Apply non-interactable flags
@@ -611,8 +621,9 @@ impl IMapGeneration for BasicMapGeneration {
             .filter(|(i, _)| !removed.contains(i))
             .map(|(_, (_, loc, mut config))| {
                 // X-6a1 : une porte à serrure s'ouvre avec sa clé, pas avec de l'argent (le coût,
-                // recalculé de la profondeur, n'est pas une valeur d'auteur).
-                if config.lock.is_some() {
+                // recalculé de la profondeur, n'est pas une valeur d'auteur). X-6f : une sortie vers le
+                // niveau suivant n'est pas un achat non plus.
+                if config.lock.is_some() || config.exit {
                     config.cost = 0;
                 }
                 (loc, config)
@@ -873,6 +884,7 @@ mod tests {
                 windows: vec![],
                 character_spawns: vec![],
                 door_locks: vec![],
+                door_exits: vec![],
             },
             room_kind: None,
         }
@@ -970,6 +982,30 @@ mod tests {
         let mut plain = generator_without_lock();
         for (_, config) in plain.get_doors(&mut RollbackRng::new(1)) {
             assert_eq!(config.lock, None);
+            assert_eq!(config.cost, 750);
+        }
+    }
+
+    /// X-6f : la sortie d'auteur (`door_exits`) traverse la génération, se partage avec la jumelle et
+    /// ne coûte rien (une sortie n'est pas un achat) ; une porte ordinaire garde son coût.
+    #[test]
+    fn la_sortie_traverse_la_generation_gratuite_et_se_partage_avec_la_jumelle() {
+        let mut exit = level("A", &[(Side::E, 4)]);
+        exit.entity_locations.door_exits = vec![exit.entity_locations.doors[0].clone()];
+        let mut generator = generator(vec![
+            (exit, Position(0, 0)),
+            (level("B", &[(Side::W, 4)]), Position(160, 0)),
+        ]);
+        assert_eq!(generator.get_links().len(), 1);
+        let doors = generator.get_doors(&mut RollbackRng::new(1));
+        assert_eq!(doors.len(), 2);
+        for (_, config) in &doors {
+            assert!(config.exit);
+            assert_eq!(config.cost, 0);
+            assert_eq!(config.lock, None);
+        }
+        for (_, config) in generator_without_lock().get_doors(&mut RollbackRng::new(1)) {
+            assert!(!config.exit);
             assert_eq!(config.cost, 750);
         }
     }

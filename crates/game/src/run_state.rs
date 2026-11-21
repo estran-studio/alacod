@@ -155,6 +155,19 @@ pub fn floors_victory_at_end(mode: &RunMode, registry: Option<&Registry>) -> boo
         .is_some_and(|entry| entry.victory_at_end)
 }
 
+/// `exit_by_door` de la séquence `Floors` du mode (X-6f, §128) ; faux hors `Floors`.
+pub fn floors_exit_by_door(mode: &RunMode, registry: Option<&Registry>) -> bool {
+    let RunMode::Floors { config } = mode else {
+        return false;
+    };
+    registry
+        .and_then(|r| {
+            r.floors
+                .get(&content::registry::FloorsConfigId::from(config.clone()))
+        })
+        .is_some_and(|entry| entry.exit_by_door)
+}
+
 /// `consumables_per_floor` de la séquence `Floors` du mode (M2-T1) ; vide hors `Floors`.
 pub fn floors_consumables_per_floor(
     mode: &RunMode,

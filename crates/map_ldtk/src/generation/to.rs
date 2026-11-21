@@ -572,6 +572,14 @@ impl IMapGenerator for GeneratedMap {
                 ));
             }
 
+            // X-6f : la sortie vers le niveau suivant est réécrite telle quelle (absente : aucun champ).
+            if door.exit {
+                fields.push((
+                    map_const::FIELD_EXIT_NEXT_LEVEL_NAME,
+                    FieldValue::Bool(true),
+                ));
+            }
+
             self.add_entity_to_level(rng, location, door_type, fields);
         }
 

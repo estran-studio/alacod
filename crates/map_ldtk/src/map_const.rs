@@ -40,6 +40,9 @@ pub const FIELD_PAIRED_DOOR_LEVEL_NAME: &str = "paired_door_level";
 /// absent : porte sans serrure) ; `lock_consume` : la clé est retirée à l'ouverture (vrai si absent).
 pub const FIELD_LOCK_KEY_NAME: &str = "lock_key";
 pub const FIELD_LOCK_CONSUME_NAME: &str = "lock_consume";
+/// X-6f (`docs/conventions.md` §128) : la porte est la **sortie vers le niveau suivant** de la séquence `Floors`
+/// (booléen ; absent : porte ordinaire).
+pub const FIELD_EXIT_NEXT_LEVEL_NAME: &str = "exit_next_level";
 
 pub const FIELD_PLAYER_SPAWN_INDEX_NAME: &str = "index";
 

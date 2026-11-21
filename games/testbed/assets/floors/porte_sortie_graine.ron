@@ -1,0 +1,9 @@
+// X-6f (§128) : le niveau suivant est un étage **assemblé par graine** (grammaire `etage_sortie`, §40 « Étapes 2 »,
+// graine dérivée par emplacement). Scénario `sortie_porte_graine`.
+(
+    levels: [
+        "testbed/porte_sortie.ldtk",
+        "floor:etage_sortie",
+    ],
+    exit_by_door: true,
+)
