@@ -95,7 +95,10 @@ fn lignes_repetees(game: &str, map: &str, frames: u32) -> Vec<(usize, String)> {
     });
     assert!(outcome.failures.is_empty(), "{:?}", outcome.failures);
     let journal = String::from_utf8(JOURNAL.lock().unwrap().clone()).unwrap();
-    let info = journal.lines().filter(|l| l.trim_start().starts_with("INFO")).count();
+    let info = journal
+        .lines()
+        .filter(|l| l.trim_start().starts_with("INFO"))
+        .count();
     eprintln!("{game} {map} : {frames} frames, {info} lignes INFO");
     let mut compte: BTreeMap<String, usize> = BTreeMap::new();
     for ligne in journal.lines() {
@@ -112,7 +115,10 @@ fn lignes_repetees(game: &str, map: &str, frames: u32) -> Vec<(usize, String)> {
 
 /// 600 frames ; `ALACOD_C1_FRAMES=3600` (60 s) pour le chiffre du rapport.
 fn frames_jouees() -> u32 {
-    std::env::var("ALACOD_C1_FRAMES").ok().and_then(|v| v.parse().ok()).unwrap_or(600)
+    std::env::var("ALACOD_C1_FRAMES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(600)
 }
 
 #[test]
