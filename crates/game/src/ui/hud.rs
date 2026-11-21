@@ -999,11 +999,7 @@ struct HudInteractables<'w, 's> {
             &'static fixed_math::FixedTransform3D,
             &'static DoorComponent,
         ),
-        (
-            With<Rollback>,
-            Without<Interactable>,
-            Without<Collider>,
-        ),
+        (With<Rollback>, Without<Interactable>, Without<Collider>),
     >,
 }
 

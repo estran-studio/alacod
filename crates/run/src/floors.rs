@@ -87,7 +87,8 @@ pub const EXIT_DOOR_MARGIN: Fixed = Fixed::from_bits(4 << 16);
 pub fn crosses_exit_door(center: FixedVec2, size: (Fixed, Fixed), position: FixedVec2) -> bool {
     let two = Fixed::from_num(2);
     let delta = position - center;
-    delta.x.abs() <= size.0 / two + EXIT_DOOR_MARGIN && delta.y.abs() <= size.1 / two + EXIT_DOOR_MARGIN
+    delta.x.abs() <= size.0 / two + EXIT_DOOR_MARGIN
+        && delta.y.abs() <= size.1 / two + EXIT_DOOR_MARGIN
 }
 
 /// Barycentre de positions (portail d'un niveau : centre des `PlayerSpawn`, donc de la salle

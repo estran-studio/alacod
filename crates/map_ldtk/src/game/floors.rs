@@ -53,9 +53,7 @@ use map::game::entity::{
     MapRollbackItem,
 };
 use run::{
-    floors::{
-        barycenter, crosses_exit_door, crosses_portal, level_for_floor, portal_should_open,
-    },
+    floors::{barycenter, crosses_exit_door, crosses_portal, level_for_floor, portal_should_open},
     FloorState, Run,
 };
 use utils::{frame::FrameCount, net_id::GgrsNetId, net_id::GgrsNetIdFactory, order_iter};
@@ -550,22 +548,26 @@ pub fn floor_transition_system(
         order_iter!(entities.doors)
             .into_iter()
             .filter(|(_, _, _, door, has_collider)| door.config.exit && !*has_collider)
-            .filter_map(|(net_id, transform, shape, ..)| match shape.collider.shape {
-                game::collider::ColliderShape::Rectangle { width, height } => {
-                    Some((net_id.0, transform.translation.truncate(), (width, height)))
-                }
-                game::collider::ColliderShape::Circle { radius } => Some((
-                    net_id.0,
-                    transform.translation.truncate(),
-                    (radius * fixed_math::Fixed::from_num(2), radius * fixed_math::Fixed::from_num(2)),
-                )),
-            })
+            .filter_map(
+                |(net_id, transform, shape, ..)| match shape.collider.shape {
+                    game::collider::ColliderShape::Rectangle { width, height } => {
+                        Some((net_id.0, transform.translation.truncate(), (width, height)))
+                    }
+                    game::collider::ColliderShape::Circle { radius } => Some((
+                        net_id.0,
+                        transform.translation.truncate(),
+                        (
+                            radius * fixed_math::Fixed::from_num(2),
+                            radius * fixed_math::Fixed::from_num(2),
+                        ),
+                    )),
+                },
+            )
             .collect();
     // Un joueur debout qui franchit le portail ouvert **ou** une porte de sortie ouverte : le premier
     // par `GgrsNetId`. Les autres joueurs (à terre, feu follet) suivent : tous sont replacés plus bas.
-    let crossing = order_iter!(entities.players)
-        .into_iter()
-        .find_map(|(net_id, player, transform, dead, downed)| {
+    let crossing = order_iter!(entities.players).into_iter().find_map(
+        |(net_id, player, transform, dead, downed)| {
             if dead || downed {
                 return None;
             }
@@ -577,7 +579,8 @@ pub fn floor_transition_system(
                 .iter()
                 .find(|(_, center, size)| crosses_exit_door(*center, *size, position))
                 .map(|(door_id, ..)| (net_id.0, player.handle, Some(*door_id)))
-        });
+        },
+    );
     let Some((crossing_net_id, crossing_handle, exit_door)) = crossing else {
         return;
     };
