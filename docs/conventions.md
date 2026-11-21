@@ -9274,10 +9274,12 @@ sont les mêmes, `make test_scenarios` sur les familles touchées, rapport § e)
   toute prise sans voisine, § 1). Tant que le départ a moins de `n` salles, le remplissage (et les salles requises) s'y accroche en priorité ; une fois `n` atteint, plus aucune salle ne s'y accroche.
   Le gabarit de départ doit avoir au moins `n` prises (lint : `OpeningGrid::border_openings`, `lint_floor_grammars`).
 - **`exact: true`** : chaque type de `required` (boss compris) est présent **exactement** le nombre demandé ; sans lui « au moins », comme avant. Le plan refusé est retiré (`validate_plan`), jamais une carte incomplète ;
-  `FloorError::Exhausted` explicite après `max_attempts` (panique de chargement « grammaire d'étage impossible », comme avant). Lint : un type de remplissage qui est aussi requis rend `exact` impossible.
+  `FloorError::Exhausted` explicite après `max_attempts` (panique de chargement « grammaire d'étage impossible », comme avant). Lint (revue, `FloorGrammar::problems`) : en `Graph`, un type de remplissage qui est aussi requis rend `exact` impossible (refusé).
 - **`apart: Some((a, b))`** : `a` et `b` (dans `required`, une fois chacun, boss compris) sont dans **deux branches différentes** : à la pose, la seconde du couple (dans l'ordre : le boss, posé avant, sinon l'ordre
   alphabétique des types) refuse tout parent de la branche de la première ; au contrôle (`validate_plan`), le graphe réel (arbre **et boucles**), départ retiré, ne relie pas `a` à `b`. Le boss étant un cul-de-sac, une
   porte de boss à serrure (`lock_key`, X-6a1, `docs/conventions.md` § 117) n'est jamais derrière elle-même : la clé (`porteur_cle`, `carries_key`) est dans l'autre branche.
+- **Lint de `apart`** (revue) : `apart` exige `exact` (le contrôle ne regarde que la **première** salle de chaque type ; `exact` garantit qu'il n'y en a qu'une, plutôt que de contrôler toutes les paires) et, si `start_exits` est donné, `start_exits >= 2`
+  (deux branches). Absent `start_exits`, le tirage décide du nombre de branches (échec explicite si une seule).
 - **Par défaut rien ne change** : sans ces champs le tirage, la consommation du RNG de génération et les plans sont ceux d'avant (`start_open` vaut vrai, `avoid` vaut `None`, aucun candidat n'est retiré).
 - **Graine** : une graine par défaut du jeu existe déjà (`entry.default_seed`, `LdtkGameMap::seed`) ; `--seed` la remplace au `Startup` (`apply_launch_seed`) ; `RunRequest::Restart` **ne la touche pas** (« même carte, même
   graine », `run_state.rs`) : la relance rejoue le même intérieur, sans sauvegarde. Seul `zombies` en tire une au hasard (`choose_local_seed`, politique propre au jeu). Étage assemblé dans une séquence `Floors` :

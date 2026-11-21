@@ -65,3 +65,16 @@ Aucun système ni type rollback ajouté (donnée de génération et scénarios s
 
 Contrôle rapide découpé **vert** (tête 716cd159 ; journal `~/orca/runs/alacod/logs/x-6g-check-rapide-716cd159.log`) : format, test_tools, check_forbidden (exception de la mesure de campagne justifiée), lint, check_integration (jeu court sous budget : scénarios `interieur_*` hors étiquette `rapide`), 59 binaires, 0 échec, `schedule_order` vert.
 Reste : rien de bloquant ; D226–D227 ouvertes ; contenu 1837 à adapter (types réunion/cuisine/réserve) par le coordinateur 1837.
+
+## Corrections de revue (verdict « merge après corrections », 21 nov)
+Merge de `origin/main` (conflit `propositions.md` : les deux côtés gardés). Tests neufs **rouges avant / verts après** (`cargo test -p world --profile headless --no-default-features floor_grammar` : 3 échecs avant, 7/7 après) :
+- **P2.1** `exact_avec_un_type_de_remplissage_requis_est_refuse_en_graph` : lint `exact` + type de remplissage aussi requis en `Graph` (`floor_grammar.rs` `problems()`), comme le promet § 129.
+- **P2.2** `apart_avec_moins_de_deux_sorties_est_refuse` : `apart` avec `start_exits: Some(n < 2)` refusé.
+- **P3.2** `sorties_et_branches_incoherentes_sont_refusees` étendu : `apart` exige `exact` (choix le plus simple : `exact` garantit une seule salle par type, donc « première salle » suffit) ; documenté § 129.
+- **P3.1** le test de relance lit `entry.default_seed` du manifeste du testbed (`GameManifest::load`), l'égale à la graine d'un scénario sans `map_seed` (`Scenario::default().map_seed`) et s'en sert ; en build rendu il écrit « SAUTÉ » sur stderr.
+- **P3.5** commentaire de `interieur_arrivee.ron` aligné sur les attentes (attentes et trace inchangées). **P3.4** test de `imp/basic.rs` marqué « à réécrire avec D227 ».
+Aucune trace modifiée (aucun BLESS).
+
+### Reste (P3 non faits, demandés dans le rapport)
+- **P3.3** `OpeningGrid::border_openings` : une case ouverte au coin compte dans deux côtés ; le lint `start_exits` pourrait accepter un gabarit qui a une prise de moins. Improbable en LDtk.
+- **P3.6** les six PNG de graines n'ont pas de légende (type de chaque salle) : l'image seule ne prouve pas `apart`/`exact` (la campagne et les scénarios le prouvent).

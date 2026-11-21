@@ -1081,6 +1081,7 @@ mod tests {
     /// (`[-max, max - taille]`), donc sur certaines graines la salle posée contre sa prise nord sort de la boîte
     /// (`Room::is_outside`) et la prise est murée. Le défaut de `Basic` n'est pas changé (cartes des clones identiques) ;
     /// la grammaire d'étage pose son départ au centre (`generation::floor`).
+    /// **À réécrire avec D227** : ce test épingle le défaut connu ; il cassera (voulu) le jour où `Basic` centre son départ.
     #[test]
     fn le_depart_de_basic_est_tire_jusqu_au_bord_donc_sa_voisine_peut_sortir_de_la_carte() {
         let mut spawn = level("hall", &[(Side::N, 4), (Side::S, 4)]);

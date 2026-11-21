@@ -348,8 +348,8 @@ fn interieur_scenario(file: &str, map_seed: Option<i32>) -> Scenario {
     scenario
 }
 
-/// X-6g (`docs/conventions.md` § 129) : la graine par défaut d'un jeu (`entry.default_seed`, ici celle du scénario sans `map_seed`)
-/// pose **le même intérieur** à chaque relance (`RunRequest::Restart`, pas de sauvegarde) ; une graine explicite en pose un autre.
+/// X-6g (`docs/conventions.md` § 129) : la graine par défaut d'un jeu (`entry.default_seed` du manifeste du testbed, lue ici et égale à
+/// la graine d'un scénario sans `map_seed`) pose **le même intérieur** à chaque relance (`RunRequest::Restart`, pas de sauvegarde) ; une graine explicite en pose un autre.
 /// Intérieur seul (`interieur_seul`, la graine de la partie est celle de l'intérieur) : même relevé des salles avant et après la relance,
 /// relevé différent avec `map_seed: 3`.
 #[test]
@@ -358,6 +358,7 @@ fn la_graine_par_defaut_rejoue_le_meme_interieur_et_une_graine_explicite_un_autr
     use scenario::runner::{build_app, PlayConfig};
 
     if map_ldtk::RENDER_ENABLED {
+        eprintln!("SAUTÉ : la_graine_par_defaut_rejoue… ne se joue pas en build rendu (headless seulement)");
         return;
     }
     let play = |scenario: &Scenario| {
@@ -376,8 +377,22 @@ fn la_graine_par_defaut_rejoue_le_meme_interieur_et_une_graine_explicite_un_autr
         }
         app
     };
-    // Graine par défaut du scénario (celle du testbed, 123456) : relevé, relance, relevé.
-    let default_seed = interieur_scenario("interieur_graine_3.ron", Some(123456));
+    // Graine par défaut du testbed : celle de son manifeste (`entry.default_seed`, lue par `games/testbed/src/main.rs`),
+    // la même que celle d'un scénario qui n'écrit pas `map_seed` : relevé, relance, relevé.
+    let manifest = content::manifest::GameManifest::load(std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../games/testbed"
+    )))
+    .expect("manifeste du testbed");
+    assert_eq!(
+        manifest.entry.default_seed,
+        Scenario::from_ron("Scenario(frames: 1, players: [])")
+            .expect("scénario minimal")
+            .map_seed,
+        "la graine par défaut du testbed n'est plus celle d'un scénario sans map_seed"
+    );
+    let default_seed =
+        interieur_scenario("interieur_graine_3.ron", Some(manifest.entry.default_seed));
     let mut app = play(&default_seed);
     let before = room_layout(&mut app);
     assert!(before.len() >= 8, "intérieur trop petit : {before:?}");

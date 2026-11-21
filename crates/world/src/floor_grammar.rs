@@ -309,9 +309,29 @@ impl FloorGrammar {
                 out.push("start_exits : ne vaut que pour la disposition Graph".to_string());
             }
         }
+        if self.exact
+            && matches!(self.layout(), FloorLayout::Graph)
+            && self.required.contains_key(&self.filler)
+        {
+            out.push(format!(
+                "exact : « {} » est le type de remplissage et un type requis : le remplissage en poserait en trop (type de remplissage à changer)",
+                self.filler
+            ));
+        }
         if let Some((a, b)) = &self.apart {
             if !matches!(self.layout(), FloorLayout::Graph) {
                 out.push("apart : ne vaut que pour la disposition Graph".to_string());
+            }
+            // Deux branches : au moins deux sorties du départ (absent, le tirage décide).
+            if self.start_exits.is_some_and(|n| n < 2) {
+                out.push(
+                    "apart : deux branches demandent au moins 2 sorties du départ (start_exits)"
+                        .to_string(),
+                );
+            }
+            // Le contrôle ne regarde que la première salle de chaque type : `exact` garantit qu'il n'y en a qu'une.
+            if !self.exact {
+                out.push("apart : exige exact (une seule salle de chaque type)".to_string());
             }
             if a == b {
                 out.push(format!("apart : « {a} » deux fois (deux types distincts)"));
@@ -473,6 +493,45 @@ mod tests {
         g.apart = Some(("boss".into(), "inconnu".into()));
         assert!(has(&g, "« inconnu » doit être dans required"));
         g.apart = Some(("boss".into(), "tresor".into()));
+        // `apart` sans `exact` : le contrôle ne regarde que la première salle de chaque type
+        assert!(has(&g, "apart : exige exact"));
+        g.exact = true;
         assert!(!has(&g, "apart"));
+    }
+
+    /// X-6g (revue P2.1) : en `Graph`, `exact` avec un type de remplissage aussi requis est impossible (le remplissage en
+    /// poserait en trop) ; sans `exact`, « au moins » le permet comme avant.
+    #[test]
+    fn exact_avec_un_type_de_remplissage_requis_est_refuse_en_graph() {
+        let mut g = grid("secrete", None);
+        g.layout = None;
+        let has = |g: &FloorGrammar| {
+            g.problems()
+                .iter()
+                .any(|p| p.contains("type de remplissage"))
+        };
+        g.required.insert(g.filler.clone(), 1);
+        assert!(!has(&g), "sans exact, au moins suffit");
+        g.exact = true;
+        assert!(has(&g), "exact + remplissage requis");
+    }
+
+    /// X-6g (revue P2.2) : `apart` exige deux branches, donc au moins deux sorties du départ.
+    #[test]
+    fn apart_avec_moins_de_deux_sorties_est_refuse() {
+        let mut g = grid("secrete", None);
+        g.layout = None;
+        g.exact = true;
+        g.apart = Some(("boss".into(), "tresor".into()));
+        let has = |g: &FloorGrammar| {
+            g.problems()
+                .iter()
+                .any(|p| p.contains("au moins 2 sorties"))
+        };
+        assert!(!has(&g), "start_exits absent : le tirage décide");
+        g.start_exits = Some(1);
+        assert!(has(&g));
+        g.start_exits = Some(2);
+        assert!(!has(&g));
     }
 }

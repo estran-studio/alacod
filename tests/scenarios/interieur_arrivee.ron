@@ -3,8 +3,8 @@
 // deux branches). Graine par défaut du jeu (123456, `entry.default_seed` du testbed ; l'intérieur reçoit la graine dérivée de son emplacement). Le joueur tue le porteur de
 // l'extérieur, ramasse sa clé, ouvre la porte de sortie et la franchit.
 //
-// À regarder : il reparaît dans le hall, au centre de l'emprise (192 × 160 px, quatre prises dont trois ouvertes) ; neuf à dix salles s'ajoutent à l'extérieur ; la salle de la clé et
-// la salle finale ne se touchent pas et ne touchent pas le hall ; la porte de la salle finale (deux battants) est verrouillée, les autres sont ouvertes.
+// À regarder : il reparaît dans le hall, au centre de l'emprise (192 × 160 px, quatre prises dont trois ouvertes) ; le monde compte 9 à 12 salles (`RoomCount`, la grammaire en pose 8 à 10) ; la salle de la clé et
+// la salle finale ne se touchent pas et ne touchent pas le hall ; la porte de la salle finale (deux battants) est verrouillée, une autre porte (nº 0) est ouverte (seules les portes nº 0, 1 et 3 sont attendues).
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
