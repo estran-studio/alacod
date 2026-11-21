@@ -61,6 +61,19 @@ pub struct FloorGrammar {
     /// gabarits plus grands remplissent plus vite cette boîte : une grammaire de gabarits agrandis la relève.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<(i32, i32)>,
+    /// X-6g (§129) : nombre **exact** de sorties de la salle de départ (portes vers une autre salle,
+    /// boucles comprises). Les prises en trop du gabarit de départ sont murées. Absent (défaut) :
+    /// le départ prend les salles que le tirage lui donne.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_exits: Option<usize>,
+    /// X-6g (§129) : chaque type de `required` est présent **exactement** le nombre demandé (le plan
+    /// qui en a plus, ou moins, est refusé et retiré). `false` (défaut) : au moins, comme avant.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub exact: bool,
+    /// X-6g (§129) : deux types de `required` (boss compris, un exemplaire chacun) posés dans deux
+    /// **branches différentes** du départ (deux sous-arbres distincts sous la salle de départ).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub apart: Option<(String, String)>,
 }
 
 /// Disposition d'un étage assemblé (M3-T0c, `docs/conventions.md` §62 ; planificateur : M3-T5, §70).
@@ -282,6 +295,35 @@ impl FloorGrammar {
                 }
             }
         }
+        if let Some(exits) = self.start_exits {
+            if exits == 0 {
+                out.push("start_exits = 0 : au moins une sortie".to_string());
+            }
+            // Chaque sortie mène à une salle distincte : départ + `exits` salles au minimum.
+            if exits + 1 > max {
+                out.push(format!(
+                    "start_exits = {exits} : impossible avec au plus {max} salles"
+                ));
+            }
+            if !matches!(self.layout(), FloorLayout::Graph) {
+                out.push("start_exits : ne vaut que pour la disposition Graph".to_string());
+            }
+        }
+        if let Some((a, b)) = &self.apart {
+            if !matches!(self.layout(), FloorLayout::Graph) {
+                out.push("apart : ne vaut que pour la disposition Graph".to_string());
+            }
+            if a == b {
+                out.push(format!("apart : « {a} » deux fois (deux types distincts)"));
+            }
+            for kind in [a, b] {
+                if self.required.get(kind) != Some(&1) {
+                    out.push(format!(
+                        "apart : « {kind} » doit être dans required, une seule fois"
+                    ));
+                }
+            }
+        }
         let fixed = 2 + self.others();
         if fixed > max {
             out.push(format!(
@@ -315,6 +357,9 @@ mod tests {
             min_boss_distance: 3,
             max_attempts: 64,
             bounds: None,
+            start_exits: None,
+            exact: false,
+            apart: None,
             loops: 0,
             layout: Some(FloorLayout::Grid {
                 cell: (15, 9),
