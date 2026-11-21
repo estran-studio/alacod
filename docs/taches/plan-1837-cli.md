@@ -130,8 +130,8 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
 - Décision de William (2026-11-21) : l'engine prend ses lots **un à un**, dans cet ordre : (1) **changement de niveau** : passer la porte principale de l'extérieur, clé en
   main, charge le niveau intérieur (X-6f) ; (2) **génération de l'intérieur par graine** avec `BasicMapGeneration` : hall au centre à trois sorties ; réunion, cuisine,
   réserve, salle de la clé et salle du chef garanties ; clé et chef dans deux branches différentes ; une graine par défaut, rechargée à chaque relance, pas de sauvegarde
-  pour l'instant (X-6g). La suite (caméra fixe par pièce et portes fermées pendant le combat comme Isaac, puis X-6e, puis X-6d) est un **ordre proposé, non validé** :
-  aucun lot ne part au-delà de X-6g sans décision.
+  pour l'instant (X-6g). La suite (caméra fixe par pièce et portes fermées pendant le combat comme Isaac, puis X-6e, puis X-6d) était un **ordre proposé** ; validé dans la nuit (voir plus bas) :
+  un lot à la fois, chacun écrit au § 6 avec sa preuve avant son départ.
 - Décision de William (2026-11-21) : la clé de la porte principale se trouve dans une **bâtisse en ruine, dehors, après un combat qui apprend les bases** (contenu de 1837).
 - Décision de William (2026-11-21) : la coop reste de première classe, mais William joue et valide **à un joueur, en natif**. Chaque lot livre ses scénarios **à un et à
   deux joueurs** ; le test à deux instances sur le Mac est mené par le coordinateur 1837, l'engine répond à ses demandes d'outillage.
@@ -139,6 +139,14 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
   rapide seulement si un lot touche le web.
 - Décision de William (2026-11-21) : William dessine lui-même deux cartes LDtk (extérieur, intérieur) ; d'ici là, le jeu se teste sur les cartes provisoires de 1837.
 - Décision de William (2026-11-21) : tout tourne sur son MacBook (8 cœurs, 16 Go) ; le VPS (`ssh ovh`) ne garde que la suite de nuit. Un seul worker d'engine à la fois.
+- Décision de William (2026-11-21, soir) : l'abonnement Antigravity est résilié ; workers sur Anthropic (`claude-sonnet-5-5`, au plus 2 pour les coordinateurs alacod et 1837 réunis) et
+  Codex (`openai-codex/gpt-6.1-sol`, jamais sur la simulation) (`studio/REGLES.md` § 7).
+- Décision de William (2026-11-21, nuit) : **ordre de l'engine après X-6g validé** : (3) caméra fixe par pièce et portes fermées pendant le combat, comme Isaac ; (4) X-6e, le
+  sergent ; (5) trois thèmes de musique (dehors, dedans, boss) construits à partir des profils harmonium (proposition du 21 nov, `propositions.md`) ; (6) X-6d, le lutin.
+  Toujours un lot d'engine à la fois ; chaque lot écrit au § 6 avec sa preuve avant son départ ; X-6e et X-6d restent garés jusqu'à leur tour.
+- Décision de William (2026-11-21, nuit) : **générateur** : l'intérieur utilise un générateur qui connaît les types de pièces (la grammaire d'étage du § 40), « ça serait déjà
+  supposé être supporté dans l'engine de base » : X-6g est une extension minimale et générique de l'existant, aucun générateur neuf ; son rapport garde en tête les trois
+  lignes « ce qui existait déjà / ce qui manquait / ce qui est ajouté ».
 
 ## 4. Lots (état au 2026-11-06 ; statut à jour des lots mergés : § 6, « Statut au 2026-11-21 »)
 
@@ -151,7 +159,7 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
 | **X-4a Sprites : directions** | nombre de directions par planche (D-c), choix de ligne par `FacingDirection` (`crates/animation`), schéma et lint de `sprites.ron` ; preuve à l'écran (`play_scenario --capture`) | — | **livré** | medium |
 | **X-4b Sprites : import** | `alacod import-sprite <manifeste.sprite.json>` → entrée `sprites.ron` et `SpriteSheetConfig` ; ancres et mains : seulement si `design/sprites-composables.md` est tranché | X-4a (depuis `main`) | **livré** le 2026-10-29 (`wquintal/x-4b-import-sprite`, rapport `x-4b-import-sprite.md`) ; mains et ancres : D156, plus tard | medium |
 | **X-5 Création de 1837 et kit de la cour** | dépôt privé `estran-studio/1837` par `alacod new 1837 --git --rev <main poussé>` ; kit importé par `alacod import-sprite` depuis `1867_lore/assets/sprites/` (le Frère avec hache et fusil, le fantassin, la loge, le décor de la cour) ; retrait de l'exception fantassin du testbed (§ 5) ; `1837/docs/tranche.md` ; commande du build du soir (natif) ; preuve dim 8 : la commande + une capture du Frère et du fantassin dans la cour, à l'échelle du jeu | X-4b, décision du 6 nov | **livré** le 2026-11-06 (`0e7c8d58`) | medium |
-| **X-6 Paliers D2 à D5** | portes et clé portée par un ennemi, couverts qui arrêtent les balles, intérieur de la loge généré par `BasicMapGeneration` + grammaire du § 40, `Lure`/`Grab`, boss en deux phases | X-5, M-3, Q-3 | découpé en lots au § 6 : X-6a1, X-6a2, X-6b, X-6c **livrés** ; X-6d, X-6e **garés** (William, 21 nov) ; X-6f en cours, X-6g ensuite | — |
+| **X-6 Paliers D2 à D5** | portes et clé portée par un ennemi, couverts qui arrêtent les balles, intérieur de la loge généré par `BasicMapGeneration` + grammaire du § 40, `Lure`/`Grab`, boss en deux phases | X-5, M-3, Q-3 | découpé en lots au § 6 : X-6a1, X-6a2, X-6b, X-6c, X-6f **livrés** ; X-6g en cours ; X-6d, X-6e **garés** jusqu'à leur tour (ordre validé le 21 nov, § 3) | — |
 
 Chemin critique (2026-11-06) : X-5 (6 → 8 nov), puis la voie m dans l'ordre du calendrier de `1837/docs/tranche.md` (§ 6). X-1, X-2a et X-2b restent gelés (aucune fusion, aucun tag).
 Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27 : X-1 → X-2b → X-5, sur quatre voies.
@@ -274,8 +282,8 @@ un seul lot d'engine à la fois, scénarios à un **et** à deux joueurs, captur
   définition de William. Le plan par jour fait **commencer lun 16** « la génération des portes, de la clé et de l'intérieur de la loge » : portes et clé peuvent partir dès
   qu'un agent se libère après M-1/M-2 ou P-1 ; **la génération de l'intérieur ne part que la semaine du 30 nov**, après la définition de William (décision du 7 nov).
 - X-6f → **D2 dim 29 nov** (Décision de William du 2026-11-21, lot (1)) : « la porte s'ouvre » et mène à l'intérieur. X-6g → **D3 dim 6 déc** (lot (2)) : hall et pièces
-  par graine. X-6d (lutin, D4/D5) et X-6e (sergent, D5) : garés. La suite proposée (caméra fixe par pièce et portes de combat comme Isaac, puis X-6e, puis X-6d) attend
-  la décision de William.
+  par graine. Ensuite, ordre validé par William (21 nov, nuit, § 3), un lot à la fois, chacun écrit ici avant son départ : caméra fixe par pièce et portes de combat
+  comme Isaac, puis X-6e (sergent, garé jusqu'à son tour), puis les trois thèmes de musique, puis X-6d (lutin, garé jusqu'à son tour).
 - S1 jeu 12 (« 4 fantassins… un cône au sol annonce le tir 1 s avant… rechargent 3 s ») : machine d'état des fantassins dans P-1 (l'engine a `Pattern::Telegraph(n)`
   et le dessin de cône `pattern_telegraph`, `crates/combat/src/emitter.rs:18`, `crates/game/src/feedback.rs:557` ; P-1 dit s'ils suffisent).
 - Numéros (6 nov, soir) : dettes M-1/M-2 D190–D193, P-1 D194–D197, R-1 D198–D199 ; `docs/conventions.md` § 108 (M-1), § 109 (M-2), § 110 (P-1), § 111 (R-1).
