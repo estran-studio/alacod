@@ -266,7 +266,9 @@ def clips():
     out["idle"] = (2.0, upper_idle, {})
     out["gun-idle"] = (2.0, lambda t: {**arms_carry(), **upper_idle(t)}, {})
     out["aim"] = (2.0, lambda t: {**arms_aim(), "chest": qmul(twist(8), swing(0, 1.5 * math.sin(math.pi * t)))}, {})
-    out["shoot"] = (0.3, lambda t: upper_shoot(t / 0.3), {})
+    # X-6e : une décharge de deux tirs (`pattern_clips` du modèle `chef_pantin`) : ils partent à 15 % et 85 % du clip
+    # (`moments.shoot.departs`, fractions) ; les tireurs à un seul tir n'en lisent aucun.
+    out["shoot"] = (0.3, lambda t: upper_shoot(t / 0.3), {"departs": [0.15, 0.85]})
     out["shoulder"] = (0.15, lambda t: blend_pose(arms_carry(), arms_aim(), smooth(t / 0.15)), {})
     out["reload"] = (1.2, lambda t: upper_reload(t / 1.2), {})
     # M-6 (§ 116) : la frappe du coup tombe entre 45 % et 65 % du clip (`moments.strike.frappe`, fractions).

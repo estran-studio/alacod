@@ -1,0 +1,9 @@
+// Fixture X-6e : model_poses_chef_complete
+(
+    name: "fixture-model_poses_chef_complete",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "models/models.ron", kind: "Model"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

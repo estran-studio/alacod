@@ -1429,22 +1429,38 @@ pub fn boss_reinforcements_system(
     mut commands: Commands,
     mut requests: ResMut<FrameEvents<ReinforcementRequest>>,
     rooms: CurrentRooms,
+    // X-6e (§127) : repli sur le niveau LDtk (sans type de salle) qui contient le boss, pour un chef d'une carte sans
+    // salles typées (arène, niveau unique) ; une salle typée reste prioritaire (chemin d'avant au bit près).
+    levels: Query<(&LevelId, &RoomBounds), Without<RoomKind>>,
     mut spawn: SpawnParams,
 ) {
     let requests: Vec<ReinforcementRequest> = requests.iter().cloned().collect();
     for request in requests {
         let at = FixedVec2::new(request.x, request.y);
-        let Some((level, bounds, _)) = sorted_rooms(&rooms)
+        let typed = sorted_rooms(&rooms)
             .into_iter()
             .find(|(_, bounds, _)| inside_box(bounds.position, bounds.size, at, Fixed::ZERO))
-        else {
+            .map(|(level, bounds, _)| (level.0.clone(), *bounds));
+        let found = typed.or_else(|| {
+            let mut untyped: Vec<(&LevelId, &RoomBounds)> = levels
+                .iter()
+                .filter(|(_, bounds)| inside_box(bounds.position, bounds.size, at, Fixed::ZERO))
+                .collect();
+            untyped.sort_by(|a, b| {
+                (a.1.position.x, a.1.position.y, &a.0 .0).cmp(&(b.1.position.x, b.1.position.y, &b.0 .0))
+            });
+            untyped
+                .first()
+                .map(|(level, bounds)| (level.0.clone(), **bounds))
+        });
+        let Some((level, bounds)) = found else {
             warn!(
                 "renforts : le boss {} n'est dans aucune salle, {} « {} » ignoré",
                 request.boss, request.count, request.id
             );
             continue;
         };
-        spawn.spawn_in_room(&mut commands, &level.0, bounds, &request.id, request.count);
+        spawn.spawn_in_room(&mut commands, &level, &bounds, &request.id, request.count);
     }
 }
 

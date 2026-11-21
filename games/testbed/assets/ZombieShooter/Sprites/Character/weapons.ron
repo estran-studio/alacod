@@ -608,6 +608,80 @@
             weapon_offset: ( x: "0.0", y: "-5.0" )
         ),
     ),
+    // X-6e (docs/conventions.md §127) : les deux armes du chef de testbed (`characters/chef.ron`). Phase 1 : `chef_cone`,
+    // mitraille en cône (`patterns/mitraille.ron`) ; phase 2, après la transition qui lâche `chef_cone` au sol : `chef_paire`,
+    // décharge à courte portée (`patterns/decharge.ron`, départs calés sur le clip lié dans `models/models.ron`).
+    // Armes neuves : aucune table existante ne change (traces intactes). Valeurs d'essai neutres.
+    "chef_cone": (
+        config: (
+            name: "chef_cone",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "2.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "4.0",
+                        speed: "150.0",
+                    ),
+                    range: "200.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 1,
+                        mag_limit: 4,
+                    ),
+                )
+            },
+            projectiles: {
+                "mitraille": (damage: "4.0", speed: "150.0", range: "200.0"),
+            },
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
+    "chef_paire": (
+        config: (
+            name: "chef_paire",
+            default_firing_mode: "default",
+            ammo_type: Plomb,
+            firing_modes: {
+                "default": (
+                    firing_rate: "4.0",
+                    firing_mode: Manual(),
+                    spread: "0.0",
+                    recoil: "0.0",
+                    bullet_type: Standard(
+                        damage: "6.0",
+                        speed: "180.0",
+                    ),
+                    range: "90.0",
+                    reload_time_seconds: "1.0",
+                    mag: Mag(
+                        mag_size: 2,
+                        mag_limit: 4,
+                    ),
+                )
+            },
+            projectiles: {
+                "plomb_court": (damage: "6.0", speed: "180.0", range: "90.0"),
+            },
+        ),
+        sprite_config: (
+            name: "pistol",
+            index: 3,
+            bullet_offset_right: ( x: "-5.0", y: "2.0" ),
+            bullet_offset_left: ( x: "0.0", y: "-2.0" ),
+            weapon_offset: ( x: "0.0", y: "-5.0" )
+        ),
+    ),
     // M2-T1 : arme des tourelles de motifs (copie de `fireball_gun` avec `brume` et `ricochet`, pour ne pas
     // toucher les projectiles de `fireball_gun`, donc les traces des scénarios existants).
     "tourelle_gun": (

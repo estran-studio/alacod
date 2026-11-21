@@ -130,6 +130,23 @@ pub enum Behavior {
         #[serde(default)]
         max_frames: Option<u32>,
     },
+    /// X-6e (§127) : **commandement**. Le chef ordonne une salve aux membres de l'escouade `squad` (`ai.squad`) : quand
+    /// l'ordre est prêt (au plus tôt `period` frames après le précédent) et qu'une cible est en vue, il retient la règle
+    /// pendant `telegraph` frames (le télégraphe de l'ordre : immobile, il ne tire pas) ; à la fin du télégraphe, les membres
+    /// vivants de l'escouade qui sont prêts commencent leur séquence de tir **la même frame**. Tant qu'un chef vivant de
+    /// l'escouade liste `Command` (règles de sa phase courante), ses membres ne commencent une séquence qu'à son ordre ; sans
+    /// chef, ils tirent à leur rythme (comportement d'avant). Variante en fin d'enum.
+    Command {
+        squad: String,
+        telegraph: u32,
+        period: u32,
+    },
+    /// X-6e (§127) : **ouverture** après une salve. À la fin réelle d'une séquence de tir (front descendant, comme
+    /// `TakeCover`), l'ennemi retient la règle `frames` frames : immobile, il n'attaque pas (ni tir, ni mêlée, ni charge) ;
+    /// le joueur peut riposter. Variante en fin d'enum.
+    Opening {
+        frames: u32,
+    },
 }
 
 /// Option de zigzag de `Charge` (X-6b, §119) : pendant la ruée, déviation latérale autour de
@@ -194,6 +211,8 @@ impl Behavior {
             Behavior::BlockBullets => "BlockBullets",
             Behavior::ReturnHome { .. } => "ReturnHome",
             Behavior::TakeCover { .. } => "TakeCover",
+            Behavior::Command { .. } => "Command",
+            Behavior::Opening { .. } => "Opening",
         }
     }
 }
@@ -226,6 +245,12 @@ pub struct SelectionContext {
     /// Un repli derrière un couvert est en cours (trajet ou attente à l'abri, X-6c, §120) : la règle
     /// `TakeCover` reste retenue.
     pub sheltering: bool,
+    /// X-6e (§127) : le télégraphe d'un ordre de `Command` est en cours : la règle reste retenue.
+    pub commanding: bool,
+    /// X-6e : un nouvel ordre peut partir (période écoulée, escouade non vide).
+    pub command_ready: bool,
+    /// X-6e : une ouverture (`Opening`) est en cours : la règle reste retenue.
+    pub opening: bool,
     /// Règle retenue à la frame précédente (hystérésis de `KeepDistance`).
     pub previous: Option<usize>,
 }
@@ -264,6 +289,10 @@ pub fn applicable(index: usize, behavior: &Behavior, ctx: &SelectionContext) -> 
         Behavior::Wander => true,
         Behavior::ReturnHome { .. } => ctx.returning,
         Behavior::TakeCover { .. } => ctx.sheltering,
+        Behavior::Command { .. } => {
+            ctx.commanding || (ctx.command_ready && distance.is_some_and(|d| d < ctx.sight))
+        }
+        Behavior::Opening { .. } => ctx.opening,
         // M3-T0d : comportements de familier, exécutés par M3-T6 ; jamais retenus par la sélection
         // des ennemis (un familier n'a pas d'IA de poursuite).
         Behavior::Follow { .. }
@@ -334,6 +363,8 @@ impl Plugin for BehaviorsPlugin {
                     "BlockBullets",
                     "ReturnHome",
                     "TakeCover",
+                    "Command",
+                    "Opening",
                 ][..],
             ),
             ("perception", &["Sight", "Hearing"][..]),
@@ -419,6 +450,9 @@ mod tests {
             charge_ready: true,
             returning: false,
             sheltering: false,
+            commanding: false,
+            command_ready: false,
+            opening: false,
             previous: None,
         }
     }

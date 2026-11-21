@@ -1,0 +1,23 @@
+// X-6e (testbed, docs/conventions.md §127) : aucun renfort en phase 0. Le `chef` et ses trois soldats face au joueur 0 immobile,
+// 600 frames en phase 0 (personne ne le touche) : l'effectif reste de quatre ennemis du début à la fin.
+//
+// À regarder : salves à l'ordre, le chef tire, aucun soldat n'arrive.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 600,
+    characters: [
+        (character: "chef", x: "600.0", y: "696.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "672.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "696.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "720.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        BossPhase(entity: Placed(0), phase: 0, at_frame: 599),
+        EntityCount(kind: Enemy, min: Some(4), max: Some(4), at_frame: 150),
+        EntityCount(kind: Enemy, min: Some(4), max: Some(4), at_frame: 300),
+        EntityCount(kind: Enemy, min: Some(4), max: Some(4), at_frame: 599),
+    ],
+)

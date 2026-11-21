@@ -1,0 +1,7 @@
+// X-6e (docs/conventions.md §127) : arme de phase 1 du chef de testbed (`characters/chef.ron`, arme `chef_cone`) :
+// télégraphe court, cinq plombs en cône vers la cible, geste du tir. Valeurs d'essai neutres.
+Sequence([
+    Telegraph(20),
+    Spread(count: 5, spread: "0.6", projectile: "mitraille"),
+    Wait(15),
+])

@@ -13,9 +13,9 @@ use behaviors::{Behavior, BossState, FormationShape};
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::{self, Fixed, FixedVec2};
 use combat::downed::Downed;
-use utils::{net_id::GgrsNetId, order_iter};
+use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter};
 
-use super::state::EnemyBehaviors;
+use super::state::{BehaviorRuntime, EnemyBehaviors};
 use crate::character::{enemy::Enemy, health::Death, player::Player};
 
 /// Distance à la place sous laquelle un membre arrête de la rejoindre et ne fait plus que
@@ -39,6 +39,39 @@ pub struct SquadSlot {
 /// Places de la frame, par `GgrsNetId.0`. Dérivée, jamais rollbackée.
 #[derive(Resource, Default, Debug)]
 pub struct SquadSlots(pub BTreeMap<usize, SquadSlot>);
+
+/// X-6e (§127, `Behavior::Command`) : ordres de la frame, dérivés de l'état des chefs (`BehaviorRuntime::order`), réécrits
+/// à chaque frame par [`formation_system`] avant tout retour anticipé (jamais rollbackés, aucun état caché).
+/// - `gated` : membres d'une escouade commandée (un chef **vivant** de l'escouade liste `Command` dans les règles de sa phase
+///   courante), par `GgrsNetId.0` -> l'ordre tombe-t-il **cette** frame (la fin du télégraphe d'un de ses chefs) ;
+/// - `members` : nombre de membres vivants de chaque escouade commandée (un chef sans soldat ne donne pas d'ordre).
+///
+/// Un membre d'escouade commandée ne commence une séquence de tir qu'à la frame de l'ordre ; tout autre ennemi est libre.
+#[derive(Resource, Default, Debug)]
+pub struct SquadOrders {
+    pub gated: BTreeMap<usize, bool>,
+    pub members: BTreeMap<String, u32>,
+}
+
+impl SquadOrders {
+    /// L'ennemi `net_id` peut-il commencer une séquence de tir cette frame ?
+    pub fn may_start(&self, net_id: usize) -> bool {
+        self.gated.get(&net_id).copied().unwrap_or(true)
+    }
+
+    /// Membres vivants de l'escouade commandée `squad` (0 si elle n'est pas commandée).
+    pub fn members(&self, squad: &str) -> u32 {
+        self.members.get(squad).copied().unwrap_or(0)
+    }
+}
+
+/// Escouade commandée par une règle `Command` des règles actives, s'il y en a une.
+pub fn commanded_squad(rules: &[Behavior]) -> Option<&str> {
+    rules.iter().find_map(|rule| match rule {
+        Behavior::Command { squad, .. } => Some(squad.as_str()),
+        _ => None,
+    })
+}
 
 impl SquadSlot {
     /// Ce membre a-t-il le tour de tirer à la frame `frame` ?
@@ -93,13 +126,18 @@ pub fn arc_places(
 /// `behavior_select_system`.
 #[allow(clippy::type_complexity)]
 pub fn formation_system(
+    frame: Res<FrameCount>,
     mut slots: ResMut<SquadSlots>,
+    mut orders: ResMut<SquadOrders>,
     enemies: Query<
         (
             &GgrsNetId,
             &fixed_math::FixedTransform3D,
             &EnemyBehaviors,
             Option<&BossState>,
+            // X-6e : ordre d'un chef (`Command`), et chefs ou membres morts écartés.
+            Option<&BehaviorRuntime>,
+            Has<Death>,
         ),
         (With<Enemy>, Without<world::RoomDormant>),
     >,
@@ -114,12 +152,42 @@ pub fn formation_system(
     >,
 ) {
     slots.0.clear();
+    orders.gated.clear();
+    orders.members.clear();
+
+    // X-6e : escouades commandées (un chef vivant y liste `Command`) et ordre de la frame (fin d'un télégraphe).
+    let now = frame.frame;
+    let mut commanded: BTreeMap<&str, bool> = BTreeMap::new();
+    for (_, _, rules, boss, runtime, dead) in order_iter!(enemies) {
+        if dead {
+            continue;
+        }
+        if let Some(squad) = commanded_squad(rules.active(boss.map_or(0, |b| b.phase))) {
+            let fire = runtime.is_some_and(|runtime| runtime.order == Some(now));
+            *commanded.entry(squad).or_default() |= fire;
+        }
+    }
+    if !commanded.is_empty() {
+        for (net_id, _, rules, boss, _, dead) in order_iter!(enemies) {
+            let Some(squad) = rules.squad.as_deref() else {
+                continue;
+            };
+            let Some(fire) = commanded.get(squad) else {
+                continue;
+            };
+            if dead || commanded_squad(rules.active(boss.map_or(0, |b| b.phase))).is_some() {
+                continue;
+            }
+            orders.gated.insert(net_id.0, *fire);
+            *orders.members.entry(squad.to_string()).or_default() += 1;
+        }
+    }
 
     // Escouades : id -> membres (ordre `GgrsNetId`, donc rang), avec leur formation.
     #[allow(clippy::type_complexity)]
     let mut squads: BTreeMap<&str, Vec<(usize, FixedVec2, &FormationShape, u32, bool)>> =
         BTreeMap::new();
-    for (net_id, transform, rules, boss) in order_iter!(enemies) {
+    for (net_id, transform, rules, boss, ..) in order_iter!(enemies) {
         let Some(squad) = rules.squad.as_deref() else {
             continue;
         };

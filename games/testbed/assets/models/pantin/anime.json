@@ -250,6 +250,12 @@
   "strike-walk-fr": "une-main"
  },
  "moments": {
+  "shoot": {
+   "departs": [
+    0.15,
+    0.85
+   ]
+  },
   "strike": {
    "frappe": [
     0.45,

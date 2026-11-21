@@ -82,7 +82,8 @@ pub fn melee_hold_system(
                             .active(boss.map_or(0, |b| b.phase))
                             .get(index as usize)
                     })
-                    .is_some_and(|rule| matches!(rule, Behavior::Flee))
+                    // X-6e : aucune attaque au corps à corps pendant une ouverture non plus.
+                    .is_some_and(|rule| matches!(rule, Behavior::Flee | Behavior::Opening { .. }))
             });
         if fleeing && !held {
             commands
@@ -166,6 +167,8 @@ pub fn behavior_select_system(
             &MonsterState,
             // X-6c : gabarit du corps, pour la marge du point abrité (`TakeCover`).
             Option<&Collider>,
+            // X-6e : définition du boss (geste de transition de la phase courante).
+            Option<&crate::boss::BossPlan>,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -183,6 +186,8 @@ pub fn behavior_select_system(
     bullet_query: Query<(&GgrsNetId, &Bullet, &fixed_math::FixedTransform3D)>,
     // M2-T8 : tour de tir d'un membre d'escouade (dérivé, voir `squad`).
     squad_slots: Res<super::squad::SquadSlots>,
+    // X-6e : ordres des chefs (`Command`), dérivés en début de frame par `squad::formation_system`.
+    squad_orders: Res<super::squad::SquadOrders>,
     // X-6c : couverts (`TakeCover`) et terrain (murs) pour le trajet vers le point abrité.
     cover_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<Cover>>,
     flow_field_cache: Res<FlowFieldCache>,
@@ -204,6 +209,7 @@ pub fn behavior_select_system(
         boss,
         monster_state,
         body,
+        boss_plan,
     ) in order_mut_iter!(enemy_query)
     {
         let phase_rules = rules.active(boss.map_or(0, |b| b.phase));
@@ -393,6 +399,48 @@ pub fn behavior_select_system(
                 }
             }
         }
+        // X-6e : geste de transition d'un boss (aucune règle, comme une incapacité).
+        let in_transition = boss_plan
+            .zip(boss)
+            .is_some_and(|(plan, state)| plan.0.transition_at(state, now).is_some());
+        // X-6e : ouverture (`Opening`) : déclenchée par la fin réelle d'une salve (front descendant de la séquence de tir).
+        let opening_frames = phase_rules.iter().find_map(|rule| match rule {
+            Behavior::Opening { frames } => Some(*frames),
+            _ => None,
+        });
+        if let Some(frames) = opening_frames {
+            if runtime.opening.is_some_and(|until| now >= until) {
+                runtime.opening = None;
+                info!("ggrs{{f={} opening net_id={} phase=done}}", now, net_id);
+            }
+            if runtime.opening_shooting
+                && !shooting
+                && runtime.opening.is_none()
+                && !incapacitated
+                && !in_transition
+            {
+                runtime.opening = Some(now.saturating_add(frames));
+                info!(
+                    "ggrs{{f={} opening net_id={} phase=start until={}}}",
+                    now,
+                    net_id,
+                    now.saturating_add(frames)
+                );
+            }
+            runtime.opening_shooting = shooting;
+        } else {
+            runtime.opening = None;
+            runtime.opening_shooting = false;
+        }
+        // X-6e : commandement (`Command`) : l'ordre est prêt et l'escouade a au moins un membre vivant.
+        let command = phase_rules.iter().find_map(|rule| match rule {
+            Behavior::Command {
+                squad,
+                telegraph,
+                period,
+            } => Some((squad.as_str(), *telegraph, *period)),
+            _ => None,
+        });
         let ctx = SelectionContext {
             target_distance,
             sight: ai_config.aggro_range,
@@ -402,18 +450,25 @@ pub fn behavior_select_system(
             melee_in_reach: target_distance.is_some_and(|d| d < ai_config.attack_range),
             shooting,
             // M2-T8 : un membre d'escouade ne tire qu'à son tour (sauf `volley`).
+            // X-6e : un membre d'une escouade commandée ne tire qu'à l'ordre de son chef.
             shoot_ready: ranged_state.is_some_and(|ranged| now >= ranged.ready_at)
                 && squad_slots
                     .0
                     .get(&net_id.0)
-                    .is_none_or(|slot| slot.may_fire(now)),
+                    .is_none_or(|slot| slot.may_fire(now))
+                && squad_orders.may_start(net_id.0),
             charging: runtime.charge != ChargePhase::Idle,
             charge_ready: now >= runtime.charge_ready_at,
             returning: runtime.returning != ReturnPhase::Idle,
             sheltering: runtime.cover != CoverPhase::Idle,
+            commanding: runtime.order.is_some(),
+            command_ready: command.is_some_and(|(squad, ..)| {
+                now >= runtime.order_ready_at && squad_orders.members(squad) > 0
+            }),
+            opening: runtime.opening.is_some(),
             previous: runtime.selected.map(|index| index as usize),
         };
-        let selected = if incapacitated {
+        let selected = if incapacitated || in_transition {
             None
         } else {
             select(phase_rules, &ctx).map(|index| index as u32)
@@ -432,6 +487,32 @@ pub fn behavior_select_system(
         }
         runtime.selected = selected;
         let rule = selected.and_then(|index| phase_rules.get(index as usize));
+
+        // X-6e : ordre du chef. Retenu, `Command` lance le télégraphe ; à sa fin (frame `until`, où `formation_system` a déjà
+        // donné l'ordre aux membres), l'ordre suivant attend `period` frames. Une règle plus prioritaire, une incapacité ou une
+        // phase sans `Command` l'abandonne avant la fin : aucun tir ordonné.
+        match (command, runtime.order) {
+            (Some((_, _, period)), Some(until)) if now >= until => {
+                runtime.order = None;
+                runtime.order_ready_at = now.saturating_add(period);
+                info!("ggrs{{f={} command net_id={} phase=order}}", now, net_id);
+            }
+            (Some(_), Some(_)) if !matches!(rule, Some(Behavior::Command { .. })) => {
+                runtime.order = None;
+                info!("ggrs{{f={} command net_id={} phase=abandon}}", now, net_id);
+            }
+            (Some((_, telegraph, _)), None) if matches!(rule, Some(Behavior::Command { .. })) => {
+                runtime.order = Some(now.saturating_add(telegraph));
+                info!(
+                    "ggrs{{f={} command net_id={} phase=telegraph until={}}}",
+                    now,
+                    net_id,
+                    now.saturating_add(telegraph)
+                );
+            }
+            (None, Some(_)) => runtime.order = None,
+            _ => {}
+        }
 
         // Charge : télégraphe, ruée, contact, refroidissement.
         // Retour au point de départ (X-6b) : règle `ReturnHome` des règles actives, s'il y en a une.
@@ -713,6 +794,8 @@ pub fn behavior_motion(
             }
             _ => still(),
         }),
+        // X-6e : immobile pendant le télégraphe d'un ordre et pendant une ouverture.
+        Behavior::Command { .. } | Behavior::Opening { .. } => Some(still()),
         _ => None,
     }
 }

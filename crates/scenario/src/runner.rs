@@ -1712,6 +1712,8 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
         } => match enemy_rule(world, entity) {
             Err(reason) => Err(reason),
             Ok(Some(found)) if found == behavior => Ok(()),
+            // X-6e (§127) : `"none"` attend qu'aucune règle ne soit retenue (geste de transition d'un boss, incapacité).
+            Ok(None) if behavior == "none" => Ok(()),
             Ok(found) => Err(format!(
                 "behavior retenu {}, {behavior} attendu",
                 found.unwrap_or("aucun")
@@ -1774,6 +1776,32 @@ fn check(world: &mut World, expectation: &Expectation) -> Result<(), String> {
                 }
             }
             Ok(())
+        }
+        Expectation::EnemyWeapon {
+            entity,
+            weapon,
+            carried,
+            ..
+        } => {
+            let enemy = resolve_entity(world, entity).ok_or("entité absente")?;
+            let held: Vec<String> = world
+                .get::<game::weapons::WeaponInventory>(enemy)
+                .map(|inventory| {
+                    inventory
+                        .weapons
+                        .iter()
+                        .map(|(_, w)| w.config.name.clone())
+                        .collect()
+                })
+                .unwrap_or_default();
+            if held.iter().any(|name| name == weapon) == *carried {
+                Ok(())
+            } else {
+                Err(format!(
+                    "armes portées {held:?} : « {weapon} » {} attendue",
+                    if *carried { "portée" } else { "lâchée" }
+                ))
+            }
         }
         Expectation::CoverSight {
             entity,

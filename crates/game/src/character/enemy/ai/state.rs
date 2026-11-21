@@ -659,6 +659,8 @@ impl EnemyBehaviors {
                         | Behavior::Formation { .. }
                         | Behavior::ReturnHome { .. }
                         | Behavior::TakeCover { .. }
+                        | Behavior::Command { .. }
+                        | Behavior::Opening { .. }
                 )
             })
     }
@@ -747,6 +749,16 @@ pub struct BehaviorRuntime {
     /// lit sur ce front descendant, jamais sur `ready_at` : `first_wait`, recul de coup et attente
     /// tirée de `ranged_cycle` le repoussent sans qu'aucune salve ne finisse).
     pub cover_shooting: bool,
+    /// X-6e (§127) : télégraphe d'un ordre de `Command` en cours, jusqu'à cette frame (exclue) : à cette frame, les membres de
+    /// l'escouade commencent leur salve ensemble.
+    pub order: Option<u32>,
+    /// X-6e : première frame où un nouvel ordre peut partir (0 : jamais donné).
+    pub order_ready_at: u32,
+    /// X-6e : ouverture (`Opening`) en cours, jusqu'à cette frame (exclue).
+    pub opening: Option<u32>,
+    /// X-6e : une séquence de tir était en cours à la frame précédente (front descendant = fin réelle d'une salve, qui ouvre
+    /// l'ouverture), suivi seulement pour un ennemi qui liste `Opening`.
+    pub opening_shooting: bool,
 }
 
 impl BehaviorRuntime {
@@ -758,6 +770,16 @@ impl BehaviorRuntime {
     /// Champs de X-6c actifs : seuls eux entrent dans `Hash` et `Debug`.
     fn cover_active(&self) -> bool {
         self.cover != CoverPhase::Idle || self.cover_pending || self.cover_shooting
+    }
+
+    /// Champs de X-6e (commandement) actifs : seuls eux entrent dans `Hash` et `Debug`.
+    fn order_active(&self) -> bool {
+        self.order.is_some() || self.order_ready_at != 0
+    }
+
+    /// Champs de X-6e (ouverture) actifs : seuls eux entrent dans `Hash` et `Debug`.
+    fn opening_active(&self) -> bool {
+        self.opening.is_some() || self.opening_shooting
     }
 }
 
@@ -785,6 +807,14 @@ impl std::hash::Hash for BehaviorRuntime {
             self.cover_pending.hash(state);
             self.cover_shooting.hash(state);
         }
+        if self.order_active() {
+            self.order.hash(state);
+            self.order_ready_at.hash(state);
+        }
+        if self.opening_active() {
+            self.opening.hash(state);
+            self.opening_shooting.hash(state);
+        }
     }
 }
 
@@ -810,6 +840,14 @@ impl std::fmt::Debug for BehaviorRuntime {
             dump.field("cover", &self.cover)
                 .field("cover_pending", &self.cover_pending)
                 .field("cover_shooting", &self.cover_shooting);
+        }
+        if self.order_active() {
+            dump.field("order", &self.order)
+                .field("order_ready_at", &self.order_ready_at);
+        }
+        if self.opening_active() {
+            dump.field("opening", &self.opening)
+                .field("opening_shooting", &self.opening_shooting);
         }
         dump.finish()
     }

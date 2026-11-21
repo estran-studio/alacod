@@ -64,6 +64,14 @@ pub struct Phase {
     pub on_enter: Vec<Action>,
     #[serde(default)]
     pub timeline: Option<Timeline>,
+    /// X-6e (§127) : geste de transition à l'entrée dans la phase, en frames (0 : aucun). Pendant ce geste le boss ne retient
+    /// aucune règle, ne bouge pas et n'attaque pas ; la séquence de tir en cours est perdue. Sans effet sur la phase 0 au
+    /// premier tick (seulement à un vrai passage de phase).
+    #[serde(default)]
+    pub transition: u32,
+    /// X-6e : arme (nom dans l'inventaire du boss) lâchée au sol à l'entrée dans la phase (l'arme de la phase précédente).
+    #[serde(default)]
+    pub drop_weapon: Option<String>,
 }
 
 /// Définition d'un boss : phases dans l'ordre (la première est active à l'apparition).
@@ -106,6 +114,18 @@ pub struct BossDefeated {
 }
 
 impl BossDef {
+    /// X-6e (§127) : le boss est-il dans le geste de transition de sa phase courante à la frame `now` ? `Some((écoulées,
+    /// durée))` pendant les `transition` frames qui suivent un passage de phase (jamais pour la phase 0 : elle n'est pas
+    /// « passée », elle commence). Pur, dérivé de [`BossState`] (aucun état de plus à rollbacker).
+    pub fn transition_at(&self, state: &BossState, now: u32) -> Option<(u32, u32)> {
+        if !state.started || state.phase == 0 {
+            return None;
+        }
+        let total = self.phases.get(state.phase as usize)?.transition;
+        let elapsed = now.saturating_sub(state.entered);
+        (elapsed < total).then_some((elapsed, total))
+    }
+
     /// La définition joue-t-elle une règle `Shoot` dans une phase (M2-T7 : tir par phase) ?
     pub fn phase_shoots(&self) -> impl Iterator<Item = &crate::Behavior> {
         self.phases
@@ -170,6 +190,29 @@ mod tests {
         // dernière phase : jamais de suite
         state.phase = 2;
         assert_eq!(def.next_phase(&state, fx(0.0), 10_000), None);
+    }
+
+    /// X-6e : le geste de transition couvre les `transition` frames qui suivent un passage de phase, jamais la phase 0.
+    #[test]
+    fn geste_de_transition() {
+        let def: BossDef = ron::from_str(
+            r#"(phases: [(until: Some(HealthBelow("0.5")), transition: 30), (transition: 40, drop_weapon: Some("cone"))])"#,
+        )
+        .unwrap();
+        assert_eq!(def.phases[1].drop_weapon.as_deref(), Some("cone"));
+        let mut state = BossState {
+            phase: 0,
+            entered: 10,
+            started: true,
+        };
+        assert_eq!(def.transition_at(&state, 12), None, "phase 0 : jamais");
+        state.phase = 1;
+        state.entered = 100;
+        assert_eq!(def.transition_at(&state, 100), Some((0, 40)));
+        assert_eq!(def.transition_at(&state, 139), Some((39, 40)));
+        assert_eq!(def.transition_at(&state, 140), None);
+        state.started = false;
+        assert_eq!(def.transition_at(&state, 100), None);
     }
 
     #[test]

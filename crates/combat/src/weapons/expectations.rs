@@ -795,6 +795,14 @@ pub enum Expectation {
         max_deg: f32,
         at_frame: u32,
     },
+    /// X-6e (§127) : l'ennemi `entity` porte (`carried: true`) ou ne porte plus (`false`) l'arme `weapon` (nom de l'arme
+    /// dans son `WeaponInventory`) à `at_frame` : l'arme d'une phase lâchée au passage de phase, celle de la phase suivante en main.
+    EnemyWeapon {
+        entity: EntityRef,
+        weapon: String,
+        carried: bool,
+        at_frame: u32,
+    },
 }
 
 /// Cible d'une distance (`EnemyDistance`).
@@ -852,6 +860,7 @@ impl Expectation {
             | Self::ClipSpeed { at_frame, .. }
             | Self::ModelYaw { at_frame, .. }
             | Self::TelegraphAim { at_frame, .. }
+            | Self::EnemyWeapon { at_frame, .. }
             | Self::EnemyVariant { at_frame, .. }
             | Self::Clock { at_frame, .. }
             | Self::RunState { at_frame, .. }

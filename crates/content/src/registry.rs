@@ -546,6 +546,23 @@ pub enum BehaviorEntry {
         #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
         max_frames: Option<u32>,
     },
+    /// X-6e (§127) : mirroir de `behaviors::Behavior::Command` (le chef ordonne une salve à l'escouade `squad` : télégraphe
+    /// de `telegraph` frames, au plus un ordre toutes les `period` frames ; les membres ne tirent qu'à l'ordre).
+    Command {
+        /// Escouade commandée (`ai.squad` de ses membres).
+        squad: String,
+        /// Frames du télégraphe de l'ordre (le chef immobile, sans tirer).
+        #[schemars(extend("x-lint" = "> 0"))]
+        telegraph: u32,
+        /// Frames entre deux ordres (de la fin d'un ordre au début du suivant).
+        #[schemars(extend("x-lint" = "> 0"))]
+        period: u32,
+    },
+    /// X-6e (§127) : mirroir de `behaviors::Behavior::Opening` (après une salve, immobile et sans attaque `frames` frames).
+    Opening {
+        #[schemars(extend("x-lint" = "> 0"))]
+        frames: u32,
+    },
 }
 
 /// X-6b : mirroir de `behaviors::Zigzag`.
@@ -601,6 +618,12 @@ pub struct PhaseEntry {
     pub on_enter: Vec<effects::Action>,
     #[serde(default)]
     pub timeline: Option<TimelineEntry>,
+    /// X-6e (§127) : geste de transition à l'entrée dans la phase (frames ; immobile, sans attaque).
+    #[serde(default)]
+    pub transition: u32,
+    /// X-6e : arme lâchée au sol à l'entrée dans la phase (celle d'un `Shoot` d'une phase précédente).
+    #[serde(default)]
+    pub drop_weapon: Option<String>,
 }
 
 #[derive(schemars::JsonSchema, Debug, Clone, Default, Deserialize)]

@@ -10,6 +10,7 @@
 //!
 //! Rien ici n'est rollbacké ni écrit dans la simulation.
 
+use behaviors::{Behavior, BossState};
 use bevy::prelude::*;
 use bevy_fixed::fixed_math::FixedTransform3D;
 use combat::{
@@ -26,7 +27,9 @@ use super::{
     pose::{self, Fades, PoseChoice, PoseInput, Timing},
     shooter,
 };
+use crate::boss::BossPlan;
 use crate::character::config::{CharacterConfigKey, CharacterConfigs};
+use crate::character::enemy::ai::state::{BehaviorRuntime, EnemyBehaviors};
 use crate::character::enemy::ai::{cycle::RangedCycle, state::RangedAttackState, EnemyAiConfig};
 
 /// Fréquence de la simulation : les frames lues dans l'état deviennent des secondes.
@@ -229,6 +232,25 @@ type Posted<'a> = (
     Option<&'a RangedCycle>,
 );
 
+/// Ce que `decide_poses` lit d'un chef ou d'un boss (X-6e) : plan et état de phase, état des règles, règles.
+type Staged<'a> = (
+    Option<&'a BossPlan>,
+    Option<&'a BossState>,
+    Option<&'a BehaviorRuntime>,
+    Option<&'a EnemyBehaviors>,
+);
+
+/// Avancement d'un geste de `total` frames, `elapsed` frames après son début : dans [0, 1], jamais divisé par zéro.
+fn progress(elapsed: u32, total: u32) -> f32 {
+    (elapsed as f32 / total.max(1) as f32).min(1.0)
+}
+
+/// Avancement du geste d'un ordre : étiré sur son télégraphe `[until - telegraph, until)`.
+fn order_progress(frame: u32, until: u32, telegraph: u32) -> f32 {
+    let begin = until.saturating_sub(telegraph);
+    progress(frame.saturating_sub(begin), telegraph)
+}
+
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn decide_poses(
     time: Res<Time>,
@@ -247,6 +269,8 @@ pub fn decide_poses(
         Option<&CursorPosition>,
         // Tireur posté (P-1d) : son geste vient de sa séquence d'émetteur et de son refroidissement.
         Posted<'_>,
+        // X-6e : boss (plan et état de phase), règles et état d'un chef.
+        Staged<'_>,
     )>,
     weapons: Query<(&Weapon, &WeaponState, &Transform)>,
     melee: Query<&MeleeWeapon>,
@@ -259,8 +283,18 @@ pub fn decide_poses(
     let u = table.def.units_per_meter;
     let (_, sin_e) = elevation(table);
 
-    for (mut playback, transform, dash, inventory, melee_state, facing, children, cursor, posted) in
-        &mut characters
+    for (
+        mut playback,
+        transform,
+        dash,
+        inventory,
+        melee_state,
+        facing,
+        children,
+        cursor,
+        posted,
+        staged,
+    ) in &mut characters
     {
         let state = &mut *playback;
         let Some((model, manifest)) = table.get(&state.model) else {
@@ -306,18 +340,30 @@ pub fn decide_poses(
         let aim = active.map(|(_, _, t)| (t.rotation * Vec3::X).truncate());
 
         // Un tireur posté (fantassin) n'a ni détente ni chargeur : ses gestes se lisent dans sa séquence et
-        // son refroidissement (P-1d, `shooter::read`).
-        let shot = match posted {
-            (emitter, Some(ranged), Some(ai), cycle) => ai.ranged.as_ref().map(|r| {
-                let stagger = ai.ranged_cycle.as_ref().and_then(|c| c.stagger_frames);
-                shooter::read(
+        // son refroidissement (P-1d, `shooter::read`). X-6e : un boss tireur joue l'arme de sa phase courante
+        // (`EnemyBehaviors::phase_shoot`), comme `enemy_attack_system`.
+        let (emitter, ranged_state, ai, cycle) = posted;
+        let (boss_plan, boss_state, runtime, behaviors) = staged;
+        let phase = boss_state.map_or(0, |b| b.phase);
+        let phase_ranged = boss_state
+            .zip(behaviors)
+            .and_then(|(boss, rules)| rules.phase_shoot(boss.phase));
+        let ranged_cfg = phase_ranged
+            .as_ref()
+            .or_else(|| ai.and_then(|ai| ai.ranged.as_ref()));
+        let shot = match (ranged_state, ranged_cfg) {
+            (Some(ranged), Some(r)) => {
+                let stagger = ai
+                    .and_then(|ai| ai.ranged_cycle.as_ref())
+                    .and_then(|c| c.stagger_frames);
+                Some(shooter::read(
                     f,
                     emitter,
                     ranged,
                     r.cooldown_frames,
                     cycle.map(|c| (c, stagger)),
-                )
-            }),
+                ))
+            }
             _ => None,
         };
 
@@ -418,13 +464,40 @@ pub fn decide_poses(
                 .map(|(done, total)| (done as f32 / total as f32, total as f32 / SIM_HZ));
         }
 
+        // X-6e : transition de phase d'un boss (immobile, aucune attaque), ordre d'un chef (télégraphe de `Command`) et
+        // décharge d'un pattern lié à un clip du modèle.
+        input.transition = boss_plan
+            .zip(boss_state)
+            .and_then(|(plan, boss)| plan.0.transition_at(boss, f))
+            .map(|(elapsed, total)| progress(elapsed, total));
+        input.order = runtime
+            .and_then(|r| r.order)
+            .filter(|until| f < *until)
+            .and_then(|until| {
+                let rules = behaviors?.active(phase);
+                let selected = runtime?.selected.and_then(|i| rules.get(i as usize));
+                let telegraph = [selected]
+                    .into_iter()
+                    .flatten()
+                    .chain(rules)
+                    .find_map(|rule| match rule {
+                        Behavior::Command { telegraph, .. } => Some(*telegraph),
+                        _ => None,
+                    })?;
+                Some(order_progress(f, until, telegraph))
+            });
+        input.discharge = emitter
+            .and_then(|e| {
+                let clip = model.pattern_clips.get(&e.pattern_name)?;
+                Some((clip.clone(), f.saturating_sub(e.started_at + 1) as f32 / SIM_HZ))
+            })
+            .filter(|_| !shot.is_some_and(|s| s.hit.is_some()));
+
         // Les poses de l'arme en main (`models.ron`, `weapons`) : l'arme active d'un joueur, ou l'arme de la règle `Shoot`
         // d'un tireur posté ; le lint `MissingPose` suit la même résolution.
-        let weapon_name = active.map(|(w, _, _)| w.config.name.as_str()).or_else(|| {
-            shot.and(posted.2)
-                .and_then(|ai| ai.ranged.as_ref())
-                .map(|r| r.weapon.as_str())
-        });
+        let weapon_name = active
+            .map(|(w, _, _)| w.config.name.as_str())
+            .or_else(|| shot.and(ranged_cfg).map(|r| r.weapon.as_str()));
         let mut poses = match weapon_name.and_then(|name| model.weapons.get(name)) {
             Some(p) => p.over(&model.poses),
             None => model.poses.clone(),
@@ -472,6 +545,16 @@ pub fn decide_poses(
                 state.held = since >= total * 0.999;
                 input.since_shot = Some(since.min(total * 0.999));
             }
+        }
+        // X-6e : la décharge d'un pattern lié joue son clip **une fois** depuis le premier pas de l'émetteur et tient sa
+        // dernière image tant que l'émetteur dure (`held`). Alignement : la première étape de l'émetteur joue la frame qui
+        // suit sa pose (`started_at + 1`, comme `shooter::read`) et le tir `n` du pattern part à `started_at + 1 + departs[n]`
+        // (`moments.<clip>.departs`, images à 60 Hz depuis le début du clip) : au temps `(frame - started_at - 1) / 60` s, le
+        // clip est donc à l'image de son départ quand le tir part.
+        if let Some((clip, elapsed)) = &input.discharge {
+            state.held = manifest
+                .duration(clip)
+                .is_some_and(|total| *elapsed >= total * 0.999);
         }
         let choice = pose::choose(model, &poses, manifest, &input);
         state.object = choice.as_ref().and_then(|c| c.object.clone());
@@ -559,6 +642,18 @@ pub fn sim_activity(world: &World, entity: Entity, frame: u32) -> Option<&'stati
     {
         return Some("coup de mêlée");
     }
+    // X-6e : la transition d'un boss et l'ordre d'un chef sont des états à part entière (un clip d'attente y serait un défaut).
+    if let (Some(plan), Some(state)) = (entity.get::<BossPlan>(), entity.get::<BossState>()) {
+        if plan.0.transition_at(state, frame).is_some() {
+            return Some("transition de phase");
+        }
+    }
+    if entity
+        .get::<BehaviorRuntime>()
+        .is_some_and(|r| r.order.is_some_and(|until| frame < until))
+    {
+        return Some("ordre à l'escouade");
+    }
     if let Some(ranged) = entity.get::<RangedAttackState>() {
         let stagger = entity
             .get::<RangedCycle>()
@@ -601,6 +696,26 @@ pub fn sim_activity(world: &World, entity: Entity, frame: u32) -> Option<&'stati
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Avancement d'un geste de `total` frames dont on est à `elapsed` frames : borné à [0, 1], jamais divisé par zéro.
+    #[test]
+    fn a_gesture_progress_is_clamped_and_never_divides_by_zero() {
+        assert_eq!(progress(0, 60), 0.0);
+        assert_eq!(progress(15, 60), 0.25);
+        assert_eq!(progress(90, 60), 1.0);
+        assert_eq!(progress(3, 0), 1.0);
+    }
+
+    /// Le télégraphe d'un ordre est `[until - telegraph, until)` : le geste y est étiré, de 0 à presque 1.
+    #[test]
+    fn an_order_is_stretched_over_its_telegraph() {
+        let (until, telegraph) = (200, 40);
+        assert_eq!(order_progress(160, until, telegraph), 0.0);
+        assert_eq!(order_progress(180, until, telegraph), 0.5);
+        assert!(order_progress(199, until, telegraph) < 1.0);
+        // Un `until` plus tôt que la durée (début avant la frame 0) ne déborde pas.
+        assert_eq!(order_progress(10, 20, 40), 0.5);
+    }
 
     /// Le joueur (à curseur) garde l'ordre d'avant, validé : l'esquive, la visée, la marche, le regard. Un
     /// ennemi garde le regard de la simulation (sa cible) même s'il recule ou revient à son poste.

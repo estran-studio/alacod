@@ -499,6 +499,8 @@ pub fn enemy_attack_system(
             Option<&behaviors::BossState>,
             // Suivi Q12 : équipe (un charmé ne vise que les `Enemies`).
             &Team,
+            // X-6e : définition du boss (geste de transition : aucune attaque).
+            Option<&crate::boss::BossPlan>,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -519,6 +521,8 @@ pub fn enemy_attack_system(
         (With<Rollback>, Without<Enemy>, Without<Player>),
     >,
     mut obstacle_events: ResMut<FrameEvents<ObstacleAttackEvent>>,
+    // X-6e : un membre d'une escouade commandée ne commence sa séquence qu'à l'ordre de son chef.
+    squad_orders: Res<super::squad::SquadOrders>,
 ) {
     // Suivi Q12 : cibles possibles des ennemis charmés (vivants, non charmés), seulement si l'un
     // d'eux est charmé : aucun calcul ni allocation sinon.
@@ -554,9 +558,17 @@ pub fn enemy_attack_system(
         statuses,
         boss,
         _team,
+        boss_plan,
     ) in order_mut_iter!(enemy_query)
     {
         if combat::status::incapacitated(statuses) {
+            continue;
+        }
+        // X-6e : pendant le geste de transition d'une phase de boss, ni tir ni corps à corps.
+        if boss_plan
+            .zip(boss)
+            .is_some_and(|(plan, state)| plan.0.transition_at(state, frame.frame).is_some())
+        {
             continue;
         }
         let enemy_pos = enemy_transform.translation.truncate();
@@ -618,6 +630,7 @@ pub fn enemy_attack_system(
                     position: enemy_pos,
                     has_emitter,
                     inventory,
+                    may_start: squad_orders.may_start(enemy_net_id.0),
                 },
                 ranged,
                 target,
@@ -782,6 +795,9 @@ pub struct RangedShooter<'a> {
     /// Un `combat::emitter::Emitter` est posé (séquence en cours, pas encore finie).
     pub has_emitter: bool,
     pub inventory: Option<&'a WeaponInventory>,
+    /// X-6e (§127) : une nouvelle séquence peut commencer cette frame (faux pour un membre d'une escouade commandée hors de
+    /// la frame de l'ordre de son chef) ; une séquence en cours n'est jamais coupée.
+    pub may_start: bool,
 }
 
 /// Tir à distance d'un ennemi (T1.2, `docs/conventions.md` §20). Rend `true` si l'ennemi est
@@ -848,6 +864,7 @@ pub fn ranged_attack(
     }
 
     if frame < ranged_state.ready_at
+        || !shooter.may_start
         || target.target_type != TargetType::Player
         || !matches!(*state, MonsterState::Idle | MonsterState::Chasing)
     {

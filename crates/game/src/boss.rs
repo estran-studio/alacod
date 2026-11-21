@@ -71,6 +71,9 @@ pub fn boss_phase_system(
     assets: EffectAssets,
     mut changed: ResMut<FrameEvents<BossPhaseChanged>>,
     mut reinforcements: ResMut<FrameEvents<ReinforcementRequest>>,
+    // X-6e : arme lâchée au sol au passage de phase (`Phase::drop_weapon`).
+    weapon_registry: Res<crate::weapons::WeaponRegistry>,
+    mut id_factory: ResMut<utils::net_id::GgrsNetIdFactory>,
     mut bosses: Query<
         (
             &GgrsNetId,
@@ -82,6 +85,7 @@ pub fn boss_phase_system(
             &FixedTransform3D,
             Has<Emitter>,
             Has<Death>,
+            Option<&mut crate::weapons::WeaponInventory>,
         ),
         // M2-T7 : un boss d'une salle dormante attend l'entrée du joueur (phase 0 non datée).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -98,6 +102,7 @@ pub fn boss_phase_system(
         transform,
         has_emitter,
         dead,
+        mut inventory,
     ) in order_mut_iter!(bosses)
     {
         let def = &plan.0;
@@ -136,6 +141,54 @@ pub fn boss_phase_system(
         let Some(phase) = def.phases.get(state.phase as usize) else {
             continue;
         };
+        // X-6e (§127) : vrai passage de phase (jamais la phase 0 au premier tick).
+        if entered && state.phase > 0 {
+            // Geste de transition : la séquence de tir en cours est perdue.
+            if phase.transition > 0 && has_emitter {
+                commands.entity(entity).remove::<Emitter>();
+                info!(
+                    "ggrs{{f={} boss_transition net_id={} emitter=removed}}",
+                    now, net_id.0
+                );
+            }
+            // L'arme de la phase précédente tombe au sol (même chemin que le lâcher d'un joueur).
+            if let (Some(name), Some(inventory)) = (&phase.drop_weapon, inventory.as_deref_mut())
+            {
+                if let Some(index) = inventory
+                    .weapons
+                    .iter()
+                    .position(|(_, weapon)| weapon.config.name == *name)
+                {
+                    use bevy_ggrs::RollbackDespawnCommandExtension;
+                    let (weapon_entity, weapon) = inventory.weapons.remove(index);
+                    commands.entity(weapon_entity).despawn_rollback();
+                    inventory.active_weapon_index = inventory
+                        .active_weapon_index
+                        .min(inventory.weapons.len().saturating_sub(1));
+                    let mag_ammo = weapon_registry
+                        .weapons
+                        .get(name)
+                        .map_or(0, combat::weapons::default_mode_capacity);
+                    combat::weapons::spawn_weapon_pickup(
+                        &mut commands,
+                        weapon,
+                        mag_ammo,
+                        transform.translation,
+                        None,
+                        &mut id_factory,
+                    );
+                    info!(
+                        "ggrs{{f={} boss_drop_weapon net_id={} weapon={}}}",
+                        now, net_id.0, name
+                    );
+                } else {
+                    warn!(
+                        "boss {} : arme « {} » à lâcher absente de son inventaire (voir `alacod lint`)",
+                        net_id.0, name
+                    );
+                }
+            }
+        }
         let position = transform.translation.truncate();
         let phase_index = state.phase as usize;
         let mut effect_state = EffectState::default();

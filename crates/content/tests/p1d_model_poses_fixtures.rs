@@ -67,3 +67,27 @@ fn a_shooter_whose_gestures_are_on_its_weapon_is_accepted() {
         Vec::<String>::new()
     );
 }
+
+/// X-6e rouge : un chef à règle `Command` réclame la pose `order`, un boss à `transition > 0` la pose `transition`.
+#[test]
+fn a_chief_without_order_and_transition_poses_is_refused() {
+    let missing = missing_poses("model_poses_chef_missing");
+    for field in ["order", "transition"] {
+        assert!(
+            missing
+                .iter()
+                .any(|m| m.contains(&format!("poses.{field}`"))),
+            "pose `{field}` non réclamée : {missing:#?}"
+        );
+    }
+    assert_eq!(missing.len(), 2, "{missing:#?}");
+}
+
+/// X-6e vert : l'ordre et la transition ont leur geste.
+#[test]
+fn a_chief_with_order_and_transition_poses_is_accepted() {
+    assert_eq!(
+        unexpected_errors("model_poses_chef_complete"),
+        Vec::<String>::new()
+    );
+}

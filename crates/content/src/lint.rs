@@ -75,6 +75,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_html_screens(registry, &mut errors);
     lint_sprite_sheets(registry, &mut errors);
     lint_models(registry, &mut errors);
+    lint_pattern_departs(registry, &mut errors);
     lint_model_states(registry, &mut errors);
     lint_floors(registry, &mut errors);
     lint_caves(registry, &mut errors);
@@ -97,6 +98,7 @@ pub fn run(registry: &Registry, manifest: &GameManifest) -> Vec<LintError> {
     lint_curses(registry, &mut errors);
     lint_achievements(registry, &mut errors);
     lint_familiars(registry, &mut errors);
+    lint_commands(registry, &mut errors);
     lint_hub_services(registry, &mut errors);
     lint_entry_progression(registry, manifest, &mut errors);
     lint_forced_variants(registry, &mut errors);
@@ -1640,6 +1642,57 @@ fn lint_models(registry: &Registry, errors: &mut Vec<LintError>) {
     }
 }
 
+/// X-6e : le pattern lié à un clip (`pattern_clips`) existe et a **autant d'étapes de tir** que le clip a de `departs`
+/// (une étape de tir = une étape du pattern aplati qui n'est ni `Wait` ni `Telegraph`, comme les `Beat::Shot` de
+/// `lint_model_states`). Un clip sans `departs` n'est pas jugé (aucun départ dérivé).
+fn lint_pattern_departs(registry: &Registry, errors: &mut Vec<LintError>) {
+    let Some(table) = &registry.models else {
+        return;
+    };
+    let file = table.file.display().to_string();
+    for binding in table.pattern_bindings() {
+        let found = registry
+            .patterns
+            .get(&registry::PatternId::from(binding.pattern.clone()));
+        let mut push = |kind: LintErrorKind, message: String| {
+            errors.push(LintError {
+                kind,
+                file: file.clone(),
+                message,
+            });
+        };
+        let Some(found) = found else {
+            push(
+                LintErrorKind::BrokenReference,
+                format!(
+                    "modèle « {} » : pattern_clips.{} : pattern inconnu (kind Pattern)",
+                    binding.model, binding.pattern
+                ),
+            );
+            continue;
+        };
+        if binding.departs.is_empty() {
+            continue;
+        }
+        let mut beats = Vec::new();
+        pattern_beats(&found.pattern, &registry.patterns, 0, &mut beats);
+        let shots = beats.iter().filter(|b| matches!(b, Beat::Shot)).count();
+        if shots != binding.departs.len() {
+            push(
+                LintErrorKind::OutOfRange,
+                format!(
+                    "modèle « {} » : pattern_clips.{} = « {} » : le clip donne {} départ(s) de tir (moments.{}.departs) mais le pattern a {shots} étape(s) de tir",
+                    binding.model,
+                    binding.pattern,
+                    binding.clip,
+                    binding.departs.len(),
+                    binding.clip
+                ),
+            );
+        }
+    }
+}
+
 /// Un temps d'une séquence de tir, tel que la présentation le joue (`game::model3d::shooter`).
 enum Beat {
     Wait(u32),
@@ -1702,6 +1755,26 @@ fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
         }
         if entry.dash.declared && entry.dash.duration_frames > 0 && model.dash.is_empty() {
             missing("esquive", "dash");
+        }
+        // X-6e : un chef (règle `Command`, de base ou d'une phase de boss) joue le geste de son ordre ; un boss dont une
+        // phase a un geste de transition (`transition > 0`) joue le sien. Résolution comme `idle` : le modèle, ou chaque arme.
+        let on_every_weapon = |has: fn(&crate::models::Poses) -> bool| {
+            has(&model.poses) || (!model.weapons.is_empty() && model.weapons.values().all(has))
+        };
+        let phases = entry.boss.iter().flat_map(|boss| boss.phases.iter());
+        let commands = entry
+            .behaviors
+            .iter()
+            .flatten()
+            .chain(phases.clone().flat_map(|phase| phase.behaviors.iter()))
+            .any(|rule| matches!(rule, registry::BehaviorEntry::Command { .. }));
+        if commands && !on_every_weapon(|p| p.order.is_some()) {
+            missing("ordre à l'escouade (règle Command)", "order");
+        }
+        if phases.clone().any(|phase| phase.transition > 0)
+            && !on_every_weapon(|p| p.transition.is_some())
+        {
+            missing("transition de phase (Phase::transition)", "transition");
         }
         let Some(rule) = entry.behaviors.iter().flatten().find_map(|b| match b {
             registry::BehaviorEntry::Shoot {
@@ -3574,6 +3647,29 @@ fn lint_boss(
         lint_rules(registry, &phase.behaviors, &mut |kind, message| {
             push(kind, format!("{at}.{message}"))
         });
+        // X-6e (§127) : le geste de transition et l'arme lâchée n'ont de sens qu'à un vrai passage de phase ; l'arme lâchée
+        // est celle d'un `Shoot` d'une phase précédente (seules ces armes sont dans l'inventaire du boss).
+        if index == 0 && (phase.transition > 0 || phase.drop_weapon.is_some()) {
+            push(
+                LintErrorKind::OutOfRange,
+                format!("{at} : transition / drop_weapon sur la phase 0 : jamais joués (la phase 0 commence, elle n'est pas passée)"),
+            );
+        }
+        if let Some(weapon) = &phase.drop_weapon {
+            let earlier = boss.phases[..index].iter().any(|before| {
+                before.behaviors.iter().any(|rule| {
+                    matches!(rule, registry::BehaviorEntry::Shoot { weapon: w, .. } if w == weapon)
+                })
+            }) || character.behaviors.iter().flatten().any(|rule| {
+                matches!(rule, registry::BehaviorEntry::Shoot { weapon: w, .. } if w == weapon)
+            });
+            if !earlier {
+                push(
+                    LintErrorKind::BrokenReference,
+                    format!("{at} : drop_weapon « {weapon} » : aucune règle Shoot d'une phase précédente ne porte cette arme"),
+                );
+            }
+        }
         let mut actions: Vec<&effects::Action> = phase.on_enter.iter().collect();
         // M2-T7 : un `Telegraph` précède un `SpawnPattern` de la même liste.
         let mut lists: Vec<&[effects::Action]> = vec![&phase.on_enter];
@@ -3868,7 +3964,10 @@ fn lint_rules(
             }
             // X-6b (§119) : le retour ne se déclenche qu'après une charge ou un coup de mêlée.
             BehaviorEntry::ReturnHome {
-                speed, max_frames, ..
+                speed,
+                max_frames,
+                guard,
+                ..
             } => {
                 if speed.is_some_and(|speed| speed.get() <= Fixed::ZERO) {
                     push(
@@ -3883,9 +3982,13 @@ fn lint_rules(
                             .to_string(),
                     );
                 }
-                if !rules.iter().any(|rule| {
-                    matches!(rule, BehaviorEntry::Charge { .. } | BehaviorEntry::Melee(_))
-                }) {
+                // X-6e (§127) : une garde (`guard: true`) a un sens seule (l'ennemi tient son poste quand aucune règle ne
+                // s'applique, ex. un chef qui commande sans jamais charger).
+                if !*guard
+                    && !rules.iter().any(|rule| {
+                        matches!(rule, BehaviorEntry::Charge { .. } | BehaviorEntry::Melee(_))
+                    })
+                {
                     push(
                         LintErrorKind::OutOfRange,
                         "behaviors : ReturnHome sans Charge ni Melee dans la même liste : rien ne le déclenche"
@@ -4032,6 +4135,74 @@ fn lint_rules(
                 }
             }
             BehaviorEntry::BlockBullets => {}
+            // X-6e (§127) : un ordre sans télégraphe ne serait jamais vu par les membres (l'ordre tombe à la fin du
+            // télégraphe, lue en début de frame) ; l'escouade est vérifiée par `lint_commands` (elle voit tous les personnages).
+            BehaviorEntry::Command {
+                squad,
+                telegraph,
+                period,
+            } => {
+                if squad.is_empty() {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Command : squad vide".to_string(),
+                    );
+                }
+                if *telegraph == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Command : telegraph = 0 : doit être > 0".to_string(),
+                    );
+                }
+                if *period == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Command : period = 0 : doit être > 0".to_string(),
+                    );
+                }
+            }
+            // X-6e (§127) : l'ouverture suit la fin d'une salve ; elle doit précéder toute règle qui s'applique déjà quand
+            // elle doit prendre la main (seul `Flee` peut la précéder).
+            BehaviorEntry::Opening { frames } => {
+                if *frames == 0 {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Opening : frames = 0 : doit être > 0".to_string(),
+                    );
+                }
+                if !rules
+                    .iter()
+                    .any(|rule| matches!(rule, BehaviorEntry::Shoot { .. }))
+                {
+                    push(
+                        LintErrorKind::OutOfRange,
+                        "behaviors : Opening sans Shoot dans la même liste : rien ne la déclenche"
+                            .to_string(),
+                    );
+                }
+                if let Some(first) = rules
+                    .iter()
+                    .position(|rule| matches!(rule, BehaviorEntry::Opening { .. }))
+                {
+                    let before: Vec<String> = rules[..first]
+                        .iter()
+                        .filter(|rule| !matches!(rule, BehaviorEntry::Flee))
+                        .map(|rule| {
+                            let text = format!("{rule:?}");
+                            text.split(['(', ' ', '{']).next().unwrap_or("").to_string()
+                        })
+                        .collect();
+                    if !before.is_empty() {
+                        push(
+                            LintErrorKind::OutOfRange,
+                            format!(
+                                "behaviors : Opening après {} : une règle qui la précède et s'applique la prive de l'ouverture ; la placer en tête de liste (seul Flee peut la précéder)",
+                                before.join(", ")
+                            ),
+                        );
+                    }
+                }
+            }
         }
     }
 }
@@ -4116,6 +4287,36 @@ fn lint_familiars(registry: &Registry, errors: &mut Vec<LintError>) {
 /// M2-T8 (§49) : une formation a un rayon > 0, une ouverture dans ]0, 2π], une période > 0
 /// (hors `volley`), une escouade (`ai.squad`) et un moyen d'agir (`Shoot` ou `Chase` dans la
 /// liste) ; sinon elle ne fait rien.
+/// X-6e (`docs/conventions.md` §127) : l'escouade d'un `Command` (règles de base ou d'une phase de boss) doit être celle
+/// (`ai.squad`) d'au moins un **autre** personnage du jeu : sinon le chef n'a personne à commander et ne donne jamais d'ordre.
+fn lint_commands(registry: &Registry, errors: &mut Vec<LintError>) {
+    for character in registry.characters.values() {
+        let rules = character
+            .behaviors
+            .iter()
+            .flatten()
+            .chain(character.boss.iter().flat_map(|boss| boss.phases.iter().flat_map(|p| p.behaviors.iter())));
+        for rule in rules {
+            let registry::BehaviorEntry::Command { squad, .. } = rule else {
+                continue;
+            };
+            let has_members = registry.characters.values().any(|other| {
+                other.id != character.id && other.squad.as_deref() == Some(squad.as_str())
+            });
+            if !has_members {
+                errors.push(LintError {
+                    kind: LintErrorKind::BrokenReference,
+                    file: character.file.display().to_string(),
+                    message: format!(
+                        "personnage « {} » : behaviors : Command : aucun autre personnage n'a ai.squad « {squad} » (personne à commander)",
+                        character.id
+                    ),
+                });
+            }
+        }
+    }
+}
+
 fn lint_formation(character: &registry::CharacterEntry, errors: &mut Vec<LintError>) {
     use registry::{BehaviorEntry, FormationShapeEntry};
     let Some(rules) = &character.behaviors else {

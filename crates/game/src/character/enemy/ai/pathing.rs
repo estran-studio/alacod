@@ -220,6 +220,8 @@ pub fn move_enemies(
                 Option<&combat::status::Statuses>,
                 // M2-T0c : phase courante d'un boss.
                 Option<&behaviors::BossState>,
+                // X-6e : définition du boss (geste de transition : immobile).
+                Option<&crate::boss::BossPlan>,
             ),
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
@@ -341,14 +343,22 @@ pub fn move_enemies(
         enemy_target_opt,
         ai_config,
         wave_enemy,
-        (emitting, behavior_runtime, enemy_behaviors, statuses, boss),
+        (emitting, behavior_runtime, enemy_behaviors, statuses, boss, boss_plan),
     ) in order_mut_iter!(enemy_query)
     {
         // T2.9 (testbed) : un ennemi stationnaire (`dummy`/`target`/`ally`/`civilian`)
         // ignore la flow field et ne bouge jamais, quelle que soit sa cible. `false` par
         // défaut : aucun ennemi zombie existant n'est concerné. T1.2 : idem pendant un tir
         // à distance (télégraphe compris) ; aucun ennemi existant ne tire.
-        if ai_config.stationary || emitting || combat::status::incapacitated(statuses) {
+        // X-6e : immobile aussi pendant le geste de transition d'une phase de boss.
+        let in_transition = boss_plan
+            .zip(boss)
+            .is_some_and(|(plan, state)| plan.0.transition_at(state, frame.frame).is_some());
+        if ai_config.stationary
+            || emitting
+            || combat::status::incapacitated(statuses)
+            || in_transition
+        {
             velocity_component.main = fixed_math::FixedVec2::ZERO;
             continue;
         }

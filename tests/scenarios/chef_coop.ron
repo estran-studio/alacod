@@ -1,0 +1,22 @@
+// X-6e (testbed, docs/conventions.md §127) : coop. Deux joueurs (handles 0 et 1) face au `chef` et à ses trois soldats : les
+// soldats tirent toujours ensemble à l'ordre (chacun sur le joueur le plus proche), le runner joue en synctest (rollbacks).
+//
+// À regarder : la salve part d'un bloc, sur les deux joueurs.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 300,
+    characters: [
+        (character: "chef", x: "600.0", y: "696.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "672.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "696.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "720.0", at_frame: 1),
+    ],
+    players: [(inputs: []), (inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(0), behavior: "Command", at_frame: 10),
+        BulletCount(count: 0, projectile: Some("arrow"), at_frame: 31),
+        BulletCount(count: 3, projectile: Some("arrow"), at_frame: 33),
+    ],
+)

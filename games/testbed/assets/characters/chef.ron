@@ -1,0 +1,84 @@
+// Personnage de laboratoire X-6e (testbed, docs/conventions.md §127) : chef en deux phases (boss à deux phases, noms et valeurs
+// neutres ; le contenu d'un jeu pose les siens dans son dépôt).
+// Phase 0 (jusqu'à la moitié de sa vie, `HealthBelow("0.5")`) : il garde son poste (`ReturnHome(guard)`), ordonne une salve à
+// l'escouade `garde` toutes les 120 frames (`Command` : télégraphe de l'ordre 30 frames, les soldats tirent ensemble à la fin)
+// et tire lui-même sa mitraille en cône (`chef_cone`, `mitraille`) ; aucun renfort.
+// Phase 1 (enragé) : geste de transition de 40 frames (immobile, aucune attaque, `transition`), lâche `chef_cone` au sol
+// (`drop_weapon`), puis : ruée (`Charge`), coup au contact (`attack_damage`), décharge à courte portée (`chef_paire`, `decharge`,
+// tirs calés sur les départs du clip), ouverture de 45 frames après la décharge (`Opening` : immobile, sans attaque), poursuite ;
+// deux renforts `soldat_ordre` 120 frames après l'entrée en phase, puis toutes les 240 frames.
+// Dessiné par le modèle `chef_pantin` (`models/models.ron` : poses `order`, `transition`, armes `chef_cone` et `chef_paire`).
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "60.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "chef_pantin",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "120.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("500.0"),
+        attack_range: Some("30.0"),
+        attack_cooldown_frames: Some(90),
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: Some("10.0"),
+    )),
+
+    boss: Some((
+        phases: [
+            (
+                until: Some(HealthBelow("0.5")),
+                behaviors: [
+                    ReturnHome(wait: 0, guard: true),
+                    Command(squad: "garde", telegraph: 30, period: 120),
+                    Shoot(weapon: "chef_cone", pattern: "mitraille", range: "200.0", cooldown_frames: 90),
+                ],
+            ),
+            (
+                transition: 40,
+                drop_weapon: Some("chef_cone"),
+                behaviors: [
+                    Opening(frames: 45),
+                    Shoot(weapon: "chef_paire", pattern: "decharge", range: "60.0", cooldown_frames: 60),
+                    Charge(telegraph: 15),
+                    Chase(profile: "Ground"),
+                ],
+                timeline: Some((
+                    events: [(at: 120, do: [SpawnEnemies(id: "soldat_ordre", count: 2)])],
+                    repeat: Some(240),
+                )),
+            ),
+        ],
+    )),
+)

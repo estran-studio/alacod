@@ -120,6 +120,12 @@ pub struct ModelDef {
     /// (le RON prime ; le lint signale l'écart). Sans lien, rien n'est dérivé.
     #[serde(default)]
     pub melee_clips: BTreeMap<String, String>,
+    /// X-6e : pattern de tir de la simulation (clé de `patterns.ron`) -> clip du manifeste qui joue la
+    /// décharge. Le clip démarre à la pose de l'émetteur (`Emitter::started_at`) ; ses
+    /// `moments.<clip>.departs` (fractions du clip, en images entières à 60 Hz) sont les instants des tirs
+    /// du pattern. Sans lien, l'ennemi garde ses poses de tir habituelles.
+    #[serde(default)]
+    pub pattern_clips: BTreeMap<String, String>,
 }
 
 /// Directions du corps d'un modèle (`ModelDef::body_directions`).
@@ -191,6 +197,14 @@ pub struct Poses {
     /// la stupeur (P-1d, banc `armes.js` A:744 : `touche`, fondu 0,04 s).
     #[serde(default)]
     pub hit: Option<Gesture>,
+    /// X-6e : ordre d'un chef à son escouade (règle `Command` retenue, `BehaviorRuntime::order`) : le
+    /// clip joue une fois, étiré sur le télégraphe de l'ordre.
+    #[serde(default)]
+    pub order: Option<Gesture>,
+    /// X-6e : geste de transition d'un boss à l'entrée d'une phase (`Phase::transition`) : le clip joue
+    /// une fois, étiré sur la durée de la transition.
+    #[serde(default)]
+    pub transition: Option<Gesture>,
 }
 
 /// Un geste : son clip à l'arrêt et sa variante en marchant.
@@ -226,10 +240,12 @@ impl Poses {
             reload: self.reload.clone().or_else(|| base.reload.clone()),
             melee: self.melee.clone().or_else(|| base.melee.clone()),
             hit: self.hit.clone().or_else(|| base.hit.clone()),
+            order: self.order.clone().or_else(|| base.order.clone()),
+            transition: self.transition.clone().or_else(|| base.transition.clone()),
         }
     }
 
-    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 6] {
+    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 8] {
         [
             ("shoot", &self.shoot),
             ("aim", &self.aim),
@@ -237,6 +253,8 @@ impl Poses {
             ("reload", &self.reload),
             ("melee", &self.melee),
             ("hit", &self.hit),
+            ("order", &self.order),
+            ("transition", &self.transition),
         ]
     }
 }
@@ -297,6 +315,10 @@ pub struct ManifestMoment {
     /// M-6 : instant où le tir part (fraction du clip). Lu et exposé, non câblé (D206).
     #[serde(rename = "depart", default)]
     pub start: Option<f32>,
+    /// X-6e : instants où partent les tirs d'une décharge (fractions du clip, strictement
+    /// croissantes dans `[0, 1]`) ; un tir par instant, dans l'ordre des étapes de tir du pattern.
+    #[serde(default)]
+    pub departs: Vec<f32>,
     /// M-6 : déplacement du corps pendant le geste (le pas d'une baïonnette). Lu et exposé, non
     /// câblé (D206).
     #[serde(rename = "deplacement", default)]
@@ -327,6 +349,9 @@ pub struct ClipMoments {
     pub strike: Option<(u32, u32)>,
     /// Image où le tir part.
     pub start: Option<u32>,
+    /// Images où partent les tirs d'une décharge (une par tir, croissantes) ; vide si le clip n'en
+    /// donne pas ou si ses fractions sont invalides (le lint les refuse).
+    pub departs: Vec<u32>,
     /// Déplacement du corps : non câblé (D206).
     pub movement: Option<ClipMovement>,
 }
@@ -357,6 +382,11 @@ fn round_frames(x: f64) -> u32 {
 /// `[début, fin]` : deux fractions finies de `[0, 1]`, dans l'ordre.
 fn fraction_range_ok(from: f32, to: f32) -> bool {
     (0.0..=1.0).contains(&from) && (0.0..=1.0).contains(&to) && from <= to
+}
+
+/// `departs` : des fractions finies de `[0, 1]`, strictement croissantes.
+fn departs_ok(departs: &[f32]) -> bool {
+    departs.iter().all(|d| fraction_range_ok(*d, *d)) && departs.windows(2).all(|w| w[0] < w[1])
 }
 
 impl AnimeManifest {
@@ -398,6 +428,11 @@ impl AnimeManifest {
                 .and_then(|m| m.start)
                 .filter(|start| fraction_range_ok(*start, *start))
                 .map(frame_of),
+            departs: moment
+                .map(|m| m.departs.as_slice())
+                .filter(|departs| departs_ok(departs))
+                .map(|departs| departs.iter().copied().map(frame_of).collect())
+                .unwrap_or_default(),
             movement: moment
                 .and_then(|m| m.movement.as_ref())
                 .filter(|m| m.distance.is_finite() && fraction_range_ok(m.start, m.end))
@@ -505,6 +540,44 @@ impl ModelsTable {
         out
     }
 
+    /// Les liens pattern -> clip de tous les modèles (`ModelDef::pattern_clips`), dans l'ordre
+    /// (pattern, modèle). Un clip absent du manifeste n'a pas de lien (le lint le refuse).
+    pub fn pattern_bindings(&self) -> Vec<PatternBinding> {
+        let mut out = Vec::new();
+        for (id, model) in &self.def.models {
+            let Some(Ok(manifest)) = self.manifests.get(id) else {
+                continue;
+            };
+            for (pattern, clip) in &model.pattern_clips {
+                let Some(moments) = manifest.clip_moments(clip) else {
+                    continue;
+                };
+                out.push(PatternBinding {
+                    pattern: pattern.clone(),
+                    model: id.clone(),
+                    clip: clip.clone(),
+                    departs: moments.departs,
+                });
+            }
+        }
+        out.sort_by(|a, b| (&a.pattern, &a.model).cmp(&(&b.pattern, &b.model)));
+        out
+    }
+
+    /// Les départs de tir de chaque pattern lié (D206) : ceux du premier modèle (par id) dont le clip
+    /// en donne (le lint refuse deux modèles qui divergent). Image 0 = la pose de l'émetteur : le tir
+    /// `n` part à `started_at + 1 + departs[n]` (la première étape de l'émetteur joue la frame qui suit
+    /// sa pose). Un pattern dont le clip n'a pas de `departs` n'a pas d'entrée.
+    pub fn pattern_departs(&self) -> BTreeMap<String, Vec<u32>> {
+        let mut out = BTreeMap::new();
+        for binding in self.pattern_bindings() {
+            if !binding.departs.is_empty() {
+                out.entry(binding.pattern).or_insert(binding.departs);
+            }
+        }
+        out
+    }
+
     /// La fenêtre de frappe dérivée de chaque arme de mêlée liée : celle du premier modèle (par
     /// id) dont le clip a un `moments.frappe` (le lint refuse deux modèles qui divergent). C'est
     /// ce que `game::weapon_assets` pose en `strike_frames` d'une arme dont le RON n'en a pas.
@@ -517,6 +590,17 @@ impl ModelsTable {
         }
         out
     }
+}
+
+/// Un lien pattern de tir -> clip d'un modèle (`ModelDef::pattern_clips`), résolu.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PatternBinding {
+    /// Id du pattern de la simulation (kind `Pattern`).
+    pub pattern: String,
+    pub model: String,
+    pub clip: String,
+    /// `moments.departs` du clip en images de simulation (vide : le clip n'en donne pas).
+    pub departs: Vec<u32>,
 }
 
 /// Un lien arme de mêlée -> clip d'un modèle (`ModelDef::melee_clips`), résolu.
@@ -673,6 +757,12 @@ pub fn lint(
                     out.push((OutOfRange, at_moment("depart : doit être dans [0, 1]")));
                 }
             }
+            if !moment.departs.is_empty() && !departs_ok(&moment.departs) {
+                out.push((
+                    OutOfRange,
+                    at_moment("departs : fractions strictement croissantes dans [0, 1]"),
+                ));
+            }
             if let Some(movement) = &moment.movement {
                 if !movement.distance.is_finite() {
                     out.push((
@@ -688,6 +778,16 @@ pub fn lint(
                         ),
                     ));
                 }
+            }
+        }
+        for (pattern, clip_name) in &model.pattern_clips {
+            if !manifest.clips.contains_key(clip_name) {
+                out.push((
+                    BrokenReference,
+                    at(&format!(
+                        "pattern_clips.{pattern} = « {clip_name} » : clip absent du manifeste (actions)"
+                    )),
+                ));
             }
         }
         for (weapon, clip_name) in &model.melee_clips {
@@ -784,6 +884,25 @@ pub fn lint(
                 OutOfRange,
                 format!(
                     "arme de corps à corps « {weapon} » : liée par plusieurs modèles dont les fenêtres de frappe diffèrent {windows:?}"
+                ),
+            ));
+        }
+    }
+    let mut bound: BTreeMap<String, Vec<(String, Vec<u32>)>> = BTreeMap::new();
+    for binding in table.pattern_bindings() {
+        if !binding.departs.is_empty() {
+            bound
+                .entry(binding.pattern)
+                .or_default()
+                .push((binding.model, binding.departs));
+        }
+    }
+    for (pattern, departs) in bound {
+        if departs.iter().any(|(_, d)| *d != departs[0].1) {
+            out.push((
+                OutOfRange,
+                format!(
+                    "pattern « {pattern} » : lié par plusieurs modèles dont les départs de tir diffèrent {departs:?}"
                 ),
             ));
         }
@@ -1139,5 +1258,103 @@ mod tests {
         assert!(none.iter().all(|w| w.contains("pas de moments.frappe")));
         // Une arme inconnue du RON n'est pas jugée ici (le lint de référence la refuse).
         assert!(strike_warnings(&t, &BTreeMap::new()).is_empty());
+    }
+
+    #[test]
+    fn departs_resolve_to_whole_frames_and_must_grow() {
+        // `tir` : 21 images de simulation. 0,15 × 21 = 3,15 -> 3 ; 0,85 × 21 = 17,85 -> 18 ; 1,0 -> dernière image (20).
+        let m = moments_manifest(r#"{"tir": {"departs": [0.15, 0.85, 1.0]}}"#);
+        assert_eq!(m.clip_moments("tir").unwrap().departs, vec![3, 18, 20]);
+        // Sans `departs` : vide.
+        assert!(m.clip_moments("coup").unwrap().departs.is_empty());
+        // Hors plage, non croissant ou égal : rien n'est inventé.
+        for bad in [
+            r#"[0.5, 1.5]"#,
+            r#"[-0.1, 0.5]"#,
+            r#"[0.6, 0.2]"#,
+            r#"[0.4, 0.4]"#,
+        ] {
+            let m = moments_manifest(&format!(r#"{{"tir": {{"departs": {bad}}}}}"#));
+            assert!(m.clip_moments("tir").unwrap().departs.is_empty(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn invalid_departs_are_lint_errors() {
+        for (bad, refused) in [
+            (r#"[0.15, 0.85]"#, false),
+            (r#"[0.5, 1.5]"#, true),
+            (r#"[0.6, 0.2]"#, true),
+            (r#"[0.4, 0.4]"#, true),
+        ] {
+            let t = moment_table(&format!(r#"{{"tir": {{"departs": {bad}}}}}"#), r#"{}"#);
+            let errors = lint(&t, &|_| true, &|_| true, &|_| true);
+            let found = errors
+                .iter()
+                .any(|(k, m)| *k == crate::LintErrorKind::OutOfRange && m.contains("moments.tir.departs"));
+            assert_eq!(found, refused, "{bad} : {errors:#?}");
+        }
+    }
+
+    const PATTERN_TABLE: &str = r#"(units_per_meter: 24.0, elevation_deg: 45.0, look: (shade: 0.66, highlight: 1.12, light: (-0.5, 0.75, 0.45), outline: 0.75, outline_px_per_m: 91.0), models: {
+        "a": (glb: "a.glb", manifest: "a.json", frame_m: (3.0, 3.0), pivot: (0.5, 0.2), height_m: 1.8, poses: (),
+              pattern_clips: {"decharge": "tir", "sans_depart": "coup", "perdue": "inconnu"}),
+        "b": (glb: "b.glb", manifest: "b.json", frame_m: (3.0, 3.0), pivot: (0.5, 0.2), height_m: 1.8, poses: (),
+              pattern_clips: {"decharge": "tir"}),
+    })"#;
+
+    fn pattern_table(a: &str, b: &str) -> ModelsTable {
+        let def: ModelsFile = ron::from_str(PATTERN_TABLE).unwrap();
+        let manifests = BTreeMap::from([
+            ("a".to_string(), Ok(moments_manifest(a))),
+            ("b".to_string(), Ok(moments_manifest(b))),
+        ]);
+        ModelsTable {
+            file: "models/models.ron".into(),
+            def,
+            manifests,
+        }
+    }
+
+    #[test]
+    fn a_bound_pattern_takes_the_departs_of_its_clip() {
+        let t = pattern_table(r#"{"tir": {"departs": [0.15, 0.85]}}"#, r#"{}"#);
+        // Les patterns liés dont le clip donne des départs ; « sans_depart » (aucun) et « perdue » (clip inconnu) : rien.
+        assert_eq!(
+            t.pattern_departs(),
+            BTreeMap::from([("decharge".to_string(), vec![3, 18])])
+        );
+        let errors = lint(&t, &|_| true, &|_| true, &|_| true);
+        let text: Vec<_> = errors.iter().map(|(_, m)| m.as_str()).collect();
+        assert_eq!(errors.len(), 1, "{text:#?}");
+        assert!(
+            text[0].contains("pattern_clips.perdue = « inconnu » : clip absent"),
+            "{text:#?}"
+        );
+    }
+
+    #[test]
+    fn two_models_binding_one_pattern_to_different_departs_are_refused() {
+        let t = pattern_table(
+            r#"{"tir": {"departs": [0.15, 0.85]}}"#,
+            r#"{"tir": {"departs": [0.3, 0.6]}}"#,
+        );
+        // Le premier modèle (par id) l'emporte pour la donnée ; le lint refuse l'écart.
+        assert_eq!(t.pattern_departs()["decharge"], vec![3, 18]);
+        let errors = lint(&t, &|_| true, &|_| true, &|_| true);
+        assert!(
+            errors.iter().any(|(k, m)| *k == crate::LintErrorKind::OutOfRange
+                && m.contains("pattern « decharge »")
+                && m.contains("plusieurs modèles")),
+            "{errors:#?}"
+        );
+        // Mêmes départs : accord, rien à dire (hors le clip inconnu de « a »).
+        let same = pattern_table(
+            r#"{"tir": {"departs": [0.15, 0.85]}}"#,
+            r#"{"tir": {"departs": [0.15, 0.85]}}"#,
+        );
+        assert!(!lint(&same, &|_| true, &|_| true, &|_| true)
+            .iter()
+            .any(|(_, m)| m.contains("plusieurs modèles")));
     }
 }

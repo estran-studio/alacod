@@ -1,0 +1,19 @@
+// X-6e (testbed, docs/conventions.md §127) : renforts à la fréquence donnée. Le `chef_enrage` (boss à une phase, frise
+// `SpawnEnemies(soldat_ordre, 2)` à 120 frames puis toutes les 240) loin du joueur 0 : deux soldats apparaissent 120 frames après
+// l'entrée en phase, deux autres 240 frames plus tard, rien entre les deux.
+//
+// À regarder : deux soldats surgissent dans l'arène, puis deux autres.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 400,
+    characters: [(character: "chef_enrage", x: "620.0", y: "740.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 120),
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 125),
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 360),
+        EntityCount(kind: Enemy, min: Some(5), max: Some(5), at_frame: 365),
+    ],
+)

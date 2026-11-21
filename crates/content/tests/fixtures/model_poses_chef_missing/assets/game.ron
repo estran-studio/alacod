@@ -1,0 +1,9 @@
+// Fixture X-6e : model_poses_chef_missing
+(
+    name: "fixture-model_poses_chef_missing",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "models/models.ron", kind: "Model"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

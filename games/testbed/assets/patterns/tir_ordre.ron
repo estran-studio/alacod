@@ -1,0 +1,3 @@
+// X-6e (docs/conventions.md §127) : tir d'un soldat aux ordres du chef de testbed (`characters/soldat_ordre.ron`) : une flèche
+// visée, sans télégraphe propre (le télégraphe est l'ordre du chef, `Command`).
+Aimed(count: 1, spread: "0.0", projectile: "arrow")

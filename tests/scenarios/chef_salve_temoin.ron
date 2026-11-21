@@ -1,0 +1,20 @@
+// X-6e (testbed, docs/conventions.md §127) : témoin de `chef_salve_ordre` sans chef. Les trois `soldat_ordre` de l'escouade `garde`
+// n'ont aucun chef vivant : ils tirent dès qu'ils sont prêts, chacun à son rythme (`cooldown_frames` 30), sans attendre d'ordre.
+//
+// À regarder : les soldats tirent tout de suite, puis toutes les ~30 frames.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    characters: [
+        (character: "soldat_ordre", x: "540.0", y: "672.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "696.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "720.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        BulletCount(count: 3, projectile: Some("arrow"), at_frame: 10),
+        PlayerAlive(handle: 0, at_frame: 120),
+    ],
+)

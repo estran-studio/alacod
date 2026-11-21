@@ -1,0 +1,22 @@
+// X-6e (testbed, docs/conventions.md §127) : tuer les soldats ouvre l'accès au chef. Le joueur 0 (424, 696) tire droit devant
+// (pistolet) ; le `soldat_ordre` du milieu (Placed(2), (540, 696)) est sur la ligne de tir, le `chef` (Placed(0), (600, 696))
+// derrière lui : tant que le soldat vit, les balles s'arrêtent sur lui et le chef garde toute sa vie ; une fois le soldat mort,
+// les balles atteignent le chef, une cible à part entière.
+//
+// À regarder : les balles frappent le soldat du milieu, il tombe, les suivantes touchent le chef.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    characters: [
+        (character: "chef", x: "600.0", y: "696.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "672.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "696.0", at_frame: 1),
+        (character: "soldat_ordre", x: "540.0", y: "720.0", at_frame: 1),
+    ],
+    players: [(inputs: [(from: 5, to: 200, buttons: [Fire], pan: (64, 0))])],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 150),
+    ],
+)

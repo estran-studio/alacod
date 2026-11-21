@@ -1,0 +1,18 @@
+// X-6e (testbed, docs/conventions.md §127) : passage de phase à la moitié de la vie et changement d'arme. Le `chef` (Placed(0),
+// (580, 696), 120 PV) seul face au joueur 0 qui tire droit devant : sous 60 PV il passe en phase 1 (`BossPhase`), fait son geste
+// de transition (40 frames : aucune règle retenue, immobile), lâche `chef_cone` au sol (une arme au sol) et prend `chef_paire`.
+//
+// À regarder : le chef encaisse, se cabre (pose `transition`), son arme tombe au sol, il fonce.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 300,
+    characters: [(character: "chef", x: "580.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [(from: 5, to: 300, buttons: [Fire], pan: (64, 0))])],
+    expect: [
+        BossPhase(entity: Placed(0), phase: 0, at_frame: 20),
+        EnemyWeapon(entity: Placed(0), weapon: "chef_cone", carried: true, at_frame: 20),
+        WeaponPickups(max: Some(0), at_frame: 20),
+    ],
+)

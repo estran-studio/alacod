@@ -89,6 +89,8 @@ impl Plugin for BaseCharacterGamePlugin {
         app.init_resource::<FlowFieldCache>();
         // M2-T8 : places d'escouade, dérivées à chaque frame (hors rollback).
         app.init_resource::<enemy::ai::squad::SquadSlots>();
+        // X-6e : ordres des chefs (`Command`), dérivés à chaque frame (hors rollback).
+        app.init_resource::<enemy::ai::squad::SquadOrders>();
         app.init_resource::<FlowFieldConfig>();
 
         app.add_frame_events::<ObstacleAttackEvent>();

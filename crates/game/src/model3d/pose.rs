@@ -1,6 +1,7 @@
 //! Choix du clip d'un modèle d'après l'état de la simulation (R-1, `docs/conventions.md` § 111). Pur :
 //! pas de monde, pas de rendu, testé seul. Les règles sont celles du banc (`armes.js`, `allures.js`) :
-//! - priorité : esquive, puis le geste en cours (coup, tir, mise en joue, en joue), puis le
+//! - priorité : transition de phase d'un boss, ordre d'un chef, décharge d'un pattern lié (X-6e), esquive, puis le geste
+//!   en cours (coup, tir, mise en joue, en joue), puis le
 //!   rechargement, puis l'allure (repos, marche, course) ;
 //! - en marchant, un geste prend sa variante dans la direction de la marche par rapport au corps
 //!   (cuite dans les huit directions) ; une allure prend la plus proche, ou la direction opposée jouée
@@ -31,6 +32,13 @@ pub struct PoseInput {
     pub reload: Option<(f32, f32)>,
     /// Coup reçu en cours (tireur posté) : avancement dans [0, 1] de la stupeur.
     pub hit: Option<f32>,
+    /// X-6e : geste de transition d'un boss en cours : avancement dans [0, 1] de `Phase::transition`.
+    pub transition: Option<f32>,
+    /// X-6e : ordre d'un chef en cours : avancement dans [0, 1] du télégraphe de la règle `Command`.
+    pub order: Option<f32>,
+    /// X-6e : décharge d'un tireur dont le pattern est lié à un clip (`ModelDef::pattern_clips`) : le clip et les secondes
+    /// écoulées depuis le premier pas de l'émetteur ; le clip joue une fois, sa dernière image est tenue.
+    pub discharge: Option<(String, f32)>,
     /// Fondus de ce personnage (ceux du joueur par défaut).
     pub fades: Fades,
 }
@@ -140,6 +148,32 @@ pub fn choose(
             .or_else(|| g.still.as_deref().and_then(|c| manifest.duration(c)))
     };
 
+    // X-6e : la transition d'un boss, puis l'ordre d'un chef, puis la décharge d'un tireur à pattern lié passent avant
+    // tout le reste (l'ennemi est immobile, aucun autre état ne se lit pendant eux). Fondu du geste d'épaulé.
+    if let Some(u) = input.transition {
+        if let Some(choice) = gesture(&poses.transition, u, fades.shoulder) {
+            return Some(choice);
+        }
+    }
+    if let Some(u) = input.order {
+        if let Some(choice) = gesture(&poses.order, u, fades.shoulder) {
+            return Some(choice);
+        }
+    }
+    if let Some((clip, elapsed)) = &input.discharge {
+        if let Some(total) = manifest.duration(clip) {
+            return Some(PoseChoice {
+                clip: clip.clone(),
+                timing: Timing::At((elapsed / total).clamp(0.0, 1.0)),
+                object: poses
+                    .shoot
+                    .as_ref()
+                    .and_then(|g| g.object.clone())
+                    .or_else(|| poses.object.clone()),
+                fade: fades.shot,
+            });
+        }
+    }
     if let Some((n, u)) = input.dash {
         if !model.dash.is_empty() {
             let clip = model.dash[n as usize % model.dash.len()].clone();
@@ -567,6 +601,86 @@ mod tests {
             .fade,
             FADE_GESTURE
         );
+    }
+
+    /// Modèle d'un chef de bande (X-6e) : un ordre, une transition, et le geste de tir d'une arme.
+    fn chief_model() -> ModelDef {
+        ron::from_str(
+            r#"(glb: "m.glb", manifest: "m.json", frame_m: (3.0, 3.0), pivot: (0.5, 0.2), height_m: 1.8,
+                poses: (object: Some("gun"), idle: Some("idle"), walk: Some("walk"),
+                    order: Some((still: Some("fire"))), transition: Some((still: Some("roll"))),
+                    hit: Some((still: Some("roll"))))
+                )"#,
+        )
+        .unwrap()
+    }
+
+    /// X-6e : la transition d'un boss passe avant l'ordre, l'ordre avant la décharge, la décharge avant le reste ; chaque
+    /// geste joue une fois, à l'avancement que la simulation donne.
+    #[test]
+    fn a_transition_wins_over_an_order_over_a_discharge_over_the_rest() {
+        let model = chief_model();
+        let at = |input: PoseInput| {
+            choose(&model, &model.poses, &manifest(), &input).unwrap()
+        };
+        let all = PoseInput {
+            transition: Some(0.25),
+            order: Some(0.5),
+            discharge: Some(("reload".into(), 0.4)),
+            dash: Some((0, 0.5)),
+            since_shot: Some(0.1),
+            ..default()
+        };
+        let transition = at(all.clone());
+        assert_eq!(
+            (transition.clip.as_str(), transition.timing),
+            ("roll", Timing::At(0.25))
+        );
+        let order = at(PoseInput {
+            transition: None,
+            ..all.clone()
+        });
+        assert_eq!((order.clip.as_str(), order.timing), ("fire", Timing::At(0.5)));
+        assert_eq!(order.object.as_deref(), Some("gun"));
+        // `reload` dure 48/24 = 2 s : 0,4 s = 20 % du clip, avant l'esquive et le tir.
+        let discharge = at(PoseInput {
+            transition: None,
+            order: None,
+            ..all.clone()
+        });
+        assert_eq!(discharge.clip, "reload");
+        assert!(matches!(discharge.timing, Timing::At(u) if (u - 0.2).abs() < 1e-5));
+        assert_eq!(discharge.fade, FADE_GESTURE);
+        let rest = at(PoseInput {
+            transition: None,
+            order: None,
+            discharge: None,
+            ..all
+        });
+        // Sans esquive déclarée ni geste de tir, c'est l'attente : aucun des états ci-dessus ne fuit.
+        assert_eq!(rest.clip, "idle");
+    }
+
+    /// X-6e : la décharge joue son clip une fois et tient sa dernière image ; un clip absent du manifeste ne la joue pas.
+    #[test]
+    fn a_discharge_holds_its_last_frame_and_ignores_an_unknown_clip() {
+        let model = chief_model();
+        let m = manifest();
+        let pick = |discharge: (&str, f32)| {
+            choose(
+                &model,
+                &model.poses,
+                &m,
+                &PoseInput {
+                    discharge: Some((discharge.0.to_string(), discharge.1)),
+                    ..default()
+                },
+            )
+            .unwrap()
+        };
+        assert_eq!(pick(("reload", 10.0)).timing, Timing::At(1.0));
+        assert_eq!(pick(("reload", 0.0)).timing, Timing::At(0.0));
+        assert_eq!(pick(("absent", 0.5)).clip, "idle");
     }
 
     fn default() -> PoseInput {

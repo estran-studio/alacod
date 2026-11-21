@@ -1,0 +1,16 @@
+// X-6e (testbed, docs/conventions.md §127) : l'ouverture après la décharge est exploitable à la mêlée. Même départ que
+// `chef_ruee_decharge` ; le joueur 0 frappe (arme `renvoi_secteur`) pendant l'ouverture (`Opening`, 45 frames : le chef immobile
+// n'attaque pas) : ses coups portent et il ne prend aucun dégât pendant l'ouverture.
+//
+// À regarder : après la décharge le chef recharge sur place, le joueur le frappe sans riposte.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    characters: [(character: "chef_enrage", x: "560.0", y: "696.0", at_frame: 1)],
+    players: [(weapon: "renvoi_secteur", inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(0), behavior: "Opening", at_frame: 120),
+    ],
+)

@@ -1,0 +1,16 @@
+// X-6e (testbed, docs/conventions.md §127) : ruée et décharge. Le `chef_enrage` (Placed(0), (560, 696)) face au joueur 0 immobile
+// (424, 696) : poursuite jusqu'à portée de charge (3 × 30), télégraphe 15 frames, ruée, coup au contact (10 PV), puis décharge de
+// `decharge` : deux tirs de trois plombs à courte portée, calés sur les `departs` du clip `shoot` du modèle `chef_pantin`.
+//
+// À regarder : le chef se tasse, fonce, frappe, puis tire deux fois de près.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    characters: [(character: "chef_enrage", x: "560.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 40),
+    ],
+)
