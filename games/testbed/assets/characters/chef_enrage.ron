@@ -1,6 +1,6 @@
 // Personnage de laboratoire X-6e (testbed, docs/conventions.md §127) : la phase enragée du chef (`chef.ron`, phase 1) seule, pour
 // prouver ruée, décharge, ouverture et renforts sans passer par la phase 0. Boss à une phase (sans fin) : mêmes règles, même
-// frise de renforts, armes `chef_paire` seule. Dessiné par le modèle `chef_pantin`.
+// frise de renforts, armes `chef_paire` seule. Dessiné par le modèle `chef_enrage`.
 (
     movement: (
         acceleration: "120.0",
@@ -14,7 +14,7 @@
         dash_cooldown_frames: 0,
     ),
 
-    asset_name_ref: "chef_pantin",
+    asset_name_ref: "chef_enrage",
 
     collider: (
         shape: Rectangle(
@@ -53,8 +53,8 @@
             (
                 behaviors: [
                     Opening(frames: 45),
-                    Shoot(weapon: "chef_paire", pattern: "decharge", range: "60.0", cooldown_frames: 60),
                     Charge(telegraph: 15),
+                    Shoot(weapon: "chef_paire", pattern: "decharge", range: "60.0", cooldown_frames: 60),
                     Chase(profile: "Ground"),
                 ],
                 timeline: Some((

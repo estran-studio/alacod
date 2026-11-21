@@ -136,7 +136,9 @@ pub fn register(app: &mut App) {
             .run_if(has_commands)
             .in_set(RollbackSystemSet::EnemySpawning)
             .after(game::waves::systems::wave_spawning_system)
-            .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system),
+            .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system)
+            // X-6e (§127) : avant le passage de phase des boss (arme lâchée : un net id de plus).
+            .before(game::boss::boss_phase_system),
     )
     .add_systems(
         GgrsSchedule,

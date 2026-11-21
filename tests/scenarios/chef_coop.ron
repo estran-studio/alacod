@@ -5,7 +5,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
-    map: "testbed/arena.ldtk",
+    map: "testbed/arene_vide.ldtk",
     frames: 300,
     characters: [
         (character: "chef", x: "600.0", y: "696.0", at_frame: 1),

@@ -1,16 +1,32 @@
 // X-6e (testbed, docs/conventions.md §127) : ruée et décharge. Le `chef_enrage` (Placed(0), (560, 696)) face au joueur 0 immobile
 // (424, 696) : poursuite jusqu'à portée de charge (3 × 30), télégraphe 15 frames, ruée, coup au contact (10 PV), puis décharge de
-// `decharge` : deux tirs de trois plombs à courte portée, calés sur les `departs` du clip `shoot` du modèle `chef_pantin`.
+// `decharge` : deux tirs de trois plombs à courte portée, calés sur les `departs` du clip `shoot` du modèle `chef_enrage`.
 //
 // À regarder : le chef se tasse, fonce, frappe, puis tire deux fois de près.
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
-    map: "testbed/arena.ldtk",
+    map: "testbed/arene_vide.ldtk",
     frames: 200,
     characters: [(character: "chef_enrage", x: "560.0", y: "696.0", at_frame: 1)],
     players: [(inputs: [])],
     expect: [
-        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 40),
+        // Poursuite jusqu'à portée de charge, télégraphe immobile (f48-f62), ruée.
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 40),
+        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 50),
+        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 80),
+        // Coup au contact (f84, `attack_damage` 10) : 97,5 -> 87,5 la frame suivante (le corps lancé a déjà frôlé le
+        // joueur, 2,5 de dégâts de collision, pendant la ruée).
+        Health(handle: 0, min: 99.9, max: 100.1, at_frame: 60),
+        Health(handle: 0, min: 97.4, max: 97.6, at_frame: 85),
+        Health(handle: 0, min: 87.4, max: 87.6, at_frame: 86),
+        // Décharge de près : deux tirs de trois plombs, aux départs du clip `shoot` (3 et 15 images après la première étape
+        // de l'émetteur posé à f85, donc f89 et f101), rien entre les deux.
+        EnemyState(entity: Placed(0), behavior: "Shoot", at_frame: 87),
+        BulletCount(count: 0, projectile: Some("plomb_court"), at_frame: 89),
+        BulletCount(count: 3, projectile: Some("plomb_court"), at_frame: 90),
+        BulletCount(count: 0, projectile: Some("plomb_court"), at_frame: 101),
+        BulletCount(count: 3, projectile: Some("plomb_court"), at_frame: 102),
+        PlayerAlive(handle: 0, at_frame: 200),
     ],
 )

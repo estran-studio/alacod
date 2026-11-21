@@ -7,7 +7,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
-    map: "testbed/arena.ldtk",
+    map: "testbed/arene_vide.ldtk",
     frames: 200,
     characters: [
         (character: "chef", x: "600.0", y: "696.0", at_frame: 1),
@@ -17,6 +17,12 @@ Scenario(
     ],
     players: [(inputs: [(from: 5, to: 200, buttons: [Fire], pan: (64, 0))])],
     expect: [
-        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 150),
+        // Le soldat du milieu (net id 20, 30 PV) encaisse les trois premières balles et tombe à f45.
+        EntityCount(kind: Enemy, min: Some(4), max: Some(4), at_frame: 44),
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 46),
+        // Le chef (net id 14) n'a rien pris tant que le soldat le couvrait (ni juste après : la balle suivante vole encore).
+        EntityHealth(net_id: 14, min: Some(120.0), max: Some(120.0), at_frame: 62),
+        // L'accès est ouvert : les balles atteignent le chef.
+        EntityHealth(net_id: 14, max: Some(115.0), at_frame: 64),
     ],
 )

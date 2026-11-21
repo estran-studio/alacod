@@ -84,14 +84,14 @@
                 ),
             },
         ),
-        // X-6e : le chef en deux phases (`characters/chef_pantin.ron`) dessiné par le même pantin.
+        // X-6e : le chef en deux phases (`characters/chef.ron`) dessiné par le même pantin.
         // - `order` : l'ordre à son escouade (règle `Command` retenue, télégraphe de l'ordre) : le geste `strike`, une fois,
         //   étiré sur le télégraphe.
         // - `transition` : le geste du changement de phase (`Phase::transition`, immobile) : le `roll`, une fois, étiré sur la durée.
         // - `weapons` : une arme par phase (`chef_cone` en phase 1, `chef_paire` en phase 2), mêmes poses de tir que le tireur.
         // - `pattern_clips` : la décharge du pattern `decharge` joue le clip `shoot` depuis la pose de l'émetteur ; les
         //   deux tirs partent aux `moments.shoot.departs` du manifeste (15 % et 85 % du clip).
-        "chef_pantin": (
+        "chef": (
             glb: "models/pantin/anime.glb",
             manifest: "models/pantin/anime.json",
             frame_m: (2.8, 2.8),
@@ -105,7 +105,6 @@
                 transition: Some((still: Some("roll"))),
                 melee: Some((still: Some("strike"), moving: Some("strike-walk"))),
             ),
-            melee_clips: {"frappe_modele": "strike"},
             weapons: {
                 "chef_cone": (
                     object: Some("gun"),
@@ -119,6 +118,46 @@
                 ),
                 "chef_paire": (
                     object: Some("gun"),
+                    muzzle: Some("muzzle"),
+                    idle: Some("gun-idle"),
+                    walk: Some("gun-walk"),
+                    shoot: Some((still: Some("shoot"))),
+                    shoulder: Some((still: Some("shoulder"))),
+                    aim: Some((still: Some("aim"))),
+                    reload: Some((still: Some("reload"))),
+                ),
+            },
+            pattern_clips: {"decharge": "shoot"},
+        ),
+        // X-6e : la phase enragée seule (`characters/chef_enrage.ron`), mêmes poses que `chef`.
+        "chef_enrage": (
+            glb: "models/pantin/anime.glb",
+            manifest: "models/pantin/anime.json",
+            frame_m: (2.8, 2.8),
+            pivot: (0.5, 0.2),
+            height_m: 1.8,
+            poses: (
+                idle: Some("idle"),
+                walk: Some("walk"),
+                hit: Some((still: Some("hit"))),
+                order: Some((still: Some("strike"))),
+                transition: Some((still: Some("roll"))),
+                melee: Some((still: Some("strike"), moving: Some("strike-walk"))),
+            ),
+            weapons: {
+                "chef_cone": (
+                    object: Some("gun"),
+                    muzzle: Some("muzzle"),
+                    idle: Some("gun-idle"),
+                    walk: Some("gun-walk"),
+                    shoot: Some((still: Some("shoot"))),
+                    shoulder: Some((still: Some("shoulder"))),
+                    aim: Some((still: Some("aim"))),
+                    reload: Some((still: Some("reload"))),
+                ),
+                "chef_paire": (
+                    object: Some("gun"),
+                    muzzle: Some("muzzle"),
                     idle: Some("gun-idle"),
                     walk: Some("gun-walk"),
                     shoot: Some((still: Some("shoot"))),

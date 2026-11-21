@@ -1,5 +1,5 @@
 // X-6e (testbed, docs/conventions.md §127) : salve à l'ordre. Le `chef` (Placed(0), (600, 696)) commande trois `soldat_ordre`
-// (Placed(1..3), mur à x = 540) de l'escouade `garde` ; joueur 0 immobile en (424, 696), arène `testbed/arena.ldtk`.
+// (Placed(1..3), mur à x = 540) de l'escouade `garde` ; joueur 0 immobile en (424, 696), arène vide `testbed/arene_vide.ldtk`.
 // Les soldats, prêts dès leur apparition (`cooldown_frames` 30), ne tirent pas tant que l'ordre n'est pas donné : le chef retient
 // `Command` (télégraphe de 30 frames), puis les trois flèches partent **la même frame** ; l'ordre suivant 120 frames plus tard.
 // Témoin sans chef : `chef_salve_temoin` (les soldats tirent dès leur apparition, chacun à son rythme).
@@ -8,7 +8,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
-    map: "testbed/arena.ldtk",
+    map: "testbed/arene_vide.ldtk",
     frames: 200,
     characters: [
         (character: "chef", x: "600.0", y: "696.0", at_frame: 1),
@@ -18,9 +18,15 @@ Scenario(
     ],
     players: [(inputs: [])],
     expect: [
+        // Ordre dès la première frame (f1, télégraphe jusqu'à f31) ; les flèches partent à f32, toutes ensemble.
         EnemyState(entity: Placed(0), behavior: "Command", at_frame: 10),
         BulletCount(count: 0, projectile: Some("arrow"), at_frame: 31),
         BulletCount(count: 3, projectile: Some("arrow"), at_frame: 33),
+        // Rien entre deux ordres ; l'ordre suivant part 120 frames après la fin du premier (télégraphe f151-f180, salve f181).
+        BulletCount(count: 0, projectile: Some("arrow"), at_frame: 120),
+        EnemyState(entity: Placed(0), behavior: "Command", at_frame: 160),
+        BulletCount(count: 0, projectile: Some("arrow"), at_frame: 181),
+        BulletCount(count: 3, projectile: Some("arrow"), at_frame: 183),
         PlayerAlive(handle: 0, at_frame: 200),
     ],
 )

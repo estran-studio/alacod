@@ -6,14 +6,15 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
-    map: "testbed/arena.ldtk",
+    map: "testbed/arene_vide.ldtk",
     frames: 400,
     characters: [(character: "chef_enrage", x: "620.0", y: "740.0", at_frame: 1)],
     players: [(inputs: [])],
     expect: [
-        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 120),
-        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 125),
-        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 360),
-        EntityCount(kind: Enemy, min: Some(5), max: Some(5), at_frame: 365),
+        // Entrée en phase au premier tick (f1) ; renforts à f121 (1 + 120), puis f361 (+ 240), rien entre les deux.
+        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 121),
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 123),
+        EntityCount(kind: Enemy, min: Some(3), max: Some(3), at_frame: 361),
+        EntityCount(kind: Enemy, min: Some(5), max: Some(5), at_frame: 363),
     ],
 )

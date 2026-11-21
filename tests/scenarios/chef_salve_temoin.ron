@@ -5,7 +5,7 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
-    map: "testbed/arena.ldtk",
+    map: "testbed/arene_vide.ldtk",
     frames: 120,
     characters: [
         (character: "soldat_ordre", x: "540.0", y: "672.0", at_frame: 1),

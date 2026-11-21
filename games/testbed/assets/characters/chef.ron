@@ -7,7 +7,7 @@
 // (`drop_weapon`), puis : ruée (`Charge`), coup au contact (`attack_damage`), décharge à courte portée (`chef_paire`, `decharge`,
 // tirs calés sur les départs du clip), ouverture de 45 frames après la décharge (`Opening` : immobile, sans attaque), poursuite ;
 // deux renforts `soldat_ordre` 120 frames après l'entrée en phase, puis toutes les 240 frames.
-// Dessiné par le modèle `chef_pantin` (`models/models.ron` : poses `order`, `transition`, armes `chef_cone` et `chef_paire`).
+// Dessiné par le modèle `chef` (`models/models.ron` : poses `order`, `transition`, armes `chef_cone` et `chef_paire`).
 (
     movement: (
         acceleration: "120.0",
@@ -21,7 +21,7 @@
         dash_cooldown_frames: 0,
     ),
 
-    asset_name_ref: "chef_pantin",
+    asset_name_ref: "chef",
 
     collider: (
         shape: Rectangle(
@@ -70,8 +70,8 @@
                 drop_weapon: Some("chef_cone"),
                 behaviors: [
                     Opening(frames: 45),
-                    Shoot(weapon: "chef_paire", pattern: "decharge", range: "60.0", cooldown_frames: 60),
                     Charge(telegraph: 15),
+                    Shoot(weapon: "chef_paire", pattern: "decharge", range: "60.0", cooldown_frames: 60),
                     Chase(profile: "Ground"),
                 ],
                 timeline: Some((

@@ -1,5 +1,5 @@
 // X-6e (docs/conventions.md §127) : décharge de phase 2 du chef de testbed (arme `chef_paire`) : deux tirs de trois plombs à
-// courte portée. Aucun `Wait` ici : le pattern est lié au clip `shoot` du modèle `chef_pantin` (`pattern_clips` de
+// courte portée. Aucun `Wait` ici : le pattern est lié au clip `shoot` des modèles `chef` et `chef_enrage` (`pattern_clips` de
 // `models/models.ron`), dont les `moments.shoot.departs` datent chaque tir (le contenu prime : un `Wait` ou un `Telegraph`
 // écrit ici couperait la dérivation).
 Sequence([

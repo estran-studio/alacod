@@ -6,11 +6,28 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
-    map: "testbed/arena.ldtk",
+    map: "testbed/arene_vide.ldtk",
     frames: 200,
     characters: [(character: "chef_enrage", x: "560.0", y: "696.0", at_frame: 1)],
-    players: [(weapon: "renvoi_secteur", inputs: [])],
+    players: [(weapon: "renvoi_secteur", inputs: [
+        (from: 0, to: 105, buttons: [], pan: (100, 0)),
+        (from: 105, to: 106, buttons: [Melee], pan: (100, 0)),
+        (from: 106, to: 125, buttons: [], pan: (100, 0)),
+        (from: 125, to: 126, buttons: [Melee], pan: (100, 0)),
+        (from: 126, to: 200, buttons: [], pan: (100, 0)),
+    ])],
     expect: [
-        EnemyState(entity: Placed(0), behavior: "Opening", at_frame: 120),
+        // Décharge finie à f101 : ouverture de 45 frames (f102-f146), immobile et sans attaque.
+        EnemyState(entity: Placed(0), behavior: "Opening", at_frame: 103),
+        EnemyState(entity: Placed(0), behavior: "Opening", at_frame: 146),
+        // Les deux coups du joueur (appuis f105 et f125, frappe f120 et f141) portent sur le chef (net id 15, 120 PV) : 5 PV chacun.
+        EntityHealth(net_id: 15, min: Some(120.0), max: Some(120.0), at_frame: 120),
+        EntityHealth(net_id: 15, min: Some(115.0), max: Some(115.0), at_frame: 122),
+        EntityHealth(net_id: 15, min: Some(110.0), max: Some(110.0), at_frame: 143),
+        // Aucune riposte du chef pendant l'ouverture (les plombs de la décharge, partis à f101, arrivent jusqu'à f108 ; la
+        // flèche d'un renfort apparu à f121 touche à f140).
+        NoDamageBetween(handle: 0, from_frame: 110, to_frame: 138),
+        // Puis il reprend : poursuite.
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 148),
     ],
 )

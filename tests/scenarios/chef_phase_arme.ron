@@ -6,13 +6,27 @@
 Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
-    map: "testbed/arena.ldtk",
+    map: "testbed/arene_vide.ldtk",
     frames: 300,
     characters: [(character: "chef", x: "580.0", y: "696.0", at_frame: 1)],
-    players: [(inputs: [(from: 5, to: 300, buttons: [Fire], pan: (64, 0))])],
+    players: [(inputs: [(from: 5, to: 80, buttons: [Fire], pan: (64, 0))])],
     expect: [
-        BossPhase(entity: Placed(0), phase: 0, at_frame: 20),
-        EnemyWeapon(entity: Placed(0), weapon: "chef_cone", carried: true, at_frame: 20),
-        WeaponPickups(max: Some(0), at_frame: 20),
+        // Phase 0 tant qu'il a plus de la moitié de sa vie ; passage à f77 (premier tick sous 60 PV), lu à f78.
+        BossPhase(entity: Placed(0), phase: 0, at_frame: 77),
+        BossPhase(entity: Placed(0), phase: 1, at_frame: 78),
+        Event(kind: "boss_phase", by_frame: 78),
+        // Changement d'arme : `chef_cone` quitte l'inventaire et tombe au sol, `chef_paire` reste en main.
+        EnemyWeapon(entity: Placed(0), weapon: "chef_cone", carried: true, at_frame: 77),
+        WeaponPickups(max: Some(0), at_frame: 77),
+        EnemyWeapon(entity: Placed(0), weapon: "chef_cone", carried: false, at_frame: 78),
+        EnemyWeapon(entity: Placed(0), weapon: "chef_paire", carried: true, at_frame: 78),
+        WeaponPickups(min: Some(1), max: Some(1), at_frame: 79),
+        // Geste de transition (40 frames, f77-f116 ; il avait reculé de 2 unités en phase 0) : aucune règle retenue, immobile à son poste.
+        EnemyState(entity: Placed(0), behavior: "none", at_frame: 100),
+        EnemyPosition(entity: Placed(0), x_min: Some(577.5), x_max: Some(578.5), y_min: Some(695.5), y_max: Some(696.5), at_frame: 80),
+        EnemyPosition(entity: Placed(0), x_min: Some(577.5), x_max: Some(578.5), y_min: Some(695.5), y_max: Some(696.5), at_frame: 117),
+        // Puis la phase enragée : il poursuit le joueur.
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 120),
+        EnemyPosition(entity: Placed(0), x_max: Some(575.0), at_frame: 130),
     ],
 )

@@ -341,6 +341,8 @@ impl Plugin for ProfilePlugin {
                 .after(game::waves::systems::wave_spawning_system)
                 .after(game::character::enemy::spawning::enemy_spawn_from_spawners_system)
                 .before(super::commands::apply_game_commands_spawn)
+                // X-6e (§127) : le boss lâche son arme au passage de phase (net id d'une arme au sol) après les spawns.
+                .before(game::boss::boss_phase_system)
                 .in_set(RollbackSystemSet::EnemySpawning),
         )
         .add_systems(Update, apply_player_overrides)
