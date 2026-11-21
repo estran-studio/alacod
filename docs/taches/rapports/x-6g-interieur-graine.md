@@ -62,3 +62,6 @@ hall au centre, branche nord (salle de la clé), retour, branche est jusqu'à la
 Aucun système ni type rollback ajouté (donnée de génération et scénarios seulement) ; `scenario/schedule_order` non touché.
 
 ## (f) Contrôle rapide découpé : voir ci-dessous.
+
+Contrôle rapide découpé **vert** (tête 716cd159 ; journal `~/orca/runs/alacod/logs/x-6g-check-rapide-716cd159.log`) : format, test_tools, check_forbidden (exception de la mesure de campagne justifiée), lint, check_integration (jeu court sous budget : scénarios `interieur_*` hors étiquette `rapide`), 59 binaires, 0 échec, `schedule_order` vert.
+Reste : rien de bloquant ; D226–D227 ouvertes ; contenu 1837 à adapter (types réunion/cuisine/réserve) par le coordinateur 1837.
