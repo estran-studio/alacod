@@ -1,6 +1,6 @@
 # Plan : préparer l'engine pour 1837, premier jeu externe géré par la CLI (lots X) — rédigé le 2026-10-26
 
-**État au 2026-11-21 : lots de la voie m livrés jusqu'à P-1e (`721b1a52`, statut au § 6) ; X-6d et X-6e garés ; l'engine prend ses lots un à un : X-6f (changement de niveau) en cours, puis X-6g (intérieur par graine). Objectif studio : O2 au service d'O3, l'alpha du prologue de 1837, dim 20 déc, qui devient la démo gratuite.**
+**État au 2026-11-21 : lots de la voie m livrés jusqu'à X-6f (`fa93aa2b`, statut au § 6) ; X-6d et X-6e garés ; l'engine prend ses lots un à un : X-6g (intérieur par graine) en cours. Objectif studio : O2 au service d'O3, l'alpha du prologue de 1837, dim 20 déc, qui devient la démo gratuite.**
 
 Demande de William (2026-10-26) : « préparer le engine pour 1837 et la création du premier jeu externe avec la CLI, qui serait 100 % managé via
 notre CLI ». Règle de découpage validée le même jour : `docs/plan-engine.md` §4.8 (engine, contenu ou plugin de jeu) et `docs/conventions.md` §4
@@ -218,8 +218,8 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
 | P-1e physique du labo | livré 21 nov | `721b1a52` |
 | X-6d agrippeur `Grab` | **garé** (William, 21 nov), non mergé | branche `wquintal/x-6d-agrippeur` @ `daef5af8` |
 | X-6e chef en deux phases | **garé** (William, 21 nov), non mergé | branche `wquintal/x-6e-chef` @ `dae6c685` |
-| X-6f changement de niveau | **en cours** (lancé le 21 nov) | — |
-| X-6g intérieur par graine | écrit, part après le merge de X-6f | — |
+| X-6f changement de niveau | livré 21 nov (revue : merge, 4 P3 de suivi dans `specs-coordinateur/revue-x-6f-verdict.md`) | `fa93aa2b` |
+| X-6g intérieur par graine | **en cours** (lancé le 21 nov) | — |
 
 Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837 passe par l'engine (X-1 gelé), avec le contenu générique du testbed et des noms neutres (§ 5).
 Un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker omp Sonnet, `make check_rapide` vert avant le merge (par le coordinateur) ; la suite de

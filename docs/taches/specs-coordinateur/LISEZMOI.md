@@ -14,3 +14,4 @@ Copies de ce qui ne vivait que sur le VPS (`~/orca/runs/alpha/`). Les chemins ab
 - `scripts/` : contrôle rapide **découpé** (`p-1d-check-rapide-decoupe.sh` appelle `p-1d-test-crates-decoupe.sh` ; à lancer depuis le worktree ; `LOGS`, `CARGO_TARGET_DIR`) :
   `make check_rapide` d'un bloc montait à ~47 Go de cible sur le VPS. Sur une machine qui a la place, `make check_rapide` suffit.
 - **Run du Mac (21 nov, `run_ea4ecefba014`)** : X-6f changement de niveau (`x-6f-changement-niveau.md`, brief du worker ; fiche au plan § 6). Journaux : `~/orca/runs/alacod/logs/`.
+- X-6g intérieur par graine (`x-6g-interieur-graine.md`) ; revue de X-6f : consigne `revue-x-6f-consigne.md`, verdict `revue-x-6f-verdict.md` (merge, 4 P3).
