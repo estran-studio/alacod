@@ -3145,6 +3145,9 @@ tirage et la consommation du RNG d'origine (traces gungeon inchangées). `la_fon
 `loops: 2` exige `rooms: (10, 12)` (avec 9 à 11 salles, 2 boucles échouent sur la plupart des
 graines) ; 200 graines : 2,11 boucles en moyenne, aucune sous 2.
 
+**X-6g (§ 129).** Trois champs optionnels de la grammaire (`start_exits`, `exact`, `apart`) : sorties exactes du départ, types requis exactement, deux types dans deux branches différentes
+du départ ; absents (tout le contenu existant), le tirage et les traces sont ceux d'avant.
+
 **Lint** : `rooms` min > max ou < 2, `max_attempts` 0, `required` à 0 ou contenant le départ,
 plus d'un boss, départ + boss + requises > max, `min_boss_distance` impossible (`OutOfRange`) ;
 carte `templates` absente, type nécessaire (départ, boss, remplissage, requis) sans niveau de ce
@@ -9246,3 +9249,55 @@ une porte de carte (§ 117) devient, **en donnée**, la sortie vers le niveau su
 | test `la_relance_apres_la_porte_revient_au_niveau_zero_et_rejoue_a_l_identique` (`crates/scenario/tests/floors.rs`) | relance après le niveau 1 : niveau 0, clé remise à zéro, joueur au départ, passage rejoué à la même frame, même trace |
 
 - **Limites** (dettes **D224**, **D225**, `docs/taches/dettes.md`).
+
+## 129. Intérieur par graine : sorties exactes, types garantis, branches distinctes (X-6g, `docs/taches/rapports/x-6g-interieur-graine.md`)
+
+Jalon servi : **D3, dim 6 déc** (`plan-1837-cli.md` § 6). Décision de William du 2026-11-21 (lot 2) : l'intérieur d'un bâtiment est généré par graine, avec un hall au centre à trois sorties, des
+salles garanties, la clé et le chef dans deux branches. **Point d'extension : la grammaire d'étage du § 40** (`FloorMapGeneration`), qui pose déjà le départ au centre, les salles requises et le boss en
+cul-de-sac, avec des nouvelles tentatives ; trois champs **optionnels** de `world::FloorGrammar`, absents du contenu existant (rien ne change : les traces de `gungeon`, `isaac`, `throne`, du testbed et de `zombies`
+sont les mêmes, `make test_scenarios` sur les familles touchées, rapport § e). Aucun champ de plus pour `Basic` ni pour `entry` (voir « Graine » ci-dessous). Rien de 1837 dans l'engine : types `salon`,
+`atelier`, `cellier`, `cle`, `finale`, clé `cle_test` du testbed.
+
+```ron
+// floor_grammars/interieur.ron (testbed)
+(templates: "testbed/interieur.ldtk", grammar: (
+    rooms: (8, 10),
+    required: {"salon": 1, "atelier": 1, "cellier": 1, "cle": 1, "finale": 1},
+    boss: "finale", min_boss_distance: 2, max_attempts: 256,
+    start_exits: Some(3),            // sorties exactes du départ
+    exact: true,                     // chaque type de `required` exactement le nombre demandé
+    apart: Some(("cle", "finale")),  // deux branches différentes du départ
+))
+```
+
+- **`start_exits: Some(n)`** : le départ a **exactement** `n` sorties (salles posées contre lui, plus les boucles qui le touchent, `start_exit_count`) ; les prises en trop de son gabarit sont murées (comme
+  toute prise sans voisine, § 1). Tant que le départ a moins de `n` salles, le remplissage (et les salles requises) s'y accroche en priorité ; une fois `n` atteint, plus aucune salle ne s'y accroche.
+  Le gabarit de départ doit avoir au moins `n` prises (lint : `OpeningGrid::border_openings`, `lint_floor_grammars`).
+- **`exact: true`** : chaque type de `required` (boss compris) est présent **exactement** le nombre demandé ; sans lui « au moins », comme avant. Le plan refusé est retiré (`validate_plan`), jamais une carte incomplète ;
+  `FloorError::Exhausted` explicite après `max_attempts` (panique de chargement « grammaire d'étage impossible », comme avant). Lint : un type de remplissage qui est aussi requis rend `exact` impossible.
+- **`apart: Some((a, b))`** : `a` et `b` (dans `required`, une fois chacun, boss compris) sont dans **deux branches différentes** : à la pose, la seconde du couple (dans l'ordre : le boss, posé avant, sinon l'ordre
+  alphabétique des types) refuse tout parent de la branche de la première ; au contrôle (`validate_plan`), le graphe réel (arbre **et boucles**), départ retiré, ne relie pas `a` à `b`. Le boss étant un cul-de-sac, une
+  porte de boss à serrure (`lock_key`, X-6a1, `docs/conventions.md` § 117) n'est jamais derrière elle-même : la clé (`porteur_cle`, `carries_key`) est dans l'autre branche.
+- **Par défaut rien ne change** : sans ces champs le tirage, la consommation du RNG de génération et les plans sont ceux d'avant (`start_open` vaut vrai, `avoid` vaut `None`, aucun candidat n'est retiré).
+- **Graine** : une graine par défaut du jeu existe déjà (`entry.default_seed`, `LdtkGameMap::seed`) ; `--seed` la remplace au `Startup` (`apply_launch_seed`) ; `RunRequest::Restart` **ne la touche pas** (« même carte, même
+  graine », `run_state.rs`) : la relance rejoue le même intérieur, sans sauvegarde. Seul `zombies` en tire une au hasard (`choose_local_seed`, politique propre au jeu). Étage assemblé dans une séquence `Floors` :
+  graine dérivée par emplacement (§ 40), donc l'intérieur qui suit l'extérieur a une graine fixe par graine de partie. Scénario sans `map_seed` : celle du testbed (123456).
+- **Défauts de 1837 expliqués** (`36ab2386`) : (a) *une seule salle du chef en six graines* : `Basic` ne lit jamais `room_kind` ; il tire un gabarit compatible, la présence d'un type est donc un hasard ; (b) *hall au bord haut,
+  prises du nord murées, 4 salles* : `BasicMapGeneration::get_spawning_room` tire `x ∈ [−max_width, max_width − largeur]` et `y` de même (`imp/basic.rs`), sa voisine posée contre le bord sort de la boîte
+  (`Room::is_outside`), la prise est murée. Le défaut de `Basic` **n'est pas changé** (dette **D227**) ; la grammaire d'étage n'a pas ce défaut (départ à `snap(−taille / 2)`). Test `le_depart_de_basic_est_tire_jusqu_au_bord_donc_sa_voisine_peut_sortir_de_la_carte` (`map`).
+- **Mesures** (test ignoré `campagne_interieur`, `crates/map_ldtk/src/generation/mod.rs`, jugé sur les salles **réellement générées** : voisinages des portes, types lus dans les gabarits LDtk) :
+  testbed `floor:interieur`, 200 graines : **200/200**, 8,12 tentatives en moyenne, 46 au plus, plan 0,25 ms en moyenne, 1,2 ms au pire ; 1 000 graines : 1 000/1 000 (997 cartes distinctes).
+  `loge_interieur.ldtk` de 1837 (lecture seule, `36ab2386`) : voir le rapport.
+- **Testbed** : `testbed/interieur.ldtk` (28 gabarits de 12 × 10 cases, `docs/taches/rapports/x-6g-interieur-graine.make_interieur.py`), grammaire `interieur`, types `salon`, `atelier`, `cellier`, `cle`, `finale` (`rooms/`), séquences `porte_sortie_interieur`
+  (extérieur de X-6f puis l'intérieur) et `interieur_seul` (l'intérieur est le premier niveau : sa graine est celle de la partie). La porte du seul gabarit `finale` porte `lock_key: "cle_test"`, la salle de la clé le `porteur_cle`.
+
+| Scénario (testbed, à 1 joueur et `_duo`) | Ce qu'il prouve |
+|---|---|
+| `interieur_arrivee` | extérieur → porte de sortie (X-6f) → hall à (−5,5 ; 8), 9 à 10 salles de plus, la salle de la clé et la finale ne se touchent pas ni ne touchent le hall, la porte de la finale (deux battants) est verrouillée |
+| `interieur_parcours` | branche de la clé (est, sud) : porteur abattu, clé ramassée ; retour ; branche de la finale (ouest, nord, ouest) ; la porte s'ouvre avec la clé et le joueur entre |
+| `interieur_porte_sans_cle` | porte de la finale **refusée** sans la clé (`key_refused`, deux battants `Locked`, aucune clé) |
+| `interieur_graine_3` | graine **explicite** (`interieur_seul`, `map_seed: 3`) : une autre carte (clé au nord-est), le même parcours de clé |
+| test `la_graine_par_defaut_rejoue_le_meme_interieur_et_une_graine_explicite_un_autre` (`crates/scenario/tests/floors.rs`) | graine par défaut : même relevé des salles avant et après `RunRequest::Restart` ; graine 3 : un autre |
+
+Tests : `map::generation::floor` (`interieur_garanti_sur_deux_cents_graines`, `branches_impossibles_echouent_apres_n_tentatives`, `exact_refuse_un_type_en_trop`), `world` (`sorties_et_branches_incoherentes_sont_refusees`),
+`content::registry` (`border_openings_counts_runs_per_side`). **Dettes** : D226 (limites de la grammaire), D227 (`Basic`).
