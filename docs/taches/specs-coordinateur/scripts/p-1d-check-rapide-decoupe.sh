@@ -8,8 +8,8 @@ TGT=${CARGO_TARGET_DIR:-target}; LOGS=${LOGS:-target/logs}; mkdir -p "$LOGS"
 S=$(git rev-parse --short HEAD); L=$LOGS/check-rapide-decoupe-$S.log
 echo "# contrôle rapide équivalent (test_crates découpé, décision du coordinateur), engine $S, $(date -u), df $(df -h . | tail -1)" > $L
 T0=$(date +%s)
-echo "## make format test_tools check_forbidden check_rollback_registration check_sim_boundary lint check_animation" >> $L
-env -u CI CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 ALACOD_MUTE=1 make format test_tools check_forbidden check_rollback_registration check_sim_boundary lint check_animation >> $L 2>&1
+echo "## make format test_tools check_forbidden check_rollback_registration check_sim_boundary lint check_integration" >> $L
+env -u CI CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 ALACOD_MUTE=1 make format test_tools check_forbidden check_rollback_registration check_sim_boundary lint check_integration >> $L 2>&1
 c=$?; echo "make (sans test_crates) : code $c, $(( $(date +%s) - T0 )) s" >> $L
 rm -rf "$TGT"/headless/build/scenario; scripts/target-sweep.sh "$TGT" >> $L 2>&1
 [ $c -ne 0 ] && { echo "ÉCHEC avant test_crates" >> $L; exit $c; }
