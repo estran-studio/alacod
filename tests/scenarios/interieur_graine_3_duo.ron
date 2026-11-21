@@ -2,7 +2,6 @@
 //
 // À regarder : les deux joueurs partent du hall ; le joueur 0 fait la branche de la clé, le joueur 1 reste dans le hall.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     floors: Some("interieur_seul"),

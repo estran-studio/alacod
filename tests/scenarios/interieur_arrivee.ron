@@ -6,7 +6,6 @@
 // À regarder : il reparaît dans le hall, au centre de l'emprise (192 × 160 px, quatre prises dont trois ouvertes) ; neuf à dix salles s'ajoutent à l'extérieur ; la salle de la clé et
 // la salle finale ne se touchent pas et ne touchent pas le hall ; la porte de la salle finale (deux battants) est verrouillée, les autres sont ouvertes.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     floors: Some("porte_sortie_interieur"),

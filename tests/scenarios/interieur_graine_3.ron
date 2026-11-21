@@ -4,7 +4,6 @@
 //
 // À regarder : le joueur reparaît dans le hall, va à l'est puis monte (la salle de la clé est la deuxième à l'est puis au nord), tire sur le porteur au fond de la salle et ramasse sa clé.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     floors: Some("interieur_seul"),

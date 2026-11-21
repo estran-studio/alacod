@@ -3,7 +3,6 @@
 //
 // À regarder : les deux joueurs sont dans le hall au centre de l'intérieur, côte à côte ; la porte de la salle finale est verrouillée pour les deux.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     floors: Some("porte_sortie_interieur"),
