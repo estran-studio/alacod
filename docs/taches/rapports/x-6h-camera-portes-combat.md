@@ -17,3 +17,10 @@ Ramener l'équipe à l'entrée (règle d'Isaac, déjà là), désactivable par t
 | (b) deux joueurs | vert, traces neuves | `combat_coop_a_terre`, `combat_coop_feu_follet`, `combat_coop_sans_rappel` (+ `rooms_lock_coop` existant : rappel debout) |
 | (c) test pur caméra | vert (6 tests `camera::tests`) | `crates/game/src/camera/mod.rs` |
 | (e) traces avant/après | 118 scénarios existants (room*, key_door*, door_key*, sortie_porte_*, interieur_*, wisp_*, isaac*, gungeon*, arena*, boss*, secret*, bot_isaac*, grid*) : **tous verts, traces inchangées, aucun BLESS** (`make test_scenarios SCENARIO=…`, 2205 s) ; `schedule_order` : aucun système ni type rollback ajouté | journal local `/tmp/x6h-family.log` |
+| (d) capture du vrai jeu | **en attente** (feu vert du coordinateur : disque au plancher) | `docs/taches/rapports/preuves/x-6h/` |
+| (f) contrôle rapide découpé | **en attente** (même raison) | `$HOME/orca/runs/alacod/logs/x-6h-check-rapide-<sha>.log` |
+
+## Ce qui reste
+- Capture release (couloir → salle de combat → portes rouvertes → salle suivante, `room_fit` et `room_slide_seconds` posés temporairement dans `camera.ron` du testbed, `min_zoom` abaissé : les salles du testbed font 128 px), puis suppression de `target/release`.
+- Contrôle rapide découpé, dernières lignes du journal ici.
+- Dettes D228 (limites de la caméra) et D229 (pas de « la salle attend »).
