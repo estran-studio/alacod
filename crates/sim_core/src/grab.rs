@@ -116,7 +116,12 @@ mod tests {
 
     #[test]
     fn sway_flips_every_half_period() {
-        let r = Riding::new(GgrsNetId(1, "p".into()), 100, 400, Some((Fixed::from_num(30), 40)));
+        let r = Riding::new(
+            GgrsNetId(1, "p".into()),
+            100,
+            400,
+            Some((Fixed::from_num(30), 40)),
+        );
         assert_eq!(r.sway_at(100), Some(Fixed::from_num(30)));
         assert_eq!(r.sway_at(119), Some(Fixed::from_num(30)));
         assert_eq!(r.sway_at(120), Some(Fixed::from_num(-30)));

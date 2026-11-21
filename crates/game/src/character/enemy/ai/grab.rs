@@ -35,7 +35,9 @@ use sim_core::{
 use std::collections::BTreeMap;
 use utils::{frame::FrameCount, net_id::GgrsNetId, order_iter, order_mut_iter};
 
-use super::state::{BehaviorRuntime, EnemyAiConfig, EnemyBehaviors, EnemyTarget, GrabPhase, TargetType};
+use super::state::{
+    BehaviorRuntime, EnemyAiConfig, EnemyBehaviors, EnemyTarget, GrabPhase, TargetType,
+};
 use crate::{
     character::{
         enemy::Enemy,
@@ -282,14 +284,18 @@ pub fn grab_system(
                     .filter(|(_, pos)| position.distance(pos) <= ai_config.attack_range);
                 let reached = position.distance(&fixed_math::FixedVec2::new(aim.0, aim.1))
                     < fixed_math::Fixed::from_num(LEAP_ARRIVE);
-                let free = contact
-                    .filter(|(carrier, _)| riders.get(&carrier.0).copied().unwrap_or(0) < rule.max_riders);
+                let free = contact.filter(|(carrier, _)| {
+                    riders.get(&carrier.0).copied().unwrap_or(0) < rule.max_riders
+                });
                 if let Some((carrier, _)) = free {
                     *riders.entry(carrier.0).or_default() += 1;
                     let until = now.saturating_add(rule.hold);
-                    commands
-                        .entity(entity)
-                        .insert(Riding::new(carrier.clone(), now, until, rule.sway));
+                    commands.entity(entity).insert(Riding::new(
+                        carrier.clone(),
+                        now,
+                        until,
+                        rule.sway,
+                    ));
                     if let Some((_, _, _, mut modifiers, ..)) = player_query
                         .iter_mut()
                         .find(|(player_id, ..)| player_id.0 == carrier.0)

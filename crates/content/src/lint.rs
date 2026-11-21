@@ -4035,7 +4035,10 @@ fn lint_rules(
                     )
                 };
                 if reach.get() <= Fixed::ZERO || reach.get() > Fixed::from_num(1000) {
-                    out_of_range(format!("reach = {} : doit être dans ]0, 1000]", reach.get()));
+                    out_of_range(format!(
+                        "reach = {} : doit être dans ]0, 1000]",
+                        reach.get()
+                    ));
                 }
                 if leap_speed.is_some_and(|speed| speed.get() <= Fixed::ZERO) {
                     out_of_range("leap_speed doit être > 0 (ou absent)".to_string());
@@ -4061,7 +4064,10 @@ fn lint_rules(
                     }
                 }
                 if *shake == 0 {
-                    out_of_range("shake = 0 : il ne se décrocherait qu'à la mêlée ou au bout de hold".to_string());
+                    out_of_range(
+                        "shake = 0 : il ne se décrocherait qu'à la mêlée ou au bout de hold"
+                            .to_string(),
+                    );
                 }
                 if *shake_window == Some(0) {
                     out_of_range("shake_window = 0 : doit être > 0 (ou absent)".to_string());

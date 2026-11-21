@@ -917,7 +917,10 @@ pub fn charge_damage_translate_system(
         return;
     };
     for (net_id, team, tags, ai_config, runtime) in order_iter!(enemy_query) {
-        for (hit, kind) in [(&runtime.charge_hit, "charge"), (&runtime.grab_bite, "grab")] {
+        for (hit, kind) in [
+            (&runtime.charge_hit, "charge"),
+            (&runtime.grab_bite, "grab"),
+        ] {
             let Some((hit_frame, target)) = hit else {
                 continue;
             };
