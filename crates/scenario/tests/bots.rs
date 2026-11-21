@@ -48,6 +48,7 @@ fn two_fonceurs(frames: u32) -> Scenario {
         mode: None,
         ui: Vec::new(),
         tags: Vec::new(),
+        input_delay: None,
     }
 }
 

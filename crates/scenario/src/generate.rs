@@ -1370,6 +1370,7 @@ pub fn build_enemy_scenario(
         mode: arena.mode,
         ui: Vec::new(),
         tags: Vec::new(),
+        input_delay: None,
     }
 }
 
@@ -1727,6 +1728,7 @@ fn base_scenario(
         room_reward_chance_override: None,
         ui: Vec::new(),
         tags: Vec::new(),
+        input_delay: None,
         shop: Default::default(),
     }
 }
@@ -1935,6 +1937,7 @@ pub fn build_weapon_scenario(
         mode: arena.mode,
         ui: Vec::new(),
         tags: Vec::new(),
+        input_delay: None,
     }
 }
 

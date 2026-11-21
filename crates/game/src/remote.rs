@@ -308,6 +308,25 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         .collect();
     doors.sort_by_key(|d| d["id"].as_u64());
 
+    // P-1e : balles en vol (position et vitesse, unités du monde et unités/s), pour mesurer leur
+    // vitesse au vrai jeu frame par frame. Lecture seule, triées par `GgrsNetId`.
+    let mut bullets_query =
+        world.query::<(&GgrsNetId, &FixedTransform3D, &combat::weapons::Bullet)>();
+    let mut bullets: Vec<Value> = bullets_query
+        .iter(world)
+        .map(|(id, transform, bullet)| {
+            json!({
+                "id": id.0,
+                "x": round(transform.translation.x),
+                "y": round(transform.translation.y),
+                "vx": round(bullet.velocity.x),
+                "vy": round(bullet.velocity.y),
+                "player": bullet.player_handle,
+            })
+        })
+        .collect();
+    bullets.sort_by_key(|b| b["id"].as_u64());
+
     let editor = world.contains_resource::<EditorMode>();
     let online = matches!(
         world.get_resource::<OnlineState>(),
@@ -362,6 +381,7 @@ fn state(In(_): In<Option<Value>>, world: &mut World) -> BrpResult {
         "enemies": enemies,
         "windows": windows,
         "doors": doors,
+        "bullets": bullets,
         "commands": commands,
     }))
 }

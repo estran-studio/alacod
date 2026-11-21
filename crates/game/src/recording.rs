@@ -58,6 +58,10 @@ pub struct RecordedSettings {
     pub progression: Option<String>,
     /// T-3b : étiquettes du scénario d'origine (`Scenario::tags`, ex. `rapide`) ; vides pour une partie jouée.
     pub tags: Vec<String>,
+    /// P-1e (§ 125) : délai d'entrée de la session enregistrée (`Scenario::input_delay`) : celui du scénario
+    /// d'origine, ou celui du client pour une partie jouée (0 hors ligne), pour que l'enregistrement rejoue
+    /// chaque input à la frame où il a été appliqué.
+    pub input_delay: Option<usize>,
     /// Réglages de chaque joueur (index = handle) : `PlayerScript` du scénario d'origine, sans
     /// inputs ni bot (arme, tags, immunités, modificateurs, solde, mutations). Audit T1.15 :
     /// sans eux, un scénario réenregistré perdait l'arme imposée (scénarios générés) et les
@@ -87,6 +91,7 @@ impl Default for RecordedSettings {
             mode: None,
             progression: None,
             tags: vec![],
+            input_delay: None,
             players: vec![],
         }
     }
@@ -113,6 +118,7 @@ impl RecordedSettings {
             mode: scenario.mode,
             progression: scenario.progression.clone(),
             tags: scenario.tags.clone(),
+            input_delay: scenario.input_delay,
             players: scenario
                 .players
                 .iter()
@@ -264,6 +270,7 @@ impl InputRecorder {
             mode: settings.mode,
             ui: Vec::new(),
             tags: settings.tags,
+            input_delay: settings.input_delay,
         };
         if let Some((path, seed)) = &self.initial_map {
             scenario.map = path.clone();
@@ -353,6 +360,7 @@ fn start_native_recording(
     progression: Res<crate::progression::ProgressionTable>,
     map: Option<Res<MapGenerationConfig>>,
     game_commands: Option<Res<crate::game_commands::GameCommands>>,
+    session: Option<Res<crate::jjrs::GggrsSessionConfiguration>>,
 ) {
     if !recorder.native || (recorder.started && frame.frame != 0) {
         return;
@@ -395,6 +403,7 @@ fn start_native_recording(
         difficulty.is_some(),
         &progression,
     );
+    recorder.settings.input_delay = session.map(|s| s.connection.input_delay);
     // `GameCommands` est vidée à l'entrée de `GameLoading` : ce qu'elle contient à la frame 0 a été
     // posé pour cette run avant son premier tick (K5-2) et doit survivre à la remise à zéro.
     if let Some(commands) = game_commands {
@@ -505,6 +514,7 @@ mod tests {
             mode: None,
             progression: Some("base".into()),
             tags: vec!["rapide".into()],
+            input_delay: Some(0),
             players: vec![PlayerScript {
                 weapon: Some("pistol".into()),
                 mutations: vec!["vampire".into()],
@@ -525,6 +535,8 @@ mod tests {
         assert_eq!(scenario.players[0].weapon.as_deref(), Some("pistol"));
         // T-3b : l'étiquette du jeu court survit au réenregistrement.
         assert_eq!(scenario.tags, ["rapide"]);
+        // P-1e : le délai d'entrée de la session enregistrée est rejoué tel quel.
+        assert_eq!(scenario.input_delay, Some(0));
         assert_eq!(RecordedSettings::from_scenario(&scenario), settings);
 
         // Partie jouée : réglages par défaut, comme avant D19.

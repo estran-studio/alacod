@@ -17,7 +17,7 @@ pub struct PoseInput {
     pub speed: f32,
     /// Direction du déplacement moins le cap du corps (radians, + vers sa gauche).
     pub rel: f32,
-    /// Esquive en cours : (numéro de l'esquive, avancement dans [0, 1]).
+    /// Esquive en cours : (rang de l'esquive, 0 pour la première ; avancement dans [0, 1]).
     pub dash: Option<(u32, f32)>,
     /// Coup de mêlée en cours : secondes depuis son début, durée du coup (s).
     pub melee: Option<(f32, f32)>,
