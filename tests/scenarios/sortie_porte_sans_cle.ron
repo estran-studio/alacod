@@ -1,0 +1,31 @@
+// X-6f (docs/conventions.md §128) : témoin sans clé de `sortie_porte_solo`. Même carte (`porte_sortie`), même marche vers la porte, mais le porteur de la
+// clé est laissé en vie : le joueur n'a pas la clé, la porte de sortie reste fermée (`Locked`, `key_refused`) et le niveau ne change pas.
+//
+// À regarder : le joueur bute contre la porte à l'est, l'invite dit « Fermé — clé », rien ne s'ouvre ; `FloorIndex` reste 0.
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie"),
+    frames: 420,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 100, to: 260, buttons: [Right]),
+                (from: 260, to: 400, buttons: [Right, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        TeamKeys(key: "cle_test", count: 0, at_frame: 300),
+        MapDoor(nth: 0, state: Locked, at_frame: 300),
+        MapDoor(nth: 1, state: Locked, at_frame: 300),
+        Event(kind: "key_refused", by_frame: 300),
+        FloorIndex(index: 0, at_frame: 300),
+        FloorIndex(index: 0, at_frame: 419),
+    ],
+)

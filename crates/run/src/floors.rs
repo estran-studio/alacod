@@ -77,6 +77,20 @@ pub fn crosses_portal(state: &FloorState, position: FixedVec2) -> bool {
     delta.x * delta.x + delta.y * delta.y <= PORTAL_RADIUS * PORTAL_RADIUS
 }
 
+/// Marge (unités monde) autour du rectangle d'une porte de sortie ouverte (X-6f, §128) : le centre
+/// du joueur la franchit en entrant dans ce rectangle élargi de la marge de chaque côté.
+pub const EXIT_DOOR_MARGIN: Fixed = Fixed::from_bits(4 << 16);
+
+/// Un joueur à `position` franchit une porte de sortie ouverte de centre `center` et de gabarit
+/// `size` (largeur, hauteur) : son centre est dans le rectangle de la porte, élargi de
+/// [`EXIT_DOOR_MARGIN`]. Comparaisons seules, en `Fixed` : pas de produit.
+pub fn crosses_exit_door(center: FixedVec2, size: (Fixed, Fixed), position: FixedVec2) -> bool {
+    let two = Fixed::from_num(2);
+    let delta = position - center;
+    delta.x.abs() <= size.0 / two + EXIT_DOOR_MARGIN
+        && delta.y.abs() <= size.1 / two + EXIT_DOOR_MARGIN
+}
+
 /// Barycentre de positions (portail d'un niveau : centre des `PlayerSpawn`, donc de la salle
 /// de départ). `None` si la liste est vide. Somme en `Fixed`, ordre indifférent.
 pub fn barycenter(points: &[FixedVec2]) -> Option<(Fixed, Fixed)> {
@@ -150,6 +164,22 @@ mod tests {
             &closed,
             FixedVec2::new(fx(100.0), fx(50.0))
         ));
+    }
+
+    #[test]
+    fn franchissement_d_une_porte_de_sortie() {
+        // Porte verticale 16 × 32 centrée en (100, 50), marge de 4.
+        let center = FixedVec2::new(fx(100.0), fx(50.0));
+        let size = (fx(16.0), fx(32.0));
+        let at = |x: f32, y: f32| crosses_exit_door(center, size, FixedVec2::new(fx(x), fx(y)));
+        assert!(at(100.0, 50.0));
+        // Bords du rectangle élargi de 4 : x ∈ [88, 112], y ∈ [30, 70], inclus.
+        assert!(at(112.0, 70.0));
+        assert!(at(88.0, 30.0));
+        assert!(!at(112.5, 50.0));
+        assert!(!at(100.0, 70.5));
+        // Loin : pas de débordement.
+        assert!(!at(30000.0, -30000.0));
     }
 
     #[test]

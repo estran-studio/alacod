@@ -1,0 +1,5 @@
+{"levels": [{"layerInstances": [{"entityInstances": [
+  {"__identifier": "DoorVertical", "fieldInstances": [
+    {"__identifier": "exit_next_level", "__value": true}
+  ]}
+]}]}]}

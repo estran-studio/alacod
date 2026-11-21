@@ -23,6 +23,9 @@ pub struct DoorConfig {
     pub paired_door: Option<(String, (i32, i32))>, // (level_iid, position)
     /// Serrure à clé (X-6a1) : `None` pour toute porte existante.
     pub lock: Option<DoorLockConfig>,
+    /// Sortie vers le niveau suivant (X-6f, §128) : ouverte, la franchir fait passer toute l'équipe
+    /// au niveau suivant de la séquence `Floors`. `false` pour toute porte existante.
+    pub exit: bool,
 }
 
 impl Default for DoorConfig {
@@ -33,6 +36,7 @@ impl Default for DoorConfig {
             interactable: true, // Doors are interactable by default
             paired_door: None,
             lock: None,
+            exit: false,
         }
     }
 }

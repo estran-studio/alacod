@@ -977,6 +977,10 @@ pub struct FloorsEntry {
     /// (au lieu d'ouvrir un portail qui boucle) : `gungeon`, étage dont le boss est le dernier
     /// ennemi. Faux par défaut (throne, testbed : boucle infinie au dernier niveau).
     pub victory_at_end: bool,
+    /// X-6f (§128) : on quitte chaque niveau **par sa porte de sortie** (champ LDtk `exit_next_level` d'une porte de
+    /// carte), jamais par le portail « niveau vidé », qui ne s'ouvre pas avant le dernier niveau. Faux par défaut :
+    /// les séquences existantes gardent leur portail. Lint : sortie sur le dernier niveau, niveau sans sortie.
+    pub exit_by_door: bool,
     /// M2-T1 : consommables remontés à `n` au début de chaque étage (le blank de `gungeon` :
     /// `{"blank": 2}`) ; l'étage 0 est servi par `starting_consumables` du personnage.
     pub consumables_per_floor: BTreeMap<String, u32>,
@@ -1193,6 +1197,9 @@ struct FloorsFileSchema {
     /// M2-T0d : voir [`FloorsEntry::victory_at_end`].
     #[serde(default)]
     victory_at_end: bool,
+    /// X-6f : voir [`FloorsEntry::exit_by_door`].
+    #[serde(default)]
+    exit_by_door: bool,
     /// M2-T1 : voir [`FloorsEntry::consumables_per_floor`].
     #[serde(default)]
     consumables_per_floor: BTreeMap<String, u32>,
@@ -1236,6 +1243,40 @@ pub struct MapEntry {
     /// X-6a1 (§117) : `lock_key` de chaque porte (`DoorHorizontal`/`DoorVertical`) à serrure des niveaux
     /// internes, pour l'avertissement « clé qu'aucun personnage ne porte ».
     pub door_locks: Vec<String>,
+    /// X-6f (§128) : nombre de portes (`DoorHorizontal`/`DoorVertical`) à `exit_next_level` vrai des niveaux
+    /// internes, pour le lint des séquences `exit_by_door`.
+    pub exit_doors: usize,
+}
+
+/// X-6f : nombre de portes marquées `exit_next_level` d'un `.ldtk` (niveaux internes) ; 0 si illisible.
+fn ldtk_exit_doors(text: &str) -> usize {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return 0;
+    };
+    let mut count = 0;
+    for level in json["levels"].as_array().into_iter().flatten() {
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                if entity["__identifier"] != "DoorHorizontal"
+                    && entity["__identifier"] != "DoorVertical"
+                {
+                    continue;
+                }
+                let exit = entity["fieldInstances"]
+                    .as_array()
+                    .and_then(|fields| {
+                        fields
+                            .iter()
+                            .find(|f| f["__identifier"] == "exit_next_level")
+                    })
+                    .is_some_and(|f| f["__value"] == true);
+                if exit {
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
 }
 
 /// X-6a1 : champ `lock_key` non vide de chaque porte d'un `.ldtk` (niveaux internes), dans l'ordre du
@@ -3875,6 +3916,7 @@ fn load_floors(
                 file: rel,
                 levels: parsed.levels,
                 victory_at_end: parsed.victory_at_end,
+                exit_by_door: parsed.exit_by_door,
                 consumables_per_floor: parsed.consumables_per_floor,
                 loot: parsed.loot,
                 curses: parsed.curses,
@@ -4986,6 +5028,7 @@ fn load_maps(
         let room_kinds = text.as_deref().map(ldtk_room_kinds).unwrap_or_default();
         let levels = text.as_deref().map(ldtk_level_infos).unwrap_or_default();
         let door_locks = text.as_deref().map(ldtk_door_locks).unwrap_or_default();
+        let exit_doors = text.as_deref().map(ldtk_exit_doors).unwrap_or_default();
         registry.maps.insert(
             id.clone(),
             MapEntry {
@@ -4996,6 +5039,7 @@ fn load_maps(
                 room_kinds,
                 levels,
                 door_locks,
+                exit_doors,
             },
         );
     }

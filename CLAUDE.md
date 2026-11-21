@@ -518,6 +518,9 @@ ou d'un crate à l'autre, avec les traces de scénario.
       `zigzag_charge_retour`, `zigzag_temoin_droit`, `zigzag_deux_joueurs`, `retour_apres_morsure`.
     - X-6c repli derrière un couvert (§120) : `CoverSight(entity, handle, blocked, at_frame)` (ligne de vue joueur → ennemi coupée par un `Cover`, `blocked: true`, ou dégagée ;
       même test de segment que le behavior `TakeCover`) ; `EnemyState` (règle `TakeCover`), `EnemyPosition` couvrent les six scénarios `repli_couvert_*` (témoin `repli_couvert_temoin`).
+    - X-6f changement de niveau par une porte de sortie (§128) : aucune attente nouvelle (`FloorIndex`, `MapDoor`, `TeamKeys`, `KeyPiles`, `PlayerPosition`, `PlayerDowned`, `Health`, `Ammo`, `ActiveWeapon`,
+      `EntityCount`, `Event(kind: "floor" | "key_door")`, `HudText(source: "wisp")` couvrent les sept scénarios `sortie_porte_*`) ; champ de porte LDtk `exit_next_level`, champ de séquence `Floors` `exit_by_door` ;
+      la relance est le test `crates/scenario/tests/floors.rs` (`la_relance_apres_la_porte_…`).
     - T-3b suites d'intégration (§123) : attentes fines sur `ModelPlayback` (P-1d) : `Clip(who, clip, once, at_frame)`, `ClipProgress(who, min, max, at_frame)`,
       `ClipSpeed(who, min, max, at_frame)` (clip par seconde de jeu, de `at_frame - 1` à `at_frame`), `ModelYaw(who, toward: Direction(..) | Player(n), tolerance_deg, at_frame)` ;
       `TelegraphAim(entity, handle, max_deg, at_frame)` (le cône d'un `Telegraph` suit le joueur) ; `who` : `Player(n)` ou `Entity(Placed(n))`. Champ `Scenario::tags`

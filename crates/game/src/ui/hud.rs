@@ -990,6 +990,30 @@ struct HudInteractables<'w, 's> {
     powerups: Res<'w, PowerUpsTable>,
     /// X-6a1 (§117) : clés d'équipe, pour l'invite d'une porte à serrure.
     team_keys: Res<'w, run::TeamKeys>,
+    /// X-6f (§128) : portes de carte **ouvertes** (ni `Interactable` ni `Collider`), pour l'invite
+    /// « Entrer » d'une sortie vers le niveau suivant.
+    open_doors: Query<
+        'w,
+        's,
+        (
+            &'static fixed_math::FixedTransform3D,
+            &'static DoorComponent,
+        ),
+        (With<Rollback>, Without<Interactable>, Without<Collider>),
+    >,
+}
+
+/// Portée (unités monde, par axe) de l'invite « Entrer » d'une porte de sortie ouverte : la porte
+/// (16 × 32 au plus) et une marge pour la voir venir.
+const EXIT_PROMPT_REACH: i32 = 40;
+
+/// Une porte de sortie ouverte est-elle à portée de `position` ? (X-6f, §128 ; comparaisons seules.)
+fn exit_door_in_reach(world: &HudInteractables, position: fixed_math::FixedVec3) -> bool {
+    let reach = fixed_math::Fixed::from_num(EXIT_PROMPT_REACH);
+    world.open_doors.iter().any(|(transform, door)| {
+        let delta = transform.translation - position;
+        door.config.exit && delta.x.abs() <= reach && delta.y.abs() <= reach
+    })
 }
 
 fn update_hud_v1_values(
@@ -1085,8 +1109,8 @@ fn update_hud_v1_values(
         .filter(|p| p.3.is_none())
         .and_then(
             |(_, transform, perks_owned, _, _, _, inventory, _, items)| {
-                closest_interactable(&world, transform.translation).map(|target| {
-                    prompt_for(
+                match closest_interactable(&world, transform.translation) {
+                    Some(target) => Some(prompt_for(
                         &world,
                         config,
                         target,
@@ -1094,8 +1118,13 @@ fn update_hud_v1_values(
                         inventory,
                         items,
                         snapshot.values.hides.item_names,
-                    )
-                })
+                    )),
+                    // X-6f : rien à toucher, mais une sortie ouverte tout près : « Entrer ».
+                    None if exit_door_in_reach(&world, transform.translation) => {
+                        Some(Prompt::EnterDoor.text())
+                    }
+                    None => None,
+                }
             },
         )
         .unwrap_or_default();
@@ -1775,6 +1804,8 @@ enum Prompt {
     },
     /// X-6a1 : porte à serrure dont la clé n'est pas tenue par l'équipe.
     LockedDoor,
+    /// X-6f : porte de sortie ouverte, vers le niveau suivant.
+    EnterDoor,
     /// Une fenêtre intacte n'a rien à réparer : pas de prompt.
     Window {
         damaged: bool,
@@ -1849,6 +1880,7 @@ impl Prompt {
             Prompt::Door { cost } if *cost > 0 => format!("Ouvrir — ${cost}"),
             Prompt::Door { .. } => "Ouvrir".to_string(),
             Prompt::LockedDoor => "Fermé — clé".to_string(),
+            Prompt::EnterDoor => "Entrer".to_string(),
             Prompt::Window { damaged: true } => "Réparer".to_string(),
             Prompt::Window { damaged: false } => String::new(),
             Prompt::Revive => "Réanimer".to_string(),
@@ -2195,6 +2227,7 @@ mod tests {
     fn prompt_texts() {
         assert_eq!(Prompt::Door { cost: 750 }.text(), "Ouvrir — $750");
         assert_eq!(Prompt::Door { cost: 0 }.text(), "Ouvrir");
+        assert_eq!(Prompt::EnterDoor.text(), "Entrer");
         assert_eq!(Prompt::Window { damaged: true }.text(), "Réparer");
         assert_eq!(Prompt::Window { damaged: false }.text(), "");
         assert_eq!(Prompt::Revive.text(), "Réanimer");

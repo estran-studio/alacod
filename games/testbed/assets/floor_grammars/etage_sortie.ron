@@ -1,0 +1,11 @@
+// X-6f (docs/conventions.md §128) : grammaire minimale du testbed, un départ et un boss (gabarits de
+// `testbed/etage_sortie.ldtk`). Niveau d'arrivée de `floors/porte_sortie_graine`, scénario `sortie_porte_graine`.
+(
+    templates: "testbed/etage_sortie.ldtk",
+    grammar: (
+        rooms: (2, 2),
+        required: {"boss": 1},
+        min_boss_distance: 1,
+        filler: "boss",
+    ),
+)

@@ -1,0 +1,10 @@
+// X-6f (docs/conventions.md §128) : deux niveaux, on quitte le premier **par sa porte de sortie** (carte
+// `porte_sortie.ldtk` : porte à l'est à `lock_key: "cle_test"` et `exit_next_level: true`), jamais par le
+// portail « niveau vidé » (`exit_by_door`). Scénarios `sortie_porte_*`.
+(
+    levels: [
+        "testbed/porte_sortie.ldtk",
+        "testbed/floor_b.ldtk",
+    ],
+    exit_by_door: true,
+)

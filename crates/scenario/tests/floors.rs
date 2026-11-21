@@ -213,3 +213,107 @@ fn deux_parties_floors_ont_la_meme_trace() {
     assert!(a.failures.is_empty(), "{:?}", a.failures);
     assert_eq!(a.trace, b.trace);
 }
+
+/// X-6f (`docs/conventions.md` §128) : relance après un passage de niveau par la porte = retour au premier niveau, même
+/// graine. Joue `sortie_porte_solo` jusqu'au niveau 1, relance la partie (`RunRequest::Restart`, comme l'écran de fin ou
+/// `alacod/restart`) : le niveau redevient 0, la clé d'équipe consommée est remise à zéro, le joueur est sur son départ
+/// du niveau 0 et la partie rejouée (mêmes inputs) repasse la porte à la même frame avec **la même trace d'état**.
+#[test]
+fn la_relance_apres_la_porte_revient_au_niveau_zero_et_rejoue_a_l_identique() {
+    use game::{run_state::RunRequest, session::AppState, state_trace::StateTraceRecorder};
+    use scenario::runner::{build_app, PlayConfig};
+
+    if map_ldtk::RENDER_ENABLED {
+        return;
+    }
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/scenarios/sortie_porte_solo.ron"
+    );
+    let scenario =
+        Scenario::from_ron(&std::fs::read_to_string(path).expect("sortie_porte_solo.ron"))
+            .expect("scénario valide");
+    let mut app = build_app(
+        &scenario,
+        true,
+        &PlayConfig {
+            follow_handle: None,
+        },
+    );
+    app.finish();
+    app.cleanup();
+
+    let frame = |app: &App| app.world().resource::<FrameCount>().frame;
+    let position = |app: &mut App| {
+        let world = app.world_mut();
+        let mut query = world.query::<(&Player, &FixedTransform3D)>();
+        let (_, transform) = query
+            .iter(world)
+            .find(|(p, _)| p.handle == 0)
+            .expect("joueur 0");
+        (transform.translation.x, transform.translation.y)
+    };
+
+    // Première partie : jusqu'au niveau 1 (la porte est franchie vers f269), puis quelques frames de plus.
+    let (_, after) = step_until_floor(&mut app, 1, 1000);
+    assert_eq!(after.floor.index, 1);
+    let stop = after.frame + 10;
+    while frame(&app) < stop {
+        app.update();
+    }
+    let crossing_frame = after.frame;
+    let first_trace: Vec<String> = app
+        .world()
+        .resource::<StateTraceRecorder>()
+        .lines_until(stop - 1)
+        .map(str::to_string)
+        .collect();
+
+    app.world_mut().insert_resource(RunRequest::Restart);
+    // Quitter `InGame`, puis y revenir avec une partie fraîche.
+    let mut left = false;
+    for _ in 0..20_000 {
+        app.update();
+        if *app.world().resource::<State<AppState>>().get() != AppState::InGame {
+            left = true;
+            break;
+        }
+    }
+    assert!(left, "jamais quitté InGame après la relance");
+    let mut back = false;
+    for _ in 0..20_000 {
+        app.update();
+        if *app.world().resource::<State<AppState>>().get() == AppState::InGame {
+            back = true;
+            break;
+        }
+    }
+    assert!(back, "pas revenu en InGame après la relance");
+
+    // Partie fraîche : niveau 0, clé d'équipe remise à zéro, joueur sur le départ du niveau 0.
+    assert_eq!(app.world().resource::<FloorState>().index, 0);
+    assert!(
+        app.world().resource::<run::TeamKeys>().0.is_empty(),
+        "la clé consommée devait être remise à zéro"
+    );
+    let start = position(&mut app);
+    assert!(
+        (start.0.to_num::<f32>() - 632.0).abs() < 4.0
+            && (start.1.to_num::<f32>() + 104.0).abs() < 4.0,
+        "joueur au départ du niveau 0 attendu en (632, -104), vu {start:?}"
+    );
+
+    // Rejoué : même passage de niveau à la même frame, même trace.
+    let (_, again) = step_until_floor(&mut app, 1, 1000);
+    assert_eq!(again.frame, crossing_frame, "passage de la porte décalé");
+    while frame(&app) < stop {
+        app.update();
+    }
+    let second_trace: Vec<String> = app
+        .world()
+        .resource::<StateTraceRecorder>()
+        .lines_until(stop - 1)
+        .map(str::to_string)
+        .collect();
+    assert_eq!(first_trace, second_trace, "trace divergente après relance");
+}

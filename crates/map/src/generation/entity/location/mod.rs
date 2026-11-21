@@ -19,6 +19,9 @@ pub struct EntityLocations {
     /// X-6a1 : serrure d'**auteur** d'une porte de `doors` (même position), portée telle quelle
     /// (le reste de la `DoorConfig` est recalculé par `get_doors`).
     pub door_locks: Vec<(EntityLocation, DoorLockConfig)>,
+    /// X-6f (`docs/conventions.md` §128) : portes de `doors` marquées par l'auteur (champ LDtk
+    /// `exit_next_level`) comme **sortie vers le niveau suivant** (même position).
+    pub door_exits: Vec<EntityLocation>,
     /// T2.3, chantier C5 v1 : `perk` est une valeur d'auteur (voir `SodaLocationConfig`),
     /// portée comme `character_spawns` ci-dessous (pas recalculée).
     pub sodas: Vec<(EntityLocation, SodaLocationConfig)>,

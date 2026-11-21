@@ -286,6 +286,7 @@ mod tests {
             windows: vec![],
             character_spawns: vec![],
             door_locks: vec![],
+            door_exits: vec![],
         }
     }
 
