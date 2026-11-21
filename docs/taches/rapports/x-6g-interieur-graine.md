@@ -2,6 +2,10 @@
 
 Branche `wquintal/x-6g-interieur-graine`. Décision de William (2026-11-21), lot (2) ; jalon **D3 dim 6 déc**. Conventions : `docs/conventions.md` § 129 ; dettes D226–D227.
 
+**Ce qui existait déjà** : la grammaire d'étage § 40 (`FloorMapGeneration`) connaît les types de pièces (`room_kind`), pose le départ au centre, les salles requises, le boss en cul-de-sac, avec nouvelles tentatives et échec explicite ; la graine par défaut (`entry.default_seed`) rejouée à chaque relance.
+**Ce qui manquait** : un nombre exact de sorties du départ, « exactement » (et non « au moins ») par type requis, deux types dans deux branches différentes ; `Basic` ne connaît pas les types et tire son départ dans la boîte (cause des défauts de 1837).
+**Ce qui est ajouté** : trois champs optionnels de la grammaire (`start_exits`, `exact`, `apart`), leur contrôle `validate_plan`, leur lint ; aucun générateur neuf, défaut inchangé.
+
 ## (a) Relevé, avant tout code
 
 **`BasicMapGeneration`** (`crates/map/src/generation/imp/basic.rs`)
