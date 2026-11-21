@@ -9209,3 +9209,40 @@ départ, arrêt, demi-tour, tir ou pas partait 83 ms après l'appui et le joueur
 - **Ordre des esquives** : la première esquive joue `dash[0]` (rang compté depuis 0, `PoseInput::dash`), comme le banc (`J.pas` part de −1) ; avant, le Frère commençait sur `gigue-02`.
 - **Contrôle** : `crates/scenario/tests/physique_labo.rs` (testbed : réaction à la frame qui suit l'input avec la session du client hors ligne, durées des gestes d'arme, ordre des esquives ; salle réelle d'un jeu
   externe, ignoré : vitesse, réaction, balle contre les nombres de son banc, `ALACOD_P1E_*`). Rouge par mutation de chacun des trois points, vert après (rapport).
+
+## 128. Changement de niveau par une porte de sortie (X-6f, `docs/taches/rapports/x-6f-changement-niveau.md`)
+
+Jalon servi : **D2, dimanche 29 novembre** (`plan-1837-cli.md` §6, ligne X-6f, décision de William du 21 nov : « passer la porte principale de l'extérieur, clé en main, charge le niveau intérieur »). **Bloc générique à nom neutre** :
+une porte de carte (§ 117) devient, **en donnée**, la sortie vers le niveau suivant de la séquence `Floors` (§ 17). Le contenu d'un jeu (cartes, clés, noms) vit dans **son** dépôt ; le testbed prouve avec `porte_sortie*`.
+**Aucune trace existante ne bouge** (défauts : `exit_next_level` absent = porte ordinaire, `exit_by_door` absent = portail « niveau vidé » comme avant) ; aucun type rollback neuf, aucun système neuf.
+
+- **Relevé avant code** (état `94038bb9`) : `map_ldtk/src/game/floors.rs:473-677` (`floor_transition_system` : garde `portal_open` :505, joueur debout qui franchit :518, détruit tout non-joueur :535, recrée le niveau du slot suivant :548-659, **replace tous les joueurs par handle** :588-619) ;
+  `:360-391` (`floor_portal_open_system`) ; `run/src/floors.rs:24-65` (`FloorState`, `portal_should_open`, `crosses_portal`) ; `content/src/registry.rs:971` (`FloorsEntry`) ; `game/src/interaction.rs:305` (`handle_door_interaction`) ; `run/src/keys.rs:21` (`TeamKeys`) ; `game/src/ui/hud.rs:1624` (`door_prompt`).
+  Constat : le passage replace **déjà toute l'équipe** (debout, à terre, mort ou feu follet) ; seul le **déclencheur** (portail) est remplaçable.
+- **Champ de porte LDtk `exit_next_level`** (booléen, sur `DoorHorizontal` / `DoorVertical` ; absent ou faux : porte ordinaire ; `map_const::FIELD_EXIT_NEXT_LEVEL_NAME`). Il suit le **même chemin que la serrure** (§ 117) à travers la génération :
+  `EntityLocations::door_exits` (`map_ldtk::generation::from::door_exit_from_instance`) → `BasicMapGeneration::get_doors` (la sortie est **copiée sur la jumelle**) → `DoorConfig::exit` → `to.rs` la réécrit. **Coût 0** (une sortie n'est pas un achat : sans cela `get_doors` recalculait 750 + profondeur × 250 et la porte refusait l'ouverture ; test
+  `la_sortie_traverse_la_generation_gratuite_et_se_partage_avec_la_jumelle`). Elle se **combine** avec la serrure : `lock_key` / `lock_consume` donnent la clé d'équipe exigée, consommée ou non (§ 117) ; sans `lock_key`, une Interaction l'ouvre.
+- **Séquence `exit_by_door: true`** (`floors/<id>.ron`, `FloorsEntry::exit_by_door`, `FloorPlan::exit_by_door`, défaut faux) : **le portail « niveau vidé » ne s'ouvre pas** aux niveaux qui ont un suivant (`FloorPlan::portal_enabled_at`) ; le **dernier** niveau garde la règle d'avant (portail ou victoire, `victory_at_end`).
+  Sans ce champ, une carte qui marquerait une porte de sortie reste sans effet de séquence : le portail s'ouvre comme avant **et** la porte ouverte fait aussi passer (les deux déclencheurs coexistent).
+- **Franchir** (`floor_transition_system`, étendu : pas de second système) : une porte de sortie **ouverte** (sans `Collider`, comme toute porte ouverte, § 117) est franchie par le **premier joueur debout** (ni à terre ni mort, ordre des `GgrsNetId`) dont le centre entre dans le rectangle de la porte élargi de `EXIT_DOOR_MARGIN` (4 unités ; `run::floors::crosses_exit_door`,
+  `Fixed`, comparaisons seules). La porte **n'attend pas** que le niveau soit vide. Le reste est le passage du § 17 inchangé : tout non-joueur détruit (`despawn_rollback`), niveau suivant créé (numérotation continue), **tous** les joueurs replacés par handle sur les `PlayerSpawn` du niveau d'arrivée, santé, armes, munitions, monnaie et perks gardés. Un coéquipier
+  **à terre ou en feu follet** (M-5, § 113) arrive **dans son état** (`Downed`, `Wisp` ne sont pas touchés). Journal : `ggrs{f=… floor_exit_door door=<net_id> player=<handle> net_id=<net_id>}` avant `floor_transition`.
+- **Niveau suivant assemblé par graine** : une entrée `floor:<id>` de la séquence (§ 40 « Étapes 2 ») est son propre monde, de graine `graine de la run + emplacement × 0x3C6E_F372` ; la porte l'y mène comme vers une carte dessinée. **Relance** (`RunRequest::Restart`) = retour au niveau 0, même graine, clé d'équipe remise à zéro, passage à la même frame et même trace.
+- **Lint** (`content::lint::lint_floors_exit_doors`, `OutOfRange`, seulement si `exit_by_door`) : **porte de sortie sur le dernier niveau** (il n'y a pas de niveau suivant) ; **niveau (sauf le dernier) sans porte de sortie** (on n'en sortirait jamais) ; un `floor:<id>` est jugé sur la carte de gabarits de sa grammaire, une caverne n'a pas de porte.
+  `MapEntry::exit_doors` (lecture du `.ldtk`). Fixtures `exit_door_ok`, `exit_door_on_last`, `exit_door_missing`, `exit_door_default` (`crates/content/tests/x_6f_exit_door_fixtures.rs`).
+- **Prompt** (`game::ui::hud`, présentation, jamais lu par la simulation) : « **Entrer** » (`Prompt::EnterDoor`) quand une porte de sortie **ouverte** est à 40 unités par axe et que rien d'autre n'est à portée d'interaction. La source `prompt` n'est pas lue en headless (widgets) : pas d'attente de scénario, test unitaire du texte.
+- **Testbed** (script `scripts/construire-cartes-x6f.py`, à partir de `portes_cle.ldtk` et `salles_cle_floors.ldtk`) : cartes `porte_sortie.ldtk` (porte à l'est à `lock_key: "cle_test"` et `exit_next_level`), `porte_sortie_libre.ldtk` (sans serrure), gabarits `etage_sortie.ldtk` (départ + boss, grammaire `floor_grammars/etage_sortie.ron`) ;
+  séquences `porte_sortie` (`porte_sortie.ldtk` puis `floor_b.ldtk`), `porte_sortie_libre` (idem, porte libre), `porte_sortie_graine` (`porte_sortie.ldtk` puis `floor:etage_sortie`), toutes `exit_by_door: true`. Le dernier niveau est `floor_b` (des ennemis y vivent : le portail n'y boucle pas pendant le scénario).
+
+| Scénario | Ce qu'il prouve |
+|---|---|
+| `sortie_porte_solo` (rapide) | clé ramassée (f115) → porte ouverte (f266, clé consommée) → franchie (f269) → `FloorIndex(1)`, joueur sur le départ du niveau 1, **santé 55, arme et 26 balles gardées** (touché par un `breacher` du niveau 0 avant la porte) ; aucun portail ouvert au niveau 0 |
+| `sortie_porte_sans_cle` (rapide) | témoin : porteur vivant, pas de clé → porte `Locked`, `key_refused`, `FloorIndex(0)` jusqu'au bout |
+| `sortie_porte_niveau_vide` (rapide) | témoin : porteur tué, **aucun ennemi**, le joueur ne franchit pas → `FloorIndex(0)`, aucun portail (le défaut d'avant l'aurait ouvert) |
+| `sortie_porte_graine` | le niveau 1 est l'étage assemblé `floor:etage_sortie` ; mêmes gestes ; arrivée dans sa salle de départ |
+| `sortie_porte_coop` (rapide) | deux joueurs, **un** franchit (porte libre) : les deux arrivent, le second sur son propre départ |
+| `sortie_porte_coop_a_terre` | le coéquipier **à terre** (abattu par tir ami) arrive **toujours à terre** |
+| `sortie_porte_coop_feu_follet` | le coéquipier en **feu follet** arrive toujours en feu follet |
+| test `la_relance_apres_la_porte_revient_au_niveau_zero_et_rejoue_a_l_identique` (`crates/scenario/tests/floors.rs`) | relance après le niveau 1 : niveau 0, clé remise à zéro, joueur au départ, passage rejoué à la même frame, même trace |
+
+- **Limites** (dettes **D224**, **D225**, `docs/taches/dettes.md`).
