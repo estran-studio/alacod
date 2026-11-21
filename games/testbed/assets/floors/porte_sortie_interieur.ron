@@ -1,0 +1,10 @@
+// X-6g (§129) : le niveau suivant est l'**intérieur** assemblé par graine (grammaire `interieur` : hall au centre à trois sorties, salles
+// requises exactement une fois, clé et salle finale dans deux branches). Même départ que `porte_sortie_graine` : on franchit la porte de sortie
+// de `porte_sortie.ldtk` (clé du porteur) et on arrive dans le hall. Scénarios `interieur_*`.
+(
+    levels: [
+        "testbed/porte_sortie.ldtk",
+        "floor:interieur",
+    ],
+    exit_by_door: true,
+)

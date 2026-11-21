@@ -4432,6 +4432,27 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+        // X-6g (§129) : le gabarit de départ doit avoir au moins `start_exits` prises (les prises en trop
+        // sont murées ; en manquer rend la grammaire impossible).
+        if let Some(exits) = entry.grammar.start_exits {
+            let most = map
+                .levels
+                .iter()
+                .filter(|level| level.room_kind.as_deref() == Some(entry.grammar.start.as_str()))
+                .map(|level| level.connection.border_openings())
+                .max()
+                .unwrap_or(0);
+            if most < exits {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "grammaire d'étage « {} » : start_exits = {exits} : aucun gabarit de départ (« {} ») de {} n'a plus de {most} prise(s)",
+                        entry.id, entry.grammar.start, entry.templates
+                    ),
+                });
+            }
+        }
     }
 }
 

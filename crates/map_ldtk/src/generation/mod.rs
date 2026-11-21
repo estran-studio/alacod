@@ -982,4 +982,175 @@ mod tests {
 
         generator
     }
+
+    /// X-6g (§129) : campagne de graines d'un intérieur (grammaire à `start_exits`, `exact`, `apart`), jugée **sur
+    /// les salles réellement générées** (voisinages des portes, types lus dans les gabarits LDtk), pas sur le plan.
+    /// Imprime les nouvelles tentatives et les temps ; `ALACOD_CAMPAGNE_LECTURE=1` n'échoue pas (lecture d'un contenu
+    /// externe). `ALACOD_CAMPAGNE_LDTK` / `ALACOD_CAMPAGNE_GRAMMAIRE` (fichier `floor_grammars/*.ron`) /
+    /// `ALACOD_CAMPAGNE_GRAINES` (200 par défaut) : le testbed (`interieur`) sans variable.
+    /// `cargo test -p map_ldtk --profile headless --no-default-features campagne_interieur -- --ignored --nocapture`
+    #[test]
+    #[ignore = "campagne de mesure (X-6g), jouée à la demande"]
+    fn campagne_interieur() {
+        use map::generation::{config::MapGenerationMode, context::MapGenerationContext};
+        use std::collections::{BTreeMap, BTreeSet};
+        use world::FloorGrammar;
+        let env = |name: &str| std::env::var(name).ok();
+        let ldtk_path = env("ALACOD_CAMPAGNE_LDTK").unwrap_or_else(|| {
+            get_crate_root_path!("../../games/testbed/assets/testbed/interieur.ldtk").to_string()
+        });
+        let ron_path = env("ALACOD_CAMPAGNE_GRAMMAIRE").unwrap_or_else(|| {
+            get_crate_root_path!("../../games/testbed/assets/floor_grammars/interieur.ron")
+                .to_string()
+        });
+        let count: i32 = env("ALACOD_CAMPAGNE_GRAINES")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(200);
+        let lecture = env("ALACOD_CAMPAGNE_LECTURE").is_some_and(|v| v == "1");
+        #[derive(serde::Deserialize)]
+        struct File {
+            grammar: FloorGrammar,
+        }
+        let grammar = ron::from_str::<File>(&std::fs::read_to_string(&ron_path).unwrap())
+            .unwrap()
+            .grammar;
+        let data: LdtkJson = load_ldtk_json_file(&ldtk_path).unwrap();
+        let kinds: BTreeMap<String, String> = data
+            .levels
+            .iter()
+            .map(|level| {
+                let kind = level
+                    .field_instances
+                    .iter()
+                    .find(|f| f.identifier == "room_kind")
+                    .and_then(|f| match &f.value {
+                        bevy_ecs_ldtk::ldtk::FieldValue::String(Some(v)) => Some(v.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default();
+                (level.identifier.clone(), kind)
+            })
+            .collect();
+        let (max_width, max_heigth) = grammar.bounds.unwrap_or((1000, 1000));
+        let mut failures: Vec<String> = vec![];
+        let (mut attempts_total, mut attempts_max) = (0u64, 0u32);
+        let (mut micros_total, mut micros_max) = (0u128, 0u128);
+        let mut shapes = BTreeSet::new();
+        for seed in 1..=count {
+            let config = MapGenerationConfig {
+                seed,
+                max_width,
+                max_heigth,
+                mode: MapGenerationMode::Floor(grammar.clone()),
+                ..Default::default()
+            };
+            let context: MapGenerationContext = from_map(&data, config.clone());
+            let started = std::time::Instant::now();
+            let plan = map::generation::floor::plan_floor(
+                &grammar,
+                &context,
+                &mut RollbackRng::new(seed as u32),
+            );
+            let elapsed = started.elapsed().as_micros();
+            let mut generator = GeneratedMap::create(data.clone());
+            let outcome = map_generation(from_map(&data, config), &mut generator);
+            if outcome.is_err() || plan.is_err() {
+                failures.push(format!("graine {seed} : {:?}", plan.err()));
+                continue;
+            }
+            let plan = plan.unwrap();
+            attempts_total += u64::from(plan.attempts);
+            attempts_max = attempts_max.max(plan.attempts);
+            micros_total += elapsed;
+            micros_max = micros_max.max(elapsed);
+            let rooms = &generator.generated_rooms;
+            let index: BTreeMap<&str, usize> = rooms
+                .iter()
+                .enumerate()
+                .map(|(i, r)| (r.iid(), i))
+                .collect();
+            let adjacency: Vec<Vec<usize>> = rooms
+                .iter()
+                .map(|r| {
+                    r.neighbour_iids()
+                        .iter()
+                        .filter_map(|iid| index.get(iid.as_str()).copied())
+                        .collect()
+                })
+                .collect();
+            let kind_of = |i: usize| kinds[&rooms[i].template].as_str();
+            let mut problems = vec![];
+            // salle centrale au centre de l'emprise
+            let (x, y, w, h) = rooms[0].world_rect();
+            if (x + w / 2).abs() > 16 || (y + h / 2).abs() > 16 {
+                problems.push(format!("départ en ({}, {})", x + w / 2, y + h / 2));
+            }
+            if kind_of(0) != grammar.start {
+                problems.push("la première salle n'est pas le départ".to_string());
+            }
+            if let Some(exits) = grammar.start_exits {
+                let found = adjacency[0].iter().collect::<BTreeSet<_>>().len();
+                if found != exits {
+                    problems.push(format!("{found} sortie(s) au lieu de {exits}"));
+                }
+            }
+            for (kind, wanted) in &grammar.required {
+                let found = (0..rooms.len()).filter(|i| kind_of(*i) == kind).count();
+                if found != *wanted {
+                    problems.push(format!("« {kind} » {found} fois au lieu de {wanted}"));
+                }
+            }
+            if let Some((a, b)) = &grammar.apart {
+                let find = |kind: &str| (0..rooms.len()).find(|i| kind_of(*i) == kind);
+                if let (Some(a), Some(b)) = (find(a), find(b)) {
+                    // atteindre b depuis a sans repasser par le départ
+                    let mut seen = vec![false; rooms.len()];
+                    seen[0] = true;
+                    seen[a] = true;
+                    let mut stack = vec![a];
+                    while let Some(i) = stack.pop() {
+                        for &j in &adjacency[i] {
+                            if !seen[j] {
+                                seen[j] = true;
+                                stack.push(j);
+                            }
+                        }
+                    }
+                    if seen[b] {
+                        problems.push("clé et chef dans la même branche".to_string());
+                    }
+                } else {
+                    problems.push("un type de `apart` est absent".to_string());
+                }
+            }
+            if !problems.is_empty() {
+                failures.push(format!("graine {seed} : {}", problems.join(" ; ")));
+            }
+            shapes.insert(
+                rooms
+                    .iter()
+                    .map(|r| format!("{}@{},{}", r.template, r.world_rect().0, r.world_rect().1))
+                    .collect::<Vec<_>>(),
+            );
+        }
+        let ok = count as usize - failures.len();
+        println!(
+            "campagne : {ok}/{count} graines conformes ; tentatives moyenne {:.2}, max {} ; plan moyen {} µs, max {} µs ; {} cartes distinctes",
+            attempts_total as f64 / f64::from(count).max(1.0),
+            attempts_max,
+            micros_total / u128::from(count as u32).max(1),
+            micros_max,
+            shapes.len()
+        );
+        for failure in failures.iter().take(12) {
+            println!("  ✗ {failure}");
+        }
+        if !lecture {
+            assert!(
+                failures.is_empty(),
+                "{} graine(s) non conformes",
+                failures.len()
+            );
+        }
+    }
 }

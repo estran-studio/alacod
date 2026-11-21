@@ -1076,4 +1076,50 @@ mod tests {
         assert!(generator.get_links().is_empty());
         assert!(generator.unused_openings().is_empty());
     }
+
+    /// X-6g (D227) : cause du hall « au bord » relevé par 1837 : `get_spawning_room` tire la position du départ dans toute la boîte
+    /// (`[-max, max - taille]`), donc sur certaines graines la salle posée contre sa prise nord sort de la boîte
+    /// (`Room::is_outside`) et la prise est murée. Le défaut de `Basic` n'est pas changé (cartes des clones identiques) ;
+    /// la grammaire d'étage pose son départ au centre (`generation::floor`).
+    /// **À réécrire avec D227** : ce test épingle le défaut connu ; il cassera (voulu) le jour où `Basic` centre son départ.
+    #[test]
+    fn le_depart_de_basic_est_tire_jusqu_au_bord_donc_sa_voisine_peut_sortir_de_la_carte() {
+        let mut spawn = level("hall", &[(Side::N, 4), (Side::S, 4)]);
+        spawn.level_type = LevelType::Spawn;
+        let (mut at_edge, mut centered) = (0, 0);
+        for seed in 0..300u32 {
+            let mut rng = RollbackRng::new(seed);
+            let context = MapGenerationContext {
+                tile_size: (16, 16),
+                level_size: (10, 10),
+                available_levels: vec![Rc::new(spawn.clone())],
+                config: MapGenerationConfig {
+                    max_width: 400,
+                    max_heigth: 400,
+                    ..MapGenerationConfig::default()
+                },
+            };
+            let mut generator = BasicMapGeneration::create(context);
+            let room = generator.get_spawning_room(&mut rng);
+            // Une salle de même gabarit posée contre la prise nord du départ.
+            let north = room.get_connecting_room_position(
+                &room.level_def.connections[0],
+                &room.level_def,
+                1,
+                &(16, 16),
+            );
+            let neighbour =
+                Room::create(&mut rng, room.level_def.clone(), north, Default::default());
+            if neighbour.is_outside(&generator.context.config) {
+                at_edge += 1;
+            } else {
+                centered += 1;
+            }
+        }
+        assert!(at_edge > 0, "aucune graine ne pose le départ au bord haut");
+        assert!(
+            centered > 0,
+            "toutes les graines posent la voisine hors de la carte"
+        );
+    }
 }

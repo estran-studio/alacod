@@ -200,8 +200,8 @@
   {
     "path": "crates/map_ldtk/src/generation/mod.rs",
     "code": "let started = std::time::Instant::now();",
-    "count": 4,
-    "reason": "Mesure de durée des tests de génération (D45), du test de performance de l'étage en grille (M3-T5) et de la comparaison isaac/gungeon par phase (M3-T11d1, D107), hors simulation."
+    "count": 5,
+    "reason": "Mesure de durée des tests de génération (D45), du test de performance de l'étage en grille (M3-T5) et de la comparaison isaac/gungeon par phase (M3-T11d1, D107), de la campagne de graines de l'intérieur (X-6g), hors simulation."
   },
   {
     "path": "crates/game/src/audio/music.rs",

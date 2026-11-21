@@ -1463,6 +1463,26 @@ impl OpeningGrid {
             .collect()
     }
 
+    /// X-6g (§129) : nombre d'ouvertures (suites de cases ouvertes) sur le pourtour du niveau, côté par
+    /// côté (une prise de 2 cases compte 1). 0 si la couche est absente ou de la mauvaise taille.
+    pub fn border_openings(&self) -> usize {
+        let (width, height) = (self.width, self.height);
+        if width == 0 || height == 0 || self.open.len() != width * height {
+            return 0;
+        }
+        let at = |x: usize, y: usize| self.open[y * width + x];
+        let runs = |line: Vec<bool>| {
+            line.iter()
+                .enumerate()
+                .filter(|(i, open)| **open && (*i == 0 || !line[*i - 1]))
+                .count()
+        };
+        runs((0..width).map(|x| at(x, 0)).collect())
+            + runs((0..width).map(|x| at(x, height - 1)).collect())
+            + runs((0..height).map(|y| at(0, y)).collect())
+            + runs((0..height).map(|y| at(width - 1, y)).collect())
+    }
+
     /// Cases de chaque segment de côté : `(côté, rang, nombre de segments du côté, cases)`.
     fn segment_lines(
         &self,
@@ -5368,6 +5388,14 @@ mod tests {
         assert!(!size_fits_cell((5, 3), (0, 3)));
         // pas de segment défini : la taille est l'erreur
         assert_eq!(connection(6, 3, &[]).segment_faults((6, 3), CELL), []);
+    }
+
+    #[test]
+    fn border_openings_counts_runs_per_side() {
+        // 10 × 6 : nord 2 cases (une prise), sud 1 + 1 (deux prises), ouest 2 cases (une), est aucune
+        let open = [(4, 0), (5, 0), (2, 5), (7, 5), (0, 2), (0, 3), (5, 3)];
+        assert_eq!(connection(10, 6, &open).border_openings(), 4);
+        assert_eq!(OpeningGrid::default().border_openings(), 0);
     }
 
     #[test]

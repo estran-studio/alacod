@@ -148,8 +148,8 @@ fn planned_loops(rooms: &[PlannedRoom]) -> Vec<(usize, usize)> {
     out
 }
 
-/// Distances (en salles) depuis le départ, arêtes de l'arbre et boucles comprises.
-fn distances_with_loops(rooms: &[PlannedRoom]) -> Vec<usize> {
+/// Voisines de chaque salle du plan : arêtes de l'arbre et boucles comprises.
+fn adjacency_with_loops(rooms: &[PlannedRoom]) -> Vec<Vec<usize>> {
     let mut adjacency = vec![Vec::new(); rooms.len()];
     for (i, planned) in rooms.iter().enumerate() {
         if let Some(parent) = planned.parent {
@@ -161,6 +161,12 @@ fn distances_with_loops(rooms: &[PlannedRoom]) -> Vec<usize> {
         adjacency[i].push(j);
         adjacency[j].push(i);
     }
+    adjacency
+}
+
+/// Distances (en salles) depuis le départ, arêtes de l'arbre et boucles comprises.
+fn distances_with_loops(rooms: &[PlannedRoom]) -> Vec<usize> {
+    let adjacency = adjacency_with_loops(rooms);
     let mut distance = vec![usize::MAX; rooms.len()];
     let mut queue = std::collections::VecDeque::from([0]);
     distance[0] = 0;
@@ -173,6 +179,28 @@ fn distances_with_loops(rooms: &[PlannedRoom]) -> Vec<usize> {
         }
     }
     distance
+}
+
+/// X-6g : sorties de la salle de départ = salles posées contre elle + boucles qui la touchent.
+fn start_exit_count(rooms: &[PlannedRoom]) -> usize {
+    let children = rooms.iter().filter(|r| r.parent == Some(0)).count();
+    let loops = planned_loops(rooms)
+        .iter()
+        .filter(|(i, j)| *i == 0 || *j == 0)
+        .count();
+    children + loops
+}
+
+/// X-6g : la branche de la salle `i` est la salle posée contre le départ dont elle descend (elle-même
+/// si c'est elle) ; `None` pour le départ.
+fn branch_of(rooms: &[PlannedRoom], mut i: usize) -> Option<usize> {
+    while let Some(parent) = rooms[i].parent {
+        if parent == 0 {
+            return Some(i);
+        }
+        i = parent;
+    }
+    None
 }
 
 struct Attempt<'a> {
@@ -222,11 +250,11 @@ impl Attempt<'_> {
         &self,
         kind: &str,
         dead_end: bool,
-        parent_ok: &dyn Fn(&PlannedRoom) -> bool,
+        parent_ok: &dyn Fn(usize, &PlannedRoom) -> bool,
     ) -> Vec<Candidate> {
         let mut out = Vec::new();
         for (parent_index, parent) in self.placed.iter().enumerate() {
-            if !parent_ok(parent) {
+            if !parent_ok(parent_index, parent) {
                 continue;
             }
             for connection in parent.room.connections.iter().filter(|c| c.to.is_none()) {
@@ -379,10 +407,24 @@ fn try_attempt(
         links: Vec::new(),
     });
 
+    // X-6g (`start_exits`) : le départ prend au plus ce nombre de salles ; tant qu'il en manque, le
+    // remplissage s'y accroche en priorité. Absent : le départ est un parent comme un autre (tirage
+    // et consommation du RNG d'origine).
+    let start_open = |placed: &[PlannedRoom]| {
+        grammar
+            .start_exits
+            .is_none_or(|n| placed.iter().filter(|r| r.parent == Some(0)).count() < n)
+    };
+
     // 2. remplissage ; tant que l'étage a moins de `loops` boucles, une pose qui en ferme une
     //    (prise libre face à une prise libre posée) est préférée à toute autre
     for _ in 0..fillers {
-        let mut candidates = attempt.candidates(&grammar.filler, false, &|_| true);
+        let open = start_open(&attempt.placed);
+        let mut candidates =
+            attempt.candidates(&grammar.filler, false, &|_, p| open || p.depth > 0);
+        if grammar.start_exits.is_some() && open && candidates.iter().any(|c| c.parent == 0) {
+            candidates.retain(|c| c.parent == 0);
+        }
         if grammar.loops > 0
             && planned_loops(&attempt.placed).len() < grammar.loops
             && candidates.iter().any(|c| c.closes > 0)
@@ -396,7 +438,10 @@ fn try_attempt(
 
     // 3. boss : sur une salle de profondeur maximale, en cul-de-sac
     let max_depth = attempt.placed.iter().map(|p| p.depth).max().unwrap_or(0);
-    let candidates = attempt.candidates(&grammar.boss, true, &|p| p.depth == max_depth);
+    let open = start_open(&attempt.placed);
+    let candidates = attempt.candidates(&grammar.boss, true, &|_, p| {
+        p.depth == max_depth && (open || p.depth > 0)
+    });
     if !attempt.place(&grammar.boss, candidates) {
         return None;
     }
@@ -405,15 +450,44 @@ fn try_attempt(
         return None;
     }
 
-    // 4. salles requises, moins profondes que le boss
+    // 4. salles requises, moins profondes que le boss ; X-6g (`apart`) : la seconde du couple se pose
+    //    hors de la branche de la première (le boss, posé avant, ou la première dans l'ordre des types).
     for (kind, count) in &grammar.required {
         if *kind == grammar.boss {
             continue;
         }
         for _ in 0..*count {
-            let candidates = attempt.candidates(kind, false, &|p| {
-                p.depth + 2 <= boss_depth && p.kind != grammar.boss
+            let open = start_open(&attempt.placed);
+            let avoid = grammar
+                .apart
+                .as_ref()
+                .and_then(|(a, b)| {
+                    if kind == a {
+                        Some(b)
+                    } else if kind == b {
+                        Some(a)
+                    } else {
+                        None
+                    }
+                })
+                .and_then(|partner| attempt.placed.iter().position(|r| r.kind == *partner))
+                .and_then(|index| branch_of(&attempt.placed, index));
+            let branches: Vec<Option<usize>> = if avoid.is_some() {
+                (0..attempt.placed.len())
+                    .map(|i| branch_of(&attempt.placed, i))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            let mut candidates = attempt.candidates(kind, false, &|index, p| {
+                p.depth + 2 <= boss_depth
+                    && p.kind != grammar.boss
+                    && (open || p.depth > 0)
+                    && avoid.is_none_or(|b| p.depth == 0 || branches[index] != Some(b))
             });
+            if grammar.start_exits.is_some() && open && candidates.iter().any(|c| c.parent == 0) {
+                candidates.retain(|c| c.parent == 0);
+            }
             if !attempt.place(kind, candidates) {
                 return None;
             }
@@ -439,6 +513,44 @@ pub fn validate_plan(grammar: &FloorGrammar, rooms: &[PlannedRoom]) -> Result<()
     for (kind, required) in &grammar.required {
         if count(kind) < *required {
             return Err(format!("type « {kind} » : {} sur {required}", count(kind)));
+        }
+        // X-6g : exactement, pas au moins (une salle de remplissage du même type en ajouterait).
+        if grammar.exact && count(kind) != *required {
+            return Err(format!(
+                "type « {kind} » : {} au lieu d'exactement {required}",
+                count(kind)
+            ));
+        }
+    }
+    // X-6g : nombre exact de sorties du départ (salles posées contre lui + boucles qui le touchent).
+    if let Some(exits) = grammar.start_exits {
+        let found = start_exit_count(rooms);
+        if found != exits {
+            return Err(format!("{found} sortie(s) du départ au lieu de {exits}"));
+        }
+    }
+    // X-6g : deux types dans deux branches différentes. Mesuré sur le graphe réel (arbre et boucles),
+    // départ retiré : aucun chemin ne doit les relier sans repasser par le départ.
+    if let Some((a, b)) = &grammar.apart {
+        let find = |kind: &str| rooms.iter().position(|r| r.kind == kind);
+        let (Some(a), Some(b)) = (find(a), find(b)) else {
+            return Err("apart : un des deux types est absent".into());
+        };
+        let adjacency = adjacency_with_loops(rooms);
+        let mut seen = vec![false; rooms.len()];
+        seen[0] = true; // le départ coupe le graphe
+        seen[a] = true;
+        let mut stack = vec![a];
+        while let Some(i) = stack.pop() {
+            for &j in &adjacency[i] {
+                if !seen[j] {
+                    seen[j] = true;
+                    stack.push(j);
+                }
+            }
+        }
+        if seen[b] {
+            return Err("apart : les deux types sont dans la même branche".into());
         }
     }
     let boss: Vec<_> = rooms
@@ -670,6 +782,9 @@ mod tests {
             max_attempts: 64,
             loops: 0,
             bounds: None,
+            start_exits: None,
+            exact: false,
+            apart: None,
             layout: None,
         }
     }
@@ -816,5 +931,96 @@ mod tests {
         let boss = plan.rooms.iter_mut().find(|p| p.kind == "boss").unwrap();
         boss.depth = 0;
         assert!(validate_plan(&grammar, &plan.rooms).is_err());
+    }
+
+    /// X-6g : grammaire « intérieur » : sorties exactes du départ, types exacts, deux types dans deux
+    /// branches. Quatre prises au gabarit de départ, trois sorties demandées (la quatrième est murée).
+    fn interieur() -> FloorGrammar {
+        FloorGrammar {
+            rooms: (7, 9),
+            min_boss_distance: 2,
+            max_attempts: 200,
+            start_exits: Some(3),
+            exact: true,
+            apart: Some(("boss".into(), "recompense".into())),
+            ..grammar()
+        }
+    }
+
+    /// Le départ est au centre, trois sorties, chaque type exigé exactement une fois, le boss et la
+    /// récompense dans deux branches du départ : 200 graines sur 200, plan validé par le contrôle
+    /// indépendant, jamais un plan incomplet.
+    #[test]
+    fn interieur_garanti_sur_deux_cents_graines() {
+        let grammar = interieur();
+        for seed in 0..200 {
+            let context = context(seed, templates());
+            let mut rng = RollbackRng::new(seed as u32);
+            let plan = plan_floor(&grammar, &context, &mut rng)
+                .unwrap_or_else(|e| panic!("graine {seed} : {e}"));
+            validate_plan(&grammar, &plan.rooms).unwrap_or_else(|e| panic!("graine {seed} : {e}"));
+            let start = &plan.rooms[0].room;
+            assert_eq!(
+                (start.position.0, start.position.1),
+                (-80, -80),
+                "graine {seed} : départ au centre"
+            );
+            assert_eq!(start_exit_count(&plan.rooms), 3, "graine {seed}");
+            for kind in ["boss", "boutique", "recompense"] {
+                let n = plan.rooms.iter().filter(|p| p.kind == kind).count();
+                assert_eq!(n, 1, "graine {seed} : « {kind} » {n} fois");
+            }
+            let at = |kind: &str| plan.rooms.iter().position(|p| p.kind == kind).unwrap();
+            assert_ne!(
+                branch_of(&plan.rooms, at("boss")),
+                branch_of(&plan.rooms, at("recompense")),
+                "graine {seed} : même branche"
+            );
+        }
+    }
+
+    /// Une grammaire que les gabarits ne peuvent pas satisfaire (une seule sortie : tout le monde
+    /// dans la même branche) échoue explicitement : jamais une carte qui ne tient pas la garantie.
+    #[test]
+    fn branches_impossibles_echouent_apres_n_tentatives() {
+        let grammar = FloorGrammar {
+            start_exits: Some(1),
+            max_attempts: 20,
+            ..interieur()
+        };
+        let context = context(1, templates());
+        let mut rng = RollbackRng::new(1);
+        assert_eq!(
+            plan_floor(&grammar, &context, &mut rng).unwrap_err(),
+            FloorError::Exhausted { attempts: 20 }
+        );
+    }
+
+    /// `exact` refuse le plan dont un type requis est posé en plus (ici : le remplissage a le type
+    /// d'une salle requise) ; sans `exact`, « au moins » suffit comme avant.
+    #[test]
+    fn exact_refuse_un_type_en_trop() {
+        let mut levels = templates();
+        levels.push(level("boutique_croix", "boutique", false, &ALL));
+        let grammar = FloorGrammar {
+            filler: "boutique".into(),
+            rooms: (6, 6),
+            min_boss_distance: 0,
+            max_attempts: 8,
+            ..grammar()
+        };
+        let context = context(3, levels);
+        let mut rng = RollbackRng::new(3);
+        let plan = plan_floor(&grammar, &context, &mut rng).expect("sans exact : au moins");
+        assert!(plan.rooms.iter().filter(|p| p.kind == "boutique").count() >= 2);
+        let strict = FloorGrammar {
+            exact: true,
+            ..grammar
+        };
+        let mut rng = RollbackRng::new(3);
+        assert_eq!(
+            plan_floor(&strict, &context, &mut rng).unwrap_err(),
+            FloorError::Exhausted { attempts: 8 }
+        );
     }
 }
