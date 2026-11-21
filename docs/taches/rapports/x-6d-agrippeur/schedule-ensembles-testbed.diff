@@ -1,0 +1,12 @@
+245a246,247
+> ComponentSnapshotPlugin<CloneStrategy<Riding>>load
+> ComponentSnapshotPlugin<CloneStrategy<Riding>>save
+507a510,511
+> GgrsSnapshots<Riding, GgrsComponentSnapshot<Riding>>discard_old_snapshots
+> GgrsSnapshots<Riding, GgrsComponentSnapshot<Riding>>sync_depth
+741a746
+> apply_deferred
+830a836
+> grab_system
+888a895
+> neutral_component_checksum<Riding>

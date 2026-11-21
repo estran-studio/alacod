@@ -1,0 +1,133 @@
+# X-6d régressions provoquées (2026-11-20T22:29:20Z, code 55e123a9 + interrupteurs X6D_REG temporaires, jamais commités)
+## X6D_REG=aucune
+test result: ok. 5 passed; 0 failed; 12 ignored; 0 measured; 0 filtered out; finished in 57.66s
+test agrippeur_secoue_au_stick ... ok
+test agrippeur_secoue_au_clavier ... ok
+test agrippeur_frappe_depuis_la_manette ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 4.95s
+## X6D_REG=shake
+grab_etourdi_frappe: frame 130: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 130 } : phase de Grab Ride, Dazed attendue
+grab_etourdi_frappe: frame 130: EnemyPosition { entity: Placed(0), x_min: Some(422.0), x_max: Some(424.0), y_min: None, y_max: None, at_frame: 130 } : x = 421.93373 < min 422
+grab_etourdi_frappe: frame 200: EnemyPosition { entity: Placed(0), x_min: Some(410.0), x_max: Some(424.0), y_min: None, y_max: None, at_frame: 200 } : x = 427.09912 > max 424
+grab_etourdi_frappe: frame 200: Health { handle: 0, min: Some(100.0), max: None, at_frame: 200 } : santé 99 < min 100
+grab_secoue_clavier: frame 130: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 130 } : phase de Grab Ride, Dazed attendue
+grab_secoue_clavier: frame 130: Stat { handle: 0, stat: MoveSpeed, value: 62.0, at_frame: 130, entity: None } : stat MoveSpeed = 31 (attendu 62)
+grab_secoue_clavier: frame 150: Clip { who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 150 } : clip joué `ride` (0.390 / 0.800 s), `stunned` attendu
+grab_secoue_clavier: frame 205: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 205 } : phase de Grab Ride, Dazed attendue
+grab_secoue_clavier: frame 225: GrabState { entity: Placed(0), phase: Idle, carrier: None, at_frame: 225 } : phase de Grab Ride, Idle attendue
+grab_secoue_clavier: frame 225: EnemyState { entity: Placed(0), behavior: "Chase", at_frame: 225 } : behavior retenu Grab, Chase attendu
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 62.17s
+test agrippeur_secoue_au_stick ... FAILED
+test agrippeur_frappe_depuis_la_manette ... ok
+test agrippeur_secoue_au_clavier ... FAILED
+agrippeur, stick : segment 0 : Segment { from: 100, to: 104, buttons: [Left], pan: (0, 0) }
+agrippeur, stick : segment 1 : Segment { from: 104, to: 108, buttons: [Right], pan: (0, 0) }
+agrippeur, stick : segment 2 : Segment { from: 108, to: 112, buttons: [Left], pan: (0, 0) }
+agrippeur, stick : segment 3 : Segment { from: 112, to: 116, buttons: [Right], pan: (0, 0) }
+agrippeur, stick : segment 4 : Segment { from: 116, to: 120, buttons: [Left], pan: (0, 0) }
+agrippeur, stick : frame 135: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 135 } : phase de Grab Ride, Dazed attendue
+agrippeur, clavier : segment 0 : Segment { from: 100, to: 104, buttons: [Left], pan: (0, 0) }
+agrippeur, clavier : segment 1 : Segment { from: 104, to: 108, buttons: [Right], pan: (0, 0) }
+agrippeur, clavier : segment 2 : Segment { from: 108, to: 112, buttons: [Left], pan: (0, 0) }
+agrippeur, clavier : segment 3 : Segment { from: 112, to: 116, buttons: [Right], pan: (0, 0) }
+agrippeur, clavier : segment 4 : Segment { from: 116, to: 120, buttons: [Left], pan: (0, 0) }
+agrippeur, clavier : frame 135: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 135 } : phase de Grab Ride, Dazed attendue
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 4 filtered out; finished in 6.26s
+## X6D_REG=melee
+grab_coop: frame 160: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 160 } : phase de Grab Ride, Dazed attendue
+grab_melee_porteur: frame 110: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 110 } : phase de Grab Ride, Dazed attendue
+grab_melee_porteur: frame 115: Stat { handle: 0, stat: MoveSpeed, value: 62.0, at_frame: 115, entity: None } : stat MoveSpeed = 31 (attendu 62)
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 68.00s
+test agrippeur_frappe_depuis_la_manette ... FAILED
+test agrippeur_secoue_au_stick ... ok
+test agrippeur_secoue_au_clavier ... ok
+agrippeur, coup à la manette : segment 0 : Segment { from: 110, to: 112, buttons: [Melee], pan: (0, 0) }
+agrippeur, coup à la manette : frame 135: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 135 } : phase de Grab Ride, Dazed attendue
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 5.61s
+## X6D_REG=slow
+grab_deux: frame 100: Stat { handle: 0, stat: MoveSpeed, value: 15.5, at_frame: 100, entity: None } : stat MoveSpeed = 62 (attendu 15.5)
+grab_devie: frame 120: Stat { handle: 0, stat: MoveSpeed, value: 31.0, at_frame: 120, entity: None } : stat MoveSpeed = 62 (attendu 31)
+grab_devie: frame 175: PlayerPosition { handle: 0, x: 455.0, y: 702.7, tolerance: 0.2, at_frame: 175 } : joueur en (486.0, 702.7)
+grab_etourdi_frappe: frame 130: EnemyPosition { entity: Placed(0), x_min: Some(422.0), x_max: Some(424.0), y_min: None, y_max: None, at_frame: 130 } : x = 417.23326 < min 422
+grab_gene_vitesse: frame 120: Stat { handle: 0, stat: MoveSpeed, value: 31.0, at_frame: 120, entity: None } : stat MoveSpeed = 62 (attendu 31)
+grab_gene_vitesse: frame 175: PlayerPosition { handle: 0, x: 455.0, y: 696.0, tolerance: 0.5, at_frame: 175 } : joueur en (486.0, 696.0)
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 71.14s
+test agrippeur_secoue_au_stick ... ok
+test agrippeur_frappe_depuis_la_manette ... ok
+test agrippeur_secoue_au_clavier ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 5.67s
+## X6D_REG=riders
+grab_deux: frame 110: GrabState { entity: Placed(2), phase: Idle, carrier: None, at_frame: 110 } : phase de Grab Ride, Idle attendue
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 62.92s
+test agrippeur_frappe_depuis_la_manette ... ok
+test agrippeur_secoue_au_stick ... ok
+test agrippeur_secoue_au_clavier ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 5.83s
+## X6D_REG=timeout
+grab_duree_max: frame 250: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 250 } : phase de Grab Ride, Dazed attendue
+grab_duree_max: frame 300: Clip { who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 300 } : clip joué `ride` (0.490 / 0.800 s), `stunned` attendu
+grab_duree_max: frame 300: Stat { handle: 0, stat: MoveSpeed, value: 62.0, at_frame: 300, entity: None } : stat MoveSpeed = 31 (attendu 62)
+grab_duree_max: frame 330: GrabState { entity: Placed(0), phase: Dazed, carrier: None, at_frame: 330 } : phase de Grab Ride, Dazed attendue
+grab_duree_max: frame 340: GrabState { entity: Placed(0), phase: Idle, carrier: None, at_frame: 340 } : phase de Grab Ride, Idle attendue
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 68.95s
+test agrippeur_secoue_au_stick ... ok
+test agrippeur_frappe_depuis_la_manette ... ok
+test agrippeur_secoue_au_clavier ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 4.62s
+## X6D_REG=sway
+grab_devie: frame 175: PlayerPosition { handle: 0, x: 455.0, y: 702.7, tolerance: 0.2, at_frame: 175 } : joueur en (455.0, 696.0)
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 69.43s
+test agrippeur_secoue_au_stick ... ok
+test agrippeur_frappe_depuis_la_manette ... ok
+test agrippeur_secoue_au_clavier ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 5.18s
+## X6D_REG=window
+grab_secoue_lent: frame 238: GrabState { entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 238 } : phase de Grab Dazed, Ride attendue
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 67.80s
+test agrippeur_secoue_au_stick ... ok
+test agrippeur_secoue_au_clavier ... ok
+test agrippeur_frappe_depuis_la_manette ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 5.96s
+## X6D_REG=snap
+grab_bond_accroche: frame 70: EnemyPosition { entity: Placed(0), x_min: Some(423.9), x_max: Some(424.1), y_min: Some(695.9), y_max: Some(696.1), at_frame: 70 } : x = 439.68292 > max 424.1
+grab_etourdi_frappe: frame 130: EnemyPosition { entity: Placed(0), x_min: Some(422.0), x_max: Some(424.0), y_min: None, y_max: None, at_frame: 130 } : x = 439.68292 > max 424
+grab_etourdi_frappe: frame 200: EnemyPosition { entity: Placed(0), x_min: Some(410.0), x_max: Some(424.0), y_min: None, y_max: None, at_frame: 200 } : x = 439.68292 > max 424
+grab_etourdi_frappe: frame 200: EntityHealth { net_id: 30, min: None, max: Some(20.0), at_frame: 200 } : santé 30 > max 20
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 69.24s
+test agrippeur_frappe_depuis_la_manette ... ok
+test agrippeur_secoue_au_clavier ... ok
+test agrippeur_secoue_au_stick ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 5.79s
+## X6D_REG=pose
+grab_bond_accroche: frame 50: Clip { who: Entity(Placed(0)), clip: "leap", once: Some(true), at_frame: 50 } : clip joué `idle` (1.860 / 2.000 s), `leap` attendu
+grab_bond_accroche: frame 100: Clip { who: Entity(Placed(0)), clip: "ride", once: Some(false), at_frame: 100 } : clip joué `idle` (0.285 / 2.000 s), `ride` attendu
+grab_duree_max: frame 300: Clip { who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 300 } : clip joué `idle` (1.618 / 2.000 s), `stunned` attendu
+grab_duree_max: invariant animation_vivante : frame 406 : agrippeur (net_id 30) : état « bond » depuis 6 frames, mais le clip joué `idle` est celui de l'attente
+grab_secoue_clavier: frame 150: Clip { who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 150 } : clip joué `idle` (1.052 / 2.000 s), `stunned` attendu
+test result: FAILED. 4 passed; 1 failed; 12 ignored; 0 measured; 0 filtered out; finished in 68.97s
+test agrippeur_frappe_depuis_la_manette ... FAILED
+test agrippeur_secoue_au_stick ... FAILED
+test agrippeur_secoue_au_clavier ... FAILED
+agrippeur, coup à la manette : segment 0 : Segment { from: 110, to: 112, buttons: [Melee], pan: (0, 0) }
+agrippeur, coup à la manette : frame 138: Clip { who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 138 } : clip joué `idle` (0.918 / 2.000 s), `stunned` attendu
+agrippeur, stick : segment 0 : Segment { from: 100, to: 104, buttons: [Left], pan: (0, 0) }
+agrippeur, stick : segment 1 : Segment { from: 104, to: 108, buttons: [Right], pan: (0, 0) }
+agrippeur, stick : segment 2 : Segment { from: 108, to: 112, buttons: [Left], pan: (0, 0) }
+agrippeur, stick : segment 3 : Segment { from: 112, to: 116, buttons: [Right], pan: (0, 0) }
+agrippeur, stick : segment 4 : Segment { from: 116, to: 120, buttons: [Left], pan: (0, 0) }
+agrippeur, stick : frame 138: Clip { who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 138 } : clip joué `idle` (0.852 / 2.000 s), `stunned` attendu
+agrippeur, clavier : segment 0 : Segment { from: 100, to: 104, buttons: [Left], pan: (0, 0) }
+agrippeur, clavier : segment 1 : Segment { from: 104, to: 108, buttons: [Right], pan: (0, 0) }
+agrippeur, clavier : segment 2 : Segment { from: 108, to: 112, buttons: [Left], pan: (0, 0) }
+agrippeur, clavier : segment 3 : Segment { from: 112, to: 116, buttons: [Right], pan: (0, 0) }
+agrippeur, clavier : segment 4 : Segment { from: 116, to: 120, buttons: [Left], pan: (0, 0) }
+agrippeur, clavier : frame 138: Clip { who: Entity(Placed(0)), clip: "stunned", once: Some(false), at_frame: 138 } : clip joué `idle` (0.852 / 2.000 s), `stunned` attendu
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 4 filtered out; finished in 5.53s
+fin
+## Complément (même jour) : balles du porteur et ralentissement mou (grab_tir_porteur ajouté ; l'attente Ammo, mal écrite à 0, corrigée à 5 balles restantes)
+## X6D_REG=aucune
+grab_tir_porteur: (seule failure : Ammo mal écrite, corrigée) EntityHealth 30 = 30, GrabState Ride : verts
+## X6D_REG=bullets (les balles du porteur touchent son agrippeur)
+grab_tir_porteur: frame 150: EntityHealth { net_id: 30, min: Some(30.0), max: Some(30.0), at_frame: 150 } : santé 15 < min 30
+## X6D_REG=soft (ses propres agrippeurs comptent dans le ralentissement « poussé par un ennemi »)
+grab_gene_vitesse: frame 175: PlayerPosition { handle: 0, x: 455.0, y: 696.0, tolerance: 0.5, at_frame: 175 } : joueur en (448.8, 696.0)

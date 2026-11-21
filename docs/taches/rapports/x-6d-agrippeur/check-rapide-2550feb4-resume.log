@@ -1,0 +1,5 @@
+make (sans test_crates) : code 0, 554 s
+tests::plugin_registers_kinds_and_rollback_state --- FAILED
+## Résumé test_crates découpé (par binaire)
+workspace --lib --bins code=101 passed=1171 failed=1
+binaires joués : 57 / 56 tests d'intégration + lib/bins/doc ; failed : 101, codes non nuls : 1
