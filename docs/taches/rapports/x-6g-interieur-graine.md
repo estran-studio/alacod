@@ -78,3 +78,5 @@ Aucune trace modifiée (aucun BLESS).
 ### Reste (P3 non faits, demandés dans le rapport)
 - **P3.3** `OpeningGrid::border_openings` : une case ouverte au coin compte dans deux côtés ; le lint `start_exits` pourrait accepter un gabarit qui a une prise de moins. Improbable en LDtk.
 - **P3.6** les six PNG de graines n'ont pas de légende (type de chaque salle) : l'image seule ne prouve pas `apart`/`exact` (la campagne et les scénarios le prouvent).
+
+Contrôle rapide découpé **vert** sur 9215ca00 (59 binaires, 0 échec ; journal `~/orca/runs/alacod/logs/x-6g-check-rapide-9215ca00.log`) ; tests `world` et `scenario/floors` rejoués verts.
