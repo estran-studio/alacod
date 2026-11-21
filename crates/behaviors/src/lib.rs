@@ -851,6 +851,7 @@ mod tests {
             "BlockBullets",
             "ReturnHome",
             "TakeCover",
+            "Grab",
         ] {
             assert!(kinds.has("behavior", name));
         }
@@ -858,7 +859,7 @@ mod tests {
             assert!(kinds.has("perception", name));
         }
         assert!(kinds.has("targeting", "Nearest"));
-        assert_eq!(kinds.names("behavior").count(), 15);
+        assert_eq!(kinds.names("behavior").count(), 16);
         assert_eq!(kinds.names("perception").count(), 2);
         assert_eq!(kinds.names("targeting").count(), 1);
         let name = std::any::type_name::<BehaviorState>();

@@ -1,0 +1,23 @@
+// X-6d (testbed, conventions §126) : deux joueurs ; l'`agrippeur` s'accroche au joueur 0 ; le joueur 1, juste au sud, tire au pistolet vers
+// lui de f90 à f110 : ses balles traversent le joueur 0 (pas de tir ami) et tuent l'agrippeur sur ses épaules. Rien ne reste de l'accroche :
+// le ralentissement du joueur 0 expire de lui-même, il n'est pas blessé.
+//
+// À regarder : le coéquipier abat l'agrippeur sur les épaules de l'autre.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [
+        (character: "pantin", inputs: []),
+        (character: "pantin", inputs: [(from: 90, to: 110, buttons: [Fire], pan: (0, 100))]),
+    ],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 88),
+        Stat(handle: 0, stat: MoveSpeed, value: 31.0, at_frame: 88),
+        KillsAtLeast(kills: 1, at_frame: 130),
+        Stat(handle: 0, stat: MoveSpeed, value: 62.0, at_frame: 130),
+        Health(handle: 0, min: 100.0, at_frame: 130),
+    ],
+)

@@ -1,0 +1,18 @@
+// X-6d (testbed, conventions §126) : deux joueurs ; l'`agrippeur_mordant` (25 PV toutes les 10 frames) s'accroche au joueur 0 immobile, qui
+// tombe à terre sous les morsures : l'agrippeur se décroche (porteur à terre ou mort, `Release::Carrier`), retombe étourdi, et le joueur 0
+// perd son ralentissement.
+//
+// À regarder : le pantin mordu s'effondre, l'agrippeur tombe à côté de lui, sonné.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 200,
+    characters: [(character: "agrippeur_mordant", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: []), (character: "pantin", inputs: [])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 80),
+        PlayerDowned(handle: 0, at_frame: 130),
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 130),
+    ],
+)

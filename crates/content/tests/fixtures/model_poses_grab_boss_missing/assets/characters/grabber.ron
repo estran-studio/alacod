@@ -1,0 +1,23 @@
+// X-6d : un boss dont seule la seconde phase liste `Grab` : ses états d'agrippeur réclament aussi leurs poses.
+(
+    movement: (max_speed: "70.0"),
+    asset_name_ref: "grabber",
+    collider: (
+        shape: Rectangle(width: "12.", height: "12."),
+        offset: ( x: "0.0", y: "-4.0", z: "0.0" ),
+    ),
+    scale: "1.0",
+    base_health: (max: "30.0"),
+    starting_skin: "1",
+    skins: { "1": (layers: {}) },
+    ai: Some((
+        behaviors: Some([Chase(profile: "Ground")]),
+    )),
+    boss: Some((phases: [
+        (until: Some(HealthBelow("0.5")), behaviors: [Chase(profile: "Ground")]),
+        (behaviors: [
+            Grab(reach: "72.0", telegraph: 14, leap_frames: 24, hold: 300, slow: "0.5", shake: 4, stun: 90, cooldown: 60, max_riders: 2),
+            Chase(profile: "Ground"),
+        ]),
+    ])),
+)

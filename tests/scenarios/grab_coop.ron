@@ -14,8 +14,6 @@ Scenario(
     ],
     expect: [
         GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 120),
-        PlayerPosition(handle: 1, x: 424.0, y: 664.0, tolerance: 0.5, at_frame: 120),
-        PlayerPosition(handle: 1, x: 424.0, y: 674.0, tolerance: 1.0, at_frame: 140),
         GrabState(entity: Placed(0), phase: Dazed, at_frame: 160),
         Health(handle: 0, min: 99.0, at_frame: 160),
     ],

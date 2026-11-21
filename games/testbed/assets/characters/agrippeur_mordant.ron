@@ -1,0 +1,58 @@
+// X-6d (testbed, conventions §126) : agrippeur mordant, l'`agrippeur` qui mord fort et souvent (25 PV toutes les 10 frames) : son porteur tombe à terre
+// pendant l'accroche et l'agrippeur se décroche (`Release::Carrier`) ; scénario `grab_porteur_a_terre`. Le reste comme `agrippeur`.
+(
+    movement: (
+        acceleration: "600.0",
+        max_speed: "70.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "agrippeur_mordant",
+
+    collider: (
+        shape: Rectangle(
+            width: "24.",
+            height: "24.",
+        ),
+        offset: ( x: "0.0", y: "-8.0", z: "0.0" )
+    ),
+
+    scale: "0.5",
+
+    base_health: (
+        max: "30.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        aggro_range: Some("500.0"),
+        attack_range: Some("16.0"),
+        attack_cooldown_frames: Some(60),
+        attack_damage: Some("25.0"),
+        behaviors: Some([
+            Grab(
+                reach: "72.0",
+                telegraph: 14,
+                leap_frames: 24,
+                hold: 180,
+                slow: "0.5",
+                shake: 4,
+                stun: 90,
+                cooldown: 60,
+                max_riders: 2,
+                bite_every: Some(10),
+            ),
+            Chase(profile: "Ground"),
+        ]),
+    )),
+)

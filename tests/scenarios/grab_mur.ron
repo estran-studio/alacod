@@ -1,0 +1,25 @@
+// X-6d (testbed, conventions §126) : le pantin marche vers l'est jusqu'au mur ; un `agrippeur` posé près de lui (f150) s'y accroche ; le
+// joueur secoue de haut en bas, collé au mur : l'agrippeur retombe à ses pieds, jamais dans le mur.
+//
+// À regarder : contre le mur est, le pantin se tortille, l'agrippeur tombe assis contre le mur, pas dedans.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 300,
+    characters: [(character: "agrippeur", x: "560.0", y: "696.0", at_frame: 150)],
+    players: [(character: "pantin", inputs: [
+        (from: 0, to: 230, buttons: [Right]),
+        (from: 230, to: 234, buttons: [Right, Up]),
+        (from: 234, to: 238, buttons: [Right, Down]),
+        (from: 238, to: 242, buttons: [Right, Up]),
+        (from: 242, to: 246, buttons: [Right, Down]),
+        (from: 246, to: 250, buttons: [Right, Up]),
+        (from: 250, to: 300, buttons: [Right]),
+    ])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 220),
+        GrabState(entity: Placed(0), phase: Dazed, at_frame: 260),
+        EnemyNeverInWall(entity: Placed(0), from: 150, to: 300),
+    ],
+)

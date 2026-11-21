@@ -1704,11 +1704,17 @@ fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
             missing("esquive", "dash");
         }
         // X-6d (§126) : un agrippeur bondit (ramassé puis en l'air), s'accroche et retombe étourdi ; `decide_poses` lit
-        // ces trois poses dans `poses` du modèle.
+        // ces trois poses dans `poses` du modèle. Règles du personnage ou d'une phase de boss.
         if entry
             .behaviors
             .iter()
             .flatten()
+            .chain(
+                entry
+                    .boss
+                    .iter()
+                    .flat_map(|boss| boss.phases.iter().flat_map(|phase| phase.behaviors.iter())),
+            )
             .any(|b| matches!(b, registry::BehaviorEntry::Grab { .. }))
         {
             if model.poses.leap.is_none() {
@@ -4080,9 +4086,11 @@ fn lint_rules(
                 if *bite_every == Some(0) {
                     out_of_range("bite_every = 0 : doit être > 0 (ou absent)".to_string());
                 }
+                // L'ordre ne se juge qu'une fois, sur la première règle `Grab` de la liste (pas de message en double).
                 if let Some(first) = rules
                     .iter()
-                    .position(|rule| matches!(rule, BehaviorEntry::Grab { .. }))
+                    .position(|other| matches!(other, BehaviorEntry::Grab { .. }))
+                    .filter(|first| std::ptr::eq(&rules[*first], rule))
                 {
                     let before: Vec<String> = rules[..first]
                         .iter()

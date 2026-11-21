@@ -1,0 +1,16 @@
+// X-6d (testbed, conventions §126) : le bond vise la position du joueur **à la fin du télégraphe** (cible figée) : le pantin, voyant
+// l'agrippeur se ramasser (f40-f52), esquive (dash) vers le nord au départ du bond (f54) ; le bond file vers sa position d'avant et retombe à côté, sans s'accrocher.
+//
+// À regarder : l'agrippeur bondit dans le vide, le pantin passé au-dessus de lui.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 120,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [(from: 49, to: 51, buttons: [Dash, Up], pan: (0, 100))])],
+    expect: [
+        GrabState(entity: Placed(0), phase: Leap, at_frame: 58),
+        GrabState(entity: Placed(0), phase: Idle, at_frame: 75),
+    ],
+)

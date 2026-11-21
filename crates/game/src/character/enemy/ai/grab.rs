@@ -211,6 +211,15 @@ pub fn grab_system(
     {
         let phase_rules = rules.active(boss.map_or(0, |b| b.phase));
         let Some(rule) = grab_rule(phase_rules) else {
+            // La règle a disparu (changement de phase d'un boss) : l'accroche et la phase en cours tombent.
+            if runtime.grab != GrabPhase::Idle || riding.is_some() {
+                if let Some(riding) = riding.as_deref() {
+                    release_slow(&mut player_query, &riding.carrier, net_id.0);
+                    commands.entity(entity).remove::<Riding>();
+                }
+                runtime.grab = GrabPhase::Idle;
+                info!("ggrs{{f={} grab net_id={} phase=abort}}", now, net_id);
+            }
             continue;
         };
         let selected = runtime

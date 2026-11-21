@@ -74,6 +74,21 @@
                 stunned: Some((still: Some("stunned"))),
             ),
         ),
+        // X-6d : l'agrippeur mordant (`characters/agrippeur_mordant.ron`), même dessin.
+        "agrippeur_mordant": (
+            glb: "models/pantin/anime.glb",
+            manifest: "models/pantin/anime.json",
+            frame_m: (2.8, 2.8),
+            pivot: (0.5, 0.2),
+            height_m: 0.9,
+            poses: (
+                idle: Some("idle"),
+                walk: Some("walk"),
+                leap: Some((still: Some("leap"))),
+                ride: Some((still: Some("ride"))),
+                stunned: Some((still: Some("stunned"))),
+            ),
+        ),
         // X-6d : l'agrippeur qui dévie (`characters/agrippeur_devie.ron`), même dessin.
         "agrippeur_devie": (
             glb: "models/pantin/anime.glb",

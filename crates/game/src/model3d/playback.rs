@@ -495,14 +495,19 @@ pub fn grab_pose(
     f: u32,
 ) -> Option<pose::GrabPose> {
     let runtime = runtime?;
-    let (telegraph, leap_frames) = behaviors?.rules.iter().find_map(|rule| match rule {
-        behaviors::Behavior::Grab {
-            telegraph,
-            leap_frames,
-            ..
-        } => Some((*telegraph, *leap_frames)),
-        _ => None,
-    })?;
+    let rules = behaviors?;
+    let (telegraph, leap_frames) = rules
+        .rules
+        .iter()
+        .chain(rules.phase_rules.iter().flatten())
+        .find_map(|rule| match rule {
+            behaviors::Behavior::Grab {
+                telegraph,
+                leap_frames,
+                ..
+            } => Some((*telegraph, *leap_frames)),
+            _ => None,
+        })?;
     let left = |until: u32, total: u32| until.saturating_sub(f) as f32 / total.max(1) as f32;
     match runtime.grab {
         GrabPhase::Idle => None,

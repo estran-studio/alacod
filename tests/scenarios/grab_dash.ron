@@ -1,0 +1,19 @@
+// X-6d (testbed, conventions §126) : règle du dash. L'`agrippeur` accroché (f64) ; le pantin esquive (dash) vers l'est à f100 : l'agrippeur
+// reste accroché (il suit le dash) et le dash garde sa distance (45 unités : la gêne ralentit la marche et la course, pas un dash, dont la
+// distance est une donnée du personnage).
+//
+// À regarder : le pantin roule, l'agrippeur toujours sur ses épaules, puis repart lentement.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 160,
+    characters: [(character: "agrippeur", x: "540.0", y: "696.0", at_frame: 1)],
+    players: [(character: "pantin", inputs: [(from: 100, to: 102, buttons: [Dash, Right], pan: (100, 0))])],
+    expect: [
+        Stat(handle: 0, stat: MoveSpeed, value: 31.0, at_frame: 98),
+        PlayerPosition(handle: 0, x: 469.0, y: 696.0, tolerance: 1.0, at_frame: 140),
+        GrabState(entity: Placed(0), phase: Ride, carrier: Some(0), at_frame: 140),
+        EnemyPosition(entity: Placed(0), x_min: Some(468.0), x_max: Some(470.0), at_frame: 140),
+    ],
+)

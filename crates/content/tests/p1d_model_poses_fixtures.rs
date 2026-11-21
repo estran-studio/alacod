@@ -92,3 +92,17 @@ fn a_grabber_with_a_pose_per_state_is_accepted() {
         Vec::<String>::new()
     );
 }
+
+/// X-6d (§ 126, suivi de revue) rouge : le `Grab` d'une phase de boss réclame les mêmes poses que celui du personnage.
+#[test]
+fn a_boss_phase_grab_misses_its_poses() {
+    let missing = missing_poses("model_poses_grab_boss_missing");
+    for field in ["leap", "ride", "stunned"] {
+        assert!(
+            missing
+                .iter()
+                .any(|m| m.contains(&format!("poses.{field}`"))),
+            "pose `{field}` non réclamée : {missing:#?}"
+        );
+    }
+}
