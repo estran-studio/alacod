@@ -45,6 +45,8 @@ fn unexpected_errors(fixture: &str) -> Vec<String> {
             !m.contains("arme inconnue « absente »")
                 && !m.contains("weapons.absente : arme inconnue")
                 && !m.contains("entry.start_map")
+                // Fixtures C-2 : la liste de règles ne porte que les phases à dessiner, pas un `Shoot` ni l'ordre de jeu
+                && !m.contains("TakeCover")
         })
         .collect()
 }

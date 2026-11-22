@@ -94,6 +94,9 @@
             poses: (
                 idle: Some("idle"),
                 walk: Some("walk"),
+                charge_windup: Some((still: Some("aim"))),
+                charge: Some((moving: Some("strike-walk"), still: Some("strike-walk"))),
+                return_home: Some((moving: Some("aim-walk"))),
             ),
         ),
         // C-2 (§ 131) : le tireur à couvert `couvert_pantin` (`characters/couvert_pantin.ron`) ; les poses de sa règle `Shoot` sont celles de `tireur_pantin`.
@@ -106,6 +109,7 @@
             poses: (
                 idle: Some("idle"),
                 walk: Some("walk"),
+                take_cover: Some((moving: Some("strike-walk"), still: Some("hit"))),
             ),
             weapons: {
                 "fireball_gun": (

@@ -16,8 +16,8 @@ Scenario(
     players: [(inputs: [])],
     expect: [
         EnemyState(entity: Placed(1), behavior: "Shoot", at_frame: 20),
-        // Hors repli : l'attente de l'arme (le repli n'y touche pas)
-        Clip(who: Entity(Placed(1)), clip: "gun-idle", once: false, at_frame: 10),
+        // Hors repli : la pose de l'arme (le repli n'y touche pas)
+        Clip(who: Entity(Placed(1)), clip: "aim", once: false, at_frame: 10),
         // En route vers l'abri : le clip du repli en marchant (la direction de la marche par rapport au corps)
         EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 60),
         Clip(who: Entity(Placed(1)), clip: "strike-walk-l", once: false, at_frame: 60),
@@ -26,8 +26,8 @@ Scenario(
         Clip(who: Entity(Placed(1)), clip: "hit", once: false, at_frame: 100),
         ClipSpeed(who: Entity(Placed(1)), min: 0.99, max: 1.01, at_frame: 100),
         CoverSight(entity: Placed(1), handle: 0, blocked: true, at_frame: 100),
-        // Reprise : l'allure de l'arme
+        // Reprise : la pose ordinaire revient (le rechargement de l'arme), plus celle du repli
         EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 150),
-        Clip(who: Entity(Placed(1)), clip: "gun-walk", once: false, at_frame: 150),
+        Clip(who: Entity(Placed(1)), clip: "reload", once: false, at_frame: 150),
     ],
 )

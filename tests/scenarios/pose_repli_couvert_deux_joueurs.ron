@@ -18,6 +18,6 @@ Scenario(
         Clip(who: Entity(Placed(1)), clip: "strike-walk-l", once: false, at_frame: 60),
         Clip(who: Entity(Placed(1)), clip: "hit", once: false, at_frame: 100),
         EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 150),
-        Clip(who: Entity(Placed(1)), clip: "gun-walk", once: false, at_frame: 150),
+        Clip(who: Entity(Placed(1)), clip: "reload", once: false, at_frame: 150),
     ],
 )

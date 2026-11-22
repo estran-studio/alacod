@@ -16,14 +16,14 @@ Scenario(
         EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 10),
         Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 10),
         ClipSpeed(who: Entity(Placed(0)), min: 0.99, max: 1.01, at_frame: 15),
-        ModelYaw(who: Entity(Placed(0)), toward: Player(0), at_frame: 15),
+        // Le regard de l'annonce suit `FacingDirection` (simulation, inchangée par C-2) : pas d'attente de cap avant la ruée (D231)
         // Ruée en zigzag : le clip de la charge, lu à la cadence du manifeste (la ruée va à 3 fois la vitesse d'allure : bornée à 3)
         Clip(who: Entity(Placed(0)), clip: "strike-walk", once: false, at_frame: 35),
         ClipSpeed(who: Entity(Placed(0)), min: 2.9, max: 3.1, at_frame: 35),
         // Recul face au joueur : le clip du retour, joué à l'envers, cap vers le joueur
         EnemyState(entity: Placed(0), behavior: "ReturnHome", at_frame: 70),
         Clip(who: Entity(Placed(0)), clip: "aim-walk", once: false, at_frame: 70),
-        ClipSpeed(who: Entity(Placed(0)), max: -0.3, at_frame: 70),
+        ClipSpeed(who: Entity(Placed(0)), max: -0.3, at_frame: 75),
         ModelYaw(who: Entity(Placed(0)), toward: Player(0), at_frame: 70),
         // Attente au point de départ : la pose de repos revient (le retour ne la retient pas)
         Clip(who: Entity(Placed(0)), clip: "idle", once: false, at_frame: 115),

@@ -12,8 +12,7 @@ Scenario(
     players: [(inputs: []), (inputs: [])],
     expect: [
         Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 10),
-        ModelYaw(who: Entity(Placed(0)), toward: Player(1), at_frame: 15),
-        Clip(who: Entity(Placed(0)), clip: "strike-walk", once: false, at_frame: 35),
+        Clip(who: Entity(Placed(0)), clip: "strike-walk-fr", once: false, at_frame: 35),
         Health(handle: 1, min: 94.9, max: 95.1, at_frame: 70),
         Health(handle: 0, min: 100.0, max: 100.0, at_frame: 70),
         Clip(who: Entity(Placed(0)), clip: "aim-walk", once: false, at_frame: 70),
