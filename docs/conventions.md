@@ -9353,5 +9353,5 @@ Demande de 1837 (D2) : un modèle ne pouvait pas raccorder de clip à l'annonce 
 - **Simulation** : aucune ; traces existantes inchangées.
 - **Scénarios** : `pose_charge_retour`, `pose_charge_deux_joueurs`, `pose_repli_couvert`, `pose_repli_couvert_deux_joueurs` (testbed : `charge_pantin`, `couvert_pantin`), attentes `Clip` / `ClipProgress`.
 
-**Dettes** : D231 (le corps ne se tourne vers sa cible pendant l'annonce d'une `Charge` que si `FacingDirection` le fait : le cap vient de la simulation, que C-2 ne touche pas ; pas d'attente de cap avant la ruée), D232 (`new-content` ne scaffolde pas `Model` : un exemple de poses de phase n'est que dans `describe` et ce paragraphe).
+**Dettes** : D231-D233 (`docs/taches/dettes.md`) : D231 (le corps ne se tourne vers sa cible pendant l'annonce d'une `Charge` que si `FacingDirection` le fait : le cap vient de la simulation, que C-2 ne touche pas ; pas d'attente de cap avant la ruée), D232 (`new-content` ne scaffolde pas `Model` : un exemple de poses de phase n'est que dans `describe` et ce paragraphe).
 Harnais : `ClipSpeed` mesure aussi un clip joué à l'envers (vitesse négative). Rapport et preuve : rouge = attentes, vert = 4 scénarios `pose_*` à 1 et 2 joueurs.
