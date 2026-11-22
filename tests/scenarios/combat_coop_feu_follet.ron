@@ -24,10 +24,12 @@ Scenario(
     ],
     expect: [
         PlayerDowned(handle: 1, at_frame: 125),
+        PlayerPosition(handle: 1, x: -904.0, y: -600.0, tolerance: 8, at_frame: 125),
         HudText(source: "wisp", contains: "Feu follet allié", at_frame: 140),
         RoomState(kind: "combat", state: Dormant, at_frame: 125),
         RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 230),
         PlayerDowned(handle: 1, at_frame: 230),
+        PlayerPosition(handle: 1, x: -776.0, y: -576.0, tolerance: 8, at_frame: 230),
         RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 780),
         PlayerDowned(handle: 1, at_frame: 780),
         PlayerAlive(handle: 0, at_frame: 849),

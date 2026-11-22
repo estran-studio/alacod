@@ -827,11 +827,12 @@ pub fn room_lock_system(
     };
     // X-6h (§130) : une porte à serrure **déjà ouverte** (la clé a servi, plus d'`Interactable`) est une porte de salle comme une
     // autre pour un combat : elle se referme derrière le joueur, et la fin du combat la rouvre. Une porte à serrure restée fermée
-    // (`Interactable` encore là) n'est jamais rouverte par la fin d'un combat.
+    // (`Interactable` encore là) n'est jamais rouverte par la fin d'un combat, ni une porte à serrure **non interactive**
+    // (`DoorConfig::interactable` faux : cul-de-sac, jamais ouvrable, donc sans `Interactable` depuis la création ; revue P2.1).
     let still_keyed = |entity: Entity| {
-        door_configs
-            .get(entity)
-            .is_ok_and(|(door, interactable)| door.config.lock.is_some() && interactable.is_some())
+        door_configs.get(entity).is_ok_and(|(door, interactable)| {
+            door.config.lock.is_some() && (interactable.is_some() || !door.config.interactable)
+        })
     };
     // Porte que ni le verrouillage ni la fin d'une salle voisine ne referment : mur secret, porte de salle à clé (§70).
     let sealed_door = |entity: Entity, p: FixedVec2| secret_door(p) || key_door(entity, p);
@@ -1694,6 +1695,79 @@ mod tests {
             app.world().resource::<RoomStates>().get("room"),
             RoomState::Cleared
         );
+    }
+
+    /// Porte à serrure de la salle d'essai : `interactable` dit si elle l'est (faux : cul-de-sac, jamais ouvrable).
+    fn keyed_door(app: &mut App, door: Entity, interactable: bool) {
+        let mut entity = app.world_mut().entity_mut(door);
+        entity.get_mut::<DoorComponent>().unwrap().config = DoorConfig {
+            interactable,
+            lock: Some(map::generation::entity::door::DoorLockConfig {
+                key: "cle".into(),
+                consume: true,
+            }),
+            ..Default::default()
+        };
+        if !interactable {
+            entity.remove::<Interactable>();
+        }
+    }
+
+    fn fight(app: &mut App) -> Entity {
+        app.world_mut().spawn((
+            GgrsNetId(2, "player".into()),
+            Player::default(),
+            transform(64, 128),
+        ));
+        let enemy = app
+            .world_mut()
+            .spawn((
+                GgrsNetId(3, "enemy".into()),
+                Enemy::default(),
+                transform(192, 128),
+            ))
+            .id();
+        app.update();
+        enemy
+    }
+
+    /// X-6h (revue P2.1) : une porte à serrure **non interactive** (cul-de-sac) fermée n'est jamais rouverte par la fin d'un
+    /// combat, comme avant X-6h ; l'absence d'`Interactable` ne dit pas « la clé a servi ».
+    #[test]
+    fn une_porte_a_serrure_non_interactive_reste_fermee_apres_le_combat() {
+        let (mut app, door) = room_app(None, true);
+        keyed_door(&mut app, door, false);
+        app.update();
+        let enemy = fight(&mut app);
+        assert_eq!(
+            app.world().resource::<RoomStates>().get("room"),
+            RoomState::Locked
+        );
+        app.world_mut().despawn(enemy);
+        app.update();
+        assert_eq!(
+            app.world().resource::<RoomStates>().get("room"),
+            RoomState::Cleared
+        );
+        assert!(app.world().entity(door).contains::<Collider>());
+        assert!(app.world().entity(door).contains::<CollisionLayer>());
+    }
+
+    /// X-6h : une porte à serrure interactive déjà ouverte (clé consommée) se referme avec la salle puis se rouvre à la fin.
+    #[test]
+    fn une_porte_a_serrure_ouverte_se_referme_puis_se_rouvre() {
+        let (mut app, door) = room_app(None, true);
+        keyed_door(&mut app, door, true);
+        app.update();
+        // La clé a servi : la porte est ouverte, sans `Interactable`.
+        app.world_mut()
+            .entity_mut(door)
+            .remove::<(Collider, CollisionLayer, Interactable)>();
+        let enemy = fight(&mut app);
+        assert!(app.world().entity(door).contains::<Collider>());
+        app.world_mut().despawn(enemy);
+        app.update();
+        assert!(!app.world().entity(door).contains::<Collider>());
     }
 
     /// La salle secrète n'est dessinée qu'une fois son mur ouvert ; les autres types, toujours.

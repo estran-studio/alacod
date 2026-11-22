@@ -25,6 +25,8 @@ Scenario(
     expect: [
         TeamKeys(key: "cle_test", count: 1, at_frame: 130),
         MapDoor(nth: 1, state: Locked, at_frame: 100),
+        MapDoor(nth: 0, state: Open, at_frame: 162),
+        MapDoor(nth: 1, state: Open, at_frame: 162),
         Event(kind: "key_door", by_frame: 160),
         RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 255),
         MapDoor(nth: 0, state: Locked, at_frame: 255),

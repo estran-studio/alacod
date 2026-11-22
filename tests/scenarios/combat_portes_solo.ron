@@ -9,6 +9,7 @@ Scenario(
     game: "testbed",
     map: "testbed/salles.ldtk",
     map_seed: 1,
+    tags: ["rapide"],
     frames: 650,
     players: [
         (

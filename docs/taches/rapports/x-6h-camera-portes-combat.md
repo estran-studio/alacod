@@ -24,6 +24,21 @@ Ramener l'équipe à l'entrée (règle d'Isaac, déjà là), désactivable par t
 - La capture n'a pas de salle « couloir » séparée (les salles du testbed font 128 px, le départ en tient lieu) ; le défaut de `camera.ron` du testbed n'est pas changé.
 - Dettes D228 (limites de la caméra) et D229 (pas de « la salle attend »).
 
+## Corrections de revue (22 nov 2026, verdict « merge après corrections »)
+Tests nouveaux : rouge avant / vert après ; `cargo test --profile headless`, préfixe machine du 21 nov.
+
+| Point | Correction | Rouge avant | Vert après |
+|---|---|---|---|
+| P2.1 | `still_keyed` (`rooms.rs`) : `lock.is_some() && (Interactable présent \|\| !DoorConfig::interactable)` : une porte à serrure non interactive reste fermée à la fin d'un combat ; test `une_porte_a_serrure_non_interactive_reste_fermee_apres_le_combat` (+ `…ouverte_se_referme_puis_se_rouvre`, garde du comportement voulu) | échec sur `fe20c153` : `assertion failed: …contains::<Collider>()` (rooms.rs:1751) | 2 tests verts |
+| P2.2 | `PlayerPosition(handle: 1)` dans `combat_coop_a_terre` et `combat_coop_feu_follet` : (−904, −600) à f125 (départ, hors de la salle de combat), (−776, −576) à f230 (devant la porte d'entrée), tolérance 8 | — (attentes neuves, valeurs lues dans l'échec d'une première passe) | verts, **traces inchangées** |
+| P2.3 | test pur `une_salle_plus_grande_que_la_vue_tient_avec_les_valeurs_du_testbed` : lit le `camera.ron` livré du testbed (`min_zoom` 0,6, `max_zoom_out` 3,0), fenêtre 960 × 540 : salle 1 600 × 900 → zoom 1,667, vue fixe centrée ; salle 4 000 × 600 → zoom maxi, la vue suit. **Pas de build release.** La preuve visuelle d'une grande salle se fera dans 1837 (ses salles dépassent la vue), au réépinglage | (API neuve : ne compile pas sur `fe20c153`) | vert |
+| P3.1 | `RoomSlide::step` : glissement au changement de salle (durée) ou si `room_fits` ; sinon `lerp_speed`; test `le_glissement_ne_vaut_qu_au_changement_de_salle_ou_si_la_salle_tient` | (API neuve) | vert |
+| P3.2 | avertissements `LintWarningKind::InertRoomSetting` (`no_rally` sans `locks`/`arena`, `room_fit`/`room_slide_seconds` sans `room_frame`, `room_slide_seconds` négatif ou non fini) ; `Registry::camera_rooms` ; `crates/content/tests/x_6h_room_setting_fixtures.rs` (fixtures `room_setting_inert`, `room_setting_ok`) | (kind neuf) | 2 tests verts |
+| P3.3 | `combat_porte_cle_referme` : `MapDoor(nth 0 et 1, Open, f162)` (porte à clé ouverte avant la fermeture ; à f200 la salle est déjà verrouillée) | — | vert, trace inchangée |
+| P3.4 | `tags: ["rapide"]` sur `combat_cle_manquante` (360 images), `combat_portes_solo` (650), `combat_coop_a_terre` (850) | — | joués par `make check_integration` |
+
+Les sept scénarios `combat_*` rejoués : verts, aucune trace modifiée (`git status` : seuls les `.ron` changent). `origin/main` fusionnée (`git merge`, deux commits de docs).
+
 ## Dernières lignes du contrôle rapide (suite depuis `placement`)
 ```
 scenario/schedule_order code=0 passed=1 failed=0

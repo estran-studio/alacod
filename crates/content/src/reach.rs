@@ -38,6 +38,9 @@ pub enum LintWarningKind {
     MomentMismatch,
     /// X-6a1 (§117) : une porte de carte à `lock_key` dont aucun personnage ne porte la clé.
     UnobtainableKey,
+    /// X-6h (§130) : réglage de caméra ou de salle sans effet (`no_rally` sans verrou, `room_fit` ou `room_slide_seconds`
+    /// sans `room_frame`, `room_slide_seconds` négatif ou non fini).
+    InertRoomSetting,
 }
 
 /// Un avertissement de lint : même forme qu'une [`crate::LintError`], mais n'échoue pas.
@@ -481,6 +484,50 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
                     ),
                 );
             }
+        }
+    }
+
+    // X-6h (§130) : réglages de salle et de caméra par pièce sans effet.
+    for room in registry.rooms.values() {
+        if room.def.no_rally && !room.def.locks && room.def.arena.is_none() {
+            warn(
+                LintWarningKind::InertRoomSetting,
+                room.file.display().to_string(),
+                format!(
+                    "type de salle « {} » : no_rally sans locks ni arena (la salle ne se verrouille jamais, aucun rappel à couper)",
+                    room.id
+                ),
+            );
+        }
+    }
+    for (file, camera) in &registry.camera_rooms {
+        let file = file.display().to_string();
+        if !camera.room_slide_seconds.is_finite() || camera.room_slide_seconds < 0.0 {
+            warn(
+                LintWarningKind::InertRoomSetting,
+                file.clone(),
+                format!(
+                    "caméra : room_slide_seconds = {} (attendu : un nombre fini, 0 ou plus ; sinon le lissage ordinaire s'applique)",
+                    camera.room_slide_seconds
+                ),
+            );
+        }
+        if !camera.room_frame && camera.room_fit {
+            warn(
+                LintWarningKind::InertRoomSetting,
+                file.clone(),
+                "caméra : room_fit sans room_frame (le zoom par salle ne vaut que cadré sur une salle)".to_string(),
+            );
+        }
+        if !camera.room_frame && camera.room_slide_seconds != 0.0 {
+            warn(
+                LintWarningKind::InertRoomSetting,
+                file,
+                format!(
+                    "caméra : room_slide_seconds = {} sans room_frame (le glissement ne vaut que cadré sur une salle)",
+                    camera.room_slide_seconds
+                ),
+            );
         }
     }
 
