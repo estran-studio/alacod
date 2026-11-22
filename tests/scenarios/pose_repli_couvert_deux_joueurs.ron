@@ -3,7 +3,6 @@
 //
 // À regarder : le tireur tire, file derrière la caisse (qui coupe sa ligne de vue vers le joueur 0), s'y tasse, puis reprend.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",

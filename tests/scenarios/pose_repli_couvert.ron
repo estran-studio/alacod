@@ -4,7 +4,6 @@
 //
 // À regarder : le tireur tire et recharge ; dès qu'il file derrière la caisse il court en `strike-walk-*`, puis se tasse en `hit` à l'abri, puis marche vers le joueur (`gun-walk`).
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",

@@ -3,7 +3,6 @@
 //
 // À regarder : le rôdeur charge le joueur du bas, avec le clip de chaque phase.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",

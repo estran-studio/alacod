@@ -4,7 +4,6 @@
 //
 // À regarder : le rôdeur se tasse en `aim` (annonce), fonce en `strike-walk`, recule face au joueur en `aim-walk` joué à l'envers, attend en `idle`, recommence.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arena.ldtk",
