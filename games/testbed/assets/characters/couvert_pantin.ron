@@ -1,0 +1,55 @@
+// C-2 (testbed, conventions §131) : `tireur_couvert` (TakeCover, Shoot, Chase) dessiné par le modèle `couvert_pantin`, dont `models.ron` pose un clip pour le
+// repli derrière un couvert. Mêmes règles et mêmes valeurs que `tireur_couvert`. Scénarios `pose_repli_*`.
+(
+    movement: (
+        acceleration: "120.0",
+        max_speed: "60.0",
+        sprint_multiplier: "1.0",
+        sprint_acceleration_per_frame: "0.0",
+        sprint_deceleration_per_frame: "0.0",
+
+        dash_distance: "0.0",
+        dash_duration_frames: 0,
+        dash_cooldown_frames: 0,
+    ),
+
+    asset_name_ref: "couvert_pantin",
+
+    collider: (
+        shape: Rectangle(
+            width: "20.",
+            height: "20.",
+        ),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" )
+    ),
+
+    scale: "1.0",
+
+    base_health: (
+        max: "200.0",
+    ),
+
+    starting_skin: "1",
+    skins: {
+        "1": (layers: {}),
+    },
+
+    ai: Some((
+        movement_type: None,
+        aggro_range: Some("500.0"),
+        attack_range: Some("0.0"),
+        attack_cooldown_frames: None,
+        can_break: None,
+        attack_through: None,
+        ignores: None,
+        path_through_breakables: None,
+        flee_threshold: None,
+        attack_damage: None,
+        stationary: None,
+        behaviors: Some([
+            TakeCover(radius: "120.0", hold: 60, speed: Some("2.0")),
+            Shoot(weapon: "fireball_gun", pattern: "volee", range: "240.0", cooldown_frames: 200),
+            Chase(profile: "Ground"),
+        ]),
+    )),
+)

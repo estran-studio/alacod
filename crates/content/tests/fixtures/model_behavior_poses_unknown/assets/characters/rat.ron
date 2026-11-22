@@ -1,0 +1,21 @@
+(
+    movement: (max_speed: "0.0"),
+    asset_name_ref: "rat",
+    collider: (
+        shape: Rectangle(width: "20.", height: "20."),
+        offset: ( x: "0.0", y: "-6.0", z: "0.0" ),
+    ),
+    scale: "1.0",
+    base_health: (max: "60.0"),
+    starting_skin: "1",
+    skins: { "1": (layers: {}) },
+    ai: Some((
+        movement_type: None,
+        attack_range: Some("40.0"),
+        behaviors: Some([
+            ReturnHome(wait: 5),
+            TakeCover(radius: "120.0", hold: 30),
+            Charge(telegraph: 10),
+        ]),
+    )),
+)

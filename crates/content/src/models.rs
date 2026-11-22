@@ -191,6 +191,22 @@ pub struct Poses {
     /// la stupeur (P-1d, banc `armes.js` A:744 : `touche`, fondu 0,04 s).
     #[serde(default)]
     pub hit: Option<Gesture>,
+    /// C-2 (§ 131) : annonce d'une `Charge` (`ChargePhase::Telegraph`, l'ennemi se tasse avant la ruée). Tient tant que l'annonce
+    /// dure ; `moving` sert si le personnage se déplace pendant l'annonce. Absente : la pose ordinaire (attente ou allure).
+    #[serde(default)]
+    pub charge_windup: Option<Gesture>,
+    /// C-2 (§ 131) : ruée d'une `Charge` (`ChargePhase::Rush`, zigzag compris). `moving` : base des variantes de direction (la ruée
+    /// va vers l'avant du corps), `still` : repli si aucune variante. Absente : la pose ordinaire.
+    #[serde(default)]
+    pub charge: Option<Gesture>,
+    /// C-2 (§ 131) : recul de `ReturnHome` vers le point de départ (`ReturnPhase::Retreat`, le corps garde la cible en face : une
+    /// variante dirigée jouée à l'envers). L'attente au point de départ garde la pose de repos. Absente : la pose ordinaire.
+    #[serde(default)]
+    pub return_home: Option<Gesture>,
+    /// C-2 (§ 131) : repli de `TakeCover` (`CoverPhase::Moving` en route, `Hold` à l'abri : `moving` pour le trajet, `still` à
+    /// l'abri). Absente : la pose ordinaire (celle du rechargement d'un tireur, par exemple).
+    #[serde(default)]
+    pub take_cover: Option<Gesture>,
 }
 
 /// Un geste : son clip à l'arrêt et sa variante en marchant.
@@ -226,10 +242,20 @@ impl Poses {
             reload: self.reload.clone().or_else(|| base.reload.clone()),
             melee: self.melee.clone().or_else(|| base.melee.clone()),
             hit: self.hit.clone().or_else(|| base.hit.clone()),
+            charge_windup: self
+                .charge_windup
+                .clone()
+                .or_else(|| base.charge_windup.clone()),
+            charge: self.charge.clone().or_else(|| base.charge.clone()),
+            return_home: self
+                .return_home
+                .clone()
+                .or_else(|| base.return_home.clone()),
+            take_cover: self.take_cover.clone().or_else(|| base.take_cover.clone()),
         }
     }
 
-    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 6] {
+    fn gestures(&self) -> [(&'static str, &Option<Gesture>); 10] {
         [
             ("shoot", &self.shoot),
             ("aim", &self.aim),
@@ -237,6 +263,10 @@ impl Poses {
             ("reload", &self.reload),
             ("melee", &self.melee),
             ("hit", &self.hit),
+            ("charge_windup", &self.charge_windup),
+            ("charge", &self.charge),
+            ("return_home", &self.return_home),
+            ("take_cover", &self.take_cover),
         ]
     }
 }

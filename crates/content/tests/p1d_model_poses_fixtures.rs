@@ -45,6 +45,8 @@ fn unexpected_errors(fixture: &str) -> Vec<String> {
             !m.contains("arme inconnue « absente »")
                 && !m.contains("weapons.absente : arme inconnue")
                 && !m.contains("entry.start_map")
+                // Fixtures C-2 : la liste de règles ne porte que les phases à dessiner, pas un `Shoot` ni l'ordre de jeu
+                && !m.contains("TakeCover")
         })
         .collect()
 }
@@ -65,5 +67,64 @@ fn a_shooter_whose_gestures_are_on_its_weapon_is_accepted() {
     assert_eq!(
         unexpected_errors("model_poses_on_weapon"),
         Vec::<String>::new()
+    );
+}
+
+// C-2 (§ 131) : les phases de behavior (annonce et ruée de `Charge`, recul de `ReturnHome`, repli de `TakeCover`) ont une pose
+// optionnelle ; un modèle qui n'en pose aucune est **averti** (jamais une erreur : le contenu existant continue de charger).
+
+fn behavior_warnings(fixture: &str) -> Vec<String> {
+    let (registry, manifest, _) = load_and_lint(&fixture_dir(fixture)).unwrap();
+    content::warnings(&registry, &manifest)
+        .into_iter()
+        .filter(|w| w.kind == content::LintWarningKind::MissingBehaviorPose)
+        .map(|w| w.message)
+        .collect()
+}
+
+/// Rouge : un personnage dont les règles ont les quatre phases, dessiné par un modèle qui n'a que l'attente.
+#[test]
+fn a_model_without_behavior_poses_is_warned_not_rejected() {
+    let warned = behavior_warnings("model_behavior_poses_missing");
+    for field in ["charge_windup", "charge", "return_home", "take_cover"] {
+        assert!(
+            warned
+                .iter()
+                .any(|m| m.contains(&format!("poses.{field}`"))),
+            "pose `{field}` non signalée : {warned:#?}"
+        );
+    }
+    assert_eq!(warned.len(), 4, "{warned:#?}");
+    assert!(
+        !load_and_lint(&fixture_dir("model_behavior_poses_missing"))
+            .unwrap()
+            .2
+            .iter()
+            .any(|e| e.kind == LintErrorKind::MissingPose),
+        "un avertissement ne devient jamais une erreur"
+    );
+}
+
+#[test]
+fn a_model_with_a_pose_per_behavior_phase_is_not_warned() {
+    assert_eq!(
+        behavior_warnings("model_behavior_poses_complete"),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        unexpected_errors("model_behavior_poses_complete"),
+        Vec::<String>::new()
+    );
+}
+
+/// Une pose de phase qui nomme un clip absent du manifeste reste une erreur, comme les autres poses.
+#[test]
+fn an_unknown_behavior_clip_is_an_error() {
+    let errors = unexpected_errors("model_behavior_poses_unknown");
+    assert!(
+        errors
+            .iter()
+            .any(|m| m.contains("take_cover.still") && m.contains("inconnu")),
+        "{errors:#?}"
     );
 }

@@ -9342,3 +9342,16 @@ coop (ramener l'équipe) n'était pas une donnée ; (3) la vue ne s'ajustait pas
 | `combat_coop_sans_rappel` | `no_rally` : le coéquipier reste dehors, entre une fois la salle vidée |
 
 **Dettes** : D228 (caméra : portes, nuages d'ennemis et grandes salles), D229 (règle coop : pas de « la salle attend » intégré).
+
+## 131. Poses des phases de comportement (C-2, `docs/taches/rapports/c-2-poses-comportement.md`)
+
+Demande de 1837 (D2) : un modèle ne pouvait pas raccorder de clip à l'annonce d'une `Charge`, à la ruée, au recul de `ReturnHome` ni au repli de `TakeCover`.
+
+- **Données** : quatre champs optionnels de `Poses` (`crates/content/src/models.rs`) : `charge_windup` (`ChargePhase::Telegraph`), `charge` (`Rush`, zigzag compris), `return_home` (`ReturnPhase::Retreat`), `take_cover` (`CoverPhase::Moving` / `Hold`). Champ absent : la pose ordinaire, rien ne change pour un modèle existant ; fusion avec les poses de base comme les autres gestes.
+- **Choix hors rendu** : `playback::behavior_phase` lit `BehaviorRuntime` en lecture seule ; `decide_poses` pose `PoseInput::behavior`, `pose::choose` en tire le geste. `sim_activity` (`animation_vivante`) compte la phase quand le champ est posé.
+- **Lint** : avertissement (jamais une erreur) quand un personnage dont les règles contiennent ces phases a un modèle sans pose dédiée ; pose inconnue du manifeste : erreur (`MissingPose`) comme avant.
+- **Simulation** : aucune ; traces existantes inchangées.
+- **Scénarios** : `pose_charge_retour`, `pose_charge_deux_joueurs`, `pose_repli_couvert`, `pose_repli_couvert_deux_joueurs` (testbed : `charge_pantin`, `couvert_pantin`), attentes `Clip` / `ClipProgress`.
+
+**Dettes** : D231-D233 (`docs/taches/dettes.md`) : D231 (le corps ne se tourne vers sa cible pendant l'annonce d'une `Charge` que si `FacingDirection` le fait : le cap vient de la simulation, que C-2 ne touche pas ; pas d'attente de cap avant la ruée), D232 (`new-content` ne scaffolde pas `Model` : un exemple de poses de phase n'est que dans `describe` et ce paragraphe).
+Harnais : `ClipSpeed` mesure aussi un clip joué à l'envers (vitesse négative). Rapport et preuve : rouge = attentes, vert = 4 scénarios `pose_*` à 1 et 2 joueurs.

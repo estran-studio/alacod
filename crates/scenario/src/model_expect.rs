@@ -258,9 +258,13 @@ pub fn clip_speed(
         ));
     }
     let mut advanced = time - before.time;
-    // Un tour de boucle entre les deux frames.
-    if advanced < 0.0 && before.duration > 0.0 {
-        advanced += duration;
+    // Un tour de boucle entre les deux frames : la plus petite des avances possibles (en avant ou, clip joué à l'envers, en arrière).
+    if before.duration > 0.0 {
+        if advanced < -duration / 2.0 {
+            advanced += duration;
+        } else if advanced > duration / 2.0 {
+            advanced -= duration;
+        }
     }
     let speed = advanced * game::model3d::playback::SIM_HZ;
     bounds(&format!("vitesse de `{clip}`"), speed, *min, *max)

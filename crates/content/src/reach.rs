@@ -41,6 +41,9 @@ pub enum LintWarningKind {
     /// X-6h (§130) : réglage de caméra ou de salle sans effet (`no_rally` sans verrou, `room_fit` ou `room_slide_seconds`
     /// sans `room_frame`, `room_slide_seconds` négatif ou non fini).
     InertRoomSetting,
+    /// C-2 (§ 131) : un personnage à modèle dont les règles ont une phase de behavior (annonce ou ruée de `Charge`, recul de
+    /// `ReturnHome`, repli de `TakeCover`) que son modèle ne dessine pas (pas de pose dédiée : il garde l'attente ou l'allure).
+    MissingBehaviorPose,
 }
 
 /// Un avertissement de lint : même forme qu'une [`crate::LintError`], mais n'échoue pas.
@@ -672,6 +675,72 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
                 table.file.display().to_string(),
                 message,
             );
+        }
+    }
+
+    if let Some(table) = &registry.models {
+        for entry in registry.characters.values() {
+            let Some((model, _)) = table
+                .get(&entry.asset_name_ref)
+                .filter(|_| !entry.test_only)
+            else {
+                continue;
+            };
+            let rules: Vec<&registry::BehaviorEntry> = entry
+                .behaviors
+                .iter()
+                .flatten()
+                .chain(
+                    entry
+                        .boss
+                        .iter()
+                        .flat_map(|boss| boss.phases.iter())
+                        .flat_map(|phase| phase.behaviors.iter()),
+                )
+                .collect();
+            let has = |poses: fn(&crate::models::Poses) -> bool| {
+                poses(&model.poses) || model.weapons.values().any(poses)
+            };
+            let mut need = |field: &str, phase: &str, rule: &str, present: bool| {
+                if !present {
+                    warn(
+                        LintWarningKind::MissingBehaviorPose,
+                        entry.file.display().to_string(),
+                        format!(
+                            "modèle « {} » : la phase « {phase} » de la règle {rule} du personnage « {} » n'a pas de pose dédiée (`poses.{field}` de models.ron) : il garde l'attente ou l'allure",
+                            entry.asset_name_ref, entry.id
+                        ),
+                    );
+                }
+            };
+            for rule in rules {
+                match rule {
+                    registry::BehaviorEntry::Charge { telegraph, .. } => {
+                        if *telegraph > 0 {
+                            need(
+                                "charge_windup",
+                                "annonce",
+                                "Charge",
+                                has(|p| p.charge_windup.is_some()),
+                            );
+                        }
+                        need("charge", "ruée", "Charge", has(|p| p.charge.is_some()));
+                    }
+                    registry::BehaviorEntry::ReturnHome { .. } => need(
+                        "return_home",
+                        "recul",
+                        "ReturnHome",
+                        has(|p| p.return_home.is_some()),
+                    ),
+                    registry::BehaviorEntry::TakeCover { .. } => need(
+                        "take_cover",
+                        "repli",
+                        "TakeCover",
+                        has(|p| p.take_cover.is_some()),
+                    ),
+                    _ => {}
+                }
+            }
         }
     }
 

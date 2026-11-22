@@ -1,0 +1,24 @@
+// C-2 (testbed, conventions §131) : deux cibles. Le rôdeur `charge_pantin` à égale distance de deux joueurs immobiles (comme `zigzag_deux_joueurs` : le joueur 1,
+// à la case de plus petit y, est chargé à chaque fois) joue les mêmes poses de phase que face à un seul : annonce, ruée, recul face au joueur chargé, attente.
+//
+// À regarder : le rôdeur charge le joueur du bas, avec le clip de chaque phase.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [(character: "charge_pantin", x: "542.0", y: "680.0", at_frame: 1)],
+    players: [(inputs: []), (inputs: [])],
+    expect: [
+        Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 10),
+        Clip(who: Entity(Placed(0)), clip: "strike-walk-fr", once: false, at_frame: 35),
+        Health(handle: 1, min: 94.9, max: 95.1, at_frame: 70),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 70),
+        Clip(who: Entity(Placed(0)), clip: "aim-walk", once: false, at_frame: 70),
+        ModelYaw(who: Entity(Placed(0)), toward: Player(1), at_frame: 70),
+        Clip(who: Entity(Placed(0)), clip: "idle", once: false, at_frame: 115),
+        Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 140),
+        Health(handle: 1, min: 89.9, max: 90.1, at_frame: 210),
+        Health(handle: 0, min: 100.0, max: 100.0, at_frame: 210),
+    ],
+)

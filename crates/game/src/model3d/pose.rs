@@ -31,8 +31,46 @@ pub struct PoseInput {
     pub reload: Option<(f32, f32)>,
     /// Coup reçu en cours (tireur posté) : avancement dans [0, 1] de la stupeur.
     pub hit: Option<f32>,
+    /// Phase de behavior en cours (C-2, § 131) : annonce ou ruée d'une charge, recul de `ReturnHome`, repli de `TakeCover`.
+    pub behavior: Option<BehaviorPhase>,
     /// Fondus de ce personnage (ceux du joueur par défaut).
     pub fades: Fades,
+}
+
+/// Phase d'un behavior à état de l'ennemi (`BehaviorRuntime`), lue sur la simulation (C-2, § 131) : chacune a un champ
+/// optionnel de [`Poses`] ; sans lui la pose ordinaire joue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BehaviorPhase {
+    /// `Charge` : annonce (`ChargePhase::Telegraph`), `poses.charge_windup`.
+    ChargeWindup,
+    /// `Charge` : ruée (`ChargePhase::Rush`), `poses.charge`.
+    Charge,
+    /// `ReturnHome` : recul (`ReturnPhase::Retreat`), `poses.return_home`.
+    ReturnHome,
+    /// `TakeCover` : trajet ou attente à l'abri (`CoverPhase`), `poses.take_cover`.
+    TakeCover,
+}
+
+impl BehaviorPhase {
+    /// Le geste de `poses` de cette phase.
+    pub fn gesture(self, poses: &Poses) -> &Option<Gesture> {
+        match self {
+            Self::ChargeWindup => &poses.charge_windup,
+            Self::Charge => &poses.charge,
+            Self::ReturnHome => &poses.return_home,
+            Self::TakeCover => &poses.take_cover,
+        }
+    }
+
+    /// Nom de l'état pour l'invariant `animation_vivante`.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ChargeWindup => "annonce de charge",
+            Self::Charge => "ruée",
+            Self::ReturnHome => "recul au point de départ",
+            Self::TakeCover => "repli à couvert",
+        }
+    }
 }
 
 /// La pose voulue : un clip et comment le lire.
@@ -167,6 +205,20 @@ pub fn choose(
             if let Some(choice) = gesture(&poses.shoot, since / total, fades.shot) {
                 return Some(choice);
             }
+        }
+    }
+    // C-2 (§ 131) : la phase d'un behavior (annonce, ruée, recul, repli) joue son clip quand le modèle l'a posé ; sinon la pose
+    // ordinaire (rien ne change pour un modèle qui ne la déclare pas).
+    if let Some(phase) = input.behavior {
+        if let Some(choice) = looping_gesture(
+            manifest,
+            poses,
+            phase.gesture(poses),
+            input,
+            moving,
+            fades.gait,
+        ) {
+            return Some(choice);
         }
     }
     if input.trigger {
@@ -567,6 +619,45 @@ mod tests {
             .fade,
             FADE_GESTURE
         );
+    }
+
+    /// C-2 (§ 131) : une phase de behavior joue le clip que le modèle lui a posé (la variante de direction en marchant, le clip
+    /// seul à l'arrêt) ; un champ absent garde la pose ordinaire, comme avant.
+    #[test]
+    fn a_behavior_phase_plays_its_pose_or_leaves_the_ordinary_one() {
+        let model: ModelDef = ron::from_str(
+            r#"(glb: "m.glb", manifest: "m.json", frame_m: (3.0, 3.0), pivot: (0.5, 0.2), height_m: 1.8,
+                poses: (idle: Some("idle"), walk: Some("walk"),
+                    charge_windup: Some((still: Some("idle-wind"))),
+                    take_cover: Some((still: Some("reload"), moving: Some("walk")))))"#,
+        )
+        .unwrap();
+        let play = |input: PoseInput| choose(&model, &model.poses, &manifest(), &input).unwrap();
+        let windup = play(PoseInput {
+            behavior: Some(BehaviorPhase::ChargeWindup),
+            ..default()
+        });
+        assert_eq!(windup.clip, "idle-wind");
+        assert_eq!(windup.timing, Timing::Loop(1.0));
+        // En route vers l'abri : la variante de direction de `walk`, vers la gauche du corps.
+        let trip = play(PoseInput {
+            behavior: Some(BehaviorPhase::TakeCover),
+            speed: 3.0,
+            rel: FRAC_PI_2,
+            ..default()
+        });
+        assert_eq!(trip.clip, "walk-l");
+        // Champ absent (`charge`, `return_home`) : l'attente ou l'allure d'avant.
+        for phase in [BehaviorPhase::Charge, BehaviorPhase::ReturnHome] {
+            assert_eq!(
+                play(PoseInput {
+                    behavior: Some(phase),
+                    ..default()
+                })
+                .clip,
+                "idle"
+            );
+        }
     }
 
     fn default() -> PoseInput {
