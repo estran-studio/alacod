@@ -93,7 +93,7 @@ pub fn enemy_spawn_from_spawners_system(
     }
 
     if players_with_rooms.is_empty() {
-        info!(
+        trace!(
             "ggrs{{f={} spawner_skip reason=no_players_in_room}}",
             frame.frame
         );
@@ -112,9 +112,11 @@ pub fn enemy_spawn_from_spawners_system(
     let global_max_enemies = 10;
 
     if current_enemies_count >= global_max_enemies {
-        info!(
+        trace!(
             "ggrs{{f={} spawner_skip reason=max_enemies count={} max={}}}",
-            frame.frame, current_enemies_count, global_max_enemies
+            frame.frame,
+            current_enemies_count,
+            global_max_enemies
         );
         return;
     }
@@ -240,7 +242,7 @@ pub fn enemy_spawn_from_spawners_system(
 
     // --- Step 4: Spawn from the best spawner ---
     let Some((best_net_id, best_entity, best_distance, best_level)) = best_spawner else {
-        info!(
+        trace!(
             "ggrs{{f={} spawner_skip reason=no_valid_spawner}}",
             frame.frame
         );
