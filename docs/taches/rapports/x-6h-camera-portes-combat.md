@@ -18,9 +18,15 @@ Ramener l'équipe à l'entrée (règle d'Isaac, déjà là), désactivable par t
 | (c) test pur caméra | vert (6 tests `camera::tests`) | `crates/game/src/camera/mod.rs` |
 | (e) traces avant/après | 118 scénarios existants (room*, key_door*, door_key*, sortie_porte_*, interieur_*, wisp_*, isaac*, gungeon*, arena*, boss*, secret*, bot_isaac*, grid*) : **tous verts, traces inchangées, aucun BLESS** (`make test_scenarios SCENARIO=…`, 2205 s) ; `schedule_order` : aucun système ni type rollback ajouté | journal local `/tmp/x6h-family.log` |
 | (d) capture du vrai jeu | fait : testbed natif release, fenêtre sur ce Mac, piloté par `alacod remote` (`input`, `step`, `screenshot`, 124 images assemblées à 6 i/s, 20,7 s, 59 Ko) : départ cadré par `room_fit`, entrée dans la salle de combat (battants fermés), combat, battants rouverts, glissement vers la salle suivante. Carte `salles.ldtk` graine 1, `camera.ron` du testbed modifié le temps de la capture (`room_frame`, `room_fit`, `room_slide_seconds: 0.35`, `min_zoom: 0.15`), `game.ron` idem, rétablis sans commit ; `target/release` supprimé | `docs/taches/rapports/preuves/x-6h/` (`x-6h-combat-portes-camera.mp4`, 4 images) |
-| (f) contrôle rapide découpé | **en attente** (même raison) | `$HOME/orca/runs/alacod/logs/x-6h-check-rapide-<sha>.log` |
+| (f) contrôle rapide découpé | **vert** sur `0e3cc75e` (code, fusion de `origin/main` dc734091 comprise) : `make format test_tools check_forbidden check_rollback_registration check_sim_boundary lint check_integration` code 0 (1231 s) ; `test_crates` découpé : lib, bins, doc puis les 59 binaires d'intégration, 0 échec, `schedule_order` vert (1 test). Coupé une fois par la garde disque (29 Go) à `placement`, la suite rejouée depuis `placement` (10 binaires, 0 échec) | `~/orca/runs/alacod/logs/x-6h-check-rapide-<sha>.log` |
 
 ## Ce qui reste
 - La capture n'a pas de salle « couloir » séparée (les salles du testbed font 128 px, le départ en tient lieu) ; le défaut de `camera.ron` du testbed n'est pas changé.
-- Contrôle rapide découpé, dernières lignes du journal ici.
 - Dettes D228 (limites de la caméra) et D229 (pas de « la salle attend »).
+
+## Dernières lignes du contrôle rapide (suite depuis `placement`)
+```
+scenario/schedule_order code=0 passed=1 failed=0
+scenario/zigzag_return code=0 passed=2 failed=0
+binaires joués : 10 / 11 tests d'intégration + lib/bins/doc ; failed : 0, codes non nuls : 0
+```
