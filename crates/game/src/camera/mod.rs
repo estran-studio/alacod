@@ -996,10 +996,7 @@ mod tests {
         let view = window * zoom;
         for anchor in [Vec2::new(1010.0, -490.0), Vec2::new(2590.0, 390.0)] {
             let centre = frame_in_room(anchor, view, grande);
-            assert!(
-                centre.distance(Vec2::new(1800.0, -50.0)) < 0.01,
-                "{centre}"
-            );
+            assert!(centre.distance(Vec2::new(1800.0, -50.0)) < 0.01, "{centre}");
         }
         // Une salle de 4 000 x 600 dépasse même le zoom maxi : zoom maxi, la vue suit la cible (donc pas de glissement continu).
         let immense = room(0.0, 0.0, 4000.0, 600.0);
