@@ -11,4 +11,8 @@
 - **Correctif de harnais** (`crates/scenario/src/model_expect.rs`, `clip_speed`) : un clip joué à l'envers (`return_home`) était lu comme un tour de boucle (+46 clips/s au lieu de −2) ; l'avance retenue est la plus petite en valeur absolue.
 - **`new-content`** : il refuse `Model` (un fichier par jeu, comportement existant) : rien à y montrer ; `describe` suffit.
 - **Capture** : `play_scenario --capture` (profil headless, pas de release), les quatre scénarios entiers (240 frames = 4 s chacun, 16 s au total), encodés à 30 i/s (demi-vitesse, 8 s chacun) : `docs/taches/rapports/preuves/c-2/pose_charge_retour.mp4`, `pose_charge_deux_joueurs.mp4`, `pose_repli_couvert.mp4`, `pose_repli_couvert_deux_joueurs.mp4`. Annonce, ruée, recul et repli visibles en postures différentes. Brief : 20 à 60 s ; durée des scénarios entiers acceptée par le coordinateur.
-- **Contrôle rapide** : voir la fin.
+
+## Contrôle rapide découpé (tête `8fe98bcc`)
+- Première passe (tête `8da348d5`, journal `check-rapide-decoupe-8da348d5.log`) : `format`, `test_tools`, `check_forbidden`, `check_rollback_registration`, `check_sim_boundary`, `lint` verts ; `check_integration` rouge : budget du jeu court « rapide » 5575 frames > 4800 (mes quatre `pose_*` y étaient étiquetés). Corrigé : tag `rapide` retiré des quatre (elles restent dans la suite complète).
+- Reprise sur `8fe98bcc` (journal `~/orca/runs/alacod/logs/c-2-check-rapide-8fe98bcc.log`) : `make check_integration` vert (17 scénarios, 4 615 frames, 77 s de jeu) ; `test_crates` découpé vert : 61 binaires joués, 0 échec, 0 code non nul.
+- Suite complète non jouée sur le Mac (la nuit du VPS la joue après le merge).
