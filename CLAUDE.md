@@ -516,6 +516,7 @@ ou d'un crate à l'autre, avec les traces de scénario.
     - X-6b charge en zigzag et retour au point de départ (§119) : `EnemyPosition(entity, x_min, x_max, y_min, y_max, at_frame)` (position de l'ennemi, bornes
       inclusives par axe : écart latéral d'un zigzag, retour au point d'apparition) ; `EnemyState` (règle `ReturnHome`), `Health` couvrent les quatre scénarios
       `zigzag_charge_retour`, `zigzag_temoin_droit`, `zigzag_deux_joueurs`, `retour_apres_morsure`.
+    - X-6e chef en deux phases (§127) : `EnemyWeapon(entity, weapon, carried, at_frame)` (arme de l'inventaire de l'ennemi portée ou non : l'arme d'une phase lâchée au passage de phase) ; `EnemyState` accepte `none` (l'ennemi n'a aucun état de comportement : immobile pendant la transition ou l'ouverture) ; `BulletCount`, `NoDamageBetween`, `EnemyPosition`, `EntityCount`, `Event(kind: "boss_phase")` couvrent les neuf scénarios `chef_*` (témoins `chef_salve_temoin`, `chef_sans_renfort`).
     - X-6c repli derrière un couvert (§120) : `CoverSight(entity, handle, blocked, at_frame)` (ligne de vue joueur → ennemi coupée par un `Cover`, `blocked: true`, ou dégagée ;
       même test de segment que le behavior `TakeCover`) ; `EnemyState` (règle `TakeCover`), `EnemyPosition` couvrent les six scénarios `repli_couvert_*` (témoin `repli_couvert_temoin`).
     - X-6f changement de niveau par une porte de sortie (§128) : aucune attente nouvelle (`FloorIndex`, `MapDoor`, `TeamKeys`, `KeyPiles`, `PlayerPosition`, `PlayerDowned`, `Health`, `Ammo`, `ActiveWeapon`,
