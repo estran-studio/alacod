@@ -1,0 +1,45 @@
+// X-6g (§129) : `interieur_porte_sans_cle` à **deux joueurs** : le joueur 1 attend dans le hall (écarté de la ligne du joueur 0) ; sans clé d'équipe, la porte reste fermée.
+//
+// À regarder : le joueur 0 est arrêté par la porte de la salle finale ; le joueur 1 n'a rien fait ; aucune clé n'est tenue.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie_interieur"),
+    frames: 760,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+                (from: 100, to: 260, buttons: [Right]),
+                (from: 260, to: 267, buttons: [Right, Interaction]),
+                (from: 300, to: 371, buttons: [Left]),
+                (from: 420, to: 484, buttons: [Up]),
+                (from: 520, to: 620, buttons: [Left]),
+                (from: 660, to: 670, buttons: [Left, Interaction]),
+            ],
+        ),
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 275, to: 295, buttons: [Up]),
+            ],
+        ),
+    ],
+    expect: [
+        FloorIndex(index: 1, at_frame: 275),
+        PlayerPosition(handle: 0, x: -175.5, y: 8, tolerance: 1, at_frame: 400),
+        PlayerPosition(handle: 0, x: -188, y: 155.5, tolerance: 1, at_frame: 500),
+        PlayerPosition(handle: 0, x: -261.3, y: 155.5, tolerance: 1, at_frame: 659),
+        Event(kind: "key_refused", by_frame: 700),
+        MapDoor(nth: 1, state: Locked, at_frame: 740),
+        MapDoor(nth: 3, state: Locked, at_frame: 740),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 740),
+        PlayerPosition(handle: 0, x: -261.3, y: 155.5, tolerance: 1, at_frame: 740),
+        PlayerAlive(handle: 0, at_frame: 759),
+        PlayerAlive(handle: 1, at_frame: 759),
+    ],
+)

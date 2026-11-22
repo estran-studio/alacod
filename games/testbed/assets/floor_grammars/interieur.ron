@@ -1,0 +1,18 @@
+// X-6g (docs/conventions.md §129) : l'intérieur d'un bâtiment assemblé par graine (gabarits de `testbed/interieur.ldtk`, générés par
+// `docs/taches/rapports/x-6g-interieur-graine.make_interieur.py`). Un hall (`depart`) au centre à **trois** sorties (`start_exits`) ;
+// trois salles de passage (`salon`, `atelier`, `cellier`), la salle de la clé (`cle`, où vit le `porteur_cle`) et la salle finale (`finale`,
+// cul-de-sac dont la porte demande la clé `cle_test`) : chacune **exactement** une fois (`exact`) ; la clé et la finale dans **deux branches
+// différentes** du hall (`apart`). Le reste est du remplissage (`combat`). Plan refusé et retiré sinon, échec explicite après 256 tentatives (200 graines : 8 tentatives en moyenne, 46 au plus).
+(
+    templates: "testbed/interieur.ldtk",
+    grammar: (
+        rooms: (8, 10),
+        required: {"salon": 1, "atelier": 1, "cellier": 1, "cle": 1, "finale": 1},
+        boss: "finale",
+        min_boss_distance: 2,
+        max_attempts: 256,
+        start_exits: Some(3),
+        exact: true,
+        apart: Some(("cle", "finale")),
+    ),
+)

@@ -1,0 +1,37 @@
+// X-6h (§130) : une porte à clé reste fermée tant que la clé manque, même après le combat. Carte `testbed/portes_cle_salles.ldtk` (graine 1) : départ, salle de
+// combat (un `porteur_cle`), salle finale derrière une porte à serrure `cle_test`. Le joueur entre (f30-90 : la salle se verrouille), abat le porteur d'un tir (f100-130),
+// puis **ne ramasse pas la clé** (elle reste au sol, à l'autre bout de la salle) : la salle est `Cleared`, ses portes ordinaires sont ouvertes, la porte à serrure (et sa jumelle)
+// toujours fermée (`Locked`), aucune clé dans l'équipe.
+//
+// À regarder : les portes d'entrée se rouvrent à la fin du combat, pas la porte de la salle finale ; la clé brille au sol ; le joueur est resté près de la porte d'entrée.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/portes_cle_salles.ldtk",
+    map_seed: 1,
+    frames: 360,
+    players: [
+        (
+            weapon: "larme",
+            inputs: [
+                (from: 30, to: 90, buttons: [Right]),
+                (from: 100, to: 130, buttons: [Fire], pan: (100, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        RoomState(kind: "combat", nth: 0, state: Locked, at_frame: 100),
+        MapDoor(nth: 0, state: Closed, at_frame: 100),
+        MapDoor(nth: 1, state: Closed, at_frame: 100),
+        RoomState(kind: "combat", nth: 0, state: Cleared, at_frame: 200),
+        MapDoor(nth: 0, state: Open, at_frame: 200),
+        MapDoor(nth: 1, state: Open, at_frame: 200),
+        MapDoor(nth: 2, state: Locked, at_frame: 200),
+        MapDoor(nth: 3, state: Locked, at_frame: 200),
+        KeyPiles(count: 1, at_frame: 300),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 359),
+        MapDoor(nth: 2, state: Locked, at_frame: 359),
+        MapDoor(nth: 3, state: Locked, at_frame: 359),
+        PlayerAlive(handle: 0, at_frame: 359),
+    ],
+)

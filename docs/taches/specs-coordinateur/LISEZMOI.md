@@ -1,10 +1,18 @@
-# Specs du coordinateur alacod (plan `docs/taches/plan-1837-cli.md`), copiées du Mac le 17 nov 2026
+# Specs du coordinateur alacod (plan `docs/taches/plan-1837-cli.md`) — copies pour la reprise sur une autre machine (21 nov 2026)
 
-Copies de `~/orca/runs/alpha/` (Mac) pour le successeur sur le VPS. Les chemins `~/orca/workspaces/alacod/<lot>` et `~/orca/runs/alpha/logs/` y désignent
-l'arborescence du **Mac** : sur une autre machine, lire « worktree du lot » et « dossier de journaux du run ».
+Copies de ce qui ne vivait que sur le VPS (`~/orca/runs/alpha/`). Les chemins absolus qu'elles citent (`/home/debian/…`, `~/orca/workspaces/alacod/<lot>`,
+`~/orca/runs/alpha/logs/`) désignent le VPS : sur une autre machine, lire « worktree du lot », « dossier de journaux du run », « checkout de 1837 », « checkout de 1867_lore ».
 
-- `commun.md` : consignes communes des workers (modèles, disque, jamais de profil debug, contrôle rapide seulement avant merge, suite complète la nuit sur le VPS).
-- `p-1d-parite-observee.md` + `p-1d-passation-2026-11-16.md` : lot P-1d en cours (spec, ordre du studio, changement d'ordre de William du 16 nov). La passation
-  la plus récente est `docs/taches/rapports/p-1d-passation-vps.md` sur la branche `wquintal/p-1d-parite-observee`.
-- `t-3b-suites-integration.md` : lot T-3b, prêt, non lancé (un seul worker engine sur le Mac).
-- `m-7-harmonium.md` : lot M-7, livré (`00fc97f1`) ; suivi P2/P3 à faire (voir la continuation du studio).
+- `commun.md` : consignes communes des workers (modèles, disque, jamais de profil debug, contrôle rapide seulement avant merge, suite complète la nuit).
+- **Lots livrés** (rapports dans `docs/taches/rapports/`) : P-1d (`p-1d-parite-observee.md`, `p-1d-passation-2026-11-16.md`, `p-1d-reprise-vps-2026-11-19.md`),
+  T-3b (`t-3b-suites-integration.md`, `t-3b-vps-2026-11-20.md`), M-7 (`m-7-harmonium.md`, suivi `m-7-suivi-vps.md`), M-7b (`m-7b-musique-vps.md`,
+  revue `m-7b-revue-160bc9e2.md`), P-1e (`p-1e-physique-vps.md`, consigne `p-1e-consigne-mesure.md`, **tableaux** `p-1e-tableau.md` et `p-1e-tableau-avant.md`).
+- **À poser dans 1837** (P-1e) : `p-1e-1837/physique_labo.{ron,trace}` → `tests/scenarios/` de 1837 (fait par le coordinateur 1837 s'il a réépinglé sur `8778a267`).
+- **Lots arrêtés le 21 nov, non mergés** (reprise : la note `docs/taches/rapports/passation-<lot>.md` **sur la branche du lot**) :
+  X-6d agrippeur `Grab` (`x-6d-agrippeur-vps.md` ; revue `revue-x-6d-consigne.md` → verdict `revue-x-6d-verdict.md` ; corrections demandées `x-6d-consigne-revue-2550feb4.md`),
+  X-6e chef en deux phases (`x-6e-chef-vps.md`).
+- `scripts/` : contrôle rapide **découpé** (`p-1d-check-rapide-decoupe.sh` appelle `p-1d-test-crates-decoupe.sh` ; à lancer depuis le worktree ; `LOGS`, `CARGO_TARGET_DIR`) :
+  `make check_rapide` d'un bloc montait à ~47 Go de cible sur le VPS. Sur une machine qui a la place, `make check_rapide` suffit.
+- **Run du Mac (21 nov, `run_ea4ecefba014`)** : X-6f changement de niveau (`x-6f-changement-niveau.md`, brief du worker ; fiche au plan § 6). Journaux : `~/orca/runs/alacod/logs/`.
+- X-6g intérieur par graine (`x-6g-interieur-graine.md`) ; revue de X-6f : consigne `revue-x-6f-consigne.md`, verdict `revue-x-6f-verdict.md` (merge, 4 P3).
+- X-6h caméra fixe par pièce et portes de combat (`x-6h-camera-portes-combat.md`) ; revue de X-6g : `revue-x-6g-consigne.md`, verdict `revue-x-6g-verdict.md`, corrections `x-6g-corrections-revue.md`.

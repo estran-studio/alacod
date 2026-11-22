@@ -1,0 +1,32 @@
+// X-6f (docs/conventions.md §128) : à deux joueurs, **un** franchit la porte, les **deux** arrivent. Séquence `porte_sortie_libre` (porte de sortie sans serrure :
+// une Interaction l'ouvre). Le joueur 0 marche vers l'est (f20-200) et touche la porte (f170-200) ; le joueur 1 reste au départ, loin de la porte. Au passage,
+// le joueur 1 est replacé, comme le joueur 0, sur son point de départ du niveau 1 (`floor_b`).
+//
+// À regarder : seul le joueur 0 s'approche de la porte et la franchit ; à la frame du passage les deux joueurs réapparaissent ensemble dans le niveau 1, chacun
+// sur son départ (deux points distincts).
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie_libre"),
+    frames: 330,
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 170, buttons: [Right]),
+                (from: 170, to: 200, buttons: [Right, Interaction]),
+            ],
+        ),
+        (weapon: "machine_gun"),
+    ],
+    expect: [
+        FloorIndex(index: 0, at_frame: 150),
+        PlayerPosition(handle: 1, x: 632, y: -136, tolerance: 4, at_frame: 150),
+        FloorIndex(index: 1, at_frame: 330),
+        PlayerAlive(handle: 0, at_frame: 329),
+        // Le coéquipier (resté au départ du niveau 0, à terre ou en feu follet, ou debout) est sur son départ du niveau 1 : (424, 664).
+        PlayerPosition(handle: 1, x: 424, y: 664, tolerance: 1, at_frame: 329),
+        PlayerAlive(handle: 1, at_frame: 329),
+    ],
+)

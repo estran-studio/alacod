@@ -1,0 +1,50 @@
+// X-6f (docs/conventions.md §128) : changement de niveau par une porte de sortie. Séquence `porte_sortie` (carte `testbed/porte_sortie.ldtk` :
+// porte à l'est à clé `cle_test` marquée `exit_next_level`, puis l'arène vide). Le joueur tue le `porteur_cle` (f20-41), ramasse la clé en marchant
+// vers l'est, ouvre la porte par Interaction (clé consommée) et la franchit : toute l'équipe passe au niveau 1, sans que le niveau 0 soit vide
+// (le porteur est mort mais le portail « niveau vidé » ne s'ouvre pas : `exit_by_door`).
+//
+// À regarder : le porteur tombe, la clé apparaît et disparaît au contact, la porte s'ouvre, le joueur la traverse et reparaît sur le départ de l'arène
+// (santé 55, arme `machine_gun` et 26 balles gardées : le `breacher` du niveau 0 l'avait touché avant la porte, sans effet après) ;
+// le prompt « Entrer » s'affiche devant la porte ouverte. Témoins : `sortie_porte_sans_cle`, `sortie_porte_niveau_vide`.
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie"),
+    frames: 480,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+        (character: "breacher", x: "612", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+                (from: 100, to: 260, buttons: [Right]),
+                (from: 260, to: 267, buttons: [Right, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        // Niveau 0 : le porteur est mort (f28) mais le niveau n'est pas « vidé » (le breacher vit) ; la clé est ramassée (f115).
+        FloorIndex(index: 0, at_frame: 262),
+        MapDoor(nth: 0, state: Locked, at_frame: 60),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 200),
+        Event(kind: "key_pickup", by_frame: 120),
+        // Ouverture f266 (clé consommée), franchissement f269.
+        Event(kind: "key_door", by_frame: 270),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 290),
+        FloorIndex(index: 1, at_frame: 275),
+        Event(kind: "floor", by_frame: 275),
+        // Niveau 1 (`floor_b`) : le joueur est sur le départ (≈ (434, 696)), santé et munitions de l'arme gardées.
+        PlayerPosition(handle: 0, x: 434, y: 696, tolerance: 4, at_frame: 290),
+        Health(handle: 0, min: Some(55), max: Some(55), at_frame: 270),
+        Health(handle: 0, min: Some(55), max: Some(55), at_frame: 290),
+        ActiveWeapon(handle: 0, weapon: "machine_gun", at_frame: 290),
+        Ammo(handle: 0, ammo: 26, at_frame: 262),
+        Ammo(handle: 0, ammo: 26, at_frame: 290),
+        // Le niveau d'arrivée a ses propres ennemis (breacher, follower) et aucune porte de sortie de plus.
+        EntityCount(kind: Enemy, min: Some(2), max: Some(2), at_frame: 290),
+    ],
+)

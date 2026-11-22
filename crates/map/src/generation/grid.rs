@@ -1220,6 +1220,7 @@ mod tests {
             windows: vec![],
             character_spawns: vec![],
             door_locks: vec![],
+            door_exits: vec![],
         }
     }
 
@@ -1313,6 +1314,9 @@ mod tests {
             max_attempts: 64,
             bounds: None,
             loops: 0,
+            start_exits: None,
+            exact: false,
+            apart: None,
             layout: Some(FloorLayout::Grid {
                 cell: CELL,
                 max: (7, 7),
@@ -1762,6 +1766,9 @@ mod tests {
             max_attempts: 8,
             bounds: None,
             loops: 0,
+            start_exits: None,
+            exact: false,
+            apart: None,
             layout: Some(FloorLayout::Grid {
                 cell: CELL,
                 max: (5, 5),

@@ -1,0 +1,9 @@
+// Fixture C-2 (§ 131) : model_behavior_poses_missing
+(
+    name: "fixture-model_behavior_poses_missing",
+    content_folders: [
+        (path: "characters/rat.ron", kind: "Character"),
+        (path: "models/models.ron", kind: "Model"),
+    ],
+    entry: (start_map: "unused", default_seed: 1),
+)

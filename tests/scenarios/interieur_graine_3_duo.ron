@@ -1,0 +1,41 @@
+// X-6g (§129) : `interieur_graine_3` à **deux joueurs** : le joueur 1 s'écarte de la ligne du joueur 0 (Up, f20-40) ; la clé ramassée est celle de l'équipe.
+//
+// À regarder : les deux joueurs partent du hall ; le joueur 0 fait la branche de la clé, le joueur 1 reste dans le hall.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("interieur_seul"),
+    map_seed: 3,
+    frames: 320,
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 98, buttons: [Right]),
+                (from: 140, to: 170, buttons: [Up]),
+                (from: 170, to: 178, buttons: [Up, Fire], pan: (0, -127)),
+                (from: 178, to: 182, buttons: [Up]),
+                (from: 182, to: 190, buttons: [Up, Fire], pan: (0, 127)),
+                (from: 190, to: 260, buttons: [Up]),
+            ],
+        ),
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 40, buttons: [Up]),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: -8, y: 8, tolerance: 1, at_frame: 10),
+        RoomCount(min: 8, max: Some(10), at_frame: 10),
+        RoomLayout(kind: "depart", size: Some((192, 160)), touches: ["combat"], at_frame: 10),
+        RoomLayout(kind: "finale", touches: ["combat", "salon"], apart: ["depart", "cle"], at_frame: 10),
+        RoomLayout(kind: "cle", touches: ["combat"], apart: ["depart", "finale"], at_frame: 10),
+        PlayerPosition(handle: 0, x: 187, y: 8, tolerance: 1, at_frame: 139),
+        Event(kind: "key_pickup", by_frame: 300),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 300),
+        PlayerAlive(handle: 0, at_frame: 319),
+        PlayerAlive(handle: 1, at_frame: 319),
+    ],
+)

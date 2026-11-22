@@ -1,0 +1,18 @@
+# C-2 — Poses des phases de comportement
+
+- **Existait** : `decide_poses` / `ModelPlayback` (`crates/game/src/model3d/playback.rs`), `sim_activity` (animation vivante), lint `MissingPose` (`crates/content/src/lint.rs:1690`), phases dans `BehaviorRuntime` (`crates/game/src/character/enemy/ai/state.rs` : `ChargePhase` l.669, `ReturnPhase` l.686, `CoverPhase` l.697, `BehaviorRuntime` l.716) ; aucune pose pour ces phases.
+- **Manquait** : champs de pose, lecture de `BehaviorRuntime` par `decide_poses`, couverture par `animation_vivante`, avertissement de lint, scénarios.
+- **Ajouté** : voir `docs/conventions.md` § 131 (4 champs `Poses`, `behavior_phase`, `BehaviorPhase` dans `pose.rs`, lint `reach.rs`, 4 scénarios `pose_*`, 3 fixtures).
+
+## Preuve
+- **Rouge** : échec d'attentes (code de correction déjà compilé, `models.ron` du testbed sans les quatre champs) : les quatre `pose_*` jouent `idle` / `walk` / `reload` au lieu de `aim` / `strike-walk` / `aim-walk` / `strike-walk-l` / `hit` ; journal `/tmp/c2-rouge.log`.
+- **Vert** : `models.ron` pose `charge_windup` (`aim`), `charge` (`strike-walk`), `return_home` (`aim-walk`, joué à l'envers) pour `charge_pantin` et `take_cover` (`strike-walk` en route, `hit` à l'abri) pour `couvert_pantin`. Les quatre scénarios sont verts à un et deux joueurs, quatre traces neuves ; les 18 scénarios `rodeur_*`, `zigzag_*`, `repli_couvert_*`, `tireur_pantin_*`, `model_pantin` passent sans trace modifiée ; `content` (tests dont les trois fixtures `model_behavior_poses_*`) et `game` `model3d` verts ; `alacod describe testbed Model` montre les quatre champs ; `alacod lint games/testbed` sans erreur.
+- **Ajusté au vert** (attentes écrites avant, corrigées d'après le jeu réel, pas le code) : cap du corps pendant l'annonce non attendu (le regard vient de `FacingDirection`, simulation inchangée : D231) ; deux joueurs : la ruée joue la variante `strike-walk-fr` ; repli : avant le tir le clip est `aim`, après le repli la pose ordinaire revient (`reload`).
+- **Correctif de harnais** (`crates/scenario/src/model_expect.rs`, `clip_speed`) : un clip joué à l'envers (`return_home`) était lu comme un tour de boucle (+46 clips/s au lieu de −2) ; l'avance retenue est la plus petite en valeur absolue.
+- **`new-content`** : il refuse `Model` (un fichier par jeu, comportement existant) : rien à y montrer ; `describe` suffit.
+- **Capture** : `play_scenario --capture` (profil headless, pas de release), les quatre scénarios entiers (240 frames = 4 s chacun, 16 s au total), encodés à 30 i/s (demi-vitesse, 8 s chacun) : `docs/taches/rapports/preuves/c-2/pose_charge_retour.mp4`, `pose_charge_deux_joueurs.mp4`, `pose_repli_couvert.mp4`, `pose_repli_couvert_deux_joueurs.mp4`. Annonce, ruée, recul et repli visibles en postures différentes. Brief : 20 à 60 s ; durée des scénarios entiers acceptée par le coordinateur.
+
+## Contrôle rapide découpé (tête `8fe98bcc`)
+- Première passe (tête `8da348d5`, journal `check-rapide-decoupe-8da348d5.log`) : `format`, `test_tools`, `check_forbidden`, `check_rollback_registration`, `check_sim_boundary`, `lint` verts ; `check_integration` rouge : budget du jeu court « rapide » 5575 frames > 4800 (mes quatre `pose_*` y étaient étiquetés). Corrigé : tag `rapide` retiré des quatre (elles restent dans la suite complète).
+- Reprise sur `8fe98bcc` (journal `~/orca/runs/alacod/logs/c-2-check-rapide-8fe98bcc.log`) : `make check_integration` vert (17 scénarios, 4 615 frames, 77 s de jeu) ; `test_crates` découpé vert : 61 binaires joués, 0 échec, 0 code non nul.
+- Suite complète non jouée sur le Mac (la nuit du VPS la joue après le merge).

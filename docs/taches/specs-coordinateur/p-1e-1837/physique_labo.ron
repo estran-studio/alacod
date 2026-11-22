@@ -1,0 +1,40 @@
+// P-1e (engine § 125, verdict de William du 20 nov : « notre physique est juste plus lente et lourde ») : le Frère au chiffre du banc des armes
+// (`1867_lore/site/labo/armes/`, défauts), joué avec la session de la partie locale (`input_delay: Some(0)` : l'appui agit à la frame qui suit,
+// comme au banc ; le défaut 5 des scénarios est celui sous lequel leurs traces ont été écrites).
+// Banc mesuré (rapport engine `p-1e-physique-labo.md`) : marche fusil 4,4 m/s = 105,6 u/s = 1,76 u/frame, pleine vitesse dès l'image qui suit
+// l'appui, arrêt à l'image qui suit le relâché (0 cm de glisse), demi-tour en une image ; balle 16 m/s = 384 u/s, partie 9 frames (épaulé
+// 0,15 s) après l'appui ; gigue hors temps 2 m = 48 u.
+// À regarder : marche à droite f30-60 et arrêt net, gauche f80-100 puis demi-tour net f100, tir vers la droite f150 (balle f159), pas de gigue f260.
+Scenario(
+    tags: ["rapide"],
+    game: "1837",
+    map: "maps/salle.ldtk",
+    frames: 320,
+    input_delay: Some(0),
+    players: [
+        (inputs: [
+            (from: 30, to: 60, buttons: [Right], pan: (100, 0)),
+            (from: 60, to: 80, buttons: [], pan: (100, 0)),
+            (from: 80, to: 100, buttons: [Left], pan: (100, 0)),
+            (from: 100, to: 120, buttons: [Right], pan: (100, 0)),
+            (from: 120, to: 150, buttons: [], pan: (100, 0)),
+            (from: 150, to: 151, buttons: [Fire], pan: (100, 0)),
+            (from: 151, to: 260, buttons: [], pan: (100, 0)),
+            (from: 260, to: 261, buttons: [Right, Dash], pan: (100, 0)),
+            (from: 261, to: 320, buttons: [], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        // Départ (input f30) : 1,76 u dès la frame 31 ; arrêt (relâché f60) : immobile dès la frame 61 (glisse 0) ; demi-tour (gauche → droite f100) :
+        // repart à droite dès la frame 102 ; balle 9 frames d'épaulé + 1 après l'appui f150. Avec le délai de 5 (`ALACOD_INPUT_DELAY=5`, l'ancien
+        // défaut de la partie locale), les attentes des frames 31 à 160 échouent.
+        PlayerPosition(handle: 0, x: -136.0, y: -504.0, tolerance: 0.1, at_frame: 30),
+        PlayerPosition(handle: 0, x: -134.24, y: -504.0, tolerance: 0.1, at_frame: 31),
+        PlayerPosition(handle: 0, x: -83.2, y: -504.0, tolerance: 0.1, at_frame: 61),
+        PlayerPosition(handle: 0, x: -83.2, y: -504.0, tolerance: 0.1, at_frame: 62),
+        PlayerPosition(handle: 0, x: -118.2, y: -504.0, tolerance: 0.2, at_frame: 101),
+        PlayerPosition(handle: 0, x: -116.4, y: -504.0, tolerance: 0.2, at_frame: 102),
+        BulletCount(count: 0, team: Some(Players), at_frame: 159),
+        BulletCount(count: 1, team: Some(Players), at_frame: 160),
+    ],
+)

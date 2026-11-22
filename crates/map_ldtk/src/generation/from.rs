@@ -129,6 +129,36 @@ pub fn door_lock_from_instance(entity: &bevy_ecs_ldtk::EntityInstance) -> Option
     Some(DoorLockConfig { key, consume })
 }
 
+/// X-6f : la porte LDtk est-elle marquée sortie vers le niveau suivant (`exit_next_level` vrai) ?
+/// Partagée par l'extraction de la génération et la lecture de la porte chargée.
+pub fn door_exit_from_instance(entity: &bevy_ecs_ldtk::EntityInstance) -> bool {
+    entity
+        .get_bool_field(map_const::FIELD_EXIT_NEXT_LEVEL_NAME)
+        .ok()
+        .copied()
+        .unwrap_or(false)
+}
+
+/// X-6f : portes d'auteur marquées sortie (`DoorHorizontal`/`DoorVertical` à `exit_next_level` vrai).
+fn get_door_exits(
+    entities: &[bevy_ecs_ldtk::EntityInstance],
+    tile_size: &(i32, i32),
+) -> Vec<EntityLocation> {
+    entities
+        .iter()
+        .filter(|x| {
+            x.identifier == map_const::ENTITY_DOOR_HORIZONTAL_LOCATION
+                || x.identifier == map_const::ENTITY_DOOR_VERTICAL_LOCATION
+        })
+        .filter(|x| door_exit_from_instance(x))
+        .map(|x| EntityLocation {
+            position: Position(x.grid.x, x.grid.y),
+            size: (x.width / tile_size.0, x.height / tile_size.1),
+            level_iid: "".to_string(),
+        })
+        .collect()
+}
+
 /// X-6a1 : serrures d'auteur des portes (`DoorHorizontal`/`DoorVertical` : `lock_key` non vide,
 /// `lock_consume`) : un champ absent donne une porte ordinaire, `lock_consume` absent vaut vrai.
 fn get_door_locks(
@@ -306,6 +336,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
     if let Some(entity_layer) = entity_layer {
         EntityLocations {
             door_locks: get_door_locks(&entity_layer.entity_instances, tile_size),
+            door_exits: get_door_exits(&entity_layer.entity_instances, tile_size),
             doors: get_entities_multi!(
                 entity_layer.entity_instances,
                 tile_size,
@@ -345,6 +376,7 @@ fn extract_entity_locations(level: &Level, tile_size: &(i32, i32)) -> EntityLoca
     } else {
         EntityLocations {
             door_locks: vec![],
+            door_exits: vec![],
             doors: vec![],
             sodas: vec![],
             props: vec![],

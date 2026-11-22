@@ -65,6 +65,7 @@ pub fn door_component_from_field(entity_instance: &EntityInstance) -> DoorCompon
             interactable,
             paired_door,
             lock: crate::generation::door_lock_from_instance(entity_instance),
+            exit: crate::generation::door_exit_from_instance(entity_instance),
         },
     }
 }

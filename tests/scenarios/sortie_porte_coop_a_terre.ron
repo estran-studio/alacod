@@ -1,0 +1,32 @@
+// X-6f (docs/conventions.md §128) : le coéquipier **à terre** suit l'équipe, dans son état. Séquence `porte_sortie_libre`. Le joueur 0 abat le joueur 1
+// (tir ami `Always`, f10-120 : le joueur 1 tombe à terre, saigne 900 frames), marche vers l'est (f130-) et ouvre la porte ; le joueur 0 la franchit seul, le
+// joueur 1 (à terre, immobile) est replacé sur son départ du niveau 1 **toujours à terre**, avec la même vie (0) et son compte à rebours de saignement.
+//
+// À regarder : le joueur 1 s'effondre au départ ; le joueur 0 part vers la porte ; au niveau 1 le joueur 1 est encore à terre (HUD « À TERRE »), le joueur 0 debout.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie_libre"),
+    frames: 420,
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 10, to: 120, buttons: [Fire], pan: (0, -100)),
+                (from: 130, to: 270, buttons: [Right]),
+                (from: 270, to: 330, buttons: [Right, Interaction]),
+            ],
+        ),
+        (weapon: "machine_gun"),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 130),
+        FloorIndex(index: 0, at_frame: 200),
+        FloorIndex(index: 1, at_frame: 419),
+        PlayerDowned(handle: 1, at_frame: 419),
+        PlayerAlive(handle: 0, at_frame: 419),
+        // Le coéquipier (resté au départ du niveau 0, à terre ou en feu follet, ou debout) est sur son départ du niveau 1 : (424, 664).
+        PlayerPosition(handle: 1, x: 424, y: 664, tolerance: 1, at_frame: 419),
+    ],
+)

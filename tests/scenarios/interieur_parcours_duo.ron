@@ -1,0 +1,56 @@
+// X-6g (§129) : le parcours de `interieur_parcours` à **deux joueurs** : le joueur 1 s'écarte de la ligne du joueur 0 (Up, f275-295) et attend dans le hall ; la clé ramassée par
+// le joueur 0 est celle de l'équipe, la porte s'ouvre pour tous.
+//
+// À regarder : le joueur 1 reste dans le hall pendant que le joueur 0 fait les deux branches ; la porte de la salle finale s'ouvre à f1100.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie_interieur"),
+    frames: 1200,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+                (from: 100, to: 260, buttons: [Right]),
+                (from: 260, to: 267, buttons: [Right, Interaction]),
+                (from: 300, to: 376, buttons: [Right]),
+                (from: 420, to: 450, buttons: [Down]),
+                (from: 450, to: 458, buttons: [Down, Fire], pan: (0, 127)),
+                (from: 458, to: 462, buttons: [Down]),
+                (from: 462, to: 470, buttons: [Down, Fire], pan: (0, -127)),
+                (from: 470, to: 520, buttons: [Down]),
+                (from: 540, to: 620, buttons: [Up]),
+                (from: 660, to: 806, buttons: [Left]),
+                (from: 860, to: 924, buttons: [Up]),
+                (from: 960, to: 1060, buttons: [Left]),
+                (from: 1100, to: 1110, buttons: [Left, Interaction]),
+            ],
+        ),
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 275, to: 295, buttons: [Up]),
+            ],
+        ),
+    ],
+    expect: [
+        FloorIndex(index: 1, at_frame: 275),
+        PlayerPosition(handle: 0, x: 192, y: 8, tolerance: 1, at_frame: 419),
+        Event(kind: "key_pickup", by_frame: 540),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 540),
+        MapDoor(nth: 1, state: Locked, at_frame: 1000),
+        MapDoor(nth: 3, state: Locked, at_frame: 1000),
+        PlayerPosition(handle: 0, x: -198, y: 165.5, tolerance: 2, at_frame: 959),
+        Event(kind: "key_door", by_frame: 1130),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 1130),
+        MapDoor(nth: 1, state: Open, at_frame: 1130),
+        MapDoor(nth: 3, state: Open, at_frame: 1130),
+        PlayerPosition(handle: 0, x: -286, y: 165.5, tolerance: 4, at_frame: 1130),
+        PlayerAlive(handle: 0, at_frame: 1199),
+        PlayerAlive(handle: 1, at_frame: 1199),
+    ],
+)

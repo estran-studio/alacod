@@ -1,0 +1,32 @@
+// X-6f (docs/conventions.md §128) : le niveau suivant est un étage **assemblé par graine** (séquence `porte_sortie_graine` : `porte_sortie.ldtk`, puis
+// `floor:etage_sortie`, une grammaire départ + boss sur les gabarits de `salles_boss.ldtk`, §40 « Étapes 2 »). Même partie que `sortie_porte_solo` : le
+// joueur tue le porteur, ramasse la clé, ouvre la porte et la franchit ; il arrive dans l'étage assemblé (graine de la run (par défaut) + emplacement × 0x3C6E_F372),
+// dans la salle de départ, où le `gardien` de la salle de boss dort.
+//
+// À regarder : le passage de la porte charge deux salles reliées (départ, boss) au lieu de la carte dessinée ; le joueur reparaît dans la salle de départ.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie_graine"),
+    frames: 400,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+                (from: 100, to: 260, buttons: [Right]),
+                (from: 260, to: 267, buttons: [Right, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        FloorIndex(index: 0, at_frame: 262),
+        FloorIndex(index: 1, at_frame: 275),
+        PlayerPosition(handle: 0, x: -14, y: -8, tolerance: 8, at_frame: 290),
+        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 290),
+        PlayerAlive(handle: 0, at_frame: 399),
+    ],
+)

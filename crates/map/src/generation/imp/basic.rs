@@ -484,6 +484,11 @@ impl IMapGeneration for BasicMapGeneration {
                             == (door_location.position.0, door_location.position.1)
                     })
                     .map(|(_, lock)| lock.clone());
+                // X-6f : la sortie d'auteur (même position dans la salle) traverse aussi telle quelle.
+                let exit = room.entity_locations.door_exits.iter().any(|at| {
+                    (at.position.0, at.position.1)
+                        == (door_location.position.0, door_location.position.1)
+                });
                 all_doors.push((
                     room_index,
                     EntityLocation {
@@ -497,6 +502,7 @@ impl IMapGeneration for BasicMapGeneration {
                         interactable: true, // Default to interactable, will update based on connection
                         paired_door: None,
                         lock,
+                        exit,
                     },
                 ));
             }
@@ -597,6 +603,10 @@ impl IMapGeneration for BasicMapGeneration {
             } else if all_doors[other_door_index].2.lock.is_none() {
                 all_doors[other_door_index].2.lock = all_doors[door_index].2.lock.clone();
             }
+            // X-6f : une sortie marque aussi sa jumelle (les deux battants forment une seule porte).
+            let exit = all_doors[door_index].2.exit || all_doors[other_door_index].2.exit;
+            all_doors[door_index].2.exit = exit;
+            all_doors[other_door_index].2.exit = exit;
         }
 
         // Apply non-interactable flags
@@ -611,8 +621,9 @@ impl IMapGeneration for BasicMapGeneration {
             .filter(|(i, _)| !removed.contains(i))
             .map(|(_, (_, loc, mut config))| {
                 // X-6a1 : une porte à serrure s'ouvre avec sa clé, pas avec de l'argent (le coût,
-                // recalculé de la profondeur, n'est pas une valeur d'auteur).
-                if config.lock.is_some() {
+                // recalculé de la profondeur, n'est pas une valeur d'auteur). X-6f : une sortie vers le
+                // niveau suivant n'est pas un achat non plus.
+                if config.lock.is_some() || config.exit {
                     config.cost = 0;
                 }
                 (loc, config)
@@ -873,6 +884,7 @@ mod tests {
                 windows: vec![],
                 character_spawns: vec![],
                 door_locks: vec![],
+                door_exits: vec![],
             },
             room_kind: None,
         }
@@ -974,6 +986,30 @@ mod tests {
         }
     }
 
+    /// X-6f : la sortie d'auteur (`door_exits`) traverse la génération, se partage avec la jumelle et
+    /// ne coûte rien (une sortie n'est pas un achat) ; une porte ordinaire garde son coût.
+    #[test]
+    fn la_sortie_traverse_la_generation_gratuite_et_se_partage_avec_la_jumelle() {
+        let mut exit = level("A", &[(Side::E, 4)]);
+        exit.entity_locations.door_exits = vec![exit.entity_locations.doors[0].clone()];
+        let mut generator = generator(vec![
+            (exit, Position(0, 0)),
+            (level("B", &[(Side::W, 4)]), Position(160, 0)),
+        ]);
+        assert_eq!(generator.get_links().len(), 1);
+        let doors = generator.get_doors(&mut RollbackRng::new(1));
+        assert_eq!(doors.len(), 2);
+        for (_, config) in &doors {
+            assert!(config.exit);
+            assert_eq!(config.cost, 0);
+            assert_eq!(config.lock, None);
+        }
+        for (_, config) in generator_without_lock().get_doors(&mut RollbackRng::new(1)) {
+            assert!(!config.exit);
+            assert_eq!(config.cost, 750);
+        }
+    }
+
     fn generator_without_lock() -> BasicMapGeneration {
         let mut generator = generator(vec![
             (level("A", &[(Side::E, 4)]), Position(0, 0)),
@@ -1039,5 +1075,51 @@ mod tests {
         assert_eq!(generator.get_links().len(), 1);
         assert!(generator.get_links().is_empty());
         assert!(generator.unused_openings().is_empty());
+    }
+
+    /// X-6g (D227) : cause du hall « au bord » relevé par 1837 : `get_spawning_room` tire la position du départ dans toute la boîte
+    /// (`[-max, max - taille]`), donc sur certaines graines la salle posée contre sa prise nord sort de la boîte
+    /// (`Room::is_outside`) et la prise est murée. Le défaut de `Basic` n'est pas changé (cartes des clones identiques) ;
+    /// la grammaire d'étage pose son départ au centre (`generation::floor`).
+    /// **À réécrire avec D227** : ce test épingle le défaut connu ; il cassera (voulu) le jour où `Basic` centre son départ.
+    #[test]
+    fn le_depart_de_basic_est_tire_jusqu_au_bord_donc_sa_voisine_peut_sortir_de_la_carte() {
+        let mut spawn = level("hall", &[(Side::N, 4), (Side::S, 4)]);
+        spawn.level_type = LevelType::Spawn;
+        let (mut at_edge, mut centered) = (0, 0);
+        for seed in 0..300u32 {
+            let mut rng = RollbackRng::new(seed);
+            let context = MapGenerationContext {
+                tile_size: (16, 16),
+                level_size: (10, 10),
+                available_levels: vec![Rc::new(spawn.clone())],
+                config: MapGenerationConfig {
+                    max_width: 400,
+                    max_heigth: 400,
+                    ..MapGenerationConfig::default()
+                },
+            };
+            let mut generator = BasicMapGeneration::create(context);
+            let room = generator.get_spawning_room(&mut rng);
+            // Une salle de même gabarit posée contre la prise nord du départ.
+            let north = room.get_connecting_room_position(
+                &room.level_def.connections[0],
+                &room.level_def,
+                1,
+                &(16, 16),
+            );
+            let neighbour =
+                Room::create(&mut rng, room.level_def.clone(), north, Default::default());
+            if neighbour.is_outside(&generator.context.config) {
+                at_edge += 1;
+            } else {
+                centered += 1;
+            }
+        }
+        assert!(at_edge > 0, "aucune graine ne pose le départ au bord haut");
+        assert!(
+            centered > 0,
+            "toutes les graines posent la voisine hors de la carte"
+        );
     }
 }

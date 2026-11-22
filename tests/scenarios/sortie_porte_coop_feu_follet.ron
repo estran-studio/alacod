@@ -1,0 +1,33 @@
+// X-6f (docs/conventions.md §128, M-5 §113) : le coéquipier en **feu follet** suit l'équipe, dans son état. Comme `sortie_porte_coop_a_terre`, mais les deux
+// joueurs sont `wisp_plain` : le joueur 1 tombé devient feu follet (le HUD du joueur 0 dit « Feu follet allié »), le joueur 0 franchit seul la porte, le feu follet arrive au
+// niveau 1 toujours feu follet.
+//
+// À regarder : lumière chaude du joueur 1 tombé ; après le passage il est replacé sur son départ du niveau 1, toujours feu follet ; le joueur 0 debout.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie_libre"),
+    frames: 420,
+    weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
+    players: [
+        (
+            character: "wisp_plain",
+            weapon: "machine_gun",
+            inputs: [
+                (from: 10, to: 120, buttons: [Fire], pan: (0, -100)),
+                (from: 130, to: 270, buttons: [Right]),
+                (from: 270, to: 330, buttons: [Right, Interaction]),
+            ],
+        ),
+        (character: "wisp_plain", weapon: "machine_gun"),
+    ],
+    expect: [
+        PlayerDowned(handle: 1, at_frame: 130),
+        HudText(source: "wisp", contains: "Feu follet allié", at_frame: 150),
+        FloorIndex(index: 1, at_frame: 419),
+        PlayerDowned(handle: 1, at_frame: 419),
+        PlayerAlive(handle: 0, at_frame: 419),
+        // Le coéquipier (resté au départ du niveau 0, à terre ou en feu follet, ou debout) est sur son départ du niveau 1 : (424, 664).
+        PlayerPosition(handle: 1, x: 424, y: 664, tolerance: 1, at_frame: 419),
+    ],
+)

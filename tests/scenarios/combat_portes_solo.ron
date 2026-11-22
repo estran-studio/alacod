@@ -1,0 +1,39 @@
+// X-6h (docs/conventions.md §130) : portes de combat, un joueur. Carte `testbed/salles.ldtk` (graine 1) : départ, salle de combat (deux `dummy`
+// qui dorment), récompense. Les quatre portes de carte (la porte de chaque salle et sa jumelle) sont ouvertes d'office ; le joueur entre dans la salle de
+// combat (f30-90) : elle se verrouille derrière lui, les quatre portes sont **fermées** (`MapDoor Closed`, `RoomState Locked`) ; il tire (machine_gun) ; les deux
+// ennemis morts, les quatre portes se rouvrent (`Open`, `Cleared`) (le départ de récompense n'est pas visité).
+//
+// À regarder : f≈85 les quatre battants se ferment, le joueur est enfermé avec deux mannequins ; ils tombent ; les battants s'ouvrent.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 650,
+    players: [
+        (
+            inputs: [
+                (from: 30, to: 90, buttons: [Right]),
+                (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        MapDoor(nth: 0, state: Open, at_frame: 20),
+        MapDoor(nth: 1, state: Open, at_frame: 20),
+        MapDoor(nth: 2, state: Open, at_frame: 20),
+        MapDoor(nth: 3, state: Open, at_frame: 20),
+        RoomState(kind: "combat", state: Dormant, doors_closed: Some(0), at_frame: 20),
+        RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 100),
+        MapDoor(nth: 0, state: Closed, at_frame: 100),
+        MapDoor(nth: 1, state: Closed, at_frame: 100),
+        MapDoor(nth: 2, state: Closed, at_frame: 100),
+        MapDoor(nth: 3, state: Closed, at_frame: 100),
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 560),
+        MapDoor(nth: 0, state: Open, at_frame: 560),
+        MapDoor(nth: 1, state: Open, at_frame: 560),
+        MapDoor(nth: 2, state: Open, at_frame: 560),
+        MapDoor(nth: 3, state: Open, at_frame: 560),
+        PlayerAlive(handle: 0, at_frame: 649),
+    ],
+)

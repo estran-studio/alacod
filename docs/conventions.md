@@ -3145,6 +3145,9 @@ tirage et la consommation du RNG d'origine (traces gungeon inchangées). `la_fon
 `loops: 2` exige `rooms: (10, 12)` (avec 9 à 11 salles, 2 boucles échouent sur la plupart des
 graines) ; 200 graines : 2,11 boucles en moyenne, aucune sous 2.
 
+**X-6g (§ 129).** Trois champs optionnels de la grammaire (`start_exits`, `exact`, `apart`) : sorties exactes du départ, types requis exactement, deux types dans deux branches différentes
+du départ ; absents (tout le contenu existant), le tirage et les traces sont ceux d'avant.
+
 **Lint** : `rooms` min > max ou < 2, `max_attempts` 0, `required` à 0 ou contenant le départ,
 plus d'un boss, départ + boss + requises > max, `min_boss_distance` impossible (`OutOfRange`) ;
 carte `templates` absente, type nécessaire (départ, boss, remplissage, requis) sans niveau de ce
@@ -3512,6 +3515,7 @@ jamais active.
   `#rrggbb` (`OutOfRange`) ; « au moins deux objets distincts » ne vaut plus que sans `requires_tag` ; deux synergies de
   même ensemble **et** de même condition de tag restent un doublon. Fixtures `transformation_ok`, `transformation_bad`
   (`crates/content/tests/transformations.rs`).
+- **Lint** (avertissements `InertRoomSetting`, `content::warnings`) : `no_rally` sans `locks` ni `arena` ; `room_fit` ou `room_slide_seconds` sans `room_frame` ; `room_slide_seconds` négatif ou non fini (`crates/content/tests/x_6h_room_setting_fixtures.rs`).
 - **Testbed** : objets `amanite`, `bolet`, `morille` (tag `champignon`, sans effet seuls), synergie `champignons`
   (`count: 3`, `MoveSpeed` `Pct` +0,3, teinte `#c07040`). Scénarios `transformation_three` (trois ramassages à f10, f40, f70 : la
   vitesse monte à la troisième prise) et son témoin `transformation_two` (deux champignons : rien) ; générés `item_amanite`,
@@ -7822,7 +7826,7 @@ aucun ennemi) et son arène vide (`sandbox: (arena: "maps/arene_vide.ldtk")`, é
   `profile` liste `arene`, **solde 1 000** du profil (`give --currency 0` renvoie le solde ; `alacod/state` ne l'expose pas), un seul joueur ; le jeu quitte seul avec le code 0 (le jeu est tenu par une garde RAII (`Game` : kill + wait au `Drop`, panique comprise), jamais tué par motif ; échéances monotones, y compris pour chaque appel de `alacod remote`). Durée mesurée sur le VPS : 591 s dont ≈ 9 min de compilation à froid ; hors `test_crates`
   et hors CI (la compilation d'un jeu complet n'a pas sa place dans `make check`).
 - **Observé, pas une anomalie (avant SB-6)** : la carte du gabarit portait cinq `character_spawn` (civilian, follower, dummy, ally, target) qui apparaissaient **en plus** de la cible du profil ; depuis SB-6 l'arène du bac à sable est vide (§89) et le profil `arene` du gabarit ne pose rien.
-  Le journal affiche une ligne `ggrs{f=N spawner_skip reason=no_valid_spawner}` par frame (trace du spawner d'ennemis sans point d'apparition valide, voulue pour `diff_log`).
+  La ligne `ggrs{f=N spawner_skip reason=no_valid_spawner}` (spawner d'ennemis sans point d'apparition valide) est un `trace!` depuis C-1 (21 nov 2026) : absente au niveau par défaut, à garder pour `diff_log` avec `RUST_LOG=info,game::character::enemy::spawning=trace`. Garde : `crates/scenario/tests/journal_par_frame.rs` (aucune ligne INFO/WARN répétée à chaque frame).
 - **Docs** : `docs/editeur-vocal.md` §1 (apps de test : le bac à sable d'abord, jeu créé), §2.1/§2.2 (phrases → commandes exactes), §4 (bloc « prêt à coller » : mode bac à sable), §8 ; `docs/jouer.md` (« Bac à sable », ligne du jeu créé) ; `CLAUDE.md` (variables et commandes) ;
   protocole de l'essai William : `docs/taches/rapports/sb-5-essai-vocal.md`.
 
@@ -9209,3 +9213,145 @@ départ, arrêt, demi-tour, tir ou pas partait 83 ms après l'appui et le joueur
 - **Ordre des esquives** : la première esquive joue `dash[0]` (rang compté depuis 0, `PoseInput::dash`), comme le banc (`J.pas` part de −1) ; avant, le Frère commençait sur `gigue-02`.
 - **Contrôle** : `crates/scenario/tests/physique_labo.rs` (testbed : réaction à la frame qui suit l'input avec la session du client hors ligne, durées des gestes d'arme, ordre des esquives ; salle réelle d'un jeu
   externe, ignoré : vitesse, réaction, balle contre les nombres de son banc, `ALACOD_P1E_*`). Rouge par mutation de chacun des trois points, vert après (rapport).
+
+## 128. Changement de niveau par une porte de sortie (X-6f, `docs/taches/rapports/x-6f-changement-niveau.md`)
+
+Jalon servi : **D2, dimanche 29 novembre** (`plan-1837-cli.md` §6, ligne X-6f, décision de William du 21 nov : « passer la porte principale de l'extérieur, clé en main, charge le niveau intérieur »). **Bloc générique à nom neutre** :
+une porte de carte (§ 117) devient, **en donnée**, la sortie vers le niveau suivant de la séquence `Floors` (§ 17). Le contenu d'un jeu (cartes, clés, noms) vit dans **son** dépôt ; le testbed prouve avec `porte_sortie*`.
+**Aucune trace existante ne bouge** (défauts : `exit_next_level` absent = porte ordinaire, `exit_by_door` absent = portail « niveau vidé » comme avant) ; aucun type rollback neuf, aucun système neuf.
+
+- **Relevé avant code** (état `94038bb9`) : `map_ldtk/src/game/floors.rs:473-677` (`floor_transition_system` : garde `portal_open` :505, joueur debout qui franchit :518, détruit tout non-joueur :535, recrée le niveau du slot suivant :548-659, **replace tous les joueurs par handle** :588-619) ;
+  `:360-391` (`floor_portal_open_system`) ; `run/src/floors.rs:24-65` (`FloorState`, `portal_should_open`, `crosses_portal`) ; `content/src/registry.rs:971` (`FloorsEntry`) ; `game/src/interaction.rs:305` (`handle_door_interaction`) ; `run/src/keys.rs:21` (`TeamKeys`) ; `game/src/ui/hud.rs:1624` (`door_prompt`).
+  Constat : le passage replace **déjà toute l'équipe** (debout, à terre, mort ou feu follet) ; seul le **déclencheur** (portail) est remplaçable.
+- **Champ de porte LDtk `exit_next_level`** (booléen, sur `DoorHorizontal` / `DoorVertical` ; absent ou faux : porte ordinaire ; `map_const::FIELD_EXIT_NEXT_LEVEL_NAME`). Il suit le **même chemin que la serrure** (§ 117) à travers la génération :
+  `EntityLocations::door_exits` (`map_ldtk::generation::from::door_exit_from_instance`) → `BasicMapGeneration::get_doors` (la sortie est **copiée sur la jumelle**) → `DoorConfig::exit` → `to.rs` la réécrit. **Coût 0** (une sortie n'est pas un achat : sans cela `get_doors` recalculait 750 + profondeur × 250 et la porte refusait l'ouverture ; test
+  `la_sortie_traverse_la_generation_gratuite_et_se_partage_avec_la_jumelle`). Elle se **combine** avec la serrure : `lock_key` / `lock_consume` donnent la clé d'équipe exigée, consommée ou non (§ 117) ; sans `lock_key`, une Interaction l'ouvre.
+- **Séquence `exit_by_door: true`** (`floors/<id>.ron`, `FloorsEntry::exit_by_door`, `FloorPlan::exit_by_door`, défaut faux) : **le portail « niveau vidé » ne s'ouvre pas** aux niveaux qui ont un suivant (`FloorPlan::portal_enabled_at`) ; le **dernier** niveau garde la règle d'avant (portail ou victoire, `victory_at_end`).
+  Sans ce champ, une carte qui marquerait une porte de sortie reste sans effet de séquence : le portail s'ouvre comme avant **et** la porte ouverte fait aussi passer (les deux déclencheurs coexistent).
+- **Franchir** (`floor_transition_system`, étendu : pas de second système) : une porte de sortie **ouverte** (sans `Collider`, comme toute porte ouverte, § 117) est franchie par le **premier joueur debout** (ni à terre ni mort, ordre des `GgrsNetId`) dont le centre entre dans le rectangle de la porte élargi de `EXIT_DOOR_MARGIN` (4 unités ; `run::floors::crosses_exit_door`,
+  `Fixed`, comparaisons seules). La porte **n'attend pas** que le niveau soit vide. Le reste est le passage du § 17 inchangé : tout non-joueur détruit (`despawn_rollback`), niveau suivant créé (numérotation continue), **tous** les joueurs replacés par handle sur les `PlayerSpawn` du niveau d'arrivée, santé, armes, munitions, monnaie et perks gardés. Un coéquipier
+  **à terre ou en feu follet** (M-5, § 113) arrive **dans son état** (`Downed`, `Wisp` ne sont pas touchés). Journal : `ggrs{f=… floor_exit_door door=<net_id> player=<handle> net_id=<net_id>}` avant `floor_transition`.
+- **Niveau suivant assemblé par graine** : une entrée `floor:<id>` de la séquence (§ 40 « Étapes 2 ») est son propre monde, de graine `graine de la run + emplacement × 0x3C6E_F372` ; la porte l'y mène comme vers une carte dessinée. **Relance** (`RunRequest::Restart`) = retour au niveau 0, même graine, clé d'équipe remise à zéro, passage à la même frame et même trace.
+- **Lint** (`content::lint::lint_floors_exit_doors`, `OutOfRange`, seulement si `exit_by_door`) : **porte de sortie sur le dernier niveau** (il n'y a pas de niveau suivant) ; **niveau (sauf le dernier) sans porte de sortie** (on n'en sortirait jamais) ; un `floor:<id>` est jugé sur la carte de gabarits de sa grammaire, une caverne n'a pas de porte.
+  `MapEntry::exit_doors` (lecture du `.ldtk`). Fixtures `exit_door_ok`, `exit_door_on_last`, `exit_door_missing`, `exit_door_default` (`crates/content/tests/x_6f_exit_door_fixtures.rs`).
+- **Prompt** (`game::ui::hud`, présentation, jamais lu par la simulation) : « **Entrer** » (`Prompt::EnterDoor`) quand une porte de sortie **ouverte** est à 40 unités par axe et que rien d'autre n'est à portée d'interaction. La source `prompt` n'est pas lue en headless (widgets) : pas d'attente de scénario, test unitaire du texte.
+- **Testbed** (script `scripts/construire-cartes-x6f.py`, à partir de `portes_cle.ldtk` et `salles_cle_floors.ldtk`) : cartes `porte_sortie.ldtk` (porte à l'est à `lock_key: "cle_test"` et `exit_next_level`), `porte_sortie_libre.ldtk` (sans serrure), gabarits `etage_sortie.ldtk` (départ + boss, grammaire `floor_grammars/etage_sortie.ron`) ;
+  séquences `porte_sortie` (`porte_sortie.ldtk` puis `floor_b.ldtk`), `porte_sortie_libre` (idem, porte libre), `porte_sortie_graine` (`porte_sortie.ldtk` puis `floor:etage_sortie`), toutes `exit_by_door: true`. Le dernier niveau est `floor_b` (des ennemis y vivent : le portail n'y boucle pas pendant le scénario).
+
+| Scénario | Ce qu'il prouve |
+|---|---|
+| `sortie_porte_solo` (rapide) | clé ramassée (f115) → porte ouverte (f266, clé consommée) → franchie (f269) → `FloorIndex(1)`, joueur sur le départ du niveau 1, **santé 55, arme et 26 balles gardées** (touché par un `breacher` du niveau 0 avant la porte) ; aucun portail ouvert au niveau 0 |
+| `sortie_porte_sans_cle` (rapide) | témoin : porteur vivant, pas de clé → porte `Locked`, `key_refused`, `FloorIndex(0)` jusqu'au bout |
+| `sortie_porte_niveau_vide` (rapide) | témoin : porteur tué, **aucun ennemi**, le joueur ne franchit pas → `FloorIndex(0)`, aucun portail (le défaut d'avant l'aurait ouvert) |
+| `sortie_porte_graine` | le niveau 1 est l'étage assemblé `floor:etage_sortie` ; mêmes gestes ; arrivée dans sa salle de départ |
+| `sortie_porte_coop` (rapide) | deux joueurs, **un** franchit (porte libre) : les deux arrivent, le second sur son propre départ |
+| `sortie_porte_coop_a_terre` | le coéquipier **à terre** (abattu par tir ami) arrive **toujours à terre** |
+| `sortie_porte_coop_feu_follet` | le coéquipier en **feu follet** arrive toujours en feu follet |
+| test `la_relance_apres_la_porte_revient_au_niveau_zero_et_rejoue_a_l_identique` (`crates/scenario/tests/floors.rs`) | relance après le niveau 1 : niveau 0, clé remise à zéro, joueur au départ, passage rejoué à la même frame, même trace |
+
+- **Limites** (dettes **D224**, **D225**, `docs/taches/dettes.md`).
+
+## 129. Intérieur par graine : sorties exactes, types garantis, branches distinctes (X-6g, `docs/taches/rapports/x-6g-interieur-graine.md`)
+
+Jalon servi : **D3, dim 6 déc** (`plan-1837-cli.md` § 6). Décision de William du 2026-11-21 (lot 2) : l'intérieur d'un bâtiment est généré par graine, avec un hall au centre à trois sorties, des
+salles garanties, la clé et le chef dans deux branches. **Point d'extension : la grammaire d'étage du § 40** (`FloorMapGeneration`), qui pose déjà le départ au centre, les salles requises et le boss en
+cul-de-sac, avec des nouvelles tentatives ; trois champs **optionnels** de `world::FloorGrammar`, absents du contenu existant (rien ne change : les traces de `gungeon`, `isaac`, `throne`, du testbed et de `zombies`
+sont les mêmes, `make test_scenarios` sur les familles touchées, rapport § e). Aucun champ de plus pour `Basic` ni pour `entry` (voir « Graine » ci-dessous). Rien de 1837 dans l'engine : types `salon`,
+`atelier`, `cellier`, `cle`, `finale`, clé `cle_test` du testbed.
+
+```ron
+// floor_grammars/interieur.ron (testbed)
+(templates: "testbed/interieur.ldtk", grammar: (
+    rooms: (8, 10),
+    required: {"salon": 1, "atelier": 1, "cellier": 1, "cle": 1, "finale": 1},
+    boss: "finale", min_boss_distance: 2, max_attempts: 256,
+    start_exits: Some(3),            // sorties exactes du départ
+    exact: true,                     // chaque type de `required` exactement le nombre demandé
+    apart: Some(("cle", "finale")),  // deux branches différentes du départ
+))
+```
+
+- **`start_exits: Some(n)`** : le départ a **exactement** `n` sorties (salles posées contre lui, plus les boucles qui le touchent, `start_exit_count`) ; les prises en trop de son gabarit sont murées (comme
+  toute prise sans voisine, § 1). Tant que le départ a moins de `n` salles, le remplissage (et les salles requises) s'y accroche en priorité ; une fois `n` atteint, plus aucune salle ne s'y accroche.
+  Le gabarit de départ doit avoir au moins `n` prises (lint : `OpeningGrid::border_openings`, `lint_floor_grammars`).
+- **`exact: true`** : chaque type de `required` (boss compris) est présent **exactement** le nombre demandé ; sans lui « au moins », comme avant. Le plan refusé est retiré (`validate_plan`), jamais une carte incomplète ;
+  `FloorError::Exhausted` explicite après `max_attempts` (panique de chargement « grammaire d'étage impossible », comme avant). Lint (revue, `FloorGrammar::problems`) : en `Graph`, un type de remplissage qui est aussi requis rend `exact` impossible (refusé).
+- **`apart: Some((a, b))`** : `a` et `b` (dans `required`, une fois chacun, boss compris) sont dans **deux branches différentes** : à la pose, la seconde du couple (dans l'ordre : le boss, posé avant, sinon l'ordre
+  alphabétique des types) refuse tout parent de la branche de la première ; au contrôle (`validate_plan`), le graphe réel (arbre **et boucles**), départ retiré, ne relie pas `a` à `b`. Le boss étant un cul-de-sac, une
+  porte de boss à serrure (`lock_key`, X-6a1, `docs/conventions.md` § 117) n'est jamais derrière elle-même : la clé (`porteur_cle`, `carries_key`) est dans l'autre branche.
+- **Lint de `apart`** (revue) : `apart` exige `exact` (le contrôle ne regarde que la **première** salle de chaque type ; `exact` garantit qu'il n'y en a qu'une, plutôt que de contrôler toutes les paires) et, si `start_exits` est donné, `start_exits >= 2`
+  (deux branches). Absent `start_exits`, le tirage décide du nombre de branches (échec explicite si une seule).
+- **Par défaut rien ne change** : sans ces champs le tirage, la consommation du RNG de génération et les plans sont ceux d'avant (`start_open` vaut vrai, `avoid` vaut `None`, aucun candidat n'est retiré).
+- **Graine** : une graine par défaut du jeu existe déjà (`entry.default_seed`, `LdtkGameMap::seed`) ; `--seed` la remplace au `Startup` (`apply_launch_seed`) ; `RunRequest::Restart` **ne la touche pas** (« même carte, même
+  graine », `run_state.rs`) : la relance rejoue le même intérieur, sans sauvegarde. Seul `zombies` en tire une au hasard (`choose_local_seed`, politique propre au jeu). Étage assemblé dans une séquence `Floors` :
+  graine dérivée par emplacement (§ 40), donc l'intérieur qui suit l'extérieur a une graine fixe par graine de partie. Scénario sans `map_seed` : celle du testbed (123456).
+- **Défauts de 1837 expliqués** (`36ab2386`) : (a) *une seule salle du chef en six graines* : `Basic` ne lit jamais `room_kind` ; il tire un gabarit compatible, la présence d'un type est donc un hasard ; (b) *hall au bord haut,
+  prises du nord murées, 4 salles* : `BasicMapGeneration::get_spawning_room` tire `x ∈ [−max_width, max_width − largeur]` et `y` de même (`imp/basic.rs`), sa voisine posée contre le bord sort de la boîte
+  (`Room::is_outside`), la prise est murée. Le défaut de `Basic` **n'est pas changé** (dette **D227**) ; la grammaire d'étage n'a pas ce défaut (départ à `snap(−taille / 2)`). Test `le_depart_de_basic_est_tire_jusqu_au_bord_donc_sa_voisine_peut_sortir_de_la_carte` (`map`).
+- **Mesures** (test ignoré `campagne_interieur`, `crates/map_ldtk/src/generation/mod.rs`, jugé sur les salles **réellement générées** : voisinages des portes, types lus dans les gabarits LDtk) :
+  testbed `floor:interieur`, 200 graines : **200/200**, 8,12 tentatives en moyenne, 46 au plus, plan 0,25 ms en moyenne, 1,2 ms au pire ; 1 000 graines : 1 000/1 000 (997 cartes distinctes).
+  `loge_interieur.ldtk` de 1837 (lecture seule, `36ab2386`) : voir le rapport.
+- **Testbed** : `testbed/interieur.ldtk` (28 gabarits de 12 × 10 cases, `docs/taches/rapports/x-6g-interieur-graine.make_interieur.py`), grammaire `interieur`, types `salon`, `atelier`, `cellier`, `cle`, `finale` (`rooms/`), séquences `porte_sortie_interieur`
+  (extérieur de X-6f puis l'intérieur) et `interieur_seul` (l'intérieur est le premier niveau : sa graine est celle de la partie). La porte du seul gabarit `finale` porte `lock_key: "cle_test"`, la salle de la clé le `porteur_cle`.
+
+| Scénario (testbed, à 1 joueur et `_duo`) | Ce qu'il prouve |
+|---|---|
+| `interieur_arrivee` | extérieur → porte de sortie (X-6f) → hall à (−5,5 ; 8), 9 à 10 salles de plus, la salle de la clé et la finale ne se touchent pas ni ne touchent le hall, la porte de la finale (deux battants) est verrouillée |
+| `interieur_parcours` | branche de la clé (est, sud) : porteur abattu, clé ramassée ; retour ; branche de la finale (ouest, nord, ouest) ; la porte s'ouvre avec la clé et le joueur entre |
+| `interieur_porte_sans_cle` | porte de la finale **refusée** sans la clé (`key_refused`, deux battants `Locked`, aucune clé) |
+| `interieur_graine_3` | graine **explicite** (`interieur_seul`, `map_seed: 3`) : une autre carte (clé au nord-est), le même parcours de clé |
+| test `la_graine_par_defaut_rejoue_le_meme_interieur_et_une_graine_explicite_un_autre` (`crates/scenario/tests/floors.rs`) | graine par défaut : même relevé des salles avant et après `RunRequest::Restart` ; graine 3 : un autre |
+
+Tests : `map::generation::floor` (`interieur_garanti_sur_deux_cents_graines`, `branches_impossibles_echouent_apres_n_tentatives`, `exact_refuse_un_type_en_trop`), `world` (`sorties_et_branches_incoherentes_sont_refusees`),
+`content::registry` (`border_openings_counts_runs_per_side`). **Dettes** : D226 (limites de la grammaire), D227 (`Basic`).
+
+## 130. Caméra fixe par pièce et portes de combat (X-6h, `docs/taches/rapports/x-6h-camera-portes-combat.md`)
+
+Jalon servi : **D3, dim 6 déc** (`plan-1837-cli.md` § 6). Décision de William du 2026-11-21 (lot 3) : « comme Isaac », la vue cadre la pièce où l'on se tient et ses portes se ferment
+tant qu'on s'y bat. **Ce qui existait déjà** (relevé avant code) : salles typées `locks: true` (§ 35 : `room_lock_system`, `RoomStates` `Dormant → Locked → Cleared`, portes et jumelles refermées /
+rouvertes, ennemis endormis, **joueurs absents ramenés à l'entrée**, y compris à terre et feu follet) ; portes de carte à clé (§ 117, jamais ouvertes ni refermées par une salle) ; caméra `room_frame`
+(§ 40, `frame_in_room`, `CameraRooms`). **Ce qui manquait** : (1) une porte à serrure **déjà ouverte** (la clé a servi) ne se refermait pas derrière le joueur quand une salle se verrouillait ; (2) la règle
+coop (ramener l'équipe) n'était pas une donnée ; (3) la vue ne s'ajustait pas à la taille de la salle (zoom du mode) et passait d'une salle à l'autre au lissage ordinaire.
+**Ce qui est ajouté** : trois champs optionnels, **aucune trace existante ne bouge** (défauts : rien ne change) ; aucun type rollback, aucun système neuf (donc `schedule_order` inchangé).
+
+- **Caméra fixe par pièce** (présentation seule, `game::camera`, jamais lue par `GgrsSchedule`) : deux champs de `CameraSettings` (`camera.ron`, `#[serde(default)]`), avec `room_frame: true` :
+  - `room_fit: true` : le zoom s'ajuste pour que la salle courante **tienne** à l'écran (`fit_room_zoom`, pure : `max(largeur / fenêtre.x, hauteur / fenêtre.y)` borné à `[min_zoom, max_zoom_out]`) ;
+    la vue est alors fixe (`frame_in_room` centre une salle qui tient, borne la vue d'une salle que le zoom maxi ne contient pas). Hors salles typées (dehors, carte sans `room_kind`), la caméra suit comme avant.
+  - `room_slide_seconds: 0.3` : glissement d'une salle à l'autre (position **et** zoom), 95 % de l'écart comblé en cette durée (`room_slide_factor`, pure : `1 − e^(−3·dt/s)`, jamais plus que l'écart) ;
+    `0` (défaut) : le lissage ordinaire `lerp_speed`. Ne s'applique que cadré sur une salle avec `room_fit`.
+    Revue : le glissement ne vaut qu'au **changement de salle** (pendant la durée, `RoomSlide::step`) et tant que la salle **tient** au zoom maxi (`room_fits`, vue fixe) ; une salle trop grande, où la vue suit la cible,
+    retombe ensuite sur `lerp_speed` (pas de retard de suivi). Test pur sur les valeurs livrées de `games/testbed/assets/camera.ron` (`min_zoom` 0,6, `max_zoom_out` 3,0) et une salle plus grande que la vue.
+  - Local : la salle du joueur suivi (`PlayerLock`) ; en `PlayersLock` le cadrage par salle ne vaut que si **tous** les joueurs y sont (règle d'avant). En ligne : la salle du **joueur local** (`online_follow: LocalPlayer`).
+  - `isaac` garde son `room_frame` sans `room_fit` : défaut inchangé. Tests purs : `camera::tests` (salle plus petite, égale, plus grande que la vue ; glissement borné).
+- **Portes de combat** (`map_ldtk::game::rooms::room_lock_system`) : une porte de carte à serrure (`DoorConfig::lock`, § 117) **déjà ouverte** (sans collider ni `Interactable` : la clé a servi) se referme avec les autres quand la
+  salle se verrouille et se rouvre à la fin du combat ; une porte à serrure **restée fermée** (`Interactable` encore là) ou **non interactive** (`DoorConfig::interactable` faux : cul-de-sac, jamais ouvrable) n'est jamais rouverte par la fin d'un combat (la clé manque ; revue P2.1) ; une porte de mur secret ou de salle à clé
+  (§ 70) reste du seul ressort de son système. Une salle vidée (`Cleared`) ne se referme jamais (la table n'a pas de retour).
+- **Coop : on ramène l'équipe à l'entrée** (règle d'Isaac, § 35, déjà là), **désactivable par le type de salle** : `RoomKindDef::no_rally: true` (`rooms/<type>.ron`, défaut faux, hors du hash du contenu existant) laisse
+  les joueurs absents dehors, derrière les portes fermées, jusqu'à la fin du combat. **Choix** : ramener plutôt qu'attendre, car une salle qui attend son coéquipier ne se verrouille jamais si celui-ci est à terre, en feu follet
+  (§ 113), déconnecté ou simplement parti ailleurs, et le joueur qui se bat ne doit pas dépendre de lui ; la règle de la salle qui attend reste possible sans code (type de salle sans `locks` et ennemis réveillés par la porte). Le coéquipier
+  **à terre** ou en **feu follet** est ramené comme les autres, dans son état (il ne verrouille rien : seul un joueur debout déclenche).
+- **Testbed** : `scripts/construire-cartes-x6h.py` → `testbed/salles_combat_cle.ldtk` (porte à clé départ ↔ combat), `testbed/salles_combat_sans_rappel.ldtk` ; type `rooms/combat_sans_rappel.ron`.
+
+| Scénario (testbed) | Ce qu'il prouve |
+|---|---|
+| `combat_portes_solo` | un joueur : entrée → `RoomState Locked`, quatre `MapDoor Closed` ; ennemis tués → `Cleared`, quatre `Open` |
+| `combat_salle_videe_stable` | salle vidée, le joueur sort et revient : elle reste `Cleared`, portes ouvertes |
+| `combat_cle_manquante` | combat fini sans ramasser la clé : portes ordinaires ouvertes, porte à serrure toujours `Locked` |
+| `combat_porte_cle_referme` | porte à serrure ouverte (clé consommée) : se referme derrière le joueur, se rouvre à la fin du combat |
+| `combat_coop_a_terre`, `combat_coop_feu_follet` | coéquipier à terre / en feu follet ramené à l'entrée, dans son état |
+| `combat_coop_sans_rappel` | `no_rally` : le coéquipier reste dehors, entre une fois la salle vidée |
+
+**Dettes** : D228 (caméra : portes, nuages d'ennemis et grandes salles), D229 (règle coop : pas de « la salle attend » intégré).
+
+## 131. Poses des phases de comportement (C-2, `docs/taches/rapports/c-2-poses-comportement.md`)
+
+Demande de 1837 (D2) : un modèle ne pouvait pas raccorder de clip à l'annonce d'une `Charge`, à la ruée, au recul de `ReturnHome` ni au repli de `TakeCover`.
+
+- **Données** : quatre champs optionnels de `Poses` (`crates/content/src/models.rs`) : `charge_windup` (`ChargePhase::Telegraph`), `charge` (`Rush`, zigzag compris), `return_home` (`ReturnPhase::Retreat`), `take_cover` (`CoverPhase::Moving` / `Hold`). Champ absent : la pose ordinaire, rien ne change pour un modèle existant ; fusion avec les poses de base comme les autres gestes.
+- **Choix hors rendu** : `playback::behavior_phase` lit `BehaviorRuntime` en lecture seule ; `decide_poses` pose `PoseInput::behavior`, `pose::choose` en tire le geste. `sim_activity` (`animation_vivante`) compte la phase quand le champ est posé.
+- **Lint** : avertissement (jamais une erreur) quand un personnage dont les règles contiennent ces phases a un modèle sans pose dédiée ; pose inconnue du manifeste : erreur (`MissingPose`) comme avant.
+- **Simulation** : aucune ; traces existantes inchangées.
+- **Scénarios** : `pose_charge_retour`, `pose_charge_deux_joueurs`, `pose_repli_couvert`, `pose_repli_couvert_deux_joueurs` (testbed : `charge_pantin`, `couvert_pantin`), attentes `Clip` / `ClipProgress`.
+
+**Dettes** : D231-D233 (`docs/taches/dettes.md`) : D231 (le corps ne se tourne vers sa cible pendant l'annonce d'une `Charge` que si `FacingDirection` le fait : le cap vient de la simulation, que C-2 ne touche pas ; pas d'attente de cap avant la ruée), D232 (`new-content` ne scaffolde pas `Model` : un exemple de poses de phase n'est que dans `describe` et ce paragraphe).
+Harnais : `ClipSpeed` mesure aussi un clip joué à l'envers (vitesse négative). Rapport et preuve : rouge = attentes, vert = 4 scénarios `pose_*` à 1 et 2 joueurs.

@@ -1000,6 +1000,10 @@ pub struct FloorsEntry {
     /// (au lieu d'ouvrir un portail qui boucle) : `gungeon`, étage dont le boss est le dernier
     /// ennemi. Faux par défaut (throne, testbed : boucle infinie au dernier niveau).
     pub victory_at_end: bool,
+    /// X-6f (§128) : on quitte chaque niveau **par sa porte de sortie** (champ LDtk `exit_next_level` d'une porte de
+    /// carte), jamais par le portail « niveau vidé », qui ne s'ouvre pas avant le dernier niveau. Faux par défaut :
+    /// les séquences existantes gardent leur portail. Lint : sortie sur le dernier niveau, niveau sans sortie.
+    pub exit_by_door: bool,
     /// M2-T1 : consommables remontés à `n` au début de chaque étage (le blank de `gungeon` :
     /// `{"blank": 2}`) ; l'étage 0 est servi par `starting_consumables` du personnage.
     pub consumables_per_floor: BTreeMap<String, u32>,
@@ -1216,6 +1220,9 @@ struct FloorsFileSchema {
     /// M2-T0d : voir [`FloorsEntry::victory_at_end`].
     #[serde(default)]
     victory_at_end: bool,
+    /// X-6f : voir [`FloorsEntry::exit_by_door`].
+    #[serde(default)]
+    exit_by_door: bool,
     /// M2-T1 : voir [`FloorsEntry::consumables_per_floor`].
     #[serde(default)]
     consumables_per_floor: BTreeMap<String, u32>,
@@ -1259,6 +1266,40 @@ pub struct MapEntry {
     /// X-6a1 (§117) : `lock_key` de chaque porte (`DoorHorizontal`/`DoorVertical`) à serrure des niveaux
     /// internes, pour l'avertissement « clé qu'aucun personnage ne porte ».
     pub door_locks: Vec<String>,
+    /// X-6f (§128) : nombre de portes (`DoorHorizontal`/`DoorVertical`) à `exit_next_level` vrai des niveaux
+    /// internes, pour le lint des séquences `exit_by_door`.
+    pub exit_doors: usize,
+}
+
+/// X-6f : nombre de portes marquées `exit_next_level` d'un `.ldtk` (niveaux internes) ; 0 si illisible.
+fn ldtk_exit_doors(text: &str) -> usize {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return 0;
+    };
+    let mut count = 0;
+    for level in json["levels"].as_array().into_iter().flatten() {
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                if entity["__identifier"] != "DoorHorizontal"
+                    && entity["__identifier"] != "DoorVertical"
+                {
+                    continue;
+                }
+                let exit = entity["fieldInstances"]
+                    .as_array()
+                    .and_then(|fields| {
+                        fields
+                            .iter()
+                            .find(|f| f["__identifier"] == "exit_next_level")
+                    })
+                    .is_some_and(|f| f["__value"] == true);
+                if exit {
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
 }
 
 /// X-6a1 : champ `lock_key` non vide de chaque porte d'un `.ldtk` (niveaux internes), dans l'ordre du
@@ -1443,6 +1484,26 @@ impl OpeningGrid {
             .into_iter()
             .map(|(_, _, _, line)| line.iter().filter(|open| **open).count())
             .collect()
+    }
+
+    /// X-6g (§129) : nombre d'ouvertures (suites de cases ouvertes) sur le pourtour du niveau, côté par
+    /// côté (une prise de 2 cases compte 1). 0 si la couche est absente ou de la mauvaise taille.
+    pub fn border_openings(&self) -> usize {
+        let (width, height) = (self.width, self.height);
+        if width == 0 || height == 0 || self.open.len() != width * height {
+            return 0;
+        }
+        let at = |x: usize, y: usize| self.open[y * width + x];
+        let runs = |line: Vec<bool>| {
+            line.iter()
+                .enumerate()
+                .filter(|(i, open)| **open && (*i == 0 || !line[*i - 1]))
+                .count()
+        };
+        runs((0..width).map(|x| at(x, 0)).collect())
+            + runs((0..width).map(|x| at(x, height - 1)).collect())
+            + runs((0..height).map(|y| at(0, y)).collect())
+            + runs((0..height).map(|y| at(width - 1, y)).collect())
     }
 
     /// Cases de chaque segment de côté : `(côté, rang, nombre de segments du côté, cases)`.
@@ -1919,6 +1980,8 @@ pub struct Registry {
     /// Images d'icônes du HUD (`icons[id].image` de `ui/hud.ron` et de `ui/hud.local.ron`) : fichier, id, chemin.
     pub hud_icon_images: Vec<(PathBuf, String, String)>,
     pub camera_files: Vec<PathBuf>,
+    /// X-6h (§130) : réglages de caméra par pièce de chaque `camera.ron`, relus par l'avertissement de cohérence.
+    pub camera_rooms: Vec<(PathBuf, CameraRoomFields)>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
     pub sprite_sheets: BTreeMap<SpriteSheetId, SpriteSheetEntry>,
@@ -2055,7 +2118,13 @@ impl Registry {
                 "Map" => load_maps(&assets_dir, decl, &mut registry, &mut errors),
                 "Ui" => load_ui(&assets_dir, decl, &mut registry, &mut errors),
                 "Camera" => {
-                    load_generic_ron(&assets_dir, decl, &mut registry.camera_files, &mut errors)
+                    let first = registry.camera_files.len();
+                    load_generic_ron(&assets_dir, decl, &mut registry.camera_files, &mut errors);
+                    for rel in registry.camera_files[first..].to_vec() {
+                        if let Some(fields) = read_camera_room_fields(&assets_dir, &rel) {
+                            registry.camera_rooms.push((rel, fields));
+                        }
+                    }
                 }
                 "Economy" => load_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Perk" => load_perks(&assets_dir, decl, &mut registry, &mut errors),
@@ -3898,6 +3967,7 @@ fn load_floors(
                 file: rel,
                 levels: parsed.levels,
                 victory_at_end: parsed.victory_at_end,
+                exit_by_door: parsed.exit_by_door,
                 consumables_per_floor: parsed.consumables_per_floor,
                 loot: parsed.loot,
                 curses: parsed.curses,
@@ -5009,6 +5079,7 @@ fn load_maps(
         let room_kinds = text.as_deref().map(ldtk_room_kinds).unwrap_or_default();
         let levels = text.as_deref().map(ldtk_level_infos).unwrap_or_default();
         let door_locks = text.as_deref().map(ldtk_door_locks).unwrap_or_default();
+        let exit_doors = text.as_deref().map(ldtk_exit_doors).unwrap_or_default();
         registry.maps.insert(
             id.clone(),
             MapEntry {
@@ -5019,6 +5090,7 @@ fn load_maps(
                 room_kinds,
                 levels,
                 door_locks,
+                exit_doors,
             },
         );
     }
@@ -5151,6 +5223,29 @@ fn load_ui(
 
 /// `Camera` : seule la validité syntaxique RON est vérifiée (pas de schéma typé,
 /// ces fichiers ne sont référencés par id par aucun autre contenu aujourd'hui).
+/// Champs de `camera.ron` que l'avertissement de cohérence relit (X-6h, `docs/conventions.md` §130) ; les autres sont
+/// ignorés ici (la structure complète, `CameraSettings`, vit dans `game`).
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct CameraRoomFields {
+    pub room_frame: bool,
+    pub room_fit: bool,
+    pub room_slide_seconds: f32,
+}
+
+/// `camera.ron` est une enveloppe `CameraSettingsAsset` : `((champs…))`.
+#[derive(Deserialize)]
+struct CameraRoomAsset(CameraRoomFields);
+
+/// Réglages de caméra par pièce d'un `camera.ron` ; `None` si le RON n'a pas cette forme (le chargeur du jeu le jugera).
+fn read_camera_room_fields(assets_dir: &ContentFiles, rel: &Path) -> Option<CameraRoomFields> {
+    let text = read_file(assets_dir, rel).ok()?;
+    ron::from_str::<CameraRoomAsset>(&text)
+        .map(|asset| asset.0)
+        .or_else(|_| ron::from_str::<CameraRoomFields>(&text))
+        .ok()
+}
+
 fn load_generic_ron(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,
@@ -5347,6 +5442,14 @@ mod tests {
         assert!(!size_fits_cell((5, 3), (0, 3)));
         // pas de segment défini : la taille est l'erreur
         assert_eq!(connection(6, 3, &[]).segment_faults((6, 3), CELL), []);
+    }
+
+    #[test]
+    fn border_openings_counts_runs_per_side() {
+        // 10 × 6 : nord 2 cases (une prise), sud 1 + 1 (deux prises), ouest 2 cases (une), est aucune
+        let open = [(4, 0), (5, 0), (2, 5), (7, 5), (0, 2), (0, 3), (5, 3)];
+        assert_eq!(connection(10, 6, &open).border_openings(), 4);
+        assert_eq!(OpeningGrid::default().border_openings(), 0);
     }
 
     #[test]

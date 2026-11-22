@@ -4402,6 +4402,9 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+        if floors.exit_by_door {
+            lint_floors_exit_doors(registry, floors, &file, errors);
+        }
         for level in &floors.levels {
             if let Some(cave) = registry::cave_designation(level) {
                 // D36 : une caverne sans ennemi ouvre son portail aussitôt (et en boucle si elle
@@ -4457,6 +4460,58 @@ fn lint_floors(registry: &Registry, errors: &mut Vec<LintError>) {
                 });
             }
         }
+    }
+}
+
+/// X-6f (`docs/conventions.md` §128) : dans une séquence `exit_by_door`, chaque niveau sauf le dernier
+/// contient au moins une porte de sortie (`exit_next_level`) et le dernier n'en a aucune (il n'y a
+/// pas de niveau suivant). Un niveau `floor:<id>` est jugé sur la carte de gabarits de sa grammaire ;
+/// une caverne n'a pas de porte.
+fn lint_floors_exit_doors(
+    registry: &Registry,
+    floors: &registry::FloorsEntry,
+    file: &str,
+    errors: &mut Vec<LintError>,
+) {
+    let last = floors.levels.len().saturating_sub(1);
+    for (index, level) in floors.levels.iter().enumerate() {
+        let doors = if registry::cave_designation(level).is_some() {
+            Some(0)
+        } else if let Some(grammar) = registry::floor_designation(level) {
+            registry.floor_grammars.get(&grammar).and_then(|entry| {
+                registry
+                    .maps
+                    .get(&registry::map_id_from_path(&entry.templates))
+                    .map(|map| map.exit_doors)
+            })
+        } else {
+            registry
+                .maps
+                .get(&registry::map_id_from_path(level))
+                .map(|map| map.exit_doors)
+        };
+        // Carte inconnue : déjà une `BrokenReference` ailleurs.
+        let Some(doors) = doors else {
+            continue;
+        };
+        let message = if index == last && doors > 0 {
+            format!(
+                "séquence de niveaux « {} » : champ levels : « {level} » est le dernier niveau mais porte {doors} porte(s) de sortie (`exit_next_level`) : il n'y a pas de niveau suivant",
+                floors.id
+            )
+        } else if index != last && doors == 0 {
+            format!(
+                "séquence de niveaux « {} » : exit_by_door : champ levels : « {level} » n'a aucune porte de sortie (`exit_next_level` vrai sur une porte de la carte) : on n'en sortirait jamais",
+                floors.id
+            )
+        } else {
+            continue;
+        };
+        errors.push(LintError {
+            kind: LintErrorKind::OutOfRange,
+            file: file.to_string(),
+            message,
+        });
     }
 }
 
@@ -4574,6 +4629,27 @@ fn lint_floor_grammars(registry: &Registry, errors: &mut Vec<LintError>) {
                     message: format!(
                         "grammaire d'étage « {} » : type de salle « {kind} » sans gabarit dans {} (room_kind)",
                         entry.id, entry.templates
+                    ),
+                });
+            }
+        }
+        // X-6g (§129) : le gabarit de départ doit avoir au moins `start_exits` prises (les prises en trop
+        // sont murées ; en manquer rend la grammaire impossible).
+        if let Some(exits) = entry.grammar.start_exits {
+            let most = map
+                .levels
+                .iter()
+                .filter(|level| level.room_kind.as_deref() == Some(entry.grammar.start.as_str()))
+                .map(|level| level.connection.border_openings())
+                .max()
+                .unwrap_or(0);
+            if most < exits {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "grammaire d'étage « {} » : start_exits = {exits} : aucun gabarit de départ (« {} ») de {} n'a plus de {most} prise(s)",
+                        entry.id, entry.grammar.start, entry.templates
                     ),
                 });
             }

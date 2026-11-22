@@ -40,7 +40,9 @@ use game::{
         health::Death,
         player::Player,
     },
-    run_state::{finalize_run_summary_system, floor_levels, floors_victory_at_end},
+    run_state::{
+        finalize_run_summary_system, floor_levels, floors_exit_by_door, floors_victory_at_end,
+    },
     system_set::RollbackSystemSet,
 };
 use map::game::entity::{
@@ -51,7 +53,7 @@ use map::game::entity::{
     MapRollbackItem,
 };
 use run::{
-    floors::{barycenter, crosses_portal, level_for_floor, portal_should_open},
+    floors::{barycenter, crosses_exit_door, crosses_portal, level_for_floor, portal_should_open},
     FloorState, Run,
 };
 use utils::{frame::FrameCount, net_id::GgrsNetId, net_id::GgrsNetIdFactory, order_iter};
@@ -83,9 +85,18 @@ pub struct FloorPlan {
     /// M2-T0d : le dernier niveau vidé termine la partie par une victoire (voir
     /// `content::registry::FloorsEntry::victory_at_end`).
     pub victory_at_end: bool,
+    /// X-6f (§128) : chaque niveau sauf le dernier se quitte par sa porte de sortie
+    /// (`FloorsEntry::exit_by_door`) ; le portail « niveau vidé » ne s'y ouvre pas.
+    pub exit_by_door: bool,
 }
 
 impl FloorPlan {
+    /// Le portail « niveau vidé » s'ouvre-t-il au niveau `floor` ? Non quand la séquence sort par
+    /// porte, sauf au dernier niveau (qui n'a pas de porte de sortie : lint) où la règle d'avant reste.
+    pub fn portal_enabled_at(&self, floor: u32) -> bool {
+        !self.exit_by_door || floor as usize + 1 >= self.levels.len()
+    }
+
     /// Emplacement (monde LDtk) d'une entrée de la séquence : la première entrée de même carte
     /// (une carte répétée réutilise le même monde, ses entités sont recréées à chaque passage).
     pub fn slot_of_level(&self, level: usize) -> usize {
@@ -207,10 +218,12 @@ pub fn compute_floor_plan(
             commands.insert_resource(game::loot::FloorLootTables(
                 game::run_state::floors_loot_tables(&mode_for_victory, registry.as_deref()),
             ));
+            let exit_by_door = floors_exit_by_door(&mode_for_victory, registry.as_deref());
             commands.insert_resource(FloorPlan {
                 config,
                 levels,
                 victory_at_end,
+                exit_by_door,
             });
         }
         (run::RunMode::Floors { config }, None) => {
@@ -364,7 +377,7 @@ pub fn floor_portal_open_system(
     mut floor_state: ResMut<FloorState>,
     enemies: Query<(), With<Enemy>>,
 ) {
-    if !run.is_playing() {
+    if !run.is_playing() || !plan.portal_enabled_at(floor_state.index) {
         return;
     }
     let alive = enemies.iter().count();
@@ -449,6 +462,20 @@ pub struct FloorTransitionEntities<'w, 's> {
     others: Query<'w, 's, (&'static GgrsNetId, Entity), (With<Rollback>, Without<Player>)>,
     parents: Query<'w, 's, &'static ChildOf>,
     is_player: Query<'w, 's, (), With<Player>>,
+    /// X-6f (§128) : portes de carte (statiques : gabarit et marquage de sortie ; `Collider` retiré
+    /// = ouverte), pour la sortie vers le niveau suivant.
+    doors: Query<
+        'w,
+        's,
+        (
+            &'static GgrsNetId,
+            &'static fixed_math::FixedTransform3D,
+            &'static super::rooms::DoorShape,
+            &'static map::game::entity::map::door::DoorComponent,
+            Has<game::collider::Collider>,
+        ),
+        (Without<Player>, Without<Enemy>),
+    >,
 }
 
 impl FloorTransitionEntities<'_, '_> {
@@ -502,7 +529,7 @@ pub fn floor_transition_system(
         ResMut<world::SurfaceGrid>,
     ),
 ) {
-    if !run.is_playing() || !floor_state.portal_open {
+    if !run.is_playing() {
         return;
     }
     // Only deferred floor progression waits here; immediate choices in other games
@@ -515,15 +542,54 @@ pub fn floor_transition_system(
     {
         return;
     }
-    let crossing = order_iter!(entities.players)
-        .into_iter()
-        .find(|(_, _, transform, dead, downed)| {
-            !*dead && !*downed && crosses_portal(&floor_state, transform.translation.truncate())
-        })
-        .map(|(net_id, player, ..)| (net_id.0, player.handle));
-    let Some((crossing_net_id, crossing_handle)) = crossing else {
+    // X-6f (§128) : portes de sortie **ouvertes** (sans `Collider`), dans l'ordre des `GgrsNetId` :
+    // centre, gabarit et id. Vide hors des cartes qui en marquent une (chemin d'avant inchangé).
+    let exit_doors: Vec<(usize, FixedVec2, (fixed_math::Fixed, fixed_math::Fixed))> =
+        order_iter!(entities.doors)
+            .into_iter()
+            .filter(|(_, _, _, door, has_collider)| door.config.exit && !*has_collider)
+            .filter_map(
+                |(net_id, transform, shape, ..)| match shape.collider.shape {
+                    game::collider::ColliderShape::Rectangle { width, height } => {
+                        Some((net_id.0, transform.translation.truncate(), (width, height)))
+                    }
+                    game::collider::ColliderShape::Circle { radius } => Some((
+                        net_id.0,
+                        transform.translation.truncate(),
+                        (
+                            radius * fixed_math::Fixed::from_num(2),
+                            radius * fixed_math::Fixed::from_num(2),
+                        ),
+                    )),
+                },
+            )
+            .collect();
+    // Un joueur debout qui franchit le portail ouvert **ou** une porte de sortie ouverte : le premier
+    // par `GgrsNetId`. Les autres joueurs (à terre, feu follet) suivent : tous sont replacés plus bas.
+    let crossing = order_iter!(entities.players).into_iter().find_map(
+        |(net_id, player, transform, dead, downed)| {
+            if dead || downed {
+                return None;
+            }
+            let position = transform.translation.truncate();
+            if crosses_portal(&floor_state, position) {
+                return Some((net_id.0, player.handle, None));
+            }
+            exit_doors
+                .iter()
+                .find(|(_, center, size)| crosses_exit_door(*center, *size, position))
+                .map(|(door_id, ..)| (net_id.0, player.handle, Some(*door_id)))
+        },
+    );
+    let Some((crossing_net_id, crossing_handle, exit_door)) = crossing else {
         return;
     };
+    if let Some(door_id) = exit_door {
+        info!(
+            "ggrs{{f={} floor_exit_door door={} player={} net_id={}}}",
+            frame.frame, door_id, crossing_handle, crossing_net_id
+        );
+    }
 
     let next = floor_state.index + 1;
     let slot = plan.slot_for_floor(next);
@@ -789,7 +855,21 @@ mod tests {
             config: "test".to_string(),
             levels: levels.iter().map(|l| l.to_string()).collect(),
             victory_at_end: false,
+            exit_by_door: false,
         }
+    }
+
+    #[test]
+    fn le_portail_cede_la_place_a_la_porte_sauf_au_dernier_niveau() {
+        let mut p = plan(&["a.ldtk", "b.ldtk", "c.ldtk"]);
+        // Défaut : le portail s'ouvre à tous les niveaux (séquences existantes inchangées).
+        assert!((0..5).all(|floor| p.portal_enabled_at(floor)));
+        p.exit_by_door = true;
+        assert!(!p.portal_enabled_at(0));
+        assert!(!p.portal_enabled_at(1));
+        // Dernier niveau (et suivants, qui bouclent dessus) : règle d'avant.
+        assert!(p.portal_enabled_at(2));
+        assert!(p.portal_enabled_at(7));
     }
 
     #[test]

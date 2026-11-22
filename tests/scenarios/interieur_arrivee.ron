@@ -1,0 +1,40 @@
+// X-6g (docs/conventions.md §129) : l'extérieur, la porte de sortie (X-6f), puis l'**intérieur assemblé par graine** (séquence `porte_sortie_interieur` : `porte_sortie.ldtk`, puis
+// `floor:interieur`, grammaire du testbed : hall au centre à trois sorties ; salon, atelier, cellier, salle de la clé et salle finale exactement une fois ; clé et finale dans
+// deux branches). Graine par défaut du jeu (123456, `entry.default_seed` du testbed ; l'intérieur reçoit la graine dérivée de son emplacement). Le joueur tue le porteur de
+// l'extérieur, ramasse sa clé, ouvre la porte de sortie et la franchit.
+//
+// À regarder : il reparaît dans le hall, au centre de l'emprise (192 × 160 px, quatre prises dont trois ouvertes) ; le monde compte 9 à 12 salles (`RoomCount`, la grammaire en pose 8 à 10) ; la salle de la clé et
+// la salle finale ne se touchent pas et ne touchent pas le hall ; la porte de la salle finale (deux battants) est verrouillée, une autre porte (nº 0) est ouverte (seules les portes nº 0, 1 et 3 sont attendues).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    floors: Some("porte_sortie_interieur"),
+    frames: 400,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-104", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+                (from: 100, to: 260, buttons: [Right]),
+                (from: 260, to: 267, buttons: [Right, Interaction]),
+            ],
+        ),
+    ],
+    expect: [
+        FloorIndex(index: 0, at_frame: 262),
+        FloorIndex(index: 1, at_frame: 275),
+        PlayerPosition(handle: 0, x: -5.5, y: 8, tolerance: 1, at_frame: 270),
+        RoomCount(min: 9, max: Some(12), at_frame: 290),
+        RoomLayout(kind: "depart", size: Some((192, 160)), touches: ["combat"], at_frame: 290),
+        RoomLayout(kind: "finale", touches: ["combat"], apart: ["depart", "cle"], at_frame: 290),
+        RoomLayout(kind: "cle", touches: ["combat"], apart: ["depart", "finale"], at_frame: 290),
+        MapDoor(nth: 0, state: Open, at_frame: 290),
+        MapDoor(nth: 1, state: Locked, at_frame: 290),
+        MapDoor(nth: 3, state: Locked, at_frame: 290),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 290),
+        PlayerAlive(handle: 0, at_frame: 399),
+    ],
+)

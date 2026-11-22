@@ -1,0 +1,9 @@
+// X-6f (§128) : comme `porte_sortie`, mais la porte de sortie n'a pas de serrure (`porte_sortie_libre.ldtk`) :
+// une Interaction l'ouvre, sans clé. Scénarios `sortie_porte_coop*`.
+(
+    levels: [
+        "testbed/porte_sortie_libre.ldtk",
+        "testbed/floor_b.ldtk",
+    ],
+    exit_by_door: true,
+)

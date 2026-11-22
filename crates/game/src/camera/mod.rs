@@ -79,6 +79,14 @@ pub struct CameraSettings {
     /// petite que l'écran, suivi borné aux murs d'une salle plus grande. Défaut : non (autres jeux inchangés).
     #[serde(default)]
     pub room_frame: bool,
+    /// X-6h (§130, caméra fixe par pièce, avec `room_frame`) : le zoom s'ajuste pour que la salle courante **tienne** à l'écran, quelle
+    /// que soit sa taille (dans `[min_zoom, max_zoom_out]`) ; la vue ne bouge plus dans la salle. Défaut : non (zoom du mode).
+    #[serde(default)]
+    pub room_fit: bool,
+    /// X-6h : durée (secondes) du glissement d'une salle à l'autre avec `room_fit` (position et zoom, 95 % de l'écart en cette
+    /// durée) ; `0` (défaut) : le lissage ordinaire (`lerp_speed`).
+    #[serde(default)]
+    pub room_slide_seconds: f32,
     /// S1-6 (§94) : interpolation d'affichage entre deux frames simulées (`display_interpolation`). Défaut : oui,
     /// coupée au-delà de 48 px d'écart d'une frame à l'autre.
     #[serde(default)]
@@ -133,6 +141,66 @@ pub fn frame_in_room(anchor: Vec2, view: Vec2, room: Rect) -> Vec2 {
     )
 }
 
+/// X-6h (§130) : zoom (échelle orthographique, unités monde par pixel) pour que la salle `room` tienne dans la fenêtre `window`,
+/// borné à `[min_zoom, max_zoom]` : une salle plus petite que la vue au zoom mini reste centrée à ce zoom, une salle plus grande
+/// que la vue au zoom maxi n'est pas cadrée en entier (la vue la suit, `frame_in_room`). Fonction pure.
+pub fn fit_room_zoom(room: Rect, window: Vec2, min_zoom: f32, max_zoom: f32) -> f32 {
+    if window.x <= 0.0 || window.y <= 0.0 {
+        return min_zoom;
+    }
+    let size = room.max - room.min;
+    (size.x / window.x)
+        .max(size.y / window.y)
+        .clamp(min_zoom, max_zoom.max(min_zoom))
+}
+
+/// X-6h : part de l'écart comblée en `dt` secondes par un glissement de `seconds` secondes (95 % de l'écart en `seconds`,
+/// jamais plus que tout l'écart). `seconds <= 0` : `None`, le lissage ordinaire (`lerp_speed`) s'applique. Fonction pure.
+pub fn room_slide_factor(seconds: f32, dt: f32) -> Option<f32> {
+    (seconds > 0.0).then(|| (1.0 - (-3.0 * dt.max(0.0) / seconds).exp()).clamp(0.0, 1.0))
+}
+
+/// X-6h : la salle `room` tient-elle entière dans la fenêtre au zoom maxi ? (Non : la vue suit la cible dans la salle.)
+pub fn room_fits(room: Rect, window: Vec2, max_zoom: f32) -> bool {
+    if window.x <= 0.0 || window.y <= 0.0 {
+        return true;
+    }
+    let size = room.max - room.min;
+    size.x / window.x <= max_zoom && size.y / window.y <= max_zoom
+}
+
+/// X-6h : mémoire du glissement d'une salle à l'autre (présentation seule, jamais rollback).
+#[derive(Default, Debug)]
+pub struct RoomSlide {
+    room: Option<Rect>,
+    remaining: f32,
+}
+
+impl RoomSlide {
+    /// Facteur de lissage de cette frame dans la salle `room`. Le glissement vaut au **changement de salle** (pendant
+    /// `seconds`) et tant que la salle tient à l'écran (vue fixe) ; une salle trop grande pour le zoom maxi, où la vue suit
+    /// la cible, retombe ensuite sur le lissage ordinaire (`None` : `lerp_speed`), pour ne pas retarder le suivi.
+    pub fn step(&mut self, room: Rect, fits: bool, seconds: f32, dt: f32) -> Option<f32> {
+        if self.room != Some(room) {
+            self.room = Some(room);
+            self.remaining = seconds.max(0.0);
+        } else {
+            self.remaining = (self.remaining - dt.max(0.0)).max(0.0);
+        }
+        if fits || self.remaining > 0.0 {
+            room_slide_factor(seconds, dt)
+        } else {
+            None
+        }
+    }
+
+    /// La cible est sortie de toute salle : le prochain passage dans une salle glisse de nouveau.
+    pub fn leave(&mut self) {
+        self.room = None;
+        self.remaining = 0.0;
+    }
+}
+
 fn default_floor_fade_seconds() -> f32 {
     0.4
 }
@@ -158,6 +226,8 @@ impl Default for CameraSettings {
             floor_fade_seconds: default_floor_fade_seconds(),
             floor_recenter: true,
             room_frame: false,
+            room_fit: false,
+            room_slide_seconds: 0.0,
             interpolation: Default::default(),
         }
     }
@@ -281,6 +351,8 @@ pub(crate) fn camera_control_system(
     freeze: Option<Res<animation::AnimationFreeze>>,
     // m3-salles-murs-isaac : salles de l'étage, publiées par la carte (`CameraRooms`), lues si `room_frame`.
     rooms: Option<Res<CameraRooms>>,
+    // X-6h : salle du dernier passage et temps de glissement restant (présentation seule).
+    mut slide: Local<RoomSlide>,
 ) {
     if freeze.is_some_and(|freeze| freeze.is_frozen()) {
         return;
@@ -474,6 +546,7 @@ pub(crate) fn camera_control_system(
 
     // m3-salles-murs-isaac : la salle où se tient la cible cadre la vue (Isaac : une salle = un écran). Une salle plus petite que la
     // vue se cadre au centre (caméra fixe), une plus grande suit la cible sans montrer au-delà de ses murs.
+    let mut room_slide = None;
     if settings.room_frame && camera.mode != CameraMode::Unlock {
         if let Some(rooms) = rooms.as_deref() {
             let anchor = camera.target_position;
@@ -492,9 +565,24 @@ pub(crate) fn camera_control_system(
                     found,
                 );
             if let Some(room) = found.filter(|_| everyone_inside) {
+                // X-6h : caméra fixe par pièce, le zoom ajuste la salle entière à l'écran, glissement court d'une salle à l'autre.
+                if settings.room_fit {
+                    camera.target_zoom =
+                        fit_room_zoom(room, window_size, settings.min_zoom, settings.max_zoom_out);
+                    room_slide = slide.step(
+                        room,
+                        room_fits(room, window_size, settings.max_zoom_out),
+                        settings.room_slide_seconds,
+                        time.delta().as_secs_f32(),
+                    );
+                }
                 let view = window_size * camera.target_zoom;
                 camera.target_position = frame_in_room(anchor, view, room);
+            } else {
+                slide.leave();
             }
+        } else {
+            slide.leave();
         }
     }
 
@@ -502,7 +590,8 @@ pub(crate) fn camera_control_system(
     let current_pos = camera_transform.translation.truncate();
     // Exponential smoothing: frame-rate independent, never overshoots (a linear factor
     // `lerp_speed * dt` went past 1 at low frame rates)
-    let lerp_factor = 1.0 - (-settings.lerp_speed * time.delta().as_secs_f32()).exp();
+    let lerp_factor = room_slide
+        .unwrap_or_else(|| 1.0 - (-settings.lerp_speed * time.delta().as_secs_f32()).exp());
 
     // Explicitly apply lerp to both X and Y components
     let new_x = current_pos.x + (camera.target_position.x - current_pos.x) * lerp_factor;
@@ -689,7 +778,7 @@ fn character_visuals_update_system(
 }
 
 // Helper struct for defining a 2D rectangle
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {
     pub min: Vec2,
     pub max: Vec2,
@@ -809,5 +898,112 @@ mod tests {
             frame_in_room(Vec2::new(30.0, 100.0), view, r),
             Vec2::new(240.0, 162.0)
         );
+    }
+
+    #[test]
+    fn le_zoom_ajuste_la_salle_a_l_ecran_plus_petite_egale_ou_plus_grande_que_la_vue() {
+        let window = Vec2::new(960.0, 540.0);
+        let (min, max) = (0.6, 3.0);
+        // Égale à la vue au zoom 1 : zoom 1, la vue est la salle.
+        let egale = room(0.0, 0.0, 960.0, 540.0);
+        assert_eq!(fit_room_zoom(egale, window, min, max), 1.0);
+        // Plus grande (1920 x 1080) : on dézoome pour la montrer entière.
+        let grande = room(0.0, 0.0, 1920.0, 1080.0);
+        assert_eq!(fit_room_zoom(grande, window, min, max), 2.0);
+        assert_eq!(
+            frame_in_room(Vec2::new(10.0, 10.0), window * 2.0, grande),
+            Vec2::new(960.0, 540.0)
+        );
+        // Plus petite (480 x 270) : zoom 0,5, borné au zoom mini 0,6 : la salle reste centrée, entière.
+        let petite = room(960.0, 0.0, 1440.0, 270.0);
+        assert_eq!(fit_room_zoom(petite, window, min, max), min);
+        assert_eq!(
+            frame_in_room(Vec2::new(970.0, 5.0), window * min, petite),
+            Vec2::new(1200.0, 135.0)
+        );
+        // Salle si grande que le zoom maxi ne la contient pas : zoom maxi, la vue suit la cible, bornée aux murs.
+        let immense = room(0.0, 0.0, 4000.0, 540.0);
+        assert_eq!(fit_room_zoom(immense, window, min, max), max);
+        assert_eq!(
+            frame_in_room(Vec2::new(0.0, 270.0), window * max, immense),
+            Vec2::new(1440.0, 270.0)
+        );
+        // Salle la plus large dans un axe : l'axe limitant décide (ici la hauteur).
+        let haute = room(0.0, 0.0, 480.0, 1080.0);
+        assert_eq!(fit_room_zoom(haute, window, min, max), 2.0);
+    }
+
+    #[test]
+    fn le_glissement_est_borne_et_atteint_95_pour_cent_en_sa_duree() {
+        // Désactivé (0 s) : lissage ordinaire.
+        assert_eq!(room_slide_factor(0.0, 1.0 / 60.0), None);
+        // Toujours dans [0, 1], même pour un très gros pas de temps.
+        for dt in [0.0, 1.0 / 240.0, 1.0 / 60.0, 1.0, 100.0] {
+            let f = room_slide_factor(0.25, dt).unwrap();
+            assert!((0.0..=1.0).contains(&f), "dt {dt} : {f}");
+        }
+        // Part comblée sur la durée entière, quel que soit le découpage en images : 95 % de l'écart.
+        for steps in [15, 30, 60] {
+            let dt = 0.25 / steps as f32;
+            let reste: f32 = (0..steps)
+                .map(|_| 1.0 - room_slide_factor(0.25, dt).unwrap())
+                .product();
+            assert!((reste - 0.05).abs() < 0.002, "{steps} pas : reste {reste}");
+        }
+    }
+
+    #[test]
+    fn le_glissement_ne_vaut_qu_au_changement_de_salle_ou_si_la_salle_tient() {
+        let a = room(0.0, 0.0, 480.0, 270.0);
+        let b = room(480.0, 0.0, 960.0, 270.0);
+        let dt = 1.0 / 60.0;
+        let mut slide = RoomSlide::default();
+        // Salle qui tient : le glissement vaut à chaque frame (vue fixe).
+        for _ in 0..60 {
+            assert!(slide.step(a, true, 0.3, dt).is_some());
+        }
+        // Salle trop grande (la vue suit la cible) : glisse 0,3 s après l'entrée, puis lissage ordinaire.
+        let mut frames = 0;
+        while slide.step(b, false, 0.3, dt).is_some() {
+            frames += 1;
+            assert!(frames <= 20, "le glissement ne s'arrête pas");
+        }
+        assert!((17..=19).contains(&frames), "{frames} images de glissement");
+        assert_eq!(slide.step(b, false, 0.3, dt), None);
+        // Sortie de toute salle puis retour : on glisse de nouveau.
+        slide.leave();
+        assert!(slide.step(b, false, 0.3, dt).is_some());
+        // Désactivé (0 s) : jamais de glissement sur une grande salle.
+        let mut off = RoomSlide::default();
+        assert_eq!(off.step(b, false, 0.0, dt), None);
+        assert_eq!(off.step(b, false, 0.0, dt), None);
+    }
+
+    /// Revue P2.3 : le cas utile de `room_fit`, une salle plus grande que la vue, avec les valeurs **livrées** du testbed
+    /// (`games/testbed/assets/camera.ron` : `min_zoom` 0,6, `max_zoom_out` 3,0) et la fenêtre de 960 x 540.
+    #[test]
+    fn une_salle_plus_grande_que_la_vue_tient_avec_les_valeurs_du_testbed() {
+        let shipped: CameraSettingsAsset =
+            ron::from_str(include_str!("../../../../games/testbed/assets/camera.ron")).unwrap();
+        let settings = shipped.0;
+        assert_eq!((settings.min_zoom, settings.max_zoom_out), (0.6, 3.0));
+        let window = Vec2::new(960.0, 540.0);
+        // Une salle de 1 600 x 900 (la vue au zoom 1 ne la montre pas) : zoom 1,667, la salle entière, centrée, vue fixe.
+        let grande = room(1000.0, -500.0, 2600.0, 400.0);
+        let zoom = fit_room_zoom(grande, window, settings.min_zoom, settings.max_zoom_out);
+        assert!((zoom - 1600.0 / 960.0).abs() < 1e-6, "{zoom}");
+        assert!(zoom > 1.0 && room_fits(grande, window, settings.max_zoom_out));
+        let view = window * zoom;
+        for anchor in [Vec2::new(1010.0, -490.0), Vec2::new(2590.0, 390.0)] {
+            let centre = frame_in_room(anchor, view, grande);
+            assert!(centre.distance(Vec2::new(1800.0, -50.0)) < 0.01, "{centre}");
+        }
+        // Une salle de 4 000 x 600 dépasse même le zoom maxi : zoom maxi, la vue suit la cible (donc pas de glissement continu).
+        let immense = room(0.0, 0.0, 4000.0, 600.0);
+        assert_eq!(
+            fit_room_zoom(immense, window, settings.min_zoom, settings.max_zoom_out),
+            3.0
+        );
+        assert!(!room_fits(immense, window, settings.max_zoom_out));
     }
 }

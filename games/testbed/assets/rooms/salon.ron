@@ -1,0 +1,2 @@
+// X-6g (§129) : type de salle du testbed (intérieur), jamais verrouillante.
+(locks: false)

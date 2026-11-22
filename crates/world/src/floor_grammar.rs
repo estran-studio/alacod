@@ -61,6 +61,19 @@ pub struct FloorGrammar {
     /// gabarits plus grands remplissent plus vite cette boîte : une grammaire de gabarits agrandis la relève.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<(i32, i32)>,
+    /// X-6g (§129) : nombre **exact** de sorties de la salle de départ (portes vers une autre salle,
+    /// boucles comprises). Les prises en trop du gabarit de départ sont murées. Absent (défaut) :
+    /// le départ prend les salles que le tirage lui donne.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_exits: Option<usize>,
+    /// X-6g (§129) : chaque type de `required` est présent **exactement** le nombre demandé (le plan
+    /// qui en a plus, ou moins, est refusé et retiré). `false` (défaut) : au moins, comme avant.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub exact: bool,
+    /// X-6g (§129) : deux types de `required` (boss compris, un exemplaire chacun) posés dans deux
+    /// **branches différentes** du départ (deux sous-arbres distincts sous la salle de départ).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub apart: Option<(String, String)>,
 }
 
 /// Disposition d'un étage assemblé (M3-T0c, `docs/conventions.md` §62 ; planificateur : M3-T5, §70).
@@ -282,6 +295,55 @@ impl FloorGrammar {
                 }
             }
         }
+        if let Some(exits) = self.start_exits {
+            if exits == 0 {
+                out.push("start_exits = 0 : au moins une sortie".to_string());
+            }
+            // Chaque sortie mène à une salle distincte : départ + `exits` salles au minimum.
+            if exits + 1 > max {
+                out.push(format!(
+                    "start_exits = {exits} : impossible avec au plus {max} salles"
+                ));
+            }
+            if !matches!(self.layout(), FloorLayout::Graph) {
+                out.push("start_exits : ne vaut que pour la disposition Graph".to_string());
+            }
+        }
+        if self.exact
+            && matches!(self.layout(), FloorLayout::Graph)
+            && self.required.contains_key(&self.filler)
+        {
+            out.push(format!(
+                "exact : « {} » est le type de remplissage et un type requis : le remplissage en poserait en trop (type de remplissage à changer)",
+                self.filler
+            ));
+        }
+        if let Some((a, b)) = &self.apart {
+            if !matches!(self.layout(), FloorLayout::Graph) {
+                out.push("apart : ne vaut que pour la disposition Graph".to_string());
+            }
+            // Deux branches : au moins deux sorties du départ (absent, le tirage décide).
+            if self.start_exits.is_some_and(|n| n < 2) {
+                out.push(
+                    "apart : deux branches demandent au moins 2 sorties du départ (start_exits)"
+                        .to_string(),
+                );
+            }
+            // Le contrôle ne regarde que la première salle de chaque type : `exact` garantit qu'il n'y en a qu'une.
+            if !self.exact {
+                out.push("apart : exige exact (une seule salle de chaque type)".to_string());
+            }
+            if a == b {
+                out.push(format!("apart : « {a} » deux fois (deux types distincts)"));
+            }
+            for kind in [a, b] {
+                if self.required.get(kind) != Some(&1) {
+                    out.push(format!(
+                        "apart : « {kind} » doit être dans required, une seule fois"
+                    ));
+                }
+            }
+        }
         let fixed = 2 + self.others();
         if fixed > max {
             out.push(format!(
@@ -315,6 +377,9 @@ mod tests {
             min_boss_distance: 3,
             max_attempts: 64,
             bounds: None,
+            start_exits: None,
+            exact: false,
+            apart: None,
             loops: 0,
             layout: Some(FloorLayout::Grid {
                 cell: (15, 9),
@@ -408,5 +473,65 @@ mod tests {
             g.bounds = Some(bad);
             assert!(g.problems().iter().any(|p| p.contains("bounds")), "{bad:?}");
         }
+    }
+
+    /// X-6g : `start_exits` et `apart` sont refusés incohérents ; absents (tout le contenu existant), rien ne change.
+    #[test]
+    fn sorties_et_branches_incoherentes_sont_refusees() {
+        let mut g = grid("secrete", None);
+        g.layout = None;
+        let has = |g: &FloorGrammar, needle: &str| g.problems().iter().any(|p| p.contains(needle));
+        assert!(!has(&g, "start_exits") && !has(&g, "apart"));
+        g.start_exits = Some(0);
+        assert!(has(&g, "start_exits = 0"));
+        g.start_exits = Some(12);
+        assert!(has(&g, "impossible avec au plus"));
+        g.start_exits = Some(3);
+        assert!(!has(&g, "start_exits"));
+        g.apart = Some(("boss".into(), "boss".into()));
+        assert!(has(&g, "deux fois"));
+        g.apart = Some(("boss".into(), "inconnu".into()));
+        assert!(has(&g, "« inconnu » doit être dans required"));
+        g.apart = Some(("boss".into(), "tresor".into()));
+        // `apart` sans `exact` : le contrôle ne regarde que la première salle de chaque type
+        assert!(has(&g, "apart : exige exact"));
+        g.exact = true;
+        assert!(!has(&g, "apart"));
+    }
+
+    /// X-6g (revue P2.1) : en `Graph`, `exact` avec un type de remplissage aussi requis est impossible (le remplissage en
+    /// poserait en trop) ; sans `exact`, « au moins » le permet comme avant.
+    #[test]
+    fn exact_avec_un_type_de_remplissage_requis_est_refuse_en_graph() {
+        let mut g = grid("secrete", None);
+        g.layout = None;
+        let has = |g: &FloorGrammar| {
+            g.problems()
+                .iter()
+                .any(|p| p.contains("type de remplissage"))
+        };
+        g.required.insert(g.filler.clone(), 1);
+        assert!(!has(&g), "sans exact, au moins suffit");
+        g.exact = true;
+        assert!(has(&g), "exact + remplissage requis");
+    }
+
+    /// X-6g (revue P2.2) : `apart` exige deux branches, donc au moins deux sorties du départ.
+    #[test]
+    fn apart_avec_moins_de_deux_sorties_est_refuse() {
+        let mut g = grid("secrete", None);
+        g.layout = None;
+        g.exact = true;
+        g.apart = Some(("boss".into(), "tresor".into()));
+        let has = |g: &FloorGrammar| {
+            g.problems()
+                .iter()
+                .any(|p| p.contains("au moins 2 sorties"))
+        };
+        assert!(!has(&g), "start_exits absent : le tirage décide");
+        g.start_exits = Some(1);
+        assert!(has(&g));
+        g.start_exits = Some(2);
+        assert!(!has(&g));
     }
 }

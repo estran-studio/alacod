@@ -1,0 +1,22 @@
+// C-2 (testbed, conventions §131) : deux cibles. Le tireur `couvert_pantin` du scénario `pose_repli_couvert` avec le second joueur immobile de la carte (424, 664) : le
+// couvert (580, 662) est au sud-est du tireur, le repli joue la même pose de phase que face à un seul joueur.
+//
+// À regarder : le tireur tire, file derrière la caisse (qui coupe sa ligne de vue vers le joueur 0), s'y tasse, puis reprend.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [
+        (character: "couvert", x: "580.0", y: "662.0", at_frame: 1),
+        (character: "couvert_pantin", x: "600.0", y: "696.0", at_frame: 1),
+    ],
+    players: [(inputs: []), (inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 60),
+        Clip(who: Entity(Placed(1)), clip: "strike-walk-l", once: false, at_frame: 60),
+        Clip(who: Entity(Placed(1)), clip: "hit", once: false, at_frame: 100),
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 150),
+        Clip(who: Entity(Placed(1)), clip: "reload", once: false, at_frame: 150),
+    ],
+)

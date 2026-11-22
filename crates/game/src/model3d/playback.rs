@@ -24,12 +24,14 @@ use utils::frame::FrameCount;
 
 use super::{
     elevation,
-    pose::{self, Fades, PoseChoice, PoseInput, Timing},
+    pose::{self, BehaviorPhase, Fades, PoseChoice, PoseInput, Timing},
     shooter,
 };
 use crate::boss::BossPlan;
 use crate::character::config::{CharacterConfigKey, CharacterConfigs};
-use crate::character::enemy::ai::state::{BehaviorRuntime, EnemyBehaviors};
+use crate::character::enemy::ai::state::{
+    BehaviorRuntime, ChargePhase, CoverPhase, EnemyBehaviors, ReturnPhase,
+};
 use crate::character::enemy::ai::{cycle::RangedCycle, state::RangedAttackState, EnemyAiConfig};
 
 /// Fréquence de la simulation : les frames lues dans l'état deviennent des secondes.
@@ -218,6 +220,21 @@ pub fn body_heading(
         [dash, facing, walking, None]
     };
     ordered.into_iter().flatten().find(usable)
+}
+
+/// Phase de behavior d'un ennemi, lue en lecture seule sur son [`BehaviorRuntime`] (C-2, § 131). Le repli et la charge ne sont
+/// jamais retenus en même temps (une seule règle l'est) ; l'attente de `ReturnHome` au point de départ n'est pas une phase : la
+/// pose de repos joue.
+pub fn behavior_phase(runtime: &BehaviorRuntime) -> Option<BehaviorPhase> {
+    if runtime.cover != CoverPhase::Idle {
+        return Some(BehaviorPhase::TakeCover);
+    }
+    match runtime.charge {
+        ChargePhase::Telegraph { .. } => return Some(BehaviorPhase::ChargeWindup),
+        ChargePhase::Rush { .. } => return Some(BehaviorPhase::Charge),
+        ChargePhase::Idle => {}
+    }
+    matches!(runtime.returning, ReturnPhase::Retreat { .. }).then_some(BehaviorPhase::ReturnHome)
 }
 
 fn wrap(a: f32) -> f32 {
@@ -556,6 +573,7 @@ pub fn decide_poses(
                 .duration(clip)
                 .is_some_and(|total| *elapsed >= total * 0.999);
         }
+        input.behavior = runtime.and_then(behavior_phase);
         let choice = pose::choose(model, &poses, manifest, &input);
         state.object = choice.as_ref().and_then(|c| c.object.clone());
         state.muzzle_marker = poses.muzzle.clone();
@@ -653,6 +671,27 @@ pub fn sim_activity(world: &World, entity: Entity, frame: u32) -> Option<&'stati
         .is_some_and(|r| r.order.is_some_and(|until| frame < until))
     {
         return Some("ordre à l'escouade");
+    }
+    // C-2 (§ 131) : une phase de behavior dont le modèle a posé le clip (le champ absent garde la pose ordinaire, rien à exiger).
+    if let Some(phase) = entity.get::<BehaviorRuntime>().and_then(behavior_phase) {
+        let declared = entity
+            .get::<ModelPlayback>()
+            .zip(
+                world
+                    .get_resource::<Registry>()
+                    .and_then(|r| r.models.as_ref()),
+            )
+            .and_then(|(playback, table)| table.get(&playback.model))
+            .is_some_and(|(model, _)| {
+                phase.gesture(&model.poses).is_some()
+                    || model
+                        .weapons
+                        .values()
+                        .any(|poses| phase.gesture(poses).is_some())
+            });
+        if declared {
+            return Some(phase.label());
+        }
     }
     if let Some(ranged) = entity.get::<RangedAttackState>() {
         let stagger = entity
