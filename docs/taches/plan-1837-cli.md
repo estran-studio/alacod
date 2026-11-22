@@ -229,7 +229,7 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
 | X-6f changement de niveau | livré 21 nov (revue : merge, 4 P3 de suivi dans `specs-coordinateur/revue-x-6f-verdict.md`) | `fa93aa2b` |
 | X-6g intérieur par graine | livré 21 nov (revue : merge après corrections, P2 corrigés ; `specs-coordinateur/revue-x-6g-verdict.md`) | `0a1caca2` |
 | X-6h caméra fixe par pièce et portes de combat | **en cours** (lancé le 21 nov) | — |
-| C-1 journal du spawner trop bavard | **en cours** (lot de correction du verdict de William du 21 nov, passe avant la fin de X-6h, REGLES § 6) | — |
+| C-1 journal du spawner trop bavard | livré 21 nov (lot de correction du verdict de William ; revue du coordinateur, diff de niveau de journal) | `dc734091` |
 
 Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837 passe par l'engine (X-1 gelé), avec le contenu générique du testbed et des noms neutres (§ 5).
 Un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker omp Sonnet, `make check_rapide` vert avant le merge (par le coordinateur) ; la suite de
