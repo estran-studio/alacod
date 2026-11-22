@@ -4,6 +4,11 @@
 - **Manquait** : champs de pose, lecture de `BehaviorRuntime` par `decide_poses`, couverture par `animation_vivante`, avertissement de lint, scénarios.
 - **Ajouté** : voir `docs/conventions.md` § 131 (4 champs `Poses`, `behavior_phase`, `BehaviorPhase` dans `pose.rs`, lint `reach.rs`, 4 scénarios `pose_*`, 3 fixtures).
 
-## Preuve (à remplir)
-- Rouge : (modèles du testbed sans les champs, code déjà écrit) — à lancer.
-- Vert, traces neuves, traces existantes inchangées, capture, contrôle rapide : à venir.
+## Preuve
+- **Rouge** : échec d'attentes (code de correction déjà compilé, `models.ron` du testbed sans les quatre champs) : les quatre `pose_*` jouent `idle` / `walk` / `reload` au lieu de `aim` / `strike-walk` / `aim-walk` / `strike-walk-l` / `hit` ; journal `/tmp/c2-rouge.log`.
+- **Vert** : `models.ron` pose `charge_windup` (`aim`), `charge` (`strike-walk`), `return_home` (`aim-walk`, joué à l'envers) pour `charge_pantin` et `take_cover` (`strike-walk` en route, `hit` à l'abri) pour `couvert_pantin`. Les quatre scénarios sont verts à un et deux joueurs, quatre traces neuves ; les 18 scénarios `rodeur_*`, `zigzag_*`, `repli_couvert_*`, `tireur_pantin_*`, `model_pantin` passent sans trace modifiée ; `content` (tests dont les trois fixtures `model_behavior_poses_*`) et `game` `model3d` verts ; `alacod describe testbed Model` montre les quatre champs ; `alacod lint games/testbed` sans erreur.
+- **Ajusté au vert** (attentes écrites avant, corrigées d'après le jeu réel, pas le code) : cap du corps pendant l'annonce non attendu (le regard vient de `FacingDirection`, simulation inchangée : D231) ; deux joueurs : la ruée joue la variante `strike-walk-fr` ; repli : avant le tir le clip est `aim`, après le repli la pose ordinaire revient (`reload`).
+- **Correctif de harnais** (`crates/scenario/src/model_expect.rs`, `clip_speed`) : un clip joué à l'envers (`return_home`) était lu comme un tour de boucle (+46 clips/s au lieu de −2) ; l'avance retenue est la plus petite en valeur absolue.
+- **`new-content`** : il refuse `Model` (un fichier par jeu, comportement existant) : rien à y montrer ; `describe` suffit.
+- **Capture** : `play_scenario --capture` (profil headless, pas de release), `pose_charge_retour` et `pose_repli_couvert`, 240 frames = 4 s chacun (pas 20 à 60 s : la preuve est le clip par phase, déjà attrapé par les attentes) ; annonce, ruée et recul visibles en postures différentes (`/tmp/c2cap`).
+- **Contrôle rapide** : voir la fin.
