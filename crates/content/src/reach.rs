@@ -680,7 +680,9 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
 
     if let Some(table) = &registry.models {
         for entry in registry.characters.values() {
-            let Some((model, _)) = table.get(&entry.asset_name_ref).filter(|_| !entry.test_only)
+            let Some((model, _)) = table
+                .get(&entry.asset_name_ref)
+                .filter(|_| !entry.test_only)
             else {
                 continue;
             };

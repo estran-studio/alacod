@@ -88,7 +88,9 @@ fn a_model_without_behavior_poses_is_warned_not_rejected() {
     let warned = behavior_warnings("model_behavior_poses_missing");
     for field in ["charge_windup", "charge", "return_home", "take_cover"] {
         assert!(
-            warned.iter().any(|m| m.contains(&format!("poses.{field}`"))),
+            warned
+                .iter()
+                .any(|m| m.contains(&format!("poses.{field}`"))),
             "pose `{field}` non signalée : {warned:#?}"
         );
     }
