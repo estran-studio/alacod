@@ -37,6 +37,8 @@ Tests nouveaux : rouge avant / vert après ; `cargo test --profile headless`, pr
 | P3.3 | `combat_porte_cle_referme` : `MapDoor(nth 0 et 1, Open, f162)` (porte à clé ouverte avant la fermeture ; à f200 la salle est déjà verrouillée) | — | vert, trace inchangée |
 | P3.4 | **non appliqué** : le jeu court (§ 123) est à 4 615 images sur un plafond de 4 800 (`ALACOD_SUITE_MAX_FRAMES`) ; les trois `combat_*` taggés (360 + 650 + 850) le portaient à 6 475 > 4 800 et `check_integration` échouait (journal `check-rapide-decoupe-d469e204.log`). Aucun `combat_*` ne tient dans les 185 images restantes ; tags retirés. Décision à prendre : relever le plafond ou en tagger un court | échec du budget | `check_integration` vert sans les tags |
 
+Contrôle rapide découpé après corrections, vert sur `18decb08` : `make … check_integration` code 0 (après un `cargo fmt` et le retrait des tags, ci-dessus), `test_crates` découpé 0 échec (61 binaires, 986 s) ; journal `~/orca/runs/alacod/logs/x-6h-check-rapide-18decb08.log`.
+
 Les sept scénarios `combat_*` rejoués : verts, aucune trace modifiée (`git status` : seuls les `.ron` changent). `origin/main` fusionnée (`git merge`, deux commits de docs).
 
 ## Dernières lignes du contrôle rapide (suite depuis `placement`)
