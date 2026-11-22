@@ -64,6 +64,11 @@ pub struct RoomKindDef {
     /// le boss par un nom de type. Faux par défaut (aucun effet de simulation).
     #[serde(default, skip_serializing_if = "is_false")]
     pub boss: bool,
+    /// X-6h (§130) : la salle ne ramène **pas** à l'entrée les joueurs restés dehors quand elle se verrouille (règle d'Isaac, par
+    /// défaut : ils sont téléportés devant la porte). Vrai : ils restent dehors jusqu'à ce qu'elle soit vidée. Faux par défaut,
+    /// hors du hash du contenu existant.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub no_rally: bool,
 }
 
 fn is_zero(n: &u32) -> bool {
@@ -158,6 +163,11 @@ impl RoomKindTable {
         self.0
             .get(kind)
             .is_some_and(|def| def.locks || def.arena.is_some())
+    }
+
+    /// Le type ramène-t-il à l'entrée les joueurs restés dehors quand il se verrouille (X-6h, règle d'Isaac) ? Oui par défaut.
+    pub fn rallies(&self, kind: &str) -> bool {
+        !self.0.get(kind).is_some_and(|def| def.no_rally)
     }
 
     /// L'arène du type, s'il en est une (M2-T7).

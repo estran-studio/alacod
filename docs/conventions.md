@@ -3515,6 +3515,7 @@ jamais active.
   `#rrggbb` (`OutOfRange`) ; « au moins deux objets distincts » ne vaut plus que sans `requires_tag` ; deux synergies de
   même ensemble **et** de même condition de tag restent un doublon. Fixtures `transformation_ok`, `transformation_bad`
   (`crates/content/tests/transformations.rs`).
+- **Lint** (avertissements `InertRoomSetting`, `content::warnings`) : `no_rally` sans `locks` ni `arena` ; `room_fit` ou `room_slide_seconds` sans `room_frame` ; `room_slide_seconds` négatif ou non fini (`crates/content/tests/x_6h_room_setting_fixtures.rs`).
 - **Testbed** : objets `amanite`, `bolet`, `morille` (tag `champignon`, sans effet seuls), synergie `champignons`
   (`count: 3`, `MoveSpeed` `Pct` +0,3, teinte `#c07040`). Scénarios `transformation_three` (trois ramassages à f10, f40, f70 : la
   vitesse monte à la troisième prise) et son témoin `transformation_two` (deux champignons : rien) ; générés `item_amanite`,
@@ -9303,3 +9304,41 @@ sont les mêmes, `make test_scenarios` sur les familles touchées, rapport § e)
 
 Tests : `map::generation::floor` (`interieur_garanti_sur_deux_cents_graines`, `branches_impossibles_echouent_apres_n_tentatives`, `exact_refuse_un_type_en_trop`), `world` (`sorties_et_branches_incoherentes_sont_refusees`),
 `content::registry` (`border_openings_counts_runs_per_side`). **Dettes** : D226 (limites de la grammaire), D227 (`Basic`).
+
+## 130. Caméra fixe par pièce et portes de combat (X-6h, `docs/taches/rapports/x-6h-camera-portes-combat.md`)
+
+Jalon servi : **D3, dim 6 déc** (`plan-1837-cli.md` § 6). Décision de William du 2026-11-21 (lot 3) : « comme Isaac », la vue cadre la pièce où l'on se tient et ses portes se ferment
+tant qu'on s'y bat. **Ce qui existait déjà** (relevé avant code) : salles typées `locks: true` (§ 35 : `room_lock_system`, `RoomStates` `Dormant → Locked → Cleared`, portes et jumelles refermées /
+rouvertes, ennemis endormis, **joueurs absents ramenés à l'entrée**, y compris à terre et feu follet) ; portes de carte à clé (§ 117, jamais ouvertes ni refermées par une salle) ; caméra `room_frame`
+(§ 40, `frame_in_room`, `CameraRooms`). **Ce qui manquait** : (1) une porte à serrure **déjà ouverte** (la clé a servi) ne se refermait pas derrière le joueur quand une salle se verrouillait ; (2) la règle
+coop (ramener l'équipe) n'était pas une donnée ; (3) la vue ne s'ajustait pas à la taille de la salle (zoom du mode) et passait d'une salle à l'autre au lissage ordinaire.
+**Ce qui est ajouté** : trois champs optionnels, **aucune trace existante ne bouge** (défauts : rien ne change) ; aucun type rollback, aucun système neuf (donc `schedule_order` inchangé).
+
+- **Caméra fixe par pièce** (présentation seule, `game::camera`, jamais lue par `GgrsSchedule`) : deux champs de `CameraSettings` (`camera.ron`, `#[serde(default)]`), avec `room_frame: true` :
+  - `room_fit: true` : le zoom s'ajuste pour que la salle courante **tienne** à l'écran (`fit_room_zoom`, pure : `max(largeur / fenêtre.x, hauteur / fenêtre.y)` borné à `[min_zoom, max_zoom_out]`) ;
+    la vue est alors fixe (`frame_in_room` centre une salle qui tient, borne la vue d'une salle que le zoom maxi ne contient pas). Hors salles typées (dehors, carte sans `room_kind`), la caméra suit comme avant.
+  - `room_slide_seconds: 0.3` : glissement d'une salle à l'autre (position **et** zoom), 95 % de l'écart comblé en cette durée (`room_slide_factor`, pure : `1 − e^(−3·dt/s)`, jamais plus que l'écart) ;
+    `0` (défaut) : le lissage ordinaire `lerp_speed`. Ne s'applique que cadré sur une salle avec `room_fit`.
+    Revue : le glissement ne vaut qu'au **changement de salle** (pendant la durée, `RoomSlide::step`) et tant que la salle **tient** au zoom maxi (`room_fits`, vue fixe) ; une salle trop grande, où la vue suit la cible,
+    retombe ensuite sur `lerp_speed` (pas de retard de suivi). Test pur sur les valeurs livrées de `games/testbed/assets/camera.ron` (`min_zoom` 0,6, `max_zoom_out` 3,0) et une salle plus grande que la vue.
+  - Local : la salle du joueur suivi (`PlayerLock`) ; en `PlayersLock` le cadrage par salle ne vaut que si **tous** les joueurs y sont (règle d'avant). En ligne : la salle du **joueur local** (`online_follow: LocalPlayer`).
+  - `isaac` garde son `room_frame` sans `room_fit` : défaut inchangé. Tests purs : `camera::tests` (salle plus petite, égale, plus grande que la vue ; glissement borné).
+- **Portes de combat** (`map_ldtk::game::rooms::room_lock_system`) : une porte de carte à serrure (`DoorConfig::lock`, § 117) **déjà ouverte** (sans collider ni `Interactable` : la clé a servi) se referme avec les autres quand la
+  salle se verrouille et se rouvre à la fin du combat ; une porte à serrure **restée fermée** (`Interactable` encore là) ou **non interactive** (`DoorConfig::interactable` faux : cul-de-sac, jamais ouvrable) n'est jamais rouverte par la fin d'un combat (la clé manque ; revue P2.1) ; une porte de mur secret ou de salle à clé
+  (§ 70) reste du seul ressort de son système. Une salle vidée (`Cleared`) ne se referme jamais (la table n'a pas de retour).
+- **Coop : on ramène l'équipe à l'entrée** (règle d'Isaac, § 35, déjà là), **désactivable par le type de salle** : `RoomKindDef::no_rally: true` (`rooms/<type>.ron`, défaut faux, hors du hash du contenu existant) laisse
+  les joueurs absents dehors, derrière les portes fermées, jusqu'à la fin du combat. **Choix** : ramener plutôt qu'attendre, car une salle qui attend son coéquipier ne se verrouille jamais si celui-ci est à terre, en feu follet
+  (§ 113), déconnecté ou simplement parti ailleurs, et le joueur qui se bat ne doit pas dépendre de lui ; la règle de la salle qui attend reste possible sans code (type de salle sans `locks` et ennemis réveillés par la porte). Le coéquipier
+  **à terre** ou en **feu follet** est ramené comme les autres, dans son état (il ne verrouille rien : seul un joueur debout déclenche).
+- **Testbed** : `scripts/construire-cartes-x6h.py` → `testbed/salles_combat_cle.ldtk` (porte à clé départ ↔ combat), `testbed/salles_combat_sans_rappel.ldtk` ; type `rooms/combat_sans_rappel.ron`.
+
+| Scénario (testbed) | Ce qu'il prouve |
+|---|---|
+| `combat_portes_solo` | un joueur : entrée → `RoomState Locked`, quatre `MapDoor Closed` ; ennemis tués → `Cleared`, quatre `Open` |
+| `combat_salle_videe_stable` | salle vidée, le joueur sort et revient : elle reste `Cleared`, portes ouvertes |
+| `combat_cle_manquante` | combat fini sans ramasser la clé : portes ordinaires ouvertes, porte à serrure toujours `Locked` |
+| `combat_porte_cle_referme` | porte à serrure ouverte (clé consommée) : se referme derrière le joueur, se rouvre à la fin du combat |
+| `combat_coop_a_terre`, `combat_coop_feu_follet` | coéquipier à terre / en feu follet ramené à l'entrée, dans son état |
+| `combat_coop_sans_rappel` | `no_rally` : le coéquipier reste dehors, entre une fois la salle vidée |
+
+**Dettes** : D228 (caméra : portes, nuages d'ennemis et grandes salles), D229 (règle coop : pas de « la salle attend » intégré).

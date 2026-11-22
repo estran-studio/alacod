@@ -1,0 +1,41 @@
+// X-6h (§130) : une porte à clé **déjà ouverte** se referme derrière le joueur quand la salle se verrouille, puis se rouvre à la fin du combat. Carte
+// `testbed/salles_combat_cle.ldtk` (construite par `scripts/construire-cartes-x6h.py`) : le `porteur_cle` vit dans le départ, la porte départ ↔ combat porte
+// `lock_key: "cle_test"` (consommée), deux `dummy` dorment dans la salle de combat. Le joueur abat le porteur (f20-41), ramasse la clé, ouvre la porte (Interaction),
+// entre : la salle se verrouille, la porte à serrure (ouverte, sa clé consommée) **se referme avec les autres** (`RoomState Locked`, quatre portes fermées) ; il tire ;
+// les mannequins morts, les quatre se rouvrent.
+//
+// À regarder : la porte à clé s'ouvre, le joueur entre, elle se referme dans son dos avec les trois autres battants ; combat ; tout se rouvre.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_combat_cle.ldtk",
+    map_seed: 1,
+    frames: 850,
+    players: [
+        (
+            weapon: "machine_gun",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, 0)),
+                (from: 60, to: 140, buttons: [Right]),
+                (from: 140, to: 170, buttons: [Right, Interaction]),
+                (from: 260, to: 800, buttons: [Fire], pan: (64, 0)),
+            ],
+        ),
+    ],
+    expect: [
+        TeamKeys(key: "cle_test", count: 1, at_frame: 130),
+        MapDoor(nth: 1, state: Locked, at_frame: 100),
+        MapDoor(nth: 0, state: Open, at_frame: 162),
+        MapDoor(nth: 1, state: Open, at_frame: 162),
+        Event(kind: "key_door", by_frame: 160),
+        RoomState(kind: "combat", state: Locked, doors_closed: Some(4), at_frame: 255),
+        MapDoor(nth: 0, state: Locked, at_frame: 255),
+        MapDoor(nth: 1, state: Locked, at_frame: 255),
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 820),
+        MapDoor(nth: 0, state: Open, at_frame: 820),
+        MapDoor(nth: 1, state: Open, at_frame: 820),
+        MapDoor(nth: 2, state: Open, at_frame: 820),
+        MapDoor(nth: 3, state: Open, at_frame: 820),
+        PlayerAlive(handle: 0, at_frame: 849),
+    ],
+)

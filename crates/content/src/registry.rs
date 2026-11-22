@@ -1957,6 +1957,8 @@ pub struct Registry {
     /// Images d'icônes du HUD (`icons[id].image` de `ui/hud.ron` et de `ui/hud.local.ron`) : fichier, id, chemin.
     pub hud_icon_images: Vec<(PathBuf, String, String)>,
     pub camera_files: Vec<PathBuf>,
+    /// X-6h (§130) : réglages de caméra par pièce de chaque `camera.ron`, relus par l'avertissement de cohérence.
+    pub camera_rooms: Vec<(PathBuf, CameraRoomFields)>,
     /// D3 : feuilles de sprites par id (kind `SpriteSheet`), source des sprites chargés par
     /// `game::global_asset` (avant D3 : une table de chemins écrite dans le code).
     pub sprite_sheets: BTreeMap<SpriteSheetId, SpriteSheetEntry>,
@@ -2093,7 +2095,13 @@ impl Registry {
                 "Map" => load_maps(&assets_dir, decl, &mut registry, &mut errors),
                 "Ui" => load_ui(&assets_dir, decl, &mut registry, &mut errors),
                 "Camera" => {
-                    load_generic_ron(&assets_dir, decl, &mut registry.camera_files, &mut errors)
+                    let first = registry.camera_files.len();
+                    load_generic_ron(&assets_dir, decl, &mut registry.camera_files, &mut errors);
+                    for rel in registry.camera_files[first..].to_vec() {
+                        if let Some(fields) = read_camera_room_fields(&assets_dir, &rel) {
+                            registry.camera_rooms.push((rel, fields));
+                        }
+                    }
                 }
                 "Economy" => load_economy(&assets_dir, decl, &mut registry, &mut errors),
                 "Perk" => load_perks(&assets_dir, decl, &mut registry, &mut errors),
@@ -5192,6 +5200,29 @@ fn load_ui(
 
 /// `Camera` : seule la validité syntaxique RON est vérifiée (pas de schéma typé,
 /// ces fichiers ne sont référencés par id par aucun autre contenu aujourd'hui).
+/// Champs de `camera.ron` que l'avertissement de cohérence relit (X-6h, `docs/conventions.md` §130) ; les autres sont
+/// ignorés ici (la structure complète, `CameraSettings`, vit dans `game`).
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct CameraRoomFields {
+    pub room_frame: bool,
+    pub room_fit: bool,
+    pub room_slide_seconds: f32,
+}
+
+/// `camera.ron` est une enveloppe `CameraSettingsAsset` : `((champs…))`.
+#[derive(Deserialize)]
+struct CameraRoomAsset(CameraRoomFields);
+
+/// Réglages de caméra par pièce d'un `camera.ron` ; `None` si le RON n'a pas cette forme (le chargeur du jeu le jugera).
+fn read_camera_room_fields(assets_dir: &ContentFiles, rel: &Path) -> Option<CameraRoomFields> {
+    let text = read_file(assets_dir, rel).ok()?;
+    ron::from_str::<CameraRoomAsset>(&text)
+        .map(|asset| asset.0)
+        .or_else(|_| ron::from_str::<CameraRoomFields>(&text))
+        .ok()
+}
+
 fn load_generic_ron(
     assets_dir: &ContentFiles,
     decl: &ContentFolderDecl,

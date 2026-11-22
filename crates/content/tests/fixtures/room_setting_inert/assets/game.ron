@@ -1,0 +1,11 @@
+// Fixture X-6h (§130) : réglages de salle et de caméra par pièce
+(
+    name: "fixture-room_setting_inert",
+    content_folders: [
+        (path: "maps", kind: "Map"),
+        (path: "rooms", kind: "Room"),
+        (path: "characters", kind: "Character"),
+        (path: "camera", kind: "Camera"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

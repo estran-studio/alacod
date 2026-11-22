@@ -1,0 +1,36 @@
+// X-6h (§130) : la règle coop est une donnée, désactivable. Carte `testbed/salles_combat_sans_rappel.ldtk` (graine 1) : la salle de combat est de type `combat_sans_rappel`
+// (`rooms/combat_sans_rappel.ron` : `no_rally: true`). Le joueur 0 entre (f30-90) pendant que le joueur 1 reste dans le départ : à la différence de `rooms_lock_coop`, le joueur 1
+// n'est **pas** ramené à l'entrée, il reste derrière les portes fermées ; la salle vidée, les portes s'ouvrent et il entre (f600-800).
+//
+// À regarder : le joueur 1 reste immobile dans le départ pendant que les battants sont fermés ; une fois la salle vidée il la rejoint.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles_combat_sans_rappel.ldtk",
+    map_seed: 1,
+    frames: 900,
+    players: [
+        (
+            inputs: [
+                (from: 30, to: 90, buttons: [Right]),
+                (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+                (from: 520, to: 600, buttons: [Right, Up]),
+            ],
+        ),
+        (
+            inputs: [
+                (from: 600, to: 606, buttons: [Up]),
+                (from: 606, to: 800, buttons: [Right]),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerPosition(handle: 1, x: -904.0, y: -600.0, tolerance: 8, at_frame: 60),
+        RoomState(kind: "combat_sans_rappel", state: Locked, doors_closed: Some(4), at_frame: 100),
+        PlayerPosition(handle: 1, x: -904.0, y: -600.0, tolerance: 8, at_frame: 150),
+        RoomState(kind: "combat_sans_rappel", state: Cleared, doors_closed: Some(0), at_frame: 560),
+        PlayerPosition(handle: 1, x: -700.0, y: -600.0, tolerance: 100, at_frame: 880),
+        PlayerAlive(handle: 0, at_frame: 899),
+        PlayerAlive(handle: 1, at_frame: 899),
+    ],
+)

@@ -1,0 +1,32 @@
+// X-6h (§130) : une salle vidée ne se referme pas. Comme `combat_portes_solo`, puis le joueur revient dans le départ (f240-330) et repasse dans la salle
+// de combat (f340-420) : elle reste `Cleared`, les quatre portes ouvertes, aucun ennemi (le verrouillage ne vaut que pour une salle non vidée).
+//
+// À regarder : après le combat, le joueur retourne à l'ouest puis revient à l'est : les battants restent ouverts, rien ne les referme.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/salles.ldtk",
+    map_seed: 1,
+    frames: 800,
+    players: [
+        (
+            inputs: [
+                (from: 30, to: 90, buttons: [Right]),
+                (from: 90, to: 500, buttons: [Fire], pan: (64, 0)),
+                (from: 560, to: 650, buttons: [Left]),
+                (from: 660, to: 740, buttons: [Right]),
+            ],
+        ),
+    ],
+    expect: [
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 560),
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 600),
+        RoomState(kind: "combat", state: Cleared, doors_closed: Some(0), at_frame: 799),
+        MapDoor(nth: 0, state: Open, at_frame: 799),
+        MapDoor(nth: 1, state: Open, at_frame: 799),
+        MapDoor(nth: 2, state: Open, at_frame: 799),
+        MapDoor(nth: 3, state: Open, at_frame: 799),
+        EntityCount(kind: Enemy, max: Some(0), at_frame: 799),
+        PlayerAlive(handle: 0, at_frame: 799),
+    ],
+)
