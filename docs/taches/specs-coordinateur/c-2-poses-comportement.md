@@ -39,6 +39,8 @@ rapport `docs/taches/rapports/c-2-poses-comportement.md` (trois lignes « exista
 ## Règle machine (William joue sur ce Mac)
 Tout cargo/make : `nice -n 19 env -u CI CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 ALACOD_MUTE=1 …` ; **un seul cargo lourd sur toute la machine** (avec le coordinateur 1837) : avant ton premier build complet,
 avant le contrôle rapide et avant tout build release, `status` au coordinateur et attends son feu vert. Les tests ciblés (`-p game`, un scénario) après le premier build : libres, en nice 19.
+**Cible** : toujours `CARGO_TARGET_DIR=/Users/wq/orca/targets/alacod-engine` (cible chaude de X-6h, 18 Go, déplacée là par le coordinateur ; contrôle rapide découpé aussi :
+`nice -n 19 env CARGO_TARGET_DIR=/Users/wq/orca/targets/alacod-engine LOGS=$HOME/orca/runs/alacod/logs bash docs/taches/specs-coordinateur/scripts/p-1d-check-rapide-decoupe.sh`). Pas de `target/` dans ton worktree.
 
 ## Communication
 Branche `wquintal/c-2-poses-comportement` (avance rapide, jamais `--force`). `status` à chaque étape ; question bloquante : `ask` court avec ton choix par défaut. Prêt : `status` « C-2 prêt <sha> » avec le journal ;
