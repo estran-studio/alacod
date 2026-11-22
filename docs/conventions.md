@@ -9214,6 +9214,21 @@ départ, arrêt, demi-tour, tir ou pas partait 83 ms après l'appui et le joueur
 - **Contrôle** : `crates/scenario/tests/physique_labo.rs` (testbed : réaction à la frame qui suit l'input avec la session du client hors ligne, durées des gestes d'arme, ordre des esquives ; salle réelle d'un jeu
   externe, ignoré : vitesse, réaction, balle contre les nombres de son banc, `ALACOD_P1E_*`). Rouge par mutation de chacun des trois points, vert après (rapport).
 
+## 127. Chef en deux phases : commandement, ouverture, transition de phase, arme par phase (X-6e, `docs/taches/rapports/x-6e-chef-deux-phases.md`)
+
+Blocs génériques (aucun nom de jeu dans l'engine ; durées, nombres et noms en données) pour un mini-boss « chef de groupe ». Les poses du chef s'appuient sur le mécanisme de C-2 (§ 131) pour tout ce qui est une phase de behavior ; seuls `order` et `transition` sont neufs.
+
+- **`Behavior::Command { squad, telegraph, period }`** (fin d'enum) : le chef retient la règle `telegraph` frames (immobile, sans tir) puis **ordonne** : les membres vivants et prêts de l'escouade `squad` (`ai.squad`) commencent leur séquence de tir **la même frame** (`squad::SquadOrders`, dérivé par `formation_system`, `BehaviorRuntime::order/order_ready_at`). Tant qu'un chef vivant de l'escouade liste `Command` dans les règles de sa phase, ses membres ne commencent une salve qu'à son ordre (`shoot_ready`, `RangedShooter::may_start`) ; sans chef, ils tirent à leur rythme (comportement d'avant).
+- **`Behavior::Opening { frames }`** (fin d'enum) : à la fin réelle d'une séquence de tir, l'ennemi reste immobile et n'attaque pas `frames` frames (le joueur riposte). `BehaviorRuntime::opening/opening_shooting`.
+- **`Phase.transition` / `Phase.drop_weapon`** (`behaviors/src/boss.rs`) : à un vrai passage de phase, `transition` frames sans règle, sans déplacement ni attaque (`BossDef::transition_at`, pur, dérivé de `BossState`), puis l'arme `drop_weapon` est retirée de l'inventaire et tombe au sol (`spawn_weapon_pickup`) ; l'arme de la phase suivante est en main. Jamais pour la phase 0.
+- **Décharge datée sur le clip** : `patterns::timed_on_departs` cale les tirs d'un pattern sur `moments.<clip>.departs` du manifeste (lien `pattern_clips` de `models.ron`).
+- **Renforts** : hors salle typée (niveau non typé), le repli des renforts les fait apparaître dans la zone de l'émetteur plutôt que d'être ignorés.
+- **Ordre des systèmes** : `boss_phase_system` passe après `apply_scenario_character_placements` et `apply_game_commands_spawn` (preuve `schedule_order_diff`).
+- **Poses** (`content/src/models.rs`, `model3d`) : `Poses::order` (geste joué une fois, étiré sur le télégraphe), `Poses::transition` (étiré sur `transition`) ; priorité dans `pose::choose` : transition, ordre, décharge liée, esquive, … puis phase de behavior de C-2. `MissingPose` réclame `order` pour un chef à `Command` et `transition` pour un boss à `transition > 0`. Un modèle sans ces champs garde ses poses d'avant.
+- **Attentes** : `EnemyWeapon(entity, weapon, carried, at_frame)` (arme portée ou non, `WeaponInventory`) ; `EnemyState` accepte `none` (état absent) ; neuf scénarios `chef_*`.
+- **Testbed** : `characters/{chef,chef_enrage,soldat_ordre}.ron`, armes `chef_cone`/`chef_paire`, patterns `mitraille`/`decharge`/`tir_ordre`, modèles `chef`/`chef_enrage`, arène vide `arene_vide.ldtk`.
+- **Dette** : D223.
+
 ## 128. Changement de niveau par une porte de sortie (X-6f, `docs/taches/rapports/x-6f-changement-niveau.md`)
 
 Jalon servi : **D2, dimanche 29 novembre** (`plan-1837-cli.md` §6, ligne X-6f, décision de William du 21 nov : « passer la porte principale de l'extérieur, clé en main, charge le niveau intérieur »). **Bloc générique à nom neutre** :
