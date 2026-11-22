@@ -1,0 +1,36 @@
+// C-2 (testbed, conventions §131) : le rôdeur `charge_pantin` (le `zigzag_charger` de X-6b, mêmes règles, mêmes frames : télégraphe f2-f21, ruée f22-f48 avec
+// contact f48, recul f50-f88, attente f89-f129, seconde annonce f130-f149) dessiné par un modèle qui pose **un clip par phase** (`charge_windup`, `charge`,
+// `return_home` de `models.ron`). Sans ces poses il restait en attente pendant l'annonce et en marche pendant la ruée et le recul (le défaut observé par 1837).
+//
+// À regarder : le rôdeur se tasse en `aim` (annonce), fonce en `strike-walk`, recule face au joueur en `aim-walk` joué à l'envers, attend en `idle`, recommence.
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [(character: "charge_pantin", x: "542.0", y: "696.0", at_frame: 1)],
+    players: [(inputs: [])],
+    expect: [
+        // Annonce : immobile, le clip de l'annonce (pas l'attente), en boucle, face au joueur
+        EnemyState(entity: Placed(0), behavior: "Charge", at_frame: 10),
+        Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 10),
+        ClipSpeed(who: Entity(Placed(0)), min: 0.99, max: 1.01, at_frame: 15),
+        ModelYaw(who: Entity(Placed(0)), toward: Player(0), at_frame: 15),
+        // Ruée en zigzag : le clip de la charge, lu à la cadence du manifeste (la ruée va à 3 fois la vitesse d'allure : bornée à 3)
+        Clip(who: Entity(Placed(0)), clip: "strike-walk", once: false, at_frame: 35),
+        ClipSpeed(who: Entity(Placed(0)), min: 2.9, max: 3.1, at_frame: 35),
+        // Recul face au joueur : le clip du retour, joué à l'envers, cap vers le joueur
+        EnemyState(entity: Placed(0), behavior: "ReturnHome", at_frame: 70),
+        Clip(who: Entity(Placed(0)), clip: "aim-walk", once: false, at_frame: 70),
+        ClipSpeed(who: Entity(Placed(0)), max: -0.3, at_frame: 70),
+        ModelYaw(who: Entity(Placed(0)), toward: Player(0), at_frame: 70),
+        // Attente au point de départ : la pose de repos revient (le retour ne la retient pas)
+        Clip(who: Entity(Placed(0)), clip: "idle", once: false, at_frame: 115),
+        // Seconde annonce, puis seconde ruée
+        Clip(who: Entity(Placed(0)), clip: "aim", once: false, at_frame: 140),
+        Clip(who: Entity(Placed(0)), clip: "strike-walk", once: false, at_frame: 165),
+        Health(handle: 0, min: 94.9, max: 95.1, at_frame: 60),
+        PlayerAlive(handle: 0, at_frame: 240),
+    ],
+)

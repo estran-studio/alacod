@@ -1,0 +1,33 @@
+// C-2 (testbed, conventions §131) : le tireur `couvert_pantin` (le `tireur_couvert` de X-6c, mêmes règles, mêmes frames : tir f20, volée finie vers f53, trajet vers le
+// point abrité jusqu'à f72, 60 frames à l'abri, reprise `Chase` f133) dessiné par un modèle qui pose le repli (`take_cover` de `models.ron`). Sans cette pose il jouait
+// le rechargement de son arme pendant tout le repli.
+//
+// À regarder : le tireur tire et recharge ; dès qu'il file derrière la caisse il court en `strike-walk-*`, puis se tasse en `hit` à l'abri, puis marche vers le joueur (`gun-walk`).
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 240,
+    characters: [
+        (character: "couvert", x: "580.0", y: "662.0", at_frame: 1),
+        (character: "couvert_pantin", x: "600.0", y: "696.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyState(entity: Placed(1), behavior: "Shoot", at_frame: 20),
+        // Hors repli : l'attente de l'arme (le repli n'y touche pas)
+        Clip(who: Entity(Placed(1)), clip: "gun-idle", once: false, at_frame: 10),
+        // En route vers l'abri : le clip du repli en marchant (la direction de la marche par rapport au corps)
+        EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 60),
+        Clip(who: Entity(Placed(1)), clip: "strike-walk-l", once: false, at_frame: 60),
+        // À l'abri : le clip du repli à l'arrêt, ligne de vue coupée
+        EnemyState(entity: Placed(1), behavior: "TakeCover", at_frame: 100),
+        Clip(who: Entity(Placed(1)), clip: "hit", once: false, at_frame: 100),
+        ClipSpeed(who: Entity(Placed(1)), min: 0.99, max: 1.01, at_frame: 100),
+        CoverSight(entity: Placed(1), handle: 0, blocked: true, at_frame: 100),
+        // Reprise : l'allure de l'arme
+        EnemyState(entity: Placed(1), behavior: "Chase", at_frame: 150),
+        Clip(who: Entity(Placed(1)), clip: "gun-walk", once: false, at_frame: 150),
+    ],
+)
