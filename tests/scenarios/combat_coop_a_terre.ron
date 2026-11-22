@@ -8,7 +8,6 @@ Scenario(
     game: "testbed",
     map: "testbed/salles.ldtk",
     map_seed: 1,
-    tags: ["rapide"],
     frames: 850,
     weapon_overrides: [(weapon: "machine_gun", friendly_fire: Always)],
     players: [

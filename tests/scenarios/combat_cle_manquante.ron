@@ -9,7 +9,6 @@ Scenario(
     game: "testbed",
     map: "testbed/portes_cle_salles.ldtk",
     map_seed: 1,
-    tags: ["rapide"],
     frames: 360,
     players: [
         (

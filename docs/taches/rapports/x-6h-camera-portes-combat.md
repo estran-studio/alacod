@@ -35,7 +35,7 @@ Tests nouveaux : rouge avant / vert après ; `cargo test --profile headless`, pr
 | P3.1 | `RoomSlide::step` : glissement au changement de salle (durée) ou si `room_fits` ; sinon `lerp_speed`; test `le_glissement_ne_vaut_qu_au_changement_de_salle_ou_si_la_salle_tient` | (API neuve) | vert |
 | P3.2 | avertissements `LintWarningKind::InertRoomSetting` (`no_rally` sans `locks`/`arena`, `room_fit`/`room_slide_seconds` sans `room_frame`, `room_slide_seconds` négatif ou non fini) ; `Registry::camera_rooms` ; `crates/content/tests/x_6h_room_setting_fixtures.rs` (fixtures `room_setting_inert`, `room_setting_ok`) | (kind neuf) | 2 tests verts |
 | P3.3 | `combat_porte_cle_referme` : `MapDoor(nth 0 et 1, Open, f162)` (porte à clé ouverte avant la fermeture ; à f200 la salle est déjà verrouillée) | — | vert, trace inchangée |
-| P3.4 | `tags: ["rapide"]` sur `combat_cle_manquante` (360 images), `combat_portes_solo` (650), `combat_coop_a_terre` (850) | — | joués par `make check_integration` |
+| P3.4 | **non appliqué** : le jeu court (§ 123) est à 4 615 images sur un plafond de 4 800 (`ALACOD_SUITE_MAX_FRAMES`) ; les trois `combat_*` taggés (360 + 650 + 850) le portaient à 6 475 > 4 800 et `check_integration` échouait (journal `check-rapide-decoupe-d469e204.log`). Aucun `combat_*` ne tient dans les 185 images restantes ; tags retirés. Décision à prendre : relever le plafond ou en tagger un court | échec du budget | `check_integration` vert sans les tags |
 
 Les sept scénarios `combat_*` rejoués : verts, aucune trace modifiée (`git status` : seuls les `.ron` changent). `origin/main` fusionnée (`git merge`, deux commits de docs).
 
