@@ -17,10 +17,10 @@ Ramener l'équipe à l'entrée (règle d'Isaac, déjà là), désactivable par t
 | (b) deux joueurs | vert, traces neuves | `combat_coop_a_terre`, `combat_coop_feu_follet`, `combat_coop_sans_rappel` (+ `rooms_lock_coop` existant : rappel debout) |
 | (c) test pur caméra | vert (6 tests `camera::tests`) | `crates/game/src/camera/mod.rs` |
 | (e) traces avant/après | 118 scénarios existants (room*, key_door*, door_key*, sortie_porte_*, interieur_*, wisp_*, isaac*, gungeon*, arena*, boss*, secret*, bot_isaac*, grid*) : **tous verts, traces inchangées, aucun BLESS** (`make test_scenarios SCENARIO=…`, 2205 s) ; `schedule_order` : aucun système ni type rollback ajouté | journal local `/tmp/x6h-family.log` |
-| (d) capture du vrai jeu | **en attente** (feu vert du coordinateur : disque au plancher) | `docs/taches/rapports/preuves/x-6h/` |
+| (d) capture du vrai jeu | fait : testbed natif release, fenêtre sur ce Mac, piloté par `alacod remote` (`input`, `step`, `screenshot`, 124 images assemblées à 6 i/s, 20,7 s, 59 Ko) : départ cadré par `room_fit`, entrée dans la salle de combat (battants fermés), combat, battants rouverts, glissement vers la salle suivante. Carte `salles.ldtk` graine 1, `camera.ron` du testbed modifié le temps de la capture (`room_frame`, `room_fit`, `room_slide_seconds: 0.35`, `min_zoom: 0.15`), `game.ron` idem, rétablis sans commit ; `target/release` supprimé | `docs/taches/rapports/preuves/x-6h/` (`x-6h-combat-portes-camera.mp4`, 4 images) |
 | (f) contrôle rapide découpé | **en attente** (même raison) | `$HOME/orca/runs/alacod/logs/x-6h-check-rapide-<sha>.log` |
 
 ## Ce qui reste
-- Capture release (couloir → salle de combat → portes rouvertes → salle suivante, `room_fit` et `room_slide_seconds` posés temporairement dans `camera.ron` du testbed, `min_zoom` abaissé : les salles du testbed font 128 px), puis suppression de `target/release`.
+- La capture n'a pas de salle « couloir » séparée (les salles du testbed font 128 px, le départ en tient lieu) ; le défaut de `camera.ron` du testbed n'est pas changé.
 - Contrôle rapide découpé, dernières lignes du journal ici.
 - Dettes D228 (limites de la caméra) et D229 (pas de « la salle attend »).
