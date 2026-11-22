@@ -230,7 +230,7 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
 | X-6g intérieur par graine | livré 21 nov (revue : merge après corrections, P2 corrigés ; `specs-coordinateur/revue-x-6g-verdict.md`) | `0a1caca2` |
 | X-6h caméra fixe par pièce et portes de combat | livré 22 nov (revue : merge après corrections ; tags `rapide` non posés, jeu court plein) | `466bb05c` |
 | C-1 journal du spawner trop bavard | livré 21 nov (lot de correction du verdict de William ; revue du coordinateur, diff de niveau de journal) | `dc734091` |
-| C-2 poses des phases de comportement | **en cours** (lot de correction, demande datée D2 du coordinateur 1837, avant X-6e) | — |
+| C-2 poses des phases de comportement | livré 22 nov (lot de correction, demande datée D2 de 1837 ; repris après le redémarrage du Mac ; contrôle rapide découpé vert, revue : merge après corrections, P3 en D233 ; capture 4 × 4 s `play_scenario`, sans release) | `5095dfa9` |
 
 Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837 passe par l'engine (X-1 gelé), avec le contenu générique du testbed et des noms neutres (§ 5).
 Un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker omp Sonnet, `make check_rapide` vert avant le merge (par le coordinateur) ; la suite de
