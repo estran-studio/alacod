@@ -64,6 +64,8 @@ pub fn enemy_target_selection(
             &Team,
             // D176 : corps de l'ennemi, pour savoir s'il bute sur une fenêtre au point visé.
             Option<&crate::collider::Collider>,
+            // C-5 : mémoire de la provocation (présent seulement avec `ai.provocation`).
+            Option<&mut BehaviorRuntime>,
         ),
         // M2-E1 : un ennemi d'une salle dormante saute son tour (`world::RoomDormant`).
         (With<Enemy>, Without<world::RoomDormant>),
@@ -78,6 +80,8 @@ pub fn enemy_target_selection(
         (With<Player>, Without<Enemy>),
     >,
     player_tags: Query<(&GgrsNetId, Option<&Tags>), With<Player>>,
+    // C-5 (§133) : coups de la frame (`CollisionDamage` plus tôt), pour la riposte (`ai.provocation`).
+    damage_events: Res<FrameEvents<DamageEvent>>,
 ) {
     // Collect and sort players for deterministic iteration
     let mut players: Vec<_> = player_query.iter().collect();
@@ -115,7 +119,7 @@ pub fn enemy_target_selection(
     let hostile_enemies: Vec<(GgrsNetId, fixed_math::FixedVec2)> = if any_charmed {
         enemy_query
             .iter()
-            .filter(|(_, _, _, _, state, _, statuses, team, _)| {
+            .filter(|(_, _, _, _, state, _, statuses, team, _, _)| {
                 **state != MonsterState::Dead
                     && !combat::status::charmed(*statuses)
                     && **team == Team::Enemies
@@ -136,9 +140,36 @@ pub fn enemy_target_selection(
         statuses,
         _team,
         enemy_collider,
+        mut runtime,
     ) in order_mut_iter!(enemy_query)
     {
         let enemy_pos = enemy_transform.translation.truncate();
+        let now = frame.frame;
+
+        // C-5 (§133) : mémorise le joueur qui vient de blesser l'ennemi (`ai.provocation`), puis
+        // oublie l'échéance passée. Avant tout `continue` : le coup d'une frame d'attaque compte.
+        if let (Some(frames), Some(runtime)) = (ai_config.provocation, runtime.as_deref_mut()) {
+            let attacker = damage_events
+                .iter()
+                .filter(|event| {
+                    event.target == *enemy_net_id
+                        && event.source != event.target
+                        && event.amount > fixed_math::FIXED_ZERO
+                        && players.iter().any(|(id, _)| id.0 == event.source.0)
+                })
+                .map(|event| &event.source)
+                .min_by_key(|id| id.0);
+            if let Some(attacker) = attacker {
+                let until = now.saturating_add(frames);
+                info!(
+                    "ggrs{{f={} provoked net_id={} by={} until={}}}",
+                    now, enemy_net_id, attacker, until
+                );
+                runtime.provoked = Some((attacker.clone(), until));
+            } else if runtime.provoked.is_some() && runtime.provoker(now).is_none() {
+                runtime.provoked = None;
+            }
+        }
 
         // Suivi Q12 : un ennemi charmé ne vise que les ennemis hostiles ; le statut expiré, il oublie
         // sa cible `Enemy` et redevient hostile (le chemin d'origine ci-dessous reprend la main).
@@ -252,6 +283,18 @@ pub fn enemy_target_selection(
                         }
                     }
                 }
+            }
+        }
+
+        // C-5 (§133) : l'attaquant (dernier coup reçu, plus petit `GgrsNetId` si plusieurs la même
+        // frame) est la cible tant que dure la provocation, avant le plus proche et hors de toute
+        // portée. Absent de la liste (mort, ignoré par tag, à terre) : le choix d'avant reprend.
+        if let Some(provoker) = runtime.as_deref().and_then(|runtime| runtime.provoker(now)) {
+            if let Some((player_id, player_transform)) =
+                players.iter().find(|(id, _)| id.0 == provoker.0)
+            {
+                let pos = player_transform.translation.truncate();
+                closest_player = Some(((*player_id).clone(), enemy_pos.distance(&pos), pos));
             }
         }
 

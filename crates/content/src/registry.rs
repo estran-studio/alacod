@@ -2629,6 +2629,9 @@ struct AiSchema {
     /// P-1 (§110) : cycle du tireur posté (`game::...::cycle::RangedCycleConfig`).
     #[serde(default)]
     ranged_cycle: Option<RangedCycleSchema>,
+    /// C-5 (§133) : riposte au coup, en frames (`game::...::state::EnemyAiConfig::provocation`).
+    #[serde(default)]
+    provocation: Option<u32>,
 }
 
 /// P-1 : miroir de `game::character::enemy::ai::cycle::RangedCycleConfig`.

@@ -271,6 +271,7 @@ pub fn spawn_enemy(
 
     // P-1 (§110) : état du cycle d'un tireur posté, seulement s'il est configuré (composant neutre).
     let ranged_cycle = ranged && ai_config.ranged_cycle.is_some();
+    let provocation = ai_config.provocation.is_some();
     commands.entity(entity).insert((
         inventory,
         EnemyPath::default(),
@@ -296,7 +297,8 @@ pub fn spawn_enemy(
     }
     // T1.4 : état des behaviors nouveaux, seulement s'ils sont listés (checksum neutre) ;
     // les règles elles-mêmes sont statiques, hors rollback (comme `Team`).
-    if behaviors.needs_runtime() {
+    // C-5 (§133) : la mémoire de la provocation vit aussi dans `BehaviorRuntime`.
+    if behaviors.needs_runtime() || provocation {
         let mut runtime = super::ai::state::BehaviorRuntime::default();
         // X-6b (§119) : le point d'apparition, seulement pour qui liste `ReturnHome`.
         if behaviors.has_return_home() {

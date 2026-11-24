@@ -1,0 +1,24 @@
+// Témoin de `riposte_un_joueur` (C-5, testbed, conventions §133) : mêmes entrées, `riposte_temoin` (sans `provocation`). Touché de loin, il ne
+// bouge pas : sa garde le tient à son point d'apparition (640, 696). Les attentes de poursuite de `riposte_un_joueur` ne sont donc pas creuses.
+//
+// À regarder : la balle atteint l'ennemi vers f52 (même tir que `riposte_un_joueur`, où il réagit), ici il ne réagit pas.
+Scenario(
+    tags: ["rapide"],
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 130,
+    characters: [(character: "riposte_temoin", x: "640.0", y: "696.0", at_frame: 1)],
+    players: [
+        (weapon: "pistol", inputs: [
+            (from: 0, to: 20, buttons: [], pan: (100, 0)),
+            (from: 20, to: 21, buttons: [Fire], pan: (100, 0)),
+            (from: 21, to: 130, buttons: [], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        EnemyPosition(entity: Placed(0), x_min: Some(632.0), x_max: Some(648.0), y_min: Some(688.0), y_max: Some(704.0), at_frame: 80),
+        EnemyPosition(entity: Placed(0), x_min: Some(632.0), x_max: Some(648.0), y_min: Some(688.0), y_max: Some(704.0), at_frame: 129),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(200.0), at_frame: 129),
+    ],
+)

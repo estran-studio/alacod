@@ -541,7 +541,7 @@ pub fn behavior_select_system(
         // attend où elle est) ; le délai repart dès qu'une règle est retenue ou qu'elle est arrivée.
         runtime.guard_until = next_guard_until(
             guard_max_frames(phase_rules),
-            rule.is_some(),
+            rule.is_some() || runtime.provoker(now).is_some(),
             runtime.home,
             position,
             now,
@@ -786,6 +786,11 @@ fn guard_motion(
     now: u32,
     position: fixed_math::FixedVec2,
 ) -> Option<BehaviorMotion> {
+    // C-5 (§133) : provoqué, la garde est levée (l'ennemi suit le mouvement d'origine vers sa cible) ;
+    // elle reprend à la fin de la provocation et le retour au point d'apparition repart.
+    if runtime.provoker(now).is_some() {
+        return None;
+    }
     let speed = guard_speed(rules)?;
     let (x, y) = runtime.home?;
     let home = fixed_math::FixedVec2::new(x, y);
@@ -831,6 +836,9 @@ pub fn behavior_extra(
 ) -> Option<MotionExtra> {
     let Some(rule) = runtime.selected.and_then(|index| rules.get(index as usize)) else {
         // Garde sans règle retenue : il regarde la cible depuis son point (`guard_motion`).
+        if runtime.provoker(now).is_some() {
+            return None;
+        }
         return guard_speed(rules).and(runtime.home).map(|_| MotionExtra {
             drift: fixed_math::FixedVec2::ZERO,
             face: target.map(|target| target - position),

@@ -9372,3 +9372,16 @@ Verdict de William (1837, 23 nov) : « il n'y a pas de collision des personnages
 
 **Dettes** : D240 (un pas d'ennemi hors `move_enemies` et `cycle.rs`, ex. knockback d'un autre système, n'est pas testé contre `SolidBody` ; dash d'une à deux frames).
 
+## 133. Riposte au coup (C-5, `docs/taches/rapports/c-5-riposte-coup.md`)
+
+Verdict de William (1837, 23 nov) : « les ennemis attaqués de loin ne font rien, comme le rat ; il devrait être aggro vers moi ». `enemy_target_selection` ne décidait que par `aggro_range` et `sight_range` (D66) : un coup ne changeait jamais `EnemyTarget`.
+
+- **Donnée** : `ai.provocation: Some(frames)` (`EnemyAiConfig::provocation`, entier, défaut absent). Statique comme `sight_range` : exclue du `Hash` de la config, du `Debug` quand elle est absente. Absent : aucun effet, aucune trace ne bouge.
+- **État** : `BehaviorRuntime::provoked: Option<(GgrsNetId, u32)>` (attaquant, échéance exclue), posé sur tout ennemi à `provocation` (même sans behavior à état : `spawn_enemy`). `Hash` et `Debug` manuels : champ compté **seulement posé** (règle « ajouter un champ à un composant rollback »), et remis à `None` à l'échéance pour retrouver le hash d'avant.
+- **Lecture** : `enemy_target_selection` lit `FrameEvents<DamageEvent>` (jamais un `Message`) avant tout `continue` : un `DamageEvent` de la frame visant l'ennemi, de dégât > 0, dont la source est un joueur de la liste, pose `provoked` (`frame + provocation`). Plusieurs coups la même frame : le plus petit `GgrsNetId`. Un nouveau coup remplace l'attaquant et repousse l'échéance.
+- **Effet** : tant que `provoker(now)` est posé, l'attaquant est la cible, **avant** le plus proche et hors de toute portée ; absent de la liste (mort, à terre, ignoré par tag), le choix d'avant reprend. Un ennemi `Attacking` finit son coup. `move_enemies` : le champ de flux mène au joueur le plus proche par le chemin ; si ce n'est pas l'attaquant, l'ennemi marche **droit** sur lui (évitement et glissement des murs inchangés).
+- **`ReturnHome(guard: true)`** : la garde est levée pendant la provocation (`guard_motion` et `behavior_extra` rendent `None`, le délai de garde ne court pas) ; la garde reprend à l'échéance (cible perdue, retour au point d'apparition). Le recul d'après un coup de mêlée (`ReturnHome` retenu) reste prioritaire, comme avant.
+- **Contenu** : sans règle `Chase` (ou `Charge` hors de `[attack_range, 3 × attack_range]`), un ennemi provoqué n'a pas de règle retenue et suit le mouvement d'origine (champ de flux / ligne droite) ; pour un état `Chase` lisible, lister `Chase`. `provocation` ne remplace ni `Chase` ni `sight_range`.
+- **Scénarios (testbed : `riposte`, `riposte_court`, `riposte_temoin`)** : `riposte_un_joueur`, `riposte_deux_joueurs` (le tireur est le joueur le plus loin), `riposte_fin`, témoin `riposte_temoin` (sans le champ). Aucune attente nouvelle (`EnemyState`, `EnemyDistance`, `EnemyPosition`, `PlayerAlive`). Rouge sans la règle, vert avec.
+
+**Dettes** : D241 (un attaquant que le champ de flux ne désigne pas est visé en ligne droite : pas de chemin dédié autour d'un obstacle ; coups de statut — brûlure, poison — comptent s'ils portent un joueur comme source ; pas de provocation par un coup bloqué avant `resolve_damage` : l'événement suffit).
