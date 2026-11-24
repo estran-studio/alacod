@@ -663,6 +663,8 @@ pub fn move_characters(
         ),
         (With<Collider>, Without<Player>, With<Rollback>),
     >,
+    // C-3 (§132) : décors solides (statiques, `SolidBody`), durs comme un mur pour le joueur.
+    solid_query: Query<(), With<sim_core::cover::SolidBody>>,
 ) {
     for (_net_id, mut transform, mut velocity, player_collider, collision_layer, dash_state) in
         order_mut_iter!(query)
@@ -694,8 +696,9 @@ pub fn move_characters(
                 if !settings.layer_matrix[collision_layer.0][target_layer.0] {
                     continue;
                 }
-                // Only walls are hard collisions (enemy layer is soft)
-                if target_layer.0 == settings.enemy_layer {
+                // Only walls are hard collisions (enemy layer is soft), sauf un décor solide
+                // (C-3, §132) : collision dure avec glissement, comme un mur.
+                if target_layer.0 == settings.enemy_layer && !solid_query.contains(entry.entity) {
                     continue;
                 }
                 if is_colliding(
@@ -721,7 +724,8 @@ pub fn move_characters(
                 else {
                     continue;
                 };
-                if target_layer.0 != settings.enemy_layer {
+                // Un décor solide bloque (`check_hard_collision`) au lieu de ralentir.
+                if target_layer.0 != settings.enemy_layer || solid_query.contains(entry.entity) {
                     continue;
                 }
                 if is_colliding(

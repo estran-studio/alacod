@@ -35,3 +35,16 @@ impl Cover {
         matches!(self, Cover::Destructible)
     }
 }
+
+/// Décor solide (C-3, `docs/conventions.md` §132) : un personnage « prop » dont le collider **bloque
+/// les corps** (joueurs : collision dure avec glissement, comme un mur ; ennemis : pas refusé et cases
+/// du champ de flux bloquées), en plus de la séparation et du ralentissement qu'un prop imposait déjà.
+///
+/// Même régime que [`Cover`] : composant statique posé une fois au spawn du prop
+/// (`spawn_enemy`), **seulement** si `CharacterConfig::solid` est vrai ; hors rollback, absent du
+/// checksum et de la trace (aucune trace existante ne bouge), il survit à un rollback tant que
+/// l'entité n'est détruite que par `despawn_rollback()`. Un prop détruit (santé épuisée) cesse de
+/// bloquer : l'entité est désactivée, donc absente des requêtes et des grilles de collision, et ses
+/// cases quittent le champ de flux à sa prochaine reconstruction.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SolidBody;

@@ -1,0 +1,26 @@
+// C-3 (§132) : deux joueurs, un de chaque côté d'une caisse solide. Arène vide (y 696) ; joueur 0 (x 424) pousse vers l'est, joueur 1 (x 488)
+// vers l'ouest, la caisse (`decor_solide`, x 456, 446 à 466) est entre eux de f10 à f70.
+//
+// À regarder : chaque joueur butte contre son côté de la caisse et reste de son côté ; ni l'un ni l'autre ne la traverse.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 100,
+    characters: [
+        (character: "decor_solide", x: "456.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (weapon: "pistol", inputs: [
+            (from: 10, to: 70, buttons: [Right]),
+        ]),
+        (weapon: "pistol", inputs: [
+            (from: 10, to: 70, buttons: [Left]),
+        ]),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 436.0, y: 696.0, tolerance: 1.0, at_frame: 69),
+        PlayerPosition(handle: 1, x: 476.0, y: 696.0, tolerance: 1.0, at_frame: 69),
+    ],
+)

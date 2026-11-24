@@ -602,6 +602,18 @@ fn lint_characters(registry: &Registry, errors: &mut Vec<LintError>) {
             });
         }
 
+        // C-3 (§132) : un décor solide est posé par le chemin de spawn d'un prop, comme `cover`.
+        if character.solid && !character.prop {
+            errors.push(LintError {
+                kind: LintErrorKind::Unsupported,
+                file: file.clone(),
+                message: format!(
+                    "personnage « {} » : `solid` exige `prop: true`",
+                    character.id
+                ),
+            });
+        }
+
         // Référence : starting_weapons -> WeaponId (T1.5 : les joueurs ne reçoivent plus
         // tout `weapons.ron`, seulement les armes déclarées ici).
         for weapon_id in &character.starting_weapons {

@@ -106,6 +106,11 @@ pub fn spawn_enemy(
         if let Some(cover) = character_config.and_then(|config| config.cover) {
             commands.entity(entity).insert(cover);
         }
+        // C-3 (§132) : décor solide, même régime que `cover` (statique, hors rollback, posé
+        // seulement s'il est déclaré).
+        if character_config.is_some_and(|config| config.solid) {
+            commands.entity(entity).insert(sim_core::cover::SolidBody);
+        }
         insert_respawn_point(
             commands,
             entity,

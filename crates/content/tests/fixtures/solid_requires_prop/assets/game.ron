@@ -1,0 +1,8 @@
+// Fixture C-3 : solid_requires_prop
+(
+    name: "fixture-solid_requires_prop",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

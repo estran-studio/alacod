@@ -1,0 +1,22 @@
+// C-3 revue (docs/conventions.md §132) : le recul d'un tireur à cycle (`ranged_cycle.recoil`, `cycle.rs`) ne traverse pas un décor solide.
+// Arène (`testbed/arena.ldtk`) ; le joueur 0 est immobile (x 424, y 696), un `tireur_poste` 80 px sous lui (y 616, stationnaire, regarde vers le nord)
+// tire vers f63 et recule de 12 px vers le sud ; une caisse solide (`decor_solide`, y 594, 2 px sous son collider) est derrière lui.
+//
+// À regarder : le tireur tire (une flèche à f65) mais ne recule presque pas (distance au joueur ≈ 80-82 au lieu de 88) : le recul bute sur la caisse.
+// Témoin : `decor_solide_retour_temoin` (`prop-test`, sans `solid`) : il recule (88).
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arena.ldtk",
+    frames: 100,
+    characters: [
+        (character: "tireur_poste", x: "424.0", y: "616.0", at_frame: 1),
+        (character: "decor_solide", x: "424.0", y: "594.0", at_frame: 1),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        BulletCount(count: 1, projectile: Some("arrow"), team: Some(Enemies), at_frame: 65),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(79.9), max: Some(82.1), at_frame: 90),
+    ],
+)

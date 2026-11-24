@@ -1,0 +1,27 @@
+// C-3 (docs/conventions.md §132) : un décor solide (témoin : `prop-test`, même caisse sans `solid`) ne bloque rien.
+// Arène vide (`testbed/arene_vide.ldtk`, y 696) ; le joueur 0 part de x 424 et pousse vers l'est contre la caisse (x 480, bord ouest 470) de f10 à f70,
+// puis vers l'est et le nord (f70-f110) : il glisse le long de la caisse, la dépasse par le haut et reprend sa route.
+//
+// À regarder : le joueur butte contre la caisse (x borné, aucun dépassement du bord) et ne ralentit pas ; à f70 il glisse vers le nord sans
+// avancer en x, puis passe au-dessus et repart vers l'est. Témoin : `X` (même scénario, `prop-test` sans `solid`).
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 160,
+    characters: [
+        (character: "prop-test", x: "480.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (weapon: "pistol", inputs: [
+            (from: 10, to: 70, buttons: [Right]),
+            (from: 70, to: 110, buttons: [Right, Up]),
+        ]),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 479.5, y: 696.0, tolerance: 0.5, at_frame: 40),
+        PlayerPosition(handle: 0, x: 546.5, y: 696.0, tolerance: 0.5, at_frame: 69),
+        PlayerPosition(handle: 0, x: 633.2, y: 764.0, tolerance: 1.0, at_frame: 159),
+    ],
+)

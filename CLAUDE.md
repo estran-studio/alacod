@@ -518,6 +518,7 @@ ou d'un crate à l'autre, avec les traces de scénario.
       `zigzag_charge_retour`, `zigzag_temoin_droit`, `zigzag_deux_joueurs`, `retour_apres_morsure`.
     - X-6c repli derrière un couvert (§120) : `CoverSight(entity, handle, blocked, at_frame)` (ligne de vue joueur → ennemi coupée par un `Cover`, `blocked: true`, ou dégagée ;
       même test de segment que le behavior `TakeCover`) ; `EnemyState` (règle `TakeCover`), `EnemyPosition` couvrent les six scénarios `repli_couvert_*` (témoin `repli_couvert_temoin`).
+    - C-3 décor solide (§132) : aucune attente nouvelle (`PlayerPosition`, `EnemyPosition`, `EnemyDistance`, `EntityCount(kind: Cover)` couvrent les scénarios `decor_solide_*`) ; champ de personnage `solid: true` (avec `prop: true`).
     - X-6f changement de niveau par une porte de sortie (§128) : aucune attente nouvelle (`FloorIndex`, `MapDoor`, `TeamKeys`, `KeyPiles`, `PlayerPosition`, `PlayerDowned`, `Health`, `Ammo`, `ActiveWeapon`,
       `EntityCount`, `Event(kind: "floor" | "key_door")`, `HudText(source: "wisp")` couvrent les sept scénarios `sortie_porte_*`) ; champ de porte LDtk `exit_next_level`, champ de séquence `Floors` `exit_by_door` ;
       la relance est le test `crates/scenario/tests/floors.rs` (`la_relance_apres_la_porte_…`).
