@@ -236,8 +236,8 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
 | X-6h caméra fixe par pièce et portes de combat | livré 22 nov (revue : merge après corrections ; tags `rapide` non posés, jeu court plein) | `466bb05c` |
 | C-1 journal du spawner trop bavard | livré 21 nov (lot de correction du verdict de William ; revue du coordinateur, diff de niveau de journal) | `dc734091` |
 | C-2 poses des phases de comportement | livré 22 nov (lot de correction, demande datée D2 de 1837 ; repris après le redémarrage du Mac ; contrôle rapide découpé vert, revue : merge après corrections, P3 en D233 ; capture 4 × 4 s `play_scenario`, sans release) | `5095dfa9` |
-| C-3 un décor solide bloque les corps | **écrit le 23 nov** (lot de correction du verdict de William du 23 nov, point 2 ; part au feu machine, après les scénarios rouges `collision_decor` de 1837) | — |
-| C-5 riposte au coup | **écrit le 23 nov** (suite du verdict de William du 23 nov, point 1 : « les ennemis attaqués de loin ne font rien » ; part après C-3) | — |
+| C-3 un décor solide bloque les corps | livré 23 nov (lot de correction du verdict de William du 23 nov ; contrôle rapide découpé vert, revue : merge après corrections, P2 recul/retour corrigé ; capture 30 s `play_scenario` ; acceptation 1837 `collision_decor*` au réépinglage) | `725e4767` |
+| C-5 riposte au coup | **en cours** (suite du verdict de William du 23 nov, point 1 : « les ennemis attaqués de loin ne font rien » ; lancé le 23 nov après le merge de C-3 ; brief `specs-coordinateur/c-5-riposte-coup.md`) | — |
 | C-6 arme en main comme au banc | **écrit le 23 nov** (suite du verdict, point 2 : changer à la hache au lieu de F ; écart n° 2 de P-1 tranché par William ; part après C-5) | — |
 | U-1 invites à l'écran (touches, lieux, information, dialogue) | **écrit le 23 nov, ne part pas avant la confirmation de William** (décision de William du 23 nov, nuit ; place proposée : après C-6, avant C-4 et X-6e) | — |
 | C-4 sons de feedback manquants | **écrit le 23 nov** (lot de correction du verdict de William du 23 nov, point 5 ; part après C-6, avant X-6e : ordre validé par William le 23 nov au soir, § 3) | — |
