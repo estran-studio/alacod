@@ -258,7 +258,11 @@ pub fn move_enemies(
     // C-3 (§132) : décors solides (statiques, `SolidBody`), durs pour les ennemis.
     solid_query: Query<
         (&fixed_math::FixedTransform3D, &Collider),
-        (With<sim_core::cover::SolidBody>, Without<Enemy>, Without<Player>),
+        (
+            With<sim_core::cover::SolidBody>,
+            Without<Enemy>,
+            Without<Player>,
+        ),
     >,
     flow_field_cache: Res<super::navigation::FlowFieldCache>,
     // M2-T8 : places d'escouade (dérivées, `squad`).

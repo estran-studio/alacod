@@ -698,9 +698,7 @@ pub fn move_characters(
                 }
                 // Only walls are hard collisions (enemy layer is soft), sauf un décor solide
                 // (C-3, §132) : collision dure avec glissement, comme un mur.
-                if target_layer.0 == settings.enemy_layer
-                    && !solid_query.contains(entry.entity)
-                {
+                if target_layer.0 == settings.enemy_layer && !solid_query.contains(entry.entity) {
                     continue;
                 }
                 if is_colliding(
