@@ -4,7 +4,6 @@
 //
 // À regarder : poursuite de f102 à f162, demi-tour, retour à reculons au poste (≈ f200) et immobilité.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arene_vide.ldtk",

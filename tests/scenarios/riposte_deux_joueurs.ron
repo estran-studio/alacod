@@ -4,7 +4,6 @@
 //
 // À regarder : l'ennemi ne bouge pas tant qu'il n'est pas touché, puis traverse la salle droit vers le joueur 0 qui a tiré.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arene_vide.ldtk",

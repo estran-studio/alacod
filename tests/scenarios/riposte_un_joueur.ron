@@ -4,7 +4,6 @@
 //
 // À regarder : l'ennemi reste à son poste jusqu'au coup, se retourne et marche droit sur le tireur (distance qui diminue).
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arene_vide.ldtk",

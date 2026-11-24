@@ -3,7 +3,6 @@
 //
 // À regarder : la balle atteint l'ennemi vers f102 (même tir que `riposte_un_joueur`, où il réagit), ici il ne réagit pas.
 Scenario(
-    tags: ["rapide"],
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arene_vide.ldtk",
