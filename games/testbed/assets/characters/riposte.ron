@@ -1,4 +1,4 @@
-// Personnage de laboratoire de C-5 (testbed, conventions §133) : riposte au coup. Aggro de 60 unités seulement, `ReturnHome(guard: true)` + `Chase` :
+// Personnage de laboratoire de C-5 (testbed, conventions §133) : riposte au coup. Aggro de 60 unités seulement, `ReturnHome(guard: true)`, `Melee` + `Chase` :
 // hors de portée il guette à son point d'apparition ; touché par un joueur, `provocation: Some(150)` en fait sa cible pendant 150 frames, où qu'il soit,
 // et la garde est levée (il poursuit l'attaquant). Court : `riposte_court` (60 frames) ; témoin sans le champ : `riposte_temoin`. Scénarios `riposte_*`.
 (
@@ -42,6 +42,7 @@
         attack_damage: Some("5.0"),
         behaviors: Some([
             ReturnHome(wait: 30, speed: Some("2.0"), guard: true),
+            Melee("zombie_claws"),
             Chase(profile: "Ground"),
         ]),
         provocation: Some(150),

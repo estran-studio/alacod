@@ -41,6 +41,7 @@
         attack_damage: Some("5.0"),
         behaviors: Some([
             ReturnHome(wait: 30, speed: Some("2.0"), guard: true),
+            Melee("zombie_claws"),
             Chase(profile: "Ground"),
         ]),
         provocation: Some(60),

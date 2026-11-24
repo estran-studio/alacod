@@ -1,5 +1,5 @@
 // C-5 (testbed, docs/conventions.md §133) : riposte au coup, un joueur. `riposte` (aggro 60, `ReturnHome(guard)` + `Chase`, `provocation: 150`) guette à
-// 216 unités à l'est du joueur 0 (424, 696), hors de toute portée ; le joueur lui tire dessus une fois (appui f20, balle au contact vers f52).
+// 216 unités à l'est du joueur 0 (424, 696), hors de toute portée ; le joueur lui tire dessus une fois (appui f70, balle au contact vers f102).
 // Sans la règle (`riposte_temoin`) il ne bouge pas : un coup ne changeait jamais sa cible.
 //
 // À regarder : l'ennemi reste à son poste jusqu'au coup, se retourne et marche droit sur le tireur (distance qui diminue).
@@ -8,13 +8,13 @@ Scenario(
     powerup_drop_chance_override: "0.0",
     game: "testbed",
     map: "testbed/arene_vide.ldtk",
-    frames: 130,
+    frames: 180,
     characters: [(character: "riposte", x: "640.0", y: "696.0", at_frame: 1)],
     players: [
         (weapon: "pistol", inputs: [
-            (from: 0, to: 20, buttons: [], pan: (100, 0)),
-            (from: 20, to: 21, buttons: [Fire], pan: (100, 0)),
-            (from: 21, to: 130, buttons: [], pan: (100, 0)),
+            (from: 0, to: 70, buttons: [], pan: (100, 0)),
+            (from: 70, to: 71, buttons: [Fire], pan: (100, 0)),
+            (from: 71, to: 180, buttons: [], pan: (100, 0)),
         ]),
     ],
     expect: [
@@ -22,10 +22,10 @@ Scenario(
         // Avant le coup : à son poste (moins d'une case)
         EnemyPosition(entity: Placed(0), x_min: Some(632.0), x_max: Some(648.0), at_frame: 40),
         // Après : il avance vers le tireur et ne s'arrête plus
-        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 80),
-        EnemyDistance(entity: Placed(0), target: Player(0), max: Some(180.0), at_frame: 80),
-        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(60.0), max: Some(135.0), at_frame: 105),
-        EnemyPosition(entity: Placed(0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 105),
-        PlayerAlive(handle: 0, at_frame: 129),
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 130),
+        EnemyDistance(entity: Placed(0), target: Player(0), max: Some(180.0), at_frame: 130),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(60.0), max: Some(135.0), at_frame: 155),
+        EnemyPosition(entity: Placed(0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 155),
+        PlayerAlive(handle: 0, at_frame: 179),
     ],
 )
