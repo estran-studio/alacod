@@ -147,6 +147,11 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
 - Décision de William (2026-11-21, nuit) : **générateur** : l'intérieur utilise un générateur qui connaît les types de pièces (la grammaire d'étage du § 40), « ça serait déjà
   supposé être supporté dans l'engine de base » : X-6g est une extension minimale et générique de l'existant, aucun générateur neuf ; son rapport garde en tête les trois
   lignes « ce qui existait déjà / ce qui manquait / ce qui est ajouté ».
+- Décision de William (2026-11-23, soir) : **ordre des corrections d'engine validé** : C-3 décor solide → C-5 riposte au coup → C-6 arme en main → C-4 sons (hache, morsure, et les
+  autres manques relevés) → X-6e le sergent ; **ordre complet d'O2** : C-3, C-5, C-6, C-4, X-6e, IA à couvert (≈ 5 jours, `propositions.md` du 23 nov), trois thèmes de musique, X-6d ;
+  l'IA à couvert passe **après** le sergent, d'ici là seulement le réglage de données côté 1837 (rayon de repli, placement des roches) ; l'engine reste à **un lot à la fois** ;
+  touches à l'écran (V-D, 1837) : oui ; D2-c (1837) : merge. Chaque lot est écrit au § 6 avec sa preuve avant son départ ; la continuation donne, à chaque merge, la date visée du
+  suivant (jalon D2 dim 29 nov, gel le 14 déc).
 
 ## 4. Lots (état au 2026-11-06 ; statut à jour des lots mergés : § 6, « Statut au 2026-11-21 »)
 
@@ -234,7 +239,7 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
 | C-3 un décor solide bloque les corps | **écrit le 23 nov** (lot de correction du verdict de William du 23 nov, point 2 ; part au feu machine, après les scénarios rouges `collision_decor` de 1837) | — |
 | C-5 riposte au coup | **écrit le 23 nov** (suite du verdict de William du 23 nov, point 1 : « les ennemis attaqués de loin ne font rien » ; part après C-3) | — |
 | C-6 arme en main comme au banc | **écrit le 23 nov** (suite du verdict, point 2 : changer à la hache au lieu de F ; écart n° 2 de P-1 tranché par William ; part après C-5) | — |
-| C-4 sons de feedback manquants | **écrit le 23 nov** (lot de correction du verdict de William du 23 nov, point 5 ; part après C-6, avant X-6e : ordre proposé par le coordinateur 1837 le 23 nov, la partie de William ayant été muette ; soumis à William par le studio, son ordre prime) | — |
+| C-4 sons de feedback manquants | **écrit le 23 nov** (lot de correction du verdict de William du 23 nov, point 5 ; part après C-6, avant X-6e : ordre validé par William le 23 nov au soir, § 3) | — |
 
 Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837 passe par l'engine (X-1 gelé), avec le contenu générique du testbed et des noms neutres (§ 5).
 Un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker omp Sonnet, `make check_rapide` vert avant le merge (par le coordinateur) ; la suite de
