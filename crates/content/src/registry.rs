@@ -322,6 +322,8 @@ pub struct CharacterEntry {
     pub prop: bool,
     /// X-6a2 (§118) : couvert (arrête les balles de toutes les équipes), exige `prop: true`.
     pub cover: Option<sim_core::cover::Cover>,
+    /// C-3 (§132) : décor solide (bloque les corps), exige `prop: true`.
+    pub solid: bool,
     /// M3-T0b (§61) : i-frames après un dégât réel.
     pub hit_iframes: Option<u32>,
     /// D41 : étendue du corps **en jeu** (collider × `scale`, comme `create_character`) : la plus
@@ -2296,6 +2298,9 @@ struct CharacterFileSchema {
     /// X-6a2 (§118) : couvert, `Some(Indestructible)` ou `Some(Destructible)` ; exige `prop: true` (lint).
     #[serde(default)]
     cover: Option<sim_core::cover::Cover>,
+    /// C-3 (§132) : décor solide, le collider bloque les corps (joueurs, ennemis, champ de flux) ; exige `prop: true` (lint). Défaut faux.
+    #[serde(default)]
+    solid: bool,
     /// M3-T0b (§61) : i-frames après un dégât réel.
     #[serde(default)]
     #[schemars(extend("x-lint" = "> 0 (ou absent)"))]
@@ -3389,6 +3394,7 @@ fn load_characters(
                 counts_hits: parsed.counts_hits,
                 prop: parsed.prop,
                 cover: parsed.cover,
+                solid: parsed.solid,
                 hit_iframes: parsed.hit_iframes,
                 body_extent: parsed
                     .collider

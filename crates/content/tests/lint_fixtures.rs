@@ -2755,3 +2755,20 @@ fn cover_fixture_refuses_a_cover_that_is_not_a_prop() {
         .count();
     assert_eq!(unsupported, 1, "{errors:#?}");
 }
+
+/// C-3 (§132) : `solid` exige `prop: true` (le chemin de spawn d'un prop pose le composant) ; un décor solide sur un prop passe.
+#[test]
+fn solid_fixture_refuses_a_solid_that_is_not_a_prop() {
+    let (registry, _, errors) = load_and_lint(&fixture_dir("solid_requires_prop")).unwrap();
+    assert!(registry.characters[&content::registry::CharacterId::from("solid_ok")].solid);
+    assert_has_error(
+        &errors,
+        LintErrorKind::Unsupported,
+        "« solid_not_a_prop » : `solid` exige `prop: true`",
+    );
+    let unsupported = errors
+        .iter()
+        .filter(|e| e.kind == LintErrorKind::Unsupported && e.message.contains("`solid`"))
+        .count();
+    assert_eq!(unsupported, 1, "{errors:#?}");
+}

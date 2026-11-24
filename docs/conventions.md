@@ -9355,3 +9355,18 @@ Demande de 1837 (D2) : un modèle ne pouvait pas raccorder de clip à l'annonce 
 
 **Dettes** : D231-D233 (`docs/taches/dettes.md`) : D231 (le corps ne se tourne vers sa cible pendant l'annonce d'une `Charge` que si `FacingDirection` le fait : le cap vient de la simulation, que C-2 ne touche pas ; pas d'attente de cap avant la ruée), D232 (`new-content` ne scaffolde pas `Model` : un exemple de poses de phase n'est que dans `describe` et ce paragraphe).
 Harnais : `ClipSpeed` mesure aussi un clip joué à l'envers (vitesse négative). Rapport et preuve : rouge = attentes, vert = 4 scénarios `pose_*` à 1 et 2 joueurs.
+
+## 132. Un décor solide bloque les corps (C-3, `docs/taches/rapports/c-3-collision-props.md`)
+
+Verdict de William (1837, 23 nov) : « il n'y a pas de collision des personnages avec les objets comme les crates ». Un prop (§ 112) n'était qu'une séparation douce pour les ennemis et un ralentissement pour le joueur ; le champ de flux l'ignorait.
+
+- **Donnée** : `solid: true` sur un personnage `prop: true` (`CharacterConfig::solid`, défaut faux ; lint `Unsupported` sans `prop: true`). Pose le composant statique `sim_core::cover::SolidBody` au spawn (même régime que `Cover` : hors rollback, hors checksum, hors trace). Absent : aucune trace ne bouge (aucun BLESS).
+- **Joueur** (`move_characters`) : un `SolidBody` est une collision dure avec glissement, même chemin que `Wall` (`slide_axes`, aide d'ouverture) ; il ne ralentit plus.
+- **Ennemis** (`move_enemies`, `check_wall_collision`) : pas refusé contre le collider d'un `SolidBody` (`step_blocked_by`, un ennemi déjà incrusté peut en sortir).
+- **Champ de flux** (`rebuild_blocked_cells`) : les cases du collider vont dans `wall_cells` (tous les profils, comme une porte fermée), à chaque reconstruction (intervalle existant) ; un prop détruit (`despawn_rollback`, entité désactivée) quitte la requête, ses cases sont libérées.
+- **Balles** : inchangées (`cover` décide). Un décor solide sans `cover` laisse passer les balles.
+- **Hors périmètre** : dash et `recovery_direction` des vagues ne lisent pas `SolidBody` (D240).
+- **Scénarios (testbed : `decor_solide`, `decor_solide_fragile`)** : `decor_solide_joueur` (+ `_temoin`), `decor_solide_deux_joueurs`, `decor_solide_ennemi` (+ `_temoin`), `decor_solide_destructible`.
+
+**Dettes** : D240 (dash du joueur et récupération de navigation des vagues ignorent `SolidBody`).
+

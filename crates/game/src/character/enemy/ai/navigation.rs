@@ -888,6 +888,11 @@ pub fn update_flow_field_system(
     // Portes fermées : une porte ouverte n'a plus de collider
     door_query: Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
+    // C-3 (§132) : décors solides vivants (un prop détruit est désactivé, donc absent)
+    solid_query: Query<
+        (&GgrsNetId, &fixed_math::FixedTransform3D, &Collider),
+        With<sim_core::cover::SolidBody>,
+    >,
     // M2-T11 : cases de fosse (surfaces), bloquées pour `Ground`/`GroundBreaker`
     surface_grid: Res<world::SurfaceGrid>,
     surface_table: Option<Res<world::SurfaceTable>>,
@@ -936,7 +941,7 @@ pub fn update_flow_field_system(
     // even when the target does not move
     let previous_walls = cache.wall_cells.clone();
     let previous_blocked = cache.blocked_cells.clone();
-    rebuild_blocked_cells(&mut cache, &door_query, &obstacle_query);
+    rebuild_blocked_cells(&mut cache, &door_query, &obstacle_query, &solid_query);
     if let Some(table) = surface_table.as_deref().filter(|t| t.has_pits()) {
         let pits: BTreeSet<GridPos> = surface_grid
             .pit_cells(table)
@@ -1010,6 +1015,10 @@ fn rebuild_blocked_cells(
     cache: &mut FlowFieldCache,
     door_query: &Query<(&GgrsNetId, &fixed_math::FixedTransform3D, &Collider), With<DoorComponent>>,
     obstacle_query: &Query<(&fixed_math::FixedTransform3D, &Collider, &Obstacle), With<Rollback>>,
+    solid_query: &Query<
+        (&GgrsNetId, &fixed_math::FixedTransform3D, &Collider),
+        With<sim_core::cover::SolidBody>,
+    >,
 ) {
     cache.blocked_cells.clear();
 
@@ -1021,6 +1030,15 @@ fn rebuild_blocked_cells(
     // Door tiles are free in the IntGrid: a door blocks as long as it has a collider
     // (closed, or never openable when not interactable)
     for (_, transform, collider) in utils::order_iter!(door_query) {
+        cache.wall_cells.extend(get_collider_cells(
+            transform.translation.truncate(),
+            collider,
+        ));
+    }
+
+    // C-3 (§132) : un décor solide bloque tous les profils, comme un mur (cases de son collider) ;
+    // absent du monde, aucune case ajoutée : champ, hash et traces d'avant.
+    for (_, transform, collider) in utils::order_iter!(solid_query) {
         cache.wall_cells.extend(get_collider_cells(
             transform.translation.truncate(),
             collider,

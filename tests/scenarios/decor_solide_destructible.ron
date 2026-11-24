@@ -1,0 +1,27 @@
+// C-3 (§132) : un décor solide détruit cesse de bloquer. Arène vide (y 696) ; le joueur 0 (x 424) pousse vers l'est contre `decor_solide_fragile`
+// (x 480, 24 PV, `cover: Some(Destructible)`) de f10 à f40, tire une rafale de `machine_gun` (8 par balle) de f45 à f75 qui la détruit,
+// puis marche vers l'est de f85 à f145.
+//
+// À regarder : le joueur butte contre la caisse (x borné) jusqu'à sa destruction, puis la traverse et la dépasse sans obstacle.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 170,
+    characters: [
+        (character: "decor_solide_fragile", x: "480.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (weapon: "machine_gun", inputs: [
+            (from: 10, to: 40, buttons: [Right]),
+            (from: 45, to: 75, buttons: [Fire], pan: (128, 0)),
+            (from: 85, to: 145, buttons: [Right]),
+        ]),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 459.8, y: 696.0, tolerance: 0.5, at_frame: 44),
+        EntityCount(kind: Cover, min: Some(0), max: Some(0), at_frame: 84),
+        PlayerPosition(handle: 0, x: 592.3, y: 696.0, tolerance: 1.0, at_frame: 144),
+    ],
+)

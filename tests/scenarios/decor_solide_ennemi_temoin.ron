@@ -1,0 +1,22 @@
+// C-3 (§132) : un ennemi ne traverse pas un décor solide et le contourne par le champ de flux. Arène vide (y 696) ; le joueur 0 est immobile (x 424),
+// un `follower` (vitesse 60) part de x 560 et la caisse (`prop-test`, x 500, 490 à 510) est sur sa ligne droite.
+//
+// À regarder : le `follower` s'écarte de la ligne (y hors de la caisse) avant d'y arriver, la dépasse sans jamais entrer dans son rectangle, puis rejoint le joueur.
+// Témoin : `decor_solide_ennemi_temoin` (`prop-test`, sans `solid`) : il traverse la caisse sur la ligne droite.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 300,
+    characters: [
+        (character: "follower", x: "560.0", y: "696.0", at_frame: 5),
+        (character: "prop-test", x: "500.0", y: "696.0", at_frame: 5),
+    ],
+    players: [(inputs: [])],
+    expect: [
+        EnemyPosition(entity: Placed(0), x_min: Some(485.0), x_max: Some(495.0), y_min: Some(695.0), y_max: Some(697.0), at_frame: 75),
+        EnemyPosition(entity: Placed(0), x_min: Some(510.0), x_max: Some(560.0), y_min: None, y_max: None, at_frame: 40),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: 0.0, max: 40.0, at_frame: 299),
+    ],
+)

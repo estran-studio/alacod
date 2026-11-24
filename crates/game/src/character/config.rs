@@ -174,6 +174,14 @@ pub struct CharacterConfig {
     #[serde(default)]
     pub cover: Option<sim_core::cover::Cover>,
 
+    /// Décor solide (C-3, `docs/conventions.md` §132) : le collider de ce prop **bloque les corps**
+    /// (joueurs : collision dure avec glissement comme un mur ; ennemis : pas refusé, cases du champ
+    /// de flux bloquées) tant qu'il vit. Exige `prop: true` (lint). Champ statique lu au spawn :
+    /// faux par défaut, aucun contenu existant ne change (composant `sim_core::cover::SolidBody`,
+    /// hors rollback et hors checksum).
+    #[serde(default)]
+    pub solid: bool,
+
     /// I-frames après un coup subi (M3-T0b, §61). Absent : comportement historique ; le
     /// résolveur ne pose aucune invulnérabilité supplémentaire.
     #[serde(default)]
