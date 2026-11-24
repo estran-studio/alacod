@@ -1,0 +1,31 @@
+// C-3 revue (§132) : un dash est arrêté par un décor solide (il passe par `move_characters`, comme un mur). Arène vide (y 696) ; le joueur 0
+// (x 424) a un dash de 48 px en 24 frames (profil `EaseOut`) et dashe vers l'est à f67 ; une caisse solide (`prop-test`, x 470) est sur sa route.
+//
+// À regarder : le joueur s'arrête contre la caisse (x 449,8) au lieu d'aller à 472. Témoin : `decor_solide_dash_temoin` (`prop-test`) : il finit à 472.
+
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 120,
+    characters: [
+        (character: "prop-test", x: "470.0", y: "696.0", at_frame: 5),
+    ],
+    players: [
+        (
+            dash: Some((
+                distance: Some("48.0"),
+                duration_frames: Some(24),
+                iframes: Some(12),
+                cooldown_frames: Some(0),
+                profile: EaseOut,
+            )),
+            inputs: [
+                (from: 67, to: 68, buttons: [Right, Dash]),
+            ],
+        ),
+    ],
+    expect: [
+        PlayerPosition(handle: 0, x: 472.0, y: 696.0, tolerance: 0.5, at_frame: 110),
+    ],
+)

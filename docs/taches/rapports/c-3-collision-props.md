@@ -4,6 +4,13 @@
 - **Manquait** : un champ de donnée rendant le collider d'un prop dur pour les corps, et sa preuve (aucun test ne posait un corps contre un prop).
 - **Ajouté** : `solid: true` (§ 132), composant statique `SolidBody`, lecture par `move_characters`, `move_enemies`, `rebuild_blocked_cells` ; lint ; 6 scénarios `decor_solide_*`.
 
+## Corrections de revue (merge après corrections)
+- **P2-1** : `cycle.rs` (recul et retour au poste d'un tireur à cycle) teste le pas contre `SolidBody` ; `recovery_direction` écarte aussi les cases d'un décor solide. Scénarios `decor_solide_retour` (+ `_temoin`) : rouge (clause `cycle.rs` retirée, `c-3b-rouge.log`) distance 87,98 hors fenêtre 79,9-82,1 ; vert : recul bloqué (80-82) contre 88 au témoin. Pas de variante à deux joueurs (le scénario ne l'exige pas). Le `ReturnHome` de `move_enemies` passe déjà par `check_wall_collision`.
+- **P3-2** : `decor_solide_dash` (+ `_temoin`) : dash de 48 px bloqué à 449,8 contre 472 au témoin ; passé du premier coup (le dash n'avait pas de défaut : pas de rouge possible).
+- **P3-1, P3-3** : § 132 et D240 corrigés (dash bloqué ; vue coupée à `sight_range` ; `Phasing` bloqué, voulu).
+- **P3-4** : le premier rouge (`c-3-rouge.log`) a été joué avec des attentes **intermédiaires** (ex. 452,0 au lieu de 459,8) : les chiffres « traverse » du tableau sont ceux du journal, pas toutes les valeurs finales.
+- **P3-5** : la preuve « aucune trace existante modifiée » est le `git diff --stat` (seules des `.trace` neuves `decor_solide_*`), pas les journaux de familles (`c-3-familles.log`, `c-3b-familles.log` : 38 scénarios `decor_solide_*`, `zigzag_*`, `retour_*`, `rodeur_*`, `repli_couvert_*`, `tireur_*`, `pose_*`, `throne_softlock_recul` verts).
+
 ## Preuve
 Journaux dans `~/orca/runs/alacod/logs/` (`c-3-*.log`).
 

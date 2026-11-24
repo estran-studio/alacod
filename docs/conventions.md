@@ -9365,8 +9365,10 @@ Verdict de William (1837, 23 nov) : « il n'y a pas de collision des personnages
 - **Ennemis** (`move_enemies`, `check_wall_collision`) : pas refusé contre le collider d'un `SolidBody` (`step_blocked_by`, un ennemi déjà incrusté peut en sortir).
 - **Champ de flux** (`rebuild_blocked_cells`) : les cases du collider vont dans `wall_cells` (tous les profils, comme une porte fermée), à chaque reconstruction (intervalle existant) ; un prop détruit (`despawn_rollback`, entité désactivée) quitte la requête, ses cases sont libérées.
 - **Balles** : inchangées (`cover` décide). Un décor solide sans `cover` laisse passer les balles.
-- **Hors périmètre** : dash et `recovery_direction` des vagues ne lisent pas `SolidBody` (D240).
-- **Scénarios (testbed : `decor_solide`, `decor_solide_fragile`)** : `decor_solide_joueur` (+ `_temoin`), `decor_solide_deux_joueurs`, `decor_solide_ennemi` (+ `_temoin`), `decor_solide_destructible`.
+- **Autres mouvements d'ennemi** : le recul et le retour au poste d'un tireur à cycle (`cycle.rs`, `ranged_cycle_system`) testent le pas contre `SolidBody` comme `move_enemies` ; `recovery_direction` (récupération de navigation des vagues) écarte aussi les cases d'un décor solide.
+- **Dash** : bloqué, dur comme un mur (il passe par `move_characters`) ; seul un dash d'une à deux frames (pas > côté de la caisse + largeur du joueur) pourrait traverser, comme un mur fin.
+- **Effets de bord voulus** : les cases d'un décor solide entrent dans `wall_cells` : elles coupent la vue (`line_of_sight`, `sight_range`, D66) même sans `cover` (les balles, elles, le traversent), et bloquent aussi `Phasing` (« comme un mur »).
+- **Scénarios (testbed : `decor_solide`, `decor_solide_fragile`)** : `decor_solide_joueur` (+ `_temoin`), `decor_solide_deux_joueurs`, `decor_solide_ennemi` (+ `_temoin`), `decor_solide_destructible`, `decor_solide_retour` (+ `_temoin`, recul d'un tireur), `decor_solide_dash` (+ `_temoin`).
 
-**Dettes** : D240 (dash du joueur et récupération de navigation des vagues ignorent `SolidBody`).
+**Dettes** : D240 (un pas d'ennemi hors `move_enemies` et `cycle.rs`, ex. knockback d'un autre système, n'est pas testé contre `SolidBody` ; dash d'une à deux frames).
 

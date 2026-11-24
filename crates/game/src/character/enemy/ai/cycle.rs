@@ -158,6 +158,15 @@ pub fn ranged_cycle_system(
         (&fixed_math::FixedTransform3D, &Collider, &CollisionLayer),
         (With<Wall>, Without<Enemy>, Without<Player>),
     >,
+    // C-3 (§132) : décors solides, durs pour le recul et le retour au poste comme pour `move_enemies`.
+    solid_query: Query<
+        (&fixed_math::FixedTransform3D, &Collider),
+        (
+            With<sim_core::cover::SolidBody>,
+            Without<Enemy>,
+            Without<Player>,
+        ),
+    >,
 ) {
     let now = frame.frame;
     // Rang de chaque tireur à cycle (ordre `GgrsNetId`), pour `first_wait`. La requête ne porte que
@@ -325,6 +334,18 @@ pub fn ranged_cycle_system(
                             )
                     },
                 )
+            }) || grids.characters.query_aabb(&aabb).into_iter().any(|entry| {
+                solid_query
+                    .get(entry.entity)
+                    .is_ok_and(|(solid_transform, solid_collider)| {
+                        crate::collider::step_blocked_by(
+                            &start,
+                            &next,
+                            collider,
+                            &solid_transform.translation,
+                            solid_collider,
+                        )
+                    })
             });
             if !blocked {
                 transform.translation = next;

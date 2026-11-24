@@ -449,6 +449,12 @@ pub fn move_enemies(
                                     )
                             },
                         )
+                    }) || grids.characters.query_aabb(&aabb).into_iter().any(|entry| {
+                        solid_query
+                            .get(entry.entity)
+                            .is_ok_and(|(transform, collider)| {
+                                is_colliding(&pos, enemy_collider, &transform.translation, collider)
+                            })
                     }) || (include_windows
                         && grids.characters.query_aabb(&aabb).into_iter().any(|entry| {
                             window_query.get(entry.entity).is_ok_and(
