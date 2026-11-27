@@ -152,6 +152,10 @@ Les clones (throne, isaac, zombies, gungeon) restent des jeux de test de l'engin
   l'IA à couvert passe **après** le sergent, d'ici là seulement le réglage de données côté 1837 (rayon de repli, placement des roches) ; l'engine reste à **un lot à la fois** ;
   touches à l'écran (V-D, 1837) : oui ; D2-c (1837) : merge. Chaque lot est écrit au § 6 avec sa preuve avant son départ ; la continuation donne, à chaque merge, la date visée du
   suivant (jalon D2 dim 29 nov, gel le 14 déc).
+- Décision de William (2026-11-27) : machines : le Mac orchestre, les workers compilent sur le VPS (`ovh`) ou la van ; la van ne sert qu'avec son accord (relevé
+  de la manette en lecture seule autorisé le 27). **Ordre de l'engine** : C-5 → C-7 manette → C-8 clé visible → C-6 arme en main → C-4 sons → X-6e sergent → U-1 invites
+  (U-1 **après** le sergent) ; puis IA à couvert, trois thèmes, X-6d, hors gel du 14 déc. Lenteur : le jeu est fidèle au banc ; « ok recharge » : le ralentissement
+  pendant le rechargement est supprimé côté données de 1837 (×1,0, provisoire), `max_speed` reste à 150 ; rien dans l'engine.
 
 ## 4. Lots (état au 2026-11-06 ; statut à jour des lots mergés : § 6, « Statut au 2026-11-21 »)
 
@@ -239,10 +243,10 @@ Avant le 2026-11-06 : X-4b → X-5 (9 nov) → X-3 → X-6 ; avant le 2026-10-27
 | C-3 un décor solide bloque les corps | livré 23 nov (lot de correction du verdict de William du 23 nov ; contrôle rapide découpé vert, revue : merge après corrections, P2 recul/retour corrigé ; capture 30 s `play_scenario` ; acceptation 1837 `collision_decor*` au réépinglage) | `725e4767` |
 | C-5 riposte au coup | **en cours** (suite du verdict de William du 23 nov, point 1 : « les ennemis attaqués de loin ne font rien » ; lancé le 23 nov après le merge de C-3 ; brief `specs-coordinateur/c-5-riposte-coup.md`) | — |
 | C-7 manette : tir et visée sur toutes les plateformes | **écrit le 27 nov** (verdict de William du 27 nov : manette Xbox Bluetooth sous Linux, tir et visée morts ; lot de correction, passe avant C-6, REGLES § 6) | — |
-| C-8 clé au sol visible | **écrit le 27 nov** (verdict de William du 27 nov, point 4 : « je ne vois pas la clé à ramasser » ; demande du coordinateur 1837 ; lot de correction, après C-7, avant C-6) | — |
+| C-8 clé au sol visible | **écrit le 27 nov, oui de William le 27** (verdict de William du 27 nov, point 4 : « je ne vois pas la clé à ramasser » ; demande du coordinateur 1837 ; lot de correction, après C-7, avant C-6) | — |
 | C-6 arme en main comme au banc | **écrit le 23 nov** (suite du verdict, point 2 : changer à la hache au lieu de F ; écart n° 2 de P-1 tranché par William ; part après C-8) | — |
-| U-1 invites à l'écran (touches, lieux, information, dialogue) | **écrit le 23 nov, ne part pas avant la confirmation de William** (décision de William du 23 nov, nuit ; place proposée : après C-6, avant C-4 et X-6e) | — |
-| C-4 sons de feedback manquants | **écrit le 23 nov** (lot de correction du verdict de William du 23 nov, point 5 ; part après C-6, avant X-6e : ordre validé par William le 23 nov au soir, § 3) | — |
+| C-4 sons de feedback manquants | **écrit le 23 nov** (lot de correction du verdict de William du 23 nov, point 5 ; part après C-6, avant X-6e ; ordre de William du 27 nov, § 3) | — |
+| U-1 invites à l'écran (touches, lieux, information, dialogue) | **écrit le 23 nov ; place décidée par William le 27 : après X-6e** | — |
 
 Dans l'ordre du calendrier de `1837/docs/tranche.md`. Tout verbe nouveau de 1837 passe par l'engine (X-1 gelé), avec le contenu générique du testbed et des noms neutres (§ 5).
 Un lot ne part qu'avec sa preuve écrite ici. Un lot = une branche, un worker omp Sonnet, `make check_rapide` vert avant le merge (par le coordinateur) ; la suite de
