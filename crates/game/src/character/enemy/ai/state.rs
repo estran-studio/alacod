@@ -1005,6 +1005,13 @@ mod tests {
             hasher.finish()
         }
         let idle = BehaviorRuntime::default();
+        // Valeurs relevées sur origin/main (rev 725e4767, avant C-5) : le dump et le hash d'un
+        // ennemi jamais touché ne bougent pas.
+        assert_eq!(
+            format!("{idle:?}"),
+            "BehaviorRuntime { selected: None, since_frame: 0, charge: Idle, charge_ready_at: 0, charge_hit: None, wander_dir: (0, 0), wander_next: 0, heard: None }"
+        );
+        assert_eq!(digest(&idle), 12140863795936750328);
         let mut provoked = BehaviorRuntime::default();
         provoked.provoked = Some((GgrsNetId(3, String::new()), 100));
         assert_ne!(digest(&idle), digest(&provoked));
