@@ -505,6 +505,21 @@ pub fn move_enemies(
                 (actual_target - enemy_pos_v2).normalize_or_zero()
             };
 
+        // C-5 (§133) : le champ de flux mène au joueur le plus proche par le chemin ; provoqué par un
+        // autre, l'ennemi marche droit sur son attaquant (la cible est déjà posée dans `EnemyTarget`),
+        // les murs sont gérés par l'évitement et le glissement ci-dessous. Dette D241 : pas de chemin
+        // par attaquant autour d'un obstacle lointain. Sans provocation : le calcul d'origine.
+        let direction_to_target_v2 = match behavior_runtime
+            .and_then(|runtime| runtime.provoker(frame.frame))
+        {
+            Some(provoker)
+                if flow_field_cache.nearest_target(nav_key, enemy_pos_v2) != Some(provoker.0) =>
+            {
+                (actual_target - enemy_pos_v2).normalize_or_zero()
+            }
+            _ => direction_to_target_v2,
+        };
+
         // --- General Obstacle Avoidance Steering ---
         // Use FlowField's blocked cells for O(1) lookups instead of O(walls) collision checks
         let direction_to_target_v2 = if let Some(direction) = recovery_direction {

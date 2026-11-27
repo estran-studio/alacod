@@ -1,0 +1,28 @@
+// C-5 (testbed, docs/conventions.md §133) : fin de la provocation. `riposte_court` (`provocation: 60`, garde `ReturnHome`) guette en (640, 696) ; touché
+// vers f102 il marche sur le joueur 0 (424, 696) jusqu'à f162 environ (≈ 120 unités parcourues, encore hors d'aggro : 96 unités du joueur), puis perd sa
+// cible : la garde, un instant levée, le ramène à son point d'apparition et il y reste.
+//
+// À regarder : poursuite de f102 à f162, demi-tour, retour à reculons au poste (≈ f200) et immobilité.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 290,
+    characters: [(character: "riposte_court", x: "640.0", y: "696.0", at_frame: 1)],
+    players: [
+        (weapon: "pistol", inputs: [
+            (from: 0, to: 70, buttons: [], pan: (100, 0)),
+            (from: 70, to: 71, buttons: [Fire], pan: (100, 0)),
+            (from: 71, to: 290, buttons: [], pan: (100, 0)),
+        ]),
+    ],
+    expect: [
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 140),
+        EnemyPosition(entity: Placed(0), x_max: Some(600.0), at_frame: 150),
+        // Provocation finie : plus de cible, retour au point d'apparition (moins d'une case)
+        EnemyPosition(entity: Placed(0), x_min: Some(624.0), x_max: Some(656.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 280),
+        EnemyPosition(entity: Placed(0), x_min: Some(624.0), x_max: Some(656.0), y_min: Some(680.0), y_max: Some(712.0), at_frame: 289),
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(190.0), at_frame: 289),
+        PlayerAlive(handle: 0, at_frame: 289),
+    ],
+)

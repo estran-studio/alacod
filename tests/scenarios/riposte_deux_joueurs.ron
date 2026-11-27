@@ -1,0 +1,31 @@
+// C-5 (testbed, docs/conventions.md §133) : deux joueurs. `riposte` guette en (640, 696), hors d'aggro des deux. Le joueur 1 monte le long du mur
+// (de f1 à f60) : il devient le plus proche (≈ 160 unités contre 216) ; le joueur 0, resté en (424, 696), lui tire dessus (appui f70, balle au contact
+// vers f102). Provoqué, l'ennemi vise le **tireur** (le joueur 0), pas le plus proche : il marche sur la ligne y = 696, sans dévier vers le joueur 1.
+//
+// À regarder : l'ennemi ne bouge pas tant qu'il n'est pas touché, puis traverse la salle droit vers le joueur 0 qui a tiré.
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/arene_vide.ldtk",
+    frames: 190,
+    characters: [(character: "riposte", x: "640.0", y: "696.0", at_frame: 1)],
+    players: [
+        (weapon: "pistol", inputs: [
+            (from: 0, to: 70, buttons: [], pan: (100, 0)),
+            (from: 70, to: 71, buttons: [Fire], pan: (100, 0)),
+            (from: 71, to: 190, buttons: [], pan: (100, 0)),
+        ]),
+        (inputs: [(from: 1, to: 60, buttons: [Up], pan: (0, 100))]),
+    ],
+    expect: [
+        EnemyDistance(entity: Placed(0), target: Player(0), min: Some(214.0), max: Some(218.0), at_frame: 65),
+        EnemyDistance(entity: Placed(0), target: Player(1), max: Some(205.0), at_frame: 65),
+        EnemyPosition(entity: Placed(0), x_min: Some(632.0), x_max: Some(648.0), y_min: Some(688.0), y_max: Some(704.0), at_frame: 95),
+        EnemyState(entity: Placed(0), behavior: "Chase", at_frame: 140),
+        EnemyPosition(entity: Placed(0), x_max: Some(590.0), y_min: Some(688.0), y_max: Some(704.0), at_frame: 140),
+        EnemyDistance(entity: Placed(0), target: Player(0), max: Some(135.0), at_frame: 170),
+        EnemyPosition(entity: Placed(0), y_min: Some(688.0), y_max: Some(704.0), at_frame: 170),
+        PlayerAlive(handle: 0, at_frame: 189),
+        PlayerAlive(handle: 1, at_frame: 189),
+    ],
+)

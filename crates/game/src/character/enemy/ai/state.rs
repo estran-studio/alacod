@@ -122,6 +122,12 @@ pub struct EnemyAiConfig {
     /// d'avant P-1) : aucun effet. Statique, comme `stationary` : exclu du `Hash`.
     #[serde(default)]
     pub ranged_cycle: Option<super::cycle::RangedCycleConfig>,
+    /// Riposte au coup (C-5, `docs/conventions.md` §133) : `Some(frames)` = un joueur qui blesse cet
+    /// ennemi devient sa cible pendant `frames` frames, même hors `aggro_range`/`sight_range`, et
+    /// prioritaire sur le plus proche. `None` (tout le contenu d'avant C-5) : aucun effet. Statique,
+    /// comme `sight_range` : exclu du `Hash`.
+    #[serde(default)]
+    pub provocation: Option<u32>,
 }
 
 /// Tir à distance d'un ennemi (T1.2) : à moins de `range` de sa cible `Player` et
@@ -204,6 +210,9 @@ impl std::fmt::Debug for EnemyAiConfig {
         if let Some(cycle) = &self.ranged_cycle {
             debug.field("ranged_cycle", cycle);
         }
+        if let Some(frames) = &self.provocation {
+            debug.field("provocation", frames);
+        }
         debug.finish()
     }
 }
@@ -226,6 +235,7 @@ impl Default for EnemyAiConfig {
             ranged: None,
             sight_range: None,
             ranged_cycle: None,
+            provocation: None,
         }
     }
 }
@@ -279,6 +289,7 @@ impl EnemyAiConfig {
             ranged: None,
             sight_range: None,
             ranged_cycle: None,
+            provocation: None,
         }
     }
 
@@ -300,6 +311,7 @@ impl EnemyAiConfig {
             ranged: None,
             sight_range: None,
             ranged_cycle: None,
+            provocation: None,
         }
     }
 
@@ -331,6 +343,7 @@ impl EnemyAiConfig {
             ranged: None,
             sight_range: None,
             ranged_cycle: None,
+            provocation: None,
         }
     }
 
@@ -356,6 +369,7 @@ impl EnemyAiConfig {
             ranged: None,
             sight_range: None,
             ranged_cycle: None,
+            provocation: None,
         }
     }
 }
@@ -398,6 +412,9 @@ pub struct EnemyAiConfigRon {
     /// P-1 (§110) : cycle d'un tireur posté, voir [`EnemyAiConfig::ranged_cycle`].
     #[serde(default)]
     pub ranged_cycle: Option<super::cycle::RangedCycleConfig>,
+    /// C-5 (§133) : riposte au coup, voir [`EnemyAiConfig::provocation`].
+    #[serde(default)]
+    pub provocation: Option<u32>,
 }
 
 /// M2-T8 : appartenance à une escouade. Les membres vivants d'un même `id` forment l'escouade
@@ -498,6 +515,7 @@ impl From<&EnemyAiConfigRon> for EnemyAiConfig {
         }
 
         config.ranged_cycle = ron.ranged_cycle.clone();
+        config.provocation = ron.provocation;
         config
     }
 }
@@ -728,6 +746,9 @@ pub struct BehaviorRuntime {
     pub wander_next: u32,
     /// Tireur entendu (`Perception::Hearing`) et frame d'oubli.
     pub heard: Option<(GgrsNetId, u32)>,
+    /// C-5 (§133) : joueur dont le dernier coup provoque l'ennemi (`ai.provocation`) et frame
+    /// d'échéance (exclue). `None` : jamais touché, ou provocation finie.
+    pub provoked: Option<(GgrsNetId, u32)>,
     /// X-6b : point d'apparition (posé au spawn par `spawn_enemy` quand l'ennemi liste
     /// `ReturnHome`), `None` sinon.
     pub home: Option<(fixed_math::Fixed, fixed_math::Fixed)>,
@@ -759,6 +780,14 @@ impl BehaviorRuntime {
     fn cover_active(&self) -> bool {
         self.cover != CoverPhase::Idle || self.cover_pending || self.cover_shooting
     }
+
+    /// C-5 (§133) : le joueur dont le coup provoque encore l'ennemi à la frame `now` (échéance exclue).
+    pub fn provoker(&self, now: u32) -> Option<&GgrsNetId> {
+        self.provoked
+            .as_ref()
+            .filter(|(_, until)| now < *until)
+            .map(|(id, _)| id)
+    }
 }
 
 impl std::hash::Hash for BehaviorRuntime {
@@ -785,6 +814,10 @@ impl std::hash::Hash for BehaviorRuntime {
             self.cover_pending.hash(state);
             self.cover_shooting.hash(state);
         }
+        // C-5 : haché seulement tant qu'une provocation est posée (un ennemi jamais touché garde son hash).
+        if let Some(provoked) = &self.provoked {
+            provoked.hash(state);
+        }
     }
 }
 
@@ -810,6 +843,9 @@ impl std::fmt::Debug for BehaviorRuntime {
             dump.field("cover", &self.cover)
                 .field("cover_pending", &self.cover_pending)
                 .field("cover_shooting", &self.cover_shooting);
+        }
+        if self.provoked.is_some() {
+            dump.field("provoked", &self.provoked);
         }
         dump.finish()
     }
@@ -956,5 +992,36 @@ mod tests {
         assert_eq!(behaviors.hearing, Some(fixed_math::new(300.0)));
         assert_eq!(behaviors.ignore, vec![sim_core::tag::Tag::new("ghost")]);
         assert!(!behaviors.needs_runtime());
+    }
+
+    /// C-5 (§133) : `provoked` n'entre dans `Hash` et `Debug` que posé ; un ennemi jamais touché garde le
+    /// hash et le dump d'avant le champ ; l'échéance est exclue.
+    #[test]
+    fn provocation_is_hashed_only_when_set_and_expires() {
+        use std::hash::{Hash, Hasher};
+        fn digest(runtime: &BehaviorRuntime) -> u64 {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            runtime.hash(&mut hasher);
+            hasher.finish()
+        }
+        let idle = BehaviorRuntime::default();
+        // Valeurs relevées sur origin/main (rev 725e4767, avant C-5) : le dump et le hash d'un
+        // ennemi jamais touché ne bougent pas.
+        assert_eq!(
+            format!("{idle:?}"),
+            "BehaviorRuntime { selected: None, since_frame: 0, charge: Idle, charge_ready_at: 0, charge_hit: None, wander_dir: (0, 0), wander_next: 0, heard: None }"
+        );
+        assert_eq!(digest(&idle), 12140863795936750328);
+        let mut provoked = BehaviorRuntime::default();
+        provoked.provoked = Some((GgrsNetId(3, String::new()), 100));
+        assert_ne!(digest(&idle), digest(&provoked));
+        assert!(!format!("{idle:?}").contains("provoked"));
+        assert!(format!("{provoked:?}").contains("provoked"));
+        provoked.provoked = None;
+        assert_eq!(digest(&idle), digest(&provoked));
+
+        provoked.provoked = Some((GgrsNetId(3, String::new()), 100));
+        assert_eq!(provoked.provoker(99), Some(&GgrsNetId(3, String::new())));
+        assert_eq!(provoked.provoker(100), None);
     }
 }
