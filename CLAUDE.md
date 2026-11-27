@@ -361,6 +361,7 @@ Variables d'environnement (natif) :
   (`brief`, `give`, `spawn`, `restart`, `reload`, `modifier`, `screenshot`…), `alacod new-arena` écrit l'arène vide, `alacod lint|describe|new-content|test|new` ; `alacod build --web [--serve]` construit la version web d'un jeu (M-1, `docs/conventions.md` §108) ; aucun `make` ni script requis.
   Un jeu créé par `alacod new` l'a **sans code** (`templates/starter` : profil `arene`, `main.rs` inchangé) ; preuve de bout en bout
   `make test_alacod_cli` (`new_game_opens_its_sandbox_without_any_added_code`, §88). `ALACOD_EXIT_AT_FRAME` exige `ALACOD_STATE_TRACE`.
+- `ALACOD_INPUT_DEBUG=1` (natif, C-7, `docs/conventions.md` §134) : journalise la manette (nom, mapping) et ses axes/boutons bruts ; avertit une manette muette (Parsec, Steam Input). Présentation seule.
 - `ALACOD_MUTE=1` : aucun son de feedback n'est joué (captures, `play_scenario`, suite jouée sur un poste
   de travail) ; le journal `feedback … sound` et les moments clés restent intacts. Présentation seule.
 - `ALACOD_INPUT_DELAY=<frames>` (P-1e, `docs/conventions.md` § 125) : délai d'entrée de la session GGRS, prioritaire sur tout défaut ; défauts : **0** hors ligne

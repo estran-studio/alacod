@@ -7,6 +7,7 @@ pub mod control;
 pub mod create;
 pub mod dash;
 pub mod enemy;
+pub mod gamepad_diagnostics;
 pub mod health;
 pub mod health_bar;
 pub mod input_devices;

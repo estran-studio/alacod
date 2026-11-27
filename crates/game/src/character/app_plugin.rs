@@ -18,6 +18,7 @@ use crate::character::{
     },
     config_asset::CharacterConfigAssetPlugin,
     control::PlayerAction,
+    gamepad_diagnostics::GamepadDiagnosticsPlugin,
     health_bar::update_health_bars,
     input_devices::{attach_local_player_input, collect_device_inputs},
     player::input::{read_local_inputs, DeviceInputs},
@@ -43,6 +44,8 @@ impl Plugin for CharacterAppPlugin {
         if !self.headless {
             app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
             app.init_resource::<DeviceInputs>();
+            // C-7 : diagnostic de la manette (journal, `ALACOD_INPUT_DEBUG`), `Update`, hors rollback.
+            app.add_plugins(GamepadDiagnosticsPlugin);
             app.add_systems(ReadInputs, collect_device_inputs.before(read_local_inputs));
             app.add_systems(
                 PreUpdate,

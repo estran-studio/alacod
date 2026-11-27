@@ -9385,3 +9385,13 @@ Verdict de William (1837, 23 nov) : « les ennemis attaqués de loin ne font rie
 - **Scénarios (testbed : `riposte`, `riposte_court`, `riposte_temoin`)** : `riposte_un_joueur`, `riposte_deux_joueurs` (le tireur est le joueur le plus loin), `riposte_fin`, témoin `riposte_temoin` (sans le champ). Aucune attente nouvelle (`EnemyState`, `EnemyDistance`, `EnemyPosition`, `PlayerAlive`). Rouge sans la règle, vert avec.
 
 **Dettes** : D241 (un attaquant que le champ de flux ne désigne pas est visé en ligne droite : pas de chemin dédié autour d'un obstacle ; coups de statut — brûlure, poison — comptent s'ils portent un joueur comme source ; pas de provocation par un coup bloqué avant `resolve_damage` : l'événement suffit).
+
+## 134. Manette : diagnostic et aide (C-7, `docs/taches/rapports/c-7-manette-diagnostic.md`)
+
+Cause du verdict de William (27 nov, « ni tir ni visée à la manette ») : **Parsec** tenait la manette ; sans lui, la manette Xbox Bluetooth `045e:0b13` donne tir (RT) et visée (stick droit). Aucune liaison ni aucun seuil d'input ne change.
+
+- **Aide** : quitter Parsec, Steam Input (ou tout programme qui tient la manette) avant de jouer à la manette ; `ALACOD_INPUT_DEBUG=1` pour vérifier ce que le jeu reçoit. Une ligne dans `templates/starter/README.md`.
+- **`ALACOD_INPUT_DEBUG=1`** (natif ; `character::gamepad_diagnostics`) : à la connexion, une ligne `manette connectée : nom=… id=<fabricant>:<produit> guid=<motif> mapping=<source>` ; le motif de GUID a le bus et la version en `????` (bevy ne les transmet pas) ; la source est `SDL_GAMECONTROLLERCONFIG` si la variable est posée, sinon la base SDL embarquée par gilrs (par GUID). Puis une ligne `manette "<nom>" : axe RightStickX = 0.812` / `bouton RightTrigger2 = 1.000` par **événement brut** (`RawGamepadEvent`, avant les liaisons) dont la valeur varie d'au moins 0,05 depuis la dernière valeur journalisée (`NOISE_THRESHOLD`) : pas une ligne par frame.
+- **Avertissement nommé** (toujours actif, `warn!`, une fois par manette) : une manette connectée qui n'a émis aucun événement brut pendant 1 800 frames de rendu avec un joueur local (≈ 30 s) ; nomme Parsec et Steam Input. Une manette posée que personne ne touche est indiscernable d'une manette tenue ailleurs : le message le dit.
+- **Frontière** : systèmes `Update` de `CharacterAppPlugin` (hors headless), ressource `GamepadDiagnostics` non rollback, jamais lue par la simulation ; aucune trace ne bouge. Web : pas de variable d'environnement ; la preuve passe par l'API Gamepad du navigateur (console de Chrome).
+- **Tests** : `control.rs` (harnais `Pad`) : muette ⇒ un avertissement ; active ⇒ aucun ; sans joueur local ⇒ aucun.

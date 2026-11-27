@@ -298,4 +298,70 @@ mod tests {
             assert!(!pad.actions().pressed(&action), "{button:?} relâché");
         }
     }
+
+    /// C-7 : une manette connectée qui ne transmet rien pendant qu'on joue (tenue par Parsec, Steam Input)
+    /// déclenche l'avertissement une seule fois ; une manette qui parle n'en déclenche aucun.
+    fn watch(pad: &mut Pad, silent_frames: u32) {
+        use crate::character::gamepad_diagnostics::*;
+        let mut diag = GamepadDiagnostics::new(false);
+        diag.silent_frames = silent_frames;
+        pad.app.insert_resource(diag);
+        pad.app.add_systems(
+            Update,
+            (
+                track_raw_gamepad_events,
+                warn_silent_gamepads.after(track_raw_gamepad_events),
+            ),
+        );
+        pad.app
+            .world_mut()
+            .spawn(crate::character::player::LocalPlayer {});
+    }
+
+    #[test]
+    fn manette_muette_avertie_une_seule_fois() {
+        use crate::character::gamepad_diagnostics::GamepadDiagnostics;
+        let mut pad = Pad::new();
+        watch(&mut pad, 10);
+        for _ in 0..9 {
+            pad.app.update();
+        }
+        let warned = |p: &Pad| p.app.world().resource::<GamepadDiagnostics>().warned.clone();
+        assert!(warned(&pad).is_empty(), "pas avant le délai");
+        pad.app.update();
+        assert_eq!(warned(&pad), [pad.pad].into_iter().collect());
+        for _ in 0..30 {
+            pad.app.update();
+        }
+        assert_eq!(warned(&pad).len(), 1, "une seule fois");
+    }
+
+    #[test]
+    fn manette_active_jamais_avertie() {
+        use crate::character::gamepad_diagnostics::GamepadDiagnostics;
+        let mut pad = Pad::new();
+        watch(&mut pad, 10);
+        for _ in 0..5 {
+            pad.app.update();
+        }
+        pad.axis(GamepadAxis::RightStickX, 0.8);
+        for _ in 0..40 {
+            pad.app.update();
+        }
+        assert!(pad.app.world().resource::<GamepadDiagnostics>().warned.is_empty());
+    }
+
+    #[test]
+    fn sans_joueur_local_pas_d_avertissement() {
+        use crate::character::gamepad_diagnostics::*;
+        let mut pad = Pad::new();
+        let mut diag = GamepadDiagnostics::new(false);
+        diag.silent_frames = 3;
+        pad.app.insert_resource(diag);
+        pad.app.add_systems(Update, warn_silent_gamepads);
+        for _ in 0..20 {
+            pad.app.update();
+        }
+        assert!(pad.app.world().resource::<GamepadDiagnostics>().warned.is_empty());
+    }
 }
