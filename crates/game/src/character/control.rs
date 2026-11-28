@@ -326,7 +326,13 @@ mod tests {
         for _ in 0..9 {
             pad.app.update();
         }
-        let warned = |p: &Pad| p.app.world().resource::<GamepadDiagnostics>().warned.clone();
+        let warned = |p: &Pad| {
+            p.app
+                .world()
+                .resource::<GamepadDiagnostics>()
+                .warned
+                .clone()
+        };
         assert!(warned(&pad).is_empty(), "pas avant le délai");
         pad.app.update();
         assert_eq!(warned(&pad), [pad.pad].into_iter().collect());
@@ -348,7 +354,12 @@ mod tests {
         for _ in 0..40 {
             pad.app.update();
         }
-        assert!(pad.app.world().resource::<GamepadDiagnostics>().warned.is_empty());
+        assert!(pad
+            .app
+            .world()
+            .resource::<GamepadDiagnostics>()
+            .warned
+            .is_empty());
     }
 
     #[test]
@@ -362,6 +373,11 @@ mod tests {
         for _ in 0..20 {
             pad.app.update();
         }
-        assert!(pad.app.world().resource::<GamepadDiagnostics>().warned.is_empty());
+        assert!(pad
+            .app
+            .world()
+            .resource::<GamepadDiagnostics>()
+            .warned
+            .is_empty());
     }
 }
