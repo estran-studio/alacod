@@ -1,0 +1,7 @@
+({
+    "key/cle_x": (
+        animation: "sprites/anim_still.ron",
+        layers: { "body": "sprites/key_sheet.ron" },
+        display_scale: Some(2.0),
+    ),
+})

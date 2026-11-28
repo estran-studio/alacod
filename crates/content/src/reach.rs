@@ -506,7 +506,9 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
                 .characters
                 .values()
                 .find(|character| character.carries_key.as_deref() == Some(*key))
-                .map_or_else(String::new, |character| character.file.display().to_string());
+                .map_or_else(String::new, |character| {
+                    character.file.display().to_string()
+                });
             warn(
                 LintWarningKind::KeyWithoutVisual,
                 file,

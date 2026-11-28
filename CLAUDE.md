@@ -520,6 +520,7 @@ ou d'un crate à l'autre, avec les traces de scénario.
       même test de segment que le behavior `TakeCover`) ; `EnemyState` (règle `TakeCover`), `EnemyPosition` couvrent les six scénarios `repli_couvert_*` (témoin `repli_couvert_temoin`).
     - C-3 décor solide (§132) : aucune attente nouvelle (`PlayerPosition`, `EnemyPosition`, `EnemyDistance`, `EntityCount(kind: Cover)` couvrent les scénarios `decor_solide_*`) ; champ de personnage `solid: true` (avec `prop: true`).
     - C-5 riposte au coup (§133) : aucune attente nouvelle (`EnemyState`, `EnemyDistance`, `EnemyPosition` couvrent les scénarios `riposte_*`) ; champ d'IA `provocation: Some(frames)` (`BehaviorRuntime::provoked`, haché seulement posé).
+    - C-8 clé au sol visible (§134) : aucune attente nouvelle (`KeyPiles`, `TeamKeys`, `Event(kind: "key_pickup")` couvrent `cle_visible_*`) ; invariant par défaut `cle_visible` (toute `KeyPickup` vivante a un `KeyVisual`) ; entrée `key/<id>` puis `key` de `sprites.ron`, champ `display_scale`.
     - X-6f changement de niveau par une porte de sortie (§128) : aucune attente nouvelle (`FloorIndex`, `MapDoor`, `TeamKeys`, `KeyPiles`, `PlayerPosition`, `PlayerDowned`, `Health`, `Ammo`, `ActiveWeapon`,
       `EntityCount`, `Event(kind: "floor" | "key_door")`, `HudText(source: "wisp")` couvrent les sept scénarios `sortie_porte_*`) ; champ de porte LDtk `exit_next_level`, champ de séquence `Floors` `exit_by_door` ;
       la relance est le test `crates/scenario/tests/floors.rs` (`la_relance_apres_la_porte_…`).

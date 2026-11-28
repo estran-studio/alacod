@@ -1,0 +1,10 @@
+// Fixture C-8 (docs/conventions.md §134) : la clé portée `cle_x` a une entrée « key/cle_x » dans la table SpriteSheet (display_scale : Some(2.0)).
+(
+    name: "fixture-key-visual",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "maps", kind: "Map"),
+        (path: "sprites/sprites.ron", kind: "SpriteSheet"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)

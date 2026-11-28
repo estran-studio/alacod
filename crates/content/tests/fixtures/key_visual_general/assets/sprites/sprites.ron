@@ -1,0 +1,6 @@
+({
+    "key": (
+        animation: "sprites/anim_still.ron",
+        layers: { "body": "sprites/key_sheet.ron" },
+    ),
+})

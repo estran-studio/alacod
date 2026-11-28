@@ -1,0 +1,9 @@
+// M3-T17 : image unique pour toutes les animations (placeholders sans animation dessinée).
+(
+    frame_duration: 120,
+    animations: {
+        "Idle": (start: 0, end: 0),
+        "Run": (start: 0, end: 0),
+        "Dying_1": (start: 0, end: 0),
+    },
+)

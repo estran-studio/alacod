@@ -160,6 +160,12 @@ impl Plugin for KeysPlugin {
         // La ressource existe toujours (valeur par défaut = aucune clé) ; son enregistrement rollback
         // (neutre) est dans `core_sim`, après tous les plugins.
         app.init_resource::<TeamKeys>();
+        // C-8 (§134) : visuel décidé hors rendu juste après la simulation (headless compris, lu par l'invariant `cle_visible`),
+        // dessiné par `world_sprites::attach_key_visuals`. Non rollback.
+        app.add_systems(
+            PreUpdate,
+            crate::key_visuals::decide_key_visuals.after(bevy_ggrs::RunGgrsSystems),
+        );
         app.add_systems(
             GgrsSchedule,
             key_drop_on_death_system

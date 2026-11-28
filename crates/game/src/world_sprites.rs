@@ -46,6 +46,14 @@ pub struct WorldSpritePlugin;
 
 impl Plugin for WorldSpritePlugin {
     fn build(&self, app: &mut App) {
+        // Le visuel d'une clé au sol se dessine dans `Update` d'après `key_visuals::KeyVisual` (décidé en `PreUpdate`, hors rendu).
+        app.add_systems(
+            Update,
+            (
+                attach_key_visuals,
+                hide_despawned_keys.after(attach_key_visuals),
+            ),
+        );
         // Le sprite d'une balle naît juste après la simulation (voir `attach_bullet_visuals`).
         app.add_systems(
             PreUpdate,
@@ -136,6 +144,16 @@ pub(crate) struct SpriteTable<'w> {
 }
 
 impl SpriteTable<'_> {
+    /// L'entrée `id` est déclarée dans la table du jeu (feuille chargée ou non).
+    pub(crate) fn declared(&self, id: &str) -> bool {
+        self.global.as_ref().is_some_and(|global| {
+            global
+                .spritesheets
+                .get(id)
+                .is_some_and(|l| l.contains_key("body"))
+        })
+    }
+
     /// Feuille du calque `body` de l'entrée `id`.
     pub(crate) fn sheet(&self, id: &str) -> Option<&SpriteSheetConfig> {
         let global = self.global.as_ref()?;
@@ -964,6 +982,113 @@ fn hide_despawned_world_sprites(
     }
 }
 
+/// Une clé d'équipe au sol (`KeyPickup`) dont le visuel est dessiné ; `children` sont ses sprites (enfants non rollback,
+/// détruits avec elle). C-8, `docs/conventions.md` § 134.
+#[derive(Component)]
+pub struct KeyDrawn {
+    children: Vec<Entity>,
+}
+
+/// Or du marqueur par défaut d'une clé, et son cerclage sombre (lisibles sur un sol clair comme sombre).
+const KEY_MARKER_FILL: Color = Color::srgb(0.94, 0.77, 0.19);
+const KEY_MARKER_OUTLINE: Color = Color::srgb(0.16, 0.11, 0.03);
+/// Plan du marqueur : devant les sols et les ombres, comme les images posées par `attach_world_sprites` (`offset_z` 3).
+const KEY_MARKER_Z: f32 = 3.0;
+
+/// Feuille de la clé à l'échelle d'affichage : échelle de la feuille × facteur (`display_scale`), donc taille × facteur.
+pub(crate) fn scaled_sheet(sheet: &SpriteSheetConfig, display_scale: f32) -> SpriteSheetConfig {
+    let mut sheet = sheet.clone();
+    sheet.scale *= display_scale;
+    sheet
+}
+
+/// Sprites du marqueur par défaut, du fond vers le devant : cerclage sombre puis rectangle doré, à l'échelle d'affichage.
+pub(crate) fn key_marker_sprites(display_scale: f32) -> [(Sprite, Vec3); 2] {
+    let fill =
+        crate::key_visuals::key_display_size(crate::key_visuals::FALLBACK_SIZE, display_scale);
+    let outline = crate::key_visuals::key_display_size(
+        crate::key_visuals::FALLBACK_SIZE + Vec2::splat(2.0),
+        display_scale,
+    );
+    [
+        (
+            Sprite::from_color(KEY_MARKER_OUTLINE, outline),
+            Vec3::new(0.0, 0.0, KEY_MARKER_Z),
+        ),
+        (
+            Sprite::from_color(KEY_MARKER_FILL, fill),
+            Vec3::new(0.0, 0.0, KEY_MARKER_Z + 0.1),
+        ),
+    ]
+}
+
+/// Dessine chaque clé au sol d'après sa [`crate::key_visuals::KeyVisual`] : l'image `Idle` de l'entrée du jeu à l'échelle
+/// d'affichage, ou le marqueur par défaut (sans entrée, ou entrée absente de la table chargée). Une entrée déclarée dont la feuille
+/// n'est pas encore chargée attend (la clé n'est jamais dessinée à moitié). Une clé recréée par un rollback (sans `KeyDrawn`) est redessinée.
+fn attach_key_visuals(
+    mut commands: Commands,
+    table: SpriteTable,
+    asset_server: Res<AssetServer>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    keys: Query<(Entity, &crate::key_visuals::KeyVisual), Without<KeyDrawn>>,
+) {
+    for (entity, visual) in &keys {
+        let children = match visual.sheet.as_deref() {
+            Some(id) if table.declared(id) => {
+                let Some(sheet) = table.sheet(id) else {
+                    continue;
+                };
+                let frame = table.frame(id, "Idle").unwrap_or(0);
+                vec![create_child_sprite(
+                    &mut commands,
+                    &asset_server,
+                    &mut layouts,
+                    entity,
+                    &scaled_sheet(sheet, visual.scale),
+                    frame,
+                )]
+            }
+            _ => key_marker_sprites(visual.scale)
+                .into_iter()
+                .map(|(sprite, at)| {
+                    let child = commands
+                        .spawn((sprite, Transform::from_translation(at)))
+                        .id();
+                    commands.entity(entity).add_child(child);
+                    child
+                })
+                .collect(),
+        };
+        // `Visibility` sur le parent : ses enfants héritent d'une visibilité propagée (la clé n'a pas de sprite à elle).
+        commands
+            .entity(entity)
+            .try_insert((KeyDrawn { children }, Visibility::default()));
+    }
+}
+
+/// Une clé ramassée est détruite par `despawn_rollback` : désactivée (`RollbackDespawned`) jusqu'à la confirmation de sa frame, mais
+/// ses sprites enfants resteraient affichés. Les cache tant que le parent est désactivé, les montre si un rollback le ressuscite.
+fn hide_despawned_keys(
+    gone: Query<&KeyDrawn, With<bevy_ggrs::RollbackDespawned>>,
+    alive: Query<&KeyDrawn, Without<bevy_ggrs::RollbackDespawned>>,
+    mut visibilities: Query<&mut Visibility>,
+) {
+    for drawn in &gone {
+        for child in &drawn.children {
+            if let Ok(mut visibility) = visibilities.get_mut(*child) {
+                visibility.set_if_neq(Visibility::Hidden);
+            }
+        }
+    }
+    for drawn in &alive {
+        for child in &drawn.children {
+            if let Ok(mut visibility) = visibilities.get_mut(*child) {
+                visibility.set_if_neq(Visibility::Inherited);
+            }
+        }
+    }
+}
+
 /// Marque une larme dont le look (couleur, opacité, taille) est posé.
 #[derive(Component)]
 pub struct TearStyled;
@@ -1278,5 +1403,83 @@ mod tests {
             ["item/inconnu", "item"]
         );
         assert_eq!(weapon_candidates("arc"), ["weapon/arc", "weapon"]);
+    }
+}
+
+#[cfg(test)]
+mod key_tests {
+    use super::*;
+    use crate::key_visuals::{key_display_size, KeyVisual, FALLBACK_SIZE};
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()));
+        app.init_asset::<SpriteSheetConfig>()
+            .init_asset::<AnimationMapConfig>()
+            .init_asset::<TextureAtlasLayout>()
+            .init_asset::<Image>();
+        app.add_systems(Update, attach_key_visuals);
+        app
+    }
+
+    fn sheet(scale: f32) -> SpriteSheetConfig {
+        SpriteSheetConfig {
+            path: "key.png".into(),
+            tile_size: (19, 7),
+            columns: 1,
+            rows: 1,
+            name: "body".into(),
+            scale,
+            offset_x: 0.0,
+            offset_y: 0.0,
+            offset_z: 3.0,
+            animated: false,
+            anchor: animation::ConfigurableAnchor::Center,
+            own_colors: false,
+            directions: None,
+        }
+    }
+
+    /// Taille du visuel = taille × facteur : l'échelle de la feuille est multipliée, celle du marqueur aussi.
+    #[test]
+    fn the_display_scale_multiplies_the_size_of_the_image_and_of_the_marker() {
+        assert_eq!(scaled_sheet(&sheet(1.5), 2.0).scale, 3.0);
+        assert_eq!(scaled_sheet(&sheet(1.0), 1.0).scale, 1.0);
+        let [outline, fill] = key_marker_sprites(2.0);
+        assert_eq!(
+            fill.0.custom_size,
+            Some(key_display_size(FALLBACK_SIZE, 2.0))
+        );
+        assert_eq!(
+            fill.0.custom_size,
+            Some(FALLBACK_SIZE * 2.0),
+            "taille × facteur"
+        );
+        assert!(outline.0.custom_size.unwrap().x > fill.0.custom_size.unwrap().x);
+        assert!(outline.1.z < fill.1.z, "le cerclage est derrière l'or");
+    }
+
+    /// Une clé sans entrée dans la table est dessinée : deux sprites enfants visibles, à l'échelle demandée ; une seule fois.
+    #[test]
+    fn a_key_without_an_entry_is_drawn_by_the_default_marker_once() {
+        let mut app = app();
+        let key = app
+            .world_mut()
+            .spawn(KeyVisual {
+                sheet: None,
+                scale: 2.0,
+            })
+            .id();
+        app.update();
+        app.update();
+        let drawn = app.world().get::<KeyDrawn>(key).expect("clé dessinée");
+        assert_eq!(drawn.children.len(), 2, "pas de doublon au second passage");
+        let fill = app.world().get::<Sprite>(drawn.children[1]).unwrap();
+        assert_eq!(fill.custom_size, Some(FALLBACK_SIZE * 2.0));
+        assert_eq!(
+            app.world().get::<Visibility>(drawn.children[1]),
+            Some(&Visibility::Inherited)
+        );
+        assert!(app.world().get::<Visibility>(key).is_some());
     }
 }

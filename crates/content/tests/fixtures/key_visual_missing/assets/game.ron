@@ -1,0 +1,9 @@
+// Fixture C-8 (docs/conventions.md §134) : une clé d'équipe portée (`carries_key: Some("cle_x")`) sans entrée `key/cle_x` ni `key` : avertissement `KeyWithoutVisual`.
+(
+    name: "fixture-key-visual",
+    content_folders: [
+        (path: "characters", kind: "Character"),
+        (path: "maps", kind: "Map"),
+    ],
+    entry: (start_map: "maps/salle.ldtk", default_seed: 1),
+)
