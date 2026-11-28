@@ -210,6 +210,7 @@ fn new_creates_a_lint_clean_game_with_agent_config() {
         "rust-toolchain.toml",
         "src/main.rs",
         "CLAUDE.md",
+        "README.md",
         ".claude/settings.json",
         "assets/game.ron",
         "assets/maps/arena.ldtk",
@@ -227,7 +228,11 @@ fn new_creates_a_lint_clean_game_with_agent_config() {
     assert!(cargo.contains("[workspace]") && cargo.contains("[patch.crates-io]"));
     assert!(!cargo.contains("{{"), "placeholder non remplacé :\n{cargo}");
 
-    for file in ["src/main.rs", "CLAUDE.md", "assets/game.ron"] {
+    let readme = std::fs::read_to_string(game.join("README.md")).unwrap();
+    assert!(readme.starts_with("# mon-jeu"), "README : nom non remplacé");
+    assert!(readme.contains("Parsec"), "README : aide manette absente");
+
+    for file in ["src/main.rs", "CLAUDE.md", "README.md", "assets/game.ron"] {
         let text = std::fs::read_to_string(game.join(file)).unwrap();
         assert!(!text.contains("{{"), "{file} : placeholder non remplacé");
         assert!(

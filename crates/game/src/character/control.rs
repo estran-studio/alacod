@@ -303,16 +303,11 @@ mod tests {
     /// déclenche l'avertissement une seule fois ; une manette qui parle n'en déclenche aucun.
     fn watch(pad: &mut Pad, silent_frames: u32) {
         use crate::character::gamepad_diagnostics::*;
-        let mut diag = GamepadDiagnostics::new(false);
-        diag.silent_frames = silent_frames;
-        pad.app.insert_resource(diag);
-        pad.app.add_systems(
-            Update,
-            (
-                track_raw_gamepad_events,
-                warn_silent_gamepads.after(track_raw_gamepad_events),
-            ),
-        );
+        pad.app.add_plugins(GamepadDiagnosticsPlugin);
+        pad.app
+            .world_mut()
+            .resource_mut::<GamepadDiagnostics>()
+            .silent_frames = silent_frames;
         pad.app
             .world_mut()
             .spawn(crate::character::player::LocalPlayer {});
@@ -366,10 +361,11 @@ mod tests {
     fn sans_joueur_local_pas_d_avertissement() {
         use crate::character::gamepad_diagnostics::*;
         let mut pad = Pad::new();
-        let mut diag = GamepadDiagnostics::new(false);
-        diag.silent_frames = 3;
-        pad.app.insert_resource(diag);
-        pad.app.add_systems(Update, warn_silent_gamepads);
+        pad.app.add_plugins(GamepadDiagnosticsPlugin);
+        pad.app
+            .world_mut()
+            .resource_mut::<GamepadDiagnostics>()
+            .silent_frames = 3;
         for _ in 0..20 {
             pad.app.update();
         }

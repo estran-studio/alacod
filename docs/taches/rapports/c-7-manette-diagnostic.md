@@ -30,7 +30,7 @@ ALACOD_INPUT_DEBUG=1 alacod sandbox <jeu> 2>&1 | grep -i manette
 ```js
 const p = navigator.getGamepads()[0]; [p.id, p.mapping, p.buttons[7].value, p.axes[2], p.axes[3]]
 ```
-Lire : `mapping` = `"standard"`, `buttons[7]` (RT) monte à 1 quand on appuie, `axes[2]` et `axes[3]` bougent avec le stick droit ; relancer la ligne pendant l'appui. Si ces valeurs bougent mais que le jeu ne tire pas ou ne vise pas, la cause est dans la liaison ; sinon, un autre onglet ou programme tient la manette. Le journal `ALACOD_INPUT_DEBUG` n'existe pas côté web (pas d'environnement) : la console de Chrome fait foi.
+Lire : `mapping` = `"standard"`, `buttons[7]` (RT) monte à 1 quand on appuie, `axes[2]` et `axes[3]` bougent avec le stick droit ; relancer la ligne pendant l'appui. Si ces valeurs bougent mais que le jeu ne tire pas ou ne vise pas, la cause est dans la liaison ; sinon, un autre onglet ou programme tient la manette. **Si `p.mapping == ""`** (Chrome ne reconnaît pas la manette : mapping brut), les indices 7 et 2/3 ne valent plus : ne pas s'y fier. Lire alors `p.buttons` et `p.axes` en entier pendant l'appui (`p.buttons.map(b => b.value)`, `p.axes`), repérer ce qui bouge pour RT et pour le stick droit, et noter `p.id`. Les indices relevés disent ce que le navigateur transmet ; avec `mapping == ""`, gilrs côté web ne remappe pas, donc un tir ou une visée absent est d'abord à chercher du côté du mapping. Le journal `ALACOD_INPUT_DEBUG` n'existe pas côté web (pas d'environnement) : la console de Chrome fait foi.
 
 ## Réserves
 - Une manette posée que personne ne touche déclenche l'avertissement après ~30 s de jeu (indiscernable d'une manette tenue ailleurs) : le message le dit.

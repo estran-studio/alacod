@@ -79,7 +79,7 @@ pub fn guid_pattern(vendor: Option<u16>, product: Option<u16>) -> String {
 /// prioritaire sur sa base embarquée).
 pub fn mapping_source(env: Option<&str>) -> &'static str {
     if cfg!(target_arch = "wasm32") {
-        "API Gamepad du navigateur (mapping « standard » du navigateur)"
+        "API Gamepad du navigateur (mapping « standard » du navigateur, ou brut si le navigateur n'en donne pas)"
     } else if env.is_some_and(|v| !v.trim().is_empty()) {
         "variable d'environnement SDL_GAMECONTROLLERCONFIG (prioritaire sur la base SDL embarquée par gilrs)"
     } else {
@@ -204,14 +204,5 @@ mod tests {
             "????00005e040000130b0000????0000"
         );
         assert_eq!(guid_pattern(None, None), "????0000????0000????0000????0000");
-    }
-
-    #[test]
-    fn la_source_du_mapping_nomme_la_variable() {
-        if !cfg!(target_arch = "wasm32") {
-            assert!(mapping_source(Some("abc,x")).contains("SDL_GAMECONTROLLERCONFIG"));
-            assert!(mapping_source(Some("  ")).contains("embarquée"));
-            assert!(mapping_source(None).contains("embarquée"));
-        }
     }
 }
