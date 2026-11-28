@@ -1,0 +1,14 @@
+// C-8 (docs/conventions.md §134) : clé d'équipe au sol, 19×7 px. Placeholder CC0 du projet, `scripts/generer-sprites-feedback.py`.
+(
+    path: "sprites/feedback/key.png",
+    tile_size: (19, 7),
+    columns: 1,
+    rows: 1,
+    animated: false,
+    name: "body",
+    scale: 1.0,
+    anchor: Center,
+    offset_x: 0.0,
+    offset_y: 0.0,
+    offset_z: 3.0,
+)

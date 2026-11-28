@@ -93,6 +93,7 @@
     - sprites/feedback/companion.png
     - sprites/feedback/orbital.png
     - sprites/feedback/champion.png
+    - sprites/feedback/key.png
   source: dessinées pour le projet par scripts/generer-sprites-feedback.py (M3-T17, docs/conventions.md
     §82) ; aucune source tierce, aucun visuel tiré d'un jeu commercial
   auteur: projet alacod

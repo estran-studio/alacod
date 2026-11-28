@@ -1,0 +1,39 @@
+// C-8 (§134) : deux joueurs, le porteur de la clé `cle_image` est tué, la clé tombe entre eux, un seul la ramasse. La clé `cle_image` a une
+// entrée `key/cle_image` dans le sprites.ron du testbed (image 19×7, `display_scale: Some(2.0)`) : l'IMAGE du jeu, agrandie ×2, la dessine.
+// L'invariant `cle_visible` du runner (actif par défaut) échoue à la première frame où une clé vivante n'a aucun visuel décidé.
+//
+// À regarder : le porteur tombe (f≈30), une petite clé dorée à anneau, ≈ 38×14 px à l'écran, reste au sol entre les joueurs (f≈60 à f≈100),
+// ils avancent et elle disparaît une seule fois (`key_pickup` du joueur 0).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/portes_cle.ldtk",
+    frames: 200,
+    characters: [
+        (character: "porteur_cle_image", x: "672", y: "-120", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "larme",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, -63)),
+                (from: 100, to: 120, buttons: [Right]),
+            ],
+        ),
+        (
+            inputs: [
+                (from: 100, to: 120, buttons: [Right]),
+            ],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 10),
+        KeyPiles(count: 0, at_frame: 10),
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 90),
+        KeyPiles(count: 1, at_frame: 90),
+        TeamKeys(key: "cle_image", count: 0, at_frame: 90),
+        KeyPiles(count: 0, at_frame: 199),
+        TeamKeys(key: "cle_image", count: 1, at_frame: 199),
+        Event(kind: "key_pickup", label_contains: Some("joueur 0"), by_frame: 199),
+    ],
+)

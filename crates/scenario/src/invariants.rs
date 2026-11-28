@@ -9,8 +9,10 @@ use bevy_ggrs::Rollback;
 use game::character::health::Health;
 use game::character::player::Player;
 use game::collider::{is_colliding, Collider, Wall};
+use game::key_visuals::KeyVisual;
 use game::model3d::playback::{sim_activity, ModelPlayback};
 pub use game::replay::Invariants;
+use items::KeyPickup;
 use std::collections::{BTreeMap, BTreeSet};
 use utils::net_id::GgrsNetId;
 
@@ -47,6 +49,8 @@ pub struct InvariantQueries {
     >,
     murs: QueryState<(&'static FixedTransform3D, &'static Collider), With<Wall>>,
     animes: QueryState<(Entity, &'static ModelPlayback)>,
+    /// C-8 : clés au sol (`KeyPickup`) et leur visuel décidé.
+    cles: QueryState<(Option<&'static KeyVisual>, &'static GgrsNetId), With<KeyPickup>>,
     historiques: BTreeMap<Entity, AnimationHistory>,
 }
 
@@ -58,6 +62,7 @@ impl InvariantQueries {
             joueurs: world.query_filtered(),
             murs: world.query_filtered(),
             animes: world.query(),
+            cles: world.query_filtered(),
             historiques: BTreeMap::new(),
         }
     }
@@ -120,6 +125,21 @@ impl InvariantQueries {
 
         if config.animation_vivante {
             self.check_animation(world, frame, &mut failures);
+        }
+
+        if config.cle_visible {
+            // C-8 (§134) : une clé vivante sans visuel décidé serait invisible au joueur. Une violation au plus (plus petit net_id).
+            let sans_visuel = self
+                .cles
+                .iter(world)
+                .filter(|(visual, _)| visual.is_none())
+                .map(|(_, net_id)| net_id.0)
+                .min();
+            if let Some(net_id) = sans_visuel {
+                failures.push(format!(
+                    "invariant cle_visible : frame {frame} : la clé au sol net_id {net_id} n'a aucun visuel (ni image du jeu ni marqueur par défaut)"
+                ));
+            }
         }
 
         failures

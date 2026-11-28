@@ -12,6 +12,8 @@ mèche, du champion), un sprite sombre ne montrerait aucune teinte.
 """
 import math
 import os
+import struct
+import zlib
 
 from PIL import Image, ImageDraw
 
@@ -95,6 +97,44 @@ def champion():
     save(img, "champion.png")
 
 
+def key():
+    """Clé au sol 19x7 (C-8, docs/conventions.md §134) : anneau à gauche, tige, deux dents ; or cerclé de sombre.
+
+    Écrite sans PIL (zlib et struct) : le fichier est déterministe octet pour octet.
+    """
+    w, h = 19, 7
+    clear, dark, gold = (0, 0, 0, 0), (40, 28, 8, 255), (240, 196, 48, 255)
+    px = [[clear] * w for _ in range(h)]
+    for y in range(h):  # anneau : disque sombre de rayon 3,4 autour de (3, 3), or à l'intérieur, trou au centre
+        for x in range(7):
+            d = math.hypot(x - 3, y - 3)
+            if d <= 3.4:
+                px[y][x] = dark if d > 2.4 else gold
+            if d <= 0.9:
+                px[y][x] = clear
+    for x in range(6, 18):  # tige : or au centre, bord sombre dessus et dessous
+        px[2][x] = dark
+        px[3][x] = gold
+        px[4][x] = dark
+    for x in (13, 16):  # dents : or cerclé de sombre vers le bas
+        px[5][x] = gold
+        px[6][x] = dark
+        if x + 1 < w:
+            px[5][x + 1] = dark
+        px[5][x - 1] = dark
+    raw = b"".join(b"\x00" + bytes(c for p in row for c in p) for row in px)
+
+    def chunk(kind, data):
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+
+    png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+           + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+    os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, "key.png"), "wb") as f:
+        f.write(png)
+
+
 if __name__ == "__main__":
     tear()
     bomb()
@@ -102,4 +142,5 @@ if __name__ == "__main__":
     companion()
     orbital()
     champion()
+    key()
     print("ok :", ", ".join(sorted(os.listdir(OUT))))

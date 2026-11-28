@@ -50,6 +50,13 @@
         animation: "sprites/feedback/anim_still.ron",
         layers: { "body": "sprites/feedback/rock_sheet.ron" },
     ),
+    // C-8 (§134) : clé d'équipe `cle_image` (porteur `porteur_cle_image`), agrandie ×2 à l'affichage (`display_scale`) ; la clé `cle_test`
+    // (porteur `porteur_cle`) n'a volontairement aucune entrée : marqueur de repli, et avertissement `KeyWithoutVisual` du lint.
+    "key/cle_image": (
+        animation: "sprites/feedback/anim_still.ron",
+        layers: { "body": "sprites/feedback/key_sheet.ron" },
+        display_scale: Some(2.0),
+    ),
     // M-1b (§112) : images des personnages `prop` du testbed (`prop-test`, `wall-test`), feuilles de feedback réutilisées.
     "prop-test": (
         animation: "sprites/feedback/anim_still.ron",

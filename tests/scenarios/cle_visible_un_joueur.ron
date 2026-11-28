@@ -1,0 +1,34 @@
+// C-8 (§134) : un joueur tue le porteur de clé, la clé tombe, il la ramasse. Clé `cle_test` : le testbed ne lui donne aucune image
+// (`key/cle_test` ni `key` absents de sprites.ron), donc le MARQUEUR DE REPLI (rectangle doré cerclé de sombre) la dessine.
+// L'invariant `cle_visible` du runner (actif par défaut) échoue à la première frame où une clé vivante n'a aucun visuel décidé.
+//
+// À regarder : le porteur tombe (f≈30), un petit rectangle doré reste au sol (f≈60 à f≈100), le joueur marche dessus et il disparaît
+// avec elle (f≈110 à 120).
+Scenario(
+    powerup_drop_chance_override: "0.0",
+    game: "testbed",
+    map: "testbed/portes_cle.ldtk",
+    frames: 200,
+    characters: [
+        (character: "porteur_cle", x: "672", y: "-120", at_frame: 1),
+    ],
+    players: [
+        (
+            weapon: "larme",
+            inputs: [
+                (from: 20, to: 41, buttons: [Fire], pan: (127, -63)),
+                (from: 100, to: 120, buttons: [Right]),
+            ],
+        ),
+    ],
+    expect: [
+        EntityCount(kind: Enemy, min: Some(1), max: Some(1), at_frame: 10),
+        KeyPiles(count: 0, at_frame: 10),
+        EntityCount(kind: Enemy, min: Some(0), max: Some(0), at_frame: 90),
+        KeyPiles(count: 1, at_frame: 90),
+        TeamKeys(key: "cle_test", count: 0, at_frame: 90),
+        KeyPiles(count: 0, at_frame: 199),
+        TeamKeys(key: "cle_test", count: 1, at_frame: 199),
+        Event(kind: "key_pickup", label_contains: Some("joueur 0"), by_frame: 199),
+    ],
+)

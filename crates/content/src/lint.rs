@@ -1779,6 +1779,19 @@ fn lint_model_states(registry: &Registry, errors: &mut Vec<LintError>) {
 fn lint_sprite_sheets(registry: &Registry, errors: &mut Vec<LintError>) {
     for sheet in registry.sprite_sheets.values() {
         let file = sheet.file.display().to_string();
+        // C-8 (§134) : facteur d'affichage strictement positif et fini.
+        if let Some(scale) = sheet.display_scale {
+            if !(scale.is_finite() && scale > 0.0) {
+                errors.push(LintError {
+                    kind: LintErrorKind::OutOfRange,
+                    file: file.clone(),
+                    message: format!(
+                        "feuille de sprites « {} » : display_scale = {scale} : doit être fini et > 0",
+                        sheet.id
+                    ),
+                });
+            }
+        }
         let mut check = |field: String, path: &str| {
             if !registry.asset_exists(path) {
                 errors.push(LintError {

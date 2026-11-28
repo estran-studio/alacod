@@ -36,6 +36,7 @@ fn run(frames: u32, frame_of: impl Fn(u32) -> Frame) -> Vec<String> {
         net_ids_uniques: false,
         joueur_hors_mur: false,
         animation_vivante: true,
+        cle_visible: false,
     };
     let mut out = Vec::new();
     for frame in 1..=frames {

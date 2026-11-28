@@ -240,6 +240,10 @@ pub struct Invariants {
     /// et dont la position avance (P-1d, `docs/conventions.md` § 122 ; décision lue dans `ModelPlayback`, hors rendu).
     #[serde(default = "vrai")]
     pub animation_vivante: bool,
+    /// Toute clé d'équipe au sol vivante (`KeyPickup`) a un visuel décidé (`key_visuals::KeyVisual`, C-8, `docs/conventions.md`
+    /// § 134) : image du jeu ou marqueur par défaut, jamais rien. Décision lue hors rendu.
+    #[serde(default = "vrai")]
+    pub cle_visible: bool,
 }
 
 fn vrai() -> bool {
@@ -253,13 +257,18 @@ impl Default for Invariants {
             net_ids_uniques: true,
             joueur_hors_mur: true,
             animation_vivante: true,
+            cle_visible: true,
         }
     }
 }
 
 impl Invariants {
     pub fn tous_actifs(&self) -> bool {
-        self.sante_bornee && self.net_ids_uniques && self.joueur_hors_mur && self.animation_vivante
+        self.sante_bornee
+            && self.net_ids_uniques
+            && self.joueur_hors_mur
+            && self.animation_vivante
+            && self.cle_visible
     }
 }
 

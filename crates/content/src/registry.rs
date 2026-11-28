@@ -888,6 +888,8 @@ pub struct SpriteSheetEntry {
     pub animation: String,
     /// Calque (`body`, `shadow`, `hair`…) -> feuille (`animation::SpriteSheetConfig`).
     pub layers: BTreeMap<String, String>,
+    /// C-8 (§134) : `display_scale` de l'entrée (`None` : 1), lu par `game::key_visuals`.
+    pub display_scale: Option<f32>,
     /// Calque -> image (`path` de la feuille), pour les feuilles lisibles : le lint vérifie
     /// que l'image existe. Une feuille illisible n'a pas d'entrée ici (le lint rapporte déjà
     /// la feuille elle-même).
@@ -2824,6 +2826,10 @@ struct SpriteSheetsFileSchema(KeyedEntries<SpriteSheetEntrySchema>);
 struct SpriteSheetEntrySchema {
     animation: String,
     layers: BTreeMap<String, String>,
+    /// C-8 (§134) : facteur d'affichage **par-dessus** l'échelle de la feuille (défaut 1 : rien ne change), présentation
+    /// seule ; lu pour la clé d'équipe au sol (`key/<id>` puis `key`). Strictement positif. RON : `display_scale: Some(2.0)`.
+    #[serde(default)]
+    display_scale: Option<f32>,
 }
 
 /// X-4a : directions et nombre de lignes de la feuille (`animation::SpriteSheetConfig`).
@@ -4945,6 +4951,7 @@ fn sprite_sheet_entry(
     SpriteSheetEntry {
         id,
         file: rel.to_path_buf(),
+        display_scale: entry.display_scale,
         animation: entry.animation,
         layers: entry.layers,
         images,

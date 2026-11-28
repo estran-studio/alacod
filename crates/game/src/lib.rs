@@ -44,6 +44,7 @@ pub mod interaction_view;
 pub mod items;
 pub mod items_view;
 pub mod jjrs;
+pub mod key_visuals;
 pub mod keys;
 pub mod legibility;
 pub mod light;

@@ -44,6 +44,8 @@ pub enum LintWarningKind {
     /// C-2 (§ 131) : un personnage à modèle dont les règles ont une phase de behavior (annonce ou ruée de `Charge`, recul de
     /// `ReturnHome`, repli de `TakeCover`) que son modèle ne dessine pas (pas de pose dédiée : il garde l'attente ou l'allure).
     MissingBehaviorPose,
+    /// C-8 (§ 134) : une clé d'équipe portée (`carries_key`) sans entrée `key/<id>` ni `key` dans la table `SpriteSheet` : marqueur par défaut.
+    KeyWithoutVisual,
 }
 
 /// Un avertissement de lint : même forme qu'une [`crate::LintError`], mais n'échoue pas.
@@ -487,6 +489,31 @@ pub fn warnings(registry: &Registry, manifest: &GameManifest) -> Vec<LintWarning
                     ),
                 );
             }
+        }
+    }
+
+    // C-8 (§134) : une clé d'équipe portée (`carries_key`) sans visuel (`key/<id>` ni `key` dans la table `SpriteSheet`) est
+    // dessinée par le marqueur par défaut : visible, mais pas à l'image du jeu.
+    for key in &carried {
+        let [specific, general] = [format!("key/{key}"), "key".to_string()];
+        let has_visual = [specific.as_str(), general.as_str()].iter().any(|id| {
+            registry
+                .sprite_sheets
+                .contains_key(&crate::registry::SpriteSheetId::from(*id))
+        });
+        if !has_visual {
+            let file = registry
+                .characters
+                .values()
+                .find(|character| character.carries_key.as_deref() == Some(*key))
+                .map_or_else(String::new, |character| character.file.display().to_string());
+            warn(
+                LintWarningKind::KeyWithoutVisual,
+                file,
+                format!(
+                    "clé d'équipe « {key} » : aucune entrée « {specific} » ni « {general} » dans la table SpriteSheet (sprites.ron) : la clé au sol sera dessinée par le marqueur par défaut"
+                ),
+            );
         }
     }
 
